@@ -23,23 +23,26 @@
 
 /* ---- the order: name-card rows, then 本局信息 / 干员调配 / the co-op tip ---- */
 .draft-order {
-  position: relative; display: flex; flex-direction: column; gap: .16rem; min-width: 0; min-height: 0;
+  --dstart: .28rem; position: relative; display: flex; flex-direction: column; gap: .16rem; min-width: 0; min-height: 0;
   padding: .3rem 0 0 .3rem;
   background: linear-gradient(180deg, rgba(48, 118, 100, .26), rgba(20, 46, 40, .16) 70%, rgba(14, 24, 22, .06));
   clip-path: polygon(0 0, calc(100% - .5rem) 0, 100% .5rem, 100% 100%, 0 100%);
   animation: pg-left 460ms var(--pg-ease) 100ms backwards;
 }
-.draft-order__deco { flex: none; display: flex; align-items: center; gap: .05rem; height: .34rem; overflow: hidden; }
+/* one left start line (maintainer decision 2026-11-08): the deco, the name cards, the buttons and the tip all start where the
+   cards do, .28rem into the panel (the rows' padding; the ▶ / the self arrow lie in it) */
+.draft-order__deco { flex: none; display: flex; align-items: center; gap: .05rem; height: .34rem; padding-left: var(--dstart); overflow: hidden; }
 .draft-order__deco i { width: .5rem; height: .18rem; background: rgba(63, 230, 180, .4); }
 .draft-order__deco i + i { width: .18rem; }
 .draft-order__deco span { margin-left: .08rem; font-family: var(--font-num); font-size: calc(.1 * var(--t)); line-height: 1.15; letter-spacing: .08em; color: rgba(120, 240, 205, .55); white-space: nowrap; }
-.draft-order__rows { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .24rem; overflow: auto; padding: .08rem .12rem .1rem .28rem; scrollbar-width: none; }
+.draft-order__rows { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .24rem; overflow: auto; padding: .08rem .12rem .1rem var(--dstart); scrollbar-width: none; }
 /* the buttons and the tip: clear of the floating 聊天 button (chat.css .gchat-float, bottom-left) */
-.draft-order__side { flex: none; display: flex; flex-direction: column; gap: .1rem; padding: 0 .3rem 0 .5rem; }
-.draft-order__tip { margin: 0; padding-left: .3rem; min-height: .5rem; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--text-dim); }
+.draft-order__side { flex: none; display: flex; flex-direction: column; gap: .1rem; padding: 0 .3rem 0 var(--dstart); }
+.draft-order__tip { margin: 0; padding-left: 0; min-height: .5rem; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--text-dim); }
 .draft-order__tip:lang(ko) { word-break: keep-all; overflow-wrap: break-word; }
 
-.dorder { position: relative; flex: none; display: grid; grid-template-columns: minmax(0, 1fr) 1.1rem .42rem; align-items: center; gap: .06rem; height: 1.26rem;
+/* the state box is a square as tall as the name card (maintainer decision 2026-11-08) */
+.dorder { --dh: 1.26rem; position: relative; flex: none; display: grid; grid-template-columns: minmax(0, 1fr) var(--dh) .36rem; align-items: center; gap: .06rem; height: var(--dh);
   animation: pg-left 420ms var(--pg-ease) backwards; animation-delay: calc(180ms + var(--i, 0) * 70ms); }
 .dorder__card { position: relative; height: 100%; display: flex; align-items: center; gap: .1rem; min-width: 0; padding: 0 .1rem 0 .14rem; overflow: hidden;
   background: linear-gradient(90deg, #1d2223, #262b2c); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
@@ -57,18 +60,17 @@
 .dorder__ai { flex: none; font-family: var(--font-num); font-size: calc(.11 * var(--t)); padding: 0 .04rem; background: #a9c3d8; color: #0b1520; }
 .dorder__state { font-size: calc(.15 * var(--t)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dorder__ready { margin-left: .06rem; padding: 0 .04rem; font-size: max(.11rem, 8px); color: var(--text-on-mint); background: var(--mint-500); }
-.dorder__box { position: relative; width: 1.1rem; height: 1.1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .04rem; padding: 0;
+.dorder__box { position: relative; width: var(--dh); height: var(--dh); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .04rem; padding: 0;
   background: #2b2f30; color: #767c7e; font-size: calc(.2 * var(--t)); font-weight: 700; }
 .dorder__box span { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dorder__box.is-wait .icon { width: .52rem; height: .52rem; }
 .dorder__box.is-cur { background: linear-gradient(180deg, #f2f4f4, #cdd1d1); color: #15191a; box-shadow: 0 0 0 .03rem #fff, 0 .04rem .14rem rgba(0, 0, 0, .55); }
 .dorder__box.is-cur .icon { width: .46rem; height: .46rem; }
-/* one's own turn: the official 轮到你 finger in the box */
-.dorder__finger { width: .46rem; height: .46rem; object-fit: contain; animation: dorder-finger 1s ease-in-out infinite; }
-@keyframes dorder-finger { 50% { transform: translateX(-.05rem); } }
+/* 决策中: the official selecting hourglass (player_card_item selecting/shallow_main), for every doctor deciding */
+.dorder__glass { width: .34rem; height: .45rem; object-fit: contain; }
 .dorder__box.is-band { overflow: hidden; background: radial-gradient(circle at 50% 40%, #1f4a40, #0c1513 75%); box-shadow: inset 0 0 0 1px rgba(120, 240, 205, .25); }
 .dorder__box.is-band .bandicon { --bi: 100%; width: 100%; height: 100%; background: transparent; }
-.dorder__check { width: .42rem; height: .42rem; display: grid; place-items: center; }
+.dorder__check { width: .36rem; height: .36rem; display: grid; place-items: center; }
 .dorder.is-done .dorder__check { border: .03rem solid var(--mint-400); border-radius: .06rem; background: rgba(23, 249, 183, .12); color: var(--mint-400); box-shadow: 0 0 .14rem rgba(23, 249, 183, .45); }
 .dorder__check .icon { width: 80%; height: 80%; }
 /* the doctor deciding: a mint frame around the card, ▶ on the left */
@@ -78,13 +80,18 @@
 @keyframes dorder-mark { 50% { transform: translate(-.05rem, -50%); } }
 /* the 8-player mode (more than four in the order): compact rows so eight fit above the buttons; the rows scroll on a short screen */
 .draft-order.is-8 .draft-order__rows { gap: .06rem; }
-.draft-order.is-8 .dorder { height: .62rem; grid-template-columns: minmax(0, 1fr) .58rem .3rem; }
+.draft-order.is-8 .dorder { --dh: .62rem; }
 .draft-order.is-8 .dorder .pavatar { --pa: .42rem; }
 .draft-order.is-8 .dorder__name { font-size: calc(.17 * var(--t)); }
 .draft-order.is-8 .dorder__state { font-size: calc(.12 * var(--t)); }
-.draft-order.is-8 .dorder__box { width: .58rem; height: .58rem; font-size: calc(.12 * var(--t)); }
-.draft-order.is-8 .dorder__box .icon, .draft-order.is-8 .dorder__finger { width: .26rem; height: .26rem; }
+.draft-order.is-8 .dorder__box { font-size: calc(.12 * var(--t)); }
+.draft-order.is-8 .dorder__box .icon { width: .26rem; height: .26rem; }
+.draft-order.is-8 .dorder__glass { width: .19rem; height: .25rem; }
+/* the compact box has no room for 决策中: the hourglass alone (the row's state line says it) */
+.draft-order.is-8 .dorder__box.is-cur > span { display: none; }
+.draft-order.is-8.has-art .dorder__glass { width: calc(var(--ou) * 36); height: calc(var(--ou) * 48); }
 .draft-order.is-8 .dorder__me { width: .22rem; height: .22rem; left: -.1rem; top: -.1rem; }
+.draft-order.is-8 .dorder { grid-template-columns: minmax(0, 1fr) var(--dh) .3rem; }
 .draft-order.is-8 .dorder__check { width: .3rem; height: .3rem; }
 
 /* ---- the wall of strategies ---- */
@@ -151,14 +158,14 @@
 .draft-detail__off .icon { width: max(.16rem, 10px); height: max(.16rem, 10px); flex: none; margin-top: .02rem; }
 .draft-detail__offname { color: var(--text-dim); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
 
-/* ---- the detail pane: the body scrolls, the actions stay at the bottom ---- */
+/* ---- the detail pane: only the description scrolls (the client's panel_team_detail viewport, maintainer decision
+   2026-11-08); the art, the name and the 自选预设 row stay, the actions stay at the bottom ---- */
 .draft-detail {
   position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
   padding: .26rem .26rem .1rem; background: linear-gradient(180deg, rgba(30, 84, 72, .5), rgba(14, 32, 28, .4) 55%, rgba(8, 12, 12, .2));
   animation: pg-right 280ms var(--pg-ease) backwards;
 }
-.draft-detail__body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .25) transparent;
-  animation: pg-fade 200ms ease-out backwards; }
+.draft-detail__body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; animation: pg-fade 200ms ease-out backwards; }
 .draft-tag { align-self: flex-start; display: inline-block; height: .13rem; margin: .08rem 0 .05rem; padding: 0 .06rem; font-family: var(--font-num); font-size: calc(.09 * var(--t)); line-height: .13rem;
   letter-spacing: .12em; color: #082a20; background: rgba(63, 230, 180, .62); }
 .draft-detail__art { position: relative; align-self: center; display: grid; place-items: center; width: 2.6rem; height: 2.3rem; margin: .18rem 0 .14rem; flex: none; }
@@ -170,18 +177,27 @@
 .draft-detail__hp { align-self: center; display: flex; align-items: center; gap: .1rem; font-size: calc(.24 * var(--t)); color: #e8ecec; }
 .draft-detail__hp b { padding: 0 .08rem; font-size: calc(.22 * var(--t)); line-height: 1.35; color: #062019; background: var(--mint-500); }
 .draft-detail__name { margin: 0 0 .04rem; font-size: calc(.36 * var(--t)); font-weight: 900; letter-spacing: .04em; color: #f4f6f6; }
-.draft-detail__eff { flex: none; }
+.draft-detail__eff { flex: 1 1 auto; min-height: .6rem; overflow-y: auto; overscroll-behavior: contain; padding: 0 .08rem .2rem 0; margin-right: -.08rem;
+  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .3) transparent;
+  /* the end fades out under the 自选预设 row; the bottom padding lets the last line scroll clear of the fade */
+  -webkit-mask-image: linear-gradient(#000 calc(100% - .2rem), transparent); mask-image: linear-gradient(#000 calc(100% - .2rem), transparent); }
 .draft-detail__desc { margin: 0; font-size: calc(.2 * var(--t)); line-height: 1.55; color: #eef2f2; }
 .draft-detail .draft-preset { margin-top: .14rem; }
 .draft-detail__actions { flex: none; display: flex; flex-direction: column; gap: .08rem; padding: .12rem 0 .1rem; }
 .draft-detail__status { display: flex; align-items: center; gap: .06rem; margin: 0; font-size: calc(.16 * var(--t)); color: var(--text-lo); }
 .draft-detail__status .icon { width: .2rem; height: .2rem; flex: none; }
 .draft-detail__status--taken { color: #ff8f80; }
-.draft-detail__btns { display: flex; gap: .1rem; }
+.draft-detail__btns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: .1rem; }
 .draft-detail__btns .btn--lg { height: .92rem; font-size: calc(.3 * var(--t)); }
-/* 跳过 beside 确认选择, narrower (the mockup of 2026-11-07) */
-.draft-skip.btn { flex: 0 0 auto; min-width: 36%; padding: 0 .14rem; white-space: nowrap; }
-.draft-pick.btn { flex: 1; min-width: 0; }
+/* 跳过 beside 确认选择, the same width (maintainer decision 2026-11-08); 跳过's icon is the client's own arrow, cut out of
+   bandChoose/btn_skip (bandDraft.js cutSkipArrow) and tinted like the label */
+.draft-skip.btn { min-width: 0; padding: 0 .14rem; white-space: nowrap; }
+.draft-skip .btn__label { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 .1em; min-width: 0; }
+/* （已用） under the label, small: the half-width cell has no room for it beside */
+.draft-skip__used { flex-basis: 100%; font-size: .5em; line-height: 1.1; letter-spacing: 0; }
+.draft-skip__ico { flex: none; width: 1.3em; height: .9em; background: currentColor;
+  -webkit-mask: var(--skip-ico) center / contain no-repeat; mask: var(--skip-ico) center / contain no-repeat; }
+.draft-pick.btn { min-width: 0; }
 .draft-pick.btn--primary { --btn-bg: #d8dbdb; --btn-bg-hover: #f2f4f4; --btn-fg: #111415; --btn-bd: #fff; --btn-bd-hover: #fff; --btn-glow: rgba(255, 255, 255, .35); --bk-c: #fff;
   background-image: none; box-shadow: 0 0 0 .03rem rgba(255, 255, 255, .85), 0 .06rem .2rem rgba(0, 0, 0, .5); letter-spacing: .08em; }
 .draft-pick .btn__icon { width: .4rem; height: .4rem; padding: .03rem; border: .03rem solid currentColor; border-radius: .04rem; }
@@ -198,8 +214,63 @@
   .draft-detail .draft-preset__lbl { display: inline; }
 }
 
+/* ---- the official sprites (bandDraft.js draftArt: data/assets.json ui bandChoose/*, maintainer decision 2026-11-08) ----
+   Without every sprite of a part it keeps the look above. Sizes of the order rows are in the client's units: a row
+   (prefab_auto_chess_band_choose_player_card_item, 100 tall) is --dh, so --ou = one unit. */
+.dorder__tag, .dorder__arrow { display: none; }
+/* the order list: panel_player's back (player_list_back, Sliced) with its dec and the composer behind the rows */
+.draft-order.has-art { --dstart: .38rem; background: none; clip-path: none; }
+.draft-order.has-art .draft-order__rows { padding-right: .06rem; }
+.draft-order__back { position: absolute; inset: 0 .1rem .1rem .1rem; z-index: 0; overflow: hidden; pointer-events: none;
+  border: 0 solid transparent; border-image: var(--do-back) 40 30 fill / .5rem .38rem stretch; }
+.draft-order__back::after { content: ''; position: absolute; left: 50%; top: 44%; width: 120%; aspect-ratio: 474 / 451; transform: translate(-50%, -50%);
+  background: var(--do-comp) center / contain no-repeat; opacity: .9; }
+.draft-order.has-art > :not(.draft-order__back) { position: relative; z-index: 1; }
+.draft-order.has-art .draft-order__deco { height: .35rem; background: var(--do-dec) left center / auto 100% no-repeat; background-origin: content-box; }
+.draft-order.has-art .draft-order__deco > * { display: none; }
+/* a row: item_back #373737 at 32 %, the card (81 of 100 tall) and the state box (81 square), ✓ beside it */
+.draft-order.has-art .dorder { --ou: calc(var(--dh) / 100); padding: calc(var(--ou) * 9.5) 0 calc(var(--ou) * 9.5) calc(var(--ou) * 11);
+  grid-template-columns: minmax(0, 1fr) calc(var(--ou) * 81) calc(var(--ou) * 40); background: rgba(55, 55, 55, .32); }
+.draft-order.has-art .dorder.is-cur::before { display: none; }
+.draft-order.has-art .dorder__card, .draft-order.has-art .dorder.is-cur .dorder__card { box-shadow: none;
+  background: linear-gradient(90deg, rgba(30, 34, 35, .9), rgba(30, 34, 35, .2)); }
+.draft-order.has-art .dorder__box { width: calc(var(--ou) * 81); height: calc(var(--ou) * 81); background: none; box-shadow: none; color: #fff; }
+/* waiting: the dots on #505050 at 40 % */
+.draft-order.has-art .dorder__box.is-wait { background: rgba(80, 80, 80, .4); }
+.draft-order.has-art .dorder__box.is-wait > * { display: none; }
+.draft-order.has-art .dorder__box.is-wait::before { content: ''; width: calc(var(--ou) * 35); height: calc(var(--ou) * 8); background: var(--do-wait) center / contain no-repeat; }
+/* selecting: the plate (111 on the 81 box) with the hourglass and 决策中 */
+.draft-order.has-art .dorder__box.is-cur { gap: calc(var(--ou) * 3); background: var(--do-sel) center / 137% 137% no-repeat; }
+.draft-order.has-art .dorder__glass { width: calc(var(--ou) * 27); height: calc(var(--ou) * 36); }
+.draft-order.has-art .dorder__box.is-cur > span { font-size: calc(var(--ou) * 16); font-weight: 400; color: #fff; }
+/* selected: the strategy in player_card_team_frame, player_card_ready beside it */
+.draft-order.has-art .dorder__box.is-band { padding: var(--ou); background: var(--do-team) center / 100% 100% no-repeat; box-shadow: none; }
+.draft-order.has-art .dorder__check, .draft-order.has-art .dorder.is-done .dorder__check { width: calc(var(--ou) * 34); height: calc(var(--ou) * 34);
+  border: 0; border-radius: 0; background: none; box-shadow: none; }
+.draft-order.has-art .dorder.is-done .dorder__check { background: var(--do-ready) center / contain no-repeat; }
+.draft-order.has-art .dorder__check > * { display: none; }
+/* one's own row: myself_highlight — the frame over the row (Sliced), the 我 tag on the card's corner, the arrow left of it */
+.draft-order.has-art .dorder.is-self::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  border: 0 solid transparent; border-image: var(--do-self) 20 fill / calc(var(--ou) * 20) stretch; }
+.draft-order.has-art .dorder__me { display: none; }
+.draft-order.has-art .dorder__tag { display: block; position: absolute; z-index: 3; left: calc(var(--ou) * -2.5); top: calc(var(--ou) * -1.5);
+  width: calc(var(--ou) * 41); height: calc(var(--ou) * 41); background: var(--do-tag) center / contain no-repeat; }
+.draft-order.has-art .dorder__arrow { display: block; position: absolute; left: calc(var(--ou) * -31.5); top: calc(50% - var(--ou) * 17.5);
+  width: calc(var(--ou) * 40); height: calc(var(--ou) * 35); background: var(--do-arrow) center / contain no-repeat; transform: rotate(90deg);
+  animation: dorder-arrow 1.2s ease-in-out infinite; }
+@keyframes dorder-arrow { 50% { transform: translateX(calc(var(--ou) * -5)) rotate(90deg); } }
+/* the detail pane: team_info_back behind it, team_icon_frame (Sliced) around the art, team_hp_back under the HP number,
+   the TEAM ID / INTRO title plates in place of the text tags */
+.draft-detail.has-art { background: var(--dd-back) center / 100% 100% no-repeat; }
+.draft-detail.has-art .draft-detail__art::before, .draft-detail.has-art .draft-detail__art::after { display: none; }
+.draft-detail.has-art .draft-detail__art { border: 0 solid transparent; border-image: var(--dd-frame) 26 30 / .26rem .3rem stretch; }
+.draft-detail.has-art .draft-detail__hp b { padding: 0 .06rem; color: #000; background: var(--dd-hp) center / 100% 100% no-repeat; }
+.draft-detail.has-art .draft-tag { width: .88rem; height: .32rem; margin: .06rem 0; padding: 0; font-size: 0; line-height: 0; color: transparent;
+  background: var(--dd-id) left center / contain no-repeat; }
+.draft-detail.has-art .draft-tag--intro { height: .31rem; background-image: var(--dd-intro); }
+
 @media (prefers-reduced-motion: reduce) {
-  .draft-order, .dorder, .dorder.is-cur::before, .dorder__finger, .dband, .dband.is-sel::before, .dband__taken, .draft-detail, .draft-detail__body { animation: none; }
+  .draft-order, .dorder, .dorder.is-cur::before, .dorder__arrow, .dband, .dband.is-sel::before, .dband__taken, .draft-detail, .draft-detail__body { animation: none; }
 }
 
 /* ---- 本局信息 (GitHub issue #8 item 1, DESIGN §21.28): the entry under the order list and the read-only dialog -------
@@ -291,14 +362,14 @@
    list panel it lies on in the client (the briefing's .brief-banned), so it reads as a box on this lighter pane — with a
    line of the tier's colour under it; the tier's badge once, at the icons' bottom edge where each icon carries it elsewhere */
 .draft-preset__slots { display: flex; gap: .06rem; }
-.draft-preset__grp { flex: 1 1 0; min-width: 0; display: flex; align-items: flex-end; gap: .08rem; padding: .06rem .07rem .07rem;
+.draft-preset__grp { flex: 1 1 0; min-width: 0; display: flex; align-items: flex-end; gap: .08rem; padding: .06rem .1rem .07rem .07rem;
   background: linear-gradient(rgba(31, 31, 31, .4), rgba(31, 31, 31, .4)), rgba(12, 15, 14, .8); box-shadow: inset 0 -2px 0 var(--gc, var(--line-2)); }
 .draft-preset__tier { flex: none; display: flex; }
 .draft-preset__tier .tier { --tier-h: max(.3rem, 20px); }
 /* a slot: the operator's icon as the stage info draws it (matchInfo.js ChessIcon, a banned operator under the red corner —
    maintainer request 2026-10-13) on its official white card; room on the right and below for the card's shadow */
 .draft-preset__slot { position: relative; flex: none; display: flex; padding: 0 .02rem .02rem 0; }
-.draft-preset__ava.chessico { --ci: max(.66rem, 34px); }
+.draft-preset__ava.chessico { --ci: max(.56rem, 30px); }
 .draft-preset__slot.is-empty .chessico__art { place-items: center; border: 1px dashed rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .06); }
 .draft-preset__slot.is-empty .chessico__art::after { content: '+'; font-size: calc(var(--ci) * .45); line-height: 1; color: rgba(255, 255, 255, .45); }
 /* a slot that opens its picker in the 自选编队 tab (bandDraft.js): empty = the + card, filled = the swap icon over the
@@ -309,7 +380,7 @@
 .draft-preset__slot.is-empty.is-edit:hover .chessico__art::after, .draft-preset__slot.is-empty.is-edit:focus-visible .chessico__art::after { color: var(--mint-400); }
 /* the swap frame covers the whole white card, not only the portrait: the card (img_chess_bkg without its shadow, the
    is-css 96 × 95 of briefing.css .chessico__bkg) starts 2.5 units above-left of the 90-unit portrait */
-.draft-preset__swap { --ci: max(.66rem, 34px); --cu: calc(var(--ci) / 90); position: absolute; z-index: 3; left: calc(var(--cu) * -2.5);
+.draft-preset__swap { --ci: max(.56rem, 30px); --cu: calc(var(--ci) / 90); position: absolute; z-index: 3; left: calc(var(--cu) * -2.5);
   top: calc(var(--cu) * -2.5); width: calc(var(--cu) * 96); height: calc(var(--cu) * 95);
   display: grid; place-items: center; background: rgba(0, 0, 0, .55); box-shadow: inset 0 0 0 1px var(--mint-400);
   opacity: 0; transition: opacity .12s; pointer-events: none; }
@@ -321,7 +392,7 @@
    from the icon (--ci); shown with the swap frame on hover / focus; red when aimed at */
 .draft-preset__hit { position: relative; display: flex; margin: 0; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
 .draft-preset__hit:focus-visible { outline: none; }
-.draft-preset__rm { --ci: max(.66rem, 34px); --cu: calc(var(--ci) / 90); --rm: max(calc(var(--ci) * .28), 12px); position: absolute; z-index: 4;
+.draft-preset__rm { --ci: max(.56rem, 30px); --cu: calc(var(--ci) / 90); --rm: max(calc(var(--ci) * .28), 12px); position: absolute; z-index: 4;
   left: calc(var(--cu) * 93.5 - var(--rm)); top: calc(var(--cu) * -2.5);
   width: var(--rm); height: var(--rm); display: grid; place-items: center; margin: 0; padding: 0;
   border: 1px solid var(--line-2); background: rgba(0, 0, 0, .72); color: var(--text-lo);

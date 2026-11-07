@@ -48,7 +48,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, MicroLabel, TierChip, useTicker, secondsLeft } from '../ui/components.js';
 import { useGameData, BandIcon, RichText, PlayerAvatar, Sprite } from '../ui/gameComponents.js';
-import { chessAvatarUrl, chessPortraitUrl } from '../ui/assetUrls.js';
+import { chessAvatarUrl, chessPortraitUrl, uiUrl } from '../ui/assetUrls.js';
 import { CARD_KEY, cardStore, cardOperators, cardContext, seatOperator, seatArtSrc } from '../ui/seatArt.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfoDialog, matchInfoModel, ChessIcon } from '../ui/matchInfo.js';
@@ -70,6 +70,101 @@ import { playerName } from '../../../shared/botNames.js';
 import { applyPresetChoice } from '../ui/factionPick.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+
+/**
+ * The official sprites of the strategy pick (data/assets.json ui `bandChoose/*`) as CSS variables, per part — the detail
+ * pane (auto_chess_band_choose_state: team_info_back behind it, team_icon_frame around the art, team_hp_back under the
+ * HP number, the team_id_title / team_intro_title plates) and the order list (panel_player: player_list_back with its
+ * dec and composer; prefab_auto_chess_band_choose_player_card_item: myself_highlight = player_card_self_frame +
+ * icon_self_room + team_list_selected_arrow, the state box: waiting dots, selecting plate with the shallow_main
+ * hourglass, selected player_card_team_frame with player_card_ready beside it). A part draws them (`has-art`) only when
+ * the manifest has every sprite of it; otherwise it keeps its CSS look.
+ */
+const DRAFT_ART = Object.freeze({
+  detail: { '--dd-back': 'team_info_back', '--dd-frame': 'team_icon_frame', '--dd-hp': 'team_hp_back', '--dd-id': 'team_id_title',
+    '--dd-intro': 'team_intro_title' },
+  order: { '--do-back': 'player_list_back', '--do-dec': 'player_list_back_dec', '--do-comp': 'player_list_dec_back',
+    '--do-self': 'player_card_self_frame', '--do-tag': 'icon_self_room', '--do-arrow': 'team_list_selected_arrow',
+    '--do-wait': 'player_card_waiting', '--do-sel': 'player_card_selecting', '--do-team': 'player_card_team_frame',
+    '--do-ready': 'player_card_ready' },
+});
+const artCache = new Map();
+
+/**
+ * The CSS variables of a part's official sprites ('detail' | 'order'), or '' when the manifest lacks any of them.
+ * @param {'detail'|'order'} part @param {any} [m] data/assets.json
+ */
+export function draftArt(part, m = data.get('assets')) {
+  const hit = artCache.get(part);
+  if (hit && hit.m === m) return hit.v;
+  const vars = [];
+  for (const [name, key] of Object.entries(DRAFT_ART[part] || {})) {
+    const u = uiUrl(m, `bandChoose/${key}`);
+    if (!u) { vars.length = 0; break; }
+    vars.push(`${name}:url("${u}")`);
+  }
+  const v = vars.join(';');
+  artCache.set(part, { m, v });
+  return v;
+}
+
+/** Where the official 跳过 arrow lies inside bandChoose/btn_skip (161 × 46): the light glyph left of the label, with a pixel of margin. */
+const SKIP_ARROW = Object.freeze({ x: 19, y: 9, w: 23, h: 16, bg: 38 /* the capsule's #262626 */ });
+/** @type {{ src: string, p: Promise<string|null>, url: string|null } | null} */
+let skipArrow = null;
+
+/**
+ * The official 跳过 arrow, cut once out of bandChoose/btn_skip (the client draws it inside the capsule; no sprite of its
+ * own) into a white glyph on transparency for a CSS mask, so the button tints it like its other icons: the glyph's
+ * brightness above the capsule's becomes the alpha. Resolves null without a canvas or when the image fails.
+ * @param {string} src
+ * @returns {Promise<string|null>}
+ */
+export function cutSkipArrow(src) {
+  if (skipArrow && skipArrow.src === src) return skipArrow.p;
+  const entry = { src, p: Promise.resolve(/** @type {string|null} */ (null)), url: /** @type {string|null} */ (null) };
+  entry.p = new Promise((resolve) => {
+    if (typeof Image === 'undefined' || typeof document === 'undefined') { resolve(null); return; }
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const { x, y, w, h, bg } = SKIP_ARROW;
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const g = c.getContext('2d');
+        if (!g) { resolve(null); return; }
+        g.drawImage(img, x, y, w, h, 0, 0, w, h);
+        const d = g.getImageData(0, 0, w, h);
+        const px = d.data;
+        for (let i = 0; i < px.length; i += 4) {
+          const l = Math.max(px[i], px[i + 1], px[i + 2]);
+          px[i + 3] = Math.round(Math.max(0, Math.min(1, (l - bg) / (255 - bg))) * px[i + 3]);
+          px[i] = 255; px[i + 1] = 255; px[i + 2] = 255;
+        }
+        g.putImageData(d, 0, 0);
+        entry.url = c.toDataURL('image/png');
+        resolve(entry.url);
+      } catch { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+  skipArrow = entry;
+  return entry.p;
+}
+
+/** The cut 跳过 arrow (cutSkipArrow) for the button, null until it is ready or without the sprite (the button keeps its icon). */
+function useSkipArrow() {
+  const src = uiUrl(data.get('assets'), 'bandChoose/btn_skip');
+  const [url, setUrl] = useState(() => (src && skipArrow && skipArrow.src === src ? skipArrow.url : null));
+  useEffect(() => {
+    if (!src) return undefined;
+    let live = true;
+    void cutSkipArrow(src).then((u) => { if (live) setUrl(u); });
+    return () => { live = false; };
+  }, [src]);
+  return src ? url : null;
+}
 
 /** 本局禁用 on a strategy card whose bonds `names` the mode switches off (bandOffBonds); nothing otherwise. */
 export function BandOffTag({ names = [] }) {
@@ -415,10 +510,13 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
 }
 
 /**
- * One doctor of the draft order (the upstream event layout, upstream PR #643): the name card (avatar with 我 on one's own,
- * name, state), the strategy box beside it (⌛ 决策中 — the 轮到你 finger on one's own turn —, •••, or the picked
- * strategy) and ✓ outside it. The card also carries the Doctor's 名片干员 art behind the text (ui/seatArt.js, the operator
- * of the room's seat card; `art` its portrait, null for a bot or none) — a picture that fails to load is left out.
+ * One doctor of the draft order (the upstream event layout, upstream PR #643; the official player_card_item's parts,
+ * maintainer decision 2026-11-08): the name card (avatar with 我 on one's own, name, state), the strategy box beside it
+ * (the official selecting hourglass shallow_main and 决策中 — for everyone, one's own turn too: the 轮到你 finger
+ * belongs to the client's top bar, not to this box —, the waiting dots, or the picked strategy) and ✓ outside it; one's
+ * own row also carries the client's myself_highlight tag and arrow (drawn only with the official sprites, draft.css). The
+ * card carries the Doctor's 名片干员 art behind the text (ui/seatArt.js, the operator of the room's seat card; `art` its
+ * portrait, null for a bot or none) — a picture that fails to load is left out.
  */
 function OrderRow({ p, i, picked, cur, self, ready, gd, art = null }) {
   const [badArt, setBadArt] = useState(/** @type {string[]} */ ([]));
@@ -436,10 +534,10 @@ function OrderRow({ p, i, picked, cur, self, ready, gd, art = null }) {
       </div>
     </div>
     ${picked ? html`<span class="dorder__box is-band" title=${pband?.name || ''}><${BandIcon} bandId=${picked} size="md" /></span>`
-      : cur ? html`<span class="dorder__box is-cur">${self ? html`<${Sprite} k="bandChoose/youturn_finger" class="dorder__finger" fallback=${html`<${Icon} name="hourglass" />`} />`
-          : p.isBot ? null : html`<${Icon} name="hourglass" />`}<span>${t('决策中')}</span></span>`
+      : cur ? html`<span class="dorder__box is-cur"><${Sprite} k="bandChoose/shallow_main" class="dorder__glass" fallback=${html`<${Icon} name="hourglass" />`} /><span>${t('决策中')}</span></span>`
       : html`<span class="dorder__box is-wait"><${Icon} name="dots" /></span>`}
     <span class="dorder__check" aria-hidden="true">${picked ? html`<${Icon} name="check" />` : null}</span>
+    ${self ? html`<i class="dorder__tag" aria-hidden="true"></i><i class="dorder__arrow" aria-hidden="true"></i>` : null}
   </div>`;
 }
 
@@ -607,12 +705,18 @@ export function BandDraftScreen() {
     waiting: !solo && !draft.done }) : null;
 
   const rows = solo ? players.filter((p) => p.playerId === myId) : draft.order.map((pid) => players.find((p) => p.playerId === pid)).filter(Boolean);
+  // the official sprites (draftArt) and the 跳过 arrow cut from btn_skip
+  const orderArt = draftArt('order');
+  const detailArt = draftArt('detail');
+  const skipIco = useSkipArrow();
   return html`<div class="screen draft">
     <div class="brief__bg" aria-hidden="true"></div>
     <${StepHeader} step=${2} of=${2} title=${t('选择策略')} micro="STRATEGY // BAND CHECK" pub=${clock ? { ...pub, deadline: clock.deadline } : { ...pub, deadline: 0 }}
       total=${clock ? clock.total : null} config=${gd.config} onExit=${() => setExit(true)} />
     <main class="draft__main">
-      <aside class=${cx('draft-order', !solo && draft.order.length > 4 && 'is-8' /* the 8-player mode: compact rows */)}>
+      <aside class=${cx('draft-order', !solo && draft.order.length > 4 && 'is-8' /* the 8-player mode: compact rows */, orderArt && 'has-art')}
+        style=${orderArt || null}>
+        ${orderArt ? html`<i class="draft-order__back" aria-hidden="true"></i>` : null}
         <div class="draft-order__deco" aria-hidden="true"><i></i><i></i><span>STRONGHOLD PROTOCOL<br />${solo ? 'SINGLE OPERATOR' : 'COLLABORATIVE SYSTEM'}</span></div>
         <div class="draft-order__rows">
           ${rows.map((p, i) => {
@@ -652,14 +756,14 @@ export function BandDraftScreen() {
         })}
       </section>
 
-      <aside class="draft-detail">
+      <aside class=${cx('draft-detail', detailArt && 'has-art')} style=${detailArt || null}>
         ${band ? html`<div class="draft-detail__body" key=${band.bandId}>
           <div class="draft-detail__art"><${BandIcon} bandId=${band.bandId} size="xl" /></div>
           <div class="draft-detail__hp">${t('初始生命值')}<b class="num">${band.totalHp ?? '--'}</b></div>
-          <span class="draft-tag">STRATEGY</span>
+          <span class="draft-tag draft-tag--id" aria-hidden="true">STRATEGY</span>
           <h2 class="draft-detail__name">${band.name}</h2>
           <${BandOffNote} names=${bandOffBonds(band, offBonds).map((id) => gd.bond(id)?.name || id)} />
-          <span class="draft-tag">INTRO</span>
+          <span class="draft-tag draft-tag--intro" aria-hidden="true">INTRO</span>
           <div class="draft-detail__eff"><${BandText} band=${band} class="draft-detail__desc" /></div>
           ${inDraft ? html`<${DraftPresetRow} band=${band} choice=${choiceFor(band.bandId)} link=${links?.[band.bandId] ?? null}
             presets=${presets} base=${baseRoster} live=${livePicks} off=${pub?.disabledBonds ?? null} m=${gd.m}
@@ -680,8 +784,9 @@ export function BandDraftScreen() {
             : !inDraft && !solo ? html`<p class="draft-detail__status"><${Icon} name="search" />${t('观战中')}</p>`
             : !myTurn ? html`<p class="draft-detail__status"><${Icon} name="hourglass" />${turnName ? t('{turnName} 正在决策…', { turnName }) : t('等待轮到你')}</p>` : null}
           ${confirmOn && inDraft ? null : html`<div class="draft-detail__btns">
-            ${!solo ? html`<${Button} variant="secondary" size="lg" icon="chevrons" class="draft-skip" disabled=${!canSkip} loading=${busy === 'skip'} onClick=${skip}
-              title=${skipsLeft > 0 ? t('跳过本轮，稍后再选') : t('跳过次数已用完')}>${t('跳过')}${skipsLeft > 0 ? '' : t('（已用）')}<//>` : null}
+            ${!solo ? html`<${Button} variant="secondary" size="lg" icon=${skipIco ? null : 'chevrons'} class="draft-skip" disabled=${!canSkip} loading=${busy === 'skip'} onClick=${skip}
+              style=${skipIco ? `--skip-ico:url("${skipIco}")` : null}
+              title=${skipsLeft > 0 ? t('跳过本轮，稍后再选') : t('跳过次数已用完')}>${skipIco ? html`<i class="draft-skip__ico" aria-hidden="true"></i>` : null}${t('跳过')}${skipsLeft > 0 ? '' : html`<span class="draft-skip__used">${t('（已用）')}</span>`}<//>` : null}
             <${Button} variant="primary" size="lg" icon="check" class="draft-pick" disabled=${!myTurn || !band || selTaken} loading=${busy === 'pick'} onClick=${confirm}>${selTaken ? t('队友已选') : t('确认选择')}<//>
           </div>`}
         </div>
