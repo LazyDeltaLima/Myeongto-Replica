@@ -1911,8 +1911,6 @@ export async function createFieldView(host, options = {}) {
         // S3 take-off; `attackTurn`: over the attack interval, the fx's `t` being something else — 涤火杰西卡's shell flight), a strike just made (`strike`: 焰尾's 前锋剑术) or a channel held while `on` (蕾缪安 S2's aim, `on` 1 / 0)
         // → its role's `signals` clip, UnitView.onSignal
         if (e[4] && typeof e[4] === 'object' && typeof e[4].signal === 'string' && e[4].id != null) views.get(e[4].id)?.onSignal?.(e[4].signal, !e[4].attackTurn && Number(e[4].t) > 0 ? Number(e[4].t) : null, !!e[4].strike, e[4].on ?? null);
-        // a skill's deploy clip without a deployment (fx `redeploy`: 乌尔比安 S3's anchor on his own tile, UnitView.replayDeploy)
-        if (e[4] && typeof e[4] === 'object' && typeof e[4].redeploy === 'string' && e[4].id != null) views.get(e[4].id)?.replayDeploy?.(e[4].redeploy);
         // 予愿安洁莉娜 S2's 吟唱: her model glides out along the sweep and back (UnitView.glide; the sim keeps her on her tile)
         if (e[1] === 'dash' && e[4] && typeof e[4] === 'object' && Number(e[4].chant) > 0) {
           const v = e[4].id != null ? views.get(e[4].id) : null;

@@ -219,6 +219,9 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   `SP_SHUTDOWN_TIMEOUT_MS`(1000–300000, 기본 5000) 안에 끝나면 0, 넘기거나 `close()`가 실패하거나 두 번째 신호면 1; 전에는 5초 뒤 무조건 0) — 손 이식,
   시험 `test/shutdown-timeout.test.js`는 그대로. 배포 세대가 다 비었을 때의 종료(`generation.onDrained`)도 같은 처리기를 탄다. 드레인 슬롯은 배포 전에
   재시작 정책이 `no`가 되어 1로 끝나도 다시 뜨지 않는다.
+- **upstream 0.3.4 개발분 버그 수정 — 전투** (2026-11-07 대조, 이식 묶음 A·B): `7da8ff20`(【이동】이 원소 게이지·폭발 잠금을 비움, upstream #903), `fbc83fd7`(울피아누스 S3 제자리 【이동】,
+  upstream #903) — 모두 손 이식, upstream의 `necrosis`는 버림. 자세한 것은 `sim.md`
+  「upstream 0.3.4 개발분 대조 이식 — 전투」.
 - **upstream PR #668 — 로컬 추출 Spine 페이지 알파** (upstream `78024751` `46b96de7` `1ae6ca3b` `b28c4a9b`, 부분 수용 2026-10-23): 증상(반투명 가장자리가 칙칙함)은 우리 `_USEBLEED_ON`
   페이지 8모델에서도 맞아 판정만 손으로 고침(`extract.py material_straight`); PR의 수정(모든 페이지 straight·`pma` 없앰)은 `[alpha]` 분리 페이지를
   두 번 곱해 받지 않음 — `render.md` 「로컬 추출 Spine 페이지의 알파」.

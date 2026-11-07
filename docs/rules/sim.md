@@ -2673,6 +2673,28 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 - 테스트 `test/sim/feedback5-cb4-pins.test.js` 「item 35」(네 명이 같은 수, 플레이어 안에서는 한 종류, 플레이어끼리는 종류가 다른 라운드가 있음). 같은 라운드를 되풀이해
   0·1·2를 보던 시험(`bands.test.js`, `feedback1-ducklord.test.js`, `bot.test.js` 리허설)은 매치 시드를 바꿔 가며 본다.
 
+## upstream 0.3.4 개발분 대조 이식 — 전투 (2026-11-07)
+
+upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받은 전투 수정. 모두 손 이식이고(패치가 안 붙음), 새 시험이 수정 전 코드에서 실패하는 것을 확인했다.
+
+### 【이동】은 원소 게이지와 폭발 잠금을 비운다 (upstream `7da8ff20`, upstream #903)
+
+- 규칙: `Battle.moveRedeploy`(【이동】)가 배치처럼 원소 게이지 넷(灼燃·神经·凋亡·侵蚀)을 0으로 하고, 원소 폭발 뒤 잠금 버프(`burstLock`)를 지운다. 다른 버프는 지금처럼 남는다(아래 옛 결정).
+  울피아누스 S3의 이동과 【반환】, 켈시 에스페란타·안젤리나 더 멜로우 위시·벨로네·Mon3tr·첸 더 던스트릭, 「从不混淆的方向」 대체 복귀 등 【이동】을 쓰는 곳 모두. 전에는 일반 배치(`battle/deploy.js`)만 비웠다.
+- 근거: PRTS 술어 「移动」 「本质上为一次特殊的撤退-再部署行为」, 공식 클라에서 【이동】은 퇴장 사유 `MOVE_LIKE_RESPAWN_SELF` 뒤 다시 태어나는 것(위 「누가 막나」의 새 유닛, `fx.md` 「모듈 장비 배치 이펙트」).
+  upstream의 凋敝(`necrosis`)는 우리에 없어 뺐다. 버프를 남기는 것은 옛 관리자 결정(DESIGN §22.3, 공식은 스킬 진행·재능 2 층만 물려받음)이라 그대로다.
+- 테스트 `test/sim/feedback3-ulpia-move.test.js` 「the 【移动】 and the 【返回】 empty his element gauges…」.
+
+### 울피아누스 S3의 【이동】은 반드시 일어난다 — 제자리 【이동】 (upstream `fbc83fd7`, upstream #903)
+
+- 규칙: 닻이 자기 칸에 떨어지거나(저지 중), 떨어진 칸과 그 한 칸 뒤가 모두 배치할 수 없으면, 시전 클립 끝에 **제자리 【이동】**을 한다: 그 칸에 다시 배치(게이지 비움, 배치 효과 다시,
+  막던 적을 놓았다가 다시 막음), 클립 `Skill_3_ReStart_B`(`deploy` 이벤트의 `here`), 표식 「从不混淆的方向」 없음, 그래서 【반환】도 없음(`chess_char_5_05-ulpia.js onCastEnd`).
+  전에는 둘 다 아무것도 안 했고, 자기 칸일 때만 닻을 던질 때 화면 클립을 다시 틀었다(`redeploy` fx — 뷰의 그 길은 지움).
+- 근거: PRTS 울피아누스 S3 비고 ③ 「船锚落点可部署地块>船锚落点后一格处可部署地块>自身所在地块」, 「该判断最终仍可选择自身所在地块…该【移动】也将必定执行」, 「若目标地块不为当前地块，
+  会在原地部署一个从不混淆的方向，作为【返回】移动的标志」.
+- [추정·미조사: 닻이 자기 칸일 때 「한 칸 뒤」를 먼저 보지 않음, 제자리 클립을 어느 노드가 트는지 — 클라의 울피아누스 S3 【이동】 능력을 안 읽음]
+- 테스트 `test/sim/feedback3-ulpia-move.test.js` 「while he blocks: the 【移动】 still happens, where he stands…」·「no legal tile where the anchor fell…」, `test/content/kits_t5.test.js` 「乌尔比安 S3 while he blocks…」.
+
 ## 오퍼레이터 스킬 발동 시점 묶음 B (2026-10-29)
 
 오퍼레이터 스킬이 언제 켜지는지의 남은 추정 가운데 오퍼레이터별 작은 것들. 모두 공식 클라에서 확인(프리팹·버프 템플릿·자동 조작 코드).

@@ -248,14 +248,14 @@ test('乌尔比安 S3: anchor 135 % ATK + stun on the first enemy ahead, moves t
   clean(h);
 });
 
-test('乌尔比安 S3 while he blocks (e.g. after a 突袭 landing): the anchor lands on his own tile — no 【移动】, no marker (PRTS 备注; GitHub #33)', () => {
+test('乌尔比安 S3 while he blocks (e.g. after a 突袭 landing): the anchor lands on his own tile — a 【移动】 where he stands, no marker (PRTS 备注; upstream #903)', () => {
   // PRTS 乌尔比安 S3 备注: target = his own tile (only while blocking) > the nearest tile of the skill range with an enemy >
   // its farthest tile; the 从不混淆的方向 only when the 【移动】 changes his tile
   const setup = (near) => {
     const h = makeBattle({
       defs: { enemies: { enemy_dummy: dummy(), enemy_fly: dummy('enemy_fly', { motion: 'FLY' }) } },
       units: [{ chessId: 'chess_char_5_05_a', row: 9, col: 3 }],
-      enemies: [{ key: near, pos: [9, 3] }, { key: 'enemy_dummy', pos: [9, 7] }], hooks: ['damaged'], captureNoisy: true, autoFinish: false, timeLimit: 120,
+      enemies: [{ key: near, pos: [9, 3] }, { key: 'enemy_dummy', pos: [9, 7] }], hooks: ['damaged', 'deploy'], captureNoisy: true, autoFinish: false, timeLimit: 120,
     });
     const u = h.unit('chess_char_5_05_a');
     h.step();
@@ -273,11 +273,14 @@ test('乌尔比安 S3 while he blocks (e.g. after a 突袭 landing): the anchor 
     assert.equal(tagged(h, 'anchor', e0).length, 1, 'the blocked enemy is hit');
     assert.ok(e0.s.flags.stun);
     assert.equal(tagged(h, 'anchor', far).length, 0, '4 tiles ahead, out of the 1.8 radius');
-    assert.deepEqual([u.tileR, u.tileC], [9, 3], 'no 【移动】');
-    assert.equal(anchor[4].redeploy, 'here', 'the client restarts him on his tile (Skill_3_ReStart_B)');
+    assert.deepEqual([u.tileR, u.tileC], [9, 3], 'he stays on his tile');
+    // "该【移动】也将必定执行" (PRTS 备注): a 【移动】 where he stands, once, on Skill_3_ReStart_B (render anims skill `deploys`)
+    assert.deepEqual(h.eventsOf('deploy').filter((x) => x[1] === u.id && x[3]).map((x) => x[3]), ['here']);
+    assert.equal(h.hooksOf('deploy').filter((c) => c.unit === u && c.move).length, 1, 'one deployment (deploy effects again)');
     assert.ok(!h.b.allyUnits.some((x) => x.kind === 'token'), 'no 从不混淆的方向');
     assert.ok(h.runUntil(() => !u.skill.active, 30));
     assert.deepEqual([u.tileR, u.tileC], [9, 3]);
+    assert.deepEqual(h.eventsOf('deploy').filter((x) => x[1] === u.id && x[3]).map((x) => x[3]), ['here'], 'and no 【返回】');
     clean(h);
   }
   { // not blocking, a flyer over his tile: his own tile is no candidate (only while blocking) — the anchor flies to the

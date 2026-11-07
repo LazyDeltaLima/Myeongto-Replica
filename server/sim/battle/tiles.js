@@ -40,7 +40,8 @@ export class BattleTiles {
    * exit: no `die` / `death`, so no knock-out, no redeploy timer or cost ("因移动撤退时不会积累再部署惩罚") — 不屈 and
    * 阿戈尔's revive, which act on exits "因移动之外的原因" (PRTS 阿戈尔 备注), never see it. HP, buffs and a running skill
    * stay: officially nothing carries over but what the mover's skill names (乌尔比安 S3: 技能进度 and the second talent's
-   * stacks); the remake keeps the rest too (owner's deviation, DESIGN §22.3). `clearSp`: the 技力 is emptied before the
+   * stacks); the remake keeps the rest too (owner's deviation, DESIGN §22.3) but the element gauges and a burst's lock
+   * (emptied as on a deployment, upstream #903). (r, c) may be the unit's own tile: a 【移动】 where it stands. `clearSp`: the 技力 is emptied before the
    * deploy handlers run ("部署时将清空技力"; 乌尔比安's 【返回】 "将清空技力，但仍可以享受后续由其他效果提供的技力").
    * `inPlace`: the unit flew there itself and only lands — the 'deploy' event carries a 1 and the snapshot no deploy
    * animation (quietDeployAt), so the client shows no drop-in, ring or deploy sound (予愿安洁莉娜 S3: the client respawns
@@ -49,6 +50,11 @@ export class BattleTiles {
    */
   moveRedeploy(unit, r, c, { clearSp = false, inPlace = false, clip = null } = {}) {
     if (!this.relocate(unit, r, c)) return false;
+    // the element gauges start empty like a deployment's (deploy.js) and an element burst's lock goes with them (its
+    // onRemove empties the gauges too) — upstream #903; the other buffs stay (above)
+    for (const b of unit.buffs.filter((x) => x.flags && x.flags.burstLock)) this.removeBuff(unit, b);
+    unit.elem.burn = unit.elem.neural = unit.elem.apoptosis = unit.elem.erosion = 0;
+    unit.markDirty();
     unit.deploySeq = ++this._deploySeq;
     unit.aggroSeq = unit.deploySeq;
     unit.blockSearchTick = 0;   // a new unit for the client too: its block search starts again (Battle._blockSearchDue)

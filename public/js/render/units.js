@@ -1589,12 +1589,6 @@ export class UnitView {
    */
   drawnByFx(on) { this._fxBody = typeof on === 'function' ? on : null; }
 
-  /** The skill's deploy clip `key` without a deployment (a sim fx's `redeploy`: 乌尔比安 S3's anchor on his own tile). */
-  replayDeploy(key) {
-    this._deployKey = typeof key === 'string' ? key : null;
-    if (this.alive && this.actor) this.actor.deploy(this._deployKey);
-  }
-
   /** A model already shown drops in at once; none yet (a battle start builds every view then): the ring and
    *  shadow first, update() plays Start once the model is in (BORN_LEAD_S). */
   _bornStart(official) {

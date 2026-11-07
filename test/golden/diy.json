@@ -1398,7 +1398,7 @@
       "hooks": [1,141,6878,1077,1077,2028,2006,0,95,115,59,58,0,16444,0,109,96,20,1,99,0,0,56],
       "events": {"atk":1395,"deploy":43,"die":95,"dmg":2006,"engage":12,"face":38,"fx":163,"leak":20,"skill":117,"spawn":110,"status":217,"swing":1114},
       "fx": {"beam":31,"dodge":56,"phase":24,"teleport":48,"undying":4},
-      "snaps": "0e236ba4 ce593295 0014faff ea6e89c8 106ce7b5 12428796 ab6ffd0d be315bb1 d817bb6e 5842a1fd ae1bfec3 abf3a03c a2939cd8 c9b13de8 bd8013ee d303672d 78f7014d d0f9ae6b 7da8d689 b136212d f3507c83 3ef5ce67 68a77f25"
+      "snaps": "0e236ba4 51b97558 dbacde6f 660e1804 bc0b85c0 5e44455b 160a94d2 fc984ded 46ad85fc 6ed98154 25d64c1f 3a2bfcd9 5d76741b 6db38327 07deba83 9fa7e7c7 4e5bb10b fee20145 b401232b 1f1a62a3 1b1b4bd5 53dd6531 aefb15a1"
     },
     "diy-034": {
       "about": "5_diy1_a=veen/S1 5_diy2_a=veen/S2 5_diy1_a=veen/S3 5_diy2_b=veen/S1 5_diy1_b=veen/S2 5_diy2_b=veen/S3 5_diy1_b=veen/S1/002_veen 5_diy2_b=veen/S2/002_veen 5_diy1_b=veen/S3/002_veen 6_diy1_a=veen/S1 6_diy2_a=veen/S2 6_diy1_a=veen/S3",
@@ -3005,29 +3005,29 @@
       "round": 13,
       "seed": 3678507946,
       "waveId": "act1autochess_h06",
-      "time": 196.53,
-      "ticks": 5896,
+      "time": 202.4,
+      "ticks": 6072,
       "reason": "cleared",
-      "killed": 25,
+      "killed": 26,
       "total": 82,
       "unspawned": 0,
       "bossHpLeft": null,
       "rngDraws": 7,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":25,"total":82,"perfect":false,"leaks":57,"leaksUncounted":0,"coins":0,"dmg":481816,"bossDmg":0,"heal":26542,"deaths":0,"layerGains":{}}},
+      "players": {"p1":{"killed":26,"total":82,"perfect":false,"leaks":56,"leaksUncounted":0,"coins":0,"dmg":548774,"bossDmg":0,"heal":27082,"deaths":0,"layerGains":{}}},
       "units": [
-        ["p1",1,"op","chess_char_6_diy2_b",0,"none",2941.4,1,5,17,223598,10711,0,146,5],
-        ["p1",2,"op","chess_char_6_diy1_b",2,"none",1818.3,1,135,8,258218,7832,26542,100,3],
-        ["p1",3,"token","token_10050_monstr_prosts",null,null,5040,1,136,0,0,9544,0,0,null],
+        ["p1",1,"op","chess_char_6_diy2_b",0,"none",2941.4,1,5,15,240412,11324,0,152,5],
+        ["p1",2,"op","chess_char_6_diy1_b",2,"none",1818.3,1,135,11,308362,7832,27082,109,3],
+        ["p1",3,"token","token_10050_monstr_prosts",null,null,5048,1,136,0,0,10008,0,0,null],
         ["-","~1","device","trap_1105_accrate",null,null,100,1,1,0,0,0,0,0,null],
         ["-","~2","device","trap_1105_accrate",null,null,100,1,2,0,0,0,0,0,null],
         ["-","~3","device","trap_1105_accrate",null,null,100,1,3,0,0,0,0,0,null]
       ],
-      "enemies": {"enemy_1148_dssbr":[34,15,19,1480,170099],"enemy_1148_dssbr_2":[40,10,30,4394,175814],"enemy_1439_dslntf":[8,0,8,6836,135903]},
-      "hooks": [1,97,5896,311,311,393,2511,259,25,85,8,7,0,3442,7,22,82,57,1,25,0,7,5],
-      "events": {"atk":537,"deploy":12,"die":28,"dmg":589,"engage":2,"face":5,"fx":33,"heal":156,"leak":57,"skill":15,"spawn":88,"status":64,"swing":326},
+      "enemies": {"enemy_1148_dssbr":[34,16,18,1415,175965],"enemy_1148_dssbr_2":[40,10,30,3788,197424],"enemy_1439_dslntf":[8,0,8,8121,175386]},
+      "hooks": [1,97,6072,325,325,425,2662,274,26,85,8,7,0,3439,7,20,82,56,1,26,0,7,5],
+      "events": {"atk":569,"deploy":12,"die":29,"dmg":682,"engage":2,"face":4,"fx":33,"heal":165,"leak":56,"skill":15,"spawn":88,"status":64,"swing":335},
       "fx": {"burst":7,"dodge":5,"evadeReady":7,"kitHit":8,"teleport":6},
-      "snaps": "3dea8cdb 9639f0de 2671e5aa e5de9edc 4ab4d775 382fb54e 08084c39 8a0ee36a 1e336c79 741c1319 4efc09ce a9d7257a dc7d8e87 d63a8783 6bf4605f abda299d 2d1fc599 fe90eb23 72b8e539 c1b847e3"
+      "snaps": "3dea8cdb 9639f0de 2671e5aa e5de9edc 4ab4d775 382fb54e 08084c39 7bfce42c 1cb070c7 ca59d735 3c55758c 4aa9fcbc d3105c6c ae18e75e 5cb13ed8 0d62f85f 2fd397e5 fc4fbfc3 e805f025 eb061f78 96e02d70"
     },
     "diy-summon-jesca2": {
       "about": "jesca2/S3 chen3/S1 token_10032_jesca2_jckshd",

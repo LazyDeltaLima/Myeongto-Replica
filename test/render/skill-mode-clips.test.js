@@ -295,7 +295,7 @@ test('乌尔比安 S3: the 【移动】 to the anchor restarts on Skill_3_ReStar
   v.onDeploy('anchor');
   assert.equal(v.actor.current, 'Skill_3_ReStart_A');
   secs(v, 2);
-  v.replayDeploy('here');
+  v.onDeploy('here');   // (the anchor on his own tile: a 【移动】 where he stands)
   assert.equal(v.actor.current, 'Skill_3_ReStart_B');
   secs(v, 2);
   v.onDeploy('back');

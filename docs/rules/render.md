@@ -741,8 +741,8 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     S3 역할을 클립 없음(`'attack'`)으로 바꾸고 `Start_Skill`은 목록 `todo` 보류(관리자 2026-10-14 「로직을 확실히 아는 건 아니니」 — 클라가 언제 트는지 미확인) — 그동안 시뮬이 배치 다음에 시전하면 낙하를 끊고 `Start_Skill`이 나왔다(한때 착지 뒤에 잇게 했다가 되돌림). 予愿安洁莉娜 S1은 기본 모드
     S1_TakeOff(`_defaultModeIndex` 5)로 배치부터 이륙(관리자 결정 2026-10-14) — E `equip` 배치 클립 `Start_2`(위에서 내려와 떠 있음; 땅 배치 `Start`는 뒤에서 휘어 들어옴).
     아레나로 둘 다 확인. 스킬이 일으킨 【移动】의 배치 클립(같은 날): `Battle.moveRedeploy({ clip })` → 'deploy' 이벤트 4번째 칸 → 역할 `deploys`
-    (`anim-overrides.mjs SKILL_STATE_CLIPS`, `spine.js deploy(key)`) — 乌尔比安 S3 닻으로 `Skill_3_ReStart_A`, 【返回】 `Skill_3_Back`, 닻이 자기 칸이면 이동 없이
-    'anchor' fx의 `redeploy` → `Skill_3_ReStart_B`(어느 노드가 트는지 [추정]). 赤刃明霄陈 S2(`_animKey "Skill_2_Begin"`·`_endAnimKey "Skill_2_Disappear"`, 재등장 모드
+    (`anim-overrides.mjs SKILL_STATE_CLIPS`, `spine.js deploy(key)`) — 乌尔比安 S3 닻으로 `Skill_3_ReStart_A`, 【返回】 `Skill_3_Back`, 닻이 자기 칸이거나 옮길 칸이 없으면
+    제자리 【이동】의 `here` → `Skill_3_ReStart_B`(2026-11-07부터 시전 끝의 'deploy' 이벤트로, 전에는 닻을 던질 때 'anchor' fx의 `redeploy`; 어느 노드가 트는지 [추정·미조사: 클라 노드 안 읽음]). 赤刃明霄陈 S2(`_animKey "Skill_2_Begin"`·`_endAnimKey "Skill_2_Disappear"`, 재등장 모드
     S2Respawn Born→`Start_2`): 키트 새 fx 'chen3Vanish'·'chen3Respawn'의 `form` → `FORMS` `vanish`(변환 클립 두 개 뒤 마지막 프레임 유지 `hold`, 나갈 때 `Start_2`),
     S2 역할은 평소 `Attack`(그동안 재등장 뒤 6초 공격이 `Skill_2_Disappear`였음). 새 fx 두 종은 골든 fx 개수만 움직임. [화면 미확인]
   - **F** 모드의 `Die` 짝: 스킬이 바꾼 모드가 `Die`를 제 클립과 짝지음 → 그 스킬 중 쓰러지면 그 클립. 구현(2026-10-14): `anim-overrides.mjs SKILL_STATE_CLIPS` →
