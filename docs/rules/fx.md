@@ -3846,6 +3846,18 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - **플레임테일 `Attack_T1`·`Attack_T1+`**: 회피 버프 `flamtl_t_1[evade]`가 있을 때의 공격. `char_modes.py mode_parts`가 자식의 `Trigger…`에 `_buffKey`가 있으면 `talentAtk`로 분리하고(전체 운영자 대조에서 이 규칙에 걸리는 것은 플레임테일뿐), 렌더는 시뮬 `swing`의 신호 `Attack_T1`로 고른다. 일반 공격은 `flamtl_attack_01_hit_01`(S3는 `flamtl_skill_03_attack_01_hit_01`) 하나, 회피 뒤 공격은 `_hit_02_1`·`_hit_02_2`와 타격 때 시전 `start_02`.
 - 확인: `test/render/cond-child-fx.test.js`(양쪽을 다 본다; 고치기 전 코드·추출물로 6건 실패 확인), `cond-cast-fx.test.js`, 아레나 2배속 호출 순서. [화면 미확인]
 
+## 선발 키트 사건의 대체 그림 판정 (2026-11-07)
+
+선발 키트가 보내는 사건을 쌍마다 판정했다(`test/render/pick-event-list.js`, 판정 대기 59 → 4). 기준은 그 순간을 공식 클라가 어떻게 그리는가다(공식 클라에서 확인: 프리팹·버프 템플릿 행, 아레나 2배속 재생 목록).
+
+- **겹쳐 그리던 일반 표시를 끔**(`fx/kitofficial.js KIT_NO_STAND_IN`): `fxgame.js STAND_IN`에 없는 종류(들어 올리는 고리·치명타 번쩍임·순간이동·반격·조준 표시·치유 표시)는 공식 이펙트가 있는 오퍼레이터에게도 그려졌다. 공식이 같은 순간을 자기 프리팹으로 그리거나 아무것도 안 그리는 열 쌍을 뺐다: 안젤리나 더 멜로우 위시·켈시 에스페란타 `takeoff`, 하루카 `levitate`·`heal`, 파죰카 `crit`, 페넌스 `crit`, 첸 더 던스트릭 `teleport`, 아이린 `slash`, 리 `mark`, 쏜즈 `thorns`.
+- **그대로 둔 것**: 빗나감 표시(`dodge`), SP·DP 표시(`spGift`·`spGain`·`dp`), 끌려가는 적의 먼지(`pull`). 다른 오퍼레이터도 똑같이 보여 주는 표시이고 공식 프리팹이 없다.
+- **페넌스 S2 파동**: `judge_s_2[aoe]`의 `_hitEffectKey` `judge_skill_02_hit_01`을 맞은 적마다(`aoe`의 `targets`). 전에는 무기 쪽 `_weapon_hit_01`만 그렸다.
+- **지마 더 레이징 타이드 고지대**: `Headb2AttackHighlandAOE`가 터지는 칸마다 `_tileEffectKey` `headb2_highground`, 피해를 준 적마다 `_hitEffectKey` `headb2_highground_hit`. [화면 미확인: 고지대가 있는 판]
+- **에벤홀츠 잔영의 회상**: 소환물 스킬 `sktok_ebnhlz_token`의 `_castEffects`. 시전에 `token_ebnhlz_skill_02_start_01`, `_preDelay` 0.93초 뒤 타격(ON_SPELL_ON)에 `_hit`·`_range`. 계획의 `after`가 숫자면 그 시간 뒤에 튼다.
+- 남은 넷: 스테인리스 `aoe`(소환물 스킬 `sktok_ironmn_pile3`의 시전·탄이 아직 절차 그림), 탈룰라 `blast`(S2 반격), 토가와 사키코 `sunBurst`(S2 모드 경로), 슈 `healField`(재능 1의 칸 이펙트 `shu_talent_buff_01`).
+- 확인: `test/render/cond-child-fx.test.js`(목록의 쌍이 일반 표시를 안 그림, 빗나감 표시는 남음), `kit-event-fx.test.js`(계획), 아레나 2배속 재생 목록.
+
 ## 효과 없는 주기적 유실 (2026-11-06)
 
 재구성체·Mon3tr S3과 같은 규칙을 셋 더 적용했다(`loseHp`의 `silent`: 체력은 그대로 깎이고 `'dmg'`가 없어 진짜 피해의 흰 발광·입자를 그리지 않는다). 공식 클라에서 확인: 이 노드들은 이펙트를 만들지 않는다.

@@ -5,7 +5,13 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { NO_DATA, withLayer } from '../helpers/fxDryLayer.js';
+import { KIT_NO_STAND_IN } from '../../public/js/render/fx/kitofficial.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 const has = (list, n) => list.some((x) => x.split('@')[0] === n);
 
@@ -104,3 +110,20 @@ for (const [label, skill, plain, t1] of [
     assert.ok(!has(r, plain.hit), `${r}`);
   }));
 }
+
+test('a kit event the client draws with its own prefabs elsewhere draws no generic mark on top (fx/kitofficial.js KIT_NO_STAND_IN)', { skip: NO_DATA }, () => withLayer(async ({ layer, unit }) => {
+  assert.ok(KIT_NO_STAND_IN.size >= 10);
+  const modes = JSON.parse(readFileSync(path.join(ROOT, 'public/assets/local/fx/modes.json'), 'utf8'));
+  for (const pair of KIT_NO_STAND_IN) {
+    const [b, n] = pair.split('|');
+    const views = new Map([[1, unit(1, 'ally', Object.keys(modes).find((k) => k.endsWith(`_${b}`)))], [9, unit(9, 'enemy', 'enemy_x', 2)]]);
+    const e = ['fx', n, 0, 0, { x: 0, y: 0, id: 1 }];
+    layer.onEvent(e, views);
+    assert.ok(layer.ownsFx(e), `${pair} still draws its stand-in`);
+  }
+  // an operator not on the list keeps the mark every other operator shows
+  const views = new Map([[1, unit(1, 'ally', 'char_4132_ascln')]]);
+  const e = ['fx', 'dodge', 0, 0, { x: 0, y: 0, id: 1 }];
+  layer.onEvent(e, views);
+  assert.ok(!layer.ownsFx(e), 'the miss mark stays');
+}));

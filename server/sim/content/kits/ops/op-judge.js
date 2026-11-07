@@ -145,7 +145,7 @@ export default {
               const foes = enemiesInGrid(battle, unit, s2?.rangeGrid?.length ? s2.rangeGrid : X4, { canHitFly: false });
               const hit = foes.filter((e) => e.alive);
               // `n`: the enemies hit — judge_s_2[aoe]'s AOEDamage gives each its `_buffs` judge_s_2[audio] (audio.js aoeHitKey)
-              battle.fx('aoe', { x: unit.x, y: unit.y, radius: 1.5, id: unit.id, skill: 'judge:atonement', n: hit.length });
+              battle.fx('aoe', { x: unit.x, y: unit.y, radius: 1.5, id: unit.id, skill: 'judge:atonement', n: hit.length, targets: hit.map((e) => e.id) });
               const amount = unit.s.atk * num(b2.atk_scale) * unit.s.atkScaleMul;
               for (const e of hit) if (e.alive) battle.dealDamage(unit, e, { amount, type: 'arts', isSkill: true, tags: ['skill', 'judge:atonement'] });
             }

@@ -86,7 +86,7 @@ import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patc
 import { PROJ } from './style.js';
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her model is back home
 import { bodyTurn, faceSwitchCopy, faceTurn, followDir, playSpeed, upwardMajor } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection, SwitchableEffectByFaceDirection; 2026-10-27 a projectile body's turn
-import { kitOfficialPlan, kitOperator } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
+import { kitOfficialPlan, kitOperator, KIT_NO_STAND_IN } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 import { enemyRecordMode, isOwnSubMode, SKILL_SUB_MODES, skillModeIndex } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
 import { animPause, clipOf, facesBack, idlePause, immuneTo, movePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
@@ -1916,8 +1916,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const o = e[4];
     if (!o || typeof o !== 'object' || !index || failed || q() === 'low') return false;
     const a = fxSpec(e[1], o).a;
-    if (!STAND_IN.has(a)) return false;
     const v = views.get(kitOperator(o, e[1]));
+    if (!STAND_IN.has(a) && !KIT_NO_STAND_IN.has(`${bundleOf(v)?.bundle}|${e[1]}`)) return false;
     const k = v?.info?.kind;
     if (a === 'zone' && v && areaAway(e, v)) return false; // see areaAway
     return !!(isOp(v) && k !== 'token' && k !== 'device' && k !== 'item' && bundleOf(v));
@@ -3056,7 +3056,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
                 : typeof p.life === 'number' ? { owner: null, buff: false, until: clockS + p.life, on }
                   : { owner: null, buff: false, on };
         const go = () => spawn(pb.bundle, name, at, entry, { over: p.on !== 'point', facing: v ? efacing(v) : 1 });
-        if (p.after === 'fly' && flight > 0) castsDelayed.push({ t: clockS + flight, run: go }); else go();
+        // (a number: that many battle seconds later, a token's `_preDelay` — 黑键's 闪回)
+        if (p.after === 'fly' && flight > 0) castsDelayed.push({ t: clockS + flight, run: go });
+        else if (typeof p.after === 'number' && p.after > 0) castsDelayed.push({ t: clockS + p.after, run: go });
+        else go();
         // (2026-10-21) its end effect where the unit stands as it goes ('die': unitEndFx)
         if (endName && on != null) { const l = unitEnds.get(on) || []; l.push({ bundle: pb.bundle, name: endName }); unitEnds.set(on, l); }
         n++;

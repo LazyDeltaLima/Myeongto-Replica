@@ -147,7 +147,7 @@ function remnantKit(owner) {
         if (!battle.foesInRadius(t.x, t.y, REMNANT_RADIUS, true).some((e) => !e.isFlying && canTargetEnemy(t, e, GROUND))) return;
         t.mem.flashback = true;
         const seq = t.deploySeq;
-        battle.fx('aoe', { x: t.x, y: t.y, radius: REMNANT_RADIUS, id: t.id, dmgType: 'arts', skill: 'ebnhlz:flashback', t: REMNANT_DELAY });
+        battle.fx('aoe', { x: t.x, y: t.y, radius: REMNANT_RADIUS, id: t.id, src: owner.id, dmgType: 'arts', skill: 'ebnhlz:flashback', t: REMNANT_DELAY });
         battle.after(REMNANT_DELAY, () => {
           if (!t.alive || t.deploySeq !== seq) return;
           // 闪回's strike: sktok_ebnhlz_token's ON (after its _preDelay; public/js/audio.js)

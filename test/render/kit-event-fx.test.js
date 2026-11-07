@@ -47,10 +47,10 @@ const VERDICT = {
   cleanse: { '*': ['covered', "流明's cleansing heal: its S2 hit / S3 attack hit (lumen_s_2 / lumen_s_3[ammo] create no effect of their own)"] },
   dilemma: { mizuki: ['skill', 2] },
   ember: { surtr: ['covered', "the 'healFree' status of her 余烬 buff (fxstatus.js SOURCE_FX: surtr_t_2 surtr_buff_01_start)"] },
-  explosion: { lionhd: ['skill', 2], amgoat: ['pending', 'S2 点燃: the explosion (amgoat_s_2 / projectile_amgoat_s2_b rows, not compared yet)'] },
+  explosion: { lionhd: ['skill', 2], amgoat: ['attack', "S2's shot: projectile_amgoat_s2's _effectsWhenReached amgoat_skill_02_range and _effectsWhenHit amgoat_skill_02_hit"] },
   extraAttack: { excu2: ['attack', "the T1 shot's 'atk' (signal T.1): charpack Modes/*/Body/Talents/1's cast / hit are in the mode's bindings"] },
   flame: { flamtl: ['skill', 3] },
-  frostNova: { gnosis: ['skill', 2], sbell2: ['skill', 1, 'its cast; the snow tiles it lays are the open snow-tile item (snow)'], weedy: ['pending', 'S3 液氮大炮: the nitrogen shot (weedy_s_3 rows, not compared yet)'] },
+  frostNova: { gnosis: ['skill', 2], sbell2: ['skill', 1, 'its cast; the snow tiles it lays are the open snow-tile item (snow)'], weedy: ['attack', "S3's shot: projectile_weedy_s3's _effectsWhenReached weedy_skill_03_hit"] },
   healField: { plosis: ['skill', 2], shu: ['pending', 'T1 百谷长青: the tiles her heal sows (shu_t_1 / shu_farm_buff[char] rows, not compared yet)'] },
   iceSpike: { gnosis: ['skill', 3] },
   jungleSoul: { gvial2: ['skill', 3] },
@@ -161,7 +161,7 @@ test('the rules name prefabs the client binds for that operator', () => {
       if (n === 'buff' && b === 'jesca2') Object.assign(o, { kind: 'turn', shield: 2 });
       if (n === 'counter') Object.assign(o, { tgt: 2, t: 2 });
       if (n === 'summon' && b === 'mitm') o.waste = 1;
-      if (n === 'aoe') o.skill = b === 'branch' ? 'resolve' : b === 'mitm' ? 'mitm:s1' : 'judge:atonement';   // 折桠's opening blast, 斥罪's S2 pulse (the shared 'aoe' event: their skills only)
+      if (n === 'aoe') o.skill = b === 'branch' ? 'resolve' : b === 'mitm' ? 'mitm:s1' : b === 'headb2' ? 'headb2:highland' : b === 'ebnhlz' ? 'ebnhlz:flashback' : 'judge:atonement';   // 折桠's opening blast, 斥罪's S2 pulse (the shared 'aoe' event: their skills only)
       // ('hit' rules answer their own moment keys)
       const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS }))
         .flatMap((ctx) => (n === 'hit' ? HIT_KEYS : n === 'kitHit' ? KIT_HIT_KEYS : [undefined]).map((k) => kitOfficialPlan(n, { ...o, k, heal: 1 }, b, ctx))).filter(Boolean);
@@ -468,7 +468,8 @@ Object.assign(files['/assets/local/fx/index.json'].bundles, {
   haruka: ['haruka_talent_02_hit'], ironmn: ['ironmn_beidong_buff'], titi: ['titi_attack_hit_01', 'titi_skill_03_line_01'],
   helage: ['helage_attack_01_hit'], uniequip: ['equipment_system_musha_buff_y', 'uniequip_002_musha_02'],
   // 斥罪's and 逻各斯's kit moments
-  judge: ['judge_shield_start_01', 'judge_shield_break_01', 'judge_reboun_hit_01', 'judge_skill_02_weapon_hit_01'],
+  judge: ['judge_shield_start_01', 'judge_shield_break_01', 'judge_reboun_hit_01', 'judge_skill_02_weapon_hit_01', 'judge_skill_02_hit_01'],
+  headb2: ['headb2_highground', 'headb2_highground_hit'],
   logos: ['logos_skill1_hit_03', 'logos_talent_start_01', 'logos_talent_trail_01', 'logos_talent_hit_01', 'logos_skill1_trail_02',
     'logos_skill1_hit_02', 'logos_skill2_line_01', 'logos_skill3_range_end_01'],
   // 贝洛内's, Mon3tr's and 维伊's
@@ -832,7 +833,11 @@ test('kitOfficialPlan (2026-11-03): 斥罪\'s barrier start / break, reflect and
   assert.deepEqual(p('kitHit', { id: 1, src: 1, k: 'judge:barrier', on: 1 }, 'judge'), [{ n: 'judge_shield_start_01', on: 'op', life: 'once' }]);
   assert.deepEqual(p('kitHit', { id: 1, src: 1, k: 'judge:barrier', on: 0 }, 'judge'), [{ n: 'judge_shield_break_01', on: 'op', life: 'once' }]);
   assert.deepEqual(p('thorns', { id: 1, target: 8 }, 'judge'), [{ n: 'judge_reboun_hit_01', on: 'target', life: 'once' }]);
-  assert.deepEqual(p('aoe', { id: 1, skill: 'judge:atonement', n: 0 }, 'judge'), [{ n: 'judge_skill_02_weapon_hit_01', on: 'op', life: 'once' }]);
+  assert.deepEqual(p('aoe', { id: 1, skill: 'judge:atonement', n: 0 }, 'judge'), [{ n: 'judge_skill_02_weapon_hit_01', on: 'op', life: 'once' }, { n: 'judge_skill_02_hit_01', on: 'targets', life: 'once' }]);
+  // 怒潮凛冬's 高台: the tile's effect, the hit on what it damages; 黑键's 残影: _start_01 now, _hit and _range at its strike (`t`)
+  assert.deepEqual(p('aoe', { id: 1, skill: 'headb2:highland', targets: [8] }, 'headb2'), [{ n: 'headb2_highground', on: 'point', life: 'once' }, { n: 'headb2_highground_hit', on: 'targets', life: 'once' }]);
+  assert.equal(p('aoe', { id: 1, skill: 'headb2:hammer' }, 'headb2'), undefined);
+  assert.deepEqual(p('aoe', { id: 7, src: 1, skill: 'ebnhlz:flashback', t: 0.93 }, 'ebnhlz').map((x) => [x.n, x.after ?? 0]), [['token_ebnhlz_skill_02_start_01', 0], ['token_ebnhlz_skill_02_hit', 0.93], ['token_ebnhlz_skill_02_range', 0.93]]);
   assert.equal(p('aoe', { id: 1, skill: 'other' }, 'judge'), undefined);
   // 逻各斯: the lock line until the lock ends; the T1 / S1 shots (PARACURVE, their `_raiseHeight`); the executed enemy; S3_End's cast
   const lock = kitOfficialPlan('kitHit', { id: 8, src: 1, k: 'logos:lock', on: 1 }, 'logos');

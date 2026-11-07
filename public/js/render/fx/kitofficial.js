@@ -56,6 +56,14 @@ const ALL = Object.freeze({ all: true });
 const VEEN_MOUNTS = Object.freeze([5, 6, 8, 9, 10]);
 
 /**
+ * `<bundle>|<event>`: a kit event whose kind fxgame.js STAND_IN keeps (a mark every operator shows: a lift ring, a crit flash,
+ * a blink, a counter) and whose moment the client draws with prefabs of its own elsewhere (a buff's effect, the cast's):
+ * the generic mark would draw on top of them (test/render/pick-event-list.js says what draws each).
+ */
+export const KIT_NO_STAND_IN = Object.freeze(new Set(['aglna2|takeoff', 'bgsnow|crit', 'chen3|teleport', 'haruka|heal', 'haruka|levitate', 'irene|slash', 'judge|crit',
+  'kalts2|takeoff', 'lmlee|mark', 'thorns|thorns']));
+
+/**
  * event → operator bundle → (o, ctx) → { stop?: tag[], play: plays[], pass?: the event keeps its stand-in } | null.
  * ctx: { skill: the operator's skill index 0–2, back: it faces UP (deployed facing the back), foe: the event's `id` unit is
  * an enemy }.
@@ -645,7 +653,18 @@ export const KIT_OFFICIAL = {
     mitm: cite('mitm_s_1', (o) => (o.skill === 'mitm:s1' ? { play: [once('mitm_skill_01_hit_01', 'point')] } : null)),
     // (2026-11-06) 리프레사 S2: each of her delayed shots projectile_chr_liesel_s2_1 / _2 / _3 `_effectsWhenReached` where it lands
     liesel: cite(['projectile_chr_liesel_s2_1', 'projectile_chr_liesel_s2_2', 'projectile_chr_liesel_s2_3'], () => ({ play: [once('liesel_skill_02_hit_01', 'point')] })),
-    judge: cite('judge_s_2[aoe]', (o) => (o.skill === 'judge:atonement' ? { play: [once('judge_skill_02_weapon_hit_01')] } : null)),
+    // (2026-11-07) … and its `_hitEffectKey` judge_skill_02_hit_01 on each enemy it hits (`targets`)
+    judge: cite('judge_s_2[aoe]', (o) => (o.skill === 'judge:atonement' ? { play: [once('judge_skill_02_weapon_hit_01'), { n: 'judge_skill_02_hit_01', on: 'targets', life: 'once' }] } : null)),
+    // (2026-11-07) 怒潮凛冬's 高台 taking effect (Headb2AttackHighlandAOE._PropagateEffect): `_tileEffectKey` headb2_highground on the
+    // tile, `_hitEffectKey` headb2_highground_hit on each enemy it damages (_DealDamageAndEffect)
+    headb2: cite(['char_1051_headb2/Modes/Default/Body/Attack', 'skchr_headb2_3'], (o) => (o.skill === 'headb2:highland' ? { play: [once('headb2_highground', 'point'), { n: 'headb2_highground_hit', on: 'targets', life: 'once' }] } : null)),
+    // (2026-11-07) 黑键's 残影 闪回: sktok_ebnhlz_token `_castEffects` on the token, _start_01 as it casts (ON_CAST_START), _hit and
+    // _range at its strike (ON_SPELL_ON, `_preDelay` 0.93: the sim's `t`)
+    ebnhlz: cite('sktok_ebnhlz_token', (o) => (o.skill === 'ebnhlz:flashback' ? { play: [
+      { n: 'token_ebnhlz_skill_02_start_01', bundle: 'ebnhlz_token', on: 'id', life: 'once' },
+      { n: 'token_ebnhlz_skill_02_hit', bundle: 'ebnhlz_token', on: 'id', life: 'once', after: Number(o.t) || 0 },
+      { n: 'token_ebnhlz_skill_02_range', bundle: 'ebnhlz_token', on: 'id', life: 'once', after: Number(o.t) || 0 },
+    ] } : null)),
     // 折桠 S2: her first attack's strike triggers SpAttack, whose `_hitEffects` land on each enemy it makes 战栗 (the swing itself:
     // the FirstAttack row of modes.json talentAtk)
     branch: cite('skchr_branch_2/SpAttack', (o) => (o.skill === 'resolve' ? { play: [{ n: 'branch_skill_02_hit_01', on: 'targets', life: 'once' }] } : null)),
