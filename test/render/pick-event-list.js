@@ -7,7 +7,7 @@
 
 export const UNJUDGED = 'unjudged: older than this check (2026-11-04)';
 /** How many UNJUDGED entries may remain; lower it as they are judged, never raise it. */
-export const UNJUDGED_MAX = 66;
+export const UNJUDGED_MAX = 62;
 
 export const PICK_EVENTS = Object.freeze({
   'closur|dp': 'stand-in: the DP number the sim shows for every DP gain; closur_s_1[cost]\'s own common_charge_cost_02 is a skill buff row',
@@ -81,10 +81,9 @@ export const PICK_EVENTS = Object.freeze({
   'wang|zone': UNJUDGED,
   'weedy|frostNova': UNJUDGED,
   'weedy|dp': UNJUDGED,
-  'wisdel|burst': UNJUDGED,
-  'wisdel|explode': UNJUDGED,
-  'wisdel|summon': UNJUDGED,
-  'wisdel|bombardShell': UNJUDGED,
+  'wisdel|explode': 'official: fxgame.js plays wisdel_bomb_01_hit, the CreateEffect of wisdel_t_1[projectile_shock] on the marked enemy',
+  'wisdel|summon': "official: flushDeploys draws the shade's `_startEffect` token_wisdel_birth_01_start; `src` keeps the stand-in off",
+  'wisdel|bombardShell': "official: fxgame.js draws no shell, projectile_chr_wisdel_s2 has no `_mainEffect`; its hits are the 'dmg' of the moment",
   'turdus|volley': "official: fxgame.js skillShotFx flies her S2's projectile_chr_turdus_s2 (modes.json skills[1].shot) and plays its hit as it lands",
   'hbound|zone': "official: fxgame.js zoneFx flies her skill's projectile_chr_hbound_s1 / _s2 and plays its _effectsWhenReached (modes.json skills[i].zone) as it lands",
   'greyy2|zone': "official: fxgame.js zoneFx flies her S2's projectile_chr_greyy2_s2 (modes.json skills[1].shot) and plays greyy2_skill_02_range (skills[1].zone) as it lands",

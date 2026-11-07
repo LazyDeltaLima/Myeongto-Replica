@@ -43,7 +43,7 @@ const STAND_IN = new Set(/const STAND_IN = new Set\(\[([^\]]+)\]/.exec(GAME)[1].
 const VERDICT = {
   appear: { angel2: ['covered', "the redeployed operator's own 'deploy' effect [추정]"] },
   bloodBattle: { bldsk: ['skill', 2] },
-  burst: { oblvns: ['covered', "the note's 'oblvnsNote' hit (noteFx: projectile_chr_oblvns_s1_N `_effectsWhenHit`)"], wisdel: ['standIn', 'sent by her 残影 token'] },
+  burst: { oblvns: ['covered', "the note's 'oblvnsNote' hit (noteFx: projectile_chr_oblvns_s1_N `_effectsWhenHit`)"] },
   cleanse: { '*': ['covered', "流明's cleansing heal: its S2 hit / S3 attack hit (lumen_s_2 / lumen_s_3[ammo] create no effect of their own)"] },
   dilemma: { mizuki: ['skill', 2] },
   ember: { surtr: ['covered', "the 'healFree' status of her 余烬 buff (fxstatus.js SOURCE_FX: surtr_t_2 surtr_buff_01_start)"] },
@@ -175,6 +175,18 @@ test('the rules name prefabs the client binds for that operator', () => {
       }
     }
   }
+});
+
+// 2026-11-07: 위셔델's kit reused 蕾缪安's 'bombardShell', and a shade's strike and arrival drew the generic ring (the shade has no bundle of
+// its own name, so without `src` the stand-in stayed)
+test("위셔델: the shade's strike is sktok_wisdel_wward's, and the shade's events name her", () => {
+  const strike = kitOfficialPlan('burst', { id: 2, src: 1, target: 3 }, 'wisdel');
+  assert.deepEqual(strike.play.map((p) => [p.n, p.bundle]), [['token_wisdel_attack_01_start', 'wisdel_token'], ['token_wisdel_attack_01_line', 'wisdel_token'], ['token_wisdel_attack_01_hit', 'wisdel_token']]);
+  assert.deepEqual([strike.play[1].fly, strike.play[1].from, strike.play[1].to, strike.play[2].after], [15, 'id', 'target', 'fly'], 'projectile_chr_wisdel_token `_speed` 15');
+  const kit = readFileSync(path.join(KITS, 'ops/op-wisdel.js'), 'utf8');
+  assert.match(kit, /battle\.fx\('burst', \{[^}]*src: owner\.id, target: t\.id \}\)/);
+  assert.match(kit, /battle\.fx\('summon', \{[^}]*src: unit\.id \}\)/);
+
 });
 
 test('涤火杰西卡 S3\'s shell: the bomb\'s cast and flight as it fires, its stop effect where it stops; her other attacks do not cast it', () => {
@@ -461,11 +473,29 @@ Object.assign(files['/assets/local/fx/index.json'].bundles, {
   // 贝洛内's, Mon3tr's and 维伊's
   demetr: ['demetr_skill3_restart_begin_01'], monstr: ['monstr_skill_03_begin_02', 'monstr_skill_03_begin_03', 'monstr_skill_03_end_02'],
   monstr_token: ['token_monstr_prosts_skill_03_start'],
+  wisdel: ['wisdel_skill_02_hit'],
   veen: ['veen_trail_01', 'veen_trail_02', 'veen_attack_rank_01_hit_02', 'veen_attack_rank_02_hit_02', 'veen_skill_03_trail_02', 'veen_skill_03_hit_02'],
 });
 files['/assets/local/fx/index.json'].equips = { uniequip_003_helage: ['equipment_system_musha_buff_y'] };
 files['/assets/local/fx/index.json'].bundles.reed2.push('reed2_skill_02_fireball_01', 'reed2_skill_02_fireball_02', 'reed2_skill_02_fireball_hit');
 const settle = () => new Promise((r) => setTimeout(r, 5));
+
+test("fxgame.js: 위셔델's overload shots fly no shell, and her shade arrives without the generic ring", async () => {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high' });
+    await settle();
+    const unit = (id, defId, kind) => ({ id, x: 1, y: 1, alive: true, info: { id, side: 'ally', defId, kind, skillIndex: 1 } });
+    const views = new Map([[1, unit(1, 'char_1035_wisdel')], [2, unit(2, 'token_10035_wisdel_wward', 'token')]]);
+    const shell = ['fx', 'bombardShell', 4, 3, { x: 4, y: 3, id: 1, r: 1, t: 0.25 }];
+    layer.onEvent(shell, views);
+    assert.equal(layer.ownsFx(shell), true, 'hers draws nothing of the shell: fx.js does not fly it');
+    const summon = ['fx', 'summon', 2, 2, { x: 2, y: 2, id: 2, src: 1 }];
+    layer.onEvent(summon, views);
+    assert.equal(layer.ownsFx(summon), true, 'no generic ring as the shade arrives');
+  } finally { globalThis.fetch = fetch0; }
+});
 
 test('fxgame.js: a planned event is taken from its stand-in only when one of its prefabs is extracted', async () => {
   const fetch0 = globalThis.fetch;

@@ -3605,8 +3605,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // oblvns_combat_01_start, her blocked-enemy attack's cast (Body/Combat, modes.json combatSplit)
     if (e[1] === 'sunBurst') return false;
     // local patch (maintainer report 2026-10-07: the old stand-ins go — standInOff): the kit events whose moment has an official
-    // prefab draw it instead of nothing — 维什戴尔's 残影 bomb ('explode', by = her) wisdel_bomb_01_hit [추정: by name; no
-    // prefab key found], 赤刃明霄陈 S2's strikes ('swordStorm', id = her) skchr_chen3_2 _hitGroups[0..5] in turn (the
+    // prefab draw it instead of nothing — 维什戴尔's 残影 bomb ('explode', by = her) wisdel_bomb_01_hit (wisdel_t_1[projectile_shock]
+    // CreateEffect on the marked enemy, 2026-11-07), 赤刃明霄陈 S2's strikes ('swordStorm', id = her) skchr_chen3_2 _hitGroups[0..5] in turn (the
     // n-th slash of a cast: the n-th group, looped)
     if (e[1] === 'explode' || e[1] === 'swordStorm') {
       const src = views.get(e[1] === 'explode' ? o.by : o.id), b = bundleOf(src);
@@ -3699,6 +3699,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     if (e[1] === 'bombardShell' && emortarFx(e, views)) return true;   // 2026-10-22: 帝国炮火先兆者's shells (emortarFx)
     if (e[1] === 'bombard' && emortarLand(e)) return true;
+    // 2026-11-07: 위셔델 S2's overload shots are her mode's own projectile_chr_wisdel_s2 (`_additionalTimes` 3): no flight and no
+    // `_mainEffect`, its hits are the 'dmg' of the moment. Until now 蕾缪安's procedural shell flew for each
+    if (e[1] === 'bombardShell' && bundleOf(views.get(o.id))?.bundle === 'wisdel') { ownFx.add(e); return true; }
     if (e[1] === 'bombardShell' || e[1] === 'bombard') {
       const src = views.get(o.id);
       if (!lemuenOn(src)) return false;

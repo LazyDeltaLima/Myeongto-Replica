@@ -448,6 +448,17 @@ export const KIT_OFFICIAL = {
       play: [{ n: 'jesca2_skill_03_start_02', life: 'once', cast: true }, { n: 'jesca2_skill_03_trail_02', fly: 5, tag: 'jesca2Shell' }],
     })),
   },
+  // 위셔델's 혼령의 그림자 strike: sktok_wisdel_wward `_castEffects` on the shade, then projectile_chr_wisdel_token (`_speed` 15, `_throwEffect`
+  // `_mainEffect`) with its `_effectsWhenHit` on the target. The sim strikes at once: the cast and the shot leave at that moment
+  burst: {
+    wisdel: cite(['sktok_wisdel_wward', 'projectile_chr_wisdel_token'], () => ({
+      play: [
+        { ...once('token_wisdel_attack_01_start', 'id'), bundle: 'wisdel_token' },
+        { n: 'token_wisdel_attack_01_line', fly: 15, from: 'id', to: 'target', bundle: 'wisdel_token' },
+        { ...once('token_wisdel_attack_01_hit', 'target'), after: 'fly', bundle: 'wisdel_token' },
+      ],
+    })),
+  },
   bombard: {
     jesca2: cite('projectile_chr_jesca2_s3_bomb', () => ({ stop: ['jesca2Shell'], play: [once('jesca2_skill_03_hit_02', 'point')] })),
   },

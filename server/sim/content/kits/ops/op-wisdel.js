@@ -87,7 +87,7 @@ function wisdelWard(bb) {
         const t = unit.mem.wisdelTarget;
         unit.mem.wisdelTarget = null;
         if (live(owner) && t && t.alive) {
-          battle.fx('burst', { x: t.x, y: t.y, id: unit.id });
+          battle.fx('burst', { x: t.x, y: t.y, id: unit.id, src: owner.id, target: t.id }); // src: the effects are in her bundles (kitofficial.js)
           battle.dealDamage(unit, t, { amount: unit.s.atk, type: 'arts', isSkill: true, tags: ['summon'] });
           if (t.alive) {
             battle.applyStatus(t, 'sluggish', { duration: slug, source: unit });
@@ -194,7 +194,7 @@ function wisdel(bb, chess, def) {
       const w = battle.spawnToken(unit, SHADOW, r, c, { anySource: true, kit: wisdelWard(battle.tokenDef(SHADOW, unit)?.skill?.bb ?? {}) });
       if (w) {
         if (sp > 0) w.skill?.gainSp(sp, 'init');
-        battle.fx('summon', { x: w.x, y: w.y, id: w.id });
+        battle.fx('summon', { x: w.x, y: w.y, id: w.id, src: unit.id });
         grantCamo(battle, unit, w);
         return w;
       }
