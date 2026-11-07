@@ -126,7 +126,7 @@ test('in-match UI: the 8-row player list, the compact draft order, the 12-card æ
   assert.match(read('public/js/ui/teamPanel.js'), /players\.length > 4 && 'is-8'/);
   assert.match(read('public/css/hud-art.css'), /\.team\.is-8 \{ --u: calc\(var\(--ui-u, \.015rem\) \* \.6\); \}/);
   assert.match(read('public/js/screens/bandDraft.js'), /draft\.order\.length > 4 && 'is-8'/);
-  assert.match(read('public/css/screens/draft.css'), /\.draft-order\.is-8 \{/);
+  assert.match(read('public/css/screens/draft.css'), /\.draft-order\.is-8 \.dorder \{/);
   const choice = read('public/js/ui/choiceOverlay.js');
   assert.match(choice, /sp\.cards\.length > 6 && 'spov__grid--12'/);
   assert.match(read('public/css/screens/game-panels.css'), /\.spov__grid--12 \{ grid-template-columns: repeat\(4/);

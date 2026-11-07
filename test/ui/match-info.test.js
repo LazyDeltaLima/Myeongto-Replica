@@ -232,7 +232,7 @@ test('the briefing, the strategy draft and the in-game 本局信息 tab all read
   // (+ ChessIcon: the 自选预设 row draws its picks as the stage info draws operators)
   assert.match(draft, /import \{ MatchInfoDialog, matchInfoModel, ChessIcon \} from '\.\.\/ui\/matchInfo\.js';/);
   assert.match(draft, /const info = infoOpen \? matchInfoModel\(pub, \{ bonds: gd\.list\('bonds'\), chess: gd\.chess, mode, priv, diyData: \{ chess: data\.get\('chess'\), backups: data\.get\('backups'\) \} \}\) : null;/);
-  assert.match(draft, /data-testid="match-info-open"[\s\S]*?onClick=\$\{\(\) => setInfoOpen\(true\)\}>\$\{t\('查看禁用盟约与干员'\)\}</);
+  assert.match(draft, /data-testid="match-info-open"[\s\S]*?onClick=\$\{\(\) => setInfoOpen\(true\)\}>\$\{t\('本局信息'\)\}</);
   assert.match(draft, /<\$\{MatchInfoDialog\} open=\$\{infoOpen\} onClose=\$\{\(\) => setInfoOpen\(false\)\} model=\$\{info\}/);
   // a turn change or my pick closes it; the draft's end unmounts the screen
   assert.match(draft, /const turnKey = `\$\{draft\.turnPid \|\| ''\}\|\$\{myPick \|\| ''\}`;\n\s*useEffect\(\(\) => \{ setInfoOpen\(false\); \}, \[turnKey\]\);/);

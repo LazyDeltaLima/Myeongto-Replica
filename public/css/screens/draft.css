@@ -1,99 +1,201 @@
 /* ==========================================================================================
-   screens/draft.css — BAND_DRAFT strategy pick (js/screens/bandDraft.js). Research 06 §4.2:
-   draft order on the left, portrait grid, detail pane with 初始生命值 and 确认选择 / 跳过; the 本局信息 entry under
-   the order list and its dialog (js/ui/matchInfo.js MatchInfoDialog, GitHub issue #8 item 1).
+   screens/draft.css — BAND_DRAFT strategy pick (js/screens/bandDraft.js). Research 06 §4.2: draft order on the left,
+   a 4-wide wall of strategy portraits, the detail pane with 初始生命值, the 自选预设 row, 跳过 and 确认选择; the 本局信息
+   entry under the order list and its dialog (js/ui/matchInfo.js MatchInfoDialog, GitHub issue #8 item 1).
+   The layout and look are the upstream event screen's (upstream PR #643, its css/screens/draft.css; ported by hand,
+   maintainer decision 2026-11-07), with the detail pane always open: name-card rows, the wall's SELECTED brackets, the
+   bracketed art. Sizes scale with --t as there (no text-size setting here: 1rem).
    ========================================================================================== */
 
-.draft__main { position: relative; z-index: 1; flex: 1; min-height: 0; display: grid; grid-template-columns: 3.9rem 1fr 5rem; gap: .3rem; padding: .3rem .42rem .36rem; }
+.draft { --t: 1rem; --t-step: calc((1rem - 64px) / 12); --pg-ease: cubic-bezier(.16, .84, .3, 1); }
+/* the entry motions (upstream css/screens/briefing.css pg-*) */
+@keyframes pg-fade { from { opacity: 0; } }
+@keyframes pg-right { from { opacity: 0; transform: translateX(.36rem); } }
+@keyframes pg-left { from { opacity: 0; transform: translateX(-.36rem); } }
+@keyframes pg-card { from { opacity: 0; transform: translateY(.16rem) scale(1.03); } }
 
-.draft-order { display: flex; flex-direction: column; gap: .1rem; min-height: 0; }
-.dorder {
-  position: relative; display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: .12rem;
-  padding: .1rem .12rem .1rem .08rem; background: rgba(12, 15, 14, .82); border: 1px solid var(--line);
-  transition: border-color var(--t-med), background var(--t-med);
+/* ---- layout: order | wall | detail ---- */
+.draft__main {
+  position: relative; z-index: 1; flex: 1; min-height: 0;
+  display: grid; grid-template-columns: 4.7rem minmax(0, 1fr) 4.6rem; grid-template-rows: minmax(0, 1fr); gap: .2rem;
+  padding: .04rem .5rem .3rem .46rem;
 }
-.dorder .pavatar { --pa: .66rem; }
-.dorder__idx { font-size: .22rem; color: var(--text-dim); width: .26rem; text-align: center; }
-.dorder__text { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
-.dorder__name { font-size: .18rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: .06rem; }
-.dorder__ai { font-family: var(--font-num); font-size: .11rem; padding: 0 .04rem; background: #a9c3d8; color: #0b1520; }
-.dorder__state { font-size: .14rem; }
-.dorder__state span { display: inline-flex; align-items: center; gap: .04rem; }
-.dorder__state .icon { width: .16rem; height: .16rem; }
-.dorder__box { position: relative; width: .6rem; height: .6rem; display: grid; place-items: center; border: 1px dashed var(--line-2); }
-.dorder__check { position: absolute; right: -.06rem; bottom: -.06rem; width: .22rem; height: .22rem; display: grid; place-items: center; background: var(--mint-500); color: var(--text-on-mint); }
-.dorder__check .icon { width: .16rem; height: .16rem; }
-.dorder__finger { width: .44rem; height: .44rem; animation: finger 1s ease-in-out infinite; }
-@keyframes finger { 50% { transform: translateX(-.06rem); } }
-.dorder.is-cur { border-color: var(--gold); background: linear-gradient(90deg, rgba(255, 198, 0, .12), rgba(12, 15, 14, .82)); box-shadow: 0 0 .2rem rgba(255, 198, 0, .15); }
-.dorder.is-done { border-color: var(--mint-800); }
-.dorder.is-self .dorder__name { color: var(--mint-400); }
-/* the 8-player mode (more than four in the order): compact rows so eight fit above the buttons; the column scrolls on a short screen */
-.draft-order.is-8 { gap: .05rem; overflow-y: auto; }
-.draft-order.is-8 .dorder { gap: .08rem; padding: .04rem .1rem .04rem .06rem; }
-.draft-order.is-8 .pavatar { --pa: .42rem; }
-.draft-order.is-8 .dorder__idx { font-size: .16rem; width: .2rem; }
-.draft-order.is-8 .dorder__name { font-size: .15rem; }
-.draft-order.is-8 .dorder__state { font-size: .12rem; }
-.draft-order.is-8 .dorder__box { width: .42rem; height: .42rem; }
-.draft-order.is-8 .dorder__box > :first-child { max-width: 100%; max-height: 100%; }
-.draft-order.is-8 .dorder__finger { width: .32rem; height: .32rem; }
-.draft-order__tip { margin-top: auto; font-size: .13rem; line-height: 1.6; color: var(--text-dim); }
 
+/* ---- the order: name-card rows, then 本局信息 / 干员调配 / the co-op tip ---- */
+.draft-order {
+  position: relative; display: flex; flex-direction: column; gap: .16rem; min-width: 0; min-height: 0;
+  padding: .3rem 0 0 .3rem;
+  background: linear-gradient(180deg, rgba(48, 118, 100, .26), rgba(20, 46, 40, .16) 70%, rgba(14, 24, 22, .06));
+  clip-path: polygon(0 0, calc(100% - .5rem) 0, 100% .5rem, 100% 100%, 0 100%);
+  animation: pg-left 460ms var(--pg-ease) 100ms backwards;
+}
+.draft-order__deco { flex: none; display: flex; align-items: center; gap: .05rem; height: .34rem; overflow: hidden; }
+.draft-order__deco i { width: .5rem; height: .18rem; background: rgba(63, 230, 180, .4); }
+.draft-order__deco i + i { width: .18rem; }
+.draft-order__deco span { margin-left: .08rem; font-family: var(--font-num); font-size: calc(.1 * var(--t)); line-height: 1.15; letter-spacing: .08em; color: rgba(120, 240, 205, .55); white-space: nowrap; }
+.draft-order__rows { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .24rem; overflow: auto; padding: .08rem .12rem .1rem .28rem; scrollbar-width: none; }
+/* the buttons and the tip: clear of the floating 聊天 button (chat.css .gchat-float, bottom-left) */
+.draft-order__side { flex: none; display: flex; flex-direction: column; gap: .1rem; padding: 0 .3rem 0 .5rem; }
+.draft-order__tip { margin: 0; padding-left: .3rem; min-height: .5rem; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--text-dim); }
+.draft-order__tip:lang(ko) { word-break: keep-all; overflow-wrap: break-word; }
+
+.dorder { position: relative; flex: none; display: grid; grid-template-columns: minmax(0, 1fr) 1.1rem .42rem; align-items: center; gap: .06rem; height: 1.26rem;
+  animation: pg-left 420ms var(--pg-ease) backwards; animation-delay: calc(180ms + var(--i, 0) * 70ms); }
+.dorder__card { position: relative; height: 100%; display: flex; align-items: center; gap: .1rem; min-width: 0; padding: 0 .1rem 0 .14rem; overflow: hidden;
+  background: linear-gradient(90deg, #1d2223, #262b2c); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.dorder__face { position: relative; flex: none; }
+.dorder .pavatar { --pa: .74rem; box-shadow: 0 0 0 .03rem #e6e9e9; border: 0; }
+.dorder__me { position: absolute; left: -.14rem; top: -.14rem; width: .32rem; height: .32rem; display: grid; place-items: center; background: var(--mint-500); color: #062019; box-shadow: 0 0 0 .02rem #062019; }
+.dorder__me .icon { width: 72%; height: 72%; }
+.dorder__text { position: relative; display: flex; flex-direction: column; gap: .05rem; min-width: 0; text-shadow: 0 1px 3px #000, 0 0 .1rem #000; }
+.dorder__name { display: flex; align-items: center; gap: .04rem; min-width: 0; font-size: calc(.21 * var(--t)); font-weight: 700; line-height: 1.2; color: #f2f4f4; white-space: nowrap; }
+.dorder__name > span:not(.dorder__ai) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dorder__ai { flex: none; font-family: var(--font-num); font-size: calc(.11 * var(--t)); padding: 0 .04rem; background: #a9c3d8; color: #0b1520; }
+.dorder__state { font-size: calc(.15 * var(--t)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dorder__ready { margin-left: .06rem; padding: 0 .04rem; font-size: max(.11rem, 8px); color: var(--text-on-mint); background: var(--mint-500); }
+.dorder__box { position: relative; width: 1.1rem; height: 1.1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .04rem; padding: 0;
+  background: #2b2f30; color: #767c7e; font-size: calc(.2 * var(--t)); font-weight: 700; }
+.dorder__box span { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dorder__box.is-wait .icon { width: .52rem; height: .52rem; }
+.dorder__box.is-cur { background: linear-gradient(180deg, #f2f4f4, #cdd1d1); color: #15191a; box-shadow: 0 0 0 .03rem #fff, 0 .04rem .14rem rgba(0, 0, 0, .55); }
+.dorder__box.is-cur .icon { width: .46rem; height: .46rem; }
+/* one's own turn: the official 轮到你 finger in the box */
+.dorder__finger { width: .46rem; height: .46rem; object-fit: contain; animation: dorder-finger 1s ease-in-out infinite; }
+@keyframes dorder-finger { 50% { transform: translateX(-.05rem); } }
+.dorder__box.is-band { overflow: hidden; background: radial-gradient(circle at 50% 40%, #1f4a40, #0c1513 75%); box-shadow: inset 0 0 0 1px rgba(120, 240, 205, .25); }
+.dorder__box.is-band .bandicon { --bi: 100%; width: 100%; height: 100%; background: transparent; }
+.dorder__check { width: .42rem; height: .42rem; display: grid; place-items: center; }
+.dorder.is-done .dorder__check { border: .03rem solid var(--mint-400); border-radius: .06rem; background: rgba(23, 249, 183, .12); color: var(--mint-400); box-shadow: 0 0 .14rem rgba(23, 249, 183, .45); }
+.dorder__check .icon { width: 80%; height: 80%; }
+/* the doctor deciding: a mint frame around the card, ▶ on the left */
+.dorder.is-cur .dorder__card { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1), 0 0 0 .03rem var(--mint-400), 0 0 .22rem rgba(23, 249, 183, .3); }
+.dorder.is-cur::before { content: ''; position: absolute; left: -.26rem; top: 50%; transform: translateY(-50%); border: .09rem solid transparent; border-left: .13rem solid var(--mint-400); border-right: 0;
+  animation: dorder-mark 1.2s ease-in-out infinite; }
+@keyframes dorder-mark { 50% { transform: translate(-.05rem, -50%); } }
+/* the 8-player mode (more than four in the order): compact rows so eight fit above the buttons; the rows scroll on a short screen */
+.draft-order.is-8 .draft-order__rows { gap: .1rem; }
+.draft-order.is-8 .dorder { height: .8rem; grid-template-columns: minmax(0, 1fr) .7rem .3rem; }
+.draft-order.is-8 .dorder .pavatar { --pa: .48rem; }
+.draft-order.is-8 .dorder__name { font-size: calc(.17 * var(--t)); }
+.draft-order.is-8 .dorder__state { font-size: calc(.12 * var(--t)); }
+.draft-order.is-8 .dorder__box { width: .7rem; height: .7rem; font-size: calc(.13 * var(--t)); }
+.draft-order.is-8 .dorder__box .icon, .draft-order.is-8 .dorder__finger { width: .3rem; height: .3rem; }
+.draft-order.is-8 .dorder__check { width: .3rem; height: .3rem; }
+
+/* ---- the wall of strategies ---- */
 .draft-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(1.36rem, 1fr)); grid-auto-rows: min-content; gap: .12rem;
-  min-height: 0; overflow: auto; padding: .04rem .08rem .04rem .04rem; align-content: start;
+  min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1.9rem)); justify-content: center; align-content: start; gap: .3rem .26rem;
+  padding: .24rem .3rem .4rem; background: linear-gradient(180deg, rgba(18, 22, 22, .6), rgba(10, 12, 12, .3)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
+  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .3) transparent;
 }
 .dband {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: .05rem; padding: .08rem .06rem .1rem;
-  background: rgba(12, 15, 14, .82); border: 1px solid var(--line); color: var(--text-md);
-  transition: transform var(--t-fast), border-color var(--t-fast), background var(--t-fast);
+  position: relative; aspect-ratio: 1; padding: 0; border: 0; font: inherit; color: var(--text-md); background: #0e1212;
+  box-shadow: 0 0 0 .03rem #30373a, inset 0 0 0 .02rem #000; transition: box-shadow var(--t-fast), transform var(--t-fast), filter var(--t-fast);
+  animation: pg-card 420ms var(--pg-ease) backwards; animation-delay: calc(220ms + var(--n, 0) * 28ms);
 }
-.dband:hover { transform: translateY(-.03rem); border-color: var(--line-3); }
-.dband .bandicon { --bi: 1.1rem; border: 1px solid var(--line-2); }
-.dband__name { font-size: .16rem; font-weight: 700; color: var(--text-hi); white-space: nowrap; }
-.dband__lp { display: inline-flex; align-items: center; gap: .04rem; font-size: .15rem; color: var(--mint-400); }
-.dband__lp i { width: .12rem; height: .14rem; background: var(--mint-500); clip-path: polygon(0 0, 30% 0, 30% 20%, 45% 20%, 45% 0, 55% 0, 55% 20%, 70% 20%, 70% 0, 100% 0, 100% 35%, 85% 50%, 85% 80%, 100% 90%, 100% 100%, 0 100%, 0 90%, 15% 80%, 15% 50%, 0 35%); }
-.dband__who { position: absolute; right: .04rem; top: .04rem; display: flex; flex-direction: column; gap: .02rem; }
+.dband__frame { position: absolute; inset: .07rem; overflow: hidden; background: radial-gradient(circle at 50% 42%, #1e3f37, #0b1211 72%); }
+.dband__frame .bandicon { --bi: 100%; width: 100%; height: 100%; background: transparent; border: 0; }
+.dband__frame img { filter: saturate(.75) contrast(1.05); }
+.dband__frame::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .16) 0 1px, transparent 1px 3px), radial-gradient(circle at 50% 46%, transparent 48%, rgba(4, 10, 9, .78) 74%),
+    linear-gradient(180deg, rgba(60, 230, 185, .1), rgba(60, 230, 185, .2)); }
+.dband__name { position: absolute; left: .07rem; right: .07rem; bottom: .07rem; padding: .14rem .04rem .04rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: calc(.15 * var(--t)); font-weight: 700; color: rgba(225, 240, 236, .82); background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .7)); pointer-events: none; }
+.dband:hover { box-shadow: 0 0 0 .03rem rgba(120, 240, 205, .7), inset 0 0 0 .02rem #000; filter: brightness(1.12); }
+.dband:active { transform: scale(.97); }
+.dband:focus-visible { outline: none; box-shadow: 0 0 0 .04rem var(--mint-400); }
+/* SELECTED: mint corner brackets, the word above, a notch below */
+.dband.is-sel { box-shadow: 0 0 0 .03rem rgba(120, 240, 205, .5); filter: brightness(1.15); }
+.dband.is-sel::before { content: ''; position: absolute; inset: -.07rem; pointer-events: none; --c: var(--mint-400); --l: .34rem; --w: .05rem;
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--l) var(--w) no-repeat, linear-gradient(var(--c), var(--c)) top left / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / var(--l) var(--w) no-repeat, linear-gradient(var(--c), var(--c)) top right / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / var(--l) var(--w) no-repeat, linear-gradient(var(--c), var(--c)) bottom left / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / var(--l) var(--w) no-repeat, linear-gradient(var(--c), var(--c)) bottom right / var(--w) var(--l) no-repeat;
+  filter: drop-shadow(0 0 .06rem rgba(23, 249, 183, .7)); animation: dband-sel 220ms var(--pg-ease) backwards; }
+@keyframes dband-sel { from { opacity: 0; transform: scale(1.12); } }
+.dband.is-sel::after { content: ''; position: absolute; left: 50%; bottom: -.2rem; transform: translateX(-50%); border: .08rem solid transparent; border-bottom: .1rem solid var(--mint-400); border-top: 0; }
+.dband__selmark { position: absolute; left: 0; right: 0; top: .08rem; text-align: center; font-family: var(--font-num); font-size: calc(.12 * var(--t)); letter-spacing: .1em; color: var(--mint-400); text-shadow: 0 0 3px #000; pointer-events: none; }
+.dband.is-mine { box-shadow: 0 0 0 .04rem var(--mint-400), 0 0 .2rem rgba(23, 249, 183, .35); }
+/* 队友已选 (research 09 §5): dimmed, a red band across the lower third, the picker's avatar top-right; it cannot be chosen again */
+.dband.is-taken { cursor: not-allowed; }
+.dband.is-taken .dband__frame { filter: grayscale(.7) brightness(.55); }
+.dband.is-taken:hover { filter: none; box-shadow: 0 0 0 .03rem #5a2a26, inset 0 0 0 .02rem #000; }
+.dband.is-taken:active { transform: none; }
+.dband.is-taken .dband__name { display: none; }
+.dband__taken { position: absolute; left: .07rem; right: .07rem; bottom: .07rem; height: 36%; display: grid; place-items: center; pointer-events: none; white-space: nowrap;
+  font-size: calc(.21 * var(--t)); font-weight: 700; letter-spacing: .08em; color: #ff9d90;
+  background: linear-gradient(180deg, rgba(140, 20, 16, .35), rgba(176, 26, 20, .88)); box-shadow: inset 0 -.03rem 0 #ff4a3a, 0 0 .16rem rgba(255, 60, 40, .25);
+  animation: dband-taken 420ms var(--pg-ease) backwards; }
+@keyframes dband-taken { from { opacity: 0; transform: scaleY(.2); filter: brightness(2); } }
+.dband__who { position: absolute; right: .1rem; top: .1rem; display: flex; flex-direction: column; gap: .02rem; }
 .dband__who .pavatar { --pa: .3rem; border-radius: 50%; overflow: hidden; border: 2px solid var(--mint-400); }
-.dband.is-sel { border-color: var(--mint-400); background: linear-gradient(180deg, rgba(78, 216, 175, .18), rgba(12, 15, 14, .85)); box-shadow: 0 0 0 1px var(--mint-400), 0 0 .24rem rgba(23, 249, 183, .2); }
-.dband.is-mine::after { content: '已选择'; position: absolute; left: 0; top: 0; font-size: .11rem; font-weight: 700; padding: 0 .06rem; background: var(--mint-500); color: var(--text-on-mint); }
-
-.draft-detail {
-  display: flex; flex-direction: column; align-items: center; gap: .12rem; padding: .26rem .26rem .22rem; min-height: 0;
-  background: linear-gradient(180deg, rgba(20, 30, 26, .9), rgba(10, 13, 12, .92)); border: 1px solid var(--line-2);
+/* short landscape phones: 队友已选 on one line, a Korean name on one line with its ellipsis (upstream §35.51) */
+@media (max-height: 520px) {
+  .dband__taken { letter-spacing: 0; font-size: min(calc(.21 * var(--t)), 12px); }
+  .dband__name { font-size: min(calc(.15 * var(--t)), 11px); }
 }
-.draft-detail__art { position: relative; padding: .06rem; border: 1px solid var(--mint-800); background: radial-gradient(circle, rgba(78, 216, 175, .14), transparent 70%); }
-.draft-detail__art .bandicon { --bi: 2rem; }
-.draft-detail__hp { display: flex; align-items: center; gap: .12rem; font-size: .16rem; color: var(--text-lo); }
-.draft-detail__name { font-size: .42rem; font-weight: 900; letter-spacing: .1em; }
-.draft-detail__eff { align-self: stretch; display: flex; flex-direction: column; gap: .06rem; padding: .12rem .14rem; background: rgba(0, 0, 0, .3); border-left: 3px solid var(--mint-500); flex: 1; min-height: 0; overflow: auto; }
-.draft-detail__eff b { font-size: .2rem; color: var(--mint-400); }
-.draft-detail__desc { font-size: .16rem; line-height: 1.7; color: var(--text-md); }
-.draft-detail__actions { align-self: stretch; display: flex; flex-direction: column; gap: .1rem; }
-.draft-detail__status { display: flex; align-items: center; gap: .06rem; font-size: .15rem; color: var(--text-lo); }
-.draft-detail__status .icon { width: .18rem; height: .18rem; }
-.draft-detail__btns { display: flex; gap: .1rem; }
-.draft-detail__btns .btn { flex: 1; }
-.dorder__secs { margin-left: .06rem; font-size: .15rem; color: var(--gold); }
-/* 队友已选 (research 09 §5): a strategy a teammate picked cannot be chosen again */
-.dband.is-taken { cursor: not-allowed; border-color: rgba(246, 163, 41, .35); }
-.dband.is-taken .bandicon, .dband.is-taken .dband__name, .dband.is-taken .dband__lp { filter: grayscale(.8) brightness(.62); }
-.dband.is-taken:hover { transform: none; }
-.dband__taken {
-  position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) rotate(-8deg); white-space: nowrap; pointer-events: none;
-  padding: .02rem .12rem; font-size: .15rem; font-weight: 900; letter-spacing: .16em; color: #1d1400; background: var(--amber);
-  box-shadow: 0 .03rem .1rem rgba(0, 0, 0, .6);
-}
-.draft-detail__status--taken { color: var(--amber); }
-/* a strategy built around a bond this mode switches off (bandDraft.js BandOffTag / BandOffNote, DESIGN §21.26 — the
+/* a strategy built around a bond the mode switches off (bandDraft.js BandOffTag / BandOffNote, DESIGN §21.26 — the
    §21.7 本局禁用 look: dim, dashed, the bond struck through): information only, it stays selectable. Px floors keep it
    readable on phones (1rem = 40 px). */
-.dband__off { font-size: max(.12rem, 8px); line-height: 1.5; padding: 0 .05rem; color: var(--text-dim); border: 1px dashed rgba(255, 255, 255, .28); white-space: nowrap; }
-.draft-detail__off { align-self: stretch; display: flex; align-items: flex-start; gap: .06rem; margin: 0; padding: .06rem .1rem;
-  font-size: max(.14rem, 9px); line-height: 1.5; color: var(--text-lo); background: rgba(255, 255, 255, .03); border-left: 2px solid rgba(255, 255, 255, .28); }
+.dband__off { position: absolute; left: .1rem; top: .1rem; font-size: max(calc(.12 * var(--t)), 8px); line-height: 1.5; padding: 0 .05rem; color: var(--text-lo); background: rgba(0, 0, 0, .6);
+  border: 1px dashed rgba(255, 255, 255, .32); white-space: nowrap; pointer-events: none; }
+.draft-detail__off { display: flex; align-items: flex-start; gap: .06rem; margin: .04rem 0 .06rem; padding: .06rem .1rem;
+  font-size: max(calc(.15 * var(--t)), 9px); line-height: 1.5; color: var(--text-lo); background: rgba(0, 0, 0, .25); border-left: 2px solid rgba(255, 255, 255, .28); }
 .draft-detail__off .icon { width: max(.16rem, 10px); height: max(.16rem, 10px); flex: none; margin-top: .02rem; }
 .draft-detail__offname { color: var(--text-dim); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
+
+/* ---- the detail pane: the body scrolls, the actions stay at the bottom ---- */
+.draft-detail {
+  position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
+  padding: .26rem .26rem .1rem; background: linear-gradient(180deg, rgba(30, 84, 72, .5), rgba(14, 32, 28, .4) 55%, rgba(8, 12, 12, .2));
+  animation: pg-right 280ms var(--pg-ease) backwards;
+}
+.draft-detail__body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .25) transparent;
+  animation: pg-fade 200ms ease-out backwards; }
+.draft-tag { align-self: flex-start; display: inline-block; height: .13rem; margin: .08rem 0 .05rem; padding: 0 .06rem; font-family: var(--font-num); font-size: calc(.09 * var(--t)); line-height: .13rem;
+  letter-spacing: .12em; color: #082a20; background: rgba(63, 230, 180, .62); }
+.draft-detail__art { position: relative; align-self: center; display: grid; place-items: center; width: 2.6rem; height: 2.3rem; margin: .18rem 0 .14rem; flex: none; }
+.draft-detail__art::before { content: ''; position: absolute; inset: 0 .14rem; pointer-events: none;
+  border: .03rem solid rgba(220, 240, 236, .5); clip-path: polygon(0 0, .26rem 0, .26rem 100%, 0 100%, 0 0, 100% 0, 100% 100%, calc(100% - .26rem) 100%, calc(100% - .26rem) 0, 100% 0); }
+.draft-detail__art::after { content: '+   +'; position: absolute; inset: -.18rem -.1rem auto; text-align: justify; text-align-last: justify; font-size: calc(.3 * var(--t)); line-height: 1; color: rgba(220, 240, 236, .25); pointer-events: none; }
+.draft-detail__art .bandicon { --bi: 2.1rem; background: transparent; border: 0; }
+.draft-detail__art img { filter: saturate(.8) drop-shadow(0 0 .14rem rgba(63, 230, 180, .35)); }
+.draft-detail__hp { align-self: center; display: flex; align-items: center; gap: .1rem; font-size: calc(.24 * var(--t)); color: #e8ecec; }
+.draft-detail__hp b { padding: 0 .08rem; font-size: calc(.22 * var(--t)); line-height: 1.35; color: #062019; background: var(--mint-500); }
+.draft-detail__name { margin: 0 0 .04rem; font-size: calc(.36 * var(--t)); font-weight: 900; letter-spacing: .04em; color: #f4f6f6; }
+.draft-detail__eff { flex: none; }
+.draft-detail__desc { margin: 0; font-size: calc(.2 * var(--t)); line-height: 1.55; color: #eef2f2; }
+.draft-detail .draft-preset { margin-top: .14rem; }
+.draft-detail__actions { flex: none; display: flex; flex-direction: column; gap: .08rem; padding: .12rem 0 .1rem; }
+.draft-detail__status { display: flex; align-items: center; gap: .06rem; margin: 0; font-size: calc(.16 * var(--t)); color: var(--text-lo); }
+.draft-detail__status .icon { width: .2rem; height: .2rem; flex: none; }
+.draft-detail__status--taken { color: #ff8f80; }
+.draft-detail__btns { display: flex; gap: .1rem; }
+.draft-detail__btns .btn--lg { height: .92rem; font-size: calc(.3 * var(--t)); }
+/* 跳过 beside 确认选择, narrower (the mockup of 2026-11-07) */
+.draft-skip.btn { flex: 0 0 auto; min-width: 36%; padding: 0 .14rem; white-space: nowrap; }
+.draft-pick.btn { flex: 1; min-width: 0; }
+.draft-pick.btn--primary { --btn-bg: #d8dbdb; --btn-bg-hover: #f2f4f4; --btn-fg: #111415; --btn-bd: #fff; --btn-bd-hover: #fff; --btn-glow: rgba(255, 255, 255, .35); --bk-c: #fff;
+  background-image: none; box-shadow: 0 0 0 .03rem rgba(255, 255, 255, .85), 0 .06rem .2rem rgba(0, 0, 0, .5); letter-spacing: .08em; }
+.draft-pick .btn__icon { width: .4rem; height: .4rem; padding: .03rem; border: .03rem solid currentColor; border-radius: .04rem; }
+.draft-pick.btn--primary:disabled { --btn-bg: #34393a; --btn-fg: #8c9293; --btn-bd: #4a5051; box-shadow: none; opacity: 1; }
+/* touch screens: the buttons' invisible --tap-min hit area (devices.css ::before) is taller than a phone's button and
+   reached past the pane's bottom — a 1–2 px scroll; the bar's bottom padding holds it */
+.sp-coarse .draft-detail__actions { padding-bottom: max(.1rem, calc((var(--tap-min) - .92rem) / 2 + 1px)); }
+/* a phone's short pane (upstream mockup of 2026-11-07): the art shrinks, the 自选预设 row is its dropdown only */
+@media (max-height: 500px) {
+  .draft-detail__art { width: 1.9rem; height: 1.7rem; margin: .1rem 0 .08rem; }
+  .draft-detail__art .bandicon { --bi: 1.55rem; }
+  .draft-detail .draft-preset { padding: 0; border: 0; background: none; }
+  .draft-detail .draft-preset__head, .draft-detail .draft-preset__slots, .draft-detail .draft-preset__foot { display: none; }
+  .draft-detail .draft-preset__lbl { display: inline; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draft-order, .dorder, .dorder.is-cur::before, .dorder__finger, .dband, .dband.is-sel::before, .dband__taken, .draft-detail, .draft-detail__body { animation: none; }
+}
 
 /* ---- 本局信息 (GitHub issue #8 item 1, DESIGN §21.28): the entry under the order list and the read-only dialog -------
    The dialog shows the briefing's own blocks (.brief-bonds / .brief-legend / .brief-banned, css/screens/briefing.css)
@@ -101,7 +203,7 @@
    stays at ≥ 9–15 px and the dialog's body scrolls inside the screen (756×366, 844×390) while the header and the
    footer (the turn's countdown, 关闭) stay in view. */
 .draft-order__info {
-  margin-top: .04rem; justify-content: flex-start; padding: 0 .16rem;
+  justify-content: flex-start; padding: 0 .16rem;
   height: max(.5rem, 28px); font-size: max(.18rem, 10px);
   --btn-bd: var(--mint-800); --btn-bg: rgba(78, 216, 175, .06); --btn-bg-hover: rgba(78, 216, 175, .14);
 }
@@ -139,31 +241,8 @@
 /* ---- 전략별 선발 프리셋 (screens/bandDraft.js DraftPresetRow, maintainer 2026-10-12) ------------------------------------
    The detail pane's 自选预设 row: the roster the strategy applies when the pick lands, its tags, the four slots it would
    field and 记住此策略的预设; a linked strategy's card carries the faction's badge; 编队确认 after the last pick. Px floors
-   keep the row readable on phones (1rem = 40 px). The pane does not scroll (maintainer request 2026-10-13): the effect
-   box takes what is left and scrolls its own text, the big icon shrinks (the grid shows it already); the pane's own
-   scroll is only the last resort of a screen too short for the minimums. */
-.draft-detail.has-preset { overflow-y: auto; }
-.draft-detail.has-preset .draft-detail__eff { flex: 1 1 0; min-height: max(.9rem, 48px); }
-.draft-detail.has-preset .draft-detail__art .bandicon { --bi: 1.3rem; }
-.draft-detail.has-preset .draft-detail__name { font-size: .34rem; }
-/* the actions pinned to the pane's bottom edge (the pane's bottom padding moves into them: a negative margin left a
-   rounding pixel of overflow, so a scrollbar) */
-.draft-detail.has-preset { padding-bottom: 0; }
-.draft-detail.has-preset .draft-detail__actions { position: sticky; bottom: 0; z-index: 1; padding: .08rem 0 .22rem;
-  background: rgba(10, 13, 12, .96); }
-/* touch screens: the buttons' invisible --tap-min hit area (devices.css ::before) is taller than a phone's button and
-   reached past the pane's bottom — a 1–2 px scroll; the bar's bottom padding holds it */
-.sp-coarse .draft-detail.has-preset .draft-detail__actions { padding-bottom: max(.22rem, calc((var(--tap-min) - .64rem) / 2 + 1px)); }
-/* the corner brackets (theme.css .brackets::after, inset -1px) on the box's edge: 1 px outside it was overflow of the
-   scrolling pane, a scrollbar for nothing */
-.draft-detail.has-preset.brackets::after { inset: 0; }
-/* a phone's short pane: the 初始生命值 line goes (each grid card shows it) and the big icon shrinks again, so the row
-   and the 编队确认 box fit without a scroll */
-@media (max-height: 500px) {
-  .draft-detail.has-preset .draft-detail__hp { display: none; }
-  .draft-detail.has-preset .draft-detail__art .bandicon { --bi: .8rem; }
-  .draft-detail.has-preset .draft-detail__eff { min-height: 36px; }
-}
+   keep the row readable on phones (1rem = 40 px). Since the upstream layout (2026-11-07) the pane's body scrolls under
+   the pinned buttons. */
 .draft-preset { align-self: stretch; flex: none; display: flex; flex-direction: column; gap: .06rem; padding: .08rem .12rem;
   background: rgba(78, 216, 175, .06); border: 1px solid var(--mint-800); }
 .draft-preset__head { display: flex; flex-wrap: wrap; align-items: center; gap: .06rem; font-size: max(.15rem, 10px); color: var(--text-hi); font-weight: 700; }
@@ -179,6 +258,8 @@
 .draft-preset__sel { height: max(.4rem, 26px); padding: 0 .08rem; }
 .draft-preset__sel:hover:not(:disabled), .draft-preset__sel[aria-expanded="true"] { border-color: var(--mint-700); }
 .draft-preset__sel:disabled { opacity: .6; }
+/* the row's name inside the button: only on a phone, where the row is its dropdown alone */
+.draft-preset__lbl { display: none; flex: none; color: var(--mint-400); white-space: nowrap; }
 .draft-preset__optname { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the icon's states (no words): no preset = the icon left uncoloured, grey (maintainer 2026-10-13); off this match = the
    briefing's img_bond_banned mark on its corner (local art; without it the dimmed name below) */
@@ -262,7 +343,7 @@
 .draft-preset__edit .btn__icon { color: var(--mint-400); }
 .draft-preset__keep { display: flex; align-items: center; gap: .06rem; font-size: max(.13rem, 9px); color: var(--text-md); }
 .draft-preset__keep input { width: max(.16rem, 12px); height: max(.16rem, 12px); margin: 0; accent-color: var(--mint-500); }
-.dband__link { position: absolute; right: .04rem; bottom: .04rem; display: grid; place-items: center; width: max(.24rem, 14px); height: max(.24rem, 14px);
+.dband__link { position: absolute; right: .1rem; top: .1rem; display: grid; place-items: center; width: max(.24rem, 14px); height: max(.24rem, 14px);
   background: rgba(0, 0, 0, .55); border: 1px solid var(--fac); }
 .dband__link .chat__facico { width: 80%; height: 80%; }
 .draft-confirm { display: flex; flex-direction: column; gap: .06rem; padding: .1rem .12rem; border: 1px solid var(--mint-700);
@@ -271,4 +352,3 @@
 .draft-confirm p { margin: 0; font-size: max(.13rem, 9px); line-height: 1.5; color: var(--text-md); }
 /* a phone's short pane: the title and the button only (the pinned box would cover the preset row) */
 @media (max-height: 500px) { .draft-confirm p { display: none; } }
-.dorder__ready { margin-left: .06rem; padding: 0 .04rem; font-size: max(.11rem, 8px); color: var(--text-on-mint); background: var(--mint-500); }
