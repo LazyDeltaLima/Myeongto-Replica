@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1556 of 1774 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1558 of 1776 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1793,5 +1793,7 @@
   "模拟结束或重新开始时，有空位就自动入座": "시뮬레이션이 끝나거나 다시 시작될 때 빈자리가 있으면 자동으로 앉습니다",
   "观战席数量": "관전석 수",
   "{n}席": "{n}석",
-  "不能少于已入座的观战者": "이미 앉은 관전자 수보다 적게 할 수 없습니다"
+  "不能少于已入座的观战者": "이미 앉은 관전자 수보다 적게 할 수 없습니다",
+  "点击进入": "탭하여 시작",
+  "点击跳过": "탭하여 건너뛰기"
 }

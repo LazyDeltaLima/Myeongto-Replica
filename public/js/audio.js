@@ -1122,6 +1122,7 @@ export class AudioManager {
     this.wantBgm = null;      // desired key (kept while locked)
     this.bgm = null;          // { key, loopUrl, nodes: [{src, gain}], gain }
     this.bgmToken = 0;
+    this.lastBgmKey = null;   // the key the screen asked for last (ui/entryFilm.js holdBgm starts it after the film)
     this.units = new Map();   // battle unit id → defId
     this.lastAttacker = new Map(); // target id → { def, at } of the hostile attack last aimed at it (its impact sound)
     this.chainStruck = new Map(); // unit id → time a chain bounce struck it (sim 'atk' 'chain': its 'dmg' is a bounce's)
@@ -1377,6 +1378,7 @@ export class AudioManager {
    */
   playBgm(key) {
     try {
+      this.lastBgmKey = key;
       if (!this.ctx) { this.wantBgm = key; return; }
       const track = resolveBgm(this.getManifest(), key);
       if (this.bgm && track && this.bgm.loopUrl === track.loop) { this.bgm.key = key; return; }

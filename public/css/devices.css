@@ -138,6 +138,10 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
   .title-screen .emblem { gap: .16rem; margin-bottom: .1rem; }
   .title-screen .emblem__svg { width: .74rem; height: .8rem; }
   .title-screen .emblem__bracket { width: .1rem; height: .96rem; }
+  /* the 盟约 logo (screens/title.js FilmLogo) takes the same room: its film-sized inline sizes would push it off the top */
+  .title-screen .emblem--logo { gap: .04rem !important; }
+  .title-screen .emblem--logo .emblem__logo { width: 1.07rem !important; }
+  .title-screen .emblem--logo .emblem__bracket { width: .09rem !important; height: .96rem !important; }
 }
 
 /* ---- 4. misc ------------------------------------------------------------------------------------------------------ */

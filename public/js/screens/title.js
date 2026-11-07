@@ -13,6 +13,9 @@
 // Backdrop art: if data/assets.json lists a UI backdrop (`ui.titleBackdrop`, or one of the
 // entry/loading illustration names) it is layered under the CSS art; otherwise the screen is
 // pure CSS/SVG (radar, ridgelines, glow), so it never issues a request that can 404.
+// Above those, the event's night / dusk lobby once its sprites have loaded (ui/allianceScene.js useLobbyArt — the scene
+// the entry film, ui/entryFilm.js, ends on), and in the 盟约 season the event's logo (`entry/season_logo`) in the
+// emblem's brackets at the size the film leaves it; another season keeps the dot emblem. Ported from upstream 0.3.3.
 
 import { useMemo, useState } from '../../vendor/hooks.module.js';
 import { NAME_MAX_LEN, APP_VERSION, DEV_BUILD } from '../../../shared/constants.js';
@@ -32,7 +35,10 @@ import { SettingsModal } from '../ui/settings.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { AboutModal } from '../ui/about.js';
 import { SeasonTabs, InviteSeason, activeSeason, seasonName } from '../ui/season.js';
-import { seasonInfo } from '../../../shared/seasons.js';
+import { seasonInfo, DEFAULT_SEASON } from '../../../shared/seasons.js';
+import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
+import { uiUrl } from '../ui/assetUrls.js';
+import { Img } from '../ui/gameComponents.js';
 
 // Same character classes as server/net.js sanitizeName (control, zero-width, bidi, BOM), so a name
 // the client accepts is never rejected by the server's hello validation.
@@ -166,6 +172,20 @@ function Emblem() {
   </div>`;
 }
 
+/**
+ * The event's logo in the emblem's brackets, sized as the entry film leaves it (its 1280×720 stage fitted to the
+ * screen: the logo 144 px wide, the brackets 12 × 129 px, 4 px from it), so the film lands on the title screen.
+ */
+function FilmLogo({ src }) {
+  const k = (px) => `min(${(px / 12.8).toFixed(3)}vw,${(px / 7.2).toFixed(3)}vh)`;
+  const br = `width:${k(12)};height:${k(129)}`;
+  return html`<div class="emblem emblem--logo" aria-hidden="true" style=${`gap:${k(4)}`}>
+    <span class="emblem__bracket emblem__bracket--l" style=${br}></span>
+    <${Img} src=${src} class="emblem__logo" style=${`width:${k(144)};height:auto`} fallback=${html`<${Emblem} />`} />
+    <span class="emblem__bracket emblem__bracket--r" style=${br}></span>
+  </div>`;
+}
+
 function Ridges() {
   return html`<svg class="title-bg__ridges" viewBox="0 0 1920 420" preserveAspectRatio="none" aria-hidden="true">
     <defs>
@@ -207,6 +227,9 @@ export function TitleScreen() {
   const assets = data.get('assets');
   const backdrop = findUiAsset(assets, BACKDROP_KEYS);
   const ridges = findUiAsset(assets, RIDGE_KEYS);
+  // the event's night / dusk lobby behind the title once its sprites have loaded; the logo in the 盟约 season only
+  const alliance = useLobbyArt();
+  const logo = season === DEFAULT_SEASON ? uiUrl(assets, 'entry/season_logo') : null;
   // Track load/fail per URL (not as booleans reset in effects: an image can load before an effect runs).
   const [bgLoadedUrl, setBgLoadedUrl] = useState(null);
   const [ridgesLoadedUrl, setRidgesLoadedUrl] = useState(null);
@@ -242,14 +265,15 @@ export function TitleScreen() {
   // hides; a CJK / kana / Hangul title keeps the Chinese layout (shared/i18nPacks.js scriptOf — a pack needs no flag)
   const alphabetic = scriptOf(t('卫戍协议')) === 'alphabetic';
   return html`<div class="screen title-screen">
-    <div class=${`title-bg${bgLoaded ? ' has-art' : ''}${ridgesLoaded ? ' has-ridges' : ''}`} aria-hidden="true">
-      ${backdrop ? html`<img class="title-bg__art" src=${backdrop} alt="" draggable=${false}
+    <div class=${`title-bg${bgLoaded || alliance ? ' has-art' : ''}${alliance ? ' has-alliance' : ''}${ridgesLoaded ? ' has-ridges' : ''}`} aria-hidden="true">
+      ${alliance ? html`<${AllianceBackdrop} />` : null}
+      ${backdrop && !alliance ? html`<img class="title-bg__art" src=${backdrop} alt="" draggable=${false}
         onLoad=${() => setBgLoadedUrl(backdrop)} />` : null}
       <div class="title-bg__glow"></div>
       <div class="title-bg__radar"><div class="title-bg__sweep"></div></div>
       <div class="title-bg__target"></div>
-      ${cssRidges ? html`<${Ridges} />` : null}
-      ${ridges && !ridgesFailed ? html`<div class="title-bg__ridge-art" style=${`background-image:url("${ridges}")`}>
+      ${cssRidges && !alliance ? html`<${Ridges} />` : null}
+      ${ridges && !ridgesFailed && !alliance ? html`<div class="title-bg__ridge-art" style=${`background-image:url("${ridges}")`}>
         <img src=${ridges} alt="" hidden onLoad=${() => setRidgesLoadedUrl(ridges)} onError=${() => setRidgesFailedUrl(ridges)} />
       </div>` : null}
       <div class="title-bg__haze"></div>
@@ -275,7 +299,7 @@ export function TitleScreen() {
     </div>
 
     <main class="title-main">
-      <${Emblem} />
+      ${logo ? html`<${FilmLogo} src=${logo} />` : html`<${Emblem} />`}
       ${alphabetic ? null : html`<div class="title-en">
         <span class="title-en__a">STRONGHOLD PROTOCOL</span>
         <span class="title-en__b">${seasonInfo(season).mark}</span>

@@ -1779,5 +1779,7 @@
   "模拟结束或重新开始时，有空位就自动入座": "When the simulation ends or restarts, you sit down if a seat is free",
   "观战席数量": "Spectator seats",
   "{n}席": "{n} seats",
-  "不能少于已入座的观战者": "Cannot be fewer than the spectators already seated"
+  "不能少于已入座的观战者": "Cannot be fewer than the spectators already seated",
+  "点击进入": "Tap to start",
+  "点击跳过": "Tap to skip"
 }
