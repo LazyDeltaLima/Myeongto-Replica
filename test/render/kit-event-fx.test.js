@@ -51,7 +51,7 @@ const VERDICT = {
   extraAttack: { excu2: ['attack', "the T1 shot's 'atk' (signal T.1): charpack Modes/*/Body/Talents/1's cast / hit are in the mode's bindings"] },
   flame: { flamtl: ['skill', 3] },
   frostNova: { gnosis: ['skill', 2], sbell2: ['skill', 1, 'its cast; the snow tiles it lays are the open snow-tile item (snow)'], weedy: ['attack', "S3's shot: projectile_weedy_s3's _effectsWhenReached weedy_skill_03_hit"] },
-  healField: { plosis: ['skill', 2], shu: ['pending', 'T1 百谷长青: the tiles her heal sows (shu_t_1 / shu_farm_buff[char] rows, not compared yet)'] },
+  healField: { plosis: ['skill', 2] },
   iceSpike: { gnosis: ['skill', 3] },
   jungleSoul: { gvial2: ['skill', 3] },
   knack: { reckpr: ['skill', 2] },
@@ -161,7 +161,7 @@ test('the rules name prefabs the client binds for that operator', () => {
       if (n === 'buff' && b === 'jesca2') Object.assign(o, { kind: 'turn', shield: 2 });
       if (n === 'counter') Object.assign(o, { tgt: 2, t: 2 });
       if (n === 'summon' && b === 'mitm') o.waste = 1;
-      if (n === 'aoe') o.skill = b === 'branch' ? 'resolve' : b === 'mitm' ? 'mitm:s1' : b === 'headb2' ? 'headb2:highland' : b === 'ebnhlz' ? 'ebnhlz:flashback' : 'judge:atonement';   // 折桠's opening blast, 斥罪's S2 pulse (the shared 'aoe' event: their skills only)
+      if (n === 'aoe') o.skill = b === 'branch' ? 'resolve' : b === 'mitm' ? 'mitm:s1' : b === 'headb2' ? 'headb2:highland' : b === 'ebnhlz' ? 'ebnhlz:flashback' : b === 'ironmn' ? 'ironmn:crab' : 'judge:atonement';   // 折桠's opening blast, 斥罪's S2 pulse (the shared 'aoe' event: their skills only)
       // ('hit' rules answer their own moment keys)
       const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS }))
         .flatMap((ctx) => (n === 'hit' ? HIT_KEYS : n === 'kitHit' ? KIT_HIT_KEYS : [undefined]).map((k) => kitOfficialPlan(n, { ...o, k, heal: 1 }, b, ctx))).filter(Boolean);
@@ -851,6 +851,22 @@ test('kitOfficialPlan (2026-11-03): 斥罪\'s barrier start / break, reflect and
   assert.deepEqual(p('bulletClear', { id: 1, n: 0 }, 'logos'), [{ n: 'logos_skill3_range_end_01', on: 'op', life: 'once' }]);
   assert.deepEqual(p('kitHit', { id: 1, src: 1, target: 9, from: 8, k: 'logos:s1shot' }, 'logos'),
     [{ n: 'logos_skill1_trail_02', fly: 3, to: 'target', from: 'from', fromDead: true, arc: 0.5, hit: ['logos_skill1_hit_02'] }]);
+});
+
+test('kitofficial.js (2026-11-07): 黍\'s sown tiles, 塔露拉 S2\'s counter, 白铁\'s crab device', () => {
+  const p = (name, o, bundle) => kitOfficialPlan(name, { x: 0, y: 0, ...o }, bundle, { skill: 0 })?.play ?? null;
+  assert.deepEqual(p('healField', { id: 1, tiles: [[3, 2], [4, 2]] }, 'shu'), [
+    { n: 'shu_talent_buff_01', on: 'point', at: [3, 2], slot: 'shuTile:2:3' }, { n: 'shu_talent_buff_01', on: 'point', at: [4, 2], slot: 'shuTile:2:4' }]);
+  assert.deepEqual(p('blast', { id: 1, tgt: 9 }, 'oxi'), [{ n: 'oxi_skill_02_hit_01', on: 'tgt', life: 'once' }]);
+  assert.equal(p('blast', { id: 1, tgt: 9, w: 1, lane: 0 }, 'oxi'), null, 'S3\'s explosions are fxgame.js\'s');
+  const crab = (dir) => p('kitHit', { id: 5, src: 1, tgt: 9, from: 5, k: 'ironmn:crab', dir }, 'ironmn');
+  assert.equal(crab('UP')[0].n, 'token_ironmn_pile3_skill_03_start_up');
+  assert.equal(crab('DOWN')[0].n, 'token_ironmn_pile3_skill_03_start_down');
+  assert.equal(crab('LEFT')[0].n, 'token_ironmn_pile3_skill_03_start');
+  assert.equal(crab('RIGHT')[1].n, 'token_ironmn_pile3_skill_03_trail');
+  const kit = readFileSync(path.join(ROOT, 'server/sim/content/kits/ops/op-ironmn.js'), 'utf8').match(/CRAB_SPEED = (\d+)/)[1];
+  assert.equal(crab('RIGHT')[1].fly, Number(kit), 'the trail lands with the sim\'s shot');
+  assert.deepEqual(p('aoe', { id: 5, src: 1, skill: 'ironmn:crab' }, 'ironmn'), [{ n: 'token_ironmn_pile3_skill_03_hit', bundle: 'ironmn_token', on: 'point', life: 'once' }]);
 });
 
 test('fxgame.js (2026-11-03): 斥罪\'s and 逻各斯\'s kit moments play on their units; the S1 follow-up leaves the fallen enemy', async () => {

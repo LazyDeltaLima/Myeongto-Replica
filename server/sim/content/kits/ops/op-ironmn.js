@@ -298,7 +298,9 @@ export default {
             const target = list[0] ?? null;
             if (loss > 0) battle.loseHp(unit, unit.s.maxHp * loss, { source: unit, silent: true, tags: ['device'] });   // (ironmn_pile3_bleed: no effect either)
             if (!target || !(atk > 0)) return;
-            battle.addProjectile({ from: unit, target, speed: CRAB_SPEED, visual: 'bomb', source: unit, hitDead: true,
+            // sktok_ironmn_pile3's `_castEffects` on the device, projectile_chr_ironmn_pile3's trail and hit (render/fx/kitofficial.js)
+            battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, src: owner.id, tgt: target.id, from: unit.id, k: 'ironmn:crab', dir: unit.dir });
+            battle.addProjectile({ from: unit, target, speed: CRAB_SPEED, visual: 'none', source: unit, hitDead: true,
               onHit: ({ target: t, x, y }) => {
                 if (t && t.alive) battle.dealDamage(unit, t, { amount: atk * atkScale, type: 'phys', isSkill: true, tags: ['summon', 'skill'] });
                 const cx = t ? t.x : x, cy = t ? t.y : y;
@@ -308,7 +310,7 @@ export default {
                     battle.dealDamage(unit, e, { amount: atk * atkScale2, type: 'phys', isSkill: true, tags: ['summon', 'skill'] });
                   }
                 }
-                battle.fx('aoe', { x: cx, y: cy, radius: CRAB_SPLASH, id: unit.id, skill: 'ironmn:crab' });
+                battle.fx('aoe', { x: cx, y: cy, radius: CRAB_SPLASH, id: unit.id, src: owner.id, skill: 'ironmn:crab' });
               } });
           },
         },

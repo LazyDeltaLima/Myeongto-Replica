@@ -3855,7 +3855,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - **페넌스 S2 파동**: `judge_s_2[aoe]`의 `_hitEffectKey` `judge_skill_02_hit_01`을 맞은 적마다(`aoe`의 `targets`). 전에는 무기 쪽 `_weapon_hit_01`만 그렸다.
 - **지마 더 레이징 타이드 고지대**: `Headb2AttackHighlandAOE`가 터지는 칸마다 `_tileEffectKey` `headb2_highground`, 피해를 준 적마다 `_hitEffectKey` `headb2_highground_hit`. [화면 미확인: 고지대가 있는 판]
 - **에벤홀츠 잔영의 회상**: 소환물 스킬 `sktok_ebnhlz_token`의 `_castEffects`. 시전에 `token_ebnhlz_skill_02_start_01`, `_preDelay` 0.93초 뒤 타격(ON_SPELL_ON)에 `_hit`·`_range`. 계획의 `after`가 숫자면 그 시간 뒤에 튼다.
-- 남은 넷: 스테인리스 `aoe`(소환물 스킬 `sktok_ironmn_pile3`의 시전·탄이 아직 절차 그림), 탈룰라 `blast`(S2 반격), 토가와 사키코 `sunBurst`(S2 모드 경로), 슈 `healField`(재능 1의 칸 이펙트 `shu_talent_buff_01`).
+- 남은 하나: 토가와 사키코 `sunBurst`(S2 모드 경로). 스테인리스 `aoe`·탈룰라 `blast`·슈 `healField`는 아래 「스테인리스 소환물·탈룰라 반격·슈 칸 이펙트」로 그린다.
 - 확인: `test/render/cond-child-fx.test.js`(목록의 쌍이 일반 표시를 안 그림, 빗나감 표시는 남음), `kit-event-fx.test.js`(계획), 아레나 2배속 재생 목록.
 
 ## 효과 없는 주기적 유실 (2026-11-06)
@@ -3943,3 +3943,11 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 구현: 키트가 세는 스택을 사건 `judge:barrier`의 `level`로 보내고 `fxgame.js judgeShield`가 고리를 들고 0.3초마다 `level`을 넣는다. 전에는 고리를 아무도 안 틀었다. 위 절의 「전부터」는 틀린 말이었다.
 - 막기: `judge_t_1` `ON_TAKE_DAMAGE`의 `BlockDamage`(`_useDynamicVar`)가 `_specifyBlockEffect` `judge_shield_hit_01`을 튼다. 방벽에 `blockFx`를 달아 사건 `parry`로 받고 `BLOCK_FX`에서 고른다. 다 막은 타격에만 난다(「자재」 방벽과 같은 길).
 - 아레나 2배속 확인(아군 부상 켬): `hit` 2회 뒤 깨짐, 깨진 뒤 고리 없음, 안 맞으면 고리 유지. 큰 고리(단계 2)와 공식 화면은 보지 않음 [화면 미확인].
+
+## 스테인리스 소환물·탈룰라 반격·슈 칸 이펙트 (2026-11-07, 공식 클라에서 확인)
+
+- **슈 재능 1**: 능력 `DoFarm`(`AttachListenerToTileAbility`)의 `_effectSettings`가 `shu_talent_buff_01`을 잡는다. 칸이 처음 뿌려질 때 `_HoldCastedEffectOnTile`이 칸마다 하나 만들고, 능력이 떨어질 때(`_ClearEffects`, 퇴장) 지운다. 키트가 새 칸을 사건 `healField`의 `tiles`로 보내고 칸마다 `slot`으로 든다. 같은 칸을 다시 뿌릴 때 클라가 만든 효과를 새로 만드는지는 그림이 같아 옮기지 않았다(반복 이펙트). 일반 초록 장판은 사라졌다.
+- **탈룰라 S2 반격**: `skchr_oxi_2` `_inputTargetEffects`(ON_SPELL_ON) `oxi_skill_02_hit_01`을 반격의 중심 대상에게 한 번. 전에는 `skillTargets`가 그 순간 피해를 받은 대상 쪽으로 틀었고 일반 폭발 그림도 겹쳤다. 사건 `blast`에 `tgt`를 더하고 프리팹은 `KIT_OWNED`에 넣었다.
+- **스테인리스 소환물 '글룸핀서호 - 프로토타입'**: 스킬 `sktok_ironmn_pile3`의 `_castEffects`(`_directionType` 3)를 시전에 소환물에게(`_up`·`_down`·방향 없는 것), 투사체 `projectile_chr_ironmn_pile3`의 탄 `token_ironmn_pile3_skill_03_trail`이 대상으로, 도착에 `_hit`을 그 자리에. 시뮬 탄은 `visual: 'none'`으로 두고 사건 `kitHit` `ironmn:crab`과 도착의 `aoe`로 그린다. 전에는 절차 그림 `bomb`이었다. 표시 탄 속도는 시뮬 `CRAB_SPEED`와 같다(시험이 맞춘다).
+- 아레나 2배속 확인: 슈 십자 5칸, 탈룰라 S2 타격 1회(아군 부상 켬), 스테인리스 시전·탄·폭발. 스테인리스의 위·아래 방향과 공식 화면은 보지 않음 [화면 미확인].
+

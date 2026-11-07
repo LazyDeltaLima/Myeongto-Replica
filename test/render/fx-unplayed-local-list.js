@@ -57,7 +57,6 @@ export const UNPLAYED_LOCAL = Object.freeze({
   "projectile_chr_horn_s2_full_03|horn_skill_02_trail_02_03": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
   "projectile_chr_horn_s2_full_04|horn_skill_02_trail_02_04": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
   "projectile_chr_horn_s2_full_05|horn_skill_02_trail_02_05": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
-  "char_2025_shu/Others/Direction/Talents/1|shu_talent_buff_01": "todo: 黍's tile effect (AttachListenerToTileAbility effectKey: the kit's healField has no render yet)",
   "projectile_chr_svash2_s3_bird|svash2_skill_03_trail_left_01": "todo: 凛御银灰 S3's bird trail by direction (_effectsAlignToProjectileDirection)",
   "projectile_chr_svash2_s3_bird|svash2_skill_03_trail_right_01": "todo: 凛御银灰 S3's bird trail by direction (_effectsAlignToProjectileDirection)",
   "thorns_t_1|thorns_buff_01_start": "todo: 棘刺 T1's hit, a LIMITED buff of length 0",

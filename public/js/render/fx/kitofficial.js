@@ -48,6 +48,8 @@ import { whenPlays } from './conds.js';
  * every condition of the key's rows (the sim decided them; never a choice between prefabs — fx-bindings.test.js).
  */
 const once = (n, on = 'op') => ({ n, on, life: 'once' });
+const CRAB_SPEED = 10;   // kits/ops/op-ironmn.js CRAB_SPEED: the sim's shot lands then
+const CRAB_START = Object.freeze({ UP: 'token_ironmn_pile3_skill_03_start_up', DOWN: 'token_ironmn_pile3_skill_03_start_down' });
 /** 余's 灼燃损伤 moments (the sim's 'dmg' 9th field). */
 const YU_HIT = Object.freeze(['yu_s_1[inverse_damage]', 'yu_t_1[enemy]', 'yu_s_3[ally]']);
 /** The event stands for every condition of the key's rows. */
@@ -551,7 +553,11 @@ export const KIT_OFFICIAL = {
   reborn: { etlchi: cite('etlchi_t_2[heal]', () => ({ play: [{ tpl: 'etlchi_t_2[heal]', on: 'op', life: 3 }] })) },
   // 流明 S1: the shot's heal rain (lumen_s_1[effect] on the target, LIMITED: projectile_life_time `t`; projectile_chr_lumen_s1's
   // `_mainEffect` is the same prefab) [추정: lumen_s_1[heal]'s lumen_skill_01_hit on each healed ally per tick is not drawn]
-  healField: { lumen: cite('lumen_s_1[effect]', (o) => ({ play: [{ tpl: 'lumen_s_1[effect]', on: 'tgt', life: Math.max(0.1, Number(o.t) || 0) }] })) },
+  healField: { lumen: cite('lumen_s_1[effect]', (o) => ({ play: [{ tpl: 'lumen_s_1[effect]', on: 'tgt', life: Math.max(0.1, Number(o.t) || 0) }] })),
+    // (2026-11-07) 슈 T1: DoFarm (AttachListenerToTileAbility `_effectSettings`) holds shu_talent_buff_01 on every sown tile until she leaves (`tiles`: the new ones)
+    shu: cite('char_2025_shu/Others/Direction/Talents/1', (o) => ({ play: (Array.isArray(o.tiles) ? o.tiles : []).map(([c, r]) => ({ n: 'shu_talent_buff_01', on: 'point', at: [c, r], slot: `shuTile:${r}:${c}` })) })) },
+  // (2026-11-07) 탈룰라 S2's counter: skchr_oxi_2 `_inputTargetEffects` ON_SPELL_ON on its centre. Her S3's explosions (`w`) are fxgame.js 'blast'
+  blast: { oxi: cite('skchr_oxi_2', (o) => (o.w == null ? { play: [once('oxi_skill_02_hit_01', 'tgt')] } : null)) },
   // 寒檀 S2: an icicle (projectile_chr_sntlla_s2 `_effectsWhenReached` sntlla_skill_02_start_01 where it lands)
   iceSpike: { sntlla: cite('projectile_chr_sntlla_s2', () => ({ play: [{ tpl: 'projectile_chr_sntlla_s2', on: 'point' }] })) },
   talent: {
@@ -616,7 +622,10 @@ export const KIT_OFFICIAL = {
     haruka: cite('haruka_t_1_delay', (o) => (o.k === 'haruka:break' ? { play: Number(o.heal) ? [once('haruka_talent_02_hit', 'id')] : [] } : null)),
     // (2026-11-03) 白铁 T2 节约经费: a device of his recovered (ironmn_t_2 ON_OWNER_FINISH, a won Dice: RechargeToken) creates
     // ironmn_beidong_buff on him (BUFF_SOURCE)
-    ironmn: cite('ironmn_t_2', (o) => (o.k === 'ironmn_t_2' ? { play: [once('ironmn_beidong_buff')] } : null)),
+    // (2026-11-07) and his crab device's cast: sktok_ironmn_pile3 `_castEffects` (`_directionType` 3: _up / _down / the plain one by its facing) on the device, its shot's `_mainEffect` to the target
+    ironmn: cite(['ironmn_t_2', 'sktok_ironmn_pile3'], (o) => (o.k === 'ironmn_t_2' ? { play: [once('ironmn_beidong_buff')] }
+      : o.k === 'ironmn:crab' ? { play: [{ n: CRAB_START[o.dir] ?? 'token_ironmn_pile3_skill_03_start', bundle: 'ironmn_token', on: 'from', life: 'once' },
+        { n: 'token_ironmn_pile3_skill_03_trail', bundle: 'ironmn_token', fly: CRAB_SPEED, to: 'tgt', from: 'from', fromDead: true }] } : null)),
     // 黍 S3 the mark an enemy holds on a sown tile until the skill ends (shu_s_3[enemy][mark], INFINITY)
     shu: cite('shu_s_3[enemy][mark]', (o) => (o.k === 'shu:mark' ? { play: [{ n: 'shu_talent_buff_03', on: 'tgt', life: 'skill' }] } : null)),
     // 老鲤 S3 lmlee_s_3[knockback] past its Dice: on the enemy struck
@@ -649,6 +658,8 @@ export const KIT_OFFICIAL = {
   // judge_skill_02_weapon_hit_01 on her — enemies hit or not)
   // 折桠 S2's FirstAttack (held by branch_s_2[first], no damage, no target needed: the skill's opening 战栗 blast, the sim's 'aoe')
   aoe: {
+    // (2026-11-07) 스테인리스's crab device: projectile_chr_ironmn_pile3 `_effectsWhenHit` where it lands (its splash centre), whether the target lives or not
+    ironmn: cite('sktok_ironmn_pile3', (o) => (o.skill === 'ironmn:crab' ? { play: [{ n: 'token_ironmn_pile3_skill_03_hit', bundle: 'ironmn_token', on: 'point', life: 'once' }] } : null)),
     // (2026-11-07) 미틈 S1: mitm_s_1 ON_BUFF_START on the 체리 3호 in mode Default, where it explodes
     mitm: cite('mitm_s_1', (o) => (o.skill === 'mitm:s1' ? { play: [once('mitm_skill_01_hit_01', 'point')] } : null)),
     // (2026-11-06) 리프레사 S2: each of her delayed shots projectile_chr_liesel_s2_1 / _2 / _3 `_effectsWhenReached` where it lands

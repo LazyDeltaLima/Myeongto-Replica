@@ -6422,6 +6422,7 @@
    "char_2025_shu skillStart shu_skill_01_start",
    "char_2025_shu spawn shu_talent_buff_03 → foe",
    "char_2025_shu spawn:born shu_birth_01 → self",
+   "char_2025_shu spawn:slot shu_talent_buff_01",
    "char_4179_monstr attackHit monstr_attack_hit_01 → ally",
    "char_4179_monstr attackHit monstr_attack_hit_01 → self",
    "char_4179_monstr attackHit monstr_attack_hit_02 → ally",
@@ -6470,6 +6471,7 @@
    "char_2025_shu skillStart shu_skill_01_start",
    "char_2025_shu spawn shu_talent_buff_03 → foe",
    "char_2025_shu spawn:born shu_birth_01 → self",
+   "char_2025_shu spawn:slot shu_talent_buff_01",
    "enemy_1389_winbab_2 spawn:castLoop enemy_winbab_attack_01_start → self"
   ],
   "diy-040": [
@@ -6497,6 +6499,7 @@
    "char_2025_shu skillStart shu_skill_01_start",
    "char_2025_shu spawn shu_talent_buff_03 → foe",
    "char_2025_shu spawn:born shu_birth_01 → self",
+   "char_2025_shu spawn:slot shu_talent_buff_01",
    "char_322_lmlee attackHit lmlee_attack_01_hit → foe",
    "char_322_lmlee attackStart lmlee_attack_01_start",
    "char_322_lmlee attackStart lmlee_attack_01_start_02",

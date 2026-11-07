@@ -3827,6 +3827,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const dirPick = (v, names) => dirCopies(bindOf(v)?.dirs, names, ['UP', 'RIGHT', 'DOWN', 'LEFT'].indexOf(facingDir(v)), (v.visFacing ?? v.facing ?? 1) < 0);
   // prefabs a kit event here draws instead (余 S3's wall piece: one per tile along the wall, not one on him)
   const KIT_OWNED = new Set(['yu_skill3_range_01',
+    // 2026-11-07: 탈룰라 S2's hit on its centre (kitofficial.js 'blast'): `skillTargets` drew it on what the damage of the moment struck
+    'oxi_skill_02_hit_01',
     // 2026-11-07: 키치세이 S2's bind on the enemy (fxstatus.js SOURCE_FX): the `_buff` name rule played it on her at the cast too
     'kichi_skill_02_buff_02',
     // 2026-10-11 (pickFx): the 선발 picks' kit-event prefabs — the `_range` name rule played 克莱门莎's vortex and 予愿安洁莉娜's glide

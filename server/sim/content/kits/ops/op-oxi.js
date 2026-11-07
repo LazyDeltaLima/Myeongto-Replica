@@ -100,7 +100,7 @@ export default {
         .sort((a, b) => (b.blockedBy === unit) - (a.blockedBy === unit) || a.spawnSeq - b.spawnSeq)[0] ?? null;
       if (!centre) return;
       const radius = num(b2.ability_range_radius, 1), atk = unit.s.atk * num(b2.retaliate_atk_scale);
-      battle.fx('blast', { x: centre.x, y: centre.y, r: radius, id: unit.id });
+      battle.fx('blast', { x: centre.x, y: centre.y, r: radius, id: unit.id, tgt: centre.id });   // tgt: `_inputTargetEffects` oxi_skill_02_hit_01
       for (const e of battle.foesInRadius(centre.x, centre.y, radius)) {
         const dealt = battle.dealDamage(unit, e, { amount: atk, type: 'arts', isSkill: true, isSplash: e !== centre,
           tags: ['skill', 'oxi:guard'] });

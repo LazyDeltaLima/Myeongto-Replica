@@ -130,17 +130,18 @@ export default {
     /** Sow the tiles of `grid` around (r, c) — only tiles that can be deployed on or walked. Returns the new ones. */
     const sow = (battle, unit, r, c, grid) => {
       const tiles = sown(unit);
-      let n = 0;
+      const fresh = [];
       for (const [dr, dc] of grid) {
         const rr = r + dr, cc = c + dc;
         if (!battle.grid.inRect(rr, cc)) continue;
         const t = battle.grid.tile(rr, cc);
         if (!t || (t.build === 'NONE' && t.pass !== 'ALL')) continue;
         const k = rr * COLS + cc;
-        if (!tiles.has(k)) { tiles.add(k); n++; }
+        if (!tiles.has(k)) { tiles.add(k); fresh.push([cc, rr]); }
       }
-      if (n > 0) { battle.fx('healField', { x: c, y: r, id: unit.id }); farm(battle, unit); }
-      return n;
+      // `tiles`: each new one holds DoFarm's shu_talent_buff_01 until she leaves (render/fx/kitofficial.js)
+      if (fresh.length) { battle.fx('healField', { x: c, y: r, id: unit.id, tiles: fresh }); farm(battle, unit); }
+      return fresh.length;
     };
     /** The 【播种标记】 buff key on an enemy (one per 黍). */
     const markKey = (unit) => `skill:shu:mark:${unit.id}`;

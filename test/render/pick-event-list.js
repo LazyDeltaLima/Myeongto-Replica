@@ -7,7 +7,7 @@
 
 export const UNJUDGED = 'unjudged: older than this check (2026-11-04)';
 /** How many UNJUDGED entries may remain; lower it as they are judged, never raise it. */
-export const UNJUDGED_MAX = 4;
+export const UNJUDGED_MAX = 1;
 
 export const PICK_EVENTS = Object.freeze({
   'closur|dp': 'stand-in: the DP number the sim shows for every DP gain; closur_s_1[cost]\'s own common_charge_cost_02 is a skill buff row',
@@ -46,7 +46,6 @@ export const PICK_EVENTS = Object.freeze({
   'irene|aoe': "official: nothing of its own: S2 / S3's range and hit prefabs are the skill's bindings",
   'ironmn|summon': "official: flushDeploys draws each device's own token_ironmn_pile*_birth_01",
   'ironmn|spGift': "stand-in: the SP sparkle every gain shows; ironmn_t_2's ironmn_beidong_buff is the finishing buff's",
-  'ironmn|aoe': UNJUDGED,
   'judge|shield': "official: nothing of its own: the barrier's 'judge:barrier' moment plays judge_shield_start_01 / _break_01",
   'judge|crit': "official: judge_s_1[mode] holds judge_skill_01_buff_02 through the charged state, so no crit flash either (KIT_NO_STAND_IN)",
   'kalts2|shield': "official: nothing: kalts2_t_2[shield] has no effect",
@@ -62,12 +61,10 @@ export const PICK_EVENTS = Object.freeze({
   'oblvns|sunBurst': UNJUDGED,
   'oblvns|burst': "official: nothing of its own: the note's hits draw it (fxgame.js noteFx)",
   'oblvns|spGain': "stand-in: the SP sparkle every gain shows; S2's own piano effects are the open mode-path line",
-  'oxi|blast': UNJUDGED,
   'oxi|overload': "official: nothing: the client only sounds oxi_s_3_overload (test VERDICT overload)",
   'phatm2|lure': "official: fxgame.js holds token_encdool_skill_02_debuff_01 on the enemy the cage draws",
   'phatm2|aoe': "official: fxgame.js plays token_encdool_skill_02_range_02 where the cage stood",
   'phatm2|summon': "official: flushDeploys draws the cage's token_encdool_birth_01",
-  'shu|healField': UNJUDGED,
   'thorns|thorns': "official: the Thorn cast's thorns_skill_02_start and _range, the skill's bindings, so no counter mark either (KIT_NO_STAND_IN)",
   'vvana|shield': "official: nothing at this moment: vvana_t_2's stack is a buff whose look the status path holds; no client row names a prefab for a stack gained",
   'vvana|shieldBreak': "official: nothing at this moment: no client row names a prefab for a stack spent",
