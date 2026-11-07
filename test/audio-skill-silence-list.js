@@ -19,5 +19,6 @@ export const SILENT_SKILLS = {
   'char_188_helage S3': 'silent none: 赫拉格 S3 — its strike is ON attack.2 p_skill_huirenzhan, a skill-group file, and it plays',
   'char_4072_ironmn S2': `silent none: 白铁 S2 — ${NO_BANK}`,
   'char_4182_oblvns S2': 'other none: 丰川祥子 S2 — its one hit in the window is the _r shot; the _p bank is the slow shot, not reached here',
+  'char_4065_judge S2': 'other none: 斥罪 S2 — it makes no attack, so its mode\'s p_imp_gavel_n is not cast; each pulse sounds judge_s_2[audio] (p_imp_gavel_h)',
   'char_4037_demetr S3': 'other none: 贝洛内 S3 — the attacks run its teleport sub-mode\'s s1 / s2 banks; the base mode\'s _n is not reached here',
 };

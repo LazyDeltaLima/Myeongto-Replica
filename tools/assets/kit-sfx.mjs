@@ -301,6 +301,11 @@ export const KIT_HIT_BANKS = Object.freeze({
   'closur:fakedeath': 'battle.ON_BUFF_START.closur_ourbase[fake_death]',
   'closur:range2': 'battle.ON_BUFF_START.token_closur_ourbase_range_02_loop_start',
   'closur:range3': 'battle.ON_BUFF_START.token_closur_ourbase_range_03_loop_start',
+  // 假想敌：管 and 弦, whose attacks are the kit's shots (bosses.js pipeCore): the strike, the projectile's REACH
+  'acduml:strike2': 'battle.ON_ABILITY_START.enemy_9021_acduml_2.attack.0.1',
+  'acdumm:strike': 'battle.ON_ABILITY_ON.enemy_9022_acdumm.attack.0.1',
+  'acduml:reach': 'battle.ON_PROJECTILE_REACH.projectile_enemy_acduml',
+  'acdumm:reach': 'battle.ON_PROJECTILE_REACH.projectile_enemy_acdumm',
   // 蕾缪安's attack ending (its BuffToOwner lemuen_attack_end_audio's ON_BUFF_FINISH, 0.76 s after the strike); 风丸's 折纸生花
   // (Talents/1 START: her stand-in state, the summoned <替身>); 缪尔赛思 S3 on a ranged 流形 (mlyss_s_3[token_range_trigger]);
   // a waiting operator's 凛御银灰 S2 slash as it redeploys — the range (svash2_s_2[build][effect]) and each enemy it hits

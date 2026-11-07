@@ -171,6 +171,39 @@ describe('official sound signals of the linking sheet', { skip: NO_DATA }, () =>
     assert.equal(h.eventsOf('fx').filter((e) => e[1] === 'kitHit' && e[4]?.k === 'thorn2:t2').length, 1);
   });
 
+  test('가상적: 관 and 현: the shot\'s strike (관 phase 2 and 현 only) and its REACH at the burst', () => {
+    const units = new Map([[1, { def: 'enemy_9021_acduml' }], [2, { def: 'enemy_9021_acduml_2' }], [3, { def: 'enemy_9022_acdumm' }]]);
+    const of = (id) => units.get(id);
+    assert.equal(kitHitKey('beam', { from: 1, kind: 'acdumlStrike' }, of), null, 'phase 1: no bank for its strike');
+    assert.equal(kitHitKey('beam', { from: 2, kind: 'acdumlStrike' }, of), 'acduml:strike2');
+    assert.equal(kitHitKey('beam', { from: 3, kind: 'acdummStrike' }, of), 'acdumm:strike');
+    assert.equal(kitHitKey('explode', { kind: 'acdumlHit' }, of), 'acduml:reach');
+    assert.equal(kitHitKey('explode', { kind: 'acdummHit' }, of), 'acdumm:reach');
+    assert.ok(manifest.audio.sfx.kit['acduml:reach'] && manifest.audio.sfx.kit['acdumm:reach']);
+  });
+
+  test('a telegraphed enemy skill sounds its impact once when it lands, however long the charge', () => {
+    const a = new AudioManager({ win: null, getManifest: () => manifest, random: () => 0 });
+    a.ctx = { currentTime: 0 };
+    a.voice = () => false;
+    const played = [];
+    a._play = (url) => { played.push(stem(url)); };
+    a.setFieldUnits([{ id: 1, kind: 'op', side: 'ally', spine: 'char_102_texas' }, { id: 2, kind: 'enemy', side: 'enemy', spine: 'enemy_10144_xdelk_2' }]);
+    onBattleClock((tick) => {
+      tick(1);
+      a.handleBattleEvents([['fx', 'enemySkill', 0, 0, { id: 2, ability: 'skill', n: 1 }], ['fx', 'telegraph', 0, 0, { id: 2, ability: 'skill', caster: 2, dur: 8 }]]);
+      assert.ok(played.includes('e_atk_snwmsph'), 'its START at the cast');
+      played.length = 0;
+      tick(9);
+      a.handleBattleEvents([['dmg', 1, 2000, 'phys', 0, 2, 0, null]]);
+      assert.deepEqual(played, ['e_imp_snwmsph'], 'its HIT, 8 s on');
+      played.length = 0;
+      tick(30);
+      a.handleBattleEvents([['dmg', 1, 10, 'phys', 0, 2, 0, null]]);
+      assert.deepEqual(played, [], 'only that once');
+    });
+  });
+
   test('a start bank the mode never sounds plays at the cast, attacks or none; one its attack sounds still waits', () => {
     const U = manifest.audio.sfx.units;
     for (const [id, i] of [['char_193_frostl', 1], ['char_488_buildr', 1], ['char_4198_christ', 1], ['char_1027_greyy2', 1], ['char_103_angel', 1]]) {

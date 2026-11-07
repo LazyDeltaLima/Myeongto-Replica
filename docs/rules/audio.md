@@ -511,7 +511,9 @@
   - 쏜즈 더 로드스타: 재능 2 `thorn2_t_2_start`(`Talent/2/global_ally` `_passiveBuffs`의 `thorn2_t_2[audio]`), 배치 때 한 번. 옛 문서의 「거는 곳을 못 찾음」은 작업표가 `_passiveBuffs`의 값을 신호로 안 봤기 때문.
 - 안 이은 것: `ON_SKILL_SPECIAL_POINT`(오로라 S2·퀘르쿠스 S1, 수동으로 끊을 때만 — 위 「공격 소리 신호」). 오로라 `shield`는 스파인 이벤트로 이미 난다(`spineEvent`). 에단 배치 더빙은 `sfx.units.char_355_ethan.dub`로 한국어·일본어가 나고, `link_sheet.py`의 `MISSING`은 작업표가 `@KR`·`@JP`를 못 읽은 것이었다(고침). `@CN_MANDARIN`은 이 판이 제공하지 않는 언어.
 - 은행 팽·폰사이러스·바르카리스는 막은 적을 두고 전투를 돌려 보니 평타·스킬 소리가 나서 따로 이을 것이 없다. 프로스트리프도 원거리 공격과 스킬은 나지만, 근접 `ON_ABILITY_HIT.char_193_frostl.combat`은 안 난다: 위 「공격 소리 신호」의 영주 줄(sim의 영주는 저지 중에도 원거리로 쏨)과 같은 이유.
-- 확인: `test/audio-cue-links.test.js`(실제 전투 + AudioManager, 횟수까지; 작업 전 코드에서 13개 모두 실패), `test/audio-dub.test.js`.
+- **주기 피해의 착탄음**(`audio.js` 스킬 피해 표, 키트 `moment`로 표시하지 않음: `moment` 이름은 렌더러가 그 프리팹을 그리는 값이라 이펙트가 겹친다): 공식 착탄음은 능력·투사체의 HIT에서 나고, 아래는 버프 템플릿의 피해라 HIT가 아니다. 페넌스 S2 맥동(`judge_s_2[aoe]`, 자기 `judge_s_2[audio]`만 남), 리드 더 플레임 섀도우 S3 틱·번짐(`reed2_t_1[skill_3_dot]`·`[skill_3_aoe]`, PlayAudio 없음), 티티 S3 깨우는 피해(`titi_s_3[dmg_ticker]`, 자기 `titi_s_3[awake]`만)와 그동안의 재능 피해(`titi_t_1[enemy_sleeping]`은 `titi_t_1`만, `[passive]`는 무음). 산탈라 S2 고드름은 공격이고 그 투사체(`projectile_chr_sntlla_s2`)의 REACH가 나므로 그대로 착탄음이 난다. [화면 미확인]
+- **적**: 가상적: 관·현은 공격이 키트의 사격(`bosses.js pipeCore`)이라 'atk'이 없어 공격 소리가 하나도 안 났다 → 타격 순간(관은 2단계만 뱅크가 있음, 현은 ON)과 도착 폭발의 `ON_PROJECTILE_REACH`. 검은 뿔의 루울(`enemy_10144_xdelk_2`)은 8초 돌진 뒤의 피해가 스킬 소리의 3초 창을 넘겨 HIT가 안 났다 → 예고(`telegraph`)가 있는 시전은 첫 피해까지 기다린다. 무덤지기 석상·소용자·'갑주를 부수는 해머'는 무음이 아니다(`test/audio-enemy-silence-list.js`에 이유). 적의 모드 아래 스킬(`Modes/*/Body/Skills/*`)은 표를 다시 뽑아 매니페스트에 들어갔다(`char_audio.py`, 더해지기만 함). [화면 미확인]
+- 확인: `test/audio-cue-links.test.js`(실제 전투 + AudioManager, 횟수까지; 첫 13개는 작업 전 코드에서 모두 실패), `test/audio-impact-sweep.test.js`, `test/audio-enemy-sweep.test.js`, `test/audio-dub.test.js`.
 
 ## 스킬·재능 투사체 소리 (2026-10-29, 공식 클라 — 캐릭터·스킬·투사체 프리팹)
 - 공식: 스킬·재능·드론이 쏘는 투사체도 자기 뱅크를 낸다 — BORN(발사)·HIT(맞힌 대상마다)·REACH(도착)·STOP(멈춤)·
@@ -663,7 +665,7 @@
     공격엔 없음, S2 조준 사격은 'atk'가 아님. 템플릿 `lemuen_attack_end_audio_s`(탄약 남음 조건)는 만드는 곳을 못 찾음 — 안 냄.
   - 카제마루 재능 「折纸生花」(T.1): 소환한 <替身>(`token_10022_kazema_shadow`)은 `Talents/1` `AppearTalent` → ActiveBuffAbility
     `kazema_standin[damage]` — 나타날 때 그 START(`p_skill_brightenswordborn_token`); 그녀의 替身 상태는 자기 `Talents/1`(같은 버프)의 START
-    `p_skill_brightenswordborn` → fx `aoe` `origami`(`id` = 터진 쪽) [추정·엔진: 그녀 쪽 Talents/1은 보통 Talent라 무엇이 시전하는지 안 읽음 — 替身 전환
+    `p_skill_brightenswordborn` → fx `aoe` `origami`(`id` = 터진 쪽) [추정·엔진: 전환 끝 `kazema_switchend`의 `OnRallyPointLikeReborn` 순간으로 봄, 그녀 쪽 Talents/1은 보통 Talent라 거기서 시전되는 길은 끝까지 안 읽음 — 替身 전환
     순간으로 봄].
   - 뮤엘시스 S3: `mlyss_s_3[buff]`가 유동체마다 `[token_range_trigger]`를 걸어, 원거리 복제(`mlyss_wtrman_range[mark]`)이고 분열 복제
     (`mlyss_wtrman_summon[override]`)가 아니면 audioSignal `mlyss_s_3[range_audio]` → 그녀 S3 'skill' 켜짐에, 살아 있는 원거리 복제(fx `copy` `Range`·
@@ -943,7 +945,7 @@
   소환물 11종(望 棋子 p_imp_stwctptkin, 维什戴尔 wward, 诅咒娃娃 등). 卫戍协议에는 「말 놓기」 전용 뱅크가 없다(`act1vautochess` SHOP_DROP=b_char_set은 다른 모드)
   → 정비 단계도 유닛 탄생 소리를 쓴다 — 공식 클라로 확인(2026-10-10): `AutoChessDummyManager._PlayAudioWhenCharacterPlaced`가 말 종류
   (`AutoChessBattleUtil.GetChessType`)가 MAGIC이 아니면 `PlayAudioSignal("ON_UNIT_BORN", unit)`, MAGIC이면 손으로 `ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND` /
-  전장으로 `…_MAGIC_PLACE_BATTLE`. 우리 「장비」가 EQUIP(→ ON_UNIT_BORN)인지 MAGIC인지는 데이터 대조 전 [미확인].
+  전장으로 `…_MAGIC_PLACE_BATTLE`. 공식 표(`activity_table` `itemType`) 대조(2026-11-07): 우리 장비 112개는 EQUIP(→ ON_UNIT_BORN), MAGIC은 '신비한 고객' 등 3개(`chess_item_6_0*_m`)뿐이다. EQUIP 구매는 상점 소리 그대로인데 파일이 `b_char_tokenset`으로 같다. MAGIC을 전장으로 놓는 `…_MAGIC_PLACE_BATTLE`은 아직 안 이었다.
 - 고친 것: 소리는 정비 화면의 **낙하 연출과 같은 곳**에서 난다 — `render/app.js` setPrep이 내 보드·벤치 상태를 이전과 비교해 낙하(onDeploy)를 틀 때
   `pieceDeploy` 이벤트(`prepDeployed`) → `screens/game.js` → `audio.prepDeploy` → `playDeploySfx`(전투 'deploy'와 같은 함수: 전용 소리 → 공용, 공식 믹스).
   서버가 넣어 주는 보상(정예화 보상·결산 보상)도 상태 비교라 잡힌다. 경우별:
@@ -976,6 +978,7 @@
   전용 소리(b_char_tpartclce·snwlprdg·p_skill_frbytrtn_bn) 확인, 전투 뒤 정비 시작에 전체가 울리지 않음.
 
 ### 望 棋子 효과음 (관리자 제보 2026-10-07: 터지는 소리, 재능 바둑돌 배치음)
+- 터진 돌은 사망음이 없다(fx `consumed`) [추정·엔진: `ON_UNIT_DEAD`는 사망류 이유(`HP_ZERO`·`FALLDOWN`·`DEADLIKE_WITHDRAW`·`HP_ZERO_WITH_NO_SOURCE`)일 때만 나고(`Entity.IfReasonIsDeath`) 돌은 `Withdraw {_switchToDeadState: false}`로 물러나므로 사망류가 아니라고 봄 — `Character.Withdraw`에서 그 이유까지의 길은 끝까지 안 읽음].
 - 공식(EN `audio_data.json` + zh_CN `buff_template_data.json`): 놓은 바둑돌(토큰)이 터지면 그 토큰 능력 `ON_ABILITY_START.sktok_wang_<n>`
   = **p_atk_stwctp_d / _h / _s**(Battle_P_SAtk) + 타격 p_imp_stwctp_*(Battle_P_SImp). 우리는 타격음만 냈다(빠진 쪽 = 터지는 소리 자체).
   - S1 取势 타격 `wang_stone1_t[damage_audio]`: 적에게 거는 `wang_stone1_t[damage]`(지속 `sluggish`, `triggerInterval 1`, 첫 발 즉시)의 자식 버프가

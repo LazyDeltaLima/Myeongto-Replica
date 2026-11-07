@@ -246,7 +246,11 @@ export function kitHitKey(fx, ex, unitOf) {
     // 2026-11-01: 冻河 — S3's triggered effect put on an ally (tocka_s3[trigger], audioSignal tocka_s3_trigger_start_audio), S2's
     // projectile reaching its ally (projectile_chr_tocka_s2 HIT)
     case 'tockaFx': return def(ex.src) !== 'char_4244_tocka' ? null : ex.s === 3 ? 'tocka:s3trigger' : ex.s === 2 && ex.shot ? 'tocka:s2hit' : null;
-    case 'explode': return def(ex.by) === 'char_1035_wisdel' ? 'wisdel:bomb' : null;
+    case 'explode': return def(ex.by) === 'char_1035_wisdel' ? 'wisdel:bomb'
+      // 2026-11-07: 가상적: 관's and 현's shot arriving (projectile_enemy_acduml / _acdumm REACH, its burst)
+      : ex.kind === 'acdumlHit' ? 'acduml:reach' : ex.kind === 'acdummHit' ? 'acdumm:reach' : null;
+    // 2026-11-07: their strike: 관's phase 2 START (attack.0.1 / .2, one file), 현's ON (.attack.0.1 / .2, one file); 관's phase 1 has no bank for it
+    case 'beam': return ex.kind === 'acdumlStrike' && def(ex.from) === 'enemy_9021_acduml_2' ? 'acduml:strike2' : ex.kind === 'acdummStrike' ? 'acdumm:strike' : null;
     case 'burst': return def(ex.id) === 'token_10035_wisdel_wward' ? 'wisdel:token' : null;
     // 2026-11-01 (the linking sheet, tools/local-extract/link_sheet.py): 赤刃明霄陈 T2's held dodge gained (chen3_t2[evade]
     // ON_BUFF_ENABLE — Buff.OnEnable runs it as the buff is enabled) [추정·엔진: not again on a re-enable after a stun or
@@ -285,7 +289,7 @@ export function kitHitKey(fx, ex, unitOf) {
     // 2026-11-03: a waiting operator's slash as it redeploys (svash2_s_2[build][effect] PlayAudio svash2_s_2[range] at it — the
     // hits: aoeHitKey); 菲莱 S2's blast at her (philae_s_2[cd] audioSignal philae_aoe); 风丸's 折纸生花 as a <替身> appears —
     // the talent ability Talents/1 (ActiveBuffAbility kazema_standin[damage]) of the summoned <替身> (its AppearTalent) or of
-    // her stand-in state [추정·미조사: her own Talents/1 is a plain Talent — what casts it as she switches was not read]
+    // her stand-in state [추정·엔진: kazema_switchend's OnRallyPointLikeReborn at the end of kazema[switch2stand] is the moment; how a plain Talent casts from it was not followed]
     case 'aoe': return ex.skill === 'svash2' ? (def(ex.id) === 'char_1045_svash2' ? 'svash2:s2' : 'svash2:range')
       : ex.skill === 'philae_2' && def(ex.id) === 'char_4148_philae' ? 'philae:aoe'
       : ex.skill === 'origami' ? (def(ex.id) === 'char_4016_kazema' ? 'kazema:t1' : def(ex.id) === 'token_10022_kazema_shadow' ? 'kazema:t1token' : null)
@@ -669,7 +673,10 @@ const SKILL_DAMAGE_KEYS = Object.freeze({ char_4010_etlchi: Object.freeze({ 1: '
   // 2026-10-29: 克莱门莎 S3's shells — clemnt_s3[rocket_damage]'s buff damage (no ability HIT; their sound is 'clemnt:s3hit')
   char_4231_clemnt: Object.freeze({ 2: '' }),
   // 2026-11-04: 引星棘刺 S2's ticks sound thorn2_s2_damage's PlayAudio (the 'dmg' 9th field), 乌尔比安 S3's anchor its REACH (the kit's kitHit)
-  char_1039_thorn2: Object.freeze({ 1: '' }), char_4145_ulpia: Object.freeze({ 2: '' }) });
+  char_1039_thorn2: Object.freeze({ 1: '' }), char_4145_ulpia: Object.freeze({ 2: '' }),
+  // 2026-11-07: damage of a buff template is no ability's or projectile's HIT: 斥罪 S2's pulse (judge_s_2[aoe]; its own judge_s_2[audio]: fx 'aoe'), 焰影苇草 S3's ticks and
+  // splash (reed2_t_1[skill_3_dot] / [skill_3_aoe], no PlayAudio), 缇缇 S3's waking damage (titi_s_3[dmg_ticker]; its titi_s_3[awake]: fx 'wake') and T1 while it runs
+  char_4065_judge: Object.freeze({ 1: '' }), char_1020_reed2: Object.freeze({ 2: '' }), char_4056_titi: Object.freeze({ 2: '' }) });
 /** The sfx.kit key of unit model `def`'s skill damage during skill `skillIndex` (SKILL_DAMAGE_KEYS: '' silent), or null. */
 export function skillDamageKey(def, skillIndex) {
   return SKILL_DAMAGE_KEYS[def]?.[skillIndex] ?? null;
@@ -1717,7 +1724,9 @@ export class AudioManager {
     const ue = this.getManifest()?.audio?.sfx?.units?.[au.def];
     let c = null;
     if (au.side === 'enemy') {
-      if (au.eskill && now - au.eskill.at <= 3000) c = (ue?.sk?.[au.eskill.name] || []).find((x) => x.at === 'd') ?? null;
+      // 2026-11-07: a cast with a telegraph (검은 뿔의 루울's 8 s charge) lands past those 3 s: its first damage is still that skill's
+      if (au.eskill && (au.eskill.held || now - au.eskill.at <= 3000)) c = (ue?.sk?.[au.eskill.name] || []).find((x) => x.at === 'd') ?? null;
+      if (au.eskill) au.eskill.held = false;
     } else if (au.skillOn && Number.isInteger(au.skillIndex)) {
       const sk = skillDamageKey(au.def, au.skillIndex);
       if (sk != null) { au.kdAt = now; return this._kitSound(sk || null); }
@@ -2338,7 +2347,7 @@ export class AudioManager {
             // take-off plays that clip at the cast — the S1 mode turns Born into it]
             if (u.def === 'char_1015_aglna2' && u.skillIndex === 0) this._kitSound('aglna2:born');
             // 2026-11-02: 凛御银灰 S3's own buff svash2_s_3[self_bird_onuse] casts BirdAura_Self as it starts — the aura
-            // projectile_chr_svash2_s3's BORN [추정·미조사: the cast at the skill's start — the ability's own delay is not read]
+            // projectile_chr_svash2_s3's BORN (no `_preDelay`, no `_waitForAttackEvent`: at once)
             if (u.def === 'char_1045_svash2' && u.skillIndex === 2) this._kitSound('svash2:s3born');
             // 2026-11-03: 铁钳号·原型机's skill — its sktok_ironmn_pile3 ability START (a summon: no unit entry of its own)
             if (u.def === 'token_10027_ironmn_pile3') this._kitSound('ironmn:pile3s');
@@ -2444,6 +2453,7 @@ export class AudioManager {
               eu.eskill = { name: e[4].ability.toLowerCase(), at: now };
             }
           }
+          if (e[1] === 'telegraph' && e[4]?.caster != null) { const eu = this.units.get(e[4].caster); if (eu?.eskill) eu.eskill.held = true; }
           // local patch (maintainer report): a dollkeeper's form switch (归溟幽灵鲨: to the 替身 and back, audioOfficial.js)
           const ds = e[4]?.id != null ? dollSwitchSfx(this.units.get(e[4].id)?.def, e[1]) : null;
           if (ds) this._dollSwitch(e[4].id, ds);

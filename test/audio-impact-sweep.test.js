@@ -27,11 +27,7 @@ const REPEATED = Object.freeze({
   chess_char_3_20_b: [10, 'strikes: one each swing of 耶拉 S2'],
   chess_char_6_11_b: [12, 'strikes: 缪尔赛思 S3 each swing: her 流形 strikes the same enemy between her shot and its landing, so the shot is no longer the last attacker on it'],
   chess_char_4_03_b: [10, 'strikes: one each swing of 耶拉 S2'],
-  // Not judged yet: a periodic skill damage on the skill mode's impact, a hit by the client or a tick that should be silent
-  'char_4065_judge S2': [12, 'todo: judge_s_2[aoe] each second'],
-  chess_char_5_21_b: [23, 'todo: 寒檀 S2 twice a second'],
-  chess_char_5_02_b: [12, 'todo: 缇缇 S3 each second'],
-  chess_char_6_08_b: [9, 'todo: 焰影苇草 S3 each second'],
+  chess_char_5_21_b: [23, 'strikes: 寒檀 S2\'s icicles, each an attack of hers landing (projectile_chr_sntlla_s2 REACH)'],
 });
 
 function hear(c, manifest) {
