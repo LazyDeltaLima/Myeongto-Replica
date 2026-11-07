@@ -11,7 +11,7 @@ import { buildPlays, kitMomentKeys, kitNamedKeys, momentOf, bindingRows, stripCo
 import { KIT_OFFICIAL, kitOfficialPlan } from '../../public/js/render/fx/kitofficial.js';
 import { KEY_FX, syncStatusFx, wantedStatusFx, wornPrefabs } from '../../public/js/render/fxstatus.js';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
-import { kitOwned, wiringReport } from '../../tools/fx-wiring-report.mjs';
+import { kitOwned, wiringReport, prefabLinks } from '../../tools/fx-wiring-report.mjs';
 
 const row = (key, fx, moment, target, conds = []) => ({ key, src: 'template', moment, kind: 'effect', fx, target, life: '', conds });
 
@@ -125,6 +125,8 @@ test('the wiring report: prefabs nothing reaches, and a drawn prefab the name ru
   assert.deepEqual(r.overlap.map((o) => [o.fx, o.skill, o.tables]), [['x_skill_01_buff', 1, ['KEY_FX x:buff']]]);
   const quiet = wiringReport({ tables, modes, hand, owned: new Set(['x_skill_01_buff']) }).x;
   assert.deepEqual(quiet.overlap, [], 'KIT_OWNED silences the name rule');
+  assert.deepEqual(wiringReport({ tables, modes, hand, names: new Set(['x_named']), linked: new Set(['x_orphan']) }).x.nameless, [], 'another prefab starts it');
+  assert.deepEqual([...prefabLinks({ right: 'a', back: { effect: 'b' }, swFace: { down: 'c', oneShot: 1 }, rgroup: { pick: ['d'] }, three: { up: 'e', start: 1 }, equipFx: { hooks: [['u', 1, 'f']] }, sms: [{ states: [{ name: 'g' }] }], lineDyn: { end: 'h' } })].sort(), ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
 });
 
 test('the wiring report reads KIT_OWNED from fxgame.js', () => {

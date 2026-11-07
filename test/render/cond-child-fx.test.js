@@ -42,12 +42,18 @@ test('琳琅诗怀雅 S2: an attack plays no SpawnToken cast; the throw does', {
   assert.ok(has(take(), 'swire2_skill_02_start'));
 }));
 
-test('折桠 S2: the opening blast plays FirstAttack\'s cast; an attack only its own', { skip: NO_DATA }, () => withLayer(async ({ layer, unit, take }) => {
+test('折桠 S2: the first swing casts FirstAttack\'s and not the attack\'s, its strike\'s blast nothing more; an attack only its own', { skip: NO_DATA }, () => withLayer(async ({ layer, unit, take }) => {
   const views = new Map([[1, unit(1, 'ally', 'char_4207_branch', 0, 1)], [9, unit(9, 'enemy', 'enemy_x', 2)]]);
   layer.onEvent(['skill', 1, 1], views);
-  layer.onEvent(['fx', 'aoe', 0, 0, { x: 0, y: 0, radius: 1.5, id: 1, skill: 'resolve' }], views);
+  const atCast = take();
+  assert.ok(has(atCast, 'branch_skill_02_buff_01'), `${atCast}`);
+  assert.ok(!has(atCast, 'branch_skill_02_range_01') && !has(atCast, 'branch_skill_02_start_01'), `no first attack yet: ${atCast}`);
+  layer.onEvent(['swing', 1, 0.2, 'none', 0, 9, null, 0, 'FirstAttack'], views);
   const b = take();
   assert.ok(has(b, 'branch_skill_02_range_01') && has(b, 'branch_skill_02_start_01'), `${b}`);
+  assert.ok(!has(b, 'branch_skill_02_attack_01'), `${b}`);
+  layer.onEvent(['fx', 'aoe', 0, 0, { x: 0, y: 0, radius: 1.5, id: 1, skill: 'resolve', targets: [9] }], views);
+  assert.deepEqual(take(), ['branch_skill_02_hit_01'], 'the strike: SpAttack\'s hit on what it makes 战栗, no second cast');
   layer.update(2);
   take();
   layer.onEvent(['swing', 1, 0.2, 'none', 0, 9], views);

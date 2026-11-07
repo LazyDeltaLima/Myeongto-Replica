@@ -646,7 +646,9 @@ export const KIT_OFFICIAL = {
     // (2026-11-06) 리프레사 S2: each of her delayed shots projectile_chr_liesel_s2_1 / _2 / _3 `_effectsWhenReached` where it lands
     liesel: cite(['projectile_chr_liesel_s2_1', 'projectile_chr_liesel_s2_2', 'projectile_chr_liesel_s2_3'], () => ({ play: [once('liesel_skill_02_hit_01', 'point')] })),
     judge: cite('judge_s_2[aoe]', (o) => (o.skill === 'judge:atonement' ? { play: [once('judge_skill_02_weapon_hit_01')] } : null)),
-    branch: cite('char_4207_branch/Modes/S2/Body/Attack/FirstAttack', (o) => (o.skill === 'resolve' ? { play: [{ tpl: 'char_4207_branch/Modes/S2/Body/Attack/FirstAttack', cast: true }] } : null)),
+    // 折桠 S2: her first attack's strike triggers SpAttack, whose `_hitEffects` land on each enemy it makes 战栗 (the swing itself:
+    // the FirstAttack row of modes.json talentAtk)
+    branch: cite('skchr_branch_2/SpAttack', (o) => (o.skill === 'resolve' ? { play: [{ n: 'branch_skill_02_hit_01', on: 'targets', life: 'once' }] } : null)),
   },
   // (2026-11-03) 逻各斯 S1 殁亡: logos_s_1 on the enemy it executes — CreateEffect logos_skill1_hit_03 there (the HP check is the
   // sim's); T1's shot landing: projectile_chr_logos_t `_effectsWhenHit` logos_talent_hit_01; S3 延异视阈's clearing end: the

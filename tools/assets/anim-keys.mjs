@@ -221,11 +221,11 @@ export function keyRoles(op, durations) {
     // a clip an ability emits as the skill starts (AnimationEmitBehaviour, 缄默德克萨斯 S2 / S3 `Start_n`) opens it
     const emitted = Object.values(abs).flatMap((a) => a?.emit || []).find((k) => k !== 'Idle' && J(k, m > 0 ? m : 0));
     if (emitted && !c.begin) { c.begin = J(emitted, m > 0 ? m : 0); why.push(`emit ${emitted}`); }
-    // a first attack of its own (折桠 S2 `FirstAttack`, a whole attack, not a ThreePart begin): the sim times no such
-    // attack, so its clip opens the skill [ASSUMED]
+    // a first attack of its own (折桠 S2 `FirstAttack`, a whole attack, not a ThreePart begin): the clip of the swing the sim
+    // names with that ability (render/spine.js swing)
     if (firstPath && c.loop && !c.firstAttackBegin && !c.begin) {
       const f = J(modes[m].abilities[firstPath].key, m);
-      if (f && f !== c.loop) { c.begin = f; why.push(`first ${firstPath}`); }
+      if (f && f !== c.loop) { c.signals = { [firstPath.split('/').pop()]: f }; why.push(`first ${firstPath}`); }
     }
     if (cast?.loop && cast.loop === out.attack?.loop && !c.begin) { c.loop = null; loopAb = null; why.push('cast = attack'); }
     // the modes around the skill's own (`<mode>_TakeOff` before it, `<mode>_End` / `_Landing` after it: 蒂比 S1, 纯烬艾雅法拉 S3)
@@ -457,7 +457,7 @@ export function overlayKeyRoles(anims, kr, charId = '') {
       if (k.down) c.down = { by: c.down?.by ?? k.down.by, map: { ...k.down.map, ...c.down?.map } };
     } else {
       c = { begin: k.begin, loop: k.loop, end: k.end, idle: k.idle, index: Number(i) };
-      for (const f of ['firstAttackBegin', 'attackBegin', 'attackEnd', 'down']) if (k[f]) c[f] = k[f];
+      for (const f of ['firstAttackBegin', 'attackBegin', 'attackEnd', 'down', 'signals']) if (k[f]) c[f] = k[f];
       // the mode attacks with no clip (anim-overrides.mjs applyModeAttacks reads the same from the attack timing file, which
       // has nothing where the mode's attack is not `Body/Attack`: 信仰搅拌机 Sk3, 小满 S2, 薄绿 S2)
       if (k.stance) c.stance = true;

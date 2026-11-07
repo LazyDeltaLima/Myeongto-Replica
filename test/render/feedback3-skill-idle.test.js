@@ -38,14 +38,36 @@ function actor(charId, skillIndex) {
 const run = (a, s, dt = 1 / 60) => { for (let t = 0; t < s - 1e-9; t += dt) a.update(dt); };
 const names = (a) => a.log.map(([, n]) => n);
 
-test('折桠 S2: begin, then Skill_2_Idle — the jump attack only on attacks, back to the idle after them, End only when the skill ends', () => {
+test('慕斯 T1: the double attack the sim names is Attack_2 from the swing\'s start, and its strikes\' signal leaves it alone', () => {
+  const a = actor('char_185_frncat', 0);
+  a.setSkill(false);
+  a.log.length = 0;
+  a.swing(0.367, null, false, 'T.1');
+  assert.equal(a.current, 'Attack_2', 'the whole clip');
+  run(a, 0.2);
+  a.log.length = 0;
+  a.attack(1.2, false, 'T.1');
+  assert.deepEqual(a.log, [], 'not restarted from its strike frame');
+  run(a, 1.5);
+  a.log.length = 0;
+  a.swing(0.3, null, false, 'other');
+  assert.notEqual(a.current, 'Attack_2', 'a signal the role names no clip for: the attack clip');
+});
+
+test('折桠 S2: no opening clip, Skill_2_Idle — the first swing is Skill_2_Begin, the jump attack only on attacks, back to the idle after them, End only when the skill ends', () => {
   const a = actor('char_4207_branch', 1);
   assert.deepEqual([a.roles.skill.loop, a.roles.skill.idle], ['Skill_2_Loop', 'Skill_2_Idle'], 'the manifest roles');
   a.setSkill(true);
-  assert.deepEqual(a.log, [['set', 'Skill_2_Begin', false], ['queue', 'Skill_2_Idle', true]], 'no Skill_2_Loop queued after the begin clip');
+  assert.deepEqual(a.log, [['set', 'Skill_2_Idle', true]], 'the cast plays no clip: her first attack opens the skill');
   run(a, 3);
   assert.equal(a.mode, 'base');
   assert.ok(!names(a).includes('Skill_2_Loop'), 'no attack: no jump attack');
+  // an enemy comes into range: the sim's first attack, FirstAttack's whole clip, its strike frame on the swing's
+  a.swing(0.6, null, false, 'FirstAttack');
+  assert.equal(a.current, 'Skill_2_Begin');
+  assert.ok(!names(a).includes('Skill_2_Loop'), 'no jump attack in that swing');
+  run(a, 1.2);
+  assert.equal(a.current, 'Skill_2_Idle', 'back to the skill idle');
   // she is hit, an enemy stands on her tile: attacks every 1.5 s
   a.log.length = 0;
   a.attack(1.5);

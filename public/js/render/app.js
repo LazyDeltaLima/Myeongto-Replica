@@ -1828,7 +1828,7 @@ export async function createFieldView(host, options = {}) {
         if (w > 0) {
           const seen = swingStrikes.get(e[1]);   // (the look-ahead's note carries the event's own time)
           if (!(seen != null && Math.abs(seen - now - w) < 0.2)) swingStrikes.set(e[1], now + w);
-          views.get(e[1])?.onSwing?.(w, e[3], e[4] === 1, e[6] === 1, e[7] === 1);
+          views.get(e[1])?.onSwing?.(w, e[3], e[4] === 1, e[6] === 1, e[7] === 1, e[8]);
         }
         break;
       }

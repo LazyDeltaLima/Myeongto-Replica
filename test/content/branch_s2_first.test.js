@@ -34,6 +34,13 @@ test('折桠 S2: nothing until her first attack; its strike (Skill_2_Begin 0.6) 
   assert.ok(h.runUntil(() => hits.filter((t) => t >= castAt).length > 0, 5), 'the next attack hits');
   const next = swings.filter((x) => x.at > first.at)[0];
   assert.equal(next.c.timing ?? null, null, 'on the attack clip');
+  // the view: the first swing names FirstAttack (its clip and cast, the 9th field), its strike's blast the enemies it reached
+  assert.equal(first.c.signal, 'FirstAttack');
+  assert.equal(next.c.signal, null, 'the attacks after it are the plain child');
+  const sw = h.events.filter((ev) => ev[0] === 'swing' && ev[1] === u.id);
+  assert.deepEqual(sw.filter((ev) => ev[8] === 'FirstAttack').length, 1, `${JSON.stringify(sw.slice(0, 3))}`);
+  const blast = h.events.find((ev) => ev[0] === 'fx' && ev[1] === 'aoe' && ev[4]?.skill === 'resolve');
+  assert.deepEqual(blast?.[4].targets, [e.id]);
 });
 
 test('折桠 S2: the first attack waits for an enemy in her attack range; an enemy off it stays free of 战栗 however long the skill runs', () => {

@@ -21013,8 +21013,6 @@
     "branch_attack_01_start_01"
    ],
    [
-    "branch_skill_02_range_01",
-    "branch_skill_02_start_01",
     "branch_skill_02_attack_01"
    ]
   ],
@@ -21043,6 +21041,11 @@
     }
    },
    {
+    "branch_skill_02_attack_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
     "branch_skill_02_range_01": {
      "s": 2,
      "e": 3,
@@ -21052,11 +21055,19 @@
      "s": 2,
      "e": 3,
      "o": 0
-    },
-    "branch_skill_02_attack_01": {
-     "s": 2,
-     "e": 3,
-     "o": 0
+    }
+   }
+  ],
+  "talentAtk": [
+   null,
+   {
+    "FirstAttack": {
+     "cast": [
+      "branch_skill_02_range_01",
+      "branch_skill_02_start_01"
+     ],
+     "trail": [],
+     "hit": []
     }
    }
   ],

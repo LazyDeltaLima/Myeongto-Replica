@@ -5,7 +5,7 @@
 //
 //   unplayed  a binding row with an extracted prefab that nothing plays (test/helpers/fxBindings.js unplayed), with the status
 //             test/render/fx-unplayed-local-list.js gives it (a template row: fx-bindings.test.js UNPLAYED), or NEW
-//   nameless  an extracted prefab of its bundle no row, table, mode or name rule reaches
+//   nameless  an extracted prefab of its bundle no row, table, mode, name rule or other prefab (prefabLinks) reaches
 //   overlap   a prefab a hand table or a key a kit names draws that the skill's activation also plays by its name, with the rows
 //             that create it: check whether the name rule draws it a second time on the caster (fxgame.js KIT_OWNED silences it; a
 //             buff the kit wears needs nothing, fxstatus.js wornPrefabs)
@@ -44,11 +44,26 @@ const strings = (o, out = new Set()) => {
   return out;
 };
 
+/** The prefabs an extracted effect `def` swaps to or starts itself (its left / right pair, facing and random copies, its hooks). */
+export function prefabLinks(def) {
+  const out = new Set();
+  const add = (v) => { if (typeof v === 'string' && v) out.add(v); };
+  add(def?.right);
+  add(def?.back?.effect);
+  add(def?.lineDyn?.end);
+  for (const v of Object.values(def?.swFace || {})) add(v);
+  for (const v of Object.values(def?.three || {})) add(v);
+  for (const v of def?.rgroup?.pick || []) add(v);
+  for (const h of def?.equipFx?.hooks || []) add(h[2]);
+  for (const m of def?.sms || []) for (const st of m?.states || []) add(st?.name);
+  return out;
+}
+
 /**
  * { bundle: { char, unplayed: [{ key, fx, reason, status }], nameless: [prefab], overlap: [{ fx, skill, tables, rows }] } } —
  * pure over its tables. `status`: 'key|prefab' → the list's word.
  */
-export function wiringReport({ tables, modes, plays = null, status = {}, owned = new Set(), hand = [], names = new Set(), patterns = [] }) {
+export function wiringReport({ tables, modes, plays = null, status = {}, owned = new Set(), hand = [], names = new Set(), patterns = [], linked = new Set() }) {
   const bundles = tables.index?.bundles || {};
   const emitted = tables.index?.emitted || {};
   const rows = [...tables.template, ...(tables.local || [])];
@@ -83,7 +98,7 @@ export function wiringReport({ tables, modes, plays = null, status = {}, owned =
     const em = new Set(Array.isArray(emitted) ? emitted : emitted[b] || []);
     const char = charOf.get(b);
     for (const n of prefabs) {
-      if (rowFx.has(n) || bound.has(n) || names.has(n) || em.has(n) || patterns.some((r) => r.test(n))) continue;
+      if (rowFx.has(n) || bound.has(n) || names.has(n) || em.has(n) || linked.has(n) || patterns.some((r) => r.test(n))) continue;
       entry(b).nameless.push(n);
     }
     if (!char) continue;
@@ -106,7 +121,15 @@ if (isMain) {
     process.exit(1);
   }
   const { names, patterns } = renderNames();
-  const report = wiringReport({ tables: loadTables(), modes: readJson(join(LOCAL, 'modes.json')), plays: existsSync(join(LOCAL, 'plays.json')) ? readJson(join(LOCAL, 'plays.json')) : null, status: UNPLAYED_LOCAL, owned: kitOwned(), hand: handEntries(), names, patterns });
+  const tablesIndex = readJson(join(LOCAL, 'index.json'));
+  const linked = new Set();
+  for (const [b, ps] of Object.entries(tablesIndex.bundles || {})) {
+    for (const n of ps) {
+      const f = join(LOCAL, b, `${n}.json`);
+      if (existsSync(f)) for (const l of prefabLinks(readJson(f))) linked.add(l);
+    }
+  }
+  const report = wiringReport({ linked, tables: loadTables(), modes: readJson(join(LOCAL, 'modes.json')), plays: existsSync(join(LOCAL, 'plays.json')) ? readJson(join(LOCAL, 'plays.json')) : null, status: UNPLAYED_LOCAL, owned: kitOwned(), hand: handEntries(), names, patterns });
   const quiet = (r) => !r.unplayed.length && !r.nameless.length && !r.overlap.length && !r.foreign.length;
   const wanted = ids.length ? ids : Object.keys(report).filter((b) => !quiet(report[b])).sort();
   if (process.argv.includes('--json')) console.log(JSON.stringify(Object.fromEntries(wanted.map((b) => [b, report[b] ?? null])), null, 1));

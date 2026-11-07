@@ -3851,7 +3851,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // … and 체르니 S2's FinalAttack, 18.6 s in (kitofficial.js 'kitHit'): modes.json reads it as the cast's
     'pianst_skill_02_end', 'pianst_skill_02_end_range', 'pianst_skill_02_end_hit',
     // 2026-11-07: 真言's S1 / S2 hits, by the target's state (kitofficial.js 'kitHit'): the `_hit` name rule (play) drew S2's on every hit, under them
-    'mantra_skill_01_hit_01', 'mantra_skill_02_hit_01']);
+    'mantra_skill_01_hit_01', 'mantra_skill_02_hit_01',
+    // … and 折桠 S2's first attack: FirstAttack's cast on its swing (modes.json talentAtk), SpAttack's hit on what it makes 战栗
+    // (kitofficial.js 'aoe' `resolve`), none of them at the cast or on her later hits
+    'branch_skill_02_range_01', 'branch_skill_02_start_01', 'branch_skill_02_hit_01']);
   // 2026-11-06: with the buffs a kit wears as statuses (fxstatus.js wornPrefabs), which those draw on whoever wears them
   let ownedOf = null, ownedSet = KIT_OWNED;
   const ownedNow = () => {

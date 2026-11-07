@@ -39,6 +39,7 @@ export default {
           battle.on('swing', (c) => {
             if (c.unit !== unit || !unit.mem.branchFirst) return;
             const iv = unit.s.interval, scale = Math.max(0.1, Math.min(1, iv / FIRST_CLIP));
+            c.signal = 'FirstAttack';
             c.timing = { strike: FIRST_HIT * scale, action: FIRST_CLIP * scale, cooldown: iv };
           }, { owner: unit });
           // its strike: SpAttack instead of a hit (`_runActionOnEvent` ON_SPELL_ON ends branch_s_2[first])
@@ -48,7 +49,7 @@ export default {
             ctx.targets = [];
             const grid = def?.skill?.rangeGrid;
             const foes = grid ? enemiesInGrid(battle, unit, grid, { canHitFly: false, groundOnly: true }) : battle.foesInRadius(unit.x, unit.y, 1.5).filter((e) => !e.isFlying);
-            battle.fx('aoe', { x: unit.x, y: unit.y, radius: 1.5, id: unit.id, skill: 'resolve' });
+            battle.fx('aoe', { x: unit.x, y: unit.y, radius: 1.5, id: unit.id, skill: 'resolve', targets: foes.map((e) => e.id) });
             for (const e of foes) battle.applyStatus(e, 'tremble', { duration: num(bb.not_combat), source: unit });
           }, { owner: unit });
         }

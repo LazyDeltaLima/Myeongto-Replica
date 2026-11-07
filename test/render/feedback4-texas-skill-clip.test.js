@@ -91,7 +91,7 @@ test('a skill that stays on (银灰 S3 真银斩: same clip shape, 1.33 s clip) 
 });
 
 test('unchanged: a Begin clip still runs into its queued next clip, a skill with its own Idle still idles, and End still closes the skill', () => {
-  const b = actor('char_4207_branch', 1);   // 折桠 S2: Skill_2_Begin → Skill_2_Idle (community report #23)
+  const b = actor('char_294_ayer', 1);   // char_294_ayer S2: Skill_2_Begin → Skill_2_Idle (no loop queued after the begin clip)
   b.setSkill(true);
   assert.deepEqual(b.log, [['set', 'Skill_2_Begin', false], ['queue', 'Skill_2_Idle', true]]);
   const n = actor('char_1014_nearl2', 2);   // 耀骑士临光 S3: no Begin, own Idle — plays that idle at once

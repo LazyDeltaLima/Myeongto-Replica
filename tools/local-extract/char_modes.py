@@ -796,6 +796,7 @@ def mode_parts(tree, mode_paths, projectiles=None):
         kroos2_attack_start_02), 圣约送葬人's 受选之人 shot; the sim marks such a swing and its 'atk' events with 'T.<n>'.
       2026-11-06: and a child whose own trigger asks for a buff on the operator (`_buffKey` on a GameObject `Trigger…` under
         it, an `_abilityConfigs` group): 焰尾's Attack_T1 / Attack_T1+ (flamtl_t_1[evade], after a dodge), the sim's swing naming it.
+      2026-11-07: and a config group's first attack with its own buff condition: 折桠 S2's FirstAttack (branch_s_2[first]).
       2026-11-01: talent[mode] also holds { '<child>': … } — a child of the mode's attack (`Body/Attack/<child>`) the attack
         casts first only while its own validator holds (`SelfConditionalValidator` in its subtree, under the attack's
         AbilityFirstSucceedGroup): 冻河's T2Attack (her mark tocka_t2[aoe_mark] — projectile_chr_tocka_t2 and its
@@ -858,6 +859,10 @@ def mode_parts(tree, mode_paths, projectiles=None):
                     tal[parts[2]] = gp
                 configs = any(isinstance(x.get('_abilityConfigs'), list) for x in by_go.get(mp + '/Body/Attack', []))
                 if configs and any(x.get('_buffKey') for q, cs in by_go.items() if q.startswith(gp + '/Trigger') for x in cs):
+                    tal[parts[2]] = gp
+                # (a config group's first attack whose own Selector holds a SelfConditionalValidator on a buff of hers: 折桠 S2's
+                # FirstAttack, while branch_s_2[first] holds; its swing is the sim's 'FirstAttack')
+                if configs and parts[2].startswith('First') and any(x.get('_checkContainBuffs') == 1 and x.get('_buffKeys') for x in by_go.get(gp + '/Selector', [])):
                     tal[parts[2]] = gp
         if tal:
             talent[i] = {k: collect(i, ap) for k, ap in sorted(tal.items())}

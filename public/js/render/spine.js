@@ -674,17 +674,20 @@ export class SpineActor {
    * A normal attack's swing starts now (b.ev 'swing'; docs/rules/render.md 「공격 모션」): its strike — the 'atk' events —
    * comes `windup` game seconds later. The attack clip plays once from its first frame at swingSpeed (the official
    * speed: its OnAttack frame meets the strike), then holds and rests; the 'atk' events of that strike leave it alone
-   * (attack). `first`: the sim opened this swing with its first-attack begin (the 'swing' event's 8th field). Returns false
-   * when nothing was started (stunned, dying, a change clip, no attack clip, no wind-up — the 'atk' path then shows the
-   * strike as before).
+   * (attack). `first`: the sim opened this swing with its first-attack begin (the 'swing' event's 8th field). `signal`: the
+   * child ability the sim casts in its place (the 9th field); a clip the role names for it is the whole swing (折桠 S2's
+   * FirstAttack `Skill_2_Begin`, 慕斯's double attack `Attack_2`). Returns false when nothing was started (stunned, dying, a
+   * change clip, no attack clip, no wind-up — the 'atk' path then shows the strike as before).
    */
-  swing(windup, alt = null, first = false) {
+  swing(windup, alt = null, first = false, signal = null) {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant' || this.mode === 'aim' || !(windup > 0)) return false;
     if (this._endPlaying()) return false; // local patch
     const clip = this._attackClip();
     if (!clip) return false;
-    this._nextAlt(clip, alt);
-    const name = this._loopOf(clip);
+    const sig = typeof signal === 'string' && signal ? clip.signals?.[signal] : null;
+    const own = typeof sig === 'string' && this.has(sig) ? this._dn(clip, sig) : null;
+    if (!own) this._nextAlt(clip, alt);
+    const name = own ?? this._loopOf(clip);
     const loopDur = this.dur(name);
     const hits = this.entry.hits && this.entry.hits[name];
     // the strike frame; a clip with no OnAttack event strikes as the swing ends (the sim's attackTiming)
@@ -693,7 +696,7 @@ export class SpineActor {
     // the first swing of a spell of attacks opens on the role's begin clip (the client's ThreePartOneshotAnimation
     // `_onlyPlayBeginAnimWhenFirstAttack`, the sim's `first`): begin and attack clip share the wind-up, as the client
     // scales them together and the sim strikes after both (server/sim/ai.js attackTiming)
-    const begin = this._firstBegin(clip, !!first);
+    const begin = own ? null : this._firstBegin(clip, !!first);
     const lead = begin ? this.dur(begin) : 0;
     const ts = swingSpeed(hit + lead, windup);
     this.mode = 'attack';
@@ -702,6 +705,7 @@ export class SpineActor {
     this.swingAt = this.clock;
     this.swingWindup = windup;
     this.swingFirst = !!first;
+    this.swingSignal = own ? signal : null;
     this.windUntil = null;
     this.wound = false;
     if (begin) { this._play(begin, false, { timeScale: ts, mix: 0.06 }); this._queue(name, false, ts); }
@@ -730,7 +734,7 @@ export class SpineActor {
    */
   swingElapsed() {
     return this._swinging() && this.swingAt != null
-      ? { windup: this.swingWindup, elapsed: Math.max(0, this.clock - this.swingAt), alt: this.alt?.name ?? null, combat: this.combatHit, first: this.swingFirst } : null;
+      ? { windup: this.swingWindup, elapsed: Math.max(0, this.clock - this.swingAt), alt: this.alt?.name ?? null, combat: this.combatHit, first: this.swingFirst, signal: this.swingSignal ?? null } : null;
   }
 
   /** A swing's clip is playing (swing): the 'atk' events of its strike, and any other attack meanwhile, leave it alone. */
@@ -754,7 +758,7 @@ export class SpineActor {
     if (this._endPlaying()) return; // local patch
     if (!once) this.interval = clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
     const sig = signal ? this._attackClip()?.signals?.[signal] : null;
-    if (this.has(sig)) { this._signalStrike(sig); return; }
+    if (this.has(sig) && !(signal === this.swingSignal && this._swinging())) { this._signalStrike(sig); return; }
     if (this._swinging()) return;   // the strike of a swing already playing at the official speed
     const clip = this._attackClip();
     if (!clip) return;

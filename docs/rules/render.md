@@ -810,7 +810,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     시전 뒤 자기 클립으로 공격하는 모드면 시전이 begin(余 S3 `CastAnimation`); 모드 Idle 짝을 붙드는 채널 + 클립 있는 다른 능력이면 채널이 자세·그 능력이 공격(望 S3
     `SpawnAnim`); `_defaultModeIndex`가 자기 모드인 스킬은 그 모드가 배치부터의 상태(E `equip`)라 스킬 클립이 아님(望 S2·琳琅诗怀雅 S1/S2·引星棘刺 S3);
     `AnimationEmitBehaviour`가 시작에 트는 클립이 begin(缄默德克萨斯 `Start_n`); 방향별 모드(灰毫 `S2(U)/(D)/(LR)`)는 이 뼈대에 공격 클립이 있는 것 — 앞 `(LR)`·뒤 `(U)`;
-    모드의 `FirstAttack`(베토치키 S2, 통째로 다른 첫 공격)은 공식이 첫 공격으로 치지만 시뮬이 아직 따로 치지 않아 시전 begin으로 튼다(공식과 다름, `sim.md` 「일반 공격 타이밍」); `_animKey ""`인 공격 능력이 모드에 그것뿐이면 자세(信仰搅拌机 Sk3).
+    모드의 `FirstAttack`(베토치키 S2, 통째로 다른 첫 공격)은 역할의 `signals`로, 시뮬이 그 신호로 알린 휘두름 전체가 그 클립이다(`spine.js swing`, 2026-11-07; 시전 begin 없음, 신호 클립을 휘두름 처음부터 트는 것은 무스 재능 `Attack_2`도 같음, `sim.md` 「일반 공격 타이밍」); `_animKey ""`인 공격 능력이 모드에 그것뿐이면 자세(信仰搅拌机 Sk3).
     이걸로 바뀐 것(앞·뒤 각 9~10모델, 클라 기준 — 관리자 결정): 风笛 S2 = `Skill` 한 번·S3 = 모드 공격 `Skill_2_Loop`(그동안 뒤바뀜, `Skill_2_Begin/End`는 어떤 키도
     부르지 않음); 琳琅诗怀雅 S1·S2 시전 클립 없음(치유·소환 때 `Skill_1`·`Skill_2`는 공격 신호 그대로); 送葬人 S2 시전 begin 없음(첫 공격만 `Skill_Right_Begin`);
     어떤 키도 부르지 않는 begin/end를 지움 — 维什戴尔 S2 end·海霓 S2·哈洛德 S2 end·异客 S2·菲莱 S2 begin(뒤)(버프 템플릿 `PlayUnitAnimation` 13개도 Idle·Default뿐);

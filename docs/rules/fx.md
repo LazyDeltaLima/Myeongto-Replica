@@ -3439,7 +3439,7 @@
     `keyedAll`처럼 조건이 성립한 것으로 본다. 이름 규칙으로 풀 수 없는 것(방향·중첩·적/아군 갈림)은 손 표에 둔다.
   - 상태 경로를 처음 쓴 키트(2026-11-06, 바이슨·우요우): `test/helpers/fxBindings.js unplayed`가 `b`가 붙은 키의 `held`·`when`·`moment`를 재생으로 친다. 밑줄 없는 키(`cripple`)는 `kitNamedKeys`가 읽지 않으니 `KEY_FX`에 적는다. 이름 규칙이 같은 프리팹을 시전자에게 켜면 `KIT_OWNED`에 넣는다(`bison_skill_02_buff`, `nothin_skill02_buff_*`).
 - 연결 보고(2026-11-05): `node tools/fx-wiring-report.mjs --id <charId>` — 오퍼레이터를 더한 뒤 남은 연결을 읽기만 해서 보여 준다. `foreign`(2026-11-06) 행이 가리키는데 어디에도 안 뽑힌 프리팹 — 다른 번들·공용 번들에 있어 추출이 놓친 것(`fx_extract.py --bundle <그 번들> --prefab <그것>`), `unplayed` 아무도 안 트는 행과 목록의 상태(없으면 NEW),
-  `nameless` 행·표·모드·이름 규칙 어디에도 안 걸리는 프리팹, `overlap` 손 표나 키트가 이름을 쓴 키가 그리는 프리팹을 스킬 발동의 이름 규칙도 시전자에게 트는 경우, `keyless`(`--id`일 때만, 2026-11-06) 버프 템플릿의 프리팹인데 어느 키트도 키를 안 쓰고 손 표도 안 그리는 경우: 틀어져도 이름 규칙으로 시전자에게 시전 때 나온다. 키트가 버프로 입는 키(`worn`, 키트 코드에서 `moment`·`hitFx`·사건의 `k`·`buff`로 넘기지 않는 키)의 프리팹은 이름 규칙이 자동으로 뺀다(`fxstatus.js wornPrefabs`, 2026-11-06: 바이슨 S2 자기 버프가 스킬과 상태로 두 번 시작했음). 그 밖의 `KIT_OWNED`는 자동으로 만들지 않는다:
+  `nameless` 행·표·모드·이름 규칙·다른 프리팹의 연결(`prefabLinks`: 방향 짝 등) 어디에도 안 걸리는 프리팹, `overlap` 손 표나 키트가 이름을 쓴 키가 그리는 프리팹을 스킬 발동의 이름 규칙도 시전자에게 트는 경우, `keyless`(`--id`일 때만, 2026-11-06) 버프 템플릿의 프리팹인데 어느 키트도 키를 안 쓰고 손 표도 안 그리는 경우: 틀어져도 이름 규칙으로 시전자에게 시전 때 나온다. 키트가 버프로 입는 키(`worn`, 키트 코드에서 `moment`·`hitFx`·사건의 `k`·`buff`로 넘기지 않는 키)의 프리팹은 이름 규칙이 자동으로 뺀다(`fxstatus.js wornPrefabs`, 2026-11-06: 바이슨 S2 자기 버프가 스킬과 상태로 두 번 시작했음). 그 밖의 `KIT_OWNED`는 자동으로 만들지 않는다:
   인용 키로 만들면 그 키의 다른 행 프리팹까지 꺼진다(가비알 디 인빈서블 S2 `gvial2_skill_2_buff_02`·페넌스 S2 `judge_skill_02_buff_01` 등 2026-11-05 대조). 그래서 겹침은 보고하고 사람이 판단한다.
   - 계획: 투사체 키 `tpl`에 `fly`가 있으면 비행 = 그 투사체의 `_mainEffect` 하나(둘 이상이면 재생 없음), `to`로 유닛에 날면 `_effectsWhenHit`가 `hit`,
     `_effectsWhenReached`는 착지점에 한 번(`after: 'fly'`); `fly`가 없으면 그것들을 `on`에 한 번.
@@ -3841,7 +3841,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 공격 묶음(`_abilityConfigs`)의 자식 가운데 조건이 붙은 능력의 이펙트가 평타마다 나오던 것을 조건 때만 나오게 했다(공식 클라에서 확인: 각 자식의 `_castEffects`·`_hitEffects`, 트리거·선택기 조건). `modes.json`의 모드 목록은 자식들을 합쳐 두기 때문에 생긴 일이다.
 
 - **스와이어 디 엘리건트 위트 S1 `HealAlly`·S2 `SpawnToken`**: 금화 버프 `swire2_can_use_gold`가 있을 때의 능력. 키트 순간으로 튼다: 시전은 `swire2Heal`·`swire2Throw`, `HealAlly`의 타격 `swire2_skill_01_hit`은 치유받는 아군 위에(`coin`의 `heal`). 평타 목록에서는 `fxmap.js KIT_CAST`·`KIT_HIT`로 뺀다.
-- **브랜치 S2 `FirstAttack`**: `branch_s_2[first]`가 있을 때의 시작 동작으로 피해가 없고 대상도 필요 없다. 키트의 시작 전율(`aoe` `resolve`)에 `branch_skill_02_range_01`·`_start_01`을 튼다. 평타는 `branch_skill_02_attack_01`만.
+- **베토치키 S2 `FirstAttack`**: `branch_s_2[first]`가 있을 때의 첫 공격으로 피해가 없다(자기 `Selector`의 `_checkContainBuffs`). `char_modes.py mode_parts`가 `talentAtk`로 분리하고 렌더는 시뮬 `swing`의 신호 `FirstAttack`으로 고른다. 휘두름 시작에 `branch_skill_02_range_01`·`_start_01`(ON_CAST_START), 그 타격에 `TriggerAbility`로 나가는 `SpAttack`의 `_hitEffects` `branch_skill_02_hit_01`을 전율 걸린 적마다(`aoe` `resolve`의 `targets`). 이름 규칙이 시전에 `_range_01`을 또 틀고 `skills[1].target`이 뒤의 타격에 `_hit_01`을 틀지 않게 `KIT_OWNED`에 넣었다. 뒤의 공격은 `branch_skill_02_attack_01`만.
 - **혼 S2**: 저지한 적을 쏘는 `BlockedRangedAttack`·`SelfRangedAttack`은 `horn_skill_02_start`·`_start_01`(클립 `Skill_2_A_Loop`), 멀리 쏘는 `RangedAttack`은 `_start_02`(`Skill_2_B_Loop`). 다른 모드처럼 `fortress`로 나눈다. `SelfRangedAttack`(범위 `0-1`)을 저지 쪽으로 묶은 것은 시뮬이 저지만 가르기 때문이다. `Full Burst`는 수동으로 스킬을 끌 때만 쏘므로 `horn_skill_02_start_03`은 자동 전투에서 나오지 않는다(`char_modes.py MANUAL_BURST`).
 - **플레임테일 `Attack_T1`·`Attack_T1+`**: 회피 버프 `flamtl_t_1[evade]`가 있을 때의 공격. `char_modes.py mode_parts`가 자식의 `Trigger…`에 `_buffKey`가 있으면 `talentAtk`로 분리하고(전체 운영자 대조에서 이 규칙에 걸리는 것은 플레임테일뿐), 렌더는 시뮬 `swing`의 신호 `Attack_T1`로 고른다. 일반 공격은 `flamtl_attack_01_hit_01`(S3는 `flamtl_skill_03_attack_01_hit_01`) 하나, 회피 뒤 공격은 `_hit_02_1`·`_hit_02_2`와 타격 때 시전 `start_02`.
 - 확인: `test/render/cond-child-fx.test.js`(양쪽을 다 본다; 고치기 전 코드·추출물로 6건 실패 확인), `cond-cast-fx.test.js`, 아레나 2배속 호출 순서. [화면 미확인]
@@ -3885,7 +3885,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 공식 클라에서 확인: 스킬·캐릭터 프리팹의 투사체 행동, 투사체 필드. 선발 만트라 `char_4204_mantra`.
 
 - **S1·S2 타격**: 투사체 행동 `IfElse` `IsTargetInEPBreakRecovery`. 대상이 공명붕괴 중이면 `mantra_bounce_hit_01`(+ 원소 피해), 아니면 스킬 자기 것 `mantra_skill_01_hit_01`·`mantra_skill_02_hit_01`. 전에는 S1은 안 그렸고, S2는 이름 규칙 `_hit`이 대상 상태와 상관없이 그렸다. 시뮬의 `riders`가 같은 조건으로 `mantra:s1`·`s1el`·`s2`·`s2el`을 보내고, 이름 규칙은 `KIT_OWNED`로 막는다(`attackHit`이 묶인 타격이 없는 모드에서 `play`의 `skillHit`으로 넘어가는 길).
-- **`mantra_skill_03_buff_01`**: `mantra_skill_03_buff_02`의 오른쪽 짝(`_rightEffect`, 추출 `right`)이다. 오른쪽을 볼 때 이 프리팹으로 바뀌는 것이 정상이다. `fx-wiring-report`의 `nameless`는 이 짝을 세지 않아 목록에 뜬다.
+- **`mantra_skill_03_buff_01`**: `mantra_skill_03_buff_02`의 오른쪽 짝(`_rightEffect`, 추출 `right`)이다. 오른쪽을 볼 때 이 프리팹으로 바뀌는 것이 정상이다.
 - **튕김 탄**: S2 `projectile_chr_mantra_s2`는 첫 타격 뒤 `_overwritedMainEffectAfterFirstHit` `mantra_bounce_trail_01`, S3 넘친 마비 `projectile_chr_mantra_s3_2`는 `_mainEffect`가 같은 프리팹이고 `_effectsWhenHit` `mantra_bounce_hit_01`. 튕김마다 `kitHit` `mantra:s2jump`·`s3jump`(`from`·`target`). 날아가는 속도는 시뮬의 튕김 속도 3.2칸/초로, 프리팹의 `_speed`(S2 10, S3 튕김 30)와 다르다. PRTS 비고 「速度3.2」를 따른 시뮬 값이고 착탄과 맞추려고 그대로 쓴다.
 - **S3 넘친 마비**: 보유자에게 `mantra_bounce_hit_01`(`mantraArc`), 대체 그림 없음.
 - **재능 2**: 관문 칸 표식 `mantra_mark_01`(`TileListener._effectSettings`, `castedTimeThreshold` 1)을 한 번(`mantraGate`). 마비 부여 `mantra_t_2[make_palsy]`는 자기 이펙트가 없어 `mantraGrant`는 아무것도 안 그린다(마비는 상태 경로).

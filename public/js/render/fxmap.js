@@ -184,10 +184,9 @@ export const variantModes = (charId, skillIndex) => Object.values(VARIANT_MODES[
 /**
  * Cast effects a mode's list holds for a child ability that fires only on a condition and is the kit's event, not every
  * attack: 涤火杰西卡 S3's ExtraBomb (kitofficial.js 'bombardShell'), 琳琅诗怀雅 S1's HealAlly ('swire2Heal') and S2's SpawnToken
- * ('swire2Throw'), 折桠 S2's FirstAttack (its opening blast, 'aoe' `resolve`). Their swings skip them (fxgame.js boundFor).
+ * ('swire2Throw'). Their swings skip them (fxgame.js boundFor).
  */
-export const KIT_CAST = Object.freeze(new Set(['jesca2_skill_03_start_02', 'swire2_skill_01_start', 'swire2_skill_02_start',
-  'branch_skill_02_range_01', 'branch_skill_02_start_01']));
+export const KIT_CAST = Object.freeze(new Set(['jesca2_skill_03_start_02', 'swire2_skill_01_start', 'swire2_skill_02_start']));
 /** The same for a hit: 琳琅诗怀雅 S1's HealAlly lands on the ally it heals ('coin' `heal`), never on an enemy she attacks. */
 export const KIT_HIT = Object.freeze(new Set(['swire2_skill_01_hit']));
 
