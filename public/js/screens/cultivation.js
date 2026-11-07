@@ -33,6 +33,18 @@ export function cultivateDesc(n) {
 }
 
 /**
+ * The cultivation the card view draws (screens/loadout.js DeckCard, after upstream 0.3.3): the operator's 潜能 / 练度 and
+ * whether either is off the default. 潜能 is editable for every operator here (this server runs no content plugins).
+ * @param {string} charId
+ * @param {Record<string, any>|null|undefined} ops
+ * @returns {{ potential: number, cultivate: number, potentialOn: boolean, changed: boolean }}
+ */
+export function cultivationView(charId, ops) {
+  const cur = opsOf(ops, charId);
+  return { potential: cur.potential, cultivate: cur.cultivate, potentialOn: true, changed: !!cur.changed };
+}
+
+/**
  * Two compact selects — 潜能 and 练度 — of operator `charId` under the stored settings `ops` (a roster row, a 自选 slot).
  * @param {{ charId: string, ops: Record<string, any>, onSet: (charId: string, patch: { potential?: number, cultivate?: number }) => void,
  *   note?: string|null }} props `note`: why the settings do not apply now (a 补位 stand-in), shown as the tooltip
