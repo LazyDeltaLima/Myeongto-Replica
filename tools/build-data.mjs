@@ -2841,8 +2841,10 @@ function buildEnemies(ctx) {
 // ===== waves ====================================================================================
 
 const pos = (p) => (p ? [p.row, p.col] : null);
+/** A checkpoint's `reachOffset` as [row, col] (map y, x), null when it has none: its target is the tile's centre plus this. */
+const reachOffset = (c) => (c.reachOffset && (c.reachOffset.x || c.reachOffset.y) ? [cleanNum(c.reachOffset.y), cleanNum(c.reachOffset.x)] : null);
 
-/** Resolve an official route into { motion, start, end, checkpoints, steps? }. */
+/** Resolve an official route into { motion, start, end, checkpoints, steps? }; a checkpoint with a `reachOffset` is [row, col, dRow, dCol]. */
 function resolveRoute(r) {
   if (!r) return null;
   const checkpoints = [];
@@ -2850,7 +2852,12 @@ function resolveRoute(r) {
   let special = false;
   for (const c of r.checkpoints || []) {
     switch (c.type) {
-      case 'MOVE': checkpoints.push(pos(c.position)); steps.push({ t: 'move', p: pos(c.position) }); break;
+      case 'MOVE': {
+        const o = reachOffset(c);
+        checkpoints.push(o ? [...pos(c.position), ...o] : pos(c.position));
+        steps.push(o ? { t: 'move', p: pos(c.position), o } : { t: 'move', p: pos(c.position) });
+        break;
+      }
       case 'PATROL_MOVE': special = true; checkpoints.push(pos(c.position)); steps.push({ t: 'patrol', p: pos(c.position) }); break;
       case 'WAIT_FOR_SECONDS': special = true; steps.push({ t: 'wait', s: c.time }); break;
       case 'DISAPPEAR': special = true; steps.push({ t: 'disappear' }); break;

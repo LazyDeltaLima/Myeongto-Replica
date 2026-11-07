@@ -213,7 +213,7 @@ test('waves: every template resolves spawns, routes and enemies', () => {
     for (const r of [...w.routes, ...w.extraRoutes]) {
       if (!r) continue;
       assert.ok(isPair(r.start) && isPair(r.end), `${w.id}: route endpoints`);
-      for (const p of r.checkpoints) assert.ok(isPair(p), `${w.id}: checkpoint`);
+      for (const p of r.checkpoints) assert.ok(isPair(p.slice(0, 2)) && (p.length === 2 || p.length === 4), `${w.id}: checkpoint`);
     }
     for (const sp of w.spawns) {
       assert.ok(isFiniteNum(sp.time) && sp.time >= 0, `${w.id}: time`);

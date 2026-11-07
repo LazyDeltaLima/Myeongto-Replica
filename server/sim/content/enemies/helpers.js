@@ -264,7 +264,7 @@ export function remainingRoute(e) {
   for (let i = Math.max(0, R.legIdx); i < R.legs.length; i++) {
     const L = R.legs[i];
     if (L.final) { end = [L.r, L.c]; break; }
-    if (L.t === 'move') steps.push({ t: 'move', p: [L.r, L.c] });
+    if (L.t === 'move') steps.push(L.dr != null ? { t: 'move', p: [L.r, L.c], o: [L.dr, L.dc] } : { t: 'move', p: [L.r, L.c] });
     else if (L.t === 'wait') steps.push({ t: 'wait', s: i === R.legIdx && R.waitLeft != null ? R.waitLeft : L.time });
     else if (L.t === 'disappear') steps.push({ t: 'disappear' });
     else if (L.t === 'appear') steps.push({ t: 'appear', p: [L.r, L.c] });

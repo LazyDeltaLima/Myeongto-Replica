@@ -40,7 +40,7 @@ import { ATTACK_PAUSE, PALSY_STOP, MIN_ANIM_SCALE, ALLY_COLLIDER_RADIUS, MOVE_SC
 import { sortEnemyTargets, sortAllyTargets, canTargetEnemy, canTargetAlly, tileKeyOf } from './targeting.js';
 import { reduceElement } from './damage.js';
 import { moveFeared, endFear } from './fear.js';
-import { legField, tileKey, steerStep, walkCursor, REACH_SQ } from './walk.js';
+import { legField, legX, legY, tileKey, steerStep, walkCursor, REACH_SQ } from './walk.js';
 import { hypot, powi } from './detmath.js';
 import { bodyInRange } from './body.js';
 
@@ -908,7 +908,7 @@ export function compileRoute(route, rect = null) {
   const cr = (r) => (rect ? Math.max(rect.r0, Math.min(rect.r1, r)) : r);
   const cc = (c) => (rect ? Math.max(rect.c0, Math.min(rect.c1, c)) : c);
   for (const cp of route.checkpoints || []) {
-    if (cp.type === 'MOVE') legs.push({ t: 'move', r: cr(cp.pos[0]), c: cc(cp.pos[1]) });
+    if (cp.type === 'MOVE') legs.push({ t: 'move', r: cr(cp.pos[0]), c: cc(cp.pos[1]), ...(cp.off ? { dr: cp.off[0], dc: cp.off[1] } : {}) });
     else if (cp.type === 'WAIT') legs.push({ t: 'wait', time: Number.isFinite(cp.time) ? Math.max(0, cp.time) : 0 });
     else if (cp.type === 'DISAPPEAR') legs.push({ t: 'disappear' });
     else if (cp.type === 'APPEAR') legs.push({ t: 'appear', r: cr(cp.pos[0]), c: cc(cp.pos[1]) });
@@ -927,7 +927,7 @@ export function planLeg(b, e, leg) {
   const R = e.route;
   let pts;
   if (e.motion === 'FLY') {
-    pts = [{ x: leg.c, y: leg.r }];
+    pts = [{ x: legX(leg), y: legY(leg) }];
   } else {
     const k = tileKey(b, e);
     const f = legField(b, leg.r, leg.c, k);
@@ -942,7 +942,8 @@ export function planLeg(b, e, leg) {
       }
     }
     const last = pts[pts.length - 1];
-    if (!last || last.x !== leg.c || last.y !== leg.r) pts.push({ x: leg.c, y: leg.r });
+    if (last && last.x === leg.c && last.y === leg.r) pts.pop();
+    pts.push({ x: legX(leg), y: legY(leg) });
     R.tile = k;
   }
   R.pts = pts;
@@ -996,7 +997,7 @@ export function remainingDistance(b, e) {
     const p = R.pts[R.ptIdx];
     d += hypot(p.x - e.x, p.y - e.y) + R.suffix[R.ptIdx];
   } else if (leg && leg.t === 'move') {
-    d += hypot(leg.c - e.x, leg.r - e.y);
+    d += hypot(legX(leg) - e.x, legY(leg) - e.y);
   }
   return d;
 }
@@ -1114,8 +1115,9 @@ function walkRoute(b, e, R, leg, speed, dt) {
   if (!R.pts || R.version !== b.grid.version || (!fly && R.tile !== tileKey(b, e))) planLeg(b, e, leg);
   e.moving = true;
   const step = speed * dt;
-  const tx = leg.c - e.x, ty = leg.r - e.y;
-  if (tx * tx + ty * ty <= step * step) { e.x = leg.c; e.y = leg.r; return; }
+  const lx = legX(leg), ly = legY(leg);
+  const tx = lx - e.x, ty = ly - e.y;
+  if (tx * tx + ty * ty <= step * step) { e.x = lx; e.y = ly; return; }
   const p = R.pts[0];
   steerStep(b, e, p.x, p.y, speed, dt);
 }
@@ -1164,7 +1166,7 @@ function advanceRoute(b, e, dt, R, standing = false) {
     // even on its target: the tests' dummies, on routes from a tile to itself (in the data only the unused E_NUM placeholders)
     const speed = e.s.moveSpeed * MOVE_SCALE;
     if (speed <= 0) { e.moving = false; return; }
-    const tx = leg.c - e.x, ty = leg.r - e.y;
+    const tx = legX(leg) - e.x, ty = legY(leg) - e.y;
     if (tx * tx + ty * ty <= REACH_SQ) {
       if (leg.final && !portalPickup(b, e)) { b.leak(e); return; }
       R.legIdx++;

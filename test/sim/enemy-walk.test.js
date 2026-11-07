@@ -191,6 +191,51 @@ test('the wall\'s force: unit length, from what is within 0.25 of the tile\'s ce
   assert.deepEqual(obstacleAvoidForce(g, 5, 10.3, true), { x: 0, y: 0 });
 });
 
+test('the wall\'s force measures the feet: 0.2 below the position, so a wall below pushes sooner and one above later', () => {
+  const rows = Array.from({ length: ROWS }, () => '#'.repeat(COLS));
+  rows[10] = 'r'.repeat(COLS);
+  const legend = { '#': { tileKey: 'tile_forbidden', height: 'HIGH', buildable: 'NONE', passable: 'FLY_ONLY' }, r: { tileKey: 'tile_road', height: 'LOW', buildable: 'ALL', passable: 'ALL' } };
+  const g = new Grid({ rows, legend }, { r0: 0, r1: ROWS - 1, c0: 0, c1: COLS - 1 });
+  assert.deepEqual(obstacleAvoidForce(g, 5, 10, false, -0.2), { x: 0, y: 0 }, 'the feet 0.2 from the centre: short of 0.25');
+  assert.deepEqual(obstacleAvoidForce(g, 5, 9.9, false, -0.2), { x: 0, y: 1 }, 'the feet 0.3 below the centre: pushed up');
+  assert.deepEqual(obstacleAvoidForce(g, 5, 10.3, false, -0.2), { x: 0, y: 0 }, 'the feet only 0.1 above it');
+  assert.deepEqual(obstacleAvoidForce(g, 5, 10.5, false, -0.2), { x: 0, y: -1 }, 'the feet 0.3 above it: pushed down');
+});
+
+test('the wall\'s force in a walk uses that enemy\'s feet (its prefab): 0.2 below for most, none for a drone', REAL, () => {
+  const rows = (key) => {
+    const h = makeBattle({ stageId: M04, routes: [{ motion: 'WALK', start: [9, 10], end: [9, 8], checkpoints: [] }], autoFinish: false, timeLimit: 200, enemies: [{ key, time: 0, routeIndex: 0 }] });
+    h.step(1);
+    const e = h.b.enemies[0];
+    // (9,9) with the row below all wall (M04): 0.1 under the centre, the feet of the common prefab are 0.3 under it
+    e.motion = 'WALK'; e.x = 9; e.y = 8.9; e.moveVx = 0; e.moveVy = 0; e.avoidTick = 1; e.route.pts = null;
+    h.step(1);
+    return e.avoidY;
+  };
+  assert.ok(rows(SWORD) > 0.5, 'a 살카즈 대검사 (0.202 below) is pushed up');
+  assert.equal(rows('enemy_1040_bombd'), 0, 'feet on its position: within 0.25 of the centre');
+});
+
+test('a checkpoint\'s reachOffset moves its target: the data keeps it and the unit stops there (MoveCheckpoint.get_targetPos)', REAL, () => {
+  const fly = wave('act1autochess_escaped_single').routes[0];
+  assert.deepEqual(fly.checkpoints[0], [9, 9, 0.01, -0.46], 'FLY route: [row, col, dRow, dCol]');
+  const walk = wave('act2autochess_h07_05').routes[8];
+  assert.deepEqual(walk.steps.find((s) => s.o).o, [-0.24, -0.1], 'a walking route\'s steps carry it too');
+  // a flyer and a walker on the same point: each stops on tile + offset, within the reach
+  for (const [motion, key] of [['FLY', 'enemy_1040_bombd'], ['WALK', SWORD]]) {
+    const route = { motion, start: [9, 12], end: [9, 12], steps: [{ t: 'move', p: [9, 10], o: [0.2, -0.3] }, { t: 'wait', s: 1000 }] };
+    const h = makeBattle({ stageId: M04, routes: [route], autoFinish: false, timeLimit: 200, enemies: [{ key, time: 0, routeIndex: 0 }] });
+    let e = null;
+    for (let i = 0; i < 30 * 30 && !h.b.finished; i++) {
+      h.step(1);
+      e = h.b.enemies[0] ?? e;
+      if (e?.route?.legs[e.route.legIdx]?.t === 'wait') break;
+    }
+    assert.equal(e?.route?.legs[e.route.legIdx]?.t, 'wait', `${motion}: reached the point`);
+    assert.ok(near(e.x, 9.7, 0.051) && near(e.y, 9.2, 0.051), `${motion}: at (${e.x.toFixed(3)}, ${e.y.toFixed(3)})`);
+  }
+});
+
 test('every ground route of every stage: the walker arrives and never stands on a tile it cannot walk', REAL, () => {
   const stages = JSON.parse(readFileSync(new URL('../../data/stages.json', import.meta.url)));
   for (const [id, st] of Object.entries(stages)) {
@@ -206,7 +251,12 @@ test('every ground route of every stage: the walker arrives and never stands on 
       while (b.time < 200 && !b.finished && !(e && !e.alive)) {
         h.step(1);
         e = e ?? b.enemies[0] ?? null;
-        if (e && e.alive && !e.hidden) assert.ok(b.grid.walkable(Math.round(e.y), Math.round(e.x)), `${id} ${k}: on (${e.y}, ${e.x})`);
+        // (the client's bounce reflects off the line to the wall tile's centre, which at a shallow angle still crosses it: the
+        // wall's force brings the body back, so it may stand a little inside, never deep)
+        if (e && e.alive && !e.hidden) {
+          const inWall = (x, y) => !b.grid.walkable(Math.round(y), Math.round(x));
+          assert.ok(!inWall(e.x, e.y) || [[0.1, 0], [-0.1, 0], [0, 0.1], [0, -0.1]].some(([dx, dy]) => !inWall(e.x + dx, e.y + dy)), `${id} ${k}: on (${e.y}, ${e.x})`);
+        }
       }
       assert.ok(e && !e.alive, `${id} ${k}: arrives`);
       assert.deepEqual(b.errors ?? [], []);

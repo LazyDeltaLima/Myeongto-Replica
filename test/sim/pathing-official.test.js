@@ -61,7 +61,8 @@ test('D5 real battle (act1 m04, round-1 template act1autochess_01): the 源石�
   assert.deepEqual(tiles.slice(0, 5), ['9,10', '9,9', '10,9', '10,8', '10,7'], `tiles: ${tiles.join(' ')}`);
   assert.ok(!tiles.includes('9,8'), `never on (9,8): ${tiles.join(' ')}`);
   // it turned to (10,8) as it entered (9,9), a sixth of a row up, by steering: at the col-9 centre line it is over a third up
-  assert.ok(Math.abs(atCol9 - 9.37) < 0.03, `row ${atCol9} at col 9 (straight along row 9 would be 9.00)`);
+  // (its feet, 0.2 below it, are still short of the wall above: walk.js FOOT_DEFAULT)
+  assert.ok(Math.abs(atCol9 - 9.44) < 0.03, `row ${atCol9} at col 9 (straight along row 9 would be 9.00)`);
 });
 
 // Routes that differ from the official one (ours, as waypoints): each crosses fewer non-blockable tiles — user playtest

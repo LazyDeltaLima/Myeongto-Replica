@@ -696,7 +696,7 @@ export function blinkForward(b, e, dist) {
     }
   } else if (R && R.legs && R.legs[R.legIdx] && R.legs[R.legIdx].r != null) {
     const L = R.legs[R.legIdx];
-    stepToward(e, L.c, L.r, dist);
+    stepToward(e, L.c + (L.dc ?? 0), L.r + (L.dr ?? 0), dist);
   }
   // never end inside a wall
   if (!b.grid.groundPassable(Math.round(e.y), Math.round(e.x)) && e.motion !== 'FLY') { e.x = from.x; e.y = from.y; return null; }

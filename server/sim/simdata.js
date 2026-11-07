@@ -522,13 +522,13 @@ export function normalizeRoute(r) {
   if (Array.isArray(r.steps) && r.steps.length) {
     for (const st of r.steps) {
       const t = String(st.t ?? st.type ?? 'move').toUpperCase();
-      cps.push({ type: normCpType(t), pos: pairOf(st.p ?? st.pos) ?? [0, 0], time: num(st.s ?? st.time, 0) });
+      cps.push({ type: normCpType(t), pos: pairOf(st.p ?? st.pos) ?? [0, 0], time: num(st.s ?? st.time, 0), ...(Array.isArray(st.o) ? { off: st.o } : {}) });
     }
     return { motion, start, end, checkpoints: cps };
   }
   for (const cp of r.checkpoints ?? r.cp ?? []) {
     if (Array.isArray(cp) && typeof cp[0] === 'number') {
-      cps.push({ type: 'MOVE', pos: [num(cp[0]), num(cp[1])], time: 0 });
+      cps.push({ type: 'MOVE', pos: [num(cp[0]), num(cp[1])], time: 0, ...(cp.length >= 4 ? { off: [num(cp[2]), num(cp[3])] } : {}) });
     } else if (Array.isArray(cp)) {
       const [type, a, b, t] = cp;
       cps.push({ type: normCpType(type), pos: [num(a), num(b)], time: num(t, 0) });
