@@ -4,6 +4,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec } from '../helpers/battleHarness.js';
 import * as F from '../../public/js/render/fxstatus.js';
 import { statusIconKey } from '../../public/js/render/style.js';
@@ -339,3 +340,14 @@ describe('status effects: sortingOrder < 0 behind the unit', () => {
     assert.deepEqual(d.nodes.filter((n) => (n.mesh?.order || 0) < 0).map((n) => n.name), ['andi']);
   });
 });
+
+// 2026-11-07: 키치세이 S2's second state; her third, 晕眩, keeps the common buff_stun (its field is `overrideKey`, no effect)
+test('키치세이 S2: her bind draws skchr_kichi_02[unmovable], the name rules leave that prefab off her cast', async () => {
+  const { SOURCE_FX } = await import('../../public/js/render/fxstatus.js');
+  assert.deepEqual(SOURCE_FX.bind.kichi.slice(0, 1), ['kichi']);
+  assert.equal(SOURCE_FX.bind.kichi[1].tpl, 'skchr_kichi_02[unmovable]');
+  assert.equal(SOURCE_FX.stun?.kichi, undefined);
+  const game = readFileSync(new URL('../../public/js/render/fxgame.js', import.meta.url), 'utf8');
+  assert.match(game.slice(game.indexOf('const KIT_OWNED = new Set(['), game.indexOf('let ownedOf = null')), /'kichi_skill_02_buff_02'/);
+});
+

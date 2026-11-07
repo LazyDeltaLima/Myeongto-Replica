@@ -113,6 +113,7 @@ export const SOURCE_FX = Object.freeze({
     phatm2: keyed('phatm2_s_1[unmove]', 'phatm2', 0),   // 酒神 S1 (2026-10-26): skchr_phatm2_1 `_activeBuffs`, spawn 5
     ethan: keyed('ethan_t_1', 'ethan', OWN),   // 伊桑 T1: `_additiveActiveBuffs` of the attacks
     frostl: keyed('frostl_s_2[frozen]', 'frostl', OWN),   // 霜叶 S2: skchr_frostl_2 `_additiveActiveBuffs`
+    kichi: keyedAll('skchr_kichi_02[unmovable]', 'kichi', OWN),   // 키치세이 S2: kichi_skchr_02[debuff] CreateBuff, its second state
     // qiubai_s_1[unmovable_effect]; the talent / module 落英 binds carry none
     qiubai: Object.freeze({ s1: keyedAll('qiubai_s_1[unmovable_effect]', 'qiubai', 0.5) }),
   }),
