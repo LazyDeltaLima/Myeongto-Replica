@@ -195,6 +195,7 @@ test('S2 阂断骤雪: an enemy attack casts it (a charge) at the attacker — 1
     const back = hits(h, 'oxi:guard');
     assert.deepEqual(new Set(back.map((c) => c.target)), new Set([src, near]), 'within ability_range_radius of the attacker');
     for (const c of back) approx(c.dmg.amount, u.s.atk * bb.retaliate_atk_scale, 'retaliate_atk_scale');
+    assert.deepEqual(h.eventsOf('fx').filter((x) => x[1] === 'blast').map((x) => x[4].tgt), [src.id], 'one blast, naming its centre for oxi_skill_02_hit_01');
     const healed = h.hooksOf('heal').filter((c) => c.target === u).reduce((s, c) => s + (c.amount ?? 0), 0);
     approx(healed, back.reduce((s, c) => s + c.amount, 0) * bb.heal_ratio, 'heal_ratio of the damage');
     approx(u.hp, hp0 - took + healed, 'hp');

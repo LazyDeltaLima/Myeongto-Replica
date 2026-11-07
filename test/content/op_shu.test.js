@@ -122,6 +122,9 @@ test('S1 化被草木 (AUTO, DEFAULT + an ally of x-4 at ≤ half HP): her attac
     const t0 = h.hooksOf('skillStart').find((x) => x.unit === u).t;
     assert.ok(!h.hooksOf('damaged').some((x) => x.source === u && x.target === e && x.t >= t0 - 1e-9 && x.t <= first.t + 1e-9), `T${tier}: that attack was the heal`);
     assert.ok(sownOf(u).has(key(a.tileR, a.tileC)), `T${tier}: the heal sowed`);
+    // each new tile once, for its shu_talent_buff_01 (render/fx/kitofficial.js healField)
+    const named = h.eventsOf('fx').filter((x) => x[1] === 'healField').flatMap((x) => x[4].tiles).map(([cc, rr]) => key(rr, cc));
+    assert.deepEqual([...named].sort(), [...sownOf(u)].sort(), `T${tier}: the event names the sown tiles`);
     if (elite) {
       a.hp = a.s.maxHp;
       assert.ok(h.runUntil(() => u.skill.activations === 2, 5), 'the second charge on the next attack');

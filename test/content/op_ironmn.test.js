@@ -379,6 +379,9 @@ test('铁钳号·原型机\'s skill (5 SP, an enemy in its 3-13, flyers too): �
     approx(by(near)[0].amount, atk * v.skill.bb.atk_scale_2, `T${tier}: ${v.skill.bb.atk_scale_2 * 100} %`);
     assert.equal(by(far).length, 0, `T${tier}: farther than 1.1 untouched`);
     assert.deepEqual([by(main)[0].type, by(main)[0].dmg.isSkill], ['phys', true]);
+    const cast = h.eventsOf('fx').filter((x) => x[1] === 'kitHit' && x[4].k === 'ironmn:crab').map((x) => x[4]);
+    assert.deepEqual(cast.map((o) => [o.from, o.tgt, o.src, o.dir]), [[c.id, main.id, u.id, c.dir]], `T${tier}: one cast, from the device at its target`);
+    assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'aoe' && x[4].skill === 'ironmn:crab')[0]?.[4].src, u.id, `T${tier}: the blast names 白铁`);
     done(h);
   }
 });
