@@ -431,6 +431,11 @@ export class Lobby {
       return;
     }
     session.notice = null;
+    // A result kept for a seat that dropped during its match (onMatchEnd) must survive this resume too: the room may be
+    // emptied and disposed meanwhile, and its replay dies with it (disposeRoom clears room.replay). Hold the frames and
+    // send them after this resume's state, in the order a player who stayed connected gets them (room.state, m.public
+    // RESULT, m.result) — unless the room still replays them itself (runResync), so they never come twice.
+    const kept = session.pendingResult;
     session.pendingResult = null;
     // a player seat, or a spectator seat (header): both carry `connected` / `name`
     const seat = room.seatOf(session.playerId) || room.spectatorOf(session.playerId);
@@ -445,6 +450,8 @@ export class Lobby {
     if (!room.hostId) { this.migrateHost(room); changed = true; }
     if (changed) this.broadcastState(room);
     else this.sendState(room, session);
+    // the room no longer replays this player's result (disposed, or its replay dropped): the kept frames are the only copy
+    if (kept && !room.match && !this.replayFor(room, session.playerId)) for (const frame of kept) if (frame) sendRaw(session.ws, frame);
     this.resync(session, !resumed);
   }
 
@@ -1083,6 +1090,16 @@ export class Lobby {
       if (!s.connected) this.startGrace(room, s);
     }
     for (const s of room.spectators) if (!s.connected) this.startGrace(room, s);
+    // A seat that dropped during the match never got its m.result (sendSession drops frames of a disconnected session),
+    // and the room's replay dies with the room: when no connected human is left it is disposed right below (reason
+    // 'empty', no room.closed notice), so the returning client got nothing and sat on the paused board. Keep the frames
+    // on the session itself; onHello hands them over whether the room still exists or not (← upstream PR #912).
+    for (const s of room.seats) {
+      if (!s || s.isBot || s.left || s.connected) continue;
+      const session = this.registry.byId(s.playerId);
+      const frames = session ? this.replayFor(room, s.playerId) : null;
+      if (frames && frames.length) session.pendingResult = frames;
+    }
     const host = room.hostId ? room.seatOf(room.hostId) : null;
     if (!host || host.isBot || host.left) this.migrateHost(room);
     if (room.activeHumans().length === 0) {

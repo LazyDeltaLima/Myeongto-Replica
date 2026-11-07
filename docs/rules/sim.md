@@ -2742,7 +2742,7 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 
 ## upstream 0.3.4 개발분 대조 이식 — 매치·서버 (2026-11-07)
 
-upstream 개발 브랜치의 매치·서버 버그 수정(이식 묶음 D). 둘 다 손 이식이고 새 시험이 수정 전 코드에서 실패하는 것을 확인했다. golden은 그대로.
+upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 둘 다 손 이식이고 새 시험이 수정 전 코드에서 실패하는 것을 확인했다. golden은 그대로.
 
 ### 전략 선택 전에 나간 자리는 LP 0 그대로 (upstream `78f1e0ec`)
 
@@ -2752,6 +2752,13 @@ upstream 개발 브랜치의 매치·서버 버그 수정(이식 묶음 D). 둘 
 - 근거: 중도 퇴장 규칙(탈락, 목표 HP 0 — PRTS 卫戍协议/帮助), upstream 판단.
 - 테스트 `test/match/connection.test.js` 「onLeave: a seat gone before the strategy draft keeps 0 LP…」.
 
+### 판이 끝날 때 끊겨 있던 사람은 방이 사라져도 다시 들어오면 결과를 받는다 (upstream PR #912, upstream에 아직 병합 전)
+
+- 규칙: 판이 끝날 때 연결이 끊긴 자리(나가지 않음)의 결과 프레임(마지막 `m.public`·`m.result`)을 그 세션에도 남긴다(`lobby.js onMatchEnd` → `session.pendingResult`).
+  다시 들어오면(`onHello`) 방이 없으면 바로, 방이 있어도 방이 더는 그 사람에게 결과를 다시 보내지 않으면(리플레이가 없거나 그 사람 몫이 끝남) `room.state` 뒤에 보낸다 — 방이
+  리플레이를 갖고 있으면 지금처럼 그쪽이 보내고 남긴 것은 버려 두 번 오지 않는다. 전에는 마지막 사람이 끊긴 채 끝나면 방이 바로 사라지면서(`empty`, 닫힘 알림 없음) 리플레이도
+  사라져, 돌아온 사람이 멈춘 판 화면에 세션이 끝날 때까지 머물렀다.
+- 테스트 `test/lobby.test.js` 「the last human away when the match ends still gets its m.result after the room is disposed」(PR의 시험), 같은 묶음의 리플레이 순서 시험들(방이 있을 때 한 번).
 
 ## 오퍼레이터 스킬 발동 시점 묶음 B (2026-10-29)
 
