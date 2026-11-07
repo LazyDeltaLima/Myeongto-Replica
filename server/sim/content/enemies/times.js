@@ -68,7 +68,7 @@ function kitInvisShield(ab, e) {
 function kitRegen(ab) {
   const hits = T(ab, 'Revive[Trigger].prop_max_hp'), delay = T(ab, 'Revive[Trigger].interval'), block = T(ab, 'Aura.max_damage_block_cnt') ?? 0;
   return [husk({
-    hits, delay, stealthy: false, unblock: true, key: 'ab:regen',
+    hits, delay, stealthy: false, unblock: true, key: 'ab:regen', mode: 'Prop',
     onHusk(b, e) {
       // "进入此形态时，使半径1.8范围内的其他敌方单位（无视其可选性）获得5层吸收物理/法术伤害的护盾"
       b.fx('telegraph', { x: e.x, y: e.y, r: ACPUPP_AURA_RADIUS, kind: 'regenShield', id: e.id });

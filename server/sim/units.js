@@ -96,6 +96,8 @@ export class Unit {
     this.swing = null;          // a normal attack swung, its strike not reached yet (ai.js startSwing)
     this.swingOff = null;       // ai.js: a swing of a mode's attack a mode switch detached, playing on to its strike
     this.castLeft = 0;          // the rest of the swing after its strike (ai.js: the next swing waits for it)
+    this.castSwing = false;     // ai.js: an enemy's `castLeft` is its normal swing's (not a skill cast's)
+    this.mode = null;           // ai.js enemyMode: an enemy's prefab mode after its first (its attack ability), null = the first
     this.atkSpell = 0;          // ai.js: the attack (1) / combat (2) state its swings run in, 0 none — the next is a first attack
     this.atkSpellExit = 0;      // ai.js endSpell: when a check with no target ends that state (last swing's end + _escapeTime)
     this.faceTgt = null;        // the main target its latest swing turned it to (ai.js holdFaceTarget)

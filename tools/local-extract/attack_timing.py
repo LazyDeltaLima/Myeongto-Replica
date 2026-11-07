@@ -19,13 +19,15 @@ tools/assets/local-attack-timing.json, which tools/build-data.mjs folds into dat
   { "ops": { "char_4100_caper": { "modes": ["Default", "S2", "S2[Down]"],
                                   "attack": [ { "anim": "Attack", "max": 1, "pre": 0, "wait": 1, "sel": 0, "dead": 0,
                                                 "time": 0, "face": 1, "det": 0 }, … ] } },   (+ "begin", "esc": a ThreePart attack; "combat": the mode's separate Combat ability)
-    "enemies": { "enemy_1001_bigbo": { "combat": { … }, "attack": { … } } },
+    "enemies": { "enemy_1001_bigbo": { "combat": { … }, "attack": { … } },
+                 "enemy_2025_syufo": { "attack": { … }, "mode0": "Fly", "modes": { "Normal": { "combat": { … } } } } },
     "tokens": { "token_10015_dusk_drgn": { "modes": ["Default"], "attack": [ { … } ] } } }
 
 `attack[i]` = the attack ability of mode i (null when the mode has none), its clip renamed by the mode's
 `_replaceAnimPairs`; a summon's the same, from its prefab in pkgrps/btl_pfb_tokens_*.ab (data/tokens.json and the summons of
 data/backups.json); an enemy's `combat` / `attack` = the abilities of
-its first mode used while blocked / unblocked (either may be missing).
+its first mode used while blocked / unblocked (either may be missing); `modes` = the same of each later mode of a prefab
+with several (`mode0` = the first one's name).
 
 Usage (from the repo root; --client = an Arknights_Data folder, repeatable: the first client that has an operator's pack
 or an enemy decides it — by default the EN client, then the CN one for what the EN one lacks (client_path.py); an
@@ -173,9 +175,13 @@ def token_entries(files):
 
 def all_token_ids():
     """The summons this server's data names (`token_…`: the map characters and 炎佑 have prefabs of another kind)."""
-    toks = json.loads((ROOT / 'data/tokens.json').read_text(encoding='utf-8'))
-    backups = json.loads((ROOT / 'data/backups.json').read_text(encoding='utf-8')).get('tokens') or {}
-    return sorted(k for k in {*toks.get('tokens', toks), *backups} if k.startswith('token_'))
+    ids = set()
+    # (a season not public yet has its own data/seasons/<id>/tokens.json: a full run would drop its summons' rows)
+    for f in [ROOT / 'data/tokens.json', *sorted((ROOT / 'data/seasons').glob('*/tokens.json'))]:
+        toks = json.loads(f.read_text(encoding='utf-8'))
+        ids |= set(toks.get('tokens', toks))
+    ids |= set(json.loads((ROOT / 'data/backups.json').read_text(encoding='utf-8')).get('tokens') or {})
+    return sorted(k for k in ids if k.startswith('token_'))
 
 
 def modes_entry(tree):
@@ -192,8 +198,7 @@ def modes_entry(tree):
         if a and ranged and ranged.get('anim') and ranged.get('anim') != a.get('anim'):
             a = {**a, 'ranged': ranged}
         # the mode's `_replaceAnimPairs` (维什戴尔 S2: Attack → Skill_2_Loop) rename the clip it plays
-        rep = next((d.get('_replaceAnimPairs') for gp, d, _ in tree if gp == p and isinstance(d.get('_replaceAnimPairs'), list)), None)
-        renamed = lambda ab: {**ab, 'anim': next((r['toAnimKey'] for r in rep or [] if isinstance(r, dict) and r.get('fromAnimKey') == ab['anim'] and r.get('toAnimKey')), ab['anim'])} if ab and ab.get('anim') else ab
+        renamed = mode_renamer(tree, p)
         a = renamed(a)
         # a mode with both a `_attack` and a `_combat` ability (`Body/Attack…` and `Body/Combat…`): the second holds its own
         # cooldown and clip, used while the unit blocks (Character._FetchCombatTarget; docs/rules/sim.md 「일반 공격 타이밍」).
@@ -204,6 +209,26 @@ def modes_entry(tree):
             a = {**renamed(attack_ab), 'combat': renamed(combat_ab)}
         attack.append(a)
     return {'modes': [p.split('/')[-1] if p else '?' for p in modes], 'attack': attack}
+
+
+def mode_renamer(tree, p):
+    """The clip renames of mode GameObject `p`'s `_replaceAnimPairs` (维什戴尔 S2: Attack → Skill_2_Loop): ability fields → the same, `anim` renamed."""
+    rep = next((d.get('_replaceAnimPairs') for gp, d, _ in tree if gp == p and isinstance(d.get('_replaceAnimPairs'), list)), None)
+    return lambda ab: {**ab, 'anim': next((r['toAnimKey'] for r in rep or [] if isinstance(r, dict) and r.get('fromAnimKey') == ab['anim'] and r.get('toAnimKey')), ab['anim'])} if ab and ab.get('anim') else ab
+
+
+def enemy_mode_abilities(cands, renamed=lambda ab: ab):
+    """{combat, attack} of an enemy mode's animated abilities (under(): `Body/Combat`, `Body/Attack`, else the first child of
+    either), their clips renamed by the mode's `_replaceAnimPairs` (`renamed`: mode_renamer)."""
+    e = {}
+    for key, names in (('combat', ('Body/Combat', 'Combat')), ('attack', ('Body/Attack', 'Attack'))):
+        a = next((cands[n] for n in names if n in cands), None)
+        if a is None:
+            sub_names = sorted(r for r in cands if any(r.startswith(n + '/') and '/' not in r[len(n) + 1:] for n in names))
+            a = cands[sub_names[0]] if sub_names else None
+        if a is not None:
+            e[key] = renamed(a)
+    return e
 
 
 def enemy_entries(path, wanted):
@@ -218,15 +243,13 @@ def enemy_entries(path, wanted):
             # no `_modes` list: the first GameObject holding a Body (enemy_1001_bigbo/Default/Body/Combat)
             bodies = sorted({gp.rsplit('/Body/', 1)[0] for gp, _, _ in sub if '/Body/' in gp})
             base = bodies[0] if bodies else root
-        cands = under(sub, base)
-        e = {}
-        for key, names in (('combat', ('Body/Combat', 'Combat')), ('attack', ('Body/Attack', 'Attack'))):
-            a = next((cands[n] for n in names if n in cands), None)
-            if a is None:
-                sub_names = sorted(r for r in cands if any(r.startswith(n + '/') and '/' not in r[len(n) + 1:] for n in names))
-                a = cands[sub_names[0]] if sub_names else None
-            if a is not None:
-                e[key] = a
+        e = enemy_mode_abilities(under(sub, base), mode_renamer(sub, base))
+        # the prefab's later modes (`_modes` after the first): each attaches its own attack / combat abilities, ready, when
+        # the enemy switches to it (`Unit.SwitchMode`; docs/rules/sim.md 「일반 공격 타이밍」) — `modes` {mode name: its
+        # abilities as the first mode's, {} = none}
+        if modes and len(modes) > 1:
+            e['mode0'] = modes[0].split('/')[-1] if modes[0] else '?'
+            e['modes'] = {p.split('/')[-1]: enemy_mode_abilities(under(sub, p), mode_renamer(sub, p)) for p in modes[1:] if p}
         sk = enemy_skills(sub, modes)
         if sk:
             e['skills'] = sk

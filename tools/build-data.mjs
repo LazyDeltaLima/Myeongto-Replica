@@ -2344,8 +2344,9 @@ const MIRRORED_PREFABS = new Set(['enemy_1196_msfyin']);
 
 /**
  * An enemy's attack clip → enemies.json `attackAnim` { clip, dur, hit } (GitHub #58: an unblocked ranged enemy stands for
- * its attack clip, server/sim/ai.js attackStand): the clip the client plays for its attacks (the asset manifest's
- * `anims.attack.loop` of the enemy's model — not an Idle stand-in, `via: 'idle'`), its length and its first strike
+ * its attack clip, server/sim/ai.js attackStand): the clip the client plays for its attacks — with `own`, the one its
+ * attack ability names (`_animKey` after its mode's `_replaceAnimPairs`) when the model has it, else the asset manifest's
+ * `anims.attack.loop` of the enemy's model (not an Idle stand-in, `via: 'idle'`) —, its length and its first strike
  * frame (`hits`: the clip's OnAttack event; absent when it has none — the sim then takes half the clip). Read from the
  * committed data/assets.json (written by tools/fetch-assets.mjs from the Spine skeletons; docs/ASSETS.md), so the sim
  * never reads client files; an enemy whose model the manifest lacks gets none (the sim falls back to ATTACK_PAUSE).
@@ -2354,13 +2355,48 @@ function enemyAttackAnim(manifest, spineId, timing = null, own = false) {
   const sp = manifest?.enemies?.[spineId]?.spine;
   const a = sp?.anims?.attack;
   if (!a || typeof a.loop !== 'string' || a.via === 'idle') return null;
-  // `own`: the clip its ability names (a separate `_combat` ability), when the model has it
+  // `own`: the clip its ability names, when the model has it
   const clip = own && typeof sp.animations?.[timing?.anim] === 'number' ? timing.anim : a.loop;
   const dur = sp.animations?.[clip];
   if (!(typeof dur === 'number' && dur > 0)) return null;
   const h = sp.hits?.[clip];
   const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
-  return { clip, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(timing) };
+  // (`det` 1: a mode switch that detaches this ability cuts its swing — `_interruptAbilityOnDetach`, ai.js enemyMode)
+  return { clip, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(timing), ...(timing?.det === 1 ? { det: 1 } : {}) };
+}
+
+/**
+ * The attack abilities of an enemy prefab's later modes (local-attack-timing.json `enemies[…].modes`, tools/local-extract/
+ * attack_timing.py) → enemies.json `attackAnim.modes` {mode name: record | null}: each mode attaches its own attack ability,
+ * ready, as the enemy switches to it (`Unit.SwitchMode`; server/sim/ai.js enemyMode) — the record of attackAnim's shape
+ * (the clip its ability names when the model has it, else the model's attack clip; its own `combat` as attackAnim's),
+ * null = the mode has no attack ability (no normal attack and no attack slot for its skills there: `Unit.hasAttack`). A
+ * mode whose record equals the first mode's is left out (the first mode's stands); `attackAnim.mode0` names the first,
+ * listed (null) only when it has no attack ability and a later mode has one.
+ * Null when the prefab has one mode, or every later mode attacks as the first.
+ */
+function enemyModeAnims(ctx, spineId, key, applyWay, base) {
+  const t = enemyTiming(ctx, spineId, key);
+  if (!t?.modes) return null;
+  const out = {};
+  const pick = (m) => (applyWay === 'MELEE' ? (m.combat ?? m.attack ?? null) : (m.attack ?? m.combat ?? null));
+  const strip = (r) => r && (({ combat, modes, ...rest }) => rest)(r);
+  for (const [name, m] of Object.entries(t.modes)) {
+    const ab = pick(m);
+    let rec = ab ? enemyAttackAnim(ctx.manifest, spineId, ab, true) : null;
+    if (rec && applyWay !== 'MELEE' && m.attack && m.combat) {
+      const c = enemyAttackAnim(ctx.manifest, spineId, m.combat, true);
+      if (c) rec.combat = c;
+    }
+    // (a mode whose ability names no clip the model has, or no ability at all where the first mode has one, keeps
+    // the first mode's record only when its fields are the same)
+    if (ab && !rec) continue;
+    if (rec && JSON.stringify(strip(rec)) === JSON.stringify(strip(base)) && JSON.stringify(rec.combat ?? null) === JSON.stringify(base.combat ?? null)) continue;
+    out[name] = rec;
+  }
+  // a first mode with no attack ability where a later one has one (元核孽生者: its Combat comes with mode 1): null as well
+  if (!t.attack && !t.combat && Object.values(out).some(Boolean)) out[t.mode0] = null;
+  return Object.keys(out).length ? out : null;
 }
 
 /**
@@ -2803,10 +2839,13 @@ function buildEnemies(ctx) {
     const hitArea = HIT_AREAS[mv(data.prefabKey) || key] || null;
     const modelScale = MODEL_SCALE_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
     const modelScaleY = MODEL_STRETCH_Y_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
-    const attackAnim = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key, enemyAbility(ctx, mv(data.prefabKey) || key, key, applyWay));
+    // (the clip its attack ability names, renamed by its first mode's `_replaceAnimPairs`, when the model has it)
+    const attackAnim = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key, enemyAbility(ctx, mv(data.prefabKey) || key, key, applyWay), true);
     // an enemy that shoots unblocked and has a `_combat` ability too: that ability holds its own cooldown while it is blocked (ai.js syncCombat)
     const enemyCombat = attackAnim && applyWay !== 'MELEE' ? enemyTiming(ctx, mv(data.prefabKey) || key, key)?.combat : null;
     if (enemyCombat && enemyTiming(ctx, mv(data.prefabKey) || key, key)?.attack) attackAnim.combat = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key, enemyCombat, true);
+    const attackModes = attackAnim ? enemyModeAnims(ctx, mv(data.prefabKey) || key, key, applyWay, attackAnim) : null;
+    if (attackModes) { attackAnim.mode0 = enemyTiming(ctx, mv(data.prefabKey) || key, key).mode0; attackAnim.modes = attackModes; }
     const shots = enemyProjectiles(ctx, mv(data.prefabKey) || key, key);
     const skillCast = enemySkillCast(ctx, ctx.manifest, mv(data.prefabKey) || key, key);
     out[key] = {

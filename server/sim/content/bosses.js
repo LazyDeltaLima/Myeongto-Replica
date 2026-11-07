@@ -81,7 +81,7 @@
 
 import { MOVE_SCALE, ROWS, COLS, ALLY_COLLIDER_RADIUS, TICK } from '../constants.js';
 import { aggroCmp, areaSelectable } from '../targeting.js';
-import { compileRoute, attackWindup } from '../ai.js';
+import { compileRoute, attackWindup, enemyMode } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
 import {
   ensureInstalled, abOf, attach, T, elem, hurt, targetsNear, allTargets, byPriority, areaAllies, areaAlliesInTiles, fieldAllies,
@@ -751,6 +751,7 @@ function kitGun(ab, e, b) {
     e2.trace = null;
     b2.removeBuff(e2, 'boss:charge');
     if (e2.route) e2.route.pts = null;
+    enemyMode(b2, e2, null);   // (its Default attack attaches ready)
     setForm(b2, e2, null, 'chargeEnd');
   };
   // _TryUpdateTraceTargetRoute: the target's tile when the gun's path reaches it, else (`_findNearbyReachableTile`) the
@@ -825,6 +826,7 @@ function kitGun(ab, e, b) {
         if (!t) return;
         const dur = T(ab, '3.duration') ?? 0;
         b2._cutAttackStand(e2); e2.atkStandUntil = -Infinity;   // the mode switch's `_restartFSM`: out of its attack recovery
+        enemyMode(b2, e2, 'S1');   // the charge mode has no attack ability
         P.charge = { target: null, tx: t.x, ty: t.y, until: b2.time + dur, next: b2.time + TRACE_SEARCH, hit: new Set() };
         b2.addBuff(e2, { key: 'boss:charge', duration: dur, visible: true, mods: { moveFlat: T(ab, '3.move_speed') ?? 0 }, flags: { disarm: true } });
         // OnCastOnTarget: no route to the target nor to a tile beside it → no trace (the mode and its speed stay)
@@ -887,6 +889,7 @@ function kitGun(ab, e, b) {
           if (!sp.alive || !isSpring(sp) || !sp.mem.ab) continue;
           sp.mem.ab.dash = { until: b2.time + (s2.bb.dog_duration ?? 0), mul: 1 + (s2.bb.move_speed ?? 0), gun: e2, hit: new Set() };
           // the client's MoveToHunter mode: its Ability0 buff achunt_dog_silence (IMMEDIATELY — the render flashes its effect once)
+          enemyMode(b2, sp, 'MoveToHunter');   // (no attack ability; achunt_dog_move SwitchMode 1, 0 as it ends)
           b2.addBuff(sp, { key: 'boss:dash', duration: s2.bb.dog_duration ?? 0, visible: true, flags: { invulnerable: true, noMove: true, unblockable: true, disarm: true },
             fxTag: 'buff:achunt_dog_silence' });
           b2.fx('dash', { x: sp.x, y: sp.y, id: sp.id, tx: e2.x, ty: e2.y });
@@ -1052,7 +1055,7 @@ function kitSpring(ab, e) {
         let n = 0;
         for (const u of areaAllies(b, e2, e2.x, e2.y, CHARGE_RADIUS)) if (!d.hit.has(u)) { d.hit.add(u); hurt(b, e2, u, e2.s.atk, 'phys'); n++; }
         if (n) b.fx('kitHit', { x: e2.x, y: e2.y, id: e2.id, k: 'actrp:dash', n });   // actrp*_s_1[damage] (audioSignal achunt_summonee.hit)
-        if (b.time >= d.until) { e2.mem.ab.dash = null; b.removeBuff(e2, 'boss:dash'); if (e2.route) e2.route.pts = null; }
+        if (b.time >= d.until) { e2.mem.ab.dash = null; b.removeBuff(e2, 'boss:dash'); enemyMode(b, e2, null); if (e2.route) e2.route.pts = null; }
       },
     },
   ];

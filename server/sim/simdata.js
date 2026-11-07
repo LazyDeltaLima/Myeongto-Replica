@@ -327,6 +327,8 @@ export function normAttackAnim(a) {
     ...(a.sub ? { sub: normAttackAnim(a.sub) } : null),
     // a summon's ability that plays no clip (ai.js attackTiming)
     ...(a.noClip ? { noClip: true } : null),
+    // an enemy prefab's later modes {mode name: record, null = no attack ability} (ai.js enemyMode)
+    ...(a.modes && typeof a.modes === 'object' ? { mode0: a.mode0 ?? null, modes: Object.fromEntries(Object.entries(a.modes).map(([k, v]) => [k, v ? normAttackAnim(v) : null])) } : null),
   };
 }
 

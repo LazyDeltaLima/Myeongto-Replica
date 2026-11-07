@@ -4,7 +4,7 @@
 import { TICK, PROJECTILE_SPEEDS, ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import {
   num, T, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, fieldAllies, byPriority, spawnChildren,
-  setForm, expose, shoot,
+  setForm, expose, shoot, mode,
 } from './helpers.js';
 import { enemyAura, allyAura, selfFear, skill, kitSelfFear } from './archetypes.js';
 import { hypot } from '../../detmath.js';
@@ -205,6 +205,7 @@ function kitBombd(ab) {
         const atk = e.s.atk;
         b._ev(['atk', e.id, t.id, 'droneBomb']);
         setForm(b, e, 'bombed');                           // UnitInfo.form: a view built later draws it bomb-less
+        mode(b, e, 'S1');                                  // (the prefab's bomb-less mode: no attack ability)
         b.addProjectile({ from: e, target: t, speed: PROJECTILE_SPEEDS.droneBomb, visual: 'droneBomb', source: e, hitDead: true,
           onHit: (c) => { land(b, e, atk, c.target, c.x, c.y); landed = true; done(); } });
         b.after(BOMBD_POST_DELAY, () => { waited = true; done(); }, { owner: e });

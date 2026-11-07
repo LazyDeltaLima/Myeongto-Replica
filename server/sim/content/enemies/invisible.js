@@ -3,7 +3,7 @@
 
 import { canTargetAlly, enemyStealthed } from '../../targeting.js';
 import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
-import { T, elem, hurt, targetsNear, byPriority, auraBuff, lineShot } from './helpers.js';
+import { T, elem, hurt, targetsNear, byPriority, auraBuff, lineShot, mode } from './helpers.js';
 import { stealth, onHitStatus, skill, kitStealth } from './archetypes.js';
 import { hypot } from '../../detmath.js';
 
@@ -101,7 +101,9 @@ function kitJazz(ab, e) {
     // hits its blocker (`melee`), so a revealed (反隐) unblocked one neither shoots nor stands for its attack clip (until
     // 0.1.3 it shot everyone within its 2.5 range and stood still while it had a target — ai.js attackStand)
     spawn(b, e2) { e2.profile.noAttack = true; e2.profile.melee = true; },
-    tick(b, e2) { e2.profile.noAttack = !revealed(e2); },      // 平时不攻击，失去隐匿时反击
+    // 平时不攻击，失去隐匿时反击: its first mode has no attack ability, the counter is the mode Attack's (attached ready as it
+    // is revealed, ai.js enemyMode)
+    tick(b, e2) { e2.profile.noAttack = !revealed(e2); mode(b, e2, e2.profile.noAttack ? null : 'Attack'); },
   }, s ? {
     // 狂欢式演奏 (PRTS 节日爵士乐手, 反击模式): "仅攻击范围内存在我方单位时可触发：锁定目标持续施法，最多持续10.6s，每0.5s对目标
     // 造成攻击力20%的法术伤害和攻击力10%的灼燃损伤 ※施法期间受到沉默影响后，立即结束技能" — ONE locked target (its own
@@ -166,6 +168,7 @@ function kitBoneSpike() {
       const m = enemyStealthed(e) ? 0 : 1;
       if (m === a.mode) return;
       a.mode = m;
+      mode(b, e, m ? 'Cute' : null);   // the other mode's attack ability (Cute: Attack_B), attached ready
       b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: m ? 'acbunn:cute' : 'acbunn:horror' });
     },
     before(c, b, e) {

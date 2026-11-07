@@ -6,7 +6,7 @@ import { canTargetAlly, areaSelectable } from '../../targeting.js';
 import { periodicDamage } from '../../damage.js';
 import {
   BOOM_RADIUS, nthOf, stOf, T, elem, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, byPriority,
-  stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain,
+  stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, mode,
 } from './helpers.js';
 import {
   unblockable, runWhenHit, blockWeight, taunt, maxTargets, ep, nthAttackPower, lowHpBuff, deathBoom, setFloat, float,
@@ -45,7 +45,16 @@ const BUS_RADIUS = 0.5, BUS_DROP_SCATTER = 0.2;
 
 /** 源石污染区 (act1 m04 infection tiles). */
 function infectionArts() {
-  return { hitOut(c, b, e) { if (c.dmg.isAttack && onTerrain(b, e, 'infection')) c.dmg.type = 'arts'; } };
+  return { hitOut(c, b, e) { if (c.dmg.isAttack && onTerrain(b, e, 'infection')) c.dmg.type = 'arts'; }, ...originiumMode() };
+}
+
+/**
+ * 萨卡兹枯朽前锋 / 辟路前锋 / “灵幛”: the prefab's mode Originium while it stands on a 源石污染区 tile, the first one off it
+ * (enemy_lrsldr / enemy_lrnazg[switchMode][toOrig] / [toDefault] SwitchMode; their trigger interval [추정·미조사: read here
+ * as the kit's 0.25 s]).
+ */
+function originiumMode() {
+  return { iv: 0.25, tick(b, e) { mode(b, e, onTerrain(b, e, 'infection') ? 'Originium' : null); } };
 }
 
 function kitChimera(ab) {
@@ -54,6 +63,7 @@ function kitChimera(ab) {
     if (a.on || !onTerrain(b, e, 'infection')) return;
     a.on = true;
     e.mem.ab.atkType = 'arts';
+    mode(b, e, 'Originium');   // enemy_lrcmra[switchMode] SwitchMode 1: its attack Attack_2
     b.fx('telegraph', { x: e.x, y: e.y, r: CHIMERA_AURA_RADIUS, kind: 'chimera', id: e.id });
   };
   return [{
@@ -87,7 +97,7 @@ function kitNazg(ab, e) {
       if (onTerrain(b, e2, 'infection')) for (const u of b.allies()) if (!l.includes(u) && onTerrain(b, u, 'infection') && canTargetAlly(e2, u, true)) l.push(u);
       if (l.length) c.targets = byPriority(e2, l);
     },
-  }];
+  }, originiumMode()];
 }
 
 /** 吉兆飞鳞 【失温坠落】: the stun when a freeze ends (PRTS "冻结结束时，获得0.05秒晕眩"). */
@@ -115,6 +125,7 @@ function kitParrot(ab) {
       setFloat(b, e, false);
       b.removeBuff(e, 'ab:parrotRun');
       b.addBuff(e, { key: 'ab:parrotDown', flags: { unblockable: true }, persist: true });
+      mode(b, e, 'Stun', false);   // parrot_a[fly] ON_BUFF_DISABLE SwitchMode 2 (no restart): no attack ability there
       if (down > 0) b.applyStatus(e, 'stun', { duration: down, source: null });
       b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'grounded' });
     },
@@ -127,6 +138,7 @@ function kitParrot(ab) {
         b.removeBuff(e, 'ab:parrotDown');
         b.removeBuff(e, 'ab:parrotRun');
         setFloat(b, e, true);
+        mode(b, e, null);   // parrot_a[fly] ON_BUFF_ENABLE SwitchMode 0
         b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'float' });
       }
     },
@@ -455,6 +467,7 @@ export const SPECIAL_KITS = Object.freeze({
   }],
   enemy_10001_trslim: (ab) => [skill(ab.sk.StartRun, (b, e) => {    // 简饲源石虫 · below half: runs (faster, unblockable 3 s)
     const s = ab.sk.StartRun.bb;
+    mode(b, e, 'Run');   // the skill's mode Run for good: its attack Attack_B
     b.addBuff(e, { key: 'ab:run', duration: s.block_free_time ?? 0, mods: { moveMul: 1 + (s.move_speed ?? 0) }, flags: { unblockable: true }, visible: true });
   }, { sil: true, cond: (b, e) => e.hpRatio < 0.5 })],
   enemy_10027_vtsk: (ab) => {                                        // “帝国的甲胄” · entrance barrage on the highest-HP unit; ranged ×0.8; 3-hit charge attack
@@ -507,6 +520,10 @@ export const SPECIAL_KITS = Object.freeze({
           if (left <= 0) h.cancel();
         });
       },
+    }, {
+      // its first mode M1 has no attack ability: blocked, it switches to M2 for good (wintun_m0_t[switch_mode]
+      // ON_OWNER_BLOCKEE_CHANGED → CheckBlocked → SwitchMode 1), whose Combat is B_Attack — silenced too
+      tick(b, e) { if (e.blockedBy) mode(b, e, 'M2'); },
     }];
   },
   enemy_10045_parrot: kitParrot,                                     // 吉兆飞鳞 · 近地悬浮 (grounded 8 s when stunned); sprints when first hit
@@ -544,7 +561,9 @@ export const SPECIAL_KITS = Object.freeze({
       },
     };
     // 漩涡形态 "不进行普通攻击" (PRTS 天赋): no blocked attack while it spins (until 0.1.3 its blocker took both)
-    const noAtk = { tick(b, e) { e.profile.noAttack = spin.until > b.time; } };
+    // (the mode M1 while it spins — ymgtop_m0_s[switch_mode] SwitchMode 1, back to the first at ymgtop_m1_t[end_rotate] or
+    // as 失衡 ends it: its Default attack attaches ready again)
+    const noAtk = { tick(b, e) { e.profile.noAttack = spin.until > b.time; mode(b, e, e.profile.noAttack ? 'M1' : null); } };
     return [spin, noAtk, unbalanced((b, e) => { if (spin.until > b.time) { spin.until = 0; b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'spinStop' }); } })];
   },
   enemy_10118_ymgprc: (ab) => {                                      // 澪 · double hits; 寒晖: every 4th attack (spCost 3) is a ×1.5 double hit

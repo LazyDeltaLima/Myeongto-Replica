@@ -8,6 +8,7 @@ import { canTargetAlly, sortAllyTargets, areaSelectable, auraSelectable } from '
 import { mitigate } from '../../damage.js';
 import { hypot } from '../../detmath.js';
 import { normShot } from '../../simdata.js';
+import { enemyMode } from '../../ai.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -430,6 +431,16 @@ export function lineShot(b, unit, aim, shot, onHit, opts = {}) {
   }
   return b.addProjectile({ from: { x: from.x, y: from.y }, dir: { x: dir[0], y: dir[1] }, speed, maxAge: life, visual: opts.visual ?? 'enemy', source: src, fixed: shot?.adjust === 0, noWipe: shot?.elim === 0,
     sweep: (p) => touching(p.x, p.y), onHit: (c) => onHit(c.target), onExpire: () => opts.onExpire?.() });
+}
+
+/**
+ * Enemy `e` switches to its prefab's mode `name` (null / the first mode's name = the first): the client's `SwitchMode` —
+ * its new mode's attack abilities attach ready; the swing running is cut unless `fsm` is false (the node's `_restartFSM`
+ * off) and its ability plays on when detached (ai.js enemyMode; docs/rules/sim.md 「일반 공격 타이밍」 「적의 모드 전환」). A kit
+ * calls it where the client's buff or ability switches the mode.
+ */
+export function mode(b, e, name, fsm = true) {
+  return enemyMode(b, e, name, fsm);
 }
 
 export function setForm(b, e, form, fxKind = 'phase', params = null) {

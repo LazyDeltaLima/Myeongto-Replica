@@ -6,7 +6,7 @@ import { aggroCmp, areaSelectable } from '../../targeting.js';
 import { periodicDamage } from '../../damage.js';
 import {
   nthOf, T, hurt, alliesInTiles, targetsNear, allTargets, areaAllies, areaAlliesInTiles, auraAllies, targetAndArea,
-  byPriority, setForm, auraBuff, watchDeaths, unbalancedNow, shoot,
+  byPriority, setForm, auraBuff, watchDeaths, unbalancedNow, shoot, mode,
 } from './helpers.js';
 import {
   unblockable, maxTargets, onHitStatus, splashAttack, pathKeysAhead, noAirTargets, resist, nthAttackStatus, lowHpBuff,
@@ -142,7 +142,7 @@ function kitLeaderMisc(key, ab, e) {
       // BlockDamage (the same node as “自在”'s / 泥岩's, `_specifyBlockEffect` empty, no blackboard `effect`) plays the default
       // block effect common_buff_parry_01 on a hit it cancels (`blockFx`, render/fxgame.js parryFx; 2026-10-31, none before)
       const bar = artsBarrier(T(ab, 'shield.dynamic') ?? 0, { key: 'ab:sandDef', whileUp: { defFlat: T(ab, 'defup.def') ?? 0 },
-        layers: ['mousek_shield[a]', 'mousek_shield[b]', 'mousek_shield[c]'], brokeForm: 'noShield', blockFx: true });
+        layers: ['mousek_shield[a]', 'mousek_shield[b]', 'mousek_shield[c]'], brokeForm: 'noShield', brokeMode: 'NoShield', blockFx: true });
       const ds = ab.sk.DriftSand, ss = ab.sk.SandStorm;
       return [bar, lowHpBuff(T(ab, 'enrage.hp_ratio') ?? 0.5, { dmgDealtMul: T(ab, 'enrage.damage_scale') ?? 1 }, 'ab:lowhp', 'buff:mousek_t'),
         // 【唱沙】 the highest-max-HP unit on the field and everything in its cross: physical `damage`
@@ -181,7 +181,14 @@ function kitLeaderMisc(key, ab, e) {
         // 攻击时攻击力永久提升，最多六层: the blackboard ATK is per stack — the client buff enemy_mdrock_s_1[charge] (STACK,
         // maxStackCnt 6) is one buff whose ATK MULTIPLIER is the blackboard value × its stack count, so 6 stacks = 6 × atk
         // (PRTS 「攻击力+60%…最多叠加6层」; docs/rules/sim.md 「머드락(적) 공격 스택」, maintainer decision 2026-10-21)
-        attack(c, b, e2) { b.addBuff(e2, { key: 'ab:rockCharge', refresh: 'stack', stacks: 1, maxStacks: 6, persist: true, mods: { atkPct: T(ab, 'charge.attack@enemy_mdrock_s_1[charge].atk') ?? 0 } }); },
+        attack(c, b, e2) {
+          // enemy_mdrock_s_1[persistent] ON_BEFORE_ATTACK: with 1 / 2 / 3 / 5 / 6 stacks before this attack's it switches
+          // to the mode Tier 1 / 2 / 3 / 4 / 5 (no fsm restart) — the Combat swinging plays on (`det` 0), the new mode's is
+          // ready at once; Tier 4 and 5 swing Attack_2
+          const tier = MDROCK_TIERS[e2.findBuff('ab:rockCharge')?.stacks ?? 0];
+          if (tier) mode(b, e2, tier, false);
+          b.addBuff(e2, { key: 'ab:rockCharge', refresh: 'stack', stacks: 1, maxStacks: 6, persist: true, mods: { atkPct: T(ab, 'charge.attack@enemy_mdrock_s_1[charge].atk') ?? 0 } });
+        },
       }, skill(s, (b, e2) => bar.refresh(b, e2, bar))];
     }
     case 'enemy_1513_dekght': {
@@ -250,9 +257,14 @@ function kitLeaderMisc(key, ab, e) {
         return targetsNear(b, e2, RUSH_RADIUS).filter((u) => u.ground && keys.has(u.tileR * COLS + u.tileC));
       };
       return [lowHpBuff(T(ab, 'atkup.hp_ratio') ?? 0.5, { atkPct: T(ab, 'AtkUp.atk', 'atkup.atk') ?? 0 }, 'ab:lowhp', 'buff:enemy_reid_atkup_effect'),
-        reborn({ dur: T(ab, 'Reborn.duration') ?? 0, hpRatio: T(ab, 'Reborn.hp_ratio') ?? 0.5, invincible: T(ab, 'Reborn.invincible') ?? 0 }),
+        reborn({ dur: T(ab, 'Reborn.duration') ?? 0, hpRatio: T(ab, 'Reborn.hp_ratio') ?? 0.5, invincible: T(ab, 'Reborn.invincible') ?? 0, mode: 'Reborn' }),
         skill(rush, (b, e2) => {
-          b.addBuff(e2, { key: 'ab:rush', duration: rush.bb.duration ?? 0, refresh: 'replace', visible: true, mods: { moveMul: 1 + (rush.bb.move_speed ?? 0) } });
+          // the rush runs in the prefab's *_Rush mode of its form and ends back in that form (enemy_reid_switch_mode /
+          // [reborn] SwitchMode at its start and finish): each switch attaches that mode's attack ready
+          const reb = e2.mode === 'Reborn' || e2.mode === 'Reborn_Rush';
+          mode(b, e2, reb ? 'Reborn_Rush' : 'Default_Rush');
+          b.addBuff(e2, { key: 'ab:rush', duration: rush.bb.duration ?? 0, refresh: 'replace', visible: true, mods: { moveMul: 1 + (rush.bb.move_speed ?? 0) },
+            onExpire: ({ battle }) => { if (e2.alive && (e2.mode === 'Reborn_Rush' || e2.mode === 'Default_Rush')) mode(battle, e2, e2.mode === 'Reborn_Rush' ? 'Reborn' : null); } });
           b.fx('charge', { x: e2.x, y: e2.y, id: e2.id, kind: 'avengerRush' });
         }, { cond: (b, e2) => !e2.blockedBy && prey(b, e2).length > 0 })];
     }
@@ -279,9 +291,10 @@ function kitLeaderMisc(key, ab, e) {
       const s = ab.sk.TakeOff;
       const BRAKE = { moveMul: 0.1 }, BRAKE_UP = 1.5, LANDING = 1.333;
       return [skill(s, (b, e2) => {
+        mode(b, e2, 'Fly');   // enemy_balloon_s[fly] SwitchMode 1 for its flight (no attack ability), the first again as it ends
         b.addBuff(e2, {
           key: 'ab:takeoff', duration: s.bb.duration ?? 0, flags: { unblockable: true, float: true, noDisplace: true }, mods: { moveMul: 1 + (s.bb['balloon_s[fly].move_speed'] ?? 0) }, visible: true,
-          onExpire: ({ battle }) => { if (e2.alive) battle.addBuff(e2, { key: 'ab:landing', duration: LANDING, flags: { unblockable: true }, mods: BRAKE }); },
+          onExpire: ({ battle }) => { if (e2.alive) { mode(battle, e2, null); battle.addBuff(e2, { key: 'ab:landing', duration: LANDING, flags: { unblockable: true }, mods: BRAKE }); } },
         });
         b.addBuff(e2, { key: 'ab:takeoffBrake', duration: BRAKE_UP, mods: BRAKE });
         b.fx('telegraph', { x: e2.x, y: e2.y, r: 0.5, kind: 'takeoff', id: e2.id });
@@ -426,7 +439,7 @@ function kitUglyThing(ab) {
     { spawn(b, e) { e.base.rangeRadius = Math.max(e.base.rangeRadius || 0, MCM_RANGE); e.profile.canTarget = (u) => !u.isFlying; } },
     splashAttack({ scale: 1, meleeScale: rage, tiles: 1 }),
     reborn({
-      dur: T(ab, 'reborn.duration') ?? 0,
+      dur: T(ab, 'reborn.duration') ?? 0, mode: 'Bird',   // (the 大祭司's mode: no attack ability)
       onKo(b, e) {                                  // 生命值降至0后自爆，造成大范围晕眩 (an area selection), 2.17 s into the 重生
         const x = e.x, y = e.y;
         b.fx('telegraph', { x, y, r: MCM_BOMB_RADIUS, dur: MCM_BOMB_DELAY, kind: 'mechBomb', id: e.id });
@@ -486,7 +499,7 @@ function kitWarden(ab) {
       }
     },
   }, reborn({
-    dur: T(ab, 'reborn.duration') ?? 0,
+    dur: T(ab, 'reborn.duration') ?? 0, mode: 'R',   // (the 杀手's mode: its melee Combat C2_Attack)
     onKo(b) { freeAllPrisoners(b); },                         // 进入杀手形态时解放全场敌人
     onReborn(b, e) {
       P.killer = true; P.n = 0;
@@ -534,7 +547,7 @@ function kitXi(ab) {
       } });
   };
   const re = reborn({
-    dur: T(ab, 'reborn.duration') ?? 0, invincible: T(ab, 'reborn.invincible') ?? 0,
+    dur: T(ab, 'reborn.duration') ?? 0, invincible: T(ab, 'reborn.invincible') ?? 0, mode: 'Reborn',
     // the 10 s 无敌 after the rebirth is untargetable too: PRTS 无敌 「无法被不同阵营选中」 (upstream #510); opt-in, the engine's
     // `invulnerable` flag stays damage protection only
     invincibleUntargetable: true,
@@ -603,7 +616,7 @@ function kitMace(ab) {
   skill(ab.sk.CircleAttack, circle(ab.sk.CircleAttack || { bb: {} }), { id: 'circle', cond: (b, e) => !P.form2 && inR(b, e, ab.sk.CircleAttack) }),
   skill(ab.sk.CircleAttack2, circle(ab.sk.CircleAttack2 || { bb: {} }), { id: 'circle2', cond: (b, e) => P.form2 && inR(b, e, ab.sk.CircleAttack2) }),
   reborn({
-    dur: T(ab, 'Reborn.duration') ?? 0, invincible: T(ab, 'Reborn.invincible') ?? 0,
+    dur: T(ab, 'Reborn.duration') ?? 0, invincible: T(ab, 'Reborn.invincible') ?? 0, mode: 'Reborn',
     invincibleUntargetable: true,                                // 无敌 = 无法被不同阵营选中, as “自在” (kitXi)
     onReborn(b, e) { P.form2 = true; P.next = 1; b.addBuff(e, { key: 'ab:stealth', flags: { stealth: true }, persist: true }); },
   })];
@@ -675,7 +688,7 @@ function kitWolfLord(ab) {
   }, { cd: fc ? fc.sp || fc.cd : null, icd: fc ? fc.sp || fc.icd : null, cond: (b, e) => !P.form2 && !caught(b) && b.time >= P.waitUntil && allTargets(b, e).some((u) => u.kind === 'op') }),
   doubleHit(() => P.form2),                                     // 攻击变为远程二连击
   reborn({
-    dur: T(ab, 'Reborn.duration') ?? 0, invincible: T(ab, 'Passive2.invincible_time') ?? 0,
+    dur: T(ab, 'Reborn.duration') ?? 0, invincible: T(ab, 'Passive2.invincible_time') ?? 0, mode: 'M2',
     invincibleUntargetable: true,                                // PRTS 「获得10s无敌」: 无敌 = 无法被不同阵营选中, as “自在” (kitXi)
     onKo(b, e) {
       cure(b);
@@ -724,6 +737,12 @@ function kitWolfLord(ab) {
  * change clip (render/units.js FORMS). Form letters: B / C / D follow the talents' order Fuchou / Youling / Shushi — C,
  * the only clip set without an attack, is the non-attacking 幽灵 (skills ChangeToB / C / D).
  */
+/** 泥岩: the prefab's mode by the charge stacks before an attack (enemy_mdrock_s_1[persistent]). */
+const MDROCK_TIERS = Object.freeze({ 1: 'Tier 1', 2: 'Tier 2', 3: 'Tier 3', 5: 'Tier 4', 6: 'Tier 5' });
+
+/** 转译基底·α: the client prefab's mode of each form (its skills ChangeToB / C / D). */
+const TRANSLATOR_MODES = Object.freeze({ fuchou: 'ModeB', youling: 'MoveC', shushi: 'ModeD' });
+
 function kitTranslator(ab, e) {
   const t = (k) => T(ab, k) ?? 0;
   const P = { phys: 0, arts: 0, form: null, done: false, anger: false };
@@ -744,6 +763,8 @@ function kitTranslator(ab, e) {
       Object.assign(e2.profile, { noAttack: false, melee, dmgType: melee ? 'phys' : 'arts', maxTargets: melee ? 1 : 2 });
       e2.atkCd = 0;
     }
+    // the prefab's mode of the form (its ChangeTo* skill): ModeB's melee Combat, ModeD's ranged Attack, MoveC none
+    mode(b, e2, TRANSLATOR_MODES[P.form]);
     if (e2.route) e2.route.pts = null;
   };
   const change = (b, e2, form) => {
@@ -869,7 +890,11 @@ export const LEADER_KITS = Object.freeze({
     const st = T(ab, 'StunAfterUnbalance.stun') ?? 0;
     if (st > 0) b.applyStatus(e, 'stun', { duration: st, source: null });
   })],
-  enemy_10138_xdsnow: (ab) => [unbalanced((b, e, a) => {             // 雪孩子 · pushed / pulled into high ground ⇒ hitWall.value damage
+  enemy_10138_xdsnow: (ab) => [{
+    // enemy_xdsnow_t[wall]: the mode Unbalanced (no attack ability) while 失衡 holds, the first one back as it ends —
+    // its attack attaches ready
+    tick(b, e) { const on = unbalancedNow(b, e); mode(b, e, on ? 'Unbalanced' : null, on); },   // (the way back restarts nothing)
+  }, unbalanced((b, e, a) => {             // 雪孩子 · pushed / pulled into high ground ⇒ hitWall.value damage
     const dx = e.x - a.lx, dy = e.y - a.ly, d = hypot(dx, dy);
     if (!(d > 0)) return;
     const r = Math.round(e.y + (dy / d) * 0.6), c = Math.round(e.x + (dx / d) * 0.6);
@@ -883,6 +908,7 @@ export const LEADER_KITS = Object.freeze({
     if (a.done) return;
     a.done = true;
     e.profile.noAttack = true;
+    mode(b, e, 'Speed');   // enemy_xdpeng_t[switch] SwitchMode 1: no attack ability
     b.addBuff(e, { key: 'ab:noEgg', persist: true, visible: true, flags: { unblockable: true }, mods: { moveMul: 1 + (T(ab, 'speed.move_speed') ?? 0) } });
   })],
 });

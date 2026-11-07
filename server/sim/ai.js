@@ -412,7 +412,8 @@ function attackClipOf(u) {
 function attackRecordOf(u) {
   const a = u.def?.attackAnim;
   if (!a) return null;
-  if (!('base' in a)) return a;
+  // an enemy: its current prefab mode's attack ability (enemyMode; a mode not listed attaches the first mode's)
+  if (!('base' in a)) { const m = u.mode ?? a.mode0; return m != null && a.modes && m in a.modes ? a.modes[m] : a; }
   const i = u.def.skill?.index;
   if (u.skill && u.skill.active && !u.skill.spec?.baseClip && Number.isInteger(i) && a.skills[i]) {
     const r = a.skills[i];
@@ -1284,10 +1285,8 @@ function portalPickup(b, e) {
  * PRTS 状态机 ATTACK / COMBAT "攻击结束后回退到MOVE状态", 0.2.0). The swing is the official one (attackTiming: the attack
  * clip — data/enemies.json `attackAnim` { dur, hit, max … }, tools/build-data.mjs, from the asset manifest and the client's
  * attack ability — scaled to the attack interval within [0.1, `_maxAnimScale`]): `wind` before the strike, `rest` after
- * it. An enemy in another form (掠海漂移体's crawl, 转译基底's forms, 杰斯顿's second form) stands for its base clip
- * [ASSUMED]; known mismatches: 扎罗's second form stands 1.433 s (A_Attack) though its B_Attack lasts 2.0 s (2.5 s interval:
- * ~0.4 s of walking during the recovery), 转译基底's 特战术师 stands 2.0 s (B_Attack) though its D_Attack lasts 1.667 s — a
- * per-form clip needs the client's FORMS mapping (render/units.js) in shared data.
+ * it. An enemy in another prefab mode (掠海漂移体's crawl, 转译基底's forms, 扎罗's second form — enemyMode) stands for that
+ * mode's attack clip (`attackAnim.modes`, attackRecordOf); until 2026-11-07 every form stood for the first mode's.
  * Returns the wind-up and rest (s) into `out`: an enemy with no attack clip known stands ATTACK_PAUSE after the strike
  * (the old rule), a 「不停止移动」 one (`attackMoves`: data or content) never stops.
  */
@@ -1353,6 +1352,9 @@ function attackTargets(b, e, radius, reach, own) {
 function enemyAttack(b, e, dt) {
   const def = e.def;
   if (e.profile && e.profile.noAttack) return cutSwing(e), false;
+  // a mode with no attack ability (enemies.json `attackAnim.modes[<mode>]` null): no normal attack, no attack slot either
+  // (the client's `AttackWrapper.SearchTarget` asks `Unit.hasAttack`)
+  if (def.attackAnim?.modes && def.attackAnim.modes[e.mode ?? def.attackAnim.mode0] === null) return cutSwing(e), false;
   // an enemy with both a `_attack` and a `_combat` ability (enemies.json `attackAnim.combat`): each has its own cooldown and
   // clip. Unlike an operator's, its attack is not cut by a block: the attack state plays its cast out
   // (`Enemy.States.AttackState.OnTick`), and `MoveState` goes to COMBAT only then
@@ -1395,11 +1397,41 @@ function enemyAttack(b, e, dt) {
   const t = attackTiming(e, TIMING);
   e.atkCd = e.s.interval;
   e.castLeft = t.action;
+  e.castSwing = true;   // (the recovery is the attack ability's: enemyMode)
   b._ev(['swing', e.id, roundMs(t.strike), shotKind(e, radius, targets)]);
   e.swing = { left: t.strike, targets, sel: t.sel };
   if (t.strike > 1e-9) return !moves;
   enemyStrike(b, e, radius, reach, own);
   return false;
+}
+
+/**
+ * Enemy `e` switches to its prefab's mode `mode` (null = its first mode) — called by content where the client's buffs or
+ * abilities run `SwitchMode` (docs/rules/sim.md 「일반 공격 타이밍」 「적의 모드 전환」): the old mode's abilities are
+ * detached and the new mode's attached, each ready (`Ability.DoAttach` → `Ability.Reset`), so the new mode's next attack
+ * waits for no cooldown; its attack ability, clip and timing are the new mode's (enemies.json `attackAnim.modes`,
+ * attackRecordOf). An enemy's attack / combat state waits for the ability it last cast, attached or not
+ * (`Enemy.States.CombatState.OnTick`: `m_combatAbilityCasted.isCasting`; the attack state likewise) and interrupts that one
+ * as it exits (`OnExit` → `InterruptIfNot`). So the swing running — before or after its strike — is cut when the switch
+ * restarts the state machine (`restartFsm`: the SwitchMode node's `_restartFSM`, most of them) or its ability is cut on
+ * detach (`det`: `_interruptAbilityOnDetach`); otherwise it plays out, and the next swing (the new mode's) follows as it
+ * ends. A skill cast running goes on [추정·미조사: whether a restart cuts an enemy skill's cast was not read]. Returns
+ * whether the mode changed.
+ */
+export function enemyMode(b, e, mode = null, restartFsm = true) {
+  const m = mode == null || mode === e.def?.attackAnim?.mode0 ? null : mode;
+  if ((e.mode ?? null) === m) return false;
+  const old = attackClipOf(e);
+  e.mode = m;
+  e.atkCd = 0;
+  e.atkCdAlt = 0;
+  e.atkCombat = false;
+  if (restartFsm || old?.det) {
+    if (e.swing) cutSwing(e);
+    if (e.castSwing) { e.castLeft = 0; b._cutAttackStand(e); }
+    e.castSwing = false;
+  }
+  return true;
 }
 
 /**
@@ -1429,6 +1461,7 @@ function enemySkillSlot(b, e) {
   const dur = c.cast.dur > 0 ? c.cast.dur : 0;
   e.atkCd = c.cast.atkCd ?? e.s.interval;
   e.castLeft = dur;
+  e.castSwing = false;
   if (dur > 0 && !(e.profile?.attackMoves ?? e.def.attackMoves)) e.atkStandUntil = Math.max(e.atkStandUntil, b.time + dur);
   return true;
 }

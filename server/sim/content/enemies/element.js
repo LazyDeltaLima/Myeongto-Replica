@@ -3,7 +3,7 @@
 
 import { periodicDamage } from '../../damage.js';
 import {
-  stOf, T, elem, hurt, targetsNear, areaAllies, areaAlliesInTiles, targetAndArea, byPriority, setForm, onTerrain, canCast,
+  stOf, T, elem, hurt, targetsNear, areaAllies, areaAlliesInTiles, targetAndArea, byPriority, setForm, onTerrain, canCast, mode,
 } from './helpers.js';
 import { taunt, ep, deathSpawn, deathBoom, setFloat, float, skill, kitEp, kitStun3 } from './archetypes.js';
 
@@ -30,6 +30,9 @@ function kitDeepsea(ab, { swim = false, drown = false }) {
       if (swim) {
         if (wet && !a.wet) b.addBuff(e, { key: 'ab:swim', mods: { atkPct: T(ab, 'Swim.atk') ?? 0 }, flags: { stealth: true }, visible: true });
         if (!wet && a.wet) b.removeBuff(e, 'ab:swim');
+        // the prefab's mode Swim in deep water (its attack Attack_2, the same timing), the first one out of it [추정·미조사:
+        // what switches it — no buff template does — was not read; deep water is where its Swim talent holds]
+        if (wet !== !!a.wet) mode(b, e, wet ? 'Swim' : null);
         if (wet) b.removeBuff(e, 'terrain:deepsea');   // 免疫水蚀: drop devices.js' deep-water debuff
       }
       // PRTS 码头水手 "水蚀状态下或处于清澈水域时，每秒受到1000点无来源真实伤害" (伤害分类: 深水区/涨潮水蚀 is BUFF damage):
@@ -78,6 +81,7 @@ function kitSyufo(ab) {
       e.profile.melee = true;
       b.applyStatus(e, 'stun', { duration: SYUFO_CRAWL_STUN, source: null });
       setForm(b, e, 'crawl');
+      mode(b, e, 'Normal', false);   // enemy_syufo_fly's ON_BUFF_DISABLE SwitchMode (no restart): its blocked attack Attack_02
     },
   }];
 }
@@ -230,7 +234,8 @@ function kitFlameVine(ab) {
     },
     attack(c, b, e) {
       // ignites nearby 卷心籽
-      for (const o of b.enemiesInRadius(e.x, e.y, 1.5)) if (o.defId === 'enemy_10065_ftzlc' && o.mem.ab && !o.mem.ab.ignited) { o.mem.ab.ignited = true; b.fx('ignite', { x: o.x, y: o.y, id: o.id }); }
+      // (enemy_ftzlc[on_fire] SwitchMode 1: the mode OnFire, its attack 2_Attack)
+      for (const o of b.enemiesInRadius(e.x, e.y, 1.5)) if (o.defId === 'enemy_10065_ftzlc' && o.mem.ab && !o.mem.ab.ignited) { o.mem.ab.ignited = true; mode(b, o, 'OnFire', false); b.fx('ignite', { x: o.x, y: o.y, id: o.id }); }
     },
   }];
 }
@@ -241,6 +246,9 @@ function kitNucleus(ab) {
       if (a.on) return;
       a.on = true;
       b.addBuff(e, { key: 'ab:combat', persist: true, visible: true, mods: { moveMul: T(ab, '0.move_speed') ?? 1 } });
+      // dslntf_tr_1 SwitchMode 1: the mode whose Combat is its only attack (its first mode has none — blocked by an
+      // operator it does not attack until hurt; the other switch, blocked by a 深海 shell device, has no device here)
+      mode(b, e, '1');
       // dslntf_tr_1's PlayAudio `Awake` as it switches to mode 1 (sound only)
       b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'dslntf:awake' });
     },

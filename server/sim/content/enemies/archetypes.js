@@ -7,7 +7,7 @@ import { MOVE_SCALE, COLS, STEALTH_RESTORE } from '../../constants.js';
 import {
   HUSK_REBIRTH, BOOM_RADIUS, POLLUTION_INTERVAL, STEALTH_RESTORE_BY_KEY, DUCK_STEALTH_RESTORE, nthOf, stOf, safe, num, T, elem, hurt,
   areaAllies, areaAlliesInTiles, zone, spawnChildren, stepToward, setHits, hitCount, setForm, absorbArts, auraBuff,
-  unbalancedNow,
+  unbalancedNow, mode,
 } from './helpers.js';
 import { hypot } from '../../detmath.js';
 import { planLeg } from '../../ai.js';
@@ -297,6 +297,10 @@ function prisoner(ab, { freeAll = false } = {}) {
     b.addBuff(e, { key: 'ab:liberty', persist: true, visible: true, mods: {
       atkPct: t('liberty.atk'), defIgnorePct: t('liberty.def_penetrate'), resFlat: t('liberty.magic_resistance'), hpRegen: t('liberty.hp_recovery_per_sec') } });
     setForm(b, e, 'liberty', 'liberate', forced ? { forced: 1 } : null);
+    // the prefab's mode L (talent Liberty; R and the first mode hold Confinement): enemy_liberty_listener[warning]'s
+    // ON_BEFORE_ATTACK SwitchMode without a state restart — the attack it comes before plays out, the next follows it
+    // at once; a forced liberation (enemy_liberty_force) restarts the state machine
+    mode(b, e, 'L', forced);
     if (freeAll && !stOf(b).freedAll) {
       // "第一次解放时同时解放全场敌人"
       stOf(b).freedAll = true;
@@ -312,7 +316,7 @@ function prisoner(ab, { freeAll = false } = {}) {
     before(c, b, e, a) {
       if (a.free) return;
       if (++a.n >= times) liberate(b, e, a);
-      else if (a.n === times - 1) setForm(b, e, 'warning');
+      else if (a.n === times - 1) { setForm(b, e, 'warning'); mode(b, e, 'R', false); }   // (enemy_confinement[atk_cnt], no restart)
     },
   };
 }
@@ -358,12 +362,12 @@ function rebirthCleanse(b, e) {
  * (no move / attack / skill).
  * `onKo(b, e, a)` runs at once (self-destruct, freeing prisoners …), `during(b, e, a, elapsed)` every tick of it; then the
  * enemy stands up with `hpRatio` of its max HP, `onReborn(b, e, a)` switches the form and `invincible` s of 无敌 follow.
- * `a.state`: undefined → 'reborn' → 'form2'. The 'telegraph' fx of the knock-out carries `form: 'reborn'` and the 'revive'
+ * `a.state`: undefined → 'reborn' → 'form2'; `mode` names the prefab's mode it stands up in (ai.js enemyMode). The 'telegraph' fx of the knock-out carries `form: 'reborn'` and the 'revive'
  * fx `form: 'form2'`: models with those clip sets (render/units.js FORMS — 锏, 扎罗, “复仇者”, 杰斯顿) play them.
  * `invincibleUntargetable` makes that 无敌 untargetable too (`自在`, upstream #510); the engine's `invulnerable` flag stays
  * damage protection only for every other enemy.
  */
-function reborn({ dur = 0, hpRatio = 1, invincible = 0, invincibleUntargetable = false, onKo = null, during = null, onReborn = null, key = 'ab:reborn' } = {}) {
+function reborn({ dur = 0, hpRatio = 1, invincible = 0, invincibleUntargetable = false, onKo = null, during = null, onReborn = null, key = 'ab:reborn', mode: toMode } = {}) {
   const finish = (b, e, a) => {
     if (!e.alive || a.state !== 'reborn') return;
     a.state = 'form2';
@@ -376,6 +380,8 @@ function reborn({ dur = 0, hpRatio = 1, invincible = 0, invincibleUntargetable =
     if (e.route) e.route.pts = null;
     e.atkCd = 0;
     rebirthCooldowns(e);
+    // the prefab's mode it stands up in (`mode`: its name — Unit.DoReborn's SwitchMode): that mode's attack, ready
+    if (toMode !== undefined) mode(b, e, toMode);
     setForm(b, e, 'form2', 'revive', { kind: 'reborn' });
   };
   return {
@@ -462,10 +468,10 @@ function unbalanced(onMove) {
  *  `blockFx` (2026-10-23): its layers' BlockDamage names its block effect (`_specifyBlockEffect`), and the last one's graph a
  *  break effect — each layer that takes a hit whole (the client cancels it with that effect) or is drained sends fx
  *  'parry' { id, buff: `<key>[n]`, whole, broke } (render/fxgame.js parryFx; damage.js absorbShields for the buff ones).
- *  `brokeForm` (2026-10-23): the form its whole break puts the enemy in, carried by the 'shieldBreak' fx — 鼠王's last layer
+ *  `brokeForm` (2026-10-23): the form its whole break puts the enemy in (`brokeMode`: its prefab mode, ai.js enemyMode), carried by the 'shieldBreak' fx — 鼠王's last layer
  *  mousek_shield[c] (template mousek_shield_end) switches it to its prefab mode NoShield as it ends (render/fxgame.js
  *  FORM_MODES: that mode's buff effects). */
-function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = null, layers = null, blockFx = false, brokeForm = null } = {}) {
+function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = null, layers = null, blockFx = false, brokeForm = null, brokeMode = null } = {}) {
   const n = layers ? layers.length : 1;
   const layerKey = (i) => `${key}[${i + 1}]`;
   return {
@@ -499,6 +505,7 @@ function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = n
       a.left = 0;
       if (a.layers) a.layers.forEach((x, i) => { a.layers[i] = 0; b.removeBuff(e, layerKey(i)); });
       if (brokeForm) e.form = brokeForm;
+      if (brokeMode) mode(b, e, brokeMode, false);   // the prefab's mode after the break (鼠王 NoShield: mousek_shield_end SwitchMode, no restart)
       b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id, ...(brokeForm ? { form: brokeForm } : {}) });
       // the bonus it grants ends once the overflow of the breaking hit has landed (never before: an HP bonus removed
       // first would rescale HP and make the overflow count twice)
@@ -524,7 +531,7 @@ function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = n
  * fx (setForm): 'ember' {id, hits, dur, form: 'husk'} at the knock-out, 'revive' {id, form: 'revived'} when it stands
  * up (the renderer switches the model's clip set: render/units.js FORMS).
  */
-function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, key = 'ab:ember' }) {
+function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, key = 'ab:ember', mode: toMode }) {
   const revive = (b, e, a) => {
     if (!e.alive || a.state !== 'husk') return;
     a.state = null;
@@ -538,6 +545,7 @@ function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, ke
     b.removeBuff(e, `${key}:inv`);
     if (e.route) e.route.pts = null;
     e.atkCd = 0;
+    if (toMode !== undefined) mode(b, e, null);   // back to its first mode, its attack ready
     setForm(b, e, 'revived', 'revive');
   };
   return {
@@ -566,7 +574,8 @@ function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, ke
       b.addBuff(e, { key: `${key}:inv`, visible: true, duration: HUSK_REBIRTH, flags: { invulnerable: true, untargetable: true, unblockable: true, noMove: true, noDisplace: true } });
       if (e.route) e.route.pts = null;
       setForm(b, e, 'husk', 'ember', { hits, dur: HUSK_REBIRTH + delay });
-      b.after(HUSK_REBIRTH, () => { if (e.alive && a.state === 'husk') { rebirthCooldowns(e); if (onHusk) onHusk(b, e); } }, { owner: e });
+      // (`mode`: the husk's prefab mode, switched to as the 重生 ends — Unit.DoReborn → SwitchMode; it has no attack ability)
+      b.after(HUSK_REBIRTH, () => { if (e.alive && a.state === 'husk') { rebirthCooldowns(e); if (toMode !== undefined) mode(b, e, toMode); if (onHusk) onHusk(b, e); } }, { owner: e });
       b.after(HUSK_REBIRTH + delay, () => revive(b, e, a), { owner: e });
       return true;
     },
@@ -597,6 +606,7 @@ function statue(ab) {
       e.hp = e.s.maxHp;
       ab2.immune = new Set([...(ab2.immune || []), 'levitate']);
       setForm(b, e, 'stone', 'stone', { dur });
+      mode(b, e, 'Stone');   // (the prefab's mode 1; unblockable, its melee Combat finds no target)
       b.addBuff(e, {
         key: 'ab:stone', duration: dur, visible: true, flags: { noMove: true, selfBound: true, unblockable: true, noDisplace: true },
         mods: { defFlat: T(ab, 'stone.def') ?? 0, resFlat: T(ab, 'stone.magic_resistance') ?? 0 },
@@ -606,6 +616,7 @@ function statue(ab) {
           Object.assign(e.profile, { noAttack: a.noAtk, melee: false, dmgType: 'arts', canTarget: (u) => !u.isFlying });
           battle.addBuff(e, { key: 'ab:flight', persist: true, flags: { noDisplace: true } });
           if (e.route) e.route.pts = null;
+          mode(battle, e, 'Fly');   // enemy_dugago_t[fly] SwitchMode 2: its ranged Attack
           setForm(battle, e, 'fly', 'revive', { kind: 'fly' });
         },
       });
@@ -730,7 +741,7 @@ const kitSelfFear = (ab) => [selfFear(ab)];
  *  生命"); blocking it lifts the 隐匿, so its blocker (and every operator in range) can beat it — also during the 3 s
  *  after the ember's own block ends (Battle._stealthSwitch). The warrior's former block ends before this new
  *  隐匿 source is added, so an unblocked fresh ember starts hidden (client prefab talent `Invisible`, see husk()). */
-const kitEmber = (ab) => [husk({ hits: T(ab, 'Revive[Trigger].prop_max_hp'), delay: T(ab, 'Revive[Trigger].interval') })];
+const kitEmber = (ab) => [husk({ hits: T(ab, 'Revive[Trigger].prop_max_hp'), delay: T(ab, 'Revive[Trigger].interval'), mode: 'Prop' })];
 
 /**
  * 萨卡兹枯朽战士 / 组长 · death: 【污染秽蚀】 (PRTS 天赋 "{{特殊机制|死亡爆炸}}（释放半径2.0，持续8s的【污染秽蚀】）"). Silenced at its

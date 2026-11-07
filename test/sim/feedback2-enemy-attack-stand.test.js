@@ -41,7 +41,8 @@ function walked(log, t0, t1) {
 
 test('data: every enemy with a real attack clip carries it as attackAnim (the clip the client plays, its length and strike frame)', () => {
   const enemies = readJson('data/enemies.json'), assets = readJson('data/assets.json');
-  let n = 0;
+  const timing0 = readJson('tools/assets/local-attack-timing.json').enemies;
+  let n = 0, own = 0;
   for (const [k, e] of Object.entries(enemies)) {
     const sp = assets.enemies[e.spine || k]?.spine;
     const a = sp?.anims?.attack;
@@ -49,13 +50,22 @@ test('data: every enemy with a real attack clip carries it as attackAnim (the cl
     assert.equal(!!e.attackAnim, real, `${k} ${e.name}`);
     if (!real) continue;
     n++;
-    assert.equal(e.attackAnim.clip, a.loop, k);
-    assert.equal(e.attackAnim.dur, sp.animations[a.loop], k);
-    const h = sp.hits?.[a.loop];
+    // the clip its attack ability names (after its first mode's _replaceAnimPairs) when the model has it, else the
+    // model's attack clip
+    const t = timing0[e.spine || k] ?? timing0[k];
+    const ab = t && (e.applyWay === 'MELEE' ? (t.combat ?? t.attack) : (t.attack ?? t.combat));
+    const clip = ab && sp.animations[ab.anim] > 0 ? ab.anim : a.loop;
+    if (clip !== a.loop) own++;
+    assert.equal(e.attackAnim.clip, clip, k);
+    assert.equal(e.attackAnim.dur, sp.animations[clip], k);
+    const h = sp.hits?.[clip];
     if (Array.isArray(h) && h.length) assert.equal(e.attackAnim.hit, h[0], k);
     assert.equal(e.attackMoves, undefined, `${k}: no enemy of the mode attacks on the move`);
   }
   assert.ok(n > 200, `${n} enemies`);
+  // (普通囚犯's first mode names Attack where the model's attack role is Attack3; 萨卡兹骸骨拷打者's Attack is Attack_2)
+  assert.ok(own >= 5, `${own} enemies on their ability's own clip`);
+  assert.equal(enemies.enemy_1364_spnaxe_2.attackAnim.clip, 'Attack_2');
   // the ranged attackers of the report; `max` = their attack ability's _maxAnimScale (tools/assets/local-attack-timing.json)
   assert.deepEqual(enemies.enemy_1019_jshoot.attackAnim, { clip: 'Attack', dur: 1, hit: 0.533, max: 1, combat: { clip: 'Attack', dur: 1, hit: 0.533, max: 1.1 } });
   assert.deepEqual(enemies.enemy_1168_dumage.attackAnim, { clip: 'Attack', dur: 1.2, hit: 0.633, max: 1 });
