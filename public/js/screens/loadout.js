@@ -38,21 +38,23 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment } from '../ui/components.js';
-import { Img, RichText, UnitThumb, PromotionIcon } from '../ui/gameComponents.js';
-import { chessAvatarUrl, chessPortraitUrl, subProfIconUrl, bondIconUrl, moduleTypeIconUrl, uiUrl } from '../ui/assetUrls.js';
+import { Img, UnitThumb, PromotionIcon } from '../ui/gameComponents.js';
+import { chessAvatarUrl, chessPortraitUrl, profGlyphUrl, subProfIconUrl, bondIconUrl, uiUrl } from '../ui/assetUrls.js';
 import { GarrisonBlock } from '../ui/detailPanel.js';
-import { data, useData, localAsset, DATA_FILES } from '../data.js';
+import { data, useData, DATA_FILES } from '../data.js';
 import { useStore, loadPref, savePref } from '../store.js';
 import { PHASE } from '../../../shared/constants.js';
 import {
-  MODULE_NONE, PROF_ORDER, PROF_NAME, rosterOf, filterRoster, recordsOf, chessOptions, effectiveChoice, setChoice, resetChoice,
-  changedCount, skillLabel, moduleBadge, attrRows, skillTags, quickSkillTags, traitLines, serializeExport, parseImport, LOADOUT_IMPORT_MAX_BYTES,
-  opsOf, setOps, resetOps, moduleRecord,
+  MODULE_NONE, PROF_NAME, rosterOf, filterRoster, recordsOf, chessOptions, effectiveChoice, setChoice, resetChoice,
+  changedCount, skillLabel, moduleBadge, quickSkillTags, serializeExport, parseImport, LOADOUT_IMPORT_MAX_BYTES,
+  opsOf, setOps, resetOps,
 } from '../ui/loadoutModel.js';
 import { loadoutStore, openLoadout, closeLoadout, setEntries, setOpsMap, applyLoadoutEntries, setNotOwned, applyOwnershipImport, setDiyPicks, applyDiyImport } from '../ui/loadoutSync.js';
 import { CultivationSelects, CultivationSection, cultivationView } from './cultivation.js';
+import { SkillIcon, ModuleGlyph, SkillSection, ModuleSection, ProfFilter } from './loadoutSections.js';
+// the detail's sections moved to loadoutSections.js (the 自选 picker draws them too); the tests still import these two here
+export { ModuleGlyph, ModuleInfo } from './loadoutSections.js';
 import { cultivationCharIds } from '../../../shared/protocol.js';
-import { atPotential } from '../../../shared/potential.js';
 import { setOwned, notOwnedCount, serializeOwnership, parseOwnershipImport, OWNERSHIP_IMPORT_MAX_BYTES } from '../ui/ownershipModel.js';
 import { OwnershipPanel, useOwnershipRoster } from './ownership.js';
 import { DiyPanel, diyData } from './diy.js';
@@ -104,64 +106,6 @@ function readFileText(file) {
 function exportFilename(now = new Date(), what = 'loadout') {
   const p = (n) => String(n).padStart(2, '0');
   return `stronghold-${what}-${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}.json`;
-}
-
-/** Square profession glyph (manifest prof.large: black glyph on white, drawn as a white glyph by loadout.css). */
-function profGlyphUrl(m, prof) {
-  const k = String(prof || '').toLowerCase();
-  const v = m && m.prof && m.prof.large ? m.prof.large[k] : null;
-  return typeof v === 'string' ? v : null;
-}
-
-/** Skill icon URL for a SkillRecord (assets manifest `skills[iconId]` / `skillsById`), null when absent. */
-function skillIconOf(m, rec) {
-  const skills = m && typeof m === 'object' ? m.skills : null;
-  if (!skills || !rec) return null;
-  const id = rec.iconId || rec.skillId;
-  if (id && typeof skills[id] === 'string') return skills[id];
-  const alt = m.skillsById && rec.skillId ? m.skillsById[rec.skillId] : null;
-  return alt && typeof skills[alt] === 'string' ? skills[alt] : null;
-}
-
-/**
- * Module icon URL: the official type icon from the local-client art (`local-assets.json` groups.module, matched
- * case-insensitively by typeName), else manifest `modules[icon]` / `uniequip[icon]` when the asset pipeline provides one.
- */
-function moduleIconOf(m, rec) {
-  if (!rec) return null;
-  const local = moduleTypeIconUrl(data.get('local'), rec.typeName || rec.type);
-  if (local) return local;
-  if (!m) return null;
-  for (const group of ['modules', 'uniequip', 'equip']) {
-    const g = m[group];
-    if (g && typeof g === 'object') {
-      const v = g[rec.icon] || g[rec.uniEquipId] || g[rec.typeIcon];
-      if (typeof v === 'string') return v;
-    }
-  }
-  return null;
-}
-
-/** Skill icon with the official selection outline; falls back to a lettered tile. */
-function SkillIcon({ m, rec, index, on = false, size = 'md' }) {
-  const src = skillIconOf(m, rec);
-  return html`<span class=${cx('lo-sicon', `lo-sicon--${size}`, on && 'is-on')}>
-    <${Img} src=${src} fallback=${html`<span class="lo-sicon__glyph num">${skillLabel(index)}</span>`} />
-    ${on && size !== 'xs' ? html`<${Img} src=${localAsset('ui/outer', 'image_skill_select_outline')} class="lo-sicon__outline" fallback=${html`<i class="lo-sicon__ring"></i>`} />` : null}
-  </span>`;
-}
-
-/** Module badge tile: the official type icon when the local-client art has it, else the type letter; ⊘ for 不装备. */
-export function ModuleGlyph({ m, rec, id, size = 'md' }) {
-  const src = rec ? moduleIconOf(m, rec) : null;
-  if (id === MODULE_NONE || !rec) {
-    return html`<span class=${cx('lo-mglyph', 'lo-mglyph--none', `lo-mglyph--${size}`)}>
-      <${Img} src=${localAsset('ui/outer', 'icon_equip_non')} fallback=${html`<i class="lo-mglyph__slash"></i>`} />
-    </span>`;
-  }
-  return html`<span class=${cx('lo-mglyph', `lo-mglyph--${size}`)} data-type=${moduleBadge(rec)}>
-    <${Img} src=${src} fallback=${html`<b class="lo-mglyph__t num">${moduleBadge(rec)}</b>`} />
-  </span>`;
 }
 
 // ---- roster rows -----------------------------------------------------------------------------------------------------
@@ -254,68 +198,6 @@ export function LoadoutGarrisons({ chess, m }) {
   </section>` : null;
 }
 
-function SkillOption({ m, opt, on, level, onPick }) {
-  const rec = level === 'elite' ? opt.elite || opt.normal : opt.normal || opt.elite;
-  const tags = skillTags(rec);
-  return html`<button type="button" role="radio" aria-checked=${on ? 'true' : 'false'} class=${cx('lo-skill', on && 'is-on')}
-      data-skill=${opt.index} onClick=${() => onPick(opt.index)}>
-    ${on ? html`<span class="lo-skill__deco" aria-hidden="true"><${Img} src=${localAsset('ui/outer', 'skill_select_deco')} fallback=${html`<i></i>`} /></span>` : null}
-    <${SkillIcon} m=${m} rec=${rec} index=${opt.index} on=${on} size="md" />
-    <span class="lo-skill__body">
-      <span class="lo-skill__head">
-        <span class="lo-skill__slot num">${skillLabel(opt.index)}</span>
-        <b class="lo-skill__name">${rec?.name || t('未知技能')}</b>
-        ${opt.isDefault ? html`<span class="lo-badge lo-badge--def">${t('默认')}</span>` : null}
-        ${on ? html`<span class="lo-badge lo-badge--on"><${Icon} name="check" />${t('已装备')}</span>` : null}
-      </span>
-      <span class="lo-skill__tags">
-        <span class=${cx('lo-sp', `lo-sp--${tags.spKind}`)}>${tags.sp}</span>
-        ${tags.init != null ? html`<span class="lo-tag">${t('初始')} <b class="num">${tags.init}</b></span>` : null}
-        ${tags.cost != null ? html`<span class="lo-tag">${t('消耗')} <b class="num">${tags.cost}</b></span>` : null}
-        ${tags.duration ? html`<span class="lo-tag">${t('持续')} <b class="num">${tags.duration}</b></span>` : null}
-        ${tags.charges ? html`<span class="lo-tag">${t('充能')} <b class="num">${tags.charges}</b></span>` : null}
-      </span>
-      <${RichText} as="span" class="lo-skill__desc" text=${rec?.descRaw || rec?.desc || ''} />
-    </span>
-  </button>`;
-}
-
-/**
- * The chosen module's card: its stat bonus, the 特性 it fights with, its talent changes — read at the operator's 潜能
- * (`potential`, 0.2.2: the elite composed at it first, shared/potential.js atPotential, as 局内数值 and the battle do; the
- * data record is the full-potential one — 余's 闲云隐市 「生命上限2%（+0.5%）」 is 「1.5%」 at 潜能1). null = full potential.
- * @param {{ m: any, golden: any, opt: { id: string, rec: any, isDefault?: boolean }, potential?: number|null }} props
- */
-export function ModuleInfo({ m, golden, opt, potential = null }) {
-  if (!golden) return null;
-  const at = atPotential(golden, potential);
-  const rec = opt.id === MODULE_NONE ? null : at === golden ? opt.rec : moduleRecord(at, opt.id) || opt.rec;
-  if (!rec) {
-    const traitBase = golden.traitBase || null;
-    return html`<div class="lo-minfo lo-minfo--none">
-      <p class="lo-minfo__lead">${t('不装备模组：精锐干员以基础属性、特性与天赋作战。')}</p>
-      ${traitBase?.desc ? html`<div class="lo-minfo__row"><span class="lo-minfo__k">${t('特性')}</span><${RichText} class="lo-minfo__v" text=${traitBase.descRaw || traitBase.desc} /></div>` : null}
-    </div>`;
-  }
-  const rows = attrRows(rec.attr);
-  // 特性: the trait the elite fights with under this module (the class trait, or the module's rewrite of it), then the
-  // module's extra line under PRTS's own label 特性追加 — the line adds to the class trait (item 16.2)
-  const lines = traitLines(rec.traitOverride);
-  const talents = (Array.isArray(rec.talentChanges) ? rec.talentChanges : []).filter((t) => t && (t.name || t.desc) && !t.hidden);
-  return html`<div class="lo-minfo">
-    <div class="lo-minfo__title"><${Img} src=${moduleIconOf(m, rec)} class="lo-minfo__icon" /><span class="lo-minfo__type num">${rec.typeName || ''}</span><b>${rec.name || rec.uniEquipId}</b>
-      ${opt.isDefault ? html`<span class="lo-badge lo-badge--def">${t('默认')}</span>` : null}</div>
-    <div class="lo-minfo__row">
-      <span class="lo-minfo__k">${t('属性')}</span>
-      <span class="lo-minfo__v lo-attrs">${rows.length ? rows.map((r) => html`<span key=${r.key} class=${cx('lo-attr', r.positive ? 'is-up' : 'is-down')}>${r.label}<b class="num">${r.text}</b></span>`) : html`<span class="t-dim">${t('无属性加成')}</span>`}</span>
-    </div>
-    ${lines.base ? html`<div class="lo-minfo__row" data-trait="base"><span class="lo-minfo__k">${t('特性')}</span><${RichText} class="lo-minfo__v" text=${lines.base} /></div>` : null}
-    ${lines.added ? html`<div class="lo-minfo__row" data-trait="added"><span class="lo-minfo__k">${t('特性追加')}</span><${RichText} class="lo-minfo__v" text=${lines.added} /></div>` : null}
-    ${talents.map((tal, i) => html`<div key=${i} class="lo-minfo__row"><span class="lo-minfo__k">${t('天赋')}</span>
-      <span class="lo-minfo__v">${tal.name ? html`<b class="lo-minfo__tname">${tal.name}</b>` : null}<${RichText} text=${tal.descRaw || tal.desc || ''} /></span></div>`)}
-  </div>`;
-}
-
 /** The name of a chess's 补位 stand-in (data/backups.json), or null. */
 const standInName = (chess) => data.get('backups')?.units?.[chess?.backup?.charId]?.name ?? null;
 
@@ -329,8 +211,6 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
   const opt = chessOptions(chess, golden);
   const choice = effectiveChoice(entries, chess, golden);
   const changed = choice.changed || opsOf(ops, chess.charId).changed;
-  const modOpt = opt.moduleOptions.find((x) => x.id === choice.module) || null;
-  const lv = (c) => c?.status?.skillLevel ?? '—';
   return html`<aside class="lo-detail" aria-label=${t('{name} 调配', { name: chess.name })}>
     <div class="lo-dhead">
       <div class=${cx('lo-dhead__art', `lo-dhead__art--t${chess.tier}`)}>
@@ -353,39 +233,11 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
     <div class="lo-detail__body" ref=${bodyRef}>
       <${CultivationSection} charId=${chess.charId} ops=${ops} onSet=${onOps} standIn=${notOwned} />
       <${LoadoutGarrisons} chess=${level === 'elite' && golden ? golden : chess} m=${m} />
-      <section class="lo-sec">
-        <header class="lo-sec__head">
-          <h3>${t('技能')}<${MicroLabel}>SKILL<//></h3>
-          <div class="lo-seg" role="tablist" aria-label=${t('技能等级')}>
-            <button type="button" role="tab" aria-selected=${level === 'normal' ? 'true' : 'false'} class=${cx(level === 'normal' && 'is-on')} onClick=${() => setLevel('normal')}>${t('普通')} <span class="num">Lv.${lv(chess)}</span></button>
-            <button type="button" role="tab" aria-selected=${level === 'elite' ? 'true' : 'false'} class=${cx(level === 'elite' && 'is-on')} disabled=${!golden} onClick=${() => setLevel('elite')}>${t('精锐')} <span class="num">Lv.${lv(golden)}</span></button>
-          </div>
-        </header>
-        <div class="lo-skills" role="radiogroup" aria-label=${t('选择技能')}>
-          ${opt.skillOptions.map((s) => html`<${SkillOption} key=${s.index} m=${m} opt=${s} level=${level} on=${s.index === choice.skill}
-            onPick=${(i) => onChange({ skill: i })} />`)}
-        </div>
-      </section>
+      <${SkillSection} m=${m} chess=${chess} golden=${golden} skillOptions=${opt.skillOptions} skill=${choice.skill} level=${level}
+        onLevel=${setLevel} onPick=${(i) => onChange({ skill: i })} />
       <${LoadoutStats} base=${chess} golden=${golden} entries=${entries} ops=${ops} level=${statLevel} onLevel=${setStatLevel} />
-      ${golden ? html`<section class="lo-sec lo-sec--mod">
-        <header class="lo-sec__head">
-          <h3>${t('模组')}<${MicroLabel}>MODULE<//></h3>
-          <span class="lo-sec__note">${t('仅精锐干员装备 · 模组等级')} <b class="num">${golden.status?.equipLevel ?? 1}</b></span>
-        </header>
-        <div class="lo-mods" role="radiogroup" aria-label=${t('选择模组')}>
-          ${opt.moduleOptions.map((mo) => html`<button key=${mo.id} type="button" role="radio" aria-checked=${mo.id === choice.module ? 'true' : 'false'}
-              data-module=${mo.id} class=${cx('lo-mod', mo.id === choice.module && 'is-on', mo.id === MODULE_NONE && 'lo-mod--none')}
-              onClick=${() => onChange({ module: mo.id })}>
-            <${ModuleGlyph} m=${m} rec=${mo.rec} id=${mo.id} />
-            <span class="lo-mod__text">
-              <span class="lo-mod__type num">${mo.id === MODULE_NONE ? 'NONE' : mo.rec?.typeName || ''}</span>
-              <b class="lo-mod__name">${mo.id === MODULE_NONE ? t('不装备') : mo.rec?.name || mo.id}</b>
-            </span>
-            ${mo.isDefault ? html`<span class="lo-badge lo-badge--def lo-mod__def">${t('默认')}</span>` : null}
-          </button>`)}
-        </div>
-        ${modOpt ? html`<${ModuleInfo} m=${m} golden=${golden} opt=${modOpt} potential=${opsOf(ops, chess.charId).potential} />` : null}
-      </section>` : null}
+      <${ModuleSection} m=${m} golden=${golden} moduleOptions=${opt.moduleOptions} module=${choice.module}
+        onPick=${(id) => onChange({ module: id })} potential=${opsOf(ops, chess.charId).potential} />
       ${notOwned ? html`<p class="lo-locknote lo-locknote--standin" data-testid="loadout-standin-note"><${Icon} name="info" />${standInName(chess) ? t('干员持有中标记为未持有：此棋子由替补干员 {name} 上场，技能与模组固定（补位干员技能不可更改）；这里的调配在改回「持有」后生效', { name: standInName(chess) })
         : t('干员持有中标记为未持有：此棋子由替补干员上场，技能与模组固定（补位干员技能不可更改）；这里的调配在改回「持有」后生效')}</p>` : null}
       ${locked ? html`<p class="lo-locknote"><${Icon} name="info" />${t('本局的调配已锁定，修改将在下一局生效')}</p>` : null}
@@ -409,11 +261,7 @@ function Filters({ m, filters, onFilters, bonds, onDeck = null }) {
         onInput=${(v) => set({ query: String(v).slice(0, 24) })} />
     </div>
     <div class="lo-frow">
-      <div class="lo-chips lo-chips--prof" role="group" aria-label=${t('职业')}>
-        ${PROF_ORDER.map((p) => html`<button key=${p} type="button" class=${cx('lo-chip', 'lo-chip--prof', filters.prof === p && 'is-on')}
-          aria-pressed=${filters.prof === p ? 'true' : 'false'} title=${t(PROF_NAME[p])} onClick=${() => set({ prof: filters.prof === p ? null : p })}>
-          <${Img} src=${profGlyphUrl(m, p)} class="lo-chip__icon lo-profglyph" fallback=${html`<span>${t(PROF_NAME[p])[0]}</span>`} /><span class="lo-chip__lbl">${t(PROF_NAME[p])}</span></button>`)}
-      </div>
+      <${ProfFilter} m=${m} prof=${filters.prof} onProf=${(prof) => set({ prof })} />
       <label class="lo-select">
         <span class="lo-select__k">${t('盟约')}</span>
         <select value=${filters.bond || ''} onChange=${(e) => set({ bond: e.currentTarget.value || null })} aria-label=${t('按盟约筛选')}>
@@ -1023,7 +871,7 @@ function LoadoutScreen({ st }) {
         <${Button} variant="ghost" size="sm" data-testid="ownership-import" disabled=${!ready} onClick=${openImport} title=${t('导入干员持有（粘贴或选择文件）')}>${t('导入')}<//>
         <${Button} variant="secondary" size="sm" icon="refresh" data-testid="ownership-reset" disabled=${!nNotOwned} onClick=${ownAll}>${t('全部持有')}<//>
       </div>` : deck ? html`<div class="lo-top__right">
-        ${inMatch && hasDeadline(infoDeadline) ? html`<${Countdown} deadline=${infoDeadline} size="sm" gauge=${false} label=${t('调配截止')} class="lo-deadline" />` : null}
+        ${inMatch && hasDeadline(infoDeadline) ? html`<${Countdown} deadline=${infoDeadline} size="sm" gauge=${false} label=${t('确认本局信息')} class="lo-deadline" />` : null}
         ${quick ? html`<span class="lo-qbar__k">${t('快速编辑')}</span>
           <div class="lo-qseg" role="tablist" aria-label=${t('快速编辑')}>
             ${[['skill', t('技能')], ['module', t('模组')], ['cult', `${t('潜能')} · ${t('练度')}`]].map(([k, l]) => html`<button key=${k} type="button" role="tab"

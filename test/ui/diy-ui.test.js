@@ -215,8 +215,10 @@ describe('自选编队 tab (screens/diy.js)', () => {
         const view = () => expand(DiyPickerView({ m: null, slot: { slotId }, picks, kitted: KIT,
           onDone: (p) => done.push(p), onClose() {}, filter, query, draft,
           onFilter: (f) => { filter = f; }, onQuery: (q) => { query = q; }, onDraft: (d) => { draft = d; } }));
+        // the detail's choices (role radio): a row's own quick choices carry the same data-skill / data-module
         const click = (key, value) => {
-          const node = [...walk(view())].find((v) => v.props?.[key] === value && typeof v.props.onClick === 'function');
+          const node = [...walk(view())].find((v) => v.props?.[key] === value && typeof v.props.onClick === 'function'
+            && (key === 'data-char' || key === 'data-testid' || v.props.role === 'radio'));
           assert.ok(node, `${key}=${value} is clickable`);
           node.props.onClick();
         };
@@ -268,8 +270,9 @@ describe('自选编队 tab (screens/diy.js)', () => {
     let tree = view();
     const opts = [...walk(tree)].filter((v) => hasClass(v, 'diy-opt'));
     assert.deepEqual(opts.map((v) => v.props['data-char']).sort(), [...LOCAL_DIY_PICKS].sort());
-    // no 全部 / 原型 / 已持有 filter chips and no kind tags (maintainer decision 2026-10-07)
-    assert.ok(![...walk(tree)].some((v) => v.props?.['data-filter'] != null || hasClass(v, 'lo-chip') || hasClass(v, 'diy-tag')), 'no filter chips, no tags');
+    // no 全部 / 原型 / 已持有 filter chips and no kind tags (maintainer decision 2026-10-07); the roster's 职业 chips only
+    assert.ok(![...walk(tree)].some((v) => v.props?.['data-filter'] != null || hasClass(v, 'diy-tag')), 'no filter chips, no tags');
+    assert.ok([...walk(tree)].filter((v) => hasClass(v, 'lo-chip')).every((v) => hasClass(v, 'lo-chip--prof')), 'only the 职业 chips');
     // the current pick is shown with its three skills and its modules (none + X + Y)
     const skills = [...walk(tree)].filter((v) => v.props?.role === 'radio' && v.props['data-skill'] != null);
     assert.deepEqual(skills.map((v) => v.props['data-skill']), [0, 1, 2]);
@@ -329,11 +332,11 @@ describe('自选编队 tab (screens/diy.js)', () => {
       const stats = [...walk(tree)].find((v) => hasClass(v, 'lo-sec--stats'));
       assert.ok(stats, `${level}: 局内数值 is drawn`);
       assert.equal(stats.props['data-variant'], level);
-      const lvTag = [...walk(tree)].find((v) => hasClass(v, 'diy-pick__lv'));
-      assert.equal(lvTag.props['data-variant'], level);
+      // the skill section's level toggle (screens/loadoutSections.js SkillSection): the tab on is the level shown
+      const lvTag = [...walk(tree)].find((v) => v.props?.role === 'tab' && v.props['aria-selected'] === 'true' && /Lv\./.test(textOf(v)));
       assert.ok(textOf(lvTag).includes(`Lv.${lv}`), `${level}: the skill heading names rank ${lv}`);
       const row = textOf(s1(tree));
-      const desc = [...walk(s1(tree))].find((v) => hasClass(v, 'diy-choice__desc'))?.props.text || '';
+      const desc = [...walk(s1(tree))].find((v) => hasClass(v, 'lo-skill__desc'))?.props.text || '';
       assert.ok(desc.includes(`+${Math.round(sim.skill.bb.atk * 100)}%`), `${level}: S1 shows the sim's ATK +${sim.skill.bb.atk * 100}% (${desc})`);
       assert.ok(row.includes(String(sim.skill.spCost)) && row.includes(String(sim.skill.initSp)), `${level}: S1 shows the sim's SP ${sim.skill.initSp} / ${sim.skill.spCost}`);
     }
