@@ -37,8 +37,8 @@ export const MODE_SWITCH_STATUS = Object.freeze({
   char_4133_logos: { 'S3 S3_End': 'ok: the kit plan draws its cast (render/fx/kitofficial.js bulletClear)' },
   char_4137_udflow: { 'S2 S2_Down': 'ok: the same effects; its clips by the keys\' downMode' },
   char_4182_oblvns: {
-    'S2 S2_Atk': 'todo: the piano side\'s effects (oblvns_skill_02_start_A, _hit_02, _trail_02, _buff_01)',
-    'S2 S2_Fever': 'todo: the piano side\'s effects in 狂热 (oblvns_skill_02_start_A, _hit_02, _trail_02, _buff_01)',
+    'S2 S2_Atk': 'ok: held by the form from the deployment (fxmap.js FORM_HELD_MODES): its swings cast start_A, its buff _buff_01; the notes draw _trail_02 / _hit_02 (NOTE_FX piano)',
+    'S2 S2_Fever': 'ok: the same effects as S2_Atk (FORM_HELD_MODES `also`)',
     'S2 S2_Fever_Mag': 'ok: the same effects as S2_AttackSpeed',
   },
   char_4165_ctrail: {

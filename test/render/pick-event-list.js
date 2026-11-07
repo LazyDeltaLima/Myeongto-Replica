@@ -7,7 +7,7 @@
 
 export const UNJUDGED = 'unjudged: older than this check (2026-11-04)';
 /** How many UNJUDGED entries may remain; lower it as they are judged, never raise it. */
-export const UNJUDGED_MAX = 1;
+export const UNJUDGED_MAX = 0;
 
 export const PICK_EVENTS = Object.freeze({
   'closur|dp': 'stand-in: the DP number the sim shows for every DP gain; closur_s_1[cost]\'s own common_charge_cost_02 is a skill buff row',
@@ -58,9 +58,9 @@ export const PICK_EVENTS = Object.freeze({
   'lmlee|mark': "official: lmlee_s_2[paper] holds lmlee_skill_02_debuff on the enemy, so no reticle either (KIT_NO_STAND_IN)",
   'lmlee|dodge': "stand-in: the same miss mark as every other missed attack; lmlee_s_3[evade]'s lmlee_skill_03_range is held",
   'monstr|undying': "official: nothing: monstr_s_3[undeadable] has an empty template (test VERDICT undying)",
-  'oblvns|sunBurst': UNJUDGED,
+  'oblvns|sunBurst': "official: nothing of its own: Fever's start creates no effect (no prefab of hers, the oblvns_*[fever] buffs name none) and the 2D ring is off; S2's Fever modes draw their timbre's effects (fxmap.js FORM_HELD_MODES)",
   'oblvns|burst': "official: nothing of its own: the note's hits draw it (fxgame.js noteFx)",
-  'oblvns|spGain': "stand-in: the SP sparkle every gain shows; S2's own piano effects are the open mode-path line",
+  'oblvns|spGain': "official: S2's toggle (oblvns_s_2[switch] ON_TOGGLE_SKILL_START) only switches her mode: fxgame.js defaultModeFx swaps the held mode's buff (oblvns_skill_02_buff_01 ↔ _buff), the swings cast its start_A / start_B; no SP sparkle (KIT_NO_STAND_IN)",
   'oxi|overload': "official: nothing: the client only sounds oxi_s_3_overload (test VERDICT overload)",
   'phatm2|lure': "official: fxgame.js holds token_encdool_skill_02_debuff_01 on the enemy the cage draws",
   'phatm2|aoe': "official: fxgame.js plays token_encdool_skill_02_range_02 where the cage stood",

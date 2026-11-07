@@ -63,7 +63,7 @@ const VEEN_MOUNTS = Object.freeze([5, 6, 8, 9, 10]);
  * the generic mark would draw on top of them (test/render/pick-event-list.js says what draws each).
  */
 export const KIT_NO_STAND_IN = Object.freeze(new Set(['aglna2|takeoff', 'bgsnow|crit', 'chen3|teleport', 'haruka|heal', 'haruka|levitate', 'irene|slash', 'judge|crit',
-  'kalts2|takeoff', 'lmlee|mark', 'thorns|thorns']));
+  'kalts2|takeoff', 'lmlee|mark', 'oblvns|spGain', 'thorns|thorns']));
 
 /**
  * event → operator bundle → (o, ctx) → { stop?: tag[], play: plays[], pass?: the event keeps its stand-in } | null.

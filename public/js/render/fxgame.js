@@ -67,7 +67,7 @@ import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
 import { castEnd, commonEffects, skillEdge, skillHeld } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities (2026-10-24: a skill's own held buffs, its start / end effects)
 import { altGroup, combatEffects } from './fxmap.js'; // 2026-10-21: ability group children, the COMBAT state's effects
-import { modePart } from './fxmap.js'; // 2026-10-21: a mode talent's attack, a per-side child of the attack
+import { heldMode, heldModes, modePart } from './fxmap.js'; // 2026-10-21: a mode talent's attack, a per-side child of the attack
 import { defaultModeEffects } from './fxmap.js'; // 2026-10-21: the Default mode's own effects
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
 import { bodyZ, bodyPoint, liftX } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
@@ -3798,7 +3798,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (on && !v._fxSkillOn) { v._fxSkillFlag = true; api.onEvent(['skill', v.id ?? v.info?.id, 1, 'flag'], views); }
     else if (!on && v._fxSkillOn && v._fxSkillFlag) { v._fxSkillFlag = false; api.onEvent(['skill', v.id ?? v.info?.id, 0], views); }
   }
-  const modeNow = (v) => attackMode(bindOf(v), !!v._fxSkillOn, skillIdx(v), subOf(v));
+  // (2026-11-07) the mode an equipped skill holds by the sim form (fxmap.js FORM_HELD_MODES: 丰川祥子 S2), or −1; `form`: a form
+  // the event just announced (app.js hands the event to this layer before it sets the view's form)
+  const heldOf = (v, form = v?.form) => heldMode(bindOf(v), v?.info?.spine || v?.info?.defId, skillIdx(v), form);
+  const modeNow = (v) => { const h = heldOf(v); return h > 0 ? h : attackMode(bindOf(v), !!v._fxSkillOn, skillIdx(v), subOf(v)); };
   // local patch (maintainer report 2026-10-07, 11 items): the skill's own effects (modes.json `skills[i]`, char_modes.py from
   // [uc]skills.ab: cast / castLoop / buff on the caster, target / targetBuff on its targets, end = a finishing ability's)
   const skillBind = (v) => bindOf(v)?.skills?.[skillIdx(v)] || null;
@@ -3916,6 +3919,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const held = skillHeld(v?.info?.spine || v?.info?.defId, skillIdx(v), b.prefabs, plays, faceBack(v)).filter((n) => !a.loops.includes(n));
     // 2026-10-24 (묶음 S5): what its template creates once as it starts (fxmap.js SKILL_EDGE `start`)
     const once = skillEdge(v?.info?.spine || v?.info?.defId, skillIdx(v), 'start', b.prefabs, plays).filter((n) => !a.start.includes(n));
+    // (2026-11-07) a mode held by the form (FORM_HELD_MODES) draws its buffs from the deployment on (defaultModeFx), not at a cast
+    const hm = heldModes(bindOf(v), v?.info?.spine || v?.info?.defId, skillIdx(v));
+    if (hm.length) {
+      const own = new Set(hm.flatMap((k) => bound(v, k, 'attach')));
+      a.start = a.start.filter((n) => !own.has(n));
+      a.loops = a.loops.filter((n) => !own.has(n));
+    }
     return held.length || once.length ? { start: [...a.start, ...once], loops: [...a.loops, ...held] } : a;
   };
   /**
@@ -5404,11 +5414,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * no running skill switched her mode (a skill that switches none, attackMode −1, keeps the Default mode) — through a stun
    * too —, end at a mode-switching skill's start, come back at its end and end with her retreat / death (stopOwned).
    * `force` (a deploy, a 【移动】 too: the client re-attaches) restarts them.
+   * (2026-11-07) A mode the equipped skill holds by the sim form (FORM_HELD_MODES: 丰川祥子 S2's 钢琴 / 风琴) is drawn the same
+   * way from the deployment on: its own attach list (her oblvns_skill_02_buff_01 / _buff), swapped when the form changes
+   * (`form`: the one her 'spGain' event announces).
    */
-  function defaultModeFx(v, force = false) {
+  function defaultModeFx(v, force = false, form = v?.form) {
     const id = ownerOf(v), b = bundleOf(v);
-    const m = v._fxSkillOn ? modeNow(v) ?? -1 : 0;
-    const names = b && !failed && q() !== 'low' && v.alive !== false && !(m > 0) ? defaultModeEffects(bindOf(v), b.prefabs, ownedNow()) : [];
+    const h = heldOf(v, form);
+    const m = h > 0 ? h : v._fxSkillOn ? modeNow(v) ?? -1 : 0;
+    const on = b && !failed && q() !== 'low' && v.alive !== false;
+    const foe = h > 0 ? new Set(bindOf(v)?.attachFoe?.[h] || []) : null;
+    const names = !on ? [] : h > 0 ? bound(v, h, 'attach').filter((n) => !foe.has(n) && !ownedNow().has(n))
+      : !(m > 0) ? defaultModeEffects(bindOf(v), b.prefabs, ownedNow()) : [];
     const key = names.join('|');
     if (!force && (v._fxMode0?.key ?? '') === key) return;
     for (const l of live) if (l.tag === 'mode0' && l.owner === id) l.inst.stop(force);
@@ -5997,6 +6014,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if ((e[1] === 'zone' || e[1] === 'tornado' || e[1] === 'storm') && zoneFx(e, views)) { officialKitFx(e, views); return; }
           if (e[1] === 'lightning' && chainFx(e, views)) return;
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
+          // (2026-11-07) a form that moves a held mode (丰川祥子 S2's timbre): that mode's buffs now
+          if (e[1] === 'spGain' && e[4] && 'form' in e[4]) { const v = views.get(e[4].id); if (v && heldOf(v, e[4].form) > 0) defaultModeFx(v, false, e[4].form); }
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
           if (e[1] === 'kitHit' && e[4]?.k === 'judge:barrier') judgeShield(e[4], views);
           if (e[1] === 'shieldBreak' && e[4] && brokeOwn.delete(e[4].id)) { ownFx.add(e); return; } // 2026-10-23: its official break drew it (parryFx)

@@ -127,6 +127,29 @@ export function attackMode(bind, skillOn, skillIndex, sub = null) {
 }
 
 /**
+ * (2026-11-07, official client) A mode an equipped skill holds through the deployment, picked by the unit's sim form rather than by
+ * a running skill: charId → { skill index → { forms: { form ('' = none) → mode name }, also: [the other modes of the same
+ * effects] } }. 丰川祥子 S2 满月的舞会 (a toggle skill with no duration): oblvns_s_2[switch] keeps her in mode 2 S2_Atk (钢琴,
+ * 「初始」 by the skill's text) and its toggle (ON_TOGGLE_SKILL_START) moves her between it and mode 1 S2_AttackSpeed (风琴) —
+ * the kit's form 'organ'; in Fever to S2_Fever / S2_Fever_Mag, which bind the same effects as their timbre's mode.
+ */
+export const FORM_HELD_MODES = Object.freeze({
+  char_4182_oblvns: Object.freeze({ 1: Object.freeze({ forms: Object.freeze({ '': 'S2_Atk', organ: 'S2_AttackSpeed' }), also: Object.freeze(['S2_Fever', 'S2_Fever_Mag']) }) }),
+});
+/** The mode index FORM_HELD_MODES holds `charId` in for skill `skillIndex` (0-based) and sim form `form`, else −1. */
+export function heldMode(bind, charId, skillIndex, form) {
+  const t = charId ? FORM_HELD_MODES[charId]?.[skillIndex] : null;
+  if (!t || !Array.isArray(bind?.modes)) return -1;
+  const i = bind.modes.indexOf(t.forms[typeof form === 'string' ? form : ''] ?? t.forms['']);
+  return i > 0 ? i : -1;
+}
+/** Every mode index of that entry (its forms' and `also`), for what a cast of the skill must not play again. */
+export function heldModes(bind, charId, skillIndex) {
+  const t = charId ? FORM_HELD_MODES[charId]?.[skillIndex] : null;
+  if (!t || !Array.isArray(bind?.modes)) return [];
+  return [...Object.values(t.forms), ...t.also].map((n) => bind.modes.indexOf(n)).filter((i) => i > 0);
+}
+/**
  * (2026-11-03, official client) A skill whose cast picks one of its modes, by the cast's variant (the 'skill' event's 4th
  * field, a kit's `castVariant`): charId → { skill index → { variant: mode name } } — attackMode's `sub` for that cast.
  * 薇薇安娜 S3: vvana_s_3 switches to mode 4 S3_2 while vvana_s_3[check] left vvana_s_3_enhance_mark (from her second cast

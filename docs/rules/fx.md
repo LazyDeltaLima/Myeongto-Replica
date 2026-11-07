@@ -3799,7 +3799,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   - 이그제큐터 디 엑스 포에데레 S3·티피 S1·S2 착륙: 스킬 버프의 ON_BUFF_FINISH가 조건 없이 닫는 모드로 바꾸고 그 공격 능력이 바로 돈다 → `fxmap.js SKILL_END_CAST`가 스킬 끝에 그 모드의 시전(`excu2_skill_03_end_01`·`_end_02`, `tippi_land_F`)과 티피 `common_land_ground`를 클립 길이 1초만 튼다(반복형이라 끊음). 티피 이륙은 사건 `takeoff`에 `tippi_takeoff_F`(절차 표시 대신). `common_land_ground`를 1초로 끊는 것은 [추정·화면: 공식은 착륙 모드가 끝날 때까지].
   - 제시카 더 리버레이티드 방패 턴어라운드(2026-11-06, 공식 클라에서 확인): `jesca2_jckshd_dir_ctrl[self]`가 방패에서 `jesca2_jckshd_dir_set`을 그녀(`CreateBuffToHost`)에게 걸고, 그 안의 `jesca2_jckshd_dir_set[effect]`는 `_buffOwner` BUFF_SOURCE, 곧 방패 위에 1초다. `token_jesca2_jckshd_turnaround_01`을 방패에 튼다(사건 `buff` `turn`의 새 `shield`). 아레나 2배속에서 방패가 설 때 나오는 것을 기록으로 확인(그림 대조는 공식과 안 함). 전에 시험 목록에 「그녀가 돌아설 때」로 적혀 있던 것은 틀린 설명이었다.
   - 달라지는 그림이 없어 그대로인 것: 제시카 더 리버레이티드 S3 `S3[D]`(시전·타격·탄 목록이 같음; 비교할 때 `dirs`는 모드별이 아니라 묶음 목록이라 보지 않음), 뮤엘시스 S2·S3의 `mlyss_s_2[token_buff_range_finish]`·`mlyss_s_3[token_buff_melee_finish]`(유동체 쪽 모드), 스테인리스 S2의 `switch_mode` 모드 1(`_selfOption` 0: 장치 쪽. 본인은 `_passiveBuffs` `ironmn_s_2` 모드 2).
-  - 남은 것: 토가와 사키코 S2(`S2_Atk`·`S2_Fever`). 시뮬에서 즉발이고 음색이 배치 내내 유지되어, 스킬 중에만 모드를 보는 이펙트 층으로는 못 그린다.
+  - 토가와 사키코 S2(`S2_Atk`·`S2_Fever`): 2026-11-07부터 장착 스킬이 형태로 쥐는 모드로 그린다 → 아래 「토가와 사키코 S2 음색 모드」.
 - 비이(`char_4226_veen`) 재능 2 전쟁 기술: `veen_t_2[damage]`의 `veen_talent_02_debuff_01` — 시뮬 표식 `veen:war:<그녀 id>`를 `visible`로 → `KEY_FX`.
   S2 '선혈로 정화하라' 상한: `veen_s_2_buff[stack]`이 `max_stack_cnt`에 닿으면 `veen_s_2_buff_full[effect]`(`veen_skill_02_buff_03`)를 스킬이 끝날 때까지
   — 시뮬 `veen:s2full`.
@@ -3855,11 +3855,12 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 선발 키트가 보내는 사건을 쌍마다 판정했다(`test/render/pick-event-list.js`, 판정 대기 59 → 4). 기준은 그 순간을 공식 클라가 어떻게 그리는가다(공식 클라에서 확인: 프리팹·버프 템플릿 행, 아레나 2배속 재생 목록).
 
 - **겹쳐 그리던 일반 표시를 끔**(`fx/kitofficial.js KIT_NO_STAND_IN`): `fxgame.js STAND_IN`에 없는 종류(들어 올리는 고리·치명타 번쩍임·순간이동·반격·조준 표시·치유 표시)는 공식 이펙트가 있는 오퍼레이터에게도 그려졌다. 공식이 같은 순간을 자기 프리팹으로 그리거나 아무것도 안 그리는 열 쌍을 뺐다: 안젤리나 더 멜로우 위시·켈시 에스페란타 `takeoff`, 하루카 `levitate`·`heal`, 파죰카 `crit`, 페넌스 `crit`, 첸 더 던스트릭 `teleport`, 아이린 `slash`, 리 `mark`, 쏜즈 `thorns`.
-- **그대로 둔 것**: 빗나감 표시(`dodge`), SP·DP 표시(`spGift`·`spGain`·`dp`), 끌려가는 적의 먼지(`pull`). 다른 오퍼레이터도 똑같이 보여 주는 표시이고 공식 프리팹이 없다.
+- **그대로 둔 것**: 빗나감 표시(`dodge`), SP·DP 표시(`spGift`·`spGain`·`dp`; 토가와 사키코의 `spGain`은 SP가 아니라 S2 음색 전환이라 2026-11-07부터 끔 — 아래 「토가와 사키코 S2 음색 모드」), 끌려가는 적의 먼지(`pull`). 다른 오퍼레이터도 똑같이 보여 주는 표시이고 공식 프리팹이 없다.
 - **페넌스 S2 파동**: `judge_s_2[aoe]`의 `_hitEffectKey` `judge_skill_02_hit_01`을 맞은 적마다(`aoe`의 `targets`). 전에는 무기 쪽 `_weapon_hit_01`만 그렸다.
 - **지마 더 레이징 타이드 고지대**: `Headb2AttackHighlandAOE`가 터지는 칸마다 `_tileEffectKey` `headb2_highground`, 피해를 준 적마다 `_hitEffectKey` `headb2_highground_hit`. [화면 미확인: 고지대가 있는 판]
 - **에벤홀츠 잔영의 회상**: 소환물 스킬 `sktok_ebnhlz_token`의 `_castEffects`. 시전에 `token_ebnhlz_skill_02_start_01`, `_preDelay` 0.93초 뒤 타격(ON_SPELL_ON)에 `_hit`·`_range`. 계획의 `after`가 숫자면 그 시간 뒤에 튼다.
-- 남은 하나: 토가와 사키코 `sunBurst`(S2 모드 경로). 스테인리스 `aoe`·탈룰라 `blast`·슈 `healField`는 아래 「스테인리스 소환물·탈룰라 반격·슈 칸 이펙트」로 그린다.
+- 토가와 사키코 `sunBurst`(Fever 시작, 2026-11-07 판정): 그녀 것은 없다 — 위 「공용(절차) 이펙트 제거」대로 시작 이펙트 프리팹이 없고 Fever 버프들도 이펙트 키가 없다. S2의 Fever 모드는 그 음색 모드와 같은 이펙트다(아래). 판정 대기는 이로써 0(`UNJUDGED_MAX` 0). 스테인리스 `aoe`·탈룰라 `blast`·슈 `healField`는 아래 「스테인리스 소환물·탈룰라 반격·슈 칸 이펙트」로 그린다.
+- **토가와 사키코 S2 음색 모드** (2026-11-07, 공식 클라에서 확인 — 버프 템플릿 `oblvns_s_2[switch]`, 스킬 표 설명): 만월의 무도회는 지속 시간 없는 토글이다. `oblvns_s_2[switch]`가 모드 2 `S2_Atk`(피아노, 스킬 설명의 「초기」)에 두고, 시전(`ON_TOGGLE_SKILL_START`)마다 모드 1 `S2_AttackSpeed`(오르간)와 오가며(Fever면 3 `S2_Fever`·5 `S2_Fever_Mag`, 이펙트 목록은 그 음색 모드와 같음), 시전 자체가 만드는 이펙트는 없다(스킬 `skills[1]` 비어 있음, 템플릿에 이펙트 노드 없음). 이펙트 층은 스킬이 도는 동안만 모드를 봐서, S2를 단 그녀의 공격이 기본 모드 시전 `oblvns_attack_01_start`를 틀고 시전 순간에 두 음색의 상시 버프를 함께 틀었다. → `fxmap.js FORM_HELD_MODES`(장착 스킬이 시뮬 형태로 배치 내내 쥐는 모드: 형태 없음 = `S2_Atk`, `organ` = `S2_AttackSpeed`)를 `fxgame.js modeNow`·`defaultModeFx`가 먼저 본다: 공격 시전은 `start_A`/`start_B`, 상시 버프는 배치부터 `oblvns_skill_02_buff_01`, 오르간이면 `_buff`로 바뀜(키트 사건 `spGain`의 `form`; `app.js`가 뷰의 형태를 바꾸기 전에 이 층이 사건을 받음). 음표의 탄·타격(`_trail_02`·`_hit_02` / `_trail`·`_hit`)은 전처럼 음표 투사체 표(`NOTE_FX`). 전환 때의 SP 반짝임 대체 그림은 끔(`KIT_NO_STAND_IN`). 시험 `test/render/held-mode-fx.test.js`, 아레나 2배속 재생 목록·스크린샷(피아노·오르간 각각, 상시 버프는 한 번에 하나). 시뮬은 아직 시전마다 바꾼다(공식 자동 조작은 한 번만, rules/diy.md 「사키코 S2」 보류). [화면 미확인: 공식 화면과 나란히]
 - 확인: `test/render/cond-child-fx.test.js`(목록의 쌍이 일반 표시를 안 그림, 빗나감 표시는 남음), `kit-event-fx.test.js`(계획), 아레나 2배속 재생 목록.
 
 ## 효과 없는 주기적 유실 (2026-11-06)

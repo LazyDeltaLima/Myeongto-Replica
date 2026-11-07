@@ -141,6 +141,6 @@ test('fxgame.js: started on deploy and at each skill on / off; pinned, non-buff 
   assert.match(SRC, /defaultModeFx\(v, true\);/);
   assert.match(SRC, /droneIdle\(v\);[^\n]*\n\s+defaultModeFx\(v\);/);
   assert.match(SRC, /\{ owner: id, buff: false, onCaster: true, until: null, tag: 'mode0', pinned: true \}/);
-  assert.match(SRC, /const m = v\._fxSkillOn \? modeNow\(v\) \?\? -1 : 0;/);
+  assert.match(SRC, /const m = h > 0 \? h : v\._fxSkillOn \? modeNow\(v\) \?\? -1 : 0;/);   // (2026-11-07: a held mode first, held-mode-fx.test.js)
   assert.match(SRC, /if \(l\.tag === 'mode0' && l\.owner === id\) l\.inst\.stop\(force\);/);
 });
