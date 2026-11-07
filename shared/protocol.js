@@ -459,7 +459,8 @@ export const C2S = {
   // The custom 규칙 모드 never queues (maintainer decision 2026-10-18): room.queue takes the queue presets only, and the
   // server refuses room.queueRoom of a custom room (server/matchmaking.js). `season`: the 卫戍协议 season's queue (absent =
   // the default; maintainer decision 2026-11-01: every season has queues of its own)
-  'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isQueuePreset, size: isRoomSize, season: isSeasonId, $optional: ['ruleset', 'size', 'season'] },
+  // quick: 快速匹配, any ruleset and size of the difficulty (server/matchmaking.js header; ruleset / size are then ignored)
+  'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isQueuePreset, size: isRoomSize, quick: isBool, season: isSeasonId, $optional: ['ruleset', 'size', 'quick', 'season'] },
   'room.queueRoom': {},
   'room.unqueue': {},
   'room.queueAccept': { accept: isBool },
