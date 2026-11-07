@@ -537,6 +537,29 @@ export const KIT_OFFICIAL = {
   copy: {
     mlyss: cite(['mlyss_wtrman_switch_melee_trigger', 'mlyss_wtrman_switch_range_trigger'], (o) => ({ play: [{ tpl: o.mode === 'Range' ? 'mlyss_wtrman_switch_range_trigger' : 'mlyss_wtrman_switch_melee_trigger', bundle: 'mlyss_token', on: 'id' }] })),
   },
+  // (2026-11-07) … a ranged 流形 splits (talent 2 SpawnTokenCommon every N attacks, S3 SpawnTokenS3 on its x-5 tiles): the copy
+  // `id` takes mlyss_wtrman_summon[trigger] (INFINITY, `overrideEffectKey` token_10030_mlyss_wtrman_split_start_01) while it
+  // stands, and the 流形's EmitProjectile / EmitProjectileS3 flies projectile_chr_mlyss_wtrman (`_mainEffect` _split_trail_01,
+  // `_speed` 4) from it (`src`) to that tile — `_raiseHeight` 0.8 only beyond `_noRaiseHeightThreshold` 1.3, so none to a
+  // neighbouring tile
+  split: {
+    mlyss: cite(['mlyss_wtrman_summon[trigger]', 'projectile_chr_mlyss_wtrman'], () => ({ play: [
+      { tpl: 'mlyss_wtrman_summon[trigger]', bundle: 'mlyss_token', on: 'id', life: 'unit' },
+      { tpl: 'projectile_chr_mlyss_wtrman', bundle: 'mlyss_token', fly: 4, from: 'src', to: 'id' }] })),
+  },
+  // … S3 refills a 流形 or copy already on those tiles (`_buffsToExistToken` mlyss_wtrman_[summon_refresh]: ON_BUFF_START
+  // token_10030_mlyss_wtrman_refresh_01 on it); the casting 流形 is one of them (its own tile is in x-5), and its cast is
+  // sktok_mlyss_wtrman_3/SpawnTokenS3's `_castEffects` _split_start_01 on it
+  refresh: {
+    mlyss: cite(['mlyss_wtrman_[summon_refresh]', 'sktok_mlyss_wtrman_3/SpawnTokenS3'], (o) => ({ play: [
+      { tpl: 'mlyss_wtrman_[summon_refresh]', bundle: 'mlyss_token', on: 'id' },
+      ...(o.src != null && o.src === o.id ? [{ n: 'token_10030_mlyss_wtrman_split_start_01', bundle: 'mlyss_token', on: 'id', life: 'once' }] : [])] })),
+  },
+  // … and each S3 pulse of a melee 流形 (mlyss_s_3[token_melee_trigger]: ON_BUFF_TRIGGER token_10030_mlyss_wtrman_c2_skill_03_range_01 on it)
+  pulse: {
+    // (its trigger, not its start: named, as build-fx-plays.mjs keeps ON_BUFF_START rows only)
+    mlyss: cite('mlyss_s_3[token_melee_trigger]', () => ({ play: [{ n: 'token_10030_mlyss_wtrman_c2_skill_03_range_01', bundle: 'mlyss_token', on: 'id', life: 'once' }] })),
+  },
   // 焰影苇草 S2: each carrier's fireball (projectile_chr_reed2_fire: `_mainEffect` reed2_skill_02_fireball_01 circling it at
   // `_projectileAroundRadius` 1, `_aroundSpeed` 150 °/s) until her skill ends [추정: the sense of the turn]
   ember: { reed2: cite('projectile_chr_reed2_fire', () => ({ play: [{ n: 'reed2_skill_02_fireball_01', on: 'id', life: 'skill', orbit: REED2_ORBIT }] })) },
@@ -809,9 +832,10 @@ function chargeStage(o, one, two, more) {
   return { play: [key ? { tpl: key, on: 'op', slot: 'charge', when: ALL } : { slot: 'charge', off: true }, ...more] };
 }
 
-// events whose `src` is no operator of the moment: 缪尔赛思's 'copy' (`src` the operator her 流形 copies, `by` her) —
+// events whose `src` is no operator of the moment: 缪尔赛思's 'copy' (`src` the operator her 流形 copies, `by` her) and her
+// 流形's 'split' / 'refresh' / 'pulse' (`src` / `id` the 流形, `by` her; 2026-11-07) —
 // and 焰影苇草 S2's 'strike' (`src` the ally that carries her fireball, `by` her; the other kits' strikes have no `by`)
-const OPERATOR_FIELD = { copy: 'by', strike: 'by' };
+const OPERATOR_FIELD = { copy: 'by', strike: 'by', split: 'by', refresh: 'by', pulse: 'by' };
 /** The operator id of kit event `name` (fxgame.js standInOff's too): `src`, else `by`, else `id`. */
 export const kitOperator = (o, name) => (o ? (OPERATOR_FIELD[name] ? o[OPERATOR_FIELD[name]] : null) ?? o.src ?? o.by ?? o.id : null);
 

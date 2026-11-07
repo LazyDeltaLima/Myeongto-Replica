@@ -2105,7 +2105,7 @@
       그녀에게서 좌표로 `_speed` 10으로 날고 닿으면 `_effectsWhenReached` `angel2_skill_3_begin_range_01`(이름 규칙이 그녀에게 스킬 내내 틀던 것을
       `KIT_OWNED`로 막음); 재능 포탄(`CommonAbilities/TalentBomb`)은 표식 적에 `angel2_buff_01_trail_01`. 키트 재능 'airstrike'에 `tgt`.
     - 缪尔赛思 流形이 오퍼를 베낄 때(`mlyss_wtrman_switch_melee_trigger`/`_range_trigger`) 토큰에 `token_10030_mlyss_wtrman_c1_to_c2`/`_c3`
-      (`mlyss_token` 묶음, 이 둘만 추출). 'copy'의 오퍼는 `by`(그 `src`는 베낀 오퍼) — `kitOperator`·`standInOff` 같이.
+      (`mlyss_token` 묶음; 분열·체력 채움·S3 당김은 아래 「뮤엘시스 유동체의 분열·체력 채움·당김」). 'copy'의 오퍼는 `by`(그 `src`는 베낀 오퍼) — `kitOperator`·`standInOff` 같이.
     - 焰影苇草 S2: 운반자 둘레를 도는 불덩이(`projectile_chr_reed2_fire` `_mainEffect` `reed2_skill_02_fireball_01`, `_projectileAroundRadius` 1,
       `_aroundSpeed` 150°/초) 스킬 끝까지 [추정: 도는 방향] (쿨다운 모양 `_02`·타격 이펙트는 아래 여덟째 묶음에서 그림).
     - 隐德来希 T2 重盈 `etlchi_innate_hit_01` 3초(charpack Talents/2 `_unmanagedBuffsWhenToggleOn`); 流明 S1 치유 비(`lumen_s_1[effect]`) 대상에
@@ -3956,3 +3956,11 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - **스테인리스 소환물 '글룸핀서호 - 프로토타입'**: 스킬 `sktok_ironmn_pile3`의 `_castEffects`(`_directionType` 3)를 시전에 소환물에게(`_up`·`_down`·방향 없는 것), 투사체 `projectile_chr_ironmn_pile3`의 탄 `token_ironmn_pile3_skill_03_trail`이 대상으로, 도착에 `_hit`을 그 자리에. 시뮬 탄은 `visual: 'none'`으로 두고 사건 `kitHit` `ironmn:crab`과 도착의 `aoe`로 그린다. 전에는 절차 그림 `bomb`이었다. 표시 탄 속도는 시뮬 `CRAB_SPEED`와 같다(시험이 맞춘다).
 - 아레나 2배속 확인: 슈 십자 5칸, 탈룰라 S2 타격 1회(아군 부상 켬), 스테인리스 시전·탄·폭발. 스테인리스의 위·아래 방향과 공식 화면은 보지 않음 [화면 미확인].
 
+## 뮤엘시스 유동체의 분열·체력 채움·당김 (2026-11-07, 공식 클라에서 확인)
+
+- **분열**: 원거리 유동체가 갈라질 때(재능 2 `Talents/2`의 `SpawnTokenCommon`, S3 `sktok_mlyss_wtrman_3/SpawnTokenS3`) 새 분신에 버프 `mlyss_wtrman_summon[trigger]`(수명 무한, `overrideEffectKey` `token_10030_mlyss_wtrman_split_start_01`)를 준다. 분신이 서 있는 동안 든다(프리팹은 2.45초짜리 한 번). 같은 순간 유동체의 `EmitProjectile`·`EmitProjectileS3`가 `projectile_chr_mlyss_wtrman`(`_mainEffect` `token_10030_mlyss_wtrman_split_trail_01`, `_speed` 4)을 그 칸으로 쏜다. `_raiseHeight` 0.8은 `_noRaiseHeightThreshold` 1.3칸 너머에서만 들어, 옆 칸으로는 곧게 난다.
+- **체력 채움**: S3가 다섯 칸에 이미 선 유동체·분신에게 `_buffsToExistToken` `mlyss_wtrman_[summon_refresh]`를 주고, 그 템플릿이 `ON_BUFF_START`에 `token_10030_mlyss_wtrman_refresh_01`을 한 번 만든다. 시전하는 유동체는 제 칸이 `x-5`에 들어 늘 그중 하나다. 그 유동체에는 `SpawnTokenS3`의 `_castEffects` `_split_start_01`도 난다. 재능 쪽 `SpawnTokenCommon`에는 시전 이펙트가 없다.
+- **당김**: S3 동안 근거리 유동체가 당길 때마다 `mlyss_s_3[token_melee_trigger]`(`ON_BUFF_TRIGGER`)가 `token_10030_mlyss_wtrman_c2_skill_03_range_01`을 그 유동체에 한 번 만든다.
+- 구현: 키트 사건 `split`(`id` 분신, `src` 유동체)·새 사건 `refresh`(`id` 채운 것, `src` 시전한 유동체)·`pulse`(`id` 유동체)에 `by` 그녀를 실어 `kitofficial.js`가 그녀 묶음 규칙으로 고른다(`OPERATOR_FIELD`). 전에는 셋 다 소환물 사건이라 일반 그림만 났다. 네 프리팹은 공유 팩 `pkgrps/btl_pfb_fx_token_0.ab`에서 `mlyss_token`으로 뽑았다.
+
+- 확인: 실제 대전 경로로 만든 골든 판(뮤엘시스 S3, 원거리로 베낀 유동체)을 렌더 데모에서 2배속으로 재생해 봄. 재능 분열에 분신 이펙트·탄, S3에 시전한 유동체의 체력 채움·시전 이펙트, 이미 선 분신의 체력 채움, 새 분신의 이펙트·탄이 났다. 근거리 유동체의 당김은 이펙트 골든의 사건 재생으로만 봄. 공식 화면은 보지 않음 [화면 미확인].

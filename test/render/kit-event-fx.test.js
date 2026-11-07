@@ -59,7 +59,6 @@ const VERDICT = {
   obelisk: { beewax: ['standIn', 'sent by her token'] },
   overclock: { cathy: ['skill', 2], hsguma: ['skill', 3] },
   overload: { rmixer: ['skill', 2], gvial2: ['skill', 2], oxi: ['none', 'S3 过载: the client only sounds oxi_s_3_overload (an AudioOnEventBehaviour on event 8)'] },
-  pulse: { mlyss: ['standIn', 'sent by the 流形 token (summons)'] },
   reweave: { cetsyr: ['skill', 3, "the name rules' S3 buffs (charpack S3 AuraHeal / skchr_cetsyr_3 Encourage passives); S2: cetsyr_skill_02_trail_start"] },
   ripple: { mostma: ['skill', 3], mizuki: ['skill', 3] },
   rockslide: { mudrok: ['skill', 2] },
@@ -70,7 +69,6 @@ const VERDICT = {
   snow: { svrash: ['skill', 2] },
   sonic: { akkord: ['skill', 2] },
   splash: { blaze2: ['attack'] },
-  split: { mlyss: ['standIn', 'sent by the 流形 token (summons)'] },
   sword: { qiubai: ['skill', 2] },
   truesilver: { svrash: ['skill', 3] },
   undying: {
@@ -341,6 +339,17 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
     [{ n: 'token_10030_mlyss_wtrman_c1_to_c3', bundle: 'mlyss_token', on: 'id', life: 'once' }]);
   assert.equal(kitOfficialPlan('copy', { id: 4, mode: 'Melee' }, 'mlyss', { plays: FIXED }).play[0].n, 'token_10030_mlyss_wtrman_c1_to_c2');
   assert.equal(kitOperator({ id: 4, src: 7, by: 1 }, 'copy'), 1);
+  // … its split: the copy holds summon[trigger]'s split_start_01 while it stands, the shot flies from the 流形 (`src`) to it; a
+  // refill: refresh_01 on the refilled one, and on the casting 流形 SpawnTokenS3's cast too; a melee 流形's S3 pulse; all hers (`by`)
+  assert.deepEqual(kitOfficialPlan('split', { id: 9, src: 4, by: 1 }, 'mlyss', { plays: FIXED }).play, [
+    { n: 'token_10030_mlyss_wtrman_split_start_01', bundle: 'mlyss_token', on: 'id', life: 'unit' },
+    { n: 'token_10030_mlyss_wtrman_split_trail_01', bundle: 'mlyss_token', fly: 4, from: 'src', to: 'id' }]);
+  const refill = (id) => kitOfficialPlan('refresh', { id, src: 4, by: 1 }, 'mlyss', { plays: FIXED }).play.map((p) => [p.n, p.on, p.life]);
+  assert.deepEqual(refill(9), [['token_10030_mlyss_wtrman_refresh_01', 'id', 'once']]);
+  assert.deepEqual(refill(4), [['token_10030_mlyss_wtrman_refresh_01', 'id', 'once'], ['token_10030_mlyss_wtrman_split_start_01', 'id', 'once']]);
+  assert.deepEqual(kitOfficialPlan('pulse', { id: 4, by: 1 }, 'mlyss').play, [{ n: 'token_10030_mlyss_wtrman_c2_skill_03_range_01', bundle: 'mlyss_token', on: 'id', life: 'once' }]);
+  for (const ev of ['split', 'refresh', 'pulse']) assert.equal(kitOperator({ id: 9, src: 4, by: 1 }, ev), 1);
+  assert.equal(kitOperator({ id: 7 }, 'pulse'), 7);   // enemy_1234_dsubrl's pulse (no `by`)
   // 焰影苇草's fireball circles its carrier for her skill; 流明's rain on the target for its life
   assert.deepEqual(kitOfficialPlan('ember', { id: 3, src: 1 }, 'reed2').play, [{ n: 'reed2_skill_02_fireball_01', on: 'id', life: 'skill', orbit: { r: 1, spd: 150, phase: 0 } }]);
   // 圣聆初雪's snow: one effect per changed tile by its layers (1 → _01, 2–4 → _02, 5 → _03), ended at 0; its stand-in
@@ -383,6 +392,8 @@ test('the kits send what the rules read', () => {
   assert.match(src('chess_char_6_13-angel2.js'), /battle\.fx\('airstrike', \{ x, y, id: unit\.id, r: BOMB_RADIUS, tgt: t\.id \}\)/);
   assert.match(src('chess_char_6_14-lumen.js'), /battle\.fx\('healField', \{ x: target\.x, y: target\.y, id: unit\.id, tgt: target\.id, t: life \}\)/);
   assert.match(src('chess_char_6_11-mlyss.js'), /battle\.fx\('copy', \{[^}]*mode: [^}]*by: unit\.id \}\)/);
+  for (const ev of ['split', 'refresh', 'pulse']) assert.match(src('chess_char_6_11-mlyss.js'), new RegExp(`battle\\.fx\\('${ev}', \\{[^}]*id: [^}]*by: unit\\.id \\}\\)`));
+  assert.match(src('chess_char_6_11-mlyss.js'), /battle\.fx\('refresh', \{[^}]*id: there\.id, src: t\.id, /);
   assert.match(src('chess_char_5_02-titi.js'), /battle\.fx\('sleepGuard', \{ x: a\.x, y: a\.y, id: a\.id, src: unit\.id \}\)/);
   assert.match(src('chess_char_4_01-rmixer.js'), /battle\.fx\('reload', \{ x: cand\[0\]\.x, y: cand\[0\]\.y, id: cand\[0\]\.id, n: k, src: unit\.id \}\)/);
   assert.match(src('chess_char_4_19-flamtl.js'), /battle\.fx\('riposte', \{ x: unit\.x, y: unit\.y, id: unit\.id, /);

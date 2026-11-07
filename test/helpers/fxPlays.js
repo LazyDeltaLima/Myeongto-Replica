@@ -74,6 +74,9 @@ export const PLAYS = Object.freeze({ keys: {
   'kalts2_s_3[indicator_fx]': { held: ['kalts2_skill_03_indicator_head_01'] },
   'mlyss_wtrman_switch_melee_trigger': { once: ['token_10030_mlyss_wtrman_c1_to_c2'] },
   'mlyss_wtrman_switch_range_trigger': { once: ['token_10030_mlyss_wtrman_c1_to_c3'] },
+  'mlyss_wtrman_summon[trigger]': { held: ['token_10030_mlyss_wtrman_split_start_01'] },
+  'mlyss_wtrman_[summon_refresh]': { once: ['token_10030_mlyss_wtrman_refresh_01'] },
+  'projectile_chr_mlyss_wtrman': { trail: ['token_10030_mlyss_wtrman_split_trail_01'] },
   'char_lemuen_range_aim': { held: ['lemuen_talent_buff_01'] },
   'reed2_t_1': { when: [
     { role: 'held', n: 'reed2_debuff_01', b: 'reed2_talent_1[debuff]', if: ['Dice', 'CheckContainsBuff(reed2_talent_1[debuff])', '!FilterByBlackboardValue'] },

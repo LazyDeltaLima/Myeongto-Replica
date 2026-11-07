@@ -58,7 +58,7 @@ function splitCopy(battle, unit, tokId, t, r, c, dur) {
   try { cl = battle.spawnToken(unit, tokId, r, c, { kit: { skill: null } }); } finally { unit.mem.mlyssCloneOf = null; }
   if (!cl) return null;
   cloneTime(battle, cl, dur);
-  battle.fx('split', { x: cl.x, y: cl.y, id: cl.id, src: t.id });
+  battle.fx('split', { x: cl.x, y: cl.y, id: cl.id, src: t.id, by: unit.id });   // `by` her: render/fx/kitofficial.js
   return cl;
 }
 
@@ -186,6 +186,8 @@ function mlyss(bb, chess, def) {
               if (there) {
                 there.hp = there.s.maxHp;
                 if (there.mem.mlyssClone) cloneTime(battle, there, dur);
+                // its refill effect; `src` the casting 流形 (its own tile is one of the five: its cast effect too)
+                battle.fx('refresh', { x: there.x, y: there.y, id: there.id, src: t.id, by: unit.id });
               } else if (battle.grid.inRect(r, c) && !battle.isReservedTile(r, c) && battle.grid.canStand(r, c, { ranged: true })) splitCopy(battle, unit, tokId, t, r, c, dur);
             }
           }
@@ -196,7 +198,7 @@ function mlyss(bb, chess, def) {
             if (!isTok(t, tokId, unit) || !live(t) || !t.mem.mlyss || t.mem.mlyss.ranged) continue;
             for (const e of battle.unitsInGrid(t, AROUND8, { side: 'enemy' })) pullToward(battle, t, e, num(t.def?.skill?.bb?.force));
             for (const e of t.blocking) if (e.alive) battle.applyStatus(e, 'stun', { duration: pulseIv + 0.1, source: unit });
-            battle.fx('pulse', { x: t.x, y: t.y, id: t.id });
+            battle.fx('pulse', { x: t.x, y: t.y, id: t.id, by: unit.id });
           }
         }, { owner: unit, immediate: true });
       },
