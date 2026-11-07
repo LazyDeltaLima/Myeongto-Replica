@@ -2675,7 +2675,7 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 
 ## upstream 0.3.4 개발분 대조 이식 — 전투 (2026-11-07)
 
-upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받은 전투 수정. 모두 손 이식이고(패치가 안 붙음), 새 시험이 수정 전 코드에서 실패하는 것을 확인했다.
+upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받은 전투 수정 셋. 모두 손 이식이고(패치가 안 붙음), 새 시험이 수정 전 코드에서 실패하는 것을 확인했다.
 
 ### 【이동】은 원소 게이지와 폭발 잠금을 비운다 (upstream `7da8ff20`, upstream #903)
 
@@ -2694,6 +2694,16 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   会在原地部署一个从不混淆的方向，作为【返回】移动的标志」.
 - [추정·미조사: 닻이 자기 칸일 때 「한 칸 뒤」를 먼저 보지 않음, 제자리 클립을 어느 노드가 트는지 — 클라의 울피아누스 S3 【이동】 능력을 안 읽음]
 - 테스트 `test/sim/feedback3-ulpia-move.test.js` 「while he blocks: the 【移动】 still happens, where he stands…」·「no legal tile where the anchor fell…」, `test/content/kits_t5.test.js` 「乌尔比安 S3 while he blocks…」.
+
+### 후회하는 영혼의 성배는 곁의 적이 받는 피해를 5 %로 줄이고 나머지를 진짜 피해로 받는다 (upstream `0f88afbb`)
+
+- 규칙: 후회하는 영혼의 성배(`enemy_1430_lrrook`) 반경 `takeDmg.range_radius`(1.7) 안의 지상 적은 받는 피해의 `takeDmg.damage_scale`(0.05)만 받고, 줄어든 몫은 성배가 **진짜 피해**로
+  받는다(`content/enemies.js chaliceShare`). 斩杀 피해(로고스 S1 `execute`)는 나누지 않는다. 한 적은 처음 닿는 성배 하나만. 전에는 거꾸로 곁의 적이 95 %, 성배가 같은 종류로 5 %를 받았다.
+- 근거: 공식 버프 `enemy_lrrook[dmgCore]` ON_TAKE_DAMAGE — `INSTANT_KILL_LIKE_DAMAGE`가 아니면 → 주인이 `WALK`인지 → `DamageScale`(`ANY_ATTACK`, 블랙보드 값을 곱하고 줄어든 양을
+  `delta_damage`로) → 그 절댓값의 `FixedValueDamage` `PURE`를 성배에게(공식 클라 버프 템플릿에서 확인). PRTS 「受到的伤害降低至5%（优先级-3000，对斩杀伤害无效，不可对空），以此减少的伤害以真实伤害的形式由自身承担」.
+- [추정·엔진: 나누는 때는 우리 `hit` 훅(방어·저항 전) — 회피·`DamageScale` 같은 다른 ON_TAKE_DAMAGE 노드와 같은 단계로 봄, PRTS의 우선순위 −3000은 안 따짐]. 「消失 상태가 아닐 때」는
+  이 모드에 성배를 숨기는 수단이 없어 따로 두지 않음.
+- 테스트 `test/content/enemies_bosses.test.js` 「愧悔魂灵圣杯: nearby ground enemies keep 5 %…」, `test/sim/playtest5_elements.test.js` 「a 无来源 burst still passes on…」.
 
 ## 오퍼레이터 스킬 발동 시점 묶음 B (2026-10-29)
 

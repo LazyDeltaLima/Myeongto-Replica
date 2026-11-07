@@ -2225,7 +2225,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":663,"bossDamage":726954,"dmgDealt":4329477,"gold":166,"itemsEquipped":33,"kills":293,"leaks":0,"lpLost":0,"merges":5,"perfectRounds":13,"refreshes":32},
+          "stats": {"activatedLayers":663,"bossDamage":717954,"dmgDealt":4331023,"gold":166,"itemsEquipped":33,"kills":294,"leaks":0,"lpLost":0,"merges":5,"perfectRounds":13,"refreshes":32},
           "lineup": ["3_09_b@11,4[5_09_e_a+5_07_e_a]","6_03_a@11,7[3_06_e_a+4_12_e_a]","5_12_a@11,8[4_03_e_a+1_02_e_b]","4_04_b@10,5[3_04_e_a+5_01_e_a]","3_03_b@10,7[4_06_e_a+3_07_e_a]","3_05_b@10,8[2_01_e_b+3_02_e_a]","3_16_b@9,3[3_05_e_b+4_08_e_a]","5_13_b@9,9[4_07_e_a+6_09_e_a]"],
           "bonds": ["arcaneShip 1/73","egirShip 1/177","indomShip 1/25","raidShip 1/148","soloShip 0/10","steadShip 2/90","suntShip 2/0","victoriaShip 0/5","visiShip 1/95","yanShip 1/55"]
         },
@@ -2239,7 +2239,7 @@
           "title": {"id":"comment_3","name":"坚若磐石","picId":"comment_icon_3","text":"目标生命值损失最少"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":150,"bossDamage":73046,"dmgDealt":2383366,"gold":132,"itemsEquipped":13,"kills":227,"leaks":27,"lpLost":0,"merges":1,"perfectRounds":10,"refreshes":36},
+          "stats": {"activatedLayers":150,"bossDamage":82046,"dmgDealt":2407698,"gold":132,"itemsEquipped":13,"kills":227,"leaks":27,"lpLost":0,"merges":1,"perfectRounds":10,"refreshes":36},
           "lineup": ["2_05_a@12,4","2_10_a@11,4","3_16_a@11,7","3_09_a@11,8[1_01_e_b+1_02_e_a]","2_17_a@10,5","4_07_a@10,8[3_11_e_a+3_11_e_b]","3_14_a@9,7[5_02_e_a+1_01_e_b]","5_14_a@9,9[4_02_e_a+4_06_e_b]"],
           "bonds": ["arcaneShip 1/24","indomShip 1/22","kjeragShip 1/17","preciShip 0/5","soloShip 1/0","steadShip 1/43","victoriaShip 1/22","visiShip 1/22"]
         }

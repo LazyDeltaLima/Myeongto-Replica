@@ -1691,15 +1691,29 @@ for (const key of ['enemy_1425_lrcmra', 'enemy_1425_lrcmra_2']) {
   });
 }
 
-test(`${nm('enemy_1430_lrrook')}: absorbs ${tb('enemy_1430_lrrook', 'takeDmg.damage_scale') * 100} % of the damage dealt to nearby ground enemies`, () => {
+test(`${nm('enemy_1430_lrrook')}: nearby ground enemies keep ${tb('enemy_1430_lrrook', 'takeDmg.damage_scale') * 100} % of the damage they take, the chalice takes the rest as true damage`, () => {
+  // PRTS 愧悔魂灵圣杯 "受到的伤害降低至5%…以此减少的伤害以真实伤害的形式由自身承担" (official enemy_lrrook[dmgCore]: DamageScale,
+  // then FixedValueDamage PURE on the chalice); not for 斩杀伤害 nor flyers (upstream 0f88afbb turned the old 95 / 5 round)
   const h = arena();
   h.step();
   const c = put(h, 'enemy_1430_lrrook', [10, 7], { route: 2 });
   const o = put(h, 'enemy_1007_slime', [10, 6]);
-  h.b.dealDamage(null, o, { amount: 100, type: 'true' });
   const share = tb('enemy_1430_lrrook', 'takeDmg.damage_scale');
-  approx(o.s.maxHp - o.hp, 100 * (1 - share));
-  approx(c.s.maxHp - c.hp, 100 * share);
+  assert.ok(share > 0 && share < 0.5, `the kept share (${share})`);
+  h.b.dealDamage(null, o, { amount: 100, type: 'true' });
+  approx(o.s.maxHp - o.hp, 100 * share, 1e-9, 'the enemy keeps 5 %');
+  approx(c.s.maxHp - c.hp, 100 * (1 - share), 1e-9, 'the chalice the rest');
+  // arts on the enemy: the chalice's part is true damage, so its RES (30) cuts nothing
+  assert.ok(c.s.res > 0, 'the chalice has RES');
+  const c1 = c.hp, o1 = o.hp;
+  h.b.dealDamage(null, o, { amount: 100, type: 'arts' });
+  approx(c1 - c.hp, 100 * (1 - share), 1e-9, 'true damage on the chalice');
+  assert.ok(o1 - o.hp < 100 * share + 1e-9, 'the enemy\'s 5 % before its own RES');
+  // 斩杀伤害 is not shared (对斩杀伤害无效; the client skips INSTANT_KILL_LIKE_DAMAGE)
+  const c2 = c.hp;
+  h.b.dealDamage(null, o, { amount: 9999999, type: 'true', sourceless: true, tags: ['skill', 'execute'] });
+  assert.equal(o.alive, false, 'the execute kills');
+  approx(c.hp, c2, 1e-9, 'the chalice takes none of it');
 });
 
 test(`${nm('enemy_1025_reveng')}: ATK +${tb('enemy_1025_reveng', 'atkup.atk') * 100} % below half HP`, () => {

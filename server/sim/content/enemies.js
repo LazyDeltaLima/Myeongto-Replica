@@ -436,20 +436,29 @@ export const STATS_ONLY = Object.freeze({
   enemy_10073_mpcar: 'plain', enemy_10124_uashld_2: 'taunt is data; 矿工游击队 absent',
 });
 
-// 圣杯 damage sharing: ground enemies near a living chalice pass `share` of the damage they take to it.
+// 圣杯 damage sharing (PRTS 愧悔魂灵圣杯: "令半径1.7范围内未受其他…圣杯影响的行动方式为地面的敌方单位受到的伤害降低至5%
+// （…对斩杀伤害无效，不可对空），以此减少的伤害以真实伤害的形式由自身承担"; official buff enemy_lrrook[dmgCore] ON_TAKE_DAMAGE:
+// skip a damage flagged INSTANT_KILL_LIKE_DAMAGE → CheckMotionMode WALK → DamageScale (ANY_ATTACK, × takeDmg.damage_scale,
+// the removed part to `delta_damage`) → FixedValueDamage PURE of |delta_damage| on the chalice): a ground enemy near a
+// living chalice keeps `share` (0.05) of the damage, the chalice takes the rest as true damage; the first chalice in
+// range takes it. Until upstream 0f88afbb the enemy kept 95 % and the chalice took 5 % of the same type.
+// [추정·엔진: the split is on the 'hit' amount, before DEF / RES — the stage of the other ON_TAKE_DAMAGE nodes here
+// (Evade, DamageScale), PRTS's priority −3000 not modelled]
 function chaliceShare(b, c) {
   const st = stOf(b);
   if (!(st.chalices > 0)) return;
   const t = c.target;
-  if (!t || t.side !== 'enemy' || t.isFlying || c.dmg.cancel || c.dmg.type === 'element' || (c.dmg.tags && c.dmg.tags.includes('chalice'))) return;
+  if (!t || t.side !== 'enemy' || t.isFlying || c.dmg.cancel || c.dmg.type === 'element') return;
+  if (c.dmg.tags && (c.dmg.tags.includes('chalice') || c.dmg.tags.includes('execute'))) return; // (斩杀: 洛格斯 S1)
   for (const o of b.enemies) {
     if (!o.alive || o === t || o.defId !== 'enemy_1430_lrrook' || !o.mem.ab) continue;
     const a = o.mem.ab.list[0];
     if (!a || !(a.share > 0) || hypot(o.x - t.x, o.y - t.y) > a.r) continue;
-    const part = c.dmg.amount * a.share;
-    c.dmg.amount -= part;
+    const kept = c.dmg.amount * a.share;
+    const part = c.dmg.amount - kept;
+    c.dmg.amount = kept;
     // a 无来源 burst's share stays 无来源, credited like the burst (damage.js)
-    b.dealDamage(c.dmg.sourceless ? c.credit : c.source, o, { amount: part, type: c.dmg.type, canDodge: false, sourceless: c.dmg.sourceless, tags: [...(c.dmg.tags || []), 'chalice'] });
+    b.dealDamage(c.dmg.sourceless ? c.credit : c.source, o, { amount: part, type: 'true', canDodge: false, sourceless: c.dmg.sourceless, tags: [...(c.dmg.tags || []), 'chalice'] });
     // enemy_lrrook[dmgCore] gives the hurt enemy enemy_lrrook[audio] (audioSignal enemy_lrrook_take_dmg) — a sound only
     b.fx('kitHit', { x: t.x, y: t.y, id: o.id, k: 'lrrook:share' });
     break;
