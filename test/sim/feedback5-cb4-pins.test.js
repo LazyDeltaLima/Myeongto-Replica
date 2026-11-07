@@ -27,6 +27,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { gateOf } from '../../shared/constants.js';
 import { makeBattle, chessRec, checkInvariants } from '../helpers/battleHarness.js';
 import { GameData } from '../../server/match/gamedata.js';
 import { setupMatchWaves, buildUniteWave, buildBossWave, buildNormalWave } from '../../server/match/waves.js';
@@ -121,6 +122,34 @@ test('item 35: the 鸭爵 strategy swaps 0–2 enemies of each player\'s wave �
   assert.ok(hist.every((n) => n > 0), `0, 1 and 2 swaps all occur: ${hist}`);
   assert.ok(twoSame > 0, 'two of the same kind (e.g. two ducks) in one wave occurs');
   assert.ok(kindsDiffer > 0, 'the players\' kinds differ in some rounds');
+});
+
+// upstream #839 (upstream ded5f264, maintainer decision 2026-11-07): only units of the lower lane are swapped — a route
+// starting at the lower gate (shared/constants.js gateOf), the reporter's three recordings of the official game
+test('item 35: the 鸭爵 strategy swaps lower-lane enemies only — never one whose route starts at the upper gate', () => {
+  let upperWaves = 0, swaps = 0;
+  for (const seed of [31, 32, 33]) {
+    const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 1, bots: 3, seed, fake: true }).start();
+    h.toPrep(6, { band: 'band_ducklord' });
+    const m = h.m;
+    const seed0 = m.seed;
+    for (let k = 0; k < 30; k++) {
+      m.seed = seed0 + k;
+      for (const ps of m.alivePlayers()) {
+        const opts = m._normalOpts(ps);
+        const routes = opts.routes || m.wave.routes;
+        if ((m.wave.spawns || []).some((s) => gateOf(routes[s.routeIndex]?.start, false) === 'upper')) upperWaves++;
+        for (const d of opts.spawns.filter((x) => x.tag === 'duck')) {
+          swaps++;
+          assert.equal(gateOf(routes[d.routeIndex]?.start, false), 'lower', `seed ${m.seed}: a swap on route ${d.routeIndex}`);
+        }
+      }
+    }
+    m.seed = seed0;
+    m.dispose();
+  }
+  assert.ok(upperWaves > 0, 'some waves have upper-lane enemies to leave alone');
+  assert.ok(swaps > 0, 'swaps happen');
 });
 
 const BIG_POOL = () => ({ hp: 1e12, maxHp: 1e12, damage(pid, a) { this.hp = Math.max(0, this.hp - a); } });
