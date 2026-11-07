@@ -262,6 +262,31 @@ test('缇缇 S2 封护: no attacks; she and the lowest-HP op in range sleep (inv
   }
 });
 
+// upstream #906: the S2 skill prefab's GlobalUnique selector sorts HP_RATIO_ASC_HATRED_DES (공식 클라에서 확인) — at the same
+// HP ratio the higher 仇恨值 wins: the higher taunt level, then the latest deployed (targeting.js aggroCmp). Until
+// 2026-11-07 a tie took the lowest unit id (the earliest deployed).
+test('缇缇 S2 封护: an HP-ratio tie goes to the higher 仇恨值 — the latest deployed, a higher taunt first', () => {
+  for (const taunt of [0, 1]) {
+    const h = run({
+      defs: { enemies: { enemy_dummy: dummy('enemy_dummy') }, chess: { t_one: ally('t_one'), t_two: ally('t_two') } },
+      units: [entry('chess_char_5_02_a', 'skchr_titi_2', { row: 10, col: 4 }), { chessId: 't_one', row: 10, col: 6 }, { chessId: 't_two', row: 11, col: 5 }],
+      enemies: [{ key: 'enemy_dummy', pos: [10, 7] }],
+    });
+    const u = sel(h, 'chess_char_5_02_a', 'skchr_titi_2');
+    const [early, late] = [h.unit('t_one'), h.unit('t_two')].sort((a, b) => a.deploySeq - b.deploySeq);
+    assert.ok(late.deploySeq > early.deploySeq);
+    if (taunt) h.b.addBuff(early, { key: 'test:taunt', persist: true, mods: { taunt } });
+    h.step();
+    early.hp = early.s.maxHp * 0.5;
+    late.hp = late.s.maxHp * 0.5;
+    cast(h, u);
+    const want = taunt ? early : late;
+    assert.equal([early, late].filter((a) => a.findBuff('titi:ward')).length, 1, 'one ward besides her');
+    assert.ok(want.findBuff('titi:ward'), taunt ? 'the higher taunt sleeps' : 'the latest deployed sleeps');
+    done(h);
+  }
+});
+
 // =================================================================================================================
 // 烛煌
 

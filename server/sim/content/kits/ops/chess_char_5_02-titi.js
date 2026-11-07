@@ -2,6 +2,7 @@
 // Conventions of the tier-5 kits: ../shared/tier5.js; kit contract and rules: ../README.md.
 
 import { COLS } from '../../../constants.js';
+import { aggroCmp } from '../../../targeting.js';
 import {
   AURA_IV, AURA_DUR, RING1, num, on, talent, mods, dist, hasPower, isOp, selectedId, lazySkills, whileOn,
 } from '../shared/tier5.js';
@@ -51,8 +52,11 @@ export default {
           kind: 'duration', mods: mods({ atkPct: num(bb.atk) }),
           attack: { noAttack: true },
           onStart({ battle, unit }) {
+            // the skill prefab's ability GlobalUnique (skchr_titi_2, 공식 클라에서 확인): its selector excludes her and sorts
+            // HP_RATIO_ASC_HATRED_DES — the lowest HP ratio, a tie by 仇恨值 (higher taunt level, then the latest
+            // deployed: targeting.js aggroCmp; upstream #906). Until 2026-11-07 a tie took the lowest unit id.
             const pick = battle.alliesInGrid(unit).filter((a) => a !== unit && isOp(a) && a.hp > 0)
-              .sort((a, b) => a.hpRatio - b.hpRatio || a.id - b.id)[0] ?? null;
+              .sort((a, b) => a.hpRatio - b.hpRatio || aggroCmp(a, b))[0] ?? null;
             unit.mem.titiWard = pick ? [unit, pick] : [unit];
             for (const a of unit.mem.titiWard) ward(battle, unit, a);
             unit.mem.titiWardAcc = AURA_IV;

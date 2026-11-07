@@ -2720,6 +2720,14 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   持有沉默反制」. 쿨은 `EnemySkill._OnCastFinish`가 시전 끝에 다시 시작한다. upstream은 제보로 같은 결론을 냈다.
 - 테스트 `test/content/enemy-skill-proj-wait.test.js`, `test/content/enemies_bosses.test.js` 「节日爵士乐手: revealed (反隐) and not blocked…」(이제 첫 시전부터 서 있음).
 
+### 티티 S2 「밀봉 보호」의 HP 비율 동률은 위협도 순 (upstream `8668a9cd` `47c22d39`, upstream #906)
+
+- 규칙: 티티(오퍼레이터) S2 「밀봉 보호」(`skchr_titi_2`)가 함께 재우는 오퍼레이터는 범위 안 HP 비율이 가장 낮은 하나, 같으면 **위협도(仇恨值)가 높은 쪽** — 도발 단계가 높은 쪽, 그다음
+  늦게 배치한 쪽(`targeting.js aggroCmp`, 적이 노리는 순서). 전에는 유닛 번호가 작은 쪽(먼저 배치한 쪽).
+- 근거(공식 클라에서 확인): 스킬 프리팹 `skchr_titi_2`의 능력 `GlobalUnique` 선택기 — 자신 제외, `_postFilter` 74 `HP_RATIO_ASC_HATRED_DES`, 최대 1. upstream은 제보자 기대로
+  「늦게 배치한 쪽」을 넣었고, 클라 정렬도 같은 결론에 도발 단계가 먼저 온다.
+- 테스트 `test/content/kits_alt_t5.test.js` 「缇缇 S2 封护: an HP-ratio tie goes to the higher 仇恨值…」.
+
 ## 오퍼레이터 스킬 발동 시점 묶음 B (2026-10-29)
 
 오퍼레이터 스킬이 언제 켜지는지의 남은 추정 가운데 오퍼레이터별 작은 것들. 모두 공식 클라에서 확인(프리팹·버프 템플릿·자동 조작 코드).
