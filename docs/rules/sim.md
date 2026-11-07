@@ -2740,6 +2740,19 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 - [추정·미조사: 나란투야(전략)가 빌려 준 장비(`lendItemEffects`)가 자기 것과 같은 장비일 때 — 지금은 빌린 것도 따로 겹침, 덮어쓰기 묶음 둘은 같은 줄에 섬; 빌려 주기의 클라 경로를 안 읽음]
 - 테스트 `test/content/items.test.js` 「two advanced 源石溶剂 on one operator…」·「override-grouped item buffs…」.
 
+## upstream 0.3.4 개발분 대조 이식 — 매치·서버 (2026-11-07)
+
+upstream 개발 브랜치의 매치·서버 버그 수정(이식 묶음 D). 둘 다 손 이식이고 새 시험이 수정 전 코드에서 실패하는 것을 확인했다. golden은 그대로.
+
+### 전략 선택 전에 나간 자리는 LP 0 그대로 (upstream `78f1e0ec`)
+
+- 규칙: 브리핑(`INFO_CHECK`)에서 나간 자리(중도 퇴장 = 탈락, LP 0, `_quit`)의 차례에 기본 전략이 정해져도 그 전략의 시작 LP를 받지 않는다(`phases.js _applyBand`·
+  `finishBandDraft`: 살아 있는 자리만). 팀 목록(`m.public`)과 결과에도 0. 판 점검(`audit.js` 'bands')도 나간 자리의 0을 기대한다. 전에는 「나감」 상태로 시작 LP가 다시 보였다.
+  나간 자리의 기본 전략은 지금처럼 와파린(전략)이다(upstream `6dc796d1`의 AI 선택은 받지 않음, 관리자 결정 2026-11-07).
+- 근거: 중도 퇴장 규칙(탈락, 목표 HP 0 — PRTS 卫戍协议/帮助), upstream 판단.
+- 테스트 `test/match/connection.test.js` 「onLeave: a seat gone before the strategy draft keeps 0 LP…」.
+
+
 ## 오퍼레이터 스킬 발동 시점 묶음 B (2026-10-29)
 
 오퍼레이터 스킬이 언제 켜지는지의 남은 추정 가운데 오퍼레이터별 작은 것들. 모두 공식 클라에서 확인(프리팹·버프 템플릿·자동 조작 코드).
