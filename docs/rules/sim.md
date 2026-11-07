@@ -266,7 +266,7 @@
   `Character.SwitchToSkillState`가 상태 기계를 SKILL로 바꾸므로 BORN을 끝낸다(`SkillState`는 끝나면 IDLE) — 엔진은 그 시전 때 `bornUntil`을 지금으로
   당긴다. 다음 공격 대체형(`ReplacementSkill`)은 BORN 동안 켜져도 그 공격이 BORN 뒤에 나간다. 첫 패스는 0.2 s(코루틴이 먼저 기다림)이고 같은
   패스에서 배치(`_TryDeployAvailableCharacter`, 한 패스에 하나) 다음 시전 검사. PRTS 「作战开始时部署的单位将进入冷却」는 이 BORN이다.
-  [추정·미조사: Born 클립을 1 s로 재생한다고 읽음(`_useRealBornTimeFromAnim` 꺼짐) — 재생 함수의 반환값은 안 읽음]. 2026-10-29 같은 날 이 조사 전에는
+  공식 클라에서 확인(2026-11-07): `PlayBornAnimationAndEffect`는 `_useRealBornTimeFromAnim`이 꺼졌으면 Born 클립을 제 길이의 속도로 틀고, 남은 시간은 재생 함수가 돌려주는 클립 길이 ÷ 속도라 1초다. 켜졌으면 속도 1로 클립 길이만큼이다: 풀의 오퍼레이터(울피아누스·스카디 더 커럽팅 하트·시빌라이트 에테르나·벨로네)는 클립이 1초라 같고, 소환물은 `attackAnim.born`(`token_10012_rosmon_shield` 0.133초·`token_10008_cqbw_box` 0.5초·`token_10015_dusk_drgn` 0.667초 등, `battle/deploy.js`). 공격 기록이 없는 소환물과 Born 클립이 없는 소환물은 그대로 1초다 [추정·미조사: Born 클립이 없을 때의 대체 콜백을 안 읽음]. 2026-10-29 같은 날 이 조사 전에는
   모든 수동 스킬이 BORN 동안 기다렸다. BORN 동안은 공격도 시작하지 않는다 — `BornState.OnTick`은
   시간이 다 되어야 IDLE로 넘기고 공격은 IDLE부터라서(2026-10-29 공식 클라에서 확인): 엔진 `ai.js updateAlly`가 `bornUntil` 전에는 휘두름을 시작하지
   않고, 공격 쿨다운은 그동안에도 돈다(배치 때 0이라 BORN이 끝나는 틱에 첫 휘두름). 저지는 건드리지 않음. 2026-10-29 전에는 전투 시작 배치만 2 s 블록이었고
@@ -1112,7 +1112,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 데이터 `tools/local-extract/attack_timing.py` → `tools/assets/local-attack-timing.json` → `tools/build-data.mjs` `opAttackAnim`·`enemyAttackAnim` →
 `data/chess.json`·`data/backups.json`(오퍼레이터) / `data/enemies.json`(적) `attackAnim`. 아래 메서드는 모두 켜진 Lua 핫픽스 목록(en_US·zh_CN `DefinedFix.lua`)에 없다.
 - **어느 자식·어느 모드의 클립인가** (2026-11-05, 공식 클라 프리팹에서 확인 — 시뮬·화면 클립 비교를 상점 기물·예비까지 넓혀 찾음): 공격 묶음은 자식마다 클립이 다른데 추출은 하나만 읽었다. 세 경우를 고침.
-  베토치키 S2: `FirstAttack`(`branch_s_2[first]`가 있을 때만) `Skill_2_Begin` 1초/0.6 → 나머지 공격의 `AbilityName` `Skill_2_Loop` 1.533초/0.8, `_selectTargetTiming` 1(첫 공격도 지금은 이 값: 첫 공격을 따로 치지 않는 것은 `render.md` 「Spine 클립 커버리지」에 적은 대로).
+  베토치키 S2: `FirstAttack`(`branch_s_2[first]`가 있을 때만) `Skill_2_Begin` 1초/0.6 → 나머지 공격의 `AbilityName` `Skill_2_Loop` 1.533초/0.8, `_selectTargetTiming` 1. 첫 공격은 피해가 없고(공격 배율 없는 능력), 그 타격 순간 `TriggerAbility`가 스킬의 `SpAttack`(스킬 범위 지상 적에게 전율)을 낸다(2026-11-07, 공식 클라에서 확인, 전에는 스킬 시작에 전율 + 첫 공격도 피해). 범위에 적이 없으면 첫 공격도 전율도 없다. 화면은 아직 시전 begin으로 튼다(`render.md` 「Spine 클립 커버리지」).
   요새(애쉬락·혼): `pick`이 근접 자식을 골라 원거리 공격도 근접 클립으로 쟀다 → `attackAnim.base.ranged`(`Body/Attack/RangedAttack`, 클립 길이나 타격이 다를 때만). 저지 중이 아니면 애쉬락 `Attack01` 1.167초/0.533, 혼 `Attack_B` 1.2초/0.3; 저지 중이면 `Attack02` 1.467초/0.7, `Attack_A` 1.067초/0.3. 공격 쿨다운·모드 판정은 그대로 한 기록이다(`attackTiming` 네 번째 인자).
   울피아누스 S3: 닻 뒤 다시 태어나는 모드 `S3_Respawn_A`의 `Skill_3_Loop` 2.5초/0.633(`S3` 모드 `Attack`은 타격 0.533, 그 모드에서는 공격하지 않음) — `attackModeIndex`가 `SKILL_SUB_MODES` `anchor`도 본다. 시험: `test/sim/attack-clip-view.test.js`. [화면 미확인: 공식과 나란히]
 - **클립 배율**: 공식 클라 `AbstractAnimatedAbility.UpdatePlaybackSpeed` — 배율 = 공격 간격 ÷ 클립 길이를 [0.1(상수 `MIN_ANIM_SCALE`),
@@ -1290,7 +1290,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   썼다 → `chess_char_6_14-lumen.js`. 골든 `roster-017`의 应急处理 9 → 8. 테스트 `kits_t6.test.js` 「流明 应急处理」.
 - **오퍼레이터 공격 형태 — 스킬 모드의 공격 능력대로** (2026-11-03, 공식 클라 charpack `Modes/<모드>/Body/Attack`·`Body/Combat`):
   - **사리아(塞雷娅) S3 칼슘화(钙质化) 중 적 공격 없음**: S3 모드의 공격 능력은 하나뿐이고 그것이 치료 펄스다 — `Modes/S3/Body/Attack/Trigger._targetSide` 1(아군),
-    대상 수 제한 없음(`_limitTargetNum` 0), `_timeMode` 2·`_cooldown` 1초, 명중 `common_heal_hit_01`. `Body/Combat`도 없다. 그래서 S3 동안 그녀는 막은 적도 치지
+    대상 수 제한 없음(`_limitTargetNum` 0), `_timeMode` 2·`_cooldown` 1초, 명중 `common_heal_hit_01`. 첫 치료는 시작 1초 뒤다(2026-11-07, 공식 클라에서 확인): 모드 전환으로 붙은 공격 능력은 바로 준비되고(`Ability.DoAttach`), 클립이 없으니 `_waitForAttackEvent`가 공격 시간 1초를 다 기다린다(`_preDelay` 0.533은 안 쓴다). `Body/Combat`도 없다. 그래서 S3 동안 그녀는 막은 적도 치지
     않고, 범위 아군 치료(`attack@heal_scale` × 공격력, 1초마다)와 적 석회화(받는 마법 피해·이동 속도)만 한다 → `chess_char_5_11-demkni.js` S3 `attack: { noAttack: true }`.
     그 전엔 S3 중에도 기본 모드 공격으로 적을 쳤다. 렌더는 S3 중 공격 클립을 원래 안 튼다(render.md 「스킬 중 공격 클립」). 펄스의 첫 치료 시점은 그대로
     (시작 1초 뒤 — 모드 공격의 `_preDelay` 0.533초·쿨다운 시작값은 안 읽음 [추정·미조사: 치료 횟수가 한 번 다를 수 있음]). 테스트 `test/content/attack-forms.test.js`.
@@ -1309,7 +1309,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   - **위(余) S3 화염벽의 적 투사체 차단선은 그의 칸 앞 모서리**: `skchr_yu_3/Aura/EnemyAura` 범위는 줄 전체(`_isHorizontalInfinite`)·앞으로 `_horizonOffsetFront` 0.5칸·
     두께 `_horizonSize` 0.3, 들어온 적 투사체를 지운다(`_eliminateOnEnter`, `yu_skill3_annex_01`). 시뮬은 그의 칸 가운데 줄로 판정해, 그 줄 위에 선 그 자신을
     노린 원거리 공격은 막지 못했다 → 적 공격 판정만 앞 모서리(`yuWall.front`); 차단 이펙트 'firewallBlock'도 그 줄에. 아군 마법 피해에 붙는 화상(`AllyAura`,
-    `yu_s_3[ally]`)은 칸 가운데 줄 그대로 [추정·미조사: `AllyAura`의 범위를 안 읽음]. 두께 0.3 안에 선 적은 따로 다루지 않음. 테스트 `kits_t6.test.js` 「余: S3 stops」.
+    `yu_s_3[ally]`)도 같은 앞 모서리인데 격자 칸으로 잰다(2026-11-07, 공식 클라에서 확인: 버프의 `SwitchDirection` 아래 `CheckTargetGridPositionRowOrColWithBB`가 공격자와 대상의 칸을 그의 칸과 비교, 양쪽 방향 다). 그래서 그와 같은 열의 아군이 앞쪽 적을 치면 넘는 것이다(전에는 가운데 줄이라 안 넘음). 두께 0.3 안에 선 적은 따로 다루지 않음. 테스트 `kits_t6.test.js` 「余: S3 stops」.
   - **로드(领主) 분과의 저지 중 공격** (`Body/Combat`, 확인만): 기본 모드는 이미 같다 — `Combat`은 `_atkScale` 1(로드 원거리 0.8 감쇠 없음 = `professions.js lord`
     `dmgMul`의 저지 대상 1), 투사체 없음(`shot.combat` 1 → 즉시), 대상은 저지한 첫 적 한 명(`maxTargets` 1). 다중 대상 스킬 모드도 시뮬(저지한 적 + 범위의 다른 적,
     합쳐 스킬의 대상 수)과 같다 — 공식 클라에서 확인(2026-11-03): 능력의 대상은 `AbilityStandard.UpdateTargets`가 `_selectTargetSource`대로 고른다 — `INPUT_TARGET`(2)은
@@ -2797,6 +2797,15 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 
 - `_modifyMaxCount`(`SetMaxAdditionCount`): 최대 탄과 남은 탄이 함께 는다. 라테라노 맹약, 인사이더·르무엔·이그제큐터 디 엑스 포에데레 재능, 엑시아 더 뉴 커버넌트 S2. 모두 스킬 시작 때라 그 순간 남은 탄 = 최대 탄이고, 우리 `SkillRuntime.addAmmo`의 결과와 같다.
 - `_recoverEventCount`(`AbilityEventCounter.RecoverEventCount`): 쏜 탄을 되돌린다. 최대 탄은 그대로, 쏜 탄보다 많이 돌려주지 않고, `_recoverSkipLimitCheck`가 아니면 한 발동에 합쳐 최대 탄까지(`get_recoverCountLimit`, 스킬 프리팹에 `_overrideRecoverCountLimit`을 켠 것 없음). `SkillRuntime.recoverAmmo`: 산크타 믹사파라토 S1·S3, 장비 `chess_item_4_08_e`, 이그제큐터 디 엑스 포에데레 S2(제한 무시), 블레이즈 디 이그나이팅 스파크 S3(제한 무시). 전에는 이 탄도 최대 탄을 넘어 쌓였다.
-- 넣지 않음: 인사이더 `inside_t_1[active]`·이그제큐터 재능·엑시아 S2의 `_restoreMaxCount`(주는 쪽이 사라지면 더한 최대 탄을 거둠) [추정·미조사: 거둘 때 남은 탄이 어떻게 되는지 아직 안 읽음].
+- 따로 넣지 않음, 결과가 같음(2026-11-07, 공식 클라에서 확인): 인사이더 `inside_t_1[active]`·이그제큐터 재능·엑시아 S2의 `_restoreMaxCount`는 버프가 끝날 때 그 버프 몫을 0으로 적는다(`SetMaxAdditionCount`). `CastSkillWithLimitTimes`는 스킬이 효과 중이면 바뀐 몫을 바로 쓰지 않으므로 도는 스킬의 탄은 줄지 않고, 다음 시전에는 그 몫이 없다. 우리 `addAmmo`는 시전 때 주는 쪽이 있을 때만 더하고 시전마다 새로 시작하니 같다.
 - 테스트 `test/ammo-recover.test.js`.
 
+## 치료 금지와 孤立 — 공식 플래그는 하나씩 (2026-11-07, 공식 클라에서 확인)
+
+공식 이상 상태에 「치료 금지」는 `HEAL_FREE`(7) 하나다. 에스텔 S2의 「다른 오퍼레이터의 치료 대상이 되지 않는다」(`skchr_estell_2`의 `estell_s_1`, `abnormalFlags` 7)도 같은 플래그다. 그래서 엔진 `noHeal` 깃발을 둘로 나누지 않고 이렇게 맞췄다.
+
+- 치료 대상 검사(`TargetOptions._VerifyAdvanced`): 목적이 치료이고 `ignoreHealFree`가 꺼져 있으면 `HEAL_FREE`를 거른다. `ignoreAllyTargetFree`가 꺼져 있으면 같은 쪽의 `ALLY_TARGET_FREE`(孤立)를 거른다.
+- `queries.js injuredAlliesInKeys`: 孤立 아군도 거른다(전에는 골랐다). 자기 자신과 `healThrough`(켈시 에스페란타의 Mon3tr)는 예외.
+- `damage.js heal`·`ai.js chainHealNext`: `ignoreHealFree`면 `noHeal` 깃발도 넘는다. Mon3tr(선발) 연쇄 튕김(`JUMP_OPTS`)이 치료 금지 아군을 고르고 치료한다. 프로필의 `noHeal`(수확자·불굴자·무사 특성)은 무엇도 못 넘는다.
+- 팔라스(선발) 재능 2: `pallas_t_2`의 `CreateBuffInRange`는 `purposeMask` HEAL에 `ignoreHealFree` 꺼짐이라 앞칸의 치료 금지 아군을 고르지 않는다. PRTS 비고 「무시하는 것은 자신이 받은 치료 금지」와 같다(전에는 앞칸 아군도 치료했다). 자신은 치료한다 [추정·화면: 같은 선택기가 자신도 거를 코드인데 PRTS 비고는 자신이 치료된다고 한다. 비고대로 둠].
+- 시험: `test/sim/combat.test.js` 孤立, `test/content/op_monstr.test.js` 튕김, `test/content/op_pallas.test.js`.

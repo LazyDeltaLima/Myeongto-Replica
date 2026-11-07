@@ -4,8 +4,9 @@
 // the module and the kit of her summon 魂灵之影 (token_10035_wisdel_wward). Kit contract: ../README.md ("How to add an
 // operator (自选)"); `chess` = the composed 自选 record (shared/diy.js diyRecordOf), every number from it.
 //
-// Trait: every attack = the main blast + aftershocks (append_atk_scale × ATK, the module's enable_third_attack adds one)
-// in the bombarder splash (0.9, PRTS 溅射半径一览), ground only (S3 aside). 好礼: the main target takes main_atk_scale ×
+// Trait: every attack = the main blast + aftershocks (append_atk_scale × ATK, the module's enable_third_attack adds one,
+// both SHOCK_AT after it: the shot's hit behaviours when it stops, `_delayAfterReached` 0.15) in the bombarder splash (0.9,
+// PRTS 溅射半径一览), ground only (S3 aside). 好礼: the main target takes main_atk_scale ×
 // the hit AND × her aftershocks on it (PF projectile shock `_applyAtkScaleTraceTgt 1`; PRTS 「攻击倍率提升效果仅对普通攻击
 // （含余震）生效」) and gets an 残影 (one, kept while she is on the field — BT wisdel_t_1[bomb] _finishDerivedBuffIfParentFinish,
 // PRTS 「维什戴尔退场后消失」); an 残影 struck by her aftershock explodes with `prob` (S3: 100 %): bomb_atk_scale × ATK phys
@@ -18,13 +19,17 @@
 // sktok_wisdel_wward SkillTrigger `_targetMotion 1`, `_fetchHost 1`; PRTS 「不可对空」) it casts on one — unmarked first
 // (`_withoutThisBuff` wisdel_t_1[bomb]), then the usual target order: arts (its ATK), 停顿, her 残影, then 0-2 SP to the
 // SHADOW itself (BT token_wisdel_skill_end ModifySp _targetType BUFF_OWNER, forced) — not to her.
-// S1 定点清算: the next attack — splash 1.1, 2 more aftershocks at append_atk_scale, every enemy it hits (main, splash,
-// aftershocks) stunned stun_duration s (表 「使所有目标晕眩」).
+// S1 定点清算: the next attack — splash 1.1, 2 more aftershocks at append_atk_scale (S1_Shock's two shots, flying with the
+// main one and stopping S1_SHOCKS_AT after they reach), every enemy it hits (main, splash, aftershocks) stunned stun_duration s
+// (表 「使所有目标晕眩」).
 // S2 过载 = the second half of the 25 s: skill prefab skchr_wisdel_2 has `_isOverloadSkill` 1, and the client's
 // BasicSkill.get_overloadRatio is 0.5 for such a skill — OverloadIfNecessary overloads once the remaining progress
 // (1 − the ability's cooldownProgress, 2026-10-31: the second half of the cast) is ≤ that ratio (ON_OVERLOAD → buff
 // wisdel_s_2[overload_start], mode 2); 2026-10-10, until then [ASSUMED]. Every
-// attack becomes 4 shots of atk_scale_ol × ATK at random targets of her range (each a full blast with its aftershocks).
+// attack becomes 4 shots of atk_scale_ol × ATK at random targets of her range (each a full blast with its aftershocks): the
+// mode's MultiRangedAttack, `_additionalTimes` 3, `_triggerDelta` OL_GAP × the swing's scale apart, the target taken as each leaves
+// (`_selectTargetTiming` 1) and its blast OL_DELAY later on the spot it was taken at (AttachToTarget `_delayToStart`, `_followTarget` 0);
+// a stun ends the shots still to come.
 // S3 爆裂黎明: splash 2.5 (PF projectile_chr_wisdel_s3 CircleCollider2D m_Radius 2.5; PRTS 「攻击溅射半径2.5」); she targets
 // and splashes air units, and the aftershocks hit them too (PF charpack S3 Selector and every projectile_chr_wisdel_s3
 // component `_targetMotion 3`); 2 shades at the cast, the first with `sp` (3) SP (BT wisdel_s_3_token[add_sp]; PRTS
@@ -37,6 +42,7 @@
 
 import { COLS } from '../../../constants.js';
 import { sortEnemyTargets } from '../../../targeting.js';
+import { attackTiming } from '../../../ai.js';
 import { talentBb } from '../shared/tier1.js';
 import { hypot } from '../../../detmath.js';
 
@@ -55,6 +61,10 @@ const GROUND = Object.freeze({ canHitFly: false });
 const inRange = (battle, unit) => battle.enemiesInKeys(unit.rangeKeys || [], unit, ANY);
 
 const WIS_SPLASH = 0.9, WIS_S1_SPLASH = 1.1, WIS_S3_SPLASH = 2.5, WIS_WARD_MAX = 3;
+/** The hit behaviours of her shots: aftershocks when the shot stops, `_delayAfterReached` after it reaches (s). */
+const SHOCK_AT = 0.15, S1_SHOCKS_AT = Object.freeze([0.5, 0.65]);
+/** S2_Overload's MultiRangedAttack `_triggerDelta` and projectile_chr_wisdel_s2's `_delayToStart` (s). */
+const OL_GAP = 0.1, OL_DELAY = 0.1;
 /** Her summon 魂灵之影 (T2 死魂灵的余息, S3 爆裂黎明). */
 export const SHADOW = 'token_10035_wisdel_wward';
 /** Buff key of her 残影 on an enemy / of the 迷彩 shadow `w` gave her. */
@@ -122,7 +132,7 @@ function wisdel(bb, chess, def) {
   const t0 = talentBb(chess, 0);
   const tb = chess?.trait?.bb || {};
   const append = num(tb['attack@append_atk_scale'], 0.5);
-  const shocks = 1 + (num(tb['attack@enable_third_attack']) ? 1 : 0);
+  const shocks = num(tb['attack@enable_third_attack']) ? [SHOCK_AT, SHOCK_AT] : [SHOCK_AT];
   const mainScale = num(t0['attack@main_atk_scale'], 1.15);
   const markProb = num(t0['attack@prob'], 0.15), bombScale = num(t0['attack@bomb_atk_scale'], 1.5);
   const bombStun = num(t0['attack@stun'], 1), bombR = num(t0['attack@range_radius'], 1.1);
@@ -143,11 +153,11 @@ function wisdel(bb, chess, def) {
     battle.addBuff(e, { key: markKey(unit), duration: Infinity, source: unit, visible: true });
   };
   /**
-   * One blast at (x, y) (the main target `main`): splash + `n` aftershocks of `after` × ATK 0.3 s apart (× main_atk_scale
+   * One blast at (x, y) (the main target `main`): splash + aftershocks of `after` × ATK, `at` s after it (× main_atk_scale
    * on the main target). `stun` stuns every enemy the blast hits; `prob` = the 残影 explosion chance of the aftershocks;
    * `air` = air units are hit too (S3). `primary` = the engine already dealt the main hit and its splash.
    */
-  const blast = (battle, unit, main, { x, y, scale = 1, radius = WIS_SPLASH, n = shocks, after = append, stun = 0, prob = markProb, air = false, primary = false, shockKey = null }) => {
+  const blast = (battle, unit, main, { x, y, scale = 1, radius = WIS_SPLASH, at = shocks, after = append, stun = 0, prob = markProb, air = false, primary = false, shockKey = null }) => {
     if (!primary) {
       for (const e of battle.foesInRadius(x, y, radius, true)) {
         if (e.isFlying && !air) continue;
@@ -157,8 +167,8 @@ function wisdel(bb, chess, def) {
     }
     mark(battle, unit, main);
     const seq = unit.deploySeq;
-    for (let i = 1; i <= n; i++) {
-      battle.after(0.3 * i, () => {
+    for (const when of at) {
+      battle.after(when, () => {
         if (unit.deploySeq !== seq) return;
         const foes = battle.foesInRadius(x, y, radius, true).filter((e) => !e.isFlying || air);
         if (shockKey && foes.length) battle.fx('kitHit', { x, y, id: unit.id, k: shockKey, n: foes.length }); // the aftershock's projectile HIT, on each
@@ -216,7 +226,7 @@ function wisdel(bb, chess, def) {
           onEachHit({ battle, unit, target }) { // the main target and every splash victim (the aftershocks stun in blast)
             if (target?.alive && target.side === 'enemy') battle.applyStatus(target, 'stun', { duration: s1Stun, source: unit });
           },
-          afterHit: afterHitOf({ n: shocks + 2, after: num(bb.append_atk_scale, 0.9), radius: WIS_S1_SPLASH, stun: s1Stun, shockKey: 'wisdel:bomb' }),
+          afterHit: afterHitOf({ at: [...shocks, ...S1_SHOCKS_AT], after: num(bb.append_atk_scale, 0.9), radius: WIS_S1_SPLASH, stun: s1Stun, shockKey: 'wisdel:bomb' }),
         },
       },
       // 饱和复仇: ATK +atk, base attack time −0.7 s, 3 targets; 过载 (second half): 4 shots at random targets
@@ -290,15 +300,21 @@ function wisdel(bb, chess, def) {
         const pool = inRange(battle, unit).filter((e) => !e.isFlying);
         if (!pool.length) return;
         ctx.targets = [battle.rng.pick(pool)];
-        for (let i = 1; i <= 3; i++) {
-          battle.after(0.12 * i, () => {
-            const p2 = inRange(battle, unit).filter((e) => !e.isFlying);
-            const t = p2.length ? battle.rng.pick(p2) : null;
-            if (!t || !live(unit)) return;
-            battle.fx('bombardShell', { x: t.x, y: t.y, id: unit.id, r: WIS_SPLASH, t: 0.25 });
-            blast(battle, unit, t, { x: t.x, y: t.y, scale: num(bb['attack@atk_scale_ol'], 0.7) });
-          }, { owner: unit });
-        }
+        const gap = OL_GAP * attackTiming(unit).scale, seq = unit.deploySeq;
+        const shot = (left) => {
+          if (!live(unit) || unit.deploySeq !== seq || !unit.canAct) return;
+          const p2 = inRange(battle, unit).filter((e) => !e.isFlying);
+          const t = p2.length ? battle.rng.pick(p2) : null;
+          if (t) {
+            const { x, y } = t;
+            battle.after(OL_DELAY, () => {
+              battle.fx('bombardShell', { x, y, id: unit.id, r: WIS_SPLASH, t: 0 });
+              blast(battle, unit, t, { x, y, scale: num(bb['attack@atk_scale_ol'], 0.7) });
+            });
+          }
+          if (left > 1) battle.after(gap, () => shot(left - 1), { owner: unit });
+        };
+        battle.after(gap, () => shot(3), { owner: unit });
       }, { owner: unit, priority: 5 });
     },
     // the shades she owns are kept between her S3 casts; s3 flag for readers

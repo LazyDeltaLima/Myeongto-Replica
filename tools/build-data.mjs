@@ -2554,7 +2554,9 @@ function tokenAttackAnim(ctx, tokenId) {
   const m = ctx.manifest?.tokens?.[tokenId];
   const sp = m?.spine ?? m?.spineLocal;
   const dur = ab.anim ? sp?.animations?.[ab.anim] : null;
-  const timing = { ...abilityTiming(ab), ...abilityFace(ab), ...(ab.det === 1 ? { det: 1 } : {}) };
+  // `born`: its prefab's `_useRealBornTimeFromAnim` — the born state lasts the Born clip (the skeleton's Start), not 1 s (server/sim/constants.js BORN_TIME)
+  const startClip = t.realBorn ? sp?.animations?.Start : null;
+  const timing = { ...abilityTiming(ab), ...abilityFace(ab), ...(ab.det === 1 ? { det: 1 } : {}), ...(typeof startClip === 'number' && startClip > 0 ? { born: startClip } : {}) };
   if (!(typeof dur === 'number' && dur > 0)) return { noClip: 1, ...timing };
   const h = sp.hits?.[ab.anim];
   const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;

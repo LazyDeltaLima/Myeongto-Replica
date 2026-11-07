@@ -276,6 +276,22 @@ test('S2 驱凶辟邪 bursts early: at the hit cap, when the target is knocked o
   }
 });
 
+test('S3: the push leaves with the shot (ON_SPELL_ON): the other enemy has moved when his hit lands', () => {
+  const { h, u } = field({ tier: 5, skill: 2, dp: 999, seed: 9 });
+  u.skill.gainSp(999);
+  h.step();
+  const a = h.spawn('enemy_dummy', { pos: [10, 6] }), b = h.spawn('enemy_dummy', { pos: [11, 5] });
+  let moved = null;
+  h.b.on('damaged', (c) => {
+    if (moved != null || c.source !== u || !c.dmg?.isAttack) return;
+    const other = c.target === a ? b : a;
+    moved = other.pushing || other.displaced || Math.hypot(other.x - (other === a ? 6 : 5), other.y - (other === a ? 10 : 11)) > 1e-6 || !!other.push;
+  });
+  assert.ok(h.runUntil(() => moved != null, 5), 'a hit');
+  assert.ok(moved, 'the push came first');
+  done(h);
+});
+
 test('S3 贵客盈门 (AUTO, SP_FULL): range x-4, ATK / DEF +31 % / +37 %, taunt +1, every attack pushes the other enemies of his range; 55 % / 60 % dodge of damage from outside his range only', () => {
   for (const [tier, elite] of [[5, false], [6, true]]) {
     const sk = skillOf(tier, elite, S3);

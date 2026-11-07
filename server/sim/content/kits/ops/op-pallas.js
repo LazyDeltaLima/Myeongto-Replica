@@ -21,8 +21,8 @@
 //   test, not a bond (shared/powers.js hasPower): her nation, and 调香师 (rhodes) and 蒂蒂 (sargon) by a subPower.
 // - T2 女神的振奋 "每攻击一名敌人时为自身与身前一格的我方干员恢复40点生命值" (full potential: 45; bb value): pallas_t_2 is
 //   ON_OUTPUT_DAMAGE — every damage instance she deals (S1's two strikes, each S3 target) heals every ally on her 1-1 (her tile and
-//   the tile in front, rotated with her) `value` HP, a heal that ignores 禁疗 (FixedValueHeal _ignoreHealFree; PRTS 备注) but not
-//   "不成为其他角色的治疗目标" (the heal's selector is HEAL-purpose). INS-Y “赫里亚之辉” stage 2+: value 60 (full potential: 65)
+//   the tile in front, rotated with her) `value` HP. Her own 禁疗 is ignored (PRTS 备注 「无视自身获得的禁疗」; FixedValueHeal
+//   _ignoreHealFree); a 禁疗 ally in front is not picked (pallas_t_2 CreateBuffInRange: purposeMask HEAL, ignoreHealFree off). INS-Y “赫里亚之辉” stage 2+: value 60 (full potential: 65)
 //   and "并使所有【米诺斯】干员额外恢复40点生命值" (talent bb pallas_e_t_2.value): pallas_e_t_2[trigger] (ON_OUTPUT_DAMAGE) uses
 //   pallas_e_heal on every ally its aura marks — tags minos, _selfOption INCLUDE, so herself too — for that much more (also
 //   ignoring 禁疗).
@@ -172,7 +172,10 @@ export default {
           battle.on('damaged', (c) => {
             if (c.source !== unit || !c.target || c.target.side !== 'enemy' || c.type === 'element' || !up(unit)) return;
             if (value > 0) {
-              for (const a of alliesInGridOf(battle, unit, RANGE_1_1)) battle.heal(unit, a, value, { self: a === unit, ignoreHealFree: true, tags: ['talent'] });
+              for (const a of alliesInGridOf(battle, unit, RANGE_1_1)) {
+                if (a !== unit && (a.s.flags.noHeal || a.s.flags.healFree)) continue;
+                battle.heal(unit, a, value, { self: a === unit, ignoreHealFree: true, tags: ['talent'] });
+              }
             }
             if (extra > 0) {
               for (const a of battle.alliesFor(unit)) if (isMinos(a)) battle.heal(unit, a, extra, { self: a === unit, ignoreHealFree: true, tags: ['talent', 'module'] });

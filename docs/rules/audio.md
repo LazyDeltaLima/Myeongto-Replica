@@ -748,7 +748,7 @@
     `p_skill_paperexplo` → 키트 폭발 fx `explode` `lmlee_2`. 사라지기만 하는 표식(폭발 없음)은 무음.
   - 리 S3 귀빈내방: S3 모드 `Attack`의 BuffToCastTargets(`_runActionOnEvent` ON_SPELL_ON, `_onlyRunOnce`)가 공격마다 대상에게 `lmlee_s_3[knockback]`을
     건다 — `Dice`(prob_knockback)를 넘으면 범위 이펙트와 `lmlee_skill_3_audio[knockback]`(audioSignal `lmlee_skill_3_knockback`)을 그 적에게, 밀 적이
-    없어도 → 키트가 굴림을 넘긴 자리에 새 kitHit `lmlee:s3push`. 우리 키트는 밀기를 착탄에 해서 소리도 착탄 순간이다(공식은 쏘는 순간 — §11 [sim] 줄).
+    없어도 → 키트가 굴림을 넘긴 자리에 새 kitHit `lmlee:s3push`. 공식처럼 쏘는 순간에 민다(2026-11-07, 키트 `beforeAttack`).
   - 리 재능 유비무환: `lmlee_tr`가 특성 지불을 `extra_cost`로 바꾸고 `lmlee_t_2[bounce]`(audioSignal `lmlee_telent_2_start`)를 건다 → 키트 fx `shield`
     `lmlee`에 `lmlee:t2`.
   - 에벤홀츠(`char_4046_ebnhlz`) 특성 저장: 저장마다 그 모드의 `ExChargeAttack` 능력의 Charge ON(`ON_ABILITY_ON.Charge.char_4046_ebnhlz.attack[.1|.2]

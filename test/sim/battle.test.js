@@ -6,7 +6,9 @@ import { Battle } from '../../server/sim/Battle.js';
 import { makeBattle, chessRec, enemyRec, flatStage, hashOf, checkInvariants } from '../helpers/battleHarness.js';
 import { UF, ANIM, BOND_LAYER_CAP } from '../../shared/constants.js';
 import { EV } from '../../shared/protocol.js';
-import { getDefaultSource, spawnsFromTemplate, hasGeneratedData } from '../../server/sim/simdata.js';
+import { getDefaultSource, spawnsFromTemplate, hasGeneratedData, normAttackAnim } from '../../server/sim/simdata.js';
+import { BORN_TIME } from '../../server/sim/constants.js';
+import { readFileSync } from 'node:fs';
 import { LocalBossPool } from '../../server/sim/spec.js';
 
 const approx = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} ≈ ${b}`);
@@ -538,6 +540,26 @@ test('tokens: spawnToken deploys a token next to its owner; manual token pieces 
   h.run(1.1);
   assert.equal(t2.alive, false, 'expired');
   assert.ok(ds.getToken('token_10000_silent_healrb', 'chess_char_2_02_b').stats.atk > ds.getToken('token_10000_silent_healrb', 'chess_char_2_02_a').stats.atk);
+});
+
+test('born state: 1 s after a deployment; a summon whose prefab plays its Born clip at its own speed (`attackAnim.born`) waits out the clip', () => {
+  const clip = (born) => ({ dur: 1, hit: 0.2, ...(born ? { born } : {}) });
+  assert.equal(normAttackAnim(clip(0.667)).born, 0.667);
+  assert.equal(normAttackAnim(clip(null)).born, undefined);
+  const h = makeBattle({ flags: { bornTime: BORN_TIME }, units: [{ chessId: 'chess_char_2_02_a', row: 10, col: 4, uid: 7 }], content: 'generic' });
+  h.step();
+  const base = h.b.spawnToken(h.unit(7), 'token_10000_silent_healrb', 11, 4, {});
+  assert.ok(base && Math.abs(base.bornUntil - (h.b.time + BORN_TIME)) < 1e-6, 'a summon without it: the common 1 s');
+  const tokens = JSON.parse(readFileSync(new URL('../../data/tokens.json', import.meta.url), 'utf8'));
+  const shield = h.b.spawnToken(h.unit(7), 'token_10012_rosmon_shield', 12, 4, { def: tokens.token_10012_rosmon_shield });
+  assert.ok(shield, 'spawned');
+  assert.ok(Math.abs(shield.bornUntil - (h.b.time + 0.133)) < 1e-6, `the clip's 0.133 s (${shield.bornUntil - h.b.time})`);
+});
+
+test('data: the summons whose prefab plays the Born clip at its own speed carry its length', () => {
+  const tokens = JSON.parse(readFileSync(new URL('../../data/tokens.json', import.meta.url), 'utf8'));
+  assert.equal(tokens.token_10015_dusk_drgn.attackAnim.born, 0.667);
+  assert.equal(tokens.token_10012_rosmon_shield.attackAnim.born, 0.133);
 });
 
 test('displacement helper moves enemies along passable tiles and re-paths', () => {

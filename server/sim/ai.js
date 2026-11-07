@@ -423,13 +423,14 @@ function attackModeOf(u) {
  * (`InitAnimation`: scale = attack time ÷ (begin + clip), bounded by its own `_maxAnimScale`), so that swing's strike
  * waits for the clip's OnAttack frame after the begin — (begin + OnAttack) × scale (`begun` true); its swings last the
  * attack interval. A 要塞's `ranged` swing times from `Body/Attack/RangedAttack`'s clip, the record's own from its melee child's.
- * @returns {{ strike: number, action: number, sel: number, begun: boolean }} game seconds into `out`; `sel` =
- *   `_selectTargetTiming`
+ * @returns {{ strike: number, action: number, sel: number, begun: boolean, scale: number }} game seconds into `out`; `sel` =
+ *   `_selectTargetTiming`; `scale` = the swing's `m_animScale`, which also scales a MultiRangedAttack's `_triggerDelta`
  */
 export function attackTiming(u, out = { strike: 0, action: 0, sel: 0, begun: false }, first = false, ranged = false) {
   let a = attackClipOf(u);
   if (ranged && a?.ranged) a = a.ranged;
   out.begun = false;
+  out.scale = 1;
   if (!a) { out.strike = 0; out.action = 0; out.sel = 0; return out; }
   if (a.noClip) {
     const iv = u.s.interval > 0 ? u.s.interval : 0;
@@ -445,6 +446,7 @@ export function attackTiming(u, out = { strike: 0, action: 0, sel: 0, begun: fal
   let scale = iv > 0 ? iv / dur : MIN_ANIM_SCALE;
   if (scale < MIN_ANIM_SCALE) scale = MIN_ANIM_SCALE;
   if (scale > max) scale = max;
+  out.scale = scale;
   // (a ThreePart ability has no clip of its own — `_animKey` empty —, so its swing lasts the attack interval:
   // AbstractAnimatedAbility.UpdatePlaybackSpeed keeps m_attackTime = the attack time; its exit time counts from there)
   out.action = a.begin > 0 && iv > 0 ? iv : scale * dur;
@@ -811,9 +813,9 @@ export function resolveHit(b, u, prof, target, info, x, y) {
  * or 孤立 unit, no 禁疗 / 无法被治疗 one (as Battle.injuredAlliesInKeys: the healer's `healThrough` lets its own summon in —
  * 凯尔希 / Mon3tr); the lowest HP ratio first — a full-HP ally too, healed for nothing, and the chain jumps on from it —,
  * then the latest deployed (aggroSeq). Null when none. Shared by the profession (doHeal) and Mon3tr's kit. `opts`: a jump
- * selector's options (the client's TargetOptions) — `ignoreAllyTargetFree` takes a 孤立 ally (Mon3tr's
- * ChainedSelectorWithFilter). A 禁疗 ally (flag `healFree`) is never skipped here — the heal decides (its `ignoreHealFree`);
- * the `noHeal` flag (a 禁疗 summon, and 不成为治疗目标) and a profile's `noHeal` always are.
+ * selector's options (the client's TargetOptions) — `ignoreAllyTargetFree` takes a 孤立 ally, `ignoreHealFree` a 禁疗 one
+ * (Mon3tr's ChainedSelectorWithFilter). A flag `healFree` ally is never skipped here — the heal decides (its `ignoreHealFree`);
+ * a flag `noHeal` ally is without that option, a profile's `noHeal` always.
  */
 export function chainHealNext(b, healer, prev, seen, opts = null) {
   const through = healer && healer.profile && typeof healer.profile.healThrough === 'function' ? healer.profile.healThrough : null;
@@ -823,7 +825,7 @@ export function chainHealNext(b, healer, prev, seen, opts = null) {
     if (!a.alive || !a.deployed || a.hidden || a.kind === 'device' || seen.has(a.id)) continue;
     if (Math.abs(a.tileR - r0) > 1 || Math.abs(a.tileC - c0) > 1) continue;
     if (a !== healer && ((a.s.flags.isolated && !(opts && opts.ignoreAllyTargetFree))
-      || (a.s.flags.noHeal && !(through && through(healer, a))) || (a.profile && a.profile.noHeal))) continue;
+      || (a.s.flags.noHeal && !(through && through(healer, a)) && !(opts && opts.ignoreHealFree)) || (a.profile && a.profile.noHeal))) continue;
     if (!best || a.hpRatio < best.hpRatio - 1e-12 || (Math.abs(a.hpRatio - best.hpRatio) <= 1e-12 && a.aggroSeq > best.aggroSeq)) best = a;
   }
   return best;

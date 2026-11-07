@@ -165,6 +165,30 @@ test('S2 护身尖刺 (MANUAL, 技能范围 3-1, DEFAULT on its box): no attack,
   }
 });
 
+test('S2: with nobody on the 3-1 a hit casts nothing and spends no cooldown (`_minTargetNum` 1); the spikes go to the enemies there as it started', () => {
+  const { h, u } = field({ tier: 5, skill: 1 });
+  const away = h.spawn('enemy_dummy', { pos: [10, 9] });
+  const first = h.spawn('enemy_dummy', { pos: [10, 6] });
+  u.skill.gainSp(999);
+  assert.ok(h.runUntil(() => u.skill.active, 2));
+  const spikes = () => from(h, u, (c) => tagged(c, 'thorns:spike'));
+  h.b.kill(first);
+  // off the 3-1: nothing set off
+  h.b.dealDamage(away, u, { amount: 1, type: 'phys' });
+  h.run(0.7);
+  assert.equal(spikes().length, 0, 'no target: no spikes');
+  // on the 3-1 inside what would have been that hit's cooldown: this hit casts
+  const on = h.spawn('enemy_dummy', { pos: [10, 6] });
+  h.step();
+  h.b.dealDamage(away, u, { amount: 1, type: 'phys' });
+  // and an enemy coming in after the cast started is no target of it
+  const late = h.spawn('enemy_dummy', { pos: [9, 5] });
+  h.run(0.6);
+  const got = spikes();
+  assert.ok(got.length === 1 && got[0].target === on, `the one on the 3-1 at the cast (${got.length} spikes, on the late one: ${got.some((c) => c.target === late)})`);
+  done(h);
+});
+
 test('S2: the cooldown (0.8 s) holds a second hit back; 持续 / 溅射 / element / 流失 / 无来源 damage and an ally\'s set nothing off; a stunned 棘刺 casts none', () => {
   const { h, u } = field({ tier: 5, skill: 1 });
   const e = h.spawn('enemy_dummy', { pos: [10, 6] });

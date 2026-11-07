@@ -230,8 +230,9 @@ export const BLOCK_SKILL_TICK = 10;
  * there only for the few skills whose prefab flag is off (skills.js _born, `cast.bornWait`; the operations pass goes on
  * to the next character, no block); every other skill is cast at once, and a 'state' cast leaves the born state
  * (`SwitchToSkillState`). The trigger itself has no battle-start block: `StartBattle` empties `m_blockSkillTicker` and
- * only a cast fills it (PRTS 卫戍协议/帮助 "…作战开始时部署的单位将进入冷却" is this born state). [ASSUMED·미조사: the Born
- * clip played to last 1 s (`_useRealBornTimeFromAnim` off).] Until 2026-10-29 the battle-start deployment was blocked 2 s.
+ * only a cast fills it (PRTS 卫戍协议/帮助 "…作战开始时部署的单位将进入冷却" is this born state). The Born clip is played at a speed
+ * of its own length, so it lasts this 1 s; a prefab with `_useRealBornTimeFromAnim` plays it at speed 1 and lasts the clip: the
+ * summons' `attackAnim.born` (the operators with it have a 1 s clip). Until 2026-10-29 the battle-start deployment was blocked 2 s.
  */
 export const BORN_TIME = 1;
 

@@ -645,14 +645,14 @@
         ["p1",5,"op","chess_char_3_14_b",1,"uniequip_002_slbell",2220.63,1,5,0,626,0,0,1,1],
         ["p1",6,"op","chess_char_3_20_b",1,"uniequip_002_kjera",1993.75,1,8,1,10723,0,0,6,1],
         ["p1",7,"op","chess_char_4_13_b",1,"uniequip_002_gnosis",2734.88,1,3,1,3931,0,0,0,2],
-        ["p1",8,"op","chess_char_5_12_b",0,"uniequip_002_dusk",2457.13,1,6,4,44429,1091,0,11,9],
-        ["p1","~1","token","token_10015_dusk_drgn",null,null,0,0,13,0,1274,1997,0,4,null]
+        ["p1",8,"op","chess_char_5_12_b",0,"uniequip_002_dusk",2457.13,1,6,4,44110,1091,0,11,9],
+        ["p1","~1","token","token_10015_dusk_drgn",null,null,0,0,13,0,1592,1997,0,5,null]
       ],
       "enemies": {"enemy_1267_nhpbr_2":[11,11,0,2276,69696],"enemy_1270_nhstlk_2":[4,4,0,0,73728],"enemy_1272_nhtank_2":[2,2,0,1802,34560]},
-      "hooks": [1,26,2172,54,54,115,115,10,18,18,25,25,0,7368,1874,4,17,0,1,18,0,0,0],
-      "events": {"atk":54,"castHit":2,"deploy":9,"die":18,"dmg":115,"engage":5,"face":25,"fx":80,"heal":10,"skill":50,"spawn":26,"status":29,"swing":71,"tplfx":2},
+      "hooks": [1,26,2172,55,55,116,116,10,18,18,25,25,0,7368,1874,4,17,0,1,18,0,0,0],
+      "events": {"atk":55,"castHit":2,"deploy":9,"die":18,"dmg":116,"engage":5,"face":25,"fx":80,"heal":10,"skill":50,"spawn":26,"status":29,"swing":71,"tplfx":2},
       "fx": {"charges":8,"coldWind":2,"drone":10,"frostNova":2,"healAoe":3,"hunterReload":10,"hunterRound":7,"kitHit":1,"stacks":7,"strike":8,"summon":1,"volley":8,"zone":13},
-      "snaps": "e0fe2874 a55408a0 90ea8250 38dad96b aea8d461 d944c67b 0f8f413e de447b3e"
+      "snaps": "e0fe2874 4223432f 5a149a89 4e66b26e de7f6624 bdd25ee2 4aaeb6ff cdad2cc3"
     },
     "bond-lateranoShip-low": {
       "about": "拉特兰 low: tier 1 layers 1; chess_char_3_06_a chess_char_3_05_a chess_char_1_01_a chess_char_2_01_a chess_char_3_01_a chess_char_3_08_a chess_char_3_09_a chess_char_3_10_a",
@@ -1805,10 +1805,10 @@
         ["p1",2,"op","chess_char_6_03_b",2,"uniequip_002_yu",4070,1,6,0,0,0,336,0,1],
         ["p1",3,"op","chess_char_3_03_b",1,"uniequip_002_swire",2087.8,1,9,0,0,0,0,0,0],
         ["p1",4,"op","chess_char_3_04_b",1,"uniequip_002_swire2",2555.3,1,11,8,62907,790,0,0,0],
-        ["p1",5,"op","chess_char_1_03_b",1,"uniequip_002_leizi",1530.1,1,4,0,24171,0,0,3,1],
+        ["p1",5,"op","chess_char_1_03_b",1,"uniequip_002_leizi",1530.1,1,4,0,45171,0,0,3,1],
         ["p1",6,"op","chess_char_2_04_b",1,"uniequip_002_grabds",1397,1,5,0,0,0,0,0,0],
         ["p1",7,"op","chess_char_5_03_b",2,"uniequip_002_blaze2",0,0,13,2,28865,2879,1065,4,1],
-        ["p1",8,"op","chess_char_5_12_b",0,"uniequip_002_dusk",1965.7,1,7,3,26824,0,0,3,4],
+        ["p1",8,"op","chess_char_5_12_b",0,"uniequip_002_dusk",1965.7,1,7,3,5824,0,0,3,4],
         ["p1",9,"op","chess_char_5_23_b",1,"uniequip_002_reckpr",1771,1,10,0,0,3379,4028,5,1],
         ["-","~1","device","trap_1105_accrate",null,null,100,1,1,0,0,0,0,0,null],
         ["-","~2","device","trap_1105_accrate",null,null,100,1,2,0,0,0,0,0,null],
@@ -1827,10 +1827,10 @@
         ["p1","~9","token","token_10031_swire2_gdtrap",null,null,1000,0,122,0,0,0,0,0,null]
       ],
       "enemies": {"enemy_1019_jshoot_2":[7,7,0,3678,47029],"enemy_1381_winman":[9,9,0,0,129890],"enemy_1389_winbab_2":[5,5,0,8813,87091]},
-      "hooks": [1,45,2548,110,110,242,180,957,23,31,14,14,2,6615,12,12,21,0,1,24,0,0,0],
-      "events": {"atk":110,"deploy":21,"die":31,"dmg":164,"engage":5,"face":24,"fx":64,"heal":16,"skill":32,"spawn":45,"status":19,"swing":124},
-      "fx": {"coin":13,"downed":1,"explode":8,"firewall":1,"splash":2,"stacks":12,"summon":10,"swire2Throw":9,"yanyouFlame":6,"yanyouSummon":2},
-      "snaps": "e8dc21a5 89215a1b b8b9275e 420e91af 526ff594 07a0de5d 028d0bdf f9945cbc 5182a998"
+      "hooks": [1,45,2548,110,110,245,186,957,23,31,14,14,2,6615,12,12,21,0,1,24,0,3,0],
+      "events": {"atk":110,"deploy":21,"die":31,"dmg":170,"engage":5,"face":24,"fx":67,"heal":16,"skill":32,"spawn":45,"status":22,"swing":124},
+      "fx": {"burst":3,"coin":13,"downed":1,"explode":8,"firewall":1,"splash":2,"stacks":12,"summon":10,"swire2Throw":9,"yanyouFlame":6,"yanyouSummon":2},
+      "snaps": "e8dc21a5 89215a1b b8b9275e 420e91af b5eb7885 585e97c8 903a2746 5e1bc2c5 c8bd7069"
     }
   }
 }

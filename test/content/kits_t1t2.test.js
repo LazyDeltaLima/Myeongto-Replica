@@ -1267,6 +1267,7 @@ test('2_17 折桠: 生存决心 trembles ground enemies around, ATK/DEF up, hits
   approx(u.s.atk, u.base.atk * (1 + bb.atk));
   approx(u.s.def, u.base.def * (1 + bb.def));
   const [blk, adj, far] = h.enemies();
+  assert.ok(h.runUntil(() => blk.s.flags.tremble, 3), '战栗 at the strike of her first attack');
   for (const e of [blk, adj]) assert.equal(statuses(h, 'tremble', (c) => c.target === e)[0]?.duration, bb.not_combat);
   assert.equal(statuses(h, 'tremble', (c) => c.target === far).length, 0);
   assert.ok(blk.s.flags.tremble && !blk.s.flags.fear, '战栗 (not 恐惧)');

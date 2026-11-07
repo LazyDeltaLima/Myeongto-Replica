@@ -44,8 +44,9 @@
 // - S2 护身尖刺 (MANUAL, 技能范围 3-1, data DEFAULT on that box — _DefaultTriggerSkill): "停止攻击" (no normal attack; PRTS "技能期间，自身丢失全部视野"),
 //   ATK +atk, DEF +def; every 普通伤害 an enemy deals him (PRTS "指受到普通伤害（伤害类型），而非由普通攻击造成的伤害";
 //   thorns_s_2 FilterDamageModifer attack type NORMAL: not 溅射, not 持续 (dot / periodic), not 附加, not element damage,
-//   not a 流失, not 无来源) sets off the Thorn ability when its `cooldown` (0.8 / 0.75 s) is ready and he can act: 0.5 s
-//   later (its `_preDelay`) up to max_target enemies of the 3-1 — ground and air, the usual target order — each take ATK ×
+//   not a 流失, not 无来源) sets off the Thorn ability when its `cooldown` (0.8 / 0.75 s) is ready, he can act and an enemy
+//   stands on the 3-1 (none: no cast, no cooldown spent): 0.5 s later (its `_preDelay`) up to max_target enemies of the 3-1 as
+//   the cast started — ground and air, the usual target order — each take ATK ×
 //   the trait's atk_scale (PRTS "始终受降低攻击倍率特性的影响") physical, a skill hit that is no normal attack (no `attack`
 //   event, no SP), cancelled when the skill has ended, he left or cannot act by then [ASSUMED·not checked]. The 3-1 is not his
 //   attack range: the card keeps his 3-12.
@@ -207,19 +208,22 @@ export default {
           const sk = unit.skill;
           if (c.target !== unit || !sk || !sk.active || !up(unit) || !unit.canAct || !normalHitFromEnemy(c)) return;
           if (battle.time < unit.mem.thornsSpikeAt + cd - 1e-9) return;
+          // no target on the 3-1, no cast and no cooldown spent (Thorn's trigger `_minTargetNum` 1); the targets are taken as
+          // it starts (`_selectTargetTiming` 0)
+          const list = battle.enemiesInKeys(absoluteRangeKeys(grid2, unit.tileR, unit.tileC, unit.dir, 0), unit, AIR);
+          if (!list.length) return;
+          sortEnemyTargets(battle, unit, list, null);
+          const picked = list.slice(0, n);
           unit.mem.thornsSpikeAt = battle.time;
           // the Thorn cast's BuffDuringCasting (OnCastStart) gives him thorns_s_2[audio]: its sound now (public/js/audio.js)
           battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'thorns:s2' });
           const seq = unit.deploySeq, act = sk.activations;
           battle.after(SPIKE_DELAY, () => {
             if (!up(unit) || unit.deploySeq !== seq || !unit.canAct || !unit.skill?.active || unit.skill.activations !== act) return;
-            const list = battle.enemiesInKeys(absoluteRangeKeys(grid2, unit.tileR, unit.tileC, unit.dir, 0), unit, AIR);
-            sortEnemyTargets(battle, unit, list, null);
-            const targets = list.slice(0, n);
+            const targets = picked.filter((e) => e.alive);
             if (!targets.length) return;
             battle.fx('thorns', { x: unit.x, y: unit.y, id: unit.id, n: targets.length });
             for (const e of targets) {
-              if (!e.alive) continue;
               battle.dealDamage(unit, e, { amount: unit.s.atk * rangedScale * unit.s.atkScaleMul, type: 'phys', isSkill: true, tags: ['skill', 'thorns:spike'] });
               addition(battle, unit, e);
             }

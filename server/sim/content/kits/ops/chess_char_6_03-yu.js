@@ -147,6 +147,14 @@ function yu(bb, chess, def) {
         });
       } },
       { install(battle, unit) { // S3 fire wall
+        // yu_s_3[ally] (the burn of an ally's arts damage across the wall): by the attacker's and the target's tiles, on the two
+        // sides of his tile's front edge — CheckTargetGridPositionRowOrColWithBB under SwitchDirection, either way across
+        const crossesTiles = (a, b) => {
+          const w = unit.mem.yuWall;
+          if (w == null) return false;
+          const at = (u) => Math.round(w.axis === 'y' ? u.y : u.x);
+          return (at(a) - w.front) * (at(b) - w.front) < 0;
+        };
         const crosses = (a, b, front = false) => {
           const w = unit.mem.yuWall;
           if (w == null) return false;
@@ -156,7 +164,7 @@ function yu(bb, chess, def) {
         battle.on('damaged', (ctx) => {
           const s = ctx.source, t = ctx.target;
           if (!(wallBurn > 0) || unit.mem.yuWall == null || !live(unit) || ctx.type !== 'arts' || !(ctx.amount > 0)) return;
-          if (!s || s === unit || s.side !== 'ally' || !t || t.side !== 'enemy' || !t.alive || !crosses(s, t)) return;
+          if (!s || s === unit || s.side !== 'ally' || !t || t.side !== 'enemy' || !t.alive || !crossesTiles(s, t)) return;
           // yu_s_3[ally]: the 灼燃损伤 and yu_skill3_annex_02 on the enemy (the moment)
           elementDmg(battle, unit, t, 'burn', unit.s.atk * wallBurn, ['skill', 'firewall'], 'yu_s_3[ally]');
         }, { owner: unit });

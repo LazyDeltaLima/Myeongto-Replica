@@ -170,20 +170,20 @@ test('T2 女神的振奋: every damage instance she deals heals her and the ally
     const y3 = elite && mod === INSY && tier === 6;
     assert.deepEqual([t.value, t['pallas_e_t_2.value']], y3 ? [65, 40] : [45, undefined], `${label(f)}: the talent of the form`);
     for (const a of [u, front, behind]) a.hp = a.s.maxHp * 0.5;
-    h.b.addBuff(front, { key: 'test:healFree', flags: { healFree: true } });   // 禁疗: the heal ignores it
+    h.b.addBuff(u, { key: 'test:healFree', flags: { healFree: true, noHeal: true } });   // her own 禁疗: ignored (PRTS 备注)
     h.spawn('enemy_dummy', { pos: [10, 7] });
     h.run(5);
     const out = h.hooksOf('damaged').filter((c) => c.source === u && c.target.side === 'enemy');
     assert.ok(out.length >= 3, `${label(f)}: ${out.length} damage instances`);
     const heals = (a, amount) => h.hooksOf('heal').filter((c) => c.source === u && c.target === a && Math.abs(c.amount - amount) < 1e-6).length;
     assert.equal(heals(u, t.value), out.length, `${label(f)}: herself ${t.value} per instance`);
-    assert.equal(heals(front, t.value), out.length, `${label(f)}: the ally in front (禁疗 too)`);
+    assert.equal(heals(front, t.value), out.length, `${label(f)}: the ally in front`);
     assert.equal(heals(behind, t.value), 0, `${label(f)}: not the ally behind`);
     const extra = (a) => h.hooksOf('heal').filter((c) => c.source === u && c.target === a && c.opts?.tags?.includes('module')).length;
     assert.deepEqual([extra(u), extra(behind), extra(front)], y3 ? [out.length, out.length, 0] : [0, 0, 0], `${label(f)}: the 米诺斯 extra (INS-Y stage 3): her and the 米诺斯 operator behind`);
     if (y3) assert.ok(h.hooksOf('heal').filter((c) => c.opts?.tags?.includes('module')).every((c) => Math.abs(c.amount - 40) < 1e-6), `${label(f)}: 40 each`);
     assert.ok(front.hp > front.s.maxHp * 0.5, `${label(f)}: the front ally gained HP`);
-    // 不成为其他角色的治疗目标 (noHeal): not healed
+    // a 禁疗 ally in front (both engine flags, 不成为其他角色的治疗目标 is the same client flag): not picked
     const n = h.hooksOf('heal').length;
     h.b.addBuff(front, { key: 'test:noHeal', flags: { noHeal: true } });
     const hp = front.hp;

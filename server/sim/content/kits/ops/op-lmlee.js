@@ -114,18 +114,6 @@ export default {
           trigger: { rule: 'SP_FULL' },
           mods: { atkPct: num(b3.atk), defPct: num(b3.def), taunt: num(b3.taunt_level) },
           targeting: { rangeGrid: s3?.rangeGrid ?? X4 },
-          attack: {
-            // "攻击小力度推开范围内除当前目标外的敌人"
-            onHit({ battle, unit, target }) {
-              const p = num(b3['attack@prob_knockback'], 1), force = num(b3['attack@force'], 0);
-              if (!(p > 0) || (p < 1 && !battle.rng.chance(p))) return;
-              // lmlee_s_3[knockback] past its Dice: the push sound at the struck enemy, pushed ones or none (public/js/audio.js)
-              battle.fx('kitHit', { x: target.x, y: target.y, id: unit.id, tgt: target.id, k: 'lmlee:s3push' });
-              for (const e of battle.enemiesInKeys(unit.rangeKeys, unit, { canHitFly: true })) {
-                if (e !== target && e.alive) battle.push(e, force, { from: unit });
-              }
-            },
-          },
         },
       },
       talents: [
@@ -186,6 +174,21 @@ export default {
           }, { owner: unit, priority: -10 });
         }
         const sid = unit.skill?.id;
+        if (sid === S3) {
+          // "攻击小力度推开范围内除当前目标外的敌人": as each shot leaves (the mode's Attack, BuffToCastTargets `_runActionOnEvent`
+          // ON_SPELL_ON, `_onlyRunOnce`: lmlee_s_3[knockback] on the attack's target), not as it lands
+          battle.on('beforeAttack', (ctx) => {
+            const target = ctx.targets?.[0];
+            if (ctx.attacker !== unit || !target || !unit.skill?.active || unit.skill.id !== S3) return;
+            const p = num(b3['attack@prob_knockback'], 1), force = num(b3['attack@force'], 0);
+            if (!(p > 0) || (p < 1 && !battle.rng.chance(p))) return;
+            // lmlee_s_3[knockback] past its Dice: the push sound at the struck enemy, pushed ones or none (public/js/audio.js)
+            battle.fx('kitHit', { x: target.x, y: target.y, id: unit.id, tgt: target.id, k: 'lmlee:s3push' });
+            for (const e of battle.enemiesInKeys(unit.rangeKeys, unit, { canHitFly: true })) {
+              if (e !== target && e.alive) battle.push(e, force, { from: unit });
+            }
+          }, { owner: unit });
+        }
         if (sid === S2) {
           statBuff(battle, unit, 'skill:lmlee:s2passive', { aspd: num(b2.attack_speed) });  // "被动效果：攻击速度+15"
           // the mark: every damage instance of our side on it, its target's knock-out, his leaving the field

@@ -649,7 +649,8 @@ export function reduceElement(target, amount, el = null) {
 }
 
 /**
- * Heal pipeline. Returns the HP actually restored. `noHeal` stops heals from others (`self` heals pass); `healFree` (禁疗,
+ * Heal pipeline. Returns the HP actually restored. The client has one flag, HEAL_FREE (禁疗): 埃斯特尔's 「不再成为其他角色的治疗目标」 is
+ * it too. `noHeal` stops heals from others (`self` heals pass) unless the heal ignores it (`ignoreHealFree`); `healFree` (禁疗,
  * PRTS 异常效果 HEAL_FREE "受到的治疗量变为0") stops the unit's own too — except an HP-regeneration attribute (`regen`:
  * "增减生命回复速度或生命回复速度（百分比）属性的效果不会被识别为治疗类能力") and a heal that ignores it (`ignoreHealFree`:
  * 史尔特尔 S3's start heal, PRTS "无视禁疗"). `noEvent`: no `heal` hook at all — a client heal node with `_skipModifierEvent`
@@ -659,14 +660,14 @@ export function reduceElement(target, amount, el = null) {
  * multipliers nor a `heal` handler (handlers still see it, with `opts.regen`; a change they make to its amount is
  * ignored).
  * A healer whose profile names the target in `healThrough(healer, target)` heals it through its 禁疗 — the `noHeal` flag
- * a summon's 禁疗 sets and the flag `healFree` (not a profile's `noHeal`, 无法被友方治疗): 凯尔希 on her Mon3tr (PRTS
+ * a summon's 禁疗 sets and the flag `healFree` (never a profile's `noHeal`, 无法被友方治疗: nothing passes that): 凯尔希 on her Mon3tr (PRTS
  * Mon3tr(凯尔希的召唤物) "持有禁疗（可被凯尔希…无视）"; her heal selection takes it too, Battle.injuredAlliesInKeys).
  */
 export function heal(battle, source, target, amount, opts = {}) {
   if (!target || !target.alive || target.removed || !target.deployed || target.bossPool) return 0;
   const self = source === target || !!opts.self;
   const through = !!(source && source.profile && typeof source.profile.healThrough === 'function' && source.profile.healThrough(source, target));
-  if (!self && ((target.s.flags.noHeal && !through) || (target.profile && target.profile.noHeal))) return 0;
+  if (!self && ((target.s.flags.noHeal && !through && !opts.ignoreHealFree) || (target.profile && target.profile.noHeal))) return 0;
   const regen = !!opts.regen;
   if (target.s.flags.healFree && !regen && !opts.ignoreHealFree && !through) return 0;
   let amt = regen ? amount : amount * (source && source.s ? source.s.healingDealtMul : 1) * target.s.healingTakenMul;

@@ -276,6 +276,7 @@
     S3 자동 발동: 공식 규칙 「攻击范围扩大」 → 기본 전략(평타 직전 + 1-1 안의 적, `DEFAULT`) — 평타로 칠 수 없는 비행 적만 있으면 켜지지 않는다.
     한때 3-12 안의 적(비행 포함)으로 켜지는 `SKILL_RANGE` 예외였으나 관리자 결정(2026-10-06)으로 공식 규칙으로 되돌렸다. 공식 행과 다른
     규칙은 관리자 결정으로만 `tools/build-data.mjs resolveTrigger`에 넣는다(2026-10-28부터 남은 예외 없음).
+  - 위셔델 탄이 닿는 때(2026-11-07, 공식 클라에서 확인, 투사체 프리팹): 일반 공격·S1·S3 탄은 닿을 때 본 타격, 멈출 때(닿고 `_delayAfterReached` 0.15초 뒤) 여진 — 모듈의 `enable_third_attack` 여진도 같은 순간이다(전에는 0.3초 간격). S1은 `S1_Shock`의 두 탄이 함께 날아 닿고 0.5초·0.65초 뒤 여진을 낸다. S2 과부하의 추가 3발은 모드 `S2_Overload`의 `MultiRangedAttack`(`_additionalTimes` 3): 발 사이 `_triggerDelta` 0.1초 × 그 휘두름의 배율(`attackTiming().scale`), 발마다 대상을 다시 고르고(`_selectTargetTiming` 1), 고른 자리에 `_delayToStart` 0.1초 뒤 닿는다(`_followTarget` 0). 기절이면 남은 발이 사라진다. 시험 `test/local-patch-diy-wisdel.test.js`.
   - 위셔델: 여진·잔영 폭발(재능1), 혼령의 그림자 소환과 근처 위장(재능2), S2 과부하(지속시간 후반부), S3 그림자 2개 추가(최대 3).
     S2 과부하 근거(2026-10-10, 그 전엔 [추정]): 스킬 프리팹 `skchr_wisdel_2`가 `_isOverloadSkill` 1이고, 공식 클라 `BasicSkill.get_overloadRatio`
 가 그런 스킬에 0.5 → `OverloadIfNecessary`가 진행도가 0.5를 넘으면 과부하(ON_OVERLOAD → 버프 `wisdel_s_2[overload_start]`,
@@ -906,8 +907,7 @@
 - Mon3tr의 연쇄 튕김은 치료 금지(禁疗)·고립(孤立) 아군도 고르고 치료한다(2026-11-03, 공식 클라에서 확인): 그녀 치료 투사체의 튕김 선택기
   `ChainedSelectorWithFilter`는 `_ignoreHealFree`·`_ignoreAllyTargetFree`가 켜져 있고, 대상 검사(`TargetOptions`)는 그 옵션이 켜지면 禁疗(치료 목적일 때)·
   아군 대상 불가(이상 상태 `ALLY_TARGET_FREE`) 거름을 건너뛴다 → 엔진 `ai.js chainHealNext`의 옵션 `ignoreAllyTargetFree`(키트 `JUMP_OPTS`)로 孤立 아군을
-  고른다. 禁疗 쪽은 아직: 엔진의 `noHeal` 깃발이 禁疗 소환물과 「다른 유닛의 치료 대상이 안 됨」(팔라스 재능 2 시험 등)을 함께 뜻해, 그 깃발을 둘로 나눠야
-  튕김이 禁疗 아군을 고르고 치료할 수 있다(`healFree`만 단 유닛은 지금도 고름).
+  고른다. 禁疗 쪽도 같다: 옵션 `ignoreHealFree`로 `noHeal` 깃발 아군을 고르고 치료한다(2026-11-07, `rules/sim.md` 「치료 금지와 孤立」).
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD·모듈 배치 이펙트 데이터: EN 클라에서 뽑음(2026-11-03, `tools/local-extract/add_operator.py --id …` 네 명 한 번,
   `fx_extract.py --equips`). 화면 확인 전. 미연결 이펙트 11줄·비이 저장 탄·`Charge` 클립은 2026-11-03에 이음(`fx.md` 「선발 벨로네·비이·Mon3tr 키트 순간 이펙트」); 소리(20)·클립(14)은 목록 시험의 todo.
 - 테스트: `test/content/op_demetr.test.js`(12)·`op_veen.test.js`(9)·`op_headb2.test.js`(11)·`op_monstr.test.js`(11) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 실제 매치

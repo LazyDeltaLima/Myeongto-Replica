@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 import { makeBattle, enemyRec } from './helpers/battleHarness.js';
 import { diyRecord } from '../shared/diy.js';
-import { effectiveProfile } from '../server/sim/ai.js';
+import { attackTiming, effectiveProfile } from '../server/sim/ai.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = { chess: JSON.parse(readFileSync(path.join(ROOT, 'data/chess.json'), 'utf8')), backups: JSON.parse(readFileSync(path.join(ROOT, 'data/backups.json'), 'utf8')) };
@@ -185,6 +185,78 @@ describe('维什戴尔 kit — research 2026-10-07 §3 fixes', () => {
     }, 10);
     assert.ok(splashAt != null && stunAt != null, 'a splash victim, stunned');
     assert.ok(stunAt - splashAt < 0.1, `stunned at the hit (${(stunAt - splashAt).toFixed(2)} s after)`);
+  });
+});
+
+describe('维什戴尔 — when her shots land (the projectile prefabs)', () => {
+  const close = (a, b, msg) => assert.ok(Math.abs(a - b) <= 0.07, `${msg}: ${a.toFixed(3)} (want ${b.toFixed(3)})`);
+  /** Every damage instance of hers on `post` after `from`: { at, kind: 'main' | 'shock' }. */
+  const hitsOn = (h, u, post) => {
+    const out = [];
+    h.b.on('hit', (c) => {
+      if (c.source !== u || c.target !== post) return;
+      const tags = c.dmg?.tags ?? [];
+      if (tags.includes('aftershock')) out.push({ at: h.b.time, kind: 'shock' });
+      else if (c.dmg?.isAttack) out.push({ at: h.b.time, kind: 'main' });
+    }, { priority: -100 });
+    return out;
+  };
+
+  test('a normal attack: its aftershock 0.15 s after the shot reaches (`_delayAfterReached`, not 0.3 s), the module\'s third at the same moment', () => {
+    for (const elite of [false, true]) {
+      const h = arena(0, { elite });
+      const u = h.unit(1);
+      u.skill.sp = 0;
+      const post = h.spawn('enemy_post', { pos: [10, 5] });
+      const hits = hitsOn(h, u, post);
+      h.runUntil(() => hits.filter((x) => x.kind === 'main').length >= 2, 10);
+      const first = hits.findIndex((x) => x.kind === 'main');
+      const shocks = hits.slice(first + 1).filter((x, i, l) => x.kind === 'shock' && !l.slice(0, i).some((y) => y.kind === 'main'));
+      const third = !!recOf({ elite }).trait.bb['attack@enable_third_attack'];
+      assert.equal(shocks.length, third ? 2 : 1, `elite ${elite}: aftershocks of one attack`);
+      for (const x of shocks) close(x.at - hits[first].at, 0.15, 'aftershock after the hit');
+    }
+  });
+
+  test('S1: the main shot\'s aftershock at 0.15 s, S1_Shock\'s two at 0.5 s and 0.65 s', () => {
+    const h = arena(0);
+    const u = h.unit(1);
+    u.skill.sp = 0;
+    const post = h.spawn('enemy_post', { pos: [10, 5] });
+    const hits = hitsOn(h, u, post);
+    u.skill.gainSp(99, 'init');
+    let main = null;
+    h.runUntil(() => {
+      if (main == null && u.skill.activations > 0) main = hits.find((x) => x.kind === 'main')?.at ?? null;
+      return main != null && h.b.time > main + 0.9;
+    }, 15);
+    assert.ok(main != null, 'S1 went off');
+    const offs = hits.filter((x) => x.kind === 'shock' && x.at > main && x.at <= main + 0.8).map((x) => x.at - main);
+    const third = !!recOf().trait.bb['attack@enable_third_attack'];
+    const want = [...(third ? [0.15, 0.15] : [0.15]), 0.5, 0.65];
+    assert.equal(offs.length, want.length, `aftershocks ${offs.map((v) => v.toFixed(2))}`);
+    want.forEach((w, i) => close(offs[i], w, `aftershock ${i}`));
+  });
+
+  test('S2 overload: 3 more shots `_triggerDelta` 0.1 × the swing\'s scale apart, each landing `_delayToStart` 0.1 s after it leaves', () => {
+    const h = arena(1, { carryState: { sp: 999 } });
+    const u = h.unit(1);
+    const post = h.spawn('enemy_post', { pos: [10, 5] });
+    h.runUntil(() => u.skill.active, 5);
+    assert.ok(u.skill.active, 'S2 on');
+    u.skill.timeLeft = u.skill.duration * 0.45;
+    h.run(0.1);
+    let strike = null, scale = null;
+    const hits = [];
+    h.b.on('beforeAttack', (c) => { if (c.attacker === u && strike == null) { strike = h.b.time; scale = attackTiming(u).scale; } });
+    h.b.on('hit', (c) => {
+      if (strike != null && c.source === u && c.target === post && c.dmg?.isAttack && !c.dmg.tags?.includes('aftershock')) hits.push(h.b.time - strike);
+    }, { priority: -100 });
+    h.runUntil(() => strike != null && h.b.time > strike + 0.65, 8);
+    const round = hits.filter((t) => t <= 0.65);
+    assert.equal(round.length, 4, `four shots land (${round.map((v) => v.toFixed(2))}, scale ${scale})`);
+    assert.ok(scale > 0 && scale <= 1, `scale ${scale}`);
+    round.forEach((t, i) => assert.ok(Math.abs(t - (0.1 + i * 0.1 * scale)) <= 0.04, `shot ${i}: ${t.toFixed(3)} (scale ${scale}, want ${(0.1 + i * 0.1 * scale).toFixed(3)})`));
   });
 });
 

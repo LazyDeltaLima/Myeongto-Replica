@@ -160,8 +160,12 @@ def token_entries(files):
     for tid, f in files.items():
         if f not in trees:
             trees[f] = load_tree(f)[0]
-        e = modes_entry([x for x in trees[f] if x[0] == tid or x[0].startswith(tid + '/')])
+        sub = [x for x in trees[f] if x[0] == tid or x[0].startswith(tid + '/')]
+        e = modes_entry(sub)
         if e:
+            # its born state lasts its Born clip at its own speed, not the common 1 s (Character.PlayBornAnimationAndEffect)
+            if any(d.get('_useRealBornTimeFromAnim') for _, d, _ in sub):
+                e['realBorn'] = 1
             out[tid] = e
     return out
 

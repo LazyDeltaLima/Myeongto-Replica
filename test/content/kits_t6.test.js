@@ -357,6 +357,22 @@ test('余: S3 fire wall adds burn to allied arts damage crossing it and clears c
   assert.ok(marks.length > 0 && marks.length <= wall.length, `the wall's moments (${marks.length} / ${wall.length} burns)`);
 });
 
+test('余: S3 — an ally in his own column striking across his tile\'s front edge burns the enemy too (the tiles, either way across)', () => {
+  const h = battle({
+    units: [{ chessId: 'chess_char_6_03_a', row: 10, col: 5, carryState: { sp: 54 } }, { chessId: 'chess_char_1_15_a', row: 9, col: 5 }],
+    enemies: [{ key: 'enemy_dummy', pos: [9, 6] }],
+    seed: 11,
+  });
+  h.step();
+  const u = h.unit('chess_char_6_03_a'), ally = h.unit('chess_char_1_15_a');
+  assert.ok(h.runUntil(() => u.skill.active, 10));
+  h.run(8);
+  const hits = h.dmg.filter((d) => d.src === ally.id && d.type === 'arts');
+  const wall = h.dmg.filter((d) => d.src === u.id && d.tags.includes('firewall'));
+  assert.ok(hits.length > 0, 'the ally strikes the enemy');
+  assert.ok(wall.length > 0, `burn from the wall (${hits.length} arts hits)`);
+});
+
 test('余: S3 stops enemy shots on his tile\'s front edge (Aura/EnemyAura `_horizonOffsetFront` 0.5) — a shot at him too', () => {
   const h = battle({
     units: [{ chessId: 'chess_char_6_03_a', row: 10, col: 5, carryState: { sp: 54 } }],

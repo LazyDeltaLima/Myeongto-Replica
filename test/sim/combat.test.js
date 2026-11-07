@@ -576,6 +576,22 @@ test('healers target the lowest HP% ally in range; idle when everyone is full; n
   assert.equal(r.hp, 100, 'reaper cannot be healed by others');
 });
 
+test('a healer does not pick a 孤立 ally (the official target check: ALLY_TARGET_FREE), however low its HP', () => {
+  const medic = chessRec({ id: 't_medic', profession: 'MEDIC', subProfessionId: 'physician', dmgType: 'heal', attackKind: 'heal', stats: { atk: 200 }, rangeGrid: [[0, 0], [0, 1], [1, 1]] });
+  const h = makeBattle({
+    defs: { chess: { t_medic: medic, t_a: guard({ id: 't_a', stats: { maxHp: 5000 } }), t_b: guard({ id: 't_b', stats: { maxHp: 5000 } }) } },
+    units: [{ chessId: 't_medic', row: 10, col: 3 }, { chessId: 't_a', row: 10, col: 4 }, { chessId: 't_b', row: 11, col: 4 }],
+    content: 'none',
+  });
+  h.step();
+  const a = h.unit('t_a'), b = h.unit('t_b');
+  h.b.addBuff(b, { key: 'test:isolated', flags: { isolated: true } });
+  a.hp = 4000; b.hp = 100;
+  h.run(2.1);
+  assert.equal(b.hp, 100, 'the 孤立 ally is no heal target');
+  assert.ok(a.hp > 4000, 'the other ally is healed');
+});
+
 test('ranged enemies attack allies in radius: blocker → taunt → latest deployed, then pause', () => {
   const mk = (taunt) => makeBattle({
     defs: {

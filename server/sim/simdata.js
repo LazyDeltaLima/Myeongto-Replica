@@ -299,9 +299,11 @@ export function normAttackAnim(a) {
   const hit = Number(a.hit);
   const max = Number(a.max);
   const pre = Number(a.pre);
-  const begin = Number(a.begin), esc = Number(a.esc);
+  const begin = Number(a.begin), esc = Number(a.esc), born = Number(a.born);
   return {
     dur,
+    // a summon's born state when not the common 1 s (battle/deploy.js)
+    ...(Number.isFinite(born) && born > 0 ? { born } : {}),
     hit: a.hit != null && Number.isFinite(hit) ? Math.min(dur, Math.max(0, hit)) : null,
     max: a.max == null || !Number.isFinite(max) ? 1 : max < 0 ? Infinity : Math.max(0.1, max),
     pre: Number.isFinite(pre) && pre > 0 ? pre : 0,
