@@ -57,6 +57,7 @@ import { LoadoutHost } from './screens/loadout.js';
 import { StatsHost } from './screens/stats.js';
 import { recordResult, recordQuit, installStatsRecorder } from './ui/stats.js';
 import { installLoadoutSync, installOwnershipSync, installDiySync, setLoadoutSeason } from './ui/loadoutSync.js';
+import { installCardSync } from './ui/cardSync.js';
 import { installSeasons, activeSeason, loadPickedSeason, parseSeasonParam } from './ui/season.js';
 import { DEFAULT_SEASON } from '../../shared/seasons.js';
 import { installDiyPresets } from './ui/diyPresets.js'; // 맹약별 선발 프리셋
@@ -481,6 +482,7 @@ async function boot() {
   installResources();
   installOwnershipSync({ net });
   installDiySync({ net });
+  installCardSync({ net }); // 名片干员: the operator on this browser's seat card (room.card, ui/seatArt.js)
   installDiyPresets();
   net.attachBrowserHooks();
   // Audio: unlock on first gesture, BGM follows the route / match phase (js/audio.js).

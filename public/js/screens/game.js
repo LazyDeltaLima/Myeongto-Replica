@@ -133,6 +133,7 @@ import { voiceForPiece, voiceForPlace, voiceForUnit, holdResultVoice, voiceForRo
 import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
 import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold, roundsToBoss } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
 import { battleArt, loadingArt, LoadingScreen, GameStartBanner, opensGame, BottomTips, bottomTipType, WaitingDialog, HelpBattleBanner, BossPrepare, bossOpening, SettleEnding, endingOf, ENDINGS, SelfDead, ReadyTipDialog, OnlyConfirmDialog, soloResumeDue, preloadBattleArt } from '../ui/battleArt.js'; // the official 卫戍协议 dialogs (css/battle-art.css)
+import { ProtocolBoot, preloadBootArt, bootArtReady, BOOT_LEAVE_MS } from '../ui/protocolBoot.js'; // 协议启动！ (css/screens/protocol-boot.css)
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
 import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
 import { battleOverOf, battleLossOf } from '../audioOfficial.js'; // local patch: round_result_dialog sound
@@ -149,6 +150,18 @@ import { playerName } from '../../../shared/botNames.js';
 const PLACE_VOICE_MS = 3000;
 
 /** Router for the in-match screens. */
+/**
+ * 协议启动！ (ui/protocolBoot.js) inside the official BATTLE_CHECK (activity_table autoChessData.enterStepList: BATTLE_CHECK,
+ * 协议启动, time 3 → data/config.json timers.battleCheck 3): the step opens on the battle loading screen (ui/battleArt.js
+ * LoadingScreen, the mode's picture), and once the field is ready and the picture has shown BOOT_PIC_MS, 协议启动！ covers
+ * it for at least BOOT_MIN_MS — together the step's 3 s — and until BATTLE_CHECK ends, then fades (BOOT_LEAVE_MS) over the
+ * start of round 1's 回合开始 (maintainer decision 2026-11-07: upstream's screen after the loading picture). A field still
+ * loading when BATTLE_CHECK ends keeps the loading screen alone, as before. [ASSUMED·화면] the split: upstream holds the
+ * draft 0.7 s and shows 协议启动！ 2.3 s (read off the event's video), where this client shows its loading picture first.
+ */
+export const BOOT_PIC_MS = 700;
+export const BOOT_MIN_MS = 2300;
+
 export function GameScreen() {
   const pub = useStore((s) => s.match.public);
   const hasResult = useStore((s) => !!s.match.result);
@@ -157,6 +170,8 @@ export function GameScreen() {
   const away = useStore((s) => s.away, Object.is, awayStore);
   const autoplay = useStore((s) => !!(Array.isArray(s.match.public?.players) && s.match.public.players.find((p) => p && p.playerId === s.me.playerId)?.autoplay));
   const gd = useGameData();
+  // 协议启动！'s official sprites (ui/protocolBoot.js), fetched while the briefing and the band draft run
+  useEffect(() => { if (gd.ready) preloadBootArt(); }, [gd.ready]);
   // room chat (local patch) on the briefing / draft / result screens; the match screen has its own in the corner
   const coopRoom = useStore((s) => s.room?.mode === 'coop');
   const [chatOpen, setChatOpen] = useState(false);
@@ -308,6 +323,29 @@ function MatchScreen() {
   const solo = roomSolo || String(pub?.modeId || '').includes('single');
   const players = sortedPlayers(pub);
   const meP = players.find((p) => p.playerId === myId) || null;
+  // 协议启动！ (BOOT_PIC_MS): { key, at } while it shows, after the loading picture of this BATTLE_CHECK
+  const [boot, setBoot] = useState(null);
+  const [bootLeaving, setBootLeaving] = useState(false);
+  const bootKey = phase === PHASE.BATTLE_CHECK ? `boot:${pub?.round}` : null;
+  const checkSince = useRef(null); // when this page saw the BATTLE_CHECK begin
+  if (bootKey && checkSince.current?.key !== bootKey) checkSince.current = { key: bootKey, at: Date.now() };
+  useEffect(() => {
+    if (!bootKey || boot?.key === bootKey || fieldLoading || !bootArtReady()) return undefined;
+    const pic = loadingArt(getMode(pub?.modeId)) ? BOOT_PIC_MS : 0;
+    const id = setTimeout(() => setBoot({ key: bootKey, at: Date.now() }), Math.max(0, (checkSince.current?.at ?? 0) + pic - Date.now()));
+    return () => clearTimeout(id);
+  }, [bootKey, fieldLoading, boot?.key]);
+  const bootDone = !!boot && phase !== PHASE.BATTLE_CHECK;
+  useEffect(() => {
+    if (!bootDone) return undefined;
+    let out = 0;
+    const id = setTimeout(() => {
+      setBootLeaving(true);
+      out = setTimeout(() => { setBoot(null); setBootLeaving(false); }, BOOT_LEAVE_MS);
+    }, Math.max(0, (boot?.at ?? 0) + BOOT_MIN_MS - Date.now()));
+    return () => { clearTimeout(id); clearTimeout(out); };
+  }, [bootDone]);
+  const bootUp = !!boot && !bootLeaving; // 协议启动！ covers the screen (the loading screen and the opening wait under it)
   // a reserved seat comes at the match's end, while its ending still plays here: that match has no row and no m.private
   // for the new player, who goes on watching it (server/lobby.js fillReservedSeats)
   const spectator = spectatorSeat || (!!pub && !priv && !meP);
@@ -1940,10 +1978,11 @@ function MatchScreen() {
       ${spectatorSeat ? html`<${SeatReserveButton} reserved=${reserved} size="sm" />` : null}
     </div>
 
-    ${loadArt ? html`<${LoadingScreen} show=${phase === PHASE.BATTLE_CHECK || (fieldLoading && phase !== PHASE.RESULT)} art=${loadArt} tips=${gd.config?.tips} />` : null}
+    ${loadArt ? html`<${LoadingScreen} show=${(phase === PHASE.BATTLE_CHECK || (fieldLoading && phase !== PHASE.RESULT)) && !bootUp} art=${loadArt} tips=${gd.config?.tips} />` : null}
+    ${boot ? html`<${ProtocolBoot} key=${boot.key} players=${players} myId=${myId} leaving=${bootLeaving} />` : null}
     <${BottomTips} type=${tipType} shopOpen=${shopOpen} />
     <${WaitingDialog} phase=${phase} deadline=${pub?.deadline} paused=${paused} now=${serverNow} />
-    ${opening ? html`<${GameStartBanner} onDone=${() => { setOpening(false); audio.sfx('roundStart'); }} />` : null}
+    ${opening && !bootUp ? html`<${GameStartBanner} onDone=${() => { setOpening(false); audio.sfx('roundStart'); }} />` : null}
     ${bossOpen && !opening ? html`<${BossPrepare} key=${`boss:${pub?.round}`} kind=${bossOpen} portrait=${bossPortrait} team=${bossTeam}
       onDone=${() => { setBossOpen(null); audio.sfx('roundStart'); }} />` : null}
     ${opening || bossOpen ? null : banner?.result ? html`<${BattleEndBanner} key=${banner.key} perfect=${banner.result.perfect} lost=${banner.result.lost} onDone=${() => setBanner(null)} />`

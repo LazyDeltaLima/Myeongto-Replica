@@ -1156,6 +1156,10 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .queue-dialog__clock { font-family: var(--font-num); font-size: .56rem; color: var(--text-hi); min-width: 1.6rem; }
 .queue-dialog__lines { display: flex; flex-direction: column; gap: .06rem; font-size: .18rem; }
 .queue-dialog__mode { color: var(--text-hi); font-weight: 700; }
+/* a custom room's settings in the confirmation (ui/matchQueue.js FoundCustom) */
+.queue-dialog__custom { margin-top: .06rem; padding: .08rem .12rem; border: 1px solid rgba(160, 130, 255, .4); background: rgba(160, 130, 255, .08); font-size: .15rem; }
+.queue-dialog__custom b { color: #c9b8ff; }
+.queue-dialog__custom ul { margin: .04rem 0 0; padding-left: .2rem; max-height: 1.6rem; overflow-y: auto; color: var(--text-md); }
 .queue-dialog__fallback { margin-top: .22rem; padding-top: .16rem; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: .1rem; font-size: .16rem; }
 .queue-options { display: flex; flex-direction: column; gap: .08rem; }
 .queue-option { text-align: left; padding: .12rem .18rem; font: inherit; font-size: .17rem; color: var(--text-md); background: var(--bg-glass);
@@ -1239,6 +1243,7 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .ally-create__size { display: flex; flex: none; align-items: center; gap: .08rem; margin-left: .14rem; }
 .ally-create__k { font-size: calc(.13 * var(--t)); font-weight: 700; color: #0c2a22; letter-spacing: 0; }
 .ally-create__size .rpick__opt { font-size: calc(.14 * var(--t)); }
+.ally-create__season .season-new { margin-left: .04rem; padding: 0 .04rem; font-size: .7em; color: #111; background: var(--gold); }
 @media (max-height: 520px) {
   .proto-rules { margin: 0 0 4px; padding: 4px 2px 6px; gap: 4px 8px; }
   .proto-rules.is-grid { gap: 4px 8px; }

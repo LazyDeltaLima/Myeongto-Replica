@@ -47,7 +47,7 @@ import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { MatchQueueDialog, joinQueue, joinQuickQueue } from '../ui/matchQueue.js';
-import { SeasonChip, pickedSeason, seasonFields, seasonQueueCounts, seasonQuickCounts, seasonName } from '../ui/season.js';
+import { SeasonChip, SeasonSwitch, pickedSeason, seasonFields, seasonQueueCounts, seasonQuickCounts, seasonName } from '../ui/season.js';
 import { seasonInfo, DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { RulesetSwitch, lobbyRuleset, lobbyQueueRuleset, saveLobbyRuleset, queueCountOf } from '../ui/ruleset.js';
 import { QUEUE_PRESETS, isQueuePreset, customDiffs, officialBans } from '../../../shared/ruleset.js';
@@ -571,9 +571,10 @@ function RowKey({ text }) {
 /**
  * The rule rows at the top of 选择模拟协议's right column (maintainer decisions 2026-11-07): 快速匹配 (同盟匹配 only: a switch,
  * its note at its right when on), 规则 (经典 / 休闲 / 自定义 ⚙; 自定义 locked in 同盟匹配) and 人数 (同盟匹配 only). With 快速匹配
- * on, 规则 and 人数 stay, disabled. Beside a picked 自定义: the preset in use and how many settings differ.
+ * on, 规则 and 人数 stay, disabled. Beside a picked 自定义: the preset in use and how many settings differ. `readOnly`: the
+ * room's settings shown to a Doctor who is not its host (screens/room.js), the buttons disabled.
  */
-export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, customRules, difficulty, size, onSize, quick = false, onQuick = null, counts4 = null, counts8 = null }) {
+export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, customRules, difficulty, size, onSize, quick = false, onQuick = null, counts4 = null, counts8 = null, readOnly = false }) {
   const matching = roomMode === 'match';
   const big = matching && size === LARGE_SEATS;
   const counts = big ? counts8 : counts4;
@@ -595,7 +596,7 @@ export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, customRules, 
     <span class="proto-rules__row">
       <${RowKey} text=${t('规则')} />
       <span class="proto-rules__cell">
-        <${RulesetSwitch} value=${ruleset} onPick=${onRuleset} onGear=${onGear} editable=${!quick} class="proto-rules__seg"
+        <${RulesetSwitch} value=${ruleset} onPick=${onRuleset} onGear=${onGear} editable=${!quick && !readOnly} class="proto-rules__seg"
           customLock=${matching ? t('自定义规则不能用于公开匹配，可在独立模拟或用同盟密钥创建的同盟中选择。') : null}
           counts=${matching ? Object.fromEntries(QUEUE_PRESETS.map((p) => [p, queueCountOf(counts, p)])) : null} />
       </span>
@@ -703,6 +704,7 @@ export function AllianceSelect({ onClose, onCreate, size, onSize, code, onCode, 
                 <span class="ally-card__icon">${busy === 'create' ? html`<${Spinner} size="sm" />` : html`<${Icon} name="plus" />`}</span><span class="ally-card__name">${t('创建同盟')}</span>
                 <small>${online ? t('难度、规则在同盟内更改') : t('正在连接服务器…')}</small>
               </button>
+              <${SeasonSwitch} class="ally-create__size ally-create__season" />
               <span class="ally-create__size"><span class="ally-create__k">${t('人数')}</span><${SizeSwitch} value=${size} onPick=${onSize} /></span>
             </div>
           </div>

@@ -48,7 +48,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, MicroLabel, TierChip, useTicker, secondsLeft } from '../ui/components.js';
 import { useGameData, BandIcon, RichText, PlayerAvatar, Sprite } from '../ui/gameComponents.js';
-import { chessAvatarUrl } from '../ui/assetUrls.js';
+import { chessAvatarUrl, chessPortraitUrl } from '../ui/assetUrls.js';
+import { CARD_KEY, cardStore, cardOperators, cardContext, seatOperator, seatArtSrc } from '../ui/seatArt.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfoDialog, matchInfoModel, ChessIcon } from '../ui/matchInfo.js';
 import { actions, act } from '../ui/gameActions.js';
@@ -416,14 +417,17 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
 /**
  * One doctor of the draft order (the upstream event layout, upstream PR #643): the name card (avatar with 我 on one's own,
  * name, state), the strategy box beside it (⌛ 决策中 — the 轮到你 finger on one's own turn —, •••, or the picked
- * strategy) and ✓ outside it. The event card also carries the doctor's 名片干员 art: not drawn yet (it comes with the
- * waiting room's seat cards, upstream ui/seatArt.js).
- * @param {{ p: any, i: number, picked: string|null, cur: boolean, self: boolean, ready: boolean, gd: any }} props
+ * strategy) and ✓ outside it. The card also carries the Doctor's 名片干员 art behind the text (ui/seatArt.js, the operator
+ * of the room's seat card; `art` its portrait, null for a bot or none) — a picture that fails to load is left out.
  */
-function OrderRow({ p, i, picked, cur, self, ready, gd }) {
+function OrderRow({ p, i, picked, cur, self, ready, gd, art = null }) {
+  const [badArt, setBadArt] = useState(/** @type {string[]} */ ([]));
+  const shownArt = seatArtSrc([art], badArt);
   const pband = picked ? gd.band(picked) : null;
   return html`<div class=${cx('dorder', cur && 'is-cur', picked && 'is-done', self && 'is-self')} style=${`--i:${i}`}>
     <div class="dorder__card">
+      ${shownArt ? html`<img key=${shownArt} class="dorder__art" src=${shownArt} alt="" aria-hidden="true" draggable=${false}
+        onError=${() => setBadArt((b) => (b.includes(shownArt) ? b : [...b, shownArt]))} />` : null}
       <span class="dorder__face"><${PlayerAvatar} player=${p} self=${self} />${self ? html`<span class="dorder__me" title=${t('你')}><${Icon} name="user" /></span>` : null}</span>
       <div class="dorder__text">
         <b class="dorder__name"><span>${playerName(p.name) || t('博士')}</span>${p.isBot ? html`<span class="dorder__ai">AI</span>` : null}</b>
@@ -471,6 +475,17 @@ export function BandDraftScreen() {
   const offBonds = modeOffBonds(mode); // the bonds this mode never activates (标准: 10 of 23)
   const solo = roomSolo || mode?.type === 'SINGLE' || String(pub?.modeId || '').includes('single');
   const bands = useMemo(() => allowedBands(gd.list('bands'), mode?.type || (solo ? 'SINGLE' : 'MULTI')), [gd.ready, mode?.type, solo, data.locale()]);
+  // 名片干员 (ui/seatArt.js): the operator of each Doctor's seat card in the room (seats[].card; one's own pick at once),
+  // else the one chosen by the player id — the room's seat cards' art on the order rows
+  const roomSeats = useStore((s) => s.room?.seats);
+  const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
+  const cards = useMemo(() => cardContext(cardOperators(gd.list('chess'), data.get('backups')), { pending: !data.get('backups') }), [gd.ready]);
+  const artOf = (p) => {
+    if (p.isBot) return null;
+    const seat = (Array.isArray(roomSeats) && roomSeats.find((x) => x && x.playerId === p.playerId)) || { playerId: p.playerId };
+    const op = seatOperator(seat, cards, { myId, myCard });
+    return op ? chessPortraitUrl(data.get('assets'), op.chess) : null;
+  };
   const players = sortedPlayers(pub);
   const draft = normalizeDraft(pub?.draft, players);
   const myPick = draft.picks.get(myId) || priv?.bandId || null;
@@ -603,7 +618,7 @@ export function BandDraftScreen() {
           ${rows.map((p, i) => {
             const picked = draft.picks.get(p.playerId) || (p.playerId === myId ? myPick : p.bandId) || null;
             return html`<${OrderRow} key=${p.playerId} p=${p} i=${i} picked=${picked} cur=${!picked && (solo || draft.turnPid === p.playerId)}
-              self=${p.playerId === myId} ready=${confirmOn && !!p.confirmReady} gd=${gd} />`;
+              self=${p.playerId === myId} ready=${confirmOn && !!p.confirmReady} gd=${gd} art=${artOf(p)} />`;
           })}
         </div>
         <div class="draft-order__side">

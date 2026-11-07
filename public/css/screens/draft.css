@@ -43,6 +43,10 @@
   animation: pg-left 420ms var(--pg-ease) backwards; animation-delay: calc(180ms + var(--i, 0) * 70ms); }
 .dorder__card { position: relative; height: 100%; display: flex; align-items: center; gap: .1rem; min-width: 0; padding: 0 .1rem 0 .14rem; overflow: hidden;
   background: linear-gradient(90deg, #1d2223, #262b2c); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+/* the 名片干员 art behind the text (ui/seatArt.js); [ASSUMED·화면] upstream's framing: 40% keeps the face of the vertical portrait in this short row */
+.dorder__art { position: absolute; inset: 0 0 0 28%; width: 72%; height: 100%; object-fit: cover; object-position: 50% 40%; opacity: .62; pointer-events: none;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 45%); mask: linear-gradient(90deg, transparent, #000 45%); }
+.dorder__face, .dorder__text { position: relative; }
 .dorder__face { position: relative; flex: none; }
 .dorder .pavatar { --pa: .74rem; box-shadow: 0 0 0 .03rem #e6e9e9; border: 0; }
 .dorder__me { position: absolute; left: -.14rem; top: -.14rem; width: .32rem; height: .32rem; display: grid; place-items: center; background: var(--mint-500); color: #062019; box-shadow: 0 0 0 .02rem #062019; }

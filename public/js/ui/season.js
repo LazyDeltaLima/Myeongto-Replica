@@ -169,6 +169,32 @@ export function SeasonChip() {
   </span>`;
 }
 
+/**
+ * 选择同盟方式's 创建同盟 card: the season the new room plays (the lobby's pick, ui/season.js pickSeason), beside 人数 —
+ * nothing while one season is offered (maintainer decision 2026-11-07, the room only shows its season).
+ */
+export function SeasonSwitch({ class: cls = '' }) {
+  const st = useStore((s) => ({ offered: offeredSeasonsOf(s), picked: pickedSeason(s) }), shallowEqualDeep);
+  if (st.offered.length < 2) return null;
+  return html`<span class=${`season-switch ${cls}`.trim()} data-testid="ally-season"><span class="ally-create__k">${t('赛季')}</span>
+    <span class="dpick rpick" role="radiogroup" aria-label=${t('赛季')}>
+      ${st.offered.map((id) => html`<button key=${id} type="button" role="radio" aria-checked=${id === st.picked ? 'true' : 'false'} data-season=${id}
+        class=${`dpick__opt rpick__opt${id === st.picked ? ' is-active' : ''}`} onClick=${() => id !== st.picked && pickSeason(id)}>${seasonName(id)}<${NewMark} id=${id} /></button>`)}
+    </span>
+  </span>`;
+}
+
+/**
+ * The room's season in its pill (screens/room.js), read-only (maintainer decision 2026-11-07: a room keeps the season it
+ * was created in): while several seasons are offered or the room's is not the default.
+ */
+export function RoomSeasonPill() {
+  const st = useStore((s) => ({ season: seasonOf(s.room?.season), shown: hasSeasonPicker(s) || seasonOf(s.room?.season) !== DEFAULT_SEASON }), shallowEqual);
+  if (!st.shown) return null;
+  return html`<span class=${`rs-pill__chip rs-pill__season${st.season !== DEFAULT_SEASON ? ' is-new' : ''}`} data-testid="room-season"
+    title=${t('赛季')}>${seasonName(st.season)}</span>`;
+}
+
 /** The room's season (room screen), while several seasons are offered or the room's is not the default. */
 export function SeasonBadge() {
   const st = useStore((s) => ({ season: seasonOf(s.room?.season), shown: hasSeasonPicker(s) || seasonOf(s.room?.season) !== DEFAULT_SEASON }), shallowEqual);

@@ -55,12 +55,13 @@ test('准备 with funds left: the client confirm dialog when the art is there, m
   assert.match(src, /if \(ok && noMore\) goldTipOff\.current = true;/);
 });
 
-test('the match\'s end keeps the field until m.result lands; the loading screen is the match start\'s only', () => {
+test('the match\'s end keeps the field until m.result lands; the loading screen opens the match start, 协议启动！ after it', () => {
   const src = read('public/js/screens/game.js');
   assert.match(src, /else if \(!hasResult && mode === 'result' && endRef\.current\.onField\) body = html`<\$\{MatchScreen\} \/>`;/);
   assert.match(src, /if \(status && pub && endRef\.current\.onField && battleArt\('ending'\)\.cls\)/);
   assert.match(src, /endRef\.current\.onField = body\.type === MatchScreen;/);
-  assert.match(src, /show=\$\{phase === PHASE\.BATTLE_CHECK \|\| \(fieldLoading && phase !== PHASE\.RESULT\)\}/);
+  // the loading screen: BATTLE_CHECK and a field still loading, under 协议启动！ once it covers the screen
+  assert.match(src, /show=\$\{\(phase === PHASE\.BATTLE_CHECK \|\| \(fieldLoading && phase !== PHASE\.RESULT\)\) && !bootUp\}/);
   // the field still loading = the engine not mounted yet, or its first frame still held back (render/app.js isReady)
   assert.match(src, /const fieldLoading = viewKind === 'loading' \|\| \(!!view && readyView !== view\);/);
 });

@@ -32,7 +32,7 @@
 // that forms while the tab is hidden blinks the tab title until the player comes back (flashTitle).
 
 import { useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTY_NAMES, LARGE_MIN_PLAYERS, MAX_SEATS, seatsOf } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, LARGE_MIN_PLAYERS, MAX_SEATS, modeIdFor, seatsOf } from '../../../shared/constants.js';
 import { html, Button, Countdown, Modal, Spinner, useTicker } from './components.js';
 import { toast, toastError } from './toasts.js';
 import { net } from '../net.js';
@@ -40,6 +40,9 @@ import { store, useStore, serverNow } from '../store.js';
 import { audio } from '../audio.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { presetName } from './ruleset.js';
+import { customSummary } from './customSummary.js';
+import { customDiffs, officialBans } from '../../../shared/ruleset.js';
+import { getBond, getBoss, getStage, getConfig, getMode } from '../data.js';
 import { seasonFields } from './season.js';
 
 /**
@@ -135,6 +138,8 @@ export function installMatchQueue({ net: n = net } = {}) {
       ...(prev || { difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), count: msg.players, since: Date.now(), party: false }),
       // a 快速匹配 Doctor's group has the ruleset and size of the queue it filled: the confirmation names them
       ...(msg.quick === true ? { quick: true, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size) } : {}),
+      // a custom room's empty seats (server/matchmaking.js): its settings, so the 快速匹配 Doctor sees what they accept
+      ...(msg.custom && typeof msg.custom === 'object' ? { custom: msg.custom } : {}),
       found: { players: msg.players, accepted: msg.accepted, mine: !!msg.mine, deadline: serverNow() + msg.inMs,
         total: prev?.found?.total ?? Math.max(1, Math.ceil(msg.inMs / 1000)),
         vote: msg.vote ? { need: msg.need ?? LARGE_MIN_PLAYERS, declined: msg.declined ?? 0, no: !!msg.no, by: typeof msg.by === 'string' ? msg.by : null } : null },
@@ -188,6 +193,22 @@ export const mmss = (ms) => {
  * The queue dialog (rendered by the lobby and room screens while ui.queue is set): the waiting dialog for a player
  * queued alone, the confirmation for everyone once a group formed (a queued room's waiting state is in its room bar).
  */
+/**
+ * A custom room's settings in the confirmation (maintainer decision 2026-11-07): how many differ from the official rules
+ * of the difficulty and room size, and the summary lines (ui/customSummary.js), as the room's invitation lists them.
+ * @param {unknown} custom the room's custom settings (room.matchFound `custom`)
+ * @param {string} difficulty @param {number} size
+ * @returns {{ n: number, lines: string[] }}
+ */
+export function customFound(custom, difficulty, size) {
+  const mode = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor('coop', difficulty)) : null;
+  const rounds = Number.isInteger(mode?.lastRound) ? mode.lastRound : null;
+  const bans = officialBans(getConfig(), difficulty, size);
+  const lookup = { bond: getBond, boss: getBoss, stage: getStage };
+  const lines = customSummary(custom, { bans, rounds, name: (kind, id) => lookup[kind](id)?.name || id, hidden: (id) => !!getBoss(id)?.hidden });
+  return { n: customDiffs(custom, { bans, rounds }).length, lines: lines.map((l) => l.text) };
+}
+
 export function MatchQueueDialog() {
   const queue = useStore((s) => s.ui.queue);
   const [busy, setBusy] = useState(null);
@@ -239,6 +260,7 @@ export function MatchQueueDialog() {
           <span class="queue-dialog__mode">${t('同盟模拟')} · ${name}</span>
           <span>${t('{players} 名博士', { players: f.players })}</span>
           <span class="t-lo">${t('已接受 {accepted}/{players}', { accepted: f.accepted, players: f.players })}</span>
+          ${queue.custom ? html`<${FoundCustom} custom=${queue.custom} difficulty=${queue.difficulty} size=${cap} />` : null}
         </div>
       </div>
     <//>`;
@@ -259,4 +281,13 @@ export function MatchQueueDialog() {
       </div>
     </div>
   <//>`;
+}
+
+/** The confirmation's custom block: 「自定义 · 与官方不同的设置 n 项」 and the lines (customFound). */
+function FoundCustom({ custom, difficulty, size }) {
+  const { n, lines } = customFound(custom, difficulty, size);
+  return html`<div class="queue-dialog__custom" data-testid="found-custom">
+    <b>${presetName('custom')} · ${t('与官方不同的设置 {n} 项', { n })}</b>
+    ${lines.length ? html`<ul>${lines.map((l, i) => html`<li key=${i}>${l}</li>`)}</ul>` : null}
+  </div>`;
 }
