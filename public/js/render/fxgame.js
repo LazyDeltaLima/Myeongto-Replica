@@ -93,26 +93,32 @@ import { animPause, clipOf, facesBack, idlePause, immuneTo, movePause, pauseIfNo
 
 /**
  * local patch (maintainer report): `names` with each directional emitter entry of `groups` (char_modes.py `dirs` [{ t, s }])
- * replaced by its copy for facing `d` (0 UP, 1 RIGHT, 2 DOWN, 3 LEFT; `left` = drawn facing left) — see dirPick in
- * createFxLayer. Exported for the tests.
+ * replaced by its copy for facing `d` (0 UP, 1 RIGHT, 2 DOWN, 3 LEFT; `left` = drawn facing left; `back` = the owner shows
+ * its Back model, the client's `faceToBack` — by default while it faces up) — see dirPick in createFxLayer. Exported for
+ * the tests.
  * @param {Array<{t: number, s: string[]}>|null|undefined} groups
  * @param {string[]} names
  * @param {number} d
  * @param {boolean} left
+ * @param {boolean} [back]
  * @returns {{ names: string[], unflip: Set<string> }}
  */
-export function dirCopies(groups, names, d, left) {
+export function dirCopies(groups, names, d, left, back = d === 0) {
   const unflip = new Set();
   if (!Array.isArray(groups) || !groups.length || !names.length) return { names, unflip };
   let out = names;
   for (const g of groups) {
     const s = Array.isArray(g?.s) ? g.s : [];
     if (!out.some((n) => s.includes(n))) continue;
-    // (2026-10-10, official client: UberEffectEmitter.EffectOptions.TryGetEffect) 4 UD_OR_LR = slot 0
-    // facing back (up), else slot 2, and the left / right slot when that one is empty; a type outside the enum plays nothing
+    // (2026-10-10, official client: UberEffectEmitter.EffectOptions.TryGetEffect) 2 U_OR_D slot 0 while the owner shows
+    // its Back model (`faceToBack`), else slot 2; 4 UD_OR_LR the same, and the left / right slot when that one is empty;
+    // 5 FOUR_DIR_FIXED slot 0 while back, else slot 2 facing down, else the left / right slot (2026-11-07: by the model
+    // shown, not the facing — a Back model turned to a side keeps it, render.md 「공격 방향」); a type outside the enum
+    // plays nothing
     const lr = left ? 3 : 1;
-    const slot = g.t === 0 ? 0 : g.t === 1 ? lr : g.t === 2 ? (d === 0 ? 0 : 2)
-      : g.t === 4 ? (d === 0 ? (s[0] ? 0 : lr) : s[2] ? 2 : lr) : g.t === 3 || g.t === 5 ? d : -1;
+    const slot = g.t === 0 ? 0 : g.t === 1 ? lr : g.t === 2 ? (back ? 0 : 2)
+      : g.t === 4 ? (back ? (s[0] ? 0 : lr) : s[2] ? 2 : lr) : g.t === 3 ? d
+        : g.t === 5 ? (back ? 0 : d === 2 ? 2 : lr) : -1;
     const pick = s[slot] || '';
     const at = out.findIndex((n) => s.includes(n));
     out = out.filter((n, i) => i === at || !s.includes(n));
@@ -3818,13 +3824,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * local patch (maintainer report — 아르케토 S3's `start_02` / `start_02_B` both played; maintainer's decision 2026-10-08 「13명
    * 전체」): an emitter entry's `_effects` is a slot list 0 UP, 1 RIGHT, 2 DOWN, 3 LEFT and its `_directionType` picks the slot
    * for the owner's facing (char_modes.py `dirs` [{ t, s }]) — client `TryGetEffect` (official client 2026-10-10): 0 NONE slot
-   * 0; 1 L_OR_R left or right (up / down by the side it is drawn facing); 2 U_OR_D slot 0 facing back (up), any other facing
-   * slot 2 (the sides show the front model: `faceToBack` false); 3 FOUR_DIR / 5 FOUR_DIR_FIXED the facing's own slot;
-   * 4 UD_OR_LR slot 0 / 2 like U_OR_D, the left / right slot when that one is empty. An empty slot plays nothing. Every name of the entry in
+   * 0; 1 L_OR_R left or right (up / down by the side it is drawn facing); 2 U_OR_D slot 0 while the Back model shows
+   * (`faceToBack`: CharacterAnimator m_activeFace == _back — it changes half way through a turn and stays when the turn
+   * ends on a side, units.js _wantsBack), else slot 2; 3 FOUR_DIR the facing's own slot; 4 UD_OR_LR slot 0 / 2 like
+   * U_OR_D, the left / right slot when that one is empty; 5 FOUR_DIR_FIXED slot 0 while back, slot 2 facing down, else
+   * left / right. An empty slot plays nothing. Every name of the entry in
    * `names` gives way to that one copy, at the first one's place. `unflip`: a copy picked from an entry with its own RIGHT
    * and LEFT copies (백파이프 S2 / S3 `_right` / `_left`) is authored for that side — not mirrored again [ASSUMED].
    */
-  const dirPick = (v, names) => dirCopies(bindOf(v)?.dirs, names, ['UP', 'RIGHT', 'DOWN', 'LEFT'].indexOf(facingDir(v)), (v.visFacing ?? v.facing ?? 1) < 0);
+  const dirPick = (v, names) => dirCopies(bindOf(v)?.dirs, names, ['UP', 'RIGHT', 'DOWN', 'LEFT'].indexOf(facingDir(v)), (v.visFacing ?? v.facing ?? 1) < 0,
+    typeof v?._wantsBack === 'function' ? v._wantsBack() : facesBack(v));
   // prefabs a kit event here draws instead (余 S3's wall piece: one per tile along the wall, not one on him)
   const KIT_OWNED = new Set(['yu_skill3_range_01',
     // 2026-11-07: 탈룰라 S2's hit on its centre (kitofficial.js 'blast'): `skillTargets` drew it on what the damage of the moment struck

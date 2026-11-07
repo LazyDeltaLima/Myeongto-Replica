@@ -9,6 +9,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirCopies } from '../../public/js/render/fxgame.js';
+import { NO_DATA, withLayer } from '../helpers/fxDryLayer.js';
 import { pointScale, pointTurn, pointUp } from '../../public/js/render/fxpoints.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -36,6 +37,56 @@ test('U_OR_D: facing up plays the UP copy, every other facing the DOWN one — n
     assert.deepEqual(pick(d, left), ['archet_skill_03_start', 'archet_skill_03_start_02_B', 'archet_skill_03_start_01']);
   }
 });
+
+// 2026-11-07 (official client: TryGetEffect reads the owner's `faceToBack` = CharacterAnimator m_activeFace == _back): U_OR_D,
+// UD_OR_LR and FOUR_DIR_FIXED go by the model shown, not the facing. A unit turned up and then to a side keeps its Back model
+// (FaceSwitcher.StartSwitch keeps the up / down half for a side), so its side swing plays the UP copy; a Front model held
+// facing up (forceFaceFront) plays the DOWN one.
+test('U_OR_D / UD_OR_LR / FOUR_DIR_FIXED: by the Back model shown (`faceToBack`), not by the facing', () => {
+  const pick = (d, left, back) => dirCopies(ARCHET, S3_CAST, d, left, back).names;
+  assert.ok(pick(3, true, true).includes('archet_skill_03_start_02'), 'back model, facing left: the UP copy');
+  assert.ok(!pick(3, true, true).includes('archet_skill_03_start_02_B'));
+  assert.ok(pick(0, false, false).includes('archet_skill_03_start_02_B'), 'front model facing up: the DOWN copy');
+  const ud = [{ t: 4, s: ['a_up', 'a_right', 'a_down', 'a_left'] }];
+  assert.deepEqual(dirCopies(ud, ['a_up'], 1, false, true).names, ['a_up']);
+  assert.deepEqual(dirCopies(ud, ['a_up'], 0, false, false).names, ['a_down']);
+  // FOUR_DIR_FIXED (클로저's attack start): back → slot 0, else facing down → slot 2, else the drawn side
+  const fixed = [{ t: 5, s: ['c_back', 'c', 'c_down', 'c'] }];
+  assert.deepEqual(dirCopies(fixed, ['c'], 1, false, true).names, ['c_back']);
+  assert.deepEqual(dirCopies(fixed, ['c'], 0, false, false).names, ['c']);
+  assert.deepEqual(dirCopies(fixed, ['c'], 2, false, true).names, ['c_back']);
+  assert.deepEqual(dirCopies(fixed, ['c'], 2, false, false).names, ['c_down']);
+  assert.deepEqual(dirCopies(fixed, ['c'], 3, true, false).names, ['c']);
+  // with no `back` given, the old default: facing up
+  assert.deepEqual(dirCopies(fixed, ['c'], 0, false).names, ['c_back']);
+});
+
+test('the layer picks by the view\'s Back model (`_wantsBack`): 矩 and 클로저 striking sideways with their Back model', { skip: NO_DATA }, () => withLayer(async ({ layer, unit, take }) => {
+  const view = (id, defId, dir4, back) => Object.assign(unit(id, 'ally', defId), { face: { lr: dir4 === 'LEFT' ? -1 : 1, ud: back ? 'UP' : 'DOWN', dir4 }, _wantsBack: () => back });
+  const has = (list, n) => list.some((x) => x.split('@')[0] === n);
+  const swing = (v) => {
+    const views = new Map([[v.id, v], [9, unit(9, 'enemy', 'enemy_x', 2)]]);
+    layer.onEvent(['deploy', v.id], views);
+    layer.update(0.1);
+    take();
+    layer.onEvent(['swing', v.id, 0.2, 'none', 0, 9], views);
+    layer.update(0.3);
+    layer.onEvent(['atk', v.id, 9, 'none'], views);
+    const got = take();
+    layer.update(2);
+    take();
+    return got;
+  };
+  // 矩's attack start (U_OR_D): slot 0 ju_attack_01_start_02, slot 2 ju_attack_01_start_01
+  let a = swing(view(1, 'char_4221_ju', 'RIGHT', true));
+  assert.ok(has(a, 'ju_attack_01_start_02') && !has(a, 'ju_attack_01_start_01'), `back model, right: ${a}`);
+  a = swing(view(2, 'char_4221_ju', 'RIGHT', false));
+  assert.ok(has(a, 'ju_attack_01_start_01') && !has(a, 'ju_attack_01_start_02'), `front model, right: ${a}`);
+  a = swing(view(3, 'char_4228_closur', 'LEFT', true));
+  assert.ok(has(a, 'closur_attack_start_01_back') && !has(a, 'closur_attack_start_01'), `back model, left: ${a}`);
+  a = swing(view(4, 'char_4228_closur', 'UP', false));
+  assert.ok(has(a, 'closur_attack_start_01') && !has(a, 'closur_attack_start_01_back'), `front model held facing up: ${a}`);
+}));
 
 test('FOUR_DIR: the facing\'s own copy, the up / down copies the name rule used to drop come back', () => {
   const g = MODES.char_1023_ghost2.dirs;
