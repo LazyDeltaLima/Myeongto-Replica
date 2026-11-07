@@ -10,7 +10,7 @@
 .lobby-hub, .modal__box.proto, .modal__box.ally, .modal.proto-veil { --t: 1rem; --t-step: calc((1rem - 64px) / 12); }
 /* ---- hub backdrop ------------------------------------------------------------------------------------- */
 /* the entries' width follows 文字大小 (2.3rem at 小; upstream §35.18 review: at a fixed 2.3rem the names had to stop at 小's size) */
-.lobby-hub { --hub-entry-w: calc(2.3 * var(--t)); --hub-gap: .14rem; background: #050807; }
+.lobby-hub { --hub-entry-w: calc(2.3 * var(--t)); --hub-gap: .14rem; --hub-side-w: 4.84rem; background: #050807; }
 /* Korean breaks between words, not between the syllables of one (upstream §35.18 review: 「독립 시뮬레이|션」 at 小); a word too
    long for its box still breaks rather than running out of it. The hub's own stage only: 选择模拟协议's button keeps its
    two lines (「독립 시뮬레이션 시작」 took three at 特大 in a 1024×600 window by words) */
@@ -60,6 +60,12 @@
 .lobby-hub .topbar { background: linear-gradient(180deg, rgba(4, 8, 8, .85), transparent); border-bottom: 0; }
 /* the hub's top bar: no title in the middle — the left group and the right one (season chip, resume) */
 .lobby-hub > .topbar { grid-template-columns: minmax(0, 1fr) auto; }
+/* on a desktop the top bar's left group is the left column's width, its last button at the column's end (maintainer
+   decision 2026-11-08: the two were sized apart, and the ping's digits moved the group's end) */
+@media (min-height: 521px) {
+  .lobby-hub > .topbar .topbar__left { width: var(--hub-side-w); max-width: 100%; }
+  .lobby-hub > .topbar .topbar__sep { margin-left: auto; }
+}
 .topbar__sep { width: 1px; height: .28rem; background: var(--line-2); }
 .topbar__tools { display: flex; align-items: center; gap: .14rem; }
 .topbar__tools .btn--square.btn--sm { --sq: .46rem; height: var(--sq); min-width: var(--sq); }
@@ -74,12 +80,12 @@
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 4rem) minmax(0, 1fr) minmax(0, calc(var(--hub-entry-w) * 2 + var(--hub-gap)));
+  grid-template-columns: minmax(0, var(--hub-side-w)) minmax(0, 1fr) minmax(0, calc(var(--hub-entry-w) * 2 + var(--hub-gap)));
   grid-template-rows: minmax(0, 1fr) auto;
   grid-template-areas: "side center right" "side entries entries";
   gap: .2rem .4rem;
   width: 100%;
-  padding: .1rem .36rem .36rem;
+  padding: .1rem .36rem .36rem .44rem;
 }
 
 .hub-center {
@@ -104,10 +110,11 @@
   position: relative;
   margin: 0;
   /* follows 文字大小 while it fits on one line beside the side columns (larger, it ran under the left column's tips —
-     upstream §35.18 review): the centre is the stage's width (100vw less its .72rem padding) and the title's box 8.8rem less (below);
+     upstream §35.18 review): the centre is the stage's width (100vw less its .8rem padding) and the title's box twice the left
+     column and its gap less (below);
      7 CJK characters with their spacing are 7.4–8em, so it stops at that box / 8.2 (never below .56rem at 小); the latin
      title below */
-  font-size: min(calc(.56 * var(--t)), calc((100vw - 9.52rem) / 8.2));
+  font-size: min(calc(.56 * var(--t)), calc((100vw - .8rem - 2 * (var(--hub-side-w) + .4rem)) / 8.2));
   font-weight: 900;
   letter-spacing: .14em;
   line-height: 1.15;
@@ -117,12 +124,12 @@
 }
 .hub-center__title em { font-style: normal; color: var(--mint-400); }
 .hub-center__title--latin { font-family: var(--font-display); letter-spacing: .04em; text-transform: uppercase; }
-/* the title is centred over the whole stage: it keeps clear of the side columns (4rem and its gap each side), and the
-   latin one — 「STRONGHOLD PROTOCOL: ALLIANCE」, 20em of the display font — is .46 × --t while it fits on one line
-   inside that, (100vw − 9.52rem) / 20.2 (upstream §35.18 review: at .56rem it reached under the left column's tips in English, at
+/* the title is centred over the whole stage: it keeps clear of the side columns (the left column's width and its gap each
+   side), and the latin one — 「STRONGHOLD PROTOCOL: ALLIANCE」, 20em of the display font — is .46 × --t while it fits on
+   one line inside that, its width / 20.2 (upstream §35.18 review: at .56rem it reached under the left column's tips in English, at
    大 / 特大 in 800–1280 px windows; pinned at .46rem it no longer followed 文字大小). [ASSUMED·자료 없음] the .46 */
-.hub-center__title { max-width: calc(100% - 8.8rem); }
-.hub-center__title--latin { font-size: min(calc(.46 * var(--t)), calc((100vw - 9.52rem) / 20.2)); }
+.hub-center__title { max-width: calc(100% - 2 * (var(--hub-side-w) + .4rem)); }
+.hub-center__title--latin { font-size: min(calc(.46 * var(--t)), calc((100vw - .8rem - 2 * (var(--hub-side-w) + .4rem)) / 20.2)); }
 /* the radar rings around the emblem (original drawing) */
 .hub-radar { position: absolute; left: 50%; top: 50%; width: 4.6rem; height: 4.6rem; transform: translate(-50%, -50%); }
 .hub-radar svg { width: 100%; height: 100%; overflow: visible; fill: none; stroke: rgba(89, 244, 202, .15); stroke-width: 1; }
@@ -230,7 +237,6 @@
 .hub-tile__text { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
 .hub-tile__label { font-size: calc(.2 * var(--t)); font-weight: 800; }
 .hub-tile__en { font-family: ui-monospace, Consolas, monospace; font-size: calc(.1 * var(--t)); font-weight: 600; letter-spacing: .18em; color: var(--text-dim); }
-.hub-side .tips { margin-top: .04rem; background: rgba(8, 14, 13, .72); }
 
 /* ---- right column: light plates with bracket marks (S.W.E.E.P.报告, 干员调配 = loadout.js's LoadoutButton) --------- */
 .hub-right { grid-area: right; position: relative; z-index: 1; align-self: start; display: flex; flex-direction: column; gap: .12rem; min-width: 0; padding-top: .3rem; }
@@ -351,34 +357,63 @@
 .hub-entry--coop .hub-entry__corner { background: linear-gradient(135deg, transparent 50%, #e8fff7 50%); }
 @keyframes card-in { from { opacity: 0; transform: translateY(.14rem); } }
 
-/* ---- tips -------------------------------------------------------------------------------------------- */
+/* ---- 作战提示 and 更新 (screens/lobby.js HubNotes; maintainer decision 2026-11-08): two cards in the left column on a
+   desktop — the tips (up to three lines) and the newest release (version, date, NEW, four main lines, 查看全部) —, one
+   card with the two as tabs on a short screen (the media block) ------------------------------------------------- */
 .tips {
   --bk-c: var(--line-3);
-  margin-top: .3rem;
-  padding: .16rem .22rem .2rem;
-  background: rgba(8, 10, 9, .55);
-  border: 1px solid var(--line);
+  position: relative;
+  padding: .12rem .18rem .14rem;
+  background: rgba(8, 14, 13, .72);
+  border: 1px solid rgba(223, 230, 226, .16);
 }
-.tips__head { display: flex; flex-wrap: wrap; align-items: center; gap: .1rem; font-size: calc(.16 * var(--t)); font-weight: 700; color: var(--text-md); }
-.tips__head > .icon { width: .2rem; height: .2rem; color: var(--mint-500); }
-/* the count and its arrows move to a line of their own, together, when the head is too narrow for them (upstream §35.18 review) */
-.tips__pager { display: inline-flex; align-items: center; gap: .1rem; margin-left: auto; }
-.tips__idx { font-size: calc(.16 * var(--t)); color: var(--text-md); }
+.tips__head { display: flex; align-items: center; gap: .08rem; min-height: .3rem; font-size: calc(.17 * var(--t)); font-weight: 800; color: #e9efed; }
+.tips__head .micro { color: var(--text-lo); }
+.tips__name { white-space: nowrap; }
+.tips__badge { flex: none; display: grid; place-items: center; width: .22rem; height: .22rem; border-radius: 50%; color: #062019; background: var(--mint-500); }
+.tips__badge .icon { width: 70%; height: 70%; }
+.tips__pager { display: inline-flex; align-items: center; gap: .06rem; margin-left: auto; }
+.tips__idx { font-size: calc(.13 * var(--t)); color: var(--text-md); }
 .tips__nav {
   display: grid;
   place-items: center;
-  width: .3rem;
-  height: .3rem;
+  width: .26rem;
+  height: .26rem;
   padding: 0;
   border: 1px solid var(--line-2);
   background: transparent;
-  color: var(--text-lo);
+  color: #cfd8d5;
   transition: color var(--t-fast), border-color var(--t-fast);
 }
-.tips__nav:hover { color: var(--mint-400); border-color: var(--mint-700); }
-.tips__nav .icon { width: .18rem; height: .18rem; }
-.tips__text { margin-top: .1rem; font-size: calc(.17 * var(--t)); color: var(--text-lo); line-height: 1.6; animation: tip-in var(--t-slow) var(--ease-out); }
+.tips__nav:hover:not(:disabled) { color: var(--mint-400); border-color: var(--mint-700); }
+.tips__nav:disabled { opacity: .35; cursor: default; }
+.tips__nav .icon { width: .16rem; height: .16rem; }
+/* (three lines at most: a longer tip ends in an ellipsis — the card keeps its height while the tips step) */
+.tips__text { margin: .08rem 0 0; font-size: calc(.15 * var(--t)); line-height: 1.6; color: #d6dedb; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3;
+  -webkit-box-orient: vertical; overflow: hidden; animation: tip-in var(--t-slow) var(--ease-out); }
 @keyframes tip-in { from { opacity: 0; transform: translateX(.1rem); } }
+.tips__news { animation: tip-in var(--t-slow) var(--ease-out); }
+.tips__verline { display: flex; align-items: baseline; gap: .08rem; margin-top: .06rem; }
+.tips__ver { font-size: calc(.2 * var(--t)); color: var(--mint-400); }
+.tips__date { font-size: calc(.12 * var(--t)); color: var(--text-lo); }
+.tips__new { align-self: center; padding: 0 .04rem; font-family: var(--font-num); font-size: calc(.1 * var(--t)); font-weight: 800; letter-spacing: .06em; color: #111; background: #f5c518; white-space: nowrap; }
+.tips__lines { margin: .06rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .04rem; }
+.tips__lines li { position: relative; padding-left: .14rem; font-size: calc(.145 * var(--t)); line-height: 1.45; color: #d6dedb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tips__lines li::before { content: ''; position: absolute; left: .02rem; top: .6em; width: .05rem; height: .05rem; background: var(--mint-400); }
+.tips__lines b { color: #fff; }
+.tips__lines code { font-family: var(--font-num); font-size: .9em; }
+.tips__foot { display: flex; justify-content: flex-end; margin-top: .06rem; }
+.tips__more { flex: none; display: inline-flex; align-items: center; gap: .02rem; padding: 0; border: 0; background: none; font: inherit;
+  font-size: calc(.13 * var(--t)); font-weight: 700; color: var(--mint-400); white-space: nowrap; cursor: pointer; }
+.tips__verline .tips__more { margin-left: auto; align-self: center; }
+.tips__more .icon { width: 1em; height: 1em; }
+.tips__more:hover { color: var(--text-hi); }
+/* the tabs of the short screen's card (the approved mockup's: framed, the open one filled mint) */
+.tips__tabs { display: inline-flex; gap: 2px; }
+.tips__tab { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 10px; font: inherit; font-size: 11.5px; font-weight: 700; white-space: nowrap;
+  color: #aab4b1; background: transparent; border: 1px solid rgba(255, 255, 255, .14); cursor: pointer; }
+.tips__tab.is-on { color: #062019; background: var(--mint-400); border-color: var(--mint-400); }
+.tips__tab .tips__new { font-size: 8px; padding: 0 2px; }
 
 /* ---- the two full-screen dialogs (Modal .proto / .ally) --------------------------------------------- */
 .modal.proto-veil { padding: 0; background: #0b0c0c; -webkit-backdrop-filter: none; backdrop-filter: none; }
@@ -538,8 +573,12 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, .25) transparent;
 }
-.proto-list > :first-child { margin-top: auto; }
-.proto-list > :last-child { margin-bottom: auto; }
+/* the rule rows and the cards are one group in the column's free height, the button at the bottom (maintainer decision
+   2026-11-08: the cards centred apart in the list's box left a wide gap under the rules). The list is as tall as its cards
+   and shrinks (and scrolls) only when they do not fit — pickCardFit measures that overflow */
+.proto-side > :first-child { margin-top: auto; }
+.proto-side > .proto-list { flex: 0 1 auto; }
+.proto-side > .proto-foot { margin-top: auto; }
 .pcard {
   position: relative;
   flex: none;
@@ -771,17 +810,6 @@ button.ally-card:hover, button.ally-card:focus-visible { border-color: rgba(93, 
   background: linear-gradient(180deg, #4fe8c0, #2fcf9f);
   border: 0;
 }
-/* the difficulty line wraps at the bar's right rather than ending in an ellipsis (upstream §35.51: English 「Difficulty: Standard
-   Simulat…」 at 1280–1440 px, Japanese at 1024×600 特大). It keeps a column of at least 10em beside the name, else it
-   takes a row of its own under the name and the bar grows (upstream §35.51 review: squeezed into the 96 px the name left in
-   English at 特大 on 1024×600, six lines ran out of the 42 px bar); Korean breaks between words only (the review:
-   「시뮬레이|션」 once balanced), Japanese by its line-breaking rules */
-.ally-card--create .ally-card__bar { flex-wrap: wrap; align-content: center; row-gap: 1px; height: auto; min-height: max(.74rem, 32px, calc(42px * var(--sp-ui, 1)));
-  padding-top: 4px; padding-bottom: 4px; }
-.ally-card__bar small { flex: 0 1 auto; margin-left: auto; min-width: min(100%, 10em); white-space: normal; text-align: right; text-wrap: balance;
-  line-height: 1.2; font-size: calc(.14 * var(--t)); font-weight: 700; letter-spacing: 0; color: rgba(8, 34, 27, .75); }
-.ally-card__bar small:lang(ko) { word-break: keep-all; overflow-wrap: break-word; }
-.ally-card__bar small:lang(ja) { line-break: strict; }
 button.ally-card:disabled { cursor: default; }
 button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8); }
 /* the test-room box under 创建同盟 (test mode only) */
@@ -993,12 +1021,6 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   .proto-foot .proto-start__mark small { font-size: min(calc(.08 * var(--t)), 6px); }
   /* the bars' names 16–26 px here ([ASSUMED·자료 없음] the cap: en 「Create Alliance」 on its row at 特大, the column on the screen) */
   .ally-card__bar { font-size: clamp(16px, calc(.3 * var(--t)), 26px); }
-  /* 创建同盟 keeps its difficulty line (upstream §35.18's leftover: it was hidden here): two columns, the icon and the name on the
-     first row, the line under the name on the second, wrapping rather than cut short; 11–14 px, [ASSUMED·자료 없음] the cap */
-  .ally-card--create .ally-card__bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: center; row-gap: 1px; height: auto;
-    min-height: max(.74rem, 32px, calc(42px * var(--sp-ui, 1))); padding-top: 5px; padding-bottom: 5px; }
-  .ally-card--create .ally-card__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-  .ally-card--create .ally-card__bar small { grid-column: 2; margin-left: 0; overflow: visible; white-space: normal; text-align: left; font-size: clamp(11px, calc(.28 * var(--t)), 14px); line-height: 1.3; }
   .ally-key input { font-size: calc(.32 * var(--t)); }
   /* the key field's placeholder fits beside 观战 (upstream §35.18's leftover: clipped at 特大 in English and Japanese): the short
      text (screens/lobby.js AllianceSelect `short`), 11–13 px, and 观战 at most 14 px; an ellipsis should a pack's
@@ -1090,34 +1112,6 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 }
 .code-chip:hover { border-color: var(--amber); background: rgba(246, 163, 41, .08); }
 
-/* 作战提示 | 更新 tabs (ui/patchNotes.js; the 更新 tab steps through the newest release line by line): ghost buttons —
-   no outline, the button's hover bracket corners; the open tab is mint on a faint wash */
-.tips__tabs { display: inline-flex; gap: .04rem; }
-.tips__tab.btn--sm { height: .3rem; padding: 0 .1rem; font-size: .16rem; }
-.tips__tab.is-on { --btn-fg: var(--mint-400); --btn-bg: rgba(78, 216, 175, .08); }
-.tips__tab.is-on:not(:disabled):hover { color: var(--mint-400); }
-.tips__new {
-  display: inline-flex; align-items: center; height: .18rem; padding: 0 .05rem; margin-left: .02rem;
-  background: var(--amber); color: #1d1203; font-family: var(--font-num); font-size: .11rem; letter-spacing: .08em;
-}
-.tips__news { display: flex; align-items: baseline; gap: .1rem; min-width: 0; color: var(--text-md); }
-.tips__ver { flex: none; color: var(--mint-400); font-weight: 700; }
-.tips__date { flex: none; color: var(--text-dim); font-size: .9em; }
-.tips__sum { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tips__sum b { color: var(--text-hi); }
-.tips__sum code { font-family: var(--font-num); font-size: .9em; }
-/* the group a change is under (화면 / 전투 …): a small chip before the line */
-.tips__group {
-  flex: none; align-self: center; display: inline-flex; align-items: center; height: .22rem; padding: 0 .07rem;
-  border: 1px solid var(--line-2); color: var(--text-lo); font-size: .13rem; font-weight: 700; letter-spacing: .02em;
-}
-.tips__more {
-  flex: none; display: inline-flex; align-items: center; gap: .02rem; padding: 0; border: 0; background: none;
-  color: var(--mint-400); font-size: .15rem; font-weight: 700; white-space: nowrap; cursor: pointer;
-}
-.tips__more .icon { width: .14rem; height: .14rem; }
-.tips__more:hover { color: var(--text-hi); }
-
 /* the 更新记录 window (ui/patchNotes.js PatchNotesModal): one <details> per release, the newest open */
 .pnotes .modal__body { padding-right: .22rem; }
 .pnotes__ver { border-left: 2px solid var(--line-3); padding: .02rem 0 .02rem .16rem; margin-bottom: .16rem; }
@@ -1179,6 +1173,7 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .season-chip__caret { color: var(--mint-400); font-size: .8em; }
 .season-menu { position: absolute; z-index: 60; left: 0; top: calc(100% + 6px); min-width: max(3.2rem, 240px); max-width: calc(100vw - 32px); padding: .06rem;
   background: rgba(10, 14, 13, .97); border: 1px solid var(--line-2); box-shadow: 0 .08rem .3rem rgba(0, 0, 0, .6); }
+.topbar__right .season-menu { left: auto; right: 0; } /* the chip is at the screen's right end: the menu opens leftwards */
 .season-menu__row { display: flex; width: 100%; align-items: center; gap: .1rem; padding: .08rem .1rem; border: 0; background: transparent;
   color: var(--text-md); font-size: max(.14rem, 11px); text-align: left; cursor: pointer; }
 .season-menu__row + .season-menu__row { border-top: 1px solid var(--line); }
@@ -1200,6 +1195,12 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .hub-join__row .field { flex: 1 1 auto; min-width: 0; }
 .hub-join__row .btn { flex: none; }
 .hub-join .join-foot { margin-top: .08rem; }
+/* the recent keys keep one row (maintainer decision 2026-11-08: four keys wrapped and the box grew): a key that does not
+   fit on it is hidden whole, the row clipped at one key's height */
+.hub-join .join-foot { --chip-h: calc(.3 * var(--t)); flex-wrap: wrap; align-content: flex-start; height: var(--chip-h); min-height: 0; overflow: hidden; row-gap: .2rem; }
+.hub-join .join-foot > * { height: var(--chip-h); }
+.hub-join .join-foot > .t-lo { display: inline-flex; align-items: center; }
+.hub-join .code-chip { display: inline-grid; place-items: center; padding-top: 0; padding-bottom: 0; }
 /* 同盟匹配's line above its entry: the season's waiting Doctors */
 .hub-entry__wait { margin-left: .08rem; padding: 0 .06rem; font-size: calc(.13 * var(--t)); font-weight: 700; color: #04140f; background: var(--mint-500); }
 /* the rule rows at the top of 选择模拟协议's right column (快速匹配 / 规则 / 人数); in 同盟匹配 a grid whose labels are spread
@@ -1234,16 +1235,37 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .pcard__wait { margin-left: auto; align-self: center; padding: .02rem .08rem; border-radius: 3px; font-size: calc(.12 * var(--t)); font-weight: 700; white-space: nowrap;
   color: var(--mint-400); background: rgba(94, 236, 204, .16); }
 .pcard.is-on .pcard__wait { color: #fff; background: rgba(0, 0, 0, .35); }
-/* 创建同盟: the button (icon, name, the note) and the 人数 switch share the mint bar */
 .ally-create__art { display: block; width: 100%; padding: .1rem .2rem 0; background: none; border: 0; cursor: pointer; }
-.ally-create__go { display: flex; flex: 1 1 auto; align-items: center; gap: .14rem; min-width: 0; padding: 0; font: inherit; color: inherit; text-align: left;
-  background: none; border: 0; cursor: pointer; }
-.ally-create__go small { margin-left: auto; font-size: calc(.13 * var(--t)); font-weight: 600; letter-spacing: 0; color: #0c2a22; white-space: normal; text-align: right; }
-.ally-create__go:disabled { cursor: default; filter: grayscale(.5) brightness(.8); }
-.ally-create__size { display: flex; flex: none; align-items: center; gap: .08rem; margin-left: .14rem; }
-.ally-create__k { font-size: calc(.13 * var(--t)); font-weight: 700; color: #0c2a22; letter-spacing: 0; }
-.ally-create__size .rpick__opt { font-size: calc(.14 * var(--t)); }
-.ally-create__season .season-new { margin-left: .04rem; padding: 0 .04rem; font-size: .7em; color: #111; background: var(--gold); }
+/* 创建同盟 (maintainer decision 2026-11-08): the card's 赛季 and 人数 as two segmented rows of one width and height, the note
+   under them, and under the card the big button in 选择模拟协议's start button's shape */
+.ally-side--create { justify-content: flex-end; }
+.ally-side--create > :first-child { margin-top: auto; }
+.ally-side--create > :last-child { margin-bottom: 0; }
+.ally-form { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: .14rem .2rem; padding: .2rem .24rem .22rem; }
+.ally-form__head { grid-column: 1 / -1; display: flex; align-items: center; gap: .1rem; font-size: calc(.26 * var(--t)); font-weight: 900; color: #eef3f1; }
+.ally-form__head .micro { margin-left: auto; color: var(--text-lo); }
+.ally-form__plus { flex: none; display: grid; place-items: center; width: .42rem; height: .42rem; color: var(--mint-400); border: 1px solid var(--mint-400); }
+.ally-form__plus .icon { width: 60%; height: 60%; }
+.ally-form__row { display: contents; }
+.ally-form .ally-create__k { font-size: calc(.16 * var(--t)); font-weight: 700; color: var(--text-dim); }
+.ally-form .tt-anchor { display: block; min-width: 0; }
+.ally-form .rpick { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; width: 100%; height: .52rem; }
+.ally-form .rpick__opt { --d-color: var(--mint-400); height: auto; justify-content: center; gap: .06rem; font-size: calc(.18 * var(--t)); font-weight: 700; }
+.ally-form .rpick__opt.is-active { box-shadow: inset 0 -2px 0 var(--mint-400); }
+.ally-form .season-new { margin-left: .04rem; padding: 0 .04rem; font-size: .6em; color: #111; background: #f5c518; }
+.ally-form__note { grid-column: 1 / -1; display: flex; align-items: center; gap: .08rem; margin: 0; font-size: calc(.14 * var(--t)); color: var(--text-lo); }
+.ally-foot { padding-left: 0; }
+.ally-foot .proto-start { width: 100%; }
+@media (max-height: 520px) {
+  .ally-side .ally-create__art { display: none; }
+  .ally-form { gap: 6px 10px; padding: 8px 12px 10px; }
+  .ally-form__head { font-size: 15px; }
+  .ally-form__plus { width: 24px; height: 24px; }
+  .ally-form .ally-create__k { font-size: 12px; }
+  .ally-form .rpick { height: 34px; }
+  .ally-form .rpick__opt { font-size: 13px; }
+  .ally-form__note { font-size: 11px; }
+}
 @media (max-height: 520px) {
   .proto-rules { margin: 0 0 4px; padding: 4px 2px 6px; gap: 4px 8px; }
   .proto-rules.is-grid { gap: 4px 8px; }
@@ -1254,7 +1276,44 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   .qswitch i::after { width: 10px; height: 10px; }
   .qswitch.is-on i::after { left: 14px; }
   .pcard__wait { padding: 1px 5px; font-size: 10px; }
-  .ally-create__go small { display: none; }
-  .ally-create__k { font-size: 12px; }
-  .ally-create__size .rpick__opt { height: 28px; min-width: 40px; padding: 0 8px; font-size: 13px; }
+}
+
+/* ---- the left column on a landscape phone (maintainer decision 2026-11-08): three cards — the 成就统计 strip, 加入同盟 and
+   作战提示 | 更新 as tabs —, the right keeping S.W.E.E.P.报告 and 干员调配 only. Where the phone is too narrow for the column
+   beside the entries (under 760 px wide) the column gives way to the two plates as before. The key's row and the recent
+   keys are touch sized (32 px and more). [ASSUMED·자료 없음] the widths and the 760 px */
+@media (max-height: 520px) and (min-width: 760px) {
+  .hub-stage {
+    grid-template-columns: min(236px, 30vw) minmax(0, 1fr) minmax(0, calc(var(--hub-entry-w) * 2 + var(--hub-gap)));
+    grid-template-areas: "side center right" "side entries entries";
+    padding-left: 16px;
+  }
+  .hub-center { grid-column: 2; }
+  .hub-side { display: flex; gap: 6px; min-height: 0; padding-top: 4px; overflow: hidden; }
+  .lobby-hub .hub-plate--ach, .lobby-hub .hub-plate--join { display: none; }
+  .hub-ach__scene { display: none; }
+  .hub-ach__label { min-height: 30px; padding: 2px 10px; font-size: 12px; }
+  .hub-join { padding: 6px 8px; }
+  .hub-join__head { margin-bottom: 4px; font-size: 11px; }
+  .hub-join__head .micro { font-size: 7px; }
+  .hub-join__row { gap: 4px; }
+  .hub-join__row > *, .hub-join__row .btn, .hub-join__row .field__box { height: 34px; min-height: 34px; }
+  .hub-join__row .btn { padding: 0 8px; font-size: 11px; }
+  .hub-join__row input { font-size: 12px; }
+  .hub-join .join-foot { --chip-h: 32px; display: flex; flex-wrap: nowrap; gap: 4px; margin-top: 4px; height: auto; }
+  .hub-join .join-foot > .t-lo { display: none; }
+  .hub-join .code-chip { flex: 1 1 0; min-width: 0; padding: 0 4px; font-size: 12px; letter-spacing: .1em; }
+  .tips { padding: 6px 9px; }
+  .tips__head { min-height: 0; gap: 4px; font-size: 12px; }
+  .tips__head > .icon { width: 14px; height: 14px; color: var(--mint-500); }
+  .tips__nav { width: 26px; height: 26px; }
+  .tips__nav .icon { width: 12px; height: 12px; }
+  .tips__text { margin-top: 4px; font-size: 10.5px; line-height: 1.45; }
+  .tips__verline { margin-top: 4px; gap: 5px; }
+  .tips__ver { font-size: 12px; }
+  .tips__date { font-size: 9px; }
+  .tips__more { font-size: 10px; }
+  .tips__lines { margin-top: 2px; gap: 0; }
+  .tips__lines li { padding-left: 9px; font-size: 10.5px; line-height: 1.5; }
+  .tips__lines li::before { left: 1px; width: 3px; height: 3px; }
 }

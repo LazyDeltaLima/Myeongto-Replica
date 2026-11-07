@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1630 of 1848 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1632 of 1850 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1083,6 +1083,8 @@
   "自定义规则的同盟只由快速匹配的博士补位": "커스텀 방의 빈자리는 빠른 매칭 박사만 채웁니다",
   "选择后，同盟里的博士都会看到这张立绘": "고르면 방의 박사 모두가 이 일러스트를 봅니다",
   "邀请": "초대",
+  "较新的版本": "새 버전",
+  "较早的版本": "이전 버전",
   "更新": "업데이트",
   "查看全部": "전체 보기",
   "更新记录": "업데이트 소식",

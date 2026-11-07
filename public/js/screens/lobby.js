@@ -6,17 +6,19 @@
 // plates, and three entries at the bottom right:
 //   - 独立模拟 → 选择模拟协议 (ProtocolSelect, roomMode 'solo'): the difficulty cards beside its official picture
 //     (`modeChoice/*_rhodes_island`), 规则 (经典 / 休闲 / 自定义 ⚙) above them, then 开始独立模拟 (room.create).
-//   - 同盟模拟 → 选择同盟方式 (AllianceSelect), the upstream flow (maintainer decision 2026-11-07): 创建同盟 creates a 4- or
-//     8-seat room at once at the remembered difficulty and ruleset, which the host changes in the room; or join one with
-//     a 同盟密钥 as a player (加入同盟) or in a spectator seat (观战: room.spectate, also while its match runs; community
-//     report #26, a remake feature — the official room has none).
+//   - 同盟模拟 → 创建同盟 (AllianceSelect), the upstream flow (maintainer decision 2026-11-07): creates a 4- or 8-seat room at
+//     once at the remembered difficulty and ruleset, which the host changes in the room. Joining one with a 同盟密钥 as a
+//     player (加入同盟) or in a spectator seat (观战: room.spectate, also while its match runs; community report #26, a
+//     remake feature — the official room has none) is the left column's box, not this screen's (maintainer decision
+//     2026-11-08).
 //   - 同盟匹配 (random matchmaking, server/matchmaking.js; ui/matchQueue.js shows the queue and its confirmation) →
 //     选择模拟协议 (roomMode 'match'): 快速匹配, 规则 (经典 / 休闲; 自定义 locked) and 人数 with their queues' waiting
 //     Doctors, each difficulty card with its queue's, then 开始匹配 (room.queue). 快速匹配 on (maintainer decision
 //     2026-11-07): 规则 / 人数 stay, disabled, and each card shows the whole difficulty's waiting Doctors (the quick queue +
 //     every ruleset × size queue); room.queue { quick: true }.
-// On a short screen (≤ 520 px tall, a landscape phone) the left column gives way, as upstream's: 成就统计 and 加入同盟 · 观战
-// become plates under 干员调配 (the latter opens 选择同盟方式, whose join card holds the key field).
+// On a short screen (≤ 520 px tall, a landscape phone) the left column narrows to three cards — the 成就统计 strip, 加入同盟,
+// and 作战提示 | 更新 as tabs (maintainer decision 2026-11-08) —; on a phone too narrow for it, it gives way, as upstream's:
+// 成就统计 and 加入同盟 · 观战 become plates under 干员调配 (the latter opens AllianceSelect's join view, the key alone).
 // The top bar: 返回, ping, the 在线 count, 设置, 玩法说明, and at the right the season chip (ui/season.js) and the resume
 // button. Not taken from upstream: its own lobby picture / music (ui/lobbyMedia.js, hubScene.js) and its versions.
 // 规则 모드 (shared/ruleset.js, maintainer decisions 2026-10-15, 2026-10-18): the 规则 switch picks 经典 / 休闲 / 自定义 for
@@ -53,7 +55,7 @@ import { RulesetSwitch, lobbyRuleset, lobbyQueueRuleset, saveLobbyRuleset, queue
 import { QUEUE_PRESETS, isQueuePreset, customDiffs, officialBans } from '../../../shared/ruleset.js';
 import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
 import { customRulesStore, customDraft } from '../ui/customRulesStore.js';
-import { PatchNotesModal, usePatchNotes, isUnseen, markSeen, slidesOf, Inline } from '../ui/patchNotes.js';
+import { PatchNotesModal, usePatchNotes, isUnseen, markSeen, Inline } from '../ui/patchNotes.js';
 import { RadarScene, CreateArt, JoinArt } from '../ui/allyArt.js';
 import { ProtocolScene } from '../ui/protocolScene.js';
 import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
@@ -233,23 +235,36 @@ const FALLBACK_TIPS = [
   N_('只有达成完美作战的队友可以进行联防'),
 ];
 const TIP_ROTATE_MS = 5000; // matchingTipRotateInterval
-const NEWS_ROTATE_MS = 8000; // the 更新 tab's lines are longer than a tip
 
-/** The 01/15 counter and the previous / next arrows shared by both tabs of the tips panel. */
-function TipsPager({ at, total, onStep }) {
-  return html`<span class="tips__idx num">${String(at + 1).padStart(2, '0')}<span class="t-dim">/${String(total).padStart(2, '0')}</span></span>
-    <button type="button" class="tips__nav" onClick=${() => onStep(-1)} aria-label=${t('上一条')}><${Icon} name="chevronLeft" /></button>
-    <button type="button" class="tips__nav" onClick=${() => onStep(1)} aria-label=${t('下一条')}><${Icon} name="chevronRight" /></button>`;
+/** The 01/15 counter (when `total` is given) and the previous / next arrows of a hub card's head. */
+function TipsPager({ at, total = 0, onStep, prev = t('上一条'), next = t('下一条'), atStart = false, atEnd = false }) {
+  return html`<span class="tips__pager">
+    ${total ? html`<span class="tips__idx num">${String(at + 1).padStart(2, '0')}<span class="t-dim">/${String(total).padStart(2, '0')}</span></span>` : null}
+    <button type="button" class="tips__nav" disabled=${atStart} onClick=${() => onStep(-1)} aria-label=${prev}><${Icon} name="chevronLeft" /></button>
+    <button type="button" class="tips__nav" disabled=${atEnd} onClick=${() => onStep(1)} aria-label=${next}><${Icon} name="chevronRight" /></button>
+  </span>`;
 }
 
 /**
- * Rotating tactical tips (config.json `tips`, weighted list of { tip, weight }), and beside them the 更新 tab: the newest
- * release one line at a time — its summary, then each change with its group (ui/patchNotes.js slidesOf) — stepping every
- * NEWS_ROTATE_MS, held while the pointer is over the panel and for good once the player steps by hand (maintainer decision
- * 2026-10-13); 查看全部 opens the 更新记录 window. The 更新 tab opens by itself, marked NEW, on the first lobby visit after a
- * release; without patch notes (/changelog.json unreachable) the panel has no tabs.
+ * The main lines of a release for the hub's 更新 card: the first change of each group (`### heading`), then the
+ * further changes in order, up to `n`; the closing 기여 group (credits) is left out.
+ * @param {{ blocks?: object[] }} entry
+ * @param {number} n
  */
-function TipsPanel() {
+export function newsLines(entry, n) {
+  const firsts = [], rest = [];
+  const seen = new Set();
+  let group = '';
+  for (const b of entry?.blocks || []) {
+    if (b.h) group = b.h;
+    if (!b.ul || group === '기여') continue;
+    for (const segs of b.ul) { (seen.has(group) ? rest : firsts).push(segs); seen.add(group); }
+  }
+  return [...firsts, ...rest].slice(0, n);
+}
+
+/** Rotating tactical tips (config.json `tips`, weighted list of { tip, weight }): the list, the shown one, a step. */
+function useTips() {
   const cfg = getConfig();
   const fallback = FALLBACK_TIPS.map((x) => t(x));
   const tips = Array.isArray(cfg?.tips)
@@ -261,55 +276,75 @@ function TipsPanel() {
     const id = setInterval(() => setIdx((i) => i + 1), TIP_ROTATE_MS);
     return () => clearInterval(id);
   }, []);
+  const i = ((idx % list.length) + list.length) % list.length;
+  return { list, i, step: (d) => setIdx(i + d + list.length) };
+}
+
+/**
+ * The hub's 作战提示 and 更新 (maintainer decision 2026-11-08, replacing the one-line 更新 tab of 2026-10-13): on a desktop
+ * two cards in the left column — the tips stepping every TIP_ROTATE_MS (up to three lines), and the newest release's
+ * version, date and main lines (newsLines, four) with 查看全部, ‹ › stepping to older releases. On a short screen
+ * (`short`) one card with the 作战提示 | 更新 tabs, three lines of the release. A release not seen before (pref
+ * `patchNotesSeen`, ui/patchNotes.js) is marked NEW for this visit, and on a short screen opens its tab. Without patch
+ * notes (/changelog.json unreachable) only the tips show.
+ */
+function HubNotes({ short }) {
+  const tips = useTips();
   const notes = usePatchNotes();
   const latest = notes?.[0] || null;
   const [tab, setTab] = useState('tips');
   const [fresh, setFresh] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
-  const [newsIdx, setNewsIdx] = useState(0);
-  const [hover, setHover] = useState(false);
-  const [held, setHeld] = useState(false); // the player stepped by hand: no more auto stepping
+  const [rel, setRel] = useState(0);
   useEffect(() => {
     if (!latest || !isUnseen(latest.version)) return;
     setFresh(true);
     setTab('news');
     markSeen(latest.version);
   }, [latest?.version]);
-  const news = tab === 'news' && !!latest;
-  useEffect(() => {
-    if (!news || hover || held || notesOpen) return undefined;
-    const id = setInterval(() => setNewsIdx((n) => n + 1), NEWS_ROTATE_MS);
-    return () => clearInterval(id);
-  }, [news, hover, held, notesOpen]);
-  const slides = latest ? slidesOf(latest) : [];
-  const i = ((idx % list.length) + list.length) % list.length;
-  const n = slides.length ? ((newsIdx % slides.length) + slides.length) % slides.length : 0;
-  const slide = slides[n];
-  const stepNews = (d) => { setHeld(true); setNewsIdx(n + d + slides.length); };
-  return html`<div class=${`tips brackets${latest ? ' has-news' : ''}`} onMouseEnter=${() => setHover(true)} onMouseLeave=${() => setHover(false)}>
-    <div class="tips__head">
-      <${Icon} name="info" />
-      ${latest ? html`<span class="tips__tabs" role="tablist">
-          <${Button} variant="ghost" size="sm" class=${`tips__tab${news ? '' : ' is-on'}`} role="tab" aria-selected=${!news}
-            onClick=${() => setTab('tips')}>${t('作战提示')}<//>
-          <${Button} variant="ghost" size="sm" class=${`tips__tab${news ? ' is-on' : ''}`} role="tab" aria-selected=${news}
-            onClick=${() => setTab('news')}>${t('更新')}${fresh ? html`<span class="tips__new">NEW</span>` : null}<//>
-        </span>`
-        : html`<span>${t('作战提示')}</span><${MicroLabel}>TACTICAL TIPS<//>`}
-      ${news ? html`<${TipsPager} at=${n} total=${slides.length} onStep=${stepNews} />`
-        : html`<${TipsPager} at=${i} total=${list.length} onStep=${(d) => setIdx(i + d + list.length)} />`}
+  const count = notes?.length || 0;
+  const r = Math.max(0, Math.min(rel, count - 1));
+  const entry = notes?.[r] || null;
+  const stepRel = (d) => setRel(Math.max(0, Math.min(count - 1, r + d)));
+  const relPager = html`<${TipsPager} at=${r} onStep=${stepRel} prev=${t('较新的版本')} next=${t('较早的版本')} atStart=${r === 0} atEnd=${r >= count - 1} />`;
+  const tipPager = html`<${TipsPager} at=${tips.i} total=${short ? 0 : tips.list.length} onStep=${tips.step} />`;
+  const tipText = html`<p key=${tips.i} class="tips__text">${tips.list[tips.i]}</p>`;
+  const more = html`<button type="button" class="tips__more" onClick=${() => setNotesOpen(true)}>${t('查看全部')}<${Icon} name="chevronRight" /></button>`;
+  const newsBody = entry ? html`<div key=${entry.version} class="tips__news">
+      <div class="tips__verline">
+        <b class="tips__ver num">v${entry.version}</b>
+        ${/^\d{4}-\d\d-\d\d$/.test(entry.date) ? html`<span class="tips__date num">${entry.date}</span>` : null}
+        ${fresh && r === 0 && !short ? html`<span class="tips__new">NEW</span>` : null}
+        ${short ? more : null}
+      </div>
+      <ul class="tips__lines">${newsLines(entry, short ? 3 : 4).map((segs, j) => html`<li key=${j}><${Inline} segs=${segs} /></li>`)}</ul>
+      ${short ? null : html`<div class="tips__foot">${more}</div>`}
+    </div>` : null;
+  const modal = html`<${PatchNotesModal} open=${notesOpen} onClose=${() => setNotesOpen(false)} entries=${notes} fresh=${fresh} />`;
+  if (short) {
+    const news = tab === 'news' && !!entry;
+    return html`<div class="tips tips--tabs brackets" data-testid="hub-notes">
+      <div class="tips__head">
+        ${latest ? html`<span class="tips__tabs" role="tablist">
+            <button type="button" class=${`tips__tab${news ? '' : ' is-on'}`} role="tab" aria-selected=${!news} onClick=${() => setTab('tips')}>${t('作战提示')}</button>
+            <button type="button" class=${`tips__tab${news ? ' is-on' : ''}`} role="tab" aria-selected=${news} onClick=${() => setTab('news')}>${t('更新')}${fresh ? html`<span class="tips__new">NEW</span>` : null}</button>
+          </span>`
+          : html`<${Icon} name="info" /><span class="tips__name">${t('作战提示')}</span>`}
+        ${news ? relPager : tipPager}
+      </div>
+      ${news ? newsBody : tipText}
+      ${modal}
+    </div>`;
+  }
+  return html`<div class="tips brackets" data-testid="hub-tips">
+      <div class="tips__head"><span class="tips__badge"><${Icon} name="info" /></span><span class="tips__name">${t('作战提示')}</span><${MicroLabel}>TIPS<//>${tipPager}</div>
+      ${tipText}
     </div>
-    ${news ? html`<p key=${`n${n}`} class="tips__text tips__news">
-        ${slide.summary != null ? html`<span class="tips__ver num">v${latest.version}</span>
-          ${/^\d{4}-\d\d-\d\d$/.test(latest.date) ? html`<span class="tips__date num">${latest.date.slice(5)}</span>` : null}
-          <span class="tips__sum">${slide.summary}</span>`
-        : html`${slide.group ? html`<span class="tips__group">${slide.group}</span>` : null}
-          <span class="tips__sum"><${Inline} segs=${slide.segs} /></span>`}
-        <button type="button" class="tips__more" onClick=${() => setNotesOpen(true)}>${t('查看全部')}<${Icon} name="chevronRight" /></button>
-      </p>`
-      : html`<p key=${i} class="tips__text">${list[i]}</p>`}
-    <${PatchNotesModal} open=${notesOpen} onClose=${() => setNotesOpen(false)} entries=${notes} fresh=${fresh} />
-  </div>`;
+    ${entry ? html`<div class="tips tips--news brackets" data-testid="hub-news">
+      <div class="tips__head"><span class="tips__badge"><${Icon} name="refresh" /></span><span class="tips__name">${t('更新')}</span><${MicroLabel}>PATCH NOTES<//>${relPager}</div>
+      ${newsBody}
+      ${modal}
+    </div>` : null}`;
 }
 
 /** The hand-drawn ring of the 已选定 stamp (two loose strokes). */
@@ -675,19 +710,23 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
 }
 
 /**
- * 选择同盟方式 (laid out after the event's screen after 同盟模拟): full screen — a radar at the left with 玩法说明 under it, at
- * the right the 创建同盟 card (creates a room at once at the remembered difficulty and ruleset, which the host changes in
- * the room, with the 人数 switch in its bar) and the 加入同盟 card (the key field with 观战, the recent keys that only fill
- * it, 加入同盟). `short`: the screen is at most 520 px tall — the key field's placeholder is the field's name alone.
+ * 同盟模拟's screen (laid out after the event's screen after 同盟模拟): full screen — a radar at the left with 玩法说明 under it,
+ * at the right one of two views (maintainer decision 2026-11-08: the hub's left column already holds the key field):
+ * `view` 'create' — 创建同盟: the card's 赛季 and 人数 rows, equal segmented rows, and under it the big 创建同盟 button in
+ * 选择模拟协议's start button's shape (creates a room at once at the remembered difficulty and ruleset, which the host
+ * changes in the room) — or 'join', opened by the 加入同盟 · 观战 plate of a phone too narrow for the left column: the
+ * 加入同盟 card alone (the key field with 观战, the recent keys that only fill it, 加入同盟). `short`: the screen is at most
+ * 520 px tall — the key field's placeholder is the field's name alone.
  */
-export function AllianceSelect({ onClose, onCreate, size, onSize, code, onCode, codeOk, online, busy, onJoin, onSpectate, recent, focusKey, short = false }) {
+export function AllianceSelect({ view = 'create', onClose, onCreate, size, onSize, code, onCode, codeOk, online, busy, onJoin, onSpectate, recent, focusKey, short = false }) {
+  const join = view === 'join';
   return html`<${Modal} open=${true} onClose=${onClose} class="ally" veilClass="proto-veil">
     <div class="ally__body">
       <div class="proto__bg ally__bg" aria-hidden="true"></div>
       <header class="proto-top">
         <${BackPlate} onClick=${onClose} class="ally__back" />
         <div class="proto-title">
-          <h2 class="modal__title">${t('选择同盟方式')}</h2>
+          <h2 class="modal__title">${join ? t('加入同盟 · 观战') : t('创建同盟')}</h2>
           <span class="proto-title__mode ally__mode"><${Icon} name="users" />${t('同盟模拟')}<i>ALLIANCE SIMULATION</i></span>
         </div>
       </header>
@@ -696,18 +735,7 @@ export function AllianceSelect({ onClose, onCreate, size, onSize, code, onCode, 
           <${RadarScene} />
           <button type="button" class="ally-guide" onClick=${() => openGuide(0)}><span class="ally-guide__icon"><${Icon} name="book" /></span>${t('玩法说明')}</button>
         </section>
-        <section class="ally-side">
-          <div class="ally-card ally-card--create ally-create" data-testid="alliance-create">
-            <button type="button" class="ally-card__art ally-create__art" tabindex="-1" aria-hidden="true" disabled=${!online || busy === 'create'} onClick=${() => onCreate()}><${CreateArt} /></button>
-            <div class="ally-card__bar">
-              <button type="button" class="ally-create__go" disabled=${!online || busy === 'create'} aria-busy=${busy === 'create' ? 'true' : 'false'} onClick=${() => onCreate()}>
-                <span class="ally-card__icon">${busy === 'create' ? html`<${Spinner} size="sm" />` : html`<${Icon} name="plus" />`}</span><span class="ally-card__name">${t('创建同盟')}</span>
-                <small>${online ? t('难度、规则在同盟内更改') : t('正在连接服务器…')}</small>
-              </button>
-              <${SeasonSwitch} class="ally-create__size ally-create__season" />
-              <span class="ally-create__size"><span class="ally-create__k">${t('人数')}</span><${SizeSwitch} value=${size} onPick=${onSize} /></span>
-            </div>
-          </div>
+        ${join ? html`<section class="ally-side ally-side--join">
           <div class="ally-card ally-card--join ally-join join-row">
             <span class="ally-card__art"><${JoinArt} /></span>
             <div class="ally-key">
@@ -728,7 +756,24 @@ export function AllianceSelect({ onClose, onCreate, size, onSize, code, onCode, 
               <span class="ally-card__icon"><${Icon} name="users" /></span>${t('加入同盟')}${busy === 'join' ? html`<${Spinner} size="sm" />` : null}
             </button>
           </div>
-        </section>
+        </section>` : html`<section class="ally-side ally-side--create" data-testid="alliance-create">
+          <div class="ally-card ally-card--create ally-create">
+            <button type="button" class="ally-card__art ally-create__art" tabindex="-1" aria-hidden="true" disabled=${!online || busy === 'create'} onClick=${() => onCreate()}><${CreateArt} /></button>
+            <div class="ally-form">
+              <div class="ally-form__head"><span class="ally-form__plus"><${Icon} name="plus" /></span><b>${t('同盟设置')}</b><${MicroLabel}>FORM AN ALLIANCE<//></div>
+              <${SeasonSwitch} class="ally-form__row ally-create__season" />
+              <span class="ally-form__row ally-create__size"><span class="ally-create__k">${t('人数')}</span><${SizeSwitch} value=${size} onPick=${onSize} /></span>
+              <p class="ally-form__note">${online ? t('难度、规则在同盟内更改') : html`<${Spinner} size="sm" label="CONNECTING" /> ${t('正在连接服务器…')}`}</p>
+            </div>
+          </div>
+          <div class="proto-foot ally-foot">
+            <button type="button" class="proto-start ally-create__go" disabled=${!online || busy === 'create'} aria-busy=${busy === 'create' ? 'true' : 'false'} onClick=${() => onCreate()}>
+              <span class="proto-start__mark" aria-hidden="true"><span class="proto-start__rook"><i>[</i><${Icon} name="rook" /><i>]</i></span><small>STRONGHOLD<br />PROTOCOL</small></span>
+              <span class="proto-start__label">${busy === 'create' ? html`<${Spinner} size="sm" />` : null}${t('创建同盟')}</span>
+              <span class="proto-start__deco" aria-hidden="true"></span>
+            </button>
+          </div>
+        </section>`}
       </div>
     </div>
   <//>`;
@@ -767,7 +812,7 @@ export function LobbyScreen() {
   const customRules = useStore((s) => s, Object.is, customRulesStore);
   const [size, setSize] = useState(lobbySize);
   const [quick, setQuick] = useState(() => loadPref('lobby.quick', false) === true);
-  // the open dialog: 'solo' | 'match' (选择模拟协议) | 'coop' (选择同盟方式)
+  // the open dialog: 'solo' | 'match' (选择模拟协议) | 'coop' (创建同盟) | 'join' (加入同盟 · 观战, AllianceSelect's join view)
   const [open, setOpen] = useState(null);
   // the picked 卫戍协议 season (ui/season.js): rooms are created and queued in it, its queues' Doctors are shown
   const season = useStore(pickedSeason);
@@ -785,7 +830,7 @@ export function LobbyScreen() {
 
   const online = conn.status === 'online';
   const codeOk = CODE_RE.test(code);
-  // the dialog's mode: 'solo' (选择模拟协议 of 独立模拟), 'match' (of 同盟匹配), 'coop' (选择同盟方式)
+  // the dialog's mode: 'solo' (选择模拟协议 of 独立模拟), 'match' (of 同盟匹配), 'coop' (同盟模拟's screen)
   const roomMode = open === 'solo' ? 'solo' : open === 'match' ? 'match' : 'coop';
   const matching = roomMode === 'match';
   const big = roomMode !== 'solo' && size === LARGE_SEATS;
@@ -875,20 +920,20 @@ export function LobbyScreen() {
       <aside class="hub-side">
         <${AchievementCard} onOpen=${openStats} />
         <${JoinBox} code=${code} onCode=${onCode} codeOk=${codeOk} online=${online} busy=${busy} onJoin=${join} onSpectate=${spectate} recent=${recent} />
-        <${TipsPanel} />
+        <${HubNotes} short=${shortScreen} />
       </aside>
       <aside class="hub-right">
         <${SweepPlate} onClick=${sweepSoon} />
         <${LoadoutButton} from="lobby" size="lg" class="hub-plate hub-plate--loadout lobby-loadout" label=${t('干员调配')} />
         <${SidePlate} class="hub-plate--ach" glyph=${html`<${AchBadge} />`} label=${t('成就统计')} onClick=${openStats} />
-        <${SidePlate} class="hub-plate--join" glyph=${html`<${Icon} name="key" />`} label=${t('加入同盟 · 观战')} onClick=${() => setOpen('coop')} />
+        <${SidePlate} class="hub-plate--join" glyph=${html`<${Icon} name="key" />`} label=${t('加入同盟 · 观战')} onClick=${() => setOpen('join')} />
       </aside>
       <section class="hub-entries" aria-label=${t('模拟方式')}>
         ${MODE_CARDS.map((c) => html`<${HubEntry} key=${c.id} card=${c} onOpen=${setOpen} waiting=${c.id === 'match' ? totalWaiting : null} />`)}
       </section>
     </main>
 
-    ${open === 'coop' ? html`<${AllianceSelect} onClose=${() => setOpen(null)} onCreate=${create} size=${size} onSize=${pickSize}
+    ${open === 'coop' || open === 'join' ? html`<${AllianceSelect} view=${open === 'join' ? 'join' : 'create'} onClose=${() => setOpen(null)} onCreate=${create} size=${size} onSize=${pickSize}
       code=${code} onCode=${onCode} codeOk=${codeOk} online=${online} busy=${busy}
       onJoin=${join} onSpectate=${spectate} recent=${recent} focusKey=${!coarse} short=${shortScreen} />` : null}
     ${open === 'solo' || open === 'match' ? html`<${ProtocolSelect} roomMode=${roomMode} difficulty=${difficulty} onDifficulty=${pickDifficulty}
