@@ -108,6 +108,8 @@ export default {
             if (!a) { run(false); return; }
             if (cur === a) {
               const s = a.findBuff(skey), left = s ? s.shieldHits : 0;
+              // robrta_mach_t ON_TAKE_DAMAGE: each hit a layer stops creates robrta_mach_t[audio] (its audioSignal), on the machine
+              if (left < m.mem.machLeft) battle.fx('kitHit', { x: m.x, y: m.y, id: m.id, k: 'robrta:block', n: m.mem.machLeft - left });
               // robrta_mach_t: its last layer spent, token_robrta_buff_end on the unit it served
               if (left <= 0 && m.mem.machLeft > 0) battle.fx('kitHit', { x: a.x, y: a.y, k: 'robrta:end', src: m.ownerUnit?.id, id: a.id });
               m.mem.machLeft = left;

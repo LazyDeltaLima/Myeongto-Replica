@@ -258,6 +258,49 @@ export const KIT_HIT_BANKS = Object.freeze({
   'philae:aoehit': 'battle.ON_BUFF_START.philae_aoe_hit',
   'titi:spread': 'battle.ON_CUSTOM_TRIGGER.titi_s_3[spread_from]',
   'titi:t1': 'battle.ON_CUSTOM_TRIGGER.titi_t_1',
+  // 2026-11-07, docs/rules/audio.md 「공식 소리 신호 잇기」 (the linking sheet, tools/local-extract/link_sheet.py):
+  // 旅骨 (CN client): a thrown unit's HitTile ON (no enemy to throw at), its REACH and STOP, the ticks' PlayAudio (S1 hbound_s_1[dot], S2's
+  // hbound_s_2[heavy_damage]; its hbound_s_2_heavy has no bank and [buff] no PlayAudio)
+  'hbound:s1on': 'battle.ON_ABILITY_ON.skchr_hbound_1.2',
+  'hbound:s2on': 'battle.ON_ABILITY_ON.skchr_hbound_2.2',
+  'hbound:s1reach': 'battle.ON_PROJECTILE_REACH.projectile_chr_hbound_s1',
+  'hbound:s2reach': 'battle.ON_PROJECTILE_REACH.projectile_chr_hbound_s2',
+  'hbound:s1stop': 'battle.ON_PROJECTILE_STOP.projectile_chr_hbound_s1',
+  'hbound:s2stop': 'battle.ON_PROJECTILE_STOP.projectile_chr_hbound_s2',
+  'hbound:s1dot': 'battle.ON_CUSTOM_TRIGGER.hbound_s1_dot',
+  'hbound:s2dot': 'battle.ON_CUSTOM_TRIGGER.hbound_s2_dot',
+  // 莉赛尔 S2: the ability's ON, each of its three projectiles' REACH (one file); 车尔尼: S2's FinalAttack START, T1's echo
+  // (pianst_t_1 CreateBuff audioSignal); 布丽吉德 S2's cut (brigid_s2[cut] PlayAudio); 克里斯汀 S2 and 灰烬·引雷 S2's orb: REACH, each
+  // tick's SelectorHitBehaviour `_playAudioWhenSelect` (ON_PROJECTILE_BEHAVIOUR_TRIGGER)
+  'liesel:s2on': 'battle.ON_ABILITY_ON.skchr_liesel_2',
+  'liesel:s2reach': 'battle.ON_PROJECTILE_REACH.projectile_chr_liesel_s2_1',
+  'pianst:final': 'battle.ON_ABILITY_START.skchr_pianst_2.extra.0',
+  'pianst:echo': 'battle.ON_BUFF_START.pianst_t[InverseDamage]',
+  'brigid:cut': 'battle.ON_CUSTOM_TRIGGER.brigid_s2_cut_audio',
+  'christ:s2reach': 'battle.ON_PROJECTILE_REACH.projectile_chr_christ_s2',
+  'christ:s2tick': 'battle.ON_PROJECTILE_BEHAVIOUR_TRIGGER.projectile_chr_christ_s2',
+  'greyy2:s2on': 'battle.ON_ABILITY_ON.skchr_greyy2_2',
+  'greyy2:s2reach': 'battle.ON_PROJECTILE_REACH.projectile_chr_greyy2_s2',
+  'greyy2:s2tick': 'battle.ON_PROJECTILE_BEHAVIOUR_TRIGGER.projectile_chr_greyy2_s2',
+  // 慕斯 T1's attack (each of its two hits); 米特姆 S1's blast (mitm_s_1 PlayAudio) and S2's form (mitm_s_2[to_token] PlayAudio), 樱桃三号's
+  // way back (trshrb_switch = Talents/1, START); 罗贝塔's machine: Running (PassiveBuffAbility audioSignal), a layer stopping a hit
+  // (robrta_mach_t CreateBuff audioSignal), S2's end clip (`_fireAttackFinishEvent`)
+  'frncat:t1hit': 'battle.ON_ABILITY_HIT.char_185_frncat.T.1',
+  'mitm:s1': 'battle.ON_CUSTOM_TRIGGER.explode',
+  'mitm:s2': 'battle.ON_CUSTOM_TRIGGER.state_change',
+  'mitm:reborn': 'battle.ON_ABILITY_START.token_10037_mitm_trshrb.T.1',
+  'robrta:run': 'battle.ON_BUFF_START.robrta_mach_running[audio]',
+  'robrta:block': 'battle.ON_BUFF_START.robrta_mach_t[audio]',
+  'robrta:s2end': 'battle.ON_ABILITY_ATTACK_FINISH.skchr_robrta_2',
+  // 引星棘刺 T2 as it attaches (thorn2_t_2[audio] PlayAudio, Talent/2 global_ally `_passiveBuffs`); 可露希尔: S1's shield on a 援军 (its
+  // ApplyShield audioSignal), S3's plane (CachedBuffToCastTargetsBehaviour audioSignal), the 指挥中心 into its 战术点形态
+  // (closur_ourbase_t_1[listener] CreateBuff audioSignal)
+  'thorn2:t2': 'battle.ON_CUSTOM_TRIGGER.thorn2_t_2_start',
+  'closur:s1block': 'battle.ON_BUFF_SHOW_EFFECT.closur_s_1[block]',
+  'closur:plane': 'battle.ON_BUFF_START.closur_s3_airplane',
+  'closur:fakedeath': 'battle.ON_BUFF_START.closur_ourbase[fake_death]',
+  'closur:range2': 'battle.ON_BUFF_START.token_closur_ourbase_range_02_loop_start',
+  'closur:range3': 'battle.ON_BUFF_START.token_closur_ourbase_range_03_loop_start',
   // 蕾缪安's attack ending (its BuffToOwner lemuen_attack_end_audio's ON_BUFF_FINISH, 0.76 s after the strike); 风丸's 折纸生花
   // (Talents/1 START: her stand-in state, the summoned <替身>); 缪尔赛思 S3 on a ranged 流形 (mlyss_s_3[token_range_trigger]);
   // a waiting operator's 凛御银灰 S2 slash as it redeploys — the range (svash2_s_2[build][effect]) and each enemy it hits

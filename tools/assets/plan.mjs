@@ -28,7 +28,7 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
-import { loadCharModes, loadSkillCast, castCues, skillModeIndex, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, dubbedSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, enemyModeSets, tokenModeSets, tokenSkillModes, loadTokenSkills } from './skill-mode-sfx.mjs'; // local patch
+import { loadCharModes, loadSkillCast, castCues, skillModeIndex, skillModes, modeNamesFile, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, dubbedSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, enemyModeSets, tokenModeSets, tokenSkillModes, loadTokenSkills } from './skill-mode-sfx.mjs'; // local patch
 import { kitHitSfx, kitHitGroups, kitHitLimits } from './kit-sfx.mjs'; // local patch
 
 /**
@@ -436,7 +436,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     if (Object.keys(skillSfx).length && (idx.length > 1 || !primarySkill)) u.skills = skillSfx;
     if (mix) u.mix = mix;
     // local patch: skill-mode attack / impact sounds and the mixer groups (tools/assets/skill-mode-sfx.mjs)
-    const modes = skillModes(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), charModes[id], soundLeaf, (sid) => skillStartIsFallback(audio, sid), charAudio[id]);
+    const modes = skillModes(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), charModes[id], soundLeaf, (sid, e) => skillStartIsFallback(audio, sid) && (skillStartSounds(audio, sid) ?? []).some((p) => modeNamesFile(e, p)), charAudio[id]);
     if (modes) u.modes = modes;
     // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the Default mode's attack signals (START at the swing, ON
     // and the projectiles' BORN at the strike, HIT / REACH on the hit — variants, melee / ranged), the skills' own damage, the

@@ -68,13 +68,13 @@ function installHitRate(battle) {
 /** The spot: the first ground enemy of her range, else the farthest tile straight ahead. */
 function landing(battle, unit) {
   const t = enemiesInGrid(battle, unit, null, { n: 1, groundOnly: true })[0];
-  if (t) return { x: t.x, y: t.y };
+  if (t) return { x: t.x, y: t.y, tile: false };
   let best = null;
   for (const k of unit.rangeKeys || []) {
     const r = Math.floor(k / COLS), c = k % COLS;
     if (!battle.grid.inRect(r, c)) continue;
     const [lat, d] = toLocal(r - unit.tileR, c - unit.tileC, unit.dir);
-    if (lat === 0 && d > 0 && (!best || d > best.d)) best = { d, x: c, y: r };
+    if (lat === 0 && d > 0 && (!best || d > best.d)) best = { d, x: c, y: r, tile: true };
   }
   return best;
 }
@@ -148,7 +148,7 @@ function throwSpec(chess, id, heavy) {
       const fly = hypot(at.x - unit.x, at.y - unit.y) / SHOT;
       const mv = Math.max(0, 1 + num(b.move_speed));
       const z = {
-        x: at.x, y: at.y, r,
+        x: at.x, y: at.y, r, sound: heavy ? 's2' : 's1', reached: false,
         land: battle.time + fly, until: battle.time + fly + dur, aura: 0, in: new Map(), atk: unit.s.atk,
         scale: num(b.atk_scale), slow: heavy ? 1 : mv, moment: heavy ? 'hbound_s_2[buff]' : 'hbound_s_1[dot]',
         heavyAt: heavy ? num(b.value) : null, heavySlow: mv, heavyScale: heavy ? num(b.heavy_atk_scale) : 0,
@@ -156,6 +156,8 @@ function throwSpec(chess, id, heavy) {
       };
       (unit.mem.zones ??= []).push(z);
       battle.fx('zone', { x: at.x, y: at.y, id: unit.id, r, duration: fly + dur });
+      // the group's second child HitTile has an ON bank (`.2`), HitEnemy none
+      if (at.tile) battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: `hbound:${z.sound}on` });
     },
   };
 }
@@ -172,8 +174,15 @@ export default {
           const zones = unit.mem.zones;
           if (!zones?.length) return;
           for (const z of zones) {
-            if (battle.time >= z.until - EPS) { for (const [e, st] of [...z.in]) leave(battle, z, e, st); continue; }
-            if (battle.time >= z.land - EPS) stepZone(battle, unit, z);
+            if (battle.time >= z.until - EPS) {
+              for (const [e, st] of [...z.in]) leave(battle, z, e, st);
+              battle.fx('kitHit', { x: z.x, y: z.y, id: unit.id, k: `hbound:${z.sound}stop` }); // its projectile's STOP
+              continue;
+            }
+            if (battle.time >= z.land - EPS) {
+              if (!z.reached) { z.reached = true; battle.fx('kitHit', { x: z.x, y: z.y, id: unit.id, k: `hbound:${z.sound}reach` }); } // its projectile's REACH
+              stepZone(battle, unit, z);
+            }
           }
           unit.mem.zones = zones.filter((z) => battle.time < z.until - EPS);
         }, { owner: unit });

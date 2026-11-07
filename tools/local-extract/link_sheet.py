@@ -339,6 +339,7 @@ def main():
     banks = json.loads(AUDIO.read_text(encoding='utf-8'))['soundFXBanks']
     manifest = json.loads((ROOT / 'data/assets.json').read_text(encoding='utf-8'))
     played = {u.lower() for u in re.findall(r'/assets/audio/[^"]+?\.mp3', json.dumps(manifest.get('audio')))}
+    dubs = {k: v.get('dub') for k, v in manifest['audio']['sfx']['units'].items() if v.get('dub')}
     listed = {}
     lf = ROOT / 'test/audio-bank-coverage-list.js'
     if lf.exists():
@@ -372,6 +373,10 @@ def main():
             event, _, signal = name.partition('.')
             urls = {f"/assets/audio/sfx/{'/'.join(str(s.get('asset')).split('/')[-3:])}.mp3".lower() for s in b.get('sounds') or []}
             state = 'played' if urls & played else (listed.get((cid, name)) or 'MISSING').split(':')[0]
+            # a dub's bank (`@KR`, `@JP`): the manifest keeps it per language (sfx.units[id].dub); this fork offers those two (voice.mjs voiceTwin)
+            lang = {'KR': 'kr', 'JP': 'jp'}.get(name.rpartition('@')[2]) if '@' in name else None
+            if '@' in name:
+                state = 'played' if lang and lang in (dubs.get(cid) or {}) else 'none'
             wired = ', '.join(f for f, t in wired_src.items() if b['name'] in t or f"'{name}'" in t) or '-'
             where = [str(n) for n in by_value.get(signal, [])]
             if not where and event.startswith(('ON_ABILITY', 'ON_SKILL')):

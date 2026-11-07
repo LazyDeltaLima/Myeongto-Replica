@@ -98,7 +98,7 @@ test('What the model is told: rest until its DEF buff stands on someone, a layer
     h.b.dealDamage(e, u, { amount: 300, type: 'phys', tags: ['test'] });
     h.step();
     assert.deepEqual(COUNT_KEYS.map((k) => !!m.findBuff(k)), [true, false], `${id}: [count_2] goes first`);
-    assert.ok(!sent.some(([n]) => n === 'kitHit'), `${id}: no end effect yet`);
+    assert.ok(!sent.some(([n, o]) => n === 'kitHit' && o.k === 'robrta:end'), `${id}: no end effect yet`);
     h.b.dealDamage(e, u, { amount: 300, type: 'phys', tags: ['test'] });
     h.step();
     assert.deepEqual(COUNT_KEYS.map((k) => !!m.findBuff(k)), [false, false], `${id}: none left`);

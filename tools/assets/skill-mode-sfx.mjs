@@ -126,7 +126,7 @@ export function abilitySounds(audio, skillId) {
  * @param {{ index: number, skillId?: string }[]} skills the character's skills (research 07 operators[id].skills)
  * @param {{ modes?: string[], skillMode?: (number|null)[], proj?: string[][] }|undefined} info local-char-modes.json entry
  * @param {(paths: string[]) => any} soundLeaf plan.mjs leaf builder
- * @param {(skillId: string) => boolean} startIsFallback the skill's start sound is not its own ON_SKILL_START
+ * @param {(skillId: string, entry: object) => boolean} startIsFallback the skill's start sound is not its own ON_SKILL_START and this mode's attack sounds it
  */
 export function skillModes(audio, charId, skills, info, soundLeaf, startIsFallback = () => false, ca = null) {
   const out = {};
@@ -166,13 +166,21 @@ export function skillModes(audio, charId, skills, info, soundLeaf, startIsFallba
     }
     if (Object.keys(mix).length) e.mix = mix;
     if (Object.keys(grp).length) e.grp = grp;
-    if (s.skillId && startIsFallback(s.skillId)) e.deferStart = true;
+    // 2026-11-07, docs/rules/audio.md 「공식 소리 신호 잇기」: only when the mode's own attack sounds that file; a start bank the mode never sounds
+    // (b_char_atkboost on a buff skill's ability: 能天使 S2, 霜叶 S2 …) is the ability's START as the skill casts, attacks or none
+    if (s.skillId && startIsFallback(s.skillId, e)) e.deferStart = true;
     // local patch (maintainer report 2026-10-08): a mode ability with its own attack bank and no impact bank (缄默德克萨斯 S2
     // attack.2: ON_ABILITY_ON only) — the Default ability's HIT bank does not fire while the mode runs: no impact sound
     if (n > 0 && found.attack && !found.hit) e.noHit = true;
     out[String(s.index)] = e;
   }
   return Object.keys(out).length ? out : null;
+}
+
+/** Whether a skill mode's entry names the sound file of bank path `path` (its roles, cues and weighted choices; leaves or urls). */
+export function modeNamesFile(e, path) {
+  const stem = String(path).split('/').pop().replace(/\.\w+$/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`/${stem}(?:\\.|")`).test(JSON.stringify(e));
 }
 
 /** A unit bank of an attack ability: `ON_ABILITY_START|ON|HIT.attack|combat[.<n>…]`. */

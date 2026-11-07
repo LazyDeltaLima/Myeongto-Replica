@@ -148,6 +148,13 @@ export default {
     /** Her 指挥中心 units (board pieces and summons). */
     const basesOf = (battle, unit) => battle.allyUnits.filter((t) => t.kind === 'token' && t.defId === tokenId && t.ownerUnit === unit);
     /** Her 援军 now (cached per tick): her standing 指挥中心 and every operator / summon of its range (no 孤立 one). */
+    // closur_ourbase[eff] ON_BUFF_TRIGGER (every 0.6 s) on her 指挥中心 while her S2 / S3 runs: closur_ourbase[eff_loop], whose audioSignal is the
+    // range loop's start [추정·엔진: how that 0.6 s falls against her cast is not modelled, its longest wait is taken]
+    const rangeLoopSound = (battle, unit, skill, k) => battle.after(0.6, () => {
+      if (!skill.active) return;
+      const t = basesOf(battle, unit).find((b) => up(b));
+      if (t) battle.fx('kitHit', { x: t.x, y: t.y, id: t.id, k });
+    }, { owner: unit });
     const reinfOf = (battle, unit) => {
       const m = unit.mem;
       if (m.closurReinf && m.closurReinfT === battle.time) return m.closurReinf;
@@ -242,7 +249,8 @@ export default {
           kind: 'duration',
           mods: { atkPct: num(b2.atk) },
           targeting: { maxTargets: Math.max(1, Math.floor(num(b2['attack@max_target'], 2))) },
-          onStart({ battle, unit }) {
+          onStart({ battle, unit, skill }) {
+            rangeLoopSound(battle, unit, skill, 'closur:range2');
             const cost = num(b2.cost);
             if (cost > 0) { battle.addDp(unit.ownerId, cost); battle.fx('dp', { x: unit.x, y: unit.y, n: cost, id: unit.id }); }
             dpTicker(unit, { total: num(b2.cost_period), step: num(b2['closur_s_2[add_cost_period].cost'], 1), iv: num(b2['closur_s_2[add_cost_period].interval'], 2) });
@@ -284,7 +292,8 @@ export default {
               });
             },
           },
-          onStart({ battle, unit }) {
+          onStart({ battle, unit, skill }) {
+            rangeLoopSound(battle, unit, skill, 'closur:range3');
             dpTicker(unit, { total: num(b3.cost_period), step: num(b3['closur_s_3[add_cost_period].cost'], 1), iv: num(b3['closur_s_3[add_cost_period].interval'], 1.66) });
             unit.mem.closurS3 = { attacks: 0, extra: 0 };
             battle.removeBuff(unit, S3_KEY);

@@ -28,7 +28,10 @@ function beacon(battle, unit, x, y, b2) {
   const dur = num(b2.projectile_delay_time), every = num(b2.interval, 1), scale = num(b2.atk_scale), prob = num(b2.prob), slow = num(b2.sluggish);
   const total = Math.ceil(dur / every - 1e-9);
   let n = 0;
+  battle.fx('kitHit', { x, y, id: unit.id, k: 'greyy2:s2reach' }); // its REACH
   battle.every(every, (b, sc) => {
+    // SelectorHitBehaviour `_playAudioWhenSelect`: each tick before it looks for targets, enemies or none
+    b.fx('kitHit', { x, y, id: unit.id, k: 'greyy2:s2tick' });
     for (const e of b.foesInRadius(x, y, ORB_RADIUS, true)) {
       if (e.isFlying) continue;
       b.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'arts', isSkill: true, tags: ['skill', 'zone', 'greyy2:beacon'] });
@@ -55,6 +58,7 @@ export default {
             // the sim's own flight, drawn by nobody, traces the target as the client's does
             const fly = hypot(t.x - unit.x, t.y - unit.y) / ORB_SPEED;
             battle.fx('zone', { x: t.x, y: t.y, id: unit.id, r: ORB_RADIUS, duration: fly + num(b2.projectile_delay_time) });
+            battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'greyy2:s2on' }); // the skill ability's ON
             battle.addProjectile({ from: unit, target: t, speed: ORB_SPEED, visual: 'none', source: unit, hitDead: true, onHit: (c) => beacon(battle, unit, c.x, c.y, b2) });
           },
         },

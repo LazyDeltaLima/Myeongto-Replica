@@ -208,7 +208,7 @@
       ],
       "enemies": {"enemy_1005_yokai_2":[6,6,0,3696,62190],"enemy_1430_lrrook":[2,2,0,0,802449],"enemy_9017_achunt":[2,0,0,87776,705155]},
       "hooks": [1,48,6000,1259,1275,2418,2472,4066,22,30,102,98,32,34133,873,0,10,0,1,23,0,21,4],
-      "events": {"atk":1292,"castHit":52,"deploy":38,"die":30,"dmg":2459,"engage":18,"face":122,"fx":934,"heal":87,"skill":200,"spawn":32,"status":531,"swing":1256,"tplfx":8},
+      "events": {"atk":1292,"castHit":52,"deploy":38,"die":30,"dmg":2459,"engage":18,"face":122,"fx":935,"heal":87,"skill":200,"spawn":32,"status":531,"swing":1256,"tplfx":8},
       "fx": {
         "aoe": 31,
         "appear": 2,
@@ -226,7 +226,7 @@
         "frostNova": 9,
         "garrisonGrant": 1,
         "iceSpike": 35,
-        "kitHit": 201,
+        "kitHit": 202,
         "overclock": 2,
         "pull": 2,
         "quadShot": 2,
@@ -535,7 +535,7 @@
       ],
       "enemies": {"enemy_1010_demon":[4,4,0,2975,200612],"enemy_1438_dspred":[10,10,0,17267,882694],"enemy_1521_dslily":[1,0,0,91219,1425945],"trap_039_dstnta":[4,4,0,0,12000]},
       "hooks": [1,53,6000,1373,1490,3337,3468,12565,32,37,128,126,19,45210,1500,13,19,0,1,33,0,45,2],
-      "events": {"atk":1580,"castHit":58,"deploy":34,"die":37,"dmg":3442,"engage":17,"face":110,"fx":1062,"heal":138,"skill":254,"spawn":41,"status":1002,"swing":1405,"tplfx":8},
+      "events": {"atk":1580,"castHit":58,"deploy":34,"die":37,"dmg":3442,"engage":17,"face":110,"fx":1064,"heal":138,"skill":254,"spawn":41,"status":1002,"swing":1405,"tplfx":8},
       "fx": {
         "aoe": 31,
         "appear": 5,
@@ -555,7 +555,7 @@
         "frostNova": 13,
         "grow": 1,
         "iceSpike": 162,
-        "kitHit": 1,
+        "kitHit": 3,
         "overclock": 1,
         "phase": 7,
         "pull": 6,
@@ -859,7 +859,7 @@
         "trap_185_vtlntw": [4,4,0,1515,32000]
       },
       "hooks": [1,65,6000,1170,1199,2057,2067,1279,36,42,91,87,0,35271,677,8,20,0,1,28,0,3,0],
-      "events": {"atk":1256,"castHit":31,"deploy":45,"die":42,"dmg":2004,"engage":17,"face":83,"fx":812,"heal":5,"skill":178,"spawn":42,"status":1102,"swing":1206,"tplfx":10},
+      "events": {"atk":1256,"castHit":31,"deploy":45,"die":42,"dmg":2004,"engage":17,"face":83,"fx":813,"heal":5,"skill":178,"spawn":42,"status":1102,"swing":1206,"tplfx":10},
       "fx": {
         "aoe": 37,
         "appear": 5,
@@ -876,7 +876,7 @@
         "frostNova": 7,
         "garrisonGrant": 1,
         "iceSpike": 68,
-        "kitHit": 2,
+        "kitHit": 3,
         "overclock": 1,
         "pull": 4,
         "quadShot": 2,
@@ -1119,7 +1119,7 @@
         "enemy_9016_acstmr": [6,6,0,0,39]
       },
       "hooks": [1,75,6000,1023,1028,3165,3356,8952,52,56,108,104,10,35876,1022,11,33,0,1,43,0,10,11],
-      "events": {"atk":1188,"castHit":45,"deploy":42,"die":56,"dmg":3353,"engage":16,"face":120,"fx":872,"heal":19,"skill":211,"spawn":55,"status":730,"swing":1067,"tplfx":17},
+      "events": {"atk":1188,"castHit":45,"deploy":42,"die":56,"dmg":3353,"engage":16,"face":120,"fx":874,"heal":19,"skill":211,"spawn":55,"status":730,"swing":1067,"tplfx":17},
       "fx": {
         "aoe": 34,
         "appear": 2,
@@ -1139,7 +1139,7 @@
         "explosion": 12,
         "frostNova": 9,
         "iceSpike": 14,
-        "kitHit": 8,
+        "kitHit": 10,
         "overclock": 1,
         "palsy": 2,
         "phase": 4,
@@ -1447,7 +1447,7 @@
         "enemy_9023_acdums": [12,10,0,89829,729]
       },
       "hooks": [1,72,6000,1194,1278,4375,5035,11537,43,50,107,104,6,32384,1343,18,18,0,1,46,0,34,5],
-      "events": {"atk":1335,"castHit":47,"deploy":52,"die":50,"dmg":4621,"engage":19,"face":120,"fx":2011,"heal":503,"skill":211,"spawn":42,"status":1090,"swing":1235,"tplfx":12},
+      "events": {"atk":1335,"castHit":47,"deploy":52,"die":50,"dmg":4621,"engage":19,"face":120,"fx":2013,"heal":503,"skill":211,"spawn":42,"status":1090,"swing":1235,"tplfx":12},
       "fx": {
         "aoe": 36,
         "appear": 9,
@@ -1471,7 +1471,7 @@
         "frostNova": 17,
         "garrisonGrant": 1,
         "iceSpike": 107,
-        "kitHit": 1,
+        "kitHit": 3,
         "levitate": 4,
         "overclock": 1,
         "phase": 86,
@@ -1747,8 +1747,8 @@
       ],
       "enemies": {"enemy_1010_demon_2":[3,3,0,6611,134369],"enemy_1069_icebrk_2":[1,1,0,0,25000],"enemy_1071_dftman":[4,4,0,27,33443],"enemy_1072_dlancer":[3,3,0,3534,53748]},
       "hooks": [1,57,1254,82,82,207,323,4924,12,17,17,16,0,15546,201,10,11,0,1,68,0,0,0],
-      "events": {"atk":105,"bounty":1,"castHit":8,"deploy":34,"die":17,"dmg":207,"engage":6,"face":18,"fx":93,"heal":18,"skill":35,"spawn":57,"status":73,"swing":93,"tplfx":3},
-      "fx": {"aoe":6,"charges":2,"ember":1,"garrisonGrant":2,"healAoe":6,"kitHit":1,"overload":1,"roadTiles":1,"shield":1,"sp":2,"stacks":31,"swordStorm":1,"zone":38},
+      "events": {"atk":105,"bounty":1,"castHit":8,"deploy":34,"die":17,"dmg":207,"engage":6,"face":18,"fx":94,"heal":18,"skill":35,"spawn":57,"status":73,"swing":93,"tplfx":3},
+      "fx": {"aoe":6,"charges":2,"ember":1,"garrisonGrant":2,"healAoe":6,"kitHit":2,"overload":1,"roadTiles":1,"shield":1,"sp":2,"stacks":31,"swordStorm":1,"zone":38},
       "snaps": "93b83806 f1a22d71 accebec6 8aea1235 d0eec406"
     },
     "unite-3-wide": {

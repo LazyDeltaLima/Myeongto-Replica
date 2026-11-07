@@ -44,9 +44,11 @@ export default {
           onStrike({ battle, unit }) {
             const lock = `liesel_s_2[exclude]:${unit.id}`, dot = `${DOT}:${unit.id}`;
             const dps = num(b2['liesel_s_2[dot].atk_scale']), dur = num(b2['liesel_s_2[dot].duration']);
+            let fired = false;
             for (const land of LANDS) {
               const t = nextTarget(battle, unit, lock);
               if (!t) return;
+              if (!fired) { fired = true; battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'liesel:s2on' }); } // the skill ability's ON, once
               battle.addBuff(t, { key: lock, duration: LOCK, source: unit, tags: ['skill'] });
               const cached = unit.s.atk;
               battle.after(land, () => {

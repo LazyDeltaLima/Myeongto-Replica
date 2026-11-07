@@ -12,16 +12,10 @@
 // after they joined; the 涤火杰西卡 / 鸿雪 and 棘刺 ones (2026-11-04) the same day.
 
 export const UNSOUNDED = {
-  // 클로저 (2026-11-06): the 指挥中心's moments and S1 / S3's buffs — not wired yet (the maintainer's to-do list)
+  // 클로저: closur_ourbase_signal picks the 指挥中心's range by CheckSkillIndex and plays nothing — no buff template or prefab node of the EN or CN
+  // client carries closur_ourbase_s1 … _s3 (_s2's and _s3's files are the range loops' own, so only _s1 shows here)
   char_4228_closur: {
-    'ON_BUFF_SHOW_EFFECT.closur_s_1[block]': 'todo: closur_s_1[block] as a 援军 takes its shield (overrideEffect shown)',
-    'ON_BUFF_START.closur_s3_airplane': 'todo: closur_s_3[eff] ON_BUFF_START, behind the condition its plane is (fx-bindings.test.js UNPLAYED)',
-    'ON_BUFF_START.closur_ourbase[fake_death]': 'todo: the 指挥中心 into its 战术点形态 (Recharge mode)',
-    'ON_CUSTOM_TRIGGER.closur_ourbase_s1': 'todo: closur_ourbase_signal, the 指挥中心\'s S1 range mode',
-    'ON_CUSTOM_TRIGGER.closur_ourbase_s2': 'todo: closur_ourbase_signal, the 指挥中心\'s S2 range mode',
-    'ON_CUSTOM_TRIGGER.closur_ourbase_s3': 'todo: closur_ourbase_signal, the 指挥中心\'s S3 range mode',
-    'ON_BUFF_START.token_closur_ourbase_range_02_loop_start': 'todo: the 指挥中心\'s S2 range loop as it starts',
-    'ON_BUFF_START.token_closur_ourbase_range_03_loop_start': 'todo: the 指挥中心\'s S3 range loop as it starts',
+    'ON_CUSTOM_TRIGGER.closur_ourbase_s1': 'none: no client node carries the signal',
   },
   char_4202_haruka: {
     // no buff template, prefab node or ability of the EN client plays this signal (S3's levitation ending sounds nothing)

@@ -178,6 +178,8 @@ export default {
           // the card's chosen rows / columns are these] (render/fx/kitofficial.js 'roadTiles')
           battle.on('deploy', (c) => {
             if (c.unit !== unit || c.move) return;
+            // Talent/2 global_ally `_passiveBuffs` thorn2_t_2[audio]: its PlayAudio thorn2_t_2_start as the talent attaches
+            battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'thorn2:t2' });
             const R = battle.rect, cells = [];
             for (let r = R.r0; r <= R.r1; r++) for (let cc = R.c0; cc <= R.c1; cc++) if (straightRun(battle, r, cc) >= cnt) cells.push([cc, r]);
             if (cells.length) battle.fx('roadTiles', { x: unit.x, y: unit.y, id: unit.id, cells });

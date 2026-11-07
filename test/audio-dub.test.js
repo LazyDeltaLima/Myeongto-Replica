@@ -61,6 +61,13 @@ describe('浊心斯卡蒂: the dubbed deploy / skill-start sounds', () => {
     assert.deepEqual(Object.entries(manifest.audio.sfx.units).filter(([, u]) => u.dub).map(([id]) => id).sort(), [SKADI, 'char_355_ethan'].sort(), 'only these in the roster');
   });
 
+  test('에단\'s deploy line in the chosen dub, in place of the common deploy sound', () => {
+    const u = manifest.audio.sfx.units.char_355_ethan;
+    assert.ok(unitDub(u, 'born', null, 'kr', () => 0).includes('/voice/kr/char_355_ethan/'));
+    assert.ok(unitDub(u, 'born', null, 'jp', () => 0).includes('/voice/jp/char_355_ethan/'));
+    assert.equal(unitDub(u, 'born', null, 'off', () => 0), null, 'the voice off: the common sound');
+  });
+
   test('unitDub: the chosen dub\'s line (drawn), none with the voice off or without a dub', () => {
     const u = manifest.audio.sfx.units[SKADI];
     assert.equal(file(unitDub(u, 'skill', 2, 'kr', () => 0)), 'fx_025_3.mp3');

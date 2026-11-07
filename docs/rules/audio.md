@@ -48,7 +48,7 @@
     예전(2026-10-06): 쿨다운이 오퍼레이터별·시작부터였다. 원본 #73의 1.2초 간격·「+10 이상이어야 끊음」·모든 스킬 10초/70도 공식과 다르다.
   - 선택 대사 쿨타임(관리자 질문 2026-10-08): 공식에도 없다 — FOCUS_CHAR `cooldown 0`·`overlapIfSamePriority true`(데이터),
     `AutoChessGameModeVoicePlugin._OnCharacterHighlighted`(이벤트 1208)가 조건 없이 FOCUS_CHAR → 다시 선택하면 재생 중 선택 대사를 끊고 새 대사.
-    이벤트가 「같은 말 재선택」에도 오는지는 발생 쪽(드래그 상태) 코드를 안 봐서 [추정·미조사: 집을 때마다]. 스킬 대사(70) 재생 중 선택(10)은 버림(관리자 제보
+    같은 말을 다시 눌러도 온다(공식 클라에서 확인, 2026-11-07): `AutoChessHighlightState._OnTileClicked`는 지금 고른 말과 비교하지 않고, `_SwitchToHighLight`가 이미 그 상태면 `_RefreshRender`를 바로 부르며, `_RefreshRender`가 이벤트 1208을 조건 없이 낸다. 스킬 대사(70) 재생 중 선택(10)은 버림(관리자 제보
     2026-10-08, 실제 게임과 같음). 테스트 `test/local-patch.test.js` 「official scheduling」.
   - **전투 시작**(라운드마다): `AutoChessGameModeVoicePlugin._OnBattleStarted`(이벤트 `ON_BATTLE_STARTED` 1211) — 전투에 든 자기 말
     (`battleChessInsts`) 중 **무작위 하나의 部署**(PLACE_CHAR). 나머지 첫 배치는 조용 — 근거는 관리자 영상(2026-10-10 「라운드 시작에 部署 한 줄」)이고
@@ -383,7 +383,7 @@
     키트의 S3 공격 그대로). 그 HIT p_imp_snwlprdg_s를 S3 공격의 착탄마다(`signalAttackKey` 'd' → kit `svash2:s3hit`, 자기 대상만 — 같은 줄의 다른 적은
     소리 없음, 하한). 휘두름의 `attack.1` START는 전부터 남. `projectile_chr_svash2_s3`는 새의 오라(`BirdAura_Self` — 스킬 자기 버프
     `svash2_s_3[self_bird_onuse]`가 시작할 때 한 번 시전)라 그 BORN p_skill_snwfld_s는 S3 시작에 한 번(`audio.js` 'skill' 켜짐)
-    [추정·미조사: 능력 시전을 스킬 시작 순간으로 봄 — 능력의 전딜은 안 읽음]. 2026-10-11부터 그 BORN을 타격마다 냈고 새 HIT는 없었다.
+    시전은 스킬 시작 순간이다(공식 클라에서 확인, 2026-11-07: `BirdAura_Self`에 `_preDelay`도 `_waitForAttackEvent`도 없음). 2026-10-11부터 그 BORN을 타격마다 냈고 새 HIT는 없었다.
     아군 새(`BirdAttack_Ally`·`[bird_on_target]`, 카드 UID로 다음에 배치한 아군에게 옮겨 감 — `[1f_delay_create]`·`[summon_bird]`)는 키트에 없어
     소리도 없다(키트 머리 주석 「风雪之眼变为可部署」 안 만듦과 같은 범위). 조사 보고의 「S3 베기 = aoe」는 틀림 — `aoe` svash2는 S2 베기다.
   - 뮤엘시스의 유동체(流形, `token_10030_mlyss_wtrman`, 모드 Recharge·Default·Melee·Range·Range_S2·Melee_S3): 버프 템플릿 `mlyss_wtrman_switch_melee`/`_range`가
@@ -499,6 +499,19 @@
     diy.md 「사키코 S2」의 보류) 둘째 시전도 `.2`가 난다.
 - 지금 목록(2026-11-04): `none`만 — 하루카 1·나이팅게일 2·토가와 사키코 2·파죰카 2·에이야퍄들라 7·위디 3(`todo` 0; 벨로네·비이·지마 더 레이징 타이드·Mon3tr의 20개와 슈·리·
   에벤홀츠의 11개, 제시카 더 리버레이티드·파죰카의 5개, 쏜즈 1개는 아래 「버프·커스텀 트리거 소리」. 유넥티스는 처음부터 다 남; 파죰카 둘·에이야퍄들라 일곱은 `none`).
+
+## 공식 소리 신호 잇기 (2026-11-07, 연결 작업표 `link_sheet.py` + 공식 클라)
+- **스킬 시작음의 `deferStart`**: 전에는 ON_SKILL_START가 없는 스킬의 시작음을 모두 대체음으로 보고, 공격이 있으면 끝까지 안 냈다. 그런데 그 뱅크가 `b_char_atkboost` 같은 강화음이면 모드의 공격이 그 파일을 내지 않으므로, 공격하는 스킬에서는 시작음이 아예 없었다(엑시아 S2·S3, 프로스트리프 S2, 폰사이러스 S2 등 45곳). 이제 모드가 그 파일을 낼 때만 기다린다(`skill-mode-sfx.mjs modeNamesFile`, `plan.mjs`). 아스카론 S1처럼 공격이 같은 파일을 내는 스킬은 그대로. 근거는 시전형 스킬이 켜질 때 자기 능력을 시전하고 그 START가 나는 것(위 「스킬 시전 능력 소리」). [화면 미확인]
+- **`_playAudioWhenSelect`**(`SelectorHitBehaviour.DoSelectTargetToHit`, 공식 클라에서 확인): 대상을 찾기 전에 `PlayBehaviourAudio`를 부르므로 틱마다 적이 없어도 한 번 난다 → 크리스틴 S2·그레이 더 라이트닝베어러 S2의 구체(`ON_PROJECTILE_BEHAVIOUR_TRIGGER`).
+- 이은 것(`kit-sfx.mjs`, `audio.js`, 키트의 표시용 fx — golden은 fx 수만 움직임) [화면 미확인]:
+  - 홈바운드: 착지 REACH, 끝 STOP, 틱 `hbound_s1_dot`·`hbound_s2_dot`(S2는 무거운 적의 `[heavy_damage]`만, `[buff]`에는 PlayAudio 없음), 타일로 던질 때만 `HitTile`의 ON `.2`(`HitEnemy`에는 ON 뱅크 없음). `hbound_s_2_heavy`는 PlayAudio가 있으나 뱅크가 없어 공식도 무음.
+  - 리프레사 S2: 시전당 ON 한 번, 착탄 REACH. 체르니: S2 `FinalAttack`의 START, 재능 반사(`pianst_t[InverseDamage]`). 브리지드 S2: 베기 `brigid_s2_cut_audio`(kitHit의 `n`은 프리팹 번호라 횟수로 세지 않음). 무스: 재능 공격의 두 타격마다 `T.1` HIT.
+  - 미틈: S1 폭발 `explode`, S2 전환 `state_change`, 체리 3호 복귀 `T.1` START. `trshrb_t_1[fakedeath]`는 PlayAudio가 있으나 뱅크가 없어 공식도 무음. 로베르타: 장치 가동(`robrta_mach_running[audio]`), 층이 막은 타격마다(`robrta_mach_t[audio]`), S2 끝 클립의 `ON_ABILITY_ATTACK_FINISH`(민트 S2와 같은 길, 쓰러질 때는 안 남).
+  - 클로저: S1 방패(`closur_s_1[block]`), S3 비행기(`closur_s3_airplane`), 지휘 센터 전술점 형태(`closur_ourbase[fake_death]`), S2·S3 범위 고리 시작(`closur_ourbase[eff]` 0.6초 주기가 만드는 버프의 audioSignal) [추정·엔진: 그 0.6초가 시전과 어긋나는 정도는 안 따지고 가장 긴 대기로 냄]. `closur_ourbase_s1`~`_s3`는 EN·CN 클라의 어느 버프 템플릿·프리팹도 내지 않아 무음.
+  - 쏜즈 더 로드스타: 재능 2 `thorn2_t_2_start`(`Talent/2/global_ally` `_passiveBuffs`의 `thorn2_t_2[audio]`), 배치 때 한 번. 옛 문서의 「거는 곳을 못 찾음」은 작업표가 `_passiveBuffs`의 값을 신호로 안 봤기 때문.
+- 안 이은 것: `ON_SKILL_SPECIAL_POINT`(오로라 S2·퀘르쿠스 S1, 수동으로 끊을 때만 — 위 「공격 소리 신호」). 오로라 `shield`는 스파인 이벤트로 이미 난다(`spineEvent`). 에단 배치 더빙은 `sfx.units.char_355_ethan.dub`로 한국어·일본어가 나고, `link_sheet.py`의 `MISSING`은 작업표가 `@KR`·`@JP`를 못 읽은 것이었다(고침). `@CN_MANDARIN`은 이 판이 제공하지 않는 언어.
+- 은행 팽·폰사이러스·바르카리스는 막은 적을 두고 전투를 돌려 보니 평타·스킬 소리가 나서 따로 이을 것이 없다. 프로스트리프도 원거리 공격과 스킬은 나지만, 근접 `ON_ABILITY_HIT.char_193_frostl.combat`은 안 난다: 위 「공격 소리 신호」의 영주 줄(sim의 영주는 저지 중에도 원거리로 쏨)과 같은 이유.
+- 확인: `test/audio-cue-links.test.js`(실제 전투 + AudioManager, 횟수까지; 작업 전 코드에서 13개 모두 실패), `test/audio-dub.test.js`.
 
 ## 스킬·재능 투사체 소리 (2026-10-29, 공식 클라 — 캐릭터·스킬·투사체 프리팹)
 - 공식: 스킬·재능·드론이 쏘는 투사체도 자기 뱅크를 낸다 — BORN(발사)·HIT(맞힌 대상마다)·REACH(도착)·STOP(멈춤)·
@@ -769,7 +782,7 @@
   - 확인: `test/audio-diy-pick-sounds.test.js` 「선발 棘刺」(뱅크, battleHarness → AudioManager로 쿨다운 안의 두 번째 피격은 무음). golden은 diy-053~055 fx 수만.
     [화면 미확인]
 
-- 안 한 것: 쏜즈 더 로드스타 `thorn2_t_2_start`(`thorn2_t_2[audio]`를 만드는 템플릿·프리팹을 못 찾음), 실버애쉬 더 레인프로스트 `svash2_s_2[show]`(EN 클라에
+- 안 한 것: 실버애쉬 더 레인프로스트 `svash2_s_2[show]`(EN 클라에
   그 신호를 내는 PlayAudio 없음)·`svash2_eagle_token[locate]`(독수리 토큰이 키트에 없음), 유동체 재능 T.1 `p_skill_wtrlimereborn`(가짜 죽음·부활이
   키트에 없음), 카넬리안·노시스·루멘 `[eff_cond]` 외의 단계 버프, 뮤엘시스·비질 가짜 죽음
   (관리자 메모 「오퍼레이터 효과음」 조사의 H·I 묶음), 적 버프·커스텀 트리거(→ 아래 「적 버프·커스텀 트리거 소리」).

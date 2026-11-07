@@ -123,6 +123,16 @@ const SMDEER_DOOM_AFTER = 1.8;
 /** “帝国的甲胄”'s barrage: Skills/Appear/effect puts enemy_vtsk_skillRange on its target, whose 0.8 s inner buff ends into the
  *  range tile effect and its sound (2026-11-03, EN client prefab + buff templates). */
 const VTSK_RANGE_AFTER = 0.8;
+/**
+ * The 'dmg' 9th field's moments whose buff template plays a sound on the target: 克莱门莎 T1's won roll, 酒神 S2's 本能的召唤 ticks, 引星棘刺 S2's
+ * ticks (thorn2_s2_projectile_hit); 2026-11-07: 旅骨's ticks (S1 hbound_s_1[dot], S2 only the heavy enemies' hbound_s_2[heavy_damage]).
+ */
+const MOMENT_SOUNDS = Object.freeze({
+  'clemnt_t1[dice_damage]': 'clemnt:t1', 'phatm2_s_2[damage]': 'phatm2:s2dmg', thorn2_s2_damage: 'thorn2:s2hit',
+  'hbound_s_1[dot]': 'hbound:s1dot', 'hbound_s_2[heavy_damage]': 'hbound:s2dot',
+});
+/** Skill abilities with `_fireAttackFinishEvent`: their ON_ABILITY_ATTACK_FINISH as the end clip starts (docs/rules/audio.md 「스킬 시전 능력 소리」). */
+const ATTACK_FINISH_SOUNDS = Object.freeze({ char_388_mint: Object.freeze({ 1: 'mint:s2end' }), char_484_robrta: Object.freeze({ 1: 'robrta:s2end' }) });
 const REBORN_SOUNDS = Object.freeze({ enemy_1512_mcmstr: 'mcmstr:reborn' });
 const STATUE_SOUNDS = Object.freeze({ enemy_1172_dugago: 'dugago:reborn', enemy_1172_dugago_2: 'dugago:reborn' });
 const REVIVE_SOUNDS = Object.freeze({
@@ -213,7 +223,9 @@ export function kitHitKey(fx, ex, unitOf) {
       : ex.reach && def(ex.id) === 'char_1039_thorn2' ? 'thorn2:s2'
       // 2026-11-01: 塔露拉's footprint on a newly leased tile (castedTimeThreshold 1: not a re-lease) [추정·CN: whether a
       // re-lease counts as another cast — TimedTileLeaseAbility is CN-only]
-      : ex.n === 1 && def(ex.id) === 'char_4247_oxi' ? 'oxi:field' : null;
+      : ex.n === 1 && def(ex.id) === 'char_4247_oxi' ? 'oxi:field'
+      // 2026-11-07: 克里斯汀 S2's orb landing (the kit sends this as it lands; its REACH)
+      : ex.skill === 'christ' && def(ex.id) === 'char_4198_christ' ? 'christ:s2reach' : null;
     case 'wangLink': return ex.first ? 'wang:link' : null;
     case 'swordStorm': return ex.id != null && def(ex.id) === 'char_1050_chen3' ? 'chen3:s2' : null;
     // local patch (maintainer report 2026-10-07): 蕾缪安 S3 — the bombardment's start (first shell), each landing, the lock
@@ -287,7 +299,17 @@ export function kitHitKey(fx, ex, unitOf) {
       // 2026-11-04 (maintainer report: no impact on 怒潮凛冬 S3): each hammer is one spell of skchr_headb2_3 — its ON bank, by spell
       // count from 0 (`.0`–`.4`), once per hammer, enemies or none. S3 makes no normal attack, so the mode's cues never run
       : ex.skill === 'headb2:hammer' && def(ex.id) === 'char_1051_headb2' && Number.isInteger(ex.spell) ? `headb2:s3hit${ex.spell}`
+      // 2026-11-07: 莉赛尔 S2's shot landing (each projectile's REACH, enemies or none); 米特姆 S1's blast at her 小车 (mitm_s_1 PlayAudio explode)
+      : ex.skill === 'liesel' && def(ex.id) === 'char_4031_liesel' ? 'liesel:s2reach'
+      : ex.skill === 'mitm:s1' && def(ex.id) === 'char_4147_mitm' ? 'mitm:s1'
       : null;
+    // 2026-11-07: 米特姆's 樱桃三号 — S2's form (mitm_s_2[to_token] PlayAudio state_change), its way back (trshrb_switch START); 罗贝塔's machine
+    // running (PassiveBuffAbility audioSignal); 可露希尔 — S1's shield on a 援军, her 指挥中心 into its 战术点形态
+    case 'mitmSkill': return def(ex.id) === 'token_10037_mitm_trshrb' ? 'mitm:s2' : null;
+    case 'mitmReborn': return def(ex.id) === 'token_10037_mitm_trshrb' ? 'mitm:reborn' : null;
+    case 'machRun': return ex.form === 'running' && def(ex.id) === 'token_10018_robrta_mach' ? 'robrta:run' : null;
+    case 'shield': return def(ex.src) === 'char_4228_closur' ? 'closur:s1block' : null;
+    case 'disappear': return def(ex.id) === 'token_10066_closur_ourbase' ? 'closur:fakedeath' : null;
     // 2026-11-03: 魔王's 微尘 reaching an operator (an enemy under S2) — its projectile's HIT (cetsyrMoteKey)
     case 'mote': return ex.src !== ex.id ? cetsyrMoteKey(unitOf(ex.src), 'hit') : null;
     // 2026-10-29: 歌蕾蒂娅 S3's tornado forming — its Chant's ON (docs/rules/audio.md 「스킬 시전 능력 소리」)
@@ -344,6 +366,8 @@ export function talentAttackKeys(def, signal) {
 const TALENT_ATTACK_KEYS = Object.freeze({
   char_1032_excu2: Object.freeze({ 'T.1': Object.freeze(['excu2:t1']) }),
   char_1021_kroos2: Object.freeze({ 'T.1': Object.freeze(['kroos2:t1']) }),
+  // 2026-11-07: 慕斯's 连击 — its ability's HIT at each of its two hits (no START / ON bank)
+  char_185_frncat: Object.freeze({ 'T.1': Object.freeze(['frncat:t1hit']) }),
 });
 /**
  * 2026-10-30, docs/rules/audio.md 「재능·소환물 능력 소리」: the sfx.kit keys a talent ability sounds as its swing starts — sim
@@ -2177,7 +2201,7 @@ export class AudioManager {
             if (fin && !(fin.mode && ev.some((x) => x[0] === 'die' && x[1] === e[1]))) this._play(fin.url, { volume: loopGain(fin), limited: true, bank: `${su.def}:end:${su.skillIndex}` });
             // 2026-10-29, docs/rules/audio.md 「스킬 시전 능력 소리」: 薄绿 S2 — its skill ability's ON_ABILITY_ATTACK_FINISH as the
             // end clip starts (the skill's three-part animation fires the attack-finish event then), not at the burst 0.6 s later
-            if (!e[2] && su.def === 'char_388_mint' && su.skillIndex === 1 && !ev.some((x) => x[0] === 'die' && x[1] === e[1])) this._kitSound('mint:s2end');
+            if (!e[2] && ATTACK_FINISH_SOUNDS[su.def]?.[su.skillIndex] && !ev.some((x) => x[0] === 'die' && x[1] === e[1])) this._kitSound(ATTACK_FINISH_SOUNDS[su.def][su.skillIndex]);
           }
         }
         if (kind === 'swing') {
@@ -2246,12 +2270,8 @@ export class AudioManager {
           if (!this.unit(src.def, 'attack', e[1], undefined, mode) && src.side === 'enemy' && e[3] !== 'mortar') this.battle('enemyHit', { volume: 0.35 });
           this.unit(src.def, 'on', e[1], undefined, mode); // 2026-10-10: its ON bank too (START and ON both sound)
         } else if (kind === 'dmg') {
-          // 2026-10-29: 克莱门莎 T1's won roll (clemnt_t1[dice_damage], the 9th field's moment): PlayAudio on the target
-          if (Array.isArray(e[8]) && e[8].some((m) => Array.isArray(m) && m[0] === 'clemnt_t1[dice_damage]')) this._kitSound('clemnt:t1');
-          // 2026-11-01: 酒神 S2 — each tick of 本能的召唤's phatm2_s_2[damage] on an enemy (its ON_BUFF_TRIGGER PlayAudio)
-          if (Array.isArray(e[8]) && e[8].some((m) => Array.isArray(m) && m[0] === 'phatm2_s_2[damage]')) this._kitSound('phatm2:s2dmg');
-          // 2026-11-04: 引星棘刺 S2 — each tick on an enemy (thorn2_s2_damage ON_BUFF_TRIGGER PlayAudio thorn2_s2_projectile_hit)
-          if (Array.isArray(e[8]) && e[8].some((m) => Array.isArray(m) && m[0] === 'thorn2_s2_damage')) this._kitSound('thorn2:s2hit');
+          // the 9th field's moments whose buff plays a sound on the target (MOMENT_SOUNDS)
+          if (Array.isArray(e[8])) for (const m of e[8]) if (Array.isArray(m) && MOMENT_SOUNDS[m[0]]) this._kitSound(MOMENT_SOUNDS[m[0]]);
           if (!IMPACT_TYPES.has(e[3])) continue;
           // 2026-10-11 (user report: 아스카론's 死亡拘审 ticks sounded as her attack, docs/rules/audio.md 「지속 피해 틱」): a damage-over-time
           // tick (the sim's 7th field, damage.js dotFlag) is a buff's damage in the client — no ability HIT, no sound — and
@@ -2496,7 +2516,8 @@ export class AudioManager {
             for (let i = 0; i < Math.min(Number(e[4].n) || 0, max); i++) if (!this._kitSound('phatm2:boomhit')) break;
           }
           // 2026-10-22: a kitHit for `n` units at once (圣聆初雪 S2's tick) — one per unit, at most the bank's own limit
-          if (e[1] === 'kitHit' && Number(e[4]?.n) > 1) {
+          // (布丽吉德's `n` is which of the cut's three prefabs, not a count)
+          if (e[1] === 'kitHit' && Number(e[4]?.n) > 1 && e[4].k !== 'brigid:cut') {
             const hk = kitHitKey(e[1], e[4], unitOf);
             const max = this.getManifest()?.audio?.sfx?.kitLimit?.[hk]?.max ?? 2;
             for (let i = 1; i < Math.min(Number(e[4].n), max); i++) this._kitSound(hk);

@@ -48,6 +48,8 @@ export default {
                 makeZone(battle, unit, {
                   x, y, radius: r, duration: num(b2.projectile_delay_time), interval: num(b2.interval, 1), skill: 'christ',
                   onPulse(b) {
+                    // SelectorHitBehaviour `_playAudioWhenSelect`: each tick before it looks for targets, enemies or none
+                    b.fx('kitHit', { x, y, id: unit.id, k: 'christ:s2tick' });
                     for (const e of b.foesInRadius(x, y, r, true)) {
                       // the hit's `_activeBuffs` come before its damage (Projectile.ActionController.OnHitTarget)
                       if (ep > 0 && e.findBuff(BURST)) b.dealDamage(unit, e, { amount: unit.s.atk * ep, type: 'elemental', element: 'neural', canDodge: false, tags: ['element', 'christ'] });
