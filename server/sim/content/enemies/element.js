@@ -89,26 +89,45 @@ function kitSyufo(ab) {
 function kitDeathEye(ab, e) {
   const s = ab.sk.DeathEye;
   const r = e.base.rangeRadius || 2.5;
-  return [ep('apoptosis', T(ab, 'empty.attack@ep_damage_ratio') ?? 0), skill(s, (b, e2, a) => {
+  const eye = skill(s, (b, e2) => {
     const t = byPriority(e2, targetsNear(b, e2, r))[0];
     if (!t) return;
     const dur = s.bb.hit_duration ?? 0;
     b.addBuff(e2, { key: 'ab:channel', duration: dur, flags: { disarm: true } });
     b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'deathEye', dur });
     let n = 0;
+    const stop = (cut) => {
+      if (e2.mem.deathEye !== ch) return;
+      h.cancel();
+      e2.mem.deathEye = null;
+      if (cut) { b.removeBuff(e2, 'ab:channel'); b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'deathEyeEnd' }); }
+    };
+    const ch = { stop };
     const h = b.every(1, () => {
-      if (!e2.alive) { h.cancel(); return; }
-      // a stun / silence (SILENCE-flagged ability) or the locked target's fall interrupts the channel: no burst
-      if (e2.s.flags.stun || e2.s.flags.silence || !t.alive) { h.cancel(); b.removeBuff(e2, 'ab:channel'); b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'deathEyeEnd' }); return; }
+      if (!e2.alive) { stop(false); return; }
+      // a stun or the locked target's fall interrupts the channel: no burst. Not a silence: the skill holds 沉默反制
+      // while it casts (PRTS 「※技能期间，持有沉默反制」; prefab LineAttack / ChargeAttack `dwlock_skill_anti_flag[silence]`,
+      // abnormalAntis SILENCED, during the cast) — until 2026-11-07 a silence cut it
+      if (e2.s.flags.stun || !t.alive) { stop(true); return; }
       hurt(b, e2, t, e2.s.atk * (s.bb.atk_scale ?? 0), 'arts');
       if (++n >= dur) {
-        h.cancel();
+        stop(false);
         b.fx('explode', { x: t.x, y: t.y, r: 1, kind: 'apoptosis' });
         // "对目标及其周围4格的我方单位": the locked target (a 隐匿 it gained mid-channel does not save it) + an area around it
         for (const u of targetAndArea(t, areaAllies(b, e2, t.x, t.y, 1))) elem(b, e2, u, 'apoptosis', e2.s.atk * (s.bb.ep_damage_ratio ?? 0));
       }
     }, { owner: e2 });
-  }, { sil: true, cond: (b, e2) => targetsNear(b, e2, r).length > 0 })];
+    e2.mem.deathEye = ch;
+  }, { sil: true, cond: (b, e2) => targetsNear(b, e2, r).length > 0 });
+  if (eye) {
+    // the skill is a sequence (공식 클라에서 확인): LineAttack — a RangedAttack with `_waitForProjectileInvalid`, the channel's
+    // line projectile, no wait for an end clip — then ChargeAttack (`_timeMode` 2, `_cooldown` 0: no time). The cast lasts
+    // while the channel lives (content/enemies.js projCastOver): the enemy stands without normal attacks, and the 24 s
+    // cooldown restarts as it ends (upstream #904). A cut cast (freeze, levitation, leaving the field …) ends the channel.
+    eye.projAlive = (b, e2) => !!e2.mem.deathEye;
+    eye.onCut = (b, e2) => { if (e2.mem.deathEye) e2.mem.deathEye.stop(true); };
+  }
+  return [ep('apoptosis', T(ab, 'empty.attack@ep_damage_ratio') ?? 0), eye];
 }
 
 /**

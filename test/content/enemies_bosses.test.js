@@ -250,9 +250,16 @@ test(`${nm('enemy_10034_cnvsax')}: revealed (反隐) and not blocked it makes no
   const e = put(h, 'enemy_10034_cnvsax', [9, 8], { move: true, route: { motion: 'WALK', start: [9, 8], end: [9, 1], checkpoints: [] } });
   h.b.addBuff(e, { key: 'test:reveal', persist: true, flags: { reveal: true } });
   const x0 = e.x;
-  h.run(4);
+  const icd = skb('enemy_10034_cnvsax', 'fire').initCooldown;
+  h.run(icd - 0.5);
   assert.equal(e.stats.attacks, 0, 'no ranged attack (until 0.1.3 it shot the wall and stood still)');
-  approx(x0 - e.x, 4 * e.s.moveSpeed * 0.5 - e.s.moveSpeed * 0.5 * (1 / 8 - 1 / 30), 0.02, 'walked the whole 4 s, less its steering from rest');
+  approx(x0 - e.x, (icd - 0.5) * e.s.moveSpeed * 0.5 - e.s.moveSpeed * 0.5 * (1 / 8 - 1 / 30), 0.02, 'walked until then, less its steering from rest');
+  // its 狂欢式演奏 (the wall in reach) is cast at its attack slot: it stands through the channel (upstream #904)
+  h.run(1);
+  const x1 = e.x;
+  h.run(4);
+  assert.equal(e.stats.attacks, 0);
+  assert.ok(Math.abs(e.x - x1) < 1e-9, 'it stands while it channels');
 });
 
 test(`${nm('enemy_9008_acbunn')}: attacks several targets at once while stealthed`, () => {

@@ -1367,10 +1367,13 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   - `ActiveBuffAbility`(크라운슬레이어·루시안, '블러드 다이아몬드'·데겐블레허의 순간이동 `Blink`, 제트맨 이륙 `TakeOff`, 가상적: 총 돌진 `1` — 이 모드엔 `_waitForCasting`인 것이 없음)는
     스펠 앞뒤로 고정 업데이트 한 번씩(`<OnWaitForPreDelay>`·`<OnWaitForPostDelay>`가 `sharedWaitForFixedUpdate`), 2틱.
   - 순차 묶음(`AbilitySequenceGroup`)은 자식을 차례로(`_MoveToNextActiveAbility`), 합: 가상적: 흑운 `FireWeapon` = 탄약 되돌리기 `ResetAmmoCount` 2틱 + `Fire`(클립 `Skill_2`) 2초.
+  - 투사체가 사라질 때까지 기다리는 원거리 능력(`_waitForProjectileInvalid`, `skillCast` `proj` — 순차 묶음의 자식이어도)은 그 투사체가 살아 있는 동안 시전이다(2026-11-07,
+    `RangedAttack.<OnWaitForPostDelay>`가 `_CheckProjectileValid` 동안 기다림, `_waitForAnimEndWhenProjectileInvalid`면 그 뒤 클립 나머지·`_minPostDelayWhenProjectileInvalid`도).
+    키트가 투사체(채널)의 끝을 알려 주는 것만(`projAlive`, `content/enemies.js projCastOver`): 축제 재즈 연주가 `fire`·살카즈 왕정군 정예 캐스터 `DeathEye`(둘 다 끝 클립 기다림 없음) —
+    「upstream 0.3.4 개발분 대조 이식 — 전투」.
   - **[ASSUMED·미조사]** 0으로 남긴 것: 병렬·선택 묶음(`AbilityParallelGroup`·`AbilitySelectableGroup` — 끝나는 조건을 안 읽음; 공격 차례로 시전하는 키트 없음:
-    살카즈 부패의 전차 `PollutedRangedAtk`·'제국의 갑옷' `Appear`·래트킹 `Mark`·'즈자이' `CrossAttackMarkReborn`·알리스테어, 제국의 여광 `store`), 그리고 투사체가 사라질 때까지
-    기다리는 원거리 능력(`_waitForProjectileInvalid`)의 그 기다림(축제 재즈 연주가 `fire`·'사미의 의지' `Lasso`·'염의 가호' `Skill`·살카즈 왕정군 정예 캐스터 `DeathEye`의 `LineAttack`
-    — 클립이 없으면 0, 있으면 W `C4`·함락의 제사장 `ChainBuff`처럼 클립대로).
+    살카즈 부패의 전차 `PollutedRangedAtk`·'제국의 갑옷' `Appear`·래트킹 `Mark`·'즈자이' `CrossAttackMarkReborn`·알리스테어, 제국의 여광 `store`), 그리고 키트가 투사체 끝을 아직
+    모르는 투사체 기다림('사미의 의지' `Lasso`·'염의 가호' `Skill` — 클립이 없어 0, W `C4`·함락의 제사장 `ChainBuff` — 클립대로; 각 투사체의 수명과 끝 클립 필드를 함께 읽어야 함).
   - **끊긴 시전**: 기절·빙결·수면·공중 띄우기·강제 이동(失衡)·공포·필드 이탈이 시전을 끊으면(`ai.js cutEnemySwing` → 훅 `enemySkillCut`) 그 스킬의 쿨이 그때 다시 돈다 — 클라의
     `AttackState.OnExit` → `InterruptIfNot` → `FinishIfNot(1)`이고 `EnemySkill._OnCastFinish`는 이유와 상관없이 `m_cooldownTimer.Reset`·(`resetMain`이면) 주 공격
     `ResetCooldown`을 한다(이전: 끊겨도 쿨 + 시전 길이 그대로). '즈자이' `ShieldBurst`는 방벽 마지막 층이 깨지면(`InterruptEnemyAbility`) 시전이 끝나고, 시전이 끊기면
@@ -2675,7 +2678,7 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 
 ## upstream 0.3.4 개발분 대조 이식 — 전투 (2026-11-07)
 
-upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받은 전투 수정 셋. 모두 손 이식이고(패치가 안 붙음), 새 시험이 수정 전 코드에서 실패하는 것을 확인했다.
+upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받은 전투 수정. 모두 손 이식이고(패치가 안 붙거나 공식 클라와 달라), 새 시험이 수정 전 코드에서 실패하는 것을 확인했다. 뒤의 셋(묶음 C)은 upstream의 근거가 제보·추정이라 공식 클라를 먼저 읽고 넣었다.
 
 ### 【이동】은 원소 게이지와 폭발 잠금을 비운다 (upstream `7da8ff20`, upstream #903)
 
@@ -2704,6 +2707,18 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 - [추정·엔진: 나누는 때는 우리 `hit` 훅(방어·저항 전) — 회피·`DamageScale` 같은 다른 ON_TAKE_DAMAGE 노드와 같은 단계로 봄, PRTS의 우선순위 −3000은 안 따짐]. 「消失 상태가 아닐 때」는
   이 모드에 성배를 숨기는 수단이 없어 따로 두지 않음.
 - 테스트 `test/content/enemies_bosses.test.js` 「愧悔魂灵圣杯: nearby ground enemies keep 5 %…」, `test/sim/playtest5_elements.test.js` 「a 无来源 burst still passes on…」.
+
+### 투사체 채널 스킬은 채널 동안 시전이다 — 축제 재즈 연주가·살카즈 왕정군 정예 캐스터 (upstream `8540e569` `aa471815`, upstream #904)
+
+- 규칙: 축제 재즈 연주가(`enemy_10034_cnvsax`)의 지속 시전 스킬 `fire`(狂欢式演奏)와 살카즈 왕정군 정예 캐스터(`enemy_1275_dwlock_2`)의 `DeathEye`(死亡之眼)는 **채널이 이어지는 동안
+  시전 중**이다: 그동안 서 있고 일반 공격이 없으며, 스킬 쿨(10 s·24 s)은 **채널이 끝날 때** 다시 돈다(`content/enemies.js` `projAlive` → `projCastOver`, 아래 「적 스킬 = 일반
+  공격 차례」 시전 길이). 기절·빙결·공중 띄우기·필드 이탈 등으로 시전이 끊기면 채널도 끝나고 쿨이 그때 돈다. 정예 캐스터의 채널은 **침묵에 끊기지 않는다**. 전에는 두 시전이 길이 0이라
+  채널 중에도 걸었고(반은폐가 풀린 채 막히지 않은 재즈 연주가), 쿨이 시전 시작부터 돌아 재즈 연주가는 채널(10.5 s)이 끝나자마자 다시 시전했고, 침묵이 정예 캐스터의 채널을 끊었다.
+- 근거(공식 클라에서 확인): 재즈 연주가 프리팹 `Modes/Attack/Body/Skills/fire`는 `RangedAttack`(`_waitForProjectileInvalid` 1, `_waitForAnimEndWhenProjectileInvalid` 0) — 시전은
+  투사체가 유효한 동안 이어지고 끝나면 바로 끝난다(`RangedAttack.<OnWaitForPostDelay>`), 채널 버프 `enemy_cnvsax[cd]`는 기절·빙결·공중 띄우기·침묵에 끊긴다. 정예 캐스터 `Skills/DeathEye`는
+  순차 묶음 `LineAttack`(같은 투사체 기다림) → `ChargeAttack`(`_timeMode` 2, `_cooldown` 0)이고 두 능력이 시전 동안 `dwlock_skill_anti_flag[silence]`(침묵 반제)를 건다 — PRTS 「※技能期间，
+  持有沉默反制」. 쿨은 `EnemySkill._OnCastFinish`가 시전 끝에 다시 시작한다. upstream은 제보로 같은 결론을 냈다.
+- 테스트 `test/content/enemy-skill-proj-wait.test.js`, `test/content/enemies_bosses.test.js` 「节日爵士乐手: revealed (反隐) and not blocked…」(이제 첫 시전부터 서 있음).
 
 ## 오퍼레이터 스킬 발동 시점 묶음 B (2026-10-29)
 

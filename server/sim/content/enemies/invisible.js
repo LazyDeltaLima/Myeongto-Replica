@@ -110,9 +110,14 @@ function kitJazz(ab, e) {
     // 狂欢式演奏 (PRTS 节日爵士乐手, 反击模式): "仅攻击范围内存在我方单位时可触发：锁定目标持续施法，最多持续10.6s，每0.5s对目标
     // 造成攻击力20%的法术伤害和攻击力10%的灼燃损伤 ※施法期间受到沉默影响后，立即结束技能" — ONE locked target (its own
     // priority: the blocker first), floor(10.6 / 0.5) = 21 ticks at 0.5 … 10.5 s. The channel also ends when that target
-    // is gone, makes no normal attacks meanwhile and is never re-cast over itself — the 10 s cooldown (enemy_database
-    // skill 'fire') runs out mid-channel, the next cast waits for its end [ASSUMED "持续施法", as 死亡之眼].
-    sil: true, name: s.name, cd: s.cd, icd: s.icd, cond: (b, e2) => revealed(e2) && !(e2.mem.jazzChannel && !e2.mem.jazzChannel.cancelled) && targetsNear(b, e2, r).length > 0,
+    // is gone. Its ability (prefab `Modes/Attack/Body/Skills/fire`, 공식 클라에서 확인) is a RangedAttack with
+    // `_waitForProjectileInvalid`: the cast lasts while its projectile — the channel — lives (`projAlive`, content/enemies.js
+    // projCastOver), the enemy stands and makes no normal attack meanwhile, and the 10 s cooldown (enemy_database skill
+    // 'fire') restarts as the channel ends (EnemySkill._OnCastFinish; upstream #904). The channel's buff
+    // `enemy_cnvsax[cd]` is stunnable, freezable and levitatable as well as silenceable: a cut cast (`onCut`) ends it too.
+    sil: true, name: s.name, cd: s.cd, icd: s.icd, cond: (b, e2) => revealed(e2) && targetsNear(b, e2, r).length > 0,
+    projAlive: (b, e2) => !!e2.mem.jazzChannel,
+    onCut: (b, e2) => { if (e2.mem.jazzChannel) e2.mem.jazzChannel.end(); },
     fire(b, e2) {
       const dur = s.bb['enemy_cnvsax[cd].duration'] ?? 0, iv = s.bb.hit_interval ?? 0.5;
       const t = byPriority(e2, targetsNear(b, e2, r))[0];
@@ -120,7 +125,8 @@ function kitJazz(ab, e) {
       const n = Math.max(1, Math.floor(dur / iv + 1e-9));
       const buff = b.addBuff(e2, { key: 'ab:channel', duration: dur, flags: { disarm: true } });
       let k = 0;
-      const end = () => { h.cancel(); e2.mem.jazzChannel = null; if (buff) b.removeBuff(e2, buff); };
+      const end = () => { if (e2.mem.jazzChannel !== ch) return; h.cancel(); e2.mem.jazzChannel = null; if (buff) b.removeBuff(e2, buff); };
+      const ch = { end };
       const h = b.every(iv, () => {
         if (!e2.alive || e2.s.flags.silence || !t.alive || !t.deployed) { end(); return; }
         b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'jazzFire' });
@@ -128,7 +134,7 @@ function kitJazz(ab, e) {
         elem(b, e2, t, 'burn', e2.s.atk * (s.bb.ep_damage_ratio ?? 0));
         if (++k >= n) end();
       }, { owner: e2 });
-      e2.mem.jazzChannel = h;
+      e2.mem.jazzChannel = ch;
     },
   } : null];
 }
