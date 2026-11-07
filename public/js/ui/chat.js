@@ -285,23 +285,16 @@ const useChat = () => {
 };
 
 /**
- * Room screen chat panel (co-op rooms). `compact` (a short screen, screens/room.js): a 聊天 button in the room's top bar
- * with the unread count, its panel dropping under it (closed at first, never remembered; a press outside closes it).
+ * Room screen chat panel (co-op rooms): a column left of the seats on every screen (a short one too, maintainer decision
+ * 2026-11-08), folded to a 聊天 button with the unread count; the open state is remembered.
  */
-export function RoomChat({ compact = false } = {}) {
+export function RoomChat() {
   const { lines, seen, myId, online } = useChat();
-  const [open, setOpen] = useState(() => !compact && loadPref(PREF_ROOM_OPEN, true) !== false);
+  const [open, setOpen] = useState(() => loadPref(PREF_ROOM_OPEN, true) !== false);
   const inputRef = useRef(null);
-  const boxRef = useRef(null);
   const last = lines.length ? lines[lines.length - 1].seq : 0;
   useEffect(() => { if (open) markRead(last); }, [open, last]);
-  const toggle = (v) => { setOpen(v); if (!compact) savePref(PREF_ROOM_OPEN, v); };
-  useEffect(() => {
-    if (!compact || !open) return undefined;
-    const onDown = (e) => { if (!(e.target instanceof Element) || !boxRef.current?.contains(e.target)) setOpen(false); };
-    window.addEventListener('pointerdown', onDown, true);
-    return () => window.removeEventListener('pointerdown', onDown, true);
-  }, [compact, open]);
+  const toggle = (v) => { setOpen(v); savePref(PREF_ROOM_OPEN, v); };
   useEffect(() => {
     const onKey = (e) => {
       if (!isChatHotkey(e)) return;
@@ -313,18 +306,6 @@ export function RoomChat({ compact = false } = {}) {
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
   const unread = open ? 0 : unreadCount(lines, myId, seen);
-  if (compact) {
-    return html`<span class="chat-bar" ref=${boxRef}>
-      <button type="button" class=${`chat-bar__btn${open ? ' is-on' : ''}`} onClick=${() => toggle(!open)} aria-expanded=${open ? 'true' : 'false'}
-          aria-label=${open ? t('收起聊天') : t('打开聊天')} data-testid="room-chat-button">
-        <${Glyph} d=${CHAT_D} /><span>${t('聊天')}</span>${unread ? html`<b class="chat__badge num">${unread > 99 ? '99+' : unread}</b>` : null}
-      </button>
-      ${open ? html`<section class="chat chat--room chat--drop" aria-label=${t('聊天')}>
-        <${ChatLog} lines=${lines} myId=${myId} />
-        <${ChatInput} disabled=${!online} inputRef=${inputRef} />
-      </section>` : null}
-    </span>`;
-  }
   if (!open) {
     return html`<button type="button" class="chat-fold" onClick=${() => toggle(true)} aria-label=${t('打开聊天')}>
       <${Glyph} d=${CHAT_D} /><span>${t('聊天')}</span>${unread ? html`<b class="chat__badge num">${unread > 99 ? '99+' : unread}</b>` : null}

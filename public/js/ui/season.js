@@ -185,21 +185,15 @@ export function SeasonSwitch({ class: cls = '' }) {
 }
 
 /**
- * The room's season in its pill (screens/room.js), read-only (maintainer decision 2026-11-07: a room keeps the season it
- * was created in): while several seasons are offered or the room's is not the default.
+ * The room's season, the first part of its mode bar (screens/room.js), read-only (maintainer decision 2026-11-07: a room
+ * keeps the season it was created in): while several seasons are offered or the room's is not the default. The room's
+ * top bar no longer repeats it (maintainer decision 2026-11-08).
  */
-export function RoomSeasonPill() {
+export function RoomSeasonSeg() {
   const st = useStore((s) => ({ season: seasonOf(s.room?.season), shown: hasSeasonPicker(s) || seasonOf(s.room?.season) !== DEFAULT_SEASON }), shallowEqual);
   if (!st.shown) return null;
-  return html`<span class=${`rs-pill__chip rs-pill__season${st.season !== DEFAULT_SEASON ? ' is-new' : ''}`} data-testid="room-season"
+  return html`<span class=${`rs-mode__seg rs-mode__season${st.season !== DEFAULT_SEASON ? ' is-new' : ''}`} data-testid="room-season"
     title=${t('赛季')}>${seasonName(st.season)}</span>`;
-}
-
-/** The room's season (room screen), while several seasons are offered or the room's is not the default. */
-export function SeasonBadge() {
-  const st = useStore((s) => ({ season: seasonOf(s.room?.season), shown: hasSeasonPicker(s) || seasonOf(s.room?.season) !== DEFAULT_SEASON }), shallowEqual);
-  if (!st.shown) return null;
-  return html`<span class=${`season-badge${st.season !== DEFAULT_SEASON ? ' season-badge--new' : ''}`}>${t('赛季')} · ${seasonName(st.season)}</span>`;
 }
 
 /** shallowEqual that compares one level of arrays inside (the `offered` list). */

@@ -84,9 +84,8 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
    press on the own row left the match on a small phone */
 .gtop__exit { --tap-top: 100%; --tap-ty: -100%; }
 /* rows of buttons that touch: no sideways growth (难度 / 规则, 关闭 · 韩语 · 日语, tabs, the corner's ⋯ ⚙ 📖 ⛶, the room's
-   统计 · 设置 · 玩法说明 and its pill 赛季 · 难度 · 规则 · 人数 · ⚙); the 交流
-   panel inside the corner keeps its own pager areas (below) */
-.set-seg, .dpick, .tabs, .gm__corner, .rs-tools, .rs-pill { --tap-w: 100%; }
+   统计 · 设置 · 玩法说明); the 交流 panel inside the corner keeps its own pager areas (below) */
+.set-seg, .dpick, .tabs, .gm__corner, .rs-tools { --tap-w: 100%; }
 /* the corner sits on the bottom edge: its buttons grow downwards only — opened, ⚙ 📖 ⛶ reach the shop's 调度中心 card
    and first card (or, on a narrow phone where they wrap above 交流, the left player list) */
 .gm__corner { --tap-top: 0%; --tap-ty: 0%; }

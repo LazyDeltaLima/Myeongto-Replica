@@ -1,14 +1,15 @@
 /* ==========================================================================================
    screens/room.css — the room (waiting) screen after upstream 0.3.3, laid out like the event's room: the top bar (leave,
-   mode and ping, tools, 干员调配, 同盟密钥), tall seat cards with their name plates (8 in two rows: the 8-player mode),
-   the room chat at the left, the bottom (the status line with the 观战席, the pill 难度 · 规则 · 人数 · ⚙, 匹配补位 and
-   the big 开始模拟 / 准备就绪 — `.proto-start`, screens/lobby.css). Text follows `--t` like the lobby hub (lobby.css).
+   mode and ping, tools, 同盟密钥; 干员调配 on a short screen), tall seat cards with their name plates (8 in two rows: the
+   8-player mode), the room chat at the left with 干员调配 under it, the bottom (the status line with the 观战席 and
+   「AI 队友最后选择」, the event's mode bar — group_mode's sprites —, 匹配补位 and the big 开始模拟 / 准备就绪 —
+   `.proto-start`, screens/lobby.css). Text follows `--t` like the lobby hub (lobby.css).
    ========================================================================================== */
 
-.rs { --t: 1rem; --t-step: calc((1rem - 64px) / 12); background: #0a0b0b; color: #eef0ef; }
+.rs { --t: 1rem; --t-step: calc((1rem - 64px) / 12); --chat-w: 3.7rem; background: #0a0b0b; color: #eef0ef; }
 .rs:lang(ko) { word-break: keep-all; overflow-wrap: break-word; }
 .rs-hint, .rs-brief p, .rs-brief li { text-wrap: pretty; }
-.rseat__add, .rseat__wait b, .rseat__invite small { text-wrap: balance; }
+.rseat__add, .rseat__wait b { text-wrap: balance; }
 .rs__bg {
   position: absolute;
   inset: 0;
@@ -36,27 +37,17 @@
   z-index: 3;
 }
 .rs-top__left { display: flex; align-items: center; flex-wrap: wrap; gap: .16rem; min-width: 0; }
-.rs-exit {
-  display: grid;
-  place-items: center;
-  width: max(.6rem, 32px, calc(36px * var(--sp-ui, 1)));
-  height: max(.6rem, 32px, calc(36px * var(--sp-ui, 1)));
-  padding: 0;
-  color: #1b1e1d;
-  background: linear-gradient(180deg, #e3e7e5, #b7bfbc);
-  border: 0;
-  border-radius: .06rem;
-  box-shadow: 0 .03rem .1rem rgba(0, 0, 0, .5);
-}
-.rs-exit:hover:not(:disabled), .rs-exit:focus-visible { filter: brightness(1.08); }
-.rs-exit .icon { width: 60%; height: 60%; }
+.rs .rs-exit.btn { --sq: max(.64rem, 34px); height: max(.64rem, 34px); }
 .rs-clock { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
-.rs-clock > b { display: inline-flex; align-items: center; gap: .1rem; font-size: calc(.2 * var(--t)); font-weight: 700; white-space: nowrap; }
-.rs-clock .season-badge { margin-top: 0; }
+.rs-clock > b { font-size: calc(.2 * var(--t)); font-weight: 700; white-space: nowrap; }
 .rs-clock__ping { display: inline-flex; align-items: center; gap: .08rem; font-size: calc(.15 * var(--t)); color: #9aa19e; }
 .rs-clock__ping .ping { height: auto; min-height: .32rem; padding-top: 1px; padding-bottom: 1px; }
 .rs-tools { display: flex; gap: .08rem; margin-left: .1rem; }
 .rs-tools .settings-btn .icon { width: max(.22rem, 18px); height: max(.22rem, 18px); }
+/* a finger's size on a touch screen (an iPad's .36rem is under 20 px) */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .rs-tools .btn--square { --sq: max(.36rem, 32px); height: max(.36rem, 32px); }
+}
 .rs-top__right { display: flex; align-items: center; gap: .14rem; }
 .rs .rs-loadout {
   --pl-ink: #222b28;
@@ -291,7 +282,7 @@
   opacity: .8;
   transition: opacity var(--t-fast), border-color var(--t-fast);
 }
-.rseat__pick .icon { flex: none; width: 1.1em; height: 1.1em; }
+.rseat__pick .icon, .rseat__art .rseat__pick-ico { position: static; flex: none; width: 1.25em; height: 1em; object-fit: contain; }
 .rseat__art:hover .rseat__pick, .rseat__pick:focus-visible { opacity: 1; border-color: #5df0c6; }
 .rseat__plate {
   position: relative;
@@ -313,9 +304,12 @@
 .rseat__who .seat__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .seat__you { flex: none; padding: 0 .06rem; font-size: calc(.12 * var(--t)); font-weight: 700; color: var(--text-on-mint); background: var(--mint-500); }
 .rseat__doc { font-size: calc(.11 * var(--t)); letter-spacing: .1em; color: #7f8583; }
-.rseat__me { position: absolute; left: -.1rem; top: -.1rem; display: grid; place-items: center; width: max(.26rem, 16px); height: max(.26rem, 16px); color: #08221b; background: #4fe8c0; border-radius: 3px; }
-.rseat__me .icon { width: 80%; height: 80%; }
-.rseat__plate--empty { display: flex; justify-content: center; border-style: dashed; border-color: rgba(255, 255, 255, .12); background: none; font-size: calc(.15 * var(--t)); }
+/* one's own plate: the event's self tag (icon_self_room) on its top-left corner, over the card's lower edge */
+.rseat__me { position: absolute; left: -.1rem; top: -.12rem; z-index: 3; display: grid; place-items: center; width: max(.3rem, 18px); height: max(.3rem, 18px); }
+.rseat__me .sprite { width: 100%; height: 100%; }
+.rseat__me > .icon { width: 100%; height: 100%; padding: 2px; color: #08221b; background: #4fe8c0; border-radius: 3px; }
+/* an empty seat's plate keeps the row's height and draws nothing */
+.rseat__plate--empty { visibility: hidden; }
 .rseat--empty .rseat__art { grid-template-rows: 1fr auto auto; padding-bottom: .5rem; background: linear-gradient(135deg, transparent 47%, rgba(255, 255, 255, .06) 50%, transparent 53%), #141616; }
 .rseat__invite { align-self: end; display: flex; flex-direction: column; align-items: center; gap: .1rem; padding: .2rem .1rem; font: inherit; color: #eef0ef; background: none; border: 0; }
 .rseat__plus { position: relative; width: max(.9rem, 32px, calc(46px * var(--sp-ui, 1))); height: max(.9rem, 32px, calc(46px * var(--sp-ui, 1))); }
@@ -323,21 +317,19 @@
 .rseat__plus::before { left: 50%; top: 0; bottom: 0; width: 7px; transform: translateX(-50%); }
 .rseat__plus::after { top: 50%; left: 0; right: 0; height: 7px; transform: translateY(-50%); }
 .rseat__invite b { font-size: calc(.26 * var(--t)); }
-.rseat__invite small { font-size: calc(.15 * var(--t)); color: #8d9391; text-align: center; }
 .rseat__invite:hover .rseat__plus::before, .rseat__invite:hover .rseat__plus::after,
 .rseat__invite:focus-visible .rseat__plus::before, .rseat__invite:focus-visible .rseat__plus::after { background: #5df0c6; }
 .rseat__add { align-self: start; max-width: calc(100% - .12rem); height: auto; min-height: .36rem; padding-block: .03rem; margin-top: .1rem; white-space: normal; line-height: 1.1; text-align: center; }
 .rseat__cap { align-self: start; margin-top: .1rem; padding: 0 .1rem; font-size: calc(.14 * var(--t)); text-align: center; }
 .rseat__wait { align-self: end; display: flex; flex-direction: column; align-items: center; gap: .1rem; padding: 0 .1rem; color: #b7bdbb; }
 .rseat__wait b { font-size: calc(.18 * var(--t)); text-align: center; }
-.rseat__noinfo { position: absolute; right: .12rem; bottom: .14rem; font-family: var(--font-display); font-size: calc(.12 * var(--t)); letter-spacing: .1em; color: rgba(255, 255, 255, .15); }
 
 /* the 8-player mode: two rows of four, each card half as tall (its portrait a band) */
 .rs-seats.seats--8 { display: grid; grid-template-columns: repeat(4, var(--w8)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: .24rem max(.2rem, 1.4vw); padding-top: .26rem;
   --w8: min(18vw, 3.4rem, calc((100vw - 1.6rem) / 4 - .3rem)); }
 .rs-seats.seats--8 .rseat { width: auto; }
 .seats--8 .rseat__plate { min-height: max(.5rem, 28px); margin-top: .04rem; }
-.seats--8 .rseat__doc, .seats--8 .rseat__noinfo, .seats--8 .rseat__invite small { display: none; }
+.seats--8 .rseat__doc { display: none; }
 .seats--8 .seat__art.rseat__art > .avatar { --av: 1rem; }
 .seats--8 .rseat__plus { width: max(.5rem, 24px); height: max(.5rem, 24px); }
 .seats--8 .rseat__state { font-size: calc(.2 * var(--t)); }
@@ -356,48 +348,35 @@
 }
 
 /* ---- the room chat: a column left of the seats (they give up the width) ---------------------------------------- */
-.rs.has-chat .rs-seats { padding-left: 4.2rem; }
+/* `--chat-w` is the column's width (chat.css's on a touch screen, a phone's own below); the selectors outweigh chat.css's
+   older padding, which loads after this file */
+.rs.has-chat .rs-seats.seats { padding-left: calc(var(--chat-w) + .5rem); }
 .rs.has-chat .rs-hint .specbar { padding-left: 0; } /* (chat.css pads the old strip under the seats) */
-.rs.has-chat .rseat { --w: min(18vw, 3.4rem, calc((100vw - 5.4rem) / var(--n, 4) - .3rem)); }
-.rs.has-chat .rs-seats.seats--8 { --w8: min(18vw, 3.4rem, calc((100vw - 5.4rem) / 4 - .3rem)); }
-.rs .chat--room { top: 1.1rem; bottom: 1.66rem; left: .22rem; }
-.rs .chat-fold { bottom: 1.66rem; left: .22rem; }
-/* a short screen: the 聊天 button in the top bar, its panel dropping under it */
-.chat-bar { position: relative; display: inline-flex; }
-.chat-bar__btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: max(.56rem, 32px);
-  padding: 0 10px;
-  color: var(--text-hi);
-  background: rgba(16, 22, 20, .92);
-  border: 1px solid rgba(255, 255, 255, .22);
-  font-weight: 700;
-}
-.chat-bar__btn.is-on { border-color: var(--mint-600); }
-.chat-bar__btn .icon { width: 16px; height: 16px; color: var(--mint-500); }
-.chat-bar__btn .chat__badge { position: absolute; right: -6px; top: -6px; }
-.chat--drop { position: absolute; right: 0; top: calc(100% + 4px); left: auto; bottom: auto; z-index: 20; width: min(300px, 80vw); height: min(240px, 60svh);
-  box-shadow: 0 .1rem .4rem rgba(0, 0, 0, .7); }
+.rs.has-chat .rseat { --w: min(18vw, 3.4rem, calc((100vw - var(--chat-w) - var(--seats-pad, 1.7rem)) / var(--n, 4) - .3rem)); }
+.rs.has-chat .rs-seats.seats--8 { --w8: min(18vw, 3.4rem, calc((100vw - var(--chat-w) - var(--seats-pad, 1.7rem)) / 4 - .3rem)); }
+@media (pointer: coarse), (any-pointer: coarse) { .rs { --chat-w: max(3.7rem, 230px); } }
+/* the chat ends above the bottom row, where 干员调配 sits under it as wide as the chat (maintainer decision 2026-11-08) */
+.rs .chat--room { top: 1.1rem; bottom: 1.38rem; left: .22rem; width: var(--chat-w); }
+.rs .chat-fold { bottom: 1.38rem; left: .22rem; }
 
-/* ---- bottom: status (ready count, status line, 观战席), the pill, 匹配补位, the big button ----------------------- */
+/* ---- bottom: the status line over the row of 干员调配, the mode bar, 匹配补位 and the big button --------------------- */
 .rs-foot {
   flex: none;
   display: grid;
-  grid-template-columns: minmax(min-content, 1fr) auto minmax(min-content, 1fr);
+  grid-template-columns: var(--chat-w) minmax(0, 1fr) auto;
   align-items: end;
-  gap: .2rem;
+  gap: .1rem .2rem;
   padding: .1rem .3rem .2rem .22rem;
   z-index: 2;
 }
-/* the status line (ready count, status, 观战席) spans the whole bar above the pill row, so six long spectator names fit
-   on a desktop; the pill sits under it in the middle column, 匹配补位 and the big button at the right */
-.rs-foot__center { display: contents; }
-.rs-foot > .rs-foot__left { grid-row: 2; grid-column: 1; min-width: 0; align-self: end; }
-.rs-foot .rs-hint { grid-row: 1; grid-column: 1 / -1; min-width: 0; }
-.rs-foot .rs-pill { grid-row: 2; grid-column: 2; justify-self: center; }
+/* the status line (ready count, status, 观战席, AI 队友最后选择) spans the bar right of the chat, so six long spectator
+   names fit on a desktop */
+.rs-foot .rs-hint { grid-row: 1; grid-column: 2 / -1; min-width: 0; }
+.rs-foot__lo { grid-row: 2; grid-column: 1; align-self: stretch; display: flex; }
+.rs .rs-foot__lo .rs-loadout { flex: 1 1 auto; height: auto; min-height: max(.86rem, 40px); justify-content: center; font-size: calc(.22 * var(--t)); }
+.rs-foot .rs-mode { grid-row: 2; grid-column: 2; justify-self: end; align-self: center; }
+/* touch: the status line's controls reach 44 px (devices.css); the row under them starts below that reach */
+@media (pointer: coarse), (any-pointer: coarse) { .rs-foot { row-gap: max(.1rem, 12px); } }
 .rs-foot > .rs-foot__right { grid-row: 2; grid-column: 3; }
 .rs-hint { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .06rem .16rem; margin: 0; font-size: calc(.18 * var(--t)); color: #d6dad8; text-align: center; }
 .room-bar__status .icon { width: 1.1em; height: 1.1em; margin-right: 4px; vertical-align: -2px; }
@@ -406,100 +385,73 @@
 .rs-ready .icon { width: max(.2rem, 13px); height: max(.2rem, 13px); color: #4b504e; }
 .rs-ready .icon.is-on { color: #4fe8c0; }
 .rs-ready b { margin-left: .06rem; color: #eef0ef; }
-.rs-pill {
+
+/* the event room's group_mode (auto_chess_room_state): one capsule (bg_mode, sliced 30 px at each end) of 赛季 | 规则 |
+   难度 | 人数, white 20 % lines (2×23), the difficulty's icon and light (light_mode 187×82) in its colour, the round
+   switch (btn_switch_mode 60×61) over the right end. `--o` is one unit of the event's 1280×720 canvas (.015rem: the
+   page's rem is 1/19.2 of the width, 1/10.8 of the height), at 0.8 on a desktop — the bar holds four parts, the
+   event's two */
+.rs-mode {
+  --o: .012rem;
   position: relative;
-  display: inline-flex;
-  max-width: 100%;
-  align-items: center;
-  gap: .1rem;
-  height: max(.68rem, 32px, calc(40px * var(--sp-ui, 1)));
-  padding: 0 .08rem;
-  background: rgba(14, 15, 15, .92);
-  border: 1px solid rgba(255, 255, 255, .14);
-  border-radius: 999px;
-  box-shadow: 0 .04rem .16rem rgba(0, 0, 0, .5);
-}
-.rs-pill__diff, .rs-pill__chip {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: .08rem;
-  height: 78%;
-  padding: 0 .2rem;
-  font: inherit;
-  font-size: calc(.2 * var(--t));
-  font-weight: 800;
-  white-space: nowrap;
-  border: 0;
-  border-radius: 999px;
-}
-.rs-pill__diff { color: var(--d-color); background: rgba(255, 255, 255, .06); background: color-mix(in srgb, var(--d-color) 22%, #151616); }
-.rs-pill__diff .icon { flex: none; width: 1.2em; height: 1.2em; }
-.rs-pill__code { font-size: calc(.13 * var(--t)); color: #9aa19e; }
-.rs-pill__chip { color: #e6e6e6; background: rgba(255, 255, 255, .07); }
-.rs-pill__rules.rtag--classic { color: #f5c26b; background: rgba(245, 165, 36, .18); }
-.rs-pill__rules.rtag--casual { color: var(--mint-400); background: var(--mint-a10); }
-.rs-pill__rules.rtag--custom { color: #c9b8ff; background: rgba(160, 130, 255, .16); }
-.rs-pill__size { color: var(--ice); }
-.rs-pill__season { color: var(--mint-400); background: var(--mint-a10); cursor: default; }
-.rs-pill__season.is-new { color: var(--gold); background: var(--gold-a20); }
-.rs-pill__diff:disabled, .rs-pill__chip:disabled { cursor: default; }
-.rs-pill__chip:disabled:not(.is-ro) { opacity: .6; }
-.rs-pill__diff:hover:not(:disabled), .rs-pill__diff:focus-visible, .rs-pill__chip:hover:not(:disabled), .rs-pill__chip:focus-visible { filter: brightness(1.2); }
-.rs-pill__diff.is-ro, .rs-pill__chip.is-ro { cursor: help; }
-.rs-pill__gear {
-  display: grid;
-  place-items: center;
-  width: max(.52rem, 32px);
-  height: max(.52rem, 32px);
+  min-width: 0;
+  max-width: calc(100% - var(--o) * 30);
+  height: calc(var(--o) * 57);
+  margin-right: calc(var(--o) * 30);
   padding: 0;
-  color: #1b1e1d;
-  background: linear-gradient(180deg, #e9edeb, #c3cac7);
-  border: 2px solid #0e0f0f;
-  border-radius: 50%;
+  font: inherit;
+  color: #cacaca;
+  white-space: nowrap;
+  background: none;
+  border-style: solid;
+  border-width: 0 calc(var(--o) * 30);
+  border-color: transparent;
+  border-image: var(--rm-bg) 0 30 fill / 0 calc(var(--o) * 30) stretch;
+  cursor: pointer;
 }
-.rs-pill__gear svg { width: 62%; height: 62%; fill: currentColor; }
-.rs-pill__gear.is-on, .rs-pill__gear:hover, .rs-pill__gear:focus-visible { background: #fff; }
-.rs-opts {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + .14rem);
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: .12rem;
-  width: max-content;
-  max-width: 92vw;
-  padding: .16rem .2rem;
-  transform: translateX(-50%);
-  background: linear-gradient(180deg, #202323, #141616);
-  border: 1px solid rgba(255, 255, 255, .16);
-  box-shadow: 0 .1rem .4rem rgba(0, 0, 0, .7);
-}
-.rs-opts h4 { margin: 0; font-size: calc(.2 * var(--t)); }
-.rs-opts__row { display: flex; align-items: center; gap: .12rem; font-size: calc(.14 * var(--t)); }
-.rs-opts__k { min-width: 1.2rem; color: var(--text-lo); }
-.rs-opts__diff {
-  display: inline-flex; align-items: center; gap: .06rem; min-height: .36rem; padding: .02rem .14rem;
-  font: inherit; font-size: calc(.15 * var(--t)); font-weight: 700; white-space: nowrap;
-  color: var(--d-color); background: rgba(0, 0, 0, .3); border: 1px solid var(--line-2);
-}
-.rs-opts__rules { color: var(--amber); }
-.rs-opts__rules.rtag--casual { color: var(--mint-400); }
-.rs-opts__rules.rtag--custom { color: #c9b8ff; }
-.rs-opts__diff .icon { width: 1.1em; height: 1.1em; }
-.rs-opts__diff em { margin-left: .06rem; font-style: normal; color: var(--text-hi); text-decoration: underline; text-underline-offset: 2px; }
-.rs-opts__diff:hover:not(:disabled), .rs-opts__diff:focus-visible { border-color: var(--d-color); }
-.rs-opts__note { font-size: calc(.13 * var(--t)); }
-.room-bar__right { display: flex; align-items: flex-end; justify-content: flex-end; gap: .14rem; }
-/* 匹配补位: a dark box beside the big button, its badge the Doctors of the queue it draws from */
+.rs-mode.no-art { border: 0; padding: 0 calc(var(--o) * 30); background: rgba(8, 9, 9, .92); border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.rs-mode.is-ro { cursor: help; }
+.rs-mode:disabled { cursor: default; }
+.rs-mode:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; }
+.rs-mode__seg { position: relative; isolation: isolate; flex: 0 0 auto; display: inline-flex; align-items: center; gap: calc(var(--o) * 6); padding: 0 calc(var(--o) * 18); font-size: calc(var(--o) * 19); }
+/* a bar wider than its place (a narrow phone) cuts the difficulty's name rather than reaching over the buttons */
+.rs-mode__diff { flex-shrink: 1; min-width: 0; }
+.rs-mode__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rs-mode__seg + .rs-mode__seg::before { content: ''; position: absolute; left: -1px; top: 50%; width: max(1px, calc(var(--o) * 2)); height: calc(var(--o) * 23); transform: translateY(-50%); background: rgba(255, 255, 255, .2); }
+.rs-mode__season { font-weight: 700; color: var(--mint-400); }
+.rs-mode__season.is-new { color: var(--gold); }
+.rs-mode .rs-mode__rules { color: #cacaca; }
+.rs-mode__diff { color: var(--rm-c); }
+.rs-mode__diff .icon { width: 1.2em; height: 1.2em; }
+.rs-mode__light { position: absolute; left: 50%; top: 50%; z-index: -1; width: calc(var(--o) * 187); height: calc(var(--o) * 82); transform: translate(-50%, -50%); pointer-events: none;
+  background: var(--rm-c); -webkit-mask: var(--rm-light) center / 100% 100% no-repeat; mask: var(--rm-light) center / 100% 100% no-repeat; }
+.rs-mode__ico { flex: none; width: calc(var(--o) * 25); height: calc(var(--o) * 31); background: var(--rm-ico) center / contain no-repeat; }
+.rs-mode__ico.is-tint { background: var(--rm-c); -webkit-mask: var(--rm-ico) center / contain no-repeat; mask: var(--rm-ico) center / contain no-repeat; }
+.rs-mode__code { font-size: .7em; font-weight: 600; opacity: .7; }
+.rs-mode__knob { flex: none; display: grid; place-items: center; width: calc(var(--o) * 60); height: calc(var(--o) * 61); margin: 0 calc(var(--o) * -30) 0 calc(var(--o) * 4);
+  background: var(--rm-knob) center / 100% 100% no-repeat; transition: filter var(--t-fast); }
+.rs-mode.no-art .rs-mode__knob { margin-right: calc(var(--o) * -24); color: #1b1e1d; background: linear-gradient(180deg, #eceeed, #b9bfbd); border-radius: 50%; }
+.rs-mode__knob .icon { width: 60%; height: 60%; }
+.rs-mode:hover:not(:disabled) .rs-mode__knob, .rs-mode:focus-visible .rs-mode__knob { filter: brightness(1.15); }
+.rs-mode:hover:not(:disabled) .rs-mode__seg { color: #e6e6e6; }
+.rs-mode:hover:not(:disabled) .rs-mode__diff { color: var(--rm-c); filter: brightness(1.12); }
+
+/* 匹配补位 (a dark box) as tall as the big button beside it, its badge the Doctors of the queue it draws from */
+.rs-foot__right { display: flex; align-items: stretch; justify-content: flex-end; gap: .14rem; }
+.rs-foot__right > .tt-anchor { display: flex; }
 .rs-fill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: .08rem;
-  height: max(.86rem, 40px);
+  min-width: 2.3rem;
+  min-height: max(.86rem, 40px);
   padding: 0 .2rem;
   font: inherit;
-  font-size: calc(.18 * var(--t));
+  font-size: calc(.22 * var(--t));
   font-weight: 700;
   white-space: nowrap;
   color: #e8e8e8;
@@ -626,22 +578,28 @@
 .rpick__opt[data-ruleset='casual'] { --d-color: var(--mint-400); }
 .rpick__n { min-width: .22rem; padding: 0 .05rem; border-radius: .11rem; background: rgba(255, 255, 255, .08); font-size: .13rem; line-height: 1.5; text-align: center; color: var(--text-md); }
 .rpick__opt.is-active .rpick__n { background: rgba(255, 255, 255, .14); background: color-mix(in srgb, var(--d-color) 25%, transparent); color: var(--d-color); }
-.roomsize .rpick__opt { min-width: .56rem; justify-content: center; }
 .rtag { padding: .02rem .1rem; border: 1px solid currentColor; font-size: .16rem; letter-spacing: .06em; color: var(--amber); }
 .rtag--casual { color: var(--mint-400); }
 .rtag--size { color: var(--ice); } /* the 8-player mode */
-/* the room's 卫戍协议 season beside the title while the server offers several (ui/season.js SeasonBadge) */
-.season-badge { display: inline-flex; align-items: center; gap: .05rem; margin-top: .02rem; padding: 0 .08rem; height: max(.24rem, 18px);
-  font-size: max(.13rem, 10px); color: var(--mint-400); border: 1px solid var(--mint-a35); background: var(--mint-a10); white-space: nowrap; }
-.season-badge--new { color: var(--gold); border-color: rgba(255, 198, 0, .45); background: var(--gold-a20); }
 
 /* ---- short landscape phones (≤ 520 CSS px tall; 1rem is ~40 px: the text gets its own sizes) ------------------- */
 @media (max-height: 520px) {
+  /* the chat is the desktop's left column, under the top bar down to the bottom edge; the seats and the bottom rows sit
+     right of it, the status line centred (maintainer decision 2026-11-08); the mode bar near the event's own scale (.015rem) — .013rem fits it beside the buttons */
+  .rs { --chat-w: 190px; --seats-pad: 36px; }
+  .rs .chat--room { top: 52px; bottom: 10px; left: 10px; height: auto; max-height: none; }
+  .rs .chat-fold { top: 52px; bottom: auto; left: 10px; }
+  .rs.has-chat .rs-seats.seats { padding-left: calc(var(--chat-w) + 16px); }
+  .rs-foot { grid-template-columns: minmax(0, 1fr) auto; }
+  .rs.has-chat .rs-foot { padding-left: calc(var(--chat-w) + 16px); }
+  .rs-foot .rs-hint { grid-column: 1 / -1; }
+  .rs-foot .rs-mode { --o: .013rem; grid-column: 1; justify-self: center; }
+  .rs-foot > .rs-foot__right { grid-column: 2; }
   .rs .rs-top { padding-top: 6px; }
   .rs-seats { padding-top: 14px; gap: 12px; }
   .rseat__plate { min-height: 36px; margin-top: 4px; }
   .rs--solo .rseat { --w: min(calc(2.7 * var(--t)), 3.4rem, 34vw); }
-  .rseat__doc, .rseat__noinfo, .rseat__invite small, .seat__op { display: none; }
+  .rseat__doc, .seat__op { display: none; }
   .seat__art.rseat__art { gap: 2px; padding: 4px 3px; }
   .seat__art.rseat__art > .avatar--xl { --av: clamp(1rem, calc(3rem - var(--t)), 2rem); }
   .rseat__host, .rseat__bot { padding: 1px 6px; font-size: min(calc(.26 * var(--t)), calc(15px + var(--t-step) / 2)); }
@@ -674,30 +632,29 @@
   .rs-brief h2 { font-size: min(calc(.32 * var(--t)), calc(20px + var(--t-step))); }
   .rs-brief p { font-size: min(calc(.17 * var(--t)), calc(14px + var(--t-step))); }
   .rs-brief ul { font-size: min(calc(.16 * var(--t)), calc(13px + var(--t-step))); line-height: 1.35; }
-  .rs-pill { gap: 4px; }
-  .rs-pill__diff, .rs-pill__chip { padding: 0 9px; font-size: min(calc(.28 * var(--t)), calc(18px + var(--t-step))); }
   .rs-key__code { font-size: calc(.36 * var(--t)); }
   .rs-key__copy { font-size: min(calc(.26 * var(--t)), calc(18px + var(--t-step))); }
-  .rs-fill { height: 46px; padding: 0 9px; font-size: min(calc(.26 * var(--t)), calc(15px + var(--t-step))); }
+  .rs-fill { min-width: 0; min-height: 46px; padding: 0 9px; font-size: min(calc(.26 * var(--t)), calc(15px + var(--t-step))); }
   .rs-go.proto-start { height: auto; min-height: 46px; }
   .rs-go .proto-start__mark { display: none; }
   .rs-go .proto-start__label { font-size: min(calc(.46 * var(--t)), calc(20px + var(--t-step))); }
-  .rs .rs-loadout .btn__label { display: none; }
   .rs-tools { margin-left: 0; }
   .rs-tools > :not(.modal), .rs-key__k { display: none; }
   .ailast__opt { min-height: 24px; font-size: min(calc(.24 * var(--t)), calc(13px + var(--t-step))); }
+}
+/* narrow phones (640 × 360): a narrower chat, a smaller big button, 匹配补位 without its icon on two lines */
+@media (max-height: 520px) and (max-width: 720px) {
+  .rs { --chat-w: 160px; }
+  .rs-go.proto-start { width: 140px; }
+  .rs-fill { white-space: normal; line-height: 1.1; text-align: center; }
+  .rs-fill > .icon { display: none; }
+  .rs-foot .rs-mode { --o: .012rem; }
+  .rs-mode__code { display: none; }
 }
 @media (max-height: 520px) and (min-height: 370px) {
   .rseat__plate { min-height: max(32px, calc(36px * var(--sp-ui, 1)), calc(2.2 * min(calc(.28 * var(--t)), calc(18px + var(--t-step) / 2)) + 8px)); }
   .rseat__who { grid-row: 1 / 3; align-self: center; }
   .rseat__who .seat__name { white-space: normal; overflow-wrap: anywhere; line-height: 1.1; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
-}
-@media (max-width: 900px) {
-  .rs-foot { grid-template-columns: minmax(0, 1fr) auto; }
-  .rs-foot > .rs-foot__left { display: none; }
-  .rs-foot .rs-hint { justify-content: flex-start; text-align: left; }
-  .rs-foot .rs-pill { grid-column: 1; justify-self: start; }
-  .rs-foot > .rs-foot__right { grid-column: 2; }
 }
 @media (max-aspect-ratio: 1/1) {
   .rs-seats { justify-content: flex-start; }

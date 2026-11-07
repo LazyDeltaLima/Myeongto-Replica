@@ -112,7 +112,7 @@ export const UI_EXTRAS = (() => {
   // seat card's 名片 icon and host tag (player_solt_item_room)
   const rm = 'ui/autochess/[uc]autochessouter/room/';
   for (const k of ['bg_mode', 'btn_switch_mode', 'light_mode', 'icon_easy', 'icon_normal', 'icon_hard', 'icon_abyss']) L.push(['room', k, `${rm}auto_chess_room_state/${k}.png`]);
-  for (const k of ['icon_card', 'host_top_tag']) L.push(['room', k, `${rm}playercard/player_solt_item_room/${k}.png`]);
+  for (const k of ['icon_card', 'host_top_tag', 'icon_self_room']) L.push(['room', k, `${rm}playercard/player_solt_item_room/${k}.png`]);
   // the strategy draft's player list rows (prefab_auto_chess_band_choose_player_card_item; its arrow is the band item's)
   const bc = 'ui/autochess/[uc]autochessouter/bandchoose/';
   for (const k of ['player_card_self_frame', 'icon_self_room', 'player_card_waiting', 'player_card_selecting', 'shallow_main', 'player_card_team_frame', 'player_card_ready']) {

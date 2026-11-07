@@ -626,10 +626,13 @@ function RowKey({ text }) {
  * The rule rows at the top of 选择模拟协议's right column (maintainer decisions 2026-11-07): 快速匹配 (同盟匹配 only: a switch,
  * its note at its right when on), 规则 (经典 / 休闲 / 自定义 ⚙; 自定义 locked in 同盟匹配) and 人数 (同盟匹配 only). With 快速匹配
  * on, 规则 and 人数 stay, disabled. Beside a picked 自定义: the preset in use and how many settings differ. `readOnly`: the
- * room's settings shown to a Doctor who is not its host (screens/room.js), the buttons disabled.
+ * room's settings shown to a Doctor who is not its host (screens/room.js), the buttons disabled. A room's (roomMode
+ * 'coop' with `onSize`) has the 人数 row too, without queue counts (maintainer decision 2026-11-08: the room's mode bar
+ * opens this dialog for every setting); `sizeLocked` keeps it at 8 while more than four seats are taken.
  */
-export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, customRules, difficulty, size, onSize, quick = false, onQuick = null, counts4 = null, counts8 = null, readOnly = false }) {
+export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, customRules, difficulty, size, onSize, quick = false, onQuick = null, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false }) {
   const matching = roomMode === 'match';
+  const roomSize = roomMode === 'coop' && !!onSize;
   const big = matching && size === LARGE_SEATS;
   const counts = big ? counts8 : counts4;
   // the 人数 box as wide as the 规则 box above it (maintainer decision 2026-11-07)
@@ -638,7 +641,7 @@ export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, customRules, 
     const box = ref.current, seg = box?.querySelector('.rpick:not(.lobby-size)');
     if (box && seg) box.style.setProperty('--rules-w', `${seg.getBoundingClientRect().width}px`);
   });
-  return html`<div ref=${ref} class=${`proto-rules${matching ? ' is-grid' : ''}`} data-testid="proto-rules">
+  return html`<div ref=${ref} class=${`proto-rules${matching || roomSize ? ' is-grid' : ''}`} data-testid="proto-rules">
     ${matching ? html`<span class="proto-rules__row">
       <${RowKey} text=${t('快速匹配')} />
       <span class="proto-rules__cell">
@@ -660,6 +663,12 @@ export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, customRules, 
       <span class="proto-rules__cell">
         <${SizeSwitch} value=${size} onPick=${onSize} disabled=${quick} class="proto-rules__seg"
           counts=${{ [MAX_SEATS]: queueCountOf(counts4, ruleset), [LARGE_SEATS]: queueCountOf(counts8, ruleset) }} />
+      </span>
+    </span>` : roomSize ? html`<span class="proto-rules__row" data-testid="proto-size">
+      <${RowKey} text=${t('人数')} />
+      <span class="proto-rules__cell">
+        <${SizeSwitch} value=${size} onPick=${onSize} disabled=${readOnly || sizeLocked} class="proto-rules__seg" />
+        ${sizeLocked && !readOnly ? html`<span class="proto-rules__note">${t('已有 5 名以上成员入座，无法改为 4 人同盟')}</span>` : null}
       </span>
     </span>` : null}
     ${!matching && ruleset === 'custom' ? html`<span class="proto-rules__sum"><${CustomSummary} rules=${customRules.draft} store=${customRules} roomMode=${roomMode} difficulty=${difficulty} size=${MAX_SEATS} /></span>` : null}
