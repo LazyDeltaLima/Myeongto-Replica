@@ -75,19 +75,24 @@ test('skills with no clip of their own play none (2026-10-23, client keys: char_
   }
 });
 
-test('a skill that stays on (银灰 S3 真银斩: same clip shape, 1.33 s clip) plays it once and then rests — no freeze on its last frame', () => {
-  const a = actor('char_172_svrash', 2);
-  assert.deepEqual([a.roles.skill.begin, a.roles.skill.loop, a.roles.skill.idle], [null, 'Skill', null]);
-  a.setSkill(true);
-  assert.equal(a.current, 'Skill');
-  run(a, 2);
-  assert.equal(a.mode, 'base', 'the one-shot window is over');
-  assert.equal(a.current, 'Idle', 'rests on the idle while the skill is still running');
-  a.log.length = 0;
-  a.attack(1.2);
-  assert.equal(a.current, 'Skill', 'attacks still use the skill loop, as before');
-  a.setSkill(false);
-  assert.equal(a.current, 'Idle', 'no End clip: straight back to the idle');
+test('a skill whose clip is its mode\'s attack plays nothing at the cast: 银灰 S3 真银斩, 黑键 S3 — the attack plays it, then the idle', () => {
+  for (const [id, skill, clip] of [['char_172_svrash', 2, 'Skill'], ['char_4046_ebnhlz', 2, 'Skill_3_A']]) {
+    const a = actor(id, skill);
+    assert.equal(a.roles.skill.modeAttack, true, id);
+    a.setSkill(true);
+    assert.equal(a.mode, 'base', id);
+    assert.equal(a.current, 'Idle', `${id}: no enemy, no clip`);
+    a.log.length = 0;
+    a.attack(1.2);
+    assert.equal(a.current, clip, 'attacks use the skill clip');
+    a.setSkill(false);
+    assert.equal(a.current, 'Idle', 'no End clip: straight back to the idle');
+  }
+  // the instant skill's own clip stays (德克萨斯 S2 and the others without `modeAttack`)
+  const t = actor('char_102_texas', 1);
+  assert.equal(t.roles.skill.modeAttack, undefined);
+  t.setSkill(true);
+  assert.equal(t.current, 'Skill');
 });
 
 test('unchanged: a Begin clip still runs into its queued next clip, a skill with its own Idle still idles, and End still closes the skill', () => {

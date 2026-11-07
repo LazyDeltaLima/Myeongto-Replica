@@ -207,6 +207,8 @@ export function keyRoles(op, durations) {
       if (ma.stance) { c.stance = true; why.push(`mode ${names[work]} stance`); }
       else if (ma.loop && ma.loop !== out.attack?.loop) {
         c.loop = ma.loop; loopAb = attackAbility(modes[work]?.abilities); why.push(`mode ${names[work]} attack`);
+        // its clip is the mode's attack, no clip of the cast: nothing plays until that attack (spine.js setSkill)
+        c.modeAttack = true;
         // an attack channel of the mode beside the skill's own begin (歌蕾蒂娅 S2): its begin / end frame each spell of attacks
         if (ma.chan && c.begin && ma.begin) { c.attackBegin = ma.begin; if (ma.end) c.attackEnd = ma.end; }
         // a ThreePart attack's begin opens its first attack only (送葬人 S2), else the skill
@@ -257,6 +259,7 @@ export function keyRoles(op, durations) {
     if (!s?.begin && !endPath && castPlain && modePlain && !Object.values(abs).some((a) => a?.emit?.length)) c.clipless = true;
     const dn = downOf([abs, m > 0 ? m : 0], ...(work > 0 ? [[modes[work]?.abilities, work]] : []));
     if (dn) c.down = dn;
+    if (c.modeAttack && (c.begin || c.stance || (c.idle && c.idle !== c.loop))) delete c.modeAttack;
     return { c, why: why.join(', ') || '-', m, held, respawn, loopAb: c.loop ? loopAb : null };
   };
   (op?.skills || []).forEach((s, i) => {
@@ -457,7 +460,7 @@ export function overlayKeyRoles(anims, kr, charId = '') {
       if (k.down) c.down = { by: c.down?.by ?? k.down.by, map: { ...k.down.map, ...c.down?.map } };
     } else {
       c = { begin: k.begin, loop: k.loop, end: k.end, idle: k.idle, index: Number(i) };
-      for (const f of ['firstAttackBegin', 'attackBegin', 'attackEnd', 'down', 'signals']) if (k[f]) c[f] = k[f];
+      for (const f of ['firstAttackBegin', 'attackBegin', 'attackEnd', 'down', 'signals', 'modeAttack']) if (k[f]) c[f] = k[f];
       // the mode attacks with no clip (anim-overrides.mjs applyModeAttacks reads the same from the attack timing file, which
       // has nothing where the mode's attack is not `Body/Attack`: 信仰搅拌机 Sk3, 小满 S2, 薄绿 S2)
       if (k.stance) c.stance = true;

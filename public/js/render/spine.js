@@ -1044,12 +1044,13 @@ export class SpineActor {
         // then the skill's own idle until an attack plays its loop (community report #23); without one, the loop
         const next = this._afterBegin(sk);
         if (next) this._queue(next, true);
-      } else if (!this.has(sk.idle) && this.has(sk.loop) && sk.via !== 'attack' && sk.loop !== this.roles.attack?.loop && !this._skillIsBuffOnly()) {
+      } else if (!this.has(sk.idle) && this.has(sk.loop) && sk.via !== 'attack' && !sk.modeAttack && sk.loop !== this.roles.attack?.loop && !this._skillIsBuffOnly()) {
         // No Begin and no own Idle: the skill's clip IS its animation (德克萨斯 剑雨 — anims.skill {begin:null,
         // loop:'Skill', end:null}, the 2.17 s clip; 58 instant skills in all). Play it once for its own length. An
         // instant skill turns the flag off inside the same tick (sim skills.js fires 'skill' 1 and 0 together and only
         // holds the anim code SKILL for 0.5 s), so this window is what keeps it on screen: the actor used to fall
-        // through to the base clip and show no skill animation at all (player report).
+        // through to the base clip and show no skill animation at all (player report). Not a clip the skill's mode attacks
+        // with (anims skill `modeAttack`: 黑键 S3's Skill_3_A): the client plays nothing until that attack.
         this.mode = 'skillBegin';
         this.skillClipOnce = true;
         const clip = this._dn(sk, this.has(sk.up) ? sk.up : sk.loop);
