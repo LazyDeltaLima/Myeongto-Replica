@@ -2738,7 +2738,7 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 - 근거(공식 클라에서 확인): 장비의 전역 버프 프리팹(`[uc]globalbuffs.ab`, 장비 표 `bbStr.key`)이 오퍼레이터에게 거는 버프는 모두 `disableOverride` 1(덮어쓰기 묶음 밖 — 사본마다
   따로)인데, `act1autochess_acarm050_global_buff`(SP 회복)과 `[g]halfidle_block_fixed_damage`만 0·`DEFAULT` — 같은 키의 버프는 줄을 서고 끝나지 않은 첫 것만 켜진다
   (`Buff.OverrideGroup`, 「버프 덮어쓰기 그룹」). `GlobalBuff.TryAddBuff`는 그 프리팹의 `_buffs`를 그대로 건다(장비 하나 = 전역 버프 하나, 횟수 제한은 그 전역 버프 안에서만).
-  upstream은 사본 전부 겹침을 [추정]으로 넣었다.
+  upstream은 사본 전부 겹침을 추정으로 넣었다(근거 없음 표시).
 - [추정·미조사: 나란투야(전략)가 빌려 준 장비(`lendItemEffects`)가 자기 것과 같은 장비일 때 — 지금은 빌린 것도 따로 겹침, 덮어쓰기 묶음 둘은 같은 줄에 섬; 빌려 주기의 클라 경로를 안 읽음]
 - 테스트 `test/content/items.test.js` 「two advanced 源石溶剂 on one operator…」·「override-grouped item buffs…」.
 
