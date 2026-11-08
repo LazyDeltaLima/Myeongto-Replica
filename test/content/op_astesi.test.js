@@ -1,25 +1,25 @@
-// test/content/op_astesi.test.js — 아스테시아 (char_274_astesi, a tier-2 piece of the season not out yet; kit ops/op-astesi.js): both forms, both skills, the talent, the module's trait.
+// test/content/op_astesi.test.js — 아스테시아 (char_274_astesi, a tier-2 piece of 规程 (act3autochess); kit ops/op-astesi.js): both forms, both skills, the talent, the module's trait.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_2_nastesi_a', B = 'chess_char_2_nastesi_b';
+const A = 'chess_char_2_19_a', B = 'chess_char_2_19_b';
 const FORMS = [A, B];
 const S1 = 'skchr_astesi_1', S2 = 'skchr_astesi_2';
-const rec = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk);
+const rec = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk);
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const FRONT = [10, 5];
 const hits = (h, u, e) => h.hooksOf('damaged').filter((c) => c.source === u && c.target === e);
 function block(h, u, e) { e.blockedBy = u; u.blocking.push(e); h.step(); }
 
 test('The forms: E1 Lv60 rank 4 no module, E2 Lv55 rank 7 with the module', () => {
-  assert.deepEqual(NEXT.chess[A].status, { phase: 1, level: 60, skillLevel: 4, equipLevel: 0 });
-  assert.equal(NEXT.chess[B].status.phase, 2);
-  assert.equal(NEXT.chess[B].status.level, 55);
-  assert.equal(NEXT.chess[B].status.skillLevel, 7);
-  assert.equal(NEXT.chess[A].trait?.bb?.damage_scale, undefined);
-  assert.equal(NEXT.chess[B].trait.bb.damage_scale, 1.1);
+  assert.deepEqual(ACT3.chess[A].status, { phase: 1, level: 60, skillLevel: 4, equipLevel: 0 });
+  assert.equal(ACT3.chess[B].status.phase, 2);
+  assert.equal(ACT3.chess[B].status.level, 55);
+  assert.equal(ACT3.chess[B].status.skillLevel, 7);
+  assert.equal(ACT3.chess[A].trait?.bb?.damage_scale, undefined);
+  assert.equal(ACT3.chess[B].trait.bb.damage_scale, 1.1);
 });
 
 test('Her attack is arts', () => {
@@ -33,7 +33,7 @@ test('Her attack is arts', () => {
 test('T1: one stack of attack speed per interval, the first after a whole one, at most max_stack_cnt', () => {
   for (const [id, v] of [[A, 3], [B, 5]]) {
     const { h, u } = field(id, { skill: 0 });
-    const tb = NEXT.chess[id].talents[0].bb;
+    const tb = ACT3.chess[id].talents[0].bb;
     assert.equal(tb.interval, 20);
     assert.equal(tb.attack_speed, v);
     const base = u.s.aspd, t0 = h.b.time;
@@ -51,7 +51,7 @@ test('T1: one stack of attack speed per interval, the first after a whole one, a
 
 test('T1: a new deployment starts over', () => {
   const { h, u } = field(A, { skill: 0 });
-  const base = u.s.aspd, tb = NEXT.chess[A].talents[0].bb;
+  const base = u.s.aspd, tb = ACT3.chess[A].talents[0].bb;
   h.run(tb.interval + 0.5);
   near(u.s.aspd, base + tb.attack_speed, 'a stack');
   h.b.retreat(u);

@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-frncat.js — 慕斯 (char_185_frncat) kit: 4★ 法术近卫 (近卫), a tier-1 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 무스·미스 크리스틴·브리지드·오로라」); both skills, the talent and AFT-X in both forms.
+// server/sim/content/kits/ops/op-frncat.js — 慕斯 (char_185_frncat) kit: 4★ 法术近卫 (近卫), a tier-1 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 무스·미스 크리스틴·브리지드·오로라」); both skills, the talent and AFT-X in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv55, skills at rank 4, no module; elite = E2 Lv50, rank 7, AFT-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv55, skills at rank 4, no module; elite = E2 Lv50, rank 7, AFT-X stage 1.
 // Sources: the record's tables; PRTS 慕斯 (备注 of S1); charpack char_185_frncat (Talents/1, Modes/Default/Body/Attack), skill prefabs skchr_frncat_1 / _2.
 // - T1 连击 (ProbReplaceNextAtkTalent, `_probKey`, family mask 15): with chance prob the attack is the talent's MultiMeleeAttack (`_additionalTimes` 1,
 //   `_waitAttackEventForAllAttacks`): clip Attack_2's two OnAttack frames, each a hit of the same attack; `_timeMode` 1, its time is the clip's, whatever her ASPD. Rolled as the swing

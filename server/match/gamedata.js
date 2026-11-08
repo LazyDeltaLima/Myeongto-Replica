@@ -99,7 +99,35 @@ export function bossPoolShareOf(modeScale, cfgScale, isSolo, aliveCount) {
 }
 
 /** Strip the _a/_b suffix of an item id (the registry key of an item family). */
-export const itemKey = (id) => (typeof id === 'string' ? id.replace(/_[ab]$/, '') : '');
+/**
+ * Registry key of an item id (`_a` / `_b` dropped). With a season's data, the record's `handlerKey` (another season
+ * reuses the default season's ids for other items: tools/build-data.mjs attachHandlerKeys, sim/content/support itemKeyOf).
+ * @param {unknown} id
+ * @param {Readonly<Record<string, any>> | null} [data]
+ */
+export function itemKey(id, data = null) {
+  if (typeof id !== 'string') return '';
+  const bare = id.replace(/_[ab]$/, '');
+  const items = data && data.items;
+  const rec = items ? (Object.hasOwn(items, id) ? items[id] : Object.hasOwn(items, `${bare}_a`) ? items[`${bare}_a`] : null) : null;
+  return rec && typeof rec.handlerKey === 'string' ? rec.handlerKey : bare;
+}
+
+/**
+ * A leader's table HP for one player (DESIGN §25.13.4): its mode's value (bosses.json `bloodByMode`, a season whose table
+ * gives one per mode), else its difficulty's (`bloodPoint`), else the first one it has; null when it has none.
+ * @param {any} boss bosses.json record
+ * @param {string} modeId
+ * @param {string} difficulty
+ * @returns {number | null}
+ */
+export function bossBloodPoint(boss, modeId, difficulty) {
+  if (!boss) return null;
+  const byMode = boss.bloodByMode && Number.isFinite(boss.bloodByMode[modeId]) ? boss.bloodByMode[modeId] : null;
+  if (byMode != null) return byMode;
+  if (boss.bloodPoint && Number.isFinite(boss.bloodPoint[difficulty])) return boss.bloodPoint[difficulty];
+  return boss.bloodPoint ? Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null : null;
+}
 
 export class GameData {
   /**
@@ -207,9 +235,7 @@ export class GameData {
    */
   bossPoolHp(bossId, aliveCount) {
     const boss = this.boss(bossId);
-    const diff = this.difficulty;
-    let base = boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff]) ? boss.bloodPoint[diff] : null;
-    if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
+    let base = bossBloodPoint(boss, this.modeId, this.difficulty);
     if (base == null) base = 500000;
     return Math.max(1, Math.round(base * this.bossPoolShare(aliveCount) * this.bossHpMul(bossId)));
   }
@@ -728,6 +754,8 @@ export class GameData {
   bandAllowed(bandId) {
     const b = this.band(bandId);
     if (!b) return false;
+    // 规程: the modes a strategy is not offered in (bands.json inactiveModeIds)
+    if (Array.isArray(b.inactiveModeIds) && b.inactiveModeIds.includes(this.modeId)) return false;
     const list = Array.isArray(b.modeTypeList) ? b.modeTypeList : null;
     if (!list) return true;
     return list.includes(this.isSolo ? 'SINGLE' : 'MULTI');

@@ -1,15 +1,15 @@
-// test/content/op_ctrail.test.js — 콘트레일 (char_4165_ctrail, a tier-2 piece of the season not out yet; kit ops/op-ctrail.js): both forms, both skills, the talent, take-off and landing.
+// test/content/op_ctrail.test.js — 콘트레일 (char_4165_ctrail, a tier-2 piece of 规程 (act3autochess); kit ops/op-ctrail.js): both forms, both skills, the talent, take-off and landing.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { FLY_CLIP } from '../../server/sim/content/kits/ops/op-ctrail.js';
 
-const A = 'chess_char_2_nctrail_a', B = 'chess_char_2_nctrail_b';
+const A = 'chess_char_2_11_a', B = 'chess_char_2_11_b';
 const FORMS = [A, B];
 const S1 = 'skchr_ctrail_1', S2 = 'skchr_ctrail_2';
-const rec = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk);
+const rec = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk);
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const FRONT = [10, 5];
 const air = (u) => !!u.s.flags.liftoff;
@@ -34,7 +34,7 @@ test('On the ground with S2 selected: blocks ground enemies, not flyers; shoots 
 test('T1: on the ground DEF +def and no atk_scale; in the air atk_scale and no DEF', () => {
   for (const id of FORMS) {
     const { h, u } = field(id, { skill: 1 });
-    const t = NEXT.chess[id].talents[0].bb, base = u.base?.def ?? NEXT.chess[id].stats.def;
+    const t = ACT3.chess[id].talents[0].bb, base = u.base?.def ?? ACT3.chess[id].stats.def;
     pastBorn(h, u);
     near(u.s.def, base * (1 + t.def), `${id}: DEF on the ground`, 1e-3);
     const e = h.spawn('enemy_dummy', { pos: FRONT, def: 0 });
@@ -78,7 +78,7 @@ test('S2: airborne from the cast until the landing clip has played, no attack th
 test('S2: atk, atk_scale on her damage, 3-1 range, the skill\'s range back to base when landed', () => {
   for (const id of FORMS) {
     const { h, u } = field(id, { skill: 1 });
-    const bb = rec(id, S2).bb, t = NEXT.chess[id].talents[0].bb, base = u.rangeKeys.length;
+    const bb = rec(id, S2).bb, t = ACT3.chess[id].talents[0].bb, base = u.rangeKeys.length;
     pastBorn(h, u);
     const atk = u.s.atk;
     cast(u);
@@ -145,7 +145,7 @@ test('S1 starts with the deployment: airborne once the born state ends, no SP; A
     pastBorn(h, u);
     assert.equal(air(u), true, `${id}: airborne after the born state`);
     near(u.s.dodgePhys, bb.prob, `${id}: dodge`);
-    assert.ok(u.s.atk > NEXT.chess[id].stats.atk * (1 + bb.atk) * 0.99, `${id}: ATK`);
+    assert.ok(u.s.atk > ACT3.chess[id].stats.atk * (1 + bb.atk) * 0.99, `${id}: ATK`);
     done(h);
   }
 });

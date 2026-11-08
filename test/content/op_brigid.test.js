@@ -1,15 +1,15 @@
-// test/content/op_brigid.test.js — 브리지드 (char_4177_brigid, a tier-3 piece of the season not out yet; kit ops/op-brigid.js): both forms, both skills.
+// test/content/op_brigid.test.js — 브리지드 (char_4177_brigid, a tier-3 piece of 规程 (act3autochess); kit ops/op-brigid.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { BOUNCE_RADIUS, BOUNCE_SPEED } from '../../server/sim/content/kits/ops/op-brigid.js';
 
-const A = 'chess_char_3_nbrigid_a', B = 'chess_char_3_nbrigid_b';
+const A = 'chess_char_3_15_a', B = 'chess_char_3_15_b';
 const FORMS = [A, B];
 const S1 = 'skchr_brigid_1', S2 = 'skchr_brigid_2';
 const DODGE = 'brigid_t[evade_core]';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const hitsOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e);
 const cuts = (h, e) => hitsOn(h, e).filter((c) => c.dmg?.tags?.includes('brigid:cut'));
@@ -29,7 +29,7 @@ test('Trait: she attacks again only once the boomerang is back', () => {
 
 test('T1: at the count\'s damage she has physical dodge prob; every damage of hers counts; a new deployment starts over', () => {
   for (const id of FORMS) {
-    const t = NEXT.chess[id].talents[0].bb;
+    const t = ACT3.chess[id].talents[0].bb;
     const { h, u } = field(id, { skill: 1 });
     u.skill.locked = true;
     assert.equal(t.trigger_damage_count, 20);
@@ -148,7 +148,7 @@ test('S2: a plain attack outside it has no cuts', () => {
 });
 
 test('LPS-X: on the elite form an attack on an enemy on the 8 tiles around her is × atk_scale, further off not; the normal form has none', () => {
-  assert.equal(NEXT.chess[B].trait.bb.atk_scale, 1.1);
+  assert.equal(ACT3.chess[B].trait.bb.atk_scale, 1.1);
   const amount = (id, pos) => {
     const { h, u } = field(id, { skill: 1 });
     u.skill.locked = true;

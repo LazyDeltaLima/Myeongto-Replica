@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-quercu.js — 夏栎 (char_492_quercu) kit: 5★ 护佑者 (辅助), a tier-1 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-quercu.js — 夏栎 (char_492_quercu) kit: 5★ 护佑者 (辅助), a tier-1 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 미틈·로베르타·클릭·퀘르쿠스」); both skills, the talent, the trait and BLS-X (the trait's heal_scale) in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv55, skills at rank 4, no module; elite = E2 Lv50, rank 7, BLS-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv55, skills at rank 4, no module; elite = E2 Lv50, rank 7, BLS-X stage 1.
 // Sources: the record's tables; PRTS 夏栎 (talent 备注); charpack char_492_quercu (Modes Default / S1 / S2: Attack, Selector, Talents/1), skill prefabs skchr_quercu_1 / _2, buff_template_data
 // damage_resistance_GE[aura], demkni_t_2.
 // - Trait: attacks deal arts damage; while a skill runs they heal the ally of her range with the lowest HP share for ATK × heal_scale instead (modes S1, S2: `_targetSide` allies, `_postFilter` 3).

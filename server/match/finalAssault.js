@@ -37,7 +37,7 @@
 import { BOSS_ROW_OFFSET, STAGE_COLS, BOSS_POOL_MIN_HP } from '../sim/constants.js';
 import { MAX_SEATS } from '../../shared/constants.js';
 import { mirrorDir, normDir } from '../sim/dir.js';
-import { bossPoolShareOf } from './gamedata.js';
+import { bossBloodPoint, bossPoolShareOf } from './gamedata.js';
 
 /**
  * BOSS_HIT ticker thresholds (activity_table autoChessData.broadcastList comment_boss_hit_1..3, paramList 0.2 / 0.5 /
@@ -88,9 +88,7 @@ export function pairPlayers(alive, rng) {
 /** Shared boss HP for a boss id with `aliveCount` alive players (GameData.bossPoolShare / bossPoolShareOf; omitted ⇒ a full team). */
 export function bossPoolHp(gd, bossId, aliveCount) {
   const boss = gd.boss(bossId);
-  const diff = gd.difficulty;
-  let base = boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff]) ? boss.bloodPoint[diff] : null;
-  if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
+  let base = bossBloodPoint(boss, gd.modeId, gd.difficulty);
   if (base == null) base = 500000;
   const tune = typeof gd.bossHpMul === 'function' ? gd.bossHpMul(bossId) : 1;
   const share = typeof gd.bossPoolShare === 'function' ? gd.bossPoolShare(aliveCount)

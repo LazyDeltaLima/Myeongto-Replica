@@ -75,8 +75,46 @@ export const garrisonRecord = (id, scope) => own(dataFile(scope, 'garrisons'), i
 export const bandRecord = (id, scope) => own(dataFile(scope, 'bands'), id);
 export const effectRecord = (id, scope) => own(dataFile(scope, 'effects'), id);
 export const chessRecord = (id, scope) => own(dataFile(scope, 'chess'), id);
-/** Registry key of an item: id without the `_a` / `_b` suffix (Arts have none). */
-export const itemKeyOf = (id) => String(id ?? '').replace(/_[ab]$/, '');
+/**
+ * Registry key of an item: id without the `_a` / `_b` suffix (Arts have none). With a scope of another season, the
+ * record's `handlerKey` — the default season's key of the same item (tools/build-data.mjs attachHandlerKeys: that season
+ * reuses the ids for other items), so the handlers written for the default season's ids find it.
+ * @param {unknown} id
+ * @param {object | null} [scope] a battle, a prep ctx or a data object (dataFile)
+ */
+export function itemKeyOf(id, scope = null) {
+  const bare = String(id ?? '').replace(/_[ab]$/, '');
+  if (!scope) return bare;
+  const rec = itemRecord(String(id ?? ''), scope) ?? itemRecord(`${bare}_a`, scope);
+  return rec && typeof rec.handlerKey === 'string' ? rec.handlerKey : bare;
+}
+/** @type {WeakMap<object, Map<string, string>>} items file → handler key → its normal (`_a`, or the Art's own) id */
+const ITEM_IDS = new WeakMap();
+/**
+ * The id of the scope's item whose key (itemKeyOf) is `key` — `${key}_a` in the default season, the item of the same
+ * trap in another (null when that season has none): for code that names a default-season item (蒸汽 hammers, 突变细胞).
+ * @param {string} key
+ * @param {object | null} [scope]
+ */
+export function itemIdOfKey(key, scope = null) {
+  const items = dataFile(scope, 'items') || {};
+  let map = ITEM_IDS.get(items);
+  if (!map) {
+    map = new Map();
+    for (const [id, r] of Object.entries(items)) {
+      if (!r || r.isGolden) continue;
+      const k = typeof r.handlerKey === 'string' ? r.handlerKey : id.replace(/_[ab]$/, '');
+      if (!map.has(k)) map.set(k, id);
+    }
+    ITEM_IDS.set(items, map);
+  }
+  return map.get(key) ?? null;
+}
+/** The default season's id of a 特质 (its record's `handlerKey` in another season, see itemKeyOf). @param {string} id @param {object | null} [scope] */
+export function garrisonKeyOf(id, scope = null) {
+  const rec = scope ? garrisonRecord(id, scope) : null;
+  return rec && typeof rec.handlerKey === 'string' ? rec.handlerKey : id;
+}
 /** True for golden (进阶) items / elite chess ids. */
 export const isGoldenId = (id) => /_b$/.test(String(id ?? ''));
 
@@ -192,7 +230,7 @@ export const baseChessId = (u) => String(u?.def?.baseId ?? u?.defId ?? '').repla
 
 /** Equipment ids carried by a unit (golden ids when merged). */
 export const itemsOf = (u) => (u && Array.isArray(u.items) ? u.items : EMPTY);
-export const hasItemKey = (u, key) => itemsOf(u).some((id) => itemKeyOf(id) === key);
+export const hasItemKey = (u, key, scope = null) => itemsOf(u).some((id) => itemKeyOf(id, scope) === key);
 export const goldenItemCount = (u) => itemsOf(u).filter(isGoldenId).length;
 
 const BONDS = new WeakMap();

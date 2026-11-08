@@ -1,22 +1,22 @@
-// test/content/op_ju.test.js — 쥐 (char_4221_ju, a tier-2 piece of the season not out yet; kit ops/op-ju.js): both forms, both skills.
+// test/content/op_ju.test.js — 쥐 (char_4221_ju, a tier-2 piece of 规程 (act3autochess); kit ops/op-ju.js): both forms, both skills.
 // Run: node --test test/content/op_ju.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, fill, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, fill, realMatch } from '../helpers/seasonPieces.js';
 import { CRIPPLE, DONE, S2_START_DELAY, S2_GAP, isCrippled } from '../../server/sim/content/kits/ops/op-ju.js';
 
-const A = 'chess_char_2_nju_a', B = 'chess_char_2_nju_b';
+const A = 'chess_char_2_18_a', B = 'chess_char_2_18_b';
 const FORMS = [A, B];
 const S1 = 'skchr_ju_1', S2 = 'skchr_ju_2';
-const skillOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk);
+const skillOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk);
 const near = (a, b, m, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const RANGE_TILE = [10, 7];
 const dmgOn = (h, u, e) => h.hooksOf('damaged').filter((c) => c.source === u && c.target === e);
 
 test('T1 墨守: never lethal, 重伤 at ≤ 1 HP: slowed, unblockable, 禁疗, never his target, dead `interval` s later with no killer', () => {
   for (const id of FORMS) {
-    const t = NEXT.chess[id].talents[0].bb;
+    const t = ACT3.chess[id].talents[0].bb;
     const { h, u } = field(id);
     const e = h.spawn('enemy_dummy', { pos: RANGE_TILE });
     e.hp = 5;
@@ -40,7 +40,7 @@ test('T1 墨守: never lethal, 重伤 at ≤ 1 HP: slowed, unblockable, 禁疗, 
 
 test('T1: whoever kills a 重伤 enemy gets `sp`; a damage that does not bring it to 1 HP gives none; 消失 waits', () => {
   for (const id of FORMS) {
-    const t = NEXT.chess[id].talents[0].bb;
+    const t = ACT3.chess[id].talents[0].bb;
     const { h } = field(id, { others: [{ uid: 2, chessId: 'chess_char_1_02_a', row: 11, col: 4 }] });
     const k = h.unit(2);
     const e = h.spawn('enemy_dummy', { pos: RANGE_TILE });
@@ -60,7 +60,7 @@ test('T1: whoever kills a 重伤 enemy gets `sp`; a damage that does not bring i
 
 test('trait 攻城手: the heaviest first; SIE-X ×atk_scale on a weight ≥ 3 target (elite only), on the amount before DEF', () => {
   const { h, u } = field(B);
-  assert.deepEqual([u.profile.priority, NEXT.chess[B].talents[0].bb.atk_scale, NEXT.chess[B].talents[0].bb.value], ['heaviest', 1.15, 3]);
+  assert.deepEqual([u.profile.priority, ACT3.chess[B].talents[0].bb.atk_scale, ACT3.chess[B].talents[0].bb.value], ['heaviest', 1.15, 3]);
   const light = h.spawn('enemy_light', { pos: [10, 6] }), heavy = h.spawn('enemy_heavy', { pos: RANGE_TILE });
   h.runUntil(() => heavy.hp < heavy.s.maxHp || light.hp < light.s.maxHp, 8);
   assert.ok(heavy.hp < heavy.s.maxHp, 'the heavy one');
@@ -163,6 +163,6 @@ test('S2: above hp_ratio no mark; below it after the skill no extra; a target ma
   done(h);
 });
 
-test('real match path: his piece fights in a next match', async () => {
+test('real match path: his piece fights in a 规程 match', async () => {
   for (const id of FORMS) await realMatch(id, 'char_4221_ju');
 });

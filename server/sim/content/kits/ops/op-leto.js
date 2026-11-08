@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-leto.js — 烈夏 (char_194_leto) kit: 5★ 领主 (近卫), a tier-1 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 ○○」); both skills, the talent, the trait and LOR-Y in both forms.
+// server/sim/content/kits/ops/op-leto.js — 烈夏 (char_194_leto) kit: 5★ 领主 (近卫), a tier-1 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 ○○」); both skills, the talent, the trait and LOR-Y in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv55, skills at rank 4, no module; elite = E2 Lv50, rank 7, LOR-Y stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv55, skills at rank 4, no module; elite = E2 Lv50, rank 7, LOR-Y stage 1.
 // Sources: the record's tables; PRTS 烈夏 (备注 of T1, S2 and LOR-Y); buff_template_data leto_skill_judge, leto_t_1[filter_tag], leto_s_2,
 // leto_s_2[filter_tag], leto_e_002_tr; charpack char_194_leto (Talents/1, Modes/S2) and skill prefab skchr_leto_2.
 // - Trait (领主): the profession (melee at 100%, ranged at atk_scale). LOR-Y "攻击范围内存在2名及以上敌人时攻击速度+12" (module talent bb cnt,

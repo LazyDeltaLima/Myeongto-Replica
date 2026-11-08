@@ -42,7 +42,7 @@
 // of the same dispatch (global → band → bonds → garrisons). A round without a 机变 draft keeps the old moment.
 
 import { GEO, gateOf } from '../../../../shared/constants.js';
-import { buffsOf, num, bandRecord, gameData } from '../support/index.js';
+import { buffsOf, num, bandRecord, gameData, itemIdOfKey } from '../support/index.js';
 import { metaBonds } from '../support/meta.js';
 import * as garrisons from '../garrisons.js';
 
@@ -288,7 +288,9 @@ K.up_shop_add_special_goods = (ps, bandId) => ({
   onLevelUp(ctx) {
     const p = ps[0];
     const cathy = bandId === 'band_cathy';
-    const exclude = cathy && ctx.counter('band:cathy:cellTaken') ? ['chess_item_5_08_e_a'] : [];
+    // 突变细胞 by the default season's key (another season's id of the same item: support itemIdOfKey)
+    const cell = itemIdOfKey('chess_item_5_08_e', ctx);
+    const exclude = cathy && cell && ctx.counter('band:cathy:cellTaken') ? [cell] : [];
     const ids = rollItems(ctx, p.pool, Math.max(1, int(p.count, 3)), exclude);
     if (ids.length) ctx.offerItems(ids, { source: cathy ? 'band:band_cathy' : 'band' });
   },

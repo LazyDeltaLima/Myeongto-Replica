@@ -1,14 +1,14 @@
-// test/content/op_kaitou.test.js — 디아만테 (char_499_kaitou, a tier-2 piece of the season not out yet; kit ops/op-kaitou.js): both forms, both skills.
+// test/content/op_kaitou.test.js — 디아만테 (char_499_kaitou, a tier-2 piece of 规程 (act3autochess); kit ops/op-kaitou.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_2_nkaitou_a', B = 'chess_char_2_nkaitou_b';
+const A = 'chess_char_2_01_a', B = 'chess_char_2_01_b';
 const FORMS = [A, B];
 const S1 = 'skchr_kaitou_1', S2 = 'skchr_kaitou_2';
 const BURST = 'apoptosisBurst', ATK = 'kaitou_t_1[atk]';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const burst = (h, e) => h.b.addBuff(e, { key: BURST, duration: 999, flags: { burstLock: true } });
 const dmgOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e);
@@ -18,7 +18,7 @@ const attacks = (h, e) => dmgOn(h, e).filter((c) => c.dmg?.isAttack);
 
 test('T1: ATK + while an enemy in her range is in its 凋亡 burst, one buff however many, none for one out of range', () => {
   for (const id of FORMS) {
-    const v = NEXT.chess[id].talents[0].bb.atk;
+    const v = ACT3.chess[id].talents[0].bb.atk;
     const { h, u } = field(id, { skill: 0 });
     const a = h.spawn('enemy_dummy', { pos: [10, 6] }), b = h.spawn('enemy_dummy', { pos: [10, 5] }), far = h.spawn('enemy_dummy', { pos: [2, 12] });
     h.step();
@@ -124,9 +124,9 @@ test('S2: ASPD +, two targets, extra on a burst target, no 凋亡损伤 of its o
 });
 
 test('PRI-X: the elite form deals × damage_scale to an enemy in an element burst, the normal one does not', () => {
-  const tb = NEXT.chess[B].trait.bb;
+  const tb = ACT3.chess[B].trait.bb;
   assert.ok(tb.damage_scale > 1);
-  assert.equal(NEXT.chess[A].trait.bb.damage_scale, undefined);
+  assert.equal(ACT3.chess[A].trait.bb.damage_scale, undefined);
   for (const [id, want] of [[A, 1], [B, tb.damage_scale]]) {
     const { h, u } = field(id, { skill: 1 });
     u.skill.locked = true;
@@ -136,7 +136,7 @@ test('PRI-X: the elite form deals × damage_scale to an enemy in an element burs
     burst(h, plain);
     h.runUntil(() => attacks(h, plain).length >= 2, 10);
     // the talent's ATK + comes with the burst: its share is taken out
-    const t = NEXT.chess[id].talents[0].bb.atk;
+    const t = ACT3.chess[id].talents[0].bb.atk;
     near(attacks(h, plain)[1].amount / before, want * (1 + t * u.base.atk / (u.s.atk - t * u.base.atk)), `${id}: × on the burst`);
     done(h);
   }

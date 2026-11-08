@@ -76,11 +76,11 @@ export const KIT_FILES = Object.freeze([
 export const STANDIN_KIT_FILES = Object.freeze(['standin-acguad.js', 'standin-sharp2.js', 'standin-acspec.js', 'standin-acmedc.js', 'standin-acfend.js', 'standin-acpion.js', 'standin-acnipe.js', 'standin-accast.js', 'standin-acsupo.js']);
 
 /**
- * The kit files of operators only a season not out yet fields (shared/seasons.js `next`, tools/next-season.mjs): named and written
+ * The kit files of operators only another season fields (shared/seasons.js: 规程, act3autochess): named and written
  * as a 自选 kit (`ops/op-<codename>.js`, registry key = its charId, every skill under `skills`), found by kitKeyOfChar, not offered
  * as a 自选 pick. A new file is appended; when the season's tables arrive they stay as its chess's kits.
  */
-export const NEXT_KIT_FILES = Object.freeze(['op-bison.js', 'op-ju.js', 'op-taraxa.js', 'op-nothin.js', 'op-leto.js', 'op-glassb.js', 'op-turdus.js', 'op-bluep.js', 'op-highmo.js', 'op-hbound.js', 'op-cuttle.js', 'op-kaitou.js', 'op-liesel.js', 'op-pianst.js', 'op-aosta.js', 'op-frncat.js', 'op-christ.js', 'op-brigid.js', 'op-aurora.js', 'op-mitm.js', 'op-robrta.js', 'op-cammou.js', 'op-quercu.js', 'op-fang2.js', 'op-buildr.js', 'op-frostl.js', 'op-varkis.js', 'op-astesi.js', 'op-ctrail.js', 'op-ethan.js', 'op-swllow.js', 'op-halo.js', 'op-greyy2.js', 'op-kichi.js']);
+export const SEASON_KIT_FILES = Object.freeze(['op-bison.js', 'op-ju.js', 'op-taraxa.js', 'op-nothin.js', 'op-leto.js', 'op-glassb.js', 'op-turdus.js', 'op-bluep.js', 'op-highmo.js', 'op-hbound.js', 'op-cuttle.js', 'op-kaitou.js', 'op-liesel.js', 'op-pianst.js', 'op-aosta.js', 'op-frncat.js', 'op-christ.js', 'op-brigid.js', 'op-aurora.js', 'op-mitm.js', 'op-robrta.js', 'op-cammou.js', 'op-quercu.js', 'op-fang2.js', 'op-buildr.js', 'op-frostl.js', 'op-varkis.js', 'op-astesi.js', 'op-ctrail.js', 'op-ethan.js', 'op-swllow.js', 'op-halo.js', 'op-greyy2.js', 'op-kichi.js']);
 
 /**
  * The 自选 operator kit files (`ops/op-<codename>.js`, registry key = the operator's charId, an owned-6★ pick of
@@ -145,7 +145,7 @@ async function loadKitFile(file) {
 const MODULES = await Promise.all(KIT_FILES.map((group) => Promise.all(group.map(loadKitFile))));
 const STANDIN_MODULES = await Promise.all(STANDIN_KIT_FILES.map(loadKitFile));
 const OPERATOR_MODULES = await Promise.all(OPERATOR_KIT_FILES.map(loadKitFile));
-const NEXT_MODULES = await Promise.all(NEXT_KIT_FILES.map(loadKitFile));
+const SEASON_MODULES = await Promise.all(SEASON_KIT_FILES.map(loadKitFile));
 const registryOf = (m) => (m && m.default && typeof m.default === 'object' ? m.default : {});
 
 /** The registry of each tier group (index 0 = tier 1): baseChessId → kit builder, in KIT_FILES order. */
@@ -157,14 +157,14 @@ export const STANDIN_KITS = Object.freeze(Object.assign({}, ...STANDIN_MODULES.m
 /** The 自选 operator kits: owned-6★ charId → kit builder, in OPERATOR_KIT_FILES order. */
 export const OPERATOR_KITS = Object.freeze(Object.assign({}, ...OPERATOR_MODULES.map(registryOf)));
 
-/** The kits of `next`'s operators: charId → kit builder, in NEXT_KIT_FILES order. */
-export const NEXT_KITS = Object.freeze(Object.assign({}, ...NEXT_MODULES.map(registryOf)));
+/** The kits of the operators only another season fields: charId → kit builder, in SEASON_KIT_FILES order. */
+export const SEASON_KITS = Object.freeze(Object.assign({}, ...SEASON_MODULES.map(registryOf)));
 
 /**
  * The merged kit registry: baseChessId → (bb, chess, def) => Kit, tier 1 … tier 6, then the stand-ins' charIds, then
- * the 自选 operators' charIds, then `next`'s operators' charIds.
+ * the 自选 operators' charIds, then the other season's operators' charIds (SEASON_KITS).
  */
-export const KITS = Object.freeze(Object.assign({}, ...TIER_KITS, STANDIN_KITS, OPERATOR_KITS, NEXT_KITS));
+export const KITS = Object.freeze(Object.assign({}, ...TIER_KITS, STANDIN_KITS, OPERATOR_KITS, SEASON_KITS));
 
 /**
  * The chess kits written for a hidden chess of the current season (data/chess.json `isHidden`; test/seasons.test.js
@@ -193,13 +193,27 @@ const CHESS_KITS_OF_CODE = (() => {
   return out;
 })();
 
+/** Registry key of a chess kit file (`…_a`) → the codename of the operator it was written for (the file name). */
+const CODE_OF_CHESS_KIT = new Map([...CHESS_KITS_OF_CODE].flatMap(([code, list]) => list.map((k) => [k.key, code])));
+
+/**
+ * The operator codename a chess kit key was written for (`chess_char_6_11_a` → `mlyss`), or null for a key that is no
+ * chess kit file's. Another season reuses chess ids for other operators (规程's `chess_char_6_11_a` is 遥, 125 of the 132
+ * shared ids name another operator): content/index.js kitOf takes a chess kit only for its own operator.
+ * @param {unknown} key
+ * @returns {string | null}
+ */
+export function chessKitCode(key) {
+  return typeof key === 'string' ? CODE_OF_CHESS_KIT.get(key) ?? null : null;
+}
+
 /**
  * The kit key of a character for a chess id that has no kit file — another season's chess (shared/seasons.js) of an
  * operator this season fields too: its one chess kit; with several (a tier form each, one of them a hidden chess's),
  * the one of the same tier, else the one of its visible chess (maintainer decision 2026-10-26: the hidden twin carries
  * the same operator data, and the visible chess's kit is the one written for the shop); failing that, its 自选 kit
  * (OPERATOR_KITS: written for every skill under `skills` and reading only the chess record, so it plays a chess as it
- * plays a 自选 piece) or the kit written for that season (NEXT_KITS); null when none [ASSUMED: the same operator plays the same kit across seasons]. No chess of the
+ * plays a 自选 piece) or the kit written for that season (SEASON_KITS); null when none [ASSUMED: the same operator plays the same kit across seasons]. No chess of the
  * current season reaches it (every one either has its file or no operator kit at all).
  * @param {string | null | undefined} charId
  * @param {number} [tier]
@@ -213,7 +227,7 @@ export function kitKeyOfChar(charId, tier) {
   if (same.length === 1) return same[0].key;
   const shown = list.filter((k) => !k.hidden);
   if (!same.length && shown.length === 1) return shown[0].key;
-  return Object.prototype.hasOwnProperty.call(OPERATOR_KITS, charId) || Object.prototype.hasOwnProperty.call(NEXT_KITS, charId) ? charId : null;
+  return Object.prototype.hasOwnProperty.call(OPERATOR_KITS, charId) || Object.prototype.hasOwnProperty.call(SEASON_KITS, charId) ? charId : null;
 }
 
 /**

@@ -1,15 +1,15 @@
-// test/content/op_varkis.test.js — 바르카리스 (char_4166_varkis, a tier-1 piece of the season not out yet; kit ops/op-varkis.js): both forms, both skills.
+// test/content/op_varkis.test.js — 바르카리스 (char_4166_varkis, a tier-1 piece of 规程 (act3autochess); kit ops/op-varkis.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { S1_STRIKES, S2_BEGIN } from '../../server/sim/content/kits/ops/op-varkis.js';
 
-const A = 'chess_char_1_nvarkis_a', B = 'chess_char_1_nvarkis_b';
+const A = 'chess_char_1_10_a', B = 'chess_char_1_10_b';
 const FORMS = [A, B];
 const S1 = 'skchr_varkis_1', S2 = 'skchr_varkis_2';
-const rec = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk);
+const rec = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk);
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const FRONT = [10, 5];
 const SHIELD = 'varkis_s2[shield_core]';
@@ -27,7 +27,7 @@ test('Trait: she strikes every enemy she blocks', () => {
 
 test('T1: ATK ×talent_atk_scale when the enemy\'s HP share is not above hers; not above it: plain', () => {
   for (const id of FORMS) {
-    const sc = NEXT.chess[id].talents[0].bb.talent_atk_scale;
+    const sc = ACT3.chess[id].talents[0].bb.talent_atk_scale;
     const { h, u } = field(id, { skill: 0 });
     u.skill.locked = true;
     const e = h.spawn('enemy_dummy', { pos: FRONT, def: 0 });
@@ -46,7 +46,7 @@ test('T1: ATK ×talent_atk_scale when the enemy\'s HP share is not above hers; n
 });
 
 test('T1: it reaches another 米诺斯 operator, the first placed of two counts once whatever its value; a non-米诺斯 gets nothing', () => {
-  const low = NEXT.chess[A].talents[0].bb.talent_atk_scale, high = NEXT.chess[B].talents[0].bb.talent_atk_scale;
+  const low = ACT3.chess[A].talents[0].bb.talent_atk_scale, high = ACT3.chess[B].talents[0].bb.talent_atk_scale;
   assert.ok(high > low);
   // the weaker one placed first (the helper places `more` before the main piece): the stronger one's buff stays off
   const { h } = field(B, { skill: 0, others: [{ uid: 2, chessId: 'chess_char_1_02_a', row: 10, col: 2 }], more: [{ uid: 3, id: A, skill: 0, row: 10, col: 3 }] });
@@ -101,7 +101,7 @@ test('The S1 frames and the S2 begin clip are the skeleton\'s', () => {
 
 test('S1: the next attack strikes every blocked target three times at atk_scale, at the clip\'s frames', () => {
   for (const id of FORMS) {
-    const b1 = rec(id, S1).bb, sc = NEXT.chess[id].talents[0].bb.talent_atk_scale;
+    const b1 = rec(id, S1).bb, sc = ACT3.chess[id].talents[0].bb.talent_atk_scale;
     const { h, u } = field(id, { skill: 0 });
     const a = h.spawn('enemy_dummy', { pos: FRONT, def: 0 }), b = h.spawn('enemy_dummy', { pos: FRONT, def: 0 });
     block(h, u, a); block(h, u, b);
@@ -188,7 +188,7 @@ test('The 屏障 takes damage first among HP; other barriers go first; it decays
 });
 
 test('CEN-Y: above hp_ratio physical damage ×(1 − damage_resistance) on the elite; arts and low HP plain; normal form none', () => {
-  const tb = NEXT.chess[B].trait.bb;
+  const tb = ACT3.chess[B].trait.bb;
   assert.equal(tb.hp_ratio, 0.5);
   assert.equal(tb.damage_resistance, 0.2);
   const seen = (h, u, amount, type) => {

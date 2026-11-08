@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-cammou.js — 卡达 (char_328_cammou) kit: 4★ 驭械术师 (术师), a tier-1 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-cammou.js — 卡达 (char_328_cammou) kit: 4★ 驭械术师 (术师), a tier-1 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 미틈·로베르타·클릭·퀘르쿠스」); both skills, the talent, the trait (professions.js funnel) and FUN-Y (the trait's bb: the ramp's cap) in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv55, skills at rank 4, no module; elite = E2 Lv50, rank 7, FUN-Y stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv55, skills at rank 4, no module; elite = E2 Lv50, rank 7, FUN-Y stage 1.
 // Sources: the record's tables; PRTS 卡达 (S2 备注); charpack char_328_cammou (Trait cammou_tr, Talents/1 cammou_t_1, Modes S1 / S2 Funnel, S2 Attack), skill prefabs skchr_cammou_1 / _2, projectile
 // projectile_chr_cammou_funnel_s2 (`_hitNumType` 2, `_stopWhenSourceInvalid`, attached to its target), buff_template_data cammou_tr, cammou_s_2.
 // - 协调一致: ASPD +attack_speed, the drone's too (it hits at her interval).

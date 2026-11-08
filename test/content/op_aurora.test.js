@@ -1,15 +1,15 @@
-// test/content/op_aurora.test.js — 오로라 (char_422_aurora, a tier-3 piece of the season not out yet; kit ops/op-aurora.js): both forms, both skills.
+// test/content/op_aurora.test.js — 오로라 (char_422_aurora, a tier-3 piece of 规程 (act3autochess); kit ops/op-aurora.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { S1_BEGIN, S2_BEGIN, S2_BULLETS } from '../../server/sim/content/kits/ops/op-aurora.js';
 
-const A = 'chess_char_3_naurora_a', B = 'chess_char_3_naurora_b';
+const A = 'chess_char_3_07_a', B = 'chess_char_3_07_b';
 const FORMS = [A, B];
 const S1 = 'skchr_aurora_1', S2 = 'skchr_aurora_2';
 const REST = 'aurora_t_1';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const attacks = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e && c.dmg?.isAttack);
 /** An enemy she blocks from now on, without the walk. */
@@ -24,7 +24,7 @@ test('Trait: no SP unless she blocks; the elite (HES-X) gets ×(1 + sp_recover_r
   block(a.h, a.u, e);
   a.h.run(2);
   near(a.u.skill.sp, 2, 'normal, blocking: 1 a second', 0.1);
-  const ratio = NEXT.chess[B].trait.bb.sp_recover_ratio;
+  const ratio = ACT3.chess[B].trait.bb.sp_recover_ratio;
   assert.equal(ratio, -0.8);
   const b = field(B, { skill: 0 });
   b.u.skill.sp = 0;
@@ -40,7 +40,7 @@ test('Trait: no SP unless she blocks; the elite (HES-X) gets ×(1 + sp_recover_r
 
 test('T1: with SP at or below sp_ratio of the cost and the skill off: no attack, HP regen by max HP; off above it', () => {
   for (const id of FORMS) {
-    const t = NEXT.chess[id].talents[0].bb;
+    const t = ACT3.chess[id].talents[0].bb;
     const { h, u } = field(id, { skill: 0 });
     const cost = u.skill.spCost;
     const e = h.spawn('enemy_dummy', { pos: [10, 5] });
@@ -88,7 +88,7 @@ test('T1: not while a skill runs (her Default mode\'s talent)', () => {
 
 test('S1: DEF, block +2, 抵抗, no attack during Skill_Begin; the duration starts after it; stun as it ends, the whole length', () => {
   for (const id of FORMS) {
-    const b1 = bbOf(id, S1), rec = NEXT.chess[id].skills.find((s) => s.skillId === S1);
+    const b1 = bbOf(id, S1), rec = ACT3.chess[id].skills.find((s) => s.skillId === S1);
     const { h, u } = field(id, { skill: 0 });
     const def = u.s.def, block0 = u.s.blockCnt;
     const e = h.spawn('enemy_dummy', { pos: [10, 5] });
@@ -113,8 +113,8 @@ test('S1: DEF, block +2, 抵抗, no attack during Skill_Begin; the duration star
 });
 
 test('S1: TAKE_DAMAGE, the trigger of the table', () => {
-  assert.equal(NEXT.chess[B].skills[0].trigger.rule, 'TAKE_DAMAGE');
-  assert.equal(NEXT.chess[B].skills[1].trigger.rule, 'TAKE_DAMAGE');
+  assert.equal(ACT3.chess[B].skills[0].trigger.rule, 'TAKE_DAMAGE');
+  assert.equal(ACT3.chess[B].skills[1].trigger.rule, 'TAKE_DAMAGE');
 });
 
 test('S2: nine attacks, ATK up, the interval longer by base_attack_time; no attack during Skill_2_Begin', () => {

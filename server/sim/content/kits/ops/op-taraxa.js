@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-taraxa.js — 风絮 (char_4222_taraxa) kit: 5★ 守望者 (医疗), a tier-3 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 ○○」); both skills, the talent and the trait in both forms (she has no module with a battle record).
+// server/sim/content/kits/ops/op-taraxa.js — 风絮 (char_4222_taraxa) kit: 5★ 守望者 (医疗), a tier-3 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 ○○」); both skills, the talent and the trait in both forms (she has no module with a battle record).
 //
-// Forms (data/seasons/next/chess.json): normal = E2 Lv1, skills at rank 4; elite = E2 Lv60, rank 7.
+// Forms (data/seasons/act3autochess/chess.json): normal = E2 Lv1, skills at rank 4; elite = E2 Lv60, rank 7.
 // Sources: the record's tables; gamedata_const ba.liftoff; PRTS 风絮 (定风絮 备注 "天赋增益仅对能够阻挡飞行敌人的单位（阻挡类型为空中阻挡）生效，对实际的飞行单位…不会生效"，"阻挡模式发生更变时，立刻
 // …重新判定"; S2 备注 "此技能的额外治疗只以能够阻挡飞行敌人…的单位生效"); buff_template_data taraxa_*; charpack char_4222_taraxa (modes Default, S1_FlyStart, S1_FlyLoop, S1_FlyEnd,
 // S2_FlyStart, S2_FlyLoop, S2_FlyEnd), skill prefabs skchr_taraxa_1 / _2, projectile_chr_taraxa_s2_1 / _2.

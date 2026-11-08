@@ -1,14 +1,14 @@
-// test/content/op_quercu.test.js — 퀘르쿠스 (char_492_quercu, a tier-1 piece of the season not out yet; kit ops/op-quercu.js): both forms, both skills.
+// test/content/op_quercu.test.js — 퀘르쿠스 (char_492_quercu, a tier-1 piece of 规程 (act3autochess); kit ops/op-quercu.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { COLS } from '../../server/sim/constants.js';
 
-const A = 'chess_char_1_nquercu_a', B = 'chess_char_1_nquercu_b';
+const A = 'chess_char_1_11_a', B = 'chess_char_1_11_b';
 const FORMS = [A, B];
 const S1 = 'skchr_quercu_1', S2 = 'skchr_quercu_2';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const YAK = 'chess_char_1_02_a';
 const FRONT = [10, 6];
@@ -19,7 +19,7 @@ const buddy = (id, skill, o = {}) => field(id, { skill, others: [{ uid: 3, chess
 
 test('Trait: arts attacks with no skill on; while a skill runs she heals the lowest HP share for ATK × heal_scale, no damage', () => {
   for (const id of FORMS) {
-    const hs = NEXT.chess[id].trait.bb.heal_scale;
+    const hs = ACT3.chess[id].trait.bb.heal_scale;
     assert.equal(hs, id === A ? 0.75 : 1);
     const { h, u } = buddy(id, 1);
     const y = h.unit(3);
@@ -87,7 +87,7 @@ test('S2: each heal gives its target +sp SP; S1\'s does not', () => {
 
 test('Talent: an ally of her range with an HP share at hp_ratio or more has 庇护; below it, or out of range, none; the 0.1 s check', () => {
   for (const id of FORMS) {
-    const t = NEXT.chess[id].talents[0].bb;
+    const t = ACT3.chess[id].talents[0].bb;
     assert.equal(t.hp_ratio, 0.7);
     const { h, u } = buddy(id, 1, { others: [{ uid: 3, chessId: YAK, row: BUDDY[0], col: BUDDY[1] }, { uid: 4, chessId: YAK, row: 12, col: 3 }] });
     u.skill.locked = true;

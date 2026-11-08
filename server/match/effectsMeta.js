@@ -273,7 +273,7 @@ export class EffectDispatcher {
         const pairs = [];
         for (const holder of ownedChess(ps)) for (const it of holder.items || []) pairs.push([holder, it]);
         for (const [holder, it] of pairs) {
-          const key = `item:${itemKey(it.id)}`;
+          const key = `item:${itemKey(it.id, this.m.gd.raw)}`;
           const h = reg.get(key);
           if (h && stillEquipped(ps, holder, it)) this._call(ps, key, h, hook, { kind: 'item', key, piece: it, holder, item: this.m.gd.item(it.id) }, ev);
         }
@@ -404,7 +404,7 @@ export class EffectDispatcher {
   /** Item-specific hook (onEquip / onArt / onDestroy) for one item piece. */
   dispatchItem(ps, item, holder, hook, ev) {
     if (!item || this.depth >= MAX_DEPTH) return ev;
-    const key = `item:${itemKey(item.id)}`;
+    const key = `item:${itemKey(item.id, this.m.gd.raw)}`;
     const h = this.registry.get(key);
     if (!h) return ev;
     this.depth++;

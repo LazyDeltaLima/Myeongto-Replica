@@ -176,9 +176,9 @@ export function registerMeta(registry) {
       const p = buffP(ctx, piece.id, 'equip_with_another_gain_coin_when_gain_char');
       if (!p) return;
       const bond = typeof p.bond === 'string' && p.bond ? p.bond : 'yanShip';
-      const others = String(p.other_equip || '').split(',').map((s) => itemKeyOf(s.trim())).filter(Boolean);
+      const others = String(p.other_equip || '').split(',').map((s) => itemKeyOf(s.trim(), ctx)).filter(Boolean);
       const fresh = ctx.piece(holder.uid) || holder;
-      const carries = (fresh.items || []).some((it) => it && it.uid !== piece.uid && others.includes(itemKeyOf(it.id)));
+      const carries = (fresh.items || []).some((it) => it && it.uid !== piece.uid && others.includes(itemKeyOf(it.id, ctx)));
       if (!carries || !pieceIsMember(ctx, fresh, bond)) return;
       const k = `cauldron:${piece.uid}:${ctx.round}`;
       if (ctx.counter(k) >= Math.max(0, int(p.max, 3))) return;

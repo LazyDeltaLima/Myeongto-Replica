@@ -1,15 +1,15 @@
-// test/content/op_pianst.test.js — 체르니 (char_4047_pianst, a tier-3 piece of the season not out yet; kit ops/op-pianst.js): both forms, both skills.
+// test/content/op_pianst.test.js — 체르니 (char_4047_pianst, a tier-3 piece of 规程 (act3autochess); kit ops/op-pianst.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { FINAL_DELAY } from '../../server/sim/content/kits/ops/op-pianst.js';
 
-const A = 'chess_char_3_npianst_a', B = 'chess_char_3_npianst_b';
+const A = 'chess_char_3_01_a', B = 'chess_char_3_01_b';
 const FORMS = [A, B];
 const S1 = 'skchr_pianst_1', S2 = 'skchr_pianst_2';
 const STACK = 'pianst_s_2_buff[atk_boost]';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const dmgOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e);
 const echoes = (h, e) => dmgOn(h, e).filter((c) => c.dmg?.tags?.includes('talent'));
@@ -22,13 +22,13 @@ const strike = (h, e, u, type, o = {}) => h.b.dealDamage(e, u, { amount: 50, typ
 test('T1: RES + from the talent', () => {
   for (const id of FORMS) {
     const { u } = field(id, { skill: 0 });
-    assert.equal(u.s.res, NEXT.chess[id].stats.res + NEXT.chess[id].talents[0].bb.magic_resistance, id);
+    assert.equal(u.s.res, ACT3.chess[id].stats.res + ACT3.chess[id].talents[0].bb.magic_resistance, id);
   }
 });
 
 test('T1: an arts attack gives its source atk_scale × her ATK of arts; a physical one, a skill hit and a no-source hit do not', () => {
   for (const id of FORMS) {
-    const t = NEXT.chess[id].talents[0].bb;
+    const t = ACT3.chess[id].talents[0].bb;
     const { h, u } = field(id, { skill: 0 });
     u.skill.locked = true;
     const e = h.spawn('enemy_dummy', { pos: [10, 9] });
@@ -80,7 +80,7 @@ test('S1: ATK +, RES × (1 + its value)', () => {
 
 test('S2: max HP +, taunt +, a stack of ATK for each attack of any type up to its cap, after the talent; gone with the skill', () => {
   for (const id of FORMS) {
-    const b2 = bbOf(id, S2), t = NEXT.chess[id].talents[0].bb;
+    const b2 = bbOf(id, S2), t = ACT3.chess[id].talents[0].bb;
     const { h, u } = field(id, { skill: 1 });
     const e = h.spawn('enemy_dummy', { pos: [10, 9] });
     const hp = u.s.maxHp, atk = u.s.atk, taunt = u.s.tauntLevel ?? u.s.taunt ?? 0;
@@ -176,9 +176,9 @@ test('S2: FinalAttack keeps the ATK of the stacks; a stun at the interval or in 
 });
 
 test('AST-X: the elite form adds atk_scale × ATK of arts on her attacks and on enemy damage while a skill runs, nothing before', () => {
-  const v = NEXT.chess[B].trait.bb.atk_scale;
+  const v = ACT3.chess[B].trait.bb.atk_scale;
   assert.ok(v > 0);
-  assert.equal(NEXT.chess[A].trait.bb.atk_scale, undefined);
+  assert.equal(ACT3.chess[A].trait.bb.atk_scale, undefined);
   const { h, u } = field(B, { skill: 0 });
   const e = h.spawn('enemy_dummy', { pos: [10, 4] });
   h.runUntil(() => attacks(h, e).length >= 1, 10);

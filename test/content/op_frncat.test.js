@@ -1,16 +1,16 @@
-// test/content/op_frncat.test.js — 무스 (char_185_frncat, a tier-1 piece of the season not out yet; kit ops/op-frncat.js): both forms, both skills.
+// test/content/op_frncat.test.js — 무스 (char_185_frncat, a tier-1 piece of 规程 (act3autochess); kit ops/op-frncat.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { DOUBLE } from '../../server/sim/content/kits/ops/op-frncat.js';
 
-const A = 'chess_char_1_nfrncat_a', B = 'chess_char_1_nfrncat_b';
+const A = 'chess_char_1_05_a', B = 'chess_char_1_05_b';
 const FORMS = [A, B];
 const S1 = 'skchr_frncat_1', S2 = 'skchr_frncat_2';
 const DEBUFF = 'frncat_s_1[debuff]';
 const FX = 'skill:frncat:nextAtk';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const hitsOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e && c.dmg?.isAttack);
 const byAttack = (hits) => {
@@ -20,15 +20,15 @@ const byAttack = (hits) => {
 };
 
 test('Arts melee; the record has the operator\'s forms (no module on the normal one)', () => {
-  assert.equal(NEXT.chess[A].dmgType, 'arts');
-  assert.equal(NEXT.chess[A].tier, 1);
-  assert.equal(NEXT.chess[A].module?.active ?? false, false);
-  assert.equal(NEXT.chess[B].module.active, true);
+  assert.equal(ACT3.chess[A].dmgType, 'arts');
+  assert.equal(ACT3.chess[A].tier, 1);
+  assert.equal(ACT3.chess[A].module?.active ?? false, false);
+  assert.equal(ACT3.chess[B].module.active, true);
 });
 
 test('T1: some attacks are two hits of one attack, at the talent clip\'s two frames; the rest one; about prob of them', () => {
   for (const id of FORMS) {
-    const prob = NEXT.chess[id].talents[0].bb.prob;
+    const prob = ACT3.chess[id].talents[0].bb.prob;
     const { h, u } = field(id, { skill: 1 });
     u.skill.locked = true;
     const clock = new Map();
@@ -82,7 +82,7 @@ test('T1: the swing strikes at the talent clip\'s first frame', () => {
 
 test('S1: every spCost + 1 attacks one has ATK +atk, gives no SP, no start or end effect on the rest', () => {
   for (const id of FORMS) {
-    const b1 = bbOf(id, S1), cost = NEXT.chess[id].skills.find((s) => s.skillId === S1).spCost;
+    const b1 = bbOf(id, S1), cost = ACT3.chess[id].skills.find((s) => s.skillId === S1).spCost;
     const { h, u } = field(id, { skill: 0 });
     assert.equal(u.skill.id, S1);
     const e = h.spawn('enemy_dummy', { pos: [10, 5] });
@@ -153,7 +153,7 @@ test('S1: hits give the debuff for its duration; ATK falls by its value; one per
 
 test('S2: ATK and DEF up for its duration, by the table', () => {
   for (const id of FORMS) {
-    const b2 = bbOf(id, S2), rec = NEXT.chess[id].skills.find((s) => s.skillId === S2);
+    const b2 = bbOf(id, S2), rec = ACT3.chess[id].skills.find((s) => s.skillId === S2);
     const { h, u } = field(id, { skill: 1 });
     const { atk, def } = u.s;
     h.spawn('enemy_dummy', { pos: [10, 5] });
@@ -173,7 +173,7 @@ test('S2: ATK and DEF up for its duration, by the table', () => {
 
 test('AFT-X: ASPD +attack_speed while she blocks nobody on the elite form; nothing on the normal one', () => {
   const b = field(B, { skill: 1 });
-  const aspd = NEXT.chess[B].trait.bb.attack_speed;
+  const aspd = ACT3.chess[B].trait.bb.attack_speed;
   assert.equal(aspd, 8);
   b.h.step();
   const free = b.u.s.aspd;

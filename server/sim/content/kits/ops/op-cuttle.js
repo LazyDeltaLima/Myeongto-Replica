@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-cuttle.js — 安哲拉 (char_218_cuttle) kit: 5★ 神射手 (狙击), a tier-2 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 블루포이즌·하이모어·홈바운드·안드레아나」); both skills, the talent, the trait (professions.js longrange) and DEA-X in both forms.
+// server/sim/content/kits/ops/op-cuttle.js — 安哲拉 (char_218_cuttle) kit: 5★ 神射手 (狙击), a tier-2 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 블루포이즌·하이모어·홈바운드·안드레아나」); both skills, the talent, the trait (professions.js longrange) and DEA-X in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, DEA-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, DEA-X stage 1.
 // Sources: the record's tables; PRTS 安哲拉 (module 备注); charpack char_218_cuttle (Talents/1, Modes/S2), skill prefab skchr_cuttle_2, buff_template_data cuttle_e_trait.
 // - T1 深海直觉 (`_deckBuffs` cuttle_t_1, `filterTag` abyssal, `disableOverride`): every 深海猎人 of her player, herself too, has ASPD +attack_speed for the
 //   whole battle, deployed or not; two 安哲拉 add up (the buff of each stays).

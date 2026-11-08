@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AudioManager, kitHitKey } from '../public/js/audio.js';
-import { field, cast } from './helpers/nextSeason.js';
+import { field, cast } from './helpers/seasonPieces.js';
 import { readData, onBattleClock, sweepBattle } from './helpers/audio-sweep.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -56,7 +56,7 @@ const pick = (charId, skill) => sweepBattle({ label: charId, skill, unit: { uid:
 
 describe('official sound signals of the linking sheet', { skip: NO_DATA }, () => {
   test('홈바운드: the throw at an enemy — no ON, its landing once, a tick a second, its stop once', () => {
-    const { h, u } = field('chess_char_3_nhbound_b', { skill: 0 });
+    const { h, u } = field('chess_char_3_05_b', { skill: 0 });
     h.spawn('enemy_dummy', { pos: [10, 6] });
     const played = run(h, u, 0, 28, castAt(1));
     assert.equal(count(played, 'hbound:s1on'), 0, 'HitEnemy has no ON bank');
@@ -66,7 +66,7 @@ describe('official sound signals of the linking sheet', { skip: NO_DATA }, () =>
   });
 
   test('홈바운드: no enemy in range — the throw at a tile sounds its ON once', () => {
-    const { h, u } = field('chess_char_3_nhbound_b', { skill: 0 });
+    const { h, u } = field('chess_char_3_05_b', { skill: 0 });
     const played = run(h, u, 0, 4, castAt(1));
     assert.equal(count(played, 'hbound:s1on'), 1);
     assert.equal(count(played, 'hbound:s1reach'), 1);
@@ -74,7 +74,7 @@ describe('official sound signals of the linking sheet', { skip: NO_DATA }, () =>
 
   test('홈바운드 S2: only an enemy heavy enough ticks its sound', () => {
     const ticks = (key) => {
-      const { h, u } = field('chess_char_3_nhbound_b', { skill: 1 });
+      const { h, u } = field('chess_char_3_05_b', { skill: 1 });
       h.spawn(key, { pos: [10, 6] });
       return count(run(h, u, 1, 12, castAt(1)), 'hbound:s2dot');
     };
@@ -83,7 +83,7 @@ describe('official sound signals of the linking sheet', { skip: NO_DATA }, () =>
   });
 
   test('리프레사 S2: its ON once a cast, a landing for each shot', () => {
-    const { h, u } = field('chess_char_2_nliesel_b', { skill: 1 });
+    const { h, u } = field('chess_char_2_07_b', { skill: 1 });
     for (const pos of [[10, 5], [10, 6], [9, 6]]) h.spawn('enemy_dummy', { pos });
     const played = run(h, u, 1, 5, castAt(1));
     assert.equal(count(played, 'liesel:s2on'), 1);
@@ -91,14 +91,14 @@ describe('official sound signals of the linking sheet', { skip: NO_DATA }, () =>
   });
 
   test('체르니 S2: FinalAttack\'s start once', () => {
-    const { h, u } = field('chess_char_3_npianst_b', { skill: 1 });
+    const { h, u } = field('chess_char_3_01_b', { skill: 1 });
     h.spawn('enemy_dummy', { pos: [10, 5] });
     const played = run(h, u, 1, 25, castAt(1));
     assert.equal(count(played, 'pianst:final'), 1);
   });
 
   test('브리지드 S2: a cut sounds once, whichever of its three prefabs `n` names', () => {
-    const { h, u } = field('chess_char_3_nbrigid_b', { skill: 1 });
+    const { h, u } = field('chess_char_3_15_b', { skill: 1 });
     const { a, played } = managerFor(h, u, 1);
     const f = fileOf('brigid:cut');
     for (const n of [1, 2, 3]) {
@@ -109,10 +109,10 @@ describe('official sound signals of the linking sheet', { skip: NO_DATA }, () =>
   });
 
   test('미스 크리스틴 S2 and 그레이 더 라이트닝베어러 S2: the orb lands once and each tick sounds once, enemies or none', () => {
-    const ch = (() => { const { h, u } = field('chess_char_2_nchrist_b', { skill: 1 }); h.spawn('enemy_dummy', { pos: [10, 6] }); return run(h, u, 1, 20, castAt(1)); })();
+    const ch = (() => { const { h, u } = field('chess_char_2_09_b', { skill: 1 }); h.spawn('enemy_dummy', { pos: [10, 6] }); return run(h, u, 1, 20, castAt(1)); })();
     assert.equal(count(ch, 'christ:s2reach'), 1);
     assert.ok(count(ch, 'christ:s2tick') >= 3, `${count(ch, 'christ:s2tick')} ticks`);
-    const { h, u } = field('chess_char_2_ngreyy2_b', { skill: 1 });
+    const { h, u } = field('chess_char_2_14_b', { skill: 1 });
     h.spawn('enemy_dummy', { pos: [10, 6] });
     const gr = run(h, u, 1, 16, castAt(1));
     assert.equal(count(gr, 'greyy2:s2on'), 1);
@@ -121,7 +121,7 @@ describe('official sound signals of the linking sheet', { skip: NO_DATA }, () =>
   });
 
   test('무스: 연격\'s two hits sound its own HIT, not the normal attack\'s', () => {
-    const { h, u } = field('chess_char_1_nfrncat_b', { skill: 1 });
+    const { h, u } = field('chess_char_1_05_b', { skill: 1 });
     const { a, played } = managerFor(h, u, 1);
     a.handleBattleEvents([['atk', u.id, 0, 'none', 'T.1']]);
     assert.equal(played.filter((p) => p.f === fileOf('frncat:t1hit')).length, 1);
@@ -141,7 +141,7 @@ describe('official sound signals of the linking sheet', { skip: NO_DATA }, () =>
   });
 
   test('로베르타 S2: its end clip\'s ATTACK_FINISH once, not when she falls', () => {
-    const { h, u } = field('chess_char_3_nrobrta_b', { skill: 1 });
+    const { h, u } = field('chess_char_3_19_b', { skill: 1 });
     const { a, played } = managerFor(h, u, 1);
     const f = fileOf('robrta:s2end');
     a.handleBattleEvents([['skill', u.id, 1]]);
@@ -210,7 +210,7 @@ describe('official sound signals of the linking sheet', { skip: NO_DATA }, () =>
       assert.ok(!U[id].modes[i].deferStart, `${id} S${i + 1}: its own start`);
     }
     assert.equal(U.char_4132_ascln.modes['0'].deferStart, true, '아스카론 S1: its attack sounds that file');
-    const { h, u } = field('chess_char_1_nfrostl_b', { skill: 1 });
+    const { h, u } = field('chess_char_1_13_b', { skill: 1 });
     h.spawn('enemy_dummy', { pos: [10, 5] });
     const played = run(h, u, 1, 6, castAt(1));
     assert.equal(played.filter((p) => p.f === 'b_char_atkboost').length, 1, '프로스트리프 S2\'s start once, with attacks running');

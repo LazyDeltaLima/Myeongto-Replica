@@ -1,14 +1,14 @@
-// test/content/op_frostl.test.js — 프로스트리프 (char_193_frostl, a tier-1 piece of the season not out yet; kit ops/op-frostl.js): both forms, both skills.
+// test/content/op_frostl.test.js — 프로스트리프 (char_193_frostl, a tier-1 piece of 规程 (act3autochess); kit ops/op-frostl.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { COLS } from '../../server/sim/constants.js';
 
-const A = 'chess_char_1_nfrostl_a', B = 'chess_char_1_nfrostl_b';
+const A = 'chess_char_1_13_a', B = 'chess_char_1_13_b';
 const FORMS = [A, B];
 const S1 = 'skchr_frostl_1', S2 = 'skchr_frostl_2';
-const rec = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk);
+const rec = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk);
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const NEAR = [10, 5], FAR = [10, 6];
 const hits = (h, u, e, arts) => h.hooksOf('damaged').filter((c) => c.source === u && c.target === e && (c.dmg.type === 'arts') === !!arts);
@@ -28,7 +28,7 @@ test('T1: only the elite: BAT +0.15, its range replaces hers', () => {
   const a = field(A, { skill: 0 }), b = field(B, { skill: 0 });
   near(a.u.s.bat ?? a.u.base.bat, 1.3, 'normal BAT');
   near(b.u.s.bat, 1.45, 'elite BAT');
-  const t = NEXT.chess[B].talents[0];
+  const t = ACT3.chess[B].talents[0];
   assert.equal(t.bb.base_attack_time, 0.15);
   const key = (dr, dc) => (10 + dr) * COLS + (4 + dc);
   assert.ok(!(a.u.rangeKeySet ?? new Set(a.u.rangeKeys)).has(key(1, 2)), 'normal: not in 3-12');
@@ -38,7 +38,7 @@ test('T1: only the elite: BAT +0.15, its range replaces hers', () => {
 });
 
 test('LOR-X: each hit of the elite adds atk_scale_m × ATK arts; the normal form none; S1 and S2 too', () => {
-  const m = NEXT.chess[B].trait.bb.atk_scale_m;
+  const m = ACT3.chess[B].trait.bb.atk_scale_m;
   assert.equal(m, 0.1);
   for (const skill of [0, 1]) {
     const { h, u } = field(B, { skill });

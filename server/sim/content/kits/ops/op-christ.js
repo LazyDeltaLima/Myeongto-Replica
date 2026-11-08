@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-christ.js — Miss.Christine (char_4198_christ) kit: 5★ 本源术师 (术师), a tier-2 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 무스·미스 크리스틴·브리지드·오로라」); both skills, the talent and PRI-X in both forms.
+// server/sim/content/kits/ops/op-christ.js — Miss.Christine (char_4198_christ) kit: 5★ 本源术师 (术师), a tier-2 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 무스·미스 크리스틴·브리지드·오로라」); both skills, the talent and PRI-X in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, PRI-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, PRI-X stage 1.
 // Sources: the record's tables; PRTS Miss.Christine (备注 of T1, S2); charpack char_4198_christ (Others/Direction/Talents/1, Modes/S1, Modes/S2), skill prefabs
 // skchr_christ_1 / _2, projectile_chr_christ_s2, buff_template_data christ_t_1[damage], christ_s_2, ep_damage_based_on_damage_value.
 // - T1 诱人美馔 (AuraAbility over her range, christ_t_1[damage] per Christine): an enemy in her range going PALSYING takes atk_scale × her ATK of element damage. PRTS: "触发麻痹时"

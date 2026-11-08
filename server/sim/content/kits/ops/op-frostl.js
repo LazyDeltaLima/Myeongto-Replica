@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-frostl.js — 霜叶 (char_193_frostl) kit: 4★ 领主 (近卫), a tier-1 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-frostl.js — 霜叶 (char_193_frostl) kit: 4★ 领主 (近卫), a tier-1 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 팽 더 파이어 샤픈드·폰사이러스·프로스트리프·바르카리스」); both skills, the talent and LOR-X (stage 1) in both forms. The trait is the branch's (professions.js lord: ×atk_scale at range).
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv55, skills at rank 4, no module, no talent yet; elite = E2 Lv50, rank 7, LOR-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv55, skills at rank 4, no module, no talent yet; elite = E2 Lv50, rank 7, LOR-X stage 1.
 // Sources: the record's tables; PRTS 霜叶 (备注 of T1, S1, LOR-X); charpack char_193_frostl (Talents/1, Modes/S2), skill prefabs skchr_frostl_1 / _2, buff_template_data frostl_e_002_tr.
 // - T1 掩护打击 (elite): BAT +base_attack_time, its range replaces hers (`_overrideDefaultRangeId`; PRTS 备注 "将覆写霜叶的默认攻击范围"). Stages 2–3's 寒冷 are not this season's: its pieces are stage 1.
 // - LOR-X: atk_scale_m × ATK arts after each hit (frostl_e_002_tr ON_CALCULATE_DAMAGE, attack type ADDITION; PRTS 备注 "预计算的法术附加伤害"), as 荆棘 / 白金's.

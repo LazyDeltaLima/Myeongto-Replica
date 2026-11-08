@@ -1,8 +1,8 @@
-// server/sim/content/kits/ops/op-halo.js — 星源 (char_135_halo) kit: 5★ 链术师, a tier-2 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-halo.js — 星源 (char_135_halo) kit: 5★ 链术师, a tier-2 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 그레이스롯·아스트젠·그레이 더 라이트닝베어러·키치세이」); both skills, the talent and CHA-Y in both forms. The trait is the branch's (professions.js chain: 3 enemies, −15 %;
 // the elite's CHA-Y 4 enemies, no falloff, from its trait text and `attack@chain.atk_scale`).
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, CHA-Y stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, CHA-Y stage 1.
 // Sources: the record's tables; PRTS 星源; charpack char_135_halo (Others/Direction/Talents/1, Modes/S2/Body/Attack), skill prefabs skchr_halo_1 / _2, projectiles projectile_chr_halo / _s1 / _s2 (ChainLightningHitBehaviour
 // `_useChainPrefix`, `_atkScale` 0.85), buff_template_data halo_t_1.
 // - T1 科研热忱 (halo_t_1, triggered every `interval` s, the first after one interval): attack_speed per stack up to max_stack_cnt, counted from the deployment; at the full count the buff halo_t_1[effect] (its effect).

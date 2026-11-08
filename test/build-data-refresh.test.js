@@ -31,7 +31,7 @@ async function fixture(t) {
 function downloader(cache, fetchImpl, opts = { refresh: true }) {
   const requests = [], warnings = [];
   const env = {
-    CACHE_DIR: cache, OPTS: { refresh: false, offline: false, ...opts },
+    CACHE_DIR: cache, SEASON: 'act2autochess', OPTS: { refresh: false, offline: false, ...opts },
     gamedataBase: () => 'https://example.invalid/gamedata/',
     existsSync, mkdir, dirname, join, writeFile, rename, process, AbortSignal,
     log: () => {}, warn: (message) => warnings.push(message),

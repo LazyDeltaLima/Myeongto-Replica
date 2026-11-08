@@ -16,7 +16,7 @@ import { inviteLink } from '../../public/js/screens/room.js';
 import { seasonPref, setLoadoutSeason, installOwnershipSync } from '../../public/js/ui/loadoutSync.js';
 import { buildRecord, normalizeRecord, recordSeason } from '../../public/js/ui/stats.js';
 
-const NEXT = 'next';
+const NEXT = 'act3autochess';
 
 /** Run `fn` with a Map-backed localStorage installed. */
 function withStorage(fn, init = {}) {
@@ -27,7 +27,7 @@ function withStorage(fn, init = {}) {
 
 const state = (ui = {}, room = null) => ({ ...initialState, room, ui: { ...initialState.ui, ...ui } });
 
-test('the placeholder of the next season is in the registry, never public', () => {
+test('规程 (act3autochess) is in the registry, never public', () => {
   assert.equal(SEASONS[NEXT].public, false);
   assert.equal(SEASONS[DEFAULT_SEASON].name, '盟约');
 });
@@ -62,8 +62,8 @@ test('room.create / room.queue fields and the queue counts of a season', () => {
 test('the invitation link names a room season other than the default; the title reads it back', () => {
   assert.match(inviteLink('ABCD'), /\?room=ABCD$/);
   assert.match(inviteLink('ABCD', DEFAULT_SEASON), /\?room=ABCD$/);
-  assert.match(inviteLink('ABCD', NEXT), /\?room=ABCD&season=next$/);
-  assert.equal(parseSeasonParam('?room=ABCD&season=next'), NEXT);
+  assert.match(inviteLink('ABCD', NEXT), /\?room=ABCD&season=act3autochess$/);
+  assert.equal(parseSeasonParam('?room=ABCD&season=act3autochess'), NEXT);
   assert.equal(parseSeasonParam('?room=ABCD&season=nope'), null);
   assert.equal(parseSeasonParam('?room=ABCD'), null);
 });
@@ -98,10 +98,10 @@ test('pickSeason remembers a registry season only', () => withStorage((ls) => {
 test('loadout settings per season: the default keeps the old keys, another season its own', () => withStorage(() => {
   assert.equal(seasonPref('loadout', DEFAULT_SEASON), 'loadout');
   assert.equal(seasonPref('loadout', undefined), 'loadout');
-  assert.equal(seasonPref('loadout', NEXT), 'loadout@next');
+  assert.equal(seasonPref('loadout', NEXT), 'loadout@act3autochess');
   const target = createStore({ entries: { a: 1 }, ops: {}, notOwned: [], diy: {}, sel: 'x', diyPick: null });
   // the next season's stored loadout replaces the held one; back to the default reads the default's again
-  globalThis.localStorage.setItem('sp.pref.loadout@next', JSON.stringify({ v: 1, entries: {} }));
+  globalThis.localStorage.setItem('sp.pref.loadout@act3autochess', JSON.stringify({ v: 1, entries: {} }));
   setLoadoutSeason(NEXT, target);
   assert.deepEqual(target.get().entries, {});
   assert.equal(target.get().sel, null);

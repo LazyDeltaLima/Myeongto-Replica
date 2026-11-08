@@ -86,9 +86,13 @@ export function kitOf(def, reg) {
   if (!def || !reg) return undefined;
   if (isOtherBody(def)) return Object.prototype.hasOwnProperty.call(reg, def.charId) ? reg[def.charId] : undefined;
   const bare = String(def.baseId ?? def.id ?? '').replace(/_[ab]$/, '');
-  const own = reg[def.baseId] ?? reg[def.id] ?? reg[bare];
-  if (own !== undefined) return own;
-  // another season's chess id without a kit file: the same operator's chess or 自选 kit (kits/index.js kitKeyOfChar)
+  const hit = [def.baseId, def.id, bare].find((k) => k != null && reg[k] !== undefined);
+  // a chess kit is its operator's: another season's chess under the same id is mostly another operator (kits/index.js
+  // chessKitCode), and takes its own operator's kit below
+  const code = hit !== undefined && typeof KIT_REGISTRY.chessKitCode === 'function' ? KIT_REGISTRY.chessKitCode(hit) : null;
+  const other = code != null && typeof def.charId === 'string' && def.charId.replace(/^char_\d+_/, '') !== code;
+  if (hit !== undefined && !other) return reg[hit];
+  // another season's chess id without a kit file of its operator: the same operator's chess or 自选 kit (kits/index.js kitKeyOfChar)
   const key = typeof KIT_REGISTRY.kitKeyOfChar === 'function' ? KIT_REGISTRY.kitKeyOfChar(def.charId, def.tier) : null;
   return key ? reg[key] : undefined;
 }

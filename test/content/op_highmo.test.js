@@ -1,20 +1,20 @@
-// test/content/op_highmo.test.js — 하이모어 (char_4066_highmo, a tier-3 piece of the season not out yet; kit ops/op-highmo.js): both forms, both skills.
+// test/content/op_highmo.test.js — 하이모어 (char_4066_highmo, a tier-3 piece of 规程 (act3autochess); kit ops/op-highmo.js): both forms, both skills.
 // Run: node --test test/content/op_highmo.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_3_nhighmo_a', B = 'chess_char_3_nhighmo_b';
+const A = 'chess_char_3_04_a', B = 'chess_char_3_04_b';
 const FORMS = [A, B];
 const S1 = 'skchr_highmo_1', S2 = 'skchr_highmo_2';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const dmgOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e);
 
 test('the trait: heals from her attack up to her block count, 50 (REA-X 60); nobody else heals her', () => {
   for (const [id, v] of [[A, 50], [B, 60]]) {
-    assert.equal(NEXT.chess[id].trait.bb.value, v);
+    assert.equal(ACT3.chess[id].trait.bb.value, v);
     const { h, u } = field(id, { skill: 0 });
     u.skill.sp = 0;
     u.hp = 100;
@@ -30,7 +30,7 @@ test('the trait: heals from her attack up to her block count, 50 (REA-X 60); nob
 
 test('T1: her attack takes `value` of her 元素损伤 per enemy, up to her block count', () => {
   for (const id of FORMS) {
-    const v = NEXT.chess[id].talents[0].bb.value;
+    const v = ACT3.chess[id].talents[0].bb.value;
     const { h, u } = field(id, { skill: 0 });
     u.skill.sp = 0;
     h.b.dealDamage(null, u, { type: 'element', element: 'burn', amount: 500 });
@@ -46,8 +46,8 @@ test('T1: her attack takes `value` of her 元素损伤 per enemy, up to her bloc
 test('T2 is off in this mode: no ASPD and no more block', () => {
   for (const id of FORMS) {
     const { h, u } = field(id, { skill: 0 });
-    assert.equal(u.s.blockCnt, NEXT.chess[id].stats.blockCnt, id);
-    assert.equal(u.s.aspd, NEXT.chess[id].stats.aspd, id);
+    assert.equal(u.s.blockCnt, ACT3.chess[id].stats.blockCnt, id);
+    assert.equal(u.s.aspd, ACT3.chess[id].stats.aspd, id);
     done(h);
   }
 });

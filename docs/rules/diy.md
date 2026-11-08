@@ -1245,17 +1245,17 @@
   (설명 「每秒受到…」과 같음). 이 메서드는 en_US·zh_CN Lua 핫픽스 목록 밖. 다른 키트에서 템플릿 `triggerInterval`을 볼 때도 블랙보드 `interval`을 먼저 확인할 것.
 
 ## 새 시즌 기물을 표 전에 만들기 (2026-11-05, 관리자 결정)
-- 새 시즌 「규정」의 표가 나오기 전에 키트 없는 오퍼레이터를 미리 만든다. 임시 기물은 공개 전 시즌 `next`(`shared/seasons.js`)에만 두고 운영 서버 선발에는 넣지 않는다.
-- 근거: 기물의 상태는 티어로 정해진다. 맹약 상반기·하반기에서 티어별 정예화·레벨·스킬 레벨이 같고, 달라진 것은 6티어 정예의 모듈 단계(2→3)뿐이다. 수치는 오퍼레이터 표에서 그 상태로 계산한다. 두 시즌에 다 있는 64명 중 기본 스킬이 바뀐 것은 3명이라, 키트는 스킬을 모두 쓴다.
-- `node tools/build-data.mjs --offline --season next`: 지금 시즌에 `tools/assets/next-season-roster.json`의 기물을 더해 `data/seasons/next/`에 쓴다(`tools/next-season.mjs`). 다른 파일은 기본 시즌 것을 그대로 쓴다.
-- 임시 기록에 없는 것: 특질, 이 서버에 아직 없는 맹약(이베리아·우르수스·라이타니엔은 명단의 `newBonds`에만). 맹약·특질 효과는 표가 나온 뒤에 한다.
-- 키트: `ops/op-<코드명>.js`, 키는 charId, `NEXT_KIT_FILES`에 적는다. 선발 후보(`KITTED_CHARS`)에는 들어가지 않는다.
-- 아레나에서 보기: `/debug.html?season=next&op=<charId>`(2026-11-06). 시즌 파일은 화면과 전투가 함께 읽고, 공개 시즌만 고르는 방 목록과 달리 `SP_SEASONS`가 필요 없다.
-- [추정·CN: 티어별 상태·기본 스킬(2번째)·모듈(첫 모듈)은 새 시즌 표로 대조, 표가 나오면 명단과 `next`를 지운다] → `test/seasons-next.test.js`.
+- 새 시즌 「규정」의 표가 나오기 전에 키트 없는 오퍼레이터를 미리 만들었다. 기물은 공개 전 시즌에만 두고 운영 서버 선발에는 넣지 않는다.
+- 2026-11-08 표가 들어와 임시 시즌 `next`·명단·`tools/next-season.mjs`를 지우고 실제 시즌 `act3autochess`로 바꿨다(`node tools/build-data.mjs --offline --season act3autochess` → `data/seasons/act3autochess/`, 표 읽기는 `docs/DATA.md` 「Seasons」).
+  명단의 기물 68개(두 형태)는 모두 실제 기물이 있고, 티어·정예화·레벨·스킬 레벨은 그대로 맞았다. 다른 것은 기본 스킬(예: 바이슨·프랜카·블루포이즌·안드레아나·아스트젠은 1번 스킬)과 새 맹약(이베리아·우르수스·라이타니엔 등)뿐이라, 키트는 스킬을 모두 쓰는 그대로 둔다.
+- 키트: `ops/op-<코드명>.js`, 키는 charId, `SEASON_KIT_FILES`에 적는다. 선발 후보(`KITTED_CHARS`)에는 들어가지 않는다.
+- 규정은 지난 시즌의 기물 ID를 다른 오퍼레이터에 쓴다(두 시즌에 다 있는 오퍼레이터 기물 ID 128개 중 125개). 기물 키트 파일은 그 파일을 쓴 오퍼레이터에게만 간다(`kitOf`·`chessKitCode`); 다른 오퍼레이터의 기물은 그 오퍼레이터의 키트(`kitKeyOfChar`)를 받는다 → `test/seasons-act3.test.js`.
+- 아레나에서 보기: `/debug.html?season=act3autochess&op=<charId>`. 시즌 파일은 화면과 전투가 함께 읽고, 공개 시즌만 고르는 방 목록과 달리 `SP_SEASONS`가 필요 없다.
+- 실제 대전 경로 시험(`test/helpers/seasonPieces.js realMatch`)은 규정의 기물·맹약·장비·특질을 지금 시즌의 전장에 놓는다: 규정의 전장은 판 여럿을 한 장에 담은 36×55 맵이라 아직 시뮬이 읽지 못한다(묶음 sim-O).
 
 ## 새 시즌 바이슨·쥐·타락사쿰·우요우 (2026-11-06, 관리자 결정 2026-11-05)
-공개 전 시즌 `next`의 기물(`chess_char_1_nbison`, `chess_char_2_nju`, `chess_char_3_ntaraxa`, `chess_char_3_nnothin`). 네 키트는 `NEXT_KIT_FILES`에 있고 선발 후보가 아니다. 수치는 기물 기록의 블랙보드를 읽는다. 시험 `test/content/op_bison.test.js`·`op_ju`·`op_taraxa`·`op_nothin`(두 형태·두 스킬·모듈, 실제 대전 경로).
-- 그림·소리: `tools/fetch-assets.mjs`가 `next` 기물 가운데 키트가 있는 오퍼레이터의 황금 기록도 계획에 넣는다(`dataExtras`의 셋째 인자). 표가 나오면 `data/chess.json`이 맡는다. 공격 클립(`attackAnim`)·소리(`audio.sfx.units`)는 이 매니페스트에서 나온다. 기본 시즌 항목은 그대로이고 더해지기만 한다.
+규정의 기물(`chess_char_1_14`, `chess_char_2_18`, `chess_char_3_06`, `chess_char_3_20` — 2026-11-08 표 전에는 `next`의 임시 ID). 네 키트는 `SEASON_KIT_FILES`에 있고 선발 후보가 아니다. 수치는 기물 기록의 블랙보드를 읽는다. 시험 `test/content/op_bison.test.js`·`op_ju`·`op_taraxa`·`op_nothin`(두 형태·두 스킬·모듈, 실제 대전 경로).
+- 그림·소리: `tools/fetch-assets.mjs`가 규정 기물 가운데 키트가 있는 오퍼레이터의 황금 기록도 계획에 넣는다(`dataExtras`의 셋째 인자, `data/seasons/act3autochess/chess.json`). 공격 클립(`attackAnim`)·소리(`audio.sfx.units`)는 이 매니페스트에서 나온다. 기본 시즌 항목은 그대로이고 더해지기만 한다.
 
 ### 바이슨 `char_325_bison` (T1, 프로텍터)
 - 재능 交叉掩护: 자신 방어력 +N(ADDITION). 공식 클라에서 확인: 재능 `AuraAbility`가 자신을 넣고(`_selfOption`), 판정기 `professionMask` 513 = 근위 | 선봉이라 자기 뒤 칸의 근위·선봉에게만 간다. 칸 판정은 재능 `rangeGrid`(방향과 함께 돈다).
@@ -1285,7 +1285,7 @@
 - S2 `skchr_nothin_2`(阴晴圆缺, 지속 무한): 토글. 이 모드에서는 저절로 닫지 않아(PRTS 卫戍协议/帮助) 떠날 때까지 간다. 시작 클립(`Skill_2_Begin` 1.1초) 끝에 셋 중 하나: 공식 클라에서 확인, `PassiveOneOfBuffAbility` `_selectMethod` RANDOM_BUT_NOT_LAST — 이번 배치의 직전 것을 뺀 균등(재배치 때 기억 지움). `nothin_s_2[a]` 피해 직전 대상 공격 속도 감소(5초, 연장·중첩 없음), `[b]` 공격 속도, `[c]` 물리 회피 + 저지 +1. 모두 공격력 +N%. 이펙트는 고른 버프의 상태 키, 이름 규칙은 `KIT_OWNED`로 끈다. 시작 소리 `ON_SKILL_SPECIAL_POINT`(프리팹 `_playExtraSignalAtSkillBegin`)는 시전 때, 스파인 이벤트 `lottery`는 클립 재생 때.
 
 ## 새 시즌 레토·이스티나·우쿠시크 (2026-11-06, 관리자 결정 2026-11-05)
-공개 전 시즌 `next`의 기물(`chess_char_1_nleto`, `chess_char_2_nglassb`, `chess_char_3_nturdus`). 키트는 `NEXT_KIT_FILES`, 선발 후보 아님. 시험 `test/content/op_leto.test.js`·`op_glassb`·`op_turdus`(두 형태·두 스킬·모듈, 실제 대전 경로). 우쿠시크의 특질과 임시 중첩은 표가 나온 뒤(맹약·특질 묶음)에 한다.
+규정(`act3autochess`, 공개 전)의 기물(`chess_char_1_16`, `chess_char_2_21`, `chess_char_3_03`). 키트는 `SEASON_KIT_FILES`, 선발 후보 아님. 시험 `test/content/op_leto.test.js`·`op_glassb`·`op_turdus`(두 형태·두 스킬·모듈, 실제 대전 경로). 우쿠시크의 특질과 임시 중첩은 표가 나온 뒤(맹약·특질 묶음)에 한다.
 
 ### 레토 `char_194_leto` (T1, 로드)
 - 특성: 프로필 `lord`(근접 100%, 원거리 `atk_scale`). 모듈 LOR-Y(재능 bb `cnt`·`attack_speed`, `leto_e_002_tr`): 0.1초마다 초기 범위 3-12의 칸으로 적 수를 세어 `cnt`명 이상이면 공격 속도 +. 칸 판정이고 선택 가능 여부를 보지 않는다(공식 클라에서 확인, `CheckHasEnemyInRange` `_useAttackRange` 꺼짐; PRTS 비고).
@@ -1306,7 +1306,7 @@
 - [추정·화면: 지속 치료가 주 대상에게만 가는지. PRTS 문구는 「대상」과 「치료의 모든 대상」을 나눠 적지만, 프리팹은 두 버프를 같은 `_activeBuffs`에 두어 조건 없이 함께 건다 — 프리팹대로 구현] → `mix-Q`
 
 ## 새 시즌 블루포이즌·하이모어·홈바운드·안드레아나 (2026-11-06, 관리자 결정 2026-11-05)
-공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과는 표 뒤. 키트 `ops/op-bluep.js`·`op-highmo.js`·`op-hbound.js`·`op-cuttle.js`, 시험 `test/content/op_*.test.js`.
+규정(`act3autochess`, 공개 전)의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과는 표 뒤. 키트 `ops/op-bluep.js`·`op-highmo.js`·`op-hbound.js`·`op-cuttle.js`, 시험 `test/content/op_*.test.js`.
 
 ### 블루포이즌 `char_129_bluep` (T2, 속사수)
 - 재능: 공격마다 대상에 `bluep_t_1`(`_additiveActiveBuffs`, 템플릿 `poison`). 지속 `duration`초, 1초마다 `poison_damage` 마법 대미지, 첫 틱은 1초 뒤, 출처 없는 지속 피해(PRTS 비고). 적마다 하나이고 이미 걸린 적을 맞히면 시간만 처음으로 돌아가고 값은 처음 그대로(PRTS).
@@ -1340,7 +1340,7 @@
 `anim_keys.py`는 이제 기물 데이터의 오퍼레이터를 모두 읽는다(2026-11-06). 전에는 소재 목록에 있는 오퍼레이터만 읽어, 키트 등록 전에 돌리면 행이 빠지고 클립 역할이 이름 규칙으로 남았다(바이슨·쥐·타락사쿰·우요우가 그랬고 src ffe4bcd3b에서 바로잡음: 바이슨 S1은 공격 클립, 타락사쿰·우요우의 사망·대기 클립). 타락사쿰의 이착륙 클립은 `S<k>_FlyStart`·`S<k>_FlyEnd` 모드에서 온다(`tools/assets/anim-keys.mjs`, `<stem>Loop` 옆의 `<stem>Start`·`<stem>End`).
 
 ## 새 시즌 디아만테·리프레사·체르니·아오스타 (2026-11-06, 관리자 결정 2026-11-05)
-공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(라이타니엔·시라쿠사)는 표 뒤. 키트 `ops/op-kaitou.js`·`op-liesel.js`·`op-pianst.js`·`op-aosta.js`, 시험 `test/content/op_*.test.js`.
+규정(`act3autochess`, 공개 전)의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(라이타니엔·시라쿠사)는 표 뒤. 키트 `ops/op-kaitou.js`·`op-liesel.js`·`op-pianst.js`·`op-aosta.js`, 시험 `test/content/op_*.test.js`.
 
 ### 디아만테 `char_499_kaitou` (T2, 프라이멀 캐스터)
 - 재능 `kaitou_t_1[check_ep]`: 범위 안 적 하나라도 쇠약 손상(凋亡损伤) 폭발 중이면 공격력 +N%, 여럿이어도 하나(`AuraAbility`, `ignoreTargetFree`라 선택 불가 적도 센다).
@@ -1374,7 +1374,7 @@
 - S2 `skchr_aosta_2`: 공격 간격 ×(1 + `base_attack_time`)(버프 MULTIPLIER, PRTS +50%), 공격력 +N%, 맞은 적 모두 `attack@frozen_duration`초 속박(`aosta_s_2[unmovable]`), 재능 배율 × `talent_scale`(`_applyTalentScale`).
 
 ## 새 시즌 미틈·로베르타·클릭·퀘르쿠스 (2026-11-06, 관리자 결정 2026-11-05)
-공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈과 소환물 둘을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(예견·아케인·조력·고수)는 표 뒤. 키트 `ops/op-mitm.js`·`op-robrta.js`·`op-cammou.js`·`op-quercu.js`, 시험 `test/content/op_*.test.js`. `next` 소환물은 `data/seasons/next/tokens.json`에 생기고 `test/helpers/nextSeason.js`가 그 표로 세운다.
+규정(`act3autochess`, 공개 전)의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈과 소환물 둘을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(예견·아케인·조력·고수)는 표 뒤. 키트 `ops/op-mitm.js`·`op-robrta.js`·`op-cammou.js`·`op-quercu.js`, 시험 `test/content/op_*.test.js`. `next` 소환물은 `data/seasons/next/tokens.json`에 생기고 `test/helpers/nextSeason.js`가 그 표로 세운다.
 
 ### 미틈 `char_4147_mitm` (T2, 전술가) · 체리 3호 `token_10037_mitm_trshrb`
 - 특성: 미틈의 피해는 자기 소환물이 저지한 적에게 공격력 × `atk_scale`(`mitm_tr_1` ON_CALCULATE_DAMAGE, 방어 앞). 공식 클라에서 확인: `CheckBlocked._checkBlockedBySourceToken`은 저지자가 그 주인의 소환물인지 보므로 잔해가 저지한 적도 든다.
@@ -1399,7 +1399,7 @@
 - S1 공격력 +N, 끝 없음(`lifeTimeType` 2, 자동 전투는 안 끔). S2 공격 속도 +N, 치료마다 대상 SP +`sp`(`demkni_t_2`).
 
 ## 새 시즌 팽 더 파이어 샤픈드·폰사이러스·프로스트리프·바르카리스 (2026-11-06, 관리자 결정 2026-11-05)
-공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(카시미어·고수·신속·불굴)는 표 뒤. 키트 `ops/op-fang2.js`·`op-buildr.js`·`op-frostl.js`·`op-varkis.js`, 시험 `test/content/op_*.test.js`(두 형태·두 스킬, 실제 대전 경로). 묶음의 물음이던 「코스트 스킬」은 다른 기물과 같다: 이 모드에도 재배치 비용이 있어 `battle.addDp`로 그대로 준다.
+규정(`act3autochess`, 공개 전)의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(카시미어·고수·신속·불굴)는 표 뒤. 키트 `ops/op-fang2.js`·`op-buildr.js`·`op-frostl.js`·`op-varkis.js`, 시험 `test/content/op_*.test.js`(두 형태·두 스킬, 실제 대전 경로). 묶음의 물음이던 「코스트 스킬」은 다른 기물과 같다: 이 모드에도 재배치 비용이 있어 `battle.addDp`로 그대로 준다.
 
 ### 팽 더 파이어 샤픈드 `char_1036_fang2` (T3, 차저)
 - 특성: 처치 때 코스트 +`cost`(일반 1, 돈틀리스 CHG-X 2). 분기 공통(`installCharger`).
@@ -1427,7 +1427,7 @@
 - 보호막: S2 중 자신에게 들어온 치료의 넘친 양(생명 복원 제외)이 보호막으로(`varkis_s2[shield]` `HEAL_CAN_GENERAL_SHIELD`, `ON_ES_OVER_ZERO`), 상한 최대 HP × `max_hp_ratio`. 다른 보호막 뒤에 소모(우선순위 −1000, PRTS 비고, `shieldLast`). 스킬이 끝나도 남고 스킬 밖에서 1초마다 `dynamic_dec_per_sec`씩 준다.
 
 ## 새 시즌 그레이스롯·아스트젠·그레이 더 라이트닝베어러·키치세이 (2026-11-07, 관리자 결정 2026-11-05)
-공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(정밀·기민·조력)는 표 뒤. 키트 `ops/op-swllow.js`·`op-halo.js`·`op-greyy2.js`·`op-kichi.js`, 시험 `test/content/op_*.test.js`(두 형태·두 스킬, 실제 대전 경로).
+규정(`act3autochess`, 공개 전)의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(정밀·기민·조력)는 표 뒤. 키트 `ops/op-swllow.js`·`op-halo.js`·`op-greyy2.js`·`op-kichi.js`, 시험 `test/content/op_*.test.js`(두 형태·두 스킬, 실제 대전 경로).
 
 ### 그레이스롯 `char_367_swllow` (T1, 명사수)
 - 재능 순풍: 공격 속도 +`attack_speed`. 정예에서 피해 하나마다 따로 확률 `prob`로 공격력 ×`atk_scale`(`critical_atkscale`, 방어 앞). 어느 피해든 된다(PRTS 비고). 일반 형태는 `prob` 0.
@@ -1454,7 +1454,7 @@
 - S2 운수대통!: 공격력, 공격 간격 +`base_attack_time`초. 한 공격에 맞은 적 모두에게 같은 상태를 걸고, 공격이 끝나면 다음으로 바뀐다: 정지 → 속박(`attack@unmoveable`) → 기절. 시전마다 정지부터(PRTS 비고, `kichi_skchr_02[listener]`의 플래그).
 
 ## 새 시즌 아스테시아·콘트레일·에단 (2026-11-07, 관리자 결정 2026-11-05)
-공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 첫 모듈(콘트레일은 모듈 없음)을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(기적·아케인·기습)는 표 뒤. 키트 `ops/op-astesi.js`·`op-ctrail.js`·`op-ethan.js`, 시험 `test/content/op_*.test.js`(두 형태·두 스킬, 실제 대전 경로). 묶음의 물음이던 「S1이 패시브인 특수 직군」은 둘이 다르다: 콘트레일 S1은 배치마다 켜지는 기간제, 에단 S1은 기간 없이 배치 내내 도는 패시브다.
+규정(`act3autochess`, 공개 전)의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 첫 모듈(콘트레일은 모듈 없음)을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(기적·아케인·기습)는 표 뒤. 키트 `ops/op-astesi.js`·`op-ctrail.js`·`op-ethan.js`, 시험 `test/content/op_*.test.js`(두 형태·두 스킬, 실제 대전 경로). 묶음의 물음이던 「S1이 패시브인 특수 직군」은 둘이 다르다: 콘트레일 S1은 배치마다 켜지는 기간제, 에단 S1은 기간 없이 배치 내내 도는 패시브다.
 
 ### 아스테시아 `char_274_astesi` (T2, 아츠 파이터)
 - 재능 거친 하늘의 몸짓(`astesi_t_1`): 배치 뒤 `interval`초마다 공격 속도 +`attack_speed`, 최대 `max_stack_cnt`번. 첫 중첩은 `interval`초 뒤, 새 배치면 처음부터. 간격은 표의 20초다. 프리팹의 30은 블랙보드 `interval`이 없을 때의 기본값이다(공식 클라에서 확인). 템플릿의 둘째 수정자(방어력)는 표에 키가 없어 0이다.
@@ -1477,7 +1477,7 @@
 - 모듈 AMB-X 슈퍼 스프레이 페인트 세트: 범위 안 적 이동 속도 ×(1 + `move_speed`). 에단마다 따로 겹친다(PRTS 비고). 미즈키와 같은 처리. 모듈 재능 프리팹은 안 읽었고 표·PRTS 문구대로다.
 
 ## 새 시즌 무스·미스 크리스틴·브리지드·오로라 (2026-11-06, 관리자 결정 2026-11-05)
-공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(빅토리아·쉐라그)는 표 뒤. 키트 `ops/op-frncat.js`·`op-christ.js`·`op-brigid.js`·`op-aurora.js`, 시험 `test/content/op_*.test.js`.
+규정(`act3autochess`, 공개 전)의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(빅토리아·쉐라그)는 표 뒤. 키트 `ops/op-frncat.js`·`op-christ.js`·`op-brigid.js`·`op-aurora.js`, 시험 `test/content/op_*.test.js`.
 
 ### 무스 `char_185_frncat` (T1, 아츠 파이터)
 - 재능 연속 공격(`ProbReplaceNextAtkTalent`, `_probKey`): `prob` 확률로 그 공격이 재능의 `MultiMeleeAttack`(`_additionalTimes` 1)이 된다. 휘두름을 시작할 때 굴린다(`OnBeforeAttack`). 클립 `Attack_2`의 OnAttack 두 프레임(0.367·0.633초)에 한 공격의 두 타격이 나간다.

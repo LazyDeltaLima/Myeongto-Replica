@@ -1,13 +1,13 @@
-// test/content/op_ethan.test.js — 에단 (char_355_ethan, a tier-3 piece of the season not out yet; kit ops/op-ethan.js): both forms, both skills, the talent, AMB-X.
+// test/content/op_ethan.test.js — 에단 (char_355_ethan, a tier-3 piece of 规程 (act3autochess); kit ops/op-ethan.js): both forms, both skills, the talent, AMB-X.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_3_nethan_a', B = 'chess_char_3_nethan_b';
+const A = 'chess_char_3_18_a', B = 'chess_char_3_18_b';
 const FORMS = [A, B];
 const S1 = 'skchr_ethan_1', S2 = 'skchr_ethan_2';
-const rec = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk);
+const rec = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk);
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const FRONT = [10, 5];
 const POISON = 'ethan_s_1';
@@ -62,7 +62,7 @@ test('S1: a hit on a poisoned enemy resets the time and the amount stays, whatev
   // (the elite: its poison outlasts her 3.5 s attack interval, the normal form's runs out first)
   const { h, u } = field(B, { skill: 0 });
   const bb = rec(B, S1).bb, dur = bb['attack@duration'];
-  assert.ok(dur > NEXT.chess[B].stats.bat, 'it outlasts the interval');
+  assert.ok(dur > ACT3.chess[B].stats.bat, 'it outlasts the interval');
   const e = h.spawn('enemy_dummy', { pos: FRONT, res: 0 });
   const attacks = () => hits(h, u, e).filter((c) => c.dmg.isAttack).length;
   assert.ok(h.runUntil(() => e.findBuff(POISON), 8));
@@ -107,7 +107,7 @@ function bindShare(id, skill, withCast) {
 }
 
 test('T1: each target hit rolls for 束缚 of frozen_duration; S2 multiplies the chance', () => {
-  const t = NEXT.chess[A].talents[0].bb;
+  const t = ACT3.chess[A].talents[0].bb;
   assert.equal(t.prob, 0.25);
   assert.equal(t.frozen_duration, 3);
   const plain = bindShare(A, 0, false), up = bindShare(A, 1, true);
@@ -123,7 +123,7 @@ test('T1: each target hit rolls for 束缚 of frozen_duration; S2 multiplies the
 });
 
 test('AMB-X: enemies in range slow by move_speed, only the elite, one slow per 에단', () => {
-  const mv = NEXT.chess[B].talents.find((t) => t.index === -1).bb.move_speed;
+  const mv = ACT3.chess[B].talents.find((t) => t.index === -1).bb.move_speed;
   assert.equal(mv, -0.2);
   const slows = (e) => e.buffs.filter((b) => b.key.startsWith('ethan_e_002:'));
   const { h } = field(B, { skill: 0 });

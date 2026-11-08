@@ -38,6 +38,17 @@ Unknown options or a missing option value are errors (exit code 2); `--refresh` 
   room) keeps only the files that differ in `data/seasons/<id>/`: `--season <id>` writes there and drops every file
   byte-identical to the default's. The server reads a season as the default's files with the season's own in their
   place (`server/data.js` `seasonData`), the browser through `/data/s/<id>/<file>.json` (`server/http/static.js`).
+  规程 (`act3autochess`) reads its tables from fexli/ArknightsResource at one commit (`tools/gamedata-url.mjs`
+  `SEASON_GAMEDATA`, cache `.cache/gamedata-act3autochess/`): a FlatBuffers-decoded dump that leaves default-valued fields out
+  and writes some enums as numbers, put back into Kengxxiao's spelling by `tools/gamedata-flat.mjs`. Its section is
+  `activity.AUTOCHESS.act3autochess.V3_1`. It reuses the default season's chess, item and 特质 ids for other content, so
+  its records carry what joins them to the default season's code: `items[*].handlerKey` (the default season's key of
+  the item with the same trap, else `act3autochess:<own key>`), `garrisons[*].handlerKey` (the default season's id of
+  the same 特质 effect, else `act3autochess:<own id>`); `bosses[*].bloodByMode` (leader HP per mode, its table has one
+  per mode), `bands[*].inactiveModeIds` (the modes a strategy is not offered in; it lists no `modeTypeList`),
+  `chess[*].tmplId` (a chess built from a character template: 阿米娅's 医疗 form, char_patch_table) and
+  `skills[*].trigger.rawRules` (the trigger row's condition list). Its stages are 36×55 maps holding every field,
+  not read by the sim yet. The default season's files have none of these fields.
 - **Derived paths.** `stages.json groundPaths*` come from the sim's own `server/sim/grid.js` pathing: a change there
   needs a rebuild (the offline-rebuild test catches a stale `data/`).
 

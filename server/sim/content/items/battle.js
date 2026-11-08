@@ -43,7 +43,7 @@
 // undying duration ×m, ASPD ×m, tremble chance ×m. Granted hammers without an own copy use 蒸汽之心's blackboard.
 
 import {
-  num, itemRecord, dataFile, itemKeyOf, buffsOf, isOp, onField, unitBonds, isMember, bondActive, isGroundOp, frontTile,
+  num, itemRecord, dataFile, itemKeyOf, itemIdOfKey, buffsOf, isOp, onField, unitBonds, isMember, bondActive, isGroundOp, frontTile,
   alliesAround, passiveBuff, fxOn, tplFx, battleStore, contentInfo, itemsOf, directMods,
 } from '../support/index.js';
 import { mitigate, hasHp, periodicDamage, isHpLoss, isNormalDamage } from '../../damage.js';
@@ -57,11 +57,11 @@ function bp(rec, bbKey) {
   for (const b of buffsOf(rec)) if (b.bbKey === bbKey) return b.p;
   return null;
 }
-/** Partner key of a combo buff (equip_chess_id / other_equip), without suffix. */
-function partnerOf(p) {
+/** Partner key of a combo buff (equip_chess_id / other_equip), without suffix (itemKeyOf: the battle's season). */
+function partnerOf(p, scope) {
   if (!p) return null;
-  if (typeof p.equip_chess_id === 'string' && p.equip_chess_id) return itemKeyOf(p.equip_chess_id);
-  if (typeof p.other_equip === 'string' && p.other_equip) return itemKeyOf(p.other_equip.split(',')[0].trim());
+  if (typeof p.equip_chess_id === 'string' && p.equip_chess_id) return itemKeyOf(p.equip_chess_id, scope);
+  if (typeof p.other_equip === 'string' && p.other_equip) return itemKeyOf(p.other_equip.split(',')[0].trim(), scope);
   return null;
 }
 const isProc = (dmg) => !!(dmg && dmg.tags && dmg.tags.indexOf('item') >= 0);
@@ -126,11 +126,11 @@ function hammerInfo(key, scope = null) {
   let map = HAMMERS.get(items);
   if (!map) {
     map = new Map();
-    const steam = itemRecord(`${STEAM_KEY}_a`, scope);
+    const steam = itemRecord(itemIdOfKey(STEAM_KEY, scope) ?? '', scope);
     const sp = steam ? bp(steam, STEAM_BUFF) : null;
-    const keys = sp ? Object.keys(sp).filter((k) => /^hammer_\d+$/.test(k)).map((k) => itemKeyOf(sp[k])) : [];
+    const keys = sp ? Object.keys(sp).filter((k) => /^hammer_\d+$/.test(k)).map((k) => itemKeyOf(sp[k], scope)) : [];
     for (const k of keys) {
-      const rec = itemRecord(`${k}_a`, scope);
+      const rec = itemRecord(itemIdOfKey(k, scope) ?? '', scope);
       const b = rec ? buffsOf(rec).find((x) => x.p.big_hammer != null) : null;
       const type = b ? hammerTypeOf(b.p) : null;
       if (type) map.set(k, { type, bbKey: b.bbKey });
@@ -169,7 +169,7 @@ function grantsOf(rt, u) {
 /** Does `u` carry an item of this key (own equipment or a lent grant)? */
 export function carries(battle, u, key) {
   if (!key || !u) return false;
-  for (const id of itemsOf(u)) if (itemKeyOf(id) === key) return true;
+  for (const id of itemsOf(u)) if (itemKeyOf(id, battle) === key) return true;
   const g = runtime(battle).grants.get(u);
   if (g) for (const x of g.values()) if (x.lent && x.key === key) return true;
   return false;
@@ -234,7 +234,7 @@ function fieldHammers(battle, rt, pid) {
     c.set.clear();
     for (const a of battle.allyUnits) {
       if (a.kind !== 'op' || a.ownerId !== pid || !onField(a)) continue;
-      for (const id of itemsOf(a)) { const h = hammerInfo(itemKeyOf(id), battle); if (h) c.set.add(h.type); }
+      for (const id of itemsOf(a)) { const h = hammerInfo(itemKeyOf(id, battle), battle); if (h) c.set.add(h.type); }
     }
   }
   return c.set;
@@ -763,7 +763,7 @@ const BY_ITEM = {
   //   when the buff starts (each deployment, or a lend). Until 2026-10-31: a heal once a second
   chess_item_5_09_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm118_global_buff');
-    const partner = partnerOf(p);
+    const partner = partnerOf(p, battle);
     const r = p ? num(p.hp_recovery_per_sec_by_max_hp_ratio) : 0;
     if (!partner || !(r > 0)) return;
     const key = S.key('set');
@@ -783,7 +783,7 @@ const BY_ITEM = {
   // IfNot, no `_filterModifierCancelled`), so 持续 / 溅射 instances and cancelled ones carry it too
   chess_item_6_01_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm117_global_buff');
-    const partner = partnerOf(p);
+    const partner = partnerOf(p, battle);
     const sc = p ? num(p.atk_scale) : 0;
     if (!partner || !(sc > 0)) return;
     S.on('hit', (c) => {
@@ -796,7 +796,7 @@ const BY_ITEM = {
   chess_item_6_02_e(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm076_global_buff');
     if (!p) return;
-    const partner = partnerOf(p);
+    const partner = partnerOf(p, battle);
     S.on('attack', (c) => {
       if (c.attacker !== u || !c.targets.some((t) => t && t.side === 'enemy') || !memberOf(battle, u, 'lateranoShip')) return;
       if (!chance(battle, num(p.prob))) return;
@@ -825,7 +825,7 @@ const BY_ITEM = {
   chess_item_6_04_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm078_global_buff');
     if (!p) return;
-    const partner = partnerOf(p);
+    const partner = partnerOf(p, battle);
     const cd = num(p.lock_duration, 0.5), sc = num(p.atk_scale);
     let ready = -Infinity;
     S.on('damaged', (c) => {
@@ -860,7 +860,7 @@ const BY_ITEM = {
   chess_item_6_06_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm102_ability');
     if (!p) return;
-    const partner = partnerOf(p);
+    const partner = partnerOf(p, battle);
     const iv = Math.max(0.1, num(p.interval, 1));
     const next = new Map();
     S.every(0, () => {
@@ -885,7 +885,7 @@ const BY_ITEM = {
   chess_item_6_07_e(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm103_global_buff');
     if (!p) return;
-    const partner = partnerOf(p);
+    const partner = partnerOf(p, battle);
     const init = num(p.init_sp);
     if (init > 0) {
       S.on('deploy', (c) => { if (c.unit === u && u.skill) u.skill.gainSp(init, 'init'); });
@@ -918,7 +918,7 @@ const BY_ITEM = {
     const p = bp(rec, 'act2autochess_equip_acarm119_global_buff');
     const a = bp(rec, 'act2autochess_equip_acarm119_ability');
     if (!p) return;
-    const partner = partnerOf(p);
+    const partner = partnerOf(p, battle);
     const win = num(p.duration, 20);
     const aspdMul = a ? num(a.attack_speed, 1) : 1, moveMul = a ? num(a.move_speed, 1) : 1;
     const auraKey = S.key('aura'), comboKey = S.key('combo');
@@ -962,7 +962,7 @@ const BY_ITEM = {
   chess_item_6_11_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm122_global_buff');
     if (!p) return;
-    const partner = partnerOf(p);
+    const partner = partnerOf(p, battle);
     const key = S.key('stealth');
     const per = num(p.atk_per_sec), max = num(p.max_atk, 1);
     const st = { bonus: 0, seq: -1, since: null, ticks: 0 };
@@ -1030,7 +1030,7 @@ export function addShieldLayer(battle, target, key, cap = 1) {
  */
 export function hasBattleEffect(rec, scope = null) {
   if (!rec || rec.itemType !== 'EQUIP') return false;
-  const key = itemKeyOf(rec.id);
+  const key = itemKeyOf(rec.id, scope);
   if (BY_ITEM[key] || hammerInfo(key, scope)) return true;
   return buffsOf(rec).some((b) => STAT_BUFFS.has(b.bbKey) || BY_BUFF[b.bbKey]);
 }
@@ -1091,7 +1091,7 @@ export function installItem(battle, u, itemId, { lent = false } = {}) {
   const copies = lent ? 0 : [...gm.values()].filter((g) => !g.lent && g.id === itemId).length;
   const tag = lent ? '@lend' : copies ? `#${(rt.copySeq = (rt.copySeq || 0) + 1)}` : '';
   const S = new Scope(battle, u, `item:${itemId}${tag}`);
-  const key = itemKeyOf(itemId);
+  const key = itemKeyOf(itemId, battle);
   const grant = { gid, id: itemId, key, lent, scope: S, timer: null, dispose: null };
   grant.dispose = () => {
     if (S.disposed) return;

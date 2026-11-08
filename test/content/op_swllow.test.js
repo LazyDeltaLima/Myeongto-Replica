@@ -1,17 +1,17 @@
-// test/content/op_swllow.test.js — 그레이스롯 (char_367_swllow, a tier-1 piece of the season not out yet; kit ops/op-swllow.js): both forms, both skills, the talent, MAR-Y.
+// test/content/op_swllow.test.js — 그레이스롯 (char_367_swllow, a tier-1 piece of 规程 (act3autochess); kit ops/op-swllow.js): both forms, both skills, the talent, MAR-Y.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_1_nswllow_a', B = 'chess_char_1_nswllow_b';
+const A = 'chess_char_1_07_a', B = 'chess_char_1_07_b';
 const FORMS = [A, B];
 const S1 = 'skchr_swllow_1', S2 = 'skchr_swllow_2';
-const rec = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk);
+const rec = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk);
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const FRONT = [10, 5];
 const hits = (h, u, e) => h.hooksOf('damaged').filter((c) => c.source === u && c.target === e);
-const talent = (id) => NEXT.chess[id].talents.find((t) => t.index === 0).bb;
+const talent = (id) => ACT3.chess[id].talents.find((t) => t.index === 0).bb;
 
 test('T1: attack_speed always; the normal form rolls no ×atk_scale, the elite rolls each damage instance', () => {
   {
@@ -92,7 +92,7 @@ test('MAR-Y: the elite only, attack_speed while a ground enemy stands in range: 
     assert.equal(u.findBuff('swllow_e_t_10[atk_speed]'), null, 'no module, no buff');
     done(h);
   }
-  const mod = NEXT.chess[B].talents.find((t) => t.index === -1).bb.attack_speed;
+  const mod = ACT3.chess[B].talents.find((t) => t.index === -1).bb.attack_speed;
   const { h, u } = field(B, { skill: 0 });
   const base = u.s.aspd;
   const fly = h.spawn('enemy_fly', { pos: FRONT });

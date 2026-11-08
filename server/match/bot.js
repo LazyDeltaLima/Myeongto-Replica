@@ -1236,9 +1236,9 @@ function tryDo(fn) {
 function canUseItem(m, ps, item) {
   const rec = m.gd.item(item.id);
   if (!rec) return false;
-  if (rec.itemType === 'MAGIC') return m.registry.has('item:' + itemKey(item.id));
+  if (rec.itemType === 'MAGIC') return m.registry.has('item:' + itemKey(item.id, m.gd.raw));
   const consume = typeof rec.kind === 'string' && rec.kind.startsWith('consume_on_equip');
-  if (consume) return m.registry.has('item:' + itemKey(item.id));
+  if (consume) return m.registry.has('item:' + itemKey(item.id, m.gd.raw));
   return true;
 }
 

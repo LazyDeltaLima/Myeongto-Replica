@@ -1,16 +1,16 @@
-// test/content/op_bluep.test.js — 블루포이즌 (char_129_bluep, a tier-2 piece of the season not out yet; kit ops/op-bluep.js): both forms, both skills.
+// test/content/op_bluep.test.js — 블루포이즌 (char_129_bluep, a tier-2 piece of 规程 (act3autochess); kit ops/op-bluep.js): both forms, both skills.
 // Run: node --test test/content/op_bluep.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_2_nbluep_a', B = 'chess_char_2_nbluep_b';
+const A = 'chess_char_2_02_a', B = 'chess_char_2_02_b';
 const FORMS = [A, B];
 const S1 = 'skchr_bluep_1', S2 = 'skchr_bluep_2';
 const POISON = 'bluep_t_1', ASPD = 'bluep_e_t_10[atk_speed]';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
-const t1 = (id) => NEXT.chess[id].talents[0].bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
+const t1 = (id) => ACT3.chess[id].talents[0].bb;
 const near = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const dmgOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e);
 const ticks = (h, e) => dmgOn(h, e).filter((c) => c.dmg?.tags?.includes('dot'));
@@ -51,7 +51,7 @@ test('T1: a hit on a poisoned enemy resets the time and keeps the first amount; 
   h.run(1.2);
   const seen = new Set(ticks(h, e).map((c) => c.amount));
   assert.equal(seen.size, 1, `amounts ${[...seen]}`);
-  near([...seen][0], t1(NEXT.chess[A].chessId === shooter.defId ? A : B).poison_damage, 'first shooter\'s amount');
+  near([...seen][0], t1(ACT3.chess[A].chessId === shooter.defId ? A : B).poison_damage, 'first shooter\'s amount');
   assert.ok(u.alive);
   done(h);
 });
@@ -102,7 +102,7 @@ test('S2: ATK +, three targets, one round only (its attack@times is 1), and the 
 });
 
 test('MAR-Y: ASPD + while a ground enemy stands in range, not for a flyer; the normal form has no module', () => {
-  const v = NEXT.chess[B].talents.find((t) => t.index === -1).bb.attack_speed;
+  const v = ACT3.chess[B].talents.find((t) => t.index === -1).bb.attack_speed;
   assert.equal(v, 8);
   const { h, u } = field(B);
   assert.ok(!u.findBuff(ASPD));

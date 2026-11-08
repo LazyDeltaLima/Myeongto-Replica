@@ -1,8 +1,8 @@
-// server/sim/content/kits/ops/op-ctrail.js — 云迹 (char_4165_ctrail) kit: 4★ 巡空者 (特种), a tier-2 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-ctrail.js — 云迹 (char_4165_ctrail) kit: 4★ 巡空者 (特种), a tier-2 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 아스테시아·콘트레일·에단」); both skills and the talent in both forms (she has no module). The same graph as 蒂比's and 予愿安洁莉娜's take-offs (flags `liftoff` + `blockFly`,
 // the fx 'takeoff', render/units.js LIFTOFF_HEIGHT, the `_TakeOff` / `_Landing` clips of tools/assets/anim-keys.mjs); here the two clips also take their time, as 风絮's.
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv60, skills at rank 4; elite = E2 Lv55, rank 7.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv60, skills at rank 4; elite = E2 Lv55, rank 7.
 // Sources: the record's tables; gamedata_const ba.liftoff; PRTS 云迹 (备注 of S2); charpack char_4165_ctrail (modes Default, S1_TakeOff, S1, S1_Landing, S2_TakeOff, S2, S2_Landing, Default_S1),
 // skill prefabs skchr_ctrail_1 / _2, buff_template_data ctrail_tr[*], ctrail_t_1, ctrail_s_1, ctrail_s_2, ctrail_s_2[sluggish], ctrail_height_ctrl[*].
 // - Trait "起飞后能够阻挡2个飞行敌人": she blocks ground enemies on the ground, flyers only in the air (ctrail_tr[fly][core]: ChangeCharBlockMode FLY, MOTION_TARGET_FREE; ctrail_tr[ground] in her default modes ends it).

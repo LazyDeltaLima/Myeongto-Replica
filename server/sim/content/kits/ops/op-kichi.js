@@ -1,8 +1,8 @@
-// server/sim/content/kits/ops/op-kichi.js — 吉星 (char_4203_kichi) kit: 5★ 散射手 (reaperrange), a tier-3 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-kichi.js — 吉星 (char_4203_kichi) kit: 5★ 散射手 (reaperrange), a tier-3 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 그레이스롯·아스트젠·그레이 더 라이트닝베어러·키치세이」); both skills, the talent and RPR-X in both forms. The trait is the branch's (professions.js reaperrange: every enemy in range,
 // atk_scale on the trait's tiles, RPR-X's 1.6 from the module's trait).
 //
-// Forms (data/seasons/next/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, RPR-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, RPR-X stage 1.
 // Sources: the record's tables; PRTS 吉星 (备注 of the talent and of S2); charpack char_4203_kichi (Others/Direction/Talents/1, Others/Direction/Trait, Modes/*/Body/Attack), skill prefabs skchr_kichi_1 / _2,
 // buff_template_data kichi_t, kichi_t[atk_scale], kichi_skchr_01[listener], kichi_skchr_02[listener], kichi_skchr_02[debuff]; DamageScale `_isStackable` = × (1 + value × stacks).
 // - T1 好运连击！ (kichi_t ON_TARGET_KILLED): each new enemy id she fells adds a stack up to max_stack_cnt; every damage of hers × (1 + damage_scale × stacks) (PRTS "伤害倍率", any damage). A withdrawal clears the ids (PRTS).

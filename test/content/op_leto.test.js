@@ -1,25 +1,25 @@
-// test/content/op_leto.test.js — 레토 (char_194_leto, a tier-1 piece of the season not out yet; kit ops/op-leto.js): both forms, both skills.
+// test/content/op_leto.test.js — 레토 (char_194_leto, a tier-1 piece of 规程 (act3autochess); kit ops/op-leto.js): both forms, both skills.
 // Run: node --test test/content/op_leto.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, fill, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, fill, realMatch } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_1_nleto_a', B = 'chess_char_1_nleto_b';
+const A = 'chess_char_1_16_a', B = 'chess_char_1_16_b';
 const FORMS = [A, B];
 const S1 = 'skcom_quickattack[3]', S2 = 'skchr_leto_2';
 const T1 = 'leto_t_1[attack_speed]', LOR = 'leto_e_002_tr[atk_speed]';
-const ISTINA = 'chess_char_2_nglassb_a';   // a student, MANUAL skills
-const UKUSIK = 'chess_char_3_nturdus_a';   // of Ursus, no student
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
-const t1Of = (id) => NEXT.chess[id].talents[0].bb.attack_speed;
+const ISTINA = 'chess_char_2_21_a';   // a student, MANUAL skills
+const UKUSIK = 'chess_char_3_03_a';   // of Ursus, no student
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
+const t1Of = (id) => ACT3.chess[id].talents[0].bb.attack_speed;
 const near = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const dmgOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e || c.unit === e);
 
 test('the group tags her talent and S2 read: she and 이스티나 are students, 우쿠시크 is not', () => {
-  assert.ok(NEXT.chess[A].powers.includes('student'));
-  assert.ok(NEXT.chess[ISTINA].powers.includes('student'));
-  assert.ok(!NEXT.chess[UKUSIK].powers.includes('student'));
+  assert.ok(ACT3.chess[A].powers.includes('student'));
+  assert.ok(ACT3.chess[ISTINA].powers.includes('student'));
+  assert.ok(!ACT3.chess[UKUSIK].powers.includes('student'));
 });
 
 test('T1: with either skill on, ASPD on every student wherever it stands and on herself; it ends with the skill', () => {
@@ -70,7 +70,7 @@ test('S1: ATK and ASPD from its blackboard', () => {
 
 test('S2: ATK +, two targets, ranged at 100%; outside it one target at the trait rate', () => {
   for (const id of FORMS) {
-    const rate = NEXT.chess[id].trait.bb.atk_scale;
+    const rate = ACT3.chess[id].trait.bb.atk_scale;
     assert.equal(rate, 0.8);
     const { h, u } = field(id);
     // two targets on a tile of her range that is neither hers nor the one in front: a ranged swing
@@ -97,7 +97,7 @@ test('S2 casts a ready MANUAL skill of a student at once: no other camp, none st
   for (const id of FORMS) {
     const { h, u } = field(id, { more: [
       { uid: 2, id: ISTINA, skill: 0, row: 9, col: 7 }, { uid: 3, id: UKUSIK, skill: 0, row: 9, col: 5 },
-      { uid: 4, id: 'chess_char_2_nglassb_b', skill: 1, row: 9, col: 3 }, { uid: 5, id: ISTINA, skill: 1, row: 11, col: 7 },
+      { uid: 4, id: 'chess_char_2_21_b', skill: 1, row: 9, col: 3 }, { uid: 5, id: ISTINA, skill: 1, row: 11, col: 7 },
     ] });
     const ready = h.unit(2), other = h.unit(3), charging = h.unit(4), mute = h.unit(5);
     fill(ready); fill(other); fill(mute);
@@ -123,7 +123,7 @@ test('S1 calls nobody: only S2 sets off the other students', () => {
 });
 
 test('LOR-Y (elite): ASPD + with cnt enemies on the tiles of her initial range, off again below it; the normal form has none', () => {
-  const mb = NEXT.chess[B].talents.find((t) => t.fromModule).bb;
+  const mb = ACT3.chess[B].talents.find((t) => t.fromModule).bb;
   assert.deepEqual([mb.cnt, mb.attack_speed], [2, 12]);
   const { h, u } = field(B);
   h.run(0.2);

@@ -60,7 +60,7 @@ describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }
     assert.equal(new Set(ids).size, ids.length);
     const tokens = JSON.parse(readFileSync(path.join(ROOT, 'data/tokens.json'), 'utf8'));
     const backups = JSON.parse(readFileSync(path.join(ROOT, 'data/backups.json'), 'utf8'));
-    const nextTokens = JSON.parse(readFileSync(path.join(ROOT, 'data/seasons/next/tokens.json'), 'utf8')); // a hidden season's summons
+    const nextTokens = JSON.parse(readFileSync(path.join(ROOT, 'data/seasons/act3autochess/tokens.json'), 'utf8')); // a hidden season's summons
     const web = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8')).tokens;
     const waves = JSON.parse(readFileSync(path.join(ROOT, 'data/waves.json'), 'utf8'));
     const enemies = JSON.parse(readFileSync(path.join(ROOT, 'data/enemies.json'), 'utf8'));
@@ -478,8 +478,8 @@ describe('add_operator.py and what it drives (no client needed)', { skip: !PY &&
   };
   // a piece of the hidden season with no kit yet, not in the manifest: whichever is left (the kits are added in bundles)
   const manifest = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
-  const roster = JSON.parse(readFileSync(path.join(ROOT, 'tools/assets/next-season-roster.json'), 'utf8')).ops;
-  const seasonOnly = roster.map((o) => o.charId).find((c) => !manifest.chars[c]) ?? null;
+  const season = JSON.parse(readFileSync(path.join(ROOT, 'data/seasons/act3autochess/chess.json'), 'utf8'));
+  const seasonOnly = Object.values(season).map((c) => c.charId).filter(Boolean).sort().find((c) => !manifest.chars[c]) ?? null;
 
   test('anim_keys.py reads every chess operator, in the manifest or not: no order to keep against the kit', { skip: !seasonOnly && 'every piece has its kit' }, () => {
     const ids = run('import anim_keys as k\nprint(json.dumps(k.target_ids()))');
@@ -501,7 +501,7 @@ print(json.dumps({'miss': a.missing_common('char_1_x', modes, {'x': ['common_hit
 
   test('--finish keeps the order the rebuilds depend on', () => {
     const { order, cmds } = run(`import add_operator as a
-c = a.finish_commands('py', ['--cn', 'CN'], ['char_x'], ['next'])
+c = a.finish_commands('py', ['--cn', 'CN'], ['char_x'], ['act3autochess'])
 print(json.dumps({'order': list(a.FINISH_ORDER), 'cmds': {k: [[str(x) for x in cmd] for cmd in v] for k, v in c.items()}}))`);
     assert.deepEqual(Object.keys(cmds), order, 'a command for each step, in order');
     const at = (s) => order.indexOf(s);
@@ -511,7 +511,7 @@ print(json.dumps({'order': list(a.FINISH_ORDER), 'cmds': {k: [[str(x) for x in c
     assert.ok(at('assets') < at('data'), 'build-data takes the clips from the manifest');
     assert.ok(at('data') < at('seasons'));
     assert.ok(at('plays') < at('report') && at('assets') < at('report'));
-    assert.ok(cmds.seasons[0].join(' ').endsWith('--offline --season next'));
+    assert.ok(cmds.seasons[0].join(' ').endsWith('--offline --season act3autochess'));
     assert.ok(cmds.keys[0].join(' ').endsWith('--cn CN'));
   });
 

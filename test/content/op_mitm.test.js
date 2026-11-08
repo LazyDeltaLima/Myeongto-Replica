@@ -1,28 +1,28 @@
-// test/content/op_mitm.test.js — 미틈 (char_4147_mitm, a tier-2 piece of the season not out yet; kit ops/op-mitm.js) and her 체리 3호 (token_10037_mitm_trshrb): both forms, both skills.
+// test/content/op_mitm.test.js — 미틈 (char_4147_mitm, a tier-2 piece of 规程 (act3autochess); kit ops/op-mitm.js) and her 체리 3호 (token_10037_mitm_trshrb): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { BORN, CAR, SKILL_FORM, WASTE } from '../../server/sim/content/kits/ops/op-mitm.js';
 import { COLS } from '../../server/sim/constants.js';
 
-const A = 'chess_char_2_nmitm_a', B = 'chess_char_2_nmitm_b';
+const A = 'chess_char_2_17_a', B = 'chess_char_2_17_b';
 const FORMS = [A, B];
 const S1 = 'skchr_mitm_1', S2 = 'skchr_mitm_2';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const TILE = [10, 6];
 const carOf = (h) => h.unit(2);
 const wastes = (h) => h.b.allyUnits.filter((t) => t.kind === 'token' && t.defId === CAR && t.mem.mitmWaste);
 const hitsOn = (h, u, e) => h.hooksOf('damaged').filter((c) => c.source === u && c.target === e);
 const withCar = (id, skill, o = {}) => field(id, { skill, others: [{ uid: 2, kind: 'token', tokenId: CAR, ownerUid: 1, row: TILE[0], col: TILE[1] }], ...o });
-const carTalent = (id) => NEXT.tokens[CAR].variants[id].talents[0].bb;
+const carTalent = (id) => ACT3.tokens[CAR].variants[id].talents[0].bb;
 const dp = (h) => h.b.getPlayer(h.unit(1).ownerId).dp;
 
 test('체리 3호: the placed piece stands with block_cnt, no heal, its form\'s stats; she keeps it as her 援군', () => {
   for (const id of FORMS) {
     const { h, u } = withCar(id, 1);
-    const t = carOf(h), v = NEXT.tokens[CAR].variants[id];
+    const t = carOf(h), v = ACT3.tokens[CAR].variants[id];
     u.skill.locked = true;
     assert.ok(t.alive);
     assert.equal(t.s.blockCnt, carTalent(id).block_cnt);
@@ -71,7 +71,7 @@ test('No piece placed: she summons it on a tactical point of her range at her de
 
 test('Trait: her attack on an enemy her token blocks has ATK × atk_scale, before DEF; one nobody blocks has ATK', () => {
   for (const id of FORMS) {
-    const scale = NEXT.chess[id].trait.bb.atk_scale;
+    const scale = ACT3.chess[id].trait.bb.atk_scale;
     const { h, u } = withCar(id, 1);
     u.skill.locked = true;
     assert.ok(h.runUntil(() => !carOf(h).findBuff(BORN), 2), `${id}: out of mode Reborn`);
@@ -144,7 +144,7 @@ test('잔해: no attack, ATK and DEF 0, half HP, block_cnt, gone for good when i
 });
 
 test('The trait counts on an enemy a 잔해 blocks (the blocker is a token of hers)', () => {
-  const id = B, scale = NEXT.chess[id].trait.bb.atk_scale;
+  const id = B, scale = ACT3.chess[id].trait.bb.atk_scale;
   const { h, u } = withCar(id, 1);
   u.skill.locked = true;
   h.b.kill(carOf(h), null);
@@ -158,7 +158,7 @@ test('The trait counts on an enemy a 잔해 blocks (the blocker is a token of he
 
 test('S1: +cost DP; at the strike the car explodes on the ground enemies of its x-5, with her ATK, the trait counting, then withdraws: 잔해 after the damage', () => {
   for (const id of FORMS) {
-    const b1 = bbOf(id, S1), scale = NEXT.chess[id].trait.bb.atk_scale;
+    const b1 = bbOf(id, S1), scale = ACT3.chess[id].trait.bb.atk_scale;
     const { h, u } = withCar(id, 0);
     const t = carOf(h);
     const onIt = h.spawn('enemy_dummy', { pos: TILE }), side = h.spawn('enemy_dummy', { pos: [9, 6] });
@@ -311,7 +311,7 @@ test('Her leaving takes both with her, no 잔해, no return; her redeployment br
 });
 
 test('TAC-Y (elite): the enemies her token blocks have taunt +taunt_level while blocked; none on the normal form', () => {
-  const lvl = NEXT.tokens[CAR].variants[B].talents.find((x) => x.bb.taunt_level != null).bb.taunt_level;
+  const lvl = ACT3.tokens[CAR].variants[B].talents.find((x) => x.bb.taunt_level != null).bb.taunt_level;
   assert.equal(lvl, 1);
   const { h, u } = withCar(B, 1);
   u.skill.locked = true;

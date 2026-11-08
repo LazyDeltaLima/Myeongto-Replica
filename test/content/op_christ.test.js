@@ -1,14 +1,14 @@
-// test/content/op_christ.test.js — 미스 크리스틴 (char_4198_christ, a tier-2 piece of the season not out yet; kit ops/op-christ.js): both forms, both skills.
+// test/content/op_christ.test.js — 미스 크리스틴 (char_4198_christ, a tier-2 piece of 规程 (act3autochess); kit ops/op-christ.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { SPIRIT_SPEED, S2_PRE_DELAY } from '../../server/sim/content/kits/ops/op-christ.js';
 
-const A = 'chess_char_2_nchrist_a', B = 'chess_char_2_nchrist_b';
+const A = 'chess_char_2_09_a', B = 'chess_char_2_09_b';
 const FORMS = [A, B];
 const S1 = 'skchr_christ_1', S2 = 'skchr_christ_2';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const dmgOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e);
 const spirit = (h, e) => dmgOn(h, e).filter((c) => c.dmg?.tags?.includes('christ:spirit'));
@@ -17,7 +17,7 @@ const burst = (h, e) => h.b.addBuff(e, { key: 'neuralBurst', duration: 100, flag
 
 test('T1: an enemy in her range whose attack 麻痹 interrupts takes atk_scale × ATK of element damage; gaining 麻痹 is nothing', () => {
   for (const id of FORMS) {
-    const t = NEXT.chess[id].talents[0].bb;
+    const t = ACT3.chess[id].talents[0].bb;
     const { h, u } = field(id, { skill: 1 });
     u.skill.locked = true;
     const e = h.spawn('enemy_biter', { pos: [10, 5] });
@@ -36,7 +36,7 @@ test('T1: an enemy in her range whose attack 麻痹 interrupts takes atk_scale �
 });
 
 test('T1: not for an enemy out of her range; one hit per 미스 크리스틴 in range', () => {
-  const F = 'chess_char_1_nfrncat_a';   // something for the far enemy to attack, which gives no 麻痹 of its own
+  const F = 'chess_char_1_05_a';   // something for the far enemy to attack, which gives no 麻痹 of its own
   const { h, u } = field(B, { skill: 1, more: [{ uid: 2, id: B, skill: 1, row: 10, col: 3 }, { uid: 3, id: F, skill: 1, row: 8, col: 11 }] });
   u.skill.locked = true; h.unit(2).skill.locked = true; h.unit(3).skill.locked = true;
   const far = h.spawn('enemy_biter', { pos: [8, 12] });  // in neither's range
@@ -157,7 +157,7 @@ test('S2: the spirit does not come if she falls in the pre-delay', () => {
 });
 
 test('PRI-X: ×damage_scale on an enemy in a burst on the elite form, not the element damage; nothing on the normal one', () => {
-  assert.equal(NEXT.chess[B].trait.bb.damage_scale, 1.1);
+  assert.equal(ACT3.chess[B].trait.bb.damage_scale, 1.1);
   const run = (id) => {
     const { h, u } = field(id, { skill: 0 });
     u.skill.locked = true;

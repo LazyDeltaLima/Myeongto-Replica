@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-kaitou.js — 折光 (char_499_kaitou) kit: 5★ 本源术师 (术师), a tier-2 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 디아만테·리프레사·체르니·아오스타」); both skills, the talent and PRI-X in both forms.
+// server/sim/content/kits/ops/op-kaitou.js — 折光 (char_499_kaitou) kit: 5★ 本源术师 (术师), a tier-2 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 디아만테·리프레사·체르니·아오스타」); both skills, the talent and PRI-X in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, PRI-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, PRI-X stage 1.
 // Sources: the record's tables; charpack char_499_kaitou (Talents/1, Modes/S1, Modes/S2), skill prefabs skchr_kaitou_1 / _2,
 // buff_template_data kaitou_t_1[check_ep], kaitou_s_1[ep_damage], kaitou_s_2[ep_damage], kaitou_e_002_tr[dmg_up], ep_damage_based_on_damage_value.
 // - T1 预先告知 (AuraAbility over her range, `ignoreTargetFree`): ATK +atk while an enemy in her range is in its 凋亡损伤 burst; one buff however many.
