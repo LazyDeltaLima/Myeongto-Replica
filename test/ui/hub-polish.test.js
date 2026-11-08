@@ -46,25 +46,33 @@ test('hub: tips and 更新 as two cards on a desktop, tabs on a short screen; th
   assert.doesNotMatch(notes, /PatchNotesModal/);
   assert.ok(src.indexOf('<${PatchNotesModal} open=${notesFresh !== null}') > src.indexOf('</main>', src.indexOf('<main class="hub-stage">')), 'the dialog after the hub stage');
   assert.match(src, /class="hub-plate--join"[^\n]*onClick=\$\{\(\) => setOpen\('join'\)\}/);
-  assert.match(src, /<\$\{AllianceSelect\} view=\$\{open === 'join' \? 'join' : 'create'\}/);
+  assert.match(src, /\$\{open === 'join' \? html`<\$\{AllianceSelect\} onClose=/);
   for (const k of ['较新的版本', '较早的版本']) {
     assert.ok(EN[k], `en: ${k}`);
     assert.ok(KO[k], `ko: ${k}`);
   }
 });
 
-test('同盟模拟: the create view has no join card, the join view no create card; the create button keeps its class', () => {
+test('同盟模拟 opens 选择模拟协议 (赛季 row, 规则, 人数, cards, 创建同盟); AllianceSelect is the join card alone', () => {
   const src = read('public/js/screens/lobby.js');
   const ally = src.slice(src.indexOf('export function AllianceSelect('), src.indexOf('function JoinBox('));
-  const [joinView, createView] = ally.split("` : html`<section class=\"ally-side ally-side--create\"");
-  assert.ok(createView, 'two views');
-  assert.match(joinView, /ally-card--join/);
-  assert.doesNotMatch(joinView, /ally-create__go|SizeSwitch/);
-  assert.doesNotMatch(createView, /ally-card--join|TextField/);
-  // the browser suites click '.ally-create__go' (inside [data-testid="alliance-create"]) to create a room
-  assert.match(createView, /data-testid="alliance-create"/);
-  assert.match(createView, /class="proto-start ally-create__go"[^>]*onClick=\$\{\(\) => onCreate\(\)\}>/);
-  assert.match(createView, /<\$\{SeasonSwitch\} class="ally-form__row/);
+  assert.match(ally, /ally-card--join/);
+  assert.doesNotMatch(ally, /ally-create__go|SizeSwitch|SeasonPick|onCreate/);
+  assert.match(src, /\$\{open === 'solo' \|\| open === 'match' \|\| open === 'coop' \? html`<\$\{ProtocolSelect\} roomMode=\$\{roomMode\}/);
+  assert.match(src, /onSize=\$\{roomMode === 'solo' \? null : pickSize\}[^>]*\n\s*season=\$\{roomMode === 'coop'\} \/>/);
+  // room.create carries what the dialog picked
+  assert.match(src, /\{ mode: roomMode, difficulty, ruleset, \.\.\.sizeFields\(roomMode, size\), \.\.\.seasonFields\(season\) \}/);
+  // the 赛季 row first, only with season and several seasons offered
+  const rules = src.slice(src.indexOf('export function ProtoRules('), src.lastIndexOf('/**', src.indexOf('export function CustomBrief(')));
+  assert.match(rules, /data-testid="proto-rules">\s*\$\{season && seasons \? html`<span class="proto-rules__row" data-testid="proto-season">/);
+  assert.match(rules, /<\$\{SeasonPick\} class="proto-rules__seg rtrack" \/>/);
+  // the browser suites click '.ally-create__go' to create a room: 创建同盟's start button keeps it, the room's 确认 not
+  const select = src.slice(src.indexOf('export function ProtocolSelect('), src.indexOf('export function AllianceSelect('));
+  assert.match(select, /class=\$\{`proto-start\$\{roomMode === 'coop' && !action \? ' ally-create__go' : ''\}`\}/);
+  assert.match(read('public/js/screens/room.js'), /<\$\{ProtocolSelect\} roomMode=\$\{protoMode\}[\s\S]{0,300}?action=\$\{t\('确认'\)\}/);
+  const season = read('public/js/ui/season.js');
+  assert.match(season, /export function SeasonPick\(\{ class: cls = '' \}\) \{[^]*?if \(st\.offered\.length < 2\) return null;/);
+  assert.doesNotMatch(season, /SeasonSwitch/);
 });
 
 test('lobby.css: the left column = the top bar group, one row of keys, the menu to the left, the protocol group', () => {
@@ -86,10 +94,10 @@ test('选择模拟协议: 快速匹配 is the official range switch over the sta
   const src = read('public/js/screens/lobby.js');
   const rules = src.slice(src.indexOf('export function ProtoRules('), src.lastIndexOf('/**', src.indexOf('export function CustomBrief(')));
   assert.doesNotMatch(rules, /快速匹配|qswitch|proto-rules__sum|CustomSummary/, 'the rule rows hold 规则 and 人数 only');
-  assert.equal((rules.match(/class="proto-rules__seg rtrack"/g) || []).length, 3, '规则, 同盟匹配\'s 人数 and a room\'s 人数');
+  assert.equal((rules.match(/class="proto-rules__seg rtrack"/g) || []).length, 4, '赛季, 规则, 同盟匹配\'s 人数 and a room\'s 人数');
   const select = src.slice(src.indexOf('export function ProtocolSelect('), src.indexOf('export function AllianceSelect('));
   // the official order under the cards: the tips line, the range switch, the button
-  assert.match(select, /<p class="proto-hint">[\s\S]*?<\/p>\s*\$\{range\}\s*<button type="button" class="proto-start"/);
+  assert.match(select, /<p class="proto-hint">[\s\S]*?<\/p>\s*\$\{range\}\s*<button type="button" class=\$\{`proto-start/);
   assert.match(select, /<\/div>\s*\$\{brief\}\s*<\/div>/, 'the brief ends with the custom line');
   assert.match(src, /range=\$\{matching \? html`<\$\{QuickRange\} quick=\$\{quick\} onQuick=\$\{pickQuick\} \/>` : null\}/);
   const quick = src.slice(src.indexOf('export function QuickRange('), src.indexOf('/**', src.indexOf('export function QuickRange(')));

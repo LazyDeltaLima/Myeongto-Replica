@@ -170,18 +170,17 @@ export function SeasonChip() {
 }
 
 /**
- * 选择同盟方式's 创建同盟 card: the season the new room plays (the lobby's pick, ui/season.js pickSeason), beside 人数 —
- * nothing while one season is offered (maintainer decision 2026-11-07, the room only shows its season).
+ * The 赛季 row's switch of 创建同盟's 选择模拟协议 (screens/lobby.js ProtoRules `season`): the season the new room plays,
+ * the same pick as the top bar's chip (pickSeason) — a room's season is fixed when it is made (maintainer decisions
+ * 2026-11-07, 2026-11-08: its mode bar only shows it). Nothing while one season is offered (hasSeasonPicker).
  */
-export function SeasonSwitch({ class: cls = '' }) {
+export function SeasonPick({ class: cls = '' }) {
   const st = useStore((s) => ({ offered: offeredSeasonsOf(s), picked: pickedSeason(s) }), shallowEqualDeep);
   if (st.offered.length < 2) return null;
-  return html`<span class=${`season-switch ${cls}`.trim()} data-testid="ally-season"><span class="ally-create__k">${t('赛季')}</span>
-    <span class="dpick rpick" role="radiogroup" aria-label=${t('赛季')}>
-      ${st.offered.map((id) => html`<button key=${id} type="button" role="radio" aria-checked=${id === st.picked ? 'true' : 'false'} data-season=${id}
-        class=${`dpick__opt rpick__opt${id === st.picked ? ' is-active' : ''}`} onClick=${() => id !== st.picked && pickSeason(id)}>${seasonName(id)}<${NewMark} id=${id} /></button>`)}
-    </span>
-  </span>`;
+  return html`<div class=${`dpick rpick ${cls}`.trim()} role="radiogroup" aria-label=${t('赛季')} data-testid="ally-season">
+    ${st.offered.map((id) => html`<button key=${id} type="button" role="radio" aria-checked=${id === st.picked ? 'true' : 'false'} data-season=${id}
+      class=${`dpick__opt rpick__opt${id === st.picked ? ' is-active' : ''}`} onClick=${() => id !== st.picked && pickSeason(id)}>${seasonName(id)}<${NewMark} id=${id} /></button>`)}
+  </div>`;
 }
 
 /**

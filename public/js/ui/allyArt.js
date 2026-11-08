@@ -1,8 +1,7 @@
 // Ported by hand from upstream 0.3.3 (GPL-3.0).
 // 选择同盟方式's drawings (upstream PR #643 split 6; every drawing here is original, no game art):
 //   RadarScene — the left picture: rings, a sweep, blips and bearing / range read-outs that keep changing;
-//   CreateArt / JoinArt — the pictures of the 创建同盟 / 加入同盟 cards (an octagon emblem with circuit lines; a row of
-//   isometric blocks under a target).
+//   JoinArt — the picture of the 加入同盟 card (a row of isometric blocks under a target).
 // Decorative only (aria-hidden). Styles: css/screens/lobby.css (mf-*).
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html } from './components.js';
@@ -33,19 +32,6 @@ export function RadarScene() {
     <g class="mf-radar__read"><rect x="384" y="236" width="74" height="26" /><text x="421" y="254" text-anchor="middle">${read.deg}°</text>
       <rect x="384" y="276" width="74" height="26" /><text x="421" y="294" text-anchor="middle">${read.range}</text></g>
     <path class="mf-radar__frame" d="M120 110v-16h16M420 94h16v16M120 390v16h16M420 406h16v-16" />
-  </svg>`;
-}
-
-/** 创建同盟's picture: an octagon emblem with a plus and circuit lines. */
-export function CreateArt() {
-  return html`<svg class="mf-art mf-art--create" viewBox="0 0 400 130" aria-hidden="true" focusable="false">
-    <path class="mf-art__wire" d="M0 50h90l20 14h50M0 80h96l18-12h46M400 50h-90l-20 14h-50M400 80h-96l-18-12h-46M30 30h60M310 30h60M40 104h44M316 104h44" />
-    <path class="mf-art__oct" d="M180 28h40l18 18v40l-18 18h-40l-18-18V46z" />
-    <path class="mf-art__plus" d="M193 66h14M200 52v28" />
-    <path class="mf-art__brk" d="M156 46q-10 20 0 40M244 46q10 20 0 40" />
-    <rect class="mf-art__dot" x="176" y="16" width="6" height="6" transform="rotate(45 179 19)" /><rect class="mf-art__dot" x="218" y="16" width="6" height="6" transform="rotate(45 221 19)" />
-    <rect class="mf-art__dot" x="176" y="110" width="6" height="6" transform="rotate(45 179 113)" /><rect class="mf-art__dot" x="218" y="110" width="6" height="6" transform="rotate(45 221 113)" />
-    <text x="200" y="12" text-anchor="middle">FORM AN ALLIANCE</text>
   </svg>`;
 }
 

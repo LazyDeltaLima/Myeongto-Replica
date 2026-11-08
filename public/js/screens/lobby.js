@@ -6,8 +6,10 @@
 // plates, and three entries at the bottom right:
 //   - 独立模拟 → 选择模拟协议 (ProtocolSelect, roomMode 'solo'): the difficulty cards beside its official picture
 //     (`modeChoice/*_rhodes_island`), 规则 (经典 / 休闲 / 自定义 ⚙) above them, then 开始独立模拟 (room.create).
-//   - 同盟模拟 → 创建同盟 (AllianceSelect), the upstream flow (maintainer decision 2026-11-07): creates a 4- or 8-seat room at
-//     once at the remembered difficulty and ruleset, which the host changes in the room. Joining one with a 同盟密钥 as a
+//   - 同盟模拟 → 选择模拟协议 (roomMode 'coop', maintainer decision 2026-11-08; it was upstream's 创建同盟 card, a room made
+//     at the remembered difficulty and ruleset and changed in the room): 赛季 (while several are offered: a room keeps the
+//     season it is made in), 规则 and 人数 over the cards, then 创建同盟 (room.create); the room's mode bar opens the same
+//     dialog to change them. Joining one with a 同盟密钥 as a
 //     player (加入同盟) or in a spectator seat (观战: room.spectate, also while its match runs; community report #26, a
 //     remake feature — the official room has none) is the left column's box, not this screen's (maintainer decision
 //     2026-11-08).
@@ -18,7 +20,7 @@
 //     waiting Doctors (the quick queue + every ruleset × size queue); room.queue { quick: true }.
 // On a short screen (≤ 520 px tall, a landscape phone) the left column narrows to three cards — the 成就统计 strip, 加入同盟,
 // and 作战提示 | 更新 as tabs (maintainer decision 2026-11-08) —; on a phone too narrow for it, it gives way, as upstream's:
-// 成就统计 and 加入同盟 · 观战 become plates under 干员调配 (the latter opens AllianceSelect's join view, the key alone).
+// 成就统计 and 加入同盟 · 观战 become plates under 干员调配 (the latter opens AllianceSelect: the key alone).
 // The top bar: 返回, ping, the 在线 count, 设置, 玩法说明, and at the right the season chip (ui/season.js) and the resume
 // button. Not taken from upstream: its own lobby picture / music (ui/lobbyMedia.js, hubScene.js) and its versions.
 // 规则 모드 (shared/ruleset.js, maintainer decisions 2026-10-15, 2026-10-18): the 规则 switch picks 经典 / 休闲 / 自定义 for
@@ -53,14 +55,14 @@ import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { MatchQueueDialog, joinQueue, joinQuickQueue } from '../ui/matchQueue.js';
-import { SeasonChip, SeasonSwitch, pickedSeason, seasonFields, seasonQueueCounts, seasonQuickCounts, seasonName } from '../ui/season.js';
+import { SeasonChip, SeasonPick, hasSeasonPicker, pickedSeason, seasonFields, seasonQueueCounts, seasonQuickCounts, seasonName } from '../ui/season.js';
 import { seasonInfo, DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { RulesetSwitch, lobbyRuleset, lobbyQueueRuleset, saveLobbyRuleset, queueCountOf } from '../ui/ruleset.js';
 import { QUEUE_PRESETS, PRESET_LABELS, isQueuePreset, customDiffs, officialBans } from '../../../shared/ruleset.js';
 import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
 import { customRulesStore, customDraft } from '../ui/customRulesStore.js';
 import { PatchNotesModal, usePatchNotes, isUnseen, markSeen, Inline } from '../ui/patchNotes.js';
-import { RadarScene, CreateArt, JoinArt } from '../ui/allyArt.js';
+import { RadarScene, JoinArt } from '../ui/allyArt.js';
 import { ProtocolScene } from '../ui/protocolScene.js';
 import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
 import { net, identity } from '../net.js';
@@ -628,14 +630,21 @@ function RowKey({ text }) {
  * 规则 and 人数 stay, disabled. `readOnly`: the room's settings shown to a Doctor who is not its host (screens/room.js), the
  * buttons disabled. A room's (roomMode 'coop' with `onSize`) has the 人数 row too, without queue counts (maintainer
  * decision 2026-11-08: the room's mode bar opens this dialog for every setting); `sizeLocked` keeps it at 8 while more
- * than four seats are taken. A picked 自定义's summary is CustomBrief, in the brief at the left.
+ * than four seats are taken. `season`: 创建同盟's 赛季 row first (SeasonPick, while several seasons are offered: the room's
+ * season is fixed when it is made, maintainer decision 2026-11-08). A picked 自定义's summary is CustomBrief, in the
+ * brief at the left.
  */
-export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize, quick = false, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false }) {
+export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize, quick = false, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false, season = false }) {
   const matching = roomMode === 'match';
   const roomSize = roomMode === 'coop' && !!onSize;
+  const seasons = useStore(hasSeasonPicker);
   const big = matching && size === LARGE_SEATS;
   const counts = big ? counts8 : counts4;
   return html`<div class=${`proto-rules${matching || roomSize ? ' is-grid' : ''}`} data-testid="proto-rules">
+    ${season && seasons ? html`<span class="proto-rules__row" data-testid="proto-season">
+      <${RowKey} text=${t('赛季')} />
+      <span class="proto-rules__cell"><${SeasonPick} class="proto-rules__seg rtrack" /></span>
+    </span>` : null}
     <span class="proto-rules__row">
       <${RowKey} text=${t('规则')} />
       <span class="proto-rules__cell">
@@ -699,7 +708,9 @@ export function QuickRange({ quick, onQuick }) {
  * 选择模拟协议 (laid out after the event's second screen): full screen — the selected difficulty's official picture and
  * brief at the left (`brief`, a node at its end: CustomBrief), the rule rows (`rules`, a node) and the four difficulty
  * cards down the right (the chosen one slides out with the 已选定 stamp), the hint, `range` (a node: QuickRange) and the
- * start button below them, as the official auto_chess_mode_choice_pop_view's tips, range switch and button. The project's Modal (focus trap, Esc, focus
+ * start button below them, as the official auto_chess_mode_choice_pop_view's tips, range switch and button. `roomMode`
+ * 'coop' without `action` is 同盟模拟's 创建同盟 (room.create at the picked difficulty, 规则, 人数 and 赛季); its button keeps
+ * the class `ally-create__go` the browser suites press. The project's Modal (focus trap, Esc, focus
  * restored) styled to fill the screen. `roomMode`: 'solo' (开始独立模拟), 'match' (开始匹配; `waiting(d)` the Doctors of each
  * card's queue) or 'coop' (a room's host, bundle ui-B: `action` / `hint` replace the button's label and the hint), or
  * `readOnly` — the cards shown, not chosen, and no button.
@@ -748,7 +759,7 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
               ${online ? hint ?? defaultHint : html`<${Spinner} size="sm" label="CONNECTING" /> ${t('正在连接服务器…')}`}
             </p>
             ${range}
-            <button type="button" class="proto-start" data-testid="proto-start" disabled=${!online || busy === 'create'} aria-busy=${busy === 'create' ? 'true' : 'false'} onClick=${onStart}>
+            <button type="button" class=${`proto-start${roomMode === 'coop' && !action ? ' ally-create__go' : ''}`} data-testid="proto-start" disabled=${!online || busy === 'create'} aria-busy=${busy === 'create' ? 'true' : 'false'} onClick=${onStart}>
               <span class="proto-start__mark" aria-hidden="true"><span class="proto-start__rook"><i>[</i><${Icon} name="rook" /><i>]</i></span><small>STRONGHOLD<br />PROTOCOL</small></span>
               <span class="proto-start__label">${busy === 'create' ? html`<${Spinner} size="sm" />` : null}${label}</span>
               <span class="proto-start__deco" aria-hidden="true"></span>
@@ -761,23 +772,20 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
 }
 
 /**
- * 同盟模拟's screen (laid out after the event's screen after 同盟模拟): full screen — a radar at the left with 玩法说明 under it,
- * at the right one of two views (maintainer decision 2026-11-08: the hub's left column already holds the key field):
- * `view` 'create' — 创建同盟: the card's 赛季 and 人数 rows, equal segmented rows, and under it the big 创建同盟 button in
- * 选择模拟协议's start button's shape (creates a room at once at the remembered difficulty and ruleset, which the host
- * changes in the room) — or 'join', opened by the 加入同盟 · 观战 plate of a phone too narrow for the left column: the
- * 加入同盟 card alone (the key field with 观战, the recent keys that only fill it, 加入同盟). `short`: the screen is at most
- * 520 px tall — the key field's placeholder is the field's name alone.
+ * 加入同盟 · 观战 (laid out after the event's screen after 同盟模拟), opened by the 加入同盟 · 观战 plate of a phone too narrow
+ * for the hub's left column: full screen — a radar at the left with 玩法说明 under it, at the right the 加入同盟 card alone
+ * (the key field with 观战, the recent keys that only fill it, 加入同盟). 同盟模拟 itself opens 选择模拟协议 (maintainer
+ * decision 2026-11-08: the room is made at the difficulty, 规则, 人数 and 赛季 picked there, no second step in the room).
+ * `short`: the screen is at most 520 px tall — the key field's placeholder is the field's name alone.
  */
-export function AllianceSelect({ view = 'create', onClose, onCreate, size, onSize, code, onCode, codeOk, online, busy, onJoin, onSpectate, recent, focusKey, short = false }) {
-  const join = view === 'join';
+export function AllianceSelect({ onClose, code, onCode, codeOk, online, busy, onJoin, onSpectate, recent, focusKey, short = false }) {
   return html`<${Modal} open=${true} onClose=${onClose} class="ally" veilClass="proto-veil">
     <div class="ally__body">
       <div class="proto__bg ally__bg" aria-hidden="true"></div>
       <header class="proto-top">
         <${BackPlate} onClick=${onClose} class="ally__back" />
         <div class="proto-title">
-          <h2 class="modal__title">${join ? t('加入同盟 · 观战') : t('创建同盟')}</h2>
+          <h2 class="modal__title">${t('加入同盟 · 观战')}</h2>
           <span class="proto-title__mode ally__mode"><${Icon} name="users" />${t('同盟模拟')}<i>ALLIANCE SIMULATION</i></span>
         </div>
       </header>
@@ -786,7 +794,7 @@ export function AllianceSelect({ view = 'create', onClose, onCreate, size, onSiz
           <${RadarScene} />
           <button type="button" class="ally-guide" onClick=${() => openGuide(0)}><span class="ally-guide__icon"><${Icon} name="book" /></span>${t('玩法说明')}</button>
         </section>
-        ${join ? html`<section class="ally-side ally-side--join">
+        <section class="ally-side ally-side--join">
           <div class="ally-card ally-card--join ally-join join-row">
             <span class="ally-card__art"><${JoinArt} /></span>
             <div class="ally-key">
@@ -807,24 +815,7 @@ export function AllianceSelect({ view = 'create', onClose, onCreate, size, onSiz
               <span class="ally-card__icon"><${Icon} name="users" /></span>${t('加入同盟')}${busy === 'join' ? html`<${Spinner} size="sm" />` : null}
             </button>
           </div>
-        </section>` : html`<section class="ally-side ally-side--create" data-testid="alliance-create">
-          <div class="ally-card ally-card--create ally-create">
-            <button type="button" class="ally-card__art ally-create__art" tabindex="-1" aria-hidden="true" disabled=${!online || busy === 'create'} onClick=${() => onCreate()}><${CreateArt} /></button>
-            <div class="ally-form">
-              <div class="ally-form__head"><span class="ally-form__plus"><${Icon} name="plus" /></span><b>${t('同盟设置')}</b><${MicroLabel}>FORM AN ALLIANCE<//></div>
-              <${SeasonSwitch} class="ally-form__row ally-create__season" />
-              <span class="ally-form__row ally-create__size"><span class="ally-create__k">${t('人数')}</span><${SizeSwitch} value=${size} onPick=${onSize} /></span>
-              <p class="ally-form__note">${online ? t('难度、规则在同盟内更改') : html`<${Spinner} size="sm" label="CONNECTING" /> ${t('正在连接服务器…')}`}</p>
-            </div>
-          </div>
-          <div class="proto-foot ally-foot">
-            <button type="button" class="proto-start ally-create__go" disabled=${!online || busy === 'create'} aria-busy=${busy === 'create' ? 'true' : 'false'} onClick=${() => onCreate()}>
-              <span class="proto-start__mark" aria-hidden="true"><span class="proto-start__rook"><i>[</i><${Icon} name="rook" /><i>]</i></span><small>STRONGHOLD<br />PROTOCOL</small></span>
-              <span class="proto-start__label">${busy === 'create' ? html`<${Spinner} size="sm" />` : null}${t('创建同盟')}</span>
-              <span class="proto-start__deco" aria-hidden="true"></span>
-            </button>
-          </div>
-        </section>`}
+        </section>
       </div>
     </div>
   <//>`;
@@ -863,7 +854,7 @@ export function LobbyScreen() {
   const customRules = useStore((s) => s, Object.is, customRulesStore);
   const [size, setSize] = useState(lobbySize);
   const [quick, setQuick] = useState(() => loadPref('lobby.quick', false) === true);
-  // the open dialog: 'solo' | 'match' (选择模拟协议) | 'coop' (创建同盟) | 'join' (加入同盟 · 观战, AllianceSelect's join view)
+  // the open dialog: 'solo' | 'match' (选择模拟协议) | 'coop' (选择模拟协议 → 创建同盟) | 'join' (加入同盟 · 观战, AllianceSelect)
   const [open, setOpen] = useState(null);
   const [sweepOpen, setSweepOpen] = useState(false);
   const [achOpen, setAchOpen] = useState(false);
@@ -990,17 +981,18 @@ export function LobbyScreen() {
       </section>
     </main>
 
-    ${open === 'coop' || open === 'join' ? html`<${AllianceSelect} view=${open === 'join' ? 'join' : 'create'} onClose=${() => setOpen(null)} onCreate=${create} size=${size} onSize=${pickSize}
+    ${open === 'join' ? html`<${AllianceSelect} onClose=${() => setOpen(null)}
       code=${code} onCode=${onCode} codeOk=${codeOk} online=${online} busy=${busy}
       onJoin=${join} onSpectate=${spectate} recent=${recent} focusKey=${!coarse} short=${shortScreen} />` : null}
-    ${open === 'solo' || open === 'match' ? html`<${ProtocolSelect} roomMode=${roomMode} difficulty=${difficulty} onDifficulty=${pickDifficulty}
+    ${open === 'solo' || open === 'match' || open === 'coop' ? html`<${ProtocolSelect} roomMode=${roomMode} difficulty=${difficulty} onDifficulty=${pickDifficulty}
       onClose=${() => setOpen(null)} onStart=${matching ? queue : create} busy=${busy} online=${online} waiting=${waiting}
       action=${matching && quick ? t('开始快速匹配') : null}
       hint=${matching && quick ? t('规则与人数随匹配到的队列而定') : null}
       range=${matching ? html`<${QuickRange} quick=${quick} onQuick=${pickQuick} />` : null}
       brief=${html`<${CustomBrief} roomMode=${roomMode} ruleset=${shownRuleset} customRules=${customRules} difficulty=${difficulty} />`}
       rules=${html`<${ProtoRules} roomMode=${roomMode} ruleset=${shownRuleset} onRuleset=${pickRuleset} onGear=${editCustom}
-        size=${size} onSize=${pickSize} quick=${matching && quick} counts4=${queueCounts4} counts8=${queueCounts8} />`} />` : null}
+        size=${size} onSize=${roomMode === 'solo' ? null : pickSize} quick=${matching && quick} counts4=${queueCounts4} counts8=${queueCounts8}
+        season=${roomMode === 'coop'} />`} />` : null}
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${achOpen ? html`<${AchievementDialog} onClose=${closeAch} />` : null}
     <${PatchNotesModal} open=${notesFresh !== null} onClose=${() => setNotesFresh(null)} entries=${notes} fresh=${!!notesFresh} />

@@ -35,8 +35,9 @@ test('lobby: room.create / room.queue carry size 8 only for an 8-seat alliance (
   const rules = src.slice(src.indexOf('export function ProtoRules('), src.indexOf('export function ProtocolSelect('));
   assert.match(rules, /\$\{matching \? html`<span class="proto-rules__row">\s*<\$\{RowKey\} text=\$\{t\('人数'\)\} \/>/);
   assert.match(rules, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{quick\}/);
-  const ally = src.slice(src.indexOf('export function AllianceSelect('), src.indexOf('function JoinBox('));
-  assert.match(ally, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} \/>/);
+  // 创建同盟 is 选择模拟协议 (roomMode 'coop'): its 人数 is the rules' room row, fed by the lobby's pick
+  assert.match(rules, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{readOnly \|\| sizeLocked\}/);
+  assert.match(src, /onSize=\$\{roomMode === 'solo' \? null : pickSize\}/);
   // a custom summary only for 独立模拟's / a room's 自定义 (同盟匹配 has no 自定义), in the brief: a solo room is never an
   // 8-seat one
   const brief = src.slice(src.indexOf('export function CustomBrief('), src.indexOf('export function QuickRange('));

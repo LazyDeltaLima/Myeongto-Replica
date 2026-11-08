@@ -782,12 +782,6 @@ button.ally-card:hover, button.ally-card:focus-visible { border-color: rgba(93, 
 .ally-card__art { display: block; padding: .1rem .2rem 0; }
 .mf-art { display: block; width: 100%; height: auto; max-height: 1.3rem; }
 .mf-art text { font: 700 8px var(--font-display, monospace); letter-spacing: 2px; fill: currentColor; opacity: .7; }
-.mf-art--create { color: #5df0c6; }
-.mf-art--create .mf-art__wire { fill: none; stroke: rgba(93, 240, 198, .45); stroke-width: 2; }
-.mf-art--create .mf-art__oct { fill: #2fd6a6; filter: drop-shadow(0 0 10px rgba(93, 240, 198, .6)); }
-.mf-art--create .mf-art__plus { stroke: #08221b; stroke-width: 7; stroke-linecap: square; }
-.mf-art--create .mf-art__brk { fill: none; stroke: #5df0c6; stroke-width: 4; }
-.mf-art--create .mf-art__dot { fill: #5df0c6; }
 .mf-art--join { color: #ff9a3c; }
 .mf-art--join .mf-art__wire { fill: none; stroke: rgba(255, 154, 60, .6); stroke-width: 2; }
 .mf-art--join .mf-art__tri { fill: #ff9a3c; }
@@ -1072,7 +1066,6 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .proto-list .pcard:nth-child(4) { --n: 3; }
 .proto-list .pcard:nth-child(5) { --n: 4; }
 .proto-foot { animation: tr-rise 400ms var(--tr-ease) 440ms backwards; }
-.ally-card--create { animation: tr-right 420ms var(--tr-ease) 240ms backwards; }
 .ally-card--join { animation: tr-right 420ms var(--tr-ease) 380ms backwards; }
 .ally-guide { animation: tr-rise 380ms var(--tr-ease) 450ms backwards; }
 /* the diamond at the bottom while it comes up */
@@ -1086,7 +1079,7 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   .hub-bg__ship, .hub-center, .hub-entry-wrap, .hub-radar__sweep, .proto__pic, .modal__box.proto, .modal__box.ally, .pcard.is-on .pcard__stamp,
   .mf-radar__sweep, .mf-radar__blip, .mf-blk.is-lit, .hub-bg__own, .lobby-hub .hub-bg, .lobby-hub > .topbar, .lobby-hub .hub-center, .lobby-hub .hub-side,
   .lobby-hub .hub-right, .hub-entries .hub-entry-wrap, .proto__bg, .proto-top, .proto-title, .proto-stage, .ally-stage, .proto-list .pcard, .proto-foot,
-  .ally-card--create, .ally-card--join, .ally-guide, .pcard.is-on .pcard__ring path, .ps, .ps-fig, .ps-spike, .ps-call, .ps-beacon, .ps-scan { animation: none; }
+  .ally-card--join, .ally-guide, .pcard.is-on .pcard__ring path, .ps, .ps-fig, .ps-spike, .ps-call, .ps-beacon, .ps-scan { animation: none; }
   .ps-cable__pulse { display: none; }
   .pcard.is-on .pcard__ring path { stroke-dashoffset: 0; }
   .proto__body::after, .ally__body::after { display: none; }
@@ -1226,6 +1219,8 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .proto-rules.is-grid .proto-rules__k { justify-self: stretch; display: flex; justify-content: space-between; }
 .proto-rules__note { flex-basis: 100%; font-size: calc(.12 * var(--t)); color: #9fd8c8; }
 .proto-rules .rpick__opt:disabled { opacity: .35; }
+/* 创建同盟's 赛季 row (SeasonPick): the new season's NEW mark */
+.proto-rules .season-new { margin-left: .04rem; padding: 0 .04rem; font-size: .7em; color: #111; background: #f5c518; }
 /* a picked 自定义's line at the end of the brief (CustomBrief) */
 .proto-brief__rules { display: block; margin-top: .04rem; font-size: calc(.13 * var(--t)); color: var(--custom-hi); }
 .proto-brief__rules .lobby-rules__sum { max-width: none; font-size: inherit; color: #f5c26b; }
@@ -1250,37 +1245,6 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .pcard__wait { margin-left: auto; align-self: center; padding: .02rem .08rem; border-radius: 3px; font-size: calc(.12 * var(--t)); font-weight: 700; white-space: nowrap;
   color: var(--mint-400); background: rgba(94, 236, 204, .16); }
 .pcard.is-on .pcard__wait { color: #fff; background: rgba(0, 0, 0, .35); }
-.ally-create__art { display: block; width: 100%; padding: .1rem .2rem 0; background: none; border: 0; cursor: pointer; }
-/* 创建同盟 (maintainer decision 2026-11-08): the card's 赛季 and 人数 as two segmented rows of one width and height, the note
-   under them, and under the card the big button in 选择模拟协议's start button's shape */
-.ally-side--create { justify-content: flex-end; }
-.ally-side--create > :first-child { margin-top: auto; }
-.ally-side--create > :last-child { margin-bottom: 0; }
-.ally-form { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: .14rem .2rem; padding: .2rem .24rem .22rem; }
-.ally-form__head { grid-column: 1 / -1; display: flex; align-items: center; gap: .1rem; font-size: calc(.26 * var(--t)); font-weight: 900; color: #eef3f1; }
-.ally-form__head .micro { margin-left: auto; color: var(--text-lo); }
-.ally-form__plus { flex: none; display: grid; place-items: center; width: .42rem; height: .42rem; color: var(--mint-400); border: 1px solid var(--mint-400); }
-.ally-form__plus .icon { width: 60%; height: 60%; }
-.ally-form__row { display: contents; }
-.ally-form .ally-create__k { font-size: calc(.16 * var(--t)); font-weight: 700; color: var(--text-dim); }
-.ally-form .tt-anchor { display: block; min-width: 0; }
-.ally-form .rpick { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; width: 100%; height: .52rem; }
-.ally-form .rpick__opt { --d-color: var(--mint-400); height: auto; justify-content: center; gap: .06rem; font-size: calc(.18 * var(--t)); font-weight: 700; }
-.ally-form .rpick__opt.is-active { box-shadow: inset 0 -2px 0 var(--mint-400); }
-.ally-form .season-new { margin-left: .04rem; padding: 0 .04rem; font-size: .6em; color: #111; background: #f5c518; }
-.ally-form__note { grid-column: 1 / -1; display: flex; align-items: center; gap: .08rem; margin: 0; font-size: calc(.14 * var(--t)); color: var(--text-lo); }
-.ally-foot { padding-left: 0; }
-.ally-foot .proto-start { width: 100%; }
-@media (max-height: 520px) {
-  .ally-side .ally-create__art { display: none; }
-  .ally-form { gap: 6px 10px; padding: 8px 12px 10px; }
-  .ally-form__head { font-size: 15px; }
-  .ally-form__plus { width: 24px; height: 24px; }
-  .ally-form .ally-create__k { font-size: 12px; }
-  .ally-form .rpick { height: 34px; }
-  .ally-form .rpick__opt { font-size: 13px; }
-  .ally-form__note { font-size: 11px; }
-}
 @media (max-height: 520px) {
   .proto-rules { margin: 0 .06rem 4px 22px; padding: 2px 0 4px; gap: 4px 8px; }
   .proto-rules.is-grid { gap: 4px 8px; }
