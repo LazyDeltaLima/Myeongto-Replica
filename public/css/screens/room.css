@@ -196,7 +196,7 @@
   background: rgba(0, 0, 0, .5);
   border-left: 2px solid #4fe8c0;
 }
-.rseat__host, .rseat__bot {
+.rseat__bot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -208,11 +208,10 @@
   line-height: 1.15;
   text-align: center;
   color: #08221b;
-  background: #4fe8c0;
+  background: #c9cecc;
   border-radius: .04rem;
 }
-.rseat__bot { background: #c9cecc; }
-.rseat__host .icon, .rseat__bot .icon { flex: none; width: 1em; height: 1em; }
+.rseat__bot .icon { flex: none; width: 1em; height: 1em; }
 .rseat__lost {
   position: relative;
   z-index: 1;
@@ -602,7 +601,7 @@
   .rseat__doc, .seat__op { display: none; }
   .seat__art.rseat__art { gap: 2px; padding: 4px 3px; }
   .seat__art.rseat__art > .avatar--xl { --av: clamp(1rem, calc(3rem - var(--t)), 2rem); }
-  .rseat__host, .rseat__bot { padding: 1px 6px; font-size: min(calc(.26 * var(--t)), calc(15px + var(--t-step) / 2)); }
+  .rseat__bot { padding: 1px 6px; font-size: min(calc(.26 * var(--t)), calc(15px + var(--t-step) / 2)); }
   .rseat__state { gap: 3px; margin-inline: -2px; font-size: min(calc(.34 * var(--t)), calc(17px + var(--t-step) / 2)); }
   .rseat:not(.is-lit) .rseat__state { font-size: min(calc(.28 * var(--t)), calc(15px + var(--t-step) / 2)); }
   .rseat__box { width: 16px; height: 16px; }

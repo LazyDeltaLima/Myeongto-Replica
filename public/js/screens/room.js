@@ -312,8 +312,9 @@ function CardGlyph() {
 }
 
 /**
- * One seat: a tall card — the top strip (P#), the 名片干员 portrait (or the avatar frame: a bot, no art), 创建者 / AI 队友,
- * the state at the bottom (准备中 / 已就绪 with its box; the host's card 创建者 with the crown: the host never readies) —
+ * One seat: a tall card — the top strip (P#), the 名片干员 portrait (or the avatar frame: a bot, no art), AI 队友 on a
+ * bot's, the state at the bottom (准备中 / 已就绪 with its box; the host's card 创建者 with the crown: the host never
+ * readies, and that is the card's only 创建者 — no badge at the top as well, maintainer decision 2026-11-08) —
  * and the name plate under it (one's own with the event's self tag, icon_self_room). The art's text sits in two groups in
  * flow, `.rseat__top` (the badge, 更换立绘 with the event's 名片 icon) and `.rseat__low` (the operator's name, the state),
  * so a larger text wraps and pushes them apart rather than drawing one over another. One's own card offers 更换立绘
@@ -362,7 +363,6 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
         ? html`<img key=${art} class="seat__portrait" src=${art} alt="" draggable=${false} onError=${() => setBadArt((b) => (b.includes(art) ? b : [...b, art]))} />`
         : html`<${AvatarFrame} size="xl" name=${seat.name} seat=${index} bot=${seat.isBot} self=${isMe} ready=${state === 'ready'} offline=${offline} mark=${mark} />`}
       <div class="rseat__top">
-        ${isHostSeat ? html`<span class="rseat__host seat__host"><${Icon} name="crown" />${t('创建者')}</span>` : null}
         ${seat.isBot ? html`<span class="rseat__bot seat__bot-label"><${Icon} name="robot" />${t('AI 队友')}</span>` : null}
         ${canPick ? html`<button type="button" class="rseat__pick" data-testid="seat-card-pick" onClick=${onPickCard}
           title=${t('更换名片干员')} aria-label=${t('更换名片干员')}><${Sprite} k="room/icon_card" class="rseat__pick-ico" fallback=${html`<${CardGlyph} />`} /><span>${t('更换立绘')}</span></button>` : null}
