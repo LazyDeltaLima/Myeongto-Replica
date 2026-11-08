@@ -1,6 +1,6 @@
 /* ==========================================================================================
    devices.css — multi-device layer (loaded last). Desktop Chrome / Edge / Firefox / Safari, iPad and Android tablets
-   in landscape, phones in landscape (≥ 640×360 CSS px). js/ui/device.js puts the feature classes on <html>
+   in landscape, phones in landscape (≥ 740×360 CSS px). js/ui/device.js puts the feature classes on <html>
    (sp-touch, sp-coarse, sp-hover / sp-no-hover, sp-fs, sp-standalone, sp-reduced-motion) — never UA sniffing.
 
    1. no page zoom / scroll / pull-to-refresh while playing (touch-action, overscroll-behavior, callouts)

@@ -310,7 +310,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       await host.page.waitForFunction(() => document.querySelectorAll('.specbar__who').length === 6, { timeout: 8000 });
       // the desktop, then a real touch phone: its 交流 panel is wider, so the seats' column is narrower (css/chat.css)
       for (const vp of [{ width: 1920, height: 1080 }, { width: 844, height: 390, deviceScaleFactor: 3, isMobile: true, hasTouch: true, isLandscape: true },
-        { width: 640, height: 360, deviceScaleFactor: 2, isMobile: true, hasTouch: true, isLandscape: true }]) {
+        { width: 740, height: 360, deviceScaleFactor: 2, isMobile: true, hasTouch: true, isLandscape: true }]) {
         await host.page.setViewport(vp);
         await host.page.waitForFunction(() => document.querySelectorAll('.specbar__who').length === 6, { timeout: 30000 });
         await sleep(800);

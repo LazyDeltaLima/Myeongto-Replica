@@ -1,7 +1,7 @@
 // 0.2.0 rebindable shortcuts (设置 → 快捷键) in the mock match, headless Chrome, the DOM field (no art / WebGL needed):
 // 撤退 rebound from Q to T with the keyboard only — Enter on the key waits, Esc ends the wait (the dialog stays), a refused
 // key keeps it — a swap and 恢复默认 with their messages, Q then does nothing and T retreats, the underframe shows T, the
-// choice survives a reload; at phone width (640×360, touch) the section fits and says the keys need a keyboard.
+// choice survives a reload; at phone width (740×360, touch) the section fits and says the keys need a keyboard.
 // Unit side: test/ui/feedback5-hotkeys.test.js.
 // SP_E2E=1 CHROME_PATH=/path/to/chrome node --test test/ui/hotkeys.e2e.test.js
 import { test, describe, before, after } from 'node:test';
@@ -117,10 +117,10 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
     } finally { await page.close(); }
   });
 
-  test('phone width (640×360, touch): the keys need a keyboard, the folded list opens and fits, no horizontal scroll', async () => {
+  test('phone width (740×360, touch): the keys need a keyboard, the folded list opens and fits, no horizontal scroll', async () => {
     const page = await browser.newPage();
     try {
-      const problems = await open(page, { width: 640, height: 360, touch: true });
+      const problems = await open(page, { width: 740, height: 360, touch: true });
       await page.$eval('.gm__tools > .gm__gear:first-child', (el) => el.click()); // 设置 (behind ⋯ on a phone; .gm__gear alone is ⋯)
       await page.waitForSelector('.modal .set-tabs');
       await page.$eval('.set-tabs [data-tab="keys"]', (el) => el.click()); // 快捷键 is a tab of its own

@@ -4,14 +4,14 @@
 //   SP_E2E=1 node --test test/ui/playtest6-ui.e2e.test.js
 //
 //   6  every 机变 card shows its whole effect text inside the card: all 51 shop items (道具补给 / 机密商店), all 129
-//      bounty and all 43 tactic cards, at the phone landscape viewports (the smallest supported 640×360, 667×375,
-//      720×360, the user's Android 756×366, 800×360, 844×390, 932×430) and at 1280×720 / 1920×1080 — the text is not
+//      bounty and all 43 tactic cards, at the phone landscape viewports (the smallest supported 740×360,
+//      the user's Android 756×366, 800×360, 844×390, 932×430) and at 1280×720 / 1920×1080 — the text is not
 //      clamped, ends inside the card's padding, and is at least 7.5 px (phones) / .19rem (16:9); every card is measured
 //      once taken (the taker's round avatar at its top-right) and once not, and a taken card's name and tags never run
 //      under the badge — measured with the page's web font Noto Sans SC when Google Fonts can be reached (QA: with it
 //      海沟实验体 took 8 lines at 640×360). v2.4.1 at 756×366: 0.2 lines of it were visible (screenshot 2).
 //  10  a tap anywhere on the armed shop card (operator and item) buys, the 确认购买 strip included, on touch at
-//      640×360 / 756×366 / 800×360 / 844×390 / 932×430 and with the mouse at 1920×1080: every point of a 12 × 12 grid over the
+//      740×360 / 756×366 / 800×360 / 844×390 / 932×430 and with the mouse at 1920×1080: every point of a 12 × 12 grid over the
 //      armed card hit-tests to the card, and real taps on the strip's centre / right end and the card's bottom-right
 //      buy. v2.4.1: 120 of 144 points (the ⓘ corner's hidden 44 px touch area over the bottom-right quarter) — the strip's
 //      centre did not buy; at 640×360 the left-docked detail card opened by the first tap also covered the top quarter of
@@ -33,8 +33,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** name, width, height, touch */
 const PHONES = [['756x366', 756, 366, true], ['800x360', 800, 360, true], ['844x390', 844, 390, true], ['932x430', 932, 430, true]];
-/** narrower phones (text only): the smallest supported phone (DESIGN §10, devices.e2e) and the iPhone SE / 8 */
-const NARROW = [['640x360', 640, 360, true], ['667x375', 667, 375, true], ['720x360', 720, 360, true]];
+/** the smallest supported phone (740×360, maintainer decision 2026-11-08; DESIGN §10, devices.e2e) — text and taps */
+const NARROW = [['740x360', 740, 360, true]];
 /** two pick maps over the 4 mock players (p1 = me): every one of 6 cards is taken in one pass and free in the other */
 const TAKEN = [{ p4: 0, p3: 1, ai_2: 2, p1: 3 }, { p4: 4, p3: 5 }];
 const DESKTOP = [['1280x720', 1280, 720, false], ['1920x1080', 1920, 1080, false]];
@@ -110,7 +110,7 @@ describe('user playtest #6 — UI items 6 / 10 (mock harness, headless Chrome)',
     const underBadge = new Set();
     for (const [name, w, h, touch] of [...NARROW, ...PHONES, ...DESKTOP]) {
       const { page, problems, noto } = await open('phase=SP_DRAFT&variant=supply', { w, h, touch, webFont: true });
-      if (name === '756x366' || name === '640x360') await page.screenshot({ path: path.join(OUT, `p6-supply-${name}.png`) });
+      if (name === '756x366' || name === '740x360') await page.screenshot({ path: path.join(OUT, `p6-supply-${name}.png`) });
       const sets = await page.evaluate(async () => {
         const { data } = await import('/js/data.js');
         const ch = data.get('choices');
