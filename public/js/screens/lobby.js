@@ -65,6 +65,8 @@ import { PatchNotesModal, usePatchNotes, isUnseen, markSeen, Inline } from '../u
 import { RadarScene, JoinArt } from '../ui/allyArt.js';
 import { ProtocolScene } from '../ui/protocolScene.js';
 import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
+import { seasonBackdrop, seasonLogo } from '../ui/seasonArt.js';
+import { useLang } from '../ui/lang.js';
 import { net, identity } from '../net.js';
 import { useDocClass, detectFeatures, useMediaQuery, SHORT_SCREEN_QUERY } from '../ui/device.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
@@ -549,11 +551,15 @@ function SweepPlate({ onClick }) {
  * The event's lobby backdrop: its night map giving way to the dusk dunes on a 20 s cycle (ui/allianceScene.js; still
  * under reduced motion). Until those sprites have loaded, the entry's glow (`entry/entry_bkg_01`) and Rhodes Island
  * hologram (`entry/entry_bkg_02`) over a dark field with a faint grid; without the art pack only the field and the grid.
+ * A later season with its own art extracted draws its hub instead (ui/seasonArt.js; maintainer decision 2026-11-08).
  */
 function HubBackdrop() {
   const alliance = useLobbyArt();
-  return html`<div class="hub-bg" aria-hidden="true">
-    ${alliance ? html`<${AllianceBackdrop} />` : html`
+  useData('local');
+  const own = seasonBackdrop(useStore(pickedSeason));
+  return html`<div class=${`hub-bg${own ? ' has-season' : ''}`} aria-hidden="true">
+    ${own ? html`<img key=${own} class="hub-bg__season" src=${own} alt="" draggable=${false} />`
+    : alliance ? html`<${AllianceBackdrop} />` : html`
     <${Sprite} k="entry/entry_bkg_01" class="hub-bg__glow" />
     <${Sprite} k="entry/entry_bkg_02" class="hub-bg__ship" />
     <span class="hub-bg__grid"></span>`}
@@ -573,16 +579,24 @@ function HubRadar() {
 
 /**
  * The emblem in its radar and the season's title (卫戍协议：<season>, its Latin mark): the 盟约 season shows the official
- * `entry/season_logo`, another season (and a page without the art pack) the title's dot emblem.
+ * `entry/season_logo`, another season (and a page without the art pack) the title's dot emblem. A later season with its
+ * own logo shows that logo alone, as the official hub does (the words stay for screen readers; maintainer decision
+ * 2026-11-08).
  */
 function HubTitle() {
   const alphabetic = scriptOf(t('卫戍协议')) === 'alphabetic';
   const season = useStore(pickedSeason);
+  const lang = useLang();
+  useData('local');
+  const own = seasonLogo(season, lang);
+  const [bad, setBad] = useState(null); // a listed logo that fails to load gives the words back
+  const ownOk = !!own && bad !== own;
   const mark = html`<${Emblem} />`;
-  return html`<div class="hub-center">
-    <div class="hub-center__mark"><${HubRadar} />${season === DEFAULT_SEASON ? html`<${Sprite} k="entry/season_logo" class="hub-center__logo" fallback=${mark} />` : mark}</div>
-    ${alphabetic ? null : html`<div class="hub-center__en">STRONGHOLD PROTOCOL <b>${seasonInfo(season).mark}</b></div>`}
-    <h1 class=${`hub-center__title${alphabetic ? ' hub-center__title--latin' : ''}`}>${t('卫戍协议')}<span>${alphabetic ? ': ' : '：'}</span><em>${seasonName(season)}</em></h1>
+  return html`<div class=${`hub-center${ownOk ? ' has-season' : ''}`}>
+    <div class="hub-center__mark"><${HubRadar} />${ownOk ? html`<img key=${own} class="hub-center__season" src=${own} alt="" draggable=${false} onError=${() => setBad(own)} />`
+      : season === DEFAULT_SEASON ? html`<${Sprite} k="entry/season_logo" class="hub-center__logo" fallback=${mark} />` : mark}</div>
+    ${alphabetic || ownOk ? null : html`<div class="hub-center__en">STRONGHOLD PROTOCOL <b>${seasonInfo(season).mark}</b></div>`}
+    <h1 class=${`hub-center__title${alphabetic ? ' hub-center__title--latin' : ''}${ownOk ? ' sr-only' : ''}`}>${t('卫戍协议')}<span>${alphabetic ? ': ' : '：'}</span><em>${seasonName(season)}</em></h1>
   </div>`;
 }
 

@@ -47,6 +47,14 @@
 .hub-bg__glow { top: 46%; width: 9.6rem; opacity: .2; }
 .hub-bg__ship { top: 54%; width: 13.4rem; opacity: .4; animation: hub-ship 18s ease-in-out infinite alternate; }
 @keyframes hub-ship { to { transform: translate(-50%, calc(-50% - .1rem)); } }
+/* a later season's own hub (ui/seasonArt.js), darkened at the top bar and under the entries */
+.hub-bg__season { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 40%; }
+.hub-bg.has-season::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, .3), transparent 30%, transparent 60%, rgba(0, 0, 0, .5));
+}
 .hub-bg__grid {
   position: absolute;
   inset: 0;
@@ -104,6 +112,9 @@
 .hub-center__mark { position: relative; display: grid; place-items: center; min-height: 1.4rem; margin-bottom: .1rem; }
 .hub-center__logo { position: relative; width: 1.3rem; height: auto; filter: drop-shadow(0 0 .12rem rgba(210, 255, 240, .25)); }
 .hub-center__mark .emblem { position: relative; margin-bottom: 0; }
+/* a later season's logo alone (screens/lobby.js HubTitle), as large as the official hub's root_title allows here */
+.hub-center__season { position: relative; height: min(42vh, 26vw); width: auto; filter: drop-shadow(0 4px 18px rgba(0, 0, 0, .6)); }
+.hub-center.has-season .hub-radar { display: none; }
 .hub-center__en { position: relative; font-family: var(--font-display); font-size: calc(.17 * var(--t)); letter-spacing: .32em; color: rgba(223, 230, 226, .72); text-shadow: 0 1px .08rem rgba(0, 0, 0, .85); }
 .hub-center__en b { color: var(--mint-400); font-weight: 700; }
 .hub-center__title {
@@ -941,6 +952,7 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   .hub-side, .hub-radar { display: none; }
   .hub-center__mark { min-height: 0; margin-bottom: 0; }
   .hub-center__logo { width: .9rem; }
+  .hub-center__season { height: 34vh; }
   .hub-center__mark .emblem__svg { width: .9rem; height: 1rem; }
   .hub-center__title { max-width: none; font-size: calc(.46 * var(--t)); }
   .hub-right { padding-top: .1rem; }

@@ -140,6 +140,8 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
   .title-screen .emblem--logo { gap: .04rem !important; }
   .title-screen .emblem--logo .emblem__logo { width: 1.07rem !important; }
   .title-screen .emblem--logo .emblem__bracket { width: .09rem !important; height: .96rem !important; }
+  /* a later season's logo as the title (screens/title.js): its top left the screen at 44vh */
+  .title-screen .title-logo { height: 30vh; margin-bottom: 0; }
 }
 
 /* ---- 4. misc ------------------------------------------------------------------------------------------------------ */

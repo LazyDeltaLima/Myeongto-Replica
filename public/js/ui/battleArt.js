@@ -158,6 +158,13 @@ function usePlay(ms, outMs, onDone) {
 // ---- the battle loading screen (UIBattleLoading) -------------------------------------------------------------------
 
 /**
+ * Loading pictures of 规程 under a new name that are the 盟约 picture pixel for pixel (the CN client's
+ * loadingillusts bundles, compared 2026-11-08): the manifest keeps the one file. loading_ac_hard / _abyss kept their
+ * names.
+ */
+export const LOADING_SAME = Object.freeze({ loading_ac_normal: 'loading_ac_core', loading_ac_funny: 'loading_ac_prototype' });
+
+/**
  * What the loading screen shows for a mode record (config.json modes[modeId]): its picture (the web manifest's
  * `loading/<loadingPic>`), code and full mode name (「AC-4 초월 시뮬레이션」, maintainer decision 2026-10-11 — the
  * 模拟 / 시뮬레이션 stays); null when the picture is not in the manifest.
@@ -166,7 +173,8 @@ function usePlay(ms, outMs, onDone) {
  */
 export function loadingArt(mode) {
   if (!mode || typeof mode !== 'object' || !mode.loadingPic) return null;
-  const pic = uiUrl(data.get('assets'), `loading/${mode.loadingPic}`);
+  const id = mode.loadingPic;
+  const pic = uiUrl(data.get('assets'), `loading/${id}`) || (LOADING_SAME[id] ? uiUrl(data.get('assets'), `loading/${LOADING_SAME[id]}`) : null);
   if (!pic) return null;
   return { pic, code: String(mode.code || ''), name: t(String(mode.name || '')) };
 }
