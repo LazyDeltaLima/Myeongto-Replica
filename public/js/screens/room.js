@@ -42,7 +42,7 @@
 // seats are taken; 8 asks first when AI seats would go.
 // Texts go through t() (docs/I18N.md).
 
-import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
+import { useCallback, useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, LARGE_MIN_PLAYERS, MAX_SEATS, MIN_SPECTATORS, SPECTATOR_SEATS, seatsOf, modeIdFor } from '../../../shared/constants.js';
 import { SeatMark } from '../ui/faction.js'; // local patch
 import {
@@ -312,36 +312,100 @@ function CardGlyph() {
 }
 
 /**
- * One seat: a tall card — the top strip (P#), the 名片干员 portrait (or the avatar frame: a bot, no art), AI 队友 on a
- * bot's, the state at the bottom (准备中 / 已就绪 with its box; the host's card 创建者 with the crown: the host never
- * readies, and that is the card's only 创建者 — no badge at the top as well, maintainer decision 2026-11-08) —
- * and the name plate under it (one's own with the event's self tag, icon_self_room). The art's text sits in two groups in
- * flow, `.rseat__top` (the badge, 更换立绘 with the event's 名片 icon) and `.rseat__low` (the operator's name, the state),
- * so a larger text wraps and pushes them apart rather than drawing one over another. One's own card offers 更换立绘
- * (`onPickCard`); the host gets 移出 / 移除 AI 队友 at the top right. An empty seat: + 邀请 (copies the key) and, for the
- * host of a co-op room, 添加 AI 队友 — nothing else (maintainer decision 2026-11-08); its plate keeps the row's height,
- * empty. A portrait that fails to load gives way to the avatar frame.
+ * The event's seat card sprites (player_solt_item_room) as CSS variables of `.rs-seats`: the cards draw them (`has-art`)
+ * only when the manifest has every one of them; otherwise the same boxes keep a CSS look.
  */
-function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, portrait = null, operator = null, onPickCard = null }) {
+const SEAT_ART = Object.freeze({
+  '--st-bg': 'bg_normal2', '--st-frame': 'bg_frame', '--st-matte': 'front_matte_normal', '--st-down': 'front_matte_select1',
+  '--st-up': 'front_matte_select2', '--st-top': 'bg_top_normal', '--st-top-on': 'bg_top_ready', '--st-glow': 'select_glow_up',
+  '--st-line': 'select_deco_line', '--st-deco': 'select_deco_down1', '--st-roots': 'select_deco_down2', '--st-ok': 'icon_prepared',
+  '--st-self': 'card_deco_self', '--st-more': 'btn_card_detail', '--st-unfold': 'unfold_matte', '--st-unfold-btn': 'unfold_bg_normal',
+  '--st-card': 'icon_card', '--st-empty': 'bg_empty', '--st-slot': 'card_empty', '--st-plus': 'bg_plus', '--st-guest': 'bg_guest',
+  '--st-cline': 'card_line', '--st-kick': 'btn_kick', '--st-lost': 'bg_disconnect', '--st-lost-ico': 'icon_disconnect',
+});
+const seatArtCache = { m: /** @type {any} */ (undefined), v: '' };
+
+/**
+ * The CSS variables of the seat card sprites, or '' when the manifest lacks any of them.
+ * @param {any} [m] data/assets.json
+ */
+export function seatArt(m = data.get('assets')) {
+  if (seatArtCache.m === m) return seatArtCache.v;
+  const vars = [];
+  for (const [name, key] of Object.entries(SEAT_ART)) {
+    const u = uiUrl(m, `room/${key}`);
+    if (!u) { vars.length = 0; break; }
+    vars.push(`${name}:url("${u}")`);
+  }
+  seatArtCache.m = m;
+  seatArtCache.v = vars.join(';');
+  return seatArtCache.v;
+}
+
+/**
+ * The seat row's content box as `--seats-w` / `--seats-h` (room.css sizes the cards by it: the event's card is a fixed
+ * 234 × 486, so it must fit the row's height as well as its width; this project uses no container queries).
+ */
+function useSeatBox() {
+  const [box, setBox] = useState('');
+  const stop = useRef(/** @type {(() => void)|null} */ (null));
+  // a callback ref: the row mounts after the room arrives (the screen renders nothing before)
+  const ref = useCallback((/** @type {HTMLElement|null} */ el) => {
+    stop.current?.();
+    stop.current = null;
+    if (!el) return;
+    const fit = () => {
+      const cs = getComputedStyle(el);
+      const w = Math.max(0, Math.floor(el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)));
+      const h = Math.max(0, Math.floor(el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)));
+      const v = `--seats-w:${w}px;--seats-h:${h}px`;
+      setBox((old) => (old === v ? old : v));
+    };
+    fit();
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
+    if (ro) ro.observe(el); else addEventListener('resize', fit);
+    stop.current = () => { if (ro) ro.disconnect(); else removeEventListener('resize', fit); };
+  }, []);
+  useEffect(() => () => stop.current?.(), []);
+  return { ref, box };
+}
+
+/**
+ * One seat: the event's seat card (player_solt_item_room, 234 × 486 units, every box at its prefab place; room.css
+ * `--u` is one unit). A Doctor's card: the top strip (P#; mint when ready), the line up from it, the 名片干员 portrait
+ * (or the avatar frame: a bot, no art) under the matte, and the name card over the card's foot (one's own in its self
+ * frame with the self tag and the ⋯ tag, which opens 更换立绘: the event's 名片 menu, maintainer decision 2026-11-08). A
+ * ready card — and the host's, who never readies — gets the mint mattes, the lines hanging under it and its state over
+ * the name card: 已就绪 with the event's check, the host's 创建者 with the crown (the card's only 创建者, maintainer
+ * decision 2026-11-08). A Doctor not ready shows no state (the event's card shows none either; maintainer decision
+ * 2026-11-08); a dropped one the event's 连接中断 band. The host gets 移出 / 移除 AI 队友 at the top right corner. An
+ * empty seat: + 邀请 (copies the key; the first empty seat says so) and, for the host of a co-op room, 添加 AI 队友 in the
+ * empty name card's place — nothing else (maintainer decision 2026-11-08); a spectator or a matching room sees the
+ * event's waiting figure. A portrait that fails to load gives way to the avatar frame.
+ */
+function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, portrait = null, operator = null, onPickCard = null, firstEmpty = false }) {
   const [badArt, setBadArt] = useState(/** @type {string[]} */ ([]));
+  const menu = useUpMenu();
   const coop = room.mode !== 'solo';
   if (!seat) {
     const canAdd = coop && facts.isHost && facts.canAddBot !== false && !room.matching;
     // the host sees why the add button is gone (SP_MAX_BOTS, local patch)
     const capped = coop && facts.isHost && !canAdd && !room.matching && !facts.large;
     const invitable = coop && !facts.spectating && !room.matching;
-    return html`<article class="seat seat--empty rseat rseat--empty" style=${`--i:${index}`}>
+    return html`<article class=${`seat seat--empty rseat rseat--empty${firstEmpty ? ' is-first' : ''}`} style=${`--i:${index}`}>
       <span class="rseat__clip" aria-hidden="true"></span>
+      <span class="rseat__bg" aria-hidden="true"></span>
       <header class="rseat__strip"><i></i><span class="num">P${index + 1}</span></header>
-      <div class="rseat__art">
-        ${invitable
-          ? html`<button type="button" class="rseat__invite" onClick=${onInvite} title=${t('复制同盟密钥以邀请队友')}>
-              <span class="rseat__plus" aria-hidden="true"></span><b>${t('邀请')}</b></button>`
-          : html`<span class="rseat__wait"><b>${room.matching ? t('随机匹配中') : t('等待博士加入')}</b></span>`}
-        ${canAdd ? html`<${Button} variant="secondary" size="sm" icon="robot" class="rseat__add" loading=${busy === 'add'} onClick=${onAddBot}>${t('添加 AI 队友')}<//>`
+      <span class="rseat__cline" aria-hidden="true"></span>
+      ${invitable
+        ? html`<button type="button" class="rseat__invite" onClick=${onInvite} title=${t('复制同盟密钥以邀请队友')}>
+            <span class="rseat__plus" aria-hidden="true"></span><b>${t('邀请')}</b>
+            ${firstEmpty ? html`<small class="rseat__tip">${t('复制同盟密钥以邀请队友')}</small>` : null}</button>`
+        : html`<span class="rseat__wait"><span class="rseat__guest" aria-hidden="true"></span><b>${room.matching ? t('随机匹配中') : t('等待博士加入')}</b></span>`}
+      <div class="rseat__slot">
+        ${canAdd ? html`<${Button} variant="ghost" size="sm" icon="robot" class="rseat__add" loading=${busy === 'add'} onClick=${onAddBot}>${t('添加 AI 队友')}<//>`
           : capped ? html`<span class="rseat__cap t-dim">${facts.maxBots === 0 ? t('本服务器未开放 AI 队友') : t('AI 队友已达上限（{maxBots}）', { maxBots: facts.maxBots })}</span>` : null}
       </div>
-      <div class="rseat__plate rseat__plate--empty" aria-hidden="true"></div>
     </article>`;
   }
   const isMe = seat.playerId === myId;
@@ -357,25 +421,20 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
   return html`<article class=${`seat rseat${isMe ? ' is-me' : ''}${isHostSeat ? ' is-host' : ''}${seat.isBot ? ' is-bot' : ''}${art ? ' has-art' : ''}${lit ? ' is-lit' : ''} is-${state}`}
       style=${`--i:${index}`}>
     <span class="rseat__clip" aria-hidden="true"></span>
-    <header class="rseat__strip"><i></i><span class="num">P${index + 1}</span></header>
+    <span class="rseat__bg" aria-hidden="true"></span>
     <div class="seat__art rseat__art">
       ${art
-        ? html`<img key=${art} class="seat__portrait" src=${art} alt="" draggable=${false} onError=${() => setBadArt((b) => (b.includes(art) ? b : [...b, art]))} />`
+        ? html`<img key=${art} class="seat__portrait" src=${art} alt=${operator?.name || ''} title=${operator?.name || ''} draggable=${false} onError=${() => setBadArt((b) => (b.includes(art) ? b : [...b, art]))} />`
         : html`<${AvatarFrame} size="xl" name=${seat.name} seat=${index} bot=${seat.isBot} self=${isMe} ready=${state === 'ready'} offline=${offline} mark=${mark} />`}
-      <div class="rseat__top">
-        ${seat.isBot ? html`<span class="rseat__bot seat__bot-label"><${Icon} name="robot" />${t('AI 队友')}</span>` : null}
-        ${canPick ? html`<button type="button" class="rseat__pick" data-testid="seat-card-pick" onClick=${onPickCard}
-          title=${t('更换名片干员')} aria-label=${t('更换名片干员')}><${Sprite} k="room/icon_card" class="rseat__pick-ico" fallback=${html`<${CardGlyph} />`} /><span>${t('更换立绘')}</span></button>` : null}
-      </div>
-      ${offline ? html`<span class="rseat__lost"><${Icon} name="wifiOff" />${t('连接中断')}</span>` : null}
-      <div class="rseat__low">
-        ${art ? html`<span class="seat__op">${operator?.name || ''}</span>` : null}
-        <span class=${`rseat__state seat__state seat__state--${state}`}>
-          <span class="rseat__box">${state === 'host' ? html`<${Icon} name="crown" />` : lit ? html`<${Icon} name="check" />` : null}</span>
-          <span class="rseat__said">${state === 'ready' ? t('已就绪') : state === 'host' ? t('创建者') : state === 'offline' ? t('连接中断') : t('准备中')}</span>
-        </span>
-      </div>
     </div>
+    <span class="rseat__matte" aria-hidden="true"></span>
+    ${lit ? html`<span class="rseat__roots" aria-hidden="true"></span>` : null}
+    <header class="rseat__strip"><i></i><span class="num">P${index + 1}</span></header>
+    ${lit ? html`<span class=${`rseat__state seat__state seat__state--${state}`}>
+      <span class="rseat__box">${state === 'host' ? html`<${Icon} name="crown" />` : null}</span>
+      <span class="rseat__said">${state === 'host' ? t('创建者') : t('已就绪')}</span>
+    </span>` : null}
+    ${offline ? html`<span class="rseat__lost"><i class="rseat__lost-ico" aria-hidden="true"><${Icon} name="wifiOff" /></i>${t('连接中断')}</span>` : null}
     ${seat.isBot && facts.isHost ? html`<button type="button" class="rseat__kick" disabled=${busy === `rm${index}`} onClick=${() => onRemoveBot(index)}
       title=${t('移除该 AI 队友')} aria-label=${t('移除 AI 队友')}><${Icon} name="robot" /><${Icon} name="close" /></button>` : null}
     ${!seat.isBot && !isMe && facts.isHost ? html`<button type="button" class="rseat__kick" disabled=${busy === `kick${index}`}
@@ -386,6 +445,14 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
       <span class="rseat__who"><b class="seat__name">${name}</b>${isMe ? html`<span class="seat__you" aria-hidden="true">${t('你')}</span>` : null}</span>
       <small class="rseat__doc">${seat.isBot ? 'AUTONOMOUS UNIT' : `DOCTOR #${doctorNo(seat.playerId)}`}</small>
     </div>
+    ${canPick ? html`<div class="rseat__menu-root" ref=${menu.ref}>
+      <button type="button" class="rseat__more" data-testid="seat-card-more" aria-haspopup="menu" aria-expanded=${menu.open ? 'true' : 'false'}
+        onClick=${() => menu.setOpen(!menu.open)} title=${t('更多')} aria-label=${t('更多')}><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></button>
+      ${menu.open ? html`<div class="rseat__menu" role="menu">
+        <button type="button" role="menuitem" class="rseat__pick" data-testid="seat-card-pick" onClick=${() => { menu.setOpen(false); onPickCard(); }}
+          title=${t('更换名片干员')}><${Sprite} k="room/icon_card" class="rseat__pick-ico" fallback=${html`<${CardGlyph} />`} /><span>${t('更换立绘')}</span></button>
+      </div>` : null}
+    </div>` : null}
   </article>`;
 }
 
@@ -404,7 +471,7 @@ function SpectatorBar({ facts, coop, myId, busy, onRemove, onSeats }) {
   </span>`;
 }
 
-/** A menu of the status line opening upwards: Escape or a press outside `ref` closes it. */
+/** A menu of the status line opening upwards (and the seat card's ⋯ menu): Escape or a press outside `ref` closes it. */
 function useUpMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -553,6 +620,7 @@ export function RoomScreen() {
   const customRules = useStore((s) => s, Object.is, customRulesStore);
   const short = useMediaQuery(SHORT_SCREEN_QUERY);
   const [busy, setBusy] = useState(null);
+  const seatBox = useSeatBox();
   const alive = useRef(true);
   const inFlight = useRef(false); // synchronous guard against double clicks (state updates are async)
   useEffect(() => () => { alive.current = false; }, []);
@@ -716,6 +784,8 @@ export function RoomScreen() {
         : html`<span class="t-lo">${t('准备就绪后，创建者即可开始模拟')}</span>`;
   const aiLast = aiLastOption(room, me.playerId);
   const m = data.get('assets');
+  const seatVars = seatArt(m);
+  const firstEmpty = facts.seats.findIndex((s) => !s); // the first empty seat says what + 邀请 does (variant_first_empty)
   const protoMode = coop ? 'coop' : 'solo';
 
   // the main button (bottom right)
@@ -771,12 +841,14 @@ export function RoomScreen() {
       </div>
     </header>
 
-    <main class=${`seats rs-seats${coop ? '' : ' seats--solo'}${facts.large ? ' seats--8' : ''}`}>
+    <main ref=${seatBox.ref} class=${`seats rs-seats${coop ? '' : ' seats--solo'}${facts.large ? ' seats--8' : ''}${seatVars ? ' has-art' : ''}`}
+      style=${[seatVars, seatBox.box].filter(Boolean).join(';')}>
       ${facts.seats.map((s, i) => {
         const op = seatOperator(s, cards, { myId: me.playerId, myCard });
         return html`<${SeatCard} key=${s ? `p${s.playerId}` : `e${i}`} seat=${s} index=${i} room=${room} facts=${facts}
           myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick} onInvite=${() => copy('code')}
-          portrait=${op ? chessPortraitUrl(m, op.chess) : null} operator=${op?.chess} onPickCard=${() => setPicking(true)} />`;
+          portrait=${op ? chessPortraitUrl(m, op.chess) : null} operator=${op?.chess} onPickCard=${() => setPicking(true)}
+          firstEmpty=${!s && i === firstEmpty} />`;
       })}
       ${coop ? null : html`<aside class="solo-brief rs-brief brackets">
         <${MicroLabel} tone="mint">BRIEFING<//>

@@ -80,6 +80,12 @@ export const GUIDE_PAGES = Object.freeze([
  * manifest keys are the data/local-assets.json group and name — ui['emoticon/<dir>/<picId>'], ui['guide/<key>'] — so
  * the client looks both up by the same names (public/js/data.js artUrls: the local file first, then this copy).
  */
+/** The waiting room's seat card sprites (player_solt_item_room) beyond icon_card / host_top_tag / icon_self_room: ui['room/<name>']. */
+export const SEAT_SPRITES = Object.freeze(['bg_normal2', 'bg_frame', 'front_matte_normal', 'front_matte_select1', 'front_matte_select2',
+  'bg_top_normal', 'bg_top_ready', 'select_glow_up', 'select_deco_line', 'select_deco_down1', 'select_deco_down2', 'icon_prepared',
+  'card_deco_self', 'btn_card_detail', 'unfold_matte', 'unfold_bg_normal', 'bg_empty', 'card_empty', 'bg_plus', 'bg_guest', 'card_line',
+  'btn_kick', 'bg_disconnect', 'icon_disconnect']);
+
 export const UI_EXTRAS = (() => {
   const L = [];
   const mc = 'ui/autochess/[uc]autochessouter/modechoice/auto_chess_mode_choice_state/';
@@ -115,6 +121,9 @@ export const UI_EXTRAS = (() => {
   const rm = 'ui/autochess/[uc]autochessouter/room/';
   for (const k of ['bg_mode', 'btn_switch_mode', 'light_mode', 'icon_easy', 'icon_normal', 'icon_hard', 'icon_abyss', 'wide_icon', 'accurate_icon']) L.push(['room', k, `${rm}auto_chess_room_state/${k}.png`]);
   for (const k of ['icon_card', 'host_top_tag', 'icon_self_room']) L.push(['room', k, `${rm}playercard/player_solt_item_room/${k}.png`]);
+  // the rest of the seat card (player_solt_item_room): the card and its frame, the top strips, the mattes and lines of a
+  // ready card, the name card's frame and ⋯ tag, its menu, the empty seat, the kick button, the disconnected band
+  for (const k of SEAT_SPRITES) L.push(['room', k, `${rm}playercard/player_solt_item_room/${k}.png`]);
   // the strategy draft's player list rows (prefab_auto_chess_band_choose_player_card_item; its arrow is the band item's)
   const bc = 'ui/autochess/[uc]autochessouter/bandchoose/';
   for (const k of ['player_card_self_frame', 'icon_self_room', 'player_card_waiting', 'player_card_selecting', 'shallow_main', 'player_card_team_frame', 'player_card_ready']) {

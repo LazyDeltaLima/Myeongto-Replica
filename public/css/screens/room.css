@@ -116,30 +116,41 @@
 .rs-key__link .icon { width: 60%; height: 60%; }
 .rs-key--solo { gap: .1rem; padding-right: .2rem; font-size: calc(.16 * var(--t)); color: #b7bdbb; }
 
-/* ---- seats: a tall card (strip, portrait, state) and the name plate under it ---------------------------------- */
+/* ---- seats: the event's seat card (player_solt_item_room) --------------------------------------------------------
+   One prefab unit is `--u`: the card is 234 × 486 and every box sits at its prefab place (anchoredPosition and size,
+   turned into left / top from the card's top-left corner). The card is as wide as `--w` allows and as tall as the row
+   allows (`--seats-h` / `--seats-w`: the row's content box, measured by room.js useSeatBox; no container queries). With the sprites (`.rs-seats.has-art`, room.js seatArt) the boxes draw them; without them the same
+   boxes keep a CSS look. */
 .rs-seats {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
   gap: max(.3rem, 2.2vw);
-  padding: .3rem .4rem .1rem;
+  padding: 0 .4rem;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
 }
 .rseat {
   --w: min(18vw, 3.4rem, calc((100vw - 1.6rem) / var(--n, 4) - .3rem));
+  /* the top strip and the kick button stand 14 units over the card; the lines of a ready card hang under it */
+  --u: min(calc(var(--w) / 234), calc((var(--seats-h, 60vh) - 16px) / 520));
   position: relative;
   isolation: isolate;
   flex: none;
-  width: var(--w);
-  display: flex;
-  flex-direction: column;
+  width: calc(234 * var(--u));
+  height: calc(486 * var(--u));
+  margin-top: calc(10 * var(--u));
   animation: rseat-in 480ms cubic-bezier(.16, .84, .3, 1) backwards;
   animation-delay: calc(150ms + var(--i) * 70ms);
 }
+.rseat > * { position: absolute; }
+/* the decorations never take a press (a card's glow reaches under its neighbour's ⋯ and kick buttons); one's own card
+   (its ⋯ menu) draws over its neighbours */
+.rseat__clip, .rseat__bg, .rseat__matte, .rseat__roots, .rseat__cline, .rseat__state, .rseat__lost { pointer-events: none; }
+.rseat.is-me { z-index: 1; }
 /* [ASSUMED·화면] the room comes up card by card: upstream's design (community PR #643), not a recording of the event */
 @keyframes rseat-in { from { opacity: 0; transform: translateY(.16rem) scale(1.03); filter: brightness(1.9) saturate(.3); } 55% { filter: none; } }
 .rs__bg { animation: rs-fade 440ms ease-out backwards; }
@@ -150,189 +161,161 @@
 @keyframes rs-right { from { opacity: 0; transform: translateX(.36rem); } }
 @keyframes rs-rise { from { opacity: 0; transform: translateY(.22rem); } }
 .rs--solo .rseat { --w: min(calc(2.7 * var(--t)), 34vw); }
-.rseat__clip { position: absolute; left: 50%; top: -.14rem; z-index: 2; width: .16rem; height: .2rem; transform: translateX(-50%); background: #3a3e3d; border: 2px solid #1a1c1c; }
-.rseat.is-lit .rseat__clip { background: #4fe8c0; }
-.rseat__strip { position: relative; display: flex; align-items: center; justify-content: space-between; height: max(.26rem, 16px); padding: 0 .08rem; background: #2b2e2e; }
-.rseat__strip i { width: .5rem; height: 4px; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .45) 0 3px, transparent 3px 5px); }
-.rseat__strip span { font-size: calc(.12 * var(--t)); color: #8d9391; }
-.rseat.is-lit .rseat__strip { background: #4fe8c0; }
-.rseat.is-lit .rseat__strip i { background: repeating-linear-gradient(90deg, rgba(8, 34, 27, .6) 0 3px, transparent 3px 5px); }
-.rseat.is-lit .rseat__strip span { color: #08221b; }
-.rseat__art {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  background: linear-gradient(180deg, #1f2222, #141616);
-  border: 2px solid #2b2e2e;
-  border-top: 0;
-}
-.rseat.is-lit .rseat__art { border-color: #4fe8c0; box-shadow: 0 0 .2rem rgba(79, 232, 192, .35); }
-.rseat.is-offline .rseat__art { border-color: var(--orange); }
-.seat__art.rseat__art {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: stretch;
-  gap: .04rem;
-  padding: .14rem .08rem;
-}
-.seat__art.rseat__art > .avatar { --av: 2rem; align-self: center; flex: 0 1 var(--av); width: auto; height: auto; min-height: 0; aspect-ratio: 1; }
-.rseat__top, .rseat__low { position: relative; z-index: 1; display: flex; flex-direction: column; gap: .04rem; min-width: 0; }
-.rseat__top { order: -1; align-items: center; }
-.rseat__low { align-items: stretch; }
-.rseat__art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; }
-.rseat.is-lit .rseat__art::after { content: ''; position: absolute; inset: 50% 0 0; background: linear-gradient(180deg, transparent, rgba(47, 207, 159, .85)); pointer-events: none; }
+
+/* the line up from the top strip (line_up, 4 × 112) and a ready card's glow over it (grad_top) */
+.rseat__clip { left: calc(118 * var(--u)); top: calc(-109 * var(--u)); width: max(1px, calc(4 * var(--u))); height: calc(112 * var(--u)); z-index: -1;
+  background: linear-gradient(transparent, #4a4d4c); }
+.rseat.is-lit .rseat__clip { background: linear-gradient(transparent, #24d4ab); }
+.rseat.is-lit .rseat__clip::after { content: ''; position: absolute; left: calc(-118 * var(--u)); bottom: calc(4 * var(--u)); width: calc(234 * var(--u)); height: calc(79 * var(--u));
+  background: linear-gradient(transparent, rgba(10, 188, 157, .22)); }
+/* the card (bg_normal2 / bg_empty, sliced, with their glow around) */
+.rseat__bg { left: calc(-33 * var(--u)); top: calc(-8 * var(--u)); width: calc(300 * var(--u)); height: calc(528 * var(--u)); z-index: -1;
+  clip-path: inset(calc(34 * var(--u)) calc(33 * var(--u))); background: linear-gradient(#d9dadb, #b8b9ba 10%, #3b3d3d 26%, #1d1f1f 60%, #151616); }
+.rseat--empty .rseat__bg { left: calc(-34 * var(--u)); top: calc(-20.6 * var(--u)); width: calc(302 * var(--u)); height: calc(578 * var(--u));
+  clip-path: inset(calc(20.6 * var(--u)) calc(34 * var(--u)) calc(71.4 * var(--u))); background: linear-gradient(rgba(40, 42, 42, .75), rgba(24, 25, 25, .55)); }
+/* the portrait box (group_char) under the matte (front_matte_normal) and the frame (bg_frame) */
+.rseat__art { left: 0; top: calc(25.9 * var(--u)); width: calc(234 * var(--u)); height: calc(460 * var(--u)); display: grid; place-items: center; overflow: hidden; }
+.rseat__art img { position: absolute; left: 50%; top: 0; height: 118%; width: auto; max-width: none; transform: translateX(-50%); }
+.rseat__art > .avatar { --av: calc(150 * var(--u)); margin-top: calc(-80 * var(--u)); }
 .rseat.is-offline .rseat__art img { filter: grayscale(.8) brightness(.6); }
-.seat__op {
-  align-self: flex-start;
-  max-width: 100%;
-  padding: .02rem .08rem;
-  font-size: calc(.14 * var(--t));
-  font-weight: 700;
-  color: #eef0ef;
-  background: rgba(0, 0, 0, .5);
-  border-left: 2px solid #4fe8c0;
-}
-.rseat__bot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: .04rem;
-  max-width: 100%;
-  padding: .02rem .18rem;
-  font-size: calc(.18 * var(--t));
-  font-weight: 800;
-  line-height: 1.15;
-  text-align: center;
-  color: #08221b;
-  background: #c9cecc;
-  border-radius: .04rem;
-}
-.rseat__bot .icon { flex: none; width: 1em; height: 1em; }
-.rseat__lost {
-  position: relative;
-  z-index: 1;
-  margin: 0 -.08rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .1rem;
-  padding: .14rem 0;
-  font-size: calc(.24 * var(--t));
-  font-weight: 800;
-  color: #ff7a8a;
-  background: rgba(80, 10, 18, .85);
-}
-.rseat__lost .icon { width: 1.2em; height: 1.2em; }
-.rseat__state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .1rem;
-  margin: 0 -.08rem;
-  font-size: calc(.26 * var(--t));
-  font-weight: 900;
-  line-height: 1.1;
-  text-align: center;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
-}
-.rseat:not(.is-lit) .rseat__state { font-size: calc(.2 * var(--t)); color: #c9cecc; }
-.rseat__said { min-width: 0; overflow-wrap: break-word; }
-.rseat__box { flex: none; display: grid; place-items: center; width: max(.34rem, 20px); height: max(.34rem, 20px); background: rgba(0, 0, 0, .25); border: 2px solid currentColor; border-radius: 4px; }
-.rseat__box .icon { width: 80%; height: 80%; }
-.rseat__kick {
-  position: absolute;
-  right: -.08rem;
-  top: -.12rem;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  height: max(.4rem, 24px);
-  padding: 0 .1rem;
-  color: #ff8a96;
-  background: #3b1218;
-  border: 1px solid rgba(255, 120, 130, .6);
-  border-radius: 999px;
-}
-.rseat__kick .icon { width: max(.2rem, 12px); height: max(.2rem, 12px); }
-.rseat__kick .icon + .icon { width: max(.14rem, 9px); margin-left: -2px; }
+.rseat__matte { left: 0; top: calc(25.8 * var(--u)); width: calc(234 * var(--u)); height: calc(460 * var(--u)); pointer-events: none;
+  background: linear-gradient(rgba(0, 0, 0, .28), transparent 18%, rgba(0, 0, 0, .1) 55%, rgba(0, 0, 0, .97));
+  box-shadow: inset 0 0 0 max(1px, calc(2 * var(--u))) #3f3f3f; }
+/* a ready card (and the host's): the mattes (front_matte_select2 at the top, front_matte_select1 mint at the foot — fainter
+   than the prefab's, maintainer decision 2026-11-08) and the mint frame
+   [ASSUMED·화면] the prefab tints these by animation: the mint is this remake's */
+.rseat.is-lit .rseat__matte { box-shadow: inset 0 0 0 max(1px, calc(2 * var(--u))) #24d4ab; }
+.rseat.is-lit .rseat__matte::before, .rseat.is-lit .rseat__matte::after { content: ''; position: absolute; left: 0; right: 0; }
+.rseat.is-lit .rseat__matte::before { top: calc(2 * var(--u)); height: calc(261 * var(--u)); background: linear-gradient(rgba(0, 0, 0, .14), transparent); }
+.rseat.is-lit .rseat__matte::after { bottom: 0; height: calc(261 * var(--u)); background: linear-gradient(rgba(34, 200, 160, 0), rgba(34, 200, 160, .5) 50%, rgba(19, 113, 91, .62)); }
+/* the lines hanging under a ready card (select_deco_down1 and select_deco_down2) */
+.rseat__roots { left: calc(7 * var(--u)); top: calc(485 * var(--u)); width: calc(226 * var(--u)); height: calc(135 * var(--u)); z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, transparent 49.4%, rgba(36, 212, 171, .45) 49.4% 50.6%, transparent 50.6%);
+  -webkit-mask: linear-gradient(#000, transparent); mask: linear-gradient(#000, transparent); }
+/* the top strip (bg_top_normal / bg_top_ready, 234 × 32) */
+.rseat__strip { left: 0; top: calc(-6.2 * var(--u)); width: calc(234 * var(--u)); height: calc(32 * var(--u)); display: flex; align-items: center; justify-content: space-between;
+  padding: 0 calc(10 * var(--u)); background: #3f3f3f; }
+.rseat__strip i { width: calc(64 * var(--u)); height: calc(9 * var(--u)); background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .35) 0 calc(3 * var(--u)), transparent 0 calc(5 * var(--u))); }
+.rseat__strip span { font-size: max(8px, calc(14 * var(--u))); font-weight: 800; letter-spacing: .04em; color: rgba(255, 255, 255, .35); }
+.rseat.is-lit .rseat__strip { background: #2ad9ad; }
+.rseat.is-lit .rseat__strip i { background: repeating-linear-gradient(90deg, rgba(0, 40, 30, .5) 0 calc(3 * var(--u)), transparent 0 calc(5 * var(--u))); }
+.rseat.is-lit .rseat__strip span { color: rgba(0, 0, 0, .45); }
+/* the state of a ready card (icon_prepared + 已就绪, the host's crown + 创建者) at (20, −123) */
+.rseat__state { left: 0; top: calc(343.5 * var(--u)); width: calc(234 * var(--u)); height: calc(45 * var(--u)); display: flex; align-items: center; justify-content: center;
+  gap: calc(8 * var(--u)); font-size: max(10px, calc(24 * var(--u))); font-weight: 900; line-height: 1; white-space: nowrap; color: #051612;
+  text-shadow: 0 0 calc(6 * var(--u)) rgba(120, 255, 215, .85), 0 0 calc(2 * var(--u)) rgba(120, 255, 215, .9); }
+.rseat__box { flex: none; display: grid; place-items: center; width: max(10px, calc(30 * var(--u))); height: max(10px, calc(30 * var(--u))); }
+.seat__state--ready .rseat__box { border: max(1px, calc(3 * var(--u))) solid currentColor; }
+.seat__state--ready .rseat__box::before { content: ''; width: 40%; height: 65%; border: solid currentColor; border-width: 0 max(1px, calc(3 * var(--u))) max(1px, calc(3 * var(--u))) 0; transform: translateY(-12%) rotate(45deg); }
+.rseat__box .icon { width: 100%; height: 100%; }
+/* a dropped Doctor (group_disconnect at (0, 28), 234 × 126) */
+.rseat__lost { left: 0; top: calc(152 * var(--u)); width: calc(234 * var(--u)); height: calc(126 * var(--u)); display: flex; align-items: center; justify-content: center;
+  gap: calc(8 * var(--u)); font-size: max(10px, calc(20 * var(--u))); font-weight: 800; color: #ff6767; background: linear-gradient(90deg, rgba(90, 10, 14, .85), rgba(60, 8, 10, .6)); }
+.rseat__lost-ico { display: grid; place-items: center; width: calc(35 * var(--u)); height: calc(46 * var(--u)); }
+.rseat__lost-ico .icon { width: 100%; height: 100%; }
+/* 移出 / 移除 AI 队友 (btn_kick, 76 × 47) on the top right corner */
+.rseat__kick { left: calc(181.8 * var(--u)); top: calc(-14 * var(--u)); z-index: 3; width: calc(76 * var(--u)); height: calc(47 * var(--u)); min-width: 24px; min-height: 18px;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0; color: #ff6b6b; background: #3b0b10; border: 0; border-radius: 999px;
+  box-shadow: inset 0 0 0 max(1px, calc(2 * var(--u))) #8e2630; }
+.rseat__kick .icon { width: max(10px, calc(22 * var(--u))); height: max(10px, calc(22 * var(--u))); }
+.rseat__kick .icon + .icon { width: max(8px, calc(15 * var(--u))); margin-left: -2px; }
 .rseat__kick:hover:not(:disabled), .rseat__kick:focus-visible { filter: brightness(1.3); }
-.rseat__pick {
-  align-self: flex-end;
-  display: inline-flex;
-  align-items: center;
-  gap: .04rem;
-  max-width: 100%;
-  min-height: max(.36rem, 22px);
-  padding: .02rem .1rem;
-  font: inherit;
-  font-size: calc(.14 * var(--t));
-  font-weight: 700;
-  line-height: 1.1;
-  text-align: left;
-  color: #eef0ef;
-  background: rgba(0, 0, 0, .55);
-  border: 1px solid rgba(255, 255, 255, .3);
-  border-radius: max(.18rem, calc(11px * var(--sp-ui, 1)));
-  opacity: .8;
-  transition: opacity var(--t-fast), border-color var(--t-fast);
-}
-.rseat__pick .icon, .rseat__art .rseat__pick-ico { position: static; flex: none; width: 1.25em; height: 1em; object-fit: contain; }
-.rseat__art:hover .rseat__pick, .rseat__pick:focus-visible { opacity: 1; border-color: #5df0c6; }
-.rseat__plate {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  column-gap: .1rem;
-  align-items: center;
-  min-height: max(.76rem, 32px, calc(46px * var(--sp-ui, 1)));
-  margin-top: .08rem;
-  padding: .06rem .1rem;
-  background: linear-gradient(90deg, #232626, #161818);
-  border: 1px solid rgba(255, 255, 255, .1);
-}
-.rseat.is-lit .rseat__plate { border-color: rgba(79, 232, 192, .55); }
-.rseat.is-me .rseat__plate { background: linear-gradient(90deg, #26302d, #161a19); }
-.rseat__plate .avatar { grid-row: 1 / 3; }
-.rseat__who { display: flex; align-items: center; gap: .06rem; min-width: 0; font-size: calc(.18 * var(--t)); }
+/* the name card (btn_card: bg_back 270 × 77 at (0.2, −190.4)); one's own in card_deco_self with the self tag and ⋯ */
+.rseat__plate { left: calc(-17.8 * var(--u)); top: calc(394.9 * var(--u)); width: calc(270 * var(--u)); height: calc(77 * var(--u)); z-index: 2;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; align-content: center; column-gap: calc(12 * var(--u)); row-gap: calc(3 * var(--u));
+  padding: 0 calc(18 * var(--u)) 0 calc(14 * var(--u)); background: rgba(55, 55, 55, .35); }
+.rseat.is-lit .rseat__plate { background: rgba(20, 60, 50, .45); }
+.rseat.is-me .rseat__plate::before { content: ''; position: absolute; left: calc(-16.5 * var(--u)); top: calc(-5 * var(--u)); width: calc(291 * var(--u)); height: calc(87 * var(--u));
+  z-index: -1; pointer-events: none; box-shadow: inset 0 0 0 max(1px, calc(2 * var(--u))) rgba(36, 212, 171, .45); background: linear-gradient(35deg, rgba(36, 212, 171, .35), transparent 30%); }
+.rseat__plate .avatar { --av: calc(52 * var(--u)); grid-row: 1 / 3; }
+.rseat__plate .avatar__badge--self { display: none; } /* the self tag says it */
+.rseat__who { display: flex; align-items: center; gap: calc(6 * var(--u)); min-width: 0; font-size: max(10px, calc(22 * var(--u))); line-height: 1.1; color: #fff; }
 .rseat__who .seat__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.seat__you { flex: none; padding: 0 .06rem; font-size: calc(.12 * var(--t)); font-weight: 700; color: var(--text-on-mint); background: var(--mint-500); }
-.rseat__doc { font-size: calc(.11 * var(--t)); letter-spacing: .1em; color: #7f8583; }
-/* one's own plate: the event's self tag (icon_self_room) on its top-left corner, over the card's lower edge */
-.rseat__me { position: absolute; left: -.1rem; top: -.12rem; z-index: 3; display: grid; place-items: center; width: max(.3rem, 18px); height: max(.3rem, 18px); }
+.seat__you { flex: none; padding: 0 .06rem; font-size: max(8px, calc(13 * var(--u))); font-weight: 700; color: var(--text-on-mint); background: var(--mint-500); }
+.rseat__doc { font-size: max(7px, calc(13 * var(--u))); letter-spacing: .06em; white-space: nowrap; overflow: hidden; color: rgba(255, 255, 255, .45); }
+.rseat__me { position: absolute; left: calc(-23.5 * var(--u)); top: calc(388.5 * var(--u)); z-index: 4; width: max(14px, calc(41 * var(--u))); height: max(14px, calc(41 * var(--u))); display: grid; place-items: center; }
+.rseat__plate .rseat__me { left: calc(-5.7 * var(--u)); top: calc(-6.4 * var(--u)); }
 .rseat__me .sprite { width: 100%; height: 100%; }
 .rseat__me > .icon { width: 100%; height: 100%; padding: 2px; color: #08221b; background: #4fe8c0; border-radius: 3px; }
-/* an empty seat's plate keeps the row's height and draws nothing */
-.rseat__plate--empty { visibility: hidden; }
-.rseat--empty .rseat__art { grid-template-rows: 1fr auto auto; padding-bottom: .5rem; background: linear-gradient(135deg, transparent 47%, rgba(255, 255, 255, .06) 50%, transparent 53%), #141616; }
-.rseat__invite { align-self: end; display: flex; flex-direction: column; align-items: center; gap: .1rem; padding: .2rem .1rem; font: inherit; color: #eef0ef; background: none; border: 0; }
-.rseat__plus { position: relative; width: max(.9rem, 32px, calc(46px * var(--sp-ui, 1))); height: max(.9rem, 32px, calc(46px * var(--sp-ui, 1))); }
-.rseat__plus::before, .rseat__plus::after { content: ''; position: absolute; background: #f2f4f3; box-shadow: 0 0 .1rem rgba(255, 255, 255, .5); }
-.rseat__plus::before { left: 50%; top: 0; bottom: 0; width: 7px; transform: translateX(-50%); }
-.rseat__plus::after { top: 50%; left: 0; right: 0; height: 7px; transform: translateY(-50%); }
-.rseat__invite b { font-size: calc(.26 * var(--t)); }
-.rseat__invite:hover .rseat__plus::before, .rseat__invite:hover .rseat__plus::after,
-.rseat__invite:focus-visible .rseat__plus::before, .rseat__invite:focus-visible .rseat__plus::after { background: #5df0c6; }
-.rseat__add { align-self: start; max-width: calc(100% - .12rem); height: auto; min-height: .36rem; padding-block: .03rem; margin-top: .1rem; white-space: normal; line-height: 1.1; text-align: center; }
-.rseat__cap { align-self: start; margin-top: .1rem; padding: 0 .1rem; font-size: calc(.14 * var(--t)); text-align: center; }
-.rseat__wait { align-self: end; display: flex; flex-direction: column; align-items: center; gap: .1rem; padding: 0 .1rem; color: #b7bdbb; }
-.rseat__wait b { font-size: calc(.18 * var(--t)); text-align: center; }
+/* ⋯ (btn_card_detail, 54 × 33 at the name card's top right) and its menu (group_unfold: unfold_matte, one 更换立绘 button) */
+.rseat__menu-root { inset: 0; pointer-events: none; z-index: 5; }
+.rseat__more { position: absolute; left: calc(207.2 * var(--u)); top: calc(385.9 * var(--u)); width: calc(54 * var(--u)); height: calc(33 * var(--u)); min-width: 22px; min-height: 14px;
+  display: inline-flex; align-items: center; justify-content: center; gap: calc(4 * var(--u)); padding: 0; pointer-events: auto;
+  background: #cfd2d2; border: 0; border-radius: 999px; box-shadow: 0 calc(2 * var(--u)) calc(4 * var(--u)) rgba(0, 0, 0, .5); }
+.rseat__more i { width: max(2px, calc(7 * var(--u))); height: max(2px, calc(7 * var(--u))); border-radius: 50%; background: #2a2a2a; }
+.rseat__more:hover, .rseat__more:focus-visible, .rseat__more[aria-expanded='true'] { filter: brightness(1.15); }
+.rseat__menu { position: absolute; left: calc(-41 * var(--u)); top: calc(182.6 * var(--u)); width: calc(316 * var(--u)); height: calc(256 * var(--u)); pointer-events: auto;
+  display: grid; place-items: center; background: radial-gradient(closest-side, rgba(0, 0, 0, .92), rgba(0, 0, 0, .75) 70%, transparent); }
+.rseat__pick { display: inline-flex; align-items: center; justify-content: center; gap: calc(10 * var(--u)); width: calc(165 * var(--u)); min-width: max-content; height: calc(41 * var(--u)); min-height: 24px;
+  padding: 0 calc(16 * var(--u)); font: inherit; font-size: max(11px, calc(20 * var(--u))); font-weight: 700; white-space: nowrap; color: #fff;
+  background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; }
+.rseat__pick:hover, .rseat__pick:focus-visible { border-color: #5df0c6; }
+.rseat__pick .icon, .rseat__pick .rseat__pick-ico { flex: none; width: 1.15em; height: .9em; object-fit: contain; }
 
-/* the 8-player mode: two rows of four, each card half as tall (its portrait a band) */
-.rs-seats.seats--8 { display: grid; grid-template-columns: repeat(4, var(--w8)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: .24rem max(.2rem, 1.4vw); padding-top: .26rem;
+/* an empty seat: + 邀请 (bg_plus at (2, 51), the title at (0, −15), the first seat's tip at (0, −45.3)), its lines
+   (card_line) and the empty name card (card_empty at (2, −197.9)) where the host's 添加 AI 队友 sits */
+.rseat--empty .rseat__strip { background: #3f3f3f; }
+.rseat__cline { left: calc(33 * var(--u)); top: calc(273 * var(--u)); width: max(1px, calc(2 * var(--u))); height: calc(80 * var(--u)); background: rgba(255, 255, 255, .16); }
+.rseat__cline::after { content: ''; position: absolute; left: calc(174 * var(--u)); top: calc(-220 * var(--u)); width: 100%; height: calc(100 * var(--u)); background: inherit; }
+.rseat--empty.is-first .rseat__cline { top: calc(313 * var(--u)); height: calc(40 * var(--u)); }
+.rseat--empty.is-first .rseat__cline::after { top: calc(-260 * var(--u)); height: calc(72 * var(--u)); }
+.rseat__invite { left: 0; top: calc(138.5 * var(--u)); width: calc(234 * var(--u)); height: calc(170 * var(--u)); display: flex; flex-direction: column; align-items: center;
+  padding: 0; font: inherit; color: #eef0ef; background: none; border: 0; }
+.rseat__plus { position: relative; flex: none; width: calc(106 * var(--u)); height: calc(107 * var(--u)); margin-left: calc(4 * var(--u));
+  background: linear-gradient(#e8e8e8, #e8e8e8) center / calc(8 * var(--u)) 74% no-repeat, linear-gradient(#e8e8e8, #e8e8e8) center / 74% calc(8 * var(--u)) no-repeat; }
+.rseat__invite b { margin-top: calc(10 * var(--u)); font-size: max(11px, calc(22 * var(--u))); font-weight: 700; line-height: 1.2; }
+.rseat__tip { margin-top: calc(6 * var(--u)); max-width: calc(220 * var(--u)); font-size: max(8px, calc(16 * var(--u))); line-height: 1.2; color: #8a8a88; text-wrap: balance; }
+.rseat__invite:hover .rseat__plus, .rseat__invite:focus-visible .rseat__plus { filter: drop-shadow(0 0 calc(6 * var(--u)) #5df0c6); }
+.rseat__wait { left: 0; top: calc(150 * var(--u)); width: calc(234 * var(--u)); display: flex; flex-direction: column; align-items: center; gap: calc(12 * var(--u)); color: #b7bdbb; }
+.rseat__guest { width: calc(101 * var(--u)); height: calc(104 * var(--u));
+  background: radial-gradient(circle at 50% 22%, #8a8a8a 0 calc(11 * var(--u)), transparent calc(12 * var(--u))), linear-gradient(#8a8a8a, #8a8a8a) 50% 70% / 30% 46% no-repeat; opacity: .6; }
+.rseat__wait b { font-size: max(10px, calc(18 * var(--u))); text-align: center; text-wrap: balance; }
+.rseat__slot { left: calc(-18.5 * var(--u)); top: calc(388.9 * var(--u)); width: calc(275 * var(--u)); height: calc(104 * var(--u)); display: grid; place-items: center;
+  padding: 0 calc(22 * var(--u)); background: rgba(0, 0, 0, .35); box-shadow: inset calc(3 * var(--u)) 0 0 rgba(255, 255, 255, .12), inset calc(-3 * var(--u)) 0 0 rgba(255, 255, 255, .12); }
+.rseat__add.btn { max-width: 100%; height: auto; min-height: max(24px, calc(44 * var(--u))); padding-block: .02rem; font-size: max(10px, calc(19 * var(--u))); white-space: normal; line-height: 1.1; text-align: center; }
+.rseat__cap { font-size: max(9px, calc(15 * var(--u))); text-align: center; }
+
+/* with the event's sprites */
+.has-art .rseat__clip { background: #4a4d4c; -webkit-mask: var(--st-line) center / 100% 100% no-repeat; mask: var(--st-line) center / 100% 100% no-repeat; }
+.has-art .rseat.is-lit .rseat__clip { background: #24d4ab; }
+.has-art .rseat.is-lit .rseat__clip::after { background: #0abc9d; opacity: .7; -webkit-mask: var(--st-glow) center / 100% 100% no-repeat; mask: var(--st-glow) center / 100% 100% no-repeat; }
+.has-art .rseat__bg { clip-path: none; background: none; border-style: solid; border-color: transparent;
+  border-width: calc(212 * var(--u)) calc(78 * var(--u)) calc(43 * var(--u)) calc(75 * var(--u));
+  border-image: var(--st-bg) 212 78 43 75 fill / calc(212 * var(--u)) calc(78 * var(--u)) calc(43 * var(--u)) calc(75 * var(--u)) stretch; }
+.has-art .rseat--empty .rseat__bg { border-width: calc(55 * var(--u)) calc(44 * var(--u)) calc(245 * var(--u)) calc(44 * var(--u));
+  border-image: var(--st-empty) 55 44 245 44 fill / calc(55 * var(--u)) calc(44 * var(--u)) calc(245 * var(--u)) calc(44 * var(--u)) stretch; }
+.has-art .rseat__matte { background: var(--st-matte) center / 100% 100% no-repeat; }
+.has-art .rseat.is-lit .rseat__matte::before { background: var(--st-up) center / 100% 100% no-repeat; }
+.has-art .rseat.is-lit .rseat__matte::after { background: #16b08b; opacity: .6; -webkit-mask: var(--st-down) center / 100% 100% no-repeat; mask: var(--st-down) center / 100% 100% no-repeat; }
+.has-art .rseat__roots { background: none; -webkit-mask: none; mask: none; }
+.has-art .rseat__roots::before, .has-art .rseat__roots::after { content: ''; position: absolute; }
+.has-art .rseat__roots::before { left: calc(7 * var(--u)); top: calc(6 * var(--u)); width: calc(206 * var(--u)); height: calc(26 * var(--u)); background: var(--st-deco) center / 100% 100% no-repeat; }
+.has-art .rseat__roots::after { inset: 0; background: #24d4ab; opacity: .45; -webkit-mask: var(--st-roots) center / 100% 100% no-repeat; mask: var(--st-roots) center / 100% 100% no-repeat; }
+.has-art .rseat__strip { background: var(--st-top) center / 100% 100% no-repeat; }
+.has-art .rseat.is-lit .rseat__strip { background: var(--st-top-on) center / 100% 100% no-repeat; }
+.has-art .rseat__strip > * { visibility: hidden; } /* the sprite has its own marks; P# would sit on them */
+.has-art .seat__state--ready .rseat__box { border: 0; background: currentColor; -webkit-mask: var(--st-ok) center / 100% 100% no-repeat; mask: var(--st-ok) center / 100% 100% no-repeat; }
+.has-art .seat__state--ready .rseat__box::before { content: none; }
+.has-art .rseat__lost { background: var(--st-lost) center / 100% 100% no-repeat; }
+.has-art .rseat__lost-ico { background: var(--st-lost-ico) center / 100% 100% no-repeat; }
+.has-art .rseat__lost-ico .icon { visibility: hidden; }
+.has-art .rseat__kick { background: var(--st-kick) center / 100% 100% no-repeat; box-shadow: none; }
+.has-art .rseat__kick .icon { visibility: hidden; }
+.has-art .rseat.is-me .rseat__plate::before { box-shadow: none; background: var(--st-self) center / 100% 100% no-repeat; }
+.has-art .rseat__more { background: var(--st-more) center / 100% 100% no-repeat; box-shadow: none; }
+.has-art .rseat__more i { visibility: hidden; }
+.has-art .rseat__menu { background: var(--st-unfold) center / 100% 100% no-repeat; }
+.has-art .rseat__pick { background: var(--st-unfold-btn) center / 100% 100% no-repeat; border: 0; }
+.has-art .rseat__cline { background: var(--st-cline) center / 100% 100% no-repeat; width: max(1px, calc(4 * var(--u))); }
+.has-art .rseat__plus { background: var(--st-plus) center / 100% 100% no-repeat; }
+.has-art .rseat__guest { background: var(--st-guest) center / 100% 100% no-repeat; opacity: 1; }
+.has-art .rseat__slot { background: var(--st-slot) center / 100% 100% no-repeat; box-shadow: none; }
+
+/* the 8-player mode: two rows of four smaller cards */
+.rs-seats.seats--8 { display: grid; grid-template-columns: repeat(4, auto); grid-template-rows: auto auto; place-content: center; gap: calc(28px + 1vh) max(.2rem, 1.4vw);
   --w8: min(18vw, 3.4rem, calc((100vw - 1.6rem) / 4 - .3rem)); }
-.rs-seats.seats--8 .rseat { width: auto; }
-.seats--8 .rseat__plate { min-height: max(.5rem, 28px); margin-top: .04rem; }
+.rs-seats.seats--8 .rseat { --u: min(calc(var(--w8) / 234), calc((var(--seats-h, 60vh) - 40px - 1vh) / 1010)); }
 .seats--8 .rseat__doc { display: none; }
-.seats--8 .seat__art.rseat__art > .avatar { --av: 1rem; }
-.seats--8 .rseat__plus { width: max(.5rem, 24px); height: max(.5rem, 24px); }
-.seats--8 .rseat__state { font-size: calc(.2 * var(--t)); }
-.seats--8 .rseat--empty .rseat__art { padding-bottom: .12rem; }
 
 /* 独立模拟: the briefing beside the single seat */
 .rs-brief { align-self: center; max-width: min(5rem, 46vw); max-height: 100%; overflow-y: auto; scrollbar-width: thin; padding: .24rem .3rem; background: rgba(10, 13, 12, .8); border: 1px solid var(--line); }
@@ -631,33 +614,15 @@
   .rs-foot .rs-mode { --o: .013rem; grid-column: 1; justify-self: center; }
   .rs-foot > .rs-foot__right { grid-column: 2; }
   .rs .rs-top { padding-top: 6px; }
-  .rs-seats { padding-top: 14px; gap: 12px; }
-  .rseat__plate { min-height: 36px; margin-top: 4px; }
+  .rs-seats { gap: 12px; padding: 0 10px; }
   .rs--solo .rseat { --w: min(calc(2.7 * var(--t)), 3.4rem, 34vw); }
-  .rseat__doc, .seat__op { display: none; }
-  .seat__art.rseat__art { gap: 2px; padding: 4px 3px; }
-  .seat__art.rseat__art > .avatar--xl { --av: clamp(1rem, calc(3rem - var(--t)), 2rem); }
-  .rseat__bot { padding: 1px 6px; font-size: min(calc(.26 * var(--t)), calc(15px + var(--t-step) / 2)); }
-  .rseat__state { gap: 3px; margin-inline: -2px; font-size: min(calc(.34 * var(--t)), calc(17px + var(--t-step) / 2)); }
-  .rseat:not(.is-lit) .rseat__state { font-size: min(calc(.28 * var(--t)), calc(15px + var(--t-step) / 2)); }
-  .rseat__box { width: 16px; height: 16px; }
-  .rseat__who { font-size: min(calc(.28 * var(--t)), calc(18px + var(--t-step) / 2)); }
-  .rseat__who .seat__you { display: none; }
-  .rseat__pick { min-height: 22px; font-size: min(calc(.22 * var(--t)), calc(16px + var(--t-step) / 2)); }
-  .rseat__pick span { display: none; }
-  .rseat__top { flex-direction: row; flex-wrap: wrap; justify-content: center; }
-  .rseat__top > .rseat__pick { align-self: auto; }
-  .rseat__lost, .rseat.is-offline .rseat__box { display: none; }
-  .rseat--empty .rseat__art { padding-bottom: 6px; }
-  .rseat__invite { gap: 2px; padding: 2px 4px; }
-  .rseat__invite b { font-size: min(calc(.34 * var(--t)), calc(18px + var(--t-step) / 2)); line-height: 1.15; }
-  .rseat__wait b, .rseat__cap { font-size: min(calc(.2 * var(--t)), calc(14px + var(--t-step) / 2)); }
-  .rseat__add { margin-top: 2px; }
-  .rseat__plus { width: 26px; height: 26px; }
-  .rseat__plus::before { width: 5px; }
-  .rseat__plus::after { height: 5px; }
-  .rs-seats.seats--8 { gap: 8px 10px; padding-top: 10px; }
-  .seats--8 .rseat__plate { min-height: 26px; margin-top: 2px; }
+  .rseat__doc, .rseat__who .seat__you, .rseat__tip { display: none; }
+  .rseat__plate { grid-template-rows: auto; }
+  /* the 8-player room is one row of eight (two rows of the 486-unit card leave a card too small to read) */
+  .rs-seats.seats--8 { grid-template-columns: repeat(8, auto); grid-template-rows: auto; gap: 6px; }
+  .rs-seats.seats--8 .rseat { --u: min(calc((var(--seats-w, 100vw) - 42px) / 1872), calc((var(--seats-h, 60vh) - 16px) / 520)); }
+  .seats--8 .rseat__plate { padding: 0 3px; }
+  .seats--8 .rseat__plate .avatar, .seats--8 .rseat__strip span { display: none; }
   .cardpick__grid, .cardpick__name { font-size: min(.14rem, 11px); }
   .rs-foot { padding-bottom: 8px; gap: 8px; }
   .rs-clock > b { font-size: min(calc(.28 * var(--t)), calc(20px + var(--t-step))); }
@@ -685,11 +650,10 @@
   .rs-fill > .icon { display: none; }
   .rs-foot .rs-mode { --o: .012rem; }
   .rs-mode__code { display: none; }
-}
-@media (max-height: 520px) and (min-height: 370px) {
-  .rseat__plate { min-height: max(32px, calc(36px * var(--sp-ui, 1)), calc(2.2 * min(calc(.28 * var(--t)), calc(18px + var(--t-step) / 2)) + 8px)); }
-  .rseat__who { grid-row: 1 / 3; align-self: center; }
-  .rseat__who .seat__name { white-space: normal; overflow-wrap: anywhere; line-height: 1.1; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  /* eight cards of ~50 px: a ready card keeps its check / crown without the words, 添加 AI 队友 without its icon */
+  .seats--8 .rseat__said, .seats--8 .rseat__add .icon { display: none; }
+  .seats--8 .rseat__box { width: 14px; height: 14px; }
+  .seats--8 .rseat__add.btn { padding: 0 2px; font-size: 9px; }
 }
 @media (max-aspect-ratio: 1/1) {
   .rs-seats { justify-content: flex-start; }
