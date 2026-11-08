@@ -6,7 +6,7 @@
 //      (the same text as the detail card: items.json / effects.json `descRaw`), even when the server card carries the
 //      plain `desc`. The taker's badge is the round avatar alone (official) and a taken card's name keeps clear of it.
 //      The on-screen check (every card's text inside its card, taken or not, no name under the badge, at the phone
-//      viewports down to 640×360 and on desktop) is the browser test test/ui/playtest6-ui.e2e.test.js.
+//      viewports down to 740×360 and on desktop) is the browser test test/ui/playtest6-ui.e2e.test.js.
 //  10  on phones the second tap on the armed shop card's 确认购买 strip did nothing: the card's ⓘ corner (invisible on
 //      touch, opacity 0 without hover) had a 44 px touch hit area (css/devices.css — its 30 px override lost on
 //      specificity) over the bottom-right quarter of the 67 × 97 px card, right half of the strip included; a tap there

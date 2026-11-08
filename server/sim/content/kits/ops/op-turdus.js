@@ -1,8 +1,8 @@
-// server/sim/content/kits/ops/op-turdus.js — 乌啾 (char_4224_turdus) kit: 5★ 链愈师 (医疗), a tier-3 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 ○○」); both skills, the talent, the trait and XAH-X in both forms. Her 特质 and the 临时
+// server/sim/content/kits/ops/op-turdus.js — 乌啾 (char_4224_turdus) kit: 5★ 链愈师 (医疗), a tier-3 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 ○○」); both skills, the talent, the trait and XAH-X in both forms. Her 特质 and the 临时
 // stacks of the coming season wait for its tables.
 //
-// Forms (data/seasons/next/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, XAH-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, XAH-X stage 1.
 // Sources: the record's tables; PRTS 乌啾 (备注 of T1, S2; 链愈师); charpack char_4224_turdus (each mode's Body/Talents/1, UnitDataFlowConfig), projectiles
 // projectile_chr_turdus / _s2 (ChainLightningHitBehaviour, ChainedSelectorWithFilter), skill prefabs skchr_turdus_1 / _2, buff_template_data
 // turdus_s2[self_damage], [continues_heal], [try_camouflage].

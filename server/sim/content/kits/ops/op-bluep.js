@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-bluep.js — 蓝毒 (char_129_bluep) kit: 5★ 速射手 (狙击), a tier-2 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 블루포이즌·하이모어·홈바운드·안드레아나」); both skills, the talent, the trait (professions.js fastshot) and MAR-Y in both forms.
+// server/sim/content/kits/ops/op-bluep.js — 蓝毒 (char_129_bluep) kit: 5★ 速射手 (狙击), a tier-2 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 블루포이즌·하이모어·홈바운드·안드레아나」); both skills, the talent, the trait (professions.js fastshot) and MAR-Y in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, MAR-Y stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, MAR-Y stage 1.
 // Sources: the record's tables; PRTS 蓝毒 (备注 of T1 and S1); charpack char_129_bluep (Talents/1, Modes/S2/Body/Attack), skill prefabs skchr_bluep_1 / _2,
 // buff_template_data poison, bluep_e_t_10.
 // - T1 神经毒素: every attack of hers puts bluep_t_1 (`_additiveActiveBuffs`: template poison, maxStackCnt 1, one buff per enemy whoever shot it, its first

@@ -1,15 +1,15 @@
-// test/content/op_hbound.test.js — 홈바운드 (char_4232_hbound, a tier-3 piece of the season not out yet; kit ops/op-hbound.js): both forms, both skills.
+// test/content/op_hbound.test.js — 홈바운드 (char_4232_hbound, a tier-3 piece of 规程 (act3autochess); kit ops/op-hbound.js): both forms, both skills.
 // Run: node --test test/content/op_hbound.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_3_nhbound_a', B = 'chess_char_3_nhbound_b';
+const A = 'chess_char_3_05_a', B = 'chess_char_3_05_b';
 const FORMS = [A, B];
 const S1 = 'skchr_hbound_1', S2 = 'skchr_hbound_2';
 const HIT = 'hbound_t_1[hitrate]', SLOW = 'hbound_s_1[dot]', HEAVY = 'hbound_s_2[heavy_damage]', SP = 'hbound_e_t_10';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m, e = 1e-6) => assert.ok(Math.abs(a - b) < e * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const zoneDmg = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e && c.dmg?.tags?.includes('zone'));
 const zonesOf = (u) => u.mem.zones ?? [];
@@ -17,9 +17,9 @@ const zonesOf = (u) => u.mem.zones ?? [];
 const quiet = (u) => { u.profile = { ...u.profile, noAttack: true }; u.atkCd = 1e9; };
 
 test('the skill records: the charges of S1 (1, then 2) and S2 (1), a state cast with its strike', () => {
-  assert.equal(NEXT.chess[A].skills[0].maxChargeTime, 1);
-  assert.equal(NEXT.chess[B].skills[0].maxChargeTime, 2);
-  for (const id of FORMS) for (const s of NEXT.chess[id].skills) {
+  assert.equal(ACT3.chess[A].skills[0].maxChargeTime, 1);
+  assert.equal(ACT3.chess[B].skills[0].maxChargeTime, 2);
+  for (const id of FORMS) for (const s of ACT3.chess[id].skills) {
     assert.equal(s.cast.mode, 'state', `${id} ${s.skillId}`);
     assert.ok(s.cast.hit > 0, `${id} ${s.skillId}`);
   }
@@ -116,7 +116,7 @@ test('S2: the light hit for all, the heavy one and its slow only from weight val
 });
 
 test('T1: hit rate by weight, the smaller cut of several 홈바운드, one buff per enemy; an attack rolls once', () => {
-  const t = NEXT.chess[B].talents[0].bb;
+  const t = ACT3.chess[B].talents[0].bb;
   assert.deepEqual([t.hitrate < 0, t.heavy_hitrate < t.hitrate, t.value], [true, true, 3]);
   const { h, u } = field(B, { skill: 1 });
   quiet(u);
@@ -181,7 +181,7 @@ test('with nothing to pick on the ground: the farthest tile straight ahead (a fl
 });
 
 test('ALC-X: SP + while a unit is out, in flight too, also a 쏜즈 더 로드스타 or 틴맨 one; the normal form has none', () => {
-  const v = NEXT.chess[B].talents.find((t) => t.index === -1).bb.sp_recovery_per_sec;
+  const v = ACT3.chess[B].talents.find((t) => t.index === -1).bb.sp_recovery_per_sec;
   assert.equal(v, 0.1);
   const { h, u } = field(B, { skill: 1, more: [{ uid: 2, id: B, skill: 1, row: 9, col: 5 }] });
   quiet(u);

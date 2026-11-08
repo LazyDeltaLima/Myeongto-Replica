@@ -1,14 +1,14 @@
-// test/content/op_liesel.test.js — 리프레사 (char_4031_liesel, a tier-2 piece of the season not out yet; kit ops/op-liesel.js): both forms, both skills.
+// test/content/op_liesel.test.js — 리프레사 (char_4031_liesel, a tier-2 piece of 规程 (act3autochess); kit ops/op-liesel.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { SKILL_SPLASH, LANDS } from '../../server/sim/content/kits/ops/op-liesel.js';
 
-const A = 'chess_char_2_nliesel_a', B = 'chess_char_2_nliesel_b';
+const A = 'chess_char_2_07_a', B = 'chess_char_2_07_b';
 const FORMS = [A, B];
 const S1 = 'skchr_liesel_1', S2 = 'skchr_liesel_2';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const dmgOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e);
 const shotsOn = (h, e) => dmgOn(h, e).filter((c) => c.dmg?.tags?.includes('liesel:shot'));
@@ -25,7 +25,7 @@ function clock(h, e) {
 
 test('T1: an attack with 3 enemies in its splash deals × damage_scale, with 2 it does not', () => {
   for (const id of FORMS) {
-    const t = NEXT.chess[id].talents[0].bb;
+    const t = ACT3.chess[id].talents[0].bb;
     assert.equal(t.min_target_cnt, 3);
     const amount = (n) => {
       const { h, u } = field(id, { skill: 1 });
@@ -63,8 +63,8 @@ test('S1: the next attack at atk_scale, with the wider splash; the normal attack
 });
 
 test('S1: the charges of the table', () => {
-  assert.equal(NEXT.chess[A].skills.find((s) => s.skillId === S1).maxChargeTime, 1);
-  assert.equal(NEXT.chess[B].skills.find((s) => s.skillId === S1).maxChargeTime, 2);
+  assert.equal(ACT3.chess[A].skills.find((s) => s.skillId === S1).maxChargeTime, 1);
+  assert.equal(ACT3.chess[B].skills.find((s) => s.skillId === S1).maxChargeTime, 2);
   const { u } = field(B, { skill: 0 });
   assert.equal(u.skill.spec.kind, 'charges');
   assert.equal(field(A, { skill: 0 }).u.skill.spec.kind, 'instant');
@@ -122,7 +122,7 @@ test('S2: the lock is her own: a second 리프레사 can choose the enemy she lo
 });
 
 test('S2: the splash of a shot, 3 in it × damage_scale, 2 not; it follows its target', () => {
-  const t = NEXT.chess[B].talents[0].bb;
+  const t = ACT3.chess[B].talents[0].bb;
   const amountWith = (n) => {
     const { h, u } = field(B, { skill: 1 });
     const main = h.spawn('enemy_dummy', { pos: [10, 6] });
@@ -164,7 +164,7 @@ test('S2: the dot, a second each, at the ATK of when the shot left, no source, n
     h.b.addBuff(u, { key: 'test:atk', mods: { atkPct: 1 } });
     h.runUntil(() => e.findBuff(dotKey(u)), 3);
     const shot = shotsOn(h, e)[0];
-    assert.ok(shot.dmg.mul > 1 || NEXT.chess[id].talents[0].bb.damage_scale === 1, `${id}: × on the shot`);
+    assert.ok(shot.dmg.mul > 1 || ACT3.chess[id].talents[0].bb.damage_scale === 1, `${id}: × on the shot`);
     near(shot.dmg.amount, u.s.atk * b2.atk_scale, `${id}: the shot reads ATK on landing`);
     const buff = e.findBuff(dotKey(u));
     assert.ok(Math.abs(buff.timeLeft - b2['liesel_s_2[dot].duration']) < 0.1, `${id}: duration ${buff.timeLeft}`);

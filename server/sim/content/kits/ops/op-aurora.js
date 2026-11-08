@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-aurora.js — 极光 (char_422_aurora) kit: 5★ 决战者 (重装), a tier-3 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 무스·미스 크리스틴·브리지드·오로라」); both skills, the talent, the trait and HES-X in both forms.
+// server/sim/content/kits/ops/op-aurora.js — 极光 (char_422_aurora) kit: 5★ 决战者 (重装), a tier-3 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 무스·미스 크리스틴·브리지드·오로라」); both skills, the talent, the trait and HES-X in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, HES-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, HES-X stage 1.
 // Sources: the record's tables; PRTS 极光 (备注 of T1, HES-X); charpack char_422_aurora (Trait, Modes/Default/Talents/1, Modes/S2/Body/Attack), skill prefabs
 // skchr_aurora_1 / _2, buff_template_data aurora_s_2[freezeattack], aurora_s_2[freezeattack2].
 // - Trait 决战者: no SP unless she blocks (SP_RECOVER_STOPPED); HES-X: blocking nobody, SP recovery ×(1 + sp_recover_ratio) instead.

@@ -41,8 +41,8 @@
 // traits (SERVER_PREP_START) run on onPrepStart too (server/match/effectsMeta.js GARRISON_HOOK), after the strategy's grants
 // of the same dispatch (global → band → bonds → garrisons). A round without a 机变 draft keeps the old moment.
 
-import { GEO } from '../../../../shared/constants.js';
-import { buffsOf, num, bandRecord, gameData } from '../support/index.js';
+import { GEO, gateOf } from '../../../../shared/constants.js';
+import { buffsOf, num, bandRecord, gameData, itemIdOfKey } from '../support/index.js';
 import { metaBonds } from '../support/meta.js';
 import * as garrisons from '../garrisons.js';
 
@@ -288,7 +288,9 @@ K.up_shop_add_special_goods = (ps, bandId) => ({
   onLevelUp(ctx) {
     const p = ps[0];
     const cathy = bandId === 'band_cathy';
-    const exclude = cathy && ctx.counter('band:cathy:cellTaken') ? ['chess_item_5_08_e_a'] : [];
+    // 突变细胞 by the default season's key (another season's id of the same item: support itemIdOfKey)
+    const cell = itemIdOfKey('chess_item_5_08_e', ctx);
+    const exclude = cathy && cell && ctx.counter('band:cathy:cellTaken') ? [cell] : [];
     const ids = rollItems(ctx, p.pool, Math.max(1, int(p.count, 3)), exclude);
     if (ids.length) ctx.offerItems(ids, { source: cathy ? 'band:band_cathy' : 'band' });
   },
@@ -396,9 +398,11 @@ K.preparation_start_add_special_goods_every_n_round = (ps) => ({
 // count and no player's meta stream moves. Each player then rolls one of the four for all of its swaps (「替换为上述敌人
 // 之一」; the same recordings show different kinds between players — maintainer decision 2026-10-29) and picks its own
 // units: that many of the player's ground enemies from the `minweight`–`maxweight` share of the player's enemies (time
-// order) [ASSUMED reading of the two weights; the report's 「总在下路」 (always the lower lane) is read off recordings
-// only, so no lane rule] — any wave enemy but the leader, its parts, bounties, earlier swaps and uncounted units; a
-// player with fewer candidates than the count swaps fewer. Elites are eligible
+// order) [ASSUMED reading of the two weights] on the **lower lane** only — a route starting at the lower gate
+// (shared/constants.js gateOf: normal fields (9,10), not (12,10); leader fields their rows), the report's 「总在下路」 read
+// off the reporter's three recordings of the official game (upstream #839; upstream ded5f264 took it, maintainer decision
+// 2026-11-07; not seen on an official screen here) — any wave enemy but the leader, its parts, bounties, earlier swaps
+// and uncounted units; a player with fewer candidates than the count swaps fewer. Elites are eligible
 // too [ASSUMED: the text names no rank; one rule for every battle; about two thirds of the leader rounds' escorts in that
 // share are elites, so a NORMAL-only rule would leave most Final Assault halves without a candidate — ≈ 80 % instead of
 // ≈ 36 % of the R14 pair-field halves over 40 seeds]. Flyers are never swapped [ASSUMED: the four are ground units and a
@@ -437,7 +441,7 @@ export function duckCount(rng, p) {
  * (default: rolled from ctx.rng). `side` ('L' | 'R', a pair boss field) limits the swap to the spawns whose route
  * (`routes[routeIndex]`) ends on that half of the field.
  */
-export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side = null, want = null } = {}) {
+export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side = null, want = null, leader = false } = {}) {
   const gd = ctx.gd;
   const ducks = list(p.enemylist).filter((k) => gd.enemy(k));
   if (!ducks.length || !Array.isArray(spawns)) return [];
@@ -465,8 +469,10 @@ export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side
     const s = spawns[f.i];
     const e = gd.enemy(s.enemyKey);
     const frac = n > 1 ? j / (n - 1) : 0;
+    // the lower lane only: a route starting at the lower gate (gateOf; no route known → every lane, as before)
+    const route = Array.isArray(routes) ? routes[s.routeIndex] : null;
     return !s.tag && s.countInTotal !== false && e && e.rank !== 'BOSS' && !e.notCountInTotal && e.stats?.motion !== 'FLY'
-      && frac >= w0 - 1e-9 && frac <= w1 + 1e-9;
+      && frac >= w0 - 1e-9 && frac <= w1 + 1e-9 && gateOf(route?.start, leader) === 'lower';
   });
   const picked = ctx.rng.shuffle(ok).slice(0, want);
   if (!picked.length) return [];
@@ -511,7 +517,7 @@ const duckGlobal = {
     const held = ctx.bandId() === DUCK_BAND || ctx.teammates().some((t) => t.bandId() === DUCK_BAND);
     if (!held) return;
     const want = duckCount(ctx.sharedRng(`duck:${ctx.round}`), p);
-    duckReplace(ctx, ev.spawns, p, ctx.playerId, { routes: ev.routes, side: ev.side, want });
+    duckReplace(ctx, ev.spawns, p, ctx.playerId, { routes: ev.routes, side: ev.side, want, leader: ev.kind !== 'normal' });
   },
 };
 

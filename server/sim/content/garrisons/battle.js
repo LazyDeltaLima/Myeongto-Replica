@@ -356,7 +356,8 @@ const INSTALLERS = {
     });
     // Player-confirmed (upstream GitHub #415 / #429): 远牙's granted trait also gains on each body / substitute switch.
     // Restrict this extra trigger to that trait; use its existing amounts, active-bond checks and battle cap.
-    const farTooth = byUnit(list.filter((it) => it.gid === 'garrison_108_a' || it.gid === 'garrison_108_b'));
+    // (by the default season's 特质 id: another season's own id of the same 特质, S.garrisonKeyOf)
+    const farTooth = byUnit(list.filter((it) => ['garrison_108_a', 'garrison_108_b'].includes(S.garrisonKeyOf(it.gid, battle))));
     if (farTooth.size) battle.on('dollSwap', ({ unit }) => {
       const arr = farTooth.get(unit);
       if (arr) for (const it of arr) fireGain(battle, it);

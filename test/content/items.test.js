@@ -106,6 +106,36 @@ test('源石溶剂: −60 HP per second on the field (无来源真实伤害, not
   }
 });
 
+// upstream #902: two copies of one item on one operator both count — the client's per-unit buffs of the item global
+// buffs set `disableOverride` (공식 클라에서 확인); until 2026-11-07 the second copy's buffs replaced the first's
+test('two advanced 源石溶剂 on one operator: ATK +60 % + 60 %, −120 HP per second; two advanced 维式重锤 stack too', () => {
+  for (const [items, atk, drain] of [[[B('1_05'), B('1_05')], 0.6 + 0.6, 120], [[A('1_05'), B('1_05')], 0.4 + 0.6, 120], [[B('1_05')], 0.6, 60]]) {
+    const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items }] });
+    h.step(1);
+    const u = h.unit('t_op');
+    close(u.s.atk, 500 * (1 + atk), `${items.join('+')} atk`);
+    h.run(3.05);
+    close(u.hp, 2000 - 3 * drain, `${items.join('+')} drain`);
+    checkInvariants(h.b);
+  }
+  const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [B('1_01'), B('1_01')] }] });
+  h.step(1);
+  close(h.unit('t_op').s.atk, 500 * (1 + 0.25 + 0.25), 'two advanced 维式重锤');
+});
+
+// …but two buffs keep the client's override group (`disableOverride` 0, DEFAULT: only the first of a key is enabled):
+// the SP regeneration of 萨尔贡浓茶 / 家族徽章 and 海沟实验体's fixed damage block — a second one adds nothing
+test('override-grouped item buffs: SP regen of 萨尔贡浓茶 / 家族徽章 and 海沟实验体\'s damage block count once per operator', () => {
+  for (const [items, sp] of [[[A('2_04'), A('2_04')], 1.15], [[B('2_04'), A('2_04')], 1.25], [[A('2_04'), B('6_11')], 1.15], [[B('6_11'), A('2_04')], 1.35]]) {
+    const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items }] });
+    h.step(1);
+    close(h.unit('t_op').s.spRecovery, sp, `${items.join('+')} SP regen (the first one only)`);
+  }
+  const h = fight({ units: [{ chessId: 't_op', row: 10, col: 3, items: [A('6_04'), B('6_04')] }], foes: [[10, 9]] });
+  h.step(1);
+  close(hitTrue(h, foe(h), h.unit('t_op'), 1000), 1000 - 180, 'one 海沟实验体 block (the first: −180)');
+});
+
 test('不屈弹射器 / 骑士戒律: redeploy time ×(1 + respawn_time)', () => {
   for (const [id, mul] of [[A('2_01'), 0.7], [B('2_01'), 0.5], [A('6_10'), 0.6], [B('6_10'), 0.4]]) {
     const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [id] }] });

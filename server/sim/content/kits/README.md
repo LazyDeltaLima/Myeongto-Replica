@@ -227,17 +227,20 @@ buff holds. `node tools/build-fx-plays.mjs` picks both up from the kit's code. W
 `render/fxstatus.js` only for what the key's rows leave open. Then `node tools/fx-wiring-report.mjs --id <charId>` lists what is
 left: rows nothing plays, prefabs nothing reaches, and a prefab drawn twice by a table and the skill's name rule.
 
-## An operator of a season not out yet
+## An operator only another season fields
 
-The season `next` of `shared/seasons.js` is the current season's data plus the known operators of the coming one
-(`tools/assets/next-season-roster.json`, built by `node tools/build-data.mjs --offline --season next` with `tools/next-season.mjs`:
-its tier gives a piece its status, the operator tables its numbers; a piece carries no 特质, and only the bonds this server already
-has). Its kit is written as a 自选 kit: `ops/op-<codename>.js`, the key its charId, every skill under `skills`, listed in
-`NEXT_KIT_FILES` of `index.js`, tested on both forms through `test/seasons-next.test.js`. It is not offered as a 自选 pick. Check
-the season locally with `SP_SEASONS=next`. The numbers there are [ASSUMED·CN] until the season's tables replace the roster.
-Once its file is listed, `.venv-extract/bin/python tools/local-extract/add_operator.py --finish --id <charId>` runs the rebuilds that read
-the kit, in order, and says what arrived: `fetch-assets` plans its model and sounds (`dataExtras`), `--season next` rebuilt after that gives
-the piece its clips (`attackAnim`), which tests on the swing times need. `test/helpers/nextSeason.js` fields such a piece.
+规程 (`act3autochess` of `shared/seasons.js`, not public yet) is built from its own tables: `node tools/build-data.mjs --offline
+--season act3autochess` writes `data/seasons/act3autochess/` (the tables come from the dump `tools/gamedata-url.mjs`
+SEASON_GAMEDATA names, read through `tools/gamedata-flat.mjs`). It reuses the current season's chess ids for other operators,
+so a chess kit file is taken only for the operator it was written for (`kitOf` with `chessKitCode`); a 规程 piece whose operator
+has a kit of this season under another id gets that one (`kitKeyOfChar`). An operator only 规程 fields has its kit written as a
+自选 kit: `ops/op-<codename>.js`, the key its charId, every skill under `skills`, listed in `SEASON_KIT_FILES` of `index.js`,
+tested on both forms through `test/seasons-act3.test.js`. It is not offered as a 自选 pick. Check the season locally with
+`SP_SEASONS=act3autochess`. Once its file is listed, `.venv-extract/bin/python tools/local-extract/add_operator.py --finish --id
+<charId>` runs the rebuilds that read the kit, in order, and says what arrived: `fetch-assets` plans its model and sounds
+(`dataExtras`), `--season act3autochess` rebuilt after that gives the piece its clips (`attackAnim`), which tests on the swing
+times need. `test/helpers/seasonPieces.js` fields such a piece (its real match path runs on the current season's battlefield,
+so a kit test depends on neither 规程's room modes nor its new enemies; `test/seasons-act3-stages.test.js` fights 规程's own).
 
 ## Testing a kit
 

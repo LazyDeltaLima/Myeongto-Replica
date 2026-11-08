@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-nothin.js — 乌有 (char_455_nothin) kit: 5★ 行商 (特种), a tier-3 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 ○○」); both skills, the talent, the trait and MER-X in both forms.
+// server/sim/content/kits/ops/op-nothin.js — 乌有 (char_455_nothin) kit: 5★ 行商 (特种), a tier-3 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 ○○」); both skills, the talent, the trait and MER-X in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, MER-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, MER-X stage 1.
 // Sources: the record's tables; PRTS 乌有 (S2 备注 "每次部署后第一次技能开始动画结束时从三种随机效果种随机选择一个，技能关闭后下次开启时从剩余2个效果中随机选择；再部署时重置上述
 // 选择记录", 子虚 减攻速 "于每次即将造成伤害时施加"); buff_template_data nothin_t_1, nothin_s_2[a], nothin_tr; charpack char_455_nothin (Talents/1
 // ToggleablePassiveBuffAbility + AdvancedCompoundToggleChecker) and skill prefabs skchr_nothin_1 / _2 (PassiveOneOfBuffAbility `_selectMethod` RANDOM_BUT_NOT_LAST).

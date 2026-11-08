@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-mitm.js — 渡桥 (char_4147_mitm) kit: 5★ 战术家 (先锋), a tier-2 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-mitm.js — 渡桥 (char_4147_mitm) kit: 5★ 战术家 (先锋), a tier-2 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 미틈·로베르타·클릭·퀘르쿠스」); both skills, the talent, the trait, TAC-Y in both forms, and the kit of her 援军 樱桃三号 (token_10037_mitm_trshrb).
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, TAC-Y stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, TAC-Y stage 1.
 // Sources: the record's tables; PRTS 渡桥, 樱桃三号 (备注); charpack char_4147_mitm (Trait mitm_tr_1, Passive die_to_kill_token, Talents/1 charge_token[born]), skill prefabs
 // skchr_mitm_1 / _2, token prefab token_10037_mitm_trshrb (Modes Reborn / Default / Trash / Skill, SpawnTrash on x-5), buff_template_data mitm_s_1, mitm_s_1[cost], mitm_s_2[cost],
 // mitm_s_2[to_token], trshrb_t_1[dead_listener], trshrb_t_1[trash_born], trshrb_t_1[reborn], and CheckBlocked (`_checkBlockedBySourceToken`: the blocker is a token of hers).

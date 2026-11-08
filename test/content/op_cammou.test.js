@@ -1,14 +1,14 @@
-// test/content/op_cammou.test.js — 클릭 (char_328_cammou, a tier-1 piece of the season not out yet; kit ops/op-cammou.js): both forms, both skills.
+// test/content/op_cammou.test.js — 클릭 (char_328_cammou, a tier-1 piece of 规程 (act3autochess); kit ops/op-cammou.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { DRONE_TAG } from '../../server/sim/content/kits/ops/op-cammou.js';
 
-const A = 'chess_char_1_ncammou_a', B = 'chess_char_1_ncammou_b';
+const A = 'chess_char_1_09_a', B = 'chess_char_1_09_b';
 const FORMS = [A, B];
 const S1 = 'skcom_atk_up[2]', S2 = 'skchr_cammou_2';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const FRONT = [10, 6];
 const hits = (h, u, e) => h.hooksOf('damaged').filter((c) => c.source === u && c.target === e);
@@ -16,7 +16,7 @@ const drones = (h, u, e) => hits(h, u, e).filter((c) => c.dmg?.tags?.includes(DR
 
 test('Talent: ASPD +attack_speed on both forms of its phase', () => {
   for (const id of FORMS) {
-    const v = NEXT.chess[id].talents[0].bb.attack_speed;
+    const v = ACT3.chess[id].talents[0].bb.attack_speed;
     assert.equal(v, id === A ? 6 : 12);
     const { h, u } = field(id, { skill: 0 });
     near(u.s.aspd, u.base.aspd + v, `${id}: ASPD`);
@@ -26,7 +26,7 @@ test('Talent: ASPD +attack_speed on both forms of its phase', () => {
 
 test('Trait: her attack is arts plus a drone addition that ramps on one target from init by delta, to the form\'s cap; a new target starts over', () => {
   for (const id of FORMS) {
-    const tb = NEXT.chess[id].trait.bb;
+    const tb = ACT3.chess[id].trait.bb;
     assert.equal(tb.max_atk_scale, id === A ? 1.1 : 1.2);
     const { h, u } = field(id, { skill: 0 });
     u.skill.locked = true;
@@ -59,7 +59,7 @@ test('S2: range 3-3, ATK +atk; the drone locks one enemy and hits at her interva
   for (const id of FORMS) {
     const b = bbOf(id, S2);
     const { h, u } = field(id, { skill: 1, seed: 11 });
-    const grid = NEXT.chess[id].skills.find((s) => s.skillId === S2).rangeGrid;
+    const grid = ACT3.chess[id].skills.find((s) => s.skillId === S2).rangeGrid;
     const before = u.rangeKeys.length;
     const a0 = u.s.atk;
     const e = h.spawn('enemy_dummy', { pos: FRONT });

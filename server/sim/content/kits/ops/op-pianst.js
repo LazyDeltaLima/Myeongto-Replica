@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-pianst.js — 车尔尼 (char_4047_pianst) kit: 5★ 驭法铁卫 (重装), a tier-3 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 디아만테·리프레사·체르니·아오스타」); both skills, the talent, the trait and AST-X in both forms.
+// server/sim/content/kits/ops/op-pianst.js — 车尔尼 (char_4047_pianst) kit: 5★ 驭法铁卫 (重装), a tier-3 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 디아만테·리프레사·체르니·아오스타」); both skills, the talent, the trait and AST-X in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, AST-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, AST-X stage 1.
 // Sources: the record's tables; PRTS 车尔尼 (备注 of T1 and S2); charpack char_4047_pianst (Talents/1, Modes/S1, S2, Empty), skill prefabs skchr_pianst_1 / _2,
 // buff_template_data pianst_t_1, pianst_s_2_buff_2, common_damage_on_take_damage, common_damage_on_output_damage.
 // - Trait: her attacks deal arts while a skill runs (modes S1 and S2 `_damageType` 2).

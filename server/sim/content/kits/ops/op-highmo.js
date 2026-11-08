@@ -1,8 +1,8 @@
-// server/sim/content/kits/ops/op-highmo.js — 海沫 (char_4066_highmo) kit: 5★ 收割者 (近卫), a tier-3 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 블루포이즌·하이모어·홈바운드·안드레아나」); both skills, T1 and REA-X in both forms. The trait is the branch's (professions.js reaper: its
+// server/sim/content/kits/ops/op-highmo.js — 海沫 (char_4066_highmo) kit: 5★ 收割者 (近卫), a tier-3 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 블루포이즌·하이모어·홈바운드·안드레아나」); both skills, T1 and REA-X in both forms. The trait is the branch's (professions.js reaper: its
 // value is in the record, 50 / 60 with REA-X). T2 罹患，浸染 needs the tag rogue_mizuki (Talents/1 `_oneOfTags`): off in this mode.
 //
-// Forms (data/seasons/next/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, REA-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, REA-X stage 1.
 // Sources: the record's tables; PRTS 海沫 (备注 of T1, S2); charpack char_4066_highmo (Trait, Talents/1 / 2, Modes/S2), skill prefabs skchr_highmo_1 / _2,
 // buff_template_data highmo_trait, highmo_t_2, highmo_s_2.
 // - T1 收割，给养 (highmo_t_2, the shape of highmo_trait): each enemy attacked, up to her block count, recovers `value` of her 元素损伤 (FixedValueElementHeal).

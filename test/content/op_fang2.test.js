@@ -1,14 +1,14 @@
-// test/content/op_fang2.test.js — 팽 더 파이어 샤픈드 (char_1036_fang2, a tier-3 piece of the season not out yet; kit ops/op-fang2.js): both forms, both skills.
+// test/content/op_fang2.test.js — 팽 더 파이어 샤픈드 (char_1036_fang2, a tier-3 piece of 规程 (act3autochess); kit ops/op-fang2.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { S1_DELTA } from '../../server/sim/content/kits/ops/op-fang2.js';
 
-const A = 'chess_char_3_nfang2_a', B = 'chess_char_3_nfang2_b';
+const A = 'chess_char_3_21_a', B = 'chess_char_3_21_b';
 const FORMS = [A, B];
 const S1 = 'skchr_fang2_1', S2 = 'skchr_fang2_2';
-const rec = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk);
+const rec = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk);
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const FRONT = [10, 5];
 const hits = (h, u, e) => h.hooksOf('damaged').filter((c) => c.source === u && c.target === e);
@@ -18,7 +18,7 @@ function block(h, u, e) { e.blockedBy = u; u.blocking.push(e); h.step(); }
 test('Trait: a kill gives the trait\'s DP, with S2 on too (normal 1, CHG-X 2)', () => {
   for (const [id, n] of [[A, 1], [B, 2]]) {
     const { h, u } = field(id, { skill: 1 });
-    assert.equal(NEXT.chess[id].trait.bb.cost, n);
+    assert.equal(ACT3.chess[id].trait.bb.cost, n);
     const e = h.spawn('enemy_dummy', { pos: FRONT });
     h.step();
     const was = dp(h, u);
@@ -73,7 +73,7 @@ test('S1: charges 1 normal, 2 elite; SP cost by rank', () => {
 
 test('S1: a kill by it gives +cost on top of the trait, on the first or the second strike; a plain attack only the trait', () => {
   for (const id of FORMS) {
-    const tr = NEXT.chess[id].trait.bb.cost, more = rec(id, S1).bb.cost;
+    const tr = ACT3.chess[id].trait.bb.cost, more = rec(id, S1).bb.cost;
     for (const [left, what] of [[1, 'first'], [null, 'second']]) {
       const { h, u } = field(id, { skill: 0 });
       const e = h.spawn('enemy_dummy', { pos: FRONT });
@@ -150,7 +150,7 @@ test('S2 starts again with a new deployment', () => {
 test('T1 and the withdraw refund act on nothing here: her redeploy costs the record\'s, the first deployment is free', () => {
   for (const id of FORMS) {
     const { h, u } = field(id, { skill: 0 });
-    assert.equal(u.base.cost, NEXT.chess[id].stats.cost);
+    assert.equal(u.base.cost, ACT3.chess[id].stats.cost);
     done(h);
   }
 });

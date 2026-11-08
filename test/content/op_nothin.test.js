@@ -1,16 +1,16 @@
-// test/content/op_nothin.test.js — 우요우 (char_455_nothin, a tier-3 piece of the season not out yet; kit ops/op-nothin.js): both forms, both skills.
+// test/content/op_nothin.test.js — 우요우 (char_455_nothin, a tier-3 piece of 规程 (act3autochess); kit ops/op-nothin.js): both forms, both skills.
 // Run: node --test test/content/op_nothin.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { NEXT, field, done, cast, fill, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, fill, realMatch } from '../helpers/seasonPieces.js';
 import { S2_BEGIN } from '../../server/sim/content/kits/ops/op-nothin.js';
 
-const A = 'chess_char_3_nnothin_a', B = 'chess_char_3_nnothin_b';
+const A = 'chess_char_3_20_a', B = 'chess_char_3_20_b';
 const FORMS = [A, B];
 const S1 = 'skchr_nothin_1', S2 = 'skchr_nothin_2';
-const skillOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk);
+const skillOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk);
 const KEYS = ['nothin_s_2[a]', 'nothin_s_2[b]', 'nothin_s_2[c]'];
 const keyOf = (u) => KEYS.find((k) => u.findBuff(k)) ?? null;
 const near = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
@@ -33,7 +33,7 @@ test('trait: 3 DP (MER-X 2) every 3 s, a withdrawal when it cannot be paid', () 
 
 test('T1 出其不意: off at deployment, on `delay` s later; that hit ×atk_scale and a stun; every hit puts it `delay` s ahead', () => {
   for (const id of FORMS) {
-    const t = NEXT.chess[id].talents[0].bb;
+    const t = ACT3.chess[id].talents[0].bb;
     const { h, u } = field(id, { skill: 0 });
     assert.ok(!u.findBuff('nothin_t_1'), `${id}: not at deployment`);
     h.run(t.delay - 0.2);
@@ -61,7 +61,7 @@ test('S1 知难而退: block +1 while carried; cast at ≤ 20 % HP: no attack, n
     const rec = skillOf(id, S1);
     const { h, u } = field(id, { skill: 0 });
     assert.equal(u.skill.rule, 'NEVER', 'its own condition');
-    assert.equal(u.s.blockCnt, NEXT.chess[id].stats.blockCnt + rec.bb.block_cnt, `${id}: passive`);
+    assert.equal(u.s.blockCnt, ACT3.chess[id].stats.blockCnt + rec.bb.block_cnt, `${id}: passive`);
     fill(u);
     h.run(0.5);
     assert.equal(u.skill.active, false, `${id}: HP is high`);
@@ -80,7 +80,7 @@ test('S1 知难而退: block +1 while carried; cast at ≤ 20 % HP: no attack, n
   }
   // the other skill has no passive
   const { h, u } = field(A, { skill: 1 });
-  assert.equal(u.s.blockCnt, NEXT.chess[A].stats.blockCnt);
+  assert.equal(u.s.blockCnt, ACT3.chess[A].stats.blockCnt);
   done(h);
 });
 
@@ -141,11 +141,11 @@ test('S2 picks: [a] each hit slows the target (5 s, no stack), [b] ASPD, [c] blo
   assert.equal(b.u.findBuff('nothin_s_2[b]').mods.aspd, bb.attack_speed);
   done(b.h);
   const c = pick('nothin_s_2[c]');
-  assert.equal(c.u.s.blockCnt, NEXT.chess[B].stats.blockCnt + bb.block_cnt);
+  assert.equal(c.u.s.blockCnt, ACT3.chess[B].stats.blockCnt + bb.block_cnt);
   near(c.u.s.dodgePhys, bb.prob, 'dodge');
   done(c.h);
 });
 
-test('real match path: her piece fights in a next match', async () => {
+test('real match path: her piece fights in a 规程 match', async () => {
   for (const id of FORMS) await realMatch(id, 'char_455_nothin');
 });

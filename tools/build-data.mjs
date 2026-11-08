@@ -11,7 +11,9 @@
 //   --refresh      re-download every official file; fail on download errors even if cached
 //   --offline      never download; fail when a file is missing from the cache
 //   --out          output directory (default: <repo>/data)
-//   --cache        official-data cache directory (default: <repo>/.cache/gamedata)
+//   --season       the season built (shared/seasons.js; default the current one)
+//   --cache        official-data cache directory (default: <repo>/.cache/gamedata, a season of
+//                  tools/gamedata-url.mjs SEASON_GAMEDATA: <repo>/.cache/gamedata-<season>)
 //   --report       build report file (default: <repo>/.cache/build-data-report.json)
 //   --no-research  ignore docs/research (research-only fields fall back to defaults; for testing)
 //   --force        write the output even when integrity checks fail (default: keep the old files)
@@ -37,15 +39,16 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url'; // local patch (script guard)
 import { isDeepStrictEqual } from 'node:util';
-import { Grid, DEPLOY_REFUSED_TILES } from '../server/sim/grid.js';
+import { Grid, DEPLOY_REFUSED_TILES, HAND_TILES } from '../server/sim/grid.js';
 import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared/standIn.js';
 import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 import { isOwnSubMode, skillModeIndex, SKILL_SUB_MODES } from '../shared/skill-modes.js';
 import { DEFAULT_SEASON, SEASONS, isSeasonId, seasonDataDir } from '../shared/seasons.js';
-import { nextSeasonAct } from './next-season.mjs';
-import { gamedataBase } from './gamedata-url.mjs';
+import { gamedataBase, SEASON_GAMEDATA } from './gamedata-url.mjs';
+import { normalizeFlat } from './gamedata-flat.mjs';
+import { composeStageLevel, isFrameLevel, placeWaveLevel, subLevelPath, waveOrigin } from './level-fields.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -62,7 +65,7 @@ const USAGE = 'usage: node tools/build-data.mjs [--refresh | --offline] [--seaso
 function parseArgs(argv) {
   const opts = {
     refresh: false, offline: false, quiet: false, noResearch: false, force: false, season: DEFAULT_SEASON,
-    out: null, cache: join(ROOT, '.cache', 'gamedata'), report: join(ROOT, '.cache', 'build-data-report.json'),
+    out: null, cache: null, report: join(ROOT, '.cache', 'build-data-report.json'),
   };
   const flags = { '--refresh': 'refresh', '--offline': 'offline', '--quiet': 'quiet', '--no-research': 'noResearch', '--force': 'force' };
   const dirs = { '--out': 'out', '--cache': 'cache', '--report': 'report' };
@@ -87,6 +90,8 @@ function parseArgs(argv) {
   if (opts.refresh && opts.offline) throw new Error(`--refresh and --offline are mutually exclusive\n${USAGE}`);
   // another season writes into data/seasons/<id>/ and keeps only the files that differ from data/ (shared/seasons.js)
   opts.out ??= join(ROOT, 'data', seasonDataDir(opts.season));
+  // a season read from another dump keeps its own cache (tools/gamedata-url.mjs SEASON_GAMEDATA)
+  opts.cache ??= join(ROOT, '.cache', Object.hasOwn(SEASON_GAMEDATA, opts.season) ? `gamedata-${opts.season}` : 'gamedata');
   return opts;
 }
 
@@ -124,7 +129,7 @@ async function ensureGamedata(rel) {
     throw new Error(`missing cached file ${rel} (offline mode)`);
   }
   await mkdir(dirname(abs), { recursive: true });
-  const url = gamedataBase(rel) + rel;
+  const url = gamedataBase(rel, SEASON) + rel;
   let lastErr;
   for (let attempt = 1; attempt <= 4; attempt++) {
     try {
@@ -152,7 +157,9 @@ const jsonCache = new Map();
 async function loadGamedata(rel) {
   if (jsonCache.has(rel)) return jsonCache.get(rel);
   const abs = await ensureGamedata(rel);
-  const obj = JSON.parse(await readFile(abs, 'utf8'));
+  const raw = JSON.parse(await readFile(abs, 'utf8'));
+  // the FlatBuffers-decoded dump of a SEASON_GAMEDATA season, in Kengxxiao's spelling (tools/gamedata-flat.mjs)
+  const obj = SEASON_GAMEDATA[SEASON]?.flat ? normalizeFlat(rel, raw) : raw;
   jsonCache.set(rel, obj);
   return obj;
 }
@@ -365,15 +372,29 @@ async function loadContext() {
     loadGamedata('excel/enemy_handbook_table.json'),
     loadGamedata('levels/enemydata/enemy_database.json'),
   ]);
-  const season = activity?.activity?.AUTOCHESS_SEASON;
-  // `next` has no section of its own yet: the current season's plus the pieces known so far (tools/next-season.mjs)
-  const act = SEASON === 'next' && season?.[DEFAULT_SEASON]
-    ? nextSeasonAct(season[DEFAULT_SEASON], JSON.parse(await readFile(join(ROOT, 'tools/assets/next-season-roster.json'), 'utf8')), uniequip, battleEquip)
-    : season?.[SEASON];
+  // 盟约 (act2autochess) is `activity.AUTOCHESS_SEASON.<id>`; 规程 (act3autochess) is `activity.AUTOCHESS.<id>.<version>`
+  // with one version (V3_1)
+  const versions = activity?.activity?.AUTOCHESS?.[SEASON];
+  if (versions && Object.keys(versions).length !== 1) throw new Error(`activity_table AUTOCHESS.${SEASON}: ${Object.keys(versions).length} versions, expected one`);
+  const act = activity?.activity?.AUTOCHESS_SEASON?.[SEASON] ?? (versions ? Object.values(versions)[0] : null);
   const ac = activity?.autoChessData;
   if (!act || !ac) throw new Error(`activity_table has no ${SEASON} / autoChessData section`);
+  // another season leaves its 入门协议 training mode out (maintainer decision 2026-11-08: 规程 runs no training mode)
+  if (SEASON !== DEFAULT_SEASON) {
+    for (const [id, m] of Object.entries(act.modeDataDict)) {
+      if (m.modeDifficulty !== 'TRAINING') continue;
+      for (const k of ['modeDataDict', 'battleDataDict', 'shopLevelDataDict']) delete act[k][id];
+      for (const st of Object.values(act.stageDatasDict)) if (Array.isArray(st.mode)) st.mode = st.mode.filter((x) => x !== id);
+    }
+  }
 
   // Note: summons/traps live in character_table (token_table.json only lists 4 unrelated traps).
+
+  // character templates (阿米娅's forms, char_patch_table patchChars) join the character table when a chess names one
+  if (Object.values(act.charShopChessDatas).some((r) => r.tmplId)) {
+    const patch = await loadGamedata('excel/char_patch_table.json');
+    for (const [id, rec] of Object.entries(patch.patchChars || {})) if (!charTable[id]) charTable[id] = rec;
+  }
 
   const enemyDb = new Map();
   for (const e of enemyDbRaw.enemies || []) enemyDb.set(e.Key, e.Value);
@@ -395,6 +416,25 @@ async function loadContext() {
   const levels = {};
   // Sequential download to stay polite to GitHub; cached files load instantly.
   for (const id of [...levelSrc.keys()].sort(naturalCmp)) levels[id] = await loadGamedata(levelPath(levelSrc.get(id)));
+  // 规程 (act3autochess): a stage level is a scene of every field and its battle fields are sub-levels, a wave level's
+  // routes are on its field's placeholder; both are put into the 19×21 frame the rest of this script reads
+  // (tools/level-fields.mjs). The default season's levels are that frame already.
+  for (const id of stageIds) {
+    if (isFrameLevel(levels[id])) continue;
+    const subs = [];
+    for (const n of [1, 2, 3]) subs.push(await loadGamedata(subLevelPath(id, n)));
+    levels[id] = composeStageLevel(levels[id], subs);
+  }
+  for (const id of levelSrc.keys()) {
+    const lv = levels[id];
+    if (stageIds.includes(id) || id === enemyDataLevelId || !lv?.mapData?.map?.length || isFrameLevel(lv)) continue;
+    const { origin } = waveOrigin(lv);
+    for (const s of stageIds) {
+      const { misfits } = waveOrigin(lv, levels[s]);
+      if (misfits.length) warn(`level ${id} at (${origin}) on ${s}: ${misfits.join(', ')}`);
+    }
+    levels[id] = placeWaveLevel(lv, origin);
+  }
 
   const research = {
     core: await loadResearch('01-core-data.json'),
@@ -555,8 +595,37 @@ const TRIGGER_ALLY_RULES = Object.freeze({ TRY_SEARCH_ALLY_SKILL: 'SKILL_RANGE' 
  *   ACTIVE_RANGE on that running range, and a 技能范围 that was no attack-range change took SKILL_RANGE.
  * @param {object} skill record from buildSkill (skillId, skillType, desc, rangeGrid, bb)
  */
+/**
+ * 规程's rows list conditions (`skillTriggerTypes`) where 盟约's name one rule (`skillTriggerType`). A list some row of
+ * both seasons gives (the same profession / branch / operator and skill) is that rule; other lists are new rows — the
+ * class rows of 狙击 / 医疗 / 术师 and a few branches, 17 operator rows — whose conditions only the CN client reads: such a
+ * row is taken as no row, the basic strategy as in 盟约 [ASSUMED·CN: how a list's conditions combine], and its list kept
+ * as `rawRules`.
+ */
+const TRIGGER_LIST_RULES = Object.freeze({
+  'ON_TAKE_DAMAGE,SKILL_RANGE_ENEMY': 'TAKE_DAMAGE', ALWAYS: 'ALWAYS', 'SKILL_RANGE_ENEMY,COMBAT_OR_ATTACK': 'SEARCH',
+  SKILL_RANGE_ENEMY: 'SEARCH', MLYSS_S: 'MLYSS_WTRMAN', MARCIL_S2: 'MARCILS2', GLOBAL_RANGE_ENEMY: 'GDGLOW_SKILL_2',
+  CUSTOM_RANGE_ENEMY: 'CUSTOM_RANGE_SEARCH_ENEMY', 'SKILL_RANGE_ALLY,ON_TAKE_DAMAGE': 'TRY_SEARCH_ALLY_SKILL',
+});
+/** A trigger row's rule name: its own (盟约) or its list's (TRIGGER_LIST_RULES); null for a list of a new row. */
+const triggerRuleOf = (r) => (typeof r.skillTriggerType === 'string' ? r.skillTriggerType
+  : TRIGGER_LIST_RULES[(r.skillTriggerTypes || []).join(',')] ?? null);
+
 function resolveTrigger(ctx, char, charId, skillIdx, skill) {
-  const rows = Object.values(ctx.ac.skillTriggerDataList || {});
+  const t = resolveTriggerRule(ctx, char, charId, skillIdx, skill);
+  // the row's official condition list (规程), read or not
+  const manual = skill.skillType === 'MANUAL';
+  const listed = Object.values(ctx.ac.skillTriggerDataList || {}).filter((r) => Array.isArray(r.skillTriggerTypes));
+  const row = listed.find((r) => r.charId === charId && (r.skillIndex === skillIdx || r.skillIndex === -1))
+    || (manual && listed.find((r) => !r.charId && r.subProfessionId && r.subProfessionId === char.subProfessionId))
+    || (manual && listed.find((r) => !r.charId && !r.subProfessionId && r.profession === char.profession));
+  return row ? { ...t, rawRules: [...row.skillTriggerTypes] } : t;
+}
+
+function resolveTriggerRule(ctx, char, charId, skillIdx, skill) {
+  const all = Object.values(ctx.ac.skillTriggerDataList || {});
+  for (const r of all) if (!triggerRuleOf(r)) warn(`trigger row ${r.charId || r.subProfessionId || r.profession} ${r.skillIndex}: conditions ${(r.skillTriggerTypes || []).join(' + ')} not read (basic strategy) [ASSUMED·CN]`);
+  const rows = all.filter((r) => triggerRuleOf(r));
   const manual = skill.skillType === 'MANUAL';
   const pick =
     rows.find((r) => r.charId === charId && (r.skillIndex === skillIdx || r.skillIndex === -1)) ||
@@ -567,7 +636,7 @@ function resolveTrigger(ctx, char, charId, skillIdx, skill) {
   // own range — a selectable enemy, ground or air, on those cells — and one without checks the attack / combat state
   const ownRange = manual && skill.rangeGrid?.length ? skill.rangeGrid.map((p) => p.slice()) : null;
   if (!pick && ownRange) return { rule: 'DEFAULT', rawRule: 'DEFAULT', customRangeGrid: ownRange };
-  const rawRule = pick ? pick.skillTriggerType : 'DEFAULT';
+  const rawRule = pick ? triggerRuleOf(pick) : 'DEFAULT';
   if (TRIGGER_ALLY_RULES[rawRule]) {
     if (!skill.rangeGrid) warn(`skill ${skill.skillId}: ${rawRule} without a 技能范围`);
     return { rule: TRIGGER_ALLY_RULES[rawRule], rawRule, customRangeGrid: skill.rangeGrid ? skill.rangeGrid.map((p) => p.slice()) : null, allies: true };
@@ -901,8 +970,12 @@ function buildChess(ctx) {
       out[chessId] = rec;
       continue;
     }
-    const char = charTable[shop.charId];
-    if (!char) { warn(`chess ${chessId}: char ${shop.charId} missing from character_table`); out[chessId] = rec; continue; }
+    // the body: the shop row's character template when it names one (阿米娅's 医疗 form char_1037_amiya3 —
+    // char_patch_table patchChars, loadContext), else the character itself; `charId` stays the operator
+    const body = shop.tmplId || shop.charId;
+    const char = charTable[body];
+    if (!char) { warn(`chess ${chessId}: char ${body} missing from character_table`); out[chessId] = rec; continue; }
+    if (shop.tmplId) rec.tmplId = shop.tmplId;
 
     rec.name = char.name;
     rec.appellation = char.appellation;
@@ -967,9 +1040,9 @@ function buildChess(ctx) {
       if (!se?.skillId || (i !== sIdx && !unlocked(se.unlockCond, phase, level))) return;
       const s = buildSkill(ctx, se.skillId, skillLevel, null, `chess ${chessId}`);
       if (!s) return;
-      s.trigger = resolveTrigger(ctx, char, shop.charId, i, s);
+      s.trigger = resolveTrigger(ctx, char, body, i, s);
       s.index = i;
-      const cast = skillCast(ctx, shop.charId, s);
+      const cast = skillCast(ctx, body, s);
       if (cast) s.cast = cast;
       const bullets = skillBulletMode(ctx, s);
       if (bullets != null) s.bulletMode = bullets;
@@ -999,7 +1072,7 @@ function buildChess(ctx) {
       rec.traitBase = traitRecord(ctx, char, phase, level, [], chessId, ctx.potRank).trait;
       rec.talentsBase = mergeTalentChanges(talentList, []);
       rec.modules = [];
-      for (const id of uniequip.charEquip?.[shop.charId] || []) {
+      for (const id of uniequip.charEquip?.[body] || []) {
         const meta = uniequip.equipDict?.[id];
         if (!meta || meta.type === 'INITIAL') continue;
         const ph = battleEquip[id]?.phases?.find((p) => p.equipLevel === equipLevel) || null;
@@ -1076,7 +1149,7 @@ function buildChess(ctx) {
       });
       if (!tokenOwners.has(tokenId)) tokenOwners.set(tokenId, []);
       tokenOwners.get(tokenId).push({
-        chessId, charId: shop.charId, phase, level, skillIndex: sIdx, skillLevel, potRank: ctx.potRank,
+        chessId, charId: body, phase, level, skillIndex: sIdx, skillLevel, potRank: ctx.potRank,
         count: defUse.count(tokenId), golden: isGolden, modulePhase, moduleTokenParts: moduleParts.token,
         // 'display' only = listed by the character but not produced by this chess's default skill or talents.
         sources: ['talent', 'skill', 'display'].filter((s) => src.has(s)),
@@ -1085,19 +1158,19 @@ function buildChess(ctx) {
     }
 
     // Asset ids (URLs are resolved by fetch-assets / data/assets.json).
-    const e2Avatar = isGolden && hasE2Art(ctx, shop.charId, 'avatar');
-    const e2Portrait = isGolden && hasE2Art(ctx, shop.charId, 'portrait');
+    const e2Avatar = isGolden && hasE2Art(ctx, body, 'avatar');
+    const e2Portrait = isGolden && hasE2Art(ctx, body, 'portrait');
     rec.assets = {
-      avatar: e2Avatar ? `${shop.charId}_2` : shop.charId,
-      portrait: `${shop.charId}_${e2Portrait ? 2 : 1}`,
-      spine: shop.charId,
+      avatar: e2Avatar ? `${body}_2` : body,
+      portrait: `${body}_${e2Portrait ? 2 : 1}`,
+      spine: body,
       skillIcon: rec.skill?.iconId || null,
       subProfIcon: `sub_${char.subProfessionId}_icon`,
     };
     // the attack clip of each attack mode and its timing (opAttackAnim; server/sim/ai.js attackTiming)
-    rec.attackAnim = opAttackAnim(ctx, shop.charId, (char.skills || []).length);
+    rec.attackAnim = opAttackAnim(ctx, body, (char.skills || []).length);
     // the official projectile of each attack mode's normal attack (opShot; server/sim/ai.js opShot)
-    rec.shot = opShot(ctx, shop.charId, char.skills || []);
+    rec.shot = opShot(ctx, body, char.skills || []);
     out[chessId] = rec;
   }
 
@@ -1350,8 +1423,13 @@ function checkUnitFormParity(ctx, chess) {
       errors.push(`unit parity ${c.chessId}: the backup skill / module differ from the chess default`);
       continue;
     }
-    const form = buildUnitForm(ctx, c.charId, c.status, { chessId: c.baseId, skillIndex: c.skill.index });
-    const rec = composeUnitRecord(c, buildUnitHead(ctx, c.charId), form, { skillIndex: c.backup.skillIndex, moduleId: c.backup.uniEquipId });
+    // a chess built from a character template (buildChess `tmplId`) is its own backup in that template
+    const body = c.tmplId ?? c.charId;
+    if ((c.backup.tmplId ?? null) !== (c.tmplId ?? null)) { errors.push(`unit parity ${c.chessId}: the backup template differs from the chess's`); continue; }
+    const form = buildUnitForm(ctx, body, c.status, { chessId: c.baseId, skillIndex: c.skill.index });
+    const composed = composeUnitRecord(c, buildUnitHead(ctx, body), form, { skillIndex: c.backup.skillIndex, moduleId: c.backup.uniEquipId });
+    // the composed record names its body; a template chess keeps the operator as charId and the body as tmplId
+    const rec = c.tmplId ? { ...composed, charId: c.charId, tmplId: c.tmplId } : composed;
     if (!isDeepStrictEqual(rec, c)) {
       const keys = [...new Set([...Object.keys(rec || {}), ...Object.keys(c)])].filter((k) => !isDeepStrictEqual(rec?.[k], c[k]));
       errors.push(`unit parity ${c.chessId}: buildUnitForm + composeUnitRecord differ from buildChess in ${keys.join(', ')}`);
@@ -1956,6 +2034,33 @@ const ITEM_RULES = Object.freeze({
 /**
  * Build data/items.json: every item chess (EQUIP normal + golden, MAGIC Arts), keyed by chessId.
  */
+/**
+ * The default season's items by trap (data/items.json; null when building the default season): another season reuses
+ * the item ids for other items, so the tables of this file keyed by a default-season item id (SHOP_EXCLUDED_ITEMS,
+ * ITEM_RULES, the research items, pool entries) reach its items through the trap (attachHandlerKeys).
+ */
+let defaultItemsByTrap;
+function defaultItemIdByTrap() {
+  if (SEASON === DEFAULT_SEASON) return null;
+  if (!defaultItemsByTrap) {
+    defaultItemsByTrap = new Map();
+    for (const r of Object.values(JSON.parse(readFileSync(join(ROOT, 'data', 'items.json'), 'utf8')))) if (!r.isGolden && r.trapId) defaultItemsByTrap.set(r.trapId, r.id);
+  }
+  return defaultItemsByTrap;
+}
+/** The default season's id of a built item's base (itself in the default season), or null when it has none. */
+function defaultItemId(act, baseId) {
+  const byTrap = defaultItemIdByTrap();
+  if (!byTrap) return baseId;
+  return byTrap.get(act.trapChessDataDict[baseId]?.charId) ?? null;
+}
+/** This season's item of a default-season item id (the same trap), or null. */
+function seasonItemId(items, defaultId) {
+  if (SEASON === DEFAULT_SEASON) return items[defaultId] ? defaultId : null;
+  const byTrap = defaultItemIdByTrap();
+  return Object.values(items).find((r) => !r.isGolden && byTrap.get(r.trapId) === defaultId)?.id ?? null;
+}
+
 function buildItems(ctx, effects) {
   const { act, charTable } = ctx;
   const researchItems = new Map((ctx.research.items?.items || []).map((i) => [i.id, i]));
@@ -1974,11 +2079,13 @@ function buildItems(ctx, effects) {
     if (!eff) warn(`item ${chessId}: effect ${t.effectId} missing`);
     const trap = charTable[t.charId];
     if (!trap) warn(`item ${chessId}: trap ${t.charId} missing from character_table`);
-    const ri = researchItems.get(baseId);
+    // the default season's id of the same item: the key of every table below (defaultItemId)
+    const defId = defaultItemId(act, baseId);
+    const ri = defId ? researchItems.get(defId) : undefined;
     const isGolden = !!t.isGolden;
     const upgradeNum = t.upgradeNum;
-    const excluded = Object.hasOwn(SHOP_EXCLUDED_ITEMS, baseId) ? SHOP_EXCLUDED_ITEMS[baseId] : null;
-    const rule = Object.hasOwn(ITEM_RULES, baseId) ? ITEM_RULES[baseId] : null;
+    const excluded = defId && Object.hasOwn(SHOP_EXCLUDED_ITEMS, defId) ? SHOP_EXCLUDED_ITEMS[defId] : null;
+    const rule = defId && Object.hasOwn(ITEM_RULES, defId) ? ITEM_RULES[defId] : null;
     out[chessId] = {
       id: chessId, baseId, goldenId: shop?.goldenItemId || null, isGolden,
       trapId: t.charId, iconId: t.charId, identifier: t.identifier,
@@ -2025,7 +2132,9 @@ function buildBands(ctx, effects) {
     const dp = textPair(b.bandDesc);
     out[bandId] = {
       bandId, sortId: b.sortId, name: meta.bandName || eff?.name || bandId, iconId: meta.bandIconId || `icon_${bandId.replace(/^band_/, '')}`,
-      modeTypeList: b.modeTypeList || [], totalHp: b.totalHp,
+      // 盟约 lists the mode types a strategy is offered in; 规程 lists the modes it is not (inactiveModeIdList)
+      ...(b.modeTypeList || !b.inactiveModeIdList ? { modeTypeList: b.modeTypeList || [] } : { inactiveModeIds: [...b.inactiveModeIdList] }),
+      totalHp: b.totalHp,
       effectId: b.effectId, effectName: eff?.name || null, desc: dp.desc, descRaw: dp.descRaw,
       buffs: (eff?.buffs || []).map((x) => ({ key: x.key, bb: x.bb, bbStr: x.bbStr })),
       params: eff?.params || {},
@@ -3110,8 +3219,8 @@ const TILE_LEGEND = {
   p: { tileKey: 'tile_floor', desc: '地板（预览区 previewNotAlloed）' },
   h: { tileKey: 'tile_wall', desc: '高台：仅远程可部署，地面不可通行' },
   b: { tileKey: 'tile_fence_bound', desc: '围栏低地：可部署，地面敌人不可通行' },
-  a: { tileKey: 'tile_achand', desc: '整备区格（isValidHand）' },
-  A: { tileKey: 'tile_achand', desc: '临时整备区/非整备手牌格' },
+  a: { tileKey: 'tile_achand', desc: '整备区格（isValidHand；规程：每个 tile_achand）' },
+  A: { tileKey: 'tile_achand', desc: '临时整备区/非整备手牌格（规程：tile_acbag）' },
   S: { tileKey: 'tile_start', desc: '敌人出生点（红门）' },
   E: { tileKey: 'tile_end', desc: '保护目标（蓝门）' },
   I: { tileKey: 'tile_telin', desc: '传送入口（敌人消失）' },
@@ -3120,10 +3229,12 @@ const TILE_LEGEND = {
   g: { tileKey: 'tile_smog', special: 'smog', desc: '排气格栅：其上干员不会成为敌方远程攻击目标' },
   d: { tileKey: 'tile_deepsea', special: 'deepsea', desc: '深水区：不可部署（拒绝部署），敌人持续受伤、减速、减攻速' },
   i: { tileKey: 'tile_infection', special: 'infection', desc: '活性源石：单位受持续真实伤害，攻击力与攻速提升' },
+  u: { tileKey: 'tile_speedup', desc: '规程：加速地块（blackboard attack_speed / move_speed），效果未实装' },
+  G: { tileKey: 'tile_duel_grassland', desc: '规程：tile_duel_grassland，效果未实装' },
 };
 
 /** Map an official tile object to a legend glyph. */
-function tileGlyph(t) {
+function tileGlyph(t, bagHand = false) {
   const bbKeys = new Set((t.blackboard || []).map((b) => b.key));
   switch (t.tileKey) {
     case 'tile_forbidden': return t.passableMask === 'NONE' ? 'X' : '#';
@@ -3131,7 +3242,11 @@ function tileGlyph(t) {
     case 'tile_floor': return bbKeys.has('previewNotAlloed') ? 'p' : 'f';
     case 'tile_wall': return 'h';
     case 'tile_fence_bound': case 'tile_fence': return 'b';
-    case 'tile_achand': return bbKeys.has('isValidHand') ? 'a' : 'A';
+    // 规程 marks no tile isValidHand: its hand is tile_achand, its 临时整备区 tile_acbag
+    case 'tile_achand': return bagHand || bbKeys.has('isValidHand') ? 'a' : 'A';
+    case 'tile_acbag': return 'A';
+    case 'tile_speedup': return 'u';
+    case 'tile_duel_grassland': return 'G';
     case 'tile_start': return 'S';
     case 'tile_end': return 'E';
     case 'tile_telin': return 'I';
@@ -3274,13 +3389,14 @@ function buildStages(ctx, modesById) {
     const H = map.length, W = map[0]?.length || 0;
     if (H !== 19 || W !== 21) warn(`stage ${stageId}: unexpected size ${H}x${W}`);
     const tileAt = (r, c) => tiles[map[H - 1 - r]?.[c]];
+    const bagHand = tiles.some((t) => t.tileKey === 'tile_acbag');
     const rows = [];
     const glyphTiles = {};
     for (let r = 0; r < H; r++) {
       let line = '';
       for (let c = 0; c < W; c++) {
         const t = tileAt(r, c);
-        const g = t ? tileGlyph(t) : '?';
+        const g = t ? tileGlyph(t, bagHand) : '?';
         if (g === '?') warn(`stage ${stageId}: unknown tile at (${r},${c}) ${t?.tileKey}`);
         line += g;
         if (t && !glyphTiles[g]) {
@@ -3342,7 +3458,7 @@ function buildStages(ctx, modesById) {
         if (blocked.has(k)) { if (buildable) byDevice.push([r, c]); continue; }
         if (waterPlatformAt.has(k)) { melee.push([r, c]); if (!buildable) byDevice.push([r, c]); continue; }
         if (t.heightType === 'LOWLAND' && (bt === 'ALL' || bt === 'MELEE')) melee.push([r, c]);
-        else if (bt === 'RANGED' || (t.heightType === 'HIGHLAND' && bt === 'ALL' && t.tileKey !== 'tile_achand')) rangedOnly.push([r, c]);
+        else if (bt === 'RANGED' || (t.heightType === 'HIGHLAND' && bt === 'ALL' && !HAND_TILES.has(t.tileKey))) rangedOnly.push([r, c]);
       }
       return { melee, rangedOnly, changedByDevices: byDevice };
     };
@@ -3553,6 +3669,8 @@ function buildBosses(ctx, enemies, waves) {
       bossId, enemyKey, handbookId: g.handbookEnemyId || enemyKey, name: e?.name || enemyKey, sortId: b.sortId,
       weight: b.weight, hidden: !!b.isHidingBoss,
       bloodPoint: { FUNNY: b.bloodPoint, NORMAL: b.bloodPointNormal, HARD: b.bloodPointHard, ABYSS: b.bloodPointAbyss },
+      // 规程: one value per mode (bossInfoDict bloodDataDict) in place of one per difficulty
+      ...(b.bloodDataDict ? { bloodByMode: Object.fromEntries(Object.entries(b.bloodDataDict).sort((x, y) => naturalCmp(x[0], y[0]))) } : {}),
       lpr: e?.stats?.lpr ?? null, templates, escortsByTemplate, parts: [...parts].sort(naturalCmp),
       abilities: e?.abilities?.map((a) => a.text) || [],
     };
@@ -3949,7 +4067,7 @@ function buildChoices(ctx, effects, items, chess) {
       assumed: ['card weights 1 + seen', 'independent draws (no slot structure)', 'no terrain card at R11', 'solo shows 3', 'other rounds (标准 / 险境) keep every card, uniform, with replacement'],
     },
     schedule,
-    pools: {
+    pools: seasonPools({
       pool_equip_normal: { kind: 'equip', rule: 'shopEligible', maxTier: 'shopLevel', assumed: true },
       pool_equip_shop_1: { kind: 'equip', rule: 'shopEligible', tiers: [1], assumed: true },
       // 凯瑟琳 定向投放 (up_shop_add_special_goods): every shop-eligible item, whatever the shop level — players' first-hand
@@ -3959,7 +4077,7 @@ function buildChoices(ctx, effects, items, chess) {
       // 突变细胞」; the issue's comments link three official-play recordings of a 凯瑟琳 run offering it — bilibili
       // BV1XmUhBhEtw, BV1sUSQBLE93, BV1WRQeBNEqW; the pool itself is server-side, so its weight stays uniform [ASSUMED]);
       // it is the pool's only effect-only item [ASSUMED] (the 4 special 维式重锤 are not in it)
-      pool_equip_kathe: { kind: 'equip', rule: 'shopEligible', plus: ['chess_item_5_08_e_a'], assumed: true },
+      pool_equip_kathe: { kind: 'equip', rule: 'shopEligible', plus: [seasonItemId(items, 'chess_item_5_08_e_a')], assumed: true },
       // 娜仁图亚 见者有份 (preparation_start_add_special_goods_every_n_round): the blackboard names no tier cap. Players'
       // first-hand report (community, 2026-10-14, upstream e53b8d52): the two equips can be above the current shop level.
       // Same shape as 凯瑟琳 — every shop-eligible item, uniform [ASSUMED] (until then it was capped at the shop level, so an
@@ -3980,8 +4098,23 @@ function buildChoices(ctx, effects, items, chess) {
       pool_char_pinus: { kind: 'chess', weighted: [['野鬃', 10], ['灰毫', 10], ['远牙', 3]].map(([n, w]) => [chessByName(n), w]), assumed: true },
       pool_char_later: { kind: 'chess', bond: 'lateranoShip', minTier: 4, golden: true, rule: 'shopEligible', assumed: true },
       ...Object.fromEntries([1, 2, 3, 4, 5, 6].map((t) => [`pool_chess_shop_${t}_reward`, { kind: 'chess', tier: t, rule: 'shopEligible', assumed: true }])),
-    },
+    }),
   };
+}
+
+/**
+ * The pools above name the default season's items and operators. Another season keeps a pool only when every entry
+ * resolves there; the others are left out with a warning (that season's pools are its own work).
+ */
+function seasonPools(pools) {
+  if (SEASON === DEFAULT_SEASON) return pools;
+  const out = {};
+  for (const [id, p] of Object.entries(pools)) {
+    const entries = [...(p.items || []), ...(p.plus || []), ...(p.weighted || []).map((x) => x[0])];
+    if (entries.some((x) => !x)) { warn(`pool ${id}: an entry is not in ${SEASON} (left out)`); continue; }
+    out[id] = p;
+  }
+  return out;
 }
 
 // ===== config ===================================================================================
@@ -4015,18 +4148,38 @@ const DEFAULT_ENEMY_MULTIPLIERS = {
  * effects leave out the 14 器物 hit-count keys (activity_table aceffect_enemy_2 / 2_2 `enemy_exclude`, data/effects.json),
  * which take hp / supplyHp (server/sim/content/enemies/archetypes.js `times`).
  */
-function enemyScaleFor(table, type, difficulty, round, isHidden) {
+/**
+ * The steps of the enemy effects (activity_table effectInfoDataDict / effectBuffInfoDataDict, data/effects.json): 攻坚装备
+ * (aceffect_enemy_3) ATK and HP, 补给线II (aceffect_enemy_2_2) HP, 补给线 (aceffect_enemy_2) HP, 急行军 (aceffect_enemy_1)
+ * speed. 盟约: 1.1 / 1.2 / 1.2 / 1.08 / +0.15; 规程 gives 1.11 / 1.2 / 1.3 / 1.08 / +0.3 under the same ids.
+ */
+function enemySteps(effects) {
+  const bb = (id, k, d) => {
+    const v = (effects[id]?.buffs || []).map((b) => b.bb?.[k]).find((x) => typeof x === 'number');
+    return typeof v === 'number' ? v : d;
+  };
+  return {
+    atk: bb('aceffect_enemy_3', 'atk', 1.1), hp: bb('aceffect_enemy_3', 'max_hp', 1.2), supply: bb('aceffect_enemy_2_2', 'max_hp', 1.2),
+    extra: bb('aceffect_enemy_2', 'max_hp', 1.08), speed: 1 + bb('aceffect_enemy_1', 'move_speed', 0.15),
+  };
+}
+
+function enemyScaleFor(table, type, difficulty, round, isHidden, steps = enemySteps({})) {
   const t = table?.[type === 'SINGLE' ? 'single' : 'multi']?.[difficulty];
   if (!t) return { atk: 1, hp: 1, speed: 1, assumed: true };
   const i = round - 1;
   const pick = (arr, hidden) => (isHidden ? (hidden ?? arr?.[arr.length - 1] ?? 0) : (arr?.[Math.min(i, (arr?.length || 1) - 1)] ?? 0));
   const kAtk = t.kAtk ? pick(t.kAtk, t.hiddenAtk) : pick(t.k, t.hidden);
   const kHp = t.kHp ? pick(t.kHp, t.hiddenHp) : pick(t.k, t.hidden);
-  const extra = t.hpExtra ? (isHidden ? t.hiddenHpExtra ?? 1 : t.hpExtra[Math.min(i, t.hpExtra.length - 1)] ?? 1) : 1;
-  const speedMul = difficulty === 'ABYSS' && round >= 3 ? (table.abyssMoveSpeedMulFromRound3 ?? 1.15) : 1;
-  const supplyHp = cleanNum(1.2 ** Math.max(0, kHp - kAtk) * extra);
+  // the table marks a 补给线 round with its 1.08; the season's step stands for it
+  const marked = t.hpExtra ? (isHidden ? t.hiddenHpExtra ?? 1 : t.hpExtra[Math.min(i, t.hpExtra.length - 1)] ?? 1) : 1;
+  const extra = marked === 1 ? 1 : steps.extra;
+  const speedMul = difficulty === 'ABYSS' && round >= 3 ? (SEASON === DEFAULT_SEASON ? table.abyssMoveSpeedMulFromRound3 ?? steps.speed : steps.speed) : 1;
+  const supplyHp = cleanNum(steps.supply ** Math.max(0, kHp - kAtk) * extra);
+  // 攻坚装备 brings its HP step kAtk times and 补给线II its own the rest (盟约: both 1.2, one power of kHp)
+  const hpMul = steps.hp === steps.supply ? steps.hp ** kHp : steps.hp ** kAtk * steps.supply ** Math.max(0, kHp - kAtk);
   return {
-    atk: cleanNum(t.atkBase * 1.1 ** kAtk), hp: cleanNum(t.hpBase * 1.2 ** kHp * extra), speed: speedMul, kAtk, kHp,
+    atk: cleanNum(t.atkBase * steps.atk ** kAtk), hp: cleanNum(t.hpBase * hpMul * extra), speed: speedMul, kAtk, kHp,
     ...(supplyHp !== 1 ? { supplyHp } : {}),
   };
 }
@@ -4042,8 +4195,10 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
   // (co-op) match has coopPoolMultiplier × the solo value, every tier and exception (Ⅰ 20/24, Ⅱ 16/24/28, Ⅲ 36, Ⅳ 32,
   // Ⅴ 16, Ⅵ 10). The former 缪尔赛思 4 came from a season-1 (盟约 上半) video and is gone: this season's table lists
   // every Ⅵ at 5. Concurrent stock, not a limit on appearances or purchases. Names → the normal chess of that name.
-  const poolStock = Object.fromEntries(Object.entries({ 普罗旺斯: 10, 德克萨斯: 10, 跃跃: 10, 古米: 10, 格雷伊: 10,
-    风丸: 8, 赫默: 12, 休谟斯: 12, 砾: 12, 蒂比: 12, 调香师: 12 }).map(([name, n]) => {
+  // Another season keeps the tier table without these exceptions [ASSUMED·자료 없음: no recording of its pool yet].
+  const stockExceptions = SEASON === DEFAULT_SEASON;
+  const poolStock = Object.fromEntries(Object.entries(stockExceptions ? { 普罗旺斯: 10, 德克萨斯: 10, 跃跃: 10, 古米: 10, 格雷伊: 10,
+    风丸: 8, 赫默: 12, 休谟斯: 12, 砾: 12, 蒂比: 12, 调香师: 12 } : {}).map(([name, n]) => {
     const rec = Object.values(chess).find((c) => !c.isGolden && c.visible && c.name === name);
     if (!rec) throw new Error(`pool stock: no visible normal chess named ${name}`);
     return [rec.chessId, n];
@@ -4051,12 +4206,16 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
   // Shared shop-equipment stock (the same video, ~1:30; GitHub #466; upstream 6bfc0827): per normal item by tier
   // 4/6/7/8/7/3 with the exceptions below, the same in solo and co-op (server/match/pool.js SharedItemPool). 商业包装方案
   // at 2 is the #466 "at most 2 per match" report: two owned at once, a third after one leaves ownership.
-  const itemStock = Object.fromEntries(Object.entries({ 简易通讯机: 5, 蜂鸣器: 6, 防暴盾: 6, 浓缩嗅盐: 6,
-    寻呼模块: 7, 伪装服: 7, 拉特兰桥夹: 7, 商业包装方案: 2 }).map(([name, n]) => {
+  const itemStock = Object.fromEntries(Object.entries(stockExceptions ? { 简易通讯机: 5, 蜂鸣器: 6, 防暴盾: 6, 浓缩嗅盐: 6,
+    寻呼模块: 7, 伪装服: 7, 拉特兰桥夹: 7, 商业包装方案: 2 } : {}).map(([name, n]) => {
     const rec = Object.values(items).find((it) => !it.isGolden && it.itemType === 'EQUIP' && it.name === name);
     if (!rec) throw new Error(`item stock: no normal equipment named ${name}`);
     return [rec.id, n];
   }));
+  // the official automatic strategy: 华法琳 (band_bldsk, the first by sortId); another season's first by sortId
+  // [ASSUMED·화면: 规程's automatic pick not seen yet]
+  const defaultBand = SEASON === DEFAULT_SEASON ? 'band_bldsk'
+    : Object.values(bands).sort((a, b) => (a.sortId ?? 99) - (b.sortId ?? 99) || naturalCmp(a.bandId, b.bandId))[0]?.bandId ?? null;
   const addendum = ctx.research.core?._criticAddendum || {};
   const multipliers = addendum.enemyStatMultipliers || DEFAULT_ENEMY_MULTIPLIERS;
   if (!addendum.enemyStatMultipliers) warn('config: using built-in enemy multiplier table (research 01 _criticAddendum missing)');
@@ -4064,6 +4223,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
   const DIFF_KEYS = { FUNNY: 'bloodPoint', NORMAL: 'bloodPointNormal', HARD: 'bloodPointHard', ABYSS: 'bloodPointAbyss' };
 
   const modes = {};
+  const enemyStep = enemySteps(ctx.effects ?? {});
   for (const modeId of Object.keys(act.modeDataDict)) {
     const m = act.modeDataDict[modeId];
     const battle = act.battleDataDict[modeId] || {};
@@ -4094,7 +4254,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
         isSpPrepare: entries.some((e) => e.isSpPrepare), isBoss, isHidden,
         bossOvertimeAfter: isBoss ? turn.bossTurnHpReduceTime || 150 : null,
       };
-      enemyScale[r] = enemyScaleFor(multipliers, type, m.modeDifficulty, r, isHidden);
+      enemyScale[r] = enemyScaleFor(multipliers, type, m.modeDifficulty, r, isHidden, enemyStep);
       combatTimeLimit[r] = rounds[r].combatTimeLimit;
       if (isHidden) hiddenRound = r; else { lastRound = r; if (isBoss) bossRound = r; }
     }
@@ -4150,7 +4310,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
   return {
     season: SEASON,
     // the current season keeps its name as written; another one takes the activity table's (shared/seasons.js)
-    seasonName: SEASON === DEFAULT_SEASON || SEASON === 'next' ? '卫戍协议：盟约' : ctx.seasonTitle ?? SEASON,
+    seasonName: SEASON === DEFAULT_SEASON ? '卫戍协议：盟约' : ctx.seasonTitle ?? SEASON,
     modes,
     economy: {
       income: Array.from({ length: 16 }, (_, r) => (r === 0 ? 0 : Math.min(3 + r, incomeCap))),
@@ -4178,7 +4338,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       shopOdds: { model: 'copyWeighted', note: 'each slot draws 1 copy uniformly from remaining pool copies of unbanned visible chess with tier <= shop level; items: same tier shares, then uniform within tier [ASSUMED]' },
       borrowCount: act.constData.borrowCount,
       fallbackBondId: act.constData.fallbackBondId,
-      defaultBandId: 'band_bldsk', defaultStartLp: bands.band_bldsk?.totalHp ?? 28,
+      defaultBandId: defaultBand, defaultStartLp: bands[defaultBand]?.totalHp ?? 28,
     },
     lpCapPerRound: act.constData.costPlayerHpLimit ?? 10,
     bossOvertimeAfter: 150, bossOvertimeDrainPerSec: 1,
@@ -4233,7 +4393,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
     },
     bans: { FUNNY: { core: 0, addon: 1 }, NORMAL: { core: 3, addon: 4 }, HARD: { core: 3, addon: 4 }, ABYSS: { core: 3, addon: 4 }, TRAINING: { core: 0, addon: 0 },
       rule: 'banned iff every bond of a visible non-DIY chess is in (drawn set D ∪ mode.inactiveBondIds); core = isCore bonds, addon = other bonds with weight > 0; uniform draw' },
-    bandDraft: { skipsPerPlayer: 1, order: 'random', duplicatesAllowed: true, timeoutBandId: 'band_bldsk' },
+    bandDraft: { skipsPerPlayer: 1, order: 'random', duplicatesAllowed: true, timeoutBandId: defaultBand },
     titles: Object.values(act.playerTitleDataDict || {}).map((t) => ({ id: t.id, picId: t.picId, name: t.txt, ...(titleRules[t.id] || {}) })),
     titleRule: 'each player gets at most one title; each title is used at most once per match; assign by the category where the player ranks best relative to teammates [ASSUMED]',
     tips: (Array.isArray(ac.gameTipsList) ? ac.gameTipsList : Object.values(ac.gameTipsList || {})).map((t) => ({ tip: String(t.tip).trim(), weight: t.weight })),
@@ -4384,6 +4544,12 @@ function findNonFinite(obj, path, out) {
   for (const [k, v] of Object.entries(obj)) findNonFinite(v, `${path}.${k}`, out);
 }
 
+/** Each season's bond, strategy and visible (shop) chess counts, as its activity section lists them. */
+const SEASON_COUNTS = {
+  act2autochess: { bonds: 23, bands: 40, visible: 112 },
+  act3autochess: { bonds: 26, bands: 61, visible: 141 },
+};
+
 /**
  * Cross-file referential integrity checks. Returns a list of error strings (empty = OK).
  * The same invariants are asserted by test/data.test.js.
@@ -4398,11 +4564,13 @@ function validateAll(f) {
     bad.slice(0, 5).forEach((p) => err(`non-finite number at ${p}`));
   }
   const visible = Object.values(chess).filter((c) => !c.isGolden && c.visible);
-  if (Object.keys(bonds).length !== 23) err(`expected 23 bonds, got ${Object.keys(bonds).length}`);
-  if (Object.keys(bands).length !== 40) err(`expected 40 bands, got ${Object.keys(bands).length}`);
-  // (`next`: the current season's plus its roster, tools/next-season.mjs)
-  const visibleWant = 112 + (SEASON === 'next' ? visible.filter((c) => /^chess_char_\d+_n/.test(c.chessId)).length : 0);
-  if (visible.length !== visibleWant) err(`expected ${visibleWant} visible non-DIY chess, got ${visible.length}`);
+  const want = SEASON_COUNTS[SEASON];
+  if (!want) err(`no expected counts for season ${SEASON} (SEASON_COUNTS)`);
+  else {
+    if (Object.keys(bonds).length !== want.bonds) err(`expected ${want.bonds} bonds, got ${Object.keys(bonds).length}`);
+    if (Object.keys(bands).length !== want.bands) err(`expected ${want.bands} bands, got ${Object.keys(bands).length}`);
+    if (visible.length !== want.visible) err(`expected ${want.visible} visible non-DIY chess, got ${visible.length}`);
+  }
   for (const c of Object.values(chess)) {
     if (!chess[c.baseId]) err(`chess ${c.chessId}: baseId missing`);
     if (c.goldenId && !chess[c.goldenId]) err(`chess ${c.chessId}: goldenId missing`);
@@ -4510,6 +4678,7 @@ function validateAll(f) {
     for (const k of Object.keys(w.overrides)) if (!enemies[k]) err(`wave ${w.id}: override for unknown enemy ${k}`);
   }
   for (const s of Object.values(stages)) {
+    // every season's stages are in the 19×21 frame (规程's put there by tools/level-fields.mjs)
     if (s.rows.length !== 19 || s.rows.some((r) => r.length !== 21)) err(`stage ${s.id}: not 19x21`);
     if (s.rows.some((r) => r.includes('?'))) err(`stage ${s.id}: unknown tile glyph`);
     if (s.name !== s.id && /[A-Za-z]/.test(s.name)) err(`stage ${s.id}: Latin text in player-facing name "${s.name}"`);
@@ -4535,9 +4704,10 @@ function validateAll(f) {
   for (const [pid, p] of Object.entries(choices.pools)) {
     for (const id of [...(p.items || []), ...(p.weighted || []).map((x) => x[0])]) if (!id || !(items[id] || chess[id])) err(`pool ${pid}: unresolved entry ${id}`);
   }
-  for (const id of Object.keys(SHOP_EXCLUDED_ITEMS)) if (!items[id] || items[id].itemType !== 'EQUIP' || items[id].isGolden) err(`SHOP_EXCLUDED_ITEMS: ${id} is not a normal EQUIP item`);
+  if (SEASON === DEFAULT_SEASON) for (const id of Object.keys(SHOP_EXCLUDED_ITEMS)) if (!items[id] || items[id].itemType !== 'EQUIP' || items[id].isGolden) err(`SHOP_EXCLUDED_ITEMS: ${id} is not a normal EQUIP item`);
   for (const [id, fl] of Object.entries(TOKEN_ABNORMAL)) {
-    if (!tokens[id]) err(`TOKEN_ABNORMAL: ${id} is not a token`);
+    // the list is the default season's tokens; another season need not field them all
+    if (!tokens[id]) { if (SEASON === DEFAULT_SEASON) err(`TOKEN_ABNORMAL: ${id} is not a token`); continue; }
     for (const f of fl) if (f !== 'healFree' && f !== 'isolated') err(`TOKEN_ABNORMAL: ${id}: unknown effect ${f}`);
   }
   for (const [id, pos] of Object.entries(TOKEN_POSITION_CORRECTIONS)) {
@@ -4566,6 +4736,26 @@ function sameAsDefault(name, text) {
   try { return readFileSync(join(ROOT, 'data', `${name}.json`), 'utf8') === text; } catch { return false; }
 }
 
+/**
+ * Another season reuses the default season's item and 特质 ids for other content (activity_table: 91 item ids, 90 with
+ * other content; 244 特质 ids, all different), while the code that names an item or a 特质 (items/battle.js and
+ * items/meta.js handlers, a few 特质 checks) was written for the default season's. Each item and 特质 record of another
+ * season gets `handlerKey`: the default season's key of the same thing — an item by its trap (`trapId`, one key per trap
+ * in both seasons), a 特质 by its effect (`effectKey`, `bb`, `bbStr` but its own id) — or `<season>:<own key>` when the
+ * default season has none, which no handler names. server/sim/content/support itemKeyOf / garrisonKeyOf read it.
+ */
+function attachHandlerKeys(items, garrisons) {
+  const read = (name) => JSON.parse(readFileSync(join(ROOT, 'data', `${name}.json`), 'utf8'));
+  const bare = (id) => String(id).replace(/_[ab]$/, '');
+  const keyByTrap = new Map();
+  for (const r of Object.values(read('items'))) if (r.trapId) keyByTrap.set(r.trapId, bare(r.id));
+  for (const r of Object.values(items)) r.handlerKey = keyByTrap.get(r.trapId) ?? `${SEASON}:${bare(r.id)}`;
+  const sig = (g) => JSON.stringify([g.effectKey, g.bb, Object.fromEntries(Object.entries(g.bbStr || {}).filter(([k]) => k !== 'garrison_key'))]);
+  const keyBySig = new Map();
+  for (const g of Object.values(read('garrisons'))) keyBySig.set(sig(g), keyBySig.has(sig(g)) ? null : g.garrisonId);
+  for (const g of Object.values(garrisons)) g.handlerKey = keyBySig.get(sig(g)) ?? `${SEASON}:${g.garrisonId}`;
+}
+
 async function main() {
   const t0 = Date.now();
   const ctx = await loadContext();
@@ -4583,6 +4773,7 @@ async function main() {
   const bonds = buildBonds(ctx, chess, effects);
   const garrisons = buildGarrisons(ctx, chess);
   const items = buildItems(ctx, effects);
+  if (SEASON !== DEFAULT_SEASON) attachHandlerKeys(items, garrisons);
   const bands = buildBands(ctx, effects);
   const enemies = buildEnemies(ctx);
   for (const p of passes) p.tokens = buildTokens(p.ctx, p.chess, p.tokenOwners, enemies);
@@ -4595,7 +4786,7 @@ async function main() {
   // the bonds each strategy is built around (DESIGN §21.26): the bot skips, and the strategy draft marks 本局禁用, a band
   // whose bond the mode switches off
   for (const b of Object.values(bands)) b.bondIds = bandBondIds(b, { bonds, pools: choices.pools });
-  const config = buildConfig(ctx, waves, stages, bands, chess, items);
+  const config = buildConfig({ ...ctx, effects }, waves, stages, bands, chess, items);
   const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens, backups };
 
   // the unit forms rebuild every PRESET chess at every rank (before the annotation: each pass as built)

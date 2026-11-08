@@ -1,17 +1,17 @@
-// test/content/op_turdus.test.js — 우쿠시크 (char_4224_turdus, a tier-3 piece of the season not out yet; kit ops/op-turdus.js): both forms, both skills.
+// test/content/op_turdus.test.js — 우쿠시크 (char_4224_turdus, a tier-3 piece of 规程 (act3autochess); kit ops/op-turdus.js): both forms, both skills.
 // Run: node --test test/content/op_turdus.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { S1_BEGIN } from '../../server/sim/content/kits/ops/op-turdus.js';
 
-const A = 'chess_char_3_nturdus_a', B = 'chess_char_3_nturdus_b';
+const A = 'chess_char_3_03_a', B = 'chess_char_3_03_b';
 const FORMS = [A, B];
 const S1 = 'skchr_turdus_1', S2 = 'skchr_turdus_2';
 const YAK = 'chess_char_1_02_a';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const healsBy = (h, u) => h.hooksOf('heal').filter((c) => c.source === u && !c.opts?.regen);
 const uids = (g) => g.map((c) => c.target.uid);
@@ -35,7 +35,7 @@ test('Skill_1_Begin is the clip the kit holds for', () => {
 
 test('the trait: max_target units, each jump × chain.atk_scale, the lowest ratio first, no target twice', () => {
   for (const id of FORMS) {
-    const tb = NEXT.chess[id].trait.bb, step = tb['chain.atk_scale'];
+    const tb = ACT3.chess[id].trait.bb, step = tb['chain.atk_scale'];
     assert.equal(tb['chain.max_target'], 3);
     const { h, u } = line(id, [0.1, 0.2, 0.3, 0.4]);
     const atk = u.s.atk;
@@ -52,7 +52,7 @@ test('the trait: max_target units, each jump × chain.atk_scale, the lowest rati
 
 test('T1 on a jump: her own heal × atk_scale_2 and its decay, the rate carries, the next jump keeps it and takes no target of the count', () => {
   for (const id of FORMS) {
-    const step = NEXT.chess[id].trait.bb['chain.atk_scale'], up = NEXT.chess[id].talents[0].bb['chain.atk_scale_2'];
+    const step = ACT3.chess[id].trait.bb['chain.atk_scale'], up = ACT3.chess[id].talents[0].bb['chain.atk_scale_2'];
     // main (0.05) at (10, 5) → herself (10, 4, ratio 0.2) → (11, 5) → (12, 5); (12, 6) is past the count
     const { h, u } = line(id, [0.05, 0.3, 0.4, 0.5], { self: 0.2 });
     const atk = u.s.atk;
@@ -70,7 +70,7 @@ test('T1 on a jump: her own heal × atk_scale_2 and its decay, the rate carries,
 
 test('T1 on the main heal: × atk_scale_2 at once, one more unit in the chain, the first jump free', () => {
   for (const id of FORMS) {
-    const step = NEXT.chess[id].trait.bb['chain.atk_scale'], up = NEXT.chess[id].talents[0].bb['chain.atk_scale_2'];
+    const step = ACT3.chess[id].trait.bb['chain.atk_scale'], up = ACT3.chess[id].talents[0].bb['chain.atk_scale_2'];
     const { h, u } = line(id, [0.3, 0.4, 0.5, 0.6], { self: 0.05 });
     const atk = u.s.atk;
     h.runUntil(() => healsBy(h, u).length >= 4, 12);
@@ -86,7 +86,7 @@ test('T1 on the main heal: × atk_scale_2 at once, one more unit in the chain, t
 });
 
 test('T1: another 우쿠시크 on the chain counts too (the validators read the buffs)', () => {
-  const step = NEXT.chess[B].trait.bb['chain.atk_scale'], up = NEXT.chess[B].talents[0].bb['chain.atk_scale_2'];
+  const step = ACT3.chess[B].trait.bb['chain.atk_scale'], up = ACT3.chess[B].talents[0].bb['chain.atk_scale_2'];
   const { h, u } = field(B, { more: [{ uid: 2, id: A, row: 10, col: 6 }], others: [{ uid: 3, chessId: YAK, row: 10, col: 5 }, { uid: 4, chessId: YAK, row: 11, col: 7 }] });
   const other = h.unit(2), m = h.unit(3), n = h.unit(4);
   for (const [a, r] of [[u, 1], [other, 0.2], [m, 0.1], [n, 0.3]]) { a.s.maxHp = a.base.maxHp = 1e9; a.hp = 1e9 * r; }
@@ -142,7 +142,7 @@ test('S2: the HP loss at the cast start, never to death, no SP gained, even with
 
 test('S2: at the OnAttack frame the lowest ratio, then the shot flies; its chain at 100% ATK', () => {
   for (const id of FORMS) {
-    const clip = NEXT.chess[id].skills[1].cast;
+    const clip = ACT3.chess[id].skills[1].cast;
     assert.deepEqual([clip.mode, clip.clip, clip.hit], ['state', 'Skill_2', 0.6], id);
     const { h, u } = line(id, [0.2, 0.3, 0.4], { skill: 1 });
     const atk = u.s.atk;
@@ -156,7 +156,7 @@ test('S2: at the OnAttack frame the lowest ratio, then the shot flies; its chain
     const g = healsBy(h, u).slice(0, 3);
     assert.deepEqual(uids(g), [2, 3, 4], id);
     near(g[0].amount, atk, `${id}: 100% ATK`);
-    near(g[1].amount, atk * NEXT.chess[id].trait.bb['chain.atk_scale'], `${id}: its chain`);
+    near(g[1].amount, atk * ACT3.chess[id].trait.bb['chain.atk_scale'], `${id}: its chain`);
     done(h);
   }
 });

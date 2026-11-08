@@ -21,7 +21,7 @@ describe('collapsible bond strip (issue #142)', { skip: !ENABLED && 'set SP_E2E=
   });
   after(async () => { await browser?.close(); await srv?.close(); });
 
-  for (const [width, height, touch] of [[1920, 1080, false], [640, 360, true]]) {
+  for (const [width, height, touch] of [[1920, 1080, false], [740, 360, true]]) {
     test(`collapse releases field input and keeps current bonds at ${width}×${height}`, async () => {
       const page = await browser.newPage();
       const errors = [];

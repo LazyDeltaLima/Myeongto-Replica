@@ -1,13 +1,13 @@
-// test/content/op_buildr.test.js — 폰사이러스 (char_488_buildr, a tier-3 piece of the season not out yet; kit ops/op-buildr.js): both forms, both skills.
+// test/content/op_buildr.test.js — 폰사이러스 (char_488_buildr, a tier-3 piece of 规程 (act3autochess); kit ops/op-buildr.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, fill, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, fill, realMatch } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_3_nbuildr_a', B = 'chess_char_3_nbuildr_b';
+const A = 'chess_char_3_27_a', B = 'chess_char_3_27_b';
 const FORMS = [A, B];
 const S1 = 'skcom_charge_cost[3]', S2 = 'skchr_buildr_2';
-const rec = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk);
+const rec = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk);
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const dp = (h, u) => h.b.getPlayer(u.ownerId).dp;
 const FRONT = [10, 5];
@@ -87,7 +87,7 @@ test('S2: the uses are counted anew at each deployment; leaving ends the DP flow
 
 test('T1: max HP ×(1 + max_hp) only after `interval` s on the field, anew at each deployment', () => {
   for (const id of FORMS) {
-    const t = NEXT.chess[id].talents[0].bb;
+    const t = ACT3.chess[id].talents[0].bb;
     assert.equal(t.interval, 30);
     const { h, u } = field(id, { skill: 0 });
     u.skill.locked = true;
@@ -111,7 +111,7 @@ test('T1: max HP ×(1 + max_hp) only after `interval` s on the field, anew at ea
 test('T1: a 【이동】 is a deployment: the wait starts over and the bonus goes', () => {
   const { h, u } = field(A, { skill: 0 });
   u.skill.locked = true;
-  const t = NEXT.chess[A].talents[0].bb, hp0 = u.s.maxHp;
+  const t = ACT3.chess[A].talents[0].bb, hp0 = u.s.maxHp;
   h.run(20);
   assert.ok(h.b.moveRedeploy(u, 10, 5), 'moved');
   h.run(11);
@@ -127,7 +127,7 @@ test('T1: a 【이동】 is a deployment: the wait starts over and the bonus goe
 test('SOL-X: ATK and DEF up while blocking on the elite, nothing on the normal form', () => {
   const b = field(B, { skill: 0 });
   b.u.skill.locked = true;
-  const tb = NEXT.chess[B].trait.bb;
+  const tb = ACT3.chess[B].trait.bb;
   assert.equal(tb.atk, 0.08);
   assert.equal(tb.def, 0.08);
   const a0 = b.u.s.atk, d0 = b.u.s.def;

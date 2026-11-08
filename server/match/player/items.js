@@ -31,7 +31,7 @@ export class PlayerItems {
     if (replaceUid != null && !(Number.isInteger(replaceUid) && (target.items || []).some((x) => x.uid === replaceUid))) return fail(ERR.BAD_TARGET, 'replace: not equipped on the target');
     const consume = typeof rec.kind === 'string' && rec.kind.startsWith('consume_on_equip');
     if (consume) {
-      const key = 'item:' + itemKey(item.id);
+      const key = 'item:' + itemKey(item.id, this.gd.raw);
       if (!this.m.registry.has(key)) return fail(ERR.BAD_TARGET, 'effect not available');
       // a full carrier replaces first, consumables included (PRTS 卫戍协议/帮助 "达到上限强行佩戴会改为替换装备：指定一件已佩戴
       // 装备替换为将要佩戴的装备，并销毁被指定的装备"; GitHub #263): the pick (else the oldest) comes off before the effect —
@@ -111,7 +111,7 @@ export class PlayerItems {
     if (!rec || rec.itemType !== 'MAGIC') return fail(ERR.BAD_TARGET, 'not an art');
     if (!inField(row, col)) return fail(ERR.BAD_TILE);
     if (this.round.arts >= this.gd.maxArtsPerRound) return fail(ERR.BAD_TARGET, 'art limit');
-    const key = 'item:' + itemKey(loc.piece.id);
+    const key = 'item:' + itemKey(loc.piece.id, this.gd.raw);
     if (!this.m.registry.has(key)) return fail(ERR.BAD_TARGET, 'effect not available');
     const grid = Array.isArray(rec.rangeGrid) && rec.rangeGrid.length ? rec.rangeGrid : [[0, 0]];
     const targets = [];

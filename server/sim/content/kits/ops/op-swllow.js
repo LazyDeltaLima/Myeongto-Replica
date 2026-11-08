@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-swllow.js — 灰喉 (char_367_swllow) kit: 5★ 速射手, a tier-1 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-swllow.js — 灰喉 (char_367_swllow) kit: 5★ 速射手, a tier-1 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 그레이스롯·아스트젠·그레이 더 라이트닝베어러·키치세이」); both skills, the talent and MAR-Y in both forms. The trait is the branch's (professions.js fastshot).
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv55, skills at rank 4, no module; elite = E2 Lv50, rank 7, MAR-Y stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv55, skills at rank 4, no module; elite = E2 Lv50, rank 7, MAR-Y stage 1.
 // Sources: the record's tables; PRTS 灰喉 (备注 of the talent); charpack char_367_swllow (Talents/1, Modes/S2/Body/Attack), skill prefabs skchr_swllow_1 / _2, equip prefab swllow_equip_1_1_p1,
 // buff_template_data critical_atkscale, swllow_e_t_10.
 // - T1 顺风: attack_speed always; critical_atkscale (ON_CALCULATE_DAMAGE Dice `prob`, AtkScaleUp `atk_scale`): every damage instance of hers rolls on its own, whatever its source (PRTS). prob is 0 in the normal form.

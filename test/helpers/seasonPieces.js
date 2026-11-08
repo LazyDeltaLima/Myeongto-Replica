@@ -1,5 +1,6 @@
-// test/helpers/nextSeason.js — fielding a piece of the season not out yet (shared/seasons.js `next`) in the kit tests: its record of
-// data/seasons/next/chess.json with the skill asked for selected, and the real match path (test/seasons-next.test.js).
+// test/helpers/seasonPieces.js — fielding a piece of 卫戍协议：规程 (shared/seasons.js `act3autochess`, not public) in the kit tests:
+// its record of data/seasons/act3autochess/chess.json with the skill asked for selected, and the real match path
+// (test/seasons-act3.test.js).
 
 import assert from 'node:assert/strict';
 import { getData } from '../../server/data.js';
@@ -7,11 +8,24 @@ import { makeBattle, enemyRec, checkInvariants } from './battleHarness.js';
 import { legalTileFor, makeMatch } from '../match/harness.js';
 
 const quiet = { warn() {}, error() {}, info() {} };
-export const NEXT = getData({ log: quiet, season: 'next' });
+export const ACT3 = getData({ log: quiet, season: 'act3autochess' });
+const BASE = getData({ log: quiet });
+
+/**
+ * The season's data on the default season's battlefield: the real match path of a piece test fields its pieces, bonds,
+ * items and 特质 on the default season's modes, stages, waves, enemies and leaders, so a kit test does not depend on the
+ * season's rooms (their mode ids are not the default season's) or on its new enemies' behaviour. The season's own stages,
+ * waves and enemies are fought in test/seasons-act3-stages.test.js.
+ */
+export const ACT3_ON_BASE_FIELD = Object.freeze({
+  ...ACT3,
+  config: { ...ACT3.config, modes: BASE.config.modes, bandDraft: BASE.config.bandDraft },
+  stages: BASE.stages, waves: BASE.waves, enemies: BASE.enemies, bosses: BASE.bosses, factions: BASE.factions,
+});
 
 /** The piece's record with its skill `i` selected (the tables will name one; a kit writes both). */
 export function pieceRec(id, i = 1) {
-  const rec = NEXT.chess[id];
+  const rec = ACT3.chess[id];
   assert.ok(rec, id);
   return { ...rec, skill: rec.skills[i] };
 }
@@ -31,7 +45,7 @@ export function field(id, { skill = 1, row = 10, col = 4, dir, others = [], more
   const chess = { [id]: pieceRec(id, skill) };
   for (const m of more) chess[m.id] = pieceRec(m.id, m.skill ?? 1);
   const h = makeBattle({
-    defs: { enemies: { ...ENEMIES, ...enemies }, chess, tokens: NEXT.tokens }, timeLimit: 900, autoFinish: false, seed,
+    defs: { enemies: { ...ENEMIES, ...enemies }, chess, tokens: ACT3.tokens }, timeLimit: 900, autoFinish: false, seed,
     flags: { dpInit: dp, dpPerSec: 0, dpMax: 999 },
     hooks: ['damaged', 'heal', 'skillStart', 'skillEnd', 'statusApplied', 'death', 'kill', 'deploy', ...hooks], captureNoisy: true,
     units: [{ uid: 1, chessId: id, row, col, ...(dir ? { dir } : {}) }, ...more.map((m) => ({ uid: m.uid, chessId: m.id, row: m.row, col: m.col })), ...others],
@@ -54,12 +68,12 @@ export function cast(u, reason = 'test') {
   assert.ok(u.skill.activate(reason), `cast ${u.skill.id}`);
 }
 
-/** Real match path: a next match buys, places and fights the piece (`id`) of that season's data: no handler error. */
+/** Real match path: a 规程 match buys, places and fights the piece (`id`) of that season's data (ACT3_ON_BASE_FIELD): no handler error. */
 export async function realMatch(id, charId) {
   const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
   const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
-  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 5, data: NEXT, season: 'next' }).start();
-  h.toPrep(3);
+  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 5, data: ACT3_ON_BASE_FIELD, season: 'act3autochess' }).start();
+  h.toPrep(3, { band: 'band_amiya' });
   const m = h.m, ps = h.ps('p_0');
   for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
   ps.board.clear(); ps.hand.fill(null); ps.recompute();

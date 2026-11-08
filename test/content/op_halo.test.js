@@ -1,15 +1,15 @@
-// test/content/op_halo.test.js — 아스트젠 (char_135_halo, a tier-2 piece of the season not out yet; kit ops/op-halo.js): both forms, both skills, the talent, CHA-Y.
+// test/content/op_halo.test.js — 아스트젠 (char_135_halo, a tier-2 piece of 规程 (act3autochess); kit ops/op-halo.js): both forms, both skills, the talent, CHA-Y.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_2_nhalo_a', B = 'chess_char_2_nhalo_b';
+const A = 'chess_char_2_23_a', B = 'chess_char_2_23_b';
 const FORMS = [A, B];
 const S1 = 'skchr_halo_1', S2 = 'skchr_halo_2';
-const rec = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk);
+const rec = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk);
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
-const talent = (id) => NEXT.chess[id].talents.find((t) => t.index === 0).bb;
+const talent = (id) => ACT3.chess[id].talents.find((t) => t.index === 0).bb;
 const of = (h, u) => h.hooksOf('damaged').filter((c) => c.source === u);
 const row = (h, n, col = 6) => Array.from({ length: n }, () => h.spawn('enemy_dummy', { pos: [10, col], res: 0 }));
 

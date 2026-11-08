@@ -1367,10 +1367,13 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   - `ActiveBuffAbility`(크라운슬레이어·루시안, '블러드 다이아몬드'·데겐블레허의 순간이동 `Blink`, 제트맨 이륙 `TakeOff`, 가상적: 총 돌진 `1` — 이 모드엔 `_waitForCasting`인 것이 없음)는
     스펠 앞뒤로 고정 업데이트 한 번씩(`<OnWaitForPreDelay>`·`<OnWaitForPostDelay>`가 `sharedWaitForFixedUpdate`), 2틱.
   - 순차 묶음(`AbilitySequenceGroup`)은 자식을 차례로(`_MoveToNextActiveAbility`), 합: 가상적: 흑운 `FireWeapon` = 탄약 되돌리기 `ResetAmmoCount` 2틱 + `Fire`(클립 `Skill_2`) 2초.
+  - 투사체가 사라질 때까지 기다리는 원거리 능력(`_waitForProjectileInvalid`, `skillCast` `proj` — 순차 묶음의 자식이어도)은 그 투사체가 살아 있는 동안 시전이다(2026-11-07,
+    `RangedAttack.<OnWaitForPostDelay>`가 `_CheckProjectileValid` 동안 기다림, `_waitForAnimEndWhenProjectileInvalid`면 그 뒤 클립 나머지·`_minPostDelayWhenProjectileInvalid`도).
+    키트가 투사체(채널)의 끝을 알려 주는 것만(`projAlive`, `content/enemies.js projCastOver`): 축제 재즈 연주가 `fire`·살카즈 왕정군 정예 캐스터 `DeathEye`(둘 다 끝 클립 기다림 없음) —
+    「upstream 0.3.4 개발분 대조 이식 — 전투」.
   - **[ASSUMED·미조사]** 0으로 남긴 것: 병렬·선택 묶음(`AbilityParallelGroup`·`AbilitySelectableGroup` — 끝나는 조건을 안 읽음; 공격 차례로 시전하는 키트 없음:
-    살카즈 부패의 전차 `PollutedRangedAtk`·'제국의 갑옷' `Appear`·래트킹 `Mark`·'즈자이' `CrossAttackMarkReborn`·알리스테어, 제국의 여광 `store`), 그리고 투사체가 사라질 때까지
-    기다리는 원거리 능력(`_waitForProjectileInvalid`)의 그 기다림(축제 재즈 연주가 `fire`·'사미의 의지' `Lasso`·'염의 가호' `Skill`·살카즈 왕정군 정예 캐스터 `DeathEye`의 `LineAttack`
-    — 클립이 없으면 0, 있으면 W `C4`·함락의 제사장 `ChainBuff`처럼 클립대로).
+    살카즈 부패의 전차 `PollutedRangedAtk`·'제국의 갑옷' `Appear`·래트킹 `Mark`·'즈자이' `CrossAttackMarkReborn`·알리스테어, 제국의 여광 `store`), 그리고 키트가 투사체 끝을 아직
+    모르는 투사체 기다림('사미의 의지' `Lasso`·'염의 가호' `Skill` — 클립이 없어 0, W `C4`·함락의 제사장 `ChainBuff` — 클립대로; 각 투사체의 수명과 끝 클립 필드를 함께 읽어야 함).
   - **끊긴 시전**: 기절·빙결·수면·공중 띄우기·강제 이동(失衡)·공포·필드 이탈이 시전을 끊으면(`ai.js cutEnemySwing` → 훅 `enemySkillCut`) 그 스킬의 쿨이 그때 다시 돈다 — 클라의
     `AttackState.OnExit` → `InterruptIfNot` → `FinishIfNot(1)`이고 `EnemySkill._OnCastFinish`는 이유와 상관없이 `m_cooldownTimer.Reset`·(`resetMain`이면) 주 공격
     `ResetCooldown`을 한다(이전: 끊겨도 쿨 + 시전 길이 그대로). '즈자이' `ShieldBurst`는 방벽 마지막 층이 깨지면(`InterruptEnemyAbility`) 시전이 끝나고, 시전이 끊기면
@@ -2669,13 +2672,15 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   그대로 플레이어마다 고른다. 후보가 수보다 적은 플레이어는 그만큼 덜 바꾼다. 전에는 수·종류 모두 플레이어마다, 교체 한 마리마다 따로 굴렸다.
 - 근거: 효과 키 `round_start_all_player_change_enemy_2`(min 0·max 2, `all_player`), PRTS 비고 「每回合将有0~2名敌人被替换为上述敌人之一」, upstream #839 제보자의 공식 영상 판독
   세 건(네 명 모두 같은 수·종류는 제각각, 연합 방어에 같은 종류 여섯 = 팀원 셋이 각 둘). upstream은 종류와 바꿀 적까지 모두 같게 했는데 영상과 달라 수만 받았다.
-- **[추정·화면: 제보의 「모두 아래 길」은 영상 판독뿐이라 후보 고르기는 시간 구간 그대로]**.
+- **아래 길만** (2026-11-07, upstream `ded5f264` 일부, 관리자 결정 2026-11-07 「받음」): 후보는 경로가 아래 관문에서 시작하는 적뿐이다(`shared/constants.js gateOf` — 일반 필드는
+  (9,10)에서 시작하는 길, (12,10)은 위 길; 보스·숨은 필드는 그 필드의 행). 경로를 모르면 전처럼 모든 길. 근거는 제보자의 공식 영상 세 건 판독(「总在下路」)과 upstream의 판단이고,
+  공식 화면을 여기서 직접 본 것은 아니다. upstream의 「바꿀 적까지 모두 같게」는 받지 않는다(위).
 - 테스트 `test/sim/feedback5-cb4-pins.test.js` 「item 35」(네 명이 같은 수, 플레이어 안에서는 한 종류, 플레이어끼리는 종류가 다른 라운드가 있음). 같은 라운드를 되풀이해
   0·1·2를 보던 시험(`bands.test.js`, `feedback1-ducklord.test.js`, `bot.test.js` 리허설)은 매치 시드를 바꿔 가며 본다.
 
 ## upstream 0.3.4 개발분 대조 이식 — 전투 (2026-11-07)
 
-upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받은 전투 수정 셋. 모두 손 이식이고(패치가 안 붙음), 새 시험이 수정 전 코드에서 실패하는 것을 확인했다.
+upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받은 전투 수정. 모두 손 이식이고(패치가 안 붙거나 공식 클라와 달라), 새 시험이 수정 전 코드에서 실패하는 것을 확인했다. 뒤의 셋(묶음 C)은 upstream의 근거가 제보·추정이라 공식 클라를 먼저 읽고 넣었다.
 
 ### 【이동】은 원소 게이지와 폭발 잠금을 비운다 (upstream `7da8ff20`, upstream #903)
 
@@ -2704,6 +2709,58 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 - [추정·엔진: 나누는 때는 우리 `hit` 훅(방어·저항 전) — 회피·`DamageScale` 같은 다른 ON_TAKE_DAMAGE 노드와 같은 단계로 봄, PRTS의 우선순위 −3000은 안 따짐]. 「消失 상태가 아닐 때」는
   이 모드에 성배를 숨기는 수단이 없어 따로 두지 않음.
 - 테스트 `test/content/enemies_bosses.test.js` 「愧悔魂灵圣杯: nearby ground enemies keep 5 %…」, `test/sim/playtest5_elements.test.js` 「a 无来源 burst still passes on…」.
+
+### 투사체 채널 스킬은 채널 동안 시전이다 — 축제 재즈 연주가·살카즈 왕정군 정예 캐스터 (upstream `8540e569` `aa471815`, upstream #904)
+
+- 규칙: 축제 재즈 연주가(`enemy_10034_cnvsax`)의 지속 시전 스킬 `fire`(狂欢式演奏)와 살카즈 왕정군 정예 캐스터(`enemy_1275_dwlock_2`)의 `DeathEye`(死亡之眼)는 **채널이 이어지는 동안
+  시전 중**이다: 그동안 서 있고 일반 공격이 없으며, 스킬 쿨(10 s·24 s)은 **채널이 끝날 때** 다시 돈다(`content/enemies.js` `projAlive` → `projCastOver`, 아래 「적 스킬 = 일반
+  공격 차례」 시전 길이). 기절·빙결·공중 띄우기·필드 이탈 등으로 시전이 끊기면 채널도 끝나고 쿨이 그때 돈다. 정예 캐스터의 채널은 **침묵에 끊기지 않는다**. 전에는 두 시전이 길이 0이라
+  채널 중에도 걸었고(반은폐가 풀린 채 막히지 않은 재즈 연주가), 쿨이 시전 시작부터 돌아 재즈 연주가는 채널(10.5 s)이 끝나자마자 다시 시전했고, 침묵이 정예 캐스터의 채널을 끊었다.
+- 근거(공식 클라에서 확인): 재즈 연주가 프리팹 `Modes/Attack/Body/Skills/fire`는 `RangedAttack`(`_waitForProjectileInvalid` 1, `_waitForAnimEndWhenProjectileInvalid` 0) — 시전은
+  투사체가 유효한 동안 이어지고 끝나면 바로 끝난다(`RangedAttack.<OnWaitForPostDelay>`), 채널 버프 `enemy_cnvsax[cd]`는 기절·빙결·공중 띄우기·침묵에 끊긴다. 정예 캐스터 `Skills/DeathEye`는
+  순차 묶음 `LineAttack`(같은 투사체 기다림) → `ChargeAttack`(`_timeMode` 2, `_cooldown` 0)이고 두 능력이 시전 동안 `dwlock_skill_anti_flag[silence]`(침묵 반제)를 건다 — PRTS 「※技能期间，
+  持有沉默反制」. 쿨은 `EnemySkill._OnCastFinish`가 시전 끝에 다시 시작한다. upstream은 제보로 같은 결론을 냈다.
+- 테스트 `test/content/enemy-skill-proj-wait.test.js`, `test/content/enemies_bosses.test.js` 「节日爵士乐手: revealed (反隐) and not blocked…」(이제 첫 시전부터 서 있음).
+
+### 티티 S2 「밀봉 보호」의 HP 비율 동률은 위협도 순 (upstream `8668a9cd` `47c22d39`, upstream #906)
+
+- 규칙: 티티(오퍼레이터) S2 「밀봉 보호」(`skchr_titi_2`)가 함께 재우는 오퍼레이터는 범위 안 HP 비율이 가장 낮은 하나, 같으면 **위협도(仇恨值)가 높은 쪽** — 도발 단계가 높은 쪽, 그다음
+  늦게 배치한 쪽(`targeting.js aggroCmp`, 적이 노리는 순서). 전에는 유닛 번호가 작은 쪽(먼저 배치한 쪽).
+- 근거(공식 클라에서 확인): 스킬 프리팹 `skchr_titi_2`의 능력 `GlobalUnique` 선택기 — 자신 제외, `_postFilter` 74 `HP_RATIO_ASC_HATRED_DES`, 최대 1. upstream은 제보자 기대로
+  「늦게 배치한 쪽」을 넣었고, 클라 정렬도 같은 결론에 도발 단계가 먼저 온다.
+- 테스트 `test/content/kits_alt_t5.test.js` 「缇缇 S2 封护: an HP-ratio tie goes to the higher 仇恨值…」.
+
+### 같은 장비 둘은 둘 다 효과가 있다 — 덮어쓰기 묶음인 둘만 하나 (upstream `4505fb6f`, upstream #902)
+
+- 규칙: 한 오퍼레이터가 같은 장비를 둘 가지면 둘 다 효과를 낸다(원암 용제 고급 둘 = 공격력 +60 % + 60 %, 초당 −120; 빅토리아 해머 둘도 겹침; `items/battle.js installItem`의 사본 키
+  `item:<id>#n`). 단 두 효과는 **오퍼레이터마다 하나만** 켜진다: 사르곤 농차·패밀리 배지의 SP 자연 회복(같은 버프 — 둘을 함께 들어도 먼저 단 것 하나)과 해구 실험체의 고정 피해 감소
+  (`OVERRIDE_GROUPED`; 먼저 단 것이 사라지면 다음 것이 켜짐). 해구 실험체의 에기르(맹약) 반격은 사본마다다. 전에는 같은 장비의 둘째가 첫째를 덮어써 하나만, 다른 장비끼리는 SP 회복도 겹쳤다.
+- 근거(공식 클라에서 확인): 장비의 전역 버프 프리팹(`[uc]globalbuffs.ab`, 장비 표 `bbStr.key`)이 오퍼레이터에게 거는 버프는 모두 `disableOverride` 1(덮어쓰기 묶음 밖 — 사본마다
+  따로)인데, `act1autochess_acarm050_global_buff`(SP 회복)과 `[g]halfidle_block_fixed_damage`만 0·`DEFAULT` — 같은 키의 버프는 줄을 서고 끝나지 않은 첫 것만 켜진다
+  (`Buff.OverrideGroup`, 「버프 덮어쓰기 그룹」). `GlobalBuff.TryAddBuff`는 그 프리팹의 `_buffs`를 그대로 건다(장비 하나 = 전역 버프 하나, 횟수 제한은 그 전역 버프 안에서만).
+  upstream은 사본 전부 겹침을 추정으로 넣었다(근거 없음 표시).
+- [추정·미조사: 나란투야(전략)가 빌려 준 장비(`lendItemEffects`)가 자기 것과 같은 장비일 때 — 지금은 빌린 것도 따로 겹침, 덮어쓰기 묶음 둘은 같은 줄에 섬; 빌려 주기의 클라 경로를 안 읽음]
+- 테스트 `test/content/items.test.js` 「two advanced 源石溶剂 on one operator…」·「override-grouped item buffs…」.
+
+## upstream 0.3.4 개발분 대조 이식 — 매치·서버 (2026-11-07)
+
+upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 둘 다 손 이식이고 새 시험이 수정 전 코드에서 실패하는 것을 확인했다. golden은 그대로.
+
+### 전략 선택 전에 나간 자리는 LP 0 그대로 (upstream `78f1e0ec`)
+
+- 규칙: 브리핑(`INFO_CHECK`)에서 나간 자리(중도 퇴장 = 탈락, LP 0, `_quit`)의 차례에 기본 전략이 정해져도 그 전략의 시작 LP를 받지 않는다(`phases.js _applyBand`·
+  `finishBandDraft`: 살아 있는 자리만). 팀 목록(`m.public`)과 결과에도 0. 판 점검(`audit.js` 'bands')도 나간 자리의 0을 기대한다. 전에는 「나감」 상태로 시작 LP가 다시 보였다.
+  나간 자리의 기본 전략은 지금처럼 와파린(전략)이다(upstream `6dc796d1`의 AI 선택은 받지 않음, 관리자 결정 2026-11-07).
+- 근거: 중도 퇴장 규칙(탈락, 목표 HP 0 — PRTS 卫戍协议/帮助), upstream 판단.
+- 테스트 `test/match/connection.test.js` 「onLeave: a seat gone before the strategy draft keeps 0 LP…」.
+
+### 판이 끝날 때 끊겨 있던 사람은 방이 사라져도 다시 들어오면 결과를 받는다 (upstream PR #912, upstream에 아직 병합 전)
+
+- 규칙: 판이 끝날 때 연결이 끊긴 자리(나가지 않음)의 결과 프레임(마지막 `m.public`·`m.result`)을 그 세션에도 남긴다(`lobby.js onMatchEnd` → `session.pendingResult`).
+  다시 들어오면(`onHello`) 방이 없으면 바로, 방이 있어도 방이 더는 그 사람에게 결과를 다시 보내지 않으면(리플레이가 없거나 그 사람 몫이 끝남) `room.state` 뒤에 보낸다 — 방이
+  리플레이를 갖고 있으면 지금처럼 그쪽이 보내고 남긴 것은 버려 두 번 오지 않는다. 전에는 마지막 사람이 끊긴 채 끝나면 방이 바로 사라지면서(`empty`, 닫힘 알림 없음) 리플레이도
+  사라져, 돌아온 사람이 멈춘 판 화면에 세션이 끝날 때까지 머물렀다.
+- 테스트 `test/lobby.test.js` 「the last human away when the match ends still gets its m.result after the room is disposed」(PR의 시험), 같은 묶음의 리플레이 순서 시험들(방이 있을 때 한 번).
 
 ## 오퍼레이터 스킬 발동 시점 묶음 B (2026-10-29)
 
@@ -2873,3 +2930,14 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 - `damage.js heal`·`ai.js chainHealNext`: `ignoreHealFree`면 `noHeal` 깃발도 넘는다. Mon3tr(선발) 연쇄 튕김(`JUMP_OPTS`)이 치료 금지 아군을 고르고 치료한다. 프로필의 `noHeal`(수확자·불굴자·무사 특성)은 무엇도 못 넘는다.
 - 팔라스(선발) 재능 2: `pallas_t_2`의 `CreateBuffInRange`는 `purposeMask` HEAL에 `ignoreHealFree` 꺼짐이라 앞칸의 치료 금지 아군을 고르지 않는다. PRTS 비고 「무시하는 것은 자신이 받은 치료 금지」와 같다(전에는 앞칸 아군도 치료했다). 자신은 치료한다 [추정·화면: 같은 선택기가 자신도 거를 코드인데 PRTS 비고는 자신이 치료된다고 한다. 비고대로 둠].
 - 시험: `test/sim/combat.test.js` 孤立, `test/content/op_monstr.test.js` 튕김, `test/content/op_pallas.test.js`.
+
+## 규정 전장을 19×21 틀로 (2026-11-08)
+
+규정(`act3autochess`)의 레벨은 지난 시즌과 다른 틀로 온다. 시뮬·서버 배치 지도·`stages.json`은 전장 하나를 19×21 맵 한 장(0행 = 아래)으로 읽으므로, 생성기가 규정 레벨을 그 틀로 다시 놓는다(`tools/level-fields.mjs`, `docs/DATA.md` 「Seasons」).
+
+- **전장**: `level_act3autochess_m01` 같은 전장 레벨은 판 여러 벌을 한 장에 담은 36×55 씬이고, 전투 판은 하위 레벨 세 개(`level_<전장>/level_<전장>_sub_01…03`)다. `sub_01`(7×20)은 자기 판과 그 옆 적 칸, `sub_02`(6×21)는 판 둘을 나란히, `sub_03`(13×21)은 보스 판과 그 아래 적 대기 칸이다. 조각은 지난 시즌 틀의 블록 그대로다. 근거는 셋이다. ① 조각의 `configBlackBoard`가 지난 시즌 값이다(`leftBoss ((0,0),(6,10))`·`leftNormal ((6,0),(12,10))`·`enemy_place_rect ((14,7),(18,13))`·`player_map_ud_offset 7`, 19×21 틀의 좌표). ② `sub_01`과 `sub_02`의 자기 판은 전장 10개 모두 칸마다 같다. ③ 다시 놓은 m01이 지난 시즌 1기 `act1autochess_m01`과 칸마다 같다(다른 곳은 6행·13행 왼쪽이 통행 불가 대신 비행만, 오른쪽 판 정비 줄의 순간이동 입구 (8,11)뿐). 놓는 자리: 0–6행 = `sub_03` 0–6행, 7–13행 0–10열 = `sub_01`, 8–13행 11–20열 = `sub_02`, 14–18행 = `sub_03` 7–11행. 장치·숨은 캐릭터도 조각과 함께 옮긴다. `sub_02`에서는 10열의 둘째 플레이어 의료(`char_605_cmedic#2_multi_only`, 틀 (10,10))도 가져온다.
+- **웨이브**: 웨이브 레벨의 맵은 그 판의 자리표시(판 하나 5×9, 보스 판 6×17, 联防 두 판 5×17)이고 경로도 그 좌표다. 순간이동 입구(`tile_telin`)가 있는 자리표시는 원점 (1,2), 없으면 (9,2)에 놓는다. 두 시즌에 다 있는 웨이브의 지난 시즌 경로가 규정 경로에 이만큼 더한 값으로 그대로 들어 있다(판 하나짜리 13개는 전부, 최종 보스·联防은 일부 경로가 바뀌었고 나머지는 같음). 모양만으로는 정하지 않는다: 판 하나짜리 자리표시는 보스 판 왼쪽 절반에도 들어맞는다.
+- **칸**: 규정의 임시 정비 칸은 새 타일 `tile_acbag`(기호 `A`), 정비 칸은 `isValidHand`가 없는 `tile_achand`(기호 `a`)다. `tile_acbag`은 높은 칸·배치 ALL이라, 정비 칸으로 빼지 않으면 보스 판 원거리 칸으로 잘못 잡힌다(`grid.js HAND_TILES`). 습격(`raidBattlefield`)의 전장 칸에서도 정비 칸으로 친다 [추정·CN: 규정 클라의 칸 색인은 못 읽음, 지난 시즌 `tile_achand`가 있던 1행 자리]. 새 칸 `tile_speedup`(`u`)·`tile_duel_grassland`(`G`)는 기호만 있고 효과는 아직이다(묶음 sim-O).
+- **장치 별칭**: 규정은 판마다 번호를 다시 쓰고 한 조각 안에서도 겹친다(m05 `sub_02`의 `trap_013_blower#001` 둘). 그래서 지난 시즌(`#001` 자기 판·`#101` 오른쪽·`#201`/`#301` 보스 판)과 달리 장치 하나를 가리키지 않는다. 규정 효과 중 별칭으로 장치를 켜고 끄는 것(`auto_chess_change_map`)은 없으므로 공식 별칭을 그대로 둔다.
+- 어느 모드에 어느 조각이 보이는지(혼자 `sub_01`, 이웃과 `sub_02`)는 CN 클라라 읽지 않았다. 시뮬에는 차이가 없다: 자기 판의 칸·장치·경로가 둘에서 같다. 적 대기 칸이 판 옆에 있는 `sub_01`의 배치는 화면 몫이다(묶음 render-C).
+- 시험: `test/seasons-act3-stages.test.js`(틀·m01 대조·경로·실제 판: 혼자 판이 규정 자기 전장·웨이브·적·보스로 최종 라운드까지).

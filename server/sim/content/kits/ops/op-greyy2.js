@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-greyy2.js — 承曦格雷伊 (char_1027_greyy2) kit: 5★ 投掷手, a tier-2 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-greyy2.js — 承曦格雷伊 (char_1027_greyy2) kit: 5★ 投掷手, a tier-2 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 그레이스롯·아스트젠·그레이 더 라이트닝베어러·키치세이」); both skills, the talent and BOM-X in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, BOM-X stage 1 (its 停顿 damage bonus starts at stage 2: not in these forms).
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, BOM-X stage 1 (its 停顿 damage bonus starts at stage 2: not in these forms).
 // Sources: the record's tables; PRTS 承曦格雷伊 (备注 of the talent and of S2); charpack char_1027_greyy2 (Modes/Default/Body/Attack), skill prefab skchr_greyy2_2, projectiles projectile_chr_greyy2 / _s2,
 // buff_template_data greey2_t_1.
 // - Trait: the branch's blast and aftershock (professions.js bombarder). projectile_chr_greyy2's second and third hit behaviours both fire as it stops, `_delayAfterReached` 0.15 s after it reaches, so BOM-X's two aftershocks

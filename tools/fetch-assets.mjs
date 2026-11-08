@@ -178,7 +178,7 @@ export function resolveProxyPrefix(source, offline = false, value = process.env.
  * the 自选 owned-6★ picks), `tokenIds` — the summons of the 自选 picks (backups.json `tokens`), `moduleTypes` — the type
  * icon of every module a chess or a unit form offers.
  * A hidden season's piece is planned when its operator has a kit (`seasonPieces`: the records of data/seasons/<id>/chess.json whose
- * charId is listed in NEXT_KIT_FILES; docs/rules/diy.md 「새 시즌 기물을 표 전에 만들기」): it needs its model for its clips and sounds,
+ * charId is listed in SEASON_KIT_FILES; docs/rules/diy.md 「새 시즌 기물을 표 전에 만들기」): it needs its model for its clips and sounds,
  * and its summons (the record's `tokens`) their models.
  * @param {any} backups data/backups.json (or null)
  * @param {any} chess data/chess.json (or null)
@@ -212,10 +212,10 @@ export function dataExtras(backups, chess, seasonPieces = []) {
   return { extraOperators, tokenIds: tokenIds.sort(), moduleTypes: [...moduleTypes].sort() };
 }
 
-/** The pieces of the hidden season `next` whose operator has a kit: the golden form of each (it carries the module). */
-async function nextSeasonPieces() {
-  const [chess, kits] = await Promise.all([readJson('data/seasons/next/chess.json').catch(() => null), import('../server/sim/content/kits/index.js')]);
-  const codes = new Set(kits.NEXT_KIT_FILES.map((f) => f.replace(/^op-|\.js$/g, '')));
+/** The pieces of the hidden season 规程 (act3autochess) whose operator has a kit of SEASON_KIT_FILES: the golden form of each (it carries the module). */
+async function hiddenSeasonPieces() {
+  const [chess, kits] = await Promise.all([readJson('data/seasons/act3autochess/chess.json').catch(() => null), import('../server/sim/content/kits/index.js')]);
+  const codes = new Set(kits.SEASON_KIT_FILES.map((f) => f.replace(/^op-|\.js$/g, '')));
   return Object.values(chess || {}).filter((c) => c?.isGolden && c.charId && codes.has(c.charId.replace(/^char_\d+_/, '')));
 }
 
@@ -423,7 +423,7 @@ async function main() {
   // enemy's skill puts down (enemies.json `devices`: 黄金回响 trap_185_vtlntw) are drawn as tokens
   const deviceIds = [...new Set([...Object.values(dataWaves || {}), ...Object.values(dataEnemies || {})]
     .flatMap((w) => (w?.devices || []).map((d) => d?.key)).filter(Boolean))];
-  const extras = dataExtras(dataBackups, dataChess, await nextSeasonPieces());
+  const extras = dataExtras(dataBackups, dataChess, await hiddenSeasonPieces());
   const extraHandbook = {};
   for (const b of Object.values(dataBosses || {})) if (b?.enemyKey && typeof b.handbookId === 'string') extraHandbook[b.enemyKey] = b.handbookId;
   const localEnemySpines = await syncLocalSpines(opts, 'enemy');

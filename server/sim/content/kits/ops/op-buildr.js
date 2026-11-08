@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-buildr.js — 青枳 (char_488_buildr) kit: 5★ 尖兵 (先锋), a tier-3 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-buildr.js — 青枳 (char_488_buildr) kit: 5★ 尖兵 (先锋), a tier-3 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 팽 더 파이어 샤픈드·폰사이러스·프로스트리프·바르카리스」); both skills, the talent and SOL-X in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, SOL-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, SOL-X stage 1.
 // Sources: the record's tables; PRTS 青枳 (备注 of S2); charpack char_488_buildr (Talents/1, Modes/S2), skill prefab skchr_buildr_2 (ActiveOneOfBuffAbility), buff_template_data buildr_t_1,
 // buildr_s_2[b], buildr_trait[e_002].
 // - T1 拆迁队守则 (buildr_t_1: one trigger, `interval` s after she is deployed): max HP ×(1 + max_hp) until she leaves; each deployment starts it anew.

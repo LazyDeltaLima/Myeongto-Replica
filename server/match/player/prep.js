@@ -7,6 +7,7 @@
 import { ERR, PHASE } from '../../../shared/constants.js';
 import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
+import { itemIdOfKey } from '../../sim/content/support/index.js';
 
 export class PlayerPrep {
   _gate({ allowWhenReady = false } = {}) {
@@ -51,7 +52,7 @@ export class PlayerPrep {
       const gained = this.acquireItem(slot.id, { source: 'reward' });
       // 凯瑟琳's 突变细胞 allowance (bands/meta.js up_shop_add_special_goods): a successful pick from her offer spends it
       // [ASSUMED]; her offers still queued lose the cell, keeping their other choices without a re-draw [ASSUMED]
-      if (gained && offer.source === 'band:band_cathy' && slot.id === 'chess_item_5_08_e_a') {
+      if (gained && offer.source === 'band:band_cathy' && slot.id === itemIdOfKey('chess_item_5_08_e', this.gd.raw)) {
         this.counters['band:cathy:cellTaken'] = 1;
         for (const pending of this.offers) if (pending.source === 'band:band_cathy') pending.slots = pending.slots.filter((s) => s.id !== slot.id);
         this.offers = this.offers.filter((pending) => pending.slots.length);

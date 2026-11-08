@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-ethan.js — 伊桑 (char_355_ethan) kit: 4★ 伏击客 (特种), a tier-3 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-ethan.js — 伊桑 (char_355_ethan) kit: 4★ 伏击客 (特种), a tier-3 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 아스테시아·콘트레일·에단」); both skills, the talent and AMB-X in both forms. The trait is the branch's (professions.js installStalker: every enemy in range, the dodge, 嘲讽等级 −1).
 //
-// Forms (data/seasons/next/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, AMB-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, AMB-X stage 1.
 // Sources: the record's tables; PRTS 伊桑 (备注 of S1, the module's note); charpack char_355_ethan (Trait, Modes/*/Talents/1, Modes/S1/Body/Attack), skill prefabs skchr_ethan_1 / _2, buff_template_data poison.
 // - T1 缠绕 (`_additiveActiveBuffs` ethan_t_1, `_probKey` prob, per target hit): frozen_duration s of 束缚 (abnormal flag UNMOVABLE). In mode S2 the prob ×talent_scale (`_applyTalentScale`, `_scaleCertainKeyList` prob).
 // - S1 花式回旋 (PASSIVE, `_defaultModeIndex` 1: mode S1 is her default mode for the whole deployment): every attack puts ethan_s_1 (template poison, its first tick after 1 s) on what it hits: attack@duration s

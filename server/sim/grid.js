@@ -99,6 +99,13 @@ export const DEFAULT_LEGEND = Object.freeze({
  */
 export const DEPLOY_REFUSED_TILES = Object.freeze(new Set(['tile_deepsea']));
 
+/**
+ * The hand and 临时整备区 tiles of a field (never a battle tile, though HIGH with buildableType ALL): tile_achand, and
+ * tile_acbag — 规程 (act3autochess) puts its 临时整备区 slots, the default season's tile_achand without isValidHand, on
+ * this tile of its own. Shared with tools/build-data.mjs (deployTiles) and the 联防 field's tile set (bonds/addon).
+ */
+export const HAND_TILES = Object.freeze(new Set(['tile_achand', 'tile_acbag']));
+
 const TERRAIN_BY_KEY = { tile_mire: 'mire', tile_smog: 'smog', tile_deepsea: 'deepsea', tile_infection: 'infection', tile_deepwater: 'deepsea' };
 const SPECIAL_BY_KEY = { tile_start: 'start', tile_end: 'end', tile_telin: 'telin', tile_telout: 'telout' };
 

@@ -1855,6 +1855,50 @@ describe('match result replay', () => {
       await real.close();
     }
   });
+
+  // ← upstream PR #912: the only human drops during the match, the match ends, and the reconnect window drops the seat —
+  // the room is disposed with its replay; the result is kept on the session and handed over once on the next hello
+  test('the last human away when the match ends still gets its m.result after the room is disposed', async () => {
+    const real = await startServer({ port: 0, host: '127.0.0.1', log: cap.log, MatchClass: RealMatch, seedFn: () => 1312887319 });
+    const matches = [];
+    try {
+      const url = `ws://127.0.0.1:${real.port}/ws`;
+      const a = await TestClient.connect(url);
+      const w = await a.hello('A');
+      a.id = w.playerId;
+      await createRoom(a, 'coop', 'FUNNY');
+      for (let i = 0; i < 3; i++) await expectOk(a, { t: 'room.addBot' });
+      await expectOk(a, { t: 'room.start' });
+      await a.waitFor('m.public', (p) => p.phase === PHASE.INFO_CHECK);
+      const room = real.lobby.getRoom([...real.lobby.rooms.keys()][0]);
+      const m = room.match;
+      matches.push(m);
+      // m.result goes through sendSession, which drops frames of a disconnected session
+      await a.terminate();
+      await delay(30);
+      m.finish({ victory: true, reason: 'victory' });
+      assert.equal(room.match, null, 'room back in LOBBY');
+      // the reconnect window drops the reserved seat: no active human is left, the room goes and its replay with it
+      real.lobby.removeMember(room, a.id);
+      assert.equal(room.disposed, true, 'no active human was left, so the room is gone');
+      const b = await TestClient.connect(url);
+      await b.hello('A', w.token);
+      const res = await b.waitFor('m.result', () => true, 3000);
+      assert.equal(res.playerId, a.id);
+      assert.equal(res.victory, true);
+      assert.equal(b.log.find((x) => x.t === 'm.public').phase, PHASE.RESULT);
+      // delivered once: a second reconnect gets nothing but the welcome (and the lobby's matchmaking counts)
+      await b.terminate();
+      const c = await TestClient.connect(url);
+      await c.hello('A', w.token);
+      await c.expectNone(null, (msg) => msg.t !== 'welcome' && msg.t !== 'lobby.queueCounts', 300);
+      await c.terminate();
+    } finally {
+      for (const m of matches) m.dispose?.();
+      await real.close();
+    }
+  });
+
 });
 
 // ---------------------------------------------------------------------------------------------------

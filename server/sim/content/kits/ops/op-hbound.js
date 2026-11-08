@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-hbound.js — 旅骨 (char_4232_hbound) kit: 5★ 炼金师 (特种), a tier-3 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 블루포이즌·하이모어·홈바운드·안드레아나」); both skills, the talent and ALC-X in both forms. CN client only.
+// server/sim/content/kits/ops/op-hbound.js — 旅骨 (char_4232_hbound) kit: 5★ 炼金师 (特种), a tier-3 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 블루포이즌·하이모어·홈바운드·안드레아나」); both skills, the talent and ALC-X in both forms. CN client only.
 //
-// Forms (data/seasons/next/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, ALC-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, ALC-X stage 1.
 // Sources: the record's tables; PRTS 旅骨 (备注 of T1, S1, S2, ALC-X); skill prefabs skchr_hbound_1 / _2 (group HitEnemy, then HitTile), projectiles projectile_chr_hbound_s1 /
 // _s2, buff_template_data hbound_s_1[dot], hbound_s_2[buff] / [weight_detector] / [heavy_damage], hbound_t_1 / [hitrate].
 // - The throw (`_switchToState` 1, clip Skill_N, `_selectTargetTiming` 1): at the clip's OnAttack frame, the first ground enemy of her range (HitEnemy); none → a tile of

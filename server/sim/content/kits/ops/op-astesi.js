@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-astesi.js — 星极 (char_274_astesi) kit: 5★ 术战者 (近卫), a tier-2 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-astesi.js — 星极 (char_274_astesi) kit: 5★ 术战者 (近卫), a tier-2 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 아스테시아·콘트레일·에단」); both skills, the talent and the module's trait in both forms. Her arts melee attack is the branch's (professions.js artsfghter).
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, AFT-Y stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, AFT-Y stage 1.
 // Sources: the record's tables; PRTS 星极 (no 备注 on her page); charpack char_274_astesi (Talents/1, Modes/S2), skill prefabs skchr_astesi_1 / _2, buff_template_data astesi_t_1, astesi_e_002_trait.
 // - T1 天体仪 (astesi_t_1, a template that fires every `interval` s of the deployment, the first after a whole one; the table's 20 s, not the prefab's fallback 30): each adds one stack of
 //   astesi_t_1[Stack] (ATTACK_SPEED +attack_speed, at most max_stack_cnt). A new deployment starts over. Its second modifier (DEF) reads a key her table does not have, so 0.

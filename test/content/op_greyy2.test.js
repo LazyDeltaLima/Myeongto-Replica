@@ -1,15 +1,15 @@
-// test/content/op_greyy2.test.js — 그레이 더 라이트닝베어러 (char_1027_greyy2, a tier-2 piece of the season not out yet; kit ops/op-greyy2.js): both forms, both skills, the talent, BOM-X.
+// test/content/op_greyy2.test.js — 그레이 더 라이트닝베어러 (char_1027_greyy2, a tier-2 piece of 规程 (act3autochess); kit ops/op-greyy2.js): both forms, both skills, the talent, BOM-X.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, fill, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, fill, realMatch } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_2_ngreyy2_a', B = 'chess_char_2_ngreyy2_b';
+const A = 'chess_char_2_14_a', B = 'chess_char_2_14_b';
 const FORMS = [A, B];
 const S1 = 'skcom_quickattack[3]', S2 = 'skchr_greyy2_2';
-const rec = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk);
+const rec = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk);
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
-const talent = (id) => NEXT.chess[id].talents.find((t) => t.index === 0).bb;
+const talent = (id) => ACT3.chess[id].talents.find((t) => t.index === 0).bb;
 const hits = (h, u, e) => h.hooksOf('damaged').filter((c) => c.source === u && c.target === e);
 const shock = (c) => c.dmg.tags?.includes('aftershock');
 const orb = (c) => c.dmg.tags?.includes('greyy2:beacon');

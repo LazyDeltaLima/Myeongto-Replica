@@ -38,6 +38,25 @@ Unknown options or a missing option value are errors (exit code 2); `--refresh` 
   room) keeps only the files that differ in `data/seasons/<id>/`: `--season <id>` writes there and drops every file
   byte-identical to the default's. The server reads a season as the default's files with the season's own in their
   place (`server/data.js` `seasonData`), the browser through `/data/s/<id>/<file>.json` (`server/http/static.js`).
+  规程 (`act3autochess`) reads its tables from fexli/ArknightsResource at one commit (`tools/gamedata-url.mjs`
+  `SEASON_GAMEDATA`, cache `.cache/gamedata-act3autochess/`): a FlatBuffers-decoded dump that leaves default-valued fields out
+  and writes some enums as numbers, put back into Kengxxiao's spelling by `tools/gamedata-flat.mjs`. Its section is
+  `activity.AUTOCHESS.act3autochess.V3_1`. It reuses the default season's chess, item and 特质 ids for other content, so
+  its records carry what joins them to the default season's code: `items[*].handlerKey` (the default season's key of
+  the item with the same trap, else `act3autochess:<own key>`), `garrisons[*].handlerKey` (the default season's id of
+  the same 特质 effect, else `act3autochess:<own id>`); `bosses[*].bloodByMode` (leader HP per mode, its table has one
+  per mode), `bands[*].inactiveModeIds` (the modes a strategy is not offered in; it lists no `modeTypeList`),
+  `chess[*].tmplId` (a chess built from a character template: 阿米娅's 医疗 form, char_patch_table) and
+  `skills[*].trigger.rawRules` (the trigger row's condition list). Its levels come in another frame, put back into the
+  19×21 one by `tools/level-fields.mjs`: a stage level is a 36×55 scene of every field whose battle fields are three
+  sub-levels (`level_<stage>/level_<stage>_sub_01…03`: the own field with an enemy area beside it, two fields side by
+  side, the boss field over the enemy area), set into the frame where the default season has them (their
+  configBlackBoard is the default season's, rects of the 19×21 frame); a wave level's routes are on its field's
+  placeholder (5×9 one field, 6×17 the boss field, 5×17 联防's two), moved by its origin, (1, 2) for a placeholder with
+  teleport entries, else (9, 2) — the shift that turns the routes of every template both seasons have into the default
+  season's. Its 临时整备区 slots are `tile_acbag` (glyph `A`), its hand `tile_achand` without isValidHand (glyph `a`). Its
+  device aliases repeat per field and name no single device (no 规程 effect toggles one). The default season's files
+  have none of these fields.
 - **Derived paths.** `stages.json groundPaths*` come from the sim's own `server/sim/grid.js` pathing: a change there
   needs a rebuild (the offline-rebuild test catches a stale `data/`).
 
@@ -500,11 +519,12 @@ Glyph legend (`rows`):
 | `p` | tile_floor | LOW | NONE | yes | preview row (previewNotAlloed) |
 | `h` | tile_wall | HIGH | RANGED | no | high ground |
 | `b` | tile_fence_bound | LOW | ALL | no | fenced lowland (deployable, blocks ground) |
-| `a` | tile_achand | HIGH | ALL | no | hand slot (row 7 cols 0–9; row 0 boss benches) |
-| `A` | tile_achand | HIGH | ALL | no | temp hand slot (row 8 cols 4–8) |
+| `a` | tile_achand | HIGH | ALL | no | hand slot (row 7 cols 0–9; row 0 boss benches; 规程: every tile_achand) |
+| `A` | tile_achand / tile_acbag | HIGH | ALL | no | temp hand slot (row 8 cols 4–8; 规程: tile_acbag) |
 | `S` / `E` | tile_start / tile_end | LOW | NONE | yes | red gate / blue objective |
 | `I` / `O` | tile_telin / tile_telout | LOW | NONE | yes | teleport in / out (boss field) |
 | `m` `g` `i` | tile_mire / tile_smog / tile_infection | LOW | ALL | yes | special terrain (see `special`) |
+| `u` `G` | tile_speedup / tile_duel_grassland | LOW | ALL | yes | 规程 terrain (`u`: blackboard attack_speed / move_speed); no effect in the sim yet |
 | `d` | tile_deepsea | LOW | NONE (level: ALL) | yes | 深水区 (see `special.deepsea`): enemies wade through it; no unit may be deployed on it (PRTS 深水区 地形信息 "拒绝部署（待补充）") — 战场#08's pool at board (10–12, 6), (10–12, 14), boss (3–5, 6) / (3–5, 14) |
 
 ## 13. `bosses.json` — `{ [bossId]: Boss }` (10; boss_8–10 hidden)

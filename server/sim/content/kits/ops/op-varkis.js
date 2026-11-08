@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-varkis.js — 摆渡人 (char_4166_varkis) kit: 5★ 百夫长 (近卫), a tier-1 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-varkis.js — 摆渡人 (char_4166_varkis) kit: 5★ 百夫长 (近卫), a tier-1 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 팽 더 파이어 샤픈드·폰사이러스·프로스트리프·바르카리스」); both skills, the talent and CEN-Y in both forms. The trait is the branch's (attacks every blocked enemy).
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv55, skills at rank 4, no module; elite = E2 Lv50, rank 7, CEN-Y stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv55, skills at rank 4, no module; elite = E2 Lv50, rank 7, CEN-Y stage 1.
 // Sources: the record's tables; PRTS 摆渡人 (备注 of T1, S2); charpack char_4166_varkis (Talents/1, Modes/S2), skill prefabs skchr_varkis_1 / _2 (S2Passive), buff_template_data varkis_t1[minos_atk_up],
 // varkis_s2[shield], varkis_s2[shield_core], varkis_s2[attack_add_hp], varkis_e_002_trait.
 // - T1 永志不忘 (an aura on the allies tagged minos, she too: varkis_t1[minos_atk_up] ON_CALCULATE_DAMAGE, AtkScaleUp `_applyWay` NONE): while she stands, each damage of an operator of 米诺斯 on an

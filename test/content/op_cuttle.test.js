@@ -1,17 +1,17 @@
-// test/content/op_cuttle.test.js — 안드레아나 (char_218_cuttle, a tier-2 piece of the season not out yet; kit ops/op-cuttle.js): both forms, both skills.
+// test/content/op_cuttle.test.js — 안드레아나 (char_218_cuttle, a tier-2 piece of 规程 (act3autochess); kit ops/op-cuttle.js): both forms, both skills.
 // Run: node --test test/content/op_cuttle.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { S2_BEGIN } from '../../server/sim/content/kits/ops/op-cuttle.js';
 
-const A = 'chess_char_2_ncuttle_a', B = 'chess_char_2_ncuttle_b';
+const A = 'chess_char_2_24_a', B = 'chess_char_2_24_b';
 const FORMS = [A, B];
 const S1 = 'skcom_atk_up[3]', S2 = 'skchr_cuttle_2';
 const DEBUFF = 'cuttle_s_2[debuff]';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const dmgOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e);
 
@@ -21,14 +21,14 @@ test('Skill2_Begin is the clip the kit holds for', () => {
 });
 
 test('T1: ASPD on every 深海猎人 of her player and herself, not on the others; two of her add up', () => {
-  const OTHER = 'chess_char_2_nglassb_a';
-  assert.ok(NEXT.chess[A].powers.includes('abyssal'));
-  assert.ok(!NEXT.chess[OTHER].powers.includes('abyssal'));
-  const v = NEXT.chess[A].talents[0].bb.attack_speed, w = NEXT.chess[B].talents[0].bb.attack_speed;
+  const OTHER = 'chess_char_2_21_a';
+  assert.ok(ACT3.chess[A].powers.includes('abyssal'));
+  assert.ok(!ACT3.chess[OTHER].powers.includes('abyssal'));
+  const v = ACT3.chess[A].talents[0].bb.attack_speed, w = ACT3.chess[B].talents[0].bb.attack_speed;
   const { h, u } = field(A, { skill: 0, more: [{ uid: 2, id: OTHER, skill: 0, row: 9, col: 7 }, { uid: 3, id: B, skill: 0, row: 9, col: 5 }] });
-  assert.equal(u.s.aspd, NEXT.chess[A].stats.aspd + v + w, 'both on herself');
-  assert.equal(h.unit(3).s.aspd, NEXT.chess[B].stats.aspd + v + w, 'both on the other');
-  assert.equal(h.unit(2).s.aspd, NEXT.chess[OTHER].stats.aspd, 'none on 이스티나');
+  assert.equal(u.s.aspd, ACT3.chess[A].stats.aspd + v + w, 'both on herself');
+  assert.equal(h.unit(3).s.aspd, ACT3.chess[B].stats.aspd + v + w, 'both on the other');
+  assert.equal(h.unit(2).s.aspd, ACT3.chess[OTHER].stats.aspd, 'none on 이스티나');
   done(h);
 });
 
@@ -93,7 +93,7 @@ test('S1 keeps the plain targets: below half HP is shot', () => {
 });
 
 test('DEA-X: damage grows with distance from min_dist to max_dist; the normal form has none', () => {
-  const tb = NEXT.chess[B].trait.bb;
+  const tb = ACT3.chess[B].trait.bb;
   assert.deepEqual([tb.min_dist, tb.max_dist, tb.damage_scale], [1, 4.5, 0.15]);
   const mulAt = (id, col) => {
     const { h, u } = field(id, { skill: 0 });

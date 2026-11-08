@@ -3,7 +3,7 @@
 //   SP_E2E=1 node --test test/ui/devices.e2e.test.js
 //
 // Devices (landscape): iPad (1180×820, touch), iPhone 14 (844×390, touch), Pixel 7 (915×412, touch), a 1366×768 touch
-// laptop (touch + mouse) and the smallest supported phone (640×360). For each: the real title page (index.html) — on
+// laptop (touch + mouse) and the smallest supported phone (740×360). For each: the real title page (index.html) — on
 // phones and the iPad also title → lobby → room with taps against the real server — and the in-match mock
 // (public/dev/game-mock.html) — screenshots → test/e2e/out/device-<device>-<screen>.png — and checks:
 //   * no page overflow, every visible HUD control fully inside the viewport, the rotate hint hidden in landscape;
@@ -34,7 +34,7 @@ const DEVICES = {
   iphone14: { viewport: { width: 844, height: 390, deviceScaleFactor: 3, isMobile: true, hasTouch: true, isLandscape: true }, userAgent: IOS_UA, coarse: true },
   pixel7: { viewport: { width: 915, height: 412, deviceScaleFactor: 2.625, isMobile: true, hasTouch: true, isLandscape: true }, userAgent: ANDROID_UA, coarse: true },
   'laptop-touch': { viewport: { width: 1366, height: 768, deviceScaleFactor: 1, isMobile: false, hasTouch: true, isLandscape: true }, userAgent: null, coarse: true },
-  'phone-min': { viewport: { width: 640, height: 360, deviceScaleFactor: 2, isMobile: true, hasTouch: true, isLandscape: true }, userAgent: ANDROID_UA, coarse: true },
+  'phone-min': { viewport: { width: 740, height: 360, deviceScaleFactor: 2, isMobile: true, hasTouch: true, isLandscape: true }, userAgent: ANDROID_UA, coarse: true },
 };
 /** Small HUD controls that must have a ≥ 40 px hit area on touch screens. */
 const HUD_TARGETS = ['.gtop__exit', '.gtop__iconbtn', '.enemybtn', '.readybtn', '.toolbtn', '.ewheel__btn', '.gm__gear'];
@@ -442,7 +442,7 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
     const b12 = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, args: ['--no-sandbox'], userDataDir: prof });
     try {
       for (const b of [browser, b12]) {
-        for (const [w, h, touch] of [[1280, 720], [1366, 657], [1920, 1080], [2560, 1440], [844, 390, true], [640, 360, true]]) {
+        for (const [w, h, touch] of [[1280, 720], [1366, 657], [1920, 1080], [2560, 1440], [844, 390, true], [740, 360, true]]) {
           const page = await b.newPage();
           await page.emulate({ viewport: { width: w, height: h, deviceScaleFactor: 1, isMobile: !!touch, hasTouch: !!touch, isLandscape: true }, userAgent: await b.userAgent() });
           await page.goto(`${base}/dev/game-mock.html?shot=1&render=fallback&phase=PREP`, { waitUntil: 'networkidle0' });

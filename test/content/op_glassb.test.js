@@ -1,21 +1,21 @@
-// test/content/op_glassb.test.js — 이스티나 (char_195_glassb, a tier-2 piece of the season not out yet; kit ops/op-glassb.js): both forms, both skills.
+// test/content/op_glassb.test.js — 이스티나 (char_195_glassb, a tier-2 piece of 规程 (act3autochess); kit ops/op-glassb.js): both forms, both skills.
 // Run: node --test test/content/op_glassb.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { COLS } from '../../server/sim/constants.js';
 
-const A = 'chess_char_2_nglassb_a', B = 'chess_char_2_nglassb_b';
+const A = 'chess_char_2_21_a', B = 'chess_char_2_21_b';
 const FORMS = [A, B];
 const S1 = 'skchr_glassb_1', S2 = 'skchr_glassb_2';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const dmgOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e || c.unit === e);
 
 test('T1 (elite only): DEF −35%, ASPD +N; the normal form has no talent yet', () => {
-  assert.equal(NEXT.chess[A].talents.length, 0);
-  const t = NEXT.chess[B].talents[0].bb;
+  assert.equal(ACT3.chess[A].talents.length, 0);
+  const t = ACT3.chess[B].talents[0].bb;
   const { h, u } = field(B);
   const b = u.findBuff('glassb_t_1');
   assert.deepEqual([b.mods.defPct, b.mods.aspd], [t.def, t.attack_speed]);
@@ -35,7 +35,7 @@ test('the trait: 停顿 on the target for the trait bb s (0.8, DEC-Y 1.2), arts 
     h.step();
     const s = e.findBuff('sluggish');
     assert.ok(s, `${id}: 停顿`);
-    assert.ok(s.timeLeft <= NEXT.chess[id].trait.bb.sluggish && s.timeLeft > NEXT.chess[id].trait.bb.sluggish - 0.3, `${id}: ${s.timeLeft}`);
+    assert.ok(s.timeLeft <= ACT3.chess[id].trait.bb.sluggish && s.timeLeft > ACT3.chess[id].trait.bb.sluggish - 0.3, `${id}: ${s.timeLeft}`);
     done(h);
   }
 });
@@ -77,7 +77,7 @@ test('S2: ATK +, range x-2, up to 3 targets; each takes 停顿; the range goes b
 });
 
 test('S2 strikes `_preDelay` 0.5 s into a swing, no clip of its own (record: Skill_Loop, wait 0)', () => {
-  const rec = NEXT.chess[B].attackAnim.skills[1];
+  const rec = ACT3.chess[B].attackAnim.skills[1];
   assert.deepEqual([rec.clip, rec.pre, rec.wait, rec.max], ['Skill_Loop', 0.5, 0, 1]);
 });
 

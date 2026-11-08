@@ -1,5 +1,5 @@
 // Multi-device support (desktop Chrome / Edge / Firefox / Safari, iPad and Android tablets in landscape, phones in
-// landscape ≥ 640×360 CSS px). Everything is feature-detected — never UA-sniffed:
+// landscape ≥ 740×360 CSS px). Everything is feature-detected — never UA-sniffed:
 //
 //   detectFeatures()        { touch, coarse, hover, fullscreen, standalone, reducedMotion, importMaps, … } of this browser
 //   installDeviceSupport()  once at boot (main.js): <html> classes (sp-touch / sp-coarse / sp-hover / sp-fs /

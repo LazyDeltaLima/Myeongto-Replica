@@ -1,15 +1,15 @@
-// test/content/op_kichi.test.js — 키치세이 (char_4203_kichi, a tier-3 piece of the season not out yet; kit ops/op-kichi.js): both forms, both skills, the talent, RPR-X.
+// test/content/op_kichi.test.js — 키치세이 (char_4203_kichi, a tier-3 piece of 规程 (act3autochess); kit ops/op-kichi.js): both forms, both skills, the talent, RPR-X.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_3_nkichi_a', B = 'chess_char_3_nkichi_b';
+const A = 'chess_char_3_17_a', B = 'chess_char_3_17_b';
 const FORMS = [A, B];
 const S1 = 'skchr_kichi_1', S2 = 'skchr_kichi_2';
-const rec = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk);
+const rec = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk);
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
-const talent = (id) => NEXT.chess[id].talents.find((t) => t.index === 0).bb;
+const talent = (id) => ACT3.chess[id].talents.find((t) => t.index === 0).bb;
 const hits = (h, u, e) => h.hooksOf('damaged').filter((c) => c.source === u && c.target === e);
 const FRONT = [10, 5];
 const RAMP = 'skchr_kichi_01[atk_scale]';

@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-robrta.js — 罗比菈塔 (char_484_robrta) kit: 4★ 工匠 (辅助), a tier-3 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-robrta.js — 罗比菈塔 (char_484_robrta) kit: 4★ 工匠 (辅助), a tier-3 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 미틈·로베르타·클릭·퀘르쿠스」); both skills, the talent, CRA-X in both forms, and the kit of her <支援装置> 全自动造型仪 (token_10018_robrta_mach).
 //
-// Forms (data/seasons/next/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, CRA-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, CRA-X stage 1.
 // Sources: the record's tables; PRTS 罗比菈塔, 全自动造型仪 (备注), 分支特性信息 工匠; charpack char_484_robrta (Talents/1 charge_token[refresh]), skill prefabs skchr_robrta_1 / _2, token
 // prefab token_10018_robrta_mach (Talents/1 and 1+, `_passiveBuffs`, `_tileOptions`), buff_template_data robrta_mach_t, robrta_mach_t[mode], charge_token[refresh], trigger_charge_token,
 // withdraw_target_as_dead_when_buff_finish, and Deck.TokenCard.Recharge (`refreshRemainingCnt`: the holding becomes cnt, at most the cap, instead of adding).

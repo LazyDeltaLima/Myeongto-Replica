@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-liesel.js — 复奏 (char_4031_liesel) kit: 5★ 扩散术师 (术师), a tier-2 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 디아만테·리프레사·체르니·아오스타」); both skills, the talent and the trait (professions.js splashcaster) in both forms.
+// server/sim/content/kits/ops/op-liesel.js — 复奏 (char_4031_liesel) kit: 5★ 扩散术师 (术师), a tier-2 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 디아만테·리프레사·체르니·아오스타」); both skills, the talent and the trait (professions.js splashcaster) in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, SPC-Y stage 1 (its talent change starts at stage 2).
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, SPC-Y stage 1 (its talent change starts at stage 2).
 // Sources: the record's tables; PRTS 复奏 (备注 of S1 and S2); charpack char_4031_liesel (Talents/0, Modes/Default), skill prefabs skchr_liesel_1 / _2,
 // projectiles projectile_chr_liesel_s2_1 / _2 / _3, buff_template_data liesel_t, liesel_s_2[dot].
 // - T1 执棒素养 (liesel_t): an attack with min_target_cnt or more enemies in its splash deals × damage_scale. Its dot does not count (modifier key `dot`).

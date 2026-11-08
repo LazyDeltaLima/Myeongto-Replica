@@ -1,36 +1,36 @@
-// test/content/op_aosta.test.js — 아오스타 (char_346_aosta, a tier-2 piece of the season not out yet; kit ops/op-aosta.js): both forms, both skills.
+// test/content/op_aosta.test.js — 아오스타 (char_346_aosta, a tier-2 piece of 规程 (act3autochess); kit ops/op-aosta.js): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_2_naosta_a', B = 'chess_char_2_naosta_b';
+const A = 'chess_char_2_08_a', B = 'chess_char_2_08_b';
 const FORMS = [A, B];
 const S1 = 'skcom_quickattack[3]', S2 = 'skchr_aosta_2';
 const BLEED = 'aosta_t_1';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const dmgOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e);
 const attacks = (h, e) => dmgOn(h, e).filter((c) => c.dmg?.isAttack);
 const ticks = (h, e) => dmgOn(h, e).filter((c) => c.dmg?.tags?.includes('periodic'));
 
 test('Trait: all in range, the front line × atk_scale, RPR-X raises it', () => {
-  assert.equal(NEXT.chess[A].trait.bb.atk_scale, 1.5);
-  assert.equal(NEXT.chess[B].trait.bb.atk_scale, 1.6);
+  assert.equal(ACT3.chess[A].trait.bb.atk_scale, 1.5);
+  assert.equal(ACT3.chess[B].trait.bb.atk_scale, 1.6);
   for (const id of FORMS) {
     const { h, u } = field(id, { skill: 1 });
     u.skill.locked = true;
     const front = h.spawn('enemy_dummy', { pos: [10, 5] });
     const side = h.spawn('enemy_dummy', { pos: [9, 6] });
     h.runUntil(() => attacks(h, side).length >= 1 && attacks(h, front).length >= 1, 10);
-    near(attacks(h, front)[0].amount / attacks(h, side)[0].amount, NEXT.chess[id].trait.bb.atk_scale, `${id}: front against side`);
+    near(attacks(h, front)[0].amount / attacks(h, side)[0].amount, ACT3.chess[id].trait.bb.atk_scale, `${id}: front against side`);
     done(h);
   }
 });
 
 test('T1: a hit bleeds for its duration, ticking each second after the first, at atk_scale × ATK outside the trait ×', () => {
   for (const id of FORMS) {
-    const t = NEXT.chess[id].talents[0].bb;
+    const t = ACT3.chess[id].talents[0].bb;
     const { h, u } = field(id, { skill: 1 });
     u.skill.locked = true;
     const e = h.spawn('enemy_dummy', { pos: [10, 5] }); // on the front line: the trait's × is not in the tick
@@ -75,7 +75,7 @@ test('T1: a blocked enemy holds it and takes nothing until it is free; one bleed
 });
 
 test('T1: a new hit extends it and takes her ATK of then', () => {
-  const t = NEXT.chess[B].talents[0].bb;
+  const t = ACT3.chess[B].talents[0].bb;
   const { h, u } = field(B, { skill: 1 });
   u.skill.locked = true;
   const e = h.spawn('enemy_dummy', { pos: [10, 5] });
@@ -109,7 +109,7 @@ test('S1: ATK +, ASPD +', () => {
 
 test('S2: ATK +, attack interval × 1.5, each enemy hit is bound, the bleed × talent_scale', () => {
   for (const id of FORMS) {
-    const b2 = bbOf(id, S2), t = NEXT.chess[id].talents[0].bb;
+    const b2 = bbOf(id, S2), t = ACT3.chess[id].talents[0].bb;
     assert.equal(b2.base_attack_time, 0.5);
     assert.equal(b2.talent_scale, 2);
     const { h, u } = field(id, { skill: 1 });

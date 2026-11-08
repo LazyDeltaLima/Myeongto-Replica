@@ -1,18 +1,18 @@
-// test/content/op_robrta.test.js — 로베르타 (char_484_robrta, a tier-3 piece of the season not out yet; kit ops/op-robrta.js) and her 全自动造型仪 (token_10018_robrta_mach): both forms, both skills.
+// test/content/op_robrta.test.js — 로베르타 (char_484_robrta, a tier-3 piece of 规程 (act3autochess); kit ops/op-robrta.js) and her 全自动造型仪 (token_10018_robrta_mach): both forms, both skills.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { MACH, DEF_KEY, SHIELD_KEY, COUNT_KEYS, RUNNING_KEYS } from '../../server/sim/content/kits/ops/op-robrta.js';
 
-const A = 'chess_char_3_nrobrta_a', B = 'chess_char_3_nrobrta_b';
+const A = 'chess_char_3_19_a', B = 'chess_char_3_19_b';
 const FORMS = [A, B];
 const S1 = 'skchr_robrta_1', S2 = 'skchr_robrta_2';
-const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const YAK = 'chess_char_1_02_a';
-const talent = (id) => NEXT.chess[id].talents[0].bb;
-const machTalent = (id) => NEXT.tokens[MACH].variants[id].talents[0].bb;
+const talent = (id) => ACT3.chess[id].talents[0].bb;
+const machTalent = (id) => ACT3.tokens[MACH].variants[id].talents[0].bb;
 /** She at (10, 4); the machine at (10, 3) facing RIGHT, so it serves her. */
 const facing = (id, skill = 0, o = {}) => field(id, { skill, others: [{ uid: 2, kind: 'token', tokenId: MACH, ownerUid: 1, row: 10, col: 3, dir: 'RIGHT' }], ...o });
 const shieldOf = (u, m) => u.findBuff(`${SHIELD_KEY}:${m.id}`);
@@ -21,7 +21,7 @@ test('The machine: no attack, 무적, never targeted, no heal; its form\'s cost 
   for (const id of FORMS) {
     const { h, u } = facing(id);
     u.skill.locked = true;
-    const m = h.unit(2), v = NEXT.tokens[MACH].variants[id];
+    const m = h.unit(2), v = ACT3.tokens[MACH].variants[id];
     assert.ok(m.alive);
     assert.ok(m.profile.noAttack);
     assert.ok(m.s.flags.invulnerable && m.s.flags.untargetable && m.s.flags.noHeal);
@@ -35,8 +35,8 @@ test('The machine: no attack, 무적, never targeted, no heal; its form\'s cost 
 });
 
 test('The module costs 2 less and holds one more: the token data', () => {
-  assert.equal(NEXT.tokens[MACH].variants[A].stats.cost, 5);
-  assert.equal(NEXT.tokens[MACH].variants[B].stats.cost, 3);
+  assert.equal(ACT3.tokens[MACH].variants[A].stats.cost, 5);
+  assert.equal(ACT3.tokens[MACH].variants[B].stats.cost, 3);
 });
 
 test('DEF +def on the unit it faces, while there; not on one beside it', () => {
@@ -165,7 +165,7 @@ test('DEF does not stack from two machines, the second takes over when the first
 
 test('Holding: a deployment sets it to cnt (cap +1 with CRA-X); a machine that left comes back paying cost and one held after its redeploy time', () => {
   for (const id of FORMS) {
-    const cnt = talent(id).cnt, extra = NEXT.chess[id].trait.bb.cnt ?? 0;
+    const cnt = talent(id).cnt, extra = ACT3.chess[id].trait.bb.cnt ?? 0;
     assert.equal(cnt, 3);
     assert.equal(extra, id === A ? 0 : 1);
     const { h, u } = facing(id);
@@ -227,7 +227,7 @@ test('S2: no attack, block +block_cnt, DEF +def; one more held as it ends, at mo
 });
 
 test('It serves an operator of hers and a summon, never another device; on a melee tile only', () => {
-  const { h, u } = field(B, { skill: 0, more: [{ uid: 5, id: 'chess_char_2_nmitm_b', row: 12, col: 3 }, { uid: 10, id: 'chess_char_1_ncammou_a', row: 10, col: 2 }], others: [
+  const { h, u } = field(B, { skill: 0, more: [{ uid: 5, id: 'chess_char_2_17_b', row: 12, col: 3 }, { uid: 10, id: 'chess_char_1_09_a', row: 10, col: 2 }], others: [
     { uid: 2, kind: 'token', tokenId: MACH, ownerUid: 1, row: 10, col: 6, dir: 'RIGHT' },
     { uid: 3, chessId: YAK, row: 10, col: 7 },
     { uid: 4, kind: 'token', tokenId: MACH, ownerUid: 1, row: 11, col: 6, dir: 'RIGHT' },

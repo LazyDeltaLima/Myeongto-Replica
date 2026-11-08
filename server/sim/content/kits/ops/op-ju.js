@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-ju.js — 矩 (char_4221_ju) kit: 5★ 攻城手 (狙击), a tier-2 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 ○○」); both skills, the talent, the trait and SIE-X in both forms.
+// server/sim/content/kits/ops/op-ju.js — 矩 (char_4221_ju) kit: 5★ 攻城手 (狙击), a tier-2 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 ○○」); both skills, the talent, the trait and SIE-X in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, SIE-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv60, skills at rank 4, no module; elite = E2 Lv55, rank 7, SIE-X stage 1.
 // Sources: the record's tables; PRTS 矩 (墨守 备注 "自身造成的伤害不会致命（至多使目标生命值降至1点），成功造成伤害后若目标生命值小于等于1则为
 // 目标附加重伤"; S2 备注 "独立于攻击的、检测周期0.2秒的光环效果，通过检测后至少延迟0.9秒才能造成额外伤害，延迟结束时若目标受无法选择类效果影响则不会
 // 造成额外伤害。每0.3秒至多对一个目标造成额外伤害，对其他目标造成额外伤害将会相应延迟", "非首次标记…在多个矩之间通用且不会因技能结束或矩离场而解除"); PRTS 术语释义

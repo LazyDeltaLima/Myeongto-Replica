@@ -325,11 +325,12 @@ export function registerBuiltins(reg, data = null) {
   const done = new Set();
   for (const [id, rec] of Object.entries(items)) {
     if (!rec || !Array.isArray(rec.buffs)) continue;
-    const key = itemKey(id);
+    const key = itemKey(id, d);
     if (done.has(key)) continue;
     // golden and normal share the key; prefer the normal record's buff (博士投影 differs: handled by a merged handler)
     const buffKeys = new Set();
-    for (const sib of [items[`${key}_a`], items[`${key}_b`], items[key]]) {
+    const bare = id.replace(/_[ab]$/, '');
+    for (const sib of [items[`${bare}_a`], items[`${bare}_b`], items[bare]]) {
       if (sib && Array.isArray(sib.buffs)) for (const b of sib.buffs) if (b && typeof b.key === 'string') buffKeys.add(b.key);
     }
     const handlers = [...buffKeys].map((k) => ITEM_HANDLERS[k]).filter(Boolean);

@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-brigid.js — 水灯心 (char_4177_brigid) kit: 5★ 回环射手 (狙击), a tier-3 piece of the season not out yet
-// (shared/seasons.js `next`, docs/rules/diy.md 「새 시즌 무스·미스 크리스틴·브리지드·오로라」); both skills, the talent, the trait (professions.js loopshooter) and LPS-X in both forms.
+// server/sim/content/kits/ops/op-brigid.js — 水灯心 (char_4177_brigid) kit: 5★ 回环射手 (狙击), a tier-3 piece of 规程 (act3autochess)
+// (shared/seasons.js `act3autochess`, docs/rules/diy.md 「새 시즌 무스·미스 크리스틴·브리지드·오로라」); both skills, the talent, the trait (professions.js loopshooter) and LPS-X in both forms.
 //
-// Forms (data/seasons/next/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, LPS-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, LPS-X stage 1.
 // Sources: the record's tables; PRTS 水灯心 (备注 of T1); charpack char_4177_brigid (Others/Direction/Talents/1, Modes/S2/Body/Attack), skill prefabs skchr_brigid_1 / _2,
 // projectiles projectile_chr_brigid_s1 / _s2, buff_template_data brigid_t[evade_trigger], brigid_t[evade_core], brigid_s2[cut].
 // - T1 结绳老手 (brigid_t[evade_trigger]): each damage she deals counts (PRTS: every source of hers); at trigger_damage_count she has physical dodge prob, kept for this deployment.

@@ -15,10 +15,22 @@ export const PINNED_GAMEDATA = Object.freeze({
 });
 
 /**
+ * A season whose tables Kengxxiao does not carry (its 卫戍协议 sections stay empty after 2026-11-01): every file of it comes
+ * from fexli/ArknightsResource's FlatBuffers-decoded dump at one commit, read through tools/gamedata-flat.mjs, into a
+ * cache folder of its own (.cache/gamedata-<season>/).
+ */
+export const SEASON_GAMEDATA = Object.freeze({
+  // Client 2.7.91, resources 26-11-06: the first with 卫戍协议：规程
+  act3autochess: Object.freeze({ base: 'https://raw.githubusercontent.com/fexli/ArknightsResource/62363543c0fa116f9cef83e291ccdeb006a9a1db/gamedata/', flat: true }),
+});
+
+/**
  * The folder URL an official file is downloaded from; the file's own path under zh_CN/gamedata/ is appended to it.
  * @param {string} rel path relative to zh_CN/gamedata/ (e.g. 'excel/activity_table.json')
+ * @param {string} [season] a season of SEASON_GAMEDATA reads every file from its own dump
  * @returns {string}
  */
-export function gamedataBase(rel) {
+export function gamedataBase(rel, season) {
+  if (season && Object.hasOwn(SEASON_GAMEDATA, season)) return SEASON_GAMEDATA[season].base;
   return `${REPO}/${PINNED_GAMEDATA[rel] ?? 'master'}/${ROOT}`;
 }

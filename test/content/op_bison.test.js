@@ -1,20 +1,20 @@
-// test/content/op_bison.test.js — 바이슨 (char_325_bison, a tier-1 piece of the season not out yet; kit ops/op-bison.js): both forms, both skills.
+// test/content/op_bison.test.js — 바이슨 (char_325_bison, a tier-1 piece of 规程 (act3autochess); kit ops/op-bison.js): both forms, both skills.
 // Run: node --test test/content/op_bison.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEXT, field, done, cast, realMatch, pieceRec } from '../helpers/nextSeason.js';
+import { ACT3, field, done, cast, realMatch, pieceRec } from '../helpers/seasonPieces.js';
 
-const A = 'chess_char_1_nbison_a', B = 'chess_char_1_nbison_b';
+const A = 'chess_char_1_14_a', B = 'chess_char_1_14_b';
 const FORMS = [A, B];
 const S1 = 'skcom_def_up[3]', S2 = 'skchr_bison_2';
-const skillBb = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
+const skillBb = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
 const TEXAS = 'chess_char_1_08_a', YAK = 'chess_char_1_02_a';   // a 先锋, a 重装
 const approx = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 
 test('T1 交叉掩护: DEF +def on himself and on a 先锋 / 近卫 on the tile behind him, not on another class, not in front', () => {
   for (const id of FORMS) {
-    const v = NEXT.chess[id].talents[0].bb.def;
+    const v = ACT3.chess[id].talents[0].bb.def;
     const { h, u } = field(id, { others: [{ uid: 2, chessId: TEXAS, row: 10, col: 3 }, { uid: 3, chessId: TEXAS, row: 10, col: 5 }, { uid: 4, chessId: YAK, row: 9, col: 4 }] });
     h.run(0.5);
     assert.equal(u.findBuff('bison_t_1').mods.defFlat, v, id);
@@ -40,14 +40,14 @@ test('T1 交叉掩护: DEF +def on himself and on a 先锋 / 近卫 on the tile 
 test('S1 防御력强화: DEF +def for its duration, in both forms, on his trigger row TAKE_DAMAGE', () => {
   for (const id of FORMS) {
     const { h, u } = field(id, { skill: 0 });
-    const rec = NEXT.chess[id].skills[0];
+    const rec = ACT3.chess[id].skills[0];
     assert.equal(u.skill.id, S1);
     assert.equal(u.skill.rule, 'TAKE_DAMAGE');
     const before = u.s.def;
     cast(u);
     h.step();
     assert.ok(u.s.def > before, id);
-    approx(u.s.def, (u.base.def + NEXT.chess[id].talents[0].bb.def) * (1 + rec.bb.def), `${id}: DEF`);
+    approx(u.s.def, (u.base.def + ACT3.chess[id].talents[0].bb.def) * (1 + rec.bb.def), `${id}: DEF`);
     h.run(rec.duration + 0.1);
     assert.equal(u.skill.active, false, id);
     done(h);
@@ -85,13 +85,13 @@ test('S2 深化阵线: no attack, DEF +, taunt +1 on himself; the others on x-5 
 
 test('PRO-X: DEF +20 % while blocking on the elite (trait bb def), nothing on the normal form', () => {
   const { h, u } = field(B, { skill: 1 });
-  assert.equal(NEXT.chess[B].trait.bb.def, 0.2);
+  assert.equal(ACT3.chess[B].trait.bb.def, 0.2);
   const free = u.s.def;
   const e = h.spawn('enemy_runner', { pos: [10, 6] });
   h.runUntil(() => u.blocking.length > 0, 10);
   h.step();
   assert.ok(u.blocking.includes(e));
-  approx(u.s.def - free, (u.base.def + NEXT.chess[B].talents[0].bb.def) * 0.2, 'blocking');
+  approx(u.s.def - free, (u.base.def + ACT3.chess[B].talents[0].bb.def) * 0.2, 'blocking');
   done(h);
   const n = field(A, { skill: 1 });
   n.h.spawn('enemy_runner', { pos: [10, 6] });
@@ -102,6 +102,7 @@ test('PRO-X: DEF +20 % while blocking on the elite (trait bb def), nothing on th
   done(n.h);
 });
 
-test('real match path: his piece fights in a next match', async () => {
-  for (const id of FORMS) assert.equal((await realMatch(id, 'char_325_bison')).skill.id, pieceRec(id).skill.skillId);
+test('real match path: his piece fights in a 规程 match', async () => {
+  // his default skill in 规程 is S1 (charShopChessDatas defaultSkillIndex)
+  for (const id of FORMS) assert.equal((await realMatch(id, 'char_325_bison')).skill.id, ACT3.chess[id].skill.skillId);
 });

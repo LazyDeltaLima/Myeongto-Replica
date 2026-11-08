@@ -1,7 +1,7 @@
-// server/sim/content/kits/ops/op-fang2.js — 历阵锐枪芬 (char_1036_fang2) kit: 5★ 冲锋手 (先锋), a tier-3 piece of the season not out yet (shared/seasons.js `next`,
+// server/sim/content/kits/ops/op-fang2.js — 历阵锐枪芬 (char_1036_fang2) kit: 5★ 冲锋手 (先锋), a tier-3 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 팽 더 파이어 샤픈드·폰사이러스·프로스트리프·바르카리스」); both skills in both forms. The trait is the branch's: professions.js installCharger, its `cost` in the record (1, CHG-X 2).
 //
-// Forms (data/seasons/next/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, CHG-X stage 1.
+// Forms (data/seasons/act3autochess/chess.json): normal = E2 Lv1, skills at rank 4, no module; elite = E2 Lv60, rank 7, CHG-X stage 1.
 // Sources: the record's tables; PRTS 历阵锐枪芬 (备注 of T1, S1, S2, CHG-X); charpack char_1036_fang2 (Trait, Talents/1, Modes/S2), skill prefabs skchr_fang2_1 / _2, buff_template_data
 // fang2_s_1, fang2_t_1, fang2_e_tr.
 // - T1 轻装上阵 and the trait's withdraw refund do nothing here: the initial deployment is free in battle, and no effect withdraws a piece of her bonds and there is no manual retreat (as 德克萨斯, 砾).
