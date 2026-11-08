@@ -61,6 +61,7 @@
 import { normDir, rotateOffset } from '../../../dir.js';
 import { bodyKeys, bodyOnTile } from '../../../body.js';
 import { isHpLoss } from '../../../damage.js';
+import { HAND_TILES } from '../../../grid.js';
 import {
   num, bondRecord, buffParams, bondTier, bondLayers, isMember, isElite, isGroundOp, onField, playerOps, passiveBuff,
   fxOn, tplFx, N4, N8, directMods, COLS,
@@ -369,9 +370,12 @@ function raidTargets(battle) {
  * several players help (isMultiPlayerHelp), else the own one; BOSS_BATTLE → the whole boss map). So: a boss / hidden-core
  * field opens both halves of rows 2–5 even for a lone player (never its hand / 临时整备区 rows 0–1, tile_achand); a 联防
  * field both halves with two helpers and the own half for one (Battle.onFieldBoard); a normal field its own board.
+ * 规程 (act3autochess) lays its 临时整备区 slots on a tile of their own, tile_acbag, which counts as hand here too
+ * (grid.js HAND_TILES) [추정·CN: the indexer of that season's client is not read; the slots are the same row 1 the default
+ * season's tile_achand fills].
  */
 function raidBattlefield(battle, r, c) {
-  if (battle.kind === 'boss' || battle.kind === 'hidden') return battle.grid.inRect(r, c) && battle.grid.tile(r, c).key !== 'tile_achand';
+  if (battle.kind === 'boss' || battle.kind === 'hidden') return battle.grid.inRect(r, c) && !HAND_TILES.has(battle.grid.tile(r, c).key);
   return battle.onFieldBoard(r, c);
 }
 

@@ -12,9 +12,10 @@ export const ACT3 = getData({ log: quiet, season: 'act3autochess' });
 const BASE = getData({ log: quiet });
 
 /**
- * The season's data on the default season's battlefield: its stages are one 36×55 map holding every field, which the
- * sim does not read yet (bundle sim-O), so the real match path fields its pieces, bonds, items and 特质 on the default
- * season's modes, stages, waves, enemies and leaders.
+ * The season's data on the default season's battlefield: the real match path of a piece test fields its pieces, bonds,
+ * items and 特质 on the default season's modes, stages, waves, enemies and leaders, so a kit test does not depend on the
+ * season's rooms (their mode ids are not the default season's) or on its new enemies' behaviour. The season's own stages,
+ * waves and enemies are fought in test/seasons-act3-stages.test.js.
  */
 export const ACT3_ON_BASE_FIELD = Object.freeze({
   ...ACT3,

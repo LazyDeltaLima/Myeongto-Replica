@@ -39,7 +39,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url'; // local patch (script guard)
 import { isDeepStrictEqual } from 'node:util';
-import { Grid, DEPLOY_REFUSED_TILES } from '../server/sim/grid.js';
+import { Grid, DEPLOY_REFUSED_TILES, HAND_TILES } from '../server/sim/grid.js';
 import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared/standIn.js';
 import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
@@ -48,6 +48,7 @@ import { isOwnSubMode, skillModeIndex, SKILL_SUB_MODES } from '../shared/skill-m
 import { DEFAULT_SEASON, SEASONS, isSeasonId, seasonDataDir } from '../shared/seasons.js';
 import { gamedataBase, SEASON_GAMEDATA } from './gamedata-url.mjs';
 import { normalizeFlat } from './gamedata-flat.mjs';
+import { composeStageLevel, isFrameLevel, placeWaveLevel, subLevelPath, waveOrigin } from './level-fields.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -415,6 +416,25 @@ async function loadContext() {
   const levels = {};
   // Sequential download to stay polite to GitHub; cached files load instantly.
   for (const id of [...levelSrc.keys()].sort(naturalCmp)) levels[id] = await loadGamedata(levelPath(levelSrc.get(id)));
+  // 规程 (act3autochess): a stage level is a scene of every field and its battle fields are sub-levels, a wave level's
+  // routes are on its field's placeholder; both are put into the 19×21 frame the rest of this script reads
+  // (tools/level-fields.mjs). The default season's levels are that frame already.
+  for (const id of stageIds) {
+    if (isFrameLevel(levels[id])) continue;
+    const subs = [];
+    for (const n of [1, 2, 3]) subs.push(await loadGamedata(subLevelPath(id, n)));
+    levels[id] = composeStageLevel(levels[id], subs);
+  }
+  for (const id of levelSrc.keys()) {
+    const lv = levels[id];
+    if (stageIds.includes(id) || id === enemyDataLevelId || !lv?.mapData?.map?.length || isFrameLevel(lv)) continue;
+    const { origin } = waveOrigin(lv);
+    for (const s of stageIds) {
+      const { misfits } = waveOrigin(lv, levels[s]);
+      if (misfits.length) warn(`level ${id} at (${origin}) on ${s}: ${misfits.join(', ')}`);
+    }
+    levels[id] = placeWaveLevel(lv, origin);
+  }
 
   const research = {
     core: await loadResearch('01-core-data.json'),
@@ -3199,8 +3219,8 @@ const TILE_LEGEND = {
   p: { tileKey: 'tile_floor', desc: '地板（预览区 previewNotAlloed）' },
   h: { tileKey: 'tile_wall', desc: '高台：仅远程可部署，地面不可通行' },
   b: { tileKey: 'tile_fence_bound', desc: '围栏低地：可部署，地面敌人不可通行' },
-  a: { tileKey: 'tile_achand', desc: '整备区格（isValidHand）' },
-  A: { tileKey: 'tile_achand', desc: '临时整备区/非整备手牌格' },
+  a: { tileKey: 'tile_achand', desc: '整备区格（isValidHand；规程：每个 tile_achand）' },
+  A: { tileKey: 'tile_achand', desc: '临时整备区/非整备手牌格（规程：tile_acbag）' },
   S: { tileKey: 'tile_start', desc: '敌人出生点（红门）' },
   E: { tileKey: 'tile_end', desc: '保护目标（蓝门）' },
   I: { tileKey: 'tile_telin', desc: '传送入口（敌人消失）' },
@@ -3209,10 +3229,12 @@ const TILE_LEGEND = {
   g: { tileKey: 'tile_smog', special: 'smog', desc: '排气格栅：其上干员不会成为敌方远程攻击目标' },
   d: { tileKey: 'tile_deepsea', special: 'deepsea', desc: '深水区：不可部署（拒绝部署），敌人持续受伤、减速、减攻速' },
   i: { tileKey: 'tile_infection', special: 'infection', desc: '活性源石：单位受持续真实伤害，攻击力与攻速提升' },
+  u: { tileKey: 'tile_speedup', desc: '规程：加速地块（blackboard attack_speed / move_speed），效果未实装' },
+  G: { tileKey: 'tile_duel_grassland', desc: '规程：tile_duel_grassland，效果未实装' },
 };
 
 /** Map an official tile object to a legend glyph. */
-function tileGlyph(t) {
+function tileGlyph(t, bagHand = false) {
   const bbKeys = new Set((t.blackboard || []).map((b) => b.key));
   switch (t.tileKey) {
     case 'tile_forbidden': return t.passableMask === 'NONE' ? 'X' : '#';
@@ -3220,7 +3242,11 @@ function tileGlyph(t) {
     case 'tile_floor': return bbKeys.has('previewNotAlloed') ? 'p' : 'f';
     case 'tile_wall': return 'h';
     case 'tile_fence_bound': case 'tile_fence': return 'b';
-    case 'tile_achand': return bbKeys.has('isValidHand') ? 'a' : 'A';
+    // 规程 marks no tile isValidHand: its hand is tile_achand, its 临时整备区 tile_acbag
+    case 'tile_achand': return bagHand || bbKeys.has('isValidHand') ? 'a' : 'A';
+    case 'tile_acbag': return 'A';
+    case 'tile_speedup': return 'u';
+    case 'tile_duel_grassland': return 'G';
     case 'tile_start': return 'S';
     case 'tile_end': return 'E';
     case 'tile_telin': return 'I';
@@ -3363,13 +3389,14 @@ function buildStages(ctx, modesById) {
     const H = map.length, W = map[0]?.length || 0;
     if (H !== 19 || W !== 21) warn(`stage ${stageId}: unexpected size ${H}x${W}`);
     const tileAt = (r, c) => tiles[map[H - 1 - r]?.[c]];
+    const bagHand = tiles.some((t) => t.tileKey === 'tile_acbag');
     const rows = [];
     const glyphTiles = {};
     for (let r = 0; r < H; r++) {
       let line = '';
       for (let c = 0; c < W; c++) {
         const t = tileAt(r, c);
-        const g = t ? tileGlyph(t) : '?';
+        const g = t ? tileGlyph(t, bagHand) : '?';
         if (g === '?') warn(`stage ${stageId}: unknown tile at (${r},${c}) ${t?.tileKey}`);
         line += g;
         if (t && !glyphTiles[g]) {
@@ -3431,7 +3458,7 @@ function buildStages(ctx, modesById) {
         if (blocked.has(k)) { if (buildable) byDevice.push([r, c]); continue; }
         if (waterPlatformAt.has(k)) { melee.push([r, c]); if (!buildable) byDevice.push([r, c]); continue; }
         if (t.heightType === 'LOWLAND' && (bt === 'ALL' || bt === 'MELEE')) melee.push([r, c]);
-        else if (bt === 'RANGED' || (t.heightType === 'HIGHLAND' && bt === 'ALL' && t.tileKey !== 'tile_achand')) rangedOnly.push([r, c]);
+        else if (bt === 'RANGED' || (t.heightType === 'HIGHLAND' && bt === 'ALL' && !HAND_TILES.has(t.tileKey))) rangedOnly.push([r, c]);
       }
       return { melee, rangedOnly, changedByDevices: byDevice };
     };
@@ -4599,11 +4626,9 @@ function validateAll(f) {
     for (const k of Object.keys(w.overrides)) if (!enemies[k]) err(`wave ${w.id}: override for unknown enemy ${k}`);
   }
   for (const s of Object.values(stages)) {
-    // 规程's maps are one 36×55 level holding every field, with tiles of their own — read by its battlefields' work
-    // (the default season's checks stay errors)
-    const geo = SEASON === DEFAULT_SEASON ? err : warn;
-    if (s.rows.length !== 19 || s.rows.some((r) => r.length !== 21)) geo(`stage ${s.id}: not 19x21`);
-    if (s.rows.some((r) => r.includes('?'))) geo(`stage ${s.id}: unknown tile glyph`);
+    // every season's stages are in the 19×21 frame (规程's put there by tools/level-fields.mjs)
+    if (s.rows.length !== 19 || s.rows.some((r) => r.length !== 21)) err(`stage ${s.id}: not 19x21`);
+    if (s.rows.some((r) => r.includes('?'))) err(`stage ${s.id}: unknown tile glyph`);
     if (s.name !== s.id && /[A-Za-z]/.test(s.name)) err(`stage ${s.id}: Latin text in player-facing name "${s.name}"`);
   }
   // the escaped level of 1 / 2 helpers (config.unite.templates) has its map record (kind 'unite'; no field uses it)

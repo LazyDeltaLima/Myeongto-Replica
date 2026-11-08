@@ -239,8 +239,8 @@ tested on both forms through `test/seasons-act3.test.js`. It is not offered as a
 `SP_SEASONS=act3autochess`. Once its file is listed, `.venv-extract/bin/python tools/local-extract/add_operator.py --finish --id
 <charId>` runs the rebuilds that read the kit, in order, and says what arrived: `fetch-assets` plans its model and sounds
 (`dataExtras`), `--season act3autochess` rebuilt after that gives the piece its clips (`attackAnim`), which tests on the swing
-times need. `test/helpers/seasonPieces.js` fields such a piece (its real match path runs on the current season's battlefield
-until 规程's 36×55 maps are read).
+times need. `test/helpers/seasonPieces.js` fields such a piece (its real match path runs on the current season's battlefield,
+so a kit test depends on neither 规程's room modes nor its new enemies; `test/seasons-act3-stages.test.js` fights 规程's own).
 
 ## Testing a kit
 
