@@ -1916,6 +1916,21 @@ function kitDeer(ab, e) {
   ];
 }
 
+/**
+ * 量变之械 (规程, a part of 假想敌：械; table 「首次攻击造成的伤害提升」, SILENCE line): its prefab's Talents/FirstAtkDouble
+ * gives two buffs (official templates of the season's buff_template_data): acfncb[first-atk-dmg-double] (silenceable) —
+ * ON_OUTPUT_DAMAGE: DamageScale × `FirstAtkDouble.damage_scale`, then it finishes — and acfncb[remove-double-buff] (not
+ * silenceable) — ON_AFTER_OUTPUT_DAMAGE: finishes the first and itself. So the first damage it deals is doubled, once;
+ * dealt while silenced, the bonus is gone unused.
+ */
+function kitFirstDouble(ab) {
+  const scale = T(ab, 'FirstAtkDouble.damage_scale') ?? 1;
+  return [
+    { sil: true, hitOut(c) { if (!ab.firstSpent && c.dmg.amount > 0) c.dmg.amount *= scale; } },
+    { dealt() { ab.firstSpent = true; } },
+  ];
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 
 export const BOSS_KITS = Object.freeze({
@@ -1941,6 +1956,8 @@ export const BOSS_KITS = Object.freeze({
   enemy_10029_vtshld: kitEquip,        // 防护背心
   enemy_10030_vtwand: kitEquip,        // 冲击式施术单元
   enemy_9033_acdeer: kitDeer,          // boss_7 “萨米的意志”
+  // 规程 (act3autochess) only — data/seasons/act3autochess/enemies.json
+  enemy_9028_acfncb: kitFirstDouble,   // 量变之械 (假想敌：械's part)
 });
 export const BOSS_KEYS = Object.freeze(Object.keys(BOSS_KITS));
 /** Stage tokens a leader switches on (template `devices`, not in data/enemies.json), spawned as enemies with an inline record. */

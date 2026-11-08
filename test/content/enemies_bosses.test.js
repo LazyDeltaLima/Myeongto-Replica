@@ -17,6 +17,8 @@ import { MOVE_SCALE } from '../../server/sim/constants.js';
 
 const E = JSON.parse(fs.readFileSync(new URL('../../data/enemies.json', import.meta.url), 'utf8'));
 const W = JSON.parse(fs.readFileSync(new URL('../../data/waves.json', import.meta.url), 'utf8'));
+// 规程's own enemies (shared/seasons.js act3autochess): their kits are pinned by test/seasons-act3-enemies.test.js
+const E_ACT3 = JSON.parse(fs.readFileSync(new URL('../../data/seasons/act3autochess/enemies.json', import.meta.url), 'utf8'));
 const { KITS, STATS_ONLY, EROSION, EROSION_BURST } = enemiesMod;
 const { BOSS_KITS, PART_TRANSFER, BLADE_TRANSFER, DRONE_LINK_BASE, droneLinkBase } = bossesMod;
 const { HUSK_REBIRTH, TRANSLATOR_CHANGE } = enemiesMod;
@@ -68,7 +70,7 @@ test('every enemy key is authored (enemies.js / bosses.js) or listed as stats-on
     const n = (KITS[k] ? 1 : 0) + (BOSS_KITS[k] ? 1 : 0) + (STATS_ONLY[k] ? 1 : 0);
     assert.equal(n, 1, `${k} ${E[k].name}`);
   }
-  for (const k of [...Object.keys(KITS), ...Object.keys(BOSS_KITS), ...Object.keys(STATS_ONLY)]) assert.ok(E[k], `unknown key ${k}`);
+  for (const k of [...Object.keys(KITS), ...Object.keys(BOSS_KITS), ...Object.keys(STATS_ONLY)]) assert.ok(E[k] || E_ACT3[k], `unknown key ${k}`);
 });
 
 test('stats-only enemies attach no ability and fight with their data stats', () => {
@@ -89,7 +91,7 @@ const SILENCE_BY_TEMPLATE = new Set(['enemy_1267_nhpbr', 'enemy_1267_nhpbr_2']);
 test('沉默: exactly the abilities whose handbook line is SILENCE-flagged can be silenced (every authored enemy), plus the ones whose client template checks it', () => {
   const h = arena();
   h.step();
-  for (const key of [...Object.keys(KITS), ...Object.keys(BOSS_KITS)]) {
+  for (const key of [...Object.keys(KITS), ...Object.keys(BOSS_KITS)].filter((k) => E[k])) {   // (规程's own: its season test)
     const e = put(h, key, [10, 7]);
     const data = E[key].abilities.some((a) => a.format === 'SILENCE') || SILENCE_BY_TEMPLATE.has(key);
     const kit = !!(e.mem.ab && e.mem.ab.list.some((a) => a && (a.sil || a.silAware)));

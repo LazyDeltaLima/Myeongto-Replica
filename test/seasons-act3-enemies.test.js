@@ -25,7 +25,7 @@ const E3 = ACT3.enemies, E0 = BASE.enemies;
 // the leader fields: the new leaders (假想敌：械 / 茧 / 鳍, 矩兽), their parts and the units of their waves
 const LEADER_FIELD = [
   'enemy_10196_ubba_2', 'enemy_1424_lrboom', 'enemy_1435_dsflys', 'enemy_2124_dyjsfg', 'enemy_9024_acsgnt',
-  'enemy_9027_acfnca', 'enemy_9028_acfncb', 'enemy_9029_acfnc', 'enemy_9029_acfnc_2', 'enemy_9035_acspider',
+  'enemy_9027_acfnca', 'enemy_9029_acfnc', 'enemy_9029_acfnc_2', 'enemy_9035_acspider',
   'enemy_9035_acspider_2', 'enemy_9036_acweb', 'enemy_9037_aceel', 'enemy_9037_aceel_2', 'enemy_9040_accrit',
 ];
 // 特训敌人 entries of 规程 (its new types CRITIC 精锐 / REBORN 重生 among them) and their escorts and offspring
@@ -101,7 +101,7 @@ function bossArena(season, keys, o = {}) {
     kits: { t_wall: NOATK, t_wall2: NOATK }, ...o,
   });
 }
-const put = (h, key, pos, o = {}) => h.spawn(key, { pos, routeIndex: 0, mods: { speedMul: o.move ? 1 : 0 }, tag: 'boss' });
+const put = (h, key, pos, o = {}) => h.spawn(key, { pos, routeIndex: 0, mods: { speedMul: o.move ? 1 : 0 }, tag: o.tag === undefined ? 'boss' : o.tag });
 
 test('规程 假想敌：铳 is blockable outside 【最终之罚】 and shoots its blocker; the default season\'s stays unblockable', () => {
   // the tables: the default season has 「无法被阻挡」 as a line of its own, 规程 only inside 最终之罚 (「技能持续期间」)
@@ -143,4 +143,40 @@ test('规程 假想敌：铳 is blockable outside 【最终之罚】 and shoots 
   assert.ok(c.e.s.flags.unblockable && !c.e.blockedBy, 'unblockable while charging');
   c.h.runUntil(() => !c.e.findBuff('boss:charge'), E3.enemy_9017_achunt.talents.bb['3.duration'] + 1);
   assert.ok(!c.e.s.flags.unblockable, 'blockable again after the charge');
+});
+
+test('规程 enemies with a kit: their silenceable abilities are exactly their SILENCE lines', () => {
+  const { KITS } = enemiesMod, { BOSS_KITS } = bossesMod;
+  const own = [...Object.keys(KITS), ...Object.keys(BOSS_KITS)].filter((k) => !E0[k]);
+  assert.ok(own.length > 0);
+  const h = bossArena(ACT3, own);
+  h.step();
+  for (const key of own) {
+    assert.ok(E3[key], `${key}: a 规程 enemy`);
+    const e = put(h, key, [10, 7]);
+    const data = E3[key].abilities.some((a) => a.format === 'SILENCE');
+    const kit = !!(e.mem.ab && e.mem.ab.list.some((a) => a && (a.sil || a.silAware)));
+    assert.equal(kit, data, key);
+  }
+});
+
+test('量变之械: its first damage is doubled once (FirstAtkDouble.damage_scale); dealt while silenced, the bonus is gone', () => {
+  const key = 'enemy_9028_acfncb', atk = E3[key].stats.atk, scale = E3[key].talents.bb['FirstAtkDouble.damage_scale'];
+  assert.equal(scale, 2);
+  const hits = (silenceFirst) => {
+    const h = bossArena(ACT3, [key], { kind: 'normal', sharedBoss: null, units: [{ chessId: 't_wall', row: 9, col: 6 }] });
+    h.step();
+    const e = put(h, key, [9, 7], { move: true, tag: null });   // walks row 9 into t_wall
+    if (silenceFirst) h.b.applyStatus(e, 'silence', { duration: 1e3, source: null });
+    const w = h.unit('t_wall'), out = [];
+    let last = 0;
+    for (let n = 1; n <= 3; n++) {
+      h.runUntil(() => e.stats.attacks >= n && w.stats.taken > last, 20);
+      out.push(w.stats.taken - last); last = w.stats.taken;
+      if (silenceFirst && n === 1) h.b.removeStatus(e, 'silence');
+    }
+    return out;
+  };
+  assert.deepEqual(hits(false), [atk * scale, atk, atk]);
+  assert.deepEqual(hits(true), [atk, atk, atk]);
 });
