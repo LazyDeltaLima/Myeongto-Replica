@@ -667,10 +667,10 @@
   [추정·CN: 필드 `_shiftLaneWindowAtMapEdge` 켜짐을 이름대로 읽음, 관리자 기억 「아마 밀림」(2026-11-01)과 같음], 줄마다 簇火 하나(`_emitSingleTileLane`), 속도 `wave_speed` 2.3칸/초. 簇火는 판정 반경 `projectile_range` 0.5 안에 적이
   들어오면 터져 반경 `range_radius` 1.5의 적에게 `heatwave_atk_scale` 마법 대미지(대상이 소각 손상 폭발 냉각 중이면 원소 대미지), 같은 물결에 이미 맞은 적은
   `same_wave_repeat_damage_scale`(15%); 터진 簇火는 사라진다. 피해의 공격력은 그 물결을 쏜 때의 값. 「언제든 끌 수 있음」은 위수협의에 수동 종료가 없어
-  옮기지 않는다. 자동 발동은 필드에 적이 하나라도 있으면(키트 `trigger: 'GDGLOW_SKILL_2'`, sim.md 「특수 형」 — 0.2초 패스·블록은 같음; 관리자 결정
-  2026-11-01). 데이터대로라면 스킬 범위(rangeId)가 없어 기본 전략의 공격·저지 상태 = 1-1 안 적일 때만 켜진다. [추정·CN: 새 시즌 `act2autochess
-  skillTriggerDataList`에 탈룰라 행이 아직 없음 — 지금 시즌에서 전장 전체로 넓어지는 수동 S3 셋(골든글로우 `skchr_gdglow_3`·라플란드 더 데카덴차
-  종막 - 재난·에이야퍄들라 더 크비트 아스카 화산의 메아리, 모두 rangeId 없음)이 이 형인 전례를 따름] [추정·CN: 簇火는 배치 방향 반대쪽 맵 끝에서 출발(클래스 이름 `EmitDirectionalMapEdgeProjectileVolley`, 관리자 기억 2026-11-01과 같음),
+  옮기지 않는다. 자동 발동은 SP가 차면 바로(키트 `trigger: 'ALWAYS'` = 엔진 `SP_FULL`, 0.2초 패스·블록은 같음): 새 시즌 `act3autochess`의
+  `skillTriggerDataList`에 탈룰라 S3 행(`char_4247_oxi`, 스킬 3)이 `ALWAYS`로 생겼고(공식 CN 표 2026-11-06 판), 공식 클라의 `AutoChessBattleTrigger`는
+  `ALWAYS`를 수동(MANUAL) 스킬 확인 뒤 다른 조건 없이 시전한다(집기병·전술가·음유시인 분과·위셔델 S3와 같은 형). 지금 시즌 표에는 그녀 행이 없어(선발
+  오퍼레이터) 두 시즌 모두 이 행을 쓴다(관리자 결정 2026-11-08). 2026-11-01~11-08에는 「필드에 적 1명 이상」(`GDGLOW_SKILL_2`)으로 추정했었다. [추정·CN: 簇火는 배치 방향 반대쪽 맵 끝에서 출발(클래스 이름 `EmitDirectionalMapEdgeProjectileVolley`, 관리자 기억 2026-11-01과 같음),
   그녀 뒤 최대 11칸(`_maxBackDistance` — 보통 전장은 이보다 좁아 늘 맵 끝); 적에 안 닿으면 앞쪽 맵 끝 + `wave_exit_distance` 5칸에서 사라짐(관리자 기억
   「아마 맵 끝」)] [추정·자료 없음: 공중 적도 맞음 — 문구에 「地面」이 없음(S1에는 있음)·관리자 기억(2026-11-01), 투사체 프리팹 안 읽음] [추정·CN: 스킬이
   끝나도 날던 簇火는 계속 — 끝낼 노드가 스킬에 없음] [추정·CN: 첫 물결 시점 = 스킬 시작(공식은 능력 이벤트 4), `CheckOxiFireRainSlot`(여러 탈룰라·물결

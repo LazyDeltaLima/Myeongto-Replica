@@ -217,11 +217,12 @@ export default {
         },
         // S3 日冕重烈: ATK +atk, no attacks (mode S3NoAttack), a volley of 簇火 every normal_interval s, from its 过载 (the
         // second half) every overload_interval s over the wider lanes; each wave fires at once when its buff starts.
-        // Cast by the automatic operations with an enemy anywhere on the field (GDGLOW_SKILL_2, the act2autochess row of
-        // the other field-wide MANUAL S3s) instead of the data's DEFAULT (no rangeId: her 1-1 attack state)
-        // [ASSUMED·CN: the new season's skillTriggerDataList has no row for her yet]
+        // Cast by the automatic operations as soon as it is ready: the act3autochess skillTriggerDataList row
+        // (charId char_4247_oxi, skillIndex 2) is ALWAYS, which the client's AutoChessBattleTrigger casts after its MANUAL
+        // check with no other condition. The current season's table has no row for her (she is a 自选 operator there), so
+        // both seasons take the official row instead of the data's DEFAULT (maintainer decision 2026-11-08).
         [S3]: {
-          kind: 'duration', mods: { atkPct: num(b3.atk) }, flags: { disarm: true }, trigger: 'GDGLOW_SKILL_2',
+          kind: 'duration', mods: { atkPct: num(b3.atk) }, flags: { disarm: true }, trigger: 'ALWAYS',
           onStart({ battle, unit }) {
             unit.mem.oxiS3 = { fires: unit.mem.oxiS3?.fires ?? [], waves: unit.mem.oxiS3?.waves ?? 0, next: battle.time, over: false };
           },
