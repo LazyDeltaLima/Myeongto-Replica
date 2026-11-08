@@ -38,7 +38,6 @@ export const UNSOUNDED = {
     'ON_ABILITY_START.sktok_bgsnow_subbow_3': 'none: the typewriter\'s S3 copy signals sktok_bgsnow_3 (its skill id), which has no bank',
   },
   char_180_amgoat: {
-    'ON_PROJECTILE_REACH.projectile_amgoat_s2_b': 'none: no projectile prefab or node of the EN or CN client carries it (S2 fires projectile_amgoat_s2 only, whose HIT sounds)',
     'ON_ABILITY_START.char_180_amgoat_sanrio#2.attack': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
     'ON_PROJECTILE_REACH.projectile_amgoat_sanrio#2': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
     'ON_ABILITY_START.skchr_amgoat_2_sanrio#2': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',

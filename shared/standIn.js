@@ -17,6 +17,18 @@
 import { composeStats, composeTalents } from './loadoutRecord.js';
 import { stripPotential } from './potential.js';
 
+/**
+ * The character a chess record is drawn and fought with: its character template when it names one (`tmplId`: 阿米娅's 医疗 form
+ * char_1037_amiya3, tools/build-data.mjs buildChess), else its `charId`. The client keys the body's model, effects, skills and
+ * buff templates by the template's id; `charId` stays the operator (its name, bonds and ownership).
+ * @param {any} chess a data/chess.json record
+ * @returns {string | null}
+ */
+export function chessBody(chess) {
+  if (typeof chess?.tmplId === 'string' && chess.tmplId) return chess.tmplId;
+  return typeof chess?.charId === 'string' && chess.charId ? chess.charId : null;
+}
+
 /** The key of a unit form: a chess record's `status` as `${phase}/${level}/${skillLevel}/${equipLevel}`. */
 export function statusKey(status) {
   const s = status && typeof status === 'object' ? status : {};

@@ -67,11 +67,20 @@ def chess_records():
         yield from (c for c in (recs.values() if isinstance(recs, dict) else recs) if isinstance(c, dict))
 
 
+def body_id(c):
+    """The character a chess record is drawn and fought with: its character template when it names one (`tmplId`: 阿米娅's 医疗
+    form char_1037_amiya3 — tools/build-data.mjs buildChess), else its `charId`. The client keys that body's charpack, effects,
+    skills and art by the template's id, so every tool reads a chess by this id."""
+    t = c.get('tmplId')
+    return t if isinstance(t, str) and t.startswith('char_') else c.get('charId')
+
+
 def pool_char_ids():
     ids = set(diy_operators())
     for c in chess_records():
-        if isinstance(c.get('charId'), str) and c['charId'].startswith('char_'):
-            ids.add(c['charId'])
+        b = body_id(c)
+        if isinstance(b, str) and b.startswith('char_'):
+            ids.add(b)
     return sorted(ids)
 
 
@@ -92,21 +101,22 @@ def skill_durations():
 
 
 def char_skill_prefabs():
-    """{charId: [skill prefabId, …]} in skill order (every season's chess — chess_records —, then the 선발 picks of data/backups.json)."""
+    """{charId: [skill prefabId, …]} in skill order (every season's chess — chess_records, by its body_id —, then the 선발 picks of data/backups.json)."""
     out = {}
     for c in chess_records():
-        if not isinstance(c.get('charId'), str) or c['charId'] in out:
+        b = body_id(c)
+        if not isinstance(b, str) or b in out:
             continue
         sk = c.get('skills')
         if isinstance(sk, list) and sk:
-            out[c['charId']] = [s.get('prefabId') or s.get('skillId') for s in sk if isinstance(s, dict)]
+            out[b] = [s.get('prefabId') or s.get('skillId') for s in sk if isinstance(s, dict)]
     for cid, sk in diy_operators().items():
         if cid not in out and sk:
             out[cid] = sk
     return out
 
 
-SKILL_MODE_NAME = re.compile(r'^Sk?\d')
+SKILL_MODE_NAME = re.compile(r'^S(?:k|kill)?\d')  # shared/skill-modes.js skillModeIndex: S2, Sk2, Skill2 (奥尔佳)
 
 
 def skill_bundle(client):
@@ -1425,7 +1435,7 @@ def token_records():
     backups = json.loads((ROOT / 'data/backups.json').read_text(encoding='utf-8')).get('tokens') or {}
     # 2026-11-07: a season's own summons (data/seasons/<id>/tokens.json), as tools/build-fx-templates.mjs reads them; their
     # `owners` are chess ids
-    char_of = {c.get('chessId'): c.get('charId') for c in chess_records() if c.get('chessId') and c.get('charId')}
+    char_of = {c.get('chessId'): body_id(c) for c in chess_records() if c.get('chessId') and body_id(c)}
     for f in sorted((ROOT / 'data/seasons').glob('*/tokens.json')):
         for tid, rec in json.loads(f.read_text(encoding='utf-8')).items():
             backups.setdefault(tid, rec)

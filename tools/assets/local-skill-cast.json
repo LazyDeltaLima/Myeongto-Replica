@@ -113,6 +113,25 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_alga_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_alga_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_amgoat_1": {
    "ability": null,
    "cls": "cast",
@@ -137,6 +156,38 @@
    "cls": "cast",
    "reset": 0,
    "state": 0
+  },
+  "skchr_amiya3_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_amiya3_2": {
+   "ability": {
+    "anim": "Skill_2_Begin",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "group": "seq",
+   "reset": 0,
+   "state": 1,
+   "subs": [
+    {
+     "anim": 0,
+     "wait": 1
+    },
+    {
+     "anim": 1,
+     "wait": 1
+    }
+   ]
   },
   "skchr_angel2_1": {
    "ability": null,
@@ -2474,6 +2525,34 @@
   },
   "skchr_mcnist_3": {
    "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_meteo_1": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_meteo_2": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
    "cls": "cast",
    "reset": 0,
    "state": 1

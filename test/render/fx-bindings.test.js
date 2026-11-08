@@ -127,6 +127,9 @@ const UNPLAYED = {
   'dminon_s_3[spread]|dminon_talent_range_hit_01': 'cond',
   'hodrer_s_3[burn]|hodrer_skill_03_Debuff_01': 'condOther',
   'mcnist_s_2_shield|mcnist_skill_02_buff_01_end_02': 'cond',
+  // 奥尔佳 and 阿米娅's 医疗 form (规程 pieces), 2026-11-08: S2's debuff on her target, the trait heal's hit — kit events not wired yet (bundle fx-V)
+  'alga_2|alga_skill_02_debuff': 'condOther',
+  'amiya3_instant_heal|amiya3_characteristic_01_hit': 'unconditional',
   // 묶음 S6 (2026-10-24) — condition rows left: a condition no sim event tells
   'nearl2_s_3[combo_effect]|nearl2_buff_01_start': 'condOther',   // 耀骑士临光 S3: CheckContainsCardBuff (a card's buff nearl2_t_1)
   'ines_t_2[effect2]|ines_range_02': 'cond',   // 伊内丝 T2 by her mode as the talent buff starts (S2's mode 1) [추정: its S2 talent re-creates it]

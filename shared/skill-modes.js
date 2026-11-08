@@ -80,13 +80,13 @@ export function skillModeIndex(modes, i, skillMode = null) {
   let best = -1, rank = 9;
   (Array.isArray(modes) ? modes : []).forEach((name, n) => {
     if (n === 0 || taken.has(n)) return;
-    // (any case: 凯尔希·思衡托's prefab names its modes default / s1 / s2 / s3)
-    const m = /^Sk?(\d)(?:-(\d))?/i.exec(String(name));
+    // (any case: 凯尔希·思衡托's prefab names its modes default / s1 / s2 / s3; 奥尔佳's (CN client, 2026-11-08) Default / Skill2)
+    const m = /^S(?:k|kill)?(\d)(?:-(\d))?/i.exec(String(name));
     if (!m) return;
     const a = Number(m[1]), b = Number(m[2] || m[1]);
     if (k < a || k > b) return;
     const up = String(name).toUpperCase();
-    const r = up === `S${k}` || up === `SK${k}` ? 0 : a !== b ? 1 : up.endsWith('LOOP') ? 2 : 3;
+    const r = up === `S${k}` || up === `SK${k}` || up === `SKILL${k}` ? 0 : a !== b ? 1 : up.endsWith('LOOP') ? 2 : 3;
     if (r < rank) { rank = r; best = n; }
   });
   return best >= 0 ? best : own;

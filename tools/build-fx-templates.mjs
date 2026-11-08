@@ -36,6 +36,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { chessBody } from '../shared/standIn.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REL = 'battle/buff_template_data.json';
@@ -103,7 +104,8 @@ function poolCodes() {
   // would drop them
   for (const f of [...others, join(ROOT, 'data/chess.json')]) {
     const chess = readJson(f);
-    for (const c of Object.values(chess.chess || chess)) if (typeof c?.charId === 'string' && c.charId.startsWith('char_')) chars.add(c.charId);
+    // a chess's body: its character template (阿米娅's 医疗 form char_1037_amiya3 — shared/standIn.js chessBody), else its charId
+    for (const c of Object.values(chess.chess || chess)) { const b = chessBody(c); if (b && b.startsWith('char_')) chars.add(b); }
   }
   const backups = readJson(join(ROOT, 'data/backups.json'));
   for (const id of Object.keys(backups.diy?.operators || {})) if (id.startsWith('char_')) chars.add(id);

@@ -479,7 +479,8 @@ describe('add_operator.py and what it drives (no client needed)', { skip: !PY &&
   // a piece of the hidden season with no kit yet, not in the manifest: whichever is left (the kits are added in bundles)
   const manifest = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
   const season = JSON.parse(readFileSync(path.join(ROOT, 'data/seasons/act3autochess/chess.json'), 'utf8'));
-  const seasonOnly = Object.values(season).map((c) => c.charId).filter(Boolean).sort().find((c) => !manifest.chars[c]) ?? null;
+  // (the tools read a chess by its body: the template a chess names, else its operator — shared/standIn.js chessBody)
+  const seasonOnly = Object.values(season).map((c) => c.tmplId || c.charId).filter(Boolean).sort().find((c) => !manifest.chars[c]) ?? null;
 
   test('anim_keys.py reads every chess operator, in the manifest or not: no order to keep against the kit', { skip: !seasonOnly && 'every piece has its kit' }, () => {
     const ids = run('import anim_keys as k\nprint(json.dumps(k.target_ids()))');

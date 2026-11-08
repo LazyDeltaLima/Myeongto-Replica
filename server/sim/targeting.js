@@ -190,6 +190,8 @@ const PRIORITY_FNS = {
   boss: (e) => (e.isBoss ? 0 : 1),
   // "优先攻击精英或领袖敌人" (upstream's 自选 薇薇安娜 S3): an ELITE / BOSS rank enemy or a leader first
   elite: (e) => (e.isBoss || e.def?.rank === 'ELITE' || e.def?.rank === 'BOSS' ? 0 : 1),
+  // "优先攻击攻击力最高的精英及领袖敌人" (奥尔佳 T1): an ELITE / BOSS rank enemy or a leader first, the highest ATK of them first
+  eliteAtk: (e) => (e.isBoss || e.def?.rank === 'ELITE' || e.def?.rank === 'BOSS' ? -e.s.atk : Number.MAX_SAFE_INTEGER),
   notBurst: (e) => (e.s.flags.burstLock ? 1 : 0),
   ground: (e) => (e.isFlying ? 1 : 0),
   // 攻城手 trait "优先攻击重量最重的敌人" (upstream's 自选 早露 / 提丰): the highest current 重量等级

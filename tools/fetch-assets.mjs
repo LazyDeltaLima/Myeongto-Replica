@@ -74,6 +74,7 @@ import { fontJobs, buildFonts } from './assets/fonts.mjs';
 import { skelParserAvailable } from './assets/skel.mjs';
 import { tidyVoice } from './assets/voice.mjs'; // local patch
 import { isLocalDiyPick } from '../shared/local-diy.js'; // local patch: only the offered 自选 picks get art
+import { chessBody } from '../shared/standIn.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = join(ROOT, 'public', 'assets');
@@ -177,7 +178,7 @@ export function resolveProxyPrefix(source, offline = false, value = process.env.
  * the 自选 owned-6★ picks), `tokenIds` — the summons of the 自选 picks (backups.json `tokens`), `moduleTypes` — the type
  * icon of every module a chess or a unit form offers.
  * A hidden season's piece is planned when its operator has a kit (`seasonPieces`: the records of data/seasons/<id>/chess.json whose
- * charId is listed in SEASON_KIT_FILES; docs/rules/diy.md 「새 시즌 기물을 표 전에 만들기」): it needs its model for its clips and sounds,
+ * body (chessBody: the template, else the charId) is listed in SEASON_KIT_FILES; docs/rules/diy.md 「새 시즌 기물을 표 전에 만들기」): it needs its model for its clips and sounds,
  * and its summons (the record's `tokens`) their models.
  * @param {any} backups data/backups.json (or null)
  * @param {any} chess data/chess.json (or null)
@@ -200,9 +201,11 @@ export function dataExtras(backups, chess, seasonPieces = []) {
   for (const c of Object.values(chess || {})) for (const m of c?.modules || []) if (m.typeIcon) moduleTypes.add(m.typeIcon);
   for (const c of seasonPieces) {
     for (const m of c?.modules || []) if (m.typeIcon) moduleTypes.add(m.typeIcon);
-    if (!c?.charId || extraOperators[c.charId]) continue;
+    // the body it is drawn with (shared/standIn.js chessBody: 阿米娅's 医疗 form is char_1037_amiya3's model and sounds)
+    const body = chessBody(c);
+    if (!body || extraOperators[body]) continue;
     const skills = (c.skills || []).map((sk, i) => ({ index: sk.index ?? i, skillId: sk.skillId, iconId: sk.iconId || sk.skillId }));
-    extraOperators[c.charId] = { name: c.name, subProfessionId: c.subProfessionId, nationId: c.nationId, skills };
+    extraOperators[body] = { name: c.name, subProfessionId: c.subProfessionId, nationId: c.nationId, skills };
   }
   const ownerOf = (key) => String(key).split('@')[0];
   const tokenIds = Object.entries(backups?.tokens || {}) // local patch: no summons of a dropped pick
@@ -215,7 +218,7 @@ export function dataExtras(backups, chess, seasonPieces = []) {
 async function hiddenSeasonPieces() {
   const [chess, kits] = await Promise.all([readJson('data/seasons/act3autochess/chess.json').catch(() => null), import('../server/sim/content/kits/index.js')]);
   const codes = new Set(kits.SEASON_KIT_FILES.map((f) => f.replace(/^op-|\.js$/g, '')));
-  return Object.values(chess || {}).filter((c) => c?.isGolden && c.charId && codes.has(c.charId.replace(/^char_\d+_/, '')));
+  return Object.values(chess || {}).filter((c) => c?.isGolden && chessBody(c) && codes.has(chessBody(c).replace(/^char_\d+_/, '')));
 }
 
 /**

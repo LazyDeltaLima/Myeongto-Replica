@@ -44,7 +44,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from client_path import client_data, client_data_cn, ensure_extract_env  # noqa: E402
-from char_modes import char_skill_prefabs, chess_records, pool_char_ids  # noqa: E402
+from char_modes import body_id, char_skill_prefabs, chess_records, pool_char_ids  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 TOOL = Path(__file__).resolve().parent
@@ -242,7 +242,7 @@ def arrival(cid, manifest, keys, records):
         out.append('no row in .cache/anim-keys.json: its clips keep the roles of the name rule')
     if not ((manifest.get('chars') or {}).get(cid) or {}).get('spine'):
         out.append('no model in data/assets.json: run fetch-assets (no clips, no sounds)')
-    mine = [c for c in records if c.get('charId') == cid]
+    mine = [c for c in records if body_id(c) == cid]
     if mine and not any(c.get('attackAnim') for c in mine):
         out.append('no attackAnim in its chess records: rebuild the data after fetch-assets')
     return out

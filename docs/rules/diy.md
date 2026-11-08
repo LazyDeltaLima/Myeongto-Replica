@@ -1541,3 +1541,29 @@
   - 사일런스 [추정·미조사: BLS-Y 보호막을 소환물은 안 받음 — 3단계라 규정에 없음]·[추정·미조사: 스킬 시작 때 이미 서 있는 야등이 그 스킬의 드론인지].
   - 메커니스트 [추정·CN: CN에만 있는 오퍼레이터라 클라 로직을 못 읽음] — 구조성 원리 금지 치료 깃발, 자동 재배치, S2 회피된 타격의 전율, 그녀가 쓰러진 사이의 돌진, 착지할 칸이 없을 때(5곳).
 - 시험 `test/content/op_slent2.test.js`(11)·`op_hodrer.test.js`(8)·`op_mcnist.test.js`(9): 두 폼·모듈 선택, 세 스킬, 두 재능, 특성, 소환물, 실제 대전 경로(`seasonPieces.js realMatch`). 선발 시험을 규정 기록으로 옮기는 틀은 `seasonPieces.js pieceForms`. 소환물 모델 야등(`token_10029_slent2_protrb`, EN)·구조성 원리(`token_10069_mcnist_mcgraf`, CN)를 `extract.py TOKEN_SPINES`에 더했다.
+
+## 새 시즌 메테오라이트·올가·아미야 (2026-11-08, 관리자 결정 2026-11-05)
+규정의 기물 메테오라이트(陨星 `char_219_meteo`, `chess_char_1_17`, 1티어)·올가(奥尔佳 `char_4245_alga`, `chess_char_3_26`, 3티어, CN에만 있는 오퍼레이터)·아미야(阿米娅 `char_002_amiya`, `chess_char_5_26`, 5티어, 의료 형태). 세 키트는 `SEASON_KIT_FILES`(`op-meteo.js`·`op-alga.js`·`op-amiya3.js`)에 있고 선발 후보가 아니다. 수치는 기물 기록의 블랙보드를 읽는다. 시험 `test/content/op_meteo.test.js`(5)·`op_alga.test.js`(6)·`op_amiya3.test.js`(6): 두 폼, 두 스킬, 재능, 특성·모듈, 실제 대전 경로.
+
+### 메테오라이트 `char_219_meteo` (T1, 포격사수)
+- 특성 「공격 시 범위 물리 대미지」: 분과 프로필 `aoesniper`(`professions.js`)가 맞은 적 둘레 1.0 안의 모든 적에게 같은 대미지를 준다. 공식 클라에서 확인: 포격사수 평타 투사체(`projectile_meteo`, W의 `projectile_chr_cqbw`)의 폭발 범위 `Range` CircleCollider2D 반경 1.0(PRTS 溅射半径一览 1.0과 같음). 프로필은 그전 1.1(스플래시 캐스터 값)이었다 — 지금 시즌에 포격사수 기물이 없고 선발 W 키트는 1.0을 따로 써서 드러나지 않았다. 고쳐도 W와 지금 시즌 전투는 그대로다.
+- 모듈 ART-Y: 공격 시 적 방어력 100 무시(특성 bb `def_penetrate_fixed`, 정예 폼만).
+- 재능 폭발물 부착 개조(`ProbAdditionNextAtkTalent`, `_probKey` prob, 계열 마스크 15 — 평타와 스킬): 공격마다 한 번 굴려 성공하면 그 공격(범위 대미지 포함, S2 포탄도)이 `meteo_t_1`(공격력 +atk, MULTIPLIER)을 지닌 채 나간다.
+- S1 `skchr_meteo_1`(다음 공격, 공격 SP): 공격력 × `atk_scale`, 투사체 `projectile_meteo_s1`의 폭발 반경 2.0(「폭발 범위 확대」).
+- S2 `skchr_meteo_2`(즉발, `_switchToState` 1, `_shouldCastLikeAttack`): 클립의 OnAttack 프레임에 평타가 고를 적 하나에게 포탄(`projectile_meteo_s2`, 속도 8)을 쏘고, 떨어진 곳 1.2 안의 모든 적에게 공격력 × `atk_scale` 물리 대미지와 `meteo_s_2`(방어력 +def — 음수 고정값, `duration`초, 메테오라이트마다 따로: `independentCharacterSource`).
+
+### 올가 `char_4245_alga` (T3, 교관, CN 클라)
+- 특성 「자신이 저지하지 않은 적 공격 시 공격력 120%」(`alga_tr`): 분과 프로필 `instructor`. 모듈 INS-X가 130%로(특성 bb). 공격 선택기는 지상만(`_targetMotion` 1).
+- 재능 선제 기선(先声夺人): 재능 칸(자신과 주변 8칸, 방향과 함께 돎)의 오퍼레이터(`professionMask` 639 = 모든 직군, 소환물·장치 제외)에게 0.1초마다 `alga[check_enemy]`: 공격력 +`alga[atk_up].atk`(MULTIPLIER), 그녀의 공격 범위에 정예·리더 적이 있거나 그녀가 그런 적을 저지 중이면 + `alga[check_enemy].atk`(`CheckEnemyLevelMaskInRange`·`CheckBlockEnemysLevelType`). 올가마다 따로(`independentCharacterSource`).
+- 그녀는 공격력이 가장 높은 정예·리더 적을 먼저 친다(대상 순서 `eliteAtk`, `targeting.js`; 저지한 적이 먼저인 규칙은 그대로). [추정·CN: 공격 선택기의 `_postFilter` 80은 EN 클라에 없는 새 필터라 이름을 못 봄 — 순서는 재능 문구대로]
+- S1 교차 압박(交叉施压, `ReplacementSkill`, 공격 SP, `MultiMeleeAttack` `_additionalTimes` 1, `_triggerDelta` 0.1): 다음 공격이 공격력 × `atk_scale`로 0.1초 간격 두 번(같은 대상, 그 대상이 살아 있고 그녀가 움직일 수 있을 때).
+- S2 오직 나의 답을 위해(只为我的答案, 15초): 모드 Skill2(스킬 범위 3-2 — 「공격 범위 확대」), 공격력 +atk(`alga_2[mode]`), 재능 값 × `talent_scale`(Skill2 모드 재능의 `_applyTalentScale`). 그녀의 물리 공격 대미지(`alga_2[try_add]` ON_AFTER_OUTPUT_DAMAGE)가 대상에게 `alga_2`를 `debuff_duration`초: 정지(`sluggish`)와 `alga_2[taunt]`(도발 등급 + `attack@taunt_level` — 「아군에게 더 쉽게 공격받음」). 그 도발은 그녀가 건 다른 적에게서 사라진다(`FinishBuffsOfEveryEnemyById`, 출처 확인). 도발 등급은 그녀 자신의 대상 순서에도 들어가므로, 그 적이 범위에 있는 동안 그녀도 계속 그 적을 친다.
+- 그녀의 프리팹은 S2 모드를 `S2`가 아니라 `Skill2`로 부른다(모드 Default·Skill2). 스킬 모드 이름 규칙(`shared/skill-modes.js skillModeIndex`, `char_modes.py SKILL_MODE_NAME`)이 `S<n>`·`Sk<n>`에 더해 `Skill<n>`도 읽게 해, S2의 공격 클립 `Skill_2_Loop`·이펙트·모드 전환이 그 모드에서 나온다. 이런 이름은 지금 그녀뿐이다(숫자 없는 `Skill`인 미틈은 그대로).
+- 한국어 이름·문구는 KR 서버에 아직 없어 KR 표의 말투로 손으로 옮겼다(`public/i18n/ko/manual.json`, `docs/I18N.md` 「CN-only texts in Korean」).
+
+### 아미야 `char_002_amiya` 의료 형태 `char_1037_amiya3` (T5, 주술 메딕)
+- 템플릿 기물: 기물은 오퍼레이터 `charId` `char_002_amiya`(이름·맹약·소유)를 들고, 몸은 템플릿 `tmplId` `char_1037_amiya3`(char_patch_table: 능력치·스킬·재능·모듈·모델)이다. 공식 클라는 그 몸의 charpack·이펙트·스킬 프리팹·버프 템플릿을 템플릿 ID로 찾는다. 그래서 키트는 몸의 ID로 둔다(`op-amiya3.js`, 키 `char_1037_amiya3`; `content/index.js kitOf`가 `tmplId`를 먼저 본다). 추출·생성 도구도 기물을 몸으로 읽는다(`shared/standIn.js chessBody`, `char_modes.py body_id` — `fetch-assets`·`build-fx-templates`·`add_operator.py`). 그녀의 기물은 PRESET이라 대체 기물(补位) 경로를 타지 않고, 대체 기록(`backup.tmplId`)이 기물과 같은지는 `build-data`의 짝 검사가 본다.
+- 특성 「법술 대미지, 공격 시 범위 안 아군 1명을 대미지의 50%만큼 치료」(`amiya3_tr` + `TraitHealRange`): 분과 프로필 `incantationmedic`. 모듈 INC-X가 60%로(특성 bb `scale`).
+- 재능 诚挚期许(KR 이름은 KR 표의 char_patch_table에 있음 — 시즌 한국어 덧씌우기 때): 그녀가 전장에 있는 동안 모든 아군 유닛 최대 HP +`max_hp`(`amiya3_t_1`, MULTIPLIER, 범위 없음). 그녀의 스킬이 켜진 동안(S1·S2 모드의 Talents/1) 모든 아군 유닛이 초당 최대 HP의 `hp_recovery_per_sec_by_max_hp_ratio`를 회복(`amiya3_t_1[s]`). [추정·엔진: 오라 갱신 주기 0.2초 — 나중에 배치된 유닛도 곧바로 받게]
+- S1 슬픔의 공감(哀恸共情, 50초, 모드 S1): 공격 속도 +`attack_speed`. 그녀의 공격 대미지마다(`amiya3_s_1` ON_CALCULATE_DAMAGE, 계열 ATTACK) 스킬 범위 x-1 안의 다른 아군 유닛 모두를 공격력 × `heal_scale`만큼 치료(`amiya3_s_1[heal]`, 능력 `amiya3_skill1`; `_excludeTargetType` SOURCE라 자신은 아님).
+- S2 자비의 비전(慈悲愿景, 32초, 전투당 한 번 — `skill_max_trigger_time` 1, `_limitGlobalTriggerTime`): 클립(`S2Attack`, `Skill_2_Begin`)의 OnAttack 프레임에 공격 범위 안 모든 적에게 공격력 × `atk_scale` 법술 대미지와 `amiya3_s_2[debuff]`(공격 속도 + `…attack_speed`, 이동 속도 ×(1 + `…move_speed`), 그 지속 시간). 맞힌 적 하나마다 공격력 +atk(최대 `max_stack_cnt`번, `amiya3_s_2[atk]` — 스킬이 끝날 때 사라짐: `amiya3_s_2[passive]` ON_SKILL_FINISH). 남은 시간은 모드 S2: 공격이 트루 대미지(`_damageType` 3)이고 적 2명을 동시에 친다(그 선택기 `_maxNum` 2). 한 번 쓴 뒤로는 SP가 다시 차지 않는다.

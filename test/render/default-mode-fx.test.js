@@ -33,6 +33,7 @@ test('extracted: the Default mode attach of every operator that has one', () => 
     char_4134_cetsyr: ['cetsyr_buff_01'],           // Default/Body/CommonAbility/Effect cetsyr_common_effect
     char_422_aurora: ['aurora_buff_01'],            // Default/Talents/1 aurora_t_1, a toggled buff: the kit's status draws it (worn), not the mode
     char_426_billro: ['billro_beidong_buff_03'],    // Default/Trait_Eff billro_trait_eff
+    char_4245_alga: ['alga_buff'],                  // Default/Body/Talents/1 alga[check_enemy] `overrideEffectKey` (CN client; its holders' look: bundle fx-V)
   });
 });
 

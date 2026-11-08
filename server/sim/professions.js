@@ -540,8 +540,10 @@ export const SUB = Object.freeze({
   fastshot: P({ priority: 'fly', dmgMul: (b, u, t) => (t.isFlying ? (u.profile.flyScale ?? 1) : 1) }),
   closerange: P({}),
   longrange: P({ priority: 'lowDef' }),
-  aoesniper: P({ splashRadius: 1.1, projectile: 'bomb' }),
-  // PRTS 溅射半径一览 (特性): 投掷手 0.9, 扩散术师 1.1 (格雷伊 1.0, TUNE below), 链术师 1.7 jumps; 炮手 1.0 (none in the pool)
+  // 炮手 "攻击造成群体物理伤害": every enemy within 1.0 of the struck one — the official client: the normal attack projectile
+  // of each 炮手 (projectile_meteo, projectile_chr_cqbw) explodes on a Range CircleCollider2D of radius 1.0; PRTS 溅射半径一览 1.0
+  aoesniper: P({ splashRadius: 1.0, projectile: 'bomb' }),
+  // PRTS 溅射半径一览 (特性): 投掷手 0.9, 扩散术师 1.1 (格雷伊 1.0, TUNE below), 链术师 1.7 jumps; 炮手 1.0
   bombarder: P({ splashRadius: 0.9, projectile: 'bomb', groundOnly: true, canHitFly: false,
     afterHit: (battle, unit, target, info) => {
       // aftershocks: (times − 1) extra hits at append_atk_scale × ATK (default one hit at 50 %) — strike i of the attack

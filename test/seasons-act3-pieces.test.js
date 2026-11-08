@@ -17,7 +17,6 @@ const BASE = getData({ log: { warn() {}, error() {}, info() {} } });
 
 /** charId → the bundle that writes its kit (no kit yet: the generic kit plays it). */
 const NO_KIT = Object.freeze({
-  char_4245_alga: 'sim-I', char_002_amiya: 'sim-I', char_219_meteo: 'sim-I',
   char_347_jaksel: 'sim-J', char_4041_chnut: 'sim-J', char_333_sidero: 'sim-J', char_618_acrbot: 'sim-J',
 });
 
