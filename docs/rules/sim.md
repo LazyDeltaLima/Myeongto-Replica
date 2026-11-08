@@ -2941,3 +2941,11 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 - **장치 별칭**: 규정은 판마다 번호를 다시 쓰고 한 조각 안에서도 겹친다(m05 `sub_02`의 `trap_013_blower#001` 둘). 그래서 지난 시즌(`#001` 자기 판·`#101` 오른쪽·`#201`/`#301` 보스 판)과 달리 장치 하나를 가리키지 않는다. 규정 효과 중 별칭으로 장치를 켜고 끄는 것(`auto_chess_change_map`)은 없으므로 공식 별칭을 그대로 둔다.
 - 어느 모드에 어느 조각이 보이는지(혼자 `sub_01`, 이웃과 `sub_02`)는 CN 클라라 읽지 않았다. 시뮬에는 차이가 없다: 자기 판의 칸·장치·경로가 둘에서 같다. 적 대기 칸이 판 옆에 있는 `sub_01`의 배치는 화면 몫이다(묶음 render-C).
 - 시험: `test/seasons-act3-stages.test.js`(틀·m01 대조·경로·실제 판: 혼자 판이 규정 자기 전장·웨이브·적·보스로 최종 라운드까지).
+
+## 규정 적·보스 (2026-11-08)
+
+규정(`act3autochess`)의 적은 시즌 전용 `data/seasons/act3autochess/enemies.json`(규정 표의 `enemy_database`·`enemy_handbook_table`)으로 돌고, 키트는 지난 시즌과 같은 것(`content/enemies.js`·`bosses.js`)이 그 기록을 읽는다. 지난 시즌 적·보스 중 규정 표에서 동작에 닿게 바뀐 것은 가상적: 총뿐이다(나머지는 특수 적 종류 소속 `acTypes`, 이 모드에 없는 갈대 오라의 `aura.enemy_talent_disabled`, 무게·전투력).
+
+- **가상적: 총 `enemy_9017_achunt`·`_2` 저지**: 지난 시즌은 늘 저지 불가, 규정은 【최종지벌】(最终之罚) 돌진 중에만 저지 불가이고 평소에는 저지되며, 저지되면 저지한 오퍼레이터를 쏜다(그 밖에는 지금처럼 사거리 안 방어력 최고). 근거: 표 — 지난 시즌은 능력 줄 「无法被阻挡」이 따로 있고, 규정(2.7.91 표)은 그 줄이 없고 【최종지벌】 줄에 「技能持续期间，无法被阻挡」, 무게 8 → 10. CN 클라 프리팹(`battle/enm_pfb_28.ab` 11-01 판) — `BLOCK_FREE`가 `CommonAbilities/Ability0`의 상시 버프에서 빠지고 `Modes/S1/Body/Talents/3`의 패시브 버프 `achunt_s_1[speed]`(`abnormalFlags` [3], 돌진 길이)로 옮겨 갔다. `Modes/Default/Body/Combat`이 새로 있다: 일반 공격과 같은 탄·시전 이펙트·`_alwaysIncludeTarget` 1·최대 1, 선택기 `_abnormalFlag` 46(일반 공격 42 — 이 차이는 안 읽음). 적이 저지됐을 때 쓰는 것이 `Combat`이고(`Character._FetchCombatTarget` = 첫 저지 대상), `Combat`이 없는 적은 저지되지 않는다(`Enemy.CheckBlockableWithoutCheckRange`의 `hasCombat`, 공식 클라에서 확인). 키트는 표의 「无法被阻挡」 줄 유무로 시즌을 가른다(`kitGun alwaysFree`).
+- **아직 키트가 없는 적**: 규정 판에 나올 수 있는 적 339종 중 96종 — 보스 판(새 보스 넷과 부품, 그 웨이브의 적) 15, 특수 적 항목과 딸린 호위·자식 69, 적 효과·선택·전략이 부르는 적 12. 지금은 데이터 수치로만 싸운다. 시험 `test/seasons-act3-enemies.test.js`가 목록을 고정하고, 키트가 생기면 목록에서 빼게 한다(목록은 줄기만 한다).
+- 시험: 같은 파일 「规程 假想敌：铳 is blockable…」(지난 시즌 판도 같이: 늘 저지 불가·사거리 안 방어력 최고).

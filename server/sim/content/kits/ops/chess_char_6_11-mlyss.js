@@ -3,13 +3,15 @@
 
 import {
   num, bv, tbb, tdesc, moduleBb, parseN, live, isTok, onDefaultSkill, selectedSkill, AROUND8, N4, bstate, bestTile,
-  pullToward,
+  pullToward, enemiesIn,
 } from '../shared/tier6.js';
 import { holdProtect } from '../shared/tier1.js';
 import { hasPower } from '../shared/powers.js';
 
 /** 莱茵生命: the group tag `rhine` (mlyss_e_003_t templates CheckCharacterGroupTag). */
 const isRhine = (u) => hasPower(u, 'rhine');
+/** The hidden (index −1) module parts of the selected module, each blackboard on its own (moduleBb merges them). */
+const moduleParts = (chess) => (chess?.talents || []).filter((t) => t && t.index === -1 && t.bb).map((t) => t.bb);
 
 // ------------------------------------------------------------------------------------------------------------------
 // 缪尔赛思 chess_char_6_11 (战术家) — S3 浅层非熵适应; 净水即生命 (流形); 开源节流; module 梳妆流形
@@ -73,7 +75,15 @@ function mlyss(bb, chess, def) {
   const manifoldMods = { atkPct: num(bb.atk), ...(num(bb.attack_speed) ? { aspd: num(bb.attack_speed) } : {}) };
   const buffManifold = (battle, t, dur) => battle.addBuff(t, { key: 'mlyss:s3', mods: manifoldMods, duration: dur });
   // module 落叶四季 (开源节流): copying a 莱茵生命 operator ⇒ she gains `sp`; deploying the copied one ⇒ it gains `sp_other`
-  const rhineSp = num(mod.sp), rhineSpOther = num(mod.sp_other);
+  // (TAC-Y's hidden part: `sp` beside `sp_other`; TAC-D's hidden part has an `sp` of its own, for the 流形)
+  const rhineSp = 'sp_other' in mod ? num(mod.sp) : 0, rhineSpOther = num(mod.sp_other);
+  // module TAC-D (“缪尔赛思和朋友们”): "自身与援军造成伤害时附带相当于12%伤害的侵蚀损伤" (ep_damage_ratio); 净水即生命 +
+  // "缪尔赛思或流形攻击范围内有敌人侵蚀损伤爆发后，对其造成相当于缪尔赛思攻击力400%元素伤害且流形获得80点技力" (atk_scale / sp of
+  // the part beside it)
+  const tacD = moduleParts(chess).find((b) => 'ep_damage_ratio' in b) ? moduleParts(chess) : null;
+  const erosionRatio = tacD ? num(tacD.find((b) => 'ep_damage_ratio' in b).ep_damage_ratio) : 0;
+  const burstPart = tacD?.find((b) => 'atk_scale' in b && 'sp' in b) ?? {};
+  const burstScale = num(burstPart.atk_scale), burstSp = num(burstPart.sp);
   const tokTal = (t, key) => { for (const x of t.def?.talents || []) if (x?.bb && typeof x.bb[key] === 'number') return x.bb; return {}; };
   // "其被击败后会在25秒后自动刷新" (token talent interval; the talent text as a fallback)
   const respawnOf = (t) => num(tokTal(t, 'scale').interval, parseN(tdesc(def, 0), /(\d+(?:\.\d+)?)秒后自动刷新/, 25));
@@ -308,6 +318,30 @@ function mlyss(bb, chess, def) {
           }
         }, { owner: unit });
       } },
+      ...(tacD ? [{ install(battle, unit) { // module TAC-D: erosion on her and her 流形's damage; the burst's 元素伤害 and SP
+        const mine = (t) => isTok(t, tokId, unit) || (!!t && t === unit.trait?.reinforcement);
+        if (erosionRatio > 0) {
+          battle.on('damaged', (ctx) => {
+            const s = ctx.source, t = ctx.target;
+            if ((s !== unit && !mine(s)) || !t || t.side !== 'enemy' || !t.alive || !(ctx.amount > 0)) return;
+            if (ctx.dmg?.type === 'element' || ctx.dmg?.type === 'elemental') return; // not on its own erosion / the burst hit
+            battle.dealDamage(s, t, { type: 'element', element: 'erosion', amount: ctx.amount * erosionRatio, tags: ['module'] });
+          }, { owner: unit });
+        }
+        if (burstScale > 0 || burstSp > 0) {
+          battle.on('elementBurst', ({ target, element }) => {
+            if (element !== 'erosion' || !target || target.side !== 'enemy' || !live(unit)) return;
+            const copies = battle.allyUnits.filter((t) => isTok(t, tokId, unit) && live(t));
+            const near = enemiesIn(battle, unit).includes(target) || copies.some((t) => enemiesIn(battle, t).includes(target));
+            if (!near) return;
+            if (burstScale > 0 && target.alive) battle.dealDamage(unit, target, { amount: unit.s.atk * burstScale, type: 'elemental', element: 'erosion', tags: ['module'] });
+            // [ASSUMED·CN: "流形获得80点技力" names no 流形 — every 流形 of hers on the field; the module is CN-only so far]. In this
+            // mode it lands nowhere: a 流形's copy skill runs the whole battle (SP is not gained while a skill runs) and its
+            // split copies have no skill
+            if (burstSp > 0) for (const t of copies) t.skill?.gainSp(burstSp, 'talent');
+          }, { owner: unit });
+        }
+      } }] : []),
       { install(battle, unit) { // 开源节流: 莱茵生命 ops of the owner cost less DP to redeploy
         const S = bstate(battle);
         S.rhine ??= new Set();

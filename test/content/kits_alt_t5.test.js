@@ -1629,3 +1629,24 @@ test('圣约送葬人 module REA-Y: the reaper heal stays the base 50 per enemy 
     done(h);
   }
 });
+
+test('号角 ISW-A (号角特限证章) and 凛御银灰 CSR-X (邀约): only their stats in this mode — the trait is 集成战略\'s, the cost cut a deployment cost', () => {
+  for (const [id, moduleId] of [['chess_char_5_08_b', 'uniequip_004_horn'], ['chess_char_5_14_b', 'uniequip_002_svash2']]) {
+    const m = raw(id).modules.find((x) => x.uniEquipId === moduleId);
+    assert.ok(m, `${id}: ${moduleId} is a choice`);
+    const plainDef = ds.getChess(id, { moduleId: 'none' }), def = ds.getChess(id, { moduleId });
+    assert.equal(def.stats.maxHp, plainDef.stats.maxHp + m.attr.maxHp, `${moduleId}: HP + attr`);
+    assert.equal(def.stats.atk, plainDef.stats.atk + m.attr.atk, `${moduleId}: ATK + attr`);
+    assert.equal(def.stats.def, plainDef.stats.def + (m.attr.def ?? 0), `${moduleId}: DEF + attr`);
+    const h = run({
+      defs: { enemies: { enemy_walk: enemyRec({ key: 'enemy_walk', hp: 1e7, speed: 1 }) } },
+      units: [{ chessId: id, row: 9, col: 5, moduleId, carryState: { sp: 999 } }], enemies: [{ key: 'enemy_walk', route: 0, time: 1 }],
+    });
+    const u = h.unit(id);
+    h.run(20);
+    assert.equal(u.s.aspd, u.base.aspd, `${moduleId}: no FOR-Y ASPD`);
+    assert.ok(!u.profile.dmgMul, `${moduleId}: no FOR-X blocked bonus`);
+    assert.ok(dealt(h, u).length > 0, `${moduleId}: fights`);
+    done(h);
+  }
+});
