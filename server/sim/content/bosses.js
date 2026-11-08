@@ -1932,6 +1932,276 @@ function kitFirstDouble(ab) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// 假想敌：械 (规程 boss_11 / boss_14 隐秘核心) + 冲击之械 — official CN client prefabs enemy_9029_acfnc(_2) /
+// enemy_9027_acfnca and their templates in 规程's buff_template_data (acfnc*, acfnca*), projectiles
+// projectile_enemy_acfnc(_2) / projectile_enemy_acfnca
+
+const FNC_PART = 'enemy_9028_acfncb', FNC_ARMOR = 'enemy_9027_acfnca';
+const isFncArmor = (o) => o.alive && o.defId === FNC_ARMOR;
+/** acfnc[insert-cp]: the part's horizontal direction from the boss (SharedConsts.Direction LEFT = 3) picks the branch. */
+const FNC_BRANCH = Object.freeze({ L: 'left_acfncb', R: 'right_acfncb' });
+/** The normal attack reaches the whole field (table rangeRadius −1). */
+const FNC_FIELD = 99;
+/** projectile_enemy_acfnc_2: bounces fly `_speedAfterFirstReach` 4, × `_atkScaleRatePerBounce` 0.8 each. */
+const FNC_BOUNCE_SPEED = 4, FNC_BOUNCE_FALLOFF = 0.8;
+/** projectile_enemy_acfnca (【威光冲击】's area): a laser from one 冲击之械 to the other, `_laserWidth` 2.9. */
+const FNC_LASER_HALF = 2.9 / 2;
+/** acfnca[buff_executor] / [fastest_executor] / [falldown-trigger] / [no-char-executor] check every 0.25 / 0.5 s. */
+const FNC_FALL_CHECK = 0.25, FNC_AHEAD_CHECK = 0.5;
+/**
+ * [추정·CN] ranges the prefabs leave to the client's code: the rows a flying 冲击之械 counts operators on (AuraCheck,
+ * HasCharacterInCertainDirection — taken as the laser's band, its row ± 1), the operator its 砸下 hits (FalldownImpl's
+ * selector names no range: the nearest within one tile), how close it must come to the hidden 械 for KillArmorAura
+ * (one tile — it spawns two away) and the bounce pick (RANDOM, no radius given: the whole field).
+ */
+const FNC_BAND = 1, FNC_SLAM_TILES = 1, FNC_TOUCH = 1;
+
+/**
+ * 假想敌：械. Self-bound (CommonAbilities/Unmovable: UNMOVABLE 束缚 + BLOCK_FREE + UNBALANCE_IMMUNE), it shoots one ground
+ * operator anywhere (HATRED_DES, `_targetMotion` 1). Every damage it deals (acfnc_t1, ON_AFTER_OUTPUT_DAMAGE) summons one
+ * 量变之械 on the nearest passable tile of the 3×3 (`x-4`) round its target; a part walks to that target's tile first
+ * (acfnc[insert-cp] InsertCheckPointInRuntimeRoute, when reachable), then the branch of its side (`left_acfncb` /
+ * `right_acfncb`) to the exit. 【洪流攻势】 (SommonSquad — 规程 boss_11: SP 25, boss_14: cooldown 45): the operator with the
+ * highest block count (BLOCK_COUNT_DES) and the other player's one (selector 1, `_autoChessFilterType` 1 [추정·CN: read as
+ * "another player's"; alone, one target]), each gets a 量变之械 on every passable tile of its four sides (acfnc[skill]).
+ * 冲击之械 come from the template branch `acfnca` (two, row 4 beside it) with acfnc[armor]: damage the boss takes from an
+ * attacker beyond a 冲击之械 (its grid column on the far side of that 冲击之械, CheckAxisRelativeDirection EQUAL_ALLOW_ZERO
+ * negated) × (1 − `Armor.damage_scale`). boss_11 summons them once, at `Armor.hp_ratio` HP (acfnc_t2[summon] every 0.5 s,
+ * acfnc[finish_t2]); boss_14 at once (acfnc_t2[summon-immediately]), launches them (LaunchArmor, its WithArmor mode only,
+ * cooldown 10 → acfnc[after-launch] back to Default), re-summons them at SP 45 (SkSummonArmor: kills the old ones) and
+ * loses them all when one is pushed into it (KillArmorAura); its shot bounces (`attack@hit_times` hits in all, RANDOM next
+ * target, the same one if alone, × 0.8 per bounce — projectile_enemy_acfnc_2), each hit summoning a part.
+ */
+function kitMachine(ab, e, b, tpl) {
+  const hidden = /_2$/.test(e.defId);
+  const cut = T(ab, 'Armor.damage_scale') ?? 0, hpLine = T(ab, 'Armor.hp_ratio');
+  const hits = Math.max(1, Math.round(T(ab, 'Summon.attack@hit_times') ?? 1));
+  const squad = ab.sk.SommonSquad, launch = ab.sk.LaunchArmor, resummon = ab.sk.SkSummonArmor;
+  const gSquad = skillSp(e, squad), gRe = skillSp(e, resummon);
+  const P = { armorOn: false, summoned: false, turn: -1 };
+  const ground = (b2) => allTargets(b2, e).filter((u) => !u.isFlying);
+  const mine = (b2) => b2.enemies.filter((o) => isFncArmor(o) && o.mem.fnc && o.mem.fnc.host === e);
+  const spawnPart = (b2, t, tile) => {
+    const side = tile[1] < Math.round(e.x) ? 'L' : 'R';
+    const br = branchRoute(tpl, FNC_BRANCH[side]);
+    const end = br && Array.isArray(br.end) ? br.end : toGoal(b2, tile[1], tile[0]).end;
+    const cp = t && b2.grid.walkable(t.tileR, t.tileC) ? [[t.tileR, t.tileC]] : [];
+    return b2.spawnEnemy(FNC_PART, { route: { motion: 'WALK', start: tile, end, checkpoints: cp }, pos: tile, countInTotal: false, mods: summonMods(b2) });
+  };
+  const partNear = (b2, t) => { // `_summonOnNearestPassableTile` within x-4 (the 3×3) of the target
+    let best = null, bd = Infinity;
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      const r = t.tileR + dr, c = t.tileC + dc;
+      if (!b2.grid.walkable(r, c)) continue;
+      const d = hypot(c - t.x, r - t.y);
+      if (d < bd - 1e-9) { bd = d; best = [r, c]; }
+    }
+    if (best) spawnPart(b2, t, best);
+  };
+  const killArmors = (b2) => { for (const o of mine(b2)) b2.kill(o, null); };
+  const summonArmor = (b2, e2, kill) => { // acfnc[summon_armor] (kill = EnemyKillToken first) / acfnc_t2[summon-immediately]
+    if (kill) killArmors(b2);
+    const br = tpl && tpl.branches && tpl.branches.acfnca;
+    const phase = Array.isArray(br) && Array.isArray(br[0]) ? br[0] : [];
+    const r0 = Math.round(e2.y) + 1, c0 = Math.round(e2.x);
+    const list = phase.length ? phase.map((s) => tpl.extraRoutes && tpl.extraRoutes[s.routeIndex]).filter(Boolean)
+      : [{ start: [r0, c0 - 2], end: [r0, b2.rect.c0 + 1] }, { start: [r0, c0 + 2], end: [r0, b2.rect.c1 - 1] }];
+    for (const rt of list) {
+      const o = b2.spawnEnemy(FNC_ARMOR, { route: { motion: 'FLY', start: rt.start, end: rt.start, checkpoints: [] }, pos: rt.start, countInTotal: false, mods: summonMods(b2) });
+      if (!o) continue;
+      // acfnca[init]: on the boss's column it kills itself; else is-left / is-right
+      if (Math.round(o.x) === c0) { b2.kill(o, null); continue; }
+      o.mem.fnc = { host: e2, side: Math.round(o.x) < c0 ? -1 : 1, end: rt.end, state: 'hover' };
+    }
+    P.armorOn = true;
+    enemyMode(b2, e2, 'WithArmor');
+    if (launchA) launchA.left = launchA.icd;   // the mode's LaunchArmor attaches anew (`_resetCdWaitFirstPeriod`)
+  };
+  const launchA = hidden && launch ? {
+    name: launch.name, cd: launch.cd, icd: launch.icd, cond: (b2) => P.armorOn && mine(b2).some((o) => o.mem.fnc.state === 'hover'),
+    fire(b2, e2) { // acfnc[trigger-armor-launch] on its 冲击之械, then acfnc[after-launch]: Default mode
+      for (const o of mine(b2)) if (o.mem.fnc.state === 'hover' && o.mem.ab && o.mem.ab.launch) o.mem.ab.launch(b2, o);
+      P.armorOn = false;
+      enemyMode(b2, e2, null);
+    },
+  } : null;
+  const bounce = (b2, e2, from, k) => { // the next hop of projectile_enemy_acfnc_2
+    if (k >= hits || !e2.alive) return;
+    const others = ground(b2).filter((u) => u !== from);
+    const nx = others.length ? b2.rng.pick(others) : (from.alive ? from : null);
+    if (!nx) return;
+    shoot(b2, from, nx, { key: 'projectile_enemy_acfnc_2', move: 'TRACE_TARGET_WITH_SPEED', speed: FNC_BOUNCE_SPEED }, (t) => {
+      if (!t || !t.alive || !e2.alive) return;   // `_dontHitWhenTargetDead`
+      b2.dealDamage(e2, t, { amount: e2.s.atk * powi(FNC_BOUNCE_FALLOFF, k), type: 'phys', isAttack: true, tags: ['fncBounce'] });
+      bounce(b2, e2, t, k + 1);
+    }, { source: e2 });
+  };
+  return [
+    {
+      spawn(b2, e2) {
+        b2.addBuff(e2, { key: 'boss:selfBound', persist: true, flags: { bind: true, noMove: true, unblockable: true, noDisplace: true } });
+        e2.base.rangeRadius = FNC_FIELD;
+        if (hidden) summonArmor(b2, e2, false);
+      },
+      before(c, b2, e2) { const l = fairOrder(b2, e2, ground(b2), P); if (l.length) c.targets = [l[0]]; },
+      dealt(c, b2, e2) {
+        const t = c.target;
+        if (!t) return;
+        if (c.amount > 0) partNear(b2, t);
+        if (hidden && !(c.dmg.tags || []).includes('fncBounce')) bounce(b2, e2, t, 1);
+      },
+      hitIn(c, b2) { // acfnc[armor-damage-scale], one per 冲击之械
+        const s = c.source;
+        if (!s || !(cut > 0) || c.dmg.type === 'element') return;
+        const sc = Math.round(s.x);
+        for (const o of mine(b2)) if (Math.sign(sc - Math.round(o.x)) === o.mem.fnc.side) c.dmg.mul *= 1 - cut;
+      },
+    },
+    !hidden && hpLine != null && {
+      iv: 0.5,
+      tick(b2, e2) { // acfnc_t2[summon]: HP ≤ `Armor.hp_ratio` → SummonArmor, once (acfnc[finish_t2])
+        if (P.summoned || !(e2.hpRatio <= hpLine + 1e-9)) return;
+        P.summoned = true;
+        summonArmor(b2, e2, true);
+      },
+    },
+    squad && {
+      name: squad.name, cd: squad.cd, icd: squad.icd,
+      cond: (b2) => (!gSquad || gSquad.ready()) && ground(b2).some((u) => u.kind === 'op'),
+      fire(b2, e2) { // 【洪流攻势】
+        if (gSquad) gSquad.spend(e2);
+        const ops = byPriority(e2, ground(b2).filter((u) => u.kind === 'op')).sort((p, q) => (q.s.blockCnt || 0) - (p.s.blockCnt || 0));
+        const first = ops[0];
+        if (!first) return;
+        const picks = [first];
+        const second = ops.find((u) => u.ownerId !== first.ownerId);
+        if (second) picks.push(second);
+        for (const t of picks.slice(0, squad.bb.batch_max_target ?? 2)) {
+          let n = 0;
+          for (const [dr, dc] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+            if (n >= (squad.bb.cnt ?? 4)) break;
+            const r = t.tileR + dr, c = t.tileC + dc;
+            if (b2.grid.walkable(r, c) && spawnPart(b2, t, [r, c])) n++;
+          }
+          b2.fx('summon', { x: t.x, y: t.y, id: e2.id, tgt: t.id, kind: 'acfncSquad' });
+        }
+      },
+    },
+    launchA,
+    hidden && resummon && {
+      name: resummon.name, cd: resummon.cd, icd: resummon.icd, cond: () => !gRe || gRe.ready(),
+      fire(b2, e2) { if (gRe) gRe.spend(e2); summonArmor(b2, e2, true); },   // 【衰颓与复兴】
+    },
+    hidden && {
+      tick(b2, e2) { // KillArmorAura: a 冲击之械 that reaches it → every 冲击之械 goes, the boss back to Default
+        if (!mine(b2).some((o) => o.mem.fnc.state !== 'hover' && Math.abs(o.x - e2.x) <= FNC_TOUCH + 1e-9 && Math.abs(o.y - e2.y) <= FNC_BAND + 0.5)) return;
+        killArmors(b2);
+        P.armorOn = false;
+        enemyMode(b2, e2, null);
+      },
+    },
+    gSquad && gSquad.ab, gRe && gRe.ab,
+  ];
+}
+
+/**
+ * 冲击之械 (no attack; CommonAbilities/Ability0: invincible + UNMOVABLE_PRIVATE + BLOCK_FREE / UNBALANCE_IMMUNE). Only a
+ * hidden 械's LaunchArmor launches it ("未释放【威光冲击】时无法被攻击"): Launch → MoveMode (move speed × `MoveSpeed.move_speed`,
+ * FINAL_SCALER) along its branch route outward. AuraCheck counts each operator it passes (acfnca[pass-cnt], a stack on it
+ * that leaves when that operator does); it comes down (FalldownImpl, ATK × `atk_scale` phys on one operator) where the
+ * `Falldown.max_valid_stack_cnt`-th was counted, else past the last operator ahead (acfnca[no-char-executor]), else at its
+ * route's end (IsEnemyReached). Down (AfterFalldown) it can be hit, and every `Init.damage_threshold` damage it takes moves it
+ * `Init.move_step` back toward the boss (at most `Init.max_offset_per_second`); its Bound casts projectile_enemy_acfnca once
+ * at the other 冲击之械 — a laser following it, operators inside get ATTACK_SPEED + `Bound.attack_speed`.
+ */
+function kitArmor(ab, e) {
+  const fallN = T(ab, 'Falldown.max_valid_stack_cnt') ?? 5, speed = T(ab, 'MoveSpeed.move_speed') ?? 1;
+  const thr = T(ab, 'Init.damage_threshold') ?? Infinity, step = T(ab, 'Init.move_step') ?? 0, cap = T(ab, 'Init.max_offset_per_second') ?? 0;
+  const slam = ab.sk.FalldownImpl, bound = ab.sk.Bound;
+  const F = () => e.mem.fnc || { side: 1, state: 'hover' };
+  const P = { passed: new Set(), triggerX: null, aheadCheck: 0, fallCheck: 0, sawAhead: false, acc: 0, pending: 0, laser: null };
+  const band = (u) => Math.abs(u.tileR - Math.round(e.y)) <= FNC_BAND;
+  const ops = (b2) => b2.allies().filter((u) => u.alive && u.deployed && u.kind === 'op' && band(u));
+  const ahead = (b2, self) => { // HasCharacterInCertainDirection: an operator further along its way (its own column with `_includeSelfPos`)
+    const c = Math.round(e.x), s = F().side;
+    return ops(b2).some((u) => (self ? (u.tileC - c) * s >= 0 : (u.tileC - c) * s > 0));
+  };
+  const fall = (b2, e2) => { // FalldownImpl
+    const f = F();
+    f.state = 'down';
+    b2.removeBuff(e2, 'boss:hover');
+    b2.removeBuff(e2, 'boss:armorFly');
+    enemyMode(b2, e2, 'AfterFalldown');
+    let best = null, bd = Infinity;
+    for (const u of areaAlliesInTiles(b2, e2, Math.round(e2.y), Math.round(e2.x), 'box', FNC_SLAM_TILES)) {
+      const d = hypot(u.x - e2.x, u.y - e2.y);
+      if (d < bd) { bd = d; best = u; }
+    }
+    b2.fx('explode', { x: e2.x, y: e2.y, r: 0.6, kind: 'acfncaFall', id: e2.id });
+    if (best && slam) hurt(b2, e2, best, e2.s.atk * (slam.bb.atk_scale ?? 1), 'phys', { tags: ['acfncaFall'] });
+    // Bound: at the other 冲击之械 that has no laser yet (acfnca[casted-proj] on both ends)
+    const other = b2.enemies.find((o) => isFncArmor(o) && o !== e2 && o.mem.fnc && o.mem.fnc.host === f.host && !o.mem.fnc.lasered);
+    if (other && !f.lasered) { f.lasered = true; other.mem.fnc.lasered = true; P.laser = other; }
+  };
+  ab.launch = (b2, e2) => { // Launch → MoveMode
+    const f = F();
+    f.state = 'fly';
+    enemyMode(b2, e2, 'MoveMode');
+    b2.addBuff(e2, { key: 'boss:armorFly', persist: true, mods: { moveMul: speed } });
+    b2.fx('charge', { x: e2.x, y: e2.y, id: e2.id, tx: f.end ? f.end[1] : e2.x, ty: f.end ? f.end[0] : e2.y, kind: 'acfncaLaunch' });
+  };
+  return [
+    {
+      spawn(b2, e2) {
+        b2.addBuff(e2, { key: 'boss:hover', persist: true, visible: true, flags: { invulnerable: true, untargetable: true } });
+        b2.addBuff(e2, { key: 'boss:anchor', persist: true, flags: { noMove: true, selfBound: true, unblockable: true, noDisplace: true } });
+        e2.profile.noAttack = true;
+      },
+      taken(c) { // SetTakeDamageMoveBackEnemyParam
+        if (!(c.amount > 0) || !(thr > 0) || F().state !== 'down') return;
+        P.acc += c.amount;
+        while (P.acc >= thr) { P.acc -= thr; P.pending += step; }
+      },
+      tick(b2, e2, a, dt) {
+        const f = F();
+        if (f.state === 'fly' && canCast(e2, false, b2)) {
+          for (const u of ops(b2)) if (Math.abs(u.x - e2.x) <= 0.5) P.passed.add(u);      // AuraCheck, once per operator
+          for (const u of [...P.passed]) if (!u.alive || !u.deployed) P.passed.delete(u);   // its pass-cnt finishes with it
+          const to = f.end || [Math.round(e2.y), e2.x];
+          const reached = stepToward(e2, to[1], e2.y, e2.s.moveSpeed * MOVE_SCALE * dt);
+          if ((P.fallCheck += dt) >= FNC_FALL_CHECK - 1e-9) {
+            P.fallCheck = 0;
+            if (P.triggerX == null && P.passed.size >= fallN) P.triggerX = Math.round(e2.x);   // buff_executor: its root tile
+          }
+          if ((P.aheadCheck += dt) >= FNC_AHEAD_CHECK - 1e-9) {
+            P.aheadCheck = 0;
+            if (!P.sawAhead) { if (ahead(b2, true)) P.sawAhead = true; }   // fastest_executor
+            else if (P.triggerX == null && !ahead(b2, false)) P.triggerX = Math.round(e2.x);   // no-char-executor
+          }
+          if (P.triggerX != null && (e2.x - P.triggerX) * f.side >= -1e-9) fall(b2, e2);       // falldown-trigger
+          else if (reached) fall(b2, e2);                                                     // IsEnemyReached
+          return;
+        }
+        if (f.state !== 'down') return;
+        if (P.pending > 0 && f.host && f.host.alive) { // moves back toward the boss
+          const d = Math.min(P.pending, cap * dt);
+          P.pending -= d;
+          e2.x -= f.side * Math.min(d, Math.max(0, (e2.x - f.host.x) * f.side));
+        }
+        const o = P.laser;
+        if (!o) return;
+        if (!o.alive || !isFncArmor(o)) { P.laser = null; return; }   // `_stopIfTargetDead`
+        for (const u of b2.allies()) {
+          if (!u.alive || !u.deployed || !areaSelectable(e2, u) || segDist(u.x, u.y, e2.x, e2.y, o.x, o.y) > FNC_LASER_HALF) continue;
+          b2.addBuff(u, { key: 'boss:acfncaArea', duration: 0.15, refresh: 'replace', visible: true, mods: { aspd: bound ? bound.bb.attack_speed ?? 0 : 0 } });
+        }
+        if ((a.linkAt ?? -Infinity) <= b2.time - 1 + 1e-9) { a.linkAt = b2.time; b2.fx('link', { x: e2.x, y: e2.y, from: e2.id, to: o.id, kind: 'acfncaLaser', dur: 1 }); }
+      },
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 
 export const BOSS_KITS = Object.freeze({
   enemy_9013_acstmk: kitHelm,          // boss_1 假想敌：胄
@@ -1958,6 +2228,9 @@ export const BOSS_KITS = Object.freeze({
   enemy_9033_acdeer: kitDeer,          // boss_7 “萨米的意志”
   // 规程 (act3autochess) only — data/seasons/act3autochess/enemies.json
   enemy_9028_acfncb: kitFirstDouble,   // 量变之械 (假想敌：械's part)
+  enemy_9029_acfnc: kitMachine,        // boss_11 假想敌：械
+  enemy_9029_acfnc_2: kitMachine,      // boss_14 假想敌：械 (隐秘核心)
+  enemy_9027_acfnca: kitArmor,         // 冲击之械
 });
 export const BOSS_KEYS = Object.freeze(Object.keys(BOSS_KITS));
 /** Stage tokens a leader switches on (template `devices`, not in data/enemies.json), spawned as enemies with an inline record. */

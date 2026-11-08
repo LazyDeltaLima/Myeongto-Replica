@@ -25,7 +25,7 @@ const E3 = ACT3.enemies, E0 = BASE.enemies;
 // the leader fields: the new leaders (假想敌：械 / 茧 / 鳍, 矩兽), their parts and the units of their waves
 const LEADER_FIELD = [
   'enemy_10196_ubba_2', 'enemy_1424_lrboom', 'enemy_1435_dsflys', 'enemy_2124_dyjsfg', 'enemy_9024_acsgnt',
-  'enemy_9027_acfnca', 'enemy_9029_acfnc', 'enemy_9029_acfnc_2', 'enemy_9035_acspider',
+  'enemy_9035_acspider',
   'enemy_9035_acspider_2', 'enemy_9036_acweb', 'enemy_9037_aceel', 'enemy_9037_aceel_2', 'enemy_9040_accrit',
 ];
 // 特训敌人 entries of 规程 (its new types CRITIC 精锐 / REBORN 重生 among them) and their escorts and offspring
@@ -179,4 +179,113 @@ test('量变之械: its first damage is doubled once (FirstAtkDouble.damage_scal
   };
   assert.deepEqual(hits(false), [atk * scale, atk, atk]);
   assert.deepEqual(hits(true), [atk, atk, atk]);
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// 假想敌：械 (boss_11 / boss_14) on its own field: stage act3autochess_m01, wave act3autochess_h07_08 (the boss on (3, 10),
+// the 冲击之械 branch `acfnca` on row 4 at columns 8 / 12, parts' branches left_acfncb / right_acfncb)
+
+const seasonJson = (f) => JSON.parse(readSeason(f));
+const FNC_TPL = seasonJson('waves.json').act3autochess_h07_08;
+const M01 = seasonJson('stages.json').act3autochess_m01;
+const FNC = 'enemy_9029_acfnc', FNC2 = 'enemy_9029_acfnc_2', ARMOR = 'enemy_9027_acfnca', PART = 'enemy_9028_acfncb';
+
+/** The 械 field with walls (ground tiles of m01: (4, 4), (5, 6), (5, 8)); the template reaches the kits through the opts only. */
+function machineField(key, { hp = 1e7, walls = [['t_wall', 4, 4], ['t_wall2', 5, 6]] } = {}) {
+  const h = bossArena(ACT3, [key, ARMOR, PART], {
+    stage: M01, sharedBoss: { hp, maxHp: 1e7, damage(_pid, a) { this.hp = Math.max(0, this.hp - a); } },
+    units: walls.map(([chessId, row, col]) => ({ chessId, row, col })),
+    setup(b) { b.opts.waveTemplate = FNC_TPL; },
+  });
+  h.step();
+  const boss = h.spawn(key, { pos: [3, 10], routeIndex: 0, tag: 'boss' });
+  return { h, boss };
+}
+const alive = (h, key) => h.b.enemies.filter((o) => o.alive && o.defId === key);
+const runFor = (h, s) => { const t = h.b.time; h.runUntil(() => h.b.time >= t + s - 1e-9, s + 1); };
+
+test('假想敌：械: self-bound, every hit summons a 量变之械 by its target; 冲击之械 once at 50 % HP halve the damage from beyond them', () => {
+  const half = E3[FNC].talents.bb['Armor.hp_ratio'], cut = E3[FNC].talents.bb['Armor.damage_scale'];
+  assert.equal(half, 0.5); assert.equal(cut, 0.5);
+  const { h, boss } = machineField(FNC);
+  assert.ok(boss.s.flags.noMove && boss.s.flags.bind && boss.s.flags.unblockable, 'CommonAbilities/Unmovable: UNMOVABLE + BLOCK_FREE');
+  const w = h.unit('t_wall');
+  h.runUntil(() => boss.stats.attacks >= 1 && alive(h, PART).length > 0, 15);
+  const hit = [w, h.unit('t_wall2')].find((u) => u.stats.taken > 0);
+  assert.ok(hit, 'a wall was shot');
+  const near = alive(h, PART).filter((p) => Math.abs(p.x - hit.x) <= 1.5 && Math.abs(p.y - hit.y) <= 1.5);
+  assert.ok(near.length >= 1, 'a 量变之械 in the 3×3 of the operator hit (acfnc_t1)');
+  runFor(h, 3);
+  assert.equal(alive(h, ARMOR).length, 0, 'no 冲击之械 above half HP');
+
+  // below half HP (acfnc_t2[summon], checked every 0.5 s): two 冲击之械 on the branch's tiles, once
+  h.b.sharedBoss.hp = 0.4e7;
+  runFor(h, 1);
+  const armors = alive(h, ARMOR).sort((p, q) => p.x - q.x);
+  assert.deepEqual(armors.map((o) => [o.y, o.x]), [[4, 8], [4, 12]]);
+  assert.ok(armors.every((o) => o.s.flags.invulnerable && o.s.flags.untargetable), '未释放【威光冲击】时无法被攻击');
+  runFor(h, 20);
+  assert.equal(alive(h, ARMOR).length, 2, 'summoned once (acfnc[finish_t2]), never launched by boss_11');
+  assert.ok(alive(h, ARMOR).every((o) => o.x === 8 || o.x === 12), 'they stay');
+
+  // acfnc[armor-damage-scale]: an attacker beyond a 冲击之械 (column 4 < 8) × (1 − 0.5); in its column or between, full
+  const pool = () => h.b.sharedBoss.hp;
+  let p0 = pool(); h.b.dealDamage(w, boss, { amount: 1000, type: 'true' });
+  const far = p0 - pool();
+  p0 = pool(); h.b.dealDamage(h.unit('t_wall2'), boss, { amount: 1000, type: 'true' });   // column 6: still beyond 8
+  const far2 = p0 - pool();
+  assert.ok(Math.abs(far - 1000 * (1 - cut)) < 1e-6 && Math.abs(far2 - far) < 1e-6, `from beyond: ${far}, ${far2}`);
+  const { h: h2, boss: b2 } = machineField(FNC, { hp: 0.4e7, walls: [['t_wall', 5, 8]] });
+  runFor(h2, 1);
+  assert.equal(alive(h2, ARMOR).length, 2);
+  const q0 = h2.b.sharedBoss.hp; h2.b.dealDamage(h2.unit('t_wall'), b2, { amount: 1000, type: 'true' });
+  assert.ok(Math.abs(q0 - h2.b.sharedBoss.hp - 1000) < 1e-6, 'the 冲击之械 column itself: full damage');
+});
+
+test('假想敌：械 隐秘核心: bouncing shot, 冲击之械 at once, launched at 10 s, falling past the last operator, a slowing laser, pushed back by damage', () => {
+  const { h, boss } = machineField(FNC2);
+  assert.equal(alive(h, ARMOR).length, 2, 'acfnc_t2[summon-immediately]');
+  const w = h.unit('t_wall'), w2 = h.unit('t_wall2');
+  // projectile_enemy_acfnc_2: `attack@hit_times` 2 hits, the second × 0.8 on the other operator (RANDOM; alone: the same)
+  h.runUntil(() => w.stats.taken > 0 && w2.stats.taken > 0, 15);
+  assert.ok(w.stats.taken > 0 && w2.stats.taken > 0, 'the shot bounced to the other operator');
+  // LaunchArmor (cooldown 10, WithArmor mode only): both fly outward along row 4
+  runFor(h, 10.5 - h.b.time);
+  const [L, R] = alive(h, ARMOR).sort((p, q) => p.x - q.x);
+  assert.equal(L.mem.fnc.state, 'fly'); assert.equal(R.mem.fnc.state, 'fly');
+  assert.ok(L.x < 8 && R.x > 12, 'outward');
+  h.runUntil(() => L.mem.fnc.state === 'down' && R.mem.fnc.state === 'down', 20);
+  assert.ok(Math.abs(L.x - 4) < 1e-6, 'left: down on the column of the last operator ahead (t_wall on (4, 4); acfnca[no-char-executor])');
+  assert.ok(Math.abs(R.x - 17) < 1e-6, 'right: nobody ahead, down at its route end (4, 17)');
+  assert.ok(!L.s.flags.invulnerable && !L.s.flags.untargetable, 'hittable once down (acfnca[finish-invincible])');
+  runFor(h, 0.5);
+  // Bound: projectile_enemy_acfnca, a laser 2.9 wide between them — the operators on rows 3–5 between columns 4 and 17
+  assert.equal(w.s.aspd, Math.max(20, 100 + E3[ARMOR].skills.find((s) => s.prefabKey === 'Bound').bb.attack_speed));
+  assert.ok(w.findBuff('boss:acfncaArea') && w2.findBuff('boss:acfncaArea'));
+  // SetTakeDamageMoveBackEnemyParam: every 500 damage 0.05 back toward the boss, at most 0.5 per second
+  const x0 = L.x;
+  h.b.dealDamage(w, L, { amount: 5000, type: 'true' });
+  runFor(h, 0.5);
+  assert.ok(Math.abs(L.x - x0 - 0.25) < 0.02, `capped at 0.5/s (${L.x})`);
+  runFor(h, 1);
+  assert.ok(Math.abs(L.x - x0 - 0.5) < 1e-6, `0.5 for 5000 damage (${L.x})`);
+  // KillArmorAura: one reaching the boss → every 冲击之械 goes; 【衰颓与复兴】 (SP 45) brings two new ones
+  L.x = boss.x - 1;
+  runFor(h, 0.2);
+  assert.equal(alive(h, ARMOR).length, 0, 'all destroyed');
+  h.runUntil(() => alive(h, ARMOR).length === 2, 50);
+  assert.deepEqual(alive(h, ARMOR).map((o) => [o.y, o.x]).sort((p, q) => p[1] - q[1]), [[4, 8], [4, 12]], 'SkSummonArmor');
+  assert.ok(boss.mem.lpSp[0] < 1, 'its SP spent');
+});
+
+test('假想敌：械 【洪流攻势】: 量变之械 on every passable side of the operator with the highest block count', () => {
+  // t_wall (block 3) on (4, 4): its sides (3, 4) and (5, 4) are ground, (4, 3) / (4, 5) are not; t_wall2 blocks 3 too but is listed later
+  const { h, boss } = machineField(FNC, { walls: [['t_wall', 4, 4]] });
+  const sk = E3[FNC].skills.find((s) => s.prefabKey === 'SommonSquad');
+  assert.equal(sk.spCost, 25);
+  h.runUntil(() => boss.mem.lpSp && boss.mem.lpSp[0] >= 24.9, 30);
+  const before = alive(h, PART).length;
+  runFor(h, 0.5);
+  const fresh = alive(h, PART).slice(before).map((p) => [Math.round(p.y), Math.round(p.x)]).sort();
+  assert.deepEqual(fresh, [[3, 4], [5, 4]]);
 });
