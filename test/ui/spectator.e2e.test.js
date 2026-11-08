@@ -58,7 +58,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       await spec.click('.join-row input');
       await spec.page.keyboard.type(room.code);
       await spec.click('.join-row button', '观战');
-      await spec.page.waitForSelector('.room-screen .specbar__who.is-me', { timeout: 10000 });
+      await spec.page.waitForSelector('.room-screen [data-testid="spectator-roster"]', { timeout: 10000 });
       const roomView = await spec.page.evaluate(() => ({
         bar: document.querySelector('.room-bar__right .rs-go')?.textContent || '',
         barDisabled: !!document.querySelector('.room-bar__right .rs-go')?.disabled,
@@ -75,7 +75,9 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       extra = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
       await extra.hello('华法琳');
       assert.equal((await extra.request({ t: 'room.spectate', code: room.code })).t, 'ok');
-      await host.page.waitForFunction(() => document.querySelectorAll('.specbar__who').length === 2, { timeout: 8000 });
+      await host.page.waitForFunction(() => /观战席2/.test(document.querySelector('.specbar__label')?.textContent || '') && !!(document.querySelector('[data-testid="spectator-roster"]')?.textContent || ''), { timeout: 8000 });
+      await host.click('[data-testid="spectator-roster"]');
+      await host.page.waitForFunction(() => document.querySelectorAll('.specbar__list .specbar__who').length === 2, { timeout: 8000 });
       await host.shot('room-host-specbar');
       await host.click('.specbar__who button[aria-label*="华法琳"]');
       assert.equal((await extra.waitFor('room.closed', () => true, 5000)).reason, 'kicked');
@@ -191,7 +193,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
     await spec.click('.join-row input');
     await spec.page.keyboard.type(room.code);
     await spec.click('.join-row button', '观战');
-    await spec.page.waitForSelector('.room-screen .specbar__who.is-me', { timeout: 10000 });
+    await spec.page.waitForSelector('.room-screen [data-testid="spectator-roster"]', { timeout: 10000 });
     return guest;
   };
   /** Through the briefing and the strategy draft to the first 休整期, for every page that plays. */
@@ -282,7 +284,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
     }
   });
 
-  test('six spectators with the longest names keep the 观战席 strip on one line, the host\'s ✕ and 预约 n in view', { timeout: 3 * 60 * 1000 }, async () => {
+  test('six spectators with the longest names keep the status line one line; 名单 opens them whole, the host\'s ✕ and 预约 n in view', { timeout: 3 * 60 * 1000 }, async () => {
     const srv = await startRealServer({ fast: { timerScale: 1 } });
     const P = (await import('puppeteer-core')).default;
     const host = new Client(P, srv.base, 'host', { prefix: 'seat-reserve' });
@@ -294,6 +296,10 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       await host.click('.ally-create__go', '创建同盟');
       const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
       for (let i = 0; i < 3; i++) await host.click('.seat--empty button', '添加 AI 队友');
+      // the line with no spectator: its height, which six must not change (maintainer decision 2026-11-08: the names
+      // in the line wrapped it onto three and pushed the seat cards up)
+      const lineH = () => host.page.evaluate(() => document.querySelector('.rs-hint').getBoundingClientRect().height);
+      const bare = await lineH();
       await host.click('.specseats__btn');
       await host.click('.specseats__menu [data-seats="6"]');
       await host.page.waitForFunction(() => globalThis.__SP__.store.get().room?.spectatorSeats === 6, { timeout: 8000 });
@@ -304,44 +310,54 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
         assert.equal((await c.request({ t: 'room.spectate', code: room.code })).t, 'ok');
         assert.equal((await c.request({ t: 'room.reserveSeat', on: true })).t, 'ok');
       }
-      await host.page.waitForFunction(() => document.querySelectorAll('.specbar__who').length === 6, { timeout: 8000 });
+      const R = '[data-testid="spectator-roster"]';
+      await host.page.waitForFunction((R) => /观战席6/.test(document.querySelector('.specbar__label')?.textContent || '') && !!(document.querySelector(R)?.textContent || ''), { timeout: 8000 }, R);
+      assert.ok(Math.abs((await lineH()) - bare) < 2, `the status line kept its height (${bare} px)`);
       // the desktop, then a real touch phone: its 交流 panel is wider, so the seats' column is narrower (css/chat.css)
       for (const vp of [{ width: 1920, height: 1080 }, { width: 844, height: 390, deviceScaleFactor: 3, isMobile: true, hasTouch: true, isLandscape: true },
         { width: 640, height: 360, deviceScaleFactor: 2, isMobile: true, hasTouch: true, isLandscape: true }]) {
         await host.page.setViewport(vp);
-        await host.page.waitForFunction(() => document.querySelectorAll('.specbar__who').length === 6, { timeout: 30000 });
+        await host.page.waitForSelector(R, { timeout: 30000 });
         await sleep(800);
-        const v = await host.page.evaluate(() => {
+        const line = await host.page.evaluate(() => {
           const mid = (e) => { const r = e.getBoundingClientRect(); return r.top + r.height / 2; };
-          const parts = [...document.querySelectorAll('.specbar__label, .specseats, .specbar__who')];
+          const parts = [...document.querySelectorAll('.rs-ready, .specbar__label, .specseats, .specroster, .ailast')];
           // the room chat's column (a short screen has the 聊天 button in the top bar instead): nothing of the strip under it
-          // (the strip sits in the bottom bar, under the column's end on a desktop)
           const chatBox = document.querySelector('.room-screen.has-chat > .chat--room');
           const chat = chatBox ? chatBox.getBoundingClientRect() : null;
-          const clear = !chat || [...document.querySelectorAll('.specbar__label, .specseats, .specbar__list')].every((e) => { const r = e.getBoundingClientRect(); return r.left >= chat.right || r.top >= chat.bottom; });
-          const list = document.querySelector('.specbar__list');
-          const end = list?.getBoundingClientRect().right ?? Infinity;
-          let reach = false;
-          if (list) { list.scrollLeft = list.scrollWidth; const last = [...list.children].pop().getBoundingClientRect(); reach = last.right <= end + 1; list.scrollLeft = 0; }
+          const clear = !chat || [...document.querySelectorAll('.specbar__label, .specseats, .specroster')].every((e) => { const r = e.getBoundingClientRect(); return r.left >= chat.right || r.top >= chat.bottom; });
           // a press lands on it: no neighbour's widened touch area lies over it (css/devices.css)
           const mine = (e) => { const r = e.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!top && (e === top || e.contains(top)); };
-          const taken = [...document.querySelectorAll('.specseats__btn, .specbar__who button')].filter((e) => e.getBoundingClientRect().right <= end && !mine(e)).length;
           return {
-            taken,
             spread: Math.max(...parts.map(mid)) - Math.min(...parts.map(mid)),
-            clear, inView: end <= innerWidth, reach,
-            scrolls: list ? list.scrollWidth > list.clientWidth + 1 : null,
-            marks: document.querySelectorAll('.specbar__res').length,
-            removes: document.querySelectorAll('.specbar__who button').length,
-            title: document.querySelector('.specbar__who [title*="아주긴이름"]')?.title ?? null,
+            clear, taken: [...document.querySelectorAll('.specseats__btn')].filter((e) => !mine(e)).length,
+            inView: [...parts].every((e) => e.getBoundingClientRect().right <= innerWidth),
           };
         });
-        assert.equal(v.clear, true, `${vp.width}: under the 交流 panel`);
-        assert.equal(v.taken, 0, `${vp.width}: a neighbour takes the press`);
-        assert.ok(v.spread < 8, `${vp.width}: the strip wrapped (${v.spread} px between its rows)`);
-        assert.deepEqual([v.inView, v.reach, v.marks, v.removes], [true, true, 6, 6], `${vp.width}`);
-        if (vp.width === 1920) assert.equal(v.scrolls, false, 'all six fit on a desktop');
-        assert.equal(v.title, '아주긴이름을가진박사님0', 'the whole name stays readable on hover');
+        assert.equal(line.clear, true, `${vp.width}: under the 交流 panel`);
+        assert.equal(line.taken, 0, `${vp.width}: a neighbour takes the press`);
+        assert.ok(line.spread < 8, `${vp.width}: the status line wrapped (${line.spread} px between its rows)`);
+        assert.equal(line.inView, true, `${vp.width}`);
+        await host.click(R);
+        await host.page.waitForSelector('.specbar__list', { timeout: 8000 });
+        const list = await host.page.evaluate(() => {
+          const box = document.querySelector('.specbar__list');
+          const r = box.getBoundingClientRect();
+          const mine = (e) => { const q = e.getBoundingClientRect(); const top = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2); return !!top && (e === top || e.contains(top)); };
+          return {
+            inView: r.top >= 0 && r.left >= 0 && r.right <= innerWidth && box.scrollHeight <= box.clientHeight + 1,
+            whole: [...box.querySelectorAll('.specbar__name')].every((e) => e.scrollWidth <= e.clientWidth + 1),
+            who: box.querySelectorAll('.specbar__who').length,
+            marks: box.querySelectorAll('.specbar__res').length,
+            removes: box.querySelectorAll('.specbar__who button').length,
+            taken: [...box.querySelectorAll('.specbar__who button')].filter((e) => !mine(e)).length,
+            title: box.querySelector('[title*="아주긴이름"]')?.title ?? null,
+          };
+        });
+        assert.deepEqual([list.inView, list.whole, list.who, list.marks, list.removes, list.taken], [true, true, 6, 6, 6, 0], `${vp.width}`);
+        assert.equal(list.title, '아주긴이름을가진박사님0', 'the whole name stays readable on hover');
+        await host.page.keyboard.press('Escape');
+        await host.page.waitForFunction(() => !document.querySelector('.specbar__list'), { timeout: 8000 });
       }
       assert.deepEqual(problemsOf([host]).filter((p) => !p.includes('net::ERR_ABORTED')), []); // (the phone's reload drops what was loading)
     } finally {
@@ -376,7 +392,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       await spec.click('button', '返回同盟', { timeout: 60000 });
       await spec.page.waitForSelector('.room-screen', { timeout: 10000 });
       const view = await spec.page.evaluate(() => ({
-        specbar: !!document.querySelector('.specbar__who.is-me'),
+        specbar: !!document.querySelector('[data-testid="spectator-roster"]'),
         seats: [...document.querySelectorAll('.seat__name')].map((e) => e.textContent),
         bar: document.querySelector('.room-bar__right .rs-go')?.textContent || '',
       }));

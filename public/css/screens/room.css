@@ -474,8 +474,24 @@
 
 /* ---- spectator seats (观战席, community report #26) in the status line --------------------------------------------- */
 .specbar { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: .1rem; min-width: 0; max-width: 100%; font-size: calc(.15 * var(--t)); color: var(--text-lo); }
-.specbar__list { display: flex; align-items: center; gap: .08rem; min-width: 0; overflow-x: auto; scrollbar-width: none; --tap-left: 100%; --tap-tx: -100%; }
-.specbar__list::-webkit-scrollbar { display: none; }
+/* 名单 (maintainer decision 2026-11-08): the names fold into a button whose list opens upwards, so the status line stays
+   one line; in the list a name is whole. It opens leftwards from the button's right edge: the button sits at the line's
+   right end, by the screen's edge on a phone */
+.specroster { flex: none; position: relative; display: inline-flex; --tap-w: 100%; }
+.specroster__btn { justify-content: flex-start; white-space: nowrap; }
+.specroster__btn .specseats__caret { margin-left: auto; }
+/* a narrow phone keeps the line one line: the reserved count stays in the list */
+@media (max-width: 700px) { .specroster__btn .specbar__res { display: none; } }
+.specbar__list { position: absolute; z-index: 60; right: 0; bottom: calc(100% + 3px); display: flex; flex-direction: column; align-items: stretch; gap: 4px;
+  min-width: max(100%, 3.2rem); max-height: 75vh; overflow-y: auto; padding: max(.06rem, 4px); background: rgba(10, 14, 13, .97); border: 1px solid var(--line-2);
+  box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .6); }
+.specbar__list .specbar__who { justify-content: space-between; }
+.specbar__list .specbar__name { max-width: none; margin-right: auto; }
+/* the host's ✕ fills its row and its touch area never grows into the row above or below (css/devices.css): on a touch
+   screen a row is touch sized */
+.specbar__list { --tap-h: 100%; }
+.specbar__list .specbar__who > .btn { align-self: stretch; height: auto; min-height: 0; }
+.sp-coarse .specbar__list .specbar__who { min-height: 32px; }
 .specbar__label { flex: none; display: flex; align-items: baseline; gap: .06rem; font-weight: 700; color: var(--text-md); }
 .specbar__label .icon { width: 1.1em; height: 1.1em; align-self: center; color: var(--mint-500); }
 .specbar__label b { color: var(--mint-400); }

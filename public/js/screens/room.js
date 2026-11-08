@@ -390,8 +390,9 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
 }
 
 /**
- * 观战席 in the status line: the count, the host's pick of the seat count (a co-op host always sees it), the spectators
- * (host: ✕ frees a seat).
+ * 观战席 in the status line: the count, the host's pick of the seat count (a co-op host always sees it) and 名单, which
+ * opens the spectators upwards (host: ✕ frees a seat). The line stays one line however many watch (maintainer decision
+ * 2026-11-08: six names in the line wrapped the status line onto three and pushed the seat cards up).
  */
 function SpectatorBar({ facts, coop, myId, busy, onRemove, onSeats }) {
   const picks = coop && facts.isHost;
@@ -399,12 +400,42 @@ function SpectatorBar({ facts, coop, myId, busy, onRemove, onSeats }) {
   return html`<span class="specbar" aria-label=${t('观战席')}>
     <span class="specbar__label"><${Icon} name="eye" />${t('观战席')}<b class="num">${facts.spectators.length}</b><span class="num t-dim">/${picks ? '' : facts.spectatorSeats}</span></span>
     ${picks ? html`<${SpectatorSeatsSelect} facts=${facts} busy=${busy} onPick=${onSeats} />` : null}
-    ${facts.spectators.length ? html`<span class="specbar__list">${facts.spectators.map((s) => html`<span key=${s.playerId} class=${`specbar__who${s.playerId === myId ? ' is-me' : ''}${s.connected === false ? ' is-offline' : ''}`}>
+    ${facts.spectators.length ? html`<${SpectatorRoster} facts=${facts} myId=${myId} busy=${busy} onRemove=${onRemove} />` : null}
+  </span>`;
+}
+
+/** A menu of the status line opening upwards: Escape or a press outside `ref` closes it. */
+function useUpMenu() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', close, true);
+    document.addEventListener('keydown', esc, true);
+    return () => { document.removeEventListener('pointerdown', close, true); document.removeEventListener('keydown', esc, true); };
+  }, [open]);
+  return { open, setOpen, ref };
+}
+
+/** 名单: the spectators, folded into one button of the status line (their count is the label's) — whole names, 预约 n, the host's ✕. */
+function SpectatorRoster({ facts, myId, busy, onRemove }) {
+  const { open, setOpen, ref } = useUpMenu();
+  const reserved = facts.spectators.filter((s) => s.reserved).length;
+  return html`<span class="specroster" ref=${ref}>
+    <button type="button" class=${`specseats__btn specroster__btn tapx${open ? ' is-open' : ''}`} aria-haspopup="true" aria-expanded=${open ? 'true' : 'false'}
+      aria-label=${t('观战席名单')} data-testid="spectator-roster" onClick=${() => setOpen(!open)}>
+      <span>${t('名单')}</span>
+      ${reserved ? html`<span class="specbar__res">${t('预约 {n} 人', { n: reserved })}</span>` : null}
+      <span class="specseats__caret" aria-hidden="true">▴</span>
+    </button>
+    ${open ? html`<div class="specbar__list" role="list" aria-label=${t('观战席名单')}>${facts.spectators.map((s) => html`<span key=${s.playerId} role="listitem" class=${`specbar__who${s.playerId === myId ? ' is-me' : ''}${s.connected === false ? ' is-offline' : ''}`}>
       ${s.connected === false ? html`<${Icon} name="wifiOff" />` : null}<span class="specbar__name" title=${s.name || null}>${s.name || t('博士')}</span>${s.playerId === myId ? html`<span class="seat__you">${t('你')}</span>` : null}
       ${s.reserved ? html`<span class="specbar__res num" title=${t('模拟结束或重新开始时，有空位就自动入座')}>${t('预约 {n}', { n: s.reserved })}</span>` : null}
       ${facts.isHost ? html`<${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === `rs${s.playerId}`}
         onClick=${() => onRemove(s.playerId)} aria-label=${t('移出观战者 {name}', { name: s.name || '' })} title=${t('移出该观战者')} />` : null}
-    </span>`)}</span>` : null}
+    </span>`)}</div>` : null}
   </span>`;
 }
 
@@ -427,16 +458,7 @@ function AiLastToggle({ option, busy, onToggle, short = false }) {
  * it, and on a phone the screen's edge). Never below the spectators seated. Escape or a press outside closes it.
  */
 function SpectatorSeatsSelect({ facts, busy, onPick }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return undefined;
-    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
-    const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('pointerdown', close, true);
-    document.addEventListener('keydown', esc, true);
-    return () => { document.removeEventListener('pointerdown', close, true); document.removeEventListener('keydown', esc, true); };
-  }, [open]);
+  const { open, setOpen, ref } = useUpMenu();
   const pick = (n) => {
     setOpen(false);
     if (n !== facts.spectatorSeats) onPick(n);
