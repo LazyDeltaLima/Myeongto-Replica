@@ -23,7 +23,7 @@ Unknown options or a missing option value are errors (exit code 2); `--refresh` 
 
 - **Cache.** Official files live under `.cache/gamedata/<repo path>` (`excel/activity_table.json`,
   `levels/enemydata/enemy_database.json`, `levels/activities/act1autochess/level_*.json`, …) and are fetched from
-  `https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/<path>` when missing. `excel/activity_table.json` is read at a fixed commit, the last with the 卫戍协议 sections (`tools/gamedata-url.mjs`).
+  `https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/<path>` when missing. `excel/activity_table.json` is read at a fixed commit, the last with the 卫戍协议 sections, and so are the two enemy tables (`excel/enemy_handbook_table.json`, `levels/enemydata/enemy_database.json`): the current season keeps the enemies it was played with, while the operators' changes of later tables apply to it (maintainer decision 2026-11-08; `tools/gamedata-url.mjs`).
   Downloads are validated (must parse as JSON) and written atomically. With `--refresh`, a download that still fails
   after four attempts aborts the build (exit code 1), even if an older cached file exists. Generated files and the
   previous report remain untouched, including with `--force`; successfully downloaded cache entries are not rolled
@@ -269,7 +269,7 @@ everything needed to resolve a unit for `(chessId, skillIndex, moduleId)` (`simd
 - `statsBase` / `traitBase` / `talentsBase` — the golden record **without** any module (`stats` / `trait` / `talents`
   keep the default module, unchanged). `test/data.test.js` proves that composing the default module onto the base
   reproduces `stats`, `trait` and `talents` exactly for every golden chess.
-- Module-less goldens (蒂比, 凛御银灰): `modules: []`, base = own values. Normal chess have none of these fields.
+- Goldens without a default module (蒂比; 凛御银灰 until the tables of 2026-11-01, which give it 邀约 as a choice): no module is the default, `modules` holds the choices (`[]` for 蒂比), base = own values. Normal chess have none of these fields.
 - Module parts flagged `isToken` and the per-token attribute blackboards go to the summons: `tokens.json →
   variants[owner].byModule` (§14). Module choices never change the combat classification (`dmgType`…; the build warns
   if one ever would).

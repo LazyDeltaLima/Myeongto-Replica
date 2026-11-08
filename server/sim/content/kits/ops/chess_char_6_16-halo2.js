@@ -133,6 +133,27 @@ function halo2(bb, chess, def) {
           }
         }, { owner: unit });
       } },
+      { install(battle, unit) { // module DEC-X (远方问候): its trait and its 术法充盈 part (both hidden module parts)
+        const parts = (chess?.talents || []).filter((t) => t && t.index === -1 && t.bb);
+        const sp = num(parts.find((t) => 'sp_recovery_per_sec' in t.bb)?.bb.sp_recovery_per_sec);
+        const arc = parts.find((t) => 'damage_scale' in t.bb && t.rangeGrid?.length);
+        // "攻击范围内存在敌人时技力自然恢复速度+0.2/秒"
+        if (sp > 0) aura(battle, unit, 0.25, () => {
+          if (enemiesIn(battle, unit).length) battle.addBuff(unit, { key: 'halo2:decx', duration: 0.3, refresh: 'replace', mods: { spRecoveryFlat: sp } });
+        });
+        // 能源解析 + "溯光星源与周围4格的干员获得12%术法充盈": 术法充盈 (ba.magicarcane, 「造成的法术伤害提升（同名效果取最高）」) — one
+        // key for every source, so two of them never stack; the part's grid is her tile and the four beside it
+        const scale = num(arc?.bb.damage_scale, 1);
+        if (scale > 1) aura(battle, unit, 0.25, () => {
+          const tiles = new Set(arc.rangeGrid.map(([dr, dc]) => `${unit.tileR + dr},${unit.tileC + dc}`));
+          for (const a of battle.allyUnits) {
+            if (a.kind !== 'op' || !live(a) || !tiles.has(`${a.tileR},${a.tileC}`)) continue;
+            const cur = a.findBuff('magicArcane');
+            if (cur && cur.mods.artsDealtMul > scale) continue;
+            battle.addBuff(a, { key: 'magicArcane', duration: 0.4, refresh: 'replace', mods: { artsDealtMul: scale }, source: unit });
+          }
+        });
+      } },
       { install(battle, unit) { // 能源解析
         const base = bv(t1, 'damage_scale', 1), maxS = bv(t1, 'damage_scale_max', base), iv = bv(t1, 'interval', 7);
         const stay = new WeakMap();

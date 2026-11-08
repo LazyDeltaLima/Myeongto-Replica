@@ -112,16 +112,22 @@ describe('§21.26 1 — 变形同构体: the pairing list (gameLogic morphPairin
     for (const r of rows) for (const it of r.items) assert.deepEqual(grantedBonds([ISO, it.id], (id) => items[id]), [r.bondId], it.name);
   });
 
-  test('the official 天赋栏 (character_table trap_1073_acarm073) lists the same 14 pairings', { skip: !existsSync(path.join(ROOT, '.cache/gamedata/excel/character_table.json')) && 'no official cache' }, () => {
+  // the official character_table carries ONE text for the trap, the newest season's: 盟约's 14 pairings until the tables of
+  // 2026-11-01, 规程's 18 since (the current season's items are read from its own activity section and keep the 14)
+  test('the official 天赋栏 (character_table trap_1073_acarm073) lists the pairings of a season\'s 变形同构体 exactly', { skip: !existsSync(path.join(ROOT, '.cache/gamedata/excel/character_table.json')) && 'no official cache' }, () => {
     const ct = JSON.parse(readFileSync(path.join(ROOT, '.cache/gamedata/excel/character_table.json'), 'utf8'));
     const talent = ct[items[ISO].trapId].talents[0].candidates.at(-1).description.replace(/\\n/g, '\n');
     const pairs = [...talent.matchAll(/“([^”]+)”(?:系列装备)?→【([^】]+)】盟约/g)].map(([, item, bond]) => ({ item, bond }));
-    assert.equal(pairs.length, 14, talent);
-    const rows = morphPairings(ITEMS, BONDS);
-    assert.deepEqual(pairs.map((p) => p.bond).sort(), rows.map((r) => r.name).sort(), 'the same 14 bonds');
+    const act3 = (f) => Object.values(JSON.parse(readFileSync(path.join(ROOT, 'data/seasons/act3autochess', f), 'utf8')));
+    const seasons = { act2autochess: morphPairings(ITEMS, BONDS), act3autochess: morphPairings(act3('items.json'), act3('bonds.json')) };
+    assert.equal(seasons.act2autochess.length, 14, '盟约: 14 bond items');
+    assert.equal(seasons.act3autochess.length, 18, '规程: 18');
+    const names = pairs.map((p) => p.bond).sort();
+    const season = Object.keys(seasons).find((s) => JSON.stringify(seasons[s].map((r) => r.name).sort()) === JSON.stringify(names));
+    assert.ok(season, `the table's ${pairs.length} pairings are one season's bonds:\n${talent}`);
     for (const p of pairs) {
-      const r = rows.find((x) => x.name === p.bond);
-      assert.ok(r.items.some((it) => it.name.includes(p.item)), `“${p.item}”→【${p.bond}】`);
+      const r = seasons[season].find((x) => x.name === p.bond);
+      assert.ok(r.items.some((it) => it.name.includes(p.item)), `${season}: “${p.item}”→【${p.bond}】`);
     }
   });
 

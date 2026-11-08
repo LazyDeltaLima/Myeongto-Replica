@@ -5,6 +5,11 @@
 // empty, so a download from master stops tools/build-data.mjs ("has no act2autochess") and leaves tools/build-emotes.mjs
 // and tools/build-i18n.mjs without the mode's texts. The pin is the last commit that has them. Only the season's sections
 // are read from that table: the operators, skills and levels still come from master.
+//
+// The enemy tables stay at the same commit: the same update changed 假想敌：铳 (enemy_9017_achunt / _2: unblockable only
+// while it charges, weight 8 → 10), which belongs to the next season's battles, and the current season keeps the enemies
+// it was played with (maintainer decision 2026-11-06). The operators' changes of that update apply to both seasons
+// (maintainer decision 2026-11-08): new modules a golden chess can take, 克莱门莎 S3's projectile life.
 
 const REPO = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData';
 const ROOT = 'zh_CN/gamedata/';
@@ -12,6 +17,8 @@ const ROOT = 'zh_CN/gamedata/';
 /** Repository path under zh_CN/gamedata/ → the commit it is read at. */
 export const PINNED_GAMEDATA = Object.freeze({
   'excel/activity_table.json': 'fe7d8d05edc36cf5678a24bfe9e84e891f6cf7ad', // Client 2.7.81, data of 2026-10-22
+  'excel/enemy_handbook_table.json': 'fe7d8d05edc36cf5678a24bfe9e84e891f6cf7ad',
+  'levels/enemydata/enemy_database.json': 'fe7d8d05edc36cf5678a24bfe9e84e891f6cf7ad',
 });
 
 /**

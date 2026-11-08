@@ -1741,3 +1741,81 @@ test('缪尔赛思 S3, ranged 流形: a split copy on each free tile of its cros
   assert.ok(!toks().some((x) => clones.includes(x)), 'the copies are gone when their time is up');
   done(h);
 });
+
+test('module 缪尔赛思 TAC-D: her and her 流形\'s hits add 12 % of their damage as erosion; a burst in range deals ATK × 4 元素伤害', () => {
+  const id = ELITE('chess_char_6_11'), D = 'uniequip_004_mlyss';
+  const parts = raw(id).modules.find((m) => m.uniEquipId === D).talentChanges.filter((t) => t.talentIndex === -1).map((t) => t.bb);
+  const ratio = parts.find((b) => 'ep_damage_ratio' in b).ep_damage_ratio, burst = parts.find((b) => 'sp' in b);
+  for (const moduleId of [D, 'uniequip_002_mlyss']) {
+    const h = run({
+      defs: { enemies: { e: dummy('e') } }, hooks: [...HOOKS, 'elementBurst', 'spGain'],
+      units: [U(id, 'skchr_mlyss_3', 10, 3, { moduleId, carryState: IDLE }), { kind: 'token', tokenId: 'token_10030_mlyss_wtrman', row: 10, col: 5, ownerUid: 1 }],
+      enemies: [{ key: 'e', pos: [10, 6] }],
+    });
+    const u = h.unit(id);
+    const atkAt = [];
+    h.b.on('elementBurst', () => atkAt.push(u.s.atk));
+    h.run(60);
+    // her S3 splits the 流形: every copy is hers
+    const mine = (x) => !!x && x.kind === 'token' && x.defId === 'token_10030_mlyss_wtrman' && x.ownerUnit === u;
+    const all = h.hooksOf('damaged');
+    const erosion = all.filter((c) => c.dmg?.type === 'element' && c.dmg.element === 'erosion' && (c.dmg.tags || []).includes('module'));
+    const burstHits = all.filter((c) => c.source === u && c.dmg?.type === 'elemental' && (c.dmg.tags || []).includes('module'));
+    const bursts = h.hooksOf('elementBurst').filter((c) => c.element === 'erosion');
+    if (moduleId !== D) {
+      assert.equal(erosion.length + burstHits.length + bursts.length, 0, `${moduleId}: no erosion`);
+      done(h);
+      continue;
+    }
+    assert.ok(erosion.length > 10 && erosion.every((c) => c.source === u || mine(c.source)), 'erosion from her and her 流形');
+    assert.ok(erosion.some((c) => mine(c.source)), 'the 流形 (her 援军) too');
+    // each erosion is dealt from the hit it comes from (inside that hit's 'damaged', so it is recorded next to it): 12 %
+    for (const c of erosion.slice(0, 10)) {
+      const i = all.indexOf(c);
+      const hit = [all[i - 1], all[i + 1]].find((x) => x && x.source === c.source && x.target === c.target && x.dmg?.type !== 'element');
+      assert.ok(hit, 'next to its hit');
+      approx(c.dmg.amount ?? c.amount, hit.amount * ratio, 'erosion = 12 % of the hit', 1e-6);
+    }
+    assert.ok(bursts.length >= 2, `${bursts.length} bursts`);
+    assert.equal(burstHits.length, bursts.length, 'one 元素伤害 hit per burst');
+    burstHits.forEach((c, i) => approx(c.amount, atkAt[i] * burst.atk_scale, 'ATK × 4 (her ATK at the burst)'));
+    // the 80 SP go to the 流形, never to her (in this mode they land nowhere: its copy skill runs all battle — the kit's note)
+    assert.ok(!h.hooksOf('spGain').some((c) => c.unit === u && c.amount === burst.sp), 'not her');
+    done(h);
+  }
+  // TAC-D's hidden `sp` is not 落叶四季's: copying a 莱茵生命 operator gives her nothing
+  const sp = {};
+  for (const moduleId of [D, 'none']) {
+    const h = mlyssBattle(id, 'skchr_mlyss_3', { copyId: 'rh', chess: { rh: { ...plain('rh', { charId: 'char_108_silent', profession: 'WARRIOR' }), powers: ['columbia', 'rhine'] } }, unit: { moduleId, carryState: IDLE }, enemyAt: 60 });
+    const tok = () => h.b.allyUnits.find((x) => x.defId === 'token_10030_mlyss_wtrman' && x.alive);
+    assert.ok(h.runUntil(() => tok()?.mem.mlyss, 10), 'copied');
+    sp[moduleId] = h.unit(id).skill.sp;
+    done(h);
+  }
+  approx(sp[D], sp.none, 'no 莱茵生命 SP with TAC-D', 1e-6);
+});
+
+test('module 溯光星源 DEC-X (远方问候): SP +0.2/s while an enemy is in range; 术法充盈 ×1.12 on her and the operators beside her; 能源解析 12 % → 21 % after 5 s', () => {
+  const id = ELITE('chess_char_6_16'), X = 'uniequip_003_halo2';
+  const res = {};
+  for (const moduleId of [X, 'uniequip_002_halo2']) {
+    const h = run({
+      defs: { enemies: { e: dummy('e') } },
+      units: [{ chessId: id, row: 10, col: 3, moduleId, carryState: IDLE }, { chessId: 'chess_char_1_02_a', row: 11, col: 3 }, { chessId: 'chess_char_1_03_a', row: 11, col: 4 }],
+      enemies: [{ key: 'e', pos: [10, 5] }],
+    });
+    const u = h.unit(id), side = h.unit('chess_char_1_02_a'), diag = h.unit('chess_char_1_03_a');
+    h.run(0.6);
+    const sp0 = u.skill.sp;
+    h.run(4);
+    res[moduleId] = { sp: u.skill.sp - sp0, self: u.findBuff('magicArcane')?.mods.artsDealtMul, side: side.findBuff('magicArcane')?.mods.artsDealtMul, diag: diag.findBuff('magicArcane') };
+    h.run(6);
+    res[moduleId].fragile = [...new Set(statuses(h, 'fragile', (c) => c.source === u).map((c) => Math.round(c.value * 100)))];
+    done(h);
+  }
+  approx(res[X].sp - res.uniequip_002_halo2.sp, 0.2 * 4, '+0.2 SP/s', 0.02);
+  assert.equal(res[X].self, 1.12); assert.equal(res[X].side, 1.12); assert.equal(res[X].diag, null, 'a diagonal tile is not beside her');
+  assert.equal(res.uniequip_002_halo2.self, undefined, 'DEC-Y: no 术法充盈');
+  assert.deepEqual(res[X].fragile, [12, 21]);
+  assert.deepEqual(res.uniequip_002_halo2.fragile, [12, 16]);
+});
