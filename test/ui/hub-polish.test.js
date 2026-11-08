@@ -81,3 +81,34 @@ test('lobby.css: the left column = the top bar group, one row of keys, the menu 
   assert.match(css, /@media \(max-height: 520px\) and \(min-width: 760px\) \{[^@]*\.hub-side \{ display: flex;[^@]*--chip-h: 32px/);
   assert.doesNotMatch(read('public/css/devices.css'), /\.tips/);
 });
+
+test('选择模拟协议: 快速匹配 is the official range switch over the start button; 规则 / 人数 are range tracks; 自定义 in the brief', async () => {
+  const src = read('public/js/screens/lobby.js');
+  const rules = src.slice(src.indexOf('export function ProtoRules('), src.lastIndexOf('/**', src.indexOf('export function CustomBrief(')));
+  assert.doesNotMatch(rules, /快速匹配|qswitch|proto-rules__sum|CustomSummary/, 'the rule rows hold 规则 and 人数 only');
+  assert.equal((rules.match(/class="proto-rules__seg rtrack"/g) || []).length, 3, '规则, 同盟匹配\'s 人数 and a room\'s 人数');
+  const select = src.slice(src.indexOf('export function ProtocolSelect('), src.indexOf('export function AllianceSelect('));
+  // the official order under the cards: the tips line, the range switch, the button
+  assert.match(select, /<p class="proto-hint">[\s\S]*?<\/p>\s*\$\{range\}\s*<button type="button" class="proto-start"/);
+  assert.match(select, /<\/div>\s*\$\{brief\}\s*<\/div>/, 'the brief ends with the custom line');
+  assert.match(src, /range=\$\{matching \? html`<\$\{QuickRange\} quick=\$\{quick\} onQuick=\$\{pickQuick\} \/>` : null\}/);
+  const quick = src.slice(src.indexOf('export function QuickRange('), src.indexOf('/**', src.indexOf('export function QuickRange(')));
+  assert.match(quick, /role="switch" aria-checked=\$\{quick \? 'true' : 'false'\}/);
+  assert.match(quick, /side\('wide', 'wide_icon', t\('快速匹配'\), quick\)/);
+  assert.match(quick, /side\('exact', 'accurate_icon', t\('精准匹配'\), !quick\)/);
+  assert.match(quick, /\$\{on \|\| !src \? html`<span class="qrange__name">/, 'the other side shows its name only without its icon');
+  for (const k of ['精准匹配', '与选择同一难度、规则和人数的博士组成同盟']) {
+    assert.ok(EN[k] && KO[k], `${k} translated`);
+  }
+  assert.match(read('public/js/screens/room.js'), /brief=\$\{html`<\$\{CustomBrief\} roomMode=\$\{protoMode\} ruleset=\$\{proto\.ruleset\}/);
+  assert.match(read('public/js/screens/achievements.js'), /<\$\{RulesetSwitch\} value=\$\{ruleset\}[^>]*class="rtrack" \/>/);
+  const room = read('public/css/screens/room.css');
+  assert.match(room, /\.dpick\.rtrack \{[^}]*border-radius: 999px/);
+  assert.match(room, /\.rtrack \.dpick__opt\.is-active \{[^}]*background: var\(--rtrack-pill\)/);
+  const css = read('public/css/screens/lobby.css');
+  assert.match(css, /\.proto-rules \{[^}]*margin: 0 \.06rem \.02rem \.5rem; padding: \.02rem 0 \.04rem;/, 'the rows\' box is the cards\' column (.proto-list pads .5rem / .06rem)');
+  assert.match(css, /\.proto-list \{[^}]*padding: \.07rem \.06rem \.07rem \.5rem;/);
+  assert.match(css, /\.qrange__pill \{[^}]*width: 74%/);
+  const { UI_EXTRAS } = await load('tools/assets/plan.mjs');
+  for (const k of ['wide_icon', 'accurate_icon']) assert.ok(UI_EXTRAS.some(([g, n]) => g === 'room' && n === k), `${k} planned`);
+});

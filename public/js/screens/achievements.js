@@ -311,7 +311,7 @@ export function AchievementDialog({ onClose }) {
         <${MatchRecords} maxima=${agg.maxima} manifest=${gd.m} />
         <${BondRecords} agg=${agg} gd=${gd} />
         <${StrategyRecords} agg=${agg} gd=${gd} records=${records} />
-        <div class="achv__rules" data-testid="achievement-ruleset"><${RulesetSwitch} value=${ruleset} onPick=${pickRuleset} counts=${counts} /></div>`}
+        <div class="achv__rules" data-testid="achievement-ruleset"><${RulesetSwitch} value=${ruleset} onPick=${pickRuleset} counts=${counts} class="rtrack" /></div>`}
     </div>
     <footer class="achv__foot">
       <span><${Icon} name="info" />${t('本机记录：只保存在这个浏览器里')}</span>

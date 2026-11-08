@@ -241,7 +241,8 @@
 /* the 规则 模式 switch (maintainer decision 2026-11-08): over the top left of the first block, out of the flow so the
    window's blocks stand where they stood (it comes last in the markup: the blocks' rise delays count from the first) */
 .achv__rules { position: absolute; z-index: 2; top: .14rem; left: .4rem; }
-.achv__rules .rpick__opt { height: .32rem; }
+.achv__rules .rpick__opt { height: .3rem; font-size: .15rem; }
+.achv__rules .rpick__opt.is-active { flex-grow: 1.6; }
 /* a short screen has the doctor's name at the very top: the switch goes over the titles' hexagon, at the right */
 @media (max-height: 520px) {
   .achv__rules { top: 6px; left: auto; right: .4rem; }

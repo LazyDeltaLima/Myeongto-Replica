@@ -108,10 +108,12 @@ export const UI_EXTRAS = (() => {
   L.push(['prepReady', 'countdown_arrow', `${pr}countdown_arrow.png`]);
   const si = 'ui/autochess/[uc]autochessouter/stageinfo/auto_chess_stage_info_state/';
   for (const k of ['img_title_mode_abyss', 'img_title_mode_funny', 'img_title_mode_hard', 'img_title_mode_normal', 'btn_confirm', 'btn_confirmed']) L.push(['stageInfo', k, `${si}${k}.png`]);
-  // the room's group_mode bar (auto_chess_room_state: bg_mode, the difficulty's light and icon, btn_switch_mode) and the
+  // the room's group_mode bar (auto_chess_room_state: bg_mode, the difficulty's light and icon, btn_switch_mode), the
+  // matching range's two icons (wide_icon / accurate_icon: the mirror files them under the room state, which shows them
+  // too; 选择模拟协议's 快速匹配 switch draws them as auto_chess_mode_choice_pop_view's btn_range_switch does) and the
   // seat card's 名片 icon and host tag (player_solt_item_room)
   const rm = 'ui/autochess/[uc]autochessouter/room/';
-  for (const k of ['bg_mode', 'btn_switch_mode', 'light_mode', 'icon_easy', 'icon_normal', 'icon_hard', 'icon_abyss']) L.push(['room', k, `${rm}auto_chess_room_state/${k}.png`]);
+  for (const k of ['bg_mode', 'btn_switch_mode', 'light_mode', 'icon_easy', 'icon_normal', 'icon_hard', 'icon_abyss', 'wide_icon', 'accurate_icon']) L.push(['room', k, `${rm}auto_chess_room_state/${k}.png`]);
   for (const k of ['icon_card', 'host_top_tag', 'icon_self_room']) L.push(['room', k, `${rm}playercard/player_solt_item_room/${k}.png`]);
   // the strategy draft's player list rows (prefab_auto_chess_band_choose_player_card_item; its arrow is the band item's)
   const bc = 'ui/autochess/[uc]autochessouter/bandchoose/';

@@ -57,7 +57,7 @@ import { LoadoutButton } from './loadout.js';
 import { net } from '../net.js';
 import { useDocClass, useMediaQuery, SHORT_SCREEN_QUERY } from '../ui/device.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating, reservedRank, savePref } from '../store.js';
-import { difficultyInfo, ProtocolSelect, ProtoRules } from './lobby.js';
+import { difficultyInfo, ProtocolSelect, ProtoRules, CustomBrief } from './lobby.js';
 import { RoomChat } from '../ui/chat.js';
 import { MatchQueueDialog, mmss, canProposeStart, proposeStart } from '../ui/matchQueue.js';
 import { audio } from '../audio.js';
@@ -815,13 +815,16 @@ export function RoomScreen() {
     ${proto ? protoEditable
       ? html`<${ProtocolSelect} roomMode=${protoMode} difficulty=${proto.difficulty} onDifficulty=${(d) => setProto({ ...proto, difficulty: d })}
           onClose=${closeProto} onStart=${confirmProto} busy=${busy === 'diff' || busy === 'rules' || busy === 'size' ? 'create' : null} online=${online} action=${t('确认')} hint=${protoHint}
+          brief=${html`<${CustomBrief} roomMode=${protoMode} ruleset=${proto.ruleset} customRules=${protoCustom} difficulty=${proto.difficulty} />`}
           rules=${html`<${ProtoRules} roomMode=${protoMode} ruleset=${proto.ruleset} onRuleset=${(r) => setProto({ ...proto, ruleset: r })}
-            onGear=${editCustom} customRules=${protoCustom} difficulty=${proto.difficulty} size=${proto.size}
+            onGear=${editCustom} size=${proto.size}
             onSize=${sizeOpt ? (n) => setProto({ ...proto, size: n }) : null} sizeLocked=${!!sizeOpt && proto.size > MAX_SEATS && !sizeOpt.shrinkable} />`} />`
       : html`<${ProtocolSelect} roomMode=${protoMode} difficulty=${room.difficulty} onDifficulty=${() => {}} onClose=${closeProto}
           online=${online} readOnly=${true} hint=${matching ? t('匹配中无法更改') : null}
+          brief=${html`<${CustomBrief} roomMode=${protoMode} ruleset=${roomRules.preset} difficulty=${room.difficulty}
+            customRules=${isCustom ? { ...customRules, draft: roomRules.custom } : customRules} />`}
           rules=${html`<${ProtoRules} roomMode=${protoMode} ruleset=${roomRules.preset} onRuleset=${() => {}} onGear=${customGear} readOnly=${true}
-            customRules=${isCustom ? { ...customRules, draft: roomRules.custom } : customRules} difficulty=${room.difficulty} size=${seatsOf(room.size)}
+            size=${seatsOf(room.size)}
             onSize=${sizeOpt ? () => {} : null} />`} />` : null}
     <${MatchQueueDialog} />
     <${CustomRulesDialog} />

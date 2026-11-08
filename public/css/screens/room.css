@@ -593,6 +593,26 @@
 .rpick__opt[data-ruleset='casual'] { --d-color: var(--mint-400); }
 .rpick__n { min-width: .22rem; padding: 0 .05rem; border-radius: .11rem; background: rgba(255, 255, 255, .08); font-size: .13rem; line-height: 1.5; text-align: center; color: var(--text-md); }
 .rpick__opt.is-active .rpick__n { background: rgba(255, 255, 255, .14); background: color-mix(in srgb, var(--d-color) 25%, transparent); color: var(--d-color); }
+/* the official range track (auto_chess_mode_choice_pop_view's btn_range_switch, maintainer decision 2026-11-08) for the
+   规则 / 人数 switches of 选择模拟协议 and the 成就统计 window: a dark capsule (range_bg: #0d0d0d, a 1 px white 24 % edge)
+   whose picked option is the white hatched pill (range_selectbg, its shadow under it) and takes the most room — two
+   options: three quarters, as the official pill; three: about half —, the others grey. lobby.css draws 快速匹配's switch
+   (.qrange) from the same pill */
+:root { --rtrack-pill: repeating-linear-gradient(135deg, rgba(255, 255, 255, .93) 0 2px, rgba(229, 229, 229, .93) 2px 5px); }
+.dpick.rtrack { gap: 0; padding: .045rem; border: 1px solid rgba(228, 236, 234, .24); border-radius: 999px; background: rgba(13, 13, 13, .86); }
+.rtrack .dpick__opt {
+  flex: 1 1 0; justify-content: center; min-width: max-content; padding: 0 .12rem; border: 0; border-radius: 999px;
+  color: #8f9293; font-weight: 600; letter-spacing: .02em; white-space: nowrap; box-shadow: none;
+  transition: flex-grow var(--t-med), color var(--t-fast), background-color var(--t-med);
+}
+.rtrack .dpick__opt.is-active { flex-grow: 2.1; color: #242424; font-weight: 800; background: var(--rtrack-pill); box-shadow: 0 .03rem .06rem rgba(0, 0, 0, .6); }
+.rtrack.lobby-size .dpick__opt.is-active { flex-grow: 3; }
+.rtrack .dpick__opt:hover:not(:disabled):not(.is-active) { color: #e9eceb; background: transparent; }
+.rtrack .rpick__opt[data-ruleset='custom'].is-active { color: #5a2fa8; }
+.rtrack .rpick__n { background: rgba(255, 255, 255, .08); color: inherit; }
+.rtrack .rpick__opt.is-active .rpick__n { background: rgba(0, 0, 0, .1); color: #242424; }
+.rtrack .rpick__gear { align-self: stretch; height: auto; border: 0; border-radius: 999px; background: transparent; box-shadow: none; }
+.rtrack .rpick__gear.is-active { background: var(--custom-a); box-shadow: none; }
 .rtag { padding: .02rem .1rem; border: 1px solid currentColor; font-size: .16rem; letter-spacing: .06em; color: var(--amber); }
 .rtag--casual { color: var(--mint-400); }
 .rtag--size { color: var(--ice); } /* the 8-player mode */

@@ -12,10 +12,10 @@
 //     remake feature — the official room has none) is the left column's box, not this screen's (maintainer decision
 //     2026-11-08).
 //   - 同盟匹配 (random matchmaking, server/matchmaking.js; ui/matchQueue.js shows the queue and its confirmation) →
-//     选择模拟协议 (roomMode 'match'): 快速匹配, 规则 (经典 / 休闲; 自定义 locked) and 人数 with their queues' waiting
-//     Doctors, each difficulty card with its queue's, then 开始匹配 (room.queue). 快速匹配 on (maintainer decision
-//     2026-11-07): 规则 / 人数 stay, disabled, and each card shows the whole difficulty's waiting Doctors (the quick queue +
-//     every ruleset × size queue); room.queue { quick: true }.
+//     选择模拟协议 (roomMode 'match'): 规则 (经典 / 休闲; 自定义 locked) and 人数 with their queues' waiting Doctors, each
+//     difficulty card with its queue's, then 快速匹配 as the official matching range switch over 开始匹配 (room.queue).
+//     快速匹配 on (maintainer decision 2026-11-07): 规则 / 人数 stay, disabled, and each card shows the whole difficulty's
+//     waiting Doctors (the quick queue + every ruleset × size queue); room.queue { quick: true }.
 // On a short screen (≤ 520 px tall, a landscape phone) the left column narrows to three cards — the 成就统计 strip, 加入同盟,
 // and 作战提示 | 更新 as tabs (maintainer decision 2026-11-08) —; on a phone too narrow for it, it gives way, as upstream's:
 // 成就统计 and 加入同盟 · 观战 become plates under 干员调配 (the latter opens AllianceSelect's join view, the key alone).
@@ -24,8 +24,8 @@
 // 规则 모드 (shared/ruleset.js, maintainer decisions 2026-10-15, 2026-10-18): the 规则 switch picks 经典 / 休闲 / 自定义 for
 // 开始独立模拟 / 创建同盟 (room.create ruleset; custom: the settings of ui/customRulesStore.js, edited behind the ⚙ —
 // ui/customRules.js) and 经典 / 休闲 for 开始匹配 (room.queue: one queue per difficulty and ruleset), remembered like the
-// difficulty (classic the first time). Beside a picked 自定义: the preset in use and how many settings differ from the
-// official ones. The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): 人数 picks a 4- or an 8-seat alliance
+// difficulty (classic the first time). A picked 自定义 adds a line to the brief at the left: the preset in use and how
+// many settings differ from the official ones. The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): 人数 picks a 4- or an 8-seat alliance
 // (room.create / room.queue `size`, remembered in `lobby.size`).
 //
 // Difficulty descriptions come from data/config.json `modes[modeId]` when present, else from the
@@ -622,37 +622,24 @@ function RowKey({ text }) {
 }
 
 /**
- * The rule rows at the top of 选择模拟协议's right column (maintainer decisions 2026-11-07): 快速匹配 (同盟匹配 only: a switch,
- * its note at its right when on), 规则 (经典 / 休闲 / 自定义 ⚙; 自定义 locked in 同盟匹配) and 人数 (同盟匹配 only). With 快速匹配
- * on, 规则 and 人数 stay, disabled. Beside a picked 自定义: the preset in use and how many settings differ. `readOnly`: the
- * room's settings shown to a Doctor who is not its host (screens/room.js), the buttons disabled. A room's (roomMode
- * 'coop' with `onSize`) has the 人数 row too, without queue counts (maintainer decision 2026-11-08: the room's mode bar
- * opens this dialog for every setting); `sizeLocked` keeps it at 8 while more than four seats are taken.
+ * The rule rows at the top of 选择模拟协议's right column (maintainer decisions 2026-11-07, 2026-11-08): 规则 (经典 / 休闲 /
+ * 自定义 ⚙; 自定义 locked in 同盟匹配) and 人数 (同盟匹配 only), as wide as the cards under them, drawn as the official
+ * range track (`rtrack`, css/screens/room.css). With 快速匹配 (`quick`, its switch is QuickRange over the start button) on,
+ * 规则 and 人数 stay, disabled. `readOnly`: the room's settings shown to a Doctor who is not its host (screens/room.js), the
+ * buttons disabled. A room's (roomMode 'coop' with `onSize`) has the 人数 row too, without queue counts (maintainer
+ * decision 2026-11-08: the room's mode bar opens this dialog for every setting); `sizeLocked` keeps it at 8 while more
+ * than four seats are taken. A picked 自定义's summary is CustomBrief, in the brief at the left.
  */
-export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, customRules, difficulty, size, onSize, quick = false, onQuick = null, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false }) {
+export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize, quick = false, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false }) {
   const matching = roomMode === 'match';
   const roomSize = roomMode === 'coop' && !!onSize;
   const big = matching && size === LARGE_SEATS;
   const counts = big ? counts8 : counts4;
-  // the 人数 box as wide as the 规则 box above it (maintainer decision 2026-11-07)
-  const ref = useRef(null);
-  useLayoutEffect(() => {
-    const box = ref.current, seg = box?.querySelector('.rpick:not(.lobby-size)');
-    if (box && seg) box.style.setProperty('--rules-w', `${seg.getBoundingClientRect().width}px`);
-  });
-  return html`<div ref=${ref} class=${`proto-rules${matching || roomSize ? ' is-grid' : ''}`} data-testid="proto-rules">
-    ${matching ? html`<span class="proto-rules__row">
-      <${RowKey} text=${t('快速匹配')} />
-      <span class="proto-rules__cell">
-        <button type="button" role="switch" aria-checked=${quick ? 'true' : 'false'} class=${`qswitch${quick ? ' is-on' : ''}`} data-testid="quick-switch"
-          onClick=${() => onQuick?.(!quick)}><i aria-hidden="true"></i>${quick ? t('开') : t('关')}</button>
-        ${quick ? html`<span class="proto-rules__note">${t('规则、人数不限，进入空位')}</span>` : null}
-      </span>
-    </span>` : null}
+  return html`<div class=${`proto-rules${matching || roomSize ? ' is-grid' : ''}`} data-testid="proto-rules">
     <span class="proto-rules__row">
       <${RowKey} text=${t('规则')} />
       <span class="proto-rules__cell">
-        <${RulesetSwitch} value=${ruleset} onPick=${onRuleset} onGear=${onGear} editable=${!quick && !readOnly} class="proto-rules__seg"
+        <${RulesetSwitch} value=${ruleset} onPick=${onRuleset} onGear=${onGear} editable=${!quick && !readOnly} class="proto-rules__seg rtrack"
           customLock=${matching ? t('自定义规则不能用于公开匹配，可在独立模拟或用同盟密钥创建的同盟中选择。') : null}
           counts=${matching ? Object.fromEntries(QUEUE_PRESETS.map((p) => [p, queueCountOf(counts, p)])) : null} />
       </span>
@@ -660,34 +647,69 @@ export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, customRules, 
     ${matching ? html`<span class="proto-rules__row">
       <${RowKey} text=${t('人数')} />
       <span class="proto-rules__cell">
-        <${SizeSwitch} value=${size} onPick=${onSize} disabled=${quick} class="proto-rules__seg"
+        <${SizeSwitch} value=${size} onPick=${onSize} disabled=${quick} class="proto-rules__seg rtrack"
           counts=${{ [MAX_SEATS]: queueCountOf(counts4, ruleset), [LARGE_SEATS]: queueCountOf(counts8, ruleset) }} />
       </span>
     </span>` : roomSize ? html`<span class="proto-rules__row" data-testid="proto-size">
       <${RowKey} text=${t('人数')} />
       <span class="proto-rules__cell">
-        <${SizeSwitch} value=${size} onPick=${onSize} disabled=${readOnly || sizeLocked} class="proto-rules__seg" />
+        <${SizeSwitch} value=${size} onPick=${onSize} disabled=${readOnly || sizeLocked} class="proto-rules__seg rtrack" />
         ${sizeLocked && !readOnly ? html`<span class="proto-rules__note">${t('已有 5 名以上成员入座，无法改为 4 人同盟')}</span>` : null}
       </span>
     </span>` : null}
-    ${!matching && ruleset === 'custom' ? html`<span class="proto-rules__sum"><${CustomSummary} rules=${customRules.draft} store=${customRules} roomMode=${roomMode} difficulty=${difficulty} size=${MAX_SEATS} /></span>` : null}
   </div>`;
 }
 
 /**
+ * A picked 自定义's line at the end of 选择模拟协议's brief (maintainer decision 2026-11-08: out of the rule rows, so the
+ * right column stands the same for every 规则): 自定义规则 · the preset in use and how many settings differ from the
+ * official ones (CustomSummary; 同盟匹配 has no 自定义, and a solo room is never an 8-seat one).
+ */
+export function CustomBrief({ roomMode, ruleset, customRules, difficulty }) {
+  if (roomMode === 'match' || ruleset !== 'custom') return null;
+  return html`<span class="proto-brief__rules" data-testid="proto-custom-brief">${t('自定义规则')} · <${CustomSummary} rules=${customRules.draft} store=${customRules} roomMode=${roomMode} difficulty=${difficulty} size=${MAX_SEATS} /></span>`;
+}
+
+/**
+ * 快速匹配 as the official matching range switch (auto_chess_mode_choice_pop_view's btn_range_switch, maintainer decision
+ * 2026-11-08), over 开始匹配: the official 宽泛 / 精准 range is our 快速匹配 on (the difficulty only) / off (规则 and 人数
+ * too). A dark track (range_bg) whose white hatched pill (range_selectbg) covers three quarters of it with the picked
+ * side's icon and name; the other side shows its icon alone (wide_icon / accurate_icon, assets `room/*`; its name when
+ * the icon is missing).
+ */
+export function QuickRange({ quick, onQuick }) {
+  useData('assets');
+  const m = data.get('assets');
+  const side = (k, icon, name, on) => {
+    const src = uiUrl(m, `room/${icon}`);
+    return html`<span class=${`qrange__o qrange__o--${k}${on ? ' is-sel' : ''}`}>
+      ${src ? html`<i class="qrange__icon" aria-hidden="true" style=${`--m:url("${src}")`}></i>` : null}
+      ${on || !src ? html`<span class="qrange__name">${name}</span>` : null}
+    </span>`;
+  };
+  return html`<button type="button" role="switch" aria-checked=${quick ? 'true' : 'false'} aria-label=${t('快速匹配')}
+      class=${`qrange${quick ? ' is-on' : ''}`} data-testid="quick-switch" onClick=${() => onQuick?.(!quick)}>
+    <span class="qrange__pill" aria-hidden="true"></span>
+    ${side('wide', 'wide_icon', t('快速匹配'), quick)}
+    ${side('exact', 'accurate_icon', t('精准匹配'), !quick)}
+  </button>`;
+}
+
+/**
  * 选择模拟协议 (laid out after the event's second screen): full screen — the selected difficulty's official picture and
- * brief at the left, the rule rows (`rules`, a node) and the four difficulty cards down the right (the chosen one slides
- * out with the 已选定 stamp), the hint and the start button below them. The project's Modal (focus trap, Esc, focus
+ * brief at the left (`brief`, a node at its end: CustomBrief), the rule rows (`rules`, a node) and the four difficulty
+ * cards down the right (the chosen one slides out with the 已选定 stamp), the hint, `range` (a node: QuickRange) and the
+ * start button below them, as the official auto_chess_mode_choice_pop_view's tips, range switch and button. The project's Modal (focus trap, Esc, focus
  * restored) styled to fill the screen. `roomMode`: 'solo' (开始独立模拟), 'match' (开始匹配; `waiting(d)` the Doctors of each
  * card's queue) or 'coop' (a room's host, bundle ui-B: `action` / `hint` replace the button's label and the hint), or
  * `readOnly` — the cards shown, not chosen, and no button.
  */
 export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, onStart, busy, online, rules = null, waiting = null,
-  action = null, hint = null, readOnly = false }) {
+  action = null, hint = null, readOnly = false, range = null, brief = null }) {
   const card = MODE_CARDS.find((c) => c.id === roomMode) || MODE_CARDS[0];
   const info = difficultyInfo(roomMode === 'solo' ? 'solo' : 'coop', difficulty);
   const label = action || (roomMode === 'solo' ? t('开始独立模拟') : roomMode === 'match' ? t('开始匹配') : t('创建同盟'));
-  const defaultHint = roomMode === 'solo' ? t('创建后即可开始模拟') : roomMode === 'match' ? t('与选择同一难度和规则的博士组成同盟') : t('创建后可邀请好友或添加 AI 队友');
+  const defaultHint = roomMode === 'solo' ? t('创建后即可开始模拟') : roomMode === 'match' ? t('与选择同一难度、规则和人数的博士组成同盟') : t('创建后可邀请好友或添加 AI 队友');
   return html`<${Modal} open=${true} onClose=${onClose} class="proto" veilClass="proto-veil">
     <div class="proto__body" style=${`--d-color:${DIFFICULTY_COLORS[difficulty]}`} data-difficulty=${difficulty} data-mode=${roomMode}>
       <div class="proto__bg" aria-hidden="true"></div>
@@ -710,6 +732,7 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
               <span class="proto-brief__effects">${info.effects.map((e) => html`<span key=${e}>${e}</span>`)}</span>
               <span class="proto-brief__meta"><${DifficultyRounds} info=${info} /></span>
             </div>
+            ${brief}
           </div>
         </section>
         <section class="proto-side">
@@ -720,10 +743,11 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
           </div>
           ${readOnly ? html`<div class="proto-foot proto-foot--ro">
             <p class="proto-hint proto-hint--ro"><${Icon} name="info" />${hint || t('由创建者选择')}</p>
-          </div>` : html`<div class="proto-foot create-box">
+          </div>` : html`<div class=${`proto-foot create-box${range ? ' proto-foot--range' : ''}`}>
             <p class="proto-hint">
               ${online ? hint ?? defaultHint : html`<${Spinner} size="sm" label="CONNECTING" /> ${t('正在连接服务器…')}`}
             </p>
+            ${range}
             <button type="button" class="proto-start" data-testid="proto-start" disabled=${!online || busy === 'create'} aria-busy=${busy === 'create' ? 'true' : 'false'} onClick=${onStart}>
               <span class="proto-start__mark" aria-hidden="true"><span class="proto-start__rook"><i>[</i><${Icon} name="rook" /><i>]</i></span><small>STRONGHOLD<br />PROTOCOL</small></span>
               <span class="proto-start__label">${busy === 'create' ? html`<${Spinner} size="sm" />` : null}${label}</span>
@@ -973,8 +997,10 @@ export function LobbyScreen() {
       onClose=${() => setOpen(null)} onStart=${matching ? queue : create} busy=${busy} online=${online} waiting=${waiting}
       action=${matching && quick ? t('开始快速匹配') : null}
       hint=${matching && quick ? t('规则与人数随匹配到的队列而定') : null}
-      rules=${html`<${ProtoRules} roomMode=${roomMode} ruleset=${shownRuleset} onRuleset=${pickRuleset} onGear=${editCustom} customRules=${customRules}
-        difficulty=${difficulty} size=${size} onSize=${pickSize} quick=${matching && quick} onQuick=${pickQuick} counts4=${queueCounts4} counts8=${queueCounts8} />`} />` : null}
+      range=${matching ? html`<${QuickRange} quick=${quick} onQuick=${pickQuick} />` : null}
+      brief=${html`<${CustomBrief} roomMode=${roomMode} ruleset=${shownRuleset} customRules=${customRules} difficulty=${difficulty} />`}
+      rules=${html`<${ProtoRules} roomMode=${roomMode} ruleset=${shownRuleset} onRuleset=${pickRuleset} onGear=${editCustom}
+        size=${size} onSize=${pickSize} quick=${matching && quick} counts4=${queueCounts4} counts8=${queueCounts8} />`} />` : null}
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${achOpen ? html`<${AchievementDialog} onClose=${closeAch} />` : null}
     <${PatchNotesModal} open=${notesFresh !== null} onClose=${() => setNotesFresh(null)} entries=${notes} fresh=${!!notesFresh} />

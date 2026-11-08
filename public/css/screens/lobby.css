@@ -1210,33 +1210,42 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .hub-entry__wait { margin-left: .08rem; padding: 0 .06rem; font-size: calc(.13 * var(--t)); font-weight: 700; color: #04140f; background: var(--mint-500); }
 /* the rule rows at the top of 选择模拟协议's right column (快速匹配 / 规则 / 人数); in 同盟匹配 a grid whose labels are spread
    to the widest one's width (one span a letter) and whose boxes share one width */
-.proto-rules { display: flex; flex-wrap: wrap; align-items: center; gap: .06rem .14rem; margin: 0 .06rem .02rem .4rem; padding: .02rem .1rem .06rem;
-  border-bottom: 1px solid rgba(255, 255, 255, .08); }
-.proto-rules__row { display: flex; align-items: center; gap: .1rem; }
+/* the rows' box is the cards' column: the list's .5rem / .06rem side pads (maintainer decision 2026-11-08), its tracks
+   (.rtrack, room.css) sharing what the labels leave */
+.proto-rules { display: flex; flex-wrap: wrap; align-items: center; gap: .06rem .14rem; margin: 0 .06rem .02rem .5rem; padding: .02rem 0 .04rem; }
+.proto-rules__row { flex: 1 1 auto; display: flex; align-items: center; gap: .1rem; }
 .proto-rules__k { font-size: calc(.13 * var(--t)); color: var(--text-lo); letter-spacing: .04em; white-space: nowrap; }
-.proto-rules__cell { display: flex; align-items: center; gap: .1rem; min-width: 0; }
-.proto-rules.is-grid { display: grid; grid-template-columns: max-content minmax(0, 1fr); justify-items: start; align-items: center; gap: .05rem .12rem; }
+.proto-rules__cell { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: .04rem .1rem; min-width: 0; }
+.proto-rules__cell > .tt-anchor { display: block; flex: 1 1 auto; min-width: 0; }
+.proto-rules .rtrack { display: flex; width: 100%; }
+.proto-rules.is-grid { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: .06rem .12rem; }
 /* compact rows: the four cards keep their room below (选择模拟协议's fit levels) */
-.proto-rules .rpick__opt { height: .3rem; min-height: 0; }
-.proto-rules .rpick__gear { height: auto; width: .3rem; } /* as tall as the options beside it (a phone's are taller) */
-.proto-rules .qswitch { height: .3rem; padding-top: 0; padding-bottom: 0; }
+.proto-rules .rpick__opt { height: .3rem; min-height: 0; font-size: calc(.13 * var(--t)); }
+.proto-rules .rpick__gear { width: .34rem; } /* as tall as the options beside it (a phone's are taller) */
 .proto-rules.is-grid .proto-rules__row { display: contents; }
 .proto-rules.is-grid .proto-rules__k { justify-self: stretch; display: flex; justify-content: space-between; }
-.proto-rules.is-grid .proto-rules__seg { display: inline-flex; }
-.proto-rules.is-grid .lobby-size { width: var(--rules-w, auto); }
-.proto-rules.is-grid .lobby-size .rpick__opt { flex: 1; justify-content: center; }
-.proto-rules__note { font-size: calc(.12 * var(--t)); color: #9fd8c8; white-space: nowrap; }
-.proto-rules__sum { flex-basis: 100%; font-size: calc(.12 * var(--t)); color: #f5c26b; }
-.proto-rules.is-grid .proto-rules__sum { grid-column: 1 / -1; } /* a row of its own, never the keys' column */
-.proto-rules .rpick__opt:disabled { opacity: .4; filter: grayscale(1); }
-/* 快速匹配's switch */
-.qswitch { display: inline-flex; align-items: center; gap: .08rem; padding: .05rem .1rem .05rem .08rem; font: inherit; font-size: calc(.13 * var(--t)); font-weight: 700;
-  color: #cdd; background: rgba(10, 14, 13, .85); border: 1px solid rgba(255, 255, 255, .18); cursor: pointer; }
-.qswitch i { position: relative; flex: none; width: .34rem; height: .18rem; border-radius: .09rem; background: #333a38; }
-.qswitch i::after { content: ''; position: absolute; left: .02rem; top: .02rem; width: .14rem; height: .14rem; border-radius: 50%; background: #9aa; transition: left var(--t-fast); }
-.qswitch.is-on { color: var(--mint-400); border-color: var(--mint-500); }
-.qswitch.is-on i { background: var(--mint-500); }
-.qswitch.is-on i::after { left: .18rem; background: #04140f; }
+.proto-rules__note { flex-basis: 100%; font-size: calc(.12 * var(--t)); color: #9fd8c8; }
+.proto-rules .rpick__opt:disabled { opacity: .35; }
+/* a picked 自定义's line at the end of the brief (CustomBrief) */
+.proto-brief__rules { display: block; margin-top: .04rem; font-size: calc(.13 * var(--t)); color: var(--custom-hi); }
+.proto-brief__rules .lobby-rules__sum { max-width: none; font-size: inherit; color: #f5c26b; }
+.proto-brief__rules .lobby-rules__sum b { color: inherit; }
+/* 快速匹配 (QuickRange): the official matching range switch (auto_chess_mode_choice_pop_view's btn_range_switch: range_bg,
+   its range_selectbg pill over three quarters of it, wide_icon / accurate_icon), centred over the start button, the hint
+   centred over it as the official tips line */
+.qrange { position: relative; flex: none; align-self: center; width: 3.3rem; height: .5rem; padding: 0; font: inherit; cursor: pointer;
+  border: 1px solid rgba(228, 236, 234, .24); border-radius: 999px; background: rgba(13, 13, 13, .86); }
+.qrange__pill { position: absolute; top: .05rem; bottom: .05rem; left: calc(26% - .05rem); width: 74%; border-radius: 999px;
+  background: var(--rtrack-pill); box-shadow: 0 .04rem .07rem rgba(0, 0, 0, .6); transition: left var(--t-med); }
+.qrange.is-on .qrange__pill { left: .05rem; }
+.qrange__o { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; gap: .08rem; width: 26%;
+  color: #aaa; font-size: calc(.16 * var(--t)); font-weight: 800; white-space: nowrap; transition: color var(--t-fast); }
+.qrange__o--wide { left: .05rem; }
+.qrange__o--exact { right: .05rem; }
+.qrange__o.is-sel { width: 74%; color: #242424; }
+.qrange:hover .qrange__o:not(.is-sel) { color: #e9eceb; }
+.qrange__icon { flex: none; width: .24rem; height: .24rem; background: currentColor; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
+.proto-foot--range .proto-hint { justify-content: center; text-align: center; }
 /* a difficulty card's queue (同盟匹配) */
 .pcard__wait { margin-left: auto; align-self: center; padding: .02rem .08rem; border-radius: 3px; font-size: calc(.12 * var(--t)); font-weight: 700; white-space: nowrap;
   color: var(--mint-400); background: rgba(94, 236, 204, .16); }
@@ -1273,16 +1282,21 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   .ally-form__note { font-size: 11px; }
 }
 @media (max-height: 520px) {
-  .proto-rules { margin: 0 0 4px; padding: 4px 2px 6px; gap: 4px 8px; }
+  .proto-rules { margin: 0 .06rem 4px 22px; padding: 2px 0 4px; gap: 4px 8px; }
   .proto-rules.is-grid { gap: 4px 8px; }
-  .proto-rules__k, .proto-rules__note, .proto-rules__sum { font-size: 10px; }
+  .proto-rules__k, .proto-rules__note { font-size: 10px; }
+  .proto-rules .rtrack { padding: 3px; }
   .proto-rules .rpick__opt { min-height: 24px; padding: 0 7px; font-size: 11px; }
   .proto-rules .rpick__gear { width: 24px; }
   .proto-rules .rpick__gear .icon { width: 14px; height: 14px; }
-  .qswitch { gap: 5px; padding: 3px 6px; font-size: 10px; }
-  .qswitch i { width: 26px; height: 14px; }
-  .qswitch i::after { width: 10px; height: 10px; }
-  .qswitch.is-on i::after { left: 14px; }
+  .proto-brief__rules { font-size: 11px; }
+  .qrange { width: 210px; height: 34px; }
+  .qrange__pill { top: 3px; bottom: 3px; left: calc(26% - 3px); }
+  .qrange.is-on .qrange__pill { left: 3px; }
+  .qrange__o { gap: 5px; font-size: 12px; }
+  .qrange__o--wide { left: 3px; }
+  .qrange__o--exact { right: 3px; }
+  .qrange__icon { width: 15px; height: 15px; }
   .pcard__wait { padding: 1px 5px; font-size: 10px; }
 }
 

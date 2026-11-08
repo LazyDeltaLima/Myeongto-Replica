@@ -37,8 +37,11 @@ test('lobby: room.create / room.queue carry size 8 only for an 8-seat alliance (
   assert.match(rules, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{quick\}/);
   const ally = src.slice(src.indexOf('export function AllianceSelect('), src.indexOf('function JoinBox('));
   assert.match(ally, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} \/>/);
-  // a custom summary only beside 独立模拟's 自定义 (同盟匹配 has no 自定义): a solo room is never an 8-seat one
-  assert.match(rules, /\$\{!matching && ruleset === 'custom' \? html`<span class="proto-rules__sum"><\$\{CustomSummary\}[^>]*size=\$\{MAX_SEATS\}/);
+  // a custom summary only for 独立模拟's / a room's 自定义 (同盟匹配 has no 自定义), in the brief: a solo room is never an
+  // 8-seat one
+  const brief = src.slice(src.indexOf('export function CustomBrief('), src.indexOf('export function QuickRange('));
+  assert.match(brief, /if \(roomMode === 'match' \|\| ruleset !== 'custom'\) return null;/);
+  assert.match(brief, /<\$\{CustomSummary\}[^>]*size=\$\{MAX_SEATS\}/);
 });
 
 test('matchQueue: joinQueue adds size only for an 8-player queue; counts8 and size reach the store; the dialog counts to the size', () => {
