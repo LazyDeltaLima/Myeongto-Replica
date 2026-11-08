@@ -217,6 +217,11 @@
 .hub-ach__label::after { right: .04rem; border-left: 0; }
 .hub-ach__badge { flex: none; width: .24rem; height: .24rem; fill: #e8eeec; }
 .hub-ach__lv { margin-left: auto; font-size: calc(.15 * var(--t)); font-weight: 600; color: var(--mint-400); }
+/* the 规则 模式 the LV counts (maintainer decision 2026-11-08: 成就统计 counts the modes apart) */
+.hub-ach__rs { margin-left: auto; padding: 0 .05rem; font-size: calc(.11 * var(--t)); font-weight: 700; line-height: 1.45; white-space: nowrap; color: #f5c26b; border: 1px solid currentColor; }
+.hub-ach__rs.rtag--casual { color: var(--mint-400); }
+.hub-ach__rs.rtag--custom { color: var(--custom); }
+.hub-ach__rs + .hub-ach__lv { margin-left: .06rem; }
 .hub-tile {
   display: flex;
   align-items: center;
@@ -1303,9 +1308,11 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   .hub-join__row > *, .hub-join__row .btn, .hub-join__row .field__box { height: 34px; min-height: 34px; }
   .hub-join__row .btn { padding: 0 8px; font-size: 11px; }
   .hub-join__row input { font-size: 12px; }
+  .hub-join .field--code .field__input::placeholder { font-size: 13px; } /* the code field's .18rem was ~7 px here */
   .hub-join .join-foot { --chip-h: 32px; display: flex; flex-wrap: nowrap; gap: 4px; margin-top: 4px; height: auto; }
   .hub-join .join-foot > .t-lo { display: none; }
-  .hub-join .code-chip { flex: 1 1 0; min-width: 0; padding: 0 4px; font-size: 12px; letter-spacing: .1em; }
+  /* each recent key as wide as itself (one key no longer fills the row), touch sized */
+  .hub-join .code-chip { flex: 0 1 auto; min-width: 48px; padding: 0 8px; font-size: 12px; letter-spacing: .1em; }
   .tips { padding: 6px 9px; }
   .tips__head { min-height: 0; gap: 4px; font-size: 12px; }
   .tips__head > .icon { width: 14px; height: 14px; color: var(--mint-500); }

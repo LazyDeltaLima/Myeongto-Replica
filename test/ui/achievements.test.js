@@ -16,7 +16,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   compactRecord, normalizeRecord, fitToBudget, highestBondRecord, aggregateStats, strategyBadgeIds, trophyMedalOf,
-  recordsOfSeason, selfRowOf, bondMemberChess,
+  recordsOfSeason, selfRowOf, bondMemberChess, recordsOfRuleset, achievementRuleset,
 } from '../../public/js/ui/stats.js';
 import { levelOf, dailyPointsFor, certTotal, dayKey } from '../../public/js/ui/level.js';
 
@@ -133,7 +133,7 @@ test('bondMemberChess: one per operator and tier, no golden / 自选 records, by
 
 test('the hub opens 成就统计 from the card and the short-screen plate; the card shows the LV (source contract)', () => {
   const lobby = read('public/js/screens/lobby.js');
-  assert.match(lobby, /import \{ AchievementDialog \} from '\.\/achievements\.js';/);
+  assert.match(lobby, /import \{ AchievementDialog, ACHV_RULESET_PREF \} from '\.\/achievements\.js';/);
   assert.match(lobby, /<\$\{AchievementCard\} onOpen=\$\{\(\) => setAchOpen\(true\)\}/);
   assert.match(lobby, /label=\$\{t\('成就统计'\)\} onClick=\$\{\(\) => setAchOpen\(true\)\}/);
   assert.match(lobby, /\$\{achOpen \? html`<\$\{AchievementDialog\} onClose=\$\{closeAch\} \/>` : null\}/);
@@ -141,5 +141,26 @@ test('the hub opens 成就统计 from the card and the short-screen plate; the c
   assert.match(read('public/index.html'), /<link rel="stylesheet" href="\/css\/screens\/achievements\.css" \/>/);
   const win = read('public/js/screens/achievements.js');
   assert.match(win, /const more = \(\) => \{ onClose\(\); openStats\(\); \};/, '查看完整统计 opens 统计数据');
-  assert.doesNotMatch(win, /saveStats|savePref|net\./, 'read-only');
+  assert.doesNotMatch(win, /saveStats|net\./, 'the records read-only');
+  assert.deepEqual(win.match(/savePref\([^,]+/g), ['savePref(ACHV_RULESET_PREF'], 'its only write: the 规则 模式 picked');
+});
+
+test('the 规则 模式 apart: the window and the card show the last pick or the last match\'s mode, whichever came later', () => {
+  const a = rec(1, { ruleset: 'classic' }); // t = base + 60 s
+  const b = rec(2, { ruleset: 'custom' }); // t = base + 120 s, the last match
+  const old = normalizeRecord({ ...rec(3), ruleset: undefined }); // before rulesets: 休闲
+  assert.deepEqual(recordsOfRuleset([a, b, old], 'classic').map((r) => r.id), ['r1']);
+  assert.deepEqual(recordsOfRuleset([a, b, old], 'casual').map((r) => r.id), ['r3']);
+  assert.equal(achievementRuleset([a, b], null), 'custom', 'no pick: the last match played');
+  assert.equal(achievementRuleset([a, b], { ruleset: 'casual', at: b.t + 1 }), 'casual', 'a pick after it');
+  assert.equal(achievementRuleset([a, b], { ruleset: 'casual', at: a.t }), 'custom', 'a match played after the pick');
+  assert.equal(achievementRuleset([], { ruleset: 'casual', at: 5 }), 'casual');
+  assert.equal(achievementRuleset([], { ruleset: 'nope', at: 5 }), 'classic', 'neither: 经典');
+  assert.equal(achievementRuleset([], null), 'classic');
+  const lobby = read('public/js/screens/lobby.js');
+  assert.match(lobby, /achievementRuleset\(all, loadPref\(ACHV_RULESET_PREF, null\)\)/, 'the hub card counts the same mode');
+  assert.match(lobby, /data-testid="hub-ach-ruleset"/);
+  const win = read('public/js/screens/achievements.js');
+  assert.match(win, /savePref\(ACHV_RULESET_PREF, \{ ruleset: p, at: Date\.now\(\) \}\)/);
+  assert.match(read('public/css/screens/achievements.css'), /\.achv__rules \{ position: absolute;/, 'the switch takes no row');
 });

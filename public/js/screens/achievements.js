@@ -20,10 +20,13 @@ import { data, useData } from '../data.js';
 import { fmtNum, diyRecordFor, cardStandIn } from '../ui/gameLogic.js';
 import { uiUrl, chessAvatarUrl, chessPortraitUrl, itemIconUrl } from '../ui/assetUrls.js';
 import { TITLE_HEX_SECTORS, titleSectorClip } from '../ui/titleHexagon.js';
-import { useStore } from '../store.js';
+import { useStore, loadPref, savePref } from '../store.js';
 import {
   peekStatsRecords, aggregateStats, recordsOfSeason, trophyMedalOf, strategyBadgeIds, bondMemberChess, highestBondRecord,
+  recordsOfRuleset, achievementRuleset,
 } from '../ui/stats.js';
+import { RulesetSwitch } from '../ui/ruleset.js';
+import { RULE_PRESETS } from '../../../shared/ruleset.js';
 import { openStats } from './stats.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
@@ -260,9 +263,14 @@ function StrategyRecords({ agg, gd, records }) {
     </ul>` : html`<p class="st-hint">${t('暂无获得特殊标识的策略')}</p>`}`;
 }
 
+/** The pref of 成就统计's last 规则 模式 pick: { ruleset, at } (ui/stats.js achievementRuleset). */
+export const ACHV_RULESET_PREF = 'achv.ruleset';
+
 /**
  * The 成就统计 window: one scrolling window under the event banner — the doctor's line and titles, 卫戍成就 (the peak
- * alliance's match and the single-match records), 盟约记录 and 策略记录, of the season on screen. It only reads this
+ * alliance's match and the single-match records), 盟约记录 and 策略记录, of the season on screen and of one 规则 模式
+ * (maintainer decision 2026-11-08: the modes apart, as 统计数据 counts them; the switch with each mode's match count sits
+ * over the top left of the window's first block, taking no row of its own; it opens on achievementRuleset). It only reads this
  * browser's records (`peekStatsRecords`: a damaged or newer store is left for 统计数据 to handle); 查看完整统计 opens
  * 统计数据. The lineup's portraits, 自选 units and gear need chess / backups / items: loaded here, since nothing on the
  * lobby path loads them.
@@ -273,7 +281,11 @@ export function AchievementDialog({ onClose }) {
   const season = data.season();
   const gd = useMemo(() => makeLookups(ready), [ready, data.locale(), season]);
   // the season on screen (data.js setSeason): each season has its own records, levels and achievements
-  const records = useMemo(() => recordsOfSeason(peekStatsRecords(), season), [season]);
+  const seasonRecords = useMemo(() => recordsOfSeason(peekStatsRecords(), season), [season]);
+  const [ruleset, setRuleset] = useState(() => achievementRuleset(seasonRecords, loadPref(ACHV_RULESET_PREF, null)));
+  const pickRuleset = (p) => { setRuleset(p); savePref(ACHV_RULESET_PREF, { ruleset: p, at: Date.now() }); };
+  const counts = useMemo(() => Object.fromEntries(RULE_PRESETS.map((p) => [p, recordsOfRuleset(seasonRecords, p).length])), [seasonRecords]);
+  const records = useMemo(() => recordsOfRuleset(seasonRecords, ruleset), [seasonRecords, ruleset]);
   const agg = useMemo(() => aggregateStats(records), [records]);
   // a title in an alphabetic script (English …): ": " between its halves, as on the hub and the title screen
   const colon = scriptOf(t('卫戍协议')) === 'alphabetic' ? ': ' : '：';
@@ -298,7 +310,8 @@ export function AchievementDialog({ onClose }) {
         <${BondAchievement} peak=${highestBondRecord(records)} gd=${gd} />
         <${MatchRecords} maxima=${agg.maxima} manifest=${gd.m} />
         <${BondRecords} agg=${agg} gd=${gd} />
-        <${StrategyRecords} agg=${agg} gd=${gd} records=${records} />`}
+        <${StrategyRecords} agg=${agg} gd=${gd} records=${records} />
+        <div class="achv__rules" data-testid="achievement-ruleset"><${RulesetSwitch} value=${ruleset} onPick=${pickRuleset} counts=${counts} /></div>`}
     </div>
     <footer class="achv__foot">
       <span><${Icon} name="info" />${t('本机记录：只保存在这个浏览器里')}</span>

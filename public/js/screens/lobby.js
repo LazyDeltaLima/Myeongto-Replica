@@ -45,8 +45,8 @@ import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton, openGuide } from '../ui/guide.js';
 import { useStatsOpen } from './stats.js';
 import { SweepReport } from './sweep.js';
-import { AchievementDialog } from './achievements.js';
-import { peekStatsRecords, recordsOfSeason, aggregateStats, trophyMedalOf, selfRowOf } from '../ui/stats.js';
+import { AchievementDialog, ACHV_RULESET_PREF } from './achievements.js';
+import { peekStatsRecords, recordsOfSeason, aggregateStats, trophyMedalOf, selfRowOf, recordsOfRuleset, achievementRuleset } from '../ui/stats.js';
 import { levelOf, certTotal } from '../ui/level.js';
 import { Emblem } from './title.js';
 import { SettingsButton } from '../ui/settings.js';
@@ -56,7 +56,7 @@ import { MatchQueueDialog, joinQueue, joinQuickQueue } from '../ui/matchQueue.js
 import { SeasonChip, SeasonSwitch, pickedSeason, seasonFields, seasonQueueCounts, seasonQuickCounts, seasonName } from '../ui/season.js';
 import { seasonInfo, DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { RulesetSwitch, lobbyRuleset, lobbyQueueRuleset, saveLobbyRuleset, queueCountOf } from '../ui/ruleset.js';
-import { QUEUE_PRESETS, isQueuePreset, customDiffs, officialBans } from '../../../shared/ruleset.js';
+import { QUEUE_PRESETS, PRESET_LABELS, isQueuePreset, customDiffs, officialBans } from '../../../shared/ruleset.js';
 import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
 import { customRulesStore, customDraft } from '../ui/customRulesStore.js';
 import { PatchNotesModal, usePatchNotes, isUnseen, markSeen, Inline } from '../ui/patchNotes.js';
@@ -478,9 +478,12 @@ function AchievementCard({ onOpen, openTick }) {
   const cfg = data.get('config');
   const season = data.season();
   const statsOpen = useStatsOpen();
-  const { lv, trophies } = useMemo(() => {
-    const records = recordsOfSeason(peekStatsRecords(), season);
-    return { lv: levelOf(certTotal(records, cfg?.rewards, selfRowOf), cfg?.rewards?.milestones).lv, trophies: aggregateStats(records).trophies };
+  // the 规则 模式 成就统计 opens on (maintainer decision 2026-11-08): its LV and trophies, marked with the mode's name
+  const { lv, trophies, ruleset } = useMemo(() => {
+    const all = recordsOfSeason(peekStatsRecords(), season);
+    const rs = achievementRuleset(all, loadPref(ACHV_RULESET_PREF, null));
+    const records = recordsOfRuleset(all, rs);
+    return { lv: levelOf(certTotal(records, cfg?.rewards, selfRowOf), cfg?.rewards?.milestones).lv, trophies: aggregateStats(records).trophies, ruleset: rs };
   }, [cfg, season, statsOpen, openTick]);
   const medal = trophyMedalOf(trophies, cfg?.trophies?.medals);
   return html`<button type="button" class="hub-ach" onClick=${onOpen} title=${t('成就统计（本机记录）')}>
@@ -501,7 +504,7 @@ function AchievementCard({ onOpen, openTick }) {
     </span>
     <span class="hub-ach__label">
       <${AchBadge} class="hub-ach__badge" />
-      <span>${t('成就统计')}</span><b class="hub-ach__lv num">LV.${lv}</b>
+      <span>${t('成就统计')}</span><span class=${`hub-ach__rs rtag--${ruleset}`} data-testid="hub-ach-ruleset">${t(PRESET_LABELS[ruleset])}</span><b class="hub-ach__lv num">LV.${lv}</b>
       <span class="hub-ach__who"><span class="hub-ach__name">${me.name || t('博士')}</span><${MicroLabel}>${me.playerId != null ? `DOCTOR #${doctorNo(me.playerId)}` : 'DOCTOR'}<//></span>
     </span>
   </button>`;

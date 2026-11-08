@@ -350,6 +350,28 @@ export function peekStatsRecords() {
   return newer ? [] : stats.records;
 }
 
+/** The 规则 模式 of a record (a record from before rulesets is 休闲, LEGACY_RULESET). @param {any} r */
+export const recordRuleset = (r) => (isRulePreset(r?.ruleset) ? r.ruleset : LEGACY_RULESET);
+
+/** The records of one 规则 模式 (成就统计 and the hub card's LV count each apart). @param {any[]} records @param {string} ruleset */
+export function recordsOfRuleset(records, ruleset) {
+  return (Array.isArray(records) ? records : []).filter((r) => recordRuleset(r) === ruleset);
+}
+
+/**
+ * The 规则 模式 成就统计 and the hub card show (maintainer decision 2026-11-08): the one picked last in the window, or the
+ * one of the match played last, whichever came later; 经典 with neither.
+ * @param {any[]} records @param {{ ruleset?: unknown, at?: unknown } | null} saved the window's last pick (pref `achv.ruleset`)
+ * @returns {string}
+ */
+export function achievementRuleset(records, saved) {
+  let last = null;
+  for (const r of Array.isArray(records) ? records : []) if (Number.isFinite(r?.t) && (!last || r.t > last.t)) last = r;
+  const pick = saved && isRulePreset(saved.ruleset) && Number.isFinite(saved.at) ? saved : null;
+  if (pick && (!last || pick.at >= last.t)) return /** @type {string} */ (pick.ruleset);
+  return last ? recordRuleset(last) : 'classic';
+}
+
 /**
  * The records of one season (recordSeason; every record when `season` is null): each season has its own 卫戍认证 levels
  * and its own achievements, as 统计数据 shows the season on screen.

@@ -219,7 +219,7 @@
 .achv__close { position: absolute; right: .14rem; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: .5rem; height: .5rem;
   font-size: calc(.32 * var(--t)); color: #1a1208; background: none; border: 0; cursor: pointer; }
 .achv__close:hover, .achv__close:focus-visible { color: #fff; }
-.achv__scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .26rem .4rem .3rem; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .25) transparent; }
+.achv__scroll { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .26rem .4rem .3rem; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .25) transparent; }
 .achv__scroll > * { animation: achv-rise 420ms cubic-bezier(.16, .84, .3, 1) backwards; animation-delay: calc(120ms + var(--k, 0) * 70ms); }
 .achv__scroll > :nth-child(3) { --k: 1; }
 .achv__scroll > :nth-child(4) { --k: 2; }
@@ -236,4 +236,13 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .modal__box.achv, .achv__scroll > * { animation: none; }
+}
+
+/* the 规则 模式 switch (maintainer decision 2026-11-08): over the top left of the first block, out of the flow so the
+   window's blocks stand where they stood (it comes last in the markup: the blocks' rise delays count from the first) */
+.achv__rules { position: absolute; z-index: 2; top: .14rem; left: .4rem; }
+.achv__rules .rpick__opt { height: .32rem; }
+/* a short screen has the doctor's name at the very top: the switch goes over the titles' hexagon, at the right */
+@media (max-height: 520px) {
+  .achv__rules { top: 6px; left: auto; right: .4rem; }
 }
