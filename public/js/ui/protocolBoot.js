@@ -30,6 +30,19 @@ let bootArt = null;
 /** True once the sprites are all in: screens/game.js shows the loading screen alone until then. */
 export const bootArtReady = () => bootArt === true;
 
+/** Callers waiting for the sprites (whenBootArt). */
+const waiting = new Set();
+
+/**
+ * Call `fn` once the sprites are all in — at once when they already are; returns the unsubscribe. screens/game.js waits
+ * this way inside BATTLE_CHECK, so a page opened inside it shows 协议启动！ as soon as its sprites arrive.
+ */
+export function whenBootArt(fn) {
+  if (bootArt === true) { fn(); return () => {}; }
+  waiting.add(fn);
+  return () => { waiting.delete(fn); };
+}
+
 /**
  * Fetch the sprites early (screens/game.js, once the art list is in), once per page; the first call that finds the art
  * list loaded starts it. A missing sprite never turns it ready.
@@ -52,6 +65,9 @@ export function preloadBootArt() {
       if (left !== 0) return;
       imgs.length = 0;
       bootArt = true;
+      const fns = [...waiting];
+      waiting.clear();
+      for (const fn of fns) fn();
     };
     img.onerror = () => { left = -1; };
     img.src = src;

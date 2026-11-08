@@ -133,7 +133,7 @@ import { voiceForPiece, voiceForPlace, voiceForUnit, holdResultVoice, voiceForRo
 import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
 import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold, roundsToBoss } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
 import { battleArt, loadingArt, LoadingScreen, GameStartBanner, opensGame, BottomTips, bottomTipType, WaitingDialog, HelpBattleBanner, BossPrepare, bossOpening, SettleEnding, endingOf, ENDINGS, SelfDead, ReadyTipDialog, OnlyConfirmDialog, soloResumeDue, preloadBattleArt } from '../ui/battleArt.js'; // the official 卫戍协议 dialogs (css/battle-art.css)
-import { ProtocolBoot, preloadBootArt, bootArtReady, BOOT_LEAVE_MS } from '../ui/protocolBoot.js'; // 协议启动！ (css/screens/protocol-boot.css)
+import { ProtocolBoot, preloadBootArt, bootArtReady, whenBootArt, BOOT_LEAVE_MS } from '../ui/protocolBoot.js'; // 协议启动！ (css/screens/protocol-boot.css)
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
 import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
 import { battleOverOf, battleLossOf } from '../audioOfficial.js'; // local patch: round_result_dialog sound
@@ -152,14 +152,14 @@ const PLACE_VOICE_MS = 3000;
 /** Router for the in-match screens. */
 /**
  * 协议启动！ (ui/protocolBoot.js) inside the official BATTLE_CHECK (activity_table autoChessData.enterStepList: BATTLE_CHECK,
- * 协议启动, time 3 → data/config.json timers.battleCheck 3): the step opens on the battle loading screen (ui/battleArt.js
- * LoadingScreen, the mode's picture), and once the field is ready and the picture has shown BOOT_PIC_MS, 协议启动！ covers
- * it for at least BOOT_MIN_MS — together the step's 3 s — and until BATTLE_CHECK ends, then fades (BOOT_LEAVE_MS) over the
- * start of round 1's 回合开始 (maintainer decision 2026-11-07: upstream's screen after the loading picture). A field still
- * loading when BATTLE_CHECK ends keeps the loading screen alone, as before. [ASSUMED·화면] the split: upstream holds the
- * draft 0.7 s and shows 协议启动！ 2.3 s (read off the event's video), where this client shows its loading picture first.
+ * 协议启动, time 3 → data/config.json timers.battleCheck 3), in upstream's order (maintainer decision 2026-11-08): 协议启动！
+ * covers the step from its first frame, for at least BOOT_MIN_MS and until BATTLE_CHECK ends, while the field loads
+ * behind it, then fades (BOOT_LEAVE_MS) over the start of round 1's 回合开始. The battle loading screen (ui/battleArt.js
+ * LoadingScreen, the mode's picture) comes after it, only while the field is still loading (a slow device). Without the
+ * sprites the loading screen alone covers BATTLE_CHECK, as before. [ASSUMED·화면] BOOT_MIN_MS: upstream holds the draft
+ * 0.7 s and shows 协议启动！ 2.3 s (read off the event's video); this client does not hold the draft, so 协议启动！ has the
+ * step's whole 3 s.
  */
-export const BOOT_PIC_MS = 700;
 export const BOOT_MIN_MS = 2300;
 
 export function GameScreen() {
@@ -323,18 +323,16 @@ function MatchScreen() {
   const solo = roomSolo || String(pub?.modeId || '').includes('single');
   const players = sortedPlayers(pub);
   const meP = players.find((p) => p.playerId === myId) || null;
-  // 协议启动！ (BOOT_PIC_MS): { key, at } while it shows, after the loading picture of this BATTLE_CHECK
-  const [boot, setBoot] = useState(null);
-  const [bootLeaving, setBootLeaving] = useState(false);
+  // 协议启动！ (BOOT_MIN_MS): { key, at } while it shows, from the first frame of this BATTLE_CHECK; a page opened inside it
+  // (a reload) shows it once its sprites arrive, while BATTLE_CHECK lasts, and the loading screen until then
   const bootKey = phase === PHASE.BATTLE_CHECK ? `boot:${pub?.round}` : null;
-  const checkSince = useRef(null); // when this page saw the BATTLE_CHECK begin
-  if (bootKey && checkSince.current?.key !== bootKey) checkSince.current = { key: bootKey, at: Date.now() };
+  const [boot, setBoot] = useState(() => (bootKey && bootArtReady() ? { key: bootKey, at: Date.now() } : null));
+  const [bootLeaving, setBootLeaving] = useState(false);
   useEffect(() => {
-    if (!bootKey || boot?.key === bootKey || fieldLoading || !bootArtReady()) return undefined;
-    const pic = loadingArt(getMode(pub?.modeId)) ? BOOT_PIC_MS : 0;
-    const id = setTimeout(() => setBoot({ key: bootKey, at: Date.now() }), Math.max(0, (checkSince.current?.at ?? 0) + pic - Date.now()));
-    return () => clearTimeout(id);
-  }, [bootKey, fieldLoading, boot?.key]);
+    if (!bootKey || boot?.key === bootKey) return undefined;
+    preloadBootArt();
+    return whenBootArt(() => setBoot({ key: bootKey, at: Date.now() }));
+  }, [bootKey, boot?.key]);
   const bootDone = !!boot && phase !== PHASE.BATTLE_CHECK;
   useEffect(() => {
     if (!bootDone) return undefined;
@@ -877,8 +875,8 @@ function MatchScreen() {
     // itself then starts without a banner (the round bar's trans_boss is the only cue, as for any battle)
     const boss = battleArt('boss').cls ? bossOpening(phase, pub, solo) : null;
     const bossBattle = (phase === PHASE.FINAL_ASSAULT || phase === PHASE.HIDDEN_CORE) && !!battleArt('boss').cls;
-    // BATTLE_CHECK: the official loading screen replaces upstream's 协议启动 band when the mode's picture is there
-    if (b && !bossBattle && !(phase === PHASE.BATTLE_CHECK && loadingArt(getMode(pub?.modeId)))) setBanner({ ...b, key: phaseKey });
+    // BATTLE_CHECK: 协议启动！ (or, without its sprites, the official loading screen) replaces the 协议启动 band
+    if (b && !bossBattle && !(phase === PHASE.BATTLE_CHECK && (bootArtReady() || loadingArt(getMode(pub?.modeId))))) setBanner({ ...b, key: phaseKey });
     // round 1 opens with game_start_dialog (and its ON_ACT1AUTOCHESS_TARGET), the round-start banner after it
     const opens = opensGame(phase, prev, pub?.round) && !!battleArt('start').cls;
     if (opens) { setOpening(true); audio.sfx('target'); }
