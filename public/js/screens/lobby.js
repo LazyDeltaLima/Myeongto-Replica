@@ -290,15 +290,14 @@ function useTips() {
  * version, date and main lines (newsLines, four) with 查看全部, ‹ › stepping to older releases. On a short screen
  * (`short`) one card with the 作战提示 | 更新 tabs, three lines of the release. A release not seen before (pref
  * `patchNotesSeen`, ui/patchNotes.js) is marked NEW for this visit, and on a short screen opens its tab. Without patch
- * notes (/changelog.json unreachable) only the tips show.
+ * notes (/changelog.json unreachable) only the tips show. 查看全部 asks the hub (`onAll(fresh)`) to open the 更新记录
+ * dialog: drawn in here it would stay inside the left column's layer, under the right column and the entry cards.
  */
-function HubNotes({ short }) {
+function HubNotes({ short, notes, onAll }) {
   const tips = useTips();
-  const notes = usePatchNotes();
   const latest = notes?.[0] || null;
   const [tab, setTab] = useState('tips');
   const [fresh, setFresh] = useState(false);
-  const [notesOpen, setNotesOpen] = useState(false);
   const [rel, setRel] = useState(0);
   useEffect(() => {
     if (!latest || !isUnseen(latest.version)) return;
@@ -313,7 +312,7 @@ function HubNotes({ short }) {
   const relPager = html`<${TipsPager} at=${r} onStep=${stepRel} prev=${t('较新的版本')} next=${t('较早的版本')} atStart=${r === 0} atEnd=${r >= count - 1} />`;
   const tipPager = html`<${TipsPager} at=${tips.i} total=${short ? 0 : tips.list.length} onStep=${tips.step} />`;
   const tipText = html`<p key=${tips.i} class="tips__text">${tips.list[tips.i]}</p>`;
-  const more = html`<button type="button" class="tips__more" onClick=${() => setNotesOpen(true)}>${t('查看全部')}<${Icon} name="chevronRight" /></button>`;
+  const more = html`<button type="button" class="tips__more" onClick=${() => onAll(fresh)}>${t('查看全部')}<${Icon} name="chevronRight" /></button>`;
   const newsBody = entry ? html`<div key=${entry.version} class="tips__news">
       <div class="tips__verline">
         <b class="tips__ver num">v${entry.version}</b>
@@ -324,7 +323,6 @@ function HubNotes({ short }) {
       <ul class="tips__lines">${newsLines(entry, short ? 3 : 4).map((segs, j) => html`<li key=${j}><${Inline} segs=${segs} /></li>`)}</ul>
       ${short ? null : html`<div class="tips__foot">${more}</div>`}
     </div>` : null;
-  const modal = html`<${PatchNotesModal} open=${notesOpen} onClose=${() => setNotesOpen(false)} entries=${notes} fresh=${fresh} />`;
   if (short) {
     const news = tab === 'news' && !!entry;
     return html`<div class="tips tips--tabs brackets" data-testid="hub-notes">
@@ -337,7 +335,6 @@ function HubNotes({ short }) {
         ${news ? relPager : tipPager}
       </div>
       ${news ? newsBody : tipText}
-      ${modal}
     </div>`;
   }
   return html`<div class="tips brackets" data-testid="hub-tips">
@@ -347,7 +344,6 @@ function HubNotes({ short }) {
     ${entry ? html`<div class="tips tips--news brackets" data-testid="hub-news">
       <div class="tips__head"><span class="tips__badge"><${Icon} name="refresh" /></span><span class="tips__name">${t('更新')}</span><${MicroLabel}>PATCH NOTES<//>${relPager}</div>
       ${newsBody}
-      ${modal}
     </div>` : null}`;
 }
 
@@ -846,6 +842,9 @@ export function LobbyScreen() {
   const [achOpen, setAchOpen] = useState(false);
   const [achTick, setAchTick] = useState(0);
   const closeAch = () => { setAchOpen(false); setAchTick((n) => n + 1); };
+  const notes = usePatchNotes();
+  // the 更新记录 dialog (HubNotes' 查看全部): null when closed, else whether the newest release is marked NEW
+  const [notesFresh, setNotesFresh] = useState(/** @type {boolean | null} */ (null));
   // the picked 卫戍协议 season (ui/season.js): rooms are created and queued in it, its queues' Doctors are shown
   const season = useStore(pickedSeason);
   const queueCounts4 = useStore((s) => seasonQueueCounts(s, pickedSeason(s), false));
@@ -951,7 +950,7 @@ export function LobbyScreen() {
       <aside class="hub-side">
         <${AchievementCard} onOpen=${() => setAchOpen(true)} openTick=${achTick} />
         <${JoinBox} code=${code} onCode=${onCode} codeOk=${codeOk} online=${online} busy=${busy} onJoin=${join} onSpectate=${spectate} recent=${recent} />
-        <${HubNotes} short=${shortScreen} />
+        <${HubNotes} short=${shortScreen} notes=${notes} onAll=${setNotesFresh} />
       </aside>
       <aside class="hub-right">
         <${SweepPlate} onClick=${() => setSweepOpen(true)} />
@@ -975,6 +974,7 @@ export function LobbyScreen() {
         difficulty=${difficulty} size=${size} onSize=${pickSize} quick=${matching && quick} onQuick=${pickQuick} counts4=${queueCounts4} counts8=${queueCounts8} />`} />` : null}
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${achOpen ? html`<${AchievementDialog} onClose=${closeAch} />` : null}
+    <${PatchNotesModal} open=${notesFresh !== null} onClose=${() => setNotesFresh(null)} entries=${notes} fresh=${!!notesFresh} />
     <${MatchQueueDialog} />
     <${CustomRulesDialog} />
   </div>`;

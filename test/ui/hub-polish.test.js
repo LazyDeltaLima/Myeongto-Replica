@@ -34,13 +34,17 @@ test('newsLines: the first change of each group, then the rest in order, without
 
 test('hub: tips and 更新 as two cards on a desktop, tabs on a short screen; the join plate opens the join view', () => {
   const src = read('public/js/screens/lobby.js');
-  assert.match(src, /<\$\{HubNotes\} short=\$\{shortScreen\} \/>/);
+  assert.match(src, /<\$\{HubNotes\} short=\$\{shortScreen\} notes=\$\{notes\} onAll=\$\{setNotesFresh\} \/>/);
   assert.doesNotMatch(src, /TipsPanel/);
   const notes = src.slice(src.indexOf('function HubNotes('), src.indexOf('/** The hand-drawn ring'));
   assert.match(notes, /newsLines\(entry, short \? 3 : 4\)/);
   assert.match(notes, /data-testid="hub-tips"/);
   assert.match(notes, /data-testid="hub-news"/);
   assert.match(notes, /role="tablist"/);
+  // 查看全部's 更新记录 dialog is drawn by the hub, after <main>: inside the left column (its own z-index layer) the right
+  // column and the entry cards were drawn over it
+  assert.doesNotMatch(notes, /PatchNotesModal/);
+  assert.ok(src.indexOf('<${PatchNotesModal} open=${notesFresh !== null}') > src.indexOf('</main>', src.indexOf('<main class="hub-stage">')), 'the dialog after the hub stage');
   assert.match(src, /class="hub-plate--join"[^\n]*onClick=\$\{\(\) => setOpen\('join'\)\}/);
   assert.match(src, /<\$\{AllianceSelect\} view=\$\{open === 'join' \? 'join' : 'create'\}/);
   for (const k of ['较新的版本', '较早的版本']) {
