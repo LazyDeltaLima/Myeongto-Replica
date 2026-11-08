@@ -28,9 +28,10 @@
 //                            replaces it at home. Every damage it takes costs 胄 as much (PART_TRANSFER, 无来源, 等量) —
 //                            grounded per both texts, during the dive per the PRTS talent [ASSUMED]. The shell, 剑 and
 //                            锤 are 失衡免疫 + 静态刚体 (PRTS 天赋): no push or pull moves them.
-//   boss_2/9 假想敌：铳      unblockable; highest-DEF target in range; erosion; ASPD +80 per attack on the same target (max 5,
-//                            a new target restarts at 1; floor 20 before the first attack); 最终之罚 charge at the highest-DEF
-//                            ground unit (disabled by the h07_02 override).
+//   boss_2/9 假想敌：铳      unblockable (规程: only while charging, and blocked it shoots its blocker); highest-DEF
+//                            target in range; erosion; ASPD +80 per attack on the same target (max 5, a new target
+//                            restarts at 1; floor 20 before the first attack); 最终之罚 charge at the highest-DEF ground
+//                            unit (disabled by the h07_02 override).
 //                            boss_9: damage ×0.2 while the one companion picked 0.03 s after it appears lives (未尽的告解),
 //                            盲信之誓 links (100 phys/s on the lines), 末日布道 dash.
 //   碎铳之簧 a/b/c           always unblockable; highest-DEF target in range; arts barrier (absorbs arts after RES; phys
@@ -746,6 +747,12 @@ function kitGun(ab, e, b) {
   const setAspd = (b2) => aspdFloor(b2, e, step * P.n);
   const s1 = ab.sk['1'], s2 = ab.sk['2'], s3 = ab.sk['3'];
   const groundTargets = (b2) => allTargets(b2, e).filter((u) => u.ground);
+  // 无法被阻挡: the default season's table has it as a line of its own and its prefab keeps BLOCK_FREE in a buff of
+  // CommonAbilities/Ability0 (always). 规程's table (2.7.91) moves it into 【最终之罚】 (「技能持续期间，无法被阻挡」) and its
+  // prefab into the passive buff achunt_s_1[speed] of Modes/S1 (abnormal flag BLOCK_FREE, the charge's duration), while
+  // Modes/Default gains a `_combat` ability (the same shot, `_alwaysIncludeTarget`, one target): blocked, the gun shoots
+  // its blocker (official CN client prefab enemy_9017_achunt)
+  const alwaysFree = (e.def?.abilities ?? []).some((a) => a && a.text === '无法被阻挡');
   const endCharge = (b2, e2) => { // achunt_s_1[reached] / achunt_s_1[speed]'s end: SwitchMode back to Default
     P.charge = null;
     e2.trace = null;
@@ -774,8 +781,12 @@ function kitGun(ab, e, b) {
   const clearTrace = (e2) => { e2.trace = null; P.charge.target = null; if (e2.route) e2.route.pts = null; }; // _CleanTraceTarget
   const list = [
     {
-      spawn(b2, e2) { b2.addBuff(e2, { key: 'boss:unblockable', persist: true, flags: { unblockable: true } }); setAspd(b2); },
-      before(c, b2, e2) { const l = targetsNear(b2, e2, range()); if (l.length) c.targets = [l.sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q))[0]]; }, // 优先攻击防御力最高的单位
+      spawn(b2, e2) { if (alwaysFree) b2.addBuff(e2, { key: 'boss:unblockable', persist: true, flags: { unblockable: true } }); setAspd(b2); },
+      before(c, b2, e2) {
+        const bl = e2.blockedBy;
+        if (!alwaysFree && bl && bl.alive && bl.deployed) { c.targets = [bl]; return; } // 规程: Default `_combat` — the blocker
+        const l = targetsNear(b2, e2, range()); if (l.length) c.targets = [l.sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q))[0]]; // 优先攻击防御力最高的单位
+      },
       // ASPD stacks (official client BrownbTalent_1.Apply, an attachment of the attack ability: as the attack is cast on
       // its target): a target other than the last one clears the stack group, then the attack ALWAYS adds one stack
       // (+`2.attack_speed`, at most `2.max_stack_cnt`) — the first attack on a new target already leaves 1 stack (until
@@ -828,7 +839,7 @@ function kitGun(ab, e, b) {
         b2._cutAttackStand(e2); e2.atkStandUntil = -Infinity;   // the mode switch's `_restartFSM`: out of its attack recovery
         enemyMode(b2, e2, 'S1');   // the charge mode has no attack ability
         P.charge = { target: null, tx: t.x, ty: t.y, until: b2.time + dur, next: b2.time + TRACE_SEARCH, hit: new Set() };
-        b2.addBuff(e2, { key: 'boss:charge', duration: dur, visible: true, mods: { moveFlat: T(ab, '3.move_speed') ?? 0 }, flags: { disarm: true } });
+        b2.addBuff(e2, { key: 'boss:charge', duration: dur, visible: true, mods: { moveFlat: T(ab, '3.move_speed') ?? 0 }, flags: alwaysFree ? { disarm: true } : { disarm: true, unblockable: true } });
         // OnCastOnTarget: no route to the target nor to a tile beside it → no trace (the mode and its speed stay)
         if (!retrace(b2, e2, t)) clearTrace(e2);
         setForm(b2, e2, 'charge', 'charge', { tx: t.x, ty: t.y, kind: 'finalPenance' });
