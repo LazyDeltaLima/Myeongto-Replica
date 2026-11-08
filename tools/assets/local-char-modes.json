@@ -1749,6 +1749,148 @@
    }
   ]
  },
+ "char_1031_slent2": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_slent2"
+   ],
+   [
+    "projectile_chr_slent2_s1"
+   ],
+   [
+    "projectile_chr_slent2_s2"
+   ],
+   [
+    "projectile_chr_slent2_s3"
+   ]
+  ],
+  "cast": [
+   [
+    "slent2_attack_01_start_01"
+   ],
+   [
+    "slent2_skill_01_start_01"
+   ],
+   [
+    "slent2_skill_02_start_01"
+   ],
+   [
+    "slent2_skill_03_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "slent2_attack_01_hit_01"
+   ],
+   [
+    "slent2_skill_01_hit_01"
+   ],
+   [
+    "slent2_skill_02_hit_01"
+   ],
+   [
+    "slent2_skill_03_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "slent2_attack_01_trail_01"
+   ],
+   [
+    "slent2_skill_01_trail_01"
+   ],
+   [
+    "slent2_skill_02_trail_01"
+   ],
+   [
+    "slent2_skill_03_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "slent2_attack_01_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "slent2_skill_01_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "slent2_skill_02_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "slent2_skill_03_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   null,
+   3
+  ],
+  "switchTo": [
+   [],
+   [],
+   [
+    3
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "slent2_skill_01_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "slent2_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "slent2_skill_03_buff_01",
+     "slent2_skill_03_buff_03"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_1032_excu2": {
   "modes": [
    "Default",
@@ -16297,6 +16439,167 @@
    }
   ]
  },
+ "char_4088_hodrer": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "hodrer_attack_01_start_01"
+   ],
+   [],
+   [
+    "hodrer_skill_03_start_Front_L_01"
+   ]
+  ],
+  "hit": [
+   [
+    "hodrer_attack_01_hit_01"
+   ],
+   [
+    "hodrer_skill_02_hit_A_01"
+   ],
+   [
+    "hodrer_skill_03_01_hit_01"
+   ]
+  ],
+  "trail": [
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [
+    "hodrer_skill_02_buff_A_02",
+    "hodrer_skill_02_buff_01"
+   ],
+   [
+    "hodrer_skill_03_01_buff_01",
+    "hodrer_skill_03_01_buff_02"
+   ]
+  ],
+  "castOpt": [
+   {
+    "hodrer_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "hodrer_skill_02_start_A_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "hodrer_skill_02_start_B_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "hodrer_skill_03_start_B_UP_L_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "hodrer_skill_03_start_Front_L_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "hodrer_skill_03_start_Down_L_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "clipFx": [
+   null,
+   {
+    "src": "Attack",
+    "loop": 1,
+    "groups": [
+     {
+      "anim": "Skill_2_Loop_A",
+      "cast": [
+       "hodrer_skill_02_start_A_01"
+      ],
+      "hit": []
+     },
+     {
+      "anim": "Skill_2_Loop_B",
+      "cast": [
+       "hodrer_skill_02_start_B_01"
+      ],
+      "hit": []
+     }
+    ]
+   },
+   null
+  ],
+  "dirs": [
+   {
+    "t": 5,
+    "s": [
+     "hodrer_skill_03_start_B_UP_L_01",
+     "hodrer_skill_03_start_Front_L_01",
+     "hodrer_skill_03_start_Down_L_01",
+     "hodrer_skill_03_start_Front_L_01"
+    ]
+   }
+  ],
+  "skillMode": [
+   null,
+   null,
+   2
+  ],
+  "switchTo": [
+   [],
+   [],
+   [
+    2
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "hodrer_skill_01_start_01",
+     "hodrer_skill_01_start_02"
+    ],
+    "buff": [],
+    "target": [
+     "hodrer_skill_01_hit_01"
+    ],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_4098_vvana": {
   "modes": [
    "Default",
@@ -22288,6 +22591,282 @@
    }
   ]
  },
+ "char_4230_mcnist": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S2_Down",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_mcnist"
+   ],
+   [
+    "projectile_chr_mcnist_s1"
+   ],
+   [
+    "projectile_chr_mcnist_s2"
+   ],
+   [
+    "projectile_chr_mcnist_s2"
+   ],
+   [
+    "projectile_chr_mcnist_s3"
+   ]
+  ],
+  "cast": [
+   [
+    "mcnist_attack_01_start_01"
+   ],
+   [
+    "mcnist_skill_01_start_01",
+    "mcnist_skill_01_start_02"
+   ],
+   [
+    "mcnist_skill_02_start_01"
+   ],
+   [],
+   [
+    "mcnist_skill_03_start_02"
+   ]
+  ],
+  "hit": [
+   [
+    "mcnist_attack_01_hit_01"
+   ],
+   [
+    "mcnist_skill_01_hit_01"
+   ],
+   [
+    "mcnist_attack_01_hit_01"
+   ],
+   [
+    "mcnist_attack_01_hit_01"
+   ],
+   []
+  ],
+  "trail": [
+   [
+    "mcnist_attack_01_trail_01"
+   ],
+   [
+    "mcnist_attack_01_trail_01"
+   ],
+   [
+    "mcnist_attack_01_trail_01"
+   ],
+   [
+    "mcnist_attack_01_trail_01"
+   ],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "mcnist_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "mcnist_attack_01_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "mcnist_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "mcnist_skill_01_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "mcnist_skill_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "mcnist_skill_01_start_02_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "mcnist_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "mcnist_skill_02_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "mcnist_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "combatSplit": [
+   {
+    "attack": {
+     "cast": [
+      "mcnist_attack_01_start_01"
+     ],
+     "hit": [
+      "mcnist_attack_01_hit_01"
+     ]
+    },
+    "combat": {
+     "cast": [
+      "mcnist_attack_01_start_01"
+     ],
+     "hit": [
+      "mcnist_attack_01_hit_01"
+     ]
+    }
+   },
+   null,
+   {
+    "attack": {
+     "cast": [
+      "mcnist_skill_02_start_01"
+     ],
+     "hit": [
+      "mcnist_attack_01_hit_01"
+     ]
+    },
+    "combat": {
+     "cast": [
+      "mcnist_skill_02_start_01"
+     ],
+     "hit": [
+      "mcnist_attack_01_hit_01"
+     ]
+    }
+   },
+   {
+    "attack": {
+     "cast": [],
+     "hit": [
+      "mcnist_attack_01_hit_01"
+     ]
+    },
+    "combat": {
+     "cast": [],
+     "hit": [
+      "mcnist_attack_01_hit_01"
+     ]
+    }
+   },
+   {
+    "attack": {
+     "cast": [
+      "mcnist_skill_03_start_02"
+     ],
+     "hit": []
+    },
+    "combat": {
+     "cast": [
+      "mcnist_skill_03_start_02"
+     ],
+     "hit": []
+    }
+   }
+  ],
+  "dirs": [
+   {
+    "t": 5,
+    "s": [
+     "mcnist_attack_01_start_01",
+     "mcnist_attack_01_start_01",
+     "mcnist_attack_01_start_01_down",
+     "mcnist_attack_01_start_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "mcnist_skill_01_start_01",
+     "mcnist_skill_01_start_01",
+     "mcnist_skill_01_start_01_down",
+     "mcnist_skill_01_start_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "mcnist_skill_01_start_02",
+     "mcnist_skill_01_start_02",
+     "mcnist_skill_01_start_02_down",
+     "mcnist_skill_01_start_02"
+    ]
+   }
+  ],
+  "skillMode": [
+   1,
+   null,
+   4
+  ],
+  "switchTo": [
+   [
+    1
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    1,
+    2,
+    4
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "mcnist_skill_03_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_4231_clemnt": {
   "modes": [
    "Default",
@@ -22860,6 +23439,225 @@
     "cast": [],
     "castLoop": [],
     "buff": [],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_4246_dminon": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "dminon_attack_range_01"
+   ],
+   [
+    "dminon_attack_range_01",
+    "dminon_skill_01_start_01"
+   ],
+   [
+    "dminon_skill_02_range_01_Right",
+    "dminon_skill_02_start_01"
+   ],
+   [
+    "dminon_skill_03_range_01_Right",
+    "dminon_skill_03_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "dminon_attack_hit_01"
+   ],
+   [
+    "dminon_attack_hit_01"
+   ],
+   [
+    "dminon_skill_hit_01"
+   ],
+   [
+    "dminon_skill_hit_01"
+   ]
+  ],
+  "trail": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "dminon_attack_range_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "dminon_attack_range_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    },
+    "dminon_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "dminon_skill_02_range_01_Up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "dminon_skill_02_range_01_Right": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "dminon_skill_02_range_01_Down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "dminon_skill_02_range_01_Left": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "dminon_skill_02_start_01_Up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "dminon_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "dminon_skill_02_start_01_Down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "dminon_skill_03_range_01_Up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "dminon_skill_03_range_01_Right": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "dminon_skill_03_range_01_Down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "dminon_skill_03_range_01_Left": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "dminon_skill_03_start_01_Up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "dminon_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "dminon_skill_03_start_01_Down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "dirs": [
+   {
+    "t": 5,
+    "s": [
+     "dminon_skill_03_range_01_Up",
+     "dminon_skill_03_range_01_Right",
+     "dminon_skill_03_range_01_Down",
+     "dminon_skill_03_range_01_Left"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "dminon_skill_03_start_01_Up",
+     "dminon_skill_03_start_01",
+     "dminon_skill_03_start_01_Down",
+     "dminon_skill_03_start_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "dminon_skill_02_range_01_Up",
+     "dminon_skill_02_range_01_Right",
+     "dminon_skill_02_range_01_Down",
+     "dminon_skill_02_range_01_Left"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "dminon_skill_02_start_01_Up",
+     "dminon_skill_02_start_01",
+     "dminon_skill_02_start_01_Down",
+     "dminon_skill_02_start_01"
+    ]
+   }
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "dminon_skill_01_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "dminon_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "dminon_skill_03_buff_01"
+    ],
     "target": [],
     "targetBuff": []
    }

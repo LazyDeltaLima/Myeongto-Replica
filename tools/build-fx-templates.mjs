@@ -99,8 +99,12 @@ function poolCodes() {
   // every season's chess, as the extraction tools (char_modes.py chess_records): a season's own file holds operators the default lacks
   const seasons = join(ROOT, 'data/seasons');
   const others = existsSync(seasons) ? readdirSync(seasons).map((id) => join(seasons, id, 'chess.json')).filter((f) => existsSync(f)) : [];
-  const chess = Object.assign({}, ...others.map(readJson), readJson(join(ROOT, 'data/chess.json')));
-  for (const c of Object.values(chess.chess || chess)) if (typeof c?.charId === 'string' && c.charId.startsWith('char_')) chars.add(c.charId);
+  // file by file: a season reuses the chess ids of another for other operators (docs/DATA.md 「Seasons」), so a merge by id
+  // would drop them
+  for (const f of [...others, join(ROOT, 'data/chess.json')]) {
+    const chess = readJson(f);
+    for (const c of Object.values(chess.chess || chess)) if (typeof c?.charId === 'string' && c.charId.startsWith('char_')) chars.add(c.charId);
+  }
   const backups = readJson(join(ROOT, 'data/backups.json'));
   for (const id of Object.keys(backups.diy?.operators || {})) if (id.startsWith('char_')) chars.add(id);
   // (a season's own file holds the summons of its own operators, as its chess file does)

@@ -9,6 +9,11 @@
 // test/render/mode-switch-coverage.test.js checks the list both ways. charId → { 'S<n> <mode name>': status }.
 
 export const MODE_SWITCH_STATUS = Object.freeze({
+  char_4230_mcnist: {
+    'S2 S2_Down': 'todo: S2\'s facing-down mode — its own attack start mcnist_skill_02_start_01_down (fx-unplayed-local-list.js)',
+    'S3 S1': 'todo: S3 switches through her S1 mode on the way, not read yet',
+    'S3 S2': 'todo: S3 switches through her S2 mode on the way, not read yet',
+  },
   char_4222_taraxa: {
     'S1 S1_FlyStart': 'ok: no attack in it; its cast effect is the kit\'s taraxaFly event (kitofficial.js)',
     'S1 S1_FlyEnd': 'ok: no attack in it; its cast effect is the kit\'s taraxaFly event, its START bank the end sound',

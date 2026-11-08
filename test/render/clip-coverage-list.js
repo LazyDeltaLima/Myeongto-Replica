@@ -149,6 +149,16 @@ export const UNPLAYED = {
   char_293_thorns: {
     Skill2_1: 'none: no key names it: key Skill_2 → Skill2_2 is the S3 attack, `_faceToFront` so the Back model that lacks it is not drawn; the S2 Thorn ability has no clip',
   },
+  // 赫德雷, 机械师 (规程 pieces, 2026-11-08, the maintainer's to-do list: bundle fx-V)
+  char_4088_hodrer: {
+    Skill_2_End: 'todo: S2 — S2 余烬重荷\'s toggle clips (Begin / Idle / Loop / End), not read yet',
+    Skill_2_Idle: 'todo: S2 — S2 余烬重荷\'s toggle clips (Begin / Idle / Loop / End), not read yet',
+    Skill_2_Loop_A: 'todo: S2 — S2 余烬重荷\'s toggle clips, its two loops, not read yet',
+    Skill_2_Loop_B: 'todo: S2 — S2 余烬重荷\'s toggle clips, its two loops, not read yet',
+  },
+  char_4230_mcnist: {
+    Attack_B: 'todo: attack — a second attack clip of her Default mode, not read yet',
+  },
   // W, 클로저 (2026-11-06, the maintainer's to-do list: bundle fx-V)
   char_113_cqbw: {
     Attack_Down: 'none: no client key names it (Front model abilities, mode pairs, skin key table: no mix; her attack has no down key)',

@@ -83,6 +83,7 @@ test('the derived bonds of the data: each pick its core bonds or 协防 — 望 
     char_113_cqbw: ['emptyShip'],         // W 协防
     char_4027_heyak: ['emptyShip'],       // 霍尔海雅 协防
     char_4228_closur: ['emptyShip'],      // 可露希尔 协防 (罗德岛)
+    char_4246_dminon: ['emptyShip'],      // 国度 协防 (乌萨斯)
   });
   assert.deepEqual(DATA.backups.diy.prototypes, { 5: [], 6: [] });
 });

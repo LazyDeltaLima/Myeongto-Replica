@@ -75,6 +75,7 @@ const VERDICT = {
     nearl2: ['none', 'module 骑士家族 nearl2_e_003_tr creates no effect (nearl2_buff_01_start is S3 combo_effect)'],
     demetr: ['none', 'S3 清算 demetr_s3[undeadable] ON_BEFORE_TRY_SET_HP_ZERO: demetr_s3[undeadable_core] (template empty) and the skill interrupted'],
     monstr: ['none', 'S3 策略：熔毁 monstr_s_3[undead] ON_BEFORE_TRY_SET_HP_ZERO: monstr_s_3[undeadable] (template empty), the HP ratio kept, the skill interrupted'],
+    slent2: ['pending', 'S3 无畏者协议 slent2_shallow_grave ON_BEFORE_TRY_SET_HP_ZERO: its slent2_skill_03_buff_02 is a keyless row (fx-wiring-report.mjs), not wired yet'],
   },
   wake: { glady: ['skill', 2] },
 };

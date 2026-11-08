@@ -80,7 +80,7 @@ export const STANDIN_KIT_FILES = Object.freeze(['standin-acguad.js', 'standin-sh
  * as a 自选 kit (`ops/op-<codename>.js`, registry key = its charId, every skill under `skills`), found by kitKeyOfChar, not offered
  * as a 自选 pick. A new file is appended; when the season's tables arrive they stay as its chess's kits.
  */
-export const SEASON_KIT_FILES = Object.freeze(['op-bison.js', 'op-ju.js', 'op-taraxa.js', 'op-nothin.js', 'op-leto.js', 'op-glassb.js', 'op-turdus.js', 'op-bluep.js', 'op-highmo.js', 'op-hbound.js', 'op-cuttle.js', 'op-kaitou.js', 'op-liesel.js', 'op-pianst.js', 'op-aosta.js', 'op-frncat.js', 'op-christ.js', 'op-brigid.js', 'op-aurora.js', 'op-mitm.js', 'op-robrta.js', 'op-cammou.js', 'op-quercu.js', 'op-fang2.js', 'op-buildr.js', 'op-frostl.js', 'op-varkis.js', 'op-astesi.js', 'op-ctrail.js', 'op-ethan.js', 'op-swllow.js', 'op-halo.js', 'op-greyy2.js', 'op-kichi.js']);
+export const SEASON_KIT_FILES = Object.freeze(['op-bison.js', 'op-ju.js', 'op-taraxa.js', 'op-nothin.js', 'op-leto.js', 'op-glassb.js', 'op-turdus.js', 'op-bluep.js', 'op-highmo.js', 'op-hbound.js', 'op-cuttle.js', 'op-kaitou.js', 'op-liesel.js', 'op-pianst.js', 'op-aosta.js', 'op-frncat.js', 'op-christ.js', 'op-brigid.js', 'op-aurora.js', 'op-mitm.js', 'op-robrta.js', 'op-cammou.js', 'op-quercu.js', 'op-fang2.js', 'op-buildr.js', 'op-frostl.js', 'op-varkis.js', 'op-astesi.js', 'op-ctrail.js', 'op-ethan.js', 'op-swllow.js', 'op-halo.js', 'op-greyy2.js', 'op-kichi.js', 'op-slent2.js', 'op-hodrer.js', 'op-mcnist.js']);
 
 /**
  * The 自选 operator kit files (`ops/op-<codename>.js`, registry key = the operator's charId, an owned-6★ pick of
@@ -124,6 +124,7 @@ export const OPERATOR_KIT_FILES = Object.freeze([
   'op-cqbw.js',
   'op-heyak.js',
   'op-closur.js',
+  'op-dminon.js',
 ]);
 
 /**

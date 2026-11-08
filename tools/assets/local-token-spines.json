@@ -473,6 +473,52 @@
         "height": 358.952
       }
     },
+    "token_10029_slent2_protrb": {
+      "skel": "token_10029_slent2_protrb.skel",
+      "atlas": "token_10029_slent2_protrb.atlas",
+      "textures": [
+        "token_10029_slent2_protrb.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": "Die",
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0,
+        "Die": 1,
+        "Idle": 1.2,
+        "Start": 1
+      },
+      "events": [
+        "Start"
+      ],
+      "hits": {},
+      "bounds": {
+        "x": -54.473,
+        "y": 32.801,
+        "width": 102,
+        "height": 241
+      }
+    },
     "token_10031_swire2_gdtrap": {
       "skel": "token_10031_swire2_gdtrap.skel",
       "atlas": "token_10031_swire2_gdtrap.atlas",
@@ -1058,6 +1104,62 @@
         "y": -160.033,
         "width": 398,
         "height": 410
+      }
+    },
+    "token_10069_mcnist_mcgraf": {
+      "skel": "token_10069_mcnist_mcgraf.skel",
+      "atlas": "token_10069_mcnist_mcgraf.atlas",
+      "textures": [
+        "token_10069_mcnist_mcgraf.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": "Skill_Begin",
+          "loop": "Skill_Loop",
+          "end": "Skill_End",
+          "index": 0,
+          "idle": null
+        },
+        "die": "Die",
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Attack": 1.5,
+        "Default": 0,
+        "Die": 1,
+        "Idle": 1.333,
+        "Skill_Begin": 0.267,
+        "Skill_End": 1.233,
+        "Skill_Loop": 0,
+        "Start": 1
+      },
+      "events": [
+        "OnAttack",
+        "OnStart"
+      ],
+      "hits": {
+        "Attack": [
+          0.667
+        ],
+        "Skill_End": [
+          0.4
+        ]
+      },
+      "bounds": {
+        "x": -124.804,
+        "y": -2.196,
+        "width": 250.009,
+        "height": 390.019
       }
     },
     "trap_039_dstnta": {

@@ -52,4 +52,12 @@ export const UNSOUNDED = {
     'ON_ABILITY_ON.sktok_cannon_2': 'none: not hers — 脉冲防御模组 (trap_028_cannon, a stage device)\'s skill',
     'ON_OPERA_TRIGGER.cannon_hit': 'none: not hers — a stage script\'s (ON_OPERA_TRIGGER) bank',
   },
+  char_4246_dminon: {
+    // 国度 (2026-11-08): the kit's own damage — 此身为界's flight, 实质坍缩's tick, S3's spread — carries no sound moment yet
+    'ON_PROJECTILE_BORN.projectile_chr_dminon_dead': 'todo: 此身为界 after a knock-out (op-dminon.js boundary, KO_DELAY later)',
+    'ON_PROJECTILE_REACH.projectile_chr_dminon_dead': 'todo: 此身为界 after a knock-out, its landing (op-dminon.js boundary)',
+    'ON_PROJECTILE_REACH.projectile_chr_dminon_withdraw': 'todo: 此身为界 on a retreat, its landing (op-dminon.js boundary)',
+    'ON_CUSTOM_TRIGGER.dminon_talent_hit': 'todo: 实质坍缩\'s 1 s tick (op-dminon.js COLLAPSE)',
+    'ON_CUSTOM_TRIGGER.dminon_s3_expand': 'todo: S3\'s spread (op-dminon.js spread)',
+  },
 };

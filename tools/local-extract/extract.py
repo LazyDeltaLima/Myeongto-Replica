@@ -170,10 +170,10 @@ ENEMY_SPINE_SUB = 'spine/enemy'
 # trap_185_vtlntw (黄金回响) the device 阿利斯泰尔's 莫非王土 puts on a 冲击式施术单元's tile (pkgrps/btl_pfb_tokens_1).
 TOKEN_SPINES = [
     'token_10003_cgbird_bird', 'token_10008_cqbw_box', 'token_10009_weedy_cannon', 'token_10018_robrta_mach', 'token_10024_ebnhlz_rcube', 'token_10026_bgsnow_subbow', 'token_10027_ironmn_pile1',
-    'token_10027_ironmn_pile2', 'token_10027_ironmn_pile3', 'token_10031_swire2_gdtrap', 'token_10032_jesca2_jckshd',
+    'token_10027_ironmn_pile2', 'token_10027_ironmn_pile3', 'token_10029_slent2_protrb', 'token_10031_swire2_gdtrap', 'token_10032_jesca2_jckshd',
     'token_10035_wisdel_wward', 'token_10037_mitm_trshrb', 'token_10041_cathy_catsld',
     'token_10050_monstr_prosts', 'token_10054_phatm2_encdool', 'token_10057_svash2_eagle1', 'token_10057_svash2_eagle2',
-    'token_10057_svash2_eagle3', 'token_10064_wang_stone1', 'token_10066_closur_ourbase', 'token_10068_kalts2_mtship', 'trap_039_dstnta',
+    'token_10057_svash2_eagle3', 'token_10064_wang_stone1', 'token_10066_closur_ourbase', 'token_10068_kalts2_mtship', 'token_10069_mcnist_mcgraf', 'trap_039_dstnta',
     'trap_185_vtlntw',
 ]
 TOKEN_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'

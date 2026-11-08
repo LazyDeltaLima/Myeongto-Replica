@@ -678,7 +678,10 @@ const SKILL_DAMAGE_KEYS = Object.freeze({ char_4010_etlchi: Object.freeze({ 1: '
   char_1039_thorn2: Object.freeze({ 1: '' }), char_4145_ulpia: Object.freeze({ 2: '' }),
   // 2026-11-07: damage of a buff template is no ability's or projectile's HIT: 斥罪 S2's pulse (judge_s_2[aoe]; its own judge_s_2[audio]: fx 'aoe'), 焰影苇草 S3's ticks and
   // splash (reed2_t_1[skill_3_dot] / [skill_3_aoe], no PlayAudio), 缇缇 S3's waking damage (titi_s_3[dmg_ticker]; its titi_s_3[awake]: fx 'wake') and T1 while it runs
-  char_4065_judge: Object.freeze({ 1: '' }), char_1020_reed2: Object.freeze({ 2: '' }), char_4056_titi: Object.freeze({ 2: '' }) });
+  char_4065_judge: Object.freeze({ 1: '' }), char_1020_reed2: Object.freeze({ 2: '' }), char_4056_titi: Object.freeze({ 2: '' }),
+  // 2026-11-08: 国度's kit damage is buff damage in every skill — 实质坍缩's tick (dminon_t_1[dmg]), S3's spread (dminon_s_3[spread]);
+  // their own banks (ON_CUSTOM_TRIGGER dminon_talent_hit / dminon_s3_expand) are not wired yet (test/audio-bank-coverage-list.js)
+  char_4246_dminon: Object.freeze({ 0: '', 1: '', 2: '' }) });
 /** The sfx.kit key of unit model `def`'s skill damage during skill `skillIndex` (SKILL_DAMAGE_KEYS: '' silent), or null. */
 export function skillDamageKey(def, skillIndex) {
   return SKILL_DAMAGE_KEYS[def]?.[skillIndex] ?? null;
