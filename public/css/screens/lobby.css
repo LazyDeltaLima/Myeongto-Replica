@@ -1213,7 +1213,7 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .proto-rules.is-grid { display: grid; grid-template-columns: max-content minmax(0, 1fr); justify-items: start; align-items: center; gap: .05rem .12rem; }
 /* compact rows: the four cards keep their room below (选择模拟协议's fit levels) */
 .proto-rules .rpick__opt { height: .3rem; min-height: 0; }
-.proto-rules .rpick__gear { height: .3rem; width: .3rem; }
+.proto-rules .rpick__gear { height: auto; width: .3rem; } /* as tall as the options beside it (a phone's are taller) */
 .proto-rules .qswitch { height: .3rem; padding-top: 0; padding-bottom: 0; }
 .proto-rules.is-grid .proto-rules__row { display: contents; }
 .proto-rules.is-grid .proto-rules__k { justify-self: stretch; display: flex; justify-content: space-between; }
@@ -1222,6 +1222,7 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .proto-rules.is-grid .lobby-size .rpick__opt { flex: 1; justify-content: center; }
 .proto-rules__note { font-size: calc(.12 * var(--t)); color: #9fd8c8; white-space: nowrap; }
 .proto-rules__sum { flex-basis: 100%; font-size: calc(.12 * var(--t)); color: #f5c26b; }
+.proto-rules.is-grid .proto-rules__sum { grid-column: 1 / -1; } /* a row of its own, never the keys' column */
 .proto-rules .rpick__opt:disabled { opacity: .4; filter: grayscale(1); }
 /* 快速匹配's switch */
 .qswitch { display: inline-flex; align-items: center; gap: .08rem; padding: .05rem .1rem .05rem .08rem; font: inherit; font-size: calc(.13 * var(--t)); font-weight: 700;
@@ -1271,6 +1272,8 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   .proto-rules.is-grid { gap: 4px 8px; }
   .proto-rules__k, .proto-rules__note, .proto-rules__sum { font-size: 10px; }
   .proto-rules .rpick__opt { min-height: 24px; padding: 0 7px; font-size: 11px; }
+  .proto-rules .rpick__gear { width: 24px; }
+  .proto-rules .rpick__gear .icon { width: 14px; height: 14px; }
   .qswitch { gap: 5px; padding: 3px 6px; font-size: 10px; }
   .qswitch i { width: 26px; height: 14px; }
   .qswitch i::after { width: 10px; height: 10px; }
