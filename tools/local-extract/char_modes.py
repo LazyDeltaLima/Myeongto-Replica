@@ -1623,7 +1623,8 @@ def main():
     ap.add_argument('--client', default=DEFAULT_CLIENT)
     ap.add_argument('--id', action='append', default=[])
     a = ap.parse_args()
-    pack = Path(a.client) / 'StreamingAssets/AB/Windows/charpack'
+    # the hot-update copy first (PersistentData), as for the other bundles: a new CN operator's charpack is only there
+    packs = [Path(a.client) / d / 'charpack' for d in ('PersistentData/Bundles', 'StreamingAssets/AB/Windows')]
     ids = a.id or pool_char_ids()
     out = json.loads(OUT.read_text(encoding='utf-8')) if OUT.exists() else {}
     out.pop('$comment', None)
@@ -1638,8 +1639,8 @@ def main():
     sk_fx = skill_effects(stree, projectiles)
     durations = skill_durations()
     for cid in ids:
-        f = pack / f'{cid}.ab'
-        if not f.exists():
+        f = next((p / f'{cid}.ab' for p in packs if (p / f'{cid}.ab').exists()), None)
+        if f is None:
             missing.append(cid)
             continue
         try:

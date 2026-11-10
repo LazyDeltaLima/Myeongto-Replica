@@ -19,6 +19,9 @@
 // client key calls are listed like any other.
 
 export const UNPLAYED = {
+  char_347_jaksel: {
+    Skill_Loop: 'todo: D — S2 全神贯注！\'s StrikeBack (Modes/S2/Body/StrikeBack `_animKey` Skill_Loop) at each strike-back; the kit\'s forceAttack draws the Default attack clip',
+  },
   char_4177_brigid: {
     Skill_2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table: no mix; skchr_brigid_2 `_playSkillBeginAnim` off)',
     Skill_2_End: 'none: no client key names it (abilities, mode pairs, skin key table: no mix)',

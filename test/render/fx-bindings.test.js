@@ -129,6 +129,8 @@ const UNPLAYED = {
   'mcnist_s_2_shield|mcnist_skill_02_buff_01_end_02': 'cond',
   // 奥尔佳 and 阿米娅's 医疗 form (规程 pieces), 2026-11-08: S2's debuff on her target, the trait heal's hit — kit events not wired yet (bundle fx-V)
   'alga_2|alga_skill_02_debuff': 'condOther',
+  // 铸铁 (a 规程 piece), 2026-11-10: 佣兵之韧's ASPD buff once her kill count is done — the kit's buff not wired to its row yet (bundle fx-V)
+  'sidero_t_1[attack_speed]|sidero_buff_01_start': 'unconditional',
   'amiya3_instant_heal|amiya3_characteristic_01_hit': 'unconditional',
   // 묶음 S6 (2026-10-24) — condition rows left: a condition no sim event tells
   'nearl2_s_3[combo_effect]|nearl2_buff_01_start': 'condOther',   // 耀骑士临光 S3: CheckContainsCardBuff (a card's buff nearl2_t_1)

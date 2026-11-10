@@ -11488,6 +11488,87 @@
    }
   ]
  },
+ "char_333_sidero": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "sidero_attack_01_start"
+   ],
+   [
+    "sidero_skill_02_start"
+   ]
+  ],
+  "hit": [
+   [
+    "sidero_attack_01_hit"
+   ],
+   [
+    "sidero_attack_01_hit"
+   ]
+  ],
+  "trail": [
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "sidero_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "sidero_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [
+     "common_heal_hit_01"
+    ],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "sidero_skill_02_buff",
+     "sidero_skill_02_buff_02"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_337_utage": {
   "modes": [
    "Default",
@@ -11858,6 +11939,80 @@
     "castLoop": [],
     "buff": [
      "aosta_skill_02_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_347_jaksel": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ],
+  "cast": [
+   [],
+   [
+    "jaksel_skill_02_start"
+   ]
+  ],
+  "hit": [
+   [
+    "jaksel_attack_01_hit"
+   ],
+   [
+    "jaksel_skill_01_hit"
+   ]
+  ],
+  "trail": [
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {},
+   {
+    "jaksel_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [
+     "jaksel_skill_01_start"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [
+     "jaksel_skill_01_hit"
+    ],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "jaksel_skill_02_buff"
     ],
     "target": [],
     "targetBuff": []
@@ -14514,6 +14669,116 @@
     "buff": [
      "rockr_skill_02_buff_F_02_x",
      "rockr_skill_02_buff_F_01_x"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_4041_chnut": {
+  "modes": [
+   "Default",
+   "S2",
+   "S2(Down)"
+  ],
+  "proj": [
+   [
+    "projectile_chr_chnut"
+   ],
+   [
+    "projectile_chr_chnut_2"
+   ],
+   [
+    "projectile_chr_chnut_2"
+   ]
+  ],
+  "cast": [
+   [
+    "chnut_attack_start"
+   ],
+   [
+    "chnut_skill_02_start"
+   ],
+   [
+    "chnut_skill_02_start"
+   ]
+  ],
+  "hit": [
+   [
+    "common_heal_hit_01"
+   ],
+   [
+    "chnut_skill_02_hit_01"
+   ],
+   [
+    "chnut_skill_02_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "chnut_attack_trail"
+   ],
+   [
+    "chnut_skill_02_trail"
+   ],
+   [
+    "chnut_skill_02_trail"
+   ]
+  ],
+  "attach": [
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "chnut_attack_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "chnut_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "chnut_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "switchTo": [
+   [],
+   [
+    1,
+    2
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [
+     "chnut_skill_01_start",
+     "chnut_skill_01_start_02"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [
+     "chnut_skill_01_hit"
+    ],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "chnut_skill_02_buff",
+     "chnut_skill_02_loop"
     ],
     "target": [],
     "targetBuff": []

@@ -1,5 +1,12 @@
 {
  "skills": {
+  "skchr_acrbot_1": {
+   "ability": null,
+   "born": 0,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
   "skchr_aglina_1": {
    "ability": null,
    "cls": "cast",
@@ -880,6 +887,27 @@
      "wait": 1
     }
    ]
+  },
+  "skchr_chnut_1": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_chnut_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
   },
   "skchr_christ_1": {
    "ability": null,
@@ -2112,6 +2140,27 @@
    "cls": "cast",
    "reset": 0,
    "state": 0
+  },
+  "skchr_jaksel_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "clip": "Attack_A",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_jaksel_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0,
+   "word": 0
   },
   "skchr_jesca2_1": {
    "ability": null,
@@ -3441,6 +3490,12 @@
    "reset": 0,
    "state": 1
   },
+  "skchr_sidero_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
   "skchr_siege2_1": {
    "ability": {
     "anim": "Skill_1",
@@ -4700,6 +4755,21 @@
   },
   "skcom_def_up": {
    "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skcom_heal_self": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 0,
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 0
+   },
    "cls": "cast",
    "reset": 0,
    "state": 0

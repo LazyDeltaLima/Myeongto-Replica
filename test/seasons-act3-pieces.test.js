@@ -17,7 +17,6 @@ const BASE = getData({ log: { warn() {}, error() {}, info() {} } });
 
 /** charId → the bundle that writes its kit (no kit yet: the generic kit plays it). */
 const NO_KIT = Object.freeze({
-  char_347_jaksel: 'sim-J', char_4041_chnut: 'sim-J', char_333_sidero: 'sim-J', char_618_acrbot: 'sim-J',
 });
 
 const PIECES = Object.values(ACT3.chess).filter((r) => r.chessType !== 'DIY');
@@ -35,13 +34,13 @@ const ENEMIES = [{ key: 'enemy_1422_lrsldr', time: 0, route: 0, count: 8, interv
 // a wounded ally next to the piece (another 规程 piece: 艾丝黛尔)
 const HURT = { chessId: 'chess_char_1_02_a', row: 10, col: 5, uid: 51, carryState: { hpPct: 0.3 } };
 /**
- * What a skill needs on the field (charId → units): 华法琳 S1, 塞雷娅 S1 and 铃兰 S3 heal an ally that is hurt
+ * What a skill needs on the field (charId → units): 华法琳 S1, 塞雷娅 S1, 褐果 S1 and 铃兰 S3 heal an ally that is hurt
  * (铃兰 S3 stops her attacks and heals and slows instead); Mon3tr's S3 needs her placed 重构体 (test/content/op_monstr.test.js);
  * 凯瑟琳's S2 stops her attacks and works through her placed device, which shields the operator it faces
  * (test/content/facing.test.js) — that shield is her hit.
  */
 const PLACED = {
-  char_171_bldsk: [HURT], char_202_demkni: [HURT], char_358_lisa: [HURT],
+  char_171_bldsk: [HURT], char_202_demkni: [HURT], char_358_lisa: [HURT], char_4041_chnut: [HURT],
   char_4179_monstr: [{ kind: 'token', tokenId: 'token_10050_monstr_prosts', ownerUid: 1, row: 10, col: 5, uid: 50 }],
   char_4162_cathy: [{ ...HURT, row: 10, col: 6 }, { kind: 'token', tokenId: 'token_10041_cathy_catsld', ownerUid: 1, row: 10, col: 5, uid: 50, dir: 'RIGHT' }],
 };

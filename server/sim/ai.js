@@ -402,7 +402,7 @@ function allyStrike(b, u, prof, off = null) {
   // (`Character.RegisterReplacement`): this swing strikes as the normal attack it started as, the cast keeps waiting
   if (!sw.isSkill && prof.isSkill && u.skill?.pending && !u.skill.isTimed) prof = sw.prof ?? u.profile;
   let targets = sw.targets;
-  if (sw.sel === 1 || sw.sel === 3 || (sw.sel === 2 && !strikable(targets[0])) || (targets[0] && (targets[0].side === 'ally') !== !!prof.heal)) {
+  if (sw.sel === 1 || sw.sel === 3 || (sw.sel === 2 && !strikable(targets[0])) || (targets[0] && !prof.alliesToo && (targets[0].side === 'ally') !== !!prof.heal)) {
     targets = acquireTargets(b, u, prof);
     if (!targets.length) { if (!off) { u.atkCd = 0; u.castLeft = 0; } dropNextAttack(u, sw, true); return; }
   } else {
@@ -606,6 +606,14 @@ export function acquireTargets(b, u, prof) {
   // (0.7071) reaches past its own tile, so a blocked enemy may stand outside a short range or behind its facing (user
   // playtest #5 item 4); a ranged operator on a melee tile too (user playtest #6: "阻挡了就一定要能打到")
   if (u.blocking.length) for (const e of b.blockedTargets(u, prof)) if (!cands.includes(e)) cands.push(e);
+  // an attack whose selector takes both sides (`alliesToo`: “暴躁铁皮” S1's `_targetSide` ALL with `_excludeOwner`): the
+  // allies of its range after the enemies, the count as usual — it attacks them with no enemy in range too
+  if (prof.alliesToo) {
+    sortEnemyTargets(b, u, cands, prof.priority);
+    const all = cands.concat(b.alliesInGrid(u).filter((a) => a !== u));
+    const n = targetCount(u, prof);
+    return n >= all.length ? all : all.slice(0, n);
+  }
   // an ally target (Battle.setAllyTarget: 白铁's 铁钳号·原型机, an enemy-camp summon with 嘲讽等级 −2) after every enemy
   const extra = b._allyTargets && b._allyTargets.size ? b.allyTargetsInKeys(u.rangeKeys, u) : null;
   if (extra && extra.length) {
@@ -949,7 +957,11 @@ function doHeal(b, u, prof, t, skillOn = !!(u.skill && u.skill.active)) {
   const h = prof.heal || { mode: 'single' };
   let amount = atk * scale;
   if (h.farMul && Math.max(Math.abs(t.tileR - u.tileR), Math.abs(t.tileC - u.tileC)) > (h.nearDist ?? 2)) amount *= h.farMul;
-  if (h.elementHealRatio) reduceElement(t, atk * h.elementHealRatio);
+  // a kit's scale of this heal on `t` (`heal.scaleOn(b, u, t)` → { hp, ep }: 褐果's 脚踏实地 on low ground, her S2's
+  // repeated target — the client's heal and element-heal scales of the ability, set as it is cast)
+  const sc = h.scaleOn ? h.scaleOn(b, u, t) : null;
+  if (sc && Number.isFinite(sc.hp)) amount *= sc.hp;
+  if (h.elementHealRatio) reduceElement(t, atk * h.elementHealRatio * (sc && Number.isFinite(sc.ep) ? sc.ep : 1));
   // `isSkill`: a skill's heal (its profile at the attack), for a 'heal' handler that scales by it when the shot lands
   // after the skill (莎草 巧思乍现's next heal: the barrier ×shield_scale_skill)
   const hopts = prof.isSkill ? { isSkill: true } : undefined;

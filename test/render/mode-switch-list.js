@@ -9,6 +9,7 @@
 // test/render/mode-switch-coverage.test.js checks the list both ways. charId → { 'S<n> <mode name>': status }.
 
 export const MODE_SWITCH_STATUS = Object.freeze({
+  char_4041_chnut: { 'S2 S2(Down)': 'todo: S2 facing down (chnut_s_2[switch_mode] CheckCharacterDefaultDirection DOWN) — the same attack and effects, its Skill2_Down_* clips' },
   char_4230_mcnist: {
     'S2 S2_Down': 'todo: S2\'s facing-down mode — its own attack start mcnist_skill_02_start_01_down (fx-unplayed-local-list.js)',
     'S3 S1': 'todo: S3 switches through her S1 mode on the way, not read yet',

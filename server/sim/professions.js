@@ -16,10 +16,13 @@
 //                  struck — a stealthed one is not, unless revealed or blocked; PRTS 作战机制 §AOE伤害判定)
 //   splashScale (× damage for splash victims)
 //   splashOthersOnly bool     groundOnly bool            hits n (damage instances per attack)
-//   chain {count, falloff, radius, sluggish}              heal {mode:'single'|'multi'|'chain', count, falloff, farMul, elementHealRatio}
+//   chain {count, falloff, radius, sluggish}              heal {mode:'single'|'multi'|'chain', count, falloff, farMul, elementHealRatio,
+//                                                               scaleOn(battle, unit, target) → {hp, ep} (× that heal's HP / element recovery)}
 //   priority 'fly'|'lowDef'|'ranged'|'lowestHp'|'highestHp'|'nearest'|'farthest'|'notBurst'|null
 //   noAttack bool (never attacks)   noAttackUnlessSkill bool (attacks only while its skill is active)
 //   noHeal bool (cannot be healed by others)   blockFly bool   onHitStatus {key, duration, value}
+//   alliesToo bool (the attack also selects the allies of its range, after the enemies — ai.js acquireTargets; a
+//                   kit's skill attack: “暴躁铁皮” S1)
 //   dmgMul(battle, unit, target) → number      afterHit(battle, unit, target, {dealt,x,y})
 //   afterHeal(battle, unit, target, {amount}) (a heal attack's heal has reached `target`, its own chain done — Mon3tr)
 //   funnelMul(battle, unit, target, info) → number (drone ramp, separate from the caster's attack multiplier; info: the

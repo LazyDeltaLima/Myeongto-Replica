@@ -1567,3 +1567,32 @@
 - 재능 诚挚期许(KR 이름은 KR 표의 char_patch_table에 있음 — 시즌 한국어 덧씌우기 때): 그녀가 전장에 있는 동안 모든 아군 유닛 최대 HP +`max_hp`(`amiya3_t_1`, MULTIPLIER, 범위 없음). 그녀의 스킬이 켜진 동안(S1·S2 모드의 Talents/1) 모든 아군 유닛이 초당 최대 HP의 `hp_recovery_per_sec_by_max_hp_ratio`를 회복(`amiya3_t_1[s]`). [추정·엔진: 오라 갱신 주기 0.2초 — 나중에 배치된 유닛도 곧바로 받게]
 - S1 슬픔의 공감(哀恸共情, 50초, 모드 S1): 공격 속도 +`attack_speed`. 그녀의 공격 대미지마다(`amiya3_s_1` ON_CALCULATE_DAMAGE, 계열 ATTACK) 스킬 범위 x-1 안의 다른 아군 유닛 모두를 공격력 × `heal_scale`만큼 치료(`amiya3_s_1[heal]`, 능력 `amiya3_skill1`; `_excludeTargetType` SOURCE라 자신은 아님).
 - S2 자비의 비전(慈悲愿景, 32초, 전투당 한 번 — `skill_max_trigger_time` 1, `_limitGlobalTriggerTime`): 클립(`S2Attack`, `Skill_2_Begin`)의 OnAttack 프레임에 공격 범위 안 모든 적에게 공격력 × `atk_scale` 법술 대미지와 `amiya3_s_2[debuff]`(공격 속도 + `…attack_speed`, 이동 속도 ×(1 + `…move_speed`), 그 지속 시간). 맞힌 적 하나마다 공격력 +atk(최대 `max_stack_cnt`번, `amiya3_s_2[atk]` — 스킬이 끝날 때 사라짐: `amiya3_s_2[passive]` ON_SKILL_FINISH). 남은 시간은 모드 S2: 공격이 트루 대미지(`_damageType` 3)이고 적 2명을 동시에 친다(그 선택기 `_maxNum` 2). 한 번 쓴 뒤로는 SP가 다시 차지 않는다.
+
+## 새 시즌 재키·체스트넛·시데로카·레이지 아이언하이드 (2026-11-10, 관리자 결정 2026-11-05)
+규정의 기물 재키(杰克 `char_347_jaksel`, `chess_char_1_12`, 1티어)·체스트넛(褐果 `char_4041_chnut`, `chess_char_1_15`, 1티어)·시데로카(铸铁 `char_333_sidero`, `chess_char_2_22`, 2티어)와 숨김 기물 레이지 아이언하이드(“暴躁铁皮” `char_618_acrbot`, `chess_char_5_22`, 5티어 — 유넥티스 리더 전략 【暴躁铁皮】 `band_mech`이 1라운드에 줌, CN에만 있는 오퍼레이터). 네 키트는 `SEASON_KIT_FILES`(`op-jaksel.js`·`op-chnut.js`·`op-sidero.js`·`op-acrbot.js`)에 있고 선발 후보가 아니다. 수치는 기물 기록의 블랙보드를 읽는다. 시험 `test/content/op_jaksel.test.js`(5)·`op_chnut.test.js`(5)·`op_sidero.test.js`(5)·`op_acrbot.test.js`(7): 두 폼, 스킬, 재능, 특성·모듈, 실제 대전 경로.
+
+### 재키 `char_347_jaksel` (T1, 파이터)
+- 재능 급속 회피(极速闪避): 물리 회피 `prob`(`jaksel_t_1[evade]`, `evade_physical`). 물리 공격을 회피할 때마다 공격 속도 +N, `duration`초(`charge_atk_speed_on_evade`, 겹치지 않고 다시 시작). 모듈 FGT-X(정예): 특성의 물리 회피 15%는 따로 굴리는 회피다(합 = 1 − Π(1 − p)).
+- S1 한 방 먹여주마!(给你一拳！): 다음 공격이 공격력 × `atk_scale`.
+- S2 정신 집중!(全神贯注！): 시작 클립 `Skill_Start`(0.333초) 뒤 모드 S2. 그 모드의 능력은 `StrikeBack` 하나라 공격하지 않는다. 물리 회피 +`prob`(`jaksel_skill_2[evade]`). 물리 공격을 회피하면 `StrikeBack`을 시전한다(`charge_ability_on_evade`, 쓸 수 있을 때만): 평타가 고를 적 1명에게 공격력 × `attack@atk_scale` 물리 대미지, 클립 `Skill_Loop`의 타격 프레임(0.333초)에. 다음 반격은 공격 간격 × `base_attack_time` 뒤부터(스킬 버프가 공격 간격에 `BASE_ATTACK_TIME` FINAL_SCALER로 곱함 — 문구 「반격 빈도는 공격 간격의 N% 이상」).
+
+### 체스트넛 `char_4041_chnut` (T1, 방랑 메딕)
+- 특성: 치료와 함께 원소 손상을 공격력 × `ep_heal_ratio` 회복(분과 프로필 `wandermedic`, WDM-X가 0.6으로).
+- 재능 차근차근(脚踏实地): 낮은 지대에 선 아군에게 주는 원소 손상 회복 × `ep_heal_scale`(`chnut_t_1`: `IsElementHeal` + 대상 칸의 `CheckHeightTypeOfCharacterRootTile` LOWLAND).
+- S1 적미성저(积微成著): 충전(일반 1·정예 2). 스킬 클립 `Skill`의 타격 프레임에 스킬 선택기가 고른 아군 1명(HP 비율 먼저, 다음 원소 손상 — `_postFilter` HP_RATIO_ASC_EP_MIN_ASC_FIRST_NOT_ALL_FULL)에게 공격력만큼 치료, 원소 손상 회복 × `trait_scale`(`chnut_s_1`). 재능도 붙는다.
+- S2 후토분출(厚土迸发): 모드 S2(아래를 향하면 S2(Down) — 같은 공격), 스킬 범위 3-2, 공격 속도 +N. 공격은 `ContinuouslyRangedHeal`이다: 바로 앞 치료와 같은 아군이면 HP 치료와 원소 손상 회복 × `attack@heal_continuously_scale`. 공식 클라에서 확인: `ContinuouslyRangedHeal.OnCastStart`가 입력 대상이 지난 대상과 같을 때만 그 배율을 치료와 원소 치료(`_applyScaleForEPHeal`)에 넣고, 다르면 원래 배율로 두고 지난 대상을 바꾼다. 모드가 붙을 때 능력의 `Reset`이 지난 대상을 비우므로 스킬마다 첫 치료는 배율이 없다.
+- 엔진: 치료 프로필의 `heal.scaleOn(battle, unit, target)`(`ai.js doHeal`)이 그 치료의 HP·원소 회복 배율을 준다.
+
+### 시데로카 `char_333_sidero` (T2, 아츠 파이터)
+- 특성: 마법 공격(분과 프로필 `artsfghter`). 모듈 AFT-Y(정예): 저지한 적이 마법 취약 `damage_scale` − 1(`sidero_e_002_trait`: 저지 대상이 바뀔 때 다시 붙는 파생 버프, 아스테시아의 AFT-Y와 같은 꼴).
+- 재능 용병의 근성(佣兵之韧, 정예만 — 일반 폼 기록에 재능이 없음): 적을 `times`명 처치하면(`sidero_t_1[stack]`이 처치마다 한 겹 줄고 다 줄면) 공격 속도 +N과 저항(`status_resistance[inf]`, −`one_minus_status_resistance`), 그 배치 끝까지, 한 번.
+- S1 HP 회복 γ(`skcom_heal_self[3]`): 즉시 최대 HP × `heal_scale` 회복(`_isHpRatio`).
+- S2 파도 가르기(破浪回神): 모드 S2, 스킬 범위 0-1(자기 칸 — 저지한 적만 친다), 공격력 +N, 초당 최대 HP × `hp_recovery_per_sec_by_max_hp_ratio`(생명 회복 속도 속성).
+
+### 레이지 아이언하이드 `char_618_acrbot` (T5 숨김, 저거너트, CN 클라)
+- 특성 「아군의 치료를 받을 수 없음」: 분과 프로필 `unyield`(`noHeal`; 클라는 `acrbot[equip-vfx]`의 HEAL_FREE). 모듈 UNY-X(정예): 자신이 저지한 유닛에게 받는 대미지 × `damage_scale`(`acrbot_e_002_tr`: `CheckBlocked` + `DamageScale`).
+- 공격: Default·Sk1의 `Combat`·`Attack` 선택기가 모두 대상 수 제한 없이(`_limitTargetNum` 0) `_limitedMaxTargetNumToBlockedCnt`를 단다 → 저지 가능 수만큼 동시에 친다(저지한 적 먼저 — 공격수 규칙, `hitAllBlocked`). 같은 분과 머드락의 기본 공격 선택기에는 이 표시가 없다(그녀 S2에만 있음).
+- 재능 야만의 심장(荒蛮之心, `acrbot[t2]`): 쓰러지면 제 칸에서 `projectile_chr_acrbot_t2`가 터져 `projectile_range`(1.7) 안 모든 적에게 쓰러질 때의 공격력 × `atk_scale` 마법 대미지(`_forceUseProjectileCachedAtk`)와 기절 `stun`초.
+- 재능 족장의 위엄(酋长之威, `acrbot[t1]`): 저지 가능 수 +`block_cnt`, 공격 범위가 앞으로 `ability_range_forward_extend`칸(일반 1·정예 2). 장비 칸(4·6, 기록 `equipSlotNum`)은 이 키트가 아니라 장비 규칙 쪽이다.
+- S1 거대하고 못생긴 것의 분노(大丑的愤怒, 20초, `acrbot[sk1]` → 모드 Sk1): 기본 공격 시간 −0.6초(ADDITION), 공격력 +N, 최대 HP +N, 기절·동결·침묵·공중 띄우기·수면·혼수 면역(`abnormalImmunes` STUNNED FROZEN SILENCED LEVITATE DOZE, 콤보 SLEEPING; 이 엔진에 혼수 상태는 없음). 모드 Sk1의 선택기는 자신 말고 양쪽 진영을 고른다(`_targetSide` ALL, `_excludeOwner`): 범위 안 아군도 치고, 적이 없어도 친다. 엔진: 공격 프로필 `alliesToo`(`ai.js acquireTargets`)가 범위의 아군을 적 뒤에 붙인다. [추정·CN: 적과 아군이 한 목록일 때의 순서(`_postFilter` HATRED_DES)는 CN에만 있는 선택기 클래스라 읽지 못함 — 적 먼저. 대상 수가 저지 가능 수(4)라 2~3칸 범위에서는 보통 모두 맞는다]
+- 한국어: KR 표에 있는 이름(레이지 아이언하이드, 거대하고 못생긴 것, 「…의 배지」)과 말투로 손 번역했다(`public/i18n/ko/manual.json`, `docs/I18N.md` 「CN-only texts in Korean」).

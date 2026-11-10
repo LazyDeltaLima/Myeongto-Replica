@@ -7,6 +7,8 @@
 // list both ways, so a new operator's unplayed rows have to be looked at. 'key|prefab' → status.
 
 export const UNPLAYED_LOCAL = Object.freeze({
+  // 褐果 (a 规程 piece), 2026-11-10 — bundle fx-V
+  'projectile_chr_chnut_3|chnut_skill_02_hit_02': 'todo: S2\'s heal on the same ally as the one before it (ContinuouslyRangedHeal `_secondProjectileKey`)',
   // 国度 (自选), 淬羽赫默 and 机械师 (规程 pieces), 2026-11-08 — bundle fx-V
   'char_4246_dminon/Others/Direction/CommonAbilities/Kingdom|dminon_range_line_01': 'todo: the 国度 field\'s edge line on his range tiles',
   'char_4246_dminon/Others/Direction/CommonAbilities/Kingdom|dminon_talent_range_01': 'todo: the 国度 field on his range tiles',

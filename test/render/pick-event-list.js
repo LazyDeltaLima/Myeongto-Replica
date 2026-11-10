@@ -82,6 +82,7 @@ export const PICK_EVENTS = Object.freeze({
   'dminon|aoe': "stand-in: the generic area mark for S3's spread; his own dminon_talent_range_hit_01 (dminon_s_3[spread]) is in fx-bindings.test.js UNPLAYED",
   'mcnist|shield': "stand-in: the generic barrier look for 生命方程 / S2; her own mcnist_skill_02_buff_01 (mcnist_s_2_shield) rows are keyless (fx-wiring-report.mjs), not wired yet",
   'mcnist|charge': "stand-in: the generic charge line for 结构性原理's S3 charge; its own trails are in fx-unplayed-local-list.js",
+  'acrbot|aoe': "stand-in: the generic area mark for T1 荒蛮之心's knock-out burst; its projectile_chr_acrbot_t2 effects are not extracted yet (not in the CN bundle index)",
   'mcnist|aoe': "stand-in: the generic area mark for the S3 cross and the charge's landing; their own hits are not wired yet",
   'slent2|shield': "stand-in: the generic barrier look; BLS-Y's 屏障 is stage 3, not in 规程",
   'slent2|undying': "stand-in: the generic 不死 look for S3's slent2_shallow_grave; its slent2_skill_03_buff_02 is a keyless row, not wired yet",
