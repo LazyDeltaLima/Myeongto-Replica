@@ -26,7 +26,7 @@ npm run assets       # = node tools/vendor.mjs && node tools/fetch-assets.mjs
 | `--allow-shrink` | Write `data/assets.json` even when it loses entries the current one has (see "The manifest never shrinks by accident" below). |
 | `--strict` | Exit 1 when a leaf was dropped for having no file on disk, instead of only reporting it (see "A dropped leaf is reported" below). The same as the environment variable `SP_ASSETS_STRICT=1` — for CI and packaging builds. |
 | `--add-only` | For a checkout whose `public/assets/` and `public/fonts/` are shared with another one (a git worktree with symlinked asset folders): download only the files missing on disk and never re-download, rewrite or delete an existing file — atlases already on disk are left as they are, the fonts are not rebuilt (the manifest keeps its current `fonts`). Not with `--prune` / `--force`. |
-| `--local-spines` | Rewrite `tools/assets/local-enemy-spines.json` and `tools/assets/local-token-spines.json` (the metadata of the enemy and token models only the local client has, see "Enemy aliases" and "Token models from the local client") from the models `tools/local-extract/extract.py` extracted to `public/assets/local/spine/enemy/` and `public/assets/local/spine/token/`. Run it after a game update changed them; without it the committed files are used and a differing extraction only gets a warning. |
+| `--local-spines` | Rewrite `tools/assets/local-enemy-spines.json`, `tools/assets/local-token-spines.json` and `tools/assets/local-item-spines.json` (the metadata of the enemy, token and equipment models only the local client has, see "Enemy aliases", "Token models from the local client" and "Equipment models from the local client") from the models `tools/local-extract/extract.py` extracted to `public/assets/local/spine/enemy/`, `public/assets/local/spine/token/` and `public/assets/local/spine/item/`. Run it after a game update changed them; without it the committed files are used and a differing extraction only gets a warning. |
 
 **The manifest never shrinks by accident.** An entry whose files are missing on this machine is left out of a rebuilt
 manifest, so a run where some downloads failed (or whose upstream audio / model index lost them) would drop entries that
@@ -189,6 +189,8 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
                           // spineLocal: as for enemies — "Token models from the local client" below
   bonds:   { [bondId]: url },       // white glyphs; tint in CSS/canvas
   items:   { [trapId]: url },
+  itemSpines: { [trapId]: { group, skel, atlas, textures, …Spine } },
+                          // the equipment models of the local client — "Equipment models from the local client" below
   bands:   { [bandId]: url },
   skills:  { [iconId]: url },       // iconId = skill_table iconId ?? skillId
   skillsById: { [skillId]: iconId },
@@ -439,6 +441,20 @@ Other renderer rules from research 07 §5.4–5.5:
     either install's asset index either): 乌尔比安's 从不混淆的方向, 圣聆初雪's 保护目标（冻结状态）, 酒神's 迷狂牢笼, 贝洛内's
     牵绊 and 予愿安洁莉娜's “一会儿见！” — the last three keep the token fallback picture (`tokenAvatarUrl`: no avatar, no
     owner in the manifest → the 召唤物 battle-card icon).
+- **Equipment models from the local client** (2026-11-11, docs/rules/render.md 「손 칸 장비 모델」): the client builds every
+  item as a trap character whose battle prefab (the same token packs) draws one Spine model, a still pose (its single
+  clip lasts 0 s). No dump carries them, so the hand items were icon plates.
+  - `extract.py` reads the item list from the tables at run time (`item_spine_ids`: every `trapId` of `data/items.json`
+    and `data/seasons/*/items.json`) and writes each prefab's Front skeleton to `public/assets/local/spine/item/{trapId}/`
+    (`--only spine/item`). Many prefabs draw another item's skeleton (维式重锤 `trap_1041_acarm041` →
+    `trap_1024_acarm024`, a copy in the same pack): the prefab decides, never the id. The ids the `--game` root lacks are
+    looked up in the CN client (`SP_CLIENT_CN`, its hot-update bundles first): 规程's 32 items are only in its
+    `pkgrps/btl_pfb_tokens_6.ab`. Not extracted: the magic items whose prefab draws no Spine (“神秘顾客”
+    `trap_1108_acdisney`, 画卷 `trap_1110_accopy`, 教鞭 `trap_1111_acchal`) — they keep the plate.
+  - `itemSpines[trapId]` = `{ group: 'spine/item/{trapId}', … }` from the committed `tools/assets/local-item-spines.json`
+    (`fetch-assets --local-spines`), never from the disk. `assets.js itemSpine` gives the model when
+    `data/local-assets.json` lists every file of it; `render/item-models.js` draws each model once into a cell of a
+    shared page and every hand item of it is a sprite of that cell (`render/units.js ItemView`), else the icon plate.
 - **Operator page textures from the local client** (2026-11-01, docs/rules/render.md, the operator battle texture
   section): the web operator models carry a re-compressed copy of the page textures whose soft edges drift from the
   client's (a light seam round the skin patches that shape 铃兰's and 史尔特尔's eyes). Their skeleton and atlas regions

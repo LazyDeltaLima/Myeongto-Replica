@@ -38,6 +38,7 @@
 //                                                   // it (manifest spineLocal; enemies and tokens), else the web
 //                                                   // model; `.fallback`; an operator's web model with the
 //                                                   // client's page textures (`.pages`, localPagesEntry)
+//   assets.itemSpine(rec | 'trap_1041_acarm041')    // the equipment's model (itemSpines) once local() listed it, else null
 //
 // Every URL helper is also exported as a pure function taking the manifest first (`avatarUrl(manifest, …)`),
 // so it can be unit tested without a browser. Helpers never throw on unknown ids — they return null and the
@@ -200,6 +201,16 @@ export function localSpineEntry(sl, local, web) {
   }
   localSpines.set(sl, { local, web, entry });
   return entry;
+}
+
+/**
+ * The equipment model of an item (trapId `trap_1041_acarm041` or an item record `{ trapId }`): the local client's Spine
+ * model (`itemSpines[trapId]`, tools/local-extract/extract.py) as a Spine entry when `local` (data/local-assets.json)
+ * lists every one of its files; else null — the hand item keeps its icon plate (render/units.js ItemView).
+ */
+export function itemSpineEntry(m, item, local) {
+  const id = isObj(item) ? str(item.trapId) : str(item);
+  return id && local ? localSpineEntry(get(get(m, 'itemSpines'), id), local, null) : null;
 }
 
 /** Whether an operator/token/enemy has a Back model. */
@@ -991,6 +1002,7 @@ export function createAssets(options) {
     ui: (name) => uiUrl(m(), name),
     picture: (id) => unitPictureUrl(m(), id),
     spineEntry: (id, o) => spineEntry(m(), id, localManifest ? { ...o, local: localManifest } : o),
+    itemSpine: (item) => itemSpineEntry(m(), item, localManifest),
     hasBack: (id) => hasBackSpine(m(), id),
     audio: {
       bgm: (kind) => bgmEntry(m(), kind),

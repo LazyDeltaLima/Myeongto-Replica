@@ -66,8 +66,8 @@ import { loadIndexes } from './assets/cache.mjs';
 import { indexAudio, VOICE_DIRS } from './assets/audio.mjs';
 import { buildPlan } from './assets/plan.mjs';
 import {
-  processModels, findLocalEnemyModels, findLocalTokenModels, localSpineMeta, loadLocalSpines, LOCAL_ENEMY_SPINES_FILE,
-  LOCAL_TOKEN_SPINES_FILE, LOCAL_ENEMY_SPINE_DIR, LOCAL_TOKEN_SPINE_DIR,
+  processModels, findLocalEnemyModels, findLocalTokenModels, findLocalItemModels, localSpineMeta, loadLocalSpines, LOCAL_ENEMY_SPINES_FILE,
+  LOCAL_TOKEN_SPINES_FILE, LOCAL_ITEM_SPINES_FILE, LOCAL_ENEMY_SPINE_DIR, LOCAL_TOKEN_SPINE_DIR, LOCAL_ITEM_SPINE_DIR,
 } from './assets/spine.mjs';
 import { collectLeaves, downloadLeaves, resolveTemplate, totalBytes, contentHash, droppedEntries, MANIFEST_VERSION } from './assets/manifest.mjs';
 import { fontJobs, buildFonts } from './assets/fonts.mjs';
@@ -96,6 +96,11 @@ const LOCAL_SPINE_KINDS = {
     file: LOCAL_TOKEN_SPINES_FILE, dir: LOCAL_TOKEN_SPINE_DIR, find: findLocalTokenModels, what: 'token',
     about: 'Spine metadata of the token (summon) models only the local client has (tools/local-extract/extract.py TOKEN_SPINES); '
       + 'data/assets.json tokens[id].spineLocal. Written by node tools/fetch-assets.mjs --local-spines (docs/ASSETS.md "Token models from the local client").',
+  },
+  item: {
+    file: LOCAL_ITEM_SPINES_FILE, dir: LOCAL_ITEM_SPINE_DIR, find: findLocalItemModels, what: 'item',
+    about: 'Spine metadata of the equipment models of the local client (tools/local-extract/extract.py item_spine_ids: every trapId of the item tables); '
+      + 'data/assets.json itemSpines[trapId]. Written by node tools/fetch-assets.mjs --local-spines (docs/ASSETS.md "Equipment models").',
   },
 };
 
@@ -446,6 +451,7 @@ async function main() {
   for (const b of Object.values(dataBosses || {})) if (b?.enemyKey && typeof b.handbookId === 'string') extraHandbook[b.enemyKey] = b.handbookId;
   const localEnemySpines = await syncLocalSpines(opts, 'enemy');
   const localTokenSpines = await syncLocalSpines(opts, 'token');
+  const localItemSpines = await syncLocalSpines(opts, 'item');
   const plan = buildPlan({
     assets07, ops03, enemies05, maps05, audio, modelsData, charword, voiceLang: opts.voiceLang,
     // default: only the slots a battle can play (plan.mjs VOICE_BATTLE_SLOTS); --voice-all takes the whole official set
@@ -455,6 +461,7 @@ async function main() {
     extraHandbook,
     localEnemySpines,
     localTokenSpines,
+    localItemSpines,
     extraOperators: extras.extraOperators,
     moduleTypes: extras.moduleTypes,
   });

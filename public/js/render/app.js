@@ -59,7 +59,7 @@
 //   view.setSettings({ damageNumbers, quality: 'auto'|'high'|'medium'|'low', frameLimit: 0|30|60|120 }) ; view.resize() ; view.destroy()
 //   view.isReady() → false while the first frame is held back (its textures go up behind the loading screen); then
 //        emits ready (no payload) after the first frame that draws the field ("first frame" below)
-//   view.stats() → { fps, frameMs, cpuMs, renderMs, parts, units, particles, impostor, impostorAtlas, boardArt, … } (dev / perf)
+//   view.stats() → { fps, frameMs, cpuMs, renderMs, parts, units, particles, impostor, impostorAtlas, itemModels, boardArt, … } (dev / perf)
 //   view.census() → { objs, shown, tex, base, ticker, views, pen, gone, fxLive, fxNotes, fxTrails, topUnits, topFx, lodSec,
 //        lodSteps, fxSkip, b3, fxGl, fxLib, spine } (perf: what the page holds; since the last call the costliest unit views
 //        and effects, the seconds at each load level and its steps, why official effects did not play; the GPU memory of the
@@ -136,6 +136,7 @@ import { backdropTextures, shadowTexture, refreshTierChips, refreshDownLabels, s
 import { TILE_H, TIER_COLORS, COLORS, tileTop } from './style.js';
 import { loadBoardArt } from './boardArt.js';
 import { ImpostorAtlas } from './impostor.js';
+import { ItemModels } from './item-models.js';
 import { loadBoard3d, webgl2Available } from './board3d/load.js';
 import { createRetry3d } from './app/retry3d.js';
 import { noteRender } from '../diag.js';
@@ -445,6 +446,10 @@ export async function createFieldView(host, options = {}) {
   setupCleanup.push(() => impostors.destroy());
   timing?.part?.('effects');
   ctx.impostors = impostors;
+  // the hand items' equipment models: one still snapshot per model in a shared page (render/item-models.js)
+  const itemModels = new ItemModels(app.renderer, assets);
+  setupCleanup.push(() => itemModels.destroy());
+  ctx.itemModels = itemModels;
   tiles.setView(bandFor('prep'), camRect(), fieldRows('prep'));
   // the real board art of the local client (optional): wait briefly so the first frame already uses it; a late
   // arrival swaps the atlas in place
@@ -900,7 +905,7 @@ export async function createFieldView(host, options = {}) {
       const rec = data.item(piece.id);
       const tier = rec?.tier || piece.tier || 1;
       const url = assets.itemIcon ? assets.itemIcon(rec ? { trapId: rec.trapId, iconId: rec.iconId } : piece.id) : null;
-      return { kind: 'item', defId: piece.id, icon: url, color: (piece.golden || rec?.isGolden) ? 0xffc600 : TIER_COLORS[tier] || TIER_COLORS[1] };
+      return { kind: 'item', defId: piece.id, trapId: rec?.trapId || null, icon: url, color: (piece.golden || rec?.isGolden) ? 0xffc600 : TIER_COLORS[tier] || TIER_COLORS[1] };
     }
     if (kind === 'token') {
       const rec = data.token(piece.id);
@@ -1665,7 +1670,7 @@ export async function createFieldView(host, options = {}) {
   function scoutItemInfo(info) {
     const rec = data.item(info.defId);
     const tier = rec?.tier || info.tier || 1;
-    return { ...info,
+    return { ...info, trapId: rec?.trapId || null,
       icon: assets.itemIcon ? assets.itemIcon(rec ? { trapId: rec.trapId, iconId: rec.iconId } : info.defId) : null,
       color: (info.golden || rec?.isGolden) ? 0xffc600 : TIER_COLORS[tier] || TIER_COLORS[1] };
   }
@@ -2669,7 +2674,7 @@ export async function createFieldView(host, options = {}) {
     },
     stats() {
       return {
-        fps: Math.round(fps * 10) / 10, frameMs: Math.round(frameMs * 100) / 100, cpuMs: Math.round(cpuMs * 100) / 100, renderMs: Math.round(renderMs * 100) / 100, mode, units: views.size, impostor: impInterval, impostorAtlas: { ...impostors.stats }, boardArt: !!tiles.atlas.art,
+        fps: Math.round(fps * 10) / 10, frameMs: Math.round(frameMs * 100) / 100, cpuMs: Math.round(cpuMs * 100) / 100, renderMs: Math.round(renderMs * 100) / 100, mode, units: views.size, impostor: impInterval, impostorAtlas: { ...impostors.stats }, itemModels: { ...itemModels.stats }, boardArt: !!tiles.atlas.art,
         board3d: board3d ? { on: true, ...board3d.stats(), losses: recover.count }
           : { on: false, pref: boardPref, error: board3dError, recovering: retry3d.state().pending, waiting: retry3d.state().waiting || retry3d.state().spent, losses: recover.count },
         pen: penViews.size, prepField: prepXf.kind === 'bossPrep' ? prepXf.side : null, lod: loadLevel, culled: culledCount,

@@ -57,7 +57,7 @@
 // like a filling progress ring, and its refill was the same white as the 元素值 left. The disc comes from the hudRings
 // atlas, the bars are tinted Texture.WHITE sprites; built on first use and hidden when idle.
 //
-// ItemView renders hand items as a floating icon plate; DeviceView renders battle devices (crates) as 3D boxes
+// ItemView renders hand items as their equipment model (render/item-models.js) or a floating icon plate; DeviceView renders battle devices (crates) as 3D boxes
 // with an HP bar once damaged.
 //
 // Cost control (low-end devices): a unit whose body is outside the viewport (`ctx.viewport()`, with a margin) is not
@@ -2554,8 +2554,14 @@ function defaultInterval(ctx, info) {
 // =============================================================================================================
 
 /**
- * Hand item: icon plate floating above its slot. While dragged (`lift` > 0) the plate is centred on its ground point —
- * the pointer (render/app.js moveDragVisual); it drops on (and equips the unit on) the tile under the pointer.
+ * Hand item: the item's equipment model (the client's Spine model of its trap prefab — render/item-models.js, a still
+ * snapshot shared by every view of the same model) standing on its slot, else — no extracted model, still loading, or
+ * one of the magic items whose prefab draws none — an icon plate floating above it. While dragged (`lift` > 0) the
+ * model / plate is centred on its ground point — the pointer (render/app.js moveDragVisual); it drops on (and equips
+ * the unit on) the tile under the pointer.
+ * The model's size is the prefab's (the standard 0.27 character scale = UNIT.modelScale), standing still on the ground
+ * like the prefab's single 0 s Default clip [ASSUMED·화면: the official hand-slot item not compared with an official
+ * screen yet — height, bob, shadow and the drag pose follow the prefab and the plate].
  */
 export class ItemView {
   constructor(ctx, info) {
@@ -2578,6 +2584,10 @@ export class ItemView {
     this.root.addChild(this.plate);
     this.info.icon = null;
     this.setIcon(info.icon);
+    this.model = null;      // Sprite of the model's snapshot, once drawn
+    this.snap = null;
+    this._modelRef = null;
+    this._loadModel();
     this.hud = null;
   }
   /** Show the item's icon (an URL; the plain plate until it loads) — again when the asset manifest named it late. */
@@ -2587,34 +2597,79 @@ export class ItemView {
     const a = this.ctx.assets;
     if (a?.image) a.image(url).then((img) => { if (!this.destroyed && img && this.info.icon === url) this.plate.texture = itemTexture(String(this.info.defId), img, this.info.color || 0x9aa5a0); }, () => {});
   }
+  /** Take the equipment model's snapshot when the local-art manifest lists the model (assets.js itemSpine). */
+  _loadModel() {
+    const models = this.ctx.itemModels, a = this.ctx.assets;
+    if (this.destroyed || this.model || this._modelRef || !models || !a?.itemSpine || !this.info.trapId) return;
+    const entry = a.itemSpine(this.info.trapId);
+    const ref = entry ? models.acquire(entry) : null;
+    if (!ref) return;
+    this._modelRef = ref;
+    ref.ready.then((snap) => {
+      if (this.destroyed || ref !== this._modelRef) return;
+      if (!snap) { models.release(ref); this._modelRef = null; return; }
+      this.snap = snap;
+      this.model = new this.P.Sprite(snap.texture);
+      this.model.anchor.set(snap.ax, snap.ay);
+      this.root.addChild(this.model);
+      this.plate.visible = false;
+    }, () => {});
+  }
+  /** The local-art manifest arrived late or the tab is shown again (render/app.js): the model, when it has none. */
+  retryAssets() { this._loadModel(); }
   setWorld(x, y, z = 0) { this.x = x; this.y = y; this.z = z; }
   /** A battle snapshot sample (syncBattle syncs every unit of the field): a hand item on a scouted prep board rides
    *  the units as kind 'item' (Match.prepFieldMeta) — follow its position, there is nothing else to animate. */
   sync(s) { this.x = s.x; this.y = s.y; }
   update(dt, cam, t) {
     const lifted = this.lift > 0;
-    const p = cam.project(this.x, this.y, lifted ? this.z : this.z + this.lift + 0.12 + Math.sin(t * 2 + this.bob) * 0.03, this.screen);
+    const sn = this.model ? this.snap : null;
+    const z = lifted ? this.z : sn ? this.z + this.lift : this.z + this.lift + 0.12 + Math.sin(t * 2 + this.bob) * 0.03;
+    const p = cam.project(this.x, this.y, z, this.screen);
     this.placed = true;
     this.root.position.set(p.x, p.y);
     this.root.zIndex = unitDepthKey(cam, this.x, this.y, this.lift);
-    const size = p.s * 0.62;
-    this.plate.scale.set(size / 128);
-    this.plate.anchor.set(0.5, lifted ? 0.5 : 1);
     this.root.alpha = this.dimmed ? 0.35 : 1;
+    if (sn) {
+      // the snapshot was drawn at sn.k px per tile; lifted, the model's box is centred on the pointer
+      const k = p.s / sn.k, side = sn.texture.width * k;
+      this.model.scale.set(k);
+      this.model.anchor.set(sn.ax, lifted ? (sn.top + sn.bottom) / 2 : sn.ay);
+      this._box = { w: sn.width * side, h: (sn.bottom - sn.top) * side, dx: (0.5 - sn.ax) * side, up: (sn.ay - sn.top) * side, down: (sn.bottom - sn.ay) * side };
+      this.screen.top = lifted ? p.y - this._box.h / 2 : p.y - this._box.up;
+    } else {
+      const size = p.s * 0.62;
+      this.plate.scale.set(size / 128);
+      this.plate.anchor.set(0.5, lifted ? 0.5 : 1);
+      this._box = null;
+      this.screen.top = lifted ? p.y - size / 2 : p.y - size;
+    }
     placeOnGround(this.ctx, this.shadow, this.ctx.layers.shadow, this.y, this.z);
     const sh = cam.project(this.x, this.y, this.z, SH_P);
     this.shadow.position.set(sh.x, sh.y);
     this.shadow.scale.set((p.s * 0.55) / this.shadow.texture.width);
     this.shadow.alpha = 0.35;
-    this.screen.top = lifted ? p.y - size / 2 : p.y - size;
   }
-  /** Canvas-space bounds (CSS px) of the plate (centred on the pointer while dragged). */
+  /** Canvas-space bounds (CSS px) of the model / plate (centred on the pointer while dragged). */
   bounds() {
+    const b = this._box;
+    if (b) {
+      const x = this.screen.x + b.dx - b.w / 2;
+      return { x, y: this.lift > 0 ? this.screen.y - b.h / 2 : this.screen.y - b.up, width: b.w, height: b.h };
+    }
     const w = (this.screen.s || 1) * 0.62;
     return { x: this.screen.x - w / 2, y: this.lift > 0 ? this.screen.y - w / 2 : this.screen.y - w, width: w, height: w };
   }
   setHover() {}
-  destroy() { if (this.destroyed) return; this.destroyed = true; this.shadow.destroy(); this.root.destroy({ children: true }); }
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    if (this._modelRef) { this.ctx.itemModels?.release(this._modelRef); this._modelRef = null; }
+    this.shadow.destroy();
+    // the snapshot texture is shared (render/item-models.js): the sprite goes, the texture stays
+    if (this.model) { this.model.destroy({ texture: false }); this.model = null; }
+    this.root.destroy({ children: true });
+  }
 }
 
 // =============================================================================================================

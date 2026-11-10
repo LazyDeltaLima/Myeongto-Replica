@@ -1,0 +1,3173 @@
+{
+  "about": "Spine metadata of the equipment models of the local client (tools/local-extract/extract.py item_spine_ids: every trapId of the item tables); data/assets.json itemSpines[trapId]. Written by node tools/fetch-assets.mjs --local-spines (docs/ASSETS.md \"Equipment models\").",
+  "models": {
+    "trap_1040_acarm040": {
+      "skel": "trap_1006_acarm006.skel",
+      "atlas": "trap_1006_acarm006.atlas",
+      "textures": [
+        "trap_1006_acarm006.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1041_acarm041": {
+      "skel": "trap_1024_acarm024.skel",
+      "atlas": "trap_1024_acarm024.atlas",
+      "textures": [
+        "trap_1024_acarm024.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1042_acarm042": {
+      "skel": "trap_1042_acarm042.skel",
+      "atlas": "trap_1042_acarm042.atlas",
+      "textures": [
+        "trap_1042_acarm042.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1043_acarm043": {
+      "skel": "trap_1043_acarm043.skel",
+      "atlas": "trap_1043_acarm043.atlas",
+      "textures": [
+        "trap_1043_acarm043.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1044_acarm044": {
+      "skel": "trap_1044_acarm044.skel",
+      "atlas": "trap_1044_acarm044.atlas",
+      "textures": [
+        "trap_1044_acarm044.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1045_acarm045": {
+      "skel": "trap_1045_acarm045.skel",
+      "atlas": "trap_1045_acarm045.atlas",
+      "textures": [
+        "trap_1045_acarm045.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1046_acarm046": {
+      "skel": "trap_1046_acarm046.skel",
+      "atlas": "trap_1046_acarm046.atlas",
+      "textures": [
+        "trap_1046_acarm046.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1047_acarm047": {
+      "skel": "trap_1000_acarm000.skel",
+      "atlas": "trap_1000_acarm000.atlas",
+      "textures": [
+        "trap_1000_acarm000.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1048_acarm048": {
+      "skel": "trap_1022_acarm022.skel",
+      "atlas": "trap_1022_acarm022.atlas",
+      "textures": [
+        "trap_1022_acarm022.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1049_acarm049": {
+      "skel": "trap_1033_acarm033.skel",
+      "atlas": "trap_1033_acarm033.atlas",
+      "textures": [
+        "trap_1033_acarm033.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1050_acarm050": {
+      "skel": "trap_1012_acarm012.skel",
+      "atlas": "trap_1012_acarm012.atlas",
+      "textures": [
+        "trap_1012_acarm012.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1051_acarm051": {
+      "skel": "trap_1004_acarm004.skel",
+      "atlas": "trap_1004_acarm004.atlas",
+      "textures": [
+        "trap_1004_acarm004.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1052_acarm052": {
+      "skel": "trap_1037_acarm037.skel",
+      "atlas": "trap_1037_acarm037.atlas",
+      "textures": [
+        "trap_1037_acarm037.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1053_acarm053": {
+      "skel": "trap_1008_acarm008.skel",
+      "atlas": "trap_1008_acarm008.atlas",
+      "textures": [
+        "trap_1008_acarm008.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1054_acarm054": {
+      "skel": "trap_1013_acarm013.skel",
+      "atlas": "trap_1013_acarm013.atlas",
+      "textures": [
+        "trap_1013_acarm013.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1055_acarm055": {
+      "skel": "trap_1055_acarm055.skel",
+      "atlas": "trap_1055_acarm055.atlas",
+      "textures": [
+        "trap_1055_acarm055.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1056_acarm056": {
+      "skel": "trap_1036_acarm036.skel",
+      "atlas": "trap_1036_acarm036.atlas",
+      "textures": [
+        "trap_1036_acarm036.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1057_acarm057": {
+      "skel": "trap_1057_acarm057.skel",
+      "atlas": "trap_1057_acarm057.atlas",
+      "textures": [
+        "trap_1057_acarm057.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1058_acarm058": {
+      "skel": "trap_1058_acarm058.skel",
+      "atlas": "trap_1058_acarm058.atlas",
+      "textures": [
+        "trap_1058_acarm058.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1059_acarm059": {
+      "skel": "trap_1059_acarm059.skel",
+      "atlas": "trap_1059_acarm059.atlas",
+      "textures": [
+        "trap_1059_acarm059.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1060_acarm060": {
+      "skel": "trap_1019_acarm019.skel",
+      "atlas": "trap_1019_acarm019.atlas",
+      "textures": [
+        "trap_1019_acarm019.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1061_acarm061": {
+      "skel": "trap_1026_acarm026.skel",
+      "atlas": "trap_1026_acarm026.atlas",
+      "textures": [
+        "trap_1026_acarm026.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1062_acarm062": {
+      "skel": "trap_1003_acarm003.skel",
+      "atlas": "trap_1003_acarm003.atlas",
+      "textures": [
+        "trap_1003_acarm003.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1063_acarm063": {
+      "skel": "trap_1020_acarm020.skel",
+      "atlas": "trap_1020_acarm020.atlas",
+      "textures": [
+        "trap_1020_acarm020.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1064_acarm064": {
+      "skel": "trap_1018_acarm018.skel",
+      "atlas": "trap_1018_acarm018.atlas",
+      "textures": [
+        "trap_1018_acarm018.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1065_acarm065": {
+      "skel": "trap_1025_acarm025.skel",
+      "atlas": "trap_1025_acarm025.atlas",
+      "textures": [
+        "trap_1025_acarm025.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1066_acarm066": {
+      "skel": "trap_1002_acarm002.skel",
+      "atlas": "trap_1002_acarm002.atlas",
+      "textures": [
+        "trap_1002_acarm002.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1067_acarm067": {
+      "skel": "trap_1038_acarm038.skel",
+      "atlas": "trap_1038_acarm038.atlas",
+      "textures": [
+        "trap_1038_acarm038.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1068_acarm068": {
+      "skel": "trap_1034_acarm034.skel",
+      "atlas": "trap_1034_acarm034.atlas",
+      "textures": [
+        "trap_1034_acarm034.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1069_acarm069": {
+      "skel": "trap_1069_acarm069.skel",
+      "atlas": "trap_1069_acarm069.atlas",
+      "textures": [
+        "trap_1069_acarm069.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1070_acarm070": {
+      "skel": "trap_1070_acarm070.skel",
+      "atlas": "trap_1070_acarm070.atlas",
+      "textures": [
+        "trap_1070_acarm070.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1071_acarm071": {
+      "skel": "trap_1039_acarm039.skel",
+      "atlas": "trap_1039_acarm039.atlas",
+      "textures": [
+        "trap_1039_acarm039.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1072_acarm072": {
+      "skel": "trap_1072_acarm072.skel",
+      "atlas": "trap_1072_acarm072.atlas",
+      "textures": [
+        "trap_1072_acarm072.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1073_acarm073": {
+      "skel": "trap_1073_acarm073.skel",
+      "atlas": "trap_1073_acarm073.atlas",
+      "textures": [
+        "trap_1073_acarm073.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1074_acarm074": {
+      "skel": "trap_1074_acarm074.skel",
+      "atlas": "trap_1074_acarm074.atlas",
+      "textures": [
+        "trap_1074_acarm074.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1075_acarm075": {
+      "skel": "trap_1075_acarm075.skel",
+      "atlas": "trap_1075_acarm075.atlas",
+      "textures": [
+        "trap_1075_acarm075.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1076_acarm076": {
+      "skel": "trap_1076_acarm076.skel",
+      "atlas": "trap_1076_acarm076.atlas",
+      "textures": [
+        "trap_1076_acarm076.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1077_acarm077": {
+      "skel": "trap_1077_acarm077.skel",
+      "atlas": "trap_1077_acarm077.atlas",
+      "textures": [
+        "trap_1077_acarm077.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1078_acarm078": {
+      "skel": "trap_1078_acarm078.skel",
+      "atlas": "trap_1078_acarm078.atlas",
+      "textures": [
+        "trap_1078_acarm078.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1079_acarm079": {
+      "skel": "trap_1079_acarm079.skel",
+      "atlas": "trap_1079_acarm079.atlas",
+      "textures": [
+        "trap_1079_acarm079.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1102_acarm102": {
+      "skel": "trap_1102_acarm102.skel",
+      "atlas": "trap_1102_acarm102.atlas",
+      "textures": [
+        "trap_1102_acarm102.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1103_acarm103": {
+      "skel": "trap_1103_acarm103.skel",
+      "atlas": "trap_1103_acarm103.atlas",
+      "textures": [
+        "trap_1103_acarm103.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1109_acarm109": {
+      "skel": "trap_1005_acarm005.skel",
+      "atlas": "trap_1005_acarm005.atlas",
+      "textures": [
+        "trap_1005_acarm005.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1113_acarm113": {
+      "skel": "trap_1014_acarm014.skel",
+      "atlas": "trap_1014_acarm014.atlas",
+      "textures": [
+        "trap_1014_acarm014.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1114_acarm114": {
+      "skel": "trap_1114_acarm114.skel",
+      "atlas": "trap_1114_acarm114.atlas",
+      "textures": [
+        "trap_1114_acarm114.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1115_acarm115": {
+      "skel": "trap_1115_acarm115.skel",
+      "atlas": "trap_1115_acarm115.atlas",
+      "textures": [
+        "trap_1115_acarm115.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1116_acarm116": {
+      "skel": "trap_1015_acarm015.skel",
+      "atlas": "trap_1015_acarm015.atlas",
+      "textures": [
+        "trap_1015_acarm015.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1117_acarm117": {
+      "skel": "trap_1117_acarm117.skel",
+      "atlas": "trap_1117_acarm117.atlas",
+      "textures": [
+        "trap_1117_acarm117.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1118_acarm118": {
+      "skel": "trap_1118_acarm118.skel",
+      "atlas": "trap_1118_acarm118.atlas",
+      "textures": [
+        "trap_1118_acarm118.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1119_acarm119": {
+      "skel": "trap_1119_acarm119.skel",
+      "atlas": "trap_1119_acarm119.atlas",
+      "textures": [
+        "trap_1119_acarm119.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1120_acarm120": {
+      "skel": "trap_1120_acarm120.skel",
+      "atlas": "trap_1120_acarm120.atlas",
+      "textures": [
+        "trap_1120_acarm120.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1121_acarm121": {
+      "skel": "trap_1121_acarm121.skel",
+      "atlas": "trap_1121_acarm121.atlas",
+      "textures": [
+        "trap_1121_acarm121.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1122_acarm122": {
+      "skel": "trap_1122_acarm122.skel",
+      "atlas": "trap_1122_acarm122.atlas",
+      "textures": [
+        "trap_1122_acarm122.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1123_acarm123": {
+      "skel": "trap_1023_acarm023.skel",
+      "atlas": "trap_1023_acarm023.atlas",
+      "textures": [
+        "trap_1023_acarm023.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1124_acarm124": {
+      "skel": "trap_1017_acarm017.skel",
+      "atlas": "trap_1017_acarm017.atlas",
+      "textures": [
+        "trap_1017_acarm017.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "animation",
+        "deploy": "animation",
+        "attack": {
+          "begin": null,
+          "loop": "animation",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "animation",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "animation": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1125_acarm125": {
+      "skel": "trap_1007_acarm007.skel",
+      "atlas": "trap_1007_acarm007.atlas",
+      "textures": [
+        "trap_1007_acarm007.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1126_acarm126": {
+      "skel": "trap_1126_acarm126.skel",
+      "atlas": "trap_1126_acarm126.atlas",
+      "textures": [
+        "trap_1126_acarm126.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1127_acarm127": {
+      "skel": "trap_1127_acarm127.skel",
+      "atlas": "trap_1127_acarm127.atlas",
+      "textures": [
+        "trap_1127_acarm127.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1128_acarm128": {
+      "skel": "trap_1128_acarm128.skel",
+      "atlas": "trap_1128_acarm128.atlas",
+      "textures": [
+        "trap_1128_acarm128.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1129_acarm129": {
+      "skel": "trap_1129_acarm129.skel",
+      "atlas": "trap_1129_acarm129.atlas",
+      "textures": [
+        "trap_1129_acarm129.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1130_acarm130": {
+      "skel": "trap_1130_acarm130.skel",
+      "atlas": "trap_1130_acarm130.atlas",
+      "textures": [
+        "trap_1130_acarm130.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1131_acarm131": {
+      "skel": "trap_1131_acarm131.skel",
+      "atlas": "trap_1131_acarm131.atlas",
+      "textures": [
+        "trap_1131_acarm131.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1132_acarm132": {
+      "skel": "trap_1132_acarm132.skel",
+      "atlas": "trap_1132_acarm132.atlas",
+      "textures": [
+        "trap_1132_acarm132.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1133_acarm133": {
+      "skel": "trap_1133_acarm133.skel",
+      "atlas": "trap_1133_acarm133.atlas",
+      "textures": [
+        "trap_1133_acarm133.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1134_acarm134": {
+      "skel": "trap_1134_acarm134.skel",
+      "atlas": "trap_1134_acarm134.atlas",
+      "textures": [
+        "trap_1134_acarm134.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1136_acarm136": {
+      "skel": "trap_1136_acarm136.skel",
+      "atlas": "trap_1136_acarm136.atlas",
+      "textures": [
+        "trap_1136_acarm136.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1137_acarm137": {
+      "skel": "trap_1137_acarm137.skel",
+      "atlas": "trap_1137_acarm137.atlas",
+      "textures": [
+        "trap_1137_acarm137.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1138_acarm138": {
+      "skel": "trap_1138_acarm138.skel",
+      "atlas": "trap_1138_acarm138.atlas",
+      "textures": [
+        "trap_1138_acarm138.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1139_acarm139": {
+      "skel": "trap_1139_acarm139.skel",
+      "atlas": "trap_1139_acarm139.atlas",
+      "textures": [
+        "trap_1139_acarm139.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1140_acarm140": {
+      "skel": "trap_1140_acarm140.skel",
+      "atlas": "trap_1140_acarm140.atlas",
+      "textures": [
+        "trap_1140_acarm140.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1141_acarm141": {
+      "skel": "trap_1141_acarm141.skel",
+      "atlas": "trap_1141_acarm141.atlas",
+      "textures": [
+        "trap_1141_acarm141.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1142_acarm142": {
+      "skel": "trap_1142_acarm142.skel",
+      "atlas": "trap_1142_acarm142.atlas",
+      "textures": [
+        "trap_1142_acarm142.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1143_acarm143": {
+      "skel": "trap_1143_acarm143.skel",
+      "atlas": "trap_1143_acarm143.atlas",
+      "textures": [
+        "trap_1143_acarm143.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1144_acarm144": {
+      "skel": "trap_1144_acarm144.skel",
+      "atlas": "trap_1144_acarm144.atlas",
+      "textures": [
+        "trap_1144_acarm144.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1145_acarm145": {
+      "skel": "trap_1145_acarm145.skel",
+      "atlas": "trap_1145_acarm145.atlas",
+      "textures": [
+        "trap_1145_acarm145.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1146_acarm146": {
+      "skel": "trap_1146_acarm146.skel",
+      "atlas": "trap_1146_acarm146.atlas",
+      "textures": [
+        "trap_1146_acarm146.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1147_acarm147": {
+      "skel": "trap_1147_acarm147.skel",
+      "atlas": "trap_1147_acarm147.atlas",
+      "textures": [
+        "trap_1147_acarm147.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1148_acarm148": {
+      "skel": "trap_1148_acarm148.skel",
+      "atlas": "trap_1148_acarm148.atlas",
+      "textures": [
+        "trap_1148_acarm148.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1149_acarm149": {
+      "skel": "trap_1149_acarm149.skel",
+      "atlas": "trap_1149_acarm149.atlas",
+      "textures": [
+        "trap_1149_acarm149.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1150_acarm150": {
+      "skel": "trap_1150_acarm150.skel",
+      "atlas": "trap_1150_acarm150.atlas",
+      "textures": [
+        "trap_1150_acarm150.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1151_acarm151": {
+      "skel": "trap_1151_acarm151.skel",
+      "atlas": "trap_1151_acarm151.atlas",
+      "textures": [
+        "trap_1151_acarm151.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1152_acarm152": {
+      "skel": "trap_1152_acarm152.skel",
+      "atlas": "trap_1152_acarm152.atlas",
+      "textures": [
+        "trap_1152_acarm152.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1153_acarm153": {
+      "skel": "trap_1153_acarm153.skel",
+      "atlas": "trap_1153_acarm153.atlas",
+      "textures": [
+        "trap_1153_acarm153.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1154_acarm154": {
+      "skel": "trap_1154_acarm154.skel",
+      "atlas": "trap_1154_acarm154.atlas",
+      "textures": [
+        "trap_1154_acarm154.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1155_acarm155": {
+      "skel": "trap_1155_acarm155.skel",
+      "atlas": "trap_1155_acarm155.atlas",
+      "textures": [
+        "trap_1155_acarm155.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1156_acarm156": {
+      "skel": "trap_1156_acarm156.skel",
+      "atlas": "trap_1156_acarm156.atlas",
+      "textures": [
+        "trap_1156_acarm156.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1157_acarm157": {
+      "skel": "trap_1157_acarm157.skel",
+      "atlas": "trap_1157_acarm157.atlas",
+      "textures": [
+        "trap_1157_acarm157.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    },
+    "trap_1158_acarm158": {
+      "skel": "trap_1158_acarm158.skel",
+      "atlas": "trap_1158_acarm158.atlas",
+      "textures": [
+        "trap_1158_acarm158.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0
+      },
+      "events": [],
+      "hits": {},
+      "bounds": null
+    }
+  }
+}

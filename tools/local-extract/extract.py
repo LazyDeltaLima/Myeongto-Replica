@@ -20,6 +20,9 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
     the prefab's Front / only Spine renderer draws) → spine/token/<tokenId>/<stem>.skel|.atlas + merged page PNGs, the
     same format; drawn instead of the avatar diamond once this manifest lists them (data/assets.json
     tokens[id].spineLocal)
+  - the equipment models (item_spine_ids: every trapId of the item tables, from the same token packs; a season's items
+    the --game root lacks from the CN client) → spine/item/<trapId>/, drawn on the hand slots instead of the icon
+    plate (data/assets.json itemSpines[trapId])
   - for the official 3D board (DESIGN §15): the map theme's Material parameters (map/<theme>/materials.json; shader
     names resolved through the shaders/*.ab bundles), the background / device meshes as Wavefront OBJ
     (mesh/<bundle>/<mesh>.obj; UnityPy's exporter, X mirrored into a right-handed frame) and their GameObject
@@ -184,6 +187,51 @@ TOKEN_SPINES = [
 ]
 TOKEN_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'
 TOKEN_SPINE_SUB = 'spine/token'
+
+# Equipment models (2026-11-11, maintainer request: hand items drawn as the client's model, not the icon plate;
+# docs/rules/render.md 「손 칸 장비 모델」). The client builds every item as a trap character whose battle prefab
+# (dyn/battle/prefabs/[uc]tokens/<trapId>.prefab, in the same token packs) draws one Spine model — the TOKEN_SPINES
+# structure: Graphic/DefaultSkin → FaceSwitcher/Front's SkeletonAnimation. The list is every `trapId` of the item tables
+# (data/items.json and each data/seasons/<id>/items.json), read at run time. Many prefabs draw the skeleton of an older
+# item of another mode (维式重锤 trap_1041_acarm041 → trap_1024_acarm024's), a copy inside the same pack; the prefab's own
+# SkeletonDataAsset decides, never the id. A season's new items may be only in the CN client (规程's, btl_pfb_tokens_6):
+# the ids the --game root lacks are looked up in the CN client (client_path SP_CLIENT_CN: its hot-update bundles first).
+# The magic items whose prefab draws no Spine (an empty Graphic) are reported and keep the icon plate. Output:
+# spine/item/<trapId>/ (manifest group spine/item/<trapId>), metadata tools/assets/local-item-spines.json
+# (`node tools/fetch-assets.mjs --local-spines`), data/assets.json itemSpines[trapId].
+ITEM_TABLES = ('data/items.json', 'data/seasons/*/items.json')
+ITEM_SPINE_SUB = 'spine/item'
+
+
+def item_spine_ids(root=None):
+    """Every `trapId` of the item tables (ITEM_TABLES under `root`, the repository by default), sorted."""
+    base, ids = Path(root or ROOT), set()
+    for pat in ITEM_TABLES:
+        for p in sorted(base.glob(pat)):
+            try:
+                recs = json.loads(p.read_text(encoding='utf-8'))
+            except (OSError, ValueError):
+                continue
+            recs = recs.get('items', recs) if isinstance(recs, dict) else {}
+            for r in (recs.values() if isinstance(recs, dict) else recs):
+                t = r.get('trapId') if isinstance(r, dict) else None
+                if isinstance(t, str) and re.fullmatch(r'trap_\d+_[a-z0-9_]+', t):
+                    ids.add(t)
+    return sorted(ids)
+
+
+def cn_bundle_roots():
+    """The AssetBundle roots of the CN client (client_path SP_CLIENT_CN), hot-update bundles first; [] without one."""
+    try:
+        from client_path import client_data_cn
+    except ImportError:
+        return []
+    out = []
+    for sub in (('PersistentData', 'Bundles'), ('StreamingAssets', 'AB', 'Windows')):
+        p = client_data_cn(*sub)
+        if p and Path(p).is_dir():
+            out.append(Path(p))
+    return out
 
 # Operator battle Spine pages (2026-11-01, maintainer report 「스즈란·수르트 얼굴 눈 주변에 외곽선이 보인다」; docs/rules/render.md
 # 「오퍼레이터 전투 텍스처는 로컬 클라이언트 것」): the web operator models (fexli/ArknightsResource, tools/fetch-assets.mjs) carry
@@ -833,43 +881,50 @@ def export_enemy_spines(ab_root, out_root, manifest, log, ids=None):
     return n
 
 
-def export_token_spines(ab_root, out_root, manifest, log, ids=None):
+def export_token_spines(ab_root, out_root, manifest, log, ids=None, sub_root=TOKEN_SPINE_SUB, more_roots=(), what='token'):
     """TOKEN_SPINES (or `ids`) from the battle token packs: each token's prefab → the SkeletonDataAsset its Front / only
-    Spine renderer draws (pick_spine_node) → write_spine. Each pack is loaded on its own; stops once every model was
-    found."""
+    Spine renderer draws (pick_spine_node) → write_spine to `<sub_root>/<id>`. Each pack is loaded on its own; stops once
+    every model was found. `more_roots`: AssetBundle roots searched, in order, for the ids `ab_root` lacks (the CN client
+    for a season's items: item_spine_ids). A prefab that draws no Spine at all is reported once and not looked up further."""
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
     import UnityPy
     wanted, n = set(TOKEN_SPINES if ids is None else ids), 0
-    for f in sorted(Path(ab_root).glob(TOKEN_PACKS)):
-        if not wanted:
-            break
-        try:
-            env = UnityPy.load(str(f))
-        except Exception as e:  # corrupt or unsupported bundle: report and continue
-            log(f'FAIL load {f.name}: {e}')
-            continue
-        objects = {o.path_id: o for o in env.objects}
-        for name, ref in env.container.items():
-            tid = token_prefab_id(name, wanted)
-            if not tid:
-                continue
-            sub = f'{TOKEN_SPINE_SUB}/{tid}'
+    for root in [Path(ab_root), *[Path(r) for r in more_roots]]:
+        for f in sorted(root.glob(TOKEN_PACKS)):
+            if not wanted:
+                break
             try:
-                node = pick_spine_node(prefab_spine_nodes(ref.read_typetree(), objects))
-                sda = objects.get(node[2]['m_PathID']) if node and not node[2].get('m_FileID') else None
-                if sda is None:
-                    log(f'  warn {tid}: its prefab has no Spine renderer in this bundle')
-                    continue
-                k = write_spine(objects, sda.read_typetree(), sub, tid, out_root, manifest, log)
-            except Exception as e:
-                log(f'  warn {tid}: {e}')
+                env = UnityPy.load(str(f))
+            except Exception as e:  # corrupt or unsupported bundle: report and continue
+                log(f'FAIL load {f.name}: {e}')
                 continue
-            if k:
-                wanted.discard(tid)
-                n += k
-                log(f'{f.relative_to(ab_root).as_posix()}: {tid} ({node[0]}) -> {sub} ({k} files)')
+            objects = {o.path_id: o for o in env.objects}
+            for name, ref in env.container.items():
+                tid = token_prefab_id(name, wanted)
+                if not tid:
+                    continue
+                sub = f'{sub_root}/{tid}'
+                try:
+                    nodes = prefab_spine_nodes(ref.read_typetree(), objects)
+                    if not nodes:
+                        log(f'  {what} {tid}: its prefab draws no Spine model ({f.name})')
+                        wanted.discard(tid)
+                        continue
+                    node = pick_spine_node(nodes)
+                    sda = objects.get(node[2]['m_PathID']) if node and not node[2].get('m_FileID') else None
+                    if sda is None:
+                        log(f'  warn {tid}: its prefab has no Spine renderer in this bundle')
+                        continue
+                    k = write_spine(objects, sda.read_typetree(), sub, tid, out_root, manifest, log)
+                except Exception as e:
+                    log(f'  warn {tid}: {e}')
+                    continue
+                if k:
+                    wanted.discard(tid)
+                    n += k
+                    log(f'{root.name}/{f.relative_to(root).as_posix()}: {tid} ({node[0]}) -> {sub} ({k} files)')
     for tid in sorted(wanted):
-        log(f'skip (not found) token Spine {tid}')
+        log(f'skip (not found) {what} Spine {tid}')
     return n
 
 
@@ -1018,6 +1073,7 @@ def main():
                           'derived': derived, 'webp': webp,
                           'enemySpines': {'bundles': ENEMY_ART, 'sub': ENEMY_SPINE_SUB, 'ids': ENEMY_SPINES},
                           'tokenSpines': {'bundles': TOKEN_PACKS, 'sub': TOKEN_SPINE_SUB, 'ids': TOKEN_SPINES},
+                          'itemSpines': {'bundles': TOKEN_PACKS, 'sub': ITEM_SPINE_SUB, 'ids': item_spine_ids()},
                           'opPages': {'bundles': f'{OP_ART}/<charId>.ab', 'sub': OP_PAGE_SUB}},
                          ensure_ascii=False))
         return 0
@@ -1031,8 +1087,9 @@ def main():
     jobs = select_jobs(args.only)
     enemy_ids = spine_ids(args.only, ENEMY_SPINE_SUB, ENEMY_SPINES)
     token_ids = spine_ids(args.only, TOKEN_SPINE_SUB, TOKEN_SPINES)
+    item_ids = spine_ids(args.only, ITEM_SPINE_SUB, item_spine_ids())
     op_ids = spine_ids(args.only, OP_PAGE_SUB, op_page_ids())
-    if not jobs and not enemy_ids and not token_ids and not op_ids:
+    if not jobs and not enemy_ids and not token_ids and not item_ids and not op_ids:
         print(f'--only {args.only}: no job matches', file=sys.stderr)
         return 2
     out_root = Path(args.out)
@@ -1045,6 +1102,9 @@ def main():
         total += export_enemy_spines(ab_root, out_root, manifest, print, enemy_ids)
     if token_ids:
         total += export_token_spines(ab_root, out_root, manifest, print, token_ids)
+    if item_ids:
+        cn = [r for r in cn_bundle_roots() if r.resolve() != ab_root.resolve()]
+        total += export_token_spines(ab_root, out_root, manifest, print, item_ids, ITEM_SPINE_SUB, cn, 'item')
     if op_ids:
         total += export_operator_pages(ab_root, out_root, manifest, print, op_ids)
     old = {}

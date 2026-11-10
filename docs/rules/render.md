@@ -1345,3 +1345,14 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
 
 새 시즌 「규정」의 적 중 지금 `data/assets.json`에 없던 96종(시즌 표 `data/seasons/act3autochess/enemies.json`)을 넣었다. `fetch-assets.mjs`가 시즌마다의 적 표도 읽고(`seasonEnemyIds`), 78종은 다른 적처럼 웹 모델(Ark-Models). 규정 자신의 적 18종(`enemy_9024`–`9040`)은 웹에 없고 EN 클라에도 없어 CN 클라 핫업데이트본의 `refs/arts/enm_art_30.ab`에서 뽑는다(`extract.py ENEMY_SPINES`, 15종) — 로컬 추출물이 없으면 아이콘. 가상적: 기계(`enemy_9029_acfnc_2`)·지느러미 숨은 핵심(`enemy_9037_aceel_2`)은 프리팹의 Spine이 바탕 적의 스켈레톤을 읽어 바탕 적의 로컬 모델을 쓴다(`plan.mjs`). 정체의 고치(`enemy_9036_acweb`)는 프리팹에 Spine이 없다(그림은 묶인 오퍼레이터 위 거미줄 이펙트, fx.md 「규정 보스 고치·지느러미의 이펙트」).
 - 확인: `test/feedback1d-models.test.js`(커밋된 메타데이터·`_2`의 바탕 모델·웹 모델 없음). [화면 미확인: 클립 역할(`anims` — `A_`/`B_` 형태가 있는 적, 공격 클립이 `Idle`로 잡힌 `acfnca`·`achest`)과 크기·위치는 아레나·실제 판에서 안 봄]
+
+## 손 칸 장비 모델 (2026-11-11, 관리자 요청 「장비를 2D 아이콘 대신 모델로, 두 시즌 같이」)
+
+손 칸·임시 칸·관전 판의 장비는 아이콘 판 대신 공식 클라의 장비 모델을 그린다. 공식 클라는 장비를 장치(trap) 캐릭터로 만들고, 그 전투 프리팹(소환물과 같은 `pkgrps/btl_pfb_tokens_*.ab`)은 `Graphic/DefaultSkin` → `FaceSwitcher/Front`의 SkeletonAnimation 하나로 Spine 모델을 그린다(공식 클라에서 확인).
+- 목록은 두 시즌 장비 표의 `trapId` 전부(`extract.py item_spine_ids`, 91개). 지금 시즌 59개는 EN 클라, 규정 32개는 CN 클라 핫업데이트본 `btl_pfb_tokens_6.ab`에만 있어 `--game` 루트에 없는 것은 CN 클라(`SP_CLIENT_CN`)에서 찾는다. 프리팹이 다른 장비의 스켈레톤을 그리는 경우가 많다(빅토리아 해머 `trap_1041_acarm041` → `trap_1024_acarm024`의 것, 같은 묶음 안 사본) — 장치 ID가 아니라 프리팹의 SkeletonDataAsset을 따른다.
+- 마법 아이템 '신비한 고객'(`chess_item_6_01_m`)·두루마리(`_6_02_m`)·교편(`_6_03_m`)은 프리팹에 Spine이 없다(빈 Graphic) → 아이콘 판 그대로.
+- 모델 88개는 모두 클립이 하나(`Default`, 하나는 `animation`)이고 길이 0초다: 프리팹의 SkeletonAnimation도 `Default`를 반복 없이 튼다 → 정지 자세. 그래서 장비마다 살아 있는 스켈레톤을 두지 않고, 모델마다 한 번 공유 렌더 텍스처 칸(`render/item-models.js`, 128 CSS px 칸, 1 타일 = 128 px로 그림)에 그려 같은 모델의 장비는 그 칸의 Sprite로 그린다. WebGL 컨텍스트가 돌아오면 칸을 다시 그린다.
+- 크기는 프리팹의 표준 캐릭터 배율 0.27(`FaceSwitcher` scale) = `UNIT.modelScale`, 소환물과 같은 규칙. 칸보다 큰 모델은 칸에 맞춰 작게 그리고 그만큼 키워 보인다(지금 시즌 56개 중 4개).
+- 재기(`bench/draw` 장면 `items`·`items-live`, Windows Chrome GPU): 장비 40개 — 아이콘 판 3회·0.026–0.046 ms, 스냅숏 1회·0.039–0.046 ms, 장비마다 스켈레톤 3회·0.077 ms; 80개 — 판 5회·0.052 ms, 스냅숏 1회·0.060 ms, 스켈레톤 5회·0.133 ms.
+- [추정·화면: 공식 손 칸 장비 화면을 아직 안 봄] 높이·까딱임·그림자·끌 때 모습: 모델은 칸 바닥에 서고(프리팹의 그림이 바닥 높이 0) 까딱이지 않는다, 그림자는 예전 판과 같다, 끌면 모델 상자 가운데가 포인터에 온다(예전 판과 같은 규칙). 공식 캡처 → mix-Q.
+- 확인: `test/item-models.test.js`(두 시즌 장비 전부 모델 또는 마법 아이템 셋, 0초 클립, 공유 스켈레톤, `itemSpines` = 커밋된 메타데이터, 스냅숏 칸 공유·가득 찬 칸 넘겨주기·컨텍스트 복구, `ItemView` 모델·판, EN 다음 CN 찾기). 렌더 데모(손·임시 칸에 15개씩)에서 지금 시즌 56개·규정 27개(황금 아닌 것)가 모두 모델로 그려짐을 봄(실제 판의 끌기는 테스트로만).
