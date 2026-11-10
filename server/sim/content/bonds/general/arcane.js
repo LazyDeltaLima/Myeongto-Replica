@@ -5,13 +5,15 @@
 //                                   (atk_base + per·L) arts (附加); 3 (its act3autochess_bond_eff_arcane_power[enemy] part,
 //                                   one per field, the highest 奥术 layers among the players at 3): each damage an enemy
 //                                   takes (not element) lowers its RES by 1, down to magic_res_max_base + per·L (≥
-//                                   magic_res_max_min). The 3-tier 「攻击范围内的敌人隐匿效果失效」 (the ability
-//                                   act3autochess_bond_mag_power[immune_invisible]) is not written yet (bundle sim-K)
+//                                   magic_res_max_min); and at 3 of its player's own (ON_BUFF_START: bond_char_cnt GE
+//                                   power_bond_char_cnt → the runtime ability act3autochess_bond_mag_power[immune_invisible]
+//                                   on the member) the enemies in each member's attack range lose their 隐匿
 // Numbers: the season's bonds.json `buffs[].bb`, every buff of the record together (shared.js recordBb). [ASSUMED·CN] the
 // rules are read from the season's buff templates; the CN-only nodes and the server's bookkeeping are not readable here.
 
 import * as S from '../../support/index.js';
 import { isHpLoss } from '../../../damage.js';
+import { AURA, whileDeployed, reveal, enemiesOnRange } from '../../kits/shared/tier4.js';
 import { num, reached, onDealt, fieldMaxLayers, isFoe, isAddition, isElement } from '../shared.js';
 
 function installArcane(battle, pid, bb, members) {
@@ -23,6 +25,10 @@ function installArcane(battle, pid, bb, members) {
   };
   for (const u of members) onDealt(battle, u, onDmg);
   if (!reached(battle, pid, 'arcaneShip', bb.power_bond_char_cnt)) return;
+  // [immune_invisible]: 「【奥术】干员攻击范围内的敌人隐匿效果失效」, the module effect of the same words (tier4.js reveal:
+  // a short 反隐 on the stealthed enemies standing on the member's current range, refreshed while it is deployed)
+  // [ASSUMED·CN: the ability prefab is CN-only; its range is the member's attack range and its refresh the engine's aura]
+  for (const u of members) whileDeployed(battle, u, AURA, () => reveal(battle, enemiesOnRange(battle, u)));
   // arcane_power[enemy]: one per field, the highest 奥术 layers among the players at 3
   const st = S.battleStore(battle, 'bond:arcane3:enemy', () => ({ on: false, cut: new Map() }));
   if (st.on) return;
@@ -44,7 +50,6 @@ function installArcane(battle, pid, bb, members) {
 export const TEMPLATES = Object.freeze({
   act3autochess_bond_eff_arcane: {
     bond: 'arcaneShip', battle: installArcane, bb: 'record',
-    partial: ['3: 隐匿 of enemies in range does not work (act3autochess_bond_mag_power[immune_invisible])'],
   },
   act3autochess_bond_eff_arcane_power: { bond: 'arcaneShip', readBy: 'act3autochess_bond_eff_arcane' },
 });

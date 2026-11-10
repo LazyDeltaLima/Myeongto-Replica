@@ -204,11 +204,13 @@ export const TEMPLATES = Object.freeze({
 });
 
 /**
- * Every prep template of the bond files, in the order a bond's parts run on one hook (this one's and addon/meta.js's):
+ * Every prep template of the bond files, in the order a bond's parts run on one hook (this one's, addon/meta.js's and
+ * general/'s):
  * the reward first (it wrapped the handler before it), 远见's funds before its discount latch.
  */
 export const PREP_ORDER = Object.freeze([
-  REWARD_KEY, 'bond_activated_add_layer', 'bond_layer_gain_coin', DISCOUNT_KEY, 'bond_refresh_shop_next_free',
+  REWARD_KEY, 'bond_activated_add_layer', 'bond_layer_gain_coin', DISCOUNT_KEY, 'bond_goods_disc_tier2',
+  'bond_refresh_shop_next_free', 'bond_layer_shop_same_tier',
 ]);
 
 /** One handler running each part's hook in turn (a handler registered before them first). */

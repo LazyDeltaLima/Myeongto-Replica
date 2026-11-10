@@ -10,6 +10,7 @@ import { regulationBb, abnormalCount } from '../../server/sim/content/bonds/regu
 import { bondBb as coreBb } from '../../server/sim/content/bonds/core.js';
 import { makeMatch, legalTileFor } from '../match/harness.js';
 import { PHASE } from '../../shared/constants.js';
+import { COLS } from '../../server/sim/constants.js';
 
 const close = (a, b, eps = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} expected ${b}, got ${a}`);
 const op = (id, bonds, extra = {}) => chessRec({
@@ -251,6 +252,22 @@ test('规程 奥术: each non-附加 damage adds ATK × (0.2 + 0.004L) arts; 3: 
   assert.deepEqual(h.b.errors, []);
 });
 
+test('规程 奥术 3: the 隐匿 of enemies in a member\'s attack range is off (not at 2, not out of range)', () => {
+  const run = (n, inRange = true) => {
+    const h = fight(ids('a', n).map((id) => [id, ['arcaneShip']]), { arcaneShip: bondOn(n, 0, [2, 3]) }, { enemies: [] });
+    const a0 = h.unit('a0_a');
+    const key = inRange ? [...a0.rangeKeys][0] : 0;
+    const e = h.spawn('e_dummy', { pos: [Math.floor(key / COLS), key % COLS] });
+    h.b.applyStatus(e, 'stealth', { duration: 30 });
+    h.run(0.5);
+    assert.deepEqual(h.b.errors, []);
+    return !!e.s.flags.reveal;
+  };
+  assert.equal(run(3), true, '3 members: revealed');
+  assert.equal(run(2), false, '2 members: still hidden');
+  assert.equal(run(3, false), false, 'out of every range: still hidden');
+});
+
 test('规程 聚合: allies in a member\'s range regenerate ATK × (0.16 + 0.0012L) HP a second; 3: 庇护 0.15 + 0.0008L', () => {
   const bb = bbOf('docShip');
   const L = 50;
@@ -337,4 +354,61 @@ test('规程 谢拉格: every 100 layers pay one 谢拉格不融冰 while the bo
   assert.equal(ps.counters['bond:kjerag:reward'], 2);
   assert.equal(m.errorCount, 0);
   m.dispose?.();
+});
+
+/** A solo 规程 match at PREP R3 with an empty board and `n` visible `bondId` operators placed (the bond active). */
+function prepWithBond(bondId, n, seed = 5) {
+  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed, data: ACT3_ON_BASE_FIELD, season: 'act3autochess' }).start();
+  h.toPrep(3, { band: 'band_amiya' });
+  const m = h.m, ps = h.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.temp.fill(null); ps.recompute();
+  const used = new Set();
+  for (const c of Object.values(ACT3.chess).filter((c) => c.visible && !c.isGolden && c.bonds.includes(bondId)).slice(0, n)) {
+    const piece = ps.acquireChess(c.chessId, { source: 'buy' });
+    const [row, col] = legalTileFor(m, ps, c.chessId, used);
+    used.add(`${row},${col}`);
+    assert.equal(m.handle('p_0', { t: 'g.move', uid: piece.uid, to: { area: 'board', row, col }, dir: 'RIGHT' }).ok, true);
+  }
+  return { h, m, ps };
+}
+
+test('规程 远见: the first 80 layers take 1 off the 远见 operators\' price, the first 150 one more — still 远见 only (bond_goods_disc_tier2)', () => {
+  const { m, ps } = prepWithBond('visiShip', 2);
+  assert.ok(ps.bonds.visiShip.active);
+  const pick = (pred) => Object.values(ACT3.chess).find((c) => c.visible && !c.isGolden && pred(c) && m.gd.chessPrice(c.chessId) >= 3).chessId;
+  const visi = pick((c) => c.bonds.includes('visiShip')), other = pick((c) => !c.bonds.includes('visiShip'));
+  const price = (id) => ps.priceOf({ kind: 'chess', id, basePrice: m.gd.chessPrice(id) });
+  const base = [price(visi), price(other)];
+  ps.addLayers('visiShip', 79);
+  assert.deepEqual([price(visi), price(other)], base, '79 layers: none');
+  ps.addLayers('visiShip', 1);
+  assert.deepEqual([price(visi), price(other)], [base[0] - 1, base[1]], '80: −1 for 远见');
+  ps.addLayers('visiShip', 70);
+  assert.deepEqual([price(visi), price(other)], [base[0] - 2, base[1]], '150: −2 for 远见, the others as they were');
+  assert.equal(ps.counters['bondaddon:visi:tier2'], 2);
+  assert.equal(m.errorCount, 0);
+  m.dispose?.();
+});
+
+test('规程 奇迹: from the first 100 layers a refresh always shows an operator of the 调度中心\'s level (bond_layer_shop_same_tier)', () => {
+  const run = (layers) => {
+    const { m, ps } = prepWithBond('miraShip', 2, 7);
+    assert.ok(ps.bonds.miraShip.active);
+    ps.shop.level = 5;
+    ps.addLayers('miraShip', layers);
+    let missing = 0;
+    for (let i = 0; i < 40; i++) {
+      ps.funds = 99;
+      assert.equal(ps.refresh().ok, true);
+      const chess = ps.shop.slots.filter((s) => s && s.kind === 'chess' && !s.sold);
+      if (!chess.some((s) => m.gd.tierOf(s.id) === 5)) missing++;
+    }
+    assert.equal(m.errorCount, 0);
+    m.dispose?.();
+    return missing;
+  };
+  assert.ok(run(99) > 0, 'below 100 layers some refreshes show no tier-5 operator');
+  assert.equal(run(100), 0, 'from 100 layers every one does');
 });

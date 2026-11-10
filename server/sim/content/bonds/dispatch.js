@@ -8,7 +8,7 @@
 //                      readBy?, partial? } }` — `bb: 'record'` hands the installer every buff of the record together
 //                      (shared.js recordBb), else the template's first buff; `readBy`: a part another template's
 //                      installer reads; `partial`: what of the template is not written yet
-//   general/<bond>.js  an add-on bond's template of another season (规程's 奥术)
+//   general/<bond>.js  an add-on bond's template of another season (规程's 奥术, 远见's discount, 奇迹's 100 layers)
 //   addon/battle.js    the 11 add-on bonds with a battle side, one install for all of them (its TEMPLATES name the
 //                      templates it runs)
 //   templates.js, addon/meta.js   the prep templates (`TEMPLATES = { template: { bonds, prep(bondId) } }`)
@@ -34,6 +34,8 @@ import * as iberia from './nation/iberia.js';
 import * as lethania from './nation/lethania.js';
 import * as doc from './nation/doc.js';
 import * as arcane from './general/arcane.js';
+import * as visi from './general/visi.js';
+import * as mira from './general/mira.js';
 import * as addonBattle from './addon/battle.js';
 import * as addonMeta from './addon/meta.js';
 import * as common from './templates.js';
@@ -46,7 +48,9 @@ const BATTLE_FILES = Object.freeze([
   ['bonds/nation/iberia.js', iberia], ['bonds/nation/lethania.js', lethania], ['bonds/nation/doc.js', doc],
   ['bonds/general/arcane.js', arcane],
 ]);
-const PREP_FILES = Object.freeze([['bonds/templates.js', common], ['bonds/addon/meta.js', addonMeta]]);
+const PREP_FILES = Object.freeze([
+  ['bonds/templates.js', common], ['bonds/addon/meta.js', addonMeta], ['bonds/general/visi.js', visi], ['bonds/general/mira.js', mira],
+]);
 
 /** template → its declaration, with `where` (the file). */
 const BATTLE = Object.freeze(Object.fromEntries(BATTLE_FILES.flatMap(([where, mod]) => Object.entries(mod.TEMPLATES).map(([k, d]) => [k, Object.freeze({ ...d, where })]))));
