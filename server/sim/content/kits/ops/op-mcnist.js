@@ -338,6 +338,9 @@ export default {
           const h = c.target;
           if (!holds(h) || !h.mem.mcnistBroken) return;
           h.mem.mcnistBroken = false;
+          // mcnist_s_2_shield ON_TAKE_DAMAGE as it breaks: mcnist_skill_02_buff_01_end while S2 runs (CheckContainsBuff
+          // mcnist_s_2), else _end_02 (render/fx/kitofficial.js shieldBreak)
+          battle.fx('shieldBreak', { x: h.x, y: h.y, id: h.id, src: unit.id, on: skillOn(unit, S2) ? 1 : 0 });
           const sk = unit.skill;
           if (!skillOn(unit, S2) || !h.alive) return;
           h.mem.mcnistLock = true;

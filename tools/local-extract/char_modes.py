@@ -256,13 +256,9 @@ def _template_refs(o, templates, acc):
             _template_refs(v, templates, acc)
 
 
-def skill_switches(cid, prefabs, stree, templates):
-    """[[mode index, …] per skill] — 2026-11-04, official client: every mode a skill's buffs switch the operator to (SwitchMode
-    with a fixed `_modeIndex` > 0), its prefab's own switch_mode included, from the buff templates its prefab names and the
-    templates named after it (`<codename>_s_3…` / `_s3…` / `_skill_3…` — the charpack's own, which the skill's events reach:
-    Mon3tr's monstr_s_3[route] → 4 S3_Reborn as she lands, 3 S3_Restore as she returns), each followed through the templates
-    it names in turn. The render must follow each one or list it (test/render/mode-switch-list.js). None when no skill
-    switches any."""
+def skill_templates(cid, prefabs, stree, templates):
+    """[set of template keys per skill]: the buff templates its prefab names and the templates named after it, each followed
+    through the templates it names in turn (skill_switches' walk; 2026-11-10 also down_switches')."""
     code = cid.split('_', 2)[-1]
     if getattr(skill_switches, '_tree', None) is not stree:   # the skills' MonoBehaviours by prefab, once per run
         skill_switches._tree, skill_switches._by = stree, {}
@@ -284,6 +280,19 @@ def skill_switches(cid, prefabs, stree, templates):
             nxt = set()
             _template_refs(templates[k], templates, nxt)
             todo += [x for x in nxt if x not in seen]
+        out.append(seen)
+    return out
+
+
+def skill_switches(cid, prefabs, stree, templates):
+    """[[mode index, …] per skill] — 2026-11-04, official client: every mode a skill's buffs switch the operator to (SwitchMode
+    with a fixed `_modeIndex` > 0), its prefab's own switch_mode included, from the buff templates its prefab names and the
+    templates named after it (`<codename>_s_3…` / `_s3…` / `_skill_3…` — the charpack's own, which the skill's events reach:
+    Mon3tr's monstr_s_3[route] → 4 S3_Reborn as she lands, 3 S3_Restore as she returns), each followed through the templates
+    it names in turn. The render must follow each one or list it (test/render/mode-switch-list.js). None when no skill
+    switches any."""
+    out = []
+    for seen in skill_templates(cid, prefabs, stree, templates):
         acc = set()
         for k in seen:
             _switch_modes(templates[k], acc)
@@ -429,6 +438,20 @@ def held_buff_effects(d):
 def add(lst, names):
     for n in names:
         if n and not DIRECTIONAL.search(n) and n not in lst:
+            lst.append(n)
+
+
+# 2026-11-10: a mode the operator holds when deployed facing down (机械师 S2_Down, 褐果 S2(Down)) names its `_down` copies as
+# its own effects — nothing else to copy them from: kept there when the entry names nothing else (add_mode)
+DOWN_MODE = re.compile(r'(_Down|\(Down\))$')
+
+
+def add_mode(lst, names, mode):
+    # an entry with a base name too is a direction slot list (dir_groups, render/fxgame.js dirPick): as everywhere
+    if not DOWN_MODE.search(mode or '') or any(n and not DIRECTIONAL.search(n) for n in names):
+        return add(lst, names)
+    for n in names:
+        if n and n not in lst:
             lst.append(n)
 
 
@@ -1079,7 +1102,7 @@ def modes_of(path, projectiles=None, tree=None):
         if kind and '/Body/Attack/' in gp[len(mode_paths[i]):] + '/':
             part = split[i][kind]
             part['seen'] = True
-            add(part['cast'], effect_names(d.get('_castEffects') or []))
+            add_mode(part['cast'], effect_names(d.get('_castEffects') or []), modes[i])
             for k in MODE_HIT_KEYS:
                 add(part['hit'], effect_names(d.get(k) or []))
             if projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
@@ -1089,12 +1112,12 @@ def modes_of(path, projectiles=None, tree=None):
         if ck:
             part = cpart[i][ck]
             part['seen'] = True
-            add(part['cast'], effect_names(d.get('_castEffects') or []))
+            add_mode(part['cast'], effect_names(d.get('_castEffects') or []), modes[i])
             for k in MODE_HIT_KEYS:
                 add(part['hit'], effect_names(d.get(k) or []))
             if projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
                 add(part['hit'], projectiles.effects(d['_projectileKey'])['hit'])
-        add(cast[i], effect_names(d.get('_castEffects') or []))
+        add_mode(cast[i], effect_names(d.get('_castEffects') or []), modes[i])
         add(inputs[i], effect_names(d.get('_inputTargetEffects') or []))
         add(cast_tgt, effect_names(d.get('_castTargetEffects') or []))
         cast_target_timing(d, cast_opt[i])
@@ -1661,6 +1684,15 @@ def main():
                   for x, p in zip(skill_switches(cid, pids, stree, templates) or [[] for _ in pids], pids)]
             if any(sw):
                 m['switchTo'] = [[n for n in x if n < len(m['modes'])] for x in sw]
+            # (2026-11-10) the mode a skill's template picks when the operator was deployed facing down (down_switches: 机械师
+            # mcnist_s_2_mode 2 S2 / 3 S2_Down, 褐果 chnut_s_2[switch_mode]) — fxgame.js downOf, as a summon's
+            down = {}
+            for seen in skill_templates(cid, pids, stree, templates):
+                for k in sorted(seen):
+                    down_switches(templates[k], down)
+            down = {a: b for a, b in down.items() if a < len(m['modes']) and b < len(m['modes'])}
+            if down:
+                m['downMode'] = [down.get(i, i) if i not in down.values() else i for i in range(len(m['modes']))]
             # local patch: the skills' own effects (skills.ab), in skill order; a skill's turned effects join the operator's
             # a skill's shot (skill_effects) flies with its first attack after the cast (render/fxgame.js trailShot): a skill
             # without duration only — a timed one's projectile is an ability of its own (焰影苇草 S2's fireballs, the kit's 'strike')
@@ -1684,7 +1716,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'altFx', 'talentAtk', 'sideFx', 'combatSplit', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'dollBack', 'hitAim', 'fortress', 'funnels', 'charge', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'altFx', 'talentAtk', 'sideFx', 'combatSplit', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'dollBack', 'hitAim', 'fortress', 'funnels', 'charge', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common', 'downMode') if f in v} for k, v in sorted(out.items())}
         # the summons' skill auras and start effects, keyed by token id (render/fxgame.js tokenAura, flushDeploys); a summon
         # whose pack this client lacks keeps the entry an earlier run wrote (凯尔希·思衡托's, from the CN client)
         old = json.loads(FX_OUT.read_text(encoding='utf-8')) if FX_OUT.exists() else {}

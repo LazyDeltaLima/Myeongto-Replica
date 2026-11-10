@@ -50,7 +50,9 @@ export const HIT_KEYS = Object.freeze(['bubble_t_1[atk_down]', 'skadi2_s_1[prote
   // 真言 (2026-11-03)
   'mantra_t_1',
   // 矩, 风絮 (2026-11-06)
-  'ju_s_2[damage]', 'projectile_chr_taraxa_s2_2']);
+  'ju_s_2[damage]', 'projectile_chr_taraxa_s2_2',
+  // 테리토리야, 외드레르 (2026-11-10)
+  'dminon_t_1[dmg]', 'hodrer_s[heal]']);
 
 /** The sample inputs a kit plan is called with (every branch of the plans in KIT_OFFICIAL). */
 const KIT_O = [
@@ -62,6 +64,9 @@ const KIT_O = [
   { s: 1 }, { s: 2, shot: 1 }, { s: 3 }, { n: 6, max: 6 }, { dur: 4, tile: 31 },   // 冻河's 触发型效果, 塔露拉's 奥术 / footprint
   ...HIT_KEYS.map((k) => ({ k, by: 4, life: 5 })),   // 'hit': a 'dmg' / 'heal' event's effect moments
   { k: 'snhunt_t[effect]', by: 4, fly: 1 },   // … on a flying unit
+  { skill: 'dminon:spread', cells: [[0, 0]] }, { skill: 'dminon:boundary', cells: [[0, 0]] },   // 테리토리야's tile hits
+  { on: 1 },   // 메커니스트's 屏障 breaking while S2 runs
+  { k: 'amiya3:s1' },   // 아미야 의료 형태 S1
 ];
 const KIT_C = [0, 1, 2].flatMap((skill) => [false, true].flatMap((back) => [false, true].map((foe) => ({ skill, back, foe }))));
 

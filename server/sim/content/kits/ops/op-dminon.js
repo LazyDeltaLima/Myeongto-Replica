@@ -66,7 +66,7 @@
 import { num, talentBb, moduleBb, traitBb, skillRec, up, byEnemyAttack } from '../shared/tier1.js';
 import { absoluteRangeKeys, canTargetEnemy } from '../../../targeting.js';
 import { bodyInKeys } from '../../../body.js';
-import { TICK } from '../../../constants.js';
+import { TICK, COLS } from '../../../constants.js';
 import { roundHalfEven } from '../../../detmath.js';
 
 const S1 = 'skchr_dminon_1';
@@ -107,6 +107,8 @@ export const guardKey = (u) => `dminon:s3#${u.id}`;
 export const ambxKey = (u) => `dminon:ambx#${u.id}`;
 
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** Absolute tile keys → [[x, y]…] (column, row: the render's tile points). */
+const cellsOf = (keys) => keys.map((k) => [k % COLS, Math.floor(k / COLS)]);
 const skillOn = (u, id) => !!(u.skill && u.skill.active && u.skill.id === id);
 const aspdMods = (v) => ({ aspd: -v });
 
@@ -164,11 +166,33 @@ function cacheLeave(unit) {
 /** 此身为界 lands: `atk` × atk_scale arts and the stun on every ground enemy standing on `tiles`. */
 function boundary(battle, unit, atk, tiles, tb) {
   const scale = num(tb.atk_scale), stun = num(tb.stun);
-  battle.fx('aoe', { x: unit.x, y: unit.y, id: unit.id, skill: BOUNDARY_TAG });
+  // its projectile's `_tileEffectKeyOnStop` on every tile of its `_targetRange` — the 国度 it cached (render/fx/kitofficial.js 'aoe')
+  battle.fx('aoe', { x: unit.x, y: unit.y, id: unit.id, skill: BOUNDARY_TAG, cells: cellsOf(tiles) });
   for (const e of foesNow(battle, unit, tiles, GROUND)) {
     if (scale > 0) battle.dealDamage(unit, e, { amount: atk * scale, type: 'arts', tags: ['talent', BOUNDARY_TAG] });
     if (stun > 0 && e.alive) battle.applyStatus(e, 'stun', { duration: stun, source: unit });
   }
+}
+
+// ---- the 国度's look ----------------------------------------------------------------------------------------------------
+/**
+ * Kingdom (Others/Direction/CommonAbilities): its TileEffectFollowRangeBehaviour holds `_tileEffectKey` dminon_talent_range_01
+ * on each tile of his own attack range (SharedCharacterRangeBehaviour `_onlyIncludeSelf`), its RangeLineEffectEmitter
+ * `_edgeLineRendererEffectKey` dminon_range_line_01 along that range's edges — both following each change of the range
+ * (S2 / S3, the spread tiles). 'field' { id, cells, gone } whenever his range tiles change (render/fx/kitofficial.js 'field';
+ * the render ends them as he leaves). A reference check first: the engine replaces the array on every rebuild.
+ */
+function showField(battle, unit) {
+  const keys = unit.rangeKeys ?? [];
+  const m = unit.mem;
+  if (m.dminonShown === keys) return;
+  const last = m.dminonShownSet ?? null, now = new Set(keys);
+  m.dminonShown = keys;
+  m.dminonShownSet = now;
+  if (last && last.size === now.size && [...now].every((k) => last.has(k)) && m.dminonShownSeq === unit.deploySeq) return;
+  const gone = last && m.dminonShownSeq === unit.deploySeq ? [...last].filter((k) => !now.has(k)) : [];
+  m.dminonShownSeq = unit.deploySeq;
+  battle.fx('field', { x: unit.x, y: unit.y, id: unit.id, cells: cellsOf(keys), gone: cellsOf(gone) });
 }
 
 // ---- S1 / S3 ---------------------------------------------------------------------------------------------------------
@@ -193,7 +217,8 @@ function spread(battle, unit, src, cd, scale) {
   const before = own.length;
   for (const k of tiles) if (!own.includes(k)) own.push(k);
   if (own.length > before) battle.setExtraRange(unit, own);
-  battle.fx('aoe', { x: src.x, y: src.y, radius: 1, id: unit.id, skill: SPREAD_TAG });
+  // dminon_s_3[spread]'s CreateTileEffectInRange x-5 on the five tiles (render/fx/kitofficial.js 'aoe')
+  battle.fx('aoe', { x: src.x, y: src.y, radius: 1, id: unit.id, skill: SPREAD_TAG, cells: cellsOf(tiles) });
   if (!(scale > 0)) return;
   for (const e of foesNow(battle, unit, tiles, ANY)) {
     battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'phys', isSkill: true, tags: ['skill', SPREAD_TAG] });
@@ -289,6 +314,7 @@ export default {
           battle.on('tick', () => {
             if (!up(unit)) return;
             cacheLeave(unit);
+            showField(battle, unit);
             // the cut: the first 国度 on the field holds it, with the strongest value of those on the field
             let first = null, v = 0;
             for (const d of domsOf(battle)) if (up(d.unit)) { first ??= d.unit; if (d.aspd > v) v = d.aspd; }
@@ -305,7 +331,8 @@ export default {
               if (!up(unit)) return;
               const amount = unit.s.atk * scale;
               for (const e of battle.enemiesOnTiles(fieldKeys(battle), unit, GROUND)) {
-                battle.dealDamage(unit, e, { amount, type: 'arts', tags: ['talent', COLLAPSE] });
+                // dminon_t_1[dmg]: its AdvancedApplyDamage and CreateEffect dminon_talent_hit_01 on the enemy
+                battle.dealDamage(unit, e, { amount, type: 'arts', tags: ['talent', COLLAPSE], moment: 'dminon_t_1[dmg]' });
               }
             }, { owner: unit });
           }, { owner: unit });

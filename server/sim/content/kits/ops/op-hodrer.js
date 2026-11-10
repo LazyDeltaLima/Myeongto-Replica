@@ -77,7 +77,8 @@ export default {
     const hidden = moduleBb(chess);   // CRU-Y stage 3: stun (the first-hit stun on an enemy he blocks)
     const tb = traitBb(chess);
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
-    const selfHeal = (battle, unit, ratio) => { if (ratio > 0) battle.heal(unit, unit, unit.s.maxHp * ratio, { self: true }); };
+    // hodrer_s[heal] (S1 / S3): HealViaMaxHpRatio and CreateEffect hodrer_skill_01_buff_01 on him — the heal's effect moment
+    const selfHeal = (battle, unit, ratio) => { if (ratio > 0) battle.heal(unit, unit, unit.s.maxHp * ratio, { self: true, moment: 'hodrer_s[heal]' }); };
     /** S3: mark `e` (not 无敌) for this cast — its own 1 s burn until the skill ends. */
     const mark = (battle, unit, e) => {
       const marks = unit.mem.hodrerMarks;

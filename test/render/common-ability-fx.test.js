@@ -45,6 +45,7 @@ test('commonEffects: the always-on talents by charId (TALENT_ALWAYS), after the 
   assert.deepEqual(commonEffects(null, ['flower_buff_01_range'], null, 'char_181_flower', PLAYS), ['flower_buff_01_range']);
   assert.deepEqual(commonEffects(null, [], null, 'char_423_blemsh', PLAYS), [], 'not extracted');
   assert.deepEqual(commonEffects(null, null, null, 'char_245_cello'), [], 'without the plays: none');
+  assert.deepEqual(commonEffects(null, null, null, 'char_1031_slent2', PLAYS), ['slent2_buff_01'], '사일런스 더 패러디그매틱 T1 on herself');
   // by the talent's client key (2026-10-23): its held prefabs are the operator's own
   for (const [id, t] of Object.entries(TALENT_ALWAYS)) for (const n of PLAYS.keys[t.tpl]?.held || []) assert.ok(n.startsWith(`${id.replace(/^char_\d+_/, '')}_`), n);
 });

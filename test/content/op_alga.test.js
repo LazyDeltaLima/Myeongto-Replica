@@ -90,6 +90,7 @@ test('S2 只为我的答案: ATK +atk, range 3-2, talent × talent_scale; her hi
     h.step();
     assert.ok(far.hp < hp0, `${id}: reaches 3 tiles`);
     assert.ok(far.hasBuff('sluggish'), `${id}: 停顿`);
+    assert.ok(far.findBuff('alga_2'), `${id}: the client buff alga_2 (its look alga_skill_02_debuff)`);
     const tb = far.findBuff('alga_2[taunt]');
     assert.equal(tb?.mods.taunt, bb['attack@taunt_level'], `${id}: taunt`);
     // the taunted enemy stays her first target (taunt orders her targets too) until it leaves her range

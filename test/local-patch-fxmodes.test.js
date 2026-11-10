@@ -39,7 +39,8 @@ describe('attack-mode effect bindings', () => {
     for (const [id, e] of Object.entries(modes)) {
       for (const role of ['cast', 'hit', 'trail']) {
         assert.equal(e[role]?.length, e.modes.length, `${id} ${role}`);
-        for (const list of e[role]) for (const n of list) assert.doesNotMatch(n, /_(up|down|left|back)(_|$)/i, `${id} ${n}`);
+        // (2026-11-10) a facing-down mode's own `_down` effects stay in it (char_modes.py add_mode: 메커니스트 S2_Down)
+        e[role].forEach((list, i) => { if (!/(_Down|\(Down\))$/.test(e.modes[i])) for (const n of list) assert.doesNotMatch(n, /_(up|down|left|back)(_|$)/i, `${id} ${n}`); });
       }
     }
     const w = modes.char_1035_wisdel;
@@ -51,6 +52,8 @@ describe('attack-mode effect bindings', () => {
     assert.deepEqual(w.trail[0], ['wisdel_attack_01_trail'], 'a ranged attack\'s projectile trail (its _mainEffect)');
     const o = modes.char_4182_oblvns;
     assert.deepEqual(o.attach[o.modes.indexOf('S3')], ['oblvns_skill_03_range'], '丰川祥子 S3\'s range: its mode buff\'s effect');
+    const mc = modes.char_4230_mcnist;
+    if (mc) assert.deepEqual([mc.cast[mc.modes.indexOf('S2_Down')], mc.downMode], [['mcnist_skill_02_start_01_down'], [0, 1, 3, 3, 4]], '메커니스트 S2_Down: its own _down cast, the mode when deployed facing down');
     const c = modes.char_245_cello;
     assert.ok(c.attach[c.modes.indexOf('S3')].includes('cello_skill_03_buff_range'), '비르투오사 S3\'s range: an ability\'s own _effects');
     const a = modes.char_4132_ascln;

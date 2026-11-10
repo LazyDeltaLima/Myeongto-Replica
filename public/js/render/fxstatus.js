@@ -182,6 +182,15 @@ export const KEY_FX = Object.freeze({
   // S2 “以鲜血洗去” at its stack cap: veen_s_2_buff_full[effect] (veen_skill_02_buff_03) on her till the skill ends
   'veen:war': keyed('veen_t_2[damage]', 'veen', OWN),
   'veen:s2full': keyedAll('veen_s_2_buff_full[effect]', 'veen', OWN),
+  // (2026-11-10) 외드레르 (규정 기물) S3: hodrer_s_3[damage] gives an enemy hitting him / hit by him (not 无敌) hodrer_s_3[burn]
+  // (overrideEffectKey hodrer_skill_03_Debuff_01, INFINITY, one per source) — the sim's 'skill:hodrer:smoke:<his id>'
+  'skill:hodrer:smoke': keyedAll('hodrer_s_3[burn]', 'hodrer', OWN),
+  // (2026-11-10) 메커니스트 (규정 기물) S2: mcnist_s_2_shield (overrideEffectKey mcnist_skill_02_buff_01, INFINITY) on her and
+  // her 结构性原理 while the 屏障 holds — the sim's S2 barrier (its T2 生命方程 barrier, mcnist_t_2, has no effect of its own)
+  'mcnist:s2:barrier': keyedAll('mcnist_s_2_shield', 'mcnist', OWN),
+  // (2026-11-10) 시데로카 (규정 기물) T1: the times-th kill gives sidero_t_1[attack_speed] (overrideEffectKey sidero_buff_01_start,
+  // INFINITY) — the sim's buff of that key
+  'sidero_t_1[attack_speed]': keyedAll('sidero_t_1[attack_speed]', 'sidero', OWN),
   // (2026-11-03) Mon3tr T2 战术协同 on an ally neither a Mon3tr nor a 重构体 (the sim's 'talent:monstr:aspd', `fxTag` 2 = given
   // under her S2), by the side the ally faces
   'talent:monstr:aspd': cite(['monstr_t_2[eff_1]', 'monstr_t_2[eff_1][r]', 'monstr_t_2[eff_2]', 'monstr_t_2[eff_2][r]'],

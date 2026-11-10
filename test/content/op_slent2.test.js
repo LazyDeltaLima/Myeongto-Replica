@@ -312,6 +312,9 @@ test('S3 无畏者协议 (60 s, at most 2 casts per battle): ATK +20 % / +30 %; 
     assert.ok(a.alive && a.hp === 1, 'kept at 1 HP');
     assert.ok(a.findBuff('slent2:grave') && holdsUndying(h.b, a), '不死 (holdsUndying sees it)');
     approx(a.findBuff('slent2:grave').timeLeft, sk.bb.grave_duration, 'duration', 0.01);
+    h.step();
+    const shown = h.events.filter((ev) => ev[0] === 'fx' && ev[1] === 'undying' && ev[4]?.id === a.id).at(-1)?.[4];
+    assert.deepEqual([shown?.src, shown?.duration], [u.id, sk.bb.grave_duration], 'the look: on the ally, from her (slent2_shallow_grave)');
     h.b.retreat(u);   // the 不死 outlasts her
     h.run(sk.bb.grave_duration - 0.5);
     h.b.dealDamage(e, a, { amount: 1e6, type: 'true' });

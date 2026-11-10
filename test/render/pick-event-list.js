@@ -79,12 +79,10 @@ export const PICK_EVENTS = Object.freeze({
   'turdus|volley': "official: fxgame.js skillShotFx flies her S2's projectile_chr_turdus_s2 (modes.json skills[1].shot) and plays its hit as it lands",
   'hbound|zone': "official: fxgame.js zoneFx flies her skill's projectile_chr_hbound_s1 / _s2 and plays its _effectsWhenReached (modes.json skills[i].zone) as it lands",
   'greyy2|zone': "official: fxgame.js zoneFx flies her S2's projectile_chr_greyy2_s2 (modes.json skills[1].shot) and plays greyy2_skill_02_range (skills[1].zone) as it lands",
-  'dminon|aoe': "stand-in: the generic area mark for S3's spread; his own dminon_talent_range_hit_01 (dminon_s_3[spread]) is in fx-bindings.test.js UNPLAYED",
-  'mcnist|shield': "stand-in: the generic barrier look for 生命方程 / S2; her own mcnist_skill_02_buff_01 (mcnist_s_2_shield) rows are keyless (fx-wiring-report.mjs), not wired yet",
+  'mcnist|shield': "official: S2's 屏障 is mcnist_s_2_shield, its mcnist_skill_02_buff_01 held by the status path (fxstatus.js KEY_FX); T2 生命方程's mcnist_t_2 has no effect of its own, so no barrier look either (KIT_NO_STAND_IN)",
   'mcnist|charge': "stand-in: the generic charge line for 结构性原理's S3 charge; its own trails are in fx-unplayed-local-list.js",
   'acrbot|aoe': "stand-in: the generic area mark for T1 荒蛮之心's knock-out burst; its projectile_chr_acrbot_t2 effects are not extracted yet (not in the CN bundle index)",
   'mcnist|aoe': "stand-in: the generic area mark for the S3 cross and the charge's landing; their own hits are not wired yet",
   'slent2|shield': "stand-in: the generic barrier look; BLS-Y's 屏障 is stage 3, not in 规程",
-  'slent2|undying': "stand-in: the generic 不死 look for S3's slent2_shallow_grave; its slent2_skill_03_buff_02 is a keyless row, not wired yet",
   'hbound|dodge': "stand-in: the same miss mark as every other missed attack (T1 hit rate; standin-acsupo.js sends it too); no prefab of hers is named for it",
 });

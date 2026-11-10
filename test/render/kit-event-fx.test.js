@@ -75,7 +75,6 @@ const VERDICT = {
     nearl2: ['none', 'module 骑士家族 nearl2_e_003_tr creates no effect (nearl2_buff_01_start is S3 combo_effect)'],
     demetr: ['none', 'S3 清算 demetr_s3[undeadable] ON_BEFORE_TRY_SET_HP_ZERO: demetr_s3[undeadable_core] (template empty) and the skill interrupted'],
     monstr: ['none', 'S3 策略：熔毁 monstr_s_3[undead] ON_BEFORE_TRY_SET_HP_ZERO: monstr_s_3[undeadable] (template empty), the HP ratio kept, the skill interrupted'],
-    slent2: ['pending', 'S3 无畏者协议 slent2_shallow_grave ON_BEFORE_TRY_SET_HP_ZERO: its slent2_skill_03_buff_02 is a keyless row (fx-wiring-report.mjs), not wired yet'],
   },
   wake: { glady: ['skill', 2] },
 };
@@ -147,7 +146,7 @@ test("a 'skill' verdict names a skill whose activation draws something", () => {
 });
 
 /** The 'kitHit' moment keys the rules answer (`k`; undefined: 灵知's, which reads none). */
-const KIT_HIT_KEYS = [undefined, 'mantra:s1', 'mantra:s2', 'mantra:s1el', 'mantra:s3', 'mantra:s2jump', 'mantra:s3jump', 'robrta:end', 'closur:plane', 'christ:aura', 'brigid:cut', 'pianst:echo', 'pianst:final', 'pianst:finalHit', 'cqbw:grenade', 'heyak:wind', 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot', 'shu:mark', 'lmlee:s3push', 'ebnhlz:yiyin', 'ebnhlz:yiyinAoe'];
+const KIT_HIT_KEYS = [undefined, 'mantra:s1', 'mantra:s2', 'mantra:s1el', 'mantra:s3', 'mantra:s2jump', 'mantra:s3jump', 'robrta:end', 'closur:plane', 'christ:aura', 'brigid:cut', 'pianst:echo', 'pianst:final', 'pianst:finalHit', 'cqbw:grenade', 'heyak:wind', 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot', 'shu:mark', 'lmlee:s3push', 'ebnhlz:yiyin', 'ebnhlz:yiyinAoe', 'amiya3:s1'];
 test('the rules name prefabs the client binds for that operator', () => {
   // each rule's prefab belongs to its operator's bundle (a typo plays nothing); the names come from the buff templates
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {
@@ -160,7 +159,7 @@ test('the rules name prefabs the client binds for that operator', () => {
       if (n === 'buff' && b === 'jesca2') Object.assign(o, { kind: 'turn', shield: 2 });
       if (n === 'counter') Object.assign(o, { tgt: 2, t: 2 });
       if (n === 'summon' && b === 'mitm') o.waste = 1;
-      if (n === 'aoe') o.skill = b === 'branch' ? 'resolve' : b === 'mitm' ? 'mitm:s1' : b === 'headb2' ? 'headb2:highland' : b === 'ebnhlz' ? 'ebnhlz:flashback' : b === 'ironmn' ? 'ironmn:crab' : 'judge:atonement';   // 折桠's opening blast, 斥罪's S2 pulse (the shared 'aoe' event: their skills only)
+      if (n === 'aoe') o.skill = b === 'branch' ? 'resolve' : b === 'mitm' ? 'mitm:s1' : b === 'headb2' ? 'headb2:highland' : b === 'ebnhlz' ? 'ebnhlz:flashback' : b === 'ironmn' ? 'ironmn:crab' : b === 'dminon' ? 'dminon:spread' : 'judge:atonement';   // 折桠's opening blast, 斥罪's S2 pulse (the shared 'aoe' event: their skills only)
       // ('hit' rules answer their own moment keys)
       const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS }))
         .flatMap((ctx) => (n === 'hit' ? HIT_KEYS : n === 'kitHit' ? KIT_HIT_KEYS : [undefined]).map((k) => kitOfficialPlan(n, { ...o, k, heal: 1 }, b, ctx))).filter(Boolean);

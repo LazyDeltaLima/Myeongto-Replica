@@ -147,6 +147,10 @@ describe('client: status → the official buff effect', () => {
     assert.deepEqual(tpl(unit('enemy_1007_slime', { isEnemy: true, statuses: new Set(['talent:demetr:means']) })), ['demetr/demetr_buff_01']);
     assert.deepEqual(tpl(unit('enemy_1007_slime', { isEnemy: true, statuses: new Set(['veen:war:12']) })), ['veen/veen_talent_02_debuff_01']);
     assert.deepEqual(tpl(unit('char_4226_veen', { statuses: new Set(['veen:s2full']) })), ['veen/veen_skill_02_buff_03']);
+    assert.deepEqual(tpl(unit('enemy_1007_slime', { isEnemy: true, statuses: new Set(['skill:hodrer:smoke:12']) })), ['hodrer/hodrer_skill_03_Debuff_01'], '외드레르 S3');
+    assert.deepEqual(tpl(unit('enemy_1007_slime', { isEnemy: true, statuses: new Set(['alga_2']) })), ['alga/alga_skill_02_debuff'], '올가 S2 (a kit buff named by its client key)');
+    assert.deepEqual(tpl(unit('char_4230_mcnist', { statuses: new Set(['mcnist:s2:barrier']) })), ['mcnist/mcnist_skill_02_buff_01'], '메커니스트 S2');
+    assert.deepEqual(tpl(unit('char_333_sidero', { statuses: new Set(['sidero_t_1[attack_speed]']) })), ['sidero/sidero_buff_01_start'], '시데로카 T1');
   });
 
   test('束缚: the applier\'s buff effect; an applier without one (or none) draws nothing — no common badge', () => {

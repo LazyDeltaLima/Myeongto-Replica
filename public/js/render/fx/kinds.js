@@ -115,6 +115,8 @@ export const FX_KINDS = Object.freeze({
   bulletClear: { a: 'wave', c: 0xd8b0ff }, logosLexicon: { a: 'mark', c: 0xc9a2ff }, logosExecute: { a: 'strike', c: 0xb07dff },
   // 만트라: official effects (render/fx/kitofficial.js); mantra_t_2[make_palsy] creates none of its own, the 마비 draws
   mantraArc: { a: 'none', c: 0xc77dff }, mantraGrant: { a: 'none', c: 0xc77dff }, mantraGate: { a: 'none', c: 0xc77dff },
+  // (2026-11-10) 테리토리야's 国度 tiles and edge lines: only its official prefabs (render/fx/kitofficial.js 'field')
+  field: { a: 'none', c: 0x6b5bd6 },
   veenBounce: { a: 'counter', c: 0xffd27a }, veenVolley: { a: 'volley', c: 0xffd27a },
   vvanaS3Later: { a: 'none', c: 0xffd27a }, // 薇薇安娜 S3 from her second cast: its sound mode only (shared/skill-modes.js SKILL_SUB_MODES)
   vvanaCharge: { a: 'none', c: 0xffd27a }, // 薇薇安娜 S1 蓄力: its model form only (render/units.js FORMS)

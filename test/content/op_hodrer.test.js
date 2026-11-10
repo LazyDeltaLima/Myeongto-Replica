@@ -205,6 +205,7 @@ test('S1 重锋不熄 (AUTO, hit SP 3, DEFAULT): every 4th attack hits all he bl
     const heals = h.hooksOf('heal').filter((c) => c.target === u && c.source === u);
     assert.equal(heals.length, sk1.length, `${tier}: one heal per cast`);
     approx(heals[0].amount, u.s.maxHp * sk.bb.hp_ratio * (mod === CRUX ? 1.2 : 1), `${tier}: ${sk.bb.hp_ratio * 100} % max HP${mod === CRUX ? ' × 1.2' : ''}`);
+    assert.ok(heals.every((c) => c.opts?.moment === 'hodrer_s[heal]'), `${tier}: the heal's effect moment (hodrer_s[heal])`);
     done(h);
   }
 });

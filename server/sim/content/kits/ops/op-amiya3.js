@@ -81,6 +81,8 @@ export default {
           battle.on('damaged', (c) => {
             const d = c.dmg;
             if (c.source !== unit || !on(unit) || unit.skill.id !== S1 || !d?.isAttack || !c.target || c.target.side !== 'enemy' || !(scale > 0)) return;
+            // its CreateEffect amiya3_skill_01_range on her (render/fx/kitofficial.js kitHit)
+            battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'amiya3:s1' });
             const keys = new Set(absoluteRangeKeys(s1Grid, unit.tileR, unit.tileC, unit.dir, 0));
             for (const a of battle.alliesFor(unit)) {
               if (a !== unit && up(a) && keys.has(a.tileR * COLS + a.tileC)) battle.heal(unit, a, unit.s.atk * scale, { tags: ['skill'] });

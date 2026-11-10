@@ -89,6 +89,9 @@ export default {
           const e = c.target, d = c.dmg;
           if (c.source !== unit || !on2(unit) || !e || e.side !== 'enemy' || !e.alive || !d?.isAttack || d.type !== 'phys') return;
           battle.applyStatus(e, 'sluggish', { duration: debuff, source: unit });
+          // the client buff alga_2 itself (EXTEND, debuff_duration): its overrideEffectKey alga_skill_02_debuff on the enemy
+          // (the status path draws a buff named by its client key: render/fxstatus.js)
+          battle.addBuff(e, { key: 'alga_2', source: unit, duration: debuff, refresh: 'replace', tags: ['skill'] });
           if (taunt) {
             for (const o of battle.enemies) {
               const b = o !== e ? o.findBuff(TAUNT) : null;

@@ -87,6 +87,7 @@ import { PROJ } from './style.js';
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her model is back home
 import { bodyTurn, faceSwitchCopy, faceTurn, followDir, playSpeed, upwardMajor } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection, SwitchableEffectByFaceDirection; 2026-10-27 a projectile body's turn
 import { kitOfficialPlan, kitOperator, KIT_NO_STAND_IN } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
+import { rangeEdges } from './fx/edges.js'; // 2026-11-10: a range's edge lines (RangeLineEffectHandler)
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 import { enemyRecordMode, isOwnSubMode, SKILL_SUB_MODES, skillModeIndex } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
 import { animPause, clipOf, facesBack, idlePause, immuneTo, movePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
@@ -3039,11 +3040,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const casts = [];
     for (const p of plan.play) {
       const slot = p.slot != null ? `${opId}|${p.slot}` : null;
-      if (slot && p.off) { endSlot(slot); continue; }
+      if (slot && p.off) { endSlot(slot, !!p.now); continue; }
       const pb = p.bundle ? { bundle: p.bundle, prefabs: index?.bundles?.[p.bundle] || [] } : b;
       const name = pickName(pb, p.n);
       if (!name) continue;
       if (p.cast) { casts.push(name); n++; continue; } // (2026-10-21) the operator's own cast effects, below
+      if (p.edge) { if (edgeLines(slot ?? `${opId}|edge`, pb.bundle, name, o[p.edge], opId)) n++; continue; } // (2026-11-10)
       if (slot) {
         const s = slots.get(slot);
         // (2026-10-24, 묶음 S3) a slot play with seconds as `life` lasts that long from its latest play
@@ -3298,11 +3300,45 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const x of l) spawn(x.bundle, x.name, { x: v.x, y: v.y, z: v.z || 0 }, { owner: null, buff: false, tag: 'unitEnd' }, { over: false, facing: efacing(v) });
   }
   /** End the effect held in `key` (and one still loading there). */
-  function endSlot(key) {
+  function endSlot(key, now = false) {
     const s = slots.get(key);
     if (!s) return;
     slots.delete(key);
-    if (s.l) s.l.inst.stop();
+    if (s.l) s.l.inst.stop(now);
+  }
+  /**
+   * (2026-11-10, official client RangeLineEffectHandler._RenderLine) a range's edge lines: one effect `name` per loop of the
+   * outline of `cells` (render/fx/edges.js rangeEdges), at world zero, each of its LineRenderers through the loop's corners
+   * (FxInstance.setPath) `EDGE_Z` over the ground — `_lineOffsetToMapCenter` z −0.1 with `_heightOffset` 0.4 against the
+   * default highland offset −0.4 (`get_defaultHighlandOffset`: −highlandHeight). A later call moves the loops it keeps, makes
+   * the new ones and ends the rest (the client adds effects up to the loop count, finishes the extra ones, then sets every
+   * line). Held as the operator's (`onCaster`): they end as he leaves. false when there is nothing to draw.
+   */
+  const EDGE_Z = 0.1;
+  const edgeSets = new Map();   // slot → { name, ls: [{ l, pts, done }] }
+  function edgeLines(slot, bundle, name, cells, opId) {
+    let rec = edgeSets.get(slot);
+    if (rec && rec.name !== name) { for (const it of rec.ls) it.l?.inst.stop(); rec = null; }
+    if (!rec) edgeSets.set(slot, (rec = { name, ls: [] }));
+    // a line its owner's leaving ended is made again
+    rec.ls = rec.ls.filter((it) => (it.l ? !it.l.inst.stopping && live.includes(it.l) : !it.done));
+    const loops = rangeEdges(cells);
+    const keep = [];
+    loops.forEach((loop, i) => {
+      const pts = loop.map(([cx, cy]) => ({ x: cx, y: cy, z: EDGE_Z }));
+      const it = rec.ls[i];
+      if (it) { it.pts = pts; it.l?.inst.setPath?.(pts); keep.push(it); return; }
+      const one = { l: null, pts, done: false };
+      keep.push(one);
+      spawn(bundle, name, { x: pts[0].x, y: pts[0].y, z: 0 }, { owner: opId, buff: false, onCaster: true, until: null, tag: 'slot' }, { over: false }).then((l) => {
+        one.done = true;
+        if (!l) return;
+        if (edgeSets.get(slot) === rec && rec.ls.includes(one)) { one.l = l; l.inst.setPath?.(one.pts); } else l.inst.stop();
+      });
+    });
+    for (const it of rec.ls.slice(loops.length)) { if (it.l) it.l.inst.stop(); else it.done = true; }
+    rec.ls = keep;
+    return loops.length > 0;
   }
   const orbitAt = { x: 0, y: 0, z: 0 };   // an orbiter's centre (bodyPoint), read at once
   /**
@@ -3879,6 +3915,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     typeof v?._wantsBack === 'function' ? v._wantsBack() : facesBack(v));
   // prefabs a kit event here draws instead (余 S3's wall piece: one per tile along the wall, not one on him)
   const KIT_OWNED = new Set(['yu_skill3_range_01',
+    // 2026-11-10: 사일런스 더 패러디그매틱 S3's 不死 on the ally it saves (kitofficial.js, its undying plan): the `_buff` name rule drew it on her at the cast
+    'slent2_skill_03_buff_02',
+    // 2026-11-10: 메커니스트 S2's 屏障 look, held by the status path while it holds (fxstatus.js KEY_FX): the `_buff` name rule drew it at the cast
+    'mcnist_skill_02_buff_01', 'mcnist_skill_02_buff_01_end', 'mcnist_skill_02_buff_01_end_02',   // … and its breaks (kitofficial.js shieldBreak)
+    // 2026-11-10: 아미야 의료 형태 S1's range effect, at each damage of her attacks (kitofficial.js kitHit): the `_range` name rule drew it at the cast
+    'amiya3_skill_01_range',
     // 2026-11-07: 뮤엘시스's 流形 S3 cast (kitofficial.js 'refresh'), which its sktok_mlyss_wtrman_3 row (char_modes.py token_modes) names too
     'token_10030_mlyss_wtrman_split_start_01',
     // 2026-11-07: 탈룰라 S2's hit on its centre (kitofficial.js 'blast'): `skillTargets` drew it on what the damage of the moment struck

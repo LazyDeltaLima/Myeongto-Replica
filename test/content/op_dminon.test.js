@@ -410,6 +410,48 @@ test('S3 无人的国度 (MANUAL, DEFAULT on its y-10 box): y-10, ATK +55 % / +7
   }
 });
 
+test('the 国度\'s look: a \'field\' event whenever his range tiles change — y-1 at the deployment, y-10 with S3, the spread tiles, back to y-1 with the tiles it left —, none while they stay; the spread and 此身为界 name their tiles; 实质坍缩 names dminon_t_1[dmg]', () => {
+  const { h, u } = field({ skill: 2, col: 3, others: [{ uid: 3, chessId: 'chess_char_1_02_a', row: 11, col: 3 }] });
+  const ally = h.unit(3);
+  const cellSet = (keys) => new Set([...keys].map((k) => `${k % COLS},${Math.floor(k / COLS)}`));
+  const asSet = (cells) => new Set(cells.map(([x, y]) => `${x},${y}`));
+  const fields = () => h.events.filter((e) => e[0] === 'fx' && e[1] === 'field' && e[4]?.id === u.id).map((e) => e[4]);
+  const aoes = (tag) => h.events.filter((e) => e[0] === 'fx' && e[1] === 'aoe' && e[4]?.skill === tag).map((e) => e[4]);
+  h.step(3);
+  assert.equal(fields().length, 1, 'one at the deployment');
+  assert.deepEqual([asSet(fields()[0].cells), fields()[0].gone], [cellSet(u.rangeKeys), []], 'his y-1');
+  const y1 = cellSet(u.rangeKeys);
+  u.skill.gainSp(999);
+  h.spawn('enemy_dummy', { pos: [12, 3] });   // on y-10, not y-1: S3 casts
+  assert.ok(h.runUntil(() => u.skill.active, 1), 'S3');
+  h.step();
+  const s3 = fields().at(-1);
+  assert.deepEqual([fields().length, asSet(s3.cells), s3.gone], [2, cellSet(u.rangeKeys), []], 'y-10');
+  const n = fields().length;
+  h.step(5);
+  assert.equal(fields().length, n, 'none while the tiles stay');
+  const src = h.spawn('enemy_dummy', { pos: [10, 8] });
+  h.step();
+  h.b.dealDamage(src, ally, { amount: 1, type: 'phys' });
+  h.step();   // the events of the moment are collected with the tick
+  assert.deepEqual(asSet(aoes(SPREAD_TAG).at(-1).cells), new Set(['8,9', '7,10', '8,10', '9,10', '8,11']), 'the spread: x-5 round the source');
+  assert.ok(['8,10', '9,10'].every((k) => asSet(fields().at(-1).cells).has(k)), 'the spread tiles join the field');
+  u.skill.extend(-999);
+  h.step(2);
+  const back = fields().at(-1);
+  assert.deepEqual(asSet(back.cells), y1, 'y-1 again');
+  assert.ok(back.gone.length > 0 && back.gone.every(([x, y]) => !y1.has(`${x},${y}`)), 'the tiles it left');
+  h.spawn('enemy_dummy', { pos: [10, 4] });   // on y-1
+  h.run(1.2);
+  assert.ok(tagged(h, u, COLLAPSE).length > 0 && tagged(h, u, COLLAPSE).every((c) => c.dmg.moment === 'dminon_t_1[dmg]'), '实质坍缩\'s effect moment');
+  const at = cellSet(u.rangeKeys);
+  h.b.retreat(u);
+  h.step();
+  const b = aoes(BOUNDARY_TAG).at(-1);
+  assert.ok(b && [...asSet(b.cells)].every((k) => at.has(k)) && asSet(b.cells).size === at.size, '此身为界 lands on the 国度 it cached');
+  done(h);
+});
+
 test('S3 "同时攻击“国度”上的所有敌人": with a second 国度, the ground enemies on its field join each of his attacks', () => {
   const { h, u } = field({ tier: 6, elite: true, mod: AX, skill: 2, col: 3, others: [second({ tier: 5, row: 10, col: 8 })] });
   const v = h.unit(2);

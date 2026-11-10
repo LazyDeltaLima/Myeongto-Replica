@@ -3975,3 +3975,29 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - **유동체의 모드**: 키트 사건 `copy`의 `mode`(Melee / Range, `mlyss_wtrman_switch_melee` / `_range`)를 렌더가 소환물에 적고, 그녀 S2·S3 동안은 `Range_S2`·`Melee_S3`(`mlyss_wtrman_switch_*`: 그녀가 `mlyss_s_2[buff]`·`mlyss_s_3[buff]`를 가지면 `SwitchMode` 4 / 5)로 고른다 — 소리 쪽 `audio.js tokenModeName`과 같은 규칙(`fxgame.js tmodeOf`). 유동체 자체 프리팹 28개를 `mlyss_token`으로 뽑았다(상시 `_buff_01`도 이제 난다).
 - **새로 뽑은 프리팹**: 공유 팩에서 `dusk_token`(`btl_pfb_fx_token_0.ab`, 공격 시작·타격·오라 둘), `swire2_token`·`siege2_token`(`btl_pfb_fx_token_2.ab`, 공격·버프). '작은 즈자이'·황금의 맹세의 오라(`aura`)는 줄에 있었으나 파일이 없어 안 났다.
 - 확인: 건식 층 시험 `test/render/summon-attack-fx.test.js`(방향·아래 모드·S2 시전·S3·유동체 모드·이름 규칙 막기), 이펙트 골든. 실제 대전 경로로 돌린 골든 판을 렌더 데모에서 2배속으로 재생해 '타자기'(공격·탄·타격, S3 시전·탄·타격), 공학용 저수포(시전·포탄·타격), 유동체(복사 뒤 `Range`의 시전·타격), '작은 즈자이'·황금의 맹세(공격·오라)가 나는 것을 봄. 아래 배치·S2·샴페인 폭탄은 데모 판에 없어 시험으로만. 공식 화면과는 대조하지 않음 [화면 미확인].
+
+## 테리토리야 국가의 칸과 가장자리 선 (2026-11-10, 공식 클라에서 확인)
+
+선발 테리토리야(`char_4246_dminon`). 프리팹 `Others/Direction/CommonAbilities/Kingdom`, 투사체 `projectile_chr_dminon_dead`·`_withdraw`, 버프 템플릿 `dminon_t_1[dmg]`·`dminon_s_3[spread]`.
+
+- **국가 칸**: `Kingdom`의 `TileEffectFollowRangeBehaviour`가 그의 공격 범위(자기 것만: `SharedCharacterRangeBehaviour._onlyIncludeSelf`) 칸마다 `_tileEffectKey` `dminon_talent_range_01`을 깐다. 범위가 바뀌면(S2·S3, 확산 칸) 남는 칸은 그대로 두고 빠지는 칸은 바로 거둔다(`_recycleImmediatelyExceptDying`). 키트가 범위 칸이 바뀔 때마다 사건 `field`(`cells`·`gone`)를 보내고, 렌더는 칸마다 슬롯 하나로 든다(`kitofficial.js` `field`). 그가 떠나면 다 끝난다. [추정·CN: 쓰러질 때(`ExceptDying`)는 사라지는 연출이 있을 수 있으나 CN 전용 클래스라 못 읽어, 떠날 때 모두 바로 끝냄]
+- **가장자리 선**: 같은 능력의 `RangeLineEffectEmitter`(`_edgeLineRendererEffectKey` `dminon_range_line_01`, `_heightOffset` 0.4, `_lineOffsetToMapCenter` (−0.5, −0.5, −0.1)). `RangeLineEffectHandler`가 범위 윤곽의 고리마다 이펙트 하나를 월드 원점에 만들고, 그 LineRenderer에 고리의 모서리 점을 넣어 첫 점으로 닫는다(`_RenderLine`: `positionCount` = 모서리 수 + 1). 점은 칸 가장자리(칸 중심 −0.5)이고 높이는 고지대 기본 보정 −0.4(`get_defaultHighlandOffset`: −`highlandHeight`)를 0.4가 지워 땅 위 0.1이다. 고리가 늘면 이펙트를 더 만들고, 줄면 남는 것을 끝낸다. 렌더: `render/fx/edges.js rangeEdges`(꺾이는 점만, 대각으로만 닿은 칸·구멍은 고리 따로), `fxgame.js edgeLines`, 재생기 `FxInstance.setPath`의 점 상한을 16 → 256으로(띠 버퍼는 그리는 만큼만 큼). 같은 꼴의 안젤리나 더 멜로우 위시 S3 선(위 「키트 이벤트의 공식 이펙트」 「판정」)은 아직 안 이음.
+- **재능 1 실질 붕괴**: 1초마다의 피해가 효과 순간 `dminon_t_1[dmg]`를 실어 보내고, 그 `CreateEffect` `dminon_talent_hit_01`을 맞은 적 위에(`_constDirection` UP). `GatherEffect`의 `_hitEffects`는 같은 프리팹을 미리 불러 두는 목록이다.
+- **S3 확산·재능 2 이 몸이 경계**: 확산은 `dminon_s_3[spread]`의 `CreateTileEffectInRange` x-5, 이 몸이 경계는 투사체가 멈출 때 `_tileEffectKeyOnStop`을 `_targetRange`(떠날 때 저장한 국가) 칸마다 — 둘 다 `dminon_talent_range_hit_01`을 칸마다 한 번. 키트의 `aoe`가 칸 목록(`cells`)을 싣는다. 대체 범위 표시는 안 그린다.
+- 확인: `test/render/dminon-field-fx.test.js`(윤곽 계산, 건식 층에서 칸·선·타격), `test/content/op_dminon.test.js` 「the 国度's look」. 계획·시뮬 사건·`moment`·`edge` 실행을 하나씩 되돌려 실패를 봄. 전투 골든은 테리토리야 판의 사건 수만 움직임(`field`). [화면 미확인: 선의 굵기·흐름과 칸 바닥 그림, 아레나 2배속]
+
+## 규정 기물의 이펙트 연결 (2026-11-10, 공식 클라에서 확인)
+
+새 시즌 「규정」 기물(숨은 시즌). 근거는 각 오퍼레이터의 캐릭터·스킬·투사체·소환물 프리팹과 버프 템플릿(EN·CN, 새 시즌 표 캐시).
+
+- **사일런스 더 패러디그매틱 재능 1**: `Others/Direction/Talents/1`의 `PassiveBuffAbility`가 그녀 자신에게 `slent2_t_1[eff]`(INFINITY, `overrideEffectKey` `slent2_buff_01`: 바닥의 정지 빛)를 건다 — 범위 아군 쪽이 아니다. 배치된 동안 그녀에게 든다(`fxmap.js TALENT_ALWAYS`).
+- **사일런스 더 패러디그매틱 S3**: `slent2_s_3` `ON_BEFORE_TRY_SET_HP_ZERO`가 구한 아군에게 `slent2_shallow_grave`(`overrideEffectKey` `slent2_skill_03_buff_02`, `grave_duration`초)를 건다. 키트의 `undying`이 시전자 `src`를 싣고(그 사건의 묶음을 찾는 데), 렌더가 그 아군 위에 그 시간만큼. 이름 규칙이 시전 때 그녀에게도 틀던 것은 막음(`KIT_OWNED`).
+- **외드레르 S1·S3 회복**: `hodrer_s[heal]`(`ON_ABILITY_SPELL_ON`)의 `CreateEffect` `hodrer_skill_01_buff_01`을 그에게 — 회복의 효과 순간으로.
+- **외드레르 S3 화상**: `hodrer_s_3[damage]`가 그를 치거나 그가 친 적(무적 아님)에게 `hodrer_s_3[burn]`(`overrideEffectKey` `hodrer_skill_03_Debuff_01`, 출처마다 하나)을 건다 — 키트 버프 `skill:hodrer:smoke:<그의 id>`를 상태 표(`fxstatus.js KEY_FX`)로.
+- **메커니스트 S2 보호막**: `mcnist_s_2_mode`가 그녀와 구조적 원리에 거는 `mcnist_s_2_shield`(`overrideEffectKey` `mcnist_skill_02_buff_01`, INFINITY)를 보호막이 있는 동안 상태 표로. 깨질 때 그 템플릿의 `ON_TAKE_DAMAGE`가 S2 중이면 `mcnist_skill_02_buff_01_end`, 끝난 뒤면 `_end_02`를 그 유닛 위에(키트 `shieldBreak`의 `on`). 재능 2 생명 방정식의 보호막(`mcnist_t_2`)은 자기 이펙트가 없어(보호막 UI만) 대체 보호막 그림도 끈다(`KIT_NO_STAND_IN`).
+- **아래 방향 모드**: 스킬 템플릿의 `CheckCharacterDefaultDirection` DOWN 분기가 고르는 모드를 오퍼레이터에도 `downMode`로 적는다(`char_modes.py`, 소환물에만 있던 것): 메커니스트 S2 → `S2_Down`(시전 `mcnist_skill_02_start_01_down`), 체스트넛 S2 → `S2(Down)`, 그리고 같은 꼴인 새 약속의 엑시아 S2 → `S2_Down`, 언더플로우 S2 → `S2_Down`(이 셋은 아래 모드의 이펙트가 위 모드와 같아 그림은 그대로). 아래 방향 모드의 능력이 `_down` 사본만 부르면 그 이름을 그 모드의 이펙트로 남긴다(방향 칸 목록은 전처럼 걸러 냄). 메커니스트 S3가 지나는 모드 1·2는 구조적 원리의 것이다(`mcnist_s_3_projectile_token`·`_mode`의 `BUFF_OWNER`).
+- **메커니스트 평타 `mcnist_attack_01_hit_02`·`_start_02`**: 앞의 것은 `projectile_chr_mcnist_block`의 `_effectsToTargetWhenStart`인데 그 투사체를 그녀의 캐릭터 프리팹도 구조적 원리의 소환물 프리팹도 쏘지 않고, 뒤의 것은 어디서도 안 불러 그리지 않는다.
+- **올가 S2**: `alga_2[try_add]`(S2 동안 그녀의 물리 평타 피해마다)가 대상에게 `alga_2`(`overrideEffectKey` `alga_skill_02_debuff`, `debuff_duration`초, EXTEND)를 건다. 키트가 그 키 이름의 표시 버프를 걸어 상태 경로가 그린다.
+- **아미야(의료 형태)**: 특성 치료(직업 길의 회복 순간 `trait`)마다 `amiya3_instant_heal`의 `amiya3_characteristic_01_hit`을 치유받는 아군 위에. S1은 `amiya3_s_1` `ON_CALCULATE_DAMAGE`(그녀 공격의 피해마다)의 `amiya3_skill_01_range`를 그녀에게(키트 `kitHit` `amiya3:s1`), 시전 때 이름 규칙이 틀던 것은 막음.
+- **시데로카 재능 1**: 정해진 처치 수를 채우면 `sidero_t_1[attack_speed]`(`overrideEffectKey` `sidero_buff_01_start`, INFINITY)를 상태 표로. S1 시작 `sidero_skill_01_start`는 이 모드의 기물 스킬이 공용 `skcom_heal_self`라 아무도 부르지 않는다.
+- 확인: `test/render/season-pieces-fx.test.js`, `test/render/status-buff-fx.test.js`, `common-ability-fx`, 각 키트 시험(`op_slent2`·`op_hodrer`·`op_alga`), `node tools/fx-wiring-report.mjs --id <번들>`. [화면 미확인: 아레나 2배속, 공식 화면과 나란히 안 봄]

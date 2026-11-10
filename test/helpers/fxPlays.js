@@ -28,6 +28,7 @@ export const PLAYS = Object.freeze({ keys: {
   'demkni_t_1': { held: ['demkni_buff_01_self'] },
   'catsld_t_1[shield_mark]': { held: ['token_cathy_catsld_shield_01'], end: ['token_cathy_catsld_shield_01_end'] },
   'cello_t_1': { held: ['cello_buff_01'] },
+  'slent2_t_1[eff]': { held: ['slent2_buff_01'] },
   'flower_t_1[eff]': { held: ['flower_buff_01_range'] },
   'blemsh_t_2': { held: ['blemsh_buff_01_start'] },
   'projectile_chr_oblvns': { trail: ['oblvns_attack_01_trail'], hit: ['oblvns_attack_01_hit'] },

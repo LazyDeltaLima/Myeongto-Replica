@@ -450,7 +450,10 @@ export const TALENT_ALWAYS = Object.freeze({
   char_245_cello: talentKey('cello_t_1'),           // Others/Direction/Talents/1 (无词哀歌)
   char_181_flower: talentKey('flower_t_1[eff]'),   // Talents/1 `_passiveBuffs` (熏衣草)
   char_1019_siege2: talentKey('char_1019_siege2/Others/Direction/Talents/1'),   // AuraAbility `_effects` (诸王的叹息)
-  char_4051_akkord: talentKey('akkord_t_1'),   // Others/Direction/Talents/1: akkord_t_1[atk] (ATK, INFINITY) on her (2026-10-24, 묶음 S2)
+  char_4051_akkord: talentKey('akkord_t_1'),
+  // 사일런스 더 패러디그매틱 (규정 기물) Others/Direction/Talents/1: its PassiveBuffAbility puts slent2_t_1[eff] (INFINITY,
+  // overrideEffectKey slent2_buff_01: a held floor glow) on herself — not on the allies of her range (2026-11-10)
+  char_1031_slent2: talentKey('slent2_t_1[eff]'),   // Others/Direction/Talents/1: akkord_t_1[atk] (ATK, INFINITY) on her (2026-10-24, 묶음 S2)
   // 凛御银灰 Others/Direction/Talents/1 svash2_t_1: ON_OWNER_BORN creates the 战鹰 on his arm unless he is a dummy (no battle unit
   // is); its PauseEffectIf hides it while he holds svash2_s_3[bird_eff] (fx/pause.js SKILL_BUFFS) (2026-10-24, 묶음 S5)
   char_1045_svash2: talentKey('svash2_t_1', ['svash2_eagle_sit_birth_01']),
