@@ -2,8 +2,9 @@
 // registering it again). They cover the purely meta, data-driven pieces the match needs to be playable before the
 // content phase lands: consume-on-equip items, Arts, a few persistent EffectRefs used by 机变 defaults.
 //
-// Items are matched by their official buff key (data/items.json buffs[].key), numbers come from the item's params
-// (normal `_a` / golden `_b` record), never hard-coded:
+// Items are matched by their official buff key (data/items.json buffs[].key; a key another season renamed with the same
+// meaning reads as the default season's — content/items/aliases.js), numbers come from the item's params (normal `_a` /
+// golden `_b` record), never hard-coded:
 //   equip_destory_gain_random_coin {min,max}              盟约之币 / 骑士储蓄罐   funds += rand[min,max]
 //   use_equip_reward_char_chess_bond_layer {layer}        随身身份牌             layers of the target's bonds (无需激活)
 //   use_equip_reward_random_char_chess_in_shop {count}    紧急调度券             take `count` random chess from the shop
@@ -29,6 +30,7 @@
 
 import { getData } from '../data.js';
 import { itemKey } from './gamedata.js';
+import { canonicalBuffKey } from '../sim/content/items/aliases.js';
 import { msg, dn } from '../../shared/i18n.js';
 
 const int = (v, d = 0) => (Number.isFinite(v) ? Math.trunc(v) : d);
@@ -331,7 +333,7 @@ export function registerBuiltins(reg, data = null) {
     const buffKeys = new Set();
     const bare = id.replace(/_[ab]$/, '');
     for (const sib of [items[`${bare}_a`], items[`${bare}_b`], items[bare]]) {
-      if (sib && Array.isArray(sib.buffs)) for (const b of sib.buffs) if (b && typeof b.key === 'string') buffKeys.add(b.key);
+      if (sib && Array.isArray(sib.buffs)) for (const b of sib.buffs) if (b && typeof b.key === 'string') buffKeys.add(canonicalBuffKey(b.key));
     }
     const handlers = [...buffKeys].map((k) => ITEM_HANDLERS[k]).filter(Boolean);
     if (!handlers.length) continue;
@@ -356,7 +358,7 @@ function mergeHandlers(handlers, buffKeys) {
     out[hook] = function (ctx, ev) {
       const item = (ev && ev.item) || (ctx.source && ctx.source.piece);
       const rec = item ? ctx.gd.item(item.id) : null;
-      const own = new Set(rec && Array.isArray(rec.buffs) ? rec.buffs.map((b) => b.key) : []);
+      const own = new Set(rec && Array.isArray(rec.buffs) ? rec.buffs.map((b) => canonicalBuffKey(b.key)) : []);
       for (const [k, h] of byKey) if (own.has(k) && typeof h[hook] === 'function') h[hook](ctx, ev);
     };
   }

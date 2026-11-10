@@ -128,6 +128,8 @@ export function makeMatch(o = {}) {
         if (ps.isBot || ps.left) continue;
         if (m.phase === 'INFO_CHECK' && !ps.infoReady) m.handle(ps.playerId, { t: 'g.infoReady' });
         if (m.phase === 'BAND_DRAFT' && m.draftTurn() === ps.playerId) m.handle(ps.playerId, { t: 'g.band', bandId: band });
+        // 规程's 确定自选编队: ready with what the seat chose (none unless the test chose)
+        if (m.phase === 'DIY_CHOOSE' && !ps.diyChooseReady) m.handle(ps.playerId, { t: 'g.diyReady' });
         if (m.phase === 'SP_DRAFT' && m.spTurn() === ps.playerId) {
           // a card is free when untaken and, for an item, still covered by the shared equipment stock (spCardAvailable)
           const idx = m.sp.cards.map((c) => c.idx).find((k) => m.spCardAvailable(m.sp.cards[k]));

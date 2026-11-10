@@ -149,6 +149,13 @@ export const UNPLAYED = {
   char_293_thorns: {
     Skill2_1: 'none: no key names it: key Skill_2 → Skill2_2 is the S3 attack, `_faceToFront` so the Back model that lacks it is not drawn; the S2 Thorn ability has no clip',
   },
+  // 赫德雷, 机械师 (规程 pieces, 2026-11-08, the maintainer's to-do list: bundle fx-V)
+  char_4088_hodrer: {
+    Skill_2_End: 'none: skchr_hodrer_2 (ToggleSkillWithEndAnimation) `_endAnim`, played as the toggle goes off; this mode never closes it (kits/ops/op-hodrer.js `toggle`), as 乌有 S2',
+  },
+  char_4230_mcnist: {
+    Attack_B: 'none: no client key names it (CN charpack: Body/Attack and Body/Combat `_animKey` Attack_A; skill prefabs skchr_mcnist_1-3; skin key table Born only; no mix)',
+  },
   // W, 클로저 (2026-11-06, the maintainer's to-do list: bundle fx-V)
   char_113_cqbw: {
     Attack_Down: 'none: no client key names it (Front model abilities, mode pairs, skin key table: no mix; her attack has no down key)',

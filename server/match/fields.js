@@ -873,6 +873,17 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         if (n > 0 && own.bonds && !own.bonds.has(bondId)) return bad('layer bond');
         if (n > 0) layerGains[bondId] = n;
       }
+      // 临时层数 (规程): only under the cap with the fixed gains — no flat bound (a kill gives some, 乌萨斯), as the match
+      // keeps only what a 特质 converts (SERVER_CONVERT_TEMP_BOND*: a few per round)
+      let tempLayerGains = null;
+      for (const [bondId, n] of Object.entries(p.tempLayerGains || {})) {
+        const room = layerGainRoom((own.startLayers.get(bondId) || 0) + (layerGains[bondId] || 0), Infinity, layerCapOf(spec.flags));
+        if (!finiteIn(n, 0, room)) return bad('temp layer bound');
+        if (n > 0 && spec.flags && spec.flags.layerGainsEnabled === false) return bad('layers disabled');
+        if (gd && typeof gd.bond === 'function' && !gd.bond(bondId)) return bad('bond');
+        if (n > 0 && own.bonds && !own.bonds.has(bondId)) return bad('layer bond');
+        if (n > 0) (tempLayerGains ??= {})[bondId] = n;
+      }
       const coins = Number(p.coins) || 0;
       if (!finiteIn(coins, 0, B.bountyCoins + 1e-6)) return bad('coins');
       coinsSum += coins;
@@ -916,7 +927,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
       }
       const stat = (v) => (finiteIn(v, 0, 1e13) ? v : 0);
       perPlayer[pid] = {
-        killed: p.killed, total: p.total, leaked, perfect: countedLeaks === 0, layerGains, coins,
+        killed: p.killed, total: p.total, leaked, perfect: countedLeaks === 0, layerGains, ...(tempLayerGains ? { tempLayerGains } : {}), coins,
         damageDealt: stat(p.damageDealt), bossDamage: stat(p.bossDamage), healingDone: stat(p.healingDone), deaths: Math.trunc(stat(p.deaths)),
         unitsEnd, unitStats,
       };

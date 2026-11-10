@@ -67,11 +67,20 @@ def chess_records():
         yield from (c for c in (recs.values() if isinstance(recs, dict) else recs) if isinstance(c, dict))
 
 
+def body_id(c):
+    """The character a chess record is drawn and fought with: its character template when it names one (`tmplId`: 阿米娅's 医疗
+    form char_1037_amiya3 — tools/build-data.mjs buildChess), else its `charId`. The client keys that body's charpack, effects,
+    skills and art by the template's id, so every tool reads a chess by this id."""
+    t = c.get('tmplId')
+    return t if isinstance(t, str) and t.startswith('char_') else c.get('charId')
+
+
 def pool_char_ids():
     ids = set(diy_operators())
     for c in chess_records():
-        if isinstance(c.get('charId'), str) and c['charId'].startswith('char_'):
-            ids.add(c['charId'])
+        b = body_id(c)
+        if isinstance(b, str) and b.startswith('char_'):
+            ids.add(b)
     return sorted(ids)
 
 
@@ -92,21 +101,22 @@ def skill_durations():
 
 
 def char_skill_prefabs():
-    """{charId: [skill prefabId, …]} in skill order (every season's chess — chess_records —, then the 선발 picks of data/backups.json)."""
+    """{charId: [skill prefabId, …]} in skill order (every season's chess — chess_records, by its body_id —, then the 선발 picks of data/backups.json)."""
     out = {}
     for c in chess_records():
-        if not isinstance(c.get('charId'), str) or c['charId'] in out:
+        b = body_id(c)
+        if not isinstance(b, str) or b in out:
             continue
         sk = c.get('skills')
         if isinstance(sk, list) and sk:
-            out[c['charId']] = [s.get('prefabId') or s.get('skillId') for s in sk if isinstance(s, dict)]
+            out[b] = [s.get('prefabId') or s.get('skillId') for s in sk if isinstance(s, dict)]
     for cid, sk in diy_operators().items():
         if cid not in out and sk:
             out[cid] = sk
     return out
 
 
-SKILL_MODE_NAME = re.compile(r'^Sk?\d')
+SKILL_MODE_NAME = re.compile(r'^S(?:k|kill)?\d')  # shared/skill-modes.js skillModeIndex: S2, Sk2, Skill2 (奥尔佳)
 
 
 def skill_bundle(client):
@@ -246,13 +256,9 @@ def _template_refs(o, templates, acc):
             _template_refs(v, templates, acc)
 
 
-def skill_switches(cid, prefabs, stree, templates):
-    """[[mode index, …] per skill] — 2026-11-04, official client: every mode a skill's buffs switch the operator to (SwitchMode
-    with a fixed `_modeIndex` > 0), its prefab's own switch_mode included, from the buff templates its prefab names and the
-    templates named after it (`<codename>_s_3…` / `_s3…` / `_skill_3…` — the charpack's own, which the skill's events reach:
-    Mon3tr's monstr_s_3[route] → 4 S3_Reborn as she lands, 3 S3_Restore as she returns), each followed through the templates
-    it names in turn. The render must follow each one or list it (test/render/mode-switch-list.js). None when no skill
-    switches any."""
+def skill_templates(cid, prefabs, stree, templates):
+    """[set of template keys per skill]: the buff templates its prefab names and the templates named after it, each followed
+    through the templates it names in turn (skill_switches' walk; 2026-11-10 also down_switches')."""
     code = cid.split('_', 2)[-1]
     if getattr(skill_switches, '_tree', None) is not stree:   # the skills' MonoBehaviours by prefab, once per run
         skill_switches._tree, skill_switches._by = stree, {}
@@ -274,6 +280,19 @@ def skill_switches(cid, prefabs, stree, templates):
             nxt = set()
             _template_refs(templates[k], templates, nxt)
             todo += [x for x in nxt if x not in seen]
+        out.append(seen)
+    return out
+
+
+def skill_switches(cid, prefabs, stree, templates):
+    """[[mode index, …] per skill] — 2026-11-04, official client: every mode a skill's buffs switch the operator to (SwitchMode
+    with a fixed `_modeIndex` > 0), its prefab's own switch_mode included, from the buff templates its prefab names and the
+    templates named after it (`<codename>_s_3…` / `_s3…` / `_skill_3…` — the charpack's own, which the skill's events reach:
+    Mon3tr's monstr_s_3[route] → 4 S3_Reborn as she lands, 3 S3_Restore as she returns), each followed through the templates
+    it names in turn. The render must follow each one or list it (test/render/mode-switch-list.js). None when no skill
+    switches any."""
+    out = []
+    for seen in skill_templates(cid, prefabs, stree, templates):
         acc = set()
         for k in seen:
             _switch_modes(templates[k], acc)
@@ -419,6 +438,20 @@ def held_buff_effects(d):
 def add(lst, names):
     for n in names:
         if n and not DIRECTIONAL.search(n) and n not in lst:
+            lst.append(n)
+
+
+# 2026-11-10: a mode the operator holds when deployed facing down (机械师 S2_Down, 褐果 S2(Down)) names its `_down` copies as
+# its own effects — nothing else to copy them from: kept there when the entry names nothing else (add_mode)
+DOWN_MODE = re.compile(r'(_Down|\(Down\))$')
+
+
+def add_mode(lst, names, mode):
+    # an entry with a base name too is a direction slot list (dir_groups, render/fxgame.js dirPick): as everywhere
+    if not DOWN_MODE.search(mode or '') or any(n and not DIRECTIONAL.search(n) for n in names):
+        return add(lst, names)
+    for n in names:
+        if n and n not in lst:
             lst.append(n)
 
 
@@ -868,8 +901,18 @@ def mode_parts(tree, mode_paths, projectiles=None):
                 # FirstAttack, while branch_s_2[first] holds; its swing is the sim's 'FirstAttack')
                 if configs and parts[2].startswith('First') and any(x.get('_checkContainBuffs') == 1 and x.get('_buffKeys') for x in by_go.get(gp + '/Selector', [])):
                     tal[parts[2]] = gp
-        if tal:
-            talent[i] = {k: collect(i, ap) for k, ap in sorted(tal.items())}
+        parts = {k: collect(i, ap) for k, ap in sorted(tal.items())}
+        # 2026-11-10: a ContinuouslyRangedHeal's `_secondProjectileKey` — the shot of a heal on the same ally as the attack before
+        # it (褐果 S2: projectile_chr_chnut_3, its chnut_skill_02_hit_02); the same ability casts it, so its cast list is the
+        # mode's own (empty here), and the sim names that attack 'Second'
+        for x in by_go.get(mp + '/Body/Attack', []):
+            pk = x.get('_secondProjectileKey')
+            if isinstance(pk, str) and pk and projectiles:
+                pe = projectiles.effects(pk)
+                projs[i].add(pk)
+                parts['Second'] = {'cast': [], 'trail': list(pe['trail']), 'hit': list(pe['hit'])}
+        if parts:
+            talent[i] = parts
         if len(sides) == 2:
             side[i] = {k: collect(i, ap) for k, ap in sorted(sides.items())}
     return talent, side, gos, projs, timing
@@ -957,11 +1000,15 @@ def modes_of(path, projectiles=None, tree=None):
 
     def mode_buffs(i, d):
         """The effects of the buffs ability `d` of mode `i` holds (attach; attachFoe when the ability targets enemies)."""
-        own = held_buff_effects(d)
+        # 2026-11-10: an aura ability's `_buffs` (`_removeBuffWhenTargetLeave`: they go to the units of its range and leave with
+        # them — 奥尔佳's Talents/1 alga[check_enemy] → alga_buff on every operator round her) are no buff of its owner: the units
+        # that hold one draw it (render/fxstatus.js KEY_FX)
+        held = held_buff_effects(d)
+        own = held_buff_effects({k: v for k, v in d.items() if k != '_buffs'}) if d.get('_removeBuffWhenTargetLeave') == 1 else held
         add(attach[i], own)
         sel = selects_foes(d)
         if d.get('m_GameObject', {}).get('m_PathID') in foe_go or sel is not False:
-            add(attach_foe[i], own)
+            add(attach_foe[i], held)   # (an aura on enemies: its buffs are theirs — 归溟幽灵鲨's ghost2_beidong_buff_02)
             if sel:
                 for x in own:
                     foe_max.setdefault(x, sel)
@@ -1069,7 +1116,7 @@ def modes_of(path, projectiles=None, tree=None):
         if kind and '/Body/Attack/' in gp[len(mode_paths[i]):] + '/':
             part = split[i][kind]
             part['seen'] = True
-            add(part['cast'], effect_names(d.get('_castEffects') or []))
+            add_mode(part['cast'], effect_names(d.get('_castEffects') or []), modes[i])
             for k in MODE_HIT_KEYS:
                 add(part['hit'], effect_names(d.get(k) or []))
             if projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
@@ -1079,12 +1126,12 @@ def modes_of(path, projectiles=None, tree=None):
         if ck:
             part = cpart[i][ck]
             part['seen'] = True
-            add(part['cast'], effect_names(d.get('_castEffects') or []))
+            add_mode(part['cast'], effect_names(d.get('_castEffects') or []), modes[i])
             for k in MODE_HIT_KEYS:
                 add(part['hit'], effect_names(d.get(k) or []))
             if projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
                 add(part['hit'], projectiles.effects(d['_projectileKey'])['hit'])
-        add(cast[i], effect_names(d.get('_castEffects') or []))
+        add_mode(cast[i], effect_names(d.get('_castEffects') or []), modes[i])
         add(inputs[i], effect_names(d.get('_inputTargetEffects') or []))
         add(cast_tgt, effect_names(d.get('_castTargetEffects') or []))
         cast_target_timing(d, cast_opt[i])
@@ -1425,7 +1472,7 @@ def token_records():
     backups = json.loads((ROOT / 'data/backups.json').read_text(encoding='utf-8')).get('tokens') or {}
     # 2026-11-07: a season's own summons (data/seasons/<id>/tokens.json), as tools/build-fx-templates.mjs reads them; their
     # `owners` are chess ids
-    char_of = {c.get('chessId'): c.get('charId') for c in chess_records() if c.get('chessId') and c.get('charId')}
+    char_of = {c.get('chessId'): body_id(c) for c in chess_records() if c.get('chessId') and body_id(c)}
     for f in sorted((ROOT / 'data/seasons').glob('*/tokens.json')):
         for tid, rec in json.loads(f.read_text(encoding='utf-8')).items():
             backups.setdefault(tid, rec)
@@ -1525,7 +1572,9 @@ def down_switches(o, acc):
             pick = lambda nodes: next((x['_modeIndex'] for x in nodes or [] if isinstance(x, dict) and str(x.get('$type', '')).endswith('+SwitchMode')
                                        and isinstance(x.get('_modeIndex'), int) and not x.get('_loadModeFromBlackboard')), None)
             a, b = pick(o.get('_succeedNodes')), pick(o.get('_failNodes'))
-            if a is not None:
+            # (2026-11-10: a fail branch that switches only through another check — 灰毫 S2 ashlok_s_2's UP / DOWN / LEFT / RIGHT
+            # chain — names no mode it leaves: nothing to record, not "the mode it started in")
+            if a is not None and (b is not None or not o.get('_failNodes')):
                 acc[b if b is not None else 0] = a
         for v in o.values():
             down_switches(v, acc)
@@ -1613,7 +1662,8 @@ def main():
     ap.add_argument('--client', default=DEFAULT_CLIENT)
     ap.add_argument('--id', action='append', default=[])
     a = ap.parse_args()
-    pack = Path(a.client) / 'StreamingAssets/AB/Windows/charpack'
+    # the hot-update copy first (PersistentData), as for the other bundles: a new CN operator's charpack is only there
+    packs = [Path(a.client) / d / 'charpack' for d in ('PersistentData/Bundles', 'StreamingAssets/AB/Windows')]
     ids = a.id or pool_char_ids()
     out = json.loads(OUT.read_text(encoding='utf-8')) if OUT.exists() else {}
     out.pop('$comment', None)
@@ -1628,8 +1678,8 @@ def main():
     sk_fx = skill_effects(stree, projectiles)
     durations = skill_durations()
     for cid in ids:
-        f = pack / f'{cid}.ab'
-        if not f.exists():
+        f = next((p / f'{cid}.ab' for p in packs if (p / f'{cid}.ab').exists()), None)
+        if f is None:
             missing.append(cid)
             continue
         try:
@@ -1650,6 +1700,15 @@ def main():
                   for x, p in zip(skill_switches(cid, pids, stree, templates) or [[] for _ in pids], pids)]
             if any(sw):
                 m['switchTo'] = [[n for n in x if n < len(m['modes'])] for x in sw]
+            # (2026-11-10) the mode a skill's template picks when the operator was deployed facing down (down_switches: 机械师
+            # mcnist_s_2_mode 2 S2 / 3 S2_Down, 褐果 chnut_s_2[switch_mode]) — fxgame.js downOf, as a summon's
+            down = {}
+            for seen in skill_templates(cid, pids, stree, templates):
+                for k in sorted(seen):
+                    down_switches(templates[k], down)
+            down = {a: b for a, b in down.items() if a < len(m['modes']) and b < len(m['modes'])}
+            if down:
+                m['downMode'] = [down.get(i, i) if i not in down.values() else i for i in range(len(m['modes']))]
             # local patch: the skills' own effects (skills.ab), in skill order; a skill's turned effects join the operator's
             # a skill's shot (skill_effects) flies with its first attack after the cast (render/fxgame.js trailShot): a skill
             # without duration only — a timed one's projectile is an ability of its own (焰影苇草 S2's fireballs, the kit's 'strike')
@@ -1673,7 +1732,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'altFx', 'talentAtk', 'sideFx', 'combatSplit', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'dollBack', 'hitAim', 'fortress', 'funnels', 'charge', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'altFx', 'talentAtk', 'sideFx', 'combatSplit', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'dollBack', 'hitAim', 'fortress', 'funnels', 'charge', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common', 'downMode') if f in v} for k, v in sorted(out.items())}
         # the summons' skill auras and start effects, keyed by token id (render/fxgame.js tokenAura, flushDeploys); a summon
         # whose pack this client lacks keeps the entry an earlier run wrote (凯尔希·思衡托's, from the CN client)
         old = json.loads(FX_OUT.read_text(encoding='utf-8')) if FX_OUT.exists() else {}

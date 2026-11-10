@@ -147,7 +147,13 @@ JOBS = [
 # _AlphaTex merged in as A). Output: spine/enemy/<id>/ (manifest group spine/enemy/<id>); the client draws the model
 # when the group lists every file of data/assets.json enemies[id].spineLocal (whose metadata
 # tools/assets/local-enemy-spines.json keeps: `node tools/fetch-assets.mjs --local-spines` after a game update).
-ENEMY_SPINES = ['enemy_1305_mhslim', 'enemy_1305_mhslim_2']
+ENEMY_SPINES = ['enemy_1305_mhslim', 'enemy_1305_mhslim_2',
+                # (2026-11-10) 规程's own enemies (the CN client's 11-08 update: refs/arts/enm_art_30.ab of its hot-update
+                # bundles, none in the EN client). Their _2 forms 假想敌：械 / 鳍 (隐秘核心) draw the base skeleton (the prefab's
+                # Spine renderer) — tools/assets/plan.mjs takes the base's local model for them; 淤困之茧 draws no model
+                'enemy_9024_acsgnt', 'enemy_9025_aclts', 'enemy_9026_acltm', 'enemy_9027_acfnca', 'enemy_9028_acfncb',
+                'enemy_9029_acfnc', 'enemy_9030_acpara', 'enemy_9031_acrefd', 'enemy_9034_acblk', 'enemy_9035_acspider',
+                'enemy_9035_acspider_2', 'enemy_9037_aceel', 'enemy_9038_achest', 'enemy_9039_acrefm', 'enemy_9040_accrit']
 ENEMY_ART = 'refs/arts/enm_art_*.ab'
 ENEMY_SPINE_SUB = 'spine/enemy'
 
@@ -171,10 +177,10 @@ ENEMY_SPINE_SUB = 'spine/enemy'
 # trap_185_vtlntw (黄金回响) the device 阿利斯泰尔's 莫非王土 puts on a 冲击式施术单元's tile (pkgrps/btl_pfb_tokens_1).
 TOKEN_SPINES = [
     'token_10003_cgbird_bird', 'token_10008_cqbw_box', 'token_10009_weedy_cannon', 'token_10018_robrta_mach', 'token_10024_ebnhlz_rcube', 'token_10026_bgsnow_subbow', 'token_10027_ironmn_pile1',
-    'token_10027_ironmn_pile2', 'token_10027_ironmn_pile3', 'token_10031_swire2_gdtrap', 'token_10032_jesca2_jckshd',
+    'token_10027_ironmn_pile2', 'token_10027_ironmn_pile3', 'token_10029_slent2_protrb', 'token_10031_swire2_gdtrap', 'token_10032_jesca2_jckshd',
     'token_10035_wisdel_wward', 'token_10037_mitm_trshrb', 'token_10041_cathy_catsld',
     'token_10050_monstr_prosts', 'token_10054_phatm2_encdool', 'token_10057_svash2_eagle1', 'token_10057_svash2_eagle2',
-    'token_10057_svash2_eagle3', 'token_10064_wang_stone1', 'token_10066_closur_ourbase', 'token_10068_kalts2_mtship', 'trap_039_dstnta',
+    'token_10057_svash2_eagle3', 'token_10064_wang_stone1', 'token_10066_closur_ourbase', 'token_10068_kalts2_mtship', 'token_10069_mcnist_mcgraf', 'trap_039_dstnta',
     'trap_185_vtlntw',
 ]
 TOKEN_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'

@@ -29,6 +29,8 @@ import { whenPlays } from './conds.js';
  * units in order); or a flight `fly` (tiles / s) from the operator to the event's point —
  * a play with `after: 'fly'` starts when it lands; with `tag`, a later plan's `stop` ends it in the air. A 'point' play may
  * name its own ground point `at: [x, y]`.
+ * 2026-11-10: a flight with `start` / `land` [x, y] leaves from / lands on a ground point of its own, `delay` s after the event
+ * (a projectile's `_delayToStart`); a rule reads `left` (the event's unit faces left: the client's CheckFaceLOrR).
  * 2026-10-21: a flight with `to` (the event's field naming units) is a projectile at each unit from the operator's muzzle,
  * `gap` s apart, followed, playing `hit` [names] on it as it lands; one with `from: 'point'` flies from the event's point
  * back to the operator; either may carry `rope` (a line from the operator to the flying head) and `pass` { n, on } (`n` on
@@ -38,6 +40,9 @@ import { whenPlays } from './conds.js';
  * slot keeps it running, another prefab replaces it, `{ slot, off: true }` ends it (AttachListenerToTileAbility
  * `_HoldCastedEffectOnTile` with `_dontCreateNewEffectWhenCastedTimesSame`); on a 'point' (or `at`) or on / circling a
  * unit as any play, with `ready` a prefab played there once when the slot was empty.
+ * 2026-11-10: `{ slot, off: true, now: true }` ends it at once (no fade). An `edge` play (the event's field naming tiles
+ * [[x, y]…]) is its prefab's LineRenderers along each loop of those tiles' outline, one effect per loop, kept in its `slot`
+ * and moved to the new outline by a later play (the official RangeLineEffectHandler), until the operator leaves.
  * 2026-10-23: `tpl` (a key the plan cites) in place of `n`: each prefab the key holds (tools/build-fx-plays.mjs `held`) plays
  * as this play for `life` (none given: the key's LIMITED seconds) — with life 'unit' its `end` prefab as `end` —, and each
  * prefab it creates once (`once`) for its own duration. A projectile's key (its `trail` / `reach` / `hit`): with `fly`, the
@@ -63,7 +68,7 @@ const VEEN_MOUNTS = Object.freeze([5, 6, 8, 9, 10]);
  * the generic mark would draw on top of them (test/render/pick-event-list.js says what draws each).
  */
 export const KIT_NO_STAND_IN = Object.freeze(new Set(['aglna2|takeoff', 'bgsnow|crit', 'chen3|teleport', 'haruka|heal', 'haruka|levitate', 'irene|slash', 'judge|crit',
-  'kalts2|takeoff', 'lmlee|mark', 'oblvns|spGain', 'thorns|thorns']));
+  'kalts2|takeoff', 'lmlee|mark', 'mcnist|shield', 'oblvns|spGain', 'thorns|thorns']));
 
 /**
  * event → operator bundle → (o, ctx) → { stop?: tag[], play: plays[], pass?: the event keeps its stand-in } | null.
@@ -107,6 +112,9 @@ export const KIT_OFFICIAL = {
   // 泥岩 T1 沃土予身: the last layer broken (mudrok_t_1[shield_c] BlockDamage → CreateEffect mudrok_buff_01_end) …
   shieldBreak: {
     mudrok: cite('mudrok_t_1[shield_c]', (o) => (Number(o.left) === 0 ? { play: [once('mudrok_buff_01_end')] } : { play: [] })),
+    // (2026-11-10) 메커니스트 (규정 기물) S2: mcnist_s_2_shield ON_TAKE_DAMAGE as the 屏障 breaks — _end on its holder while S2 runs
+    // (CheckContainsBuff mcnist_s_2), else _end_02 (`on`)
+    mcnist: cite('mcnist_s_2_shield', (o) => ({ play: [once(Number(o.on) ? 'mcnist_skill_02_buff_01_end' : 'mcnist_skill_02_buff_01_end_02', 'id')] })),
   },
   // … and a layer gained (mudrok_t_1[init] at deploy / [recharge]: CreateEffect mudrok_buff_01_begin, then the layer's buff —
   // its loop is fxstatus.js LAYER_FX, from the same event's `n`). 卡涅利安's mark stacks: fxstatus.js STACK_FX only.
@@ -177,6 +185,9 @@ export const KIT_OFFICIAL = {
   // fxField) — `k` the moment's key, `src` its owner (the operator), `id` the unit hit / healed, `by` the attacker / healer,
   // `life` the sim's seconds. Each rule answers only its own keys.
   hit: {
+    // (2026-11-10) 테리토리야 T1 实质坍缩: dminon_t_1[dmg] ON_BUFF_START, its AdvancedApplyDamage and CreateEffect dminon_talent_hit_01
+    // on the enemy (`_constDirection` UP: the prefab turns with nothing). Its GatherEffect ability's `_hitEffects` only lists it
+    dminon: cite(['dminon_t_1[dmg]', 'char_4246_dminon/Others/Direction/CommonAbilities/GatherEffect'], (o) => (o.k === 'dminon_t_1[dmg]' ? { play: [once('dminon_talent_hit_01', 'id')] } : null)),
     // (2026-11-05) 矩 S2's extra damage: ju_s_2[damage] ON_BUFF_FINISH, its AdvancedApplyDamage and hit_02 on the enemy (its start: juExtra)
     ju: cite('ju_s_2[damage]', (o) => (o.k === 'ju_s_2[damage]' ? { play: [once('ju_skill_02_hit_02', 'id')] } : null)),
     // 泡泡 T1 尖刺盾: bubble_t_1 ON_TAKE_DAMAGE puts bubble_t_1[atk_down] (overrideEffectKey bubble_talent_buff, its blackboard
@@ -199,6 +210,9 @@ export const KIT_OFFICIAL = {
     // 焰影苇草: her 咒愈师 trait heal (sim fx 'trait': reed2_tr's buff reed2_tr_heal[effect] — FixedValueHeal and reed2_treat_01
     // on the ally it heals) and 映耀's share of a heal on another (reed2_t_2 / module reed2_e_002_t ON_OUTPUT_MODIFIER IsHeal,
     // !IfTargetEqual: FixedValueHeal and reed2_treat_01 on her)
+    // (2026-11-10) 아미야 의료 형태 (규정 기물): her 咒愈师 trait heal (sim fx 'trait'): amiya3_instant_heal ON_BUFF_START, its
+    // FixedValueHeal and CreateEffect amiya3_characteristic_01_hit on the ally it heals (TARGET, `_constDirection` UP)
+    amiya3: cite('amiya3_instant_heal', (o) => (o.k === 'trait' ? { play: [once('amiya3_characteristic_01_hit', 'id')] } : null)),
     reed2: cite(['reed2_tr_heal[effect]', 'reed2_t_2', 'reed2_e_002_t'], (o) => (o.k === 'trait' ? { play: [once('reed2_treat_01', 'id')] }
       : o.k === 'reed2_t_2' ? { play: [once('reed2_treat_01')] } : null)),
     // 水月 S3 镜花水月: an attack hitting fewer than 3 enemies gives her mizuki_s_3[damage] (its DamageViaMaxHpRatio on her —
@@ -601,7 +615,26 @@ export const KIT_OFFICIAL = {
   // gnosis_beidong_buff from ON_CAST_START to ON_CAST_END, and the wrapper is `_isInfinity` (ActiveAbilityWrapper._GetLifeTime
   // returns no end): its cast never ends, but the prefab's own `_maxLifetime` 2 s ends it (2026-10-27, official client:
   // ParticleEffect._CheckIfAlive; render/fxgame.js `maxLife`) — a burst with a glow that loops for those 2 s
+  // (2026-11-10) 메커니스트 S3: the 结构性原理's charge is mcnist_s_3_projectile_real's EmitProjectileToTileUseSelector — by its deploy
+  // direction (UP / DOWN, else the side) and whether it faces left (CheckFaceLOrR): projectile_chr_mcnist_s3_token[_right / _up /
+  // _up_right / _down / _down_right], each one's `_mainEffect` from its tile to the stop tile (`_delayToStart` 0.2, speed 20:
+  // kits/ops/op-mcnist.js CHARGE_DELAY / CHARGE_SPEED); its `_effectsWhenReached` at the landing is the 'aoe' below
+  charge: {
+    mcnist: cite(['projectile_chr_mcnist_s3_token', 'projectile_chr_mcnist_s3_token_right', 'projectile_chr_mcnist_s3_token_up',
+      'projectile_chr_mcnist_s3_token_up_right', 'projectile_chr_mcnist_s3_token_down', 'projectile_chr_mcnist_s3_token_down_right'], (o, c) => {
+      const left = !!c.left;
+      const n = o.dir === 'UP' ? (left ? 'trail_02_up_left' : 'trail_02_up_right')
+        : o.dir === 'DOWN' ? (left ? 'trail_03_down_left' : 'trail_03_down_right') : left ? 'trail_01_left' : 'trail_01_right';
+      return { play: [{ n: `token_mcnist_mcgraf_skill_03_${n}`, bundle: 'mcnist_token', fly: 20, delay: 0.2, start: [Number(o.x), Number(o.y)], land: [Number(o.tx), Number(o.ty)] }] };
+    }),
+  },
   kitHit: {
+    // (2026-11-10) 메테오라이트 S2: its shell projectile_meteo_s2 (`_speed` 8, `_raiseHeight` 0.3; its `_effectsWhenHit` once, on the
+    // enemy it traces: `_onlyPlayHitEffectOnTraceTarget`) — the kit's projectile, fired at the skill clip's strike (op-meteo.js)
+    meteo: cite('projectile_meteo_s2', (o) => (o.k === 'meteo:shell' ? { play: [{ n: 'meteo_skill_02_trail', fly: 8, to: 'target', arc: 0.3, hit: ['meteo_skill_02_hit'] }] } : null)),
+    // (2026-11-10) 아미야 의료 형태 S1: amiya3_s_1 ON_CALCULATE_DAMAGE of her attacks (family ATTACK) — CreateEffect
+    // amiya3_skill_01_range on her as it heals the allies round her (kits/ops/op-amiya3.js 'amiya3:s1')
+    amiya3: cite('amiya3_s_1', (o) => (o.k === 'amiya3:s1' ? { play: [once('amiya3_skill_01_range')] } : null)),
     // (2026-11-07) 로베르타's 전자동 스타일러: robrta_mach_t ON_TAKE_DAMAGE with its last layer spent, on the unit it served
     robrta: cite('robrta_mach_t', (o) => (o.k === 'robrta:end' ? { play: [{ ...once('token_robrta_buff_end', 'id'), bundle: 'robrta_token' }] } : null)),
     // (2026-11-06) 클로저 S3: closur_s_3[eff] on the enemy struck (CachedBuffToCastTargetsBehaviour; the kit keeps its mark's second)
@@ -681,6 +714,19 @@ export const KIT_OFFICIAL = {
   // judge_skill_02_weapon_hit_01 on her — enemies hit or not)
   // 折桠 S2's FirstAttack (held by branch_s_2[first], no damage, no target needed: the skill's opening 战栗 blast, the sim's 'aoe')
   aoe: {
+    // (2026-11-10) 레이지 아이언하이드 T1 荒蛮之心: knocked out, acrbot[t2] fires projectile_chr_acrbot_t2 on its tile — its
+    // `_effectsWhenStart` char_acrbot_ability_02_die_01 there (the CN char pack, battle/prefabs/effects/char.ab)
+    acrbot: cite('projectile_chr_acrbot_t2', (o) => (o.skill === 'acrbot_t2' ? { play: [{ ...once('char_acrbot_ability_02_die_01', 'point'), bundle: 'acrbot' }] } : null)),
+    // (2026-11-10) 메커니스트 S3: the charge's landing (projectile_chr_mcnist_s3_token* `_effectsWhenReached`, on the stop tile) and
+    // each attack's cross (projectile_chr_mcnist_s3 `_effectsToTileWhenStart`, on its target's tile as it is thrown, 0.8 s before it lands)
+    mcnist: cite(['projectile_chr_mcnist_s3_token', 'projectile_chr_mcnist_s3'], (o) => (o.skill === 'mcnist:charge'
+      ? { play: [{ ...once('token_mcnist_mcgraf_skill_03_hit_01', 'point'), bundle: 'mcnist_token' }] }
+      : o.skill === 'mcnist:cross' ? { play: [once('mcnist_skill_03_hit_01', 'point')] } : null)),
+    // (2026-11-10) 테리토리야 S3's spread (dminon_s_3[spread] CreateTileEffectInRange x-5) and T2 此身为界 landing (its projectile
+    // projectile_chr_dminon_dead / _withdraw `_tileEffectKeyOnStop` on each tile of its `_targetRange`, the 国度 it cached):
+    // dminon_talent_range_hit_01 on each tile (`cells`)
+    dminon: cite(['dminon_s_3[spread]', 'projectile_chr_dminon_dead', 'projectile_chr_dminon_withdraw'], (o) => (o.skill === 'dminon:spread' || o.skill === 'dminon:boundary'
+      ? { play: (Array.isArray(o.cells) ? o.cells : []).map(([x, y]) => ({ n: 'dminon_talent_range_hit_01', on: 'point', at: [x, y], life: 'once' })) } : null)),
     // (2026-11-07) 스테인리스's crab device: projectile_chr_ironmn_pile3 `_effectsWhenHit` where it lands (its splash centre), whether the target lives or not
     ironmn: cite('sktok_ironmn_pile3', (o) => (o.skill === 'ironmn:crab' ? { play: [{ n: 'token_ironmn_pile3_skill_03_hit', bundle: 'ironmn_token', on: 'point', life: 'once' }] } : null)),
     // (2026-11-07) 미틈 S1: mitm_s_1 ON_BUFF_START on the 체리 3호 in mode Default, where it explodes
@@ -733,7 +779,12 @@ export const KIT_OFFICIAL = {
   veenBounce: { veen: cite('projectile_chr_veen_s3', () => ({ play: [{ n: 'veen_skill_03_trail_02', fly: 10, to: 'target', from: 'from', fromDead: true, hit: ['veen_skill_03_hit_02'] }] })) },
   // (2026-11-03) 赫拉格 SBL-Y 热的雪: the revive (helage_trait_e → helage_trait_e[heal], ON_BUFF_FINISH: HealViaMaxHpRatio and
   // CreateEffect uniequip_002_musha_02 on him) — a prefab of the shared module effects (bundle `uniequip`)
-  undying: { helage: cite('helage_trait_e[heal]', () => ({ play: [{ n: 'uniequip_002_musha_02', bundle: 'uniequip', on: 'op', life: 'once' }] })) },
+  undying: {
+    helage: cite('helage_trait_e[heal]', () => ({ play: [{ n: 'uniequip_002_musha_02', bundle: 'uniequip', on: 'op', life: 'once' }] })),
+    // (2026-11-10) 사일런스 더 패러디그매틱 S3: slent2_s_3 ON_BEFORE_TRY_SET_HP_ZERO creates slent2_shallow_grave (UNDEADABLE,
+    // overrideEffectKey slent2_skill_03_buff_02, grave_duration s) on the ally it saves (`id`, `duration`)
+    slent2: cite('slent2_shallow_grave', (o) => ({ play: [{ n: 'slent2_skill_03_buff_02', on: 'id', life: Math.max(0.1, Number(o.duration) || 0) }] })),
+  },
   // 烛煌 S2: the burning tiles (charpack Modes/S2/Body/Talents/3 DoTile, an AttachListenerToTileAbility: `_effectSettings`
   // blaze2_skill_02_hit_plot from the first cast on a tile, castedTimeThreshold 1, ended with the ability at the skill's end
   // — OnDetached → _ClearEffects). `cells` [[x, y, 1 on / 0 off]…] (sim kit chess_char_5_03-blaze2.js)
@@ -771,6 +822,18 @@ export const KIT_OFFICIAL = {
       ? { play: [once('monstr_skill_03_end_02', 'point')] }
       : { play: [{ ...once('token_monstr_prosts_skill_03_start', 'point'), bundle: 'monstr_token' }, once('monstr_skill_03_begin_02'),
         { n: 'monstr_skill_03_begin_03', on: 'point', at: [Number(o.fromX), Number(o.fromY)], life: 'skill' }] })),
+  },
+  // (2026-11-10) 테리토리야's 国度 (Others/Direction/CommonAbilities/Kingdom): TileEffectFollowRangeBehaviour's `_tileEffectKey`
+  // dminon_talent_range_01 on each tile of his range — one slot a tile, so a tile that stays keeps its effect; a tile the range
+  // leaves ends at once (`_recycleImmediatelyExceptDying`: `now`) — and RangeLineEffectEmitter's `_edgeLineRendererEffectKey`
+  // dminon_range_line_01, one effect per loop of the range's outline (`edge`: fxgame.js edgeLines, render/fx/edges.js). Both
+  // until he leaves (sim kit op-dminon.js showField: `cells` the range's tiles, `gone` the ones it left)
+  field: {
+    dminon: cite('char_4246_dminon/Others/Direction/CommonAbilities/Kingdom', (o) => ({ play: [
+      ...(Array.isArray(o.gone) ? o.gone : []).map(([x, y]) => ({ slot: `dminonField${x},${y}`, off: true, now: true })),
+      ...(Array.isArray(o.cells) ? o.cells : []).map(([x, y]) => ({ n: 'dminon_talent_range_01', on: 'point', at: [x, y], slot: `dminonField${x},${y}` })),
+      { n: 'dminon_range_line_01', edge: 'cells', slot: 'dminonEdge' },
+    ] })),
   },
   // 引星棘刺 T2 视界: Talent/2 tiles_ally (CharacterSharedTileAuraAbility `_showEffectWhenAttach`, `_tileEffectKey` thorn2_buff)
   // on each tile her card chose, until she leaves — `cells` [[x, y]…] (sim kit chess_char_5_15-thorn2.js). The client lays them
@@ -849,7 +912,7 @@ export const kitOperator = (o, name) => (o ? (OPERATOR_FIELD[name] ? o[OPERATOR_
 export function kitOfficialPlan(name, o, bundle, ctx = {}) {
   if (!o || typeof o !== 'object') return null;
   const rule = bundle ? KIT_OFFICIAL[name]?.[bundle] : null;
-  const r = typeof rule === 'function' ? rule(o, { skill: Number.isInteger(ctx.skill) ? ctx.skill : 0, back: !!ctx.back, foe: !!ctx.foe }) : null;
+  const r = typeof rule === 'function' ? rule(o, { skill: Number.isInteger(ctx.skill) ? ctx.skill : 0, back: !!ctx.back, foe: !!ctx.foe, left: !!ctx.left }) : null;
   if (!r) return name === 'hit' ? momentPlan(o, bundle, ctx.plays) : null;
   const play = (r?.play || []).flatMap((p) => (p.tpl ? tplPlays(p, ctx.plays) : [p]));
   return r ? { stop: r.stop || [], play, pass: !!r.pass, ...(r.skillFlag ? { skillFlag: r.skillFlag } : {}) } : null;

@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  autoDiyChoice,
   phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold, bondRequireCount,
   holdsBattleEnd, settleBattleEnd, ownRoundLoss, roundResultBox, RESULT_BOX_MS,
   bondMembers, memberHeadCount, memberLit, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
@@ -56,6 +57,7 @@ describe('phases', () => {
     assert.equal(phaseMode(null), 'loading');
     assert.equal(phaseMode(PHASE.INFO_CHECK), 'briefing');
     assert.equal(phaseMode(PHASE.BAND_DRAFT), 'draft');
+    assert.equal(phaseMode(PHASE.DIY_CHOOSE), 'draft', '规程\'s 确定自选编队 keeps the draft screen for now');
     assert.equal(phaseMode(PHASE.BATTLE_CHECK), 'boot');
     for (const p of [PHASE.PREP, PHASE.SP_DRAFT, PHASE.ROUND_START]) assert.equal(phaseMode(p), 'prep');
     for (const p of [PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]) assert.equal(phaseMode(p), 'combat');
@@ -1000,4 +1002,15 @@ describe('special terrain tip', () => {
     assert.match(terrainInfo(mire, 0, 0).lines[0], /每 1 秒获得 1 层/);
     assert.match(terrainInfo(mire, 0, 0).lines[2], /最多 10 层/);
   });
+});
+
+test('autoDiyChoice: 规程\'s 确定自选编队 brings the chosen slots, else the first two of each tier; nothing once ready', () => {
+  const lineup = Object.fromEntries(['chess_char_5_diy1_a', 'chess_char_5_diy3_a', 'chess_char_5_diy4_a', 'chess_char_6_diy2_a']
+    .map((id) => [id, { charId: 'x', skillIndex: 0, uniEquipId: null }]));
+  const perTier = { 5: 2, 6: 2 };
+  assert.deepEqual(autoDiyChoice({ lineup, chosen: [], ready: false, perTier }), ['chess_char_5_diy1_a', 'chess_char_5_diy3_a', 'chess_char_6_diy2_a']);
+  assert.deepEqual(autoDiyChoice({ lineup, chosen: ['chess_char_5_diy4_a'], ready: false, perTier }), ['chess_char_5_diy4_a']);
+  assert.deepEqual(autoDiyChoice({ lineup: {}, chosen: [], ready: false, perTier }), []);
+  assert.equal(autoDiyChoice({ lineup, chosen: [], ready: true, perTier }), null);
+  assert.equal(autoDiyChoice(undefined), null);
 });

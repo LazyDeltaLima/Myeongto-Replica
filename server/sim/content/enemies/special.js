@@ -364,6 +364,54 @@ function catapultVolley(ab, b, e, aim) {
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
+/** projectile_lrboom's CircleCollider2D radius (its death blast: ground units only, `_ignoreCamouflage`). */
+const LRBOOM_RADIUS = 1.3;
+/** enemy_10196_ubba(_2) Talents/Talent1: the AuraAbility's CircleCollider2D radius. */
+const UBBA_AURA_RADIUS = 1.7;
+/** How often the 搏命享受者 aura is refreshed on the enemies around it (the aura's own tick is the engine's). */
+const UBBA_AURA_EVERY = 0.2;
+
+/**
+ * 搏命享受者 (enemy_10196_ubba_2, 规程's leader waves h07_08 / h08_04; official prefab battle/enm_pfb_30): Talents/Talent1, an
+ * AuraAbility (radius 1.7, its validator the owner's side, all motions) — the other enemies there take physical and arts
+ * damage × (1 − `Talent1.damage_resistance`) (enemy_ubba_damage_resistance: DamageScale `_isOneMinus`, `disableOverride` —
+ * one buff per 搏命享受者, so two multiply). Its 警戒 mode (Modes/Warning: faster, chasing the unit that set it off) starts
+ * from units holding ubtower_warning_mask[target], which only the main story's watchtower gives: no 规程 stage has one,
+ * so it never starts here. [추정·엔진: whether the aura's `_selfOption` DEFAULT counts the giver was not read — 「周围敌人」,
+ * read as the others]
+ */
+function kitUbba(ab) {
+  const m = 1 - (T(ab, 'Talent1.damage_resistance') ?? 0);
+  return [{
+    iv: UBBA_AURA_EVERY,
+    tick(b, e) {
+      const key = `ab:ubba:${e.id}`;
+      for (const o of b.enemiesInRadius(e.x, e.y, UBBA_AURA_RADIUS)) if (o !== e) auraBuff(b, o, key, UBBA_AURA_EVERY, { physTakenMul: m, artsTakenMul: m });
+    },
+  }];
+}
+
+/**
+ * 假想敌：丛生 (enemy_9040_accrit, 规程 精锐 type CRITIC, in the leader wave h08_05; official CN prefab battle/enm_pfb_37 and
+ * the buff table's accrit[critical-hit]): every damage it deals (ON_OUTPUT_DAMAGE) to a unit without its own
+ * accrit[critical-mark] is × `CriticalHit.damage_scale` and marks it for good, and that unit cannot be healed for
+ * `CriticalHit.duration` s (accrit[heal-free], HEAL_FREE). Its Skills/Critical only swaps the clip (Attack_B) for an
+ * unmarked target it blocks.
+ */
+function kitCritic(ab) {
+  const scale = T(ab, 'CriticalHit.damage_scale') ?? 1, dur = T(ab, 'CriticalHit.duration') ?? 0;
+  const marked = new Set();
+  return [{
+    hitOut(c, b) {
+      const t = c.target;
+      if (!t || t.side !== 'ally' || marked.has(t)) return;
+      marked.add(t);
+      c.dmg.amount *= scale;
+      if (dur > 0) b.addBuff(t, { key: 'ab:accritHealFree', duration: dur, refresh: 'replace', visible: true, flags: { noHeal: true, healFree: true } });
+    },
+  }];
+}
+
 export const SPECIAL_KITS = Object.freeze({
   // --- SPECIAL 特异 / others
   enemy_1045_hammer: kitStun3,                                       // 粉碎攻坚手 · every 3rd attack stuns
@@ -385,6 +433,12 @@ export const SPECIAL_KITS = Object.freeze({
   enemy_1427_lrnazg: kitNazg,                                        // “灵幛” · attack hits everyone around it (+ on infection tiles)
   enemy_1422_lrsldr: () => [infectionArts()],                        // 萨卡兹枯朽前锋 · arts attacks on 源石污染区 (infection tiles)
   enemy_1422_lrsldr_2: () => [infectionArts()],                      // 萨卡兹枯朽辟路前锋 · same
+  // 恶尘源石虫 (规程's leader wave h07_09) · death: phys blast (Boom: projectile_on_killed → projectile_lrboom, radius 1.3, ground
+  // only); its 源石污染区 is a switch of the dynamic REED_TILE under it (enemy_lrboom[triggerTile]) and 活性源石风暴 a stage
+  // device — no 规程 stage has either
+  enemy_1424_lrboom: (ab) => [deathBoom({ scale: T(ab, 'Boom.atk_scale') ?? 0, r: LRBOOM_RADIUS, ability: 'Boom' })],
+  enemy_10196_ubba_2: kitUbba,                                       // 搏命享受者 (规程) · damage taken ×0.75 for the enemies around it
+  enemy_9040_accrit: kitCritic,                                      // 假想敌：丛生 (规程) · first damage on each unit ×2 + 5 s HEAL_FREE
   enemy_1425_lrcmra: kitChimera,                                     // 孽罪奇美拉 · activated on infection: arts attacks + pollution aura
   enemy_1425_lrcmra_2: kitChimera,                                   // 渎罪奇美拉 · same
   enemy_1430_lrrook: (ab) => [{                                      // 愧悔魂灵圣杯 · shares damage taken by nearby ground enemies

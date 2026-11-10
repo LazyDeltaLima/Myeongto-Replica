@@ -466,6 +466,10 @@ export const KIT_HIT_BANKS = Object.freeze({
   // a hand of 假想敌：胄 back as its copy (acstma_s_1[copy_health] → mode 2 Back_End, passive acstma/acstmb_passive[unmovable])
   'acstma:back': 'battle.ON_BUFF_START.enemy_acstma_back',
   'acstmb:back': 'battle.ON_BUFF_START.enemy_acstmb_back',
+  // 2026-11-11 (CN prefabs): 假想敌：鳍 (隐秘核心)'s storm talent aceel[thurder-trigger] (audioSignal Aceel_ThurderEnv, as it
+  // starts — the 鳍's appearance), 假想敌：茧 (隐秘核心)'s 悲惨之雨 tile listeners' end (`_effectSettings` endAudioSignal acid_rain)
+  'aceel:thunder': 'battle.ON_BUFF_START.Aceel_ThurderEnv',
+  'acspider:rainend': 'battle.ON_CUSTOM_TRIGGER.acid_rain',
 });
 
 /**

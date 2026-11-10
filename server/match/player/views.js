@@ -129,6 +129,9 @@ export class PlayerViews {
       // switched off)
       diy: this.diy,
       diyBanned: this.diyBanned,
+      // 规程's 确定自选编队 (match/diyChoose.js diyChooseView): the 自选编队 the seat chooses from, the slots chosen, whether it
+      // is ready and the limit per tier — absent in a season without the step
+      ...(this.m.gd.diyChoose && !this.isBot ? { diyChoose: this.m.diyChooseView(this) } : {}),
       // 最终攻势 / 隐秘核心 prep (community report of 2026-10-06, item 51): `{ playerId, side, units }` — the pair partner's
       // board pieces as UnitInfo on its half of the boss field (mirrored on the right half, as the battle places them);
       // the own prep view draws them beside the own half, read-only. Absent otherwise.

@@ -43,6 +43,13 @@ test('extracted: 阵法术师 trait buffs off in the skill modes, 卡涅利安 S
   assert.ok(!at('char_388_mint', 'S2').includes('mint_buff_01_range'));
 });
 
+test('extracted: an aura\'s `_buffs` go to the units of its range, no attach (올가 T1 alga_buff: the holders draw it, fxstatus.js KEY_FX)', () => {
+  for (const list of MODES.char_4245_alga.attach) assert.ok(!list.includes('alga_buff'), `${list}`);
+  // … an aura on enemies keeps them as theirs (스펙터 디 언체인드's Stand mode: ghost2_beidong_buff_02 on the enemies only)
+  const g = MODES.char_1023_ghost2, stand = g.modes.indexOf('Stand');
+  assert.ok(g.attachFoe[stand].includes('ghost2_beidong_buff_02') && !g.attach[stand].includes('ghost2_beidong_buff_02'));
+});
+
 test('extracted: a buff handed to the attack\'s targets is no attach (마운틴 buff_weak, 深靛 indigo_buff_01_start)', () => {
   for (const id of ['char_264_f12yin', 'char_469_indigo']) {
     for (const list of MODES[id].attach) assert.ok(!list.includes('buff_weak') && !list.includes('indigo_buff_01_start'), id);

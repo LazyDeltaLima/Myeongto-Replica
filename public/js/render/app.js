@@ -386,7 +386,8 @@ export async function createFieldView(host, options = {}) {
     animRate: () => (mode === 'battle' ? interp.rate : 1),
     timeScale: () => (mode === 'battle' ? interp.rate : 1),
     // (a chess fighting as its 补位 stand-in — `standInFor` — reads the stand-in's record: its attack interval)
-    lookupDef: (info) => (info.side === 'enemy' ? data.enemy(info.defId)
+    // (a walking ally built from an enemy record — UnitInfo `walks`, server content/bonds/walker.js — reads that record)
+    lookupDef: (info) => (info.side === 'enemy' || info.walks ? data.enemy(info.defId)
       : (info.standInFor && data.standIn(info.defId)) || (info.diy && data.diy(info.defId, info.diy)) || data.chess(info.defId) || data.token(info.defId)),
     crowded: () => views.size > 90,
     renderer: app.renderer,

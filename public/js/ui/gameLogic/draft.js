@@ -88,3 +88,27 @@ export function normalizePersonalChoice(pub, priv, myId) {
     id: choice.id,
   };
 }
+
+/**
+ * 规程's 确定自选编队 (m.private.diyChoose { lineup, chosen, ready, perTier }; server/match/match/diyChoose.js) until its own
+ * screen exists: the slots this client brings into the match on its own — the ones already chosen, else the first
+ * `perTier[tier]` slots of each tier in lineup order (the tier from the official slot id, chess_char_<tier>_diy<n>_a).
+ * Null when there is nothing to send (no step, or the seat is ready).
+ * @param {any} view m.private.diyChoose
+ * @returns {string[] | null}
+ */
+export function autoDiyChoice(view) {
+  if (!isObj(view) || view.ready || !isObj(view.lineup)) return null;
+  if (Array.isArray(view.chosen) && view.chosen.length) return view.chosen.slice();
+  const per = isObj(view.perTier) ? view.perTier : {};
+  const count = new Map();
+  const out = [];
+  for (const id of Object.keys(view.lineup)) {
+    const tier = Number(/^chess_char_(\d+)_diy/.exec(id)?.[1]);
+    const n = count.get(tier) ?? 0;
+    if (n >= (Number(per[tier]) || 0)) continue;
+    count.set(tier, n + 1);
+    out.push(id);
+  }
+  return out;
+}

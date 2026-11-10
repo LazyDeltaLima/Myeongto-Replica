@@ -81,11 +81,12 @@
 //   'sword' 'vest' 'blink' 'summon' 'grow' 'phase' 'lpLoss' (x, y + extra {id, r, tiles, kind, tx, ty …}).
 
 import { MOVE_SCALE, ROWS, COLS, ALLY_COLLIDER_RADIUS, TICK } from '../constants.js';
+import { GEO } from '../../../shared/constants.js';
 import { aggroCmp, areaSelectable } from '../targeting.js';
 import { compileRoute, attackWindup, enemyMode } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
 import {
-  ensureInstalled, abOf, attach, T, elem, hurt, targetsNear, allTargets, byPriority, areaAllies, areaAlliesInTiles, fieldAllies,
+  ensureInstalled, abOf, attach, T, elem, hurt, targetsNear, allTargets, byPriority, areaAllies, areaAlliesInTiles, fieldAllies, auraAllies,
   remainingRoute, stayRoute, stepToward, setHits, hitCount, setForm, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, shoot,
 } from './enemies.js';
 import { hypot, powi } from '../detmath.js';
@@ -1916,6 +1917,744 @@ function kitDeer(ab, e) {
   ];
 }
 
+/**
+ * 量变之械 (规程, a part of 假想敌：械; table 「首次攻击造成的伤害提升」, SILENCE line): its prefab's Talents/FirstAtkDouble
+ * gives two buffs (official templates of the season's buff_template_data): acfncb[first-atk-dmg-double] (silenceable) —
+ * ON_OUTPUT_DAMAGE: DamageScale × `FirstAtkDouble.damage_scale`, then it finishes — and acfncb[remove-double-buff] (not
+ * silenceable) — ON_AFTER_OUTPUT_DAMAGE: finishes the first and itself. So the first damage it deals is doubled, once;
+ * dealt while silenced, the bonus is gone unused.
+ */
+function kitFirstDouble(ab) {
+  const scale = T(ab, 'FirstAtkDouble.damage_scale') ?? 1;
+  return [
+    { sil: true, hitOut(c) { if (!ab.firstSpent && c.dmg.amount > 0) c.dmg.amount *= scale; } },
+    { dealt() { ab.firstSpent = true; } },
+  ];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// 假想敌：械 (规程 boss_11 / boss_14 隐秘核心) + 冲击之械 — official CN client prefabs enemy_9029_acfnc(_2) /
+// enemy_9027_acfnca and their templates in 规程's buff_template_data (acfnc*, acfnca*), projectiles
+// projectile_enemy_acfnc(_2) / projectile_enemy_acfnca
+
+const FNC_PART = 'enemy_9028_acfncb', FNC_ARMOR = 'enemy_9027_acfnca';
+const isFncArmor = (o) => o.alive && o.defId === FNC_ARMOR;
+/** acfnc[insert-cp]: the part's horizontal direction from the boss (SharedConsts.Direction LEFT = 3) picks the branch. */
+const FNC_BRANCH = Object.freeze({ L: 'left_acfncb', R: 'right_acfncb' });
+/** The normal attack reaches the whole field (table rangeRadius −1). */
+const FNC_FIELD = 99;
+/** projectile_enemy_acfnc_2: bounces fly `_speedAfterFirstReach` 4, × `_atkScaleRatePerBounce` 0.8 each. */
+const FNC_BOUNCE_SPEED = 4, FNC_BOUNCE_FALLOFF = 0.8;
+/** projectile_enemy_acfnca (【威光冲击】's area): a laser from one 冲击之械 to the other, `_laserWidth` 2.9. */
+const FNC_LASER_HALF = 2.9 / 2;
+/** acfnca[buff_executor] / [fastest_executor] / [falldown-trigger] / [no-char-executor] check every 0.25 / 0.5 s. */
+const FNC_FALL_CHECK = 0.25, FNC_AHEAD_CHECK = 0.5;
+/**
+ * [추정·CN] ranges the prefabs leave to the client's code: the rows a flying 冲击之械 counts operators on (AuraCheck,
+ * HasCharacterInCertainDirection — taken as the laser's band, its row ± 1), the operator its 砸下 hits (FalldownImpl's
+ * selector names no range: the nearest within one tile), how close it must come to the hidden 械 for KillArmorAura
+ * (one tile — it spawns two away) and the bounce pick (RANDOM, no radius given: the whole field).
+ */
+const FNC_BAND = 1, FNC_SLAM_TILES = 1, FNC_TOUCH = 1;
+
+/**
+ * 假想敌：械. Self-bound (CommonAbilities/Unmovable: UNMOVABLE 束缚 + BLOCK_FREE + UNBALANCE_IMMUNE), it shoots one ground
+ * operator anywhere (HATRED_DES, `_targetMotion` 1). Every damage it deals (acfnc_t1, ON_AFTER_OUTPUT_DAMAGE) summons one
+ * 量变之械 on the nearest passable tile of the 3×3 (`x-4`) round its target; a part walks to that target's tile first
+ * (acfnc[insert-cp] InsertCheckPointInRuntimeRoute, when reachable), then the branch of its side (`left_acfncb` /
+ * `right_acfncb`) to the exit. 【洪流攻势】 (SommonSquad — 规程 boss_11: SP 25, boss_14: cooldown 45): the operator with the
+ * highest block count (BLOCK_COUNT_DES) and the other player's one (selector 1, `_autoChessFilterType` 1 [추정·CN: read as
+ * "another player's"; alone, one target]), each gets a 量变之械 on every passable tile of its four sides (acfnc[skill]).
+ * 冲击之械 come from the template branch `acfnca` (two, row 4 beside it) with acfnc[armor]: damage the boss takes from an
+ * attacker beyond a 冲击之械 (its grid column on the far side of that 冲击之械, CheckAxisRelativeDirection EQUAL_ALLOW_ZERO
+ * negated) × (1 − `Armor.damage_scale`). boss_11 summons them once, at `Armor.hp_ratio` HP (acfnc_t2[summon] every 0.5 s,
+ * acfnc[finish_t2]); boss_14 at once (acfnc_t2[summon-immediately]), launches them (LaunchArmor, its WithArmor mode only,
+ * cooldown 10 → acfnc[after-launch] back to Default), re-summons them at SP 45 (SkSummonArmor: kills the old ones) and
+ * loses them all when one is pushed into it (KillArmorAura); its shot bounces (`attack@hit_times` hits in all, RANDOM next
+ * target, the same one if alone, × 0.8 per bounce — projectile_enemy_acfnc_2), each hit summoning a part.
+ */
+function kitMachine(ab, e, b, tpl) {
+  const hidden = /_2$/.test(e.defId);
+  const cut = T(ab, 'Armor.damage_scale') ?? 0, hpLine = T(ab, 'Armor.hp_ratio');
+  const hits = Math.max(1, Math.round(T(ab, 'Summon.attack@hit_times') ?? 1));
+  const squad = ab.sk.SommonSquad, launch = ab.sk.LaunchArmor, resummon = ab.sk.SkSummonArmor;
+  const gSquad = skillSp(e, squad), gRe = skillSp(e, resummon);
+  const P = { armorOn: false, summoned: false, turn: -1 };
+  const ground = (b2) => allTargets(b2, e).filter((u) => !u.isFlying);
+  const mine = (b2) => b2.enemies.filter((o) => isFncArmor(o) && o.mem.fnc && o.mem.fnc.host === e);
+  const spawnPart = (b2, t, tile) => {
+    const side = tile[1] < Math.round(e.x) ? 'L' : 'R';
+    const br = branchRoute(tpl, FNC_BRANCH[side]);
+    const end = br && Array.isArray(br.end) ? br.end : toGoal(b2, tile[1], tile[0]).end;
+    const cp = t && b2.grid.walkable(t.tileR, t.tileC) ? [[t.tileR, t.tileC]] : [];
+    return b2.spawnEnemy(FNC_PART, { route: { motion: 'WALK', start: tile, end, checkpoints: cp }, pos: tile, countInTotal: false, mods: summonMods(b2) });
+  };
+  const partNear = (b2, t) => { // `_summonOnNearestPassableTile` within x-4 (the 3×3) of the target
+    let best = null, bd = Infinity;
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      const r = t.tileR + dr, c = t.tileC + dc;
+      if (!b2.grid.walkable(r, c)) continue;
+      const d = hypot(c - t.x, r - t.y);
+      if (d < bd - 1e-9) { bd = d; best = [r, c]; }
+    }
+    if (best) spawnPart(b2, t, best);
+  };
+  const killArmors = (b2) => { for (const o of mine(b2)) b2.kill(o, null); };
+  const summonArmor = (b2, e2, kill) => { // acfnc[summon_armor] (kill = EnemyKillToken first) / acfnc_t2[summon-immediately]
+    if (kill) killArmors(b2);
+    const br = tpl && tpl.branches && tpl.branches.acfnca;
+    const phase = Array.isArray(br) && Array.isArray(br[0]) ? br[0] : [];
+    const r0 = Math.round(e2.y) + 1, c0 = Math.round(e2.x);
+    const list = phase.length ? phase.map((s) => tpl.extraRoutes && tpl.extraRoutes[s.routeIndex]).filter(Boolean)
+      : [{ start: [r0, c0 - 2], end: [r0, b2.rect.c0 + 1] }, { start: [r0, c0 + 2], end: [r0, b2.rect.c1 - 1] }];
+    for (const rt of list) {
+      const o = b2.spawnEnemy(FNC_ARMOR, { route: { motion: 'FLY', start: rt.start, end: rt.start, checkpoints: [] }, pos: rt.start, countInTotal: false, mods: summonMods(b2) });
+      if (!o) continue;
+      // acfnca[init]: on the boss's column it kills itself; else is-left / is-right
+      if (Math.round(o.x) === c0) { b2.kill(o, null); continue; }
+      o.mem.fnc = { host: e2, side: Math.round(o.x) < c0 ? -1 : 1, end: rt.end, state: 'hover' };
+    }
+    P.armorOn = true;
+    enemyMode(b2, e2, 'WithArmor');
+    if (launchA) launchA.left = launchA.icd;   // the mode's LaunchArmor attaches anew (`_resetCdWaitFirstPeriod`)
+  };
+  const launchA = hidden && launch ? {
+    name: launch.name, cd: launch.cd, icd: launch.icd, cond: (b2) => P.armorOn && mine(b2).some((o) => o.mem.fnc.state === 'hover'),
+    fire(b2, e2) { // acfnc[trigger-armor-launch] on its 冲击之械, then acfnc[after-launch]: Default mode
+      for (const o of mine(b2)) if (o.mem.fnc.state === 'hover' && o.mem.ab && o.mem.ab.launch) o.mem.ab.launch(b2, o);
+      P.armorOn = false;
+      enemyMode(b2, e2, null);
+    },
+  } : null;
+  const bounce = (b2, e2, from, k) => { // the next hop of projectile_enemy_acfnc_2
+    if (k >= hits || !e2.alive) return;
+    const others = ground(b2).filter((u) => u !== from);
+    const nx = others.length ? b2.rng.pick(others) : (from.alive ? from : null);
+    if (!nx) return;
+    shoot(b2, from, nx, { key: 'projectile_enemy_acfnc_2', move: 'TRACE_TARGET_WITH_SPEED', speed: FNC_BOUNCE_SPEED }, (t) => {
+      if (!t || !t.alive || !e2.alive) return;   // `_dontHitWhenTargetDead`
+      b2.dealDamage(e2, t, { amount: e2.s.atk * powi(FNC_BOUNCE_FALLOFF, k), type: 'phys', isAttack: true, tags: ['fncBounce'] });
+      bounce(b2, e2, t, k + 1);
+    }, { source: e2 });
+  };
+  return [
+    {
+      spawn(b2, e2) {
+        b2.addBuff(e2, { key: 'boss:selfBound', persist: true, flags: { bind: true, noMove: true, unblockable: true, noDisplace: true } });
+        e2.base.rangeRadius = FNC_FIELD;
+        if (hidden) summonArmor(b2, e2, false);
+      },
+      before(c, b2, e2) { const l = fairOrder(b2, e2, ground(b2), P); if (l.length) c.targets = [l[0]]; },
+      dealt(c, b2, e2) {
+        const t = c.target;
+        if (!t) return;
+        if (c.amount > 0) partNear(b2, t);
+        if (hidden && !(c.dmg.tags || []).includes('fncBounce')) bounce(b2, e2, t, 1);
+      },
+      hitIn(c, b2) { // acfnc[armor-damage-scale], one per 冲击之械
+        const s = c.source;
+        if (!s || !(cut > 0) || c.dmg.type === 'element') return;
+        const sc = Math.round(s.x);
+        for (const o of mine(b2)) if (Math.sign(sc - Math.round(o.x)) === o.mem.fnc.side) c.dmg.mul *= 1 - cut;
+      },
+    },
+    !hidden && hpLine != null && {
+      iv: 0.5,
+      tick(b2, e2) { // acfnc_t2[summon]: HP ≤ `Armor.hp_ratio` → SummonArmor, once (acfnc[finish_t2])
+        if (P.summoned || !(e2.hpRatio <= hpLine + 1e-9)) return;
+        P.summoned = true;
+        summonArmor(b2, e2, true);
+      },
+    },
+    squad && {
+      name: squad.name, cd: squad.cd, icd: squad.icd,
+      cond: (b2) => (!gSquad || gSquad.ready()) && ground(b2).some((u) => u.kind === 'op'),
+      fire(b2, e2) { // 【洪流攻势】
+        if (gSquad) gSquad.spend(e2);
+        const ops = byPriority(e2, ground(b2).filter((u) => u.kind === 'op')).sort((p, q) => (q.s.blockCnt || 0) - (p.s.blockCnt || 0));
+        const first = ops[0];
+        if (!first) return;
+        const picks = [first];
+        const second = ops.find((u) => u.ownerId !== first.ownerId);
+        if (second) picks.push(second);
+        for (const t of picks.slice(0, squad.bb.batch_max_target ?? 2)) {
+          let n = 0;
+          for (const [dr, dc] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+            if (n >= (squad.bb.cnt ?? 4)) break;
+            const r = t.tileR + dr, c = t.tileC + dc;
+            if (b2.grid.walkable(r, c) && spawnPart(b2, t, [r, c])) n++;
+          }
+          b2.fx('summon', { x: t.x, y: t.y, id: e2.id, tgt: t.id, kind: 'acfncSquad' });
+        }
+      },
+    },
+    launchA,
+    hidden && resummon && {
+      name: resummon.name, cd: resummon.cd, icd: resummon.icd, cond: () => !gRe || gRe.ready(),
+      fire(b2, e2) { if (gRe) gRe.spend(e2); summonArmor(b2, e2, true); },   // 【衰颓与复兴】
+    },
+    hidden && {
+      tick(b2, e2) { // KillArmorAura: a 冲击之械 that reaches it → every 冲击之械 goes, the boss back to Default
+        if (!mine(b2).some((o) => o.mem.fnc.state !== 'hover' && Math.abs(o.x - e2.x) <= FNC_TOUCH + 1e-9 && Math.abs(o.y - e2.y) <= FNC_BAND + 0.5)) return;
+        killArmors(b2);
+        P.armorOn = false;
+        enemyMode(b2, e2, null);
+      },
+    },
+    gSquad && gSquad.ab, gRe && gRe.ab,
+  ];
+}
+
+/**
+ * 冲击之械 (no attack; CommonAbilities/Ability0: invincible + UNMOVABLE_PRIVATE + BLOCK_FREE / UNBALANCE_IMMUNE). Only a
+ * hidden 械's LaunchArmor launches it ("未释放【威光冲击】时无法被攻击"): Launch → MoveMode (move speed × `MoveSpeed.move_speed`,
+ * FINAL_SCALER) along its branch route outward. AuraCheck counts each operator it passes (acfnca[pass-cnt], a stack on it
+ * that leaves when that operator does); it comes down (FalldownImpl, ATK × `atk_scale` phys on one operator) where the
+ * `Falldown.max_valid_stack_cnt`-th was counted, else past the last operator ahead (acfnca[no-char-executor]), else at its
+ * route's end (IsEnemyReached). Down (AfterFalldown) it can be hit, and every `Init.damage_threshold` damage it takes moves it
+ * `Init.move_step` back toward the boss (at most `Init.max_offset_per_second`); its Bound casts projectile_enemy_acfnca once
+ * at the other 冲击之械 — a laser following it, operators inside get ATTACK_SPEED + `Bound.attack_speed`.
+ */
+function kitArmor(ab, e) {
+  const fallN = T(ab, 'Falldown.max_valid_stack_cnt') ?? 5, speed = T(ab, 'MoveSpeed.move_speed') ?? 1;
+  const thr = T(ab, 'Init.damage_threshold') ?? Infinity, step = T(ab, 'Init.move_step') ?? 0, cap = T(ab, 'Init.max_offset_per_second') ?? 0;
+  const slam = ab.sk.FalldownImpl, bound = ab.sk.Bound;
+  const F = () => e.mem.fnc || { side: 1, state: 'hover' };
+  const P = { passed: new Set(), triggerX: null, aheadCheck: 0, fallCheck: 0, sawAhead: false, acc: 0, pending: 0, laser: null };
+  const band = (u) => Math.abs(u.tileR - Math.round(e.y)) <= FNC_BAND;
+  const ops = (b2) => b2.allies().filter((u) => u.alive && u.deployed && u.kind === 'op' && band(u));
+  const ahead = (b2, self) => { // HasCharacterInCertainDirection: an operator further along its way (its own column with `_includeSelfPos`)
+    const c = Math.round(e.x), s = F().side;
+    return ops(b2).some((u) => (self ? (u.tileC - c) * s >= 0 : (u.tileC - c) * s > 0));
+  };
+  const fall = (b2, e2) => { // FalldownImpl
+    const f = F();
+    f.state = 'down';
+    b2.removeBuff(e2, 'boss:hover');
+    b2.removeBuff(e2, 'boss:armorFly');
+    enemyMode(b2, e2, 'AfterFalldown');
+    let best = null, bd = Infinity;
+    for (const u of areaAlliesInTiles(b2, e2, Math.round(e2.y), Math.round(e2.x), 'box', FNC_SLAM_TILES)) {
+      const d = hypot(u.x - e2.x, u.y - e2.y);
+      if (d < bd) { bd = d; best = u; }
+    }
+    b2.fx('explode', { x: e2.x, y: e2.y, r: 0.6, kind: 'acfncaFall', id: e2.id });
+    if (best && slam) hurt(b2, e2, best, e2.s.atk * (slam.bb.atk_scale ?? 1), 'phys', { tags: ['acfncaFall'] });
+    // Bound: at the other 冲击之械 that has no laser yet (acfnca[casted-proj] on both ends)
+    const other = b2.enemies.find((o) => isFncArmor(o) && o !== e2 && o.mem.fnc && o.mem.fnc.host === f.host && !o.mem.fnc.lasered);
+    if (other && !f.lasered) { f.lasered = true; other.mem.fnc.lasered = true; P.laser = other; }
+  };
+  ab.launch = (b2, e2) => { // Launch → MoveMode
+    const f = F();
+    f.state = 'fly';
+    enemyMode(b2, e2, 'MoveMode');
+    b2.addBuff(e2, { key: 'boss:armorFly', persist: true, mods: { moveMul: speed } });
+    b2.fx('charge', { x: e2.x, y: e2.y, id: e2.id, tx: f.end ? f.end[1] : e2.x, ty: f.end ? f.end[0] : e2.y, kind: 'acfncaLaunch' });
+  };
+  return [
+    {
+      spawn(b2, e2) {
+        b2.addBuff(e2, { key: 'boss:hover', persist: true, visible: true, flags: { invulnerable: true, untargetable: true } });
+        b2.addBuff(e2, { key: 'boss:anchor', persist: true, flags: { noMove: true, selfBound: true, unblockable: true, noDisplace: true } });
+        e2.profile.noAttack = true;
+      },
+      taken(c) { // SetTakeDamageMoveBackEnemyParam
+        if (!(c.amount > 0) || !(thr > 0) || F().state !== 'down') return;
+        P.acc += c.amount;
+        while (P.acc >= thr) { P.acc -= thr; P.pending += step; }
+      },
+      tick(b2, e2, a, dt) {
+        const f = F();
+        if (f.state === 'fly' && canCast(e2, false, b2)) {
+          for (const u of ops(b2)) if (Math.abs(u.x - e2.x) <= 0.5) P.passed.add(u);      // AuraCheck, once per operator
+          for (const u of [...P.passed]) if (!u.alive || !u.deployed) P.passed.delete(u);   // its pass-cnt finishes with it
+          const to = f.end || [Math.round(e2.y), e2.x];
+          const reached = stepToward(e2, to[1], e2.y, e2.s.moveSpeed * MOVE_SCALE * dt);
+          if ((P.fallCheck += dt) >= FNC_FALL_CHECK - 1e-9) {
+            P.fallCheck = 0;
+            if (P.triggerX == null && P.passed.size >= fallN) P.triggerX = Math.round(e2.x);   // buff_executor: its root tile
+          }
+          if ((P.aheadCheck += dt) >= FNC_AHEAD_CHECK - 1e-9) {
+            P.aheadCheck = 0;
+            if (!P.sawAhead) { if (ahead(b2, true)) P.sawAhead = true; }   // fastest_executor
+            else if (P.triggerX == null && !ahead(b2, false)) P.triggerX = Math.round(e2.x);   // no-char-executor
+          }
+          if (P.triggerX != null && (e2.x - P.triggerX) * f.side >= -1e-9) fall(b2, e2);       // falldown-trigger
+          else if (reached) fall(b2, e2);                                                     // IsEnemyReached
+          return;
+        }
+        if (f.state !== 'down') return;
+        if (P.pending > 0 && f.host && f.host.alive) { // moves back toward the boss
+          const d = Math.min(P.pending, cap * dt);
+          P.pending -= d;
+          e2.x -= f.side * Math.min(d, Math.max(0, (e2.x - f.host.x) * f.side));
+        }
+        const o = P.laser;
+        if (!o) return;
+        if (!o.alive || !isFncArmor(o)) { P.laser = null; return; }   // `_stopIfTargetDead`
+        for (const u of b2.allies()) {
+          if (!u.alive || !u.deployed || !areaSelectable(e2, u) || segDist(u.x, u.y, e2.x, e2.y, o.x, o.y) > FNC_LASER_HALF) continue;
+          b2.addBuff(u, { key: 'boss:acfncaArea', duration: 0.15, refresh: 'replace', visible: true, mods: { aspd: bound ? bound.bb.attack_speed ?? 0 : 0 } });
+        }
+        if ((a.linkAt ?? -Infinity) <= b2.time - 1 + 1e-9) { a.linkAt = b2.time; b2.fx('link', { x: e2.x, y: e2.y, from: e2.id, to: o.id, kind: 'acfncaLaser', dur: 1 }); }
+      },
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// 假想敌：茧 (规程 boss_12 / boss_15 隐秘核心) + 淤困之茧 — official CN client prefabs enemy_9035_acspider(_2) /
+// enemy_9036_acweb and their templates in 规程's buff_template_data (acspider*, acspdier[evade], acweb*), projectiles
+// projectile_enemy_acspider(_2) / projectile_enemy_acspider_web
+
+const WEB_KEY = 'enemy_9036_acweb';
+/** projectile_enemy_acspider_web: TRACE_TARGET_WITH_SPEED (`_moveType` 1) at `_speed` 10 — as the normal attack's two shots. */
+const WEB_SHOT = Object.freeze({ key: 'projectile_enemy_acspider_web', move: 'TRACE_TARGET_WITH_SPEED', speed: 10 });
+/** The normal attack reaches the whole field (table rangeRadius −1). */
+const SPIDER_FIELD = 99;
+/** acspider[sk-poison-area]: the tile listener's buff triggers every `triggerInterval` 0.5 s (its damage: the skill's `interval`). */
+const RAIN_TICK = 0.5;
+
+/**
+ * The players' fields, the leader's own first: a selector without `_autoChessFilterType` takes the leader's own field, one
+ * with `_autoChessFilterType` 1 another player's [추정·CN: the field is CN-only, as 假想敌：械's — read as the field the leader
+ * stands on and the other one; alone, one field]. A unit's field is its owner's (`ownerId`, the half it was deployed on).
+ */
+/**
+ * The tiles 【悲惨之雨】 is drawn on, [r0, r1, c0, c1]: field `pid`'s board rows (a boss field's rows 2–5 — not its hand /
+ * 临时整备区 rows) across that player's half of the battle field (Battle._ownerForTile; the whole width alone). [추정·CN: the
+ * official tile listener's selector (AutoChessAdvancedSelector) is CN-only — the whole field, as the sim reads the rain
+ * (docs/rules/sim.md 「규정 적·보스」); maintainer decision 2026-11-11] null when the player is not on this field.
+ */
+function rainTiles(b, pid) {
+  const ps = b.players.find((p) => p.playerId === pid);
+  const R = b.rect;
+  if (!ps || !R) return null;
+  const ra = b._boardTile(ps, GEO.FIELD.r0, GEO.FIELD.c0)[0], rb = b._boardTile(ps, GEO.FIELD.r1, GEO.FIELD.c0)[0];
+  const r0 = Math.max(R.r0, Math.min(ra, rb)), r1 = Math.min(R.r1, Math.max(ra, rb));
+  let c0 = null, c1 = null;
+  for (let c = R.c0; c <= R.c1; c++) {
+    if (b._ownerForTile([r0, c]) !== pid) continue;
+    if (c0 == null) c0 = c;
+    c1 = c;
+  }
+  return c0 == null || r1 < r0 ? null : [r0, r1, c0, c1];
+}
+
+function spiderFields(b, e) {
+  const ids = b.players.map((p) => p.playerId);
+  const own = ids.includes(e.ownerId) ? e.ownerId : ids[0];
+  return own == null ? [] : [own, ...ids.filter((id) => id !== own)];
+}
+
+/**
+ * 假想敌：茧. UNMOVABLE_PRIVATE + BLOCK_FREE + UNBALANCE_IMMUNE (Talents/Passive `acspider[passive]`): it never walks its
+ * route. Normal attack (Modes/Default Attack): on every field the `Passive.attack@max_target` ground units with the most
+ * current HP (selector `_postFilter` HP_DES 15, two selectors — its own field and the other player's, `batch_max_target` in
+ * all), one shot each (projectile_enemy_acspider TRACE 10); boss_15's shot (projectile_enemy_acspider_2) adds
+ * acspider[poison]: `Poison.attack@damage` 真实 per second for `Poison.attack@duration` s (FixedValueDamage PURE, credited
+ * to it). Talents/Evade (acspider[evade-ticker], checked on every damage taken and every 1 s): each time its HP falls below
+ * the next `Evade.hp_ratio` step of its max HP (75 / 50 / 25 %), `Evade.duration` s of 伪装 — acspdier[evade]: Evade of
+ * physical and arts damage (`PHYSICAL_AND_MAGICAL`) at `Evade.prob`. 【淤困捕食】 (Skills/Net, its cooldown, `_ignoreSilence`):
+ * `max_target` random operators (`_postFilter` RANDOM 14, `_professionMask` 639 — no summon or device) on the ground of each
+ * field (`batch_max_target` in all) each take a web shot (projectile_enemy_acspider_web) that summons a 淤困之茧 on their own
+ * tile (acspider[summon] SummonEnemyWithRuntimeRoute, not the nearest passable tile). boss_15's 【悲惨之雨】 (Skills/AcidRain,
+ * its two sub-abilities taken in turn, `_selectAbilitySequentially`: Left = a ground unit of its own field, Right = one of the
+ * other player's, `_allowNoTarget`): `duration` s of acid rain on that unit's field — every unit there (any motion,
+ * `ignoreTargetFree`) has ATTACK_SPEED + `attack_speed` and takes `damage` 真实 every 0.5 s while it stays (TileListener with
+ * acspider[sk-poison-area]). [추정·CN: the rain's tiles are not in the prefab (CN-only tile listener) — read with the
+ * handbook's "覆盖一片场地" as the target's whole field; a Right turn without another player rains nowhere].
+ */
+function kitSpider(ab, e) {
+  const hidden = /_2$/.test(e.defId);
+  const maxT = Math.max(1, Math.round(T(ab, 'Passive.attack@max_target') ?? 1));
+  const batch = Math.max(maxT, Math.round(T(ab, 'Passive.attack@batch_max_target') ?? maxT));
+  const poisonDmg = T(ab, 'Poison.attack@damage') ?? 0, poisonDur = T(ab, 'Poison.attack@duration') ?? 0;
+  const step = T(ab, 'Evade.hp_ratio') ?? 0, prob = T(ab, 'Evade.prob') ?? 0, evadeDur = T(ab, 'Evade.duration') ?? 0;
+  const net = ab.sk.Net, rain = hidden ? ab.sk.AcidRain : null;
+  const P = { evadeAt: 1 - step, rainTurn: 0 };
+  const ground = (b2, e2) => allTargets(b2, e2).filter((u) => !u.isFlying);
+  const evadeCheck = (b2, e2) => { // acspider[evade-ticker]: one step per check (the next one waits for the next check)
+    if (!(step > 0) || !(P.evadeAt > 1e-9) || !(e2.hpRatio < P.evadeAt - 1e-9)) return;
+    P.evadeAt = Math.max(0, P.evadeAt - step);
+    b2.addBuff(e2, { key: 'boss:acspiderEvade', duration: evadeDur, refresh: 'replace', visible: true, mods: { dodgePhys: prob, dodgeArts: prob }, fxTag: 'buff:acspdier[evade]' });
+    b2.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: 'acspiderEvade', dur: evadeDur });
+  };
+  const netTargets = (b2, e2) => { // RANDOM per field, `max_target` each, `batch_max_target` in all
+    const per = Math.max(1, Math.round(net.bb.max_target ?? 1)), cap = Math.max(per, Math.round(net.bb.batch_max_target ?? per));
+    const ops = ground(b2, e2).filter((u) => u.kind === 'op');
+    const out = [];
+    for (const pid of spiderFields(b2, e2)) {
+      const pool = ops.filter((u) => u.ownerId === pid);
+      for (let k = 0; k < per && pool.length && out.length < cap; k++) out.push(pool.splice(Math.floor(b2.rng() * pool.length), 1)[0]);
+    }
+    return out;
+  };
+  const rainOn = (b2, e2, pid) => { // 【悲惨之雨】 on field `pid`
+    const dur = rain.bb.duration ?? 0, dmg = rain.bb.damage ?? 0, aspd = rain.bb.attack_speed ?? 0;
+    const inField = () => b2.allies().filter((u) => u.alive && u.deployed && !u.hidden && u.ownerId === pid);
+    // `tiles` [r0, r1, c0, c1]: the tiles the rain is drawn on — that player's part of the field (render/fxgame.js acBossFx)
+    b2.fx('zone', { x: e2.x, y: e2.y, r: 0, dur, kind: 'acspiderRain', field: pid, id: e2.id, ability: rain.name, tiles: rainTiles(b2, pid) });
+    let left = dur;
+    const h = b2.every(RAIN_TICK, () => {
+      left -= RAIN_TICK;
+      if (!e2.alive || left < -1e-6) { h.cancel(); return; }   // the ability's buffs go with it (`_clearBuffWhenAbilityDetached`)
+      for (const u of inField()) {
+        b2.addBuff(u, { key: 'boss:acspiderRain', duration: RAIN_TICK + TICK, refresh: 'replace', visible: true, mods: { aspd } });
+        if (dmg > 0) b2.dealDamage(e2, u, { amount: dmg, type: 'true', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'acspiderRain'] });
+      }
+      if (left <= 1e-6) h.cancel();
+    });
+  };
+  return [
+    {
+      spawn(b2, e2) {
+        b2.addBuff(e2, { key: 'boss:selfBound', persist: true, flags: { noMove: true, selfBound: true, unblockable: true, noDisplace: true } });
+        e2.base.rangeRadius = SPIDER_FIELD;
+        e2.profile.maxTargets = batch;
+      },
+      before(c, b2, e2) { // HP_DES on every field
+        const all = byPriority(e2, ground(b2, e2));
+        const picks = [];
+        for (const pid of spiderFields(b2, e2)) picks.push(...all.filter((u) => u.ownerId === pid).sort((p, q) => q.hp - p.hp).slice(0, maxT));
+        c.targets = picks.slice(0, batch);
+      },
+      dealt(c, b2, e2) { // boss_15: acspider[poison]
+        const t = c.target;
+        if (!hidden || !t || !t.alive || !(poisonDmg > 0) || !(poisonDur > 0)) return;
+        b2.addBuff(t, { key: 'boss:acspiderPoison', duration: poisonDur, refresh: 'replace', interval: 1, visible: true,
+          onTick: ({ battle, unit }) => { if (e2.alive) battle.dealDamage(e2, unit, { amount: poisonDmg, type: 'true', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'acspiderPoison'] }); } });
+      },
+      taken(c, b2, e2) { evadeCheck(b2, e2); },
+    },
+    { iv: 1, tick(b2, e2) { evadeCheck(b2, e2); } },
+    net && {
+      name: net.name, cd: net.cd, icd: net.icd,
+      cond: (b2, e2) => ground(b2, e2).some((u) => u.kind === 'op'),
+      fire(b2, e2) { // 【淤困捕食】
+        for (const t of netTargets(b2, e2)) {
+          shoot(b2, e2, t, WEB_SHOT, (t2) => {
+            if (!t2 || !t2.alive || !t2.deployed) return;
+            const tile = [t2.tileR, t2.tileC];
+            const w = b2.spawnEnemy(WEB_KEY, { route: { motion: 'WALK', start: tile, end: tile, checkpoints: [] }, pos: tile, countInTotal: false, mods: summonMods(b2) });
+            if (w) { w.mem.web = { host: e2, hidden }; b2.fx('summon', { x: w.x, y: w.y, id: e2.id, key: WEB_KEY, tgt: t2.id }); }
+          }, { source: e2 });
+        }
+      },
+    },
+    rain && {
+      name: rain.name, cd: rain.cd, icd: rain.icd,
+      fire(b2, e2) { // 【悲惨之雨】: Left, then Right, in turn
+        const fields = spiderFields(b2, e2);
+        const pid = P.rainTurn++ % 2 === 0 ? fields[0] : fields[1];
+        if (pid != null && ground(b2, e2).some((u) => u.ownerId === pid)) rainOn(b2, e2, pid);
+      },
+    },
+  ];
+}
+
+/**
+ * 淤困之茧 (no attack; Ability0: UNBALANCE_IMMUNE, LEVITATE immune; the table: 无法移动，无法被传送, taunt level 1 — "更容易受到
+ * 我方单位攻击"). Talents/Bundling: every operator on its tile (`professionMask` 639) is bound — acweb[bundling] with
+ * BLOCK_FREE + FORCE_DISARMED + SKILL_NOT_ACTIVATABLE (no block, no attack, no skill start), taken off when that operator
+ * leaves the tile (`_removeBuffWhenTargetLeave`) or the web goes (`_removeBuffWhenAbilityDetached`); the operator dying or
+ * leaving the field kills the web (ON_OWNER_FINISH → InstantKill of its source). It lives `Bundling.duration` s
+ * (acweb[existing] → InstantKill) and loses `Bundling.hp_ratio` of its max HP every 1 s (acweb[bleeding], DamageViaMaxHpRatio
+ * PURE on itself, no source).
+ */
+function kitWeb(ab) {
+  const life = T(ab, 'Bundling.duration') ?? Infinity, bleed = T(ab, 'Bundling.hp_ratio') ?? 0;
+  const P = { left: life, bleedAcc: 0, bound: new Map() };
+  const release = (b2) => { for (const [u, buff] of P.bound) b2.removeBuff(u, buff); P.bound.clear(); };
+  return [
+    {
+      spawn(b2, e2) {
+        b2.addBuff(e2, { key: 'boss:anchor', persist: true, flags: { noMove: true, selfBound: true, noDisplace: true } });
+        e2.profile.noAttack = true;
+        P.r = Math.round(e2.y); P.c = Math.round(e2.x);
+      },
+      tick(b2, e2, a, dt) {
+        for (const [u, buff] of [...P.bound]) {
+          if (!u.alive || !u.deployed) { P.bound.delete(u); release(b2); b2.kill(e2, null); return; }   // ON_OWNER_FINISH
+          if (u.tileR !== P.r || u.tileC !== P.c) { b2.removeBuff(u, buff); P.bound.delete(u); }      // left its tile
+        }
+        for (const u of b2.allies()) {
+          if (!u.alive || !u.deployed || u.hidden || u.kind !== 'op' || P.bound.has(u) || u.tileR !== P.r || u.tileC !== P.c) continue;
+          // (the web on the operator is the web's own acweb[vfx], which acweb[bundling] creates there: `source` + `fxTag`)
+          const buff = b2.addBuff(u, { key: 'boss:acweb', persist: true, refresh: 'independent', visible: true, flags: { noBlock: true, disarm: true, skillLock: true },
+            source: e2, fxTag: 'buff:acweb[vfx]' });
+          if (buff) P.bound.set(u, buff);
+        }
+        if (bleed > 0 && (P.bleedAcc += dt) >= 1 - 1e-9) {
+          P.bleedAcc -= 1;
+          b2.loseHp(e2, e2.s.maxHp * bleed, { sourceless: true, tags: ['acwebBleed'] });
+          if (!e2.alive) return;
+        }
+        if ((P.left -= dt) <= 1e-9) b2.kill(e2, null);   // acweb[existing]
+      },
+      death(c, b2) { release(b2); },
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// 假想敌：鳍 (规程 boss_13 / boss_16 隐秘核心) — official CN client prefabs enemy_9037_aceel(_2), its templates in 规程's
+// buff_template_data (aceel*), projectiles projectile_enemy_aceel / _pwratk / _thurder
+
+/** aceel[shield-provider]: `triggerInterval` 0.1 s — how often an unshielded, unblocked 鳍 raises its shield (ShieldGen). */
+const EEL_SHIELD_CHECK = 0.1;
+/** aceel[thurder-trigger] (Talents/Weather/PassiveTrigger): `triggerInterval` 10 s, the first after 10 s (`waitFirstTriggerInterval`). */
+const EEL_THUNDER_EVERY = 10;
+
+/**
+ * 假想敌：鳍 (MELEE: it hits its blocker only; arts, `Passive.attack@ep_damage_ratio` of ATK as 神经损伤 on every attack).
+ * Talents/BlockedListener (aceel[shield-provider], every 0.1 s): unblocked (not in its COMBAT state) and unshielded, it casts
+ * ShieldGen — aceel[shield]: physical and arts damage taken × (1 − `damage_resistance`) (FilterDamageModifer by damage type
+ * only, DamageScale `_isOneMinus`). Blocked (aceel[shield] ON_BUFF_START / ON_OWNER_BLOCKEE_CHANGED → CheckBlocked), the
+ * shield goes and aceel[power-atk] comes: its next attack (PowerAtk, `_castLikeAttack`) deals × `damage_scale`, then it ends
+ * (ON_AFTER_ATTACK). 【离子环波】 (Skills/Discharge, its cooldown): arts ATK × `atk_scale` + `ep_damage_ratio` 神经损伤 on every
+ * ground unit within `range_radius` [추정·CN: the range shape's centre is not in the prefab — read as the 鳍 itself, "对范围内
+ * 所有我方单位"]. boss_16 adds Talents/Charge: every attack puts one aceel[atk-stack] (at most `Charge.max_stack_cnt`) on the
+ * unit it hit (MAIN_TARGET), and its shots (projectile_enemy_aceel / _pwratk) deal × (1 + `Charge.atk` × that unit's stacks)
+ * (aceel[self-stack] AtkScaleUp) and jump on from it to `chain.max_target` more ground units, plus `extra_per_stack` per
+ * `stack_per_extra` stacks (the projectile selector's `_maxTargetModifier`), each within `projectile_range` of the last one
+ * hit, each jump × `chain.atk_scale` again; and Talents/Weather — 雷暴: every 10 s a thunderbolt (projectile_enemy_aceel_thurder)
+ * on the operator of its field standing with the most units in its 3×3 (Selector0: the tile weight of its own tile and the
+ * eight round it, random among the best), arts ATK × `Weather.atk_scale` + `Weather.ep_damage_ratio` 神经损伤.
+ * [추정·CN: the stack comes once per attack (`_onlyApplyOnFirstSpell`), its count read before the hit for the shot and after
+ * it for the jumps; each jump × `chain.atk_scale` once more than the last; Selector1's `_autoChessFilterType` 3 read as its
+ * own field — the two players each have a 鳍 (`boss_battle_multi_player`)]
+ */
+function kitEel(ab, e) {
+  const hidden = /_2$/.test(e.defId);
+  const shieldSk = ab.sk.ShieldGen, dis = ab.sk.Discharge;
+  const resist = shieldSk ? shieldSk.bb.damage_resistance ?? 0 : 0, powerScale = shieldSk ? shieldSk.bb.damage_scale ?? 1 : 1;
+  const ep = T(ab, 'Passive.attack@ep_damage_ratio') ?? 0;
+  const jumpScale = T(ab, 'Charge.attack@chain.atk_scale') ?? 1, jumps = T(ab, 'Charge.attack@chain.max_target') ?? 0;
+  const perStack = T(ab, 'Charge.attack@selector.stack_per_extra') ?? 1, extraPer = T(ab, 'Charge.attack@selector.extra_per_stack') ?? 0;
+  const maxStack = T(ab, 'Charge.max_stack_cnt') ?? 0, stackAtk = T(ab, 'Charge.atk') ?? 0, jumpR = T(ab, 'Passive.attack@projectile_range') ?? 0;
+  const wAtk = T(ab, 'Weather.atk_scale') ?? 1, wEp = T(ab, 'Weather.ep_damage_ratio') ?? 0;
+  const P = { shield: false, power: false, acc: 0, stacks: new Map(), chainMain: null, thunderAcc: 0 };
+  const stacksOf = (u) => (u && P.stacks.get(u)) || 0;
+  const ground = (b2, e2) => allTargets(b2, e2).filter((u) => !u.isFlying);
+  const setShield = (b2, e2, on) => {
+    P.shield = on;
+    if (on) b2.addBuff(e2, { key: 'boss:aceelShield', persist: true, visible: true, fxTag: 'buff:aceel[shield]' });
+    else b2.removeBuff(e2, 'boss:aceelShield');
+    b2.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: on ? 'aceelShield' : 'aceelShieldEnd' });
+  };
+  const setPower = (b2, e2, on) => {
+    P.power = on;
+    if (on) b2.addBuff(e2, { key: 'boss:aceelPower', persist: true, visible: true, fxTag: 'buff:aceel[power-atk]' });
+    else b2.removeBuff(e2, 'boss:aceelPower');
+  };
+  const chain = (b2, e2, main) => { // projectile_enemy_aceel's jumps from `main`
+    const n = Math.max(0, Math.round(jumps + Math.floor(stacksOf(main) / Math.max(1, perStack)) * extraPer));
+    const hit = new Set([main]);
+    let from = main, scale = 1;
+    P.chainMain = main;
+    for (let k = 0; k < n && e2.alive; k++) {
+      let best = null, bd = Infinity;
+      for (const u of ground(b2, e2)) {
+        if (hit.has(u)) continue;
+        const d = hypot(u.x - from.x, u.y - from.y);
+        if (d <= jumpR + ALLY_COLLIDER_RADIUS + 1e-9 && (d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && best && u.id < best.id))) { best = u; bd = d; }
+      }
+      if (!best) break;
+      scale *= jumpScale;
+      hit.add(best);
+      // `key`: the shot that jumps (the strong attack's projectile_enemy_aceel_pwratk while aceel[power-atk] is on)
+      b2.fx('link', { x: from.x, y: from.y, from: from.id, to: best.id, kind: 'aceelChain', dur: 0.2, id: e2.id, key: P.power ? 'projectile_enemy_aceel_pwratk' : 'projectile_enemy_aceel' });
+      b2.dealDamage(e2, best, { amount: e2.s.atk * scale, type: 'arts', isAttack: true, tags: ['aceelChain'] });
+      from = best;
+    }
+    P.chainMain = null;
+  };
+  const blockCheck = (b2, e2) => { if (P.shield && e2.blockedBy) { setShield(b2, e2, false); setPower(b2, e2, true); } };   // CheckBlocked → aceel[power-atk]
+  return [
+    {
+      before(c, b2, e2) { blockCheck(b2, e2); },   // ON_OWNER_BLOCKEE_CHANGED comes with the block, before any attack on the blocker
+      tick(b2, e2, a, dt) {
+        blockCheck(b2, e2);
+        if ((P.acc += dt) < EEL_SHIELD_CHECK - 1e-9) return;
+        P.acc = 0;
+        if (!P.shield && !e2.blockedBy && canCast(e2, false, b2)) setShield(b2, e2, true);   // ShieldGen
+      },
+      hitIn(c) { // aceel[shield]
+        if (P.shield && resist > 0 && (c.dmg.type === 'phys' || c.dmg.type === 'arts')) c.dmg.mul *= 1 - resist;
+      },
+      hitOut(c) {
+        if (!c.dmg.isAttack) return;
+        const chained = (c.dmg.tags || []).includes('aceelChain');
+        if (P.power) c.dmg.amount *= powerScale;                                                // aceel[power-atk]
+        if (hidden && stackAtk > 0) c.dmg.amount *= 1 + stackAtk * stacksOf(chained ? P.chainMain : c.target);   // aceel[self-stack]
+      },
+      dealt(c, b2, e2) {
+        const t = c.target;
+        if (!t) return;
+        if (ep > 0 && t.alive) elem(b2, e2, t, 'neural', e2.s.atk * ep);
+        if (!hidden || (c.dmg.tags || []).includes('aceelChain')) return;
+        if (maxStack > 0) P.stacks.set(t, Math.min(maxStack, stacksOf(t) + 1));                // Charge → aceel[atk-stack]
+        if (jumpR > 0) chain(b2, e2, t);
+      },
+      attack(c, b2, e2) { if (P.power) setPower(b2, e2, false); },                               // ON_AFTER_ATTACK
+    },
+    dis && {
+      // the handbook's SILENCE line; the prefab's Discharge skill, alone of the three, has no `_ignoreSilence`
+      name: dis.name, cd: dis.cd, icd: dis.icd, sil: true,
+      cond: (b2, e2) => areaAllies(b2, e2, e2.x, e2.y, (dis.bb.range_radius ?? 0) + ALLY_COLLIDER_RADIUS).some((u) => !u.isFlying),
+      fire(b2, e2) { // 【离子环波】
+        const r = dis.bb.range_radius ?? 0;
+        b2.fx('explode', { x: e2.x, y: e2.y, r, kind: 'aceelDischarge', id: e2.id });
+        for (const u of areaAllies(b2, e2, e2.x, e2.y, r + ALLY_COLLIDER_RADIUS)) {
+          if (u.isFlying) continue;
+          hurt(b2, e2, u, e2.s.atk * (dis.bb.atk_scale ?? 1), 'arts', { canDodge: true, tags: ['aceelDischarge'] });
+          if (u.alive) elem(b2, e2, u, 'neural', e2.s.atk * (dis.bb.ep_damage_ratio ?? 0));
+        }
+      },
+    },
+    hidden && {
+      tick(b2, e2, a, dt) { // 雷暴
+        if ((P.thunderAcc += dt) < EEL_THUNDER_EVERY - 1e-9 || !canCast(e2, false, b2)) return;
+        P.thunderAcc = 0;
+        const all = b2.allies().filter((u) => u.alive && u.deployed && !u.hidden);
+        const ops = ground(b2, e2).filter((u) => u.kind === 'op' && u.ownerId === e2.ownerId);
+        let best = [], bn = -1;
+        for (const u of ops) {
+          const n = all.filter((o) => Math.abs(o.tileR - u.tileR) <= 1 && Math.abs(o.tileC - u.tileC) <= 1).length;
+          if (n > bn) { bn = n; best = [u]; } else if (n === bn) best.push(u);
+        }
+        if (!best.length) return;
+        const t = best.length > 1 ? best[Math.floor(b2.rng() * best.length)] : best[0];
+        b2.fx('explode', { x: t.x, y: t.y, r: 0.5, kind: 'aceelThunder', id: e2.id });
+        hurt(b2, e2, t, e2.s.atk * wAtk, 'arts', { canDodge: true, tags: ['aceelThunder'] });
+        if (t.alive) elem(b2, e2, t, 'neural', e2.s.atk * wEp);
+      },
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// 矩兽 (规程 boss_17) — official client prefab enemy_2124_dyjsfg (battle/enm_pfb_28, the same in the EN and CN clients)
+// and its templates enemy_dyjsfg_t* in the buff table
+
+/** Talents/Huge: the passive buff enemy_dyjsfg_t `triggerInterval` 0.1 s — how often 【明力】 picks its damage reduction. */
+const JU_GUARD_CHECK = 0.1;
+/** enemy_dyjsfg_t[combat_damage] (BuffToOwner on Skills/CombatAoe): `triggerInterval` 0.5 s after the skill's attack event. */
+const JU_CRUSH_DELAY = 0.5;
+/** enemy_dyjsfg_t[kill_all]'s buffs [kill_enemy] / [damage_ally]: `triggerInterval` 0.75 s (`waitFirstTriggerInterval`, one trigger). */
+const JU_LAST_DELAY = 0.75;
+/** [kill_enemy]: 后兽 (enemy_2123_dyjsww) stays (`CheckEnemyId` `_filterIds`). */
+const JU_SPARED = 'enemy_2123_dyjsww';
+
+/**
+ * 矩兽. The prefab's `_blockVolume` 3 (the table's blockCnt is 1) and its `Combat` an EmptyAnimatedAbility: blocked, it
+ * deals no attack damage — what it deals is its talents'.
+ * 【明力】 (Talents/Huge, enemy_dyjsfg_t every 0.1 s): 抵抗 −`one_minus_status_resistance` (the buff's attribute 26
+ * ONE_MINUS_STATUS_RESISTANCE); standing still (Enemy.IsStayStill: not in its move state — blocked, stunned, waiting — nor
+ * blinking, unbalanced or being born) the derived buff enemy_dyjsfg_low_damage_resistance, else ..._high (template
+ * damage_resistance: physical and arts damage taken × (1 − `damage_resistance`)), the other one ended.
+ * 【尚同】 (Talents/Trample, from its appearance): every `Trample.interval` (Buff.Reset reads the blackboard `interval` over the
+ * prefab's 1 s; the first after one interval) every unit of the player's side within `range_radius` (CreateBuffInRange,
+ * all motions) takes physical ATK × `atk_scale` (DamageViaAttr from the source's ATK). Each time it becomes blocked
+ * (ToggleablePassiveBuffAbility + BlockedToggleChecker min 1: the toggle turns on) enemy_dyjsfg_t[trigger_aoe] forces
+ * Skills/CombatAoe (TriggerEnemySkill, `_interruptCurAbility`): at its attack event its MeleeAttack strikes its own target,
+ * the blocker (`_selectTargetSource` FROM_OWNER), physical ATK × 1, and puts enemy_dyjsfg_t[combat_damage] on itself; 0.5 s
+ * later every unit of that side within the skill's `range_radius` takes physical ATK × `combat_atk_scale` (AOEDamage,
+ * `_useDamageFromBB` off = the source's ATK; `_excludeTarget` leaves out only the leader at its centre). The skill plays its
+ * clip (`_animKey` Attack, `_timeMode` 1: the clip as it is, 1.5 s) and waits for its OnAttack frame (0.6 s —
+ * data/seasons/act3autochess/enemies.json `skillCast.combataoe.hit`, from the model's skeleton); a stun, a freeze, a
+ * sleep, 失衡, fear or 隐匿 before that frame cuts the cast (ai.js cutEnemySwing's states), and so does losing its target
+ * (`AbilityStandard.UpdateTargets`: no target and `allowNoTarget` off ends the cast) [추정·엔진: whether CombatAoe's
+ * `_allowNoTarget` is off was not read — the blocker gone, neither the strike nor the 0.5 s burst comes].
+ * 【非命】 (Talents/Overload, HpRatioToggleChecker `_maxHpRatio` 0.5 `_toggleOnce`): once, at half HP — ATK +`Overload.atk`
+ * (MULTIPLIER), move speed × `Overload.move_speed` (FINAL_SCALER), block volume +`block_volume` (AddEnemyBlockVolume only
+ * raises Enemy.blockVolumeAddition; a blocker keeps the volume it counted at the block — BlockedEnemyManager.Add — so the
+ * extra counts from its next block on).
+ * 【兼爱】 (Talents/OutOfControll, enemy_dyjsfg_t[kill_all] ON_OWNER_FINISH: knocked out or leaving): its ATK then
+ * (AssignAttributeToBB) is kept; 0.75 s later every enemy but a trap, a token or 后兽 is knocked out (InstantKill, no
+ * source), and every operator and summon takes physical that ATK × `OutOfControll.atk_scale`, no source (FixedValueDamage
+ * `_noSourceDamage`; CreateBuffToCertainSideUnits selects nothing, so 隐匿 does not save it). A boss field ends as its pool
+ * empties (DESIGN §5.5), so this shows only where the battle goes on.
+ */
+function kitJu(ab) {
+  const resist = -(T(ab, 'Huge.one_minus_status_resistance') ?? 0);
+  const low = T(ab, 'Huge.enemy_dyjsfg_low_damage_resistance.damage_resistance') ?? 0;
+  const high = T(ab, 'Huge.enemy_dyjsfg_high_damage_resistance.damage_resistance') ?? 0;
+  const trR = T(ab, 'Trample.range_radius') ?? 0, trAtk = T(ab, 'Trample.atk_scale') ?? 1, trEvery = T(ab, 'Trample.interval') ?? 1;
+  const crush = ab.sk.CombatAoe;
+  const crushR = crush ? crush.bb.range_radius ?? 0 : 0, crushAtk = crush ? crush.bb.combat_atk_scale ?? 1 : 1;
+  const strikeAtk = crush ? crush.bb.atk_scale ?? 1 : 1;   // MeleeAttack `_atkScaleKey` atk_scale, else `_atkScale` 1
+  const ovAtk = T(ab, 'Overload.atk') ?? 0, ovMove = T(ab, 'Overload.move_speed') ?? 1, ovVol = T(ab, 'Overload.block_volume') ?? 0;
+  const lastAtk = T(ab, 'OutOfControll.atk_scale') ?? 1;
+  const crushHit = crush && crush.cast && crush.cast.hit > 0 ? crush.cast.hit : 0;   // the clip's OnAttack frame, s
+  const P = { guardAcc: 0, guard: null, trampleAcc: 0, wasBlocked: false, over: false, volLeft: 0, cast: null };
+  const still = (e2) => !!e2.blockedBy || !e2.moving || !!e2.s.flags.stun;
+  const setGuard = (b2, e2, dr) => {
+    if (P.guard === dr) return;
+    P.guard = dr;
+    const m = 1 - dr;
+    b2.addBuff(e2, { key: 'boss:juGuard', persist: true, refresh: 'replace', mods: { physTakenMul: m, artsTakenMul: m } });
+  };
+  // the forced cast (TriggerEnemySkill): its clip starts now, its attack event comes at the clip's OnAttack frame
+  const crushStart = (b2, e2) => {
+    b2.fx('enemySkill', { x: e2.x, y: e2.y, id: e2.id, ability: crush ? crush.name : 'CombatAoe' });
+    P.cast = { at: b2.time + crushHit, tgt: e2.blockedBy };
+    if (!(crushHit > 0)) crushNow(b2, e2);
+  };
+  const crushNow = (b2, e2) => {
+    const tgt = P.cast && P.cast.tgt;
+    P.cast = null;
+    if (!tgt || !tgt.alive || !tgt.deployed) return;
+    // the skill's MeleeAttack (`_selectTargetSource` FROM_OWNER: its own target, the blocker; physical, `_atkScale` 1)
+    hurt(b2, e2, tgt, e2.s.atk * strikeAtk, 'phys', { canDodge: true, tags: ['dyjsfgStrike'] });
+    b2.after(JU_CRUSH_DELAY, () => {
+      if (!e2.alive || e2.hidden) return;
+      b2.fx('explode', { x: e2.x, y: e2.y, r: crushR, kind: 'dyjsfgCrush', id: e2.id });
+      for (const u of areaAllies(b2, e2, e2.x, e2.y, crushR + ALLY_COLLIDER_RADIUS)) hurt(b2, e2, u, e2.s.atk * crushAtk, 'phys', { tags: ['dyjsfgCrush'] });
+    }, { owner: e2 });
+  };
+  return [
+    {
+      spawn(b2, e2) {
+        e2.blockWeight = 3;               // the prefab's `_blockVolume`
+        e2.profile.noAttack = true;       // `Combat` = EmptyAnimatedAbility (the table's applyWay NONE says the same)
+        if (resist > 0) b2.applyStatus(e2, 'resist', { source: e2, value: Math.min(1, resist) });
+      },
+      tick(b2, e2, a, dt) {
+        if ((P.guardAcc += dt) >= JU_GUARD_CHECK - 1e-9) { P.guardAcc = 0; setGuard(b2, e2, still(e2) && !unbalancedNow(b2, e2) ? low : high); }
+        if (P.cast) {
+          if (!canCast(e2, false, b2) || e2.s.flags.fear) P.cast = null;     // the cast is cut (ai.js cutEnemySwing)
+          else if (b2.time >= P.cast.at - 1e-9) crushNow(b2, e2);
+        }
+        const blocked = !!e2.blockedBy;
+        if (blocked && !P.wasBlocked && crush && canCast(e2, false, b2)) crushStart(b2, e2);   // the toggle turns on (`_interruptCurAbility`: a cast still playing starts over)
+        P.wasBlocked = blocked;
+        if (!P.over && e2.hp <= e2.s.maxHp * 0.5 + 1e-9) {   // HpRatioToggleChecker `_maxHpRatio` 0.5, once
+          P.over = true;
+          P.volLeft = ovVol;
+          b2.addBuff(e2, { key: 'boss:juOverload', persist: true, visible: true, mods: { atkPct: ovAtk, moveMul: ovMove } });
+          b2.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: 'dyjsfgOverload' });
+        }
+        if (P.volLeft && !e2.blockedBy) { e2.blockWeight += P.volLeft; P.volLeft = 0; }
+        if (e2.hidden || trR <= 0) return;
+        if ((P.trampleAcc += dt) < trEvery - 1e-9) return;
+        P.trampleAcc -= trEvery;
+        b2.fx('explode', { x: e2.x, y: e2.y, r: trR, kind: 'dyjsfgTrample', id: e2.id });
+        for (const u of auraAllies(b2, e2, e2.x, e2.y, trR + ALLY_COLLIDER_RADIUS)) hurt(b2, e2, u, e2.s.atk * trAtk, 'phys', { tags: ['dyjsfgTrample'] });
+      },
+      death(c, b2, e2) {
+        const atk = e2.s.atk;
+        b2.after(JU_LAST_DELAY, () => {
+          b2.fx('explode', { x: e2.x, y: e2.y, r: 0, kind: 'dyjsfgLast', id: e2.id });
+          for (const o of b2.aliveEnemies()) if (o !== e2 && o.defId !== JU_SPARED && !/^(trap|token)_/.test(o.defId)) b2.kill(o, null);
+          for (const u of b2.allies()) if (u.alive && u.deployed && u.kind !== 'device') hurt(b2, e2, u, atk * lastAtk, 'phys', { ignoreSelect: true, sourceless: true, tags: ['dyjsfgLast'] });
+        }, { holdsBattle: true });
+      },
+    },
+  ];
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 
 export const BOSS_KITS = Object.freeze({
@@ -1941,6 +2680,17 @@ export const BOSS_KITS = Object.freeze({
   enemy_10029_vtshld: kitEquip,        // 防护背心
   enemy_10030_vtwand: kitEquip,        // 冲击式施术单元
   enemy_9033_acdeer: kitDeer,          // boss_7 “萨米的意志”
+  // 规程 (act3autochess) only — data/seasons/act3autochess/enemies.json
+  enemy_9028_acfncb: kitFirstDouble,   // 量变之械 (假想敌：械's part)
+  enemy_9029_acfnc: kitMachine,        // boss_11 假想敌：械
+  enemy_9029_acfnc_2: kitMachine,      // boss_14 假想敌：械 (隐秘核心)
+  enemy_9027_acfnca: kitArmor,         // 冲击之械
+  enemy_9035_acspider: kitSpider,      // boss_12 假想敌：茧
+  enemy_9035_acspider_2: kitSpider,    // boss_15 假想敌：茧 (隐秘核心)
+  enemy_9036_acweb: kitWeb,            // 淤困之茧
+  enemy_9037_aceel: kitEel,            // boss_13 假想敌：鳍
+  enemy_9037_aceel_2: kitEel,          // boss_16 假想敌：鳍 (隐秘核心)
+  enemy_2124_dyjsfg: kitJu,            // boss_17 矩兽
 });
 export const BOSS_KEYS = Object.freeze(Object.keys(BOSS_KITS));
 /** Stage tokens a leader switches on (template `devices`, not in data/enemies.json), spawned as enemies with an inline record. */

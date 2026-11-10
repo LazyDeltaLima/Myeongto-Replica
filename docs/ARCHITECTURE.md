@@ -92,8 +92,8 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 | `server/sim/content/` | everything game-specific, installed into a battle by `server/sim/content/index.js` |
 | `server/sim/content/kits/` | the operator kits: `ops/` holds one file per chess (`<chessId>-<codename>.js`, 129), per 补位 stand-in (`standin-<codename>.js`, 9) and per 自选 operator (`op-<codename>.js`, 71); `shared/` the helpers several kits use; `index.js` the registry; `README.md` the guide |
 | `server/sim/content/enemies/` | the enemy kits by special type (`invisible.js`, `times.js`, `element.js`, `dot.js`, `reflection.js`, `fly.js`, `special.js`) and `leaders.js`; `server/sim/content/enemies.js` dispatches them, `server/sim/content/bosses.js` scripts the leaders |
-| `server/sim/content/garrisons/`, `items/`, `bands/` | 特质, equipment and strategies: `battle.js` is the battle side, `meta.js` the prep side (`registerMeta`, META §2) |
-| `server/sim/content/bonds/` | the 23 bonds: `core.js` the 8 core bonds (both sides), `server/sim/content/bonds/addon/` the 15 add-on bonds (`battle.js`, `meta.js`) |
+| `server/sim/content/garrisons/`, `items/`, `bands/` | 特质, equipment and strategies: `battle.js` is the battle side, `meta.js` the prep side (`registerMeta`, META §2). Items and 特质 split their behaviours by family under it — `items/effects/*.js` (battle, by official buff key; `items/shared.js`, `items/aliases.js` the renamed prep keys), `garrisons/effects/*.js` (battle) and `garrisons/prep/*.js` (prep), by effect key — and `battle.js` / `meta.js` assemble them in a fixed order |
+| `server/sim/content/bonds/` | the bonds, picked by the buff templates of each record (`dispatch.js`: the battle install order `ORDER`, the prep handlers assembled from the season's records; a template no file registers runs nothing): `nation/<bond>.js` the 12 nation bonds (each `TEMPLATES`, both seasons' templates of a bond in one file), `addon/` the add-on bonds (`battle.js`, `meta.js`), `general/` an add-on bond's template of another season, `templates.js` the prep templates no one bond owns (layer rewards, layer funds, 远见's discount), `shared.js` the template key and hook plumbing; `core.js` / `regulation.js` / `addon.js` re-export for old importers |
 | `server/sim/content/` (the rest) | `tokens.js` (summons), `devices.js` (terrain and stage devices), `generic.js` (the kit built from a skill's data when a chess has none), `choices.js` (机变 cards in battle) |
 | `shared/` | imported by the server and the browser: `protocol.js`, `constants.js`, `i18n.js`, `i18nData.js` and `i18nPacks.js` (languages), `packs.js` (the content-pack format), `standIn.js` (补位), `diy.js` (自选编队), `highGround.js`, `loadoutRecord.js`, `wideField.js` (the 8-player mode's wide 联防 columns), `seasons.js` (the 卫戍协议 seasons a room can run, their data folders and rule switches) |
 
@@ -150,7 +150,10 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
   tier, else of its visible chess), else its 自选 kit (`kits/index.js` `kitKeyOfChar`). While the server offers several seasons the
   page shows a season picker (`public/js/ui/season.js`: the title's tabs, the lobby's chip, the room's badge; the offered list
   comes in a socket's first `pong`); the picked season is the one rooms are created and 랜덤 매칭 queued in, every season has its
-  own queues, and the loadout settings and statistics are kept per season.
+  own queues, and the loadout settings and statistics are kept per season. How much of a season's bond templates, item
+  buff keys and 特质 effect keys the content code acts on — `ok` / `partial` / `none`, and handlers that run on a record
+  without the buff they ask for — is `server/sim/content/coverage.js` (`node tools/season-coverage.mjs [season] [--all]`;
+  the default season stays at none 0 · partial 0, `test/content/coverage.test.js`).
 - **On the server**, `server/data.js` loads the files once; the match reads them through `server/match/gamedata.js`,
   the sim through `server/sim/simdata.js`, which turns every record into a frozen engine def.
 - **In the browser**, `public/js/data.js` fetches the same files once per page for the UI, and the battle runner takes

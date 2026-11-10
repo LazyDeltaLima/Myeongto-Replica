@@ -182,6 +182,19 @@ export const KEY_FX = Object.freeze({
   // S2 “以鲜血洗去” at its stack cap: veen_s_2_buff_full[effect] (veen_skill_02_buff_03) on her till the skill ends
   'veen:war': keyed('veen_t_2[damage]', 'veen', OWN),
   'veen:s2full': keyedAll('veen_s_2_buff_full[effect]', 'veen', OWN),
+  // (2026-11-10) 외드레르 (규정 기물) S3: hodrer_s_3[damage] gives an enemy hitting him / hit by him (not 无敌) hodrer_s_3[burn]
+  // (overrideEffectKey hodrer_skill_03_Debuff_01, INFINITY, one per source) — the sim's 'skill:hodrer:smoke:<his id>'
+  'skill:hodrer:smoke': keyedAll('hodrer_s_3[burn]', 'hodrer', OWN),
+  // (2026-11-10) 메커니스트 (규정 기물) S2: mcnist_s_2_shield (overrideEffectKey mcnist_skill_02_buff_01, INFINITY) on her and
+  // her 结构性原理 while the 屏障 holds — the sim's S2 barrier (its T2 生命方程 barrier, mcnist_t_2, has no effect of its own)
+  'mcnist:s2:barrier': keyedAll('mcnist_s_2_shield', 'mcnist', OWN),
+  // (2026-11-10) 시데로카 (규정 기물) T1: the times-th kill gives sidero_t_1[attack_speed] (overrideEffectKey sidero_buff_01_start,
+  // INFINITY) — the sim's buff of that key
+  'sidero_t_1[attack_speed]': keyedAll('sidero_t_1[attack_speed]', 'sidero', OWN),
+  // (2026-11-10) 올가 (규정 기물) T1: her Talents/1 aura gives every operator of the talent grid alga[check_enemy] (overrideEffectKey
+  // alga_buff), her too; the S2 mode's copy is the same buff (`disableOverride`: outside the override group, not the effect off) —
+  // the sim's aura buff 'alga[check_enemy]:<her id>'
+  'alga[check_enemy]': keyedAll('alga[check_enemy]', 'alga', OWN),
   // (2026-11-03) Mon3tr T2 战术协同 on an ally neither a Mon3tr nor a 重构体 (the sim's 'talent:monstr:aspd', `fxTag` 2 = given
   // under her S2), by the side the ally faces
   'talent:monstr:aspd': cite(['monstr_t_2[eff_1]', 'monstr_t_2[eff_1][r]', 'monstr_t_2[eff_2]', 'monstr_t_2[eff_2][r]'],
@@ -565,12 +578,17 @@ export function readyHolds(v, stop, f = v.flags | 0) {
  * resolved to the side's prefab key), `bundle/prefab` for the buff effects (SOURCE_FX / KEY_FX / LAYER_FX / STACK_FX).
  * `v.statusFrom` (UnitView.onStatus): status key → statusSource(). `plays`: the loaded plays.json (`keyed` specs).
  */
-export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyOf = null) {
+export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyOf = null, viewOf = null) {
   out.clear();
   playsNow = plays;
   const f = v.flags | 0;
   // 2026-10-21: an enemy's own buff effects (fxgame.js enemyBuffFx — its prefab's buffs; ebuff(view, kind, tag) → { on, ends })
   const own = v.isEnemy && typeof ebuff === 'function' ? (kind, tag) => ebuff(v, kind, tag) : null;
+  // 2026-11-10: a buff an enemy's ability puts on an ally (its `fxTag` 'buff:…', the status's applier `src`) — that enemy's
+  // binding of the buff, drawn on the ally: 淤困之茧's acweb[vfx], which its acweb[bundling] creates on the operator it binds
+  // (`viewOf`: the field's views by id)
+  const bySrc = !v.isEnemy && typeof ebuff === 'function' && typeof viewOf === 'function'
+    ? (src, tag) => { const s = src != null ? viewOf(src) : null; return s && s.isEnemy ? ebuff(s, 'key', tag) : null; } : null;
   const byOwn = (r) => {
     for (const s of r.on) {
       byName(out, s);
@@ -602,7 +620,7 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
       // reborn() in server/sim/content/enemies/archetypes.js): the enemy's own buff effects — none bound, nothing drawn
       const tag = typeof from?.fx === 'string' && from.fx.startsWith('buff:') ? from.fx.slice(5) : null;
       if (tag != null || /^ab:.*:inv$/.test(k)) {
-        const r = own ? (tag != null ? own('key', tag) : own('inv')) : null;
+        const r = own ? (tag != null ? own('key', tag) : own('inv')) : bySrc && tag != null ? bySrc(from?.src, tag) : null;
         if (r) byOwn(r);
         continue;
       }
@@ -657,12 +675,13 @@ export function syncStatusFx(views, fxGame, battle) {
   const ebuff = typeof fxGame.enemyBuffFx === 'function' ? fxGame.enemyBuffFx : null;
   const plays = typeof fxGame.plays === 'function' ? fxGame.plays() : null;
   const readyOf = typeof fxGame.readyFx === 'function' ? fxGame.readyFx : null;
+  const viewOf = (id) => views.get(id);
   for (const v of views.values()) {
     if (!v || typeof v.flags !== 'number') continue;
     v._statusIcons = icons;
     const on = v._fxStatusOn;
     const live = battle && v.alive && !v.prep && !v.remove;
-    const want = live ? wantedStatusFx(v, WANT, ebuff, plays, readyOf) : (WANT.clear(), WANT);
+    const want = live ? wantedStatusFx(v, WANT, ebuff, plays, readyOf, viewOf) : (WANT.clear(), WANT);
     for (const [k, spec] of want) {
       if (on && on.has(k)) continue;
       const [bundle, name, frac, hold, kept] = spec;

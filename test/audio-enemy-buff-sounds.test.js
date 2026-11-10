@@ -207,3 +207,75 @@ describe('enemy buff / custom-trigger sounds: 骨刺 · 元核孽生者 · 灼�
     assert.ok(heard([['fx', 'kitHit', 0, 0, { id: 1, k: 'acbunn:cute' }]]).some((f) => f.startsWith('e_atk_trnkrtbsch')));
   });
 });
+
+describe('规程 隐秘核心 sounds (2026-11-11, CN prefabs)', () => {
+  const STORM = 'a_bat_lthndrstm.mp3', RAIN_END = 'e_atk_bvspdrspt_h_u.mp3';
+  /** A manager whose _play returns a cancel and records what is due (`delay`) and what was cancelled before it played. */
+  function mgr() {
+    const a = manager();
+    a.due = [];
+    a._play = (url, o) => {
+      const rec = { f: file(url), delay: o?.delay ?? 0, cancelled: false };
+      a.due.push(rec);
+      return () => { rec.cancelled = true; };
+    };
+    return a;
+  }
+  const live = (a, f) => a.due.filter((r) => r.f === f && !r.cancelled).map((r) => r.delay);
+  const rain = (field, id, dur = 10) => ['fx', 'zone', 0, 0, { x: 0, y: 0, r: 0, dur, kind: 'acspiderRain', field, id, ability: 'AcidRain' }];
+
+  test('the banks', { skip: NO_DATA }, () => {
+    const out = kitHitSfx(indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8'))), (p) => p);
+    assert.equal(KIT_HIT_BANKS['aceel:thunder'], 'battle.ON_BUFF_START.Aceel_ThurderEnv');
+    assert.equal(KIT_HIT_BANKS['acspider:rainend'], 'battle.ON_CUSTOM_TRIGGER.acid_rain');
+    assert.ok(out['aceel:thunder']?.[0]?.endsWith('a_bat_lthndrstm.mp3'), 'the storm ambience');
+    assert.ok(out['acspider:rainend']?.[0]?.endsWith('e_atk_bvspdrspt_h_u.mp3'), 'the rain end');
+  });
+
+  test('假想敌：鳍 (隐秘核心)\'s storm sounds once as it comes; the plain 鳍 has none', { skip: NO_DATA }, () => {
+    const a = mgr();
+    a.handleBattleEvents([['spawn', { id: 1, side: 'enemy', kind: 'enemy', defId: 'enemy_9037_aceel' }]]);
+    assert.deepEqual(live(a, STORM), []);
+    a.handleBattleEvents([['spawn', { id: 2, side: 'enemy', kind: 'enemy', defId: 'enemy_9037_aceel_2' }]]);
+    assert.deepEqual(live(a, STORM), [0]);
+  });
+
+  test('假想敌：茧 (隐秘核心)\'s rain ends with its end sound: when due, at once when the 茧 dies or a new rain replaces it', { skip: NO_DATA }, () => {
+    const a = mgr();
+    a.handleBattleEvents([rain('p1', 7, 10)]);
+    assert.deepEqual(live(a, RAIN_END), [10], 'due as the rain ends');
+    // another field's rain is its own
+    a.handleBattleEvents([rain('p2', 7, 10)]);
+    assert.deepEqual(live(a, RAIN_END), [10, 10]);
+    // a new rain on p1 ends the old one there now
+    a.ctx.currentTime = 3;
+    a.handleBattleEvents([rain('p1', 7, 10)]);
+    assert.deepEqual(live(a, RAIN_END).sort((x, y) => x - y), [0, 10, 10], 'the old p1 rain: now instead of when due; the new one due');
+    // the 茧 dies: every rain of it not ended yet ends now
+    a.ctx.currentTime = 5;
+    a.handleBattleEvents([['die', 7]]);
+    assert.deepEqual(live(a, RAIN_END), [0, 0, 0], 'both fields\' rains end with it, nothing left due');
+    // a rain already over: no second end sound when its 茧 dies later
+    const b = mgr();
+    b.handleBattleEvents([rain('p1', 8, 4)]);
+    b.ctx.currentTime = 6;
+    b.handleBattleEvents([['die', 8]]);
+    assert.deepEqual(live(b, RAIN_END), [4], 'it sounded when due');
+  });
+
+  test('谢拉格\'s giant (a walking ally from an enemy record) sounds as its enemy: its mode, form switch, 【神迹之声】 and PowerAttack', () => {
+    const a = manager();
+    const G = 'enemy_9024_acsgnt';
+    assert.ok(a.getManifest().audio.sfx.units[G]?.sk?.attract, 'the manifest has its abilities (local-char-audio.json from the CN prefab)');
+    const heard = (ev) => { a.played.length = 0; a.handleBattleEvents(ev); return [...a.played]; };
+    heard([['spawn', { id: 9, side: 'ally', kind: 'token', defId: G, spine: G, walks: true }], ['spawn', { id: 10, side: 'ally', kind: 'token', defId: G, spine: G }]]);
+    assert.equal(a.enemyMode(9, G, 1, 0), true, 'the renderer\'s mode change takes (its SnowyMountain attack set)');
+    assert.equal(a.units.get(9).emode, 1);
+    assert.equal(a.enemyMode(10, G, 1, 0), false, 'a summon of the record without `walks`: no enemy mode');
+    assert.deepEqual(heard([['fx', 'phase', 0, 0, { x: 0, y: 0, id: 9, kind: 'SnowyMountain', form: 'SnowyMountain' }]]), ['e_atk_stchnwtn.mp3'], 'Switch2Snowy');
+    assert.deepEqual(heard([['fx', 'phase', 0, 0, { x: 0, y: 0, id: 9, kind: 'Giant', form: 'Giant' }]]), ['e_atk_stchnwgt.mp3'], 'Switch2Giant');
+    assert.deepEqual(heard([['skill', 9, true, 'Skills/Attract']]).filter((f) => f.startsWith('e_')), ['e_atk_snwtntrct.mp3'], 'Attract\'s START');
+    heard([['skill', 9, false]]);
+    assert.ok(heard([['fx', 'enemySkill', 0, 0, { x: 0, y: 0, id: 9, ability: 'PowerAttack', n: 1 }]]).includes('e_atk_snwtnpch.mp3'), 'PowerAttack\'s START');
+  });
+});

@@ -27,6 +27,8 @@ test('the extracted always-on effects: the passive INFINITY buffs of the common 
     char_2015_dusk: ['dusk_buff_02_start', 'dusk_buff_05_start'],
     char_245_cello: ['cello_common_fx01', 'cello_common_fx03', 'cello_common_fx05'],
     char_4134_cetsyr: ['cetsyr_buff_range_01'],
+    // 레이지 아이언하이드 (a 规程 piece, CN client): CommonAbilities acrbot[equip-vfx] (INFINITY); her effect bundle is not extracted yet
+    char_618_acrbot: ['char_acrbot_ability_01_1'],
   });
   // 凯尔希·思衡托's RespawnBorn is a cast (its clip and cast effects), not a passive: its teleport end stays the kit's
   assert.equal(MODES.char_1052_kalts2?.common, undefined);
@@ -45,6 +47,7 @@ test('commonEffects: the always-on talents by charId (TALENT_ALWAYS), after the 
   assert.deepEqual(commonEffects(null, ['flower_buff_01_range'], null, 'char_181_flower', PLAYS), ['flower_buff_01_range']);
   assert.deepEqual(commonEffects(null, [], null, 'char_423_blemsh', PLAYS), [], 'not extracted');
   assert.deepEqual(commonEffects(null, null, null, 'char_245_cello'), [], 'without the plays: none');
+  assert.deepEqual(commonEffects(null, null, null, 'char_1031_slent2', PLAYS), ['slent2_buff_01'], '사일런스 더 패러디그매틱 T1 on herself');
   // by the talent's client key (2026-10-23): its held prefabs are the operator's own
   for (const [id, t] of Object.entries(TALENT_ALWAYS)) for (const n of PLAYS.keys[t.tpl]?.held || []) assert.ok(n.startsWith(`${id.replace(/^char_\d+_/, '')}_`), n);
 });

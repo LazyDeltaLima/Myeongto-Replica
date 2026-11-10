@@ -188,7 +188,7 @@
   - 후속 제보(시라쿠사 6의 은신 오퍼레이터가 부패의 전사 계열에게 범위 피해로 쓰러짐): 살카즈 부패의 전사 = 萨卡兹枯朽战士(`enemy_1267_nhpbr`, `_2` 리더)는 쓰러질 때
     【污染秽蚀】 지대를 남긴다(스플래시가 아니라 지속 피해 지대). PRTS: 「【污染秽蚀】：范围内位于低地/高地的我方干员和召唤物每秒受到50/25点真实普通伤害（可对空，
     无视无法选择、迷彩；同名效果不叠加）」 — 隐匿은 无法选择의 하나라서 공식으로 맞는다(`enemies.js pollution` `ignoreSelect`). 부패의 전차(`enemy_1272_nhtank`)의
-    秽蚀轰击 지대도 같다. 叙拉古 6은 隐匿(`bonds/core.js` `flags.stealth`, 迷彩 아님)이고 배치 후 공속 버프와 같은 시간만 지속된다. 아군 隐匿은 저지해도
+    秽蚀轰击 지대도 같다. 叙拉古 6은 隐匿(`bonds/nation/siracusa.js` `flags.stealth`, 迷彩 아님)이고 배치 후 공속 버프와 같은 시간만 지속된다. 아군 隐匿은 저지해도
     풀리지 않고, 저지당한 적 하나만 그 오퍼를 공격한다(PRTS 「敌人会在自身被干员阻挡情况下强行无视对方可选性发动攻击」). 코드 변경 없음, 테스트로 고정.
 - **炎佑가 지상 유닛처럼 타일을 차지함 (2026-10-08 관리자 제보)**: 炎 6명 맹약의 「炎佑」(`enemy_9012_acloon`, 키트가 `motion 'FLY'`)는
   비행 유닛인데 `Battle._deploy`가 생성 칸을 `_occ`에 넣어, 날아간 뒤에도 그 칸이 막혀 있었다(배치·소환·재배치·쓰러진 오퍼 복귀 대기).
@@ -588,7 +588,7 @@ upstream v0.2.4(`bc50cac0`)·그 뒤 PR과 새 이슈 중 관리자 결정(2026-
 ### 谢拉格不融冰(쉐라그 만년빙)은 모든 피해 출력에서 굴림 (GitHub #489)
 - 근거: 클라 버프 템플릿 `act1vautochess_acarm003_buff` = `ON_OUTPUT_DAMAGE` → `Dice(prob)` → `c2e_cold`(대상에게). 평타 이벤트가 아니라 피해 출력마다다.
   제보는 阿斯卡纶(선발 오퍼레이터) 재능의 초당 피해에 안 걸린다는 것. upstream은 아직 안 고침.
-- 동작: `items/battle.js chess_item_5_02_e`가 `onAttackEnemies`(평타 대상마다) 대신 `onDamageEnemies`(피해 한 번마다 — 평타·스킬·범위 피해의 대상마다·지속 피해,
+- 동작: `items/effects/status.js chess_item_5_02_e`가 `onAttackEnemies`(평타 대상마다) 대신 `onDamageEnemies`(피해 한 번마다 — 평타·스킬·범위 피해의 대상마다·지속 피해,
   元素损伤·아이템 발동 피해·처치타는 빼는 우리 공용 도우미, 催泪瓦斯·突袭手雷와 같음)로 굴린다. 확률·寒冷 시간(일반 12 % / 1.5 s, 고급 20 %)은 그대로.
   회피된 평타는 피해가 없으니 이제 안 굴림.
 - 테스트 `test/content/items.test.js`(「every damage instance procs」에 일반·고급 추가 — 평타 없이 스킬 범위 피해 두 번에 寒冷). golden은 이 장비를 든 전투가 움직임
@@ -598,7 +598,7 @@ upstream v0.2.4(`bc50cac0`)·그 뒤 PR과 새 이슈 중 관리자 결정(2026-
 ### 白面鸮(프틸롭시스)가 복사한 歌蕾蒂娅·余의 준비 시작 증정은 「같은 줄 세 명」을 건너뜀 (GitHub #473, upstream `6bfc0827`)
 - 근거: 제보자의 공식 플레이 영상(bilibili BV1XJSoBzEFB 2:30–2:38)을 upstream 관리자가 확인 — 白面鸮가 앞 칸 歌蕾蒂娅(오퍼레이터)·余(오퍼레이터)의 특질을
   복사하면, 白面鸮 줄에도 원래 오퍼레이터 줄에도 세 명이 없는데 증정이 나온다.
-- 동작(upstream 그대로): 디스패처가 복사 실행에 `copiedFrom`(원래 오퍼레이터의 말)을 기록하고, `garrisons/meta.js rowCondition`은 「복사한 쪽이 白面鸮,
+- 동작(upstream 그대로): 디스패처가 복사 실행에 `copiedFrom`(원래 오퍼레이터의 말)을 기록하고, `garrisons/prep/shared.js rowCondition`은 「복사한 쪽이 白面鸮,
   원본이 歌蕾蒂娅·余, 준비 시작(`SERVER_PREP_START`)」일 때만 조건을 통과시킨다. 원래 오퍼레이터의 자기 증정은 여전히 자기 줄을 검사한다.
   塞雷娅(오퍼레이터)의 복사·다른 특질·다른 줄 조건은 바꾸지 않음(영상이 이 두 경우만 보여 줌 — upstream도 넓히지 않음).
 - 테스트 `test/content/garrisons_meta.test.js`(두 원본 × 白面鸮 줄 · 원본 줄 있음/없음 8가지, upstream 그대로).
@@ -765,7 +765,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - 근거: upstream 관리자의 공식 실기 2026-10-15 — 공식은 맹약이 켜지는 순간(정비 중 세 번째 멤버를 놓을 때) 해머가 온다.
 - 동작(upstream 그대로): 새 메타 훅 `onActiveBonds` `{ activated, deactivated }`. `PlayerState.recompute`(`player/round.js`)가 지난 계산과 켜진 맹약
   집합이 다르면 보낸다 — 맹약 셈을 바꾸는 모든 길(정비 중 놓기·옮기기·바꾸기·빼기, 구매·판매·합성·변이, 임시 → 손패, 장비, 효과, 축출)이 거기로 끝난다.
-  죽은 플레이어·떨어진 사본에는 안 보냄. `bonds/core.js HAMMER_HOOKS`·`bonds/addon/meta.js SETTLE_HOOKS`가 이 훅을 들어 밀린 이정표를 바로 정산하고,
+  죽은 플레이어·떨어진 사본에는 안 보냄. `bonds/templates.js HAMMER_HOOKS`·`SETTLE_HOOKS`가 이 훅을 들어 밀린 이정표를 바로 정산하고,
   이정표마다 카운터라 맹약을 껐다 켜도 한 번만. `audit.js`의 지출 효과 키에도 넣음.
 - AI 팀원의 배치 리허설(`bot.js createRehearsalSteps`)은 떨어진 사본(`preview.js previewPlayer`)으로 돌아 진짜 상태의 `recompute`를 거치지 않는다 — 리허설
   배치가 맹약을 켜도 아무것도 안 보내고 해머도 안 준다(upstream `ed44ce4d` 이식 전에는 진짜 판에 놓았다 되돌려서 조용한 `recompute`가 따로 있었다).
@@ -958,10 +958,10 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - **谢拉格 6명 寒风 = 필드당 하나**: 그래프 `act1autochess_bond_eff_kjerag`의 `[env]`는 맵 컨트롤러에 붙는 하나 — `AutoChessAssignBondCharCntToBB(_filterAllSides)`
   = 플레이어별 인원의 최대 ≥ 6이면 `[storm]` 하나, 지속 20 + 0.1 × 층의 층은 `AutoChessAssignBondStackCntToBB(_assignAllPlayerIndex)` = 플레이어별 층의
   최대. 그래서 공동 필드(联防·보스)에서 둘 다 6명이어도 바람은 25초마다 한 번(이전: 플레이어마다 하나 → 寒冷 두 번 = 冻结), 6명이 아닌 팀원의 층이 더 높으면
-  그 층. `bonds/core.js installKjerag`(전투 저장소에 하나), `devices.js kjeragColdWind`. 테스트 `test/content/bonds_core.test.js` 「谢拉格 6 on a shared field」.
+  그 층. `bonds/nation/kjerag.js installKjerag`(전투 저장소에 하나), `devices.js kjeragColdWind`. 테스트 `test/content/bonds_core.test.js` 「谢拉格 6 on a shared field」.
 - **拉特兰 탄약**: `AmmoSkillCountModifier`(`_modifyMaxCount`·`_addCountUsePercent`) → `CastSkillWithLimitTimes.SetMaxAdditionCountPercent` →
   `_UpdateMaxAdditionCount`: 더하는 탄 = `MathUtil.RoundToInt(f32(원래 최대 탄) × f32(Σ비율))`, `FP.Round`는 .5에서 짝수로. 즉 원래 최대 탄 기준·반올림·
-  최대 탄에 더함(이전: floor(남은 탄 × (1.05 + 0.015·층))). 8발·10층: +2(이전 +1), 10발·0층: 0.5 → +0. `bonds/core.js lateranoAmmo`.
+  최대 탄에 더함(이전: floor(남은 탄 × (1.05 + 0.015·층))). 8발·10층: +2(이전 +1), 10발·0층: 0.5 → +0. `bonds/nation/laterano.js lateranoAmmo`.
   모델 안 함: 공식은 층이 바뀔 때마다(`_checkDiffWithOldStoreCnt`) 최대 탄을 다시 정함 — 우리는 스킬 시작 순간의 층.
 - **灵巧 오라 = 배치 때 한 번 판정**: 그래프 `act1autochess_bond_eff_skillful` ON_BUFF_START의 `AutoChessFilterCharacterBondIds(_checkTargetInRangeId "x-4")`(
   `LitePhysicsUtil.FindTilesInBox`로 받는 쪽 칸 둘레 3×3, 칸마다 `AutoChessBattleUtil.GetChessInstByPos`의 말 → 맹약) — 멤버 말이 없으면 버프 끝, 있으면 `x-5`(십자, 자기 칸
@@ -971,13 +971,13 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   **[추정]**: 물러난(쓰러짐 아닌) 멤버의 말도 집 칸에 있는 것으로 셈; 재배치·기습 착지는 새 배치라 다시 판정, `relocate`(deploy move)는 판정 유지; 받는 쪽은 오퍼레이터만.
   `bonds/addon/battle.js judgeAura`. 테스트 `test/content/bonds_addon.test.js` 「灵巧」.
 - **特质 `gar_event_selfkillenemy` 처치 수**: 그래프가 `current_cnt`를 ON_BUFF_START(배치마다)에 0으로 — 재배치하면 처음부터 셈(이전: 전투 내내 이어짐).
-  `garrisons/battle.js`(`deploy`, move 제외). 테스트 `garrisons_battle.test.js` 「selfkillenemy」.
+  `garrisons/effects/events.js`(`deploy`, move 제외). 테스트 `garrisons_battle.test.js` 「selfkillenemy」.
 - **特质 `respawnTimeByBond`(耀骑士临光 garrison_144)**: EN 템플릿에 이 키가 없고 비슷한 `act1autochess_gar_eff_respawnByBond`(퇴장 때 카드 버프, 층/divide **floor 없음**)만
   있다. CN의 새 템플릿일 수 있어 그대로(floor 단계 + 상시 재배치 배율).
 - **炎 9명 炎佑 ATK ×1.5 = 전체 ATK**: `bond_eff_yan[long]`이 ATK FINAL_SCALER(`content/tokens.js spawnYanyou`의 [ASSUMED] 삭제).
 - **突袭手雷·催泪瓦斯·战栗维式重锤 = 모든 피해 출력**: `acarm064[core]` ON_OUTPUT_DAMAGE, `acarm058` ON_OUTPUT_MODIFIER `IsDamage` → Dice, `acarm045` ON_OUTPUT_DAMAGE `IsDamage`
   + `CheckBuildableType MELEE` → Dice — 스킬 피해·광역의 각 대상·지속 피해도(이전: 일반 공격 대상만). 원소 손상(게이지)·장비 발동 피해·막타는 뺌 [추정: 원소 손상은
-  `IsDamage` 아님]. `items/battle.js onDamageEnemies`. 테스트 `test/content/items.test.js` 「every damage instance procs」.
+  `IsDamage` 아님]. `items/shared.js onDamageEnemies`. 테스트 `test/content/items.test.js` 「every damage instance procs」.
 - **浓缩嗅盐 면역 목록**: `acarm059` `abnormalImmunes` FROZEN·SILENCED·STUNNED·LEVITATE + `abnormalComboImmunes` SLEEPING → 冻结·沉默·晕眩·浮空·睡眠(麻痹 빼고 沉默 넣음).
   모델 안 함 [추정]: 공식 면역은 버프라 HP가 70 % 위인 동안 이미 걸린 기절도 눌릴 수 있음(우리는 새로 걸리는 것만 막음).
 - **拉特兰桥夹**: `acarm057` ON_SKILL_START에 `triggered = 0`, ON_AFTER_ATTACK에서 스킬 중·`triggered == 0`·남은 탄 ≤ 1이면 먼저 `triggered = 1` 후 Dice → 성공 시
@@ -1010,13 +1010,13 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   (`AutoChessAssignBondStackCntToBB` → 층 ÷ divide_num `_finalFloor` → 능력치마다 × 단계, 상한 `max_stack` 999999) — ON_BUFF_TRIGGER가 없어 전투 중 층이 늘어도 다시
   계산하지 않는다. 그래서 그 오퍼레이터가 다시 배치될 때(쓰러진 뒤 재배치·기습 착지 — 【移动】은 유지 [추정])만 그 순간의 층으로 다시 정한다. `act2autochess_gar_eff_attrByBond_add_onstart`도
   ON_BUFF_START뿐이라 같은 방식(이전에는 층이 늘면 돌고 있는 시한 버프를 다시 계산; 관리자 결정 2026-10-11 「공식이 배치 때만 계산하면 그대로」 — 화면 확인 항목). `ab_damageScaleByBond`(ON_BUFF_TRIGGER)와 `respawnTimeByBond`(EN 템플릿 없음)는 계속 층을
-  따라감. `garrisons/battle.js installReaders`. **되돌리기**: `installReaders`의 `layerGain` 재계산 목록 `live`에 attrByBond·add_onstart를 다시 넣으면 2026-10-11 전 동작
+  따라감. `garrisons/effects/stats.js installReaders`. **되돌리기**: `installReaders`의 `layerGain` 재계산 목록 `live`에 attrByBond·add_onstart를 다시 넣으면 2026-10-11 전 동작
   (층이 늘 때마다 다시 계산; bonds.md T1). 테스트 `test/content/garrisons_battle.test.js` 「attrByBond」(실제 경로 포함).
-- **阿戈尔 吞噬 팀원 — 관리자 결정 2026-10-11 「지금 규칙 유지(A)」**: 에기르 멤버는 앞 칸의 오퍼레이터를 주인과 상관없이 먹는다(#140 결정 그대로, `bonds/core.js devour`).
+- **阿戈尔 吞噬 팀원 — 관리자 결정 2026-10-11 「지금 규칙 유지(A)」**: 에기르 멤버는 앞 칸의 오퍼레이터를 주인과 상관없이 먹는다(#140 결정 그대로, `bonds/nation/egir.js devour`).
   그래프 읽기(bonds.md B9: 맹약이 안 켜진 팀원은 `eat_calculated`로 안 먹음)와 다르지만, 联防·보스 필드는 두 플레이어 구역 경계에 공격 지점·배치 불가 칸이 있어 팀원
   오퍼레이터가 에기르 멤버 앞 칸에 설 수 없으므로 결과가 같다(관리자 설명). 동작 변경 없음.
 - **黄沙罗盘 「첫 스킬 끝」 = 배치마다**: 클라 버프 템플릿 `act1autochess_acarm103_buff` ON_BUFF_START가 `has_used_skill`을 0으로, ON_SKILL_FINISH는 그 값이 0일 때만
-  萨尔贡 운반자에게 `sp`(그다음 1) → 재배치하면 다시 받는다(이전: 전투당 한 번). `items/battle.js` `doneSeq`(배치 번호). [추정] 기습 착지·【移动】도 새 배치로 봄.
+  萨尔贡 운반자에게 `sp`(그다음 1) → 재배치하면 다시 받는다(이전: 전투당 한 번). `items/effects/bond.js` `doneSeq`(배치 번호). [추정·미조사: 기습 착지·【移动】 때 클라가 이 글로벌 버프를 다시 붙이는지 확인 안 함] 기습 착지·【移动】도 새 배치로 봄.
   테스트 `test/content/items.test.js` 「黄沙罗盘」.
 - **炎国短刀·有限加速器 = 이 시즌 장비, 쌓임은 배치마다** (2026-10-25, 묶음 U): 이 시즌 활동 표 `eff_acarm040`·`eff_acarm052`(`env_gbuff_new_with_verify`)가 다른 모드
   이름의 전역 버프 `act1vautochess_equip_acarm024_global_buff`·`…acarm037_global_buff`를 붙인다(이름만 다른 모드). 두 전역 버프의 셈(`buff_cnt` 0)은 버프 자신의
@@ -1032,7 +1032,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     이번에 단 叙拉古 6 진실 피해·卡西米尔 [ex] 진실 피해 — 두 템플릿 피해 노드가 `_attackType` ADDITION; 다른 규칙은 이 태그를 보는 곳이 일반 공격뿐이라
     결과가 같다)와 장비 발동 피해(이 포크 규칙: 발동은 장비 발동을 다시 부르지 않음). 지속 피해(BUFF)는 셈. 원소 손상은 피해 출력이 아님.
     [추정] 무적·수면으로 막힌 대상에 낸 피해와 금지된 치료(禁疗 대상)는 셈하지 않음(우리 `hit`/`heal`이 그 전에 끊김). 템플릿의 `atk`는 이 시즌 0.
-  - 코드 `items/battle.js` `chess_item_3_04_e`·`chess_item_4_03_e`(`isAddition`, `ACCEL_STEP`), `bonds/core.js`(태그 둘). 이펙트는 rules/fx.md, 소리는
+  - 코드 `items/effects/stacks.js` `chess_item_3_04_e`·`chess_item_4_03_e`(`isAddition`, `ACCEL_STEP`), `bonds/nation/siracusa.js`·`kazimierz.js`(태그 둘). 이펙트는 rules/fx.md, 소리는
     rules/audio.md 「버프·커스텀 트리거 소리」. 테스트 `test/content/items.test.js` 「炎国短刀」·「有限加速器」. golden: 두 장비를 든 전투(로스터 14·맹약 4·필드 12·
     매치 9·스탠드인 2).
 - **맹약·장비·전략 템플릿 이펙트 — 관리자 결정 2026-10-11 「넣음」**: 템플릿 그래프의 `CreateEffect`·`CreateEffectAtScreenPos` 노드가 도는 순간 상태 이벤트
@@ -1055,7 +1055,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - **시라쿠사 6 발동**: `[ex][buff]`의 `DicePRD` — C는 클라 표 `prdBaseProbs`(3 % → 0.00139, 이전: 같은 값을 계산으로 구함), 횟수는 전투 전역 블랙보드
   하나 → **두 플레이어 필드면 둘이 함께 셈**(불굴과 같음, 이전: 플레이어마다). `[ex]`를 붙이는 곳(2026-10-31 확인): 템플릿이 아니라 전역 버프 프리팹
   `battle/prefabs/[uc]globalbuffs`의 `act2autochess_bond_eff_siracusa` — `_buffs`에 본 버프(0.5초 틱)와 `[ex]`(0.3초 틱)를 함께 두고, 대상은 아군 오퍼레이터
-  (직업 마스크 639, 소환물 없음) → 지금 구현(멤버마다 본 버프와 함께, `[ex]` ON_BUFF_START가 6명 판정)과 같음, 코드 변경 없음. `bonds/core.js installSiracusa`.
+  (직업 마스크 639, 소환물 없음) → 지금 구현(멤버마다 본 버프와 함께, `[ex]` ON_BUFF_START가 6명 판정)과 같음, 코드 변경 없음. `bonds/nation/siracusa.js installSiracusa`.
 - **카시미어(맹약 `kazimierzShip`) 6**: `[ex]` ON_OWNER_BLOCKEE_CHANGED가 저지를 시작할 때 `[ex][damage]`를 만들고 저지가 없어지면 끝낸다. 틱 간격은 블랙보드
   `interval`(= `damage_interval` 2), `waitFirstTriggerInterval` 꺼짐 → **저지 시작 순간 한 번, 그 뒤 저지하는 동안 2초마다**, 멤버마다 따로(이전: 전투 시계
   2초마다 그때 저지 중인 멤버). 저지하지 않을 때의 30 % 진실 피해는 **모든 일반 피해**(스킬 피해 포함; 이전: 일반 공격만). 배치 수 `kazimierz_born`은
@@ -1067,7 +1067,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   (2026-10-31): `AutoChessBattleDataModel._AppendBattlePlayerRunes`가 전투 플레이어마다 활성 맹약의 룬을 `_AddPackedRuneData(룬, 그 플레이어 쪽, 플레이어)`로
   넣고(쪽 = 왼쪽·오른쪽 맵 절반), `_AddPackedRuneData`가 룬마다 선택자 `playerSideMask` = 그 쪽 마스크로 쓰며, `LGlobalBuffNew.OnPreprocessFinished`가 그
   선택자 마스크를 전역 버프 데이터로 옮긴다 → **맹약 전역 버프는 그 플레이어 쪽 말에만**, 상대 플레이어의 배치는 상대도 카시미어일 때만 같은 수에 들어온다(지금과
-  같음, 코드 변경 없음). `bonds/core.js installKazimierz`, 테스트 `bonds_core.test.js` 「卡西米尔: the deploy count is one for the field」.
+  같음, 코드 변경 없음). `bonds/nation/kazimierz.js installKazimierz`, 테스트 `bonds_core.test.js` 「卡西米尔: the deploy count is one for the field」.
 - **궁극기(맹약 `suntShip`) 5**: `ModifySpData`(`_onlyUpdateSpCost`, `_updateSpCostViaMaxRatioKey sp_ratio`) = **올림**(float32 곱 `ceil`)을 캐릭터 스킬
   데이터에 씀(이전: 내림). 25 × 0.7 → 18. 2단계 공격력·「정예 수」 셈(`AutoChessAssignChessCntToBB _assignGoldenChess`: 같은 플레이어의 전장 말 중 정예)은 같음.
   소환물: `AutoChessFilterChess`는 그 캐릭터의 카드가 전장 말(`GetInstIdByCardUid` ≥ 0)이고 정예일 때만 통과하는데, 공식 클라에서 확인 —
@@ -1104,8 +1104,8 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   (`consumed_cnt`)는 본 버프의, 문턱(`target_count`)은 `[status]`의 블랙보드에 있다. 공식 클라에서 확인(2026-10-31): 철수(`Entity.OnFinish`)는
   `BuffContainer.Clear`로 **지속 버프(`isDurableBuff`)까지** 모두 지우고 능력도 지운다 — 지속 버프를 남기는 것은 `ClearWithWhiteList`뿐이고 그 호출처는 가짜
   죽음(`Unit.DoFakeDeath`, 부활)·`ClearAllBuffs` 노드·`RallyPoint.SwitchCategory` → **재배치마다 0부터 다시 셈**(이전: 이어 셈). 【移动】은 이어 셈(지금
-  규칙: 버프 유지 — 공식에서 버프가 다시 시작하는지는 묶음 라). `garrisons/battle.js`, 테스트 `garrisons_battle.test.js` 「consume_ammo」 셋.
-- **시라쿠사 정장(장비 `chess_item_3_01_e`)** `act2autochess_equip_acarm121_ability`는 템플릿이 아니라 동적 능력 프리팹(2026-10-31 대조): 오라 능력, 범위 `0-2`(방향으로 돌린 좌우 두 칸 + 자기 칸), `_selfOption` EXCLUDE(자신 제외), 검사기는 오퍼레이터만(소환물 제외)·은신도 받음, 버프는 범위 안에 있는 동안 공격 속도 +`attack_speed` → 지금 구현(`items/battle.js`, 좌우 두 칸의 오퍼레이터)과 같음 — 코드 변경 없음. [추정·엔진: 오라를 다시 보는 간격 — 우리는 0.5초마다 0.6초 버프]
+  규칙: 버프 유지 — 공식에서 버프가 다시 시작하는지는 묶음 라). `garrisons/effects/events.js`, 테스트 `garrisons_battle.test.js` 「consume_ammo」 셋.
+- **시라쿠사 정장(장비 `chess_item_3_01_e`)** `act2autochess_equip_acarm121_ability`는 템플릿이 아니라 동적 능력 프리팹(2026-10-31 대조): 오라 능력, 범위 `0-2`(방향으로 돌린 좌우 두 칸 + 자기 칸), `_selfOption` EXCLUDE(자신 제외), 검사기는 오퍼레이터만(소환물 제외)·은신도 받음, 버프는 범위 안에 있는 동안 공격 속도 +`attack_speed` → 지금 구현(`items/effects/bond.js`, 좌우 두 칸의 오퍼레이터)과 같음 — 코드 변경 없음. [추정·엔진: 오라를 다시 보는 간격 — 우리는 0.5초마다 0.6초 버프]
 - 테스트: `test/content/bonds_core.test.js` 「叙拉古 6: the PRD count is one for the battle」·「卡西米尔 6」, `bonds_addon.test.js` 「奥术 with two players」·「绝技」,
   `items.test.js` 「伪装服」·「休眠子裔」·「卡西米尔竞技旗」·「天马之盔 + 天马之枪」·「海沟实验体」·「耶拉冈德之泪」·「骑士戒律」·「家族徽章」, `garrisons_battle.test.js`
   「consume_ammo」.
@@ -2330,7 +2330,7 @@ upstream master `c9d804f4`·dev `06a92237` → master `f07b8965`·dev `71b2363f`
 ### 약점 대미지는 이론 피해로만 종류를 고른다 (upstream `aa74f76a` 3)
 
 - 규칙: 물리·마법 중 큰 쪽을 고를 때 관통 + 방어·마법 저항 공식만 본다. 공격자의 `physDealtMul`·`artsDealtMul`과 대상의 `physTakenMul`·`artsTakenMul`은 넣지 않는다
-  (`server/sim/content/garrisons/battle.js weaknessType`). 같으면 원래 종류. 그 앞 기본 우선순위 훅의 공격력 배율(바다 괴물 적 공격 시 공격력 200 % `garrison_18_b` 등)은
+  (`server/sim/content/garrisons/effects/hits.js weaknessType`). 같으면 원래 종류. 그 앞 기본 우선순위 훅의 공격력 배율(바다 괴물 적 공격 시 공격력 200 % `garrison_18_b` 등)은
   이론 피해에 들어가는 공격력 배율이라 그대로 반영된다.
 - 근거: 공식 클라 `WeakDamage`는 물리·마법으로 관통 + 기본 공식만 한 번씩 계산해 비교한다(공식 클라에서 확인). PRTS 용어 설명은 이론 피해에 공격력·공격력 배율·추가 공격력·
   % / 고정 관통·대상 방어·마법 저항만 넣고 「피해 판정 효과는 넣지 않는다」고 한다.
@@ -2345,7 +2345,7 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 - 규칙: 페가수스의 랜스(아이템 `chess_item_6_01_e`)를 페가수스의 투구(`chess_item_5_09_e`)와 같이 들면, 그 오퍼레이터가 주는 부가 피해가 아닌 피해 한 번마다 그 피해의
   `atk_scale`(30 %)만큼 트루 대미지를 더 준다. 기준은 공격 배율까지 곱하고 방어·마법 저항과 피해 판정 효과(주는·받는 피해 배율)를 넣기 전의 값(`hit` 훅의 `dmg.amount`)이다.
   추가 피해는 무출처(`sourceless`, 처치·통계는 `credit`으로 그 오퍼레이터)이고 부가 피해(`addition` 태그)라서 다시 랜스를 부르지 않는다. 원래 피해보다 먼저 들어가므로
-  그것만으로 적을 쓰러뜨리면 원래 피해는 들어가지 않는다(`server/sim/content/items/battle.js`). 붙은 드론처럼 부가 피해로 치는 공격분에는 붙지 않는다.
+  그것만으로 적을 쓰러뜨리면 원래 피해는 들어가지 않는다(`server/sim/content/items/effects/bond.js`). 붙은 드론처럼 부가 피해로 치는 공격분에는 붙지 않는다.
   전에는 `damaged` 뒤에 공격력 × 30 %를 그 오퍼레이터 출처로 모든 피해(아이템 효과 피해만 빼고)에 붙였다.
 - 무에나(오퍼레이터) 스킬의 「자기 일반 공격(과 그 공격에 딸린 피해)으로 쓰러뜨림」은 공격이 맞은 대상을 `hit` 때도 잡는다. 랜스 피해가 먼저 쓰러뜨려도 그의
   처치로 센다(`kits/ops/chess_char_5_19-mlynar.js ownKills`).
@@ -2879,13 +2879,13 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
   10초 무공격 경로는 뛰기 전 비율(`AssignCurSpToBB`)을 더해 SP 유지(PRTS 「保留技力」) — 시뮬 `keepSp`와 같음. 코드 변경 없음.
 - **`CheckDistance`**: 두 대상의 맵 위치 사이 유클리드 거리, `d² ≤ r²`면 참(경계 포함; `_checkCertainPosition`이면 블랙보드 행·열과 맨해튼 거리).
   정밀 조준경(精准狙击镜, `act1autochess_acarm063_buff`)은 `CheckDistance radius 3` → `IfNot` → `DamageScale`이라 **정확히 3칸인 적은 보너스 없음**,
-  3칸 넘는 적만 ×`damage_scale`(설명은 「3格及以上」). 2026-10-31부터 시뮬도 `> radius`(전: `≥ radius`). `items/battle.js chess_item_3_02_e`.
+  3칸 넘는 적만 ×`damage_scale`(설명은 「3格及以上」). 2026-10-31부터 시뮬도 `> radius`(전: `≥ radius`). `items/effects/damage.js chess_item_3_02_e`.
 - **`AutoChessAssignSameBondCharacterCntToBB`**: 주인과 같은 플레이어의, 전투 중인 캐릭터 말 가운데 맹약이 하나라도 겹치는 수(주인 포함). 주인에게
   맹약이 없으면 0. 신속 전투식량(迅捷作战粮, `act1autochess_acarm051_buff` ON_OWNER_LOCATE: SP = `sp_each_person` × 그 수)은 시뮬의 `each × (1 + 겹치는
-  다른 오퍼레이터)`와 같고, **맹약 없는 오퍼레이터는 0**(전: `each`). `items/battle.js chess_item_3_05_e`.
+  다른 오퍼레이터)`와 같고, **맹약 없는 오퍼레이터는 0**(전: `each`). `items/effects/resource.js chess_item_3_05_e`.
 - **`AutoChessAssignGatheredAttributeToBlackboard`**: 필드의 모든 캐릭터(유닛 관리자 목록, 주인 플레이어로 거르지 않음) 가운데 `_filterByBondIds`가
   하나라도 겹치는 캐릭터의 속성 지금 값의 합 × 블랙보드[_scaleKey](없으면 `_scale`). 염의 가호(炎佑, 소환물 `enemy_9012_acloon`; `acloon_gather_attribute`, ON_BUFF_START, `scale_attribute`
-  0.3, FINAL_ADDITION)는 **2인 필드에서 짝의 炎 오퍼레이터까지 더한다**(전: 부른 플레이어의 것만). `bonds/core.js installYan`.
+  0.3, FINAL_ADDITION)는 **2인 필드에서 짝의 炎 오퍼레이터까지 더한다**(전: 부른 플레이어의 것만). `bonds/nation/yan.js installYan`.
 - **카드 버프 재배치 시간 비율**(`Deck.Card.RuntimeRespawnTimeModifier`): 첫 단계에서 비율 아닌 값을 더하거나(덮어쓰기면 바꿈), 둘째 단계에서 비율
   수정치마다 재배치 시간 × `SharedUtils.ProcessFinalScaler(값)`(값 < 0이면 1 + 값). 엠퍼러(大帝) 「긴급 파견」(加急调派, `band16`) −0.5는 배치마다 ×0.5로
   **곱해 쌓인다** — 시뮬 0.5ⁿ과 같음, 코드 변경 없음.
@@ -2937,15 +2937,104 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 
 - **전장**: `level_act3autochess_m01` 같은 전장 레벨은 판 여러 벌을 한 장에 담은 36×55 씬이고, 전투 판은 하위 레벨 세 개(`level_<전장>/level_<전장>_sub_01…03`)다. `sub_01`(7×20)은 자기 판과 그 옆 적 칸, `sub_02`(6×21)는 판 둘을 나란히, `sub_03`(13×21)은 보스 판과 그 아래 적 대기 칸이다. 조각은 지난 시즌 틀의 블록 그대로다. 근거는 셋이다. ① 조각의 `configBlackBoard`가 지난 시즌 값이다(`leftBoss ((0,0),(6,10))`·`leftNormal ((6,0),(12,10))`·`enemy_place_rect ((14,7),(18,13))`·`player_map_ud_offset 7`, 19×21 틀의 좌표). ② `sub_01`과 `sub_02`의 자기 판은 전장 10개 모두 칸마다 같다. ③ 다시 놓은 m01이 지난 시즌 1기 `act1autochess_m01`과 칸마다 같다(다른 곳은 6행·13행 왼쪽이 통행 불가 대신 비행만, 오른쪽 판 정비 줄의 순간이동 입구 (8,11)뿐). 놓는 자리: 0–6행 = `sub_03` 0–6행, 7–13행 0–10열 = `sub_01`, 8–13행 11–20열 = `sub_02`, 14–18행 = `sub_03` 7–11행. 장치·숨은 캐릭터도 조각과 함께 옮긴다. `sub_02`에서는 10열의 둘째 플레이어 의료(`char_605_cmedic#2_multi_only`, 틀 (10,10))도 가져온다.
 - **웨이브**: 웨이브 레벨의 맵은 그 판의 자리표시(판 하나 5×9, 보스 판 6×17, 联防 두 판 5×17)이고 경로도 그 좌표다. 순간이동 입구(`tile_telin`)가 있는 자리표시는 원점 (1,2), 없으면 (9,2)에 놓는다. 두 시즌에 다 있는 웨이브의 지난 시즌 경로가 규정 경로에 이만큼 더한 값으로 그대로 들어 있다(판 하나짜리 13개는 전부, 최종 보스·联防은 일부 경로가 바뀌었고 나머지는 같음). 모양만으로는 정하지 않는다: 판 하나짜리 자리표시는 보스 판 왼쪽 절반에도 들어맞는다.
-- **칸**: 규정의 임시 정비 칸은 새 타일 `tile_acbag`(기호 `A`), 정비 칸은 `isValidHand`가 없는 `tile_achand`(기호 `a`)다. `tile_acbag`은 높은 칸·배치 ALL이라, 정비 칸으로 빼지 않으면 보스 판 원거리 칸으로 잘못 잡힌다(`grid.js HAND_TILES`). 습격(`raidBattlefield`)의 전장 칸에서도 정비 칸으로 친다 [추정·CN: 규정 클라의 칸 색인은 못 읽음, 지난 시즌 `tile_achand`가 있던 1행 자리]. 새 칸 `tile_speedup`(`u`)·`tile_duel_grassland`(`G`)는 기호만 있고 효과는 아직이다(묶음 sim-O).
+- **칸**: 규정의 임시 정비 칸은 새 타일 `tile_acbag`(기호 `A`), 정비 칸은 `isValidHand`가 없는 `tile_achand`(기호 `a`)다. `tile_acbag`은 높은 칸·배치 ALL이라, 정비 칸으로 빼지 않으면 보스 판 원거리 칸으로 잘못 잡힌다(`grid.js HAND_TILES`). 습격(`raidBattlefield`)의 전장 칸에서도 정비 칸으로 친다 [추정·CN: 규정 클라의 칸 색인은 못 읽음, 지난 시즌 `tile_achand`가 있던 1행 자리]. 새 칸 둘은 공식 클라 칸 프리팹(CN `battle/prefabs/[uc]tiles.ab`, `BuffTile`)대로 지상(`targetMotion` WALK)의 양쪽 편 유닛에게 걸고 떠나면 끝난다(`_clearBuffsWhenLeft`, `devices.js`):
+  - **가속 칸 `tile_speedup`(`u`, m12, 공식 한국어 이름 없음)**: 규정 표 템플릿 `tile_speedup` — 오퍼레이터·소환물(모든 직군)은 공격 속도 +칸 블랙보드 `attack_speed`(25, `ADDITION`), 적은 이동 속도 ×`move_speed`(1.5, `FINAL_SCALER`). 비행 유닛은 받지 않는다.
+  - **초원 `tile_duel_grassland`(`G`, m09, 공식 한국어 이름 없음)**: 템플릿 `tile_duel_grassland` — 걷는 유닛은 은신(`INVISIBLE`, 배기 격자 칸과 같은 깃발)이다. 오퍼레이터는 배기 격자처럼 적 원거리 공격의 대상이 안 되고, 적은 저지된 동안만 보인다(`dule_grassland[invisible-enemy]`가 저지될 때 은신 면역을 걸고 저지가 바뀔 때 다시 판정 — 저지가 풀리면 바로 다시 은신, 보통 은신 적의 3초 없음).
+- **장치**: 송풍기 `trap_013_blower`(m05)와 늪 조절 장치 `trap_098_mire`(m06, 조각마다 하나라 셋)는 지난 시즌(맹약 m01·m02)과 기록·수치·자리가 같아 그대로 돈다. 냉풍 장치 `trap_1112_acblzd`가 판 가장자리 줄에 넷(지난 시즌은 판 밖 하나)인 것은 플레이어마다 맵 컨트롤러가 하나라서다: 장치 자신의 스킬(`sktok_acblzd`)은 블랙보드가 비어 있고, 규정 표에서 이 장치를 쓰는 것은 맹약 효과(`trap_ac_controller_mark`로 맵 컨트롤러를 찾는 `act3autochess_bond_eff_kjerag_power`·시라쿠사·사르곤 등, 묶음 sim-K)뿐이다 — 시뮬에서는 지난 시즌처럼 장치 자체가 하는 일이 없다.
+- **대포 「염괴포」**(盐坨子炮, `trap_196_cnnon`, m10 — 별칭 #1 (13,6)·#3 (13,14)는 자기 판·오른쪽 판 위 가장자리, #2 (6,6)·(6,14)는 보스 판 위 가장자리, 모두 아래를 봄)는 적 편 장치다(`devices.js` `tickCannon`). 근거는 공식 클라 토큰 프리팹(`trap_196_cnnon`)·스킬 프리팹 `sktok_cnnon`·포탄 `projectile_trap_cnnon_small_death`과 규정 표(`character_table`·`skill_table`·`buff_template_data`):
+  - 스킬 `sktok_cnnon`(SP 6, 초당 1, 0부터)이 버프 `cnnon_s[enemy_canon]`을 걸고, 본편 보스 「아나스타시오, 속죄자」의 버프가 없는 이 모드에서는 늘 재능 `EnemyCannon00D`를 시전한다: 전투 시작 6초 뒤부터 6초마다 한 발.
+  - 표적: 자기 칸과 앞 4칸(레벨 1의 범위 `4-1`) 안의 플레이어 쪽 지상 유닛 중 기절하지 않은 위협도 최고(`NOT_STUNNED_HATRED_DES` — 도발, 그다음 늦게 배치된 유닛), 은신·선택 불가는 빼고. 포탄(속도 5)은 쏠 때의 그 유닛 칸에 떨어져 3×3(`x-4`, 모든 이동 방식, 위장 무시) 안 유닛에 장치 공격력(1200) ×1 물리 스플래시.
+  - 삼키기(`Eat`, 나무 버든비스트와 같은 승객 능력): 장치 중심 반경 1(콜라이더) 안의 지상 적 중 무게 ≤ 3(`AdvancedSelectorWithMassRange`) 하나를 태워 둔다(숨김·멈춤). 쏠 때 태운 적을 포탄에 실어 떨어진 자리 ±0.2에 내려놓고(`DurBusAbilityReleasePassenger`), 그 적은 자기 경로를 그 자리부터 이어 간다. 레벨의 `talent@branch_id`(`route_1_4` 등)는 이 모드 자료에서 경로를 못 찾고, 못 찾으면 공식 클라는 경로를 바꾸지 않는다(`DurbusAbility._DoReleasePassengers`; 관리자 결정 2026-11-11) [추정·미조사: 이 모드에서 스케줄러 분기와 맵 추가 경로를 어느 레벨이 채우는지 안 읽음 — 전장 하위 레벨의 분기 번호 0~9에 추가 경로는 1~2개뿐].
+  - [추정·엔진] 여럿이 반경 안이면 가장 가까운 적부터(선택자의 `HATRED_DES`를 적끼리 어떻게 세는지 안 읽음). 표적이 없으면 쏘지 않고 승객은 그대로 탄다(스킬은 `_allowNoTarget`이지만 재능 능력은 대상이 있어야 함).
+  - [추정·엔진] 장치는 유닛으로 세우지 않아 체력(30000, 방어력 3000, 도발 −1, 판 밖 배치 불가 칸)이 없고 맞지 않는다 — 판 내내 사는 적 편 유닛은 「적을 모두 쓰러뜨리면 끝」을 막는다. 장치가 쓰러질 때의 승객 내려놓기(`cnnon_t[death]`)도 그래서 없다. 장치 모델·포탄·폭발의 공식 이펙트는 화면 몫(묶음 render-C), 지금은 떨어지는 자리의 일반 폭발만.
+  - 시험: `test/seasons-act3-stages.test.js` 「规程 盐坨子炮…」.
 - **장치 별칭**: 규정은 판마다 번호를 다시 쓰고 한 조각 안에서도 겹친다(m05 `sub_02`의 `trap_013_blower#001` 둘). 그래서 지난 시즌(`#001` 자기 판·`#101` 오른쪽·`#201`/`#301` 보스 판)과 달리 장치 하나를 가리키지 않는다. 규정 효과 중 별칭으로 장치를 켜고 끄는 것(`auto_chess_change_map`)은 없으므로 공식 별칭을 그대로 둔다.
 - 어느 모드에 어느 조각이 보이는지(혼자 `sub_01`, 이웃과 `sub_02`)는 CN 클라라 읽지 않았다. 시뮬에는 차이가 없다: 자기 판의 칸·장치·경로가 둘에서 같다. 적 대기 칸이 판 옆에 있는 `sub_01`의 배치는 화면 몫이다(묶음 render-C).
-- 시험: `test/seasons-act3-stages.test.js`(틀·m01 대조·경로·실제 판: 혼자 판이 규정 자기 전장·웨이브·적·보스로 최종 라운드까지).
+- 시험: `test/seasons-act3-stages.test.js`(틀·m01 대조·경로·실제 판: 혼자 판이 규정 자기 전장·웨이브·적·보스로 최종 라운드까지; 송풍기·늪 기록 대조, 「规程 加速 tile…」·「规程 草地 tile…」).
 
 ## 규정 적·보스 (2026-11-08)
 
 규정(`act3autochess`)의 적은 시즌 전용 `data/seasons/act3autochess/enemies.json`(규정 표의 `enemy_database`·`enemy_handbook_table`)으로 돌고, 키트는 지난 시즌과 같은 것(`content/enemies.js`·`bosses.js`)이 그 기록을 읽는다. 지난 시즌 적·보스 중 규정 표에서 동작에 닿게 바뀐 것은 가상적: 총뿐이다(나머지는 특수 적 종류 소속 `acTypes`, 이 모드에 없는 갈대 오라의 `aura.enemy_talent_disabled`, 무게·전투력).
 
 - **가상적: 총 `enemy_9017_achunt`·`_2` 저지**: 지난 시즌은 늘 저지 불가, 규정은 【최종지벌】(最终之罚) 돌진 중에만 저지 불가이고 평소에는 저지되며, 저지되면 저지한 오퍼레이터를 쏜다(그 밖에는 지금처럼 사거리 안 방어력 최고). 근거: 표 — 지난 시즌은 능력 줄 「无法被阻挡」이 따로 있고, 규정(2.7.91 표)은 그 줄이 없고 【최종지벌】 줄에 「技能持续期间，无法被阻挡」, 무게 8 → 10. CN 클라 프리팹(`battle/enm_pfb_28.ab` 11-01 판) — `BLOCK_FREE`가 `CommonAbilities/Ability0`의 상시 버프에서 빠지고 `Modes/S1/Body/Talents/3`의 패시브 버프 `achunt_s_1[speed]`(`abnormalFlags` [3], 돌진 길이)로 옮겨 갔다. `Modes/Default/Body/Combat`이 새로 있다: 일반 공격과 같은 탄·시전 이펙트·`_alwaysIncludeTarget` 1·최대 1, 선택기 `_abnormalFlag` 46(일반 공격 42 — 이 차이는 안 읽음). 적이 저지됐을 때 쓰는 것이 `Combat`이고(`Character._FetchCombatTarget` = 첫 저지 대상), `Combat`이 없는 적은 저지되지 않는다(`Enemy.CheckBlockableWithoutCheckRange`의 `hasCombat`, 공식 클라에서 확인). 키트는 표의 「无法被阻挡」 줄 유무로 시즌을 가른다(`kitGun alwaysFree`).
-- **아직 키트가 없는 적**: 규정 판에 나올 수 있는 적 339종 중 96종 — 보스 판(새 보스 넷과 부품, 그 웨이브의 적) 15, 특수 적 항목과 딸린 호위·자식 69, 적 효과·선택·전략이 부르는 적 12. 지금은 데이터 수치로만 싸운다. 시험 `test/seasons-act3-enemies.test.js`가 목록을 고정하고, 키트가 생기면 목록에서 빼게 한다(목록은 줄기만 한다).
-- 시험: 같은 파일 「规程 假想敌：铳 is blockable…」(지난 시즌 판도 같이: 늘 저지 불가·사거리 안 방어력 최고).
+- **양변지계(量变之械) `enemy_9028_acfncb`**(가상적 보스 `enemy_9029_acfnc`의 부품): 처음 내보내는 피해 한 번만 ×`FirstAtkDouble.damage_scale`(2). 침묵 중에 그 피해를 내면 배율 없이 사라진다. 근거: CN 프리팹 `Talents/FirstAtkDouble`의 버프 둘과 규정 표 `buff_template_data`의 템플릿 — `acfncb[first-atk-dmg-double]`(침묵 대상, `ON_OUTPUT_DAMAGE`: `DamageScale` → 자기 끝냄), `acfncb[remove-double-buff]`(침묵 대상 아님, `ON_AFTER_OUTPUT_DAMAGE`: 앞 버프와 자기 끝냄). 키트 `bosses.js kitFirstDouble`.
+- **가상적: 기계(假想敌：械) `enemy_9029_acfnc`(boss_11)·`_2`(boss_14 숨은 핵심)와 충격지계(冲击之械) `enemy_9027_acfnca`**(이름은 모두 공식 한국어 이름 없음, 비공식 풀이). 전장은 웨이브 `act3autochess_h07_08`(보스 (3,10), 가지 `acfnca`가 4행 8열·12열, 양변지계 가지 `left_acfncb`·`right_acfncb`). 키트 `bosses.js kitMachine`·`kitArmor`. 근거는 CN 프리팹(`battle/enm_pfb_36.ab` 11-08 판, 투사체 `battle/prefabs/[uc]projectiles.ab`)과 규정 표 `buff_template_data`의 `acfnc*`·`acfnca*` 템플릿:
+  - 보스는 자기 자리에 묶인다(`CommonAbilities/Unmovable`: `UNMOVABLE` 束缚 + `BLOCK_FREE` + `UNBALANCE_IMMUNE`). 일반 공격은 전장 전체(표 사거리 −1)의 지상 오퍼레이터 하나(`HATRED_DES`, `_targetMotion` 1).
+  - 내보내는 피해마다(`acfnc_t1`, `ON_AFTER_OUTPUT_DAMAGE`) 대상 둘레 3×3(`x-4`)에서 가장 가까운 지나갈 수 있는 칸에 양변지계 하나. 양변지계는 그 대상의 칸을 먼저 들르고(`acfnc[insert-cp]`, 갈 수 있을 때), 보스 기준 왼쪽이면(`SharedConsts.Direction` LEFT = 3) `left_acfncb`, 아니면 `right_acfncb`의 끝으로 간다.
+  - 【홍류 공세】(洪流攻势, `SommonSquad` — boss_11은 SP 25, boss_14는 쿨타임 45): 저지 수가 가장 큰 오퍼레이터(`BLOCK_COUNT_DES` = 42)와 다른 플레이어의 그런 오퍼레이터의 네 옆 칸 중 지나갈 수 있는 칸마다 양변지계(`acfnc[skill]`, `cnt` 4). [추정·CN: 두 번째 선택기의 `_autoChessFilterType` 1은 EN 클라에 없는 필드 — 「다른 플레이어의 것」으로 읽고, 혼자면 하나]
+  - 충격지계가 있는 동안(`acfnc[armor]` → 보스의 `acfnc[armor-damage-scale]`) 충격지계 너머(격자 열이 그 충격지계의 바깥쪽)에서 오는 피해 ×(1 − `Armor.damage_scale` 0.5). 충격지계와 같은 열이나 안쪽은 그대로(`CheckAxisRelativeDirection` `EQUAL_ALLOW_ZERO`의 부정). 원소 피해와 출처 없는 피해는 안 깎는다 [추정·CN: 노드에 피해 종류 필드가 없음]. boss_11은 체력 `Armor.hp_ratio` 0.5 이하에서 한 번(`acfnc_t2[summon]` 0.5초마다, `acfnc[finish_t2]`) 부르고 띄우지 않는다. 충격지계는 공격하지 않고, 【위광 충격】 전에는 무적·선택 불가(`Ability0`).
+  - boss_14: 나오자마자 충격지계(`acfnc_t2[summon-immediately]`), `WithArmor` 모드에서만 `LaunchArmor`(쿨타임 10)로 띄우고 `Default`로 돌아간다(`acfnc[after-launch]`), SP 45의 【쇠퇴와 부흥】(衰颓与复兴, `SkSummonArmor`)이 옛 것을 없애고 다시 부른다. 일반 공격은 `attack@hit_times` 2번 맞고 다음 대상은 무작위(`RANDOM` = 14, 혼자면 같은 대상), 한 번 튈 때마다 ×0.8, 속도 4(`projectile_enemy_acfnc_2`); 튄 피해도 양변지계를 부른다. 충격지계가 보스에 닿으면 모두 사라진다(`KillArmorAura` → `acfnc[kill-too-close-armor]`).
+  - 【위광 충격】(威光冲击): 띄운 충격지계는 이동 속도 ×`MoveSpeed.move_speed` 5(`FINAL_SCALER`)로 자기 가지 경로를 따라 바깥으로 날며, 지나간 오퍼레이터를 센다(`acfnca[pass-cnt]`, 그 오퍼레이터가 사라지면 빠짐). `Falldown.max_valid_stack_cnt` 5번째를 센 칸, 아니면 앞쪽 마지막 오퍼레이터를 지난 칸(`acfnca[no-char-executor]`), 아니면 경로 끝에서 내려와(`FalldownImpl`) 오퍼레이터 하나에 공격력 ×`atk_scale` 물리. 내려온 뒤에는 맞고, 받은 피해 `Init.damage_threshold` 500마다 보스 쪽으로 `Init.move_step` 0.05(초당 `Init.max_offset_per_second` 0.5까지). 먼저 내려온 것이 다른 하나에게 레이저(`projectile_enemy_acfnca`, `_laserWidth` 2.9)를 이어, 그 안의 오퍼레이터는 공격 속도 +`Bound.attack_speed`(−100, `ATTACK_SPEED` `ADDITION`).
+  - [추정·CN: 프리팹에 범위가 없음] 날며 오퍼레이터를 세는 줄(레이저 폭과 같게 그 행 ±1), 낙하가 때리는 대상(한 칸 안 가장 가까운 하나), `KillArmorAura`의 거리(한 칸 — 두 칸 옆에서 태어남), 튕김 대상을 고르는 범위(전장 전체). 스킬은 「적 스킬 = 일반 공격 차례」대로 공격 차례에 일반 공격 대신 시전되고 끝나면 공격 쿨타임을 다시 센다(`resetMain`): boss_14는 첫 차례에 【홍류 공세】(쿨타임 45, 처음부터 준비), 10초 차례에 띄우기를 써 첫 탄은 20초, boss_11의 【홍류 공세】는 SP 25가 찬 뒤 다음 차례(아래 「공격·스킬 자료」).
+  - 시험: `test/seasons-act3-enemies.test.js` 「假想敌：械…」 셋(규정 전장 m01·웨이브 h07_08 위에서).
+- **가상적: 고치(假想敌：茧) `enemy_9035_acspider`(boss_12)·`_2`(boss_15 숨은 핵심)와 정체의 고치(淤困之茧) `enemy_9036_acweb`**(이름은 모두 공식 한국어 이름 없음, 비공식 풀이 — 淤困은 KR 표의 「가상적: 정체」를 따름). 전장은 웨이브 `act3autochess_h07_09`·`h08_05`(보스 (2,10) 자리표시, 둘이 하는 판에도 한 마리 — `boss_battle_multi_player` 가지 없음). 키트 `bosses.js kitSpider`·`kitWeb`. 근거는 CN 프리팹(`battle/enm_pfb_37.ab` 11-08 판, 투사체 `battle/prefabs/[uc]projectiles.ab`)과 규정 표 `buff_template_data`의 `acspider*`·`acspdier[evade]`·`acweb*` 템플릿:
+  - 보스는 걷지 않는다(`Talents/Passive` `acspider[passive]`: `UNMOVABLE_PRIVATE` + `BLOCK_FREE` + `UNBALANCE_IMMUNE`). 일반 공격은 전장 전체(표 사거리 −1)에서 필드마다 현재 HP가 가장 높은(`_postFilter` HP_DES 15) 지상 유닛 `Passive.attack@max_target`(3, 숨은 핵심 4)명, 모두 합쳐 `batch_max_target`명에게 한 발씩(`projectile_enemy_acspider`·`_2`, TRACE 속도 10). 선택기가 둘이고 둘째에만 `_autoChessFilterType` 1이 있다 [추정·CN: 기계와 같이 「보스가 선 필드」와 「다른 플레이어의 필드」로 읽음, 혼자면 하나].
+  - 숨은 핵심의 일반 공격은 `acspider[poison]`을 건다: `Poison.attack@duration`(5)초 동안 1초마다 `Poison.attack@damage`(50) 진짜 피해(보스가 출처).
+  - 위장(`Talents/Evade` `acspider[evade-ticker]`, 받은 피해마다와 1초마다 확인): HP가 최대 HP의 `Evade.hp_ratio`(0.25) 단계(75·50·25 %) 아래로 내려갈 때마다 한 번씩 `Evade.duration`(15)초 동안 물리·마법 피해를 `Evade.prob`(0.5, 숨은 핵심 0.8)로 회피(`acspdier[evade]`의 `Evade` `PHYSICAL_AND_MAGICAL`). 한 확인에 한 단계.
+  - 【정체 포식】(淤困捕食, `Skills/Net`, 쿨타임대로, `_ignoreSilence`): 필드마다 무작위(`_postFilter` RANDOM 14) 지상 오퍼레이터(`_professionMask` 639 — 소환물·장치 빼고) `max_target`명, 모두 합쳐 `batch_max_target`명에게 거미줄 탄(`projectile_enemy_acspider_web`, TRACE 10)이 날아가 맞은 오퍼레이터 칸에 정체의 고치를 부른다(`acspider[summon]` `SummonEnemyWithRuntimeRoute`, 가까운 지나갈 칸이 아니라 그 칸).
+  - 정체의 고치: 공격하지 않고 움직이지 않으며 도발 1(「更容易受到攻击」). 자기 칸의 오퍼레이터를 묶는다(`acweb[bundling]`: `BLOCK_FREE` + `FORCE_DISARMED` + `SKILL_NOT_ACTIVATABLE` — 저지·공격·스킬 시작 불가, SP는 그대로 참). 그 오퍼레이터가 칸을 떠나면 풀리고(`_removeBuffWhenTargetLeave`), 죽거나 필드를 떠나면 고치가 죽는다(`ON_OWNER_FINISH` → 출처 `InstantKill`). 고치는 `Bundling.duration`(25)초 뒤 죽고(`acweb[existing]`), 1초마다 최대 HP의 `Bundling.hp_ratio`(4 %)를 잃는다(`acweb[bleeding]`, 출처 없음). 스킬 시작 불가는 엔진 깃발 `skillLock`(침묵과 달리 재능은 그대로).
+  - 숨은 핵심의 【비참한 비】(悲惨之雨, `Skills/AcidRain`, 하위 능력 `Left`·`Right`를 차례로 — `_selectAbilitySequentially`; `Left`는 보스 필드의 지상 유닛, `Right`는 다른 플레이어 필드의 것, `_allowNoTarget`): `duration`(25)초 동안 그 필드의 모든 유닛(모든 이동 방식, `ignoreTargetFree`)이 공격 속도 `attack_speed`(−50), 0.5초마다 `damage`(75) 진짜 피해(`acspider[sk-poison-area]`). [추정·CN: 비가 덮는 칸은 프리팹에 없음(CN 전용 타일 리스너) — 도감의 「覆盖一片场地」대로 대상의 필드 전체로 읽음. 혼자 판의 `Right` 차례는 비가 내리지 않음]
+  - 시험: `test/seasons-act3-enemies.test.js` 「假想敌：茧…」·「淤困之茧…」 넷(둘이 하는 기본 보스 판 위에서).
+- **가상적: 지느러미(假想敌：鳍) `enemy_9037_aceel`(boss_13)·`_2`(boss_16 숨은 핵심)**(공식 한국어 이름 없음, 비공식 풀이). 전장은 웨이브 `act3autochess_h07_10`·`h08_06`(보스 판을 순찰, 둘이 하는 판은 `boss_battle_multi_player`로 플레이어마다 한 마리). 키트 `bosses.js kitEel`. 근거는 CN 프리팹(`battle/enm_pfb_37.ab` 11-08 판, 투사체 `battle/prefabs/[uc]projectiles.ab`)과 규정 표 `buff_template_data`의 `aceel*` 템플릿:
+  - 근접(저지한 오퍼레이터만 침), 마법 피해에 공격력의 `Passive.attack@ep_damage_ratio`(0.4)만큼 신경 손상이 붙는다.
+  - 보호막(`Talents/BlockedListener` `aceel[shield-provider]`, 0.1초마다): 저지되지 않았고(COMBAT 상태 아님) 보호막이 없으면 `ShieldGen` — `aceel[shield]`: 받는 물리·마법 피해 ×(1 − `damage_resistance`)(0.4, 숨은 핵심 0.7). `FilterDamageModifer`는 피해 종류로만 거른다(`_sharedFlag`는 `_filterSharedMask`일 때만 봄 — 공식 클라에서 확인). 저지되는 순간(`ON_OWNER_BLOCKEE_CHANGED` → `CheckBlocked`, 첫 공격보다 먼저) 보호막이 사라지고 `aceel[power-atk]`: 다음 공격(`PowerAtk`, `_castLikeAttack`) 피해 ×`damage_scale`(1.5, 숨은 핵심 1.75), 그 공격 뒤 끝(`ON_AFTER_ATTACK`).
+  - 【이온 고리파】(离子环波, `Skills/Discharge`, 쿨타임대로, 침묵으로 막힘 — 도감 SILENCE 줄, 셋 중 이 스킬만 `_ignoreSilence` 없음): `range_radius`(1.5) 안 지상 유닛 모두에게 공격력 ×`atk_scale`(1.25) 마법 + `ep_damage_ratio` 신경 손상. [추정·CN: 범위의 중심이 프리팹에 없음 — 「对范围内所有我方单位」대로 지느러미 자신으로 읽음]
+  - 숨은 핵심 `Talents/Charge`: 공격마다 맞은 유닛(`MAIN_TARGET`)에 `aceel[atk-stack]` 하나(최대 `Charge.max_stack_cnt` 5). 탄(`projectile_enemy_aceel`·`_pwratk`)의 피해 ×(1 + `Charge.atk` 0.2 × 그 유닛의 중첩, `aceel[self-stack]` `AtkScaleUp`), 맞은 유닛에서 `chain.max_target`(2) + 중첩 `stack_per_extra`(1)마다 `extra_per_stack`(1)명 더, 마지막에 맞은 유닛에서 `projectile_range`(1.5) 안 가장 가까운 지상 유닛으로 튄다(같은 유닛 다시 없음). 튈 때마다 ×`chain.atk_scale`(0.75)씩 더 곱한다. 강화 공격 배율도 튄 피해에 붙는다. [추정·CN: 중첩은 공격 한 번에 하나(`_onlyApplyOnFirstSpell`), 탄의 배율은 맞기 전 중첩·튀는 수는 맞은 뒤 중첩으로 읽음; 튈 때마다 0.75를 한 번 더 곱함]
+  - 숨은 핵심 `Talents/Weather` 뇌우: 10초마다(`aceel[thurder-trigger]` `triggerInterval`, 첫 번은 10초 뒤) 자기 필드에서 자기 칸 + 둘레 8칸의 유닛이 가장 많은 오퍼레이터(Selector0 칸 가중치, 같으면 무작위) 하나에 벼락(`projectile_enemy_aceel_thurder`): 공격력 ×`Weather.atk_scale`(1) 마법 + `Weather.ep_damage_ratio`(0.4) 신경 손상. [추정·CN: Selector1의 `_autoChessFilterType` 3을 「자기 필드」로 읽음 — 플레이어마다 지느러미가 따로 있음; 표의 `Weather.interval` 30은 벼락 투사체의 `_intervalBbKey`(수명 3초라 한 번만 침)로 읽음]
+  - 시험: `test/seasons-act3-enemies.test.js` 「假想敌：鳍…」 넷(기본 일반 판 위에서). 신경 손상이 차면 저지한 오퍼레이터가 기절해 저지가 풀린다(중첩 시험은 게이지를 비움).
+- **쥐서우(矩兽) `enemy_2124_dyjsfg`**(boss_17, 본편 보스 — 공식 한국어 이름, KR 표). 전장은 웨이브 `act3autochess_h07_11`·`_s`(보스 판을 순찰, 둘이 하는 판은 `boss_battle_multi_player`로 플레이어 절반마다 한 마리, 웨이브 덮어쓰기로 공격력 655·피해 감소 0.2/0.5). 키트 `bosses.js kitJu`. 근거는 공식 클라 프리팹(`battle/enm_pfb_28.ab`, EN·CN 같음 — 엔진 필드 하나만 다름)과 표 `buff_template_data`의 `enemy_dyjsfg_t*` 템플릿, 노드는 EN 클라에서 확인:
+  - 프리팹 `_blockVolume` 3(표 blockCnt는 1). `Combat`이 `EmptyAnimatedAbility`라 저지돼도 공격 피해가 없다(표 applyWay NONE도 같음) — 피해는 모두 재능에서 온다.
+  - 【명력】(`Talents/Huge`, `enemy_dyjsfg_t` 0.1초마다): 저항 −`one_minus_status_resistance`(0.8, 속성 26). 멈춰 있으면(`Enemy.IsStayStill`: 이동 상태가 아님 — 저지·기절·대기, 순간이동·불균형·등장 중은 아님) `enemy_dyjsfg_low_damage_resistance`(0.35), 아니면 `_high`(0.9) — 템플릿 `damage_resistance`: 받는 물리·마법 피해 ×(1 − 값), 다른 하나는 끝냄.
+  - 【상동】(`Talents/Trample`, 나타난 때부터): `Trample.interval`(2.5)초마다 — 버프 간격은 블랙보드 `interval`이 프리팹의 1초를 덮음(`Buff.Reset`, 공식 클라에서 확인), 첫 번은 한 간격 뒤 — `range_radius`(1.6) 안 플레이어 쪽 유닛 모두(`CreateBuffInRange`, 모든 이동 방식)에 공격력 ×`atk_scale`(1) 물리(`DamageViaAttr`, 출처의 공격력). 저지될 때마다(`ToggleablePassiveBuffAbility` + `BlockedToggleChecker` 최소 1: 토글이 켜질 때) `enemy_dyjsfg_t[trigger_aoe]`가 `Skills/CombatAoe`를 강제 시전(`TriggerEnemySkill`, `_interruptCurAbility`): 공격 이벤트에 그 `MeleeAttack`이 자기 대상 — 저지한 오퍼레이터(`_selectTargetSource` FROM_OWNER) — 에 공격력 ×1 물리, 자기에게 `[combat_damage]`를 걸어 0.5초 뒤 스킬 `range_radius`(1.6) 안 유닛 모두에 공격력 ×`combat_atk_scale`(2) 물리(`AOEDamage`, `_useDamageFromBB` 꺼짐 = 출처 공격력, `_excludeTarget`은 가운데의 보스만 뺌). 스킬은 클립 `Attack`(`_timeMode` 1: 클립 그대로 1.5초)을 틀고 그 OnAttack 프레임(0.6초, 모델 스켈레톤 — 시즌 자료 `skillCast.combataoe.hit`)에 공격 이벤트가 온다: 저지 0.6초 뒤 일격, 1.1초 뒤 광역. 그 전에 기절·빙결·수면·불균형·공포·은신이 오면 시전이 끊겨 둘 다 없다(적 공격이 끊기는 상태와 같음). 저지자가 그 전에 사라져도 둘 다 없다(`AbilityStandard.UpdateTargets`: 대상 0이고 `allowNoTarget`이 꺼져 있으면 시전 끝) [추정·엔진: CombatAoe의 `_allowNoTarget`이 꺼져 있는지는 안 읽음].
+  - 【비명】(`Talents/Overload`, `HpRatioToggleChecker` `_maxHpRatio` 0.5 `_toggleOnce`): 처음 HP 절반에서 한 번 — 공격력 +`Overload.atk`(0.5, MULTIPLIER), 이동 속도 ×`move_speed`(2, FINAL_SCALER), 저지 무게 +`block_volume`(1). `AddEnemyBlockVolume`은 `Enemy.blockVolumeAddition`만 올리고, 저지자는 저지할 때 센 무게를 들고 있으므로(`BlockedEnemyManager.Add`) 지금 저지자는 그대로 막고 늘어난 무게는 다음 저지부터 센다(공식 클라에서 확인).
+  - 【겸애】(`Talents/OutOfControll`, `enemy_dyjsfg_t[kill_all]` `ON_OWNER_FINISH` — 쓰러지거나 퇴각): 그때의 공격력을 담고(`AssignAttributeToBB`), 0.75초 뒤 장치·소환물과 허우서우(`enemy_2123_dyjsww`)를 뺀 모든 적이 쓰러지고(`InstantKill`, 출처 없음), 오퍼레이터·소환물 모두가 그 공격력 ×`OutOfControll.atk_scale`(2) 물리, 출처 없음(`FixedValueDamage` `_noSourceDamage`; `CreateBuffToCertainSideUnits`는 고르지 않으므로 은신도 맞음). 보스 판은 풀이 비는 순간 끝나므로(DESIGN §5.5) 실제 판에서는 전투가 이어질 때만 보인다.
+  - 시험: `test/seasons-act3-enemies.test.js` 「矩兽…」 둘(기본 일반 판 위에서).
+- **보스 웨이브의 새 적 넷**(모두 규정 표 기록 그대로, 지난 시즌 자료에는 없음). 키트는 `enemies/fly.js`·`enemies/special.js`:
+  - **섬핵의 표류자(纤核漂游者) `enemy_1435_dsflys`**(웨이브 `h07_10`, 프리팹 `battle/enm_pfb_17.ab`): 비행, 원거리 물리. 공격 선택기 `_postFilter` HATRED_DES_HIGHLAND_FIRST(52) — 높은 칸 유닛 먼저, 그다음 위협도(「고지대 유닛 우선 공격」). 맞힐 때마다 공격력 ×`0.attack@ep_damage_ratio`(0.15) 신경 손상(재능의 공격 블랙보드가 능력의 `_epDamageRatio` 0.12를 덮음). 불균형 면역(`dsflys_immune`, 이상 깃발 8 UNBALANCE_IMMUNE).
+  - **악성 분진 원석충(恶尘源石虫) `enemy_1424_lrboom`**(웨이브 `h07_09`, 프리팹 `battle/enm_pfb_16.ab`): 쓰러지면(`projectile_on_killed` → `projectile_lrboom`, 침묵이면 없음) 반경 1.3(그 투사체의 `CircleCollider2D`) 안 지상 유닛에 공격력 ×`Boom.atk_scale`(3.5) 물리 스플래시(위장 무시). 「오리지늄 오염 구역 생성」은 발밑의 동적 `REED_TILE`을 바꾸는 것(`enemy_lrboom[triggerTile]`)이고 「활성 오리지늄 폭풍」은 스테이지 장치라, 규정 전장에는 둘 다 없어 일어나지 않는다.
+  - **결사의 향유자(搏命享受者) `enemy_10196_ubba_2`**(웨이브 `h07_08`·`h08_04`, 프리팹 `battle/enm_pfb_30.ab`): `Talents/Talent1` 오라(`AuraAbility`, 반경 1.7 — 그 `CircleCollider2D`, 자기 편·모든 이동 방식) 안 다른 적은 받는 물리·마법 피해 ×(1 − `Talent1.damage_resistance` 0.25)(`enemy_ubba_damage_resistance`, `disableOverride` — 향유자마다 따로라 둘이면 곱함). 경보 모드(`Modes/Warning`: 빨라지고 경보를 울린 유닛을 쫓음)는 본편 감시탑이 거는 `ubtower_warning_mask[target]`이 있어야 시작되는데 규정 전장에는 감시탑이 없어 시작되지 않는다. [추정·엔진: 오라의 `_selfOption` DEFAULT가 자신을 넣는지 안 읽음 — 「주변 적」대로 자신은 뺌]
+  - **가상적: 총생(假想敌：丛生) `enemy_9040_accrit`**(공식 한국어 이름 없음, 비공식 풀이; 규정 특수 적 종류 CRITIC, 웨이브 `h08_05`; CN 프리팹 `battle/enm_pfb_37.ab`, 규정 표 `accrit[critical-hit]`): 자기 표식(`accrit[critical-mark]`, 출처별)이 없는 유닛에 내는 피해(`ON_OUTPUT_DAMAGE`)는 ×`CriticalHit.damage_scale`(2), 그 유닛에 영구 표식과 `CriticalHit.duration`(5)초 치료 불가(`accrit[heal-free]`, HEAL_FREE). `Skills/Critical`은 표식 없는 저지 대상에게 클립만 바꿈(Attack_B).
+  - 쉐라그 설산 거인 「不眠雪山」 `enemy_9024_acsgnt`는 모든 웨이브의 `acsgnt` 가지로 들어오는 아군 유닛 — 쉐라그 6명 맹약의 소환물이라 적 키트가 아니라 「규정 맹약」 쪽(`STATS_ONLY`에 그 이유)이다.
+  - 시험: 같은 파일 「纤核漂游者…」·「恶尘源石虫…」·「搏命享受者…」·「假想敌：丛生…」.
+- **공격·스킬 자료**(2026-11-10): 지금 시즌에 없는 규정 적 96종의 투사체(`proj`)와 스킬 시전 방식(`skillCast`: 가족·시간 모드·`resetMain`)은 공식 클라 프리팹에서 읽는다 — EN 클라에 있는 것은 EN, 없는 것(가상적 보스·부품 등 18~20종)은 CN(`tools/local-extract/attack_timing.py`·`enemy_projectiles.py --season-new`, 지금 시즌 줄은 그대로). 그래서 새 보스의 스킬도 자기 쿨타임이 아니라 공격 차례에 시전된다. 클립 길이와 OnAttack 프레임(`attackAnim`, `skillCast`의 `dur`·`hit`)은 모델 스켈레톤에서(`data/assets.json`, 2026-11-11): 웹 모델(`spine`)이 있는 78종은 그것, 로컬 클라에만 있는 규정 자신의 17종은 `spineLocal` — 적 모델이 둘 다 있으면 공식 모델인 `spineLocal`이 먼저다(`tools/build-data.mjs enemySpine`; 웹 쪽은 다른 적의 대역 — 지난 시즌에도 있는 작열 원석충·폭염 원석충(`enemy_1305_mhslim`·`_2`)은 웹 대역인 원석충 모델의 클립 0.767초 대신 자기 모델의 1초·타격 0.667초). 공격하는 새 적은 모두 클립이 있다(없는 셋은 applyWay NONE: 충격지계(冲击之械) `enemy_9027_acfnca`·정체의 고치(淤困之茧) `enemy_9036_acweb`·「모의 보물」(“模拟宝藏”, 공식 한국어 이름 없음, 비공식 풀이) `enemy_9038_achest`). 남은 빈칸 하나: 가상적: 기계의 `SommonSquad`가 부르는 `Skill_1`은 모델 애니메이터(`Graphic`)의 `_animations` 표가 `A_Skill_1`·`B_Skill_1`로 바꾸는데, 추출이 그 표를 아직 안 읽어 `miss`(시전 길이 0)다 [추정·미조사: 애니메이터 `_animations` 표 — 묶음 sim-D 줄].
+- **근거 자료**: 규정 표(fexli 공개 표)의 `battle/buff_template_data.json`에 위수협의 새 템플릿이 들어 있어, 새 적 버프의 노드는 이 표로 확인한다(캐시 `.cache/gamedata-act3autochess/`).
+- **아직 키트가 없는 적**: 규정 판에 나올 수 있는 적 339종 중 81종 — 특수 적 항목과 딸린 호위·자식 69, 적 효과·선택·전략이 부르는 적 12. 지금은 데이터 수치로만 싸운다. 시험 `test/seasons-act3-enemies.test.js`가 목록을 고정하고, 키트가 생기면 목록에서 빼게 한다(목록은 줄기만 한다).
+- 시험: 같은 파일 「规程 假想敌：铳 is blockable…」(지난 시즌 판도 같이: 늘 저지 불가·사거리 안 방어력 최고)·「量变之械…」·「规程 enemies with a kit: … SILENCE lines」.
+
+## 규정 맹약 (2026-11-10)
+
+규정(`act3autochess`)의 맹약은 시즌 전용 `data/seasons/act3autochess/bonds.json`으로 돈다. 맹약 기록의 버프 템플릿 키(`bbStr.key ?? key`, `[…]` 하위 키는 부모 템플릿, `_power`는 따로)가 구현을 고른다(`content/bonds/dispatch.js`): 맹약별 파일 `bonds/nation/<맹약>.js`·`bonds/general/arcane.js`가 자기 템플릿(`TEMPLATES`)을 등록하고, 등록되지 않은 템플릿은 아무것도 안 돈다(`node tools/season-coverage.mjs`가 보여 줌). 지난 시즌 템플릿을 그대로 쓰는 맹약(빅토리아·에기르 — act1 키, 수치만 바뀜)은 그 설치 함수가, 사르곤·쉐라그의 act3 기본 템플릿은 지난 시즌과 같은 설치 함수가 6명 공격력·한풍 없이 돈다(6명 효과는 따로 `_power` 템플릿 — 아래). 근거는 모두 규정 표의 `battle/buff_template_data.json`(캐시 `.cache/gamedata-act3autochess/`)과 맹약 수치(`buffs[].bb`, 한 맹약의 버프들이 블랙보드 하나를 나눠 씀)다. 맹약 효과를 붙이는 CN 전용 노드(`AutoChessAddBondStackCount`, 런타임 능력 프리팹)는 EN 클라에 없어 읽지 못했다 — 아래 [추정·CN] 표시가 그것이다.
+
+- **임시 중첩(临时层数)**: 그 전투에만 있는 중첩(`AutoChessAddBondStackCount` `_isTemp`). 전투 안에서는 고정 중첩과 똑같이 세어 효과·맹약 줄에 반영되고(`Battle.addLayers` `temp`), 결과에는 따로 남는다(`tempLayerGains`). 정산(`settle`)에서 전투 끝 특질(`SERVER_BATTLE_FIN` → `onBattleResult`)이 일부를 고정 중첩으로 바꾸고(`ctx.convertTempLayers`) 나머지는 사라진다. 우쿠시크 특질(`garrison_21`, 「<进入休整期时>场上每有一名【乌萨斯】干员…」)은 판 위 [우르수스] 오퍼레이터 1명당 N층, 베토치키(`garrison_184`)는 N층. 근거: 장비·전략 문구 「临时层数+1（每场战斗最多叠加12层）」, 특질 문구. [추정·CN: 임시 중첩에도 `layerGain` 훅(魔王류 +1)과 999 상한이 그대로 걸림. 「场上」은 전투가 끝난 뒤의 정비 판(쓰러진 오퍼레이터도 다시 판 위). 바꾸기에 맹약 활성은 안 따짐(문구에 없음)] 클라 결과 검증은 고정 중첩과 합쳐 상한 안인지만 본다(처치마다 생기므로 평평한 상한이 없음).
+- **염국 `bondeffect_yan_2`**: 구성원 공격력 +(`atk_base` + `atk_per_stack`·L)(MULTIPLIER = 직접 곱연산). 6명: 구성원이 입히는 피해(부가 피해 빼고 — 템플릿 `yan_power`의 `FilterDamageModifer` ADDITION 부정)마다 무작위 원소(`RandomSetter element_type` 1…5: 신경·침식·작열·괴사·광조) 손상 공격력 × min(`ex_atk_scale_max`, `ex_atk_scale_base` + per·L). 같은 필드의 모든 적은 폭발 냉각에서 ×(1 + min(max, `ep_break_recover_speed_base` + per·L)) 빨리 돌아온다(`yan[enemy]` `EP_BREAK_RECOVER_SPEED`, 필드에서 6명인 플레이어 중 가장 높은 염국 중첩). [추정·CN: 5번 원소 광조는 이 엔진에 없어 그 굴림은 아무것도 안 채움 — 비율은 공식대로 1/5]
+- **우르수스 `bondeffect_ursus`**: 구성원 공격력·HP +(base + per·L). 구성원이 적을 쓰러뜨리면(`ON_TARGET_KILLED`) 임시 중첩 +`temp_bond_stack_cnt`(2, 6명이면 `[power]` 4). [추정·CN: 「其他单位」 = 그 구성원이 쓰러뜨린 적 — `ON_TARGET_KILLED`의 대상 종류는 CN 노드라 못 읽음] 6명: 1초마다(구성원이 나온 뒤 1초부터) 저지 중인 적 하나하나에 공격력 × (`atk_scale_base` + per·L) 마법(지속), 살아 있는 출처에게 받는 피해(진실·지속 빼고)를 ×(1 − min(1, `damage_one_minus_base` + per·L))로 깎고 깎인 만큼을 10초 동안 1초마다 1/10씩 진실 피해(그 출처가 낸 것)로 다시 잃는다. 출처가 쓰러지면 멈춘다. 맞을 때마다 따로(`disableOverride`). 전략이 더하는 처치당 임시 중첩(전역 블랙보드 `ursus_extra_bond_stack_cnt`)은 자리만 있다(`ursusExtra`, 묶음 sim-M).
+- **이베리아 `bondeffect_iberia`**: 템플릿은 적에게 붙는 `iberia[enemy]` 하나. 구성원이 적에게 입히는 피해(부가 피해 빼고)마다 — 적·구성원 쌍마다 0.2초에 한 번(`[enemy_cd]`) — 그 구성원의 지속 마법 피해 1중첩(`[enemy][dot]` STACK 최대 10, `independentCharacterSource`, 첫 중첩부터 10초, 10중첩일 때만 시간 갱신, 끝나면 모두 사라짐): 1초마다 공격력 × (`dot_atk_scale_base` + per·L) × 중첩. 6명: 그 2배, 맞을 때마다 이동 속도 −4 %(한 적에 하나, 최대 20중첩 −80 %, 10초), `prob_base` + per·L 확률로 그 피해가 대상 반경 1.0 안 다른 적 하나(무작위)에게 튀어 공격력 × `atk_scale`(3) 마법(스플래시). 튄 피해는 다시 튀지 않고(`iberia_p_damage`) 중첩은 붙인다. 출처가 사라지면 남은 틱은 마지막 공격력으로 출처 없는 피해. 「연금 유닛」은 맹약이 [이베리아]인 유닛 그대로(지금 소환물은 구성원이 아님).
+- **시라쿠사 `bondeffect_siracusa_2`**: 배치 때 공격 속도(지난 시즌과 같음). 6명: 구성원 공격·스킬 피해(능력 계열 `ATTACK_OR_COMBAT`, 지속 빼고, 구성원마다 0.2초에 한 번)마다 `prob`(0.3)로 무작위 상태 이상 하나(`abnormal_buff[random_creator]`: 기절·공포·유인·한기·마비·속박) min(max, base + per·L)초. 1초마다 상태 이상을 2종 이상(`abnormal_buff[count]`, 한기와 동결은 하나) 가진 적은 자신과 반경 1.1 안 적에게 `damage_value_base` + per·L 진실(출처 없음). [추정·CN: 적 버프의 발동 간격(`siracusa_power[enemy]` ON_BUFF_TRIGGER)은 전역 버프 자료에 있어 문구 「每秒」대로 1초]
+- **카시미어 `bondeffect_kazimierz_2`**: 배치마다 공격력(지난 시즌과 같은 필드 한 계수). 6명: 구성원의 배치·스킬 시전 뒤 `ex_damage_duration`(30)초 동안(`[ex_damage]` EXTEND) 입히는 피해(부가 피해 빼고)마다 공격력 × `ex_atk_scale_base`(0.65) 진실 부가 피해.
+- **아케인(act3 템플릿)**: 구성원이 입히는 피해(부가·원소 빼고)마다 공격력 × (`atk_base` + per·L) 마법 부가 피해. 3명: 필드의 적은 피해(원소 빼고)를 받을 때마다 마법 저항 −1, 최저 `magic_res_max_base` + per·L(≥ `magic_res_max_min`). 또 3명(자기 플레이어의 수, 템플릿 ON_BUFF_START → 런타임 능력 `act3autochess_bond_mag_power[immune_invisible]`)이면 구성원 공격 범위 안 적의 은신이 꺼진다 — 같은 문구의 모듈 효과(「攻击范围内敌人的隐匿效果失效」, `kits/shared/tier4.js reveal`)대로 배치 중 0.2초마다 범위 위의 은신 적에게 짧은 반은신. [추정·CN: 능력 프리팹은 CN 전용 — 범위는 그 구성원의 현재 공격 범위, 갱신은 엔진의 오라 방식] 지난 시즌 아케인(act2 템플릿)은 그 시즌에서만 돈다(`addon/battle.js TEMPLATES`에 act3 템플릿이 없음).
+- **취합(聚合, `docShip`, 공식 한국어 이름 없음) `bondeffect_doc`**: 구성원 공격 범위 안 아군은 초당 구성원 공격력 × (`heal_base` + per·L) HP 재생, × (`ep_heal_base` + per·L) 원소 손상 회복. 3명: 그들에게 비호 `damage_res_base` + per·L(`damage_resistance[inf]`). 구성원이 여럿이면 재생은 더하고 비호는 가장 큰 것.
+- **라이타니엔 `bondeffect_lethania`**(`bonds/nation/lethania.js`): 구성원 공격력 +(base + per·L). 필드의 적이 쓰러지면(`[enemy]` ON_OWNER_FINISH: HP_ZERO·출처 없는 HP_ZERO·FALLDOWN — 우리 엔진의 `killed`) 그 자리에서 `[summoner]`: 그 플레이어의 살아 있는 소환물이 상한(필드에 6명인 플레이어가 있으면 `summon_cnt_max_2` 20, 아니면 `_1` 10) 아래면 min(max, `summon_prob_base` + per·L) 확률로(L = 필드에서 가장 높은 라이타니엔 중첩), 필드에 6명이 있고 min(max, `big_prob_base` 0.3 + 0.001·L) 확률이면 「한 악부」(`enemy_9026_acltm`), 아니면 「한 마디」(`enemy_9025_aclts`)를 가장 가까운 지상 칸에. 6명(자기 플레이어)이면 구성원이 쓰러질 때도 같은 소환(`_power`). 소환물은 공격력 +(base + per·L)(`[summoned]`, 필드 최고 중첩). 「한 악부」가 있는 동안 [라이타니엔] 오퍼레이터 공격 속도 +20(재능 `Aura.base_attack_speed`), 공격 3번 뒤 다음 공격은 두 번 친다(Sk1, SP 공격마다 1, 최대 3).
+  - 소환물은 적 자료를 그대로 쓴 **걷는 아군**(`bonds/walker.js`, 토큰 `walks`): 칸을 차지하지 않고(`battle/deploy.js`), 1초마다 필드 전체에서 대상을 골라 적과 같은 걸음(`walk.js walkCursor`, 적 자료 이동 속도)으로 다가가며, 저지할 때·공격 동작 중에는 선다. 저지는 자기 위치에서 오퍼레이터와 같은 접촉 규칙(`battle/blocking.js`, 자료 `blockCnt` — 한 마디 1, 한 악부 2), 공격은 적처럼 둥근 범위(`rangeRadius`, 0이면 저지한 적만). 禁疗(프리팹 공통 능력 `heal_free`, 이상 효과 HEAL_FREE), 재능 `Bleeding`: 1초 뒤부터 1초마다 최대 HP의 10 %를 출처 없이 잃음(`aclt[bleeding]` DamageViaMaxHpRatio PURE) — 10초 산다. 공식 클라에서 확인: 소환은 `SummonEnemyWithRuntimeRoute`(`_unharmful`, `_noEndPosition`), 「한 마디」 프리팹의 선택자는 모두 `_targetSide` ENEMY, 대상 추적 능력(`_enableTraceTarget`, `_searchCoolDown` 1).
+  - [추정·CN: 대상 추적 능력의 클래스(`_dontMarkReachedByInAttackRange` 등)와 소환 노드의 새 필드(`_summonOnNearestPassableTile`)는 CN 전용이라 못 읽음 — 대상은 가장 가까운 선택 가능한 적(근접인 한 마디는 지상만), 사라지면 바로·아니면 1초마다 다시 고름, 적이 없으면 제자리; 공격 범위 안의 적은 걸음을 멈추지 않음. 적 자료 유닛을 플레이어 편에 두는 방법도 CN 쪽이라 못 읽었다. 한 악부의 오라는 소환한 플레이어의 구성원에게, 여럿이어도 +20 한 번. Sk1 두 번째 타격은 첫 타격 0.234초 뒤(Skill 클립의 OnAttack 0.533·0.767초). 두 플레이어가 라이타니엔인 공유 필드에서 적의 소환은 먼저 설치된 플레이어 몫(`[enemy]` UNIQUE). 소환물 공격력은 중첩이 바뀔 때 다시 셈(공식은 0.3초마다)]
+- **사르곤 6명 모래 늪 `act3autochess_bond_eff_sargon_power`**(`bonds/nation/sargon.js installSand`, 수치는 그 `[tile_listener]` 버프): 자기 플레이어의 사르곤 6명이면 구성원이 스킬을 켤 때마다 공격 범위 안에서 그 구성원과 가장 가까운 지상(WALK) 칸 중 아직 모래 늪이 아닌 칸에 모래 늪 하나(칸 리스너 `act3autochess_bond_sargon_tile_listener`는 플레이어마다 하나, 같은 칸에는 다시 달리지 않음 — EN 클라 `AttachListenerToTileAbility.AttachToTile`). 지금 칸(점)이 모래 늪인 지상 적: 迟钝 min(`slow_max`, `slow_base` + per·L), 스킬이 켜진 구성원의 공격 범위 안이면 2배(능력 `act3autochess_bond_sargon_range`, 스킬 시작~끝, `[aura_buff]`); 들어온 뒤 `interval`(5)초마다 束缚 `unmovable_duration`(1)초 → 마법 min(max, `magic_damage_base` + per·L)(출처 없음, 지속, 환경 피해); 그 범위 안이면 1초마다 `[mag_damage_2]` 마법 min(max, base + per·L). `[checker]`가 0.3초마다 보고 어느 모래 늪에도 없으면 모두 끝(이웃한 모래 늪으로 옮기면 시계가 이어짐). 비행 적은 안 걸림. [추정·CN: `FindNearestTileInRangeToBB`는 CN 전용 노드 — 범위 = 구성원 공격 범위, 이미 모래 늪인 칸은 건너뜀(노드의 칸 표시 `ac_bond_eff_sargon_power[sand]`), 거리는 구성원 칸에서; 2배 판정은 0.3초 갱신 대신 틱마다] 그림은 fx.md 「규정 사르곤 모래 늪」.
+- **예견 `bond_goods_disc_tier2`**(`bonds/general/visi.js`): `layer_list` 80·150 단계를 처음 넘을 때마다 [예견] 오퍼레이터 구매가 −`discount`씩 영구(80층 −1, 150층 −2). 지난 시즌처럼 150층에 모든 오퍼레이터로 넓어지지 않는다(문구 「所有【远见】干员购买价格额外永久-1资金」). 단계는 맹약이 켜져 있을 때만 잠기고 밀린 것은 켜지는 즉시(지난 시즌 할인과 같은 규칙), 값은 0 아래로 안 내려감. 10층마다 2자금은 지난 시즌 그대로.
+- **기적 `bond_layer_shop_same_tier`**(`bonds/general/mira.js`): 처음 100층에 닿은 뒤(켜져 있을 때 잠김) 새로고침한 상점의 오퍼레이터 칸에 조달 센터 등급과 같은 티어가 하나도 없으면 칸 하나를 그 티어로 다시 뽑는다(공용 풀, 사본 가중). 지난 시즌의 100층마다 20자금은 없음. 무료 새로고침 확률은 수치만 바뀜(0.18 + 0.0025·L). [추정·서버: 상점 뽑기는 서버 몫 — 수동 새로고침만(기적 무료 새로고침과 같은 「刷新」, 라운드 시작 뽑기 아님), 바꾸는 칸은 무작위 오퍼레이터 칸, 기적이 켜져 있을 때만]
+- **빅토리아·에기르**: 템플릿은 지난 시즌 그대로, 수치만 시즌 것(빅토리아 장비당 0.4 + 승급 0.4, 에기르 부활 6명).
+- **쉐라그 6명 설산 거인 `act3autochess_bond_eff_kjerag_power`**(`bonds/nation/kjerag.js` → `bonds/giant.js`, 2026-11-11): 자기 쉐라그 구성원이 6명(`power_bond_char_cnt`)인 플레이어마다 전투 시작에 「不眠雪山」(`enemy_9024_acsgnt`, 공식 한국어 이름 없음) 하나 — 그 플레이어의 마지막 쉐라그 오퍼레이터 칸과 상하좌우(`x-5`) 중 지상 칸, 없으면 가장 가까운 지상 칸(`FindNearestPassableTileForLastCharacter` → `SummonEnemyWithRuntimeRoute _summonOnNearestPassableTile`). 라이타니엔 소환물과 같은 **걷는 아군**(`bonds/walker.js`, 禁疗, 동결 면역은 적 자료대로). 수치는 CN 프리팹(`battle/enm_pfb_36.ab`)과 규정 표 템플릿 `acsgnt[…]`:
+  - 맹약 버프(재능 `BondBuff`, 1초마다): n = ⌊그 플레이어의 쉐라그 중첩 ÷ `stackStep` 3⌋, 공격력 +(0.5 + 0.01·n)·최대 HP +(0 + 0.02·n)(둘 다 MULTIPLIER).
+  - **거인 형태**(覆雪苏醒, 처음 형태 `Giant`): 걸어서 대상을 쫓고(라이타니엔 소환물과 같은 추적 능력), 저지 없음(`block_free`). 사거리 2.4 안의 지상·공중 적 하나에 투사체 `projectile_enemy_acsgnt` 마법 — 투사체가 닿으면 그 주변 반경 1.1(`CircleCollider2D`) 안 **지상** 적 모두에게도 같은 피해(`_hitNumType` INFINITY, `_exceptTraceTarget`·`_alwaysHitTraceTargetInTheEnd`, 위장 무시). 저지할 수 있는 지상 적(BLOCK_FREE·LEVITATE·ATTRACTED가 아닌)이 0.8 안에 오면 `Switch2Snowy`(A_Change 1초, 침묵 무시) → 설산 형태.
+  - **설산 형태**(覆雪坐定, `SnowyMountain`): 서서(UNMOVABLE_PRIVATE) 3명 저지(`BlockEnemy.block_cnt`, BLOCK_CNT). 사거리 안 지상 적에 투사체 없는 마법, 대상 주변 반경 1.5(`BlockEnemy.attack@ability_range_radius` — 撼地者 특성이 스플래시 반경을 읽는 같은 키) 안 다른 지상 적에게 공격력 ×1 스플래시(`_splashAtkScale` 1, `atk_scale_2` 없음). 동결된 적에게는 피해 ×3.5(`FrozenBreak.atk_scale`, `acsgnt[frozen-break]` ON_CALCULATE_DAMAGE AtkScaleUp)이고 그 적의 동결이 모두 풀림. `PowerAttack`: 1.1 안의 동결된 지상 적을 먼저 친다. 처음 앉은 뒤나 마지막 공격 뒤 5초(`SwitchMode.interval`, `acsgnt[mode-timer]` ON_AFTER_ATTACK에서 다시 셈)가 지나면 `Switch2Giant`(B_Change 1초) → 거인 형태; 그때 행동할 수 없으면 0.1초마다 다시(`[keep-switch]`, 시전은 안 끊음).
+  - **【神迹之声】**(`Attract`, 설산 형태의 스킬, 비공식 풀이 「신적의 소리」): SP 시간마다 1, 처음 10, 18에서(B_Skill 5초) 공격을 멈추고(FORCE_DISARMED) 반경 1.5 안 적 모두를 자기 칸으로 유인(`acsgnt[attract]` ATTRACTED, 엔진의 `attract` 상태) — 시전이 끝나거나 끊기거나 거인이 쓰러지면 유인도 끝.
+  - 화면에는 형태 전환 시작에 fx `phase`(`form`), 유인에 `lure`와 `skill` 이벤트 — 아군 편 적 모델 그리기는 fx 쪽.
+  - [추정·CN: 형태 전환·`PowerAttack`·`Attract`는 CN 전용 스킬이라 시전 조건을 「휘두르는 중·시전 중이 아닐 때」로(휘두르기를 끊지 않음), 전환 클립에 OnAttack 프레임이 없어 형태는 클립 끝에 바뀜, SP는 두 형태 모두에서 참, 유인은 공격 사거리 안에 적이 있을 때 시작하고 자기 칸으로 끔. 「마지막 오퍼레이터」는 가장 늦게 배치된 것. 투사체 반경 1.1은 적 중심으로 셈(엔진의 스플래시 규칙). 0.8에서 앉기 시작해도 전환 1초 사이 걸어가는 적은 접촉 저지 반경(√0.5) 밖으로 벗어날 수 있음 — 저지 반경은 우리 엔진의 아군 규칙]
+- **쉐라그 100층마다 쉐라그 만년빙**: 빅토리아 해머와 같은 지급(`bonds/templates.js payHammers`, `bond_layer_added_reward_equip`, 맹약이 켜져 있을 때·밀린 것은 켜지는 즉시). 보상 풀 `pool_equip_kjeragbond2`는 표에 없어(서버 쪽) 생성기가 그 시즌의 쉐라그 만년빙 하나로 만든다(`tools/build-data.mjs`, [추정·서버]).
+- **아직**(묶음 sim-K): 카시미어 6명 정비 구역 교대, 라테라노 빠짐의 맹약 줄.
+- 시험: `test/content/bonds_act3.test.js`(맹약마다 수치·6명 효과, 아케인 3명 은신 무효, 사르곤 6명 모래 늪, 임시 중첩의 실제 대전 정산, 쉐라그 만년빙, 예견 두 단계 할인, 기적 같은 티어 보장, 라이타니엔 소환·걷는 소환물·한 악부, 쉐라그 설산 거인의 소환·두 형태·동결 강타·유인·실제 대전).
+
+## 장비 전투 효과는 아이템 ID가 아니라 버프 키로 (2026-11-11)
+
+- 전투 쪽 장비 효과는 장비 기록이 가진 버프의 공식 키(`bbStr.key`)로 고른다: 스탯 버프, 버프 키마다의 동작(`server/sim/content/items/effects/*.js`, 계열마다 한 파일), 해머, 그리고 아이템 ID에 묶인 셋(듀얼 모드 기계팔은 수치가 없고, 증기의 마음·기사 계율은 버프 둘을 읽음 — `items/battle.js` `BY_ITEM`). 규정(`act3autochess`)은 지난 시즌의 아이템 ID를 다른 아이템에 다시 쓰므로(`handlerKey`), ID로 고르면 같은 버프를 가진 다른 ID의 아이템은 효과를 못 받았다.
+- 바뀐 것(규정만, 기본 시즌은 그대로): 규정의 不退者之盾(`chess_item_3_16_e`, 공식 한국어 이름 없음 — 「물러서지 않는 자의 방패」)과 不退者卫护系统(`chess_item_6_06_e`, 공식 한국어 이름 없음 — 「물러서지 않는 자의 방호 체계」)이 농축 스멜링 솔트의 버프 `act1autochess_equip_acarm059_global_buff`(`hp_ratio` 0)를 가지고 있어, 남은 HP와 상관없이 기절·빙결 같은 특수 상태에 면역이 된다(설명 「免疫晕眩、冻结等特殊状态」과 같다. 전에는 효과 없음).
+- 한 기록 안의 순서: 스탯 버프와 앞 단계 동작(버프 순서대로) → 해머 → 뒤 단계 동작(버프 순서대로) → 아이템 ID 동작. 뒤 단계 24개는 전에 아이템 ID로 돌던 것이라 훅 순서와 고정 시드 전투가 그대로다(기본 시즌 golden 그대로).
+- 확인: `test/content/items.test.js` 「an item runs the behaviours of the buff keys it carries, whatever its id」(옛 코드에서 실패 확인), `node tools/season-coverage.mjs act3autochess`(장비 `wrong` 4 → 2: 페가수스의 투구·랜스 ID를 다시 쓰는 규정 장비에는 그 버프가 없어 이제 아무것도 돌지 않음), golden `act3-roster` 한 판(`roster-055`: 不退者之盾을 든 오퍼레이터가 빙결을 막음)만 바뀜 — 이 두 장비를 든 다른 판에는 막을 상태가 오지 않음.
+- 준비 쪽도 같다(2026-11-11): 장비 사용·법술 처리(내장 `server/match/builtinMeta.js`와 `server/sim/content/items/meta.js` `PREP`)는 기록이 가진 버프 키로 등록된다. 규정이 같은 뜻으로 이름만 바꾼 키(같은 아이템·설명·수치, `server/sim/content/items/aliases.js`)는 지난 시즌 키로 읽는다: 긴급 차출권·신분인식표·돈독 오른 인형·인사부 파일·비콘 — 그래서 규정에서 신분인식표·돈독 오른 인형·인사부 파일·비콘이 처음으로 효과를 내고, 긴급 차출권은 고급의 2명을 제대로 받는다(전: 버프를 못 찾아 1명). 뜻이 바뀐 키는 별칭이 아니다: 규정의 호출 모듈은 「그 오퍼레이터의 첫 맹약」만 보므로(`use_equip_spe_goods_first_bond`) 이제 지난 시즌의 제안을 하지 않는다(처리기 없음), 간이 통신기(첫 맹약만)·의태 물질(같은 등급으로)도 마찬가지. 확인: `test/content/items.test.js` 「prep behaviours run by the buff keys an item carries」(옛 코드에서 실패 확인), 커버리지 장비 `wrong` 2 → 0, golden `act3-matches` 네 판 모두 바뀜(기본 시즌 그대로).

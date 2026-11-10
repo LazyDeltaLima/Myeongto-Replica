@@ -400,7 +400,7 @@ export class SkillRuntime {
     // `ReplacementSkill.TryHookSearchTarget` with `_cancelIfSearchTargetFailed` unregisters it; only a target dying in
     // the wind-up gives the 技力 back — ai.js dropNextAttack)
     if (this.pending && this.triggerAllies && this.rule !== 'SKILL_RANGE' && !this._allyTriggerSatisfied()) this.end('withdrawn');
-    if (!this.ready || u.s.flags.silence) return;
+    if (!this.ready || u.s.flags.silence || u.s.flags.skillLock) return;
     if (this.active && this.isTimed) return;
     // a MANUAL skill is cast by the automatic operations only (Battle._autoTriggerPass → autoTrigger)
     if (this.autoOp) return;
@@ -494,7 +494,7 @@ export class SkillRuntime {
   get canAutoCast() {
     const u = this.unit;
     if (!u.alive || !u.deployed || u.hidden || !u.canAct || this._born()) return false;
-    if (!this.ready || u.s.flags.silence || (this.active && this.isTimed) || this.pending) return false;
+    if (!this.ready || u.s.flags.silence || u.s.flags.skillLock || (this.active && this.isTimed) || this.pending) return false;
     return this.isTimed || !!this.spec.attack || this.battle.time >= this.nextCastAt - 1e-9;
   }
 
@@ -602,7 +602,7 @@ export class SkillRuntime {
 
   /** Called by the attack loop right before a normal attack/heal. Returns true when the skill fired. */
   onAboutToAttack() {
-    if (!this.ready || this.unit.s.flags.silence) return false;
+    if (!this.ready || this.unit.s.flags.silence || this.unit.s.flags.skillLock) return false;
     if (this.active && this.isTimed) return false;
     if (this.rule === 'TAKE_DAMAGE' || this.rule === 'NEVER' || TICK_RULES.has(this.rule)) return false;
     if (this.autoOp || this.pending) return false;   // (a MANUAL skill: the automatic operations — autoTrigger)
@@ -623,7 +623,7 @@ export class SkillRuntime {
     // TAKE_DAMAGE (12) character the buff `autochess_trigger_skill[on_take_damage]`, whose ON_TAKE_DAMAGE node triggers the
     // skill (`_checkBeforeTrigger`); a hit the cast could not use is still seen by the next pass (_hurt)
     if (this.autoOp) this._hurt = true;
-    if (this.ready && !this.pending && !(this.active && this.isTimed) && this.unit.canAct && !this.unit.s.flags.silence && !this._born()) this.activate('TAKE_DAMAGE');
+    if (this.ready && !this.pending && !(this.active && this.isTimed) && this.unit.canAct && !this.unit.s.flags.silence && !this.unit.s.flags.skillLock && !this._born()) this.activate('TAKE_DAMAGE');
   }
 
   /**

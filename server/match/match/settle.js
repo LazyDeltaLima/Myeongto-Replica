@@ -97,7 +97,11 @@ export class MatchSettle {
         this.dispatch(ps, 'onLayers', { bondId, from: before, to: ps.layers[bondId], reason: 'battle' });
       }
       this._charDamageTickers(ps, r);
+      // 临时层数 (规程) of the own battle: they lapse here, after the onBattleResult garrisons (SERVER_BATTLE_FIN,
+      // 「<进入休整期时>…转化…临时层数为固定层数」) had their turn to convert some (ctx.convertTempLayers)
+      ps.tempLayers = r.tempLayerGains && typeof r.tempLayerGains === 'object' ? { ...r.tempLayerGains } : null;
       this.dispatch(ps, 'onBattleResult', { result: r, lpLoss: loss, perfect: counted === 0 && r.perfect !== false, unite: uniteResult || null });
+      ps.tempLayers = null;
       ps.recompute();
     }
     if (shared) {

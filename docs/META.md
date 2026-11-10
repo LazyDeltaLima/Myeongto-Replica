@@ -378,7 +378,7 @@ Every handler method is `(ctx, ev)`; `ev` is shared by all handlers of one dispa
 | `onArt` | `g.art` (item handler only) | `{ item, row, col, targets:[pieces], error, used }` |
 | `onDestroy` | an item was destroyed (player / replaced) | `{ item, holder, reason }` |
 | `onLayers` | bond layers were added (prep or battle gains) | `{ bondId, from, to, reason }` (milestones: 维多利亚 25, 远见 10, 奇迹 100 …); `to` ≤ 999 (`BOND_LAYER_CAP`) — a gain at the cap dispatches nothing, so the milestones stop with the count |
-| `onActiveBonds` | the set of active bonds changed: `PlayerState.recompute` (`player/round.js _reportActiveBonds`) compares the bonds it computed with the previous computed state — every path that changes what the bonds count ends there: placing / moving / swapping / withdrawing a piece in prep, buys, sells, merges, transformations, temp → hand moves, equipment (变形同构体), effects (`setBondCountBonus`, grants), evictions — any phase; never for an eliminated player | `{ activated: string[], deactivated: string[] }` (bond ids, data order; read only). A handler's own recompute (a grant's) reports only what changed after it. The layer milestones owed while a bond was off subscribe it and pay as soon as it lights up — 维多利亚's 维式重锤 (`bonds/core.js payHammers`: placing the third member in prep grants it at once, the upstream maintainer's report of the official game, 2026-10-15), 远见 / 奇迹's funds and 远见's discount latch (`bonds/addon/meta.js`) — each milestone once (their counters), however often the bond goes off and on; an AI rehearsal works on a detached copy (`preview.js`) and reports nothing |
+| `onActiveBonds` | the set of active bonds changed: `PlayerState.recompute` (`player/round.js _reportActiveBonds`) compares the bonds it computed with the previous computed state — every path that changes what the bonds count ends there: placing / moving / swapping / withdrawing a piece in prep, buys, sells, merges, transformations, temp → hand moves, equipment (变形同构体), effects (`setBondCountBonus`, grants), evictions — any phase; never for an eliminated player | `{ activated: string[], deactivated: string[] }` (bond ids, data order; read only). A handler's own recompute (a grant's) reports only what changed after it. The layer milestones owed while a bond was off subscribe it and pay as soon as it lights up — 维多利亚's 维式重锤 (`bonds/templates.js payHammers`: placing the third member in prep grants it at once, the upstream maintainer's report of the official game, 2026-10-15), 远见 / 奇迹's funds and 远见's discount latch (`bonds/templates.js`) — each milestone once (their counters), however often the bond goes off and on; an AI rehearsal works on a detached copy (`preview.js`) and reports nothing |
 
 Dispatch order per player: `global` → `band` → `bond` (data order) → garrisons (board in reading order — top row first, `board.js boardOrder` —, then hand)
 → equipped items → EffectRefs (insertion order). `onPrice` runs the priced chess's own 特质 first (购买价格为N sets the
@@ -490,6 +490,13 @@ is not consumed: PRTS 下半 记录 备注 "生效时，原干员销毁，获得
 装备无法手动卸除，在失去该干员（干员出售、销毁、合并等）…时自动卸除", players re-inject it every round; player feedback after
 0.1.0), 画卷 (copy the operator in range with its
 items — the copied items arrive unequipped in the hand, PRTS 画卷 备注 "获得的装备为未装备状态"), 教鞭 (a personal choice of three 战术特训 cards), “神秘顾客” (a random bounty is added).
+
+**Item effects are chosen by buff key, not by item id.** The built-ins and the content handlers (`content/items/meta.js`
+`PREP`) register on every item key of the season whose records carry their buff key, so a season that reuses an id for
+another item runs only what that item carries (规程's 寻呼模块 offers the operator's first bond only — another key, no
+handler yet — and no longer runs the default season's offer). A key a season renamed with the same meaning — the same
+item, text and blackboard — reads as the default season's (`content/items/aliases.js`: 紧急调度券, 随身身份牌, 见钱眼开玩偶,
+人事部文档, 信标). The battle side picks its behaviours the same way (`content/items/battle.js` header).
 
 **教鞭 offers a personal choice of three 战术特训 cards (0.2.2); “神秘顾客” stays a random bounty.** The official Arts open a
 personal 悬赏 choice ("选择一项（特殊）悬赏任务进行挑战", `choice_event hunter_band_1`, choiceType `PERSONAL_CHOOSE`). 教鞭

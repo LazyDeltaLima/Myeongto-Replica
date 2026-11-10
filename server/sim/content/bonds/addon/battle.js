@@ -66,6 +66,7 @@ import {
   num, bondRecord, buffParams, bondTier, bondLayers, isMember, isElite, isGroundOp, onField, playerOps, passiveBuff,
   fxOn, tplFx, N4, N8, directMods, COLS,
 } from '../../support/index.js';
+import { templatesOf } from '../shared.js';
 
 export const ID = Object.freeze({
   preci: 'preciShip', swift: 'swiftShip', skillful: 'skillfulShip', arcane: 'arcaneShip', stead: 'steadShip',
@@ -130,6 +131,25 @@ const prob = procChance;
 // =====================================================================================================================
 // per-player state
 
+/**
+ * The add-on bonds' battle templates this file runs: template → { bond }. A bond whose record carries none of its own
+ * (卫戍协议：规程's 奥术, act3autochess_bond_eff_arcane — bonds/general/arcane.js) does not run here (bonds/dispatch.js).
+ */
+export const TEMPLATES = Object.freeze({
+  act1autochess_bond_eff_preci: { bond: ID.preci },
+  act1autochess_bond_eff_swift: { bond: ID.swift },
+  act1autochess_bond_eff_skillful: { bond: ID.skillful },
+  act2autochess_bond_eff_arcane: { bond: ID.arcane },
+  act1autochess_bond_eff_stead: { bond: ID.stead },
+  act1autochess_bond_eff_deput: { bond: ID.deput },
+  act1autochess_bond_eff_raid: { bond: ID.raid },
+  act1autochess_bond_eff_indom: { bond: ID.indom },
+  act1autochess_bond_eff_assis: { bond: ID.empty },
+  act2autochess_bond_eff_solo: { bond: ID.solo },
+  act2autochess_bond_eff_sunt: { bond: ID.sunt },
+});
+const ownTemplate = (battle, id) => templatesOf(bondRecord(id, battle)).some((t) => TEMPLATES[t]?.bond === id);
+
 function makeState(battle, p) {
   const pid = p.playerId;
   const ops = playerOps(battle, pid);
@@ -137,6 +157,7 @@ function makeState(battle, p) {
   for (const id of Object.values(ID)) {
     const t = bondTier(battle, pid, id);
     if (t <= 0) continue;
+    if (!ownTemplate(battle, id)) continue;
     st.tiers[id] = t;
     st.bb[id] = bondBb(id, battle);
     st.members[id] = new Set(ops.filter((u) => isMember(battle, u, id)));

@@ -93,3 +93,25 @@ export async function realMatch(id, charId) {
   m.dispose?.();
   return u;
 }
+
+/**
+ * The two forms of a 规程 piece seen as a 自选 kit test sees them, for a kit test ported from one (the upstream 自选 kits kept
+ * as season kits): `formOf(elite)` = the record of the normal (`_a`) or the elite (`_b`) piece — the elite's stats, trait and
+ * talents without a module (its `statsBase` / `traitBase` / `talentsBase`) —, `modOf(mod)` = one of the elite's module
+ * choices (`modules`: attributes, trait override, talent changes at the season's stage), `unit({ uid, elite, mod, skill, row,
+ * col })` = the harness unit (an elite without `mod` fields no module), `chess` = the two records for `defs.chess`.
+ */
+export function pieceForms(baseId) {
+  const A = baseId, B = ACT3.chess[baseId]?.goldenId ?? baseId.replace(/_a$/, '_b');
+  const ra = ACT3.chess[A], rb = ACT3.chess[B];
+  assert.ok(ra && rb, baseId);
+  const elite = { ...rb, stats: rb.statsBase ?? rb.stats, trait: rb.traitBase ?? rb.trait, talents: rb.talentsBase ?? rb.talents };
+  return {
+    A, B, chess: { [A]: ra, [B]: rb },
+    formOf: (isElite) => (isElite ? elite : ra),
+    modOf: (mod) => (mod ? (rb.modules ?? []).find((m) => m.uniEquipId === mod) ?? null : null),
+    unit: ({ uid = 1, elite: e = false, mod = null, skill = 0, row = 10, col = 4, ...rest } = {}) => ({
+      uid, chessId: e ? B : A, skillIndex: skill, ...(e ? { moduleId: mod ?? 'none' } : {}), row, col, ...rest,
+    }),
+  };
+}

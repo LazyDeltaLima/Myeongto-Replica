@@ -18,6 +18,8 @@ small) and the web mirror's portraits exist, the E2 art is used instead, cropped
 (OpenCV, score ≥ 0.6), and the E1 portrait in the E1 art the same way; the crop's `frame` is then computed so the E2
 portrait lands exactly where the E1 portrait sits in the E1 frame — the card (ui/detailArt.js) frames it like before,
 no code change. No E2 art, no portrait or a weak match: the E1 art as before. The entry says `elite: 2 | 1`.
+A body whose bundle has the E2 art alone (阿米娅's 医疗 form char_1037_amiya3: the form exists from E2 on) gives that
+art whole, placed by its own `illust_<charId>_2` frame (`elite: 2`).
 
 Usage (from the repo root; --game = the folder holding chararts/, e.g. the EN client's PersistentData/Bundles):
   .venv-extract/bin/python tools/local-extract/chararts_extract.py --game <Bundles> [--id char_…]… [--max 1024] [--quality 85]
@@ -38,15 +40,17 @@ SUB = 'chararts'
 
 
 def wanted_ids(root):
-    """charIds of data/chess.json and the 선발 picks of data/backups.json (`diy.ownedPool`), then token ids of
-    data/tokens.json and data/backups.json `tokens` (art only if bundled)."""
+    """The bodies of data/chess.json and of every season's data/seasons/<id>/chess.json (a record's character template
+    `tmplId`, else its charId — shared/standIn.js chessBody) and the 선발 picks of data/backups.json
+    (`diy.ownedPool`), then token ids of data/tokens.json and data/backups.json `tokens` (art only if bundled)."""
     ids = []
-    doc = json.loads((root / 'data' / 'chess.json').read_text(encoding='utf-8'))
-    recs = doc.get('chess', doc) if isinstance(doc, dict) else doc
-    for r in (recs.values() if isinstance(recs, dict) else recs):
-        cid = r.get('charId') if isinstance(r, dict) else None
-        if isinstance(cid, str) and cid.startswith('char_') and cid not in ids:
-            ids.append(cid)
+    for f in [root / 'data' / 'chess.json', *sorted((root / 'data' / 'seasons').glob('*/chess.json'))]:
+        doc = json.loads(f.read_text(encoding='utf-8'))
+        recs = doc.get('chess', doc) if isinstance(doc, dict) else doc
+        for r in (recs.values() if isinstance(recs, dict) else recs):
+            cid = (r.get('tmplId') or r.get('charId')) if isinstance(r, dict) else None
+            if isinstance(cid, str) and cid.startswith('char_') and cid not in ids:
+                ids.append(cid)
     p = root / 'data' / 'backups.json'
     backups = json.loads(p.read_text(encoding='utf-8')) if p.exists() else {}
     for cid in (backups.get('diy') or {}).get('ownedPool') or []:
@@ -163,11 +167,14 @@ def export_art(ab, cid, out_dir, max_side, quality, log, elite=2, portraits=None
     from PIL import Image
     env = UnityPy.load(str(ab))
     tex1, alpha1, frame = _read(env, f'{cid}_1')
-    if tex1 is None:
-        return None
-    img = _image(tex1, alpha1)
     used = 1
-    if elite >= 2 and portraits and frame:
+    if tex1 is None:
+        tex1, alpha1, frame = _read(env, f'{cid}_2')  # a form that only exists from E2 on
+        if tex1 is None:
+            return None
+        used = 2
+    img = _image(tex1, alpha1)
+    if used == 1 and elite >= 2 and portraits and frame:
         tex2, alpha2, fr2 = _read(env, f'{cid}_2')
         p1, p2 = Path(portraits) / f'{cid}_1.png', Path(portraits) / f'{cid}_2.png'
         if tex2 is not None and p1.exists() and p2.exists():
@@ -218,7 +225,7 @@ def main():
             group[cid] = e
             total += (out_dir / f'{cid}.webp').stat().st_size
         else:
-            print(f'skip (no {cid}_1 art) {cid}')
+            print(f'skip (no {cid}_1 / _2 art) {cid}')
     # re-read right before writing (another extraction may have added groups meanwhile); with --id, keep the other arts
     old = {}
     if Path(args.manifest).exists():

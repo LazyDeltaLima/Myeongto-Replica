@@ -89,13 +89,17 @@ export class BattleBlocking {
    */
   _searchBlockees(u, all = false) {
     if (!u.alive || !u.deployed || u.hidden || u.s.flags.noBlock || u.s.flags.sleep || u.s.flags.noNewBlock) return;
-    // only a unit standing on its field tile blocks (a flying ally — 炎佑 — holds none: deploy.js)
-    if (this._occ[u.tileR * COLS + u.tileC] !== u) return;
+    // only a unit standing on its field tile blocks (a flying ally — 炎佑 — holds none: deploy.js) — or a walking one built
+    // from an enemy record (`walks`: 莱塔尼亚's summons, content/bonds/walker.js), which blocks from where it stands
+    // [추정·CN: the contact rule of an operator, from its position; the CN client's ally-side enemies were not read]
+    if (!u.walks && this._occ[u.tileR * COLS + u.tileC] !== u) return;
+    if (u.walks && (u.motion === 'FLY' || !this.grid.inRect(u.tileR, u.tileC))) return;
     const cap = u.s.blockCnt;
     let used = 0;
     for (const x of u.blocking) used += x.blockWeight ?? 1;
     if (used >= cap) return;
     const ur = u.tileR, uc = u.tileC, et = this._et;
+    const px = u.walks ? u.x : uc, py = u.walks ? u.y : ur;
     const k = 1 + (u.s.blockRadiusScale || 0);
     const cands = [];
     const consider = (e) => {
@@ -104,7 +108,7 @@ export class BattleBlocking {
       if (f.unblockable || f.levitate || f.fear || f.sleep) return;
       const w = e.blockWeight ?? 1;
       if (!this._blockerFor(u, e, w)) return;
-      const d2 = (e.x - uc) * (e.x - uc) + (e.y - ur) * (e.y - ur);
+      const d2 = (e.x - px) * (e.x - px) + (e.y - py) * (e.y - py);
       const r2 = u.kind === 'device' ? BLOCK_RADIUS_SQ.device : e.isFlying ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
       if (d2 > r2 || cands.some((x) => x.e === e)) return;   // (a large enemy is listed on each tile of its body)
       cands.push({ e, w, step: Math.floor(d2 / BLOCK_WEIGHT_GAP), i: e.deploySeq });
@@ -162,7 +166,7 @@ export class BattleBlocking {
    * while walking in is already ≈ 0.71 away and stays put; one an operator lands or is deployed on is pushed out.
    */
   _addBlockee(u, e) {
-    const ur = u.tileR, uc = u.tileC;
+    const ur = u.walks ? u.y : u.tileR, uc = u.walks ? u.x : u.tileC;   // a walker blocks from where it stands
     const off = blockOffset(u.blocking.filter((x) => x.blockedBy === u), e, uc, ur);
     e.blockedBy = u;
     u.blocking.push(e);

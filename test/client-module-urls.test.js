@@ -33,7 +33,7 @@ const DYNAMIC = {
   'public/js/render/board3d/load.js': [], // import(u): THREE_URL, a literal the walk follows
   'public/js/render/fx/speeds.js': [], // import(new URL('../../../sim/constants.js', import.meta.url)), a literal too
   'server/sim/content/index.js': ['tokens', 'devices', 'enemies', 'bosses', 'bonds', 'garrisons', 'items', 'bands', 'choices', 'local-patch'].map((n) => `./${n}.js`),
-  'server/sim/content/bonds.js': [], // load('./bonds/core.js') …: literals
+  'server/sim/content/bonds.js': [], // load('./bonds/dispatch.js') …: literals
   'server/sim/content/bands.js': [],
   'server/sim/content/kits/index.js': fs.readdirSync(path.join(ROOT, 'server/sim/content/kits/ops')).filter((f) => f.endsWith('.js')).map((f) => `./ops/${f}`),
 };

@@ -36,6 +36,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { chessBody } from '../shared/standIn.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REL = 'battle/buff_template_data.json';
@@ -99,8 +100,13 @@ function poolCodes() {
   // every season's chess, as the extraction tools (char_modes.py chess_records): a season's own file holds operators the default lacks
   const seasons = join(ROOT, 'data/seasons');
   const others = existsSync(seasons) ? readdirSync(seasons).map((id) => join(seasons, id, 'chess.json')).filter((f) => existsSync(f)) : [];
-  const chess = Object.assign({}, ...others.map(readJson), readJson(join(ROOT, 'data/chess.json')));
-  for (const c of Object.values(chess.chess || chess)) if (typeof c?.charId === 'string' && c.charId.startsWith('char_')) chars.add(c.charId);
+  // file by file: a season reuses the chess ids of another for other operators (docs/DATA.md 「Seasons」), so a merge by id
+  // would drop them
+  for (const f of [...others, join(ROOT, 'data/chess.json')]) {
+    const chess = readJson(f);
+    // a chess's body: its character template (阿米娅's 医疗 form char_1037_amiya3 — shared/standIn.js chessBody), else its charId
+    for (const c of Object.values(chess.chess || chess)) { const b = chessBody(c); if (b && b.startsWith('char_')) chars.add(b); }
+  }
   const backups = readJson(join(ROOT, 'data/backups.json'));
   for (const id of Object.keys(backups.diy?.operators || {})) if (id.startsWith('char_')) chars.add(id);
   // (a season's own file holds the summons of its own operators, as its chess file does)

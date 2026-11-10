@@ -13,6 +13,7 @@ import { itemKeyOf, itemIdOfKey, garrisonKeyOf } from '../server/sim/content/sup
 import { GameData, bossBloodPoint, itemKey } from '../server/match/gamedata.js';
 import { offeredSeasons, seasonInfo } from '../shared/seasons.js';
 import { ACT3 } from './helpers/seasonPieces.js';
+import { chessBody } from '../shared/standIn.js';
 
 const quiet = { warn() {}, error() {}, info() {} };
 const BASE = getData({ log: quiet });
@@ -41,14 +42,14 @@ test('its tables: 141 shop operators, 26 bonds, 61 strategies, 25 modes (no 入�
   assert.equal(shared.filter((c) => BASE.chess[c.chessId].charId !== c.charId).length, 125);
 });
 
-test('kits: a chess takes its own operator\'s kit, never the one its id names in the default season', () => {
+test('kits: a chess takes its own operator\'s kit (a template piece: its body\'s), never the one its id names in the default season', () => {
   const keyOf = new Map(Object.entries(KITS).map(([k, v]) => [v, k]));
   const wrong = [], none = [];
   for (const c of pieces) {
     const f = kitOf({ ...c, id: c.chessId }, KITS);
     if (!f) { none.push(c.charId); continue; }
     const k = keyOf.get(f);
-    if ((chessKitCode(k) ?? code(k)) !== code(c.charId)) wrong.push(`${c.chessId} ${c.charId} → ${k}`);
+    if ((chessKitCode(k) ?? code(k)) !== code(chessBody(c))) wrong.push(`${c.chessId} ${c.charId} → ${k}`);
   }
   assert.deepEqual(wrong, []);
   // 遥 under 缪尔赛思's id plays her own 自选 kit, 缪尔赛思's chess kit stays hers in the default season
@@ -120,10 +121,10 @@ test('triggers: a row\'s condition list is kept; the lists some row of both seas
   assert.equal(tank.skills[0].trigger.rule, 'TAKE_DAMAGE');
 });
 
-test('the kit of an operator only 规程 fields is found by its charId for its piece, whatever the id', () => {
+test('the kit of an operator only 规程 fields is found by its charId (a template piece: its body) for its piece, whatever the id', () => {
   for (const [charId, kit] of Object.entries(SEASON_KITS)) {
     assert.equal(kitKeyOfChar(charId, 1), charId);
-    const c = pieces.find((x) => x.charId === charId && !x.isGolden);
+    const c = pieces.find((x) => chessBody(x) === charId && !x.isGolden);
     assert.ok(c, `${charId}: a piece of 规程`);
     assert.ok(kitOf({ ...c, id: c.chessId }, KITS) === kit, charId);
   }
@@ -139,7 +140,7 @@ test('a 规程 kit file op-<codename>.js registers its operator and writes every
     const [charId] = Object.keys(mod.default);
     assert.equal(code(charId), m[1], `${file}: default export`);
     for (const golden of [false, true]) {
-      const rec = pieces.find((x) => x.charId === charId && x.isGolden === golden);
+      const rec = pieces.find((x) => chessBody(x) === charId && x.isGolden === golden);
       assert.ok(rec, `${file}: piece`);
       const kit = mod.default[charId](rec.skill.bb, rec, normalizeChess(rec));
       assert.deepEqual(Object.keys(kit.skills || {}).sort(), rec.skills.map((x) => x.skillId).sort(), `${file} ${golden}: skills`);

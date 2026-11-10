@@ -1,7 +1,7 @@
 // test/content/feedback5-we2-garrison90.test.js — 0.2.0 WE2 #30: 塑心's 特质 garrison_90 (bond_actived_maxstack) "<战斗中>
 // 开启技能时，同一行每有1名干员，当前已激活且层数最多的盟约层数+1（每场作战至多10层）" (elite +2, at most 20): the per-battle cap is
 // the trait's own, whichever bond is the highest at each gain — a change of the highest bond grants no fresh cap
-// (server/sim/content/garrisons/battle.js fireGain; PR #178 review).
+// (server/sim/content/garrisons/effects/events.js fireGain; PR #178 review).
 // Run: node --test test/content/feedback5-we2-garrison90.test.js
 
 import { test } from 'node:test';

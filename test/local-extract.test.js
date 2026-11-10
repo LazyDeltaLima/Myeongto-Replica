@@ -55,7 +55,7 @@ describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }
     // (data/assets.json tokens[id].spine), sorted, unique — except 香槟炸弹, whose web model is only a skin variant
     // (upstream 6bfc0827, 0.2.4): its original model is the overlay
     const ids = tokenSpines.ids;
-    assert.equal(ids.length, 24);
+    assert.equal(ids.length, 26);
     assert.deepEqual([...ids].sort(), ids);
     assert.equal(new Set(ids).size, ids.length);
     const tokens = JSON.parse(readFileSync(path.join(ROOT, 'data/tokens.json'), 'utf8'));
@@ -479,7 +479,8 @@ describe('add_operator.py and what it drives (no client needed)', { skip: !PY &&
   // a piece of the hidden season with no kit yet, not in the manifest: whichever is left (the kits are added in bundles)
   const manifest = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
   const season = JSON.parse(readFileSync(path.join(ROOT, 'data/seasons/act3autochess/chess.json'), 'utf8'));
-  const seasonOnly = Object.values(season).map((c) => c.charId).filter(Boolean).sort().find((c) => !manifest.chars[c]) ?? null;
+  // (the tools read a chess by its body: the template a chess names, else its operator — shared/standIn.js chessBody)
+  const seasonOnly = Object.values(season).map((c) => c.tmplId || c.charId).filter(Boolean).sort().find((c) => !manifest.chars[c]) ?? null;
 
   test('anim_keys.py reads every chess operator, in the manifest or not: no order to keep against the kit', { skip: !seasonOnly && 'every piece has its kit' }, () => {
     const ids = run('import anim_keys as k\nprint(json.dumps(k.target_ids()))');

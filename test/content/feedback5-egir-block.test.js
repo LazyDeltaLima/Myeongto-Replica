@@ -1,7 +1,7 @@
 // 阿戈尔's devour hands its marker the block count of what it marks, a 伏击客 included (community report of 2026-10-07:
 // 「阿戈尔盟约的干员水月在互吃叠buff时阻挡数没有叠」 — checked, not reproduced): PRTS 卫戍协议：盟约 下半/PRTS盟约记录, 阿戈尔 ※
 // 「该付与来源获得所有标记单位的基础攻击力（最终加算）和阻挡数」 and 「不会向“自身”/“自身已付与过标记的单位”/“已将标记付与自身的
-// 单位”付与自身标记」 (content/bonds/core.js devour).
+// 单位”付与自身标记」 (content/bonds/nation/egir.js devour).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';

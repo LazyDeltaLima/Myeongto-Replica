@@ -2452,6 +2452,17 @@ for (const [v, list] of MODEL_STRETCH_Y) for (const k of list) MODEL_STRETCH_Y_B
 const MIRRORED_PREFABS = new Set(['enemy_1196_msfyin']);
 
 /**
+ * The skeleton metadata of an enemy's model in data/assets.json: its local-client model (`spineLocal`, the official
+ * skeleton — the one the client plays and the view draws when the local models are extracted) before the web `spine`,
+ * which for such an enemy is another enemy's stand-in (`spineAliasOf`: 灼热源石虫 1305_mhslim draws the plain 源石虫's) or absent
+ * (规程's own new enemies have only `spineLocal`).
+ */
+function enemySpine(manifest, spineId) {
+  const e = manifest?.enemies?.[spineId];
+  return e?.spineLocal ?? e?.spine;
+}
+
+/**
  * An enemy's attack clip → enemies.json `attackAnim` { clip, dur, hit } (GitHub #58: an unblocked ranged enemy stands for
  * its attack clip, server/sim/ai.js attackStand): the clip the client plays for its attacks — with `own`, the one its
  * attack ability names (`_animKey` after its mode's `_replaceAnimPairs`) when the model has it, else the asset manifest's
@@ -2461,7 +2472,7 @@ const MIRRORED_PREFABS = new Set(['enemy_1196_msfyin']);
  * never reads client files; an enemy whose model the manifest lacks gets none (the sim falls back to ATTACK_PAUSE).
  */
 function enemyAttackAnim(manifest, spineId, timing = null, own = false) {
-  const sp = manifest?.enemies?.[spineId]?.spine;
+  const sp = enemySpine(manifest, spineId);
   const a = sp?.anims?.attack;
   if (!a || typeof a.loop !== 'string' || a.via === 'idle') return null;
   // `own`: the clip its ability names, when the model has it
@@ -2595,17 +2606,21 @@ function withSkillProjectiles(skills, P) {
 function enemySkillCast(ctx, manifest, spineId, key) {
   const e = ctx.attackTiming?.enemies?.[spineId] ?? ctx.attackTiming?.enemies?.[key];
   if (!e || !e.skills) return null;
-  const anims = manifest?.enemies?.[spineId]?.spine?.animations || {};
+  const sp = enemySpine(manifest, spineId);
+  const anims = sp?.animations || {};
   // one ability's cast (attack_timing.py cast_fields): its clip and the attack time it plays to, or its class (`kind`: an
-  // ActiveBuffAbility, a group with its children's casts); `miss` = it names a clip data/assets.json lacks
+  // ActiveBuffAbility, a group with its children's casts); `miss` = it names a clip data/assets.json lacks; `hit` = the
+  // clip's first OnAttack frame when the ability waits for it (`_waitForAttackEvent`), as attackAnim's
   const castOf = (name, s) => {
     const dur = s.anim ? anims[s.anim] : null;
     if (s.anim && !(dur > 0)) warn(`enemy ${key} skill ${name}: clip ${s.anim} not in data/assets.json`);
+    const h = dur > 0 && s.wait === 1 ? sp?.hits?.[s.anim] : null;
+    const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
     return {
       ...(s.kind ? { kind: s.kind } : {}),
       ...(s.kind === 'buff' && s.wfc ? { wfc: 1 } : {}),
       ...(Array.isArray(s.subs) ? { subs: s.subs.map((c) => castOf(name, c)) } : {}),
-      ...(dur > 0 ? { clip: s.anim, dur, ...(Number.isFinite(s.max) ? { max: s.max } : {}) } : s.anim ? { miss: 1 } : {}),
+      ...(dur > 0 ? { clip: s.anim, dur, ...(hit != null ? { hit } : {}), ...(Number.isFinite(s.max) ? { max: s.max } : {}) } : s.anim ? { miss: 1 } : {}),
       ...(Number.isFinite(s.time) ? { time: s.time } : {}),
       ...(s.time === 2 ? { cd: s.cd || 0 } : s.time === 3 ? { cdKey: s.cdKey || 'duration' } : {}),
       ...(s.proj ? { proj: 1 } : {}),
@@ -3229,8 +3244,8 @@ const TILE_LEGEND = {
   g: { tileKey: 'tile_smog', special: 'smog', desc: '排气格栅：其上干员不会成为敌方远程攻击目标' },
   d: { tileKey: 'tile_deepsea', special: 'deepsea', desc: '深水区：不可部署（拒绝部署），敌人持续受伤、减速、减攻速' },
   i: { tileKey: 'tile_infection', special: 'infection', desc: '活性源石：单位受持续真实伤害，攻击力与攻速提升' },
-  u: { tileKey: 'tile_speedup', desc: '规程：加速地块（blackboard attack_speed / move_speed），效果未实装' },
-  G: { tileKey: 'tile_duel_grassland', desc: '规程：tile_duel_grassland，效果未实装' },
+  u: { tileKey: 'tile_speedup', special: 'speedup', desc: '规程：加速地块（地面单位：我方攻击速度+attack_speed，敌人移动速度×move_speed）' },
+  G: { tileKey: 'tile_duel_grassland', special: 'grassland', desc: '规程：草地（地面单位隐匿；敌人被阻挡时不隐匿）' },
 };
 
 /** Map an official tile object to a legend glyph. */
@@ -3435,6 +3450,10 @@ function buildStages(ctx, modesById) {
     }
     if (rows.some((l) => l.includes('i'))) special.infection = { bb: glyphTiles.i?.bb || {} };
     if (rows.some((l) => l.includes('g'))) special.smog = { rule: 'operatorsNotTargetableByEnemyRanged' };
+    // 规程's tiles (CN client [uc]tiles prefabs: BuffTile, WALK units of both sides, cleared on leaving): tile_speedup's
+    // template reads the tile blackboard (attack_speed / move_speed), tile_duel_grassland gives INVISIBLE
+    if (rows.some((l) => l.includes('u'))) special.speedup = { bb: glyphTiles.u?.bb || {} };
+    if (rows.some((l) => l.includes('G'))) special.grassland = { rule: 'groundUnitsInvisibleEnemiesUnlessBlocked' };
     const blower = byKey('trap_013_blower');
     if (blower) special.blower = { rangeGrid: blower.rangeGrid, bb: blower.skill?.bb || {}, desc: blower.skill?.desc || null };
     const runes = (lv.runes || []).map((r) => ({ key: r.key, ...flattenBB(r.blackboard) }));
@@ -3968,6 +3987,8 @@ function buildChoices(ctx, effects, items, chess) {
 
   const equipNormal = Object.values(items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden);
   const itemByName = (name) => equipNormal.find((i) => i.name === name)?.id || (warn(`pool item "${name}" not found`), null);
+  /** Does an effect of this season's tables pay from pool `id` (a buff's bbStr.pool)? */
+  const poolUsed = (id) => Object.values(effects).some((e) => (e.buffs || []).some((b) => b && b.bbStr && b.bbStr.pool === id));
   const chessByName = (name) => Object.values(chess).find((c) => !c.isGolden && c.visible && c.name === name)?.chessId
     || Object.values(chess).find((c) => !c.isGolden && c.name === name)?.chessId || (warn(`pool chess "${name}" not found`), null);
 
@@ -4086,6 +4107,10 @@ function buildChoices(ctx, effects, items, chess) {
       // "获得一件带有随机特殊效果的维式重锤": the 4 hammers with a special effect (never sold, SHOP_EXCLUDED_ITEMS); the
       // weights are server-side (PRTS 11-25 note: "装备【灼燃维式重锤】的出现概率调整") — uniform [ASSUMED]
       pool_equip_vict: { kind: 'equip', items: ['灼燃维式重锤', '坚固维式重锤', '加速维式重锤', '战栗维式重锤'].map(itemByName), assumed: true },
+      // 卫戍协议：规程's 谢拉格: every 100 layers one 谢拉格不融冰 (bond_layer_added_reward_equip pool_equip_kjeragbond2; the pool
+      // itself is server-side): that one item — only for a season whose effects name the pool (the default season has an
+      // item of that name too)
+      ...(poolUsed('pool_equip_kjeragbond2') ? { pool_equip_kjeragbond2: { kind: 'equip', items: [itemByName('谢拉格不融冰')], assumed: true } } : {}),
       pool_equip_pepe: { kind: 'equip', weighted: [['盟约之币', 45], ['萨尔贡浓茶', 45], ['黄沙罗盘', 10]].map(([n, w]) => [itemByName(n), w]), goldenWeights: [40, 40, 20], assumed: true },
       // 洛洛的定制品: 8 items with measured weights (路标月报#2「卡池相关机制」item 6 — 10维式重锤2战栗2坚固2加速2灼燃
       // 1有限加速器4护盾无人机4激光发射器; the pool is a subset of the shared equipment pool, so the four shop-sold
@@ -4337,6 +4362,9 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       handFillOrder: 'rightToLeft',
       shopOdds: { model: 'copyWeighted', note: 'each slot draws 1 copy uniformly from remaining pool copies of unbanned visible chess with tier <= shop level; items: same tier shares, then uniform within tier [ASSUMED]' },
       borrowCount: act.constData.borrowCount,
+      // 确定自选编队 (规程): how many of the player's 自选编队 each tier brings into a match ({ 5: 2, 6: 2 }); absent when the
+      // season has none (盟约: every pick plays). The step itself is enterStepList's CUSTOM_CHECK (timers.enterSteps)
+      ...(act.constData.diyCharLimitForLevels ? { diyCharLimitForLevels: act.constData.diyCharLimitForLevels } : {}),
       fallbackBondId: act.constData.fallbackBondId,
       defaultBandId: defaultBand, defaultStartLp: bands[defaultBand]?.totalHp ?? 28,
     },

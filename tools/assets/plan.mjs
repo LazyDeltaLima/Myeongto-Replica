@@ -23,7 +23,7 @@
 
 import { RAW, joinUrl, safeName, urlBase, urlDir } from './sources.mjs';
 import { kindOf } from './formats.mjs';
-import { pickUnitSfx, UI_SFX, BATTLE_SFX, resolveSpec, indexVoice, VOICE_DIRS, VOICE_BATTLE_SLOTS } from './audio.mjs';
+import { pickUnitSfx, UI_SFX, BATTLE_SFX, resolveSpec, indexVoice, VOICE_DIRS, VOICE_BATTLE_SLOTS, assetToPath } from './audio.mjs';
 import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
@@ -184,6 +184,38 @@ function firstBank(audio, names) {
 
 /** 2026-10-10: sound leaf → the path list it was built from (skill-mode-sfx.mjs bankPlayTable: sfx.bank). */
 const leafPaths = new WeakMap();
+/**
+ * 2026-11-11: the BGM of the other 卫戍协议 seasons (shared/seasons.js ids), where it differs from the default season's
+ * (public/js/audio.js resolveBgm reads `audio.seasonBgm[<season>]` first). 规程 (act3autochess), from its CN level files'
+ * `bgmEvent` and its activity's lobby bank: its own lobby track (`sys.ON_ACTIVITY_LOADED.act3autochess`); the 开战 tracks
+ * by round as the default's (`combatAlts` in the same order: [0] the late rounds — levels h01–h06 `act3mainss_bat2` —,
+ * [1] rounds 1–7 — levels 01–07 `chernobog`); its new bosses' levels `act3autochess_boss` (假想敌：械 / 茧 / 鳍 h07_08–10
+ * = boss_11–13, 矩兽 h07_11 = boss_17) and the 隐秘核心 `act3autochess_hideBoss` (h08_04–06 = boss_14–16; boss ids:
+ * data/seasons/act3autochess/bosses.json). Its other bosses' levels, the prep maps (`act1autochess_shop`) and 联防
+ * (`corrosion`) keep the default's tracks.
+ */
+export const SEASON_BGM = Object.freeze({
+  act3autochess: Object.freeze({
+    lobby: 'sys.ON_ACTIVITY_LOADED.act3autochess',
+    combatAlts: Object.freeze(['battle.ON_GAME_READY.act3mainss_bat2', 'battle.ON_GAME_READY.chernobog']),
+    bossBgm: Object.freeze({
+      boss_11: 'battle.ON_GAME_READY.act3autochess_boss', boss_12: 'battle.ON_GAME_READY.act3autochess_boss',
+      boss_13: 'battle.ON_GAME_READY.act3autochess_boss', boss_17: 'battle.ON_GAME_READY.act3autochess_boss',
+      boss_14: 'battle.ON_GAME_READY.act3autochess_hideBoss', boss_15: 'battle.ON_GAME_READY.act3autochess_hideBoss',
+      boss_16: 'battle.ON_GAME_READY.act3autochess_hideBoss',
+    }),
+  }),
+});
+/**
+ * The CN banks of SEASON_BGM an older cached audio_data.json lacks (CN `bgmBanks`, 2026-11-08: a loop each, no intro),
+ * as the asset ids the table gives — read only when the index has no bank of that name.
+ */
+export const SEASON_BGM_BANKS = Object.freeze({
+  'sys.ON_ACTIVITY_LOADED.act3autochess': 'Audio/Sound_Beta_2/Music/act3autochess/m_sys_act3autochess_loop',
+  'battle.ON_GAME_READY.act3autochess_boss': 'Audio/Sound_Beta_2/Music/act3autochess/m_boss1_act3autochess_loop',
+  'battle.ON_GAME_READY.act3autochess_hideBoss': 'Audio/Sound_Beta_2/Music/act3autochess/m_boss2_act3autochess_loop',
+});
+
 function soundLeaf(paths, sub = 'sfx', max = 4) {
   const l = leaf((paths || []).slice(0, max).map((p) => soundAlt(p, sub)));
   if (l && typeof l === 'object' && Array.isArray(paths)) leafPaths.set(l, paths);
@@ -612,10 +644,14 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     }
     e.spine = spine;
     // the official model from the local client, drawn instead of `spine` when the extraction is installed (optional)
-    const loc = localEnemySpines && Object.hasOwn(localEnemySpines, id) ? localEnemySpines[id] : null;
-    if (loc && typeof loc === 'object') {
-      e.spineLocal = literal({ group: `spine/enemy/${id}`, ...loc });
-      notes.push(`${id}: official Spine from the local client when extracted (spineLocal)`);
+    const localOf = (k) => (k && localEnemySpines && Object.hasOwn(localEnemySpines, k) && typeof localEnemySpines[k] === 'object' ? localEnemySpines[k] : null);
+    let loc = localOf(id), locId = id;
+    // (2026-11-10) a `_2` form with no model of its own (web or local) draws its base's local one: 规程's 假想敌：械 / 鳍
+    // (隐秘核心) — their prefabs' Spine renderer reads the base enemy's skeleton (tools/local-extract/extract.py ENEMY_SPINES)
+    if (!loc && (!spine || e.spineAliasOf) && localOf(baseIdOf(id))) { locId = baseIdOf(id); loc = localOf(locId); }
+    if (loc) {
+      e.spineLocal = literal({ group: `spine/enemy/${locId}`, ...loc });
+      notes.push(`${id}: official Spine from the local client when extracted (spineLocal${locId !== id ? ` of ${locId}` : ''})`);
     }
     enemies[id] = e;
     let banks = audio.unitBanks.get(id);
@@ -700,7 +736,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
 
   // --- audio ----------------------------------------------------------------
   const bgmLeaf = (bankName) => {
-    const b = audio.bgm(bankName);
+    const b = audio.bgm(bankName) || (SEASON_BGM_BANKS[bankName] ? { intro: null, loop: assetToPath(SEASON_BGM_BANKS[bankName]) } : null);
     if (!b?.loop) { notes.push(`BGM bank ${bankName} not found`); return null; }
     const out = { loop: soundLeaf([b.loop], 'bgm', 1) };
     if (b.intro) out.intro = soundLeaf([b.intro], 'bgm', 1);
@@ -742,6 +778,18 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       const m = /\(boss:(boss_\d+)\)/.exec(String(u));
       if (m && !bossBgm[m[1]] && !String(u).startsWith('mode_training')) bossBgm[m[1]] = flatBgm(bgmLeaf(`battle.ON_GAME_READY.${lv.bgm}`));
     }
+  }
+  // the other seasons' own tracks (SEASON_BGM): a bank the index lacks leaves its slot to the default's
+  const seasonBgm = {};
+  for (const [season, spec] of Object.entries(SEASON_BGM)) {
+    const own = {};
+    if (spec.lobby) { const l = flatBgm(bgmLeaf(spec.lobby)); if (l) own.lobby = l; }
+    const alts = (spec.combatAlts || []).map((n) => flatBgm(bgmLeaf(n)));
+    if (alts.length && alts.every(Boolean)) own.combatAlts = alts;
+    const bosses = {};
+    for (const [id, n] of Object.entries(spec.bossBgm || {})) { const l = flatBgm(bgmLeaf(n)); if (l) bosses[id] = l; }
+    if (Object.keys(bosses).length) own.bossBgm = Object.fromEntries(Object.entries(bosses).sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true })));
+    if (Object.keys(own).length) seasonBgm[season] = own;
   }
   const sfxUi = {};
   for (const [name, spec] of Object.entries(UI_SFX)) { const l = soundLeaf(resolveSpec(spec, audio.bank)); if (l) sfxUi[name] = l; else notes.push(`UI SFX ${name}: no sound`); }
@@ -787,6 +835,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     audio: {
       bgm,
       bossBgm: Object.fromEntries(Object.entries(bossBgm).sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true }))),
+      ...(Object.keys(seasonBgm).length ? { seasonBgm } : {}),
       voice,
       sfx: { ui: sfxUi, battle: sfxBattle, units: unitsSfx },
     },

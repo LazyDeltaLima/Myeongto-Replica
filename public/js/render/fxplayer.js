@@ -1321,7 +1321,9 @@ class TrailRenderer {
  * Distribute / Repeat per segment = the segment index. Unity keeps the object (its last clip frame) until its owner
  * destroys it: alive while the instance is not stopped.
  */
-const LINE_PATH_MAX = 16;   // FxInstance.setPath: the most points a line takes (a chain's units)
+// FxInstance.setPath: the most points a line takes (a chain's units; 2026-11-10: a range outline's corners — its batch grows
+// to what it draws, StripBatch.build)
+const LINE_PATH_MAX = 256;
 class LineRenderer {
   constructor(ln, node, root, def) {
     this.tr = ln; this.node = node; this.root = root;
@@ -1337,6 +1339,7 @@ class LineRenderer {
 
   update(dt, sinceStart) {
     const ln = this.tr, path = this.path, n = path ? Math.min(path.length, LINE_PATH_MAX) : this.n;
+    trailRoom(n);
     setTime(this.batch.material, sinceStart);
     this.batch.begin();
     let shown = true;
@@ -3421,7 +3424,7 @@ export class FxInstance {
 
   /**
    * 2026-10-16: every LineRenderer of the effect runs through `pts` ({x, y, z} in the coordinates the effect's object sits
-   * in, in order; at most 16) from now on — client ChainLightningEffectBehaviour.PlayLineEffect:
+   * in, in order; at most LINE_PATH_MAX) from now on — client ChainLightningEffectBehaviour.PlayLineEffect:
    * positionCount = the units, SetPosition(i, unit i). Fewer than two points or null: its authored points.
    */
   setPath(pts) {

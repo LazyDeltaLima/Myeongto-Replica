@@ -1,6 +1,6 @@
 // server/match/match/platform.js — Match methods: the platform interface of the server/match/Match.js header
 // (server/lobby.js ⇄ Match) — start, handle (validation, error isolation, flush; the intents themselves: intents.js
-// _handle), setLoadout (INFO_CHECK only), setDiy (INFO_CHECK / BAND_DRAFT), onDisconnect / onReconnect and the full resync of one human, onLeave and 中途退出
+// _handle), setLoadout (INFO_CHECK only), setDiy (INFO_CHECK / BAND_DRAFT; 规程: the 确定自选编队 lineup), onDisconnect / onReconnect and the full resync of one human, onLeave and 中途退出
 // = elimination (_quit), dispose.
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
@@ -99,6 +99,12 @@ export class MatchPlatform {
     if (ps.diyStock && [...ps.diyStock.entries.values()].some((e) => e.left !== e.cap)) return fail(ERR.WRONG_PHASE, 'DIY stock already drawn');
     let res = OK;
     this.guard(() => {
+      // 规程: the seat's 自选编队 for the 确定自选编队 step; nothing is fielded yet (match/diyChoose.js)
+      if (this.gd.diyChoose) {
+        if (!this.setDiyLineup(ps, picks)) res = fail(ERR.BAD_TARGET, 'DIY picks do not match the game data');
+        else this.markPrivate(ps);
+        return;
+      }
       if (!ps.setDiy(picks)) { res = fail(ERR.BAD_TARGET, 'DIY picks do not match the game data'); return; }
       ps.initDiyStock(new Set([...this.disabledBonds, ...this.staticInactiveBonds]));
       ps.recompute();
@@ -117,6 +123,7 @@ export class MatchPlatform {
       if (this.clientCombat) this._authorityLost(ps, 'disconnect');
       this.markPublic();
       this.maybeEndDraftConfirm();
+      this.maybeEndDiyChoose();
     });
   }
 
@@ -200,6 +207,8 @@ export class MatchPlatform {
     }
     // 编队确认 waits for nobody who has gone
     if (phase === PHASE.BAND_DRAFT) this.maybeEndDraftConfirm();
+    // 确定自选编队 waits for nobody who has gone
+    if (phase === PHASE.DIY_CHOOSE) this.maybeEndDiyChoose();
     const passedRound = phase === PHASE.SETTLE ? this.round + 1 : Math.max(1, this.round);
     // its own normal battle has nobody left to fight for
     for (const f of this.fields) {

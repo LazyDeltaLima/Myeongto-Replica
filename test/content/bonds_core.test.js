@@ -1,4 +1,4 @@
-// The 8 core bonds (server/sim/content/bonds/core.js): per-tier / per-layer formulas of research 02 §3.1–3.8 with the
+// The 8 core bonds (server/sim/content/bonds/nation/, imported through bonds/core.js): per-tier / per-layer formulas of research 02 §3.1–3.8 with the
 // data/bonds.json numbers, 调和 / 变形同构体 membership, live layers, inactive bonds, two players in a boss field, and
 // the 维多利亚 hammer milestone in a real match.
 import { test } from 'node:test';

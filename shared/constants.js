@@ -52,6 +52,8 @@ export const PHASE = Object.freeze({
   LOBBY: 'LOBBY',
   INFO_CHECK: 'INFO_CHECK',
   BAND_DRAFT: 'BAND_DRAFT',
+  // 确定自选编队 (规程 only: GameData.diyChoose; server/match/match/diyChoose.js)
+  DIY_CHOOSE: 'DIY_CHOOSE',
   BATTLE_CHECK: 'BATTLE_CHECK',
   ROUND_START: 'ROUND_START',
   SP_DRAFT: 'SP_DRAFT',
@@ -65,7 +67,7 @@ export const PHASE = Object.freeze({
 });
 
 export const PHASE_NAMES = {
-  LOBBY: N_('等待中'), INFO_CHECK: N_('确认本局信息'), BAND_DRAFT: N_('选择策略'), BATTLE_CHECK: N_('协议启动'),
+  LOBBY: N_('等待中'), INFO_CHECK: N_('确认本局信息'), BAND_DRAFT: N_('选择策略'), DIY_CHOOSE: N_('确定自选编队'), BATTLE_CHECK: N_('协议启动'),
   ROUND_START: N_('回合开始'), SP_DRAFT: N_('机变阶段'), PREP: N_('休整期'), COMBAT: N_('作战中'), UNITE: N_('联防阶段'),
   SETTLE: N_('结算'), FINAL_ASSAULT: N_('最终攻势'), HIDDEN_CORE: N_('隐秘核心'), RESULT: N_('模拟结束'),
 };

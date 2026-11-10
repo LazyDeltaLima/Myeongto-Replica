@@ -486,7 +486,7 @@ async function boot() {
   installDiyPresets();
   net.attachBrowserHooks();
   // Audio: unlock on first gesture, BGM follows the route / match phase (js/audio.js).
-  installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, settings: settingsStore.get() });
+  installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, selectSeason: activeSeason, settings: settingsStore.get() });
   data.load('assets').catch(() => {});
   // Warm the data cache in the background (missing files are tolerated).
   data.loadAll('config').catch(() => {});

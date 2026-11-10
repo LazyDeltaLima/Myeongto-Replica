@@ -206,6 +206,11 @@ export class PlayerState {
      * settle() makes them persistent — the views add them (bondsView, DESIGN §20.15); null otherwise
      */
     this.pendingLayerGains = null;
+    /**
+     * 临时层数 (卫戍协议：规程) the own normal battle left ({ [bondId]: n }), during its settle's onBattleResult dispatch only
+     * (ctx.tempLayers / convertTempLayers); null otherwise — the rest lapses (Battle.addLayers `temp`)
+     */
+    this.tempLayers = null;
     /** optional per-bond count bonus written by effects */
     this.bondCountBonus = {};
     /** EffectRef list: { id, key, name, desc, iconKind, iconId, counter?, battle, params, data } */

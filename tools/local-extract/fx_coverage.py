@@ -89,6 +89,7 @@ SCRIPTS = {
     -1576532863054725745: 'FollowOwnerRootTileHeight',
     -6714358757634045276: 'CameraEffect',   # (2026-10-26) by its fields; screen_com_poison_04 (the time-out screen)
     -459260035723506154: 'PauseEffectIfCharMenuNotOpen',   # (2026-11-01) CN client only: 冻河's buff_02 marks
+    -6162048904628412015: 'SetEffectAnimatorParameter',   # (2026-11-10) CN 11-08: 假想敌：茧's rain ground (anim_scripts)
 }
 # what the extract reads of the scripts above (reader() checks the raw fallbacks)
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
@@ -103,6 +104,7 @@ SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoi
                 'OnFinishAnime', 'TriggerAnimatorWhenFinish', 'SwitchAnimatorStateWhenFinish', 'SetAnimatorTriggerOnEvent',
                 'SetAnimatorFloatByCondition', 'BuffProgressFloatSource', 'SetAnimatorTriggerByCondition',
                 'AuraProjectileSetAnimatorTrigger', 'EmitterRandomGroup', 'SwitchableWhenContainsEquipment',
+                'SetEffectAnimatorParameter',   # (2026-11-10) anim_scripts (`animFin`)
                 # (2026-11-01, CN client only) pause_scripts (`pauseMenu`)
                 'PauseEffectIfCharMenuNotOpen',
                 # (2026-10-25) owner_follow (`followOwner`, `rootTile`) and pause_scripts (`pauseMove`): field-less
@@ -639,9 +641,17 @@ COMP_FIELDS = {
                             '_particleDetailsHookers[]._detailPercentage': _K('lod.ps')},
     'script:TriggerAnimatorWhenFinish': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'), '_customKey': _K('animFin[].p')},
     'script:OnFinishAnime': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'), '_triggerName': _K('animFin[].p'),
-                             '_isTrigger': _K('animFin[].v'), '_isInt': _K('animFin[].v'), '_triggerValue': _K('animFin[].v')},
+                             '_isTrigger': _K('animFin[].v'), '_isInt': _K('animFin[].v'), '_triggerValue': _K('animFin[].v'),
+                             # (2026-11-10, the CN client's 11-08 update: 酒神 S3) [ASSUMED·CN: from its name — the effect's
+                             # particle systems stop as the pooled effect is recycled; the player removes them with the effect]
+                             '_needStopParticleSystemWhenRecycle': _N('the player removes an effect\'s systems with it')},
     'script:SwitchAnimatorStateWhenFinish': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'),
                                              '_stateName': _K('animFin[].play')},
+    # (2026-11-10) ON_FINISH entries → animFin; ON_PLAY ones only reported when they set other than the default
+    'script:SetEffectAnimatorParameter': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'),
+                                          '_paramInfos[].paramKey': _K('animFin[].p'), '_paramInfos[].paramType': _K('animFin[].v'),
+                                          '_paramInfos[].triggerTime': _K('animFin[].p'), '_paramInfos[].valueToSetBool': _K('animFin[].v'),
+                                          '_paramInfos[].valueToSetFloat': _K('animFin[].v'), '_paramInfos[].valueToSetInt': _K('animFin[].v')},
     'script:SetAnimatorTriggerOnEvent': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'),
                                          '_event': _V('animFin[].p', (0,)), '_animatorTriggerName': _K('animFin[].p')},
     'script:SetAnimatorFloatByCondition': {
@@ -690,7 +700,8 @@ COMP_READERS = {
     'script:RandomDirection': ('random_direction',), 'script:FollowTileHeight': ('tile_height',), 'script:FxLODSetting': ('lod_setting',),
     **{f'script:{c}': ('anim_scripts',) for c in (
         'TriggerAnimatorWhenFinish', 'OnFinishAnime', 'SwitchAnimatorStateWhenFinish', 'SetAnimatorTriggerOnEvent',
-        'SetAnimatorFloatByCondition', 'BuffProgressFloatSource', 'SetAnimatorTriggerByCondition', 'AuraProjectileSetAnimatorTrigger')},
+        'SetAnimatorFloatByCondition', 'BuffProgressFloatSource', 'SetAnimatorTriggerByCondition', 'AuraProjectileSetAnimatorTrigger',
+        'SetEffectAnimatorParameter')},
     'script:EmitterRandomGroup': ('random_group',), 'script:SwitchableWhenContainsEquipment': ('equip_effects',),
 }
 # a script's fields of the MonoBehaviour base: not the class's own

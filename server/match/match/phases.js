@@ -2,7 +2,7 @@
 // strategy draft
 // (BAND_DRAFT: one countdown of BAND_TURN_SECONDS per turn, 队友已选, the highlighted strategy on a timeout, skips, then
 // the 编队确认 window of DRAFT_CONFIRM_SECONDS, switched off since 2026-10-13),
-// BATTLE_CHECK and ROUND_START (the round's enemies — a normal wave or the boss pairing — planned before the players'
+// (规程: then 确定自选编队, match/diyChoose.js) BATTLE_CHECK and ROUND_START (the round's enemies — a normal wave or the boss pairing — planned before the players'
 // round start).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
@@ -376,7 +376,9 @@ export class MatchPhases {
       this.markPrivate(ps);
     }
     void timeout;
-    this.enterBattleCheck();
+    // 规程: 确定自选编队 before 协议启动 (match/diyChoose.js)
+    if (this.gd.diyChoose) this.enterDiyChoose();
+    else this.enterBattleCheck();
   }
 
   enterBattleCheck() {

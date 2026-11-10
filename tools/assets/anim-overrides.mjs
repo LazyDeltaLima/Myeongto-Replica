@@ -215,6 +215,9 @@ export const SIGNAL_CLIPS = Object.freeze({
   // fx { signal: 'healAlly', t }) or SpawnToken `_animKey "Skill_2"` (the champagne throw — 'swire2Throw') over Attack
   'op:char_1033_swire2:': { attack: { healAlly: 'Skill_1', spawnToken: 'Skill_2' } },
   'op:char_4193_lemuen:': { skills: { 1: { aim: { begin: 'Skill_2_Begin', loop: 'Skill_2_Idle', end: 'Skill_2_End' } } } },
+  // 재키 S2 (a 规程 piece): the mode's only ability is StrikeBack `_animKey "Skill_Loop"`, cast on a dodged hit (the kit's
+  // forceAttack signal 'StrikeBack', the 'atk' event's)
+  'op:char_347_jaksel:': { skills: { 1: { StrikeBack: 'Skill_Loop' } } },
 });
 
 /**

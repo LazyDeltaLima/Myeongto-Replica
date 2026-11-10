@@ -608,6 +608,24 @@ export class GameData {
     return this.custom?.bonds?.noLayerCap ? Infinity : BOND_LAYER_CAP;
   }
 
+  /**
+   * 确定自选编队 (规程): the start step after the strategy draft where each player picks, from its 自选编队 (up to 12 slots,
+   * six per tier), the 自选 operators this match fields — at most `perTier[tier]` of each tier (activity constData
+   * diyCharLimitForLevels { 5: 2, 6: 2 }) — in `seconds` (autoChessData.enterStepList CUSTOM_CHECK, 30 s). Null when the
+   * season has no such step (盟约: the picks are the match's as they are). server/match/match/diyChoose.js.
+   * @returns {{ seconds: number, perTier: Record<number, number> } | null}
+   */
+  get diyChoose() {
+    const lim = this.economy.diyCharLimitForLevels;
+    const steps = Array.isArray(this.config.timers?.enterSteps) ? this.config.timers.enterSteps : [];
+    const step = steps.find((x) => x && x.step === 'CUSTOM_CHECK');
+    if (!lim || typeof lim !== 'object' || !step) return null;
+    /** @type {Record<number, number>} */
+    const perTier = {};
+    for (const [k, v] of Object.entries(lim)) if (Number.isInteger(Number(k)) && Number.isInteger(v) && v >= 0) perTier[Number(k)] = v;
+    return { seconds: posIntOr(step.time, 30), perTier };
+  }
+
   timer(key) {
     const t = this.config.timers && this.config.timers[key];
     return typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : DEFAULTS.timers[key] ?? 10;

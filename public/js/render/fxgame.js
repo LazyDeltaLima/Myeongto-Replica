@@ -87,6 +87,7 @@ import { PROJ } from './style.js';
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her model is back home
 import { bodyTurn, faceSwitchCopy, faceTurn, followDir, playSpeed, upwardMajor } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection, SwitchableEffectByFaceDirection; 2026-10-27 a projectile body's turn
 import { kitOfficialPlan, kitOperator, KIT_NO_STAND_IN } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
+import { rangeEdges } from './fx/edges.js'; // 2026-11-10: a range's edge lines (RangeLineEffectHandler)
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 import { enemyRecordMode, isOwnSubMode, SKILL_SUB_MODES, skillModeIndex } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
 import { animPause, clipOf, facesBack, idlePause, immuneTo, movePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
@@ -247,6 +248,7 @@ const FORM_MODES = Object.freeze({
   enemy_9011_acrefr: Object.freeze({ stopped: 'NoRef' }),
   enemy_9017_achunt: Object.freeze({ charge: 'S1' }),
   enemy_1040_bombd: Object.freeze({ bombed: 'S1' }),
+  enemy_9024_acsgnt: Object.freeze({ Giant: 'Giant', SnowyMountain: 'SnowyMountain' }),   // 谢拉格's giant (a walking ally)
   enemy_10081_mpplai: Object.freeze({ translator_fuchou: 'ModeB', translator_youling: 'MoveC', translator_shushi: 'ModeD' }),
 });
 
@@ -3008,6 +3010,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // 酒神 S2's 本能的召唤 (`src`) 诱导s an enemy: token_phatm2_encdool_target (its `_activeBuffs`, LIMITED for the lure's
       // duration `t`) shows token_encdool_skill_02_debuff_01 on it — ended with the summon (the sim ends the lure then)
       case 'lure': {
+        // 2026-11-11: 谢拉格's giant's 【神迹之声】 (server content/bonds/giant.js, no `src`): its Attract ability's range effect
+        // is drawn from its 'skill' event (eskillFx, as an enemy's ability) — no stand-in puff over it
+        const g = o.src == null ? views.get(o.id) : null;
+        if (g?.info?.walks && eOn(g) && eskillPart(g, 'attract')) { ownFx.add(e); return true; }
         if (views.get(o.src)?.info?.defId !== 'token_10054_phatm2_encdool' || failed
           || !index?.bundles?.phatm2_token?.includes('token_encdool_skill_02_debuff_01')) return false;
         const v = views.get(o.id);
@@ -3026,8 +3032,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function officialKitFx(e, views) {
     const o = e[4], opId = kitOperator(o, e[1]), op = views.get(opId), b = !failed && q() !== 'low' ? bundleOf(op) : null;
-    const foe = views.get(o.id)?.info?.side === 'enemy';
-    const plan = b && isOp(op) ? kitOfficialPlan(e[1], o, b.bundle, { skill: skillIdx(op), back: faceBack(op), foe, plays }) : null;
+    const ev = views.get(o.id), foe = ev?.info?.side === 'enemy';
+    // (`left`: the event's unit faces left — the client's CheckFaceLOrR; 메커니스트 S3's charge picks its projectile by it)
+    const left = (ev?.visFacing ?? ev?.facing ?? 1) < 0;
+    const plan = b && isOp(op) ? kitOfficialPlan(e[1], o, b.bundle, { skill: skillIdx(op), back: faceBack(op), foe, left, plays }) : null;
     if (!plan) return false;
     if (plan.skillFlag) (op._fxSkillFlags ||= new Set()).add(plan.skillFlag);   // until the skill ends (洛洛's overDrones)
     for (const tag of plan.stop) {
@@ -3039,11 +3047,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const casts = [];
     for (const p of plan.play) {
       const slot = p.slot != null ? `${opId}|${p.slot}` : null;
-      if (slot && p.off) { endSlot(slot); continue; }
+      if (slot && p.off) { endSlot(slot, !!p.now); continue; }
       const pb = p.bundle ? { bundle: p.bundle, prefabs: index?.bundles?.[p.bundle] || [] } : b;
       const name = pickName(pb, p.n);
       if (!name) continue;
       if (p.cast) { casts.push(name); n++; continue; } // (2026-10-21) the operator's own cast effects, below
+      if (p.edge) { if (edgeLines(slot ?? `${opId}|edge`, pb.bundle, name, o[p.edge], opId)) n++; continue; } // (2026-11-10)
       if (slot) {
         const s = slots.get(slot);
         // (2026-10-24, 묶음 S3) a slot play with seconds as `life` lasts that long from its latest play
@@ -3083,13 +3092,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (p.harpoon) { flight = Math.max(flight, planHarpoon(pb, name, op, p.harpoon, x, y)); n++; continue; }
       if (p.fly && (p.to || p.from)) { flight = Math.max(flight, planShots(pb, name, op, p, o, x, y, views)); n++; continue; }
       if (p.fly) { // a projectile's `_mainEffect` from the operator to the event's point at `fly` tiles / s, along its flight
-        // (2026-11-06) `start` [x, y]: a shot that leaves from a ground point of its own (오올헤약 S3's lanes), not the operator
+        // (2026-11-06) `start` [x, y]: a shot that leaves from a ground point of its own (오올헤약 S3's lanes), not the operator;
+        // (2026-11-10) `land` [x, y]: one that lands on a point other than the event's, `delay` s after the event (a projectile's
+        // `_delayToStart`: 메커니스트 S3's charge, from the 结构性原理's tile to its stop tile)
         const fx0 = Array.isArray(p.start) ? Number(p.start[0]) : op.x, fy0 = Array.isArray(p.start) ? Number(p.start[1]) : op.y;
-        const dur = Math.hypot(x - fx0, y - fy0) / p.fly, z = camRef ? bodyZ(camRef, op, SPAWN_FRAC[2]) - (op.z || 0) : 0.5;
-        flight = Math.max(flight, dur);
+        const x1 = Array.isArray(p.land) ? Number(p.land[0]) : x, y1 = Array.isArray(p.land) ? Number(p.land[1]) : y;
+        const wait = Number(p.delay) > 0 ? Number(p.delay) : 0;
+        const dur = Math.hypot(x1 - fx0, y1 - fy0) / p.fly, z = camRef ? bodyZ(camRef, op, SPAWN_FRAC[2]) - (op.z || 0) : 0.5;
+        flight = Math.max(flight, wait + dur);
         const z0 = op.z || 0;   // both ends drawn over their points (fx/camera.js liftX)
-        spawn(pb.bundle, name, glider(liftX(camRef, fx0, fy0, z0, z0 + z), fy0, liftX(camRef, x, y, z0, z0 + z), y, dur, z0 + z), { owner: p.tag ? opId : null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur, ...(p.tag ? { tag: p.tag } : {}) })
-          .then((l) => { if (l) bodyTurn(l.inst, mod.THREE, Math.atan2(y - fy0, x - fx0)); });
+        const shoot = () => spawn(pb.bundle, name, glider(liftX(camRef, fx0, fy0, z0, z0 + z), fy0, liftX(camRef, x1, y1, z0, z0 + z), y1, dur, z0 + z), { owner: p.tag ? opId : null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur, ...(p.tag ? { tag: p.tag } : {}) })
+          .then((l) => { if (l) bodyTurn(l.inst, mod.THREE, Math.atan2(y1 - fy0, x1 - fx0)); });
+        if (wait > 0) castsDelayed.push({ t: clockS + wait, run: shoot }); else shoot();
         n++;
         continue;
       }
@@ -3298,11 +3312,45 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const x of l) spawn(x.bundle, x.name, { x: v.x, y: v.y, z: v.z || 0 }, { owner: null, buff: false, tag: 'unitEnd' }, { over: false, facing: efacing(v) });
   }
   /** End the effect held in `key` (and one still loading there). */
-  function endSlot(key) {
+  function endSlot(key, now = false) {
     const s = slots.get(key);
     if (!s) return;
     slots.delete(key);
-    if (s.l) s.l.inst.stop();
+    if (s.l) s.l.inst.stop(now);
+  }
+  /**
+   * (2026-11-10, official client RangeLineEffectHandler._RenderLine) a range's edge lines: one effect `name` per loop of the
+   * outline of `cells` (render/fx/edges.js rangeEdges), at world zero, each of its LineRenderers through the loop's corners
+   * (FxInstance.setPath) `EDGE_Z` over the ground — `_lineOffsetToMapCenter` z −0.1 with `_heightOffset` 0.4 against the
+   * default highland offset −0.4 (`get_defaultHighlandOffset`: −highlandHeight). A later call moves the loops it keeps, makes
+   * the new ones and ends the rest (the client adds effects up to the loop count, finishes the extra ones, then sets every
+   * line). Held as the operator's (`onCaster`): they end as he leaves. false when there is nothing to draw.
+   */
+  const EDGE_Z = 0.1;
+  const edgeSets = new Map();   // slot → { name, ls: [{ l, pts, done }] }
+  function edgeLines(slot, bundle, name, cells, opId) {
+    let rec = edgeSets.get(slot);
+    if (rec && rec.name !== name) { for (const it of rec.ls) it.l?.inst.stop(); rec = null; }
+    if (!rec) edgeSets.set(slot, (rec = { name, ls: [] }));
+    // a line its owner's leaving ended is made again
+    rec.ls = rec.ls.filter((it) => (it.l ? !it.l.inst.stopping && live.includes(it.l) : !it.done));
+    const loops = rangeEdges(cells);
+    const keep = [];
+    loops.forEach((loop, i) => {
+      const pts = loop.map(([cx, cy]) => ({ x: cx, y: cy, z: EDGE_Z }));
+      const it = rec.ls[i];
+      if (it) { it.pts = pts; it.l?.inst.setPath?.(pts); keep.push(it); return; }
+      const one = { l: null, pts, done: false };
+      keep.push(one);
+      spawn(bundle, name, { x: pts[0].x, y: pts[0].y, z: 0 }, { owner: opId, buff: false, onCaster: true, until: null, tag: 'slot' }, { over: false }).then((l) => {
+        one.done = true;
+        if (!l) return;
+        if (edgeSets.get(slot) === rec && rec.ls.includes(one)) { one.l = l; l.inst.setPath?.(one.pts); } else l.inst.stop();
+      });
+    });
+    for (const it of rec.ls.slice(loops.length)) { if (it.l) it.l.inst.stop(); else it.done = true; }
+    rec.ls = keep;
+    return loops.length > 0;
   }
   const orbitAt = { x: 0, y: 0, z: 0 };   // an orbiter's centre (bodyPoint), read at once
   /**
@@ -3879,6 +3927,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     typeof v?._wantsBack === 'function' ? v._wantsBack() : facesBack(v));
   // prefabs a kit event here draws instead (余 S3's wall piece: one per tile along the wall, not one on him)
   const KIT_OWNED = new Set(['yu_skill3_range_01',
+    // 2026-11-10: 사일런스 더 패러디그매틱 S3's 不死 on the ally it saves (kitofficial.js, its undying plan): the `_buff` name rule drew it on her at the cast
+    'slent2_skill_03_buff_02',
+    // 2026-11-10: 메커니스트 S2's 屏障 look, held by the status path while it holds (fxstatus.js KEY_FX): the `_buff` name rule drew it at the cast
+    'mcnist_skill_02_buff_01', 'mcnist_skill_02_buff_01_end', 'mcnist_skill_02_buff_01_end_02',   // … and its breaks (kitofficial.js shieldBreak)
+    // 2026-11-10: 아미야 의료 형태 S1's range effect, at each damage of her attacks (kitofficial.js kitHit): the `_range` name rule drew it at the cast
+    'amiya3_skill_01_range',
     // 2026-11-07: 뮤엘시스's 流形 S3 cast (kitofficial.js 'refresh'), which its sktok_mlyss_wtrman_3 row (char_modes.py token_modes) names too
     'token_10030_mlyss_wtrman_split_start_01',
     // 2026-11-07: 탈룰라 S2's hit on its centre (kitofficial.js 'blast'): `skillTargets` drew it on what the damage of the moment struck
@@ -3935,6 +3989,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     'cqbw_skill_02_buff', 'cqbw_skill_02_buff_02', 'cqbw_skill_02_start',
     // … and her S1 grenade's hit and S3 bombs' (kitofficial.js 'kitHit'): `skillTargets` drew them again on what the damage of the moment struck
     'cqbw_skill_01_hit', 'cqbw_skill_03_buff', 'cqbw_skill_03_buff_02', 'cqbw_skill_03_buff_03', 'cqbw_skill_03_hit',
+    // … and 메테오라이트 S2's shell hit (kitofficial.js 'kitHit' meteo:shell), on the enemy it traces only
+    'meteo_skill_02_hit',
     // … and 체르니 S2's FinalAttack, 18.6 s in (kitofficial.js 'kitHit'): modes.json reads it as the cast's
     'pianst_skill_02_end', 'pianst_skill_02_end_range', 'pianst_skill_02_end_hit',
     // 2026-11-07: 真言's S1 / S2 hits, by the target's state (kitofficial.js 'kitHit'): the `_hit` name rule (play) drew S2's on every hit, under them
@@ -4654,7 +4710,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // effects. Cast effects play at the ability's speed, hits at 1.0 (as the operators').
   // 2026-10-23: an ally built from an enemy record (炎佑, shared/skill-modes.js ENEMY_RECORD_MODES) attacks with its enemy
   // prefab's bindings in its one mode — the attacker's paths below take it as an enemy, a target keeps its real side
-  const erec = (v) => !!(v?.info && v.info.side !== 'enemy' && enemyRecordMode(v.info.defId));
+  // 2026-11-11: a walking ally built from an enemy record (UnitInfo `walks`: 规程's 莱塔尼亚 summons, 谢拉格's giant —
+  // server content/bonds/walker.js) too, in the mode its form stands for (emodeOf) as the enemy would
+  const erec = (v) => !!(v?.info && v.info.side !== 'enemy' && (v.info.walks || enemyRecordMode(v.info.defId)));
   const efoe = (v) => v?.info?.side === 'enemy' || erec(v);
   /** An attack of a unit with official effects the layer did not draw officially (perfSkips `off` / `lod3`). */
   function countSkip(src) {
@@ -4676,7 +4734,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function emodeOf(v) {
     const b = ebindOf(v);
     if (!b || !Array.isArray(b.modes) || !b.modes.length) return null;
-    const rm = erec(v) ? enemyRecordMode(v.info.defId).mode : -1;
+    const rm = erec(v) ? enemyRecordMode(v.info.defId)?.mode ?? -1 : -1;
     if (rm >= 0) return rm < b.modes.length ? rm : 0;
     const fm = typeof v.form === 'string' ? (FORM_MODES[v.info.defId] || FORM_MODES[v.info.spine])?.[v.form] : null;
     if (fm && b.modes.length > 1) {
@@ -4991,6 +5049,116 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return true;
   }
   /**
+   * 2026-11-10 (docs/rules/fx.md 「규정 보스 고치·지느러미의 이펙트」): the sim's fx of 假想敌：茧 / 鳍 (content/bosses.js kitSpider,
+   * kitWeb, kitEel) that the official effects stand for — true = drawn here (or drawn by the status they come with), no stand-in:
+   * - 'phase' acspiderEvade / aceelShield: the buff's own effect (acspdier[evade] → enemy_acspider_buff_mask_01, aceel[shield] →
+   *   …_shield_start_loop) is the sim status's (`fxTag`, fxstatus.js) — not the vanish puff as well;
+   * - 'phase' aceelShieldEnd: blocked, aceel[shield]'s ON_OWNER_BLOCKEE_CHANGED creates enemy_aceel_skill_01_shield_end on the 鳍
+   *   (CheckBlocked → CreateEffect, the buff template; enemy-modes.json `buffBlocked`) once; the strong attack's enemy_aceel_skill_01_shield_buff is
+   *   aceel[power-atk]'s, again the status's;
+   * - 'link' aceelChain: a jump of the 鳍's shot (`key`: projectile_enemy_aceel, _pwratk while aceel[power-atk] is on) flies from
+   *   the unit hit last to the next — its trail and hit as an 'enemyShot' (eshotFx), the hit at the landing;
+   * - 'summon' of 淤困之茧: its prefab has no `_startEffect` (no birth effect) and it is drawn by the acweb[vfx] it creates on the
+   *   operator it binds (fxstatus.js `viewOf`) — no summon puff.
+   * Without the boss's effects extracted, false: the stand-ins stay.
+   */
+  const AC_PHASE_BUFF = { acspiderEvade: 'acspdier[evade]', aceelShield: 'aceel[shield]' };
+  const AC_NO_BORN = new Set(['enemy_9036_acweb']);
+  function acBossFx(e, views) {
+    const o = e[4];
+    if (!o || typeof o !== 'object' || level() >= 3) return false;
+    if (e[1] === 'phase' && (o.kind in AC_PHASE_BUFF || o.kind === 'aceelShieldEnd')) {
+      const v = views.get(o.id);
+      if (!eOn(v)) return false;
+      if (o.kind !== 'aceelShieldEnd') return (ebindOf(v)?.buffFx?.[AC_PHASE_BUFF[o.kind]] || []).some(efx);
+      const ns = (ebindOf(v)?.buffBlocked?.['aceel[shield]'] || []).filter((n) => efx(n));   // enemy-modes.json `buffBlocked`
+      if (!ns.length) return false;
+      eplay(v, ns);
+      return true;
+    }
+    if (e[1] === 'link' && o.kind === 'aceelChain' && typeof o.key === 'string') {
+      return eshotFx({ id: o.id, from: o.from, tgt: o.to, key: o.key, t: Number(o.dur) || 0.2 }, views);
+    }
+    if (e[1] === 'summon' && AC_NO_BORN.has(o.key)) return !!(emodes?.[o.key] && !emodes[o.key].start && eOn(views.get(o.id)));
+    if (e[1] === 'zone' && o.kind === 'acspiderRain') return acRainFx(o, views);
+    if (e[1] === 'zone' && o.kind === 'sargonSand') return sargonSandFx(o);
+    return false;
+  }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 사르곤 모래 늪」): 规程's 萨尔贡 6 流沙 — sim fx 'zone' { kind: 'sargonSand', x, y, dur }
+   * (content/bonds/nation/sargon.js installSand) on the tile a member's skill start lays it on. Its tile listener
+   * act3autochess_bond_sargon_tile_listener (CN battle/prefabs/[uc]dynamicabilities) puts its `_effectSettings` effect
+   * map_v079_dikuai01 (CN map.ab: static floor meshes, no clip) on that tile once (`castedTimeThreshold` 1,
+   * `_dontCreateNewEffectWhenCastedTimesSame`) and keeps it as long as the listener stays — the battle, the sim's `dur`
+   * (`_fixClearOnEnd`). The range ability act3autochess_bond_sargon_range (the 2× while a member's skill runs) has no effect
+   * of its own. false (the stand-in zone) without the effect extracted.
+   */
+  const SARGON_SAND = Object.freeze(['map', 'map_v079_dikuai01']);
+  function sargonSandFx(o) {
+    if (failed || !index?.bundles?.[SARGON_SAND[0]]?.includes(SARGON_SAND[1])) return false;
+    const x = Math.round(Number(o.x)), y = Math.round(Number(o.y));
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    let g = null;
+    try { g = grid(); } catch { /* the board's floor */ }
+    const cell = Array.isArray(g) ? g[y]?.[x] : null;
+    const until = clockS + Math.max(0, Number(o.dur) || 0);
+    spawn(SARGON_SAND[0], SARGON_SAND[1], { x, y, z: cell ? (cell.h || 0) + (cell.devH || 0) : 0 }, { owner: null, buff: false, until, tag: 'sargonSand' }, { over: false })
+      .then((l) => { if (l) zoneEnd(l, until, true); });
+    return true;
+  }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 보스 고치·지느러미의 이펙트」): 假想敌：茧 (隐秘核心)'s 【悲惨之雨】 — sim fx 'zone'
+   * { kind: 'acspiderRain', id, ability, field, dur, tiles: [r0, r1, c0, c1] }. Its `Left` / `Right` tile listeners
+   * (AttachListenerToTileAbility) put their `_effectSettings` effect (enemy-modes.json skills[ability].tile:
+   * enemy_acspider_debuff_ground_01) on each tile they cast on, held while the listener stays (`m_castedTileEffect`)
+   * [추정·CN: the tiles are the selector's, CN-only — every drawn tile of `tiles`, the field the sim rains on; maintainer
+   * decision 2026-11-11]. Each ends at the rain's end or as the 茧 dies (the ability goes with it), finished (its
+   * `animFin` `end` → the fading clip). A new rain on the same field ends the one before. false (the stand-in zone) without
+   * the effect extracted.
+   */
+  const acRains = new Map();   // `${spider id}:${field}` → { id, live: the floors }
+  function acRainOff(key) {
+    for (const l of acRains.get(key)?.live || []) if (!l.stopped) zoneEnd(l, Math.min(l.until ?? clockS, clockS), true);
+    acRains.delete(key);
+  }
+  function acRainFx(o, views) {
+    const v = views.get(o.id);
+    const t = Array.isArray(o.tiles) && o.tiles.length === 4 ? o.tiles.map(Number) : null;
+    if (!eOn(v) || !t || !t.every(Number.isInteger)) return false;
+    const names = [...new Set(eskillPart(v, o.ability)?.tile || [])].map(efx).filter(Boolean);
+    if (!names.length) return false;
+    const key = `${o.id}:${o.field}`;
+    acRainOff(key);
+    const rec = { id: o.id, live: [] };
+    acRains.set(key, rec);
+    const until = clockS + Math.max(0, Number(o.dur) || 0);
+    let g = null;
+    try { g = grid(); } catch { /* every tile */ }
+    for (let r = t[0]; r <= t[1]; r++) {
+      for (let c = t[2]; c <= t[3]; c++) {
+        const cell = Array.isArray(g) ? g[r]?.[c] : null;
+        if (Array.isArray(g) && !cell?.drawn) continue;   // off the drawn board
+        const at = { x: c, y: r, z: cell ? (cell.h || 0) + (cell.devH || 0) : 0 };
+        for (const n of names) {
+          spawn(n[0], n[1], at, { owner: null, buff: false, until, tag: 'acRain' }, { over: false }).then((l) => {
+            if (!l) return;
+            if (acRains.get(key) !== rec) { zoneEnd(l, clockS, true); return; }   // its rain ended while it loaded
+            zoneEnd(l, until, true);
+            rec.live.push(l);
+          });
+        }
+      }
+    }
+    return true;
+  }
+  function stepAcRains(views) {
+    for (const [key, rec] of acRains) {
+      const v = views.get(rec.id);
+      if (!v || v.alive === false || v.remove) acRainOff(key);
+      else if (rec.live.length && rec.live.every((l) => l.stopped)) acRains.delete(key);
+    }
+  }
+  /**
    * 2026-10-10: “萨米的意志”'s 冰凌 — sim fx 'column' { x, y, c, id, key, sub, r0, dir, speed, dist, life } once at the strike
    * (content/bosses.js kitDeer, docs/rules/sim.md 「萨米的意志 冰凌」): projectile `key` runs from row `r0` of column `c` along
    * `dir` at `speed` and places projectile `sub` on the tile k·`dist` from the start as it passes (k·dist / speed s after the
@@ -5176,7 +5344,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const ebreath = new Map();   // dragon id → { tgt, l: its target effect (live entry) | null, until, done }
   function ebreathFx(e, views) {
     const o = e[4], src = views.get(o.id), tgt = views.get(o.target);
-    if (!src || !tgt || !erec(src) || !eOn(src) || level() >= 3) return false;
+    if (!src || !tgt || !erec(src) || !enemyRecordMode(src.info.defId) || !eOn(src) || level() >= 3) return false;
     const part = eskillPart(src, enemyRecordMode(src.info.defId).skill);
     const line = efx(Array.isArray(part?.proj?.trail) ? part.proj.trail[0] : null);
     if (!line) return false;
@@ -5262,7 +5430,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const k = `${id}:${key.toLowerCase()}`;
     // 2026-10-15: a talent buff's effect held until this ability starts (enemy-modes.json `auraEnd`: 子代's tentac_grow → Grow)
     for (const l of live) if (l.owner === id && l.tag === `aura:${key.toLowerCase()}`) l.inst.stop();
-    v._fxESkill = { part, t: clockS, hold, held: hold ? new Set() : null };
+    v._fxESkill = { part, t: clockS, hold, held: hold ? new Set() : null, inPlace: inPlaceOfAttack(v, part) };
     if (clockS - (eskillSeen.get(k) ?? -9) < 1) return true;
     eskillSeen.set(k, clockS);
     if (hold) {
@@ -5289,6 +5457,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
     }
     return true;
+  }
+  /**
+   * 2026-11-11: whether ability `part` of walking ally `v` is cast in place of its next attack — its clip is its mode's
+   * attack clip (谢拉格's giant's PowerAttack on a frozen enemy, B_Attack: the sim strikes it as an attack after its fx
+   * 'enemySkill'). That attack's swing and strike then draw nothing of the plain attack (its hit is the ability's, eskillHit).
+   */
+  function inPlaceOfAttack(v, part) {
+    if (!v?.info?.walks || typeof part?.anim !== 'string') return false;
+    const m = ebindOf(v)?.modes?.[emodeOf(v) ?? -1];
+    return Array.isArray(m?.anim) && m.anim.includes(part.anim);
   }
   /** A 'dmg' on `tid` by enemy `by` (the sim's attacker field) within 3 s of its ability: that ability's hit effects. */
   function eskillHit(tid, by, views) {
@@ -5522,8 +5700,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function stepEnemies(views) {
     if (!emodes || !views) return;
+    if (acRains.size) stepAcRains(views);
+    camWant.clear();
     for (const v of views.values()) {
-      if (v?.info?.side !== 'enemy' || v.alive === false || !ebindOf(v)) continue;
+      // (2026-11-11: a walking ally from an enemy record too — its form's mode, told to the sound)
+      if ((v?.info?.side !== 'enemy' && !v?.info?.walks) || v.alive === false || !ebindOf(v)) continue;
+      const cams = !v.remove && eOn(v) ? ebindOf(v).camera : null;
+      if (cams) for (const n of cams) camWant.add(n);
       if (v._fxEMode === undefined) { v._fxEMode = emodeOf(v); v._fxEClip = v.actor?.current; v._fxEForm = v.form ?? null; v._fxRebSeen = v.form === 'reborn'; continue; } // on the field before this layer
       // 2026-10-23: a rebirth starting — the 重生 form coming on (a leader's reborn()) — plays its RebornTalent `_effects`;
       // 2026-10-31: and the ability that handles it starts (ON_CAST_START) / ends with the rebirth (ON_CAST_END)
@@ -5564,6 +5747,41 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (fd?.end && clip === fd.end && form === 'reborn') erebornAbility(v, CAST_EVENT.ATTACK_FINISH);
       }
     }
+    syncCameraFx();
+  }
+  /**
+   * 2026-11-10 (docs/rules/fx.md 「규정 보스 고치·지느러미의 이펙트」): the camera effects of the enemies' held talent buffs
+   * (enemy-modes.json `camera`) — on while one enemy holding it lives, whichever field it is on: 假想敌：鳍 (隐秘核心)'s
+   * aceel[thurder-trigger] adds 1 to the global blackboard aceel[vfx-counter] as it starts and creates
+   * screen_act3autochess_aceel_weather at 1 (CreateCameraEffect), takes 1 as it finishes and switches the effect off at 0
+   * (ActiveCameraEffect `_active` false: at once). The effect's CameraEffect parents it to the camera (`_spawnOffset` 0,
+   * `_maxLifeTime` −1: no end of its own) — played as setStorm's (`camera`). stepEnemies fills `camWant` each frame; an
+   * effect starts or ends only when the set changes.
+   */
+  const camWant = new Set();
+  const camFx = new Map();   // effect name → { l: live entry (null while it loads), off }
+  function syncCameraFx() {
+    for (const [n, c] of camFx) {
+      if (camWant.has(n)) continue;
+      camFx.delete(n);
+      c.off = true;
+      if (trace) trace({ kind: 'cameraOff', names: [n], by: null, at: null });
+      if (c.l && !c.l.inst.done) c.l.inst.stop(true);
+    }
+    for (const n of camWant) if (!camFx.has(n)) startCameraFx(n);
+  }
+  async function startCameraFx(name) {
+    const c = { l: null, off: false };
+    camFx.set(name, c);
+    const r = efx(name);
+    if (!r) return;
+    if (trace) trace({ kind: 'camera', names: [name], by: null, at: null });
+    if (dry) { dryFollow(r[0], r[1], null, null); return; }
+    const gen = stormGen;
+    const def = await lib.load(r[0], r[1]);
+    if (c.off || gen !== stormGen || !mod || !def) return;
+    const inst = new mod.fxp.FxInstance(def, { quality: q() });
+    c.l = addLive(inst, { view: null, owner: null, tag: 'camera', camera: true, buff: true, keep: true, pinned: true }, layers.over);
   }
   /**
    * 2026-10-23 (docs/rules/fx.md 「적 상태의 버프 이펙트」): the effects of the rebirth enemy `v` starts in mode `mode` —
@@ -5867,7 +6085,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         case 'skill': {
           const v = views.get(e[1]);
           // 2026-10-10: an enemy's skill naming its ability (['skill', id, on, prefabKey] — the sim sends fx 'enemySkill' today)
-          if (v?.info?.side === 'enemy') { const k = typeof e[3] === 'string' ? e[3] : e[4]?.prefabKey; if (k) eskillFx(v, k, { on: !!e[2], loop: true }); return; }
+          if (v?.info?.side === 'enemy' || v?.info?.walks) { const k = typeof e[3] === 'string' ? e[3] : e[4]?.prefabKey; if (k) eskillFx(v, k, { on: !!e[2], loop: true }); return; }
           if (erec(v)) { if (!e[2]) endBreath(v); return; }   // 2026-10-23: 炎佑's channel ends (ebreathFx)
           if (!isOp(v) || !bundleOf(v)) return;
           if (e[2] && e[3] !== 'flag') v._fxSkillByEvent = true; // local patch: skillByFlag leaves it alone
@@ -5923,6 +6141,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-10-10: an enemy's attack — its strike's cast effects, its shot's official trail, its hit to come
           if (efoe(src)) {
             if (!eOn(src)) return;
+            if (src._fxESkill?.inPlace) { src._fxESkill.inPlace = false; return; }   // the ability's strike (inPlaceOfAttack)
             const tgt = views.get(e[2]);
             const p = estrikeFx(src, e[3]);
             if (tgt && p?.part) {
@@ -5945,7 +6164,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             ownAtk.set(`${src.id ?? src.info?.id}:${tgt.id ?? tgt.info?.id}`, lastAtk.get(tgt.id ?? tgt.info?.id));
             if (ownAtk.size > 512) for (const [k, x] of ownAtk) if (clockS - x.t > 2.5) ownAtk.delete(k);
           }
-          if (tgt && tgt.info?.side !== 'enemy') healAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot }); // healHit
+          // (its `sig` too: 褐果 S2's 'Second' heal shot hits with chnut_skill_02_hit_02 — modePart)
+          if (tgt && tgt.info?.side !== 'enemy') healAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot, sig }); // healHit
           if (tgt) aimed.set(`${src.id ?? src.info?.id}:${tgt.id ?? tgt.info?.id}`, { t: clockS, mode }); // the chain it may start (chainHop)
           if (aimed.size > 256) for (const [k, x] of aimed) if (clockS - x.t > 2.5) aimed.delete(k);
           const part = atkPart(src, mode);
@@ -5967,7 +6187,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         // ON_CAST_START cast effects (swingFx). Every state event reaches onEvent, so render/app.js needs no call of its own.
         case 'swing': {
           const src = views.get(e[1]);
-          if (efoe(src)) { if (eOn(src)) eswingFx(src, Number(e[2]) || 0, e[3]); return; }
+          if (efoe(src)) { if (eOn(src) && !src._fxESkill?.inPlace) eswingFx(src, Number(e[2]) || 0, e[3]); return; }
           if (src) src._fxCombat = Number(e[6]) === 1;   // 2026-10-21: at an enemy it blocks (combatEffects, altGroup)
           // (2026-10-21) the 9th field: a talent ability cast in place of the attack; the 6th: its target, when it turns to it
           if (src) swingFx(src, Number(e[2]) || 0, views, e[3], typeof e[8] === 'string' && e[8] ? e[8] : null, typeof e[5] === 'number' ? e[5] : null);
@@ -6029,6 +6249,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'shotSlow' && e[4]) { shotSlowFx(e[4]); return; }
           // 2026-10-31: 刺胄之弹's flight — its boss skill's projectile trail rides the shell (then the cast's effects below)
           if (e[1] === 'shell' && e[4]?.caster != null && e[4].id != null && typeof e[4].ability === 'string' && eshellRide(e, views)) ownFx.add(e);
+          if (acBossFx(e, views)) { ownFx.add(e); return; }   // 2026-11-10: 假想敌：茧 / 鳍 (规程)
           // 2026-10-31: an enemy ability's area (【污染秽蚀】, 毒雾, 刺胄之弹's landing) or death burst — its projectile's
           // effects, else the stand-in zone / ring (not the ability's cast below)
           if ((e[1] === 'zone' || e[1] === 'explode') && e[4]?.id != null && e[4].caster == null && typeof e[4].ability === 'string') { if (eprojAreaFx(e, views)) ownFx.add(e); return; }
@@ -6042,7 +6263,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[4] && typeof e[4] === 'object') {
             const o = e[4], k = fxAbility(o);
             const v = k ? views.get(o.caster ?? o.id ?? o.src ?? o.by) : null;
-            if (v?.info?.side === 'enemy') {
+            if (v?.info?.side === 'enemy' || v?.info?.walks) {   // (2026-11-11: a walking ally's ability too)
               // 2026-10-15: a held skill's end ('enemySkillEnd' { id, ability } after an 'enemySkill' with `hold`)
               if (e[1] === 'enemySkillEnd') { eskillFx(v, k, { on: false }); return; }
               const tgt = o.target ?? o.tgt ?? o.to;
@@ -6296,6 +6517,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       deployed.clear(); onField.clear(); moved.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
       linkAxes.clear(); linkRuns.clear(); // 2026-10-22
       brokeOwn.clear(); // 2026-10-23
+      for (const c of camFx.values()) c.off = true;   // 2026-11-10: the enemies' camera effects (dropped with `live` above)
+      camFx.clear(); camWant.clear();
+      acRains.clear();   // 2026-11-11: 悲惨之雨's floors (dropped with `live` above)
       if (mod) showLayers();
     },
 

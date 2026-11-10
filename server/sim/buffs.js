@@ -48,6 +48,9 @@ export const FLAG_KEYS = Object.freeze([
   'selfBound', 'healFree', 'stealthOff',
   // 缚地 (status `groundbind`): an enemy air unit counts as a ground unit meanwhile (Unit.isFlying)
   'groundbind',
+  // the client's SKILL_NOT_ACTIVATABLE (规程's 淤困之茧 on the operator it binds): no skill starts meanwhile (skills.js) — a
+  // running one goes on, SP still charges, talents are untouched (unlike 沉默)
+  'skillLock',
 ]);
 
 /**

@@ -1,5 +1,12 @@
 {
  "skills": {
+  "skchr_acrbot_1": {
+   "ability": null,
+   "born": 0,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
   "skchr_aglina_1": {
    "ability": null,
    "cls": "cast",
@@ -113,6 +120,25 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_alga_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_alga_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_amgoat_1": {
    "ability": null,
    "cls": "cast",
@@ -137,6 +163,38 @@
    "cls": "cast",
    "reset": 0,
    "state": 0
+  },
+  "skchr_amiya3_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_amiya3_2": {
+   "ability": {
+    "anim": "Skill_2_Begin",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "group": "seq",
+   "reset": 0,
+   "state": 1,
+   "subs": [
+    {
+     "anim": 0,
+     "wait": 1
+    },
+    {
+     "anim": 1,
+     "wait": 1
+    }
+   ]
   },
   "skchr_angel2_1": {
    "ability": null,
@@ -830,6 +888,27 @@
     }
    ]
   },
+  "skchr_chnut_1": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_chnut_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_christ_1": {
    "ability": null,
    "cls": "cast",
@@ -1060,6 +1139,24 @@
    "cls": "cast",
    "reset": 0,
    "state": 0
+  },
+  "skchr_dminon_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_dminon_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_dminon_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
   },
   "skchr_dusk_1": {
    "ability": {
@@ -1808,6 +1905,31 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_hodrer_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_hodrer_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_hodrer_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_horn_1": {
    "ability": {
     "anim": "Skill_1_A",
@@ -2018,6 +2140,27 @@
    "cls": "cast",
    "reset": 0,
    "state": 0
+  },
+  "skchr_jaksel_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "clip": "Attack_A",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_jaksel_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0,
+   "word": 0
   },
   "skchr_jesca2_1": {
    "ability": null,
@@ -2416,6 +2559,52 @@
      "wait": 0
     }
    ]
+  },
+  "skchr_mcnist_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_mcnist_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_mcnist_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_meteo_1": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_meteo_2": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
   },
   "skchr_mint_1": {
    "ability": null,
@@ -3301,6 +3490,12 @@
    "reset": 0,
    "state": 1
   },
+  "skchr_sidero_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
   "skchr_siege2_1": {
    "ability": {
     "anim": "Skill_1",
@@ -3429,6 +3624,24 @@
    "cls": "cast",
    "reset": 0,
    "state": 1
+  },
+  "skchr_slent2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_slent2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_slent2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
   },
   "skchr_snakek_2": {
    "ability": null,
@@ -4542,6 +4755,21 @@
   },
   "skcom_def_up": {
    "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skcom_heal_self": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 0,
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 0
+   },
    "cls": "cast",
    "reset": 0,
    "state": 0

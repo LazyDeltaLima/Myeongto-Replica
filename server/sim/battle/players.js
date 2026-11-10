@@ -44,6 +44,7 @@ export class BattlePlayers {
       // `leakedInTotal` are the HUD capsule's counters of this player's own field (only enemies the round scheduled:
       // spawns.js `_queueSpawn` / `inTotal`, deploy.js), `resolved` is derived from them at result time.
       killed: 0, total: 0, leaked: [], perfect: true, killedInTotal: 0, leakedInTotal: 0,
+      // (`tempLayerGains`, the 临时层数 of 规程, is created by its first gain: Battle.addLayers `temp`)
       layerGains: {}, coins: 0, damageDealt: 0, bossDamage: 0, healingDone: 0, deaths: 0, unitsEnd: [], unitStats: [],
     };
     const late = [];

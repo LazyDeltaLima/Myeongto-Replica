@@ -129,8 +129,10 @@ test('every effect an enemy binds with a muzzle / special-point spawn finds that
   { skip: !existsSync(ENEMY_MODES) && 'no extracted enemy effects' }, () => {
     const em = JSON.parse(readFileSync(ENEMY_MODES, 'utf8'));
     // the client's own data: 숙주 중기갑병's laxe_attack_01_start (sp0) and 가상적: 재생's borrowed enemy_duskls_idle_2 (sp0) name a
-    // SpecialPoint0 those prefabs have none of (the client logs it and leaves the effect where it was made — here: the ground)
-    const GAPS = new Set(['enemy_1061_zomshd laxe/laxe_attack_01_start', 'enemy_9010_acpupp pfx_enemy_4/enemy_duskls_idle_2']);
+    // SpecialPoint0 those prefabs have none of (the client logs it and leaves the effect where it was made — here: the ground);
+    // 2026-11-10, 规程: 无畏掷弹兵 enemy_1405_boomer_2 (battle/enm_pfb_16: Muzzle only) and its enemy_boomer_attack_start (sp0)
+    const GAPS = new Set(['enemy_1061_zomshd laxe/laxe_attack_01_start', 'enemy_9010_acpupp pfx_enemy_4/enemy_duskls_idle_2',
+      'enemy_1405_boomer_2 pfx_enemy_1/enemy_boomer_attack_start']);
     const names = (e) => {
       const out = [e.start, e.dead, ...(e.aura || [])];
       for (const m of e.modes || []) {

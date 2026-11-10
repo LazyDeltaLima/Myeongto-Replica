@@ -29,6 +29,9 @@ export class MatchIntents {
       case 'g.bandFocus': return this.bandFocus(ps, msg.bandId ?? null);
       // 编队确认: the seat is done (MatchPhases.draftReady)
       case 'g.draftReady': return this.draftReady(ps);
+      // 确定自选编队 (规程, match/diyChoose.js): the slots brought into the match, and 准备就绪 / 取消准备
+      case 'g.diyChoose': return this.diyChoose(ps, msg.slots);
+      case 'g.diyReady': return this.diyReady(ps, msg.cancel === true);
       case 'g.buy': return ps.buy(msg.slot);
       case 'g.refresh': return ps.refresh();
       case 'g.freeze': return ps.freeze();
@@ -86,6 +89,7 @@ export class MatchIntents {
     if (this.phase === PHASE.INFO_CHECK && !ps.infoReady) { ps.infoReady = true; this.markPublic(); this.maybeEndInfo(); }
     else if (this.phase === PHASE.BAND_DRAFT && this.draftTurn() === ps.playerId) this.scheduleBandBot();
     else if (this.phase === PHASE.BAND_DRAFT && this.draft?.confirm) this.maybeEndDraftConfirm();
+    else if (this.phase === PHASE.DIY_CHOOSE && !ps.diyChooseReady) { ps.diyChooseReady = true; this.markPublic(); this.maybeEndDiyChoose(); }
     else if (this.phase === PHASE.SP_DRAFT && this.spTurn() === ps.playerId) this.scheduleSpBot();
     else if (this.phase === PHASE.PREP && ps.alive && !ps.ready) this.scheduleBotPrep(ps, 0);
   }

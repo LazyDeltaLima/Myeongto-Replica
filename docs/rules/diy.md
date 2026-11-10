@@ -1062,6 +1062,18 @@
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD: EN 클라에서 뽑음(`add_operator.py --id …` 셋 한 번). 소환물 이펙트는 두 오퍼레이터의 번들에 있어 토큰 팩 추출이 필요 없다. 화면 확인 전이다.
 - 테스트: `test/content/op_cqbw.test.js`(12)·`op_heyak.test.js`(11)·`op_closur.test.js`(10) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물, 실제 매치 경로 하나씩(upstream 테스트에 없어 더함). 선발 수 34 → 37명(폼 145 → 154), 소환사 13 → 15, 손패 소환물 검사 166 → 184, 토큰 모델 20 → 22. golden `diy-060`~`diy-065`·`diy-summon-closur`(새 시나리오), 다른 가족 변화 없음. 이펙트 golden은 새 시나리오 외에 `diy-045`~`diy-047`에 `token_ebnhlz_buff` 한 줄씩 더해짐.
 
+## 선발 추가 테리토리야 (2026-11-08, 관리자 결정)
+- 관리자 결정 2026-11-08: 国度(`char_4246_dminon`, 6성 스페셜리스트 앰부셔)는 새 시즌 「규정」의 기물 명단에 없어 선발로만 넣는다(`LOCAL_DIY_PICKS` 끝). 키트·테스트는 upstream `dev`의 2026-11-03 판(키트 `4cd22a655` + S3 확산 피해 `2ed8de24a`; 화면 커밋 `b3f13f315`의 「국가」 바닥 그림은 받지 않음 — 이펙트는 CN에서 뽑음)에서 가져왔다. 맹약은 협방(우르수스는 핵심 맹약이 없음).
+- 이름·문구: KR 서버에 아직 없는 오퍼레이터라 KR 문체로 손 번역(`tools/i18n/diy-ko-manual.json`) [비공식]. 이름은 비공식 번역에서 널리 쓰는 「테리토리야」(관리자 결정 2026-11-08; KR 출시 때 KR 이름으로 바꿈), 필드 “国度”는 KR 표가 같은 낱말을 옮긴 대로 “국가”(적 스킬 문구 「[국가] 영역」; 관리자 결정 2026-11-08).
+- upstream 키트는 순서형 피해 판정 커널 뒤 판이라 우리 엔진에 맞춰 바꿨다(규칙은 같음):
+  - 피해 호출 `dealDamage({ source, target, … })` → `dealDamage(source, target, { … })`, 피해를 받은 때 판정 `byEnemyDamage` → `tier1.js byEnemyAttack`(반격·반사 피해는 빠짐 — 우리 규칙).
+  - S2 처형(受戮)의 「회피 불가」: upstream의 취소 사유 표시(`ignoreCancelReasons`) → 그 피해의 `canDodge`를 끔.
+  - S3 아무도 없는 국가(无人的国度)의 부상 관찰(버프 `observeInjury`, upstream 엔진 기능): 그 버프를 든 아군이 받는 적 피해를 `damaged`·`dodge` 훅으로 본다(회피된 피해도 — PRTS 「伤判效果」 문서: 대부분의 효과는 그대로 처리).
+  - 자동 발동: act2autochess 표에 행이 없어 S2·S3 모두 `DEFAULT` + 스킬 범위 상자(y-3·y-10, `sim.md` 「스킬 범위 발동」). upstream은 `ACTIVE_RANGE`.
+- 키트 주석에 남은 추정은 모두 [추정·CN: CN에만 있는 오퍼레이터라 클라 로직을 못 읽음] — 국가 위 판정이 칸 기준인지, 공격 속도 감소의 최강값 선택, 재능 1 첫 틱 시점, 기절 중에도 피해, 철수·기습 점프를 퇴장으로 봄, 피해 뒤 기절 순서, S1 매 틱 검사·공중 포함, S2 2회차를 배치마다 셈, S3 다른 테리토리야의 국가 위 적 동시 공격·확산 피해의 공중 포함, S3 버프 수명(18곳).
+- 테스트: `test/content/op_dminon.test.js`(12) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 실제 매치 경로 하나(upstream 테스트에 없어 더함). 선발 수 37 → 38명(폼 154 → 157). golden `diy-066`·`diy-067`(새 시나리오), 다른 가족 변화 없음.
+- 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD·그림: CN 클라에서 뽑음(`add_operator.py`). 연결이 남은 이펙트(`fx-wiring-report.mjs`)는 fx 묶음 몫이다. 화면 확인 전이다.
+
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에
   **배치**(낙하)됨.
@@ -1252,7 +1264,7 @@
 - 규정은 지난 시즌의 기물 ID를 다른 오퍼레이터에 쓴다(두 시즌에 다 있는 오퍼레이터 기물 ID 128개 중 125개). 기물 키트 파일은 그 파일을 쓴 오퍼레이터에게만 간다(`kitOf`·`chessKitCode`); 다른 오퍼레이터의 기물은 그 오퍼레이터의 키트(`kitKeyOfChar`)를 받는다 → `test/seasons-act3.test.js`.
 - 아레나에서 보기: `/debug.html?season=act3autochess&op=<charId>`. 시즌 파일은 화면과 전투가 함께 읽고, 공개 시즌만 고르는 방 목록과 달리 `SP_SEASONS`가 필요 없다.
 - 실제 대전 경로 시험(`test/helpers/seasonPieces.js realMatch`)은 규정의 기물·맹약·장비·특질을 지금 시즌의 전장·모드·웨이브·적에 놓는다: 키트 시험이 규정 방의 모드 ID(지금 시즌과 다름)나 새 적의 동작에 묶이지 않게. 규정 자기 전장·웨이브·적의 실제 판은 `test/seasons-act3-stages.test.js`(rules/sim.md 「규정 전장을 19×21 틀로」).
-- 규정 상점 기물 143명 × 두 형태를 그 시즌 스킬로 세운 시험(`test/seasons-act3-pieces.test.js`): 키트가 있는 133명은 모두 스킬 명세를 키트에서 받고, 시전하고, 적에게 피해를 주거나 아군을 치료하며 처리기 오류가 없다. 키트가 없는 10명은 시험의 목록에 있다.
+- 규정 상점 기물 143명 × 두 형태를 그 시즌 스킬로 세운 시험(`test/seasons-act3-pieces.test.js`): 키트가 있는 136명은 모두 스킬 명세를 키트에서 받고, 시전하고, 적에게 피해를 주거나 아군을 치료하며 처리기 오류가 없다. 키트가 없는 7명은 시험의 목록에 있다(2026-11-08 사일런스 더 패러디그매틱·외드레르·메커니스트의 키트로 10 → 7).
   - 티어가 바뀌며 기본 스킬이 바뀐 오퍼레이터 11명(예: 그라벨 S1, 스카디 S2, 사리아 S1, 실버애쉬 더 레인프로스트 S3)은 모두 키트가 스킬마다 명세를 쓴다. 스킬 하나만 쓴 키트는 지난 시즌 기본 스킬용이라, 규정이 같은 스킬을 줄 때만 그 키트를 쓴다(시험이 지킨다).
   - 모듈은 기물 기록의 블랙보드를 읽어 단계가 바뀌어도(예: 6티어에서 4티어로 내려간 정예의 3단계 → 1단계) 키트를 고칠 곳이 없다. 수르트는 규정에서 모듈 AFT-Y(`uniequip_003_surtr`)로 바뀌는데, 키트가 이미 그 특성(저지한 적 법술 취약)을 읽는다. 실버애쉬 더 레인프로스트가 새로 받은 모듈 CSR-X(`uniequip_002_svash2`)는 배치 비용과 대기 구역 「风雪之眼」 효과뿐이라 이 모드에서는 하는 일이 없다(첫 배치는 무료, 대기 구역 없음 — 팽 더 파이어 샤픈드 재능 1과 같다).
   - 클레멘티아 S3의 `projectile_life_time`은 2026-11-01 표부터 3.5초다(그 전 5초). 키트가 블랙보드를 읽는다. 규정 기물은 S2라 그 값은 선발에서만 쓰이고, 규정의 선발 후보에 그녀는 없다.
@@ -1265,6 +1277,15 @@
   - 뮤엘시스 TAC-D(「'뮤엘시스와 친구들'」, `uniequip_004_mlyss`): 그녀와 유동체(그녀의 지원군)가 준 대미지의 12%를 침식 손상으로 더 준다. 재능 「청정수는 생명」 변경: 그녀나 유동체의 공격 범위 안 적이 침식 손상 폭발하면 그 적에게 그녀 공격력의 400% 원소 대미지. 「유동체가 SP 80 획득」은 그녀의 모든 유동체에 주는데 [추정·CN: 어느 유동체인지 문구에 없음, CN에만 있는 모듈], 이 모드의 유동체는 복사 스킬이 전투 내내 켜져 있고(켜진 스킬은 SP를 받지 않음) 분열한 유동체는 스킬이 없어 실제로는 아무 일도 없다. TAC-D의 숨은 `sp`는 TAC-Y의 「라인 랩 복사 SP」가 아니다(키트가 `sp_other`가 함께 있는 부분만 읽음).
   - 아스트젠 더 라이트체이서 DEC-X(「먼 곳의 인사」, `uniequip_003_halo2`): 특성 「공격 범위에 적이 있을 경우 SP 자연 회복 속도 +0.2/초」. 재능 「에너지원 해석」 변경: 그녀와 주변 4칸(모듈 부분의 칸 표)의 오퍼레이터에게 아츠 충만(`ba.magicarcane`, 「造成的法术伤害提升（同名效果取最高）」) 12% — 마법 대미지 ×1.12, 같은 이름은 한 번만. 취약은 12% → 5초 뒤 21%(표).
   - 시험 `test/content/kits_alt_t5.test.js`·`kits_alt_t6.test.js` 끝. 한국어는 KR 서버에 아직 없는 모듈이라 KR 표의 말투로 손으로 옮겼다(`public/i18n/ko/data.json`, `docs/I18N.md` 「CN-only texts in Korean」; 术法 = KR 표의 「아츠」).
+
+## 규정 선발 편성 12칸과 선발 편성 확정 단계 (2026-11-11, 관리자 결정)
+- 새 시즌 「규정」(`act3autochess`)만의 규칙이다. 지금 시즌 「맹약」은 그대로(선발 4칸, 브리핑·전략 선택의 선발 프리셋이 그대로 그 판의 선발) — 관리자 결정 2026-11-11.
+- 선발 편성은 등급 5·6에 칸 6개씩, 12칸이다(표 `diyChessDict`의 `chess_char_5|6_diy1~6`, 공식 판 밖 「选择自选编队」 창). `room.diy`의 구조 한도는 12칸(`shared/protocol.js` `DIY_LIMITS.slots`).
+- 판 시작이 세 단계다: 「1/3 确认本局信息」 → 「2/3」 전략 선택 → 「3/3 确定自选编队」. 셋째 단계는 공식 표 `enterStepList`의 `CUSTOM_CHECK`(「选择自编」, 30초, 안내 10초)이고, 편성에서 등급마다 최대 2명(`constData.diyCharLimitForLevels` {5: 2, 6: 2}; 편성 창 안내 「每次模拟开始时，可从中选择每等阶各2名，至多4名干员进入模拟」)을 골라 「准备就绪」, 「取消准备」로 다시 고칠 수 있다(공식 화면). 이 단계의 시간은 원작 값 30초 그대로다(협력. 다른 시작 단계처럼 혼자 하는 판은 시간 제한 없음).
+- 구현: `PHASE.DIY_CHOOSE`(`server/match/match/diyChoose.js`). 시즌에 이 단계가 있는지는 데이터가 정한다(`GameData.diyChoose`: `CUSTOM_CHECK` 단계와 `diyCharLimitForLevels`가 둘 다 있을 때). 그런 시즌에서 `room.diy`는 편성이고, 판은 이 단계가 끝날 때까지 선발을 하나도 쓰지 않는다(재고도 없음). 고른 칸만 그 판의 선발이 되고 재고를 받는다(`PlayerState.setDiy` + `initDiyStock`, 난수 없음). 브리핑·전략 선택 동안 바꾼 편성은 그 판의 편성이 되고(고른 칸 중 편성에서 빠진 칸은 빠짐), 이 단계부터는 다음 판에 적용된다. 메시지 `g.diyChoose { slots }`(고른 칸 전체)·`g.diyReady { cancel? }`, `m.private.diyChoose { lineup, chosen, ready, perTier }`, `m.public.diyChoose { seconds }`.
+- [추정·서버·화면: 공식 화면은 연합 4인 판의 시작만 봄] 처음엔 아무도 안 고른 채(공식 화면 「0/2」), 시간이 다 되거나 AI 托管·AI 팀원인 자리는 고른 그대로(안 골랐으면 선발 없음), 혼자 하는 판(1인·AI 팀원만 있는 연합)에도 이 단계가 있다. 확인 → mix-Q.
+- 화면: 이 단계의 공식 화면(묶음 ui-O 「선발 고르기 화면」)이 생기기 전까지 지금 화면은 전략 선택 화면을 그대로 두고, 클라가 편성의 등급마다 앞 2명(이미 고른 것이 있으면 그것)을 골라 바로 준비한다(`autoDiyChoice`). 그래서 지금 규정 판에서는 편성이 등급마다 2칸 이하면 전과 똑같이 다 쓰인다.
+- 시험 `test/match/diy-choose.test.js`(실제 대전 경로: 규정 연합·1인, 맹약 흐름 그대로), `test/ui/gameLogic.test.js` `autoDiyChoice`.
 
 ## 새 시즌 바이슨·쥐·타락사쿰·우요우 (2026-11-06, 관리자 결정 2026-11-05)
 규정의 기물(`chess_char_1_14`, `chess_char_2_18`, `chess_char_3_06`, `chess_char_3_20` — 2026-11-08 표 전에는 `next`의 임시 ID). 네 키트는 `SEASON_KIT_FILES`에 있고 선발 후보가 아니다. 수치는 기물 기록의 블랙보드를 읽는다. 시험 `test/content/op_bison.test.js`·`op_ju`·`op_taraxa`·`op_nothin`(두 형태·두 스킬·모듈, 실제 대전 경로).
@@ -1518,3 +1539,69 @@
 - 재능 저온 휴식(Default 모드의 `ToggleablePassiveBuffAbility` + `SpRatioToggleChecker`): 스킬이 꺼져 있고 SP가 최대치의 `sp_ratio` 이하(같아도)이면 공격 불가(`DISARMED`)와 최대 HP의 N% 초당 회복. PRTS 「생명 회복 속도 속성, 치료 보너스·치료 불가와 무관」이라 `hpRegenRatio`.
 - S1 터전 고수 `skchr_aurora_1`(`_switchToState` 1, `_beginAnim` `Skill_Begin` 0.5초): 저지 수 +2, 방어력 +N%, 저항(`one_minus_status_resistance`). 시전이 진행 중인 휘두름을 끊고 시작 클립 동안 공격하지 않으며, 지속 시간은 그 뒤부터(`BasicSkill.PlayBeginAnimation`). 끝나면 자신 `stun`초 기절.
 - S2 인공 강설 `skchr_aurora_2`(`Skill_2_Begin` 0.667초, 9회: `_triggerTimeCount`): 공격력 +N%, 공격 간격 ×(1 + `base_attack_time`). 빙결이 아닌 적에게는 그 타격에 `attack@cold`초 한기(`aurora_s_2[freezeattack]`, 두 번째 한기는 엔진 규칙대로 빙결), 빙결 중인 적에게는 그 공격의 공격력 × `atk_scale`(`aurora_s_2[freezeattack2]`, `AtkScaleUp`: 방어력 앞에서).
+
+## 새 시즌 사일런스 더 패러디그매틱·외드레르·메커니스트 (2026-11-08, 관리자 결정)
+규정의 기물 사일런스 더 패러디그매틱(淬羽赫默 `char_1031_slent2`, `chess_char_4_20`, 4티어)·외드레르(赫德雷 `char_4088_hodrer`, `chess_char_4_21`, 4티어)·메커니스트(机械师 `char_4230_mcnist`, `chess_char_6_15`, 6티어 — 예비 오퍼레이터 Mechanist `char_610_acfend`와 다름). 키트는 upstream 선발 키트(커널 직전 `9a3a12ee9^`)를 가져와 `SEASON_KIT_FILES`에 둔다 — 선발 추가는 나중(관리자 결정 2026-11-08). 수치는 기물 기록의 블랙보드를 읽는다. 메커니스트는 KR 이름이 없어 국내 사이트의 이름을 쓴다(관리자 결정 2026-11-08; KR 출시 때 KR 이름으로 바꿈) [비공식].
+- 폼: 일반 A(E2 Lv1, 스킬 4, 모듈 없음)·정예 B(E2 Lv60, 스킬 7). B의 모듈은 1단계에서 고른다(사일런스 BLS-X 기본·BLS-Y·없음, 외드레르 CRU-X 기본·CRU-Y·없음), 메커니스트는 SO-A 3단계 기본·없음. 사일런스·외드레르의 2·3단계 효과(BLS-X 최대 HP, BLS-Y 보호막, CRU-X 가호 31%·물리 대미지, CRU-Y 첫 타격 기절)는 규정에 없어 나오지 않는다(키트는 그대로 둠).
+- 자동 발동은 규정 표대로: 외드레르 S3 `DEFAULT`(규정 표에 그의 행이 없음 — 선발 표의 `ACTIVE_RANGE`는 해당 없음), 메커니스트 S2·S3 중장 행 `TAKE_DAMAGE`.
+- 키트에서 바꾼 것: upstream의 `allyTargets: false`(스테인리스 게를 자동 발동의 적으로 안 셈)를 지웠다 — 게는 공식 상자 판정에 걸린다(「선발 추가 스테인리스·하루카·나이팅게일」). 메커니스트 구조성 원리의 수명은 토큰 재능 자신의 `skill@duration`(30초)으로: 규정 정예의 토큰 변형에는 SO-A 3단계가 바꾼 값(−1, 통합전략 전용 「무한」)만 있어 일반 기물의 변형에서 읽는다.
+- 키트 주석에 남은 추정:
+  - 외드레르 [추정·미조사: 회피된 타격에도 S2·S3 기절이 먼저 붙는지]·[추정·미조사: S3 매초 생명 손실이 그를 쓰러뜨릴 수 있는지].
+  - 사일런스 [추정·미조사: BLS-Y 보호막을 소환물은 안 받음 — 3단계라 규정에 없음]·[추정·미조사: 스킬 시작 때 이미 서 있는 야등이 그 스킬의 드론인지].
+  - 메커니스트 [추정·CN: CN에만 있는 오퍼레이터라 클라 로직을 못 읽음] — 구조성 원리 금지 치료 깃발, 자동 재배치, S2 회피된 타격의 전율, 그녀가 쓰러진 사이의 돌진, 착지할 칸이 없을 때(5곳).
+- 시험 `test/content/op_slent2.test.js`(11)·`op_hodrer.test.js`(8)·`op_mcnist.test.js`(9): 두 폼·모듈 선택, 세 스킬, 두 재능, 특성, 소환물, 실제 대전 경로(`seasonPieces.js realMatch`). 선발 시험을 규정 기록으로 옮기는 틀은 `seasonPieces.js pieceForms`. 소환물 모델 야등(`token_10029_slent2_protrb`, EN)·구조성 원리(`token_10069_mcnist_mcgraf`, CN)를 `extract.py TOKEN_SPINES`에 더했다.
+
+## 새 시즌 메테오라이트·올가·아미야 (2026-11-08, 관리자 결정 2026-11-05)
+규정의 기물 메테오라이트(陨星 `char_219_meteo`, `chess_char_1_17`, 1티어)·올가(奥尔佳 `char_4245_alga`, `chess_char_3_26`, 3티어, CN에만 있는 오퍼레이터)·아미야(阿米娅 `char_002_amiya`, `chess_char_5_26`, 5티어, 의료 형태). 세 키트는 `SEASON_KIT_FILES`(`op-meteo.js`·`op-alga.js`·`op-amiya3.js`)에 있고 선발 후보가 아니다. 수치는 기물 기록의 블랙보드를 읽는다. 시험 `test/content/op_meteo.test.js`(5)·`op_alga.test.js`(6)·`op_amiya3.test.js`(6): 두 폼, 두 스킬, 재능, 특성·모듈, 실제 대전 경로.
+
+### 메테오라이트 `char_219_meteo` (T1, 포격사수)
+- 특성 「공격 시 범위 물리 대미지」: 분과 프로필 `aoesniper`(`professions.js`)가 맞은 적 둘레 1.0 안의 모든 적에게 같은 대미지를 준다. 공식 클라에서 확인: 포격사수 평타 투사체(`projectile_meteo`, W의 `projectile_chr_cqbw`)의 폭발 범위 `Range` CircleCollider2D 반경 1.0(PRTS 溅射半径一览 1.0과 같음). 프로필은 그전 1.1(스플래시 캐스터 값)이었다 — 지금 시즌에 포격사수 기물이 없고 선발 W 키트는 1.0을 따로 써서 드러나지 않았다. 고쳐도 W와 지금 시즌 전투는 그대로다.
+- 모듈 ART-Y: 공격 시 적 방어력 100 무시(특성 bb `def_penetrate_fixed`, 정예 폼만).
+- 재능 폭발물 부착 개조(`ProbAdditionNextAtkTalent`, `_probKey` prob, 계열 마스크 15 — 평타와 스킬): 공격마다 한 번 굴려 성공하면 그 공격(범위 대미지 포함, S2 포탄도)이 `meteo_t_1`(공격력 +atk, MULTIPLIER)을 지닌 채 나간다.
+- S1 `skchr_meteo_1`(다음 공격, 공격 SP): 공격력 × `atk_scale`, 투사체 `projectile_meteo_s1`의 폭발 반경 2.0(「폭발 범위 확대」).
+- S2 `skchr_meteo_2`(즉발, `_switchToState` 1, `_shouldCastLikeAttack`): 클립의 OnAttack 프레임에 평타가 고를 적 하나에게 포탄(`projectile_meteo_s2`, 속도 8)을 쏘고, 떨어진 곳 1.2 안의 모든 적에게 공격력 × `atk_scale` 물리 대미지와 `meteo_s_2`(방어력 +def — 음수 고정값, `duration`초, 메테오라이트마다 따로: `independentCharacterSource`).
+
+### 올가 `char_4245_alga` (T3, 교관, CN 클라)
+- 특성 「자신이 저지하지 않은 적 공격 시 공격력 120%」(`alga_tr`): 분과 프로필 `instructor`. 모듈 INS-X가 130%로(특성 bb). 공격 선택기는 지상만(`_targetMotion` 1).
+- 재능 선제 기선(先声夺人): 재능 칸(자신과 주변 8칸, 방향과 함께 돎)의 오퍼레이터(`professionMask` 639 = 모든 직군, 소환물·장치 제외)에게 0.1초마다 `alga[check_enemy]`: 공격력 +`alga[atk_up].atk`(MULTIPLIER), 그녀의 공격 범위에 정예·리더 적이 있거나 그녀가 그런 적을 저지 중이면 + `alga[check_enemy].atk`(`CheckEnemyLevelMaskInRange`·`CheckBlockEnemysLevelType`). 올가마다 따로(`independentCharacterSource`).
+- 그녀는 공격력이 가장 높은 정예·리더 적을 먼저 친다(대상 순서 `eliteAtk`, `targeting.js`; 저지한 적이 먼저인 규칙은 그대로). [추정·CN: 공격 선택기의 `_postFilter` 80은 EN 클라에 없는 새 필터라 이름을 못 봄 — 순서는 재능 문구대로]
+- S1 교차 압박(交叉施压, `ReplacementSkill`, 공격 SP, `MultiMeleeAttack` `_additionalTimes` 1, `_triggerDelta` 0.1): 다음 공격이 공격력 × `atk_scale`로 0.1초 간격 두 번(같은 대상, 그 대상이 살아 있고 그녀가 움직일 수 있을 때).
+- S2 오직 나의 답을 위해(只为我的答案, 15초): 모드 Skill2(스킬 범위 3-2 — 「공격 범위 확대」), 공격력 +atk(`alga_2[mode]`), 재능 값 × `talent_scale`(Skill2 모드 재능의 `_applyTalentScale`). 그녀의 물리 공격 대미지(`alga_2[try_add]` ON_AFTER_OUTPUT_DAMAGE)가 대상에게 `alga_2`를 `debuff_duration`초: 정지(`sluggish`)와 `alga_2[taunt]`(도발 등급 + `attack@taunt_level` — 「아군에게 더 쉽게 공격받음」). 그 도발은 그녀가 건 다른 적에게서 사라진다(`FinishBuffsOfEveryEnemyById`, 출처 확인). 도발 등급은 그녀 자신의 대상 순서에도 들어가므로, 그 적이 범위에 있는 동안 그녀도 계속 그 적을 친다.
+- 그녀의 프리팹은 S2 모드를 `S2`가 아니라 `Skill2`로 부른다(모드 Default·Skill2). 스킬 모드 이름 규칙(`shared/skill-modes.js skillModeIndex`, `char_modes.py SKILL_MODE_NAME`)이 `S<n>`·`Sk<n>`에 더해 `Skill<n>`도 읽게 해, S2의 공격 클립 `Skill_2_Loop`·이펙트·모드 전환이 그 모드에서 나온다. 이런 이름은 지금 그녀뿐이다(숫자 없는 `Skill`인 미틈은 그대로).
+- 한국어 이름·문구는 KR 서버에 아직 없어 KR 표의 말투로 손으로 옮겼다(`public/i18n/ko/manual.json`, `docs/I18N.md` 「CN-only texts in Korean」).
+
+### 아미야 `char_002_amiya` 의료 형태 `char_1037_amiya3` (T5, 주술 메딕)
+- 템플릿 기물: 기물은 오퍼레이터 `charId` `char_002_amiya`(이름·맹약·소유)를 들고, 몸은 템플릿 `tmplId` `char_1037_amiya3`(char_patch_table: 능력치·스킬·재능·모듈·모델)이다. 공식 클라는 그 몸의 charpack·이펙트·스킬 프리팹·버프 템플릿을 템플릿 ID로 찾는다. 그래서 키트는 몸의 ID로 둔다(`op-amiya3.js`, 키 `char_1037_amiya3`; `content/index.js kitOf`가 `tmplId`를 먼저 본다). 추출·생성 도구도 기물을 몸으로 읽는다(`shared/standIn.js chessBody`, `char_modes.py body_id` — `fetch-assets`·`build-fx-templates`·`add_operator.py`). 그녀의 기물은 PRESET이라 대체 기물(补位) 경로를 타지 않고, 대체 기록(`backup.tmplId`)이 기물과 같은지는 `build-data`의 짝 검사가 본다.
+- 특성 「법술 대미지, 공격 시 범위 안 아군 1명을 대미지의 50%만큼 치료」(`amiya3_tr` + `TraitHealRange`): 분과 프로필 `incantationmedic`. 모듈 INC-X가 60%로(특성 bb `scale`).
+- 재능 诚挚期许(KR 이름은 KR 표의 char_patch_table에 있음 — 시즌 한국어 덧씌우기 때): 그녀가 전장에 있는 동안 모든 아군 유닛 최대 HP +`max_hp`(`amiya3_t_1`, MULTIPLIER, 범위 없음). 그녀의 스킬이 켜진 동안(S1·S2 모드의 Talents/1) 모든 아군 유닛이 초당 최대 HP의 `hp_recovery_per_sec_by_max_hp_ratio`를 회복(`amiya3_t_1[s]`). [추정·엔진: 오라 갱신 주기 0.2초 — 나중에 배치된 유닛도 곧바로 받게]
+- S1 슬픔의 공감(哀恸共情, 50초, 모드 S1): 공격 속도 +`attack_speed`. 그녀의 공격 대미지마다(`amiya3_s_1` ON_CALCULATE_DAMAGE, 계열 ATTACK) 스킬 범위 x-1 안의 다른 아군 유닛 모두를 공격력 × `heal_scale`만큼 치료(`amiya3_s_1[heal]`, 능력 `amiya3_skill1`; `_excludeTargetType` SOURCE라 자신은 아님).
+- S2 자비의 비전(慈悲愿景, 32초, 전투당 한 번 — `skill_max_trigger_time` 1, `_limitGlobalTriggerTime`): 클립(`S2Attack`, `Skill_2_Begin`)의 OnAttack 프레임에 공격 범위 안 모든 적에게 공격력 × `atk_scale` 법술 대미지와 `amiya3_s_2[debuff]`(공격 속도 + `…attack_speed`, 이동 속도 ×(1 + `…move_speed`), 그 지속 시간). 맞힌 적 하나마다 공격력 +atk(최대 `max_stack_cnt`번, `amiya3_s_2[atk]` — 스킬이 끝날 때 사라짐: `amiya3_s_2[passive]` ON_SKILL_FINISH). 남은 시간은 모드 S2: 공격이 트루 대미지(`_damageType` 3)이고 적 2명을 동시에 친다(그 선택기 `_maxNum` 2). 한 번 쓴 뒤로는 SP가 다시 차지 않는다.
+
+## 새 시즌 재키·체스트넛·시데로카·레이지 아이언하이드 (2026-11-10, 관리자 결정 2026-11-05)
+규정의 기물 재키(杰克 `char_347_jaksel`, `chess_char_1_12`, 1티어)·체스트넛(褐果 `char_4041_chnut`, `chess_char_1_15`, 1티어)·시데로카(铸铁 `char_333_sidero`, `chess_char_2_22`, 2티어)와 숨김 기물 레이지 아이언하이드(“暴躁铁皮” `char_618_acrbot`, `chess_char_5_22`, 5티어 — 유넥티스 리더 전략 【暴躁铁皮】 `band_mech`이 1라운드에 줌, CN에만 있는 오퍼레이터). 네 키트는 `SEASON_KIT_FILES`(`op-jaksel.js`·`op-chnut.js`·`op-sidero.js`·`op-acrbot.js`)에 있고 선발 후보가 아니다. 수치는 기물 기록의 블랙보드를 읽는다. 시험 `test/content/op_jaksel.test.js`(5)·`op_chnut.test.js`(5)·`op_sidero.test.js`(5)·`op_acrbot.test.js`(7): 두 폼, 스킬, 재능, 특성·모듈, 실제 대전 경로.
+
+### 재키 `char_347_jaksel` (T1, 파이터)
+- 재능 급속 회피(极速闪避): 물리 회피 `prob`(`jaksel_t_1[evade]`, `evade_physical`). 물리 공격을 회피할 때마다 공격 속도 +N, `duration`초(`charge_atk_speed_on_evade`, 겹치지 않고 다시 시작). 모듈 FGT-X(정예): 특성의 물리 회피 15%는 따로 굴리는 회피다(합 = 1 − Π(1 − p)).
+- S1 한 방 먹여주마!(给你一拳！): 다음 공격이 공격력 × `atk_scale`.
+- S2 정신 집중!(全神贯注！): 시작 클립 `Skill_Start`(0.333초) 뒤 모드 S2. 그 모드의 능력은 `StrikeBack` 하나라 공격하지 않는다. 물리 회피 +`prob`(`jaksel_skill_2[evade]`). 물리 공격을 회피하면 `StrikeBack`을 시전한다(`charge_ability_on_evade`, 쓸 수 있을 때만): 평타가 고를 적 1명에게 공격력 × `attack@atk_scale` 물리 대미지, 클립 `Skill_Loop`의 타격 프레임(0.333초)에. 다음 반격은 공격 간격 × `base_attack_time` 뒤부터(스킬 버프가 공격 간격에 `BASE_ATTACK_TIME` FINAL_SCALER로 곱함 — 문구 「반격 빈도는 공격 간격의 N% 이상」).
+
+### 체스트넛 `char_4041_chnut` (T1, 방랑 메딕)
+- 특성: 치료와 함께 원소 손상을 공격력 × `ep_heal_ratio` 회복(분과 프로필 `wandermedic`, WDM-X가 0.6으로).
+- 재능 차근차근(脚踏实地): 낮은 지대에 선 아군에게 주는 원소 손상 회복 × `ep_heal_scale`(`chnut_t_1`: `IsElementHeal` + 대상 칸의 `CheckHeightTypeOfCharacterRootTile` LOWLAND).
+- S1 적미성저(积微成著): 충전(일반 1·정예 2). 스킬 클립 `Skill`의 타격 프레임에 스킬 선택기가 고른 아군 1명(HP 비율 먼저, 다음 원소 손상 — `_postFilter` HP_RATIO_ASC_EP_MIN_ASC_FIRST_NOT_ALL_FULL)에게 공격력만큼 치료, 원소 손상 회복 × `trait_scale`(`chnut_s_1`). 재능도 붙는다.
+- S2 후토분출(厚土迸发): 모드 S2(아래를 향하면 S2(Down) — 같은 공격), 스킬 범위 3-2, 공격 속도 +N. 공격은 `ContinuouslyRangedHeal`이다: 바로 앞 치료와 같은 아군이면 HP 치료와 원소 손상 회복 × `attack@heal_continuously_scale`. 공식 클라에서 확인: `ContinuouslyRangedHeal.OnCastStart`가 입력 대상이 지난 대상과 같을 때만 그 배율을 치료와 원소 치료(`_applyScaleForEPHeal`)에 넣고, 다르면 원래 배율로 두고 지난 대상을 바꾼다. 모드가 붙을 때 능력의 `Reset`이 지난 대상을 비우므로 스킬마다 첫 치료는 배율이 없다.
+- 엔진: 치료 프로필의 `heal.scaleOn(battle, unit, target)`(`ai.js doHeal`)이 그 치료의 HP·원소 회복 배율을 준다.
+
+### 시데로카 `char_333_sidero` (T2, 아츠 파이터)
+- 특성: 마법 공격(분과 프로필 `artsfghter`). 모듈 AFT-Y(정예): 저지한 적이 마법 취약 `damage_scale` − 1(`sidero_e_002_trait`: 저지 대상이 바뀔 때 다시 붙는 파생 버프, 아스테시아의 AFT-Y와 같은 꼴).
+- 재능 용병의 근성(佣兵之韧, 정예만 — 일반 폼 기록에 재능이 없음): 적을 `times`명 처치하면(`sidero_t_1[stack]`이 처치마다 한 겹 줄고 다 줄면) 공격 속도 +N과 저항(`status_resistance[inf]`, −`one_minus_status_resistance`), 그 배치 끝까지, 한 번.
+- S1 HP 회복 γ(`skcom_heal_self[3]`): 즉시 최대 HP × `heal_scale` 회복(`_isHpRatio`).
+- S2 파도 가르기(破浪回神): 모드 S2, 스킬 범위 0-1(자기 칸 — 저지한 적만 친다), 공격력 +N, 초당 최대 HP × `hp_recovery_per_sec_by_max_hp_ratio`(생명 회복 속도 속성).
+
+### 레이지 아이언하이드 `char_618_acrbot` (T5 숨김, 저거너트, CN 클라)
+- 특성 「아군의 치료를 받을 수 없음」: 분과 프로필 `unyield`(`noHeal`; 클라는 `acrbot[equip-vfx]`의 HEAL_FREE). 모듈 UNY-X(정예): 자신이 저지한 유닛에게 받는 대미지 × `damage_scale`(`acrbot_e_002_tr`: `CheckBlocked` + `DamageScale`).
+- 공격: Default·Sk1의 `Combat`·`Attack` 선택기가 모두 대상 수 제한 없이(`_limitTargetNum` 0) `_limitedMaxTargetNumToBlockedCnt`를 단다 → 저지 가능 수만큼 동시에 친다(저지한 적 먼저 — 공격수 규칙, `hitAllBlocked`). 같은 분과 머드락의 기본 공격 선택기에는 이 표시가 없다(그녀 S2에만 있음).
+- 재능 야만의 심장(荒蛮之心, `acrbot[t2]`): 쓰러지면 제 칸에서 `projectile_chr_acrbot_t2`가 터져 `projectile_range`(1.7) 안 모든 적에게 쓰러질 때의 공격력 × `atk_scale` 마법 대미지(`_forceUseProjectileCachedAtk`)와 기절 `stun`초.
+- 재능 족장의 위엄(酋长之威, `acrbot[t1]`): 저지 가능 수 +`block_cnt`, 공격 범위가 앞으로 `ability_range_forward_extend`칸(일반 1·정예 2). 장비 칸(4·6, 기록 `equipSlotNum`)은 이 키트가 아니라 장비 규칙 쪽이다.
+- S1 거대하고 못생긴 것의 분노(大丑的愤怒, 20초, `acrbot[sk1]` → 모드 Sk1): 기본 공격 시간 −0.6초(ADDITION), 공격력 +N, 최대 HP +N, 기절·동결·침묵·공중 띄우기·수면·혼수 면역(`abnormalImmunes` STUNNED FROZEN SILENCED LEVITATE DOZE, 콤보 SLEEPING; 이 엔진에 혼수 상태는 없음). 모드 Sk1의 선택기는 자신 말고 양쪽 진영을 고른다(`_targetSide` ALL, `_excludeOwner`): 범위 안 아군도 치고, 적이 없어도 친다. 엔진: 공격 프로필 `alliesToo`(`ai.js acquireTargets`)가 범위의 아군을 적 뒤에 붙인다. [추정·CN: 적과 아군이 한 목록일 때의 순서(`_postFilter` HATRED_DES)는 CN에만 있는 선택기 클래스라 읽지 못함 — 적 먼저. 대상 수가 저지 가능 수(4)라 2~3칸 범위에서는 보통 모두 맞는다]
+- 한국어: KR 표에 있는 이름(레이지 아이언하이드, 거대하고 못생긴 것, 「…의 배지」)과 말투로 손 번역했다(`public/i18n/ko/manual.json`, `docs/I18N.md` 「CN-only texts in Korean」).

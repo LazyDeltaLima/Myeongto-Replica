@@ -274,7 +274,12 @@
   `public/assets/local/spine/op/<charId>/<side>/`에 웹 atlas의 페이지 이름으로 쓴다 — 두 atlas의 페이지·영역이 같고 크기가 맞을 때만.
   `assets.js spineEntry`(`localPagesEntry`)는 웹 skel·atlas를 그대로 쓰고 페이지만 그것으로(`pages`, 전용 로드 파서가 premultiplied로 디코드), 한
   페이지가 안 오면 그 페이지만 웹 것으로. 첫 추출(EN 클라): 149명 중 145명·289쪽·32.8 MB(웹 42.0 MB). 탈룰라(`char_4247_oxi`)·토스카
-  (`char_4244_tocka`)·`char_1015_aglna2`·`char_4231_clemnt`는 EN 클라에 전투 번들이 없어 웹 페이지 그대로.
+  (`char_4244_tocka`)·`char_1015_aglna2`·`char_4231_clemnt`는 EN 클라에 전투 번들이 없어 웹 페이지 그대로였다.
+- CN 클라에서 (2026-11-10): EN에 전투 번들이 없는 넷은 CN 클라의 `chararts/<charId>.ab`에서 같은 방법으로 뽑는다(`--game`을 CN의 번들 폴더로,
+  `--only spine/op/<charId>`) — 토스카·안젤리나 더 멜로우 위시·클레멘티아는 기본 설치본(`StreamingAssets`), 레이지 아이언하이드(`char_618_acrbot`, 규정 숨김
+  기물)는 핫업데이트본에만 있어 그것으로, 올가(`char_4245_alga`, 규정 기물)는 핫업데이트본으로. 탈룰라는 핫업데이트본(11-08) 앞면 atlas의 영역이 웹 것과 달라(웹 모델은 그 전 판) 앞뒤 모두 기본 설치본에서 —
+  웹 skel에 맞는 페이지여야 하므로 영역이 같은 판을 쓴다. 여섯 모두 앞뒤 페이지가 맞음. 레이지 아이언하이드의 `chararts` 번들에는 전투 모델만 있고 일러스트
+  (`<charId>_1`·`_2`)가 없어(공식 클라에서 확인) 카드 그림은 웹 초상 그대로.
 - 소재 경로: 클라 페이지는 로컬 추출물이라 늘 이 서버가 내준다(배포 때 `deploy.sh`가 복사). 같은 날 함께 고친 다운로드 기록(fetch-assets가 디스크에
   있던 파일의 원천을 기록하지 않아 GitHub 소재 대부분도 이 서버가 내주던 것)은 docs/ASSETS.md(유지되는 파일의 기록) 참고.
 - 확인: `test/render/assets.test.js`(`localPagesEntry`, 로컬 페이지·실패 시 웹 페이지 종류별 디코드), `test/local-extract.test.js`(`atlas_regions`·
@@ -1335,3 +1340,8 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   [추정·화면: 공식 卫戍协议에서 끝 프레임이 빈 Die의 쓰러진 모습 — 기록 없음]
 - 확인: `test/render/die-empty-hold.test.js`(가짜 골격 4건 + 실제 골격: Die 끝 0개·Idle 첫 프레임 > 20개). **디버그 아레나 확인 2026-10-31**(관리자):
   쓰러진 시빌라이트 에테르나의 회색 몸이 보임. 재배치는 다른 오퍼레이터와 같은 길(`revive`)이다.
+
+## 규정 새 적 모델 (2026-11-10, 공식 클라에서 확인)
+
+새 시즌 「규정」의 적 중 지금 `data/assets.json`에 없던 96종(시즌 표 `data/seasons/act3autochess/enemies.json`)을 넣었다. `fetch-assets.mjs`가 시즌마다의 적 표도 읽고(`seasonEnemyIds`), 78종은 다른 적처럼 웹 모델(Ark-Models). 규정 자신의 적 18종(`enemy_9024`–`9040`)은 웹에 없고 EN 클라에도 없어 CN 클라 핫업데이트본의 `refs/arts/enm_art_30.ab`에서 뽑는다(`extract.py ENEMY_SPINES`, 15종) — 로컬 추출물이 없으면 아이콘. 가상적: 기계(`enemy_9029_acfnc_2`)·지느러미 숨은 핵심(`enemy_9037_aceel_2`)은 프리팹의 Spine이 바탕 적의 스켈레톤을 읽어 바탕 적의 로컬 모델을 쓴다(`plan.mjs`). 정체의 고치(`enemy_9036_acweb`)는 프리팹에 Spine이 없다(그림은 묶인 오퍼레이터 위 거미줄 이펙트, fx.md 「규정 보스 고치·지느러미의 이펙트」).
+- 확인: `test/feedback1d-models.test.js`(커밋된 메타데이터·`_2`의 바탕 모델·웹 모델 없음). [화면 미확인: 클립 역할(`anims` — `A_`/`B_` 형태가 있는 적, 공격 클립이 `Idle`로 잡힌 `acfnca`·`achest`)과 크기·위치는 아레나·실제 판에서 안 봄]

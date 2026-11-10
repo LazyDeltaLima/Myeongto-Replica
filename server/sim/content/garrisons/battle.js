@@ -41,20 +41,43 @@
 //
 // Hooks: priority 0, except 弱点伤害 (hit, WEAKNESS_PRIORITY −10: decided on the final amount after the ATK
 // multipliers). install() registers nothing when no operator carries an IN_BATTLE garrison.
+//
+// Files, by effect-key family: effects/grants.js (ADD_BOND targets), effects/events.js (the layer events, fireGain,
+// 魔王's extra), effects/stats.js (the fixed stat 特质 and the layer readers), effects/hits.js (the hit modifiers, 弱点伤害);
+// shared.js what they share. install() keeps one order, so the hooks register as before: the grants, then the installers
+// by effect key in the order the carriers' 特质 first appear, then the hit modifiers, then the layer readers.
 
 import * as S from '../support/index.js';
-import { mitigate } from '../../damage.js';
-import { frontOf } from '../../dir.js';
+import { EMPTY } from './shared.js';
+import { grantTargets } from './effects/grants.js';
+import { EVENTS } from './effects/events.js';
+import { STAT_INSTALLERS, READERS, installReaders } from './effects/stats.js';
+import { HIT_KEYS, installHitMods } from './effects/hits.js';
 
-const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
-const EMPTY = Object.freeze([]);
-/** Status keys for check_ab_flag values used by the data (16 = 冻结). */
-const AB_FLAG_STATUS = Object.freeze({ 16: 'freeze' });
+export { GARRISON_OPTIONS, fireGain } from './effects/events.js';
+export { stepsOf } from './effects/stats.js';
+export { weaknessType, WEAKNESS_PRIORITY } from './effects/hits.js';
 
 function garrisonIdsOf(u) {
   const list = u?.def?.raw?.garrisonIds ?? u?.def?.garrisonIds;
   return Array.isArray(list) ? list : EMPTY;
 }
+
+/** Installers by effect key, in this order (an effect key in two families throws). */
+const INSTALLERS = (() => {
+  const out = {};
+  for (const t of [EVENTS, STAT_INSTALLERS, {
+    // grants are resolved in install(); 风丸's rule lives in the prep economy
+    ADD_BOND() {},
+    NONE() {},
+  }]) {
+    for (const [k, v] of Object.entries(t)) {
+      if (Object.hasOwn(out, k)) throw new Error(`garrisons/effects: effect key ${k} twice`);
+      out[k] = v;
+    }
+  }
+  return Object.freeze(out);
+})();
 
 // ---------------------------------------------------------------------------------------------------------------------
 // install
@@ -116,469 +139,10 @@ export function install(battle) {
   }
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-// ADD_BOND targets (before deployment: home tiles)
-
-function opsOf(battle, pid) {
-  const out = [];
-  for (const u of battle.allyUnits) if (S.isOp(u) && u.ownerId === pid && !u.removed) out.push(u);
-  return out;
-}
-function opAtHome(battle, pid, r, c) {
-  for (const u of battle.allyUnits) if (S.isOp(u) && u.ownerId === pid && !u.removed && u.homeR === r && u.homeC === c) return u;
-  return null;
-}
-
-function grantTargets(battle, it) {
-  const u = it.unit;
-  const desc = it.g.desc || '';
-  const need = it.bbStr.check_bond_id || null;
-  const ok = (t) => !!t && (!need || S.isMember(battle, t, need));
-  const front = () => { const [fr, fc] = frontOf(u.homeR, u.homeC, u.dir); return opAtHome(battle, u.ownerId, fr, fc); };
-  if (desc.includes('所有')) return opsOf(battle, u.ownerId).filter(ok);
-  if (desc.includes('同一行最右边')) {
-    let best = null;
-    for (const t of opsOf(battle, u.ownerId)) {
-      if (t.homeR !== u.homeR) continue;
-      // a board position ("最右边" of the player's own board: the mirrored Final Assault right side counts from the left)
-      const col = (x) => (x.player && x.player.mirror ? -x.homeC : x.homeC);
-      if (!best || col(t) > col(best)) best = t;
-    }
-    return ok(best) ? [best] : [];
-  }
-  const out = [];
-  if (desc.includes('自身和身前') && ok(u)) out.push(u);
-  const f = front();
-  if (ok(f)) out.push(f);
-  return out;
-}
-
-// ---------------------------------------------------------------------------------------------------------------------
-// layer gains
-
-function targetBonds(battle, it) {
-  const u = it.unit;
-  switch (it.bbStr.bond_type) {
-    case 'bond_self': return S.unitBonds(u, battle).filter((b) => S.bondActive(battle, u.ownerId, b));
-    case 'bond_actived_maxstack': { const b = S.topActiveBond(battle, u.ownerId); return b ? [b] : EMPTY; }
-    default: return ids(it.bbStr.bond_id);
-  }
-}
-
-function amountOf(battle, it) {
-  const bb = it.bb;
-  switch (it.bbStr.bond_add_type) {
-    case 'by_charcount_samerow': return S.rowMates(battle, it.unit).length * S.num(bb.bond_add_count_multi, S.num(bb.bond_add_count, 1));
-    case 'by_charlevel': return S.tierOf(it.unit) * S.num(bb.bond_add_count, 1);
-    default: return S.num(bb.bond_add_count, 0);
-  }
-}
-
-function conditionMet(battle, it) {
-  const ck = it.bbStr.conditionkey;
-  const need = S.num(it.bb.check_count, 0);
-  if (ck === 'character_same_row') return S.rowMates(battle, it.unit).length >= need;
-  if (ck === 'character_same_col') {
-    let n = 0;
-    for (const a of battle.allyUnits) if (S.isOp(a) && a.ownerId === it.unit.ownerId && S.onField(a) && a.tileC === it.unit.tileC) n++;
-    return n >= need;
-  }
-  return true;
-}
-
-/** Fire a layer-gain garrison instance. Returns the layers added. */
-export function fireGain(battle, it) {
-  if (!conditionMet(battle, it)) return 0;
-  const bonds = targetBonds(battle, it);
-  if (!bonds.length) return 0;
-  let n = amountOf(battle, it);
-  // bond_actived_maxstack (塑心 garrison_90 "当前已激活且层数最多的盟约层数+1（每场作战至多10层）"): the cap is the instance's
-  // own over the battle, whichever bond is the highest at each gain — per (instance, bond) a change of the highest bond
-  // granted a fresh 10 (PR #178 review). The base amount counts toward it (魔王's extra does not, as in gainLayers).
-  const whole = it.bbStr.bond_type === 'bond_actived_maxstack' && Number.isFinite(it.cap);
-  if (whole) {
-    n = Math.min(Math.floor(n), Math.max(0, Math.floor(it.cap) - (it.wholeUsed ?? 0)));
-    if (!(n > 0)) return 0;
-  }
-  const added = S.gainLayers(battle, {
-    playerId: it.unit.ownerId, bonds, n, requireActive: true, source: it.unit, reason: 'garrison',
-    cap: whole ? Infinity : it.cap, capKey: whole ? null : it.capKey,
-  });
-  if (whole && added > 0) it.wholeUsed = (it.wholeUsed ?? 0) + n;
-  if (added > 0) S.fxOn(battle, 'garrison', it.unit, `gar:${it.gid}`, it.key, { n: added });
-  return added;
-}
-
-const byUnit = (list) => {
-  const m = new Map();
-  for (const it of list) {
-    let a = m.get(it.unit);
-    if (!a) { a = []; m.set(it.unit, a); }
-    a.push(it);
-  }
-  return m;
-};
-
-function isFrontOf(holder, u) {
-  if (!u || u === holder || u.ownerId !== holder.ownerId || !S.onField(u)) return false;
-  const [fr, fc] = frontOf(holder.tileR, holder.tileC, holder.dir);
-  return u.tileR === fr && u.tileC === fc;
-}
-/**
- * 魔王: the gain's source (an operator of the holder's player) stands in front of it. `tile` = the engine's layerGain
- * ctx.tile: where the source stands, or where it was knocked out this very instant (幽灵鲨 "被击倒时" gains fire on death).
- */
-function sourceInFront(holder, u, tile) {
-  if (!u || u === holder || u.ownerId !== holder.ownerId || !S.isOp(u) || !Array.isArray(tile)) return false;
-  const [fr, fc] = frontOf(holder.tileR, holder.tileC, holder.dir);
-  return tile[0] === fr && tile[1] === fc;
-}
-function ammoScope(it, u) {
-  const h = it.unit;
-  switch (it.bbStr.range_id) {
-    case '1-1': return S.onField(h) && isFrontOf(h, u);
-    case 'x-5': return u === h || (S.onField(h) && S.onField(u) && u.ownerId === h.ownerId && S.isOp(u) && Math.abs(u.tileR - h.tileR) + Math.abs(u.tileC - h.tileC) === 1);
-    default: return u === h;
-  }
-}
-
-const INSTALLERS = {
-  act1autochess_gar_event_useskill(battle, list) {
-    const m = byUnit(list);
-    battle.on('skillStart', ({ unit }) => {
-      const arr = m.get(unit);
-      if (arr) for (const it of arr) fireGain(battle, it);
-    });
-  },
-
-  act1autochess_gar_event_selfkillenemy(battle, list) {
-    const m = byUnit(list);
-    for (const it of list) it.allies = /我方干员/.test(it.g.desc || '');
-    // the kill count (current_cnt) starts again at 0 on every deployment: the client's buff graph zeroes it on
-    // ON_BUFF_START; a relocation (`deploy` with move) keeps it
-    battle.on('deploy', ({ unit, move }) => {
-      const arr = !move && m.get(unit);
-      if (arr) for (const it of arr) it.cnt = 0;
-    });
-    battle.on('kill', ({ killer, victim }) => {
-      const arr = killer ? m.get(killer) : null;
-      if (!arr || !victim) return;
-      for (const it of arr) {
-        if (!(victim.side === 'enemy' || (it.allies && victim.side === 'ally' && victim.kind === 'op'))) continue;
-        it.cnt++;
-        if (it.cnt % Math.max(1, S.num(it.bb.check_cnt, 1)) === 0) fireGain(battle, it);
-      }
-    });
-  },
-
-  act1autochess_gar_event_selfdead(battle, list) {
-    const m = byUnit(list);
-    battle.on('death', ({ unit, reason }) => {
-      if (reason !== 'killed') return;
-      const arr = m.get(unit);
-      if (arr) for (const it of arr) fireGain(battle, it);
-    });
-    const swaps = list.filter((it) => /替身/.test(it.g.desc || ''));
-    if (!swaps.length) return;
-    for (const it of swaps) it.doll = false;
-    battle.on('tick', () => {
-      for (let i = 0; i < swaps.length; i++) {
-        const it = swaps[i];
-        const u = it.unit;
-        const doll = !!(u.trait && u.trait.doll);
-        if (doll === it.doll) continue;
-        it.doll = doll;
-        if (u.alive && u.deployed) fireGain(battle, it);
-      }
-    });
-  },
-
-  // Client dynamic ability act1autochess_gar_event_consume_ammo (ListenAmmoConsumeAbility): ON_AMMO_CONSUME comes once per
-  // ammo-counter event (an attack or lock that spends bullets, consumeCnt unused here) of an operator (validator: no
-  // tokens); [consume] → the holder takes a 0.1 s [cnt] from that consumer unless it already has one, and [cnt] adds 1 ⇒
-  // a consumer counts at most once per 0.1 s (the 5 bullets of one attack are one). [self] ticks every 0.3 s
-  // (waitFirstTriggerInterval, from the deployment) and passes ONE threshold per tick (target += consume_count).
-  // The count (consumed_cnt) and threshold live on the holder's buffs: a withdrawal finishes the entity, which clears
-  // every buff (durable ones too; only a fake death keeps those) and its abilities ⇒ each deployment starts from 0; a
-  // relocation (`deploy` with move) keeps them, as for the kill count above.
-  act1autochess_gar_event_consume_ammo(battle, list) {
-    const LOCK = 0.1, TICK = 0.3;
-    const reset = (it) => { it.locks = new Map(); it.cnt = 0; it.target = Math.max(1, S.num(it.bb.consume_count, 1)); };
-    for (const it of list) { reset(it); it.seq = -1; it.next = 0; }
-    const m = byUnit(list);
-    battle.on('deploy', ({ unit, move }) => {
-      const arr = !move && m.get(unit);
-      if (arr) for (const it of arr) reset(it);
-    });
-    battle.on('ammoUsed', ({ unit }) => {
-      if (!unit || !S.isOp(unit)) return;
-      for (let i = 0; i < list.length; i++) {
-        const it = list[i];
-        if (!ammoScope(it, unit)) continue;
-        if (battle.time + 1e-9 < (it.locks.get(unit) ?? -Infinity)) continue;
-        it.locks.set(unit, battle.time + LOCK);
-        it.cnt++;
-      }
-    });
-    battle.on('tick', () => {
-      for (let i = 0; i < list.length; i++) {
-        const it = list[i];
-        const h = it.unit;
-        if (!S.onField(h)) continue;
-        if (it.seq !== h.deploySeq) { it.seq = h.deploySeq; it.next = h.deployedAt + TICK; }
-        if (battle.time + 1e-9 < it.next) continue;
-        it.next += TICK;
-        if (it.cnt < it.target) continue;
-        it.target += Math.max(1, S.num(it.bb.consume_count, 1));
-        fireGain(battle, it);
-      }
-    });
-  },
-
-  act1autochess_gar_event_enemy_abflag_inrange(battle, list) {
-    const watched = new Set(list.map((it) => AB_FLAG_STATUS[S.num(it.bb.check_ab_flag, 16)] ?? 'freeze'));
-    // "进入冻结时": only a new entry (engine ctx.entered — a refresh of a running freeze is not one)
-    battle.on('statusApplied', ({ target, status, entered }) => {
-      if (!target || !watched.has(status) || !entered || target.side !== 'enemy') return;
-      for (const it of list) {
-        if (status !== (AB_FLAG_STATUS[S.num(it.bb.check_ab_flag, 16)] ?? 'freeze')) continue;
-        if (!S.onField(it.unit) || !S.inRange(it.unit, target)) continue;
-        if (battle.rng() < S.num(it.bb.prob, 1)) fireGain(battle, it);
-      }
-    });
-  },
-
-  act2autochess_gar_event_onstart(battle, list) {
-    const m = byUnit(list);
-    battle.on('deploy', ({ unit }) => {
-      const arr = m.get(unit);
-      if (arr) for (const it of arr) fireGain(battle, it);
-    });
-    // Player-confirmed (upstream GitHub #415 / #429): 远牙's granted trait also gains on each body / substitute switch.
-    // Restrict this extra trigger to that trait; use its existing amounts, active-bond checks and battle cap.
-    // (by the default season's 特质 id: another season's own id of the same 特质, S.garrisonKeyOf)
-    const farTooth = byUnit(list.filter((it) => ['garrison_108_a', 'garrison_108_b'].includes(S.garrisonKeyOf(it.gid, battle))));
-    if (farTooth.size) battle.on('dollSwap', ({ unit }) => {
-      const arr = farTooth.get(unit);
-      if (arr) for (const it of arr) fireGain(battle, it);
-    });
-  },
-
-  act2autochess_gar_event_allyenemy_sleepstun_inrange(battle, list) {
-    battle.on('statusApplied', ({ target, status, entered }) => { // "进入沉睡/晕眩时": new entries only (ctx.entered)
-      if (!target || (status !== 'sleep' && status !== 'stun') || !entered) return;
-      if (!(target.side === 'enemy' || (target.side === 'ally' && target.kind === 'op'))) return;
-      for (const it of list) if (S.onField(it.unit) && S.inRange(it.unit, target)) fireGain(battle, it);
-    });
-  },
-
-  act1autochess_gar_event_addition_cnt(battle, list) {
-    battle.on('layerGain', (ctx) => {
-      if (ctx.reason !== 'garrison' || !ctx.source) return;
-      for (const it of list) {
-        const h = it.unit;
-        if (h.ownerId !== ctx.playerId || !S.onField(h)) continue;
-        if (it.bbStr.range_id && it.bbStr.range_id !== '1-1') continue;
-        if (sourceInFront(h, ctx.source, ctx.tile)) ctx.n += S.num(it.bb.extra_cnt, 0);
-      }
-    });
-  },
-
-  GAIN_BUFF(battle, list) {
-    for (const it of list) {
-      const mods = {};
-      if (S.num(it.bb.atk, 0) > 0) mods.atkMul = S.num(it.bb.atk);
-      if (S.num(it.bb.max_hp, 0) > 0) mods.hpMul = S.num(it.bb.max_hp);
-      if (S.num(it.bb.def, 0) > 0) mods.defMul = S.num(it.bb.def);
-      S.passiveBuff(battle, it.unit, `gar:${it.gid}`, mods);
-    }
-  },
-
-  attr_common_global_buff(battle, list) {
-    for (const it of list) {
-      const mods = {};
-      if (S.num(it.bb.sp_recovery_per_sec, 0)) mods.spRecoveryFlat = S.num(it.bb.sp_recovery_per_sec);
-      Object.assign(mods, S.directMods({ atk: S.num(it.bb.atk, 0), hp: S.num(it.bb.max_hp, 0) }));
-      if (S.num(it.bb.attack_speed, 0)) mods.aspd = S.num(it.bb.attack_speed);
-      S.passiveBuff(battle, it.unit, `gar:${it.gid}`, mods);
-    }
-  },
-
-  // grants are resolved in install(); 风丸's rule lives in the prep economy
-  ADD_BOND() {},
-  NONE() {},
-};
-
-// ---------------------------------------------------------------------------------------------------------------------
-// layer readers (每叠加N层)
-
-const READERS = new Set([
-  'act1autochess_gar_eff_attrByBond', 'act1autochess_gar_eff_respawnTimeByBond',
-  'act2autochess_gar_eff_attrByBond_add_onstart', 'act2autochess_gar_eff_ab_damageScaleByBond',
-]);
-
-/** floor(Σ layers of the listed active bonds / divide_num). */
-export function stepsOf(battle, it) {
-  const div = Math.max(1, S.num(it.bb.divide_num, 1));
-  let sum = 0;
-  for (const b of it.bonds ?? (it.bonds = ids(it.bbStr.bond_id))) if (S.bondActive(battle, it.unit.ownerId, b)) sum += S.bondLayers(battle, it.unit.ownerId, b);
-  return Math.floor(sum / div);
-}
-
-function attrMods(bb, k) {
-  // "每叠加N层，本干员攻击力+X%": a 直接乘算 bonus like every other "+X%" of the 卫戍 systems (support directMods)
-  const m = S.directMods({ atk: S.num(bb.atk, 0) * k, hp: S.num(bb.max_hp, 0) * k, def: S.num(bb.def, 0) * k });
-  if (S.num(bb.attack_speed, 0)) m.aspd = S.num(bb.attack_speed) * k;
-  if (S.num(bb.hp_recovery_per_sec, 0)) m.hpRegen = S.num(bb.hp_recovery_per_sec) * k;
-  if (S.num(bb.sp_recovery_per_sec, 0)) m.spRecoveryFlat = S.num(bb.sp_recovery_per_sec) * k;
-  return m;
-}
-
-function applyReader(battle, it) {
-  const k = stepsOf(battle, it);
-  if (k === it.k) return;
-  it.k = k;
-  const u = it.unit;
-  const key = `gar:${it.gid}`;
-  switch (it.key) {
-    case 'act1autochess_gar_eff_attrByBond':
-      if (k > 0) S.passiveBuff(battle, u, key, attrMods(it.bb, k));
-      else battle.removeBuff(u, key);
-      break;
-    case 'act1autochess_gar_eff_respawnTimeByBond':
-      // 耀骑士临光's 144: −1.5 % / −3 % per 3 卡西米尔 layers with no minimum in the blackboard (divide_num, respawn_time
-      // only) — clamped at 0 like every other redeploy multiplier, so a knock-out timer can reach 0 s (GitHub #370;
-      // until 0.2.1 a 0.05 floor kept it at 5 % of the base time from 192 layers, 96 for the elite). The EN client's buff
-      // templates have no graph under this key, only act1autochess_gar_eff_respawnByBond (a card buff on the owner's exit,
-      // layers / divide_num NOT floored, until its next spawn) — possibly a newer CN template; kept as it is.
-      if (k > 0) S.passiveBuff(battle, u, key, { redeployMul: Math.max(0, 1 + S.num(it.bb.respawn_time, 0) * k) });
-      else battle.removeBuff(u, key);
-      break;
-    case 'act2autochess_gar_eff_attrByBond_add_onstart': {
-      const b = u.findBuff(key);
-      if (b && b.timeLeft > 0) onstartBuff(battle, it, b.timeLeft);
-      break;
-    }
-    default: break; // damageScale reads it.k in the hit hook
-  }
-}
-
-function onstartBuff(battle, it, duration) {
-  const k = Math.max(0, it.k);
-  const key = `gar:${it.gid}`;
-  if (!(k > 0) || !(duration > 0)) { battle.removeBuff(it.unit, key); return; }
-  battle.addBuff(it.unit, { key, duration, refresh: 'replace', mods: { atkFlat: S.num(it.bb.atk, 0) * k, hpFlat: S.num(it.bb.max_hp, 0) * k } });
-}
-
-function installReaders(battle, by) {
-  const list = [];
-  for (const key of READERS) for (const it of by.get(key) ?? EMPTY) list.push(it);
-  if (!list.length) return;
-  for (const it of list) applyReader(battle, it);
-  // attrByBond is computed at a deployment only (client buff template act1autochess_gar_eff_attrByBond: every node under
-  // ON_BUFF_START — the floored steps (`_finalFloor`) × each stat, capped by max_stack 999999 — and no ON_BUFF_TRIGGER):
-  // an in-battle layer gain leaves it as it is until the operator deploys again (a redeploy, a 突袭 landing; a 【移动】
-  // keeps it). attrByBond_add_onstart likewise (ON_BUFF_START only: its timed buff keeps the steps it started with —
-  // until 2026-10-11 a layer gain re-scaled the running buff). The other readers follow the live layers
-  // (ab_damageScaleByBond: ON_BUFF_TRIGGER; respawnTimeByBond has no EN template).
-  const ATTR = 'act1autochess_gar_eff_attrByBond';
-  const ONSTART = 'act2autochess_gar_eff_attrByBond_add_onstart';
-  const live = list.filter((it) => it.key !== ATTR && it.key !== ONSTART);
-  const atDeploy = byUnit(list.filter((it) => it.key === ATTR));
-  if (atDeploy.size) {
-    battle.on('deploy', ({ unit, move }) => {
-      const arr = move ? null : atDeploy.get(unit);
-      if (arr) for (const it of arr) applyReader(battle, it);
-    });
-  }
-  let pending = false;
-  if (live.length) {
-    battle.on('layerGain', () => {
-      if (pending) return;
-      pending = true;
-      battle.after(0, () => { pending = false; for (const it of live) applyReader(battle, it); });
-    });
-  }
-  const onstart = by.get('act2autochess_gar_eff_attrByBond_add_onstart');
-  if (onstart) {
-    const m = byUnit(onstart);
-    battle.on('deploy', ({ unit }) => {
-      const arr = m.get(unit);
-      if (!arr) return;
-      for (const it of arr) { it.k = stepsOf(battle, it); onstartBuff(battle, it, S.num(it.bb.duration, 0)); }
-    });
-  }
-}
-
-// ---------------------------------------------------------------------------------------------------------------------
-// hit modifiers
-
-/**
- * 弱点伤害 (research 04 §glossary: "each hit is dealt as whichever of physical/arts yields MORE damage against that
- * target's DEF/RES"): the 理论伤害 of each type — the engine's mitigation formula incl. the attacker's DEF/RES ignore
- * stats, and nothing else; a tie keeps the original type. The official client's WeakDamage compares penetration + the
- * base formula only, and PRTS 术语释义 counts ATK, its multipliers and additions, penetration and the target's
- * DEF / RES, "不计入…任何伤判效果": the dealt / taken multipliers (physDealtMul, artsTakenMul …) never choose the type.
- */
-export function weaknessType(source, target, dmg) {
-  const ss = source && source.s ? source.s : null;
-  const ign = {
-    defIgnorePct: S.num(dmg.defIgnorePct, 0) + (ss ? S.num(ss.defIgnorePct, 0) : 0),
-    defIgnoreFlat: S.num(dmg.defIgnoreFlat, 0) + (ss ? S.num(ss.defIgnoreFlat, 0) : 0),
-    resIgnorePct: S.num(dmg.resIgnorePct, 0) + (ss ? S.num(ss.resIgnorePct, 0) : 0),
-    resIgnoreFlat: S.num(dmg.resIgnoreFlat, 0) + (ss ? S.num(ss.resIgnoreFlat, 0) : 0),
-  };
-  const ph = mitigate(dmg.amount, 'phys', target.s, ign);
-  const ar = mitigate(dmg.amount, 'arts', target.s, ign);
-  if (ar > ph + 1e-9) return 'arts';
-  if (ph > ar + 1e-9) return 'phys';
-  return dmg.type;
-}
-const bound = (t) => !!(t.s && t.s.flags && t.s.flags.bind) || !!t.findBuff('bind');
-
-/** Priority of the 弱点伤害 conversion: after every default-priority hit modifier, so the final amount decides. */
-export const WEAKNESS_PRIORITY = -10;
-
-function installHitMods(battle, by) {
-  const m = new Map();
-  const push = (it, kind) => {
-    let a = m.get(it.unit);
-    if (!a) { a = []; m.set(it.unit, a); }
-    a.push({ it, kind });
-  };
-  for (const it of by.get('act1autochess_gar_eff_attack_enemy') ?? EMPTY) push(it, 'tag');
-  for (const it of by.get('act2autochess_gar_eff_ab_damageScaleByBond') ?? EMPTY) push(it, 'ab');
-  if (m.size) {
-    battle.on('hit', ({ source, target, dmg }) => {
-      const arr = source ? m.get(source) : null;
-      if (!arr || !target || target.side !== 'enemy' || !dmg || dmg.type === 'element') return;
-      for (let i = 0; i < arr.length; i++) {
-        const { it, kind } = arr[i];
-        if (kind === 'tag') {
-          // an ATK multiplier: fixed-value DoT ticks are not ATK-based
-          if (Array.isArray(dmg.tags) && dmg.tags.includes('dot')) continue;
-          const tags = target.def && target.def.tags;
-          if (Array.isArray(tags) && tags.includes(it.bbStr.check_tag)) dmg.amount *= S.num(it.bb.atk, 1);
-        } else if (it.k > 0) {
-          const hit = (S.num(it.bb.check_ab_flag, 0) && bound(target)) || (S.num(it.bb.check_sluggish, 0) && !!target.findBuff('sluggish'));
-          if (hit) dmg.mul = S.num(dmg.mul, 1) * (1 + S.num(it.bb.damage_scale_per_stack, 0) * it.k);
-        }
-      }
-    });
-  }
-  const chaos = new Set((by.get('act1autochess_gar_eff_chaos') ?? EMPTY).map((it) => it.unit));
-  if (chaos.size) {
-    battle.on('hit', ({ source, target, dmg }) => {
-      if (!source || !chaos.has(source) || !target || target.side !== 'enemy' || !dmg) return;
-      if (dmg.type === 'phys' || dmg.type === 'arts') dmg.type = weaknessType(source, target, dmg);
-    }, { priority: WEAKNESS_PRIORITY });
-  }
-}
-
 /**
  * Every IN_BATTLE effectKey this file acts on (INSTALLERS, the layer READERS, ADD_BOND grants, the hit modifiers, 混沌);
  * `NONE` (只需2个…合成精锐) is no battle effect: the merge count is the chess's `upgradeNum`. A key outside it does
  * nothing in battle (test/content/garrisons_battle.test.js: none of the current season's chess carries one).
  */
 export const BATTLE_GARRISON_KEYS = Object.freeze([...Object.keys(INSTALLERS), ...READERS, 'ADD_BOND',
-  'act1autochess_gar_eff_attack_enemy', 'act2autochess_gar_eff_ab_damageScaleByBond', 'act1autochess_gar_eff_chaos']);
+  ...HIT_KEYS]);

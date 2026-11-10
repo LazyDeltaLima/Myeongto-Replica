@@ -122,6 +122,9 @@ const KNOWN = {
 
 /** The template rows whose prefab nothing in render/ plays: 'key|prefab' → reason (test/helpers/fxBindings.js unplayed). */
 const UNPLAYED = {
+  // 国度 (自选), 赫德雷 and 机械师 (规程 pieces), 2026-11-08: kit events not wired to their template rows yet (bundle fx-V)
+  // 奥尔佳 and 阿米娅's 医疗 form (规程 pieces), 2026-11-08: S2's debuff on her target, the trait heal's hit — kit events not wired yet (bundle fx-V)
+  // 铸铁 (a 规程 piece), 2026-11-10: 佣兵之韧's ASPD buff once her kill count is done — the kit's buff not wired to its row yet (bundle fx-V)
   // 묶음 S6 (2026-10-24) — condition rows left: a condition no sim event tells
   'nearl2_s_3[combo_effect]|nearl2_buff_01_start': 'condOther',   // 耀骑士临光 S3: CheckContainsCardBuff (a card's buff nearl2_t_1)
   'ines_t_2[effect2]|ines_range_02': 'cond',   // 伊内丝 T2 by her mode as the talent buff starts (S2's mode 1) [추정: its S2 talent re-creates it]

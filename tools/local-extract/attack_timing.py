@@ -33,7 +33,8 @@ Usage (from the repo root; --client = an Arknights_Data folder, repeatable: the 
 or an enemy decides it — by default the EN client, then the CN one for what the EN one lacks (client_path.py); an
 operator or enemy neither client has keeps the row of the earlier run):
   .venv-extract/bin/python tools/local-extract/attack_timing.py [--client <EN …/Arknights_Data>] [--client <CN …/Arknights_Data>] [--id char_…]…
---id reads only those operators (no enemies): every other row stays as the earlier run wrote it.
+--id reads only those operators (no enemies): every other row stays as the earlier run wrote it. --season-new reads only
+the enemies a season's data/seasons/<id>/enemies.json adds (the CN client's for those EN lacks), the other rows as they were.
 Everything read is (c) Hypergryph; only these numbers are kept.
 """
 import argparse
@@ -47,7 +48,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from char_modes import load_tree, pool_char_ids  # noqa: E402
 from char_points import token_files  # noqa: E402
 from client_path import skin_keys  # noqa: E402
-from client_path import clients, earlier, kept, kept_all  # noqa: E402
+from client_path import clients, earlier, enemy_keys, kept, kept_all  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-attack-timing.json'
@@ -379,19 +380,18 @@ def main():
     ap.add_argument('--client', action='append', help='an Arknights_Data folder (repeatable; default: EN, then CN — client_path.py)')
     ap.add_argument('--out', default=str(OUT))
     ap.add_argument('--id', action='append', default=[], help='only this operator (repeatable): every other row, the enemies too, stays as the earlier run wrote it')
+    ap.add_argument('--season-new', action='store_true', help="only the enemies of data/seasons/*/enemies.json that data/enemies.json lacks and the earlier run has no row for (EN, then CN): every other row stays as the earlier run wrote it")
     args = ap.parse_args()
-    cids = [i for i in args.id if not i.startswith('token_')] if args.id else all_char_ids()
-    enemies_json = json.loads((ROOT / 'data/enemies.json').read_text(encoding='utf-8'))
-    recs = enemies_json.get('enemies', enemies_json)
-    wanted = set(recs)
-    for k, e in recs.items():
-        if isinstance(e, dict):
-            for f in ('prefabKey', 'spine'):
-                if isinstance(e.get(f), str):
-                    wanted.add(e[f])
+    if args.season_new and args.id:
+        ap.error('--season-new reads enemies only: no --id')
+    prev = earlier(args.out)
+    cids = [] if args.season_new else [i for i in args.id if not i.startswith('token_')] if args.id else all_char_ids()
+    wanted = enemy_keys(season_new=args.season_new)
+    if args.season_new:
+        wanted -= set(prev.get('enemies') or {})
     ops, read, enemies, tokens = {}, set(), {}, {}
     # (--id token_…: that summon's row only; an operator's id reads the operator)
-    token_ids = [i for i in args.id if i.startswith('token_')] if args.id else all_token_ids()
+    token_ids = [] if args.season_new else [i for i in args.id if i.startswith('token_')] if args.id else all_token_ids()
     for client in clients(args.client):
         n_ops, n_enemies = len(ops), len(enemies)
         for cid in cids:
@@ -410,10 +410,10 @@ def main():
         print(f'{client}: {len(ops) - n_ops} operators, {len(enemies) - n_enemies} enemies, {len(tokens) - n_tokens} summons')
     for cid in sorted(set(cids) - read):
         print('missing', cid, file=sys.stderr)
-    prev = earlier(args.out)
-    old_ops = kept_all(prev.get('ops') or {}, read) if args.id else kept(prev.get('ops') or {}, read, cids)
-    old_enemies = kept_all(prev.get('enemies') or {}, enemies) if args.id else kept(prev.get('enemies') or {}, enemies, wanted)
-    old_tokens = kept_all(prev.get('tokens') or {}, tokens) if args.id else kept(prev.get('tokens') or {}, tokens, token_ids)
+    part = args.id or args.season_new
+    old_ops = kept_all(prev.get('ops') or {}, read) if part else kept(prev.get('ops') or {}, read, cids)
+    old_enemies = kept_all(prev.get('enemies') or {}, enemies) if part else kept(prev.get('enemies') or {}, enemies, wanted)
+    old_tokens = kept_all(prev.get('tokens') or {}, tokens) if part else kept(prev.get('tokens') or {}, tokens, token_ids)
     ops.update(old_ops)
     # `clip`: the clip the key plays when it is not the key itself (the skin's key table; docs/rules/sim.md 「일반 공격 타이밍」)
     table = skin_keys()
