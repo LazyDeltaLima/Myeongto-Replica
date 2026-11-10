@@ -1,6 +1,7 @@
 // server/sim/content/bonds/walker.js — a walking ally built from an enemy record: the bond summons of 卫戍协议：规程 that
 // the client brings in as enemies of the player's side (SummonEnemyWithRuntimeRoute `_unharmful`, its prefab's selectors
-// target the ENEMY side) — 莱塔尼亚's “一个小节” (enemy_9025_aclts) and “一个乐部” (enemy_9026_acltm).
+// target the ENEMY side) — 莱塔尼亚's “一个小节” (enemy_9025_aclts) and “一个乐部” (enemy_9026_acltm), and 谢拉格's
+// “不眠雪山” (enemy_9024_acsgnt; its two modes: bonds/giant.js).
 //
 // The unit is a summon (kind 'token') of the player, built at run time from the season's enemy record (as 炎佑's
 // fallback def, tokens.js), that holds no field tile (`walks`: battle/deploy.js) and:
@@ -59,7 +60,7 @@ function walkerDef(battle, key) {
       },
       rangeGrid: [], dmgType: st.dmgType ?? 'phys', attackKind: ranged ? 'ranged' : 'melee',
       projectile: ranged ? 'bolt' : null, canHitFly: ranged,
-      talents: rec.talents ?? null, attackAnim: rec.attackAnim ?? null, abnormal: ['healFree'],
+      talents: rec.talents ?? null, attackAnim: rec.attackAnim ?? null, abnormal: ['healFree'], immunities: st.immunities ?? null,
       assets: { avatar: rec.iconId ?? key, spine: rec.spine ?? key, isEnemyModel: true },
     },
   };
@@ -67,9 +68,10 @@ function walkerDef(battle, key) {
 
 /**
  * Spawn the walking ally `key` (an enemy record) for player `pid` on tile (r, c). `opts.onDeath(unit)` runs once as it
- * leaves the field. Returns the unit or null.
+ * leaves the field; `opts.rank(unit, enemies)` may reorder the enemies its range picks (the first is attacked). Returns
+ * the unit or null.
  */
-export function spawnWalker(battle, pid, key, r, c, { onDeath = null } = {}) {
+export function spawnWalker(battle, pid, key, r, c, { onDeath = null, rank = null } = {}) {
   const w = walkerDef(battle, key);
   if (!w) return null;
   const { rec, def } = w;
@@ -85,7 +87,10 @@ export function spawnWalker(battle, pid, key, r, c, { onDeath = null } = {}) {
       attack: melee ? 'melee' : 'ranged', dmgType: def.dmgType, projectile: melee ? 'none' : 'bolt', canHitFly: !melee,
       maxTargets: 1, heal: null, noAttack: false,
       // the round range: the tiles of the circle gave the candidates, the distance decides (the blocked ones always)
-      pickEnemies: (cands) => cands.filter((e) => self && (self.blocking.includes(e) || (e.x - self.x) * (e.x - self.x) + (e.y - self.y) * (e.y - self.y) <= r2)),
+      pickEnemies: (cands) => {
+        const out = cands.filter((e) => self && (self.blocking.includes(e) || (e.x - self.x) * (e.x - self.x) + (e.y - self.y) * (e.y - self.y) <= r2));
+        return rank && self ? rank(self, out) : out;
+      },
     },
     install(_battle, unit) {
       self = unit;

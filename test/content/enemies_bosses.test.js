@@ -76,7 +76,7 @@ test('every enemy key is authored (enemies.js / bosses.js) or listed as stats-on
 test('stats-only enemies attach no ability and fight with their data stats', () => {
   const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
   h.step();
-  for (const k of Object.keys(STATS_ONLY)) {
+  for (const k of Object.keys(STATS_ONLY).filter((k) => E[k])) {   // (规程's own — “不眠雪山”: its season test)
     const e = put(h, k, [10, 7]);
     assert.ok(!e.mem.ab || !e.mem.ab.list.length, k);
     assert.equal(e.s.atk, E[k].stats.atk, k);

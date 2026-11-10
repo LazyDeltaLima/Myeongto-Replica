@@ -560,3 +560,175 @@ test('规程 莱塔尼亚 (real match): the round\'s knocked-down enemies bring 
   assert.equal(m.errorCount, 0);
   m.dispose?.();
 });
+
+// ---- 谢拉格 6: “不眠雪山” (bonds/giant.js)
+
+const GIANT = 'enemy_9024_acsgnt';
+const kjeragOps = (n) => ids('k', n).map((id) => [id, ['kjeragShip'], { stats: { blockCnt: 0 } }]);
+const still = enemyRec({ key: 'e_still', hp: 1e9, speed: 0, def: 0, res: 0 });
+const stillFly = enemyRec({ key: 'e_still_fly', hp: 1e9, speed: 0, def: 0, res: 0, motion: 'FLY' });
+const giantFight = (n, L, extra = {}) => fight(kjeragOps(n), { kjeragShip: bondOn(n, L) }, { enemies: [], defs: { enemies: { e_still: still, e_still_fly: stillFly } }, ...extra });
+const giantOf = (h) => h.b.allyUnits.find((u) => u.walks && u.defId === GIANT) ?? null;
+const skillCost = (rec, key) => rec.skills.find((x) => x.prefabKey === key).spCost;
+const dealt2 = (h, src, t, t0) => h.hooksOf('damaged').filter((c) => c.source === src && c.target === t && c.t >= t0).map((c) => c.amount);
+const dealt = (h, src, t) => h.hooksOf('damaged').filter((c) => c.source === src && c.target === t).map((c) => c.amount);
+
+test('规程 谢拉格 6: “不眠雪山” comes at the battle start next to the last 谢拉格 operator — ATK / HP by ⌊L ÷ 3⌋, 禁疗, no freeze; none at 5', () => {
+  const rec = ACT3.enemies[GIANT], tal = rec.talents.bb;
+  assert.deepEqual([tal['BondBuff.stackStep'], tal['BondBuff.base_atk'], tal['BondBuff.attack_per_stack'], tal['BondBuff.base_max_hp'], tal['BondBuff.max_hp_per_stack']], [3, 0.5, 0.01, 0, 0.02]);
+  const L = 92, n = Math.floor(L / 3);
+  const h = giantFight(6, L);
+  const gs = h.b.allyUnits.filter((u) => u.walks);
+  assert.equal(gs.length, 1, 'one giant');
+  const g = gs[0];
+  assert.equal(g.defId, GIANT);
+  assert.equal(g.ownerId, h.b.players[0].playerId);
+  const last = h.unit('k5_a');
+  assert.deepEqual([g.tileR, g.tileC], [last.tileR, last.tileC], 'on the last operator\'s own (ground) tile');
+  close(g.s.atk, rec.stats.atk * (1 + 0.5 + 0.01 * n), 1e-6, 'ATK');
+  close(g.s.maxHp, rec.stats.maxHp * (1 + 0.02 * n), 1e-6, 'max HP');
+  close(g.hp, g.s.maxHp, 1e-6, 'full HP');
+  assert.equal(g.mode, 'Giant');
+  assert.equal(g.form, 'Giant');
+  assert.equal(g.s.blockCnt, 0, '覆雪苏醒 blocks nothing');
+  assert.ok(g.s.flags.noHeal, '禁疗');
+  assert.equal(h.b.applyStatus(g, 'freeze', { duration: 5, source: null }), false, 'frozen immune');
+  assert.deepEqual(h.b.errors, []);
+  const h5 = giantFight(5, L);
+  assert.equal(giantOf(h5), null, 'none at 5');
+  assert.deepEqual(h5.b.errors, []);
+});
+
+test('规程 谢拉格 6: 覆雪苏醒 shoots ground and air within 2.4; the shot hits every ground enemy within 1.1 of the one it reaches', () => {
+  const h = giantFight(6, 0);
+  const g = giantOf(h);
+  // the giant on (10, 8): the target 2 tiles right; one ground enemy and one flier beside it, out of the giant's range
+  const a = h.spawn('e_still', { pos: [10, 10] });
+  const b = h.spawn('e_still', { pos: [10, 11] }); b.x = 10.9;
+  const f = h.spawn('e_still_fly', { pos: [10, 11] }); f.x = 10.6;
+  const c = h.spawn('e_still', { pos: [9, 11] }); c.x = 11.5;
+  h.run(3.5);
+  const da = dealt(h, g, a);
+  assert.ok(da.length >= 1, 'the target');
+  assert.deepEqual(dealt(h, g, b), da, 'the ground enemy within 1.1 of it, the same damage');
+  assert.deepEqual(dealt(h, g, f), [], 'not the flier beside it');
+  assert.deepEqual(dealt(h, g, c), [], 'not one 1.8 away from it');
+  // a flier is a target of its own
+  const h2 = giantFight(6, 0);
+  const g2 = giantOf(h2);
+  const f2 = h2.spawn('e_still_fly', { pos: [9, 9] });
+  h2.run(3.5);
+  assert.ok(dealt(h2, g2, f2).length >= 1, 'air');
+  assert.equal(g2.mode, 'Giant', 'a flier never makes it sit down');
+  assert.deepEqual([...h.b.errors, ...h2.b.errors], []);
+});
+
+test('规程 谢拉格 6: 覆雪坐定 — a blockable ground enemy within 0.8 → 1 s → it stands and blocks 3, splashes ATK × 1 within 1.5, ×3.5 on a frozen enemy (the freeze ends); 5 s without attacking → 1 s → 覆雪苏醒', () => {
+  const rec = ACT3.enemies[GIANT], tal = rec.talents.bb;
+  assert.deepEqual([tal['BlockEnemy.block_cnt'], tal['BlockEnemy.attack@ability_range_radius'], tal['FrozenBreak.atk_scale'], tal['SwitchMode.interval']], [3, 1.5, 3.5, 5]);
+  const h = giantFight(6, 0);
+  const g = giantOf(h);
+  const x0 = g.x;
+  const e = h.spawn('e_still', { pos: [10, 9] }); e.x = x0 + 0.6;
+  const s = h.spawn('e_still', { pos: [10, 9] }); s.x = x0 + 1.8;   // 1.2 from e
+  // the switch waits for a swing it is in, then plays A_Change (1 s)
+  h.runUntil(() => g.mem.giant.cast === 'snowy', 3);
+  const castAt = h.b.time;
+  h.runUntil(() => g.mode === 'SnowyMountain', 2);
+  close(h.b.time - castAt, 1, 0.05, 'A_Change');
+  const t0 = h.b.time;
+  const since = (t) => dealt2(h, g, t, t0);
+  assert.equal(g.form, 'SnowyMountain');
+  assert.equal(g.s.blockCnt, 3);
+  h.run(0.2);
+  assert.equal(e.blockedBy, g, 'blocks the enemy beside it');
+  h.run(3);
+  assert.equal(g.x, x0, 'stands');
+  const de = since(e), ds = since(s);
+  assert.ok(de.length >= 1, 'attacks the one it blocks');
+  assert.deepEqual(ds, de, 'splash ATK × 1 within 1.5');
+  // a frozen enemy takes ×3.5 and is no longer frozen
+  const n = de.length;
+  h.b.applyStatus(e, 'freeze', { duration: 20, source: null });
+  assert.ok(e.s.flags.freeze);
+  h.runUntil(() => since(e).length > n, 5);
+  const hit = since(e).at(-1), splash = since(s).at(-1);
+  close(hit, splash * 3.5, 1e-6, '×3.5 on the frozen one');
+  assert.ok(!e.s.flags.freeze, 'its freeze ends');
+  // the view's signals: the switch's start (its change clip) and PowerAttack's cast
+  const fx = (kind) => h.events.filter((x) => x[0] === 'fx' && x[1] === kind && x[4]?.id === g.id).map((x) => x[4]);
+  assert.ok(fx('phase').some((x) => x.form === 'SnowyMountain'), 'phase → SnowyMountain');
+  // a swing that starts on a frozen enemy within 1.1 is PowerAttack (that swing was begun before the freeze: not)
+  assert.equal(fx('enemySkill').length, 0);
+  h.b.applyStatus(e, 'freeze', { duration: 20, source: null });
+  const m = since(e).length;
+  h.runUntil(() => since(e).length > m, 5);
+  assert.deepEqual(fx('enemySkill').map((x) => x.ability), ['PowerAttack'], 'PowerAttack on the frozen one');
+  // it stands while it blocks nothing: the other one, 1.8 away, is attacked from where it is
+  h.b.kill(e, null);
+  g.mem.giant.sp = 0;   // (no 【神迹之声】 meanwhile)
+  h.run(4);   // (between its swings, every 3 s, a walker walks for a second)
+  assert.equal(g.mode, 'SnowyMountain', 'attacking keeps it seated');
+  assert.equal(g.x, x0, 'it does not walk to the one it attacks');
+  // the enemies gone: 5 s after its last attack it switches back (B_Change, 1 s)
+  const lastAt = Math.max(...h.hooksOf('damaged').filter((c) => c.source === g).map((c) => c.t));
+  h.b.kill(s, null);
+  h.runUntil(() => g.mode === 'Giant', 10);
+  assert.ok(h.b.time - lastAt > 5.5 && h.b.time - lastAt < 6.8, `5 s + the 1 s clip after the last hit (${h.b.time - lastAt})`);
+  assert.equal(g.s.blockCnt, 0);
+  assert.deepEqual(h.b.errors, []);
+});
+
+test('规程 谢拉格 6: 【神迹之声】 at 18 SP (10 at the start, 1 a second) in 覆雪坐定 — every enemy within 1.5 诱导 to its tile while it stops attacking, until the cast ends or it falls', () => {
+  const rec = ACT3.enemies[GIANT];
+  assert.deepEqual([rec.sp.initSp, rec.sp.maxSp, skillCost(rec, 'Attract')], [10, 18, 18]);
+  const h = giantFight(6, 0);
+  const g = giantOf(h);
+  const e = h.spawn('e_still', { pos: [10, 9] }); e.x = g.x + 0.6;
+  const p = h.spawn('e_still', { pos: [9, 9] }); p.x = g.x + 0.6;   // 1.17 away: pulled
+  h.runUntil(() => g.mem.giant.cast === 'attract', 12);
+  assert.ok(h.b.time >= 8 - 1e-6 && h.b.time < 10, `8 s of SP after it came, then the end of a swing (${h.b.time})`);
+  const pulled = h.hooksOf('statusApplied').filter((c) => c.status === 'attract' && c.source === g).map((c) => c.target);
+  assert.ok(pulled.includes(p), '诱导');
+  assert.ok(g.s.flags.disarm, 'stops attacking');
+  const n = dealt(h, g, e).length;
+  h.run(2);
+  assert.equal(dealt(h, g, e).length, n, 'no attack while it casts');
+  h.b.kill(g, null);
+  assert.ok(!p.s.flags.attract, 'its fall ends the 诱导');
+  assert.deepEqual(h.b.errors, []);
+});
+
+test('规程 谢拉格 6 (real match): six 谢拉格 operators bring “不眠雪山” onto the player\'s field as the battle starts', () => {
+  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+  // the default season's field (ACT3_ON_BASE_FIELD) with the giant's record of 规程's enemy table
+  const data = { ...ACT3_ON_BASE_FIELD, enemies: { ...ACT3_ON_BASE_FIELD.enemies, [GIANT]: ACT3.enemies[GIANT] } };
+  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 5, data, season: 'act3autochess' }).start();
+  h.toPrep(3, { band: 'band_amiya' });
+  const m = h.m, ps = h.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  ps.level = Math.max(ps.level, 6);
+  const pool = Object.values(ACT3.chess).filter((c) => c.visible && !c.isGolden && c.bonds.includes('kjeragShip'));
+  const used = new Set();
+  for (const c of pool.slice(0, 6)) {
+    const piece = ps.acquireChess(c.chessId, { source: 'buy' });
+    const [row, col] = legalTileFor(m, ps, c.chessId, used);
+    used.add(`${row},${col}`);
+    assert.equal(m.handle('p_0', { t: 'g.move', uid: piece.uid, to: { area: 'board', row, col }, dir: 'RIGHT' }).ok, true, c.chessId);
+  }
+  ps.recompute();
+  assert.ok(ps.bonds.kjeragShip.count >= 6, `谢拉格 ${ps.bonds.kjeragShip.count}`);
+  const battles = [];
+  const newBattle = m.newBattle.bind(m);
+  m.newBattle = (opts, o) => { const b = newBattle(opts, o); if (!o?.preview) battles.push(b); return b; };
+  h.drive(() => m.round === 4 || h.ended != null);
+  const b = battles.find((x) => x.players.some((p) => p.playerId === 'p_0'));
+  assert.ok(b, 'the round\'s battle');
+  const giants = b.allyUnits.filter((u) => u.walks && u.defId === GIANT);
+  assert.equal(giants.length, 1);
+  assert.equal(giants[0].ownerId, 'p_0');
+  assert.equal(b.errorCount, 0);
+  assert.equal(m.errorCount, 0);
+  m.dispose?.();
+});

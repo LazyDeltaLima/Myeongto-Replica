@@ -859,6 +859,7 @@ export function resolveHit(b, u, prof, target, info, x, y) {
     for (const e of b.foesInRadius(x, y, r, true)) {
       if (e === target) continue;
       if (prof.groundOnly && e.isFlying) continue;
+      if (prof.splashGroundOnly && e.isFlying) continue;   // a shot that reaches air but splashes on the ground (“不眠雪山”)
       if (!prof.canHitFly && e.isFlying && !prof.splashHitsFly) continue;
       if (e.s.flags.untargetable) continue;
       const d = b.dealDamage(u, e, { amount: atk * scale * sc * skillMul, type: baseType, isAttack: true, isSplash: true, isSkill: info.isSkill, attackId });

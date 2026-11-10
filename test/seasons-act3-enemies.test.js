@@ -23,10 +23,8 @@ const E3 = ACT3.enemies, E0 = BASE.enemies;
 // its list). Reachable = the keys named by the season's waves, leaders, enemy effects / choices / strategies, its
 // 特训敌人 entries and the escorts each entry brings (factions.json entries[*].N / E …), and every enemy those name.
 
-// the leader fields: the units of the leaders' waves
-const LEADER_FIELD = [
-  'enemy_9024_acsgnt',
-];
+// the leader fields: the units of the leaders' waves (“不眠雪山”, the waves' `acsgnt` branch, is 谢拉格's bond summon now)
+const LEADER_FIELD = [];
 // 特训敌人 entries of 规程 (its new types CRITIC 精锐 / REBORN 重生 among them) and their escorts and offspring
 const SPECIAL_TYPE = [
   'enemy_10163_mnctur_2', 'enemy_1064_snsbr', 'enemy_1067_snslime_2', 'enemy_1103_wdkght_2', 'enemy_1104_lfkght',

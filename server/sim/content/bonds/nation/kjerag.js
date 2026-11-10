@@ -2,13 +2,15 @@
 //
 //   act1autochess_bond_eff_kjerag   members deal ×base_damage_scale, vs cold / frozen enemies ×(base_ex_damage_scale +
 //                                   ex_damage_scale_per_stack·L) instead; 6: cold wind (devices.js kjeragColdWind)
-//   act3autochess_bond_eff_kjerag   (卫戍协议：规程) the same multipliers, no wind: its 6-tier effect is the 雪山巨人 of
-//                                   act3autochess_bond_eff_kjerag_power (not written yet, bundle sim-K); its <每100层>
-//                                   谢拉格不融冰 is bond_layer_added_reward_equip (bonds/templates.js)
+//   act3autochess_bond_eff_kjerag   (卫戍协议：规程) the same multipliers, no wind; its <每100层> 谢拉格不融冰 is
+//                                   bond_layer_added_reward_equip (bonds/templates.js)
+//   act3autochess_bond_eff_kjerag_power   (规程, 6 of the player's own) the 雪山巨人 “不眠雪山” as the battle starts, a
+//                                   walking ally of two modes (bonds/giant.js)
 
 import * as S from '../../support/index.js';
 import { kjeragColdWind } from '../../devices.js';
 import { num, reached, onUnitHit, isEnemyTarget } from '../shared.js';
+import { installGiant } from '../giant.js';
 
 function installKjerag(battle, pid, bb, members, { wind }) {
   const base = num(bb.base_damage_scale, 1);
@@ -35,4 +37,5 @@ function installKjerag(battle, pid, bb, members, { wind }) {
 export const TEMPLATES = Object.freeze({
   act1autochess_bond_eff_kjerag: { bond: 'kjeragShip', battle: (b, pid, bb, ms) => installKjerag(b, pid, bb, ms, { wind: true }) },
   act3autochess_bond_eff_kjerag: { bond: 'kjeragShip', battle: (b, pid, bb, ms) => installKjerag(b, pid, bb, ms, { wind: false }) },
+  act3autochess_bond_eff_kjerag_power: { bond: 'kjeragShip', battle: installGiant },
 });
