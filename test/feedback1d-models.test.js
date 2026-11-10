@@ -40,6 +40,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = path.join(ROOT, 'public/assets');
 const readJson = (rel) => JSON.parse(readFileSync(path.join(ROOT, rel), 'utf8'));
 const SLUGS = ['enemy_1305_mhslim', 'enemy_1305_mhslim_2'];
+// 2026-11-10: 规程's own enemies — only the CN client has their models (no web dump: without the extraction the client draws
+// the icon); the `_2` forms 假想敌：械 / 鳍 (隐秘核心) draw their base's skeleton (the prefab's Spine renderer)
+const AC_OWN = ['enemy_9024_acsgnt', 'enemy_9025_aclts', 'enemy_9026_acltm', 'enemy_9027_acfnca', 'enemy_9028_acfncb', 'enemy_9029_acfnc',
+  'enemy_9030_acpara', 'enemy_9031_acrefd', 'enemy_9034_acblk', 'enemy_9035_acspider', 'enemy_9035_acspider_2', 'enemy_9037_aceel',
+  'enemy_9038_achest', 'enemy_9039_acrefm', 'enemy_9040_accrit'];
+const AC_BASE = { enemy_9029_acfnc_2: 'enemy_9029_acfnc', enemy_9037_aceel_2: 'enemy_9037_aceel' };
 const COMMITTED = readJson(LOCAL_ENEMY_SPINES_FILE).models;
 const MANIFEST = readJson('data/assets.json');
 
@@ -91,7 +97,12 @@ describe('D3: the official slug models are an optional overlay of the web alias'
   });
 
   test('the committed metadata: both ELEMENT slugs, file names of their extract.py group, roles resolved', () => {
-    assert.deepEqual(Object.keys(COMMITTED).sort(), SLUGS);
+    assert.deepEqual(Object.keys(COMMITTED).sort(), [...SLUGS, ...AC_OWN].sort());
+    for (const id of AC_OWN) {
+      const m = COMMITTED[id];
+      assert.deepEqual([m.skel, m.atlas, m.textures, m.pma], [`${id}.skel`, `${id}.atlas`, [`${id}.png`], true], id);
+      for (const role of ['idle', 'die']) assert.ok(m.anims[role] in m.animations, `${id} ${role}`);
+    }
     for (const id of SLUGS) {
       const m = COMMITTED[id];
       assert.equal(m.skel, `${id}.skel`);
@@ -111,20 +122,40 @@ describe('D3: the official slug models are an optional overlay of the web alias'
     assert.deepEqual(urls, [], 'setup / doctor / the manifest tests count every /assets/ URL as required');
     for (const [id, e] of Object.entries(MANIFEST.enemies)) {
       if (!e.spineLocal) continue;
+      if (AC_OWN.includes(id) || AC_BASE[id]) {   // 规程: no web model (the icon without the local client)
+        const own = AC_BASE[id] || id;
+        assert.deepEqual(e.spineLocal, { group: `spine/enemy/${own}`, ...COMMITTED[own] }, `${id}: the committed metadata of ${own}`);
+        assert.equal(spineEntry(MANIFEST, id), null, `${id}: no web dump carries it`);
+        continue;
+      }
       assert.ok(SLUGS.includes(id), id);
       assert.deepEqual(e.spineLocal, { group: `spine/enemy/${id}`, ...COMMITTED[id] }, `${id}: the committed metadata`);
       assert.ok(validSpine(spineEntry(MANIFEST, id)), `${id}: a web model without the local client`);
       assert.equal(MANIFEST.enemies[id].spineAliasOf, 'enemy_1007_slime');
       assert.deepEqual(spineEntry(MANIFEST, id), MANIFEST.enemies.enemy_1007_slime.spine, `${id}: the plain 源石虫 on the web`);
     }
-    for (const id of SLUGS) assert.ok(MANIFEST.enemies[id].spineLocal, `${id} has its overlay`);
+    for (const id of [...SLUGS, ...AC_OWN, ...Object.keys(AC_BASE)]) assert.ok(MANIFEST.enemies[id].spineLocal, `${id} has its overlay`);
+  });
+
+  test('plan: a `_2` form with no model of its own takes its base\'s local model; one with its own (web or local) keeps it', () => {
+    const md = { data: { '9900_tst': { assetList: {} }, '9901_web_2': { assetList: { '.skel': 'w.skel', '.atlas': 'w.atlas', '.png': 'w.png' } } } };
+    const meta = { skel: 'x.skel', atlas: 'x.atlas', textures: ['x.png'], pma: true, anims: {} };
+    const p = buildPlan({
+      assets07: {}, ops03: {}, enemies05: {}, maps05: {}, audio: indexAudio({}), modelsData: md,
+      extraEnemyIds: ['enemy_9900_tst', 'enemy_9900_tst_2', 'enemy_9901_web', 'enemy_9901_web_2', 'enemy_9902_own', 'enemy_9902_own_2'],
+      localEnemySpines: { enemy_9900_tst: meta, enemy_9901_web: meta, enemy_9902_own: meta, enemy_9902_own_2: { ...meta, skel: 'y.skel' } },
+    });
+    const loc = (id) => { const n = p.template.enemies[id].spineLocal; return n && n[Object.getOwnPropertySymbols(n)[0]]; };   // (a literal())
+    assert.equal(loc('enemy_9900_tst_2').group, 'spine/enemy/enemy_9900_tst', 'no model: the base\'s');
+    assert.equal(loc('enemy_9901_web_2'), undefined, 'its own web model: kept');
+    assert.deepEqual([loc('enemy_9902_own_2').group, loc('enemy_9902_own_2').skel], ['spine/enemy/enemy_9902_own_2', 'y.skel'], 'its own local model');
   });
 
   test('the committed metadata is what the extracted models parse to', { skip: !SLUGS.every((id) => existsSync(path.join(ASSETS, 'local/spine/enemy', id))) && 'enemy models not extracted (tools/local-extract)' }, async () => {
     const found = await findLocalEnemyModels(ASSETS);
     const { meta, problems } = await localEnemySpineMeta(ASSETS, found);
     assert.deepEqual(problems, []);
-    for (const id of SLUGS) assert.deepEqual(meta[id], COMMITTED[id], `${id}: re-run node tools/fetch-assets.mjs --local-spines`);
+    for (const id of Object.keys(COMMITTED)) if (meta[id] || SLUGS.includes(id)) assert.deepEqual(meta[id], COMMITTED[id], `${id}: re-run node tools/fetch-assets.mjs --local-spines`);
   });
 
   test('localEnemySpineMeta parses an extracted model like the pipeline and writes nothing', { skip: !existsSync(path.join(ASSETS, 'spine/enemy/enemy_1007_slime')) && 'public/assets not downloaded' }, async () => {
@@ -328,7 +359,7 @@ describe('D3: tools/local-extract/extract.py enemy Spine job (no UnityPy needed)
   test('--print-jobs lists the enemy models; container matching and --only selection', () => {
     const r = spawnSync(PY, [path.join(TOOL, 'extract.py'), '--print-jobs'], { encoding: 'utf8', env: ENV });
     assert.equal(r.status, 0, r.stderr);
-    assert.deepEqual(JSON.parse(r.stdout).enemySpines, { bundles: 'refs/arts/enm_art_*.ab', sub: 'spine/enemy', ids: SLUGS });
+    assert.deepEqual(JSON.parse(r.stdout).enemySpines, { bundles: 'refs/arts/enm_art_*.ab', sub: 'spine/enemy', ids: [...SLUGS, ...AC_OWN] });
     const out = py(`W = set(e.ENEMY_SPINES)\n`
       + `print(json.dumps([e.enemy_spine_id('Assets/Torappu/Arts/Enemies/Spines/enemy_1305_mhslim/2/enemy_1305_mhslim_2_SkeletonData.asset', W),`
       + ` e.enemy_spine_id('Assets/Torappu/Arts/Enemies/Spines/enemy_1305_mhslim/1/enemy_1305_mhslim_SkeletonData.asset', W),`

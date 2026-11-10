@@ -146,7 +146,13 @@ JOBS = [
 # _AlphaTex merged in as A). Output: spine/enemy/<id>/ (manifest group spine/enemy/<id>); the client draws the model
 # when the group lists every file of data/assets.json enemies[id].spineLocal (whose metadata
 # tools/assets/local-enemy-spines.json keeps: `node tools/fetch-assets.mjs --local-spines` after a game update).
-ENEMY_SPINES = ['enemy_1305_mhslim', 'enemy_1305_mhslim_2']
+ENEMY_SPINES = ['enemy_1305_mhslim', 'enemy_1305_mhslim_2',
+                # (2026-11-10) 规程's own enemies (the CN client's 11-08 update: refs/arts/enm_art_30.ab of its hot-update
+                # bundles, none in the EN client). Their _2 forms 假想敌：械 / 鳍 (隐秘核心) draw the base skeleton (the prefab's
+                # Spine renderer) — tools/assets/plan.mjs takes the base's local model for them; 淤困之茧 draws no model
+                'enemy_9024_acsgnt', 'enemy_9025_aclts', 'enemy_9026_acltm', 'enemy_9027_acfnca', 'enemy_9028_acfncb',
+                'enemy_9029_acfnc', 'enemy_9030_acpara', 'enemy_9031_acrefd', 'enemy_9034_acblk', 'enemy_9035_acspider',
+                'enemy_9035_acspider_2', 'enemy_9037_aceel', 'enemy_9038_achest', 'enemy_9039_acrefm', 'enemy_9040_accrit']
 ENEMY_ART = 'refs/arts/enm_art_*.ab'
 ENEMY_SPINE_SUB = 'spine/enemy'
 

@@ -590,10 +590,14 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     }
     e.spine = spine;
     // the official model from the local client, drawn instead of `spine` when the extraction is installed (optional)
-    const loc = localEnemySpines && Object.hasOwn(localEnemySpines, id) ? localEnemySpines[id] : null;
-    if (loc && typeof loc === 'object') {
-      e.spineLocal = literal({ group: `spine/enemy/${id}`, ...loc });
-      notes.push(`${id}: official Spine from the local client when extracted (spineLocal)`);
+    const localOf = (k) => (k && localEnemySpines && Object.hasOwn(localEnemySpines, k) && typeof localEnemySpines[k] === 'object' ? localEnemySpines[k] : null);
+    let loc = localOf(id), locId = id;
+    // (2026-11-10) a `_2` form with no model of its own (web or local) draws its base's local one: 规程's 假想敌：械 / 鳍
+    // (隐秘核心) — their prefabs' Spine renderer reads the base enemy's skeleton (tools/local-extract/extract.py ENEMY_SPINES)
+    if (!loc && (!spine || e.spineAliasOf) && localOf(baseIdOf(id))) { locId = baseIdOf(id); loc = localOf(locId); }
+    if (loc) {
+      e.spineLocal = literal({ group: `spine/enemy/${locId}`, ...loc });
+      notes.push(`${id}: official Spine from the local client when extracted (spineLocal${locId !== id ? ` of ${locId}` : ''})`);
     }
     enemies[id] = e;
     let banks = audio.unitBanks.get(id);

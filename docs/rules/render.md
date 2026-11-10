@@ -1340,3 +1340,8 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   [추정·화면: 공식 卫戍协议에서 끝 프레임이 빈 Die의 쓰러진 모습 — 기록 없음]
 - 확인: `test/render/die-empty-hold.test.js`(가짜 골격 4건 + 실제 골격: Die 끝 0개·Idle 첫 프레임 > 20개). **디버그 아레나 확인 2026-10-31**(관리자):
   쓰러진 시빌라이트 에테르나의 회색 몸이 보임. 재배치는 다른 오퍼레이터와 같은 길(`revive`)이다.
+
+## 규정 새 적 모델 (2026-11-10, 공식 클라에서 확인)
+
+새 시즌 「규정」의 적 중 지금 `data/assets.json`에 없던 96종(시즌 표 `data/seasons/act3autochess/enemies.json`)을 넣었다. `fetch-assets.mjs`가 시즌마다의 적 표도 읽고(`seasonEnemyIds`), 78종은 다른 적처럼 웹 모델(Ark-Models). 규정 자신의 적 18종(`enemy_9024`–`9040`)은 웹에 없고 EN 클라에도 없어 CN 클라 핫업데이트본의 `refs/arts/enm_art_30.ab`에서 뽑는다(`extract.py ENEMY_SPINES`, 15종) — 로컬 추출물이 없으면 아이콘. 가상적: 기계(`enemy_9029_acfnc_2`)·지느러미 숨은 핵심(`enemy_9037_aceel_2`)은 프리팹의 Spine이 바탕 적의 스켈레톤을 읽어 바탕 적의 로컬 모델을 쓴다(`plan.mjs`). 정체의 고치(`enemy_9036_acweb`)는 프리팹에 Spine이 없다(그림은 묶인 오퍼레이터 위 거미줄 이펙트, fx.md 「규정 보스 고치·지느러미의 이펙트」).
+- 확인: `test/feedback1d-models.test.js`(커밋된 메타데이터·`_2`의 바탕 모델·웹 모델 없음). [화면 미확인: 클립 역할(`anims` — `A_`/`B_` 형태가 있는 적, 공격 클립이 `Idle`로 잡힌 `acfnca`·`achest`)과 크기·위치는 아레나·실제 판에서 안 봄]

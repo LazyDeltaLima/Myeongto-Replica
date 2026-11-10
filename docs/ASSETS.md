@@ -116,7 +116,7 @@ The research JSONs in `docs/research/` (03, 05, 07) define **which** ids are nee
 | Operator battle Spine (Front, Back) | fexli/ArknightsResource `spine/{id}/{id}/{Front,Back}/` | `spine/op/{charId}/{front,back}/{stem}.{skel,atlas,png}` |
 | Token Spine | fexli: the default model, or else the first skin variant (`spine/{tokenId}/{variant}/Spine/`) | `spine/token/{tokenId}/{stem}.*` |
 | Enemy Spine (PC build, premultiplied alpha) | isHarryh/Ark-Models `models_enemies/{key}/`, file names from `models_data.json` | `spine/enemy/{enemyId}/{stem}.*` |
-| Enemy Spine that no dump carries (灼热源石虫 / 炽焰源石虫) | the local client only (`tools/local-extract/extract.py ENEMY_SPINES`, optional); never downloaded and never required: an overlay of the web alias (`enemies[id].spineLocal`) | `local/spine/enemy/{enemyId}/{stem}.*` (listed in `data/local-assets.json`) |
+| Enemy Spine that no dump carries (灼热源石虫 / 炽焰源石虫; 规程's own enemies `enemy_9024`–`9040`, only in the CN client) | the local client only (`tools/local-extract/extract.py ENEMY_SPINES`, optional); never downloaded and never required: an overlay of the web alias (`enemies[id].spineLocal`; 规程's have no web model — without the extraction the icon) | `local/spine/enemy/{enemyId}/{stem}.*` (listed in `data/local-assets.json`) |
 | Token Spine that no dump carries (8 summons: our 自选 picks' — 望's 棋子, 维什戴尔's 魂灵之影, 凯尔希·思衡托's 战术锚点 (only the CN client has her), 酒神's 本能的召唤 —, 凯瑟琳's 爬行号·防护单元, 凛御银灰's 风雪之眼), and the original skin of 香槟炸弹 (the web model is a skin variant) | the local client only (`tools/local-extract/extract.py TOKEN_SPINES`, optional); never downloaded and never required: an overlay (`tokens[id].spineLocal`; without it the avatar diamond, or 香槟炸弹's web skin) | `local/spine/token/{tokenId}/{stem}.*` (listed in `data/local-assets.json`) |
 | BGM | AA2 `voice` branch `audio/sound_beta_2/music/**` (大厅/休整期 `act1autochess`, 开战 `act13side/m_bat_kazimierz2_{1,2}` — 骑士之日 / 无畏者; the 开战 track follows the round: `_2` 无畏者 rounds 1–7, `_1` 骑士之日 from round 8) | `audio/bgm/{file}.mp3` |
 | SFX (UI, battle, per unit) | AA2 `voice` `audio/sound_beta_2/**`, mapped from `audio_data.json` banks | `audio/sfx/{same sub-path}.mp3` |
@@ -371,6 +371,8 @@ Other renderer rules from research 07 §5.4–5.5:
 - **Flying units** hover `FLY_HOVER` = 1.3 tiles up (render/units.js; the client's single fly offset 0.35 in its character space, whose unit is the standard prefab scale 0.27 — docs/research/12) — an enemy flyer above the road whatever tile it crosses (a high-ground or forbidden block under it is no step, GitHub #277), an operator or summon above its tile: the body, its HP bar, damage numbers and hits ride the lift, the shadow stays on the ground tile (the block top under an enemy flyer crossing one), on the 2D and the 3D board alike (one camera drives both).
 - **Enemy aliases:** `enemies[id].spineAliasOf` means the model belongs to another enemy. Two cases:
   - `_2` variants whose official prefab is the base one (鸭爵, 高普尼克, 流泪小子, 圆仔, 假想敌：胄, 假想敌：铳): the base model, as in the game.
+    A `_2` with no model of its own, web or local, takes its base's local model (`spineLocal` of the base's group; 规程's
+    假想敌：械 / 鳍 (隐秘核心), whose prefabs' Spine renderer reads the base skeleton — 2026-11-10).
   - an enemy whose own model no dump carries: 灼热源石虫 / 炽焰源石虫 (`enemy_1305_mhslim` / `_2`) use the plain 源石虫 on
     the web (`plan.mjs ENEMY_SPINE_ALIAS`). The reason is upstream: isHarryh/Ark-Models *indexes* `1305_mhslim` /
     `1305_mhslim_2` but with an **empty `assetList`** — registered, never uploaded — so `arkModel()` finds no files for
@@ -397,6 +399,11 @@ Other renderer rules from research 07 §5.4–5.5:
       models only when it is zipped from a checkout where the extraction ran with the `spine/enemy` job (an extraction
       made with 0.1.0 lacks it: `node tools/setup.mjs --local` again, then check that `data/local-assets.json` lists
       `spine/enemy/enemy_1305_mhslim` and `spine/enemy/enemy_1305_mhslim_2`).
+    规程's own enemies (2026-11-10): their models are only in the CN client's hot-update art bundle (`refs/arts/enm_art_30.ab`
+    of `PersistentData/Bundles`; `extract.py --game <that folder> --only spine/enemy/<id>`), and no dump carries them, so
+    they have no web model at all — without the extraction the client draws their icon. `data/assets.json` lists every
+    enemy of `data/seasons/*/enemies.json` too (`fetch-assets.mjs seasonEnemyIds`; the others of that season come from
+    Ark-Models as usual). 淤困之茧 (`enemy_9036_acweb`) draws no model in the client (its prefab has no Spine renderer).
     User feedback after 0.1.0 (D3: "所有特殊源石虫的模型全表现为普通源石虫"): the ELEMENT faction spawns up to ten of them a
     round. A 2026-10-03 audit of every enemy of `data/enemies.json` (249) against the client's battle prefabs (the
     skeleton each prefab's Spine renderer draws) found no other enemy drawn with another enemy's model; 伊利昂的木驮兽

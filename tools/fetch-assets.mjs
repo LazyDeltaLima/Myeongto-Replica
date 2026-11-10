@@ -215,6 +215,22 @@ export function dataExtras(backups, chess, seasonPieces = []) {
 }
 
 /** The pieces of the hidden season 规程 (act3autochess) whose operator has a kit of SEASON_KIT_FILES: the golden form of each (it carries the module). */
+/**
+ * (2026-11-10) The enemies of every season's own table (data/seasons/<id>/enemies.json, tools/build-data.mjs: 规程's new
+ * enemies and the ones it brings back) — their models and icons as data/enemies.json's.
+ * @returns {Promise<string[]>}
+ */
+export async function seasonEnemyIds() {
+  const dir = join(ROOT, 'data/seasons');
+  const ids = new Set();
+  for (const d of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
+    if (!d.isDirectory()) continue;
+    const t = await readJson(`data/seasons/${d.name}/enemies.json`).catch(() => null);
+    for (const id of Object.keys(t || {})) ids.add(id);
+  }
+  return [...ids].sort();
+}
+
 async function hiddenSeasonPieces() {
   const [chess, kits] = await Promise.all([readJson('data/seasons/act3autochess/chess.json').catch(() => null), import('../server/sim/content/kits/index.js')]);
   const codes = new Set(kits.SEASON_KIT_FILES.map((f) => f.replace(/^op-|\.js$/g, '')));
@@ -434,7 +450,7 @@ async function main() {
     assets07, ops03, enemies05, maps05, audio, modelsData, charword, voiceLang: opts.voiceLang,
     // default: only the slots a battle can play (plan.mjs VOICE_BATTLE_SLOTS); --voice-all takes the whole official set
     voiceSlots: opts.voiceAll ? null : undefined,
-    extraEnemyIds: Object.keys(dataEnemies || {}),
+    extraEnemyIds: [...Object.keys(dataEnemies || {}), ...await seasonEnemyIds()],
     extraTokenIds: [...Object.keys(dataTokens || {}), ...extras.tokenIds, ...deviceIds],
     extraHandbook,
     localEnemySpines,
