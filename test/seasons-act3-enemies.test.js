@@ -22,11 +22,10 @@ const E3 = ACT3.enemies, E0 = BASE.enemies;
 // its list). Reachable = the keys named by the season's waves, leaders, enemy effects / choices / strategies, its
 // 特训敌人 entries and the escorts each entry brings (factions.json entries[*].N / E …), and every enemy those name.
 
-// the leader fields: the new leaders (假想敌：械 / 茧 / 鳍, 矩兽), their parts and the units of their waves
+// the leader fields: the new leader 矩兽 and the units of the leaders' waves
 const LEADER_FIELD = [
   'enemy_10196_ubba_2', 'enemy_1424_lrboom', 'enemy_1435_dsflys', 'enemy_2124_dyjsfg', 'enemy_9024_acsgnt',
-  'enemy_9035_acspider',
-  'enemy_9035_acspider_2', 'enemy_9036_acweb', 'enemy_9037_aceel', 'enemy_9037_aceel_2', 'enemy_9040_accrit',
+  'enemy_9040_accrit',
 ];
 // 特训敌人 entries of 规程 (its new types CRITIC 精锐 / REBORN 重生 among them) and their escorts and offspring
 const SPECIAL_TYPE = [
@@ -288,4 +287,253 @@ test('假想敌：械 【洪流攻势】: 量变之械 on every passable side of
   runFor(h, 0.5);
   const fresh = alive(h, PART).slice(before).map((p) => [Math.round(p.y), Math.round(p.x)]).sort();
   assert.deepEqual(fresh, [[3, 4], [5, 4]]);
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// 假想敌：茧 (boss_12 / boss_15) and 淤困之茧, on the default boss field with one or two players (p1 the left half, the
+// leader's own field — it stands on column 10 —, p2 the right one)
+
+const SPIDER = 'enemy_9035_acspider', SPIDER2 = 'enemy_9035_acspider_2', WEB = 'enemy_9036_acweb';
+const NET = (key) => E3[key].skills.find((s) => s.prefabKey === 'Net');
+
+/** `left` / `right`: [row, col, hp] of walls on p1's / p2's half (absolute tiles). */
+function spiderField(key, { left = [], right = [], hp = 1e7 } = {}) {
+  const wall = (pid, list, base) => list.map(([row, col], i) => ({ uid: base + i, chessId: 't_wall', row, col, abs: true }));
+  const h = bossArena(ACT3, [key, WEB], {
+    sharedBoss: { hp, maxHp: 1e7, damage(_pid, a) { this.hp = Math.max(0, this.hp - a); } },
+    players: [
+      { playerId: 'p1', seat: 0, side: 'L', colOffset: 0, units: wall('p1', left, 1) },
+      ...right.length ? [{ playerId: 'p2', seat: 1, side: 'R', colOffset: 8, units: wall('p2', right, 101) }] : [],
+    ],
+  });
+  h.step();
+  const set = (list, base) => list.map(([, , v], i) => { const u = h.b.allies().find((a) => a.uid === base + i); if (v) u.hp = v; return u; });
+  const L = set(left, 1), R = set(right, 101);
+  const boss = h.spawn(key, { pos: [3, 10], routeIndex: 0, tag: 'boss' });
+  return { h, boss, L, R };
+}
+
+test('假想敌：茧: never walks; each shot volley takes the max_target highest-HP units of every field; 伪装 evade at each 25 % of HP lost', () => {
+  const bb = E3[SPIDER].talents.bb;
+  assert.equal(bb['Passive.attack@max_target'], 3); assert.equal(bb['Passive.attack@batch_max_target'], 6);
+  const { h, boss, L, R } = spiderField(SPIDER, {
+    left: [[2, 3, 1e6], [2, 5, 4e6], [4, 3, 3e6], [4, 5, 2e6]], right: [[2, 15, 1e6], [4, 15, 5e6]],
+  });
+  assert.ok(boss.s.flags.noMove && boss.s.flags.unblockable, 'acspider[passive]: UNMOVABLE_PRIVATE + BLOCK_FREE');
+  const x0 = boss.x, y0 = boss.y;
+  h.runUntil(() => boss.stats.attacks >= 1 && [...L, ...R].filter((u) => u.stats.taken > 0).length >= 5, 20);
+  assert.deepEqual(L.map((u) => u.stats.taken > 0), [false, true, true, true], 'its own field: the 3 with the most HP');
+  assert.deepEqual(R.map((u) => u.stats.taken > 0), [true, true], 'the other field: both (fewer than 3)');
+  runFor(h, 5);
+  assert.ok(boss.x === x0 && boss.y === y0, 'stays where it appeared');
+
+  // acspider[evade-ticker]: HP under 75 % → 伪装 (Evade.duration s, Evade.prob of phys and arts dodged); not again above 50 %
+  assert.equal(boss.findBuff('boss:acspiderEvade'), null);
+  h.b.sharedBoss.hp = 0.7e7;
+  runFor(h, 1.1);
+  const ev = boss.findBuff('boss:acspiderEvade');
+  assert.ok(ev, 'evading');
+  assert.equal(boss.s.dodgePhys, bb['Evade.prob']); assert.equal(boss.s.dodgeArts, bb['Evade.prob']);
+  runFor(h, bb['Evade.duration'] - 1);
+  assert.ok(boss.findBuff('boss:acspiderEvade'), `${bb['Evade.duration']} s`);
+  runFor(h, 1.5);
+  assert.equal(boss.findBuff('boss:acspiderEvade'), null, 'over, and 70 % is above the next step (50 %)');
+  h.b.sharedBoss.hp = 0.45e7;
+  runFor(h, 1.1);
+  assert.ok(boss.findBuff('boss:acspiderEvade'), 'the 50 % step');
+});
+
+test('淤困之茧: 【淤困捕食】 webs max_target random operators of every field on their tiles; bound: no attack, block or skill start; −4 % HP a second, 25 s; its operator gone, it goes', () => {
+  const net = NET(SPIDER), wb = E3[WEB].talents.bb;
+  assert.deepEqual([net.initCooldown, net.cooldown, net.bb.max_target, net.bb.batch_max_target], [15, 25, 2, 4]);
+  const { h, L, R } = spiderField(SPIDER, { left: [[2, 3], [2, 5], [4, 3]], right: [[2, 15]] });
+  h.runUntil(() => alive(h, WEB).length >= 3, 20);
+  assert.ok(h.b.time >= net.initCooldown - 1e-6, `not before its first cooldown (${h.b.time})`);
+  runFor(h, 0.5);
+  const webs = alive(h, WEB);
+  assert.equal(webs.length, 3, 'two on its own field, the one operator of the other');
+  const bound = [...L, ...R].filter((u) => webs.some((w) => w.x === u.tileC && w.y === u.tileR));
+  assert.equal(bound.length, 3, 'each on an operator\'s own tile');
+  assert.ok(R[0] === bound.find((u) => R.includes(u)), 'the other field\'s operator');
+  for (const u of bound) assert.ok(u.s.flags.disarm && u.s.flags.noBlock && u.s.flags.skillLock, 'acweb[bundling]: FORCE_DISARMED + BLOCK_FREE + SKILL_NOT_ACTIVATABLE');
+  const free = L.find((u) => !bound.includes(u));
+  assert.ok(free && !free.s.flags.disarm && !free.s.flags.skillLock, 'the operator without a web');
+  assert.ok(webs.every((w) => w.s.taunt === wb['Bundling.taunt_level']), 'taunt level 1: 更容易受到攻击');
+  // acweb[bleeding]: −hp_ratio of its max HP every 1 s
+  const w0 = webs[0], hp0 = w0.hp;
+  runFor(h, 3);
+  assert.ok(Math.abs(hp0 - w0.hp - 3 * wb['Bundling.hp_ratio'] * w0.s.maxHp) < 1e-6, `${hp0} → ${w0.hp}`);
+  // ON_OWNER_FINISH: the operator dies → its web dies
+  const victim = bound.find((u) => R.includes(u)), vw = webs.find((w) => w.x === victim.tileC && w.y === victim.tileR);
+  h.b.kill(victim, null);
+  h.step();
+  assert.ok(!vw.alive, 'the web of a dead operator');
+  // the web dies (acweb[existing], 25 s) → the operators are free again
+  const other = webs.filter((w) => w !== vw);
+  h.runUntil(() => other.every((w) => !w.alive), wb['Bundling.duration'] + 1);
+  h.step();
+  // (the next 【淤困捕食】 lands about then: an operator keeps one binding per live web on its tile)
+  for (const u of bound.filter((x) => x !== victim)) {
+    const live = alive(h, WEB).filter((w) => w.x === u.tileC && w.y === u.tileR).length;
+    assert.equal(u.buffs.filter((x) => x.key === 'boss:acweb').length, live, 'released by the dead web');
+    assert.equal(!!u.s.flags.skillLock, live > 0);
+  }
+});
+
+test('淤困之茧: a bound operator starts no skill (SKILL_NOT_ACTIVATABLE) and makes no attack, while its SP still charges', () => {
+  const guard = chessRec({ id: 't_guard', profession: 'WARRIOR', stats: { atk: 300, blockCnt: 2 }, skill: { spCost: 5, initSp: 0, duration: 3, bb: { atk: 0.5 } } });
+  const h = makeBattle({
+    content: 'generic', extraContent: [enemiesMod, bossesMod], seed: 7, autoFinish: false, timeLimit: 600, kind: 'normal',
+    defs: { chess: { t_guard: guard }, enemies: { [WEB]: E3[WEB], enemy_dummy: { ...E3[WEB], key: 'enemy_dummy', talents: { bb: {}, bbStr: {} }, stats: { ...E3[WEB].stats, maxHp: 1e7 } } } },
+    units: [{ chessId: 't_guard', row: 9, col: 5 }], enemies: [],
+  });
+  h.step();
+  const u = h.unit('t_guard');
+  const dummy = h.spawn('enemy_dummy', { pos: [9, 6], routeIndex: 0, mods: { speedMul: 0 } });
+  const web = h.spawn(WEB, { pos: [9, 5], routeIndex: 0 });
+  h.step();
+  assert.ok(u.s.flags.skillLock && u.s.flags.disarm && u.s.flags.noBlock, 'bound');
+  const atk0 = u.stats.attacks;
+  h.run(8);
+  assert.equal(u.skill.ready, true, 'SP charged');
+  assert.equal(u.skill.activations, 0, 'no skill start while bound');
+  assert.equal(u.stats.attacks, atk0, 'no attack while bound');
+  h.b.kill(web, null);
+  h.run(2);
+  assert.ok(!u.s.flags.skillLock, 'released');
+  assert.equal(u.skill.activations, 1, 'casts once free');
+  assert.ok(dummy.alive);
+});
+
+test('假想敌：茧 隐秘核心: 4 per field and poison on hit; 【悲惨之雨】 on its own field, then the other one: ASPD −50 and 真实 every 0.5 s there only', () => {
+  const bb = E3[SPIDER2].talents.bb, rain = E3[SPIDER2].skills.find((s) => s.prefabKey === 'AcidRain');
+  assert.deepEqual([rain.initCooldown, rain.cooldown, rain.bb.duration, rain.bb.damage, rain.bb.attack_speed, rain.bb.interval], [25, 30, 25, 75, -50, 0.5]);
+  const { h, boss, L, R } = spiderField(SPIDER2, { left: [[2, 3], [2, 5], [4, 3], [4, 5], [3, 3]], right: [[2, 15]] });
+  h.runUntil(() => boss.stats.attacks >= 1 && [...L, ...R].filter((u) => u.stats.taken > 0).length >= 5, 20);
+  assert.equal(L.filter((u) => u.stats.taken > 0).length, bb['Passive.attack@max_target'], '4 of its own field');
+  const p = R[0].findBuff('boss:acspiderPoison');
+  assert.ok(p, 'acspider[poison]');
+  const t0 = R[0].stats.taken;
+  runFor(h, 1.05);
+  assert.ok(R[0].stats.taken - t0 >= bb['Poison.attack@damage'] - 1e-6, 'the poison ticks');
+  // 【悲惨之雨】 (Left: its own field) at 25 s
+  runFor(h, rain.initCooldown + 0.6 - h.b.time);
+  assert.ok(L.every((u) => u.findBuff('boss:acspiderRain')) && !R[0].findBuff('boss:acspiderRain'), 'p1\'s field');
+  assert.equal(L[4].s.aspd, Math.max(20, 100 + rain.bb.attack_speed));
+  const lt = L[4].stats.taken;
+  runFor(h, 1);
+  assert.ok(L[4].stats.taken - lt >= 2 * rain.bb.damage - 1e-6, '75 真实 every 0.5 s');
+  runFor(h, rain.bb.duration);
+  assert.ok(L.every((u) => !u.findBuff('boss:acspiderRain')), `over after ${rain.bb.duration} s`);
+  // the next cast (cooldown 30 from the first): Right, the other field
+  h.runUntil(() => R[0].findBuff('boss:acspiderRain'), rain.cooldown);
+  assert.ok(L.every((u) => !u.findBuff('boss:acspiderRain')), 'only p2\'s field');
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// 假想敌：鳍 (boss_13 / boss_16): walking row 9 of the normal test field into t_wall on (9, 6)
+
+const EEL = 'enemy_9037_aceel', EEL2 = 'enemy_9037_aceel_2';
+const eelSk = (key, name) => E3[key].skills.find((s) => s.prefabKey === name);
+
+function eelField(key, units = [{ chessId: 't_wall', row: 9, col: 6 }]) {
+  const h = bossArena(ACT3, [key], { kind: 'normal', sharedBoss: null, units });
+  h.step();
+  const hits = [];
+  h.b.on('damaged', (c) => { if (c.source && c.source.defId === key && c.dmg.type !== 'element') hits.push({ t: c.target, n: c.amount, tags: c.dmg.tags || [], at: h.b.time }); });
+  const neural = [];
+  h.b.on('damaged', (c) => { if (c.source && c.source.defId === key && c.dmg.type === 'element') neural.push(c.target); });
+  return { h, hits, neural };
+}
+
+test('假想敌：鳍: shielded while unblocked (×(1 − damage_resistance) on phys and arts); blocked, the shield turns into one ×damage_scale attack; neural on every hit', () => {
+  const sg = eelSk(EEL, 'ShieldGen'), atk = E3[EEL].stats.atk, ep = E3[EEL].talents.bb['Passive.attack@ep_damage_ratio'];
+  assert.deepEqual([sg.bb.damage_resistance, sg.bb.damage_scale, ep], [0.4, 1.5, 0.4]);
+  const { h, hits, neural } = eelField(EEL);
+  const e = put(h, EEL, [9, 9], { move: true, tag: null });
+  runFor(h, 0.2);
+  assert.ok(e.findBuff('boss:aceelShield') && !e.blockedBy, 'aceel[shield] while walking');
+  const w = h.unit('t_wall');
+  const hp0 = e.hp;
+  h.b.dealDamage(w, e, { amount: 1000, type: 'arts', canDodge: false });
+  assert.ok(Math.abs(hp0 - e.hp - 1000 * (1 - E3[EEL].stats.res / 100) * (1 - sg.bb.damage_resistance)) < 1e-6, `arts × 0.6 (${hp0 - e.hp})`);
+  const hp1 = e.hp;
+  h.b.dealDamage(w, e, { amount: 1000, type: 'true' });
+  assert.ok(Math.abs(hp1 - e.hp - 1000) < 1e-6, 'true damage untouched');
+  h.runUntil(() => e.blockedBy === w, 20);
+  h.step();
+  assert.ok(!e.findBuff('boss:aceelShield'), 'blocked: the shield gone');
+  const hp2 = e.hp;
+  h.b.dealDamage(w, e, { amount: 1000, type: 'arts', canDodge: false });
+  assert.ok(Math.abs(hp2 - e.hp - 700) < 1e-6, 'no shield while blocked');
+  h.runUntil(() => hits.length >= 2, 20);
+  assert.deepEqual(hits.slice(0, 2).map((x) => Math.round(x.n)), [atk * sg.bb.damage_scale, atk], 'the first blocked attack × 1.5, then plain');
+  assert.ok(!e.findBuff('boss:aceelPower'));
+  assert.ok(neural.length >= 2 && neural.every((t) => t === w), '神经损伤 with each');
+  assert.ok(w.elem.neural > 0);
+  // the blocker gone: the shield comes back
+  h.b.kill(w, null);
+  runFor(h, 0.3);
+  assert.ok(e.findBuff('boss:aceelShield'), 'unblocked again: ShieldGen');
+});
+
+test('假想敌：鳍 【离子环波】: at its cooldown, arts ATK × atk_scale and neural on every ground unit within range_radius', () => {
+  const dis = eelSk(EEL, 'Discharge');
+  assert.deepEqual([dis.initCooldown, dis.cooldown, dis.bb.range_radius, dis.bb.atk_scale], [24, 24, 1.5, 1.25]);
+  const { h, hits } = eelField(EEL, [{ chessId: 't_wall', row: 9, col: 6 }, { chessId: 't_wall2', row: 10, col: 6 }, { chessId: 't_wall2', row: 11, col: 7, uid: 9 }]);
+  const e = put(h, EEL, [9, 7], { tag: null });
+  h.runUntil(() => hits.some((x) => x.tags.includes('aceelDischarge')), 30);
+  const ds = hits.filter((x) => x.tags.includes('aceelDischarge'));
+  assert.ok(Math.abs(ds[0].at - dis.initCooldown) < 0.5, `at ${ds[0].at}`);
+  const near = new Set(ds.map((x) => x.t));
+  assert.ok(near.has(h.unit('t_wall')) && near.size === 2 && ![...near].some((u) => u.tileR === 11), 'the two within 1.5 (beside it, diagonal), not the one two rows away');
+  assert.ok(Math.abs(ds.find((x) => x.t === h.unit('t_wall')).n - E3[EEL].stats.atk * dis.bb.atk_scale) < 1e-6);
+  assert.ok(e.alive);
+});
+
+test('假想敌：鳍 隐秘核心: each attack stacks its target (× 1 + 0.2 per stack, at most 5) and jumps to 2 + 1 per stack more within 1.5, × 0.75 each jump', () => {
+  const bb = E3[EEL2].talents.bb, atk = E3[EEL2].stats.atk;
+  assert.deepEqual([bb['Charge.atk'], bb['Charge.max_stack_cnt'], bb['Charge.attack@chain.max_target'], bb['Charge.attack@chain.atk_scale'], bb['Passive.attack@projectile_range']], [0.2, 5, 2, 0.75, 1.5]);
+  const units = [[9, 6], [10, 6], [10, 5], [11, 5], [11, 4], [12, 4], [12, 3]].map(([row, col], i) => ({ chessId: i ? 't_wall2' : 't_wall', row, col, uid: i + 1 }));
+  const { h, hits } = eelField(EEL2, units);
+  const e = put(h, EEL2, [9, 9], { move: true, tag: null });
+  h.b.on('tick', () => { for (const u of h.b.allies()) u.elem.neural = 0; });   // no 神经损伤 burst (its stun would end the block)
+  const isMain = (x) => !x.tags.length;
+  h.runUntil(() => hits.filter(isMain).length >= 3, 30);
+  const w = h.unit('t_wall');
+  const mains = hits.filter(isMain);
+  const pScale = eelSk(EEL2, 'ShieldGen').bb.damage_scale;
+  // it walked in shielded: the first blocked attack is the power attack (× 1.75), no stack yet
+  const first = mains[0].n / atk;
+  assert.ok(Math.abs(first - pScale) < 1e-6, `first × ${first}`);
+  assert.ok(Math.abs(mains[1].n - atk * (1 + bb['Charge.atk'])) < 1e-6, `second × 1.2 (${mains[1].n / atk})`);
+  assert.ok(Math.abs(mains[2].n - atk * (1 + 2 * bb['Charge.atk'])) < 1e-6, 'third × 1.4');
+  // jumps after the first hit: 2 + 1 (one stack), each × 0.75 more, scaled by the main target's stacks
+  const firstAt = mains[0].at, jumps1 = hits.filter((x) => x.tags.includes('aceelChain') && Math.abs(x.at - firstAt) < 1e-6);
+  assert.equal(jumps1.length, 3, 'three jumps (2 + 1 per stack)');
+  const s1 = 1 + bb['Charge.atk'];
+  const f = first;   // the power scale rides on the jumps of that attack
+  assert.deepEqual(jumps1.map((x) => Math.round(x.n)), [0.75, 0.5625, 0.421875].map((k) => Math.round(atk * k * s1 * f)));
+  assert.ok(!jumps1.some((x) => x.t === w), 'never back on the main target');
+  h.runUntil(() => hits.filter(isMain).length >= 8, 60);
+  const last = hits.filter(isMain).at(-1);
+  assert.ok(Math.abs(last.n - atk * (1 + bb['Charge.max_stack_cnt'] * bb['Charge.atk'])) < 1e-6, 'capped at 5 stacks (× 2)');
+  assert.ok(e.alive);
+});
+
+test('假想敌：鳍 隐秘核心 雷暴: every 10 s a thunderbolt on the operator of its field with the most units in its 3×3', () => {
+  const bb = E3[EEL2].talents.bb;
+  const units = [[9, 1], [10, 1], [11, 1], [12, 8]].map(([row, col], i) => ({ chessId: 't_wall', row, col, uid: i + 1 }));
+  const { h, hits } = eelField(EEL2, units);
+  const e = put(h, EEL2, [9, 10], { tag: null });
+  h.runUntil(() => hits.some((x) => x.tags.includes('aceelThunder')), 12);
+  const th = hits.filter((x) => x.tags.includes('aceelThunder'));
+  assert.equal(th.length, 1);
+  assert.ok(Math.abs(th[0].at - 10) < 0.1, `at ${th[0].at}`);
+  const t = th[0].t;
+  assert.deepEqual([t.tileR, t.tileC], [10, 1], 'three units in its 3×3');
+  assert.ok(Math.abs(th[0].n - E3[EEL2].stats.atk * bb['Weather.atk_scale']) < 1e-6, 'arts, RES 0');
+  runFor(h, 10);
+  assert.equal(hits.filter((x) => x.tags.includes('aceelThunder')).length, 2, 'every 10 s');
+  assert.ok(e.alive);
 });
