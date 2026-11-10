@@ -159,7 +159,7 @@ test('the rules name prefabs the client binds for that operator', () => {
       if (n === 'buff' && b === 'jesca2') Object.assign(o, { kind: 'turn', shield: 2 });
       if (n === 'counter') Object.assign(o, { tgt: 2, t: 2 });
       if (n === 'summon' && b === 'mitm') o.waste = 1;
-      if (n === 'aoe') o.skill = b === 'branch' ? 'resolve' : b === 'mitm' ? 'mitm:s1' : b === 'headb2' ? 'headb2:highland' : b === 'ebnhlz' ? 'ebnhlz:flashback' : b === 'ironmn' ? 'ironmn:crab' : b === 'dminon' ? 'dminon:spread' : b === 'mcnist' ? 'mcnist:charge' : 'judge:atonement';   // 折桠's opening blast, 斥罪's S2 pulse (the shared 'aoe' event: their skills only)
+      if (n === 'aoe') o.skill = b === 'branch' ? 'resolve' : b === 'mitm' ? 'mitm:s1' : b === 'headb2' ? 'headb2:highland' : b === 'ebnhlz' ? 'ebnhlz:flashback' : b === 'ironmn' ? 'ironmn:crab' : b === 'dminon' ? 'dminon:spread' : b === 'mcnist' ? 'mcnist:charge' : b === 'acrbot' ? 'acrbot_t2' : 'judge:atonement';   // 折桠's opening blast, 斥罪's S2 pulse (the shared 'aoe' event: their skills only)
       // ('hit' rules answer their own moment keys)
       const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS }))
         .flatMap((ctx) => (n === 'hit' ? HIT_KEYS : n === 'kitHit' ? KIT_HIT_KEYS : [undefined]).map((k) => kitOfficialPlan(n, { ...o, k, heal: 1 }, b, ctx))).filter(Boolean);

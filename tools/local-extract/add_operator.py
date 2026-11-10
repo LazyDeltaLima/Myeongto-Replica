@@ -8,7 +8,8 @@ each with its own flags; this runs them in order for the given operators only, s
                     CAB index: .cache/fx-cab-index.json for EN, .cache/fx-cab-index-cn.json for CN)
   2. modes          char_modes.py --id                  (the client that has charpack/<charId>.ab)
      shared effects fx_extract.py --bundle <codename> --pack battle/prefabs/effects/common.ab --prefab …   (the common_*
-                    prefabs its modes name: the renderer finds a prefab by name in the operator's own bundle)
+                    prefabs its modes name, and its own char_<codename>_* ones from battle/prefabs/effects/char.ab, read
+                    from the client that has its charpack: the renderer finds a prefab by name in the operator's own bundle)
   3. mount points   char_points.py --id                 (same client)
   4. sound cues     char_audio.py --id                  (same client)
   5. attack timing  attack_timing.py --id               (EN, then CN for what EN lacks)
@@ -63,6 +64,9 @@ FINISH_ORDER = ('templates', 'bindings', 'plays', 'keys', 'assets', 'data', 'sea
 FINISH_TABLES = ['data/assets.json', 'data/chess.json']
 KITS = ROOT / 'server/sim/content/kits'
 COMMON_PACK = 'battle/prefabs/effects/common.ab'
+# (2026-11-10) an operator's prefabs kept in the shared char pack instead of a bundle of its own: `char_<codename>_*`
+# (规程's “暴躁铁皮” char_618_acrbot — char_acrbot_attack_start_01 …, its client has no battle/prefabs/effects/acrbot.ab)
+CHAR_PACK = 'battle/prefabs/effects/char.ab'
 FX_DIR = ROOT / 'public/assets/local/fx'
 # A copy would be drawn wrongly today: 怒潮凛冬's S3 row lives `unmovable` s, but a skill's `buff` list is held for the whole skill
 COMMON_LEFT_OUT = {'char_1051_headb2': {'common_unmovable_01'}}
@@ -128,13 +132,14 @@ def moved(before, after, names):
     return out
 
 
-def common_names(rec):
-    """The common_* prefabs a modes.json record names, anywhere in it (a cast may be a row of its own: { anim, cast })."""
+def common_names(rec, prefix='common_'):
+    """The common_* prefabs (or those of another `prefix`) a modes.json record names, anywhere in it (a cast may be a row of
+    its own: { anim, cast })."""
     out = set()
 
     def walk(o):
         if isinstance(o, str):
-            if o.startswith('common_'):
+            if o.startswith(prefix):
                 out.add(o)
         elif isinstance(o, dict):
             for v in o.values():
@@ -165,34 +170,45 @@ def emitted_names(doc):
     return out
 
 
-def missing_common(cid, modes, bundles):
-    """The common_* prefabs of this operator's modes its own bundle lacks, sorted."""
+def missing_common(cid, modes, bundles, prefix='common_'):
+    """The common_* prefabs (or `prefix` ones) of this operator's modes its own bundle lacks, sorted."""
     have = set(bundles.get(codename(cid)) or []) | {'common_empty'}   # (a prefab with nothing to draw)
-    return sorted(common_names(modes.get(cid) or {}) - have - COMMON_LEFT_OUT.get(cid, set()))
+    return sorted(common_names(modes.get(cid) or {}, prefix) - have - COMMON_LEFT_OUT.get(cid, set()))
 
 
 def extract_common(ids, clients, py, step):
-    """Copy the shared prefabs the modes name into each operator's bundle, then what those emit (read from the written file)."""
-    source = which_client(clients, COMMON_PACK)
-    if not source:
-        print(f'no client has {COMMON_PACK}: shared effects not extracted', file=sys.stderr)
-        return
-    n, folder = source
+    """Copy the shared prefabs the modes name into each operator's bundle, then what those emit (read from the written file):
+    common_* from COMMON_PACK, the operator's own char_<codename>_* from CHAR_PACK."""
     modes = json.loads((FX_DIR / 'modes.json').read_text(encoding='utf-8'))
-    for c in ids:
-        names = missing_common(c, modes, json.loads((FX_DIR / 'index.json').read_text(encoding='utf-8')).get('bundles') or {})
-        tried = set()
-        while names:
-            tried |= set(names)
-            step('common', [py, TOOL / 'fx_extract.py', '--game', folder, '--client', n, '--cab-index', CAB_INDEX[n],
-                            '--bundle', codename(c), '--pack', COMMON_PACK, *[x for f in names for x in ('--prefab', f)]])
-            have = set((json.loads((FX_DIR / 'index.json').read_text(encoding='utf-8')).get('bundles') or {}).get(codename(c)) or [])
-            kids = set()
-            for f in names:
-                p = FX_DIR / codename(c) / f'{f}.json'
-                if p.exists():
-                    kids |= emitted_names(json.loads(p.read_text(encoding='utf-8')))
-            names = sorted(kids - have - tried)
+    for pack, prefix_of in ((CHAR_PACK, lambda c: f'char_{codename(c)}_'), (COMMON_PACK, lambda c: 'common_')):
+        for c in ids:
+            if not common_names(modes.get(c) or {}, prefix_of(c)):
+                continue
+            # the char pack differs per client (char_acrbot_* only in the CN one): the client of the operator's charpack
+            own = which_client(clients, f'charpack/{c}.ab') if pack == CHAR_PACK else None
+            source = own if own and bundle(own[1], pack) else which_client(clients, pack)
+            if not source:
+                print(f'no client has {pack}: shared effects of {c} not extracted', file=sys.stderr)
+                continue
+            extract_shared(c, modes, pack, prefix_of(c), source, py, step)
+
+
+def extract_shared(c, modes, pack, prefix, source, py, step):
+    """One operator's shared prefabs of `pack` (those starting with `prefix`), then what they emit."""
+    n, folder = source
+    names = missing_common(c, modes, json.loads((FX_DIR / 'index.json').read_text(encoding='utf-8')).get('bundles') or {}, prefix)
+    tried = set()
+    while names:
+        tried |= set(names)
+        step('common', [py, TOOL / 'fx_extract.py', '--game', folder, '--client', n, '--cab-index', CAB_INDEX[n],
+                        '--bundle', codename(c), '--pack', pack, *[x for f in names for x in ('--prefab', f)]])
+        have = set((json.loads((FX_DIR / 'index.json').read_text(encoding='utf-8')).get('bundles') or {}).get(codename(c)) or [])
+        kids = set()
+        for f in names:
+            p = FX_DIR / codename(c) / f'{f}.json'
+            if p.exists():
+                kids |= emitted_names(json.loads(p.read_text(encoding='utf-8')))
+        names = sorted(kids - have - tried)
 
 
 def kit_file(cid):

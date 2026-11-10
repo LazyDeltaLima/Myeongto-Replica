@@ -4008,3 +4008,28 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - **메커니스트 `Attack_B`**: CN charpack의 공격·저지 능력 키는 둘 다 `Attack_A`, 스킬 프리팹·스킨 키 표에도 그 이름이 없어 클라가 틀지 않는다.
 - **시데로카 재능 1**: 정해진 처치 수를 채우면 `sidero_t_1[attack_speed]`(`overrideEffectKey` `sidero_buff_01_start`, INFINITY)를 상태 표로. S1 시작 `sidero_skill_01_start`는 이 모드의 기물 스킬이 공용 `skcom_heal_self`라 아무도 부르지 않는다.
 - 확인: `test/render/season-pieces-fx.test.js`, `test/render/status-buff-fx.test.js`, `common-ability-fx`, 각 키트 시험(`op_slent2`·`op_hodrer`·`op_alga`·`op_chnut`·`op_jaksel`·`op_meteo`·`op_mcnist`), `node tools/fx-wiring-report.mjs --id <번들>`. [화면 미확인: 아레나 2배속, 공식 화면과 나란히 안 봄]
+
+## 규정 보스 고치·지느러미의 이펙트 (2026-11-10, 공식 클라에서 확인)
+
+새 시즌 「규정」의 가상적: 고치(`enemy_9035_acspider`·`_2`)·정체의 고치(`enemy_9036_acweb`)·가상적: 지느러미(`enemy_9037_aceel`·`_2`)(이름은 sim.md 「규정 적·보스」처럼 비공식 풀이). 프리팹은 CN 클라에만 있다(`battle/enm_pfb_37.ab`, 이펙트 `pkgrps/btl_pfb_fx_enemy_20.ab`, 11-08 판).
+
+- **적 이펙트 바인딩에 CN 클라를 더함**: `tools/local-extract/enemy_bindings.py`가 기본 표와 시즌마다의 `data/seasons/<id>/enemies.json` 적을 다 읽고(`waves`·`bosses` 등도 시즌 것까지), `--other-game <CN>`이 EN 클라에 없는 적 프리팹·투사체·이펙트 번들·버프 템플릿만 채운다(EN에 있는 것은 EN 그대로 — 2026-11-10 실행에서 이미 있던 적 253개의 바인딩은 하나도 안 바뀜). CN에서 온 기록은 `client: 'other'`, `--extract`는 그 이펙트를 CN 클라와 CN CAB 색인으로 뽑는다. 두 클라의 MonoScript id가 같아(적 프리팹 67종 대조) 능력 분류(`BUFF_CLASSES`)가 그대로 맞는다. 규정 새 적 96종 모두 바인딩, 이름 붙은 이펙트 1,112개 모두 추출(라이타니엔 맹약 소환물 `enemy_9025_aclts`·`9026_acltm`은 웨이브에 없어 `--id`로).
+- **버프 이펙트**: 시뮬의 상태가 클라 버프 키를 `fxTag`로 싣는다 — 위장 `acspdier[evade]`(`enemy_acspider_buff_mask_01`), 지느러미 보호막 `aceel[shield]`(`enemy_aceel_skill_01_shield_start_loop`), 강화 공격 `aceel[power-atk]`(`aceel[shield]`의 노드가 만드는 버프, `enemy_aceel_skill_01_shield_buff`). 그래서 시뮬의 `phase` `acspiderEvade`·`aceelShield`는 대체 그림(사라짐 연기)을 안 그린다(`fxgame.js acBossFx`).
+- **보호막이 깨질 때**: `aceel[shield]`의 `ON_OWNER_BLOCKEE_CHANGED`가 `CheckBlocked` 뒤 `CreateEffect` `enemy_aceel_skill_01_shield_end`를 지느러미에게 한 번. 바인딩이 버프의 이 사건(`Buff.Event` 37)이 만드는 이펙트를 `buffBlocked`로 적고(그 노드가 만드는 버프 자신의 이펙트는 뺌), 시뮬의 `phase` `aceelShieldEnd` 때 튼다.
+- **정체의 고치**: 묶인 오퍼레이터 위의 거미줄은 고치 자신의 `Talents/Bundling` 오라 `acweb[bundling]`이 그 오퍼레이터에게 만드는 `acweb[vfx]`(`enemy_acweb_01`·`_02`)다. 시뮬의 묶임 버프가 고치를 출처로, `fxTag` `buff:acweb[vfx]`로 싣고, `fxstatus.js`가 아군의 `buff:` 상태를 그 출처 적의 바인딩으로 찾아 아군 위에 그린다(`viewOf`). 고치 프리팹에는 `_startEffect`가 없어 소환 연기도 안 그린다.
+- **지느러미(숨은 핵심) 튐**: 튈 때마다 시뮬의 `link` `aceelChain`이 그 탄 키를 싣고(`aceel[power-atk]` 중이면 `projectile_enemy_aceel_pwratk`, 아니면 `projectile_enemy_aceel`), 렌더가 앞 대상에서 다음 대상으로 그 투사체 꼬리 `enemy_aceel_attack_line`을 날리고 닿을 때 그 타격을 튼다(`eshotFx`, 대체 빔 없음).
+- **남긴 대체 그림**: 비참한 비의 장판(`zone` `acspiderRain`)은 공식이 타일 리스너의 `_effectSettings.effectKey` `enemy_acspider_debuff_ground_01`을 칸마다 깔지만 덮는 칸이 CN 전용 클래스라 모른다(sim.md의 [추정·CN]과 같은 이유) — 지금은 대체 장판. 뇌우 벼락(`explode` `aceelThunder`)의 `projectile_enemy_aceel_thurder`는 이펙트가 없고, `aceel[thurder-trigger]`의 `ON_BUFF_START`가 화면 이펙트 `screen_act3autochess_aceel_weather`(`CreateCameraEffect`, 전역 칠판 `aceel[vfx-counter]`로 하나만)를 숨은 핵심이 있는 동안 켠다 — 아직 안 뽑고 안 연결(대체 폭발 그대로). 둘 다 `bundles/fx-B` 줄.
+- 확인: `test/render/ac-boss-fx.test.js`(시뮬 `fxTag`·출처·튐 키는 실제 규정 키트로, 렌더는 견본 바인딩으로)·`ac-boss-fx-bare.test.js`(추출물 없으면 대체 그림), `test/local-patch-fxspawn.test.js`(무모한 척탄병 `enemy_1405_boomer_2`의 `enemy_boomer_attack_start`는 SpecialPoint0이 없는 모델 — 클라 자료의 빈칸, 목록에 더함). 열한 군데를 하나씩 되돌려 모두 실패 확인. [화면 미확인: 아레나·실제 판에서 안 봄]
+
+## 규정 액티브 전략의 표식·칸 이펙트 (2026-11-10, 공식 클라에서 확인)
+
+새 시즌 표의 전략 효과(`effectBuffInfoDataDict`) 블랙보드가 이펙트를 이름으로 준다: 드래그 대상 오퍼레이터 위 `skill_target_effect`(`skill_target_chess` 1) — `aceffect_band_87` `skill_layer_limit_grow_round`·`aceffect_band_90` `skill_garr_event_extra_exec` → `map_v079_squad_01`, `eff_band12` → `_02`, `eff_band14` → `_03`, `eff_band22` → `_04`, `eff_band17`·`eff_band18` → `_05`; 지형 칸 `eff_band19`(`skill_target_tile` 1)의 `effect` → `map_v079_dikuai02`. 프리팹은 CN `battle/prefabs/effects/map.ab`(일곱 개, `dikuai01`은 어느 표도 안 부르고 `MapEffect` 스크립트가 있음)에서 `map` 묶음으로 뽑았다. 연결은 액티브 전략 자체(sim-L 메시지·ui-I 드래그 화면)가 생길 때.
+- 특질의 `eventEffect`(새 필드)도 같은 묶음의 `map_v079_buff02`·`03`·`04`를 준다(특질 161개) — 특질 쪽(sim-N)에서.
+
+## 11-08 갱신 이펙트 번들 여섯 대조 (2026-11-10)
+
+CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는 여섯 — 아코르트·시빌라이트 에테르나·트라고디아·프라마닉스 더 프레리타·비비아나·위 — 를 CN에서 따로 뽑아 비교했다: 프리팹 수·노드·입자·텍스처(바이트까지)가 모두 같고, 다른 것은 재질 577개에 새로 적힌 float `_PremultiplyAlpha` 5뿐이다. 5는 `fxplayer.js`가 이미 값이 없을 때 쓰는 기본값(SrcAlpha; 1이면 미리 곱함)이라 그림이 같다 — 다시 뽑지 않는다. CN에만 있는 새 필드 둘: `OnFinishAnime._needStopParticleSystemWhenRecycle`(트라고디아 S3 셋, 이름으로 보아 풀에 돌려질 때 입자를 멈춤 — 우리는 이펙트와 함께 지움, `fx_coverage.py`에 분류)과 `ParticleEffect._disableBattleEffectShrink` 1(프라마닉스 더 프레리타 `sbell2_skill_03_hit`, 이미 0으로 가정하고 다르면 보고하는 필드).
+
+## 레이지 아이언하이드의 이펙트 (2026-11-10, 공식 클라에서 확인)
+
+규정 숨김 기물 레이지 아이언하이드(`char_618_acrbot`)의 이펙트는 자기 이름의 번들이 아니라 CN의 공용 `battle/prefabs/effects/char.ab`에 `char_acrbot_*`로 있다(EN에는 그 번들에 없음). `add_operator.py`의 공용 묶음 단계가 `common_*`처럼 그 오퍼레이터의 `char_<코드명>_*`도 그 charpack이 있는 클라의 `char.ab`에서 그 묶음(`acrbot`)으로 뽑는다(일곱 개). 재능 1 야만의 심장의 쓰러짐 폭발 `projectile_chr_acrbot_t2`는 `_effectsWhenStart` `char_acrbot_ability_02_die_01`을 그 칸에 — 키트의 `aoe` `acrbot_t2` 때(`kitofficial.js`). 확인: `test/render/season-pieces-fx.test.js`, `kit-event-fx`, `node tools/fx-wiring-report.mjs --id char_618_acrbot`(못 튼 것 0). [화면 미확인]

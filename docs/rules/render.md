@@ -274,7 +274,12 @@
   `public/assets/local/spine/op/<charId>/<side>/`에 웹 atlas의 페이지 이름으로 쓴다 — 두 atlas의 페이지·영역이 같고 크기가 맞을 때만.
   `assets.js spineEntry`(`localPagesEntry`)는 웹 skel·atlas를 그대로 쓰고 페이지만 그것으로(`pages`, 전용 로드 파서가 premultiplied로 디코드), 한
   페이지가 안 오면 그 페이지만 웹 것으로. 첫 추출(EN 클라): 149명 중 145명·289쪽·32.8 MB(웹 42.0 MB). 탈룰라(`char_4247_oxi`)·토스카
-  (`char_4244_tocka`)·`char_1015_aglna2`·`char_4231_clemnt`는 EN 클라에 전투 번들이 없어 웹 페이지 그대로.
+  (`char_4244_tocka`)·`char_1015_aglna2`·`char_4231_clemnt`는 EN 클라에 전투 번들이 없어 웹 페이지 그대로였다.
+- CN 클라에서 (2026-11-10): EN에 전투 번들이 없는 넷은 CN 클라의 `chararts/<charId>.ab`에서 같은 방법으로 뽑는다(`--game`을 CN의 번들 폴더로,
+  `--only spine/op/<charId>`) — 토스카·안젤리나 더 멜로우 위시·클레멘티아는 기본 설치본(`StreamingAssets`), 레이지 아이언하이드(`char_618_acrbot`, 규정 숨김
+  기물)는 핫업데이트본에만 있어 그것으로, 올가(`char_4245_alga`, 규정 기물)는 핫업데이트본으로. 탈룰라는 핫업데이트본(11-08) 앞면 atlas의 영역이 웹 것과 달라(웹 모델은 그 전 판) 앞뒤 모두 기본 설치본에서 —
+  웹 skel에 맞는 페이지여야 하므로 영역이 같은 판을 쓴다. 여섯 모두 앞뒤 페이지가 맞음. 레이지 아이언하이드의 `chararts` 번들에는 전투 모델만 있고 일러스트
+  (`<charId>_1`·`_2`)가 없어(공식 클라에서 확인) 카드 그림은 웹 초상 그대로.
 - 소재 경로: 클라 페이지는 로컬 추출물이라 늘 이 서버가 내준다(배포 때 `deploy.sh`가 복사). 같은 날 함께 고친 다운로드 기록(fetch-assets가 디스크에
   있던 파일의 원천을 기록하지 않아 GitHub 소재 대부분도 이 서버가 내주던 것)은 docs/ASSETS.md(유지되는 파일의 기록) 참고.
 - 확인: `test/render/assets.test.js`(`localPagesEntry`, 로컬 페이지·실패 시 웹 페이지 종류별 디코드), `test/local-extract.test.js`(`atlas_regions`·

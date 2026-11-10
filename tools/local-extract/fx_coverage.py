@@ -639,7 +639,10 @@ COMP_FIELDS = {
                             '_particleDetailsHookers[]._detailPercentage': _K('lod.ps')},
     'script:TriggerAnimatorWhenFinish': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'), '_customKey': _K('animFin[].p')},
     'script:OnFinishAnime': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'), '_triggerName': _K('animFin[].p'),
-                             '_isTrigger': _K('animFin[].v'), '_isInt': _K('animFin[].v'), '_triggerValue': _K('animFin[].v')},
+                             '_isTrigger': _K('animFin[].v'), '_isInt': _K('animFin[].v'), '_triggerValue': _K('animFin[].v'),
+                             # (2026-11-10, the CN client's 11-08 update: 酒神 S3) [ASSUMED·CN: from its name — the effect's
+                             # particle systems stop as the pooled effect is recycled; the player removes them with the effect]
+                             '_needStopParticleSystemWhenRecycle': _N('the player removes an effect\'s systems with it')},
     'script:SwitchAnimatorStateWhenFinish': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'),
                                              '_stateName': _K('animFin[].play')},
     'script:SetAnimatorTriggerOnEvent': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'),

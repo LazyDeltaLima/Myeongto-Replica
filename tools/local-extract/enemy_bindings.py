@@ -27,7 +27,12 @@ battle/prefabs/effects/<name>.ab → `<name>`, of pkgrps/btl_pfb_fx_<x>.ab → `
 
 Usage (from the repo root):
   .venv-extract/bin/python tools/local-extract/enemy_bindings.py [--game <Arknights_Data>] [--cache <dir>] [--extract]
-                           [--all] [--id enemy_…]…
+                           [--all] [--id enemy_…]… [--other-game <CN Arknights_Data> [--other-cab-index <json>]]
+The enemies are those of data/enemies.json and of every season's data/seasons/<id>/enemies.json (2026-11-10: 规程's
+enemies). --other-game (the CN client) fills in what --game lacks — enemy prefabs (规程's battle/enm_pfb_36 / 37), projectiles,
+effect bundles (pkgrps/btl_pfb_fx_enemy_17…) and buff templates — read the same way; what --game has stays its own, so
+the enemies bound before keep their bindings. A record from it says `client: 'other'`, and --extract takes its effects
+from that client with --other-cab-index.
 --cache keeps the slow reads (enemy prefabs, projectiles, points, the effect name index: ~5 min) as pickles / JSON there;
 --extract without --all extracts the effects of the enemies that appear (data/waves.json, data/bosses.json, the random
 squads' template slots) — --all every enemy. Everything is (c) Hypergryph; private fan use only.
@@ -147,9 +152,23 @@ def read_skill_prefabs(game, keys):
     return out
 
 
+def data_files(name):
+    """data/<name> and every season's data/seasons/<id>/<name> that exist, the base first."""
+    return [p for p in [ROOT / 'data' / name, *sorted((ROOT / 'data' / 'seasons').glob(f'*/{name}'))] if p.exists()]
+
+
+def enemy_table():
+    """{enemy id: record} of data/enemies.json, then the ids only a season's enemies.json has."""
+    E = {}
+    for p in data_files('enemies.json'):
+        for k, v in json.loads(p.read_text(encoding='utf-8')).items():
+            E.setdefault(k, v)
+    return E
+
+
 def device_keys():
     """{token key: [skill prefab, …]} of the enemy-side tokens of data/waves.json (template `devices[]`) and data/enemies.json
-    (`devices[]`) — build-data's templateDevice records (`skill.prefabId` / `skillId`)."""
+    (`devices[]`), the seasons' too — build-data's templateDevice records (`skill.prefabId` / `skillId`)."""
     acc = {}
 
     def take(d):
@@ -170,8 +189,7 @@ def device_keys():
             for v in o:
                 walk(v)
     for name in ('waves.json', 'enemies.json'):
-        p = ROOT / 'data' / name
-        if p.exists():
+        for p in data_files(name):
             walk(json.loads(p.read_text(encoding='utf-8')))
     return acc
 
@@ -624,7 +642,7 @@ def proj_record(key, roots):
 
 
 def used_enemies():
-    """Enemy ids that appear in the game: data/waves.json (spawns, branches, overrides), data/bosses.json, the leader events'
+    """Enemy ids that appear in the game (every season): data/waves.json (spawns, branches, overrides), data/bosses.json, the leader events'
     首领 (data/choices.json — 2026-10-21; until then their effects were left out), the random
     squads' template slots (data/enemies.json `templateSlot`), and the enemy-side tokens (device_keys)."""
     acc = set()
@@ -641,10 +659,9 @@ def used_enemies():
         elif isinstance(o, str) and re.match(r'^enemy_\d+_\w+$', o):
             acc.add(o)
     for name in ('waves.json', 'bosses.json', 'factions.json', 'choices.json'):   # choices.json: the leader events' 首领
-        p = ROOT / 'data' / name
-        if p.exists():
+        for p in data_files(name):   # and each season's
             keys_in(json.loads(p.read_text(encoding='utf-8')))
-    E = json.loads((ROOT / 'data/enemies.json').read_text(encoding='utf-8'))
+    E = enemy_table()
     for eid, e in (E.items() if isinstance(E, dict) else []):
         if isinstance(e, dict) and e.get('templateSlot'):
             acc.add(eid)
@@ -937,8 +954,22 @@ def render_entry(r, projs):
                 if fin and b.get('key') in buff_fx:
                     lst = buff_end.setdefault(b['key'], [])
                     lst += [x for x in fin if x not in lst]
+    # (2026-11-10) what a buff's ON_OWNER_BLOCKEE_CHANGED (Buff.Event 37) creates on its owner once — 假想敌：鳍's aceel[shield]:
+    # CheckBlocked → enemy_aceel_skill_01_shield_end as it is blocked (`buffBlocked`; render/fxgame.js acBossFx); not the
+    # effects of the buffs those nodes create (theirs are `buffFx`, held with the sim's status)
+    held_fx = {x for lst in buff_fx.values() for x in lst}
+    buff_blocked = {}
+    for a in r['abilities']:
+        for kk in ('buffs', 'activeBuffs', 'passiveBuffs'):
+            for b in a.get(kk) or []:
+                ev = [x for x in ((b.get('template') or {}).get('onEvent') or {}).get('37', []) if x not in STATUS_DRAWN and x not in held_fx]
+                if ev and b.get('key'):
+                    lst = buff_blocked.setdefault(b['key'], [])
+                    lst += [x for x in ev if x not in lst]
     if buff_fx:
         out['buffFx'] = buff_fx
+    if buff_blocked:
+        out['buffBlocked'] = buff_blocked
     # (2026-10-23) the IMMEDIATELY ones (life 0): the buff ends as it starts, so its effect is finished at once and goes its
     # `_delayToFinish` later — “碎铳之簧”'s achunt_dog_silence as its MoveToHunter mode comes on (`buffOnce`: their buffFx keys)
     once = [k for a in r['abilities'] for kk in ('buffs', 'activeBuffs', 'passiveBuffs') for b in a.get(kk) or []
@@ -1004,7 +1035,7 @@ def entry_names(e):
     out = [e.get('start'), e.get('dead')] + list(e.get('aura', [])) + list(e.get('handed', [])) + list(e.get('auraNested', []))
     out += [x for rb in e.get('reborn') or [] for x in rb['fx']]
     out += [x for ra in e.get('rebornAbility') or [] for x in ra['cast'] + [b['fx'] for b in ra['buffs']]]
-    for k in ('buffFx', 'buffEnd'):
+    for k in ('buffFx', 'buffEnd', 'buffBlocked'):
         for lst in (e.get(k) or {}).values():
             out += lst
     for m in e['modes']:
@@ -1033,26 +1064,51 @@ def main():
     ap.add_argument('--extract', action='store_true', help='extract the effect prefabs not extracted yet (fx_extract.py)')
     ap.add_argument('--all', action='store_true', help='with --extract: every enemy\'s effects, not only the ones that appear')
     ap.add_argument('--id', action='append', default=[], help='only these enemies (extraction)')
+    ap.add_argument('--other-game', help='a second client (the CN one) for what --game lacks (see above)')
+    ap.add_argument('--other-cab-index', default=str(ROOT / '.cache/fx-cab-index-cn.json'), help='--other-game\'s CAB index')
     a = ap.parse_args()
     game = a.game
     cache = Path(a.cache) if a.cache else None
     if cache:
         cache.mkdir(parents=True, exist_ok=True)
-    E = json.loads((ROOT / 'data/enemies.json').read_text(encoding='utf-8'))
-    P = cached(cache, 'enemies.pkl', lambda: read_enemies(game))
-    PR = cached(cache, 'proj.pkl', lambda: read_projectiles(game))
-    PTS = cached(cache, 'points.pkl', lambda: read_points(game))
-    if cache and (cache / 'fx_index.json').exists():
-        FX = {k.lower(): v for k, v in json.loads((cache / 'fx_index.json').read_text()).items()}
-    else:
-        FX = read_fx_index(game)
-        if cache:
-            (cache / 'fx_index.json').write_text(json.dumps(FX))
-    BT = cached(cache, 'buff_templates.pkl', lambda: read_buff_templates(game))
+    E = enemy_table()
     DEV = device_keys()
-    TOK = cached(cache, 'tokens.pkl', lambda: read_tokens(game, set(DEV)))
-    SKP = cached(cache, 'skill_prefabs.pkl', lambda: read_skill_prefabs(game, {k for v in DEV.values() for k in v}))
-    PTS = dict(PTS, **cached(cache, 'token_points.pkl', lambda: read_points(game, 'pkgrps/btl_pfb_tokens_*.ab', set(DEV))))
+
+    def reads(game, cache):
+        P = cached(cache, 'enemies.pkl', lambda: read_enemies(game))
+        PR = cached(cache, 'proj.pkl', lambda: read_projectiles(game))
+        PTS = cached(cache, 'points.pkl', lambda: read_points(game))
+        if cache and (cache / 'fx_index.json').exists():
+            FX = {k.lower(): v for k, v in json.loads((cache / 'fx_index.json').read_text()).items()}
+        else:
+            FX = read_fx_index(game)
+            if cache:
+                (cache / 'fx_index.json').write_text(json.dumps(FX))
+        BT = cached(cache, 'buff_templates.pkl', lambda: read_buff_templates(game))
+        TOK = cached(cache, 'tokens.pkl', lambda: read_tokens(game, set(DEV)))
+        SKP = cached(cache, 'skill_prefabs.pkl', lambda: read_skill_prefabs(game, {k for v in DEV.values() for k in v}))
+        PTS = dict(PTS, **cached(cache, 'token_points.pkl', lambda: read_points(game, 'pkgrps/btl_pfb_tokens_*.ab', set(DEV))))
+        return P, PR, PTS, FX, BT, TOK, SKP
+    P, PR, PTS, FX, BT, TOK, SKP = reads(game, cache)
+    from_other = set()   # prefab roots read from --other-game
+    if a.other_game:
+        ocache = cache / 'other' if cache else None
+        if ocache:
+            ocache.mkdir(parents=True, exist_ok=True)
+        oP, oPR, oPTS, oFX, oBT, oTOK, oSKP = reads(a.other_game, ocache)
+        for mine, theirs in ((P, oP), (TOK, oTOK)):   # whole prefabs: only roots --game lacks
+            for r, tree in theirs['trees'].items():
+                if r not in mine['trees']:
+                    mine['trees'][r], mine['src'][r] = tree, theirs['src'][r]
+                    from_other.add(r)
+        for mine, theirs in ((PR, oPR), (PTS, oPTS), (BT, oBT), (SKP, oSKP)):
+            for k, v in theirs.items():
+                mine.setdefault(k, v)
+        for k, v in oFX.items():
+            if k not in FX:
+                FX[k] = dict(v, client='other')
+        print(f'[enemy] --other-game: {len(from_other)} prefab(s), '
+              f'{sum(1 for v in FX.values() if v.get("client") == "other")} effect(s) only there')
     proj_keys = set(PR)
     res, projs = {}, {}
     units = [(eid, eid if eid in P['trees'] else (e.get('spine') or eid), P) for eid, e in sorted(E.items())]
@@ -1060,6 +1116,8 @@ def main():
     for eid, root, src in units:
         tree = src['trees'].get(root)
         r = {'prefab': root, 'bundle': src['src'].get(root)}
+        if root in from_other:
+            r['client'] = 'other'
         if src is TOK:
             r['token'] = 1
         if not tree:
@@ -1091,8 +1149,9 @@ def main():
             todo += [s for s in (pr or {}).get('sub', []) if s not in projs]
         r['projectileKeys'] = list(dict.fromkeys(pk))
         res[eid] = r
-    doc = {'$comment': 'Official enemy effect bindings (EN client battle/enm_pfb_*.ab, [uc]projectiles.ab, config/buff_template_holder.ab). '
-                       'Per enemy id of data/enemies.json: prefab root + bundle, modes (UnitMode: _overrideStart/DeadEffect), '
+    doc = {'$comment': 'Official enemy effect bindings (EN client battle/enm_pfb_*.ab, [uc]projectiles.ab, config/buff_template_holder.ab; '
+                       'what it lacks from the CN client, `client: other`). '
+                       'Per enemy id of data/enemies.json and the seasons\' enemies.json: prefab root + bundle, modes (UnitMode: _overrideStart/DeadEffect), '
                        'abilities (GameObject path; emitters castEffects/hitEffects/attachEffects/inputTargetEffects/castTargetEffects '
                        'with start/end AbilityStandard.Event, oneshot, dir / slots; buffs with overrideEffectKey (fx) and their template '
                        'effects; projectiles with _mountPointType), points (Graphic mount transforms). Written by '
@@ -1118,12 +1177,14 @@ def main():
             for n in entry_names(table.get(eid) or {'modes': []}):
                 if n.lower() in have or n.lower() not in FX:
                     continue
-                want[FX[n.lower()]['bundle']].add(n)
+                want[(FX[n.lower()].get('client') or '', FX[n.lower()]['bundle'])].add(n)
         import fx_extract
-        ex = fx_extract.Extractor(game, a.cab_index)
-        for rel in sorted(want):
-            print(f'[enemy] {rel}: {len(want[rel])} prefab(s)')
-            ex.run(out_bundle(rel), set(want[rel]), pack=rel, index=ENEMY_INDEX)
+        exs = {}
+        for cl, rel in sorted(want):
+            if cl not in exs:
+                exs[cl] = fx_extract.Extractor(a.other_game, a.other_cab_index) if cl else fx_extract.Extractor(game, a.cab_index)
+            print(f'[enemy] {rel}{" (" + cl + ")" if cl else ""}: {len(want[(cl, rel)])} prefab(s)')
+            exs[cl].run(out_bundle(rel), set(want[(cl, rel)]), pack=rel, index=ENEMY_INDEX)
         p = FX_DIR / ENEMY_INDEX
         if p.exists():
             for b, lst in (json.loads(p.read_text()).get('bundles') or {}).items():

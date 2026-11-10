@@ -80,7 +80,6 @@ export const PICK_EVENTS = Object.freeze({
   'hbound|zone': "official: fxgame.js zoneFx flies her skill's projectile_chr_hbound_s1 / _s2 and plays its _effectsWhenReached (modes.json skills[i].zone) as it lands",
   'greyy2|zone': "official: fxgame.js zoneFx flies her S2's projectile_chr_greyy2_s2 (modes.json skills[1].shot) and plays greyy2_skill_02_range (skills[1].zone) as it lands",
   'mcnist|shield': "official: S2's 屏障 is mcnist_s_2_shield, its mcnist_skill_02_buff_01 held by the status path (fxstatus.js KEY_FX); T2 生命方程's mcnist_t_2 has no effect of its own, so no barrier look either (KIT_NO_STAND_IN)",
-  'acrbot|aoe': "stand-in: the generic area mark for T1 荒蛮之心's knock-out burst; its projectile_chr_acrbot_t2 effects are not extracted yet (not in the CN bundle index)",
   'slent2|shield': "stand-in: the generic barrier look; BLS-Y's 屏障 is stage 3, not in 规程",
   'hbound|dodge': "stand-in: the same miss mark as every other missed attack (T1 hit rate; standin-acsupo.js sends it too); no prefab of hers is named for it",
 });

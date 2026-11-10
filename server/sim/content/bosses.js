@@ -2255,7 +2255,7 @@ function kitSpider(ab, e) {
   const evadeCheck = (b2, e2) => { // acspider[evade-ticker]: one step per check (the next one waits for the next check)
     if (!(step > 0) || !(P.evadeAt > 1e-9) || !(e2.hpRatio < P.evadeAt - 1e-9)) return;
     P.evadeAt = Math.max(0, P.evadeAt - step);
-    b2.addBuff(e2, { key: 'boss:acspiderEvade', duration: evadeDur, refresh: 'replace', visible: true, mods: { dodgePhys: prob, dodgeArts: prob } });
+    b2.addBuff(e2, { key: 'boss:acspiderEvade', duration: evadeDur, refresh: 'replace', visible: true, mods: { dodgePhys: prob, dodgeArts: prob }, fxTag: 'buff:acspdier[evade]' });
     b2.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: 'acspiderEvade', dur: evadeDur });
   };
   const netTargets = (b2, e2) => { // RANDOM per field, `max_target` each, `batch_max_target` in all
@@ -2357,7 +2357,9 @@ function kitWeb(ab) {
         }
         for (const u of b2.allies()) {
           if (!u.alive || !u.deployed || u.hidden || u.kind !== 'op' || P.bound.has(u) || u.tileR !== P.r || u.tileC !== P.c) continue;
-          const buff = b2.addBuff(u, { key: 'boss:acweb', persist: true, refresh: 'independent', visible: true, flags: { noBlock: true, disarm: true, skillLock: true } });
+          // (the web on the operator is the web's own acweb[vfx], which acweb[bundling] creates there: `source` + `fxTag`)
+          const buff = b2.addBuff(u, { key: 'boss:acweb', persist: true, refresh: 'independent', visible: true, flags: { noBlock: true, disarm: true, skillLock: true },
+            source: e2, fxTag: 'buff:acweb[vfx]' });
           if (buff) P.bound.set(u, buff);
         }
         if (bleed > 0 && (P.bleedAcc += dt) >= 1 - 1e-9) {
@@ -2414,13 +2416,13 @@ function kitEel(ab, e) {
   const ground = (b2, e2) => allTargets(b2, e2).filter((u) => !u.isFlying);
   const setShield = (b2, e2, on) => {
     P.shield = on;
-    if (on) b2.addBuff(e2, { key: 'boss:aceelShield', persist: true, visible: true });
+    if (on) b2.addBuff(e2, { key: 'boss:aceelShield', persist: true, visible: true, fxTag: 'buff:aceel[shield]' });
     else b2.removeBuff(e2, 'boss:aceelShield');
     b2.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: on ? 'aceelShield' : 'aceelShieldEnd' });
   };
   const setPower = (b2, e2, on) => {
     P.power = on;
-    if (on) b2.addBuff(e2, { key: 'boss:aceelPower', persist: true, visible: true });
+    if (on) b2.addBuff(e2, { key: 'boss:aceelPower', persist: true, visible: true, fxTag: 'buff:aceel[power-atk]' });
     else b2.removeBuff(e2, 'boss:aceelPower');
   };
   const chain = (b2, e2, main) => { // projectile_enemy_aceel's jumps from `main`
@@ -2438,7 +2440,8 @@ function kitEel(ab, e) {
       if (!best) break;
       scale *= jumpScale;
       hit.add(best);
-      b2.fx('link', { x: from.x, y: from.y, from: from.id, to: best.id, kind: 'aceelChain', dur: 0.2 });
+      // `key`: the shot that jumps (the strong attack's projectile_enemy_aceel_pwratk while aceel[power-atk] is on)
+      b2.fx('link', { x: from.x, y: from.y, from: from.id, to: best.id, kind: 'aceelChain', dur: 0.2, id: e2.id, key: P.power ? 'projectile_enemy_aceel_pwratk' : 'projectile_enemy_aceel' });
       b2.dealDamage(e2, best, { amount: e2.s.atk * scale, type: 'arts', isAttack: true, tags: ['aceelChain'] });
       from = best;
     }

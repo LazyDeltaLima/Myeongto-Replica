@@ -95,3 +95,9 @@ test('메커니스트 S3 charge plan: from the 结构性原理\'s tile to its st
   const [p] = kitOfficialPlan('charge', { x: 3, y: 0, id: 7, src: 1, dir: 'RIGHT', tx: 6, ty: 0 }, 'mcnist', {}).play;
   assert.deepEqual([p.start, p.land, p.delay, p.fly, p.bundle], [[3, 0], [6, 0], 0.2, 20, 'mcnist_token']);
 });
+
+test('레이지 아이언하이드 T1 knock-out burst: projectile_chr_acrbot_t2\'s start effect on its tile (the CN char pack, bundle acrbot)', () => {
+  assert.deepEqual(kitOfficialPlan('aoe', { x: 3, y: 2, r: 1.7, id: 7, skill: 'acrbot_t2' }, 'acrbot', {}).play,
+    [{ n: 'char_acrbot_ability_02_die_01', on: 'point', life: 'once', bundle: 'acrbot' }]);
+  assert.equal(kitOfficialPlan('aoe', { x: 3, y: 2, id: 7, skill: 'other' }, 'acrbot', {}), null);
+});

@@ -1,0 +1,37 @@
+// test/render/ac-boss-fx-bare.test.js — 假想敌：鳍's fx events with none of its effects extracted (ac-boss-fx.test.js: the
+// extracted case; a file of its own because the effect layer loads its tables once per process): the stand-ins stay.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createFxLayer } from '../../public/js/render/fxgame.js';
+
+const EEL = 'enemy_9037_aceel_2';
+const settle = () => new Promise((r) => setTimeout(r, 10));
+async function layerWith() {
+  const files = {
+    '/assets/local/fx/index.json': { bundles: { b: [] } },
+    '/assets/local/fx/enemy-modes.json': { $fx: {}, [EEL]: {
+      modes: [{ name: 'Default', anim: ['Attack'], ranged: { cast: [], opt: {}, hit: [], proj: { key: 'projectile_enemy_aceel', mount: 2, trail: ['line'], hit: ['hit'] } } }],
+      buffFx: { 'aceel[shield]': ['sh_loop'] }, buffBlocked: { 'aceel[shield]': ['sh_end'] } } },
+  };
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  const layer = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, enemyDef: () => null });
+  await settle();
+  const foe = (id, defId) => ({ id, x: id, y: 0, alive: true, isEnemy: true, info: { id, side: 'enemy', defId }, actor: { roles: { attack: { loop: 'Attack' } } } });
+  const ally = (id) => ({ id, x: id, y: 1, alive: true, info: { id, side: 'ally', defId: 'char_x' } });
+  const views = new Map([[1, foe(1, EEL)], [3, ally(3)], [4, ally(4)]]);
+  layer.onEvent(['tick'], views);
+  return { layer, views };
+}
+
+test('鳍 / 茧 fx events: nothing extracted — the stand-ins stay', async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    const { layer, views } = await layerWith(false);
+    for (const [kind, o] of [['phase', { id: 1, kind: 'aceelShield' }], ['phase', { id: 1, kind: 'aceelShieldEnd' }],
+      ['link', { from: 3, to: 4, kind: 'aceelChain', dur: 0.2, id: 1, key: 'projectile_enemy_aceel' }]]) {
+      const e = ['fx', kind, 0, 0, o];
+      layer.onEvent(e, views);
+      assert.equal(layer.ownsFx(e), false, `${kind} ${o.kind}`);
+    }
+  } finally { globalThis.fetch = fetch0; }
+});

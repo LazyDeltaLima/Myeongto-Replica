@@ -714,6 +714,9 @@ export const KIT_OFFICIAL = {
   // judge_skill_02_weapon_hit_01 on her — enemies hit or not)
   // 折桠 S2's FirstAttack (held by branch_s_2[first], no damage, no target needed: the skill's opening 战栗 blast, the sim's 'aoe')
   aoe: {
+    // (2026-11-10) 레이지 아이언하이드 T1 荒蛮之心: knocked out, acrbot[t2] fires projectile_chr_acrbot_t2 on its tile — its
+    // `_effectsWhenStart` char_acrbot_ability_02_die_01 there (the CN char pack, battle/prefabs/effects/char.ab)
+    acrbot: cite('projectile_chr_acrbot_t2', (o) => (o.skill === 'acrbot_t2' ? { play: [{ ...once('char_acrbot_ability_02_die_01', 'point'), bundle: 'acrbot' }] } : null)),
     // (2026-11-10) 메커니스트 S3: the charge's landing (projectile_chr_mcnist_s3_token* `_effectsWhenReached`, on the stop tile) and
     // each attack's cross (projectile_chr_mcnist_s3 `_effectsToTileWhenStart`, on its target's tile as it is thrown, 0.8 s before it lands)
     mcnist: cite(['projectile_chr_mcnist_s3_token', 'projectile_chr_mcnist_s3'], (o) => (o.skill === 'mcnist:charge'

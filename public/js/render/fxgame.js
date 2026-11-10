@@ -5042,6 +5042,40 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return true;
   }
   /**
+   * 2026-11-10 (docs/rules/fx.md 「규정 보스 고치·지느러미의 이펙트」): the sim's fx of 假想敌：茧 / 鳍 (content/bosses.js kitSpider,
+   * kitWeb, kitEel) that the official effects stand for — true = drawn here (or drawn by the status they come with), no stand-in:
+   * - 'phase' acspiderEvade / aceelShield: the buff's own effect (acspdier[evade] → enemy_acspider_buff_mask_01, aceel[shield] →
+   *   …_shield_start_loop) is the sim status's (`fxTag`, fxstatus.js) — not the vanish puff as well;
+   * - 'phase' aceelShieldEnd: blocked, aceel[shield]'s ON_OWNER_BLOCKEE_CHANGED creates enemy_aceel_skill_01_shield_end on the 鳍
+   *   (CheckBlocked → CreateEffect, the buff template; enemy-modes.json `buffBlocked`) once; the strong attack's enemy_aceel_skill_01_shield_buff is
+   *   aceel[power-atk]'s, again the status's;
+   * - 'link' aceelChain: a jump of the 鳍's shot (`key`: projectile_enemy_aceel, _pwratk while aceel[power-atk] is on) flies from
+   *   the unit hit last to the next — its trail and hit as an 'enemyShot' (eshotFx), the hit at the landing;
+   * - 'summon' of 淤困之茧: its prefab has no `_startEffect` (no birth effect) and it is drawn by the acweb[vfx] it creates on the
+   *   operator it binds (fxstatus.js `viewOf`) — no summon puff.
+   * Without the boss's effects extracted, false: the stand-ins stay.
+   */
+  const AC_PHASE_BUFF = { acspiderEvade: 'acspdier[evade]', aceelShield: 'aceel[shield]' };
+  const AC_NO_BORN = new Set(['enemy_9036_acweb']);
+  function acBossFx(e, views) {
+    const o = e[4];
+    if (!o || typeof o !== 'object' || level() >= 3) return false;
+    if (e[1] === 'phase' && (o.kind in AC_PHASE_BUFF || o.kind === 'aceelShieldEnd')) {
+      const v = views.get(o.id);
+      if (!eOn(v)) return false;
+      if (o.kind !== 'aceelShieldEnd') return (ebindOf(v)?.buffFx?.[AC_PHASE_BUFF[o.kind]] || []).some(efx);
+      const ns = (ebindOf(v)?.buffBlocked?.['aceel[shield]'] || []).filter((n) => efx(n));   // enemy-modes.json `buffBlocked`
+      if (!ns.length) return false;
+      eplay(v, ns);
+      return true;
+    }
+    if (e[1] === 'link' && o.kind === 'aceelChain' && typeof o.key === 'string') {
+      return eshotFx({ id: o.id, from: o.from, tgt: o.to, key: o.key, t: Number(o.dur) || 0.2 }, views);
+    }
+    if (e[1] === 'summon' && AC_NO_BORN.has(o.key)) return !!(emodes?.[o.key] && !emodes[o.key].start && eOn(views.get(o.id)));
+    return false;
+  }
+  /**
    * 2026-10-10: “萨米的意志”'s 冰凌 — sim fx 'column' { x, y, c, id, key, sub, r0, dir, speed, dist, life } once at the strike
    * (content/bosses.js kitDeer, docs/rules/sim.md 「萨米的意志 冰凌」): projectile `key` runs from row `r0` of column `c` along
    * `dir` at `speed` and places projectile `sub` on the tile k·`dist` from the start as it passes (k·dist / speed s after the
@@ -6081,6 +6115,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'shotSlow' && e[4]) { shotSlowFx(e[4]); return; }
           // 2026-10-31: 刺胄之弹's flight — its boss skill's projectile trail rides the shell (then the cast's effects below)
           if (e[1] === 'shell' && e[4]?.caster != null && e[4].id != null && typeof e[4].ability === 'string' && eshellRide(e, views)) ownFx.add(e);
+          if (acBossFx(e, views)) { ownFx.add(e); return; }   // 2026-11-10: 假想敌：茧 / 鳍 (规程)
           // 2026-10-31: an enemy ability's area (【污染秽蚀】, 毒雾, 刺胄之弹's landing) or death burst — its projectile's
           // effects, else the stand-in zone / ring (not the ability's cast below)
           if ((e[1] === 'zone' || e[1] === 'explode') && e[4]?.id != null && e[4].caster == null && typeof e[4].ability === 'string') { if (eprojAreaFx(e, views)) ownFx.add(e); return; }
