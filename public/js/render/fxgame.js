@@ -248,6 +248,7 @@ const FORM_MODES = Object.freeze({
   enemy_9011_acrefr: Object.freeze({ stopped: 'NoRef' }),
   enemy_9017_achunt: Object.freeze({ charge: 'S1' }),
   enemy_1040_bombd: Object.freeze({ bombed: 'S1' }),
+  enemy_9024_acsgnt: Object.freeze({ Giant: 'Giant', SnowyMountain: 'SnowyMountain' }),   // 谢拉格's giant (a walking ally)
   enemy_10081_mpplai: Object.freeze({ translator_fuchou: 'ModeB', translator_youling: 'MoveC', translator_shushi: 'ModeD' }),
 });
 
@@ -3009,6 +3010,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // 酒神 S2's 本能的召唤 (`src`) 诱导s an enemy: token_phatm2_encdool_target (its `_activeBuffs`, LIMITED for the lure's
       // duration `t`) shows token_encdool_skill_02_debuff_01 on it — ended with the summon (the sim ends the lure then)
       case 'lure': {
+        // 2026-11-11: 谢拉格's giant's 【神迹之声】 (server content/bonds/giant.js, no `src`): its Attract ability's range effect
+        // is drawn from its 'skill' event (eskillFx, as an enemy's ability) — no stand-in puff over it
+        const g = o.src == null ? views.get(o.id) : null;
+        if (g?.info?.walks && eOn(g) && eskillPart(g, 'attract')) { ownFx.add(e); return true; }
         if (views.get(o.src)?.info?.defId !== 'token_10054_phatm2_encdool' || failed
           || !index?.bundles?.phatm2_token?.includes('token_encdool_skill_02_debuff_01')) return false;
         const v = views.get(o.id);
@@ -4705,7 +4710,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // effects. Cast effects play at the ability's speed, hits at 1.0 (as the operators').
   // 2026-10-23: an ally built from an enemy record (炎佑, shared/skill-modes.js ENEMY_RECORD_MODES) attacks with its enemy
   // prefab's bindings in its one mode — the attacker's paths below take it as an enemy, a target keeps its real side
-  const erec = (v) => !!(v?.info && v.info.side !== 'enemy' && enemyRecordMode(v.info.defId));
+  // 2026-11-11: a walking ally built from an enemy record (UnitInfo `walks`: 规程's 莱塔尼亚 summons, 谢拉格's giant —
+  // server content/bonds/walker.js) too, in the mode its form stands for (emodeOf) as the enemy would
+  const erec = (v) => !!(v?.info && v.info.side !== 'enemy' && (v.info.walks || enemyRecordMode(v.info.defId)));
   const efoe = (v) => v?.info?.side === 'enemy' || erec(v);
   /** An attack of a unit with official effects the layer did not draw officially (perfSkips `off` / `lod3`). */
   function countSkip(src) {
@@ -4727,7 +4734,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function emodeOf(v) {
     const b = ebindOf(v);
     if (!b || !Array.isArray(b.modes) || !b.modes.length) return null;
-    const rm = erec(v) ? enemyRecordMode(v.info.defId).mode : -1;
+    const rm = erec(v) ? enemyRecordMode(v.info.defId)?.mode ?? -1 : -1;
     if (rm >= 0) return rm < b.modes.length ? rm : 0;
     const fm = typeof v.form === 'string' ? (FORM_MODES[v.info.defId] || FORM_MODES[v.info.spine])?.[v.form] : null;
     if (fm && b.modes.length > 1) {
@@ -5314,7 +5321,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const ebreath = new Map();   // dragon id → { tgt, l: its target effect (live entry) | null, until, done }
   function ebreathFx(e, views) {
     const o = e[4], src = views.get(o.id), tgt = views.get(o.target);
-    if (!src || !tgt || !erec(src) || !eOn(src) || level() >= 3) return false;
+    if (!src || !tgt || !erec(src) || !enemyRecordMode(src.info.defId) || !eOn(src) || level() >= 3) return false;
     const part = eskillPart(src, enemyRecordMode(src.info.defId).skill);
     const line = efx(Array.isArray(part?.proj?.trail) ? part.proj.trail[0] : null);
     if (!line) return false;
@@ -5400,7 +5407,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const k = `${id}:${key.toLowerCase()}`;
     // 2026-10-15: a talent buff's effect held until this ability starts (enemy-modes.json `auraEnd`: 子代's tentac_grow → Grow)
     for (const l of live) if (l.owner === id && l.tag === `aura:${key.toLowerCase()}`) l.inst.stop();
-    v._fxESkill = { part, t: clockS, hold, held: hold ? new Set() : null };
+    v._fxESkill = { part, t: clockS, hold, held: hold ? new Set() : null, inPlace: inPlaceOfAttack(v, part) };
     if (clockS - (eskillSeen.get(k) ?? -9) < 1) return true;
     eskillSeen.set(k, clockS);
     if (hold) {
@@ -5427,6 +5434,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
     }
     return true;
+  }
+  /**
+   * 2026-11-11: whether ability `part` of walking ally `v` is cast in place of its next attack — its clip is its mode's
+   * attack clip (谢拉格's giant's PowerAttack on a frozen enemy, B_Attack: the sim strikes it as an attack after its fx
+   * 'enemySkill'). That attack's swing and strike then draw nothing of the plain attack (its hit is the ability's, eskillHit).
+   */
+  function inPlaceOfAttack(v, part) {
+    if (!v?.info?.walks || typeof part?.anim !== 'string') return false;
+    const m = ebindOf(v)?.modes?.[emodeOf(v) ?? -1];
+    return Array.isArray(m?.anim) && m.anim.includes(part.anim);
   }
   /** A 'dmg' on `tid` by enemy `by` (the sim's attacker field) within 3 s of its ability: that ability's hit effects. */
   function eskillHit(tid, by, views) {
@@ -6044,7 +6061,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         case 'skill': {
           const v = views.get(e[1]);
           // 2026-10-10: an enemy's skill naming its ability (['skill', id, on, prefabKey] — the sim sends fx 'enemySkill' today)
-          if (v?.info?.side === 'enemy') { const k = typeof e[3] === 'string' ? e[3] : e[4]?.prefabKey; if (k) eskillFx(v, k, { on: !!e[2], loop: true }); return; }
+          if (v?.info?.side === 'enemy' || v?.info?.walks) { const k = typeof e[3] === 'string' ? e[3] : e[4]?.prefabKey; if (k) eskillFx(v, k, { on: !!e[2], loop: true }); return; }
           if (erec(v)) { if (!e[2]) endBreath(v); return; }   // 2026-10-23: 炎佑's channel ends (ebreathFx)
           if (!isOp(v) || !bundleOf(v)) return;
           if (e[2] && e[3] !== 'flag') v._fxSkillByEvent = true; // local patch: skillByFlag leaves it alone
@@ -6100,6 +6117,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-10-10: an enemy's attack — its strike's cast effects, its shot's official trail, its hit to come
           if (efoe(src)) {
             if (!eOn(src)) return;
+            if (src._fxESkill?.inPlace) { src._fxESkill.inPlace = false; return; }   // the ability's strike (inPlaceOfAttack)
             const tgt = views.get(e[2]);
             const p = estrikeFx(src, e[3]);
             if (tgt && p?.part) {
@@ -6145,7 +6163,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         // ON_CAST_START cast effects (swingFx). Every state event reaches onEvent, so render/app.js needs no call of its own.
         case 'swing': {
           const src = views.get(e[1]);
-          if (efoe(src)) { if (eOn(src)) eswingFx(src, Number(e[2]) || 0, e[3]); return; }
+          if (efoe(src)) { if (eOn(src) && !src._fxESkill?.inPlace) eswingFx(src, Number(e[2]) || 0, e[3]); return; }
           if (src) src._fxCombat = Number(e[6]) === 1;   // 2026-10-21: at an enemy it blocks (combatEffects, altGroup)
           // (2026-10-21) the 9th field: a talent ability cast in place of the attack; the 6th: its target, when it turns to it
           if (src) swingFx(src, Number(e[2]) || 0, views, e[3], typeof e[8] === 'string' && e[8] ? e[8] : null, typeof e[5] === 'number' ? e[5] : null);
@@ -6221,7 +6239,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[4] && typeof e[4] === 'object') {
             const o = e[4], k = fxAbility(o);
             const v = k ? views.get(o.caster ?? o.id ?? o.src ?? o.by) : null;
-            if (v?.info?.side === 'enemy') {
+            if (v?.info?.side === 'enemy' || v?.info?.walks) {   // (2026-11-11: a walking ally's ability too)
               // 2026-10-15: a held skill's end ('enemySkillEnd' { id, ability } after an 'enemySkill' with `hold`)
               if (e[1] === 'enemySkillEnd') { eskillFx(v, k, { on: false }); return; }
               const tgt = o.target ?? o.tgt ?? o.to;

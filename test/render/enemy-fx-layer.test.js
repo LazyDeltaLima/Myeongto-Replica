@@ -7,9 +7,12 @@ import assert from 'node:assert/strict';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
 
 const SHOT = 'projectile_enemy_acfort_skill';
+// 2026-11-11: 谢拉格's giant (a walking ally from an enemy record, UnitInfo `walks`): its prefab's two modes by its form
+const GIANT_FX = ['g_start_0', 'g_hit_0', 'g_start_1', 'g_hit_1', 'g_lure', 'g_pstart', 'g_phit'];
 const EMODES = {
   $fx: { t_trail: ['b', 't_trail'], t_hit: ['b', 't_hit'], my_die: ['b', 'my_die'], rb_a: ['b', 'rb_a'], rb_b: ['b', 'rb_b'],
-    ...Object.fromEntries([0, 1, 2].flatMap((i) => [`acl_start_${i}`, `acl_hit_${i}`]).concat(['acl_line', 'acl_ring']).map((n) => [n, ['b', n]])) },
+    ...Object.fromEntries([0, 1, 2].flatMap((i) => [`acl_start_${i}`, `acl_hit_${i}`]).concat(['acl_line', 'acl_ring']).map((n) => [n, ['b', n]])),
+    ...Object.fromEntries(GIANT_FX.map((n) => [n, ['b', n]])) },
   enemy_x: {
     modes: [{ name: 'Default', anim: ['Attack'] }, { name: 'Fly', anim: ['Fly_Attack'] }],
     skills: { fireweapon: { cast: [], opt: {}, hit: [], proj: { key: SHOT, mount: 2, trail: ['t_trail'], hit: ['t_hit'], speed: 10 } } },
@@ -35,11 +38,15 @@ const EMODES = {
   enemy_9012_acloon: { modes: ['Default', '1', '2'].map((name, i) => ({ name, anim: ['Attack'], ranged: { cast: [`acl_start_${i}`],
     opt: { [`acl_start_${i}`]: { s: 2, e: 3, o: 1 } }, hit: [`acl_hit_${i}`], proj: { key: 'projectile_enemy_acloon', mount: 2, trail: [], hit: [], speed: 10 } } })),
   skills: { skill_2: { cast: [], opt: {}, hit: [], hitBuff: ['acl_ring'], proj: { key: 'projectile_enemy_acloon_line', mount: 2, trail: ['acl_line'], move: 'OTHER', link: 7 } } } },
+  enemy_9024_acsgnt: { modes: ['Giant', 'SnowyMountain'].map((name, i) => ({ name, anim: [i ? 'B_Attack' : 'A_Attack'], melee: { cast: [`g_start_${i}`],
+    opt: { [`g_start_${i}`]: { s: 2, e: 3, o: 1 } }, hit: [`g_hit_${i}`] } })),
+  skills: { attract: { cast: ['g_lure'], opt: { g_lure: { s: 2, e: 3, o: 0 } }, hit: [], anim: 'B_Skill' },
+    powerattack: { cast: ['g_pstart'], opt: { g_pstart: { s: 2, e: 3, o: 1 } }, hit: ['g_phit'], anim: 'B_Attack' } } },
   enemy_snip: { modes: [{ name: 'Default', anim: ['Attack'] }],
     skills: { crossattack: { cast: [], opt: {}, hit: [], proj: { key: 'p_bolt', mount: 2, trail: ['t_trail'], hit: ['t_hit'], move: 'FIXED_DIRECTION', speed: 5 } } } },
 };
 const files = {
-  '/assets/local/fx/index.json': { bundles: { b: ['t_trail', 't_hit', 'my_die', 'rb_a', 'rb_b', ...[0, 1, 2].flatMap((i) => [`acl_start_${i}`, `acl_hit_${i}`]), 'acl_line', 'acl_ring'] } },
+  '/assets/local/fx/index.json': { bundles: { b: ['t_trail', 't_hit', 'my_die', 'rb_a', 'rb_b', ...[0, 1, 2].flatMap((i) => [`acl_start_${i}`, `acl_hit_${i}`]), 'acl_line', 'acl_ring', ...GIANT_FX] } },
   '/assets/local/fx/enemy-modes.json': EMODES,
 };
 globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
@@ -220,4 +227,54 @@ test('enemy layer: 炎佑\'s 祛恶之焰 tick draws its Skill_2 line and target
   const other = ['fx', 'yanyouFlame', 1, 0, { x: 1, y: 0, id: 6, target: 2 }];
   layer.onEvent(other, new Map([...views, [6, { ...acl, id: 6, info: { ...acl.info, id: 6, defId: 'token_x' } }]]));
   assert.equal(layer.ownsFx(other), false);
+});
+
+test('enemy layer: a walking ally from an enemy record (`walks`: 谢拉格\'s giant) attacks with its prefab\'s mode of its form; a token of the same record without `walks` does not', async () => {
+  const plays = [];
+  const layer = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, trace: (p) => plays.push(p) });
+  await settle();
+  const giant = { id: 5, x: 0, y: 0, alive: true, form: 'SnowyMountain', info: { id: 5, side: 'ally', kind: 'token', defId: 'enemy_9024_acsgnt', walks: true } };
+  const foe = enemy(2, 'enemy_y');
+  foe.x = 1;
+  const views = new Map([[5, giant], [2, foe]]);
+  layer.onEvent(['tick'], views);
+  const names = () => plays.splice(0).filter((p) => p.kind === 'spawn').map((p) => p.names[0]);
+  const strike = () => { layer.onEvent(['swing', 5, 0.3, 'none', 0, 2], views); layer.onEvent(['atk', 5, 2, 'none'], views); layer.onEvent(['dmg', 2, 10, 'phys', 0, 5], views); };
+  strike();
+  let got = names();
+  assert.ok(got.includes('g_start_1') && got.includes('g_hit_1'), `the mountain's mode: ${got}`);
+  assert.ok(!got.includes('g_start_0'), `not the giant's: ${got}`);
+  giant.form = 'Giant';
+  const cam = { liftFor: () => 0, scaleAt: () => 64, dist: 10 };
+  for (let i = 0; i < 120; i++) layer.update(0.016, cam, { width: 10, height: 10 });
+  plays.length = 0;
+  strike();
+  got = names();
+  assert.ok(got.includes('g_start_0') && got.includes('g_hit_0'), `back in the Giant mode: ${got}`);
+  // its skill naming the ability goes the enemy way (eskillFx), as an enemy's
+  layer.onEvent(['skill', 5, true, 'Skills/Attract'], views);
+  assert.ok(names().includes('g_lure'), 'its 【神迹之声】 ability (Skills/Attract)');
+  const lure = ['fx', 'lure', 0, 0, { x: 0, y: 0, id: 5, n: 2 }];
+  layer.onEvent(lure, views);
+  assert.equal(layer.ownsFx(lure), true, 'no stand-in puff over its range effect');
+  // its PowerAttack on a frozen enemy (fx 'enemySkill', then the attack the sim strikes with): the ability's cast and hit, not the attack's
+  layer.onEvent(['skill', 5, false], views);
+  giant.form = 'SnowyMountain';
+  for (let i = 0; i < 120; i++) layer.update(0.016, cam, { width: 10, height: 10 });
+  plays.length = 0;
+  layer.onEvent(['fx', 'enemySkill', 0, 0, { x: 0, y: 0, id: 5, ability: 'PowerAttack', n: 1 }], views);
+  strike();
+  got = names();
+  assert.deepEqual(got.filter((n) => n.startsWith('g_')).sort(), ['g_phit', 'g_pstart'], `PowerAttack in place of the attack: ${got}`);
+  for (let i = 0; i < 120; i++) layer.update(0.016, cam, { width: 10, height: 10 });
+  plays.length = 0;
+  strike();
+  got = names();
+  assert.ok(got.includes('g_start_1') && got.includes('g_hit_1') && !got.includes('g_phit'), `the next attack is a plain one again: ${got}`);
+  // the same record as a plain summon (no `walks`, not 炎佑): no enemy-prefab effects
+  const plain = { ...giant, id: 6, info: { ...giant.info, id: 6, walks: undefined } };
+  views.set(6, plain);
+  layer.onEvent(['swing', 6, 0.3, 'none', 0, 2], views);
+  layer.onEvent(['atk', 6, 2, 'none'], views);
+  assert.ok(!names().some((n) => n.startsWith('g_')), 'a token without `walks` keeps the operator path');
 });

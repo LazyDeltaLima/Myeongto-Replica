@@ -579,6 +579,16 @@ const MACH = Object.freeze({
 });
 export const FORMS = Object.freeze({
   trap_039_dstnta: BROOD,
+  // 2026-11-11: 规程's 谢拉格 6 giant 「不眠雪山」 (enemy_9024_acsgnt, a walking ally — server content/bonds/giant.js, forms
+  // 'Giant' / 'SnowyMountain' as its modes): Giant is the manifest's A_* set; SnowyMountain the B_* set, which has no walk
+  // (it stands) and plays 【神迹之声】 on B_Skill; A_Change into the mountain, B_Change back (the model's clips, 1 s each)
+  enemy_9024_acsgnt: Object.freeze({
+    Giant: Object.freeze({ change: 'B_Change', roles: Object.freeze({}) }),
+    SnowyMountain: Object.freeze({
+      change: 'A_Change',
+      roles: Object.freeze({ idle: 'B_Idle', deploy: 'B_Idle', die: 'B_Die', move: loop('B_Idle'), stun: loop('B_Idle'), attack: loop('B_Attack'), skill: skillRoles(0, 'B_Skill') }),
+    }),
+  }),
   token_10037_mitm_trshrb: CAR,
   token_10018_robrta_mach: MACH,
   // 假想敌：淤困 attached to its blocker (server kitParasite → form 'parasitic', null when the block ends): the client prefab's
@@ -745,22 +755,26 @@ export class UnitView {
     this._offDt = 0;              // animation time skipped while culled
     this._far = false;            // small on screen (adaptive LOD, with hysteresis)
     this.isEnemy = info.side === 'enemy';
+    // a walking ally built from an enemy record (UnitInfo `walks`: 规程's 莱塔尼亚 summons and 谢拉格's giant — server
+    // content/bonds/walker.js): drawn as the enemy it is made of — that model's size and quirks, facing its travel and its
+    // target, its clip per attack, standing on the road —, with an ally's bars and colours (isEnemy stays the side)
+    this.enemyModel = this.isEnemy || !!info.walks;
     this.isBoss = !!info.boss;
     // enemies: the official prefab's size factor (1 for operators, summons and enemies at the standard size)
-    const def = this.isEnemy && ctx.lookupDef ? ctx.lookupDef(info) : null;
-    this.modelK = this.isEnemy ? enemyModelScale(def) : TOKEN_MODEL_K[info.defId] || 1; // summon prefab sizes; _applyPlace
+    const def = this.enemyModel && ctx.lookupDef ? ctx.lookupDef(info) : null;
+    this.modelK = this.enemyModel ? enemyModelScale(def) : TOKEN_MODEL_K[info.defId] || 1; // summon prefab sizes; _applyPlace
     // a fast enemy walks on its model's own Run cycle when it has one (PR #275 by @xcdoge: 猎狗pro, moveSpeed 1.9, Run_Loop
     // 0.53 s next to Move_Loop 0.80 s; also 深池侦察犬 1.7). [ASSUMED] the threshold: faster than the standard 1
-    this.moveFast = this.isEnemy && Number(def?.stats?.moveSpeed) > 1;
+    this.moveFast = this.enemyModel && Number(def?.stats?.moveSpeed) > 1;
     // the official's own model quirks (enemies.json, read from its battle prefabs — tools/local-extract/enemy_model_offsets.py,
     // PR #211): a vertical stretch (its Graphic scale's sy / sx, the two 帝国炮火先兆者 at 1.263) and a mirrored X scale
     // (the Graphic's sx is negative, so the official draws the authored model flipped: 木制瑞印)
-    this.modelKY = this.isEnemy ? enemyModelScaleY(def) : 1;
-    this.modelDX = this.isEnemy ? MODEL_SHIFT[info.defId] || 0 : 0; // MODEL_SHIFT [ASSUMED]
+    this.modelKY = this.enemyModel ? enemyModelScaleY(def) : 1;
+    this.modelDX = this.enemyModel ? MODEL_SHIFT[info.defId] || 0 : 0; // MODEL_SHIFT [ASSUMED]
     this.modelDrop = 0;           // the model's feet below the unit's point on screen, in tiles (update)
     this._placeV = -1;
     this._applyPlace();
-    this.mirrorX = this.isEnemy && !!(def && def.mirrorX);
+    this.mirrorX = this.enemyModel && !!(def && def.mirrorX);
     this.isToken = info.kind === 'token';
     this.noSp = noSpBar(info.defId);   // 2026-10-23: 炎佑 shows its HP bar only (shared/trap-tokens.js)
     this.hpFlash = flashHpBar(info.defId) ? 0 : -1; // ≥ 0: the HP bar shows only this many seconds more (HP_FLASH)
@@ -782,16 +796,16 @@ export class UnitView {
     this.modelSX = NaN;           // the Spine model's display scale (x with the facing mirror) — render/fxgame.js specialPoint
     this.modelSY = NaN;
     this.bodyless = bodyless(info.defId);   // a summon drawn by its effect only (shared/trap-tokens.js BODYLESS_TOKENS)
-    this.dir = this.isEnemy ? null : unitDir(info);
+    this.dir = this.enemyModel ? null : unitDir(info);
     // whether the direction is known (UnitInfo / piece `dir`), not just the legacy ±1: battle and scouting views show
     // the ground wedge only then (a derived RIGHT would mislabel an UP / DOWN operator)
-    this.hasDir = !this.isEnemy && typeof info.dir === 'string' && DIRS.includes(info.dir.toUpperCase());
+    this.hasDir = !this.enemyModel && typeof info.dir === 'string' && DIRS.includes(info.dir.toUpperCase());
     this.facing = this.dir === 'LEFT' ? -1 : 1;
-    this.visFacing = this.isEnemy ? -1 : this.facing;
+    this.visFacing = this.enemyModel ? -1 : this.facing;
     // an operator's / summon's facing while it fights (render/face-turn.js): the mirror `lr`, Back / Front `ud`, `dir4`;
     // its deploy direction until an attack turns it (turnTo); `faceUd` the half shown (Back / Front: a turn changes it
     // edge-on, half way through — `turnS` { t, shown } the turn under way)
-    this.face = this.isEnemy ? null : faceOf(this.dir);
+    this.face = this.enemyModel ? null : faceOf(this.dir);
     this.faceUd = this.face?.ud;
     this.turnS = null;
     this.hp = Number(info.maxHp) || 1; this.maxHp = Number(info.maxHp) || 1; this.ghostHp = this.hp;
@@ -958,11 +972,11 @@ export class UnitView {
         actor.setSkillIndex(this.info.skillIndex);
         actor.setRunMode(this.moveFast);
         // enemies play their attack clip once per attack, then walk on (GitHub #58: the sim stands them for that clip)
-        actor.clipPerAttack = this.isEnemy;
+        actor.clipPerAttack = this.enemyModel;
         actor.fortressClips = FORTRESS_CLIPS[id] || null;
         // the facing its facing-down clips go by (render/spine.js _facesDown): the deploy direction, the facing now (`face`
         // turns as an attack starts, before the swing picks its clip — render/app.js faceEvent)
-        if (!this.isEnemy) actor.downs = () => ({ deploy: this.dir === 'DOWN', face: this.face?.dir4 === 'DOWN' });
+        if (!this.enemyModel) actor.downs = () => ({ deploy: this.dir === 'DOWN', face: this.face?.dir4 === 'DOWN' });
         // its clip events go to the audio (render/app.js ctx.spineEvent); `null` first = this unit now has a model that
         // reports them (the audio drops its stand-in for it)
         if (this.ctx.spineEvent) {
@@ -1170,7 +1184,7 @@ export class UnitView {
    * there until the stun ends (SpineActor._enterStun; the client's Character.States.StunState.OnEnter, docs/rules/render.md
    * 「아군 기절 모션」). An enemy's stun freezes its clip (Enemy.States.StunState plays only a Stun clip).
    */
-  _stunFalls() { return !this.isEnemy && this.alive && !!(this.flags & UF.STUNNED); }
+  _stunFalls() { return !this.enemyModel && this.alive && !!(this.flags & UF.STUNNED); }
 
   /**
    * 深水区: tint the part of a sunk body under the water (DEEP_WATER — the client's Skeleton-AlphaSplit-Water pixel shader)
@@ -1179,7 +1193,7 @@ export class UnitView {
    */
   _updateWater(cam, bx) {
     const P = this.ctx.P;
-    const up = this.isEnemy && this.z < -1e-3 ? waterLineAbove(-this.z) : 0;
+    const up = this.enemyModel && this.z < -1e-3 ? waterLineAbove(-this.z) : 0;
     const layer = this.root.parent;
     if (!(up > 0) || !P?.Filter || !layer) {
       if (this.body.filters) this.body.filters = null;
@@ -1219,10 +1233,10 @@ export class UnitView {
     // fades out (update, DEEP_SHADOW_FADE); a body that dies there stays down (the client moves it back only while it lives)
     if (this.alive) this.sink = this.slide ? deepSink(this.ctx, this.info, this.flying || this.liftoff, this.x, this.y)
       : deepSink(this.ctx, this.info, this.flying || this.liftoff, s.x, s.y);
-    const gz = !this.isEnemy ? floor : this.sink ? -this.sink : 0;
+    const gz = !this.enemyModel ? floor : this.sink ? -this.sink : 0;
     if (this.zTarget == null) this.z = gz;
     this.zTarget = gz;
-    this.shadowZTarget = !this.isEnemy ? null : this.flying ? floor : this.sink || this.z < 0 ? 0 : null;
+    this.shadowZTarget = !this.enemyModel ? null : this.flying ? floor : this.sink || this.z < 0 ? 0 : null;
     if (this.shadowZTarget == null) this.shadowZ = null;
     else if (this.shadowZ == null) this.shadowZ = this.z;
     if (s.maxHp > 0) this.maxHp = s.maxHp;
@@ -1252,15 +1266,15 @@ export class UnitView {
         if (this.imp) this.imp.dirty = true;
       }
     }
-    if (this.isEnemy && !this.slide?.face && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
+    if (this.enemyModel && !this.slide?.face && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
     // an operator on a kit's flight (snapshot anim MOVE: 予愿安洁莉娜 S3, whose flight `_faceToMoveDirection`) faces its
     // travel, and its own direction again once it stands
-    else if (!this.isEnemy && (s.anim | 0) === ANIM.MOVE && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
-    else if (!this.isEnemy && (this.anim | 0) === ANIM.MOVE && (s.anim | 0) !== ANIM.MOVE) this.visFacing = this.face ? this.face.lr : this.facing;
+    else if (!this.enemyModel && (s.anim | 0) === ANIM.MOVE && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
+    else if (!this.enemyModel && (this.anim | 0) === ANIM.MOVE && (s.anim | 0) !== ANIM.MOVE) this.visFacing = this.face ? this.face.lr : this.facing;
     if ((prevFlags ^ this.flags) & UF.SKILL) this.setSkill(!!(this.flags & UF.SKILL));
     if (this.anim === ANIM.DIE && this.alive) this.die();
     // an operator's stun lies down on its Front model's Die clip and stands up on its Back model again (_wantsBack)
-    if (!this.isEnemy && ((prevFlags ^ this.flags) & UF.STUNNED)) this._modelDirty = true;
+    if (!this.enemyModel && ((prevFlags ^ this.flags) & UF.STUNNED)) this._modelDirty = true;
     if (this.actor && this.alive) this.actor.setBase(this._baseFromAnim(), this._stunFalls());
   }
 
@@ -1307,8 +1321,8 @@ export class UnitView {
     // with no left / right part leaves it as it was), 'keep' — a pull leaves it as it was (client `DragTowardSource`,
     // hook pulls); none (a raw displacement) — it faces its travel. battle/displacement.js push / pull.
     const face = opts.face === 'push' || opts.face === 'keep' ? opts.face : null;
-    if (this.isEnemy && face === 'push') { if (Math.abs(dx) > 1e-3) this.visFacing = dx < 0 ? 1 : -1; }
-    else if (this.isEnemy && !face) this.visFacing = dx < 0 ? -1 : 1;
+    if (this.enemyModel && face === 'push') { if (Math.abs(dx) > 1e-3) this.visFacing = dx < 0 ? 1 : -1; }
+    else if (this.enemyModel && !face) this.visFacing = dx < 0 ? -1 : 1;
     const v0 = 2 * D / T;
     const at = Number.isFinite(opts.at) ? opts.at : -Infinity;
     this.slide = {
@@ -1349,7 +1363,7 @@ export class UnitView {
   }
 
   setFacing(f) {
-    if (this.isEnemy) { this.facing = f === -1 ? -1 : 1; return; }
+    if (this.enemyModel) { this.facing = f === -1 ? -1 : 1; return; }
     // the legacy ±1 only speaks about left / right: an UP / DOWN operator keeps its direction
     if (f === -1) this.setDir('LEFT');
     else if (this.dir === 'LEFT') this.setDir('RIGHT');
@@ -1365,7 +1379,7 @@ export class UnitView {
   _wantsBack() {
     const a = this.ctx.assets;
     const id = this.info.spine || this.info.defId;
-    if (this.isEnemy || this._faceFront || (this.face ? this.faceUd : this.dir) !== 'UP' || !id || !a || typeof a.hasBack !== 'function' || !a.hasBack(id)) return false;
+    if (this.enemyModel || this._faceFront || (this.face ? this.faceUd : this.dir) !== 'UP' || !id || !a || typeof a.hasBack !== 'function' || !a.hasBack(id)) return false;
     return (this.alive && !this._stunFalls()) || dieClipDur(typeof a.spineEntry === 'function' ? a.spineEntry(id, { back: true }) : null) > 0;
   }
 
@@ -1383,7 +1397,7 @@ export class UnitView {
    * m.private `dir`). Mirrors for LEFT, swaps to the Back model for UP (and back) when the model differs.
    */
   setDir(dir) {
-    if (this.isEnemy || this.destroyed) return;
+    if (this.enemyModel || this.destroyed) return;
     const d = unitDir({ dir, facing: this.facing });
     if (typeof dir !== 'string' || d === this.dir) return;
     this.dir = d;
@@ -1498,9 +1512,9 @@ export class UnitView {
       }
       this.lastAtk = now;
     }
-    if (target && !this.isEnemy && this.info.kind !== 'device') {
+    if (target && !this.enemyModel && this.info.kind !== 'device') {
       // operators turn at their swing's start instead (turnTo; render/app.js), not at the strike; enemies turn here
-    } else if (target && this.isEnemy) {
+    } else if (target && this.enemyModel) {
       const dx = target.x - this.x;
       if (Math.abs(dx) > 0.1) this.visFacing = dx < 0 ? -1 : 1;
     }
@@ -1567,13 +1581,13 @@ export class UnitView {
 
   /** A (re)deployment; `key`: the deploy clip's key (the sim's 'deploy' event 4th field — SpineActor.deploy). */
   onDeploy(key = null) {
-    const official = !this.isEnemy && !!this.entry; // local patch: the official drop-in (BORN_LEAD_S, BORN_TINT_S)
+    const official = !this.enemyModel && !!this.entry; // local patch: the official drop-in (BORN_LEAD_S, BORN_TINT_S)
     this.bornOfficial = official;
     this.fadeIn = official ? 1 : 0;
     this._deployKey = typeof key === 'string' ? key : null;
     // `quiet`: its change clip was the return (the 小车's ReBorn): no drop-in, no deploy clip, no deploy effect
     if (!this.alive && this._formSpec()?.quiet) { this.fadeIn = 0; this.revive(); this._fxQuietDeploy = true; return official; }
-    const front = !this.isEnemy && !!this._deployKey && FACE_FRONT_DEPLOYS[this.info.spine || this.info.defId] === this._deployKey;
+    const front = !this.enemyModel && !!this._deployKey && FACE_FRONT_DEPLOYS[this.info.spine || this.info.defId] === this._deployKey;
     if (front !== this._faceFront) { this._faceFront = front; this._modelDirty = true; }
     if (!this.alive) this.revive();
     this._resetFace();
@@ -1715,13 +1729,13 @@ export class UnitView {
   _applyPlace() {
     this._placeV = placesVersion;
     const info = this.info;
-    this.modelPlace = this.isEnemy ? modelPlace([info.spine, info.defId], 'enemy', info.motion === 'FLY')
+    this.modelPlace = this.enemyModel ? modelPlace([info.spine, info.defId], 'enemy', info.motion === 'FLY')
       : modelPlace([info.diy?.charId, info.spine, info.defId], info.kind);
     const off = this.modelPlace?.off;
     this.faceDX = off ? off.dx : 0;
     this.modelDY = off ? off.dy : 0;
     this.modelDZ = off ? off.dz : 0;
-    if (this.modelPlace?.own && !this.isEnemy) this.modelK = this.modelPlace.k;
+    if (this.modelPlace?.own && !this.enemyModel) this.modelK = this.modelPlace.k;
     // hud_unit's centre over the unit's point (hud-bars.js header): on it, as the client, once the model stands at its
     // prefab place; HUD_ANCHOR over it while the model stands on the point
     this.hudAnchor = this.modelPlace ? 0 : HUD_ANCHOR;
@@ -1749,7 +1763,7 @@ export class UnitView {
         // 9 % of a 0.18 s slide at 60 fps, then a jump onto the end)
         sl.done = Math.min(sl.D, sl.done + (v0 + sl.v) / 2 * step);
         sl.t += step;
-        if (this.isEnemy && !sl.face) this.visFacing = sl.ux < 0 ? -1 : 1;
+        if (this.enemyModel && !sl.face) this.visFacing = sl.ux < 0 ? -1 : 1;
         const k = 1 - sl.done / sl.D;                  // the share of the way still to go
         this.x = sl.lx + sl.ox * k; this.y = sl.ly + sl.oy * k;
         // the clock or the spent velocity lands it on the sampled position
@@ -1858,7 +1872,7 @@ export class UnitView {
     // off-screen: nothing to animate or draw (bounds / hit-testing still follow `screen`)
     if (this._cull(bx, by, s, dt)) return;
     this._updateWater(cam, bx);
-    const flip = (this.isEnemy ? (ENEMY_MODEL_FACES_LEFT ? -this.visFacing : this.visFacing) : this.visFacing) * (this.mirrorX ? -1 : 1) * turnK;
+    const flip = (this.enemyModel ? (ENEMY_MODEL_FACES_LEFT ? -this.visFacing : this.visFacing) : this.visFacing) * (this.mirrorX ? -1 : 1) * turnK;
 
     // shadow (on a raised top it is drawn with that block row, else in the shadow layer under everything); an enemy
     // flyer's lies on the tile under it while its body hovers from the road (shadowZ, GitHub #277)
@@ -1877,7 +1891,7 @@ export class UnitView {
       this.shadow.scale.set(shw, shw * (this.shadow.texture === shadowTexture() ? 1 : 1.05));
     }
     // 深水区: hidden under the water (DEEP_SHADOW_FADE)
-    const dry = this.isEnemy && this.z < 0 ? Math.max(0, 1 + this.z / DEEP_SHADOW_FADE) : 1;
+    const dry = this.enemyModel && this.z < 0 ? Math.max(0, 1 + this.z / DEEP_SHADOW_FADE) : 1;
     this.shadow.alpha = this.bodyless || shadowless ? 0 : 0.5 * alpha * (this.lift > 0 ? 0.6 : 1) * dry;
 
     // model / fallback
@@ -2001,7 +2015,7 @@ export class UnitView {
     // only counts when a spine is actually shown
     const actor = spineShown ? this.actor : null;
     const headTiles = this._headTiles = headTilesForUnit({
-      isEnemy: this.isEnemy, isBoss: this.isBoss, spineShown,
+      isEnemy: this.enemyModel, isBoss: this.isBoss, spineShown,
       bounds: actor && actor.entry ? actor.entry.bounds : null,
       modelK: this.modelK, modelKY: this.modelKY,
     });

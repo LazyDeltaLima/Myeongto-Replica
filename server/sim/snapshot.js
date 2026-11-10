@@ -44,6 +44,9 @@ export function unitInfo(u) {
     maxHp: Math.max(1, Math.round(u.s.maxHp)),
     motion: u.motion === 'FLY' ? 'FLY' : undefined,
     boss: u.isBoss ? true : undefined,
+    // a walking ally built from an enemy record (content/bonds/walker.js): the view draws it as that enemy (render/units.js
+    // enemyModel) and its attacks with the enemy's effects (render/fxgame.js erec); defId is the record's key
+    walks: u.walks ? true : undefined,
     // the unit's current model form (an enemy's content/enemies/helpers.js setForm, a 傀儡师's 替身 — render/units.js FORMS): a
     // view built mid-battle (fieldMeta — a watched teammate's field, 联防 observers, a reconnect) starts on that clip set
     form: typeof u.form === 'string' ? u.form : undefined,
