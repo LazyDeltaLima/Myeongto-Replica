@@ -96,6 +96,30 @@ def clients(given=None):
     return out
 
 
+def enemy_keys(season_new=False):
+    """The enemy keys a tool reads (their record keys and the `prefabKey` / `spine` they name): those of data/enemies.json,
+    and of every season's data/seasons/<id>/enemies.json. `season_new`: only the seasons' enemies data/enemies.json lacks
+    (a run that adds a season's new enemies and leaves every row of the current one as it is)."""
+    def of(path):
+        if not path.exists():
+            return {}
+        j = json.loads(path.read_text(encoding='utf-8'))
+        return j.get('enemies', j)
+    base = of(ROOT / 'data/enemies.json')
+    recs = {}
+    for p in sorted((ROOT / 'data/seasons').glob('*/enemies.json')):
+        recs.update({k: v for k, v in of(p).items() if not (season_new and k in base)})
+    if not season_new:
+        recs.update(base)
+    out = set(recs)
+    for e in recs.values():
+        if isinstance(e, dict):
+            for f in ('prefabKey', 'spine'):
+                if isinstance(e.get(f), str):
+                    out.add(e[f])
+    return out
+
+
 def earlier(path):
     """The JSON table an earlier run wrote at `path`, {} without one."""
     p = Path(path)

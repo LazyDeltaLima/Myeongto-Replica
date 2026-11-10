@@ -10,6 +10,7 @@ import { getData } from '../server/data.js';
 import { makeBattle, chessRec } from './helpers/battleHarness.js';
 import * as enemiesMod from '../server/sim/content/enemies.js';
 import * as bossesMod from '../server/sim/content/bosses.js';
+import { TICK } from '../server/sim/constants.js';
 
 const quiet = { warn() {}, error() {}, info() {} };
 const ACT3 = getData({ log: quiet, season: 'act3autochess' });
@@ -143,6 +144,22 @@ test('规程 假想敌：铳 is blockable outside 【最终之罚】 and shoots 
   assert.ok(!c.e.s.flags.unblockable, 'blockable again after the charge');
 });
 
+test('规程 new enemies: the client\'s shots and skill casts (EN, the CN client for those EN lacks), no clip lengths yet', () => {
+  // tools/local-extract/attack_timing.py / enemy_projectiles.py --season-new: 假想敌：茧 shoots projectile_enemy_acspider
+  // (TRACE 10), its 【淤困捕食】 Net plays Skill_1 to its clip (_timeMode 1); 假想敌：械 隐秘核心's three skills have the attack
+  // and combat families and restart its attack (resetMain); 矩兽's CombatAoe has the COMBAT family only
+  assert.deepEqual(E3.enemy_9035_acspider.proj, { key: 'projectile_enemy_acspider', mount: 'MUZZLE', life: 10, move: 'TRACE_TARGET_WITH_SPEED', speed: 10 });
+  assert.deepEqual(Object.keys(E3.enemy_9029_acfnc_2.skillCast).sort(), ['launcharmor', 'sksummonarmor', 'sommonsquad']);
+  for (const c of Object.values(E3.enemy_9029_acfnc_2.skillCast)) assert.ok(c.family === 3 && c.resetMain === 1, JSON.stringify(c));
+  assert.equal(E3.enemy_2124_dyjsfg.skillCast.combataoe.family, 2);
+  // the models of 规程's new enemies are not in data/assets.json: their clips are named but have no length (`miss`), and no
+  // new enemy has an `attackAnim`
+  assert.equal(E3.enemy_9035_acspider.skillCast.net.miss, 1);
+  const fresh = Object.keys(E3).filter((k) => !E0[k]);
+  assert.equal(fresh.filter((k) => E3[k].attackAnim).length, 0);
+  assert.ok(fresh.filter((k) => E3[k].skillCast).length >= 35);
+});
+
 test('规程 enemies with a kit: their silenceable abilities are exactly their SILENCE lines', () => {
   const { KITS } = enemiesMod, { BOSS_KITS } = bossesMod;
   const own = [...Object.keys(KITS), ...Object.keys(BOSS_KITS)].filter((k) => !E0[k]);
@@ -201,6 +218,8 @@ function machineField(key, { hp = 1e7, walls = [['t_wall', 4, 4], ['t_wall2', 5,
 }
 const alive = (h, key) => h.b.enemies.filter((o) => o.alive && o.defId === key);
 const runFor = (h, s) => { const t = h.b.time; h.runUntil(() => h.b.time >= t + s - 1e-9, s + 1); };
+/** `f(ability)` as enemy `e` starts a skill's cast (the fx 'enemySkill' content/enemies.js makes). */
+const onSkill = (h, e, f) => { const fx = h.b.fx.bind(h.b); h.b.fx = (kind, p) => { if (kind === 'enemySkill' && p?.id === e.id) f(p.ability); return fx(kind, p); }; };
 
 test('假想敌：械: self-bound, every hit summons a 量变之械 by its target; 冲击之械 once at 50 % HP halve the damage from beyond them', () => {
   const half = E3[FNC].talents.bb['Armor.hp_ratio'], cut = E3[FNC].talents.bb['Armor.damage_scale'];
@@ -244,11 +263,15 @@ test('假想敌：械 隐秘核心: bouncing shot, 冲击之械 at once, launche
   const { h, boss } = machineField(FNC2);
   assert.equal(alive(h, ARMOR).length, 2, 'acfnc_t2[summon-immediately]');
   const w = h.unit('t_wall'), w2 = h.unit('t_wall2');
-  // projectile_enemy_acfnc_2: `attack@hit_times` 2 hits, the second × 0.8 on the other operator (RANDOM; alone: the same)
-  h.runUntil(() => w.stats.taken > 0 && w2.stats.taken > 0, 15);
-  assert.ok(w.stats.taken > 0 && w2.stats.taken > 0, 'the shot bounced to the other operator');
+  const casts = [], shots = [];
+  onSkill(h, boss, (ability) => casts.push([ability, Math.round(h.b.time)]));
+  h.b.on('hit', ({ source, target }) => { if (source === boss) shots.push(target); });
   // LaunchArmor (cooldown 10, WithArmor mode only): both fly outward along row 4
   runFor(h, 10.5 - h.b.time);
+  // the skills take the attack slots (skillCast, 「적 스킬 = 일반 공격 차례」): 【洪流攻势】 (cooldown 45, ready at once) at
+  // the first one, LaunchArmor at the one at 10 s, each restarting the attack's cooldown (resetMain) — no shot yet
+  assert.deepEqual(casts, [['SommonSquad', 0], ['LaunchArmor', 10]]);
+  assert.equal(boss.stats.attacks, 0);
   const [L, R] = alive(h, ARMOR).sort((p, q) => p.x - q.x);
   assert.equal(L.mem.fnc.state, 'fly'); assert.equal(R.mem.fnc.state, 'fly');
   assert.ok(L.x < 8 && R.x > 12, 'outward');
@@ -274,6 +297,8 @@ test('假想敌：械 隐秘核心: bouncing shot, 冲击之械 at once, launche
   h.runUntil(() => alive(h, ARMOR).length === 2, 50);
   assert.deepEqual(alive(h, ARMOR).map((o) => [o.y, o.x]).sort((p, q) => p[1] - q[1]), [[4, 8], [4, 12]], 'SkSummonArmor');
   assert.ok(boss.mem.lpSp[0] < 1, 'its SP spent');
+  // projectile_enemy_acfnc_2: `attack@hit_times` 2 hits, the second × 0.8 on the other operator (RANDOM; alone: the same)
+  assert.ok(boss.stats.attacks >= 1 && shots.includes(w) && shots.includes(w2), 'the shot bounced to the other operator');
 });
 
 test('假想敌：械 【洪流攻势】: 量变之械 on every passable side of the operator with the highest block count', () => {
@@ -281,8 +306,14 @@ test('假想敌：械 【洪流攻势】: 量变之械 on every passable side of
   const { h, boss } = machineField(FNC, { walls: [['t_wall', 4, 4]] });
   const sk = E3[FNC].skills.find((s) => s.prefabKey === 'SommonSquad');
   assert.equal(sk.spCost, 25);
+  let cast = null;
+  onSkill(h, boss, (ability) => { if (ability === 'SommonSquad') cast ??= h.b.time; });
   h.runUntil(() => boss.mem.lpSp && boss.mem.lpSp[0] >= 24.9, 30);
-  const before = alive(h, PART).length;
+  const full = h.b.time, before = alive(h, PART).length;
+  // cast at the next attack slot once the SP is full (the slots every `bat` 10 s from the first at once), in place of a shot
+  h.runUntil(() => cast != null, 12);
+  const slot = (t) => (t - TICK + 1e-6) % E3[FNC].stats.bat;
+  assert.ok(cast >= full && slot(cast) < 0.05, `at an attack slot (${cast})`);
   runFor(h, 0.5);
   const fresh = alive(h, PART).slice(before).map((p) => [Math.round(p.y), Math.round(p.x)]).sort();
   assert.deepEqual(fresh, [[3, 4], [5, 4]]);

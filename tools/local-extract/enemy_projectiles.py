@@ -41,6 +41,10 @@ prefab roots (data/enemies.json `spine`); every prefab read has an entry ({} = i
 
 Usage (from the repo root; --client = the EN client's Arknights_Data folder):
   .venv-extract/bin/python tools/local-extract/enemy_projectiles.py [--client <…/Arknights_Data>]
+  .venv-extract/bin/python tools/local-extract/enemy_projectiles.py --season-new [--client <EN>] [--client <CN>]
+--season-new reads only the enemies a season's data/seasons/<id>/enemies.json adds that the earlier run has no row for,
+from the EN client, then the CN one for those EN lacks (client_path.py clients), and their projectiles the earlier run
+lacks; every other row stays as the earlier run wrote it.
 Everything read is (c) Hypergryph; only these names and numbers are kept.
 """
 import argparse
@@ -52,7 +56,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from char_modes import load_tree  # noqa: E402
-from client_path import client_data  # noqa: E402
+from client_path import client_data, clients, earlier, enemy_keys  # noqa: E402
 from attack_timing import mode_paths, num  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -265,27 +269,38 @@ def enemy_entry(root, sub, proj_keys):
     return out
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('--client', default=client_data())
-    ap.add_argument('--out', default=str(OUT))
-    args = ap.parse_args()
-    C = Path(args.client)
-    proj = projectiles(C)
-    enemies_json = json.loads((ROOT / 'data/enemies.json').read_text(encoding='utf-8'))
-    recs = enemies_json.get('enemies', enemies_json)
-    wanted = set(recs)
-    for e in recs.values():
-        if isinstance(e, dict):
-            for f in ('prefabKey', 'spine'):
-                if isinstance(e.get(f), str):
-                    wanted.add(e[f])
+def read_enemies(C, wanted, proj):
+    """{prefab root: entry} of the `wanted` enemies in one client's enemy prefab bundles."""
     enemies = {}
     for f in bundles(C, 'battle/enm_pfb*.ab').values():
         tree, _ = load_tree(f)
         for root in sorted({gp.split('/')[0] for gp, _, _ in tree} & wanted):
             sub = [(gp, d, pid) for gp, d, pid in tree if gp == root or gp.startswith(root + '/')]
             enemies[root] = enemy_entry(root, sub, proj)   # {} = read, shoots nothing
+    return enemies
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
+    ap.add_argument('--client', action='append', help='an Arknights_Data folder (default: EN; with --season-new repeatable, default EN then CN)')
+    ap.add_argument('--out', default=str(OUT))
+    ap.add_argument('--season-new', action='store_true', help="only the seasons' new enemies the earlier run lacks (see the usage)")
+    args = ap.parse_args()
+    prev = earlier(args.out) if args.season_new else {}
+    if args.season_new:
+        wanted = enemy_keys(season_new=True) - set(prev.get('enemies') or {})
+        enemies, proj = {}, dict(prev.get('projectiles') or {})
+        for C in clients(args.client):
+            # a later client adds only the enemies and projectiles the earlier ones lack
+            p = projectiles(Path(C))
+            got = read_enemies(Path(C), wanted - set(enemies), {**p, **proj})
+            proj.update({k: v for k, v in p.items() if k not in proj})
+            enemies.update(got)
+            print(f'{C}: {len(got)} enemies')
+    else:
+        C = Path((args.client or [client_data()])[0])
+        proj = projectiles(C)
+        enemies = read_enemies(C, enemy_keys(), proj)
     used = set()
     for e in enemies.values():
         for s in [e.get('attack'), e.get('combat')] + [x.get(k) for x in e.get('modes', []) for k in ('attack', 'combat')] \
@@ -294,6 +309,10 @@ def main():
                 used.add(s['key'])
     for k in list(used):   # a projectile's sub-projectiles (萨米的意志's 冰凌 → its landing)
         used.update(proj.get(k, {}).get('sub', []))
+    if args.season_new:
+        # the earlier rows as they were, and their projectiles
+        enemies = {**enemies, **(prev.get('enemies') or {})}
+        used |= set(prev.get('projectiles') or {})
     out = {'projectiles': {k: proj[k] for k in sorted(used) if k in proj}, 'enemies': dict(sorted(enemies.items()))}
     missing = sorted(used - set(proj))
     if missing:
