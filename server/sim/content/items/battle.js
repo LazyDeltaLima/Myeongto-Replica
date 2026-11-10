@@ -1164,3 +1164,16 @@ export function itemGrants(battle, u) {
   const g = runtime(battle).grants.get(u);
   return g ? [...g.values()].map((x) => ({ id: x.id, key: x.key, lent: x.lent, until: x.until })) : [];
 }
+
+/**
+ * What this file acts on, by the record's data (content/coverage.js, the season coverage report): the stat buff keys,
+ * the behaviour buff keys, the item-keyed behaviours (the report reads the buff keys each one asks its record for),
+ * the hammer of an item key, and the named buff-key constants those behaviours use.
+ */
+export const HANDLED = Object.freeze({
+  statBuffs: STAT_BUFFS,
+  byBuff: Object.freeze(Object.keys(BY_BUFF)),
+  byItem: BY_ITEM,
+  hammerOf: hammerInfo,
+  constants: Object.freeze({ STEAM_BUFF }),
+});

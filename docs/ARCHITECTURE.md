@@ -150,7 +150,10 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
   tier, else of its visible chess), else its 自选 kit (`kits/index.js` `kitKeyOfChar`). While the server offers several seasons the
   page shows a season picker (`public/js/ui/season.js`: the title's tabs, the lobby's chip, the room's badge; the offered list
   comes in a socket's first `pong`); the picked season is the one rooms are created and 랜덤 매칭 queued in, every season has its
-  own queues, and the loadout settings and statistics are kept per season.
+  own queues, and the loadout settings and statistics are kept per season. How much of a season's bond templates, item
+  buff keys and 特质 effect keys the content code acts on — `ok` / `partial` / `none`, and handlers that run on a record
+  without the buff they ask for — is `server/sim/content/coverage.js` (`node tools/season-coverage.mjs [season] [--all]`;
+  the default season stays at none 0 · partial 0, `test/content/coverage.test.js`).
 - **On the server**, `server/data.js` loads the files once; the match reads them through `server/match/gamedata.js`,
   the sim through `server/sim/simdata.js`, which turns every record into a frozen engine def.
 - **In the browser**, `public/js/data.js` fetches the same files once per page for the UI, and the battle runner takes

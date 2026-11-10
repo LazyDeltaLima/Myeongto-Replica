@@ -156,6 +156,21 @@ function grantTargets(battle, it) {
 // ---------------------------------------------------------------------------------------------------------------------
 // layer gains
 
+/**
+ * The option values of a garrison's bbStr this file reads (content/coverage.js marks any other value 'partial': it falls
+ * to the switch's default). conditionkey character_target_inboard always holds in battle (every carrier is on the
+ * board). range_id is read by the effect keys listed only.
+ */
+export const GARRISON_OPTIONS = Object.freeze({
+  bond_type: Object.freeze(['bond_by_id', 'bond_self', 'bond_actived_maxstack']),
+  bond_add_type: Object.freeze(['by_count', 'by_charcount_samerow', 'by_charlevel']),
+  conditionkey: Object.freeze(['character_same_row', 'character_same_col', 'character_target_inboard']),
+  range_id: Object.freeze({
+    act1autochess_gar_event_consume_ammo: Object.freeze(['0-1', '1-1', 'x-5']),
+    act1autochess_gar_event_addition_cnt: Object.freeze(['1-1']),
+  }),
+});
+
 function targetBonds(battle, it) {
   const u = it.unit;
   switch (it.bbStr.bond_type) {
