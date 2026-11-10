@@ -44,7 +44,9 @@ test('data: every enemy with a real attack clip carries it as attackAnim (the cl
   const timing0 = readJson('tools/assets/local-attack-timing.json').enemies;
   let n = 0, own = 0;
   for (const [k, e] of Object.entries(enemies)) {
-    const sp = assets.enemies[e.spine || k]?.spine;
+    // the official model first: the local client's (`spineLocal`) before a web stand-in (tools/build-data.mjs enemySpine)
+    const m = assets.enemies[e.spine || k];
+    const sp = m?.spineLocal ?? m?.spine;
     const a = sp?.anims?.attack;
     const real = !!a && typeof a.loop === 'string' && a.via !== 'idle' && sp.animations[a.loop] > 0;
     assert.equal(!!e.attackAnim, real, `${k} ${e.name}`);

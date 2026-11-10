@@ -2561,9 +2561,12 @@ const JU_SPARED = 'enemy_2123_dyjsww';
  * Skills/CombatAoe (TriggerEnemySkill, `_interruptCurAbility`): at its attack event its MeleeAttack strikes its own target,
  * the blocker (`_selectTargetSource` FROM_OWNER), physical ATK × 1, and puts enemy_dyjsfg_t[combat_damage] on itself; 0.5 s
  * later every unit of that side within the skill's `range_radius` takes physical ATK × `combat_atk_scale` (AOEDamage,
- * `_useDamageFromBB` off = the source's ATK; `_excludeTarget` leaves out only the leader at its centre).
- * [추정·CN: the skill's attack clip is not in the season data yet, so its attack event is taken at the block — the 0.5 s
- * stays]
+ * `_useDamageFromBB` off = the source's ATK; `_excludeTarget` leaves out only the leader at its centre). The skill plays its
+ * clip (`_animKey` Attack, `_timeMode` 1: the clip as it is, 1.5 s) and waits for its OnAttack frame (0.6 s —
+ * data/seasons/act3autochess/enemies.json `skillCast.combataoe.hit`, from the model's skeleton); a stun, a freeze, a
+ * sleep, 失衡, fear or 隐匿 before that frame cuts the cast (ai.js cutEnemySwing's states), and so does losing its target
+ * (`AbilityStandard.UpdateTargets`: no target and `allowNoTarget` off ends the cast) [추정·엔진: whether CombatAoe's
+ * `_allowNoTarget` is off was not read — the blocker gone, neither the strike nor the 0.5 s burst comes].
  * 【非命】 (Talents/Overload, HpRatioToggleChecker `_maxHpRatio` 0.5 `_toggleOnce`): once, at half HP — ATK +`Overload.atk`
  * (MULTIPLIER), move speed × `Overload.move_speed` (FINAL_SCALER), block volume +`block_volume` (AddEnemyBlockVolume only
  * raises Enemy.blockVolumeAddition; a blocker keeps the volume it counted at the block — BlockedEnemyManager.Add — so the
@@ -2584,7 +2587,8 @@ function kitJu(ab) {
   const strikeAtk = crush ? crush.bb.atk_scale ?? 1 : 1;   // MeleeAttack `_atkScaleKey` atk_scale, else `_atkScale` 1
   const ovAtk = T(ab, 'Overload.atk') ?? 0, ovMove = T(ab, 'Overload.move_speed') ?? 1, ovVol = T(ab, 'Overload.block_volume') ?? 0;
   const lastAtk = T(ab, 'OutOfControll.atk_scale') ?? 1;
-  const P = { guardAcc: 0, guard: null, trampleAcc: 0, wasBlocked: false, over: false, volLeft: 0 };
+  const crushHit = crush && crush.cast && crush.cast.hit > 0 ? crush.cast.hit : 0;   // the clip's OnAttack frame, s
+  const P = { guardAcc: 0, guard: null, trampleAcc: 0, wasBlocked: false, over: false, volLeft: 0, cast: null };
   const still = (e2) => !!e2.blockedBy || !e2.moving || !!e2.s.flags.stun;
   const setGuard = (b2, e2, dr) => {
     if (P.guard === dr) return;
@@ -2592,10 +2596,18 @@ function kitJu(ab) {
     const m = 1 - dr;
     b2.addBuff(e2, { key: 'boss:juGuard', persist: true, refresh: 'replace', mods: { physTakenMul: m, artsTakenMul: m } });
   };
-  const crushNow = (b2, e2) => {
+  // the forced cast (TriggerEnemySkill): its clip starts now, its attack event comes at the clip's OnAttack frame
+  const crushStart = (b2, e2) => {
     b2.fx('enemySkill', { x: e2.x, y: e2.y, id: e2.id, ability: crush ? crush.name : 'CombatAoe' });
+    P.cast = { at: b2.time + crushHit, tgt: e2.blockedBy };
+    if (!(crushHit > 0)) crushNow(b2, e2);
+  };
+  const crushNow = (b2, e2) => {
+    const tgt = P.cast && P.cast.tgt;
+    P.cast = null;
+    if (!tgt || !tgt.alive || !tgt.deployed) return;
     // the skill's MeleeAttack (`_selectTargetSource` FROM_OWNER: its own target, the blocker; physical, `_atkScale` 1)
-    if (e2.blockedBy) hurt(b2, e2, e2.blockedBy, e2.s.atk * strikeAtk, 'phys', { canDodge: true, tags: ['dyjsfgStrike'] });
+    hurt(b2, e2, tgt, e2.s.atk * strikeAtk, 'phys', { canDodge: true, tags: ['dyjsfgStrike'] });
     b2.after(JU_CRUSH_DELAY, () => {
       if (!e2.alive || e2.hidden) return;
       b2.fx('explode', { x: e2.x, y: e2.y, r: crushR, kind: 'dyjsfgCrush', id: e2.id });
@@ -2611,8 +2623,12 @@ function kitJu(ab) {
       },
       tick(b2, e2, a, dt) {
         if ((P.guardAcc += dt) >= JU_GUARD_CHECK - 1e-9) { P.guardAcc = 0; setGuard(b2, e2, still(e2) && !unbalancedNow(b2, e2) ? low : high); }
+        if (P.cast) {
+          if (!canCast(e2, false, b2) || e2.s.flags.fear) P.cast = null;     // the cast is cut (ai.js cutEnemySwing)
+          else if (b2.time >= P.cast.at - 1e-9) crushNow(b2, e2);
+        }
         const blocked = !!e2.blockedBy;
-        if (blocked && !P.wasBlocked && crush && canCast(e2, false, b2)) crushNow(b2, e2);   // the toggle turns on
+        if (blocked && !P.wasBlocked && crush && canCast(e2, false, b2)) crushStart(b2, e2);   // the toggle turns on (`_interruptCurAbility`: a cast still playing starts over)
         P.wasBlocked = blocked;
         if (!P.over && e2.hp <= e2.s.maxHp * 0.5 + 1e-9) {   // HpRatioToggleChecker `_maxHpRatio` 0.5, once
           P.over = true;

@@ -144,7 +144,7 @@ test('规程 假想敌：铳 is blockable outside 【最终之罚】 and shoots 
   assert.ok(!c.e.s.flags.unblockable, 'blockable again after the charge');
 });
 
-test('规程 new enemies: the client\'s shots and skill casts (EN, the CN client for those EN lacks), no clip lengths yet', () => {
+test('规程 new enemies: the client\'s shots and skill casts (EN, the CN client for those EN lacks), clip lengths from their models', () => {
   // tools/local-extract/attack_timing.py / enemy_projectiles.py --season-new: 假想敌：茧 shoots projectile_enemy_acspider
   // (TRACE 10), its 【淤困捕食】 Net plays Skill_1 to its clip (_timeMode 1); 假想敌：械 隐秘核心's three skills have the attack
   // and combat families and restart its attack (resetMain); 矩兽's CombatAoe has the COMBAT family only
@@ -152,12 +152,22 @@ test('规程 new enemies: the client\'s shots and skill casts (EN, the CN client
   assert.deepEqual(Object.keys(E3.enemy_9029_acfnc_2.skillCast).sort(), ['launcharmor', 'sksummonarmor', 'sommonsquad']);
   for (const c of Object.values(E3.enemy_9029_acfnc_2.skillCast)) assert.ok(c.family === 3 && c.resetMain === 1, JSON.stringify(c));
   assert.equal(E3.enemy_2124_dyjsfg.skillCast.combataoe.family, 2);
-  // the models of 规程's new enemies are not in data/assets.json: their clips are named but have no length (`miss`), and no
-  // new enemy has an `attackAnim`
-  assert.equal(E3.enemy_9035_acspider.skillCast.net.miss, 1);
+  // the clip lengths and OnAttack frames come from the models in data/assets.json — the web `spine` or, for the 17 only the
+  // local client has, `spineLocal` (tools/build-data.mjs enemySpine): 假想敌：茧's Net plays Skill_1 (2.1 s), 矩兽's CombatAoe
+  // strikes at its Attack clip's OnAttack frame
+  assert.deepEqual(E3.enemy_9035_acspider.skillCast.net, { family: 3, clip: 'Skill_1', dur: 2.1, hit: 1.033, max: 1, time: 1 });
+  assert.deepEqual(E3.enemy_2124_dyjsfg.skillCast.combataoe, { family: 2, clip: 'Attack', dur: 1.5, hit: 0.6, max: 1, time: 1 });
+  assert.equal(E3.enemy_9035_acspider.attackAnim.dur, 1.9);
   const fresh = Object.keys(E3).filter((k) => !E0[k]);
-  assert.equal(fresh.filter((k) => E3[k].attackAnim).length, 0);
   assert.ok(fresh.filter((k) => E3[k].skillCast).length >= 35);
+  // every new enemy that attacks has its clip; the three without one deal no attack (applyWay NONE: 冲击之械, 淤困之茧 — no
+  // model —, “模拟宝藏”)
+  assert.deepEqual(fresh.filter((k) => !E3[k].attackAnim).sort(), ['enemy_9027_acfnca', 'enemy_9036_acweb', 'enemy_9038_achest']);
+  for (const k of fresh.filter((k) => !E3[k].attackAnim)) assert.equal(E3[k].applyWay, 'NONE', k);
+  // a clip still named but missing: 假想敌：械's SommonSquad names `Skill_1`, which its animator's `_animations` table maps to
+  // A_Skill_1 / B_Skill_1 (not read yet)
+  const miss = fresh.filter((k) => Object.values(E3[k].skillCast || {}).some((c) => c.miss)).sort();
+  assert.deepEqual(miss, ['enemy_9029_acfnc', 'enemy_9029_acfnc_2']);
 });
 
 test('规程 enemies with a kit: their silenceable abilities are exactly their SILENCE lines', () => {
@@ -604,11 +614,14 @@ test('矩兽: no attack damage; 【尚同】 ATK × 1 within 1.6 every 2.5 s, an
   assert.ok(Math.abs(hp - e.hp - 1000) < 1e-6, 'true damage untouched');
   h.runUntil(() => hits.some((x) => x.tags.includes('dyjsfgCrush')), 5);
   const cr = hits.filter((x) => x.tags.includes('dyjsfgCrush'));
-  assert.ok(Math.abs(cr[0].at - blockedAt - 0.5) < 0.05, `0.5 s after the block (${cr[0].at - blockedAt})`);
+  // the forced CombatAoe plays its Attack clip (1.5 s) and strikes at its OnAttack frame, 0.6 s; the crush 0.5 s after that
+  const hit = E3[JU].skillCast.combataoe.hit;
+  assert.equal(hit, 0.6);
+  assert.ok(Math.abs(cr[0].at - blockedAt - hit - 0.5) < 0.05, `0.6 + 0.5 s after the block (${cr[0].at - blockedAt})`);
   assert.deepEqual(new Set(cr.map((x) => x.t)), new Set([w, h.unit('t_wall2')]), 'the two within 1.6, not the one three rows away');
   assert.ok(Math.abs(cr.find((x) => x.t === w).n - atk * 2) < 1e-6);
   const st = hits.filter((x) => x.tags.includes('dyjsfgStrike'));
-  assert.ok(st.length === 1 && st[0].t === w && Math.abs(st[0].n - atk) < 1e-6 && Math.abs(cr[0].at - st[0].at - 0.5) < 1e-6, 'the skill\'s MeleeAttack on the blocker, ATK × 1, 0.5 s before the crush');
+  assert.ok(st.length === 1 && st[0].t === w && Math.abs(st[0].n - atk) < 1e-6 && Math.abs(cr[0].at - st[0].at - 0.5) < 1e-6 && Math.abs(st[0].at - blockedAt - hit) < 0.05, 'the skill\'s MeleeAttack on the blocker, ATK × 1, at the clip\'s attack frame, 0.5 s before the crush');
   runFor(h, 12);
   assert.equal(new Set(hits.filter((x) => x.tags.includes('dyjsfgCrush')).map((x) => x.at)).size, 1, 'once per block');
   const tr = hits.filter((x) => x.tags.includes('dyjsfgTrample') && x.t === w);
@@ -622,6 +635,20 @@ test('矩兽: no attack damage; 【尚同】 ATK × 1 within 1.6 every 2.5 s, an
   assert.ok(e.s.flags.stun);
   runFor(h, 1.05);
   assert.ok(!e.s.flags.stun, 'stun × 0.2');
+});
+
+test('矩兽 【尚同】 block strike: a stun before the clip\'s attack frame, or its blocker gone, cuts the cast — no strike, no crush', () => {
+  for (const cut of ['stun', 'gone']) {
+    const { h, hits } = juField([{ chessId: 't_wall', row: 9, col: 6 }]);
+    const e = put(h, JU, [9, 7.9], { move: true, tag: null });
+    const w = h.unit('t_wall');
+    h.runUntil(() => e.blockedBy === w, 20);
+    runFor(h, 0.3);   // before the 0.6 s frame
+    if (cut === 'stun') h.b.applyStatus(e, 'stun', { duration: 5, source: w });
+    else h.b.kill(w, null);
+    runFor(h, 2);
+    assert.equal(hits.filter((x) => x.tags.includes('dyjsfgStrike') || x.tags.includes('dyjsfgCrush')).length, 0, cut);
+  }
 });
 
 test('矩兽 【非命】 at half HP: ATK +50 %, speed × 2, block volume 4 from its next block on; 【兼爱】 0.75 s after it falls: the other enemies out, every unit 2 × ATK phys', () => {

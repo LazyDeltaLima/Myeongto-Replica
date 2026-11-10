@@ -2452,6 +2452,17 @@ for (const [v, list] of MODEL_STRETCH_Y) for (const k of list) MODEL_STRETCH_Y_B
 const MIRRORED_PREFABS = new Set(['enemy_1196_msfyin']);
 
 /**
+ * The skeleton metadata of an enemy's model in data/assets.json: its local-client model (`spineLocal`, the official
+ * skeleton — the one the client plays and the view draws when the local models are extracted) before the web `spine`,
+ * which for such an enemy is another enemy's stand-in (`spineAliasOf`: 灼热源石虫 1305_mhslim draws the plain 源石虫's) or absent
+ * (规程's own new enemies have only `spineLocal`).
+ */
+function enemySpine(manifest, spineId) {
+  const e = manifest?.enemies?.[spineId];
+  return e?.spineLocal ?? e?.spine;
+}
+
+/**
  * An enemy's attack clip → enemies.json `attackAnim` { clip, dur, hit } (GitHub #58: an unblocked ranged enemy stands for
  * its attack clip, server/sim/ai.js attackStand): the clip the client plays for its attacks — with `own`, the one its
  * attack ability names (`_animKey` after its mode's `_replaceAnimPairs`) when the model has it, else the asset manifest's
@@ -2461,7 +2472,7 @@ const MIRRORED_PREFABS = new Set(['enemy_1196_msfyin']);
  * never reads client files; an enemy whose model the manifest lacks gets none (the sim falls back to ATTACK_PAUSE).
  */
 function enemyAttackAnim(manifest, spineId, timing = null, own = false) {
-  const sp = manifest?.enemies?.[spineId]?.spine;
+  const sp = enemySpine(manifest, spineId);
   const a = sp?.anims?.attack;
   if (!a || typeof a.loop !== 'string' || a.via === 'idle') return null;
   // `own`: the clip its ability names, when the model has it
@@ -2595,17 +2606,21 @@ function withSkillProjectiles(skills, P) {
 function enemySkillCast(ctx, manifest, spineId, key) {
   const e = ctx.attackTiming?.enemies?.[spineId] ?? ctx.attackTiming?.enemies?.[key];
   if (!e || !e.skills) return null;
-  const anims = manifest?.enemies?.[spineId]?.spine?.animations || {};
+  const sp = enemySpine(manifest, spineId);
+  const anims = sp?.animations || {};
   // one ability's cast (attack_timing.py cast_fields): its clip and the attack time it plays to, or its class (`kind`: an
-  // ActiveBuffAbility, a group with its children's casts); `miss` = it names a clip data/assets.json lacks
+  // ActiveBuffAbility, a group with its children's casts); `miss` = it names a clip data/assets.json lacks; `hit` = the
+  // clip's first OnAttack frame when the ability waits for it (`_waitForAttackEvent`), as attackAnim's
   const castOf = (name, s) => {
     const dur = s.anim ? anims[s.anim] : null;
     if (s.anim && !(dur > 0)) warn(`enemy ${key} skill ${name}: clip ${s.anim} not in data/assets.json`);
+    const h = dur > 0 && s.wait === 1 ? sp?.hits?.[s.anim] : null;
+    const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
     return {
       ...(s.kind ? { kind: s.kind } : {}),
       ...(s.kind === 'buff' && s.wfc ? { wfc: 1 } : {}),
       ...(Array.isArray(s.subs) ? { subs: s.subs.map((c) => castOf(name, c)) } : {}),
-      ...(dur > 0 ? { clip: s.anim, dur, ...(Number.isFinite(s.max) ? { max: s.max } : {}) } : s.anim ? { miss: 1 } : {}),
+      ...(dur > 0 ? { clip: s.anim, dur, ...(hit != null ? { hit } : {}), ...(Number.isFinite(s.max) ? { max: s.max } : {}) } : s.anim ? { miss: 1 } : {}),
       ...(Number.isFinite(s.time) ? { time: s.time } : {}),
       ...(s.time === 2 ? { cd: s.cd || 0 } : s.time === 3 ? { cdKey: s.cdKey || 'duration' } : {}),
       ...(s.proj ? { proj: 1 } : {}),
