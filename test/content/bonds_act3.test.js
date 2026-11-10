@@ -412,3 +412,42 @@ test('规程 奇迹: from the first 100 layers a refresh always shows an operato
   assert.ok(run(99) > 0, 'below 100 layers some refreshes show no tier-5 operator');
   assert.equal(run(100), 0, 'from 100 layers every one does');
 });
+
+test('规程 萨尔贡 6: a member\'s skill start lays 流沙 on the nearest ground tile of its range — 迟钝 (×2 in a casting member\'s range), 束缚 + arts every 5 s, 1 s arts while casting', () => {
+  const pre = 'act3autochess_bond_eff_sargon_power[tile_buff]';
+  const bb = Object.assign({}, ...ACT3.bonds.sargonShip.buffs.map((b) => b.bb));
+  const L = 100;
+  const run = (n) => {
+    const h = fight(ids('s', n).map((id) => [id, ['sargonShip']]), { sargonShip: bondOn(n, L, [3, 6]) }, { enemies: [] });
+    const s0 = h.unit('s0_a');
+    h.b.emit('skillStart', { unit: s0, skill: null, reason: 'test' });
+    const walk = [...s0.rangeKeys].filter((k) => h.b.grid.walkable(Math.floor(k / COLS), k % COLS));
+    const k = walk.sort((a, b) => Math.hypot(Math.floor(a / COLS) - s0.tileR, (a % COLS) - s0.tileC) - Math.hypot(Math.floor(b / COLS) - s0.tileR, (b % COLS) - s0.tileC))[0];
+    const e = h.spawn('e_dummy', { pos: [Math.floor(k / COLS), k % COLS] });
+    h.step();
+    return { h, s0, e, pid: h.b.players[0].playerId };
+  };
+  const slow = Math.min(bb[`${pre}[slow].slow_max`], bb[`${pre}[slow].slow_base`] + bb[`${pre}[slow].slow_per_stack`] * L);
+  const { h, s0, e, pid } = run(6);
+  const buff = () => e.findBuff(`bond:sargon:sand:${pid}`);
+  close(buff()?.mods.moveMul, 1 - 2 * slow, 1e-9, '迟钝 ×2 while the member casts');
+  h.run(1.05);
+  const second = tagged(h, 'bond:sargon:sand');
+  close(second.at(-1)?.amount, bb[`${pre}[mag_damage_2].magic_damage_base`] + bb[`${pre}[mag_damage_2].magic_damage_per_stack`] * L, 1e-6, '1 s arts while casting');
+  h.b.emit('skillEnd', { unit: s0, skill: null, reason: 'test' });
+  h.step();
+  close(buff()?.mods.moveMul, 1 - slow, 1e-9, '迟钝 once the skill ends');
+  const before = tagged(h, 'bond:sargon:sand').length;
+  h.run(4);
+  const hits = tagged(h, 'bond:sargon:sand').slice(before);
+  assert.equal(hits.length, 1, 'no 1 s ticks after the skill; one 5 s hit');
+  close(hits[0].amount, bb[`${pre}[mag_damage].magic_damage_base`] + bb[`${pre}[mag_damage].magic_damage_per_stack`] * L, 1e-6, '5 s arts');
+  assert.equal(hits[0].dmg.type, 'arts');
+  assert.ok(e.s.flags.bind, '束缚');
+  e.x += 3;
+  h.run(0.4);
+  assert.equal(buff(), null, 'off the 流沙: ends');
+  assert.deepEqual(h.b.errors, []);
+  const five = run(5);
+  assert.equal(five.e.findBuff(`bond:sargon:sand:${five.pid}`), null, '5 members: no 流沙');
+});

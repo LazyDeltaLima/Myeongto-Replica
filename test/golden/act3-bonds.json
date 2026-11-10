@@ -1295,8 +1295,8 @@
       ],
       "enemies": {"enemy_1005_yokai_2":[9,9,0,1550,13456],"enemy_1005_yokai_3":[2,2,0,3448,149299],"enemy_9009_acfort":[2,2,0,4705,119439]},
       "hooks": [1,34,3605,159,159,329,329,124,17,17,30,31,0,12187,1,0,13,0,1,9,1,0,0],
-      "events": {"atk":224,"deploy":18,"die":17,"dmg":229,"engage":3,"face":33,"fx":70,"heal":37,"layer":1,"skill":77,"spawn":33,"status":117,"swing":160,"tplfx":1},
-      "fx": {"beam":11,"buff":1,"charges":6,"counter":1,"devour":2,"enemyShot":8,"enemySkill":6,"garrison":1,"kitHit":1,"shield":1,"sp":1,"stacks":20,"summon":9,"talent":2},
+      "events": {"atk":224,"deploy":18,"die":17,"dmg":229,"engage":3,"face":33,"fx":81,"heal":37,"layer":1,"skill":77,"spawn":33,"status":117,"swing":160,"tplfx":1},
+      "fx": {"beam":11,"buff":1,"charges":6,"counter":1,"devour":2,"enemyShot":8,"enemySkill":6,"garrison":1,"kitHit":1,"shield":1,"sp":1,"stacks":20,"summon":9,"talent":2,"zone":11},
       "snaps": "2762e52a 03602704 24725070 2628986c 33443682 c31c1f9d e3fac17c cd796aff 7470399e 4ff1786a 3ef83b5d dae7e0ad"
     },
     "bond-siracusaShip-low": {

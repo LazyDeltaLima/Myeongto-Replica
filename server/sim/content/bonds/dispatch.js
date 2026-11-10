@@ -78,6 +78,7 @@ export const ORDER = Object.freeze([
     'act3autochess_bond_eff_kazimierz',
     'act3autochess_bond_eff_arcane',
     'act3autochess_bond_eff_doc',
+    'act3autochess_bond_eff_sargon_power',
   ]),
 ]);
 
