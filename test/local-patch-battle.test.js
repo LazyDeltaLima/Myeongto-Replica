@@ -160,7 +160,7 @@ describe('enemy splash vs a 隐匿 / 迷彩 operator (targeting.js areaSelectabl
       enemies: [{ key: 'enemy_1267_nhpbr', time: 0, route: 0, count: 1 }] });
     const op = h.unit('chess_char_1_01_a');
     h.step(1);
-    h.b.addBuff(op, { key: 'bond:siracusa:stealth', duration: 30, flags: { stealth: true }, status: 'stealth' }); // the bond's own buff (bonds/core.js)
+    h.b.addBuff(op, { key: 'bond:siracusa:stealth', duration: 30, flags: { stealth: true }, status: 'stealth' }); // the bond's own buff (bonds/nation/siracusa.js)
     const e = h.enemies()[0];
     h.runUntil(() => Math.hypot(e.x - op.x, e.y - op.y) < 1.5, 20);
     h.b.dealDamage(null, e, { amount: 1e9, type: 'true', sourceless: true });

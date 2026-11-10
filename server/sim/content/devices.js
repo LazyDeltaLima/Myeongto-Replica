@@ -165,7 +165,7 @@ export function startColdWind(battle, { playerId = null, interval, duration, fir
 /**
  * 谢拉格 6-member wind from the bond effect blackboard (effects.json bondeffect_kjerag `env_gbuff_new` bb):
  * interval `bond_eff_kjerag[storm].interval`, duration `base_time + time_per_stack × layers` — the live 谢拉格 layers
- * of the field's player with the most (client `AutoChessAssignBondStackCntToBB` `_assignAllPlayerIndex`); one wind per field (bonds/core.js installKjerag). `playerId` tags the fx.
+ * of the field's player with the most (client `AutoChessAssignBondStackCntToBB` `_assignAllPlayerIndex`); one wind per field (bonds/nation/kjerag.js installKjerag). `playerId` tags the fx.
  */
 export function kjeragColdWind(battle, playerId, bb = {}, { bondId = 'kjeragShip' } = {}) {
   const interval = num(bb['bond_eff_kjerag[storm].interval'], 0);

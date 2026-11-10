@@ -10,7 +10,7 @@
 //
 //   bonds      a buff's template is its bbStr.key, else its key; sub-keys (`…[enemy]`, `…[share]`, `…[tile_listener]`)
 //              belong to their parent template, `…_power` is a template of its own. BOND_TEMPLATES below lists what
-//              bonds/core.js, bonds/addon/, bonds/regulation.js and the match engine handle, for which bonds
+//              the bond files (bonds/dispatch.js) and the match engine handle, for which bonds
 //   items      battle runes (env_gbuff_new*, char_dynamic_ability_new) by bbStr.key: items/battle.js stat buffs,
 //              behaviour buffs, the hammers, or the item-keyed behaviour that asks for that key; the other buffs (prep)
 //              by key: a built-in buff-key handler (server/match/builtinMeta.js) or the item's registered content
@@ -21,78 +21,24 @@
 import { buffsOf, itemKeyOf } from './support/index.js';
 import { HANDLED as ITEM_BATTLE } from './items/battle.js';
 import { BATTLE_GARRISON_KEYS, GARRISON_OPTIONS } from './garrisons/battle.js';
+import { bondTemplate } from './bonds/shared.js';
+import { handledTemplates } from './bonds/dispatch.js';
+
+export { bondTemplate };
 
 /**
- * Bond buff templates the code handles: template → { bonds, side, where, partial? }. `where` is the file whose source
- * holds the template key (or `src`, the text it is written as there; test/content/coverage.test.js checks it);
- * `partial` lists what of the template is not written yet. `registry: false`: a prep rule of the match engine, not a
- * registered handler. The battle side of the add-on bonds (addon/battle.js) reads each bond's `env_gbuff_new` by bond
- * id: listed here under the template its records carry in the default season.
- * [sim-R replaces this table with the TEMPLATES of the bond files.]
+ * Bond buff templates the code handles: template → { bonds (null: any bond), side, where, partial?, registry?, src? },
+ * from the TEMPLATES of the bond files (bonds/dispatch.js handledTemplates) and the match engine's rules. `partial` lists what of the template is
+ * not written yet; `registry: false`: a prep rule of the match engine, not a registered handler.
  */
 export const BOND_TEMPLATES = Object.freeze({
-  // core.js — battle
-  act1autochess_bond_eff_yan: { bonds: ['yanShip'], side: 'battle', where: 'bonds/core.js' },
-  act1autochess_bond_eff_sargon: { bonds: ['sargonShip'], side: 'battle', where: 'bonds/core.js', src: 'act[13]autochess_bond_eff_sargon' },
-  act2autochess_bond_eff_sargon: { bonds: ['sargonShip'], side: 'battle', where: 'bonds/core.js', src: 'act2autochess_bond_eff_sargon[share]' },
-  act3autochess_bond_eff_sargon: { bonds: ['sargonShip'], side: 'battle', where: 'bonds/core.js', src: 'act[13]autochess_bond_eff_sargon' },
-  act1autochess_bond_eff_victoria: { bonds: ['victoriaShip'], side: 'battle', where: 'bonds/core.js' },
-  act1autochess_bond_eff_kjerag: { bonds: ['kjeragShip'], side: 'battle', where: 'bonds/core.js', src: 'act[13]autochess_bond_eff_kjerag' },
-  act3autochess_bond_eff_kjerag: { bonds: ['kjeragShip'], side: 'battle', where: 'bonds/core.js', src: 'act[13]autochess_bond_eff_kjerag' },
-  act1autochess_bond_eff_laterano: { bonds: ['lateranoShip'], side: 'battle', where: 'bonds/core.js' },
-  act1autochess_bond_eff_egir: { bonds: ['egirShip'], side: 'battle', where: 'bonds/core.js' },
-  act2autochess_bond_eff_siracusa: { bonds: ['siracusaShip'], side: 'battle', where: 'bonds/core.js' },
-  act2autochess_bond_eff_kazimierz: { bonds: ['kazimierzShip'], side: 'battle', where: 'bonds/core.js' },
-  // core.js — prep (维多利亚's 维式重锤, 规程 谢拉格's 谢拉格不融冰)
-  bond_layer_added_reward_equip: { bonds: ['victoriaShip', 'kjeragShip'], side: 'prep', where: 'bonds/core.js' },
-  // addon/battle.js — by bond id
-  act1autochess_bond_eff_preci: { bonds: ['preciShip'], side: 'battle', where: 'bonds/addon/battle.js', src: "preci: 'preciShip'" },
-  act1autochess_bond_eff_swift: { bonds: ['swiftShip'], side: 'battle', where: 'bonds/addon/battle.js', src: "swift: 'swiftShip'" },
-  act1autochess_bond_eff_skillful: { bonds: ['skillfulShip'], side: 'battle', where: 'bonds/addon/battle.js', src: "skillful: 'skillfulShip'" },
-  act2autochess_bond_eff_arcane: { bonds: ['arcaneShip'], side: 'battle', where: 'bonds/addon/battle.js' },
-  act1autochess_bond_eff_stead: { bonds: ['steadShip'], side: 'battle', where: 'bonds/addon/battle.js', src: "stead: 'steadShip'" },
-  act1autochess_bond_eff_deput: { bonds: ['deputShip'], side: 'battle', where: 'bonds/addon/battle.js', src: "deput: 'deputShip'" },
-  act1autochess_bond_eff_raid: { bonds: ['raidShip'], side: 'battle', where: 'bonds/addon/battle.js', src: "raid: 'raidShip'" },
-  act1autochess_bond_eff_indom: { bonds: ['indomShip'], side: 'battle', where: 'bonds/addon/battle.js', src: "indom: 'indomShip'" },
-  act1autochess_bond_eff_assis: { bonds: ['emptyShip'], side: 'battle', where: 'bonds/addon/battle.js', src: "'emptyShip'" },
-  act2autochess_bond_eff_solo: { bonds: ['soloShip'], side: 'battle', where: 'bonds/addon/battle.js', src: "solo: 'soloShip'" },
-  act2autochess_bond_eff_sunt: { bonds: ['suntShip'], side: 'battle', where: 'bonds/addon/battle.js', src: "sunt: 'suntShip'" },
-  // addon/meta.js — prep
-  bond_activated_add_layer: { bonds: ['deputShip'], side: 'prep', where: 'bonds/addon/meta.js' },
-  bond_layer_gain_coin: { bonds: ['visiShip', 'miraShip'], side: 'prep', where: 'bonds/addon/meta.js' },
-  bond_multi_layer_char_goods_price_bond_discount: { bonds: ['visiShip'], side: 'prep', where: 'bonds/addon/meta.js' },
-  bond_refresh_shop_next_free: { bonds: ['miraShip'], side: 'prep', where: 'bonds/addon/meta.js' },
+  ...handledTemplates(),
   // the match engine — prep (投资人's ×2 / ×3 获得时 in the dispatcher, 调和's +1 core count in bondsMeta.js)
   bond_layer_char_garrison_bonus: { bonds: ['investShip'], side: 'prep', where: '../../match/effectsMeta.js', src: 'investShip', registry: false },
   other_bond_add_trigger_cnt: { bonds: ['maniShip'], side: 'prep', where: '../../match/bondsMeta.js', src: 'maniShip', registry: false },
-  // regulation.js — battle (卫戍协议：规程's own templates; `[enemy]` parts are read with the bond's blackboard)
-  act3autochess_bond_eff_yan: { bonds: ['yanShip'], side: 'battle', where: 'bonds/regulation.js' },
-  act3autochess_bond_eff_ursus: { bonds: ['ursusShip'], side: 'battle', where: 'bonds/regulation.js' },
-  act3autochess_bond_eff_iberia: { bonds: ['iberiaShip'], side: 'battle', where: 'bonds/regulation.js' },
-  act3autochess_bond_eff_lethania: {
-    bonds: ['lethaniaShip'], side: 'battle', where: 'bonds/regulation.js',
-    partial: ['summons 一个小节 / 一个乐部 ([enemy] summon_* / big_*)'],
-  },
-  act3autochess_bond_eff_siracusa: { bonds: ['siracusaShip'], side: 'battle', where: 'bonds/regulation.js' },
-  act3autochess_bond_eff_kazimierz: {
-    bonds: ['kazimierzShip'], side: 'battle', where: 'bonds/regulation.js',
-    partial: ['6: switch with the preparation bench\'s rightmost member'],
-  },
-  act3autochess_bond_eff_arcane: {
-    bonds: ['arcaneShip'], side: 'battle', where: 'bonds/regulation.js',
-    partial: ['3: 隐匿 of enemies in range does not work (act3autochess_bond_mag_power[immune_invisible])'],
-  },
-  act3autochess_bond_eff_arcane_power: { bonds: ['arcaneShip'], side: 'battle', where: 'bonds/regulation.js', src: 'magic_res_max_base' },
-  act3autochess_bond_eff_doc: { bonds: ['docShip'], side: 'battle', where: 'bonds/regulation.js' },
 });
 
 const RUNE_KEYS = new Set(['env_gbuff_new', 'env_gbuff_new_with_verify', 'char_dynamic_ability_new']);
-
-/** The template a bond buff belongs to: bbStr.key ?? key, without its `[…]` sub-keys. */
-export function bondTemplate(buff) {
-  const k = String(buff?.bbStr?.key ?? buff?.key ?? '');
-  return k.replace(/(\[[^\]]*\])+$/, '');
-}
 
 /** The buff-key literals `fn`'s source asks a record for through `call` (items: `bp(rec, …)`, prep: `buffP(ctx, x, …)`). */
 function askedKeys(fn, call, constants = {}) {
@@ -126,7 +72,7 @@ function bondRows(data, { registry }) {
       const t = bondTemplate(b);
       if (!t || seen.has(t)) continue;
       const decl = BOND_TEMPLATES[t];
-      const mine = decl && decl.bonds.includes(bondId) ? decl : null;
+      const mine = decl && (!decl.bonds || decl.bonds.includes(bondId)) ? decl : null;
       const r = row('bonds', { id: bondId, key: t, side: mine?.side ?? (RUNE_KEYS.has(b.key) ? 'battle' : 'prep'), where: mine?.where ?? null, status: 'none' });
       if (mine) {
         r.status = mine.partial?.length ? 'partial' : 'ok';

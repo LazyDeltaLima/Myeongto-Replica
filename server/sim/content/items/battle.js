@@ -259,7 +259,7 @@ function hammerState(battle, rt, u) {
  * The deployment `u` is in: every deploy bumps `deploySeq` — the redeploy after a knock-out, a 突袭 retreat + redeploy
  * [ASSUMED a deployment], 阿戈尔's 立刻复活 and every 复活 (M3茧甲, 埃芒加德: reviveNow — PRTS "“复活”的实现方式为：受益者因移动
  * 之外的原因退场时下次部署的再部署时间和费用归零", a 0-time / 0-cost redeploy; in place until 0.2.0, when an extra counter
- * opened the new deployment). Also read by 阿戈尔's devour (bonds/core.js): a unit whose deployment changed during the
+ * opened the new deployment). Also read by 阿戈尔's devour (bonds/nation/egir.js): a unit whose deployment changed during the
  * pass was knocked out.
  */
 export function deploymentOf(u) { return `${u.deploySeq}`; }

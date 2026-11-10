@@ -635,7 +635,7 @@
     않는다(신호 이름만 있음). 같은 점검에서 찾은 시라쿠사 맹약 [ex]의 `siracusa_ex_attack`은 뱅크가 있다 — 아래.
   - 시라쿠사 맹약(siracusaShip) [ex] 발동 (2026-10-30): `act2autochess_bond_eff_siracusa[ex][buff]`의 ON_OUTPUT_DAMAGE가 피해·`fear`·이펙트
     `common_071_bond_siracusa_hit_01` 다음 PlayAudio `siracusa_ex_attack`(대상, 뱅크 `a_bat_xscthrtcl`, Battle_UI_Important, 2개 popOldest — EN 클라 버프
-    템플릿) → sim fx `bondProc`(`src` `bond:siracusaShip`, 이 맹약만 냄; `bonds/core.js`) → `kitHitKey` `siracusa:ex`. 새 sfx 1개.
+    템플릿) → sim fx `bondProc`(`src` `bond:siracusaShip`, 이 맹약만 냄; `bonds/nation/siracusa.js`) → `kitHitKey` `siracusa:ex`. 새 sfx 1개.
   - 막기 (2026-10-30): 횟수형 护盾 층과 `blockFx` 방벽 층의 `Nodes.BlockDamage.Execute`는 남은 피해가 0 이하일 때(타격을 통째로 막음)만 막은 이펙트와 함께
     `PlayAudioAtPos`로 `battle.ON_DAMAGE_BLOCK`(`e_atk_soldiershield`, Battle_BE_NAtk, 2개 popOldest)을 막은 유닛 자리에서 낸다 — 뚫고 들어간 타격은 이펙트도
     소리도 없음(공식 클라에서 확인). 우리: sim fx `parry`(`damage.js absorbShields` 횟수형 층·`archetypes.js` 방벽 층) → `kitHitKey` `block`, 방벽 층이 깨지기만
@@ -643,7 +643,7 @@
   - 카시미어 맹약(kazimierzShip) 6 [ex] 진 피해 (2026-11-01): `act2autochess_bond_eff_kazimierz[ex][damage]`의 AOEDamage가 맞은 적마다 거는
     0.5초 버프 `[ex_damage_effect]`에 이펙트 `common_071_bond_kazimierz_hit_01_new`와 함께 `audioSignal` `kazimierz_ex_attack`이 있다 — 버프가 시작될 때
     `battle.ON_BUFF_START.kazimierz_ex_attack`(그 적, 뱅크 `a_bat_kswdrn`, Battle_UI_Important, 2개 popOldest — EN 클라 버프 템플릿). 이 모드 템플릿에서
-    `audioSignal`은 이것 하나. 우리: 이미 있던 그 이펙트의 상태 이벤트 `tplfx`(`bonds/core.js`)에 `audio.js TPL_FX_SOUNDS` → `kazimierz:ex`(sim·golden 그대로).
+    `audioSignal`은 이것 하나. 우리: 이미 있던 그 이펙트의 상태 이벤트 `tplfx`(`bonds/nation/kazimierz.js`)에 `audio.js TPL_FX_SOUNDS` → `kazimierz:ex`(sim·golden 그대로).
     새 sfx 1개(예전엔 이 소리가 없었음 — 관리자 제보).
   - 확인: `test/audio-bond-block-sounds.test.js`(뱅크·키·AudioManager 재생, 시라쿠사 6 전투의 발동마다 소리 한 번, 카시미어 6 전투의 맞은 적마다
     소리 한 번 — battleHarness). [화면 미확인]

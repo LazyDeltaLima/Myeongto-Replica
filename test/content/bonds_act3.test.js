@@ -1,4 +1,4 @@
-// 卫戍协议：规程's bond effects (server/sim/content/bonds/regulation.js, the act3 base keys of core.js) on that season's
+// 卫戍协议：规程's bond effects (server/sim/content/bonds/nation/ and general/, their act3 templates) on that season's
 // bonds.json, the 临时层数 of 乌萨斯 through the battle result and the match's settle (乌啾 / 折桠 convert some), and the
 // default season left as it was.
 import { test } from 'node:test';

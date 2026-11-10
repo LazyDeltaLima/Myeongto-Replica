@@ -33,8 +33,22 @@ test('the bond template table names templates its files hold', () => {
   for (const [t, decl] of Object.entries(BOND_TEMPLATES)) {
     const src = readFileSync(join(CONTENT, decl.where), 'utf8');
     assert.ok(src.includes(decl.src ?? t), `${t}: '${decl.src ?? t}' in ${decl.where}`);
-    assert.ok(decl.bonds.length && ['battle', 'prep'].includes(decl.side), t);
+    assert.ok((decl.bonds === null || decl.bonds.length) && ['battle', 'prep'].includes(decl.side), t);
   }
+});
+
+test('the bond dispatcher runs every battle template with an installer once, in ORDER', async () => {
+  const { ORDER } = await import('../../server/sim/content/bonds/dispatch.js');
+  const listed = ORDER.filter(Array.isArray).flat();
+  assert.equal(new Set(listed).size, listed.length, 'no template twice');
+  const files = Object.entries(BOND_TEMPLATES).filter(([, d]) => d.side === 'battle' && !d.where.startsWith('bonds/addon/'));
+  for (const [t, d] of files) {
+    const src = readFileSync(join(CONTENT, d.where), 'utf8');
+    const readBy = new RegExp(`${t}: \\{[^}]*readBy: '([^']+)'`).exec(src);
+    if (readBy) assert.ok(listed.includes(readBy[1]), `${t} is read by ${readBy[1]}, which ORDER runs`);
+    else assert.ok(listed.includes(t), `${t} (${d.where}) is in ORDER`);
+  }
+  for (const t of listed) assert.equal(BOND_TEMPLATES[t]?.side, 'battle', `${t}: a battle template of a bond file`);
 });
 
 test('a bond buff template is its bbStr.key, else its key, without its sub-keys', () => {
