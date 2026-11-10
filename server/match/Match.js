@@ -37,7 +37,9 @@
 //                    for the match; those chess fight as their stand-ins (PlayerState setNotOwned; bots own everything).
 //                    `diy` (0.2.0 自选编队, optional): the human's 自选 picks (shared/protocol.js checkDiyPicks) — fixed for
 //                    the match once its strategy draft ends (setDiy below); the slotted operators join the human's own
-//                    shop (PlayerState setDiy / initDiyStock).
+//                    shop (PlayerState setDiy / initDiyStock). In a season with 确定自选编队 (规程, GameData.diyChoose)
+//                    they are the seat's lineup, and the match fields only the ones that step chooses
+//                    (match/diyChoose.js).
 //   opts.spectators  string[] (optional)        the room's spectator seats (remake feature, community report #26;
 //                                              server/lobby.js): never players — see addSpectator below
 //   opts.factionOf(playerId) → string|null (optional)  the chat faction the player picked (server/local-patch.js,
@@ -83,7 +85,7 @@
 // setDiy(playerId, picks) → { ok } | { error, detail? }   (local, optional for the platform) new checked 自选 picks from
 //                           room.diy: accepted during INFO_CHECK / BAND_DRAFT while the player's 自选 stock is untouched
 //                           (맹약별 선발 프리셋, maintainer decision 2026-10-09); else WRONG_PHASE and the lobby keeps them for the
-//                           next match.
+//                           next match. 规程: the new lineup of the 确定自选编队 step (match/diyChoose.js setDiyLineup).
 // onLeave(playerId)         The human quit permanently (g.leave, room.leave, or the 10-minute reconnect
 //                           window expired). They will never return under this playerId in this match;
 //                           treat as quit (AI takes over / eliminated per DESIGN). No onDisconnect follows.
@@ -213,6 +215,7 @@ import { MatchWatch } from './match/watch.js';
 import { MatchIntents } from './match/intents.js';
 import { MatchPause } from './match/pause.js';
 import { MatchPhases } from './match/phases.js';
+import { MatchDiyChoose } from './match/diyChoose.js';
 import { MatchSpDraft } from './match/spDraft.js';
 import { MatchPrep } from './match/prep.js';
 import { MatchCombat } from './match/combat.js';
@@ -370,6 +373,9 @@ export class Match {
     this.itemPool = new SharedItemPool(this.gd, () => this.order);
     // 自选编队 (0.2.0): each human's slotted DIY pieces get their own stock — none for one whose bonds are all off this
     // match (player/diy.js initDiyStock); no randomness is drawn here
+    // (规程: the picks are the seat's 自选编队, of which the 确定自选编队 step chooses what this match fields — none until
+    // then: match/diyChoose.js)
+    this.initDiyLineups();
     const off = new Set([...bans.drawn, ...bans.staticOff]);
     for (const ps of this.order) ps.initDiyStock(off);
 
@@ -447,7 +453,7 @@ export class Match {
 }
 
 // the method modules, in this order (a name defined twice is an error, never a silent override)
-for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause, MatchPhases, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchReports, MatchUnite, MatchBoss, MatchSettle, MatchRestart]) {
+for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause, MatchPhases, MatchDiyChoose, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchReports, MatchUnite, MatchBoss, MatchSettle, MatchRestart]) {
   for (const key of Reflect.ownKeys(part.prototype)) {
     if (key === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Match.prototype, key)) throw new Error(`Match.${String(key)} is defined twice`);

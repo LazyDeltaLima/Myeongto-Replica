@@ -39,6 +39,7 @@ export class MatchViews {
     if (!ps.alive) return 'dead';
     switch (this.phase) {
       case PHASE.INFO_CHECK: return ps.infoReady ? 'ready' : 'deciding';
+      case PHASE.DIY_CHOOSE: return this.diyChooseDone(ps) ? 'ready' : 'deciding';
       case PHASE.BAND_DRAFT:
         if (this.draft && this.draft.picks[ps.playerId]) return 'ready';
         return this.draft && this.draftTurn() === ps.playerId ? 'deciding' : 'acting';
@@ -100,7 +101,7 @@ export class MatchViews {
         bandId: ps.bandId,
         shopLevel: ps.shop.level,
         boardCount: ps.deployCount,
-        ready: this.phase === PHASE.INFO_CHECK ? ps.infoReady : ps.ready,
+        ready: this.phase === PHASE.INFO_CHECK ? ps.infoReady : this.phase === PHASE.DIY_CHOOSE ? this.diyChooseDone(ps) : ps.ready,
         // the briefing's 重新抽取 vote (phases.js maybeEndInfo), only while INFO_CHECK runs
         ...(this.phase === PHASE.INFO_CHECK && ps.infoReroll ? { reroll: true } : {}),
         // the strategy draft's 编队确认: the seat is done (phases.js draftReady)
@@ -155,6 +156,8 @@ export class MatchViews {
       if (this.gd.large) v.overtimeDrain = this.gd.bossOvertimeDrainReal;
     }
     if (this.bossPool) v.bossHp = { hp: Math.max(0, Math.round(this.bossPool.hp)), max: Math.round(this.bossPool.maxHp) };
+    // 确定自选编队 (规程, diyChoose.js): the step's length (the countdown gauge's total; 0 when untimed); deadline = its end
+    if (this.phase === PHASE.DIY_CHOOSE) v.diyChoose = { seconds: this.soloUntimed ? 0 : this.scaled(this.gd.diyChoose.seconds * 1000) / 1000 };
     if (this.phase === PHASE.BAND_DRAFT && this.draft) {
       const d = this.draft;
       // turnSeconds: the length of a turn (the countdown gauge's total; 0 when untimed) — deadline = turnDeadline

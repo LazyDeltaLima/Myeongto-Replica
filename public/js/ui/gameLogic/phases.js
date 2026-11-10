@@ -24,6 +24,8 @@ export function phaseMode(phase) {
   if (!phase) return 'loading';
   if (phase === PHASE.INFO_CHECK) return 'briefing';
   if (phase === PHASE.BAND_DRAFT) return 'draft';
+  // 规程's 确定自选编队 keeps the strategy draft's screen until its own screen exists (screens/game.js autoDiyChoice)
+  if (phase === PHASE.DIY_CHOOSE) return 'draft';
   if (phase === PHASE.BATTLE_CHECK) return 'boot';
   if (phase === PHASE.RESULT) return 'result';
   if (phase === PHASE.SETTLE) return 'settle';
@@ -229,6 +231,7 @@ export function phaseTotalSeconds(pub, config, myId = null) {
     // one countdown: the current turn's (m.public.draft.turnSeconds = Match.BAND_TURN_SECONDS; user playtest #4 item 4),
     // then 编队确认's (m.public.draft.confirm.seconds)
     case PHASE.BAND_DRAFT: return num(pub.draft?.confirm?.seconds) ?? num(pub.draft?.turnSeconds) ?? num(timers.bandTurn) ?? 50;
+    case PHASE.DIY_CHOOSE: return num(pub.diyChoose?.seconds) ?? 30;
     case PHASE.BATTLE_CHECK: return num(timers.battleCheck) ?? 3;
     case PHASE.SP_DRAFT: {
       const sp = normalizeSp(pub.sp, pub.players);

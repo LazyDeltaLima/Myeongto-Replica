@@ -141,6 +141,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `handFillOrder` | `"rightToLeft"` | |
 | `shopOdds` | `{"model":"copyWeighted",…}` | [ASSUMED] roll model |
 | `borrowCount`, `fallbackBondId`, `defaultBandId`, `defaultStartLp` | `20`, `"emptyShip"`, `"band_bldsk"`, `28` | |
+| `diyCharLimitForLevels` | `{"5":2,"6":2}` (规程 only) | the 自选 picks each tier brings into a match from the 12-slot 自选编队, chosen in the CUSTOM_CHECK step (`PHASE.DIY_CHOOSE`, server/match/match/diyChoose.js); absent = every pick plays (盟约) |
 
 ### 1.3 Other global keys
 

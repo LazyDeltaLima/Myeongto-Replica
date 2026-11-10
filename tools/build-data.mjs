@@ -4314,6 +4314,9 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       handFillOrder: 'rightToLeft',
       shopOdds: { model: 'copyWeighted', note: 'each slot draws 1 copy uniformly from remaining pool copies of unbanned visible chess with tier <= shop level; items: same tier shares, then uniform within tier [ASSUMED]' },
       borrowCount: act.constData.borrowCount,
+      // 确定自选编队 (规程): how many of the player's 自选编队 each tier brings into a match ({ 5: 2, 6: 2 }); absent when the
+      // season has none (盟约: every pick plays). The step itself is enterStepList's CUSTOM_CHECK (timers.enterSteps)
+      ...(act.constData.diyCharLimitForLevels ? { diyCharLimitForLevels: act.constData.diyCharLimitForLevels } : {}),
       fallbackBondId: act.constData.fallbackBondId,
       defaultBandId: defaultBand, defaultStartLp: bands[defaultBand]?.totalHp ?? 28,
     },

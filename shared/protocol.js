@@ -296,17 +296,18 @@ export function checkNotOwned(list, getChess) {
 
 /**
  * `room.diy { picks }`: the player's 自选编队 — `{ [slotBaseId]: { charId, skillIndex?, uniEquipId? } | null }` for the
- * four DIY slots (data/backups.json `diy.slots`: two at tier 5, two at tier 6; shared/diy.js). An out-of-match setting
+ * season's DIY slots (data/backups.json `diy.slots`: 盟约 two at tier 5 and two at tier 6, 规程 six of each; shared/diy.js
+ * — 规程 fields only the ones its 确定自选编队 step chooses, server/match/match/diyChoose.js). An out-of-match setting
  * like 干员持有: stored per session / seat, a match takes the picks its seat had at its start. Structural limit below
  * (room for more slots in a later season); the semantic check (`checkDiyPicks`) is LENIENT, like checkNotOwned: an
  * illegal pick — not a pick of the slot's tier, an operator without a kit, a prototype off its locked skill, an unknown
  * skill / module, the same operator twice in a tier, an owned operator in a second slot, an unknown slot — is dropped,
  * never the whole roster; only malformed input is BAD_MSG.
  */
-export const DIY_LIMITS = Object.freeze({ slots: 8 });
+export const DIY_LIMITS = Object.freeze({ slots: 12 });
 const isDiyPickWire = (p) => p === null || (isPlain(p) && isId(p.charId)
   && nullable((v) => isInt(v, 0, 9))(p.skillIndex) && nullable(isId)(p.uniEquipId));
-/** Structural check of `room.diy.picks`: a map of ≤ 8 slot ids → a pick `{ charId, skillIndex?, uniEquipId? }` or null. */
+/** Structural check of `room.diy.picks`: a map of ≤ 12 slot ids → a pick `{ charId, skillIndex?, uniEquipId? }` or null. */
 export const isDiyPicks = (v) => isMap(v, DIY_LIMITS.slots, isId, isDiyPickWire);
 
 /**
@@ -482,6 +483,11 @@ export const C2S = {
   'g.bandFocus': { bandId: nullable(isId), $optional: ['bandId'] },
   // the strategy draft's 编队确认 window (after the last pick): the seat is done (MatchPhases.draftReady)
   'g.draftReady': {},
+  // 确定自选编队 (规程 only, server/match/match/diyChoose.js): the 自选 slots of the seat's 自选编队 it brings into this
+  // match (the whole choice, replacing the last one; at most GameData.diyChoose.perTier of each tier — 2 + 2), and the
+  // seat's 准备就绪 (`cancel: true` = 取消准备, which unlocks the choice again)
+  'g.diyChoose': { slots: (v) => isList(v, DIY_LIMITS.slots, isId) },
+  'g.diyReady': { cancel: isBool, $optional: ['cancel'] },
   'g.buy': { slot: (v) => isInt(v, 0, 15) },
   'g.refresh': {},
   'g.freeze': {},
