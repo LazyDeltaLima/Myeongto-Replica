@@ -17,6 +17,10 @@ async function load(path) {
 
 const [dispatch, supportMeta] = await Promise.all([load('./bonds/dispatch.js'), load('./support/meta.js')]);
 
+export function reserve(battle) {
+  if (typeof dispatch.reserve === 'function') dispatch.reserve(battle);
+}
+
 export function install(battle) {
   if (typeof dispatch.install === 'function') dispatch.install(battle);
 }

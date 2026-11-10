@@ -2,12 +2,13 @@
 // coins, the shop, summon stacks topped up), endPrep, eliminate (every copy back to the pool), recompute (legality,
 // out-of-range summons, temp pieces into free hand slots, bonds; onActiveBonds when the set of active bonds changed),
 // the bond views — and battleInput (the player's PlayerBattleInput: board units with their loadout, their 补位 mark or
-// their 自选 pick, carried 联防 state, the reached layers).
+// their 自选 pick, carried 联防 state, the hand pieces a bond may field, the reached layers).
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
 import { boardOrder, pieceDir } from '../board.js';
-import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains } from '../bondsMeta.js';
+import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains, pieceBonds } from '../bondsMeta.js';
+import { handRules } from '../../sim/content/bonds/dispatch.js';
 
 export class PlayerRound {
   startRound(r) {
@@ -120,6 +121,34 @@ export class PlayerRound {
   bondsView() { return bondsWithGains(this.bonds, this.pendingLayerGains, this.gd.layerCap); }
 
   /**
+   * The PlayerBattleInput entry of a chess piece (board: `pos` = { row, col, dir }; 整备区: { slot }) — its loadout, 补位
+   * mark or 自选 pick, potential and 练度, items.
+   */
+  chessBattleEntry(piece, pos) {
+    const u = { uid: piece.uid, kind: 'chess', chessId: piece.id, ...pos, items: (piece.items || []).map((i) => i.id) };
+    const pick = this.diyPickOf(piece.id);
+    if (pick) {
+      // 0.2.0 自选编队: a slotted DIY slot fights as its pick (sim getChess(id, { diy }): the operator's body, the pick's
+      // skill and module — no loadout fields, docs/SIM.md §12)
+      u.diy = { charId: pick.charId, skillIndex: pick.skillIndex, uniEquipId: pick.uniEquipId };
+    } else if (this.fieldsStandIn(piece.id)) {
+      // 0.2.0 补位: a chess this player does not own fights as its stand-in (sim getChess(id, { standIn: true }): the
+      // backup skill / module — no loadout fields, docs/SIM.md §12)
+      u.standIn = true;
+    } else {
+      // DESIGN §16: the equipped skill / module (elite only) from the loadout (defaults when absent)
+      const lo = this.loadoutFor(this.gd.chess(piece.id));
+      u.skillIndex = lo.skillIndex;
+      u.moduleId = lo.moduleId;
+    }
+    // 0.2.2: the potential / 练度 of an operator the player owns (the chess as itself, an owned 自选 pick — the player's
+    // 干员调配 settings, 潜能 6 / 精英2 Lv.60 by default and for bots; never a stand-in's nor a prototype pick's)
+    const cv = u.standIn ? null : this.cultivationFor(this.gd.chess(piece.id));
+    if (cv) { u.potential = cv.potential; u.cultivate = cv.cultivate; }
+    return u;
+  }
+
+  /**
    * `reached`: the bonds carry the layers this round's own combat reached (bondsView: the pending in-battle gains, capped
    * like settle()) — the 联防 field (unite.js; PRTS 卫戍协议/帮助 §联防阶段 "将以其阵地当前的状态", [ASSUMED] the current
    * state includes those layers, as the strip shows them). The gains stay pending: settle() adds them once.
@@ -131,26 +160,7 @@ export class PlayerRound {
     const units = [];
     for (const { r, c, piece } of boardOrder(this.board)) {
       if (piece.kind === 'chess') {
-        const u = { uid: piece.uid, kind: 'chess', chessId: piece.id, row: r, col: c, dir: pieceDir(piece), items: (piece.items || []).map((i) => i.id) };
-        const pick = this.diyPickOf(piece.id);
-        if (pick) {
-          // 0.2.0 自选编队: a slotted DIY slot fights as its pick (sim getChess(id, { diy }): the operator's body, the pick's
-          // skill and module — no loadout fields, docs/SIM.md §12)
-          u.diy = { charId: pick.charId, skillIndex: pick.skillIndex, uniEquipId: pick.uniEquipId };
-        } else if (this.fieldsStandIn(piece.id)) {
-          // 0.2.0 补位: a chess this player does not own fights as its stand-in (sim getChess(id, { standIn: true }): the
-          // backup skill / module — no loadout fields, docs/SIM.md §12)
-          u.standIn = true;
-        } else {
-          // DESIGN §16: the equipped skill / module (elite only) from the loadout (defaults when absent)
-          const lo = this.loadoutFor(this.gd.chess(piece.id));
-          u.skillIndex = lo.skillIndex;
-          u.moduleId = lo.moduleId;
-        }
-        // 0.2.2: the potential / 练度 of an operator the player owns (the chess as itself, an owned 自选 pick — the player's
-        // 干员调配 settings, 潜能 6 / 精英2 Lv.60 by default and for bots; never a stand-in's nor a prototype pick's)
-        const cv = u.standIn ? null : this.cultivationFor(this.gd.chess(piece.id));
-        if (cv) { u.potential = cv.potential; u.cultivate = cv.cultivate; }
+        const u = this.chessBattleEntry(piece, { row: r, col: c, dir: pieceDir(piece) });
         if (carry && carry.has(piece.uid)) u.carryState = carry.get(piece.uid);
         units.push(u);
       } else if (piece.kind === 'token') {
@@ -159,12 +169,25 @@ export class PlayerRound {
         units.push(u);
       }
     }
+    // the 整备区 operators a battle may field (规程's 卡西米尔 6 switch, content/bonds/nation/kazimierz.js): only those a
+    // bond rule asks for (bonds/dispatch.js handRules — the spec reaches every watcher, the rest of the hand stays
+    // private); slot = the hand index (0 the leftmost). The hand does not change during a battle (prep intents only)
+    const reserve = [];
+    const rules = handRules((id) => this.gd.bond(id)).filter((x) => { const st = this.bonds?.[x.bond]; return st && st.active && (st.count ?? 0) >= x.need; });
+    if (rules.length) {
+      (this.hand || []).forEach((piece, slot) => {
+        if (!piece || piece.kind !== 'chess') return;
+        const pos = this.gd.chess(piece.id)?.position, bonds = pieceBonds(this.gd, piece);
+        if (rules.some((x) => pos === x.position && (bonds.includes(x.bond) || bonds.includes('maniShip')))) reserve.push(this.chessBattleEntry(piece, { slot }));
+      });
+    }
     return {
       playerId: this.playerId,
       seat: this.seat,
       side,
       colOffset,
       units,
+      ...(reserve.length ? { reserve } : null),
       bonds: bondSnapshot(reached ? this.bondsView() : this.bonds),
       bandId: this.bandId,
       playerEffects: this.effects.filter((e) => e.battle !== false).map((e) => ({

@@ -102,7 +102,11 @@ export function buildBattleSpec(o = {}) {
   // the halves (3 | 4) of an 8-player mode's wide 联防 field (Battle `wide`, wideStage.js); absent on every other field
   if (wideHalves(o.wide) && spec.kind === 'unite') spec.wide = o.wide;
   const out = JSON.parse(JSON.stringify(spec, specReplacer));
-  for (const p of out.players) for (const u of (p && Array.isArray(p.units) ? p.units : [])) if (u && typeof u === 'object') sanitizeUnitLoadout(u);
+  for (const p of out.players) {
+    for (const u of (p && Array.isArray(p.units) ? p.units : [])) if (u && typeof u === 'object') sanitizeUnitLoadout(u);
+    // the 整备区 operators a bond may field (PlayerBattleInput `reserve`: { slot } instead of a tile) — chess entries only
+    if (p && Array.isArray(p.reserve)) p.reserve = p.reserve.filter((u) => u && typeof u === 'object' && u.kind === 'chess' && Number.isInteger(u.slot)).map(sanitizeUnitLoadout);
+  }
   return out;
 }
 

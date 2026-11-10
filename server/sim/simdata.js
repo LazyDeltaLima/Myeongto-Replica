@@ -977,7 +977,8 @@ export function withUnitLoadouts(ds, players) {
   const conflicts = new Set();
   let any = false;
   for (const p of Array.isArray(players) ? players : []) {
-    for (const u of (p && Array.isArray(p.units) ? p.units : [])) {
+    // the board's operators and the 整备区's a bond may field (`reserve`: 卡西米尔's 6 switch)
+    for (const u of [...(p && Array.isArray(p.units) ? p.units : []), ...(p && Array.isArray(p.reserve) ? p.reserve : [])]) {
       if (!u || u.kind === 'token' || typeof u.chessId !== 'string') continue;
       const diy = u.diy && typeof u.diy === 'object' ? u.diy : null;
       const pot = u.standIn !== true && isPotential(u.potential) ? u.potential : null;

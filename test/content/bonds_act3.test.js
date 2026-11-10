@@ -234,6 +234,153 @@ test('规程 卡西米尔 6: for 30 s after the deployment or a skill, a member\
   assert.deepEqual(h.b.errors, []);
 });
 
+// ---- 卡西米尔 6: the 整备区 switch ([switch] AutoChessMarkSwitchWithHand RIGHT · ORIGINAL · MELEE)
+
+/** Six 卡西米尔 members on the board (k0 a ranged one) and a 整备区 of `hand` ([[chessId, slot, bonds, extra?]]). */
+function switchFight(hand, { count = 6, layers = 0 } = {}) {
+  const board = ids('k', 6).map((id, i) => [id, ['kazimierzShip'], i === 0 ? { profession: 'SNIPER' } : undefined]);
+  const benched = hand.map(([id, , bonds, extra]) => [id, bonds, extra]);
+  return fight([...board, ...benched], { kazimierzShip: bondOn(count, layers) }, {
+    units: board.map(([id], i) => ({ chessId: id, row: 10, col: 3 + i })),
+    reserve: hand.map(([id, slot]) => ({ chessId: id, slot })),
+  });
+}
+
+test('规程 卡西米尔 6: a ground member knocked out leaves and the rightmost 卡西米尔 ground operator of the 整备区 comes in on its tile', () => {
+  const h = switchFight([
+    ['h1_a', 1, ['kazimierzShip']],
+    ['h7_a', 7, ['kazimierzShip']],
+    ['h8_a', 8, ['kazimierzShip'], { profession: 'CASTER' }], // ranged: never the one
+    ['h9_a', 9, ['sargonShip']],                               // no 卡西米尔
+  ]);
+  const b = h.b;
+  const reserve = b.allyUnits.filter((u) => u.reserve);
+  assert.deepEqual(reserve.map((u) => u.defId), ['h7_a', 'h1_a'], 'the candidates, rightmost first');
+  assert.ok(reserve.every((u) => !u.alive && !u.deployed && u.deploySeq === 0), 'off the field at the start');
+  const k1 = h.unit('k1_a');
+  const [r, c] = [k1.tileR, k1.tileC];
+  const atk0 = k1.s.atk;
+  b.kill(k1);
+  const h7 = reserve[0];
+  assert.ok(k1.removed && !b.isDown(k1), '离场: no body, no redeploy');
+  assert.ok(h7.alive && h7.deployed, 'h7 fielded');
+  assert.deepEqual([h7.tileR, h7.tileC, h7.homeR, h7.homeC], [r, c, r, c], 'on the tile k1 lay on');
+  assert.equal(h7.dir, k1.dir);
+  assert.ok(h.hooksOf('deploy').some((x) => x.unit === h7 && x.initial === false), 'a deployment (the 卡西米尔 count sees it)');
+  close(h7.s.atk, atk0, 1e-6, 'the field\'s deployments raise its ATK too:');
+  // a fielded candidate is a member: [ex_damage] from its deployment, and its own switch
+  const e = h.enemies()[0];
+  b.dealDamage(h7, e, { amount: 1, type: 'phys' });
+  assert.equal(tagged(h, 'bond:kazimierz').filter((x) => x.source === h7).length, 1, '[ex_damage] on the fielded one');
+  b.kill(h7);
+  const h1 = reserve[1];
+  assert.ok(h1.alive && h1.tileR === r && h1.tileC === c, 'the next candidate takes the tile again');
+  // no candidate left: a knock-out lies down as usual; a ranged member never switches
+  const k2 = h.unit('k2_a');
+  b.kill(k2);
+  assert.ok(!k2.removed && b.isDown(k2), 'no candidate: knocked out as usual');
+  b.kill(h1);
+  assert.ok(b.isDown(h1));
+  assert.equal(b.players[0].bonds.kazimierzShip.count, 6, 'the bond state is the battle\'s input');
+  assert.deepEqual(b.errors, []);
+});
+
+test('规程 卡西米尔 6: no switch for a ranged member, a retreat, at 5 members, or for the default season\'s 卡西米尔', () => {
+  {
+    const h = switchFight([['h7_a', 7, ['kazimierzShip']]]);
+    const [k0] = [h.unit('k0_a')];
+    h.b.kill(k0);
+    assert.ok(h.b.isDown(k0), 'a ranged member lies down');
+    const k1 = h.unit('k1_a');
+    h.b.retreat(k1);
+    assert.ok(!k1.removed, 'a retreat is no knock-out');
+    const h7 = h.b.allyUnits.find((u) => u.reserve);
+    assert.ok(!h7.deployed, 'still in the 整备区');
+    h.run(5);
+    const res = h.b.result();
+    assert.ok(!res.perPlayer.p1.unitsEnd.some((u) => u.defId === 'h7_a'), 'an unfielded candidate is no unit of the result');
+    assert.ok(!res.perPlayer.p1.unitStats.some((u) => u.defId === 'h7_a'));
+    assert.deepEqual(h.b.errors, []);
+  }
+  {
+    const h = switchFight([['h7_a', 7, ['kazimierzShip']]], { count: 5 });
+    assert.equal(h.b.allyUnits.filter((u) => u.reserve).length, 0, 'no candidates below 6');
+    const k1 = h.unit('k1_a');
+    h.b.kill(k1);
+    assert.ok(h.b.isDown(k1));
+  }
+  {
+    // the default season's 卡西米尔 (act2 template) has no switch
+    const board = ids('k', 6).map((id) => [id, ['kazimierzShip']]);
+    const chess = Object.fromEntries([...board, ['h7_a', ['kazimierzShip']]].map(([id, b]) => [id, op(id, b)]));
+    const data = new DataSource({ chess: { ...chess }, enemies: { e_dummy: dummy } }, getDefaultSource());
+    const h = makeBattle({ data, bonds: { kazimierzShip: bondOn(6, 0) }, enemies: [{ key: 'e_dummy', count: 1, interval: 0 }], autoFinish: false,
+      units: board.map(([id], i) => ({ chessId: id, row: 10, col: 3 + i })), reserve: [{ chessId: 'h7_a', slot: 7 }] });
+    h.step(2);
+    assert.equal(h.b.allyUnits.filter((u) => u.reserve).length, 0);
+    assert.deepEqual(h.b.errors, []);
+  }
+});
+
+test('规程 卡西米尔 6 (real match): the 整备区\'s 卡西米尔 ground operators travel in the battle input and one takes a knocked-out member\'s tile', () => {
+  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 5, data: ACT3_ON_BASE_FIELD, season: 'act3autochess' }).start();
+  h.toPrep(3, { band: 'band_amiya' });
+  const m = h.m, ps = h.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  ps.level = Math.max(ps.level, 6);
+  const pool = Object.values(ACT3.chess).filter((c) => c.visible && !c.isGolden && c.bonds.includes('kazimierzShip'));
+  const ground = pool.filter((c) => c.position === 'MELEE');
+  const onBoard = [...ground.slice(0, 1), ...pool.filter((c) => c !== ground[0]).slice(0, 5)];
+  const benched = ground.filter((c) => !onBoard.includes(c)).slice(0, 2);
+  assert.equal(benched.length, 2, 'two ground 卡西米尔 operators for the 整备区');
+  const used = new Set();
+  for (const c of onBoard) {
+    const piece = ps.acquireChess(c.chessId, { source: 'buy' });
+    const [row, col] = legalTileFor(m, ps, c.chessId, used);
+    used.add(`${row},${col}`);
+    assert.equal(m.handle('p_0', { t: 'g.move', uid: piece.uid, to: { area: 'board', row, col }, dir: 'RIGHT' }).ok, true, c.chessId);
+  }
+  const slots = [];
+  for (const c of benched) {
+    const piece = ps.acquireChess(c.chessId, { source: 'buy' });
+    slots.push([ps.hand.indexOf(piece), c.chessId]);
+  }
+  // two more in the hand that never travel: a ranged 卡西米尔 operator and another bond's ground operator
+  const ranged = pool.find((c) => c.position !== 'MELEE');
+  const other = Object.values(ACT3.chess).find((c) => c.visible && !c.isGolden && c.position === 'MELEE' && !c.bonds.includes('kazimierzShip') && !c.bonds.includes('maniShip'));
+  for (const c of [ranged, other]) ps.acquireChess(c.chessId, { source: 'buy' });
+  ps.recompute();
+  assert.ok(ps.bonds.kazimierzShip.count >= 6, `卡西米尔 ${ps.bonds.kazimierzShip.count}`);
+  const input = ps.battleInput();
+  // (a new piece takes the rightmost free slot: board.js freeSlot, index 9 the rightmost)
+  assert.deepEqual(input.reserve.map((u) => [u.slot, u.chessId]), [...slots].sort((a, x) => a[0] - x[0]), 'the hand\'s 卡西米尔 ground operators with their slots');
+  assert.ok(input.reserve.every((u) => Number.isInteger(u.skillIndex)), 'with their loadout');
+  const battles = [];
+  const newBattle = m.newBattle.bind(m);
+  m.newBattle = (opts, o) => {
+    const b = newBattle(opts, o);
+    if (o?.preview) return b;
+    battles.push(b);
+    // knock out the ground member once the deployment is done
+    b.after(3, () => { const k = b.allyUnits.find((u) => u.ownerId === 'p_0' && u.defId === onBoard[0].chessId && u.alive); if (k) { b._kzTile = [k.tileR, k.tileC]; b.kill(k); } });
+    return b;
+  };
+  h.drive(() => m.round === 4 || h.ended != null);
+  const b = battles.find((x) => x.players.some((p) => p.playerId === 'p_0'));
+  assert.ok(b, 'the round\'s battle');
+  const reserve = b.allyUnits.filter((u) => u.reserve);
+  const right = [...slots].sort((a, x) => x[0] - a[0]).map(([, id]) => id);
+  assert.deepEqual(reserve.map((u) => u.defId), right, 'the candidates, rightmost first');
+  assert.ok(b._kzTile, 'the member was knocked out');
+  assert.ok(reserve[0].deploySeq > 0 && reserve[0].homeR === b._kzTile[0] && reserve[0].homeC === b._kzTile[1], 'the rightmost one came in on its tile');
+  assert.ok(b.result().perPlayer.p_0.unitsEnd.some((u) => u.uid === reserve[0].uid), 'and is a unit of the result');
+  assert.equal(b.errorCount, 0);
+  assert.equal(m.errorCount, 0);
+  m.dispose?.();
+});
+
 test('规程 奥术: each non-附加 damage adds ATK × (0.2 + 0.004L) arts; 3: an enemy loses 1 RES a hit, down to −(30 + 0.05L)', () => {
   const bb = bbOf('arcaneShip');
   const L = 100;

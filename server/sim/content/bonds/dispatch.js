@@ -5,9 +5,11 @@
 //
 //   nation/<bond>.js   the 12 nation bonds (炎 萨尔贡 维多利亚 谢拉格 拉特兰 阿戈尔 叙拉古 卡西米尔; 规程: 乌萨斯 伊比利亚
 //                      莱塔尼亚 聚合), each `TEMPLATES = { template: { bond, battle(battle, pid, bb, members), bb?,
-//                      readBy?, partial? } }` — `bb: 'record'` hands the installer every buff of the record together
-//                      (shared.js recordBb), else the template's first buff; `readBy`: a part another template's
-//                      installer reads; `partial`: what of the template is not written yet
+//                      readBy?, partial?, reserve? } }` — `bb: 'record'` hands the installer every buff of the record
+//                      together (shared.js recordBb), else the template's first buff; `readBy`: a part another
+//                      template's installer reads; `partial`: what of the template is not written yet; `reserve(battle,
+//                      pid, bb)`: the 整备区 operators it may field, created before any content installs (reserve), and
+//                      `hand(bb)` the rule of the hand pieces the match sends for it (handRules)
 //   general/<bond>.js  an add-on bond's template of another season (规程's 奥术, 远见's discount, 奇迹's 100 layers)
 //   addon/battle.js    the 11 add-on bonds with a battle side, one install for all of them (its TEMPLATES name the
 //                      templates it runs)
@@ -88,6 +90,44 @@ export function templateNumbers(bondId, key, scope = null) {
   const d = BATTLE[key];
   const rec = S.bondRecord(bondId, scope);
   return d && d.bb === 'record' ? recordBb(rec, key) : templateBb(rec, key);
+}
+
+/**
+ * The 整备区 pieces a battle may field (PlayerBattleInput `reserve`, server/match/player/round.js battleInput): per
+ * template with a `hand(bb)` rule whose bond record (`bondOf(bondId)`, the season's) carries it, `{ bond, position, need }`
+ * — a hand operator of that deploy class carrying the bond (or 调和) once the player has `need` members. A superset: the
+ * template's `reserve` picks the exact candidates. Only these travel, so the spec shows no more of a player's hand.
+ */
+export function handRules(bondOf) {
+  const out = [];
+  for (const [key, d] of Object.entries(BATTLE)) {
+    if (typeof d.hand !== 'function') continue;
+    const rec = bondOf(d.bond);
+    const bb = rec ? (d.bb === 'record' ? recordBb(rec, key) : templateBb(rec, key)) : null;
+    if (bb) out.push({ bond: d.bond, ...d.hand(bb) });
+  }
+  return out;
+}
+
+/**
+ * Before any content installs (content/index.js `reserve`): the templates with a `reserve(battle, pid, bb)` create the
+ * reserve operators they may field (battle/players.js createReserveAlly — 规程's 卡西米尔 6 switch), in ORDER, per player.
+ */
+export function reserve(battle) {
+  if (!battle || !Array.isArray(battle.players)) return;
+  for (const stage of ORDER) {
+    if (stage === ADDON) continue;
+    for (const p of battle.players) {
+      const pid = p.playerId;
+      if (!p.bonds || typeof p.bonds !== 'object') continue;
+      for (const key of stage) {
+        const d = BATTLE[key];
+        if (typeof d.reserve !== 'function' || !S.bondActive(battle, pid, d.bond)) continue;
+        const bb = templateNumbers(d.bond, key, battle);
+        if (bb) d.reserve(battle, pid, bb);
+      }
+    }
+  }
 }
 
 export function install(battle) {

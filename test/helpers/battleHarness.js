@@ -249,6 +249,8 @@ export function makeBattle(opts = {}) {
     playerId: 'p1', seat: 0, side: 'L', colOffset: 0,
     units: (opts.units ?? []).map((u, i) => ({ uid: u.uid ?? i + 1, kind: u.kind ?? 'chess', ...diyEntry(u), ...(u.standIn ? { standIn: true } : null) })),
     bonds: opts.bonds ?? {}, bandId: opts.bandId ?? null, playerEffects: opts.playerEffects ?? [],
+    // the 整备区 operators a bond may field (PlayerBattleInput `reserve`: [{ chessId, slot, … }])
+    ...(opts.reserve ? { reserve: opts.reserve.map((u, i) => ({ uid: u.uid ?? 100 + i, kind: 'chess', ...u })) } : null),
   }];
   const hookNames = opts.hooks ?? ALL_HOOKS;
   const captured = Object.create(null);

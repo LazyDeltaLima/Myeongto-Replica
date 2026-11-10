@@ -148,14 +148,8 @@ export class BattlePlayers {
     // true` fields the chess as its 补位 stand-in (simdata getStandIn: the stand-in's body, the chess's identity); `diy`
     // fills a 自选 slot with its pick (simdata getDiy: the slot's identity, the operator's body, skill and module);
     // `potential` (潜能 1–6, 0.2.2) composes the def at it (never a stand-in's)
-    const lo = { skillIndex: inp.skillIndex ?? null, moduleId: inp.moduleId ?? null };
-    if (inp.standIn === true) lo.standIn = true;
-    if (inp.diy && typeof inp.diy === 'object') lo.diy = inp.diy;
-    if (inp.standIn !== true && isPotential(inp.potential)) lo.potential = inp.potential;
-    const def = this.data.getChess(inp.chessId, lo);
-    if (!def) { this.log(`unknown chess ${inp.chessId}${lo.diy ? ' (illegal 自选 pick)' : ''}`); return null; }
-    // a DIY slot has no body of its own (甄选干员): it fights only as a 自选 piece (its `diy` pick)
-    if (def.raw?.isDiy && !def.diyFor) { this.log(`自选 slot ${inp.chessId} without a pick`); return null; }
+    const def = this._allyDefFromInput(inp);
+    if (!def) return null;
     const u = this._makeAlly(ps, def, 'op', r, c, { uid: inp.uid, dir });
     u.items = [...(inp.items ?? [])];
     u.carry = inp.carryState ?? null;
@@ -166,6 +160,56 @@ export class BattlePlayers {
       if (mul) { u.cultivate = inp.cultivate; u.cultMul = Object.freeze({ ...mul }); u.markDirty(); }
     }
     return u;
+  }
+
+  /** The operator def of a PlayerBattleInput chess entry for its loadout (_createAllyFromInput), or null (logged). */
+  _allyDefFromInput(inp) {
+    const lo = { skillIndex: inp.skillIndex ?? null, moduleId: inp.moduleId ?? null };
+    if (inp.standIn === true) lo.standIn = true;
+    if (inp.diy && typeof inp.diy === 'object') lo.diy = inp.diy;
+    if (inp.standIn !== true && isPotential(inp.potential)) lo.potential = inp.potential;
+    const def = this.data.getChess(inp.chessId, lo);
+    if (!def) { this.log(`unknown chess ${inp.chessId}${lo.diy ? ' (illegal 自选 pick)' : ''}`); return null; }
+    // a DIY slot has no body of its own (甄选干员): it fights only as a 自选 piece (its `diy` pick)
+    if (def.raw?.isDiy && !def.diyFor) { this.log(`自选 slot ${inp.chessId} without a pick`); return null; }
+    return def;
+  }
+
+  /**
+   * A reserve operator from a 整备区 entry of the player's input (`reserve`: { slot } instead of a tile): created with the
+   * board's units (before the content installs — content/index.js `reserve`, so every bond, item and kit hook sees it
+   * like a board operator) but off the field: not in the battle-start deployment (`deferDeploy`), on no tile
+   * (`removed` until fielded: no reserved tile, no redeploy), left out of the result until fielded. Content fields it
+   * with fieldReserve. Returns the unit or null.
+   */
+  createReserveAlly(ps, inp) {
+    if (!ps || !inp || inp.kind !== 'chess') return null;
+    // off every field tile until fielded (a home of (-1, -1) is no other piece's 初始位置: _layBody)
+    const u = this._createAllyFromInput(ps, { ...inp, row: -1, col: -1, abs: true, dir: null });
+    if (!u) return null;
+    u.reserve = true;
+    u.handSlot = Number.isInteger(inp.slot) ? inp.slot : null;
+    u.deferDeploy = true;
+    u.removed = true;
+    if (!u.kit) this._setupUnit(u);
+    return u;
+  }
+
+  /**
+   * Field a reserve operator (createReserveAlly) on field tile `tile` ([r, c], its home from now on) facing `dir`: a
+   * deployment like a redeploy (full HP, `deploy` {initial:false}). False when it was fielded already or the tile takes
+   * no ally (_deploy).
+   */
+  fieldReserve(u, tile, dir = null) {
+    if (!u || !u.reserve || u.deploySeq > 0 || u.alive || !Array.isArray(tile)) return false;
+    const [r, c] = tile;
+    if (!this.grid.inRect(r, c)) return false;
+    u.homeR = u.tileR = r; u.homeC = u.tileC = c; u.x = c; u.y = r;
+    if (dir != null) u.dir = normDir(dir);
+    u.removed = false;
+    if (this._deploy(u)) return true;
+    u.removed = true;
+    return false;
   }
 
   /**
