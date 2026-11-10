@@ -598,7 +598,7 @@ upstream v0.2.4(`bc50cac0`)·그 뒤 PR과 새 이슈 중 관리자 결정(2026-
 ### 白面鸮(프틸롭시스)가 복사한 歌蕾蒂娅·余의 준비 시작 증정은 「같은 줄 세 명」을 건너뜀 (GitHub #473, upstream `6bfc0827`)
 - 근거: 제보자의 공식 플레이 영상(bilibili BV1XJSoBzEFB 2:30–2:38)을 upstream 관리자가 확인 — 白面鸮가 앞 칸 歌蕾蒂娅(오퍼레이터)·余(오퍼레이터)의 특질을
   복사하면, 白面鸮 줄에도 원래 오퍼레이터 줄에도 세 명이 없는데 증정이 나온다.
-- 동작(upstream 그대로): 디스패처가 복사 실행에 `copiedFrom`(원래 오퍼레이터의 말)을 기록하고, `garrisons/meta.js rowCondition`은 「복사한 쪽이 白面鸮,
+- 동작(upstream 그대로): 디스패처가 복사 실행에 `copiedFrom`(원래 오퍼레이터의 말)을 기록하고, `garrisons/prep/shared.js rowCondition`은 「복사한 쪽이 白面鸮,
   원본이 歌蕾蒂娅·余, 준비 시작(`SERVER_PREP_START`)」일 때만 조건을 통과시킨다. 원래 오퍼레이터의 자기 증정은 여전히 자기 줄을 검사한다.
   塞雷娅(오퍼레이터)의 복사·다른 특질·다른 줄 조건은 바꾸지 않음(영상이 이 두 경우만 보여 줌 — upstream도 넓히지 않음).
 - 테스트 `test/content/garrisons_meta.test.js`(두 원본 × 白面鸮 줄 · 원본 줄 있음/없음 8가지, upstream 그대로).
@@ -971,7 +971,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   **[추정]**: 물러난(쓰러짐 아닌) 멤버의 말도 집 칸에 있는 것으로 셈; 재배치·기습 착지는 새 배치라 다시 판정, `relocate`(deploy move)는 판정 유지; 받는 쪽은 오퍼레이터만.
   `bonds/addon/battle.js judgeAura`. 테스트 `test/content/bonds_addon.test.js` 「灵巧」.
 - **特质 `gar_event_selfkillenemy` 처치 수**: 그래프가 `current_cnt`를 ON_BUFF_START(배치마다)에 0으로 — 재배치하면 처음부터 셈(이전: 전투 내내 이어짐).
-  `garrisons/battle.js`(`deploy`, move 제외). 테스트 `garrisons_battle.test.js` 「selfkillenemy」.
+  `garrisons/effects/events.js`(`deploy`, move 제외). 테스트 `garrisons_battle.test.js` 「selfkillenemy」.
 - **特质 `respawnTimeByBond`(耀骑士临光 garrison_144)**: EN 템플릿에 이 키가 없고 비슷한 `act1autochess_gar_eff_respawnByBond`(퇴장 때 카드 버프, 층/divide **floor 없음**)만
   있다. CN의 새 템플릿일 수 있어 그대로(floor 단계 + 상시 재배치 배율).
 - **炎 9명 炎佑 ATK ×1.5 = 전체 ATK**: `bond_eff_yan[long]`이 ATK FINAL_SCALER(`content/tokens.js spawnYanyou`의 [ASSUMED] 삭제).
@@ -1010,7 +1010,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   (`AutoChessAssignBondStackCntToBB` → 층 ÷ divide_num `_finalFloor` → 능력치마다 × 단계, 상한 `max_stack` 999999) — ON_BUFF_TRIGGER가 없어 전투 중 층이 늘어도 다시
   계산하지 않는다. 그래서 그 오퍼레이터가 다시 배치될 때(쓰러진 뒤 재배치·기습 착지 — 【移动】은 유지 [추정])만 그 순간의 층으로 다시 정한다. `act2autochess_gar_eff_attrByBond_add_onstart`도
   ON_BUFF_START뿐이라 같은 방식(이전에는 층이 늘면 돌고 있는 시한 버프를 다시 계산; 관리자 결정 2026-10-11 「공식이 배치 때만 계산하면 그대로」 — 화면 확인 항목). `ab_damageScaleByBond`(ON_BUFF_TRIGGER)와 `respawnTimeByBond`(EN 템플릿 없음)는 계속 층을
-  따라감. `garrisons/battle.js installReaders`. **되돌리기**: `installReaders`의 `layerGain` 재계산 목록 `live`에 attrByBond·add_onstart를 다시 넣으면 2026-10-11 전 동작
+  따라감. `garrisons/effects/stats.js installReaders`. **되돌리기**: `installReaders`의 `layerGain` 재계산 목록 `live`에 attrByBond·add_onstart를 다시 넣으면 2026-10-11 전 동작
   (층이 늘 때마다 다시 계산; bonds.md T1). 테스트 `test/content/garrisons_battle.test.js` 「attrByBond」(실제 경로 포함).
 - **阿戈尔 吞噬 팀원 — 관리자 결정 2026-10-11 「지금 규칙 유지(A)」**: 에기르 멤버는 앞 칸의 오퍼레이터를 주인과 상관없이 먹는다(#140 결정 그대로, `bonds/nation/egir.js devour`).
   그래프 읽기(bonds.md B9: 맹약이 안 켜진 팀원은 `eat_calculated`로 안 먹음)와 다르지만, 联防·보스 필드는 두 플레이어 구역 경계에 공격 지점·배치 불가 칸이 있어 팀원
@@ -1104,7 +1104,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   (`consumed_cnt`)는 본 버프의, 문턱(`target_count`)은 `[status]`의 블랙보드에 있다. 공식 클라에서 확인(2026-10-31): 철수(`Entity.OnFinish`)는
   `BuffContainer.Clear`로 **지속 버프(`isDurableBuff`)까지** 모두 지우고 능력도 지운다 — 지속 버프를 남기는 것은 `ClearWithWhiteList`뿐이고 그 호출처는 가짜
   죽음(`Unit.DoFakeDeath`, 부활)·`ClearAllBuffs` 노드·`RallyPoint.SwitchCategory` → **재배치마다 0부터 다시 셈**(이전: 이어 셈). 【移动】은 이어 셈(지금
-  규칙: 버프 유지 — 공식에서 버프가 다시 시작하는지는 묶음 라). `garrisons/battle.js`, 테스트 `garrisons_battle.test.js` 「consume_ammo」 셋.
+  규칙: 버프 유지 — 공식에서 버프가 다시 시작하는지는 묶음 라). `garrisons/effects/events.js`, 테스트 `garrisons_battle.test.js` 「consume_ammo」 셋.
 - **시라쿠사 정장(장비 `chess_item_3_01_e`)** `act2autochess_equip_acarm121_ability`는 템플릿이 아니라 동적 능력 프리팹(2026-10-31 대조): 오라 능력, 범위 `0-2`(방향으로 돌린 좌우 두 칸 + 자기 칸), `_selfOption` EXCLUDE(자신 제외), 검사기는 오퍼레이터만(소환물 제외)·은신도 받음, 버프는 범위 안에 있는 동안 공격 속도 +`attack_speed` → 지금 구현(`items/effects/bond.js`, 좌우 두 칸의 오퍼레이터)과 같음 — 코드 변경 없음. [추정·엔진: 오라를 다시 보는 간격 — 우리는 0.5초마다 0.6초 버프]
 - 테스트: `test/content/bonds_core.test.js` 「叙拉古 6: the PRD count is one for the battle」·「卡西米尔 6」, `bonds_addon.test.js` 「奥术 with two players」·「绝技」,
   `items.test.js` 「伪装服」·「休眠子裔」·「卡西米尔竞技旗」·「天马之盔 + 天马之枪」·「海沟实验体」·「耶拉冈德之泪」·「骑士戒律」·「家族徽章」, `garrisons_battle.test.js`
@@ -2330,7 +2330,7 @@ upstream master `c9d804f4`·dev `06a92237` → master `f07b8965`·dev `71b2363f`
 ### 약점 대미지는 이론 피해로만 종류를 고른다 (upstream `aa74f76a` 3)
 
 - 규칙: 물리·마법 중 큰 쪽을 고를 때 관통 + 방어·마법 저항 공식만 본다. 공격자의 `physDealtMul`·`artsDealtMul`과 대상의 `physTakenMul`·`artsTakenMul`은 넣지 않는다
-  (`server/sim/content/garrisons/battle.js weaknessType`). 같으면 원래 종류. 그 앞 기본 우선순위 훅의 공격력 배율(바다 괴물 적 공격 시 공격력 200 % `garrison_18_b` 등)은
+  (`server/sim/content/garrisons/effects/hits.js weaknessType`). 같으면 원래 종류. 그 앞 기본 우선순위 훅의 공격력 배율(바다 괴물 적 공격 시 공격력 200 % `garrison_18_b` 등)은
   이론 피해에 들어가는 공격력 배율이라 그대로 반영된다.
 - 근거: 공식 클라 `WeakDamage`는 물리·마법으로 관통 + 기본 공식만 한 번씩 계산해 비교한다(공식 클라에서 확인). PRTS 용어 설명은 이론 피해에 공격력·공격력 배율·추가 공격력·
   % / 고정 관통·대상 방어·마법 저항만 넣고 「피해 판정 효과는 넣지 않는다」고 한다.
