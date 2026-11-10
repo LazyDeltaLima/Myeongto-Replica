@@ -4,6 +4,8 @@
 // install(battle) / registerMeta(registry):
 //   bonds/core.js    8 core bonds  炎 萨尔贡 维多利亚 谢拉格 拉特兰 阿戈尔 叙拉古 卡西米尔
 //   bonds/addon.js   15 add-on bonds 精准 迅捷 灵巧 奥术 坚守 助力 远见 奇迹 投资人 突袭 不屈 调和 协防干员 独行 绝技
+//   bonds/regulation.js  卫戍协议：规程's effects of its own buff templates (炎 / 叙拉古 / 卡西米尔 第二方向, 乌萨斯, 伊比利亚,
+//                    莱塔尼亚, 奥术, 聚合), picked by the bond's template key
 // plus support/meta.js (shared prep→battle `contentInfo`). Parts are loaded with guarded dynamic imports and run in
 // isolation: one failing part never disables the others (the first error is re-thrown afterwards so
 // content/index.js records it in battle.errors / the server log).
@@ -18,8 +20,8 @@ async function load(path) {
   }
 }
 
-const [core, addon, supportMeta] = await Promise.all([load('./bonds/core.js'), load('./bonds/addon.js'), load('./support/meta.js')]);
-const PARTS = Object.freeze([['bonds/core', core], ['bonds/addon', addon]]);
+const [core, addon, regulation, supportMeta] = await Promise.all([load('./bonds/core.js'), load('./bonds/addon.js'), load('./bonds/regulation.js'), load('./support/meta.js')]);
+const PARTS = Object.freeze([['bonds/core', core], ['bonds/addon', addon], ['bonds/regulation', regulation]]);
 
 function runAll(fnName, arg, pre = null) {
   let first = null;

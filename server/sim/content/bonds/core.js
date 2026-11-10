@@ -50,7 +50,7 @@ import { kjeragColdWind } from '../devices.js';
 import * as items from '../items.js';
 import { FORCED_EXIT } from '../../constants.js';
 import { dicePRD } from './addon/battle.js';
-import { msg } from '../../../../shared/i18n.js';
+import { msg, dn } from '../../../../shared/i18n.js';
 
 const num = S.num;
 
@@ -59,9 +59,10 @@ export const deps = { lendItemEffects: null };
 
 const BUFF_KEYS = Object.freeze({
   yanShip: 'act1autochess_bond_eff_yan',
-  sargonShip: 'act1autochess_bond_eff_sargon',
+  // 卫戍协议：规程 keeps 萨尔贡's and 谢拉格's base effects under its own keys (their 6-tier ones are other: below)
+  sargonShip: /^act[13]autochess_bond_eff_sargon$/,
   victoriaShip: 'act1autochess_bond_eff_victoria',
-  kjeragShip: 'act1autochess_bond_eff_kjerag',
+  kjeragShip: /^act[13]autochess_bond_eff_kjerag$/,
   lateranoShip: 'act1autochess_bond_eff_laterano',
   egirShip: 'act1autochess_bond_eff_egir',
   siracusaShip: 'act2autochess_bond_eff_siracusa',
@@ -70,6 +71,11 @@ const BUFF_KEYS = Object.freeze({
 const SARGON_SHARE_KEY = 'act2autochess_bond_eff_sargon[share]';
 const VICTORIA_REWARD_KEY = 'bond_layer_added_reward_equip';
 const VICTORIA_COUNTER = 'bond:victoria:hammers';
+/**
+ * The bonds whose `bond_layer_added_reward_equip` pays equipment every `layer` layers, with the counter of milestones
+ * paid: 维多利亚's 维式重锤 (both seasons) and 卫戍协议：规程's 谢拉格 <每100层> 谢拉格不融冰.
+ */
+const LAYER_REWARD_COUNTERS = Object.freeze({ victoriaShip: VICTORIA_COUNTER, kjeragShip: 'bond:kjerag:reward' });
 
 /**
  * Bond effect blackboard `{ ...bb, ...bbStr }` of a core bond (null when the data record is missing), from the scope's
@@ -202,9 +208,10 @@ function installSargon(battle, pid, bb, members) {
   const narant = !!(share && band && share.valid_in_band === band);
   const main = narant ? share : bb;
   const six = reached(battle, pid, 'sargonShip', num(main.power_bond_char_cnt, 6));
-  const atkStacks = six && !narant && !(bb.invalid_in_band && bb.invalid_in_band === band);
-  const maxStacks = Math.max(1, Math.floor(num(main.max_buff_stack_cnt, 25)));
   const perAtk = num(bb.base_atk, 0);
+  // 规程 (act3autochess_bond_eff_sargon): no base_atk — its 6-tier effect is the 流沙 ground (not written yet)
+  const atkStacks = six && perAtk > 0 && !narant && !(bb.invalid_in_band && bb.invalid_in_band === band);
+  const maxStacks = Math.max(1, Math.floor(num(main.max_buff_stack_cnt, 25)));
   const syncAtk = (u) => {
     if (!atkStacks) return;
     let n = 0;
@@ -290,6 +297,8 @@ function installKjerag(battle, pid, bb, members) {
   // the wind is the field's: one [storm] on the map controller whoever reaches 6 (AutoChessAssignBondCharCntToBB
   // _filterAllSides = the most members over the players, official client), its duration from the most
   // 谢拉格 layers over the players (AutoChessAssignBondStackCntToBB _assignAllPlayerIndex)
+  // (规程's 谢拉格, act3autochess_bond_eff_kjerag, has no [storm]: its 6-tier effect is the 雪山巨人, not written yet)
+  if (!(num(bb['bond_eff_kjerag[storm].interval'], 0) > 0)) return;
   const wind = S.battleStore(battle, 'bond:kjerag:wind', () => ({ handle: null }));
   if (!wind.handle && reached(battle, pid, 'kjeragShip', bb.power_bond_char_cnt)) wind.handle = kjeragColdWind(battle, pid, bb);
 }
@@ -692,28 +701,35 @@ export function install(battle) {
  * inactive) — and the hooks below catch up anything a capped nested dispatch skipped; same rule as 远见 / 奇迹
  * (addon/meta.js).
  */
-export function payHammers(ctx) {
-  if (!ctx.bondActive('victoriaShip')) return 0;
-  const p = S.buffParams(S.bondRecord('victoriaShip', ctx), VICTORIA_REWARD_KEY);
+export function payHammers(ctx, bondId = 'victoriaShip') {
+  const counter = LAYER_REWARD_COUNTERS[bondId];
+  if (!counter || !ctx.bondActive(bondId)) return 0;
+  const p = S.buffParams(S.bondRecord(bondId, ctx), VICTORIA_REWARD_KEY);
   const step = Math.floor(num(p?.layer, 0));
   if (!p || !(step > 0)) return 0;
-  const due = Math.floor(ctx.layers('victoriaShip') / step);
+  const due = Math.floor(ctx.layers(bondId) / step);
   const count = Math.max(0, Math.floor(num(p.count, 1)));
-  let granted = 0;
+  let granted = 0, last = null;
   // re-read the counter every milestone: grantItem dispatches onGain, which re-enters this function (nested payments
   // must not be paid twice by the outer loop)
   for (let guard = 0; guard < 100; guard++) {
-    const paid = ctx.counter(VICTORIA_COUNTER);
+    const paid = ctx.counter(counter);
     if (paid >= due) break;
-    ctx.setCounter(VICTORIA_COUNTER, paid + 1);
+    ctx.setCounter(counter, paid + 1);
     for (let i = 0; i < count; i++) {
       const id = ctx.rollItem({ pool: p.pool });
       // onPrepEnd: grantItem stows this and does not merge until the next prep start, so a second copy does not
       // take an equipped hammer off for the fight (effectsMeta _deferItemMerge). [ASSUMED] every item that hook grants.
-      if (id && ctx.grantItem(id, { source: 'bond:victoriaShip' })) granted++;
+      if (id && ctx.grantItem(id, { source: `bond:${bondId}` })) { granted++; last = id; }
     }
   }
-  if (granted && typeof ctx.toast === 'function') ctx.toast(msg('【维多利亚】获得{n}件维式重锤', { n: granted }), 'info');
+  if (granted && typeof ctx.toast === 'function') {
+    if (bondId === 'victoriaShip') ctx.toast(msg('【维多利亚】获得{n}件维式重锤', { n: granted }), 'info');
+    else {
+      const who = S.bondRecord(bondId, ctx)?.name, name = ctx.gd?.item?.(last)?.name;
+      if (who && name) ctx.toast(msg('{who}：获得{name}', { who: dn(who), name: dn(name) }), 'info');
+    }
+  }
   return granted;
 }
 
@@ -725,15 +741,17 @@ export function payHammers(ctx) {
 const HAMMER_HOOKS = Object.freeze(['onLayers', 'onActiveBonds', 'onRoundStart', 'onPrepStart', 'onPrepEnd', 'onBuy', 'onGain', 'onSold', 'onMerge']);
 
 export function registerMeta(registry) {
-  const prev = typeof registry.get === 'function' ? registry.get('bond:victoriaShip') : null;
-  const handler = { ...(prev || {}) };
-  for (const hook of HAMMER_HOOKS) {
-    const before = prev && typeof prev[hook] === 'function' ? prev[hook] : null;
-    handler[hook] = function hammers(ctx, ev) {
-      if (before) before.call(this, ctx, ev);
-      if (hook === 'onLayers' && !(ev && ev.bondId === 'victoriaShip')) return;
-      payHammers(ctx);
-    };
+  for (const bondId of Object.keys(LAYER_REWARD_COUNTERS)) {
+    const prev = typeof registry.get === 'function' ? registry.get(`bond:${bondId}`) : null;
+    const handler = { ...(prev || {}) };
+    for (const hook of HAMMER_HOOKS) {
+      const before = prev && typeof prev[hook] === 'function' ? prev[hook] : null;
+      handler[hook] = function hammers(ctx, ev) {
+        if (before) before.call(this, ctx, ev);
+        if (hook === 'onLayers' && !(ev && ev.bondId === bondId)) return;
+        payHammers(ctx, bondId);
+      };
+    }
+    registry.bond(bondId, handler);
   }
-  registry.bond('victoriaShip', handler);
 }

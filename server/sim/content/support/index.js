@@ -404,9 +404,10 @@ export function battleStore(battle, ns, init = () => ({})) {
  *   source         unit that caused the gain (garrison owner; 魔王's +1 keys on it through the `layerGain` hook)
  *   reason         'garrison' for 特质 gains (魔王 only boosts those), else 'bond' / 'item' / 'band' / 'choice'
  *   cap, capKey    per-battle cap per (capKey, bond) — "每场战斗至多N层"; hook extras (魔王) don't count toward it
+ *   temp           临时层数 (卫戍协议：规程): layers for this battle only (Battle.addLayers `temp`)
  * Returns the layers actually added (sum over bonds).
  */
-export function gainLayers(battle, { playerId, bonds, n, requireActive = true, source = null, reason = 'content', cap = Infinity, capKey = null } = {}) {
+export function gainLayers(battle, { playerId, bonds, n, requireActive = true, source = null, reason = 'content', cap = Infinity, capKey = null, temp = false } = {}) {
   if (!battle || !battle.flags || !battle.flags.layerGainsEnabled || playerId == null) return 0;
   const k0 = Math.floor(num(n, 0));
   if (!(k0 > 0)) return 0;
@@ -424,7 +425,7 @@ export function gainLayers(battle, { playerId, bonds, n, requireActive = true, s
       k = Math.min(k, Math.max(0, Math.floor(cap) - used));
       if (!(k > 0)) continue;
     }
-    const added = battle.addLayers(playerId, b, k, reason, { source });
+    const added = battle.addLayers(playerId, b, k, reason, { source, temp });
     if (added > 0) {
       total += added;
       if (ck) caps.set(ck, (caps.get(ck) ?? 0) + k);

@@ -3920,6 +3920,8 @@ function buildChoices(ctx, effects, items, chess) {
 
   const equipNormal = Object.values(items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden);
   const itemByName = (name) => equipNormal.find((i) => i.name === name)?.id || (warn(`pool item "${name}" not found`), null);
+  /** Does an effect of this season's tables pay from pool `id` (a buff's bbStr.pool)? */
+  const poolUsed = (id) => Object.values(effects).some((e) => (e.buffs || []).some((b) => b && b.bbStr && b.bbStr.pool === id));
   const chessByName = (name) => Object.values(chess).find((c) => !c.isGolden && c.visible && c.name === name)?.chessId
     || Object.values(chess).find((c) => !c.isGolden && c.name === name)?.chessId || (warn(`pool chess "${name}" not found`), null);
 
@@ -4038,6 +4040,10 @@ function buildChoices(ctx, effects, items, chess) {
       // "获得一件带有随机特殊效果的维式重锤": the 4 hammers with a special effect (never sold, SHOP_EXCLUDED_ITEMS); the
       // weights are server-side (PRTS 11-25 note: "装备【灼燃维式重锤】的出现概率调整") — uniform [ASSUMED]
       pool_equip_vict: { kind: 'equip', items: ['灼燃维式重锤', '坚固维式重锤', '加速维式重锤', '战栗维式重锤'].map(itemByName), assumed: true },
+      // 卫戍协议：规程's 谢拉格: every 100 layers one 谢拉格不融冰 (bond_layer_added_reward_equip pool_equip_kjeragbond2; the pool
+      // itself is server-side): that one item — only for a season whose effects name the pool (the default season has an
+      // item of that name too)
+      ...(poolUsed('pool_equip_kjeragbond2') ? { pool_equip_kjeragbond2: { kind: 'equip', items: [itemByName('谢拉格不融冰')], assumed: true } } : {}),
       pool_equip_pepe: { kind: 'equip', weighted: [['盟约之币', 45], ['萨尔贡浓茶', 45], ['黄沙罗盘', 10]].map(([n, w]) => [itemByName(n), w]), goldenWeights: [40, 40, 20], assumed: true },
       // 洛洛的定制品: 8 items with measured weights (路标月报#2「卡池相关机制」item 6 — 10维式重锤2战栗2坚固2加速2灼燃
       // 1有限加速器4护盾无人机4激光发射器; the pool is a subset of the shared equipment pool, so the four shop-sold

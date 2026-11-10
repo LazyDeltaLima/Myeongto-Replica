@@ -19,21 +19,27 @@ export class BattleEconomy {
    * `layerGain` hook (魔王's +1 …) runs first, then the clamp; a bond already at the cap gains 0 (no hook, no event).
    * Without a live copy of the bond (a partial PlayerBattleInput) the battle's own gains count; the match's settle
    * clamps the persistent count the same way.
+   * `opts.temp`: a 临时层数 gain (卫戍协议：规程 — AutoChessAddBondStackCount `_isTemp`): the live copy counts it like any
+   * layer for the rest of the battle, the result keeps it apart (`tempLayerGains`) and the match's settle drops it unless
+   * a 特质 converts it to fixed layers (SERVER_CONVERT_TEMP_BOND*). The `layerGain` hook sees `ctx.temp`; [ASSUMED·CN:
+   * the CN-only node is not readable here] the hook's modifiers and the 999 cap apply to it as to a fixed gain.
    */
   addLayers(playerId, bondId, n, reason = '', opts = {}) {
     if (!this.flags.layerGainsEnabled || !(n > 0) || !Number.isFinite(n) || playerId == null) return 0;
     const pp = this._pp(playerId);
     if (!pp) return 0;
     const ps = this.getPlayer(playerId);
-    const live = ps && ps.bonds[bondId] ? (ps.bonds[bondId].layers ?? 0) : (pp.layerGains[bondId] ?? 0);
+    const live = ps && ps.bonds[bondId] ? (ps.bonds[bondId].layers ?? 0) : (pp.layerGains[bondId] ?? 0) + (pp.tempLayerGains?.[bondId] ?? 0);
     const cap = layerCapOf(this.flags);
     if (!(layerGainRoom(live, Infinity, cap) > 0)) return 0;
     const source = opts.source ?? null;
-    const ctx = { playerId, bondId, n, reason, source, tile: Array.isArray(opts.tile) ? opts.tile : this._sourceTile(source) };
+    const temp = opts.temp === true;
+    const ctx = { playerId, bondId, n, reason, source, temp, tile: Array.isArray(opts.tile) ? opts.tile : this._sourceTile(source) };
     if (this._hooks.layerGain) { this.emit('layerGain', ctx); if (!(ctx.n > 0) || !Number.isFinite(ctx.n)) return 0; }
     const add = layerGainRoom(live, ctx.n, cap);
     if (!(add > 0)) return 0;
-    pp.layerGains[bondId] = (pp.layerGains[bondId] ?? 0) + add;
+    const book = temp ? (pp.tempLayerGains ??= {}) : pp.layerGains;
+    book[bondId] = (book[bondId] ?? 0) + add;
     if (ps && ps.bonds[bondId]) ps.bonds[bondId].layers = (ps.bonds[bondId].layers ?? 0) + add;
     this._ev(['layer', playerId, bondId, add]);
     return add;

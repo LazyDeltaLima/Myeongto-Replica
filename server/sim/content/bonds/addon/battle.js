@@ -130,6 +130,12 @@ const prob = procChance;
 // =====================================================================================================================
 // per-player state
 
+/**
+ * Bonds whose effect here is one season's: another season that gives the bond another buff template (卫戍协议：规程's 奥术,
+ * act3autochess_bond_eff_arcane — bonds/regulation.js) does not run this one.
+ */
+const OWN_TEMPLATE = Object.freeze({ arcaneShip: 'act2autochess_bond_eff_arcane' });
+
 function makeState(battle, p) {
   const pid = p.playerId;
   const ops = playerOps(battle, pid);
@@ -137,6 +143,7 @@ function makeState(battle, p) {
   for (const id of Object.values(ID)) {
     const t = bondTier(battle, pid, id);
     if (t <= 0) continue;
+    if (OWN_TEMPLATE[id] && !buffParams(bondRecord(id, battle), OWN_TEMPLATE[id])) continue;
     st.tiers[id] = t;
     st.bb[id] = bondBb(id, battle);
     st.members[id] = new Set(ops.filter((u) => isMember(battle, u, id)));

@@ -358,7 +358,8 @@ export function resultDigest(result) {
   const players = Object.keys(per).sort().map((pid) => {
     const p = per[pid] || {};
     const lg = p.layerGains && typeof p.layerGains === 'object' ? p.layerGains : {};
-    return [
+    const tl = p.tempLayerGains && typeof p.tempLayerGains === 'object' ? Object.keys(p.tempLayerGains).sort().map((k) => [k, r4(p.tempLayerGains[k])]) : [];
+    const row = [
       pid,
       p.killed | 0, p.total | 0, !!p.perfect, r4(p.coins),
       Object.keys(lg).sort().map((k) => [k, r4(lg[k])]),
@@ -368,6 +369,9 @@ export function resultDigest(result) {
       Math.round(Number(p.damageDealt) || 0), Math.round(Number(p.bossDamage) || 0),
       (Array.isArray(p.unitsEnd) ? p.unitsEnd : []).map((u) => [u && u.uid, r4(u && u.hpPct), r4(u && u.sp), !!(u && u.alive)]),
     ];
+    // 临时层数 (规程) only when there are some: a digest without them is the one every earlier result had
+    if (tl.length) row.push(tl);
+    return row;
   });
   const json = JSON.stringify([res.reason ?? null, r4(res.time), res.killed | 0, res.total | 0, players]);
   let h = 2166136261;
@@ -408,6 +412,8 @@ export function compactResult(res) {
     const p = r.perPlayer[pid] || {};
     const layerGains = {};
     for (const [k, v] of Object.entries(p.layerGains || {}).slice(0, 40)) if (isKey(k) && fnum(v) > 0) layerGains[k] = Math.min(1e4, fnum(v));
+    let tempLayerGains = null;
+    for (const [k, v] of Object.entries(p.tempLayerGains || {}).slice(0, 40)) if (isKey(k) && fnum(v) > 0) (tempLayerGains ??= {})[k] = Math.min(1e4, fnum(v));
     const total = Math.max(0, Math.trunc(fnum(p.total)));
     perPlayer[pid] = {
       // `killed` keeps the sim's reading (every counted knock-out, runtime splits / summons included) and is deliberately
@@ -423,6 +429,7 @@ export function compactResult(res) {
       }),
       perfect: !!p.perfect,
       layerGains,
+      ...(tempLayerGains ? { tempLayerGains } : {}),
       coins: Math.max(0, fnum(p.coins)),
       damageDealt: Math.max(0, Math.round(fnum(p.damageDealt))),
       bossDamage: Math.max(0, Math.round(fnum(p.bossDamage))),

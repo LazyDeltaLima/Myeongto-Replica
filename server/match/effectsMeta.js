@@ -17,7 +17,8 @@
 // (onActiveBonds: the set of active bonds changed — PlayerState.recompute, player/round.js _reportActiveBonds.)
 // Garrisons fire only on the hook of their eventType (SERVER_GAIN→onGain of the gained piece, SERVER_PREP_START→
 // onPrepStart — 「进入休整期时」, PREP opening after the round's 机变 draft (content/bands/meta.js header) —, SERVER_PREP_FIN→onPrepEnd, SERVER_CHESS_SOLD→onSold of the sold piece, SERVER_PRICE→onPrice of the
-// slot's chess, SERVER_REFRESH_SHOP→onRefresh); the dispatcher calls `handler[hook] ?? handler.run`. A handler may
+// slot's chess, SERVER_REFRESH_SHOP→onRefresh, SERVER_BATTLE_FIN→onBattleResult of a normal battle — 规程's 「<进入休整期时>」
+// temp-layer conversions, ev.result.tempLayerGains, ctx.tempLayers); the dispatcher calls `handler[hook] ?? handler.run`. A handler may
 // widen that per garrison with `garrisonHooks(garrison) → hook[]` (e.g. "<进入休整期时><休整期结束时>"). Owned-piece
 // garrisons fire for board pieces, and for hand pieces unless bbStr.conditionkey is 'character_target_inboard'. A
 // refresh (onRefresh) runs those that stood on the board / in the hand when it happened (taken before its first
@@ -67,6 +68,8 @@ export const GARRISON_HOOK = Object.freeze({
   SERVER_CHESS_SOLD: 'onSold',
   SERVER_PRICE: 'onPrice',
   SERVER_REFRESH_SHOP: 'onRefresh',
+  // 卫戍协议：规程 — the garrisons of the end of a battle (only that season's tables have them)
+  SERVER_BATTLE_FIN: 'onBattleResult',
 });
 
 const KEY_RE = /^(garrison|band|bond|item|choice|effect|global):[A-Za-z0-9_\-.:#]+$/;
@@ -351,7 +354,7 @@ export class EffectDispatcher {
       if (ev && ev.slot && ev.slot.kind === 'chess') run({ uid: 0, kind: 'chess', id: ev.slot.id, items: [] }, 'shop');
       return;
     }
-    if (hook !== 'onPrepStart' && hook !== 'onRoundStart' && hook !== 'onPrepEnd' && hook !== 'onRefresh') return;
+    if (hook !== 'onPrepStart' && hook !== 'onRoundStart' && hook !== 'onPrepEnd' && hook !== 'onRefresh' && hook !== 'onBattleResult') return;
     if (refreshed) {
       for (const piece of refreshed) {
         const loc = ps.find(piece.uid);
@@ -583,6 +586,16 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
 
     // ---- layers
     addLayers: (bondId, n, opts = {}) => ps.addLayers(bondId, n, { requireActive: !!opts.requireActive, reason: opts.reason || source.key || '' }),
+    /** 临时层数 of `bondId` the battle that just ended left (规程; onBattleResult only — 0 otherwise). */
+    tempLayers: (bondId) => Math.max(0, Math.floor(Number(ps.tempLayers && ps.tempLayers[bondId]) || 0)),
+    /** Turn up to `n` of those 临时层数 into fixed layers (SERVER_CONVERT_TEMP_BOND*); returns the layers converted. */
+    convertTempLayers: (bondId, n) => {
+      const left = Math.max(0, Math.floor(Number(ps.tempLayers && ps.tempLayers[bondId]) || 0));
+      const k = Math.min(left, finiteInt(n));
+      if (!(k > 0)) return 0;
+      ps.tempLayers[bondId] = left - k;
+      return ps.addLayers(bondId, k, { requireActive: false, reason: source.key || 'garrison' });
+    },
 
     // ---- pieces
     grantChess: (chessId, opts = {}) => {

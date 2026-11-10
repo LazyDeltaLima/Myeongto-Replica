@@ -434,6 +434,23 @@ H.SERVER_FRONT_SAME_EFFECT_PREP_START = {
 };
 
 
+// 卫戍协议：规程 — 「<进入休整期时>…转化N层【X】临时层数为固定层数」: on the end of the own normal battle (SERVER_BATTLE_FIN →
+// onBattleResult; the trait's owner on the board, conditionkey character_target_inboard), up to N of the 临时层数 that battle
+// left (ctx.tempLayers) become fixed layers. 乌啾 (garrison_21) converts N per 【乌萨斯】 operator on the board
+// (「场上每有一名【乌萨斯】干员」: board chess whose bonds hold it, the trait's owner included); 折桠 (garrison_184) N.
+// [ASSUMED·CN: the server-side conversion is not in the client] 「场上」 = the prep board when the battle has ended (the
+// operators the battle knocked out are on it again), and the conversion needs no active bond (none is named).
+function convertTemp(ctx, perChar) {
+  const { bb, bbStr } = ctx.source;
+  const bond = String(bbStr.bond ?? '').trim();
+  if (!bond || !(ctx.tempLayers(bond) > 0)) return;
+  const by = String(bbStr.bond2 ?? bond).trim();
+  const n = perChar ? chessOnBoard(ctx).filter((p) => metaBonds(ctx, p).includes(by)).length * num(bb.count) : num(bb.count);
+  if (n > 0) ctx.convertTempLayers(bond, n);
+}
+H.SERVER_CONVERT_TEMP_BOND_BY_BOND_CHAR = { run(ctx) { convertTemp(ctx, true); } };
+H.SERVER_CONVERT_TEMP_BOND = { run(ctx) { convertTemp(ctx, false); } };
+
 /** effectKey → handler (the registered objects). */
 export const HANDLERS = Object.freeze(H);
 
