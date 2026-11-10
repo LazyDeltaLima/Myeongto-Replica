@@ -524,11 +524,14 @@ export class BoardScene {
     if (OD) {
       const seen = new Set();  // board.devices may list a tile twice (a device of two overlapping areas)
       for (const d of board.devices) {
-        const key = d.kind === 'platform' || d.kind === 'waterPlatform' || d.kind === 'mound' ? OFFICIAL_DEVICE[d.kind] : null;
+        const key = d.kind === 'platform' || d.kind === 'waterPlatform' || d.kind === 'mound' || d.kind === 'cannon' ? OFFICIAL_DEVICE[d.kind] : null;
         if (!key || !OD.has(key) || seen.has(`${d.r},${d.c}`)) continue;
         seen.add(`${d.r},${d.c}`);
         const g = OD.mesh(key);
         g.position.set(d.c, d.r, d.z0);
+        // the 盐坨子炮 model as exported faces DOWN (its barrel toward −row), the way all four of m10 face; another
+        // direction turns it about the up axis
+        if (d.kind === 'cannon') g.rotation.z = ({ DOWN: 0, RIGHT: Math.PI / 2, UP: Math.PI, LEFT: -Math.PI / 2 })[d.dir] ?? 0;
         this._addOfficialDevice(g);
       }
     }

@@ -7,11 +7,13 @@
 //   * fx scene: a small normal field (incl. art-less / unknown units, a crate and a turret device) cycling through
 //     every sim fx kind (render/fx.js FX_KINDS), every projectile kind (boomerang included) and every status icon; at
 //     'lock' it plays 蕾缪安's S3 as the sim does (a lock every 0.5 s, then one shell every 0.3 s with its bombard)
-// Query: ?scene=prep|<recording>|stress|numbers &stage=<stageId> &t=<seconds> &speed=<x> &paused=1 &panel=0 &quality=high|medium|low
+// Query: ?scene=prep|<recording>|stress|numbers &stage=<stageId> &season=<id> &t=<seconds> &speed=<x> &paused=1 &panel=0 &quality=high|medium|low
 //        &pen=<recording> (prep: that recording's round preview — m.private.nextEnemies — in the enemy preview pen)
 //        &fa=L|R (prep on that half of the Final Assault boss field, view.setCamera('bossPrep', { side }))
 //        &board=2d|3d (the official 3D board scene, DESIGN §15; default 3D when the local art + WebGL2 are available)
 //        &cam=prep|normal|unite|boss|pen|bossPrep [&side=L|R &half=1 &shop=0] (official configBlackBoard framings)
+//        &season=<id> (read that season's files, shared/seasons.js — a server whose SP_SEASONS names a hidden one; the
+//        stage list then holds that season's battlefields, e.g. ?season=act3autochess&stage=act3autochess_m01)
 // Puppeteer hook: window.__demo = { ready, view, seek(t), play(), pause(), setScene(name), stats(), log,
 //   refuseDrops (true ⇒ prep drops are silently ignored, like a server that rejects the move),
 //   mounts() (the view's mount record: stages, the first frame, the field shown — diag.js mountTimer) }
@@ -43,6 +45,7 @@ const STAGE_IDS = ['act2autochess_m01', 'act2autochess_m02', 'act2autochess_m03'
 
 async function main() {
   if (q.get('panel') === '0') $('panel').classList.add('is-hidden');
+  if (q.get('season')) await data.setSeason(q.get('season'));
   await data.loadAll('chess', 'tokens', 'items', 'enemies', 'stages', 'bonds', 'config');
   await assets.ready();
   const index = await fetch('/dev/recordings/index.json').then((r) => (r.ok ? r.json() : []), () => []);
@@ -59,7 +62,10 @@ async function main() {
   const scenes = [{ name: 'prep', title: '休整期 · 拖拽演示' }, ...index.map((r) => ({ name: r.name, title: r.title, rec: r })), { name: 'stress', title: '压力测试 · 120 单位' }, { name: 'fx', title: '特效图鉴 · 全部 fx' }, { name: 'numbers', title: '伤害数字 · 重叠测试' }];
   for (const s of scenes) sceneSel.append(new Option(s.title, s.name));
   const stageSel = $('stage');
-  for (const id of STAGE_IDS) { const st = data.lookup('stages', id); if (st) stageSel.append(new Option(st.name || id, id)); }
+  const stageIds = data.season() === q.get('season')
+    ? data.list('stages').map((st) => st.id).filter((id) => /autochess_m\d+$/.test(String(id))).sort()
+    : STAGE_IDS;
+  for (const id of stageIds) { const st = data.lookup('stages', id); if (st) stageSel.append(new Option(st.name || id, id)); }
 
   let current = null;       // active scene controller
   let playing = q.get('paused') !== '1';

@@ -12,8 +12,9 @@ import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
 import { buildOfficialScene, sceneGroup, OFFICIAL_DEVICE } from '../../public/js/render/board3d/official.js';
 import { focusUniforms } from '../../public/js/render/board3d/materials.js';
-import { AREAS, unionAreas, classifyStage } from '../../public/js/render/board3d/layout.js';
-import { TILE_H, tileTop } from '../../public/js/render/style.js';
+import { AREAS, unionAreas, classifyStage, stageDevices } from '../../public/js/render/board3d/layout.js';
+import { TILE_H, tileTop, TILEKEY_GLYPH } from '../../public/js/render/style.js';
+import { STAGE_PIECES } from '../../tools/level-fields.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TOOL = path.join(ROOT, 'tools/local-extract');
@@ -24,6 +25,9 @@ const manifest = (() => { try { return JSON.parse(readFileSync(path.join(ROOT, '
 const stages = JSON.parse(readFileSync(path.join(ROOT, 'data/stages.json'), 'utf8'));
 const onDisk = (url) => path.join(ROOT, 'public', decodeURI(url));
 const extracted = Object.keys(stages).filter((id) => manifest?.groups?.[sceneGroup(id)]?.scene && existsSync(onDisk(manifest.groups[sceneGroup(id)].scene.path)));
+// 规程 (act3autochess): its stages are built from three level prefabs of the CN client (scene_extract.py FRAME_PIECES)
+const stages3 = JSON.parse(readFileSync(path.join(ROOT, 'data/seasons/act3autochess/stages.json'), 'utf8'));
+const extracted3 = Object.keys(stages3).filter((id) => /_m\d+$/.test(id) && manifest?.groups?.[sceneGroup(id)]?.scene && existsSync(onDisk(manifest.groups[sceneGroup(id)].scene.path)));
 
 describe('scene_extract.py', { skip: (!HAS_PIL && 'no python3 + Pillow') }, () => {
   test('DXT5nm normal maps (X in A, Y in G, R = 1) become RGB normals pointing out of the surface', () => {
@@ -39,6 +43,38 @@ describe('scene_extract.py', { skip: (!HAS_PIL && 'no python3 + Pillow') }, () =
     const [flat, tilt] = r.stdout.trim().split('] [').map((s) => s.replace(/[[\]]/g, '').split(',').map(Number));
     assert.ok(flat[2] >= 250 && Math.abs(flat[0] - 128) <= 1 && Math.abs(flat[1] - 128) <= 1, `flat ${flat}`);
     assert.ok(tilt[0] === 230 && tilt[2] < flat[2], `tilted ${tilt}`);
+  });
+
+  test('clip_rect: the part of a triangle inside a cut, attributes interpolated, winding kept; FRAME_PIECES = level-fields STAGE_PIECES', () => {
+    const src = [
+      'import sys, json', `sys.path.insert(0, ${JSON.stringify(TOOL)})`, 'from scene_extract import clip_rect, FRAME_PIECES, INF',
+      // (x, y, z, normal 3, uv0 2, uv1 2, colour 4): a triangle across x = 10.5, cut to x ≤ 10.5
+      'a = (10.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 255.0)',
+      'b = (12.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 255.0, 0.0, 0.0, 255.0)',
+      'c = (10.0, 2.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 255.0)',
+      'poly = clip_rect([a, b, c], (-INF, 10.5, -INF, INF))',
+      "print(json.dumps({'poly': poly, 'pieces': [[s, [None if abs(v) >= INF else v for v in r], dy] for s, r, dy in FRAME_PIECES]}))",
+    ].join('\n');
+    const r = spawnSync(PY, ['-c', src], { encoding: 'utf8', env: ENV });
+    assert.equal(r.status, 0, r.stderr);
+    const { poly, pieces } = JSON.parse(r.stdout);
+    assert.equal(poly.length, 4);
+    assert.ok(poly.every((v) => v[0] <= 10.5 + 1e-9), 'inside the cut');
+    assert.deepEqual(poly[0].slice(0, 2), [10, 0]);                            // a kept first: the winding a → b → c stays
+    const ab = poly[1];                                                       // a–b at x = 10.5: a quarter of the way
+    assert.deepEqual([ab[0], ab[2], ab[6], ab[10]], [10.5, 0.25, 0.25, 63.75]);
+    assert.ok(Math.abs(Math.hypot(ab[3], ab[4], ab[5]) - 1) < 1e-9, 'normal renormalised');
+    // every tile of a sub-level STAGE_PIECES puts in the frame lies inside a FRAME_PIECES cut of that sub-level, moved the same rows
+    for (const p of STAGE_PIECES) {
+      const dy = p.row0 - p.rows[0];
+      for (let row = p.rows[0]; row <= p.rows[1]; row++) {
+        for (let col = p.cols[0]; col <= p.cols[1]; col++) {
+          const hit = pieces.find(([sub, [x0, x1, y0, y1], d]) => sub === p.sub && d === dy
+            && (x0 === null || x0 <= col - 0.5) && (x1 === null || x1 >= col + 0.5) && (y0 === null || y0 <= row - 0.5) && (y1 === null || y1 >= row + 0.5));
+          assert.ok(hit, `sub_0${p.sub + 1} (${row},${col}) → frame row ${row + dy}`);
+        }
+      }
+    }
   });
 });
 
@@ -256,4 +292,46 @@ describe('extracted official scenes', { skip: !extracted.length && 'no scene ext
     }
     built.dispose();
   });
+});
+
+describe('规程 (act3autochess) board', () => {
+  test('规程: 加速 / 草地 tiles draw as plain road on the procedural board; m10\'s 盐坨子炮 stand as cannon devices facing DOWN', () => {
+    assert.equal(TILEKEY_GLYPH.tile_speedup, 'r');
+    assert.equal(TILEKEY_GLYPH.tile_duel_grassland, 'r');
+    const st = stages3.act3autochess_m10;
+    const cannons = stageDevices(st, classifyStage(st, AREAS.all)).filter((d) => d.kind === 'cannon');
+    assert.deepEqual(cannons.map((d) => `${d.r},${d.c},${d.dir},${d.key}`).sort(),
+      ['13,14,DOWN,trap_196_cnnon', '13,6,DOWN,trap_196_cnnon', '6,14,DOWN,trap_196_cnnon', '6,6,DOWN,trap_196_cnnon']);
+    assert.equal(OFFICIAL_DEVICE.cannon, 'trap_196_cnnon');
+  });
+});
+
+describe('extracted 规程 scenes (three level prefabs per stage)', { skip: !extracted3.length && 'no 规程 scene extracted (scene_extract.py --cn)' }, () => {
+  for (const id of extracted3) {
+    test(`${id}: the three sub-levels in the 19×21 frame, their own lightmaps, the CN textures apart`, () => {
+      const g = manifest.groups[sceneGroup(id)];
+      const doc = JSON.parse(readFileSync(onDisk(g.scene.path), 'utf8'));
+      const bin = readFileSync(onDisk(g.geom.path));
+      assert.equal(doc.stage, id);
+      assert.equal(doc.pieces?.length, 3);
+      doc.pieces.forEach((p, i) => assert.match(p.source, new RegExp(`level_${id}_sub_0${i + 1}\\.ab$`)));
+      assert.equal(doc.lightmaps.length, 3, 'one lightmap per prefab');
+      assert.deepEqual(doc.hidden, {});
+      for (const gr of doc.groups) {
+        const [off, n] = gr.idx;
+        assert.ok(off + n * (gr.idxType === 'u16' ? 2 : 4) <= bin.length, `${gr.material} idx in range`);
+        if (gr.lightmap >= 0) assert.ok(doc.lightmaps[gr.lightmap]?.light?.file && doc.lightmaps[gr.lightmap]?.mask?.file, `${gr.material}: lightmap ${gr.lightmap}`);
+        for (const tx of Object.values(doc.materials[gr.material]?.textures || {})) {
+          if (!tx.file) continue;
+          assert.match(tx.file, /^cn\//, `${tx.file}: a CN texture under scene/tex/cn`);
+          assert.ok(manifest.groups['scene/tex']?.[tx.file.replace(/\.png$/, '')], `${tx.file} listed`);
+        }
+      }
+      // the island covers the frame (the boss field from row 0, the enemy preview area up to row 18), ground at z ≈ 0
+      const lo = [Infinity, Infinity], hi = [-Infinity, -Infinity];
+      for (const gr of doc.groups) for (let i = 0; i < 2; i++) { lo[i] = Math.min(lo[i], gr.bounds[0][i]); hi[i] = Math.max(hi[i], gr.bounds[1][i]); }
+      assert.ok(lo[0] <= 0 && hi[0] >= 20 && lo[1] <= 0 && hi[1] >= 18, `bounds ${lo} ${hi}`);
+      assert.ok(doc.map?.highlandHeight > 0, 'map settings');
+    });
+  }
 });

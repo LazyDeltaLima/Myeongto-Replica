@@ -52,7 +52,8 @@ export const DEVICES_ID = 'devices';
 /** Stage device roles drawn with an official model (scene/devices keys). */
 // (特制水上平台 — 战场#05's water platforms — upstream 205f3bb7 found them missing on the official scene; 封印的地面
 // trap_1107_acblock has no model in the client: nothing to draw)
-export const OFFICIAL_DEVICE = Object.freeze({ crate: 'trap_1105_accrate', platform: 'trap_1106_achplat', waterPlatform: 'trap_040_canoe', mound: 'trap_032_mound' });
+// (盐坨子炮 — 规程 m10's enemy-side cannons, trap_196_cnnon: no sim role, found by its key, layout.js DEVICE_KEY_KINDS)
+export const OFFICIAL_DEVICE = Object.freeze({ crate: 'trap_1105_accrate', platform: 'trap_1106_achplat', waterPlatform: 'trap_040_canoe', mound: 'trap_032_mound', cannon: 'trap_196_cnnon' });
 
 /** Is an official scene listed for `stageId`? (manifest only) */
 export function officialSceneListed(assets, stageId) {
@@ -387,7 +388,15 @@ void main() {
   #endif
   vec2 fd = max(vec2(0.0), max(uFocus.xy - vWorld.xy, vWorld.xy - uFocus.zw));
   outgoing *= mix(uFocusDim, 1.0, 1.0 - smoothstep(0.0, uFocusSoft, length(fd)));
-  gl_FragColor = vec4(outgoing, albedo.a * uOpacity);  // gamma-space result: written as is (no colorspace_fragment)
+  // gamma-space result: written as is (no colorspace_fragment). An opaque material writes alpha 1: its texture's alpha is
+  // data, not coverage (规程's ice maps, Torappu/Scene/Standard-Ice), and would punch holes into a canvas with alpha
+  // (tools/map-previews.mjs) — uOpacity stays for the fading device copies. OPAQUE is three.js's own define, set for a
+  // material that is not transparent (WebGLProgram parameters.opaque)
+  #ifdef OPAQUE
+    gl_FragColor = vec4(outgoing, uOpacity);
+  #else
+    gl_FragColor = vec4(outgoing, albedo.a * uOpacity);
+  #endif
   #include <fog_fragment>
 }`;
 

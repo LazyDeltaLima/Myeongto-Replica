@@ -68,6 +68,18 @@
   (필드 meta·spec·`publicView()` 모두 경기 stageId), 브라우저 `test/e2e/coop.e2e.mjs`(`SP_E2E=1`, 联防 필드가 경기 맵을 그림) [실제 판 이상 없음 2026-10-28].
 - 알려진 차이: 공식 물 셰이더는 근사(깊은 색 하나 — 공식은 해안 근처가 깊이에 따라 청록으로 얕아짐, 거품·커스틱·하늘 반사 없음), m04 밀물 연출 미구현, `_HG_VERTEX_COLOR_BLEND`의 노이즈 항(`_BlendNoiseStrength`·`_BlendMaskNoiseSkew`)은 읽지 않음.
 
+## 규정 전장 공식 씬 (2026-11-11, 공식 클라에서 확인)
+
+- **구조**: 규정(`act3autochess`)의 스테이지 씬(`scenes/activities/act3autochess/level_<전장>.ab`)에는 36×55 논리 맵의 칸 오브젝트와 렌더러 하나뿐이다. 전투가 그리는 지형은 하위 레벨마다 하나인 레벨 프리팹 셋(`battle/prefabs/levelprefabs/activities/act3autochess/level_<전장>/level_<전장>_sub_01…03`)에 있다: 테마 메시, 프리팹 자신의 라이트맵·섀도마스크(`PrefabLightmapData` — 렌더러마다 라이트맵 번호와 배율·오프셋), 주광, `MapGraphic`(테마, `highlandHeight` 0.4). 프리팹 공간은 그 하위 레벨의 칸 좌표다(칸 (r, c) = 루트에서 (c, r, −높이)).
+- **붙이기**: 시뮬이 읽는 19×21 틀에 칸을 놓는 방식(`tools/level-fields.mjs` `STAGE_PIECES`, sim.md 「규정 전장을 19×21 틀로」)과 똑같이 프리팹 지형을 잘라 옮긴다(`scene_extract.py` `FRAME_PIECES`): `sub_03`의 6행 이하(보스 판과 그 아래)는 그대로, 7행 이상(적 대기 칸과 그 위)은 7행 위로, `sub_01`의 10열 이하(자기 판·정비 줄과 그 왼쪽 섬)는 7행 위로, `sub_02`의 11열 이상(오른쪽 판과 그 오른쪽 섬, 정비 줄 아래 한 줄 포함)은 8행 위로. 자르는 선을 지나는 삼각형은 잘라서 속성을 보간한다. 그래서 자른 선을 가로지르는 바위·턱이 선에서 끊겨 보인다. 공식 클라는 판마다 그 하위 레벨 하나만 보여 준다(어느 모드에 어느 조각인지는 화면 몫, 아래).
+- **테마**: 사막 `map_autochesssand`(m01–m04·m06), 도시 `map_survivaloasis_city`(m05), 얼음 `map_icewild`(m09·m11, `Torappu/Scene/Standard-Ice`), `map_ltny2`(m10·m12, `StandardBloom`). 얼음·블룸 셰이더도 `official.js`의 Standard 길로 그린다(얼음 반사·블룸 [추정·화면: 공식 화면과 나란히 보지 않음]). 불투명 재질은 알파 1을 쓴다(얼음 텍스처의 알파는 투명도가 아니라 데이터라, 알파가 있는 캔버스인 맵 미리보기에 구멍이 났다).
+- **CN 텍스처는 따로**: CN 클라에서 뽑은 텍스처는 `scene/tex/cn/`에 둔다(`scene_extract.py --cn`, CAB 색인 `.cache/scene-cab-index-cn.json`). 두 클라가 같은 이름의 테마 텍스처를 다르게 싣고 있어서다(압축이 달라 픽셀이 최대 74/255 다르고, `TX_Survivaloasis_E`는 한 영역의 내용이 다름) — 한 쪽 추출이 다른 쪽 씬이 확인받은 텍스처를 바꾸면 안 된다.
+- **새 타일**: 가속 칸(`tile_speedup`, 기호 `u`)·초원(`tile_duel_grassland`, `G`)·임시 정비 칸(`tile_acbag`)·늪(`tile_mire`)·벽(`tile_wall`)의 클라 타일 프리팹에는 렌더러가 없다 — 그림은 레벨 프리팹 지형에 들어 있어 공식 씬과 함께 그려진다. 공식 씬이 없을 때의 절차 판에서는 `u`·`G`를 보통 길(`r`)로 그린다(`style.js TILEKEY_GLYPH`; 모르는 기호의 줄무늬 길 대신). 초원 타일 프리팹의 `_effect` `mapeff_079_dikuai_01`(타일 위 맵 이펙트)은 아직 안 그림(이펙트 쪽 일).
+- **염괴포 모델**(`trap_196_cnnon`, m10): 시뮬 역할 없이 키로 도는 적 편 장치라 3D 보드가 키로 찾아(`layout.js DEVICE_KEY_KINDS` → `cannon`) 공식 모델(EN `pkgrps/btl_pfb_tokens_2.ab`의 `Graphic/Mesh/trap_196_cnnon`, `scene_extract.py --devices`)을 그 칸에 세운다. 모델은 포신이 아래(−행)를 보는 방향으로 나오고 m10의 넷도 모두 DOWN이다. 포탄·폭발 이펙트는 아직 일반 폭발(sim.md 「대포 「염괴포」」).
+- **맵 미리보기**: 브리핑 카드의 미리보기는 지금까지처럼 우리 3D 보드로 찍는다(`tools/map-previews.mjs --season act3autochess`, 1024×448). 공식 클라에도 이번 시즌부터 하위 레벨마다 512×512 미리보기(`arts/ui/stage/mappreviews/act3autochess_<전장>_sub_0N`)가 있지만, 카드 모양(넓은 띠, 관리자 결정 2026-10-11)과 달라 쓰지 않았다.
+- **화면 몫** [추정·화면: 공식 화면으로 확인 전]: 혼자 판의 조각 `sub_01`은 적 대기 칸이 자기 판 오른쪽(12–18열)이다. 우리 틀은 지난 시즌처럼 판 위(14–18행, `sub_03`의 적 칸)에 둔다. 혼자 판에서 공식 화면이 적을 어디에 세우고 카메라가 어디를 보는지는 공식 화면으로 정한다(프리팹 `StoreValueComponent`의 `camera_offset`은 세 조각 모두 (5.5, −2.6, −9.78), 초점은 프리팹 루트).
+- 시험: `test/render/board3d-official.test.js` 「clip_rect…」·「규정 (act3autochess) board」·「extracted 规程 scenes」.
+
 ## 배치 낙하 (2026-10-07)
 - 관리자 제보(공식 화면 캡처 프레임 시트·Start 클립 조사, 비공개 조사 기록). 낙하는 코드가 아니라 각 모델의 Spine `Start` 클립이다(143명 중 103명: 몸 높이 0.6–7배 위에서, 착지 중앙값 0.2초, 가속·튐 없음,
   `OnStart` 이벤트 = 착지). 나머지 40명(赤刃明霄陈·蕾缪安 등)은 자기 등장 동작.

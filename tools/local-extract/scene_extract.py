@@ -30,9 +30,13 @@ and the manifest groups scene/<stageId> + scene/tex in data/local-assets.json. L
 copy: colour maps (a material's _MainTex only) lossy at quality 95, everything else lossless — normal / roughness /
 emission maps hold per-channel data, and the RGBM lightmaps keep their range in A (≈ 43 → 28 MB for the 11 stages).
 
+规程 (act3autochess, the CN client): the stage scene holds no geometry; three level prefabs per stage are cut into the
+19×21 frame of tools/level-fields.mjs (FRAME_PIECES, export_stage_pieces), textures under scene/tex/cn/.
+
 Usage (WSL, the EN client on D:):
   .venv-extract/bin/python tools/local-extract/scene_extract.py [--client <…/Arknights_Data>]
       [--stage act2autochess_m04 ...] [--rebuild-index] [--no-webp]
+  .venv-extract/bin/python tools/local-extract/scene_extract.py --cn --stage act3autochess_m01 ...   (the CN client)
   .venv-extract/bin/python tools/local-extract/scene_extract.py --webp    (only the WebP copies, from the PNGs already
       under --out — e.g. scene art copied to a server; needs Pillow, not the client)
   .venv-extract/bin/python tools/local-extract/scene_extract.py --reflections    (only add scene.json reflection to the
@@ -54,7 +58,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from extract import material_info, derive_normal_rg, derive_rough_from_gloss, _normal_z_table, _num, WEBP_OPTIONS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
-from client_path import client_data  # noqa: E402
+from client_path import client_data, client_data_cn  # noqa: E402
 DEFAULT_CLIENT = client_data()  # SP_CLIENT / .env / .client (client_path.py); --client overrides
 # CAB → bundle index of the bundles a stage scene can depend on (scanned once, cached: --rebuild-index)
 INDEX_DIRS = [
@@ -140,9 +144,9 @@ def normal_matrix(m):
     return [[inv[j][i] for j in range(3)] for i in range(3)], det
 
 
-def to_board(p):
-    """Unity world → board space (x = col, y = row, z = up)."""
-    return (p[0] - ANCHOR[0], p[1] - ANCHOR[1], -p[2])
+def to_board(p, anchor=ANCHOR):
+    """Unity world → board space (x = col, y = row, z = up). A level prefab (规程) has its tile (0,0) at its root: anchor 0."""
+    return (p[0] - anchor[0], p[1] - anchor[1], -p[2])
 
 
 # ---- scene walk ------------------------------------------------------------------------------------------------
@@ -325,9 +329,10 @@ def derive_normal_dxt5nm(img):
 
 
 def texture_entry(tex, out_tex, kind, written, manifest):
-    """Export a Texture2D once (by name) to scene/tex/; returns its file name. Normal maps become RGB tangent-space
-    maps (BC5: X = R, Y = G; DXT5 = Unity's DXT5nm: X = A, Y = G), metallic/gloss maps three.js roughness maps."""
-    name = re.sub(r'[^A-Za-z0-9_.\-]+', '_', tex.m_Name)
+    """Export a Texture2D once (by name) to scene/tex/ (scene/tex/<TEX_SUBDIR>/ for the CN client); returns its file name
+    relative to scene/tex. Normal maps become RGB tangent-space maps (BC5: X = R, Y = G; DXT5 = Unity's DXT5nm: X = A,
+    Y = G), metallic/gloss maps three.js roughness maps."""
+    name = (f'{TEX_SUBDIR}/' if TEX_SUBDIR else '') + re.sub(r'[^A-Za-z0-9_.\-]+', '_', tex.m_Name)
     fmt = tex_format(tex)
     derive = None
     if kind == 'normal':
@@ -343,6 +348,7 @@ def texture_entry(tex, out_tex, kind, written, manifest):
             img = derive_normal_dxt5nm(img)
         elif derive == 'rough_from_gloss':
             img = derive_rough_from_gloss(img)
+        (out_tex / fname).parent.mkdir(parents=True, exist_ok=True)
         img.save(out_tex / fname)
         written[fname] = {'path': f'/assets/local/scene/tex/{fname}', 'w': img.width, 'h': img.height, 'kind': 'Texture2D',
                           'format': fmt, **({'derive': derive} if derive else {})}
@@ -351,6 +357,10 @@ def texture_entry(tex, out_tex, kind, written, manifest):
 
 
 TEX_KIND = {'_BumpMap': 'normal', '_MetallicGlossMap': 'gloss'}
+# The textures of a CN client run go to scene/tex/cn/ (main sets it): the two clients ship same-named theme textures that
+# differ (another compression, and TX_Survivaloasis_E has a region of its own), and one run must not replace the textures
+# the other client's scenes were extracted and checked with.
+TEX_SUBDIR = ''
 
 
 def cubemap_faces(cube):
@@ -416,8 +426,275 @@ def scene_reflection(env, scene_file):
     return None
 
 
-def export_stage(roots, index, stage, out_root, manifest, written):
+def save_lightmap(tex, out, stage, fname, manifest):
+    """Write one lightmap / shadowmask texture to scene/<stage>/<fname>; returns its scene.json entry."""
+    img = tex.image
+    img.save(out / fname)
+    a = img.getchannel('A') if img.mode == 'RGBA' else None
+    manifest.setdefault(f'scene/{stage}', {})[fname[:-4]] = {
+        'path': f'/assets/local/scene/{stage}/{fname}', 'w': img.width, 'h': img.height, 'kind': 'Lightmap'}
+    return {'file': fname, 'w': img.width, 'h': img.height, 'format': tex_format(tex), 'alpha': list(a.getextrema()) if a else None}
+
+
+def render_settings(d):
+    col = lambda c: [_num(c.r), _num(c.g), _num(c.b), _num(c.a)]  # noqa: E731
+    return {'ambientMode': d.m_AmbientMode, 'ambientSky': col(d.m_AmbientSkyColor),
+            'ambientEquator': col(d.m_AmbientEquatorColor), 'ambientGround': col(d.m_AmbientGroundColor),
+            'ambientIntensity': _num(d.m_AmbientIntensity), 'fog': bool(d.m_Fog), 'fogColor': col(d.m_FogColor),
+            'fogMode': d.m_FogMode, 'fogStart': _num(d.m_LinearFogStart), 'fogEnd': _num(d.m_LinearFogEnd),
+            'fogDensity': _num(d.m_FogDensity), 'subtractiveShadow': col(d.m_SubtractiveShadowColor)}
+
+
+def light_entry(sc, d, dy=0.0, anchor=ANCHOR):
+    """scene.json record of a Light component (board space; `dy` = rows the piece holding it moved up), or None."""
+    tid = d.m_GameObject.read().m_Component[0]
+    tid = getattr(tid, 'component', tid).m_PathID
+    if tid not in sc.tf:
+        return None
+    m = sc.world(tid)
+    fwd = (m[0][2], m[1][2], m[2][2])  # Unity lights shine along +Z
+    pos = to_board((m[0][3], m[1][3], m[2][3]), anchor)
+    return {'name': sc.gameobject(tid).m_Name, 'active': sc.active(tid) and bool(d.m_Enabled), 'type': d.m_Type,
+            'color': [_num(d.m_Color.r), _num(d.m_Color.g), _num(d.m_Color.b)], 'intensity': _num(d.m_Intensity),
+            'range': _num(getattr(d, 'm_Range', 0)), 'bake': getattr(d, 'm_Lightmapping', None),
+            'shadows': getattr(d.m_Shadows, 'm_Type', 0), 'shadowStrength': _num(getattr(d.m_Shadows, 'm_Strength', 1)),
+            'dir': [_num(fwd[0]), _num(fwd[1]), _num(-fwd[2])],
+            'pos': [_num(pos[0]), _num(pos[1] + dy), _num(pos[2])]}
+
+
+# ---- 规程 (act3autochess): the battlefield comes as three level prefabs ----------------------------------------
+
+LEVEL_PREFAB_DIR = 'battle/prefabs/levelprefabs/activities'
+INF = 1e9
+# 规程's stage scene (scenes/activities/act3autochess/level_<stage>.ab) holds only the tile objects of the 36×55 logic map
+# and one renderer; what the battle draws is three level prefabs, one per sub-level (battle/prefabs/levelprefabs/
+# activities/act3autochess/level_<stage>/level_<stage>_sub_0N): the meshes of the theme, their own lightmap and
+# shadowmask (PrefabLightmapData: per renderer its lightmap index and scale / offset), the main light. A prefab's space
+# is its sub-level's tiles: tile (r, c) at (x = c, y = r, z = −height) from the prefab root, so board = (x, y, −z).
+# They are put together the way tools/level-fields.mjs STAGE_PIECES puts the sub-levels' tiles into the 19×21 frame the
+# sim reads, each piece with the island around it: (sub index, [x0, x1, y0, y1] of the prefab's board space — tile
+# edges at ±½, INF = open — and the rows it moves up). sub_03 rows ≤ 6 (the boss field and everything below it) stay;
+# sub_03 rows ≥ 7 (the enemy preview area and everything above it) go up 7 (frame 14–18); sub_01 rows 0–6 cols ≤ 10
+# (the own field, its hand rows and the island left of it) go up 7 (frame 7–13); sub_02 cols ≥ 11 rows −1…5 (the right-
+# hand field and the island right of it) go up 8 — frame row 7 cols 11–20 is no sub-level's tile in the sim's frame, so
+# the prefab's row below its hand row fills it. Triangles crossing a cut are clipped (attributes interpolated).
+PREFAB_ANCHOR = (0.0, 0.0, 0.0)
+FRAME_PIECES = (
+    (2, (-INF, INF, -INF, 6.5), 0),
+    (2, (-INF, INF, 6.5, INF), 7),
+    (0, (-INF, 10.5, -0.5, 6.5), 7),
+    (1, (10.5, INF, -1.5, 5.5), 8),
+)
+
+
+def piece_paths(roots, stage):
+    """The three level prefabs of a stage built from them (规程), else None."""
+    act = stage.split('_')[0]
+    out = []
+    for n in (1, 2, 3):
+        rel = Path(LEVEL_PREFAB_DIR) / act / f'level_{stage}' / f'level_{stage}_sub_{n:02d}' / f'level_{stage}_sub_{n:02d}.ab'
+        p = next((roots[k] / rel for k in ('pd', 'sa') if (roots[k] / rel).is_file()), None)
+        if p is None:
+            return None
+        out.append(p)
+    return out
+
+
+def _lerp_vertex(a, b, t):
+    v = [x + (y - x) * t for x, y in zip(a, b)]
+    ln = math.sqrt(v[3] * v[3] + v[4] * v[4] + v[5] * v[5]) or 1.0
+    v[3], v[4], v[5] = v[3] / ln, v[4] / ln, v[5] / ln
+    return tuple(v)
+
+
+def clip_rect(poly, rect):
+    """Sutherland–Hodgman: the part of a convex polygon of vertex records (x, y first) inside rect [x0, x1, y0, y1]
+    (an edge at ±INF is open). The vertex order (and so the winding) is kept."""
+    for axis, lim, low in ((0, rect[0], True), (0, rect[1], False), (1, rect[2], True), (1, rect[3], False)):
+        if abs(lim) >= INF or not poly:
+            continue
+        out = []
+        for i, a in enumerate(poly):
+            b = poly[(i + 1) % len(poly)]
+            da = a[axis] - lim if low else lim - a[axis]
+            db = b[axis] - lim if low else lim - b[axis]
+            if da >= 0:
+                out.append(a)
+            if (da >= 0) != (db >= 0):
+                out.append(_lerp_vertex(a, b, da / (da - db)))
+        poly = out
+    return poly
+
+
+# ---- renderers → draw groups -----------------------------------------------------------------------------------
+
+def bake_renderers(sc, ctx, lm_of=None, lm_base=0, pieces=None, anchor=ANCHOR):
+    """Bake the active MeshRenderers of `sc` into ctx['groups'] (per material, lightmap, hidden key), in board space.
+    `lm_of`: renderer path id → (lightmap index, (sx, sy, ox, oy)) for a prefab (PrefabLightmapData), its indices offset
+    by `lm_base`; else the renderer's own m_LightmapIndex / m_LightmapTilingOffset (a scene). `pieces`: [(rect, dy)] —
+    only the parts of the triangles inside each rect (prefab board space), moved up dy rows (FRAME_PIECES); None = all.
+    `anchor`: Unity position of tile (0,0) (the scenes' Map/Anchor; a level prefab's root, PREFAB_ANCHOR)."""
     from UnityPy.helpers.MeshHelper import MeshHandler
+    meshes, groups, materials, skipped = ctx['meshes'], ctx['groups'], ctx['materials'], ctx['skipped']
+    pieces = pieces or [(None, 0.0)]
+    for o in sc.objects:
+        if o.type.name != 'MeshRenderer':
+            continue
+        r = o.read()
+        g = r.m_GameObject.read()
+        tid = getattr(g.m_Component[0], 'component', g.m_Component[0]).m_PathID
+        active, hkey = sc.active(tid) if tid in sc.tf else (False, None)
+        if not active:
+            skipped['inactive'] += 1
+            continue
+        if not r.m_Enabled:
+            skipped['disabled'] += 1
+            continue
+        mf = component(g, 'MeshFilter')
+        if not mf or not mf.m_Mesh.m_PathID:
+            skipped['noMesh'] += 1
+            continue
+        key = (id(sc), mf.m_Mesh.m_FileID, mf.m_Mesh.m_PathID)
+        if key not in meshes:
+            mesh = mf.m_Mesh.read()
+            h = MeshHandler(mesh)
+            h.process()
+            meshes[key] = (mesh, h, h.get_triangles())
+        mesh, h, tris = meshes[key]
+        b = r.m_StaticBatchInfo
+        batched = bool(b.subMeshCount)
+        subs = list(range(b.firstSubMesh, b.firstSubMesh + b.subMeshCount)) if batched else list(range(len(tris)))
+        m = IDENTITY if batched else sc.world(tid)
+        nm, det = normal_matrix(m)
+        if lm_of is not None:
+            lmi, so = lm_of.get(o.path_id, (-1, (1.0, 1.0, 0.0, 0.0)))
+            lmi = lmi + lm_base if lmi >= 0 else -1
+        else:
+            so = r.m_LightmapTilingOffset
+            so = (1.0, 1.0, 0.0, 0.0) if batched else (so.x, so.y, so.z, so.w)
+            lmi = r.m_LightmapIndex if r.m_LightmapIndex < 0xFFFE else -1
+        mats = list(r.m_Materials)
+        for si, sub in enumerate(subs):
+            if sub >= len(tris) or si >= len(mats) or not mats[si].m_PathID:
+                continue
+            try:
+                mat = mats[si].read()
+            except Exception as e:
+                log(f'  warn {sc.path(tid)} material: {e}')
+                continue
+            mname = mat.m_Name
+            if mname not in materials:
+                info = material_info(mat)
+                for k, tx in info['textures'].items():
+                    try:
+                        tex = next(e.m_Texture for kk, e in mat.m_SavedProperties.m_TexEnvs if kk == k).read()
+                        tx['file'] = texture_entry(tex, ctx['out_tex'], TEX_KIND.get(k), ctx['written'], ctx['manifest'])
+                    except Exception as e:
+                        log(f'  warn texture {mname}.{k}: {e}')
+                materials[mname] = info
+            grp = groups.setdefault((mname, lmi, hkey or ''), {'material': mname, 'lightmap': lmi, 'hidden': hkey, 'pos': [], 'nrm': [], 'uv0': [], 'uv1': [],
+                                                    'col': [], 'idx': [], 'renderers': 0})
+            grp['renderers'] += 1
+            base_sub = mesh.m_SubMeshes[sub]
+            bv = getattr(base_sub, 'baseVertex', 0) or 0
+            V, N, U0, U1, C = h.m_Vertices, h.m_Normals, h.m_UV0, h.m_UV1, h.m_Colors
+            flip = det < 0  # a mirrored transform flips the winding once more
+            recs = {}
+
+            def rec(vi):
+                """Vertex record (board pos 3, normal 3, uv0 2, uv1 2, colour 4 as 0–255)."""
+                if vi in recs:
+                    return recs[vi]
+                p = V[vi]
+                wp = to_board([m[i][0] * p[0] + m[i][1] * p[1] + m[i][2] * p[2] + m[i][3] for i in range(3)], anchor)
+                if N:
+                    n = N[vi]
+                    wn = [nm[i][0] * n[0] + nm[i][1] * n[1] + nm[i][2] * n[2] for i in range(3)]
+                    ln = math.sqrt(sum(c * c for c in wn)) or 1.0
+                    nn = (wn[0] / ln, wn[1] / ln, -wn[2] / ln)
+                else:
+                    nn = (0.0, 0.0, 1.0)
+                u0 = U0[vi] if U0 else (0.0, 0.0)
+                u1 = U1[vi] if U1 else u0
+                c = C[vi] if C else (1.0, 1.0, 1.0, 1.0)
+                cc = tuple(int(x) & 255 for x in c[:4]) if any(x > 1.0 for x in c) else tuple(max(0, min(255, int(round(x * 255)))) for x in c[:4])
+                recs[vi] = (wp[0], wp[1], wp[2], *nn, u0[0], u0[1], u1[0] * so[0] + so[2], u1[1] * so[1] + so[3], *cc)
+                return recs[vi]
+
+            def emit(v, dy):
+                grp['pos'] += (v[0], v[1] + dy, v[2])
+                grp['nrm'] += v[3:6]
+                grp['uv0'] += v[6:8]
+                grp['uv1'] += v[8:10]
+                grp['col'] += tuple(max(0, min(255, int(round(x)))) for x in v[10:14])
+                return len(grp['pos']) // 3 - 1
+
+            def tri_out(ids):
+                # board space mirrors Unity's (z flipped): reverse the winding (and again for a mirrored transform)
+                grp['idx'] += ids if flip else (ids[0], ids[2], ids[1])
+
+            for rect, dy in pieces:
+                remap = {}
+                for tri in tris[sub]:
+                    vis = [vi + bv for vi in tri]
+                    vs = [rec(vi) for vi in vis]
+                    if rect is not None:
+                        xs, ys = [v[0] for v in vs], [v[1] for v in vs]
+                        if max(xs) <= rect[0] or min(xs) >= rect[1] or max(ys) <= rect[2] or min(ys) >= rect[3]:
+                            continue
+                        if not (min(xs) >= rect[0] and max(xs) <= rect[1] and min(ys) >= rect[2] and max(ys) <= rect[3]):
+                            poly = clip_rect(vs, rect)
+                            if len(poly) < 3:
+                                continue
+                            ids = [emit(v, dy) for v in poly]
+                            for k in range(1, len(ids) - 1):
+                                tri_out((ids[0], ids[k], ids[k + 1]))
+                            continue
+                    out_idx = []
+                    for vi, v in zip(vis, vs):
+                        if vi not in remap:
+                            remap[vi] = emit(v, dy)
+                        out_idx.append(remap[vi])
+                    tri_out(out_idx)
+
+
+def write_scene(out, stage, ctx, doc, manifest):
+    """geom.bin + scene.json of the groups in ctx; `doc` = the scene.json fields besides the geometry. Returns the doc."""
+    out_groups, packed = [], []
+    for (mname, lmi, _hk), grp in sorted(ctx['groups'].items()):
+        nv, ni = len(grp['pos']) // 3, len(grp['idx'])
+        if not nv or not ni:
+            continue
+        rec = {'material': mname, 'lightmap': lmi, 'hidden': grp['hidden'], 'renderers': grp['renderers'], 'vertices': nv, 'indices': ni}
+        pos = grp['pos']
+        rec['bounds'] = [[_num(min(pos[i::3]), 4) for i in range(3)], [_num(max(pos[i::3]), 4) for i in range(3)]]
+        out_groups.append(rec)
+        packed.append((rec, grp))
+    blob, quant = pack_geometry(packed)
+    (out / 'geom.bin').write_bytes(bytes(blob))
+    doc = {'version': GEOM_VERSION, 'stage': stage, 'space': 'board (x = col, y = row, z = up)',
+           'vertexBytes': VERTEX_BYTES, 'quant': quant, **doc,
+           'materials': dict(sorted(ctx['materials'].items())), 'groups': out_groups, 'skipped': ctx['skipped'],
+           'stats': {'groups': len(out_groups), 'vertices': sum(g['vertices'] for g in out_groups),
+                     'triangles': sum(g['indices'] for g in out_groups) // 3, 'bytes': len(blob)}}
+    (out / 'scene.json').write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+    grp_manifest = manifest.setdefault(f'scene/{stage}', {})
+    grp_manifest['scene'] = {'path': f'/assets/local/scene/{stage}/scene.json', 'kind': 'Scene', 'groups': len(out_groups)}
+    grp_manifest['geom'] = {'path': f'/assets/local/scene/{stage}/geom.bin', 'kind': 'Geometry', 'bytes': len(blob)}
+    log(f'{stage}: {len(out_groups)} groups, {doc["stats"]["vertices"]} verts, {doc["stats"]["triangles"]} tris, '
+        f'{len(blob) // 1024} KiB, {len(ctx["materials"])} materials, {len(doc["lightmaps"])} lightmaps, skipped {ctx["skipped"]}'
+        + (f', unresolved {doc["unresolved"]}' if doc.get('unresolved') else ''))
+    return doc
+
+
+def new_ctx(out_root, manifest, written):
+    out_tex = out_root / 'scene' / 'tex'
+    out_tex.mkdir(parents=True, exist_ok=True)
+    return {'meshes': {}, 'groups': {}, 'materials': {}, 'skipped': {'inactive': 0, 'noMesh': 0, 'disabled': 0},
+            'out_tex': out_tex, 'written': written, 'manifest': manifest}
+
+
+def export_stage(roots, index, stage, out_root, manifest, written):
     loaded, scene_path = load_stage_env(roots, index, stage)
     if not loaded:
         log(f'skip {stage}: no scene bundle')
@@ -426,11 +703,12 @@ def export_stage(roots, index, stage, out_root, manifest, written):
     if scene_file is None:
         log(f'skip {stage}: scene file not found in bundle')
         return False
+    pieces = piece_paths(roots, stage)
+    if pieces:
+        return export_stage_pieces(roots, index, stage, out_root, manifest, written, (env, scene_file, deps, missing), scene_path, pieces)
     sc = Scene(env, scene_file)
     out = out_root / 'scene' / stage
     out.mkdir(parents=True, exist_ok=True)
-    out_tex = out_root / 'scene' / 'tex'
-    out_tex.mkdir(parents=True, exist_ok=True)
 
     # lightmaps, render settings, lights
     lightmaps, settings, lights = [], {}, []
@@ -449,160 +727,89 @@ def export_stage(roots, index, stage, out_root, manifest, written):
                     except Exception as e:
                         log(f'  warn lightmap {i} {key}: {e}')
                         continue
-                    img = tex.image
-                    fname = f'lm{i}_{key}.png'
-                    img.save(out / fname)
-                    a = img.getchannel('A') if img.mode == 'RGBA' else None
-                    entry[key] = {'file': fname, 'w': img.width, 'h': img.height,
-                                  'format': tex_format(tex),
-                                  'alpha': list(a.getextrema()) if a else None}
-                    manifest.setdefault(f'scene/{stage}', {})[fname[:-4]] = {
-                        'path': f'/assets/local/scene/{stage}/{fname}', 'w': img.width, 'h': img.height, 'kind': 'Lightmap'}
+                    entry[key] = save_lightmap(tex, out, stage, f'lm{i}_{key}.png', manifest)
                 lightmaps.append(entry)
             settings['lightmapsMode'] = getattr(d, 'm_LightmapsMode', None)
         elif t == 'RenderSettings' and o.assets_file is scene_file:
-            d = o.read()
-            col = lambda c: [_num(c.r), _num(c.g), _num(c.b), _num(c.a)]  # noqa: E731
-            settings.update({'ambientMode': d.m_AmbientMode, 'ambientSky': col(d.m_AmbientSkyColor),
-                             'ambientEquator': col(d.m_AmbientEquatorColor), 'ambientGround': col(d.m_AmbientGroundColor),
-                             'ambientIntensity': _num(d.m_AmbientIntensity), 'fog': bool(d.m_Fog), 'fogColor': col(d.m_FogColor),
-                             'fogMode': d.m_FogMode, 'fogStart': _num(d.m_LinearFogStart), 'fogEnd': _num(d.m_LinearFogEnd),
-                             'fogDensity': _num(d.m_FogDensity), 'subtractiveShadow': col(d.m_SubtractiveShadowColor)})
+            settings.update(render_settings(o.read()))
         elif t == 'Light' and o.assets_file is scene_file:
-            d = o.read()
-            tid = d.m_GameObject.read().m_Component[0]
-            tid = getattr(tid, 'component', tid).m_PathID
-            if tid not in sc.tf:
-                continue
-            m = sc.world(tid)
-            fwd = (m[0][2], m[1][2], m[2][2])  # Unity lights shine along +Z
-            lights.append({'name': sc.gameobject(tid).m_Name, 'active': sc.active(tid) and bool(d.m_Enabled), 'type': d.m_Type,
-                           'color': [_num(d.m_Color.r), _num(d.m_Color.g), _num(d.m_Color.b)], 'intensity': _num(d.m_Intensity),
-                           'range': _num(getattr(d, 'm_Range', 0)), 'bake': getattr(d, 'm_Lightmapping', None),
-                           'shadows': getattr(d.m_Shadows, 'm_Type', 0), 'shadowStrength': _num(getattr(d.m_Shadows, 'm_Strength', 1)),
-                           'dir': [_num(fwd[0]), _num(fwd[1]), _num(-fwd[2])],
-                           'pos': [_num(v) for v in to_board((m[0][3], m[1][3], m[2][3]))]})
+            e = light_entry(sc, o.read())
+            if e:
+                lights.append(e)
 
-    # renderers → groups
-    meshes, groups, materials, skipped = {}, {}, {}, {'inactive': 0, 'noMesh': 0, 'disabled': 0}
-    for o in sc.objects:
-        if o.type.name != 'MeshRenderer':
-            continue
-        r = o.read()
-        g = r.m_GameObject.read()
-        tid = getattr(g.m_Component[0], 'component', g.m_Component[0]).m_PathID
-        active, hkey = sc.active(tid) if tid in sc.tf else (False, None)
-        if not active:
-            skipped['inactive'] += 1
-            continue
-        if not r.m_Enabled:
-            skipped['disabled'] += 1
-            continue
-        mf = component(g, 'MeshFilter')
-        if not mf or not mf.m_Mesh.m_PathID:
-            skipped['noMesh'] += 1
-            continue
-        key = (mf.m_Mesh.m_FileID, mf.m_Mesh.m_PathID)
-        if key not in meshes:
-            mesh = mf.m_Mesh.read()
-            h = MeshHandler(mesh)
-            h.process()
-            meshes[key] = (mesh, h, h.get_triangles())
-        mesh, h, tris = meshes[key]
-        b = r.m_StaticBatchInfo
-        batched = bool(b.subMeshCount)
-        subs = list(range(b.firstSubMesh, b.firstSubMesh + b.subMeshCount)) if batched else list(range(len(tris)))
-        m = IDENTITY if batched else sc.world(tid)
-        nm, det = normal_matrix(m)
-        so = r.m_LightmapTilingOffset
-        so = (1.0, 1.0, 0.0, 0.0) if batched else (so.x, so.y, so.z, so.w)
-        lmi = r.m_LightmapIndex if r.m_LightmapIndex < 0xFFFE else -1
-        mats = list(r.m_Materials)
-        for si, sub in enumerate(subs):
-            if sub >= len(tris) or si >= len(mats) or not mats[si].m_PathID:
+    ctx = new_ctx(out_root, manifest, written)
+    bake_renderers(sc, ctx)
+    write_scene(out, stage, ctx, {
+        'source': os.path.relpath(scene_path, roots['pd'].parent.parent), 'dependencies': deps, 'unresolved': missing,
+        'settings': settings, 'lights': lights, 'lightmaps': lightmaps, 'reflection': scene_reflection(env, scene_file),
+        'map': sc.map, 'hidden': sc.hidden}, manifest)
+    return True
+
+
+def export_stage_pieces(roots, index, stage, out_root, manifest, written, loaded, scene_path, paths):
+    """A 规程 stage (FRAME_PIECES): the stage scene for the render settings and the reflection, the three level prefabs
+    for the meshes, lightmaps and lights."""
+    env, scene_file, deps, missing = loaded
+    out = out_root / 'scene' / stage
+    out.mkdir(parents=True, exist_ok=True)
+    settings = {}
+    for o in env.objects:
+        if o.assets_file is scene_file and o.type.name == 'RenderSettings':
+            settings.update(render_settings(o.read()))
+        elif o.assets_file is scene_file and o.type.name == 'LightmapSettings':
+            settings['lightmapsMode'] = getattr(o.read(), 'm_LightmapsMode', None)
+    reflection = scene_reflection(env, scene_file)
+    game = roots['pd'].parent.parent
+    sources, all_deps, lightmaps, lights, the_map = [os.path.relpath(scene_path, game)], set(deps), [], [], {}
+    ctx = new_ctx(out_root, manifest, written)
+    for si, path in enumerate(paths):
+        penv, ploaded = _load_with_deps(index, path)
+        bundle = penv.files.get(str(path))
+        pfile = next((sf for name, sf in (getattr(bundle, 'files', None) or {}).items() if '.' not in name and hasattr(sf, 'objects')), None)
+        if pfile is None:
+            log(f'skip {stage}: no prefab file in {path.name}')
+            return False
+        sources.append(os.path.relpath(path, game))
+        all_deps |= {os.path.relpath(p, game) for p in ploaded}
+        sc = Scene(penv, pfile)
+        the_map = the_map or sc.map
+        rects = [(rect, float(dy)) for sub, rect, dy in FRAME_PIECES if sub == si]
+        # PrefabLightmapData: the prefab's lightmaps / shadowmasks and per renderer its index and scale / offset
+        lm_of, base = {}, len(lightmaps)
+        for o in sc.objects:
+            if o.type.name != 'MonoBehaviour':
                 continue
             try:
-                mat = mats[si].read()
-            except Exception as e:
-                log(f'  warn {sc.path(tid)} material: {e}')
+                t = o.read_typetree()
+            except Exception:
                 continue
-            mname = mat.m_Name
-            if mname not in materials:
-                info = material_info(mat)
-                for k, tx in info['textures'].items():
-                    try:
-                        tex = next(e.m_Texture for kk, e in mat.m_SavedProperties.m_TexEnvs if kk == k).read()
-                        tx['file'] = texture_entry(tex, out_tex, TEX_KIND.get(k), written, manifest)
-                    except Exception as e:
-                        log(f'  warn texture {mname}.{k}: {e}')
-                materials[mname] = info
-            grp = groups.setdefault((mname, lmi, hkey or ''), {'material': mname, 'lightmap': lmi, 'hidden': hkey, 'pos': [], 'nrm': [], 'uv0': [], 'uv1': [],
-                                                    'col': [], 'idx': [], 'renderers': 0})
-            grp['renderers'] += 1
-            base_sub = mesh.m_SubMeshes[sub]
-            bv = getattr(base_sub, 'baseVertex', 0) or 0
-            remap = {}
-            V, N, U0, U1, C = h.m_Vertices, h.m_Normals, h.m_UV0, h.m_UV1, h.m_Colors
-            flip = det < 0  # a mirrored transform flips the winding once more
-            for tri in tris[sub]:
-                out_idx = []
-                for vi in tri:
-                    vi += bv
-                    if vi not in remap:
-                        remap[vi] = len(grp['pos']) // 3
-                        p = V[vi]
-                        wp = [m[i][0] * p[0] + m[i][1] * p[1] + m[i][2] * p[2] + m[i][3] for i in range(3)]
-                        grp['pos'] += to_board(wp)
-                        if N:
-                            n = N[vi]
-                            wn = [nm[i][0] * n[0] + nm[i][1] * n[1] + nm[i][2] * n[2] for i in range(3)]
-                            ln = math.sqrt(sum(c * c for c in wn)) or 1.0
-                            grp['nrm'] += (wn[0] / ln, wn[1] / ln, -wn[2] / ln)
-                        else:
-                            grp['nrm'] += (0.0, 0.0, 1.0)
-                        u0 = U0[vi] if U0 else (0.0, 0.0)
-                        grp['uv0'] += (u0[0], u0[1])
-                        u1 = U1[vi] if U1 else u0
-                        grp['uv1'] += (u1[0] * so[0] + so[2], u1[1] * so[1] + so[3])
-                        c = C[vi] if C else (1.0, 1.0, 1.0, 1.0)
-                        if any(x > 1.0 for x in c):
-                            grp['col'] += tuple(int(x) & 255 for x in c[:4])
-                        else:
-                            grp['col'] += tuple(max(0, min(255, int(round(x * 255)))) for x in c[:4])
-                    out_idx.append(remap[vi])
-                # board space mirrors Unity's (z flipped): reverse the winding (and again for a mirrored transform)
-                if flip:
-                    grp['idx'] += out_idx
-                else:
-                    grp['idx'] += (out_idx[0], out_idx[2], out_idx[1])
-
-    # write geometry
-    out_groups, packed = [], []
-    for (mname, lmi, _hk), grp in sorted(groups.items()):
-        nv, ni = len(grp['pos']) // 3, len(grp['idx'])
-        if not nv or not ni:
-            continue
-        rec = {'material': mname, 'lightmap': lmi, 'hidden': grp['hidden'], 'renderers': grp['renderers'], 'vertices': nv, 'indices': ni}
-        pos = grp['pos']
-        rec['bounds'] = [[_num(min(pos[i::3]), 4) for i in range(3)], [_num(max(pos[i::3]), 4) for i in range(3)]]
-        out_groups.append(rec)
-        packed.append((rec, grp))
-    blob, quant = pack_geometry(packed)
-    (out / 'geom.bin').write_bytes(bytes(blob))
-    doc = {'version': GEOM_VERSION, 'stage': stage, 'source': os.path.relpath(scene_path, roots['pd'].parent.parent),
-           'dependencies': deps, 'unresolved': missing, 'space': 'board (x = col, y = row, z = up)',
-           'vertexBytes': VERTEX_BYTES, 'quant': quant, 'settings': settings, 'lights': lights, 'lightmaps': lightmaps,
-           'reflection': scene_reflection(env, scene_file),
-           'materials': dict(sorted(materials.items())), 'map': sc.map, 'hidden': sc.hidden, 'groups': out_groups, 'skipped': skipped,
-           'stats': {'groups': len(out_groups), 'vertices': sum(g['vertices'] for g in out_groups),
-                     'triangles': sum(g['indices'] for g in out_groups) // 3, 'bytes': len(blob)}}
-    (out / 'scene.json').write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
-    grp_manifest = manifest.setdefault(f'scene/{stage}', {})
-    grp_manifest['scene'] = {'path': f'/assets/local/scene/{stage}/scene.json', 'kind': 'Scene', 'groups': len(out_groups)}
-    grp_manifest['geom'] = {'path': f'/assets/local/scene/{stage}/geom.bin', 'kind': 'Geometry', 'bytes': len(blob)}
-    log(f'{stage}: {len(out_groups)} groups, {doc["stats"]["vertices"]} verts, {doc["stats"]["triangles"]} tris, '
-        f'{len(blob) // 1024} KiB, {len(materials)} materials, {len(lightmaps)} lightmaps, skipped {skipped}'
-        + (f', unresolved {missing}' if missing else ''))
+            if 'm_RendererInfo' not in t:
+                continue
+            for i, ref in enumerate(t.get('m_Lightmaps') or []):
+                entry = {}
+                masks = t.get('m_ShadowMasks') or []
+                for key, pref in (('light', ref), ('mask', masks[i] if i < len(masks) else None)):
+                    obj = next((x for x in sc.objects if pref and x.path_id == pref.get('m_PathID')), None)
+                    if obj is not None:
+                        entry[key] = save_lightmap(obj.read(), out, stage, f'lm{base + i}_{key}.png', manifest)
+                lightmaps.append(entry)
+            for ri in t['m_RendererInfo']:
+                s = ri['lightmapOffsetScale']
+                lm_of[ri['renderer']['m_PathID']] = (ri['lightmapIndex'], (s['x'], s['y'], s['z'], s['w']))
+        for o in sc.objects:
+            if o.type.name == 'Light':
+                dy = rects[0][1] if rects else 0.0
+                e = light_entry(sc, o.read(), dy, PREFAB_ANCHOR)
+                if e:
+                    e['piece'] = si + 1
+                    lights.append(e)
+        bake_renderers(sc, ctx, lm_of=lm_of, lm_base=base, pieces=rects, anchor=PREFAB_ANCHOR)
+    write_scene(out, stage, ctx, {
+        'source': sources[0], 'pieces': [{'source': s, 'rects': [[None if abs(v) >= INF else v for v in rect] + [dy]
+                                                                  for sub, rect, dy in FRAME_PIECES if sub == i]}
+                                         for i, s in enumerate(sources[1:])],
+        'dependencies': sorted(all_deps), 'unresolved': missing, 'settings': settings, 'lights': lights,
+        'lightmaps': lightmaps, 'reflection': reflection, 'map': the_map, 'hidden': {}}, manifest)
     return True
 
 
@@ -617,7 +824,9 @@ def export_stage(roots, index, stage, out_root, manifest, written):
 # buildable / passable options and destroys itself), so the client draws nothing for it on the scene either.
 # 土石结构 (trap_032_mound, 战场#06): Graphic/Mesh/S_desert_wall/S_desert_wall_01 holds the wall's nine pieces (Unlit/Texture;
 # the legacy Animation `Wall06` breaks them apart on Die, which the m06 mounds never reach).
-DEVICE_KEYS = ('trap_1105_accrate', 'trap_1106_achplat', 'trap_040_canoe', 'trap_032_mound')
+# 盐坨子炮 (trap_196_cnnon, 规程 m10; EN btl_pfb_tokens_2.ab): Graphic/Mesh/trap_196_cnnon, one mesh, its barrel toward −row
+# (the prefab's FixedMuzzle at y −0.14) — the way the four m10 cannons face (DOWN).
+DEVICE_KEYS = ('trap_1105_accrate', 'trap_1106_achplat', 'trap_040_canoe', 'trap_032_mound', 'trap_196_cnnon')
 DEVICE_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'
 # Effect meshes a device always wears, extracted into its model: (effect bundle, prefab, the device's point it is created
 # at). The m06 mounds start strengthened (level file `mainSkillLvl` 2: 风沙掩体 SP 10/10), and sktok_mound's permanent buff
@@ -993,7 +1202,7 @@ def apply_webp(out_root, groups, log):
                 entries.pop(key)
                 log(f'  drop {g}/{key}: no {png.name}')
                 continue
-            mode = 'lossy' if g == 'scene/tex' and png.name in lossy else 'lossless'
+            mode = 'lossy' if g == 'scene/tex' and png.relative_to(out_root / 'scene/tex').as_posix() in lossy else 'lossless'
             dst = png.with_suffix('.webp')
             try:
                 with Image.open(png) as img:
@@ -1010,9 +1219,17 @@ def apply_webp(out_root, groups, log):
 
 
 def write_manifest(mpath, groups_update, log):
-    doc = json.loads(mpath.read_text(encoding='utf-8')) if mpath.exists() else {'version': 1, 'source': 'local-client', 'groups': {}}
+    """Read the manifest, let groups_update change its groups, write it. The update can take minutes (the WebP copies), and
+    another extractor (extract.py) may write the file meanwhile: just before writing, the file is read again and every
+    group the update left as it was takes the newer copy (a group another tool added or changed is kept)."""
+    read = lambda: json.loads(mpath.read_text(encoding='utf-8')) if mpath.exists() else {'version': 1, 'source': 'local-client', 'groups': {}}  # noqa: E731
+    doc = read()
     groups = doc.setdefault('groups', {})
+    seen = json.loads(json.dumps(groups))
     groups_update(groups)
+    for k, v in (read().get('groups') or {}).items():
+        if groups.get(k) == seen.get(k) and v != seen.get(k):
+            groups[k] = v
     doc['groups'] = dict(sorted(groups.items()))
     doc['count'] = sum(len(v) for v in groups.values())
     mpath.write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
@@ -1022,10 +1239,13 @@ def write_manifest(mpath, groups_update, log):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--client', default=DEFAULT_CLIENT, help='…/Arknights_Data of the client')
+    ap.add_argument('--cn', action='store_true', help='the CN client (client_path.py client_data_cn): its own CAB index '
+                    '(.cache/scene-cab-index-cn.json) and textures (scene/tex/cn/); also when --client names it')
     ap.add_argument('--stage', action='append', default=[], help='stage id (repeatable); default: every stage with a scene')
     ap.add_argument('--out', default=str(ROOT / 'public/assets/local'))
     ap.add_argument('--manifest', default=str(ROOT / 'data/local-assets.json'))
-    ap.add_argument('--index', default=str(ROOT / '.cache' / 'scene-cab-index.json'), help='CAB index cache (git-ignored .cache/)')
+    ap.add_argument('--index', default=None, help='CAB index cache (git-ignored .cache/; default scene-cab-index.json, '
+                    'scene-cab-index-cn.json for the CN client)')
     ap.add_argument('--rebuild-index', action='store_true')
     ap.add_argument('--no-webp', action='store_true', help='keep the manifest on the PNGs (no WebP copies)')
     ap.add_argument('--webp', action='store_true',
@@ -1033,7 +1253,7 @@ def main():
     ap.add_argument('--reflections', action='store_true',
                     help='only add the reflection probe (scene.json reflection) to the scenes already under --out (needs the client)')
     ap.add_argument('--devices', action='store_true',
-                    help='only export the device models (scene/devices: 阻隔工事, 射击台, 特制水上平台, 土石结构) and their textures (needs the client)')
+                    help='only export the device models (scene/devices: 阻隔工事, 射击台, 特制水上平台, 土石结构, 盐坨子炮) and their textures (needs the client)')
     ap.add_argument('--requantize', action='store_true',
                     help='only rewrite the version-1 geometry already under --out in the quantized version 2 (no client)')
     args = ap.parse_args()
@@ -1055,11 +1275,20 @@ def main():
         return 0 if n[0] else 1
 
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
+    global TEX_SUBDIR
+    cn = client_data_cn()
+    if args.cn:
+        if not cn:
+            print('no CN client set up (SP_CLIENT_CN, client_path.py)', file=sys.stderr)
+            return 2
+        args.client = cn
+    is_cn = bool(cn) and Path(args.client).resolve() == Path(cn).resolve()
+    TEX_SUBDIR = 'cn' if is_cn else ''
     roots = bundle_roots(args.client)
     if not roots['pd'].is_dir():
         print(f'no client at {args.client}', file=sys.stderr)
         return 2
-    cache = Path(args.index)
+    cache = Path(args.index or ROOT / '.cache' / ('scene-cab-index-cn.json' if is_cn else 'scene-cab-index.json'))
     index = build_index(roots, cache) if args.rebuild_index or not cache.exists() else json.loads(cache.read_text(encoding='utf-8'))
     stages = args.stage or sorted(p.name[len('level_'):] for p in (roots['pd'] / SCENE_DIR).glob('act*autochess/level_*')
                                   if p.is_dir() and STAGE_RE.match(p.name[len('level_'):]))

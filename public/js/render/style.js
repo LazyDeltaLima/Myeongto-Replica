@@ -45,11 +45,14 @@ export const GLYPH = Object.freeze({
   i: { mat: 'infection', h: null },
 });
 
-/** tileKey (when a stage uses glyphs outside the legend) → glyph. */
+/** tileKey (when a stage uses glyphs outside the legend) → glyph. 规程's 加速 tile (`u`) and 草地 (`G`) are ground tiles
+ *  whose look is the official scene's floor (their client tile prefabs draw nothing; 草地 adds a map effect): plain road on
+ *  the procedural board, not the hazard-striped fallback of an unknown LOW glyph. */
 export const TILEKEY_GLYPH = Object.freeze({
   tile_forbidden: '#', tile_road: 'r', tile_floor: 'f', tile_wall: 'h', tile_fence_bound: 'b', tile_fence: 'b',
   tile_achand: 'a', tile_start: 'S', tile_end: 'E', tile_telin: 'I', tile_telout: 'O', tile_mire: 'm',
   tile_smog: 'g', tile_deepsea: 'd', tile_infection: 'i', tile_grass: 'r', tile_hole: '#',
+  tile_speedup: 'r', tile_duel_grassland: 'r',
 });
 
 export const COLORS = Object.freeze({

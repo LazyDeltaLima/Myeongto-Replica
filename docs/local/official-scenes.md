@@ -28,6 +28,24 @@ board's atlas, the first-season look): act1 m01–m07, act2 m02 and m04 use `map
   decode error ≤ 6·10⁻⁴ tile (position), 0.4° (normal), 5·10⁻⁵ (uv). The reader still takes version 1 (f32, u32
   indices); `--requantize` rewrites version-1 files in place without the client. act2 m01 is large because the metro
   scene is detailed (157 k vertices, no LODs and < 0.5 % duplicate vertices), not because of an export fault.
+- 规程 (`act3autochess`, CN client only, 2026-11-11): its stage scene `scenes/activities/act3autochess/level_<stage>.ab`
+  holds only the tile objects of the 36×55 logic map and one renderer. What the battle draws comes in three level
+  prefabs, one per sub-level: `battle/prefabs/levelprefabs/activities/act3autochess/level_<stage>/level_<stage>_sub_0N`
+  — the theme's meshes, the prefab's own `Lightmap-0_comp_light` / `_comp_shadowmask` (`PrefabLightmapData`: per
+  renderer its lightmap index and scale / offset), its main light, a `MapGraphic` (theme, `highlandHeight` 0.4). A
+  prefab's space is its sub-level's tiles: tile (r, c) at (c, r, −height) from the root (anchor 0). `export_stage`
+  takes this path when the three prefabs exist (`export_stage_pieces`): the render settings and reflection come from the
+  stage scene, and the pieces are cut and moved the way `tools/level-fields.mjs` `STAGE_PIECES` puts the sub-levels'
+  tiles into the sim's 19×21 frame (`FRAME_PIECES`: sub_03 rows ≤ 6 stay, rows ≥ 7 up 7; sub_01 cols ≤ 10 up 7; sub_02
+  cols ≥ 11 up 8, with the island around each; triangles across a cut are clipped, `clip_rect`). scene.json lists the
+  pieces (`pieces`), three lightmaps (one per prefab) and no hidden sets. Themes: `map_autochesssand` (m01–m04, m06),
+  `map_survivaloasis_city` (m05), `map_icewild` (m09, m11, `Torappu/Scene/Standard-Ice`), `map_ltny2` (m10, m12,
+  `StandardBloom`) — drawn by the Standard path of `official.js`. A run on the CN client (`--cn`, or `--client` naming
+  it) reads its own CAB index (`.cache/scene-cab-index-cn.json`) and writes its textures to `scene/tex/cn/`: the two
+  clients ship same-named theme textures that differ (another compression; `TX_Survivaloasis_E` has a region of its
+  own), and one run must not replace the textures the other client's scenes were checked with. The seams of the cuts
+  show where a rock or a ledge crosses them; the three sub-levels are one island in the client only per sub-level.
+  `tools/map-previews.mjs --season act3autochess` draws the briefing previews from these scenes.
 - Hidden sets: the level root's `_settings` (`HIDDEN@1` left normal field, `@2` right normal field, `@3` boss field,
   `hide: 1`, `_hideBakeOffset (50,0,0)`) list the tile graphics (`_gridPos`) and props the client hides while that
   part of the map is not in play; saved inactive. Groups carry their key and `scene.json hidden[key].tiles`; the
