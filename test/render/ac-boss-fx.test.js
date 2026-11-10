@@ -13,8 +13,8 @@ import { makeBattle, chessRec } from '../helpers/battleHarness.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
 
-const EEL = 'enemy_9037_aceel_2', SPIDER = 'enemy_9035_acspider', WEB = 'enemy_9036_acweb';
-const NAMES = ['sh_loop', 'sh_buff', 'sh_end', 'line', 'hit', 'mask', 'web1', 'weather'];
+const EEL = 'enemy_9037_aceel_2', SPIDER = 'enemy_9035_acspider', SPIDER2 = 'enemy_9035_acspider_2', WEB = 'enemy_9036_acweb';
+const NAMES = ['sh_loop', 'sh_buff', 'sh_end', 'line', 'hit', 'mask', 'web1', 'weather', 'ground'];
 const emodes = (extracted) => ({
   $fx: Object.fromEntries((extracted ? NAMES : []).map((n) => [n, ['b', n]])),
   [EEL]: {
@@ -25,22 +25,23 @@ const emodes = (extracted) => ({
     camera: ['weather'],
   },
   [SPIDER]: { modes: [{ name: 'Default', anim: ['Attack'] }], buffFx: { 'acspdier[evade]': ['mask'] } },
+  [SPIDER2]: { modes: [{ name: 'Default', anim: ['Attack'] }], skills: { acidrain: { cast: [], opt: {}, hit: [], tile: ['ground'] } } },
   [WEB]: { modes: [{ name: 'Default', anim: [] }], buffFx: { 'acweb[vfx]': ['web1'] } },
 });
 const settle = () => new Promise((r) => setTimeout(r, 10));
 
-async function layerWith(extracted) {
+async function layerWith(extracted, opts = {}) {
   const files = {
     '/assets/local/fx/index.json': { bundles: { b: extracted ? NAMES : [] } },
     '/assets/local/fx/enemy-modes.json': emodes(extracted),
   };
   globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
   const seen = [];
-  const layer = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, enemyDef: () => null, trace: (p) => seen.push(p) });
+  const layer = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, enemyDef: () => null, trace: (p) => seen.push(p), ...opts });
   await settle();
   const foe = (id, defId) => ({ id, x: id, y: 0, alive: true, isEnemy: true, info: { id, side: 'enemy', defId }, actor: { roles: { attack: { loop: 'Attack' } } } });
   const ally = (id) => ({ id, x: id, y: 1, alive: true, info: { id, side: 'ally', defId: 'char_x' } });
-  const views = new Map([[1, foe(1, EEL)], [2, foe(2, SPIDER)], [3, ally(3)], [4, ally(4)]]);
+  const views = new Map([[1, foe(1, EEL)], [2, foe(2, SPIDER)], [3, ally(3)], [4, ally(4)], [7, foe(7, SPIDER2)]]);
   layer.onEvent(['tick'], views);
   seen.length = 0;
   const take = () => seen.splice(0).filter((p) => p.kind === 'spawn').flatMap((p) => p.names);
@@ -91,6 +92,26 @@ test('鳍 (隐秘核心) weather: its talent buff\'s camera effect (enemy-modes.
   } finally { globalThis.fetch = fetch0; }
 });
 
+test('茧 (隐秘核心) 【悲惨之雨】: its tile listeners\' floor (enemy-modes.json skills.acidrain.tile) on every drawn tile of the rain\'s field, no stand-in', async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    // rows 2–5 drawn, row 4 col 3 not (a hole in the drawn board)
+    const g = Array.from({ length: 6 }, (_, r) => Array.from({ length: 21 }, (_, c) => ({ drawn: r >= 2 && !(r === 4 && c === 3), h: c === 5 ? 1 : 0 })));
+    const { layer, views, seen } = await layerWith(true, { grid: () => g });
+    const rain = (o) => { const e = ['fx', 'zone', 10, 3, { x: 10, y: 3, r: 0, dur: 25, kind: 'acspiderRain', id: 7, ability: 'AcidRain', field: 'p1', ...o }]; layer.onEvent(e, views); return e; };
+    const spawns = () => seen.splice(0).filter((p) => p.kind === 'spawn');
+    assert.equal(layer.ownsFx(rain({ tiles: [2, 5, 0, 10] })), true, 'drawn here, not the stand-in zone');
+    const got = spawns();
+    assert.equal(got.length, 4 * 11 - 1, 'one floor per drawn tile of rows 2–5 × cols 0–10');
+    assert.ok(got.every((p) => p.names[0] === 'ground' && p.tag === 'acRain'));
+    assert.equal(layer.ownsFx(rain({ tiles: [2, 5, 11, 20], field: 'p2' })), true);
+    assert.equal(spawns().length, 4 * 10, 'the other field: its own half');
+    assert.equal(layer.ownsFx(rain({ tiles: null })), false, 'no tiles: the stand-in');
+    assert.equal(layer.ownsFx(rain({ id: 2, tiles: [2, 5, 0, 10] })), false, 'an enemy without the tile effect: the stand-in');
+    assert.deepEqual(spawns(), []);
+  } finally { globalThis.fetch = fetch0; }
+});
+
 const EXTRACTED = new URL('../../public/assets/local/fx/enemy-modes.json', import.meta.url);
 test('the extracted bindings: 鳍 (隐秘核心) alone holds a camera effect — its aceel[thurder-trigger]\'s screen_act3autochess_aceel_weather',
   { skip: !existsSync(EXTRACTED) && 'no extracted enemy effects' }, () => {
@@ -98,6 +119,15 @@ test('the extracted bindings: 鳍 (隐秘核心) alone holds a camera effect —
     const holders = Object.entries(em).filter(([k, e]) => !k.startsWith('$') && e?.camera).map(([k, e]) => [k, e.camera]);
     assert.deepEqual(holders, [[EEL, ['screen_act3autochess_aceel_weather']]]);
     assert.deepEqual(em.$fx.screen_act3autochess_aceel_weather, ['screen', 'screen_act3autochess_aceel_weather'], 'extracted (the CN screen pack)');
+  });
+test('the extracted bindings: 茧 (隐秘核心) alone holds a tile effect — 悲惨之雨\'s enemy_acspider_debuff_ground_01 (Left / Right `_effectSettings`)',
+  { skip: !existsSync(EXTRACTED) && 'no extracted enemy effects' }, () => {
+    const em = JSON.parse(readFileSync(EXTRACTED, 'utf8'));
+    const holders = Object.entries(em).filter(([k]) => !k.startsWith('$'))
+      .flatMap(([k, e]) => Object.entries(e?.skills || {}).filter(([, p]) => p?.tile).map(([sk, p]) => `${k} ${sk} ${p.tile.join(',')}`));
+    const G = 'enemy_acspider_debuff_ground_01';
+    assert.deepEqual(holders.sort(), ['acidrain', 'acidrain/left', 'acidrain/right', 'left', 'right'].map((sk) => `${SPIDER2} ${sk} ${G}`).sort());
+    assert.deepEqual(em.$fx[G], ['pfx_enemy_20', G], 'extracted (the CN enemy effect pack)');
   });
 
 test('fxstatus: a status an enemy puts on an ally draws that enemy\'s binding of the buff it names (its applier `src`)', () => {
@@ -152,4 +182,17 @@ test('鳍 sim: the shield and the strong attack name aceel[shield] / aceel[power
   const jump = links('fx').find((e) => e[1] === 'link' && e[4]?.kind === 'aceelChain')[4];
   assert.equal(jump.id, eel.id);
   assert.ok(['projectile_enemy_aceel', 'projectile_enemy_aceel_pwratk'].includes(jump.key), jump.key);
+});
+
+test('茧 (隐秘核心) sim: 【悲惨之雨】\'s zone names the tiles of the field it rains on — its own half first, then the other player\'s', () => {
+  const wall = (base, list) => list.map(([row, col], i) => ({ uid: base + i, chessId: 't_wall', row, col, abs: true }));
+  const h = arena([SPIDER2], { battle: { players: [
+    { playerId: 'p1', seat: 0, side: 'L', colOffset: 0, units: wall(1, [[2, 3]]) },
+    { playerId: 'p2', seat: 1, side: 'R', colOffset: 8, units: wall(101, [[2, 15]]) },
+  ] } });
+  h.spawn(SPIDER2, { pos: [3, 10], routeIndex: 0, tag: 'boss' });
+  const rains = () => h.eventsOf('fx').filter((e) => e[1] === 'zone' && e[4]?.kind === 'acspiderRain').map((e) => e[4]);
+  h.runUntil(() => rains().length >= 2, 70);
+  assert.deepEqual(rains().map((o) => [o.field, o.tiles]), [['p1', [2, 5, 0, 10]], ['p2', [2, 5, 11, 20]]], 'rows 2–5 (not the hand rows), each half');
+  assert.ok(rains().every((o) => /acidrain/i.test(o.ability)), 'names the ability (its tile effect)');
 });

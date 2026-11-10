@@ -5073,7 +5073,60 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return eshotFx({ id: o.id, from: o.from, tgt: o.to, key: o.key, t: Number(o.dur) || 0.2 }, views);
     }
     if (e[1] === 'summon' && AC_NO_BORN.has(o.key)) return !!(emodes?.[o.key] && !emodes[o.key].start && eOn(views.get(o.id)));
+    if (e[1] === 'zone' && o.kind === 'acspiderRain') return acRainFx(o, views);
     return false;
+  }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 보스 고치·지느러미의 이펙트」): 假想敌：茧 (隐秘核心)'s 【悲惨之雨】 — sim fx 'zone'
+   * { kind: 'acspiderRain', id, ability, field, dur, tiles: [r0, r1, c0, c1] }. Its `Left` / `Right` tile listeners
+   * (AttachListenerToTileAbility) put their `_effectSettings` effect (enemy-modes.json skills[ability].tile:
+   * enemy_acspider_debuff_ground_01) on each tile they cast on, held while the listener stays (`m_castedTileEffect`)
+   * [추정·CN: the tiles are the selector's, CN-only — every drawn tile of `tiles`, the field the sim rains on; maintainer
+   * decision 2026-11-11]. Each ends at the rain's end or as the 茧 dies (the ability goes with it), finished (its
+   * `animFin` `end` → the fading clip). A new rain on the same field ends the one before. false (the stand-in zone) without
+   * the effect extracted.
+   */
+  const acRains = new Map();   // `${spider id}:${field}` → { id, live: the floors }
+  function acRainOff(key) {
+    for (const l of acRains.get(key)?.live || []) if (!l.stopped) zoneEnd(l, Math.min(l.until ?? clockS, clockS), true);
+    acRains.delete(key);
+  }
+  function acRainFx(o, views) {
+    const v = views.get(o.id);
+    const t = Array.isArray(o.tiles) && o.tiles.length === 4 ? o.tiles.map(Number) : null;
+    if (!eOn(v) || !t || !t.every(Number.isInteger)) return false;
+    const names = [...new Set(eskillPart(v, o.ability)?.tile || [])].map(efx).filter(Boolean);
+    if (!names.length) return false;
+    const key = `${o.id}:${o.field}`;
+    acRainOff(key);
+    const rec = { id: o.id, live: [] };
+    acRains.set(key, rec);
+    const until = clockS + Math.max(0, Number(o.dur) || 0);
+    let g = null;
+    try { g = grid(); } catch { /* every tile */ }
+    for (let r = t[0]; r <= t[1]; r++) {
+      for (let c = t[2]; c <= t[3]; c++) {
+        const cell = Array.isArray(g) ? g[r]?.[c] : null;
+        if (Array.isArray(g) && !cell?.drawn) continue;   // off the drawn board
+        const at = { x: c, y: r, z: cell ? (cell.h || 0) + (cell.devH || 0) : 0 };
+        for (const n of names) {
+          spawn(n[0], n[1], at, { owner: null, buff: false, until, tag: 'acRain' }, { over: false }).then((l) => {
+            if (!l) return;
+            if (acRains.get(key) !== rec) { zoneEnd(l, clockS, true); return; }   // its rain ended while it loaded
+            zoneEnd(l, until, true);
+            rec.live.push(l);
+          });
+        }
+      }
+    }
+    return true;
+  }
+  function stepAcRains(views) {
+    for (const [key, rec] of acRains) {
+      const v = views.get(rec.id);
+      if (!v || v.alive === false || v.remove) acRainOff(key);
+      else if (rec.live.length && rec.live.every((l) => l.stopped)) acRains.delete(key);
+    }
   }
   /**
    * 2026-10-10: “萨米的意志”'s 冰凌 — sim fx 'column' { x, y, c, id, key, sub, r0, dir, speed, dist, life } once at the strike
@@ -5607,6 +5660,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function stepEnemies(views) {
     if (!emodes || !views) return;
+    if (acRains.size) stepAcRains(views);
     camWant.clear();
     for (const v of views.values()) {
       if (v?.info?.side !== 'enemy' || v.alive === false || !ebindOf(v)) continue;
@@ -6423,6 +6477,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       brokeOwn.clear(); // 2026-10-23
       for (const c of camFx.values()) c.off = true;   // 2026-11-10: the enemies' camera effects (dropped with `live` above)
       camFx.clear(); camWant.clear();
+      acRains.clear();   // 2026-11-11: 悲惨之雨's floors (dropped with `live` above)
       if (mod) showLayers();
     },
 

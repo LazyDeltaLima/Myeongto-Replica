@@ -81,6 +81,7 @@
 //   'sword' 'vest' 'blink' 'summon' 'grow' 'phase' 'lpLoss' (x, y + extra {id, r, tiles, kind, tx, ty …}).
 
 import { MOVE_SCALE, ROWS, COLS, ALLY_COLLIDER_RADIUS, TICK } from '../constants.js';
+import { GEO } from '../../../shared/constants.js';
 import { aggroCmp, areaSelectable } from '../targeting.js';
 import { compileRoute, attackWindup, enemyMode } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
@@ -2219,6 +2220,27 @@ const RAIN_TICK = 0.5;
  * with `_autoChessFilterType` 1 another player's [추정·CN: the field is CN-only, as 假想敌：械's — read as the field the leader
  * stands on and the other one; alone, one field]. A unit's field is its owner's (`ownerId`, the half it was deployed on).
  */
+/**
+ * The tiles 【悲惨之雨】 is drawn on, [r0, r1, c0, c1]: field `pid`'s board rows (a boss field's rows 2–5 — not its hand /
+ * 临时整备区 rows) across that player's half of the battle field (Battle._ownerForTile; the whole width alone). [추정·CN: the
+ * official tile listener's selector (AutoChessAdvancedSelector) is CN-only — the whole field, as the sim reads the rain
+ * (docs/rules/sim.md 「규정 적·보스」); maintainer decision 2026-11-11] null when the player is not on this field.
+ */
+function rainTiles(b, pid) {
+  const ps = b.players.find((p) => p.playerId === pid);
+  const R = b.rect;
+  if (!ps || !R) return null;
+  const ra = b._boardTile(ps, GEO.FIELD.r0, GEO.FIELD.c0)[0], rb = b._boardTile(ps, GEO.FIELD.r1, GEO.FIELD.c0)[0];
+  const r0 = Math.max(R.r0, Math.min(ra, rb)), r1 = Math.min(R.r1, Math.max(ra, rb));
+  let c0 = null, c1 = null;
+  for (let c = R.c0; c <= R.c1; c++) {
+    if (b._ownerForTile([r0, c]) !== pid) continue;
+    if (c0 == null) c0 = c;
+    c1 = c;
+  }
+  return c0 == null || r1 < r0 ? null : [r0, r1, c0, c1];
+}
+
 function spiderFields(b, e) {
   const ids = b.players.map((p) => p.playerId);
   const own = ids.includes(e.ownerId) ? e.ownerId : ids[0];
@@ -2271,7 +2293,8 @@ function kitSpider(ab, e) {
   const rainOn = (b2, e2, pid) => { // 【悲惨之雨】 on field `pid`
     const dur = rain.bb.duration ?? 0, dmg = rain.bb.damage ?? 0, aspd = rain.bb.attack_speed ?? 0;
     const inField = () => b2.allies().filter((u) => u.alive && u.deployed && !u.hidden && u.ownerId === pid);
-    b2.fx('zone', { x: e2.x, y: e2.y, r: 0, dur, kind: 'acspiderRain', field: pid, id: e2.id, ability: rain.name });
+    // `tiles` [r0, r1, c0, c1]: the tiles the rain is drawn on — that player's part of the field (render/fxgame.js acBossFx)
+    b2.fx('zone', { x: e2.x, y: e2.y, r: 0, dur, kind: 'acspiderRain', field: pid, id: e2.id, ability: rain.name, tiles: rainTiles(b2, pid) });
     let left = dur;
     const h = b2.every(RAIN_TICK, () => {
       left -= RAIN_TICK;

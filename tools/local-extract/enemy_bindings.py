@@ -694,8 +694,8 @@ def uniq(lst):
 
 
 def emit_part(abilities, projs):
-    """{cast, opt, hit, aim?, dirs?, proj?, hitBuff?, attach?} of the abilities of one attack (or one skill)."""
-    cast, opt, hit, aim, dirs, attach, hit_buff, lines, hopt = [], {}, [], [], [], [], [], [], {}
+    """{cast, opt, hit, aim?, dirs?, proj?, hitBuff?, attach?, tile?} of the abilities of one attack (or one skill)."""
+    cast, opt, hit, aim, dirs, attach, hit_buff, lines, hopt, tile = [], {}, [], [], [], [], [], [], {}, []
     buff_life = {}
     proj = None
     for a in abilities:
@@ -720,6 +720,9 @@ def emit_part(abilities, projs):
                     dirs.append({'t': em['dir'], 's': em['slots'][:4] + [''] * (4 - len(em['slots'][:4]))})
         for em in a.get('attachEffects') or []:
             attach += em['fx']
+        # 2026-11-11: a tile listener's (AttachListenerToTileAbility) `_effectSettings[].effectKey`: one effect on each tile it
+        # casts on, held while the tile listener stays (`m_castedTileEffect`) — 假想敌：茧 (隐秘核心)'s 悲惨之雨 floor
+        tile += [o['fx'] for o in a.get('otherFx') or [] if o.get('field') == '_effectSettings.effectKey']
         # a buff the attack / skill puts on its targets: its own effect (overrideEffectKey, else the template's effectKey) —
         # not the effects its nodes create later (a shield's break, a trap's end)
         for b in a.get('activeBuffs') or []:
@@ -774,6 +777,8 @@ def emit_part(abilities, projs):
         part['dirs'] = dirs
     if attach:
         part['attach'] = uniq(attach)
+    if tile:
+        part['tile'] = uniq(tile)
     if hit_buff:
         part['hitBuff'] = uniq(hit_buff)
         life = {n: buff_life[n] for n in part['hitBuff'] if n in buff_life}
@@ -787,7 +792,7 @@ def emit_part(abilities, projs):
 
 
 def names_of_part(p):
-    out = list(p.get('cast', [])) + list(p.get('hit', [])) + list(p.get('attach', [])) + list(p.get('hitBuff', []))
+    out = list(p.get('cast', [])) + list(p.get('hit', [])) + list(p.get('attach', [])) + list(p.get('hitBuff', [])) + list(p.get('tile', []))
     out += [x['fx'] for x in p.get('line', [])]
     pr = p.get('proj') or {}
     for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart'):
@@ -860,7 +865,7 @@ def render_entry(r, projs):
                      for x in (strs(b.get('fx')) or ((b.get('template') or {}).get('key') or [])))
         if buffs:
             part['buff'] = buffs
-        if any(part.get(f) for f in ('cast', 'hit', 'attach', 'hitBuff', 'buff', 'proj', 'line')):
+        if any(part.get(f) for f in ('cast', 'hit', 'attach', 'hitBuff', 'buff', 'proj', 'line', 'tile')):
             part['anim'] = next((a['anim'] for a in lst if a.get('anim')), None)
             if part['anim'] is None:
                 del part['anim']
