@@ -5,6 +5,7 @@
 // and the web's summon (nothing extracted: ac-boss-fx-bare.test.js — the layer's tables load once per process).
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
 import * as F from '../../public/js/render/fxstatus.js';
 import { getData } from '../../server/data.js';
@@ -13,7 +14,7 @@ import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
 
 const EEL = 'enemy_9037_aceel_2', SPIDER = 'enemy_9035_acspider', WEB = 'enemy_9036_acweb';
-const NAMES = ['sh_loop', 'sh_buff', 'sh_end', 'line', 'hit', 'mask', 'web1'];
+const NAMES = ['sh_loop', 'sh_buff', 'sh_end', 'line', 'hit', 'mask', 'web1', 'weather'];
 const emodes = (extracted) => ({
   $fx: Object.fromEntries((extracted ? NAMES : []).map((n) => [n, ['b', n]])),
   [EEL]: {
@@ -21,6 +22,7 @@ const emodes = (extracted) => ({
     skills: { poweratk: { cast: [], opt: {}, hit: [], proj: { key: 'projectile_enemy_aceel_pwratk', mount: 2, trail: ['line'], hit: ['hit'] } } },
     buffFx: { 'aceel[shield]': ['sh_loop'], 'aceel[power-atk]': ['sh_buff'] },
     buffBlocked: { 'aceel[shield]': ['sh_end'] },
+    camera: ['weather'],
   },
   [SPIDER]: { modes: [{ name: 'Default', anim: ['Attack'] }], buffFx: { 'acspdier[evade]': ['mask'] } },
   [WEB]: { modes: [{ name: 'Default', anim: [] }], buffFx: { 'acweb[vfx]': ['web1'] } },
@@ -42,7 +44,7 @@ async function layerWith(extracted) {
   layer.onEvent(['tick'], views);
   seen.length = 0;
   const take = () => seen.splice(0).filter((p) => p.kind === 'spawn').flatMap((p) => p.names);
-  return { layer, views, take };
+  return { layer, views, take, seen };
 }
 
 test('鳍 / 茧 fx events: the shield and 伪装 phases are their buffs\' (no puff), the break plays buffBlocked, the jump flies the shot, the web has no birth puff', async () => {
@@ -64,6 +66,39 @@ test('鳍 / 茧 fx events: the shield and 伪装 phases are their buffs\' (no pu
     assert.equal(layer.ownsFx(ev('summon', { id: 2, key: 'enemy_other', tgt: 3 })), false);
   } finally { globalThis.fetch = fetch0; }
 });
+
+test('鳍 (隐秘核心) weather: its talent buff\'s camera effect (enemy-modes.json `camera`) is on once while one such enemy lives, off as the last goes', async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    const { layer, views, seen } = await layerWith(true);
+    const frame = () => { layer.update(1 / 60, { dist: 20 }, { width: 100, height: 100 }); return seen.splice(0).filter((p) => /^camera/.test(p.kind)).map((p) => `${p.kind} ${p.names[0]}`); };
+    assert.deepEqual(frame(), ['camera weather'], 'the 鳍 on the field: the screen comes on');
+    assert.deepEqual(frame(), [], 'held, not started again each frame');
+    const second = { ...views.get(1), id: 5, x: 5 };
+    views.set(5, second);
+    assert.deepEqual(frame(), [], 'a second 鳍: the same one effect (aceel[vfx-counter])');
+    views.get(1).alive = false;
+    assert.deepEqual(frame(), [], 'one 鳍 left: still on');
+    second.remove = true;
+    assert.deepEqual(frame(), ['cameraOff weather'], 'the last one gone: off');
+    views.delete(1); views.delete(5);
+    assert.deepEqual(frame(), []);
+    views.set(6, { ...second, id: 6, remove: false, alive: true });
+    assert.deepEqual(frame(), ['camera weather'], 'another 鳍 later: on again');
+    layer.clear();
+    views.delete(6);
+    assert.deepEqual(frame(), [], 'clear() ended it: nothing left to switch off');
+  } finally { globalThis.fetch = fetch0; }
+});
+
+const EXTRACTED = new URL('../../public/assets/local/fx/enemy-modes.json', import.meta.url);
+test('the extracted bindings: 鳍 (隐秘核心) alone holds a camera effect — its aceel[thurder-trigger]\'s screen_act3autochess_aceel_weather',
+  { skip: !existsSync(EXTRACTED) && 'no extracted enemy effects' }, () => {
+    const em = JSON.parse(readFileSync(EXTRACTED, 'utf8'));
+    const holders = Object.entries(em).filter(([k, e]) => !k.startsWith('$') && e?.camera).map(([k, e]) => [k, e.camera]);
+    assert.deepEqual(holders, [[EEL, ['screen_act3autochess_aceel_weather']]]);
+    assert.deepEqual(em.$fx.screen_act3autochess_aceel_weather, ['screen', 'screen_act3autochess_aceel_weather'], 'extracted (the CN screen pack)');
+  });
 
 test('fxstatus: a status an enemy puts on an ally draws that enemy\'s binding of the buff it names (its applier `src`)', () => {
   const web = { id: 9, isEnemy: true, info: { defId: WEB } };

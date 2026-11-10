@@ -575,7 +575,13 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
                         lst.append(eff)
             for k, v in o.items():
                 if isinstance(v, str) and v:
-                    if v.lower() in FX:
+                    # (2026-11-10) a camera effect (Nodes.CreateCameraEffect / ActiveCameraEffect: 假想敌：鳍's
+                    # screen_act3autochess_aceel_weather) — on the camera while the buff lasts, not on its owner: `camera`
+                    # from ON_BUFF_START; the other events' nodes only switch it off (ActiveCameraEffect `_active` false)
+                    if 'CameraEffect' in typ and v.lower() in FX:
+                        if ev == '0':
+                            add('camera', v)
+                    elif v.lower() in FX:
                         add('line' if 'LineEffect' in typ else 'fx', v, ev)
                     elif v in proj_keys:
                         add('projectiles', v)
@@ -910,6 +916,14 @@ def render_entry(r, projs):
         out['aura'] = aura
     if aura_end:
         out['auraEnd'] = aura_end
+    # (2026-11-10) the camera effects of its held talent buffs' ON_BUFF_START (template `camera`): on the camera while one such
+    # enemy lives — the client counts them on a global blackboard (假想敌：鳍's aceel[thurder-trigger] and aceel[vfx-counter]:
+    # created at the first, switched off as the last one's buff finishes; render/fxgame.js stepCameraFx)
+    camera = uniq(x for a in ab_aura   # (Talents/Weather/PassiveTrigger: a talent's part, attached with it)
+                  for b in (a.get('buffs') or []) + (a.get('passiveBuffs') or []) if held(b)
+                  for x in (b.get('template') or {}).get('camera') or [])
+    if camera:
+        out['camera'] = camera
     # (2026-10-23) an AuraAbility's own `_effects` under another ability (扎罗's CommonAbilities/FearAura/Aura: its range,
     # on while 【远古威慑】 runs): held by the sim's status that stands for that ability (render/fxstatus.js KEY_FX)
     nested = uniq(x for a in r['abilities'] if not direct(a) for x in a.get('auraFx', []) if x not in STATUS_DRAWN)
@@ -1033,6 +1047,7 @@ def render_entry(r, projs):
 
 def entry_names(e):
     out = [e.get('start'), e.get('dead')] + list(e.get('aura', [])) + list(e.get('handed', [])) + list(e.get('auraNested', []))
+    out += list(e.get('camera', []))
     out += [x for rb in e.get('reborn') or [] for x in rb['fx']]
     out += [x for ra in e.get('rebornAbility') or [] for x in ra['cast'] + [b['fx'] for b in ra['buffs']]]
     for k in ('buffFx', 'buffEnd', 'buffBlocked'):

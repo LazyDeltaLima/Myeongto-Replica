@@ -145,6 +145,8 @@ SET_FLOAT_SCRIPT = 295235635984623506
 BUFF_PROGRESS_SCRIPT = -5165147848620574582
 RANDOM_GROUP_SCRIPT = -3960942007169782850
 EQUIP_SWITCH_SCRIPT = 1228563541688412297
+# (2026-11-10, the CN client's 11-08 update: 规程's 假想敌：茧 rain ground enemy_acspider_debuff_ground_01) SetEffectAnimatorParameter
+SET_PARAM_SCRIPT = -6162048904628412015
 # Mecanim's parameter types (AnimatorControllerParameterType) and condition modes (AnimatorConditionMode; 5 = the exit time
 # itself, never stored as a condition)
 PARAM_TYPES = {1: 'float', 3: 'int', 4: 'bool', 9: 'trigger'}
@@ -3130,6 +3132,10 @@ class Extractor:
           `_isTrigger` → SetTrigger(`_triggerName`), else `_isInt` → SetInteger(name, `_triggerValue` ? 1 : 0),
           else SetBool(name, `_triggerValue`);
         - SwitchAnimatorStateWhenFinish (`OnFinish`, `Awake`: GetComponent<Animator>): Play(`_stateName`), `rec`;
+        - SetEffectAnimatorParameter (`get_animator`: GetComponent<Animator>): `OnFinish` sets each `_paramInfos` entry of
+          `triggerTime` ON_FINISH (1) by its `paramType` (0 SetTrigger, 1 SetBool `valueToSetBool`, 2 SetFloat
+          `valueToSetFloat`, 3 SetInteger `valueToSetInt`), `OnPlay` those of ON_PLAY (0) — only a value other than the
+          parameter's default would show, and none does (reported);
         - SetAnimatorTriggerOnEvent (`OnFinish`; `OnPlay` only Rebinds): `_event` ON_FINISH (0) →
           SetTrigger(`_animatorTriggerName`);
         - SetAnimatorTriggerByCondition (`_UpdateAnimator`: SetTrigger(its source's value) when it changes and is not
@@ -3165,6 +3171,16 @@ class Extractor:
             elif sid == ON_FINISH_ANIME_SCRIPT and child is not None:
                 name, v = t.get('_triggerName') or '', bool(t.get('_triggerValue'))
                 fin.append({'sm': child, 'p': name, 'v': True if t.get('_isTrigger') else (int(v) if t.get('_isInt') else v)})
+            elif sid == SET_PARAM_SCRIPT and own is not None:
+                params = sms[own].get('params') or {}
+                for pi in t.get('_paramInfos') or []:
+                    typ, key = pi.get('paramType', 0), pi.get('paramKey') or ''
+                    v = (True if typ == 0 else bool(pi.get('valueToSetBool')) if typ == 1
+                         else r4(pi.get('valueToSetFloat', 0.0)) if typ == 2 else int(pi.get('valueToSetInt', 0)))
+                    if pi.get('triggerTime', 0) == 1:
+                        fin.append({'sm': own, 'p': key, 'v': v})
+                    elif typ == 0 or key not in params or params[key][1] != v:
+                        self.cov.clip('SetEffectAnimatorParameter ON_PLAY value other than the default')
             elif sid == SWITCH_STATE_WHEN_FINISH_SCRIPT and own is not None:
                 names = [s['name'] for s in sms[own]['states']]
                 if t.get('_stateName') in names:

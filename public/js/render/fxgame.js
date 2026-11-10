@@ -5607,8 +5607,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function stepEnemies(views) {
     if (!emodes || !views) return;
+    camWant.clear();
     for (const v of views.values()) {
       if (v?.info?.side !== 'enemy' || v.alive === false || !ebindOf(v)) continue;
+      const cams = !v.remove && eOn(v) ? ebindOf(v).camera : null;
+      if (cams) for (const n of cams) camWant.add(n);
       if (v._fxEMode === undefined) { v._fxEMode = emodeOf(v); v._fxEClip = v.actor?.current; v._fxEForm = v.form ?? null; v._fxRebSeen = v.form === 'reborn'; continue; } // on the field before this layer
       // 2026-10-23: a rebirth starting — the 重生 form coming on (a leader's reborn()) — plays its RebornTalent `_effects`;
       // 2026-10-31: and the ability that handles it starts (ON_CAST_START) / ends with the rebirth (ON_CAST_END)
@@ -5649,6 +5652,41 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (fd?.end && clip === fd.end && form === 'reborn') erebornAbility(v, CAST_EVENT.ATTACK_FINISH);
       }
     }
+    syncCameraFx();
+  }
+  /**
+   * 2026-11-10 (docs/rules/fx.md 「규정 보스 고치·지느러미의 이펙트」): the camera effects of the enemies' held talent buffs
+   * (enemy-modes.json `camera`) — on while one enemy holding it lives, whichever field it is on: 假想敌：鳍 (隐秘核心)'s
+   * aceel[thurder-trigger] adds 1 to the global blackboard aceel[vfx-counter] as it starts and creates
+   * screen_act3autochess_aceel_weather at 1 (CreateCameraEffect), takes 1 as it finishes and switches the effect off at 0
+   * (ActiveCameraEffect `_active` false: at once). The effect's CameraEffect parents it to the camera (`_spawnOffset` 0,
+   * `_maxLifeTime` −1: no end of its own) — played as setStorm's (`camera`). stepEnemies fills `camWant` each frame; an
+   * effect starts or ends only when the set changes.
+   */
+  const camWant = new Set();
+  const camFx = new Map();   // effect name → { l: live entry (null while it loads), off }
+  function syncCameraFx() {
+    for (const [n, c] of camFx) {
+      if (camWant.has(n)) continue;
+      camFx.delete(n);
+      c.off = true;
+      if (trace) trace({ kind: 'cameraOff', names: [n], by: null, at: null });
+      if (c.l && !c.l.inst.done) c.l.inst.stop(true);
+    }
+    for (const n of camWant) if (!camFx.has(n)) startCameraFx(n);
+  }
+  async function startCameraFx(name) {
+    const c = { l: null, off: false };
+    camFx.set(name, c);
+    const r = efx(name);
+    if (!r) return;
+    if (trace) trace({ kind: 'camera', names: [name], by: null, at: null });
+    if (dry) { dryFollow(r[0], r[1], null, null); return; }
+    const gen = stormGen;
+    const def = await lib.load(r[0], r[1]);
+    if (c.off || gen !== stormGen || !mod || !def) return;
+    const inst = new mod.fxp.FxInstance(def, { quality: q() });
+    c.l = addLive(inst, { view: null, owner: null, tag: 'camera', camera: true, buff: true, keep: true, pinned: true }, layers.over);
   }
   /**
    * 2026-10-23 (docs/rules/fx.md 「적 상태의 버프 이펙트」): the effects of the rebirth enemy `v` starts in mode `mode` —
@@ -6383,6 +6421,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       deployed.clear(); onField.clear(); moved.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
       linkAxes.clear(); linkRuns.clear(); // 2026-10-22
       brokeOwn.clear(); // 2026-10-23
+      for (const c of camFx.values()) c.off = true;   // 2026-11-10: the enemies' camera effects (dropped with `live` above)
+      camFx.clear(); camWant.clear();
       if (mod) showLayers();
     },
 
