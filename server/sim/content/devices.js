@@ -32,6 +32,8 @@
 //              土石结构 (`trap_032_mound`) upwind of it takes `damage` pure 环境伤害 and has ATK × (1 + atk) until a check
 //              finds it sheltered; an unsheltered enemy moves at × (1 + move_speed); the m06 mounds never break
 //              (`tickStorm`); map card 模拟战场演变·模式八 (`map_m06_1`) stops it on its owner's half
+//   盐坨子炮   规程 m10 (`trap_196_cnnon`, facing its `dir`): every 6 s a shell at an ally of its lane that drops the
+//              enemy it swallowed there (`tickCannon`)
 // Device overrides: a player's battle input `deviceOverrides` ({ alias: bool }) and `alias` keys in its playerEffects
 // params (auto_chess_change_map effects: band 机械援助, 机变 map cards) switch the devices on that player's half of
 // the field only (unite / boss fields hold both halves); Battle opts.deviceOverrides switch every half.
@@ -44,7 +46,7 @@
 import { COLS, ROWS, STAGE_COLS } from '../constants.js';
 import { widePlayerAt, wideSpan } from '../wideStage.js';
 import { performAttack, attackCountdown } from '../ai.js';
-import { sortEnemyTargets } from '../targeting.js';
+import { sortEnemyTargets, canTargetAlly, areaSelectable, aggroCmp } from '../targeting.js';
 import { DIR_VEC, normDir, oppositeDir } from '../dir.js';
 import { hypot } from '../detmath.js';
 
@@ -519,7 +521,7 @@ function refreshUnit(battle, st, u) {
 
 function ensureTick(battle, st) {
   if (st.ticking) return;
-  if (!st.hasTerrain && !st.flow.size && !st.turrets.size && !st.storms.length) return;
+  if (!st.hasTerrain && !st.flow.size && !st.turrets.size && !st.storms.length && !st.cannons.length) return;
   st.ticking = true;
   battle.on('tick', ({ dt }) => {
     if (st.hasTerrain || st.flow.size) {
@@ -531,6 +533,7 @@ function ensureTick(battle, st) {
       for (const e of battle.enemies) tickStorm(battle, st, e);
     }
     for (const u of st.turrets.values()) tickTurret(battle, u, dt);
+    for (const k of st.cannons) tickCannon(battle, k, dt);
   });
   // a unit that (re)deploys / spawns starts fresh (death drops its buffs) and gets its tile's terrain at once: smog
   // must already hide an operator from the first enemy shot of the battle. A 【移动】 (ctx.move: 乌尔比安 S3,
@@ -671,6 +674,119 @@ function tickStorm(battle, st, u) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// 盐坨子炮 (规程 m10)
+
+const CANNON_KEY = 'trap_196_cnnon';
+/** sktok_cnnon: SP 6, 1 SP a second (spType 1), from 0 — a shot every 6 s from the battle start. */
+const CANNON_EVERY = 6;
+/** EnemyCannon00D's range 4-1 at the device's level 1 (character_table talents): its own tile and four ahead. */
+const CANNON_REACH = 4;
+/** projectile_trap_cnnon_small_death: speed 5 tiles/s. */
+const CANNON_SHOT_SPEED = 5;
+/** Others/Direction/Talents/Eat's Selector CircleCollider2D: radius 1 around the device. */
+const CANNON_EAT_RADIUS = 1;
+/** Eat's AdvancedSelectorWithMassRange: weight (massLevel) ≤ 3 (CompareType LE). */
+const CANNON_EAT_MASS = 3;
+/** Eat's `_randomOffsetBound`: the passenger lands at the shell's point ± 0.2 per axis. */
+const CANNON_DROP_SCATTER = 0.2;
+/** cnnon_projectile_arrive (0.1 s on a released passenger): Eat's TargetValidator leaves it out meanwhile. */
+const CANNON_ARRIVE = 0.1;
+
+/**
+ * 盐坨子炮 (`trap_196_cnnon`, 规程 m10 — docs/rules/sim.md 「규정 전장을 19×21 틀로」 장치): an enemy-side stage device off
+ * the board, facing its `dir`. Every CANNON_EVERY s (sktok_cnnon → cnnon_s[enemy_canon] → TriggerAbility EnemyCannon00D:
+ * the main story boss's buffs that pick the other branches never exist here) it shoots at the not stunned ground ally
+ * of the highest 仇恨 (NOT_STUNNED_HATRED_DES: taunt, then the latest deployed) on its own tile and the four ahead
+ * (range 4-1); the shell (speed 5) lands on that ally's tile at its fire-time position and deals physical ATK × 1 to
+ * every ally of any motion in the 3×3 around it (`x-4`, camouflage ignored). Between shots its Eat (a DurbusAbility)
+ * takes on board the nearest same-side ground enemy of weight ≤ 3 within radius 1 (one at a time); a shot carries the
+ * passenger it held at the cast start and drops it at the landing point ± 0.2, where it walks on along its own route —
+ * `talent@branch_id`'s branch route is not found in this mode's level data, and the client then keeps the route
+ * (DurbusAbility._DoReleasePassengers; maintainer decision 2026-11-11) [추정·미조사: which level fills the scheduler's
+ * branches and the map's extra routes in this mode — research note on 盐坨子炮].
+ * [추정·엔진] the device is no unit here: no HP (30000, DEF 3000, taunt −1, on an unbuildable tile off the board) and
+ * nobody attacks it — an enemy-side unit that lives through the battle would hold the 「all enemies down」 end.
+ */
+function buildCannons(battle, st) {
+  for (const d of battle.stage?.devices || []) {
+    if (d.key !== CANNON_KEY || d.active === false || d.hidden) continue;
+    const [dr, dc] = DIR_VEC[normDir(d.dir, 'DOWN')];
+    const lane = [];
+    for (let k = 0; k <= CANNON_REACH; k++) {
+      const r = d.row + dr * k, c = d.col + dc * k;
+      if (battle.grid.inRect(r, c)) lane.push(r * COLS + c);
+    }
+    if (!lane.length) continue;   // a cannon of another field: its lane is not on this battle's
+    const stats = d.raw?.stats ?? d.stats ?? {};
+    st.cannons.push({ alias: aliasOf(d), x: d.col, y: d.row, lane: new Set(lane), atk: num(stats.atk, 0), sp: 0, pax: null });
+  }
+}
+
+/** Eat: may the cannon take enemy `e` on board (ground, weight ≤ 3, on the field, not just dropped)? */
+function cannonCanEat(battle, e) {
+  if (!e.alive || e.hidden || e.isFlying || e.isBoss || e.s.flags.untargetable) return false;
+  if ((e.mem.cannonArrive ?? -Infinity) > battle.time + 1e-9) return false;   // cnnon_projectile_arrive
+  return (e.weight ?? 0) <= CANNON_EAT_MASS;
+}
+
+/** A cannon of this battle, every tick (ensureTick): Eat looks for a passenger, the SP charges, a shot at 6 SP. */
+function tickCannon(battle, k, dt) {
+  if (!battle.started) return;
+  if (k.pax && !k.pax.alive) k.pax = null;
+  if (!k.pax) {
+    // Eat (DurbusAbility._SearchPassengers every tick, max_target 1) [추정·엔진: its selector's HATRED_DES among
+    // enemies — read here as the nearest, then the earliest spawned]
+    const near = battle.enemiesInRadius(k.x, k.y, CANNON_EAT_RADIUS).filter((e) => cannonCanEat(battle, e))
+      .map((e) => ({ e, d: hypot(e.x - k.x, e.y - k.y) })).sort((p, q) => p.d - q.d || p.e.spawnSeq - q.e.spawnSeq);
+    const o = near.length ? near[0].e : null;
+    if (o) {
+      battle._cutAttackStand(o);
+      battle._setHidden(o, true, { fx: false });
+      o.pauseUntil = Infinity;   // carried: it neither walks its route nor waits out its legs
+      k.pax = o;
+    }
+  }
+  if ((k.sp += dt) < CANNON_EVERY - 1e-9) return;
+  k.sp -= CANNON_EVERY;
+  fireCannon(battle, k);
+}
+
+function fireCannon(battle, k) {
+  // EnemyCannon00D's selector (NOT_STUNNED_HATRED_DES, the player's side, ground) on its lane, as an enemy ability selects
+  const probe = { blockedBy: null, profile: null };
+  const cands = battle.allies().filter((a) => k.lane.has(a.tileR * COLS + a.tileC) && !a.isFlying && !a.s.flags.stun
+    && canTargetAlly(probe, a, true)).sort(aggroCmp);
+  // [추정·엔진] no target, no shot (the talent ability finds nobody; the skill's `_allowNoTarget` only lets its cast
+  // go) — the passenger stays on board
+  if (!cands.length) return;
+  const r = cands[0].tileR, c = cands[0].tileC;
+  const pax = k.pax;   // cnnon_t[mark_passenger] at the cast start: the passenger it carries now
+  k.pax = null;
+  const flight = hypot(c - k.x, r - k.y) / CANNON_SHOT_SPEED;
+  // (no shot or device drawing yet: the official trap_cnnon_* effects and the device model are the renderer's — only the
+  // landing as a generic blast)
+  battle.after(flight, () => {
+    battle.fx('explode', { x: c, y: r, r: 1.5, kind: 'cnnonShell' });
+    // the shell's range x-4: the 3×3 around its point, any motion, 迷彩 ignored — physical, the device's ATK × 1
+    for (const a of battle.allies()) {
+      if (!a.alive || !a.deployed || a.hidden || a.kind === 'device' || !areaSelectable(null, a)) continue;
+      if (Math.abs(a.tileR - r) > 1 || Math.abs(a.tileC - c) > 1) continue;
+      battle.dealDamage(null, a, { amount: k.atk, type: 'phys', sourceless: true, isSplash: true, tags: ['cnnonShell'] });
+    }
+    if (!pax || !pax.alive) return;
+    // DurBusAbilityReleasePassenger on the shell's trace point ± `_randomOffsetBound`; the route stays its own
+    pax.x = c + battle.rng.range(-CANNON_DROP_SCATTER, CANNON_DROP_SCATTER);
+    pax.y = r + battle.rng.range(-CANNON_DROP_SCATTER, CANNON_DROP_SCATTER);
+    battle._clampPos(pax);
+    const R = pax.route;
+    if (R) pax.route = { legs: R.legs.slice(), legIdx: R.legIdx, pts: null, ptIdx: 0, suffix: null, version: -1, waitLeft: R.waitLeft };
+    pax.pauseUntil = -Infinity;
+    pax.mem.cannonArrive = battle.time + CANNON_ARRIVE;
+    battle._setHidden(pax, false, { fx: false });
+  });
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // install
 
 export function install(battle) {
@@ -686,12 +802,14 @@ export function install(battle) {
     crateOff: new Set(),
     storms: [],
     mounds: new Set(),
+    cannons: [],
     ticking: false,
   };
   STATE.set(battle, st);
   const devices = battle.stage?.devices || [];
   buildTerrain(battle, st); // grid, stage `special` and overrides are known at construction
   buildStorm(battle, st);
+  buildCannons(battle, st);
   ensureTick(battle, st);
 
   // overrides that differ from the data (per half owner): crates removed, platforms added/removed
