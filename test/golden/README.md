@@ -7,7 +7,8 @@ through.
 
 - `tools/golden.mjs` builds the corpus from `data/*.json` (fixed order, fixed seeds) and reduces every scenario to a
   digest. Its header documents the families and the digest fields.
-- `test/golden/<family>.json` hold the digests (`roster`, `bonds`, `fields`, `matches`, `standins`, `diy`).
+- `test/golden/<family>.json` hold the digests (`roster`, `bonds`, `fields`, `matches`, `standins`, `diy`, and the
+  season families `act3-roster`, `act3-bonds`, `act3-matches`).
 - `test/golden.test.js` recomputes them and compares. On a mismatch it prints the scenario, the field and old → new.
 - `test/golden/fx-events.json` is the effect event golden (`tools/fx-golden.mjs`, `test/render/fx-golden.test.js`): the
   battle scenarios of `roster`, `standins`, `diy` and `fields` replayed through the effect layer (`render/fxgame.js`),
@@ -25,6 +26,13 @@ through.
 | `matches` | 23 matches to the end in virtual time: 16 bot-only (solo 标准 / 险境 / 绝境 / 终极 × 2 seeds, co-op 2 / 3 / 4, one server-run combat match, two runs boosted to the Hidden Core), one co-op match whose human seat (AI 托管, offline) does not own 9 NORMAL chess — they fight as their 补位 stand-ins (its digest lists them per round, `standIns`) — and one whose human seat slots 自选 picks (four of our five: 望, 赤刃明霄陈, 维什戴尔, 阿斯卡纶) with its 调度中心 at level 5 from the first prep: its own shop draws them and its AI fields 望 (its digest lists per round the 自选 shop draws and the fielded pieces, `diy`). Since the measured shared pool (co-op ×2, the 自选 stock doubling with it) those two seeds no longer field a stand-in / 自选 piece; they keep their outcomes, and two companion co-op seeds (`-coverage-standins`, `-coverage-diy`) are the ones `test/golden-standins.test.js` / `test/golden-diy.test.js` check; `coop2-NORMAL-1-unowned-roster` gives the human seat none of the NORMAL operators, so its stand-ins do not depend on which operators the AI buys (upstream ed44ce4d); two run 自定义 rules (`custom-*`, its digest lists the settings, the round count and the hidden leader, `custom`): a co-op match of 9 rounds with bond / leader / stage bans and one shared 目标生命值 without the per-round cap, and a solo match of 16 rounds with enemy and leader stats on a steeper curve, no 限伤 and no layer cap (1200 layers per bond from the first prep) |
 | `standins` | 10 battles: every NORMAL chess record (normal and elite, 110) fielded as its 补位 stand-in (`standIn: true`: the stand-in's body, backup skill / module and kit — all 17 stand-ins, every skill a chess names for them), 12 per battle by strength band, laid out by the stand-in's position on a real stage, against the round's real wave three times over plus 8 ground enemy kinds (melee stand-ins always meet an enemy), an item each, bonds from the board |
 | `diy` | battles of 自选 pieces, and `diy-summon-<code>`: every pick with a hand-placed summon, placed by its rules (the battles below hold 12 pieces and no summons, 2026-11-04). The others are 8 battles of 自选 pieces (a DIY slot with its `diy` pick, `shared/diy.js`): every owned 6★ with an operator kit (`kits/index.js OPERATOR_KITS`: our five, `shared/local-diy.js`) in each form of tiers 5 and 6 (normal; elite with no module and with each module) under each skill — then every prototype pick with a kit at its locked selection, none on this server —, 12 per battle against the round's real wave; a new operator kit adds its scenarios (the battle count grows with the kits) |
+| `act3-roster` | the `roster` family on the data of 卫戍协议：规程 (`act3autochess`, a hidden season of `shared/seasons.js`: `data/seasons/act3autochess/` over `data/`) — 62 battles over its chess, stages, enemy kinds, items, bands and 机变 cards, in the modes its config has |
+| `act3-bonds` | the `bonds` family on that season's data: its 26 bonds at the activation threshold and at the top tier (52 battles) |
+| `act3-matches` | 4 bot-only matches of that season to the end in virtual time: solo 险境 and 终极, co-op 2 绝境, and a solo 绝境 run boosted to the Hidden Core |
+
+The season families guard a season's content code while it is built (a refactor of the bond, item or 特质 handlers
+moves no digest of either season). The season's content is not finished, so its digests move with every intended
+change to it: such a commit runs `npm run golden:update` and names the moved scenarios, like any gameplay change.
 
 Battles go through the production BattleSpec path (`server/sim/spec.js`, as browsers and the server's headless fields
 run them); matches construct `Match` directly with a `VirtualScheduler`. Every option is explicit, so a change to a
@@ -37,7 +45,8 @@ to 2 decimals.
 
 `npm test` runs the fast subset (the scenarios marked `"fast": true`: every chess record with its default loadout,
 every stage and every non-leader enemy kind, every bond at its top tier, six fields, eleven matches, the five stand-in
-battles of the normal records, the first 自选 battle of the operator kits, the 自定义 co-op match — 65 of the 161). `GOLDEN_FULL=1` checks everything.
+battles of the normal records, the first 自选 battle of the operator kits, the 自定义 co-op match, and of the season
+families the same roster, bond and first-match scenarios — 116 of the 347). `GOLDEN_FULL=1` checks everything.
 
 ## Workflow
 

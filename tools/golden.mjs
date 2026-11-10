@@ -8,7 +8,7 @@
 // Usage:
 //   node tools/golden.mjs                 compare the corpus with test/golden/*.json (exit 1 on a difference)
 //   node tools/golden.mjs --update        recompute and rewrite test/golden/*.json   (npm run golden:update)
-//   options: --family roster,bonds,fields,matches,standins   --fast (the test's default subset)   --only <id,id>
+//   options: --family roster,bonds,fields,matches,standins,diy,act3-roster,act3-bonds,act3-matches   --fast (the test's default subset)   --only <id,id>
 //            --jobs N (worker threads, default: up to 4)   --list   --coverage (skills cast, stages, enemies…)
 //            --twice  determinism: compute twice in this process (the second pass in reverse order) and compare
 //
@@ -42,6 +42,9 @@
 //            under each of its skills, then every prototype pick with a kit at its locked selection (none on this server:
 //            data/backups.json diy.prototypes is empty), both forms of each tier;
 //            12 pieces per battle on a real stage against the round's real wave three times over (diyScenarios)
+//   act3-roster / act3-bonds / act3-matches  the roster and bonds families and 4 bot-only matches on the data of the
+//            hidden season 卫戍协议：规程 (shared/seasons.js act3autochess; worldOf: its data, DataSource, GameData and
+//            record lists, in the modes its config has) — they guard that season's content code while it is built
 //   fxpaths  not a digest family (FAMILY_NAMES leaves it out): the effect event golden's own battles (tools/fx-golden.mjs,
 //            fxPathScenarios) for effect paths the families above never take
 // Battles run through the production BattleSpec path (server/sim/spec.js buildBattleSpec → createBattleFromSpec, the
@@ -88,12 +91,13 @@ import { POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from '../shared/potential.js';
 import { OPERATOR_KITS, KITTED_CHARS } from '../server/sim/content/kits/index.js';
 import { GEO, LARGE_SEATS } from '../shared/constants.js';
 import { wideOffsets, wideRect } from '../server/sim/wideStage.js';
+import { DEFAULT_SEASON } from '../shared/seasons.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** The default player's 潜能 / 练度 of every owned operator (shared/potential.js; the owner's decision of 2026-10-08). */
 const DEFAULT_CULTIVATION = Object.freeze({ potential: POTENTIAL_DEFAULT, cultivate: CULTIVATE_DEFAULT });
 export const GOLDEN_DIR = join(ROOT, 'test', 'golden');
-export const FAMILY_NAMES = Object.freeze(['roster', 'bonds', 'fields', 'matches', 'standins', 'diy']);
+export const FAMILY_NAMES = Object.freeze(['roster', 'bonds', 'fields', 'matches', 'standins', 'diy', 'act3-roster', 'act3-bonds', 'act3-matches']);
 
 const QUIET = Object.freeze({ warn() {}, error() {}, info() {}, log() {}, debug() {} });
 const data = getData({ log: QUIET });
@@ -150,7 +154,7 @@ export function battleOf(sc, { recordEvents = true } = {}) {
     flags: sc.flags, enemyOverrides: sc.enemyOverrides ?? {}, waveId: sc.waveId ?? null, bossId: sc.bossId ?? null,
     boss: sc.boss ?? null, content: 'full', wide: sc.wide ?? 0,
   });
-  return createBattleFromSpec(spec, ds, { quiet: true, logger: QUIET, recordEvents });
+  return createBattleFromSpec(spec, worldOf(sc.season).ds, { quiet: true, logger: QUIET, recordEvents });
 }
 
 /**
@@ -265,32 +269,58 @@ const ENEMY_COLS = Object.freeze(['spawned', 'killed', 'leaked', 'dmg', 'taken']
 // ---------------------------------------------------------------------------------------------------------------
 // corpus helpers (pure functions of data/*.json)
 
-const CHESS = Object.values(data.chess).sort((a, b) => byId(a.chessId, b.chessId));
-const VISIBLE = CHESS.filter((c) => c.visible);
-// the battle stages (data/stages.json also keeps the escaped levels' two maps, kind 'unite', which no field uses)
-const STAGES = Object.keys(data.stages).filter((id) => data.stages[id].kind !== 'unite').sort(byId);
-const BANDS = Object.keys(data.bands).sort(byId);
-const EQUIPS = Object.values(data.items).filter((i) => i.itemType === 'EQUIP').map((i) => i.id).sort(byId);
-const BOSSES = Object.keys(data.bosses).sort((a, b) => Number(a.replace(/\D/g, '')) - Number(b.replace(/\D/g, '')));
-const LEADER_KEYS = new Set();
-for (const bo of Object.values(data.bosses)) { LEADER_KEYS.add(bo.enemyKey); for (const p of bo.parts || []) LEADER_KEYS.add(typeof p === 'string' ? p : p.enemyKey ?? p.key); }
 const ACLOON = 'enemy_9012_acloon'; // the 炎 bond's summon, never an enemy
-const EXTRA_ENEMIES = Object.keys(data.enemies).filter((k) => !LEADER_KEYS.has(k) && k !== ACLOON).sort(byId);
 /** 机变 cards with a battle part (content/choices.js battlePlanOf: 战术决策 operator / enemy / heal effects). */
 const BATTLE_CARD_KEYS = new Set(['global_special_choice_all_activated', 'env_gbuff_new_with_verify', 'env_gbuff_new', 'char_respawntime_mul', 'enemy_attribute_mul', 'enemy_attribute_add', 'global_special_choice_prep_finish_same_row_at_least', 'global_special_choice_prep_finish_bench_at_least', 'global_special_choice_prep_finish_bench_at_most']);
-const BATTLE_CARDS = Object.values(data.effects)
-  .filter((e) => e.effectType === 'BUFF_GAIN' && (e.buffs || []).some((b) => BATTLE_CARD_KEYS.has(b.key)) && !(e.buffs || []).some((b) => b.key === 'auto_chess_change_map'))
-  .map((e) => e.effectId).sort(byId);
-/** 模拟战场演变 map cards (auto_chess_change_map): { id, overrides: { alias: bool } }, used on the stages that have every alias. */
-const MAP_CARDS = Object.values(data.effects)
-  .filter((e) => e.effectType === 'BUFF_GAIN' && (e.buffs || []).some((b) => b.key === 'auto_chess_change_map'))
-  .map((e) => ({ id: e.effectId, overrides: Object.fromEntries(Object.entries(e.buffs.find((b) => b.key === 'auto_chess_change_map').bb || {}).map(([k, v]) => [k, !!v])) }))
-  .sort((a, b) => byId(a.id, b.id));
-const mapCardsFor = (stageId) => {
-  const st = data.stages[stageId];
-  const aliases = new Set((st && st.devices ? st.devices : []).map((d) => d.alias).filter(Boolean));
-  return MAP_CARDS.filter((c) => Object.keys(c.overrides).length && Object.keys(c.overrides).every((a) => aliases.has(a)));
-};
+
+/**
+ * The corpus inputs of one 卫戍协议 season (shared/seasons.js): its data (server/data.js getData({ season })), the
+ * DataSource its battles run on, its GameData per mode and the record lists the families walk — pure functions of that
+ * season's data files. W0 is the default season's (the default families read it through the constants below); another
+ * season's families take theirs from worldOf.
+ */
+function makeWorld(season, d, source, gdOf) {
+  const CHESS = Object.values(d.chess).sort((a, b) => byId(a.chessId, b.chessId));
+  const VISIBLE = CHESS.filter((c) => c.visible);
+  // the battle stages (data/stages.json also keeps the escaped levels' two maps, kind 'unite', which no field uses)
+  const STAGES = Object.keys(d.stages).filter((id) => d.stages[id].kind !== 'unite').sort(byId);
+  const BANDS = Object.keys(d.bands).sort(byId);
+  const EQUIPS = Object.values(d.items).filter((i) => i.itemType === 'EQUIP').map((i) => i.id).sort(byId);
+  const BOSSES = Object.keys(d.bosses).sort((a, b) => Number(a.replace(/\D/g, '')) - Number(b.replace(/\D/g, '')));
+  const LEADER_KEYS = new Set();
+  for (const bo of Object.values(d.bosses)) { LEADER_KEYS.add(bo.enemyKey); for (const p of bo.parts || []) LEADER_KEYS.add(typeof p === 'string' ? p : p.enemyKey ?? p.key); }
+  const EXTRA_ENEMIES = Object.keys(d.enemies).filter((k) => !LEADER_KEYS.has(k) && k !== ACLOON).sort(byId);
+  const BATTLE_CARDS = Object.values(d.effects)
+    .filter((e) => e.effectType === 'BUFF_GAIN' && (e.buffs || []).some((b) => BATTLE_CARD_KEYS.has(b.key)) && !(e.buffs || []).some((b) => b.key === 'auto_chess_change_map'))
+    .map((e) => e.effectId).sort(byId);
+  /** 模拟战场演变 map cards (auto_chess_change_map): { id, overrides: { alias: bool } }, used on the stages that have every alias. */
+  const MAP_CARDS = Object.values(d.effects)
+    .filter((e) => e.effectType === 'BUFF_GAIN' && (e.buffs || []).some((b) => b.key === 'auto_chess_change_map'))
+    .map((e) => ({ id: e.effectId, overrides: Object.fromEntries(Object.entries(e.buffs.find((b) => b.key === 'auto_chess_change_map').bb || {}).map(([k, v]) => [k, !!v])) }))
+    .sort((a, b) => byId(a.id, b.id));
+  const mapCardsFor = (stageId) => {
+    const st = d.stages[stageId];
+    const aliases = new Set((st && st.devices ? st.devices : []).map((x) => x.alias).filter(Boolean));
+    return MAP_CARDS.filter((c) => Object.keys(c.overrides).length && Object.keys(c.overrides).every((a) => aliases.has(a)));
+  };
+  return Object.freeze({ season, data: d, ds: source, gdFor: gdOf, CHESS, VISIBLE, STAGES, BANDS, EQUIPS, BOSSES, LEADER_KEYS, EXTRA_ENEMIES, BATTLE_CARDS, MAP_CARDS, mapCardsFor });
+}
+
+const W0 = makeWorld(DEFAULT_SEASON, data, ds, gdFor);
+const worlds = new Map([[DEFAULT_SEASON, W0]]);
+/** The corpus inputs of a season (makeWorld; null / undefined: the default season's). @param {string | null | undefined} season */
+export function worldOf(season) {
+  const id = season ?? DEFAULT_SEASON;
+  let w = worlds.get(id);
+  if (!w) {
+    const d = getData({ season: id, log: QUIET });
+    const cache = new Map();
+    w = makeWorld(id, d, new DataSource(d, null), (modeId) => { let g = cache.get(modeId); if (!g) { g = new GameData(d, modeId); cache.set(modeId, g); } return g; });
+    worlds.set(id, w);
+  }
+  return w;
+}
+const { CHESS, VISIBLE, STAGES, BANDS, EQUIPS, BOSSES, EXTRA_ENEMIES } = W0;
 
 /** Loadout variants of a chess record: default first; every skill and every module (+ 'none') at least once. */
 function variantsOf(rec) {
@@ -318,8 +348,8 @@ function cursor(list) {
 const placeName = (unitList) => unitList.map((u) => u.chessId ?? u.tokenId);
 
 /** Board tiles of a deploy field's enemy ground paths (stages.json groundPaths) → number of paths through each tile. */
-function pathTraffic(stageId, field, colOffset = 0) {
-  const st = data.stages[stageId];
+function pathTraffic(stageId, field, colOffset = 0, d = data) {
+  const st = d.stages[stageId];
   const out = new Map();
   for (const [key, tiles] of Object.entries((st && st.groundPaths) || {})) {
     const [tr, tc] = key.split('->')[1].split(',').map(Number);
@@ -344,8 +374,9 @@ function pathTraffic(stageId, field, colOffset = 0) {
  * owner's range, 凯瑟琳's shields) take free tiles after the operators.
  */
 function layout(gd, stageId, wanted, { field = 'normal', colOffset = 0, max = 12, dirs = true, uid0 = 1 } = {}) {
+  const data = gd.raw; // the season of `gd` (worldOf)
   const map = buildDeployMap(data.stages[stageId], { field });
-  const traffic = pathTraffic(stageId, field, colOffset);
+  const traffic = pathTraffic(stageId, field, colOffset, data);
   const pathList = [...traffic.keys()].map((k) => k.split(',').map(Number));
   const dist = (r, c) => (pathList.length ? Math.min(...pathList.map(([pr, pc]) => Math.max(Math.abs(pr - r), Math.abs(pc - c)))) : 9);
   const used = new Set();
@@ -437,6 +468,11 @@ function extraSpawns(gd, routes, keys, round, pid, t0 = 8, step = 5) {
 }
 
 const ROSTER_MODES = Object.freeze(['mode_multi_normal', 'mode_multi_hard', 'mode_single_normal', 'mode_multi_abyss', 'mode_multi_funny', 'mode_single_hard']);
+/**
+ * A mode list of the default families for a season's corpus inputs `W`: the default season's as written, another
+ * season's without the modes its config lacks (规程 has no mode_single_normal / mode_single_hard).
+ */
+const modesOf = (W, list) => (W === W0 ? list : list.filter((m) => W.data.config?.modes?.[m]));
 /** Round by strength: normal tier t ↔ elite tier t − 1 (band = tier + elite). */
 const BAND_ROUND = Object.freeze({ 1: 2, 2: 4, 3: 6, 4: 8, 5: 10, 6: 12, 7: 13 });
 const LAYER_STEPS = Object.freeze([0, 2, 10, 40, 120]);
@@ -444,7 +480,13 @@ const LAYER_STEPS = Object.freeze([0, 2, 10, 40, 120]);
 // ---------------------------------------------------------------------------------------------------------------
 // family: roster
 
-export function rosterScenarios() {
+export function rosterScenarios() { return rosterScenariosOf(W0, 'roster'); }
+
+/** The roster battles of a season's corpus inputs `W` (makeWorld) as family `family`. */
+function rosterScenariosOf(W, family) {
+  const { VISIBLE, EQUIPS, BANDS, BATTLE_CARDS, STAGES, EXTRA_ENEMIES, gdFor, mapCardsFor } = W;
+  const season = W === W0 ? undefined : W.season;
+  const modes = modesOf(W, ROSTER_MODES);
   // every loadout variant of every visible record, by variant pass, then strength band (tier + elite), then id; a
   // battle takes up to 12 of them with distinct chess ids and bands within one of the first waiting instance's
   const queue = [];
@@ -458,7 +500,7 @@ export function rosterScenarios() {
   while (queue.length) {
     const i = n++;
     const stageId = STAGES[i % STAGES.length];
-    const modeId = ROSTER_MODES[i % ROSTER_MODES.length];
+    const modeId = modes[i % modes.length];
     const gd = gdFor(modeId);
     const first = queue[0];
     const picked = [];
@@ -485,7 +527,7 @@ export function rosterScenarios() {
     const deviceOverrides = maps.length && visit % 2 === 1 ? maps[((visit - 1) / 2) % maps.length].overrides : {};
     const effects = [cardRef(cards.next(), 1), cardRef(cards.next(), 2)];
     scenarios.push({
-      id: `roster-${String(i + 1).padStart(3, '0')}`, family: 'roster', kind: 'normal', modeId, round, stageId, seed, pass: first.v,
+      id: `roster-${String(i + 1).padStart(3, '0')}`, family, ...(season ? { season } : null), kind: 'normal', modeId, round, stageId, seed, pass: first.v,
       rect: { ...GEO.NORMAL_RECT }, timeLimit: wave.timeLimit, routes: wave.routes, waveId: wave.templateId, enemyOverrides: wave.overrides,
       flags: { layerGainsEnabled: true, ...gd.dp },
       players: [playerInput(pid, 0, units, { bonds: bondsOf(gd, units, LAYER_STEPS[i % LAYER_STEPS.length]), bandId: bands.next(), effects, deviceOverrides })],
@@ -515,7 +557,13 @@ export function rosterScenarios() {
 
 const BOND_MODES = Object.freeze(['mode_multi_normal', 'mode_multi_hard', 'mode_single_normal', 'mode_single_hard']);
 
-export function bondScenarios() {
+export function bondScenarios() { return bondScenariosOf(W0, 'bonds'); }
+
+/** The bond battles of a season's corpus inputs `W` (makeWorld) as family `family`. */
+function bondScenariosOf(W, family) {
+  const { data, CHESS, VISIBLE, EQUIPS, STAGES, gdFor } = W;
+  const season = W === W0 ? undefined : W.season;
+  const modes = modesOf(W, BOND_MODES);
   const scenarios = [];
   const bondIds = Object.keys(data.bonds).sort(byId);
   const items = cursor(EQUIPS.filter((id) => /_b$/.test(id)));
@@ -533,7 +581,7 @@ export function bondScenarios() {
     for (const c of pool.sort((a, b) => (b.visible - a.visible) || byId(a.chessId, b.chessId))) if (!bases.includes(c.baseId)) bases.push(c.baseId);
     for (const level of ['low', 'high']) {
       const i = n++;
-      const modeId = BOND_MODES.find((m, k) => k >= i % BOND_MODES.length && !gdFor(m).modeInactiveBonds.has(bondId)) ?? BOND_MODES.find((m) => !gdFor(m).modeInactiveBonds.has(bondId));
+      const modeId = modes.find((m, k) => k >= i % modes.length && !gdFor(m).modeInactiveBonds.has(bondId)) ?? modes.find((m) => !gdFor(m).modeInactiveBonds.has(bondId));
       const gd = gdFor(modeId);
       const stageId = STAGES[(i * 3) % STAGES.length];
       const round = level === 'low' ? 5 : 10;
@@ -564,7 +612,7 @@ export function bondScenarios() {
       const bonds = bondsOf(gd, units, (id) => (id === bondId ? (level === 'low' ? 1 : 999) : 0));
       const pid = 'p1';
       scenarios.push({
-        id: `bond-${bondId}-${level}`, family: 'bonds', kind: 'normal', modeId, round, stageId, seed,
+        id: `bond-${bondId}-${level}`, family, ...(season ? { season } : null), kind: 'normal', modeId, round, stageId, seed,
         rect: { ...GEO.NORMAL_RECT }, timeLimit: wave.timeLimit, routes: wave.routes, waveId: wave.templateId, enemyOverrides: wave.overrides,
         flags: { layerGainsEnabled: true, ...gd.dp },
         players: [playerInput(pid, 0, units, { bonds, bandId: null })],
@@ -831,7 +879,8 @@ export function runMatch(cfg) {
   const logged = [];
   const log = { info() {}, debug() {}, warn() {}, error: (...a) => logged.push(a.map(String).join(' ').slice(0, 120)) };
   const m = new Match({
-    roomCode: 'GOLD', mode: cfg.mode, difficulty: cfg.difficulty, seats, seed: cfg.seed, data, log, scheduler: sched,
+    roomCode: 'GOLD', mode: cfg.mode, difficulty: cfg.difficulty, seats, seed: cfg.seed, data: worldOf(cfg.season).data, log, scheduler: sched,
+    ...(cfg.season ? { season: cfg.season } : null),
     ...(cfg.size ? { size: cfg.size } : null),
     send: () => true, broadcast: () => {}, onEnd: (s) => { summary = s; },
     clientCombat: cfg.clientCombat !== false, verify: 'off',
@@ -1181,10 +1230,35 @@ export function fxPathScenarios() {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// families of another season (shared/seasons.js): the same generators on that season's data (worldOf)
+
+/** The season family → its season. 规程 (act3autochess) is hidden: its families guard its content code while it is built. */
+export const SEASON_FAMILIES = Object.freeze({ 'act3-roster': 'act3autochess', 'act3-bonds': 'act3autochess', 'act3-matches': 'act3autochess' });
+
+/** Bot-only matches of a season to the end in virtual time (its own config's modes and numbers). */
+function seasonMatchScenarios(season, family) {
+  const out = [
+    { id: 'solo-NORMAL-1', mode: 'solo', difficulty: 'NORMAL', bots: 1, seed: 1 },
+    { id: 'solo-ABYSS-2', mode: 'solo', difficulty: 'ABYSS', bots: 1, seed: 2 },
+    { id: 'coop2-HARD-4', mode: 'coop', difficulty: 'HARD', bots: 2, seed: 4 },
+    // LP and every bond's layers raised at the first prep: its Final Assault and Hidden Core
+    { id: 'solo-HARD-9-boosted', mode: 'solo', difficulty: 'HARD', bots: 1, seed: 9, boost: { lp: 400, layers: 300 } },
+  ];
+  return out.map((m) => ({ ...m, season, family, kind: 'match', about: `${season}: ${m.mode} ${m.difficulty}, ${m.bots} bot seat(s), seed ${m.seed}${m.boost ? `, LP ${m.boost.lp} and ${m.boost.layers} layers per bond from the first prep` : ''}` }));
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // families, fast subset, comparison
 
 // fxpaths: only tools/fx-golden.mjs (FX_FAMILIES) — FAMILY_NAMES, and so the battle golden, leaves it out
-const GENERATORS = { roster: rosterScenarios, bonds: bondScenarios, fields: fieldScenarios, matches: matchScenarios, standins: standInScenarios, diy: diyScenarios, fxpaths: fxPathScenarios };
+const GENERATORS = {
+  roster: rosterScenarios, bonds: bondScenarios, fields: fieldScenarios, matches: matchScenarios, standins: standInScenarios, diy: diyScenarios, fxpaths: fxPathScenarios,
+  'act3-roster': () => rosterScenariosOf(worldOf(SEASON_FAMILIES['act3-roster']), 'act3-roster'),
+  'act3-bonds': () => bondScenariosOf(worldOf(SEASON_FAMILIES['act3-bonds']), 'act3-bonds'),
+  'act3-matches': () => seasonMatchScenarios(SEASON_FAMILIES['act3-matches'], 'act3-matches'),
+};
+/** Whether a family's scenarios are matches (their digest columns, the heaviest first). */
+const isMatchFamily = (family) => family === 'matches' || family.endsWith('-matches');
 const ABOUT = {
   roster: 'every visible chess record × every selectable skill / module, every stage, every non-leader enemy kind, items, bands, 机变 cards, map cards, placeable summons',
   bonds: 'every bond at its activation threshold (layers 1) and at its top tier (layers 999)',
@@ -1192,6 +1266,9 @@ const ABOUT = {
   matches: 'matches run to the end in virtual time: bot-only (solo ×4 difficulties ×2 seeds, co-op 2/3/4, one server-run, two boosted to the Hidden Core), co-op matches whose human seat fields 补位 stand-ins / 自选 picks, two under 自定义 rules',
   standins: 'every NORMAL chess record (normal + elite) fielded as its 补位 stand-in (all 17 stand-ins and the skills the chess name for them), 12 per battle on real stages and waves',
   diy: '自选 pieces: every kitted owned 6★ × form (tiers 5 / 6, normal / elite × module) × skill, every kitted prototype at its locked selection',
+  'act3-roster': '规程 (act3autochess, hidden season): the roster family on its own data — every visible chess record × skill / module, its stages, enemy kinds, items, bands, 机变 cards',
+  'act3-bonds': '规程 (act3autochess, hidden season): every bond at its activation threshold (layers 1) and at its top tier (layers 999)',
+  'act3-matches': '规程 (act3autochess, hidden season): bot-only matches to the end in virtual time (solo 险境 / 终极, co-op 2 绝境, a solo 绝境 run boosted to the Hidden Core)',
 };
 /**
  * The default test subset (GOLDEN_FULL=1 runs everything): the pass-0 roster battles (every chess record with its
@@ -1203,6 +1280,9 @@ const FAST_MATCHES = new Set(['solo-FUNNY-1', 'solo-HARD-1', 'coop2-NORMAL-3', '
 const FAST_FIELDS = new Set(['boss-boss_1-pair', 'boss-boss_4-solo', 'boss-boss_7-pair', 'hidden-boss_9-pair', 'unite-1', 'unite-2']);
 export function isFast(sc) {
   if (sc.family === 'matches') return FAST_MATCHES.has(sc.id);
+  // a season family: its roster's pass 0 (below), its bonds at the top tier and its first match (the rest with GOLDEN_FULL)
+  if (Object.hasOwn(SEASON_FAMILIES, sc.family) && sc.family.endsWith('-bonds')) return sc.id.endsWith('-high');
+  if (Object.hasOwn(SEASON_FAMILIES, sc.family) && sc.family.endsWith('-matches')) return sc.id === 'solo-NORMAL-1';
   if (sc.family === 'standins') return sc.pass === 0; // the normal records (the elites with GOLDEN_FULL)
   if (sc.family === 'fields') return FAST_FIELDS.has(sc.id);
   if (sc.family === 'bonds') return sc.id.endsWith('-high');
@@ -1354,7 +1434,7 @@ export async function computeDigests(families, { select = () => true, jobs = 1, 
     return order(out, families);
   }
   // heaviest first (matches), then the rest in order; each worker takes the next task when it is free
-  const queue = tasks.slice().sort((a, b) => (a[0] === 'matches' ? 0 : 1) - (b[0] === 'matches' ? 0 : 1));
+  const queue = tasks.slice().sort((a, b) => (isMatchFamily(a[0]) ? 0 : 1) - (isMatchFamily(b[0]) ? 0 : 1));
   await new Promise((resolve, reject) => {
     let live = 0;
     let failed = null;
@@ -1392,7 +1472,7 @@ export function goldenDocument(family, digests) {
     family,
     about: ABOUT[family],
     note: 'Generated by `npm run golden:update` (tools/golden.mjs). A refactor must never change this file; see test/golden/README.md.',
-    columns: family === 'matches' ? { rounds: MATCH_ROW_COLS } : { units: UNIT_COLS, enemies: ENEMY_COLS, hooks: HOOKS },
+    columns: isMatchFamily(family) ? { rounds: MATCH_ROW_COLS } : { units: UNIT_COLS, enemies: ENEMY_COLS, hooks: HOOKS },
     scenarios: Object.fromEntries(list.filter((sc) => digests[sc.id] !== undefined).map((sc) => [sc.id, { about: sc.about ?? null, fast: !!sc.fast, ...digests[sc.id] }])),
   };
 }
@@ -1475,7 +1555,7 @@ if (isMain) {
     }
     console.log(`determinism (in-process, twice, second pass reversed): ${bad ? 'DIFFERENT' : 'identical'} · ${ms} + ${Math.round(performance.now() - t1)} ms`);
   }
-  if (opt.coverage) for (const f of families) if (f !== 'matches') console.log(f, JSON.stringify(coverage(digests[f]), null, 1));
+  if (opt.coverage) for (const f of families) if (!isMatchFamily(f)) console.log(f, JSON.stringify(coverage(digests[f]), null, 1));
   if (opt.update) {
     mkdirSync(GOLDEN_DIR, { recursive: true });
     for (const f of families) {
