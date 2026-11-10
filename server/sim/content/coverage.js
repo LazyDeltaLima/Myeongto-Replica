@@ -6,21 +6,23 @@
 // reuses an id with other buffs shows up (`wrong` lists the handler keys that run on a record without their buff).
 // Battle side: the tables the handler files export; prep side: the season's registry (server/match/effectsMeta.js
 // registryFor(data) — passed in, the sim does not import the match). Used by tools/season-coverage.mjs and
-// test/content/coverage.test.js. Node only (it reads the prep handlers' sources to find the buff keys they ask for).
+// test/content/coverage.test.js.
 //
 //   bonds      a buff's template is its bbStr.key, else its key; sub-keys (`…[enemy]`, `…[share]`, `…[tile_listener]`)
 //              belong to their parent template, `…_power` is a template of its own. BOND_TEMPLATES below lists what
 //              the bond files (bonds/dispatch.js) and the match engine handle, for which bonds
 //   items      battle runes (env_gbuff_new*, char_dynamic_ability_new) by bbStr.key: items/battle.js stat buffs, the
 //              buff-key behaviours (items/effects/*.js), the hammers, or an item-keyed behaviour that reads that key
-//              (items/battle.js HANDLED.byItem lists what each reads); the other buffs (prep)
-//              by key: a built-in buff-key handler (server/match/builtinMeta.js) or the item's registered content
-//              handler that asks for that key (items/meta.js buffP)
+//              (items/battle.js HANDLED.byItem lists what each reads); the other buffs (prep) by key, a key
+//              another season renamed read as the default season's (items/aliases.js): a built-in buff-key handler
+//              (server/match/builtinMeta.js) or a content one (items/meta.js PREP_BUFF_KEYS), registered on the item
 //   garrisons  IN_BATTLE: garrisons/battle.js BATTLE_GARRISON_KEYS, and the option values it reads (GARRISON_OPTIONS);
 //              SERVER_*: a `garrison:<effectKey>` handler in the registry and a hook for the event type
 
 import { buffsOf, itemKeyOf } from './support/index.js';
 import { HANDLED as ITEM_BATTLE } from './items/battle.js';
+import { PREP_BUFF_KEYS as ITEM_PREP } from './items/meta.js';
+import { canonicalBuffKey } from './items/aliases.js';
 import { BATTLE_GARRISON_KEYS, GARRISON_OPTIONS } from './garrisons/battle.js';
 import { bondTemplate } from './bonds/shared.js';
 import { handledTemplates } from './bonds/dispatch.js';
@@ -40,22 +42,6 @@ export const BOND_TEMPLATES = Object.freeze({
 });
 
 const RUNE_KEYS = new Set(['env_gbuff_new', 'env_gbuff_new_with_verify', 'char_dynamic_ability_new']);
-
-/** The buff-key literals `fn`'s source asks an item record for through `buffP(ctx, x, …)` (the prep handlers). */
-function askedKeys(fn) {
-  const src = typeof fn === 'function' ? Function.prototype.toString.call(fn) : '';
-  const out = new Set();
-  for (const m of src.matchAll(/\bbuffP\(\s*ctx\s*,[^,()]*(?:\([^()]*\))?[^,()]*,\s*'([^']+)'\s*\)/g)) out.add(m[1]);
-  return out;
-}
-
-/** The buff keys a registered prep handler asks its item record for (every hook's source). */
-function prepAsked(handler) {
-  const out = new Set();
-  if (!handler || typeof handler !== 'object') return out;
-  for (const fn of Object.values(handler)) for (const k of askedKeys(fn)) out.add(k);
-  return out;
-}
 
 function row(domain, fields) {
   return { domain, missing: [], wrong: [], ...fields };
@@ -107,11 +93,8 @@ function itemRows(data, { registry, builtinItemBuffKeys }) {
     const battleAsked = new Set(byItem ?? []);
     const hammer = ITEM_BATTLE.hammerOf(key, data);
     const handler = registry ? registry.get(`item:${key}`) : null;
-    const prepAsk = prepAsked(handler);
     const wrongBattle = byItem && battleAsked.size && ![...battleAsked].some((k) => e.battle.has(k))
       ? [`items/battle.js ${key} asks for ${[...battleAsked].join(', ')}`] : [];
-    const wrongPrep = prepAsk.size && ![...prepAsk].some((k) => e.prep.has(k))
-      ? [`item:${key} asks for ${[...prepAsk].join(', ')}`] : [];
     const ids = e.ids.slice().sort();
     for (const bb of [...e.battle].sort()) {
       // an item-keyed behaviour that asks for no buff (双模机械臂: an empty blackboard) is the item's own: it handles what
@@ -121,8 +104,9 @@ function itemRows(data, { registry, builtinItemBuffKeys }) {
       rows.push(row('items', { id: key, key: bb, side: 'battle', ids, status: ok ? 'ok' : 'none', wrong: wrongBattle }));
     }
     for (const k of [...e.prep].sort()) {
-      const ok = (builtin.has(k) && !!handler) || prepAsk.has(k);
-      rows.push(row('items', { id: key, key: k, side: 'prep', ids, status: ok ? 'ok' : 'none', wrong: wrongPrep }));
+      const c = canonicalBuffKey(k);
+      const ok = !!handler && (builtin.has(c) || ITEM_PREP.includes(c));
+      rows.push(row('items', { id: key, key: k, side: 'prep', ids, status: ok ? 'ok' : 'none', ...(c !== k ? { alias: c } : null) }));
     }
   }
   return rows;

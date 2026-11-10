@@ -66,9 +66,11 @@ test('another season\'s data: new templates, buff keys and option values show up
     preciShip: retag(b.preciShip, 'act1autochess_bond_eff_preci', 'act9autochess_bond_eff_preci'),
     visiShip: { ...b.visiShip, buffs: [...b.visiShip.buffs, { key: 'bond_new_prep_rule', bb: { discount: 1 } }] },
   };
-  // 紧急调度券 (a content prep handler) and 天马之枪 (a battle behaviour of its buff key) keep their ids with other buffs
+  // 紧急调度券 renames its prep buff with the same meaning (items/aliases.js), 寻呼模块 gets a prep buff nobody reads and
+  // 天马之枪 (a battle behaviour of its buff key) a battle buff nobody reads — the ids stay
   const items = { ...it };
   for (const id of ['chess_item_2_02_e_a', 'chess_item_2_02_e_b']) items[id] = retag(it[id], 'use_equip_reward_random_char_chess_in_shop', 'use_equip_take_shop');
+  for (const id of ['chess_item_4_01_e_a', 'chess_item_4_01_e_b'].filter((x) => it[x])) items[id] = retag(it[id], 'use_equip_reward_special_goods_char_chess', 'use_equip_spe_goods_first_bond');
   for (const id of ['chess_item_6_01_e_a', 'chess_item_6_01_e_b'].filter((x) => it[x])) items[id] = retag(it[id], 'act2autochess_equip_acarm117_global_buff', 'act9autochess_equip_acarm999_global_buff');
   // a layer-event 特质 with a bond_type its handler does not read, and an effect key nobody handles
   const layer = Object.values(g).find((x) => x.eventType === 'IN_BATTLE' && x.bbStr?.bond_type === 'bond_by_id');
@@ -86,8 +88,12 @@ test('another season\'s data: new templates, buff keys and option values show up
   assert.equal(find(rep.bonds, 'visiShip', 'bond_layer_gain_coin')?.status, 'ok');
 
   const take = find(rep.items, 'chess_item_2_02_e', 'use_equip_take_shop');
-  assert.equal(take?.status, 'none');
-  assert.ok(take.wrong.some((w) => w.includes('use_equip_reward_random_char_chess_in_shop')), take.wrong.join('; '));
+  assert.equal(take?.status, 'ok', 'a renamed key of the same meaning reads as the default season\'s');
+  assert.equal(take.alias, 'use_equip_reward_random_char_chess_in_shop');
+  // the prep side runs by buff key too: nothing registers on the id for a buff it does not carry (no `wrong`)
+  const pager = find(rep.items, 'chess_item_4_01_e', 'use_equip_spe_goods_first_bond');
+  assert.equal(pager?.status, 'none');
+  assert.deepEqual(pager.wrong, []);
   // the battle side runs by buff key: the id keeps nothing of 天马之枪, so nothing runs on the record (no `wrong`)
   const pegasus = find(rep.items, 'chess_item_6_01_e', 'act9autochess_equip_acarm999_global_buff');
   assert.equal(pegasus?.status, 'none');
@@ -101,7 +107,7 @@ test('another season\'s data: new templates, buff keys and option values show up
   const ev = find(rep.garrisons, 'SERVER_ADD_BOND_METHOD', 'SERVER_NEW_EVENT');
   assert.equal(ev?.status, 'none', 'a handler without a hook for its event type runs nothing');
 
-  assert.ok(rep.totals.items.wrong >= 1 && rep.totals.bonds.none >= 2 && rep.totals.garrisons.partial >= 1, JSON.stringify(rep.totals));
+  assert.ok(rep.totals.items.none >= 2 && rep.totals.bonds.none >= 2 && rep.totals.garrisons.partial >= 1, JSON.stringify(rep.totals));
 });
 
 test('the hidden season 规程: the report runs and finds its content still being built', () => {

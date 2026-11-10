@@ -7,7 +7,9 @@
 // equipment — the cell too, which is not consumed (player feedback after 0.1.0) — returns to the hand, then a NORMAL
 // random tier+1 operator, max 6, is gained into the hand, not onto the carrier's tile (PR #2)). The Arts' rangeGrid
 // (画卷 = placed tile + the tile in front) and the per-round limit are engine rules.
-// Overridden / added here (a built-in, when present, is wrapped — never re-implemented):
+// Overridden / added here, by the official buff key of the record (a season's item gets the behaviour of the buffs it
+// carries, whatever its id — items/aliases.js reads a renamed key as the default season's; a built-in, when present,
+// is wrapped — never re-implemented):
 //   画卷         the copy keeps the target's items; a copied normal item that pairs with an owned one merges and the
 //               golden stays in the hand (the built-in equipped the merged golden on the copy, and its live loop over
 //               the target's items skipped the item after a merge)
@@ -31,16 +33,20 @@
 //   天师古鼎     equip_with_another_gain_coin_when_gain_char: a 【炎】 carrier also holding 炎国短刀 (either quality)
 //               gains `count` funds every time the player gains an operator, at most `max` times per round per item
 
-import { itemKeyOf, isCoreBond } from '../support/index.js';
+import { itemKeyOf, isCoreBond, gameData } from '../support/index.js';
 import { metaBonds } from '../support/meta.js';
+import { canonicalBuffKey } from './aliases.js';
 import { msg, dn } from '../../../../shared/i18n.js';
 
 const int = (v, d = 0) => (Number.isFinite(v) ? Math.trunc(v) : d);
 
-/** Params `{ ...bb, ...bbStr }` of the concrete record's buff with official key `key` (null when absent). */
+/**
+ * Params `{ ...bb, ...bbStr }` of the concrete record's buff with official key `key` — or a key a season renamed it to
+ * (items/aliases.js) — null when absent.
+ */
 function buffP(ctx, itemId, key) {
   const rec = itemId ? ctx.gd.item(itemId) : null;
-  for (const b of (rec && Array.isArray(rec.buffs) ? rec.buffs : [])) if (b && b.key === key) return { ...(b.bb || {}), ...(b.bbStr || {}) };
+  for (const b of (rec && Array.isArray(rec.buffs) ? rec.buffs : [])) if (b && canonicalBuffKey(b.key) === key) return { ...(b.bb || {}), ...(b.bbStr || {}) };
   return null;
 }
 
@@ -64,14 +70,15 @@ const isTraining = (c) => c.payout === 'perfect';
 /** The band bounty family `enemyeffect_b_*` — what “神秘顾客” offers [ASSUMED]. */
 const isBandBounty = (c) => /^enemyeffect_b_\d+$/.test(String(c.effectId));
 
-function wrap(registry, key, hooks) {
-  const base = registry.get(`item:${key}`) || {};
-  registry.item(key, { ...base, ...hooks(base) });
-}
-
-export function registerMeta(registry) {
+/**
+ * The prep behaviours, by official buff key: [buff key, when (the item's buff keys → runs?) or null, hooks(base) → the
+ * handler's hooks over `base` (what the item key had: a built-in, an earlier entry)]. Registered in this order on every
+ * item key of the season whose records carry the key.
+ * @type {[string, ((keys: Set<string>) => boolean) | null, (base: object) => object][]}
+ */
+const PREP = [
   // 紧急调度券 — use_equip_reward_random_char_chess_in_shop {count}
-  wrap(registry, 'chess_item_2_02_e', () => ({
+  ['use_equip_reward_random_char_chess_in_shop', null, () => ({
     onEquip(ctx, ev) {
       const p = buffP(ctx, ev.item && ev.item.id, 'use_equip_reward_random_char_chess_in_shop') || {};
       const n = Math.max(1, int(p.count, 1));
@@ -86,10 +93,10 @@ export function registerMeta(registry) {
         else { tried.add(i); k--; }
       }
     },
-  }));
+  })],
 
   // 寻呼模块 — use_equip_reward_special_goods_char_chess {refresh_cnt, choice_cnt}
-  wrap(registry, 'chess_item_4_01_e', () => ({
+  ['use_equip_reward_special_goods_char_chess', null, () => ({
     onEquip(ctx, ev) {
       const p = buffP(ctx, ev.item && ev.item.id, 'use_equip_reward_special_goods_char_chess') || {};
       const n = Math.max(1, int(p.refresh_cnt, 3));
@@ -106,18 +113,19 @@ export function registerMeta(registry) {
       // nothing to offer (e.g. 缪尔赛思's 调和 below shop level 6): still destroyed — say why (GitHub #401, builtinMeta toastNothing)
       else ctx.toast(msg('{who}：没有可获得的同盟约干员', { who: dn(ctx.gd.item(ev.item?.id)?.name || '') }), 'warn');
     },
-  }));
+  })],
 
-  // 教鞭 — trap_create_self_choice {choice_event}: the server keeps the offered 战术特训 cards until confirmed.
-  wrap(registry, 'chess_item_6_03_m', () => ({
+  // 教鞭 — trap_create_self_choice {choice_event}: the server keeps the offered 战术特训 cards until confirmed. The same
+  // buff as “神秘顾客”'s, which carries trap_disney_special besides
+  ['trap_create_self_choice', (keys) => !keys.has('trap_disney_special'), () => ({
     onArt(ctx, ev) {
       const result = ctx.offerBountyChoice(bountyCards(ctx, isTraining), ev.item.id);
       if (!result.ok) { ev.error = result.error; ev.detail = result.detail; }
     },
-  }));
+  })],
 
   // “神秘顾客” — a random band bounty (enemyeffect_b_*).
-  wrap(registry, 'chess_item_6_01_m', (base) => ({
+  ['trap_create_self_choice', (keys) => keys.has('trap_disney_special'), (base) => ({
     onArt(ctx, ev) {
       const cards = bountyCards(ctx, isBandBounty);
       if (!cards.length) { if (typeof base.onArt === 'function') base.onArt.call(base, ctx, ev); return; }
@@ -125,7 +133,7 @@ export function registerMeta(registry) {
       const card = ctx.rng.pick(offer);
       if (!card || !ctx.addBounty(card)) { ev.error = 'BAD_TARGET'; ev.detail = 'no bounty available'; }
     },
-  }));
+  })],
 
   // 画卷 — trap_copy_front_char: copy the operator in range (elite status included) and its equipment. The copied items
   // are gained unequipped, like any gained item — the hand, overflow temp, destroyed with the usual toast when both are
@@ -135,7 +143,7 @@ export function registerMeta(registry) {
   // completes a three-copy merge (GitHub #389, PR #390): the promotion returns the copies' equipment to the hand too
   // (PRTS 帮助 "在失去该干员（…合并等）…时自动卸除"), so the elite wears nothing and a copied normal item merges with the
   // returned original.
-  wrap(registry, 'chess_item_6_02_m', () => ({
+  ['trap_copy_front_char', null, () => ({
     onArt(ctx, ev) {
       const target = (ev.targets || []).find((p) => p && p.kind === 'chess');
       if (!target) { ev.error = 'BAD_TARGET'; ev.detail = 'no operator in range'; return; }
@@ -147,10 +155,10 @@ export function registerMeta(registry) {
       if (!copy) { ev.error = 'HAND_FULL'; return; }
       for (const itemId of itemIds) ctx.grantItem(itemId, { source: 'item:chess_item_6_02_m' });
     },
-  }));
+  })],
 
   // “神秘顾客” — trap_create_self_choice (bounty above) + trap_disney_special {count}
-  wrap(registry, 'chess_item_6_01_m', () => ({
+  ['trap_disney_special', null, () => ({
     onDestroy(ctx, ev) {
       if (!ev || ev.reason !== 'player') return;
       const item = ev.item || ctx.source.piece;
@@ -164,10 +172,10 @@ export function registerMeta(registry) {
       const next = mates.slice().sort((a, b) => dist(a) - dist(b))[0];
       if (next) next.grantItem(item.id, { source: 'item' });
     },
-  }));
+  })],
 
   // 天师古鼎 — equip_with_another_gain_coin_when_gain_char {count, max} {other_equip, bond}
-  wrap(registry, 'chess_item_6_03_e', (base) => ({
+  ['equip_with_another_gain_coin_when_gain_char', null, (base) => ({
     onGain(ctx, ev) {
       if (typeof base.onGain === 'function') base.onGain.call(base, ctx, ev);
       if (!ev || ev.kind !== 'chess' || !ev.piece) return;
@@ -185,5 +193,32 @@ export function registerMeta(registry) {
       ctx.incCounter(k);
       ctx.addFunds(int(p.count, 2), 'item');
     },
-  }));
+  })],
+];
+
+/** The buff keys items/meta.js acts on (content/coverage.js). */
+export const PREP_BUFF_KEYS = Object.freeze([...new Set(PREP.map(([k]) => k))]);
+
+/**
+ * Register the prep behaviours on the item keys of the season's data (`data`: shared/seasons.js; absent: the default
+ * season's) whose records — the normal, golden and Art record of the key — carry their buff keys.
+ */
+export function registerMeta(registry, data = gameData()) {
+  const items = (data && data.items) || {};
+  /** item key → the canonical buff keys of its records, in record order */
+  const byKey = new Map();
+  for (const [id, rec] of Object.entries(items)) {
+    if (!rec || !Array.isArray(rec.buffs)) continue;
+    const key = itemKeyOf(id, data);
+    let keys = byKey.get(key);
+    if (!keys) { keys = new Set(); byKey.set(key, keys); }
+    for (const b of rec.buffs) if (b && typeof b.key === 'string') keys.add(canonicalBuffKey(b.key));
+  }
+  for (const [buffKey, when, hooks] of PREP) {
+    for (const [key, keys] of byKey) {
+      if (!keys.has(buffKey) || (when && !when(keys))) continue;
+      const base = registry.get(`item:${key}`) || {};
+      registry.item(key, { ...base, ...hooks(base) });
+    }
+  }
 }

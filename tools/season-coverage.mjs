@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // tools/season-coverage.mjs — how much of a season's bond, equipment and 特质 data the content code acts on
 // (server/sim/content/coverage.js): per bond template, item buff key and 特质 effect key, `ok` / `partial` / `none`,
-// and the handlers that run on a record without the buff they ask for (`wrong`).
+// the handlers that run on a record without the buff they ask for (`wrong`), and a renamed item buff key read as the
+// default season's (`= key`, server/sim/content/items/aliases.js).
 //
 //   node tools/season-coverage.mjs                       every season: the totals
 //   node tools/season-coverage.mjs act3autochess         one season: the totals and every row that is not ok
@@ -39,7 +40,7 @@ function printSeason(season, { all = false } = {}) {
     console.log(`\n  ${d}`);
     for (const r of rows) {
       const ids = r.ids?.length ? ` [${r.ids.length > 4 ? `${r.ids.slice(0, 4).join(' ')} +${r.ids.length - 4}` : r.ids.join(' ')}]` : '';
-      console.log(`    ${r.status.padEnd(7)} ${r.side.padEnd(6)} ${r.id}  ${r.key}${ids}`);
+      console.log(`    ${r.status.padEnd(7)} ${r.side.padEnd(6)} ${r.id}  ${r.key}${r.alias ? ` (= ${r.alias})` : ''}${ids}`);
       for (const m of r.missing) console.log(`              missing: ${m}`);
       for (const w of r.wrong) console.log(`              wrong:   ${w}`);
     }
