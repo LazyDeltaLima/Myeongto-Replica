@@ -2124,7 +2124,9 @@ upstream 0.3.3(`dev` eff7d93ab)의 공식 느낌 화면을 손으로 이식한�
     (`skin_config` `img_check_player`·`img_check_enemy`)만 — 테마에 그림이 있는 평소 상태만 그렇고, 돌아가기·회색 상태는 지금 그림(`ui/hud.js` `checkSprite`).
   - 맹약 원판(`bond_icon_view_item`): `bg_active`(활성)/`bg_inactive` 위에 모든 칸 고리(`bg_total`, #a1a1a1 α 0.8)와 켜진 칸(`bg_actual`)을 흰 조각
     `bondboardicon/<칸>_<켜진 수>`로 겹친다 — 추출이 상태마다 한 장으로 합성(`season/<id>/bondboard/<칸>_<n>`, n = 0 포함), 80 판에 93.75 %.
-    켜진 칸 색은 테마 표의 `skinLightColor` #00FFC4 [추정·CN: 실행 중 색을 고르는 코드가 CN 전용이라 확인 못 함].
+    켜진 칸 색은 테마 표의 `skinDarkColor`(기본 테마 #00FFC4)다. 프리팹은 흰색이고 실행 중에 칠한다. 공식 CN 화면(2026-11-10)에서 확인: 테마 둘이 한
+    화면에 함께 보였다. 기본 테마는 #00FFC4, 구매 테마 「“전능한” 클로저」(`ac_s_closur`)는 `skinLightColor` #00D2FF가 아닌 `skinDarkColor` #2E38FF로
+    켜졌다. 같은 화면에서 활성 원판의 문양은 `bondIconColor`(기본 #031712, 클로저 #69FDFF), 꺼진 원판의 문양은 두 테마 모두 회색이었다.
   - 추출: 테마 스프라이트는 텍스처를 꽉 잘라 담은 것이 있어(`shop_level_*`·`bg_inactive` 등 10장, `bondboardicon` 10장) 스프라이트 사각형 크기로 되돌려
     저장한다(`textureRectOffset`). 다른 아이콘 폴더는 그대로(맹약 문양 크기 계산이 잘린 텍스처 크기를 쓴다).
   - 안 그린 것: 접힌 상점의 테마 그림(공식 `bg_open`·LEVEL 칸·Spine — 우리 접힌 상점은 두 시즌 모두 원본 CSS 탭), 끌어서 팔기 판(`img_sell_*`, 우리

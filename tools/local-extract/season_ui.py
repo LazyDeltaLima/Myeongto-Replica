@@ -66,8 +66,9 @@ SEASONS = {
         # activity_table autoChessData.skinConsts.defaultAutoChessSkinId
         'skin': 'ui/autochess/autochessvariantskin/[uc]ac_n_initial.ab',
         # bond_icon_view_item of the theme: bg_total #a1a1a1 at 80 % (its prefab colour), bg_actual in the theme's
-        # skinColorDataDict skinLightColor #00FFC4 — the client sets that colour at run time, which field it reads is not
-        # known [ASSUMED·CN: CN-only logic sets it]
+        # skinColorDataDict skinDarkColor #00FFC4 — the prefab leaves it white and the client tints it at run time; an
+        # official CN screen (2026-11-10) shows the lit segments in that field for two themes at once (the default
+        # #00FFC4, the purchased ac_s_closur #2E38FF, not its skinLightColor #00D2FF)
         'bondboard': {'pieces': ('ui/autochess/[uc]autochessbattle.ab', 'bondboardicon'), 'total': (161, 161, 161, 0.8), 'actual': (0, 255, 196, 1.0)},
     },
 }
