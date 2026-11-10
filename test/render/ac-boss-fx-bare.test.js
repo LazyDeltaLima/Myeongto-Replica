@@ -28,7 +28,9 @@ test('鳍 / 茧 fx events: nothing extracted — the stand-ins stay', async () =
   try {
     const { layer, views } = await layerWith(false);
     for (const [kind, o] of [['phase', { id: 1, kind: 'aceelShield' }], ['phase', { id: 1, kind: 'aceelShieldEnd' }],
-      ['link', { from: 3, to: 4, kind: 'aceelChain', dur: 0.2, id: 1, key: 'projectile_enemy_aceel' }]]) {
+      ['link', { from: 3, to: 4, kind: 'aceelChain', dur: 0.2, id: 1, key: 'projectile_enemy_aceel' }],
+      // 2026-11-11: 萨尔贡 6's 流沙 without its map effect extracted: the stand-in zone
+      ['zone', { x: 5, y: 3, r: 0.5, dur: 1e4, kind: 'sargonSand', tiles: 'box', id: 3 }]]) {
       const e = ['fx', kind, 0, 0, o];
       layer.onEvent(e, views);
       assert.equal(layer.ownsFx(e), false, `${kind} ${o.kind}`);

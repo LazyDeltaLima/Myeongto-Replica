@@ -32,7 +32,7 @@ const settle = () => new Promise((r) => setTimeout(r, 10));
 
 async function layerWith(extracted, opts = {}) {
   const files = {
-    '/assets/local/fx/index.json': { bundles: { b: extracted ? NAMES : [] } },
+    '/assets/local/fx/index.json': { bundles: { b: extracted ? NAMES : [], map: extracted ? ['map_v079_dikuai01'] : [] } },
     '/assets/local/fx/enemy-modes.json': emodes(extracted),
   };
   globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
@@ -195,4 +195,21 @@ test('茧 (隐秘核心) sim: 【悲惨之雨】\'s zone names the tiles of the 
   h.runUntil(() => rains().length >= 2, 70);
   assert.deepEqual(rains().map((o) => [o.field, o.tiles]), [['p1', [2, 5, 0, 10]], ['p2', [2, 5, 11, 20]]], 'rows 2–5 (not the hand rows), each half');
   assert.ok(rains().every((o) => /acidrain/i.test(o.ability)), 'names the ability (its tile effect)');
+});
+
+test('萨尔贡 6\'s 流沙: its tile listener\'s map_v079_dikuai01 on the tile it is laid on, kept for the battle (no stand-in zone)', async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    const { layer, views, seen } = await layerWith(true);
+    const e = ['fx', 'zone', 5, 3, { x: 5, y: 3, r: 0.5, dur: 1e4, kind: 'sargonSand', tiles: 'box', id: 3 }];
+    layer.onEvent(e, views);
+    assert.equal(layer.ownsFx(e), true, 'drawn by its official effect');
+    await settle();
+    const floors = seen.filter((p) => p.kind === 'spawn' && p.tag === 'sargonSand');
+    assert.deepEqual(floors.map((p) => p.names[0]), ['map_v079_dikuai01'], 'one floor for the tile');
+    // another member's tile: one more
+    layer.onEvent(['fx', 'zone', 6, 3, { x: 6, y: 3, r: 0.5, dur: 1e4, kind: 'sargonSand', tiles: 'box', id: 4 }], views);
+    await settle();
+    assert.equal(seen.filter((p) => p.kind === 'spawn' && p.tag === 'sargonSand').length, 2);
+  } finally { globalThis.fetch = fetch0; }
 });

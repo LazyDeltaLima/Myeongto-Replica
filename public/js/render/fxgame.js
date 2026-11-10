@@ -5081,7 +5081,30 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     if (e[1] === 'summon' && AC_NO_BORN.has(o.key)) return !!(emodes?.[o.key] && !emodes[o.key].start && eOn(views.get(o.id)));
     if (e[1] === 'zone' && o.kind === 'acspiderRain') return acRainFx(o, views);
+    if (e[1] === 'zone' && o.kind === 'sargonSand') return sargonSandFx(o);
     return false;
+  }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 사르곤 모래 늪」): 规程's 萨尔贡 6 流沙 — sim fx 'zone' { kind: 'sargonSand', x, y, dur }
+   * (content/bonds/nation/sargon.js installSand) on the tile a member's skill start lays it on. Its tile listener
+   * act3autochess_bond_sargon_tile_listener (CN battle/prefabs/[uc]dynamicabilities) puts its `_effectSettings` effect
+   * map_v079_dikuai01 (CN map.ab: static floor meshes, no clip) on that tile once (`castedTimeThreshold` 1,
+   * `_dontCreateNewEffectWhenCastedTimesSame`) and keeps it as long as the listener stays — the battle, the sim's `dur`
+   * (`_fixClearOnEnd`). The range ability act3autochess_bond_sargon_range (the 2× while a member's skill runs) has no effect
+   * of its own. false (the stand-in zone) without the effect extracted.
+   */
+  const SARGON_SAND = Object.freeze(['map', 'map_v079_dikuai01']);
+  function sargonSandFx(o) {
+    if (failed || !index?.bundles?.[SARGON_SAND[0]]?.includes(SARGON_SAND[1])) return false;
+    const x = Math.round(Number(o.x)), y = Math.round(Number(o.y));
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    let g = null;
+    try { g = grid(); } catch { /* the board's floor */ }
+    const cell = Array.isArray(g) ? g[y]?.[x] : null;
+    const until = clockS + Math.max(0, Number(o.dur) || 0);
+    spawn(SARGON_SAND[0], SARGON_SAND[1], { x, y, z: cell ? (cell.h || 0) + (cell.devH || 0) : 0 }, { owner: null, buff: false, until, tag: 'sargonSand' }, { over: false })
+      .then((l) => { if (l) zoneEnd(l, until, true); });
+    return true;
   }
   /**
    * 2026-11-11 (docs/rules/fx.md 「규정 보스 고치·지느러미의 이펙트」): 假想敌：茧 (隐秘核心)'s 【悲惨之雨】 — sim fx 'zone'
@@ -5680,7 +5703,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (acRains.size) stepAcRains(views);
     camWant.clear();
     for (const v of views.values()) {
-      if (v?.info?.side !== 'enemy' || v.alive === false || !ebindOf(v)) continue;
+      // (2026-11-11: a walking ally from an enemy record too — its form's mode, told to the sound)
+      if ((v?.info?.side !== 'enemy' && !v?.info?.walks) || v.alive === false || !ebindOf(v)) continue;
       const cams = !v.remove && eOn(v) ? ebindOf(v).camera : null;
       if (cams) for (const n of cams) camWant.add(n);
       if (v._fxEMode === undefined) { v._fxEMode = emodeOf(v); v._fxEClip = v.actor?.current; v._fxEForm = v.form ?? null; v._fxRebSeen = v.form === 'reborn'; continue; } // on the field before this layer
