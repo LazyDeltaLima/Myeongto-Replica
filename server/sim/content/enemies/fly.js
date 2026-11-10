@@ -6,7 +6,8 @@ import {
   num, T, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, fieldAllies, byPriority, spawnChildren,
   setForm, expose, shoot, mode,
 } from './helpers.js';
-import { enemyAura, allyAura, selfFear, skill, kitSelfFear } from './archetypes.js';
+import { enemyAura, allyAura, selfFear, skill, kitSelfFear, ep } from './archetypes.js';
+import { aggroCmp } from '../../targeting.js';
 import { hypot } from '../../detmath.js';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -243,6 +244,27 @@ function kitShell() {
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
+/**
+ * 纤核漂游者 (规程's leader wave h07_10; official prefab enemy_1435_dsflys, battle/enm_pfb_17): a flyer whose RangedAttack
+ * selector takes the target by `_postFilter` HATRED_DES_HIGHLAND_FIRST (52) — a unit on a high tile first, then 仇恨值
+ * (“优先攻击高台单位”) — with neural damage of ATK × `0.attack@ep_damage_ratio` on every hit (the talent's attack blackboard
+ * over the ability's `_epDamageRatio` 0.12), and 失衡免疫 (its GeneralAbilities/1 buff dsflys_immune: abnormal flag 8
+ * UNBALANCE_IMMUNE).
+ */
+function kitDsflys(ab) {
+  const high = (b, u) => b.grid.tile(u.tileR, u.tileC).height === 'HIGH';
+  return [
+    ep('neural', T(ab, '0.attack@ep_damage_ratio') ?? 0),
+    {
+      spawn(b, e) { b.addBuff(e, { key: 'ab:dsflysImmune', persist: true, flags: { noDisplace: true } }); },
+      before(c, b, e) {
+        const l = targetsNear(b, e, (e.base.rangeRadius || 0) + ALLY_COLLIDER_RADIUS);   // the engine's reach (ai.js enemyAttack)
+        if (l.length > 1) c.targets = [l.sort((p, q) => (high(b, q) ? 1 : 0) - (high(b, p) ? 1 : 0) || aggroCmp(p, q))[0]];
+      },
+    },
+  ];
+}
+
 export const FLY_KITS = Object.freeze({
   // --- FLY 飞行 (motion is engine; abilities)
   enemy_1017_defdrn: (ab) => [enemyAura(T(ab, 'defup.range_radius') ?? 2.5, 'ab:defdrn', { defFlat: T(ab, 'defup.def') ?? 0 })],        // 御4 · DEF aura
@@ -269,4 +291,5 @@ export const FLY_KITS = Object.freeze({
       b.kill(e, null);
     },
   }],
+  enemy_1435_dsflys: kitDsflys,                                      // 纤核漂游者 (规程) · high tiles first, neural on hit
 });

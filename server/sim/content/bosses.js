@@ -2559,7 +2559,7 @@ function kitJu(ab) {
   const ovAtk = T(ab, 'Overload.atk') ?? 0, ovMove = T(ab, 'Overload.move_speed') ?? 1, ovVol = T(ab, 'Overload.block_volume') ?? 0;
   const lastAtk = T(ab, 'OutOfControll.atk_scale') ?? 1;
   const P = { guardAcc: 0, guard: null, trampleAcc: 0, wasBlocked: false, over: false, volLeft: 0 };
-  const still = (b2, e2) => !!e2.blockedBy || !e2.moving || !!e2.s.flags.stun;
+  const still = (e2) => !!e2.blockedBy || !e2.moving || !!e2.s.flags.stun;
   const setGuard = (b2, e2, dr) => {
     if (P.guard === dr) return;
     P.guard = dr;
@@ -2584,7 +2584,7 @@ function kitJu(ab) {
         if (resist > 0) b2.applyStatus(e2, 'resist', { source: e2, value: Math.min(1, resist) });
       },
       tick(b2, e2, a, dt) {
-        if ((P.guardAcc += dt) >= JU_GUARD_CHECK - 1e-9) { P.guardAcc = 0; setGuard(b2, e2, still(b2, e2) && !unbalancedNow(b2, e2) ? low : high); }
+        if ((P.guardAcc += dt) >= JU_GUARD_CHECK - 1e-9) { P.guardAcc = 0; setGuard(b2, e2, still(e2) && !unbalancedNow(b2, e2) ? low : high); }
         const blocked = !!e2.blockedBy;
         if (blocked && !P.wasBlocked && crush && canCast(e2, false, b2)) crushNow(b2, e2);   // the toggle turns on
         P.wasBlocked = blocked;

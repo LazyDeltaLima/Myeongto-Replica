@@ -24,7 +24,7 @@ const E3 = ACT3.enemies, E0 = BASE.enemies;
 
 // the leader fields: the units of the leaders' waves
 const LEADER_FIELD = [
-  'enemy_10196_ubba_2', 'enemy_1424_lrboom', 'enemy_1435_dsflys', 'enemy_9024_acsgnt', 'enemy_9040_accrit',
+  'enemy_9024_acsgnt',
 ];
 // 特训敌人 entries of 规程 (its new types CRITIC 精锐 / REBORN 重生 among them) and their escorts and offspring
 const SPECIAL_TYPE = [
@@ -623,4 +623,80 @@ test('矩兽 【非命】 at half HP: ATK +50 %, speed × 2, block volume 4 from
   assert.ok(Math.abs(last[0].at - fellAt - 0.75) < 0.05);
   assert.deepEqual(new Set(last.map((x) => x.t)), new Set([h.unit(5), h.unit(9)]), 'every unit on the field');
   assert.ok(Math.abs(last.find((x) => x.t === h.unit(5)).n - atk * 1.5 * 2) < 1e-6, 'its ATK as it fell (overloaded) × 2');
+});
+
+/** A field of the given 规程 enemies; `hits` = every damage they deal (element apart). */
+function waveField(keys, units) {
+  const h = bossArena(ACT3, keys, { kind: 'normal', sharedBoss: null, units });
+  h.step();
+  const hits = [];
+  h.b.on('damaged', (c) => { if (c.source && keys.includes(c.source.defId) && c.dmg.type !== 'element') hits.push({ t: c.target, n: c.amount, src: c.source, at: h.b.time }); });
+  return { h, hits };
+}
+
+test('纤核漂游者: a unit on a high tile first (HATRED_DES_HIGHLAND_FIRST), neural damage ATK × 0.15 on every hit, 失衡免疫', () => {
+  const key = 'enemy_1435_dsflys';
+  assert.equal(E3[key].talents.bb['0.attack@ep_damage_ratio'], 0.15);
+  // the high-tile unit deployed first: by 仇恨值 alone the later, low one would be shot
+  const { h, hits } = waveField([key], [{ chessId: 't_wall', row: 11, col: 2, uid: 1 }, { chessId: 't_wall', row: 11, col: 4, uid: 2 }]);
+  assert.equal(h.b.grid.tile(11, 2).height, 'HIGH');
+  const e = put(h, key, [11, 3.4], { tag: null });
+  assert.ok(e.s.flags.noDisplace, 'dsflys_immune: UNBALANCE_IMMUNE');
+  h.runUntil(() => hits.length >= 3, 30);
+  assert.ok(hits.slice(0, 3).every((x) => x.t === h.unit(1)), 'the high-tile unit');
+  assert.ok(h.unit(1).elem.neural > 0 && !(h.unit(2).elem.neural > 0), 'neural with each hit');
+});
+
+test('恶尘源石虫: knocked out, ATK × 3.5 physical on the ground units within 1.3 (projectile_lrboom); silenced, none', () => {
+  const key = 'enemy_1424_lrboom';
+  assert.equal(E3[key].talents.bb['Boom.atk_scale'], 3.5);
+  const run = (silence) => {
+    const { h } = waveField([key], [{ chessId: 't_wall', row: 11, col: 6, uid: 1 }, { chessId: 't_wall', row: 11, col: 8, uid: 2 }]);
+    const e = put(h, key, [11, 4.8], { tag: null });
+    if (silence) h.b.applyStatus(e, 'silence', { duration: 10, source: h.unit(1) });
+    h.step();
+    const t0 = [h.unit(1).stats.taken, h.unit(2).stats.taken];
+    h.b.kill(e, h.unit(1));
+    h.step();
+    return [h.unit(1).stats.taken - t0[0], h.unit(2).stats.taken - t0[1]];
+  };
+  const [near, far] = run(false);
+  assert.ok(Math.abs(near - E3[key].stats.atk * 3.5) < 1e-6 && far === 0, `1.2 away hit (${near}), 3.2 away not (${far})`);
+  assert.deepEqual(run(true), [0, 0], 'the SILENCE line');
+});
+
+test('搏命享受者: the other enemies within 1.7 take physical and arts damage × 0.75, one buff per 搏命享受者 (two multiply)', () => {
+  const key = 'enemy_10196_ubba_2', other = 'enemy_1424_lrboom';
+  const dr = E3[key].talents.bb['Talent1.damage_resistance'];
+  assert.equal(dr, 0.25);
+  const { h } = waveField([key, other], [{ chessId: 't_wall', row: 12, col: 4 }]);
+  const near = put(h, other, [10, 9], { tag: null }), far = put(h, other, [10, 14], { tag: null });
+  const u1 = put(h, key, [10, 8], { tag: null });
+  runFor(h, 0.5);
+  const w = h.unit('t_wall'), res = E3[other].stats.res;
+  const hit = (e) => { const hp = e.hp; h.b.dealDamage(w, e, { amount: 1000, type: 'arts', canDodge: false }); return hp - e.hp; };
+  assert.ok(Math.abs(hit(near) - 1000 * (1 - res / 100) * (1 - dr)) < 1e-6, 'within 1.7');
+  assert.ok(Math.abs(hit(far) - 1000 * (1 - res / 100)) < 1e-6, 'out of range');
+  assert.ok(Math.abs(hit(u1) - 1000 * (1 - E3[key].stats.res / 100)) < 1e-6, 'not itself');
+  put(h, key, [10, 9.5], { tag: null });   // 0.5 from the near one, 1.5 from the first
+  runFor(h, 0.5);
+  assert.ok(Math.abs(hit(near) - 1000 * (1 - res / 100) * (1 - dr) ** 2) < 1e-6, 'two of them: × 0.75²');
+  assert.ok(Math.abs(hit(u1) - 1000 * (1 - E3[key].stats.res / 100) * (1 - dr)) < 1e-6, 'each in the other\'s aura');
+});
+
+test('假想敌：丛生: its first damage on each unit × 2 (accrit[critical-hit]) and 5 s HEAL_FREE on it; a unit once hit, plain', () => {
+  const key = 'enemy_9040_accrit', bb = E3[key].talents.bb, atk = E3[key].stats.atk;
+  assert.deepEqual([bb['CriticalHit.damage_scale'], bb['CriticalHit.duration']], [2, 5]);
+  const { h, hits } = waveField([key], [{ chessId: 't_wall', row: 9, col: 6 }]);
+  const e = put(h, key, [9, 9], { move: true, tag: null });
+  const w = h.unit('t_wall');
+  h.runUntil(() => hits.length >= 1, 30);
+  const at = h.b.time;
+  assert.ok(Math.abs(hits[0].n - atk * 2) < 1e-6, `first × 2 (${hits[0].n})`);
+  assert.ok(w.s.flags.noHeal && w.s.flags.healFree, 'HEAL_FREE');
+  h.runUntil(() => hits.length >= 2, 30);
+  assert.ok(Math.abs(hits[1].n - atk) < 1e-6, 'then plain');
+  h.runUntil(() => h.b.time >= at + 5.2, 10);
+  assert.ok(!w.s.flags.noHeal && !w.s.flags.healFree, 'HEAL_FREE for 5 s');
+  assert.ok(e.alive);
 });
