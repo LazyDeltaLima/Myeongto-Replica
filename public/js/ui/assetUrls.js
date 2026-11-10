@@ -12,7 +12,8 @@ export function uiUrl(m, key) {
 }
 
 /**
- * Operator avatar for a chess record (golden → E2 art when present).
+ * Operator avatar for a chess record (golden → E2 art when present). A body that only has E2 art (阿米娅's 医疗 form
+ * char_1037_amiya3: the form exists from E2 on, its art is `_2` alone) draws it at every level.
  * @param {any} m manifest
  * @param {any} chess chess.json record (or { assets: { avatar } })
  */
@@ -24,11 +25,12 @@ export function chessAvatarUrl(m, chess) {
     const base = chars[id.slice(0, -2)];
     return str(base?.avatarE2) || str(base?.avatar);
   }
-  return str(chars[id]?.avatar) || (chess?.charId ? str(chars[chess.charId]?.avatar) : null);
+  return str(chars[id]?.avatar) || str(chars[id]?.avatarE2) || (chess?.charId ? str(chars[chess.charId]?.avatar) : null);
 }
 
 /**
- * Half-body portrait (180×360) for a chess record (golden → E2 portrait when present).
+ * Half-body portrait (180×360) for a chess record (golden → E2 portrait when present; a body with E2 art alone draws
+ * it at every level, as chessAvatarUrl).
  * @param {any} m
  * @param {any} chess
  */
@@ -43,7 +45,7 @@ export function chessPortraitUrl(m, chess) {
     }
     if (id.endsWith('_1')) {
       const base = chars[id.slice(0, -2)];
-      if (base) return str(base.portrait);
+      if (base) return str(base.portrait) || str(base.portraitE2);
     }
   }
   const byChar = chess?.charId ? chars[chess.charId] : null;
@@ -186,6 +188,68 @@ export function moduleTypeIconUrl(local, typeName) {
   }
   const key = t.replace(/[αβγδΔ]/g, (c) => GREEK[c]).toLowerCase();
   return idx.get(key) || null;
+}
+
+/**
+ * Icon folders of a later season's own extract (tools/local-extract/season_ui.py `icons`: data/local-assets.json
+ * groups `season/<id>/<folder>`) → the data/assets.json `ui` group whose slot they fill. The season's pictures take that
+ * slot when its screens are up (maintainer decision 2026-11-08: the new medals and icons in the new season only); the
+ * folders come out of the same autochess bundles as the EN ones, so a name means the same thing in both. Two folders
+ * keep the EN art: `modeicon` (the 规程 glyphs are white and larger, tinted by its new 协议 choice view) and
+ * `bondboardicon` (its bond ring comes in pieces, drawn by the default UI theme) — those screens are still drawn after
+ * 盟约's prefabs.
+ */
+export const SEASON_UI_FOLDERS = Object.freeze({
+  garrisontypeicon: 'garrisonTypeIcon', medalicon: 'medalIcon', enemytypeicon: 'enemyTypeIcon', bufficon: 'buffIcon',
+  shoplevelsprite: 'shopLevelSprite', chesslevelsprite: 'chessLevelSprite',
+  // no screen of ours draws these yet (the season's 自选 level picker, 模式说明 titles, bond phase marks)
+  diychooselevelsprite: 'diyChooseLevelSprite', modeinfotitle: 'modeInfoTitle', bondphaseicon: 'bondPhaseIcon',
+});
+
+/**
+ * The asset manifest as a later season's screens read it: `m` with the season's own icons (local-client extract
+ * `local`, groups `season/<season>/…`) over the 盟约 ones — strategies by the season's band records' iconId, bonds by
+ * theirs, items (equipment) by icon / trap id, and the ui groups of SEASON_UI_FOLDERS. `m` itself when the extract has
+ * none of them (a server without the season's art draws what it always drew; a record the extract lacks keeps its
+ * 盟约 icon or none). Pure: a new object, `m` is never changed.
+ * @param {any} m data/assets.json
+ * @param {any} local data/local-assets.json
+ * @param {string} season a season id other than the default
+ * @param {{ bands?: any[], bonds?: any[] }} [records] the season's band and bond records ({ bandId|bondId, iconId })
+ */
+export function withSeasonArt(m, local, season, records = {}) {
+  const groups = obj(obj(local)?.groups);
+  if (!obj(m) || !groups || !str(season)) return m;
+  const group = (folder) => obj(groups[`season/${season}/${folder}`]);
+  const at = (g, name) => (g && name && Object.hasOwn(g, name) ? str(obj(g[name])?.path) : null);
+  const bandIcons = group('bandicon');
+  const bondIcons = group('bondicon');
+  const itemIcons = group('shopitemicon');
+  const ui = Object.entries(SEASON_UI_FOLDERS).map(([folder, key]) => [group(folder), key]).filter(([g]) => g);
+  if (!bandIcons && !bondIcons && !itemIcons && !ui.length) return m;
+  const out = { ...m, bands: { ...obj(m.bands) }, bonds: { ...obj(m.bonds) }, items: { ...obj(m.items) }, ui: { ...obj(m.ui) } };
+  for (const b of Array.isArray(records.bands) ? records.bands : []) {
+    const p = at(bandIcons, str(b?.iconId));
+    if (!p) continue;
+    if (str(b?.bandId)) out.bands[b.bandId] = p;
+    // an effect names its strategy by the icon (effectIconUrl 'band'), which 规程 no longer derives from the band id
+    if (!Object.hasOwn(out.bands, b.iconId)) out.bands[b.iconId] = p;
+  }
+  for (const b of Array.isArray(records.bonds) ? records.bonds : []) {
+    const p = at(bondIcons, str(b?.iconId));
+    if (p && str(b?.bondId)) out.bonds[b.bondId] = p;
+  }
+  for (const name of Object.keys(itemIcons ?? {})) {
+    const p = at(itemIcons, name);
+    if (p) out.items[name] = p;
+  }
+  for (const [g, key] of ui) {
+    for (const name of Object.keys(g)) {
+      const p = at(g, name);
+      if (p) out.ui[`${key}/${name}`] = p;
+    }
+  }
+  return out;
 }
 
 /**

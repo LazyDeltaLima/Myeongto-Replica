@@ -90,3 +90,92 @@ describe('the full local extract keeps the season groups', () => {
     assert.match(src, /if not args\.only:\n\s+#[^\n]*\n\s+old = \{g: v for g, v in old\.items\(\) if g\.startswith\('season\/'\)\}/);
   });
 });
+
+describe("a later season's own icons", () => {
+  const icons = {
+    [`season/${S}/bandicon`]: { icon_gvial2: entry('/s/band/icon_gvial2.png'), icon_amiya: entry('/s/band/icon_amiya.png') },
+    [`season/${S}/bondicon`]: { icon_ursusShip: entry('/s/bond/icon_ursusShip.png') },
+    [`season/${S}/shopitemicon`]: { trap_1126_acarm126: entry('/s/item/trap_1126_acarm126.png') },
+    [`season/${S}/medalicon`]: { trophy_level6_icon: entry('/s/medal/6.png'), trophy_level1_icon: entry('/s/medal/1.png') },
+    [`season/${S}/modeicon`]: { mode_hard_icon: entry('/s/mode/hard.png') },
+    [`season/${S}/bondboardicon`]: { '1_1': entry('/s/board/1_1.png') },
+  };
+  const base = {
+    bands: { band_amiya: '/assets/band/band_amiya.png' }, bonds: { yanShip: '/assets/bond/yanShip.png' }, items: {},
+    ui: { 'medalIcon/trophy_level1_icon': '/en/1.png', 'modeIcon/mode_hard_icon': '/en/hard.png', 'bondBoardIcon/1_1': '/en/1_1.png' },
+  };
+  const records = {
+    bands: [{ bandId: 'band_survive', iconId: 'icon_gvial2' }, { bandId: 'band_amiya', iconId: 'icon_amiya' }, { bandId: 'band_none', iconId: 'icon_none' }],
+    bonds: [{ bondId: 'ursusShip', iconId: 'icon_ursusShip' }, { bondId: 'yanShip', iconId: 'icon_yanShip' }],
+  };
+
+  test('the season takes its strategy, bond, equipment and medal icons by its records; mode and bond-ring art stay', async () => {
+    const { withSeasonArt, bandIconUrl, bondIconUrl, itemIconUrl, uiUrl, effectIconUrl } = await import('../../public/js/ui/assetUrls.js');
+    const m = withSeasonArt(base, { groups: icons }, S, records);
+    assert.equal(bandIconUrl(m, 'band_survive'), '/s/band/icon_gvial2.png', 'by the record, not the band id');
+    assert.equal(bandIconUrl(m, 'band_amiya'), '/s/band/icon_amiya.png', "the season's own copy first");
+    assert.equal(bandIconUrl(m, 'band_none'), null);
+    assert.equal(effectIconUrl(m, { iconKind: 'band', iconId: 'icon_gvial2' }), '/s/band/icon_gvial2.png');
+    assert.equal(bondIconUrl(m, 'ursusShip'), '/s/bond/icon_ursusShip.png');
+    assert.equal(bondIconUrl(m, 'yanShip'), '/assets/bond/yanShip.png', 'a record the extract lacks keeps its icon');
+    assert.equal(itemIconUrl(m, { iconId: 'trap_1126_acarm126' }), '/s/item/trap_1126_acarm126.png');
+    assert.equal(uiUrl(m, 'medalIcon/trophy_level6_icon'), '/s/medal/6.png');
+    assert.equal(uiUrl(m, 'medalIcon/trophy_level1_icon'), '/s/medal/1.png');
+    assert.equal(uiUrl(m, 'modeIcon/mode_hard_icon'), '/en/hard.png');
+    assert.equal(uiUrl(m, 'bondBoardIcon/1_1'), '/en/1_1.png');
+    assert.equal(base.bands.band_amiya, '/assets/band/band_amiya.png', 'the manifest itself is not changed');
+    assert.ok(withSeasonArt(base, { groups: {} }, S, records) === base, 'no extract: the manifest as it is');
+  });
+
+  test("the data store hands 盟约 the file and a later season its view, rebuilt as the extract and records arrive", async () => {
+    const { createDataStore } = await import('../../public/js/data.js');
+    const files = {
+      'assets.json': base, 'local-assets.json': { groups: icons },
+      [`s/${S}/bands.json`]: records.bands, [`s/${S}/bonds.json`]: records.bonds,
+      'bands.json': [{ bandId: 'band_amiya', iconId: 'icon_amiya' }], 'bonds.json': [],
+    };
+    const fetch = async (url) => {
+      const k = String(url).replace(/^\/data\//, '');
+      return Object.hasOwn(files, k) ? { ok: true, status: 200, json: async () => files[k] } : { ok: false, status: 404, json: async () => ({}) };
+    };
+    const store = createDataStore({ fetch, timeoutMs: 0 });
+    const told = [];
+    store.subscribe((n) => told.push(n));
+    await store.loadAll('assets', 'bands', 'bonds');
+    assert.ok(store.get('assets') === base, '盟约 reads the file');
+    await store.setSeason(S);
+    assert.equal(store.get('assets').bands.band_survive, undefined, 'no extract loaded yet');
+    told.length = 0;
+    await store.load('local');
+    assert.ok(told.includes('assets'), "the extract's arrival re-renders the art readers");
+    assert.equal(store.get('assets').bands.band_survive, '/s/band/icon_gvial2.png');
+    assert.ok(store.get('assets') === store.get('assets'), 'built once per input');
+    assert.ok(store.getRaw('assets') === base);
+    told.length = 0;
+    await store.setSeason('act2autochess');
+    assert.ok(told.includes('assets'));
+    assert.ok(store.get('assets') === base);
+  });
+});
+
+describe("阿米娅's 医疗 form: a body with its E2 art alone", () => {
+  const m = { chars: { char_1037_amiya3: { avatarE2: '/a/amiya3_2.png', portraitE2: '/p/amiya3_2.png' } } };
+  const rec = (golden) => ({
+    charId: 'char_002_amiya', tmplId: 'char_1037_amiya3', isGolden: golden,
+    assets: { avatar: golden ? 'char_1037_amiya3_2' : 'char_1037_amiya3', portrait: `char_1037_amiya3_${golden ? 2 : 1}` },
+  });
+
+  test('draws that art at every level, the card as the body', async () => {
+    const { chessAvatarUrl, chessPortraitUrl } = await import('../../public/js/ui/assetUrls.js');
+    for (const golden of [false, true]) {
+      assert.equal(chessAvatarUrl(m, rec(golden)), '/a/amiya3_2.png', `avatar golden=${golden}`);
+      assert.equal(chessPortraitUrl(m, rec(golden)), '/p/amiya3_2.png', `portrait golden=${golden}`);
+    }
+    const { data } = await import('../../public/js/data.js');
+    await data.load('local');
+    const { cardArt } = await import('../../public/js/ui/detailArt.js');
+    local = { version: 1, groups: { chararts: { char_1037_amiya3: { path: '/c/amiya3.webp', w: 1, h: 1, kind: 'Illust', frame: { x: 0, y: 0, w: 1, h: 1 } } } } };
+    await data.invalidate('local'); await data.load('local');
+    assert.equal(cardArt(m, rec(false)).src, '/c/amiya3.webp', "the card's 立绘 is the body's");
+  });
+});
