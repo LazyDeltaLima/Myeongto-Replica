@@ -6,13 +6,14 @@
 // reuses an id with other buffs shows up (`wrong` lists the handler keys that run on a record without their buff).
 // Battle side: the tables the handler files export; prep side: the season's registry (server/match/effectsMeta.js
 // registryFor(data) — passed in, the sim does not import the match). Used by tools/season-coverage.mjs and
-// test/content/coverage.test.js. Node only (it reads handler sources to find the buff keys item handlers ask for).
+// test/content/coverage.test.js. Node only (it reads the prep handlers' sources to find the buff keys they ask for).
 //
 //   bonds      a buff's template is its bbStr.key, else its key; sub-keys (`…[enemy]`, `…[share]`, `…[tile_listener]`)
 //              belong to their parent template, `…_power` is a template of its own. BOND_TEMPLATES below lists what
 //              the bond files (bonds/dispatch.js) and the match engine handle, for which bonds
-//   items      battle runes (env_gbuff_new*, char_dynamic_ability_new) by bbStr.key: items/battle.js stat buffs,
-//              behaviour buffs, the hammers, or the item-keyed behaviour that asks for that key; the other buffs (prep)
+//   items      battle runes (env_gbuff_new*, char_dynamic_ability_new) by bbStr.key: items/battle.js stat buffs, the
+//              buff-key behaviours (items/effects/*.js), the hammers, or an item-keyed behaviour that reads that key
+//              (items/battle.js HANDLED.byItem lists what each reads); the other buffs (prep)
 //              by key: a built-in buff-key handler (server/match/builtinMeta.js) or the item's registered content
 //              handler that asks for that key (items/meta.js buffP)
 //   garrisons  IN_BATTLE: garrisons/battle.js BATTLE_GARRISON_KEYS, and the option values it reads (GARRISON_OPTIONS);
@@ -40,15 +41,11 @@ export const BOND_TEMPLATES = Object.freeze({
 
 const RUNE_KEYS = new Set(['env_gbuff_new', 'env_gbuff_new_with_verify', 'char_dynamic_ability_new']);
 
-/** The buff-key literals `fn`'s source asks a record for through `call` (items: `bp(rec, …)`, prep: `buffP(ctx, x, …)`). */
-function askedKeys(fn, call, constants = {}) {
+/** The buff-key literals `fn`'s source asks an item record for through `buffP(ctx, x, …)` (the prep handlers). */
+function askedKeys(fn) {
   const src = typeof fn === 'function' ? Function.prototype.toString.call(fn) : '';
-  const re = call === 'bp' ? /\bbp\(\s*rec\s*,\s*(?:'([^']+)'|([A-Z_][A-Z0-9_]*))\s*\)/g : /\bbuffP\(\s*ctx\s*,[^,()]*(?:\([^()]*\))?[^,()]*,\s*'([^']+)'\s*\)/g;
   const out = new Set();
-  for (const m of src.matchAll(re)) {
-    const k = m[1] ?? constants[m[2]];
-    if (k) out.add(k);
-  }
+  for (const m of src.matchAll(/\bbuffP\(\s*ctx\s*,[^,()]*(?:\([^()]*\))?[^,()]*,\s*'([^']+)'\s*\)/g)) out.add(m[1]);
   return out;
 }
 
@@ -56,7 +53,7 @@ function askedKeys(fn, call, constants = {}) {
 function prepAsked(handler) {
   const out = new Set();
   if (!handler || typeof handler !== 'object') return out;
-  for (const fn of Object.values(handler)) for (const k of askedKeys(fn, 'buffP')) out.add(k);
+  for (const fn of Object.values(handler)) for (const k of askedKeys(fn)) out.add(k);
   return out;
 }
 
@@ -107,7 +104,7 @@ function itemRows(data, { registry, builtinItemBuffKeys }) {
   }
   for (const [key, e] of byKey) {
     const byItem = ITEM_BATTLE.byItem[key];
-    const battleAsked = byItem ? askedKeys(byItem, 'bp', ITEM_BATTLE.constants) : new Set();
+    const battleAsked = new Set(byItem ?? []);
     const hammer = ITEM_BATTLE.hammerOf(key, data);
     const handler = registry ? registry.get(`item:${key}`) : null;
     const prepAsk = prepAsked(handler);

@@ -66,7 +66,7 @@ test('another season\'s data: new templates, buff keys and option values show up
     preciShip: retag(b.preciShip, 'act1autochess_bond_eff_preci', 'act9autochess_bond_eff_preci'),
     visiShip: { ...b.visiShip, buffs: [...b.visiShip.buffs, { key: 'bond_new_prep_rule', bb: { discount: 1 } }] },
   };
-  // 紧急调度券 (a content prep handler) and 天马之枪 (an item-keyed battle behaviour) keep their ids with other buffs
+  // 紧急调度券 (a content prep handler) and 天马之枪 (a battle behaviour of its buff key) keep their ids with other buffs
   const items = { ...it };
   for (const id of ['chess_item_2_02_e_a', 'chess_item_2_02_e_b']) items[id] = retag(it[id], 'use_equip_reward_random_char_chess_in_shop', 'use_equip_take_shop');
   for (const id of ['chess_item_6_01_e_a', 'chess_item_6_01_e_b'].filter((x) => it[x])) items[id] = retag(it[id], 'act2autochess_equip_acarm117_global_buff', 'act9autochess_equip_acarm999_global_buff');
@@ -88,9 +88,10 @@ test('another season\'s data: new templates, buff keys and option values show up
   const take = find(rep.items, 'chess_item_2_02_e', 'use_equip_take_shop');
   assert.equal(take?.status, 'none');
   assert.ok(take.wrong.some((w) => w.includes('use_equip_reward_random_char_chess_in_shop')), take.wrong.join('; '));
+  // the battle side runs by buff key: the id keeps nothing of 天马之枪, so nothing runs on the record (no `wrong`)
   const pegasus = find(rep.items, 'chess_item_6_01_e', 'act9autochess_equip_acarm999_global_buff');
   assert.equal(pegasus?.status, 'none');
-  assert.ok(pegasus.wrong.some((w) => w.includes('act2autochess_equip_acarm117_global_buff')), pegasus.wrong.join('; '));
+  assert.deepEqual(pegasus.wrong, []);
   assert.equal(find(rep.items, 'chess_item_6_01_e', 'attr_common_global_buff')?.status, 'ok', 'its stat buff still acts');
 
   const opt = find(rep.garrisons, layer.effectKey, 'IN_BATTLE');
@@ -100,7 +101,7 @@ test('another season\'s data: new templates, buff keys and option values show up
   const ev = find(rep.garrisons, 'SERVER_ADD_BOND_METHOD', 'SERVER_NEW_EVENT');
   assert.equal(ev?.status, 'none', 'a handler without a hook for its event type runs nothing');
 
-  assert.ok(rep.totals.items.wrong >= 2 && rep.totals.bonds.none >= 2 && rep.totals.garrisons.partial >= 1, JSON.stringify(rep.totals));
+  assert.ok(rep.totals.items.wrong >= 1 && rep.totals.bonds.none >= 2 && rep.totals.garrisons.partial >= 1, JSON.stringify(rep.totals));
 });
 
 test('the hidden season 规程: the report runs and finds its content still being built', () => {

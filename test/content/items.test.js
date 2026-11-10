@@ -8,6 +8,8 @@ import { makeMatch, give, giveItem, DATA, legalTileFor, checkInvariants as check
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { lendItemEffects, itemGrants, PRIO_REVIVE } from '../../server/sim/content/items/battle.js';
 import { unitBonds } from '../../server/sim/content/support/index.js';
+import { DataSource, getDefaultSource } from '../../server/sim/simdata.js';
+import { ACT3 } from '../helpers/seasonPieces.js';
 
 const QUIET = { warn() {}, error() {}, info() {} };
 const REG = createRegistry({ log: QUIET });
@@ -475,6 +477,21 @@ test('浓缩嗅盐: above 70 % / 40 % HP immune to stun, freeze, silence, levita
     h.b.loseHp(u, 2000 * (1 - thr) + 1);
     assert.equal(h.b.applyStatus(u, 'stun', { duration: 1 }), true, `${id}: at ≤ ${thr} HP the stun lands`);
     cover(id);
+  }
+});
+
+test('an item runs the behaviours of the buff keys it carries, whatever its id: 规程\'s 不退者之盾 / 不退者卫护系统 carry 浓缩嗅盐\'s buff (hp_ratio 0)', () => {
+  for (const id of ['chess_item_3_16_e_a', 'chess_item_6_06_e_a']) {
+    const rec = ACT3.items[id];
+    assert.ok(rec && rec.buffs.some((b) => b.bbStr?.key === 'act1autochess_equip_acarm059_global_buff'), `${id}: 规程's record carries the buff`);
+    assert.ok(!/4_10/.test(rec.handlerKey ?? id), `${id}: not 浓缩嗅盐's id or key`);
+    const data = new DataSource({ ...ACT3, chess: { ...ACT3.chess, t_op: op('t_op') }, enemies: { ...ACT3.enemies, e_d: DUMMY() } }, getDefaultSource());
+    const h = makeBattle({ data, units: [{ chessId: 't_op', row: 10, col: 4, items: [id] }], enemies: [], timeLimit: 999, autoFinish: false });
+    h.step(1);
+    const u = h.unit('t_op');
+    for (const k of ['stun', 'freeze', 'silence', 'levitate', 'sleep']) assert.equal(h.b.applyStatus(u, k, { duration: 1 }), false, `${id} ${k}`);
+    h.b.loseHp(u, 1999);
+    assert.equal(h.b.applyStatus(u, 'stun', { duration: 1 }), false, `${id}: hp_ratio 0 — immune at any HP left`);
   }
 });
 

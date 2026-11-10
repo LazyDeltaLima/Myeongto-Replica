@@ -588,7 +588,7 @@ upstream v0.2.4(`bc50cac0`)·그 뒤 PR과 새 이슈 중 관리자 결정(2026-
 ### 谢拉格不融冰(쉐라그 만년빙)은 모든 피해 출력에서 굴림 (GitHub #489)
 - 근거: 클라 버프 템플릿 `act1vautochess_acarm003_buff` = `ON_OUTPUT_DAMAGE` → `Dice(prob)` → `c2e_cold`(대상에게). 평타 이벤트가 아니라 피해 출력마다다.
   제보는 阿斯卡纶(선발 오퍼레이터) 재능의 초당 피해에 안 걸린다는 것. upstream은 아직 안 고침.
-- 동작: `items/battle.js chess_item_5_02_e`가 `onAttackEnemies`(평타 대상마다) 대신 `onDamageEnemies`(피해 한 번마다 — 평타·스킬·범위 피해의 대상마다·지속 피해,
+- 동작: `items/effects/status.js chess_item_5_02_e`가 `onAttackEnemies`(평타 대상마다) 대신 `onDamageEnemies`(피해 한 번마다 — 평타·스킬·범위 피해의 대상마다·지속 피해,
   元素损伤·아이템 발동 피해·처치타는 빼는 우리 공용 도우미, 催泪瓦斯·突袭手雷와 같음)로 굴린다. 확률·寒冷 시간(일반 12 % / 1.5 s, 고급 20 %)은 그대로.
   회피된 평타는 피해가 없으니 이제 안 굴림.
 - 테스트 `test/content/items.test.js`(「every damage instance procs」에 일반·고급 추가 — 평타 없이 스킬 범위 피해 두 번에 寒冷). golden은 이 장비를 든 전투가 움직임
@@ -977,7 +977,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - **炎 9명 炎佑 ATK ×1.5 = 전체 ATK**: `bond_eff_yan[long]`이 ATK FINAL_SCALER(`content/tokens.js spawnYanyou`의 [ASSUMED] 삭제).
 - **突袭手雷·催泪瓦斯·战栗维式重锤 = 모든 피해 출력**: `acarm064[core]` ON_OUTPUT_DAMAGE, `acarm058` ON_OUTPUT_MODIFIER `IsDamage` → Dice, `acarm045` ON_OUTPUT_DAMAGE `IsDamage`
   + `CheckBuildableType MELEE` → Dice — 스킬 피해·광역의 각 대상·지속 피해도(이전: 일반 공격 대상만). 원소 손상(게이지)·장비 발동 피해·막타는 뺌 [추정: 원소 손상은
-  `IsDamage` 아님]. `items/battle.js onDamageEnemies`. 테스트 `test/content/items.test.js` 「every damage instance procs」.
+  `IsDamage` 아님]. `items/shared.js onDamageEnemies`. 테스트 `test/content/items.test.js` 「every damage instance procs」.
 - **浓缩嗅盐 면역 목록**: `acarm059` `abnormalImmunes` FROZEN·SILENCED·STUNNED·LEVITATE + `abnormalComboImmunes` SLEEPING → 冻结·沉默·晕眩·浮空·睡眠(麻痹 빼고 沉默 넣음).
   모델 안 함 [추정]: 공식 면역은 버프라 HP가 70 % 위인 동안 이미 걸린 기절도 눌릴 수 있음(우리는 새로 걸리는 것만 막음).
 - **拉特兰桥夹**: `acarm057` ON_SKILL_START에 `triggered = 0`, ON_AFTER_ATTACK에서 스킬 중·`triggered == 0`·남은 탄 ≤ 1이면 먼저 `triggered = 1` 후 Dice → 성공 시
@@ -1016,7 +1016,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   그래프 읽기(bonds.md B9: 맹약이 안 켜진 팀원은 `eat_calculated`로 안 먹음)와 다르지만, 联防·보스 필드는 두 플레이어 구역 경계에 공격 지점·배치 불가 칸이 있어 팀원
   오퍼레이터가 에기르 멤버 앞 칸에 설 수 없으므로 결과가 같다(관리자 설명). 동작 변경 없음.
 - **黄沙罗盘 「첫 스킬 끝」 = 배치마다**: 클라 버프 템플릿 `act1autochess_acarm103_buff` ON_BUFF_START가 `has_used_skill`을 0으로, ON_SKILL_FINISH는 그 값이 0일 때만
-  萨尔贡 운반자에게 `sp`(그다음 1) → 재배치하면 다시 받는다(이전: 전투당 한 번). `items/battle.js` `doneSeq`(배치 번호). [추정] 기습 착지·【移动】도 새 배치로 봄.
+  萨尔贡 운반자에게 `sp`(그다음 1) → 재배치하면 다시 받는다(이전: 전투당 한 번). `items/effects/bond.js` `doneSeq`(배치 번호). [추정] 기습 착지·【移动】도 새 배치로 봄.
   테스트 `test/content/items.test.js` 「黄沙罗盘」.
 - **炎国短刀·有限加速器 = 이 시즌 장비, 쌓임은 배치마다** (2026-10-25, 묶음 U): 이 시즌 활동 표 `eff_acarm040`·`eff_acarm052`(`env_gbuff_new_with_verify`)가 다른 모드
   이름의 전역 버프 `act1vautochess_equip_acarm024_global_buff`·`…acarm037_global_buff`를 붙인다(이름만 다른 모드). 두 전역 버프의 셈(`buff_cnt` 0)은 버프 자신의
@@ -1032,7 +1032,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     이번에 단 叙拉古 6 진실 피해·卡西米尔 [ex] 진실 피해 — 두 템플릿 피해 노드가 `_attackType` ADDITION; 다른 규칙은 이 태그를 보는 곳이 일반 공격뿐이라
     결과가 같다)와 장비 발동 피해(이 포크 규칙: 발동은 장비 발동을 다시 부르지 않음). 지속 피해(BUFF)는 셈. 원소 손상은 피해 출력이 아님.
     [추정] 무적·수면으로 막힌 대상에 낸 피해와 금지된 치료(禁疗 대상)는 셈하지 않음(우리 `hit`/`heal`이 그 전에 끊김). 템플릿의 `atk`는 이 시즌 0.
-  - 코드 `items/battle.js` `chess_item_3_04_e`·`chess_item_4_03_e`(`isAddition`, `ACCEL_STEP`), `bonds/nation/siracusa.js`·`kazimierz.js`(태그 둘). 이펙트는 rules/fx.md, 소리는
+  - 코드 `items/effects/stacks.js` `chess_item_3_04_e`·`chess_item_4_03_e`(`isAddition`, `ACCEL_STEP`), `bonds/nation/siracusa.js`·`kazimierz.js`(태그 둘). 이펙트는 rules/fx.md, 소리는
     rules/audio.md 「버프·커스텀 트리거 소리」. 테스트 `test/content/items.test.js` 「炎国短刀」·「有限加速器」. golden: 두 장비를 든 전투(로스터 14·맹약 4·필드 12·
     매치 9·스탠드인 2).
 - **맹약·장비·전략 템플릿 이펙트 — 관리자 결정 2026-10-11 「넣음」**: 템플릿 그래프의 `CreateEffect`·`CreateEffectAtScreenPos` 노드가 도는 순간 상태 이벤트
@@ -1105,7 +1105,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   `BuffContainer.Clear`로 **지속 버프(`isDurableBuff`)까지** 모두 지우고 능력도 지운다 — 지속 버프를 남기는 것은 `ClearWithWhiteList`뿐이고 그 호출처는 가짜
   죽음(`Unit.DoFakeDeath`, 부활)·`ClearAllBuffs` 노드·`RallyPoint.SwitchCategory` → **재배치마다 0부터 다시 셈**(이전: 이어 셈). 【移动】은 이어 셈(지금
   규칙: 버프 유지 — 공식에서 버프가 다시 시작하는지는 묶음 라). `garrisons/battle.js`, 테스트 `garrisons_battle.test.js` 「consume_ammo」 셋.
-- **시라쿠사 정장(장비 `chess_item_3_01_e`)** `act2autochess_equip_acarm121_ability`는 템플릿이 아니라 동적 능력 프리팹(2026-10-31 대조): 오라 능력, 범위 `0-2`(방향으로 돌린 좌우 두 칸 + 자기 칸), `_selfOption` EXCLUDE(자신 제외), 검사기는 오퍼레이터만(소환물 제외)·은신도 받음, 버프는 범위 안에 있는 동안 공격 속도 +`attack_speed` → 지금 구현(`items/battle.js`, 좌우 두 칸의 오퍼레이터)과 같음 — 코드 변경 없음. [추정·엔진: 오라를 다시 보는 간격 — 우리는 0.5초마다 0.6초 버프]
+- **시라쿠사 정장(장비 `chess_item_3_01_e`)** `act2autochess_equip_acarm121_ability`는 템플릿이 아니라 동적 능력 프리팹(2026-10-31 대조): 오라 능력, 범위 `0-2`(방향으로 돌린 좌우 두 칸 + 자기 칸), `_selfOption` EXCLUDE(자신 제외), 검사기는 오퍼레이터만(소환물 제외)·은신도 받음, 버프는 범위 안에 있는 동안 공격 속도 +`attack_speed` → 지금 구현(`items/effects/bond.js`, 좌우 두 칸의 오퍼레이터)과 같음 — 코드 변경 없음. [추정·엔진: 오라를 다시 보는 간격 — 우리는 0.5초마다 0.6초 버프]
 - 테스트: `test/content/bonds_core.test.js` 「叙拉古 6: the PRD count is one for the battle」·「卡西米尔 6」, `bonds_addon.test.js` 「奥术 with two players」·「绝技」,
   `items.test.js` 「伪装服」·「休眠子裔」·「卡西米尔竞技旗」·「天马之盔 + 天马之枪」·「海沟实验体」·「耶拉冈德之泪」·「骑士戒律」·「家族徽章」, `garrisons_battle.test.js`
   「consume_ammo」.
@@ -2345,7 +2345,7 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 - 규칙: 페가수스의 랜스(아이템 `chess_item_6_01_e`)를 페가수스의 투구(`chess_item_5_09_e`)와 같이 들면, 그 오퍼레이터가 주는 부가 피해가 아닌 피해 한 번마다 그 피해의
   `atk_scale`(30 %)만큼 트루 대미지를 더 준다. 기준은 공격 배율까지 곱하고 방어·마법 저항과 피해 판정 효과(주는·받는 피해 배율)를 넣기 전의 값(`hit` 훅의 `dmg.amount`)이다.
   추가 피해는 무출처(`sourceless`, 처치·통계는 `credit`으로 그 오퍼레이터)이고 부가 피해(`addition` 태그)라서 다시 랜스를 부르지 않는다. 원래 피해보다 먼저 들어가므로
-  그것만으로 적을 쓰러뜨리면 원래 피해는 들어가지 않는다(`server/sim/content/items/battle.js`). 붙은 드론처럼 부가 피해로 치는 공격분에는 붙지 않는다.
+  그것만으로 적을 쓰러뜨리면 원래 피해는 들어가지 않는다(`server/sim/content/items/effects/bond.js`). 붙은 드론처럼 부가 피해로 치는 공격분에는 붙지 않는다.
   전에는 `damaged` 뒤에 공격력 × 30 %를 그 오퍼레이터 출처로 모든 피해(아이템 효과 피해만 빼고)에 붙였다.
 - 무에나(오퍼레이터) 스킬의 「자기 일반 공격(과 그 공격에 딸린 피해)으로 쓰러뜨림」은 공격이 맞은 대상을 `hit` 때도 잡는다. 랜스 피해가 먼저 쓰러뜨려도 그의
   처치로 센다(`kits/ops/chess_char_5_19-mlynar.js ownKills`).
@@ -2879,10 +2879,10 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
   10초 무공격 경로는 뛰기 전 비율(`AssignCurSpToBB`)을 더해 SP 유지(PRTS 「保留技力」) — 시뮬 `keepSp`와 같음. 코드 변경 없음.
 - **`CheckDistance`**: 두 대상의 맵 위치 사이 유클리드 거리, `d² ≤ r²`면 참(경계 포함; `_checkCertainPosition`이면 블랙보드 행·열과 맨해튼 거리).
   정밀 조준경(精准狙击镜, `act1autochess_acarm063_buff`)은 `CheckDistance radius 3` → `IfNot` → `DamageScale`이라 **정확히 3칸인 적은 보너스 없음**,
-  3칸 넘는 적만 ×`damage_scale`(설명은 「3格及以上」). 2026-10-31부터 시뮬도 `> radius`(전: `≥ radius`). `items/battle.js chess_item_3_02_e`.
+  3칸 넘는 적만 ×`damage_scale`(설명은 「3格及以上」). 2026-10-31부터 시뮬도 `> radius`(전: `≥ radius`). `items/effects/damage.js chess_item_3_02_e`.
 - **`AutoChessAssignSameBondCharacterCntToBB`**: 주인과 같은 플레이어의, 전투 중인 캐릭터 말 가운데 맹약이 하나라도 겹치는 수(주인 포함). 주인에게
   맹약이 없으면 0. 신속 전투식량(迅捷作战粮, `act1autochess_acarm051_buff` ON_OWNER_LOCATE: SP = `sp_each_person` × 그 수)은 시뮬의 `each × (1 + 겹치는
-  다른 오퍼레이터)`와 같고, **맹약 없는 오퍼레이터는 0**(전: `each`). `items/battle.js chess_item_3_05_e`.
+  다른 오퍼레이터)`와 같고, **맹약 없는 오퍼레이터는 0**(전: `each`). `items/effects/resource.js chess_item_3_05_e`.
 - **`AutoChessAssignGatheredAttributeToBlackboard`**: 필드의 모든 캐릭터(유닛 관리자 목록, 주인 플레이어로 거르지 않음) 가운데 `_filterByBondIds`가
   하나라도 겹치는 캐릭터의 속성 지금 값의 합 × 블랙보드[_scaleKey](없으면 `_scale`). 염의 가호(炎佑, 소환물 `enemy_9012_acloon`; `acloon_gather_attribute`, ON_BUFF_START, `scale_attribute`
   0.3, FINAL_ADDITION)는 **2인 필드에서 짝의 炎 오퍼레이터까지 더한다**(전: 부른 플레이어의 것만). `bonds/nation/yan.js installYan`.
@@ -3016,3 +3016,10 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 - **쉐라그 100층마다 쉐라그 만년빙**: 빅토리아 해머와 같은 지급(`bonds/templates.js payHammers`, `bond_layer_added_reward_equip`, 맹약이 켜져 있을 때·밀린 것은 켜지는 즉시). 보상 풀 `pool_equip_kjeragbond2`는 표에 없어(서버 쪽) 생성기가 그 시즌의 쉐라그 만년빙 하나로 만든다(`tools/build-data.mjs`, [추정·서버]).
 - **아직**(묶음 sim-K): 쉐라그 6명 설산 거인, 카시미어 6명 정비 구역 교대, 라테라노 빠짐의 맹약 줄.
 - 시험: `test/content/bonds_act3.test.js`(맹약마다 수치·6명 효과, 아케인 3명 은신 무효, 사르곤 6명 모래 늪, 임시 중첩의 실제 대전 정산, 쉐라그 만년빙, 예견 두 단계 할인, 기적 같은 티어 보장, 라이타니엔 소환·걷는 소환물·한 악부).
+
+## 장비 전투 효과는 아이템 ID가 아니라 버프 키로 (2026-11-11)
+
+- 전투 쪽 장비 효과는 장비 기록이 가진 버프의 공식 키(`bbStr.key`)로 고른다: 스탯 버프, 버프 키마다의 동작(`server/sim/content/items/effects/*.js`, 계열마다 한 파일), 해머, 그리고 아이템 ID에 묶인 셋(듀얼 모드 기계팔은 수치가 없고, 증기의 마음·기사 계율은 버프 둘을 읽음 — `items/battle.js` `BY_ITEM`). 규정(`act3autochess`)은 지난 시즌의 아이템 ID를 다른 아이템에 다시 쓰므로(`handlerKey`), ID로 고르면 같은 버프를 가진 다른 ID의 아이템은 효과를 못 받았다.
+- 바뀐 것(규정만, 기본 시즌은 그대로): 규정의 不退者之盾(`chess_item_3_16_e`, 공식 한국어 이름 없음 — 「물러서지 않는 자의 방패」)과 不退者卫护系统(`chess_item_6_06_e`, 공식 한국어 이름 없음 — 「물러서지 않는 자의 방호 체계」)이 농축 스멜링 솔트의 버프 `act1autochess_equip_acarm059_global_buff`(`hp_ratio` 0)를 가지고 있어, 남은 HP와 상관없이 기절·빙결 같은 특수 상태에 면역이 된다(설명 「免疫晕眩、冻结等特殊状态」과 같다. 전에는 효과 없음).
+- 한 기록 안의 순서: 스탯 버프와 앞 단계 동작(버프 순서대로) → 해머 → 뒤 단계 동작(버프 순서대로) → 아이템 ID 동작. 뒤 단계 24개는 전에 아이템 ID로 돌던 것이라 훅 순서와 고정 시드 전투가 그대로다(기본 시즌 golden 그대로).
+- 확인: `test/content/items.test.js` 「an item runs the behaviours of the buff keys it carries, whatever its id」(옛 코드에서 실패 확인), `node tools/season-coverage.mjs act3autochess`(장비 `wrong` 4 → 2: 페가수스의 투구·랜스 ID를 다시 쓰는 규정 장비에는 그 버프가 없어 이제 아무것도 돌지 않음), golden `act3-roster` 한 판(`roster-055`: 不退者之盾을 든 오퍼레이터가 빙결을 막음)만 바뀜 — 이 두 장비를 든 다른 판에는 막을 상태가 오지 않음.
