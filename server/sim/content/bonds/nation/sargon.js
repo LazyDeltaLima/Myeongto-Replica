@@ -109,7 +109,7 @@ function sandTile(battle, unit, taken) {
     if (taken.has(k)) continue;
     const r = Math.floor(k / COLS), c = k % COLS;
     if (!battle.grid.walkable(r, c)) continue;
-    const d = (r - unit.tileR) ** 2 + (c - unit.tileC) ** 2;
+    const dr = r - unit.tileR, dc = c - unit.tileC, d = dr * dr + dc * dc;
     if (d < bestD - 1e-9) { best = k; bestD = d; }
   }
   return best;
