@@ -167,13 +167,19 @@ export function hudArt() {
 
 /**
  * The official disc board of a bond slot (`--bb`, and `data-full` when the top tier is reached: its icon turns black).
+ * A later season with its own UI theme draws the theme's boards (`seasonBondBoard/<max>_<n>`, n = 0 too: the
+ * extract composes bond_icon_view_item's layers, tools/local-extract/season_ui.py): one 75-unit picture per state in
+ * the 80-unit board, `--bb-sz` 93.75 % (the EN rings are tight 65-unit textures, the CSS default 84.2 %).
  * @param {number} maxTier the bond's tier count (thresholds) @param {number} tier the reached tier (0 = inactive)
  * @returns {{ style: string, full: boolean }}
  */
 export function bondBoardStyle(maxTier, tier) {
   const max = Math.max(1, Math.min(4, Math.trunc(Number(maxTier)) || 1));
   const t = Math.max(0, Math.min(max, Math.trunc(Number(tier)) || 0));
-  const u = uiUrl(data.get('assets'), t > 0 ? `bondBoardIcon/${max}_${t}` : 'bondBoardIcon/1_0');
+  const m = data.get('assets');
+  const theme = uiUrl(m, `seasonBondBoard/${max}_${t}`);
+  if (theme) return { style: `--bb:url("${theme}");--bb-sz:93.75%`, full: t > 0 && t === max };
+  const u = uiUrl(m, t > 0 ? `bondBoardIcon/${max}_${t}` : 'bondBoardIcon/1_0');
   return { style: u ? `--bb:url("${u}")` : '', full: t > 0 && t === max };
 }
 

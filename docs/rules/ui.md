@@ -2111,6 +2111,24 @@ upstream 0.3.3(`dev` eff7d93ab)의 공식 느낌 화면을 손으로 이식한�
 - **로딩 그림**: 규정 모드의 `loading_ac_normal`·`loading_ac_funny`는 맹약의 `loading_ac_core`·`loading_ac_prototype`과 픽셀이 같은 그림이라 그 파일을 쓴다(`ui/battleArt.js LOADING_SAME`; `hard`·`abyss`는 이름도 같음). 공식 CN 클라 로딩 그림 번들에서 확인(2026-11-08).
 - **아이콘**(관리자 결정 2026-11-08 「새 훈장·아이콘은 새 시즌에만」): 규정 화면은 같은 추출의 시즌 아이콘을 맹약 그림 위에 쓴다 — 전략·맹약은 이 시즌 기록의 `iconId`로(규정은 전략 아이콘 이름이 전략 ID에서 나오지 않음, 예: `band_survive` → `icon_gvial2`), 장비는 기물(trap) ID로, 그리고 훈장(1~8단계 — 6~8은 규정에만)·적 종류·버프·특질 종류·상점/기물 단계 그림(`public/js/data.js`가 시즌 판의 `data.get('assets')`를 `ui/assetUrls.js withSeasonArt`로 만든다; 맹약 판은 파일 그대로). 규정의 모드 문양(흰색, 더 큼)과 맹약 원판 고리(조각 그림, 기본 테마가 그림)는 모양이 달라 덧씌우지 않는다 — 그 화면을 새 프리팹으로 다시 그릴 때(협의 선택 창·HUD 테마).
 - **아미야 의료 형태**: 몸 `char_1037_amiya3`은 E2 그림만 있다(형태가 E2부터) — 아바타·초상은 정예화와 관계없이 그 E2 그림, 카드 립화는 몸(`tmplId`)의 것을 쓴다.
+- **기본 테마 상점·HUD**(관리자 결정 2026-11-10, 시안대로 — 「크기·그림을 새 시즌에만」 2026-11-08): 규정 판은 기본 테마 `ac_n_initial`(activity_table
+  `skinConsts.defaultAutoChessSkinId`)의 그림과 프리팹 크기로 그린다. 테마 번들의 프리팹 14개 중 우리 화면에 닿는 차이는 셋 — 나머지(HUD 판·카운트다운·
+  준비 완료·배너 넷)는 배치·그림이 EN과 같다.
+  - 상점(`panel_shop_main`·`autochess_shop_card_item`, `ui/shopArt.js` `has-shop-theme`·css/shop-art.css 끝 절): 카드 155×187(테두리 155×191,
+    바탕 `bg_black`, 무늬 없음), 초상 112×224를 카드 오른쪽 위로 9.5·29.5 넘겨 놓고 `root_char`의 소프트 마스크(`mask_char` 빨강 채널)로 흐림, 특질
+    물자국 70·α 0.2(`skinColorDataDict.garrisonIconColor`), 티어 칩 26, 이름 줄 25 위·직군 아이콘 24, 갱신·동결 144×49(그림 168×72), 접기 상자
+    192×213(자금 120×47이 상자 안 위쪽), 승급 칸 112×188. 테두리는 테마도 단계로(`chess_frame_hub`: normal·level_five·level_six — 「상점 화면」 카드 테두리).
+    테마의 `level`은 접힌 상점의 LEVEL 칸이라 승급 칸에 쓰지 않는다.
+  - 티어 칩은 화면 어디서나 시즌 것(`chessLevelSprite/chess_level_icon_N`, 테마의 `chess_level_icon_hub` — EN과 픽셀이 조금 다름).
+  - 🔍 단추: CN `autochess_hud_panel`의 `btn_check_player`·`btn_check_enemy`는 받침(`bg_check_btn`) 없이 `img_normal` 73×41(6 아래)에 테마 그림
+    (`skin_config` `img_check_player`·`img_check_enemy`)만 — 테마에 그림이 있는 평소 상태만 그렇고, 돌아가기·회색 상태는 지금 그림(`ui/hud.js` `checkSprite`).
+  - 맹약 원판(`bond_icon_view_item`): `bg_active`(활성)/`bg_inactive` 위에 모든 칸 고리(`bg_total`, #a1a1a1 α 0.8)와 켜진 칸(`bg_actual`)을 흰 조각
+    `bondboardicon/<칸>_<켜진 수>`로 겹친다 — 추출이 상태마다 한 장으로 합성(`season/<id>/bondboard/<칸>_<n>`, n = 0 포함), 80 판에 93.75 %.
+    켜진 칸 색은 테마 표의 `skinLightColor` #00FFC4 [추정·CN: 실행 중 색을 고르는 코드가 CN 전용이라 확인 못 함].
+  - 추출: 테마 스프라이트는 텍스처를 꽉 잘라 담은 것이 있어(`shop_level_*`·`bg_inactive` 등 10장, `bondboardicon` 10장) 스프라이트 사각형 크기로 되돌려
+    저장한다(`textureRectOffset`). 다른 아이콘 폴더는 그대로(맹약 문양 크기 계산이 잘린 텍스처 크기를 쓴다).
+  - 안 그린 것: 접힌 상점의 테마 그림(공식 `bg_open`·LEVEL 칸·Spine — 우리 접힌 상점은 두 시즌 모두 원본 CSS 탭), 끌어서 팔기 판(`img_sell_*`, 우리
+    게임에 없음), 새 HUD 단추 `btn_check_buff`·아바타의 연승·보스 피해 순위 표시(새 시즌 기능).
 - 확인: `test/ui/season-art.test.js`(맹약은 안 씀, 추출 없으면 null, 한국어 로고 고르기, 로딩 그림 잇기, 암전 시간, 전체 추출이 시즌 그룹을 남김, 시즌 아이콘 덧씌우기와 데이터 저장소의 다시 알림, 아미야 의료 형태 그림). Windows Chrome(로컬 서버, 2026-11-08): 1600×900 한국어·중국어, 휴대폰 터치 844×390·740×360 — 타이틀·허브, 탭 전환 중 막의 투명도를 프레임마다 잼(0.37 s에 1, 0.45 s 뒤 0). 2026-11-10: 규정을 고른 페이지에서 전략 61·맹약 26·장비 116개 아이콘과 훈장 1~8이 모두 받아짐.
 
 ## upstream 0.3.3 화면 가져오기 — S.W.E.E.P. 보고서 (관리자 결정 2026-11-07)

@@ -186,12 +186,14 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 export const roman = (n) => ROMAN[n | 0] || '';
 
 /**
- * Official tier chip sprite URL (web manifest `shopCard/img_chess_level_N`, else the local-client
+ * Official tier chip sprite URL (a later season's own `chessLevelSprite/chess_level_icon_N` — 规程 redrew them, its
+ * theme's chess_level_icon_hub; else the web manifest `shopCard/img_chess_level_N`, else the local-client
  * `ui/battle/img_chess_level_N`), or null (CSS fallback).
  * @param {number} t 1..6
  */
 export function tierChipUrl(t) {
-  return uiUrl(data.get('assets'), `shopCard/img_chess_level_${t}`) || localAsset('ui/battle', `img_chess_level_${t}`);
+  const m = data.get('assets');
+  return uiUrl(m, `chessLevelSprite/chess_level_icon_${t}`) || uiUrl(m, `shopCard/img_chess_level_${t}`) || localAsset('ui/battle', `img_chess_level_${t}`);
 }
 
 /**

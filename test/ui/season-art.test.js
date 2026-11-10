@@ -201,3 +201,75 @@ describe("the title's season tabs show each season's picture (maintainer decisio
     assert.match(src, /const art = arts\.every\(Boolean\);/, 'all tabs or none');
   });
 });
+
+describe("规程's default UI theme in its shop and HUD (maintainer decision 2026-11-10: its sizes and art, that season only)", () => {
+  const skin = {};
+  for (const n of ['chess_frame_normal', 'chess_frame_level_five', 'chess_frame_level_six', 'bg_close', 'refresh_bg_normal', 'bg_black', 'level', 'mask_char', 'btn_check_enemy']) skin[n] = entry(`/s/skin/${n}.png`);
+  const groups = {
+    [`season/${S}/skin`]: skin,
+    [`season/${S}/bondboard`]: { '3_0': entry('/s/bb/3_0.png'), '3_2': entry('/s/bb/3_2.png'), '3_3': entry('/s/bb/3_3.png') },
+    [`season/${S}/chesslevelsprite`]: { chess_level_icon_5: entry('/s/lv/5.png') },
+  };
+  const base = { ui: {
+    'shopCard/frame_lv1': '/en/f1.png', 'shopCard/frame_lv2': '/en/f2.png', 'shopCard/frame_lv3': '/en/f3.png', 'shopCard/bg_black': '/en/black.png',
+    'shopPanel/bg_close': '/en/close.png', 'shopPanel/refresh_bg_normal': '/en/refresh.png', 'shopPanel/level': '/en/level.png',
+    'shopCard/img_chess_level_5': '/en/lv5.png', 'bondBoardIcon/3_2': '/en/3_2.png', 'bondBoardIcon/1_0': '/en/1_0.png',
+  } };
+  const withData = async (m, fn) => {
+    const { data } = await import('../../public/js/data.js');
+    const get = data.get;
+    data.get = (n) => (n === 'assets' ? m : n === 'local' ? { groups: {} } : get.call(data, n));
+    try { await fn(); } finally { data.get = get; }
+  };
+
+  test('the season view carries the theme sprites and the composed bond boards', async () => {
+    const { withSeasonArt, uiUrl } = await import('../../public/js/ui/assetUrls.js');
+    const m = withSeasonArt(base, { groups }, S);
+    assert.equal(uiUrl(m, 'seasonSkin/chess_frame_normal'), '/s/skin/chess_frame_normal.png');
+    assert.equal(uiUrl(m, 'seasonBondBoard/3_0'), '/s/bb/3_0.png');
+    assert.equal(uiUrl(base, 'seasonSkin/chess_frame_normal'), null, '盟约 has none');
+  });
+
+  test('the shop takes the theme frames (by tier), its sprites by name and has-shop-theme; 盟约 stays on its own', async () => {
+    const { withSeasonArt } = await import('../../public/js/ui/assetUrls.js');
+    const { shopArt } = await import('../../public/js/ui/shopArt.js');
+    await withData(withSeasonArt(base, { groups }, S), async () => {
+      const a = shopArt();
+      assert.match(a.cls, /has-shop-art/);
+      assert.match(a.cls, /has-shop-theme/);
+      assert.match(a.style, /--sa-card-frame1:url\("\/s\/skin\/chess_frame_normal\.png"\)/);
+      assert.match(a.style, /--sa-card-frame2:url\("\/s\/skin\/chess_frame_level_five\.png"\)/);
+      assert.match(a.style, /--sa-card-frame3:url\("\/s\/skin\/chess_frame_level_six\.png"\)/);
+      assert.match(a.style, /--sa-card-black:url\("\/s\/skin\/bg_black\.png"\)/);
+      assert.match(a.style, /--sa-card-mask:url\("\/s\/skin\/mask_char\.png"\)/);
+      assert.match(a.style, /--sa-up-level:url\("\/en\/level\.png"\)/, "the theme's `level` is another sprite");
+    });
+    await withData(base, async () => {
+      const a = shopArt();
+      assert.doesNotMatch(a.cls, /has-shop-theme/);
+      assert.match(a.style, /--sa-card-frame1:url\("\/en\/f1\.png"\)/);
+      assert.doesNotMatch(a.style, /--sa-card-mask/);
+    });
+  });
+
+  test("tier chips, bond boards and the 🔍 buttons take the season's own where it has them", async () => {
+    const { withSeasonArt } = await import('../../public/js/ui/assetUrls.js');
+    const { tierChipUrl } = await import('../../public/js/ui/components.js');
+    const { bondBoardStyle } = await import('../../public/js/ui/hudArt.js');
+    const { checkSprite } = await import('../../public/js/ui/hud.js');
+    await withData(withSeasonArt(base, { groups }, S), async () => {
+      assert.equal(tierChipUrl(5), '/s/lv/5.png');
+      assert.deepEqual(bondBoardStyle(3, 2), { style: '--bb:url("/s/bb/3_2.png");--bb-sz:93.75%', full: false });
+      assert.deepEqual(bondBoardStyle(3, 0), { style: '--bb:url("/s/bb/3_0.png");--bb-sz:93.75%', full: false }, 'its unlit board keeps the segments');
+      assert.equal(bondBoardStyle(3, 3).full, true);
+      assert.deepEqual(checkSprite('btn_check_enemy'), { url: '/s/skin/btn_check_enemy.png', theme: true });
+      assert.equal(checkSprite('btn_check_player_back').theme, false, 'a state the theme lacks keeps its own');
+    });
+    await withData(base, async () => {
+      assert.equal(tierChipUrl(5), '/en/lv5.png');
+      assert.deepEqual(bondBoardStyle(3, 2), { style: '--bb:url("/en/3_2.png")', full: false });
+      assert.deepEqual(bondBoardStyle(3, 0), { style: '--bb:url("/en/1_0.png")', full: false });
+      assert.equal(checkSprite('btn_check_enemy').theme, false);
+    });
+  });
+});

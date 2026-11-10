@@ -17,7 +17,12 @@ id of shared/seasons.js:
                                   game that has Hangul, read from the EN client (SP_CLIENT); maintainer decision 2026-11-08
   season/<id>/<dir>/<sprite>      every sprite of the icon folders the season's tables point at (SEASONS[id]['icons']),
                                   by folder: one name can be in two folders with two pictures (modeicon / modeselecticon)
-  season/<id>/skin/<sprite>       the sprites of the season's default UI theme bundle (SEASONS[id]['skin'])
+  season/<id>/skin/<sprite>       the sprites of the season's default UI theme bundle (SEASONS[id]['skin']), each at its
+                                  sprite rect: a texture packed tight is put back where it sits in the rect
+  season/<id>/bondboard/<max>_<n> the bond disc boards as the theme's bond_icon_view_item lays them (SEASONS[id]
+                                  ['bondboard']): bg_active (all lit) or bg_inactive, the ring of every segment in grey
+                                  (bg_total) and the n lit segments in the theme's colour (bg_actual), from the white
+                                  ring pieces bondboardicon/<max>_<n> — one picture per state, n = 0…max
 
 into <out>/season/<id>/… and the groups `season/<id>/…` of data/local-assets.json (the other groups are kept; a full
 tools/local-extract/extract.py run keeps these). The page looks them up with localAsset('season/<id>/<group>', name).
@@ -60,6 +65,10 @@ SEASONS = {
         ],
         # activity_table autoChessData.skinConsts.defaultAutoChessSkinId
         'skin': 'ui/autochess/autochessvariantskin/[uc]ac_n_initial.ab',
+        # bond_icon_view_item of the theme: bg_total #a1a1a1 at 80 % (its prefab colour), bg_actual in the theme's
+        # skinColorDataDict skinLightColor #00FFC4 — the client sets that colour at run time, which field it reads is not
+        # known [ASSUMED·CN: CN-only logic sets it]
+        'bondboard': {'pieces': ('ui/autochess/[uc]autochessbattle.ab', 'bondboardicon'), 'total': (161, 161, 161, 0.8), 'actual': (0, 255, 196, 1.0)},
     },
 }
 # the official UI face with Hangul: a Font asset of the EN client's resources.assets
@@ -100,8 +109,49 @@ def sprites_by_name(env, names):
     return out
 
 
-def sprites_by_folder(env, folders):
-    """{folder: {name: image}} of the Sprites whose container path is …/arts/<folder>/<name>."""
+def full_rect(d):
+    """A Sprite's picture at its rect: the client packs some textures tight (the transparent margin cut away) and keeps
+    where they sit in the rect (m_RD.textureRectOffset, from the bottom left); UnityPy hands the tight texture."""
+    from PIL import Image
+    im = d.image.convert('RGBA')
+    w, h = round(d.m_Rect.width), round(d.m_Rect.height)
+    if (im.width, im.height) == (w, h):
+        return im
+    off = d.m_RD.textureRectOffset
+    canvas = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    canvas.alpha_composite(im, (round(off.x), round(h - off.y - im.height)))
+    return canvas
+
+
+def tinted(im, rgba):
+    """A white sprite in one colour (Unity's Image colour multiplies it)."""
+    from PIL import Image
+    r, g, b, a = rgba
+    out = Image.new('RGBA', im.size, (r, g, b, 255))
+    out.putalpha(im.getchannel('A').point(lambda v: round(v * a)))
+    return out
+
+
+def bond_boards(pieces, active, inactive, spec):
+    """{'<max>_<n>': image} for max 1…4 and n 0…max (n = max: the full, active disc)."""
+    from PIL import Image
+    out = {}
+    for mx in range(1, 5):
+        if f'{mx}_{mx}' not in pieces:
+            continue
+        for n in range(0, mx + 1):
+            bg = active if n == mx else inactive
+            board = Image.new('RGBA', bg.size, (0, 0, 0, 0))
+            board.alpha_composite(bg)
+            board.alpha_composite(tinted(pieces[f'{mx}_{mx}'], spec['total']))
+            if n:
+                board.alpha_composite(tinted(pieces[f'{mx}_{n}'], spec['actual']))
+            out[f'{mx}_{n}'] = board
+    return out
+
+
+def sprites_by_folder(env, folders, full=False):
+    """{folder: {name: image}} of the Sprites whose container path is …/arts/<folder>/<name> (`full`: at the rect)."""
     out = {}
     for path, obj in env.container.items():
         if obj.type.name != 'Sprite':
@@ -110,7 +160,7 @@ def sprites_by_folder(env, folders):
         if len(parts) < 3 or parts[-3] != 'arts' or parts[-2] not in folders:
             continue
         d = obj.read()
-        out.setdefault(parts[-2], {})[d.m_Name] = d.image.convert('RGBA')
+        out.setdefault(parts[-2], {})[d.m_Name] = full_rect(d) if full else d.image.convert('RGBA')
     return out
 
 
@@ -218,13 +268,18 @@ def main(argv=None):
                 save(folder, name, im)
     if spec.get('skin'):
         senv = load(game, spec['skin'])
-        seen = set()
+        skin = {}
         for o in senv.objects:
             if o.type.name == 'Sprite':
                 d = o.read()
-                if d.m_Name not in seen:
-                    seen.add(d.m_Name)
-                    save('skin', d.m_Name, d.image.convert('RGBA'))
+                if d.m_Name not in skin:
+                    skin[d.m_Name] = full_rect(d)
+                    save('skin', d.m_Name, skin[d.m_Name])
+        if spec.get('bondboard'):
+            rel, folder = spec['bondboard']['pieces']
+            pieces = sprites_by_folder(load(game, rel), {folder}, full=True).get(folder, {})
+            for name, im in sorted(bond_boards(pieces, skin['bg_active'], skin['bg_inactive'], spec['bondboard']).items()):
+                save('bondboard', name, im)
 
     man = Path(args.manifest)
     doc = {'version': 1, 'source': 'local-client', 'count': 0, 'groups': {}}

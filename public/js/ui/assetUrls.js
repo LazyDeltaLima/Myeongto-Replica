@@ -196,12 +196,15 @@ export function moduleTypeIconUrl(local, typeName) {
  * slot when its screens are up (maintainer decision 2026-11-08: the new medals and icons in the new season only); the
  * folders come out of the same autochess bundles as the EN ones, so a name means the same thing in both. Two folders
  * keep the EN art: `modeicon` (the 规程 glyphs are white and larger, tinted by its new 协议 choice view) and
- * `bondboardicon` (its bond ring comes in pieces, drawn by the default UI theme) — those screens are still drawn after
- * 盟约's prefabs.
+ * `bondboardicon` (its bond ring comes in white pieces: the extract composes them into `bondboard`, below) — those
+ * screens are still drawn after 盟约's prefabs.
  */
 export const SEASON_UI_FOLDERS = Object.freeze({
   garrisontypeicon: 'garrisonTypeIcon', medalicon: 'medalIcon', enemytypeicon: 'enemyTypeIcon', bufficon: 'buffIcon',
   shoplevelsprite: 'shopLevelSprite', chesslevelsprite: 'chessLevelSprite',
+  // the season's default UI theme (ac_n_initial for 规程; maintainer decision 2026-11-10): the shop and the 🔍 buttons
+  // (ui/shopArt.js, ui/hud.js), and the bond disc boards composed from its pieces (ui/hudArt.js bondBoardStyle)
+  skin: 'seasonSkin', bondboard: 'seasonBondBoard',
   // no screen of ours draws these yet (the season's 自选 level picker, 模式说明 titles, bond phase marks)
   diychooselevelsprite: 'diyChooseLevelSprite', modeinfotitle: 'modeInfoTitle', bondphaseicon: 'bondPhaseIcon',
 });
