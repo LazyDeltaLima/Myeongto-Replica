@@ -85,7 +85,7 @@ import { aggroCmp, areaSelectable } from '../targeting.js';
 import { compileRoute, attackWindup, enemyMode } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
 import {
-  ensureInstalled, abOf, attach, T, elem, hurt, targetsNear, allTargets, byPriority, areaAllies, areaAlliesInTiles, fieldAllies,
+  ensureInstalled, abOf, attach, T, elem, hurt, targetsNear, allTargets, byPriority, areaAllies, areaAlliesInTiles, fieldAllies, auraAllies,
   remainingRoute, stayRoute, stepToward, setHits, hitCount, setForm, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, shoot,
 } from './enemies.js';
 import { hypot, powi } from '../detmath.js';
@@ -2509,6 +2509,111 @@ function kitEel(ab, e) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// 矩兽 (规程 boss_17) — official client prefab enemy_2124_dyjsfg (battle/enm_pfb_28, the same in the EN and CN clients)
+// and its templates enemy_dyjsfg_t* in the buff table
+
+/** Talents/Huge: the passive buff enemy_dyjsfg_t `triggerInterval` 0.1 s — how often 【明力】 picks its damage reduction. */
+const JU_GUARD_CHECK = 0.1;
+/** enemy_dyjsfg_t[combat_damage] (BuffToOwner on Skills/CombatAoe): `triggerInterval` 0.5 s after the skill's attack event. */
+const JU_CRUSH_DELAY = 0.5;
+/** enemy_dyjsfg_t[kill_all]'s buffs [kill_enemy] / [damage_ally]: `triggerInterval` 0.75 s (`waitFirstTriggerInterval`, one trigger). */
+const JU_LAST_DELAY = 0.75;
+/** [kill_enemy]: 后兽 (enemy_2123_dyjsww) stays (`CheckEnemyId` `_filterIds`). */
+const JU_SPARED = 'enemy_2123_dyjsww';
+
+/**
+ * 矩兽. The prefab's `_blockVolume` 3 (the table's blockCnt is 1) and its `Combat` an EmptyAnimatedAbility: blocked, it
+ * deals no attack damage — what it deals is its talents'.
+ * 【明力】 (Talents/Huge, enemy_dyjsfg_t every 0.1 s): 抵抗 −`one_minus_status_resistance` (the buff's attribute 26
+ * ONE_MINUS_STATUS_RESISTANCE); standing still (Enemy.IsStayStill: not in its move state — blocked, stunned, waiting — nor
+ * blinking, unbalanced or being born) the derived buff enemy_dyjsfg_low_damage_resistance, else ..._high (template
+ * damage_resistance: physical and arts damage taken × (1 − `damage_resistance`)), the other one ended.
+ * 【尚同】 (Talents/Trample, from its appearance): every `Trample.interval` (Buff.Reset reads the blackboard `interval` over the
+ * prefab's 1 s; the first after one interval) every unit of the player's side within `range_radius` (CreateBuffInRange,
+ * all motions) takes physical ATK × `atk_scale` (DamageViaAttr from the source's ATK). Each time it becomes blocked
+ * (ToggleablePassiveBuffAbility + BlockedToggleChecker min 1: the toggle turns on) enemy_dyjsfg_t[trigger_aoe] forces
+ * Skills/CombatAoe (TriggerEnemySkill, `_interruptCurAbility`): at its attack event its MeleeAttack strikes its own target,
+ * the blocker (`_selectTargetSource` FROM_OWNER), physical ATK × 1, and puts enemy_dyjsfg_t[combat_damage] on itself; 0.5 s
+ * later every unit of that side within the skill's `range_radius` takes physical ATK × `combat_atk_scale` (AOEDamage,
+ * `_useDamageFromBB` off = the source's ATK; `_excludeTarget` leaves out only the leader at its centre).
+ * [추정·CN: the skill's attack clip is not in the season data yet, so its attack event is taken at the block — the 0.5 s
+ * stays]
+ * 【非命】 (Talents/Overload, HpRatioToggleChecker `_maxHpRatio` 0.5 `_toggleOnce`): once, at half HP — ATK +`Overload.atk`
+ * (MULTIPLIER), move speed × `Overload.move_speed` (FINAL_SCALER), block volume +`block_volume` (AddEnemyBlockVolume only
+ * raises Enemy.blockVolumeAddition; a blocker keeps the volume it counted at the block — BlockedEnemyManager.Add — so the
+ * extra counts from its next block on).
+ * 【兼爱】 (Talents/OutOfControll, enemy_dyjsfg_t[kill_all] ON_OWNER_FINISH: knocked out or leaving): its ATK then
+ * (AssignAttributeToBB) is kept; 0.75 s later every enemy but a trap, a token or 后兽 is knocked out (InstantKill, no
+ * source), and every operator and summon takes physical that ATK × `OutOfControll.atk_scale`, no source (FixedValueDamage
+ * `_noSourceDamage`; CreateBuffToCertainSideUnits selects nothing, so 隐匿 does not save it). A boss field ends as its pool
+ * empties (DESIGN §5.5), so this shows only where the battle goes on.
+ */
+function kitJu(ab) {
+  const resist = -(T(ab, 'Huge.one_minus_status_resistance') ?? 0);
+  const low = T(ab, 'Huge.enemy_dyjsfg_low_damage_resistance.damage_resistance') ?? 0;
+  const high = T(ab, 'Huge.enemy_dyjsfg_high_damage_resistance.damage_resistance') ?? 0;
+  const trR = T(ab, 'Trample.range_radius') ?? 0, trAtk = T(ab, 'Trample.atk_scale') ?? 1, trEvery = T(ab, 'Trample.interval') ?? 1;
+  const crush = ab.sk.CombatAoe;
+  const crushR = crush ? crush.bb.range_radius ?? 0 : 0, crushAtk = crush ? crush.bb.combat_atk_scale ?? 1 : 1;
+  const strikeAtk = crush ? crush.bb.atk_scale ?? 1 : 1;   // MeleeAttack `_atkScaleKey` atk_scale, else `_atkScale` 1
+  const ovAtk = T(ab, 'Overload.atk') ?? 0, ovMove = T(ab, 'Overload.move_speed') ?? 1, ovVol = T(ab, 'Overload.block_volume') ?? 0;
+  const lastAtk = T(ab, 'OutOfControll.atk_scale') ?? 1;
+  const P = { guardAcc: 0, guard: null, trampleAcc: 0, wasBlocked: false, over: false, volLeft: 0 };
+  const still = (b2, e2) => !!e2.blockedBy || !e2.moving || !!e2.s.flags.stun;
+  const setGuard = (b2, e2, dr) => {
+    if (P.guard === dr) return;
+    P.guard = dr;
+    const m = 1 - dr;
+    b2.addBuff(e2, { key: 'boss:juGuard', persist: true, refresh: 'replace', mods: { physTakenMul: m, artsTakenMul: m } });
+  };
+  const crushNow = (b2, e2) => {
+    b2.fx('enemySkill', { x: e2.x, y: e2.y, id: e2.id, ability: crush ? crush.name : 'CombatAoe' });
+    // the skill's MeleeAttack (`_selectTargetSource` FROM_OWNER: its own target, the blocker; physical, `_atkScale` 1)
+    if (e2.blockedBy) hurt(b2, e2, e2.blockedBy, e2.s.atk * strikeAtk, 'phys', { canDodge: true, tags: ['dyjsfgStrike'] });
+    b2.after(JU_CRUSH_DELAY, () => {
+      if (!e2.alive || e2.hidden) return;
+      b2.fx('explode', { x: e2.x, y: e2.y, r: crushR, kind: 'dyjsfgCrush', id: e2.id });
+      for (const u of areaAllies(b2, e2, e2.x, e2.y, crushR + ALLY_COLLIDER_RADIUS)) hurt(b2, e2, u, e2.s.atk * crushAtk, 'phys', { tags: ['dyjsfgCrush'] });
+    }, { owner: e2 });
+  };
+  return [
+    {
+      spawn(b2, e2) {
+        e2.blockWeight = 3;               // the prefab's `_blockVolume`
+        e2.profile.noAttack = true;       // `Combat` = EmptyAnimatedAbility (the table's applyWay NONE says the same)
+        if (resist > 0) b2.applyStatus(e2, 'resist', { source: e2, value: Math.min(1, resist) });
+      },
+      tick(b2, e2, a, dt) {
+        if ((P.guardAcc += dt) >= JU_GUARD_CHECK - 1e-9) { P.guardAcc = 0; setGuard(b2, e2, still(b2, e2) && !unbalancedNow(b2, e2) ? low : high); }
+        const blocked = !!e2.blockedBy;
+        if (blocked && !P.wasBlocked && crush && canCast(e2, false, b2)) crushNow(b2, e2);   // the toggle turns on
+        P.wasBlocked = blocked;
+        if (!P.over && e2.hp <= e2.s.maxHp * 0.5 + 1e-9) {   // HpRatioToggleChecker `_maxHpRatio` 0.5, once
+          P.over = true;
+          P.volLeft = ovVol;
+          b2.addBuff(e2, { key: 'boss:juOverload', persist: true, visible: true, mods: { atkPct: ovAtk, moveMul: ovMove } });
+          b2.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: 'dyjsfgOverload' });
+        }
+        if (P.volLeft && !e2.blockedBy) { e2.blockWeight += P.volLeft; P.volLeft = 0; }
+        if (e2.hidden || trR <= 0) return;
+        if ((P.trampleAcc += dt) < trEvery - 1e-9) return;
+        P.trampleAcc -= trEvery;
+        b2.fx('explode', { x: e2.x, y: e2.y, r: trR, kind: 'dyjsfgTrample', id: e2.id });
+        for (const u of auraAllies(b2, e2, e2.x, e2.y, trR + ALLY_COLLIDER_RADIUS)) hurt(b2, e2, u, e2.s.atk * trAtk, 'phys', { tags: ['dyjsfgTrample'] });
+      },
+      death(c, b2, e2) {
+        const atk = e2.s.atk;
+        b2.after(JU_LAST_DELAY, () => {
+          b2.fx('explode', { x: e2.x, y: e2.y, r: 0, kind: 'dyjsfgLast', id: e2.id });
+          for (const o of b2.aliveEnemies()) if (o !== e2 && o.defId !== JU_SPARED && !/^(trap|token)_/.test(o.defId)) b2.kill(o, null);
+          for (const u of b2.allies()) if (u.alive && u.deployed && u.kind !== 'device') hurt(b2, e2, u, atk * lastAtk, 'phys', { ignoreSelect: true, sourceless: true, tags: ['dyjsfgLast'] });
+        }, { holdsBattle: true });
+      },
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 
 export const BOSS_KITS = Object.freeze({
   enemy_9013_acstmk: kitHelm,          // boss_1 假想敌：胄
@@ -2543,6 +2648,7 @@ export const BOSS_KITS = Object.freeze({
   enemy_9036_acweb: kitWeb,            // 淤困之茧
   enemy_9037_aceel: kitEel,            // boss_13 假想敌：鳍
   enemy_9037_aceel_2: kitEel,          // boss_16 假想敌：鳍 (隐秘核心)
+  enemy_2124_dyjsfg: kitJu,            // boss_17 矩兽
 });
 export const BOSS_KEYS = Object.freeze(Object.keys(BOSS_KITS));
 /** Stage tokens a leader switches on (template `devices`, not in data/enemies.json), spawned as enemies with an inline record. */

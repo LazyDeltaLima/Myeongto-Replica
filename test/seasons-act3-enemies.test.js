@@ -22,10 +22,9 @@ const E3 = ACT3.enemies, E0 = BASE.enemies;
 // its list). Reachable = the keys named by the season's waves, leaders, enemy effects / choices / strategies, its
 // 特训敌人 entries and the escorts each entry brings (factions.json entries[*].N / E …), and every enemy those name.
 
-// the leader fields: the new leader 矩兽 and the units of the leaders' waves
+// the leader fields: the units of the leaders' waves
 const LEADER_FIELD = [
-  'enemy_10196_ubba_2', 'enemy_1424_lrboom', 'enemy_1435_dsflys', 'enemy_2124_dyjsfg', 'enemy_9024_acsgnt',
-  'enemy_9040_accrit',
+  'enemy_10196_ubba_2', 'enemy_1424_lrboom', 'enemy_1435_dsflys', 'enemy_9024_acsgnt', 'enemy_9040_accrit',
 ];
 // 特训敌人 entries of 规程 (its new types CRITIC 精锐 / REBORN 重生 among them) and their escorts and offspring
 const SPECIAL_TYPE = [
@@ -536,4 +535,92 @@ test('假想敌：鳍 隐秘核心 雷暴: every 10 s a thunderbolt on the opera
   runFor(h, 10);
   assert.equal(hits.filter((x) => x.tags.includes('aceelThunder')).length, 2, 'every 10 s');
   assert.ok(e.alive);
+});
+
+const JU = 'enemy_2124_dyjsfg';
+
+/** 矩兽 walking row 9 to its blocker t_wall at (9, 6); `units` replace that layout. */
+function juField(units = [{ chessId: 't_wall', row: 9, col: 6 }], keys = []) {
+  const h = bossArena(ACT3, [JU, ...keys], { kind: 'normal', sharedBoss: null, units });
+  h.step();
+  const hits = [];
+  h.b.on('damaged', (c) => { const tags = c.dmg.tags || []; if (tags.some((t) => /^dyjsfg/.test(t))) hits.push({ t: c.target, n: c.amount, tags, at: h.b.time }); });
+  return { h, hits };
+}
+
+test('矩兽: no attack damage; 【尚同】 ATK × 1 within 1.6 every 2.5 s, and on each block a strike on the blocker and ATK × 2 there 0.5 s later; 【明力】 × (1 − 0.9) walking, × (1 − 0.35) standing, 抵抗 0.8; block volume 3', () => {
+  const bb = E3[JU].talents.bb, atk = E3[JU].stats.atk, res = E3[JU].stats.res;
+  const crush = E3[JU].skills.find((s) => s.prefabKey === 'CombatAoe');
+  assert.deepEqual([bb['Trample.interval'], bb['Trample.range_radius'], bb['Trample.atk_scale'], crush.bb.combat_atk_scale, crush.bb.range_radius], [2.5, 1.6, 1, 2, 1.6]);
+  assert.deepEqual([bb['Huge.enemy_dyjsfg_high_damage_resistance.damage_resistance'], bb['Huge.enemy_dyjsfg_low_damage_resistance.damage_resistance'], bb['Huge.one_minus_status_resistance']], [0.9, 0.35, -0.8]);
+  const { h, hits } = juField([{ chessId: 't_wall', row: 9, col: 6 }, { chessId: 't_wall2', row: 10, col: 6 }, { chessId: 't_wall2', row: 12, col: 6, uid: 9 }]);
+  const e = put(h, JU, [9, 7.9], { move: true, tag: null });
+  assert.equal(e.blockWeight, 3, 'the prefab\'s _blockVolume');
+  const w = h.unit('t_wall');
+  runFor(h, 0.15);
+  assert.ok(!e.blockedBy && e.moving);
+  let hp = e.hp;
+  h.b.dealDamage(w, e, { amount: 1000, type: 'arts', canDodge: false });
+  assert.ok(Math.abs(hp - e.hp - 1000 * (1 - res / 100) * 0.1) < 1e-6, `walking: × 0.1 (${hp - e.hp})`);
+  h.runUntil(() => e.blockedBy === w, 20);
+  const blockedAt = h.b.time;
+  runFor(h, 0.15);
+  hp = e.hp;
+  h.b.dealDamage(w, e, { amount: 1000, type: 'arts', canDodge: false });
+  assert.ok(Math.abs(hp - e.hp - 1000 * (1 - res / 100) * 0.65) < 1e-6, `standing: × 0.65 (${hp - e.hp})`);
+  hp = e.hp;
+  h.b.dealDamage(w, e, { amount: 1000, type: 'true' });
+  assert.ok(Math.abs(hp - e.hp - 1000) < 1e-6, 'true damage untouched');
+  h.runUntil(() => hits.some((x) => x.tags.includes('dyjsfgCrush')), 5);
+  const cr = hits.filter((x) => x.tags.includes('dyjsfgCrush'));
+  assert.ok(Math.abs(cr[0].at - blockedAt - 0.5) < 0.05, `0.5 s after the block (${cr[0].at - blockedAt})`);
+  assert.deepEqual(new Set(cr.map((x) => x.t)), new Set([w, h.unit('t_wall2')]), 'the two within 1.6, not the one three rows away');
+  assert.ok(Math.abs(cr.find((x) => x.t === w).n - atk * 2) < 1e-6);
+  const st = hits.filter((x) => x.tags.includes('dyjsfgStrike'));
+  assert.ok(st.length === 1 && st[0].t === w && Math.abs(st[0].n - atk) < 1e-6 && Math.abs(cr[0].at - st[0].at - 0.5) < 1e-6, 'the skill\'s MeleeAttack on the blocker, ATK × 1, 0.5 s before the crush');
+  runFor(h, 12);
+  assert.equal(new Set(hits.filter((x) => x.tags.includes('dyjsfgCrush')).map((x) => x.at)).size, 1, 'once per block');
+  const tr = hits.filter((x) => x.tags.includes('dyjsfgTrample') && x.t === w);
+  assert.ok(tr.length >= 4, `${tr.length} tramples`);
+  for (let k = 1; k < tr.length; k++) assert.ok(Math.abs(tr[k].at - tr[k - 1].at - 2.5) < 0.05, 'every 2.5 s');
+  assert.ok(Math.abs(tr[0].n - atk) < 1e-6);
+  assert.ok(!hits.some((x) => x.t === h.unit(9)), 'out of range');
+  assert.equal(w.stats.taken, hits.filter((x) => x.t === w).reduce((s, x) => s + x.n, 0), 'nothing but its talents: Combat is an EmptyAnimatedAbility');
+  // 抵抗 0.8: a 5 s stun lasts 1 s
+  h.b.applyStatus(e, 'stun', { duration: 5, source: w });
+  assert.ok(e.s.flags.stun);
+  runFor(h, 1.05);
+  assert.ok(!e.s.flags.stun, 'stun × 0.2');
+});
+
+test('矩兽 【非命】 at half HP: ATK +50 %, speed × 2, block volume 4 from its next block on; 【兼爱】 0.75 s after it falls: the other enemies out, every unit 2 × ATK phys', () => {
+  const bb = E3[JU].talents.bb, atk = E3[JU].stats.atk;
+  assert.deepEqual([bb['Overload.atk'], bb['Overload.move_speed'], bb['Overload.block_volume'], bb['OutOfControll.atk_scale']], [0.5, 2, 1, 2]);
+  const other = 'enemy_1422_lrsldr';
+  const { h, hits } = juField([{ chessId: 't_wall', row: 9, col: 6 }, { chessId: 't_wall', row: 9, col: 3, uid: 5 }, { chessId: 't_wall2', row: 12, col: 0, uid: 9 }], [other]);
+  const e = put(h, JU, [9, 7.9], { move: true, tag: null });
+  const w = h.unit('t_wall');
+  h.runUntil(() => e.blockedBy === w, 20);
+  const speed0 = e.s.moveSpeed;
+  h.b.loseHp(e, e.s.maxHp * 0.51, { sourceless: true });
+  runFor(h, 0.2);
+  assert.ok(Math.abs(e.s.atk - atk * 1.5) < 1e-6 && Math.abs(e.s.moveSpeed - speed0 * 2) < 1e-6, 'ATK +50 %, speed × 2');
+  assert.ok(e.blockedBy === w && e.blockWeight === 3, 'its blocker keeps it: the volume it counted');
+  h.b.kill(w, null);
+  runFor(h, 0.2);
+  assert.equal(e.blockWeight, 4);
+  h.runUntil(() => e.x < 2.6 || !e.alive || e.blockedBy, 30);
+  assert.ok(!e.blockedBy && e.x < 2.6, 'a block-3 unit can block it no more');
+  const o = put(h, other, [11, 9], { tag: null });
+  const before = hits.length;
+  h.b.kill(e, h.unit(5));
+  const fellAt = h.b.time;
+  runFor(h, 0.7);
+  assert.ok(o.alive && hits.length === before, 'nothing before 0.75 s');
+  runFor(h, 0.1);
+  assert.ok(!o.alive, 'the other enemies leave');
+  const last = hits.filter((x) => x.tags.includes('dyjsfgLast'));
+  assert.ok(Math.abs(last[0].at - fellAt - 0.75) < 0.05);
+  assert.deepEqual(new Set(last.map((x) => x.t)), new Set([h.unit(5), h.unit(9)]), 'every unit on the field');
+  assert.ok(Math.abs(last.find((x) => x.t === h.unit(5)).n - atk * 1.5 * 2) < 1e-6, 'its ATK as it fell (overloaded) × 2');
 });
