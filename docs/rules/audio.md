@@ -1080,3 +1080,19 @@
   `r: 1`(한 발에 한 번). `public/js/audio.js` — 튕김 'atk'('chain')이 친 대상을 기억하고(`chainStruck`), 그 대상의 'dmg'에서는 `r` 단서를 빼고
   타격음을 내며 연쇄음 `'c'`를 그 순간 시전자당 한 번. 매니페스트 재생성(`fetch-assets --add-only`): 레이즈만 `'c'` 단서, 19명은 REACH 단서에 `r`만.
 - 확인: `test/local-patch-attack-signals.test.js` 「a chain shot's sounds」(옛 코드에서 실패 확인). [브라우저 미확인: 실제 판에서 레이즈 연쇄음·패신저 대상별 타격음]
+
+## 시즌별 BGM (2026-11-11, 관리자 결정 2026-11-08 「시즌을 고르면 그 시즌 BGM」)
+
+- 다른 시즌의 곡은 매니페스트 `audio.seasonBgm[<시즌>]`(`tools/assets/plan.mjs SEASON_BGM`)에 그 시즌이 기본 시즌과 다른 자리만 둔다: 로비 `lobby`, 전투 곡 `combatAlts`(기본과 같은 순서 — [0] 8라운드부터, [1] 1–7라운드), 보스 `bossBgm`. `public/js/audio.js resolveBgm`이 화면의 시즌(방의 시즌, 방 밖에서는 타이틀에서 고른 시즌 — `ui/season.js activeSeason`)의 곡을 먼저, 없는 자리는 기본 시즌 것을 튼다. 시즌만 바뀌어도(타이틀에서 고르기) 곡이 바뀐다(`installAudio`).
+- 규정(`act3autochess`)의 곡은 CN 레벨 파일의 `bgmEvent`와 활동의 로비 뱅크에서(zh_CN `audio_data.json` `bgmBanks`, 2026-11-11 확인): 로비 `sys.ON_ACTIVITY_LOADED.act3autochess`(`m_sys_act3autochess`, intro 없음), 1–7라운드(레벨 `act3autochess_01`–`07`) `chernobog`(`m_bat_chernobog`), 8라운드부터(`h01`–`h06`) `act3mainss_bat2`(`m_bat2_act16main`), 새 보스 가상적: 기계·고치·지느러미와 쥐서우(`h07_08`–`11`, `boss_11`–`13`·`17`) `act3autochess_boss`(`m_boss1_act3autochess`), 그 숨은 핵심(`h08_04`–`06`, `boss_14`–`16`) `act3autochess_hideBoss`(`m_boss2_act3autochess`). 다른 보스·정비(`act1autochess_shop`)·연합 방어(`corrosion`)는 지난 시즌과 같은 레벨 곡이라 기본 시즌 것 그대로.
+- 캐시된 `audio_data.json`이 규정 이전 판이면 새 뱅크 셋이 없다 — `SEASON_BGM_BANKS`(CN 표의 loop 자산 그대로)로 채운다. 파일은 다른 BGM처럼 웹 자료(AA2 `voice` 갈래)에서 받는다(`fetch-assets`, 클라 추출 아님).
+- 확인: `test/ui/audio.test.js`(규정의 로비·전투 두 곡·새 보스 일곱·기본으로 돌아가는 자리·기본 시즌은 그대로·타이틀에서 시즌만 바꿔도 곡이 바뀜). `audio.js`를 되돌리면 둘 실패. [화면 미확인: 타이틀·규정 방·보스전에서 실제로 들어 보지 않음 — `checks/arena.md`]
+
+## 규정 새 적 소리 (2026-11-11, zh_CN `audio_data.json` + CN 적 프리팹)
+
+- **소리 색인을 규정 판으로**: 캐시된 `audio_data.json`(2026-11-08 받음)이 규정 이전 판이라 규정 새 적의 뱅크가 하나도 없어, 그 적들은 공격·타격·사망 소리가 매니페스트에 없었다. zh_CN 표를 다시 받아(2026-11-11) 비교하니 BGM 뱅크 3·효과음 뱅크 130이 더해졌을 뿐 바뀌거나 빠진 뱅크는 0 — 그대로 바꿔 쓰고 매니페스트를 다시 만들었다(`fetch-assets --add-only`). 더해진 것: 규정 적 17종(설산 거인 「不眠雪山」, 라이타니엔 소환물 둘, 가상적: 기계·그 부품·숨은 핵심, 고치·숨은 핵심, 정체의 고치, 지느러미·숨은 핵심 등 `enemy_9024`–`9040`)의 `sfx.units`와 숨김 기물 레이지 아이언하이드(`char_618_acrbot`)의 소리, 그 파일들의 `sfx.bank` 값. 지난 시즌 항목은 하나도 안 바뀜(매니페스트 비교).
+- **모드·능력 소리의 프리팹 사실**: 공격 소리 신호 표 `tools/assets/local-char-audio.json`에 규정 적 17종이 없어 모드별(`em`)·능력별(`sk`) 소리가 비어 있었다 — `char_audio.py --client <CN> --id …`로 그 17종만 더함(기존 줄은 그대로).
+- **걷는 아군**(라이타니엔 소환물·쉐라그 설산 거인, 유닛 정보 `walks` — fx.md 「규정 맹약 소환물의 그림·이펙트」)은 그 적처럼 소리를 낸다: 렌더가 알리는 프리팹 모드(`enemyMode` — 거인의 `SnowyMountain` 공격 소리), `skill` 이벤트의 능력 이름(`Skills/Attract` → `ON_ABILITY_START.enemy_9024_acsgnt.Attract`), `enemySkill` 뒤 그 능력의 타격음(`PowerAttack`), 형태를 바꾸는 시전의 시작(fx `phase` `form` → `Switch2Snowy`·`Switch2Giant`, `audio.js WALKER_SWITCH`). 같은 기록이라도 `walks`가 없는 소환물(염의 가호)은 지금 그대로.
+- **지느러미(숨은 핵심) 뇌우**: 재능 버프 `aceel[thurder-trigger]`의 `audioSignal` `Aceel_ThurderEnv` → `battle.ON_BUFF_START.Aceel_ThurderEnv`(`a_bat_lthndrstm`, 한 번에 하나·popOldest, `Battle_UI_Important`). 버프는 그 적이 나올 때 붙어 사라질 때까지 남으므로(fx.md 「규정 보스 고치·지느러미의 이펙트」 뇌우 화면), 숨은 핵심 지느러미(`enemy_9037_aceel_2`)의 `spawn`마다 한 번(`audio.js` `aceel:thunder`). 보통 지느러미에는 이 재능이 없다.
+- **고치(숨은 핵심) 비참한 비의 끝**: 칸 리스너 `Left`·`Right`의 `_effectSettings` `endAudioSignal` `acid_rain` → `battle.ON_CUSTOM_TRIGGER.acid_rain`(`e_atk_bvspdrspt_h_u`, 한 번에 하나·popOldest 아님). 칸 장판이 끝날 때 나는 소리라 비 하나에 한 번: 시뮬 `zone` `acspiderRain`의 `dur` 뒤, 고치가 죽거나 같은 필드에 새 비가 오면 그때 바로(렌더가 장판을 끝내는 때와 같음 — `audio.js _acidRain`·`_acidRainCut`). 비를 거는 순간의 소리는 능력 뱅크 `ON_ABILITY_START.enemy_9035_acspider_2.AcidRain`으로 다른 적 능력처럼. [추정·엔진: 늦춤을 게임 초로 잼 — 클레멘티아 S3 낙하음과 같음]
+- 확인: `test/audio-enemy-buff-sounds.test.js` 「규정 隐秘核心 sounds」(뱅크·숨은 핵심만 뇌우·비 끝: 때가 되면·새 비·고치 죽음·이미 끝난 비는 한 번만·걷는 거인의 모드·형태 전환·유인·강타). `audio.js`를 되돌리면 셋 실패. [화면 미확인: 실제 판에서 들어 보지 않음 — `checks/arena.md`]

@@ -118,7 +118,7 @@ The research JSONs in `docs/research/` (03, 05, 07) define **which** ids are nee
 | Enemy Spine (PC build, premultiplied alpha) | isHarryh/Ark-Models `models_enemies/{key}/`, file names from `models_data.json` | `spine/enemy/{enemyId}/{stem}.*` |
 | Enemy Spine that no dump carries (灼热源石虫 / 炽焰源石虫; 规程's own enemies `enemy_9024`–`9040`, only in the CN client) | the local client only (`tools/local-extract/extract.py ENEMY_SPINES`, optional); never downloaded and never required: an overlay of the web alias (`enemies[id].spineLocal`; 规程's have no web model — without the extraction the icon) | `local/spine/enemy/{enemyId}/{stem}.*` (listed in `data/local-assets.json`) |
 | Token Spine that no dump carries (8 summons: our 自选 picks' — 望's 棋子, 维什戴尔's 魂灵之影, 凯尔希·思衡托's 战术锚点 (only the CN client has her), 酒神's 本能的召唤 —, 凯瑟琳's 爬行号·防护单元, 凛御银灰's 风雪之眼), and the original skin of 香槟炸弹 (the web model is a skin variant) | the local client only (`tools/local-extract/extract.py TOKEN_SPINES`, optional); never downloaded and never required: an overlay (`tokens[id].spineLocal`; without it the avatar diamond, or 香槟炸弹's web skin) | `local/spine/token/{tokenId}/{stem}.*` (listed in `data/local-assets.json`) |
-| BGM | AA2 `voice` branch `audio/sound_beta_2/music/**` (大厅/休整期 `act1autochess`, 开战 `act13side/m_bat_kazimierz2_{1,2}` — 骑士之日 / 无畏者; the 开战 track follows the round: `_2` 无畏者 rounds 1–7, `_1` 骑士之日 from round 8) | `audio/bgm/{file}.mp3` |
+| BGM | AA2 `voice` branch `audio/sound_beta_2/music/**` (大厅/休整期 `act1autochess`, 开战 `act13side/m_bat_kazimierz2_{1,2}` — 骑士之日 / 无畏者; the 开战 track follows the round: `_2` 无畏者 rounds 1–7, `_1` 骑士之日 from round 8; another season's own tracks — 规程: `act3autochess/m_sys`·`m_boss1`·`m_boss2`, `act9d2d0/m_bat_chernobog`, `act16main/m_bat2` — by `tools/assets/plan.mjs SEASON_BGM`) | `audio/bgm/{file}.mp3` |
 | SFX (UI, battle, per unit) | AA2 `voice` `audio/sound_beta_2/**`, mapped from `audio_data.json` banks | `audio/sfx/{same sub-path}.mp3` |
 | 干员战斗语音 | AA2 `voice` `audio/sound_beta_2/voice_cn/{charId}/cn_nn.mp3` — the lines `charword_table.json` lists (`placeType` = when the game plays one, `voiceAsset` = the path); `--voice-lang=jp|en|kr` takes the same file names from `voice/`, `voice_en/`, `voice_kr/` | `audio/voice/{lang}/{charId}/{cn_nn}.mp3` |
 | Fonts: Bender Regular and Light, Novecento Wide | TimWangZi/The-font-of-Arknights | `public/fonts/*.{otf,ttf,woff2}`, `public/fonts/fonts.css` |
@@ -207,6 +207,9 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
              // `bgmEvent = corrosion` (卡西米尔 act13d5d0), so the rescue phase does not reuse the 作战's track
              // (audio.js bgmKeyFor 'unite', falling back to `bgm.combat` for a manifest that lacks it)
     bossBgm: { [bossId]: { intro?, loop } },                   // per-boss track of its R14/R15 level
+    seasonBgm?: { [seasonId]: { lobby?, combatAlts?, bossBgm? } },
+             // another season's own tracks where they differ (tools/assets/plan.mjs SEASON_BGM): audio.js resolveBgm
+             // reads the season on screen (the room's, else the picked one) first, the default's for the rest
     voice:   { [charId]: { start, faceEnemy, select, place, skill1…skill4,
                            resultFour, resultThree, resultTwo, resultLose } },
                            // 干员战斗语音: an operator's official battle lines (charword_table.json placeType → slot,

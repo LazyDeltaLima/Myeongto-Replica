@@ -93,6 +93,43 @@ describe('bgm selection', () => {
     assert.equal(resolveBgm(manifest, null), null);
     assert.equal(resolveBgm(manifest, 'nope'), null);
   });
+  test('resolveBgm: a season\'s own tracks first (规程 act3autochess: lobby, 开战 by round, its new bosses), the default\'s for the rest', () => {
+    const own = manifest.audio.seasonBgm?.act3autochess;
+    assert.ok(own, 'the manifest carries 规程\'s tracks (tools/assets/plan.mjs SEASON_BGM)');
+    const S = 'act3autochess';
+    assert.ok(resolveBgm(manifest, 'lobby', S).loop.includes('m_sys_act3autochess'), 'its own lobby');
+    assert.ok(resolveBgm(manifest, 'combat:1', S).loop.includes('m_bat_chernobog'), 'rounds 1–7: levels 01–07 chernobog');
+    assert.ok(resolveBgm(manifest, 'combat:0', S).loop.includes('m_bat2_act16main'), 'rounds 8+: levels h01–h06 act3mainss_bat2');
+    assert.equal(resolveBgm(manifest, 'combat:0', S).intro, own.combatAlts[0].intro);
+    for (const b of ['boss_11', 'boss_12', 'boss_13', 'boss_17']) assert.ok(resolveBgm(manifest, `boss:${b}`, S).loop.includes('m_boss1_act3autochess'), b);
+    for (const b of ['boss_14', 'boss_15', 'boss_16']) assert.ok(resolveBgm(manifest, `boss:${b}`, S).loop.includes('m_boss2_act3autochess'), `${b} (隐秘核心)`);
+    // what it has none of: the default season's
+    assert.equal(resolveBgm(manifest, 'boss:boss_4', S).loop, manifest.audio.bossBgm.boss_4.loop);
+    assert.equal(resolveBgm(manifest, 'prep', S).loop, manifest.audio.bgm.prep.loop);
+    assert.equal(resolveBgm(manifest, 'unite', S).loop, manifest.audio.bgm.unite.loop);
+    // the default season (no season, or one the manifest has nothing for) is unchanged
+    for (const k of ['lobby', 'combat:0', 'combat:1', 'boss:boss_4']) {
+      assert.equal(resolveBgm(manifest, k, null).loop, resolveBgm(manifest, k).loop, k);
+      assert.equal(resolveBgm(manifest, k, 'act2autochess').loop, resolveBgm(manifest, k).loop, k);
+    }
+    assert.notEqual(resolveBgm(manifest, 'lobby', S).loop, resolveBgm(manifest, 'lobby').loop);
+  });
+  test('installAudio: the season on screen picks the tracks, and a season change alone switches them', () => {
+    const calls = [];
+    const origPlay = audio.playBgm;
+    audio.playBgm = (k, season) => { calls.push(`${k}@${season ?? '-'}`); };
+    try {
+      const state = { route: 'title', season: 'act3autochess', match: null };
+      let fire = null;
+      installAudio({ getManifest: () => manifest, getState: () => state, selectRoute: (s) => s.route, selectSeason: (s) => s.season,
+        subscribe: (fn) => { fire = fn; return () => {}; } });
+      assert.equal(calls.at(-1), 'lobby@act3autochess');
+      const prev = { ...state };
+      state.season = 'act2autochess';
+      fire(state, prev);
+      assert.equal(calls.at(-1), 'lobby@act2autochess', 'picking another season on the title switches the lobby track');
+    } finally { audio.playBgm = origPlay; }
+  });
   test('installAudio: the round\'s own 开战 track, fixed per round and the same on every client', () => {
     const calls = [];
     const origPlay = audio.playBgm;

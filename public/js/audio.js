@@ -736,19 +736,26 @@ export function bgmKeyFor(route, pub, combatTrack = null) {
 /**
  * Resolve a BGM key to { intro?, loop } URLs from the manifest: `boss:<id>` falls back to the generic boss track,
  * `combat:<i>` to the i-th `bgm.combatAlts` entry (and to `bgm.combat` when the manifest has none), and `unite`
- * (联防's own track) to `bgm.combat` when the manifest predates it.
+ * (联防's own track) to `bgm.combat` when the manifest predates it. 2026-11-11: `season` (shared/seasons.js id — the
+ * room's, else the one picked on the title; ui/season.js activeSeason) reads that season's own tracks first
+ * (`audio.seasonBgm[season]`: `lobby`, `combatAlts`, `bossBgm` — tools/assets/plan.mjs SEASON_BGM), the default's
+ * where it has none.
  * @param {any} manifest
  * @param {string|null} key
+ * @param {string|null} [season]
  * @returns {{ intro: string|null, loop: string }|null}
  */
-export function resolveBgm(manifest, key) {
+export function resolveBgm(manifest, key, season = null) {
   const a = manifest?.audio;
   if (!a || !key) return null;
+  const sb = typeof season === 'string' && season ? a.seasonBgm?.[season] ?? null : null;
   let t = null;
-  if (key.startsWith('boss:')) t = a.bossBgm?.[key.slice(5)] || a.bgm?.boss;
-  else if (key.startsWith('combat:')) t = a.bgm?.combatAlts?.[Number(key.slice('combat:'.length))] || a.bgm?.combat;
-  else if (key === 'unite') t = a.bgm?.unite || a.bgm?.combat;
-  else t = a.bgm?.[key];
+  if (key.startsWith('boss:')) t = sb?.bossBgm?.[key.slice(5)] || a.bossBgm?.[key.slice(5)] || a.bgm?.boss;
+  else if (key.startsWith('combat:')) {
+    const i = Number(key.slice('combat:'.length));
+    t = sb?.combatAlts?.[i] || a.bgm?.combatAlts?.[i] || a.bgm?.combat;
+  } else if (key === 'unite') t = sb?.unite || a.bgm?.unite || a.bgm?.combat;
+  else t = sb?.[key] || a.bgm?.[key];
   if (!t || typeof t.loop !== 'string') return null;
   return { intro: typeof t.intro === 'string' ? t.intro : null, loop: t.loop };
 }
@@ -790,6 +797,14 @@ export function unitSoundClass(info) {
 }
 
 /** 2026-10-29: 克莱门莎 S3 — the cancels of the fall sounds a unit's shells scheduled (her 'die' runs them; a new field clears). */
+/**
+ * 2026-11-11: the ability a walking ally's form switch casts, by the form it switches to (sim fx 'phase' `form`) —
+ * 谢拉格's giant 不眠雪山 (CN prefab enemy_9024_acsgnt: Switch2Snowy into SnowyMountain, Switch2Giant back).
+ */
+const WALKER_SWITCH = Object.freeze({ enemy_9024_acsgnt: Object.freeze({ SnowyMountain: 'switch2snowy', Giant: 'switch2giant' }) });
+/** 假想敌：鳍 (隐秘核心): its storm talent's sound as it comes (AudioManager 'spawn'). */
+const ACEEL_STORM = 'enemy_9037_aceel_2';
+
 function shellFalls(mgr, id) {
   const m = (mgr._shellFalls ||= new Map());
   if (!m.has(id)) m.set(id, []);
@@ -1123,6 +1138,7 @@ export class AudioManager {
     this.uiVoices = 0;
     this.bondCue = null;      // { scope: 'prep' | 'battle', at } of the last bond layer-up cue (BOND_BANK)
     this.wantBgm = null;      // desired key (kept while locked)
+    this.bgmSeason = null;    // the season whose tracks the key resolves to (resolveBgm)
     this.bgm = null;          // { key, loopUrl, nodes: [{src, gain}], gain }
     this.bgmToken = 0;
     this.units = new Map();   // battle unit id → defId
@@ -1203,7 +1219,7 @@ export class AudioManager {
         const p = this.ctx.resume?.();
         if (p && typeof p.then === 'function') p.then(() => { if (this.ctx?.state === 'running') this._dropUnlock(); }, () => {});
       }
-      if (this.wantBgm) { const k = this.wantBgm; this.wantBgm = null; this.playBgm(k); }
+      if (this.wantBgm) { const k = this.wantBgm; this.wantBgm = null; this.playBgm(k, this.bgmSeason); }
     } catch (err) {
       this._warn('ctx', err);
       this.ctx = null;
@@ -1377,11 +1393,13 @@ export class AudioManager {
   /**
    * Switch BGM (null stops). Same loop URL ⇒ no restart.
    * @param {string|null} key see bgmKeyFor
+   * @param {string|null} [season] the season whose tracks it plays (resolveBgm)
    */
-  playBgm(key) {
+  playBgm(key, season = null) {
     try {
+      this.bgmSeason = typeof season === 'string' && season ? season : null;
       if (!this.ctx) { this.wantBgm = key; return; }
-      const track = resolveBgm(this.getManifest(), key);
+      const track = resolveBgm(this.getManifest(), key, this.bgmSeason);
       if (this.bgm && track && this.bgm.loopUrl === track.loop) { this.bgm.key = key; return; }
       if (!track && !this.bgm) return;
       const token = ++this.bgmToken;
@@ -1728,7 +1746,7 @@ export class AudioManager {
     if (KIT_SOUND_DEF.test(String(au.def)) || now - (au.kdAt ?? -Infinity) < SKILL_HIT_GAP_MS) return false;
     const ue = this.getManifest()?.audio?.sfx?.units?.[au.def];
     let c = null;
-    if (au.side === 'enemy') {
+    if (au.side === 'enemy' || au.walks) {
       // 2026-11-07: a cast with a telegraph (검은 뿔의 루울's 8 s charge) lands past those 3 s: its first damage is still that skill's
       if (au.eskill && (au.eskill.held || now - au.eskill.at <= 3000)) c = (ue?.sk?.[au.eskill.name] || []).find((x) => x.at === 'd') ?? null;
       if (au.eskill) au.eskill.held = false;
@@ -1822,11 +1840,13 @@ export class AudioManager {
    * 2026-10-23, docs/rules/audio.md 「적 소리」: the skill of an ally built from an enemy record (`su.erec`, shared/skill-modes.js —
    * 炎佑's 祛恶之焰 = its Skill_2) sounds that enemy ability's banks (sfx.units[id].sk): START as it starts, the looping ON
    * (`loop`) held while it runs and cut as it ends — its ON_ABILITY_END bank is only a ctrlStop of that loop (0.2 s fade).
+   * 2026-11-11: a walking ally's 'skill' names its ability (`ability`: 谢拉格's giant's Skills/Attract → `attract`).
    */
-  _enemyRecordSkill(id, su, ue, on, now) {
+  _enemyRecordSkill(id, su, ue, on, now, ability = null) {
     const key = `${id}:esk`;
     if (!on) { stopSkillLoop(this, key); su.eskill = null; return; }
-    const name = su.erec.skill.toLowerCase();
+    const name = String(ability ?? su.erec?.skill ?? '').split('/').pop().toLowerCase();
+    if (!name) return;
     const cues = ue?.sk?.[name];
     if (!Array.isArray(cues)) return;
     for (const c of cues) {
@@ -1848,7 +1868,7 @@ export class AudioManager {
   enemyMode(unitId, defId, modeIndex, prevModeIndex) {
     try {
       const su = this.units.get(unitId);
-      if (!su || su.side !== 'enemy' || !Number.isInteger(modeIndex) || modeIndex < 0) return false;
+      if (!su || (su.side !== 'enemy' && !su.walks) || !Number.isInteger(modeIndex) || modeIndex < 0) return false;
       if (typeof defId === 'string' && defId && su.def !== defId && su.defId !== defId) return false;
       const prev = Number.isInteger(su.emode) ? su.emode : Number.isInteger(prevModeIndex) ? prevModeIndex : 0;
       su.emode = modeIndex;
@@ -2062,6 +2082,9 @@ export class AudioManager {
     this.units.set(u.id, { def: u.spine || u.defId, defId: u.defId ?? null, kind: u.kind ?? null, side: u.side, boss: !!u.boss,
       skillIndex: Number.isInteger(u.skillIndex) ? u.skillIndex : null, ownerId: u.ownerId ?? null, // ownerId (the battle start's own pieces)
       emode: rec ? rec.mode : undefined, erec: rec,
+      // 2026-11-11: a walking ally built from an enemy record (UnitInfo `walks`: 规程's 莱塔尼亚 summons, 谢拉格's giant) sounds
+      // as that enemy — its prefab mode (enemyMode), its abilities' banks (_enemyRecordSkill, _skillImpact)
+      walks: !!u.walks,
       spineLive: !!prev?.spineLive && prev.def === (u.spine || u.defId) }); // its model still reports its clip events (spineEvent)
     if (u.side === 'enemy') this._enemyIn(u.id); // 2026-10-10: the time without an enemy (noEnemyMs)
   }
@@ -2132,6 +2155,33 @@ export class AudioManager {
     return true;
   }
 
+  /**
+   * 2026-11-11: 假想敌：茧 (隐秘核心)'s 悲惨之雨 on a field (sim fx 'zone' acspiderRain { field, id, dur }) — its tile listeners'
+   * end sound (`_effectSettings` endAudioSignal acid_rain; bank ON_CUSTOM_TRIGGER.acid_rain, one at a time and no pop) as the
+   * rain ends: `dur` after it, at once when the 茧 dies or a new rain on that field takes its place (render/fxgame.js
+   * acRainFx ends the floor at the same moments). [추정·엔진: the delay in game seconds, as 克莱门莎's falls]
+   */
+  _acidRain(o) {
+    const field = o.field ?? '-';
+    this._acidRainCut((r, f) => f === field);
+    const held = [];
+    const dur = Math.max(0, Number(o.dur) || 0);
+    if (!this._kitSound('acspider:rainend', dur, held)) return;
+    (this._acidRains ||= new Map()).set(field, { by: o.id ?? null, held, until: (this.ctx?.currentTime ?? 0) + dur });
+  }
+
+  /** The rains `pick` chooses that have not ended yet end now: their end sound at once instead of when due. */
+  _acidRainCut(pick) {
+    if (!this._acidRains) return;
+    for (const [f, r] of this._acidRains) {
+      if (!pick(r, f)) continue;
+      this._acidRains.delete(f);
+      if ((this.ctx?.currentTime ?? 0) >= r.until) continue;   // already sounded
+      for (const cancel of r.held) cancel();
+      this._kitSound('acspider:rainend');
+    }
+  }
+
   /** 2026-11-03: sfx.kit key `hk` `n` times at once, at most its bank's own limit (sfx.kitLimit, else 2). */
   _kitSounds(hk, n) {
     const max = this.getManifest()?.audio?.sfx?.kitLimit?.[hk]?.max ?? 2;
@@ -2165,6 +2215,8 @@ export class AudioManager {
           const started = was?.skillOn && ev.some((x) => Array.isArray(x) && x[0] === 'skill' && x[1] === e[1]?.id && x[2]);
           this._track(e[1]);
           if (started) this.units.get(e[1].id).skillOn = true;
+          // 2026-11-11: 假想敌：鳍 (隐秘核心)'s storm talent starts as it comes (aceel[thurder-trigger] audioSignal Aceel_ThurderEnv)
+          if (e[1]?.defId === ACEEL_STORM) this._kitSound('aceel:thunder');
           // local patch (maintainer report): a skill that starts on deployment (缄默德克萨斯 S1–S3, Skill.reset activateOnDeploy)
           // sends its 'skill' before the unit's 'spawn' — held until then; with a 'deploy' in this batch, until that sounds
           const id = e[1]?.id;
@@ -2190,6 +2242,7 @@ export class AudioManager {
             su.over = false;
             const ue = this.getManifest()?.audio?.sfx?.units?.[su.def];
             if (su.erec) this._enemyRecordSkill(e[1], su, ue, !!e[2], now);
+            else if (su.walks) this._enemyRecordSkill(e[1], su, ue, !!e[2], now, typeof e[3] === 'string' ? e[3] : null);
             const loop = skillLoopOf(ue, su.skillIndex); // its looping bank (music, field)
             if (loop && e[2]) startSkillLoop(this, e[1], loop.url, loopGain(loop));
             else if (!e[2]) stopSkillLoop(this, e[1]);
@@ -2375,6 +2428,7 @@ export class AudioManager {
           stopUnitLoops(this, e[1]); // local patch: its loop and held one-shots
           for (const cancel of this._shellFalls?.get(e[1]) ?? []) cancel(); // 2026-10-29: 克莱门莎 S3's falls still due
           this._shellFalls?.delete(e[1]);
+          this._acidRainCut((r) => r.by === e[1]); // 2026-11-11: its rain ends with the 茧
           const u = this.units.get(e[1]);
           if (!u) continue;
           u.gone = true; // 2026-11-03 (mlyssS3Range)
@@ -2514,6 +2568,14 @@ export class AudioManager {
           }
           if (e[1] === 'link' && e[4]?.id != null) for (let i = haloLinkCount(unitOf(e[4].id), e[4].ids); i > 0; i--) this._kitSound('halo2:s3link');
           for (const [k, d, n] of enemyBuffSounds(e[1], e[4], unitOf)) if (n) this._kitSounds(k, n); else this._kitSound(k, d);
+          if (e[1] === 'zone' && e[4]?.kind === 'acspiderRain') this._acidRain(e[4]);
+          // 2026-11-11: 谢拉格's giant switching form (sim fx 'phase' { id, form } at the switch's start) — that ability's banks
+          if (e[1] === 'phase' && e[4]?.id != null && typeof e[4].form === 'string') {
+            const wu = unitOf(e[4].id);
+            const ab = wu?.walks ? WALKER_SWITCH[wu.def]?.[e[4].form] : null;
+            const cues = ab ? this.getManifest()?.audio?.sfx?.units?.[wu.def]?.sk?.[ab] : null;
+            if (Array.isArray(cues)) for (const c of cues) if (c.at !== 'd') this._playCue(wu.def, c, true);
+          }
           // 2026-11-03, docs/rules/audio.md 「버프·커스텀 트리거 소리」: one sound per unit, at most the bank's own limit — a blast's
           // enemies (aoeHitKey), the enemies a waking one puts to sleep (缇缇 S3: titi_s_3[effect_line] PlayAudio
           // titi_s_3[spread_from] on each), 魔王's 微尘 back in her orbit (motesBack)
@@ -2576,7 +2638,8 @@ export const audio = new AudioManager({ getManifest: () => manifestGetter() });
 /**
  * Wire the singleton to the app (called once by main.js): manifest source, settings and store-driven BGM.
  * @param {{ getManifest: => any, subscribe: (fn: (s:any, prev:any) => void) => => void, getState: => any,
- *   selectRoute: (s:any) => string, settings?: { bgm:number, sfx:number, voice:number, muted:boolean } }} deps
+ *   selectRoute: (s:any) => string, selectSeason?: (s:any) => string|null,
+ *   settings?: { bgm:number, sfx:number, voice:number, muted:boolean } }} deps
  */
 export function installAudio(deps) {
   try {
@@ -2584,13 +2647,15 @@ export function installAudio(deps) {
     audio.install();
     if (deps?.settings) audio.setVolumes(deps.settings);
     if (typeof deps?.subscribe === 'function' && typeof deps?.getState === 'function') {
+      const seasonOf = (s) => (typeof deps.selectSeason === 'function' ? deps.selectSeason(s) : null);
       const sync = (s) => {
         try {
           const pub = s.match?.public ?? null;
           // 开战 BGM: the round's own track out of bgm.combatAlts (骑士之日 / 无畏者 are fixed per round, not drawn),
           // so every client of a room hears the same one, a mid-fight re-render (or a teammate view) never switches,
           // and the next round moves on by the table. 联防 shares its round ⇒ same key ⇒ the loop keeps playing.
-          audio.playBgm(bgmKeyFor(deps.selectRoute(s), pub, combatTrackFor(pub?.round)));
+          // 2026-11-11: in the season's own tracks (the room's, else the picked one — resolveBgm)
+          audio.playBgm(bgmKeyFor(deps.selectRoute(s), pub, combatTrackFor(pub?.round)), seasonOf(s));
           // a skill's held sounds never outlive its battle: a battle that ends sends no skill off / 'die' for the units
           // still on the field, so 薄绿's field loop played on through the 休整期 (maintainer report 2026-10-10)
           if (!pub?.phase || !BATTLE_PHASES.has(pub.phase)) stopSkillLoops(audio);
@@ -2603,7 +2668,7 @@ export function installAudio(deps) {
       sync(deps.getState());
       return deps.subscribe((s, prev) => {
         if (s.match?.public?.phase !== prev?.match?.public?.phase || s.room !== prev?.room || s.session !== prev?.session
-          || s.match?.public?.bossId !== prev?.match?.public?.bossId) sync(s);
+          || s.match?.public?.bossId !== prev?.match?.public?.bossId || seasonOf(s) !== seasonOf(prev)) sync(s);
       });
     }
   } catch (err) { console.warn('[audio] install failed', err); }
