@@ -4296,6 +4296,23 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
   /**
+   * 2026-11-11, official client: a skill ability's swing-start CastTargetEffectOptions (modes.json skills[i].castTgt, timed by
+   * castTgtOpt — char_modes.py skill_effects): created on its cast target as the skill's attack starts its cast — 酒神 S1
+   * skchr_phatm2_1 (a next-attack skill: the sim's 'skill' on, then that attack's 'swing') puts its aim marks
+   * phatm2_skill_01_hit_aim_01 / _hit_02_aim_01 over the target then. Before, they sat in skills[i].target and waited
+   * PENDING_S for a damage at the skill's start, half a second before her strike, so they never played.
+   */
+  function skillCastTgtFx(v, c, tgt) {
+    if (!v._fxSkillOn || c.skip) return;
+    const sk = skillBind(v), names = extracted(v, sk?.castTgt).filter((n) => !KIT_OWNED.has(n));
+    tgt ||= lastTarget(v);
+    if (!names.length || !tgt || tgt.alive === false || tgt.remove) return;
+    for (const n of names) {
+      const loop = sk.castTgtOpt?.[n]?.o === 0;
+      play(v, 'attackHit', 0, { at: tgt, names: [n], tag: loop ? 'castLoop' : 'cast', until: loop ? c.end : null, speed: c.speed, cast: c });
+    }
+  }
+  /**
    * The clip group of a new cast of `v` (modes.json clipFx[mode], fxmap.js clipGroup — 비나 빅토리아's Attack_1 / Attack_2
    * cast siege2_attack_start_01 / _02): the group of the attack clip its model plays; its extracted cast / hit names. And
    * (2026-10-21) the child of the mode's ability group the attack casts (altFx, fxmap.js altGroup — 迷迭香 Attack_A / _B,
@@ -4389,6 +4406,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const cast = castOf(own, c.group);
     inputFx(src, c, mode, 'swing', face);
     castTgtFx(src, c, mode, kind, face);
+    skillCastTgtFx(src, c, face);
     if (cast.length || split) { playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing')); return; }
     // no mode binding: the name mapping's attack start, at the swing like the client's ON_CAST_START majority [추정]
     if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
@@ -4411,6 +4429,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         else if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
         inputFx(src, c, mode, 'swing', tgt);
         castTgtFx(src, c, mode, kind, tgt);
+        skillCastTgtFx(src, c, tgt);
       }
     }
     if (c.struckAt != null && clockS - c.struckAt < 0.03) return;   // another target of the same strike

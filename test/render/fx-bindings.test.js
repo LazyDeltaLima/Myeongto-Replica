@@ -94,6 +94,7 @@ const KNOWN = {
   'STACK_FX palsy|*': ['untabled', 'as KEY_FX ab:exposed — palsy[stack] (overrideEffectKey common_061_numb_01, its prefab switching to _02 / _03 by the stacks)'],
   'KEY_FX ab:aweAura|*': ['untabled', '扎罗\'s FearAura AuraAbility `_effects` (its prefab, enemy-modes.json `auraNested`): the binding table holds the charpacks\' rows only'],
   'KIT_OFFICIAL burst.wisdel|*': ['untabled', '위셔델\'s shade strikes through its skill prefab sktok_wisdel_wward and projectile_chr_wisdel_token: the binding table holds no row of a token\'s skill prefab'],
+  'KIT_OFFICIAL obelisk.beewax|*': ['untabled', '비즈왁스\'s 沙之碑 casting its skill sktok_beewax (`_castEffects` token_beewax_skill_02_range): the binding table holds no row of a token\'s skill prefab'],
   'KIT_OFFICIAL refresh.mlyss|token_10030_mlyss_wtrman_split_start_01': ['missing', '뮤엘시스\'s casting 流形: sktok_mlyss_wtrman_3/SpawnTokenS3 `_castEffects` — the binding table holds no row of a token\'s skill prefab (its other cite, the refill, has rows)'],
   'DEPLOY_FX DEPLOY_FX|*': ['untabled', 'the client\'s default effects (DefaultEffects), not a binding row'],
   'fxgame screen_desert_up_to_down|screen_desert_up_to_down': ['missing', 'sand_storm[camera_effect] creates screen_desert_*_empty (SwitchDirection branches), a wrapper whose `_effects` is this looping prefab (not extracted itself): the hand plays the inner one'],

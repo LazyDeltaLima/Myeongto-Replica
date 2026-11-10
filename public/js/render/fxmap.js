@@ -623,7 +623,8 @@ export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(
   // projectile — render/fxgame.js zoneFx; 85d83c89's `_range` name rule put thorn2_skill_02_range on her for the whole battle
   // (2026-11-06) `ready`: shown while the skill can be used (fxstatus.js readyHolds), not from its start by the `_buff` name rule
   // (2026-11-07) `channel`: from the ability's first strike to its end (fxgame.js channelFx), not once at its start by the `_start` name rule
-  const notCaster = new Set([...(sk?.target || []), ...(sk?.targetBuff || []), ...(sk?.end?.cast || []), ...(sk?.end?.hit || []),
+  // (2026-11-11) `castTgt`: a skill ability's swing-start marks on its cast target (fxgame.js skillCastTgtFx — 酒神 S1's aim)
+  const notCaster = new Set([...(sk?.target || []), ...(sk?.castTgt || []), ...(sk?.targetBuff || []), ...(sk?.end?.cast || []), ...(sk?.end?.hit || []),
     ...(sk?.zone?.fx || []), ...(sk?.zone?.aura || []), ...(sk?.ready?.fx || []), ...(sk?.channel || [])]);
   // (2026-10-10) a mode buff whose ability selects enemies (`attachFoe`: 아스트젠 더 라이트체이서 S3's link) is on the enemy, not here
   const foe = new Set(foeEffects(bind, pre, n));

@@ -49,7 +49,8 @@ export default withDefaults({
           const ob = battle.spawnToken(unit, tokenId, best[0], best[1], { duration: dur, kit: obeliskKit });
           if (!ob) return;
           unit.mem.obelisk = ob;
-          battle.fx('obelisk', { x: ob.x, y: ob.y, id: ob.id });
+          // (`src`: her — the render's plan for the 沙之碑's own skill cast, render/fx/kitofficial.js `obelisk`)
+          battle.fx('obelisk', { x: ob.x, y: ob.y, id: ob.id, src: unit.id });
           const tokGrid = grid(tok?.skill?.rangeGrid) || [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1]];
           for (const e of targetsInGrid(battle, ob, tokGrid)) {
             battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 2), type: 'arts', isSkill: true, tags: ['skill', 'burst'] });

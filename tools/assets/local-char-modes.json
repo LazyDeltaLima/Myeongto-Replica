@@ -2419,13 +2419,11 @@
    ],
    [
     "jesca2_skill_03_start_01",
-    "jesca2_skill_03_start_01_02",
-    "jesca2_skill_03_start_02"
+    "jesca2_skill_03_start_01_02"
    ],
    [
     "jesca2_skill_03_start_01",
-    "jesca2_skill_03_start_01_02",
-    "jesca2_skill_03_start_02"
+    "jesca2_skill_03_start_01_02"
    ]
   ],
   "hit": [
@@ -2587,6 +2585,37 @@
   "castTgt": [
    "jesca2_attack_start_01_02",
    "jesca2_skill_01_start_01_02"
+  ],
+  "talentAtk": [
+   null,
+   null,
+   null,
+   {
+    "ExtraBomb": {
+     "cast": [
+      "jesca2_skill_03_start_02"
+     ],
+     "trail": [
+      "jesca2_skill_03_trail_02"
+     ],
+     "hit": [
+      "jesca2_skill_03_hit_02"
+     ]
+    }
+   },
+   {
+    "ExtraBomb": {
+     "cast": [
+      "jesca2_skill_03_start_02"
+     ],
+     "trail": [
+      "jesca2_skill_03_trail_02"
+     ],
+     "hit": [
+      "jesca2_skill_03_hit_02"
+     ]
+    }
+   }
   ],
   "start": "jesca2_birth_01",
   "dirs": [
@@ -4558,13 +4587,28 @@
      "phatm2_skill_01_start_01"
     ],
     "buff": [],
-    "target": [
-     "phatm2_skill_01_hit_aim_01",
-     "phatm2_skill_01_hit_02_aim_01"
-    ],
+    "target": [],
     "targetBuff": [
      "phatm2_skill_01_debuff_01"
     ],
+    "castTgt": [
+     "phatm2_skill_01_hit_aim_01",
+     "phatm2_skill_01_hit_02_aim_01"
+    ],
+    "castTgtOpt": {
+     "phatm2_skill_01_hit_aim_01": {
+      "s": 2,
+      "e": 3,
+      "o": 1,
+      "t": 2
+     },
+     "phatm2_skill_01_hit_02_aim_01": {
+      "s": 2,
+      "e": 3,
+      "o": 1,
+      "t": 2
+     }
+    },
     "hitGroups": {
      "g": [
       [
@@ -22627,7 +22671,7 @@
     "veen_attack_rank_01_hit_01"
    ],
    [
-    "veen_attack_rank_02_hit_01"
+    "veen_attack_rank_01_hit_01"
    ],
    [
     "veen_skill_03_hit_01"
@@ -22682,6 +22726,48 @@
      "o": 0
     }
    }
+  ],
+  "talentAtk": [
+   {
+    "AttackWithMergeBall": {
+     "cast": [
+      "veen_attack_start_01"
+     ],
+     "trail": [
+      "veen_trail_01"
+     ],
+     "hit": [
+      "veen_attack_rank_02_hit_01"
+     ]
+    }
+   },
+   {
+    "AttackWithMergeBall": {
+     "cast": [
+      "veen_skill_01_start_01"
+     ],
+     "trail": [
+      "veen_trail_01"
+     ],
+     "hit": [
+      "veen_attack_rank_02_hit_01"
+     ]
+    }
+   },
+   {
+    "AttackWithMergeBall": {
+     "cast": [
+      "veen_skill_02_start_01"
+     ],
+     "trail": [
+      "veen_trail_01"
+     ],
+     "hit": [
+      "veen_attack_rank_02_hit_01"
+     ]
+    }
+   },
+   null
   ],
   "shotFrom": [
    10,

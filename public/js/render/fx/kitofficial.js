@@ -349,6 +349,12 @@ export const KIT_OFFICIAL = {
   // (2026-11-07) 만트라: S3's 溢出 on its holder (projectile_chr_mantra_s3_2's hit); T2's mark on the tile it listens to (`_effectSettings` castedTimeThreshold 1)
   mantraArc: { mantra: cite('projectile_chr_mantra_s3_2', () => ({ play: [once('mantra_bounce_hit_01', 'point')] })) },
   mantraGate: { mantra: cite('char_4204_mantra/Others/Direction/Talents/2/TileListener', () => ({ play: [once('mantra_mark_01', 'point')] })) },
+  // (2026-11-11) 蜜蜡 S2: the 沙之碑 (token_10011_beewax_oblisk) casts its own skill sktok_beewax as it is placed — the stun burst
+  // the kit's 'obelisk' stands for — whose `_castEffects` ON_CAST_START plays token_beewax_skill_02_range on it once
+  // (pkgrps/btl_pfb_fx_token_0.ab → bundle beewax_token); no stand-in pillar
+  obelisk: {
+    beewax: cite('sktok_beewax', () => ({ play: [{ ...once('token_beewax_skill_02_range', 'id'), bundle: 'beewax_token' }] })),
+  },
   mitmReborn: {
     // Modes/Reborn trshrb_switch `_castEffects`, as its ReBorn clip starts
     mitm: cite('token_10037_mitm_trshrb/Modes/Reborn/Body/Talents/1', () => ({ play: [{ n: 'token_mitm_trshrb_birth_01', on: 'point', life: 1, bundle: 'mitm_token' }] })),

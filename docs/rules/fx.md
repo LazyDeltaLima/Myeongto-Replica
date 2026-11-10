@@ -1496,6 +1496,15 @@
   확인: `test/render/fx-particle-modules.test.js` 「ZDistort」 [화면 미확인: 그 오퍼레이터들을 추출할 때].
   확인: `test/render/fx-round2.test.js` 「cast-target effects」, `test/render/fx-particle-modules.test.js` 「ZDistort」, 이벤트 골든 diy-012·013에 조준 세 줄,
   Windows Chrome 디버그 아레나(평지)에서 평타 30·S2 45·S3 19회 조준 재생(휘두름 시작에), 페이지·콘솔 오류 0. 고지대·실제 판 [화면 미확인].
+- **S1 밤의 메아리 조준 — 스킬 능력의 시전 대상 이펙트**(2026-11-11, 공식 클라에서 확인): 스킬 프리팹 `skchr_phatm2_1`의 `_castTargetEffects`
+  (`phatm2_skill_01_hit_aim_01`·`_hit_02_aim_01`, 둘 다 ON_CAST_START·한 번)는 위 ①과 같은 `CastTargetEffectOptions`인데 모드 공격이 아니라 스킬 능력에 있어
+  `modes.json skills[0].target`(타격 쪽)에 섞여 있었다. S1은 「다음 공격」 스킬이라 시뮬이 `skill` 켜짐 → 같은 틱에 그 공격의 `swing` → 0.5초 뒤 두 번 타격을 내는데,
+  렌더는 스킬 켜짐 순간의 피해를 `PENDING_S`(0.02초) 동안 기다려 조준을 붙이려다 놓쳤다(아레나에서 안 나옴, 골든 판에서는 같은 틱의 다른 피해에 주인 없이 붙음).
+  → `char_modes.py skill_effects`가 스킬 능력의 ON_CAST_START 시전 대상 이펙트를 `castTgt`(시점은 `castTgtOpt`)로 따로 적고 `target`·`shotHit`에서 뺀다
+  (전체 다시 뽑기에서 바뀐 것은 그녀 하나). `fxgame.js skillCastTgtFx`가 스킬이 켜진 휘두름 시작에 그 휘두름의 대상(없으면 지난 대상) 위에 틀고, 이름 규칙은
+  `castTgt`를 시전자에게 틀지 않는다(`fxmap.js activationEffects`). 같은 꼴의 장치 스킬 설치형 크레인 `sktok_sleep`(`trap_031_sleep`)·변격 위셔델 `sktok_izwsdl`
+  (`trap_305_izwsdl`)은 이 모드에 나오지 않아 잇지 않았다. 확인: `test/render/skill-cast-target-fx.test.js`(연결·이름 규칙을 하나씩 되돌리면 실패), 이벤트 골든
+  diy-012·013의 조준 두 줄이 `- spawn … → enemy`에서 `char_1042_phatm2 attackHit … → foe`로. [화면 미확인: 아레나 2배속]
 - 확인: Windows Chrome 디버그 아레나(정예·RIT-X, 스킬마다 약 50초, 재생된 프리팹 이름 기록) — S1 속박 표시 10회, S2 소환물 등장·범위·유인·퇴장 2회·틱 24회,
   S3 범위·버프·牢笼 1회, 페이지 오류 0. 실제 판(전투 화면의 위치·크기·방향)은 아직.
 
@@ -3974,6 +3983,23 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - **스킬 모드**: 소환물 스킬 프리팹의 `switch_mode` 모드는 이름이 `S…`가 아니어도 그 스킬의 모드다(샴페인 폭탄 `sktok_swire2_gdtrap` → 1 `M2`, 그 모드의 `token_gdtrap_passive[eff]` 버프 `token_swire2_buff_01_start`는 스킬 동안 돈다). 스킬이 아닌 모드의 상시 이펙트(`attach`)는 줄에 넣지 않는다(오라 쪽).
 - **유동체의 모드**: 키트 사건 `copy`의 `mode`(Melee / Range, `mlyss_wtrman_switch_melee` / `_range`)를 렌더가 소환물에 적고, 그녀 S2·S3 동안은 `Range_S2`·`Melee_S3`(`mlyss_wtrman_switch_*`: 그녀가 `mlyss_s_2[buff]`·`mlyss_s_3[buff]`를 가지면 `SwitchMode` 4 / 5)로 고른다 — 소리 쪽 `audio.js tokenModeName`과 같은 규칙(`fxgame.js tmodeOf`). 유동체 자체 프리팹 28개를 `mlyss_token`으로 뽑았다(상시 `_buff_01`도 이제 난다).
 - **새로 뽑은 프리팹**: 공유 팩에서 `dusk_token`(`btl_pfb_fx_token_0.ab`, 공격 시작·타격·오라 둘), `swire2_token`·`siege2_token`(`btl_pfb_fx_token_2.ab`, 공격·버프). '작은 즈자이'·황금의 맹세의 오라(`aura`)는 줄에 있었으나 파일이 없어 안 났다.
+- **공격 없는 소환물의 스킬 이펙트**(2026-11-11, 공식 클라에서 확인): 줄에 `skills`가 없는(공격 이펙트가 없는) 소환물 셋의 스킬 프리팹은 모두 소환물 자신의
+  스킬 능력이 시전 시작(ON_CAST_START)에 `_castEffects`로 한 번 트는 것이다. `token_modes` 조건은 넓히지 않았다(오라·키트 사건이 그리는 소환물에 공격 경로를 열면
+  주인 이펙트가 그 소환물에 난다 — 위 「묶음」).
+  - 비즈왁스 S2 모래의 비석(`token_10011_beewax_oblisk`) `sktok_beewax`: 놓일 때의 기절 폭발(키트의 `obelisk`)이 그 스킬이고, 그 `token_beewax_skill_02_range`를
+    비석 위에 한 번(`kitofficial.js obelisk`, 묶음 `beewax_token` — 이번에 범위·오라 `token_beewax_skill_02_buff`를 같이 뽑음, 오라는 줄에 있었으나 파일이 없어 안
+    났다). 키트 사건이 주인을 `src`로 싣는다. 대체 기둥은 안 그린다.
+  - 왕 S1 바둑알 `sktok_wang_1`(`Explode`): 그 `token_wang_skill_01_hit`은 이미 `fxgame.js stoneBlastFx` S1이 그 칸에 튼다. 이펙트 골든에 없는 것은 골든 판에서 적이
+    S1 바둑알을 밟지 않아서다.
+  - 로즈몬티스 S3 전술 장비(`token_10012_rosmon_shield`) `sktok_rosmon`: 이 모드의 로즈몬티스는 두 시즌 모두 S2로 고정된 기물이라 전술 장비가 나오지 않는다 —
+    잇지 않음.
+- **비이의 공격 능력 묶음**(2026-11-11, 공식 클라에서 확인): 기본·S1·S2 모드의 공격은 능력 묶음(`_abilityConfigs`)으로, `AttackWithMergeBall`(선택자가
+  `veen_charge_ball_merged` — 특성 `ChargeableGroup`이 에너지 `merge_cnt`개가 합쳐질 때 거는 버프, 재능 1도 같은 버프를 봄 — 를 요구; 탄 `projectile_chr_veen_merged_base`·
+  `_s2_merged_base`, 타격 `veen_attack_rank_02_hit_01`)과 그 밖의 `AttackBase`(탄 `_base`·`_s2_base`, 타격 `veen_attack_rank_01_hit_01`)다. 전에는 모드 타격이
+  추출기가 먼저 만난 자식 것(S2는 늘 `rank_02`, 기본·S1은 늘 `rank_01`)이었다. → `char_modes.py`가 묶음 자식 중 선택자가 자기 버프를 요구하는 것을 이름(`First…`)이
+  아니라 선택자로 `talentAtk`에 적고(전체 다시 뽑기에서 바뀐 것: 그녀, 그리고 제시카 더 리버레이티드 S3의 `ExtraBomb` — 그 시전 `jesca2_skill_03_start_02`가
+  S3 평타마다 덤으로 나던 것이 빠짐, 폭탄 때는 전처럼 `kitofficial.js bombardShell`이 튼다), 키트가 转置能量을 가진 공격의 'atk'에 신호 `AttackWithMergeBall`을
+  싣는다(S3는 한 능력이라 신호 없음). 확인: `test/render/veen-merge-fx.test.js`(키트 신호를 빼면 실패). 전투 golden은 그대로(사건은 종류별 개수만). [화면 미확인]
 - 확인: 건식 층 시험 `test/render/summon-attack-fx.test.js`(방향·아래 모드·S2 시전·S3·유동체 모드·이름 규칙 막기), 이펙트 골든. 실제 대전 경로로 돌린 골든 판을 렌더 데모에서 2배속으로 재생해 '타자기'(공격·탄·타격, S3 시전·탄·타격), 공학용 저수포(시전·포탄·타격), 유동체(복사 뒤 `Range`의 시전·타격), '작은 즈자이'·황금의 맹세(공격·오라)가 나는 것을 봄. 아래 배치·S2·샴페인 폭탄은 데모 판에 없어 시험으로만. 공식 화면과는 대조하지 않음 [화면 미확인].
 
 ## 테리토리야 국가의 칸과 가장자리 선 (2026-11-10, 공식 클라에서 확인)

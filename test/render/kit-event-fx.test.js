@@ -56,7 +56,6 @@ const VERDICT = {
   jungleSoul: { gvial2: ['skill', 3] },
   knack: { reckpr: ['skill', 2] },
   meltdown: { blaze2: ['standIn', "sent on the enemy (the burn burst's own effect; blaze2_t_1 creates none)"] },
-  obelisk: { beewax: ['standIn', 'sent by her token'] },
   overclock: { cathy: ['skill', 2], hsguma: ['skill', 3] },
   overload: { rmixer: ['skill', 2], gvial2: ['skill', 2], oxi: ['none', 'S3 过载: the client only sounds oxi_s_3_overload (an AudioOnEventBehaviour on event 8)'] },
   reweave: { cetsyr: ['skill', 3, "the name rules' S3 buffs (charpack S3 AuraHeal / skchr_cetsyr_3 Encourage passives); S2: cetsyr_skill_02_trail_start"] },
