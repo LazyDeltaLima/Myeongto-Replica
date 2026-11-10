@@ -54,7 +54,8 @@ export default {
           const seq = unit.deploySeq;
           battle.after(STRIKE_AT, () => {
             if (!up(unit) || unit.deploySeq !== seq || !unit.skill?.active || unit.skill.id !== S2) return;
-            battle.forceAttack(unit);
+            // the ability is Modes/S2/Body/StrikeBack (`_animKey` Skill_Loop): the 'atk' signal names it for the clip (SIGNAL_CLIPS)
+            battle.forceAttack(unit, null, { signal: 'StrikeBack' });
           }, { owner: unit });
         }, { owner: unit });
       } }],

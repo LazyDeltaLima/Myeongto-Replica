@@ -61,6 +61,8 @@ export default {
           const on = !!(unit.skill?.active && unit.skill.id === S2);
           unit.mem.chnutAgain = on && t && unit.mem.chnutLast === t ? t : null;
           if (on) unit.mem.chnutLast = t;
+          // its shot: `_secondProjectileKey` projectile_chr_chnut_3 (chnut_skill_02_hit_02) — the 'atk' signal (char_modes.py talentAtk)
+          if (unit.mem.chnutAgain) c.signal = 'Second';
         }, { owner: unit, priority: -50 });
       },
     };

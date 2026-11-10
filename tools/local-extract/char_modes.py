@@ -901,8 +901,18 @@ def mode_parts(tree, mode_paths, projectiles=None):
                 # FirstAttack, while branch_s_2[first] holds; its swing is the sim's 'FirstAttack')
                 if configs and parts[2].startswith('First') and any(x.get('_checkContainBuffs') == 1 and x.get('_buffKeys') for x in by_go.get(gp + '/Selector', [])):
                     tal[parts[2]] = gp
-        if tal:
-            talent[i] = {k: collect(i, ap) for k, ap in sorted(tal.items())}
+        parts = {k: collect(i, ap) for k, ap in sorted(tal.items())}
+        # 2026-11-10: a ContinuouslyRangedHeal's `_secondProjectileKey` — the shot of a heal on the same ally as the attack before
+        # it (褐果 S2: projectile_chr_chnut_3, its chnut_skill_02_hit_02); the same ability casts it, so its cast list is the
+        # mode's own (empty here), and the sim names that attack 'Second'
+        for x in by_go.get(mp + '/Body/Attack', []):
+            pk = x.get('_secondProjectileKey')
+            if isinstance(pk, str) and pk and projectiles:
+                pe = projectiles.effects(pk)
+                projs[i].add(pk)
+                parts['Second'] = {'cast': [], 'trail': list(pe['trail']), 'hit': list(pe['hit'])}
+        if parts:
+            talent[i] = parts
         if len(sides) == 2:
             side[i] = {k: collect(i, ap) for k, ap in sorted(sides.items())}
     return talent, side, gos, projs, timing
@@ -990,11 +1000,15 @@ def modes_of(path, projectiles=None, tree=None):
 
     def mode_buffs(i, d):
         """The effects of the buffs ability `d` of mode `i` holds (attach; attachFoe when the ability targets enemies)."""
-        own = held_buff_effects(d)
+        # 2026-11-10: an aura ability's `_buffs` (`_removeBuffWhenTargetLeave`: they go to the units of its range and leave with
+        # them — 奥尔佳's Talents/1 alga[check_enemy] → alga_buff on every operator round her) are no buff of its owner: the units
+        # that hold one draw it (render/fxstatus.js KEY_FX)
+        held = held_buff_effects(d)
+        own = held_buff_effects({k: v for k, v in d.items() if k != '_buffs'}) if d.get('_removeBuffWhenTargetLeave') == 1 else held
         add(attach[i], own)
         sel = selects_foes(d)
         if d.get('m_GameObject', {}).get('m_PathID') in foe_go or sel is not False:
-            add(attach_foe[i], own)
+            add(attach_foe[i], held)   # (an aura on enemies: its buffs are theirs — 归溟幽灵鲨's ghost2_beidong_buff_02)
             if sel:
                 for x in own:
                     foe_max.setdefault(x, sel)
@@ -1558,7 +1572,9 @@ def down_switches(o, acc):
             pick = lambda nodes: next((x['_modeIndex'] for x in nodes or [] if isinstance(x, dict) and str(x.get('$type', '')).endswith('+SwitchMode')
                                        and isinstance(x.get('_modeIndex'), int) and not x.get('_loadModeFromBlackboard')), None)
             a, b = pick(o.get('_succeedNodes')), pick(o.get('_failNodes'))
-            if a is not None:
+            # (2026-11-10: a fail branch that switches only through another check — 灰毫 S2 ashlok_s_2's UP / DOWN / LEFT / RIGHT
+            # chain — names no mode it leaves: nothing to record, not "the mode it started in")
+            if a is not None and (b is not None or not o.get('_failNodes')):
                 acc[b if b is not None else 0] = a
         for v in o.values():
             down_switches(v, acc)

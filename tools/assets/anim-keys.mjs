@@ -31,7 +31,10 @@ const RESTORE = /(^|\/)Restore\w*$/;
 // the fields of a skill's roles that its facing-down mode replaces (keyRoles `downMode`)
 const DOWN_MODE_FIELDS = ['begin', 'loop', 'end', 'idle', 'firstAttackBegin', 'attackBegin', 'attackEnd', 'stance', 'down'];
 
-const clipKeyOf = (ab) => ab?.three?.oneshot || ab?.chan?.loop || (typeof ab?.key === 'string' ? ab.key : null);
+// (2026-11-10, official client: UberAnimationEffectEmitter.OnCastStart plays its `_replaceGroup` pick's `anim` on the owner when its
+// `_sourceAnimKey` is the clip being cast — 赫德雷 S2's Attack becomes Skill_2_Loop_A / _B; elsewhere the key is the first of them)
+const turnKey = (ab) => (ab?.turns?.anims?.length && ab.src === ab.key && !ab.turns.anims.includes(ab.key) ? ab.turns.anims[0] : null);
+const clipKeyOf = (ab) => ab?.three?.oneshot || ab?.chan?.loop || turnKey(ab) || (typeof ab?.key === 'string' ? ab.key : null);
 
 /**
  * The normal-attack ability of a mode's abilities ({ path: ability }), as tools/local-extract/attack_timing.py picks it:
@@ -94,7 +97,7 @@ export function keyRoles(op, durations) {
     // a ThreePart attack without an `_endAnim` closes on its ability's `_endAnimKey` as the attacks stop (Idle = none)
     if (ab.three) return { begin: J(ab.three.begin, m), loop: J(ab.three.oneshot, m), end: J(ab.three.end, m) ?? (ab.end !== 'Idle' ? J(ab.end, m) : null), first: !!ab.three.first };
     if (ab.chan) return { begin: J(ab.chan.begin, m), loop: J(ab.chan.loop, m), end: J(ab.chan.end, m), chan: true };
-    if (typeof ab.key === 'string') return { begin: null, loop: ab.key ? J(ab.key, m) : null, end: null, after: J(ab.end, m), stance: ab.key === '' };
+    if (typeof ab.key === 'string') { const k = turnKey(ab) ?? ab.key; return { begin: null, loop: k ? J(k, m) : null, end: null, after: J(ab.end, m), stance: ab.key === '' }; }
     return null;
   };
   const a0 = abClip(attackAbility(modes[0]?.abilities), 0);

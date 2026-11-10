@@ -27,6 +27,8 @@ test('the extracted always-on effects: the passive INFINITY buffs of the common 
     char_2015_dusk: ['dusk_buff_02_start', 'dusk_buff_05_start'],
     char_245_cello: ['cello_common_fx01', 'cello_common_fx03', 'cello_common_fx05'],
     char_4134_cetsyr: ['cetsyr_buff_range_01'],
+    // 레이지 아이언하이드 (a 规程 piece, CN client): CommonAbilities acrbot[equip-vfx] (INFINITY); her effect bundle is not extracted yet
+    char_618_acrbot: ['char_acrbot_ability_01_1'],
   });
   // 凯尔希·思衡托's RespawnBorn is a cast (its clip and cast effects), not a passive: its teleport end stays the kit's
   assert.equal(MODES.char_1052_kalts2?.common, undefined);

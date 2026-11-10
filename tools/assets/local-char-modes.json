@@ -488,6 +488,22 @@
    7,
    9
   ],
+  "switchTo": [
+   [
+    6
+   ],
+   [
+    2,
+    7,
+    10
+   ],
+   [
+    3,
+    4,
+    8,
+    9
+   ]
+  ],
   "skills": [
    {
     "cast": [],
@@ -1133,7 +1149,6 @@
   "attach": [
    [],
    [
-    "ghost2_beidong_buff_02",
     "ghost2_beidong_buff_01"
    ],
    [],
@@ -2637,6 +2652,13 @@
     3,
     4
    ]
+  ],
+  "downMode": [
+   0,
+   1,
+   2,
+   4,
+   4
   ],
   "skills": [
    {
@@ -14472,6 +14494,12 @@
     3
    ]
   ],
+  "downMode": [
+   0,
+   1,
+   3,
+   3
+  ],
   "skills": [
    {
     "cast": [],
@@ -14759,6 +14787,31 @@
      "s": 2,
      "e": 3,
      "o": 1
+    }
+   }
+  ],
+  "talentAtk": [
+   null,
+   {
+    "Second": {
+     "cast": [],
+     "trail": [
+      "chnut_skill_02_trail"
+     ],
+     "hit": [
+      "chnut_skill_02_hit_02"
+     ]
+    }
+   },
+   {
+    "Second": {
+     "cast": [],
+     "trail": [
+      "chnut_skill_02_trail"
+     ],
+     "hit": [
+      "chnut_skill_02_hit_02"
+     ]
     }
    }
   ],
@@ -17498,6 +17551,11 @@
     1,
     2
    ]
+  ],
+  "downMode": [
+   0,
+   2,
+   2
   ],
   "skills": [
    {
@@ -23518,6 +23576,24 @@
     ]
    }
   ],
+  "switchTo": [
+   [],
+   [
+    1,
+    2
+   ],
+   [
+    3,
+    4
+   ]
+  ],
+  "downMode": [
+   0,
+   2,
+   2,
+   4,
+   4
+  ],
   "skills": [
    {
     "cast": [],
@@ -23883,6 +23959,13 @@
    null,
    1
   ],
+  "switchTo": [
+   [],
+   [],
+   [
+    1
+   ]
+  ],
   "skills": [
    {
     "cast": [
@@ -23947,12 +24030,8 @@
    []
   ],
   "attach": [
-   [
-    "alga_buff"
-   ],
-   [
-    "alga_buff"
-   ]
+   [],
+   []
   ],
   "castOpt": [
    {
@@ -23994,19 +24073,19 @@
    {
     "t": 3,
     "s": [
-     "alga_skill_02_start_02",
-     "alga_skill_02_start_01",
-     "alga_skill_02_start_03",
-     "alga_skill_02_start_01"
+     "alga_attack_start_02",
+     "alga_attack_start_01",
+     "alga_attack_start_03",
+     "alga_attack_start_01"
     ]
    },
    {
     "t": 3,
     "s": [
-     "alga_attack_start_02",
-     "alga_attack_start_01",
-     "alga_attack_start_03",
-     "alga_attack_start_01"
+     "alga_skill_02_start_02",
+     "alga_skill_02_start_01",
+     "alga_skill_02_start_03",
+     "alga_skill_02_start_01"
     ]
    },
    {
@@ -24321,6 +24400,13 @@
    null,
    null,
    1
+  ],
+  "switchTo": [
+   [],
+   [],
+   [
+    1
+   ]
   ],
   "skills": [
    {
@@ -26894,6 +26980,122 @@
     "buff": [
      "common_ignite_attack"
     ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_618_acrbot": {
+  "modes": [
+   "Default",
+   "Sk1"
+  ],
+  "proj": [
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "char_acrbot_attack_start_01",
+    "char_acrbot_attack_start_02",
+    "char_acrbot_attack_start_03"
+   ],
+   [
+    "char_acrbot_skill_02_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "char_acrbot_attack_hit_01"
+   ],
+   [
+    "char_acrbot_skill_02_hit_01"
+   ]
+  ],
+  "trail": [
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "char_acrbot_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "char_acrbot_attack_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "char_acrbot_attack_start_03": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "char_acrbot_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "combatSplit": [
+   {
+    "attack": {
+     "cast": [
+      "char_acrbot_attack_start_01",
+      "char_acrbot_attack_start_02",
+      "char_acrbot_attack_start_03"
+     ],
+     "hit": [
+      "char_acrbot_attack_hit_01"
+     ]
+    },
+    "combat": {
+     "cast": [
+      "char_acrbot_attack_start_01",
+      "char_acrbot_attack_start_02",
+      "char_acrbot_attack_start_03"
+     ],
+     "hit": [
+      "char_acrbot_attack_hit_01"
+     ]
+    }
+   },
+   {
+    "attack": {
+     "cast": [
+      "char_acrbot_skill_02_start_01"
+     ],
+     "hit": [
+      "char_acrbot_skill_02_hit_01"
+     ]
+    },
+    "combat": {
+     "cast": [
+      "char_acrbot_skill_02_start_01"
+     ],
+     "hit": [
+      "char_acrbot_skill_02_hit_01"
+     ]
+    }
+   }
+  ],
+  "common": [
+   "char_acrbot_ability_01_1"
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
     "target": [],
     "targetBuff": []
    }

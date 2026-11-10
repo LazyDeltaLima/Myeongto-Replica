@@ -191,6 +191,10 @@ export const KEY_FX = Object.freeze({
   // (2026-11-10) 시데로카 (규정 기물) T1: the times-th kill gives sidero_t_1[attack_speed] (overrideEffectKey sidero_buff_01_start,
   // INFINITY) — the sim's buff of that key
   'sidero_t_1[attack_speed]': keyedAll('sidero_t_1[attack_speed]', 'sidero', OWN),
+  // (2026-11-10) 올가 (규정 기물) T1: her Talents/1 aura gives every operator of the talent grid alga[check_enemy] (overrideEffectKey
+  // alga_buff), her too; the S2 mode's copy is the same buff (`disableOverride`: outside the override group, not the effect off) —
+  // the sim's aura buff 'alga[check_enemy]:<her id>'
+  'alga[check_enemy]': keyedAll('alga[check_enemy]', 'alga', OWN),
   // (2026-11-03) Mon3tr T2 战术协同 on an ally neither a Mon3tr nor a 重构体 (the sim's 'talent:monstr:aspd', `fxTag` 2 = given
   // under her S2), by the side the ally faces
   'talent:monstr:aspd': cite(['monstr_t_2[eff_1]', 'monstr_t_2[eff_1][r]', 'monstr_t_2[eff_2]', 'monstr_t_2[eff_2][r]'],

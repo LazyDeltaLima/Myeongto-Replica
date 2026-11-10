@@ -298,6 +298,9 @@ test('S3 charge: the 结构性原理 runs along its facing to the farthest free 
     approx(barrier(t, 'mcnist:t2:barrier').shield, t.s.maxHp * 0.4, `${label(f)}: 生命方程 again`);
     const ch = tagged(h, u, 'mcnist:charge');
     assert.deepEqual(sortN(ch.map((c) => c.target.id)), sortN([wall.id, hit2.id]), `${label(f)}: within 1.5 of (11, 7), the flyer too`);
+    // its look: her plan picks the trail by the token's direction (render/fx/kitofficial.js 'charge')
+    const fx = h.events.filter((e) => e[0] === 'fx' && e[1] === 'charge').map((e) => e[4]);
+    assert.deepEqual(fx.map((o) => [o.src, o.id, o.dir, o.tx, o.ty]), [[u.id, t.id, 'RIGHT', 7, 11]], `${label(f)}: the charge's fx`);
     for (const c of ch) { approx(c.amount, atk * 3, `${label(f)}: 300 % of her ATK`); assert.equal(c.type, 'phys'); }
     h.run(0.3);
     const wk = (e) => h.hooksOf('statusApplied').filter((c) => c.status === 'weaken' && c.target === e);

@@ -3027,8 +3027,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function officialKitFx(e, views) {
     const o = e[4], opId = kitOperator(o, e[1]), op = views.get(opId), b = !failed && q() !== 'low' ? bundleOf(op) : null;
-    const foe = views.get(o.id)?.info?.side === 'enemy';
-    const plan = b && isOp(op) ? kitOfficialPlan(e[1], o, b.bundle, { skill: skillIdx(op), back: faceBack(op), foe, plays }) : null;
+    const ev = views.get(o.id), foe = ev?.info?.side === 'enemy';
+    // (`left`: the event's unit faces left — the client's CheckFaceLOrR; 메커니스트 S3's charge picks its projectile by it)
+    const left = (ev?.visFacing ?? ev?.facing ?? 1) < 0;
+    const plan = b && isOp(op) ? kitOfficialPlan(e[1], o, b.bundle, { skill: skillIdx(op), back: faceBack(op), foe, left, plays }) : null;
     if (!plan) return false;
     if (plan.skillFlag) (op._fxSkillFlags ||= new Set()).add(plan.skillFlag);   // until the skill ends (洛洛's overDrones)
     for (const tag of plan.stop) {
@@ -3085,13 +3087,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (p.harpoon) { flight = Math.max(flight, planHarpoon(pb, name, op, p.harpoon, x, y)); n++; continue; }
       if (p.fly && (p.to || p.from)) { flight = Math.max(flight, planShots(pb, name, op, p, o, x, y, views)); n++; continue; }
       if (p.fly) { // a projectile's `_mainEffect` from the operator to the event's point at `fly` tiles / s, along its flight
-        // (2026-11-06) `start` [x, y]: a shot that leaves from a ground point of its own (오올헤약 S3's lanes), not the operator
+        // (2026-11-06) `start` [x, y]: a shot that leaves from a ground point of its own (오올헤약 S3's lanes), not the operator;
+        // (2026-11-10) `land` [x, y]: one that lands on a point other than the event's, `delay` s after the event (a projectile's
+        // `_delayToStart`: 메커니스트 S3's charge, from the 结构性原理's tile to its stop tile)
         const fx0 = Array.isArray(p.start) ? Number(p.start[0]) : op.x, fy0 = Array.isArray(p.start) ? Number(p.start[1]) : op.y;
-        const dur = Math.hypot(x - fx0, y - fy0) / p.fly, z = camRef ? bodyZ(camRef, op, SPAWN_FRAC[2]) - (op.z || 0) : 0.5;
-        flight = Math.max(flight, dur);
+        const x1 = Array.isArray(p.land) ? Number(p.land[0]) : x, y1 = Array.isArray(p.land) ? Number(p.land[1]) : y;
+        const wait = Number(p.delay) > 0 ? Number(p.delay) : 0;
+        const dur = Math.hypot(x1 - fx0, y1 - fy0) / p.fly, z = camRef ? bodyZ(camRef, op, SPAWN_FRAC[2]) - (op.z || 0) : 0.5;
+        flight = Math.max(flight, wait + dur);
         const z0 = op.z || 0;   // both ends drawn over their points (fx/camera.js liftX)
-        spawn(pb.bundle, name, glider(liftX(camRef, fx0, fy0, z0, z0 + z), fy0, liftX(camRef, x, y, z0, z0 + z), y, dur, z0 + z), { owner: p.tag ? opId : null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur, ...(p.tag ? { tag: p.tag } : {}) })
-          .then((l) => { if (l) bodyTurn(l.inst, mod.THREE, Math.atan2(y - fy0, x - fx0)); });
+        const shoot = () => spawn(pb.bundle, name, glider(liftX(camRef, fx0, fy0, z0, z0 + z), fy0, liftX(camRef, x1, y1, z0, z0 + z), y1, dur, z0 + z), { owner: p.tag ? opId : null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur, ...(p.tag ? { tag: p.tag } : {}) })
+          .then((l) => { if (l) bodyTurn(l.inst, mod.THREE, Math.atan2(y1 - fy0, x1 - fx0)); });
+        if (wait > 0) castsDelayed.push({ t: clockS + wait, run: shoot }); else shoot();
         n++;
         continue;
       }
@@ -3977,6 +3984,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     'cqbw_skill_02_buff', 'cqbw_skill_02_buff_02', 'cqbw_skill_02_start',
     // … and her S1 grenade's hit and S3 bombs' (kitofficial.js 'kitHit'): `skillTargets` drew them again on what the damage of the moment struck
     'cqbw_skill_01_hit', 'cqbw_skill_03_buff', 'cqbw_skill_03_buff_02', 'cqbw_skill_03_buff_03', 'cqbw_skill_03_hit',
+    // … and 메테오라이트 S2's shell hit (kitofficial.js 'kitHit' meteo:shell), on the enemy it traces only
+    'meteo_skill_02_hit',
     // … and 체르니 S2's FinalAttack, 18.6 s in (kitofficial.js 'kitHit'): modes.json reads it as the cast's
     'pianst_skill_02_end', 'pianst_skill_02_end_range', 'pianst_skill_02_end_hit',
     // 2026-11-07: 真言's S1 / S2 hits, by the target's state (kitofficial.js 'kitHit'): the `_hit` name rule (play) drew S2's on every hit, under them
@@ -5987,7 +5996,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             ownAtk.set(`${src.id ?? src.info?.id}:${tgt.id ?? tgt.info?.id}`, lastAtk.get(tgt.id ?? tgt.info?.id));
             if (ownAtk.size > 512) for (const [k, x] of ownAtk) if (clockS - x.t > 2.5) ownAtk.delete(k);
           }
-          if (tgt && tgt.info?.side !== 'enemy') healAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot }); // healHit
+          // (its `sig` too: 褐果 S2's 'Second' heal shot hits with chnut_skill_02_hit_02 — modePart)
+          if (tgt && tgt.info?.side !== 'enemy') healAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot, sig }); // healHit
           if (tgt) aimed.set(`${src.id ?? src.info?.id}:${tgt.id ?? tgt.info?.id}`, { t: clockS, mode }); // the chain it may start (chainHop)
           if (aimed.size > 256) for (const [k, x] of aimed) if (clockS - x.t > 2.5) aimed.delete(k);
           const part = atkPart(src, mode);

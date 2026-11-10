@@ -38,6 +38,19 @@ export const MODE_SWITCH_STATUS = Object.freeze({
   },
   char_4026_vulpis: { 'S3 S3_Down': 'ok: the same effects (another order); its clips by the keys\' downMode' },
   char_4039_horn: { 'S3 S3(D)': 'ok: the same effects; its clips by the keys\' downMode' },
+  // (2026-11-10: the first full CN run of char_modes.py since `switchTo` / `downMode` — these were there before, unread)
+  char_1015_aglna2: {
+    'S1 S1_Landing': 'ok: her landing after S1\'s take-off: no attack, no effect in the mode; its clip is the keys\' (render/units.js glide)',
+    'S2 S2_Landing': 'ok: her landing after S2: no attack, no effect in the mode (the kit\'s aglnaFlight end draws aglna2_skill_02_fly_end_*)',
+    'S2 S2_Chant': 'ok: S2\'s chant: no attack, no effect in the mode; its clip is the keys\' (SpineActor.chant)',
+    'S3 S3Move': 'ok: the flight: its attach aglna2_skill_03_fly_trail_01 is drawn by the kit\'s aglnaFlight (fxgame.js, with aglna2_s_3[move_mode]\'s side buff)',
+    'S3 S3_TakeOff': 'ok: her take-off into S3\'s flight: no attack, no effect in the mode',
+    'S3 S3_Landing': 'ok: her landing after S3\'s flight: no attack, no effect in the mode',
+  },
+  char_4231_clemnt: {
+    'S2 S2[Down]': 'ok: modes.json downMode (CheckCharacterDefaultDirection DOWN): deployed facing down her S2 attacks are drawn in it — the same lists',
+    'S3 S3[Down]': 'ok: modes.json downMode: deployed facing down her S3 is drawn in it — the same cast, hit and attach lists',
+  },
   char_4072_ironmn: { 'S2 S1': 'ok: the prefab\'s switch_mode (`_buffs`, mode 1, `_selfOption` 0: not himself) is his devices\'; his own is the `_passiveBuffs` ironmn_s_2, mode 2 S2, which the render picks' },
   char_4100_caper: { 'S2 S2[Down]': 'ok: the same effects; its clips by the keys\' downMode' },
   char_4133_logos: { 'S3 S3_End': 'ok: the kit plan draws its cast (render/fx/kitofficial.js bulletClear)' },

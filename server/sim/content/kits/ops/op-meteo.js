@@ -61,6 +61,8 @@ export default {
             if (!e?.alive) return;
             const lucky = roll(battle, unit);
             const scale = num(b2.atk_scale, 1), def = num(b2.def), dur = num(b2.duration);
+            // its look: projectile_meteo_s2's trail to the enemy and its hit there (render/fx/kitofficial.js 'kitHit' meteo:shell)
+            battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, src: unit.id, target: e.id, k: 'meteo:shell' });
             battle.addProjectile({
               from: unit, target: e, speed: S2_SPEED, visual: 'bomb', source: unit, hitDead: true,
               onHit: (c) => {

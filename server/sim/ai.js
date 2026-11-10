@@ -670,10 +670,13 @@ const NO_FLIGHT = Object.freeze({ key: null, move: 'NONE', speed: 0, delay: 0 })
 export function performAttack(b, u, prof, targets, opts = null) {
   const isSkill = !!prof.isSkill;
   if (b._hooks.beforeAttack) {
-    const ctx = { attacker: u, targets, isSkill, profile: prof };
+    const ctx = { attacker: u, targets, isSkill, profile: prof, signal: null };
     b.emit('beforeAttack', ctx);
     targets = (ctx.targets || []).filter((t) => t && t.alive);
     if (!targets.length || !u.alive) return;
+    // a kit may name the ability this attack is as it strikes (褐果 S2's 'Second': the shot of a heal on the same ally,
+    // ContinuouslyRangedHeal `_secondProjectileKey`) — its 'atk' events carry it, the swing (cast effects) does not
+    if (typeof ctx.signal === 'string' && ctx.signal && !opts?.signal) opts = { ...opts, signal: ctx.signal };
   }
   u.lastAttackAt = b.time;
   u.stats.attacks++;

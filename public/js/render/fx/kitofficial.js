@@ -29,6 +29,8 @@ import { whenPlays } from './conds.js';
  * units in order); or a flight `fly` (tiles / s) from the operator to the event's point —
  * a play with `after: 'fly'` starts when it lands; with `tag`, a later plan's `stop` ends it in the air. A 'point' play may
  * name its own ground point `at: [x, y]`.
+ * 2026-11-10: a flight with `start` / `land` [x, y] leaves from / lands on a ground point of its own, `delay` s after the event
+ * (a projectile's `_delayToStart`); a rule reads `left` (the event's unit faces left: the client's CheckFaceLOrR).
  * 2026-10-21: a flight with `to` (the event's field naming units) is a projectile at each unit from the operator's muzzle,
  * `gap` s apart, followed, playing `hit` [names] on it as it lands; one with `from: 'point'` flies from the event's point
  * back to the operator; either may carry `rope` (a line from the operator to the flying head) and `pass` { n, on } (`n` on
@@ -613,7 +615,23 @@ export const KIT_OFFICIAL = {
   // gnosis_beidong_buff from ON_CAST_START to ON_CAST_END, and the wrapper is `_isInfinity` (ActiveAbilityWrapper._GetLifeTime
   // returns no end): its cast never ends, but the prefab's own `_maxLifetime` 2 s ends it (2026-10-27, official client:
   // ParticleEffect._CheckIfAlive; render/fxgame.js `maxLife`) — a burst with a glow that loops for those 2 s
+  // (2026-11-10) 메커니스트 S3: the 结构性原理's charge is mcnist_s_3_projectile_real's EmitProjectileToTileUseSelector — by its deploy
+  // direction (UP / DOWN, else the side) and whether it faces left (CheckFaceLOrR): projectile_chr_mcnist_s3_token[_right / _up /
+  // _up_right / _down / _down_right], each one's `_mainEffect` from its tile to the stop tile (`_delayToStart` 0.2, speed 20:
+  // kits/ops/op-mcnist.js CHARGE_DELAY / CHARGE_SPEED); its `_effectsWhenReached` at the landing is the 'aoe' below
+  charge: {
+    mcnist: cite(['projectile_chr_mcnist_s3_token', 'projectile_chr_mcnist_s3_token_right', 'projectile_chr_mcnist_s3_token_up',
+      'projectile_chr_mcnist_s3_token_up_right', 'projectile_chr_mcnist_s3_token_down', 'projectile_chr_mcnist_s3_token_down_right'], (o, c) => {
+      const left = !!c.left;
+      const n = o.dir === 'UP' ? (left ? 'trail_02_up_left' : 'trail_02_up_right')
+        : o.dir === 'DOWN' ? (left ? 'trail_03_down_left' : 'trail_03_down_right') : left ? 'trail_01_left' : 'trail_01_right';
+      return { play: [{ n: `token_mcnist_mcgraf_skill_03_${n}`, bundle: 'mcnist_token', fly: 20, delay: 0.2, start: [Number(o.x), Number(o.y)], land: [Number(o.tx), Number(o.ty)] }] };
+    }),
+  },
   kitHit: {
+    // (2026-11-10) 메테오라이트 S2: its shell projectile_meteo_s2 (`_speed` 8, `_raiseHeight` 0.3; its `_effectsWhenHit` once, on the
+    // enemy it traces: `_onlyPlayHitEffectOnTraceTarget`) — the kit's projectile, fired at the skill clip's strike (op-meteo.js)
+    meteo: cite('projectile_meteo_s2', (o) => (o.k === 'meteo:shell' ? { play: [{ n: 'meteo_skill_02_trail', fly: 8, to: 'target', arc: 0.3, hit: ['meteo_skill_02_hit'] }] } : null)),
     // (2026-11-10) 아미야 의료 형태 S1: amiya3_s_1 ON_CALCULATE_DAMAGE of her attacks (family ATTACK) — CreateEffect
     // amiya3_skill_01_range on her as it heals the allies round her (kits/ops/op-amiya3.js 'amiya3:s1')
     amiya3: cite('amiya3_s_1', (o) => (o.k === 'amiya3:s1' ? { play: [once('amiya3_skill_01_range')] } : null)),
@@ -696,6 +714,11 @@ export const KIT_OFFICIAL = {
   // judge_skill_02_weapon_hit_01 on her — enemies hit or not)
   // 折桠 S2's FirstAttack (held by branch_s_2[first], no damage, no target needed: the skill's opening 战栗 blast, the sim's 'aoe')
   aoe: {
+    // (2026-11-10) 메커니스트 S3: the charge's landing (projectile_chr_mcnist_s3_token* `_effectsWhenReached`, on the stop tile) and
+    // each attack's cross (projectile_chr_mcnist_s3 `_effectsToTileWhenStart`, on its target's tile as it is thrown, 0.8 s before it lands)
+    mcnist: cite(['projectile_chr_mcnist_s3_token', 'projectile_chr_mcnist_s3'], (o) => (o.skill === 'mcnist:charge'
+      ? { play: [{ ...once('token_mcnist_mcgraf_skill_03_hit_01', 'point'), bundle: 'mcnist_token' }] }
+      : o.skill === 'mcnist:cross' ? { play: [once('mcnist_skill_03_hit_01', 'point')] } : null)),
     // (2026-11-10) 테리토리야 S3's spread (dminon_s_3[spread] CreateTileEffectInRange x-5) and T2 此身为界 landing (its projectile
     // projectile_chr_dminon_dead / _withdraw `_tileEffectKeyOnStop` on each tile of its `_targetRange`, the 国度 it cached):
     // dminon_talent_range_hit_01 on each tile (`cells`)
@@ -886,7 +909,7 @@ export const kitOperator = (o, name) => (o ? (OPERATOR_FIELD[name] ? o[OPERATOR_
 export function kitOfficialPlan(name, o, bundle, ctx = {}) {
   if (!o || typeof o !== 'object') return null;
   const rule = bundle ? KIT_OFFICIAL[name]?.[bundle] : null;
-  const r = typeof rule === 'function' ? rule(o, { skill: Number.isInteger(ctx.skill) ? ctx.skill : 0, back: !!ctx.back, foe: !!ctx.foe }) : null;
+  const r = typeof rule === 'function' ? rule(o, { skill: Number.isInteger(ctx.skill) ? ctx.skill : 0, back: !!ctx.back, foe: !!ctx.foe, left: !!ctx.left }) : null;
   if (!r) return name === 'hit' ? momentPlan(o, bundle, ctx.plays) : null;
   const play = (r?.play || []).flatMap((p) => (p.tpl ? tplPlays(p, ctx.plays) : [p]));
   return r ? { stop: r.stop || [], play, pass: !!r.pass, ...(r.skillFlag ? { skillFlag: r.skillFlag } : {}) } : null;

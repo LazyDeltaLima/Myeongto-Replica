@@ -74,6 +74,9 @@ test('S2 厚土迸发: the skill\'s range 3-2, ASPD +attack_speed; a heal on the
     const g2 = nextHeal(h, u, a);
     approx(heals(h, u, a).at(-1).amount, u.s.atk * again, `${id}: the same ally again`);
     approx(g2, u.s.atk * ratio * again, `${id}: its element recovery too`);
+    // its shot is `_secondProjectileKey` projectile_chr_chnut_3: the 'atk' signal 'Second' (render: chnut_skill_02_hit_02)
+    const atks = h.events.filter((e) => e[0] === 'atk' && e[1] === u.id && e[2] === a.id);
+    assert.deepEqual(atks.slice(-2).map((e) => e[4] ?? null), [null, 'Second'], `${id}: only the heal on the same ally is the second shot`);
     done(h);
   }
 });
@@ -88,6 +91,7 @@ test('S2: another ally in between resets it — the heal on a new ally is a plai
   b.hp = 1; a.hp = a.s.maxHp;   // now only b needs her
   nextHeal(h, u, b);
   approx(heals(h, u, b).at(-1).amount, u.s.atk, 'a new ally');
+  assert.equal(h.events.filter((e) => e[0] === 'atk' && e[1] === u.id && e[2] === b.id).at(-1)[4], undefined, 'no second shot on a new ally');
   done(h);
 });
 

@@ -78,6 +78,9 @@ test('S2 全神贯注！: no attack; 物理闪避 +prob; a dodge strikes back on
     assert.ok(dodges.some((t) => Math.abs(t + STRIKE_AT - at[0]) < 0.05), `${id}: ${at[0]} after a dodge`);
     // her normal attack would have been far more often: none of it
     assert.ok(hits.length <= Math.ceil(6 / gap) + 1, `${id}: only strike-backs (${hits.length})`);
+    // each is the StrikeBack ability (Skill_Loop clip): the 'atk' signal
+    const atks = h.events.filter((x) => x[0] === 'atk' && x[1] === u.id);
+    assert.ok(atks.length >= hits.length && atks.every((x) => x[4] === 'StrikeBack'), `${id}: ${atks.map((x) => x[4])}`);
     done(h);
   }
 });

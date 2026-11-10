@@ -33,7 +33,6 @@ test('extracted: the Default mode attach of every operator that has one', () => 
     char_4134_cetsyr: ['cetsyr_buff_01'],           // Default/Body/CommonAbility/Effect cetsyr_common_effect
     char_422_aurora: ['aurora_buff_01'],            // Default/Talents/1 aurora_t_1, a toggled buff: the kit's status draws it (worn), not the mode
     char_426_billro: ['billro_beidong_buff_03'],    // Default/Trait_Eff billro_trait_eff
-    char_4245_alga: ['alga_buff'],                  // Default/Body/Talents/1 alga[check_enemy] `overrideEffectKey` (CN client; its holders' look: bundle fx-V)
   });
 });
 
@@ -42,6 +41,13 @@ test('extracted: 阵法术师 trait buffs off in the skill modes, 卡涅利安 S
   for (const m of ['S1', 'S2', 'S2_Enhance', 'S3', 'S3_Enhance']) assert.ok(!at('char_426_billro', m).includes('billro_beidong_buff_03'), m);
   for (const m of ['S1', 'S2']) assert.deepEqual(at('char_344_beewax', m), [], m);
   assert.ok(!at('char_388_mint', 'S2').includes('mint_buff_01_range'));
+});
+
+test('extracted: an aura\'s `_buffs` go to the units of its range, no attach (올가 T1 alga_buff: the holders draw it, fxstatus.js KEY_FX)', () => {
+  for (const list of MODES.char_4245_alga.attach) assert.ok(!list.includes('alga_buff'), `${list}`);
+  // … an aura on enemies keeps them as theirs (스펙터 디 언체인드's Stand mode: ghost2_beidong_buff_02 on the enemies only)
+  const g = MODES.char_1023_ghost2, stand = g.modes.indexOf('Stand');
+  assert.ok(g.attachFoe[stand].includes('ghost2_beidong_buff_02') && !g.attach[stand].includes('ghost2_beidong_buff_02'));
 });
 
 test('extracted: a buff handed to the attack\'s targets is no attach (마운틴 buff_weak, 深靛 indigo_buff_01_start)', () => {

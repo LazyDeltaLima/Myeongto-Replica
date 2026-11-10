@@ -99,6 +99,9 @@ test('S2 高爆弹头: one shell at atk_scale on every enemy within 1.2 of its t
     assert.ok(debuff.timeLeft > bb.duration - 0.3 && debuff.timeLeft <= bb.duration, `${id}: duration ${debuff.timeLeft}`);
     assert.ok(t.findBuff(`meteo_s_2:${u.id}`), `${id}: on the target too`);
     assert.ok(!out.findBuff(`meteo_s_2:${u.id}`), `${id}: 1.4 away is out`);
+    // its look: one shell, at the enemy it traces (render: projectile_meteo_s2's trail and hit)
+    const shells = h.events.filter((e) => e[0] === 'fx' && e[1] === 'kitHit' && e[4]?.k === 'meteo:shell');
+    assert.deepEqual(shells.map((e) => e[4].target), [t.id], `${id}: the shell's fx`);
     h.run(bb.duration + 0.2);
     assert.ok(!mid.findBuff(`meteo_s_2:${u.id}`), `${id}: over`);
     done(h);

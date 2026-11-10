@@ -19,9 +19,6 @@
 // client key calls are listed like any other.
 
 export const UNPLAYED = {
-  char_347_jaksel: {
-    Skill_Loop: 'todo: D — S2 全神贯注！\'s StrikeBack (Modes/S2/Body/StrikeBack `_animKey` Skill_Loop) at each strike-back; the kit\'s forceAttack draws the Default attack clip',
-  },
   char_4177_brigid: {
     Skill_2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table: no mix; skchr_brigid_2 `_playSkillBeginAnim` off)',
     Skill_2_End: 'none: no client key names it (abilities, mode pairs, skin key table: no mix)',
@@ -154,13 +151,10 @@ export const UNPLAYED = {
   },
   // 赫德雷, 机械师 (规程 pieces, 2026-11-08, the maintainer's to-do list: bundle fx-V)
   char_4088_hodrer: {
-    Skill_2_End: 'todo: S2 — S2 余烬重荷\'s toggle clips (Begin / Idle / Loop / End), not read yet',
-    Skill_2_Idle: 'todo: S2 — S2 余烬重荷\'s toggle clips (Begin / Idle / Loop / End), not read yet',
-    Skill_2_Loop_A: 'todo: S2 — S2 余烬重荷\'s toggle clips, its two loops, not read yet',
-    Skill_2_Loop_B: 'todo: S2 — S2 余烬重荷\'s toggle clips, its two loops, not read yet',
+    Skill_2_End: 'none: skchr_hodrer_2 (ToggleSkillWithEndAnimation) `_endAnim`, played as the toggle goes off; this mode never closes it (kits/ops/op-hodrer.js `toggle`), as 乌有 S2',
   },
   char_4230_mcnist: {
-    Attack_B: 'todo: attack — a second attack clip of her Default mode, not read yet',
+    Attack_B: 'none: no client key names it (CN charpack: Body/Attack and Body/Combat `_animKey` Attack_A; skill prefabs skchr_mcnist_1-3; skin key table Born only; no mix)',
   },
   // W, 클로저 (2026-11-06, the maintainer's to-do list: bundle fx-V)
   char_113_cqbw: {
