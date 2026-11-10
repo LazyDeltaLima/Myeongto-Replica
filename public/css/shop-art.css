@@ -84,10 +84,13 @@
 .shopbar.has-shop-art .scard {
   width: calc(var(--u) * 158); height: calc(var(--u) * 176); border: 0; background: var(--sa-card-black) center / 100% 100% no-repeat; overflow: visible;
 }
-.shopbar.has-shop-art .scard:not(.scard--sold)::before { /* frame_lv1 over everything (the prefab's group_frame); the armed card takes frame_lv2 */
+/* the prefab's group_frame over everything, chosen by the piece's tier as the client's card does (_charLevelFrame: tier 6 →
+   frame_lv3 orange, tier 5 → frame_lv2 gold, else frame_lv1); an item card keeps frame_lv1 */
+.shopbar.has-shop-art .scard:not(.scard--sold)::before {
   content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--sa-card-frame1) center / 100% 100% no-repeat;
 }
-.shopbar.has-shop-art .scard.is-armed::before, .shopbar.has-shop-art .scard.is-merge::before { background-image: var(--sa-card-frame2); }
+.shopbar.has-shop-art .scard--t5:not(.scard--sold)::before { background-image: var(--sa-card-frame2); }
+.shopbar.has-shop-art .scard--t6:not(.scard--sold)::before { background-image: var(--sa-card-frame3); }
 .shopbar.has-shop-art .scard__bg { inset: calc(var(--u) * 2); overflow: hidden; z-index: 1;
   background: var(--sa-card-line) left top / auto repeat, var(--sa-card-common) center / 100% 100% no-repeat; opacity: 1; }
 /* portrait: top-right (root_char → char_portrait 90×179 pinned to the card's top-right corner, clipped by the card) */
