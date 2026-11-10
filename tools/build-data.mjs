@@ -3229,8 +3229,8 @@ const TILE_LEGEND = {
   g: { tileKey: 'tile_smog', special: 'smog', desc: '排气格栅：其上干员不会成为敌方远程攻击目标' },
   d: { tileKey: 'tile_deepsea', special: 'deepsea', desc: '深水区：不可部署（拒绝部署），敌人持续受伤、减速、减攻速' },
   i: { tileKey: 'tile_infection', special: 'infection', desc: '活性源石：单位受持续真实伤害，攻击力与攻速提升' },
-  u: { tileKey: 'tile_speedup', desc: '规程：加速地块（blackboard attack_speed / move_speed），效果未实装' },
-  G: { tileKey: 'tile_duel_grassland', desc: '规程：tile_duel_grassland，效果未实装' },
+  u: { tileKey: 'tile_speedup', special: 'speedup', desc: '规程：加速地块（地面单位：我方攻击速度+attack_speed，敌人移动速度×move_speed）' },
+  G: { tileKey: 'tile_duel_grassland', special: 'grassland', desc: '规程：草地（地面单位隐匿；敌人被阻挡时不隐匿）' },
 };
 
 /** Map an official tile object to a legend glyph. */
@@ -3435,6 +3435,10 @@ function buildStages(ctx, modesById) {
     }
     if (rows.some((l) => l.includes('i'))) special.infection = { bb: glyphTiles.i?.bb || {} };
     if (rows.some((l) => l.includes('g'))) special.smog = { rule: 'operatorsNotTargetableByEnemyRanged' };
+    // 规程's tiles (CN client [uc]tiles prefabs: BuffTile, WALK units of both sides, cleared on leaving): tile_speedup's
+    // template reads the tile blackboard (attack_speed / move_speed), tile_duel_grassland gives INVISIBLE
+    if (rows.some((l) => l.includes('u'))) special.speedup = { bb: glyphTiles.u?.bb || {} };
+    if (rows.some((l) => l.includes('G'))) special.grassland = { rule: 'groundUnitsInvisibleEnemiesUnlessBlocked' };
     const blower = byKey('trap_013_blower');
     if (blower) special.blower = { rangeGrid: blower.rangeGrid, bb: blower.skill?.bb || {}, desc: blower.skill?.desc || null };
     const runes = (lv.runes || []).map((r) => ({ key: r.key, ...flattenBB(r.blackboard) }));

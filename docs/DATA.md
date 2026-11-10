@@ -523,7 +523,7 @@ Glyph legend (`rows`):
 | `S` / `E` | tile_start / tile_end | LOW | NONE | yes | red gate / blue objective |
 | `I` / `O` | tile_telin / tile_telout | LOW | NONE | yes | teleport in / out (boss field) |
 | `m` `g` `i` | tile_mire / tile_smog / tile_infection | LOW | ALL | yes | special terrain (see `special`) |
-| `u` `G` | tile_speedup / tile_duel_grassland | LOW | ALL | yes | 规程 terrain (`u`: blackboard attack_speed / move_speed); no effect in the sim yet |
+| `u` `G` | tile_speedup / tile_duel_grassland | LOW | ALL | yes | 规程 terrain (`special.speedup.bb` = the tile blackboard attack_speed / move_speed; `special.grassland`: ground units 隐匿, an enemy unless blocked) |
 | `d` | tile_deepsea | LOW | NONE (level: ALL) | yes | 深水区 (see `special.deepsea`): enemies wade through it; no unit may be deployed on it (PRTS 深水区 地形信息 "拒绝部署（待补充）") — 战场#08's pool at board (10–12, 6), (10–12, 14), boss (3–5, 6) / (3–5, 14) |
 
 ## 13. `bosses.json` — `{ [bossId]: Boss }` (10; boss_8–10 hidden)

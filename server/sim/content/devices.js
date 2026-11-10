@@ -20,6 +20,10 @@
 //   活性源石 i  a unit on it (allies and ground enemies) gets a timed effect: damage true dmg/s, ATK + atk, ASPD +
 //              attack_speed for `duration` s from its last contact — an enemy keeps it after walking off; one effect
 //              per unit, its time starts again while the unit is on the tile; the tiles never switch off
+//   加速 u      规程 tile_speedup: a ground operator / summon on it has ASPD + attack_speed (25), a ground enemy move
+//              speed × move_speed (1.5) — the tile's blackboard; ends on leaving
+//   草地 G      规程 tile_duel_grassland: a ground unit on it is 隐匿 (INVISIBLE) — an operator like on smog, an enemy
+//              unless blocked (visible again the moment the block ends); ends on leaving
 //   “双眼皮”   turrets (`trap_1104_aclasert`, band 机械援助 / `deviceOverrides` alias on): ranged arts shooter on its data
 //              range; ASPD + attack_speed_per_stack × L (≤ max_attack_speed), hits apply fragile 1 + damage_scale_per_stack
 //              × L (≤ max_damage_scale) for the text's duration; L = the owner's highest bond layers (live)
@@ -48,9 +52,9 @@ const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (ty
 /** ASPD blackboard values: a fraction (|v| < 1, e.g. −0.6 / −0.05) is ×100 ASPD, otherwise flat (+20). */
 const aspdOf = (v) => (Math.abs(v) < 1 ? v * 100 : v);
 
-export const TERRAIN = Object.freeze({ mire: 1, smog: 2, deepsea: 3, infection: 4 });
-const TERRAIN_NAME = ['', 'mire', 'smog', 'deepsea', 'infection'];
-const BUFF = { 1: 'terrain:mire', 2: 'terrain:smog', 3: 'terrain:deepsea', 4: 'terrain:infection' };
+export const TERRAIN = Object.freeze({ mire: 1, smog: 2, deepsea: 3, infection: 4, speedup: 5, grassland: 6 });
+const TERRAIN_NAME = ['', 'mire', 'smog', 'deepsea', 'infection', 'speedup', 'grassland'];
+const BUFF = { 1: 'terrain:mire', 2: 'terrain:smog', 3: 'terrain:deepsea', 4: 'terrain:infection', 5: 'terrain:speedup', 6: 'terrain:grassland' };
 const AIRFLOW = 'terrain:airflow';
 const CRATE_KEY = 'trap_1105_accrate';
 const TURRET_KEY = 'trap_1104_aclasert';
@@ -59,6 +63,7 @@ const RESEARCH = Object.freeze({
   mire: { intervalSec: 1, aspdPerStack: -0.05, moveMulPerStack: -0.05, maxStacks: 10, heavyWeight: 3 },
   deepsea: { damage: 40, attack_speed: -0.6, move_speed: 0.6 },
   infection: { damage: 70, atk: 0.2, attack_speed: 20, duration: 300 },
+  speedup: { attack_speed: 25, move_speed: 1.5 },
 });
 
 const STATE = new WeakMap();
@@ -335,6 +340,12 @@ function buildTerrain(battle, st) {
     aspd: aspdOf(num(inf.attack_speed, RESEARCH.infection.attack_speed)),
     duration: infDur > 0 ? infDur : RESEARCH.infection.duration,
   };
+  // 规程 加速 tiles: the tile blackboard (stage.special.speedup.bb, the legend's bb)
+  const su = sp.speedup?.bb || {};
+  st.speedup = {
+    aspd: num(su.attack_speed, RESEARCH.speedup.attack_speed),
+    moveMul: Math.max(0, num(su.move_speed, RESEARCH.speedup.move_speed)),
+  };
   // blowers
   for (const d of battle.stage?.devices || []) {
     if (d.role !== 'blower' || !isActive(battle, st, d)) continue;
@@ -377,6 +388,16 @@ function enterTerrain(battle, st, u, code) {
   m.mireTriggers = 0;
   if (!code) return;
   if (code === TERRAIN.smog) battle.addBuff(u, { key: BUFF[code], flags: { stealth: true } });
+  else if (code === TERRAIN.speedup) {
+    // tile_speedup (ON_BUFF_LATE_ENABLE): an ally CHARACTER of any profession (summons included) ATTACK_SPEED ADDITION
+    // attack_speed, an enemy MOVE_SPEED FINAL_SCALER move_speed
+    battle.addBuff(u, { key: BUFF[code], mods: u.side === 'ally' ? { aspd: st.speedup.aspd } : { moveMul: st.speedup.moveMul } });
+  } else if (code === TERRAIN.grassland) {
+    // tile_duel_grassland: INVISIBLE (the smog tile's flag) on a WALK owner; an enemy's derived
+    // dule_grassland[invisible-enemy] adds an INVISIBLE immunity while it is blocked and drops it when the block ends
+    // (ON_OWNER_BLOCKEE_CHANGED) — no restore delay (stealthRestore 0; targeting.js enemyStealthed reads the block)
+    battle.addBuff(u, { key: BUFF[code], flags: { stealth: true }, ...(u.side === 'enemy' ? { data: { stealthRestore: 0 } } : {}) });
+  }
   else if (code === TERRAIN.deepsea) {
     const D = st.deepsea;
     battle.addBuff(u, { key: BUFF[code], mods: { aspd: D.aspd, moveMul: D.moveMul }, interval: 1, onTick: deepWaterDamage(battle, D.damage) });
@@ -523,7 +544,7 @@ function ensureTick(battle, st) {
   }, { priority: 90 });
 }
 
-/** Terrain name under (r, c) for other content ('mire' | 'smog' | 'deepsea' | 'infection' | null). */
+/** Terrain name under (r, c) for other content ('mire' | 'smog' | 'deepsea' | 'infection' | 'speedup' | 'grassland' | null). */
 export function terrainAt(battle, r, c) {
   const st = stateOf(battle);
   const code = st && r >= 0 && r < ROWS && c >= 0 && c < COLS ? st.terrain[r * COLS + c] : 0;

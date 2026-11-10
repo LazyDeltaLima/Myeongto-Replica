@@ -8,6 +8,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { getData } from '../server/data.js';
 import { makeMatch } from './match/harness.js';
+import { makeBattle, chessRec, enemyRec } from './helpers/battleHarness.js';
+import { terrainAt } from '../server/sim/content/devices.js';
+import { enemyStealthed, canTargetEnemy } from '../server/sim/targeting.js';
 import { FIELD_ORIGINS, STAGE_PIECES, composeStageLevel, placeWaveLevel, waveOrigin } from '../tools/level-fields.mjs';
 
 const quiet = { warn() {}, error() {}, info() {} };
@@ -136,4 +139,82 @@ test('real match path: a 规程 solo match fights its own stage, waves, enemies 
   assert.ok(fromWaves.length >= 20, `${fromWaves.length} enemy kinds`);
   assert.ok(fromWaves.some((k) => !BASE.enemies[k]), 'a 规程-only enemy');
   h.m.dispose?.();
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// 规程's devices and tiles (server/sim/content/devices.js)
+
+const stageDefs = (id) => ({ stages: { [id]: ACT3.stages[id] } });
+const guardRec = (id = 't_guard') => chessRec({ id, profession: 'WARRIOR', skill: null, rangeGrid: [[0, 0]], stats: { atk: 0, maxHp: 1e6, def: 0, res: 0, blockCnt: 2 } });
+const standStill = (pos, motion = 'WALK') => ({ motion, start: pos, end: [9, 2], checkpoints: [{ type: 'WAIT', time: 99 }] });
+
+test('规程 blowers (m05) and mire (m06): the default season\'s devices — same records, same numbers, same places', () => {
+  const a5 = ACT3.stages.act3autochess_m05, a6 = ACT3.stages.act3autochess_m06;
+  assert.deepEqual(a5.special.blower, BASE.stages.act2autochess_m01.special.blower);
+  assert.deepEqual(a6.special.mire, BASE.stages.act2autochess_m02.special.mire);
+  const blowers = (s) => s.devices.filter((d) => d.role === 'blower').map((d) => `${d.pos}/${d.dir}/${d.rangeTiles.join(';')}`).sort();
+  assert.deepEqual(blowers(a5), blowers(BASE.stages.act2autochess_m01));
+  // the mire controllers (three, each piece its own) carry the default season's skill record
+  const mires = a6.devices.filter((d) => d.key === 'trap_098_mire');
+  assert.equal(mires.length, 3);
+  for (const d of mires) assert.deepEqual(d.skill, BASE.stages.act2autochess_m02.devices.find((x) => x.key === 'trap_098_mire').skill);
+});
+
+test('规程 加速 tile (m12, tile_speedup): a ground operator ASPD + attack_speed, a ground enemy move × move_speed; flyers untouched; ends on leaving', () => {
+  const id = 'act3autochess_m12';
+  const bb = ACT3.stages[id].special.speedup.bb;
+  assert.deepEqual(bb, { attack_speed: 25, move_speed: 1.5 });
+  assert.equal(at(ACT3.stages[id], [11, 7]), 'u');
+  assert.equal(at(ACT3.stages[id], [11, 5]), 'r');
+  const enemies = { enemy_walk: enemyRec({ key: 'enemy_walk', hp: 1e7, speed: 1 }), enemy_fly: enemyRec({ key: 'enemy_fly', hp: 1e7, speed: 1, motion: 'FLY' }) };
+  const h = makeBattle({ stageId: id, defs: { ...stageDefs(id), chess: { t_guard: guardRec(), t_off: guardRec('t_off') }, enemies },
+    units: [{ chessId: 't_guard', row: 12, col: 7 }, { chessId: 't_off', row: 12, col: 5 }],
+    enemies: [{ key: 'enemy_walk', pos: [11, 7], route: standStill([11, 7]) }, { key: 'enemy_fly', pos: [11, 7], route: standStill([11, 7], 'FLY') }],
+    autoFinish: false, timeLimit: 30 });
+  h.step(2);
+  assert.equal(terrainAt(h.b, 11, 7), 'speedup');
+  const g = h.unit('t_guard'), off = h.unit('t_off'), e = h.enemy('enemy_walk'), f = h.enemy('enemy_fly');
+  assert.equal(g.s.aspd, 100 + bb.attack_speed, 'ATTACK_SPEED ADDITION');
+  assert.equal(off.s.aspd, 100, 'off the tile');
+  assert.equal(g.findBuff('terrain:speedup').mods.moveMul, undefined, 'an operator gets the ASPD part only');
+  assert.ok(Math.abs(e.s.moveSpeed - bb.move_speed) < 1e-9, `enemy move ${e.s.moveSpeed}`);
+  assert.equal(e.findBuff('terrain:speedup').mods.aspd, undefined, 'an enemy gets the move part only');
+  assert.equal(f.findBuff('terrain:speedup'), null, 'a flyer is not on the tile (targetMotion WALK)');
+  // walking off: the buff ends
+  e.x = 5; e.y = 11;
+  h.step(2);
+  assert.equal(e.findBuff('terrain:speedup'), null);
+  assert.ok(Math.abs(e.s.moveSpeed - 1) < 1e-9);
+});
+
+test('规程 草地 tile (m09, tile_duel_grassland): ground units on it are 隐匿 — an enemy only while not blocked, visible the moment the block ends', () => {
+  const id = 'act3autochess_m09';
+  assert.equal(at(ACT3.stages[id], [11, 6]), 'G');
+  assert.equal(at(ACT3.stages[id], [11, 7]), 'G');
+  const enemies = { enemy_walk: enemyRec({ key: 'enemy_walk', hp: 1e7, speed: 1 }), enemy_fly: enemyRec({ key: 'enemy_fly', hp: 1e7, speed: 1, motion: 'FLY' }) };
+  const h = makeBattle({ stageId: id, defs: { ...stageDefs(id), chess: { t_guard: guardRec(), t_off: guardRec('t_off') }, enemies },
+    units: [{ chessId: 't_guard', row: 11, col: 6 }, { chessId: 't_off', row: 12, col: 4 }],
+    enemies: [{ key: 'enemy_walk', pos: [11, 7], route: standStill([11, 7]) }, { key: 'enemy_fly', pos: [11, 7], route: standStill([11, 7], 'FLY') }],
+    autoFinish: false, timeLimit: 30 });
+  h.step(2);
+  assert.equal(terrainAt(h.b, 11, 6), 'grassland');
+  const g = h.unit('t_guard'), off = h.unit('t_off'), e = h.enemy('enemy_walk'), f = h.enemy('enemy_fly');
+  assert.ok(g.s.flags.stealth, 'the operator on the grass is 隐匿');
+  assert.ok(!off.s.flags.stealth);
+  assert.ok(!e.blockedBy && e.s.flags.stealth && enemyStealthed(e), 'the enemy on the grass is 隐匿');
+  assert.ok(!canTargetEnemy(off, e, off.profile), 'not a target');
+  assert.equal(f.findBuff('terrain:grassland'), null, 'a flyer is not on the tile');
+  // blocked: visible; the block ends: 隐匿 again at once (no 3 s restore)
+  e.x = 6; e.y = 11;
+  h.runUntil(() => e.blockedBy, 3);
+  assert.ok(e.blockedBy === g && e.findBuff('terrain:grassland'), 'blocked on the grass');
+  assert.ok(!enemyStealthed(e), 'visible while blocked');
+  h.b.retreat(g);
+  h.step();
+  assert.ok(!e.blockedBy && enemyStealthed(e), 'hidden again the tick the block ends');
+  // walking off: the buff ends
+  e.x = 4; e.y = 11.6;
+  h.step(2);
+  assert.equal(e.findBuff('terrain:grassland'), null);
+  assert.ok(!e.s.flags.stealth);
 });
