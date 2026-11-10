@@ -14,6 +14,8 @@ import { DEFAULT_SEASON, isSeasonId, seasonInfo, seasonOf } from '../../../share
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { html } from './components.js';
 import { toast } from './toasts.js';
+import { useData } from '../data.js';
+import { seasonTabArt } from './seasonArt.js';
 import { t } from '../../../shared/i18n.js';
 
 /** The remembered pick (store.js loadPref). */
@@ -119,15 +121,25 @@ function NewMark({ id }) {
   return id === DEFAULT_SEASON ? null : html`<span class="season-new">NEW</span>`;
 }
 
-/** The title's season tabs (top of the login box; mockup C). Nothing while one season is offered or an invitation waits. */
+/**
+ * The title's season tabs (top of the login box; mockup C). Nothing while one season is offered or an invitation waits.
+ * Each tab shows its season's picture and emblem (ui/seasonArt.js seasonTabArt; maintainer decision 2026-11-10) when
+ * every offered season has them; else the names alone.
+ */
 export function SeasonTabs() {
   const st = useStore((s) => ({ offered: offeredSeasonsOf(s), picked: pickedSeason(s), invite: !!s.ui.pendingJoin }), shallowEqualDeep);
+  useData('assets', 'local');
   if (st.offered.length < 2 || st.invite) return null;
+  const arts = st.offered.map(seasonTabArt);
+  const art = arts.every(Boolean);
   return html`<div class="season-tabs">
     <span class="season-tabs__k">${t('赛季')}<small>SEASON</small></span>
-    <span class="season-tabs__opts" role="radiogroup" aria-label=${t('赛季')}>
-      ${st.offered.map((id) => html`<button key=${id} type="button" role="radio" aria-checked=${id === st.picked ? 'true' : 'false'}
-        class=${`season-tabs__opt tapx${id === st.picked ? ' is-on' : ''}`} onClick=${() => pickSeason(id)}>${seasonName(id)}<${NewMark} id=${id} /></button>`)}
+    <span class=${`season-tabs__opts${art ? ' has-art' : ''}`} role="radiogroup" aria-label=${t('赛季')}>
+      ${st.offered.map((id, i) => html`<button key=${id} type="button" role="radio" aria-checked=${id === st.picked ? 'true' : 'false'}
+        class=${`season-tabs__opt tapx${id === st.picked ? ' is-on' : ''}`} onClick=${() => pickSeason(id)}
+        style=${art ? `--tab-art: url("${arts[i].bg}")` : null}>${art
+          ? html`<img class="season-tabs__emb" src=${arts[i].emblem} alt="" draggable="false" /><span class="season-tabs__name">${seasonName(id)}<${NewMark} id=${id} /></span>`
+          : html`${seasonName(id)}<${NewMark} id=${id} />`}</button>`)}
     </span>
   </div>`;
 }

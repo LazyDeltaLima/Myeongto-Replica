@@ -312,6 +312,22 @@
 .season-tabs__opt + .season-tabs__opt { border-left: 1px solid var(--line-2); }
 .season-tabs__opt.is-on { background: var(--mint-a20); color: var(--mint-400); font-weight: 700; box-shadow: 0 -2px 0 var(--mint-500) inset; }
 .season-tabs__opt:focus-visible { outline: 1px solid var(--mint-400); outline-offset: -2px; }
+/* with every season's picture (ui/seasonArt.js seasonTabArt; maintainer decision 2026-11-10): the tab is its season's
+   picture, darkened to the right under the name, its emblem on the left; the tab not picked is grey and dim */
+.season-tabs__opts.has-art .season-tabs__opt { position: relative; height: max(.56rem, 44px); display: flex; align-items: center;
+  justify-content: flex-end; padding: 0 .12rem; background: var(--tab-art) center 40% / cover no-repeat; color: #fff;
+  text-shadow: 0 1px 3px #000, 0 0 8px #000; font-weight: 700; overflow: hidden; }
+.season-tabs__opts.has-art .season-tabs__opt::before { content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, .15), rgba(0, 0, 0, .65)); pointer-events: none; }
+.season-tabs__opts.has-art .season-tabs__opt:not(.is-on) { filter: grayscale(.85) brightness(.55); }
+.season-tabs__opts.has-art .season-tabs__opt.is-on { box-shadow: 0 0 0 2px var(--mint-500) inset; }
+.season-tabs__emb { position: absolute; left: .08rem; top: 50%; height: 72%; transform: translateY(-50%); pointer-events: none; }
+.season-tabs__name { position: relative; display: inline-flex; align-items: center; gap: .04rem; }
+/* a narrow tab (a phone: about 75 px) has no room beside the name: the emblem sinks behind it, smaller and faint */
+.season-tabs__opts.has-art { container-type: inline-size; }
+@container (max-width: 240px) {
+  .season-tabs__emb { left: .04rem; height: 62%; opacity: .45; }
+}
 /* an invitation of a room of another season than the picked one: its season, the card's last line (ui/season.js InviteSeason) */
 .title-invite__season { flex-basis: 100%; font-size: max(.14rem, 11px); color: var(--gold); }
 /* the connection row: the status dot with the ping, then the buttons — two groups that never break inside, side by side

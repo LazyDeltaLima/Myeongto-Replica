@@ -9,6 +9,8 @@ id of shared/seasons.js:
   season/<id>/backdrop/title      the season hub's background as the event lays it out (SEASONS[id]['backdrop']: the
                                   layers of its on-season entry panel, back to front, at their offsets), one JPEG
   season/<id>/logo/<sprite>       the season's logos as they are (SEASONS[id]['logos'])
+  season/<id>/banner/tab          the title's season tab picture (SEASONS[id]['banner']): the event's home activity card
+                                  art cut to its picture (the part left of `crop` carries the Chinese logo), one JPEG
   season/<id>/logo/<sprite>_ko    a logo whose Chinese title is written over in Korean (SEASONS[id]['logo_ko']): the
                                   Chinese lines are filled with their own row's plate colour and the Korean of the same
                                   msgids (public/i18n/ko.json) is set in the official UI face — the one Font asset of the
@@ -45,6 +47,9 @@ SEASONS = {
         'backdrop': {'size': (1559, 960), 'layers': [('bkg_season_on', 0), ('bg_season_on', 0), ('bg_front_season_on', -149)]},
         # title_season: the hub's logo (root_title of the entry panel); season_logo: the bare emblem; season_logo_settle_game: the result screen's
         'logos': ['title_season', 'season_logo', 'season_logo_settle_game'],
+        # group_season_background (1189×494, the home screen's activity card while the season runs): its logo with the
+        # Chinese title sits in x < 380, the tab draws the emblem season_logo over the rest (maintainer decision 2026-11-10)
+        'banner': {'sprite': 'group_season_background', 'crop': (380, 0, 1189, 494), 'width': 480},
         # 卫戍协议 in 136–217 × 192–215 and 规程 in 236–308 × 192–232 of title_season (its own pixels); x 222 is plate only
         'logo_ko': {'sprite': 'title_season', 'plate_x': 222, 'colour': (211, 195, 141),
                     'lines': [('卫戍协议', (136, 192, 217, 215)), ('规程', (236, 192, 308, 232))]},
@@ -189,10 +194,17 @@ def main(argv=None):
 
     env = load(game, spec['bundle'])
     names = {n for n, _ in spec['backdrop']['layers']} | set(spec['logos'])
+    if spec.get('banner'):
+        names.add(spec['banner']['sprite'])
     art = sprites_by_name(env, names)
     save('backdrop', 'title', compose_backdrop(art, spec['backdrop']), 'jpg')
     for n in spec['logos']:
         save('logo', n, art[n])
+    bn = spec.get('banner')
+    if bn:
+        from PIL import Image
+        im = art[bn['sprite']].crop(bn['crop']).convert('RGB')
+        save('banner', 'tab', im.resize((bn['width'], round(im.height * bn['width'] / im.width)), Image.LANCZOS), 'jpg')
     lk = spec.get('logo_ko')
     if lk:
         ko = json.loads((ROOT / 'public/i18n/ko.json').read_text(encoding='utf-8'))

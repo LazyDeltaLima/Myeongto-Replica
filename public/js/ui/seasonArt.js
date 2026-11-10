@@ -5,8 +5,9 @@
 //
 // The logo of 规程 carries its Chinese title; a Korean page draws the copy whose title is written over in Korean in the
 // official UI face (maintainer decision 2026-11-08), every other language the official picture.
-import { localAsset } from '../data.js';
+import { data, localAsset } from '../data.js';
 import { DEFAULT_SEASON, seasonOf } from '../../../shared/seasons.js';
+import { uiUrl } from './assetUrls.js';
 
 /** URL of one of a season's own pictures, or null (盟约, or the season's art not extracted). */
 export function seasonArt(season, group, name) {
@@ -27,3 +28,19 @@ export function seasonLogo(season, lang) {
 
 /** The season's logo of the result screen (season_logo_settle_game), or null. */
 export const seasonSettleLogo = (season) => seasonArt(season, 'logo', 'season_logo_settle_game');
+
+/**
+ * The picture and emblem of a season's tab on the title (ui/season.js SeasonTabs; maintainer decision 2026-11-10, tabs
+ * of mockup A): 盟约's own entry art — the desert of its hub (`entry/bkg_02`) and its emblem (`entry/season_logo`) — or a
+ * later season's extract — its home activity card cut to the picture (`banner/tab`) and its emblem (`logo/season_logo`).
+ * null when either is missing (the tabs then stay words).
+ * @param {unknown} season
+ * @returns {{ bg: string, emblem: string } | null}
+ */
+export function seasonTabArt(season) {
+  const id = seasonOf(season);
+  const m = id === DEFAULT_SEASON ? data.getRaw('assets') : null;
+  const bg = m ? uiUrl(m, 'entry/bkg_02') : seasonArt(id, 'banner', 'tab');
+  const emblem = m ? uiUrl(m, 'entry/season_logo') : seasonArt(id, 'logo', 'season_logo');
+  return bg && emblem ? { bg, emblem } : null;
+}
