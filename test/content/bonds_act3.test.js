@@ -451,3 +451,112 @@ test('规程 萨尔贡 6: a member\'s skill start lays 流沙 on the nearest gro
   const five = run(5);
   assert.equal(five.e.findBuff(`bond:sargon:sand:${five.pid}`), null, '5 members: no 流沙');
 });
+
+test('规程 莱塔尼亚: an enemy knocked down summons a walking “一个小节” on the nearest ground tile (ATK +(0.3 + 0.01L), 禁疗, −10 % max HP a second, ≤ 10); no 乐部 below 6', () => {
+  const bb = Object.assign({}, ...ACT3.bonds.lethaniaShip.buffs.map((b) => b.bb));
+  const L = 40;
+  const h = fight(ids('l', 3).map((id) => [id, ['lethaniaShip']]), { lethaniaShip: bondOn(3, L) }, { enemies: [] });
+  const walkers = () => h.b.allyUnits.filter((u) => u.walks && u.alive);
+  const e = h.spawn('e_dummy', { pos: [9, 9] });
+  e.x = 9.3;
+  h.b.kill(e, null);
+  assert.equal(walkers().length, 1, 'one summon as the enemy falls');
+  const w = walkers()[0];
+  assert.equal(w.defId, 'enemy_9025_aclts');
+  assert.equal(w.kind, 'token');
+  assert.equal(w.ownerId, h.b.players[0].playerId);
+  assert.deepEqual([w.tileR, w.tileC], [9, 9], 'the tile it fell on');
+  const rec = ACT3.enemies.enemy_9025_aclts;
+  close(w.s.atk, rec.stats.atk * (1 + bb.atk_base + bb.atk_per_stack * L), 1e-6, 'ATK');
+  close(w.s.maxHp, rec.stats.maxHp, 1e-6, 'HP');
+  assert.ok(w.s.flags.noHeal, '禁疗');
+  assert.equal(h.b._occ[w.tileR * COLS + w.tileC] === w, false, 'it holds no tile');
+  h.run(1.01);
+  close(w.hp, rec.stats.maxHp * 0.9, 1, '−10 % after 1 s');
+  // it walks to the nearest enemy and blocks it
+  // (speed 0.7 × the move scale 0.5 tiles a second; the trace looks for a target once a second)
+  const t = h.spawn('e_dummy', { pos: [9, 7] });
+  const d0 = Math.abs(w.x - t.x);
+  h.run(2.5);
+  assert.ok(Math.abs(w.x - t.x) < d0 - 0.4, `walks toward the enemy: ${d0} → ${Math.abs(w.x - t.x)}`);
+  assert.ok(w.moving, 'walking');
+  h.run(2.5);
+  assert.equal(t.blockedBy, w, 'blocks the enemy it reached');
+  assert.ok(!w.moving, 'stands while it blocks');
+  h.run(4.1);
+  assert.equal(w.alive, false, 'its HP runs out in 10 s');
+  // the cap: 10 live summons for the player below 6
+  for (let i = 0; i < 14; i++) { const x = h.spawn('e_dummy', { pos: [9 + (i % 2), 4 + (i % 8)] }); h.b.kill(x, null); }
+  assert.equal(walkers().length, 10, 'at most 10');
+  assert.ok(walkers().every((u) => u.defId === 'enemy_9025_aclts'), 'no 乐部 below 6');
+  // a member's knock-out summons nothing below 6
+  const n = walkers().length;
+  h.b.kill(h.unit('l0_a'), null);
+  assert.equal(walkers().length, n);
+  assert.deepEqual(h.b.errors, []);
+});
+
+test('规程 莱塔尼亚 6: “一个乐部” at 0.3 + 0.001L (its aura: members ASPD +20; the 4th attack strikes twice), up to 20 summons, a member knocked down summons too', () => {
+  const bb = Object.assign({}, ...ACT3.bonds.lethaniaShip.buffs.map((b) => b.bb));
+  const L = 200;
+  const h = fight(ids('l', 6).map((id) => [id, ['lethaniaShip']]), { lethaniaShip: bondOn(6, L) }, { enemies: [], seed: 7 });
+  const walkers = () => h.b.allyUnits.filter((u) => u.walks && u.alive);
+  const l1 = h.unit('l1_a');
+  const aspd0 = l1.s.aspd;
+  for (let i = 0; i < 24; i++) { const x = h.spawn('e_dummy', { pos: [9, 4 + (i % 8)] }); h.b.kill(x, null); }
+  assert.equal(walkers().length, 20, 'at most 20 at 6');
+  const big = walkers().filter((u) => u.defId === 'enemy_9026_acltm').length;
+  const p = Math.min(bb.big_prob_max, bb.big_prob_base + bb.big_prob_per_stack * L);
+  assert.ok(big >= 3 && big <= 14, `≈ ${p * 20} of 20 are 乐部: ${big}`);
+  close(l1.s.aspd, aspd0 + 20, 1e-9, 'members ASPD +20 while a 乐部 stands');
+  // a member knocked down summons one too
+  for (const u of walkers()) h.b.kill(u, null);
+  close(h.unit('l1_a').s.aspd, aspd0, 1e-9, 'the aura ends with the last 乐部');
+  h.b.kill(h.unit('l0_a'), null);
+  assert.equal(walkers().length, 1, 'a member\'s knock-out summons');
+  // a 乐部's 4th attack strikes twice
+  for (const u of walkers()) h.b.kill(u, null);
+  let m = null;
+  for (let i = 0; i < 60 && !m; i++) { const x = h.spawn('e_dummy', { pos: [9, 9] }); h.b.kill(x, null); m = walkers().find((u) => u.defId === 'enemy_9026_acltm') ?? null; for (const u of walkers()) if (u !== m) h.b.kill(u, null); }
+  assert.ok(m, 'a 乐部');
+  const target = h.spawn('e_dummy', { pos: [9, 10] });
+  const hits = () => h.hooksOf('damaged').filter((c) => c.source === m && c.target === target && !(c.dmg?.tags || []).includes('hpLoss')).length;
+  h.run(4 * 3 + 1);
+  assert.equal(hits(), 5, 'four attacks, the 4th a double');
+  assert.deepEqual(h.b.errors, []);
+});
+
+test('规程 莱塔尼亚 (real match): the round\'s knocked-down enemies bring the bond\'s walking summons onto the player\'s field', () => {
+  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+  // the default season's field (ACT3_ON_BASE_FIELD) with the two summons' records of 规程's enemy table
+  const summonRecs = { enemy_9025_aclts: ACT3.enemies.enemy_9025_aclts, enemy_9026_acltm: ACT3.enemies.enemy_9026_acltm };
+  const data = { ...ACT3_ON_BASE_FIELD, enemies: { ...ACT3_ON_BASE_FIELD.enemies, ...summonRecs } };
+  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 5, data, season: 'act3autochess' }).start();
+  h.toPrep(3, { band: 'band_amiya' });
+  const m = h.m, ps = h.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  const pool = Object.values(ACT3.chess).filter((c) => c.visible && !c.isGolden && c.bonds.includes('lethaniaShip'));
+  const used = new Set();
+  for (const c of pool.slice(0, 3)) {
+    const piece = ps.acquireChess(c.chessId, { source: 'buy' });
+    const [row, col] = legalTileFor(m, ps, c.chessId, used);
+    used.add(`${row},${col}`);
+    assert.equal(m.handle('p_0', { t: 'g.move', uid: piece.uid, to: { area: 'board', row, col }, dir: 'RIGHT' }).ok, true);
+  }
+  ps.recompute();
+  assert.ok(ps.bonds.lethaniaShip.active, '莱塔尼亚 active');
+  const battles = [];
+  const newBattle = m.newBattle.bind(m);
+  m.newBattle = (opts, o) => { const b = newBattle(opts, o); if (!o?.preview) battles.push(b); return b; };
+  h.drive(() => m.round === 4 || h.ended != null);
+  const b = battles.find((x) => x.players.some((p) => p.playerId === 'p_0'));
+  assert.ok(b, 'the round\'s battle');
+  const summons = b.allyUnits.filter((u) => u.walks);
+  assert.ok(b.killed > 0, 'enemies knocked down');
+  assert.ok(summons.length > 0, `walking summons: ${summons.length} for ${b.killed} knock-downs`);
+  assert.ok(summons.every((u) => u.ownerId === 'p_0' && u.defId === 'enemy_9025_aclts'), '一个小节 of the player (3 members: no 乐部)');
+  assert.equal(b.errorCount, 0);
+  assert.equal(m.errorCount, 0);
+  m.dispose?.();
+});

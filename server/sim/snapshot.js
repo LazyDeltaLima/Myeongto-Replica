@@ -103,6 +103,7 @@ export function animOf(u, t) {
   if (t < (u.skillAnimUntil ?? -1)) return ANIM.SKILL;
   if (t - u.lastAttackAt < ATTACK_ANIM_TIME) return u.skill && u.skill.active && u.skill.kind !== 'passive' ? ANIM.SKILL : ANIM.ATTACK;
   if (u.side === 'enemy' && u.moving && !u.blockedBy) return ANIM.MOVE;
+  if (u.walks && u.moving) return ANIM.MOVE;   // a walking ally built from an enemy record (content/bonds/walker.js)
   return ANIM.IDLE;
 }
 
