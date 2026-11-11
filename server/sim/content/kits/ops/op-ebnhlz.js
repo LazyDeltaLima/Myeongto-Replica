@@ -45,16 +45,17 @@
 //   until then the data's DEFAULT waited for an enemy in his range; `trigger: 'NEVER'` + this kit's cast, the pattern of
 //   伺夜's conditional casts): spends every
 //   stored energy (elite ones first: 备注 "可以消耗并优先消耗第一天赋储存的额外能量") and places energies + 1 旧日残影 on free
-//   placeable tiles of his attack range (部署位置 全部位), in the 备注's order: tiles holding a selectable ground enemy (the
-//   best of them first by his target order — 仇恨值 [ASSUMED·not checked: the engine's default operator order]), then the tiles nearest
-//   another selectable ground enemy, then the rest at random (battle.rng); fewer free tiles than energies + 1 ⇒ fewer
+//   placeable tiles of his attack range (部署位置 全部位), in the official order (remnantTiles: the skill prefab's
+//   TileSelector, the order the 备注 describes): tiles holding a selectable ground enemy, by the best
+//   of them in the hatred order (HATRED_DES, the engine's default operator order); then, enemy by enemy of his range in
+//   that order, the free tile nearest each; then the rest at random (battle.rng); fewer free tiles than energies + 1 ⇒ fewer
 //   energies spent; no free tile ⇒ no cast (备注 "攻击范围内不存在可部署位时，技能不会被触发": the charge is given back).
 // - 旧日残影 (its kit below): no normal attack; 闪回 — once a selectable ground enemy (备注 "不对空") is within 1.35 of it, after
 //   0.93 s (备注 "技能伤害与“拖拽”在激活0.93s后生效"; sktok_ebnhlz_token _preDelay) every selectable ground enemy within 1.35
-//   then [ASSUMED·not checked: re-selected when it lands] takes 黑键's ATK × atk_scale arts from the remnant (备注 "伤害来源为召唤物自身，
+//   then (picked as it lands: the token attack's `_selectTargetTiming` BEFORE_SPELL_START) takes 黑键's ATK × atk_scale arts from the remnant (备注 "伤害来源为召唤物自身，
 //   伤害计算使用持有者的攻击力") and a 中力 (force 1) inward push towards it (备注 "此处的“拖拽”实际为反方向的推开"; template
 //   mint_s_2[pull], Battle.push inward), then it withdraws (suicide). It leaves after the token talent's 30 s or when 黑键
-//   leaves the field (备注; die_to_kill_token). Its data carries no 不会受到攻击: enemies may target it [ASSUMED·not checked: the token prefab's target flags]; no per-owner
+//   leaves the field (备注; die_to_kill_token). No enemy selects it (the token prefab's `_category` 2 TRAP_OR_ITEM; selectors take `_targetCategory` 1 DEFAULT); no per-owner
 //   deploy limit applies (several stand at once).
 // - S3 寂静之声 (MANUAL, 30 s, data DEFAULT): ASPD +attack_speed, ATK +atk, attacks only elite or leader enemies (S3 mode
 //   Trigger enemyLevelMask 6; with none in range he stores energy), every energy × talent_scale_multiplier (备注 "天赋伤害
@@ -64,11 +65,10 @@
 //   only elite ones, and at its end at most times_2 stay elite, the rest normal (up to times). "可主动关闭" is a manual
 //   operation (no automatic stop).
 
-import { num, talentBb, moduleBb, traitBb, skillRec, batMod, up, toggleBuff } from '../shared/tier1.js';
-import { canTargetEnemy, sortEnemyTargets } from '../../../targeting.js';
+import { num, talentBb, moduleBb, traitBb, skillRec, batMod, up, toggleBuff, betterEnemyTiles } from '../shared/tier1.js';
+import { canTargetEnemy } from '../../../targeting.js';
 import { hasHp } from '../../../damage.js';
 import { COLS } from '../../../constants.js';
-import { hypot } from '../../../detmath.js';
 
 const S1 = 'skchr_ebnhlz_1';
 const S2 = 'skchr_ebnhlz_2';
@@ -101,27 +101,14 @@ function hasRemnantTile(battle, unit) {
   return false;
 }
 
-/**
- * The tiles 荒芜回响 may place 旧日残影 on (PRTS 备注 order): free deployable tiles of `unit`'s attack range — first those
- * holding a selectable ground enemy, by the best of them in his target order; then by the distance to the nearest
- * selectable ground enemy; then (no such enemy) at random.
- */
-function remnantTiles(battle, unit) {
+/** The tiles 荒芜回响 places its `need` 旧日残影 on: the free deployable tiles of his range in the official order (tier1 betterEnemyTiles). */
+function remnantTiles(battle, unit, need) {
   const tiles = [];
   for (const k of unit.rangeKeys || []) {
     const r = Math.floor(k / COLS), c = k % COLS;
     if (remnantTileOk(battle, r, c)) tiles.push([r, c]);
   }
-  if (!tiles.length) return tiles;
-  const foes = battle.enemies.filter((e) => canTargetEnemy(unit, e, GROUND));
-  sortEnemyTargets(battle, unit, foes, null);
-  const rank = new Map();
-  foes.forEach((e, i) => { const k = Math.round(e.y) * COLS + Math.round(e.x); if (!rank.has(k)) rank.set(k, i); });
-  battle.rng.shuffle(tiles);   // the random order of the last group, and of equal distances [ASSUMED·not checked]
-  const dist = (r, c) => { let d = Infinity; for (const e of foes) d = Math.min(d, hypot(e.x - c, e.y - r)); return d; };
-  const keyed = tiles.map(([r, c], i) => ({ r, c, i, on: rank.get(r * COLS + c) ?? Infinity, d: dist(r, c) }));
-  keyed.sort((a, b) => a.on - b.on || a.d - b.d || a.i - b.i);
-  return keyed.map((x) => [x.r, x.c]);
+  return betterEnemyTiles(battle, unit, tiles, need, GROUND);
 }
 
 /**
@@ -253,16 +240,16 @@ export default {
           kind: 'instant',
           trigger: 'NEVER',   // the kit's cast (install): full SP and one free placeable tile in his range
           onStart({ battle, unit, skill }) {
-            const tiles = remnantTiles(battle, unit);
-            if (!tiles.length) { skill.addCharge(1); return; }   // "攻击范围内不存在可部署位时，技能不会被触发"
             const v = stateOf(unit);
-            const count = Math.min(v.n + v.e + 1, tiles.length);
+            const tiles = remnantTiles(battle, unit, v.n + v.e + 1);
+            if (!tiles.length) { skill.addCharge(1); return; }   // "攻击范围内不存在可部署位时，技能不会被触发"
+            const count = tiles.length;
             let spend = count - 1;
             const fromE = Math.min(v.e, spend);
             v.e -= fromE; spend -= fromE;
             v.n -= Math.min(v.n, spend);
             for (const [r, c] of tiles.slice(0, count)) {
-              const t = battle.spawnToken(unit, REMNANT, r, c, { kit: remnantKit(unit) });
+              const t = battle.spawnToken(unit, REMNANT, r, c, { kit: remnantKit(unit), untargetable: true });
               if (t) battle.fx('summon', { x: t.x, y: t.y, id: t.id, token: REMNANT });
             }
           },

@@ -22,8 +22,10 @@
 //   lifetime ∞): `interval` s after each deployment, dodgePhys / dodgeArts `prob` and taunt taunt_level until she leaves.
 //   ART-Y stage 3: 8 s, plus the hidden talent 2 (cqbw_e_003_t; PRTS 备注 "部署后每秒获得一层永久的攻击力提升效果（…3级时每层
 //   1.25%攻击力，上限16层），受到伤害时…清空攻击力提升效果"): one stack of ATK +atk (直接乘算) every second from her deployment,
-//   at most max_stack_cnt, all cleared by any damage she takes (a 流失, an element 损伤 or a dodged hit is none; a hit a
-//   shield absorbs is one [ASSUMED·engine: the text only says 受到伤害]).
+//   at most max_stack_cnt, all cleared by any damage she takes — cqbw_e_003_t ON_TAKE_DAMAGE `IfModifierTarget` (refuses a
+//   damage already cancelled) → FinishDerivedBuff. Its buff is gained at her deployment, so its graph runs before those of
+//   the buffs she gains later (same event priority ⇒ gained order): a hit a shield absorbs and a hit 设伏 dodges clear it;
+//   a 无敌 one (cancelled before any buff) does not; a 流失 and an element 损伤 (no ON_TAKE_DAMAGE) neither.
 // - T2 落井下石 "攻击范围内的敌人在被晕眩时受到的物理伤害+18%" (full potential: +21%; cqbw_t_2 on the enemies of her range:
 //   ON_TAKE_DAMAGE, STUNNED, DamageScale PHYSICAL): any physical damage, whoever deals it, on an enemy standing in her
 //   attack range while it is 晕眩 (the catalogue stun — not 冻结 / 浮空) ×damage_scale; two W keep the strongest (同名 buff).
@@ -41,9 +43,11 @@
 //   tile of her range instead (melee or ranged: 此面向敌 "部署位置=全部位"). PRTS 备注: "攻击范围内不存在可部署位时，技能不会
 //   发动" (the cast is refused and keeps its SP — prefab `_cancelIfSearchTargetFailed`), "召唤物部署优先级：可选敌人中点所在
 //   地块（按地块上所有可选敌人中最高仇恨值降序）>距离其它可选敌人最近地块>其它地块（随机排序）" — targetable ground enemies
-//   (the selector's `_targetMotion` 1), 仇恨值 read as her target order [ASSUMED·engine: the tile selector's order was not read], the nearest
-//   tile measured from its centre to any such enemy of the field [ASSUMED·engine: likewise], ties and the rest drawn with battle.rng —
-//   and "W撤退时撤退全部此面向敌" (her knock-out too [ASSUMED·engine: the text names her withdrawal only]). No cap on the mines [ASSUMED·no source: the token's
+//   (the selector's `_targetMotion` 1) — the skill prefab's TileSelector (BETTER_ENEMY_WITH_COLLIDER, `_alwaysRandomInTheEnd`;
+//   tier1 betterEnemyTiles): 仇恨值 = the hatred order (HATRED_DES, her default target order); "其它可选敌人" = those of her
+//   range, each in that order taking its nearest free tile (none when that one is taken); the rest drawn with battle.rng —
+//   and "W撤退时撤退全部此面向敌" (her knock-out too: her CommonAbilities buff cqbw_c, template die_to_kill_token, runs
+//   KillTokens ON_OWNER_FINISH — as she leaves the field for any reason). No cap on the mines [ASSUMED·no source: the token's
 //   maxDeployCount 1 is its deck limit; no source caps what the skill lays].
 //   此面向敌 (mineKit): no enemy selects it (the token prefab's `_category` 2 TRAP_OR_ITEM; selectors take `_targetCategory` 1 DEFAULT), blocks
 //   nothing, no attack, lasts its talent `duration` (120 s). PRTS 此面向敌 备注 "受害者启动模式的触发及爆炸的半径均为1.35，触发后延迟1.5s
@@ -60,12 +64,11 @@
 //   hides or turns 无敌 + 无法选中 (重生) — every targetable enemy within 1.2 of the bomb takes atk_scale × the cached ATK physical,
 //   无来源 (credited to her), and is stunned `stun` s.
 
-import { num, traitBb, skillRec, up, statBuff } from '../shared/tier1.js';
-import { sortEnemyTargets, canTargetEnemy } from '../../../targeting.js';
+import { num, traitBb, skillRec, up, statBuff, betterEnemyTiles } from '../shared/tier1.js';
+import { sortEnemyTargets } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
 import { hasHp, isHpLoss } from '../../../damage.js';
 import { COLS } from '../../../constants.js';
-import { hypot } from '../../../detmath.js';
 
 const S1 = 'skchr_cqbw_1';
 const S2 = 'skchr_cqbw_2';
@@ -129,27 +132,9 @@ function mineTiles(battle, unit) {
   return out;
 }
 
-/** The tile 惊吓盒子 plants on (PRTS's priority, header), or null when her range has none free. */
+/** The tile 惊吓盒子 plants on (the official TileSelector order: tier1 betterEnemyTiles), or null when her range has none free. */
 function mineTile(battle, unit) {
-  const tiles = mineTiles(battle, unit);
-  if (!tiles.length) return null;
-  const foes = battle.enemies.filter((e) => canTargetEnemy(unit, e, GROUND));
-  if (!foes.length) return battle.rng.pick(tiles);
-  // 可选敌人中点所在地块, by the enemies' order
-  sortEnemyTargets(battle, unit, foes, null);
-  const byKey = new Map(tiles.map((t) => [t[0] * COLS + t[1], t]));
-  for (const e of foes) {
-    const t = byKey.get(Math.round(e.y) * COLS + Math.round(e.x));
-    if (t) return t;
-  }
-  // 距离其它可选敌人最近地块
-  let best = [], bd = Infinity;
-  for (const t of tiles) {
-    let d = Infinity;
-    for (const e of foes) d = Math.min(d, hypot(e.x - t[1], e.y - t[0]));
-    if (d < bd - 1e-9) { bd = d; best = [t]; } else if (Math.abs(d - bd) <= 1e-9) best.push(t);
-  }
-  return best.length === 1 ? best[0] : battle.rng.pick(best);
+  return betterEnemyTiles(battle, unit, mineTiles(battle, unit), 1, GROUND)[0] ?? null;
 }
 
 /**
@@ -295,10 +280,13 @@ export default {
             }
           }, { owner: unit });
           if (per > 0 && cap > 0) {
-            battle.on('damaged', (ctx) => {
-              if (ctx.target !== unit || ctx.type === 'element' || isHpLoss(ctx.dmg)) return;
+            const clear = (ctx) => {
+              if (ctx.target !== unit || ctx.dmg?.type === 'element' || isHpLoss(ctx.dmg)) return;
               if (unit.findBuff(RAMP_KEY)) battle.removeBuff(unit, RAMP_KEY);
-            }, { owner: unit });
+            };
+            battle.on('damaged', clear, { owner: unit });
+            // her own dodge (设伏's evade, gained after cqbw_e_003_t, so its graph sees the hit first) clears it too
+            battle.on('voidHit', (ctx) => { if (ctx.why === 'dodge') clear(ctx); }, { owner: unit });
           }
         } },
         { install(battle, unit) { // 落井下石 (+ ART-X stage 2+: SP on her projectiles' / mines' knock-outs)

@@ -948,12 +948,22 @@
     기다리고 잔상은 그 타격에 나온다. upstream 테스트의 「시전 즉시」를 그 타격까지 기다리게 고침.
   - 에벤홀츠 S1 급속 변주는 적이 사거리에 들어오면 바로 켜지는데, 그때 돌던 공격 쿨다운(3초 간격의 남은 몫)이 그대로라 첫 S1 공격이 그만큼 늦다. 공식은 S1 모드의
     공격 능력이 따로 쿨다운을 가진다 — 엔진이 유닛당 쿨다운 하나인 알려진 차이(`sim.md` 「일반 공격 타이밍」 「아직 공식과 다른 것」). 시험은 그 차이만큼 기다림.
+- 공식 클라에서 확인해 고친 것(2026-11-11):
+  - 리 S2 축귀벽사의 표식이 세는 타격: `lmlee_s_2[paper]` ON_TAKE_DAMAGE에는 피해 거르기 노드가 없고, 공식 클라는 대상에서 취소된 피해(무적·빗나감·
+    회피·보호막이 다 막음)도 모든 버프의 ON_TAKE_DAMAGE를 돌린다(`Entity.OnTakeDamage` → `BuffContainer.OnTakeDamage`). 그래서 보호막이 막은 타격
+    (전에도 셈)에 더해 **회피된 타격·무적인 적에 맞은 타격도 센다**. 원소 손상은 다른 길(ON_TAKE_DAMAGE 없음)이라 안 센다. 엔진은 `dealDamage`의
+    취소 출구마다 훅 `voidHit`(이유 `why`: invulnerable·cancel·dodge·limit, 듣는 키트가 없으면 내지 않음)을 내고 리 키트가 그것도 센다.
+  - 유넥티스 S2: 공식 `BlockedToggleChecker`는 적이 저지 목록에 들어올 때 `_buffsToBlockee`를 한 번 붙이고 빠질 때(또는 스킬 모드가 끝날 때) 뗀다.
+    그래서 저지된 채로 무적 + 선택 불가가 된 적도 기절이 **남는다**. 엔진은 그런 유닛에 새 상태를 안 붙이므로 키트가 들고 있는 기절을 늘인다.
+  - 에벤홀츠 S2 잔상 칸 순서: 스킬 프리팹 `EbnhlzS2SpawnTokenAbility` + `TileSelector`(`_filterType` 7, `_alwaysRandomInTheEnd`) — ① 적이 선 빈 칸을
+    그 칸 적의 가장 높은 위협도(HATRED_DES = 엔진의 기본 오퍼레이터 대상 순서) 순 ② **그의 범위 안** 지상 적을 위협도 순으로, 각 적에게 가장 가까운
+    칸(이미 고른 칸이면 건너뜀, 같은 거리는 앞 칸) ③ 남은 칸 무작위. 예전 키트는 ②를 필드 전체 적까지의 거리로 정렬했다. W S2와 같은 선택기
+    (`kits/shared/tier1.js betterEnemyTiles`, 위 W 절).
+  - 잔상: 공격의 `_selectTargetTiming` 1 BEFORE_SPELL_START — 0.93초 뒤 닿을 때 대상을 고른다(키트 그대로). 토큰 프리팹 `_category` 2 TRAP_OR_ITEM이라
+    적 선택기(`_targetCategory` 1 DEFAULT)에 걸리지 않는다 — **적이 잔상을 노리지 않게** 고침(W 「적 방향」과 같음).
 - 키트 주석에 남은 추정:
-  - 리 S2 축귀벽사 [추정·미조사: 보호막이 흡수한 타격도 세는지 — `lmlee_s_2[paper]`는 `ON_TAKE_DAMAGE`로 셈]·[추정·미조사: 리가 쓰러진 뒤의 폭발이 그의 마지막
-    공격력을 쓰는지].
-  - 유넥티스 S2 [추정·미조사: 막힌 적이 무적·선택 불가가 함께 되면 기절이 한 펄스 뒤 풀림 — 엔진이 그런 유닛에 상태를 안 붙임].
-  - 에벤홀츠 S2 [추정·미조사: 잔상 칸 순서의 「위협도」가 엔진의 기본 오퍼레이터 대상 순서인지, 같은 거리·마지막 무리의 무작위 순서]·잔상 [추정·미조사: 0.93초 뒤
-    닿을 때 대상을 다시 고르는지, 적이 잔상을 노릴 수 있는지 — 토큰 프리팹의 대상 깃발].
+  - 리 S2 축귀벽사 [추정·미조사: 리가 쓰러진 뒤의 폭발이 그의 마지막 공격력을 쓰는지 — 폭발은 표식 버프 ON_BUFF_FINISH의 `EmitProjectile`(출처 = 리,
+    출처가 없으면 안 쏨)이고 공격력은 투사체 피해 쪽에서 읽음, 죽은 출처의 속성은 안 읽음].
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD 데이터: EN 클라에서 뽑음(2026-11-04, `tools/local-extract/add_operator.py --id …` 네 명 한 번). 잔상 이펙트
   (`token_ebnhlz_*` 7개)는 공용 토큰 팩 `pkgrps/btl_pfb_fx_token_0.ab`에서 따로. 화면 확인 전.
 - 테스트: `test/content/op_shu.test.js`(10)·`op_lmlee.test.js`(9)·`op_zumama.test.js`(9)·`op_ebnhlz.test.js`(11) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물,
@@ -1064,13 +1074,22 @@
   - S2 깜짝 상자: `ReplacementSkill`(`replace`). 지뢰는 다음 공격의 타격 순간에 놓인다.
   - S3 D12: 폭탄은 날지 않는다(`projectile_chr_cqbw_s3` `_immediatelyReach`·`_delayAfterReached`·`_delayTime` 3). 대상은 `_postFilter` 15 HP_DES, 공격력은 시전 시작에 저장(`_useCachedAtkOnly`). upstream의 포탄 비행 추정을 지웠다.
   - 적 방향: 프리팹 `_category` 2 TRAP_OR_ITEM이라 적 선택기(`_targetCategory` 1 DEFAULT)에 걸리지 않는다. upstream의 추정을 공식 값으로 바꿨다.
+  - S2 지뢰 칸(2026-11-11, 공식 클라에서 확인): 스킬 프리팹의 `TileSelector`(`_filterType` 7 BETTER_ENEMY_WITH_COLLIDER, `_alwaysRandomInTheEnd`)
+    순서 — ① 사람 없는 칸 가운데 선택 가능한 지상 적이 선 칸, 그 칸 적의 가장 높은 위협도(HATRED_DES) 순 ② 모자라면 **그녀 범위 안의** 지상 적을
+    위협도 순으로 하나씩, 각 적에게 가장 가까운 칸(이미 고른 칸이면 그 적은 건너뜀, 같은 거리면 앞 칸) ③ 그래도 모자라면 남은 칸 무작위. 예전 키트는
+    ②를 필드 전체 적까지의 거리로 봤다. 에벤홀츠 S2와 같은 선택기라 공용 함수 하나(`kits/shared/tier1.js betterEnemyTiles`).
+  - ART-Y 3단계 숨은 재능의 공격력 층(2026-11-11, 공식 클라에서 확인): `cqbw_e_003_t` ON_TAKE_DAMAGE가 `IfModifierTarget`(이미 취소된 피해는
+    거름) → 층 지움. 버프는 같은 이벤트 우선순위면 얻은 차례로 도는데 이 버프는 배치 때 얻으므로, 나중에 얻는 보호막이 다 막은 타격과 재능 1
+    설복이 회피한 타격도 **층을 지운다**. 무적(버프보다 먼저 취소)과 유실·원소 손상(ON_TAKE_DAMAGE 없음)은 안 지운다. 예전 키트는 회피를 뺐다.
+  - 쓰러질 때도 지뢰를 거둔다: 그녀의 공통 능력 버프 `cqbw_c`(템플릿 `die_to_kill_token`)가 ON_OWNER_FINISH에 KillTokens — 이유를 가리지 않고
+    필드를 떠날 때(동작은 그대로, 추정 표시만 지움).
 - **오올헤약**
   - S2 굽이쳐 흐르는 별들: 모드 `MultiRangedAttack` `_additionalTimes` 8·`_triggerDelta` 0.05 — 9발이 타격부터 0.05초 간격으로 나가고, 각 발이 나갈 때 무작위로 대상을 고른다(`_selectNum` 1, `_selectTargetTiming` 1). 기절하면 남은 발은 없다.
   - S3 박식한 자의 광언: `DEFAULT` + 스킬 범위 상자 3-10(자기 행 없음). 공격은 공격 클립의 타격에 회오리 셋을 낸다(upstream은 타이머로 직접 냄). 회오리는 속도 1·수명 4초라 **4칸**을 난다: PRTS 「5格远处中心点」은 자기 칸을 세는 값이다. 배율 곡선 `_scaleCurve`가 수명의 0.4428에서 1이 되어 PRTS의 1.77초와 맞는다. 함께 닿은 적은 `_postFilter` 4 HATRED_DES 차례, 공중 포함.
 - **클로저**: S1의 `trigger: 'SP_FULL'`은 그대로 둔다(아군·자신에게만 듣는 AUTO 스킬은 SP가 차면 켠다, kits README 체크리스트 5). S2·S3은 표의 전술가 행(`ALWAYS`). S1 보호막 버프 키를 클라 키 `closur_s_1[block]`으로 지어 상태 경로가 `closur_skill_01_shied_01`을 튼다.
 - 소환물 이펙트 규칙(`fx.md` 「소환물이 서 있는 동안의 버프」): 소환물 재능의 기간제 버프 `token_*_born[withdraw]`가 서 있는 동안의 이펙트로 이어진다. 이 규칙으로 에벤홀츠 소환물 `token_ebnhlz_buff`와 비즈왁스 소환물 `token_beewax_skill_02_buff`도 켜졌다. 끝 이펙트는 이미 있던 `dead`(`_deadEffect`) 경로로 난다.
 - 키트 주석에 남은 추정:
-  - W [추정·미조사: 보호막이 막은 타격도 공격력 층을 지우는지]·[추정·미조사: 지뢰 칸 고르기에서 타일 선택기의 정렬 값을 안 읽음 — 둘]·[추정·미조사: 쓰러질 때도 지뢰를 거두는지, 문구는 철수만 말함]·[추정·자료 없음: 지뢰 수 상한].
+  - W [추정·자료 없음: 지뢰 수 상한].
   - 오올헤약 [추정·엔진: 회피와 부양 버프의 차례]·[추정·자료 없음: 「模组加成」을 모듈 특성으로 봄]·[추정·엔진: 아직 나오지 않은 회오리는 그녀가 떠나면 안 나옴].
   - 클로저 [추정·자료 없음: 배치 비용 하한은 여기에 대응이 없음]·[추정·엔진: 둔화가 적 능력 쿨다운·상태 시간에 주는 영향은 넣지 않음].
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD: EN 클라에서 뽑음(`add_operator.py --id …` 셋 한 번). 소환물 이펙트는 두 오퍼레이터의 번들에 있어 토큰 팩 추출이 필요 없다. 화면 확인 전이다.

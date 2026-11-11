@@ -328,6 +328,19 @@ export function absorbShields(battle, target, amount, type = null, info = null) 
 }
 
 /**
+ * A damage instance that reached its target and was cancelled there — 无敌 / 沉睡, a `hit` handler's cancel (a dodge,
+ * a block), the target's own dodge, the 限伤 cut — still reaches the target's 受到伤害 effects in the official client:
+ * `Entity.OnTakeDamage` cancels the modifier (unhurtable, miss) and then runs every buff's ON_TAKE_DAMAGE graph anyway
+ * (`BuffContainer.OnTakeDamage` skips only finished buffs), so a graph without a FilterDamageModifer node counts it (老鲤
+ * S2 `lmlee_s_2[paper]`). Hook `voidHit` hands it to such a counter, `why` = 'invulnerable' (无敌 / 沉睡: cancelled before
+ * any buff runs), 'cancel' (a `hit` handler's), 'dodge' (the target's dodge), 'limit' (限伤); it costs nothing while no one listens.
+ */
+function voided(battle, hs, target, dmg, source, why) {
+  if (battle._hooks.voidHit) battle.emit('voidHit', { source: hs, target, dmg, credit: source, why });
+  return 0;
+}
+
+/**
  * Full damage pipeline. Returns the HP actually removed (0 when dodged/cancelled/absorbed).
  */
 export function dealDamage(battle, source, target, dmgIn) {
@@ -341,13 +354,15 @@ export function dealDamage(battle, source, target, dmgIn) {
   // gets the stats and the kill (PRTS 伤害分类 无来源 ③)
   const hs = dmg.sourceless ? null : source;
   let ts = target.s;
-  if (ts.flags.invulnerable || sleepBlocks(target, hs, dmg) || liftoffEvades(target, hs, dmg)) return 0;
+  if (liftoffEvades(target, hs, dmg)) return 0;
+  if (ts.flags.invulnerable || sleepBlocks(target, hs, dmg)) return voided(battle, hs, target, dmg, source, 'invulnerable');
   if (battle._hooks.hit) {
     battle.emit('hit', { source: hs, target, dmg, credit: source });
-    if (dmg.cancel || !target.alive || !target.deployed) return 0;
+    if (!target.alive || !target.deployed) return 0;
+    if (dmg.cancel) return voided(battle, hs, target, dmg, source, 'cancel');
     if (dmg.type === 'element') return applyElement(battle, source, target, dmg);
     ts = target.s; // handlers may have changed the target's buffs (fragile, invulnerable, dodge…): never use stale stats
-    if (ts.flags.invulnerable || sleepBlocks(target, hs, dmg)) return 0;
+    if (ts.flags.invulnerable || sleepBlocks(target, hs, dmg)) return voided(battle, hs, target, dmg, source, 'invulnerable');
   }
   const type = dmg.type;
   // dodge
@@ -356,7 +371,7 @@ export function dealDamage(battle, source, target, dmgIn) {
     if (p > 0 && battle.rng() < p) {
       battle.fx('dodge', { x: target.x, y: target.y, id: target.id });
       if (battle._hooks.dodge) battle.emit('dodge', { source, target, dmg });
-      return 0;
+      return voided(battle, hs, target, dmg, source, 'dodge');
     }
   }
   // 频次 units (flags hitCount / hitCountArts): every damage instance removes exactly 1 HP (maxHp = hits needed);
@@ -391,7 +406,7 @@ export function dealDamage(battle, source, target, dmgIn) {
   // 休闲 (flags.bossHitClamp): it goes on as BOSS_HIT_LIMIT
   if (final > 0) {
     final = leaderHitLimit(battle, target, final);
-    if (!(final > 0)) return 0;
+    if (!(final > 0)) return voided(battle, hs, target, dmg, source, 'limit');
   }
   const lpShield = {}, lpBefore = final; // local patch: a red number stopped by a shield → blue / BLOCK (local-hud.js)
   final = absorbShields(battle, target, final, type, lpShield);

@@ -240,6 +240,30 @@ test('S2 驱凶辟邪 bursts early: at the hit cap, when the target is knocked o
     assert.ok(b[0].amount >= u.s.atk * (sk.bb.default_atk_scale + sk.bb.max_stack_cnt * sk.bb.factor_atk_scale) - 1e-3);
     done(h);
   }
+  { // a hit the mark cancels still counts (lmlee_s_2[paper] ON_TAKE_DAMAGE, no damage filter): a shield's block, a dodge, 无敌
+    const { h, u } = field({ tier: 6, elite: true, skill: 1, dp: 999 });
+    const t = h.spawn('enemy_dummy', { pos: [10, 6] });
+    u.skill.gainSp(999);
+    assert.ok(h.runUntil(() => u.skill.activations === 1, 3));
+    h.runUntil(() => !u.skill._begin, 1);   // (after its begin clip: skills.js _beginCast)
+    const m = u.mem.lmleeMark;
+    assert.ok(m && m.alive && m.target === t);
+    const n0 = m.n;
+    h.b.addBuff(t, { key: 'test:shield', shield: 1e6 });
+    assert.equal(h.b.dealDamage(u, t, { amount: 100, type: 'phys' }), 0, 'the shield takes it whole');
+    assert.equal(m.n, n0 + 1, 'blocked ⇒ counted');
+    h.b.removeBuff(t, 'test:shield');
+    h.b.addBuff(t, { key: 'test:dodge', mods: { dodgePhys: 1 } });
+    assert.equal(h.b.dealDamage(u, t, { amount: 100, type: 'phys' }), 0, 'dodged');
+    assert.equal(m.n, n0 + 2, 'dodged ⇒ counted');
+    h.b.removeBuff(t, 'test:dodge');
+    h.b.addBuff(t, { key: 'test:invuln', flags: { invulnerable: true } });
+    assert.equal(h.b.dealDamage(u, t, { amount: 100, type: 'phys' }), 0, '无敌');
+    assert.equal(m.n, n0 + 3, '无敌 ⇒ counted');
+    h.b.dealDamage(u, t, { amount: 100, type: 'element', element: 'burn' });
+    assert.equal(m.n, n0 + 3, '元素损伤 ⇒ not counted');
+    done(h);
+  }
   { // knocked out target ⇒ burst on its spot
     const { h, u } = field({ tier: 6, elite: true, skill: 1, dp: 999 });
     const t = h.spawn('enemy_light', { pos: [10, 6] });

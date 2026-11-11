@@ -140,6 +140,11 @@ test('S2 震慑劈砍 (重装 TAKE_DAMAGE: casts with the enemy she blocks): 16 
     assert.ok(h.runUntil(() => late.blockedBy === u, 1));
     h.step(2);
     assert.ok(late.s.flags.stun, `T${tier}: an enemy blocked mid-skill is stunned too`);
+    // 无敌 + 无法选中 while blocked: the stun it holds stays (a new status would be refused)
+    h.b.addBuff(late, { key: 'test:ghost', duration: Infinity, flags: { invulnerable: true, untargetable: true } });
+    h.run(1);
+    assert.ok(late.blockedBy === u && late.s.flags.stun, `T${tier}: still stunned while 无敌 + 无法选中`);
+    h.b.removeBuff(late, 'test:ghost');
     assert.ok(h.runUntil(() => !u.skill.active, sk.duration), `T${tier}: ends`);
     h.run(0.15);
     assert.ok(!late.s.flags.stun, `T${tier}: the stun ends with the skill`);

@@ -31,9 +31,11 @@
 //   units too; 中点判定 around the target, the selectable enemies), n = the damage instances our side dealt to the target
 //   meanwhile (≤ max_stack_cnt; at the cap, or when the target is knocked out, it bursts at once). PRTS 备注: it also
 //   bursts when he is knocked out, when he leaves while blocking the marked enemy, and when he casts again; when he leaves
-//   otherwise it vanishes. Counted: every `damaged` instance of an ally (credit included) on it but 元素损伤 and 流失
-//   [ASSUMED·not checked: a hit absorbed by a shield counts — lmlee_s_2[paper] counts ON_TAKE_DAMAGE]. The burst after a
-//   knock-out uses his ATK of the last tick on the field [ASSUMED·not checked].
+//   otherwise it vanishes. Counted: every damage instance of an ally (credit included) that reaches it, but 元素损伤 and
+//   流失 — the ones it cancels too (a shield's block, a dodge, 无敌): lmlee_s_2[paper] counts ON_TAKE_DAMAGE with no
+//   FilterDamageModifer node, and the official client runs a cancelled damage's ON_TAKE_DAMAGE graphs all the same
+//   (`Entity.OnTakeDamage` → `BuffContainer.OnTakeDamage`; 元素损伤 takes the element path, no ON_TAKE_DAMAGE). The burst
+//   after a knock-out uses his ATK of the last tick on the field [ASSUMED·not checked].
 // - S3 贵客盈门 (AUTO, 持续时间无限; SP_FULL as S1): range x-4, ATK / DEF +atk / +def, taunt +taunt_level; each attack pushes
 //   every other enemy of his range with attack@force (小力 = 0) at attack@prob_knockback (radial from him: template
 //   knockback[relative], _useSourceDirection false, from him — lmlee_s_3[knockback] puts it on his range); prob to dodge each physical / arts damage whose source stands outside his
@@ -192,15 +194,18 @@ export default {
         if (sid === S2) {
           statBuff(battle, unit, 'skill:lmlee:s2passive', { aspd: num(b2.attack_speed) });  // "被动效果：攻击速度+15"
           // the mark: every damage instance of our side on it, its target's knock-out, his leaving the field
-          battle.on('damaged', (ctx) => {
+          // (a hit the target cancelled — 无敌, a dodge, a block — counts too: `voidHit`, damage.js `voided`)
+          const count = (ctx) => {
             const m = unit.mem.lmleeMark;
             if (!m || !m.alive || ctx.target !== m.target) return;
             const who = ctx.source ?? ctx.credit;
             const d = ctx.dmg;
-            if (!who || who.side !== 'ally' || !d || ctx.type === 'element' || isHpLoss(d) || d.tags?.includes(BURST_TAG)) return;
+            if (!who || who.side !== 'ally' || !d || d.type === 'element' || isHpLoss(d) || d.tags?.includes(BURST_TAG)) return;
             m.n = Math.min(maxN, m.n + 1);
             if (m.n >= maxN) burstMark(battle, unit, m, b2);
-          }, { owner: unit, priority: -20 });
+          };
+          battle.on('damaged', count, { owner: unit, priority: -20 });
+          battle.on('voidHit', count, { owner: unit, priority: -20 });
           battle.on('tick', () => {
             const m = unit.mem.lmleeMark;
             if (!m || !m.alive || !up(unit)) return;
