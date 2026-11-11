@@ -2041,3 +2041,10 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
 - 근거: 관리자가 준 CN 서버 전투 화면 한 장(「클로저」 테마, 규정 우르수스 6명). 맹약 줄 원판 숫자는 고정 + 임시 중첩의 합계(우르수스 193)를 **노란 글자**로, 임시 중첩이 없는 맹약(견수 61)은 흰 글자. 맹약 상세 창 오른쪽 위는 「层数 49」(고정) 아래 한 줄에 노란 「+ 144」(임시). 효과 수치(공격력 +180% 등)는 합계 기준.
 - 구현: 전투 중 중첩은 브라우저가 돌리는 전투에서 읽는다(`battle/runner.js noteLayers` → `state().bondLayers`). 임시 중첩(`Battle.tempLayerGainsOf`, 결과의 `tempLayerGains`와 같은 장부)을 그 옆에 `state().bondTemp`로 내보내고, `ui/watchBonds.js withLiveLayers`가 그 합계를 쓰는 맹약 항목에 `tempLayers`로 붙인다(보이는 합계를 넘지 않음, 서버 정산이 이미 더 큰 값이면 붙이지 않음). 맹약 줄은 `has-temp`면 숫자가 노란색(#f2c510, 캡처에서 뽑음), 상세 창은 `层数` 뒤에 고정 중첩, 그 아래에 `+ n`(`bpop__temp`, 공식 그림 HUD) — 공식 그림이 없는 화면은 정보 줄에 `层数 49 + 144`. 효과 설명은 합계로 셈. 보고 있는 팀원의 맹약 줄과 카드 맹약 칩에서 연 상세 창도 같다.
 - 시험: `test/ui/temp-layers.test.js`, `test/match/watch-bonds.test.js`(runner `bondTemp`).
+
+## HUD 숫자 글꼴 (2026-11-11, 관리자 결정)
+
+- 공식 클라에서 확인: HUD 프리팹의 Text는 글꼴 칸이 비어 있고 같은 오브젝트의 `DynFontLoader._fontName`이 이름으로 글꼴을 정한다. 숫자는 대부분 `Novecentowide-Medium` — 맹약 원판 수(`autochess_hud_bond_item` `text_num` 16), 맹약 상세 창의 중첩 수·인원(`text_cur_stack` 16·`text_char_cnt` 18), 위쪽 라운드·LP·처치 수(`root_round` `text_num`·`root_hp` `text_hp`·`group_battle` `text_num` 20), 상점 비용·자금·레벨, 라운드 시작 창, 보스 준비 창의 체력. 오퍼레이터 카드 스탯·레벨은 `Novecentowide-Normal`, 글자는 `NotoSansHans-Medium`·`SourceHanSansCN-Heavy`, 카운트다운만 비트맵 숫자 글꼴(`auto_chess_num_font`, 테마마다 따로).
+- 우리 공개 글꼴(`tools/assets/fonts.mjs`)은 Novecento Wide Normal 하나뿐이고, 무료 배포판에도 Medium은 없다(유료). 그래서 Medium은 로컬 클라 추출이 가져오고(`tools/local-extract/extract.py` `FONT_NAMES`: 게임 `*_Data/*.assets`의 Font → `public/assets/local/fonts/`, 목록 `data/local-assets.json` `fonts`) 화면이 그 목록을 읽어 'Novecento Wide' 굵기 500으로 등록한다(`ui/localFonts.js`, 앱 `main.js`·`dev/game-mock.js`). 파일이 없으면 같은 CSS가 Normal로 그린다(600 아래라 가짜 굵게 없음). 클라에서 뽑은 파일은 커밋하지 않는다.
+- 이번에 바꾼 곳(공식 그림 HUD): 맹약 원판 수는 Bender 굵게 12.4 → Novecento Wide 500 **16**(프리팹 크기 — 12.4는 Bender가 커 보여 줄였던 값, 공식 글꼴로는 캡처의 숫자 폭이 16에서 맞음, 관리자 결정 2026-11-11 시안 B), 상세 창 중첩 수·임시 중첩·인원 400 → 500, 위쪽 라운드·LP·처치 수 Bender → Novecento Wide 500. 상점·라운드 시작 창·보스 준비 창·카드 스탯은 아직 지금 글꼴.
+- 시험: `test/ui/local-fonts.test.js`.

@@ -18,6 +18,7 @@ import { installAudio } from '/js/audio.js';
 import { settingsStore } from '/js/ui/settings.js';
 import { awayStore } from '/js/ui/matchChrome.js';
 import { GAME_FILES } from '/js/ui/gameComponents.js';
+import { installLocalFonts } from '/js/ui/localFonts.js';
 import { initLang } from '/js/ui/lang.js';
 import { PHASE, GEO } from '/shared/constants.js';
 import { battleRunner } from '/js/battle/runner.js';
@@ -887,6 +888,7 @@ async function boot() {
   // the language as the app picks it (?lang=ko|en|ja|zh-TW, else the stored choice): before the data, so the game texts follow
   await initLang().catch((err) => console.warn('[mock] language setup failed', err));
   await data.loadAll(GAME_FILES);
+  data.load('local').then((m) => installLocalFonts(m)).catch(() => {}); // the HUD number font, as the app (main.js)
   installDeviceSupport();
   installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, settings: settingsStore.get() });
   const phase = params.get('phase') || 'PREP';

@@ -40,6 +40,7 @@ import { ToastHost, toast, toastError, describeError } from './ui/toasts.js';
 import { net, identity, NetError, defaultWsUrl } from './net.js';
 import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating, reservedRank } from './store.js';
 import { data } from './data.js';
+import { installLocalFonts } from './ui/localFonts.js';
 import { GAME_FILES } from './ui/gameComponents.js';
 import { SIM_DATA_FILES } from './battle/runner.js';
 import { preloadMatchCode } from './preload.js';
@@ -487,8 +488,9 @@ async function boot() {
   data.load('assets').catch(() => {});
   // Warm the data cache in the background (missing files are tolerated).
   data.loadAll('config').catch(() => {});
-  // Optional local-client art manifest (emotes, tutorial pages, official UI sprites; DESIGN §13).
-  data.load('local').catch(() => {});
+  // Optional local-client art manifest (emotes, tutorial pages, official UI sprites; DESIGN §13) — and the HUD number
+  // font it may carry (ui/localFonts.js)
+  data.load('local').then((m) => installLocalFonts(m)).catch(() => {});
 
   const connectWhenReady = identityReady.then(() => {
     // the seat this page would have resumed is held by another live window of this browser: offer it here
