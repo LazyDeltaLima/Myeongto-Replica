@@ -116,12 +116,13 @@ import {
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, foldCamera, sideCamera, selectedTile, deployFoldsShop, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
-  mergeTarget, modeOffBonds, readyFundsPrompt, readyOverflowPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull, autoDiyChoice,
+  mergeTarget, modeOffBonds, readyFundsPrompt, readyOverflowPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
 import { matchToast } from '../ui/matchToast.js';
 import { BriefingScreen } from './briefing.js';
 import { BandDraftScreen } from './bandDraft.js';
+import { DiyChooseScreen } from './diyChoose.js';
 import { ResultScreen } from './result.js';
 import { net } from '../net.js';
 import { store, useStore, shallowEqual, serverNow, isSpectating, reservedRank } from '../store.js';
@@ -205,11 +206,12 @@ export function GameScreen() {
   else if (hasResult || mode === 'result') body = html`<${ResultScreen} />`;
   else if (mode === 'briefing') body = html`<${BriefingScreen} />`;
   else if (mode === 'draft') body = html`<${BandDraftScreen} />`;
+  else if (mode === 'diyChoose') body = html`<${DiyChooseScreen} />`;
   else body = html`<${MatchScreen} />`;
   endRef.current.onField = body.type === MatchScreen;
   return html`${body}
     ${ending ? html`<${SettleEnding} status=${ending.status} portrait=${ending.portrait} onDone=${() => { endRef.current.ending = null; setEndTick((x) => x + 1); }} />` : null}
-    ${coopRoom && !ending && (hasResult || mode === 'result' || mode === 'briefing' || mode === 'draft') ? html`<div class="gchat-float"><${GameChat} open=${chatOpen} onToggle=${setChatOpen} /></div>` : null}
+    ${coopRoom && !ending && (hasResult || mode === 'result' || mode === 'briefing' || mode === 'draft' || mode === 'diyChoose') ? html`<div class="gchat-float"><${GameChat} open=${chatOpen} onToggle=${setChatOpen} /></div>` : null}
     ${(away || autoplay) && !hasResult && mode !== 'result' && !ended ? html`<${AwayOverlay} />` : null}
     ${ended && !hasResult && mode !== 'result' ? html`<${MatchEnded} />` : null}
     ${/* the match screen draws its own: the briefing and the draft would otherwise sit dead with no word */ ''}
@@ -862,14 +864,6 @@ function MatchScreen() {
     toast(t('渲染器暂时未能加载，已切换为简化视图（功能不受影响，可刷新重试）'), 'info', { ttl: 5000 });
   }, [viewKind, viewUpgrading]);
 
-  // 规程's 确定自选编队 until its own screen exists: this client brings the first two of each tier of its 自选编队 (or what it
-  // chose) into the match and readies (ui/gameLogic/draft.js autoDiyChoice)
-  const diyAutoKey = phase === PHASE.DIY_CHOOSE && !spectator ? JSON.stringify(autoDiyChoice(priv?.diyChoose)) : 'null';
-  useEffect(() => {
-    const slots = JSON.parse(diyAutoKey);
-    if (!slots) return;
-    actions.diyChoose(slots).then(() => actions.diyReady());
-  }, [diyAutoKey]);
 
   // phase changes: banners, sounds, resets
   const phaseKey = `${phase}:${pub?.round}`;

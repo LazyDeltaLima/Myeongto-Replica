@@ -19,6 +19,10 @@ id of shared/seasons.js:
                                   by folder: one name can be in two folders with two pictures (modeicon / modeselecticon)
   season/<id>/skin/<sprite>       the sprites of the season's default UI theme bundle (SEASONS[id]['skin']), each at its
                                   sprite rect: a texture packed tight is put back where it sits in the rect
+  season/<id>/<group>/<sprite>    every sprite the images of a few screen prefabs show (SEASONS[id]['prefabs']), at its
+                                  rect: a plain Image's Sprite, or an atlas image's picture cut from its atlas (the
+                                  client's own atlas component: `_initAtlas` + `_initSpriteId`) — the prefab's own
+                                  references, so a generic name (none, ban, tips) is the one that screen shows
   season/<id>/bondboard/<max>_<n> the bond disc boards as the theme's bond_icon_view_item lays them (SEASONS[id]
                                   ['bondboard']): bg_active (all lit) or bg_inactive, the ring of every segment in grey
                                   (bg_total) and the n lit segments in the theme's colour (bg_actual), from the white
@@ -62,6 +66,13 @@ SEASONS = {
             ('ui/autochess/[uc]autochesscommon.ab', ['bandicon', 'bondicon', 'shopitemicon', 'modeicon', 'modeselecticon', 'garrisontypeicon']),
             ('ui/autochess/[uc]autochessouter.ab', ['medalicon', 'enemytypeicon', 'diychooselevelsprite', 'shoplevelsprite', 'chesslevelsprite']),
             ('ui/autochess/[uc]autochessbattle.ab', ['bondphaseicon', 'bufficon', 'modeinfotitle', 'bondboardicon']),
+        ],
+        # the 3/3 确定自选编队 screen (public/js/screens/diyChoose.js): its state, tier rows and cards, the shared operator
+        # card it holds (the out-of-match 干员调配 card) and that card's bond badge
+        'prefabs': [
+            ('ui/autochess/[uc]autochessouter.ab', 'diychoose', ['auto_chess_diy_choose_state', 'auto_chess_diy_choose_level_view',
+                                                                 'auto_chess_diy_choose_char_view', 'auto_chess_deploy_char_item_view',
+                                                                 'auto_chess_deploy_char_card_bond_item']),
         ],
         # activity_table autoChessData.skinConsts.defaultAutoChessSkinId
         'skin': 'ui/autochess/autochessvariantskin/[uc]ac_n_initial.ab',
@@ -162,6 +173,82 @@ def sprites_by_folder(env, folders, full=False):
             continue
         d = obj.read()
         out.setdefault(parts[-2], {})[d.m_Name] = full_rect(d) if full else d.image.convert('RGBA')
+    return out
+
+
+def prefab_sprites(env, roots):
+    """{name: image} of every picture the images under the GameObjects `roots` show: a plain Image's m_Sprite (at its
+    rect), or an atlas image's sprite — the client's atlas component: `_initAtlas` (its `_sprites` name / guid / rect,
+    the rect from the bottom left, and `_atlases` textures with a separate alpha texture) and `_initSpriteId` (a guid).
+    Only references inside the bundle are followed (a picture of another bundle is drawn by its own screen)."""
+    from PIL import Image
+    objs = {o.path_id: o for o in env.objects}
+    atlases = {}
+
+    def atlas(pid):
+        if pid not in atlases:
+            t = objs[pid].read_typetree()
+            tex = {}
+            for a in t['_atlases']:
+                im = objs[a['texture']['m_PathID']].read().image.convert('RGBA')
+                if a['alpha']['m_PathID']:
+                    im.putalpha(objs[a['alpha']['m_PathID']].read().image.convert('RGBA').getchannel('R').resize(im.size))
+                tex[a['index']] = im
+            atlases[pid] = ({s['guid']: s for s in t['_sprites']}, tex)
+        return atlases[pid]
+
+    out = {}
+
+    def picture(ct):
+        sp = ct.get('m_Sprite')
+        if sp and sp['m_FileID'] == 0 and sp['m_PathID'] in objs:
+            d = objs[sp['m_PathID']].read()
+            return d.m_Name, full_rect(d)
+        ref, sid = ct.get('_initAtlas'), ct.get('_initSpriteId')
+        if sid and ref and ref['m_FileID'] == 0 and ref['m_PathID'] in objs:
+            sprites, tex = atlas(ref['m_PathID'])
+            s = sprites.get(sid)
+            if not s:
+                return None
+            r, im = s['rect'], tex[s['atlas']]
+            w, h = (r['h'], r['w']) if s['rotate'] else (r['w'], r['h'])
+            top = im.height - r['y'] - h
+            cut = im.crop((r['x'], top, r['x'] + w, top + h))
+            return s['name'], cut.transpose(Image.ROTATE_90) if s['rotate'] else cut
+        return None
+
+    def walk(go):
+        t = go.read_typetree()
+        children = []
+        for c in t['m_Component']:
+            co = objs.get(c['component']['m_PathID'])
+            if co is None or c['component']['m_FileID'] != 0:
+                continue
+            if co.type.name in ('RectTransform', 'Transform'):
+                children = co.read_typetree()['m_Children']
+            elif co.type.name == 'MonoBehaviour':
+                try:
+                    got = picture(co.read_typetree())
+                except Exception:  # a component without a type tree
+                    got = None
+                if got and got[0] not in out:
+                    out[got[0]] = got[1]
+        for ch in children:
+            tr = objs.get(ch['m_PathID'])
+            if tr is not None:
+                walk(objs[tr.read_typetree()['m_GameObject']['m_PathID']])
+
+    by_name = {}
+    for o in env.objects:
+        if o.type.name == 'GameObject':
+            n = o.read_typetree()['m_Name']
+            if n in roots and n not in by_name:
+                by_name[n] = o
+    missing = set(roots) - set(by_name)
+    if missing:
+        raise SystemExit(f'prefabs missing: {", ".join(sorted(missing))}')
+    for n in roots:
+        walk(by_name[n])
     return out
 
 
@@ -267,6 +354,9 @@ def main(argv=None):
                 print(f'warn: {rel} has no arts/{folder}', file=sys.stderr)
             for name, im in sorted(found.get(folder, {}).items()):
                 save(folder, name, im)
+    for rel, group, roots in spec.get('prefabs', []):
+        for name, im in sorted(prefab_sprites(load(game, rel), roots).items()):
+            save(group, name, im)
     if spec.get('skin'):
         senv = load(game, spec['skin'])
         skin = {}

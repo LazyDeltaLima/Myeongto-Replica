@@ -71,7 +71,7 @@
 .dorder__box.is-band { overflow: hidden; background: radial-gradient(circle at 50% 40%, #1f4a40, #0c1513 75%); box-shadow: inset 0 0 0 1px rgba(120, 240, 205, .25); }
 .dorder__box.is-band .bandicon { --bi: 100%; width: 100%; height: 100%; background: transparent; }
 .dorder__check { width: .36rem; height: .36rem; display: grid; place-items: center; }
-.dorder.is-done .dorder__check { border: .03rem solid var(--mint-400); border-radius: .06rem; background: rgba(23, 249, 183, .12); color: var(--mint-400); box-shadow: 0 0 .14rem rgba(23, 249, 183, .45); }
+.dorder.is-checked .dorder__check { border: .03rem solid var(--mint-400); border-radius: .06rem; background: rgba(23, 249, 183, .12); color: var(--mint-400); box-shadow: 0 0 .14rem rgba(23, 249, 183, .45); }
 .dorder__check .icon { width: 80%; height: 80%; }
 /* the doctor deciding: a mint frame around the card, ▶ on the left */
 .dorder.is-cur .dorder__card { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1), 0 0 0 .03rem var(--mint-400), 0 0 .22rem rgba(23, 249, 183, .3); }
@@ -243,11 +243,11 @@
 .draft-order.has-art .dorder__box.is-cur { gap: calc(var(--ou) * 3); background: var(--do-sel) center / 137% 137% no-repeat; }
 .draft-order.has-art .dorder__glass { width: calc(var(--ou) * 27); height: calc(var(--ou) * 36); }
 .draft-order.has-art .dorder__box.is-cur > span { font-size: calc(var(--ou) * 16); font-weight: 400; color: #fff; }
-/* selected: the strategy in player_card_team_frame, player_card_ready beside it */
+/* selected: the strategy in player_card_team_frame, player_card_ready beside it (is-checked: the pick, or 3/3's ready) */
 .draft-order.has-art .dorder__box.is-band { padding: var(--ou); background: var(--do-team) center / 100% 100% no-repeat; box-shadow: none; }
-.draft-order.has-art .dorder__check, .draft-order.has-art .dorder.is-done .dorder__check { width: calc(var(--ou) * 34); height: calc(var(--ou) * 34);
+.draft-order.has-art .dorder__check, .draft-order.has-art .dorder.is-checked .dorder__check { width: calc(var(--ou) * 34); height: calc(var(--ou) * 34);
   border: 0; border-radius: 0; background: none; box-shadow: none; }
-.draft-order.has-art .dorder.is-done .dorder__check { background: var(--do-ready) center / contain no-repeat; }
+.draft-order.has-art .dorder.is-checked .dorder__check { background: var(--do-ready) center / contain no-repeat; }
 .draft-order.has-art .dorder__check > * { display: none; }
 /* one's own row: myself_highlight — the frame over the row (Sliced), the 我 tag on the card's corner, the arrow left of it */
 .draft-order.has-art .dorder.is-self::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;

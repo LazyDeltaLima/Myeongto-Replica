@@ -18,14 +18,14 @@ const PREP_PHASES = new Set([PHASE.PREP, PHASE.SP_DRAFT, PHASE.ROUND_START]);
 /**
  * Which screen family a phase belongs to.
  * @param {string} phase
- * @returns {'loading'|'briefing'|'draft'|'boot'|'prep'|'combat'|'settle'|'result'}
+ * @returns {'loading'|'briefing'|'draft'|'diyChoose'|'boot'|'prep'|'combat'|'settle'|'result'}
  */
 export function phaseMode(phase) {
   if (!phase) return 'loading';
   if (phase === PHASE.INFO_CHECK) return 'briefing';
   if (phase === PHASE.BAND_DRAFT) return 'draft';
-  // 规程's 确定自选编队 keeps the strategy draft's screen until its own screen exists (screens/game.js autoDiyChoice)
-  if (phase === PHASE.DIY_CHOOSE) return 'draft';
+  // 规程's 3/3 确定自选编队 (screens/diyChoose.js)
+  if (phase === PHASE.DIY_CHOOSE) return 'diyChoose';
   if (phase === PHASE.BATTLE_CHECK) return 'boot';
   if (phase === PHASE.RESULT) return 'result';
   if (phase === PHASE.SETTLE) return 'settle';

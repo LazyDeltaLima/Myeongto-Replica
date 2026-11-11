@@ -53,7 +53,7 @@ import { CARD_KEY, cardStore, cardOperators, cardContext, seatOperator, seatArtS
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfoDialog, matchInfoModel, ChessIcon } from '../ui/matchInfo.js';
 import { actions, act } from '../ui/gameActions.js';
-import { normalizeDraft, sortedPlayers, diyPickOff } from '../ui/gameLogic.js';
+import { normalizeDraft, sortedPlayers, diyPickOff, startStepCount } from '../ui/gameLogic.js';
 import { useStore } from '../store.js';
 import { FactionIcon } from '../ui/faction.js';
 import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand, selectPreset, clearRosterSlot, choiceRoster, KEEP_LINK, BASE_LINK } from '../ui/diyPresets.js';
@@ -516,13 +516,14 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
  * belongs to the client's top bar, not to this box —, the waiting dots, or the picked strategy) and ✓ outside it; one's
  * own row also carries the client's myself_highlight tag and arrow (drawn only with the official sprites, draft.css). The
  * card carries the Doctor's 名片干员 art behind the text (ui/seatArt.js, the operator of the room's seat card; `art` its
- * portrait, null for a bot or none) — a picture that fails to load is left out.
+ * portrait, null for a bot or none) — a picture that fails to load is left out. The ✓ follows the pick; the 3/3
+ * 确定自选编队 screen (screens/diyChoose.js) shows the same rows with the ✓ of its own ready (`checked`).
  */
-function OrderRow({ p, i, picked, cur, self, ready, gd, art = null }) {
+export function OrderRow({ p, i, picked, cur, self, ready, gd, art = null, checked = !!picked }) {
   const [badArt, setBadArt] = useState(/** @type {string[]} */ ([]));
   const shownArt = seatArtSrc([art], badArt);
   const pband = picked ? gd.band(picked) : null;
-  return html`<div class=${cx('dorder', cur && 'is-cur', picked && 'is-done', self && 'is-self')} style=${`--i:${i}`}>
+  return html`<div class=${cx('dorder', cur && 'is-cur', picked && 'is-done', checked && 'is-checked', self && 'is-self')} style=${`--i:${i}`}>
     <div class="dorder__card">
       ${shownArt ? html`<img key=${shownArt} class="dorder__art" src=${shownArt} alt="" aria-hidden="true" draggable=${false}
         onError=${() => setBadArt((b) => (b.includes(shownArt) ? b : [...b, shownArt]))} />` : null}
@@ -536,7 +537,7 @@ function OrderRow({ p, i, picked, cur, self, ready, gd, art = null }) {
     ${picked ? html`<span class="dorder__box is-band" title=${pband?.name || ''}><${BandIcon} bandId=${picked} size="md" /></span>`
       : cur ? html`<span class="dorder__box is-cur"><${Sprite} k="bandChoose/shallow_main" class="dorder__glass" fallback=${html`<${Icon} name="hourglass" />`} /><span>${t('决策中')}</span></span>`
       : html`<span class="dorder__box is-wait"><${Icon} name="dots" /></span>`}
-    <span class="dorder__check" aria-hidden="true">${picked ? html`<${Icon} name="check" />` : null}</span>
+    <span class="dorder__check" aria-hidden="true">${checked ? html`<${Icon} name="check" />` : null}</span>
     ${self ? html`<i class="dorder__tag" aria-hidden="true"></i><i class="dorder__arrow" aria-hidden="true"></i>` : null}
   </div>`;
 }
@@ -549,6 +550,23 @@ function BandText({ band, class: cls }) {
 }
 
 /** BAND_DRAFT screen. */
+/**
+ * 名片干员 (ui/seatArt.js): the operator of each Doctor's seat card in the room (seats[].card; one's own pick at once), else
+ * the one chosen by the player id — the room's seat cards' art on the order rows. Returns player → portrait URL or null.
+ * @param {any} gd useGameData() @param {string|null} myId
+ */
+export function useOrderArt(gd, myId) {
+  const roomSeats = useStore((s) => s.room?.seats);
+  const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
+  const cards = useMemo(() => cardContext(cardOperators(gd.list('chess'), data.get('backups')), { pending: !data.get('backups') }), [gd.ready]);
+  return (p) => {
+    if (p.isBot) return null;
+    const seat = (Array.isArray(roomSeats) && roomSeats.find((x) => x && x.playerId === p.playerId)) || { playerId: p.playerId };
+    const op = seatOperator(seat, cards, { myId, myCard });
+    return op ? chessPortraitUrl(data.get('assets'), op.chess) : null;
+  };
+}
+
 export function BandDraftScreen() {
   const pub = useStore((s) => s.match.public);
   const priv = useStore((s) => s.match.private);
@@ -573,17 +591,7 @@ export function BandDraftScreen() {
   const offBonds = modeOffBonds(mode); // the bonds this mode never activates (标准: 10 of 23)
   const solo = roomSolo || mode?.type === 'SINGLE' || String(pub?.modeId || '').includes('single');
   const bands = useMemo(() => allowedBands(gd.list('bands'), mode?.type || (solo ? 'SINGLE' : 'MULTI')), [gd.ready, mode?.type, solo, data.locale()]);
-  // 名片干员 (ui/seatArt.js): the operator of each Doctor's seat card in the room (seats[].card; one's own pick at once),
-  // else the one chosen by the player id — the room's seat cards' art on the order rows
-  const roomSeats = useStore((s) => s.room?.seats);
-  const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
-  const cards = useMemo(() => cardContext(cardOperators(gd.list('chess'), data.get('backups')), { pending: !data.get('backups') }), [gd.ready]);
-  const artOf = (p) => {
-    if (p.isBot) return null;
-    const seat = (Array.isArray(roomSeats) && roomSeats.find((x) => x && x.playerId === p.playerId)) || { playerId: p.playerId };
-    const op = seatOperator(seat, cards, { myId, myCard });
-    return op ? chessPortraitUrl(data.get('assets'), op.chess) : null;
-  };
+  const artOf = useOrderArt(gd, myId);
   const players = sortedPlayers(pub);
   const draft = normalizeDraft(pub?.draft, players);
   const myPick = draft.picks.get(myId) || priv?.bandId || null;
@@ -711,7 +719,7 @@ export function BandDraftScreen() {
   const skipIco = useSkipArrow();
   return html`<div class="screen draft">
     <div class="brief__bg" aria-hidden="true"></div>
-    <${StepHeader} step=${2} of=${2} title=${t('选择策略')} micro="STRATEGY // BAND CHECK" pub=${clock ? { ...pub, deadline: clock.deadline } : { ...pub, deadline: 0 }}
+    <${StepHeader} step=${2} of=${startStepCount(gd.config)} title=${t('选择策略')} micro="STRATEGY // BAND CHECK" pub=${clock ? { ...pub, deadline: clock.deadline } : { ...pub, deadline: 0 }}
       total=${clock ? clock.total : null} config=${gd.config} onExit=${() => setExit(true)} />
     <main class="draft__main">
       <aside class=${cx('draft-order', !solo && draft.order.length > 4 && 'is-8' /* the 8-player mode: compact rows */, orderArt && 'has-art')}

@@ -205,8 +205,11 @@ export const SEASON_UI_FOLDERS = Object.freeze({
   // the season's default UI theme (ac_n_initial for 规程; maintainer decision 2026-11-10): the shop and the 🔍 buttons
   // (ui/shopArt.js, ui/hud.js), and the bond disc boards composed from its pieces (ui/hudArt.js bondBoardStyle)
   skin: 'seasonSkin', bondboard: 'seasonBondBoard',
-  // no screen of ours draws these yet (the season's 自选 level picker, 模式说明 titles, bond phase marks)
-  diychooselevelsprite: 'diyChooseLevelSprite', modeinfotitle: 'modeInfoTitle', bondphaseicon: 'bondPhaseIcon',
+  // the 3/3 确定自选编队 screen (screens/diyChoose.js): its tier marks, and the sprites its prefabs and the 干员调配 card show
+  // (season_ui.py 'prefabs': plain and atlas images)
+  diychooselevelsprite: 'diyChooseLevelSprite', diychoose: 'diyChooseArt',
+  // no screen of ours draws these yet (模式说明 titles, bond phase marks)
+  modeinfotitle: 'modeInfoTitle', bondphaseicon: 'bondPhaseIcon',
 });
 
 /**

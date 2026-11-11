@@ -1,0 +1,135 @@
+/* ==========================================================================================
+   screens/diychoose.css — 规程's 3/3 确定自选编队 (js/screens/diyChoose.js), after the official auto_chess_diy_choose_state
+   on the strategy draft's frame (css/screens/draft.css: .draft, .draft__main, .draft-order). Sizes are the official
+   1280×720 canvas units times --u (the card's: 140×266 per card, six to a row); the sprites come in as custom properties
+   on .dchoose (diyChoose.js artVars, the season's extract) with plain fills when they are absent.
+   ========================================================================================== */
+
+.dchoose { --u: .0128rem; --dc-t5: #ebb85e; --dc-t6: #fb752a; }
+.dchoose__main { grid-template-columns: 4.7rem minmax(0, 1fr); }
+.dchoose__body {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: .12rem;
+  min-width: 0; min-height: 0; animation: pg-right 420ms var(--pg-ease) 120ms backwards;
+}
+.dchoose__body.is-ready { grid-template-columns: minmax(0, 1fr) calc(300 * var(--u) + 1.62rem); }
+
+/* ---- tier rows (auto_chess_diy_choose_level_view) ---- */
+.dchoose__levels { position: relative; display: flex; flex-direction: column; justify-content: center; gap: .06rem; min-width: 0; min-height: 0; padding-left: .36rem; }
+/* panel_list_dec: the bracket of team_list_left_side at the rows' left (white 30 %) */
+.dchoose__levels::before { content: ''; position: absolute; left: 0; top: .1rem; bottom: .1rem; width: .3rem; border: solid rgba(255, 255, 255, .3); border-width: .02rem 0 .02rem .02rem; }
+.dchoose__body.is-ready .dchoose__levels { padding-left: 0; }
+.dchoose__body.is-ready .dchoose__levels::before { display: none; }
+.dchoose__spec { margin: auto; font-size: .3rem; }
+
+.dclv {
+  position: relative; flex: 1 1 0; max-height: 3.85rem; min-height: 0; display: flex; align-items: center; justify-content: flex-end; padding-right: 1.62rem;
+  background: var(--dc-doc, linear-gradient(270deg, rgba(255, 255, 255, .1), transparent)) right top / 100% 100% no-repeat;
+}
+.dclv__glyph { position: absolute; right: .02rem; top: .06rem; height: 1.5rem; width: auto; pointer-events: none; }
+.dclv__glyph.is-text { right: .2rem; font-size: 1.1rem; line-height: 1; font-family: var(--font-num); color: var(--tier-5, #ffd23a); }
+.dclv[data-tier="6"] .dclv__glyph.is-text { color: var(--tier-6, #ff8a1e); }
+.dclv.is-empty .dclv__glyph.is-text { color: #555; }
+.dclv__num {
+  position: absolute; right: .12rem; top: calc(50% + .12rem); width: 1.38rem; height: .64rem; display: flex; align-items: baseline; justify-content: center; gap: .02rem;
+  padding-top: .1rem; box-sizing: border-box; font-size: .28rem; color: #959595;
+  background: var(--dc-num, none) center / 100% 100% no-repeat; border-radius: .32rem;
+}
+.dclv__num b { font-size: .4rem; font-weight: 400; color: #00ffc4; }
+.dclv__cards { display: flex; gap: calc(-2 * var(--u)); align-items: center; justify-content: flex-end; min-width: 0; }
+.dclv__none { position: absolute; inset: 0 1.6rem 0 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .12rem; color: rgba(255, 255, 255, .5); font-size: .3rem; pointer-events: none; }
+.dclv__none img { width: 1.42rem; }
+.dclv__nonetag { position: absolute; right: 1.8rem; top: 50%; transform: translateY(-50%); font-family: var(--font-num); font-size: .34rem; color: #777; }
+.dclv__nonetag img { width: 1.2rem; display: block; }
+
+/* ---- a card (auto_chess_deploy_char_item_view, 140×266; its level column left out) ---- */
+.dccard { all: unset; box-sizing: border-box; position: relative; flex: none; width: calc(140 * var(--u)); height: calc(266 * var(--u)); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.dccard:focus-visible { outline: .03rem solid var(--mint-400, #3fe6b4); outline-offset: .02rem; }
+.dccard > *, .dccard__char > * { position: absolute; display: block; }
+.dccard__slab { left: calc(16.5 * var(--u)); top: calc(29 * var(--u)); width: calc(123 * var(--u)); height: calc(237 * var(--u)); background: var(--dc-slab, linear-gradient(#2c3032, #1e2123)) center / 100% 100% no-repeat; }
+.dccard__char { left: calc(51 * var(--u)); top: calc(10.5 * var(--u)); width: calc(94 * var(--u)); height: calc(173 * var(--u)); background: var(--dc-cardbg, #d9d9d9) center / 100% 100% no-repeat; }
+.dccard__por { left: calc(2.75 * var(--u)); top: calc(2.75 * var(--u)); width: calc(80.5 * var(--u)); height: calc(159 * var(--u)); overflow: hidden; background: #2a2d30; }
+.dccard__por img { position: absolute; left: calc(-10.75 * var(--u)); top: calc(-12 * var(--u)); width: calc(102 * var(--u)); height: calc(203 * var(--u)); object-fit: cover; }
+.dccard__shade { left: calc(2.75 * var(--u)); top: calc(80 * var(--u)); width: calc(80.5 * var(--u)); height: calc(82 * var(--u)); background: #3c3c3c;
+  -webkit-mask: var(--dc-shade, linear-gradient(transparent, #000)) center / 100% 100% no-repeat; mask: var(--dc-shade, linear-gradient(transparent, #000)) center / 100% 100% no-repeat; }
+.dccard__frame { left: calc(1 * var(--u)); top: calc(1 * var(--u)); width: calc(84 * var(--u)); height: calc(163 * var(--u)); background: var(--dc-frame, none) center / 100% 100% no-repeat; }
+.dccard__prof { left: calc(3 * var(--u)); top: calc(3 * var(--u)); width: calc(22 * var(--u)); height: calc(22 * var(--u)); display: grid !important; place-items: center; background: rgba(36, 36, 36, .8); }
+.dccard__prof img { width: calc(16 * var(--u)); height: calc(16 * var(--u)); opacity: .7; }
+.dccard__box { top: calc(124 * var(--u)); width: calc(33 * var(--u)); height: calc(33 * var(--u)); display: grid !important; place-items: center; background: #212121; }
+.dccard__box img { width: 100%; height: 100%; object-fit: contain; }
+.dccard__box.is-skill { left: calc(6.8 * var(--u)); }
+.dccard__box.is-mod { left: calc(45.5 * var(--u)); }
+.dccard__lv { left: calc(7 * var(--u)); top: calc(24 * var(--u)); width: calc(40 * var(--u)); height: calc(40 * var(--u)); display: grid !important; place-items: center; }
+.dccard__lv img { width: 100%; height: 100%; }
+.dccard__stars { right: calc(9 * var(--u)); top: calc(172 * var(--u)); font-size: calc(14 * var(--u)); line-height: 1; letter-spacing: calc(-1.5 * var(--u)); color: #bdbdbd; }
+.dccard__name { right: calc(9.5 * var(--u)); top: calc(193 * var(--u)); width: calc(118 * var(--u)); text-align: right; font-size: calc(18 * var(--u)); line-height: calc(26 * var(--u)); font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dccard__bonds { right: calc(10 * var(--u)); top: calc(220 * var(--u)); height: calc(33 * var(--u)); display: flex !important; gap: calc(1 * var(--u)); justify-content: flex-end; }
+/* auto_chess_deploy_char_card_bond_item: the mint disc bkg_char_card_bond_active (45) and the glyph (28) in #051c17 */
+.dccard__bond { position: relative; width: calc(35 * var(--u)); height: calc(35 * var(--u)); }
+.dccard__bond::before { content: ''; position: absolute; left: calc(-5 * var(--u)); top: calc(-5 * var(--u)); width: calc(45 * var(--u)); height: calc(45 * var(--u));
+  background: var(--dc-bond, radial-gradient(circle, #2be0b6 58%, transparent 62%)) center / 100% 100% no-repeat; }
+.dccard__bond::after { content: ''; position: absolute; left: calc(3.5 * var(--u)); top: calc(3.5 * var(--u)); width: calc(28 * var(--u)); height: calc(28 * var(--u)); background: #051c17;
+  -webkit-mask: var(--b, none) center / contain no-repeat; mask: var(--b, none) center / contain no-repeat; }
+/* obj_select_outline_5 / _6: img_char_card_select_outline in the tier's colour */
+.dccard__sel { left: calc(-17.5 * var(--u)); top: calc(-6 * var(--u)); width: calc(172 * var(--u)); height: calc(292 * var(--u)); pointer-events: none; background: var(--dc-t5);
+  -webkit-mask: var(--dc-outline, linear-gradient(#000, #000)) center / 100% 100% no-repeat; mask: var(--dc-outline, linear-gradient(#000, #000)) center / 100% 100% no-repeat; }
+.dccard[data-tier="6"] .dccard__sel { background: var(--dc-t6); }
+.dccard.is-off { cursor: not-allowed; }
+.dccard__ban { left: calc(4 * var(--u)); right: calc(4 * var(--u)); top: calc(1 * var(--u)); bottom: calc(1 * var(--u)); background: rgba(0, 0, 0, .8); }
+.dccard__ban img { position: absolute; left: calc(50% + 4 * var(--u) - 14.5 * var(--u)); top: calc(182.9 * var(--u)); width: calc(29 * var(--u)); }
+.dccard__ban b { position: absolute; left: 0; right: 0; top: calc(209.7 * var(--u)); text-align: center; font-size: calc(16 * var(--u)); line-height: calc(35 * var(--u)); font-weight: 400; color: rgba(145, 145, 145, .8); }
+@media (hover: hover) { .dccard:not(.is-off):not([aria-disabled="true"]):hover .dccard__slab { filter: brightness(1.25); } }
+
+/* ---- after 准备就绪 (panel_team_selected) ---- */
+.dcdone {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .14rem; min-height: 0; margin-left: .36rem;
+  border: solid #52fcc4; border-width: .02rem 0 .02rem .02rem; background: linear-gradient(90deg, rgba(43, 224, 182, .14), transparent 70%);
+  animation: pg-fade 300ms ease-out backwards;
+}
+.dcdone__mark { position: relative; width: 3rem; height: 3rem; }
+.dcdone__mark > i { position: absolute; display: block; background: #2be0b6; -webkit-mask: var(--s) center / contain no-repeat; mask: var(--s) center / contain no-repeat; }
+.dcdone__chess { width: 21%; height: 30%; }
+.dcdone__chess.is-tl { left: 16%; top: 6%; } .dcdone__chess.is-tr { right: 16%; top: 6%; }
+.dcdone__chess.is-bl { left: 16%; bottom: 2%; } .dcdone__chess.is-br { right: 16%; bottom: 2%; }
+.dcdone__main { left: 33%; top: 30%; width: 34%; height: 35%; }
+.dcdone__arrow { left: 40%; top: 2%; width: 20%; height: 18%; }
+.dcdone__text { font-size: .62rem; font-weight: 900; letter-spacing: .02em; color: #00ffc4; text-align: center; }
+
+/* ---- bottom: the tip, the ready seats, 准备就绪 / 取消准备 ---- */
+.dchoose__foot { grid-column: 1 / -1; display: flex; align-items: center; gap: .3rem; min-height: 1.1rem; min-width: 0; }
+.dchoose__tip { margin: 0; display: flex; align-items: center; min-width: 0; min-height: .62rem; padding-right: .3rem; line-height: 1.25; overflow: hidden;
+  font-size: .22rem; color: rgba(255, 255, 255, .45); background: var(--dc-tips, none) left center / auto 100% no-repeat; }
+.dchoose__tip::before { content: ''; flex: none; width: .75rem; }
+.dchoose__ready { margin-left: auto; flex: none; display: flex; flex-direction: column; align-items: center; gap: .04rem; }
+.dchoose__ppl { position: relative; display: flex; gap: calc(7 * .02rem); align-items: center; padding: 0 .2rem; }
+.dchoose__ppl::before, .dchoose__ppl::after { content: ''; position: absolute; top: 0; bottom: 0; width: .1rem; border: solid rgba(255, 255, 255, .2); border-width: .02rem 0; }
+.dchoose__ppl::before { left: 0; border-left-width: .02rem; } .dchoose__ppl::after { right: 0; border-right-width: .02rem; }
+/* prefab_auto_chess_stage_info_player_item: img_player_bg in white 15 %, img_player_confirmed once ready */
+.dchoose__ppl i { display: block; width: calc(17 * .02rem); height: calc(42 * .02rem); background: var(--dc-pbg, none) center / 100% 100% no-repeat; opacity: .15; }
+.dchoose__ppl i.is-on { background-image: var(--dc-pon, none); opacity: 1; }
+.dchoose__ppl i.is-plain { border-radius: .1rem .1rem .02rem .02rem; background: #fff; }
+.dchoose__ppl i.is-plain.is-on { background: #2be0b6; }
+.dchoose__ready small { font-size: .24rem; color: #bcbcbc; }
+.dchoose__btn {
+  all: unset; box-sizing: border-box; flex: none; cursor: pointer; width: 3.84rem; height: .99rem; display: flex; align-items: center; justify-content: center; padding-left: .5rem;
+  font-size: .4rem; font-weight: 900; color: #1e1e1e; background: var(--dc-ok, linear-gradient(90deg, #2be0b6, #1fae8c)) center / 100% 100% no-repeat;
+}
+.dchoose__btn.is-cancel { background: var(--dc-cancel, linear-gradient(90deg, #e8e8e8, #bdbdbd)) center / 100% 100% no-repeat; }
+.dchoose__btn:disabled { cursor: default; filter: grayscale(.4) brightness(.85); }
+.dchoose__btn:focus-visible { outline: .03rem solid #fff; outline-offset: .02rem; }
+
+/* ---- phones (landscape, short): smaller cards and bar ---- */
+@media (max-height: 520px) {
+  .dchoose { --u: .0094rem; }
+  .dclv { padding-right: 1.3rem; }
+  .dclv__glyph { height: 1.1rem; }
+  .dclv__num { right: .04rem; width: 1.1rem; height: .5rem; font-size: .22rem; padding-top: .06rem; }
+  .dclv__num b { font-size: .32rem; }
+  .dclv__none { inset: 0 1.3rem 0 0; font-size: .24rem; }
+  .dclv__none img { width: 1rem; }
+  .dchoose__btn { width: 3rem; height: .78rem; font-size: .32rem; }
+  .dchoose__tip { font-size: .2rem; height: .5rem; }
+  .dchoose__foot { min-height: .8rem; }
+  .dchoose__body.is-ready { grid-template-columns: minmax(0, 1fr) calc(300 * var(--u) + 1.3rem); }
+  .dcdone__mark { width: 2rem; height: 2rem; }
+  .dcdone__text { font-size: .44rem; }
+}

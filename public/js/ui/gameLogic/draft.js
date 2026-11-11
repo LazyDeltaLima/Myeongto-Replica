@@ -89,26 +89,62 @@ export function normalizePersonalChoice(pub, priv, myId) {
   };
 }
 
+// ---- 规程's 确定自选编队 (screens/diyChoose.js; server/match/match/diyChoose.js) ----------------------------------------
+
+/** The tier of an official 自选 slot id (chess_char_<tier>_diy<n>_a), or null. @param {any} id */
+export function diySlotTier(id) {
+  const n = Number(/^chess_char_(\d+)_diy/.exec(typeof id === 'string' ? id : '')?.[1]);
+  return Number.isInteger(n) ? n : null;
+}
+
 /**
- * 规程's 确定自选编队 (m.private.diyChoose { lineup, chosen, ready, perTier }; server/match/match/diyChoose.js) until its own
- * screen exists: the slots this client brings into the match on its own — the ones already chosen, else the first
- * `perTier[tier]` slots of each tier in lineup order (the tier from the official slot id, chess_char_<tier>_diy<n>_a).
- * Null when there is nothing to send (no step, or the seat is ready).
- * @param {any} view m.private.diyChoose
- * @returns {string[] | null}
+ * How many start steps a match of the season has before 协议启动: config.timers.enterSteps without BATTLE_CHECK — 盟约 2
+ * (确认本局信息, 选择策略), 规程 3 (and CUSTOM_CHECK, 确定自选编队). 2 when the list is absent. The step headers' 「n/…」.
+ * @param {any} config the season's config.json
  */
-export function autoDiyChoice(view) {
-  if (!isObj(view) || view.ready || !isObj(view.lineup)) return null;
-  if (Array.isArray(view.chosen) && view.chosen.length) return view.chosen.slice();
-  const per = isObj(view.perTier) ? view.perTier : {};
-  const count = new Map();
-  const out = [];
-  for (const id of Object.keys(view.lineup)) {
-    const tier = Number(/^chess_char_(\d+)_diy/.exec(id)?.[1]);
-    const n = count.get(tier) ?? 0;
-    if (n >= (Number(per[tier]) || 0)) continue;
-    count.set(tier, n + 1);
-    out.push(id);
-  }
-  return out;
+export function startStepCount(config) {
+  const steps = Array.isArray(config?.timers?.enterSteps) ? config.timers.enterSteps : null;
+  const n = steps ? steps.filter((s) => isObj(s) && typeof s.step === 'string' && s.step !== 'BATTLE_CHECK').length : 0;
+  return n > 0 ? n : 2;
+}
+
+/**
+ * The tier rows of 确定自选编队 (m.private.diyChoose { lineup, chosen, ready, perTier }): one per tier with a limit, in
+ * tier order (5, 6 — the official screen's Ⅴ row above Ⅵ), each with its 自选编队 slots in lineup order, whether each is
+ * chosen or out this match (`isOff`: all its bonds are off — the server leaves such a piece out of the shop, so the card
+ * is 本局禁用 and cannot be chosen), and the count against the limit.
+ * @param {any} view m.private.diyChoose
+ * @param {string[]} [chosen] the chosen slots (default the view's)
+ * @param {(slotId: string, pick: any) => boolean} [isOff]
+ * @returns {Array<{ tier: number, limit: number, count: number, slots: Array<{ slotId: string, pick: any, chosen: boolean, off: boolean }> }>}
+ */
+export function diyChooseRows(view, chosen = view?.chosen, isOff = () => false) {
+  const per = isObj(view?.perTier) ? view.perTier : {};
+  const lineup = isObj(view?.lineup) ? view.lineup : {};
+  const on = new Set(Array.isArray(chosen) ? chosen : []);
+  return Object.keys(per).map(Number).filter((tier) => Number.isInteger(tier) && Number(per[tier]) > 0).sort((a, b) => a - b).map((tier) => {
+    const slots = Object.keys(lineup).filter((id) => diySlotTier(id) === tier && isObj(lineup[id]))
+      .map((slotId) => ({ slotId, pick: lineup[slotId], chosen: on.has(slotId), off: !!isOff(slotId, lineup[slotId]) }));
+    return { tier, limit: Number(per[tier]), count: slots.filter((s) => s.chosen).length, slots };
+  });
+}
+
+/**
+ * A tap on a 确定自选编队 card: the chosen slots after it, in the order they were chosen. A chosen card leaves the choice;
+ * another joins it, and when its tier is already at the limit the tier's earliest choice makes room (maintainer
+ * decision 2026-11-11 [ASSUMED·화면: the official screens show no tap on a full tier]).
+ * @param {string[]} order the chosen slots, earliest first
+ * @param {string} slotId
+ * @param {Record<number, number>} perTier
+ * @returns {string[]}
+ */
+export function toggleDiyChoice(order, slotId, perTier) {
+  const cur = (Array.isArray(order) ? order : []).filter((id) => typeof id === 'string');
+  if (cur.includes(slotId)) return cur.filter((id) => id !== slotId);
+  const tier = diySlotTier(slotId);
+  const limit = Number(isObj(perTier) ? perTier[tier] : 0) || 0;
+  if (limit <= 0) return cur;
+  const same = cur.filter((id) => diySlotTier(id) === tier);
+  const drop = new Set(same.slice(0, Math.max(0, same.length - limit + 1)));
+  return [...cur.filter((id) => !drop.has(id)), slotId];
 }

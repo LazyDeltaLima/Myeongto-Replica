@@ -57,7 +57,7 @@
 | 리소스 미리 받기 (음성 언어 선택 포함) | `public/js/resources.js`, `public/resource-worker.js`, `tools/build-browser-resources.mjs`, `public/css/resources.css` | `render.md` 「제보 #10 조사 중 찾은 이펙트 계층·리소스 캐시 버그」·「배포 직후 리소스 캐시 정리·다시 받기와 판 진입」 |
 | 오퍼레이터 음성 언어 선택(한국어/일본어/끄기)과 정비 단계 대사(선택·배치) — 원본 #73 「干员战斗语音」 위에 | `tools/assets/voice.mjs`, `public/js/voice.js`, `public/js/voicePolicy.js` | `audio.md` 「음성」 |
 | 선발 오퍼레이터 (0.2.0부터 upstream 自选 틀, 후보 = 望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶) | `shared/local-diy.js`, `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln}.js`, `tools/build-data.mjs DIY_LOCAL_INCLUDED` | `diy.md` |
-| 규정 선발 편성 12칸·「선발 편성 확정」 단계(3/3, 등급마다 2명, 규정만) | `server/match/match/diyChoose.js`, `server/match/gamedata.js diyChoose`, `shared/protocol.js DIY_LIMITS`·`g.diyChoose`·`g.diyReady`, `public/js/ui/gameLogic/draft.js autoDiyChoice` | `diy.md` 「규정 선발 편성 12칸과 선발 편성 확정 단계」 |
+| 규정 선발 편성 12칸·「선발 편성 확정」 단계(3/3, 등급마다 2명, 규정만) | `server/match/match/diyChoose.js`, `server/match/gamedata.js diyChoose`, `shared/protocol.js DIY_LIMITS`·`g.diyChoose`·`g.diyReady`, `public/js/screens/diyChoose.js`, `public/js/ui/gameLogic/draft.js toggleDiyChoice`·`diyChooseRows` | `diy.md` 「규정 선발 편성 12칸과 선발 편성 확정 단계」, `ui.md` 「규정 선발 편성 확정 화면」 |
 | 선발 소환물 모델 (望 바둑돌·维什戴尔 혼령의 그림자: 웹 미러에 모델이 없어 클라이언트에서 추출) | `tools/local-extract/extract.py TOKEN_SPINES` → `public/assets/local/spine/token/<id>/`, `node tools/fetch-assets.mjs --local-spines` → `tools/assets/local-token-spines.json` | `diy.md` 「소환물 모델」 |
 | 함정형 소환물 표시 (望 바둑돌은 HP 바 없음, 望 바둑돌·사일런스 의료 드론은 방향 선택 없이 바로 배치) | `shared/trap-tokens.js` | — |
 | 정비 화면 HUD 공식 모양 (라운드 띠·맹약 원·준비 완료 버튼·카운트다운·플레이어 목록·맹약 팝업·기물 정보 창) | `public/js/ui/hudArt.js`, `public/js/ui/detailArt.js`, `public/css/hud-art.css` | `ui.md` 「정비 화면 HUD」 |
