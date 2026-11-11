@@ -530,6 +530,9 @@ const STATUE = Object.freeze({
   fly: Object.freeze({ change: null, roles: clipSet('Idle_2', 'Move_2', 'Die_2', 'Attack_2') }),
 });
 const JAKILL2 = clipSet('C2_Idle', 'C2_Move', 'C2_Die', 'C2_Attack');
+const HEADSHOT_B = Object.freeze({
+  HeadShot: Object.freeze({ change: null, roles: Object.freeze({ attack: loop('Attack_B', 'attackAny'), skill: Object.freeze({ begin: null, loop: 'Attack_B', end: null, via: 'attack', index: 0, idle: null }) }) }),
+});
 /** A prisoner's 'warning' (mode R) and 'liberty' (mode L) clip sets: the clip-name suffix of each (see the list above). */
 const prisoner = (warn, free) => Object.freeze({
   warning: Object.freeze({ change: null, roles: clipSet(`Idle${warn}`, `Move${warn}`, `Die${warn}`, `Attack${warn}`) }),
@@ -655,6 +658,17 @@ export const FORMS = Object.freeze({
   }),
   enemy_9008_acbunn: Object.freeze({
     revealed: Object.freeze({ change: null, roles: clipSet('Idle_B', 'Move_B', 'Die_B', 'Attack_B') }),
+  }),
+  // 2026-11-11: 规程's 寻路者 trio in their ammo mode (server content/enemies/critic.js pathfinder → form 'HeadShot', null back):
+  // the prefab mode HeadShot, whose attack ability plays Attack_B (破阵者 / 传令兵 — the sim times it from the same clip,
+  // enemies.json attackAnim.modes.HeadShot); 狙击手's HeadShot attacks on its plain Attack, so only its effects change
+  // (fxgame.js FORM_MODES)
+  enemy_1216_cansld: HEADSHOT_B,
+  enemy_1219_mtrbty: HEADSHOT_B,
+  enemy_1213_mtrsnp: Object.freeze({ HeadShot: Object.freeze({ change: null, roles: Object.freeze({}) }) }),
+  // 2026-11-11: 无畏掷弹兵 after its 4 bombs (critic.js kitGrenadier → form 'Light'): the prefab mode Light's clip set
+  enemy_1405_boomer_2: Object.freeze({
+    Light: Object.freeze({ change: null, roles: clipSet('Idle_2', 'Move_2', 'Die_2', 'Attack_2') }),
   }),
   enemy_10081_mpplai: Object.freeze({
     translator_fuchou: Object.freeze({ change: 'A_Die_B', roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }),

@@ -231,6 +231,11 @@ const loadEnemyModes = () => (enemyModesPromise ||= getJson(ENEMY_MODES_URL));
 const PRISONER_MODES = Object.freeze({ warning: 'R', liberty: 'L' });
 const EMBER_MODES = Object.freeze({ husk: 'Prop' });
 const STATUE_MODES = Object.freeze({ stone: 'Stone', fly: 'Fly' });
+const HEADSHOT_MODES = Object.freeze({ HeadShot: 'HeadShot' });
+/** 2026-11-11: the sim's 'explode' kinds that are an enemy's official shot bursting where it touched (fxgame eshotBlast). */
+const SHOT_BLASTS = new Set(['bomb', 'cansld']);
+/** 2026-11-11: 'explode' kinds whose official blast has no effect of its own — the ability's cast effects draw it. */
+const CAST_BLASTS = new Set(['ltndruAoe']);
 const FORM_MODES = Object.freeze({
   enemy_1116_liprr: PRISONER_MODES, enemy_1116_liprr_2: PRISONER_MODES, enemy_1118_lidbox_2: PRISONER_MODES,
   enemy_1119_vofsd: PRISONER_MODES, enemy_1121_lifbos: PRISONER_MODES, enemy_1121_lifbos_2: PRISONER_MODES,
@@ -249,6 +254,9 @@ const FORM_MODES = Object.freeze({
   enemy_9017_achunt: Object.freeze({ charge: 'S1' }),
   enemy_1040_bombd: Object.freeze({ bombed: 'S1' }),
   enemy_9024_acsgnt: Object.freeze({ Giant: 'Giant', SnowyMountain: 'SnowyMountain' }),   // 谢拉格's giant (a walking ally)
+  // 2026-11-11: 规程's 寻路者 trio (ammo mode) and 无畏掷弹兵 after its bombs (render/units.js FORMS)
+  enemy_1213_mtrsnp: HEADSHOT_MODES, enemy_1216_cansld: HEADSHOT_MODES, enemy_1219_mtrbty: HEADSHOT_MODES,
+  enemy_1405_boomer_2: Object.freeze({ Light: 'Light' }),
   enemy_10081_mpplai: Object.freeze({ translator_fuchou: 'ModeB', translator_youling: 'MoveC', translator_shushi: 'ModeD' }),
 });
 
@@ -5036,7 +5044,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /** fx 'explode' of a shell dshellFx drew (by its spot): its ground effect goes, its stop effect plays, its hits follow. */
   function dshellBlast(e) {
     const x = Number(e[2]), y = Number(e[3]);
-    const i = dshells.findIndex((r) => !r.done && Math.hypot(r.x - x, r.y - y) < 0.05);
+    const id = e[4]?.id;
+    const i = dshells.findIndex((r) => !r.done && (id == null || r.id === id) && Math.hypot(r.x - x, r.y - y) < 0.05);
     if (i < 0) return false;
     const rec = dshells.splice(i, 1)[0];
     rec.done = true;
@@ -5058,6 +5067,57 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (b.t !== clockS) { dblasts.delete(by); return false; }
     const tgt = views.get(tid);
     if (tgt && level() < 3) eplay(b.rec.src, (b.rec.pr.hit || []).slice(0, MAX_HIT_FX), { at: tgt });
+    return true;
+  }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 정예 무리」): an official projectile of an enemy's ability that appears on a spot and
+   * strikes there as its life ends — sim fx 'telegraph' { x, y, r, dur, id, ability } as it appears, 'explode' { …, id, ability }
+   * `dur` s later, the strike's damage right after it in that tick (冰原卫法者 / 御法者's Boom, critic.js kitIceGuard:
+   * projectile_enemy_krgrg where it fell). Its `_effectsToTargetWhenStart` (enemy-modes.json skills[ability].proj
+   * `targetStart`: enemy_krgrg_die_start / _02, one-shot 2.5 s) play on the spot as it appears, its `_effectsWhenHit`
+   * (`hit`: enemy_krgrg_die_hit) on each unit the strike hits (dblastHit), its reach effects at the strike (none so far).
+   * The enemy's view is gone by the strike: the record keeps what it needs. true = drawn (no stand-in ring or blast).
+   */
+  function eprojTelegraph(e, views) {
+    const o = e[4], src = views.get(o.id);
+    if (!src || !eOn(src) || level() >= 3) return false;
+    const pr = eskillPart(src, o.ability)?.proj;
+    if (!pr || Array.isArray(pr.trail) && pr.trail.length) return false;   // one that flies there: its shot draws it
+    const start = [...(pr.start || []), ...(pr.targetStart || []), ...(pr.tileStart || [])];
+    if (![...start, ...(pr.hit || []), ...(pr.reached || [])].some(efx)) return false;
+    const x = Number(e[2]), y = Number(e[3]);
+    for (const n of start.slice(0, MAX_HIT_FX)) { const r = efx(n); if (r) spawn(r[0], r[1], { x, y, z: 0 }, { owner: null, buff: false }, { over: false }); }
+    dshells.push({ x, y, id: o.id, pr: { stop: pr.reached || [], hit: pr.hit || [] }, src, marks: [], done: false });
+    if (dshells.length > 64) dshells.shift().done = true;
+    return true;
+  }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 정예 무리」): the burst of an enemy's official shot where it touched — sim fx 'explode'
+   * { x, y, r, kind: 'bomb' | 'cansld', id } (critic.js bombBlast: 马特奥的近卫's projectile_enemy_bdguad, 无畏掷弹兵's
+   * projectile_enemy_boomer, both BoomerHitBehaviour; kitPfBreaker: 寻路者破阵者's projectile_enemy_cansld), its damage right
+   * after it in that tick. A straight shot (FIXED_DIRECTION: the bombs) has no landing of its own in eshotFx — its reach
+   * effects (`_effectsWhenReached`: enemy_bdguad_skill_01_hit, enemy_boomer_skill_hit) play here once, on the spot; a lobbed
+   * one's (the 破阵者's enemy_cansld_skill_01_hit) already played as it landed (eshotFx). The units the burst damages get the
+   * projectile's `_effectsWhenHit` only (none of these has one) — not its reach effects again on each. The projectile is the
+   * running ability's (the bombs: 'enemySkill' CrossBomb / Bomb), else the shot of the enemy's mode now (the 破阵者's HeadShot).
+   * true = drawn (no stand-in blast or box).
+   */
+  function eshotBlast(e, views) {
+    const o = e[4], src = views.get(o.id);
+    if (!src || !eOn(src) || level() >= 3) return false;
+    let pr = src._fxESkill?.part?.proj;
+    if (!pr?.key) {
+      let shot;
+      try { shot = enemyShot(enemyDef(src.info?.defId), src.info?.form); } catch { shot = undefined; }
+      pr = shot?.key ? eprojByKey(src, shot.key) : null;
+    }
+    if (!pr || ![...(pr.reached || []), ...(pr.hit || []), ...(pr.trail || [])].some(efx)) return false;
+    if (pr.move === 'FIXED_DIRECTION') {
+      const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
+      for (const n of (pr.reached || []).slice(0, MAX_HIT_FX)) { const r = efx(n); if (r) spawn(r[0], r[1], at, { owner: null, buff: false }, { over: false }); }
+    }
+    dblasts.set(o.id, { t: clockS, rec: { src, pr: { hit: pr.hit || [] } } });
+    if (dblasts.size > 64) dblasts.delete(dblasts.keys().next().value);
     return true;
   }
   /** The projectile record of shot `key` when it can be drawn officially (the layer on, its trail or hit extracted), else null. */
@@ -6378,6 +6438,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-11-11: 萨卡兹子裔轰击者's shell lying where it landed, then its blast (规程)
           if ((e[1] === 'telegraph' || e[1] === 'explode') && e[4]?.kind === 'dthrowShell') {
             if (e[1] === 'telegraph' ? dshellFx(e, views) : dshellBlast(e)) ownFx.add(e);
+            return;
+          }
+          // 2026-11-11: 冰原卫法者's projectile appearing where it fell, then its strike; the bombs and shells of 规程's CRITIC
+          // enemies bursting where they touched (eprojTelegraph, eshotBlast)
+          if (e[4]?.id != null && typeof e[4].ability === 'string' && e[4].caster == null
+            && (e[1] === 'telegraph' ? eprojTelegraph(e, views) : e[1] === 'explode' && dshellBlast(e))) { ownFx.add(e); return; }
+          if (e[1] === 'explode' && e[4]?.id != null && SHOT_BLASTS.has(e[4].kind)) { if (eshotBlast(e, views)) ownFx.add(e); return; }
+          // 2026-11-11: 残党乐团鼓手's aoeAttack — its buff enemy_ltndru[AOE]'s AOEDamage creates no effect (`_createEffect`
+          // false, no `_hitEffectKey`): the ability's cast effects (its wave, enemy_ltndru_attack_ap_start_02) are the blast
+          if (e[1] === 'explode' && e[4]?.id != null && CAST_BLASTS.has(e[4].kind) && typeof e[4].ability === 'string') {
+            const v = views.get(e[4].id), part = eOn(v) ? eskillPart(v, e[4].ability) : null;
+            if (part && (part.cast || []).some(efx)) ownFx.add(e);
             return;
           }
           // 2026-10-31: an enemy ability's area (【污染秽蚀】, 毒雾, 刺胄之弹's landing) or death burst — its projectile's
