@@ -19,7 +19,7 @@ const MODES = new URL('../../public/assets/local/fx/enemy-modes.json', import.me
 const quiet = { warn() {}, error() {}, info() {} };
 const ACT3 = getData({ log: quiet, season: 'act3autochess' });
 const KRGRG = 'enemy_1191_krgrg', BDGUAD = 'enemy_1409_bdguad_2', BOOMER = 'enemy_1405_boomer_2', CANSLD = 'enemy_1216_cansld';
-const MTRBTY = 'enemy_1219_mtrbty', MTRSNP = 'enemy_1213_mtrsnp', LTNDRU = 'enemy_1376_ltndru';
+const MTRBTY = 'enemy_1219_mtrbty', MTRSNP = 'enemy_1213_mtrsnp', LTNDRU = 'enemy_1376_ltndru', WINGNT = 'enemy_1388_wingnt', WINBOM = 'enemy_1385_winbom';
 const WALL = chessRec({ id: 't_wall', profession: 'TANK', stats: { atk: 0, maxHp: 1e7, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
 const walls = (cells) => cells.map(([row, col], i) => ({ chessId: 't_wall', row, col, uid: i + 1 }));
 
@@ -53,8 +53,13 @@ const emodes = () => ({
     skills: { aoeattack: { cast: ['enemy_ltndru_attack_ap_start_01', 'enemy_ltndru_attack_ap_start_02'],
       opt: { enemy_ltndru_attack_ap_start_01: { s: 2, e: 3, o: 1 }, enemy_ltndru_attack_ap_start_02: { s: 2, e: 3, o: 0 } }, hit: [], anim: 'Attack' } },
     buffFx: { 'enemy_act29side[enthu_fx_deco_only]': ['common_radical_01'] } },
+  [WINGNT]: { modes: [{ name: 'Default', anim: ['A_Attack'], ranged: { cast: ['enemy_wingnt_attack_01_start'], opt: { enemy_wingnt_attack_01_start: { s: 4, e: 3, o: 0 } }, hit: [],
+    proj: { key: 'projectile_enemy_wingnt', mount: 2, trail: ['enemy_wingnt_attack_01_trail'], reached: ['enemy_wingnt_attack_01_hit'], move: 'OTHER', speed: 4.0, raise: 1.5 } } },
+  { name: 'Normal', anim: ['B_Attack'], melee: { cast: ['enemy_wingnt_attack_02_start'], opt: { enemy_wingnt_attack_02_start: { s: 4, e: 3, o: 0 } }, hit: ['enemy_wingnt_attack_02_hit'] } }] },
+  [WINBOM]: { modes: [{ name: 'Default', anim: [] }],
+    skills: { boom: { cast: [], opt: {}, hit: [], proj: { key: 'projectile_enemy_winbom', mount: null, targetStart: ['enemy_winbom_die_01'] } } } },
 });
-const NAMES = [...new Set(JSON.stringify(emodes()).match(/"enemy_[a-z0-9_]+(?:_hit|_start|_start_0\d|_trail|_buff_01)"/g).map((s) => JSON.parse(s)))];
+const NAMES = [...new Set(JSON.stringify(emodes()).match(/"enemy_[a-z0-9_]+(?:_hit|_start|_start_0\d|_trail|_buff_01|_die_01)"/g).map((s) => JSON.parse(s)))];
 
 async function layer() {
   const m = emodes();
@@ -71,6 +76,32 @@ const fxOf = (evs, kind, k) => evs.filter((e) => e[0] === 'fx' && e[1] === kind 
 /** The events of the sim tick the event `e` is in (the layer's clock is one per tick): from `e` to the next 'tick'. */
 const tickOf = (evs, e) => { const i = evs.indexOf(e); const j = evs.findIndex((x, n) => n > i && x[0] === 'tick'); return evs.slice(i, j < 0 ? undefined : j); };
 const spawned = (seen) => seen.splice(0).filter((p) => p.kind === 'spawn').map((p) => `${p.names[0]}${p.on != null ? '>' + p.on : ''}`);
+
+for (const [key, name, start] of [[KRGRG, '冰原卫法者', ['enemy_krgrg_die_start', 'enemy_krgrg_die_start_02']], [WINBOM, '“喷射罐”', ['enemy_winbom_die_01']]]) test(`${name} knocked out: its projectile's target-start effects where it fell (the procedural ring off), its strike draws no stand-in`, async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    const h = field([key], walls([[10, 5], [10, 6]]));
+    const e = put(h, key, [10, 6.4]);
+    h.step();
+    const views = new Map([[e.id, viewOf(e)], ...h.allies().map((u) => [u.id, viewOf(u)])]);
+    h.events.length = 0;
+    h.b.kill(e, h.allies()[0]);
+    h.run(1.5);
+    const [tel] = fxOf(h.events, 'telegraph', 'deathBoom'), [boom] = fxOf(h.events, 'explode', 'deathBoom');
+    assert.ok(tel && boom && tel[4].ability === 'Boom', 'the sim shows where it fell and strikes there');
+    const { L, seen } = await layer();
+    views.get(e.id).alive = false;
+    L.onEvent(['tick'], views);
+    seen.length = 0;
+    L.onEvent(tel, views);
+    assert.equal(L.ownsFx(tel), true, 'no stand-in ring');
+    assert.deepEqual(spawned(seen), start);
+    L.update(Number(tel[4].dur) || 1, { dist: 20 }, { width: 100, height: 100 });
+    views.delete(e.id);
+    L.onEvent(boom, views);
+    assert.equal(L.ownsFx(boom), true, 'no stand-in blast');
+  } finally { globalThis.fetch = fetch0; }
+});
 
 test('冰原卫法者 knocked out: its projectile\'s target-start effects where it fell, its hit on each unit the strike hits 1.2 s later — no stand-in', async () => {
   const fetch0 = globalThis.fetch;
@@ -171,7 +202,7 @@ test('the forms the 规程 CRITIC kits turn on: a clip set the model has, attack
   try {
     const { FORMS } = await import('../../public/js/render/units.js');
     const models = JSON.parse(readFileSync(new URL('../../data/assets.json', import.meta.url), 'utf8')).enemies;
-    for (const [key, form] of [[CANSLD, 'HeadShot'], [MTRBTY, 'HeadShot'], [MTRSNP, 'HeadShot'], [BOOMER, 'Light']]) {
+    for (const [key, form] of [[CANSLD, 'HeadShot'], [MTRBTY, 'HeadShot'], [MTRSNP, 'HeadShot'], [BOOMER, 'Light'], [WINGNT, 'Normal'], [`${WINGNT}_2`, 'Normal']]) {
       const f = FORMS[key]?.[form];
       assert.ok(f, `${key} ${form}`);
       const clips = models[key].spine.animations;
@@ -197,6 +228,8 @@ test('the extracted binding: the CRITIC projectiles\' effects these cases read',
   assert.ok(m.$fx.enemy_chghmr_buff);
   assert.deepEqual(m[LTNDRU].skills.aoeattack.cast, want[LTNDRU].skills.aoeattack.cast, '鼓手\'s aoeAttack');
   assert.deepEqual(m[LTNDRU].buffFx['enemy_act29side[enthu_fx_deco_only]'], ['common_radical_01']);
+  for (const k of [WINGNT, `${WINGNT}_2`]) assert.deepEqual(m[k].modes.map(({ name, anim, ranged, melee }) => ({ name, anim, ranged, melee })), want[WINGNT].modes.map(({ name, anim, ranged, melee }) => ({ name, anim, ranged, melee })), k);
+  for (const k of [WINBOM, `${WINBOM}_2`]) assert.deepEqual(m[k].skills.boom.proj, want[WINBOM].skills.boom.proj, k);
 });
 
 test('战线推进者\'s mark enemy_chghmr_damage_up[mark]: its enemy_chghmr_buff while it has the mark — from its spawn to PowerHit\'s strike', async () => {
@@ -251,5 +284,44 @@ test('残党乐团鼓手\'s aoeAttack: its cast effects are the blast (enemy_ltn
     for (const x of evs) if (x[0] === 'status' && x[1] === e.id && x[3]) { v.statuses.add(x[2]); const f = F.statusSource(views, x); if (f) v.statusFrom.set(x[2], f); }
     const own = (_v, kind, tag) => (kind === 'key' && m[LTNDRU].buffFx[tag] ? { on: m[LTNDRU].buffFx[tag].map((n) => ['b', n, 0.5]), ends: new Map(), once: new Set() } : null);
     assert.deepEqual([...F.wantedStatusFx(v, new Map(), own).keys()], ['b/common_radical_01']);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('“投石机”\'s first throw: its snowball\'s trail, its reach effect as it lands (on the spot when its target fell meanwhile), its cross draws no stand-in; then the Normal mode\'s melee effects, no puff for the switch', async () => {
+  const fetch0 = globalThis.fetch;
+  const { fxSpec } = await import('../../public/js/render/fx/kinds.js');
+  try {
+    for (const fell of [false, true]) {
+      const h = field([WINGNT], walls([[10, 6], [10, 5]]));   // the one at 6 blocks it: its Normal melee strikes it
+      const e = put(h, WINGNT, [10, 6.4]);
+      h.run(4);
+      const evs = h.events;
+      const shot = fxOf(evs, 'enemyShot')[0], [blast] = fxOf(evs, 'explode', 'wingnt'), [phase] = fxOf(evs, 'phase', 'Normal');
+      const atk = evs.find((x) => x[0] === 'atk' && x[1] === e.id);
+      assert.ok(shot && blast && phase && atk && blast[4].tiles === 'plus', 'the sim lobs a snowball, bursts it in a cross and turns Normal');
+      assert.equal(fxSpec('phase', phase[4]).a, 'none', 'SwitchMode: no effect of its own');
+      const { L, seen } = await layer();
+      const v = viewOf(e);
+      const views = new Map([[e.id, v], ...h.allies().map((u) => [u.id, viewOf(u)])]);
+      L.onEvent(['tick'], views);
+      seen.length = 0;
+      L.onEvent(atk, views);
+      L.onEvent(shot, views);
+      assert.deepEqual(spawned(seen), [`enemy_wingnt_attack_01_start>${e.id}`], 'the throw\'s cast effect');
+      if (fell) views.get(shot[4].tgt).alive = false;
+      L.update(Number(shot[4].t) + 0.01, { dist: 20 }, { width: 100, height: 100 });
+      assert.deepEqual(spawned(seen), fell ? [] : [`enemy_wingnt_attack_01_hit>${shot[4].tgt}`], 'its reach effect as it lands on its target');
+      for (const x of tickOf(evs, blast).filter((x) => x === blast || x[0] === 'dmg' && x[5] === e.id)) L.onEvent(x, views);
+      assert.equal(L.ownsFx(blast), true, 'no stand-in cross');
+      assert.deepEqual(spawned(seen), fell ? ['enemy_wingnt_attack_01_hit'] : [], fell ? 'its target fell: the reach effect on the spot' : 'nothing more on what the cross strikes');
+      // Normal: its melee (B_Attack) — the Normal mode's cast effect, not the throw's
+      v.form = v.info.form = 'Normal';
+      const melee = evs.slice(evs.indexOf(phase)).find((x) => x[0] === 'atk' && x[1] === e.id);
+      assert.ok(melee, 'a melee strike after the switch');
+      L.update(1, { dist: 20 }, { width: 100, height: 100 });
+      seen.length = 0;
+      L.onEvent(melee, views);
+      assert.ok(spawned(seen).includes(`enemy_wingnt_attack_02_start>${e.id}`), 'the Normal mode\'s cast effect');
+    }
   } finally { globalThis.fetch = fetch0; }
 });

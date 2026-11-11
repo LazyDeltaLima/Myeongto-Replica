@@ -233,7 +233,7 @@ const EMBER_MODES = Object.freeze({ husk: 'Prop' });
 const STATUE_MODES = Object.freeze({ stone: 'Stone', fly: 'Fly' });
 const HEADSHOT_MODES = Object.freeze({ HeadShot: 'HeadShot' });
 /** 2026-11-11: the sim's 'explode' kinds that are an enemy's official shot bursting where it touched (fxgame eshotBlast). */
-const SHOT_BLASTS = new Set(['bomb', 'cansld']);
+const SHOT_BLASTS = new Set(['bomb', 'cansld', 'wingnt']);
 /** 2026-11-11: 'explode' kinds whose official blast has no effect of its own — the ability's cast effects draw it. */
 const CAST_BLASTS = new Set(['ltndruAoe']);
 const FORM_MODES = Object.freeze({
@@ -257,6 +257,8 @@ const FORM_MODES = Object.freeze({
   // 2026-11-11: 规程's 寻路者 trio (ammo mode) and 无畏掷弹兵 after its bombs (render/units.js FORMS)
   enemy_1213_mtrsnp: HEADSHOT_MODES, enemy_1216_cansld: HEADSHOT_MODES, enemy_1219_mtrbty: HEADSHOT_MODES,
   enemy_1405_boomer_2: Object.freeze({ Light: 'Light' }),
+  // 2026-11-12: “投石机” / “榴弹炮” after the first throw (critic.js kitSnowballer → form 'Normal'): the prefab mode Normal
+  enemy_1388_wingnt: Object.freeze({ Normal: 'Normal' }), enemy_1388_wingnt_2: Object.freeze({ Normal: 'Normal' }),
   enemy_10081_mpplai: Object.freeze({ translator_fuchou: 'ModeB', translator_youling: 'MoveC', translator_shushi: 'ModeD' }),
 });
 
@@ -4915,6 +4917,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return eprojAll.get(key) || null;
   }
   const eshotLand = new Map();   // `${shooter id}:${target id}` → battle clock its official shot lands (eskillHit)
+  const eshotLast = new Map();   // shooter id → { tgt, t } of its latest official shot at a unit (eshotBlast: a dead target)
   const ezoneShots = new Map();  // enemy id → the projectile record of its shot that lands as an area (eshotFx `zone`, eprojAreaFx)
   /**
    * 2026-10-22 (maintainer request): an enemy's shell fired at a spot (content/enemies/fly.js kitShell — 帝国炮火先兆者 /
@@ -5095,8 +5098,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * 2026-11-11 (docs/rules/fx.md 「규정 정예 무리」): the burst of an enemy's official shot where it touched — sim fx 'explode'
-   * { x, y, r, kind: 'bomb' | 'cansld', id } (critic.js bombBlast: 马特奥的近卫's projectile_enemy_bdguad, 无畏掷弹兵's
-   * projectile_enemy_boomer, both BoomerHitBehaviour; kitPfBreaker: 寻路者破阵者's projectile_enemy_cansld), its damage right
+   * { x, y, r, kind: 'bomb' | 'cansld' | 'wingnt', id } (critic.js bombBlast: 马特奥的近卫's projectile_enemy_bdguad, 无畏掷弹兵's
+   * projectile_enemy_boomer, both BoomerHitBehaviour; kitPfBreaker: 寻路者破阵者's projectile_enemy_cansld; kitSnowballer:
+   * “投石机”'s projectile_enemy_wingnt, its cross of two boxes), its damage right
    * after it in that tick. A straight shot (FIXED_DIRECTION: the bombs) has no landing of its own in eshotFx — its reach
    * effects (`_effectsWhenReached`: enemy_bdguad_skill_01_hit, enemy_boomer_skill_hit) play here once, on the spot; a lobbed
    * one's (the 破阵者's enemy_cansld_skill_01_hit) already played as it landed (eshotFx). The units the burst damages get the
@@ -5114,7 +5118,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       pr = shot?.key ? eprojByKey(src, shot.key) : null;
     }
     if (!pr || ![...(pr.reached || []), ...(pr.hit || []), ...(pr.trail || [])].some(efx)) return false;
-    if (pr.move === 'FIXED_DIRECTION') {
+    // a straight shot's reach effects here; a lobbed one's played as it landed on its target (eshotFx) — unless that target
+    // fell meanwhile and the shell still came down (“投石机”'s `_alwaysHitTraceTargetInTheEnd`): then here, on the spot
+    const last = pr.move === 'FIXED_DIRECTION' ? null : eshotLast.get(o.id);
+    const tv = last && Math.abs(clockS - last.t) < 0.6 ? views.get(last.tgt) : null;
+    if (pr.move === 'FIXED_DIRECTION' || (last && Math.abs(clockS - last.t) < 0.6 && (!tv || tv.alive === false || tv.remove))) {
       const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
       for (const n of (pr.reached || []).slice(0, MAX_HIT_FX)) { const r = efx(n); if (r) spawn(r[0], r[1], at, { owner: null, buff: false }, { over: false }); }
     }
@@ -5163,6 +5171,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (o.zone && o.id != null) { ezoneShots.set(o.id, pr); if (ezoneShots.size > 64) ezoneShots.delete(ezoneShots.keys().next().value); }
     const land = [...new Set([...(pr.hit || []), ...(o.zone ? [] : pr.reached || [])])].filter((n) => efx(n)).slice(0, MAX_HIT_FX);
     eshotLand.set(`${o.id ?? o.from}:${o.tgt}`, clockS + t);
+    eshotLast.set(o.id ?? o.from, { tgt: o.tgt, t: clockS + t });
+    if (eshotLast.size > 64) eshotLast.delete(eshotLast.keys().next().value);
     const go = () => { if (land.length && tgt.alive !== false && !tgt.remove && level() < 3) eplay(owner, land, { at: tgt }); };
     if (t > 0) castsDelayed.push({ t: clockS + t, run: go, esrc: o.id ?? o.from, etgt: o.tgt }); else go();   // esrc, etgt: shotSlowFx
     return true;
@@ -5337,6 +5347,106 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!v || v.alive === false || v.remove) acRainOff(key);
       else if (rec.live.length && rec.live.every((l) => l.stopped)) acRains.delete(key);
     }
+  }
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 영혼의 유해 무리」): 规程's 注能 / 粹影魂灵法骸 and 聚焦 / 棱镜魂灵残迹 (content/enemies/critic.js
+   * kitSoulMage / kitSoulWizard). true = drawn here, no stand-in:
+   * - the souls it holds: its soulBuff count changes only at the sim's fx 'capture' { id, n } (n held after), 'orbit' (one
+   *   spent) and 'laser' (all spent) — counted here per view (`_fxSouls`), and its Common/Effect buff [fx_ctrl] (every
+   *   0.3 s) keeps enemy_v050[fx][stack_1 … n] on it (FilterByBuffStackCount GE 1 / 2 / 3, each derived buff created once
+   *   and finished as the count drops below: soul_01 … soul_0n together) — fxstatus.js wantedStatusFx (SOUL_TAGS);
+   * - 'orbit' { id, n, key, r, ang, speed }: one fireball, projectile `key`'s `_mainEffect` (enemy-modes.json
+   *   skills.summonfireball.proj.trail: enemy_Irmzrd_buff_01) circling its caster — RotateAroundMovement: the caster's
+   *   world position + `r` along its direction, turned `speed` degrees a second about the map's forward axis (counter-
+   *   clockwise, the sim's `ang` in the map frame); 'orbitEnd' { id, n, tgt } ends it (finished as a stopped projectile's
+   *   main effect) and its `_effectsWhenHit` (proj.hit: enemy_Irmzrd_skill_hit_01) play on `tgt` when it struck one;
+   * - 'laser' { id, x, y, to, key }: projectile `key`'s PositionBasedLineRenderer `_mainEffect` (enemy_lrwzrd_skill_line_01,
+   *   world LineRenderers): its first point the caster's muzzle point (`_useMuzzlePointOffset`; `_startWorldOffset` and the
+   *   facing's `_extraOffsetLeft` / `_Right` are a few hundredths of a tile — left out), its last the projectile's body —
+   *   the HARPOON flies 1000 tiles / s, so at once the map's edge `to`, at the muzzle point's height (the same offset
+   *   carried to the end) [추정·미조사: after the projectile reached its end the client adds `_endWorldOffsetWhenNotHit`
+   *   (y 100) to the last point — not drawn]; 'laserEnd' { id } finishes it. Its hits on the units it strikes are the
+   *   running Laser skill's (eskillHit: proj.hit enemy_lrwzrd_skill_hit_02 per 'dmg').
+   */
+  const SOUL_KINDS = new Set(['capture', 'orbit', 'orbitEnd', 'laser', 'laserEnd']);
+  const soulBalls = new Map();   // caster id → Map(ball n → { at, ang, speed, r, l, done })
+  const soulLines = new Map();   // caster id → { l, from, to, done }
+  function soulFx(e, views) {
+    const o = e[4], kind = e[1];
+    const v = o?.id != null ? views.get(o.id) : null;
+    if (kind === 'capture') { if (v) v._fxSouls = Math.max(0, Number(o.n) || 0); return eOn(v); }
+    if (kind === 'orbit' || kind === 'laser') if (v) v._fxSouls = kind === 'laser' ? 0 : Math.max(0, (v._fxSouls || 0) - 1);
+    if (kind === 'orbitEnd') return soulBallEnd(o, views);
+    if (kind === 'laserEnd') { soulLineEnd(o.id); return true; }
+    if (!eOn(v) || level() >= 3) return false;
+    const pr = eprojOf(v, o.key) || eskillPart(v, kind === 'orbit' ? 'summonFireball' : 'Laser')?.proj;
+    const r = efx(Array.isArray(pr?.trail) ? pr.trail[0] : null);
+    if (!r) return false;
+    if (kind === 'orbit') {
+      const ball = { at: { x: v.x, y: v.y, z: (v.z || 0) + (v.hover || 0) }, ang: Number(o.ang) || 0, speed: Number(o.speed) || 0,
+        rad: Number(o.r) || 0, l: null, done: false, hit: pr.hit || [] };
+      soulBallPlace(ball, v);
+      let m = soulBalls.get(o.id);
+      if (!m) soulBalls.set(o.id, m = new Map());
+      m.set(o.n, ball);
+      spawn(r[0], r[1], ball.at, { owner: null, buff: false, until: clockS + 3600, tag: 'soulBall' }, { over: true }).then((l) => {
+        if (!l) return;
+        if (ball.done) { finishShot(l.inst, l); return; }
+        ball.l = l;
+      });
+      return true;
+    }
+    soulLineEnd(o.id);
+    const to = Array.isArray(o.to) ? o.to.map(Number) : null;
+    if (!to || !to.every(Number.isFinite)) return false;
+    let from;
+    try { from = eshotFrom(v, pr.mount); } catch { from = null; }   // (no camera yet: at its feet)
+    if (!from || ![from.x, from.y, from.z].every(Number.isFinite)) from = { x: v.x, y: v.y, z: (v.z || 0) + (v.hover || 0) };
+    const lift = from.z - ((v.z || 0) + (v.hover || 0));
+    const rec = { l: null, from, to: { x: to[0], y: to[1], z: lift }, done: false };
+    soulLines.set(o.id, rec);
+    spawn(r[0], r[1], { x: from.x, y: from.y, z: 0 }, { owner: null, buff: false, until: clockS + 3600, tag: 'soulLaser' }, { over: true }).then((l) => {
+      if (!l) return;
+      if (rec.done) { finishShot(l.inst, l); return; }
+      rec.l = l;
+      l.inst.setLine?.(rec.from, rec.to);
+    });
+    return true;
+  }
+  /** A fireball `ball` at its angle now, about caster `v`'s position. */
+  function soulBallPlace(ball, v) {
+    const a = (ball.ang * Math.PI) / 180;
+    ball.at.x = v.x + ball.rad * Math.cos(a);
+    ball.at.y = v.y + ball.rad * Math.sin(a);
+    ball.at.z = (v.z || 0) + (v.hover || 0);
+  }
+  function soulBallEnd(o, views) {
+    const m = soulBalls.get(o.id), ball = m?.get(o.n);
+    if (!ball) return true;
+    m.delete(o.n);
+    if (!m.size) soulBalls.delete(o.id);
+    ball.done = true;
+    if (ball.l) finishShot(ball.l.inst, ball.l);
+    const tgt = o.tgt != null ? views.get(o.tgt) : null;
+    const v = views.get(o.id);
+    if (tgt && level() < 3) eplay(v || tgt, ball.hit.slice(0, MAX_HIT_FX), { at: tgt });
+    return true;
+  }
+  function soulLineEnd(id) {
+    const rec = soulLines.get(id);
+    if (!rec) return;
+    soulLines.delete(id);
+    rec.done = true;
+    if (rec.l) finishShot(rec.l.inst, rec.l);
+  }
+  /** The fireballs turn about their casters (game time `g`); a caster gone takes its fireballs and laser with it. */
+  function stepSouls(views, g) {
+    for (const [id, m] of soulBalls) {
+      const v = views.get(id);
+      if (!v || v.alive === false || v.remove) { for (const n of [...m.keys()]) soulBallEnd({ id, n, tgt: null }, views); continue; }
+      for (const ball of m.values()) { ball.ang += ball.speed * g; soulBallPlace(ball, v); }
+    }
+    for (const id of [...soulLines.keys()]) { const v = views.get(id); if (!v || v.alive === false || v.remove) soulLineEnd(id); }
   }
   /**
    * 2026-10-10: “萨米的意志”'s 冰凌 — sim fx 'column' { x, y, c, id, key, sub, r0, dir, speed, dist, life } once at the strike
@@ -6448,6 +6558,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-10-31: 刺胄之弹's flight — its boss skill's projectile trail rides the shell (then the cast's effects below)
           if (e[1] === 'shell' && e[4]?.caster != null && e[4].id != null && typeof e[4].ability === 'string' && eshellRide(e, views)) ownFx.add(e);
           if (acBossFx(e, views)) { ownFx.add(e); return; }   // 2026-11-10: 假想敌：茧 / 鳍 (规程)
+          if (SOUL_KINDS.has(e[1]) && e[4]?.id != null) { if (soulFx(e, views)) ownFx.add(e); return; }   // 2026-11-12: 魂灵法骸 / 魂灵残迹
           // 2026-11-11: an enemy's summon (fx 'summon' { id: its parent, key }) whose summoned enemy has an extracted
           // `_startEffect` — that child's birth effect is the official one (flushEnemyBirths, on its 'spawn'): no stand-in
           // puff at the parent (萨卡兹子裔's 重生造物 enemy_dzoms_born_01 …)
@@ -6591,6 +6702,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       stepWolves(dt);
       flushStoneBirths(lastViews); // local patch
       flushEnemyBirths(lastViews); stepEnemies(lastViews); // 2026-10-10: the enemies' born effects, modes, skill clips
+      if (lastViews && (soulBalls.size || soulLines.size)) stepSouls(lastViews, dt * gameRate()); // 2026-11-12: 魂灵法骸's fireballs
       if (index) flushDeploys(lastViews); // 2026-10-11: the operators' / tokens' deploy effects
       if (index) stepTokenAuras(lastViews); // 2026-10-22: the summons' skill auras
       stepLines(); // 2026-10-10: buff line effects follow their units
@@ -6732,13 +6844,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); packs.clear(); lemMarks.clear(); lemMarkFx.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
-      castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); ebreath.clear(); eshotLand.clear(); emortars.length = 0; dshells.length = 0; dblasts.clear();
+      castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); ebreath.clear(); eshotLand.clear(); eshotLast.clear(); emortars.length = 0; dshells.length = 0; dblasts.clear();
       deployed.clear(); onField.clear(); moved.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
       linkAxes.clear(); linkRuns.clear(); // 2026-10-22
       brokeOwn.clear(); // 2026-10-23
       for (const c of camFx.values()) c.off = true;   // 2026-11-10: the enemies' camera effects (dropped with `live` above)
       camFx.clear(); camWant.clear();
       acRains.clear();   // 2026-11-11: 悲惨之雨's floors (dropped with `live` above)
+      soulBalls.clear(); soulLines.clear();   // 2026-11-12: 魂灵法骸's fireballs, 魂灵残迹's laser (dropped with `live`)
       if (mod) showLayers();
     },
 

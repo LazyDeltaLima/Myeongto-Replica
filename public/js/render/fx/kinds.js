@@ -157,10 +157,11 @@ const FX_GUESS = [
  * 'larva' / 'grown' / 'feed' / 'fed' — its own clips (Start_01, Start_02, Attack_Begin, Attack_End); 假想敌：镜膜's 'stopped' —
  * its B_* clip set (the fan stops at the first silence; no effect known for that moment); 假想敌：淤困's 'detached' — back to
  * its plain clips as the block ends; 伊利昂的木驮兽's 'passengers' — its riders are a Spine skin (render/units.js
- * SKIN_FORMS), the client has no boarding effect (`_effectWhenAddPassenger` empty). Its attachment blink ('teleport' kind 'parasite') draws nothing either: the client
+ * SKIN_FORMS), the client has no boarding effect (`_effectWhenAddPassenger` empty); “投石机”'s 'Normal' — its B_* clip set
+ * after the first throw (SwitchMode, no effect of its own). Its attachment blink ('teleport' kind 'parasite') draws nothing either: the client
  * prefab has no effect for it, only the Parasitic clip (render/units.js FORMS).
  */
-const SILENT_PHASES = new Set(['bombed', 'warning', 'larva', 'grown', 'feed', 'fed', 'stopped', 'detached', 'passengers']);
+const SILENT_PHASES = new Set(['bombed', 'warning', 'larva', 'grown', 'feed', 'fed', 'stopped', 'detached', 'passengers', 'Normal']);
 
 /** Visual spec of an fx kind (see FX_KINDS); `extra.kind` / `extra.element` may pick a better colour. */
 export function fxSpec(kind, extra = {}) {

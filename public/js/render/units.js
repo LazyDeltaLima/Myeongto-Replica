@@ -580,6 +580,7 @@ const MACH = Object.freeze({
   rest: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Default', die: 'End', ...OFF_ATTACK }) }),
   running: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Idle', die: 'End', ...OFF_ATTACK }) }),
 });
+const WINGNT_NORMAL = Object.freeze({ Normal: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }) });
 export const FORMS = Object.freeze({
   trap_039_dstnta: BROOD,
   // 2026-11-11: 规程's 谢拉格 6 giant 「不眠雪山」 (enemy_9024_acsgnt, a walking ally — server content/bonds/giant.js, forms
@@ -670,6 +671,10 @@ export const FORMS = Object.freeze({
   enemy_1405_boomer_2: Object.freeze({
     Light: Object.freeze({ change: null, roles: clipSet('Idle_2', 'Move_2', 'Die_2', 'Attack_2') }),
   }),
+  // 2026-11-12: “投石机” / “榴弹炮” after the first throw (critic.js kitSnowballer → form 'Normal'): the prefab mode Normal's
+  // B_* clip set (SwitchMode, no change clip; the sim times its melee from B_Attack, enemies.json attackAnim.modes.Normal)
+  enemy_1388_wingnt: WINGNT_NORMAL,
+  enemy_1388_wingnt_2: WINGNT_NORMAL,
   enemy_10081_mpplai: Object.freeze({
     translator_fuchou: Object.freeze({ change: 'A_Die_B', roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }),
     translator_youling: Object.freeze({ change: 'A_Die_C', roles: clipSet('C_Idle', 'C_Move', 'C_Die') }),

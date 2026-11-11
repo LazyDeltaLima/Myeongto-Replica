@@ -577,6 +577,11 @@ const COUNTED_TAGS = Object.freeze({
     tag: (n) => (n >= 5 ? 'ememy_dklord_atk[effect_1]|ememy_dklord_atk[effect_2]' : n > 2 ? 'ememy_dklord_atk[effect_1]' : null) }),
 });
 const COUNTED = Object.entries(COUNTED_TAGS);
+/**
+ * 2026-11-12 (docs/rules/fx.md 「규정 영혼의 유해 무리」): enemy_lrmzrd[fx_ctrl] / enemy_lrwzrd[fx_ctrl] by the souls held
+ * (soulBuff ≥ 1 / 2 / 3: enemy_v050[fx][stack_1] / _2 / _3, each kept once created, finished as the count drops below it).
+ */
+const SOUL_TAGS = Object.freeze([null, 1, 2, 3].map((n) => (n ? Array.from({ length: n }, (_, i) => `enemy_v050[fx][stack_${i + 1}]`).join('|') : null)));
 /** Live views on the field that each COUNTED_TAGS entry counts (syncStatusFx sets them once per frame). */
 const countedNow = new Map();
 /** Count the views COUNTED_TAGS counts (`views`: the field's views; alive, not leaving). */
@@ -636,6 +641,8 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
   // 2026-10-23: the passive buffs of the mode an enemy with several modes is in (prisoners' 【解放】, 守墓石像's statue, the
   // 逐火 ember …) — held while the mode is on; one a status names too is the same `bundle/prefab` key, drawn once
   if (own) { const r = own('mode'); if (r) byOwn(r); }
+  // 2026-11-12: the souls a 魂灵法骸 / 魂灵残迹 holds (fxgame.js soulFx counts them) — its [fx_ctrl]'s stack buffs, 1 … n together
+  if (own && v._fxSouls > 0) { const r = own('key', SOUL_TAGS[Math.min(SOUL_TAGS.length - 1, v._fxSouls)]); if (r) byOwn(r); }
   if (f & UF.STUNNED) put(out, 'stun', STATUS_FX.stun);
   if (f & UF.FROZEN) put(out, 'freeze', frozenFx(v));
   if (f & UF.COLD) put(out, 'cold', STATUS_FX.cold);
