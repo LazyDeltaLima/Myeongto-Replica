@@ -3139,3 +3139,37 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 - **특질 `garrison_23`**(탈룰라 `chess_char_6_16`, `act3autochess_gar_effect_ursusexbondcnt`): 플레이어의 AUTOCHESS 전역 `ursus_extra_bond_stack_cnt`(·`[power]`)를 `ex_bond_cnt` 2(정예 4)로 올린다(더 높을 때만) — 우르수스 맹약이 쓰러뜨림마다 주는 임시 층수에 더해져 2 → 4, 6명일 때 4 → 6(정예 6·8). `bonds/nation/ursus.js raiseUrsusExtra`.
 - [추정·CN: 장비의 동적 능력 프리팹(`act3autochess_equip_acarm134`·`136`·`143`·`145`·`151_ability`)은 CN에만 있다] 고르는 대상을 설명대로 운반자 공격 범위 안으로 읽음 — 작은 북은 적만, 급구상자는 아군만, 동능 스플래시의 기준 적은 범위 안 무작위. [추정·CN: 투사체 `projectile_ac_equip_acarm145_abbuff`의 비행 시간] 옮기는 상태는 바로 걸린다.
 - 확인: `test/content/items_act3_battle.test.js`(22 — 수정 전 코드에서 모두 실패 확인), `coverage.test.js`. 화면은 안 봄(숨김 시즌).
+
+## 규정 특질 — 전투 쪽 (2026-11-11)
+
+규정(`act3autochess`) 특질 표(`data/seasons/act3autochess/garrisons.json`)의 전투 중(`IN_BATTLE`) 규칙. 처리기는 효과 키로 고른다(`content/garrisons/effects/*.js`). 규칙은 규정 표의 버프 템플릿(`gamedata-act3autochess` `buff_template_data`)에서 읽었고 숫자는 모두 기록의 `bb`. `node tools/season-coverage.mjs act3autochess`의 특질 전투 줄: 남은 것은 아래 「남은 것」 셋.
+
+- **사건이 효과 특질을 부름**(`bbStr.garrison_type` `garrison_trigger_buff`, 24개): 사건 특질이 층을 주는 대신 같은 기물의 다른 특질(`garrison_trigger_buff_garrison_key`, 설명이 비기도 함)을 그 효과 키(`garrison_trigger_buff_key`)로 돌린다 — 클라의 `AutoChessTriggerGarrisonAbility`가 효과 특질 버프의 `ON_BUFF_TRIGGER`를 깨운다. 사건은 지난 시즌 것 그대로(스킬 시작·배치·쓰러짐·빙결 진입)거나 새 것. 효과 특질은 혼자서는 아무것도 안 한다(`effects/triggered.js`). 지금까지 이 24개는 돌기만 하고 아무 효과가 없었다(층 수 0).
+  - SP(`act3autochess_gar_effect_addsp_inrange`): 범위 안 아군 오퍼레이터 SP +`sp` — 범위는 `use_global_range` > `use_attack_range` > `range_id` 차례(템플릿 순서), `bond_id`가 있으면 그 맹약 구성원만(조화 포함). 파피루스(`chess_char_2_04`) 스킬 시작마다 앞 1칸(`1-5`) +2(정예 +4), 스펙터 디 언체인드(`4_10`) 쓰러짐·교대마다 둘레 8칸(`x-4`)의 에기르 +5(+10), 프라마닉스 더 프레리타(`5_07`) 빙결 진입마다 자신 +1(+2), 아이린(`5_03`, 艾丽妮) 둘레 12칸(`x-1`)의 처치마다 자신 +3(+6).
+  - 능력치(`…attrbybond_inrange`): 단계 = ⌊`bond_id` 층수 ÷ `denominator`⌋, 0보다 크면 범위(`x-5`, 자신과 둘레 4칸) 아군에게 `attr_duration`초 공격력·방어력·체력 ×(직접 곱셈) / 공격 속도·회복·마법 저항 +(템플릿의 `MULTIPLIER`·`ADDITION`) × 단계. 언더플로우(`3_10`) 배치마다 에기르 20층(정예 10층)마다 공격 속도 +1, 울피아누스(`5_10`) 공격력 +1 %, 30초.
+  - 재배치 시간(`…minus_respawn`): 「整备区」와 공격 범위 — 재배치를 기다리는 플레이어의 오퍼레이터 남은 시간 −`remaining_respawn_time`초, `is_ratio`면 × 그 값(0.7 = 「−30%」). 파투스(`4_12`) 공격 범위 안 처치마다 −3초(정예 −6초), 历阵锐枪芬(`3_21`) 쓰러질 때 ×0.7(×0.4).
+  - 叠层上限(`…bondstackmax`): 범위 안 오퍼레이터의 모든 특질의 전투당 상한(`max_add_count_per_battle`)에 + `max_add`·× (1 + `max_factor`)(캐릭터 공유 블랙보드 `max_add_count_per_battle_modify_add`·`_factor`), 이번 전투만. 대상 맹약은 자신의 맹약(`filter_bond_by_self`)이나 `filter_bond_ids`. 비비아나(`5_11`) 전투 시작에 필드 전체의 「其他」 같은 맹약 오퍼레이터 +7(+14), Mon3tr(`5_20`) 둘레 8칸 ×1.3(×1.6), 실버애쉬 더 레인프로스트(`5_08`) 앞 1칸의 쉐라그·기민 ×1.75(×2.5).
+- **새 사건**(`effects/events.js`):
+  - 범위 안 처치(`act1autochess_gar_event_enemykilled_inrange`): 범위(`range_id`, 없으면 공격 범위) 안의 적이 **누구에게든** 쓰러지면 센다(클라: 범위 안 적에게 붙인 `…enemykilledinrange[e]`의 `ON_OWNER_KILLED`가 주인의 `current_cnt`를 올리고 `kill_count`에서 발동·0으로). 어스스피릿(`1_19`)·에벤홀츠(`4_01`)·에이야퍄들라 더 크비트 아스카(`5_01`)·하루카(`6_11`)·토스카(`5_25`)의 층, 파투스·아이린의 효과 특질.
+  - 전투 시작(`act3autochess_gar_event_battlestart`, `ON_AUTO_CHESS_MODE_CHANGED`): 레토(`1_16`, 烈夏) 우르수스 임시 층수 +4(+8, `bond_add_as_tmp`), 그리고 叠层上限 셋.
+  - 원소 폭발(`act3autochess_gar_event_enemy_epbreak_inrange`, `ON_BEFORE_EP_BREAK_START`): 범위(위 `x-4`·블레이즈 디 이그나이팅 스파크 `6_02`는 공격 범위) 안 적의 어떤 원소든 폭발이 풀리기 전에.
+  - 범위 안 배치(`act3autochess_gar_event_onstart_inrange`, `ON_OWNER_LOCATE`): 스카디 더 커럽팅 하트(`6_03`) 공격 범위 안 칸에 **다른** 오퍼레이터가 배치될 때마다 에기르 +2(+4) — 전투 시작의 배치(한 기씩 차례로 놓이므로 그녀보다 뒤에 놓인 것), 재배치, 기습 착지. 【이동】은 배치가 아니다.
+- **피해를 줄 때**(`effects/hits.js`, 클라 `ON_OUTPUT_DAMAGE` — 원소 수치는 피해 출력이 아님): 마터호른(`1_06`) 적마다 첫 피해에 한기 2초(정예 4초) — 적 쪽에 그 주인별 표식(`…firstdamgecold[flag]` `independentCharacterSource`)이 남아 전투에 한 번. 미즈키(`4_11`) 자신과 둘레 4칸(`x-5`) 오퍼레이터의 피해마다 대상 이동 속도 × (1 − 0.01 × ⌊에기르 층수 ÷ 20(정예 10)⌋)(`FINAL_SCALER`) 3초.
+- **침식 냉각**(`effects/stats.js`): 클레멘티아(`6_04`) — 필드의 모든 적이 `…block_eprecoverspeed`를 받고, 그 적이 **그녀에게 저지된 채** 침식(`ep_type` WATER) 폭발 중이면 `EP_BREAK_RECOVER_SPEED` × (1 + 0.01 × ⌊에기르 층수 ÷ 20(10)⌋) — 폭발 냉각(`damage.js`의 `erosionBurst`)이 그만큼 빨리 끝난다.
+- **지난 키의 새 값**: 수면·기절 진입(`act2autochess_gar_event_allyenemy_sleepstun_inrange`) `range_id` `x-4`(둘레 8칸, 지금까지는 공격 범위만), `bond_type` `bond_allinrange` + `bond_range_id` `b-4`(`garrison_237` — 뒤 1칸 오퍼레이터의 활성 맹약, 주인 것은 아님).
+- 범위 이름은 range_table 그대로(`garrisons/shared.js RANGE_GRIDS`): `x-4` 3 × 3, `x-5` 십자, `x-1` 반경 2 마름모(「周围12格」), `1-5` 앞 1칸, `1-1` 자신 + 앞, `b-4` 뒤 1칸 — 가운데 칸이 들어 있는 범위는 주인도 든다(「其他」라고 적힌 비비아나만 뺌).
+- [추정·CN: 이 키들의 동적 능력 프리팹(`char_dynamic_ability_new`·`env_gbuff_new_with_verify` 룬)은 CN에만 있다] 범위 버프는 주인의 지금 범위를 따른다; `use_attack_range`·`bond_use_char_range`·`at_root`는 모두 공격 범위로 읽음; 단계는 **활성** 맹약 층수만(지난 시즌 층수 읽기와 같게, 연구 02 §5); 「整备区」는 재배치를 기다리는 오퍼레이터(전투 입력에 정비 구역 기물이 없음)이고 공격 범위 몫은 아무도 안 늘림(필드 위 오퍼레이터는 타이머가 없음), 사건을 일으킨 주인 자신(历阵锐枪芬 「被击倒时」)은 아직 거기 없음; 상한은 ⌊상한 × (1 + Σ factor)⌋ + Σ add(두 공유 값의 순서는 EN 클라에 없음); 스카디 더 커럽팅 하트 자신의 배치는 안 셈; 미즈키의 감속은 주인마다 하나를 새로 걸어 갱신.
+- **남은 것**(묶음 sim-N): 대기 구역 교대 둘 — 니어 더 래디언트 나이트(`6_05`) `act3autochess_gar_effect_switchhand_triggergar`(쓰러질 때 정비 구역 맨 오른쪽 카시미어·기습 오퍼레이터를 불러냄)와 历阵锐枪芬 `garrison_223` → `224` `…switchcharinhand[trigger]` — 전투 입력에 정비 구역 기물이 있어야 한다(sim-K 카시미어 교대와 같은 길). `garrison_235`(`…ex_bond_cnt`, 「通过卫戍能力或装备提升盟约层数时…额外+1」)은 가진 기물·장비·전략이 없다.
+- 확인: `test/content/garrisons_act3.test.js`(16 — 수정 전 코드에서 모두 실패 확인), `coverage.test.js`(지난 시즌 데이터로 만든 「모르는 값」을 `bond_allinrange`에서 다른 값으로). 화면은 안 봄(숨김 시즌).
+
+## 규정 특질 — 정비 쪽 (2026-11-11)
+
+규정의 새 `SERVER_*` 특질 키(`content/garrisons/prep/*.js`). 숫자는 기록의 `bb`.
+
+- **자라는 값**(`prep/shared.js growingValue`): k번째 실행(0부터)이 `count` + `delta_count` × ⌊k ÷ `n`⌋, 많아야 `count` + `max_count`. 오로라(`chess_char_3_07`, 极光) 「<获得时>【谢拉格】层数+{showtag_value_1}（每次触发后升级，至多叠加12层）」 = 쉐라그 1, 2, … 12층(활성 맹약 필요 없음 — 문구에 「已激活」 없음), 불피스폴리아(`3_13`) 「获得{showtag_value_1}次免费刷新（触发2次后升级，至多获得3次）」 = 무료 새로 고침 1, 1, 2, 2, 3, 3. 실행 수는 플레이어·특질마다(일반·정예 기록이 하나를 같이 셈) [추정·화면: 카드의 「{showtag_value_1}」을 플레이어 전체 수로 읽음 — 팔았다 다시 산 같은 기물이 처음부터인지 미확인].
+- **전투 끝의 생존자**(`SERVER_ADD_ACTIVATED_BOND_BY_ALIVE_CHAR`, `SERVER_BATTLE_FIN` → `onBattleResult`): 자기 일반 전투가 끝날 때 서 있는 오퍼레이터(결과 `unitsEnd`의 살아 있는 기물, 소환물 빼고) × `count`. 루멘(`4_06`) 이베리아·聚合(활성), 나이팅게일(`4_22`, 夜莺) `bond` `SELF` = 자기 활성 맹약, 한 번에 `max_count` 9(정예 18)까지.
+- **장비 든 오퍼레이터**(`SERVER_ADD_BOND_BOARD_EQUIP_CHAR`, 휴식 끝): 제시카 더 리버레이티드(`4_14`) 보드에서 장비를 하나라도 든 기물마다(자신 포함) 빅토리아·고수 +2(정예 +4).
+- **장비 진급**(`SERVER_UPGRADE_SELF_EQUIP`, 휴식 시작): 白铁(`4_15`) 자기 장비마다 정예판으로(`upgradeItem` — 공유 재고의 진급 문은 그대로).
+- **무작위 장비**(`SERVER_GAIN_RANDOM_EQUIP`, 휴식 시작): 트라고디아(`6_07`) 조달 센터 레벨 이하 장비 1개, 정예는 2개 — 개수는 문구에만 있다(`bb` 비어 있음). 정예 기물은 같은 문구(「两件」)의 기록 둘(`158_b`·`159_b`)을 가져서 첫 것만 돈다(录武官(기본 시즌 숨김 `4_15`)의 겹친 기적과 같게) [추정·자료 없음: 표에 둘 다 있고 공식 서버가 하나만 돌린다는 근거는 없음 — 문구의 개수를 따름].
+- **남은 것**(묶음 sim-N): 판매가 넷 — 海沫 `3_04` 휴식 끝마다 자기 판매가 +1(4까지), 旅骨 `3_05` 자신·앞 칸의 활성 맹약에 판매가만큼 층, 위디 `4_05` 판매가 3(정예 6), 쏜즈 `5_04`(棘刺) 보드 전체 판매가만큼 이베리아(12까지) — 기물별 판매가 상태와 화면의 판매가 표시가 필요하다. 특수 새로 고침 노시스 `4_09`(灵知, 「下次刷新至少出现一名谢拉格干员」)는 상점 새로 고침에 보장 칸이 필요하다.
+- 확인: `test/content/garrisons_act3_meta.test.js`(6 — 수정 전 코드에서 모두 실패 확인).

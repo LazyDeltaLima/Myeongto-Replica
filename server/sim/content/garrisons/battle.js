@@ -52,9 +52,11 @@ import { EMPTY } from './shared.js';
 import { grantTargets } from './effects/grants.js';
 import { EVENTS } from './effects/events.js';
 import { STAT_INSTALLERS, READERS, installReaders } from './effects/stats.js';
-import { HIT_KEYS, installHitMods } from './effects/hits.js';
+import { HIT_KEYS, installHitMods, DAMAGE_INSTALLERS } from './effects/hits.js';
+import { TRIGGERED_KEYS } from './effects/triggered.js';
 
 export { GARRISON_OPTIONS, fireGain } from './effects/events.js';
+export { TRIGGERED_KEYS } from './effects/triggered.js';
 export { stepsOf } from './effects/stats.js';
 export { weaknessType, WEAKNESS_PRIORITY } from './effects/hits.js';
 
@@ -66,7 +68,9 @@ function garrisonIdsOf(u) {
 /** Installers by effect key, in this order (an effect key in two families throws). */
 const INSTALLERS = (() => {
   const out = {};
-  for (const t of [EVENTS, STAT_INSTALLERS, {
+  // a garrison_trigger_buff effect garrison does nothing on its own: its event 特质 runs it (effects/triggered.js)
+  const triggered = Object.fromEntries(TRIGGERED_KEYS.map((k) => [k, () => {}]));
+  for (const t of [EVENTS, STAT_INSTALLERS, DAMAGE_INSTALLERS, triggered, {
     // grants are resolved in install(); 风丸's rule lives in the prep economy
     ADD_BOND() {},
     NONE() {},

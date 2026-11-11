@@ -1,6 +1,6 @@
 // server/sim/content/garrisons/prep/shop.js — prep-side 特质: prices, refreshes, funds and operators (garrisons/meta.js header).
 
-import { ids, num, bondOrder, selfView, rowCondition } from './shared.js';
+import { ids, num, bondOrder, selfView, rowCondition, growingValue } from './shared.js';
 
 /** effectKey → handler. */
 export const H = {};
@@ -74,4 +74,9 @@ H.SERVER_SELL_CHESS_GAIN_SPECIAL_GOODS = {
     if (list.length) ctx.offerChess(list, { tier });
     else if (tier) ctx.offerChess(null, { tier });
   },
+};
+
+// 规程 忍冬 garrison_74 「<获得时>获得{showtag_value_1}次免费刷新（触发2次后升级，至多获得3次免费刷新）」 (shared.js growingValue)
+H.SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT = {
+  run(ctx) { ctx.grantFreeRefresh(growingValue(ctx)); },
 };

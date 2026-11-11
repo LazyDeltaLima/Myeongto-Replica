@@ -27,7 +27,7 @@ import { buffsOf, itemKeyOf } from './support/index.js';
 import { HANDLED as ITEM_BATTLE } from './items/battle.js';
 import { PREP_BUFF_KEYS as ITEM_PREP } from './items/meta.js';
 import { canonicalBuffKey } from './items/aliases.js';
-import { BATTLE_GARRISON_KEYS, GARRISON_OPTIONS } from './garrisons/battle.js';
+import { BATTLE_GARRISON_KEYS, GARRISON_OPTIONS, TRIGGERED_KEYS } from './garrisons/battle.js';
 import { bondTemplate } from './bonds/shared.js';
 import { handledTemplates, bondEffectReplacements, unwrittenTemplates } from './bonds/dispatch.js';
 import { BATTLE_BUFF_KEYS as BAND_BATTLE } from './bands/battle.js';
@@ -148,6 +148,15 @@ function garrisonRows(data, { registry, garrisonHooks }) {
       const known = opt === 'range_id' ? GARRISON_OPTIONS.range_id[g.effectKey] ?? [] : GARRISON_OPTIONS[opt];
       if (known.includes(v)) continue;
       const m = `${opt}=${v}`;
+      const at = r.missing.find((x) => x.startsWith(`${m} `));
+      if (at) r.missing[r.missing.indexOf(at)] = `${at.slice(0, -1)}, ${gid})`;
+      else r.missing.push(`${m} (${gid})`);
+      r.status = 'partial';
+    }
+    // 规程 garrison_trigger_buff: the event runs an effect garrison by its key (garrisons/effects/triggered.js)
+    const tk = s.garrison_type === 'garrison_trigger_buff' ? s.garrison_trigger_buff_key : null;
+    if (tk && !TRIGGERED_KEYS.includes(tk)) {
+      const m = `garrison_trigger_buff_key=${tk}`;
       const at = r.missing.find((x) => x.startsWith(`${m} `));
       if (at) r.missing[r.missing.indexOf(at)] = `${at.slice(0, -1)}, ${gid})`;
       else r.missing.push(`${m} (${gid})`);

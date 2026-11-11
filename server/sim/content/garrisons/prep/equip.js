@@ -56,3 +56,32 @@ H.SERVER_POOL_EQUIP = {
     }
   },
 };
+
+// 规程 白铁 garrison_84 「<进入休整期时>使自身携带的装备变为精锐版本」: each equipment it carries becomes its elite (ctx.upgradeItem —
+// the shared stock gate of an upgrade applies: a normal piece whose elite has no copy left stays as it is)
+H.SERVER_UPGRADE_SELF_EQUIP = {
+  run(ctx) {
+    const p = ctx.source.piece && Number.isInteger(ctx.source.piece.uid) ? ctx.piece(ctx.source.piece.uid) : null;
+    for (const it of (p && Array.isArray(p.items) ? p.items : [])) ctx.upgradeItem(it.uid);
+  },
+};
+
+// 规程 酒神 garrison_158 「<进入休整期时>获得一件随机装备（不高于当前调度中心等级）」, elite 159 「…两件…」: the count is in the text
+// only (bb is empty) — a weighted roll of the equipment at most the 调度中心 level, per piece. The elite chess carries
+// two records with the same text (158_b and 159_b, both 「两件」): the text gives two, so only the first runs, as 录武官's
+// doubled 奇迹 (layers.js SERVER_ADD_BOND) [ASSUMED·자료 없음: the table holds both; nothing says the official server
+// runs one].
+H.SERVER_GAIN_RANDOM_EQUIP = {
+  run(ctx) {
+    const { garrison, piece } = ctx.source;
+    const rec = piece ? ctx.chessRecord(piece.id) : null;
+    const first = (rec && Array.isArray(rec.garrisonIds) ? rec.garrisonIds : []).map((gid) => ctx.gd.garrison(gid))
+      .find((g) => g && g.effectKey === garrison?.effectKey && g.eventType === garrison?.eventType && g.desc === garrison?.desc);
+    if (first && first !== garrison) return;
+    const n = /两件/.test(ctx.source.garrison?.desc || '') ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const id = ctx.rollItem({ maxTier: ctx.shopLevel() });
+      if (id) ctx.grantItem(id);
+    }
+  },
+};

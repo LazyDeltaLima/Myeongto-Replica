@@ -76,7 +76,7 @@ test('another season\'s data: new templates, buff keys and option values show up
   const layer = Object.values(g).find((x) => x.eventType === 'IN_BATTLE' && x.bbStr?.bond_type === 'bond_by_id');
   const garrisons = {
     ...g,
-    [layer.garrisonId]: { ...layer, bbStr: { ...layer.bbStr, bond_type: 'bond_allinrange' } },
+    [layer.garrisonId]: { ...layer, bbStr: { ...layer.bbStr, bond_type: 'bond_act9_new' } },
     garrison_new_a: { ...layer, garrisonId: 'garrison_new_a', effectKey: 'act9autochess_gar_event_new' },
     garrison_new_b: { ...layer, garrisonId: 'garrison_new_b', eventType: 'SERVER_NEW_EVENT', effectKey: 'SERVER_ADD_BOND_METHOD' },
   };
@@ -102,7 +102,7 @@ test('another season\'s data: new templates, buff keys and option values show up
 
   const opt = find(rep.garrisons, layer.effectKey, 'IN_BATTLE');
   assert.equal(opt?.status, 'partial');
-  assert.ok(opt.missing.some((m) => m.startsWith('bond_type=bond_allinrange') && m.includes(layer.garrisonId)), opt.missing.join('; '));
+  assert.ok(opt.missing.some((m) => m.startsWith('bond_type=bond_act9_new') && m.includes(layer.garrisonId)), opt.missing.join('; '));
   assert.equal(find(rep.garrisons, 'act9autochess_gar_event_new', 'IN_BATTLE')?.status, 'none');
   const ev = find(rep.garrisons, 'SERVER_ADD_BOND_METHOD', 'SERVER_NEW_EVENT');
   assert.equal(ev?.status, 'none', 'a handler without a hook for its event type runs nothing');
