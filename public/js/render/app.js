@@ -487,6 +487,7 @@ export async function createFieldView(host, options = {}) {
         // the official scene's tile heights (style.js tileTop): the units, picking and highlights follow them
         onOfficial: (info) => {
           timing?.late('scene');
+          fxGame.setStageCamera(info?.camera ? [info.camera] : []); // 2026-11-11: the level's camera effect (规程's ice stages)
           const h = info?.highland ?? null;
           const p = info?.platform ?? null;  // the official 射击台 model's plate (style.js tileTop 'platform')
           const w = info?.waterPlatform ?? null;  // the official 特制水上平台 deck (tiles.js devH)

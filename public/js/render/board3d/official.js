@@ -729,6 +729,9 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
   return {
     stageId: data.stageId,
     highland: Number.isFinite(hl) && hl > 0 ? hl : null,
+    // 2026-11-11: the level's camera effect (MapGraphic `_effectSettings.cameraEffect`, scene_extract.py) — render/app.js
+    // has the effect layer hold it while this scene shows (fxgame.js setStageCamera)
+    camera: typeof doc.map?.cameraEffect === 'string' && doc.map.cameraEffect ? doc.map.cameraEffect : null,
     meshes,
     materials: [...materials.values()],
     setArea(rects) {

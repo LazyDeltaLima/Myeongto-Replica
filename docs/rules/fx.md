@@ -4103,6 +4103,14 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - **운반자 위 표시 버프**(`fxstatus.js KEY_FX`): 민첩 터보 장갑(`chess_item_2_10`) `item:turboGlove` → `[atk_speed]`의 템플릿 `effectKey` `trap_acarm132_buff_01`(루프, 배치마다 켜지고 HP를 깎는 첫 피해에 꺼짐); 운동 에너지 가속기(`chess_item_6_07`·`6_08`)가 상한에 닿으면 `item:kineticMax` → `overrideEffectKey` `trap_acarm149_buff_01`; 흡수자의 낫(`chess_item_6_10`) 스킬 동안 `item:reaperScythe` → `overrideEffectKey` `trap_acarm154_buff_01`.
 - 확인: `test/render/season-equip-fx.test.js`(CN 템플릿과 `KEY_FX`·`TPL_BUFF_S` 대조, 실제 규정 장비로 돌린 시뮬 사건, 렌더 층의 `tplfx`, 추출물). 렌더 두 파일을 되돌리면 셋이 실패. [화면 미확인: 아레나·실제 판에서 안 봄]
 
+## 규정 전장의 화면·맵 이펙트 (2026-11-11, 공식 클라에서 확인)
+
+규정 전장의 레벨 프리팹(render.md 「규정 전장 공식 씬」)은 `MapGraphic._effectSettings`에 화면 이펙트 `cameraEffect`와 맵 이펙트 목록 `mapEffects`를 갖고, 클라 타일 프리팹은 `_effect`로 칸 위 맵 이펙트를 준다. CN 클라의 12개 전장 × 하위 레벨 셋을 다 읽은 결과:
+- **화면 이펙트**: 얼음 전장 m09·m11만, 하위 레벨 셋 모두 `screen_ICEWILD_frost_01`(EN `screen.ab`에도 있어 EN에서 뽑음, 그리기 호출 2). `scene_extract.py`가 씬의 `map.cameraEffect`로 적고, 공식 씬이 그것을 `onOfficial` `camera`로 앱에 넘기면 `fxgame.js setStageCamera`가 그 씬이 보이는 동안 화면 이펙트로 둔다(지느러미 뇌우와 같은 길 `camWant`; 적 바인딩·전투 보기가 없어도). 정비·전투 모두 켬 [추정·화면: 공식 화면과 나란히 보지 않음]; 단계가 바뀔 때 `clear()`로 지워졌다가 다음 프레임에 다시 켜진다.
+- **맵 이펙트 `mapEffects`**: m01–m04·m06의 `sub_01`·`sub_02`가 `mapeff_act3autochess_m01_sub_01`·`_m01_sub_02`·`_m02_sub_01`(오프셋 0)을 부르지만, 이 이름의 프리팹은 CN 클라의 `pkgrps`·`battle/prefabs` 번들 어디에도 없다(2026-11-11 컨테이너 전부 검색) — 클라도 그릴 것이 없으므로 그리지 않는다. m05·m09·m11·m12는 목록이 비었고, m10은 빈 키 하나.
+- **타일 이펙트**: 초원 `tile_duel_grassland` `_effect` `mapeff_079_dikuai_01`(CN `pkgrps/btl_pfb_fx_mapeff_10.ab`, `MapEffect` 필드는 모두 기본값 — 오프셋·멈춤·높이 0 강제·끝 지연 없음; 렌더러 넷: 바닥 메시 둘 + 입자 둘), 늪 `tile_mire` `_effect` `mapeff_mud_ground_01`. 규정에서 초원은 m09에 16칸, 늪은 m06에 12칸. 초원 하나를 `mapeff` 묶음으로 뽑아 재 보니 16칸 = 그리기 호출 64회·`update` 0.12 ms(Node `bench/fx/node.mjs`)라 칸마다 따로 그리지 않는다 — 같은 프리팹을 여러 칸에 묶어 그리는 길(비참한 비 장판과 같은 일)이 생긴 뒤 연결.
+- 확인: `test/render/stage-camera-fx.test.js`(층이 전투 보기 없이 화면 이펙트를 켬·`clear()` 뒤 다시·다음 전장에서 끔·뽑지 않은 것은 없음, 씬→앱→층 연결, 추출 씬의 m09·m11). [화면 미확인]
+
 ## 규정 액티브 전략의 표식·칸 이펙트 (2026-11-10, 공식 클라에서 확인)
 
 새 시즌 표의 전략 효과(`effectBuffInfoDataDict`) 블랙보드가 이펙트를 이름으로 준다: 드래그 대상 오퍼레이터 위 `skill_target_effect`(`skill_target_chess` 1) — `aceffect_band_87` `skill_layer_limit_grow_round`·`aceffect_band_90` `skill_garr_event_extra_exec` → `map_v079_squad_01`, `eff_band12` → `_02`, `eff_band14` → `_03`, `eff_band22` → `_04`, `eff_band17`·`eff_band18` → `_05`; 지형 칸 `eff_band19`(`skill_target_tile` 1)의 `effect` → `map_v079_dikuai02`. 프리팹은 CN `battle/prefabs/effects/map.ab`(일곱 개, `dikuai01`은 어느 표도 안 부르고 `MapEffect` 스크립트가 있음)에서 `map` 묶음으로 뽑았다. 연결은 액티브 전략 자체(sim-L 메시지·ui-I 드래그 화면)가 생길 때.

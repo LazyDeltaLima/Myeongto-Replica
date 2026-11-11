@@ -231,6 +231,11 @@ def hidden_sets(sc):
             ms = t['_mapSettings']
             sc.map = {'theme': ms.get('theme'), 'highlandHeight': _num(ms.get('highlandHeight', 0)),
                       'layerHeight': _num(ms.get('layerHeight', 0)), 'cameraView': ms.get('cameraView')}
+            # 2026-11-11: the level's camera effect (MapGraphic `_effectSettings.cameraEffect`: 规程's ice stages'
+            # screen_ICEWILD_frost_01; render/fxgame.js setStageCamera) — written only when set
+            cam = (t.get('_effectSettings') or {}).get('cameraEffect') if isinstance(t.get('_effectSettings'), dict) else None
+            if cam:
+                sc.map['cameraEffect'] = cam
         if '_settings' in t and '_hideBakeOffset' in t:
             for st in t['_settings']:
                 key = st.get('key')

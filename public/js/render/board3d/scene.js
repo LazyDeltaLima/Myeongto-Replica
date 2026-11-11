@@ -358,7 +358,7 @@ export class BoardScene {
         for (const m of built.meshes) this.officialRoot.add(m);
         this.officialBuilt = built;
         this.opts.onOfficial?.({ stageId: built.stageId, highland: built.highland, platform: built.devices?.top(OFFICIAL_DEVICE.platform) ?? null,
-          waterPlatform: built.devices?.top(OFFICIAL_DEVICE.waterPlatform) ?? null });
+          waterPlatform: built.devices?.top(OFFICIAL_DEVICE.waterPlatform) ?? null, camera: built.camera ?? null });
       }
       // the 8-player mode's wide 联防 field (render/app.js shows the stage widened): a second copy of the island
       const copy = this.officialBuilt.setWide?.(stage._wide || 0);

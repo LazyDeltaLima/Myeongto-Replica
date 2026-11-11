@@ -5881,9 +5881,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * The mode is tracked whenever the bindings are loaded (the sound needs it at quality 'low' too).
    */
   function stepEnemies(views) {
-    if (!emodes || !views) return;
-    if (acRains.size) stepAcRains(views);
     camWant.clear();
+    for (const n of stageCams) camWant.add(n);   // 2026-11-11: the level's own (setStageCamera), whatever the enemies
+    if (!emodes || !views) { if (stageCams.size || camFx.size) syncCameraFx(); return; }
+    if (acRains.size) stepAcRains(views);
     for (const v of views.values()) {
       // (2026-11-11: a walking ally from an enemy record too — its form's mode, told to the sound)
       if ((v?.info?.side !== 'enemy' && !v?.info?.walks) || v.alive === false || !ebindOf(v)) continue;
@@ -5942,21 +5943,30 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   const camWant = new Set();
   const camFx = new Map();   // effect name → { l: live entry (null while it loads), off }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 전장의 화면·맵 이펙트」): the camera effect of the level the board shows — its level
+   * prefabs' MapGraphic `_effectSettings.cameraEffect` (规程's ice stages m09 / m11: screen_ICEWILD_frost_01, every sub-level
+   * the same), from the official scene (render/app.js onOfficial → setStageCamera). Held as the enemies' are, in prep and
+   * battle alike [추정·화면: the official screen not seen beside it]; a clear() drops the live one and the next frame starts it
+   * again. Found by name in the extracted effects (tplPrefab).
+   */
+  const stageCams = new Set();
   function syncCameraFx() {
     for (const [n, c] of camFx) {
       if (camWant.has(n)) continue;
       camFx.delete(n);
       c.off = true;
-      if (trace) trace({ kind: 'cameraOff', names: [n], by: null, at: null });
+      if (trace && c.on) trace({ kind: 'cameraOff', names: [n], by: null, at: null });
       if (c.l && !c.l.inst.done) c.l.inst.stop(true);
     }
     for (const n of camWant) if (!camFx.has(n)) startCameraFx(n);
   }
   async function startCameraFx(name) {
-    const c = { l: null, off: false };
+    const c = { l: null, off: false, on: false };
     camFx.set(name, c);
-    const r = efx(name);
-    if (!r) return;
+    const r = efx(name) || (stageCams.has(name) ? tplPrefab(name) : null);
+    if (!r) { if (!index) camFx.delete(name); return; }   // (the list not loaded yet: tried again next frame)
+    c.on = true;   // (started: its end is traced)
     if (trace) trace({ kind: 'camera', names: [name], by: null, at: null });
     if (dry) { dryFollow(r[0], r[1], null, null); return; }
     const gen = stormGen;
@@ -6202,6 +6212,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * [ASSUMED] the camera's position and turn, as Unity parents it, and on while the storm blows over any half; and the
      * mounds the wind reaches wear their sand marks (stormMarks).
      */
+    /** 2026-11-11: the camera effects of the level on the board (names; [] none) — see stageCams. */
+    setStageCamera(names) {
+      stageCams.clear();
+      for (const n of Array.isArray(names) ? names : []) if (typeof n === 'string' && n) stageCams.add(n);
+    },
     async setStorm(storm, mounds) {
       const gen = stormGen;
       if (!Array.isArray(storm) || !storm.length || q() === 'low' || failed || !(dry || await ensure()) || gen !== stormGen) return;
