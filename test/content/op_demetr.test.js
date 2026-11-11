@@ -355,11 +355,11 @@ test('S3 清算 targets: ground enemies only, on a tile he may take (melee-build
     assert.ok(h.b.time - tk < 0.2 + 0.05, 'at once');
     assert.equal(bondOf(h), null, '牵绊 retreated first (his located tile)');
     assert.ok(home.alive);
-    // the end: a 【返回】 in place, the SP emptied, a short 不死
+    // the end: a 【返回】 in place after RespawnEnd's cast, the SP emptied
     h.runUntil(() => !u.skill.active, 40);
+    assert.ok(h.runUntil(() => moves(h, u).length === 4, RETURN_GUARD + 0.1), 'cast, idle, elite, return');
     assert.deepEqual([u.tileR, u.tileC], [10, 5]);
-    assert.ok(u.skill.sp < 0.1, `SP emptied (${u.skill.sp})`);
-    assert.equal(moves(h, u).length, 4, 'cast, idle, elite, return');
+    assert.ok(u.skill.sp < 0.05, `SP emptied (${u.skill.sp})`);
     done(h);
   }
 });
@@ -402,13 +402,24 @@ test('S3 清算: a lethal hit while it runs ⇒ 不死 / untargetable / no block
     h.step();
     h.step();
     assert.ok(!u.skill.active, 'the skill ended');
-    assert.deepEqual([u.tileR, u.tileC, !!bondOf(h), !!u.findBuff(UNDEAD_KEY)], [10, 5, false, false], 'returned home');
     assert.equal(h.hooksOf('skillEnd').find((c) => c.unit === u)?.reason, 'fatal');
-    assert.deepEqual([u.s.flags.invulnerable, u.s.flags.noBlock, u.s.flags.noSp], [true, true, true], 'demetr_s3[respawn_end]');
+    // RespawnEnd cast where he stands (its clip, 0.2 s — shorter than his attack time): demetr_s3[respawn_end] meanwhile
+    const n = moves(h, u).length;
+    assert.ok(RETURN_GUARD === 0.2 && u.s.interval > RETURN_GUARD, 'the clip is the shorter');
+    assert.deepEqual([u.tileR, u.tileC, !!bondOf(h), !!u.findBuff(UNDEAD_KEY)], [11, 7, true, false], 'still where he stood, 牵绊 up');
+    assert.deepEqual([u.s.flags.invulnerable, u.s.flags.noBlock, u.s.flags.noSp, u.s.flags.disarm], [true, true, true, true], 'demetr_s3[respawn_end]');
     h.b.dealDamage(e, u, { amount: 1e7, type: 'true' });
-    assert.ok(u.alive && u.hp >= 1, `invulnerable while he lands (${RETURN_GUARD} s)`);
-    h.run(RETURN_GUARD + 0.05);
-    assert.equal(u.findBuff(RETURN_GUARD_KEY), null);
+    assert.ok(u.alive && u.hp >= 1, 'invulnerable during the cast');
+    assert.equal(h.b.applyStatus(u, 'stun', { duration: 5, source: e }), false, 'stun immune');
+    assert.equal(h.b.applyStatus(u, 'freeze', { duration: 5, source: e }), false, 'freeze immune');
+    const tEnd = h.hooksOf('skillEnd').find((c) => c.unit === u).t;
+    assert.ok(h.runUntil(() => moves(h, u).length > n, 0.4), 'the move');
+    const dt = moves(h, u).at(-1).t - tEnd;
+    assert.ok(dt >= RETURN_GUARD - 1e-6 && dt <= RETURN_GUARD + 1 / 30 + 1e-6, `at its cast end, ${RETURN_GUARD} s after the skill's (${dt})`);
+    assert.deepEqual([u.tileR, u.tileC, !!bondOf(h)], [10, 5, false], 'returned home: 牵绊 retreated');
+    assert.ok(u.skill.sp < 0.05, `SP emptied (${u.skill.sp})`);
+    assert.equal(u.findBuff(RETURN_GUARD_KEY), null, 'the guard ends with the cast: none after the move');
+    assert.ok(h.b.applyStatus(u, 'stun', { duration: 0.1, source: e }), 'stuns land again');
     h.b.dealDamage(e, u, { amount: 1e7, type: 'true' });
     assert.ok(!u.alive, 'then a knock-out');
     done(h);
@@ -457,7 +468,9 @@ test('his kit moments for the official effects: the acting 【手段】 shown on
     assert.deepEqual(tps(h, u), [[7, 11]], 'onto the target');
     u.skill.end('test');
     h.step();
-    assert.deepEqual(tps(h, u), [[7, 11], [5, 10]], 'back to his tile');
+    assert.deepEqual(tps(h, u), [[7, 11], [7, 11]], 'the 【返回】: RespawnEnd cast where he stands, before the move');
+    h.run(RETURN_GUARD + 0.05);
+    assert.deepEqual([u.tileR, u.tileC, tps(h, u).length], [10, 5, 2], 'back on his tile, no other teleport');
     done(h);
   }
   {

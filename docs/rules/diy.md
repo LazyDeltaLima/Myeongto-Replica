@@ -882,7 +882,12 @@
     OnAttack 0.233·0.433초 — 헬라그 S1과 같은 꼴). upstream은 두 타격을 한 번에.
   - 벨로네 S2 참모의 수단의 공격은 투사체(`projectile_chr_demetr_s2`, 초당 10칸 — 추출한 S2 모드 사격)로 날아가 닿을 때 맞힌다(티피와 같은 꼴, `sim.md` 「오퍼레이터
     공격 형태」). upstream은 즉시 타격(추정 표시).
-  - 벨로네 S3 청산이 끝나 돌아올 때: 버프 `demetr_s3[respawn_end]`(RespawnEnd 능력)의 무적·저지 없음·SP 회복 정지·스킬 사용 불가 0.5초(upstream은 0.5초 불사).
+  - 벨로네 S3 청산이 끝나 돌아올 때(2026-11-11, 공식 클라에서 확인 — `DemetrS3CastSkill._RespawnToLocatedPos`): 정위치 칸에 서 있거나 그 칸에 자기 결속이 있으면
+    그 자리에서 `RespawnEnd` 능력을 시전하고, 아니면 강제 철수. 시전 동안(클립 `Skill_3_ReStart_Begin` 0.2초 — `_timeMode` 0·`_maxAnimScale` 1이라 그의 공격 시간이
+    더 짧을 때만 그 시간, `AbstractAnimatedAbility.UpdatePlaybackSpeed`) 버프 `demetr_s3[respawn_end]`(`BuffToOwnerDuringAbility` 시전 시작 → 시전 끝)로 무적·저지 없음·
+    SP 회복 정지·스킬 사용 불가·기절과 빙결 면역(`abnormalImmunes`·`abnormalAntis`), 공격 없음. 시전 끝(`ActionToOwner` ON_CAST_END)에 결속을 거두고 정위치로 다시
+    배치(SP 비움, 실패하면 즉사 — 결속이나 그가 칸을 지키므로 일어나지 않음)하며 보호도 그때 끝난다: 옮긴 뒤에는 보호가 없다. 이펙트·소리(`demetr_s3[effect_1]`, 'teleport'
+    `back`)는 시전 시작에 그가 선 자리에서. 2026-11-03~11-11에는 끝나는 순간 옮기고 그 뒤 0.5초 보호(upstream은 0.5초 불사).
   - 비이 S3 '적철에 새겨라'의 튕김: 이 탄이 **맞힌 횟수가 가장 적은** 적부터, 지금 맞은 적은 다른 적이 닿는 곳에 없을 때만, 같으면 가까운 순
     (투사체 `projectile_chr_veen_s3` `_sortTargetsByHitCountAsc`·`_allowRepetitionIfNoTarget`, 공식 클라에서 확인). upstream은 「아직 안 맞은 적 → 다른 적 → 같은 적」
     (순서를 추정 표시).
@@ -900,10 +905,12 @@
   - 테스트 쪽: 넷의 upstream 테스트가 살아 있는 유닛을 `assert.deepEqual`/`equal`에 넘기던 곳을 id·`===` 비교로(CONTRIBUTING §6), 추출한 공격 타이밍·투사체 뒤에는
     「N초 뒤」가 아니라 「타격·치료가 들어올 때까지」 기다림. 넷 다 실제 매치 경로 시험을 더함(upstream 테스트에 없음).
 - 남은 추정:
-  - 벨로네 S1 둘째 타격 시점은 공식 클라에서 확인(2026-11-03, 위 「선발 추가 헬라그」와 같은 `_waitAttackEventForAllAttacks` — 클립의 다음 공격 이벤트); S3 이동은 클립 `Skill_3_ReStart_Begin` 끝(0.2초, `sim.md` 「즉발 스킬의 시전」, 2026-11-05 공식 클라에서 확인); 복귀 보호 길이
-    [추정·미조사: RespawnEnd 능력의 길이를 두 클립 0.5초로 읽음, 끝나는 조건은 안 읽음].
-  - 지마 S3 거침없는 기세 [추정·미조사: 망치 스플래시 몫이 `atk_scale_2`에 `atk_scale`까지 곱하는지, 그 타격이 일반 공격으로 세는지 — 능력 클래스의 코드]·
-    [추정·미조사: 확산의 「인접」 = 상하좌우 4칸 — 고지대 AoE 클래스(`_aoeSelector`)의 코드]
+  - 벨로네 S1 둘째 타격 시점은 공식 클라에서 확인(2026-11-03, 위 「선발 추가 헬라그」와 같은 `_waitAttackEventForAllAttacks` — 클립의 다음 공격 이벤트); S3 이동은 클립 `Skill_3_ReStart_Begin` 끝(0.2초, `sim.md` 「즉발 스킬의 시전」, 2026-11-05 공식 클라에서 확인); 복귀 보호의 길이와 차례는
+    위 「돌아올 때」(2026-11-11 공식 클라에서 확인).
+  - 지마 S3 거침없는 기세: 망치 스플래시 몫은 블랙보드 `atk_scale_2`(없으면 `_splashAtkScale` 1) × 능력의 `atk_scale`(곱 — `MultiMeleeAttackWithSplashDmg.DoSetData`,
+    2026-11-11 공식 클라에서 확인). 확산의 「인접」은 상하좌우 4칸(`Headb2AttackHighlandAOEBase._GetNeighborTiles`, 같은 날 확인 — 키트 그대로).
+    [추정·미조사: 특성의 `attack@atk_scale_2`(0.5)가 S3 능력의 블랙보드에 들어가는지 — 그 블랙보드는 스킬 표 블랙보드 + 재능의 `skill@` 키인데, 같은 능력의 고지대 AoE가
+    재능 1의 `attack@splash_atk_scale`을 거기서 읽으므로 들어가는 길이 따로 있을 것; 못 들어가면 몫은 1(지금의 두 배). 그 타격이 일반 공격으로 세는지(`useDynamicAttackType`)도 안 읽음]
     기절·빙결·수면은 스킬을 끝내고 남은 망치도 사라진다(2026-11-05, 공식 클라에서 확인): 망치 다섯은 묶음이 아니라 능력 하나(`headb2_s3`, `_additionalTimes` 4)라, `SkillState.OnTick` → `BasicSkill.InterruptIfNot`이 그 능력을 끊으면 다음 망치가 없고, 능력이 시전 중이 아니니 `BasicSkill.OnTick`이 스킬을 끝낸다(`rules/sim.md` 「즉발 스킬의 시전」의 순차 묶음과 다름). 끊겼을 때 표시·동작은 공식 화면과 대조 안 함.
 - Mon3tr의 연쇄 튕김은 치료 금지(禁疗)·고립(孤立) 아군도 고르고 치료한다(2026-11-03, 공식 클라에서 확인): 그녀 치료 투사체의 튕김 선택기
   `ChainedSelectorWithFilter`는 `_ignoreHealFree`·`_ignoreAllyTargetFree`가 켜져 있고, 대상 검사(`TargetOptions`)는 그 옵션이 켜지면 禁疗(치료 목적일 때)·

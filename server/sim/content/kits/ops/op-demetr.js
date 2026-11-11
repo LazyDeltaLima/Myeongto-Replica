@@ -52,10 +52,13 @@
 //   passed without him dealing damage — retried every interval while no target exists, never while he cannot act. Leaving his
 //   located tile he leaves 牵绊 there (when none of his is up); moving back onto it retreats 牵绊 first. A lethal hit while it
 //   runs does not knock him out: 不死, untargetable, blocking nothing, 禁疗 (demetr_s3[undeadable]) and the skill ends on the
-//   next tick. At the end he returns — a 【移动】 onto his located tile (in place when he is there) that empties his SP — and is
-//   invulnerable, blocking nothing and gaining no SP while he lands (the RespawnEnd ability's buff demetr_s3[respawn_end]:
-//   INVINCIBLE, BLOCK_FREE, SP_RECOVER_STOPPED, SKILL_NOT_ACTIVATABLE; PRTS "因返回而部署时获得短暂的不死") for RETURN_GUARD s;
-//   not on that tile and no 牵绊 of his up (or the tile taken) ⇒ forced retreat ('retreat').
+//   next tick. At the end he returns (official client, DemetrS3CastSkill._RespawnToLocatedPos): on his located tile or with
+//   牵绊 of his on it he casts the RespawnEnd ability where he stands — for its cast (its clip Skill_3_ReStart_Begin, 0.2 s:
+//   respawnEndTime) invulnerable, blocking nothing, gaining no SP, no attack, stun / freeze immune (demetr_s3[respawn_end]:
+//   INVINCIBLE, BLOCK_FREE, SP_RECOVER_STOPPED, SKILL_NOT_ACTIVATABLE, abnormalImmunes / Antis STUNNED FROZEN; PRTS
+//   "因返回而部署时获得短暂的不死") — and at its cast end 牵绊 is retreated and he 【移动】s onto his located tile (in place when he
+//   is there), which empties his SP; the guard ends with that cast, so none is left after the move. Otherwise ⇒ forced
+//   retreat ('retreat').
 //   Each move is instant here, at the end of the FlyToTarget / FlyToTargetSecond ability's clip (`_waitForAttackEvent`,
 //   `_timeMode` 1, clip Skill_3_ReStart_Begin 0.2 s with no event: its wait ends at the limit). FlyToTargetSecond's cast
 //   interrupts nothing but takes his animator: the swing under way strikes only at its attack time's end (startFly), the
@@ -78,10 +81,17 @@ export const BOND = 'token_10065_demetr_dmtpos';
 const X2 = Object.freeze([[2, -1], [2, 0], [2, 1], [1, -2], [1, -1], [1, 0], [1, 1], [1, 2], [0, -2], [0, -1], [0, 0], [0, 1],
   [0, 2], [-1, -2], [-1, -1], [-1, 0], [-1, 1], [-1, 2], [-2, -1], [-2, 0], [-2, 1]]);
 /**
- * demetr_s3[respawn_end] lasts the RespawnEnd ability: its clip Skill_3_ReStart_Begin 0.2 s and _End 0.3 s [ASSUMED·not
- * checked: the ability's length read as the two clips; how it ends is not read].
+ * demetr_s3[respawn_end] (BuffToOwnerDuringAbility ON_CAST_START → ON_CAST_END) lasts the RespawnEnd ability's cast
+ * (official client): an EmptyAnimatedAbility on clip Skill_3_ReStart_Begin with `_timeMode` 0 (FROM_ATTACK_SPEED) and
+ * `_maxAnimScale` 1 — the clip's length, or his attack time when that is shorter (AbstractAnimatedAbility.UpdatePlaybackSpeed,
+ * the sim's castTiming). RETURN_GUARD: the clip (0.2 s) when the skill carries no clip timing.
  */
-export const RETURN_GUARD = 0.5;
+export const RETURN_GUARD = 0.2;
+const respawnEndTime = (unit, skill) => {
+  const clip = skill?.cast?.dur > 0 ? skill.cast.dur : RETURN_GUARD;   // FlyToTarget's clip: the same Skill_3_ReStart_Begin
+  const iv = unit.s?.interval;
+  return iv > 0 ? Math.min(iv, clip) : clip;
+};
 export const RETURN_GUARD_KEY = 'skill:demetr:respawnEnd';
 /** S1: the second strike after the first (Skill_1's OnAttack events, s). */
 const SECOND_STRIKE = 0.2;
@@ -288,7 +298,7 @@ export default {
               while (st.next <= battle.time + 1e-9 && guard++ < STEP_PER_TICK) st.next += step; // loop-cap: stepOf interval
             }
           },
-          onEnd({ battle, unit }) {
+          onEnd({ battle, unit, skill }) {
             const st = unit.mem.demetrS3;
             unit.mem.demetrS3 = null;
             if (!st) return;
@@ -297,18 +307,32 @@ export default {
             const [hr, hc] = st.home;
             const atHome = unit.tileR === hr && unit.tileC === hc;
             const bondUp = !!(st.bond && st.bond.alive);
-            retreatBond(battle, st);
-            const fromX = unit.x, fromY = unit.y;
-            // 【返回】: a 【移动】 onto the located tile (in place when he stands on it) that empties the SP (demetr_s3[restore]);
-            // its RespawnEnd ability carries demetr_s3[effect_1] as FlyToTarget's does (fx 'teleport', in place too; `back`: its
-            // own START sound, public/js/audio.js)
-            if ((atHome || bondUp) && battle.moveRedeploy(unit, hr, hc, { clearSp: true, clip: 'back' })) {   // (clip: mode S3_Restore's Born pair)
-              battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY, back: 1 });
-              battle.addBuff(unit, { key: RETURN_GUARD_KEY, duration: RETURN_GUARD, refresh: 'replace', flags: { invulnerable: true, noBlock: true, noSp: true }, tags: ['skill'] });
+            // DemetrS3CastSkill._RespawnToLocatedPos: on his located tile, or 牵绊 of his on it ⇒ the RespawnEnd ability; else
+            // "贝洛内将被强制撤退"
+            if (!atHome && !bondUp) { retreatBond(battle, st); battle.retreat(unit, { reason: 'retreat' }); return; }
+            // RespawnEnd, cast where he stands: demetr_s3[respawn_end] from its cast start to its cast end, and demetr_s3[effect_1]
+            // as FlyToTarget's (fx 'teleport', in place too; `back`: its own START sound, public/js/audio.js)
+            const guard = respawnEndTime(unit, skill);
+            battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, back: 1 });
+            unit.swing = null;
+            battle.addBuff(unit, { key: RETURN_GUARD_KEY, duration: guard, refresh: 'replace', flags: { invulnerable: true, noBlock: true, noSp: true, disarm: true }, tags: ['skill'] });
+            battle.releaseBlocked(unit);
+            // its abnormalImmunes / abnormalAntis STUNNED, FROZEN: none lands meanwhile, and one he carries does not stop the
+            // cast (the move below comes whatever he carries)
+            const immune = battle.on('beforeStatus', (c) => {
+              if (c.target === unit && (c.status === 'stun' || c.status === 'freeze')) c.cancel = true;
+            }, { owner: unit });
+            // its cast end (ActionToOwner `_runActionOnEvent` ON_CAST_END): WithdrawTokens, then RespawnCharacter onto the
+            // located tile (in place when he stands on it) — a 【移动】 that empties the SP (demetr_s3[restore]); the move
+            // failing ⇒ InstantKill (a taken tile: unreachable while 牵绊 or he holds it — retreated as above)
+            battle.after(guard, () => {
+              battle.off(immune);
+              battle.removeBuff(unit, RETURN_GUARD_KEY);
+              retreatBond(battle, st);
+              if (!unit.alive || !unit.deployed) return;
+              if (!battle.moveRedeploy(unit, hr, hc, { clearSp: true, clip: 'back' })) { battle.retreat(unit, { reason: 'retreat' }); return; }   // (clip: mode S3_Restore's Born pair)
               battle.releaseBlocked(unit);
-              return;
-            }
-            battle.retreat(unit, { reason: 'retreat' });   // "贝洛内将被强制撤退"
+            }, { owner: unit });
           },
         },
       },
