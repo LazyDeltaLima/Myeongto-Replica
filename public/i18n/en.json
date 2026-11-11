@@ -180,6 +180,8 @@
   "关闭后对局中不再弹出任何通知：获得干员、盟约资金等提示，干员退回整备区、淘汰等警告，以及操作无法执行的原因。": "When off, nothing pops up during a match: no notices such as operators obtained or Alliance funds, no warnings such as operators sent back to the bench or elimination, and no reasons why an action cannot be done.",
   "画面质量": "Graphics Quality",
   "帧率上限": "Frame Limit",
+  "拿起棋子时侧面镜头": "Side camera while holding a piece",
+  "拿起或选中棋子时，镜头侧转观察棋盘。自动：盟约开启，规程关闭（与各赛季的官方画面相同）。": "Turns the camera to the side while a piece is held or selected. Auto: on in Alliance, off in Regulation (as each season's official screen).",
   "拿起棋子时收起商店": "Fold the shop while holding a piece",
   "元素": "Elemental",
   "触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向": "Touch controls: tap a unit to select it (Retreat / Sell) · long-press a unit or card for details · after dragging to deploy, swipe to choose a direction",

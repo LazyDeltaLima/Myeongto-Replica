@@ -122,13 +122,24 @@ export function selectedTile(o) {
  * The camera of the own prep board's interaction (official AutoChessUIPlugin / AutoChessCameraPlugin; docs/rules/ui.md
  * 「기물을 고르고 집을 때의 측면 카메라」): a held piece or the direction wheel (`held`: deployFoldsShop) takes the side camera; a
  * selected piece the side camera over its tile (`selected`: its board tile), at the height of the shop state.
- * @param {{ held?: boolean, selected?: { row: number, col: number }|null }} o
+ * `tilt` false (sideCameraOn: a season without it, or the setting) keeps the moves and drops the turn.
+ * @param {{ held?: boolean, selected?: { row: number, col: number }|null, tilt?: boolean }} o
  * @returns {{ sideBy: boolean, at: { row: number, col: number }|null }}
  */
 export function sideCamera(o) {
-  if (o?.held) return { sideBy: true, at: null };
-  return o?.selected ? { sideBy: true, at: o.selected } : { sideBy: false, at: null };
+  const tilt = o?.tilt !== false;
+  if (o?.held) return { sideBy: tilt, at: null };
+  return o?.selected ? { sideBy: tilt, at: o.selected } : { sideBy: false, at: null };
 }
+
+/**
+ * Whether a held or selected piece turns the board with the side camera (settings → 画面 「拿起棋子时侧面镜头」,
+ * docs/rules/ui.md 「기물을 고르고 집을 때의 측면 카메라」): 'on' / 'off' as set; 'auto' as the season's official client does —
+ * on in 盟约, off where the season has `noSideCamera` (规程).
+ * @param {'auto'|'on'|'off'|undefined} setting
+ * @param {boolean} seasonOff the season's `noSideCamera` switch
+ */
+export const sideCameraOn = (setting, seasonOff) => (setting === 'on' ? true : setting === 'off' ? false : !seasonOff);
 
 /**
  * Whether a held piece folds the shop for as long as it is held (docs/rules/ui.md 「기물을 고르고 집을 때의 측면 카메라」, as the

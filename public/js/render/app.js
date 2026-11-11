@@ -32,7 +32,8 @@
 //                                               ~2-frame buffer at the battle's game speed
 //   view.debugFx(key, unitId) → Promise<bool>   local patch (/debug.html): one official effect prefab on a battle unit
 //   view.highlightTiles(tiles, style)          [[r,c]] | [{row,col}]; style 'legal'|'illegal'|'range'|'rangeStand'|
-//                                               'hover'|'target'|{color,fill,line,group}; highlightTiles(null) clears all
+//                                               'hover'|'target'|{color,fill,line,group,heal,skill}; highlightTiles(null) clears all
+//                                               (`heal` / `skill`: a heal / skill range — the 3D board stripes it blue / red)
 //   view.on(name, fn) → unsubscribe ; view.off(name, fn)
 //        pieceDragStart { uid, piece, from } · pieceDrop { uid, piece, from, target } · pieceDragEnd {uid, dropped}
 //        pieceClick { uid, piece, button, detail, clientX, clientY } (battle units: { unitId, uid, unit, … })
@@ -50,7 +51,8 @@
 // drops on the tile under the pointer (render/drag.js). A dragged unit stands on that tile while it is a legal target
 // (a board tile or a bench slot: drag.js dragStandTile; the official deploy drag, the owner's recording of 2026-10-09,
 // PR #403's report) and is held under the pointer elsewhere — its drawn feet DRAG_HOLD_TILES below it, the pointer on
-// its body; an item plate stays centred on the pointer. An item dropped on a unit's tile equips that unit.
+// its body; a dragged item stays in its slot, ringed, while a copy follows the pointer (units.js ItemView holdAt). An item
+// dropped on a unit's tile equips that unit.
 //   Direction step (ui/facingWheel.js, research 09 §1.2):
 //   view.tileScreen(row, col) → { x, y, s, poly: [[x,y]×4] } (client px: tile-top centre, px per tile, corners) | null
 //   view.holdPiece(uid, {row,col} | null)       keep a dropped prep piece standing on a tile while its direction is
@@ -366,6 +368,7 @@ export async function createFieldView(host, options = {}) {
   let prepXf = IDENTITY;
   let lastPrep = null;        // { ps, o } of the last setPrep (re-applied when the prep field changes)
   const hlReq = new Map();    // highlight group → { tiles (board space), style } requested through highlightTiles
+  const overlayTone = new Map(); // 3D overlay group → 'heal' (blue stripes) | 'skill' (red); absent = orange
   const overlay3d = new Map(); // local patch: highlight group → display tiles drawn by the 3D board overlay (drawHighlight)
   let legalKeep = null;        // local patch: { uid, tiles } — the deploy tiles of a board drop, lit again by its holdPiece
   // enemy preview pen (render/pen.js): figure key → UnitView (own map: never touched by the battle sync)
@@ -1042,6 +1045,7 @@ export async function createFieldView(host, options = {}) {
         const moved = !prevHome || prevHome.x !== w.x || prevHome.y !== w.y || prevHome.z !== w.z;
         if (dragState && dragState.key === key) {
           dragState.home = w;                       // being dragged: only its home slot changes
+          if (v instanceof ItemView) { v.x = w.x; v.y = w.y; v.z = w.z; } // an item stays in its slot (its copy is dragged)
         } else if (pending.has(key) && !moved && !splitLanded(e, pending.get(key).board, list) && !(e.area === 'board' && !prevBoard.has(e.uid))) {
           // dropped, but this state predates the server applying the move: stay at the drop target. Not a piece this
           // state shows newly on the board — the move was applied (the direction wheel's holdPiece already made the
@@ -1343,6 +1347,10 @@ export async function createFieldView(host, options = {}) {
       tiles.clearHighlights(key);
       if (key === 'dragFrom' || key === 'dragTarget') return;
       overlay3d.set(key, t);
+      // a heal range (a medic's: the style's `heal`) is striped blue, a skill's range (`skill`) red
+      // (board3d/tileOverlay.js STRIPES)
+      const tone = style && typeof style === 'object' ? (style.skill ? 'skill' : style.heal ? 'heal' : null) : null;
+      if (tone) overlayTone.set(key, tone); else overlayTone.delete(key);
       syncOverlay3d();
       return;
     }
@@ -1359,9 +1367,9 @@ export async function createFieldView(host, options = {}) {
     const isBench = ([r]) => prepXf === IDENTITY && (r === GEO.HAND_ROW || r === GEO.TEMP_ROW);
     o.setTint(legal.filter((t) => !isBench(t)), heightAt);
     o.setBenchTint?.(legal.filter(isBench), heightAt);
-    const s = [];
-    for (const [g, t] of overlay3d) if (g !== 'legal') s.push(...t);
-    o.setStripes(s, heightAt);
+    const s = [], h = [], k = [];
+    for (const [g, t] of overlay3d) if (g !== 'legal') { const tone = overlayTone.get(g); (tone === 'heal' ? h : tone === 'skill' ? k : s).push(...t); }
+    o.setStripes(s, heightAt, h, k);
   }
   function clearHl(group) {
     if (group) hlReq.delete(group); else hlReq.clear();
@@ -1395,9 +1403,15 @@ export async function createFieldView(host, options = {}) {
     const v = views.get(key);
     if (!v) return;
     dragState = { uid: p.uid, key, view: v, from: p.from, home: v._home || { x: v.x, y: v.y, z: v.z } };
-    v.lift = 0.3;
-    v.ghost = true; // local patch: see-through while placed (units.js GHOST_ALPHA)
-    v._tween = null;
+    if (v instanceof ItemView) {
+      // an item stays in its slot, ringed, while an outline-less copy follows the pointer (official prep screen;
+      // units.js ItemView holdAt)
+      v.holdAt(p.x ?? v.screen.x, p.y ?? v.screen.y);
+    } else {
+      v.lift = 0.3;
+      v.ghost = true; // local patch: see-through while placed (units.js GHOST_ALPHA)
+      v._tween = null;
+    }
     const t = pieceTile(p.piece);
     if (t) drawHighlight([[t.row, t.col]], 'hover', 'dragFrom');
     drawHighlight(legalTiles(p.piece), 'legal', 'legal');
@@ -1407,25 +1421,25 @@ export async function createFieldView(host, options = {}) {
     if (!dragState) return;
     const v = dragState.view;
     const item = v instanceof ItemView;
+    if (item) v.holdAt(p.x, p.y);
     // a unit over a legal drop target — the tile under the pointer, on the board or the bench (render/drag.js
     // dragStandTile) — stands on it, lifted, as in the official deploy drag (the owner's recording of 2026-10-09): the
     // world point the drop tween goes to (boardWorld, the prep field transform applied), set at once, no tween
     const stand = item ? null : dragStandTile(p);
-    if (stand) {
+    if (item) { /* the copy is placed by the view itself (ItemView _placeCopy) */ } else if (stand) {
       const w = boardWorld(stand.row, stand.col, stand.bench);
       v.x = w.x; v.y = w.y; v.z = w.z;
     } else {
       // otherwise held under the pointer (the player still sees what they carry): a unit with its drawn (lifted) feet
-      // DRAG_HOLD_TILES of its own px per tile below it (the scale at the pointer's ground, refined once at the feet), an
-      // item plate centred on it
+      // DRAG_HOLD_TILES of its own px per tile below it (the scale at the pointer's ground, refined once at the feet)
       const g = cam.unproject(p.x, p.y, 0);
-      const hold = item ? 0 : DRAG_HOLD_TILES;
+      const hold = DRAG_HOLD_TILES;
       const s0 = g ? cam.scaleAt(g.x, g.y, 0) : cam.scale;
       const t = pickTile(cam, p.x, p.y + hold * s0, heightAt, tiles.levels, 19, boardCols());
       const z = t ? heightAt(t.row, t.col) : 0;
-      const up = item ? z : z + (v.lift || 0) + (v.hover || 0);
+      const up = z + (v.lift || 0) + (v.hover || 0);
       let w = cam.unproject(p.x, p.y + hold * s0, up);
-      if (w && hold) w = cam.unproject(p.x, p.y + hold * cam.scaleAt(w.x, w.y, up), up) || w;
+      if (w) w = cam.unproject(p.x, p.y + hold * cam.scaleAt(w.x, w.y, up), up) || w;
       if (w) {
         v.x = Math.max(-1, Math.min(21, w.x));
         v.y = Math.max(-1, Math.min(19, w.y));
@@ -1444,7 +1458,13 @@ export async function createFieldView(host, options = {}) {
     if (!dragState) return;
     const v = dragState.view;
     const t = p.target;
-    if (t && (t.area === 'board' || t.area === 'hand')) {
+    const onTile = !!(t && (t.area === 'board' || t.area === 'hand'));
+    if (v instanceof ItemView) {
+      // the copy goes; dropped on a tile, the item flies there from where the copy stood, else it never left its slot
+      const g = v.endHold();
+      if (onTile && g) { v.x = g.x; v.y = g.y; v.z = g.z; }
+    }
+    if (onTile) {
       const row = t.area === 'board' ? t.row : GEO.HAND_ROW, col = t.area === 'board' ? t.col : t.idx;
       const w = boardWorld(row, col, t.area === 'hand');
       v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: w.x, ty: w.y, tz: w.z, t: 0 };
@@ -1467,6 +1487,7 @@ export async function createFieldView(host, options = {}) {
     if (dragState) {
       const v = dragState.view;
       const h = dragState.home;
+      if (v instanceof ItemView && !v.destroyed) v.endHold();
       if (cancelled && v && !v.destroyed) v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: h.x, ty: h.y, tz: h.z, t: 0 };
       if (v) { v.lift = 0; v.ghost = held.has(dragState.uid); } // local patch
     }

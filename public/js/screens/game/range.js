@@ -4,7 +4,7 @@
 import { attackRangeGrid } from '../../../../shared/loadoutRecord.js';
 import { chessLoadout, standInLoadout } from '../../ui/gameLogic.js';
 import { tokenVariantFor } from '../../ui/gameLogic/loadout.js';
-import { normDir } from '../../ui/facing.js';
+import { normDir, healRange } from '../../ui/facing.js';
 import { loadoutSkillIconUrl } from '../../ui/assetUrls.js';
 
 /** The loadout (chessLoadout result) a chess detail card's unit fights with: its stand-in's, or the chess's. */
@@ -34,7 +34,7 @@ export function inspectRange({ target, detail, pieces, showPrep = false, field, 
   const record = detail.type === 'token' ? { ...detail.token, ...tokenVariantFor(detail.token, detail.ownerId) }
     : cardLoadout(detail, loadout, getChess, backups)?.record || detail.standIn || detail.chess;
   const grid = Array.isArray(live?.range) ? live.range : attackRangeGrid(record);
-  return grid?.length ? { grid, row, col, dir } : null;
+  return grid?.length ? { grid, row, col, dir, heal: healRange(record) } : null;
 }
 
 /**

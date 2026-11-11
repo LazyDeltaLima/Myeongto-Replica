@@ -192,6 +192,33 @@ describe('render/item-models.js: one still snapshot per model, shared', () => {
     models.destroy();
   });
 
+  test('a held item\'s outline: drawn once per model into its own texture (12 offset copies filled by SRC_IN), kept, redrawn on a restored context, gone with its cell', async () => {
+    const r = rig();
+    const models = new ItemModels(r.renderer, r.assets);
+    const a = models.acquire(E(1));
+    const snap = await a.ready;
+    r.renders.length = 0;
+    const o = models.outline(snap, 0x66f0d4);
+    assert.ok(o && o !== snap.texture && o.baseTexture !== models.rt.baseTexture, 'its own render texture');
+    assert.equal(r.renders.length, 1);
+    const kids = r.renders[0].obj.children;
+    assert.equal(kids.length, 13, '12 offset copies and the fill');
+    assert.ok(kids.slice(0, 12).every((k) => k.texture === snap.texture && Math.hypot(k.position.x, k.position.y) > 1));
+    assert.equal(kids[12].tint, 0x66f0d4);
+    assert.equal(kids[12].blendMode, globalThis.PIXI.BLEND_MODES.SRC_IN);
+    assert.equal(models.outline(snap, 0x66f0d4), o, 'cached: no second draw');
+    assert.equal(r.renders.length, 1);
+    for (const x of r.runners) x.contextChange();
+    assert.equal(r.renders.length, 3, 'the page cell and the outline drawn again');
+    assert.equal(r.renders[2].obj.children.length, 13);
+    assert.equal(models.outline(null, 1), null);
+    models.release(a);
+    models._drop(a.cell);
+    assert.equal(models.outlines.size, 0, 'dropped with its cell');
+    assert.equal(o.destroyed, true);
+    models.destroy();
+  });
+
   test('a restored WebGL context draws every cached cell again on a cleared page', async () => {
     const r = rig();
     const models = new ItemModels(r.renderer, r.assets);
@@ -220,10 +247,13 @@ describe('render/units.js ItemView: the model on its slot, else the plate', () =
     return { log, resolve: () => resolve(snap), models: { acquire: () => { log.acquired++; return { ready }; }, release: () => { log.released++; } } };
   };
 
-  test('the snapshot replaces the plate, standing on the ground at the prefab scale; centred on the pointer when lifted', async () => {
+  test('the snapshot replaces the plate, standing on the ground at the prefab scale; dragged, it stays ringed and a copy has the pointer at its lower right', async () => {
     const tex = new fake.P.Texture(new fake.P.BaseTexture({ width: 128, height: 128 }));
+    const ringTex = new fake.P.Texture(new fake.P.BaseTexture({ width: 128, height: 128 }));
     const snap = { texture: tex, ax: 0.5, ay: 0.9, k: 128, top: 0.3, bottom: 0.98, width: 0.5 };
     const s = snapModels(snap);
+    const outlined = [];
+    s.models.outline = (sn, color) => { outlined.push([sn, color]); return ringTex; };
     const it = new ItemView(fakeViewCtx(fake.P, { assets: store(), cam, itemModels: s.models }), { id: 'p:9', uid: 9, kind: 'item', defId: 'chess_item_x', trapId: 'trap_1', x: 3, y: 7 });
     assert.equal(s.log.acquired, 1);
     s.resolve();
@@ -234,17 +264,40 @@ describe('render/units.js ItemView: the model on its slot, else the plate', () =
     const g = cam().project(3, 7, 0.16);
     assert.ok(Math.abs(it.root.y - g.y) < 1e-6, 'on its ground point: no float, no bob');
     assert.ok(Math.abs(it.model.scale.x - g.s / 128) < 1e-9, 'px per tile / the snapshot\'s');
-    let b = it.bounds();
+    const b0 = it.bounds();
     const side = 128 * g.s / 128;
-    assert.ok(Math.abs(b.y - (g.y - (0.9 - 0.3) * side)) < 1e-6 && Math.abs(b.height - 0.68 * side) < 1e-6, 'the model box');
-    it.lift = 0.3;
+    assert.ok(Math.abs(b0.y - (g.y - (0.9 - 0.3) * side)) < 1e-6 && Math.abs(b0.height - 0.68 * side) < 1e-6, 'the model box');
+    assert.equal(it.copy, null, 'no copy before a drag');
+    // dragged: the pointer over another tile
+    const ptr = cam().project(6, 9, 0.16);
+    it.holdAt(ptr.x, ptr.y);
     it.update(1 / 60, cam(), 0);
-    b = it.bounds();
-    assert.ok(Math.abs(b.y + b.height / 2 - g.y) < 1e-6 && Math.abs(b.x + b.width / 2 - g.x) < 1e-6, 'dragged: centred on the pointer');
-    assert.ok(Math.abs(it.model.anchor.y - (0.3 + 0.98) / 2) < 1e-9);
+    assert.deepEqual(it.bounds(), b0, 'the item stays in its slot');
+    assert.ok(Math.abs(it.root.x - g.x) < 1e-6 && Math.abs(it.root.y - g.y) < 1e-6);
+    assert.equal(outlined.length, 1);
+    assert.ok(outlined[0][0] === snap && outlined[0][1] === 0x66f0d4);
+    assert.ok(it.ring && it.ring.texture === ringTex && it.ring.visible && it.ring.parent === it.root, 'the ring on the item (behind its model: addChildAt 0)');
+    assert.ok(Math.abs(it.ring.scale.x - it.model.scale.x) < 1e-12 && it.ring.anchor.x === 0.5 && it.ring.anchor.y === 0.9);
+    const c = it.copy;
+    assert.ok(c && c.root.visible && c.model.texture === tex && c.model !== it.model, 'a copy of the model');
+    assert.ok(c.root.children.every((k) => k.texture !== ringTex), 'the copy has no outline');
+    const k = c.model.scale.x, cs = 128 * k;
+    const right = c.root.x + (0.5 - 0.5) * cs + (0.5 * cs) / 2, bottom = c.root.y + (0.98 - 0.9) * cs;
+    assert.ok(Math.abs(right - ptr.x) < 1e-6 && Math.abs(bottom - ptr.y) < 1e-6, 'the pointer at the copy\'s box\' lower right');
+    assert.ok(c.root.x < ptr.x && c.root.y < ptr.y, 'the copy stands above left of the pointer');
+    const cg = cam().project(c.g.x, c.g.y, c.g.z);
+    assert.ok(Math.abs(cg.x - c.root.x) < 1e-6 && Math.abs(cg.y - c.root.y) < 1e-6, 'its ground point under it');
+    assert.ok(c.shadow.visible && Math.abs(c.shadow.position.x - cg.x) < 1e-6, 'its own shadow at its feet');
+    assert.ok(c.root.zIndex > it.root.zIndex, 'over the units');
+    const end = it.endHold();
+    assert.ok(Math.abs(end.x - c.g.x) < 1e-9 && Math.abs(end.y - c.g.y) < 1e-9, 'the drop flies from the copy');
+    it.update(1 / 60, cam(), 0);
+    assert.ok(!c.root.visible && !c.shadow.visible && !it.ring.visible, 'released: copy and ring gone');
+    assert.equal(it.endHold(), null);
     it.destroy();
     assert.equal(s.log.released, 1);
     assert.equal(tex.destroyed, false, 'the shared snapshot stays');
+    assert.equal(ringTex.destroyed, false, 'the shared outline stays');
   });
 
   test('no model (unknown trap, no snapshot): the plate stays and the reference is given back', async () => {

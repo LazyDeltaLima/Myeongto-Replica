@@ -13,7 +13,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks
 import { html, Modal, Button, Icon, MicroLabel, Tabs } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { createStore, useStore, loadPref, savePref, store } from '../store.js';
-import { sanitizeSettings, setNumberUnitMode, numberUnitMode, CHAT_COOLDOWN, FRAME_LIMITS, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey } from './gameLogic.js';
+import { sanitizeSettings, setNumberUnitMode, numberUnitMode, CHAT_COOLDOWN, FRAME_LIMITS, SIDE_CAMERA_MODES, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey } from './gameLogic.js';
 import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
@@ -357,7 +357,15 @@ export function SettingsModal({ open, onClose }) {
               class=${s.frameLimit === v ? 'is-on' : ''} onClick=${() => updateSettings({ frameLimit: v })}>${v ? String(v) : t('无')}</button>`)}
           </div>
         </div>
-        <!-- maintainer decision 2026-11-07: no such choice in the official game; the side camera and the fold always apply.
+        <div class="set-row">
+          <span class="set-row__label">${t('拿起棋子时侧面镜头')}<${MicroLabel}>SIDE CAMERA<//></span>
+          <div class="set-seg" role="radiogroup">
+            ${SIDE_CAMERA_MODES.map((id) => html`<button key=${id} type="button" role="radio" aria-checked=${s.sideCamera === id ? 'true' : 'false'}
+              class=${s.sideCamera === id ? 'is-on' : ''} onClick=${() => updateSettings({ sideCamera: id })}>${id === 'auto' ? t('自动') : id === 'on' ? tc('toggle', '开启') : tc('toggle', '关闭')}</button>`)}
+          </div>
+        </div>
+        <p class="set-hint">${t('拿起或选中棋子时，镜头侧转观察棋盘。自动：盟约开启，规程关闭（与各赛季的官方画面相同）。')}</p>
+        <!-- maintainer decision 2026-11-07: no such choice in the official game; the fold always applies.
         <${Toggle} label=${t('拿起棋子时收起商店')} micro="DEPLOY FOLD" value=${s.deployFold} onChange=${(v) => updateSettings({ deployFold: v })} />
         -->
         <${NumberUnitsSetting} />

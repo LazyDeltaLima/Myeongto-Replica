@@ -62,6 +62,8 @@ export const COLORS = Object.freeze({
   fog: [0.62, 0.68, 0.72],
   mint: 0x4ed8af,
   mintHi: 0x59f4ca,
+  /** the ring around a hand item while its copy is dragged (official CN prep recording 2026-11-11, ≈ (100,225,200)) */
+  heldOutline: 0x66f0d4,
   gold: 0xffc600,
   gateRed: 0xff3b30,
   gateRedDeep: 0xd0453b,

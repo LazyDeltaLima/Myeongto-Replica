@@ -11,6 +11,7 @@
 //   const ref = models.acquire(entry)       // entry = assets.itemSpine(trapId); null without one
 //   ref.ready.then((snap) => …)             // snap = { texture, ax, ay, k } or null (load failed / page full)
 //   models.release(ref)                     // once per acquire
+//   models.outline(snap, color)             // the snapshot's outline texture (a held item left in its slot), or null
 //   models.destroy()
 //
 // `snap.k` is the CSS px per tile the cell was drawn at (a sprite shows the model at `s` px per tile with scale s / k);
@@ -29,6 +30,8 @@ const CELL = 128;
 const PAGE_PX = 2048;
 /** Spare edge around a model in its cell, CSS px (linear filtering must not sample the neighbour). */
 const PAD = 2;
+/** Outline width, cell CSS px (≈ 2 screen px at a 1080p prep board: the official ring around a dragged item). */
+const OUTLINE_PX = 2;
 
 export class ItemModels {
   /**
@@ -48,6 +51,7 @@ export class ItemModels {
     for (let i = this.cols * this.cols - 1; i >= 0; i--) this.free.push(i);
     this.idle = new Set();                                // cells with no reference, oldest release first
     this.stats = { cells: 0, drawn: 0, full: 0, failed: 0, shrunk: 0 };   // shrunk: models drawn under REF_PX to fit
+    this.outlines = new Map();                            // snapshot texture → its outline's render texture
     this._ctx = { contextChange: () => this._redrawAll() };
     try { renderer?.runners?.contextChange?.add(this._ctx); } catch { /* no runner: no restore */ }
   }
@@ -167,10 +171,57 @@ export class ItemModels {
       top: (oy + b.y * sc - cy) / CELL, bottom: (CELL - PAD) / CELL, width: (w * sc) / CELL };
   }
 
+  /**
+   * The outline of a snapshot: its silhouette grown by OUTLINE_PX in `color` (the official prep screen rings an item
+   * that is being dragged in its slot), a texture of the cell's size and anchor. Drawn once per model, the first time
+   * one is dragged, into a small render texture of its own: the silhouette is the snapshot drawn at offsets around a
+   * circle, then filled with the colour by a SRC_IN pass — no filter, nothing redrawn per frame.
+   * @param {{ texture: any }|null} snap
+   * @param {number} color 0xRRGGBB
+   */
+  outline(snap, color) {
+    const P = this.P;
+    if (!snap?.texture || !this.R) return null;
+    const have = this.outlines.get(snap.texture);
+    if (have) return have.rt;
+    let rt;
+    try { rt = P.RenderTexture.create({ width: CELL, height: CELL, resolution: this.res }); } catch { return null; }
+    const o = { rt, texture: snap.texture, color };
+    if (!this._drawOutline(o)) { rt.destroy(true); return null; }
+    this.outlines.set(snap.texture, o);
+    return rt;
+  }
+
+  _drawOutline(o) {
+    const P = this.P;
+    const box = new P.Container();
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2, sp = new P.Sprite(o.texture);
+      sp.position.set(Math.cos(a) * OUTLINE_PX, Math.sin(a) * OUTLINE_PX);
+      box.addChild(sp);
+    }
+    const fill = new P.Sprite(P.Texture.WHITE);
+    fill.width = CELL; fill.height = CELL; fill.tint = o.color;
+    fill.blendMode = P.BLEND_MODES.SRC_IN;
+    box.addChild(fill);
+    let ok = true;
+    try { this.R.render(box, { renderTexture: o.rt, clear: true }); } catch { ok = false; }
+    box.destroy({ children: true, texture: false });
+    return ok;
+  }
+
+  _dropOutline(texture) {
+    const o = this.outlines.get(texture);
+    if (!o) return;
+    this.outlines.delete(texture);
+    try { o.rt.destroy(true); } catch { /* ignore */ }
+  }
+
   _redrawAll() {
     if (!this.rt) return;
     this._cleared = false;
     for (const cell of this.cells.values()) if (cell.snap && cell.spine) this._draw(cell);
+    for (const o of this.outlines.values()) this._drawOutline(o);
   }
 
   _release(entry) { try { this.assets.spine.release(entry); } catch { /* ignore */ } }
@@ -192,12 +243,17 @@ export class ItemModels {
     this.stats.cells = this.cells.size;
     this._dropSpine(cell);
     this._free(cell);
-    if (cell.texture) { try { cell.texture.destroy(false); } catch { /* ignore */ } cell.texture = null; }
+    if (cell.texture) {
+      this._dropOutline(cell.texture);
+      try { cell.texture.destroy(false); } catch { /* ignore */ }
+      cell.texture = null;
+    }
     cell.snap = null;
   }
 
   destroy() {
     for (const cell of [...this.cells.values()]) this._drop(cell);
+    for (const t of [...this.outlines.keys()]) this._dropOutline(t);
     try { this.R?.runners?.contextChange?.remove(this._ctx); } catch { /* ignore */ }
     if (this.rt) { try { this.rt.destroy(true); } catch { /* ignore */ } this.rt = null; }
   }

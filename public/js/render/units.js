@@ -2570,13 +2570,14 @@ function defaultInterval(ctx, info) {
 /**
  * Hand item: the item's equipment model (the client's Spine model of its trap prefab — render/item-models.js, a still
  * snapshot shared by every view of the same model) standing on its slot, else — no extracted model, still loading, or
- * one of the magic items whose prefab draws none — an icon plate floating above it. While dragged (`lift` > 0) the
- * model / plate is centred on its ground point — the pointer (render/app.js moveDragVisual); it drops on (and equips
- * the unit on) the tile under the pointer.
+ * one of the magic items whose prefab draws none — an icon plate floating above it.
+ * While dragged (`holdAt`, render/app.js moveDragVisual) the item stays in its slot ringed in COLORS.heldOutline and an
+ * outline-less copy with its own shadow follows the pointer, the pointer at the copy's lower right (the model's box: its
+ * right edge and its bottom), as on the official prep screen (CN recording 2026-11-11, docs/rules/render.md 「손 칸 장비
+ * 모델」); it drops on (and equips the unit on) the tile under the pointer, the item flying there from the copy.
  * The model's size is the prefab's (the standard 0.27 character scale = UNIT.modelScale), standing still on the ground
  * like the prefab's single 0 s Default clip — on the floor and not bobbing, as on the official prep screen (maintainer
- * check 2026-11-11) [ASSUMED·화면: the shadow and the drag pose still follow the plate; officially the item stays in its
- * slot outlined while an outline-less copy follows with its feet at the pointer — docs/rules/render.md 「손 칸 장비 모델」].
+ * check 2026-11-11).
  */
 export class ItemView {
   constructor(ctx, info) {
@@ -2604,6 +2605,81 @@ export class ItemView {
     this._modelRef = null;
     this._loadModel();
     this.hud = null;
+    this.held = null;       // { x, y } canvas px of the pointer while dragged (holdAt), else null
+    this.copy = null;       // the dragged copy: { root, model, plate, shadow, g } — made on the first drag
+    this.ring = null;       // the outline Sprite behind the model while dragged
+  }
+  /** Start / move the drag: the item stays, its copy follows the pointer (canvas px). */
+  holdAt(x, y) { this.held = { x, y }; }
+  /**
+   * End the drag: the copy goes; returns the world point it stood on (the drop flies the item from there), or null.
+   * @returns {{ x: number, y: number, z: number }|null}
+   */
+  endHold() {
+    const g = this.held && this.copy?.g ? { ...this.copy.g } : null;
+    this.held = null;
+    if (this.copy) { this.copy.root.visible = false; this.copy.shadow.visible = false; }
+    if (this.ring) this.ring.visible = false;
+    return g;
+  }
+  _makeCopy() {
+    const P = this.P, root = new P.Container();
+    const plate = new P.Sprite(this.plate.texture);
+    plate.anchor.set(0.5, 1);
+    root.addChild(plate);
+    const shadow = new P.Sprite(this.shadow.texture);
+    shadow.anchor.set(0.5);
+    this.ctx.layers.shadow.addChild(shadow);
+    this.ctx.layers.units.addChild(root);
+    root.zIndex = 1e9;      // over every unit, as the official copy is drawn over the operator it is held above
+    this.copy = { root, model: null, plate, shadow, g: { x: 0, y: 0, z: 0 } };
+  }
+  /** The copy's frame (update, while held): the pointer at its box's lower right, its shadow under its ground point. */
+  _placeCopy(cam, sn) {
+    if (!this.copy) this._makeCopy();
+    const c = this.copy, h = this.held;
+    c.root.visible = true; c.shadow.visible = true;
+    const g0 = cam.unproject(h.x, h.y, this.z);
+    const s = g0 ? cam.scaleAt(g0.x, g0.y, this.z) : cam.scale;
+    let gx, gy;
+    if (sn) {
+      if (!c.model) { c.model = new this.P.Sprite(sn.texture); c.root.addChild(c.model); }
+      c.model.texture = sn.texture;
+      c.model.visible = true; c.plate.visible = false;
+      const k = s / sn.k, side = sn.texture.width * k;
+      c.model.scale.set(k);
+      c.model.anchor.set(sn.ax, sn.ay);
+      // the box's right edge and bottom at the pointer: the ground point left of it by half the box and its offset
+      gx = h.x - ((0.5 - sn.ax) * side + (sn.width * side) / 2);
+      gy = h.y - (sn.bottom - sn.ay) * side;
+    } else {
+      if (c.model) c.model.visible = false;
+      c.plate.visible = true;
+      c.plate.texture = this.plate.texture;
+      const size = s * 0.62;
+      c.plate.scale.set(size / 128);
+      gx = h.x - size / 2; gy = h.y;
+    }
+    c.root.position.set(gx, gy);
+    const w = cam.unproject(gx, gy, this.z);
+    if (w) { c.g.x = w.x; c.g.y = w.y; c.g.z = this.z; }
+    const sh = cam.project(c.g.x, c.g.y, c.g.z, SH_P);
+    c.shadow.position.set(sh.x, sh.y);
+    c.shadow.scale.set((s * 0.55) / c.shadow.texture.width);
+    c.shadow.alpha = 0.35;
+    placeOnGround(this.ctx, c.shadow, this.ctx.layers.shadow, c.g.y, c.g.z);
+  }
+  /** The ring behind the model while held (render/item-models.js outline, drawn once per model). */
+  _placeRing(sn, k) {
+    if (!this.ring) {
+      const tex = this.ctx.itemModels?.outline?.(sn, COLORS.heldOutline);
+      if (!tex) return;
+      this.ring = new this.P.Sprite(tex);
+      this.root.addChildAt(this.ring, 0);
+    }
+    this.ring.visible = true;
+    this.ring.scale.set(k);
+    this.ring.anchor.set(sn.ax, sn.ay);
   }
   /** Show the item's icon (an URL; the plain plate until it loads) — again when the asset manifest named it late. */
   setIcon(url) {
@@ -2637,49 +2713,53 @@ export class ItemView {
    *  the units as kind 'item' (Match.prepFieldMeta) — follow its position, there is nothing else to animate. */
   sync(s) { this.x = s.x; this.y = s.y; }
   update(dt, cam, t) {
-    const lifted = this.lift > 0;
     const sn = this.model ? this.snap : null;
-    const z = lifted ? this.z : sn ? this.z + this.lift : this.z + this.lift + 0.12 + Math.sin(t * 2 + this.bob) * 0.03;
+    const z = sn ? this.z : this.z + 0.12 + Math.sin(t * 2 + this.bob) * 0.03;
     const p = cam.project(this.x, this.y, z, this.screen);
     this.placed = true;
     this.root.position.set(p.x, p.y);
-    this.root.zIndex = unitDepthKey(cam, this.x, this.y, this.lift);
+    this.root.zIndex = unitDepthKey(cam, this.x, this.y, 0);
     this.root.alpha = this.dimmed ? 0.35 : 1;
     if (sn) {
-      // the snapshot was drawn at sn.k px per tile; lifted, the model's box is centred on the pointer
+      // the snapshot was drawn at sn.k px per tile
       const k = p.s / sn.k, side = sn.texture.width * k;
       this.model.scale.set(k);
-      this.model.anchor.set(sn.ax, lifted ? (sn.top + sn.bottom) / 2 : sn.ay);
+      this.model.anchor.set(sn.ax, sn.ay);
       this._box = { w: sn.width * side, h: (sn.bottom - sn.top) * side, dx: (0.5 - sn.ax) * side, up: (sn.ay - sn.top) * side, down: (sn.bottom - sn.ay) * side };
-      this.screen.top = lifted ? p.y - this._box.h / 2 : p.y - this._box.up;
+      this.screen.top = p.y - this._box.up;
+      if (this.held) this._placeRing(sn, k);
+      else if (this.ring) this.ring.visible = false;
     } else {
       const size = p.s * 0.62;
       this.plate.scale.set(size / 128);
-      this.plate.anchor.set(0.5, lifted ? 0.5 : 1);
+      this.plate.anchor.set(0.5, 1);
       this._box = null;
-      this.screen.top = lifted ? p.y - size / 2 : p.y - size;
+      this.screen.top = p.y - size;
     }
+    if (this.held) this._placeCopy(cam, sn);
     placeOnGround(this.ctx, this.shadow, this.ctx.layers.shadow, this.y, this.z);
     const sh = cam.project(this.x, this.y, this.z, SH_P);
     this.shadow.position.set(sh.x, sh.y);
     this.shadow.scale.set((p.s * 0.55) / this.shadow.texture.width);
     this.shadow.alpha = 0.35;
   }
-  /** Canvas-space bounds (CSS px) of the model / plate (centred on the pointer while dragged). */
+  /** Canvas-space bounds (CSS px) of the model / plate in its slot (where it stays while its copy is dragged). */
   bounds() {
     const b = this._box;
-    if (b) {
-      const x = this.screen.x + b.dx - b.w / 2;
-      return { x, y: this.lift > 0 ? this.screen.y - b.h / 2 : this.screen.y - b.up, width: b.w, height: b.h };
-    }
+    if (b) return { x: this.screen.x + b.dx - b.w / 2, y: this.screen.y - b.up, width: b.w, height: b.h };
     const w = (this.screen.s || 1) * 0.62;
-    return { x: this.screen.x - w / 2, y: this.lift > 0 ? this.screen.y - w / 2 : this.screen.y - w, width: w, height: w };
+    return { x: this.screen.x - w / 2, y: this.screen.y - w, width: w, height: w };
   }
   setHover() {}
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
     if (this._modelRef) { this.ctx.itemModels?.release(this._modelRef); this._modelRef = null; }
+    if (this.copy) {
+      this.copy.shadow.destroy();
+      this.copy.root.destroy({ children: true, texture: false });
+      this.copy = null;
+    }
     this.shadow.destroy();
     // the snapshot texture is shared (render/item-models.js): the sprite goes, the texture stays
     if (this.model) { this.model.destroy({ texture: false }); this.model = null; }

@@ -31,6 +31,34 @@ describe('local patch: placement UI', () => {
     for (const [i, want] of [66, 130, 66].entries()) assert.ok(Math.abs(out[i] - want) <= 10, `${out} ≈ 66,130,66`);
     assert.equal(STRIPES.alpha, 0.749);
     assert.equal(STRIPES.speed, 0.5);
+    // the battle scene's GridRangeDrawer: _attackRangeColor (1, 0.502, 0), _healRangeColor (0, 0.784, 1)
+    assert.deepEqual(STRIPES.color.map((v) => Math.round(v * 255)), [255, 128, 0]);
+    assert.deepEqual(STRIPES.heal.map((v) => Math.round(v * 255)), [0, 200, 255]);
+    assert.deepEqual(STRIPES.skill.map((v) => Math.round(v * 255)), [255, 0, 0], '_skillRangeColor (TurnOnSkill)');
+  });
+
+  test('heal ranges: a 医疗 operator other than a 咒愈师 — every pool record of both seasons, as their client attack abilities', async () => {
+    const { healRange, previewHeal } = await import('../../public/js/ui/facing.js');
+    const { readFileSync } = await import('node:fs');
+    const load = (f) => { const d = JSON.parse(readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8')); return Object.values(d.units || d); };
+    const recs = [...load('data/chess.json'), ...load('data/backups.json'), ...load('data/seasons/act3autochess/chess.json')];
+    const by = (cid) => recs.filter((r) => r && (r.charId === cid || r.chessId === cid));
+    // a Heal / RangedHeal attack in the client prefab
+    for (const cid of ['char_108_silent', 'char_4114_harold', 'char_181_flower', 'char_4042_lumen', 'char_1016_agoat2', 'char_4041_chnut', 'char_179_cgbird', 'char_1052_kalts2', 'char_605_cmedic']) {
+      const rs = by(cid);
+      assert.ok(rs.length, cid);
+      for (const r of rs) assert.equal(healRange(r), true, cid);
+    }
+    // 咒愈师 (a damage attack) and 吟游者 (an AuraAbility) stay orange
+    for (const cid of ['char_494_vendla', 'char_4056_titi', 'char_1020_reed2', 'char_1012_skadi2', 'char_4134_cetsyr', 'char_017_huang']) {
+      for (const r of by(cid)) assert.equal(healRange(r), false, cid);
+    }
+    assert.equal(recs.filter(healRange).every((r) => r.profession === 'MEDIC'), true);
+    assert.equal(healRange(null), false);
+    const lk = { getChess: (id) => recs.find((r) => r.chessId === id), getToken: () => null };
+    const med = recs.find((r) => r.charId === 'char_108_silent');
+    assert.equal(previewHeal(lk, { kind: 'chess', id: med.chessId }), true);
+    assert.equal(previewHeal(lk, { kind: 'item', id: 'x' }), false);
   });
 
   test('direction selector basis: local units ↔ client px on the ground plane', async () => {

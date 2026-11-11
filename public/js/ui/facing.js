@@ -153,6 +153,22 @@ export function previewGrid(lookups, piece) {
   return grid && grid.length ? grid : null;
 }
 
+/**
+ * Whether a unit record's range is a heal range, striped blue instead of orange (docs/rules/ui.md 「배치 UI」 — the
+ * official GridRangeDrawer takes `_healRangeColor` when the range's ability is a heal ability): a 医疗 operator other
+ * than a 咒愈师 (incantationmedic, whose attack deals damage). Checked against the client prefab of every operator and
+ * summon of both seasons' pools: their attack ability is a Heal / RangedHeal exactly then; a 吟游者's aura is not one.
+ * @param {any} rec a chess / backup / token record (`profession`, `subProfessionId`)
+ */
+export const healRange = (rec) => !!rec && rec.profession === 'MEDIC' && rec.subProfessionId !== 'incantationmedic';
+
+/** healRange of the piece previewGrid shows (its chess / token record; an item: never). */
+export function previewHeal(lookups, piece) {
+  if (!isObj(piece) || !lookups) return false;
+  const rec = piece.kind === 'chess' ? lookups.getChess?.(piece.id) : piece.kind === 'token' ? lookups.getToken?.(piece.id) : null;
+  return healRange(rec);
+}
+
 /** Whether an Art is placed with a direction (its range reaches beyond its own tile, e.g. 画卷 `[[0,0],[0,1]]`). */
 export function artHasFacing(item) {
   const g = Array.isArray(item?.rangeGrid) ? item.rangeGrid : [];

@@ -103,7 +103,7 @@ import { actions } from '../ui/gameActions.js';
 import { FacingWheel, holdPiece, setPieceDir, syncPieceDirs, showRange, useTileScreen } from '../ui/facingWheel.js';
 import { Underframe, underframeRect, TempRowNotice } from '../ui/underframe.js';
 import { StandInTags } from './game/standInTags.js';
-import { needsFacing, facingIntent, previewGrid, pieceDir, underframeActions, retreatSlot, itemDestroyable } from '../ui/facing.js';
+import { needsFacing, facingIntent, previewGrid, previewHeal, pieceDir, underframeActions, retreatSlot, itemDestroyable } from '../ui/facing.js';
 import { EquipReplaceDialog, replaceRequest, replaceIntent } from '../ui/equipReplace.js';
 import { EquipHoverPanel, equipHoverState } from '../ui/equipHover.js'; // local patch: the official equip-slot popup
 import { pauseAvailable, isPaused, frozenNow } from '../ui/matchStatus.js';
@@ -115,7 +115,7 @@ import {
   snapHud, activeBubbles, shortcutFor, shortcutBlocked, closesOnFieldPress, closesOnOutsidePress, drawerClosesOnPress, openedFromWindow, windowCardGone, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, normalizePersonalChoice, sortedPlayers,
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
-  previewEnemyKey, prepCamera, prepCameraFor, foldCamera, sideCamera, selectedTile, deployFoldsShop, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
+  previewEnemyKey, prepCamera, prepCameraFor, foldCamera, sideCamera, sideCameraOn, selectedTile, deployFoldsShop, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
   mergeTarget, modeOffBonds, readyFundsPrompt, readyOverflowPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull, autoDiyChoice,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
@@ -125,6 +125,7 @@ import { BandDraftScreen } from './bandDraft.js';
 import { ResultScreen } from './result.js';
 import { net } from '../net.js';
 import { store, useStore, shallowEqual, serverNow, isSpectating, reservedRank } from '../store.js';
+import { seasonFeature } from '../../../shared/seasons.js';
 import { battleRunner } from '../battle/runner.js';
 import { isClientCombat, observeTarget, teammateProgress, ownProgress, cameraLayers, layerCamera, sidesOf, resumedWatch, followedScout } from '../battle/observe.js';
 import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, popupView } from '../ui/watchBonds.js';
@@ -138,7 +139,7 @@ import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
 import { battleOverOf, battleLossOf } from '../audioOfficial.js'; // local patch: round_result_dialog sound
 import { useDocClass, FullscreenButton } from '../ui/device.js';
 // MatchEnded, PausedOverlay, the highlight styles and keepEarly live in ./game/*.js.
-import { HUD_HZ_MS, MERGE_HL, SEL_RANGE, cx } from './game/marks.js';
+import { HUD_HZ_MS, MERGE_HL, SEL_RANGE, SEL_RANGE_HEAL, SEL_RANGE_SKILL, cx } from './game/marks.js';
 import { keepEarly } from './game/early.js';
 import { MatchEnded, PausedOverlay } from './game/overlays.js';
 import { inspectRange, skillButton } from './game/range.js';
@@ -781,7 +782,10 @@ function MatchScreen() {
   // effect runs again when that ends (gameLogic foldCamera). Picking reads the camera of every frame (render/pick.js).
   // A held or selected piece is the exception: the official side camera. All of them fly on the official rig's two
   // clocks, both ways (render/projection.js SIDE_BY, flyRig).
-  const side = sideCamera({ held: deployFold, selected: selNow });
+  // settings → 画面 「拿起棋子时侧面镜头」: 'auto' = the season's official client (规程 has no side camera)
+  const sideSet = useStore((s) => s.sideCamera, Object.is, settingsStore);
+  const seasonNoSide = useStore((s) => seasonFeature(s.room?.season, 'noSideCamera'));
+  const side = sideCamera({ held: deployFold, selected: selNow, tilt: sideCameraOn(sideSet, seasonNoSide) });
   useEffect(() => {
     const cur = camRef.current;
     const next = foldCamera({
@@ -1169,7 +1173,7 @@ function MatchScreen() {
       const rec = piece.kind === 'item' ? gd.item(piece.id) : piece.kind === 'token' ? gd.token(piece.id) : ownShown(piece.id);
       holdPiece(view, piece.uid, { row: t.row, col: t.col });
       setSel(null);
-      setFacing({ uid: piece.uid, piece, row: t.row, col: t.col, grid: previewGrid(lookups, piece), name: rec?.name || '' });
+      setFacing({ uid: piece.uid, piece, row: t.row, col: t.col, grid: previewGrid(lookups, piece), heal: previewHeal(lookups, piece), name: rec?.name || '' });
       audio.sfx('pick', { volume: 0.5 });
     };
     const offs = [
@@ -1796,11 +1800,11 @@ function MatchScreen() {
     live: typeof liveStats === 'function' ? liveStats() : liveStats,
     loadout: detailLoadout, getChess: gd.chess, backups: gd.backups,
   }) : null;
-  if (cardRange && skillRangeOn) cardRange.grid = ufSkill.grid;
+  if (cardRange && skillRangeOn) { cardRange.grid = ufSkill.grid; cardRange.skill = true; }
   const cardRangeKey = cardRange ? JSON.stringify(cardRange) : '';
   useEffect(() => {
     if (!view) return undefined;
-    showRange(view, cardRange?.grid, cardRange?.row, cardRange?.col, cardRange?.dir, SEL_RANGE);
+    showRange(view, cardRange?.grid, cardRange?.row, cardRange?.col, cardRange?.dir, cardRange?.skill ? SEL_RANGE_SKILL : cardRange?.heal ? SEL_RANGE_HEAL : SEL_RANGE);
     return () => showRange(view, null, 0, 0, null, SEL_RANGE);
   }, [view, cardRangeKey, showPrep, field]);
   // the card's bond chips — and the popup a chip opens: a battle / scouted unit's OWNER's bonds (yours, or that
@@ -1969,7 +1973,7 @@ function MatchScreen() {
       tone=${resultBox.tone} duration=${resultBox.duration} onDone=${() => setResultBox(null)} />` : null}
 
     ${facing && view ? html`<${FacingWheel} key=${`${facing.uid}:${facing.row},${facing.col}`} view=${view} row=${facing.row} col=${facing.col}
-      grid=${facing.grid} name=${facing.name} onPreview=${previewFacing} onCommit=${commitFacing} onCancel=${cancelFacing} />` : null}
+      grid=${facing.grid} heal=${!!facing.heal} name=${facing.name} onPreview=${previewFacing} onCommit=${commitFacing} onCancel=${cancelFacing} />` : null}
 
     ${goldAsk ? html`<${ReadyTipDialog} key=${goldAsk.text} text=${goldAsk.text} check=${goldAsk.check} onAnswer=${(ok, noMore) => {
       if (ok && noMore) goldTipOff.current = true;

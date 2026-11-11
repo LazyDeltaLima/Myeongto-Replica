@@ -1,10 +1,14 @@
 /* Official equipment-slot popup over an operator while an item is dragged onto it (local patch, docs/LOCAL-PATCH.md
-   「배치 UI」; js/ui/equipHover.js). Prefab act1autochess_equip_slot_panel (EN client) in the 1280×720 canvas unit
-   (--ui-u, css/hud-art.css) × the panel's root scale 0.8 = --eh. Sprites (img_EquipSlot_*) come in as --eqh-* variables.
+   「배치 UI」; js/ui/equipHover.js). Prefab act1autochess_equip_slot_panel (EN client; act2 / act3 the same in the CN
+   client) × the panel's root scale 0.8 = --eh. Its unit is smaller than the HUD's: the official CN 1080p capture
+   (2026-11-11, an item dragged onto an operator) shows the slot pitch (108 units) at 83 px, about one screen px per
+   unit at 1080p — a 1920×1080 canvas, .72 of the HUD unit (--ui-u, css/hud-art.css) at the default UI size, where the
+   HUD matches the official one [추정·화면: the canvas the panel is parented to at run time is not read].
+   Sprites (img_EquipSlot_*) come in as --eqh-* variables.
    Clips: show — alpha 0→1 in .067 s, scale .831→.974 (.067 s)→1 (.333 s), y 94→120; close — alpha 1 until .2 s, 0 at
    .4 s, scale →.942, y 120→94; equipped — the slot pops 1→1.333 (.017 s)→.95 (.133 s)→1 (.183 s) with a teal fill
    flash and the glow. */
-.eqh { --eh: calc(var(--ui-u, .015rem) * .8); position: fixed; width: 0; height: 0; z-index: var(--z-banner); pointer-events: none; }
+.eqh { --eh: calc(var(--ui-u, .015rem) * .72 * .8); position: fixed; width: 0; height: 0; z-index: var(--z-banner); pointer-events: none; }
 .eqh i, .eqh span { position: absolute; display: block; }
 .eqh__p { position: absolute; left: calc(var(--eh) * -167); bottom: calc(var(--eh) * 120); width: calc(var(--eh) * 334); height: calc(var(--eh) * 152);
   transform-origin: 50% 100%; animation: eqh-in .333s linear both; }
