@@ -4359,6 +4359,8 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       shopClearedAtCombatStart: 'unfrozenSlots',
       itemSellable: false, itemDestroyRefund: 0,
       benchSize: act.constData.maxDeckChessCnt, tempSize: 5, deployCap: act.constData.maxBattleChessCnt,
+      // 规程's 装备区 (none before it): the five temp tiles became equipment-only (map tile_acbag; PlayerState bagMode)
+      ...(act.constData.maxDeckEquipmentChessCnt > 0 ? { equipHandSize: act.constData.maxDeckEquipmentChessCnt } : {}),
       storeCntMax: act.constData.storeCntMax,
       equipPerChess: 2, maxArtsPerRound: 2,
       poolCopies: { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 },

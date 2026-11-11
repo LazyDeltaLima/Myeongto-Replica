@@ -365,6 +365,12 @@ export class GameData {
   get refreshPrice() { return Math.max(0, numOr(this.economy.refreshPrice, DEFAULTS.refreshPrice)); }
   get benchSize() { return posIntOr(this.economy.benchSize, DEFAULTS.benchSize); }
   get tempSize() { return posIntOr(this.economy.tempSize, DEFAULTS.tempSize); }
+  /**
+   * 规程's 装备区 (constData maxDeckEquipmentChessCnt 5): equipment and 秘术 wait in a zone of their own on the five tiles
+   * that were the 临时整备区 (the season's map files mark them tile_acbag, the hand tile_achand), the hand keeps the
+   * operators and summon stacks. 0 = the zone does not exist (the shared hand of 卫戍协议：盟约). Capped at the five tiles.
+   */
+  get equipHandSize() { const n = this.economy.equipHandSize; return Number.isInteger(n) && n > 0 ? Math.min(n, this.tempSize) : 0; }
   get deployCap() { return posIntOr(this.economy.deployCap, DEFAULTS.deployCap); }
   get equipPerChess() { return posIntOr(this.economy.equipPerChess, DEFAULTS.equipPerChess); }
   /** Equipment slots of chess `id`: the season record's `equipSlots` (规程 equipSlotNum — 机械 acrbot 4 / elite 6), else equipPerChess. */

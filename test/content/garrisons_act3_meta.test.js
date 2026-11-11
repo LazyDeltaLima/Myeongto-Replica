@@ -94,7 +94,7 @@ test('涤火杰西卡 garrison_83: 休整期结束时 each board operator carryi
     place(m, ps, 'chess_char_1_02_a');
     for (const holder of [j, a]) {
       const it = giveItem(m, ps, 'chess_item_1_01_e_a', 'hand');
-      ps.hand[ps.hand.indexOf(it)] = null;
+      ps._detach(ps.find(it.uid)); // (规程 moved it into the 装备区)
       holder.items.push(it);
     }
     ps.recompute();
@@ -107,7 +107,7 @@ test('白铁 garrison_84: 进入休整期时 its equipment becomes the elite ver
   const { m, ps } = setup();
   const w = place(m, ps, 'chess_char_4_15_a');
   const it = giveItem(m, ps, 'chess_item_1_01_e_a', 'hand');
-  ps.hand[ps.hand.indexOf(it)] = null;
+  ps._detach(ps.find(it.uid)); // (规程 moved it into the 装备区)
   w.items.push(it);
   ps.recompute();
   m.dispatch(ps, 'onPrepStart', { round: m.round });

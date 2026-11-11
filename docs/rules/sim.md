@@ -3126,6 +3126,17 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 - **메커니스트 정교한 설계의 패시브**(`band_equipment` `promote_equip_extra_award {n 1, count 3, select_count 1}`, `bands/meta.js`): 라운드 첫 장비 진급 합성(같은 장비 2개 → 진급판, `onMerge` kind item) 때 장비 `count` 3개 중 `select_count` 1개 무료 — 상점 장비 중 조달 센터 레벨보다 한 티어 위까지(최대 6), 공유 재고가 막는 것은 빠짐 [추정·화면: 「可能出现更高一阶的装备」의 확률 — 티어 상한만 하나 올림]. 조합은 진급 합성이 아니라 안 센다. 액티브 몫(`skill_change_shop_equip`)은 묶음 sim-L.
 - 확인: `test/content/items_act3.test.js`(14 — 수정 전 코드에서 12건 실패 확인, 남은 둘은 데이터·「안 합쳐짐」 시험), `test/content/bands_act3.test.js`·`coverage.test.js`(커버리지 줄). 지난 시즌 데이터는 null 필드만 늘었다.
 
+## 규정 장비 구역 (2026-11-11)
+
+규정에서는 장비와 비술(秘术, `itemType` MAGIC)이 정비 구역을 쓰지 않고 **장비 구역(装备区) 5칸**에 따로 들어간다. 정비 구역 10칸에는 오퍼레이터와 소환물 묶음만 든다. 지난 시즌의 임시 정비 구역 5칸 자리가 장비 구역이 됐다.
+
+- **근거**: 표 `constData.maxDeckEquipmentChessCnt` 5(지난 시즌 없음, `maxDeckChessCnt` 10은 그대로) → 경제 `equipHandSize`(`tools/build-data.mjs`, `GameData.equipHandSize`). 규정 전장 파일(`level_act3autochess_m01`~`m12`)은 플레이어 구역마다 정비 구역 줄 10칸이 `tile_achand`이고, 그 아래 4~8열 5칸 — 지난 시즌 전장 파일에서 `tile_achand`이던 임시 칸 — 이 새 칸 `tile_acbag`이다. 넘친 기물을 둘 칸은 맵에 없다. 공식 클라에서 확인: 손 구역이 오퍼레이터 영역(`CHAR_HAND_0`~`3`)과 장비 영역(`EQUIP_HAND_0`~`3`)으로 나뉘고, 셈도 `charOrTokenCountInHand`·`equipOrMagicCountInHand`(비술은 장비 쪽, 소환물은 오퍼레이터 쪽), 가득 참·넘침 표시도 구역마다 `isHandCharFull`·`isHandEquipFull`·`isHandCharOverflow`·`isHandEquipOverflow`, 상수 `MAX_HAND_CHAR_CNT`·`MAX_HAND_EQUIP_CNT`. 하단 안내 띠(`panel_bottom_tips` `_tipConfigs`)에 새 종류 5 `AUTO_CHESS_BATTLE_TIP_HAND_CHAR_FULL`·6 `…_HAND_EQUIP_FULL`(색·아이콘은 `HAND_FULL`과 같음)이 더해졌다. 사용자의 2026-11-03 추정(「임시 정비 구역 5칸에는 장비만」)과 같다.
+- **구현**(`PlayerState.bagMode`, `player/basics.js`·`pieces.js _stowZone`·`_fillZones`): 우리 `temp`의 보이는 5칸이 장비 구역이다 — 같은 칸·같은 프로토콜 영역(`temp` idx 0~4)이라 그리기·끌기 길이 그대로 쓰인다. 장비 구역의 장비는 정비 구역의 기물처럼 기한이 없고(`_putTemp`가 기한을 적지 않음, `resolveTemp`가 건너뜀), 오른쪽부터 찬다 [추정·화면: 정비 구역과 같은 차는 순서로 함]. 상점 구매·보상 선택은 그 기물이 갈 구역이 차면 거절된다 — 오퍼레이터는 `HAND_FULL`, 장비는 `BAG_FULL`(「装备区已满」); 정비 구역이 가득이어도 장비는 사고, 장비 구역이 가득이어도 오퍼레이터는 산다. 장비는 정비 구역으로 옮길 수 없고(정비 구역의 오퍼레이터 위로 끌면 장착), 장비 구역 5칸 사이에서는 옮기거나 바꾼다(`g.move {to: {area: 'temp', idx}}`, 지난 시즌엔 `BAD_TARGET`). 정예화·장착 해제로 돌아온 장비도 장비 구역으로 간다(「干员晋级后已配发装备会回收至整备区」 — 같은 쌓기 길).
+- **넘침** [추정·서버: 넘친 기물을 공식 서버가 어디에 두고 언제 처분하는지는 서버 규칙이라 클라에 없음 — 넘침 표시(`isHand…Overflow`)·준비 확인 창(`tab_pre_ready_tip_hand_overflow`)·팁 「处于临时整备区的调度资源，在进入下一回合后会自动销毁」이 남아 있어 지난 시즌 꼴로 둠]: 수동 획득(정예화 결과·지급·장비 반환)이 제 구역에 자리가 없으면 숨은 대기열(`temp[5…]`)에서 기다리고, 지난 시즌과 같은 기한에 처분된다(오퍼레이터는 되팔림, 장비는 파기). 제 구역에 빈칸이 나면 도착 순서대로 끌려 들어간다 — 오퍼레이터는 정비 구역, 장비는 장비 구역. 맵에 칸이 없으므로 대기열은 그리지 않고, 하단 띠 「整备区溢出」와 준비 확인 창만 그 수를 알린다(`m.private.bag` = 5, 클라 `gameLogic/shop.js overflowOf`).
+- **하단 띠**: 준비 → 넘침 → 정비 구역 가득(`HAND_CHAR_FULL`) → 장비 구역 가득(`HAND_EQUIP_FULL`) 차례 [추정·CN: 두 「가득」의 차례는 CN 코드에만 있음]; 두 새 문구는 우리 것 [추정·자료 없음: 텍스트 키의 공식 문구가 우리 표에 없음]. 장비 구역 칸의 그림·이름표는 아직 지난 시즌 임시 칸 그대로(sim-N의 ui 줄).
+- 봇: 장비 구매·보상 선택의 자리 판단이 장비 구역 기준이고(오퍼레이터를 팔아 장비 자리를 만들지 않음), 대기열의 장비는 파기한다(봇 자리의 돌연변이 세포만 장비 구역의 가장 싼 장비를 대신 파기) — `bot.js resolveQueuedItem`.
+- 확인: `test/content/bag_act3.test.js`(9). 지난 시즌은 `equipHandSize`가 없어(0) 그대로 — 기본 시즌 golden 불변.
+
 ## 규정 장비 — 전투 쪽 (2026-11-11)
 
 규정의 새 장비 버프 키는 `content/items/effects/<계열>.js`의 규정 항목(버프 키로 고름, 장비 ID와 상관없음). 숫자는 모두 기록의 `buffs[].bb`, 규칙은 규정 표(`gamedata-act3autochess` 버프 템플릿)의 그래프에서 읽었다. 이름은 공식 한국어 이름이 아직 없어 중국어 원문과 ID(`chess_item_<n>_e`)로 적는다. `node tools/season-coverage.mjs act3autochess` 장비 줄: 전투 쪽 남은 것 0, 정비 쪽 투기 주사위(`equip_destory_skill_pool`) 하나.

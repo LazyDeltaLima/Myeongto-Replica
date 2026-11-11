@@ -231,7 +231,9 @@ export function placementContext({ priv, stage, editable, field = 'normal', getC
   const deploy = field === 'bossL' || field === 'bossR'
     ? deploySets(stage, field, ov)
     : deploySets(effectiveStage(stage, ov));
-  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, editable: !!editable, getChess, getToken, getItem, backups };
+  // 规程's 装备区 (m.private bag > 0): the five visible temp slots hold equipment and 秘术, the hand no items
+  const bag = Number(priv?.bag) > 0;
+  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, editable: !!editable, getChess, getToken, getItem, backups, bag };
 }
 
 /**
@@ -358,6 +360,8 @@ export function canPlace(ctx, uid, target) {
     if (!Number.isInteger(idx) || idx < 0 || idx >= GEO.HAND_SIZE) return no('BAD_TILE', t('无法放置在该位置'));
     if (src.area === 'hand' && src.idx === idx) return no('ALREADY', t('位置未变化'));
     const occ = ctx.handAt.get(idx);
+    // 规程 (bag): an item onto an operator of the hand is equipped, anywhere else of the hand refused (it waits in the 装备区)
+    if (piece.kind === 'item' && ctx.bag && occ?.piece.kind !== 'chess') return no('BAD_TARGET', t('装备只能放在装备区'));
     if (!occ) return { ok: true, action: 'move' };
     if (piece.kind === 'item') {
       if (occ.piece.kind === 'chess') return isMagic ? no('BAD_TARGET', t('该道具需要放置在战场上使用')) : equipCheck(ctx, piece, occ.piece);
@@ -377,6 +381,16 @@ export function canPlace(ctx, uid, target) {
       return free ? { ok: true, action: 'move' } : no('HAND_FULL', t('整备区已满'));
     }
     return { ok: true, action: 'swap' };
+  }
+
+  if (target.area === 'temp') {
+    // 规程's 装备区: an item of it moves between its five slots (the server's PlayerState.move 'temp'); elsewhere the temp
+    // row is overflow nothing is dropped into
+    const idx = target.idx;
+    const inBag = (i) => Number.isInteger(i) && i >= 0 && i < GEO.TEMP_SIZE;
+    if (!ctx.bag || piece.kind !== 'item' || src.area !== 'temp' || !inBag(src.idx) || !inBag(idx)) return no('BAD_TILE', t('无法放置在该位置'));
+    if (src.idx === idx) return no('ALREADY', t('位置未变化'));
+    return { ok: true, action: ctx.priv?.temp?.[idx] ? 'swap' : 'move' };
   }
 
   if (target.area === 'board') {
@@ -521,7 +535,7 @@ export function dropIntent(ctx, uid, target) {
     // both slots used: the replace dialog picks the equipped item to destroy (g.equip replaceUid) — see equipReplaces
     return { t: 'g.equip', fields: { itemUid: uid, targetUid: occ.piece.uid }, confirmReplace: equipReplaces(ctx, uid, occ.piece) };
   }
-  const to = target.area === 'hand' ? { area: 'hand', idx: target.idx } : { area: 'board', row: target.row, col: target.col };
+  const to = target.area === 'hand' || target.area === 'temp' ? { area: target.area, idx: target.idx } : { area: 'board', row: target.row, col: target.col };
   return { t: 'g.move', fields: { uid, to } };
 }
 

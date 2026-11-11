@@ -1376,7 +1376,9 @@ function takeOffers(m, ps) {
       if (offer.slots.some((s) => !s.sold)) { ps.offers.shift(); ps.dirty(); continue; }
       break;
     }
-    if (freeSlot(ps.hand) < 0) sellWeakestHand(m, ps, { keepPairs: false });
+    // room in the pick's zone: selling a bench operator frees nothing in 规程's 装备区
+    const kind = offer.slots[best].kind;
+    if (ps.freeZoneSlot(kind) < 0 && ps.zoneOf(kind) === 'hand') sellWeakestHand(m, ps, { keepPairs: false });
     if (!tryDo(() => ps.pickReward(best))) {
       // could not take it (sold out / no room): drop the offer
       ps.offers.shift();
@@ -1583,7 +1585,7 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
         if (fillOnly) return;
         if (!m.itemPool.canGain(s.id)) return; // the shared equipment stock ran out since the roll (buy would fail SOLD_OUT)
         if (!canUseItem(m, ps, { id: s.id })) return;
-        if (freeSlot(ps.hand) < 0) return;
+        if (ps.freeZoneSlot('item') < 0) return; // the hand, or 规程's 装备区
         if (ps.funds - price < reserve && !ps.completesItemMerge(s.id)) return;
         const carriers = [...ps.board.values()].filter((p) => p.kind === 'chess' && (p.items || []).length < gd.equipSlotsOf(p.id)).length;
         if (!carriers) return;
@@ -1955,6 +1957,22 @@ function makeHandRoom(m, ps, piece = null) {
 }
 
 /**
+ * 规程 (bagMode): an item queued behind a full 装备区 (PlayerState._stowZone). Selling an operator frees nothing there:
+ * a 突变细胞 on a bot's own seat takes the place of the cheapest other item of the zone (destroyed; the freed slot pulls
+ * the queued one in at the recompute), anything else is destroyed — a human's under AI 托管 too, as its deadline would.
+ */
+function resolveQueuedItem(m, ps, p) {
+  const gd = ps?.gd || m.gd;
+  const inBag = () => ps.temp.indexOf(p) >= 0 && ps.isBagSlot(ps.temp.indexOf(p));
+  if (isMutationCell(gd, p.id) && ps.isBot && !ps.autoplay) {
+    const junk = ps.temp.filter((x, i) => x && ps.isBagSlot(i) && x.kind === 'item' && !isMutationCell(gd, x.id))
+      .sort((a, b) => ((gd.item(a.id) || {}).price || 0) - ((gd.item(b.id) || {}).price || 0) || a.uid - b.uid)[0];
+    if (junk && tryDo(() => ps.destroy(junk.uid)) && inBag()) return;
+  }
+  if (!inBag()) tryDo(() => ps.destroy(p.uid));
+}
+
+/**
  * Empty the temp row before Ready. A freed hand slot pulls the temp pieces in by itself, rightmost first
  * (PlayerState._fillHandFromTemp), so the pieces are decided right → left: the one at hand is always the next a freed
  * slot takes. A chess: the weakest bench single is sold to make room (it may be the temp chess itself), else the temp
@@ -1964,6 +1982,7 @@ function resolveTemp(m, ps) {
   // Track pieces, not indices: draining an extended queue refills and compacts its visible window.
   for (const p of ps.tempPieces()) {
     if (!ps.temp.includes(p)) continue;
+    if (ps.bagMode && p.kind === 'item') { resolveQueuedItem(m, ps, p); continue; }
     const idx = freeSlot(ps.hand); // (a recompute pulls it in; a state set up without one)
     if (idx >= 0 && tryDo(() => ps.move(p.uid, { area: 'hand', idx }))) continue;
     if (p.kind === 'chess') {
@@ -1981,7 +2000,7 @@ function resolveTemp(m, ps) {
   }
   // anything left (e.g. sells failed): final sweep — tokens cannot be sold, they are dropped with the temp slot (and
   // come back at the next round start, PlayerState.startRound)
-  for (const p of [...ps.temp]) {
+  for (const p of ps.overflowPieces()) {
     if (!p || !ps.temp.includes(p)) continue;
     if (p.kind === 'chess') tryDo(() => ps.sell(p.uid));
     else if (p.kind === 'item') tryDo(() => ps.destroy(p.uid));

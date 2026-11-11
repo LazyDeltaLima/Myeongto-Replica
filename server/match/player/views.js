@@ -109,6 +109,9 @@ export class PlayerViews {
       // (render/app.js; PRTS 卫戍协议/帮助 §手牌区 "溢出单位无法查看，在临时手牌区出现空位时自动移入", as upstream 92b97ecb —
       // maintainer decision 2026-10-17, see docs/rules/sim.md 「임시 정비 구역 뒤 숨은 대기열」)
       temp: this.temp.map((p) => (p ? this.pieceView(p) : null)),
+      // 规程's 装备区 (GameData.equipHandSize; 0 = none): the five visible temp slots are the equipment zone, not overflow —
+      // only the queue behind them is (docs/rules/sim.md 「규정 장비 구역」)
+      bag: this.gd.equipHandSize,
       board,
       // The stage's 外勤医疗 reserve medic is present during prep, but is not a draggable board piece.
       prepMapChars: this.m.prepMapChars(this),

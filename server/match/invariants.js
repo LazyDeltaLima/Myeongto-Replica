@@ -63,9 +63,15 @@ export function collectViolations(m, { limit = 25 } = {}) {
     if (ps.alive && m.phase !== PHASE.SETTLE && ps.lp <= 0 && m.teamLp == null && m.round > 0 && ps.bandId) fail(`${id}: alive with lp ${ps.lp}`);
     if (ps.hand.length !== gd.benchSize) fail(`${id}: hand has ${ps.hand.length} slots`);
     if (ps.temp.length < gd.tempSize) fail(`${id}: temp has fewer than ${gd.tempSize} visible slots`);
-    if (ps.temp.length > gd.tempSize && ps.temp.some((x) => x == null)) fail(`${id}: overflow queue has an unfilled slot`);
+    if (ps.temp.length > gd.tempSize && (ps.bagMode ? ps.temp.slice(gd.tempSize) : ps.temp).some((x) => x == null)) fail(`${id}: overflow queue has an unfilled slot`);
     // 临时整备区 = overflow only (PRTS 卫戍协议/帮助 §手牌区 "常规手牌区出现空位时自动移入", GitHub #82)
-    if (ps.temp.some(Boolean) && ps.hand.some((x) => x == null)) fail(`${id}: a temp piece waits while a hand slot is free`);
+    if (ps.bagMode) {
+      // 规程: the hand holds operators / summon stacks, the 装备区 (the five visible temp slots) equipment and 秘术; an
+      // overflow piece waits in the queue only while its own zone is full
+      if (ps.hand.some((p) => p && p.kind === 'item')) fail(`${id}: an item in the hand (规程 keeps them in the 装备区)`);
+      if (ps.temp.slice(0, gd.tempSize).some((p) => p && p.kind !== 'item')) fail(`${id}: a non-item piece in the 装备区`);
+      for (const p of ps.overflowPieces()) if (ps.freeZoneSlot(p.kind) >= 0) fail(`${id}: queued ${p.kind} ${p.id} waits while its zone has a free slot`);
+    } else if (ps.temp.some(Boolean) && ps.hand.some((x) => x == null)) fail(`${id}: a temp piece waits while a hand slot is free`);
     if (!(ps.shop.level >= 1 && ps.shop.level <= gd.maxShopLevel)) fail(`${id}: shop level ${ps.shop.level}`);
     if (!(ps.shop.upgradePrice >= 0)) fail(`${id}: upgradePrice ${ps.shop.upgradePrice}`);
     if (!Number.isInteger(ps.shop.freeRefreshes) || ps.shop.freeRefreshes < 0) fail(`${id}: freeRefreshes ${ps.shop.freeRefreshes}`);

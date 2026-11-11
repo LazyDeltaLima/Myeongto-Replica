@@ -12,7 +12,8 @@ import { OK, fail } from './common.js';
 
 export class PlayerPlacement {
   /**
-   * g.move {uid, to, dir?}. Pieces: chess / token between board, hand and temp; items only within the hand. `dir`
+   * g.move {uid, to, dir?}. Pieces: chess / token between board, hand and temp; items only within the hand (规程: within
+   * the 装备区, `to.area` 'temp' idx 0…4 — bagMode). `dir`
    * (UP|RIGHT|DOWN|LEFT, absent ⇒ RIGHT; `to.dir` is read when the top-level one is absent) is the facing of a piece
    * moved onto the board — onto its own tile it re-orients the piece in place.
    */
@@ -30,7 +31,20 @@ export class PlayerPlacement {
     }
     if (to.area === 'hand') {
       if (!Number.isInteger(to.idx) || to.idx < 0 || to.idx >= this.hand.length) return fail(ERR.BAD_TARGET);
+      // 规程 (bagMode): equipment and 秘术 wait in the 装备区, never in the hand
+      if (this.zoneOf(piece.kind) === 'bag') return fail(ERR.BAD_TARGET, 'items wait in the equipment zone');
       return this._moveToHand(loc, to.idx);
+    }
+    if (to.area === 'temp') {
+      // 规程's 装备区: an item moves between its five slots (into an empty one, or swapping with the item there);
+      // the hidden queue behind them is not reachable
+      if (!this.isBagSlot(to.idx) || this.zoneOf(piece.kind) !== 'bag' || loc.area !== 'temp' || !this.isBagSlot(loc.idx)) return fail(ERR.BAD_TARGET);
+      if (to.idx === loc.idx) return OK;
+      const occ = this.temp[to.idx];
+      this.temp[to.idx] = piece;
+      this.temp[loc.idx] = occ || null;
+      this.recompute();
+      return OK;
     }
     return fail(ERR.BAD_TARGET);
   }

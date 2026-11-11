@@ -33,7 +33,7 @@ export { STATUS_META } from './gameLogic/format.js';
 export { sortedPlayers } from './gameLogic/shared.js';
 export { ownFieldId, homeFieldId, cycleField, watchTarget, switcherLabel, fieldLabel, activeBubbles } from './gameLogic/watch.js';
 export { sortBonds, bondTier, nextThreshold, bondRequireCount, grantedBonds, pieceBondIds, morphPairings, HARMONY_BOND, harmonyMembers, bondMembers, memberHeadCount, memberLit, bannedPerBond, disabledBondSets, briefingBondTip, modeOffBonds, bandOffBonds, bandOffLine } from './gameLogic/bonds.js';
-export { priceTone, mergeProgress, mergeTarget, handFull, completesMerge, offerHeader, shopBlockReason, readyFundsPrompt, readyOverflowPrompt, readyShopFold } from './gameLogic/shop.js';
+export { priceTone, mergeProgress, mergeTarget, handFull, bagFull, zoneFull, overflowOf, completesMerge, offerHeader, shopBlockReason, readyFundsPrompt, readyOverflowPrompt, readyShopFold } from './gameLogic/shop.js';
 export { deploySets, stageOverrides, deployMap, effectiveStage, indexPieces, placementContext, placementRecords, piecePosition, tileAllows, summonRange, summonExcluded, canPlace, equipReplaces, equipMerges, boardTargets, dropIntent, dropFailureReason } from './gameLogic/placement.js';
 export { terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry } from './gameLogic/terrain.js';
 export { normalizeDraft, normalizeSp, normalizePersonalChoice, autoDiyChoice } from './gameLogic/draft.js';

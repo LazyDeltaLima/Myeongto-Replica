@@ -631,6 +631,10 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   Ready, during onPrepEnd, or outside PREP (COMBAT, 联防, SETTLE, ROUND_START, 机变) → the end of the NEXT prep, so it
   is shown and usable first; `setReady(false)` makes what arrived while ready due at the current prep. The round
   start never wipes temp (DESIGN §6.2).
+  规程 (`equipHandSize` 5, docs/rules/sim.md 「규정 장비 구역」): equipment and 秘术 wait in the 装备区 — the five visible temp
+  slots, kept like the hand (no deadline) — and the hand holds operators and summon stacks only; a buy / pick into a full
+  zone is refused (`HAND_FULL`, `BAG_FULL` for an item); what overflows its zone waits in the hidden queue behind the five
+  (not drawn), is pulled into a freed slot of its own zone, and is resolved at the same deadline [ASSUMED].
 * **Merge**: 3 normal copies (风丸 2) anywhere (board/hand/temp) → 1 elite (the incoming copy, then temp, hand, board
   copies are consumed). Where it goes (PRTS 卫戍协议/帮助 "发送1名【精锐】状态的该干员至手牌区（若消耗已部署至作战区的干员，
   则发送至作战区对应位置）", the user's playtest #6 follow-up): when a consumed copy stood on the board, onto that copy's

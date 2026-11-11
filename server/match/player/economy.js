@@ -5,7 +5,6 @@
 // the player state).
 
 import { ERR, PHASE, layerGainRoom } from '../../../shared/constants.js';
-import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
 
 /** The phases whose layer gains the owner hears (m.layer); a battle's gains sound from its own 'layer' events. */
@@ -156,7 +155,8 @@ export class PlayerEconomy {
     if (slot.sold) return fail(ERR.SOLD_OUT);
     const price = this.priceOf(slot);
     if (this.funds < price) return fail(ERR.NO_FUNDS);
-    const handFull = freeSlot(this.hand) < 0;
+    // a full zone refuses it: the hand, or 规程's 装备区 for an item (bagMode)
+    const handFull = this.freeZoneSlot(slot.kind) < 0;
     let piece;
     if (slot.kind === 'chess') {
       const rec = this.gd.chess(slot.id);
@@ -173,7 +173,7 @@ export class PlayerEconomy {
     } else {
       if (!this.gd.item(slot.id)) return fail(ERR.BAD_TARGET);
       if (!this.m.itemPool.canGain(slot.id)) return fail(ERR.SOLD_OUT);
-      if (handFull) return fail(ERR.HAND_FULL);
+      if (handFull) return fail(this.zoneFullError('item'));
       this.spend(price);
       slot.sold = true;
       piece = this.acquireItem(slot.id, { source: 'buy' });

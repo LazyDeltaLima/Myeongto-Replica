@@ -273,7 +273,8 @@ describe('3: the temp overflow row (临时整备区)', () => {
 
   test('the game screen frames the row only on the own prep board while it holds pieces (source contract)', () => {
     const game = read('public/js/screens/game.js');
-    assert.match(game, /const tempNotice = temp\.count > 0 && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;/);
+    // (规程: the visible row is the 装备区 and the overflow queue behind it is not drawn — no frame, docs/rules/sim.md 「규정 장비 구역」)
+    assert.match(game, /const tempNotice = temp\.count > 0 && !\(Number\(priv\?\.bag\) > 0\) && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;/);
     assert.match(game, /<\$\{TempRowNotice\} view=\$\{view\} count=\$\{temp\.count\} items=\$\{temp\.items\} label=\$\{!drag && !facing\}\s+ready=\$\{phase === PHASE\.PREP && !!priv\?\.ready\} \/>/);
     assert.match(game, /if \(refused\) \{ audio\.sfx\('error', \{ volume: 0\.5 \}\); matchToast\(refused, 'warn'\); return; \}/, 'Space says why (an open 教鞭 choice)');
     const css = read('public/css/screens/game-panels.css');

@@ -34,7 +34,7 @@ import { html, Button, Icon, PingPill, Countdown, Tooltip, MicroLabel, Difficult
 import { Sprite, LpTower, GIcon, LocalSprite } from './gameComponents.js';
 import { localAsset } from '../data.js';
 import { serverNow, createStore, useStore } from '../store.js';
-import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason, countdownWarnAt } from './gameLogic.js';
+import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason, countdownWarnAt, overflowOf } from './gameLogic.js';
 import { overtimeState, overtimeDrainPerSec, remainAt } from './matchStatus.js';
 import { hotkeyLabelOf } from './settings.js';
 import { t, tParts } from '../../../shared/i18n.js';
@@ -258,7 +258,8 @@ export function pendingTip(lp, pending, { unite = false, cap = 10, left = null, 
  * @returns {{ count: number, items: number }}
  */
 export function tempInfo(priv) {
-  const list = (Array.isArray(priv?.temp) ? priv.temp : []).filter((p) => p && typeof p === 'object');
+  // overflow only: in 规程 the five visible slots are the 装备区 (gameLogic overflowOf)
+  const list = overflowOf(priv);
   return { count: list.length, items: list.filter((p) => p.kind === 'item').length };
 }
 

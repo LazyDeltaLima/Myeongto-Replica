@@ -74,6 +74,25 @@ export function handFull(priv) {
   return hand.length >= GEO.HAND_SIZE && hand.every((p) => p != null);
 }
 
+/** 规程's 装备区 (m.private bag > 0) has no free slot (the server refuses an item purchase / pick then: BAG_FULL). */
+export function bagFull(priv) {
+  if (!(Number(priv?.bag) > 0)) return false;
+  const temp = Array.isArray(priv?.temp) ? priv.temp : [];
+  for (let i = 0; i < GEO.TEMP_SIZE; i++) if (temp[i] == null) return false;
+  return true;
+}
+
+/** The zone a shop / reward card of `kind` goes to is full: 规程's 装备区 for an item, else the hand (PlayerState.freeZoneSlot). */
+export function zoneFull(priv, kind) {
+  return Number(priv?.bag) > 0 && kind === 'item' ? bagFull(priv) : handFull(priv);
+}
+
+/** The pieces that overflowed (m.private temp; in 规程 only the queue behind the five 装备区 slots — PlayerState.overflowPieces). */
+export function overflowOf(priv) {
+  const temp = Array.isArray(priv?.temp) ? priv.temp : [];
+  return (Number(priv?.bag) > 0 ? temp.slice(GEO.TEMP_SIZE) : temp).filter((p) => isObj(p));
+}
+
 /**
  * Would gaining one more `slot` (shop / reward card: { kind: 'chess'|'item', id }) complete a merge right away? Mirror
  * of server PlayerState completesChessMerge / completesItemMerge. (A full hand refuses such a purchase all the same:
@@ -155,7 +174,7 @@ export function shopBlockReason(kind, { priv, editable, slot } = {}) {
     if (!isObj(slot) || slot.sold) return kind === 'reward' ? t('已选择') : t('已售出');
     if ((Number(slot.price) || 0) > funds) return t('资金不足');
     // a full hand refuses every purchase / pick, a merge-completing one too (PRTS 卫戍协议/帮助 §手牌区, GitHub #82)
-    if (handFull(priv)) return t('整备区已满');
+    if (zoneFull(priv, slot.kind)) return Number(priv.bag) > 0 && slot.kind === 'item' ? t('装备区已满') : t('整备区已满');
     return null;
   }
   if (kind === 'refresh') return (Number(shop.refreshPrice) || 0) > funds ? t('资金不足') : null;
@@ -201,7 +220,7 @@ export function readyFundsPrompt(priv, { ready = true, keptBands = null, autopla
  */
 export function readyOverflowPrompt(priv, { ready = true, autoplay = false } = {}) {
   if (!ready || autoplay || !isObj(priv) || priv.alive === false || priv.ready) return null;
-  if (!(Array.isArray(priv.temp) ? priv.temp : []).some((p) => isObj(p))) return null;
+  if (!overflowOf(priv).length) return null;
   return {
     title: t('临时整备区'), micro: 'OVERFLOW', okText: t('准备就绪'), cancelText: t('继续整备'),
     text: t('临时整备区中仍有单位，休整期结束时将被销毁。确定准备就绪吗？'),

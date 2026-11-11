@@ -98,7 +98,7 @@ test('组合: a part granted as the prep ends waits beside its partner and fuses
   ps.acquireItem(SPEAR, { source: 'effect', deferMerge: true });
   assert.deepEqual(owned(ps).sort(), [SPEAR, HELM].sort());
   noViolations(m);
-  for (const p of ps.hand) if (p) delete p.deferMerge;
+  for (const p of [...ps.hand, ...ps.temp]) if (p) delete p.deferMerge; // 规程: items wait in the 装备区 (temp)
   ps.checkItemMerges();
   assert.deepEqual(owned(ps), [GLORY]);
 });

@@ -7,11 +7,12 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
-import { PHASE } from '../../../shared/constants.js';
+import { PHASE, ERR } from '../../../shared/constants.js';
 import { msg, dn } from '../../../shared/i18n.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, resolveLoadout } from '../../../shared/protocol.js';
 import { cultivationOf } from '../../../shared/potential.js';
-import { tileKey, boardOrder } from '../board.js';
+import { tileKey, boardOrder, freeSlot } from '../board.js';
+import { TEMP_SIZE } from './common.js';
 
 /** The charIds a player may set a potential / 练度 for, per game-data object (shared/protocol.js cultivationCharIds). */
 const OPS_IDS = new WeakMap();
@@ -29,7 +30,29 @@ export class PlayerBasics {
 
   get deployCap() { return Math.max(1, this.gd.deployCap + this.deployCapBonus, this.deployCapMin); }
   get deployCount() { let n = 0; for (const p of this.board.values()) if (p.kind === 'chess') n++; return n; }
-  get tempEmpty() { return this.temp.every((x) => x == null); }
+  /**
+   * 规程's 装备区 (GameData.equipHandSize): the five visible temp slots are the equipment zone — equipment and 秘术 only,
+   * kept like the hand (no deadline) — and the hand holds operators and summon stacks only; what does not fit its own
+   * zone waits in the hidden queue behind the five (temp[5…]) until its deadline (official client: separate char / equip
+   * hand areas, full and overflow flags per area; where the overflow is shown is the server's [ASSUMED·서버]).
+   */
+  get bagMode() { return this.gd.equipHandSize > 0; }
+  /** temp index `i` is a slot of the 装备区 (bagMode's five visible slots), not overflow. */
+  isBagSlot(i) { return this.bagMode && Number.isInteger(i) && i >= 0 && i < TEMP_SIZE; }
+  /** The zone a piece of `kind` waits in: 'bag' (规程's 装备区, items) or 'hand'. */
+  zoneOf(kind) { return this.bagMode && kind === 'item' ? 'bag' : 'hand'; }
+  /** A free slot of the zone of `kind` (hand, or 规程's 装备区 for items): its index, else -1. */
+  freeZoneSlot(kind) {
+    if (this.zoneOf(kind) === 'hand') return freeSlot(this.hand);
+    for (let i = TEMP_SIZE - 1; i >= 0; i--) if (this.temp[i] == null) return i;
+    return -1;
+  }
+  /** The refusal of a buy / pick into a full zone: HAND_FULL, or BAG_FULL for an item in 规程's 装备区. */
+  zoneFullError(kind) { return this.zoneOf(kind) === 'bag' ? ERR.BAG_FULL : ERR.HAND_FULL; }
+  /** No overflow is waiting: the whole temp row, or in bagMode the hidden queue (the 装备区 is no overflow). */
+  get tempEmpty() { return this.overflowPieces().length === 0; }
+  /** The pieces that overflowed (temp; in bagMode only the queue behind the 装备区), in temp order. */
+  overflowPieces() { return (this.bagMode ? this.temp.slice(TEMP_SIZE) : this.temp).filter(Boolean); }
 
   /**
    * Index of the prep whose deadline resolves a temp piece (compare with `prepsEnded`): recorded when the piece entered
@@ -52,7 +75,9 @@ export class PlayerBasics {
   /** Every write of a piece into a temp slot goes through here (records its due prep). */
   _putTemp(i, piece) {
     this.temp[i] = piece;
-    this._tempDue.set(piece.uid, this._tempDueNow());
+    // a slot of 规程's 装备区 is no overflow: nothing there is due
+    if (this.isBagSlot(i)) this._tempDue.delete(piece.uid);
+    else this._tempDue.set(piece.uid, this._tempDueNow());
   }
 
   /**

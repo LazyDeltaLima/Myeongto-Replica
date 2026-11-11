@@ -265,7 +265,7 @@ export function opensGame(phase, prev, round) {
 // ---- the bottom tip band (panel_bottom_tips) -----------------------------------------------------------------------
 
 /**
- * The band's four looks (_tipConfigs of panel_bottom_tips: showType, the img_bg tint, the icon, the text key).
+ * The band's looks (_tipConfigs of panel_bottom_tips: showType, the img_bg tint, the icon, the text key).
  * KR: PREP_READY / WAIT_FINISH / HAND_FULL are the maintainer's KR captures (2026-10-10), HAND_OVERFLOW ours.
  */
 export const TIPS = Object.freeze({
@@ -273,20 +273,26 @@ export const TIPS = Object.freeze({
   HAND_OVERFLOW: { color: '#d22e2e', icon: 'icon_red', text: N_('整备区溢出，溢出的资源将在下一回合销毁') },
   WAIT_FINISH: { color: '#171717', icon: 'icon_waiting', text: N_('战斗结束，等待队友的战斗') },
   PREP_READY: { color: '#18a486', icon: 'icon_ready', text: N_('准备完成，等待模拟') },
+  // 规程 (CN _tipConfigs showType 5 / 6: HAND_FULL's tint and icon; text keys AUTO_CHESS_BATTLE_TIP_HAND_CHAR_FULL /
+  // _HAND_EQUIP_FULL — their texts are not in our tables, the wording is ours [ASSUMED·자료 없음])
+  HAND_CHAR_FULL: { color: '#ff9000', icon: 'icon_yellow', text: N_('整备区已满，无法购买干员') },
+  HAND_EQUIP_FULL: { color: '#ff9000', icon: 'icon_yellow', text: N_('装备区已满，无法购买装备') },
 });
 
 /**
  * Which band shows (the client's AutoChessBattleUIBottomTipsViewModel.UpdateData, 2026-10-10): in the prep (not watching
  * another board) the own ready → PREP_READY, else the temp overflow row holding pieces → HAND_OVERFLOW, else a full hand
  * → HAND_FULL; anywhere else (battle, 联防, watching) the own battle over while alive → WAIT_FINISH; else none.
- * @param {{ prep: boolean, watching: boolean, ready: boolean, overflow: boolean, full: boolean, ownDone: boolean, alive: boolean }} s
+ * @param {{ prep: boolean, watching: boolean, ready: boolean, overflow: boolean, full: boolean, ownDone: boolean, alive: boolean, bag?: boolean, bagFull?: boolean }} s
  * @returns {keyof typeof TIPS | null}
  */
-export function bottomTipType({ prep, watching, ready, overflow, full, ownDone, alive }) {
+export function bottomTipType({ prep, watching, ready, overflow, full, ownDone, alive, bag = false, bagFull = false }) {
   if (prep && !watching) {
     if (!alive) return null;
     if (ready) return 'PREP_READY';
     if (overflow) return 'HAND_OVERFLOW';
+    // 规程 (`bag`: the 装备区 exists): the hand and the 装备区 say full each [ASSUMED·CN: the order of the two]
+    if (bag) return full ? 'HAND_CHAR_FULL' : bagFull ? 'HAND_EQUIP_FULL' : null;
     if (full) return 'HAND_FULL';
     return null;
   }

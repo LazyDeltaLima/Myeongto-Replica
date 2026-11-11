@@ -116,7 +116,7 @@ import {
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, foldCamera, sideCamera, sideCameraOn, selectedTile, deployFoldsShop, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
-  mergeTarget, modeOffBonds, readyFundsPrompt, readyOverflowPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull, autoDiyChoice,
+  mergeTarget, modeOffBonds, readyFundsPrompt, readyOverflowPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull, bagFull, autoDiyChoice,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
 import { matchToast } from '../ui/matchToast.js';
@@ -1752,12 +1752,13 @@ function MatchScreen() {
   const ufOpts = { actions: ufActions, onBoard: !!ufActions?.retreat, skill: ufSkill }; // the official menu's button rect (underframeRect)
   // the temp overflow row holds pieces (user playtest #3 item 3): framed and labelled on the own prep board
   const temp = tempInfo(priv);
-  const tempNotice = temp.count > 0 && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;
+  // (规程: the visible row is the 装备区, the overflow queue behind it is not drawn — no frame)
+  const tempNotice = temp.count > 0 && !(Number(priv?.bag) > 0) && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;
   // the ready button shows why it is refused under it (ui/hud.js ReadyToggle): the effects column moves down a line
   const readyWhy = phase === PHASE.PREP && alive && !priv?.ready && (hasPersonalChoice || temp.count > 0);
   // the official bottom band (panel_bottom_tips): ready / overflow / full hand in the prep, the own battle over in a battle
   const tipType = spectator || !battleArt('waiting').cls ? null : bottomTipType({
-    prep: phase === PHASE.PREP, watching: watchingOther, ready: !!priv?.ready, overflow: temp.count > 0, full: !!priv && handFull(priv),
+    prep: phase === PHASE.PREP, watching: watchingOther, ready: !!priv?.ready, overflow: temp.count > 0, full: !!priv && handFull(priv), bag: Number(priv?.bag) > 0, bagFull: !!priv && bagFull(priv),
     ownDone: !!myDone && (phase === PHASE.COMBAT || phase === PHASE.UNITE), alive,
   });
   // the frame the panels are laid out in: the HUD layer (client px; inside the safe-area insets of a notched phone),
