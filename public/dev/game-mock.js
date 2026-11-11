@@ -26,7 +26,8 @@ const params = new URLSearchParams(location.search);
 const SHOT = params.get('shot') === '1';
 const VARIANTS = new Set((params.get('variant') || '').split(',').filter(Boolean));
 // ?season=act3autochess reads that season's data (its stages: ?stage=act3autochess_m01); ?bandSkill=<bandId> gives the own
-// player that strategy and its active 指令 (ui/bandSkill.js), answered by the g.bandSkill mock below
+// player that strategy and its active 指令 (ui/bandSkill.js), answered by the g.bandSkill mock below — or, for a strategy
+// without one, its passive portrait with a sample progress (?bandStage=<i> shows that stage)
 const SEASON = params.get('season') || null;
 const BAND_SKILL = params.get('bandSkill') || null;
 const STAGE_ID = params.get('stage') || (SEASON === 'act3autochess' ? 'act3autochess_m01' : 'act2autochess_m01'); // local patch: ?stage= (e.g. a desert stage)
@@ -127,7 +128,31 @@ function pushPublic() {
 function mockBandSkill(bandId, st) {
   const rec = data.lookupRaw('bands', bandId);
   const stages = Array.isArray(rec?.skills) ? rec.skills : [];
-  const i = Math.max(0, stages.findIndex((x) => x && x.type === 'ACTIVE'));
+  // the strategy's bond direction switches (server _bandBondSwaps; the mock takes every one the table names)
+  const bondSwaps = {};
+  for (const sk of stages) for (const b of sk?.buffs || []) {
+    if (b?.key !== 'auto_chess_effect_replace') continue;
+    for (const [from, to] of Object.entries(b.bbStr || {})) { const bond = data.list('bonds').find((x) => x.effectId === from); if (bond) bondSwaps[bond.bondId] ??= to; }
+  }
+  // the progress a stage shows (server content/bands/progress.js): a fixed sample — ?bandStage=<i> picks the stage
+  const sample = (p) => (p ? { value: Math.max(0, Math.min(p, 2)), target: p } : null);
+  const pick = Number.parseInt(params.get('bandStage') ?? '', 10);
+  if (!stages.some((x) => x && x.type === 'ACTIVE') || Number.isInteger(pick)) {
+    const j = Number.isInteger(pick) ? Math.max(0, Math.min(stages.length - 1, pick)) : 0;
+    const sg = stages[j];
+    if (!sg) return null;
+    const bb = (sg.buffs || []).map((b) => b?.bb || {}).find((x) => x.count || x.max_count || x.refresh_count || x.n) || {};
+    const target = Number(bb.max_count || bb.refresh_count || bb.count || bb.n) || null;
+    const u = sg.next?.unlockParams || [];
+    const unlockTarget = Number(sg.next?.unlockType === 'band_skill_load_by_bond_act_count' ? u[1] : u[0]) || null;
+    if (sg.type !== 'ACTIVE') {
+      return { stage: j, stageCount: stages.length, effectId: sg.effectId, type: sg.type || 'PASSIVE', target: null, cost: 0, avail: { type: 'DEFAULT', count: 0 },
+        usesLeft: null, cooldown: 0, usable: false, blocked: sg.type === 'PASSIVE' ? 'passive' : 'mock', showTag: sg.showTag ?? null,
+        tag: sg.showTag === 'value_target' ? sample(target) : null, unlock: unlockTarget ? { value: Math.round(unlockTarget * 0.4), target: unlockTarget } : null,
+        bondSwaps, marks: [], chests: [] };
+    }
+  }
+  const i = Number.isInteger(pick) ? Math.max(0, Math.min(stages.length - 1, pick)) : Math.max(0, stages.findIndex((x) => x && x.type === 'ACTIVE'));
   const stage = stages[i];
   if (!stage) return null;
   const avail = stage.avail || { type: 'DEFAULT', count: 0 };
@@ -136,7 +161,8 @@ function mockBandSkill(bandId, st) {
   const cost = Number(stage.cost) || 0;
   const usable = usesLeft !== 0 && cooldown === 0 && cost <= (S?.priv?.funds ?? 13) && !(S?.priv?.ready);
   return { stage: i, stageCount: stages.length, effectId: stage.effectId, type: stage.type, target: { type: stage.target?.type || 'NO_TARGET', filter: stage.target?.filter ?? null },
-    cost, avail: { type: avail.type, count: avail.count }, usesLeft, cooldown, usable, blocked: usable ? null : 'mock', marks: [] };
+    cost, avail: { type: avail.type, count: avail.count }, usesLeft, cooldown, usable, blocked: usable ? null : 'mock',
+    showTag: stage.showTag ?? null, tag: null, unlock: stage.next ? { value: 0, target: Number(stage.next.unlockParams?.[0]) || 1 } : null, bondSwaps, marks: [], chests: [] };
 }
 
 function buildState() {

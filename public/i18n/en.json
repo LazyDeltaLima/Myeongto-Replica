@@ -1796,5 +1796,6 @@
   "请指向{place}的可用地块": "Point at a usable tile — {place}",
   "战场或整备区": "battlefield or standby area",
   "展开效果": "Show effects",
+  "策略「{band}」：此盟约改为另一方向的效果": "Strategy “{band}”: this bond takes its other direction’s effect",
   "收起效果": "Hide effects"
 }

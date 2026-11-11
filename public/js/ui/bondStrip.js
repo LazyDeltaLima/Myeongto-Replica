@@ -29,6 +29,9 @@
 // dimmed until owned (not bought, or not in the shop yet), left out when all its bonds are off this match (m.private.diyBanned), as banned members are — and opens the operator's card; a watched
 // teammate's 自选 pieces on the field are rows too (their picks are not sent), opening THEIR operator's card (the unit's
 // pick goes with onMember: never the empty 甄选干员 slot's card).
+// 规程: a strategy that switches a bond's direction for its holder (m.private.bandSkill.bondSwaps, the server's word —
+// server/match/match/bandSkill.js _bandBondSwaps) makes the popup show that direction's effect (its effects.json name
+// and text) under a line naming the strategy (maintainer decision 2026-11-12).
 
 import { html, BondDisc, Icon, MicroLabel, Tooltip } from './components.js';
 import { RichText, UnitThumb, BondGlyph, GIcon } from './gameComponents.js';
@@ -148,6 +151,23 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
 }
 
 /**
+ * The bond record with another direction's effect (规程's direction switch): the effect's id, name and text; the
+ * placeholders keep the bond's base / per-stack names by index (formatBondEffect).
+ * @param {any} b bonds.json record
+ * @param {string} effectId
+ * @param {any} eff effects.json record
+ */
+export function swappedBond(b, effectId, eff) {
+  const src = eff.descRaw || eff.desc || '';
+  const byIndex = new Map((Array.isArray(b.effectDescParams) ? b.effectDescParams : []).map((p) => [p.index, p]));
+  const params = [...String(src).matchAll(/\{(\d+)(?::([^{}]+))?\}/g)].map((m) => {
+    const i = Number(m[1]);
+    return { index: i, format: m[2] || null, base: byIndex.get(i)?.base ?? null, perStack: byIndex.get(i)?.perStack ?? null };
+  });
+  return { ...b, effectId, effectName: eff.name ?? b.effectName, effectDesc: eff.desc ?? b.effectDesc, effectDescRaw: eff.descRaw ?? b.effectDescRaw, effectDescParams: params, swappedFrom: b.effectId };
+}
+
+/**
  * Bond detail popup.
  * @param {{ bondId: string, entry?: any, priv?: any, banned?: string[], onClose: Function,
  *   onMember?: (chessId:string, items?:string[]|null, standInFor?:string|null, diy?:any)=>void,
@@ -162,8 +182,12 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
  *   `entry.harmony` (the server's bond views: the +1 调和 added to `count`): 在场 n（含调和 +1） and the 调和 row
  */
 export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember, place = null, over = false, beside = null, owner = null, off = false }) {
-  const b = data.lookup('bonds', bondId);
-  if (!b) return null;
+  const base = data.lookup('bonds', bondId);
+  if (!base) return null;
+  const swapTo = priv?.bandSkill?.bondSwaps?.[bondId] || null;
+  const swapEff = swapTo ? data.lookup('effects', swapTo) : null;
+  const b = swapEff ? swappedBond(base, swapTo, swapEff) : base;
+  const swapBand = swapEff ? data.lookup('bands', priv.bandId)?.name || '' : null;
   const count = entry?.count ?? 0;
   const layers = entry?.layers ?? 0;
   // the 临时层数 part of `layers` (a battle's live count, ui/watchBonds.js withLiveLayers): the official dialog shows the
@@ -220,6 +244,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
       ${th.map((n, i) => html`<span key=${i} class=${cx('bpop__tier', i < tier && 'is-on')}><b class="num">${n}</b><small>${b.maxCount != null ? t('名及以下') : tc('bond-threshold', '名')}</small></span>`)}
     </div>
     ${hasNow ? html`<section class=${cx('bpop__sec', 'bpop__sec--now', active && 'is-active')}>
+      ${swapBand != null ? html`<p class="bpop__swap" role="note">⇄ ${t('策略「{band}」：此盟约改为另一方向的效果', { band: swapBand })}</p>` : null}
       <h4>${t('当前效果')} ${b.noStack ? null : html`<small class="num">${t('（{layers} 层）', { layers })}</small>`}</h4>
       <${RichText} as="p" text=${formatBondEffect(b, layers)} class="bpop__desc" />
     </section>` : null}

@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1574 of 1793 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1575 of 1794 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1812,5 +1812,6 @@
   "请指向{place}的可用地块": "{place}의 사용 가능한 칸을 가리키세요",
   "战场或整备区": "전장 또는 정비 구역",
   "展开效果": "효과 펼치기",
+  "策略「{band}」：此盟约改为另一方向的效果": "전략 「{band}」: 이 맹약은 다른 방향 효과로 적용",
   "收起效果": "효과 접기"
 }

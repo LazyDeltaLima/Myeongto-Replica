@@ -10,7 +10,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (f) => readFileSync(path.join(ROOT, f), 'utf8');
-const { bandSkillCounter, bandSkillTip, bandSkillTarget, BAND_SKILL_HL } = await import('../../public/js/ui/bandSkill.js');
+const { bandSkillCounter, bandSkillTip, bandSkillTarget, bandSkillText, bandSkillPassive, BAND_SKILL_HL } = await import('../../public/js/ui/bandSkill.js');
+const { swappedBond } = await import('../../public/js/ui/bondStrip.js');
 const { GEO } = await import('../../shared/constants.js');
 
 const view = (o) => ({ stage: 0, stageCount: 1, type: 'ACTIVE', target: { type: 'NO_TARGET', filter: null }, cost: 0, avail: { type: 'ROUND_RESET', count: 1 }, usesLeft: 1, cooldown: 0, usable: true, blocked: null, marks: [], ...o });
@@ -28,6 +29,38 @@ test('the counter: uses left, the cooldown\'s rounds, a lock while the stage is 
   assert.deepEqual(bandSkillCounter(view({ type: 'NONE' })), { icon: 'lock', text: '' });
   assert.equal(bandSkillCounter(view({ usesLeft: null, avail: { type: 'DEFAULT', count: 0 } })), null);
   assert.equal(bandSkillCounter(null), null);
+});
+
+test('a passive strategy: value/target in the pill for a value_target stage, nothing else (its stage is in the text)', () => {
+  const passive = (o) => view({ type: 'PASSIVE', target: null, usesLeft: null, usable: false, blocked: 'passive', avail: { type: 'DEFAULT', count: 0 }, ...o });
+  assert.ok(bandSkillPassive(passive({})));
+  assert.ok(!bandSkillPassive(view({})));
+  assert.deepEqual(bandSkillCounter(passive({ showTag: 'value_target', tag: { value: 2, target: 3 } })), { icon: null, text: '2/3', value: 2, target: 3 });
+  assert.equal(bandSkillCounter(passive({ showTag: null, tag: null, unlock: { value: 3, target: 5 } })), null, '华法琳: its stage only in the text');
+  assert.equal(bandSkillCounter(passive({ showTag: 'value_target', tag: null })), null);
+  // a locked stage that shows its unlock progress (琳琅诗怀雅 「消耗资金达到60时解锁」), and one that does not (但书 第4回合)
+  assert.deepEqual(bandSkillCounter(view({ type: 'NONE', showTag: 'value_target', unlock: { value: 23, target: 60 } })), { icon: 'lock', text: '23/60', value: 23, target: 60 });
+  assert.deepEqual(bandSkillCounter(view({ type: 'NONE', showTag: null, unlock: { value: 2, target: 4 } })), { icon: 'lock', text: '' });
+  // an active stage keeps its uses in the pill (its unlock progress goes in the text)
+  assert.deepEqual(bandSkillCounter(view({ usesLeft: 1, showTag: 'value_target', unlock: { value: 70, target: 120 } })), { icon: null, text: '1' });
+});
+
+test('the stage text: 「{@tag}」 / 「{@unlock}」 become (value/target) highlighted, or nothing without progress', () => {
+  const bs = { tag: { value: 2, target: 3 }, unlock: { value: 23, target: 60 } };
+  assert.equal(bandSkillText('获得3名【萨尔贡】干员后…-3{@tag}，', bs), '获得3名【萨尔贡】干员后…-3<@ba.vup>(2/3)</>，');
+  assert.equal(bandSkillText('消耗资金达到60时解锁{@unlock}', bs), '消耗资金达到60时解锁<@ba.vup>(23/60)</>');
+  assert.equal(bandSkillText('每购买3名{@tag}，{@unlock}', {}), '每购买3名，');
+});
+
+test('a switched bond direction: the effect\'s id, name and text, the placeholders by index', () => {
+  const bond = { bondId: 'x', name: 'X', effectId: 'e2', effectName: 'X-第二方向', effectDescRaw: 'a{0:0}b{1:0%}', effectDescParams: [{ index: 0, format: '0', base: 'b0', perStack: 'p0' }, { index: 1, format: '0%', base: null, perStack: null }] };
+  const r = swappedBond(bond, 'e1', { name: 'X', desc: 'c{0:0}', descRaw: '<@ba.vup>c{0:0}</>' });
+  assert.equal(r.effectId, 'e1');
+  assert.equal(r.swappedFrom, 'e2');
+  assert.equal(r.effectName, 'X');
+  assert.equal(r.effectDescRaw, '<@ba.vup>c{0:0}</>');
+  assert.deepEqual(r.effectDescParams, [{ index: 0, format: '0', base: 'b0', perStack: 'p0' }]);
+  assert.equal(bond.effectId, 'e2', 'the record itself is untouched');
 });
 
 test('the drag tip follows the table\'s targetTip, else the target kind', () => {

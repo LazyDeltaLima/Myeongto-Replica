@@ -283,6 +283,8 @@
 .bpop__sec h4 { font-size: .16rem; color: var(--mint-400); display: flex; align-items: baseline; gap: .08rem; }
 .bpop__sec h4 small { font-size: .13rem; color: var(--text-lo); font-weight: 400; }
 .bpop__sec--now { padding: .1rem .12rem; background: rgba(78, 216, 175, .06); border-left: 3px solid var(--mint-500); }
+/* 规程: the strategy that switched this bond's direction (bondStrip.js swappedBond) */
+.bpop__swap { margin: 0 0 .08rem; padding: .03rem .08rem; background: rgba(46, 240, 180, .1); border-left: 2px solid #2ef0b4; color: #bdf5e3; font-size: .7em; line-height: 1.4; }
 .bpop__desc { font-size: .15rem; line-height: 1.7; color: var(--text-md); }
 .bpop__members { display: grid; grid-template-columns: repeat(5, 1fr); gap: .08rem; }
 .bpop__member { position: relative; display: flex; flex-direction: column; align-items: center; gap: .03rem; padding: .04rem 0; background: none; border: 1px solid transparent; }
@@ -848,6 +850,9 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bskill.is-on .bskill__band:hover .bskill__ring, .bskill.is-on .bskill__band:focus-visible .bskill__ring,
 .bskill.is-drag .bskill__ring { box-shadow: 0 0 0 calc(var(--u) * 3) #7fffe0, 0 0 calc(var(--u) * 24) rgba(0, 255, 190, .9); }
 .bskill.is-locked .bskill__ring { box-shadow: 0 0 0 calc(var(--u) * 3) #8a8a8a; }
+/* a strategy without an active 指令: the official variant_passive ring (dark teal); a press opens only its detail */
+.bskill.is-passive .bskill__ring { box-shadow: 0 0 0 calc(var(--u) * 3) #2a6f62; }
+.bskill.is-passive .bskill__band { cursor: help; }
 .bskill__icon { display: block; width: 108%; height: 108%; margin: -4%; object-fit: cover; }
 .bskill.is-off .bskill__icon { filter: saturate(.4) brightness(.62); }
 .bskill.is-locked .bskill__icon { filter: grayscale(1) brightness(.5); }
@@ -864,6 +869,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-size: calc(var(--u) * 15); font-weight: 500; letter-spacing: -.06em; line-height: 1;
 }
 .bskill__count.is-zero { color: #ff6a5f; }
+.bskill__cv { color: #8ef7d6; }
 .bskill__cico { width: calc(var(--u) * 11); height: calc(var(--u) * 11); color: #d8d8d8; }
 .bskill__detail {
   position: absolute; right: calc(var(--u) * 148); top: calc(50% - var(--u) * 80); width: calc(var(--u) * 375); box-sizing: border-box; z-index: 2;

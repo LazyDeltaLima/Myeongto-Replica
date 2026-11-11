@@ -14,6 +14,10 @@
 //     sends g.bandSkill with it, anywhere else cancels;
 //   - on a phone the target is the one under the finger and no name label shows (maintainer decision 2026-11-12).
 // A press on the portrait while the 指令 cannot be used, and the 「查看」 bar, open the detail; the mouse shows it on hover.
+// A strategy without an active stage shows the same portrait with the passive ring (variant_passive) and opens only its
+// detail. Progress (m.private.bandSkill `tag` / `unlock`, server content/bands/progress.js): a stage whose table showTag
+// is 'value_target' shows value/target in the pill (a locked one after its lock) and in its text's 「{@tag}」 /
+// 「{@unlock}」; a passive's stage shows only in its text (maintainer decisions 2026-11-12).
 
 import { useState, useEffect, useRef } from '../../vendor/hooks.module.js';
 import { html } from './components.js';
@@ -56,10 +60,35 @@ export function bandSkillTip(target) {
  */
 export function bandSkillCounter(bs) {
   if (!bs) return null;
-  if (bs.type !== 'ACTIVE') return { icon: 'lock', text: '' };
+  const vt = (p) => (p && Number.isFinite(p.value) && Number.isFinite(p.target) ? { value: p.value, target: p.target } : null);
+  const shows = bs.showTag === 'value_target';
+  if (bandSkillPassive(bs)) {
+    const tag = shows ? vt(bs.tag) : null;
+    return tag ? { icon: null, text: `${tag.value}/${tag.target}`, ...tag } : null;
+  }
+  if (bs.type !== 'ACTIVE') {
+    const un = shows ? vt(bs.unlock) : null;
+    return un ? { icon: 'lock', text: `${un.value}/${un.target}`, ...un } : { icon: 'lock', text: '' };
+  }
   if (bs.cooldown > 0) return { icon: 'clock', text: String(bs.cooldown) };
   if (Number.isFinite(bs.usesLeft)) return { icon: null, text: String(bs.usesLeft) };
   return null;
+}
+
+/** A strategy without an active 指令 (bandSkillView's _bandPassiveView): a portrait and a detail, never used. */
+export function bandSkillPassive(bs) {
+  return !!bs && (bs.blocked === 'passive' || bs.type === 'PASSIVE');
+}
+
+/**
+ * The stage text with its 「{@tag}」 / 「{@unlock}」 filled: (value/target) highlighted, or nothing when the server sends no
+ * progress for it.
+ * @param {string} text rich text (bands.json skills[i].descRaw, localised)
+ * @param {any} bs m.private.bandSkill
+ */
+export function bandSkillText(text, bs) {
+  const fill = (p) => (p && Number.isFinite(p.value) && Number.isFinite(p.target) ? `<@ba.vup>(${p.value}/${p.target})</>` : '');
+  return String(text || '').replace(/\{@tag\}/g, () => fill(bs?.tag)).replace(/\{@unlock\}/g, () => fill(bs?.unlock));
 }
 
 /**
@@ -163,11 +192,12 @@ export function BandSkill({ view, priv, phase, combat }) {
   const rec = data.lookup('bands', priv.bandId);
   const raw = data.lookupRaw('bands', priv.bandId);
   const stage = rec?.skills?.[bs.stage] || raw?.skills?.[bs.stage] || null;
-  const desc = stage?.descRaw || stage?.desc || '';
+  const desc = bandSkillText(stage?.descRaw || stage?.desc || '', bs);
   const counter = bandSkillCounter(bs);
   const cost = Number(bs.cost) || 0;
   const short = cost > (Number(priv.funds) || 0);
-  const locked = bs.type !== 'ACTIVE';
+  const passive = bandSkillPassive(bs);
+  const locked = !passive && bs.type !== 'ACTIVE';
   const tip = bandSkillTip({ ...(bs.target || {}), tip: stage?.target?.tip ?? bs.target?.tip ?? null });
 
   const resolve = (x, y) => {
@@ -209,7 +239,7 @@ export function BandSkill({ view, priv, phase, combat }) {
 
   const name = rec?.name || raw?.name || '';
   return html`
-    <div class=${cx('bskill', combat ? 'is-battle' : 'is-prep', canUse ? 'is-on' : locked ? 'is-locked' : 'is-off', drag && 'is-drag', open && 'is-open')}
+    <div class=${cx('bskill', combat ? 'is-battle' : 'is-prep', canUse ? 'is-on' : passive ? 'is-passive' : locked ? 'is-locked' : 'is-off', drag && 'is-drag', open && 'is-open')}
       onMouseEnter=${() => { if (!press.current) setOpen(true); }} onMouseLeave=${() => { if (!press.current) setOpen(false); }}>
       <button type="button" class="bskill__look" aria-expanded=${open} onClick=${() => setOpen((o) => !o)}>${LOOK}<span>${t('查看')}</span></button>
       <div class="bskill__band" ref=${ring} role="button" tabIndex="0"
@@ -219,7 +249,7 @@ export function BandSkill({ view, priv, phase, combat }) {
         <span class="bskill__ring"><${Img} src=${bandIconUrl(data.get('assets'), priv.bandId)} class="bskill__icon"
           fallback=${html`<span class="bskill__glyph">${[...(name || '?')][0]}</span>`} /></span>
         ${cost > 0 ? html`<b class=${cx('bskill__cost', 'num', short && 'is-short')}>${cost}</b>` : null}
-        ${counter ? html`<span class=${cx('bskill__count', 'num', counter.text === '0' && 'is-zero')}>${counter.icon === 'clock' ? CLOCK : counter.icon === 'lock' ? LOCK : null}${counter.text}</span>` : null}
+        ${counter ? html`<span class=${cx('bskill__count', 'num', counter.text === '0' && 'is-zero')}>${counter.icon === 'clock' ? CLOCK : counter.icon === 'lock' ? LOCK : null}${counter.target != null ? html`<span class="bskill__cv">${counter.value}</span>/${counter.target}` : counter.text}</span>` : null}
       </div>
       ${open && !drag ? html`<div class="bskill__detail" role="tooltip">
         <b class="bskill__name">${name}</b>

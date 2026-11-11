@@ -60,9 +60,10 @@ test('g.bandSkill: the message shape — no field, a uid, a slot, or a row + col
   assert.notEqual(validateC2S({ t: 'g.bandSkill', row: 19, col: 0 }), null);
 });
 
-test('a strategy without an active stage: no bandSkill view, BAD_TARGET; the default season has none', () => {
+test('a strategy without an active stage: a passive view, never usable, BAD_TARGET (band_progress_act3.test.js)', () => {
   const { use, view } = setup({ band: 'band_amiya', handler: null });
-  assert.equal(view(), null);
+  assert.equal(view().usable, false);
+  assert.equal(view().blocked, 'passive');
   assert.deepEqual(use(), { error: 'BAD_TARGET', detail: 'no active band skill' });
 });
 
@@ -70,7 +71,8 @@ test('内部货源 (ROUND_RESET 1, 点击使用): once a round, the handler gets
   const { use, calls, nextRound, view, ps } = setup({ band: 'band_price' });
   assert.deepEqual(view(), {
     stage: 0, stageCount: 1, effectId: 'aceffect_band_73', type: 'ACTIVE', target: { type: 'NO_TARGET', filter: null },
-    cost: 0, avail: { type: 'ROUND_RESET', count: 1 }, usesLeft: 1, cooldown: 0, usable: true, blocked: null, marks: [], chests: [],
+    cost: 0, avail: { type: 'ROUND_RESET', count: 1 }, usesLeft: 1, cooldown: 0, usable: true, blocked: null,
+    showTag: null, tag: null, unlock: null, bondSwaps: {}, marks: [], chests: [],
   });
   assert.deepEqual(use({ uid: 1 }), { error: 'BAD_TARGET', detail: 'no target' });
   assert.equal(calls.length, 0, 'a refused target never reaches the handler');

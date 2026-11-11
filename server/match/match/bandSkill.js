@@ -35,6 +35,8 @@ import { PHASE, ERR } from '../../../shared/constants.js';
 import { OK, fail } from './common.js';
 import { inField, fieldTile, tileKey } from '../board.js';
 import { bandStages, bandStageIndex, SKILL_COST_COUNTER } from '../../sim/content/bands/meta.js';
+import { stageTag, stageUnlock } from '../../sim/content/bands/progress.js';
+import { bondEffectReplacements, unwrittenTemplates } from '../../sim/content/bonds/dispatch.js';
 
 /** Uses this round (with USED_ROUND, the round they count for). */
 export const USED = 'band:skill:used';
@@ -61,6 +63,7 @@ export class MatchBandSkill {
       get round() { return m.round; },
       shopLevel: () => ps.shop.level,
       stats: () => ps.stats,
+      roundStats: () => ps.round,
       bondCount: (id) => (ps.bonds[id] ? ps.bonds[id].count : 0),
       counter: (k) => (Number.isFinite(ps.counters[k]) ? ps.counters[k] : 0),
       setCounter: (k, v) => { if (write && Number.isFinite(v)) ps.counters[k] = v; return v; },
@@ -207,14 +210,18 @@ export class MatchBandSkill {
    * it can be used now: { stage, stageCount, effectId, type, target: { type, filter }, cost, avail: { type, count },
    * usesLeft (null: no count), cooldown (rounds left), usable, blocked (the refusal's detail or code when not usable),
    * marks (the marks this round's uses left for the round's battle: [{ effectId, uid? | itemId? | row?, col? }] —
-   * PlayerState bandMarksNow), chests (宝藏探机's chests standing on the board: [{ row, col, enemyId }] — bandChestsNow) }.
+   * PlayerState bandMarksNow), chests (宝藏探机's chests standing on the board: [{ row, col, enemyId }] — bandChestsNow),
+   * showTag (the stage's table field), tag / unlock (the stage's progress { value, target } or null — content/bands/
+   * progress.js), bondSwaps ({ bondId: effectId } — the bond directions the strategy switches, _bandBondSwaps) }.
+   * A 规程 strategy without an active stage gets the same shape from _bandPassiveView.
    * The target is not part of `usable` (the client highlights the targets its filter allows).
    */
   bandSkillView(ps) {
     const st = this._bandSkillState(ps, false);
-    if (!st) return null;
+    if (!st) return this._bandPassiveView(ps);
     const b = this._bandSkillBlock(ps, st);
     const t = st.stage.target && typeof st.stage.target === 'object' ? st.stage.target : null;
+    const ctx = this._bandSkillCtx(ps, false);
     return {
       stage: st.stageIndex,
       stageCount: st.stages.length,
@@ -227,11 +234,67 @@ export class MatchBandSkill {
       cooldown: st.cooldown,
       usable: !b,
       blocked: b ? (b.detail || b.error) : null,
+      showTag: st.stage.showTag ?? null,
+      tag: stageTag(ctx, st.stage),
+      unlock: stageUnlock(ctx, st.stage),
+      bondSwaps: this._bandBondSwaps(ps, st.rec),
       marks: ps.bandMarksNow().map((mk) => ({
         effectId: mk.effectId, ...(mk.uid != null ? { uid: mk.uid } : null), ...(mk.itemId ? { itemId: mk.itemId } : null),
         ...(mk.row != null ? { row: mk.row, col: mk.col } : null),
       })),
       chests: ps.bandChestsNow().map((x) => ({ row: x.row, col: x.col, enemyId: x.enemyId })),
     };
+  }
+
+  /**
+   * The view of a 规程 strategy without an active 指令 (its stages are all PASSIVE / NONE): the same shape, never usable
+   * (`blocked` 'passive'), so the HUD shows its portrait, its stage's text and progress — the official panel has a
+   * passive ring (autochess_hud_panel `skill_view` variant_passive). Null for a strategy without a stage table (the
+   * default season's: no panel there).
+   */
+  _bandPassiveView(ps) {
+    const gd = ps.gd || this.gd;
+    const rec = ps.bandId ? gd.band(ps.bandId) : null;
+    if (!rec || !Array.isArray(rec.skills) || !rec.skills.length) return null;
+    const stages = bandStages(rec);
+    const ctx = this._bandSkillCtx(ps, false);
+    const stageIndex = bandStageIndex(ctx, stages);
+    const stage = stages[stageIndex];
+    return {
+      stage: stageIndex,
+      stageCount: stages.length,
+      effectId: stage.effectId ?? null,
+      type: stage.type || 'PASSIVE',
+      target: null,
+      cost: 0,
+      avail: { type: 'DEFAULT', count: 0 },
+      usesLeft: null,
+      cooldown: 0,
+      usable: false,
+      blocked: 'passive',
+      showTag: stage.showTag ?? null,
+      tag: stageTag(ctx, stage),
+      unlock: stageUnlock(ctx, stage),
+      bondSwaps: this._bandBondSwaps(ps, rec),
+      marks: [],
+      chests: [],
+    };
+  }
+
+  /**
+   * The bonds whose effect the strategy switches for this player ({ bondId: effectId }, content/bonds/dispatch.js
+   * swapBondRecord — only a direction the battle runs: a written one), so the bond dialog shows that direction's text.
+   */
+  _bandBondSwaps(ps, rec) {
+    const rep = bondEffectReplacements(rec);
+    if (!rep.size) return {};
+    const gd = ps.gd || this.gd;
+    const out = {};
+    for (const id of gd.bondIds) {
+      const to = rep.get(gd.bond(id)?.effectId);
+      const eff = to ? gd.effect(to) : null;
+      if (eff && !unwrittenTemplates(eff).length) out[id] = to;
+    }
+    return out;
   }
 }
