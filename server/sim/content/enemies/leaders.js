@@ -3,14 +3,13 @@
 
 import { TICK, COLS } from '../../constants.js';
 import { aggroCmp, areaSelectable } from '../../targeting.js';
-import { periodicDamage } from '../../damage.js';
 import {
   nthOf, T, hurt, alliesInTiles, targetsNear, allTargets, areaAllies, areaAlliesInTiles, auraAllies, targetAndArea,
   byPriority, setForm, auraBuff, watchDeaths, unbalancedNow, shoot, mode,
 } from './helpers.js';
 import {
   unblockable, maxTargets, onHitStatus, splashAttack, pathKeysAhead, noAirTargets, resist, nthAttackStatus, lowHpBuff,
-  freeAllPrisoners, reborn, frontGuard, faceCrowd, unbalanced, artsBarrier, skill, blinkForward,
+  freeAllPrisoners, reborn, frontGuard, faceCrowd, unbalanced, unbalancedBleed, artsBarrier, skill, blinkForward,
 } from './archetypes.js';
 import { hypot, powi } from '../../detmath.js';
 import { interruptEnemyCast } from '../../ai.js';
@@ -879,23 +878,7 @@ export const LEADER_KITS = Object.freeze({
   enemy_2085_skzjxd: (ab) => [unblockable(), frontGuard(T(ab, 'Weakness.damage_resistance') ?? 0, faceCrowd)],
   enemy_2085_skzjxd_2: (ab) => [unblockable(), frontGuard(T(ab, 'Weakness.damage_resistance') ?? 0, faceCrowd)], // (鸭爵 strategy) same
   // 失衡 (pushed / pulled by operators)
-  enemy_1328_cbjedi: (ab) => {                                       // 弧光锋卫 · bleeds while in its 失衡 state
-    // PRTS 修正 "失衡移动时持续受到真实伤害", 天赋 "处于失衡状态时，每0.066s受到400点无来源真实持续伤害" (data unbalanced_bleed.damage /
-    // .interval; 伤害分类: 弧光锋卫失衡状态下的自残伤害 is BUFF damage): damage, not a 流失 (player report D1 audit) — every `interval`
-    // s for as long as the state lasts (battle/displacement.js _unbalance: a push's 位移时间, a pull's force window even
-    // after the 急停 or with no movement). Until 0.2.2 one hit in proportion to the tiles moved [ASSUMED], from the position jump.
-    const v = T(ab, 'unbalanced_bleed.damage') ?? 0, iv = T(ab, 'unbalanced_bleed.interval') ?? 0;
-    return [{
-      tick(b, e, a, dt) {
-        if (!(v > 0 && iv > 0) || !unbalancedNow(b, e)) { a.bleed = 0; return; }
-        a.bleed = (a.bleed ?? 0) + dt;
-        while (a.bleed >= iv - 1e-9 && e.alive) {
-          a.bleed -= iv;
-          b.dealDamage(null, e, { ...periodicDamage(v), tags: ['dot', 'periodic', 'unbalanced'] });
-        }
-      },
-    }];
-  },
+  enemy_1328_cbjedi: unbalancedBleed,                                // 弧光锋卫 · bleeds while in its 失衡 state
   enemy_10112_ymgds: (ab) => [unbalanced((b, e) => {                 // 冒失的小弟 · stunned after being unbalanced
     const st = T(ab, 'StunAfterUnbalance.stun') ?? 0;
     if (st > 0) b.applyStatus(e, 'stun', { duration: st, source: null });

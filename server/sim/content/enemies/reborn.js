@@ -9,7 +9,7 @@
 // enemy_bloodsucker_mark, which the auras of the 补给车 and the 集恨者 look for.
 
 import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
-import { T, elem, hurt, areaAllies, allTargets, remainingRoute, spawnChildren, auraBuff, watchDeaths, silenced, mode } from './helpers.js';
+import { T, elem, hurt, areaAllies, allTargets, remainingRoute, spawnChildren, auraBuff, watchDeaths, silenced, mode, atCastEvent } from './helpers.js';
 import { interruptEnemyCast } from '../../ai.js';
 import { ep, reborn, skill } from './archetypes.js';
 import { hypot, powi } from '../../detmath.js';
@@ -269,15 +269,6 @@ function splitOnDeath(ab) {
 }
 const kitSplitBeast = (ab) => [splitOnDeath(ab)];
 
-/**
- * A skill's ActiveBuff lands at its clip's attack event (`_waitForAttackEvent`: data/enemies.json `skillCast.hit`), so a cast
- * cut before it (stun, freeze …) gives nothing; without an event, at the clip's end (as an attack without one strikes).
- */
-function atCastEvent(b, e, s, fn) {
-  const c = s && s.cast, t = c && Number.isFinite(c.hit) ? c.hit : c && c.dur > 0 ? c.dur : 0;
-  if (!(t > 0)) { fn(); return; }
-  b.after(t - 1e-9, () => { if (e.alive && e.castLeft > 0) fn(); }, { owner: e });
-}
 
 /**
  * 变异巨岩蛛 / α: the splits on death, and SummonToken (SILENCE line; AlwaysTrigger, cooldown 5 s from the start) — one

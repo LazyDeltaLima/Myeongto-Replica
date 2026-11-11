@@ -434,6 +434,17 @@ export function lineShot(b, unit, aim, shot, onHit, opts = {}) {
 }
 
 /**
+ * A skill's effect lands at its clip's attack event (`_waitForAttackEvent`: data/enemies.json `skillCast.hit`), so a cast
+ * cut before it (stun, freeze …) gives nothing; without an event, at the clip's end (as an attack without one strikes).
+ * `at`: another event of the clip, s from the cast's start (a MultiRangedAttack's later shots, `_waitAttackEventForAllAttacks`).
+ */
+export function atCastEvent(b, e, s, fn, at = null) {
+  const c = s && s.cast, t = at != null ? at : c && Number.isFinite(c.hit) ? c.hit : c && c.dur > 0 ? c.dur : 0;
+  if (!(t > 0)) { fn(); return; }
+  b.after(t - 1e-9, () => { if (e.alive && e.castLeft > 0) fn(); }, { owner: e });
+}
+
+/**
  * Enemy `e` switches to its prefab's mode `name` (null / the first mode's name = the first): the client's `SwitchMode` —
  * its new mode's attack abilities attach ready; the swing running is cut unless `fsm` is false (the node's `_restartFSM`
  * off) and its ability plays on when detached (ai.js enemyMode; docs/rules/sim.md 「일반 공격 타이밍」 「적의 모드 전환」). A kit

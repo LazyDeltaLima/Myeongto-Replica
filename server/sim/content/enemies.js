@@ -81,6 +81,7 @@
 //                (the ability line is SILENCE-flagged: silencing turns it off); 镜膜 also gets max HP +100 % until its first silence, which permanently stops its fan.
 //   REBORN 复苏 (规程) — "首次被击倒后会重生": the main story's 萨卡兹子裔 summon a 重生造物 on their first knock-out
 //                (enemies/reborn.js; its header has the official templates).
+//   CRITIC 精锐 (规程) — main-story enemies with no rule of the type's own: enemies/critic.js.
 //   SPECIAL    — mostly stats; prisoners, 穿刺手, 暴虐兵长, 镜卫, 动力装甲 … in enemies/special.js.
 // Every enemy key of data/enemies.json is either in KITS (this file), BOSS_KEYS (bosses.js) or STATS_ONLY (with the
 // reason) — pinned by test/content/enemies_bosses.test.js. Bounty (悬赏) leaders are included: multi-form ones
@@ -106,7 +107,7 @@
 //   archetypes.js   ability building blocks (stealth, splashAttack, deathBoom, refraction, float, reborn, husk, statue,
 //                   artsBarrier, bleed, pollution, dmgZone, skill(), blinkForward …) and the archetype kits reused by
 //                   several keys (kitEp, kitStealth, kitTimes, kitRefraction, kitPrisoner, kitDeathSpawn, kitStun3 …)
-//   invisible.js, times.js, element.js, dot.js, reflection.js, reborn.js, fly.js, special.js — one file per special type
+//   invisible.js, times.js, element.js, dot.js, reflection.js, reborn.js, critic.js, fly.js, special.js — one file per special type
 //                   (factions.json): its kits, its kit-only constants and its part of KITS
 //   leaders.js      bounty (悬赏) leaders: kitLeaderMisc (single form) and the multi-form kits
 // Every name this file exported before the split is still exported from here.
@@ -119,6 +120,7 @@ import { ELEMENT_KITS } from './enemies/element.js';
 import { DOT_KITS } from './enemies/dot.js';
 import { REFLECTION_KITS } from './enemies/reflection.js';
 import { REBORN_KITS } from './enemies/reborn.js';
+import { CRITIC_KITS } from './enemies/critic.js';
 import { FLY_KITS } from './enemies/fly.js';
 import { SPECIAL_KITS } from './enemies/special.js';
 import { LEADER_KITS } from './enemies/leaders.js';
@@ -445,6 +447,7 @@ export const KITS = Object.freeze({
   ...DOT_KITS,
   ...REFLECTION_KITS,
   ...REBORN_KITS,
+  ...CRITIC_KITS,
   ...FLY_KITS,
   ...SPECIAL_KITS,
   ...LEADER_KITS,

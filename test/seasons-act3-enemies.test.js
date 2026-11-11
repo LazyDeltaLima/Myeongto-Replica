@@ -27,11 +27,10 @@ const E3 = ACT3.enemies, E0 = BASE.enemies;
 const LEADER_FIELD = [];
 // 特训敌人 entries of 规程 (its new types CRITIC 精锐 / REBORN 重生 among them) and their escorts and offspring
 const SPECIAL_TYPE = [
-  'enemy_10163_mnctur_2', 'enemy_1064_snsbr', 'enemy_1067_snslime_2', 'enemy_1191_krgrg', 'enemy_1191_krgrg_2',
+  'enemy_10163_mnctur_2', 'enemy_1064_snsbr', 'enemy_1067_snslime_2',
   'enemy_1213_mtrsnp', 'enemy_1216_cansld', 'enemy_1219_mtrbty', 'enemy_1309_mhboar_2', 'enemy_1363_spnshd_2',
   'enemy_1373_ltnhor', 'enemy_1373_ltnhor_2', 'enemy_1375_ltnclr', 'enemy_1375_ltnclr_2', 'enemy_1376_ltndru',
   'enemy_1376_ltndru_2', 'enemy_1385_winbom', 'enemy_1385_winbom_2', 'enemy_1388_wingnt', 'enemy_1388_wingnt_2',
-  'enemy_1403_gunsho', 'enemy_1403_gunsho_2', 'enemy_1405_boomer_2', 'enemy_1406_chghmr', 'enemy_1409_bdguad_2',
   'enemy_1428_lrsoul', 'enemy_1429_lrwzrd', 'enemy_1429_lrwzrd_2', 'enemy_1431_lrmzrd', 'enemy_1431_lrmzrd_2',
   'enemy_9031_acrefd', 'enemy_9034_acblk', 'enemy_9039_acrefm',
 ];
@@ -1124,4 +1123,152 @@ test('锋盔骑士团学徒 / “左手”泰特斯·白杨: the highest-ATK uni
     h.b.kill(e, a5);
     assert.ok(!e.alive, 'the second is the end');
   }
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// CRITIC 精锐 (content/enemies/critic.js)
+
+const KRGRG = 'enemy_1191_krgrg', KRGRG2 = 'enemy_1191_krgrg_2';
+
+test('冰原卫法者: knocked out, 1.2 s later ATK × 1.3 arts + 5 s cold on the ground units of both sides within 1.65; silenced, none', () => {
+  const bb = E3[KRGRG].talents.bb;
+  assert.deepEqual([bb['boom.atk_scale'], bb['boom.cold'], E3[KRGRG].abilities[0].format], [1.3, 5, 'SILENCE']);
+  for (const silence of [false, true]) {
+    // the wall 1 tile left of it, another wall 2 below; an enemy 1 to its right, another 2 to its right
+    const { h, hits } = waveField([KRGRG, KRGRG2], [{ chessId: 't_wall', row: 10, col: 5 }, { chessId: 't_wall2', row: 12, col: 6 }]);
+    const e = put(h, KRGRG, [10, 6], { tag: null });
+    const near = put(h, KRGRG2, [10, 7], { tag: null }), far = put(h, KRGRG2, [10, 8], { tag: null });
+    if (silence) h.b.applyStatus(e, 'silence', { duration: 10, source: null });
+    h.step();
+    const w = h.unit('t_wall'), w2 = h.unit('t_wall2');
+    h.b.kill(e, w);
+    runFor(h, 1.1);
+    assert.equal(hits.filter((x) => x.src === e).length, 0, 'not before the projectile\'s 1.2 s life ends');
+    runFor(h, 0.2);
+    const got = hits.filter((x) => x.src === e);
+    if (silence) { assert.equal(got.length, 0, 'silenced: no blast'); continue; }
+    assert.deepEqual(got.map((x) => x.t).sort((p, q) => p.id - q.id), [w, near].sort((p, q) => p.id - q.id), 'the wall and the enemy within 1.65, not those 2 away');
+    assert.ok(Math.abs(got.find((x) => x.t === w).n - 600 * 1.3) < 1e-6, 'ATK × 1.3 arts (RES 0)');
+    assert.ok(Math.abs(got.find((x) => x.t === near).n - 600 * 1.3 * 0.5) < 1e-6, 'on the enemy too, through its RES 50');
+    assert.ok(w.findBuff('cold') && near.findBuff('cold') && !far.findBuff('cold') && !w2.findBuff('cold'), '5 s cold on both sides');
+  }
+});
+
+test('冰原御法者: in its 失衡 state it loses 50 every 0.066 s (unbalanced_bleed, as 弧光锋卫)', () => {
+  const bb = E3[KRGRG2].talents.bb;
+  assert.deepEqual([bb['unbalanced_bleed.damage'], bb['unbalanced_bleed.interval']], [50, 0.066]);
+  const { h } = waveField([KRGRG2], [{ chessId: 't_wall', row: 12, col: 2 }]);
+  const e = put(h, KRGRG2, [10, 6], { tag: null });
+  h.step();
+  runFor(h, 1);
+  assert.equal(e.hp, e.s.maxHp, 'no loss outside 失衡');
+  e.unbalanceUntil = h.b.time + 0.66;
+  runFor(h, 1);
+  const lost = e.s.maxHp - e.hp;
+  assert.ok(lost >= 50 * 9 && lost <= 50 * 11, `about 10 × 50 in 0.66 s (${lost})`);
+});
+
+const CHGHMR = 'enemy_1406_chghmr', GUNSHO = 'enemy_1403_gunsho', BDGUAD = 'enemy_1409_bdguad_2', BOOMER = 'enemy_1405_boomer_2';
+
+test('战线推进者: its first attack each time it is blocked is PowerHit — ATK × 1.8 at its Skill clip\'s event; silenced, plain attacks', () => {
+  const s = E3[CHGHMR].skills[0];
+  assert.deepEqual([s.prefabKey, s.bb.atk, E3[CHGHMR].skillCast.powerhit.clip, E3[CHGHMR].skillCast.powerhit.hit], ['PowerHit', 0.8, 'Skill', 1.9]);
+  const atk = E3[CHGHMR].stats.atk;
+  for (const silence of [false, true]) {
+    // walks row 10 into t_wall (col 5)
+    const { h, hits } = waveField([CHGHMR], [{ chessId: 't_wall', row: 10, col: 5 }]);
+    const e = put(h, CHGHMR, [10, 7], { move: true, tag: null });
+    if (silence) h.b.applyStatus(e, 'silence', { duration: 1e3, source: null });
+    const w = h.unit('t_wall');
+    h.runUntil(() => hits.length >= 2, 30);
+    const first = hits[0].n, second = hits[1].n;
+    if (silence) { assert.deepEqual([first, second], [atk, atk], 'silenced: plain attacks'); continue; }
+    assert.ok(Math.abs(first - atk * 1.8) < 1e-6 && Math.abs(second - atk) < 1e-6, `PowerHit then a plain attack (${first}, ${second})`);
+    assert.ok(!e.findBuff('ab:chghmrPower'), 'the ATK lasts only while it casts');
+    // the block ends (its blocker stunned, the enemy held where it stands) and comes back: the mark again, PowerHit again
+    h.b.addBuff(e, { key: 't:hold', persist: true, flags: { noMove: true } });
+    h.b.applyStatus(w, 'stun', { duration: 1, source: null });
+    h.runUntil(() => !e.blockedBy, 2);
+    assert.ok(!e.blockedBy, 'unblocked while its blocker is stunned');
+    const n = hits.length;
+    h.runUntil(() => hits.length > n, 30);
+    assert.ok(e.blockedBy === w && Math.abs(hits[n].n - atk * 1.8) < 1e-6, `PowerHit as it is blocked again (${hits[n].n})`);
+  }
+});
+
+test('速射轻弩手: 直击 on its row / column at any distance — 3 bolts 0.1 s apart from its clip\'s event, physical ATK on the first ally touched', () => {
+  const s = E3[GUNSHO].skills[0];
+  assert.deepEqual([s.prefabKey, s.cooldown, s.initCooldown, s.proj.move, s.proj.speed, E3[GUNSHO].skillCast.crossattack.hit], ['CrossAttack', 5, 2, 'FIXED_DIRECTION', 5, 1.033]);
+  // the wall 9 tiles away on its row (beyond 重弩突袭者's old 6), another off its row and column
+  const { h, hits } = waveField([GUNSHO], [{ chessId: 't_wall', row: 10, col: 1 }, { chessId: 't_wall2', row: 12, col: 4 }]);
+  const e = put(h, GUNSHO, [10, 10], { tag: null });
+  const casts = [];
+  onSkill(h, e, (ab) => { if (ab === 'CrossAttack') casts.push(h.b.time); });
+  h.runUntil(() => hits.length >= 3, 10);
+  assert.equal(casts.length, 1);
+  assert.deepEqual(hits.map((x) => x.t), [h.unit('t_wall'), h.unit('t_wall'), h.unit('t_wall')], 'three bolts, the aligned wall');
+  assert.ok(hits.every((x) => Math.abs(x.n - E3[GUNSHO].stats.atk) < 1e-6), 'physical ATK × 1');
+  assert.ok(Math.abs(hits[1].at - hits[0].at - 0.1) < 0.04 && Math.abs(hits[2].at - hits[1].at - 0.1) < 0.04, 'spaced 0.1 s');
+  const flight = (9 - 0.3 - 0.5) / 5;   // reach = the bolt's 0.3 + an ally's collider
+  assert.ok(hits[0].at - casts[0] > 1.033 + flight - 0.1, `the first leaves at the clip's event (${(hits[0].at - casts[0]).toFixed(3)})`);
+  runFor(h, 1);
+  assert.equal(hits.length, 3, 'one cast');
+});
+
+test('马特奥的近卫: 直击 — 2 bombs at its clip\'s events bursting on the first ally touched, ATK × 0.5 within 1.1; damage taken × 0.6 while unblocked', () => {
+  const s = E3[BDGUAD].skills[0];
+  assert.deepEqual([s.prefabKey, s.bb.times, s.bb.atk_scale, s.bb.projectile_range, E3[BDGUAD].talents.bb['DmgResist.damage_resistance']], ['CrossBomb', 2, 0.5, 1.1, 0.4]);
+  const { h, hits } = waveField([BDGUAD], [{ chessId: 't_wall', row: 10, col: 3 }, { chessId: 't_wall2', row: 11, col: 3 }]);
+  const e = put(h, BDGUAD, [10, 8], { tag: null });
+  const casts = [];
+  onSkill(h, e, (ab) => { if (ab === 'CrossBomb') casts.push(h.b.time); });
+  h.runUntil(() => hits.length >= 4, 10);
+  const w = h.unit('t_wall'), w2 = h.unit('t_wall2');
+  const atk = E3[BDGUAD].stats.atk;
+  assert.equal(hits.filter((x) => x.t === w).length, 2, 'two bombs on the aligned wall');
+  assert.equal(hits.filter((x) => x.t === w2).length, 2, 'and their bursts on the wall beside it (DEF 900)');
+  assert.ok(hits.filter((x) => x.t === w).every((x) => Math.abs(x.n - atk * 0.5) < 1e-6), 'ATK × 0.5');
+  const at = hits.filter((x) => x.t === w).map((x) => x.at);
+  assert.ok(Math.abs(at[1] - at[0] - (2.033 - 1.867)) < 0.04, `the clip's next event (${(at[1] - at[0]).toFixed(3)})`);
+  // unblocked: arts × 0.6 after RES 30
+  const before = e.hp;
+  h.b.dealDamage(null, e, { amount: 1000, type: 'arts' });
+  assert.ok(Math.abs(before - e.hp - 1000 * 0.7 * 0.6) < 1e-6, `unblocked: × 0.6 (${before - e.hp})`);
+});
+
+test('无畏掷弹兵: its first damage unblocked throws 4 bombs (ATK × 2 within 1.1 of each ally touched), then the mode Light — move +0.7, weight −2; silenced, none', () => {
+  const s = E3[BOOMER].skills[0];
+  assert.deepEqual([s.prefabKey, s.bb.atk_scale, s.bb.projectile_range, E3[BOOMER].talents.bb['Light.move_speed'], E3[BOOMER].talents.bb['Light.mass_level']], ['Bomb', 2, 1.1, 0.7, -2]);
+  for (const silence of [false, true]) {
+    // walls left, right and below (no deployable tile above in this field): the bomb thrown up flies on
+    const units = [[10, 3], [10, 9], [12, 6]].map(([row, col], i) => ({ chessId: 't_wall', row, col, uid: i + 1 }));
+    const { h, hits } = waveField([BOOMER], units);
+    const e = put(h, BOOMER, [10, 6], { tag: null });
+    if (silence) h.b.applyStatus(e, 'silence', { duration: 1e3, source: null });
+    const dirs = [];
+    const fx = h.b.fx.bind(h.b);
+    h.b.fx = (kind, p) => { if (kind === 'enemyShot' && p?.id === e.id) dirs.push(p.dir.join(',')); return fx(kind, p); };
+    h.step();
+    h.b.dealDamage(null, e, { amount: 1, type: 'true' });
+    runFor(h, 3);
+    if (silence) { assert.equal(hits.length, 0, 'silenced: no bombs'); assert.ok(e.mode !== 'D2L'); continue; }
+    const walls = h.b.allies().filter((u) => u.alive);
+    assert.equal(hits.length, 3, 'one bomb on each wall');
+    assert.deepEqual(new Set(hits.map((x) => x.t)), new Set(walls), 'right, left and down');
+    assert.deepEqual(dirs, ['1,0', '0,1', '-1,0', '0,-1'], 'four bombs, four ways');
+    assert.ok(hits.every((x) => Math.abs(x.n - E3[BOOMER].stats.atk * 2) < 1e-6), 'ATK × 2');
+    assert.equal(e.mode, 'Light');
+    assert.equal(e.s.massLevel, E3[BOOMER].stats.massLevel - 2);
+    h.b.dealDamage(null, e, { amount: 1, type: 'true' });
+    runFor(h, 3);
+    assert.equal(hits.length, 3, 'once');
+    assert.equal(e.mode, 'Light', 'and it stays in Light');
+  }
+  // blocked: its damage taken throws nothing, and it keeps its melee attack
+  const { h, hits } = waveField([BOOMER], [{ chessId: 't_wall', row: 10, col: 5 }]);
+  const e = put(h, BOOMER, [10, 7], { move: true, tag: null });
+  h.runUntil(() => e.blockedBy, 10);
+  h.b.dealDamage(null, e, { amount: 1, type: 'true' });
+  runFor(h, 3);
+  assert.ok(e.mode !== 'D2L' && e.mode !== 'Light' && hits.every((x) => Math.abs(x.n - E3[BOOMER].stats.atk) < 1e-6), 'blocked: no bombs');
 });
