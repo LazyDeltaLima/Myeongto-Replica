@@ -726,6 +726,23 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       ps.dirty();
       return true;
     },
+    /** The kind ('chess' | 'item') of every shop position, empty ones included (the order of shopSlots()). */
+    shopKinds: () => ps._shopKinds().slice(),
+    /** The shop refreshed by an effect at no price (PlayerState.effectRefresh: `adjust()` runs before onRefresh). */
+    refreshShop: (adjust = null) => { ps.effectRefresh(adjust, source.key || 'effect'); return ps.shop.slots.length; },
+    /** A new item card of the shop's own draw (shop RNG and level), none of `exclude` — for setShopSlot. */
+    rollShopItem: (exclude = []) => { const s = ps.rollShopItem(Array.isArray(exclude) ? exclude : []); return s ? s.id : null; },
+    /** One 目标生命值 pool for the alliance now (Final Assault, a custom 「共享」 match): a player's LP is only a share. */
+    lpShared: () => m.teamLp != null,
+    /** Change the player's 目标生命值 by `n` (never below 1 while alive); returns the change made. */
+    addLp: (n) => {
+      const v = finiteInt(n);
+      if (!ps.alive || !v || m.teamLp != null) return 0;
+      const before = ps.lp;
+      ps.lp = Math.max(1, ps.lp + v);
+      if (ps.lp !== before) { ps.dirty(); m.markPublic?.(); }
+      return ps.lp - before;
+    },
     addDeployCap: (n) => { const v = finiteInt(n); ps.deployCapBonus += v; ps.dirty(); return ps.deployCap; },
     setDeployCapAtLeast: (n) => { const v = finiteInt(n); if (v > ps.deployCapMin) { ps.deployCapMin = Math.min(v, 12); ps.dirty(); } return ps.deployCap; },
     setBondCountBonus: (bondId, n) => { if (gd.bond(bondId) && Number.isInteger(n)) { ps.bondCountBonus[bondId] = n; ps.recompute(); } },

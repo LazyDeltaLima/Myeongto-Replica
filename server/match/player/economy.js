@@ -205,6 +205,35 @@ export class PlayerEconomy {
     return OK;
   }
 
+  /**
+   * A refresh an effect carries out and pays for itself (规程's 指令 「刷新调度中心」: content/bands/meta.js): the manual
+   * refresh without its price — the freeze is cancelled, every slot rerolled, `adjust()` may then rewrite slots (the
+   * 指令's own 「必定包含 / 优先」), and it counts and dispatches as a manual refresh (onRefresh `free`, `source`)
+   * [ASSUMED·CN: whether a 指令's refresh counts as a 主动刷新 for the 特质 and strategies that count those — the client's
+   * skill classes exist only in the CN client].
+   * @param {(() => void) | null} [adjust]
+   * @param {string} [source]
+   */
+  effectRefresh(adjust = null, source = 'effect') {
+    this.shop.frozen = false;
+    this.rollShop({ keepFrozen: false });
+    if (typeof adjust === 'function') adjust();
+    this.stats.refreshes++;
+    this.round.refreshes++;
+    this.m.dispatch(this, 'onRefresh', { slots: this.shop.slots, free: true, price: 0, source });
+    this.dirty();
+  }
+
+  /** A new shop item card of the shop's draw (the shop RNG and level), none of `exclude`; null when none is left. */
+  rollShopItem(exclude = []) {
+    for (let k = 0; k < 8; k++) {
+      const s = this._rollItemSlot();
+      if (!s) return null;
+      if (!exclude.includes(s.id)) return s;
+    }
+    return null;
+  }
+
   freeze() {
     const g = this._gate(); if (g) return g;
     this.shop.frozen = !this.shop.frozen;

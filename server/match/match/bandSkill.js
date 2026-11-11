@@ -34,7 +34,7 @@
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { OK, fail } from './common.js';
 import { inField, fieldTile, tileKey } from '../board.js';
-import { bandStages, bandStageIndex } from '../../sim/content/bands/meta.js';
+import { bandStages, bandStageIndex, SKILL_COST_COUNTER } from '../../sim/content/bands/meta.js';
 
 /** Uses this round (with USED_ROUND, the round they count for). */
 export const USED = 'band:skill:used';
@@ -43,8 +43,8 @@ const USED_ROUND = 'band:skill:used:r';
 export const TOTAL = 'band:skill:total';
 /** COOLDOWN: the round the skill is usable again (0: now). */
 export const READY_ROUND = 'band:skill:ready';
-/** Funds added to the stage's cost by the cost keys (skill_cost_*). */
-export const COST_DELTA = 'band:skill:cost';
+/** Funds added to the stage's cost by the cost keys (skill_cost_*: content/bands/meta.js, which names the counter). */
+export const COST_DELTA = SKILL_COST_COUNTER;
 
 const TARGET_FIELDS = ['uid', 'slot', 'row', 'col'];
 const OBSTACLE_ROLES = new Set(['crate', 'mound']);

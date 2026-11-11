@@ -41,7 +41,7 @@
 // traits (SERVER_PREP_START) run on onPrepStart too (server/match/effectsMeta.js GARRISON_HOOK), after the strategy's grants
 // of the same dispatch (global → band → bonds → garrisons). A round without a 机变 draft keeps the old moment.
 
-import { GEO, gateOf } from '../../../../shared/constants.js';
+import { GEO, ERR, gateOf } from '../../../../shared/constants.js';
 import { buffsOf, num, bandRecord, gameData, itemIdOfKey } from '../support/index.js';
 import { metaBonds } from '../support/meta.js';
 import * as garrisons from '../garrisons.js';
@@ -516,6 +516,216 @@ K.skill_gain_gold_cd_by_gold = (ps) => ({
     ctx.addFunds(gold, 'band');
     ev.cooldown = gold;
     ev.handled = true;
+  },
+});
+
+// The other click 指令 (「点击使用」). Shared rules [ASSUMED·CN: the client's skill classes exist only in the CN client;
+// the table texts say what, not these edges]: a 指令 that would do nothing (no operator card in the shop, no operator of
+// the bond left, no item card) is refused and costs nothing; an operator a 指令 gives arrives as any gained operator (the
+// 整备区, else the overflow — grantChess, like the strategies' other gifts), a full 整备区 refuses nothing; a shop card it
+// takes is taken as it shows, as a purchase would (no free copy needed: buy's #498 rule), its slot empties (松桐); a
+// 「刷新调度中心」 is the manual refresh without its price (PlayerState.effectRefresh: the freeze ends, it counts and
+// dispatches as one), the 指令's 「必定包含 / 优先」 written over the new cards before anyone sees them.
+
+/** ev.error for a 指令 that has nothing to act on (bandSkill.js returns it as it is; nothing is paid). */
+const nothing = (ev, detail) => { ev.error = { error: ERR.BAD_TARGET, detail }; };
+
+/** Take shop slot `i`'s operator card for free (its slot empties); false when it is no unsold operator card. */
+function takeShopChess(ctx, i) {
+  const s = ctx.shopSlots()[i];
+  if (!s || s.kind !== 'chess' || s.sold) return false;
+  if (!ctx.grantChess(s.id, { source: 'band', requirePool: false })) return false;
+  ctx.setShopSlot(i, null);
+  return true;
+}
+
+// 琳琅诗怀雅 最佳品味 「随机获取当前调度中心内的1名干员」 (2级: 2名): `count` random operator cards of the shop, free
+K.skill_take_shop_char = (ps) => ({
+  onBandSkill(ctx, ev) {
+    if (!chessSlots(ctx).length) return nothing(ev, 'no operator in the shop');
+    for (let k = 0; k < Math.max(1, int(ps[0].count, 1)); k++) {
+      const idx = chessSlots(ctx);
+      if (!idx.length) break;
+      takeShopChess(ctx, ctx.rng.pick(idx));
+    }
+    ev.handled = true;
+  },
+});
+
+// 拜松 打包速递 「获得当前调度中心中的所有干员」: every operator card of the shop, free, left to right
+K.skill_gain_all_shop_char = () => ({
+  onBandSkill(ctx, ev) {
+    const idx = chessSlots(ctx);
+    if (!idx.length) return nothing(ev, 'no operator in the shop');
+    for (const i of idx) takeShopChess(ctx, i);
+    ev.handled = true;
+  },
+});
+
+// 焰尾 骑士团长 · 歌蕾蒂娅 猎人战法 · 车尔尼 流动乐章 · 怒潮凛冬 无惧风雪 「获得1名【X】干员（等阶不高于当前调度中心）」: `count`
+// random <bond> operators of tier ≤ the 调度中心 level from the shared pool (rollBond, copy-weighted like the shop)
+K.skill_gain_bond_char = (ps) => ({
+  onBandSkill(ctx, ev) {
+    const p = ps[0];
+    const ids = [];
+    for (let k = 0; k < Math.max(1, int(p.count, 1)); k++) { const id = rollBond(ctx, p.bond); if (id) ids.push(id); }
+    if (!ids.length) return nothing(ev, 'no operator of the bond left');
+    for (const id of ids) ctx.grantChess(id, { source: 'band' });
+    ev.handled = true;
+  },
+});
+
+// The cost keys: COST_DELTA (server/match/match/bandSkill.js adds it to the stage's skillCost; the cost never falls below 0,
+// so a cut stops at the stage's cost).
+export const SKILL_COST_COUNTER = 'band:skill:cost';
+const cutCost = (ctx, stage, n) => {
+  const base = Math.max(0, int(stage?.cost, 0));
+  ctx.setCounter(SKILL_COST_COUNTER, Math.max(-base, ctx.counter(SKILL_COST_COUNTER) - Math.max(0, n)));
+};
+// 打包速递 / 骑士团长 「每回合休整期结束时指令消耗资金-N，使用后指令重置并可再次使用」: −delta at every prep end, back to the
+// table's cost after a use
+K.skill_cost_round_grow_reset_on_use = (ps, _bandId, stage) => ({
+  onPrepEnd(ctx) { cutCost(ctx, stage, int(ps[0].delta, 0)); },
+  onBandSkillUsed(ctx) { ctx.setCounter(SKILL_COST_COUNTER, 0); },
+});
+// 流动乐章 「每次使用后指令消耗资金永久+1」
+K.skill_cost_grow_per_use = (ps) => ({
+  onBandSkillUsed(ctx) { ctx.incCounter(SKILL_COST_COUNTER, Math.max(0, int(ps[0].count, 1))); },
+});
+// 无惧风雪 「每次购买【乌萨斯】干员时指令消耗资金-1，使用后指令重置并可再次使用」: a <bond> operator bought in the shop (onBuy:
+// a gift or a 指令's operator is no purchase)
+K.skill_cost_reduce_on_buy_bond = (ps, _bandId, stage) => ({
+  onBuy(ctx, ev) {
+    if (ev.kind !== 'chess' || !hasBond(ctx, ev.slot.id, ps[0].bond)) return;
+    cutCost(ctx, stage, int(ps[0].count, 1));
+  },
+  onBandSkillUsed(ctx) { ctx.setCounter(SKILL_COST_COUNTER, 0); },
+});
+
+// 天空盒 内部货源 「下一件购买的装备价格-1（最多减至0）」: the next `times` item cards bought cost `count` less. An unused
+// discount waits for the next purchase, also in a later round, and uses add up [ASSUMED·CN: the text says 「下一件」 only]
+const DISCOUNT = 'band:skill:itemDiscount';
+K.skill_next_equip_buy_discount = (ps) => ({
+  onBandSkill(ctx, ev) {
+    ctx.incCounter(DISCOUNT, Math.max(1, int(ps[0].times, 1)));
+    ev.handled = true;
+  },
+  onPrice(ctx, ev) {
+    if (ev.kind === 'item' && ctx.counter(DISCOUNT) > 0) ctx.modifyPrice(-Math.max(0, int(ps[0].count, 1)));
+  },
+  onBuy(ctx, ev) {
+    if (ev.kind === 'item' && ctx.counter(DISCOUNT) > 0) ctx.incCounter(DISCOUNT, -1);
+  },
+});
+
+/** Operator card slots of the shop now, as { i, id } (after a refresh). */
+const chessCards = (ctx) => { const s = ctx.shopSlots(); return chessSlots(ctx).map((i) => ({ i, id: s[i].id })); };
+
+// 雅拉 人才锁定 「刷新调度中心，必定包含1名比当前调度中心等级更高一阶（最高不超过6阶）的干员」: a refresh, then, unless a card of
+// that tier came up, a random operator card becomes one of tier min(6, level + lv_up)
+K.skill_refresh_shop_high_tier = (ps) => ({
+  onBandSkill(ctx, ev) {
+    const p = ps[0];
+    const tier = Math.min(6, Math.max(1, ctx.shopLevel()) + Math.max(1, int(p.lv_up, 1)));
+    const need = Math.max(1, int(p.count, 1));
+    ctx.refreshShop(() => {
+      const cards = chessCards(ctx);
+      let have = cards.filter((c) => ctx.gd.tierOf(c.id) === tier).length;
+      for (const c of ctx.rng.shuffle(cards.filter((x) => ctx.gd.tierOf(x.id) !== tier))) {
+        if (have >= need) break;
+        const id = ctx.rollChess({ tier });
+        if (!id) break;
+        ctx.setShopSlot(c.i, { kind: 'chess', id });
+        have++;
+      }
+    });
+    ev.handled = true;
+  },
+});
+
+// 杜遥夜 广交豪杰 「刷新调度中心，优先刷新出1名【炎】干员」: a refresh with at least `count` <bond> cards (tier ≤ the 调度中心
+// level) while the pool has them — 杜遥夜's passive rule of the default season (band_first_self_refresh_present_char)
+K.skill_refresh_shop_bond_char = (ps) => ({
+  onBandSkill(ctx, ev) {
+    const p = ps[0];
+    const need = Math.max(1, int(p.count, 1));
+    ctx.refreshShop(() => {
+      const cards = chessCards(ctx);
+      let have = cards.filter((c) => hasBond(ctx, c.id, p.bond)).length;
+      for (const c of ctx.rng.shuffle(cards.filter((x) => !hasBond(ctx, x.id, p.bond)))) {
+        if (have >= need) break;
+        const id = rollBond(ctx, p.bond);
+        if (!id) break;
+        ctx.setShopSlot(c.i, { kind: 'chess', id });
+        have++;
+      }
+    });
+    ev.handled = true;
+  },
+});
+
+// 渡桥 专享情报 「进行一次特殊刷新：此次刷新出现的干员优先为已部署在场上的干员」: a refresh whose every operator card is, while the
+// pool has copies, one of the operators on the player's board (their normal ids, copy-weighted) [ASSUMED·CN: any tier —
+// the text names the deployed operators, not the 调度中心 level; a card that is already one stays]
+K.skill_refresh_shop_board_char = () => ({
+  onBandSkill(ctx, ev) {
+    const onBoard = new Set(ctx.board().filter((p) => p && p.kind === 'chess').map((p) => ctx.gd.baseIdOf(p.id)));
+    ctx.refreshShop(() => {
+      if (!onBoard.size) return;
+      for (const c of chessCards(ctx)) {
+        if (onBoard.has(ctx.gd.baseIdOf(c.id))) continue;
+        const id = ctx.rollChess({ maxTier: 6, filter: (x) => onBoard.has(x) });
+        if (!id) break;
+        ctx.setShopSlot(c.i, { kind: 'chess', id });
+      }
+    });
+    ev.handled = true;
+  },
+});
+
+// Mechanist 精巧设计 「使调度中心出现1件新的装备并替换」: the shop's first item card (sold or not) becomes a new one of the shop's
+// own draw [ASSUMED·CN: which card when the shop shows two]
+K.skill_change_shop_equip = () => ({
+  onBandSkill(ctx, ev) {
+    const slots = ctx.shopSlots();
+    const kinds = ctx.shopKinds();
+    const i = kinds.indexOf('item');
+    if (i < 0) return nothing(ev, 'no item card');
+    const id = ctx.rollShopItem(slots[i] ? [slots[i].id] : []);
+    if (!id) return nothing(ev, 'no item left');
+    ctx.setShopSlot(i, { kind: 'item', id, frozen: false });
+    ev.handled = true;
+  },
+});
+
+// 信仰搅拌机 献身护卫 「自身目标生命值降至与场上最低的玩家相同并获得等同损失生命值的资金（至多10资金），在<休整期结束时>为该玩家回复
+// 等额目标生命值」: the player's LP drops to the lowest other alive player's, it gains that many funds (at most max_count),
+// and at this prep's end that player gains back the LP the player lost. Refused when no other player is lower, and while
+// the alliance shares one LP (a share is no LP of its own). [ASSUMED·CN: 「等额」 = the LP lost, not the capped funds; a
+// tie for the lowest goes to the first seat]
+const DEVOTE_SEAT = 'band:skill:devoteSeat';
+const DEVOTE_LP = 'band:skill:devoteLp';
+K.skill_drop_hp_to_low_gain_coin = (ps) => ({
+  onBandSkill(ctx, ev) {
+    if (ctx.lpShared()) return nothing(ev, 'shared LP');
+    let low = null;
+    for (const o of ctx.teammates()) if (!low || o.lp() < low.lp() || (o.lp() === low.lp() && o.seat < low.seat)) low = o;
+    const lost = low ? ctx.lp() - low.lp() : 0;
+    if (!(lost > 0)) return nothing(ev, 'no lower player');
+    ctx.addLp(-lost);
+    ctx.addFunds(Math.min(lost, Math.max(0, int(ps[0].max_count, 10))), 'band');
+    ctx.setCounter(DEVOTE_SEAT, low.seat + 1);
+    ctx.incCounter(DEVOTE_LP, lost);
+    ev.handled = true;
+  },
+  onPrepEnd(ctx) {
+    const seat = ctx.counter(DEVOTE_SEAT) - 1;
+    const lp = ctx.counter(DEVOTE_LP);
+    ctx.setCounter(DEVOTE_SEAT, 0);
+    ctx.setCounter(DEVOTE_LP, 0);
+    if (seat < 0 || !(lp > 0)) return;
+    const to = ctx.teammates().find((o) => o.seat === seat);
+    if (to) to.addLp(lp);
   },
 });
 

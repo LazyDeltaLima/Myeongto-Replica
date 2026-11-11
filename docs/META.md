@@ -427,7 +427,7 @@ Reads: `playerId seat name round phase modeId difficulty isSolo isCoop data (fro
 (`rng()`, `rng.int(n)`, `rng.pick(a)`, `rng.chance(p)`, `rng.shuffle(a)` — the match's meta stream, never
 `Math.random`), `funds() lp() alive() bandId() shopLevel() bond(id) bonds() bondActive(id) bondCount(id) layers(id)
 board() hand() temp() piece(uid) pieceAt(row, col) pieceBonds(uid) garrisonsOf(uid) chessRecord(id) stats() roundStats()
-shopSlots() effect(id)` (`piece(uid)` adds `area`, `holderUid`, `idx`; "身前一格" of (r, c) is (r, c + 1)),
+shopSlots() shopKinds() lpShared() effect(id)` (`shopKinds()`: each shop position's kind, empty ones included; `lpShared()`: the alliance holds one 目标生命值 now — a player's LP is only its share) (`piece(uid)` adds `area`, `holderUid`, `idx`; "身前一格" of (r, c) is (r, c + 1)),
 counters `counter(k) setCounter(k, v) incCounter(k, n)` (player scope, persistent; prefix keys with your module) and
 `pieceCounter(uid, k) incPieceCounter(uid, k, n)` (per piece, current round only: 0 in a new round and for a new piece —
 bought, granted, transformed, or an elite merged this round (GitHub #169, the owner's decision of 2026-10-06) —; a move
@@ -445,6 +445,8 @@ Writes (all validated, never throw on bad input, never make funds / pools negati
 | `grantItem(id, { toTemp })` | acquire an item (merges with an identical normal item); `toTemp` as for grantChess |
 | `rollChess({ maxTier, tier, bond, filter })` / `rollItem({ pool, tier, maxTier, exclude })` | copy-weighted chess id from the shared pool / item id (choices.json pools); `exclude` (also `rollPool(poolId, { exclude })`) drops ids before the draw — 凯瑟琳's spent 突变细胞 allowance, choices already drawn |
 | `grantFreeRefresh(n)` | free refreshes (stack) |
+| `refreshShop(adjust?)` / `rollShopItem(exclude)` | 规程's 指令 「刷新调度中心」: the manual refresh at no price (`PlayerState.effectRefresh`: the freeze ends, every slot rerolled, `adjust()` rewrites slots before onRefresh, counted as a refresh) / a new item card of the shop's own draw for `setShopSlot` |
+| `addLp(n)` | change the player's 目标生命值 (never below 1; nothing while the alliance shares one LP) — 献身护卫 |
 | `modifyPrice(delta)` / `setPrice(v)` | onPrice only: edit `ev.price` |
 | `promote(uid)` / `transform(uid, chessId)` / `upgradeItem(uid)` | elite in place / 突变细胞's transformation: destroy the chess wherever it stands (a board tile is freed; its equipment returns to the hand first, overflow temp), then gain `chessId` like `grantChess` (hand, overflow into the expandable temp queue; a merge it completes as usual — the carrier's tile is no copy's) and return the gained piece (the elite after a merge) / item → golden |
 | `destroyPiece(uid)` / `equipDirect(itemUid, chessUid)` | remove a piece (chess copies return, items go back) / attach without equip effects |
