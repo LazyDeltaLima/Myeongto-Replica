@@ -128,27 +128,36 @@ export function layerCapOfView(pub) {
  * bondLayers of that player). A count only ever grows in a battle — the higher of the two wins (the view may already
  * carry the settled gains) — and never shows above the match's cap (`cap`: BOND_LAYER_CAP, none in a custom 规则 match
  * that lifts it — layerCapOfView); a bond that gained without being listed joins the list (no members, not active).
+ * `temp` = { [bondId]: n }, the 临时层数 part of those live counts (the runner's bondTemp of that player): an entry whose
+ * count the live one sets carries it as `tempLayers` (≤ the shown count) — the strip draws the count in yellow and the
+ * popup shows layers − tempLayers with + tempLayers under it (official CN HUD, docs/rules/ui.md 「임시 중첩 표시」).
  * Returns the list itself when there is nothing to lay over.
  * @param {any[]} bonds @param {Record<string, number>|null|undefined} live @param {number} [cap]
+ * @param {Record<string, number>|null} [temp]
  */
-export function withLiveLayers(bonds, live, cap = BOND_LAYER_CAP > 0 ? BOND_LAYER_CAP : Infinity) {
+export function withLiveLayers(bonds, live, cap = BOND_LAYER_CAP > 0 ? BOND_LAYER_CAP : Infinity, temp = null) {
   const list = Array.isArray(bonds) ? bonds : [];
   if (!isObj(live)) return list;
   const ids = Object.keys(live).filter((id) => Number.isFinite(live[id]) && live[id] > 0);
   if (!ids.length) return list;
   let changed = false;
+  const tempOf = (id, v) => {
+    const t = isObj(temp) ? Math.min(v, Math.floor(Number(temp[id]) || 0)) : 0;
+    return t > 0 ? { tempLayers: t } : {};
+  };
   const out = list.map((b) => {
     const n = isObj(b) && typeof b.bondId === 'string' ? live[b.bondId] : undefined;
     if (!Number.isFinite(n)) return b;
     const v = Math.min(cap, n);
     if (!(v > (Number(b.layers) || 0))) return b;
     changed = true;
-    return { ...b, layers: v };
+    return { ...b, layers: v, ...tempOf(b.bondId, v) };
   });
   for (const id of ids) {
     if (out.some((b) => isObj(b) && b.bondId === id)) continue;
     changed = true;
-    out.push({ bondId: id, count: 0, active: false, tier: 0, layers: Math.min(cap, live[id]) });
+    const v = Math.min(cap, live[id]);
+    out.push({ bondId: id, count: 0, active: false, tier: 0, layers: v, ...tempOf(id, v) });
   }
   return changed ? out : list;
 }
@@ -186,14 +195,14 @@ export function ownerBoard(field, ownerId, extra = null) {
 /**
  * Everything the strip needs: whose bonds, their name (null for your own) and the list with the live layers laid over.
  * @param {{ pub: any, priv?: any, myId: string, fieldId?: string|null, field?: any, layer?: string, halves?: boolean,
- *   watched?: string|null, live?: Record<string, Record<string, number>>|null }} o — live: the runner's bondLayers (null
- *   outside a battle)
+ *   watched?: string|null, live?: Record<string, Record<string, number>>|null, temp?: Record<string, Record<string, number>>|null }} o
+ *   — live: the runner's bondLayers (null outside a battle); temp: its bondTemp (the 临时层数 part)
  * @returns {{ ownerId: string, self: boolean, name: string|null, bonds: any[] }}
  */
-export function stripView({ pub, priv = null, myId, fieldId = null, field = null, layer = 'ALL', halves = false, watched = null, live = null }) {
+export function stripView({ pub, priv = null, myId, fieldId = null, field = null, layer = 'ALL', halves = false, watched = null, live = null, temp = null }) {
   const ownerId = bondOwnerId({ pub, myId, fieldId, field, layer, halves, watched });
   const self = ownerId === myId;
-  const bonds = withLiveLayers(ownerBonds({ pub, priv, myId, ownerId }), isObj(live) ? live[ownerId] : null, layerCapOfView(pub));
+  const bonds = withLiveLayers(ownerBonds({ pub, priv, myId, ownerId }), isObj(live) ? live[ownerId] : null, layerCapOfView(pub), isObj(temp) ? temp[ownerId] : null);
   return { ownerId, self, name: self ? null : nameOf(pub, ownerId), bonds };
 }
 
@@ -203,25 +212,28 @@ export function stripView({ pub, priv = null, myId, fieldId = null, field = null
  * @param {{ pub: any, priv?: any, myId: string, combat?: boolean, settle?: boolean, watchingOther?: boolean,
  *   watching?: string|null, home?: string|null, battleFieldId?: string|null, field?: any, layers?: any[],
  *   layer?: string, who?: { fieldId?: string, playerId?: string }|null,
- *   bondLayers?: Record<string, Record<string, number>>|null }} o — layers: the ‹ › pill's layers on offer
- *   (battle/observe.js cameraLayers of `field`, [] when not offered); bondLayers: the runner's state().bondLayers
+ *   bondLayers?: Record<string, Record<string, number>>|null, bondTemp?: Record<string, Record<string, number>>|null }} o
+ *   — layers: the ‹ › pill's layers on offer (battle/observe.js cameraLayers of `field`, [] when not offered);
+ *   bondLayers / bondTemp: the runner's state().bondLayers / bondTemp
  * @returns {{ fieldId: string|null, ownerId: string, self: boolean, name: string|null, bonds: any[] }}
  */
 export function screenStrip({ pub, priv = null, myId, combat = false, settle = false, watchingOther = false, watching = null, home = null,
-  battleFieldId = null, field = null, layers = [], layer = 'ALL', who = null, bondLayers = null }) {
+  battleFieldId = null, field = null, layers = [], layer = 'ALL', who = null, bondLayers = null, bondTemp = null }) {
   const fieldId = screenFieldId({ combat, settle, watchingOther, watching, home, battleFieldId });
   const halves = Array.isArray(layers) && layers.length > 0 && isObj(field) && field.fieldId === fieldId;
   const live = (combat || settle) && isObj(bondLayers) ? bondLayers : null;
+  const temp = live && isObj(bondTemp) ? bondTemp : null;
   const watched = watchingOther ? watchedPlayer(who, watching) : null;
-  return { fieldId, ...stripView({ pub, priv, myId, fieldId, field, layer, halves, watched, live }) };
+  return { fieldId, ...stripView({ pub, priv, myId, fieldId, field, layer, halves, watched, live, temp }) };
 }
 
 /**
  * The bonds of any player with the live layers laid over (the detail card's bond chips of a teammate's unit).
- * @param {{ pub: any, priv?: any, myId: string, ownerId: string, live?: Record<string, Record<string, number>>|null }} o
+ * @param {{ pub: any, priv?: any, myId: string, ownerId: string, live?: Record<string, Record<string, number>>|null,
+ *   temp?: Record<string, Record<string, number>>|null }} o — temp: the runner's bondTemp (the 临时层数 part of `live`)
  */
-export function playerBonds({ pub, priv = null, myId, ownerId, live = null }) {
-  return withLiveLayers(ownerBonds({ pub, priv, myId, ownerId }), isObj(live) ? live[ownerId] : null, layerCapOfView(pub));
+export function playerBonds({ pub, priv = null, myId, ownerId, live = null, temp = null }) {
+  return withLiveLayers(ownerBonds({ pub, priv, myId, ownerId }), isObj(live) ? live[ownerId] : null, layerCapOfView(pub), isObj(live) && isObj(temp) ? temp[ownerId] : null);
 }
 
 /**
@@ -259,15 +271,15 @@ export function toggleBond(open, id, ownerId, from) {
  * opens THAT player's bond): their entry with the live layers (as the strip and the chips show it), the member list's
  * board (your pieces, or their operators on the field on screen — ownerBoard) and their name (null for your own).
  * @param {{ open: { id: string, ownerId?: string }|null, pub: any, priv?: any, myId: string, field?: any,
- *   units?: any[]|null, live?: Record<string, Record<string, number>>|null }} o — units: the owner's operators in the
- *   battle on screen (battle/runner.js ownerOps; null outside client-side combat); live: the runner's bondLayers (null
- *   outside a battle)
+ *   units?: any[]|null, live?: Record<string, Record<string, number>>|null, temp?: Record<string, Record<string, number>>|null }} o — units: the owner's operators in the
+ *   battle on screen (battle/runner.js ownerOps; null outside client-side combat); live / temp: the runner's bondLayers /
+ *   bondTemp (null outside a battle)
  * @returns {{ bondId: string, ownerId: string, self: boolean, name: string|null, entry: any, priv: any }|null}
  */
-export function popupView({ open, pub, priv = null, myId, field = null, units = null, live = null }) {
+export function popupView({ open, pub, priv = null, myId, field = null, units = null, live = null, temp = null }) {
   if (!isObj(open) || typeof open.id !== 'string' || !open.id) return null;
   const ownerId = typeof open.ownerId === 'string' && open.ownerId ? open.ownerId : myId;
   const self = ownerId === myId;
-  const entry = playerBonds({ pub, priv, myId, ownerId, live }).find((b) => isObj(b) && b.bondId === open.id) || null;
+  const entry = playerBonds({ pub, priv, myId, ownerId, live, temp }).find((b) => isObj(b) && b.bondId === open.id) || null;
   return { bondId: open.id, ownerId, self, name: self ? null : nameOf(pub, ownerId), entry, priv: self ? priv : ownerBoard(field, ownerId, units) };
 }

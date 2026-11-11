@@ -281,6 +281,10 @@
 .bslot__count.is-max { border-color: var(--mint-700); color: var(--mint-400); }
 .bslot.is-active .bslot__count { border-color: var(--mint-700); }
 .bslot.is-open .bond__core { box-shadow: 0 0 0 2px var(--mint-400), 0 0 .2rem rgba(23, 249, 183, .6); }
+/* 临时层数 in the shown count (a battle's live layers): the count in the official HUD's yellow, and + the temporary part
+   after the popup's 层数 (CN capture 2026-11-11, sampled #f2c510; docs/rules/ui.md 「임시 중첩 표시」) */
+.bslot.has-temp .bond__count { color: #f2c510; }
+.bpop__temp { margin-left: .04rem; color: #f2c510; font-weight: 700; }
 /* a bond the mode never activates, with members (the server's `off` entry): the briefing's grey ✕ disc, the chips'
    struck name, 本局禁用 under it instead of the count */
 .bslot.is-off .bond__name { color: var(--text-dim); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }

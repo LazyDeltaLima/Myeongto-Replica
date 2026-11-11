@@ -46,6 +46,15 @@ export class BattleEconomy {
   }
 
   /**
+   * The 临时层数 a player gained so far in this battle ({ [bondId]: n }, a copy; {} without any): the part of the live
+   * layers that is temporary. Read only — the bond strip draws it apart (battle/runner.js noteLayers).
+   */
+  tempLayerGainsOf(playerId) {
+    const pp = playerId == null ? null : this._pp(playerId);
+    return pp && pp.tempLayerGains ? { ...pp.tempLayerGains } : {};
+  }
+
+  /**
    * Tile of a gain's source unit ([r, c]): where it stands, or where it stood when it left the field during this very
    * instant (a "被击倒时" gain fires from its `death`). null otherwise (no source, long gone, not a unit).
    */

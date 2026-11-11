@@ -217,6 +217,7 @@
 /* ---- bond disc, inactive (autochess_hud_bond_item _inactiveColorConfig: name #f4f4f4 at 70 %, stack #b2b2b2) ---- */
 .gm.has-hud-art .bslot:not(.is-active) .bond__name { color: rgba(244, 244, 244, .7); }
 .gm.has-hud-art .bslot:not(.is-active) .bond__count { color: #b2b2b2; }
+.gm.has-hud-art .bslot.has-temp .bond__count { color: #f2c510; } /* 临时层数 (screens/game.css), inactive or not */
 
 /* ---- the bond list's fold tab (bond_list_info_view btn_synergy, `has-hud-fold`): under the open list the small
    btn_close (37×17, "︽") on the bottom edge of the matte (its centre 3 units above it); folded, btn_open (102×37) with
@@ -462,6 +463,10 @@
   display: block; position: absolute; right: calc(var(--u) * 25); top: calc(var(--u) * 34.5); transform: translateY(-50%); color: #d0d0d0; font-size: calc(var(--u) * 16);
 }
 .gm.has-hud-art .bpop__stack b { color: #fff; font-family: 'Novecento Wide', var(--font-num); font-weight: 400; margin-left: calc(var(--u) * 4); }
+/* + the 临时层数 under 层数, right-aligned with it (CN capture 2026-11-11: 「层数 49」 then a yellow 「+ 144」 one line lower) */
+.gm.has-hud-art .bpop__stack .bpop__temp {
+  position: absolute; right: 0; top: 100%; margin: calc(var(--u) * 4) 0 0; font-family: 'Novecento Wide', var(--font-num); font-size: 1em; font-weight: 400; white-space: nowrap;
+}
 .gm.has-hud-art .bpop__close { position: absolute; z-index: 3; right: calc(var(--u) * 4); top: calc(var(--u) * 4); width: calc(var(--u) * 20); height: calc(var(--u) * 20); border: 0; opacity: .6; }
 /* the content is the client's one _descText (AutoChessBattleUIBondDetailView._RenderContent → AutoChessBattleUtil.GetBondDesc
    (bondId, stack): the bond effect's text with its numbers at the current layers = our 当前效果, formatBondEffect), then the

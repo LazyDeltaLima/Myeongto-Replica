@@ -130,12 +130,15 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       const next = nextThreshold(b.count ?? 0, th);
       const need = bondRequireCount(rec, th); // the client's m: the bond's one activeCount (gameLogic bondRequireCount)
       const board = bondBoardOf(th, b.count ?? 0, !!b.active); // local patch: the official disc board (hudArt.js)
+      // 临时层数 in the shown count (the battle's live layers: ui/watchBonds.js withLiveLayers `tempLayers`): the official
+      // HUD draws the whole count in yellow (CN capture 2026-11-11; docs/rules/ui.md 「임시 중첩 표시」)
+      const temp = b.tempLayers > 0 && !rec?.noStack ? b.tempLayers : 0;
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null} style=${board.style} data-full=${board.full ? '1' : null}
-          class=${cx('bslot', b.active && 'is-active', openId === b.bondId && 'is-open')}>
+          data-temp=${temp || null} class=${cx('bslot', b.active && 'is-active', temp && 'has-temp', openId === b.bondId && 'is-open')}>
         <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : b.layers ?? 0}
           tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
-          title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${need ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
+          title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${need ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}${temp ? ` · ${t('临时层数')} +${temp}` : ''}`} />
         <span class=${cx('bslot__count', 'num', next == null && 'is-max')}>${b.count ?? 0}<small>/${need ?? '-'}</small></span>
       </div>`;
     })}
@@ -163,6 +166,11 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   if (!b) return null;
   const count = entry?.count ?? 0;
   const layers = entry?.layers ?? 0;
+  // the 临时层数 part of `layers` (a battle's live count, ui/watchBonds.js withLiveLayers): the official dialog shows the
+  // fixed layers after 层数 and + the temporary ones in yellow under it (CN capture 2026-11-11); the effect text keeps
+  // the whole count, as the client's
+  const temp = Math.min(layers, Math.max(0, Math.floor(Number(entry?.tempLayers) || 0)));
+  const tempTag = () => (temp ? html`<small class="bpop__temp num" title=${t('临时层数')}>+ ${temp}</small>` : null); // (a fresh vnode per use)
   const th = Array.isArray(entry?.thresholds) && entry.thresholds.length ? entry.thresholds : b.thresholds || [];
   const tier = off ? 0 : entry?.tier ?? bondTier(count, th, b.maxCount);
   const active = !off && (entry ? !!entry.active : tier > 0);
@@ -199,10 +207,10 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
         ${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" />${tParts('{owner} 的盟约', { owner: html`<b>${owner}</b>` })}</span>` : null}
         <h3 class="bpop__name">${b.name}</h3>
         ${th.length && !off ? html`<span class=${cx('bpop__need', active && 'is-active')}><i class="bpop__needicon"></i><b class="num"><span class="bpop__needn">${count}</span><span class="bpop__needm">/${need ?? '-'}</span></b>${active ? html`<i class="bpop__needok"></i>` : html`<em>${t('尚未激活')}</em>`}</span>` : null}
-        ${b.noStack ? null : html`<span class="bpop__stack">${t('层数')} <b class="num">${layers}</b></span>`}${/* local patch: the client's count pill and 层数 (autochess_hud_bond_detail_dialog; css/hud-art.css) */ ''}
+        ${b.noStack ? null : html`<span class="bpop__stack">${t('层数')} <b class="num">${layers - temp}</b>${tempTag()}</span>`}${/* local patch: the client's count pill and 层数 (autochess_hud_bond_detail_dialog; css/hud-art.css) */ ''}
         <div class="bpop__facts">
           ${off ? null : html`<span>${t('在场')} <b class="num">${count}</b>${need != null ? html`<small class="num">/${need}</small>` : null}${countsHand ? html`<small>${t('（含整备区）')}</small>` : null}${harmony ? html`<small class="bpop__hnote" data-harmony=${harmony}>${t('（含{harmonyName} +{harmony}）', { harmonyName, harmony })}</small>` : null}</span>`}
-          ${b.noStack ? html`<span>${t('层数不显示')}</span>` : html`<span>${t('层数')} <b class="num t-mint">${layers}</b></span>`}
+          ${b.noStack ? html`<span>${t('层数不显示')}</span>` : html`<span>${t('层数')} <b class="num t-mint">${layers - temp}</b>${tempTag()}</span>`}
           <span class=${active ? 't-mint' : 't-lo'}>${active ? (th.length > 1 ? t('已激活 · {tier} 阶', { tier }) : t('已激活')) : off ? t('本局禁用') : t('未激活')}</span>
         </div>
       </div>
