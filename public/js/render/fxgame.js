@@ -2686,12 +2686,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // common_firedamage_hit (none on an operator: its 灼燃 shows ep_fire_magic_res_down's buff_burn, fxstatus.js), water
   // common_waterElementExplosion / common_waterdamage_hit, dark common_darkdamage_hit on both; 神经 on an operator is
   // ep_break_sanity[epfree]'s overrideEffectKey common_nerve_injury_01_hit, on an enemy none of its own (its palsy[stack] is
-  // the 麻痹 status: fxstatus.js STACK_FX) [operator, enemy]
+  // the 麻痹 status: fxstatus.js STACK_FX) [operator, enemy]. 2026-11-11: 狂躁 (CN) on an enemy, ep_break_anger_enemy's
+  // common_maniadamage_hit (CN common.ab); the operators' ep_break_anger_char has no buff template of its own in the
+  // tables (and the sim gives operators no 狂躁 yet)
   const BURST_FX = {
     burn: [null, 'common_firedamage_hit'],
     erosion: ['common_waterElementExplosion', 'common_waterdamage_hit'],
     apoptosis: ['common_darkdamage_hit', 'common_darkdamage_hit'],
     neural: ['common_nerve_injury_01_hit', null],
+    rampage: [null, 'common_maniadamage_hit'],
   };
   // 2026-10-31: 麻痹震颤 (sim fx 'palsy' { id }, ai.js) is the client BuffDB buff palsying (gamedata buff_table: duration 0.5,
   // overrideEffectKey common_061_numb_hit_01 — a one-shot at the HIT point, `_delayToFinish` 0.5), played on the enemy

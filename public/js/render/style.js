@@ -129,7 +129,7 @@ export const DMG_STYLE = Object.freeze({
 /** Map b.ev dmg types to a style key. */
 export function dmgStyleKey(type) {
   if (type === 'phys' || type === 'arts' || type === 'true' || type === 'heal') return type;
-  if (type === 'burn' || type === 'neural' || type === 'apoptosis' || type === 'erosion' || type === 'element') return 'elem';
+  if (type === 'burn' || type === 'neural' || type === 'apoptosis' || type === 'erosion' || type === 'rampage' || type === 'element') return 'elem';
   return 'phys';
 }
 
