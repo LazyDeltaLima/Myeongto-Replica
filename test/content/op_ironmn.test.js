@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants, trackCarried } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks, diyRecordOf } from '../../shared/diy.js';
+import { COLS } from '../../server/sim/constants.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -305,7 +306,7 @@ test('S3 铁钳号·原型机: 30 s, ATK +25 / 40 %, ASPD +25 / 40, +1 stock at 
     assert.deepEqual([sk.duration, sk.bb.atk, sk.bb.attack_speed, v.skill.spCost, v.skill.spType, v.skill.bb.hp_ratio, v.trait.bb.hp_ratio, v.stats.tauntLevel],
       [30, elite ? 0.4 : 0.25, elite ? 40 : 25, 5, 'INCREASE_WHEN_TAKEN_DAMAGE', 0.025, 0.01, -2], `T${tier}`);
     assert.ok(h.b.isAllyTarget(c), `T${tier}: an ally target`);
-    assert.ok(c.s.flags.untargetable && c.s.flags.isolated && c.s.flags.noHeal && c.s.flags.noDisplace && !c.s.flags.invulnerable, `T${tier}: 不会受到攻击 (enemies), 孤立, 禁疗, 失衡免疫, not 无敌`);
+    assert.ok(c.s.flags.enemyCamp && !c.s.flags.untargetable && c.s.flags.isolated && c.s.flags.noHeal && c.s.flags.noDisplace && !c.s.flags.invulnerable, `T${tier}: enemy camp: 不会受到攻击 (enemies), 孤立, 禁疗, 失衡免疫, not 无敌`);
     h.run(3);
     const hitsBy = (src) => h.hooksOf('damaged').filter((x) => x.target === c && x.source === src).length;
     const atkOn = (src) => h.events.filter((e) => e[0] === 'atk' && e[1] === src.id && e[2] === c.id).length;
@@ -346,6 +347,34 @@ test('S3 铁钳号·原型机: 30 s, ATK +25 / 40 %, ASPD +25 / 40, +1 stock at 
     assert.equal(st(u).stock, 2, `T${tier}: +1 stock at the start`);
     done(h);
   }
+});
+
+test('铁钳号·原型机 is in every enemy selection of our side (its side is ENEMY: the client\'s TargetOptions.VerifyTarget checks the unit\'s side) — a splash around an enemy hits it and gives it SP; an enemy\'s selection never takes it (maintainer decision 2026-11-11)', () => {
+  // 格雷伊 (splash caster, chess_char_1_14_a) on 10,8 facing left: the enemy on 10,7 is his target, the crab on 10,6 is
+  // 1 tile from it — inside his splash (1.0); 白铁 on 10,5 faces left, the crab off his range: its SP comes from the splash
+  const { h, devs } = field({ tier: 6, elite: true, skill: 2, dir: 'LEFT', pieces: [[10, 6]], others: [{ uid: 3, chessId: 'chess_char_1_14_a', row: 10, col: 8, dir: 'LEFT' }] });
+  const [c] = devs;
+  const g = h.unit(3);
+  const e = h.spawn('enemy_dummy', { pos: [10, 7] });
+  h.step();
+  const k = (r, col) => r * COLS + col;
+  // the queries: an ally's enemy selection lists it, an enemy's does not, it never selects itself
+  assert.ok(h.b.enemiesInKeys([k(10, 6)], g).includes(c), 'enemiesInKeys (ally attacker)');
+  assert.ok(h.b.enemiesOnTiles([k(10, 6)], g).includes(c), 'enemiesOnTiles (ally attacker)');
+  assert.ok(h.b.foesInRadius(e.x, e.y, 1.1, true).includes(c), 'foesInRadius (an ally-side area)');
+  assert.ok(!h.b.enemiesInKeys([k(10, 6)], e).includes(c), 'not for an enemy attacker');
+  assert.ok(!h.b.enemiesInKeys([k(10, 6)], c).includes(c), 'not for itself');
+  c.skill.sp = 0;
+  const hurt = () => h.hooksOf('spGain').filter((x) => x.unit === c && x.reason === 'hurt').length;
+  const sp0 = hurt();
+  h.run(6);
+  const atkOn = (t) => h.events.filter((x) => x[0] === 'atk' && x[1] === g.id && x[2] === t.id).length;
+  assert.ok(atkOn(e) >= 2, `格雷伊 attacks the enemy (${atkOn(e)})`);
+  assert.equal(atkOn(c), 0, 'never the crab itself (an enemy first)');
+  const got = hurt() - sp0;   // (the last bolt may still be in the air)
+  assert.ok(got >= 1 && got >= atkOn(e) - 1 && got <= atkOn(e), `every splash of his gives it 1 SP (受击回复): ${got} of ${atkOn(e)}`);
+  assert.equal(c.hp, c.s.maxHp, 'no damage reaches it');
+  done(h);
 });
 
 test('铁钳号·原型机\'s skill (5 SP, an enemy in its 3-13, flyers too): −2.5 % max HP (流失), then 白铁\'s ATK × 230 % / 260 % physical on the first enemy and × 110 % / 120 % on every other within 1.1 of it; 团结的力量: the operator behind it takes ×0.8 physical (not arts)', () => {

@@ -111,7 +111,7 @@ export function canTargetEnemy(attacker, e, profile) {
 export function canTargetAlly(e, a, ranged) {
   if (!a.alive || !a.deployed || a.hidden || a.kind === 'device') return false;
   const f = a.s.flags;
-  if (f.untargetable || f.sleep) return false;
+  if (f.untargetable || f.sleep || f.enemyCamp) return false;   // enemyCamp: 白铁's 铁钳号, a unit of the enemy side
   if (ranged && (f.stealth || f.camou) && (e.blockedBy !== a || (e.profile && e.profile.blockFree))) return false;
   if (f.liftoff && evadesGround(e, a)) return false;
   return true;
@@ -154,7 +154,7 @@ export function areaSelectable(src, a) {
 export function auraSelectable(src, a) {
   if (!a || !a.alive || !a.deployed || a.hidden || a.kind === 'device') return false;
   const f = a.s.flags;
-  if (f.untargetable || f.sleep || f.stealth) return false;
+  if (f.untargetable || f.sleep || f.stealth || f.enemyCamp) return false;   // enemyCamp: as canTargetAlly
   return true;
 }
 

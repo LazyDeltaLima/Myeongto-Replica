@@ -94,11 +94,11 @@ export default {
     const bombard = (battle, unit) => {
       const m = unit.mem.ireneS3;
       m.n++;
-      const cands = [...battle.enemiesInKeys(keysOf(unit, grid3), unit, AIR), ...battle.allyTargetsInKeys(keysOf(unit, grid3), unit)];
+      const cands = battle.enemiesInKeys(keysOf(unit, grid3), unit, AIR);   // 白铁's 铁钳号 among them (queries.js _pushAllyTargets)
       if (!cands.length) return;
       const c = battle.rng.pick(cands);
       battle.fx('aoe', { x: c.x, y: c.y, radius: S3_SPLASH, id: unit.id, skill: 'irene:judgment' });
-      for (const e of [...battle.foesInRadius(c.x, c.y, S3_SPLASH, true), ...battle.allyTargetsInRadius(c.x, c.y, S3_SPLASH, unit)]) {
+      for (const e of battle.foesInRadius(c.x, c.y, S3_SPLASH, true)) {
         battle.dealDamage(unit, e, { amount: unit.s.atk * num(b3.multi_atk_scale, 1), type: 'phys', isSkill: true, isSplash: e !== c, tags: ['skill'] });
       }
     };
@@ -125,7 +125,7 @@ export default {
           // `_targetCategory` 1 DEFAULT, `_minTargetNum` 1, `_useTriggerInManualMode` — the 铁钳号's prefab is side 2 / category 1,
           // docs/rules/sim.md 「스킬 범위 발동」), after the enemies as every attack takes it (ai.js acquireTargets)
           onStart({ battle, unit, skill }) {   // (`_selectTargetTiming` 0)
-            const list = battle.enemiesInKeys(keysOf(unit, grid2), unit, GROUND);
+            const list = battle.enemiesInKeys(keysOf(unit, grid2), unit, GROUND).filter((e) => !battle.isAllyTarget(e));
             sortEnemyTargets(battle, unit, list, null);
             const all = list.concat(battle.allyTargetsInKeys(keysOf(unit, grid2), unit));
             skill.castPick = all.slice(0, Math.max(1, Math.floor(num(b2.max_target, 1))));
@@ -161,7 +161,7 @@ export default {
           },
           onStrike({ battle, unit, skill }) {
             skill.castHit();
-            const v = [...battle.enemiesInKeys(keysOf(unit, grid3), unit, GROUND), ...battle.allyTargetsInKeys(keysOf(unit, grid3), unit)];
+            const v = battle.enemiesInKeys(keysOf(unit, grid3), unit, GROUND);
             battle.fx('aoe', { x: unit.x, y: unit.y, radius: 1.5, id: unit.id, skill: 'irene:judgment' });
             for (const e of v) {
               battle.dealDamage(unit, e, { amount: unit.s.atk * num(b3.atk_scale, 1), type: 'phys', isSkill: true, tags: ['skill'] });

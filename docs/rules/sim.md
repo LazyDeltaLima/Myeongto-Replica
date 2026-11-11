@@ -297,6 +297,13 @@
   GDGLOW_SKILL_2(`enemyCnt`)도 게를 센다(2026-11-03 공식 클라에서 확인): `UnitManager.Register`가 유닛을 쪽(`side`)으로 나눠 ENEMY면 `_enemies`에
   넣고 `enemyCnt`는 그 수이며, 카드로 놓는 말의 쪽은 `Character.BuildAt`이 `initSideType`(토큰은 프리팹 `_sideType`)으로 정한다 → 게만 있어도
   필드 전체 조건이 참(엔진 `skills.js _anyAllyTarget`).
+  발동 판정만이 아니라 **우리 편의 모든 적 선택자가 게를 고른다**(2026-11-11 공식 클라에서 확인, 관리자 결정 2026-11-11 「공식대로」): 선택자는 유닛을
+  충돌체로 모은 뒤 `TargetOptions.VerifyTarget`이 `m_targetSideMask & 유닛의 _side`로 쪽만 본다(유닛 종류는 안 봄) → 범위 스킬·스플래시·투사체
+  범위·소환물 공격이 모두 게를 고르고, 맞을 때마다 게는 피해를 취소하고 SP 1(受击回复)을 얻는다. 엔진: `battle/queries.js`의 `enemiesInKeys`·
+  `enemiesOnTiles`·`unitsInGrid`(적 쪽)·`foesInRadius`가 아군 공격자에게 등록된 게를 더해 돌려주고(`_pushAllyTargets`, 평타는 `ai.js
+  acquireTargets`가 게를 적들 뒤로), 적 쪽 선택은 버프 깃발 `enemyCamp`로 막는다(`targeting.js canTargetAlly`·`auraSelectable`; 예전엔
+  `untargetable`로 막아 아군 쪽 거르기에서도 빠졌다). 남은 차이: 키트가 `battle.enemies`를 직접 도는 곳(필드 전체 적 등)은 게를 안 넣는다.
+  확인 시험 `test/content/op_ironmn.test.js` 「every enemy selection of our side」, 전수(모든 오퍼레이터×스킬을 게 옆에서) 오류 0.
 - 알려진 결과: 패스가 휘두름 시작 뒤에 오면 그 휘두름은 원래 쿨다운을 그대로 지닌다(`AbilityStandard.CastToTarget`이 휘두름 시작에 타이머를 다시 검) —
   공속 스킬의 첫 몇 타가 느리다. 결정 1(즉발 시전)의 `cast` 모드(replace/state/free)는 「즉발 스킬의 시전」 절.
 - 근거 기록: 비공개 조사 기록 round2 §7, upstream 0.2.3 대조(스킬 발동). 테스트 `test/sim/skills.test.js`, `test/sim/instant-cast.test.js`, `test/local-patch-diy-chen3.test.js`(첸 S3 3-12 공중).

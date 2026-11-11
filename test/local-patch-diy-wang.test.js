@@ -251,7 +251,7 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
     assert.deepEqual(firstFollower([11, 9]), { r: 11, c: 10 });
   });
 
-  test('module (uniequip_002_wang): deploy limit 8 — eight prep stones all stand, stock 0; without it 7 (full potential)', () => {
+  test('module (uniequip_002_wang): deploy limit 8 — eight prep stones all stand, stock 铸子 cnt 7; without it 7 (full potential)', () => {
     const eight = [3, 4, 5, 6, 7, 8, 9, 10].map((c, i) => stone(9, c, 50 + i));
     for (const [elite, cap] of [[true, 8], [false, 7]]) {
       const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 30, autoFinish: false,
@@ -260,8 +260,21 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
       const s = h.unit(1).mem.wang;
       assert.equal(s.fieldCap, cap, `deploy limit (elite ${elite})`);
       assert.equal(h.b.allyUnits.filter((u) => u.kind === 'token' && u.alive && !u.mem.wangFollower).length, cap, 'stones standing');
-      assert.equal(s.stock, 0, 'stock = limit − placed, never below 0');
+      assert.equal(s.stock, 7, 'stock = 铸子 cnt on her birth (charge_token[refresh]), the prep stones spend none');
     }
+  });
+
+  test('铸子 refills the stock on every birth of hers (charge_token[refresh] ON_OWNER_BORN), a move is no birth (maintainer decision 2026-11-11)', () => {
+    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 60, autoFinish: false,
+      units: [op(0, 11, 3), stone(9, 6, 50), stone(9, 7, 51)], enemies: [] });
+    h.step(1);
+    const w = h.unit(1);
+    assert.equal(w.mem.wang.stock, 7, 'the battle start: 铸子 cnt 7');
+    w.mem.wang.stock = 1;
+    h.b.retreat(w);
+    h.b.players[0].dp = 99;
+    assert.ok(h.b.redeploy(w, { free: true }), 'she stands again');
+    assert.equal(w.mem.wang.stock, 7, 'her return: the count refreshed to cnt, whatever was left');
   });
 
   test('跟子 never land on a knocked-out operator (downOn, as upstream; maintainer decision 2026-10-07)', () => {
@@ -428,10 +441,16 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
     h.step(2);
     const w = h.unit(1);
     const groups = trackDeployments(h.b, () => w.skill.active);   // before the cast: its first deployment's 跟子 come over 4-frame steps
+    // an empty hand at the cast: S3's charge (8) all goes to the hand, no InstantSpawn 跟子 fill the 跟子 cap — the returns'
+    // paid 跟子 are what is counted (with her born stock of 7, seven InstantSpawn 跟子 + six battle-start ones reach the cap);
+    // the hand is kept full below as the DP is: every return takes a stone (maintainer decision 2026-11-11), and an empty
+    // hand would end S3 ('stones') before enough returns are seen
+    w.mem.wang.stock = 0;
     w.skill.activate('manual', { free: true });
     let spent = 0, a0 = 0;
     for (let i = 0; i < 30 / 0.05 && w.skill.active; i++) {
       h.b.players[0].dp = 99;
+      w.mem.wang.stock = w.mem.wang.deckCap;
       a0 = w.skill.ammoLeft;
       h.step(1);
       // (the step S3 ends in is left out: the ammo left then returns as stones, it is not spent — unless the last ammo ended it)

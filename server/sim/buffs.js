@@ -54,6 +54,9 @@ export const FLAG_KEYS = Object.freeze([
   // the client's SKILL_NOT_ACTIVATABLE (规程's 淤困之茧 on the operator it binds): no skill starts meanwhile (skills.js) — a
   // running one goes on, SP still charges, talents are untouched (unlike 沉默)
   'skillLock',
+  // a unit of ours on the enemy camp's side (白铁's 铁钳号·原型机, prefab `_sideType` ENEMY): no enemy selection takes it
+  // (targeting.js canTargetAlly / auraSelectable), our enemy selections do (Battle.setAllyTarget)
+  'enemyCamp',
 ]);
 
 /**

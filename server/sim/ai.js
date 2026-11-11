@@ -615,8 +615,14 @@ export function acquireTargets(b, u, prof) {
     const n = targetCount(u, prof);
     return n >= all.length ? all : all.slice(0, n);
   }
-  // an ally target (Battle.setAllyTarget: 白铁's 铁钳号·原型机, an enemy-camp summon with 嘲讽等级 −2) after every enemy
-  const extra = b._allyTargets && b._allyTargets.size ? b.allyTargetsInKeys(u.rangeKeys, u) : null;
+  // an ally target (Battle.setAllyTarget: 白铁's 铁钳号·原型机, an enemy-camp summon with 嘲讽等级 −2) after every enemy:
+  // enemiesInKeys lists it among them (an ally's enemy selection takes it), taken out here and put last
+  let extra = null;
+  if (b._allyTargets && b._allyTargets.size) {
+    let n = 0;
+    for (const x of cands) if (b.isAllyTarget(x)) (extra ??= []).push(x); else cands[n++] = x;
+    cands.length = n;
+  }
   if (extra && extra.length) {
     if (prof.allInRange) return cands.concat(extra);
     sortEnemyTargets(b, u, cands, prof.priority);

@@ -117,7 +117,21 @@ export class BattleQueries {
         if (e.alive && canTargetEnemy(attacker, e, profile)) out.push(e);
       }
     }
+    if (this._allyTargets && this._allyTargets.size) this._pushAllyTargets(out, this.allyTargetsInKeys(keys, attacker), attacker, profile);
     return out;
+  }
+
+  /**
+   * Append the registered ally targets (setAllyTarget: 白铁's 铁钳号·原型机) an ally `attacker`'s enemy selection takes, by
+   * the same canTargetEnemy rule: the client files a unit under its side — the token prefab's `_sideType` ENEMY —, and a
+   * selector's side check is `TargetOptions.m_targetSideMask & unit side` (TargetOptions.VerifyTarget), so every enemy
+   * selector of our side — a skill's area, a splash, a summon's attack — takes it (maintainer decision 2026-11-11). An
+   * enemy's selection never does (allyTargetsInKeys: no attacker of the enemy side; flag `enemyCamp` keeps the enemies'
+   * own selections off it — targeting.js canTargetAlly / auraSelectable).
+   */
+  _pushAllyTargets(out, list, attacker, profile) {
+    if (!list.length || (attacker && attacker.side !== 'ally')) return;
+    for (const a of list) if (canTargetEnemy(attacker, a, profile)) out.push(a);
   }
 
   /**
@@ -135,6 +149,7 @@ export class BattleQueries {
       if (!b || !b.length) continue;
       for (const e of b) if (e.alive && (!e.hitArea || !out.includes(e)) && canTargetEnemy(attacker, e, profile)) out.push(e);
     }
+    if (this._allyTargets && this._allyTargets.size) this._pushAllyTargets(out, this.allyTargetsInKeys(keys, attacker), attacker, profile);
     return out;
   }
 
@@ -143,7 +158,8 @@ export class BattleQueries {
    * 铁钳号·原型机, a summon of the enemy camp that "可被我方干员攻击但不受伤害" (PRTS 铁钳号·原型机 备注 "该召唤物阵营为敌方";
    * upstream's 自选 白铁 kit, removed here). Those standing on one of `keys` (tile keys, or a Set of them), alive and deployed — never
    * `attacker` itself, and an ally target selects none. ai.js acquireTargets appends them after the enemies (their 嘲讽等级 −2
-   * puts them last). [] at once while none is registered, so every other battle runs exactly as before.
+   * puts them last); enemiesInKeys / enemiesOnTiles / unitsInGrid / foesInRadius add them for an ally attacker. [] at once
+   * while none is registered, so every other battle runs exactly as before.
    */
   allyTargetsInKeys(keys, attacker) {
     const set = this._allyTargets;
@@ -235,6 +251,8 @@ export class BattleQueries {
       if (!x.alive || !x.deployed || x.hidden) continue;
       if (bodyInRange(x, set)) out.push(x);
     }
+    // the registered ally targets an ally's enemy selection takes (_pushAllyTargets)
+    if (want === 'enemy' && unit.side === 'ally' && this._allyTargets && this._allyTargets.size) out.push(...this.allyTargetsInKeys(set, unit));
     return out;
   }
 
@@ -294,6 +312,12 @@ export class BattleQueries {
       out[n++] = e;
     }
     out.length = n;
+    // an ally-side area effect takes the registered ally targets too (_pushAllyTargets; by its centre — a token's body)
+    const set = this._allyTargets;
+    if (set && set.size) {
+      const r2 = r * r + 1e-9;
+      for (const a of set) if (a.alive && a.deployed && !a.hidden && !a.s.flags.untargetable && (a.x - x) * (a.x - x) + (a.y - y) * (a.y - y) <= r2) out.push(a);
+    }
     return out;
   }
 

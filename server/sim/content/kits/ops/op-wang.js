@@ -21,9 +21,12 @@
 //   on its own tile like the mode's redeploys (Battle.redeploy / tokens.js enableRespawn): after its respawnTime, for its
 //   DP cost (卫戍协议 in-battle DP: 10, +1/s), once no walking enemy stands there (during S3 on a tile of her range it may
 //   come back onto one: 「在攻击范围内手动部署棋子时可部署至敌人所在位置」, maintainer decision 2026-10-07, W10) — and it takes
-//   no stone of the stock: PRTS 卫戍协议 「若召唤物在战斗期间退场，将在满足条件后立即原地再部署1个」, so the placed stones keep
-//   coming back for DP the whole battle (maintainer decision 2026-10-08, RETURN_USES_STOCK false — the maintainer remembers those
-//   DP payments draining a 行商 like 琳琅诗怀雅 off the field; the stock rule of 2026-10-07 is kept off beside it). The trigger area is the
+//   one stone of the stock, as every summon of the mode (confirmed in the official client: a token leaving the field gives
+//   its card no count back — Deck.Card.OnRecycle only re-arms the card's respawn timer, Deck.TokenCard.OnRecycle lowers its
+//   deployed count —, and the automatic deployment draws a card, Deck.Card.Draw with `freely` false; the stone's prefab is
+//   no infinite card). Maintainer decision 2026-11-11: as the client (2026-10-08 – 2026-11-11 a return took no stone,
+//   from PRTS 「若召唤物在战斗期间退场，将在满足条件后立即原地再部署1个」 and the maintainer's memory of those DP payments
+//   draining a 行商 like 琳琅诗怀雅 off the field — the DP payment stays). The trigger area is the
 //   stone's own tile, with S3 equipped (its passive: "棋子的触发和伤害范围扩大") x-1, a radius-2 diamond of 13 tiles (the
 //   sktok_wang_3 prefab's SkillTrigger / Selector and PRTS 天下劫 "携带该技能时…x-1"; the table's x-6 cross is in no prefab —
 //   owner's decision 2026-10-06: the official diamond)
@@ -44,8 +47,11 @@
 //   high ground; only where no character unit stands and no knocked-out operator lies (downOn, as upstream; user
 //   decision 2026-10-07). Several in a row are built one per 4 frames. It needs no stock and is drawn as a stone. It
 //   links like a stone (armed 30 frames after the link, as a stone); its damage comes from 望.
-// - Stock (手牌): at the battle start the stones not placed (deploy limit − placed: 6, 7 with her module
-//   uniequip_002_wang — stoneLimits; maintainer decision 2026-10-07), ≤ maxDeckStackCnt.
+// - Stock (手牌): 铸子's cnt (7) every time she is born — the battle start and every return of hers — ≤ maxDeckStackCnt (the
+//   client's wang_t_1 = charge_token[refresh], ON_OWNER_BORN RechargeToken with `_refreshRemainingCnt`: Deck.TokenCard.Recharge
+//   sets the count to min(cnt, maxDeckStackCnt)). The stones placed in the prep spend none: the battle-start deployment is
+//   free (MainGameInBattle._Prebuilt → Deck.SpawnCharacterOrToken with `freely` true; Card.Draw takes a card only when not
+//   free). Until 2026-11-11 the stock was the deploy limit − the stones placed (maintainer decision 2026-10-07).
 //   S1 / S2: "立即获得两枚棋子", 阻回 while the stock is full (PRTS 备注). S3: gains cnt, the stones above the stock limit
 //   go out as 跟子 on tiles of her range (PRTS: "技能开启时自动部署的为第一天赋的跟子"; the client's InstantSpawn order:
 //   ground, enemy tiles, undeployable first, otherwise random — followerOrder); a stone of hers deployed in her range
@@ -90,11 +96,6 @@ const ORTHO = [[1, 0], [0, 1], [-1, 0], [0, -1]]; // up > right > down > left (r
  * 2026-10-11 — until then all those due in a 0.25 s pass at once).
  */
 const AUTO_TRIGGER_INTERVAL = 0.2;
-/**
- * A used stone's return takes one stone of the stock (maintainer decision 2026-10-07); false = it comes back for DP alone, as
- * PRTS 卫戍协议 「…退场，将在满足条件后立即原地再部署1个」 (maintainer decision 2026-10-08: back to false).
- */
-const RETURN_USES_STOCK = false;
 /**
  * Tiles no 跟子 may take (local patch 2026-10-06, user: "적 공격 포인트"): the client 跟子 selector has `exceptTileTypes`
  * with tileTypesMask 14. Client enum Torappu.Battle.TileTypesMask ([Flags]): NONE 0, DEFAULT 1, HOLE 2, END 4, START 8,
@@ -194,6 +195,11 @@ function wang(bb, chess, def) {
   // stock = the stone cards in her hand, ≤ deckCap ("最多拥有": the client's card counts — wang_s3_charge_token
   // max_cnt / remaining_cnt via AssignTokenCardCntToBB, _stopSpWhenTokenIsFull; local patch 2026-10-06: not field + hand)
   const st = (unit) => unit.mem.wang || (unit.mem.wang = { stock: 0, deckCap: 7, fieldCap: 6, prepPlaced: 0 });
+  /**
+   * 铸子 on her birth (the client's wang_t_1 = charge_token[refresh]: ON_OWNER_BORN RechargeToken `_refreshRemainingCnt` →
+   * Deck.TokenCard.Recharge sets the card count to min(cnt, maxDeckStackCnt), whatever was left).
+   */
+  const refreshStock = (unit) => { const s = st(unit); s.stock = Math.min(s.deckCap, Math.max(0, Math.floor(num(t0.cnt, 0)))); };
   const placed = (battle, unit) => stonesOf(battle, unit).filter((s) => !isFollower(s));
   const followers = (battle, unit) => stonesOf(battle, unit).filter(isFollower);
   /** Placed stones used up by a trigger, waiting to be redeployed on their own tile. */
@@ -202,14 +208,11 @@ function wang(bb, chess, def) {
   /**
    * A consumed stone comes back on its own tile like any redeploy of the mode (tokens.js enableRespawn /
    * Battle.redeploy): after its respawnTime, paying its DP cost; the tile must be free of units and enemies (trait).
-   * [ASSUMED] she must be on the field (a hand piece of hers).
-   * No stock (maintainer decision 2026-10-08, `RETURN_USES_STOCK` false): the stone comes back without spending the stock, so
-   * the placed stones cycle for the whole battle and each return pays its DP (PRTS 卫戍协议 「若召唤物在战斗期间退场，将在满足
-   * 条件后立即原地再部署1个」; the maintainer remembers those payments retreating 琳琅诗怀雅; the 「왕 S3.mp4」 DP counter fell by 2–3
-   * every ~1.5 s after the first stones were used — LOCAL-PATCH). The same rule held 2026-10-06 – 2026-10-07.
-   * Former rule (2026-10-07 – 2026-10-08, kept off): every return took one stone of her stock (the deploy limit minus the
-   * stones placed in the prep); with the stock empty a used stone waited until S1 / S2 「立即获得两枚棋子」 refilled it —
-   * a full prep layout got no stone back before S1 (and none at all with S3).
+   * She must be on the field (the token card's readyToSpawn: host alive — Deck.TokenCard.get_isHiddenByCardState).
+   * Each return takes one stone of the stock (maintainer decision 2026-11-11, as the official client: a token card's count
+   * never comes back when its token leaves, and the automatic deployment draws one — Deck.Card.OnRecycle / Card.Draw); with
+   * the stock out a used stone waits for S1 / S2 「立即获得两枚棋子」 or S3's charge. 2026-10-08 – 2026-11-11 a return took
+   * none (PRTS 卫戍协议 「若召唤物在战斗期间退场，将在满足条件后立即原地再部署1个」).
    */
   const inHerRange = (unit, r, c) => !!(unit.rangeKeySet?.has(r * COLS + c) ?? unit.rangeKeys?.includes(r * COLS + c));
   /**
@@ -245,9 +248,9 @@ function wang(bb, chess, def) {
       const occupant = stoneAt(stonesOf(battle, unit), t.homeR, t.homeC);
       if (occupant && !isFollower(occupant)) continue;
       if (placed(battle, unit).length >= st(unit).fieldCap) break; // never over the deploy limit (it would withdraw a stone)
-      if (RETURN_USES_STOCK && st(unit).stock <= 0) break; // (the former stock rule, off) the stock is out: wait for S1 / S2
+      if (st(unit).stock <= 0) break; // the stock is out: wait for S1 / S2 / S3 to charge it
       if (!battle.redeploy(t, { free: false })) continue;
-      if (RETURN_USES_STOCK) st(unit).stock--;
+      st(unit).stock--;
       Object.assign(t.mem, { wangUsed: false, active: false, armAt: 0, line: 0, axes: new Set() });
       battle.fx('summon', { x: t.x, y: t.y, id: t.id });
       // every stone birth brings its 跟子 (client wang_stone1_t_1[trigger] ON_OWNER_BORN)
@@ -461,11 +464,9 @@ function wang(bb, chess, def) {
           const s = st(unit);
           s.deckCap = Math.max(1, num(ss.deckStack, 7));
           s.fieldCap = Math.max(1, num(ss.deployLimit, 6));
-          // 卫戍协议 hands out the deploy limit (maxDeployCount, 6) as cards (PRTS 卫戍协议/帮助 "根据召唤物部署数量上限…发送等量
-          // 召唤物至手牌区"): those placed stand, the rest are the stock
-          const n = placed(battle, unit).length;
-          s.prepPlaced = n;
-          s.stock = Math.min(s.deckCap, Math.max(0, s.fieldCap - n));
+          // the stones placed in the prep stand (a free deployment); her birth fills the stock (refreshStock)
+          s.prepPlaced = placed(battle, unit).length;
+          refreshStock(unit);
           syncSpLock(battle, unit);
           battle.every(AUTO_TRIGGER_INTERVAL, () => redeployUsed(battle, unit), { owner: unit }); // the used stones' returns
         }, { owner: unit });
@@ -486,6 +487,7 @@ function wang(bb, chess, def) {
         battle.on('deploy', (ctx) => {
           const a = ctx.unit;
           if (!a || a.side !== 'ally' || isFollower(a)) return;
+          if (a === unit && !ctx.initial && !ctx.move) { refreshStock(unit); syncSpLock(battle, unit); } // her return: 铸子 again (ON_OWNER_BORN)
           for (const f of followers(battle, unit)) {
             if (f !== a && f.tileR === a.tileR && f.tileC === a.tileC) battle.retreat(f, { reason: 'expired', permanent: true });
           }
