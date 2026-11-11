@@ -3,6 +3,7 @@
 
 import * as S from '../../support/index.js';
 import { ids, EMPTY, byUnit } from '../shared.js';
+import { raiseUrsusExtra } from '../../bonds/nation/ursus.js';
 
 /** Installers of the fixed stat 特质 by effect key: (battle, instances of the key). */
 export const STAT_INSTALLERS = {
@@ -14,6 +15,13 @@ export const STAT_INSTALLERS = {
       if (S.num(it.bb.def, 0) > 0) mods.defMul = S.num(it.bb.def);
       S.passiveBuff(battle, it.unit, `gar:${it.gid}`, mods);
     }
+  },
+
+  // 规程 garrison_23 (乌萨斯 6): "击倒单位时叠加的临时层数提升至4层；在场6名…提升至6层" — the player's AUTOCHESS globals
+  // ursus_extra_bond_stack_cnt / [power] become ex_bond_cnt / ex_bond_cnt[power] if higher (bonds/nation/ursus.js
+  // raiseUrsusExtra), added to each member knock-out's 临时层数
+  act3autochess_gar_effect_ursusexbondcnt(battle, list) {
+    for (const it of list) raiseUrsusExtra(battle, it.unit.ownerId, S.num(it.bb.ex_bond_cnt), S.num(it.bb['ex_bond_cnt[power]']));
   },
 
   attr_common_global_buff(battle, list) {

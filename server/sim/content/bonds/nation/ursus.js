@@ -18,6 +18,18 @@ export function ursusExtra(battle, pid) {
   return S.battleStore(battle, 'bond:ursus:extra', () => new Map()).get(pid) ?? { normal: 0, power: 0 };
 }
 
+/**
+ * Raise the player's extra per knock-out to at least `normal` / `power` — 规程's 特质 act3autochess_gar_effect_ursusexbondcnt
+ * (garrison_23): ON_BUFF_START AddGlobalBlackboard `_overwrite` behind FilterByBlackboardValue GT (a lower value leaves
+ * both as they are).
+ */
+export function raiseUrsusExtra(battle, pid, normal, power) {
+  const store = S.battleStore(battle, 'bond:ursus:extra', () => new Map());
+  const cur = store.get(pid) ?? { normal: 0, power: 0 };
+  if (!(normal > cur.normal)) return;
+  store.set(pid, { normal, power: power > cur.power ? power : cur.power });
+}
+
 function installUrsus(battle, pid, bb, members) {
   standing(battle, pid, 'ursusShip', members, 'bond:ursus', { atk: [bb.atk_base, bb.atk_per_stack], hp: [bb.hp_base, bb.hp_per_stack] });
   const memberSet = new Set(members);

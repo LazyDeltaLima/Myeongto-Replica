@@ -3,13 +3,73 @@
 // Keyed by the official buff key (bbStr.key of the item record's battle buff); items/battle.js runs them for every record
 // that carries the key, whatever its item id (items/shared.js: the entry shape and the early / late order).
 
-import { num } from '../../support/index.js';
-import { periodicDamage } from '../../../damage.js';
+import { num, tplFx } from '../../support/index.js';
+import { periodicDamage, hasHp } from '../../../damage.js';
+import { RESIST_STATUSES } from '../../../buffs.js';
 import { hypot } from '../../../detmath.js';
-import { early, late, ENEMY_RECORD, mitigated } from '../shared.js';
+import { early, late, ENEMY_RECORD, mitigated, isAddition, isContinuous, procTags, chance } from '../shared.js';
 
-/** chess_item_3_02_e, chess_item_4_05_e, chess_item_4_07_e, periodic_damage (early), halfidle_block_fixed_damage (early) */
+/**
+ * The carrier's own damage to an enemy at the `hit` hook (no 元素损伤) — its item procs too: these graphs scale or roll on
+ * every damage it outputs (ON_OUTPUT_DAMAGE / ON_CALCULATE_DAMAGE), and a multiplier is no proc of its own.
+ */
+const ownHit = (c, u) => c.source === u && !!c.target && c.target.side === 'enemy' && c.dmg.type !== 'element';
+/**
+ * Does the target hold a buff the client marks status-resistable (CheckContainsStatusResistableBuff — the buffs 抵抗
+ * shortens: 晕眩, 冻结, 寒冷, 恐惧, 诱导 here, buffs.js RESIST_STATUSES)?
+ */
+const holdsResistable = (t) => t.buffs.some((b) => b.status && RESIST_STATUSES.has(b.status));
+
+/** chess_item_3_02_e, chess_item_4_05_e, chess_item_4_07_e, periodic_damage (early), halfidle_block_fixed_damage (early);
+ * 规程: 伊比利亚骨刺刀, 驱逐者警棍, 动能单手弩, 天马之耀, 瓶装烈性反应 */
 export const BUFFS = {
+  // 伊比利亚骨刺刀 (规程, act3autochess_equip_acarm133_global_buff): after each damage the carrier outputs that is neither
+  //   附加 (ADDITION) nor 持续 ⇒ 1 (double_damage > 0: 2) extra arts damage of atk_scale × its ATK to that target, of the
+  //   attack type ADDITION (so it carries nothing further), with the effect trap_acarm133_hit_02 (two: trap_acarm133_hit)
+  act3autochess_equip_acarm133_global_buff: late(function act3_iberiaSpike(battle, u, p, S) {
+    const sc = num(p.atk_scale, 0.25), n = num(p.double_damage) > 0 ? 2 : 1;
+    if (!(sc > 0)) return;
+    S.on('damaged', (c) => {
+      const t = c.target;
+      if (c.source !== u || c.type === 'element' || isAddition(c.dmg) || isContinuous(c.dmg) || !t || t.side !== 'enemy' || !hasHp(t)) return;
+      for (let i = 0; i < n && hasHp(t); i++) battle.dealDamage(u, t, { amount: u.s.atk * sc, type: 'arts', tags: [...procTags('iberiaSpike'), 'addition'] });
+      if (t.alive) tplFx(battle, t, n > 1 ? 'trap_acarm133_hit' : 'trap_acarm133_hit_02', u);
+    });
+  }),
+  // 驱逐者警棍 (规程, act3autochess_equip_acarm144_global_buff; also 驱逐者防暴装备): the carrier's damage (not 持续) to a
+  //   target holding a status-resistable buff ×damage_scale (DamageScale)
+  act3autochess_equip_acarm144_global_buff: late(function act3_expellerBaton(battle, u, p, S) {
+    const sc = num(p.damage_scale, 1);
+    if (sc === 1) return;
+    S.on('hit', (c) => { if (ownHit(c, u) && !isContinuous(c.dmg) && holdsResistable(c.target)) c.dmg.mul *= sc; });
+  }),
+  // 动能单手弩 (规程, act3autochess_equip_acarm150_global_buff; also 动能轰击弩): ON_CALCULATE_DAMAGE Dice prob ⇒ AtkScaleUp
+  //   atk_scale — that damage's attack multiplier ×1.3 ("使该次攻击力提升至130%"): the amount before DEF / RES
+  act3autochess_equip_acarm150_global_buff: late(function act3_kineticCrossbow(battle, u, p, S) {
+    const pr = num(p.prob), sc = num(p.atk_scale, 1);
+    if (!(pr > 0) || sc === 1) return;
+    S.on('hit', (c) => { if (ownHit(c, u) && c.dmg.amount > 0 && chance(battle, pr)) c.dmg.amount *= sc; });
+  }),
+  // 天马之耀 (规程, act3autochess_equip_acarm156_global_buff): each damage the carrier outputs that is not 附加 also deals
+  //   atk_scale × that damage's amount (AssignModifierOriginAtkToBB: the amount after the attack multiplier, before DEF /
+  //   RES) as 无来源 真实 附加 damage (FixedValueDamage `_noSourceDamage`, ADDITION) — 天马之枪's graph without the partner;
+  //   and 生命回复 hp_recovery_per_sec_by_max_hp_ratio × max HP per second (the global buff's attribute)
+  act3autochess_equip_acarm156_global_buff: late(function act3_pegasusGlory(battle, u, p, S) {
+    const sc = num(p.atk_scale), r = num(p.hp_recovery_per_sec_by_max_hp_ratio);
+    if (r > 0) S.stat('regen', { hpRegenRatio: r });
+    if (!(sc > 0)) return;
+    S.on('hit', (c) => {
+      if (c.source !== u || isAddition(c.dmg) || !(c.dmg.amount > 0) || !c.target || c.target.side !== 'enemy' || !c.target.alive || c.dmg.type === 'element') return;
+      battle.dealDamage(u, c.target, { amount: c.dmg.amount * sc, type: 'true', canDodge: false, sourceless: true, tags: [...procTags('pegasusGlory'), 'addition'] });
+    });
+  }),
+  // 瓶装烈性反应 (规程, act3autochess_equip_acarm158_global_buff): the carrier's damage (not 持续) to a target in its 元素爆发
+  //   recovery (IsTargetInEPBreakRecovery — the burst cooldown, flag burstLock) ×damage_scale
+  act3autochess_equip_acarm158_global_buff: late(function act3_volatileReaction(battle, u, p, S) {
+    const sc = num(p.damage_scale, 1);
+    if (sc === 1) return;
+    S.on('hit', (c) => { if (ownHit(c, u) && !isContinuous(c.dmg) && c.target.s.flags.burstLock) c.dmg.mul *= sc; });
+  }),
   // 精准狙击镜: damage ×damage_scale against targets more than radius tiles away — the client graph act1autochess_acarm063_buff
   // scales when CheckDistance (squared distance ≤ radius²) fails, so a target exactly radius away gets none (the text
   // says "3格及以上")

@@ -51,12 +51,12 @@
 
 import {
   num, itemRecord, dataFile, itemKeyOf, itemIdOfKey, buffsOf, isOp, onField, unitBonds, isGroundOp, passiveBuff, fxOn, tplFx,
-  itemsOf, directMods,
+  itemsOf, directMods, playerOps,
 } from '../support/index.js';
 import { hasHp } from '../../damage.js';
 import {
   PRIO_REVIVE, PRIO_UNDYING_HELD, PRIO_FREE_UNDYING, partnerOf, isProc, procTags, chance, memberOf, runtime, grantsOf, carries,
-  onDamageEnemies, weaknessRetype,
+  onDamageEnemies, weaknessRetype, isContinuous, late,
 } from './shared.js';
 import { BUFFS as DAMAGE } from './effects/damage.js';
 import { BUFFS as STATUS } from './effects/status.js';
@@ -69,10 +69,47 @@ export {
   PRIO_REVIVE, PRIO_UNDYING_HELD, PRIO_RESPAWN, memberOf, carries, reviveNow, weaknessRetype, addShieldLayer,
 } from './shared.js';
 
+/** 蒸汽之心's buff (the hammer list; 终极维式重锤's too, in 规程). */
+const STEAM_BUFF = 'act1autochess_equip_acarm079_global_buff';
+/**
+ * 终极维式重锤 (规程): its STEAM_BUFF is 蒸汽之心's key with the 规程 form of the per-unit buff act1autochess_acarm079_buff
+ * (atk_per_hammer, hammer_1…5; 蒸汽之心 itself stays item-keyed — BY_ITEM). Client buff template (规程 tables),
+ * ON_BUFF_START: for each hammer_N, AutoChessCheckHasEquip `_checkAllSamePlayerIndex` `_excludeTarget` — any other chess
+ * of the carrier's player in this battle (the client's chessInstMap: characters `isInBattle` of that player index, the
+ * carrier left out; 공식 클라에서 확인), on the field or not — ⇒ CreateBuff of that hammer's own per-unit buff on the
+ * carrier with this buff's blackboard (the five specials at the hammers' numbers); then hammer_cnt = 1 + every hammer_N
+ * any of the player's chess carries, the carrier included, and ATK MULTIPLIER atk_per_hammer × hammer_cnt (直接乘算).
+ * No bond gate and no doubling (蒸汽之心's ×2 is the default season's). Judged when the buff starts.
+ */
+function ultimateHammer(battle, u, p, S) {
+  if (p.atk_per_hammer == null) return; // the default season's 蒸汽之心 (BY_ITEM)
+  const rt = runtime(battle);
+  const others = new Set(), all = new Set();
+  for (const a of playerOps(battle, u.ownerId)) {
+    for (const id of itemsOf(a)) {
+      const h = hammerInfo(itemKeyOf(id, battle), battle);
+      if (!h) continue;
+      all.add(h.type);
+      if (a !== u) others.add(h.type);
+    }
+  }
+  const hs = hammerAcquire(battle, rt, u);
+  hs.ult = others;
+  hs.ultP = p;
+  hammerRefresh(battle, rt, u, hs);
+  S.onDispose(() => { hs.ult = null; hs.ultP = null; hammerRelease(battle, rt, u, hs); });
+  const atk = num(p.atk_per_hammer) * (1 + all.size);
+  if (atk) S.stat('ultimate', directMods({ atk }));
+  // the template's CreateEffect map_act1autochess_reinforce_02 on the carrier (display only)
+  S.on('deploy', (c) => { if (c.unit === u) tplFx(battle, u, 'map_act1autochess_reinforce_02', u); });
+  if (onField(u)) tplFx(battle, u, 'map_act1autochess_reinforce_02', u);
+}
+const HAMMER = { [STEAM_BUFF]: late(ultimateHammer) };
+
 /** The buff-key behaviours of every family (a key in two families throws). */
 const BY_BUFF = (() => {
   const out = {};
-  for (const [fam, t] of Object.entries({ DAMAGE, STATUS, STACKS, SUSTAIN, RESOURCE, BOND })) {
+  for (const [fam, t] of Object.entries({ DAMAGE, STATUS, STACKS, SUSTAIN, RESOURCE, BOND, HAMMER })) {
     for (const [k, v] of Object.entries(t)) {
       if (Object.hasOwn(out, k)) throw new Error(`items/effects: buff key ${k} twice (${fam})`);
       out[k] = v;
@@ -110,14 +147,27 @@ function statMods(p) {
 }
 
 // ---- hammers (蒸汽之心) — derived from data: hammer records carry bbStr.big_hammer on their special buff
-const STEAM_KEY = 'chess_item_6_05_e';
-const STEAM_BUFF = 'act1autochess_equip_acarm079_global_buff';
 function hammerTypeOf(p) {
   if (!p) return null;
+  // 电流维式重锤 (规程): its special buff act3autochess_equip_acarm140_global_buff reads palsy_prob / def_penetrate
+  if (p.palsy_prob != null) return 'palsy';
   if (p.damage_scale != null) return 'burn';
   if (p.undeadable_duration != null) return 'undying';
   if (p.disarmed_duration != null) return 'tremble';
   if (p.attack_speed != null) return 'aspd';
+  return null;
+}
+/**
+ * The params of the season's hammer list: the first normal record whose STEAM_BUFF names `hammer_N` items — 蒸汽之心
+ * (chess_item_6_05_e) in the default season, 终极维式重锤 (its own key) in 规程, which has no 蒸汽之心. The list names item
+ * ids of that season without the quality suffix (itemKeyOf turns them into the handler keys).
+ */
+function hammerListOf(items) {
+  for (const r of Object.values(items)) {
+    if (!r || r.isGolden || r.itemType !== 'EQUIP') continue;
+    const p = bp(r, STEAM_BUFF);
+    if (p && Object.keys(p).some((k) => /^hammer_\d+$/.test(k))) return p;
+  }
   return null;
 }
 /** @type {WeakMap<object, Map<string, { type: string, bbKey: string } | null>>} items file → hammer item key → { type, bbKey } */
@@ -128,8 +178,7 @@ function hammerInfo(key, scope = null) {
   let map = HAMMERS.get(items);
   if (!map) {
     map = new Map();
-    const steam = itemRecord(itemIdOfKey(STEAM_KEY, scope) ?? '', scope);
-    const sp = steam ? bp(steam, STEAM_BUFF) : null;
+    const sp = hammerListOf(items);
     const keys = sp ? Object.keys(sp).filter((k) => /^hammer_\d+$/.test(k)).map((k) => itemKeyOf(sp[k], scope)) : [];
     for (const k of keys) {
       const rec = itemRecord(itemIdOfKey(k, scope) ?? '', scope);
@@ -212,7 +261,8 @@ function hammerState(battle, rt, u) {
   if (!hs) {
     // lockAt: the deployment (deploymentOf) whose 坚固 lock is spent — kept here, not in the grant's Scope, so a lend
     // that ends and comes back never resets it, and a redeploy while no hammer is held still re-arms it
-    hs = { own: { burn: 0, undying: 0, aspd: 0, tremble: 0 }, params: {}, steam: 0, steamP: null, refs: 0, scope: null, aspdCur: 0, lockAt: null };
+    // ult / ultP: the hammer types 终极维式重锤 grants and its params (ultimateHammer)
+    hs = { own: { burn: 0, undying: 0, aspd: 0, tremble: 0, palsy: 0 }, params: {}, steam: 0, steamP: null, ult: null, ultP: null, refs: 0, scope: null, aspdCur: 0, lockAt: null };
     rt.hammers.set(u, hs);
   }
   return hs;
@@ -249,9 +299,12 @@ export function holdsUndying(battle, u) {
 function hammerMul(battle, rt, u, hs, type) {
   const own = hs.own[type];
   const steam = hs.steam > 0 && memberOf(battle, u, 'victoriaShip') && fieldHammers(battle, rt, u.ownerId).has(type) ? 1 : 0;
+  // 终极维式重锤's grant is the hammer's own per-unit buff (act1autochess_acarm04x_buff, one override group): it adds
+  // nothing to a type the carrier already has
+  if (own + steam === 0 && hs.ult && hs.ult.has(type)) return 1;
   return own + steam;
 }
-const hammerParams = (hs, type) => hs.params[type] ?? hs.steamP ?? null;
+const hammerParams = (hs, type) => hs.params[type] ?? hs.steamP ?? hs.ultP ?? null;
 
 function hammerRefresh(battle, rt, u, hs) {
   if (!hs.scope) return;
@@ -296,6 +349,24 @@ function hammerAcquire(battle, rt, u) {
     const m = hammerMul(battle, rt, u, hs, 'tremble');
     if (!(m > 0)) return;
     if (chance(battle, Math.min(1, num(p.prob) * m))) battle.applyStatus(t, 'tremble', { duration: num(p.disarmed_duration, 2), source: u });
+  });
+  // 电流 (规程, act3autochess_equip_acarm140_global_buff): ON_OUTPUT_DAMAGE (no 持续 / cancelled damage) Dice palsy_prob ×
+  // m ⇒ 1 麻痹 stack (palsy[stack]); ON_CALCULATE_DAMAGE against a 麻痹 target DEF_PENETRATE / MAGIC_RESIST_PENETRATE
+  // +def_penetrate / +magic_resist_penetrate (无视 that share of DEF and RES) for that damage. The graph's
+  // christ_t_1[damage] exception is element damage here, which onDamageEnemies leaves out anyway
+  onDamageEnemies(S, u, (t, c) => {
+    if (isContinuous(c.dmg)) return;
+    const p = hammerParams(hs, 'palsy');
+    if (!p) return;
+    const m = hammerMul(battle, rt, u, hs, 'palsy');
+    if (m > 0 && chance(battle, Math.min(1, num(p.palsy_prob) * m))) battle.applyStatus(t, 'palsy', { value: 1, source: u });
+  });
+  S.on('hit', (c) => {
+    if (c.source !== u || !c.target || c.target.side !== 'enemy' || c.dmg.type === 'element' || !c.target.findBuff('palsy')) return;
+    const p = hammerParams(hs, 'palsy');
+    if (!p || !(hammerMul(battle, rt, u, hs, 'palsy') > 0)) return;
+    c.dmg.defIgnorePct += num(p.def_penetrate);
+    c.dmg.resIgnorePct += num(p.magic_resist_penetrate);
   });
   // 坚固: the first lethal hit of each deployment (deploymentOf) ⇒ HP never below 1 for undeadable_duration × m s — the
   // window, held by the battle-level hook above. A new deployment re-arms the lock and leaves a window still running
