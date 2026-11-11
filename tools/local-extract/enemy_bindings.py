@@ -747,7 +747,9 @@ def emit_part(abilities, projs):
             if proj is None and p['key'] in projs:
                 pr = projs[p['key']]
                 proj = {'key': p['key'], 'mount': MOUNTS.index(p['mount']) if p['mount'] in MOUNTS else None}
-                for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart'):
+                # (2026-11-11) `stop`: `_effectsWhenStop`, where it stops — 萨卡兹子裔轰击者's shell blows up there after lying
+                # its `_delayTime` (projectile_enemy_dthrow's enemy_dthrow_attack_fire_explode)
+                for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart', 'stop'):
                     if pr.get(f):
                         proj[f] = pr[f]
                 for f in ('move', 'speed', 'raise', 'link', 'fallingTime'):
@@ -795,7 +797,7 @@ def names_of_part(p):
     out = list(p.get('cast', [])) + list(p.get('hit', [])) + list(p.get('attach', [])) + list(p.get('hitBuff', [])) + list(p.get('tile', []))
     out += [x['fx'] for x in p.get('line', [])]
     pr = p.get('proj') or {}
-    for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart'):
+    for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart', 'stop'):
         out += pr.get(f, [])
     for sp in pr.get('sub', []):
         for f in ('trail', 'hit', 'reached', 'targetStart', 'start'):

@@ -4964,6 +4964,73 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (level() < 3) for (const [b, n] of rec.hits) spawn(b, n, { x, y, z: 0 }, { owner: null, buff: false });
     return true;
   }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 살카즈 후예 무리」): 萨卡兹子裔轰击者 / 毁击者's shell (content/enemies/reborn.js kitThrower:
+   * fx 'telegraph' { x, y, r, dur, kind: 'dthrowShell', id } where it lands, 'explode' { x, y, r, kind } there `dur` s later,
+   * the blast's damage right after it in that tick). projectile_enemy_dthrow (ParacurveMovement `_delayAfterReached`,
+   * `_delayTime` 4) lies where it lands: its `_effectsWhenReached` (enemy_dthrow_attack_fire_ground) stands on the spot
+   * until it stops (`_clearReachedEffectWhenStop`), then its `_effectsWhenStop` (enemy_dthrow_attack_fire_explode) plays
+   * there and its `_effectsWhenHit` (enemy_dthrow_attack_hit) on each unit the blast hits (HitBehaviour
+   * `_onlyCheckHitWhenStop`). The flight is its attack's trail ('atk'); the sim cancels that attack's own hit, so nothing
+   * lands with it. true = drawn here (no stand-in ring or blast).
+   */
+  /** Whether the enemy `o.key` an enemy (`o.id`) summons has its own extracted birth effect (enemy-modes.json `start`). */
+  function esummonBorn(o, views) {
+    const parent = o.id != null ? views.get(o.id) : null;
+    if (!parent?.info || parent.info.side !== 'enemy' || !eOn(parent)) return false;
+    const start = emodes?.[o.key]?.start;
+    return typeof start === 'string' && !!efx(start);
+  }
+  const dshells = [];   // { x, y, id, pr, src, marks: [live entries], done }
+  const dblasts = new Map();   // thrower id → { t: the battle clock of its blast, rec }
+  function dshellFx(e, views) {
+    const o = e[4], src = o.id != null ? views.get(o.id) : null;
+    if (!src || !eOn(src) || level() >= 3) return false;
+    let shot;
+    try { shot = enemyShot(enemyDef(src.info?.defId), src.info?.form); } catch { shot = undefined; }
+    const pr = shot?.key ? eprojByKey(src, shot.key) : null;
+    if (!pr || ![...(pr.reached || []), ...(pr.stop || []), ...(pr.hit || [])].some(efx)) return false;
+    const x = Number(e[2]), y = Number(e[3]), dur = Math.max(0.05, Number(o.dur) || 0);
+    const rec = { x, y, id: o.id, pr, src, marks: [], done: false };
+    dshells.push(rec);
+    if (dshells.length > 64) dshells.shift().done = true;
+    for (const n of pr.reached || []) {
+      const r = efx(n);
+      if (!r) continue;
+      spawn(r[0], r[1], { x, y, z: 0 }, { owner: null, buff: false, until: clockS + dur + 0.5, tag: 'dshell' }, { over: false }).then((l) => {
+        if (!l) return;
+        if (rec.done) l.inst.stop(); else rec.marks.push(l);
+      });
+    }
+    return true;
+  }
+  /** fx 'explode' of a shell dshellFx drew (by its spot): its ground effect goes, its stop effect plays, its hits follow. */
+  function dshellBlast(e) {
+    const x = Number(e[2]), y = Number(e[3]);
+    const i = dshells.findIndex((r) => !r.done && Math.hypot(r.x - x, r.y - y) < 0.05);
+    if (i < 0) return false;
+    const rec = dshells.splice(i, 1)[0];
+    rec.done = true;
+    for (const l of rec.marks) l.inst.stop();
+    if (level() < 3) {
+      for (const n of rec.pr.stop || []) {
+        const r = efx(n);
+        if (r) spawn(r[0], r[1], { x, y, z: 0 }, { owner: null, buff: false, tag: 'dshell' }, { over: false });
+      }
+    }
+    dblasts.set(rec.id, { t: clockS, rec });
+    if (dblasts.size > 64) dblasts.delete(dblasts.keys().next().value);
+    return true;
+  }
+  /** A 'dmg' on `tid` by thrower `by` in the tick of its shell's blast: the projectile's hit effect on it. */
+  function dblastHit(tid, by, views) {
+    const b = dblasts.get(by);
+    if (!b) return false;
+    if (b.t !== clockS) { dblasts.delete(by); return false; }
+    const tgt = views.get(tid);
+    if (tgt && level() < 3) eplay(b.rec.src, (b.rec.pr.hit || []).slice(0, MAX_HIT_FX), { at: tgt });
+    return true;
+  }
   /** The projectile record of shot `key` when it can be drawn officially (the layer on, its trail or hit extracted), else null. */
   function eshotDrawable(owner, key) {
     if (!owner || !index || !emodes || failed || q() === 'low') return null;
@@ -6223,6 +6290,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (Array.isArray(e[8])) hitMoments(e[8], tid, by, views);   // 2026-10-24 (묶음 S3): its kit effect moments
           if (stoneHit(tid, views)) return; // a 望 stone blast's hit effect
           if (pendingHit(tid, views, by)) return; // local patch: a skill's damage without an attack
+          if (by != null && dblasts.size && dblastHit(tid, by, views)) return;   // 2026-11-11: a 轰击者 shell's blast
           let a = lastAtk.get(tid);
           if (a && by != null && ownerOf(a.src) !== by) a = null; // another unit's damage: not that attack's hit
           if (!a && by != null) a = ownAtk.get(`${by}:${tid}`) ?? null; // its own attack, replaced on lastAtk by another unit's
@@ -6272,6 +6340,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-10-31: 刺胄之弹's flight — its boss skill's projectile trail rides the shell (then the cast's effects below)
           if (e[1] === 'shell' && e[4]?.caster != null && e[4].id != null && typeof e[4].ability === 'string' && eshellRide(e, views)) ownFx.add(e);
           if (acBossFx(e, views)) { ownFx.add(e); return; }   // 2026-11-10: 假想敌：茧 / 鳍 (规程)
+          // 2026-11-11: an enemy's summon (fx 'summon' { id: its parent, key }) whose summoned enemy has an extracted
+          // `_startEffect` — that child's birth effect is the official one (flushEnemyBirths, on its 'spawn'): no stand-in
+          // puff at the parent (萨卡兹子裔's 重生造物 enemy_dzoms_born_01 …)
+          if (e[1] === 'summon' && typeof e[4]?.key === 'string' && esummonBorn(e[4], views)) { ownFx.add(e); return; }
+          // 2026-11-11: 萨卡兹子裔轰击者's shell lying where it landed, then its blast (规程)
+          if ((e[1] === 'telegraph' || e[1] === 'explode') && e[4]?.kind === 'dthrowShell') {
+            if (e[1] === 'telegraph' ? dshellFx(e, views) : dshellBlast(e)) ownFx.add(e);
+            return;
+          }
           // 2026-10-31: an enemy ability's area (【污染秽蚀】, 毒雾, 刺胄之弹's landing) or death burst — its projectile's
           // effects, else the stand-in zone / ring (not the ability's cast below)
           if ((e[1] === 'zone' || e[1] === 'explode') && e[4]?.id != null && e[4].caster == null && typeof e[4].ability === 'string') { if (eprojAreaFx(e, views)) ownFx.add(e); return; }
@@ -6535,7 +6612,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); packs.clear(); lemMarks.clear(); lemMarkFx.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
-      castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); ebreath.clear(); eshotLand.clear(); emortars.length = 0;
+      castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); ebreath.clear(); eshotLand.clear(); emortars.length = 0; dshells.length = 0; dblasts.clear();
       deployed.clear(); onField.clear(); moved.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
       linkAxes.clear(); linkRuns.clear(); // 2026-10-22
       brokeOwn.clear(); // 2026-10-23

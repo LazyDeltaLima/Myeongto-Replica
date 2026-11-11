@@ -552,6 +552,32 @@ export function wornPrefabs(plays) {
 
 function put(out, k, spec) { if (spec && !out.has(k)) out.set(k, spec); }
 let playsNow = null;   // wantedStatusFx's `plays` (byName, keyed specs)
+/**
+ * 2026-11-11 (docs/rules/fx.md 「규정 살카즈 후예 무리」): an enemy's own status whose official effect follows a count on the
+ * field — status key → (count) → the client buff keys (`own('key', …)`, its binding's buffFx) or null. 萨卡兹子裔集恨者 /
+ * 集怒者 (sim 'ab:dklord', content/enemies/reborn.js kitLord): its GlobalAuraAbility enemy_dklord_aura on every 重生造物 puts
+ * one stack of enemy_dklord_atk on the 集恨者 itself (`_buffOwner` BUFF_SOURCE); ON_BUFF_LATE_ENABLE creates
+ * ememy_dklord_atk[effect_1] (overrideEffectKey enemy_dklord_buff_01) above 2 stacks and [effect_2] (enemy_dklord_buff_02)
+ * from 5, ON_BUFF_FINISH ends [effect_2] under 5 and [effect_1] at 2 or fewer — the count is the 重生造物 on its field
+ * (the stack count is uncapped, maxStackCnt −1; the sim caps only the ATK at max_valid_stack_cnt).
+ */
+const BLOODSUCKER_MARK = new Set(['enemy_1220_dzoms', 'enemy_1220_dzoms_2', 'enemy_1221_dzomg', 'enemy_1221_dzomg_2']);   // their CommonAbility/mark
+const COUNTED_TAGS = Object.freeze({
+  'ab:dklord': Object.freeze({ count: (v) => v.isEnemy && BLOODSUCKER_MARK.has(v.info?.defId),
+    tag: (n) => (n >= 5 ? 'ememy_dklord_atk[effect_1]|ememy_dklord_atk[effect_2]' : n > 2 ? 'ememy_dklord_atk[effect_1]' : null) }),
+});
+const COUNTED = Object.entries(COUNTED_TAGS);
+/** Live views on the field that each COUNTED_TAGS entry counts (syncStatusFx sets them once per frame). */
+const countedNow = new Map();
+/** Count the views COUNTED_TAGS counts (`views`: the field's views; alive, not leaving). */
+export function countForStatus(views) {
+  countedNow.clear();
+  for (const [k, c] of COUNTED) {
+    let n = 0;
+    for (const v of views.values()) if (v && v.alive && !v.remove && c.count(v)) n++;
+    countedNow.set(k, n);
+  }
+}
 const byName = (out, spec) => {
   if (!spec) return;
   if (typeof spec[1] === 'string') put(out, `${spec[0]}/${spec[1]}`, spec);
@@ -616,6 +642,12 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
   if (v.statuses) {
     for (const k of v.statuses) {
       const from = v.statusFrom?.get?.(k) || null;
+      const counted = own ? COUNTED_TAGS[k] : null;
+      if (counted) {
+        const tag = counted.tag(countedNow.get(k) || 0), r = tag ? own('key', tag) : null;
+        if (r) byOwn(r);
+        continue;
+      }
       // the client buff an enemy's own status stands for (its `fxTag` 'buff:<client buff keys>'), a rebirth's 无敌 (`ab:…:inv`,
       // reborn() in server/sim/content/enemies/archetypes.js): the enemy's own buff effects — none bound, nothing drawn
       const tag = typeof from?.fx === 'string' && from.fx.startsWith('buff:') ? from.fx.slice(5) : null;
@@ -676,6 +708,7 @@ export function syncStatusFx(views, fxGame, battle) {
   const plays = typeof fxGame.plays === 'function' ? fxGame.plays() : null;
   const readyOf = typeof fxGame.readyFx === 'function' ? fxGame.readyFx : null;
   const viewOf = (id) => views.get(id);
+  countForStatus(views);
   for (const v of views.values()) {
     if (!v || typeof v.flags !== 'number') continue;
     v._statusIcons = icons;
