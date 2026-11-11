@@ -793,6 +793,7 @@ dodge); 元素伤害 has no dodge:
 | `neural` 神经 | stun 10 s, then 1000 true (10 s lock) | 3 `palsy` (none with 麻痹免疫), then 6000 元素伤害, 10 s lock |
 | `apoptosis` 凋亡 | 15 s: 阻回 (`noSp`: no SP gain of any kind, skills.js) + 静默 (no skill activation), −1 技力/s — of `spTotal`, stored charges included (PRTS 技能 可充能 "当持有者的技力流失时，充能次数也会实时降低"; `setSpTotal`, a running timed skill untouched; PR #262), 100 arts/s | 15 s: 50 % weaken recovering over the burst, 800 元素伤害/s |
 | `erosion` 侵蚀 | permanent DEF −100 (stacking `erosionDown`) then 800 phys, 10 s lock | permanent DEF −120 then 5000 元素伤害, 8 s lock |
+| `rampage` 狂躁 (CN ANGER) | not built: operators have no 狂躁 gauge yet (the client's ep_break_anger_char: 15 s ASPD +50 and 100 true/s, +50 per attack up to 600) | 15 s: ASPD +20, 160 + 130·n 元素伤害 in its n-th second (290 … 2110; the client's ep_break_anger_enemy) |
 
 The lock (`<el>Burst` buff, flag `burstLock`) is the official **爆发冷却**: while it runs NO element of the unit fills or
 can be recovered (`battle.reduceElement(unit, amount, el?)` removes nothing) and the bursting gauge shows full; when it

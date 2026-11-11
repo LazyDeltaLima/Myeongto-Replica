@@ -64,8 +64,8 @@ test('规程 炎: ATK +(0.23 + 0.009L); 6: every non-附加 damage adds ATK × 6
   for (let i = 0; i < 40; i++) { h.b.dealDamage(y0, e, { amount: 1, type: 'phys' }); for (const k in e.elem) e.elem[k] = 0; }
   const riders = tagged(h, 'bond:yan');
   for (const c of riders) seen.add(c.dmg.element);
-  assert.ok(riders.length > 22 && riders.length < 38, `≈ 4 / 5 of the 40 hits fill a gauge (狂躁 is not in this engine): ${riders.length}`);
-  assert.ok(['neural', 'erosion', 'burn', 'apoptosis'].every((x) => seen.has(x)), [...seen].join());
+  assert.equal(riders.length, 40, 'every roll of the five (狂躁 included) fills a gauge');
+  assert.ok(['neural', 'erosion', 'burn', 'apoptosis', 'rampage'].every((x) => seen.has(x)), [...seen].join());
   const want = y0.s.atk * (bb.ex_atk_scale_base + bb.ex_atk_scale_per_stack * L);
   // the element hit's `amount` is the gauge gain (× the enemy's intake, 1 here)
   for (const c of riders.slice(0, 3)) close(c.amount, want, 1e-6);
@@ -78,6 +78,31 @@ test('规程 炎: ATK +(0.23 + 0.009L); 6: every non-附加 damage adds ATK × 6
   h.run(1);
   const v = bb.ep_break_recover_speed_base + bb.ep_break_recover_speed_per_stack * L;
   close(t0 - lock.timeLeft, 1 + v, 0.08, 'one second of cooldown');
+  checkInvariants(h.b);
+  assert.deepEqual(h.b.errors, []);
+});
+
+test('狂躁 burst on an enemy (CN ep_break_anger_enemy): 15 s, ASPD +20, 元素伤害 160 + 130·n in its n-th second; operators have no 狂躁 gauge', () => {
+  const h = fight(ids('y', 1).map((id) => [id, ['yanShip']]), { yanShip: bondOn(1, 0) });
+  const y0 = h.unit('y0_a'), e = h.enemies()[0];
+  assert.ok(!('rampage' in y0.elem), 'operators: nothing fills 狂躁 yet');
+  const aspd0 = e.s.aspd, hp0 = e.hp;
+  h.b.dealDamage(y0, e, { amount: 1000, type: 'element', element: 'rampage' });
+  const lock = e.buffs.find((b) => b.key === 'rampageBurst');
+  assert.ok(lock && lock.flags.burstLock, 'the 爆发冷却 runs');
+  assert.equal(lock.duration, 15);
+  assert.equal(e.s.aspd, aspd0 + 20, 'ASPD +20 for the burst');
+  const ticks = () => h.hooksOf('damaged').filter((c) => c.target === e && c.dmg && c.dmg.tags && c.dmg.tags.includes('burst'));
+  h.run(0.95);
+  assert.equal(ticks().length, 0, 'the first second waits a whole interval');
+  h.run(15);
+  const got = ticks();
+  assert.deepEqual(got.map((c) => Math.round(c.amount)), Array.from({ length: 15 }, (_, i) => 160 + 130 * (i + 1)), 'up to 2110 at the 15th second');
+  assert.ok(got.every((c) => c.dmg.type === 'elemental' && c.dmg.sourceless && c.dmg.element === 'rampage'), '无来源 元素伤害');
+  close(hp0 - e.hp, 15 * 160 + 130 * 120, 1e-6, 'HP lost');
+  assert.ok(!e.buffs.includes(lock), 'the burst ended');
+  assert.equal(e.s.aspd, aspd0, 'ASPD back');
+  assert.equal(e.elem.rampage, 0, 'gauges empty again');
   checkInvariants(h.b);
   assert.deepEqual(h.b.errors, []);
 });

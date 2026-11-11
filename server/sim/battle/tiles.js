@@ -53,7 +53,7 @@ export class BattleTiles {
     // the element gauges start empty like a deployment's (deploy.js) and an element burst's lock goes with them (its
     // onRemove empties the gauges too) — upstream #903; the other buffs stay (above)
     for (const b of unit.buffs.filter((x) => x.flags && x.flags.burstLock)) this.removeBuff(unit, b);
-    unit.elem.burn = unit.elem.neural = unit.elem.apoptosis = unit.elem.erosion = 0;
+    for (const k in unit.elem) unit.elem[k] = 0;
     unit.markDirty();
     unit.deploySeq = ++this._deploySeq;
     unit.aggroSeq = unit.deploySeq;

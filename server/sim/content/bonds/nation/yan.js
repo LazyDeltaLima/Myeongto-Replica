@@ -57,7 +57,7 @@ function installYan(battle, pid, bb, members) {
 }
 
 /** The element of RandomSetter element_type 1…5 (ElementType: 1 神经 · 2 侵蚀 · 3 灼燃 · 4 凋亡 · 5 狂躁, CN only). */
-export const YAN_ELEMENTS = Object.freeze(['neural', 'erosion', 'burn', 'apoptosis', null]);
+export const YAN_ELEMENTS = Object.freeze(['neural', 'erosion', 'burn', 'apoptosis', 'rampage']);
 
 function installYanAct3(battle, pid, bb, members) {
   standing(battle, pid, 'yanShip', members, 'bond:yan', { atk: [bb.atk_base, bb.atk_per_stack] });
@@ -67,8 +67,6 @@ function installYanAct3(battle, pid, bb, members) {
     const u = c.source, t = c.target;
     if (!isFoe(t) || !c.dmg || isElement(c) || isAddition(c.dmg) || isHpLoss(c.dmg) || !(c.amount > 0)) return;
     const el = YAN_ELEMENTS[battle.rng.int(YAN_ELEMENTS.length)];
-    // 狂躁 (element 5) is CN-only and not in this engine: that roll fills nothing [ASSUMED·CN]
-    if (!el) return;
     const amount = num(u.s.atk) * scale();
     if (amount > 0) battle.dealDamage(u, t, { amount, type: 'element', element: el, tags: ['bond:yan'] });
   };

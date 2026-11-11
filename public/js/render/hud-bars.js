@@ -665,7 +665,7 @@ export class SkillMark {
 // ---- element (EP) rings ----------------------------------------------------------------------------------------------
 // Maintainer request 2026-10-07 (「원소 피해는 원형 바, 가운데 아이콘은 원소 유형에 따라 다르다」). The client's `char_ep_slider` /
 // `enemy_ep_slider` (arts/ui/[uc]battlecommon.ab), their UIHudUnitEpSlider `_elementDatas` in ELEMENT_ORDER (neural,
-// erosion, burn, apoptosis — sim constants.js):
+// erosion, burn, apoptosis, and in the CN client a 5th, 狂躁 rampage: #ef2bcc on both rings — sim constants.js):
 //   ally: ep_slider ×1.2 at 25.9 under hud_unit — ep_hit_spread (76×78, the element's colour, a pulse on a hit [추정 anim]),
 //     ep_center_color (sprite_ep_color 28, the element's colour), ep_back (slider_ep_back 54, α .784), the back slider
 //     (slider_ep_fill 28, white α .3: the value a moment ago, like the HP bar's loss) and the fill (slider_ep_fill 28,
@@ -680,13 +680,13 @@ export class SkillMark {
 export const EP = Object.freeze({
   ally: Object.freeze({
     y: 25.9, scale: 1.2,
-    color: Object.freeze({ neural: 0x00ffd8, erosion: 0x3da1ff, burn: 0xff4901, apoptosis: 0x474747 }),
+    color: Object.freeze({ neural: 0x00ffd8, erosion: 0x3da1ff, burn: 0xff4901, apoptosis: 0x474747, rampage: 0xef2bcc }),
     icon: Object.freeze({ neural: 'sprite_ep_icon', erosion: 'sprite_ep_water_icon', burn: 'sprite_ep_fire_icon', apoptosis: 'sprite_ep_dark_icon' }),
   }),
   enemy: Object.freeze({
     y: 26.5, scale: 1.2,
-    color: Object.freeze({ neural: 0x149882, erosion: 0x266ad0, burn: 0xe3531a, apoptosis: 0x7c7c7c }),
-    breakColor: Object.freeze({ neural: 0x149882, erosion: 0x266ad0, burn: 0xe3531a, apoptosis: 0x1c1c1c }),
+    color: Object.freeze({ neural: 0x149882, erosion: 0x266ad0, burn: 0xe3531a, apoptosis: 0x7c7c7c, rampage: 0xef2bcc }),
+    breakColor: Object.freeze({ neural: 0x149882, erosion: 0x266ad0, burn: 0xe3531a, apoptosis: 0x1c1c1c, rampage: 0xef2bcc }),
   }),
 });
 /** Seconds of a hit pulse / a burst's spread [추정: the clips are animations not read here]. */

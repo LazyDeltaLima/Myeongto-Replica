@@ -27,7 +27,8 @@
 //   operators (enemy damage):  burn 1200 arts + RES −20 10 s · neural stun 10 s, then 1000 true · apoptosis 15 s: 阻回
 //     (noSp) + 静默 (no skill activation), −1 SP/s, 100 arts/s · erosion permanent DEF −100, then 800 phys (10 s).
 //   enemies (operator damage, "·我方"): burn 7000 元素伤害 + RES −20 (10 s) · neural 3 麻痹, then 6000 元素伤害 (10 s) ·
-//     apoptosis 15 s: 50 % weaken recovering over the burst + 800 元素伤害/s · erosion 5000 元素伤害 + permanent DEF −120 (8 s).
+//     apoptosis 15 s: 50 % weaken recovering over the burst + 800 元素伤害/s · erosion 5000 元素伤害 + permanent DEF −120 (8 s)
+//     · rampage (狂躁, CN; enemies only so far) 15 s: ASPD +20 and 160 + 130·n 元素伤害 in its n-th second.
 // Burst damage is 无来源 (PRTS 元素 "元素爆发通常造成无来源的伤害"; PRTS 伤害分类: 无来源 = "无法被追溯伤害来源", yet "无来源
 // 伤害的击杀也能追溯击杀来源"): DamageInfo `sourceless` — the damage-dealt multipliers and penetration of the unit that
 // filled the gauge do not apply (the target's own RES cuts do, "可享受法抗减少效果"), and the `hit` / `damaged` / `fatal`
@@ -622,6 +623,11 @@ function resolveBurst(battle, source, target, el) {
     lock(c.duration);
     battle.addBuff(target, { key: 'erosionDown', refresh: 'stack', stacks: 1, maxStacks: 1e6, mods: { defFlat: -c.defDown }, visible: true });
     if (enemy) hit(c.elemDamage, 'elemental'); else hit(c.damage, c.type);
+  } else if (el === 'rampage' && c) {
+    // 狂躁 on an enemy (constants.js ELEMENT.rampage): ASPD + for the burst, and the n-th second's 元素伤害 is
+    // base + n × step (160 + 130·n: 290 … 2110 at the 15th, the term's 「最多2110」)
+    let n = 0;
+    lock(c.duration, { mods: { aspd: c.aspd }, interval: 1, onTick: () => { n += 1; hit(c.dpsBase + c.dpsStep * n, 'elemental'); } });
   }
 }
 

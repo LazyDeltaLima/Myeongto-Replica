@@ -112,6 +112,7 @@ export class Unit {
     this.aggroSeq = 0;          // 仇恨 order (the later the more attacked): = deploySeq, except summons of the initial deployment
     this.spawnSeq = 0;
     this.elem = { burn: 0, neural: 0, apoptosis: 0, erosion: 0 };
+    if (this.side === 'enemy') this.elem.rampage = 0;   // 狂躁: enemies only so far (constants.js ELEMENT.rampage)
     this.burstPending = null;   // { [element]: true } while that element's burst resolves (damage.js burstLocked)
     this.tags = new Set(init.tags || []);
     this.mem = {};              // free scratch space for content (per unit)

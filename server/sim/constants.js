@@ -138,12 +138,20 @@ export const ELEMENT = Object.freeze({
     ally: Object.freeze({ damage: 800, type: 'phys', defDown: 100, duration: 10 }),
     enemy: Object.freeze({ elemDamage: 5000, defDown: 120, duration: 8 }),
   }),
+  // 狂躁 (ElementType ANGER, CN only; term ba.dt.rampage2 「狂躁损伤·我方」): the client's ep_break_anger → buff table row
+  // ep_break_anger_enemy — ASPD +attack_speed for the burst, and every trigger_interval (1 s, the first one after a
+  // second) anger_damage_accum += anger_damage_step, then 元素伤害 (accum + anger_damage_base) × interval, 无来源; the
+  // ep_breakbuff_table ANGER length 15 s. Enemies only: the operators' 狂躁 burst (ep_break_anger_char) is not built
+  // yet, so units.js gives operators no 狂躁 gauge.
+  rampage: Object.freeze({
+    enemy: Object.freeze({ aspd: 20, dpsBase: 160, dpsStep: 130, duration: 15 }),
+  }),
 });
 /**
- * Official element order (PRTS 元素: SANITY 1 神经, WATER 2 侵蚀, FIRE 3 灼燃, DARK 4 凋亡):
+ * Official element order (PRTS 元素: SANITY 1 神经, WATER 2 侵蚀, FIRE 3 灼燃, DARK 4 凋亡; CN ANGER 5 狂躁):
  * the tie-break of the "当前损伤元素" a unit shows — the fullest gauge, then the lower id (damage.js elementView).
  */
-export const ELEMENT_ORDER = Object.freeze(['neural', 'erosion', 'burn', 'apoptosis']);
+export const ELEMENT_ORDER = Object.freeze(['neural', 'erosion', 'burn', 'apoptosis', 'rampage']);
 /** 麻痹 (ba.palsy): each stack cancels one normal attack of an enemy; at most 3 stacks, lasts until consumed. */
 export const PALSY_MAX = 3;
 /**
