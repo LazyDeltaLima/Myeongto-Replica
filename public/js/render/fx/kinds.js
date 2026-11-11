@@ -72,6 +72,10 @@ export const FX_KINDS = Object.freeze({
   tockaFx: { a: 'none', c: 0x9fe6ff }, tockaMove: { a: 'none', c: 0x9fe6ff }, oxiWave: { a: 'none', c: 0xff8a3a },
   buffProgress: { a: 'none', c: 0xdfe8ff }, // 2026-10-22: a buff's remaining share for its official effect (render/fxgame.js buffProgress)
   burnTiles: { a: 'none', c: 0xff7a33 }, // 烛煌 S2's burning tiles (render/fx/kitofficial.js; nothing in the fallback)
+  // 规程's 魂灵法骸 / 魂灵残迹 (sim content/enemies/critic.js): a 魂灵涡流 captured, the orbiting fireballs, the laser — state
+  // for their official effects (not drawn yet), nothing in the fallback
+  capture: { a: 'none', c: 0x9fd8ff }, orbit: { a: 'none', c: 0x9fd8ff }, orbitEnd: { a: 'none', c: 0x9fd8ff },
+  laser: { a: 'none', c: 0x9fd8ff }, laserEnd: { a: 'none', c: 0x9fd8ff },
   roadTiles: { a: 'none', c: 0x9fd8ff }, // 引星棘刺 T2's straight-road tiles (render/fx/kitofficial.js; nothing in the fallback)
   // 予愿安洁莉娜 S3's flight on / off (sim kit op-aglna2.js): her body flies there itself — render/fxgame.js plays the official
   // trail, nothing in the fallback

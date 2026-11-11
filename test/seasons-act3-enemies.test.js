@@ -29,7 +29,6 @@ const LEADER_FIELD = [];
 const SPECIAL_TYPE = [
   'enemy_10163_mnctur_2', 'enemy_1064_snsbr', 'enemy_1067_snslime_2',
   'enemy_1309_mhboar_2', 'enemy_1363_spnshd_2',
-  'enemy_1428_lrsoul', 'enemy_1429_lrwzrd', 'enemy_1429_lrwzrd_2', 'enemy_1431_lrmzrd', 'enemy_1431_lrmzrd_2',
   'enemy_9031_acrefd', 'enemy_9034_acblk', 'enemy_9039_acrefm',
 ];
 // enemies an enemy effect, choice or strategy of 规程 puts on the field
@@ -1527,5 +1526,172 @@ test('“喷射罐”: a 4 s arts channel of 3 hits (0.6, 1.6, 2.6 s), then 3 s 
     assert.deepEqual(got.map((x) => x.t), [w], 'the wall within 1.55 only — not the one 1.6 away, not the enemy');
     assert.ok(Math.abs(got[0].n - E3[WINBOM].stats.atk) < 1e-6, 'arts ATK × 1');
     assert.ok(w.findBuff('cold') && !h.unit(2).findBuff('cold') && !near.findBuff('cold'), '10 s cold on the operators\' side');
+  }
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// 魂灵 group: 注能 / 粹影魂灵法骸, 魂灵涡流, 聚焦 / 棱镜魂灵残迹
+
+const LRMZRD = 'enemy_1431_lrmzrd', LRSOUL = 'enemy_1428_lrsoul', LRWZRD = 'enemy_1429_lrwzrd';
+const souls = (e) => (e.findBuff('ab:soul') ? e.findBuff('ab:soul').stacks : 0);
+const fxOf = (h, kind) => {
+  const out = [], prev = h.b.fx.bind(h.b);
+  h.b.fx = (k, p) => { if (k === kind) out.push({ ...p, at: h.b.time }); return prev(k, p); };
+  return out;
+};
+
+test('魂灵法骸 / 魂灵残迹: a 魂灵涡流 meeting the aura (0.25 + its collider 0.25) is captured — +1 soul, the vortex dies; 3 souls at most', () => {
+  for (const key of [LRMZRD, LRWZRD]) {
+    // no operator on the field: neither casts (the fireball's / laser's conditions aside, the mage stands with souls)
+    const { h } = waveField([key, LRSOUL], []);
+    const e = put(h, key, [10, 6], { tag: null });
+    const far = put(h, LRSOUL, [10, 6.55], { tag: null });
+    const v = [1, 2, 3, 4].map((i) => put(h, LRSOUL, [10, 6 + 0.1 * i], { tag: null }));
+    runFor(h, 0.1);
+    assert.equal(souls(e), 3, `${key}: three souls`);
+    assert.equal(v.filter((o) => !o.alive).length, 3, 'three vortices taken');
+    assert.ok(v.filter((o) => o.alive).length === 1, 'the fourth walks on (FinishBuff)');
+    assert.ok(far.alive, '0.55 away: outside the aura');
+  }
+  // a vortex refused at 3 souls is not offered again while it stays in the aura — not after the laser spent the souls;
+  // once it has left and comes back, it is
+  const { h } = waveField([LRWZRD, LRSOUL], walls([[10, 1]]));
+  const laser = fxOf(h, 'laser');
+  const e = put(h, LRWZRD, [10, 6], { tag: null });
+  for (let i = 0; i < 4; i++) put(h, LRSOUL, [10, 6.1], { tag: null });
+  runFor(h, 0.1);
+  const left = h.b.enemies.filter((o) => o.alive && o.defId === LRSOUL);
+  assert.equal(left.length, 1);
+  h.runUntil(() => laser.length > 0, 5);
+  runFor(h, 1);
+  assert.ok(souls(e) === 0 && left[0].alive, 'souls spent, the vortex still inside: not captured');
+  left[0].x = 7;
+  runFor(h, 0.1);
+  left[0].x = 6.1;
+  runFor(h, 0.1);
+  assert.ok(!left[0].alive && souls(e) === 1, 'out and in again: captured');
+});
+
+test('魂灵法骸: a soul → one arts fireball (ATK × atk_scale) circling it 0.9 away at 50°/s, spent on the first unit it meets; 3 fireballs lock the skill', () => {
+  for (const key of [LRMZRD, `${LRMZRD}_2`]) {
+    const bb = E3[key].skills[0].bb;
+    // a wall 2 tiles below the mage: the orbit (0.9 + 0.45 + 0.25 = 1.6) never reaches it — then one 1.5 below (it does)
+    const { h, hits } = waveField([key, LRSOUL], walls([[12, 6]]));
+    const orbit = fxOf(h, 'orbit');
+    const e = put(h, key, [10, 6], { tag: null });
+    for (let i = 0; i < 3; i++) put(h, LRSOUL, [10, 6], { tag: null });
+    runFor(h, 0.1);
+    assert.equal(souls(e), 3);
+    runFor(h, 50);
+    assert.equal(orbit.length, 3, `${key}: one fireball for each soul (cooldown 15 + the 1.5 s clip)`);
+    assert.ok(orbit[1].at - orbit[0].at > 16.4 && orbit[1].at - orbit[0].at < 16.6, `15 s apart after the clip (${(orbit[1].at - orbit[0].at).toFixed(2)})`);
+    assert.equal(souls(e), 0, 'a soul spent on each');
+    assert.equal(hits.length, 0, 'nobody in reach');
+    put(h, LRSOUL, [10, 6], { tag: null });
+    runFor(h, 20);
+    assert.equal(souls(e), 1, 'captured');
+    assert.equal(orbit.length, 3, 'three fireballs: locked, the soul kept');
+    // brought 1.1 from the wall (not blocked by it), its fireballs strike it one by one and the lock is gone: the kept
+    // soul is cast
+    e.x = 6; e.y = 10.9;
+    h.runUntil(() => hits.length >= 1, 8);
+    runFor(h, 0.05);
+    assert.equal(orbit.length, 3, 'the first strike…');
+    h.runUntil(() => orbit.length >= 4, 3);
+    assert.equal(souls(e), 0, '…unlocks it: the kept soul becomes the next fireball');
+    runFor(h, 10);
+    assert.equal(hits.length, 4, 'all four strike the wall, one hit each');
+    assert.ok(hits.every((x) => Math.abs(x.n - E3[key].stats.atk * bb.atk_scale) < 1e-6));
+  }
+  {
+    const key = LRMZRD;
+    const { h, hits } = waveField([key, LRSOUL], walls([[11, 7]]));   // 1.41 away: inside the orbit's reach
+    assert.equal(h.b.allies().length, 1);
+    const orbit = fxOf(h, 'orbit'), done = fxOf(h, 'orbitEnd');
+    const e = put(h, key, [10, 6], { tag: null });
+    put(h, LRSOUL, [10, 6], { tag: null });
+    runFor(h, 2);
+    assert.equal(orbit.length, 1);
+    assert.ok(Math.abs(orbit[0].at - h.b.time + 2 - 0.1 - E3[key].skillCast.summonfireball.hit) < 0.5, 'at the clip\'s event');
+    const types = new Set();
+    h.b.on('damaged', (c) => { if (c.source === e) types.add(c.dmg.type); });
+    h.runUntil(() => hits.length > 0, 10);
+    const w = h.unit(1);
+    assert.equal(hits[0].t, w);
+    assert.equal([...types].join(), 'arts');
+    assert.ok(Math.abs(hits[0].n - E3[key].stats.atk * E3[key].skills[0].bb.atk_scale) < 1e-6, 'arts ATK × atk_scale (RES 0)');
+    assert.equal(done.length, 1, 'spent');
+    // the unit sits up-right of it at 45° (row 0 is the bottom: +y = up a row); the fireball, born at 180° (facing left),
+    // turns counter-clockwise — down first, so about 200° until it meets the unit
+    const turned = (hits[0].at - orbit[0].at) * 50;
+    assert.ok(turned > 190 && turned < 215, `met after ${turned.toFixed(0)}°`);
+    runFor(h, 20);
+    assert.equal(hits.length, 1, 'one hit: no soul left');
+    // its death takes the fireballs with it
+    put(h, LRSOUL, [10, 6], { tag: null });
+    const n = done.length;
+    h.runUntil(() => orbit.length >= 2, 30);
+    h.b.kill(e, null);
+    assert.equal(done.length, n + 1, 'gone with the mage');
+  }
+});
+
+test('魂灵残迹: with a soul and a unit in its row / column (any distance), an 8 s arts laser to the map edge — every 1 s on each unit in it, ATK climbing by atk_step to atk_ladder × souls; all souls spent', () => {
+  for (const key of [LRWZRD, `${LRWZRD}_2`]) {
+    const bb = E3[key].skills[0].bb, atk = E3[key].stats.atk;
+    // its row: a wall 5 tiles left and one 2 tiles right (both out of its 1.7 range), the left one the higher 仇恨值: the
+    // laser goes left, not through the one behind it; off the row: one at (11, 3)
+    const { h, hits } = waveField([key, LRSOUL], walls([[10, 10], [10, 3], [11, 3]]));
+    assert.equal(h.b.allies().length, 3);
+    const w = h.unit(2);
+    w.aggroSeq = 99;
+    const laser = fxOf(h, 'laser'), cast = fxOf(h, 'enemySkill');
+    const e = put(h, key, [10, 8], { tag: null });
+    put(h, LRSOUL, [10, 8], { tag: null });
+    const types = new Set();
+    h.b.on('damaged', (c) => { if (c.source === e) types.add(c.dmg.type); });
+    h.runUntil(() => laser.length > 0, 5);
+    assert.equal(cast.length, 1);
+    assert.ok(Math.abs(laser[0].at - cast[0].at - 0.2) < 0.04, `after the 0.2 s pre-delay (${(laser[0].at - cast[0].at).toFixed(3)})`);
+    assert.equal(souls(e), 0, 'every soul spent');
+    assert.equal(laser[0].to[0], 0, 'to the map\'s left edge');
+    runFor(h, 9);
+    const on = hits.filter((x) => x.t === w);
+    assert.equal(on.length, 8, `${key}: 0.2 … 7.2 s`);
+    assert.ok(hits.every((x) => x.t === w), 'nobody behind it, nobody off its row');
+    const boost = (k) => 1 + Math.min(k * bb.atk_step, bb.atk_ladder * 1);
+    assert.deepEqual(on.map((x) => (x.n / atk / bb.atk_scale).toFixed(4)), [0, 1, 2, 3, 4, 5, 6, 7].map((k) => boost(k).toFixed(4)));
+    assert.ok(on.every((x, i) => i === 0 || Math.abs(x.at - on[i - 1].at - 1) < 0.05), 'one hit a second');
+    assert.ok(Math.abs(on[0].at - laser[0].at) < 0.04, 'the first as it leaves');
+    assert.equal([...types].join(), 'arts');
+  }
+  // three souls: the cap is atk_ladder × 3; up its column when the unit stands there; a stun cuts the laser
+  {
+    const bb = E3[LRWZRD].skills[0].bb, atk = E3[LRWZRD].stats.atk;
+    const { h, hits } = waveField([LRWZRD, LRSOUL], walls([[12, 8]]));   // 2 rows away: out of its 1.7 range
+    const laser = fxOf(h, 'laser'), ended = fxOf(h, 'laserEnd');
+    const e = put(h, LRWZRD, [10, 8], { tag: null });
+    for (let i = 0; i < 3; i++) put(h, LRSOUL, [10, 8], { tag: null });
+    h.runUntil(() => laser.length > 0, 5);
+    assert.deepEqual(laser[0].to, [8, h.b.grid.rows - 1], 'along its column, to the map\'s edge');
+    h.runUntil(() => hits.length >= 3, 5);
+    assert.deepEqual(hits.map((x) => (x.n / atk / bb.atk_scale).toFixed(4)),
+      [1, 1 + bb.atk_step, 1 + Math.min(2 * bb.atk_step, 3 * bb.atk_ladder)].map((v) => v.toFixed(4)));
+    h.b.applyStatus(e, 'stun', { duration: 1, source: null });
+    runFor(h, 0.05);
+    assert.equal(ended.length, 1, 'the cut cast ends the laser');
+    assert.ok(!e.findBuff('ab:lrwzrdBoost'), 'and the ATK boost');
+    runFor(h, 5);
+    assert.equal(hits.length, 3, 'no more hits');
+  }
+  // no unit in its row or column: no laser, the soul kept
+  {
+    const { h } = waveField([LRWZRD, LRSOUL], walls([[11, 3]]));
+    const laser = fxOf(h, 'laser');
+    const e = put(h, LRWZRD, [10, 8], { tag: null });
+    put(h, LRSOUL, [10, 8], { tag: null });
+    runFor(h, 20);
+    assert.equal(laser.length, 0);
+    assert.equal(souls(e), 1);
   }
 });

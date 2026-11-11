@@ -9,7 +9,7 @@ import { canTargetAlly, areaSelectable } from '../../targeting.js';
 import { ALLY_COLLIDER_RADIUS, TICK } from '../../constants.js';
 import { T, hurt, areaAllies, lineShot, shoot, atCastEvent, mode, setForm, targetsNear, byPriority } from './helpers.js';
 import { unbalancedBleed, skill } from './archetypes.js';
-import { hypot } from '../../detmath.js';
+import { hypot, sin, cos } from '../../detmath.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -680,6 +680,213 @@ function kitJetCanister(ab) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// 魂灵 group: 注能 / 粹影魂灵法骸 (enemy_1431_lrmzrd / _2) with the escorts 魂灵涡流 (enemy_1428_lrsoul, N) and 聚焦 / 棱镜
+// 魂灵残迹 (enemy_1429_lrwzrd / _2, E) — battle/enm_pfb_16, the official client (EN)
+
+/**
+ * The capture aura of 魂灵法骸 / 魂灵残迹 (Talents/CaptureSoul AuraAbility): its CircleCollider2D radius, and the radius of
+ * 魂灵涡流's own collider (its root CircleCollider2D) — the aura takes a vortex whose collider meets it.
+ */
+const SOUL_AURA = 0.25, SOUL_BODY = 0.25;
+/** enemy_lrmzrd[captureSoul] / enemy_lrwzrd[captureSoul]: a capturer holding this many souls (soulBuff ≥ 3) takes none. */
+const SOUL_MAX = 3;
+const SOUL_MARK = 'ab:lrsoulMark';
+/**
+ * 魂灵法骸's soul fireball, projectile_enemy_lrmzrd: RotateAroundMovement (`_rotateAndMoving`) puts it `_projectileAroundRadius`
+ * from its caster's position and turns it `_aroundSpeed` degrees a second about the map's forward axis (Transform.RotateAround:
+ * counter-clockwise with the map's y up); its CircleCollider2D radius. It is born on the side the caster faces
+ * (RangedAttackWithProjectilesRotatingAround._CalculateProjectileGeneratePos: the caster ± faceSign × `_radius` along x).
+ */
+const LRMZRD_ORBIT = 0.9, LRMZRD_TURN = 50, LRMZRD_BALL = 0.45;
+/**
+ * 魂灵残迹's laser, projectile_enemy_lrwzrd_* (LaserHitBehaviour + MultiHitBehaviour): `_laserWidth`, a unit struck again
+ * after `_keepAlreadyHitTime` s, gone after `_lifeTime` s at the latest; LrwzrdRangedAttack's `_preDelay` before it is fired.
+ */
+const LRWZRD_WIDTH = 0.65, LRWZRD_REHIT = 1, LRWZRD_LIFE = 8, LRWZRD_PRE = 0.2;
+/** BuffDuringCastingFixed enemy_lrwzrd[atk_boost]: its `triggerInterval` (first trigger one interval after the cast starts). */
+const LRWZRD_BOOST_EVERY = 1;
+
+/** 魂灵涡流: a melee walker carrying the mark the capturers look for (Talents/mark: enemy_lrsoul[mark], no duration). */
+function kitSoulVortex() {
+  return [{ spawn(b, e) { b.addBuff(e, { key: SOUL_MARK, persist: true }); } }];
+}
+
+/**
+ * The souls a 魂灵法骸 / 魂灵残迹 holds (`P.souls`, its soulBuff — STACK, kept as the buff `ab:soul` with as many stacks
+ * for the view, fxTag `buff:<template>[soulBuff]`: enemy_lrmzrd[fx_ctrl] / enemy_lrwzrd[fx_ctrl] show 1 to 3), and its
+ * capture: Talents/CaptureSoul, an AuraAbility (AppearSyncedTalent: from its appearance; no silence line) whose
+ * FilterBuffTargetValidator takes ground units of its own side marked enemy_lrsoul[mark]. A vortex is offered as it
+ * enters the aura (AuraAbility.OnTick only ticks its validator and its enter / exit handler; the validator has no tick of
+ * its own), once until it has left again: enemy_lrxxxx[captureSoul] ON_BUFF_START — the capturer at 3 souls or more takes
+ * nothing (FinishBuff, the vortex walks on), else +1 soul (audioSignal enemy_lrxxxx_capture_soul) and the vortex dies
+ * (InstantKill `_skipReborn`). fx 'capture' { id (the capturer), from (the vortex), n (souls) }.
+ */
+function soulHolder(P, tpl) {
+  const KEY = 'ab:soul';
+  P.souls = 0;
+  P.setSouls = (b, e, n) => {
+    P.souls = n;
+    b.removeBuff(e, KEY);
+    if (n > 0) b.addBuff(e, { key: KEY, persist: true, refresh: 'stack', stacks: n, maxStacks: 99, fxTag: `buff:${tpl}[soulBuff]` });
+  };
+  const inside = new Set();
+  return {
+    tick(b, e) {
+      const reach = SOUL_AURA + SOUL_BODY;
+      for (const o of b.enemies) {
+        if (o === e || !o.alive || o.hidden || o.isFlying || !o.findBuff(SOUL_MARK)) { inside.delete(o.id); continue; }
+        const inAura = hypot(o.x - e.x, o.y - e.y) <= reach + 1e-9;
+        if (!inAura) { inside.delete(o.id); continue; }
+        if (inside.has(o.id)) continue;
+        inside.add(o.id);
+        if (P.souls >= SOUL_MAX) continue;
+        P.setSouls(b, e, P.souls + 1);
+        b.fx('capture', { x: e.x, y: e.y, id: e.id, from: o.id, n: P.souls });
+        b.kill(o, null);
+      }
+    },
+  };
+}
+
+/**
+ * 注能 / 粹影魂灵法骸 (enm_pfb_16). Melee (its Attack ability never triggers: blocked, it strikes its blocker), it captures
+ * 魂灵涡流 (soulHolder). Skills/summonFireball (EnemySkill, ATTACK and COMBAT families; the table's cooldown 15, no initial
+ * one), while it holds a soul and is not locked (GroupTrigger of soulBuff present AND enemy_lrmzrd[lock_skill] absent): its
+ * clip Skill, and at the clip's event (`_waitForAttackEvent`; SPELL_ON, `_runActionOnEvent` 4) one fireball
+ * (`projectile_count_each_trigger` 1) starts circling it (LRMZRD_ORBIT), BuffToOwner enemy_lrmzrd[clear_buff] spends one soul
+ * (`_decCntIfStack`) and [record_projectile_count] counts the fireball (projectile_stack) — at `max_projectile_count` (3)
+ * enemy_lrmzrd[lock_skill] stops further casts. A fireball strikes the first operator-side unit its collider meets (ground
+ * and air, 迷彩 ignored, through walls; `_maxHitNum` 1, `_stopAfterMaxHit`): arts ATK × the skill's `atk_scale`, and its
+ * active buff enemy_lrmzrd[unlock_skill] on the struck unit takes one off its caster's count and the lock off. Fireballs
+ * last until they strike (`_lifeTimeType` 2) and vanish with their caster (`_stopWhenSourceInvalid`; OnDetached interrupts
+ * them). fx 'orbit' { id, n, key, r, ang (degrees, map frame), speed (degrees / s) } as one starts, 'orbitEnd' { id, n,
+ * tgt } as it strikes or vanishes.
+ */
+function kitSoulMage(ab) {
+  const s = ab.sk.summonFireball;
+  const scale = (s && s.bb.atk_scale) ?? 1, cap = (s && s.bb.max_projectile_count) ?? SOUL_MAX;
+  const key = (s && s.proj && s.proj.key) || 'projectile_enemy_lrmzrd';
+  const P = { stack: 0, balls: [], n: 0, facing: -1, px: null };
+  const holder = soulHolder(P, 'enemy_lrmzrd');
+  const end = (b, e, ball, tgt) => {
+    P.balls = P.balls.filter((x) => x !== ball);
+    b.fx('orbitEnd', { x: e.x, y: e.y, id: e.id, n: ball.n, tgt: tgt ? tgt.id : null });
+  };
+  return [holder, {
+    tick(b, e, a, dt) {
+      if (P.px != null && Math.abs(e.x - P.px) > 1e-6) P.facing = e.x > P.px ? 1 : -1;
+      P.px = e.x;
+      const reach = LRMZRD_BALL + ALLY_COLLIDER_RADIUS;
+      for (const ball of P.balls.slice()) {
+        ball.ang += LRMZRD_TURN * dt;
+        const rad = (ball.ang * Math.PI) / 180;
+        const x = e.x + LRMZRD_ORBIT * cos(rad), y = e.y + LRMZRD_ORBIT * sin(rad);
+        let hit = null, hd = Infinity;
+        for (const u of b.allies()) {
+          if (!u.alive || !u.deployed || !areaSelectable(e, u)) continue;
+          const d = hypot(u.x - x, u.y - y);
+          if (d <= reach + 1e-9 && (d < hd || (d === hd && u.id < hit.id))) { hit = u; hd = d; }
+        }
+        if (!hit) continue;
+        end(b, e, ball, hit);
+        b.dealDamage(e, hit, { amount: e.s.atk * scale, type: 'arts', isSkill: true, isProjectile: true, tags: ['enemyAbility'] });
+        P.stack = Math.max(0, P.stack - 1);   // enemy_lrmzrd[unlock_skill]
+        P.lock = false;
+        if (!e.alive) break;
+      }
+    },
+    death(c, b, e) { for (const ball of P.balls.slice()) end(b, e, ball, null); },
+  }, s ? skill(s, (b, e) => atCastEvent(b, e, s, () => {
+    const ball = { n: ++P.n, ang: P.facing > 0 ? 0 : 180 };
+    P.balls.push(ball);
+    b.fx('orbit', { x: e.x, y: e.y, id: e.id, n: ball.n, key, r: LRMZRD_ORBIT, ang: ball.ang, speed: LRMZRD_TURN });
+    P.setSouls(b, e, P.souls - 1);
+    P.stack += 1;
+    if (P.stack >= cap) P.lock = true;
+  }), { cond: () => P.souls > 0 && !P.lock }) : null];
+}
+
+/**
+ * 聚焦 / 棱镜魂灵残迹 (enm_pfb_16). Ranged arts attack (its table); it captures 魂灵涡流 (soulHolder). Skills/Laser (EnemySkill,
+ * ATTACK and COMBAT families; the table's cooldown 15, no initial one), while it holds a soul (BuffTrigger) and an
+ * operator-side unit of any motion stands in its own grid row or column at any distance (CrossTrigger: GlobalRange,
+ * `_postFilter` CROSS_ONLY_WITH_HATRED_DES — FilterUtil._Filter_CrossOnlyWithHatredDes: the candidate's grid row or column
+ * is the caster's; the highest 仇恨值 first): LrwzrdRangedAttack, `_timeMode` 2 — an 8 s channel (Skill_Begin / _Loop /
+ * _End). Through the cast BuffDuringCastingFixed enemy_lrwzrd[atk_boost]: on its start the souls held fix its cap
+ * (`atk_ladder` × souls), and every LRWZRD_BOOST_EVERY s ATK × (1 + boost), boost += `atk_step` up to that cap (gone with the
+ * cast). After `_preDelay` (LRWZRD_PRE) BuffToOwner enemy_lrwzrd[clear_buff] (SPELL_ON) spends every soul — no
+ * `_decCntIfStack` — and one laser leaves (DoCastOnTargets): along the map axis toward its target (x if |dx| ≥ |dy|, right
+ * on a tie of positions) from its position to the edge of the map (x 0 / width − 1, y 0 / height − 1). The laser strikes
+ * every operator-side unit whose collider meets it (`_laserWidth` LRWZRD_WIDTH; ground and air, 迷彩 ignored, through
+ * walls) for arts ATK × the skill's `atk_scale`, a unit again LRWZRD_REHIT s after its last hit, and ends with the cast
+ * (OnCastEnd interrupts it, a cut cast too) or after LRWZRD_LIFE s. fx 'laser' { id, x, y, to: [x, y], key, w, tgt } as it
+ * leaves, 'laserEnd' { id } as it ends.
+ */
+function kitSoulWizard(ab) {
+  const s = ab.sk.Laser;
+  const scale = (s && s.bb.atk_scale) ?? 0, step = (s && s.bb.atk_step) ?? 0, ladder = (s && s.bb.atk_ladder) ?? 0;
+  const key = (s && s.proj && s.proj.key) || 'projectile_enemy_lrwzrd_right';
+  const BOOST = 'ab:lrwzrdBoost';
+  const P = {};
+  const holder = soulHolder(P, 'enemy_lrwzrd');
+  const pick = (b, e) => {
+    const r = Math.round(e.y), c = Math.round(e.x);
+    return byPriority(e, b.allies().filter((u) => canTargetAlly(e, u, true) && (u.tileR === r || u.tileC === c)))[0] ?? null;
+  };
+  const stop = (b, e, a) => {
+    if (a.laser) b.fx('laserEnd', { x: e.x, y: e.y, id: e.id });
+    a.laser = null;
+    a.boost = null;
+    b.removeBuff(e, BOOST);
+  };
+  const laser = s ? {
+    ...skill(s, (b, e, a) => {
+      const t = pick(b, e);
+      if (!t) return;
+      const at = { x: t.x, y: t.y };
+      a.boost = { v: 0, cap: ladder * P.souls, next: b.time + LRWZRD_BOOST_EVERY, until: b.time + LRWZRD_LIFE };
+      a.laser = null;
+      b.after(LRWZRD_PRE - 1e-9, () => {
+        if (!e.alive || !(e.castLeft > 0) || !a.boost) return;
+        P.setSouls(b, e, 0);
+        const dx = at.x - e.x, dy = at.y - e.y;
+        const dir = Math.abs(dy) <= Math.abs(dx) ? [dx < 0 ? -1 : 1, 0] : [0, dy < 0 ? -1 : 1];
+        const to = dir[0] > 0 ? [b.grid.cols - 1, e.y] : dir[0] < 0 ? [0, e.y] : dir[1] > 0 ? [e.x, b.grid.rows - 1] : [e.x, 0];
+        a.laser = { x: e.x, y: e.y, to, dir, last: new Map() };
+        b.fx('laser', { x: e.x, y: e.y, id: e.id, to, key, w: LRWZRD_WIDTH, tgt: t.id });
+      }, { owner: e });
+    }, { cond: (b, e) => P.souls > 0 && !!pick(b, e) }),
+    tick(b, e, a) {
+      if (!a.boost) return;
+      if (!(e.castLeft > 0) || b.time >= a.boost.until - 1e-9) { stop(b, e, a); return; }
+      if (b.time >= a.boost.next - 1e-9) {   // enemy_lrwzrd[atk_boost] ON_BUFF_TRIGGER
+        a.boost.next += LRWZRD_BOOST_EVERY;
+        a.boost.v = Math.min(a.boost.v + step, a.boost.cap);
+        b.addBuff(e, { key: BOOST, persist: true, refresh: 'replace', mods: { atkPct: a.boost.v } });
+      }
+      const L = a.laser;
+      if (!L) return;
+      const len = Math.abs((L.to[0] - L.x) * L.dir[0] + (L.to[1] - L.y) * L.dir[1]);
+      const half = LRWZRD_WIDTH / 2 + ALLY_COLLIDER_RADIUS;
+      for (const u of b.allies()) {
+        if (!u.alive || !u.deployed || !areaSelectable(e, u)) continue;
+        const along = (u.x - L.x) * L.dir[0] + (u.y - L.y) * L.dir[1];
+        const perp = Math.abs((u.x - L.x) * L.dir[1] - (u.y - L.y) * L.dir[0]);
+        if (perp > half + 1e-9 || along < -ALLY_COLLIDER_RADIUS - 1e-9 || along > len + ALLY_COLLIDER_RADIUS + 1e-9) continue;
+        const last = L.last.get(u.id);
+        if (last != null && b.time < last + LRWZRD_REHIT - 1e-9) continue;
+        L.last.set(u.id, b.time);
+        hurt(b, e, u, e.s.atk * scale, 'arts');
+        if (!e.alive) return;
+      }
+    },
+    onCut(b, e, a) { stop(b, e, a); },
+    death(c, b, e, a) { stop(b, e, a); },
+  } : null;
+  return [holder, laser];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // this module's part of KITS
 
 export const CRITIC_KITS = {
@@ -703,4 +910,9 @@ export const CRITIC_KITS = {
   enemy_1388_wingnt_2: kitSnowballer,                      // “榴弹炮” · same
   enemy_1385_winbom: kitJetCanister,                       // “喷射罐” · 4 s channel of 3 arts hits, 3 s rest; knocked out: arts + 10 s cold within 1.55
   enemy_1385_winbom_2: kitJetCanister,                     // “喷爆罐” · same
+  enemy_1428_lrsoul: kitSoulVortex,                        // 魂灵涡流 · melee; marked for the soul capturers
+  enemy_1431_lrmzrd: kitSoulMage,                          // 注能魂灵法骸 · captures vortices (3 max); a soul → an orbiting arts fireball (3 at most)
+  enemy_1431_lrmzrd_2: kitSoulMage,                        // 粹影魂灵法骸 · same
+  enemy_1429_lrwzrd: kitSoulWizard,                        // 聚焦魂灵残迹 · captures vortices; all souls → an 8 s arts laser along its row / column
+  enemy_1429_lrwzrd_2: kitSoulWizard,                      // 棱镜魂灵残迹 · same
 };
