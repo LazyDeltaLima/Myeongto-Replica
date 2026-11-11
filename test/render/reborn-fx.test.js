@@ -17,6 +17,7 @@ const MODES = new URL('../../public/assets/local/fx/enemy-modes.json', import.me
 const quiet = { warn() {}, error() {}, info() {} };
 const ACT3 = getData({ log: quiet, season: 'act3autochess' });
 const THROW = 'enemy_1361_dthrow', LORD = 'enemy_1226_dklord', DPVT = 'enemy_1222_dpvt', DZOMS = 'enemy_1220_dzoms', DZOMG = 'enemy_1221_dzomg';
+const BEAST = 'enemy_1131_sbeast', PLASM = 'enemy_1137_plasm';
 const WALL = (id) => chessRec({ id, profession: 'TANK', stats: { atk: 0, maxHp: 1e7, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
 
 function field(keys, units) {
@@ -34,12 +35,14 @@ const put = (h, key, pos) => h.spawn(key, { pos, routeIndex: 0, mods: { speedMul
 const PROJ = { key: 'projectile_enemy_dthrow', mount: 2, trail: ['enemy_dthrow_attack_trail'], hit: ['enemy_dthrow_attack_hit'],
   reached: ['enemy_dthrow_attack_fire_ground'], stop: ['enemy_dthrow_attack_fire_explode'], move: 'OTHER', speed: 8, raise: 0.5 };
 const NAMES = ['enemy_dthrow_attack_trail', 'enemy_dthrow_attack_hit', 'enemy_dthrow_attack_fire_ground', 'enemy_dthrow_attack_fire_explode',
-  'enemy_dzoms_born_01', 'enemy_dklord_buff_01', 'enemy_dklord_buff_02'];
+  'enemy_dzoms_born_01', 'enemy_dklord_buff_01', 'enemy_dklord_buff_02', 'enemy_sbeast_skill_start', 'enemy_sbeast_skill_trail', 'plasm_birth_01_start'];
 const emodes = () => ({
   $fx: Object.fromEntries(NAMES.map((n) => [n, ['b', n]])),
   [THROW]: { modes: [{ name: 'Default', anim: ['Attack'], ranged: { cast: [], opt: {}, hit: [], proj: PROJ }, melee: { cast: [], opt: {}, hit: [], proj: PROJ } }] },
   [DPVT]: { modes: [{ name: 'Default', anim: ['Attack'] }] },
   [DZOMS]: { modes: [{ name: 'Default', anim: ['Attack'] }], start: 'enemy_dzoms_born_01' },
+  [BEAST]: { modes: [{ name: 'Default', anim: ['Attack'] }], skills: { deathrattle: { cast: [], opt: {}, hit: [], summon: ['enemy_sbeast_skill_start'], proj: { key: 'projectile_enemy_sbeast', mount: null, trail: ['enemy_sbeast_skill_trail'], move: 'OTHER', speed: 6, raise: 0.3 } } } },
+  [PLASM]: { modes: [{ name: 'Default', anim: ['Attack'] }], born: ['plasm_birth_01_start'] },
   [LORD]: { modes: [{ name: 'Default', anim: ['Attack'] }], buffFx: { 'ememy_dklord_atk[effect_1]': ['enemy_dklord_buff_01'], 'ememy_dklord_atk[effect_2]': ['enemy_dklord_buff_02'] } },
 });
 
@@ -149,4 +152,89 @@ test('the extracted binding: projectile_enemy_dthrow\'s `_effectsWhenStop` reach
   assert.ok(m.$fx.enemy_dthrow_attack_fire_explode, 'extracted');
   const stops = Object.entries(m).filter(([k, v]) => k !== '$fx' && JSON.stringify(v).includes('"stop"')).map(([k]) => k);
   assert.deepEqual(stops.sort(), [THROW, `${THROW}_2`], 'the only projectile with a stop effect so far');
+});
+
+test('变异沙地兽 splitting where it fell: its talent buff\'s effect there once per child, its projectile\'s trail to each, each child\'s born_effect — no stand-in puff', async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    const h = field([BEAST, PLASM], [{ chessId: 't_wall', row: 12, col: 2, uid: 1 }]);
+    const e = put(h, BEAST, [10, 6]);
+    h.step();
+    h.events.length = 0;
+    h.b.kill(e, h.allies()[0]);
+    h.run(1);
+    const evs = h.events;
+    const summon = evs.find((x) => x[0] === 'fx' && x[1] === 'summon' && x[4]?.key === PLASM);
+    const spawns = evs.filter((x) => x[0] === 'spawn' && x[1]?.side === 'enemy');
+    assert.ok(summon && spawns.length === 2, 'the sim splits it into two 腐化的原生质');
+    const kids = h.b.enemies.filter((x) => x.defId === PLASM);
+    const { L, seen } = await layer();
+    const views = new Map([[e.id, { ...viewOf(e), alive: false }], ...kids.map((k) => [k.id, viewOf(k)])]);
+    L.onEvent(['tick'], views);
+    seen.length = 0;
+    for (const sp of spawns) L.onEvent(sp, views);
+    L.onEvent(summon, views);
+    assert.equal(L.ownsFx(summon), true, 'no stand-in puff');
+    const now = seen.splice(0).filter((p) => p.kind === 'spawn').map((p) => `${p.names[0]}${p.tag === 'splitTrail' ? '>' + p.on : ''}`);
+    assert.deepEqual(now.sort(), ['enemy_sbeast_skill_start', 'enemy_sbeast_skill_start', ...kids.map((k) => `enemy_sbeast_skill_trail>${k.id}`)].sort());
+    L.update(1 / 60, { dist: 20 }, { width: 100, height: 100 });
+    assert.deepEqual(seen.filter((p) => p.kind === 'spawn').map((p) => p.names[0]), ['plasm_birth_01_start', 'plasm_birth_01_start'], 'each child\'s born_effect');
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('the extracted binding: the split beasts\' `summon` and their children\'s `born`', { skip: !existsSync(MODES) && 'no extracted enemy effects' }, () => {
+  const m = JSON.parse(readFileSync(MODES, 'utf8'));
+  assert.deepEqual(m[BEAST].skills.deathrattle.summon, ['enemy_sbeast_skill_start']);
+  assert.equal(m[BEAST].skills.deathrattle.proj.key, 'projectile_enemy_sbeast');
+  assert.deepEqual(m.enemy_1133_harchn.skills.deathrattle.summon, ['enemy_harchn_skill_start']);
+  assert.deepEqual([m[PLASM].born, m.enemy_1138_tumor.born], [['plasm_birth_01_start'], ['tumor_birth_01_start']]);
+  for (const n of ['enemy_sbeast_skill_start', 'enemy_sarchn_skill_start', 'enemy_harchn_skill_start', 'plasm_birth_01_start', 'tumor_birth_01_start']) assert.ok(m.$fx[n], n);
+});
+
+// the status events of the real kits through the app's path (render/app.js: UnitView.onStatus with statusSource) into the layer
+const statusView = (u, evs, views) => {
+  const v = { ...viewOf(u), flags: 0, statuses: new Set(), statusFrom: new Map() };
+  for (const e of evs) if (e[0] === 'status' && e[1] === u.id) {
+    if (e[3]) { v.statuses.add(e[2]); const f = F.statusSource(views, e); if (f) v.statusFrom.set(e[2], f); } else { v.statuses.delete(e[2]); v.statusFrom.delete(e[2]); }
+  }
+  return v;
+};
+const KNIGHT = 'enemy_1103_wdkght_2', APPRENTICE = 'enemy_1104_lfkght', BREEDER = 'enemy_1437_dsfull';
+const kmodes = {
+  [KNIGHT]: { modes: [{ name: 'Default', anim: ['Attack'] }], buffFx: { 'wdkght_t[enhance]': ['enemy_wdkght_skill_01_buff'] } },
+  [APPRENTICE]: { modes: [{ name: 'Mode', anim: ['Attack'] }], buffFx: { 'lfkght_s[weaken]': ['wind_buff_01'] } },
+};
+const kbuff = (v, kind, tag) => {
+  const b = kmodes[v?.info?.defId];
+  const on = kind === 'key' && b ? tag.split('|').flatMap((t) => (b.buffFx[t] || []).map((n) => ['b', n, 0.5])) : [];
+  return on.length ? { on, ends: new Map(), once: new Set() } : null;
+};
+
+test('骑士团: 沸血骑士团精锐\'s stacks are wdkght_t[enhance] on it, 锋盔骑士团学徒\'s cut is lfkght_s[weaken] on the operator (its source the 学徒)', () => {
+  const h = field([KNIGHT, APPRENTICE, DPVT], [{ chessId: 't_wall', row: 12, col: 2, uid: 1 }]);
+  const k = put(h, KNIGHT, [3, 14]), a = put(h, APPRENTICE, [12, 3.5]), d = put(h, DPVT, [5, 14]);
+  h.step();
+  h.b.kill(d, h.allies()[0]);
+  const wall = h.allies()[0];
+  h.runUntil(() => !!wall.findBuff('ab:lfkghtWeaken'), 40);   // AtkDesWeaken: initCooldown 25 s
+  const views = new Map([[k.id, viewOf(k)], [a.id, viewOf(a)], [wall.id, viewOf(wall)]]);
+  const kv = statusView(k, h.events, views), wv = statusView(wall, h.events, views);
+  assert.ok(kv.statuses.has('ab:wdkght'), 'a stack on the 精锐');
+  assert.deepEqual([...F.wantedStatusFx(kv, new Map(), kbuff, null, null, (id) => views.get(id)).keys()], ['b/enemy_wdkght_skill_01_buff']);
+  assert.ok(wv.statuses.has('ab:lfkghtWeaken'), 'the 学徒 cut the operator');
+  assert.deepEqual([...F.wantedStatusFx(wv, new Map(), kbuff, null, null, (id) => views.get(id)).keys()], ['b/wind_buff_01'], 'drawn on the operator from the 学徒\'s binding');
+});
+
+test('蕴核饲育者\'s child: dsfull_tr_1[speed_up]\'s enemy_dsfull_buff_03 on it', () => {
+  const kids = Object.values(ACT3.enemies[BREEDER].talents.bbStr || {}).filter((x) => typeof x === 'string' && x.startsWith('enemy_'));
+  const h = field([BREEDER, ...kids], [{ chessId: 't_wall', row: 12, col: 2, uid: 1 }]);
+  const e = put(h, BREEDER, [10, 6]);
+  h.step();
+  h.b.kill(e, h.allies()[0]);
+  h.run(0.5);
+  const kid = h.b.enemies.find((x) => x !== e && x.alive);
+  assert.ok(kid, 'a sea monster where it fell');
+  const views = new Map([[kid.id, viewOf(kid)]]);
+  const v = statusView(kid, h.events, views);
+  assert.deepEqual([...F.wantedStatusFx(v, new Map(), () => null).keys()], ['pfx_enemy_3/enemy_dsfull_buff_03']);
 });

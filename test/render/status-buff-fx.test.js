@@ -74,9 +74,9 @@ describe('client: status → the official buff effect', () => {
 
   test('statusSource: the applier\'s fx code (resolved at the event), the hint and the layer count', () => {
     const views = new Map([[7, unit('char_469_indigo')]]);
-    assert.deepEqual(F.statusSource(views, ['status', 1, 'bind', 1, 7]), { src: 'indigo', fx: null, n: 0 });
-    assert.deepEqual(F.statusSource(views, ['status', 1, 'bind', 1, 9, { fx: 's1' }]), { src: null, fx: 's1', n: 0 });
-    assert.deepEqual(F.statusSource(views, ['status', 1, 'x', 1, null, { n: 4 }]), { src: null, fx: null, n: 4 });
+    assert.deepEqual(F.statusSource(views, ['status', 1, 'bind', 1, 7]), { src: 'indigo', id: 7, fx: null, n: 0 });
+    assert.deepEqual(F.statusSource(views, ['status', 1, 'bind', 1, 9, { fx: 's1' }]), { src: null, id: 9, fx: 's1', n: 0 });
+    assert.deepEqual(F.statusSource(views, ['status', 1, 'x', 1, null, { n: 4 }]), { src: null, id: null, fx: null, n: 4 });
     assert.equal(F.statusSource(views, ['status', 1, 'stun', 1]), null);
   });
 

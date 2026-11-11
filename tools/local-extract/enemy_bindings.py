@@ -799,6 +799,7 @@ def names_of_part(p):
     pr = p.get('proj') or {}
     for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart', 'stop'):
         out += pr.get(f, [])
+    out += p.get('summon', [])
     for sp in pr.get('sub', []):
         for f in ('trail', 'hit', 'reached', 'targetStart', 'start'):
             out += sp.get(f, [])
@@ -867,13 +868,26 @@ def render_entry(r, projs):
                      for x in (strs(b.get('fx')) or ((b.get('template') or {}).get('key') or [])))
         if buffs:
             part['buff'] = buffs
-        if any(part.get(f) for f in ('cast', 'hit', 'attach', 'hitBuff', 'buff', 'proj', 'line', 'tile')):
+        # (2026-11-11) a split on death (buff template deathrattle_sum[walk_only]: ON_OWNER_KILLED SummonEnemiesFollowMyRoute,
+        # then CreateEffect on the BUFF_OWNER and EmitProjectile from it, GROUND, to each unit summoned — their keys the buff's
+        # blackboard valueStr): `summon` = that effect on the one that fell (its projectile is the part's `proj`)
+        dr = uniq(o['fx'] for a in lst if any(str(b.get('tmpl') or '').startswith('deathrattle_sum') for b in a.get('buffs') or [])
+                  for o in a.get('otherFx') or [] if o.get('field') == '_buffs.blackboard.valueStr')
+        if dr:
+            part['summon'] = dr
+        if any(part.get(f) for f in ('cast', 'hit', 'attach', 'hitBuff', 'buff', 'proj', 'line', 'tile', 'summon')):
             part['anim'] = next((a['anim'] for a in lst if a.get('anim')), None)
             if part['anim'] is None:
                 del part['anim']
             skills[k] = part
     if skills:
         out['skills'] = skills
+    # (2026-11-11) a passive buff of template born_effect (CreateEffect on its owner as it starts, the key its blackboard
+    # valueStr — 变异沙地兽's children 腐化的原生质 / 畸变恶性瘤): `born` = played as it is born, beside the root's _startEffect
+    born = uniq(o['fx'] for a in r['abilities'] if any(b.get('tmpl') == 'born_effect' for b in a.get('buffs') or [])
+                for o in a.get('otherFx') or [] if o.get('field') == '_buffs.blackboard.valueStr')
+    if born:
+        out['born'] = born
     # an enemy's own buff held while the ability that holds it is attached (2026-10-21, client classes — BUFF_CLASSES): the
     # passive buffs of a PassiveBuffAbility that last (INFINITY, no node of their own that finishes them) — outside the modes
     # for its whole life (`aura`; a talent / common ability, the root's `_commonAbilities` wherever they sit: 黄金回响's
@@ -1054,7 +1068,7 @@ def render_entry(r, projs):
 
 def entry_names(e):
     out = [e.get('start'), e.get('dead')] + list(e.get('aura', [])) + list(e.get('handed', [])) + list(e.get('auraNested', []))
-    out += list(e.get('camera', []))
+    out += list(e.get('camera', [])) + list(e.get('born', []))
     out += [x for rb in e.get('reborn') or [] for x in rb['fx']]
     out += [x for ra in e.get('rebornAbility') or [] for x in ra['cast'] + [b['fx'] for b in ra['buffs']]]
     for k in ('buffFx', 'buffEnd', 'buffBlocked'):

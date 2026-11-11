@@ -384,7 +384,8 @@ function kitDivider(ab) {
  * 沸血骑士团精锐: a GlobalAuraAbility on its own side (TargetValidator `targetSide` 1, every motion) — each of those enemies
  * knocked out (enemy_wdkght_t, ON_OWNER_KILLED) gives it a stack of ATK × (1 + `enhance.atk`) (MULTIPLIER) and ASPD
  * + `enhance.attack_speed` (ADDITION), at most `enhance.max_stack_cnt`; full, its next attack switches it to the mode Rage
- * (enemy_wdkght_t[switch_mode] ON_BEFORE_ATTACK, no FSM restart: the same attack, its Skill clip).
+ * (enemy_wdkght_t[switch_mode] ON_BEFORE_ATTACK, no FSM restart: the same attack, its Skill clip). The stacks are the client
+ * buff wdkght_t[enhance] (`fxTag`: its overrideEffectKey enemy_wdkght_skill_01_buff on it, render/fxstatus.js).
  */
 function kitBloodKnight(ab) {
   const atk = T(ab, 'enhance.atk') ?? 0, as = T(ab, 'enhance.attack_speed') ?? 0, cap = T(ab, 'enhance.max_stack_cnt') ?? Infinity;
@@ -394,13 +395,16 @@ function kitBloodKnight(ab) {
       const u = c.unit;
       if (c.reason !== 'killed' || !u || u === e || u.side !== 'enemy' || !(a.n < cap)) return;
       a.n++;
-      b.addBuff(e, { key: 'ab:wdkght', persist: true, visible: true, refresh: 'replace', mods: { atkPct: atk * a.n, aspd: as * a.n } });
+      b.addBuff(e, { key: 'ab:wdkght', persist: true, visible: true, refresh: 'replace', mods: { atkPct: atk * a.n, aspd: as * a.n }, fxTag: 'buff:wdkght_t[enhance]' });
     },
     before(_c, b, e, a) { if (a.n >= cap && !a.rage) { a.rage = true; mode(b, e, 'Rage', false); } },
   }];
 }
 
-/** 锋盔骑士团学徒's ATK cut on its target (lfkght_s[weaken]: the selector leaves out a unit that has it). */
+/**
+ * 锋盔骑士团学徒's ATK cut on its target (lfkght_s[weaken]: the selector leaves out a unit that has it; `fxTag` and its source —
+ * the buff's overrideEffectKey wind_buff_01 on the operator, drawn from the 学徒's binding: render/fxstatus.js).
+ */
 const WEAKEN = 'ab:lfkghtWeaken';
 
 /**
@@ -416,7 +420,7 @@ function kitLfKnight(ab) {
     if (!u) return;
     atCastEvent(b, e, s, () => {
       if (!u.alive || u.findBuff(WEAKEN)) return;
-      b.addBuff(u, { key: WEAKEN, duration: dur, visible: true, mods: { atkMul: 1 + cut } });
+      b.addBuff(u, { key: WEAKEN, duration: dur, visible: true, mods: { atkMul: 1 + cut }, source: e, fxTag: 'buff:lfkght_s[weaken]' });
     });
   }, { sil: true, cond: (b, e) => !!pick(b, e) }), reborn({ dur: T(ab, 'reborn.duration') ?? 0 })];
 }

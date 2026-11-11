@@ -134,7 +134,7 @@ test('fxstatus: a status an enemy puts on an ally draws that enemy\'s binding of
   const web = { id: 9, isEnemy: true, info: { defId: WEB } };
   const ebuff = (v, kind, tag) => (v === web && kind === 'key' && tag === 'acweb[vfx]' ? { on: [['b', 'web1', 'own']], ends: new Map() } : null);
   const op = (src) => ({ info: { defId: 'char_x' }, isEnemy: false, alive: true, flags: 0, statuses: new Set(['boss:acweb']),
-    statusFrom: new Map([['boss:acweb', { src, fx: 'buff:acweb[vfx]', n: 0 }]]) });
+    statusFrom: new Map([['boss:acweb', { src: 'enemy_9036_acweb', id: src, fx: 'buff:acweb[vfx]', n: 0 }]]) });
   const viewOf = (id) => (id === 9 ? web : null);
   const keys = (v, vo) => [...F.wantedStatusFx(v, new Map(), ebuff, null, null, vo).keys()];
   assert.deepEqual(keys(op(9), viewOf), ['b/web1']);

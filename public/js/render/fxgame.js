@@ -4974,12 +4974,41 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * `_onlyCheckHitWhenStop`). The flight is its attack's trail ('atk'); the sim cancels that attack's own hit, so nothing
    * lands with it. true = drawn here (no stand-in ring or blast).
    */
-  /** Whether the enemy `o.key` an enemy (`o.id`) summons has its own extracted birth effect (enemy-modes.json `start`). */
-  function esummonBorn(o, views) {
-    const parent = o.id != null ? views.get(o.id) : null;
+  /**
+   * Whether the enemy `o.key` an enemy (`o.id`) summons has its own extracted birth effect (enemy-modes.json `start`, or its
+   * born_effect buff's `born`); and a split on death (the summoner's skill part with `summon`: deathrattle_sum[walk_only])
+   * plays its effects now — 2026-11-11.
+   */
+  function esummonBorn(e, views) {
+    const o = e[4], parent = o.id != null ? views.get(o.id) : null;
     if (!parent?.info || parent.info.side !== 'enemy' || !eOn(parent)) return false;
-    const start = emodes?.[o.key]?.start;
-    return typeof start === 'string' && !!efx(start);
+    const split = esplitFx(e, parent, views);
+    const c = emodes?.[o.key];
+    return split || (typeof c?.start === 'string' && !!efx(c.start)) || (Array.isArray(c?.born) && c.born.some(efx));
+  }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 재생 무리」): 变异沙地兽 / 变异岩蛛 / 变异巨岩蛛 splitting where they fell — the sim's fx
+   * 'summon' { id: the one that fell, key, n } (content/enemies/reborn.js splitOnDeath) after its 'spawn' of each child. Their
+   * talent buff (template deathrattle_sum[walk_only]) runs, for each unit it summons, CreateEffect on its owner (the part's
+   * `summon`: enemy_sbeast_skill_start …, where it fell) and EmitProjectile from it (GROUND) to that unit (the part's `proj`:
+   * projectile_enemy_sbeast's trail). true = drawn.
+   */
+  function esplitFx(e, parent, views) {
+    const o = e[4], b = ebindOf(parent);
+    const part = b?.skills ? Object.values(b.skills).find((p) => Array.isArray(p?.summon) && p.summon.length) : null;
+    if (!part || !part.summon.some(efx) || level() >= 3) return false;
+    const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
+    const kids = [];
+    for (const [id, t] of eborn) if (t === clockS && views.get(id)?.info?.defId === o.key) kids.push(views.get(id));
+    const pr = part.proj, r = efx(Array.isArray(pr?.trail) ? pr.trail[0] : null), speed = Number(pr?.speed) > 0 ? Number(pr.speed) : 0;
+    for (let i = 0; i < Math.max(1, kids.length); i++) eplay(parent, part.summon, { at, owner: null, tag: 'split' });
+    if (r && speed > 0 && camRef && !trailFull()) {
+      for (const k of kids) {
+        const dur = Math.max(0.04, Math.hypot(k.x - at.x, k.y - at.y) / speed);
+        launchTrail({ inst: null, esrc: parent.id, etgt: k.id, tgt: k, x0: at.x, y0: at.y, z0: 0, ...aimOf(k), k: 0, dur, arc: Number(pr.raise) > 0 ? Number(pr.raise) : 0 }, r[0], r[1]);
+      }
+    } else if (r && dry && trace) for (const k of kids) trace({ kind: 'spawn', names: [r[1]], by: ownerOf(parent), on: ownerOf(k), tag: 'splitTrail', facing: 1 });   // tests
+    return true;
   }
   const dshells = [];   // { x, y, id, pr, src, marks: [live entries], done }
   const dblasts = new Map();   // thrower id → { t: the battle clock of its blast, rec }
@@ -5770,6 +5799,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const b = ebindOf(v);
       v._fxEMode = emodeOf(v);
       if (b.start) eplay(v, [b.start], { tag: 'born' });
+      // 2026-11-11: its born_effect buff's CreateEffect (enemy-modes.json `born`: 腐化的原生质's plasm_birth_01_start …)
+      if (Array.isArray(b.born) && b.born.length) eplay(v, b.born, { tag: 'born' });
       if (Array.isArray(b.aura) && b.aura.length) {
         // 2026-10-15: an aura that ends into an ability (`auraEnd`) is tagged by it — eskillFx stops it as that ability starts
         const end = b.auraEnd || {};
@@ -6343,7 +6374,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-11-11: an enemy's summon (fx 'summon' { id: its parent, key }) whose summoned enemy has an extracted
           // `_startEffect` — that child's birth effect is the official one (flushEnemyBirths, on its 'spawn'): no stand-in
           // puff at the parent (萨卡兹子裔's 重生造物 enemy_dzoms_born_01 …)
-          if (e[1] === 'summon' && typeof e[4]?.key === 'string' && esummonBorn(e[4], views)) { ownFx.add(e); return; }
+          if (e[1] === 'summon' && typeof e[4]?.key === 'string' && esummonBorn(e, views)) { ownFx.add(e); return; }
           // 2026-11-11: 萨卡兹子裔轰击者's shell lying where it landed, then its blast (规程)
           if ((e[1] === 'telegraph' || e[1] === 'explode') && e[4]?.kind === 'dthrowShell') {
             if (e[1] === 'telegraph' ? dshellFx(e, views) : dshellBlast(e)) ownFx.add(e);

@@ -92,6 +92,7 @@ const KNOWN = {
   'KEY_FX ab:exposed|*': ['untabled', 'weak[limit] is a BuffDB buff (loadFromDB): its overrideEffectKey buff_weak[limit] is in the client buff table (gamedata buff_table), not a template row'],
   'HINT_FX weak[limit]|*': ['untabled', 'as KEY_FX ab:exposed'],
   'STACK_FX palsy|*': ['untabled', 'as KEY_FX ab:exposed — palsy[stack] (overrideEffectKey common_061_numb_01, its prefab switching to _02 / _03 by the stacks)'],
+  'KEY_FX ab:dsfullSpeed|*': ['untabled', '蕴核饲育者\'s dsfull_tr_1[derived][n] (an enemy buff template, ON_OWNER_KILLED) gives the child it summons dsfull_tr_1[speed_up] (enemy_dsfull_buff_03): the binding table holds the charpacks\' rows only'],
   'KEY_FX ab:aweAura|*': ['untabled', '扎罗\'s FearAura AuraAbility `_effects` (its prefab, enemy-modes.json `auraNested`): the binding table holds the charpacks\' rows only'],
   'KIT_OFFICIAL burst.wisdel|*': ['untabled', '위셔델\'s shade strikes through its skill prefab sktok_wisdel_wward and projectile_chr_wisdel_token: the binding table holds no row of a token\'s skill prefab'],
   'KIT_OFFICIAL obelisk.beewax|*': ['untabled', '비즈왁스\'s 沙之碑 casting its skill sktok_beewax (`_castEffects` token_beewax_skill_02_range): the binding table holds no row of a token\'s skill prefab'],

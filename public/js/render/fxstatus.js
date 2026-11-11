@@ -229,6 +229,9 @@ export const KEY_FX = Object.freeze({
   'angel2:barrier': cite(['angel2_s_2[shield][trigger]', 'angel2_s_2[select_target]'], (v) => (fxCode(v) === 'angel2' ? ANGEL2_SELF : ANGEL2_OTHER)),
   // element bursts (ep_break_*): 凋亡 ep_break_dark[damage] on both sides; 灼燃 ep_fire_magic_res_down and 侵蚀
   // ep_water_def_down (the DEF cut, `erosionDown`) on operators only — an enemy's 灼燃 / 侵蚀 burst has its hit effect only
+  // (2026-11-11) 蕴核饲育者 / 异光体饲育者's child (规程): dsfull_tr_1[derived][n] ON_OWNER_KILLED summons it and gives it
+  // dsfull_tr_1[speed_up] (overrideEffectKey enemy_dsfull_buff_03, INFINITY) — the sim's 'ab:dsfullSpeed' (content/enemies/reborn.js kitBreeder)
+  'ab:dsfullSpeed': cite('dsfull_tr_1[speed_up]', ['pfx_enemy_3', 'enemy_dsfull_buff_03', 0]),
   apoptosisBurst: keyed('ep_break_dark[damage]', 'common', 0.5),
   burnBurst: cite('ep_fire_magic_res_down', (v) => (v.isEnemy ? null : BURN_BURST)),
   erosionDown: cite('ep_water_def_down', (v) => (v.isEnemy ? null : EROSION_DOWN)),
@@ -423,7 +426,8 @@ function fxCode(v) {
 export function statusSource(views, e) {
   const info = e[5] && typeof e[5] === 'object' ? e[5] : null;
   if (e[4] == null && !info) return null;
-  return { src: e[4] != null ? fxCode(views.get(e[4])) || null : null, fx: info?.fx ?? null, n: Number(info?.n) || 0 };
+  // `id`: the applier's unit id (2026-11-11 — wantedStatusFx's bySrc finds an enemy applier's view by it; `src` is its fx code)
+  return { src: e[4] != null ? fxCode(views.get(e[4])) || null : null, id: e[4] ?? null, fx: info?.fx ?? null, n: Number(info?.n) || 0 };
 }
 
 /** The STATUS_FX key of a sim 'status' key ('tremble', 'skill:haini_slow', 'talent:weak_fragile' …), or null. */
@@ -652,7 +656,7 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
       // reborn() in server/sim/content/enemies/archetypes.js): the enemy's own buff effects — none bound, nothing drawn
       const tag = typeof from?.fx === 'string' && from.fx.startsWith('buff:') ? from.fx.slice(5) : null;
       if (tag != null || /^ab:.*:inv$/.test(k)) {
-        const r = own ? (tag != null ? own('key', tag) : own('inv')) : bySrc && tag != null ? bySrc(from?.src, tag) : null;
+        const r = own ? (tag != null ? own('key', tag) : own('inv')) : bySrc && tag != null ? bySrc(from?.id ?? null, tag) : null;
         if (r) byOwn(r);
         continue;
       }
