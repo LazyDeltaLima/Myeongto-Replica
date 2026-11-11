@@ -1,5 +1,5 @@
 // UI changes of 2026-10-12 (docs/rules/ui.md 「공식 위수협약 UI」, 「휴대폰 화면 조정」, 「정비 화면 HUD」; maintainer request):
-//   - the bond stack number: 12.4 units (16 × .17 / .22: the capture's digit height against ours)
+//   - the bond stack number: the prefab's 16 in the HUD number face (docs/rules/ui.md 「HUD 숫자 글꼴」; it was 12.4 in Bender)
 //   - phones fold ⚙ / 📖 / ⛶ of the bottom-left corner behind one ⋯ button (the corner covered the 机变 cards' bottom row)
 //   - the official pieces still missing: the reconnect mask, the one-button server-lost / solo-resume dialogs, the latency
 //     panel and the 卫戍协议 toast (ui/battleArt.js, css/battle-art.css). The 机变 card scroll view: test/ui/playtest6-ui.test.js.
@@ -16,10 +16,10 @@ const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 const { pingTier, soloResumeDue, ReadyTipDialog } = await import('../../public/js/ui/battleArt.js');
 
 describe('bond stack number', () => {
-  test('12.4 units on matte_num (was the prefab 16 px: .22 of the ring against the capture\'s .17)', () => {
+  test('the prefab\'s 16 px on matte_num again, in the HUD number face (12.4 stood in while it drew in Bender)', () => {
     const css = read('public/css/hud-art.css');
     const rule = css.match(/\.gm\.has-hud-art \.bslot \.bond__count \{([^}]*)\}/)[1];
-    assert.match(rule, /font-size: calc\(var\(--u\) \* 12\.4\)/);
+    assert.match(rule, /font-size: calc\(var\(--u\) \* 16\)/);
     assert.match(rule, /min-width: calc\(var\(--u\) \* 42\); height: calc\(var\(--u\) \* 25\)/, 'the matte keeps its size');
   });
 });

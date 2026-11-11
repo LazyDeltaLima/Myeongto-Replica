@@ -8,8 +8,6 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
   - the 6 in-match emoticon themes of 盟约 (activity_table autoChessData.enabledEmoticonThemeIdList; only the
     *_battle sprites, keyed by display_meta_table picId: emoticon/<dir>/<picId>.png, see data/emotes.json)
   - the autochess guidebook pages and battle projectile sprites
-  - the HUD number font the public font source lacks (FONT_NAMES: Novecentowide-Medium, a Font asset of the game's
-    *_Data/*.assets, not of a bundle) → fonts/<stem>.otf; the page registers it when this manifest lists it
   (the emotes and the guidebook pages are on the public mirror too: tools/fetch-assets.mjs downloads them, and the
   client uses these local copies first — GitHub issue #42)
   - the enemy battle Spine models no community dump carries (ENEMY_SPINES: 灼热源石虫 / 炽焰源石虫), from the enemy art
@@ -248,15 +246,6 @@ def cn_bundle_roots():
 # the web pages (public/js/assets.js spineEntry `pages`), and a page that fails to load falls back to the web one.
 OP_ART = 'chararts'
 OP_PAGE_SUB = 'spine/op'
-
-# HUD number fonts the public font source lacks (tools/assets/fonts.mjs has Novecento Wide Normal only): the client's
-# Font assets in the game's *_Data/*.assets (not in a bundle), by name → fonts/<file>.otf|.ttf. The client's HUD Text
-# nodes name their font at runtime (DynFontLoader `_fontName`): the bond disc count, the bond dialog's 层数 / member
-# count, the round / HP / kill counters use Novecentowide-Medium (docs/rules/ui.md 「HUD 숫자 글꼴」); the page registers
-# it as 'Novecento Wide' weight 500 when this manifest lists it (public/js/ui/localFonts.js), else the CSS falls back to
-# the public Normal face.
-FONT_SUB = 'fonts'
-FONT_NAMES = {'Novecentowide-Medium': 'novecento-wide-medium'}
 
 # Derived three.js maps: (output subdir, source texture, kind, output name). 'normal_rg' rebuilds Z of a two-channel
 # (BC5) normal map into an RGB tangent-space map; 'rough_from_gloss' turns Unity's metallic/gloss map (smoothness in
@@ -1062,52 +1051,6 @@ def export_operator_pages(ab_root, out_root, manifest, log, ids):
     return n
 
 
-def game_data_dir(ab_root):
-    """The client's <game>_Data folder above an AssetBundle root (…/Arknights_Data/PersistentData/Bundles,
-    …/Arknights_Data/StreamingAssets/AB/Windows), or None."""
-    for p in [ab_root, *ab_root.parents]:
-        if p.name.endswith('_Data') and p.is_dir():
-            return p
-    return None
-
-
-def export_fonts(ab_root, out_root, manifest, log, names=FONT_NAMES):
-    """Copy the client Font assets named in `names` ({ font name: file stem }) from the game's *_Data/*.assets to
-    <out>/fonts/<stem>.otf|.ttf (the raw m_FontData: OTTO = OpenType CFF, else TrueType). Returns the files written."""
-    import UnityPy
-    data_dir = game_data_dir(ab_root)
-    if data_dir is None:
-        log(f'fonts: no *_Data folder above {ab_root}; skipped')
-        return 0
-    left, n = dict(names), 0
-    for assets in sorted(data_dir.glob('*.assets')):
-        if not left:
-            break
-        try:
-            env = UnityPy.load(str(assets))
-        except Exception as e:  # an unreadable .assets file: the next one may hold the font
-            log(f'fonts: {assets.name}: {e}')
-            continue
-        for o in env.objects:
-            if o.type.name != 'Font':
-                continue
-            f = o.read()
-            stem = left.get(f.m_Name)
-            fd = bytes(getattr(f, 'm_FontData', b'') or b'')
-            if not stem or not fd:
-                continue
-            fname = f"{stem}.{'otf' if fd[:4] == b'OTTO' else 'ttf'}"
-            (out_root / FONT_SUB).mkdir(parents=True, exist_ok=True)
-            (out_root / FONT_SUB / fname).write_bytes(fd)
-            manifest.setdefault(FONT_SUB, {})[f.m_Name] = {'path': f'/assets/local/{FONT_SUB}/{fname}', 'kind': 'Font', 'bytes': len(fd)}
-            log(f'fonts: {f.m_Name} ({assets.name}) → {FONT_SUB}/{fname}')
-            del left[f.m_Name]
-            n += 1
-    for name in left:
-        log(f'fonts: {name} not found under {data_dir}')
-    return n
-
-
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--game', help='AssetBundle root (…/StreamingAssets/AB/Windows or …/Documents/Bundles)')
@@ -1131,8 +1074,7 @@ def main():
                           'enemySpines': {'bundles': ENEMY_ART, 'sub': ENEMY_SPINE_SUB, 'ids': ENEMY_SPINES},
                           'tokenSpines': {'bundles': TOKEN_PACKS, 'sub': TOKEN_SPINE_SUB, 'ids': TOKEN_SPINES},
                           'itemSpines': {'bundles': TOKEN_PACKS, 'sub': ITEM_SPINE_SUB, 'ids': item_spine_ids()},
-                          'opPages': {'bundles': f'{OP_ART}/<charId>.ab', 'sub': OP_PAGE_SUB},
-                          'fonts': {'from': '<game>_Data/*.assets', 'sub': FONT_SUB, 'names': FONT_NAMES}},
+                          'opPages': {'bundles': f'{OP_ART}/<charId>.ab', 'sub': OP_PAGE_SUB}},
                          ensure_ascii=False))
         return 0
     if args.webp:
@@ -1147,8 +1089,7 @@ def main():
     token_ids = spine_ids(args.only, TOKEN_SPINE_SUB, TOKEN_SPINES)
     item_ids = spine_ids(args.only, ITEM_SPINE_SUB, item_spine_ids())
     op_ids = spine_ids(args.only, OP_PAGE_SUB, op_page_ids())
-    fonts = wants_sub(args.only, FONT_SUB)
-    if not jobs and not enemy_ids and not token_ids and not item_ids and not op_ids and not fonts:
+    if not jobs and not enemy_ids and not token_ids and not item_ids and not op_ids:
         print(f'--only {args.only}: no job matches', file=sys.stderr)
         return 2
     out_root = Path(args.out)
@@ -1166,8 +1107,6 @@ def main():
         total += export_token_spines(ab_root, out_root, manifest, print, item_ids, ITEM_SPINE_SUB, cn, 'item')
     if op_ids:
         total += export_operator_pages(ab_root, out_root, manifest, print, op_ids)
-    if fonts:
-        total += export_fonts(ab_root, out_root, manifest, print)
     old = {}
     if args.only and Path(args.manifest).exists():
         try:

@@ -63,6 +63,8 @@ export const RAW = Object.freeze({
   aa2: 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/',
   aa2voice: 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/voice/assets/dyn/audio/sound_beta_2/',
   fonts: 'https://raw.githubusercontent.com/TimWangZi/The-font-of-Arknights/master/font/',
+  // google/fonts pinned to a commit (the HUD number face Lexend Exa, SIL OFL 1.1: tools/assets/fonts.mjs)
+  googleFonts: 'https://raw.githubusercontent.com/google/fonts/e2332cf862ac3145c0ee5f24f04f4c1819b2410b/',
   gamedata: 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/',
 });
 
