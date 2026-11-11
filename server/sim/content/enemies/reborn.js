@@ -226,6 +226,27 @@ function kitFello(ab) {
 }
 
 /**
+ * 萨卡兹骸骨卫士长 (规程's 萨卡兹子裔寄生者 escort; EN client prefab enemy_1363_spnshd_2): 嘲讽 2 (its table's taunt level);
+ * every damage it takes (enemy_spnshd_atk_speed: ON_TAKE_DAMAGE, VertifyTarget — the source on the other side, any
+ * motion) puts enemy_spnshd_atkspeed[d] on the source: ATTACK_SPEED `Summon.attack_speed` (−40) for `Summon.duration` (5) s,
+ * UNIQUE — while a unit holds it, a new one adds nothing (no refresh). Knocked out (not a FALLDOWN), `Summon.cnt` <血珀> on
+ * its route (enemy_dfello_summon[dseed], 新生血裔's). Its BmbcarBuff aura stops only units holding
+ * enemy_bmbcar1_passive (反巫术变位炸弹) — none in this mode.
+ */
+function kitBoneGuard(ab) {
+  const aspd = T(ab, 'Summon.attack_speed') ?? 0, dur = T(ab, 'Summon.duration') ?? 0;
+  const key = ab.tS['Summon.enemy_key'], cnt = T(ab, 'Summon.cnt') ?? 0;
+  return [{
+    taken(c, b) {
+      const s = c.source;
+      if (!s || !s.alive || s.side !== 'ally' || !(dur > 0) || s.findBuff('ab:spnshdSlow')) return;
+      b.addBuff(s, { key: 'ab:spnshdSlow', duration: dur, refresh: 'keep', visible: true, mods: { aspd }, fxTag: 'buff:enemy_spnshd_atkspeed[d]' });
+    },
+    death(c, b, e) { if (c.reason === 'killed' && key && cnt > 0) spawnChildren(b, e, key, cnt, { route: remainingRoute(e) }); },
+  }];
+}
+
+/**
  * 萨卡兹子裔寄生者 (规程 only): an AuraAbility (SILENCE line; radius `Aura.range_radius`, its own side, every motion, itself
  * left out — `_selfOption` EXCLUDE — and 大君之触 `enemy_1220_dzoms` too, its validator) gives acpara[core]: an enemy holding
  * it that is knocked out summons one `Aura.enemy_key` (大君之赐) where it fell, on its route, at once — not when that one is a
@@ -448,6 +469,7 @@ export const REBORN_KITS = {
   enemy_1361_dthrow_2: kitThrower,                         // 萨卡兹子裔毁击者 · same; 仁慈之触
   enemy_1362_dfat: kitPunisher,                            // 萨卡兹子裔责罚者 · every 4th attack stuns all around; 大君之赐
   enemy_1362_dfat_2: kitPunisher,                          // 萨卡兹子裔惩戒者 · same; 慷慨之赐
+  enemy_1363_spnshd_2: kitBoneGuard,                       // 萨卡兹骸骨卫士长 · damage taken → its source ASPD −40 5 s; leaves 2 血珀
   enemy_9030_acpara: kitParasite,                          // 萨卡兹子裔寄生者 · enemies knocked out near it: 大君之赐
   enemy_1131_sbeast: kitSplitBeast,                        // 变异沙地兽 · knocked out: 2 畸变赘生物
   enemy_1131_sbeast_2: kitSplitBeast,                      // 变异沙地兽α · 2 畸变恶性瘤

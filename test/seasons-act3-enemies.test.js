@@ -26,11 +26,7 @@ const E3 = ACT3.enemies, E0 = BASE.enemies;
 // the leader fields: the units of the leaders' waves (“不眠雪山”, the waves' `acsgnt` branch, is 谢拉格's bond summon now)
 const LEADER_FIELD = [];
 // 特训敌人 entries of 规程 (its new types CRITIC 精锐 / REBORN 重生 among them) and their escorts and offspring
-const SPECIAL_TYPE = [
-  'enemy_10163_mnctur_2', 'enemy_1064_snsbr', 'enemy_1067_snslime_2',
-  'enemy_1309_mhboar_2', 'enemy_1363_spnshd_2',
-  'enemy_9031_acrefd', 'enemy_9034_acblk', 'enemy_9039_acrefm',
-];
+const SPECIAL_TYPE = [];
 // enemies an enemy effect, choice or strategy of 规程 puts on the field
 const EFFECT_SPAWN = [
   'enemy_10003_trwlpl_2', 'enemy_10077_mpbarr', 'enemy_10123_uareap', 'enemy_10146_nscola', 'enemy_10147_nsbomb',
@@ -1694,4 +1690,250 @@ test('魂灵残迹: with a soul and a unit in its row / column (any distance), a
     assert.equal(laser.length, 0);
     assert.equal(souls(e), 1);
   }
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// 特训敌人 special entries of 规程 and their escorts: 假想敌：影役 / 镜眼 / 镜波, the new escorts of the old entries
+
+const ACREFM = 'enemy_9039_acrefm', ACREFD = 'enemy_9031_acrefd', ACBLK = 'enemy_9034_acblk';
+const SNSBR = 'enemy_1064_snsbr', SNSLIME2 = 'enemy_1067_snslime_2', SPNSHD2 = 'enemy_1363_spnshd_2';
+const MHBOAR2 = 'enemy_1309_mhboar_2', MNCTUR2 = 'enemy_10163_mnctur_2';
+const killNow = (h, e) => h.b.dealDamage(null, e, { amount: 1e9, type: 'true' });
+
+test('假想敌：镜眼: 折射 RES +70; arts damage it takes slows the source\'s ASPD −50 for 3 s (refilled); physical none; silenced, none', () => {
+  const bb = E3[ACREFM].talents.bb;
+  assert.deepEqual([bb['refracting.magic_resistance'], bb['refracting.attack_speed'], bb['refracting.duration']], [70, -50, 3]);
+  const { h } = waveField([ACREFM], walls([[10, 3]]));
+  const e = put(h, ACREFM, [10, 7], { tag: null });
+  const w = h.unit(1), aspd0 = w.s.aspd;
+  h.step();
+  assert.equal(e.s.res, E3[ACREFM].stats.res + 70, 'refraction');
+  h.b.dealDamage(w, e, { amount: 10, type: 'phys' });
+  h.b.dealDamage(w, e, { amount: 10, type: 'true' });
+  h.step();
+  assert.equal(w.s.aspd, aspd0, 'physical, true: nothing');
+  h.b.dealDamage(w, e, { amount: 10, type: 'arts' });
+  h.step();
+  assert.equal(w.s.aspd, aspd0 - 50, 'arts: −50');
+  runFor(h, 2);
+  h.b.dealDamage(w, e, { amount: 10, type: 'arts' });
+  runFor(h, 2.5);
+  assert.equal(w.s.aspd, aspd0 - 50, 'a second hit refills the 3 s');
+  runFor(h, 0.6);
+  assert.equal(w.s.aspd, aspd0, 'and it ends 3 s after it');
+  h.b.applyStatus(e, 'silence', { duration: 100, source: null });
+  h.step();
+  assert.equal(e.s.res, E3[ACREFM].stats.res, 'silenced: no refraction');
+  h.b.dealDamage(w, e, { amount: 10, type: 'arts' });
+  h.step();
+  assert.equal(w.s.aspd, aspd0, 'silenced: no slow');
+});
+
+test('假想敌：镜波: knocked out, a paracurve shot to the lowest-RES enemy within 1.2 — RES +10 on its arrival, once; silenced, none', () => {
+  const bb = E3[ACREFD].talents.bb;
+  assert.deepEqual([bb['refracting.range_radius'], bb['refracting.acrefd[magic-resistance].magic_resistance']], [1.2, 10]);
+  for (const silence of [false, true]) {
+    const { h } = waveField([ACREFD, ACREFM, SNSBR], []);
+    const e = put(h, ACREFD, [10, 6], { tag: null });
+    const hi = put(h, ACREFM, [10, 6.5], { tag: null });   // RES 70 (折射), nearer
+    const lo = put(h, SNSBR, [10, 7], { tag: null });       // RES 0, 1.0 away
+    const far = put(h, SNSBR, [10, 4.5], { tag: null });    // RES 0, 1.5 away: out of reach
+    const shots = fxOf(h, 'enemyShot');
+    h.step();
+    if (silence) h.b.applyStatus(e, 'silence', { duration: 100, source: null });
+    h.step();
+    killNow(h, e);
+    h.step();
+    if (silence) { runFor(h, 1); assert.equal(shots.length, 0, 'silenced: no shot'); assert.equal(lo.s.res, 0); continue; }
+    assert.equal(shots.length, 1);
+    assert.equal(shots[0].tgt, lo.id, 'the lowest RES within reach');
+    assert.equal(shots[0].key, 'projectile_enemy_acrefd');
+    assert.equal(lo.s.res, 0, 'not before it lands (1.0 at 4 tiles/s)');
+    runFor(h, 0.3);
+    assert.equal(lo.s.res, 10);
+    assert.equal(far.s.res, 0); assert.equal(hi.s.res, 70);
+    // a second 镜波 knocked out by the same enemy adds nothing (maxStackCnt 1)
+    const e2 = put(h, ACREFD, [10, 7.5], { tag: null });
+    h.step();
+    killNow(h, e2);
+    runFor(h, 1);
+    assert.equal(lo.s.res, 10, 'one at a time');
+  }
+});
+
+test('假想敌：影役: stealthed; the operators within 1.8 (+ their collider) block 1 fewer — one, however many 影役; gone with the unit leaving or the 影役', () => {
+  const bb = E3[ACBLK].talents.bb;
+  assert.deepEqual([bb['Aura.range_radius'], bb['Aura.block_cnt']], [1.8, -1]);
+  const { h } = waveField([ACBLK], [{ chessId: 't_wall', row: 10, col: 3, uid: 1 }, { chessId: 't_wall', row: 10, col: 8, uid: 2 }]);
+  const near = h.unit(1), far = h.unit(2), cap = near.s.blockCnt;
+  const e = put(h, ACBLK, [10, 5], { tag: null });
+  h.step(); h.step();
+  assert.ok(e.s.flags.stealth, '隐匿');
+  assert.equal(near.s.blockCnt, cap - 1, '2.0 away: inside (1.8 + 0.25)');
+  assert.equal(far.s.blockCnt, cap, '3.0 away: outside');
+  const e2 = put(h, ACBLK, [10, 4], { tag: null });
+  h.step(); h.step();
+  assert.equal(near.s.blockCnt, cap - 1, 'two auras: still −1');
+  killNow(h, e);
+  h.step(); h.step();
+  assert.equal(near.s.blockCnt, cap - 1, 'the other 影役 still reaches it');
+  e2.x = 7;
+  h.step(); h.step();
+  assert.equal(near.s.blockCnt, cap, 'out of every aura: back');
+  assert.equal(far.s.blockCnt, cap - 1, '1.0 away now');
+  killNow(h, e2);
+  h.step(); h.step();
+  assert.equal(far.s.blockCnt, cap, 'the last 影役 gone: back');
+});
+
+test('雪怪小队: its attack on a 冻结 target × 1.5 (e2c_frozen_atkscale); 冰爆源石虫·α: knocked out, ATK × 2 physical within 1.9 + 10 s cold', () => {
+  assert.equal(E3[SNSBR].talents.bb['atkup.atk_scale'], 1.5);
+  {
+    const { h, hits } = waveField([SNSBR], walls([[10, 5]]));
+    const e = put(h, SNSBR, [10, 7], { move: true, tag: null });
+    h.runUntil(() => hits.length >= 1, 20);
+    assert.ok(Math.abs(hits[0].n - E3[SNSBR].stats.atk) < 1e-6, 'plain');
+    h.b.applyStatus(h.unit(1), 'freeze', { duration: 100, source: e });
+    h.runUntil(() => hits.length >= 2, 20);
+    assert.ok(Math.abs(hits[1].n - E3[SNSBR].stats.atk * 1.5) < 1e-6, 'frozen: × 1.5');
+  }
+  const bb = E3[SNSLIME2].talents.bb;
+  assert.deepEqual([bb['boom.atk_scale'], bb['boom.freeze'], E3[SNSLIME2].stats.rawRangeRadius], [2, 10, 1.9]);
+  const { h, hits } = waveField([SNSLIME2], walls([[10, 4], [10, 2]]));
+  const e = put(h, SNSLIME2, [10, 5.5], { tag: null });
+  h.step();
+  killNow(h, e);
+  runFor(h, 0.1);
+  assert.equal(hits.length, 1, 'the unit 1.5 away only');
+  assert.equal(hits[0].t, h.unit(1));
+  assert.ok(Math.abs(hits[0].n - E3[SNSLIME2].stats.atk * 2) < 1e-6);
+  assert.ok(h.unit(1).s.flags.cold && !h.unit(2).s.flags.cold, 'cold on the unit hit');
+});
+
+test('萨卡兹骸骨卫士长: damage taken → its operator source ASPD −40 for 5 s, not refreshed while held; knocked out, 2 血珀 on its route', () => {
+  const bb = E3[SPNSHD2].talents.bb;
+  assert.deepEqual([bb['Summon.attack_speed'], bb['Summon.duration'], bb['Summon.cnt'], E3[SPNSHD2].talents.bbStr['Summon.enemy_key']], [-40, 5, 2, 'enemy_1367_dseed']);
+  assert.equal(E3[SPNSHD2].stats.tauntLevel, 2);
+  const { h } = waveField([SPNSHD2, 'enemy_1367_dseed'], walls([[10, 3]]));
+  const e = put(h, SPNSHD2, [10, 7], { tag: null });
+  const w = h.unit(1), aspd0 = w.s.aspd;
+  h.step();
+  h.b.dealDamage(w, e, { amount: 10, type: 'phys' });
+  h.step();
+  assert.equal(w.s.aspd, aspd0 - 40);
+  runFor(h, 3);
+  h.b.dealDamage(w, e, { amount: 10, type: 'arts' });
+  runFor(h, 2.1);
+  assert.equal(w.s.aspd, aspd0, 'UNIQUE: the hit at 3 s did not refresh it');
+  killNow(h, e);
+  runFor(h, 1);
+  assert.equal(h.b.enemies.filter((o) => o.alive && o.defId === 'enemy_1367_dseed').length, 2, '2 血珀');
+});
+
+test('狂暴凶豕兽: weight 2; unblocked, 3 s, then MOVE_SPEED × (1 + 0.333 n) every 0.333 s; crash on a unit it meets walking = speed × 800; its attack while charging + speed × 600 ends the charge; a stun ends it', () => {
+  const bb = E3[MHBOAR2].talents.bb;
+  assert.deepEqual([bb['Rush.mhboar_t[trigger].move_speed'], bb['Rush.mhboar_t[trigger].interval'], bb['Rush.mhboar_t[trigger].trig_cnt'], bb['Rush.mhboar_t_predelay.predelay'], bb['FirstAttack.atk_scale'], bb['Crash.atk_scale']], [0.333, 0.333, 35, 3, 600, 800]);
+  const base = E3[MHBOAR2].stats.moveSpeed;
+  {
+    // no operator: the charge builds — nothing before 3 s, a stack after
+    const { h } = waveField([MHBOAR2], []);
+    const e = put(h, MHBOAR2, [10, 10], { move: true, tag: null });
+    assert.equal(e.blockWeight, 2);
+    runFor(h, 3);
+    assert.ok(Math.abs(e.s.moveSpeed - base) < 1e-9, 'the 3 s wait');
+    runFor(h, 0.5);
+    assert.ok(Math.abs(e.s.moveSpeed - base * (1 + 0.333)) < 1e-9, 'one stack');
+    runFor(h, 0.7);
+    assert.ok(Math.abs(e.s.moveSpeed - base * (1 + 0.333 * 3)) < 1e-9, 'three stacks');
+    h.b.applyStatus(e, 'stun', { duration: 0.5, source: null });
+    runFor(h, 0.2);
+    assert.ok(!e.findBuff('ab:mhboarRush'), 'a stun ends the charge');
+    runFor(h, 0.5);
+    assert.ok(Math.abs(e.s.moveSpeed - base) < 1e-9, 'and a new one waits its 3 s again');
+  }
+  // a 1-block wall cannot block it: it walks through, crashing into it; a 3-block one blocks it — its first attack
+  // carries speed × 600 and ends the charge
+  const units = [{ chessId: 't_wall', row: 10, col: 8, uid: 1 }, { chessId: 't_wall', row: 10, col: 5, uid: 2 }];
+  const { h, hits } = waveField([MHBOAR2], units);
+  const one = h.unit(1), three = h.unit(2);
+  h.b.addBuff(one, { key: 't:block1', persist: true, mods: { blockCnt: -2 } });
+  h.step();
+  assert.equal(one.s.blockCnt, 1);
+  assert.ok(h.b.grid.isLow(10, 8) && h.b.grid.isLow(10, 5));
+  const e = put(h, MHBOAR2, [10, 10], { move: true, tag: null });
+  h.runUntil(() => hits.some((x) => x.t === one), 40);
+  const crash = hits.find((x) => x.t === one);
+  assert.ok(!e.blockedBy, 'the 1-block wall does not block it');
+  assert.ok(Math.abs(crash.n - e.s.moveSpeed * 800) < 1e-6 && e.s.moveSpeed > base, 'crash: speed × 800');
+  runFor(h, 1);
+  assert.equal(hits.filter((x) => x.t === one).length, 1, 'once while it stays inside');
+  h.runUntil(() => e.blockedBy === three, 40);
+  assert.ok(e.blockedBy === three, 'the 3-block wall blocks it');
+  assert.equal(hits.filter((x) => x.t === three).length, 1, 'crashing into its blocker as it walks in');
+  // standing (blocked), a unit coming into the aura is not crashed (IfEnemyIsMovingBySelf)
+  const [ox, oy] = [one.x, one.y];
+  one.x = e.x + 0.3; one.y = e.y;
+  h.step(); h.step();
+  one.x = ox; one.y = oy;
+  assert.equal(hits.filter((x) => x.t === one).length, 1, 'no crash while it stands');
+  const speed = e.s.moveSpeed, n0 = hits.length;
+  h.runUntil(() => hits.some((x, i) => i >= n0 && x.t === three && x.n > E3[MHBOAR2].stats.atk * 1.5), 20);
+  const big = hits.slice(n0).filter((x) => x.t === three);
+  assert.ok(big.some((x) => Math.abs(x.n - speed * 600) < 1e-6), 'its attack: + speed × 600');
+  assert.ok(Math.abs(e.s.moveSpeed - base) < 1e-9, 'and the charge is over');
+  assert.ok(big.filter((x) => Math.abs(x.n - E3[MHBOAR2].stats.atk) < 1e-6).length === 1, 'with its plain attack');
+  runFor(h, 10);
+  assert.equal(hits.slice(n0).filter((x) => x.n > E3[MHBOAR2].stats.atk * 1.5).length, 1, 'blocked, no new charge');
+});
+
+test('神勇的帕拉杜利斯: unblocked with an operator ahead on its row, 冲锋 — Skill_Begin 1 s, then Run to the marked tile; the first unit met takes ATK × 2, Skill_End 0.333 s, back to Default', () => {
+  const s = E3[MNCTUR2].skills.find((x) => x.prefabKey === 'rush');
+  assert.deepEqual([s.cooldown, s.initCooldown, E3[MNCTUR2].talents.bb['CollideChar.atk_scale_collide']], [10, 5, 2]);
+  // behind it (to its right) a unit it never charges; ahead (left, its way) the target
+  const { h, hits } = waveField([MNCTUR2], walls([[10, 3], [10, 10]]));
+  const ahead = h.unit(1), behind = h.unit(2);
+  const e = put(h, MNCTUR2, [10, 9], { move: true, tag: null });
+  const casts = [];
+  onSkill(h, e, (a) => casts.push({ a, at: h.b.time }));
+  h.runUntil(() => casts.length >= 1, 10);
+  assert.equal(casts[0].a, 'rush');
+  assert.ok(casts[0].at >= 5 - 1e-6, 'its initial cooldown');
+  const x0 = e.x;
+  runFor(h, 0.9);
+  assert.ok(Math.abs(e.x - x0) < 1e-6 && e.mode !== 'Run', 'Skill_Begin: it stands');
+  h.runUntil(() => e.mode === 'Run', 1);
+  assert.deepEqual([e.trace.r, e.trace.c], [10, 3], 'to the marked tile');
+  h.runUntil(() => hits.length > 0, 30);
+  assert.equal(hits[0].t, ahead);
+  assert.ok(Math.abs(hits[0].n - E3[MNCTUR2].stats.atk * 2) < 1e-6, 'ATK × 2');
+  assert.ok(!behind.stats?.taken, 'never the unit behind');
+  assert.ok(casts.some((c) => c.a === 'rushEndNormal'));
+  assert.ok(e.trace == null, 'no more trace');
+  runFor(h, 0.4);
+  assert.ok(e.mode !== 'Run', 'back to Default after Skill_End');
+  assert.equal(hits.filter((x) => x.n > E3[MNCTUR2].stats.atk * 1.5).length, 1, 'one hit');
+
+  // a unit on a high tile ahead (row 10, column 1): it runs to the last low tile of the row (column 3), meets nobody there
+  // (1.0 from the unit) and ends the charge
+  const f = waveField([MNCTUR2], walls([[10, 1]]));
+  const e2 = put(f.h, MNCTUR2, [10, 9], { move: true, tag: null });
+  const c2 = [];
+  onSkill(f.h, e2, (a) => c2.push(a));
+  f.h.runUntil(() => e2.mode === 'Run', 10);
+  assert.deepEqual([e2.trace.r, e2.trace.c], [10, 3], 'the last walkable tile');
+  f.h.runUntil(() => c2.includes('rushEndNormal'), 20);
+  assert.ok(c2.includes('rushEndNormal'), 'reaching the spot ends the charge');
+  assert.ok(Math.abs(e2.x - 3) < 1e-6 && f.hits.length === 0, 'reached, nobody met');
+
+  // stunned during Skill_Begin: no charge; the next cast (cooldown 10 s after the cut) charges again
+  const g = waveField([MNCTUR2], walls([[10, 3]]));
+  const e3 = g.h.spawn(MNCTUR2, { pos: [10, 9], routeIndex: 0, mods: { speedMul: 0.2 }, tag: null });   // slow: no block before the next cast
+  const c3 = [];
+  onSkill(g.h, e3, (a) => c3.push(a));
+  g.h.runUntil(() => c3.length >= 1, 10);
+  g.h.b.applyStatus(e3, 'stun', { duration: 0.5, source: null });
+  runFor(g.h, 1.5);
+  assert.ok(e3.mode !== 'Run' && !e3.trace, 'cut: no Run');
+  g.h.runUntil(() => e3.mode === 'Run', 15);
+  assert.equal(e3.mode, 'Run', 'the next cast runs');
 });

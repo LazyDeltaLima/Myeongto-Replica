@@ -887,6 +887,152 @@ function kitSoulWizard(ab) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// 规程 精锐 entry 假想敌：丛生 (enemy_9040_accrit): its escorts 狂暴凶豕兽 (N) and 神勇的帕拉杜利斯 (E), main-story enemies
+// (EN client prefabs enemy_1309_mhboar_2 in enm_pfb_13, enemy_10163_mnctur_2 in enm_pfb_29)
+
+/** 狂暴凶豕兽's `_blockVolume` (its Enemy component): 2 — the table's blockCnt says 1; 「只能被阻挡数大于等于2的单位阻挡」. */
+const MHBOAR_BLOCK_VOLUME = 2;
+/** Its Crash AuraAbility's CircleCollider2D radius; 神勇的帕拉杜利斯's CollideChar aura radius (Modes/Run). */
+const MHBOAR_CRASH_RADIUS = 0.5, MNCTUR_COLLIDE_RADIUS = 0.45;
+/** 狂暴凶豕兽's listeners (mhboar_t_listener[a]…[e]: `triggerInterval` 0.1, from the prefab's BuffData). */
+const MHBOAR_LISTEN = 0.1;
+
+/**
+ * 狂暴凶豕兽 (规程: 假想敌：丛生's escort N). Weight 2 (MHBOAR_BLOCK_VOLUME: an operator blocks it only with 2 free blocks).
+ * 【冲撞】 (talent Rush, five listeners every MHBOAR_LISTEN s): not blocked and not 晕眩 / 束缚 (UNMOVABLE) / 冻结 / 浮空, with no
+ * charge running, it starts one (mhboar_t[trigger], INFINITY, `Rush.mhboar_t[trigger].trig_cnt` 35 triggers every
+ * `….interval` 0.333 s — Buff.Reset: the blackboard's `trig_cnt` / `interval` override the BuffData; official client) and a
+ * `Rush.mhboar_t_predelay.predelay` (3) s wait; each trigger past the wait adds one stack of MOVE_SPEED MULTIPLIER
+ * `….move_speed` (0.333; the stacks add up: × (1 + 0.333 n), 26 at most — the first 9 triggers fall in the wait). Being blocked
+ * does not end it; 晕眩 / 束缚 / 冻结 / 浮空 do (listeners [a]–[d]), all stacks with it.
+ * FirstAttack (PassiveAttachmentAbility on its attacks → enemy_mhboar_t_atk): an attack landing while it charges deals
+ * MOVE_SPEED × `FirstAttack.atk_scale` (600) physical to the target and ends the charge (DamageViaAttr; PRTS 「当前移动速度
+ * ×600的预计算近战途径物理伤害，成功造成该额外伤害后停止冲撞」).
+ * Crash (AuraAbility, radius MHBOAR_CRASH_RADIUS + the operator's collider, TargetRootTileValidator: units on low tiles,
+ * ground or air — PRTS 「可以命中空中…只能命中低地」): a unit entering it while the boar walks on its own
+ * (IfEnemyIsMovingBySelf) takes MOVE_SPEED × `Crash.atk_scale` (800) physical — once until it leaves (`_removeBuffWhenTargetLeave`);
+ * its `Crash.stun` is 0. Whom it reaches: an area selection (areaAllies) [추정·미조사: TargetRootTileValidator's
+ * `enableAdvancedOptions` was not read].
+ */
+function kitRagingBoar(ab) {
+  const mul = T(ab, 'Rush.mhboar_t[trigger].move_speed') ?? 0, iv = T(ab, 'Rush.mhboar_t[trigger].interval') ?? 0;
+  const cnt = T(ab, 'Rush.mhboar_t[trigger].trig_cnt') ?? 0, wait = T(ab, 'Rush.mhboar_t_predelay.predelay') ?? 0;
+  const first = T(ab, 'FirstAttack.atk_scale') ?? 0, crash = T(ab, 'Crash.atk_scale') ?? 0;
+  const KEY = 'ab:mhboarRush';
+  const held = (e) => { const f = e.s.flags; return !!(f.stun || f.freeze || f.levitate || f.bind || f.noMove); };
+  const stop = (b, e, a) => { a.rush = null; b.removeBuff(e, KEY); };
+  return [{
+    spawn(b, e, a) { e.blockWeight = MHBOAR_BLOCK_VOLUME; a.rush = null; a.listen = 0; a.inside = new Set(); },
+    tick(b, e, a, dt) {
+      a.listen += dt;
+      if (a.listen >= MHBOAR_LISTEN - 1e-9) {
+        a.listen -= MHBOAR_LISTEN;
+        if (a.rush && held(e)) stop(b, e, a);
+        else if (!a.rush && !e.blockedBy && !held(e) && iv > 0) a.rush = { start: b.time, n: 0, stacks: 0, next: b.time + iv };
+      }
+      const r = a.rush;
+      while (r && r.n < cnt && b.time >= r.next - 1e-9) {
+        const at = r.next;
+        r.n++; r.next += iv;
+        if (at - r.start < wait - 1e-9) continue;   // mhboar_t_predelay still on: the try fails
+        r.stacks++;
+        b.addBuff(e, { key: KEY, persist: true, visible: true, mods: { moveMul: 1 + mul * r.stacks }, fxTag: 'buff:mhboar_t[core]' });
+      }
+      // Crash: units entering the aura while it walks on its own
+      const now = new Set(areaAllies(b, e, e.x, e.y, MHBOAR_CRASH_RADIUS + ALLY_COLLIDER_RADIUS).filter((u) => b.grid.isLow(u.tileR, u.tileC)));
+      const walking = e.moving && !e.blockedBy && !held(e);
+      for (const u of now) if (!a.inside.has(u) && walking && crash > 0) hurt(b, e, u, e.s.moveSpeed * crash, 'phys', { tags: ['mhboarCrash'] });
+      a.inside = now;
+    },
+    dealt(c, b, e, a) {
+      if (!a.rush || !c.dmg.isAttack || !c.target || !c.target.alive) return;
+      const v = e.s.moveSpeed * first;
+      stop(b, e, a);
+      hurt(b, e, c.target, v, 'phys', { tags: ['mhboarFirst'] });
+    },
+  }];
+}
+
+/**
+ * 神勇的帕拉杜利斯 (规程: 假想敌：丛生's escort E). 【冲锋】 (Skills/rush of Default, the ATTACK family: unblocked, at its attack
+ * slot, cooldown / initial cooldown from the table; PRTS 「仅未被阻挡、且移动方向同一行/列的前方存在非飞行我方单位时可触发：标记并开始
+ * 追踪目标所在地块中心」): CrossTileRangeWithDist (`_checkDirection`, no distance) + AdvancedSelector (ground units, HATRED_DES)
+ * pick one operator on its own row (walking left / right) or column (up / down) ahead of it. It plays Skill_Begin (its clip,
+ * 1 s); as the cast ends (ActionToOwner) it switches to the mode Run and walks (enemy_mnctur_direction:
+ * EnemyForceTracePosition — the engine's trace, at its own speed [추정·화면: no speed in the prefab or on PRTS]) to the
+ * centre of the target's tile as it was marked (on a high tile: the last walkable tile of the line before it). In Run (no attack) its CollideChar aura (radius MNCTUR_COLLIDE_RADIUS + the
+ * operator's collider, ground units) hits the first unit it meets — 碰撞 ATK × `CollideChar.atk_scale_collide` (2) physical,
+ * once (enemy_mnctur_collide_mark) — then it stops tracing and plays rushEndNormal (Skill_End, 0.333 s) back to Default.
+ * Reaching the spot with nobody met: rushEndNormal too (enemy_mnctur_check_target every 0.1 s: CheckEnemyIsTracingTarget).
+ * Blocked during the walk: it counts as meeting its blocker [추정·엔진: our block contact (0.707) is a hair farther than the
+ * aura's 0.70 — in the client the aura is the one that fires]. 入戏 (trap_pirene_func[enemy][real], a stage device's buff —
+ * none in this mode) and so rushEndAdvance (撞墙: true damage, 15 s stun, 20 s cooldown) never come.
+ */
+function kitParadulis(ab) {
+  const s = ab.sk.rush, scale = T(ab, 'CollideChar.atk_scale_collide') ?? 1;
+  const endDur = (ab.sk.rushEndNormal && ab.sk.rushEndNormal.cast && ab.sk.rushEndNormal.cast.dur) || 0;
+  const reach = MNCTUR_COLLIDE_RADIUS + ALLY_COLLIDER_RADIUS;
+  const P = { state: 'idle', dir: null, px: 0, py: 0 };
+  // the operators ahead on its line of walk: its row going left / right, its column going up / down
+  const ahead = (b, e) => {
+    const d = P.dir;
+    if (!d) return [];
+    const r = Math.round(e.y), c = Math.round(e.x);
+    return b.allies().filter((u) => canTargetAlly(e, u) && !u.isFlying
+      && (d[0] ? u.tileR === r && (u.x - e.x) * d[0] > 0 : u.tileC === c && (u.y - e.y) * d[1] > 0));
+  };
+  const endRun = (b, e) => { // rushEndNormal: Skill_End, then Default
+    P.state = 'end';
+    e.trace = null;
+    if (e.route) e.route.pts = null;
+    b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: 'rushEndNormal', n: 1 });
+    const back = () => { if (!e.alive || P.state !== 'end') return; P.state = 'idle'; b.removeBuff(e, 'ab:mncturEnd'); mode(b, e, null); setForm(b, e, null); };
+    if (endDur > 0) {
+      b.addBuff(e, { key: 'ab:mncturEnd', duration: endDur, flags: { noMove: true } });
+      b.after(endDur, back, { owner: e });
+    } else back();
+  };
+  const rush = skill(s, (b, e) => {
+    const t = byPriority(e, ahead(b, e))[0];
+    if (!t) return;
+    P.state = 'begin';
+    // the marked tile, or — when it cannot be walked (a unit on a high tile) — the last walkable tile of the line before it
+    // [추정·엔진: EnemyForceTracePosition's path to a tile it cannot stand on was not read]
+    const d = P.dir, g = b.grid;
+    let r = Math.round(e.y), c = Math.round(e.x);
+    while ((r !== t.tileR || c !== t.tileC) && g.walkable(r + d[1], c + d[0])) { r += d[1]; c += d[0]; }
+    const to = { r, c };
+    atCastEvent(b, e, s, () => {   // (a cast cut short never gets here: onCut below)
+      P.state = 'run';
+      mode(b, e, 'Run');
+      setForm(b, e, 'Run');
+      e.trace = to;
+    });
+  }, { cond: (b, e) => P.state === 'idle' && !e.blockedBy && ahead(b, e).length > 0 });
+  // a cast cut short (stun, freeze …) never runs
+  if (rush) rush.onCut = () => { if (P.state === 'begin') P.state = 'idle'; };
+  return [{
+    spawn(b, e) { P.px = e.x; P.py = e.y; },
+    tick(b, e) {
+      // its way of walk (the last step it took)
+      const dx = e.x - P.px, dy = e.y - P.py;
+      if (e.moving && dx * dx + dy * dy > 1e-12) P.dir = Math.abs(dx) >= Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)];
+      P.px = e.x; P.py = e.y;
+      if (P.state !== 'run' || !e.alive) return;
+      const hit = e.blockedBy && e.blockedBy.alive ? e.blockedBy
+        : areaAllies(b, e, e.x, e.y, reach).filter((u) => !u.isFlying).sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || p.id - q.id)[0];
+      if (hit) {
+        hurt(b, e, hit, e.s.atk * scale, 'phys', { tags: ['mncturRush'] });
+        endRun(b, e);
+        return;
+      }
+      const t = e.trace;
+      if (!t || hypot(e.x - t.c, e.y - t.r) <= 1e-6) endRun(b, e);
+    },
+  }, rush].filter(Boolean);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // this module's part of KITS
 
 export const CRITIC_KITS = {
@@ -915,4 +1061,6 @@ export const CRITIC_KITS = {
   enemy_1431_lrmzrd_2: kitSoulMage,                        // 粹影魂灵法骸 · same
   enemy_1429_lrwzrd: kitSoulWizard,                        // 聚焦魂灵残迹 · captures vortices; all souls → an 8 s arts laser along its row / column
   enemy_1429_lrwzrd_2: kitSoulWizard,                      // 棱镜魂灵残迹 · same
+  enemy_1309_mhboar_2: kitRagingBoar,                      // 狂暴凶豕兽 · weight 2; unblocked: speed +33.3 % every 0.333 s after 3 s; crash / first attack × speed
+  enemy_10163_mnctur_2: kitParadulis,                      // 神勇的帕拉杜利斯 · 冲锋 at an operator ahead: ATK × 2 on the first unit met
 };

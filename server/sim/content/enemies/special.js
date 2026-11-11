@@ -361,6 +361,13 @@ function catapultVolley(ab, b, e, aim) {
   }
 }
 
+/** 冰爆源石虫 / ·α: knocked out, `boom.atk_scale` physical within its range radius + `boom.freeze` s cold (deathBoom). */
+const kitIceSlime = (ab, e) => [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, r: (e.def.raw.stats && e.def.raw.stats.rawRangeRadius) || BOOM_RADIUS, status: { key: 'cold', dur: T(ab, 'boom.freeze') ?? 0 }, ability: 'boom' })];
+
+/** 雪怪小队 / 雪怪小队破冰者: its attack on a 冻结 target × `atkup.atk_scale` (template e2c_frozen_atkscale: ON_CALCULATE_DAMAGE,
+ *  CheckAbnormalFlag FROZEN on the target, AtkScaleUp). */
+const kitFrozenAtk = (ab) => [{ hitOut(c) { if (c.dmg.isAttack && c.target.s.flags.freeze) c.dmg.amount *= T(ab, 'atkup.atk_scale') ?? 1; } }];
+
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
@@ -447,8 +454,10 @@ export const SPECIAL_KITS = Object.freeze({
   }],
   enemy_1025_reveng: (ab) => [lowHpBuff(0.5, { atkPct: T(ab, 'atkup.atk') ?? 0 }, 'ab:lowhp', 'buff:reveng_t_atkup')],     // 寻仇者 · ATK up below half HP
   enemy_1021_bslime: (ab) => [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, ability: 'boom' })],       // 高能源石虫 · death: phys blast
-  enemy_1067_snslime: (ab, e) => [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, r: (e.def.raw.stats && e.def.raw.stats.rawRangeRadius) || BOOM_RADIUS, status: { key: 'cold', dur: T(ab, 'boom.freeze') ?? 0 }, ability: 'boom' })], // 冰爆源石虫 · death: phys blast + cold
-  enemy_1069_icebrk_2: (ab) => [{ hitOut(c, b, e) { if (c.dmg.isAttack && c.target.s.flags.freeze) c.dmg.amount *= T(ab, 'atkup.atk_scale') ?? 1; } }], // 雪怪小队破冰者 · ×3 vs frozen
+  enemy_1067_snslime: kitIceSlime,                                   // 冰爆源石虫 · death: phys blast + cold
+  enemy_1067_snslime_2: kitIceSlime,                                 // 冰爆源石虫·α (规程) · same (EN prefab: the same Boom talent)
+  enemy_1069_icebrk_2: kitFrozenAtk,                                 // 雪怪小队破冰者 · ×3 vs frozen
+  enemy_1064_snsbr: kitFrozenAtk,                                    // 雪怪小队 (规程) · ×1.5 vs frozen (EN prefab: template e2c_frozen_atkscale)
   enemy_1026_aghost: () => [unblockable()],                          // 幽灵组长 · unblockable
   enemy_1062_rager_2: (ab) => [{ iv: 1, tick(b, e) { const v = T(ab, 'periodic_damage.damage') ?? 0; if (v > 0) b.dealDamage(null, e, periodicDamage(v)); } }], // 狂暴宿主组长 · "自身每秒受到500无来源真实伤害" (damage, not 流失)
   enemy_1183_mlasrt: (ab) => [ep('erosion', T(ab, 'EpDamage.attack@ep_damage_ratio') ?? 0), nthAttackPower(nthOf(ab.sk.PowerAttack), (ab.sk.PowerAttack && ab.sk.PowerAttack.bb.atk_scale) || 1)], // 无胄盟清扫小队 · erosion; every 4th attack ×1.5
