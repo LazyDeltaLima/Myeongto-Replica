@@ -422,7 +422,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
   const getItem = (id) => data.lookup('items', id);
   const bondIds = pieceBondIds(c, carried, getItem);
   const grantedIds = bondIds.filter((b) => !(Array.isArray(c.bonds) && c.bonds.includes(b)));
-  const sell = c.sellPrice ?? 1;
+  const sell = piece?.sellPrice ?? c.sellPrice ?? 1; // the piece's own price (规程's 海沫 / 温蒂: player/views.js pieceView)
   const blocks = {};
   blocks.head = html`
     <div key="head" class="dhead">
@@ -848,7 +848,7 @@ export function DetailPanel({ detail, editable, snapHp, onSell, onDestroy, bonds
   const sellIt = async (piece, chess) => {
     const golden = piece.golden || chess?.isGolden;
     if (golden) {
-      const ok = await confirmDialog({ title: t('出售精锐干员'), text: t('确定要出售精锐干员「{name}」吗？出售后获得 {price} 资金。', { name: chess?.name || '', price: chess?.sellPrice ?? 1 }), okText: t('出售'), danger: true });
+      const ok = await confirmDialog({ title: t('出售精锐干员'), text: t('确定要出售精锐干员「{name}」吗？出售后获得 {price} 资金。', { name: chess?.name || '', price: piece.sellPrice ?? chess?.sellPrice ?? 1 }), okText: t('出售'), danger: true });
       if (!ok) return;
     }
     onSell(piece);

@@ -99,6 +99,37 @@ H.SERVER_ADD_BOND_POSITION = {
   },
 };
 
+// 规程's 旅骨 garrison_28 「<休整期结束时>使自身及身前一格干员已激活的盟约叠加等同于其售出价格的层数」 (精锐 2倍): the same two
+// targets as POSITION, each target's active bonds gaining its OWN sell price (PlayerState.sellPriceOf) × multi
+// [ASSUMED·화면: 「其」 read as each operator's own price, not 旅骨's — the same in 规程 but for 海沫 / 温蒂].
+H.SERVER_ADD_BOND_POSITION_COUNT_SELL_PRICE = {
+  run(ctx) {
+    const { bb, bbStr } = ctx.source;
+    const me = selfView(ctx);
+    if (!onBoard(me)) return;
+    const other = bbStr.dir === 'behind' ? behindPiece(ctx, me) : frontPiece(ctx, me);
+    const targets = [me];
+    if (other && other.kind === 'chess' && other.uid !== me.uid) targets.push(other);
+    for (const t of targets) {
+      const n = ctx.sellPrice(t.uid) * num(bb.multi, 1);
+      for (const b of metaBonds(ctx, t)) if (ctx.bondActive(b)) ctx.addLayers(b, n, { requireActive: true });
+    }
+  },
+};
+
+// 规程's 棘刺 garrison_32 「<休整期结束时>使已激活的【伊比利亚】叠加等同于场上所有干员售出价格的层数（每回合至多叠加12层）」
+// (精锐 2倍, 24): Σ the sell prices of the board's chess (tokens are no 干员) × multi, at most `max` — once a round.
+H.SERVER_ADD_BOND_BOARD_SELL_PRICE = {
+  run(ctx) {
+    const { bb, bbStr } = ctx.source;
+    let sum = 0;
+    for (const p of chessOnBoard(ctx)) sum += ctx.sellPrice(p.uid);
+    let n = sum * num(bb.multi, 1);
+    if (num(bb.max, 0) > 0) n = Math.min(n, num(bb.max));
+    addAll(ctx, ids(bbStr.bond), n, true);
+  },
+};
+
 H.SERVER_ADD_BOND_ROUND_COIN_COST = {
   run(ctx) {
     const { bb, bbStr, garrison } = ctx.source;

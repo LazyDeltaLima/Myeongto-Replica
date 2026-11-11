@@ -229,6 +229,16 @@ export class PlayerEconomy {
     return OK;
   }
 
+  /**
+   * What selling a chess piece pays: the price a 特质 gave this piece (piece.sellPrice — 规程's 海沫 「自身售出价格+1」,
+   * garrisons/prep/shop.js), else its chess's (GameData.sellPrice, 温蒂's fixed price included).
+   */
+  sellPriceOf(piece) {
+    if (!piece || piece.kind !== 'chess') return 0;
+    if (Number.isFinite(piece.sellPrice) && piece.sellPrice >= 0) return piece.sellPrice;
+    return this.gd.sellPrice(piece.id);
+  }
+
   sell(uid) {
     const g = this._gate(); if (g) return g;
     const loc = this.find(uid);
@@ -241,7 +251,7 @@ export class PlayerEconomy {
     for (const it of piece.items || []) this.stow(it, { allowTemp: true });
     piece.items = [];
     this.returnCopies(piece);
-    const ev = { piece, gain: this.gd.sellPrice(piece.id) };
+    const ev = { piece, gain: this.sellPriceOf(piece) };
     this.m.dispatch(this, 'onSold', ev);
     const gain = Number.isFinite(ev.gain) ? Math.max(0, Math.trunc(ev.gain)) : 1;
     this.addFunds(gain, { reason: 'sell' });

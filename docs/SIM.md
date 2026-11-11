@@ -198,14 +198,17 @@ its timer is re-read (`deathAt + respawnTime × persist.redeployMul × s.redeplo
 by a `battleStart` handler covers it like a later knock-out (机变 征召 −50 %; 征召's row check does not count it [ASSUMED]).
 
 `reserve: [{ kind:'chess', chessId, slot, items, skillIndex?, moduleId?, standIn?, diy?, potential?, cultivate? }]` = the
-operators of the player's 整备区 a bond rule may field (`slot` 0–9, 0 the leftmost; `PlayerState.battleInput` sends only
-those a template's `hand` rule asks for — bonds/dispatch.js `handRules` —, as the spec reaches every watcher of the field
+operators of the player's 整备区 a bond or 特质 rule may field (`slot` 0–9, 0 the leftmost; `PlayerState.battleInput` sends only
+those a template's `hand` rule asks for — bonds/dispatch.js `handRules` — or a board chess's switch 特质 —
+garrisons/effects/switch.js `handRules` —, as the spec reaches every watcher of the field
 and the rest of the hand stays private; the hand does not change during a battle). The battle deploys none of them: a content rule that brings a hand piece in creates it as a **reserve
 operator** before any content installs (a module's `reserve(battle)`, `battle.createReserveAlly`) — a full operator
 with its bonds, items and kit, off the field (`reserve`, `deferDeploy`, `removed` until fielded: no tile, no redeploy,
-not in the result) — and fields it with `battle.fieldReserve(u, tile, dir)` (a deployment like a redeploy). Only 规程's
-卡西米尔 6 does (content/bonds/nation/kazimierz.js: a ground member knocked out leaves, the rightmost 卡西米尔 ground
-operator of the hand takes its tile; docs/rules/sim.md 「규정 맹약」).
+not in the result; one unit per hand slot, whichever rules may field it) — and fields it with
+`battle.fieldReserve(u, tile, dir)` (a deployment like a redeploy). 规程's 卡西米尔 6 does (content/bonds/nation/kazimierz.js:
+a ground member knocked out leaves, the rightmost 卡西米尔 ground operator of the hand takes its tile; docs/rules/sim.md
+「규정 맹약」), and so do its switch 特质 of 耀骑士临光 and 历阵锐枪芬 (content/garrisons/effects/switch.js; docs/rules/sim.md
+「규정 특질 — 전투 쪽」).
 
 ### 1.2 Enemies, routes, ownership
 

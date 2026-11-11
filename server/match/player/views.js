@@ -21,6 +21,8 @@ export class PlayerViews {
       count: p.kind === 'token' ? (p.count || 1) : 1,
       ownerUid: p.kind === 'token' ? p.ownerUid ?? null : null,
     };
+    // the sell price when it is not the record's (规程's 海沫 / 温蒂: economy.js sellPriceOf) — the detail panel shows it
+    if (p.kind === 'chess') { const sp = this.sellPriceOf(p); if (sp !== (rec?.sellPrice ?? 1)) v.sellPrice = sp; }
     if (rc) { v.row = rc[0]; v.col = rc[1]; v.dir = pieceDir(p); }
     return v;
   }

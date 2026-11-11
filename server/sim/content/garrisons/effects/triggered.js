@@ -18,16 +18,18 @@
 //                                                filtered by the holder's own bonds (filter_bond_by_self) or filter_bond_ids,
 //                                                get + max_add (shared blackboard …_modify_add) and × (1 + max_factor)
 //                                                (…_modify_factor) for this battle (capOf).
+//   act3autochess_gar_effect_switchcharinhand[trigger]  历阵锐枪芬: a 卡西米尔 of the 整备区 comes in on its tile
+//                                                (effects/switch.js triggerSwitch).
 //
 // [ASSUMED·CN: these keys' dynamic ability prefabs are CN-only — the steps count only ACTIVE bonds as the default season's
-// layer readers do (research 02 §5); the 整备区 is the operators waiting to redeploy (the battle has no bench pieces), the
-// attack-range part adds nobody (an operator on the field has no timer); the cap is floor(cap × (1 + Σ factor)) + Σ add
+// layer readers do (research 02 §5); the 整备区 is the operators waiting to redeploy (the hand pieces a battle gets are
+// switch candidates, with no timer), the attack-range part adds nobody (an operator on the field has no timer); the cap is floor(cap × (1 + Σ factor)) + Σ add
 // (the client's order of the two shared values is not in the EN client); "其他" (薇薇安娜) leaves the holder out.]
-// act3autochess_gar_effect_switchcharinhand[trigger] (历阵锐枪芬: summon a 卡西米尔 from the 整备区) needs the bench in the
-// battle input and is not here (bundle sim-N).
 
 import * as S from '../../support/index.js';
 import { ids, inRangeOf } from '../shared.js';
+// (a function only: switch.js imports events.js, which imports this file — hoisted across the cycle)
+import { triggerSwitch } from './switch.js';
 
 const opsOf = (battle, pid) => battle.allyUnits.filter((a) => S.isOp(a) && a.ownerId === pid);
 
@@ -124,6 +126,8 @@ export const TRIGGERED = {
     }
   },
 };
+
+TRIGGERED['act3autochess_gar_effect_switchcharinhand[trigger]'] = triggerSwitch; // switch.js SWITCH_TRIGGER
 
 /** The trigger_buff keys this file runs (coverage). */
 export const TRIGGERED_KEYS = Object.freeze(Object.keys(TRIGGERED));

@@ -54,6 +54,7 @@ Solo FUNNY has 9 rounds (boss at R9); everything is read from `data/config.json 
 Slot  = { kind:'chess'|'item', id, price, sold:false, frozen }
 Piece = { uid, kind:'chess'|'item'|'token', id /* chessId (golden id if elite) | itemId | tokenId */,
           items:[itemPiece...] (chess only, max 2), count (token stacks), ownerUid (tokens), boughtRound,
+          sellPrice? (chess: the price a 特质 gave it — 规程's 海沫; PlayerState.sellPriceOf, else GameData.sellPrice),
           meta: { round?: { r, n: { key: count } } } }   // per-piece counters of the current round, module-prefixed keys (拉普兰德's first refresh, §21.1)
 ```
 

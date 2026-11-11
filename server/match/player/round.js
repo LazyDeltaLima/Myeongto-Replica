@@ -9,6 +9,7 @@
 import { boardOrder, pieceDir } from '../board.js';
 import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains, pieceBonds } from '../bondsMeta.js';
 import { handRules, swapBondRecord } from '../../sim/content/bonds/dispatch.js';
+import { handRules as switchHandRules } from '../../sim/content/garrisons/effects/switch.js';
 
 export class PlayerRound {
   startRound(r) {
@@ -169,18 +170,23 @@ export class PlayerRound {
         units.push(u);
       }
     }
-    // the 整备区 operators a battle may field (规程's 卡西米尔 6 switch, content/bonds/nation/kazimierz.js): only those a
-    // bond rule asks for (bonds/dispatch.js handRules — the spec reaches every watcher, the rest of the hand stays
+    // the 整备区 operators a battle may field (规程's 卡西米尔 6 switch, content/bonds/nation/kazimierz.js, and the switch
+    // 特质): only those a bond or 特质 rule asks for (bonds/dispatch.js handRules — the spec reaches every watcher, the rest of the hand stays
     // private); slot = the hand index (0 the leftmost). The hand does not change during a battle (prep intents only)
     const reserve = [];
     // (the bond as this player's battle runs it: a strategy that switches its direction — 焰尾's 卡西米尔 — swapBondRecord)
     const band = this.bandId ? this.gd.band(this.bandId) : null;
-    const rules = handRules((id) => swapBondRecord(this.gd.bond(id), band, (e) => this.gd.effect(e))).filter((x) => { const st = this.bonds?.[x.bond]; return st && st.active && (st.count ?? 0) >= x.need; });
+    const rules = handRules((id) => swapBondRecord(this.gd.bond(id), band, (e) => this.gd.effect(e))).filter((x) => { const st = this.bonds?.[x.bond]; return st && st.active && (st.count ?? 0) >= x.need; })
+      .map((x) => ({ bonds: [x.bond], position: x.position }));
+    // and those a board chess's switch 特质 may call (规程's 耀骑士临光 / 历阵锐枪芬: garrisons/effects/switch.js)
+    for (const { piece } of boardOrder(this.board)) {
+      if (piece.kind === 'chess') rules.push(...switchHandRules(this.gd.chess(piece.id), (g) => this.gd.garrison(g)));
+    }
     if (rules.length) {
       (this.hand || []).forEach((piece, slot) => {
         if (!piece || piece.kind !== 'chess') return;
         const pos = this.gd.chess(piece.id)?.position, bonds = pieceBonds(this.gd, piece);
-        if (rules.some((x) => pos === x.position && (bonds.includes(x.bond) || bonds.includes('maniShip')))) reserve.push(this.chessBattleEntry(piece, { slot }));
+        if (rules.some((x) => pos === x.position && (bonds.includes('maniShip') || x.bonds.some((b) => bonds.includes(b))))) reserve.push(this.chessBattleEntry(piece, { slot }));
       });
     }
     return {

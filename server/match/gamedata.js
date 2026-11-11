@@ -344,6 +344,12 @@ export class GameData {
 
   sellPrice(id) {
     const c = this.chess(id);
+    // 规程's 温蒂 「售出价格为3」 (精锐 6): a SERVER_SELF_SELL_PRICE_FIXED 特质 of the record is the chess's own price — an
+    // elite merged from two copies (no 获得时 run: PlayerState._mergeChess) sells at it too
+    for (const gid of (c && Array.isArray(c.garrisonIds) ? c.garrisonIds : [])) {
+      const g = this.garrison(gid);
+      if (g && g.effectKey === 'SERVER_SELF_SELL_PRICE_FIXED' && Number.isFinite(g.bb?.price) && g.bb.price >= 0) return g.bb.price;
+    }
     if (c && Number.isFinite(c.sellPrice) && c.sellPrice >= 0) return c.sellPrice;
     const tier = this.tierOf(id);
     const row = this.economy.chessSell && this.economy.chessSell[tier];

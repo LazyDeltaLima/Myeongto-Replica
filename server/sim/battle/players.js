@@ -180,10 +180,14 @@ export class BattlePlayers {
    * board's units (before the content installs — content/index.js `reserve`, so every bond, item and kit hook sees it
    * like a board operator) but off the field: not in the battle-start deployment (`deferDeploy`), on no tile
    * (`removed` until fielded: no reserved tile, no redeploy), left out of the result until fielded. Content fields it
-   * with fieldReserve. Returns the unit or null.
+   * with fieldReserve. The same slot twice returns the same unit. Returns the unit or null.
    */
   createReserveAlly(ps, inp) {
     if (!ps || !inp || inp.kind !== 'chess') return null;
+    // one unit per hand slot: every rule that may field it (卡西米尔's 6 switch, 规程's switch 特质) shares it
+    const key = Number.isInteger(inp.slot) ? `${ps.playerId}:${inp.slot}` : null;
+    const had = key != null && this._reserveBySlot ? this._reserveBySlot.get(key) : null;
+    if (had) return had;
     // off every field tile until fielded (a home of (-1, -1) is no other piece's 初始位置: _layBody)
     const u = this._createAllyFromInput(ps, { ...inp, row: -1, col: -1, abs: true, dir: null });
     if (!u) return null;
@@ -192,6 +196,7 @@ export class BattlePlayers {
     u.deferDeploy = true;
     u.removed = true;
     if (!u.kit) this._setupUnit(u);
+    if (key != null) (this._reserveBySlot || (this._reserveBySlot = new Map())).set(key, u);
     return u;
   }
 

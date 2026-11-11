@@ -45,15 +45,9 @@ const killFoe = (h, e) => { h.b.dealDamage(null, e, { amount: 2e9, type: 'true' 
 const done = (h) => { checkInvariants(h.b); assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0])); };
 const sp = (u) => u.skill.sp;
 
-test('规程 coverage: every IN_BATTLE 特质 runs but the 整备区 swaps (bench pieces in battle) and the ownerless garrison_235', () => {
+test('规程 coverage: every IN_BATTLE 特质 runs but the ownerless garrison_235 (the 整备区 switches: garrisons_act3_switch.test.js)', () => {
   const rows = coverageOf('act3autochess').garrisons.filter((r) => r.side === 'battle' && r.status !== 'ok');
-  assert.deepEqual(rows.map((r) => `${r.status} ${r.id}`).sort(), [
-    'none act3autochess_gar_effect_ex_bond_cnt',
-    'none act3autochess_gar_effect_switchcharinhand[trigger]',
-    'none act3autochess_gar_effect_switchhand_triggergar',
-    'partial act1autochess_gar_event_selfdead',
-  ]);
-  assert.deepEqual(rows.find((r) => r.status === 'partial').missing, ['garrison_trigger_buff_key=act3autochess_gar_effect_switchcharinhand[trigger] (garrison_223_a, garrison_223_b)']);
+  assert.deepEqual(rows.map((r) => `${r.status} ${r.id}`).sort(), ['none act3autochess_gar_effect_ex_bond_cnt']);
   assert.deepEqual(ACT3.garrisons.garrison_235_a.owners, []);
 });
 

@@ -44,7 +44,7 @@
 //
 // Files, by effect-key family: effects/grants.js (ADD_BOND targets), effects/events.js (the layer events, fireGain,
 // 魔王's extra), effects/stats.js (the fixed stat 特质 and the layer readers), effects/hits.js (the hit modifiers, 弱点伤害);
-// shared.js what they share. install() keeps one order, so the hooks register as before: the grants, then the installers
+// effects/switch.js (规程's hand switches: the candidates, reserve()); shared.js what they share. install() keeps one order, so the hooks register as before: the grants, then the installers
 // by effect key in the order the carriers' 特质 first appear, then the hit modifiers, then the layer readers.
 
 import * as S from '../support/index.js';
@@ -54,11 +54,13 @@ import { EVENTS } from './effects/events.js';
 import { STAT_INSTALLERS, READERS, installReaders } from './effects/stats.js';
 import { HIT_KEYS, installHitMods, DAMAGE_INSTALLERS } from './effects/hits.js';
 import { TRIGGERED_KEYS } from './effects/triggered.js';
+import { SWITCH_INSTALLERS } from './effects/switch.js';
 
 export { GARRISON_OPTIONS, fireGain } from './effects/events.js';
 export { TRIGGERED_KEYS } from './effects/triggered.js';
 export { stepsOf } from './effects/stats.js';
 export { weaknessType, WEAKNESS_PRIORITY } from './effects/hits.js';
+export { reserve, handRules as switchHandRules } from './effects/switch.js';
 
 function garrisonIdsOf(u) {
   const list = u?.def?.raw?.garrisonIds ?? u?.def?.garrisonIds;
@@ -68,9 +70,10 @@ function garrisonIdsOf(u) {
 /** Installers by effect key, in this order (an effect key in two families throws). */
 const INSTALLERS = (() => {
   const out = {};
-  // a garrison_trigger_buff effect garrison does nothing on its own: its event 特质 runs it (effects/triggered.js)
-  const triggered = Object.fromEntries(TRIGGERED_KEYS.map((k) => [k, () => {}]));
-  for (const t of [EVENTS, STAT_INSTALLERS, DAMAGE_INSTALLERS, triggered, {
+  // a garrison_trigger_buff effect garrison does nothing on its own: its event 特质 runs it (effects/triggered.js) — but
+  // for the switch's handler, installed with the battle (effects/switch.js)
+  const triggered = Object.fromEntries(TRIGGERED_KEYS.filter((k) => !Object.hasOwn(SWITCH_INSTALLERS, k)).map((k) => [k, () => {}]));
+  for (const t of [EVENTS, STAT_INSTALLERS, DAMAGE_INSTALLERS, SWITCH_INSTALLERS, triggered, {
     // grants are resolved in install(); 风丸's rule lives in the prep economy
     ADD_BOND() {},
     NONE() {},

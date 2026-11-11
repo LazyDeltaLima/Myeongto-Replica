@@ -239,7 +239,8 @@ export function underframeActions(ctx, uid) {
   if (p.kind === 'item') return itemDestroyable(ctx, uid) ? { retreat: false, sell: null, destroy: true } : null;
   if (p.kind === 'token') return onBoard ? { retreat: true, sell: null, destroy: false } : null;
   if (p.kind !== 'chess') return null;
-  const price = ctx.getChess?.(p.id)?.sellPrice;
+  // the piece's own price when the server sends one (规程's 海沫 / 温蒂: player/views.js pieceView), else the record's
+  const price = p.sellPrice ?? ctx.getChess?.(p.id)?.sellPrice;
   return { retreat: onBoard, sell: Number.isFinite(price) ? price : 1, destroy: false };
 }
 

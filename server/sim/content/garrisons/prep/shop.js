@@ -76,6 +76,60 @@ H.SERVER_SELL_CHESS_GAIN_SPECIAL_GOODS = {
   },
 };
 
+// 规程's 海沫 garrison_27 「<休整期结束时>自身售出价格+1（自身售出价格至多为4）」 (精锐 +2, 至多 8): the piece's own price
+// (PlayerState.sellPriceOf) grows by `count` up to its chess's price + `max` — every chess of 规程 sells for 1: 1 + 3 = 4,
+// 1 + 7 = 8. On the board only (conditionkey character_target_inboard: the dispatcher skips the hand). An elite merged
+// from two copies is a new piece at its chess's price [ASSUMED·화면: whether the copies' raised price carries over].
+H.SERVER_SELF_SELL_PRICE_DELTA = {
+  run(ctx) {
+    const { bb, piece } = ctx.source;
+    if (!piece || !(piece.uid > 0)) return;
+    const cur = ctx.sellPrice(piece.uid);
+    const cap = ctx.gd.sellPrice(piece.id) + num(bb.max, 0);
+    if (cur < cap) ctx.setSellPrice(piece.uid, Math.min(cap, cur + num(bb.count, 1)));
+  },
+};
+
+// 规程's 温蒂 garrison_30 「售出价格为3」 (精锐 6): the chess's own price, which GameData.sellPrice reads from the record (an
+// elite merged from two copies runs no 获得时 特质, and sells at 6 all the same) — nothing to run here
+H.SERVER_SELF_SELL_PRICE_FIXED = {};
+
+// 规程's 灵知 garrison_55 「<获得时>获得一次特殊刷新，下次刷新至少出现一名谢拉格干员」 (精锐 两名): as 佩佩's special refresh
+// (bands/meta.js up_shop_next_refresh_must_present_bond_char) the player's next manual refresh, paid as usual (no 免费 in
+// the text), afterwards shows at least `count` chess of the bond (SPECIAL_REFRESH below, a player-level hook: selling 灵知
+// first keeps it). A second one before that refresh does not add up — the larger count stays, as 佩佩's do not stack
+// [ASSUMED·화면: which cards are drawn again (here the chess cards without the bond, left to right); stacking].
+const specialKey = (bond) => `gar:specialRefresh:${bond}`;
+H.SERVER_GAIN_SPECIAL_REFRESH_BOND_CHAR = {
+  run(ctx) {
+    const { bb, bbStr } = ctx.source;
+    for (const b of ids(bbStr.bond)) ctx.setCounter(specialKey(b), Math.max(ctx.counter(specialKey(b)), num(bb.count, 1)));
+  },
+};
+
+/** The pending special refreshes of 灵知 (registered as global:garrison_special_refresh, garrisons/meta.js). */
+export const SPECIAL_REFRESH = {
+  onRefresh(ctx, ev) {
+    if (ev && ev.trigger) return;
+    for (const bond of bondOrder(ctx)) {
+      const need = ctx.counter(specialKey(bond));
+      if (!(need > 0)) continue;
+      ctx.setCounter(specialKey(bond), 0);
+      const has = (id) => { const c = ctx.gd.chess(id); return !!(c && Array.isArray(c.bonds) && c.bonds.includes(bond)); };
+      const slots = ctx.shopSlots();
+      let n = slots.filter((s) => s && s.kind === 'chess' && !s.sold && has(s.id)).length;
+      for (let i = 0; i < slots.length && n < need; i++) {
+        const s = slots[i];
+        if (!s || s.kind !== 'chess' || s.sold || has(s.id)) continue;
+        const id = ctx.rollChess({ bond, maxTier: Math.max(1, ctx.shopLevel()) });
+        if (!id) break;
+        ctx.setShopSlot(i, { kind: 'chess', id });
+        n++;
+      }
+    }
+  },
+};
+
 // 规程 忍冬 garrison_74 「<获得时>获得{showtag_value_1}次免费刷新（触发2次后升级，至多获得3次免费刷新）」 (shared.js growingValue)
 H.SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT = {
   run(ctx) { ctx.grantFreeRefresh(growingValue(ctx)); },
