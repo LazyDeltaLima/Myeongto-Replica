@@ -7,7 +7,8 @@
 // highlightTiles, on, off, pieceScreenRect, resize, destroy (+ setSettings), plus the direction-step hooks of
 // ui/facingWheel.js: tileScreen(row, col) (client geometry of a tile), holdPiece(uid, tile|null) (a dropped piece
 // stays drawn on the target tile while its direction is chosen) and setPieceDir(uid, dir) (the facing wedge of a
-// board piece). highlightTiles accepts `{ group }` styles: an empty list with a group clears only that group.
+// board piece), and pickAt(clientX, clientY) (the piece / tile under a point: ui/bandSkill.js). highlightTiles accepts
+// `{ group }` styles: an empty list with a group clears only that group.
 // setCamera('pen') shows the enemy preview pen (research 09 §2): the coming round's enemies (m.private.nextEnemies, or the
 // scouted teammate's m.field { prep: true, nextEnemies }) placed
 // like the official client and exactly where the render engine puts them (gameLogic penPlacement = render/pen.js
@@ -521,6 +522,19 @@ export function createFallbackView(host, opts = {}) {
       if (!p) return null;
       const x0 = br.left + p.x, y0 = br.top + p.y, s = L.tile;
       return { x: x0 + s / 2, y: y0 + s / 2, s, poly: [[x0, y0], [x0 + s, y0], [x0 + s, y0 + s], [x0, y0 + s]] };
+    },
+    /** What lies under a client point in the prep: { piece: { uid } | null, tile: { row, col } | null } (render/app.js pickAt). */
+    pickAt(clientX, clientY) {
+      if (st.mode !== 'prep') return null;
+      let piece = null, tile = null;
+      for (const el of document.elementsFromPoint(clientX, clientY)) {
+        if (!root.contains(el) || !(el instanceof HTMLElement)) continue;
+        const d = el.dataset;
+        if (!piece && d.uid) piece = { uid: Number(d.uid) };
+        if (!tile && d.drop === 'board') tile = { row: Number(d.row), col: Number(d.col) };
+        if (!tile && d.drop === 'hand') tile = { row: GEO.HAND_ROW, col: Number(d.idx) };
+      }
+      return piece || tile ? { piece, tile } : null;
     },
     holdPiece(uid, tile) {
       if (tile && Number.isInteger(tile.row) && Number.isInteger(tile.col)) st.held.set(uid, { row: tile.row, col: tile.col });

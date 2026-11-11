@@ -3,7 +3,8 @@
 // playtest #6 item 4) replaces the bare counter in the tooltip's kind line. 精打细算玩偶 is one entry however many were used
 // (`roundFunds` / `stack`, server/match/player/views.js): its tooltip says the funds they add per round together.
 
-import { html, Tooltip, MicroLabel } from './components.js';
+import { useState } from '../../vendor/hooks.module.js';
+import { html, Tooltip, MicroLabel, Icon } from './components.js';
 import { Img, RichText, GIcon } from './gameComponents.js';
 import { effectIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
@@ -57,13 +58,20 @@ export function effectDesc(e) {
   return desc;
 }
 
-/** @param {{ effects: any[] }} props */
+/**
+ * The column is ours (the official HUD has none): on a phone it folds to its EFFECTS label and the count, a tap opens it
+ * (maintainer decision 2026-11-12; css/screens/game.css — the fold button shows only on phones).
+ * @param {{ effects: any[] }} props
+ */
 export function EffectsList({ effects }) {
+  const [folded, setFolded] = useState(true);
   const list = (Array.isArray(effects) ? effects : []).filter((e) => e && (e.name || e.desc));
   if (!list.length) return null;
   const m = data.get('assets');
-  return html`<div class="effects" aria-label=${t('生效中的效果')}>
+  return html`<div class=${folded ? 'effects is-folded' : 'effects'} aria-label=${t('生效中的效果')}>
     <${MicroLabel}>EFFECTS</${MicroLabel}>
+    <button type="button" class="effects__fold" aria-expanded=${!folded} onClick=${() => setFolded((f) => !f)}
+      aria-label=${folded ? t('展开效果') : t('收起效果')}><span class="micro">EFFECTS</span><b class="num">${list.length}</b><${Icon} name="chevronRight" class="effects__chev" /></button>
     ${list.slice(0, 10).map((e, i) => html`<${Tooltip} key=${e.id ?? i} placement="bottom" text=${html`<div class="efftip">
         <b>${tName(e.name) || t('效果')}</b><span class="efftip__kind">${t(KIND[e.iconKind] || '')}${e.counterText ? ` · ${bountyCounterText(e)}` : e.counter != null ? ` · ${e.counter}` : ''}</span>
         ${Number.isFinite(e.roundFunds) ? html`<p>${t('每回合开始时额外获得 {n} 资金', { n: e.roundFunds })}</p>

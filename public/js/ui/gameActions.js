@@ -83,6 +83,8 @@ export const actions = {
   reserveSeat: (on) => act('room.reserveSeat', { on }, { sfx: on ? 'confirm' : 'back' }),
   band: (bandId) => act('g.band', { bandId }),
   bandSkip: () => act('g.bandSkip'),
+  // 规程's active 指令 (server match/bandSkill.js): {} for a 点击使用 stage, else the target — uid | slot | row + col (ui/bandSkill.js)
+  bandSkill: (fields = {}) => act('g.bandSkill', fields, { sfx: 'confirm' }),
   // the strategy draft's 编队确认 (after the last pick): done
   draftReady: () => act('g.draftReady'),
   // 规程's 确定自选编队 (server diyChoose.js): the slots brought into the match, then 准备就绪 / 取消准备

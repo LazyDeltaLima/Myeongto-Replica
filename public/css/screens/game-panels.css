@@ -806,3 +806,81 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   border-top: 1px solid rgba(255, 255, 255, .07); font-size: calc(var(--q) * 11.5); color: #8ea39d;
 }
 .rdmg__ft b { color: var(--text-hi, #e8f1ee); font-weight: 700; }
+
+/* ---- 规程's active 指令 (ui/bandSkill.js): the official autochess_hud_panel `panel_skill` / `skill_view`, 160 × 100 at the
+   right edge, in units of the official 1080-high HUD. The prep's place is the effects column's old top (under the ready
+   count; the column steps down under it), the battle's is above the funds (`skill_layout_battle`: 180 up). The bar
+   (bg_skill_bottom 168 × 60, 12 past the right edge, 5 down) carries 🔍 + 「查看」 left of the round portrait (bg 79,
+   icon 85 masked to it); the cost circle (group_cost) on its top, the counter (group_counter: uses / cooldown / lock)
+   on its bottom; the detail (autochess_hud_skill_detail_dialog, 375 wide) opens 148 left of the right edge. ---- */
+.bskill {
+  --u: var(--ui-u, .015rem); position: absolute; right: .3rem; width: calc(var(--u) * 160); height: calc(var(--u) * 100);
+  top: max(2.4rem, calc(1.31rem + var(--u) * 114)); color: #fff; user-select: none; -webkit-user-select: none;
+}
+.gm.has-readywhy .bskill.is-prep { top: calc(max(2.4rem, calc(1.31rem + var(--u) * 114)) + max(.3rem, 16px)); }
+.gm--prep.has-bskill .gm__effects { top: calc(max(2.4rem, calc(1.31rem + var(--ui-u, .015rem) * 114)) + var(--ui-u, .015rem) * 108); }
+.gm--prep.has-bskill.has-readywhy .gm__effects { top: calc(max(2.4rem, calc(1.31rem + var(--ui-u, .015rem) * 114)) + var(--ui-u, .015rem) * 108 + max(.3rem, 16px)); }
+.bskill.is-battle { top: auto; bottom: calc(var(--u) * 130); }
+/* the official HUD's battle cost counter sits at the right edge 2.3rem up (css/hud-art.css .dpbox): the portrait right
+   above it, as the official battle screen shows it (2026-11-12) */
+.gm.has-hud-art .bskill.is-battle { bottom: calc(2.3rem + .95rem); }
+.bskill__look {
+  position: absolute; right: calc(var(--u) * -12); top: calc(50% - var(--u) * 25); width: calc(var(--u) * 168); height: calc(var(--u) * 60);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 2);
+  padding: 0 calc(var(--u) * 112) 0 0; border: 0; border-radius: calc(var(--u) * 10); background: rgba(30, 32, 35, .88);
+  box-shadow: 0 calc(var(--u) * 2) calc(var(--u) * 8) rgba(0, 0, 0, .5); color: rgba(255, 255, 255, .5); font-size: calc(var(--u) * 15); line-height: 1; cursor: pointer;
+}
+.bskill__look:hover, .bskill.is-open .bskill__look { color: rgba(255, 255, 255, .85); }
+.bskill__lookico { width: calc(var(--u) * 15); height: calc(var(--u) * 15); }
+.bskill__band { position: absolute; right: 0; top: 0; width: calc(var(--u) * 100); height: calc(var(--u) * 100); cursor: pointer; outline: none; }
+/* the drag starts on a touch too: none beats css/devices.css's `[role="button"] { touch-action: manipulation }` (loaded
+   last, which lets the browser take the move for a pan and cancel the pointer) */
+.bskill .bskill__band { touch-action: none; }
+.bskill.is-on .bskill__band { cursor: grab; }
+.bskill.is-on.is-drag .bskill__band { cursor: grabbing; }
+.bskill__ring {
+  position: absolute; inset: calc(var(--u) * 10.5); border-radius: 50%; overflow: hidden; background: #2f2f2f;
+  box-shadow: 0 0 0 calc(var(--u) * 3) #2f7566; transition: box-shadow var(--t-fast, .12s);
+}
+.bskill.is-on .bskill__ring { box-shadow: 0 0 0 calc(var(--u) * 3) #1de9b6, 0 0 calc(var(--u) * 14) rgba(0, 255, 190, .55); }
+.bskill.is-on .bskill__band:hover .bskill__ring, .bskill.is-on .bskill__band:focus-visible .bskill__ring,
+.bskill.is-drag .bskill__ring { box-shadow: 0 0 0 calc(var(--u) * 3) #7fffe0, 0 0 calc(var(--u) * 24) rgba(0, 255, 190, .9); }
+.bskill.is-locked .bskill__ring { box-shadow: 0 0 0 calc(var(--u) * 3) #8a8a8a; }
+.bskill__icon { display: block; width: 108%; height: 108%; margin: -4%; object-fit: cover; }
+.bskill.is-off .bskill__icon { filter: saturate(.4) brightness(.62); }
+.bskill.is-locked .bskill__icon { filter: grayscale(1) brightness(.5); }
+.bskill__glyph { display: grid; place-items: center; width: 100%; height: 100%; font-size: calc(var(--u) * 34); font-weight: 900; color: #9fe9d6; }
+.bskill__cost {
+  position: absolute; left: 50%; top: 0; transform: translateX(-50%); min-width: calc(var(--u) * 30); height: calc(var(--u) * 30); box-sizing: border-box;
+  display: grid; place-items: center; border-radius: calc(var(--u) * 15); border: calc(var(--u) * 2) solid #9a9a9a; background: #2c2e31;
+  font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-size: calc(var(--u) * 17); font-weight: 500; letter-spacing: -.06em; line-height: 1;
+}
+.bskill__cost.is-short { color: #ff5a4f; border-color: #ff5a4f; }
+.bskill__count {
+  position: absolute; left: 50%; bottom: calc(var(--u) * 6); transform: translateX(-50%); display: flex; align-items: center; gap: calc(var(--u) * 4);
+  height: calc(var(--u) * 18); padding: 0 calc(var(--u) * 7); border-radius: calc(var(--u) * 9); background: rgba(10, 12, 14, .9); color: #fff; white-space: nowrap;
+  font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-size: calc(var(--u) * 15); font-weight: 500; letter-spacing: -.06em; line-height: 1;
+}
+.bskill__count.is-zero { color: #ff6a5f; }
+.bskill__cico { width: calc(var(--u) * 11); height: calc(var(--u) * 11); color: #d8d8d8; }
+.bskill__detail {
+  position: absolute; right: calc(var(--u) * 148); top: calc(50% - var(--u) * 80); width: calc(var(--u) * 375); box-sizing: border-box; z-index: 2;
+  padding: calc(var(--u) * 15) calc(var(--u) * 20); background: rgba(20, 21, 23, .96); border: 1px solid rgba(255, 255, 255, .12);
+  box-shadow: 0 calc(var(--u) * 6) calc(var(--u) * 18) rgba(0, 0, 0, .6); pointer-events: none; text-align: left;
+}
+.bskill.is-battle .bskill__detail { top: auto; bottom: calc(50% - var(--u) * 80); }
+.bskill__name { display: block; padding-bottom: calc(var(--u) * 10); margin-bottom: calc(var(--u) * 10); border-bottom: 1px solid rgba(255, 255, 255, .1); font-size: calc(var(--u) * 20); color: #fff; }
+.bskill__desc { margin: 0; font-size: calc(var(--u) * 16); line-height: 1.45; color: #bcbcbc; white-space: pre-line; }
+/* the drag (autochess_skill_drag_widget): the arrow from the portrait to the pointer, the target tip at the top
+   (drag_tip 404 × 75 — under the bond strip here: ours reaches lower than the official) */
+.bskill-drag { position: fixed; inset: 0; z-index: 40; pointer-events: none; }
+.bskill-arrow { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.bskill-arrow__glow { fill: #00ffbe; opacity: .22; filter: blur(8px); }
+.bskill-tip {
+  --u: var(--ui-u, .015rem); position: absolute; left: 50%; top: calc(var(--sa-t, 0px) + var(--u) * 190); transform: translateX(-50%);
+  padding: calc(var(--u) * 12) calc(var(--u) * 40); border-radius: calc(var(--u) * 40); background: rgba(4, 22, 18, .92); white-space: nowrap;
+  box-shadow: 0 0 0 1px rgba(0, 255, 190, .35), 0 0 calc(var(--u) * 18) rgba(0, 255, 190, .35); font-size: calc(var(--u) * 22); font-weight: 700; color: #fff;
+}
+.bskill-tip em { font-style: normal; color: #2ef0b4; }
+/* the pointed 调度中心 card */
+.scard.is-skill-target { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 22px rgba(255, 255, 255, .75); z-index: 1; }

@@ -34,6 +34,8 @@
 //   view.highlightTiles(tiles, style)          [[r,c]] | [{row,col}]; style 'legal'|'illegal'|'range'|'rangeStand'|
 //                                               'hover'|'target'|{color,fill,line,group,heal,skill}; highlightTiles(null) clears all
 //                                               (`heal` / `skill`: a heal / skill range — the 3D board stripes it blue / red)
+//   view.pickAt(clientX, clientY)              prep: { piece: { uid, kind, area } | null, tile: { row, col } | null } under a
+//                                               client point (a DOM drag onto the field: ui/bandSkill.js)
 //   view.on(name, fn) → unsubscribe ; view.off(name, fn)
 //        pieceDragStart { uid, piece, from } · pieceDrop { uid, piece, from, target } · pieceDragEnd {uid, dropped}
 //        pieceClick { uid, piece, button, detail, clientX, clientY } (battle units: { unitId, uid, unit, … })
@@ -2603,6 +2605,20 @@ export async function createFieldView(host, options = {}) {
       if (!c || !Number.isFinite(c.x) || !Number.isFinite(c.y)) return null;
       const corner = (dx, dy) => { const p = cam.project(d.col + dx, d.row + dy, z); return [r.left + p.x, r.top + p.y]; };
       return { x: r.left + c.x, y: r.top + c.y, s: c.s, poly: [corner(-0.5, 0.5), corner(0.5, 0.5), corner(0.5, -0.5), corner(-0.5, -0.5)], mirror: mode === 'prep' && prepXf.mirror };
+    },
+    /**
+     * What lies under a CLIENT point in the prep, judged as the piece drag judges it (render/drag.js): the own piece
+     * standing on the tile there and that BOARD-space tile — for a drag that starts in the DOM (ui/bandSkill.js, 规程's
+     * 指令). null outside the prep or off the canvas.
+     */
+    pickAt(clientX, clientY) {
+      if (destroyed || mode !== 'prep') return null;
+      const r = canvas.getBoundingClientRect();
+      const x = clientX - r.left, y = clientY - r.top;
+      if (!(x >= 0 && y >= 0 && x <= r.width && y <= r.height)) return null;
+      const p = pieceAt(x, y);
+      const t = pickBoardTile(x, y);
+      return { piece: p ? { uid: p.uid, kind: p.kind, area: p.area } : null, tile: t && t.row >= 0 ? { row: t.row, col: t.col } : null };
     },
     /**
      * True when the view itself stripes range previews ('facing' / 'selRange' / 'range' groups) under the units (the 2D

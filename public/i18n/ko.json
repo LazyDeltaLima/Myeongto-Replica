@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1564 of 1782 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1573 of 1791 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1801,5 +1801,14 @@
   "模拟结束或重新开始时，有空位就自动入座": "시뮬레이션이 끝나거나 다시 시작될 때 빈자리가 있으면 자동으로 앉습니다",
   "观战席数量": "관전석 수",
   "{n}席": "{n}석",
-  "不能少于已入座的观战者": "이미 앉은 관전자 수보다 적게 할 수 없습니다"
+  "不能少于已入座的观战者": "이미 앉은 관전자 수보다 적게 할 수 없습니다",
+  "查看": "보기",
+  "点击使用": "클릭 사용",
+  "拖拽使用": "드래그 사용",
+  "请指向{place}的干员": "{place}의 오퍼레이터를 가리키세요",
+  "请指向{place}的装备": "{place}의 장비를 가리키세요",
+  "请指向{place}的可用地块": "{place}의 사용 가능한 칸을 가리키세요",
+  "战场或整备区": "전장 또는 정비 구역",
+  "展开效果": "효과 펼치기",
+  "收起效果": "효과 접기"
 }

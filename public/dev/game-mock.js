@@ -25,7 +25,11 @@ import { battleRunner } from '/js/battle/runner.js';
 const params = new URLSearchParams(location.search);
 const SHOT = params.get('shot') === '1';
 const VARIANTS = new Set((params.get('variant') || '').split(',').filter(Boolean));
-const STAGE_ID = params.get('stage') || 'act2autochess_m01'; // local patch: ?stage= (e.g. a desert stage)
+// ?season=act3autochess reads that season's data (its stages: ?stage=act3autochess_m01); ?bandSkill=<bandId> gives the own
+// player that strategy and its active 指令 (ui/bandSkill.js), answered by the g.bandSkill mock below
+const SEASON = params.get('season') || null;
+const BAND_SKILL = params.get('bandSkill') || null;
+const STAGE_ID = params.get('stage') || (SEASON === 'act3autochess' ? 'act3autochess_m01' : 'act2autochess_m01'); // local patch: ?stage= (e.g. a desert stage)
 
 // ---- deterministic rng ----------------------------------------------------------------------------------
 let seed = 20260927;
@@ -119,6 +123,22 @@ function pushPublic() {
   store.patch('match', { public: JSON.parse(JSON.stringify(S.pub)) });
 }
 
+/** m.private.bandSkill as server/match/match/bandSkill.js bandSkillView builds it, from the strategy's first ACTIVE stage. */
+function mockBandSkill(bandId, st) {
+  const rec = data.lookupRaw('bands', bandId);
+  const stages = Array.isArray(rec?.skills) ? rec.skills : [];
+  const i = Math.max(0, stages.findIndex((x) => x && x.type === 'ACTIVE'));
+  const stage = stages[i];
+  if (!stage) return null;
+  const avail = stage.avail || { type: 'DEFAULT', count: 0 };
+  const usesLeft = avail.type === 'ROUND_RESET' || avail.type === 'ALL_LIMIT' ? Math.max(0, avail.count - st.used) : null;
+  const cooldown = avail.type === 'COOLDOWN' ? Math.max(0, st.round) : 0;
+  const cost = Number(stage.cost) || 0;
+  const usable = usesLeft !== 0 && cooldown === 0 && cost <= (S?.priv?.funds ?? 13) && !(S?.priv?.ready);
+  return { stage: i, stageCount: stages.length, effectId: stage.effectId, type: stage.type, target: { type: stage.target?.type || 'NO_TARGET', filter: stage.target?.filter ?? null },
+    cost, avail: { type: avail.type, count: avail.count }, usesLeft, cooldown, usable, blocked: usable ? null : 'mock', marks: [] };
+}
+
 function buildState() {
   uidSeq = 100;
   seed = 20260927;
@@ -193,6 +213,7 @@ function buildState() {
     stats: { dmgDealt: 184230, kills: 96, leaks: 3, gold: 58, refreshes: 11, merges: 3 },
   };
   if (VARIANTS.has('loadout')) priv.loadout = mockLoadout(board, slots);
+  if (BAND_SKILL) { priv.bandId = BAND_SKILL; priv.bandSkill = mockBandSkill(BAND_SKILL, { used: 0, round: 0 }); }
   if (VARIANTS.has('reward')) {
     priv.shop.rewardOffer = { tier: 5, slots: shuffle(visibleChess(5)).slice(0, 3).map((c) => ({ kind: 'chess', id: c.chessId, price: 0, sold: false })) };
   }
@@ -611,6 +632,18 @@ async function mockRequest(t, f = {}) {
       if (pub.draft) { pub.draft.picks[ME] = f.bandId; pub.draft.turn = 'ai_2'; pub.draft.turnDeadline = Date.now() + 12000; }
       refreshPrivate(); return {};
     }
+    case 'g.bandSkill': {
+      prepOnly();
+      const bs = p.bandSkill;
+      if (!bs || !bs.usable) fail('WRONG_PHASE');
+      const want = bs.target.type === 'COMMON_CHESS' ? ['uid'] : bs.target.type === 'SHOP_SLOT' ? ['slot'] : bs.target.type === 'MAP_TILE' ? ['row', 'col'] : [];
+      const given = ['uid', 'slot', 'row', 'col'].filter((k) => f[k] != null);
+      if (given.join() !== want.join()) fail('BAD_TARGET');
+      p.funds -= bs.cost;
+      S.bandSkillUses = (S.bandSkillUses || 0) + 1;
+      p.bandSkill = mockBandSkill(p.bandId, { used: S.bandSkillUses, round: bs.avail.type === 'COOLDOWN' ? bs.avail.count : 0 });
+      refreshPrivate(); return {};
+    }
     case 'g.bandSkip': {
       if (!pub.draft) fail('WRONG_PHASE');
       if (pub.draft.skipsLeft?.[ME] === 0) fail('ALREADY');
@@ -886,6 +919,7 @@ async function boot() {
   });
   // the language as the app picks it (?lang=ko|en|ja|zh-TW, else the stored choice): before the data, so the game texts follow
   await initLang().catch((err) => console.warn('[mock] language setup failed', err));
+  if (SEASON) await data.setSeason(SEASON);
   await data.loadAll(GAME_FILES);
   installDeviceSupport();
   installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, settings: settingsStore.get() });

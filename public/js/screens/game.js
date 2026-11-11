@@ -93,6 +93,7 @@ import { EmoteWheel } from '../ui/emotes.js';
 import { GameChat } from '../ui/chat.js';
 import { DebugPanel } from '../ui/debugPanel.js'; // local patch: local debug mode only (m.private.debug)
 import { EffectsList } from '../ui/effectsList.js';
+import { BandSkill } from '../ui/bandSkill.js';
 import { RoundDamage } from '../ui/roundDamage.js';
 import { CombatHud } from '../ui/combatHud.js';
 import { SettingsModal, settingsStore } from '../ui/settings.js';
@@ -1825,7 +1826,9 @@ function MatchScreen() {
     id: p.playerId, avatar: html`<${PlayerAvatar} player=${p} size="sm" self=${p.playerId === myId} />`, lp: p.lp, mine: p.playerId === myId })) : [];
 
   const hudLook = hudArt(); // local patch
-  return html`<div class=${cx('screen', 'gm', `gm--${mode}`, drag && 'is-dragging', barCollapsed && 'is-collapsed', (sp || hasPersonalChoice) && 'has-sp', pen && 'is-pen', readyWhy && 'has-readywhy', hudLook.cls)}
+  // 规程's active 指令 (ui/bandSkill.js): the own strategy's, on the own field (not while watching a teammate's)
+  const showBandSkill = !!priv?.bandSkill && !spectator && alive && !watchingOther;
+  return html`<div class=${cx('screen', 'gm', `gm--${mode}`, drag && 'is-dragging', barCollapsed && 'is-collapsed', (sp || hasPersonalChoice) && 'has-sp', pen && 'is-pen', readyWhy && 'has-readywhy', showBandSkill && 'has-bskill', hudLook.cls)}
       style=${hudLook.style} data-camera=${pen ? 'pen' : camKind}>
     <div class="gm__field" ref=${hostRef} onContextMenu=${(e) => e.preventDefault()}></div>
     ${fieldLoading ? html`<div class="gm__loading"><${Spinner} label="LOADING FIELD" /></div>` : null}
@@ -1871,6 +1874,7 @@ function MatchScreen() {
         </div>
       </div>
 
+      ${showBandSkill ? html`<${BandSkill} view=${view} priv=${priv} phase=${phase} combat=${combat} />` : null}
       <div class="gm__effects"><${EffectsList} effects=${watchingOther && field ? (field.effects ?? null) : priv?.effects} />
         <${RoundDamage} pub=${pub} priv=${priv} myId=${myId} place="desktop" spectator=${spectator} /></div>
       ${priv?.debug && !spectator ? html`<${DebugPanel} debug=${priv.debug} prep=${phase === PHASE.PREP} diy=${priv.diy} />` : null /* local patch: local debug mode */}

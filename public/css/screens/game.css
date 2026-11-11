@@ -369,6 +369,21 @@
    the effects column follows, or the count runs into it on phones */
 .gm.has-readywhy .gm__effects { top: calc(2.4rem + max(.3rem, 16px)); }
 .effects { display: flex; flex-direction: column; align-items: flex-end; gap: .08rem; }
+/* the fold (ui/effectsList.js): phones only — the column is ours, not the official HUD's (maintainer decision 2026-11-12) */
+.effects__fold { display: none; }
+@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
+  .effects > .micro { display: none; }
+  .effects__fold {
+    display: flex; align-items: center; gap: .04rem; padding: .02rem .06rem; border: 1px solid rgba(255, 255, 255, .18); border-radius: .06rem;
+    background: rgba(10, 14, 16, .72); color: var(--text-lo, #9fb1ac); font-size: .11rem; line-height: 1; cursor: pointer;
+  }
+  .effects__fold b { color: #fff; }
+  .effects__chev { width: .14rem; height: .14rem; transform: rotate(-90deg); }
+  .effects.is-folded .effects__chev { transform: rotate(90deg); }
+  .effects.is-folded > :not(.effects__fold) { display: none; }
+  /* open, the icons run left of the button: a column would run into 剩余可放置角色 under it */
+  .effects:not(.is-folded) { flex-direction: row-reverse; align-items: flex-start; gap: .04rem; }
+}
 .effect {
   position: relative; width: .5rem; height: .5rem; display: grid; place-items: center;
   background: rgba(8, 11, 10, .85); border: 1px solid var(--line-2);
