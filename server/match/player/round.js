@@ -8,7 +8,7 @@
 
 import { boardOrder, pieceDir } from '../board.js';
 import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains, pieceBonds } from '../bondsMeta.js';
-import { handRules } from '../../sim/content/bonds/dispatch.js';
+import { handRules, swapBondRecord } from '../../sim/content/bonds/dispatch.js';
 
 export class PlayerRound {
   startRound(r) {
@@ -173,7 +173,9 @@ export class PlayerRound {
     // bond rule asks for (bonds/dispatch.js handRules — the spec reaches every watcher, the rest of the hand stays
     // private); slot = the hand index (0 the leftmost). The hand does not change during a battle (prep intents only)
     const reserve = [];
-    const rules = handRules((id) => this.gd.bond(id)).filter((x) => { const st = this.bonds?.[x.bond]; return st && st.active && (st.count ?? 0) >= x.need; });
+    // (the bond as this player's battle runs it: a strategy that switches its direction — 焰尾's 卡西米尔 — swapBondRecord)
+    const band = this.bandId ? this.gd.band(this.bandId) : null;
+    const rules = handRules((id) => swapBondRecord(this.gd.bond(id), band, (e) => this.gd.effect(e))).filter((x) => { const st = this.bonds?.[x.bond]; return st && st.active && (st.count ?? 0) >= x.need; });
     if (rules.length) {
       (this.hand || []).forEach((piece, slot) => {
         if (!piece || piece.kind !== 'chess') return;

@@ -1,7 +1,7 @@
 // server/sim/content/coverage.js — how much of a season's bond, equipment and 特质 data the content code acts on.
 //
-// coverage(data, prep) → { bonds, items, garrisons, totals }: one row per (bond, buff template), per (item key,
-// buff key) and per (特质 event type, effect key), each `ok` / `partial` (`missing` names what is not done) / `none`.
+// coverage(data, prep) → { bonds, items, garrisons, bands, totals }: one row per (bond, buff template), per (item key,
+// buff key), per (特质 event type, effect key) and per (strategy, buff key), each `ok` / `partial` (`missing` names what is not done) / `none`.
 // It asks "is the buff key the handler expects in the record", not "is there a handler for the id": a season that
 // reuses an id with other buffs shows up (`wrong` lists the handler keys that run on a record without their buff).
 // Battle side: the tables the handler files export; prep side: the season's registry (server/match/effectsMeta.js
@@ -18,6 +18,10 @@
 //              (server/match/builtinMeta.js) or a content one (items/meta.js PREP_BUFF_KEYS), registered on the item
 //   garrisons  IN_BATTLE: garrisons/battle.js BATTLE_GARRISON_KEYS, and the option values it reads (GARRISON_OPTIONS);
 //              SERVER_*: a `garrison:<effectKey>` handler in the registry and a hook for the event type
+//   bands      every buff of every 指令 stage (bands.json `skills`, else the band's buffs): battle runes by bbStr.key
+//              (bands/battle.js BATTLE_BUFF_KEYS), the others by key — bands/meta.js PREP_BAND_KEYS (registered as
+//              `band:<bandId>`), BAND_KEYS_ELSEWHERE below (a global, the bond code); `stages` names the stages a row's
+//              key is in, `skill` their skill types (PASSIVE / ACTIVE / NONE)
 
 import { buffsOf, itemKeyOf } from './support/index.js';
 import { HANDLED as ITEM_BATTLE } from './items/battle.js';
@@ -25,7 +29,9 @@ import { PREP_BUFF_KEYS as ITEM_PREP } from './items/meta.js';
 import { canonicalBuffKey } from './items/aliases.js';
 import { BATTLE_GARRISON_KEYS, GARRISON_OPTIONS } from './garrisons/battle.js';
 import { bondTemplate } from './bonds/shared.js';
-import { handledTemplates } from './bonds/dispatch.js';
+import { handledTemplates, bondEffectReplacements, unwrittenTemplates } from './bonds/dispatch.js';
+import { BATTLE_BUFF_KEYS as BAND_BATTLE } from './bands/battle.js';
+import { PREP_BAND_KEYS as BAND_PREP, bandStages } from './bands/meta.js';
 
 export { bondTemplate };
 
@@ -42,6 +48,11 @@ export const BOND_TEMPLATES = Object.freeze({
 });
 
 const RUNE_KEYS = new Set(['env_gbuff_new', 'env_gbuff_new_with_verify', 'char_dynamic_ability_new']);
+
+/** Strategy buff keys handled outside the band's own handler: key → where. */
+export const BAND_KEYS_ELSEWHERE = Object.freeze({
+  round_start_all_player_change_enemy_2: 'bands/meta.js duckGlobal (a global)',
+});
 
 function row(domain, fields) {
   return { domain, missing: [], wrong: [], ...fields };
@@ -146,6 +157,45 @@ function garrisonRows(data, { registry, garrisonHooks }) {
   return [...rows.values()];
 }
 
+function bandRows(data, { registry }) {
+  const rows = [];
+  const battle = new Set(BAND_BATTLE);
+  const prep = new Set(BAND_PREP);
+  const effects = data?.effects ?? {};
+  const effectOf = (id) => (Object.hasOwn(effects, id) ? effects[id] : null);
+  const newRow = (bandId, rec, key, rune) => {
+    if (key === 'auto_chess_effect_replace') {
+      // the bond direction switch (bonds/dispatch.js swapBondRecord): partial while a target direction is unwritten
+      const missing = [...bondEffectReplacements(rec)].flatMap(([, to]) => unwrittenTemplates(effectOf(to)).map((t) => `${to}: ${t}`));
+      return row('bands', { id: bandId, key, side: 'battle', where: 'bonds/dispatch.js swapBondRecord', status: missing.length ? 'partial' : 'ok', missing });
+    }
+    if (rune || battle.has(key)) return row('bands', { id: bandId, key, side: 'battle', where: battle.has(key) ? 'bands/battle.js' : null, status: battle.has(key) ? 'ok' : 'none' });
+    if (BAND_KEYS_ELSEWHERE[key]) return row('bands', { id: bandId, key, side: 'prep', where: BAND_KEYS_ELSEWHERE[key], status: 'ok' });
+    if (!prep.has(key)) return row('bands', { id: bandId, key, side: 'prep', where: null, status: 'none' });
+    if (registry && !registry.get(`band:${bandId}`)) return row('bands', { id: bandId, key, side: 'prep', where: null, status: 'none', missing: [`no band:${bandId} handler in the registry`] });
+    return row('bands', { id: bandId, key, side: 'prep', where: 'bands/meta.js', status: 'ok' });
+  };
+  for (const [bandId, rec] of Object.entries(data?.bands ?? {})) {
+    const byKey = new Map();
+    for (const st of bandStages(rec)) {
+      for (const b of buffsOf(st)) {
+        const rune = RUNE_KEYS.has(b.key) && !!b.bbKey;
+        const key = rune ? b.bbKey : b.key;
+        if (!key) continue;
+        let r = byKey.get(key);
+        if (!r) {
+          r = { ...newRow(bandId, rec, key, rune), stages: [], skill: [] };
+          byKey.set(key, r);
+          rows.push(r);
+        }
+        if (st.effectId && !r.stages.includes(st.effectId)) r.stages.push(st.effectId);
+        if (st.type && !r.skill.includes(st.type)) r.skill.push(st.type);
+      }
+    }
+  }
+  return rows;
+}
+
 function tally(rows) {
   const t = { ok: 0, partial: 0, none: 0, wrong: 0 };
   for (const r of rows) { t[r.status]++; if (r.wrong.length) t.wrong++; }
@@ -166,6 +216,7 @@ export function coverage(data, prep = {}) {
   const bonds = bondRows(data, p);
   const items = itemRows(data, p);
   const garrisons = garrisonRows(data, p);
-  return { bonds, items, garrisons, totals: { bonds: tally(bonds), items: tally(items), garrisons: tally(garrisons) } };
+  const bands = bandRows(data, p);
+  return { bonds, items, garrisons, bands, totals: { bonds: tally(bonds), items: tally(items), garrisons: tally(garrisons), bands: tally(bands) } };
 }
 

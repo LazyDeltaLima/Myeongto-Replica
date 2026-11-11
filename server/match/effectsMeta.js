@@ -579,6 +579,10 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     addPendingFunds: (n) => { const v = finiteInt(n); if (v > 0) { ps.pendingFunds += v; ps.dirty(); } return v > 0 ? v : 0; },
     spendFunds: (n) => { const v = finiteInt(n); if (!ps.spend(v)) return false; ps._afterSpend(v, 'effect'); return true; },
     grantFreeRefresh: (n = 1) => { const v = finiteInt(n); if (v > 0) { ps.shop.freeRefreshes += v; ps.dirty(); } return ps.shop.freeRefreshes; },
+    /** Lower the current 调度中心 level-up price by `n` (not below 0; 规程's 娜仁图亚); returns the new price. */
+    discountLevelUp: (n) => { const v = finiteInt(n); if (v > 0) { ps.shop.upgradePrice = Math.max(0, ps.shop.upgradePrice - v); ps.dirty(); } return ps.shop.upgradePrice; },
+    /** Queue one more promotion reward (晋升奖励, the merge's own offer; 规程's 复奏). */
+    promotionReward: () => !!ps.pushRewardOffer('merge'),
 
     // ---- prices (onPrice only; the same as writing ev.price)
     modifyPrice: (delta) => { if (hook === 'onPrice' && ev && Number.isFinite(delta)) ev.price = Math.max(0, (Number(ev.price) || 0) + delta); return ev ? ev.price : null; },

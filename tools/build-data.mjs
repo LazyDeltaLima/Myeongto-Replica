@@ -2140,9 +2140,56 @@ function buildBands(ctx, effects) {
       params: eff?.params || {},
       victorCount: b.victorCount, rewardModulus: b.bandRewardModulus ?? 1,
       unlockDesc: meta.unlockDesc || null,
+      ...(act.skillInfoDataDict ? bandSeasonFields(ctx, b, effects) : {}),
     };
   }
   return out;
+}
+
+/**
+ * 规程's strategy fields (a season whose table has skillInfoDataDict): `bandType` (GENERAL / BONDRELEVANT),
+ * `relateBondIds` (relateBondList: the bonds a BONDRELEVANT strategy belongs to), `masterVictorCount`,
+ * `offseasonPriority`, and `skills` — the strategy's 指令 stages in unlock order from its effectId: each stage's skill
+ * (type PASSIVE / ACTIVE / NONE = locked, cost, `avail` {type ROUND_RESET / COOLDOWN / ALL_LIMIT / DEFAULT, count}, the
+ * target of an ACTIVE one), its effect's buffs and params, and `next` — the condition (unlockType + params) that moves
+ * the strategy to the next stage, null on the last (unlockType band_skill_load).
+ */
+function bandSeasonFields(ctx, b, effects) {
+  const si = ctx.act.skillInfoDataDict;
+  const skills = [];
+  const seen = new Set();
+  for (let id = b.effectId; id && !seen.has(id); ) {
+    seen.add(id);
+    const s = si[id];
+    if (!s) { warn(`band ${b.bandId}: skill ${id} missing from skillInfoDataDict`); break; }
+    if (s.bandId !== b.bandId) warn(`band ${b.bandId}: skill ${id} names band ${s.bandId}`);
+    const eff = effects[id];
+    if (!eff) warn(`band ${b.bandId}: skill effect ${id} missing`);
+    const dp = textPair(s.skillDesc);
+    const next = s.unlockEffectId && s.unlockType !== 'band_skill_load'
+      ? { effectId: s.unlockEffectId, unlockType: s.unlockType, unlockParams: [...(s.unlockParam || [])] } : null;
+    skills.push({
+      effectId: id, name: eff?.name || null, type: s.skillType, cost: s.skillCost ?? 0,
+      avail: { type: s.skillAvailType || 'DEFAULT', count: s.skillAvailCount ?? 0 },
+      ...(s.targetType ? { target: { type: s.targetType, filter: s.targetFilterType || null, tip: s.targetTip || null } } : {}),
+      ...(s.isUnusableAtSpecialRecruit ? { unusableAtSpecialRecruit: true } : {}),
+      minorUnlock: !!s.minorUnlock,
+      showTag: ctx.act.effectInfoDataDict?.[id]?.showTag ?? null,
+      desc: dp.desc, descRaw: dp.descRaw,
+      buffs: (eff?.buffs || []).map((x) => ({ key: x.key, bb: x.bb, bbStr: x.bbStr })),
+      params: eff?.params || {},
+      next,
+    });
+    id = next ? next.effectId : null;
+  }
+  const covered = new Set(skills.map((s) => s.effectId));
+  for (const s of Object.values(si)) if (s.bandId === b.bandId && !covered.has(s.effectId)) warn(`band ${b.bandId}: skill ${s.effectId} is no stage of its chain`);
+  return {
+    bandType: b.bandType || 'GENERAL',
+    relateBondIds: Array.isArray(b.relateBondList) ? [...b.relateBondList] : [],
+    masterVictorCount: b.masterVictorCount ?? null, offseasonPriority: b.offseasonPriority ?? null,
+    skills,
+  };
 }
 
 // ===== enemies ==================================================================================
@@ -4645,6 +4692,13 @@ function validateAll(f) {
   }
   for (const b of Object.values(bands)) if (!effects[b.effectId]) err(`band ${b.bandId}: effect missing`);
   for (const b of Object.values(bands)) for (const id of b.bondIds || []) if (!bonds[id]) err(`band ${b.bandId}: bond ${id} missing`);
+  for (const b of Object.values(bands)) {
+    if (!b.skills) continue;
+    if (b.skills[0]?.effectId !== b.effectId) err(`band ${b.bandId}: its first skill stage is not its effect ${b.effectId}`);
+    for (const s of b.skills) if (!effects[s.effectId]) err(`band ${b.bandId}: skill effect ${s.effectId} missing`);
+    if (b.skills.at(-1)?.next) err(`band ${b.bandId}: its last skill stage unlocks ${b.skills.at(-1).next.effectId}`);
+    for (const id of b.relateBondIds || []) if (!bonds[id]) err(`band ${b.bandId}: related bond ${id} missing`);
+  }
   for (const w of Object.values(waves)) {
     for (const sp of w.spawns) {
       if (sp.action) continue;
@@ -4766,6 +4820,7 @@ async function main() {
   const choices = buildChoices(ctx, effects, items, chess);
   // the bonds each strategy is built around (DESIGN §21.26): the bot skips, and the strategy draft marks 本局禁用, a band
   // whose bond the mode switches off
+  // (规程: a BONDRELEVANT strategy's relateBondList joins them — its texts name the bond in 【…】, not <…>)
   for (const b of Object.values(bands)) b.bondIds = bandBondIds(b, { bonds, pools: choices.pools });
   const config = buildConfig({ ...ctx, effects }, waves, stages, bands, chess, items);
   const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens, backups };

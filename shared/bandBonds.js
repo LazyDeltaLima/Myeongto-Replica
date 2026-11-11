@@ -7,13 +7,15 @@
 //     bracketed name that is no bond (<寻呼模块>, <画卷>, <鸭爵> …) adds nothing;
 //   * the bond ids and bond pools its effect's blackboards name (bb / bbStr string values, comma lists included):
 //     克莱门莎's `bond_id` egirShip, 玛恩纳's `bond` kazimierzShip, 潘格尼尼's `pool` pool_char_later → choices.json
-//     `pools[pool].bond` lateranoShip; a pool without a bond adds nothing.
+//     `pools[pool].bond` lateranoShip; a pool without a bond adds nothing;
+//   * 规程: the table's own list, `relateBondIds` (relateBondList of a BONDRELEVANT strategy) — its texts name the bond
+//     in 【…】, which the first rule does not read (歌蕾蒂娅 猎人战法, 耶拉, 裁度, 引星棘刺 name it only there).
 
 const isObj = (v) => !!v && typeof v === 'object';
 
 /**
  * Bond ids a band is tied to, in the order of `bonds`.
- * @param {{ desc?: string, buffs?: Array<{ bb?: object, bbStr?: object }> }|null|undefined} band bands.json record
+ * @param {{ desc?: string, relateBondIds?: string[], buffs?: Array<{ bb?: object, bbStr?: object }> }|null|undefined} band bands.json record
  * @param {{ bonds: Record<string, { name?: string }>|Array<{ bondId: string, name?: string }>,
  *   pools?: Record<string, { bond?: string }>|null }} ctx bonds.json (map or list) and choices.json `pools`
  * @returns {string[]}
@@ -25,6 +27,7 @@ export function bandBondIds(band, { bonds, pools = null } = {}) {
   const known = new Set(ids);
   const byName = new Map(list.filter(([, b]) => isObj(b) && typeof b.name === 'string').map(([id, b]) => [b.name, id]));
   const found = new Set();
+  for (const id of Array.isArray(band.relateBondIds) ? band.relateBondIds : []) if (known.has(id)) found.add(id);
   for (const [, name] of String(band.desc || '').matchAll(/<([^<>]+)>/g)) {
     const id = byName.get(name.trim());
     if (id) found.add(id);

@@ -99,9 +99,12 @@ function rollBond(ctx, bond, { anyTier = false } = {}) {
 
 const K = {};
 
-K.prep_finish_char_bond_add_layer = (ps) => ({
+// 规程's 华法琳 says 「所属的已激活盟约层数」: only the active bonds gain (the default season's text has no 已激活 —
+// 无需激活); the stage's text decides (`stage.desc`)
+K.prep_finish_char_bond_add_layer = (ps, bandId, stage) => ({
   onPrepEnd(ctx) {
     const n = int(ps[0].layer, 0);
+    const requireActive = /已激活/.test(String(stage?.desc ?? ''));
     if (n <= 0) return;
     const byTier = new Map();
     for (const p of ctx.board()) {
@@ -112,7 +115,7 @@ K.prep_finish_char_bond_add_layer = (ps) => ({
     }
     for (const t of [...byTier.keys()].sort((a, b) => a - b)) {
       const p = ctx.rng.pick(byTier.get(t));
-      for (const b of metaBonds(ctx, p)) ctx.addLayers(b, n, { requireActive: false, reason: 'band' });
+      for (const b of metaBonds(ctx, p)) ctx.addLayers(b, n, { requireActive, reason: 'band' });
     }
   },
 });
@@ -232,6 +235,9 @@ K.up_shop_next_refresh_must_present_bond_char = (ps) => ({
   },
 });
 
+// 规程's name of the same rule (its text unchanged but for 「被动效果」)
+K.shop_up_bond_refresh_once = K.up_shop_next_refresh_must_present_bond_char;
+
 K.gain_bond_char_per_round = (ps) => ({
   onRoundStart(ctx) {
     const p = ps[0];
@@ -244,17 +250,20 @@ K.gain_bond_char_per_round = (ps) => ({
   },
 });
 
+// 休露丝 雪域礼赠: the round's first <bond> chess bought costs `price`; 规程's round_buy_bond_char_price is the same with
+// `n`, the number of such buys a round (1)
 K.first_buy_in_round_char_price_change = (ps) => ({
   onPrice(ctx, ev) {
     const p = ps[0];
     if (ev.kind !== 'chess' || !hasBond(ctx, ev.id, p.bond)) return;
-    if (ctx.counter('band:sciurus:r') === ctx.round) return;
+    if (roundCounter(ctx, 'band:sciurus') >= Math.max(1, int(p.n, 1))) return;
     ctx.setPrice(Math.min(num(ev.price, 0), int(p.price, 1)));
   },
   onBuy(ctx, ev) {
-    if (ev.kind === 'chess' && hasBond(ctx, ev.slot.id, ps[0].bond)) ctx.setCounter('band:sciurus:r', ctx.round);
+    if (ev.kind === 'chess' && hasBond(ctx, ev.slot.id, ps[0].bond)) bumpRound(ctx, 'band:sciurus');
   },
 });
+K.round_buy_bond_char_price = K.first_buy_in_round_char_price_change;
 
 K.band_cost_coin_reach_cnt_gain_chess_from_pool = (ps) => ({
   onSpend(ctx, ev) {
@@ -337,6 +346,9 @@ K.first_sell_char_chess_exchange_char_chess_in_shop = (ps) => ({
   },
 });
 
+// 规程's 巫恋 (band_substitute) 替身娃娃: the same text under a new key and strategy id
+K.sell_char_swap_shop_char = K.first_sell_char_chess_exchange_char_chess_in_shop;
+
 K.round_start_gain_char_chess_in_shop_every_n_round = (ps) => ({
   onPrepStart(ctx) {
     const p = ps[0];
@@ -364,6 +376,9 @@ K.round_start_gain_coin_by_bond_char_chess_buy = (ps) => ({
   },
 });
 
+// 规程's 玛恩纳 业务指标: the same text under a new key
+K.buy_bond_char_gain_coin = K.round_start_gain_coin_by_bond_char_chess_buy;
+
 K.refresh_shop_count_gain_coin_bond_char_chess = (ps) => ({
   onRefresh(ctx) {
     const p = ps[0];
@@ -383,6 +398,87 @@ K.preparation_start_add_special_goods_every_n_round = (ps) => ({
     if (n <= 0 || ctx.round % n !== 0) return;
     const ids = rollItems(ctx, p.pool, Math.max(1, int(p.refresh_cnt, 2)));
     for (let k = 0; k < Math.max(1, int(p.choice_cnt, 1)) && ids.length; k++) ctx.offerItems(ids, { source: 'band' });
+  },
+});
+
+// ---- 规程 (act3autochess) passives
+
+// 奥达 全力熔铸 "在第3、6、9、12、14回合进入休整期时获得1件当前调度中心等级的随机装备": one buff per round; the item is
+// one of the shop's items of exactly the shop level's tier (Match.rollItemId tier)
+K.prep_start_random_equip_in_round = (ps) => ({
+  onPrepStart(ctx) {
+    for (const p of ps) {
+      if (ctx.round !== int(p.round, -1)) continue;
+      for (let k = 0; k < Math.max(1, int(p.count, 1)); k++) {
+        const id = ctx.rollItem({ tier: Math.max(1, Math.min(6, ctx.shopLevel())) });
+        if (id) ctx.grantItem(id, { source: 'band' });
+      }
+    }
+  },
+});
+
+// 复奏 二重奏 "每回合首次晋升精锐干员时，获得1次额外的晋升奖励": the round's first `count` merges into an elite (晋升) queue
+// `n` more promotion rewards (晋升奖励, the merge's own offer — PlayerState.pushRewardOffer('merge')); an elite made by an
+// effect (升华, 博士投影: PlayerState.promote) is no 晋升 and gives no reward, so it uses none [ASSUMED·화면: 효과로 정예가 된
+// 경우는 공식 화면 미확인]
+K.promote_char_extra_award = (ps) => ({
+  onMerge(ctx, ev) {
+    if (!ev || ev.kind !== 'chess') return;
+    const p = ps[0];
+    if (roundCounter(ctx, 'band:bonus') >= Math.max(1, int(p.count, 1))) return;
+    bumpRound(ctx, 'band:bonus');
+    for (let k = 0; k < Math.max(1, int(p.n, 1)); k++) ctx.promotionReward();
+  },
+});
+
+// 娜仁图亚 沙洲梦魇 "获得3名【萨尔贡】干员后使当前调度中心升级消耗资金-3，调度中心每个等级至多生效1次": every <bond> chess gained
+// (bought, granted, a merge's elite: one onGain each) counts; once `count` are counted and the current 调度中心 level has had
+// no discount yet, its level-up price drops by `value` (not below 0) and `count` are used up. Counted ones past that wait
+// for the next level (checked again after a level-up) [ASSUMED·화면: 이미 할인된 등급에서 센 수가 다음 등급으로 넘어가는지 —
+// 「{@tag}」 진행 표시를 공식 화면으로 확인 전]
+function sandDiscount(ctx, p) {
+  const need = Math.max(1, int(p.count, 3));
+  if (ctx.counter('band:narant:gained') < need) return;
+  if (ctx.counter('band:narant:level') === ctx.shopLevel()) return;
+  if (ctx.shopLevel() >= ctx.gd.maxShopLevel) return;
+  ctx.incCounter('band:narant:gained', -need);
+  ctx.setCounter('band:narant:level', ctx.shopLevel());
+  ctx.discountLevelUp(Math.max(0, int(p.value, 0)));
+}
+K.gain_bond_cnt_shop_up_discount = (ps) => ({
+  onGain(ctx, ev) {
+    if (!ev || ev.kind !== 'chess' || !ev.piece || !hasBond(ctx, ev.piece.id, ps[0].bond)) return;
+    ctx.incCounter('band:narant:gained', 1);
+    sandDiscount(ctx, ps[0]);
+  },
+  onLevelUp(ctx) { sandDiscount(ctx, ps[0]); },
+});
+
+// 洛洛 自发制造 "每购买3名【维多利亚】干员，获得1件随机装备（等阶不高于当前调度中心）": every `count`-th <bond> chess bought in the
+// match → `count2` random shop items of tier ≤ the 调度中心 level
+K.buy_bond_char_cnt_gain_equip = (ps) => ({
+  onBuy(ctx, ev) {
+    const p = ps[0];
+    if (ev.kind !== 'chess' || !hasBond(ctx, ev.slot.id, p.bond)) return;
+    const every = Math.max(1, int(p.count, 3));
+    if (ctx.incCounter('band:lolo:bought', 1) % every !== 0) return;
+    for (let k = 0; k < Math.max(1, int(p.count2, 1)); k++) {
+      const id = ctx.rollItem({ maxTier: Math.max(1, ctx.shopLevel()) });
+      if (id) ctx.grantItem(id, { source: 'band' });
+    }
+  },
+});
+
+// 裁度 量体裁衣 "每回合首次主动刷新后获得1资金": in a round with round % `round` = 0, the `refresh_count`-th manual refresh of
+// the round (onRefresh is the manual one; a free refresh counts) → +coin funds at once
+K.n_round_refresh_cnt_gain_coin = (ps) => ({
+  onRefresh(ctx) {
+    const p = ps[0];
+    const every = Math.max(1, int(p.round, 1));
+    if (ctx.round % every !== 0) return;
+    if ((ctx.roundStats().refreshes || 0) !== Math.max(1, int(p.refresh_count, 1))) return;
+    const coin = int(p.coin, 0);
+    if (coin > 0) ctx.addFunds(coin, 'band');
   },
 });
 
@@ -536,17 +632,78 @@ function merge(parts) {
   return out;
 }
 
-/** Hooks of one band (null when it has no prep effect), from its record in `data` (default: the default season's). */
-export function bandMetaHandler(bandId, data = null) {
+// ---------------------------------------------------------------------------------------------------------------
+// 规程's 指令 stages (bands.json `skills`): a strategy runs the effect of its current stage; a stage's `next` names the
+// condition that moves it on — the round (band_skill_load_by_round), the 调度中心 level (…_by_shop_lv), the funds spent in
+// the match (…_by_coin_cost: PlayerState.stats.gold, every payment), the counted members of a bond (…_by_bond_act_count:
+// 「【伊比利亚】盟约激活人数达到4」 — the bond's activation count). The stage is the player's counter STAGE_COUNTER (index
+// into `skills`), checked before every prep hook of the strategy, so it moves on at the first hook after the condition
+// holds — the level-up, the payment, the round start, the bond change [ASSUMED·화면: 공식 지령 칸이 단계를 바꾸는 순간 미확인]
+// — and never moves back. The battle reads the strategy's first stage (its effectId); no passive stage has a battle part.
+
+export const STAGE_COUNTER = 'band:stage';
+/** The hooks a staged strategy listens on to move its stage (besides those its stages use). */
+const STAGE_HOOKS = ['onRoundStart', 'onPrepStart', 'onLevelUp', 'onSpend', 'onGain', 'onBuy', 'onSold', 'onMerge', 'onActiveBonds', 'onPrepEnd'];
+
+/** The strategy's stages: bands.json `skills` (规程), else its own buffs as its one stage. */
+export function bandStages(rec) {
+  if (!rec) return [];
+  if (Array.isArray(rec.skills) && rec.skills.length) return rec.skills;
+  return [{ effectId: rec.effectId ?? null, desc: rec.desc ?? '', buffs: rec.buffs ?? [], next: null }];
+}
+
+/** Does a stage's `next` condition hold for the player now? */
+export function stageUnlocked(ctx, next) {
+  const a = Array.isArray(next?.unlockParams) ? next.unlockParams : [];
+  switch (next?.unlockType) {
+    case 'band_skill_load_by_round': return ctx.round >= int(a[0], Infinity);
+    case 'band_skill_load_by_shop_lv': return ctx.shopLevel() >= int(a[0], Infinity);
+    case 'band_skill_load_by_coin_cost': return (ctx.stats().gold || 0) >= int(a[0], Infinity);
+    case 'band_skill_load_by_bond_act_count': return ctx.bondCount(String(a[0] ?? '')) >= int(a[1], Infinity);
+    default: return false;
+  }
+}
+
+/** The player's current stage index of `stages`, moved on as far as the conditions hold (writes STAGE_COUNTER). */
+export function bandStageIndex(ctx, stages) {
+  let i = Math.max(0, Math.min(stages.length - 1, int(ctx.counter(STAGE_COUNTER), 0)));
+  while (i < stages.length - 1 && stages[i].next && stageUnlocked(ctx, stages[i].next)) i++;
+  if (i !== ctx.counter(STAGE_COUNTER)) ctx.setCounter(STAGE_COUNTER, i);
+  return i;
+}
+
+/** Hooks of one stage's buffs (null when none has a prep effect). */
+function stageHooks(stage, bandId) {
   const groups = new Map();
-  for (const b of buffsOf(bandRecord(bandId, data))) {
+  for (const b of buffsOf(stage)) {
     if (!b.key || !K[b.key]) continue;
     if (!groups.has(b.key)) groups.set(b.key, []);
     groups.get(b.key).push(b.p);
   }
   if (!groups.size) return null;
-  return merge([...groups].map(([k, ps]) => K[k](ps, bandId)));
+  return merge([...groups].map(([k, ps]) => K[k](ps, bandId, stage)));
 }
+
+/** Hooks of one band (null when it has no prep effect), from its record in `data` (default: the default season's). */
+export function bandMetaHandler(bandId, data = null) {
+  const stages = bandStages(bandRecord(bandId, data));
+  if (!stages.length) return null;
+  const hooks = stages.map((st) => stageHooks(st, bandId));
+  if (stages.length === 1) return hooks[0];
+  const names = new Set(STAGE_HOOKS);
+  for (const h of hooks) for (const n of Object.keys(h || {})) names.add(n);
+  const out = {};
+  for (const name of names) {
+    out[name] = function staged(ctx, ev) {
+      const f = hooks[bandStageIndex(ctx, stages)]?.[name];
+      if (f) f(ctx, ev);
+    };
+  }
+  return out;
+}
+
+/** The prep buff keys this file handles (the coverage report, content/coverage.js). */
+export const PREP_BAND_KEYS = Object.freeze(Object.keys(K));
 
 /** @param {object} registry @param {object} [data] the season's data the handlers are for (shared/seasons.js) */
 export function registerMeta(registry, data = gameData()) {

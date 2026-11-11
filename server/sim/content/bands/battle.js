@@ -37,7 +37,9 @@
 //                                               elite or not) stand on the field get ATK +atk
 //   act2autochess_band3_buff  伊奥莱塔 统御号令 at combat start n = elite operators on the field ⇒ every elite operator
 //                                               ATK +atk_per_cnt × n, HP +max_hp_per_cnt × n (all 直接乘算)
-//   auto_chess_change_map     Touch 外勤医疗    "所有玩家场地上出现一名<预备干员-医疗>": while any alive player of the match
+//   attr_common_global_buff   陈 以己之长 (规程) the second buff: elite operators (filter_autochess_golden) ATK +atk
+//                                               (直接乘算), ASPD +attack_speed
+//   auto_chess_change_map    Touch 外勤医疗    "所有玩家场地上出现一名<预备干员-医疗>": while any alive player of the match
 //                                               holds band_amedic, every player's field gets the map character of the
 //                                               variant whose common_condition holds for that player's elites on the field
 //                                               (condition_golden_chess_le cnt → 预备干员-医疗, _ge cnt → Touch), spawned at
@@ -236,6 +238,16 @@ const BY_KEY = {
       const mods = directMods({ atk: a * n, hp: h * n });
       for (const u of elites) passiveBuff(battle, u, keyOf(bandId), mods);
     });
+  },
+
+  // 陈 以己之长 (规程's second buff): "精锐干员额外获得攻击力+16%，攻击速度+16" — the player's elite operators
+  // (filter_autochess_golden) ATK +atk (直接乘算) and ASPD +attack_speed for the whole battle
+  attr_common_global_buff(battle, ps, p, bandId) {
+    const mods = directMods({ atk: num(p.atk), hp: num(p.max_hp) });
+    if (num(p.attack_speed)) mods.aspd = num(p.attack_speed);
+    if (!Object.keys(mods).length) return;
+    const elitesOnly = num(p.filter_autochess_golden) > 0;
+    for (const u of playerOps(battle, ps.playerId)) if (!elitesOnly || isElite(u)) passiveBuff(battle, u, keyOf(bandId, 'attr'), mods);
   },
 };
 
