@@ -1,6 +1,7 @@
 // test/skill-begin.test.js — a 'state' cast's begin clip (data `cast.begin`, server/sim/skills.js beginTime / _beginCast /
 // _tickBegin; docs/rules/sim.md 「스킬 시작 클립」): the client's `BasicSkill.PlayBeginAnimation` waits the clip out in the Skill
-// state before `DoStartSkill`, and a stun meanwhile loses the cast.
+// state before `DoStartSkill` — whose `BasicSkill.Cast` spends the SP (`CastSkill.DoCast` → `ReduceSp`) —, and a stun meanwhile
+// loses the cast and keeps the SP.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -45,9 +46,11 @@ test('begin clip: the swing in progress is cut, no attack and no skill until it 
   cast(u);
   assert.equal(u.swing, null, 'the cast cuts it');
   assert.ok(!u.skill.active && u.skill._begin, 'the begin clip plays: the skill has not started');
-  assert.equal(u.skill.sp, 0, 'the SP is spent with the cast');
+  const full = u.skill.spCost;
+  assert.ok(u.skill.sp >= full && u.skill.ready, 'the SP stays until the skill starts (CastSkill.DoCast spends it)');
   const t0 = h.b.time;
   h.runUntil(() => u.skill.active, 3);
+  assert.equal(u.skill.sp, 0, 'spent as the skill starts');
   assert.ok(Math.abs(h.b.time - t0 - begin) < TICK + 1e-9, `the skill starts as the clip ends: ${h.b.time - t0} vs ${begin}`);
   assert.equal(attacks(h, e).length, n0, 'no attack during it');
   assert.ok(u.s.def > def, 'its mods from then');
@@ -57,7 +60,7 @@ test('begin clip: the swing in progress is cut, no attack and no skill until it 
   done(h);
 });
 
-test('begin clip: a stun meanwhile loses the cast — no skill, no end effect, the SP gone, the view told', () => {
+test('begin clip: a stun meanwhile loses the cast — no skill, no end effect, the SP kept, the view told', () => {
   const { h, u } = field(AURORA, { skill: 0 });
   const e = h.spawn('enemy_dummy', { pos: [10, 5] });
   block(h, u, e);
@@ -70,7 +73,7 @@ test('begin clip: a stun meanwhile loses the cast — no skill, no end effect, t
   assert.ok(!u.skill.active && !u.skill._begin, 'no skill');
   assert.equal(u.s.def, def, 'no mods');
   assert.ok(!u.findBuff('stun'), 'no self-stun of its end (S1 onEnd did not run)');
-  assert.ok(u.skill.sp < u.skill.spCost, 'the SP is not given back');
+  assert.ok(u.skill.sp >= u.skill.spCost && u.skill.charges === u.skill.maxCharges, 'the SP is kept: the cast never reached DoCast');
   assert.ok(h.eventsOf('skill').some((ev) => ev[1] === u.id && ev[2] === 0), 'the skill off event');
   done(h);
 });

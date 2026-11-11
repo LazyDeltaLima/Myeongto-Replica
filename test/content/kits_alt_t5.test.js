@@ -1452,6 +1452,27 @@ test('妮芙 S1 笞心击: ATK +; attacks add 10 % 凋亡 and, on a bursting tar
   }
 });
 
+test('妮芙 S1 笞心击: the hit that sets the burst off has no extra damage (its buffs come before its damage), the next one does', () => {
+  for (const id of pair('22')) {
+    const h = run({ defs: { enemies: { enemy_dummy: dummy('enemy_dummy') } }, units: [entry(id, 'skchr_nymph_1', { row: 10, col: 4 })], enemies: [{ key: 'enemy_dummy', pos: [10, 6] }] });
+    const u = sel(h, id, 'skchr_nymph_1');
+    const e = h.b.enemies[0];
+    h.step();
+    // the burst comes with the first skill hit, as a hit whose 凋亡损伤 fills the gauge
+    h.b.on('damaged', (c) => {
+      if (c.source === u && c.target === e && c.dmg?.isAttack && c.type === 'arts' && !e.findBuff('apoptosisBurst')) h.b.dealDamage(null, e, { type: 'element', element: 'apoptosis', amount: 5000 });
+    }, { priority: 50 });
+    cast(h, u);
+    const hits = () => during(h, u, dealt(h, u, (c) => c.dmg.isAttack && c.type === 'arts'));
+    assert.ok(h.runUntil(() => hits().length >= 1, 5));
+    assert.ok(e.findBuff('apoptosisBurst'), `${id}: burst from the first hit`);
+    assert.equal(tagged(h, u, 'nymphLash', e).length, 0, `${id}: not on the hit that set it off`);
+    assert.ok(h.runUntil(() => hits().length >= 2, 5));
+    assert.equal(tagged(h, u, 'nymphLash', e).length, 1, `${id}: on the next hit`);
+    done(h);
+  }
+});
+
 test('妮芙 S3 心防溃决: skill range, ATK/ASPD +, 2 targets; attacks on a bursting target are elemental damage', () => {
   for (const id of pair('22')) {
     const h = run({ defs: { enemies: { enemy_dummy: dummy('enemy_dummy', { res: 50 }) } }, units: [entry(id, 'skchr_nymph_3', { row: 10, col: 3 })], enemies: [{ key: 'enemy_dummy', pos: [10, 6] }, { key: 'enemy_dummy', pos: [9, 5] }] });

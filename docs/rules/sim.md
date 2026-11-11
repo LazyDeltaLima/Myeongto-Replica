@@ -1589,7 +1589,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 ### 즉발 스킬의 시전 (결정 1, GitHub #298)
 - **규칙**: 자기 공격(`spec.attack`)이 없는 즉발·충전 스킬은 클라 스킬 클래스대로 시전한다 — 데이터 `skills[i].cast`
   (`tools/local-extract/skill_cast.py` → `tools/assets/local-skill-cast.json` → `tools/build-data.mjs skillCast`, 클립 길이는 `data/assets.json`).
-  스킬 능력 = 루트의 애니 능력, 없으면 루트 묶음(`_abilities` 순서)의 첫 클립 자식, 그것도 없으면 경로 이름순 첫 능력(2026-10-29: 인포서 S2가 클립 없는
+  스킬 능력 = 루트의 애니 능력, 없으면 루트 묶음(`_abilities` 순서)의 첫 클립 자식, 그것도 없으면 경로 이름순 첫 능력 — 단 스킬의 `_extraAbilities`는 스킬 자기 버프(루트 능력과 루트 묶음 자식의 `_buffs`)의 템플릿이 스킬 시작(ON_BUFF_START·ON_SKILL_START)에 `TriggerAbility`로 트는 것만 든다(2026-11-11, 공식 클라에서 확인: `BasicSkill.OnBorn`이 배치 때 붙이는 따로인 능력이고 `get_ability`가 아니다. 끝·주기·피격·SPELL_ON에 트는 9개 — 에이어스카르페 S2·블레미샤인 S3·베토치키 S2·클레멘티아 S3·노시스 S3·하루카 S1·S2·민트 S2·쏜즈 S2 — 는 버프만 거는 시전이 됐고, 바뀐 것은 시전 때 돌아보기와 막대 사건의 시각뿐; 시작에 트는 필라에 S1·스펙터 디 언체인드 S1·벨로네 S3 등은 그대로; 체르니 S2의 손 목록 `LATER_ABILITIES`는 이 규칙으로 바뀜)(2026-10-29: 인포서 S2가 클립 없는
   `aura` 대신 `knock_back` `Skill` — 바뀐 것은 이 하나; 켈시 에스페란타 S1–S3의 시전 기록도 이때 들어감, golden은 바라보기 수만).
   - `replace` = `ReplacementSkill`(풀 49개; 공격 없는 것: 引星棘刺 S1·锡人 S1·伺夜 S1/S2·华法琳 S1): 시전 때 SP를 쓰고 **다음 공격이 스킬로 나간다** —
     그 주기에 일반 공격 없음, 스킬 자신의 대상 선택(적이 없어도 나감), 효과는 그 휘두름의 OnAttack 프레임, 다음 공격은 그 휘두름 시작부터 공격 간격 한 번 뒤.
@@ -3066,11 +3066,15 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 
 ## 스킬 시작 클립 (2026-11-11, 관리자 결정 「풀 전체」)
 
-- **규칙**(공식 클라에서 확인): 스킬 프리팹이 시작 클립을 트는(`_playSkillBeginAnim` 1, `_beginAnim`) `_switchToState` 1 시전은, 시전하면 바로 스킬 상태에 들어가 진행 중인 휘두름을 끊고 공격하지 않는다. 시작 클립 길이를 기다린 **뒤에** 스킬이 시작된다: 버프·수치, 키트의 `onStart`, `skillStart` 훅, 지속 시간, 스킬 능력. `SkillState.OnEnter` → `BasicSkill.OnBeforeSkillStart`가 `PlayBeginAnimation`을 띄우고, 이것이 클립 길이(`Character.PlayAnimation`이 돌려준 값)만큼 `AsyncUtil.WaitForFixedSeconds`로 기다린 뒤 `DoStartSkill`을 부른다. 모델에 그 클립이 없으면 기다리지 않는다. SP는 시전 때 빠진다(`CastSkill.DoCast` → `ReduceSp`).
-- 그 사이 기절·빙결·수면이면 시전이 사라진다: 스킬 상태가 끝나며(`SkillState.OnTick` → `OnExit`) `BasicSkill.InterruptIfNot`이 `m_startSkill`을 비우고, `DoStartSkill`은 그것이 비어 있으면 아무것도 하지 않는다. SP는 돌아오지 않고 스킬의 끝 효과도 없다(오로라 S1의 자기 기절 없음).
+- **규칙**(공식 클라에서 확인): 스킬 프리팹이 시작 클립을 트는(`_playSkillBeginAnim` 1, `_beginAnim`) `_switchToState` 1 시전은, 시전하면 바로 스킬 상태에 들어가 진행 중인 휘두름을 끊고 공격하지 않는다. 시작 클립 길이를 기다린 **뒤에** 스킬이 시작된다: 버프·수치, 키트의 `onStart`, `skillStart` 훅, 지속 시간, 스킬 능력. `SkillState.OnEnter` → `BasicSkill.OnBeforeSkillStart`가 `PlayBeginAnimation`을 띄우고, 이것이 클립 길이(`Character.PlayAnimation`이 돌려준 값)만큼 `AsyncUtil.WaitForFixedSeconds`로 기다린 뒤 `DoStartSkill`을 부른다. 모델에 그 클립이 없으면 기다리지 않는다. SP는 클립 **뒤** 스킬이 시작될 때 빠진다(2026-11-11 고침, 공식 클라에서 확인): `DoStartSkill` → `SkillState._StartSkill` → `BasicSkill.Cast`가 `CastSkill.DoCast`(`ReduceSp`)를 부르고, SP 회복을 멈추는 것도 그 뒤 `OnCastSucceed`다(`registeredAsModifier`; `UpdateSpRecovery`도 스킬 능력의 `isAffecting`으로 정함). 그래서 클립 동안 SP 막대는 찬 채로 있다.
+- 그 사이 기절·빙결·수면이면 시전이 사라진다: 스킬 상태가 끝나며(`SkillState.OnTick` → `OnExit`) `BasicSkill.InterruptIfNot`이 `m_startSkill`을 비우고, `DoStartSkill`은 그것이 비어 있으면 아무것도 하지 않는다. `Cast`에 닿지 않았으니 SP는 그대로 남고(다음 시전 가능), 스킬의 끝 효과도 없다(오로라 S1의 자기 기절 없음).
 - `_switchToState` 0 시전은 기다리지 않고 바로 시작한다(하이모어 S2, `diy.md` 「새 시즌 블루포이즌·하이모어·홈바운드·안드레아나」).
 - 구현: `tools/local-extract/skill_cast.py`가 `begin`(클립 키, 아래 방향 배치의 `_beginAnimDown`은 `beginDown`)을 쓰고, `tools/build-data.mjs skillCast`가 그 길이를 스킬 기록의 `cast.begin`(초)에 넣는다(127개 프리팹 행, 풀 전체; 아래 방향 클립은 풀의 모든 모델에서 길이가 같아 따로 두지 않음). `server/sim/skills.js`: `beginTime`(틱 단위로 반올림), `_beginCast`(스킬 상태·휘두름 끊기·'skill' 켜짐 사건 — 5번째 필드의 [타격, 끝]은 클립 뒤로 민 시각), `_tickBegin`(유닛 공격 갱신 뒤, 클라 코루틴이 `SimulateTick`에서 이어지듯), `_startSkill`. `ai.js updateAlly`는 클립의 마지막 틱에도 공격을 시작하지 않는다.
 - 시작 클립을 스스로 단계로 짠 키트는 `ownBegin`으로 엔진을 끈다: 첸 더 던스트릭 S3(`op-chen3.js`, 틱까지 맞춘 단계 — 위 「첸 S3」). 전에 키트가 따로 하던 우쿠시크 S1·안드레아나 S2·우요우 S2·오로라 S1/S2·바르카리스 S2는 엔진으로 옮겼다. 그 셋(우쿠시크·안드레아나·우요우)은 휘두름을 끊지 않았고, 우쿠시크·안드레아나는 지속 시간을 클립만큼 늘리지 않았다.
-- [추정·미조사: 시작 클립 동안 지속형 스킬의 SP 회복을 멈춤(스킬이 켜진 것처럼)].
+- 클립 동안 SP: 막대가 차 있어 회복할 것이 없다(충전이 여럿인 스킬은 다음 충전을 향해 계속 찬다 — 스킬 능력이 아직 시전 중이 아님). 전에는 시전 때 SP를 비우고 클립 동안 회복을 막았다(읽기 전의 가정) — 끝 상태는 같고, 막대 그림과 기절 때 SP가 달랐다.
+- `OnBeforeSkillStart`의 다른 갈래(공식 클라에서 확인, 2026-11-11; 가상 슬롯 0x13 = `IsAvailable`, 0x38 = `CanCastCheckBeforeStart`, 0x42 = `PlayBeginEffectAndAudio`, 0x43 = `PlayBeginAnimation`):
+  - `hasPlayedBeginAnim`이 참이면 아무것도 안 한다. 기반은 늘 거짓이고 `ToggleSkillWithEndAnimation`(토가와 사키코 S2 외 둘)만 덮어쓴다: 한 번 쓸 때 시작 클립을 튼 뒤 참, `UseSkill`·`OnSkillEnd`에서 거짓. 이 클래스는 켜진 동안 시작 클립 대신 `_endAnim`을 튼다(끄기 동작). 이 모드의 자동 조작은 켜진 토글을 다시 누르지 않으므로(`AutoChessBattleTrigger._CheckToggleSkill`) 두 갈래 모두 일어나지 않는다.
+  - `IsAvailable` ∧ `CanCastCheckBeforeStart`가 아니면 클립 없이 바로 시작한다. `CastSkill`은 `_checkHasTargetBeforeDoCast`이고 `_trigger`가 있으면 그 대상 검사를 본다 — 풀에서 시작 클립이 있는 것은 데겐블레허 S3·리 S2뿐이고 둘 다 대상이 있을 때만 시전되므로 클립은 그대로 튼다.
+  - 吟唱 스킬(`get_hasChant`: 루트의 `ChantBeforeSkill`)은 `PlayBeginAnimation` 대신 `ChantBeforeSkill.StartChant`를 띄운다: 그 행동의 시작·반복·끝 클립을 吟唱 시간(`m_totalDuration`) 안에 맞춰 틀고(클립 합이 더 길면 빠르게), 끝나면 吟唱 성공 처리 뒤 스킬을 시작한다. `_beginAnim`은 안 튼다. 풀에서는 안젤리나 더 멜로우 위시 S2 하나(`Skill_2_Takeoff_*`, 키트의 吟唱) — `skill_cast.py`가 吟唱 스킬에는 `begin`을 쓰지 않는다(2026-11-11 고침: 그 전날 시작 클립 `Skill_2_Begin` 1초를 吟唱 앞에 기다리게 했었다).
 - 화면: 'skill' 켜짐 사건은 전처럼 시전 때 나가므로 렌더는 그때 시작 클립을 튼다. 스킬 버프의 이펙트는 이제 클립 뒤에 나온다.
-- 확인: `test/skill-begin.test.js`(옛 코드에서 3건 모두 실패 확인).
+- 확인: `test/skill-begin.test.js`(옛 코드에서 3건 모두 실패 확인; SP 두 줄은 2026-11-11 고친 뒤 옛 코드에서 2건 실패 확인).

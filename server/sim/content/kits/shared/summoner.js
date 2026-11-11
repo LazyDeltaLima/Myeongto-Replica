@@ -7,15 +7,17 @@
 //
 // Sources: the client's battle data (charpack char_248_mgllan / char_2023_ling / char_4195_radian: Talents/1
 // charge_token[born] — RechargeToken `cnt` at every deployment of the owner; CommonAbilities die_to_kill_token — KillTokens
-// when the owner leaves; the SUM-Y equips mgllan_equip_2_* / ling_equip_1_*: trigger_charge_token — RechargeToken the
-// trait's `cnt` once, on the undeployed card (`_attachPassiveBuffsOnDummy`); the token decks: deckStack / deployLimit of
+// when the owner leaves; the SUM-Y equips mgllan_equip_2_* / ling_equip_1_* (the module's TRAIT part): trigger_charge_token —
+// RechargeToken the trait's `cnt` as the trait ability attaches: once on the undeployed card (`_attachPassiveBuffsOnDummy`) and
+// at every deployment, after charge_token[born] (the client's Character.OnBorn runs the born buffs — Entity.OnBorn →
+// BuffContainer.OnOwnerBorn — before it attaches `m_traitAbility`); the token decks: deckStack / deployLimit of
 // the token records, which carry the tokens' hidden talent max_deck_stack_cnt / max_deploy_count — tools/build-data.mjs
 // tokenTalentDeckBonus); PRTS 分支特性信息 召唤师
 // ("干员离场后，附属的召唤物随之消失"); PRTS 卫戍协议/帮助 §作战阶段 (placed summons: "所有手动部署的召唤物，无视所属干员的持有
 // 状态，不消耗持有数量，作战开始时立即部署一次", "若战场区初始部署有召唤物，若召唤物在战斗期间退场，将在满足条件后立即原地再部署1个").
 //
 // The deck (`summonDeck`):
-// - holding: `start` on the undeployed card (SUM-Y's +3), then +`charge` at each deployment of the owner, at most `cap`
+// - holding: `start` on the undeployed card (SUM-Y's +3), then +`charge` and +`trait` (SUM-Y's again) at each deployment of the owner, at most `cap`
 //   (the token deck: 5, +3 with SUM-Y); a skill's "获得1个召唤物" and a recall add 1 (deck.gain / deck.recall);
 // - the battle start deploys every placed piece for free without touching the holding (the engine's initial deployment);
 // - a piece that leaves the field — knocked out, recalled, absorbed, withdrawn with its owner — comes back on its own tile
@@ -67,11 +69,11 @@ export function tokenStat(battle, owner, tokenId, key) {
  * Install the summon deck of `owner` (see the header) and hand its placed pieces their kit.
  * @param {object} battle
  * @param {object} owner the summoner unit
- * @param {{ tokenIds: Iterable<string>, charge: number, start?: number, cap: number, maxDeployed?: number,
+ * @param {{ tokenIds: Iterable<string>, charge: number, start?: number, trait?: number, cap: number, maxDeployed?: number,
  *   kit?: ((piece: object) => object) | null, onLeave?: ((piece: object, kind: string, ctx: object) => void) | null }} opts
  * @returns {object} the deck: { held, cap, charge, maxDeployed, pieces(), standing(), gain(n), recall(t), withdraw(t, kind) }
  */
-export function summonDeck(battle, owner, { tokenIds, charge, start = 0, cap, maxDeployed = Infinity, kit = null, onLeave = null }) {
+export function summonDeck(battle, owner, { tokenIds, charge, start = 0, trait = 0, cap, maxDeployed = Infinity, kit = null, onLeave = null }) {
   const ids = new Set(tokenIds);
   const c = Math.max(0, Math.floor(num(cap, 0)));
   const deck = {
@@ -134,8 +136,10 @@ export function summonDeck(battle, owner, { tokenIds, charge, start = 0, cap, ma
     }, { owner: t, priority: -10 });
   }
 
-  // charge_token[born]: +charge at every deployment of the owner (the battle start's included)
-  battle.on('deploy', (ctx) => { if (ctx.unit === owner) deck.gain(deck.charge); }, { owner, priority: 100 });
+  // charge_token[born]: +charge at every deployment of the owner (the battle start's included); then the trait ability's
+  // trigger_charge_token (SUM-Y) +trait
+  const traitCnt = Math.max(0, Math.floor(num(trait, 0)));
+  battle.on('deploy', (ctx) => { if (ctx.unit === owner) { deck.gain(deck.charge); if (traitCnt) deck.gain(traitCnt); } }, { owner, priority: 100 });
   // die_to_kill_token: "干员离场后，附属的召唤物随之消失"
   battle.on('death', (ctx) => {
     if (ctx.unit !== owner) return;

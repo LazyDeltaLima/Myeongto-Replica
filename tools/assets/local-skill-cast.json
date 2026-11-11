@@ -33,7 +33,6 @@
   },
   "skchr_aglna2_2": {
    "ability": null,
-   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -407,16 +406,7 @@
    "cls": "replace"
   },
   "skchr_ayer_2": {
-   "ability": {
-    "anim": "",
-    "cd": 0,
-    "cdKey": "duration",
-    "face": 0,
-    "max": -1,
-    "pre": 0,
-    "time": 2,
-    "wait": 0
-   },
+   "ability": null,
    "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
@@ -613,16 +603,7 @@
    ]
   },
   "skchr_blemsh_3": {
-   "ability": {
-    "anim": "",
-    "cd": 0,
-    "cdKey": "duration",
-    "face": 0,
-    "max": -1,
-    "pre": 0.533,
-    "time": 2,
-    "wait": 1
-   },
+   "ability": null,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -727,16 +708,7 @@
    "state": 0
   },
   "skchr_branch_2": {
-   "ability": {
-    "anim": "",
-    "cd": 0,
-    "cdKey": "duration",
-    "face": 1,
-    "max": -1,
-    "pre": 0,
-    "time": 2,
-    "wait": 0
-   },
+   "ability": null,
    "cls": "cast",
    "reset": 0,
    "state": 0
@@ -984,16 +956,7 @@
    "state": 1
   },
   "skchr_clemnt_3": {
-   "ability": {
-    "anim": "",
-    "cd": 0,
-    "cdKey": "duration",
-    "face": 0,
-    "max": -1,
-    "pre": 0,
-    "time": 2,
-    "wait": 0
-   },
+   "ability": null,
    "begin": "Skill_3_Begin",
    "beginDown": "Skill_Down_3_Begin",
    "cls": "cast",
@@ -1633,21 +1596,7 @@
    "state": 1
   },
   "skchr_gnosis_3": {
-   "ability": {
-    "anim": "",
-    "cd": -1,
-    "cdKey": "duration",
-    "chan": {
-     "begin": "Skill_4_Begin",
-     "end": "Skill_4_End",
-     "loop": "Skill_4_Loop"
-    },
-    "face": 0,
-    "max": 1,
-    "pre": 0,
-    "time": 0,
-    "wait": 1
-   },
+   "ability": null,
    "cls": "cast",
    "reset": 0,
    "state": 0
@@ -1795,32 +1744,14 @@
    "state": 1
   },
   "skchr_haruka_1": {
-   "ability": {
-    "anim": "",
-    "cd": 0,
-    "cdKey": "duration",
-    "face": 1,
-    "max": -1,
-    "pre": 0,
-    "time": 2,
-    "wait": 0
-   },
+   "ability": null,
    "begin": "Skill_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_haruka_2": {
-   "ability": {
-    "anim": "",
-    "cd": 0,
-    "cdKey": "duration",
-    "face": 1,
-    "max": -1,
-    "pre": 0,
-    "time": 2,
-    "wait": 0
-   },
+   "ability": null,
    "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
@@ -2701,21 +2632,7 @@
    "state": 1
   },
   "skchr_mint_2": {
-   "ability": {
-    "anim": "",
-    "cd": 0.62,
-    "cdKey": "duration",
-    "chan": {
-     "begin": "Skill_2_Begin",
-     "end": "Skill_2_End",
-     "loop": "Skill_2_Loop"
-    },
-    "face": 0,
-    "max": -1,
-    "pre": 0,
-    "time": 2,
-    "wait": 1
-   },
+   "ability": null,
    "cls": "cast",
    "reset": 0,
    "state": 0
@@ -4167,21 +4084,7 @@
    "state": 1
   },
   "skchr_thorns_2": {
-   "ability": {
-    "anim": "",
-    "cd": 0,
-    "cdKey": "cooldown",
-    "chan": {
-     "begin": "Skill1_1",
-     "end": "Skill1_3",
-     "loop": "Skill1_2"
-    },
-    "face": 1,
-    "max": -1,
-    "pre": 0.5,
-    "time": 3,
-    "wait": 0
-   },
+   "ability": null,
    "cls": "cast",
    "reset": 0,
    "state": 0

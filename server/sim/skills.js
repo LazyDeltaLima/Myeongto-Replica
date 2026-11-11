@@ -125,7 +125,7 @@ export class SkillRuntime {
     // the cast replaces the unit's next attack; 'state' — the unit stays in its Skill state while the skill ability
     // plays; 'free' — no state change. null (not read): the one-attack-interval rule of #298
     this.cast = d.cast ?? null;
-    this._begin = null;           // a 'state' cast playing its begin clip before the skill starts: { until, reason } (_beginCast)
+    this._begin = null;           // a 'state' cast playing its begin clip before the skill starts: { until, reason, free } (_beginCast)
     this._replace = null;         // a 'replace' cast waiting for the unit's next attack: { reason }
     if (this.kind === 'passive') this.baseSpCost = 0;
     this._spCostMul = 1;          // content may set spCostMul (e.g. 绝技 ×0.7) — see the accessor below
@@ -314,7 +314,7 @@ export class SkillRuntime {
   // ignoreLock is reserved for explicitly documented exceptions (黄沙罗盘), not ordinary SP gifts.
   gainSp(amount, reason = 'time', silent = false, { ignoreLock = false } = {}) {
     if (this.noSkill || this.kind === 'passive' || !(amount > 0)) return 0;
-    if ((this.active || this._begin) && this.isTimed && reason !== 'init' && !ignoreLock) return 0;
+    if (this.active && this.isTimed && reason !== 'init' && !ignoreLock) return 0;
     // 阻回 (the operators' 凋亡 burst, damage.js): "停止并阻止任意形式的技力回复" — no SP of any kind (time, attack, hurt, gifts)
     if (reason !== 'init' && !ignoreLock && this.unit.s.flags.noSp) return 0;
     let cost = this.spCost;
@@ -393,7 +393,7 @@ export class SkillRuntime {
     // natural SP recovery stops only under 阻回 (noSp; a running timed skill holds it too) — not while 晕眩 / 冻结 / 浮空
     // keep the unit from acting: PRTS 技能 "在阻回状态或技力条已满时，保留剩余冷却时间，计时暂停"; PRTS 异常效果 STUNNED
     // "无法攻击、释放技能、阻挡敌人类单位" says nothing of SP (community report #18: 洛洛's S2 self-stun froze her SP)
-    if (this.spType === 'time' && !((this.active || this._begin) && this.isTimed) && !u.s.flags.noSp && u.alive && u.deployed && !u.hidden) {
+    if (this.spType === 'time' && !(this.active && this.isTimed) && !u.s.flags.noSp && u.alive && u.deployed && !u.hidden) {
       const rate = u.s.spRecovery;
       if (rate > 0) this.gainSp(rate * dt, 'time');
     }
@@ -672,33 +672,40 @@ export class SkillRuntime {
     if (this.active && this.isTimed) return false;
     const u = this.unit;
     if (!u.alive || !u.deployed) return false;
-    if (!free) {
-      const wasFull = this.charges >= this.maxCharges;
-      this.charges--;
-      if (this.maxCharges === 1 || wasFull) this.sp = 0;
-    }
     this.activations++;
     this.lastStart = this.battle.time;
     if (this.manual) this.blockTicks = BLOCK_SKILL_TICK;
     const begin = this.beginTime;
-    if (begin > 0) this._beginCast(reason, begin);
-    else this._startSkill(reason);
+    if (begin > 0) this._beginCast(reason, begin, free);
+    else {
+      if (!free) this._spend();
+      this._startSkill(reason);
+    }
     return true;
+  }
+
+  /** The cast's cost: one charge, and the SP when it was the only one or the bar was full (`CastSkill.DoCast` → `BasicSkill.ReduceSp`). */
+  _spend() {
+    const wasFull = this.charges >= this.maxCharges;
+    this.charges--;
+    if (this.maxCharges === 1 || wasFull) this.sp = 0;
   }
 
   /**
    * A cast with a begin clip (beginTime): the unit enters its Skill state now — the swing in progress is cut, no attack
-   * (ai.js updateAlly) — and the view plays the clip (the 'skill' on event); the SP is spent (`CastSkill.DoCast` →
-   * `ReduceSp`). The skill itself — its mods, `onStart`, the 'skillStart' hook, its time, its skill ability — starts as the
-   * clip ends (_tickBegin). A stun, freeze or sleep meanwhile loses it (`SkillState.OnExit` → `BasicSkill.InterruptIfNot`
-   * clears the start the clip waits for: `DoStartSkill` then does nothing).
+   * (ai.js updateAlly) — and the view plays the clip (the 'skill' on event). The skill itself — its cost, its mods,
+   * `onStart`, the 'skillStart' hook, its time, its skill ability — starts as the clip ends (_tickBegin): the client's clip
+   * waits before `DoStartSkill` → `SkillState._StartSkill` → `BasicSkill.Cast`, whose `CastSkill.DoCast` spends the SP
+   * (`ReduceSp`) and whose `OnCastSucceed` stops the SP recovery; until then the bar stays as it was (`BasicSkill.isAffecting`
+   * is the skill ability's, not cast yet). A stun, freeze or sleep meanwhile loses the cast and keeps the SP
+   * (`SkillState.OnExit` → `BasicSkill.InterruptIfNot` clears the start the clip waits for: `DoStartSkill` then does nothing).
    */
-  _beginCast(reason, begin) {
+  _beginCast(reason, begin, free = false) {
     const b = this.battle;
     const u = this.unit;
     // (a 'state' cast leaves the born state: see _startSkill)
     if (u.bornUntil > b.time) u.bornUntil = b.time;
-    this._begin = { until: b.time + begin, reason };
+    this._begin = { until: b.time + begin, reason, free };
     this._enterSkillState({ action: begin });
     u.skillAnimUntil = Math.max(u.skillAnimUntil ?? -Infinity, b.time + SKILL_ANIM_WINDOW);
     this._evOn(reason, begin);
@@ -719,6 +726,7 @@ export class SkillRuntime {
     }
     if (b.time + 1e-9 < g.until) return;
     this._begin = null;
+    if (!g.free) this._spend();
     this._startSkill(g.reason, true);
   }
 

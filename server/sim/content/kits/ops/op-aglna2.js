@@ -30,7 +30,7 @@
 // - S1 极速送达 (被动 ON_DEPLOY, 56 s): a timed deployment skill (activateOnDeploy, trigger NEVER): she takes off at each
 //   deployment for its duration — range 3-6, ATK +atk, attacks 2 targets (attack@max_target) — and lands when it ends
 //   (aglna2_s_1[switch_mode] → S1_Landing: its 1 s clip in the air, no attack — FLY_CLIP below; the S2 / S3 landings too).
-// - S2 重力自定义 (MANUAL, 22 s, data DEFAULT on its 3-10 — docs/rules/sim.md 「스킬 범위 발동」): she takes off once its begin clip Skill_2_Begin has played (the engine: data `cast.begin`, skills.js beginTime); for chant_duration (2.5) s she glides
+// - S2 重力自定义 (MANUAL, 22 s, data DEFAULT on its 3-10 — docs/rules/sim.md 「스킬 범위 발동」): she takes off at the cast — a 吟唱 skill has no begin clip: the client's `BasicSkill.OnBeforeSkillStart` runs `ChantBeforeSkill.StartChant` (its Skill_2_Takeoff_Begin / _Loop / _End over the chant) in place of `PlayBeginAnimation`, so Skill_2_Begin never plays (tools/local-extract/skill_cast.py) —; for chant_duration (2.5) s she glides
 //   (吟唱: no attack, 无敌, the control statuses refused — 备注 "持有无敌、不可阻挡、晕眩/冻结/小睡/沉睡免疫，一减状态抵抗率×0")
 //   while a sweep released from her tile along her direction (备注 "宽3.0×厚1.3、飞行速度6.0的弹道…终点位于前方至多4.0格"; it
 //   goes through walls and stops at the last tile a flyer can cross) hits each selectable enemy once — her model rides it out

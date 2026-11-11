@@ -115,7 +115,7 @@
         "wanted": 9,
         "whitw2Drones": 645
       },
-      "snaps": "235b6b35 da0848c1 71e4f555 7b072b88 2983ad7e 582a567b 99f173d4 4a3fd2af c5d8ca34 0d367c5a a533c6d8 f5c3fc0c be991bb5 58434328 b1baae1c b8f4353e 35de7256 d61fcc3e 6f4e97a5 61625aa7"
+      "snaps": "235b6b35 05726a9b f317813b 18a619a6 fb985cd0 5386960d 08f9a58a edcaf2b5 f6e9880e 5f92f23c 1c966172 31ca2a26 ee2df9c7 0e3ab447 72408703 21818a21 feb42468 7c9f5b80 3bee4a17 95296409"
     },
     "boss-boss_1-solo": {
       "about": "假想敌：胄 solo pool 1800000: chess_char_5_08_b chess_char_5_11_b chess_char_5_05_b chess_char_5_06_b chess_char_5_13_b chess_char_5_07_b chess_char_5_02_b chess_char_5_03_b chess_char_5_10_b chess_char_5_12_b",
@@ -158,7 +158,7 @@
       "hooks": [1,40,6000,636,636,1206,1295,3815,23,23,54,51,160,20799,2805,2,25,0,1,18,0,0,0],
       "events": {"atk":636,"castHit":26,"deploy":15,"die":23,"dmg":1235,"engage":5,"face":2,"fx":340,"heal":177,"skill":105,"spawn":35,"status":352,"swing":641},
       "fx": {"anchor":5,"beam":43,"camouflage":1,"enemySkill":11,"explode":6,"healAoe":21,"kitHit":5,"overload":1,"reborn":1,"shell":7,"splash":159,"stacks":66,"substitute":2,"summon":4,"swap":2,"zone":6},
-      "snaps": "3e353571 fa9960ad 7ba0ca44 87bcb257 ebf7b514 69178cd2 25d7e5c5 7a83d963 d39d08fc 4dd97f42 d79c688d 4c9f2bd2 d90e644a 3ba559b7 d217cd63 9e6ec4ad 83c7ac36 c7eb9acd d87fd735 49e80df3"
+      "snaps": "3e353571 fa9960ad 7ba0ca44 3f6dbd39 c57142d2 99258ab6 7e6c4a69 fc6d6a37 d1e2ff40 45b3cd0e 93ee6941 d19e9846 14d3c616 c2f362c3 b256bb9b 823acb35 b30d6bae 468cc8e5 97fb376d 998eaeeb"
     },
     "boss-boss_2-pair": {
       "about": "假想敌：铳 pair pool 6000000: chess_char_5_19_b chess_char_4_01_b chess_char_5_14_b chess_char_5_17_b chess_char_5_15_b chess_char_5_20_b chess_char_5_21_b chess_char_5_22_b chess_char_5_23_b chess_char_4_02_b | chess_char_4_11_b chess_char_4_04_b chess_char_4_07_b chess_char_4_16_b chess_char_4_09_b chess_char_4_06_b chess_char_4_10_b chess_char_4_12_b chess_char_4_13_b chess_char_4_14_b token_10041_cathy_catsld token_10041_cathy_catsld",
@@ -246,7 +246,7 @@
         "weightless": 4,
         "zone": 194
       },
-      "snaps": "f0ec2d5a 22f5f645 4f4f843b 0ca4538f 16997e7e e18543ad 76b86091 e53eca13 2e056bea 152da071 0799e1f7 0e766cca 660c6b7a 614c8ede 3094fbc3 faf3a6ac 6109b038 08fcfc93 f8a364b8 c59e98aa"
+      "snaps": "f0ec2d5a 22f5f645 4f4f843b 0ca4538f e1fb5240 2641dc23 daf60477 ba8430c5 a0c99818 c2f8dd03 47313fb1 7e15af9c a840d154 6fc596c8 87359089 a69ced02 a4efccb6 5f559d4d 672f26be 3c0ba6c8"
     },
     "boss-boss_2-solo": {
       "about": "假想敌：铳 solo pool 3000000: chess_char_4_17_b chess_char_4_18_b chess_char_4_23_b chess_char_4_19_b chess_char_4_22_b chess_char_4_20_b chess_char_4_21_b chess_char_4_24_b chess_char_4_25_b chess_char_4_26_b",
@@ -432,7 +432,7 @@
         "wanted": 2,
         "whitw2Drones": 480
       },
-      "snaps": "4586fe04 c18b9077 6e759eed 7c9902af 433ab7af 9aef1173 9a28ba21 6b19786b ad15609f 58b9e378 aaaf0218 b57d79ae 9021d51c f9424521 1fabe99e 1aa7c413 0cb89c59 3b02e661 832e69c3 fd01c520"
+      "snaps": "fe79f8fe 9f205051 a52f01d5 29f05ba7 e04f7747 d81a4e0b 64674cd9 eb869923 e67f00f7 35d40050 07fcc792 966df528 0b67c19e 927a477d 3f7c069a d252a6bf 0f984155 aed8075d 99db00af 6d87d874"
     },
     "boss-boss_3-solo": {
       "about": "假想敌：管 solo pool 2000000: chess_char_5_08_b chess_char_5_11_b chess_char_5_05_b chess_char_5_06_b chess_char_5_13_b chess_char_5_07_b chess_char_5_02_b chess_char_5_03_b chess_char_5_10_b chess_char_5_12_b",
@@ -483,7 +483,7 @@
       "hooks": [1,43,6000,407,407,1001,1762,1632,22,24,63,60,44,18129,1135,3,20,0,1,99,0,5,0],
       "events": {"atk":421,"castHit":27,"deploy":17,"die":24,"dmg":990,"engage":9,"face":18,"fx":329,"heal":72,"skill":123,"spawn":37,"status":192,"swing":415},
       "fx": {"anchor":2,"aoe":2,"appear":1,"beam":12,"burst":5,"candle":4,"disappear":1,"ember":2,"enemyShot":42,"enemySkill":7,"explode":142,"healAoe":25,"kitHit":2,"overload":4,"phase":12,"splash":44,"stacks":10,"substitute":2,"summon":6,"swap":1,"telegraph":1,"teleport":2},
-      "snaps": "e3d54426 2c05447e 9ff9839d 38d7840e 6340770a 130b48a7 06bdc625 d814b33a 4d32d7ef bde41fd4 3fe661c4 7c17e130 4636231e 4b172ec5 f8e6f07c f62c12da 9f29ee10 d813ee75 53a9fcad ff1d1df1"
+      "snaps": "e3d54426 2c05447e 9ff9839d 38d7840e 6340770a 130b48a7 06bdc625 d814b33a 4d32d7ef bde41fd4 3fe661c4 7c17e130 4636231e 4b172ec5 f8e6f07c f62c12da 4ce803a0 3df46125 d09ed6dd 11d04321"
     },
     "boss-boss_4-pair": {
       "about": "盐风主教昆图斯 pair pool 8400000: chess_char_5_19_b chess_char_4_01_b chess_char_5_14_b chess_char_5_17_b chess_char_5_15_b chess_char_5_20_b chess_char_5_21_b chess_char_5_22_b chess_char_5_23_b chess_char_4_02_b | chess_char_4_11_b chess_char_4_04_b chess_char_4_07_b chess_char_4_16_b chess_char_4_09_b chess_char_4_06_b chess_char_4_10_b chess_char_4_12_b chess_char_4_13_b chess_char_4_14_b token_10041_cathy_catsld token_10041_cathy_catsld",
@@ -577,7 +577,7 @@
         "weightless": 4,
         "zone": 320
       },
-      "snaps": "a3fd28b3 86811e46 8e90258e 90a1bf53 78caded6 df711a87 6e52d0d5 16ad80b4 fa1104d9 4a53395e c3ca2aec 44560a40 beb14e1c 75f761f3 781c6f3e 46d440f7 894971cb 79e6066c d270acb8 97a3331e"
+      "snaps": "b45e668b 21dde09e 71a58f76 260619eb f94616be 88b4b64f 2daa485d 3f3a132c 81bfa841 2374d976 7d3058b4 3a13860c 1d63bc58 d663ffef e40fd2ea 128255a3 f3140d37 61024f90 77a560c4 fa5a3412"
     },
     "boss-boss_4-solo": {
       "about": "盐风主教昆图斯 solo pool 4200000: chess_char_4_17_b chess_char_4_18_b chess_char_4_23_b chess_char_4_19_b chess_char_4_22_b chess_char_4_20_b chess_char_4_21_b chess_char_4_24_b chess_char_4_25_b chess_char_4_26_b",
@@ -752,7 +752,7 @@
         "wanted": 7,
         "whitw2Drones": 240
       },
-      "snaps": "be4f50b3 aae15621 cb70ec82 c364efb3 c0d44fdb ba50ec8e 806aa5b3 0c098c22"
+      "snaps": "160c9ff7 ec368dca 09c4d4b9 a7716940 7fa13c78 54fbf535 dabe7550 0d87769d"
     },
     "boss-boss_5-solo": {
       "about": "卢西恩，“猩红血钻” solo pool 780000: chess_char_5_08_b chess_char_5_11_b chess_char_5_05_b chess_char_5_06_b chess_char_5_13_b chess_char_5_07_b chess_char_5_02_b chess_char_5_03_b chess_char_5_10_b chess_char_5_12_b",
@@ -798,7 +798,7 @@
       "hooks": [1,26,6000,422,422,768,1163,5703,10,13,75,73,126,22762,1011,10,11,0,1,56,0,4,72],
       "events": {"atk":431,"castHit":24,"deploy":15,"die":13,"dmg":818,"engage":9,"face":16,"fx":296,"heal":239,"skill":148,"spawn":23,"status":227,"swing":435},
       "fx": {"anchor":1,"aoe":1,"blink":4,"bloodBattle":1,"burst":4,"candle":1,"dodge":72,"ember":1,"enemySkill":22,"explode":18,"healAoe":23,"kitHit":1,"overload":3,"revive":1,"shieldBreak":2,"splash":126,"stacks":5,"substitute":1,"summon":5,"swap":1,"telegraph":1,"teleport":2},
-      "snaps": "f06b69f0 1e389d6c 7a5dab0b 9aa8f684 f0c44581 3ee617ca 03a5f3cc 55176f20 af0622bd c3627b57 209ad8ef 1b940714 335d78bf 5f1b689d 8caa7195 c7fffcd5 ab979b79 d60c17ab c69b9d17 3c5d5e8b"
+      "snaps": "f06b69f0 6572895a b3afe295 6035b7a1 5f0d4768 d7a9b7bb 691cd24d 666b6ec5 15ed7d24 77da6b76 4836efc2 bf7543d5 6dee54b2 6a089cc0 96b6b324 9039fbe8 aa426ff1 d8c91f03 c07bfc2f 84a5dcc3"
     },
     "boss-boss_6-pair": {
       "about": "阿利斯泰尔，帝国余晖 pair pool 7960000: chess_char_5_19_b chess_char_4_01_b chess_char_5_14_b chess_char_5_17_b chess_char_5_15_b chess_char_5_20_b chess_char_5_21_b chess_char_5_22_b chess_char_5_23_b chess_char_4_02_b | chess_char_4_11_b chess_char_4_04_b chess_char_4_07_b chess_char_4_16_b chess_char_4_09_b chess_char_4_06_b chess_char_4_10_b chess_char_4_12_b chess_char_4_13_b chess_char_4_14_b token_10041_cathy_catsld token_10041_cathy_catsld",
@@ -898,7 +898,7 @@
         "weightless": 4,
         "zone": 200
       },
-      "snaps": "59e1f336 5ec02939 5b84d4b0 b56a615f 7c90284f ef944ae4 862a8b72 8430260d 88565606 227cf2f5 f05b97d6 18508af8 c2dd708e 0a33775b e1b82664 0ff7396e 8a7b90ae e5de9118 0b0a03cb a16c7843"
+      "snaps": "59e1f336 5ec02939 2d8fd968 e2634ec7 4747fc77 3b81008c 78f4321a 57bd80e5 25c5ecde f0aaab2d 6ebf8efe d2e33d1d f8a49d5f 186677e6 8573d4f9 4032c003 524acc4b 4507f2e5 4a98c0d6 62ece43a"
     },
     "boss-boss_6-solo": {
       "about": "阿利斯泰尔，帝国余晖 solo pool 3980000: chess_char_4_17_b chess_char_4_18_b chess_char_4_23_b chess_char_4_19_b chess_char_4_22_b chess_char_4_20_b chess_char_4_21_b chess_char_4_24_b chess_char_4_25_b chess_char_4_26_b",
@@ -950,7 +950,7 @@
       "hooks": [1,49,6000,303,303,471,668,714,33,35,27,26,0,10376,114,2,22,2,1,26,0,0,3],
       "events": {"atk":375,"deploy":21,"die":33,"dmg":437,"engage":7,"face":17,"fx":177,"heal":10,"leak":2,"skill":55,"spawn":38,"status":337,"swing":313},
       "fx": {"appear":4,"bandage":2,"charges":12,"disappear":4,"dodge":3,"enemySkill":13,"equip":11,"featherArrow":7,"flame":4,"garrisonGrant":1,"healField":2,"jungleSoul":2,"mote":9,"motes":9,"redistribute":3,"reweave":1,"riposte":3,"rockslide":1,"sandChains":5,"slash":48,"stacks":3,"summon":2,"sword":2,"talent":5,"telegraph":13,"truesilver":3,"vest":5},
-      "snaps": "9f533268 8ab328cf ac66dc7e 2ee4297b 7855254b a17f64bf 59f5da9e 860c9c59 b253e7f3 dedd07d8 10eef0bb 535b678c 9f8c1b28 9e5b7fcc 345a8a96 cdd25b21 941afc57 7644c5e9 a52f3735 6e9a0618"
+      "snaps": "9f533268 8ab328cf ac66dc7e 2ee4297b 7855254b a17f64bf 59f5da9e 860c9c59 b253e7f3 dedd07d8 10eef0bb 535b678c eba36a3e c9a804ba 0021f4e4 4e55c37b 13c0ba1d a3a757cf 7cba7642 02fc29fb"
     },
     "boss-boss_7-pair": {
       "about": "“萨米的意志” pair pool 4000000: chess_char_6_03_b chess_char_6_06_b chess_char_6_07_b chess_char_6_01_b chess_char_6_02_b chess_char_6_04_b chess_char_6_05_b chess_char_6_08_b chess_char_6_09_b chess_char_6_11_b token_10017_skadi2_dedant token_10030_mlyss_wtrman | chess_char_6_15_b chess_char_6_19_b chess_char_5_01_b chess_char_6_17_b chess_char_6_12_b chess_char_6_13_b chess_char_6_14_b chess_char_6_16_b chess_char_6_18_b chess_char_6_20_b",
@@ -1012,7 +1012,7 @@
       "hooks": [1,46,5310,1268,1268,3167,3465,1337,20,25,83,79,291,39275,1364,3,17,0,1,19,0,10,0],
       "events": {"atk":1442,"deploy":29,"die":25,"dmg":3201,"engage":11,"face":67,"fx":1180,"heal":422,"skill":162,"spawn":44,"status":615,"swing":1313},
       "fx": {"airstrike":77,"beam":5,"blink":2,"bombard":66,"bombardShell":67,"burst":10,"column":40,"copy":3,"displace":1,"dp":4,"drone":253,"droneLock":11,"drones":3,"enemySkill":3,"explode":6,"garrisonGrant":1,"link":1,"lock":70,"phase":1,"pulse":21,"shieldBreak":4,"snow":5,"steal":5,"sunBurst":4,"talent":4,"tide":5,"wanted":1,"whitw2Drones":507},
-      "snaps": "aed53615 c578328c 342a1b8d d9a721ed bdb2c0cc 140c44c8 e2ca4953 a5c30bf2 f9321831 2d7ce070 8fe108d1 7deed132 73c5b539 98a360fe 6bbdf99a a1ad3e42 acf29c72 a1265e2d"
+      "snaps": "99ec23f8 c60a457c 5ed0787d 695cc5f0 ed8a3581 c2bda2c1 cca7dd2a 26fb5c6b 96ff91c0 b765eac5 ee1f080c 8a9c3e7a c5fb7551 90df5516 d5559d29 df2156a9 b1bea931 697e79a2"
     },
     "boss-boss_7-solo": {
       "about": "“萨米的意志” solo pool 2000000: chess_char_5_08_b chess_char_5_11_b chess_char_5_05_b chess_char_5_06_b chess_char_5_13_b chess_char_5_07_b chess_char_5_02_b chess_char_5_03_b chess_char_5_10_b chess_char_5_12_b",
@@ -1058,7 +1058,7 @@
       "hooks": [1,33,6000,415,415,532,910,752,13,16,86,84,14,21646,1378,4,14,0,1,12,0,0,0],
       "events": {"atk":426,"castHit":36,"deploy":19,"die":16,"dmg":670,"engage":6,"face":6,"fx":173,"heal":72,"skill":170,"spawn":27,"status":252,"swing":445,"tplfx":1},
       "fx": {"anchor":3,"beam":3,"candle":2,"column":30,"enemySkill":3,"explode":5,"healAoe":33,"kitHit":3,"overload":4,"splash":14,"stacks":67,"teleport":6},
-      "snaps": "7b6f4a62 41e5a294 6826e8ad ef0603a2 401af93d bac3d547 dddaa901 d7ff643e 19d7482a 6588d57b 4f25165a 65c00e44 5371fc53 1d2b6f42 3f09b29f 9f2d40b7 22b9b34b 100d1f18 e620811f cf6ec205"
+      "snaps": "7b6f4a62 41e5a294 6826e8ad ef0603a2 401af93d 505b5bd2 32acf82c 98d53a4b c47b1c67 22bea94a 9a2e892b 53172049 13ef6482 90f4c0ff 58d05b3e 81742022 7445f20e 2b3df7f5 98790aaa 26c00c84"
     },
     "hidden-boss_8-pair": {
       "about": "假想敌：胄 pair pool 14400000: chess_char_5_19_b chess_char_4_01_b chess_char_5_14_b chess_char_5_17_b chess_char_5_15_b chess_char_5_20_b chess_char_5_21_b chess_char_5_22_b chess_char_5_23_b chess_char_4_02_b | chess_char_4_11_b chess_char_4_04_b chess_char_4_07_b chess_char_4_16_b chess_char_4_09_b chess_char_4_06_b chess_char_4_10_b chess_char_4_12_b chess_char_4_13_b chess_char_4_14_b token_10041_cathy_catsld token_10041_cathy_catsld",
@@ -1165,7 +1165,7 @@
         "weightless": 4,
         "zone": 238
       },
-      "snaps": "31a1cc61 b6ff0ad0 e61d6241 398aa5a9 92d28ab9 1931a2cd 554af414 5e35a761 531d14b2 e1592312 1a911876 ac6f3a4c 78b2e6a1 7b598432 ee66d659 ae729cca 7291c766 b0a1fcc2 1918d0e7 4bc5f1bd"
+      "snaps": "0b52eae2 9fa55f60 90efc631 8bf44a19 29196129 634ee89d ebb43d84 87ed81d1 629b30c2 3f9b1b22 c72d2d46 a12a835c f6d3ad49 1c0a3c3a 96914291 d4391ec2 f063793e 9bb4faee 05ef52a3 3a9e6e79"
     },
     "hidden-boss_8-solo": {
       "about": "假想敌：胄 solo pool 7200000: chess_char_4_17_b chess_char_4_18_b chess_char_4_23_b chess_char_4_19_b chess_char_4_22_b chess_char_4_20_b chess_char_4_21_b chess_char_4_24_b chess_char_4_25_b chess_char_4_26_b",
@@ -1335,7 +1335,7 @@
         "whitw2Drones": 426,
         "zone": 6
       },
-      "snaps": "5fed17e1 4884231d 948f5554 38624d34 8ad7e4a5 8fbf9f42 92db76d3 bb8a8348 e10463a4 036ef54d 2886c33a 3fde8533 a18bbb14 97596cc2 dbb29099 cc867152 7fafa149 cf1eeb29 917fc38b dae723d2"
+      "snaps": "5fed17e1 732d90a2 7c170173 ec8885db a6434ec2 80a46d2d 3e35f12c d703b9df e4cb8b4b 2d2eaab0 5692422a 0c526f23 9ce6ada6 48abce81 87ae114e 132b56f9 bdd4a952 90b7481a 642afd58 206f77c1"
     },
     "hidden-boss_9-solo": {
       "about": "假想敌：铳 solo pool 2800000: chess_char_5_08_b chess_char_5_11_b chess_char_5_05_b chess_char_5_06_b chess_char_5_13_b chess_char_5_07_b chess_char_5_02_b chess_char_5_03_b chess_char_5_10_b chess_char_5_12_b",
@@ -1382,7 +1382,7 @@
       "hooks": [1,36,6000,814,814,3565,5685,4466,11,15,91,87,100,27110,1873,3,15,0,1,113,0,9,0],
       "events": {"atk":1357,"castHit":31,"deploy":21,"die":15,"dmg":5043,"engage":10,"face":41,"fx":1009,"heal":492,"skill":178,"spawn":27,"status":291,"swing":852},
       "fx": {"anchor":4,"aoe":3,"beam":39,"burst":9,"candle":8,"charge":6,"chargeEnd":6,"dash":12,"downed":2,"ember":2,"enemyShot":38,"enemySkill":18,"explode":1,"healAoe":27,"kitHit":89,"link":591,"overload":4,"palsy":4,"phase":12,"reborn":1,"revive":3,"shieldBreak":10,"sleepGuard":1,"splash":99,"stacks":9,"substitute":3,"swap":3,"teleport":5},
-      "snaps": "9dec4256 ad9114c8 7f3316d7 e25eff74 774e10f2 febd4f11 b7c563a5 d1efe070 9acafc97 4403366c 0360a3aa 92f99c2c 10b75c44 22eda609 8db4d66c 7852f31a 7b165a75 62b263b1 f8c11854 8a789a41"
+      "snaps": "9dec4256 ad9114c8 a666280e 75b728c1 9aa9002f 51426378 59225e04 84e803b9 05251bee 0c1d87e9 171ddfd4 a9931d1a b798ce9a 4cfa88dd 81b3500f 647e92c1 962deae6 d589f096 9711a033 78a5d82c"
     },
     "hidden-boss_10-pair": {
       "about": "假想敌：管 pair pool 15200000: chess_char_5_19_b chess_char_4_01_b chess_char_5_14_b chess_char_5_17_b chess_char_5_15_b chess_char_5_20_b chess_char_5_21_b chess_char_5_22_b chess_char_5_23_b chess_char_4_02_b | chess_char_4_11_b chess_char_4_04_b chess_char_4_07_b chess_char_4_16_b chess_char_4_09_b chess_char_4_06_b chess_char_4_10_b chess_char_4_12_b chess_char_4_13_b chess_char_4_14_b token_10041_cathy_catsld token_10041_cathy_catsld",
@@ -1492,7 +1492,7 @@
         "weightless": 2,
         "zone": 104
       },
-      "snaps": "67e53b33 796b18f2 d47bd633 c193f696 6a0c5e10 8cb06d70 b8cbfb2c 4e9aa631 f389935c ffb2bcff cb68a38d 2fabe0d7 8de4f97f 53ab5ad0 281787ba 752c4f4d 8bdbb28b 9354eda0 cd3ad966 cbfa41fe"
+      "snaps": "12b71caa 6b15a9fe 7a2be807 6fcee312 ec826da4 34e50ffc 231b5014 c8980cd9 0c40a5d4 65b62ed7 d5d605c5 0c9f944f b93ae777 e54a1b54 ef544e46 e221d3b9 61ae491f 3afbb484 cdcbe774 b697e8dc"
     },
     "hidden-boss_10-solo": {
       "about": "假想敌：管 solo pool 7600000: chess_char_4_17_b chess_char_4_18_b chess_char_4_23_b chess_char_4_19_b chess_char_4_22_b chess_char_4_20_b chess_char_4_21_b chess_char_4_24_b chess_char_4_25_b chess_char_4_26_b",
@@ -1665,7 +1665,7 @@
       "hooks": [1,37,6900,201,201,236,461,349,10,15,11,8,0,22485,226,8,11,0,1,10,0,0,0],
       "events": {"atk":304,"bounty":1,"deploy":22,"die":15,"dmg":233,"engage":5,"face":93,"fx":1037,"heal":193,"skill":19,"spawn":33,"status":88,"swing":244},
       "fx": {"blink":2,"copy":1,"drone":398,"droneLock":3,"drones":4,"garrisonGrant":1,"link":3,"radiantSword":1,"shieldBreak":3,"summon":1,"sunBurst":1,"talent":3,"whitw2Drones":616},
-      "snaps": "1aa81f77 78647f0e 85183c8e 1e62ac11 8525194f 6e4bb0fe b4c8c845 2209709c 6f99ec07 af560d16 a7903654 41f098cc 8d689a56 8fa4afa8 5c6fd19a 513f2208 113b35d8 716cd39b 841a5d14 703ddf13 6bc98fca bb5f06ad 2aa40d22"
+      "snaps": "1aa81f77 78647f0e 85183c8e dc6b14c2 b67a8c90 aa423f09 437e562a 4e3d1fbb 3233ec88 646e80c1 c6b57dbb c5ae9357 6f6e912d 96fb927f 6c93c425 ca206223 3f645587 458868a4 e5061f4b 4ef31e9c eb172b55 34bf112a 473ae18d"
     },
     "unite-4-wide": {
       "about": "联防 4 helper(s), 11 leaked: chess_char_5_08_b chess_char_5_11_b chess_char_5_13_b chess_char_5_14_b chess_char_5_07_b chess_char_5_10_b chess_char_5_12_b chess_char_5_15_b | chess_char_5_19_b chess_char_4_01_b chess_char_5_17_b chess_char_5_20_b chess_char_5_21_b chess_char_5_22_b chess_char_5_23_b chess_char_4_02_b | chess_char_4_11_b chess_char_4_04_b chess_char_4_07_b chess_char_4_09_b chess_char_4_06_b chess_char_4_10_b chess_char_4_12_b chess_char_4_13_b token_10041_cathy_catsld token_10041_cathy_catsld | chess_char_4_17_b chess_char_4_18_b chess_char_4_19_b chess_char_4_22_b chess_char_4_16_b chess_char_4_14_b chess_char_4_20_b chess_char_4_21_b",
@@ -1743,7 +1743,7 @@
       "hooks": [1,57,1256,88,88,195,309,4919,12,17,16,15,0,15360,204,11,11,0,1,68,0,0,0],
       "events": {"atk":110,"bounty":1,"castHit":13,"deploy":34,"die":17,"dmg":195,"engage":6,"face":17,"fx":80,"heal":17,"skill":33,"spawn":57,"status":78,"swing":96,"tplfx":3},
       "fx": {"aoe":7,"charges":2,"ember":1,"garrisonGrant":2,"healAoe":5,"kitHit":2,"overload":1,"roadTiles":1,"shield":1,"sp":2,"stacks":31,"swordStorm":1,"zone":24},
-      "snaps": "311fc6fe f75c367f ea109770 88387c06 c89754a6"
+      "snaps": "311fc6fe 2392b65e e7c8ef39 a5443ec3 062b1377"
     },
     "unite-3-wide": {
       "about": "联防 3 helper(s), 11 leaked: chess_char_4_23_b chess_char_6_03_b chess_char_4_24_b chess_char_4_25_b chess_char_4_26_b chess_char_6_01_b chess_char_6_02_b chess_char_6_04_b token_10017_skadi2_dedant | chess_char_6_06_b chess_char_6_07_b chess_char_6_05_b chess_char_6_08_b chess_char_6_09_b chess_char_6_11_b chess_char_6_12_b chess_char_6_13_b token_10030_mlyss_wtrman | chess_char_6_15_b chess_char_6_19_b chess_char_5_01_b chess_char_6_17_b chess_char_6_14_b chess_char_6_16_b chess_char_6_18_b chess_char_6_20_b",
@@ -1810,7 +1810,7 @@
       "hooks": [1,53,10350,260,260,1082,1566,7740,15,27,24,23,7,40418,30,5,11,0,1,15,0,0,0],
       "events": {"atk":592,"bounty":1,"deploy":42,"die":27,"dmg":1082,"engage":3,"face":58,"fx":2005,"heal":739,"skill":47,"spawn":47,"status":683,"swing":270},
       "fx": {"airstrike":4,"blink":2,"bombard":7,"bombardShell":7,"camouflage":2,"charges":2,"copy":3,"drone":635,"drones":5,"garrisonGrant":2,"link":2,"lock":7,"mote":112,"motes":143,"radiantSword":1,"redistribute":60,"reweave":4,"snow":5,"spGift":1,"stacks":28,"summon":1,"sunBurst":1,"talent":4,"tide":7,"whitw2Drones":960},
-      "snaps": "43cd2523 29eced6e 448ecfd0 059851cc e3ab1e62 5ad286ee 16ab2a7b 5d345c54 02fd27a0 b589ce19 f6db6a62 d8f20638 9d1fc1ea 335cee50 37e53f98 8261070e 9a6c2b40 5023d037 92cb2578 4048a39f 72979a40 05873bff 9f3a24e5 223b71a4 4ed82353 2850fb12 cb73a74b e894c97a db5fc949 63820552 97a3aadf 38a41216 1a1c3fa9 85ff9837 9090446c"
+      "snaps": "43cd2523 6d5128f4 87ac15be 2652ccb2 e3a034b8 8f002204 44cb7cdd ea5f777e 264cb4b2 9d667d6f 3b855000 f3ed672a 70109f20 0e61a670 97993eb8 0885c6ae 1405e560 98aabf57 635dd998 b4d779bf b18514e0 7a8ec01f fff2d105 8b4bcbc4 4605aef3 b5dca8b2 82297b6b 53a1fe1a 47ce0769 730085f2 af99647f d9d65a36 2101f5c9 42f42c57 d123aa8c"
     }
   }
 }

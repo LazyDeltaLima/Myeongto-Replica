@@ -791,7 +791,8 @@
 - 하루카의 비눗방울은 그녀가 떠나도 남는다(공식 클라에서 확인, 2026-11-03): 재능 능력(`Talents/1`)의 버프 `haruka_t_1`는 수명 `INFINITY`, 버프 템플릿에
   주인 쪽 이벤트가 없고, 능력은 제 주인에게 건 패시브 버프만 들고 있어(`Ability.m_passiveBuffUids`) 남에게 준 버프를 주인 퇴장 때 걷는 길이 없다.
 - 키트 주석에 남은 추정:
-  - 스테인리스 [추정·미조사: 장치 재고 — 배치마다 +cnt, 상한 cnt + CRA-X 1, 상한을 넘는 `RechargeToken`은 버림; 게가 SP를 받는 것은 게를 고른 공격뿐(적 쪽
+  - 스테인리스 장치 재고: 배치마다 재능 +cnt(`charge_token[born]`, ON_OWNER_BORN), 그 뒤 CRA-X의 특성 능력이 붙으며 +1(`trigger_charge_token`), 상한 cnt + CRA-X 1, 상한을 넘는 수는 버림(`Deck.TokenCard.Recharge`가 상한으로 자름) — 공식 클라에서 확인(2026-11-11, 차례는 로베르타 줄). 배치 전 카드에서 도는 CRA-X 한 번은 배치 때 상한에 묻힌다.
+  - 스테인리스 [추정·미조사: 게가 SP를 받는 것은 게를 고른 공격뿐(적 쪽
     선택자를 쓰는 범위 스킬도 게를 고르는지는 안 봄); 소환물도 게를 침 — 덱 `RechargeToken`(`Deck.RechargeToken`·`Card.RechargeToken`, 색인에 없음)과
     위수협의 손패 규칙을 읽어야 함].
 - 쓰러진 소환물의 복귀(관리자 결정 2026-11-03 「공식대로」, 공식 클라에서 확인): 위수협의 자동 배치(`AutoChessBattleTrigger._TryDeployAvailableCharacter`)는
@@ -1380,7 +1381,7 @@
 - 재능 `kaitou_t_1[check_ep]`: 범위 안 적 하나라도 쇠약 손상(凋亡损伤) 폭발 중이면 공격력 +N%, 여럿이어도 하나(`AuraAbility`, `ignoreTargetFree`라 선택 불가 적도 센다).
 - S1 `skchr_kaitou_1`: 공격력 +N%, 모드 S1. 맞을 때마다 그 피해의 `attack@ep_damage_ratio`만큼 쇠약 손상 게이지(`ep_damage_based_on_damage_value`), 폭발 중이면 공격력의 `attack@extra_ep_damage_scale`만큼 원소 대미지(`kaitou_s_1[ep_damage]`, 스킬이 켜진 동안만).
 - S2 `skchr_kaitou_2`: 공격 속도 +N, 모드 S2 대상 2명(`_maxNum` 2), 같은 추가 원소 대미지. 게이지는 쌓지 않는다.
-- 폭발 판정은 그 타격 **전** 상태다. 공식 클라에서 확인: `Projectile.ActionController.OnHitTarget`이 `_activeBuffs`를 먼저 붙이고 피해 행동을 뒤에 돌린다. 그래서 게이지를 채워 막 폭발시킨 타격에는 추가 대미지가 없고 다음 타격부터 붙는다.
+- 폭발 판정은 그 타격 **전** 상태다. 공식 클라에서 확인: `Projectile.ActionController.OnHitTarget`이 `_activeBuffs`를 먼저 붙이고 피해 행동을 뒤에 돌린다. 그래서 게이지를 채워 막 폭발시킨 타격에는 추가 대미지가 없고 다음 타격부터 붙는다. 님프 S1 「디얄 일격」(`chess_char_5_22`, 지금 시즌에도 있음)도 같은 꼴이라 같이 고쳤다(2026-11-11, 프리팹 `Modes/S1/Body/Attack`의 `_activeBuffs` `nymph_s_1[ep_damage]`, 같은 ON_BUFF_START 템플릿; 전에는 게이지를 채운 뒤 폭발을 봤다).
 - PRI-X: 원소 폭발 중인 적에게 주는 모든 피해 × `damage_scale`(특성 bb, `kaitou_e_002_tr[dmg_up]`).
 
 ### 리프레사 `char_4031_liesel` (T2, 스플래시 캐스터)
@@ -1398,7 +1399,7 @@
 - S2 `skchr_pianst_2`: 최대 HP +N%, 도발 +1. NORMAL·SPLASH 공격을 받으면 피해 종류와 상관없이 공격력 +N% 한 겹, `max_stack_cnt`까지, 재능 뒤에(PRTS). 프리팹 값은 20이지만 표와 문구대로 10으로 한다.
 - 최종 공격: `interval`(18.6)초에 모드 `Empty`(공격 안 함), 그때 행동할 수 있으면 `_preDelay` 0.5초 뒤 공격력의 `atk_scale` 마법 대미지를 `x-1` 안 모두에게(공중 포함, PRTS). 스턴에 걸려 있거나 그사이 걸리면 없다(`_checkCanUseAblityFlag`).
 - 최종 공격의 이펙트·클립 시점은 `fx.md` 「W·클로저·브리지드·크리스틴·체르니·리프레사 키트 순간 이펙트」, `render.md` 「선발 클립 판정」.
-- `skill_cast.py`가 이 스킬의 나중 능력을 시전 능력으로 읽어 시작에 1.7초 멈췄다: `LATER_ABILITIES`로 뺌. 같은 꼴(`_extraAbilities`)의 다른 스킬 19개 행은 안 건드렸다. 클립은 `anim-keys.mjs`가 `FinalAttack`을 끝 클립으로 읽는다.
+- `skill_cast.py`가 이 스킬의 나중 능력을 시전 능력으로 읽어 시작에 1.7초 멈췄다: 빼냄(2026-11-11부터 손 목록 대신 일반 규칙 — `sim.md` 「즉발 스킬의 시전」의 `_extraAbilities`, 같은 꼴 9개도 같이). 클립은 `anim-keys.mjs`가 `FinalAttack`을 끝 클립으로 읽는다.
 - AST-X 1단계(`common_damage_on_*`, 수정자 키 `artsprotector_e_002_tr`): 스킬이 켜진 동안 그녀의 공격과 받는 적 피해마다 상대에게 공격력의 `atk_scale` 마법 대미지.
 
 ### 아오스타 `char_346_aosta` (T2, 산탄사수)
@@ -1418,8 +1419,8 @@
 - TAC-Y: 소환물이 저지한 적은 저지 동안 조롱 +`taunt_level`(비질 TAC-Y와 같은 방식). 1단계라 잔해 체력 변화·`mitm_e_002_[sp]`는 없다.
 
 ### 로베르타 `char_484_robrta` (T3, 기능공) · 전자동 스타일러 `token_10018_robrta_mach`
-- 재능: 배치 때 보유 수를 `cnt`로 **맞춘다**. 공식 클라에서 확인: `charge_token[refresh]`의 `_refreshRemainingCnt`면 `Deck.TokenCard.Recharge`가 더하지 않고 cnt로 놓는다(상한 안에서). CRA-X는 상한 +1, 비용 −2(소환물 표). CRA-X의 `trigger_charge_token`은 배치 전 카드에서 돈다(`_attachPassiveBuffsOnDummy`). [추정·미조사: 그 +1이 배치 때 맞추기보다 먼저라 덮이고, 상한은 S2로만 찬다. 순서는 안 읽음] 놓인 기계는 전투 시작에 무료로 서고, 떠난 기계는 재배치 시간 뒤 보유 1·비용을 내고 제자리로(`deviceReturn`, 스테인리스와 같음).
-- 기계: 공격 안 함, 치료 불가·무적, 지정 안 됨. 배치마다 `duration`초 뒤 떠난다(`robrta_mach_withdraw`). 바라보는 칸의 근접 칸 유닛(오퍼레이터·소환물, 장치 아님 — `professionMask`·PRTS)에게 방어력 +`def`(한 기계 것만: 다른 기계가 뒤를 잇는다), 실드 횟수는 **기계의 것**이라 다음 유닛은 남은 만큼만 받는다(PRTS). 횟수는 재능 문구의 것(표 칸 없음, 프리팹 `Talents/1`·`1+`). [추정·미조사: 두 기계가 한 유닛을 볼 때 실드을 각자 둔다. 같은 키 버프가 대체하는지 안 읽음]
+- 재능: 배치 때 보유 수를 `cnt`로 **맞춘다**. 공식 클라에서 확인: `charge_token[refresh]`의 `_refreshRemainingCnt`면 `Deck.TokenCard.Recharge`가 더하지 않고 cnt로 놓는다(상한 안에서). CRA-X는 상한 +1, 비용 −2(소환물 표). CRA-X의 `trigger_charge_token`(모듈의 TRAIT 부분 `robrta_equip_1_*_p1`)은 특성 능력이 붙을 때마다 +`cnt`: 배치 전 카드에서 한 번(`_attachPassiveBuffsOnDummy`), 그리고 배치마다 맞추기 **뒤**. 공식 클라에서 확인(2026-11-11): `Ability.DoAttach`는 주인이 더미이고 그 플래그가 꺼졌을 때만 패시브 버프를 건너뛰고, `Character.OnBorn`은 `Entity.OnBorn` → `BuffContainer.OnOwnerBorn`(재능 `charge_token[refresh]`, ON_OWNER_BORN)을 먼저 돌린 뒤 `m_traitAbility`를 붙인다. 그래서 CRA-X면 배치마다 보유 cnt + 1(= 상한). 놓인 기계는 전투 시작에 무료로 서고, 떠난 기계는 재배치 시간 뒤 보유 1·비용을 내고 제자리로(`deviceReturn`, 스테인리스와 같음).
+- 기계: 공격 안 함, 치료 불가·무적, 지정 안 됨. 배치마다 `duration`초 뒤 떠난다(`robrta_mach_withdraw`). 바라보는 칸의 근접 칸 유닛(오퍼레이터·소환물, 장치 아님 — `professionMask`·PRTS)에게 방어력 +`def`(한 기계 것만: 다른 기계가 뒤를 잇는다), 실드 횟수는 **기계의 것**이라 다음 유닛은 남은 만큼만 받는다(PRTS). 횟수는 재능 문구의 것(표 칸 없음, 프리팹 `Talents/1`·`1+`). 두 기계가 한 유닛을 보면 실드는 둘 다 붙고 먼저 붙은 것부터 쓴다: 프리팹의 두 버프(`robrta_mach_t`·`robrta_mach_t[def]`)가 `disableOverride` 0·`overrideType` 0이라 같은 키 버프를 줄 세우고 끝나지 않은 첫 것만 켠다(`Buff.OverrideGroup._DoUpdateInternal`, 공식 클라에서 확인) — 엔진의 「먼저 생긴 횟수 실드부터」(`absorbShields`)와 같다.
 - S1 공격력·방어력. S2 공격 안 함, 저지 +`block_cnt`, 방어력 +`def`, 끝날 때 보유 +1(`trigger_charge_token`).
 - 봇은 캐서린 장치처럼 오퍼레이터를 향해 놓는다(`bot.js FRONT_SUPPORT_TOKENS`).
 

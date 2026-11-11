@@ -105,7 +105,7 @@ test('trait 巡空者: on the ground she blocks ground enemies, not flyers; airb
     h.b.kill(fl, null);
     // S2: take off (the walker walks on)
     assert.ok(u.skill.activate('test', { free: true }));
-    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
+    h.runUntil(() => u.skill.active, 2);   // (a 吟唱 skill has no begin clip: it starts at the cast)
     assert.ok(u.s.flags.liftoff && u.s.flags.blockFly, `${label(f)}: airborne`);
     assert.equal(w.blockedBy, null, `${label(f)}: the ground enemy released`);
     assert.equal(canTargetAlly(w, u, true), false, `${label(f)}: 对地规避`);
@@ -246,7 +246,7 @@ test('S2 重力自定义 (MANUAL, data DEFAULT on 3-10): takes off; 2.5 s 吟唱
     const fl = h.spawn('enemy_fly', { pos: [9, 6] });           // swept flyer
     const far = h.spawn('enemy_dummy', { pos: [10, 9] });       // 5 ahead: not swept
     const wide = h.spawn('enemy_dummy', { pos: [12, 6] });      // 2 aside: not swept
-    assert.ok(h.runUntil(() => u.skill.active, 1 + 1.5), `${label(f)}: cast with an enemy in 3-10 (none in her 2-2), started after its 1 s begin clip`);
+    assert.ok(h.runUntil(() => u.skill.active, 1.5), `${label(f)}: cast with an enemy in 3-10 (none in her 2-2), started at once (吟唱, no begin clip)`);
     assert.ok(u.s.flags.liftoff, `${label(f)}: airborne`);
     assert.ok(u.s.flags.disarm && u.s.flags.invulnerable, `${label(f)}: 吟唱`);
     assert.equal(h.b.applyStatus(u, 'stun', { duration: 3, source: g }), false, `${label(f)}: control statuses refused while gliding`);
@@ -271,7 +271,7 @@ test('S2 重力自定义 (MANUAL, data DEFAULT on 3-10): takes off; 2.5 s 吟唱
     assert.equal(one.length, sk.bb['attack@max_target'], `${label(f)}: ${sk.bb['attack@max_target']} targets`);
     assert.ok(one.every((c) => c.type === 'arts'), `${label(f)}: arts`);
     h.runUntil(() => !u.skill.active, 30);
-    approx(h.hooksOf('skillEnd').at(-1).t - h.hooksOf('skillStart').at(-1).t, 22, `${label(f)}: 22 s from its start (after the begin clip)`, 0.01);
+    approx(h.hooksOf('skillEnd').at(-1).t - h.hooksOf('skillStart').at(-1).t, 22, `${label(f)}: 22 s from its start`, 0.01);
     assert.deepEqual(u.liveRangeGrid, formOf(tier, elite).rangeGrid, `${label(f)}: 2-2 back`);
     assert.ok(u.s.flags.liftoff, `${label(f)}: in the air through the landing clip S2_Landing`);
     h.run(FLY_CLIP + 0.05);
@@ -508,7 +508,7 @@ test('S2 重力自定义: her position stays while the dash fx sends the model t
     u.skill.gainSp(999);
     const x0 = u.x, y0 = u.y;
     h.spawn('enemy_dummy', { pos: [10, x0 + 1] });
-    assert.ok(h.runUntil(() => u.skill.active, 1 + 1.5), `${ahead}: cast (started after its 1 s begin clip)`);
+    assert.ok(h.runUntil(() => u.skill.active, 1.5), `${ahead}: cast`);
     const dash = h.eventsOf('fx').find((e) => e[1] === 'dash' && e[4].id === u.id);
     assert.ok(dash, `${ahead}: the glide announced`);
     assert.deepEqual([dash[4].tx, dash[4].ty, dash[4].chant], [x0 + want, y0, 2.5], `${ahead}: to ${want} ahead, for the 2.5 s 吟唱`);

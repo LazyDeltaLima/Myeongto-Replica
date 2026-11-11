@@ -5,13 +5,16 @@
 // Sources: the record's tables; PRTS 罗比菈塔, 全自动造型仪 (备注), 分支特性信息 工匠; charpack char_484_robrta (Talents/1 charge_token[refresh]), skill prefabs skchr_robrta_1 / _2, token
 // prefab token_10018_robrta_mach (Talents/1 and 1+, `_passiveBuffs`, `_tileOptions`), buff_template_data robrta_mach_t, robrta_mach_t[mode], charge_token[refresh], trigger_charge_token,
 // withdraw_target_as_dead_when_buff_finish, and Deck.TokenCard.Recharge (`refreshRemainingCnt`: the holding becomes cnt, at most the cap, instead of adding).
-// - 造型仪调试: each deployment sets her holding to cnt (cap cnt, +1 with CRA-X; the module's cost is in the token's data). CRA-X's trigger_charge_token is on the undeployed card
-//   (`_attachPassiveBuffsOnDummy`). [ASSUMED·미조사: that +1 comes before the deployment's refresh, which overwrites it, so only S2 reaches the cap; the order was not read] A placed machine deploys free at the battle
+// - 造型仪调试: each deployment sets her holding to cnt (cap cnt, +1 with CRA-X; the module's cost is in the token's data). CRA-X's trigger_charge_token (the module's TRAIT part,
+//   robrta_equip_1_*_p1) then adds +cnt: the official client's Character.OnBorn runs the born buffs first (Entity.OnBorn → BuffContainer.OnOwnerBorn: charge_token[refresh], ON_OWNER_BORN)
+//   and attaches the trait ability after them (Ability.DoAttach → AddPassiveBuffs: its ON_BUFF_START), so with CRA-X she holds cnt + 1 after every deployment. A placed machine deploys free at the battle
 //   start, and one that left comes back on its tile as her other <支援装置> do (op-ironmn.js deviceReturn: its redeploy time, one held, its cost, she on the field).
 // - The machine: no attack, 禁疗, 无敌, never targeted; it leaves `duration` s after each deployment (the passive robrta_mach_withdraw, as dead). A unit on a melee tile of its range (the tile it faces)
 //   has DEF +def while there (one machine's: 不叠加), and hit-count shields from the machine's count, which is the machine's own: what one unit used the next one does not get (PRTS 「总次数可分别作用于
 //   先后部署于其作用格的多个单位」). The count is the one the talent's text names (Talents/1+ at E2: 2). Operators and summons (professionMask, PRTS), no other device.
-//   [ASSUMED·미조사: two machines facing one unit keep a shield each; whether the client's same-key buff replaces is not read]
+//   Two machines facing one unit give a shield each and the older one is spent first: both of the token's buffs (robrta_mach_t, robrta_mach_t[def]) are `disableOverride` 0 /
+//   `overrideType` 0, the client's DEFAULT override group, which queues every same-key buff and enables only the first one not finished (Buff.OverrideGroup._DoUpdateInternal) —
+//   as damage.js absorbShields spends the older hit-count barrier first; the DEF one is one machine's at a time (below).
 // - S1 叙拉古式上妆: ATK +atk, DEF +def. S2 全自动造型仪: no attack, block +block_cnt, DEF +def; +robrta_s_2[recharge].cnt held as it ends.
 
 import { num, talentBb, traitBb, skillRec, up } from '../shared/tier1.js';
@@ -146,8 +149,8 @@ export default {
           deviceReturn(battle, t, unit);
           st.devices.add(t);
         }
-        // charge_token[refresh]: the holding becomes cnt
-        battle.on('deploy', (ctx) => { if (ctx.unit === unit) st.stock = Math.min(st.cap, charge); }, { owner: unit });
+        // charge_token[refresh]: the holding becomes cnt; then CRA-X's trigger_charge_token (the trait ability, attached after the born buffs) +cnt
+        battle.on('deploy', (ctx) => { if (ctx.unit === unit) st.stock = Math.min(st.cap, charge + extra); }, { owner: unit });
         devicesLeaveWithOwner(battle, unit);
       } }],
     };

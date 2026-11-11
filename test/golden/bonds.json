@@ -44,7 +44,7 @@
       "hooks": [1,35,1509,115,115,170,170,897,24,24,3,1,0,6433,0,16,24,0,1,24,0,0,0],
       "events": {"atk":115,"deploy":8,"die":24,"dmg":170,"engage":5,"face":24,"fx":19,"skill":6,"spawn":35,"status":3,"swing":140},
       "fx": {"buff":1,"coin":3,"mysticStore":3,"stacks":12},
-      "snaps": "7d93293e cb12b754 8df0a76c 8de600b7 eebc1209"
+      "snaps": "7d93293e cb12b754 8df0a76c 1b60ad02 29c5da40"
     },
     "bond-arcaneShip-high": {
       "about": "奥术 high: tier 2 layers 999; chess_char_4_01_b chess_char_4_04_b chess_char_4_07_b chess_char_4_09_b chess_char_1_17_b chess_char_2_10_b chess_char_3_09_b chess_char_4_06_b",
@@ -82,7 +82,7 @@
       "hooks": [1,29,2426,112,110,194,194,0,19,19,8,4,0,3612,55,2,18,0,1,19,0,0,0],
       "events": {"atk":125,"deploy":8,"die":19,"dmg":194,"engage":6,"face":14,"fx":51,"skill":12,"spawn":29,"status":79,"swing":125},
       "fx": {"crit":14,"dilemma":2,"drone":11,"mysticStore":16,"overload":1,"sermon":1,"shield":1,"stacks":5},
-      "snaps": "772e4de0 0053a4ff 0122bb6d 65bccb0f 87232b8b a7a61dcf 00cf4328 493c628c"
+      "snaps": "772e4de0 0053a4ff 0122bb6d 65bccb0f b0243b85 4a5ae8c9 15101cb6 c6940dd2"
     },
     "bond-deputShip-low": {
       "about": "助力 low: tier 1 layers 1; chess_char_3_12_a chess_char_1_06_a chess_char_1_13_a chess_char_3_08_a chess_char_3_09_a chess_char_3_10_a chess_char_3_11_a chess_char_3_13_a",
@@ -159,7 +159,7 @@
       "hooks": [1,21,2896,203,203,328,328,1962,8,8,13,11,0,11415,92,0,8,0,1,7,0,0,0],
       "events": {"atk":204,"castHit":5,"deploy":10,"die":8,"dmg":328,"engage":5,"face":32,"fx":37,"heal":73,"skill":24,"spawn":21,"status":76,"swing":210},
       "fx": {"beam":2,"counter":14,"enemyShot":1,"enemySkill":2,"pull":1,"slippery":2,"taunt":4,"tornado":1,"tornadoPulse":5,"zone":5},
-      "snaps": "3970668a 97da2908 8c35967c 57c4c65f 7b91ba7d 74d89a9d 77946e2d f777d824 3526b81b b84fb748"
+      "snaps": "3970668a 97da2908 8c35967c 57c4c65f 7b91ba7d 74d89a9d 77946e2d 68345250 6bcd1017 c313bf64"
     },
     "bond-egirShip-low": {
       "about": "阿戈尔 low: tier 1 layers 1; chess_char_1_04_a chess_char_3_16_a chess_char_2_07_a chess_char_3_18_a chess_char_3_05_a chess_char_3_14_a chess_char_3_17_a chess_char_3_19_a token_10028_vigil_wolf",
@@ -360,7 +360,7 @@
       "hooks": [1,32,1678,136,136,222,228,631,20,20,12,9,0,5468,130,4,18,0,1,20,1,1,3],
       "events": {"atk":176,"castHit":7,"deploy":11,"die":20,"dmg":228,"engage":6,"face":10,"fx":36,"layer":1,"skill":21,"spawn":31,"status":86,"swing":147},
       "fx": {"burst":1,"charges":9,"dilemma":1,"dodge":3,"explosion":4,"frostNova":3,"garrison":1,"kitHit":1,"levitate":7,"overclock":1,"shield":2,"slippery":1,"splash":2},
-      "snaps": "2bd6e9b6 58490fd3 f1d36635 6caab0f0 d208aa4d 41aa9d1d"
+      "snaps": "2bd6e9b6 58490fd3 f1d36635 94368725 08e32a00 77272214"
     },
     "bond-indomShip-high": {
       "about": "不屈 high: tier 2 layers 999; chess_char_1_20_b chess_char_3_16_b chess_char_4_23_b chess_char_5_01_b chess_char_2_12_b chess_char_4_24_b chess_char_4_25_b chess_char_4_26_b",
@@ -395,7 +395,7 @@
       "hooks": [1,55,5700,797,797,1489,1477,3915,36,44,32,31,72,4479,199,66,22,8,1,36,0,0,12],
       "events": {"atk":1235,"deploy":33,"die":36,"dmg":1474,"engage":4,"face":56,"fx":213,"heal":200,"leak":8,"skill":63,"spawn":30,"status":613,"swing":771,"tplfx":4},
       "fx": {"bandage":3,"charges":8,"dodge":12,"extraAttack":48,"garrisonGrant":1,"mote":38,"motes":37,"redistribute":30,"revive":22,"reweave":2,"sandChains":2,"sandChainsCharged":1,"shield":4,"spGift":2,"talent":3},
-      "snaps": "e1b616e7 f713bb92 6cdf69bc 9326ac19 70c96e23 c6d887ba 66514319 8f0380ea fef41813 4012cfc1 d128e0bc 4d8afbe8 3b866a22 efe4cb30 c2e7eb51 feeefccb 968890f0 9b347699 2081f590"
+      "snaps": "babda97b b941853e d58fd990 15f323dd fdc2919f c58df2fe 7316f085 d1523b0e 73a7ef67 6289292d 084d90d8 792ecef4 e32d35f6 75f16664 0b2510c5 37020f2f 62b62d74 23985945 f00d7e24"
     },
     "bond-investShip-low": {
       "about": "投资人 low: tier 1 layers 1; chess_char_4_17_a chess_char_4_18_a chess_char_5_14_a chess_char_4_19_a chess_char_3_04_a chess_char_4_16_a chess_char_2_19_a chess_char_4_20_a",
@@ -486,7 +486,7 @@
       "hooks": [1,34,2168,101,101,133,332,232,22,23,7,5,42,4265,0,2,22,0,1,68,0,0,0],
       "events": {"atk":107,"castHit":2,"deploy":9,"die":23,"dmg":171,"engage":4,"face":15,"fx":66,"skill":14,"spawn":33,"status":4,"swing":108},
       "fx": {"anchor":2,"aoe":1,"beam":1,"candle":2,"coin":4,"downed":1,"ember":1,"enemySkill":1,"kitHit":2,"splash":42,"stacks":9},
-      "snaps": "92430923 68ea1449 b77625a0 e3e1ea39 1bea1eaf 87c51876 aee577bc f9c0e82b"
+      "snaps": "c0ef3467 4a86b005 c308d9ac 6e6583ed 36106503 c25f506a 39bf0f08 da54de7f"
     },
     "bond-kazimierzShip-low": {
       "about": "卡西米尔 low: tier 1 layers 1; chess_char_2_18_a chess_char_4_23_a chess_char_4_22_a chess_char_1_19_a chess_char_2_12_a chess_char_4_21_a chess_char_4_24_a chess_char_4_25_a",
@@ -652,7 +652,7 @@
       "hooks": [1,26,2177,59,59,122,122,11,18,18,26,26,0,7952,1880,4,17,0,1,18,0,0,0],
       "events": {"atk":59,"castHit":12,"deploy":9,"die":18,"dmg":122,"engage":5,"face":29,"fx":82,"heal":10,"skill":51,"spawn":26,"status":30,"swing":76,"tplfx":2},
       "fx": {"charges":8,"coldWind":2,"drone":12,"frostNova":2,"healAoe":3,"hunterReload":10,"hunterRound":7,"kitHit":1,"stacks":8,"strike":8,"summon":1,"volley":7,"zone":13},
-      "snaps": "e0fe2874 c4e2e02f 2ac44846 e9cc38ba 237394d9 cb862138 97cf7ad1 5b1a453f"
+      "snaps": "e0fe2874 c4e2e02f 50f4ba28 23217d4c 6c432503 2026e13e fe66d0cb 234109cd"
     },
     "bond-lateranoShip-low": {
       "about": "拉特兰 low: tier 1 layers 1; chess_char_3_06_a chess_char_3_05_a chess_char_1_01_a chess_char_2_01_a chess_char_3_01_a chess_char_3_08_a chess_char_3_09_a chess_char_3_10_a",
@@ -840,7 +840,7 @@
       "hooks": [1,25,1571,119,119,286,286,0,18,18,7,6,0,4799,11,9,17,0,1,18,0,0,0],
       "events": {"atk":136,"castHit":3,"deploy":8,"die":18,"dmg":286,"engage":5,"face":12,"fx":54,"skill":13,"spawn":25,"status":86,"swing":139},
       "fx": {"displace":8,"drone":40,"ripple":1,"shield":2,"volley":3},
-      "snaps": "30ab2900 4a3de073 55ff581b 2abb5d9f 4ced98e8 8434272b"
+      "snaps": "30ab2900 4a3de073 71597be4 cf4e3f44 0096e25b 6edc9244"
     },
     "bond-miraShip-high": {
       "about": "奇迹 high: tier 1 layers 999; chess_char_4_01_b chess_char_2_11_b chess_char_4_04_b chess_char_4_07_b chess_char_3_01_b chess_char_5_22_b chess_char_4_02_b chess_char_4_06_b",
@@ -877,7 +877,7 @@
       "hooks": [1,28,4043,385,385,686,693,0,19,19,33,31,0,11290,67,4,18,0,1,19,2,3,0],
       "events": {"atk":411,"deploy":8,"die":19,"dmg":693,"engage":6,"face":25,"fx":141,"layer":2,"skill":64,"spawn":28,"status":129,"swing":405},
       "fx": {"aoe":6,"buff":1,"burst":3,"charge":15,"crit":51,"displace":25,"garrison":2,"quadShot":2,"ripple":9,"shadowWeave":10,"shield":1,"soul":3,"stacks":2,"stealth":5,"talent":6},
-      "snaps": "12b58241 2964e1b4 3f5f005c 2b6715ff d3df00b4 14c0580f 95962b62 ad9ba7a6 b54fd66d be8298f5 50011ac5 24b0f372 d8b55dbb 5b4d205b"
+      "snaps": "12b58241 2964e1b4 3f5f005c 2b6715ff d3df00b4 14c0580f 95962b62 ad9ba7a6 b54fd66d fbcb6d96 08d32362 c744e641 f11ed4bc 1d03b5e8"
     },
     "bond-preciShip-low": {
       "about": "精准 low: tier 1 layers 1; chess_char_4_11_a chess_char_4_04_a chess_char_4_07_a chess_char_4_09_a chess_char_1_09_a chess_char_1_17_a chess_char_4_10_a chess_char_4_12_a token_10041_cathy_catsld token_10041_cathy_catsld",
@@ -957,7 +957,7 @@
       "hooks": [1,37,2177,65,65,117,117,736,26,26,8,7,0,4784,85,11,24,0,1,26,0,0,0],
       "events": {"atk":66,"castHit":3,"deploy":10,"die":26,"dmg":117,"engage":5,"face":29,"fx":38,"skill":15,"spawn":37,"status":8,"swing":78},
       "fx": {"charges":9,"crit":2,"displace":2,"frostNova":3,"kitHit":1,"levitate":5,"mysticStore":7,"overclock":1,"pull":1,"slippery":1,"tornado":1,"tornadoPulse":5},
-      "snaps": "db149bb0 71c82d0d 8c33cee7 4f69697e e9000787 342ccccc 4b0d4001 d284aaf0"
+      "snaps": "db149bb0 297b4d06 b2dc16f8 a31ae301 ae4cfff4 9256789b b795e675 c54d5204"
     },
     "bond-raidShip-low": {
       "about": "突袭 low: tier 1 layers 1; chess_char_4_17_a chess_char_4_18_a chess_char_2_09_a chess_char_4_19_a chess_char_1_18_a chess_char_4_13_a chess_char_4_14_a chess_char_4_20_a",
@@ -1008,7 +1008,7 @@
       "hooks": [1,29,1679,170,170,238,232,65,18,20,10,10,0,4620,242,19,17,0,1,18,3,0,8],
       "events": {"atk":222,"blk":4,"castHit":4,"deploy":10,"die":20,"dmg":202,"engage":6,"face":12,"fx":64,"heal":33,"layer":3,"skill":22,"spawn":27,"status":56,"swing":179},
       "fx": {"aoe":2,"blink":2,"charges":11,"dodge":8,"flame":1,"frostNova":4,"garrison":3,"garrisonGrant":1,"kitHit":1,"liberate":4,"parry":4,"phase":6,"riposte":7,"rockslide":2,"shieldBreak":4,"stacks":4},
-      "snaps": "c5a91c8f 1a9d4e61 890a98bd a66dbffc 3ec6a7ae a4d36245"
+      "snaps": "c5a91c8f 1a9d4e61 890a98bd 03b1b479 eae93c23 80d48a68"
     },
     "bond-raidShip-high": {
       "about": "突袭 high: tier 1 layers 999; chess_char_4_17_b chess_char_4_18_b chess_char_2_09_b chess_char_4_19_b chess_char_1_18_b chess_char_4_14_b chess_char_4_20_b chess_char_4_21_b",
@@ -1156,7 +1156,7 @@
       "hooks": [1,28,2028,187,187,226,238,0,22,22,4,2,0,4284,21,24,19,0,1,22,0,1,0],
       "events": {"atk":187,"castHit":1,"deploy":9,"die":22,"dmg":238,"engage":6,"face":8,"fx":54,"skill":10,"spawn":28,"status":18,"swing":197},
       "fx": {"aoe":9,"burst":1,"coin":4,"crit":3,"dp":1,"stacks":9,"strike":25,"summon":1,"swire2Throw":1},
-      "snaps": "6159459d ab385c39 1cde9b0b dca144ab 0ba4d07b 1880a014 6fdfca26"
+      "snaps": "6159459d ab385c39 1cde9b0b 2891e6d0 e02d4f24 30c86973 64391d75"
     },
     "bond-siracusaShip-high": {
       "about": "叙拉古 high: tier 2 layers 999; chess_char_1_08_b chess_char_2_16_b chess_char_3_18_b chess_char_5_01_b chess_char_1_07_b chess_char_3_19_b chess_char_4_10_b chess_char_4_26_b token_10028_vigil_wolf",
@@ -1269,7 +1269,7 @@
       "hooks": [1,28,2494,140,140,233,327,152,19,19,9,7,15,5575,695,0,18,0,1,26,0,0,0],
       "events": {"atk":140,"castHit":2,"deploy":10,"die":19,"dmg":267,"engage":5,"face":16,"fx":65,"skill":16,"spawn":26,"status":121,"swing":148},
       "fx": {"anchor":2,"downed":1,"kitHit":40,"overload":1,"sleep":1,"splash":15,"wake":5},
-      "snaps": "8fe8654b f69eba5f 71408b08 3bf57e15 2448dcce 23674f5d 86beb8cb d381e8f4 86c00821"
+      "snaps": "8fe8654b f69eba5f 71408b08 3bf57e15 647b6cb0 86123dbb ce66909d a15ad516 45d93aef"
     },
     "bond-soloShip-low": {
       "about": "独行 low: tier 1 layers 1; chess_char_3_16_a chess_char_4_01_a chess_char_1_08_a chess_char_3_18_a chess_char_3_19_a chess_char_3_20_a chess_char_3_21_a chess_char_4_02_a token_10028_vigil_wolf",
@@ -1309,7 +1309,7 @@
       "hooks": [1,28,1536,140,140,261,261,0,19,19,7,3,3,6654,28,15,17,0,1,19,2,0,0],
       "events": {"atk":173,"blk":1,"castHit":1,"deploy":9,"die":19,"dmg":260,"engage":8,"face":19,"fx":50,"layer":2,"skill":10,"spawn":28,"status":95,"swing":147},
       "fx": {"aoe":1,"camouflage":1,"counter":3,"displace":17,"dp":2,"drone":4,"garrison":2,"liberate":3,"phase":3,"ripple":5,"sermon":1,"shield":2,"stacks":4,"wolfCount":1,"wolfShadow":1},
-      "snaps": "f7f8d16b 1539ad5b cba83400 69fc79d8 64910e4a 2a5d4469"
+      "snaps": "f7f8d16b 1539ad5b 49821bb6 665bb88a cd5bd0a4 a255f72b"
     },
     "bond-soloShip-high": {
       "about": "独行 high: tier 1 layers 999; chess_char_5_19_b chess_char_1_08_b chess_char_5_13_b chess_char_5_14_b chess_char_5_17_b chess_char_5_12_b chess_char_5_15_b chess_char_5_20_b",
@@ -1469,7 +1469,7 @@
       "hooks": [1,33,1691,157,157,198,189,8,22,22,15,13,20,5988,488,16,21,0,1,22,0,0,0],
       "events": {"atk":158,"castHit":8,"deploy":9,"die":22,"dmg":184,"engage":6,"face":24,"fx":69,"heal":2,"skill":30,"spawn":32,"status":68,"swing":174},
       "fx": {"block":4,"charges":16,"explosion":3,"frostNova":5,"kitHit":1,"parry":5,"rockslide":2,"shieldBreak":10,"stacks":6,"swordRain":5,"swordStorm":3,"thorns":9},
-      "snaps": "7980166f 0c2a751f 4fd93537 bca826f3 6d25b6ef 4b1dd982"
+      "snaps": "7980166f 0c2a751f 4fd93537 bca826f3 0ad01d9c a656efad"
     },
     "bond-suntShip-high": {
       "about": "绝技 high: tier 2 layers 999; chess_char_1_02_b chess_char_1_04_b chess_char_4_19_a chess_char_1_01_b chess_char_1_03_b chess_char_1_06_b chess_char_4_20_a chess_char_4_21_a",
@@ -1504,7 +1504,7 @@
       "hooks": [1,36,5229,677,677,818,818,47,16,29,19,18,65,14190,225,10,24,13,1,18,0,0,0],
       "events": {"atk":772,"deploy":12,"die":16,"dmg":818,"engage":7,"face":15,"fx":16,"heal":47,"leak":13,"skill":37,"spawn":32,"status":249,"swing":691,"tplfx":1},
       "fx": {"counter":2,"featherArrow":2,"flame":2,"garrisonGrant":1,"healField":1,"revive":2,"stone":2,"taunt":4},
-      "snaps": "c624546b ae4ccdb9 3c14cce1 5391a826 1424559b 6802c07c 525eb495 8b7dae73 35827e7b 473eeb79 f6db9b6a afe0e482 7e96d578 00dcba04 f5e4e02f 1f880c3e 97bb9cc8 aefe7f75"
+      "snaps": "d1b56b6f 91fb39b5 37c336e5 e3882ce5 29942134 eb703360 4ee6a639 e51e7df7 ec10128f 798217d5 e8d668ee 1f73f766 a6cdea44 a2374bf0 69764f8b 26bb4fea e49413d4 c42862e1"
     },
     "bond-swiftShip-low": {
       "about": "迅捷 low: tier 1 layers 1; chess_char_4_23_a chess_char_4_22_a chess_char_1_19_a chess_char_1_01_a chess_char_4_24_a chess_char_4_25_a chess_char_4_26_a chess_char_3_01_a",
@@ -1576,7 +1576,7 @@
       "hooks": [1,34,2803,267,267,498,498,366,26,26,42,38,60,3769,95,8,24,0,1,26,0,0,0],
       "events": {"atk":305,"deploy":10,"die":26,"dmg":498,"engage":7,"face":10,"fx":176,"skill":80,"spawn":34,"status":144,"swing":285,"tplfx":42},
       "fx": {"charge":26,"crit":45,"dilemma":3,"displace":17,"garrisonGrant":1,"levitate":23,"pull":1,"quadShot":2,"slippery":2,"sp":38,"splash":6,"talent":6,"tornado":1,"tornadoPulse":5},
-      "snaps": "72590a49 59002163 5c059f3f 75e993dc e3ecd67a 691283c1 1ba60a80 724d5427 65a71a17 3b280022"
+      "snaps": "72590a49 59002163 5c059f3f 75e993dc aadf5c02 c76f9549 6bd8e5c7 b6f33180 68e39e72 ee73c873"
     },
     "bond-victoriaShip-low": {
       "about": "维多利亚 low: tier 1 layers 1; chess_char_3_06_a chess_char_3_02_a chess_char_3_03_a chess_char_3_04_a chess_char_3_05_a chess_char_1_06_a chess_char_2_05_a chess_char_2_10_a",
@@ -1629,7 +1629,7 @@
       "hooks": [1,43,1648,154,154,311,319,28,18,33,6,3,0,6260,14,15,17,0,1,18,0,0,0],
       "events": {"atk":154,"deploy":24,"die":33,"dmg":319,"engage":5,"face":17,"fx":138,"heal":24,"skill":11,"spawn":43,"status":47,"swing":164},
       "fx": {"aoe":4,"coin":18,"counter":3,"drone":22,"explode":15,"liberate":3,"overload":1,"phase":3,"stacks":12,"strike":24,"summon":16,"swire2Throw":16,"taunt":1},
-      "snaps": "2bff9ef6 0a2067fb 82161bd4 827afd2e 124bce9a e6b2c198"
+      "snaps": "2bff9ef6 0a2067fb 82161bd4 1ed28df2 22b0552e 5a8bd794"
     },
     "bond-victoriaShip-high": {
       "about": "维多利亚 high: tier 2 layers 999; chess_char_4_11_b chess_char_4_07_b chess_char_1_06_b chess_char_2_05_b chess_char_2_10_b chess_char_3_08_b chess_char_4_13_b chess_char_4_14_b token_10041_cathy_catsld token_10041_cathy_catsld",
