@@ -730,7 +730,7 @@ K.skill_drop_hp_to_low_gain_coin = (ps) => ({
 });
 
 // The drag 指令 (「拖拽使用」) on an operator of the player (COMMON_CHESS CHAR: on the board or in the 整备区 — the
-// maintainer's provisional reading of 2026-11-08) or on an operator card of the shop (SHOP_SLOT CHAR). The target is
+// official drag hint 「请指向战场或整备区的干员」) or on an operator card of the shop (SHOP_SLOT CHAR). The target is
 // bandSkill.js's (ev.target), checked again here only for what the effect needs. The shared rules of the click 指令 hold
 // (a 指令 with nothing to act on is refused and costs nothing) [ASSUMED·CN: the client's skill classes exist only in the CN
 // client; the table texts say what, not these edges].
@@ -915,6 +915,75 @@ K.skill_transform_char_up_tier = () => ({
   },
 });
 
+// The drag 指令 whose effect waits for the next battle (「下次战斗开始时」 / 「下场战斗」): the use leaves a mark — a hidden
+// persistent effect BAND_MARK of the player, `data` { round, bandId, effectId, uid | itemId, capAdd? } — that the
+// player's battle input of the same round carries (server/match/player/round.js battleInput `bandMarks`; the 联防 field
+// is no next battle of its own [ASSUMED·CN]) and bands/battle.js runs. The mark is gone at the next round start
+// (BAND_MARK_EFFECT): one battle. A marked operator that is not on the field when the battle starts (sold, merged, in the
+// 整备区) gets nothing [ASSUMED·CN].
+export const BAND_MARK = 'effect:band_mark';
+const MARK_SEQ = 'band:mark:n';
+function addMark(ctx, ev, data) {
+  const n = ctx.incCounter(MARK_SEQ, 1);
+  ctx.addEffect({
+    id: `band:mark:${ctx.round}:${n}`, key: BAND_MARK, hidden: true, battle: false, iconKind: 'band',
+    data: { round: ctx.round, bandId: ev.bandId, ...data },
+  });
+  ev.handled = true;
+}
+/** The persistent effect of a mark: dropped at the first round start after its round. */
+export const BAND_MARK_EFFECT = {
+  onRoundStart(ctx) {
+    const ref = ctx.source && ctx.source.ref;
+    if (ref && !(ref.data && ref.data.round >= ctx.round)) ctx.removeEffect(ref.id);
+  },
+};
+
+// 百炼嘉维尔 意志鼓舞 (eff_band12) · 大嘴莫布 全场聚焦 (eff_band14, bbStr cond "gold": refused for an elite or an operator
+// without one [ASSUMED·CN]) · 桑葚 药枚实验 (eff_band17 / eff_band18 by its stage) · Misery 消解空间 (eff_band22):
+// skill_mark_char_inst_tag { tag } marks the operator with the effect `tag`; the battle runs its buff (bands/battle.js
+// MARK_BY_KEY; 全场聚焦's auto_chess_battle_chess_upgrade is the battle input's: the operator fights as its elite).
+K.skill_mark_char_inst_tag = (ps) => ({
+  onBandSkill(ctx, ev) {
+    const p = ps[0];
+    const v = targetChess(ctx, ev);
+    if (!v) return nothing(ev, 'no operator');
+    const tag = typeof p.tag === 'string' && p.tag ? p.tag : null;
+    if (!tag || !ctx.gd.effect(tag)) return nothing(ev, 'no effect');
+    if (p.cond === 'gold' && (v.golden || !ctx.gd.goldenIdOf(v.id))) return nothing(ev, 'already elite');
+    addMark(ctx, ev, { effectId: tag, uid: v.uid });
+  },
+});
+
+// 坚雷 正直教官 「使其在下场战斗中卫戍能力的叠层上限提升，数量等同于当前回合数」: the operator's 特质 caps (the per-battle
+// layer caps, garrisons/effects/triggered.js capOf) + the round of the use in its next battle.
+K.skill_layer_limit_grow_round = () => ({
+  onBandSkill(ctx, ev) {
+    const v = targetChess(ctx, ev);
+    if (!v) return nothing(ev, 'no operator');
+    addMark(ctx, ev, { effectId: ev.effectId, uid: v.uid, capAdd: ctx.round });
+  },
+});
+
+// 布丁 电气化！ 「选择调度中心的一件装备使其立刻销毁，并在下次战斗开始时使场上所有还有空栏位的干员暂时获得该装备直到战斗结束（无法对
+// <装备时销毁>的装备使用）」: skill_mark_shop_equip_tag { tag: eff_band24 } — the 调度中心's item card is gone at once (its slot
+// empty; no copy left the stock, as an unbought card), and the next battle gives that item to every operator on the field
+// with a free slot (the battle input's: gamedata equipSlotsOf). Refused for a consume-on-equip item (装备时销毁) and for
+// what is no equipment.
+K.skill_mark_shop_equip_tag = (ps) => ({
+  onBandSkill(ctx, ev) {
+    const t = ev.target && ev.target.kind === 'shop' ? ev.target : null;
+    const s = t ? ctx.shopSlots()[t.slot] : null;
+    if (!s || s.kind !== 'item' || s.sold) return nothing(ev, 'no item card');
+    const rec = ctx.gd.item(s.id);
+    if (!rec || rec.itemType !== 'EQUIP') return nothing(ev, 'not equipment');
+    if (typeof rec.kind === 'string' && rec.kind.startsWith('consume_on_equip')) return nothing(ev, 'consumed on equip');
+    const tag = typeof ps[0].tag === 'string' && ps[0].tag ? ps[0].tag : ev.effectId;
+    if (!ctx.setShopSlot(t.slot, null)) return nothing(ev, 'not removed');
+    addMark(ctx, ev, { effectId: tag, itemId: s.id });
+  },
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 // 鸭爵 “神秘顾客”: "从第5回合起，你和队友遭遇的部分敌人可能会替换为<鸭爵><高普尼克><流泪小子><圆仔>，击倒这些敌人者获得1资金奖励
 // （包括联防阶段）". A global handler rewrites the battle spawn list of every alive player while the band is held by that
@@ -1072,7 +1141,8 @@ function merge(parts) {
 // 「【伊比利亚】盟约激活人数达到4」 — the bond's activation count). The stage is the player's counter STAGE_COUNTER (index
 // into `skills`), checked before every prep hook of the strategy, so it moves on at the first hook after the condition
 // holds — the level-up, the payment, the round start, the bond change [ASSUMED·화면: 공식 지령 칸이 단계를 바꾸는 순간 미확인]
-// — and never moves back. The battle reads the strategy's first stage (its effectId); no passive stage has a battle part.
+// — and never moves back. The battle runs the buffs of the stage reached (the battle input's `bandStage`,
+// server/match/player/round.js; bands/battle.js bandBattleBuffs).
 
 export const STAGE_COUNTER = 'band:stage';
 /** The hooks a staged strategy listens on to move its stage (besides those its stages use). */
@@ -1145,4 +1215,5 @@ export function registerMeta(registry, data = gameData()) {
     if (h) registry.band(id, h);
   }
   registry.global('bands_ducklord', duckGlobal);
+  registry.effect(BAND_MARK.slice('effect:'.length), BAND_MARK_EFFECT);
 }

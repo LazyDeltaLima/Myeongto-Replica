@@ -7,7 +7,7 @@
 // stage says (tools/build-data.mjs bandSeasonFields, from the table's skillInfoDataDict):
 //   type     ACTIVE (usable) · PASSIVE · NONE (a locked stage: 「…-未解锁」, its `next` names what unlocks the next one)
 //   target   { type, filter } — NO_TARGET (「点击使用」), COMMON_CHESS CHAR (an own operator: on the board or in the 整备区 —
-//            maintainer decision 2026-11-08, provisional), SHOP_SLOT CHAR | EQUIP (an unsold 调度中心 slot of that kind),
+//            the official drag hint 「请指向战场或整备区的干员」), SHOP_SLOT CHAR | EQUIP (an unsold 调度中心 slot of that kind),
 //            MAP_TILE PASSABLE | PASSABLE_AND_BUILDABLE (a tile of the player's own field that ground enemies walk;
 //            the second also one an operator could stand on: the stage legend's `buildable`, no piece on it; the
 //            maintainer's provisional 「지상 타일」 of 2026-11-08) — 「拖拽使用」 for every target but NO_TARGET
@@ -202,7 +202,9 @@ export class MatchBandSkill {
   /**
    * m.private `bandSkill`: the player's active 指令 (null: the strategy has none) — the stage the panel shows and whether
    * it can be used now: { stage, stageCount, effectId, type, target: { type, filter }, cost, avail: { type, count },
-   * usesLeft (null: no count), cooldown (rounds left), usable, blocked (the refusal's detail or code when not usable) }.
+   * usesLeft (null: no count), cooldown (rounds left), usable, blocked (the refusal's detail or code when not usable),
+   * marks (the marks this round's uses left for the round's battle: [{ effectId, uid? | itemId? }] — PlayerState
+   * bandMarksNow) }.
    * The target is not part of `usable` (the client highlights the targets its filter allows).
    */
   bandSkillView(ps) {
@@ -222,6 +224,7 @@ export class MatchBandSkill {
       cooldown: st.cooldown,
       usable: !b,
       blocked: b ? (b.detail || b.error) : null,
+      marks: ps.bandMarksNow().map((mk) => ({ effectId: mk.effectId, ...(mk.uid != null ? { uid: mk.uid } : null), ...(mk.itemId ? { itemId: mk.itemId } : null) })),
     };
   }
 }

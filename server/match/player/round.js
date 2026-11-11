@@ -10,6 +10,8 @@ import { boardOrder, pieceDir } from '../board.js';
 import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains, pieceBonds } from '../bondsMeta.js';
 import { handRules, swapBondRecord } from '../../sim/content/bonds/dispatch.js';
 import { handRules as switchHandRules } from '../../sim/content/garrisons/effects/switch.js';
+import { BAND_MARK, STAGE_COUNTER } from '../../sim/content/bands/meta.js';
+import { markInputNeeds } from '../../sim/content/bands/battle.js';
 
 export class PlayerRound {
   startRound(r) {
@@ -150,18 +152,51 @@ export class PlayerRound {
   }
 
   /**
+   * The 规程 marks the player's drag 指令 left for this round's battle (content/bands/meta.js addMark):
+   * [{ effectId, uid?, itemId?, capAdd? }] — an operator mark only while the operator is still the player's.
+   */
+  bandMarksNow() {
+    const out = [];
+    for (const e of this.effects) {
+      if (!e || e.key !== BAND_MARK || !e.data || e.data.round !== this.m.round || typeof e.data.effectId !== 'string') continue;
+      const d = e.data;
+      if (d.uid != null && !this.find(d.uid)) continue;
+      out.push({ effectId: d.effectId, ...(d.uid != null ? { uid: d.uid } : null), ...(d.itemId ? { itemId: d.itemId } : null), ...(d.capAdd ? { capAdd: d.capAdd } : null) });
+    }
+    return out;
+  }
+
+  /**
    * `reached`: the bonds carry the layers this round's own combat reached (bondsView: the pending in-battle gains, capped
    * like settle()) — the 联防 field (unite.js; PRTS 卫戍协议/帮助 §联防阶段 "将以其阵地当前的状态", [ASSUMED] the current
    * state includes those layers, as the strip shows them). The gains stay pending: settle() adds them once.
+   * `marks`: the round's 规程 marks (bandMarksNow) — a battle of the round's own (normal, boss); the 联防 field passes
+   * false.
    */
-  battleInput({ side = 'L', colOffset = 0, carry = null, reached = false } = {}) {
+  battleInput({ side = 'L', colOffset = 0, carry = null, reached = false, marks = true } = {}) {
     // a terrain change not yet followed by a recompute (a content hook at the prep end) never fields an illegal board
     this.deployMap();
     if (this._legalityStale) this.recompute();
+    // 规程's marks of this round (content/bands/meta.js addMark): 全场聚焦 fields its operator as the elite, 电气化！ gives
+    // its item to every board operator with a free slot (the slots of the operator it fights as); the rest goes to the
+    // battle (`bandMarks`, content/bands/battle.js)
+    const bandMarks = marks ? this.bandMarksNow() : [];
+    const upgrade = new Set();
+    const gifts = [];
+    let wantsHand = false;
+    for (const mk of bandMarks) {
+      const need = markInputNeeds(this.gd.effect(mk.effectId));
+      if (need.upgrade && mk.uid != null) upgrade.add(mk.uid);
+      if (need.giveItem && typeof mk.itemId === 'string' && this.gd.item(mk.itemId)) gifts.push(mk.itemId);
+      if (need.hand && mk.uid != null && [...this.board.values()].some((p) => p.uid === mk.uid)) wantsHand = true;
+    }
     const units = [];
     for (const { r, c, piece } of boardOrder(this.board)) {
       if (piece.kind === 'chess') {
-        const u = this.chessBattleEntry(piece, { row: r, col: c, dir: pieceDir(piece) });
+        const golden = upgrade.has(piece.uid) && !this.gd.chess(piece.id)?.isGolden ? this.gd.goldenIdOf(piece.id) : null;
+        const fielded = golden && this.gd.chess(golden) ? { ...piece, id: golden } : piece;
+        const u = this.chessBattleEntry(fielded, { row: r, col: c, dir: pieceDir(piece) });
+        for (const id of gifts) if (u.items.length < this.gd.equipSlotsOf(fielded.id)) u.items.push(id);
         if (carry && carry.has(piece.uid)) u.carryState = carry.get(piece.uid);
         units.push(u);
       } else if (piece.kind === 'token') {
@@ -182,11 +217,12 @@ export class PlayerRound {
     for (const { piece } of boardOrder(this.board)) {
       if (piece.kind === 'chess') rules.push(...switchHandRules(this.gd.chess(piece.id), (g) => this.gd.garrison(g)));
     }
-    if (rules.length) {
+    if (rules.length || wantsHand) {
       (this.hand || []).forEach((piece, slot) => {
         if (!piece || piece.kind !== 'chess') return;
         const pos = this.gd.chess(piece.id)?.position, bonds = pieceBonds(this.gd, piece);
-        if (rules.some((x) => pos === x.position && (bonds.includes('maniShip') || x.bonds.some((b) => bonds.includes(b))))) reserve.push(this.chessBattleEntry(piece, { slot }));
+        // 消解空间 calls the rightmost hand operator of any class (content/bands/battle.js reserve)
+        if (wantsHand || rules.some((x) => pos === x.position && (bonds.includes('maniShip') || x.bonds.some((b) => bonds.includes(b))))) reserve.push(this.chessBattleEntry(piece, { slot }));
       });
     }
     return {
@@ -198,6 +234,9 @@ export class PlayerRound {
       ...(reserve.length ? { reserve } : null),
       bonds: bondSnapshot(reached ? this.bondsView() : this.bonds),
       bandId: this.bandId,
+      // the strategy stage the player reached (content/bands/meta.js bandStageIndex) and the round's marks
+      ...(this.counters[STAGE_COUNTER] > 0 ? { bandStage: this.counters[STAGE_COUNTER] } : null),
+      ...(bandMarks.length ? { bandMarks } : null),
       playerEffects: this.effects.filter((e) => e.battle !== false).map((e) => ({
         id: e.id, key: e.key ?? null, source: e.iconKind ?? null, params: e.params ?? null, counter: e.counter ?? null, data: e.data ?? null,
       })),

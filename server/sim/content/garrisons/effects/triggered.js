@@ -61,6 +61,16 @@ export function capOf(battle, it) {
   return Math.max(0, Math.floor(it.cap * (1 + m.factor) + 1e-9) + m.add);
 }
 
+/** Raise the 特质 caps of `unit` for this battle by `add` and the factor `factor` (bondstackmax, 坚雷's 正直教官). */
+export function addCapMod(battle, unit, add = 0, factor = 0) {
+  if (!unit || (!add && !factor)) return;
+  const store = S.battleStore(battle, CAP_MODS, () => new Map());
+  let m = store.get(unit);
+  if (!m) { m = { add: 0, factor: 0 }; store.set(unit, m); }
+  m.add += add;
+  m.factor += factor;
+}
+
 export const TRIGGERED = {
   act3autochess_gar_effect_addsp_inrange(battle, it, pg) {
     const bb = pg.bb || {};
@@ -115,14 +125,10 @@ export const TRIGGERED = {
     const add = S.num(bb.max_add, 0);
     const factor = S.num(bb.max_factor, 0);
     if (!add && !factor) return;
-    const store = S.battleStore(battle, CAP_MODS, () => new Map());
     for (const a of list) {
       if (others && a === h) continue;
       if (filter.length && !filter.some((b) => S.isMember(battle, a, b))) continue;
-      let m = store.get(a);
-      if (!m) { m = { add: 0, factor: 0 }; store.set(a, m); }
-      m.add += add;
-      m.factor += factor;
+      addCapMod(battle, a, add, factor);
     }
   },
 };
