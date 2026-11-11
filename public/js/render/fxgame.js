@@ -2609,7 +2609,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // A template effect that is a buff's own (`overrideEffectKey`), not a CreateEffect node: it lasts the buff, then
   // Effect.FinishMe — gone its prefab's `_delayToFinish` later (def.finish). 2026-10-31: 카시미어 맹약 [ex] 파동, the AOEDamage
   // `_buffs` [ex_damage_effect] (LIMITED 0.5 s, buff template; official client) — it played its whole 2.83 s prefab before.
-  const TPL_BUFF_S = { common_071_bond_kazimierz_hit_01_new: 0.5 };
+  // 2026-11-11 (묶음 fx-B): 规程's 不退者卫护系统 — act3autochess_equip_acarm148_global_buff[effect] (overrideEffectKey
+  // trap_acarm148_buff, LIMITED durationKey attract_duration: 3 on every item that carries it, test/render/season-equip-fx).
+  const TPL_BUFF_S = { common_071_bond_kazimierz_hit_01_new: 0.5, trap_acarm148_buff: 3 };
   // A 护盾 layer blocking a hit (sim damage.js absorbShields → fx 'parry' {id, buff}): the client's BlockDamage.Execute
   // plays the buff blackboard's `effect` (GetStringOrDefault, the node's
   // _specifyBlockEffect the default) on the holder, else common_buff_parry_01. Empty in archet_t_2, kalts2_t_2[shield],

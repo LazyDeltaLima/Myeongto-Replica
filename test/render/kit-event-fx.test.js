@@ -786,7 +786,7 @@ test('fxgame.js (2026-10-31): 赤刃明霄陈 S2 counts her slashes from _hit_01
 });
 
 test('fxgame.js (2026-10-31): 卡西米尔\'s [ex] wave lasts its buff [ex_damage_effect] (LIMITED 0.5 s), then its _delayToFinish', () => {
-  assert.match(GAME, /const TPL_BUFF_S = \{ common_071_bond_kazimierz_hit_01_new: 0\.5 \};/);
+  assert.match(GAME, /const TPL_BUFF_S = \{ common_071_bond_kazimierz_hit_01_new: 0\.5, /);
   assert.match(GAME, /if \(life > 0\) p\.then\(\(l\) => \{ if \(l\) zoneEnd\(l, Math\.max\(clockS, t0 \+ life\), true\); \}\);/);
 });
 

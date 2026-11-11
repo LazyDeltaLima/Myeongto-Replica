@@ -325,6 +325,12 @@ export const KEY_FX = Object.freeze({
   // autochess_acarm037_buff[attack_speed] (act1vautochess_acarm037_buff, trap_acgarm_buff_03) made again with each stack (RENEWED)
   'item:yanDagger': cite('act1vautochess_acarm024_buff', ['trap', 'trap_acarm40_buff', OWN]),
   'item:accel': cite('act1vautochess_acarm037_buff', ['trap', 'trap_acgarm_buff_03', OWN]),
+  // 2026-11-11 (묶음 fx-B): 规程's equipment buffs (CN templates, prefabs in the CN client's trap.ab) — 灵巧涡轮手套's
+  // [atk_speed] (effectKey trap_acarm132_buff_01, a loop) from each deployment until a hit lowers HP, 动能加速器's layer_max
+  // buff (overrideEffectKey trap_acarm149_buff_01), 汲取者之镰's skill-long [heal_free] (overrideEffectKey trap_acarm154_buff_01)
+  'item:turboGlove': cite('act3autochess_equip_acarm132_global_buff[atk_speed]', ['trap', 'trap_acarm132_buff_01', OWN]),
+  'item:kineticMax': cite('act3autochess_equip_acarm149_global_buff', ['trap', 'trap_acarm149_buff_01', OWN]),
+  'item:reaperScythe': cite('act3autochess_equip_acarm154_global_buff', ['trap', 'trap_acarm154_buff_01', OWN]),
   // 战场#06's 沙尘暴 on an unsheltered operator (EN template sand_storm[ally], ON_BUFF_TRIGGER): storm[attr_to_ally] — its
   // SwitchDirection on the storm's direction (the buff's `fx`, devices.js tickStorm) creates map_desert_03_<the side the
   // wind comes from> (DOWN → _up) at the HIT point — and storm[attr_to_ally_mark] buff_desert_01 over the head
