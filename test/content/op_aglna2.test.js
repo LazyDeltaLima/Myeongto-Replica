@@ -230,6 +230,26 @@ test('S1 极速送达 (被动 ON_DEPLOY): at each deployment she takes off for 5
   }
 });
 
+test('S1 极速送达: a deployment\'s take-off clip (S1_TakeOff Skill_1_Begin = Start_2, the mode the skill deploys her in) plays after the born state — no attack until both are over; airborne all along', () => {
+  for (const f of [FORMS_ALL[0], FORMS_ALL[FORMS_ALL.length - 1]]) {
+    const { h, u } = field({ tier: f[0], elite: f[1], skill: 0 });
+    h.b.flags.bornTime = 1;   // (the harness turns the born state off)
+    h.b.retreat(u);
+    h.b.redeploy(u, { free: true });
+    h.step();
+    const born = u.bornUntil;
+    assert.ok(born > h.b.time, `${label(f)}: in her born state`);
+    approx(u.skillStateUntil, born + FLY_CLIP, `${label(f)}: the take-off clip after it`, 1e-6);
+    h.spawn('enemy_dummy', { pos: [9, 6] });
+    h.runUntil(() => h.b.time >= born + FLY_CLIP - 0.05, 4);
+    assert.ok(u.s.flags.liftoff, `${label(f)}: airborne`);
+    assert.equal(ANY_ATK(h, u).length, 0, `${label(f)}: no attack through the born state and the take-off clip`);
+    assert.equal(u.swing, null);
+    assert.ok(h.runUntil(() => ANY_ATK(h, u).length > 0, 3), `${label(f)}: attacks after`);
+    done(h);
+  }
+});
+
 test('S2 重力自定义 (MANUAL, data DEFAULT on 3-10): takes off; 2.5 s 吟唱 (no attack, 无敌, control statuses refused) while the sweep (3.0 wide, 1.3 thick, 6 tiles/s, 4 tiles ahead) 浮空s ground enemies 10 / 12 s and 缚地s flyers 20 / 22 s; then ATK +105 % / +135 %, interval −0.6 / −0.8 s, arts, 4 / 5 targets, range 3-10; 22 s', () => {
   for (const f of FORMS_ALL) {
     const [tier, elite] = f;

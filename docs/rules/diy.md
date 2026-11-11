@@ -1099,8 +1099,7 @@
   `_excludeInCombat`), 이동 쿨타임은 없다. 비행 중에는 공식도 무장해제(`[move_mode]` FORCE_DISARMED)라 그동안 공격이 없는 것은 의도. 다만 이동 스킬
   컴포넌트(그녀만 가진 CN 전용 클래스)의 `_availableValidator` 바로 뒤에 `_attackCooldownProgress` 0.85가 있다 → 「공격 쿨다운이 85% 이상 찼을 때만
   이동 시작」으로 읽고 넣었다(`MOVE_ATTACK_PROGRESS`; 그 전엔 0.1초마다 바로 떠서 시작된 공격 동작을 끊고 쿨다운도 처음부터 다시 기다렸다).
-  [추정] 이 필드의 뜻(CN 전용 클래스라 메서드를 볼 수 없음; 「착지 뒤 공격 쿨다운을 85%로 둠」일
-  가능성도 있음).
+  [추정·CN: 이 필드의 뜻 — CN 전용 클래스 `MoveLikeRespawnByProjectileBehaviour`라 메서드를 볼 수 없음; 메서드 이름 `_CheckInAttackAllowProgress`는 「공격 진행도가 허용 범위일 때」로 읽힘, 「착지 뒤 공격 쿨다운을 85%로 둠」일 가능성도 있음]. S3 모드의 공격 능력은 붙을 때 준비 상태라(`Ability.DoAttach` → `Reset`, EN) 이륙 클립 뒤 첫 판정에서 이동이 첫 공격보다 먼저다 [추정·CN: 이동 판정과 공격 상태의 같은 프레임 차례는 그 클래스의 것 — 공식 녹화 요청].
   렌더 fx `aglnaFlight`(켜기/끄기)가 공식 꼬리·좌우 이펙트를 붙이고, `KIT_OWNED`에 S3 세 이펙트를 넣어 `_buff_` 이름 규칙이 좌우 이펙트를 스킬 내내 틀던 것을 막음.
 - [추정] 속도 곡선·옆/높이 호 미구현(직선·일정 속도), 착지 직전에 그 칸이 막히면 다음 공중 적 칸, 없으면 제자리로 되돌아감, 좌우 이펙트는 이륙 때 방향 한 번,
   `_attackCooldownProgress`의 뜻(위),
@@ -1135,9 +1134,9 @@
   1초였고(끝점에서 약 0.8초 머묾) 복귀도 2.5초였다 → 위처럼 도착 즉시·도착 + 1초로. 높이: 그녀의 특성 블랙보드 `height_offset` 0.8(character_table, `[chant_end]`가
   `aglna2_tr`에서 가져와 그 높이로 올림; S3 `[mode]`는 고지대 칸이면 0.4)을 칸 단위로 써서, 비행 적 높이 `FLY_HOVER` 1.3 대신 0.8(S3 고지대 0.4)로 그린다 —
   `render/units.js LIFTOFF_HEIGHT`, S1·S3 이륙에도 적용(`render.md` 「이륙 높이」). 아레나에서 S3 범위 원이 여전히 그녀 칸에 있음을 확인.
-- [추정] 복귀 = 끝 클립이 끝날 때(`_interruptProjectileOnEndAnim` + `_afterEndAnim`; CN 전용 클래스라 메서드를 볼 수 없음 — 도착 0.67 + 1 + `Skill_2_Begin` 1 ≈ 吟唱 2.5초와 맞음),
+- [추정·CN: 吟唱 컴포넌트는 `ChantBeforeSkill`을 이은 CN 전용 `ChantWithProjectileBeforeSkill`(`StartChant`를 덮어씀, 필드 `m_waitByProjectile`·`m_buffOnAfterEndAnim`)이라 메서드를 볼 수 없음. EN `ChantBeforeSkill.StartChant`는 begin·loop·end 클립 뒤 `DoStartSkill`을 부르고 `_afterEndAnim`은 없다] 복귀 = 끝 클립이 끝날 때(`_interruptProjectileOnEndAnim` + `_afterEndAnim` — 도착 0.67 + 1 + `Skill_2_Begin` 1 ≈ 吟唱 2.5초와 맞음), `Skill_2_Begin`이 吟唱 안이고 스킬 시작(공격)이 그 뒤라고 둠(공식 녹화 요청),
   `height_offset`이 칸(월드) 단위(비행 적의 0.35는 0.27 캐릭터 공간), 속도 일정(이동 컴포넌트의 속도 곡선 ≈0.95–1.13·`_speed` 4.8은 안 씀, PRTS 6.0), 복귀는 순간 이동(`_restoreOnEnd`), 활공 중 바닥 높이는 그녀 칸 기준,
-  `Skill_2_Begin`(1초) 동안 시뮬은 이미 공격할 수 있음(첫 공격이 그 클립을 끊을 수 있음).
+  `Skill_2_Begin`(1초)의 마지막 0.17초 남짓 동안 시뮬은 이미 공격할 수 있음(吟唱 2.5초 뒤).
 - 테스트: `test/content/op_aglna2.test.js`(맵 끝에서 2칸·열린 곳 4칸, 위치 불변), `test/render/aglna2-s2-glide.test.js`(클립 순서·공격 대기·스킬 끝 처리,
   뷰 이동·도착 즉시 끝 클립·도착 + 1초 복귀·0.8까지 1초 상승).
 
@@ -1498,7 +1497,7 @@
 
 ### 콘트레일 `char_4165_ctrail` (T2, 스카이레인저)
 - 티피·안젤리나 더 멜로우 위시와 같은 이륙이다: 플래그 `liftoff` + `blockFly`, 사건 `takeoff`, `render/units.js LIFTOFF_HEIGHT`(0.8, `attack@height_offset`), 클립은 `tools/assets/anim-keys.mjs`의 `_TakeOff`·`_Landing`. 모드 구성은 티피와 같고 `Default_S1`이 더 있다.
-- 다른 점은 클립 시간이다. 프리팹에서 이륙·착륙 모드의 공격 능력은 그 클립이라(`_timeMode` 1, `_allowNoTarget`) 그동안 공격하지 않는다. 그래서 타락사쿰처럼 `FLY_CLIP`(네 클립 모두 1초) 동안 공격을 막고, 착륙 클립이 끝날 때 지상으로 돌아온다. 배치 때의 이륙 클립은 배치 직후 상태(`bornUntil`)가 끝난 뒤에 돈다. 티피(S1·S2 이륙·착륙 1초)와 안젤리나 더 멜로우 위시(S1·S2·S3 착륙, S3 이륙 1초)도 같다(2026-11-11, `kits/shared/liftoff.js`): 클립 동안 공격하지 않고, 이륙·착륙 모드로 바뀌며 휘두름이 끊기고(모든 모드 공격 능력 `_interruptAbilityOnDetach`), 착륙 클립 동안은 아직 공중이다. 안젤리나 더 멜로우 위시 S2에는 이륙 모드가 없고 시작 클립 `Skill_2_Begin`이 그 자리다(엔진, `sim.md` 「스킬 시작 클립」). 그녀 S1의 배치 때 이륙(`S1_TakeOff`, 클립 `Start_2`)은 배치 클립이라 넣지 않았다 [추정·미조사: 배치 직후 상태와 겹치는지 뒤에 오는지]. S3이 끝나 집으로 날아가면 착륙 클립은 도착한 뒤다.
+- 다른 점은 클립 시간이다. 프리팹에서 이륙·착륙 모드의 공격 능력은 그 클립이라(`_timeMode` 1, `_allowNoTarget`) 그동안 공격하지 않는다. 그래서 타락사쿰처럼 `FLY_CLIP`(네 클립 모두 1초) 동안 공격을 막고, 착륙 클립이 끝날 때 지상으로 돌아온다. 배치 때의 이륙 클립은 배치 직후 상태(`bornUntil`)가 끝난 뒤에 돈다. 티피(S1·S2 이륙·착륙 1초)와 안젤리나 더 멜로우 위시(S1·S2·S3 착륙, S3 이륙 1초)도 같다(2026-11-11, `kits/shared/liftoff.js`): 클립 동안 공격하지 않고, 이륙·착륙 모드로 바뀌며 휘두름이 끊기고(모든 모드 공격 능력 `_interruptAbilityOnDetach`), 착륙 클립 동안은 아직 공중이다. 안젤리나 더 멜로우 위시 S2에는 이륙 모드가 없고 시작 클립 `Skill_2_Begin`이 그 자리다(엔진, `sim.md` 「스킬 시작 클립」). 그녀 S1의 배치 때 이륙(`S1_TakeOff`, 클립 `Start_2`)은 배치 직후 상태 뒤에 1초 돈다(2026-11-11, 공식 클라에서 확인): S1의 `_defaultModeIndex` 5 = `S1_TakeOff`라 그 모드로 배치되고, 그 모드는 `Born` 클립을 바꾸지 않으며(`_excludeAnimKeys` Born, 배치 이펙트만 `aglna2_birth_type_02_01`) 이륙 클립은 그 모드의 공격 능력이라 배치 직후 상태가 끝나야 돈다. 공중 저지는 처음부터다(`aglna2_tr`: Default 모드가 아니면 FLY). 콘트레일·타락사쿰의 이륙·착륙도 같은 도우미다: 이륙·착륙 모드로 바뀌며 진행 중 휘두름이 끊긴다(전에는 두 키트가 착륙 때 안 끊었다; 이륙 때는 스킬 공격 모드로 바뀌며 엔진이 끊었다). S3이 끝나 집으로 날아가면 착륙 클립은 도착한 뒤다.
 - 지상에서는 지상 적만, 공중에서는 공중 적만 저지한다. 모든 모드의 공격이 투사체다(`projectile_chr_ctrail`, `_s2`).
 - 재능 저공 난류(`ctrail_t_1`): 지상 모드(`Default`·`Default_S1`)에서 방어력 +`def`, 그 밖의 모드에서 모든 피해의 공격력 ×`atk_scale`(방어 앞).
 - S1 긴급 이륙(패시브, `_castOnLocate`): 배치마다 `duration`초 동안 공격력·물리 회피 `prob`(`ctrail_s_1` Evade). 공식 클라에서 확인: `_defaultModeIndex` 7이고 `_extraRangeIdModeIndices`에 7이 있어, S1을 고르면 착륙 뒤 지상(`Default_S1`)에서도 사거리가 스킬 범위 2-3이다. 키트는 `unit.rangeGrid`로 둔다. 정비 화면 카드는 기록의 기본 범위를 보인다(프로스트리프와 같음).

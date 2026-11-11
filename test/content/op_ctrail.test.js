@@ -75,6 +75,25 @@ test('S2: airborne from the cast until the landing clip has played, no attack th
   }
 });
 
+test('S2: the take-off and the landing cut the swing in progress (their modes\' attacks detach with det 1, shared/liftoff.js)', () => {
+  for (const id of FORMS) {
+    const { h, u } = field(id, { skill: 1 });
+    pastBorn(h, u);
+    const e = h.spawn('enemy_dummy', { pos: FRONT, def: 0 });
+    assert.ok(h.runUntil(() => !!u.swing, 6), `${id}: a swing starts`);
+    const n = hits(h, u, e).length;
+    cast(u);
+    h.step();
+    assert.equal(u.swing, null, `${id}: the take-off cuts it`);
+    h.run(FLY_CLIP - 0.1);
+    assert.equal(hits(h, u, e).length, n, `${id}: its shot never comes`);
+    assert.ok(h.runUntil(() => u.skill.active && u.skill.timeLeft < 0.3 && !!u.swing, rec(id, S2).duration + 1), `${id}: a swing near the end`);
+    assert.ok(h.runUntil(() => !u.skill.active, 1), `${id}: ends`);
+    assert.equal(u.swing, null, `${id}: the landing cuts it`);
+    done(h);
+  }
+});
+
 test('S2: atk, atk_scale on her damage, 3-1 range, the skill\'s range back to base when landed', () => {
   for (const id of FORMS) {
     const { h, u } = field(id, { skill: 1 });

@@ -64,6 +64,28 @@ test('S1 / S2: airborne from the cast (a ground enemy cannot select her), no hea
   }
 });
 
+test('S1 / S2: the take-off and the landing cut the heal swing in progress (the FlyStart / FlyEnd modes\' attacks detach with det 1, shared/liftoff.js)', () => {
+  for (const id of FORMS) for (const skill of [0, 1]) {
+    const { h, u } = field(id, { skill, others: [{ uid: 2, chessId: YAK, row: 10, col: 5 }] });
+    const ally = h.unit(2);
+    hurt(ally, 0.2);
+    assert.ok(h.runUntil(() => !!u.swing, 6), `${id} ${skill}: a heal swing starts`);
+    const n = healsBy(h, u).length;
+    cast(u);
+    h.step();
+    assert.equal(u.swing, null, `${id} ${skill}: cut`);
+    h.run(FLY_CLIP - 0.1);
+    assert.equal(healsBy(h, u).length, n, `${id} ${skill}: its heal never comes`);
+    if (skill === 1) {   // (S1's heals in FlyLoop are instant, no clip: no swing to cut)
+      assert.ok(h.runUntil(() => { hurt(ally, 0.2); return !!u.swing; }, 8), `${id} ${skill}: a heal swing in the skill`);
+      u.skill.timeLeft = 0.04;   // the skill ends with that swing in progress
+      assert.ok(h.runUntil(() => !u.skill.active, 1), `${id} ${skill}: ends`);
+      assert.equal(u.swing, null, `${id} ${skill}: the landing cuts it`);
+    }
+    done(h);
+  }
+});
+
 test('S1 何处着: interval ×attack@base_attack_time, instant heals of attack@heal_scale × ATK on a random injured unit', () => {
   for (const id of FORMS) {
     const bb = skillOf(id, S1).bb;

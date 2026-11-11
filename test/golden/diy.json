@@ -457,8 +457,8 @@
         ["p1",4,"op","chess_char_5_diy2_b",0,"none",2437.6,1,7,0,828,0,0,1,1],
         ["p1",5,"op","chess_char_5_diy1_b",1,"none",2437.6,1,9,7,19505,0,0,13,3],
         ["p1",6,"op","chess_char_5_diy2_b",2,"none",1940.1,1,10,72,559081,498,0,100,3],
-        ["p1",7,"op","chess_char_6_diy1_a",0,null,2028.4,1,221,0,15084,2116,0,12,2],
-        ["p1",8,"op","chess_char_6_diy2_a",1,null,502.4,1,204,24,235204,3642,0,87,3],
+        ["p1",7,"op","chess_char_6_diy1_a",0,null,2028.4,1,221,1,13799,2116,0,12,2],
+        ["p1",8,"op","chess_char_6_diy2_a",1,null,502.4,1,204,23,236489,3642,0,87,3],
         ["p1",9,"op","chess_char_6_diy1_a",2,null,0,0,146,3,67244,4145,0,39,2],
         ["p1",10,"op","chess_char_6_diy2_b",0,"none",2437.6,1,4,0,0,0,0,0,1],
         ["p1",11,"op","chess_char_6_diy1_b",1,"none",2437.6,1,8,1,29900,0,0,13,3],
@@ -470,7 +470,7 @@
       "hooks": [1,161,5866,490,490,1256,1331,0,148,148,24,21,121,16892,47,27,144,0,1,148,0,10,0],
       "events": {"atk":727,"deploy":15,"die":148,"dmg":1331,"engage":10,"face":96,"fx":57,"skill":45,"spawn":158,"status":254,"swing":523},
       "fx": {"burst":10,"dash":12,"phase":11,"takeoff":24},
-      "snaps": "0b1e3474 6bd678ab bdb05b2c 1cef7624 e58c2b37 0892b89c 4a5c685a 39b2159a 87e8d372 648f2d9b 8a24861d 74c73a9b 7872ad4e 9e910920 5268505f 5a4922fd b1428089 090202ff b380d5c3 738b0b82"
+      "snaps": "0b1e3474 6bd678ab bdb05b2c 1cef7624 e58c2b37 0892b89c 4a5c685a 39b2159a 87e8d372 648f2d9b 8a24861d 74c73a9b 7872ad4e 9e910920 5268505f 5a4922fd b1428089 5739077e 87b5dc5e d3d0dc33"
     },
     "diy-012": {
       "about": "5_diy1_a=phatm2/S1 5_diy2_a=phatm2/S2 5_diy1_a=phatm2/S3 5_diy2_b=phatm2/S1 5_diy1_b=phatm2/S2 5_diy2_b=phatm2/S3 5_diy1_b=phatm2/S1/002_phatm2 5_diy2_b=phatm2/S2/002_phatm2 5_diy1_b=phatm2/S3/002_phatm2 6_diy1_a=phatm2/S1 6_diy2_a=phatm2/S2 6_diy1_a=phatm2/S3",

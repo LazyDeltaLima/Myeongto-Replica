@@ -364,6 +364,27 @@ test('S3 清算 targets: ground enemies only, on a tile he may take (melee-build
   }
 });
 
+test('S3 清算 FlyToTargetSecond: its clip takes his animator — the swing under way strikes only at the end of its attack time, so a strike due inside the clip never comes and the move cuts the swing', () => {
+  const { h, u } = field({ tier: 6, elite: true, mod: FGTY, skill: 2 });
+  h.spawn('enemy_dummy', { pos: [11, 7] });
+  u.skill.gainSp(999);
+  assert.ok(h.runUntil(() => u.skill.active, 1));
+  land(h, u);
+  assert.deepEqual([u.tileR, u.tileC], [11, 7]);
+  const clip = u.skill.castTiming().action;
+  // a swing whose strike is due inside the clip and whose attack time runs past it
+  assert.ok(h.runUntil(() => !!u.swing && u.swing.left < clip - 0.05 && u.castLeft > clip + 0.05, 6), 'a swing early on');
+  const n = atkHits(h, u).length, moved = moves(h, u).length;
+  u.mem.demetrS3.retarget = true;   // (as when the elite he attacked falls: FlyToTargetSecond at once)
+  h.step();
+  assert.ok(u.mem.demetrS3.flyAt != null, 'FlyToTargetSecond under way');
+  assert.ok(u.swing && Math.abs(u.swing.left - u.castLeft) < 1e-9, 'its strike waits for the end of its attack time');
+  assert.ok(h.runUntil(() => moves(h, u).length > moved, clip + 0.1), 'the move (onto the enemy he stands with: in place)');
+  assert.equal(atkHits(h, u).length, n, 'no strike of that swing');
+  assert.equal(u.swing, null, 'the move cut it');
+  done(h);
+});
+
 test('S3 清算: a lethal hit while it runs ⇒ 不死 / untargetable / no block / 禁疗, the skill ends at once and he returns (a short 不死 after); away without 牵绊 at the end ⇒ forced retreat', () => {
   {
     const { h, u } = field({ tier: 5, elite: false, skill: 2 });

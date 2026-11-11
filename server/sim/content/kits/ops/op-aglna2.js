@@ -113,9 +113,9 @@ function takeOff(battle, unit) {
 }
 function land(battle, unit) { battle.releaseBlocked(unit); }   // the flyers she held
 /**
- * Skill_1_End, Skill_2_End, Skill_3_End and Skill_3_Begin are all this long (data/assets.json `animations`; test/content/op_aglna2.test.js):
- * the attack abilities of her modes S1_Landing / S2_Landing / S3_Landing and S3_TakeOff (`_timeMode` 1) — no attack while they play,
- * airborne through a landing (shared/liftoff.js). S1's take-off at a deployment (S1_TakeOff: Start_2) is her deployment clip.
+ * Skill_1_End, Skill_2_End, Skill_3_End, Skill_3_Begin and Start_2 are all this long (data/assets.json `animations`; test/content/op_aglna2.test.js):
+ * the attack abilities of her modes S1_Landing / S2_Landing / S3_Landing, S3_TakeOff and S1_TakeOff (`_timeMode` 1) — no attack while they
+ * play, airborne through a landing (shared/liftoff.js). S1's take-off (S1_TakeOff: Skill_1_Begin = Start_2) comes after the born state.
  */
 export const FLY_CLIP = 1;
 const LAND_KEY = 'aglna2:landing';
@@ -316,7 +316,14 @@ export default {
           kind: 'duration', activateOnDeploy: true, spCost: 0, spType: 'none', trigger: 'NEVER',
           mods: { atkPct: num(b1.atk) }, flags: LIFTOFF,
           targeting: { rangeGrid: r1?.rangeGrid ?? null, maxTargets: Math.max(1, Math.floor(num(b1['attack@max_target'], 1))) },
-          onStart({ battle, unit }) { takeOff(battle, unit); },
+          onStart({ battle, unit, reason }) {
+            takeOff(battle, unit);
+            // S1_TakeOff is her mode from the deployment (skchr_aglna2_1 `_defaultModeIndex` 5): the born state plays her own
+            // Born clip (the mode keeps it, `_excludeAnimKeys` Born) and the mode's attack, the take-off clip, runs after it;
+            // airborne from the start (aglna2_tr: FLY in every mode but Default)
+            const wait = reason === 'deploy' ? battle.flags.bornTime : Math.max(0, (unit.bornUntil ?? -Infinity) - battle.time);
+            holdTakeOff(battle, unit, FLY_CLIP, { wait });   // S1_TakeOff: Skill_1_Begin (Start_2)
+          },
           onEnd({ battle, unit, reason }) { landClip(battle, unit, reason); },
         },
         [S2]: {

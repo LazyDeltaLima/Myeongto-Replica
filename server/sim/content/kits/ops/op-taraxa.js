@@ -6,7 +6,8 @@
 // …重新判定"; S2 备注 "此技能的额外治疗只以能够阻挡飞行敌人…的单位生效"); buff_template_data taraxa_*; charpack char_4222_taraxa (modes Default, S1_FlyStart, S1_FlyLoop, S1_FlyEnd,
 // S2_FlyStart, S2_FlyLoop, S2_FlyEnd), skill prefabs skchr_taraxa_1 / _2, projectile_chr_taraxa_s2_1 / _2.
 // - 起飞 (taraxa_fly_mode: ChangeCharBlockMode FLY; flags `liftoff` + `blockFly`, as 蒂比's and 予愿安洁莉娜's): from the cast until the FlyEnd clip has played. Each skill is
-//   SwitchMode FlyStart (its begin clip, FLY_CLIP s, no heal), FlyLoop for its `duration`, then FlyEnd (its end clip, FLY_CLIP s, still airborne, no heal), then Default (taraxa_try_ground).
+//   SwitchMode FlyStart (its begin clip, FLY_CLIP s, no heal), FlyLoop for its `duration`, then FlyEnd (its end clip, FLY_CLIP s, still airborne, no heal), then Default (taraxa_try_ground);
+//   each switch cuts the heal in progress (shared/liftoff.js).
 // - T1 定风絮 "攻击范围内飞行的友方单位获得N%的庇护，阻挡数+1" (taraxa_t[aura]): every ally in her current range — her too: the validator takes her, `_selfOption` default — whose
 //   block mode is air (flag `liftoff`; a real flyer has none) holds 庇护 damage_resistance (the shared PROTECT, 同名效果取最高) and taraxa_t[block] (one per ally whatever the source). Re-judged
 //   every tick (ON_OWNER_BLOCK_MODE_CHANGED: at once).
@@ -22,6 +23,7 @@ import { num, talentBb, skillRec, batMod, up, holdProtect, PROTECT_TICK_HOLD } f
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
+import { holdTakeOff, landAfter, LANDS } from '../shared/liftoff.js';
 
 const S1 = 'skchr_taraxa_1';
 const S2 = 'skchr_taraxa_2';
@@ -32,7 +34,7 @@ const SECOND_SPEED = 10, SPLASH_SPEED = 5;
 /** range x-4: the tile and the eight around it. */
 const X4 = Object.freeze([[1, -1], [1, 0], [1, 1], [0, -1], [0, 0], [0, 1], [-1, -1], [-1, 0], [-1, 1]]);
 const FLY_KEY = 'taraxa_fly_mode';
-const LIFTOFF = Object.freeze({ liftoff: true, blockFly: true });
+const LAND_KEY = 'taraxa:landing';
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 const airBlock = (a) => !!a.s.flags.liftoff;
 
@@ -42,22 +44,15 @@ const randomInjured = (b, u, cands) => (cands.length > 1 ? [b.rng.pick(cands)] :
 const airFirst = (b, u, cands) => [...cands.filter(airBlock), ...cands.filter((a) => !airBlock(a))];
 
 function takeOff({ battle, unit, skill }) {
-  unit.skillStateUntil = battle.time + FLY_CLIP;
-  battle.addBuff(unit, { key: FLY_KEY, flags: LIFTOFF, tags: ['skill'] });
-  battle.releaseBlocked(unit);
-  battle.fx('taraxaFly', { x: unit.x, y: unit.y, id: unit.id, up: 1 });
-  battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: skill.id === S1 ? 'taraxa:up1' : 'taraxa:up2' });
+  holdTakeOff(battle, unit, FLY_CLIP, { key: FLY_KEY, onAir: () => {
+    battle.releaseBlocked(unit);
+    battle.fx('taraxaFly', { x: unit.x, y: unit.y, id: unit.id, up: 1 });
+    battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: skill.id === S1 ? 'taraxa:up1' : 'taraxa:up2' });
+  } });
 }
 function land({ battle, unit, reason }) {
-  if (reason !== 'duration' && reason !== 'stop') { battle.removeBuff(unit, FLY_KEY); return; }
-  unit.skillStateUntil = battle.time + FLY_CLIP;
-  battle.fx('taraxaFly', { x: unit.x, y: unit.y, id: unit.id, up: 0 });
-  const seq = unit.deploySeq;
-  battle.after(FLY_CLIP, () => {
-    if (!up(unit) || unit.deploySeq !== seq || (unit.skill && unit.skill.active)) return;
-    battle.removeBuff(unit, FLY_KEY);
-    battle.releaseBlocked(unit);
-  }, { owner: unit });
+  if (LANDS.has(reason) && unit.alive && unit.deployed) battle.fx('taraxaFly', { x: unit.x, y: unit.y, id: unit.id, up: 0 });
+  landAfter(battle, unit, FLY_CLIP, { key: LAND_KEY, air: FLY_KEY, reason, onLanded: () => battle.releaseBlocked(unit) });
 }
 
 export default {

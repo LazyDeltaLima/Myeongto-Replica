@@ -56,9 +56,10 @@
 //   invulnerable, blocking nothing and gaining no SP while he lands (the RespawnEnd ability's buff demetr_s3[respawn_end]:
 //   INVINCIBLE, BLOCK_FREE, SP_RECOVER_STOPPED, SKILL_NOT_ACTIVATABLE; PRTS "因返回而部署时获得短暂的不死") for RETURN_GUARD s;
 //   not on that tile and no 牵绊 of his up (or the tile taken) ⇒ forced retreat ('retreat').
-//   Each move is instant here. In the client it is the FlyToTarget / FlyToTargetSecond ability (`_waitForAttackEvent`,
-//   `_timeMode` 1, clip Skill_3_ReStart_Begin 0.2 s with no event, then _End 0.3 s with its OnAttack at 0.1 s) [ASSUMED·not
-//   checked: when in those clips the move lands and whether he attacks meanwhile is the ability's code, not read].
+//   Each move is instant here, at the end of the FlyToTarget / FlyToTargetSecond ability's clip (`_waitForAttackEvent`,
+//   `_timeMode` 1, clip Skill_3_ReStart_Begin 0.2 s with no event: its wait ends at the limit). FlyToTargetSecond's cast
+//   interrupts nothing but takes his animator: the swing under way strikes only at its attack time's end (startFly), the
+//   move cuts it (docs/rules/sim.md 「즉발 스킬의 시전」).
 // - 牵绊 (token_10065_demetr_dmtpos, S3 only — its variant bySkill 2): "贝洛内技能结束时返回该位置，并且其他干员不能部署" — it holds
 //   his located tile; 无敌, untargetable, 孤立, no attack, blocks nothing (blockCnt 0) — PRTS 牵绊 备注.
 // Melee, ground-only (data canHitFly false: no anti-air); ground enemies target him normally (no 起飞 / 迷彩 / 隐匿).
@@ -231,6 +232,11 @@ export default {
     const startFly = (battle, unit, st, skill) => {
       if (!up(unit) || !unit.canAct || st.undead || !pickTarget(battle, unit, st)) return false;
       st.flyAt = battle.time + skill.castTiming().action;
+      // The cast interrupts nothing (TriggerAbilityUseSelector → CastToTarget → OnCastStart only plays its clip), but its clip
+      // takes his animator: the swing under way gets no OnAttack event of its clip, so its strike comes only at its wait
+      // limit, the end of its attack time (EasyToStartAbility.WaitForNextEvent) — and the move, a new deployment, cuts it first
+      // when that is later
+      if (unit.swing && !unit.swing.replace) unit.swing.left = Math.max(unit.swing.left, unit.castLeft);
       return true;
     };
 
@@ -261,8 +267,8 @@ export default {
           onTick({ battle, unit, skill }) {
             const st = unit.mem.demetrS3;
             if (!st) return;
-            // FlyToTargetSecond under way: the same clip and wait as FlyToTarget, its target picked as they run out
-            // [ASSUMED·미조사: not read whether this cast, outside the Skill state, cuts his swing meanwhile; here it does not]
+            // FlyToTargetSecond under way: the same clip and wait as FlyToTarget, its target picked as they run out (a new
+            // attack may start meanwhile: the cast is outside the Skill state)
             if (st.flyAt != null) {
               if (battle.time + 1e-9 < st.flyAt) return;
               st.flyAt = null;

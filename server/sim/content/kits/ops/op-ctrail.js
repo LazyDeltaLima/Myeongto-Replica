@@ -1,6 +1,6 @@
 // server/sim/content/kits/ops/op-ctrail.js — 云迹 (char_4165_ctrail) kit: 4★ 巡空者 (特种), a tier-2 piece of 规程 (act3autochess) (shared/seasons.js `act3autochess`,
 // docs/rules/diy.md 「새 시즌 아스테시아·콘트레일·에단」); both skills and the talent in both forms (she has no module). The same graph as 蒂比's and 予愿安洁莉娜's take-offs (flags `liftoff` + `blockFly`,
-// the fx 'takeoff', render/units.js LIFTOFF_HEIGHT, the `_TakeOff` / `_Landing` clips of tools/assets/anim-keys.mjs); here the two clips also take their time, as 风絮's.
+// the fx 'takeoff', render/units.js LIFTOFF_HEIGHT, the `_TakeOff` / `_Landing` clips of tools/assets/anim-keys.mjs, their time and swing cut from shared/liftoff.js, as 风絮's).
 //
 // Forms (data/seasons/act3autochess/chess.json): normal = E1 Lv60, skills at rank 4; elite = E2 Lv55, rank 7.
 // Sources: the record's tables; gamedata_const ba.liftoff; PRTS 云迹 (备注 of S2); charpack char_4165_ctrail (modes Default, S1_TakeOff, S1, S1_Landing, S2_TakeOff, S2, S2_Landing, Default_S1),
@@ -15,38 +15,27 @@
 // - S2 掠空飞翎 (modes 4–6 on the skill's 3-1): ATK +atk. PRTS 备注: "先选择最多3个飞行目标与最多2个地面目标，随后在这些目标中选择最多3个目标（优先级：自身阻挡>仇恨值）" (Selector0 `_targetMotion` ground attack@max_walk_target,
 //   Selector1 air attack@max_target, the group attack@max_target). A flyer hit: attack@sluggish s of 停顿 (ctrail_s_2[sluggish] IfTarget FLY_ONLY).
 
-import { num, talentBb, skillRec, up, toggleBuff } from '../shared/tier1.js';
+import { num, talentBb, skillRec, toggleBuff } from '../shared/tier1.js';
+import { holdTakeOff, landAfter } from '../shared/liftoff.js';
 
 const S1 = 'skchr_ctrail_1';
 const S2 = 'skchr_ctrail_2';
 /** Skill_Begin, Skill_End, Skill_2_Begin, Skill_2_End are all this long (data/assets.json `animations`; test/content/op_ctrail.test.js). */
 export const FLY_CLIP = 1;
 const FLY_KEY = 'ctrail_tr[fly]';
-const LIFTOFF = Object.freeze({ liftoff: true, blockFly: true });
+const LAND_KEY = 'ctrail:landing';
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
 function takeOff({ battle, unit, reason }) {
   // (a deployment's cast comes before Battle sets `bornUntil`)
   const wait = reason === 'deploy' ? battle.flags.bornTime : Math.max(0, (unit.bornUntil ?? -Infinity) - battle.time);
-  unit.skillStateUntil = battle.time + wait + FLY_CLIP;
-  const go = () => {
-    battle.addBuff(unit, { key: FLY_KEY, flags: LIFTOFF, tags: ['skill'] });
+  holdTakeOff(battle, unit, FLY_CLIP, { key: FLY_KEY, wait, onAir: () => {
     battle.releaseBlocked(unit);   // the ground enemies she held walk on
     battle.fx('takeoff', { x: unit.x, y: unit.y, id: unit.id });
-  };
-  if (!(wait > 1e-9)) { go(); return; }
-  const seq = unit.deploySeq;
-  battle.after(wait, () => { if (up(unit) && unit.deploySeq === seq) go(); }, { owner: unit });
+  } });
 }
 function land({ battle, unit, reason }) {
-  if (reason !== 'duration' && reason !== 'stop') { battle.removeBuff(unit, FLY_KEY); return; }
-  unit.skillStateUntil = battle.time + FLY_CLIP;
-  const seq = unit.deploySeq;
-  battle.after(FLY_CLIP, () => {
-    if (!up(unit) || unit.deploySeq !== seq || (unit.skill && unit.skill.active)) return;
-    battle.removeBuff(unit, FLY_KEY);
-    battle.releaseBlocked(unit);   // the flyers she held
-  }, { owner: unit });
+  landAfter(battle, unit, FLY_CLIP, { key: LAND_KEY, air: FLY_KEY, reason, onLanded: () => battle.releaseBlocked(unit) });   // the flyers she held
 }
 
 export default {
