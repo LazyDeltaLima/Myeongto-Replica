@@ -389,7 +389,7 @@ void main() {
   vec2 fd = max(vec2(0.0), max(uFocus.xy - vWorld.xy, vWorld.xy - uFocus.zw));
   outgoing *= mix(uFocusDim, 1.0, 1.0 - smoothstep(0.0, uFocusSoft, length(fd)));
   // gamma-space result: written as is (no colorspace_fragment). An opaque material writes alpha 1: its texture's alpha is
-  // data, not coverage (规程's ice maps, Torappu/Scene/Standard-Ice), and would punch holes into a canvas with alpha
+  // data, not coverage (act3autochess's ice maps, Torappu/Scene/Standard-Ice), and would punch holes into a canvas with alpha
   // (tools/map-previews.mjs) — uOpacity stays for the fading device copies. OPAQUE is three.js's own define, set for a
   // material that is not transparent (WebGLProgram parameters.opaque)
   #ifdef OPAQUE
