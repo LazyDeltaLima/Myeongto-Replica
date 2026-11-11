@@ -30,17 +30,13 @@ const SPECIAL_TYPE = [
   'enemy_10163_mnctur_2', 'enemy_1064_snsbr', 'enemy_1067_snslime_2', 'enemy_1103_wdkght_2', 'enemy_1104_lfkght',
   'enemy_1104_lfkght_3', 'enemy_1131_sbeast', 'enemy_1131_sbeast_2', 'enemy_1132_sarchn', 'enemy_1132_sarchn_2',
   'enemy_1133_harchn', 'enemy_1133_harchn_2', 'enemy_1137_plasm', 'enemy_1138_tumor', 'enemy_1191_krgrg',
-  'enemy_1191_krgrg_2', 'enemy_1213_mtrsnp', 'enemy_1216_cansld', 'enemy_1219_mtrbty', 'enemy_1220_dzoms',
-  'enemy_1220_dzoms_2', 'enemy_1221_dzomg', 'enemy_1221_dzomg_2', 'enemy_1222_dpvt', 'enemy_1222_dpvt_2',
-  'enemy_1223_dmech', 'enemy_1223_dmech_2', 'enemy_1224_dsuply', 'enemy_1224_dsuply_2', 'enemy_1225_dkmage',
-  'enemy_1225_dkmage_2', 'enemy_1226_dklord', 'enemy_1226_dklord_2', 'enemy_1309_mhboar_2', 'enemy_1360_dfello',
-  'enemy_1361_dthrow', 'enemy_1361_dthrow_2', 'enemy_1362_dfat', 'enemy_1362_dfat_2', 'enemy_1363_spnshd_2',
-  'enemy_1373_ltnhor', 'enemy_1373_ltnhor_2', 'enemy_1375_ltnclr', 'enemy_1375_ltnclr_2', 'enemy_1376_ltndru',
-  'enemy_1376_ltndru_2', 'enemy_1385_winbom', 'enemy_1385_winbom_2', 'enemy_1388_wingnt', 'enemy_1388_wingnt_2',
-  'enemy_1403_gunsho', 'enemy_1403_gunsho_2', 'enemy_1405_boomer_2', 'enemy_1406_chghmr', 'enemy_1409_bdguad_2',
-  'enemy_1428_lrsoul', 'enemy_1429_lrwzrd', 'enemy_1429_lrwzrd_2', 'enemy_1431_lrmzrd', 'enemy_1431_lrmzrd_2',
-  'enemy_1434_dsshel', 'enemy_1436_dsdivi', 'enemy_1436_dsdivi_2', 'enemy_1437_dsfull', 'enemy_1437_dsfull_2',
-  'enemy_9030_acpara', 'enemy_9031_acrefd', 'enemy_9034_acblk', 'enemy_9039_acrefm',
+  'enemy_1191_krgrg_2', 'enemy_1213_mtrsnp', 'enemy_1216_cansld', 'enemy_1219_mtrbty', 'enemy_1309_mhboar_2',
+  'enemy_1363_spnshd_2', 'enemy_1373_ltnhor', 'enemy_1373_ltnhor_2', 'enemy_1375_ltnclr', 'enemy_1375_ltnclr_2',
+  'enemy_1376_ltndru', 'enemy_1376_ltndru_2', 'enemy_1385_winbom', 'enemy_1385_winbom_2', 'enemy_1388_wingnt',
+  'enemy_1388_wingnt_2', 'enemy_1403_gunsho', 'enemy_1403_gunsho_2', 'enemy_1405_boomer_2', 'enemy_1406_chghmr',
+  'enemy_1409_bdguad_2', 'enemy_1428_lrsoul', 'enemy_1429_lrwzrd', 'enemy_1429_lrwzrd_2', 'enemy_1431_lrmzrd',
+  'enemy_1431_lrmzrd_2', 'enemy_1434_dsshel', 'enemy_1436_dsdivi', 'enemy_1436_dsdivi_2', 'enemy_1437_dsfull',
+  'enemy_1437_dsfull_2', 'enemy_9031_acrefd', 'enemy_9034_acblk', 'enemy_9039_acrefm',
 ];
 // enemies an enemy effect, choice or strategy of 规程 puts on the field
 const EFFECT_SPAWN = [
@@ -755,4 +751,178 @@ test('假想敌：丛生: its first damage on each unit × 2 (accrit[critical-hi
   h.runUntil(() => h.b.time >= at + 5.2, 10);
   assert.ok(!w.s.flags.noHeal && !w.s.flags.healFree, 'HEAL_FREE for 5 s');
   assert.ok(e.alive);
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// REBORN 复苏 (enemies/reborn.js): the 萨卡兹子裔 and their 重生造物
+
+const DPVT = 'enemy_1222_dpvt', DZOMS = 'enemy_1220_dzoms', DZOMG = 'enemy_1221_dzomg';
+/** Element damage enemy keys deal, as { t, n, el }. */
+const elemHits = (h, keys) => { const out = []; h.b.on('damaged', (c) => { if (c.source && keys.includes(c.source.defId) && c.dmg.type === 'element') out.push({ t: c.target, n: c.amount, el: c.dmg.element }); }); return out; };
+/** Put enemy `key` on a wall's tile, walking, and run until that wall blocks it. */
+const blockedOn = (h, key, w) => { const e = put(h, key, [w.tileR, w.tileC + 0.3], { move: true, tag: null }); h.runUntil(() => e.blockedBy === w, 5); assert.ok(e.blockedBy === w, `${key} blocked`); return e; };
+
+test('萨卡兹子裔战士: knocked out, one 大君之触 `deathrattle.delay` (1) s later where it fell — silenced too; the battle waits for it', () => {
+  assert.equal(E3[DPVT].talents.bb['deathrattle.delay'], 1);
+  assert.equal(E3[DPVT].talents.bbStr['deathrattle.enemy_key'], DZOMS);
+  for (const silence of [false, true]) {
+    const { h } = waveField([DPVT, DZOMS], [{ chessId: 't_wall', row: 12, col: 2 }]);
+    const e = put(h, DPVT, [10, 6], { tag: null });
+    if (silence) h.b.applyStatus(e, 'silence', { duration: 10, source: null });
+    h.step();
+    h.b.kill(e, h.unit('t_wall'));
+    assert.ok(h.b._hasPendingEnemySchedules(), 'the battle waits for the summon');
+    runFor(h, 0.9);
+    assert.equal(alive(h, DZOMS).length, 0, 'not before the delay');
+    runFor(h, 0.2);
+    const c = alive(h, DZOMS);
+    assert.equal(c.length, 1, `one 大君之触 (silenced ${silence})`);
+    assert.ok(Math.abs(c[0].x - 6) < 1e-6 && Math.abs(c[0].y - 10) < 1e-6, 'where it fell');
+  }
+});
+
+test('大君之赐: physical and arts damage taken × 0.1; its blocker blocks one more per 重生造物 it blocks, until they are gone', () => {
+  const bb = E3[DZOMG].talents.bb;
+  assert.deepEqual([bb['dmg_res.damage_resistance'], bb['buff_to_blocker.block_cnt']], [0.9, 1]);
+  const { h } = waveField([DZOMG], [{ chessId: 't_wall', row: 10, col: 6 }]);
+  const w = h.unit('t_wall'), base = w.s.blockCnt;
+  const e = blockedOn(h, DZOMG, w);
+  runFor(h, 0.2);
+  assert.equal(w.s.blockCnt, base + 1, 'one blocked: +1');
+  const e2 = blockedOn(h, DZOMG, w);
+  runFor(h, 0.2);
+  assert.equal(w.s.blockCnt, base + 2, 'two blocked: +2');
+  const res = E3[DZOMG].stats.res, hp = e.hp;
+  h.b.dealDamage(w, e, { amount: 1000, type: 'arts', canDodge: false });
+  assert.ok(Math.abs(hp - e.hp - 1000 * (1 - res / 100) * 0.1) < 1e-6, `arts × 0.1 (${hp - e.hp})`);
+  h.b.kill(e, w); h.b.kill(e2, w);
+  runFor(h, 0.3);
+  assert.equal(w.s.blockCnt, base, 'back once they are gone');
+});
+
+test('萨卡兹子裔补给车: 重生造物 ATK +10 % per 补给车 and 凋亡 ATK × 0.1 per 补给车 on each hit; a silenced one gives nothing', () => {
+  const SUP = 'enemy_1224_dsuply', bb = E3[SUP].talents.bb;
+  assert.deepEqual([bb['aura.enemy_dsuply_t[attr_buff].atk'], bb['aura.ep_damage_ratio']], [0.1, 0.1]);
+  const { h } = waveField([DZOMS, SUP], [{ chessId: 't_wall', row: 10, col: 6 }]);
+  const ep = elemHits(h, [DZOMS]);
+  const w = h.unit('t_wall'), atk = E3[DZOMS].stats.atk;
+  const z = blockedOn(h, DZOMS, w);
+  const s1 = put(h, SUP, [3, 14], { tag: null }), s2 = put(h, SUP, [4, 14], { tag: null });
+  runFor(h, 0.3);
+  assert.ok(Math.abs(z.s.atk - atk * 1.2) < 1e-6, `two 补给车: × 1.2 (${z.s.atk})`);
+  h.runUntil(() => ep.length >= 1, 10);
+  assert.ok(ep[0].el === 'apoptosis' && Math.abs(ep[0].n - atk * 1.2 * 0.1 * 2) < 1e-6, `凋亡 ATK × 0.1 × 2 (${ep[0].n})`);
+  h.b.applyStatus(s1, 'silence', { duration: 30, source: null });
+  runFor(h, 0.3);
+  assert.ok(Math.abs(z.s.atk - atk * 1.1) < 1e-6, 'one silenced: × 1.1');
+  h.b.applyStatus(s2, 'silence', { duration: 30, source: null });
+  runFor(h, 0.3);
+  assert.ok(Math.abs(z.s.atk - atk) < 1e-6, 'both silenced: plain');
+});
+
+test('萨卡兹子裔集恨者: ATK +15 % per 重生造物 on the field (up to 6); knocked out, a 大君之赐', () => {
+  const LORD = 'enemy_1226_dklord';
+  assert.deepEqual([E3[LORD].talents.bb['aura.atk'], E3[LORD].talents.bb['aura.max_valid_stack_cnt']], [0.15, 6]);
+  const { h } = waveField([LORD, DZOMS, DZOMG], [{ chessId: 't_wall', row: 12, col: 2 }]);
+  const e = put(h, LORD, [3, 14], { tag: null }), atk = E3[LORD].stats.atk;
+  runFor(h, 0.3);
+  assert.equal(e.s.atk, atk, 'none: plain');
+  for (let i = 0; i < 8; i++) put(h, i % 2 ? DZOMS : DZOMG, [3 + (i % 3), 10 + i * 0.3], { tag: null });
+  runFor(h, 0.3);
+  assert.ok(Math.abs(e.s.atk - atk * (1 + 0.15 * 6)) < 1e-6, `eight: capped at six (${e.s.atk})`);
+  h.b.kill(e, null);
+  runFor(h, 1.1);
+  assert.equal(alive(h, DZOMG).length, 5, 'its own 大君之赐 joins the four');
+});
+
+test('萨卡兹子裔链术师: arts on 4 units, each jump to the nearest within 1.6 × 0.85 once more; 凋亡 ATK × 0.3 with the same fall-off', () => {
+  const key = 'enemy_1225_dkmage', bb = E3[key].talents.bb, atk = E3[key].stats.atk;
+  assert.deepEqual([bb['epdamage.attack@max_target'], bb['epdamage.attack@chain.atk_scale'], bb['epdamage.attack@projectile_range']], [4, 0.85, 1.6]);
+  // a decoy deployed first (the lowest priority) at (9, 1): within 1.6 of the first target, but farther than the next on the row
+  const walls = [{ chessId: 't_wall', row: 9, col: 1, uid: 9 }, ...[2, 3, 4, 5, 7].map((col, i) => ({ chessId: 't_wall', row: 10, col, uid: i + 1 }))];
+  const { h, hits } = waveField([key], walls);
+  const ep = elemHits(h, [key]);
+  put(h, key, [10, 0.5], { tag: null });
+  h.runUntil(() => hits.length >= 4, 15);
+  // the jumps are dealt inside the first hit's damage event, so they are recorded before it: by the damage, largest first
+  const one = hits.slice(0, 4).sort((p, q) => q.n - p.n);
+  assert.deepEqual(one.map((x) => (x.n / atk).toFixed(6)), [1, 0.85, 0.85 ** 2, 0.85 ** 3].map((v) => v.toFixed(6)));
+  assert.deepEqual(one.map((x) => x.t.tileC), [2, 3, 4, 5], 'from the first along the nearest; not the decoy (1.41 away), not the 5th (2 away)');
+  assert.deepEqual(ep.slice(0, 4).map((x) => (x.n / atk).toFixed(6)).sort().reverse(), [0.3, 0.3 * 0.85, 0.3 * 0.85 ** 2, 0.3 * 0.85 ** 3].map((v) => v.toFixed(6)));
+});
+
+test('萨卡兹子裔轰击者: its shell lies 4 s where it landed, then physical ATK on the units within 1.1 of that spot', () => {
+  const key = 'enemy_1361_dthrow', bb = E3[key].talents.bb, atk = E3[key].stats.atk;
+  assert.deepEqual([bb['Attack.attack@projectile_delay_time'], bb['Attack.attack@projectile_radius']], [4, 1.1]);
+  const { h, hits } = waveField([key], [{ chessId: 't_wall', row: 10, col: 4, uid: 1 }, { chessId: 't_wall', row: 10, col: 5, uid: 2 }, { chessId: 't_wall', row: 10, col: 2, uid: 3 }]);
+  const shells = [];
+  const fx = h.b.fx.bind(h.b);
+  h.b.fx = (kind, p) => { if (kind === 'telegraph' && p?.kind === 'dthrowShell') shells.push({ at: h.b.time, x: p.x }); return fx(kind, p); };
+  put(h, key, [10, 6.5], { tag: null });
+  h.runUntil(() => hits.length >= 2, 20);
+  assert.ok(shells.length >= 1, 'a shell landed');
+  assert.ok(Math.abs(hits[0].at - shells[0].at - 4) < 0.05, `4 s after it landed (${(hits[0].at - shells[0].at).toFixed(2)})`);
+  const first = hits.filter((x) => Math.abs(x.at - hits[0].at) < 1e-6);
+  const at = first.map((x) => x.t.tileC).sort();
+  assert.ok(at.includes(shells[0].x === 4 ? 4 : 5) && !at.includes(2), `within 1.1 of the spot (${at})`);
+  for (const x of first) assert.ok(Math.abs(x.n - atk) < 1e-6, 'ATK × 1 (DEF 0)');
+});
+
+test('萨卡兹子裔责罚者: every 4th attack (spCost 3) hits and stuns 4 s its blocker and every unit touching its 1-tile circle; silenced, plain attacks', () => {
+  const key = 'enemy_1362_dfat', s = E3[key].skills.find((x) => x.prefabKey === 'StunAttack');
+  assert.deepEqual([s.spCost, s.bb.stun], [3, 4]);
+  const run = (silence) => {
+    const { h, hits } = waveField([key], [{ chessId: 't_wall', row: 10, col: 6, uid: 1 }, { chessId: 't_wall', row: 11, col: 6, uid: 2 }, { chessId: 't_wall', row: 12, col: 6, uid: 3 }]);
+    const e = blockedOn(h, key, h.unit(1));
+    if (silence) h.b.applyStatus(e, 'silence', { duration: 60, source: null });
+    h.runUntil(() => e.stats.attacks >= 4, 40);
+    h.step();
+    return { h, hits };
+  };
+  const { h, hits } = run(false);
+  assert.ok(h.unit(1).s.flags.stun && h.unit(2).s.flags.stun && !h.unit(3).s.flags.stun, 'the blocker and the one a row down, not two rows down');
+  assert.ok(hits.some((x) => x.t === h.unit(2)) && !hits.some((x) => x.t === h.unit(3)), 'the one a row down is hit');
+  const q = run(true);
+  assert.ok(!q.h.unit(1).s.flags.stun && !q.hits.some((x) => x.t === q.h.unit(2)), 'silenced: none');
+});
+
+test('新生血裔: arts × (0.2 × enemies its target blocks + 1), heals 2.2 × the damage; knocked out, a 血珀', () => {
+  const key = 'enemy_1360_dfello', bb = E3[key].talents.bb, atk = E3[key].stats.atk;
+  assert.deepEqual([bb['DamageUp.scale_ratio'], bb['DamageUp.add_on'], bb['vampire.heal_scale']], [0.2, 1, 2.2]);
+  const { h, hits } = waveField([key, DZOMS], [{ chessId: 't_wall', row: 10, col: 6 }]);
+  const w = h.unit('t_wall');
+  const e = blockedOn(h, key, w);
+  e.hp = e.s.maxHp / 2;
+  const hp = e.hp;
+  h.runUntil(() => hits.length >= 1, 10);
+  assert.ok(Math.abs(hits[0].n - atk * 1.2) < 1e-6, `one blocked: × 1.2 (${hits[0].n})`);
+  assert.ok(Math.abs(e.hp - hp - hits[0].n * 2.2) < 1e-6, 'heals 2.2 × the damage');
+  blockedOn(h, DZOMS, w);
+  const own = () => hits.filter((x) => x.src === e);
+  h.runUntil(() => own().length >= 2, 10);
+  assert.ok(Math.abs(own()[1].n - atk * 1.4) < 1e-6, `two blocked: × 1.4 (${own()[1].n})`);
+  h.b.kill(e, w);
+  assert.equal(alive(h, 'enemy_1367_dseed').length, 1, 'a 血珀');
+});
+
+test('萨卡兹子裔寄生者: an enemy knocked out within 1.5 summons a 大君之赐 at once — not a 大君之赐 or 大君之触, not while it is silenced', () => {
+  const key = 'enemy_9030_acpara';
+  assert.equal(E3[key].talents.bb['Aura.range_radius'], 1.5);
+  assert.equal(E3[key].talents.bbStr['Aura.enemy_key'], DZOMG);
+  const { h } = waveField([key, DPVT, DZOMS, DZOMG], [{ chessId: 't_wall', row: 12, col: 2 }]);
+  const p = put(h, key, [10, 8], { tag: null });
+  h.step();
+  const near = put(h, DPVT, [10, 9.2], { tag: null }), far = put(h, DPVT, [10, 10], { tag: null });
+  assert.ok(Math.abs(near.x - p.x - 1.2) < 1e-6 && Math.abs(far.x - p.x - 2) < 1e-6 && near.y === p.y, 'placed on one row');
+  h.b.kill(far, null);
+  assert.equal(alive(h, DZOMG).length, 0, '2 away: none');
+  h.b.kill(near, null);
+  assert.equal(alive(h, DZOMG).length, 1, '1.2 away: one, at once');
+  h.b.kill(alive(h, DZOMG)[0], null);
+  assert.equal(alive(h, DZOMG).length, 0, 'a 大君之赐 knocked out: none');
+  h.b.kill(put(h, DZOMS, [10, 8.5], { tag: null }), null);
+  assert.equal(alive(h, DZOMG).length, 0, 'a 大君之触 knocked out: none (its validator)');
+  h.b.applyStatus(p, 'silence', { duration: 10, source: null });
+  h.b.kill(put(h, DPVT, [10, 8.5], { tag: null }), null);
+  assert.equal(alive(h, DZOMG).length, 0, 'silenced: none');
 });
