@@ -678,6 +678,8 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       return m.dispatcher.triggerGarrisons(ps, l.piece, eventType, { asPiece: as ? as.piece : null, triggeredBy: source.key || null });
     },
     promote: (uid) => { const l = ps.find(uid); return l ? ps.promote(l.piece) : false; },
+    /** Sell an owned chess piece as the sell intent does (price, onSold, funds; PREP only); true when sold. */
+    sell: (uid) => { const r = ps.sell(uid); return !!(r && r.ok); },
     /** 突变细胞's transformation: destroy a chess piece wherever it stands (its equipment returns to the hand first), then
      *  gain `chessId` like any gained operator — hand, overflow temp, a completed merge as usual
      *  (PlayerState.transformChess). Returns the gained piece's view (the elite after a merge) or null. */

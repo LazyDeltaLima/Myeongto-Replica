@@ -729,6 +729,192 @@ K.skill_drop_hp_to_low_gain_coin = (ps) => ({
   },
 });
 
+// The drag 指令 (「拖拽使用」) on an operator of the player (COMMON_CHESS CHAR: on the board or in the 整备区 — the
+// maintainer's provisional reading of 2026-11-08) or on an operator card of the shop (SHOP_SLOT CHAR). The target is
+// bandSkill.js's (ev.target), checked again here only for what the effect needs. The shared rules of the click 指令 hold
+// (a 指令 with nothing to act on is refused and costs nothing) [ASSUMED·CN: the client's skill classes exist only in the CN
+// client; the table texts say what, not these edges].
+
+/** The target operator of a COMMON_CHESS 指令 (its view), or null. */
+const targetChess = (ctx, ev) => {
+  const v = ev.target && ev.target.kind === 'chess' ? ctx.piece(ev.target.uid) : null;
+  return v && v.kind === 'chess' ? v : null;
+};
+/** The target card of a SHOP_SLOT 指令 ({ i, id, tier }), or null. */
+const targetCard = (ctx, ev) => {
+  if (!ev.target || ev.target.kind !== 'shop') return null;
+  const s = ctx.shopSlots()[ev.target.slot];
+  return s && s.kind === 'chess' && !s.sold ? { i: ev.target.slot, id: s.id, tier: ctx.gd.tierOf(s.id) } : null;
+};
+/** Does the operator have a 特质 of `event` that runs where it stands (a hand piece skips the board-only ones)? */
+const hasTrait = (ctx, v, event) => ctx.garrisonsOf(v.uid)
+  .some((g) => g.eventType === event && !(v.area !== 'board' && g.bbStr.conditionkey === 'character_target_inboard'));
+
+// 望 黑白相易 「选择一名我方干员移除，获得1名不高于该干员等阶的【炎】干员」 (in_shop 0): the operator is destroyed — no sale, no
+// funds, its equipment back to the 整备区, its copies back to the pool (ctx.destroyPiece) — and a random <bond> operator of
+// tier ≤ its tier is gained (copy-weighted, an elite counting its own tier).
+// 引星棘刺 出航时刻 「选择一名调度中心内的干员，使其替换为不高于该干员等阶的【伊比利亚】干员」 (in_shop 1): the card becomes one of a
+// random <bond> operator of tier ≤ the card's (its freeze kept: setShopSlot).
+K.skill_remove_gain_bond_char = (ps) => ({
+  onBandSkill(ctx, ev) {
+    const p = ps[0];
+    if (int(p.in_shop, 0) > 0) {
+      const c = targetCard(ctx, ev);
+      if (!c) return nothing(ev, 'no operator card');
+      const id = ctx.rollChess({ bond: p.bond, maxTier: c.tier });
+      if (!id) return nothing(ev, 'no operator of the bond left');
+      ctx.setShopSlot(c.i, { kind: 'chess', id });
+      ev.handled = true;
+      return;
+    }
+    const v = targetChess(ctx, ev);
+    if (!v) return nothing(ev, 'no operator');
+    const id = ctx.rollChess({ bond: p.bond, maxTier: Math.max(1, v.tier ?? 1) });
+    if (!id) return nothing(ev, 'no operator of the bond left');
+    ctx.destroyPiece(v.uid);
+    ctx.grantChess(id, { source: 'band' });
+    ev.handled = true;
+  },
+});
+
+// 风丸 纸片替身 「选择一名调度中心内的干员，使其变为相同等阶的随机干员」: the card becomes a random other operator of the same tier
+// (copy-weighted; refused when the tier has no other one left)
+K.skill_transform_char_same_tier = () => ({
+  onBandSkill(ctx, ev) {
+    const c = targetCard(ctx, ev);
+    if (!c) return nothing(ev, 'no operator card');
+    const base = ctx.gd.baseIdOf(c.id);
+    const id = ctx.rollChess({ tier: c.tier, filter: (x) => x !== base });
+    if (!id) return nothing(ev, 'no other operator of the tier');
+    ctx.setShopSlot(c.i, { kind: 'chess', id });
+    ev.handled = true;
+  },
+});
+
+// 但书 条文修正 「使该干员已激活的所有盟约层数+9」: every active bond the operator counts for (its own and those its equipment
+// gives: metaBonds) gains initial_count layers — + delta_count for every n earlier uses, at most max_count (9, 0, 1, 9 in
+// the table: always 9) [ASSUMED·CN: the growth keys' reading; refused when none of its bonds is active]
+const BOND_USES = 'band:skill:bondUses';
+K.skill_act_bond_grow_garr_cnt = (ps) => ({
+  onBandSkill(ctx, ev) {
+    const p = ps[0];
+    const v = targetChess(ctx, ev);
+    if (!v) return nothing(ev, 'no operator');
+    const bonds = metaBonds(ctx, v).filter((b) => ctx.bondActive(b));
+    if (!bonds.length) return nothing(ev, 'no active bond');
+    const uses = ctx.counter(BOND_USES);
+    const step = Math.floor(uses / Math.max(1, int(p.n, 1))) * int(p.delta_count, 0);
+    const max = int(p.max_count, Infinity);
+    const n = Math.min(Number.isFinite(max) && max > 0 ? max : Infinity, int(p.initial_count, 0) + step);
+    for (const b of bonds) ctx.addLayers(b, n, { requireActive: true, reason: 'band' });
+    ctx.incCounter(BOND_USES, 1);
+    ev.handled = true;
+  },
+});
+
+// 苏苏洛 强制休整 「使该干员的<休整期结束时>类特质本回合可以额外触发一次」: at this round's prep end, the operator's 特质 of
+// bbStr.event (SERVER_PREP_FIN) run `count` more times, after the strategy's own prep-end turn and before the 特质' own
+// (the dispatch order: band → bonds → garrisons) [ASSUMED·CN: the order of the extra run; an operator sold or merged
+// before the prep end loses it]. Refused when the operator has no such 特质 that runs where it stands.
+const EXTRA_EXEC = 'band:skill:extraExec:';
+K.skill_garr_event_extra_exec = (ps) => ({
+  onBandSkill(ctx, ev) {
+    const v = targetChess(ctx, ev);
+    if (!v) return nothing(ev, 'no operator');
+    if (!hasTrait(ctx, v, ps[0].event)) return nothing(ev, 'no trait of the event');
+    ctx.incCounter(`${EXTRA_EXEC}${v.uid}`, Math.max(1, int(ps[0].count, 1)));
+    ctx.setCounter(`${EXTRA_EXEC}r`, ctx.round);
+    ev.handled = true;
+  },
+  onPrepEnd(ctx) {
+    if (ctx.counter(`${EXTRA_EXEC}r`) !== ctx.round) return;
+    ctx.setCounter(`${EXTRA_EXEC}r`, 0);
+    for (const v of [...ctx.board(), ...ctx.hand()]) {
+      if (!v || v.kind !== 'chess') continue;
+      const k = `${EXTRA_EXEC}${v.uid}`;
+      const n = ctx.counter(k);
+      if (!(n > 0)) continue;
+      ctx.setCounter(k, 0);
+      const at = ctx.piece(v.uid);
+      if (!at || !hasTrait(ctx, at, ps[0].event)) continue;
+      for (let i = 0; i < n; i++) ctx.triggerGarrisons(v.uid, ps[0].event);
+    }
+  },
+});
+
+// 铃兰 御守之力 「选择一名我方干员，触发该干员的<获得时>类特质」: the operator's 特质 of bbStr.event (SERVER_GAIN) run `count`
+// times now, as 铃兰's passive of the default season runs them (ctx.triggerGarrisons; 投资人 multiplies a SERVER_GAIN as
+// always). Refused when it has no such 特质.
+K.skill_trigger_garr_event = (ps) => ({
+  onBandSkill(ctx, ev) {
+    const v = targetChess(ctx, ev);
+    if (!v) return nothing(ev, 'no operator');
+    if (!hasTrait(ctx, v, ps[0].event)) return nothing(ev, 'no trait of the event');
+    for (let i = 0; i < Math.max(1, int(ps[0].count, 1)); i++) ctx.triggerGarrisons(v.uid, ps[0].event);
+    ev.handled = true;
+  },
+});
+
+// 夕 幻画为真 「选择一名我方干员，获得他的复制体，包括精锐状态和携带的装备」: a copy of the operator (its elite id when it is one,
+// past the stock as 投影 makes one) is gained like any gained operator, then a copy of each of its items is gained and put
+// on it without equip effects — the default season's 复制 trap (builtinMeta.js trap_copy_front_char), same rules [ASSUMED·CN:
+// the item copies take the shared equipment stock like that trap's; a copy that completes a merge is merged as usual — a
+// mergeable item meets the original's copy and becomes the 进阶 one, which the copy then wears]
+K.skill_copy_char_with_equip = () => ({
+  onBandSkill(ctx, ev) {
+    const v = targetChess(ctx, ev);
+    if (!v) return nothing(ev, 'no operator');
+    const copy = ctx.grantChess(v.id, { source: 'band', requirePool: false });
+    if (!copy) return nothing(ev, 'no copy');
+    for (const it of v.items || []) {
+      const item = ctx.grantItem(it.id, { source: 'band' });
+      if (item) ctx.equipDirect(item.uid, copy.uid);
+    }
+    ev.handled = true;
+  },
+});
+
+// 缪尔赛思 至纯凝结 「立即使该干员晋升为精锐干员」: the operator becomes its elite in place (PlayerState.promote, as 升华 does —
+// no merge, so no 晋升奖励 offer) [ASSUMED·CN: whether this 晋升 brings the merge's reward]. Refused for an elite.
+K.skill_upgrade_char = () => ({
+  onBandSkill(ctx, ev) {
+    const v = targetChess(ctx, ev);
+    if (!v) return nothing(ev, 'no operator');
+    if (v.golden || !ctx.gd.goldenIdOf(v.id)) return nothing(ev, 'already elite');
+    if (!ctx.promote(v.uid)) return nothing(ev, 'no elite');
+    ev.handled = true;
+  },
+});
+
+// 三船光平 东之极道 「将其出售并为所有已激活盟约叠加等同于该干员等阶的层数」: the operator is sold as the sell intent sells it (its
+// price, onSold: 出售时 特质, 巫恋…), then every bond active after the sale gains its tier in layers [ASSUMED·CN: the bonds
+// active after the sale — one the sale deactivates gains none]
+K.skill_sell_char_bond_layer = () => ({
+  onBandSkill(ctx, ev) {
+    const v = targetChess(ctx, ev);
+    if (!v) return nothing(ev, 'no operator');
+    const tier = Math.max(1, v.tier ?? 1);
+    if (!ctx.sell(v.uid)) return nothing(ev, 'not sold');
+    for (const [b, st] of Object.entries(ctx.bonds())) if (st && st.active) ctx.addLayers(b, tier, { requireActive: true, reason: 'band' });
+    ev.handled = true;
+  },
+});
+
+// 昆图斯 不稳定要素 「立即使其变为更高一阶的随机干员（最高不超过6阶）」: 突变细胞's transformation (builtinMeta.js
+// char_chess_transformation_equip, PlayerState.transformChess): the operator is destroyed and a random normal operator of
+// tier min(6, its tier + 1) is gained in its place in the 整备区 [ASSUMED·CN: as 突变细胞 — an elite becomes a normal one,
+// the tile is freed]
+K.skill_transform_char_up_tier = () => ({
+  onBandSkill(ctx, ev) {
+    const v = targetChess(ctx, ev);
+    if (!v) return nothing(ev, 'no operator');
+    const id = ctx.rollChess({ tier: Math.min(6, Math.max(1, v.tier ?? 1) + 1) });
+    if (!id) return nothing(ev, 'no operator of the tier left');
+    if (!ctx.transform(v.uid, ctx.gd.baseIdOf(id))) return nothing(ev, 'not transformed');
+    ev.handled = true;
+  },
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 // 鸭爵 “神秘顾客”: "从第5回合起，你和队友遭遇的部分敌人可能会替换为<鸭爵><高普尼克><流泪小子><圆仔>，击倒这些敌人者获得1资金奖励
 // （包括联防阶段）". A global handler rewrites the battle spawn list of every alive player while the band is held by that
