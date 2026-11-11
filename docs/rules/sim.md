@@ -3217,3 +3217,24 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 - **특수 새로 고침**(노시스 `chess_char_4_09` `garrison_55`, `SERVER_GAIN_SPECIAL_REFRESH_BOND_CHAR`, 획득 시): 페페의 특수 새로 고침(`bands/meta.js`, 「규정 전략」)과 같이 플레이어의 **다음 수동 새로 고침**(값은 평소대로 — 문구에 「免费」 없음)이 끝난 뒤 쉐라그 오퍼레이터가 `count`(1, 정예 2) 장 이상이 되게 한다: 쉐라그가 아닌 오퍼레이터 칸을 왼쪽부터 쉐라그(조달 센터 레벨 이하)로 다시 뽑음. 플레이어 쪽 훅(`global:garrison_special_refresh`)이라 노시스를 먼저 팔아도 남는다. 둘이 쌓이지 않고 큰 수가 남는다(페페의 특수 새로 고침이 안 쌓이는 것과 같게) [추정·화면: 어느 칸을 다시 뽑는지, 쌓이는지].
 - **남은 것**: 없음(정비 쪽 `SERVER_*` 키는 모두 처리기가 있다 — `node tools/season-coverage.mjs act3autochess`).
 - 확인: `test/content/garrisons_act3_meta.test.js`(6), 판매가·특수 새로 고침은 `test/content/garrisons_act3_sell.test.js`(5) — 둘 다 수정 전 코드에서 모두 실패 확인. 화면은 안 봄(숨김 시즌).
+
+## 부여된 특질은 받은 만큼 겹친다 (2026-11-11, 플레이 제보, 공식 클라에서 확인)
+
+- **규칙**: 특질이 다른 오퍼레이터에게 주는 특질(`give_garrison_id`)은 줄 때마다 사본 하나다. 같은 등급 와파린(`chess_char_4_26`) 둘이 한 오퍼레이터를 보면
+  그 오퍼레이터는 `garrison_95`를 둘 갖고 스킬을 켤 때마다 +1 +1(정예 +2 +2)을 얻는다. 한 판 상한(`max_add_count_per_battle`)은 오퍼레이터와 특질 id마다 하나로
+  사본이 함께 쓴다 — 와파린 둘이어도 7(정예 14)에서 멈춘다. 일반과 정예는 id가 달라(`_a`·`_b`) 상한도 따로다(7 + 14). 파투스(`chess_char_4_20`) 둘이 같은 줄
+  맨 오른쪽에게 주는 `garrison_108`(배치·몸 바꿈마다 +4, 24까지)도, 니어 더 래디언트 나이트(`chess_char_6_17`) 둘이 앞뒤로 서서 앞 사람이 받는 144·159(자기 것 +
+  뒤 사람이 준 것)도 같다. 전에는 같은 id의 둘째 부여를 버려 늘 한 사본이었다(제보 「와파린 2명이 봐도 1명분」).
+- **대상은 룬 키로 고른다**: 앞 칸(`give_garrison_to_front`) · 뒤 칸(`give_garrison_to_back`) · 같은 줄 맨 오른쪽(`give_garrison_to_most_right`) · 내 오퍼레이터
+  전부, 자신 포함(`give_garrison_to_all`), 모두 같은 플레이어의 오퍼레이터이고 `check_bond_id`가 있으면 그 맹약 구성원만. 「자신」을 주는 갈래는 없다: 니어 더 래디언트
+  나이트의 「자신과 앞 1칸에게」는 앞 1칸에게 주고, 자신의 몫은 그녀가 원래 가진 144·159다(전엔 설명 문구로 대상을 골라 자신에게도 주고 중복이라 버렸다).
+- 근거(공식 클라에서 확인): 전투 데이터를 읽을 때 부여 특질은 대상의 룬 목록에 새 룬 묶음으로 덧붙고(`AutoChessBattleDataModel._GrantGarrisonToInst` →
+  `AdvancedRuneHolder.AddPackedRuneData`, 이미 가졌는지 보지 않음), 부여 대상은 `_ParseGrantGarrison`이 위 네 룬 키로 고른다. 이 특질들의 전역 버프 프리팹
+  (`[uc]globalbuffs.ab`의 `act1autochess_gar_*`·`act2autochess_gar_*` 10개)과 `garrison_29`의 능력 프리팹(`[uc]dynamicabilities.ab`)은 모두 `disableOverride` 1이라
+  덮어쓰기 묶음 밖 — 사본마다 켜진다(sim.md 「같은 장비 둘은 둘 다 효과가 있다」와 같은 구조). 층 상한은 `AutoChessGarrisonManager`가 받은 오퍼레이터에 특질의
+  `garrison_key`로 누적을 적어 두고 남은 만큼만 준다.
+- [추정·CN: 규정의 `garrison_235`(「앞 1칸 오퍼레이터가 층을 올릴 때마다 +1」, `act3autochess_gar_effect_ex_bond_cnt`)는 프리팹이 CN 클라에만 있어 덮어쓰기 묶음
+  여부를 못 봄 — 다른 특질처럼 사본마다로 둠]
+- 코드: `content/garrisons/battle.js` `add`(부여 사본마다 인스턴스, 버프 키 `gar:<id>`·`gar:<id>#2`…, 상한 키는 공유), `effects/grants.js grantTargets`,
+  `effects/stats.js`(사본마다 버프). 테스트 `test/content/garrisons_battle.test.js` 「华法琳 72 ×2 on one operator…」·「耀骑士临光 ×2 in a row…」,
+  `test/content/fartooth-doll-swap.test.js` 「two 远牙 give a dollkeeper two copies…」 — 셋 다 수정 전 코드에서 실패 확인.

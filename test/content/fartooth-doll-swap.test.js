@@ -47,7 +47,9 @@ for (const sfx of ['a', 'b']) {
   }
 }
 
-test('远牙 grants once to a dollkeeper even with duplicate holders; inactive 精准 does not gain or consume its cap', () => {
+// Official client: each grant appends a rune of its own to the target and these global buffs are outside any override
+// group, so two 远牙 give two copies; the per-battle cap is the operator's per trait id (garrison_key), shared by them.
+test('two 远牙 give a dollkeeper two copies (+4 each) sharing the cap of 24; inactive 精准 does not gain or consume its cap', () => {
   const id = 'chess_char_2_11_a';
   const h = makeBattle({
     units: [{ chessId: 'chess_char_4_20_a', row: 10, col: 3 }, { chessId: 'chess_char_4_20_a', row: 10, col: 5 }, { chessId: id, row: 10, col: 8 }],
@@ -55,11 +57,15 @@ test('远牙 grants once to a dollkeeper even with duplicate holders; inactive �
   });
   h.step();
   const u = h.unit(id);
+  assert.deepEqual(gains(h), { kazimierzShip: 8 }, 'initial deployment: both copies, no inactive bond');
   enter(h, u);
-  assert.deepEqual(gains(h), { kazimierzShip: 8 }, 'one granted trait, no inactive bond');
+  assert.deepEqual(gains(h), { kazimierzShip: 16 }, 'the switch: both copies again');
   Object.assign(h.b.getPlayer('p1').bonds.preciShip, bond());
   leave(h, u);
-  assert.deepEqual(gains(h), { kazimierzShip: 12, preciShip: 4 });
+  assert.deepEqual(gains(h), { kazimierzShip: 24, preciShip: 8 }, '卡西米尔 at the shared cap; 精准 had used none of its own');
+  h.run(2); // finish the return animation before the next lethal hit
+  enter(h, u);
+  assert.deepEqual(gains(h), { kazimierzShip: 24, preciShip: 16 }, 'the cap holds for both copies together');
   checkInvariants(h.b);
 });
 

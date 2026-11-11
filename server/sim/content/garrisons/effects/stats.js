@@ -14,7 +14,7 @@ export const STAT_INSTALLERS = {
       if (S.num(it.bb.atk, 0) > 0) mods.atkMul = S.num(it.bb.atk);
       if (S.num(it.bb.max_hp, 0) > 0) mods.hpMul = S.num(it.bb.max_hp);
       if (S.num(it.bb.def, 0) > 0) mods.defMul = S.num(it.bb.def);
-      S.passiveBuff(battle, it.unit, `gar:${it.gid}`, mods);
+      S.passiveBuff(battle, it.unit, it.buffKey, mods);
     }
   },
 
@@ -59,7 +59,7 @@ export const STAT_INSTALLERS = {
       if (S.num(it.bb.sp_recovery_per_sec, 0)) mods.spRecoveryFlat = S.num(it.bb.sp_recovery_per_sec);
       Object.assign(mods, S.directMods({ atk: S.num(it.bb.atk, 0), hp: S.num(it.bb.max_hp, 0) }));
       if (S.num(it.bb.attack_speed, 0)) mods.aspd = S.num(it.bb.attack_speed);
-      S.passiveBuff(battle, it.unit, `gar:${it.gid}`, mods);
+      S.passiveBuff(battle, it.unit, it.buffKey, mods);
     }
   },
 };
@@ -91,7 +91,7 @@ function applyReader(battle, it) {
   if (k === it.k) return;
   it.k = k;
   const u = it.unit;
-  const key = `gar:${it.gid}`;
+  const key = it.buffKey;
   switch (it.key) {
     case 'act1autochess_gar_eff_attrByBond':
       if (k > 0) S.passiveBuff(battle, u, key, attrMods(it.bb, k));
@@ -117,7 +117,7 @@ function applyReader(battle, it) {
 
 function onstartBuff(battle, it, duration) {
   const k = Math.max(0, it.k);
-  const key = `gar:${it.gid}`;
+  const key = it.buffKey;
   if (!(k > 0) || !(duration > 0)) { battle.removeBuff(it.unit, key); return; }
   battle.addBuff(it.unit, { key, duration, refresh: 'replace', mods: { atkFlat: S.num(it.bb.atk, 0) * k, hpFlat: S.num(it.bb.max_hp, 0) * k } });
 }
