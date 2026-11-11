@@ -1316,7 +1316,7 @@
 - 특성: 3초마다 DP −3, 모듈 MER-X −2(직업 `merchant`, 특성 bb). 못 내면 퇴각.
 - 재능 出其不意: 공식 클라에서 확인: `AdvancedCompoundToggleChecker`(`_isInitToggled` 꺼짐, `_disableWhenAttack`). 배치 때 꺼져 있고 `delay`초 뒤 켜진다. 그가 피해를 줄 때마다 꺼지고 다음 켜짐이 `delay`초 뒤로 밀린다(꺼져 있을 때도). 켜진 채 준 피해는 공격력 ×`atk_scale` + `stun`초 기절. 켜져 있는 동안 `nothin_t_1`·`nothin_t_1[eff]`의 이펙트.
 - S1 `skchr_nothin_1`(知难而退, AUTO): 가지고 있으면 저지 +1. HP 비율 ≤ `max_hp_ratio`일 때 시전(선택기 `_checkHpRatioCondition`): 공격·저지 없음, 조롱 등급 −1, 생명 회복 속도(%) `hp_recovery_per_sec_by_max_hp_ratio`, 5초.
-- S2 `skchr_nothin_2`(阴晴圆缺, 지속 무한): 토글. 이 모드에서는 저절로 닫지 않아(PRTS 卫戍协议/帮助) 떠날 때까지 간다. 시작 클립(`Skill_2_Begin` 1.1초) 끝에 셋 중 하나: 공식 클라에서 확인, `PassiveOneOfBuffAbility` `_selectMethod` RANDOM_BUT_NOT_LAST — 이번 배치의 직전 것을 뺀 균등(재배치 때 기억 지움). `nothin_s_2[a]` 피해 직전 대상 공격 속도 감소(5초, 연장·중첩 없음), `[b]` 공격 속도, `[c]` 물리 회피 + 저지 +1. 모두 공격력 +N%. 이펙트는 고른 버프의 상태 키, 이름 규칙은 `KIT_OWNED`로 끈다. 시작 소리 `ON_SKILL_SPECIAL_POINT`(프리팹 `_playExtraSignalAtSkillBegin`)는 시전 때, 스파인 이벤트 `lottery`는 클립 재생 때.
+- S2 `skchr_nothin_2`(阴晴圆缺, 지속 무한): 토글. 이 모드에서는 저절로 닫지 않아(PRTS 卫戍协议/帮助) 떠날 때까지 간다. 시작 클립(`Skill_2_Begin` 1.1초, 엔진 — `sim.md` 「스킬 시작 클립」) 끝에 셋 중 하나: 공식 클라에서 확인, `PassiveOneOfBuffAbility` `_selectMethod` RANDOM_BUT_NOT_LAST — 이번 배치의 직전 것을 뺀 균등(재배치 때 기억 지움). `nothin_s_2[a]` 피해 직전 대상 공격 속도 감소(5초, 연장·중첩 없음), `[b]` 공격 속도, `[c]` 물리 회피 + 저지 +1. 모두 공격력 +N%. 이펙트는 고른 버프의 상태 키, 이름 규칙은 `KIT_OWNED`로 끈다. 시작 소리 `ON_SKILL_SPECIAL_POINT`(프리팹 `_playExtraSignalAtSkillBegin`)는 시전 때, 스파인 이벤트 `lottery`는 클립 재생 때.
 
 ## 새 시즌 레토·이스티나·우쿠시크 (2026-11-06, 관리자 결정 2026-11-05)
 규정(`act3autochess`, 공개 전)의 기물(`chess_char_1_16`, `chess_char_2_21`, `chess_char_3_03`). 키트는 `SEASON_KIT_FILES`, 선발 후보 아님. 시험 `test/content/op_leto.test.js`·`op_glassb`·`op_turdus`(두 형태·두 스킬·모듈, 실제 대전 경로). 우쿠시크의 특질과 임시 중첩은 표가 나온 뒤(맹약·특질 묶음)에 한다.
@@ -1334,7 +1334,7 @@
 
 ### 우쿠시크 `char_4224_turdus` (T3, 체인 메딕)
 - 재능: 자신이 `turdus[free_jump]`·`turdus[atk_scale_up]`을 지니고, 치료 연쇄가 대상의 그 버프를 본다. 그래서 다른 우쿠시크에게도 듣는다(PRTS). 공식 클라에서 확인(`ChainLightningHitBehaviour.DoSelectTargetToHit`, `ChainedSelectorWithFilter`, `ai.js chainHealWalk`): 배율은 도약마다 이어진다. `atk_scale_up` 대상에서 × `chain.atk_scale_2`(그 대상과 이후 도약 모두, PRTS 「이번 연쇄의 이후 도약 전부」, 주 대상이어도), 앞 대상이 `free_jump`면 이번 도약은 감쇠 없음, `free_jump` 대상은 도약 수를 쓰지 않는다. PRTS의 예 100% → 114.75% → 114.75% → 97.54%(135%, 감쇠 85%)와 같다.
-- S1 `skchr_turdus_1`: 시작 클립 `Skill_1_Begin` 동안 공격 없음, 공격 속도 +N, 연쇄 대상 +`attack@chain.extra_value`.
+- S1 `skchr_turdus_1`: 시작 클립 `Skill_1_Begin` 동안 공격 없음(시전이 휘두름을 끊음), 공격 속도 +N, 연쇄 대상 +`attack@chain.extra_value`. 스킬과 지속 시간은 클립 뒤부터(엔진, `sim.md` 「스킬 시작 클립」 — 2026-11-11 전에는 키트가 공격만 막고 휘두름은 두었으며 지속 시간을 클립만큼 덜 셌다).
 - S2 `skchr_turdus_2`(즉발, `Skill_2` 클립): 시전 시작에 현재 HP의 `hp_ratio`를 잃되 죽지 않는다(`ON_CAST_START`, `_isUndeadable`, SP 없음). OnAttack 프레임에 범위 안 HP 비율 최저 > 자신과 가까운 순으로 대상을 고른다(`HP_RATIO_ASC_DIST_TO_SOURCE_ASC_FIRST`, 만피도 대상, 대상 없어도 시전). 투사체(속도 10)가 닿으면 연쇄 치료 100%.
 - 연쇄의 모든 대상이 받는 두 버프(`_activeBuffs`): `turdus_s2[continues_heal]`은 1초마다 `heal_scale` × 버프가 시작될 때의 그녀 공격력(첫 틱은 1초 뒤, 시전자별로 따로, 다시 걸면 다시 시작). `turdus_s2[try_camouflage]`는 0.1초마다 저지 중이면 위장을 풀고 아니면 건다(`turdus_s2[camouflage]`, 버프가 끝나면 함께 끝, 다시 걸면 위장이 바로 풀렸다가 다음 검사에서 돌아옴).
 - [추정·화면: 지속 치료가 주 대상에게만 가는지. PRTS 문구는 「대상」과 「치료의 모든 대상」을 나눠 적지만, 프리팹은 두 버프를 같은 `_activeBuffs`에 두어 조건 없이 함께 건다 — 프리팹대로 구현] → `mix-Q`
@@ -1366,7 +1366,7 @@
 ### 안드레아나 `char_218_cuttle` (T2, 신궁)
 - 재능 `cuttle_t_1`(`_deckBuffs`, `filterTag` `abyssal`, `disableOverride`): 자기 플레이어의 어비설 헌터 모두와 자신에게 전투 내내 공격 속도 +N. 배치 여부를 보지 않고, 둘이면 더해진다.
 - S1 `skcom_atk_up[3]`: 공격력 +N%.
-- S2 `skchr_cuttle_2`(`_switchToState` 1): 시작 클립 `Skill2_Begin` 동안 공격 없음, 공격력 +N%, 모드 S2 선택기가 HP 비율 0.5 이상만 고른다(`_filterMinHp`·`_minHpRatio`). 그런 적이 없으면 쏘지 않는다. 맞은 적은 `attack@duration`초 이동 속도 감소(적마다 하나).
+- S2 `skchr_cuttle_2`(`_switchToState` 1): 시작 클립 `Skill2_Begin` 동안 공격 없음(시전이 휘두름을 끊음, 스킬과 지속 시간은 클립 뒤부터 — 엔진, `sim.md` 「스킬 시작 클립」, 2026-11-11), 공격력 +N%, 모드 S2 선택기가 HP 비율 0.5 이상만 고른다(`_filterMinHp`·`_minHpRatio`). 그런 적이 없으면 쏘지 않는다. 맞은 적은 `attack@duration`초 이동 속도 감소(적마다 하나).
 - DEA-X `cuttle_e_trait`: 거리 `min_dist`~`max_dist`에서 피해 × 최대 1 + `damage_scale`, 선형. 표 값이 4.5이고 PRTS 비고는 「4칸 이상」이라 다르지만 표대로 한다.
 
 ### 표 전 기물의 만드는 차례
@@ -1457,7 +1457,7 @@
 - 특성: 분기 공통(저지한 적 모두 공격). 모듈 귀갓길 CEN-Y: HP 비율이 `hp_ratio` 초과면 받는 물리 피해 ×(1 − `damage_resistance`)(`varkis_e_002_trait` ON_TAKE_DAMAGE).
 - 재능 영세불망(`varkis_t1[minos_atk_up]`): 그가 서 있는 동안 미노스 오퍼레이터(그 자신 포함, 소환물 제외)의 모든 피해가, 대상의 HP 비율이 자기 이하일 때 공격력 × `talent_atk_scale`(방어 앞, 피해마다 그 순간 비율, PRTS 비고). 여럿이면 곱하지 않고 먼저 배치한 바르카리스의 값 하나이고, 값이 더 높아도 나중 것은 꺼져 있다가 먼저 것이 떠나면 켜진다: 같은 키 버프는 덮어쓰기 그룹 DEFAULT의 큐에서 끝나지 않은 첫 버프만 켜지고(`Buff.OverrideGroup._DoUpdateInternal`), 이 버프는 `priority` −1에 `priorityBBKeys`와 속성 수정이 없어 우선순위가 같으므로 `instanceUid`가 작은 것, 곧 먼저 붙은 버프가 앞선다(`Buff._CalculatePriority`·`Buff.CompareTo`, 공식 클라에서 확인). [추정·미조사: 둘이 다 선 뒤 배치한 기물과 나중 바르카리스 자신에게 어느 오라가 먼저 붙는지, 여기서는 먼저 배치한 쪽]
 - S1 급류 `skchr_varkis_1`: 다음 공격이 저지한 대상마다 `atk_scale`로 세 번. 공식 클라에서 확인: `_additionalTimes` 2, `_waitAttackEventForAllAttacks`라 간격은 클립 `Skill`의 공격 프레임(0.467·0.5·0.533).
-- S2 동포의 의지 `skchr_varkis_2`(`_switchToState` 1, `_beginAnim` `Skill_2_Begin` 0.333초): 시전이 휘두름을 끊고 시작 클립 동안 공격하지 않으며 지속 시간은 그 뒤부터. 공격 배율 `attack@s2_atk_scale`, 공격마다 한 번 자신 최대 HP의 `attack@hp_ratio` 치료(ON_SPELL_ON, PRTS 「반드시 치료」).
+- S2 동포의 의지 `skchr_varkis_2`(`_switchToState` 1, `_beginAnim` `Skill_2_Begin` 0.333초): 시전이 휘두름을 끊고 시작 클립 동안 공격하지 않으며 스킬과 지속 시간은 그 뒤부터(엔진, `sim.md` 「스킬 시작 클립」). 공격 배율 `attack@s2_atk_scale`, 공격마다 한 번 자신 최대 HP의 `attack@hp_ratio` 치료(ON_SPELL_ON, PRTS 「반드시 치료」).
 - 보호막: S2 중 자신에게 들어온 치료의 넘친 양(생명 복원 제외)이 보호막으로(`varkis_s2[shield]` `HEAL_CAN_GENERAL_SHIELD`, `ON_ES_OVER_ZERO`), 상한 최대 HP × `max_hp_ratio`. 다른 보호막 뒤에 소모(우선순위 −1000, PRTS 비고, `shieldLast`). 스킬이 끝나도 남고 스킬 밖에서 1초마다 `dynamic_dec_per_sec`씩 준다.
 
 ## 새 시즌 그레이스롯·아스트젠·그레이 더 라이트닝베어러·키치세이 (2026-11-07, 관리자 결정 2026-11-05)
@@ -1497,7 +1497,7 @@
 
 ### 콘트레일 `char_4165_ctrail` (T2, 스카이레인저)
 - 티피·안젤리나 더 멜로우 위시와 같은 이륙이다: 플래그 `liftoff` + `blockFly`, 사건 `takeoff`, `render/units.js LIFTOFF_HEIGHT`(0.8, `attack@height_offset`), 클립은 `tools/assets/anim-keys.mjs`의 `_TakeOff`·`_Landing`. 모드 구성은 티피와 같고 `Default_S1`이 더 있다.
-- 다른 점은 클립 시간이다. 프리팹에서 이륙·착륙 모드의 공격 능력은 그 클립이라(`_timeMode` 1, `_allowNoTarget`) 그동안 공격하지 않는다. 그래서 타락사쿰처럼 `FLY_CLIP`(네 클립 모두 1초) 동안 공격을 막고, 착륙 클립이 끝날 때 지상으로 돌아온다. 배치 때의 이륙 클립은 배치 직후 상태(`bornUntil`)가 끝난 뒤에 돈다. 티피·안젤리나 키트에는 이 시간이 없다(`bundles/loose.md`에 적은 차이, 지금 시즌 golden이 움직여 건드리지 않음).
+- 다른 점은 클립 시간이다. 프리팹에서 이륙·착륙 모드의 공격 능력은 그 클립이라(`_timeMode` 1, `_allowNoTarget`) 그동안 공격하지 않는다. 그래서 타락사쿰처럼 `FLY_CLIP`(네 클립 모두 1초) 동안 공격을 막고, 착륙 클립이 끝날 때 지상으로 돌아온다. 배치 때의 이륙 클립은 배치 직후 상태(`bornUntil`)가 끝난 뒤에 돈다. 티피(S1·S2 이륙·착륙 1초)와 안젤리나 더 멜로우 위시(S1·S2·S3 착륙, S3 이륙 1초)도 같다(2026-11-11, `kits/shared/liftoff.js`): 클립 동안 공격하지 않고, 이륙·착륙 모드로 바뀌며 휘두름이 끊기고(모든 모드 공격 능력 `_interruptAbilityOnDetach`), 착륙 클립 동안은 아직 공중이다. 안젤리나 더 멜로우 위시 S2에는 이륙 모드가 없고 시작 클립 `Skill_2_Begin`이 그 자리다(엔진, `sim.md` 「스킬 시작 클립」). 그녀 S1의 배치 때 이륙(`S1_TakeOff`, 클립 `Start_2`)은 배치 클립이라 넣지 않았다 [추정·미조사: 배치 직후 상태와 겹치는지 뒤에 오는지]. S3이 끝나 집으로 날아가면 착륙 클립은 도착한 뒤다.
 - 지상에서는 지상 적만, 공중에서는 공중 적만 저지한다. 모든 모드의 공격이 투사체다(`projectile_chr_ctrail`, `_s2`).
 - 재능 저공 난류(`ctrail_t_1`): 지상 모드(`Default`·`Default_S1`)에서 방어력 +`def`, 그 밖의 모드에서 모든 피해의 공격력 ×`atk_scale`(방어 앞).
 - S1 긴급 이륙(패시브, `_castOnLocate`): 배치마다 `duration`초 동안 공격력·물리 회피 `prob`(`ctrail_s_1` Evade). 공식 클라에서 확인: `_defaultModeIndex` 7이고 `_extraRangeIdModeIndices`에 7이 있어, S1을 고르면 착륙 뒤 지상(`Default_S1`)에서도 사거리가 스킬 범위 2-3이다. 키트는 `unit.rangeGrid`로 둔다. 정비 화면 카드는 기록의 기본 범위를 보인다(프로스트리프와 같음).
@@ -1537,7 +1537,7 @@
 ### 오로라 `char_422_aurora` (T3, 듀얼리스트)
 - 특성: 저지 중이 아니면 SP 회복 없음(`SP_RECOVER_STOPPED`). HES-X는 대신 SP 회복 ×(1 + `sp_recover_ratio`)(PRTS).
 - 재능 저온 휴식(Default 모드의 `ToggleablePassiveBuffAbility` + `SpRatioToggleChecker`): 스킬이 꺼져 있고 SP가 최대치의 `sp_ratio` 이하(같아도)이면 공격 불가(`DISARMED`)와 최대 HP의 N% 초당 회복. PRTS 「생명 회복 속도 속성, 치료 보너스·치료 불가와 무관」이라 `hpRegenRatio`.
-- S1 터전 고수 `skchr_aurora_1`(`_switchToState` 1, `_beginAnim` `Skill_Begin` 0.5초): 저지 수 +2, 방어력 +N%, 저항(`one_minus_status_resistance`). 시전이 진행 중인 휘두름을 끊고 시작 클립 동안 공격하지 않으며, 지속 시간은 그 뒤부터(`BasicSkill.PlayBeginAnimation`). 끝나면 자신 `stun`초 기절.
+- S1 터전 고수 `skchr_aurora_1`(`_switchToState` 1, `_beginAnim` `Skill_Begin` 0.5초): 저지 수 +2, 방어력 +N%, 저항(`one_minus_status_resistance`). 시전이 진행 중인 휘두름을 끊고 시작 클립 동안 공격하지 않으며, 스킬(수치·저항)과 지속 시간은 그 뒤부터(`BasicSkill.PlayBeginAnimation`, 엔진 — `sim.md` 「스킬 시작 클립」; 2026-11-11 전에는 수치가 시전 때부터). 클립 동안 기절하면 시전이 사라져 끝의 자기 기절도 없다. 끝나면 자신 `stun`초 기절.
 - S2 인공 강설 `skchr_aurora_2`(`Skill_2_Begin` 0.667초, 9회: `_triggerTimeCount`): 공격력 +N%, 공격 간격 ×(1 + `base_attack_time`). 빙결이 아닌 적에게는 그 타격에 `attack@cold`초 한기(`aurora_s_2[freezeattack]`, 두 번째 한기는 엔진 규칙대로 빙결), 빙결 중인 적에게는 그 공격의 공격력 × `atk_scale`(`aurora_s_2[freezeattack2]`, `AtkScaleUp`: 방어력 앞에서).
 
 ## 새 시즌 사일런스 더 패러디그매틱·외드레르·메커니스트 (2026-11-08, 관리자 결정)

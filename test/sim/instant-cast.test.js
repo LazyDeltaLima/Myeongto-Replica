@@ -248,7 +248,12 @@ test('贝洛内 S3 and Mon3tr S3 hold their attacks through their skill clips to
     h.events.splice(0);
     u.skill.gainSp(999);
     assert.ok(u.skill.activate('test'), charId);
-    const t0 = h.b.time;
+    // its begin clip first (skills.js _beginCast): no swing meanwhile; the skill clip's hold counts from the start, as it ends
+    const t0 = u.skill._begin?.until ?? h.b.time;
+    while (u.skill._begin) {
+      h.step();
+      assert.ok(!h.events.splice(0).some((e) => e[0] === 'swing' && e[1] === u.id), `${charId}: no swing in the begin clip`);
+    }
     close(u.skillStateUntil, t0 + hold, 1e-9, `${charId}: the Skill state`);
     let first = null;
     for (let i = 0; i < Math.round(8 / h.b.dt) && first == null; i++) {
@@ -311,6 +316,7 @@ test('锏 S3: no attack through Skill_3_End after her slashes, 1.567 s from the 
   const u = h.unit(1);
   h.spawn('e_d', { pos: [9, 6] });
   assert.ok(u.skill.activate('test', { free: true }));
+  assert.ok(h.runUntil(() => u.skill.active, 2), 'the slashes start (after its begin clip: skills.js _beginCast)');
   assert.ok(h.runUntil(() => !u.skill.active, 8), 'the slashes end');
   const t1 = h.b.time;
   close(u.skillStateUntil, t1 + 1.567, 2 * h.b.dt, 'the Skill state of EndAttack');

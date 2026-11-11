@@ -1557,7 +1557,7 @@ test('隐现 S2: 14 shots then the skill ends', => {
     hooks: ['ammoUsed', 'skillEnd'],
   });
   const u = h.unit('chess_char_1_01_a');
-  assert.ok(h.runUntil(() => u.skill.activations === 1, 60));
+  assert.ok(h.runUntil(() => u.skill.activations === 1 && u.skill.active, 60));   // (started: after its begin clip)
   h.runUntil(() => !u.skill.active, 60);
   assert.equal(h.hooksOf('ammoUsed').length, 14);
   checkInvariants(h.b);

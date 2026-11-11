@@ -485,6 +485,7 @@ test('6_06 佩佩 S2 阻遏混乱锤: skill range, ATK/ASPD +, random targets; e
     const as0 = u.s.aspd;
     const aspdAt = () => { u.markDirty(); return u.s.aspd; };
     assert.ok(u.skill.activate('test', { free: true }));
+    h.runUntil(() => u.skill.active, 2);   // (each use starts after its begin clip: skills.js _beginCast)
     approx(aspdAt(), as0 + bb.attack_speed, '1st use');
     approx(skillBuff(u).mods.atkPct, bb.atk);
     assert.ok(u.rangeKeySet.has(10 * COLS + 6), 'skill range reaches 2 tiles');
@@ -492,12 +493,15 @@ test('6_06 佩佩 S2 阻遏混乱锤: skill range, ATK/ASPD +, random targets; e
     assert.ok(dealt(h, u, (c) => c.dmg.isAttack).some((c) => c.target.x > 5.5), 'hits the enemy only the skill range reaches');
     u.skill.end('test');
     assert.ok(u.skill.activate('test', { free: true }));
+    h.runUntil(() => u.skill.active, 2);
     approx(aspdAt(), as0 + bb.attack_speed + bb.attack_speed_extra, '2nd use');
     u.skill.end('test');
     assert.ok(u.skill.activate('test', { free: true }));
+    h.runUntil(() => u.skill.active, 2);
     approx(aspdAt(), as0 + bb.attack_speed + bb.attack_speed_extra * bb.max_stack_cnt, '3rd use (max stacks)');
     u.skill.end('test');
     u.skill.activate('test', { free: true });
+    h.runUntil(() => u.skill.active, 2);
     approx(aspdAt(), as0 + bb.attack_speed + bb.attack_speed_extra * bb.max_stack_cnt, 'capped');
     done(h);
   }
@@ -1730,12 +1734,14 @@ test('缪尔赛思 S3, ranged 流形: a split copy on each free tile of its cros
   assert.ok(!u.skill.active, 'not yet');
   u.skill.gainSp(1000);
   assert.ok(u.skill.activate('test', { free: true }), 'S3');
+  const t0 = u.skill._begin?.until ?? h.b.time;   // (it starts as its begin clip ends: skills.js _beginCast)
+  h.runUntil(() => u.skill.active, 2);
   assert.equal(t.hp, t.s.maxHp, 'the 流形 stands on its own tile: back to full HP');
   const clones = toks().filter((x) => x.mem.mlyssClone && Math.abs(x.tileR - t.tileR) + Math.abs(x.tileC - t.tileC) === 1);
   assert.ok(clones.length >= 1 && clones.length <= 4, `split copies around it: ${clones.length}`);
   assert.ok(toks().length > before, 'more of them now');
   const dur = t.def.talents.find((x) => x?.bb?.steal_atk != null)?.bb.interval ?? 25;
-  for (const c of clones) approx(c.mem.mlyssCloneTimer.due - h.b.time, dur, 'a copy lasts its talent time');
+  for (const c of clones) approx(c.mem.mlyssCloneTimer.due - t0, dur, 'a copy lasts its talent time');
   u.skill.noSkill = true;   // (a later S3 would start their time over)
   h.run(dur + 1);
   assert.ok(!toks().some((x) => clones.includes(x)), 'the copies are gone when their time is up');

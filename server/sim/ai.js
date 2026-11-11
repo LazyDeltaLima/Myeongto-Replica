@@ -164,7 +164,8 @@ export function updateAlly(b, u, dt) {
   // the Skill state of a skill cast (skills.js _paceInstant, 'state'): no attack until its skill ability ends — the
   // attack cooldown keeps running meanwhile (and the unit has left its attack state)
   // (a stage of the cast still to come: on the clip's last tick the skill ticks after this — it may move the unit, skills.js _tickCast)
-  if (u.skillStateUntil > b.time + 1e-9 || (sk?._castStage && !sk._castStage.cut)) { u.atkSpell = 0; return; }
+  // (a begin clip's last tick: the skill starts after this, in its tick — skills.js _tickBegin)
+  if (u.skillStateUntil > b.time + 1e-9 || (sk?._castStage && !sk._castStage.cut) || sk?._begin) { u.atkSpell = 0; return; }
   if (u.faceTgt) holdFaceTarget(b, u, prof);
   if (u.atkCd > 0 || u.castLeft > 0) return;
   // a 'replace' cast (skills.js): this attack goes out as the skill, with or without a target of the attack's own
@@ -178,7 +179,7 @@ export function updateAlly(b, u, dt) {
   u.trait.hadTarget = true;
   if (sk && sk.onAboutToAttack()) {
     if (sk.replacing) { startReplacement(b, u, sk); return; }
-    if (u.skillStateUntil > b.time + 1e-9) { u.atkSpell = 0; return; }   // a 'state' cast: no attack until its skill ability ends
+    if (u.skillStateUntil > b.time + 1e-9 || sk._begin) { u.atkSpell = 0; return; }   // a 'state' cast: no attack until its skill ability ends
     prof = effectiveProfile(u);
     if (prof.noAttack || !u.alive) return;
     targets = acquireTargets(b, u, prof);

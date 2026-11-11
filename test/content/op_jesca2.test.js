@@ -317,6 +317,7 @@ test('S3 shell: with her shield next to her at the cast it flies ahead at 5 tile
     const fly = h.spawn('enemy_fly', { pos: [11, 6] }), far = h.spawn('enemy_dummy', { pos: [12, 8] });
     u.skill.gainSp(999);
     u.skill.activate('test');
+    h.runUntil(() => u.skill.active, 2);   // (the skill starts after its begin clip: skills.js _beginCast)
     const atk = u.s.atk;
     // the shell cuts her swing and clears her attack cooldown (InterruptCharacterAttack _resetAndClearCD) — not a restart
     assert.ok(h.runUntil(() => (u.mem.jescaShells?.length ?? 0) > 0, 1), `${label(f)}: the shell is fired`);

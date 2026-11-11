@@ -38,6 +38,7 @@ test('拉特兰 (real path): 隐现 14 bullets at 0 layers → +round(14 × 0.05
   assert.equal(u.skill.kind, 'ammo');
   assert.equal(u.skill.ammo, 14);
   assert.ok(u.skill.activate('test', { free: true }));
+  while (u.skill._begin) b.step();   // (after its begin clip: skills.js _beginCast)
   assert.equal(u.skill.ammoLeft, 15);
   dispose();
 });

@@ -55,8 +55,9 @@ const pair = (n) => [`chess_char_5_${n}_a`, `chess_char_5_${n}_b`];
 /** Fill SP and run until the skill has been cast. */
 function cast(h, u, max = 15) {
   u.skill.gainSp(1000);
-  // (a ReplacementSkill — 引星棘刺 S1 — goes out as the unit's next attack: until its strike)
-  assert.ok(h.runUntil(() => u.skill.activations > 0 && !u.skill.replacing, max), `${u.defId} ${u.skill.id} cast`);
+  // (a ReplacementSkill — 引星棘刺 S1 — goes out as the unit's next attack: until its strike; a begin clip: until the
+  // skill starts as it ends — skills.js _beginCast)
+  assert.ok(h.runUntil(() => u.skill.activations > 0 && !u.skill.replacing && !u.skill._begin, max), `${u.defId} ${u.skill.id} cast`);
 }
 
 // =================================================================================================================
@@ -1325,6 +1326,7 @@ test('玛恩纳 S1 未声张的怒火 (SEARCH): cast once an enemy is inside his
     assert.equal(u.skill.activations, 0, `${id}: an enemy elsewhere on the field does not trigger SEARCH`);
     const e = h.spawn('enemy_dummy', { pos: [10, 4] });
     assert.ok(h.runUntil(() => u.skill.activations > 0, 1), `${id}: cast once an enemy is in range`);
+    assert.ok(h.runUntil(() => u.skill.active, 1), `${id}: started after its begin clip (skills.js _beginCast)`);
     assert.equal(h.hooksOf('skillStart').find((c) => c.unit === u).reason, 'SEARCH');
     approx(u.s.def, def0 * (1 + bb.def));
     assert.ok(h.runUntil(() => dealt(h, u, (c) => c.target === e && c.dmg.isAttack).length > 0, 5));
@@ -1540,8 +1542,9 @@ test('default-skill machinery stays with the default skill: 圣约送葬人 S1 n
   });
   const ex = h.unit('chess_char_5_01_a'), ti = h.unit('chess_char_5_02_a'), ml = h.unit('chess_char_5_19_a');
   for (const u of [ex, ti, ml]) u.skill.gainSp(1000);
-  h.run(3);
-  assert.ok(ex.skill.activations > 0 && ti.skill.activations > 0 && ml.skill.activations > 0);
+  // (缇缇 S1 starts after its begin clip — skills.js _beginCast — and its sleep can catch 圣约送葬人's enemy before his
+  // first attack: he casts as it wakes)
+  assert.ok(h.runUntil(() => ex.skill.activations > 0 && ti.skill.activations > 0 && ml.skill.activations > 0, 6));
   assert.equal(h.hooksOf('dodge')?.length ?? 0, 0);
   assert.equal(h.eventsOf('fx').filter((e) => e[1] === 'dodge' && e[4]?.id === ex.id).length, 0, 'no S2 dodge');
   const a = h.unit('t_a');

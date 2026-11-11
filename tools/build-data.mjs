@@ -2798,7 +2798,7 @@ function opShot(ctx, charId, charSkills) {
  * the next attack), 'state' (CastSkill `_switchToState` 1: the unit stays in its Skill state until the skill ability
  * ends) or 'free' (`_switchToState` 0); `resetCd` 1 = `_resetAbilityCooldownWhenCastEnd`; `bornWait` 1 = the cast is
  * refused while the unit is in its born state (`born` 0: the prefab's `_canSwitchDuringBorn` / `_canCastDuringBorn` off —
- * server/sim/skills.js _born). With a skill ability: `time`
+ * server/sim/skills.js _born); `begin` = the length of a 'state' cast's begin clip (`_playSkillBeginAnim`). With a skill ability: `time`
  * = its `_timeMode` (0 the attack interval, 1 its clip, 2 / 3 `cd`), `cd` (time 2: `_cooldown`, 3: the blackboard
  * value of `_cooldownKey`), its clip (`clip`, `dur`, the first OnAttack frame `hit` — Front skeleton, data/assets.json,
  * a key the skeleton lacks also tried as `<key>_Loop`), abilityTiming's `max` / `pre` / `wait` and abilityFace's `face`
@@ -2811,12 +2811,17 @@ function skillCast(ctx, charId, s) {
   const out = { mode: c.cls === 'replace' ? 'replace' : c.state ? 'state' : 'free' };
   if (c.cls === 'cast' && c.reset) out.resetCd = 1;
   if (c.cls === 'cast' && c.born === 0) out.bornWait = 1;
+  const sp = ctx.manifest?.chars?.[charId]?.spine?.front;
+  // the begin clip of a 'state' cast (`begin` s): the Skill state plays it and starts the skill once it has played
+  // (`BasicSkill.PlayBeginAnimation` waits the clip's length — none when the skeleton lacks it; server/sim/skills.js
+  // _beginCast). The `beginDown` clip of a unit deployed facing down is as long in every pool skeleton, so it is not kept.
+  const beginLen = out.mode === 'state' && typeof c.begin === 'string' && c.begin ? sp?.animations?.[c.begin] : null;
+  if (typeof beginLen === 'number' && beginLen > 0) out.begin = beginLen;
   const a = c.ability;
   if (!a || typeof a !== 'object') return out;
   out.time = Number.isInteger(a.time) ? a.time : 0;
   if (out.time === 2 && a.cd > 0) out.cd = a.cd;
   if (out.time === 3 && Number(s.bb?.[a.cdKey]) > 0) out.cd = Number(s.bb[a.cdKey]);
-  const sp = ctx.manifest?.chars?.[charId]?.spine?.front;
   for (const n of a.anim ? [a.clip, a.anim, `${a.anim}_Loop`] : []) {
     const dur = n ? sp?.animations?.[n] : null;
     if (!(typeof dur === 'number' && dur > 0)) continue;

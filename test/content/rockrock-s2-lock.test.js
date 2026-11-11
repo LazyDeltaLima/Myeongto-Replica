@@ -31,6 +31,8 @@ const setup = (id, { skillIndex = 1, moduleId, newcomer = false, staysOutside = 
       ...(killer ? [{ key: 'enemy_killer', route: stationary, time: 7 }] : [])],
   });
   h.step();
+  // (a cast with a begin clip starts as it ends: skills.js _beginCast)
+  h.runUntil(() => !h.unit(id).skill._begin, 3);
   return { h, u: h.unit(id), target: h.enemies()[0] };
 };
 const hits = (h, u, target, after) => h.hooksOf('damaged').filter(c => c.source === u && c.target === target && c.t >= after && c.amount > 0);
@@ -214,12 +216,19 @@ for (const sameTarget of [false, true]) {
     const target = sameTarget ? old : h.spawn('preferred', { pos: [10, 5] });
     h.step(); // update the spatial index for the second target
     u.skill.gainSp(999); u.skill.activate('test');
+    // The skill starts after its begin clip (skills.js _beginCast, 0.5 s): the old shot lands during the clip, before the
+    // release, so the drone takes the trait's ramp as it stands at the start — a same-target shot is part of it — and
+    // nothing after the release changes it.
+    h.runUntil(() => u.skill.active, 1);
+    const t0 = h.b.time, f = u.profile.funnel;
     assert.equal(u.mem.rockLock, target);
+    const from = u.trait.funnelTarget === target.id ? u.trait.funnelScale + f.delta : f.init;
+    assert.ok(hits(h, u, old, 0).some(c => c.dmg.isAttack && c.t < t0), 'the old shot lands during the begin clip');
+    assert.equal(from, sameTarget ? f.init + f.delta : f.init, 'the same target: the ramp goes on from that shot');
     h.run(2);
-    assert.ok(hits(h, u, old, 0).some(c => c.dmg.isAttack), 'the old shot really lands');
     const ds = hits(h, u, target, 0).filter(drone);
     assert.ok(ds.length >= 3);
-    ds.slice(0, 3).forEach((c, i) => approx(c.amount, u.s.atk * u.s.atkScaleMul * (u.profile.funnel.init + i * u.profile.funnel.delta)));
+    ds.slice(0, 3).forEach((c, i) => approx(c.amount, u.s.atk * u.s.atkScaleMul * Math.min(f.max, from + i * f.delta)));
     done(h);
   });
 }

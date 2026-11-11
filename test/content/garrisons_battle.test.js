@@ -374,6 +374,7 @@ test('缇缇 125 + S2 封护 (GitHub #162): every 0.25 s sleep pulse of the ward
       const tt = h.unit(id);
       tt.skill.gainSp(1000);
       assert.ok(tt.skill.activate('test'), `${id}: S2 cast`);
+      h.runUntil(() => tt.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
       assert.equal(tt.skill.id, 'skchr_titi_2');
       return { h, tt };
     };

@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
+import { ACT3, field, done, cast, begun, realMatch } from '../helpers/seasonPieces.js';
 import { S1_STRIKES, S2_BEGIN } from '../../server/sim/content/kits/ops/op-varkis.js';
 
 const A = 'chess_char_1_10_a', B = 'chess_char_1_10_b';
@@ -133,7 +133,10 @@ test('S2: attacks at attack@s2_atk_scale; each attack heals her attack@hp_ratio;
     const t0 = h.b.time;
     cast(u);
     near(u.skillStateUntil, t0 + S2_BEGIN, `${id}: begin clip`, 0.05);
-    near(u.skill.timeLeft, rec(id, S2).duration + S2_BEGIN, `${id}: its time after the clip`, 1e-3);
+    begun(h, u);
+    near(h.b.time - t0, S2_BEGIN, `${id}: the skill starts as the clip ends`, 0.05);
+    assert.equal(seen.length, 0, `${id}: no attack during the clip`);
+    near(u.skill.timeLeft, rec(id, S2).duration, `${id}: its time after the clip`, 1e-3);
     assert.ok(h.runUntil(() => seen.length > 0, 4), `${id}: attacks`);
     assert.ok(h.b.time >= t0 + S2_BEGIN, `${id}: not during the clip`);
     near(seen[0] / u.s.atk, b2['attack@s2_atk_scale'], `${id}: its scale (the enemy's share is above hers: no T1)`, 1e-2);
@@ -151,6 +154,7 @@ test('S2: overheal becomes the 屏障 up to max_hp_ratio; only while it runs; �
     h.b.heal(u, u, 500, { self: true });
     assert.ok(!u.findBuff(SHIELD), `${id}: no skill, no 屏障`);
     cast(u);
+    begun(h, u);
     u.hp = u.s.maxHp - 100;
     h.b.heal(u, u, 500, { self: true });
     near(u.hp, u.s.maxHp, `${id}: full`);
@@ -169,6 +173,7 @@ test('S2: overheal becomes the 屏障 up to max_hp_ratio; only while it runs; �
 test('The 屏障 takes damage first among HP; other barriers go first; it decays 100 a second only after the skill', () => {
   const { h, u } = field(A, { skill: 1 });
   cast(u);
+  begun(h, u);
   u.hp = u.s.maxHp;
   h.b.heal(u, u, 1000, { self: true });
   const s = u.findBuff(SHIELD);

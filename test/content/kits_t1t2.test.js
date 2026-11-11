@@ -81,7 +81,8 @@ test('1_01 隐现 elite: +self_ammo after `duration` s on field; a random other 
     setup: (b) => b.on('skillStart', (c) => starts.push({ id: c.unit.defId, ammo: c.skill.ammoLeft, t: b.time }), { priority: -500 }),
   });
   const u = h.unit(id);
-  h.runUntil(() => u.skill.activations >= 2, 120);
+  // (its second start: the begin clip of each cast comes before it — skills.js _beginCast)
+  h.runUntil(() => starts.filter((s) => s.id === id).length >= 2, 120);
   const mine = starts.filter((s) => s.id === id);
   assert.ok(mine[0].t < t.duration && mine[0].ammo === bbOf(id)['attack@trigger_time'], 'before 20 s: base magazine');
   assert.ok(mine[1].t >= t.duration);
@@ -185,7 +186,7 @@ test('1_04 深巡 / 1_20 雷蛇 S2 技能策略: the official 重装 row TAKE_DA
     const h = run({ defs: { enemies: { e: dummy('e') } }, units: [{ chessId: id, row: 9, col: 4, carryState: READY }], enemies: [{ key: 'e', pos: [9, 6] }] });
     const u = h.unit(id);
     assert.equal(u.skill.rule, 'TAKE_DAMAGE', `${id}: the 重装 row`);
-    assert.ok(h.runUntil(() => u.skill.activations >= 1, 5), `${id}: casts while an enemy is in range and untouched`);
+    assert.ok(h.runUntil(() => u.skill.active, 5), `${id}: casts while an enemy is in range and untouched (started after its begin clip)`);
     assert.equal(h.hooksOf('skillStart').find((c) => c.unit === u).reason, 'TAKE_DAMAGE', `${id}: cast by TAKE_DAMAGE`);
     done(h);
   }
@@ -944,7 +945,7 @@ test('2_09 休谟斯: 高效处理 block +1 and 精力充沛 by HP thresholds; �
   const id = 'chess_char_2_09_a', bb = bbOf(id), t = tal(id);
   const h = run({ defs: { enemies: { e: dummy('e') } }, units: [{ chessId: id, row: 9, col: 5, carryState: READY }], enemies: [{ key: 'e', pos: [9, 6] }] });
   const u = h.unit(id);
-  h.step();
+  h.runUntil(() => u.skill.active, 2);   // (after its begin clip Skill_2_Begin)
   assert.ok(u.skill.active);
   assert.equal(u.s.blockCnt, u.base.blockCnt + bb.block_cnt);
   approx(u.s.atk, u.base.atk * (1 + bb['humus_s_2[peak_2].peak_performance.atk']), '>80 %');
@@ -972,7 +973,7 @@ test('2_10 洛洛: 自负此轭 ASPD; 过载 half-way ATK +atk and funnel cap ×
   const h = run({ defs: { enemies: { e: dummy('e') } }, units: [{ chessId: id, row: 10, col: 4, carryState: READY }], enemies: [{ key: 'e', pos: [10, 6] }] });
   const u = h.unit(id);
   const cap0 = u.profile.funnel.max;
-  h.step();
+  h.runUntil(() => u.skill.active, 2);   // (after its begin clip Skill_Begin)
   assert.ok(u.skill.active);
   approx(u.s.aspd - u.base.aspd, bb.attack_speed);
   const D = u.skill.duration;
@@ -1141,6 +1142,8 @@ test('2_13 蒂比: an incoming attack triggers 紧急赶场通知 and is dodged;
   assert.equal(hits.length, 3 * atk.length, '3 shots per attack');
   h.runUntil(() => !u.skill.active, 20);
   h.step();
+  assert.equal(fl.blockedBy, u, 'her landing clip (S2_Landing): still in the air, the flyer held');
+  h.run(1.05);
   assert.equal(fl.blockedBy, null, 'landed: flyers released');
   done(h);
   // talent (the client's tippi_t graph): ready only stack_time s after deployment; a pure damage leaves the held dodge;

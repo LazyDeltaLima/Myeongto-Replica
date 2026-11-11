@@ -34,7 +34,7 @@ const UP = 'turdus[atk_scale_up]';
 const HOT = 'turdus_s2[continues_heal]';
 const TRY = 'turdus_s2[try_camouflage]';
 const CAMO = 'turdus_s2[camouflage]';
-/** Skill_1_Begin's length (data/assets.json `animations`). */
+/** Skill_1_Begin's length (data/assets.json `animations`): the engine waits it out before S1 starts (data `cast.begin`, skills.js beginTime). */
 export const S1_BEGIN = 0.533;
 /** projectile_chr_turdus_s2 (AdvancedMovement `_speed`, tiles/s). */
 const SHOT = 10;
@@ -82,7 +82,6 @@ export default {
           kind: 'duration',
           mods: { aspd: num(b1.attack_speed) },
           attack: { heal: chain(Math.max(0, Math.floor(num(b1['attack@chain.extra_value'])))) },
-          onStart({ battle, unit }) { unit.skillStateUntil = battle.time + S1_BEGIN; },
         },
         [S2]: {
           kind: 'instant', heal: true,

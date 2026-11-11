@@ -54,8 +54,8 @@ function done(h) {
   checkInvariants(h.b);
   assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0]));
 }
-/** Start the skill now (SP filled, no enemy needed). */
-function cast(u) { u.skill.gainSp(999); assert.ok(u.skill.activate('test')); }
+/** Start the skill now (SP filled, no enemy needed) — through its begin clip (skills.js _beginCast). */
+function cast(h, u) { u.skill.gainSp(999); assert.ok(u.skill.activate('test')); h.runUntil(() => !u.skill._begin, 2); }
 
 test('逻各斯 in every 自选 form: his operator kit (all three skills authored), stats + module attributes, 3-1 range, ranged arts that hits air units, targetable by ground enemies, 空 bond, no 特质', () => {
   assert.equal(OPERATOR_KITS[LOGOS], KITS[LOGOS]);
@@ -112,7 +112,7 @@ test('S1 殁亡 execution: an enemy of his range under 90 % / 120 % of his ATK f
     const sk = skillOf(tier, elite, S1);
     let guard = null;
     const { h, u } = field({ tier, elite, skill: 0, setup: (b) => b.on('fatal', (c) => { if (c.unit === guard) c.prevented = true; }) });
-    cast(u);
+    cast(h, u);
     const thr = sk.bb['attack@kill_atk_scale'] * u.s.atk;
     assert.equal(sk.bb['attack@kill_damage'], 9999999);
     const big = h.spawn('enemy_dummy', { pos: [11, 8] });   // a 3-3 tile outside the 3-1 (the toggle's range counts)
@@ -163,7 +163,7 @@ test('S2 提喻 (MANUAL, data DEFAULT): 20 s, RES +40 / +50; locks one target wi
     const e = h.spawn('enemy_dummy', { pos: [10, 7] });
     h.b.addBuff(u, { key: 'test:aspd', mods: { aspd: 300 } });   // the lock ignores the attack speed
     const res0 = u.s.res;
-    cast(u);
+    cast(h, u);
     approx(u.s.res, res0 + b.magic_resistance, `T${tier}: RES`);
     const n0 = atkHits(h, u).length;
     h.run(6.02);
@@ -197,7 +197,7 @@ test('S2 提喻 (MANUAL, data DEFAULT): 20 s, RES +40 / +50; locks one target wi
 test('S2 提喻 keeps its lock while another enemy comes first in the order, and locks anew when its target leaves the field', () => {
   const { h, u } = field({ tier: 6, elite: true, skill: 1 });
   const a = h.spawn('enemy_dummy', { pos: [10, 8] });
-  cast(u);
+  cast(h, u);
   h.run(1.1);
   assert.ok(atkHits(h, u).every((c) => c.target === a));
   h.spawn('enemy_dummy', { pos: [10, 6], routeIndex: 0 });   // nearer the goal: first in the order
@@ -243,7 +243,7 @@ test('S3 延异视阈: enemy shots on his range fly at 5 % of their speed (back 
     const { h, u } = field({ tier: 6, elite: true, skill: 2 });
     h.spawn('enemy_gun', { pos: [10, 7] });
     h.run(1.5);
-    cast(u);
+    cast(h, u);
     h.run(0.2);
     h.run(3);
     const shots = h.b.projectiles.list.filter((p) => p.source && p.source.side === 'enemy');
@@ -274,7 +274,7 @@ test('S3 延异视阈: a held shot lives at the same 5 % as it flies (the client
   const { h, u } = field({ tier: 6, elite: true, skill: 2 });
   const gun = h.spawn('enemy_gun', { pos: [10, 7] });
   h.b.applyStatus(gun, 'stun', { duration: 99, source: null });   // only the two shots below
-  cast(u);
+  cast(h, u);
   h.step();
   const hits = [];
   const homing = h.b.addProjectile({ from: { x: 7, y: 10 }, target: u, speed: 0.25, source: gun, onHit: () => hits.push(h.b.time) });
@@ -304,7 +304,7 @@ test('S3 延异视阈 tells the view each shot it changes (fx shotSlow): slowed 
     const gun = h.spawn('enemy_gun', { pos: [10, 7] });
     h.run(1.5);
     const seen = () => h.eventsOf('fx').filter((x) => x[1] === 'shotSlow').map((x) => x[4]);
-    cast(u);
+    cast(h, u);
     h.run(3.2);
     const slowed = seen().filter((o) => o.rate != null);
     const held = h.b.projectiles.list.filter((p) => p.source === gun);
@@ -331,7 +331,7 @@ test('S3 延异视阈 tells the view each shot it changes (fx shotSlow): slowed 
 
 test('S3 延异视阈 slows the shot a self-destructing 枯朽之种 leaves (its 自毁 is its normal attack) and clears it when the skill ends', () => {
   const { h, u } = field({ tier: 6, elite: true, skill: 2 });
-  cast(u);
+  cast(h, u);
   const seed = h.spawn('enemy_1269_nhfly', { pos: [10, 7], routeIndex: 2 });
   h.b.addBuff(seed, { key: 'test:hp', mods: { hpFlat: 1e9 } });
   seed.hp = seed.s.maxHp;   // it lives to the end of its wind-up (逻各斯 may target it until then — an enemy like any other)
@@ -391,7 +391,7 @@ test('T1 语汇演化: 40 % per attacked target for an extra 65 % ATK arts hit o
 
 test('T1 语汇演化 also rolls when 殁亡 fells an enemy (备注 "可触发第一天赋") and works while he is disarmed', () => {
   const { h, u } = field({ tier: 6, elite: true, skill: 0, seed: 3 });
-  cast(u);
+  cast(h, u);
   h.b.applyStatus(u, 'disarm', { duration: 999, source: null });
   const thr = 1.2 * u.s.atk;
   h.spawn('enemy_dummy', { pos: [9, 7] });   // what the shots land on
@@ -442,7 +442,7 @@ test('his kit moments for the official effects: S2\'s lock on / off (logos_s_2[l
   {
     const { h, u } = field({ tier: 6, elite: true, skill: 1, seed: 7 });
     const e = h.spawn('enemy_dummy', { pos: [10, 7] });
-    cast(u);
+    cast(h, u);
     h.run(2);
     assert.deepEqual(kit(h, 'logos:lock').map((o) => [o.src, o.id, o.on]), [[u.id, e.id, 1]], 'one lock on the target');
     h.b.applyStatus(u, 'stun', { duration: 1, source: e });
@@ -459,7 +459,7 @@ test('his kit moments for the official effects: S2\'s lock on / off (logos_s_2[l
   {
     const { h, u } = field({ tier: 6, elite: true, skill: 0, seed: 3 });
     const low = h.spawn('enemy_low', { pos: [10, 7] }), far = h.spawn('enemy_dummy', { pos: [10, 6] });
-    cast(u);
+    cast(h, u);
     h.run(0.5);
     assert.ok(!low.alive, 'executed');
     const s1 = kit(h, 'logos:s1shot');
@@ -471,7 +471,7 @@ test('his kit moments for the official effects: S2\'s lock on / off (logos_s_2[l
   {
     const { h, u } = field({ tier: 6, elite: true, skill: 2 });
     h.spawn('enemy_dummy', { pos: [10, 7] });
-    cast(u);
+    cast(h, u);
     h.runUntil(() => !u.skill.active, 40);
     h.step();
     const end = h.eventsOf('fx').filter((x) => x[1] === 'bulletClear');
@@ -559,7 +559,7 @@ test('延异视阈 leaves a shot it may not slow or wipe alone (a harpoon, no ma
   const { h, u } = field({ tier: 6, elite: true, skill: 2 });
   const g = h.spawn('enemy_gun', { pos: [10, 7] });
   h.b.applyStatus(g, 'stun', { duration: 99, source: null });
-  cast(u);
+  cast(h, u);
   h.run(0.2);
   const far = { x: u.x + 1.4, y: u.y };
   const free = h.b.addProjectile({ from: far, target: u, speed: 0.01, source: g, maxAge: 99 });
@@ -580,8 +580,8 @@ test('two 延异视阈 on one shot multiply their scales; one ending leaves the 
   const u2 = h.unit(2);
   const g = h.spawn('enemy_gun', { pos: [10, 7] });
   h.b.applyStatus(g, 'stun', { duration: 99, source: null });
-  cast(u);
-  cast(u2);
+  cast(h, u);
+  cast(h, u2);
   h.run(0.2);
   const shot = h.b.addProjectile({ from: { x: u.x + 1.2, y: u.y }, target: u, speed: 0.01, source: g, maxAge: 99 });
   h.step();

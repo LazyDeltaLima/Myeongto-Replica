@@ -114,6 +114,7 @@ test('信仰搅拌机 S1 铳骑主考官 (自动触发 ⇒ DEFAULT: hurt SP, fir
     assert.equal(u.skill.id, 'skchr_rmixer_1');
     assert.equal(u.skill.rule, 'DEFAULT', 'an AUTO skill takes no 技能策略 (the 重装 row is for MANUAL skills)');
     assert.ok(ins.skill.activate('test', { free: true }));
+    h.runUntil(() => ins.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     u.skill.gainSp(1000);
     ins.skill.ammoLeft -= bb.charge;   // fired: only fired bullets come back (RecoverEventCount)
     const ammo0 = ins.skill.ammoLeft;
@@ -144,9 +145,12 @@ test('信仰搅拌机 S1 reloads the latest-deployed 拉特兰 ammo user around 
     }
     const latest = redeploy ? near : far, other = redeploy ? far : near;
     assert.ok(latest.deploySeq > other.deploySeq);
-    for (const a of [near, far]) { assert.ok(a.skill.activate('test', { free: true })); a.skill.ammoLeft = 5; }
+    for (const a of [near, far]) assert.ok(a.skill.activate('test', { free: true }));
+    h.runUntil(() => near.skill.active && far.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
+    for (const a of [near, far]) a.skill.ammoLeft = 5;
     const e = h.spawn('enemy_dummy', { pos: [10, 6] });
     assert.ok(u.skill.activate('test', { free: true }));
+    h.runUntil(() => !u.skill._begin, 2);   // (after its begin clip: skills.js _beginCast)
     h.b.forceAttack(u, [e]);
     h.run(0.5);
     const reloads = h.eventsOf('fx').filter((x) => x[1] === 'reload');
@@ -164,6 +168,7 @@ test('信仰搅拌机 S2 八臂电锯侠: ammo skill, ATK/DEF up; a lethal hit i
       h.step();
       const u = h.unit(id);
       assert.ok(u.skill.activate('test', { free: true }));
+      h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
       assert.equal(u.skill.kind, 'ammo');
       assert.equal(u.skill.ammoLeft, bb['attack@trigger_time']);
       approx(u.s.atk, u.base.atk * (1 + bb.atk), 1e-6, 'ATK');
@@ -378,6 +383,7 @@ test('寒芒克洛丝 S1 无痕: ATK up, every attack is a double shot, 迷彩 (
     const u = h.unit(id);
     const e = h.spawn('enemy_dummy', { pos: [10, 6] });
     assert.ok(u.skill.activate('test', { free: true }));
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     assert.equal(u.skill.kind, 'duration');
     approx(u.s.atk, u.base.atk * (1 + bb.atk), 1e-6, `${id} ATK`);
     assert.ok(u.s.flags.camou && !u.s.flags.stealth, '迷彩 (not 隐匿)');
@@ -471,6 +477,7 @@ test('水月 S3 镜花水月: wider range, ATK up, talent 1 +2 targets with stun
       const es = [];
       for (let i = 0; i < n; i++) es.push(h.spawn('enemy_dummy', { pos: [10 + (i === 1 ? -1 : i === 2 ? 1 : 0), 5] }));
       assert.ok(u.skill.activate('test', { free: true }));
+      h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
       assert.ok(u.rangeKeys.length > base, 'range widened');
       approx(u.s.atk, u.base.atk * (1 + bb.atk) * (u.findBuff('mizuki:t2') ? 1 + D(id, 2).talents[1].bb.atk : 1), 1e-6);
       const hp0 = u.hp;
@@ -566,6 +573,7 @@ test('歌蕾蒂娅 S2 缺水的掌握怒海: BAT +0.5 s, wider range, 2 targets 
     const u = h.unit(id);
     const es = [h.spawn('enemy_dummy', { pos: [10, 6] }), h.spawn('enemy_dummy', { pos: [11, 6] }), h.spawn('enemy_dummy', { pos: [9, 6] })];
     assert.ok(u.skill.activate('test', { free: true }));
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     approx(u.s.interval, (u.base.bat + bb.base_attack_time) * 100 / u.s.aspd, 1e-6, 'BAT +0.5 s');
     assert.ok(h.runUntil(() => h.hooksOf('attack').some((c) => c.attacker === u), 10));
     const atk = h.hooksOf('attack').find((c) => c.attacker === u);
@@ -1231,6 +1239,7 @@ test('百炼嘉维尔 S2 链锯强袭: wider range, ATK/DEF up, unblocked enemie
     h.run(0.2);
     assert.equal(dmgBy(h, u).length, 0, 'out of the normal range');
     assert.ok(u.skill.activate('test', { free: true }));
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     approx(u.s.atk, u.base.atk * (1 + bb.atk + D(id, 1).talents[0].bb.atk), 1e-6, 'ATK (+ 战地巨斧)');
     assert.ok(h.runUntil(() => dmgBy(h, u).length > 0, 5), `${id}: reaches 2 tiles ahead`);
     assert.ok(e.x < 6 - 0.4, `pulled (${e.x})`);

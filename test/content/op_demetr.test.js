@@ -443,6 +443,7 @@ test('his kit moments for the official effects: the acting 【手段】 shown on
     const { h, u } = field({ tier: 5, skill: 2 });
     u.skill.gainSp(999);
     u.skill.activate('manual');
+    h.runUntil(() => u.skill.active, 2);   // (the skill starts after its begin clip: skills.js _beginCast)
     land(h, u);
     assert.ok(u.skill.active);
     u.skill.end('test');

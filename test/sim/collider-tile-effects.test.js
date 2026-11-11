@@ -77,6 +77,7 @@ test('克莱门莎 S3 bombardment: the cross takes an enemy 0.05 past its edge, 
   const u = h.unit(1);
   u.skill.gainSp(999, 'init');
   assert.equal(u.skill.activate('test'), true);
+  h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
   h.b.rng = () => 0.99;
   const remote = h.spawn('dummy', { pos: [11, 6] });
   // the cross around 11,6: its right arm 11,7 ends at x 7.5, its left arm 11,5 at x 4.5

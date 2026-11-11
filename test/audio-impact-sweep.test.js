@@ -23,9 +23,11 @@ const FALLBACK_MAX = 6;
 /** The cases above it, what their fallback impacts are, and their most. An entry that no longer applies fails. */
 const REPEATED = Object.freeze({
   'char_4009_irene S3': [10, 'strikes: the skill\'s run of slashes'],
-  chess_char_6_19_b: [9, 'strikes: 锏 S3\'s run of slashes'],
+  // (10: since its begin clip — skills.js _beginCast — the first slash comes as the skill starts, after the cast's 'skill' event)
+  chess_char_6_19_b: [10, 'strikes: 锏 S3\'s run of slashes'],
   chess_char_3_20_b: [10, 'strikes: one each swing of 耶拉 S2'],
-  chess_char_6_11_b: [12, 'strikes: 缪尔赛思 S3 each swing: her 流形 strikes the same enemy between her shot and its landing, so the shot is no longer the last attacker on it'],
+  // (chess_char_6_11_b, 缪尔赛思 S3, was listed at 12: her 流形 struck the same enemy between her shot and its landing. Her
+  // begin clip — skills.js _beginCast — puts her swings on the 流形's tick, so her shot stays the last attacker: 1 now.)
   chess_char_4_03_b: [10, 'strikes: one each swing of 耶拉 S2'],
   chess_char_5_21_b: [23, 'strikes: 寒檀 S2\'s icicles, each an attack of hers landing (projectile_chr_sntlla_s2 REACH)'],
 });

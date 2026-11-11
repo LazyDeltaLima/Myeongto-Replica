@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
+import { ACT3, field, done, cast, begun, realMatch } from '../helpers/seasonPieces.js';
 import { DRONE_TAG } from '../../server/sim/content/kits/ops/op-cammou.js';
 
 const A = 'chess_char_1_09_a', B = 'chess_char_1_09_b';
@@ -66,6 +66,7 @@ test('S2: range 3-3, ATK +atk; the drone locks one enemy and hits at her interva
     const times = [];
     h.b.on('damaged', (c) => { if (c.target === e && c.dmg?.tags?.includes(DRONE_TAG)) times.push(h.b.time); });
     cast(u);
+    begun(h, u);   // (the skill starts after its begin clip: skills.js _beginCast)
     assert.ok(grid.length > before, `${id}: larger`);
     assert.equal(u.rangeKeys.length, grid.length, `${id}: the skill's`);
     near(u.s.atk, a0 * (1 + b.atk), `${id}: ATK`, 1e-2);

@@ -86,6 +86,7 @@ test('琳琅诗怀雅 T1 大买家: a status counted per trait payment during th
   h.b.getPlayer(u.ownerId).dp = 99; // her trait pays 费用 every few seconds (else she leaves)
   h.spawn('enemy_dummy', { pos: [10, 5] });
   assert.ok(u.skill.active || u.skill.activate('test', { free: true }));
+  h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
   assert.ok(h.runUntil(() => stacksOf(h, u.id, 'talent:swire2_buyer').length >= 2 || !u.skill.active, 30), 'payments during the skill');
   const s = stacksOf(h, u.id, 'talent:swire2_buyer');
   assert.ok(s.length >= 1);
@@ -115,6 +116,7 @@ test('佩佩 S2: the level effect from the second cast (cnt left ≤ 1 → 1, �
   const levels = [];
   for (let i = 0; i < 3; i++) {
     assert.ok(u.skill.activate('test', { free: true }));
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     const on = h.eventsOf('status').filter((e) => e[1] === u.id && e[2] === 'pepe:rage' && e[3] === 1);
     levels.push(on.length > i - 1 && i > 0 ? on[i - 1][5]?.fx : null);
     h.runUntil(() => !u.skill.active, 60);

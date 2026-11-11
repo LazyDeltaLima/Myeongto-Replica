@@ -126,6 +126,13 @@ def skill_entry(sid, comps3):
         state = int(sk.get('_switchToState') or 0)
         e = {'cls': 'cast', 'state': state, 'reset': int(sk.get('_resetAbilityCooldownWhenCastEnd') or 0), **word}
         # only CastSkill (and its subclasses) carries the born flags: AppearSkill / ToggleSkill / AttachOrDetachSkill cast in it
+        # BasicSkill `_playSkillBeginAnim` with a `_beginAnim` (`_beginAnimDown` for a unit deployed facing down,
+        # `get_beginAnim`): the Skill state's OnEnter plays that clip and starts the skill only once it has played
+        # (`OnBeforeSkillStart` → `PlayBeginAnimation` → `DoStartSkill`); a `_switchToState` 0 cast starts at once
+        if state and sk.get('_playSkillBeginAnim') and (sk.get('_beginAnim') or sk.get('_beginAnimDown')):
+            e['begin'] = sk.get('_beginAnim') or ''
+            if sk.get('_beginAnimDown'):
+                e['beginDown'] = sk['_beginAnimDown']
         flag = '_canSwitchDuringBorn' if state else '_canCastDuringBorn'
         if flag in sk and not sk.get(flag):
             e['born'] = 0
@@ -158,7 +165,11 @@ def skill_entry(sid, comps3):
 
 
 def resolve_clips(entry, keys):
-    """The clip names of `entry`'s ability through its operator's skin key table: `clip` (when it is not the key), chan / three."""
+    """The clip names of `entry`'s ability through its operator's skin key table: `clip` (when it is not the key), chan / three;
+    the begin clips (`begin`, `beginDown`) too."""
+    for k in ('begin', 'beginDown'):
+        if entry.get(k):
+            entry[k] = keys.get(entry[k], entry[k])
     ab = entry.get('ability')
     if not isinstance(ab, dict):
         return

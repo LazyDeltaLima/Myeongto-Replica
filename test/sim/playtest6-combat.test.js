@@ -213,6 +213,7 @@ test('#17 skills that pick their own targets keep the enemy the operator blocks 
       const e = E();
       h.step(30);
       if (!F.skill.active) F.skill.activate('manual', { free: true });
+      h.runUntil(() => !F.skill._begin, 2);   // (after its begin clip: skills.js _beginCast)
       assert.ok(F.skill.active && F.skill.id === skillId, `${name}: ${skillId} on`);
       const t0 = h.b.time;
       let outside = true;
@@ -497,6 +498,7 @@ test('#14 流形 S3 pulse: the enemy a melee copy blocks is not pulled (so not r
     const u = h.unit('chess_char_6_11_a');
     assert.equal(u.skill.id, 'skchr_mlyss_3');
     assert.ok(u.skill.activate('test', { free: true }), 'S3 on');
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     const e = E(), x0 = e.x, y0 = e.y;
     let stunned = 0, released = 0;
     for (let i = 0; i < 30 * 6; i++) { h.step(); if (e.s.flags.stun) stunned++; if (e.blockedBy !== tok()) released++; }

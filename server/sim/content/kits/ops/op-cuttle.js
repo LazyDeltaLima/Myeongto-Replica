@@ -17,7 +17,7 @@ import { hypot } from '../../../detmath.js';
 
 const S1 = 'skcom_atk_up[3]';
 const S2 = 'skchr_cuttle_2';
-/** Skill2_Begin's length (data/assets.json `animations`). */
+/** Skill2_Begin's length (data/assets.json `animations`): the engine waits it out before S2 starts (data `cast.begin`, skills.js beginTime). */
 export const S2_BEGIN = 0.667;
 const MIN_HP = 0.5;
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
@@ -38,7 +38,6 @@ export default {
               if (target?.alive && slowFor > 0) battle.addBuff(target, { key: 'cuttle_s_2[debuff]', source: unit, duration: slowFor, mods: { moveMul: slow }, visible: true, tags: ['skill'] });
             },
           },
-          onStart({ battle, unit }) { unit.skillStateUntil = battle.time + S2_BEGIN; },
         },
       },
       talents: [{ install(battle, unit) {

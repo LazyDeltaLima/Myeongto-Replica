@@ -156,17 +156,19 @@ export function normalizeSkill(rec) {
 
 /**
  * data/chess.json / backups.json skill `cast` (tools/build-data.mjs skillCast — how the client casts the skill: docs/rules/
- * sim.md 「즉발 스킬의 시전」) → { mode: 'replace' | 'state' | 'free', resetCd, time, cd, dur, hit, max, pre, wait, face }, or
+ * sim.md 「즉발 스킬의 시전」) → { mode: 'replace' | 'state' | 'free', begin, resetCd, time, cd, dur, hit, max, pre, wait, face }, or
  * null when absent. `time` null = no skill ability (a buff cast); `dur` null = its clip is not known; `max` −1 → Infinity
  * (no bound), absent → 1 (normAttackAnim).
  */
 export function normSkillCast(c) {
   if (!c || typeof c !== 'object' || !['replace', 'state', 'free'].includes(c.mode)) return null;
   const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
-  const dur = n(c.dur), hit = n(c.hit), max = n(c.max), cd = n(c.cd), pre = n(c.pre);
+  const dur = n(c.dur), hit = n(c.hit), max = n(c.max), cd = n(c.cd), pre = n(c.pre), begin = n(c.begin);
   const time = Number.isInteger(c.time) ? c.time : null;
   return {
     mode: c.mode,
+    // a 'state' cast's begin clip (s): the skill starts once it has played (skills.js beginTime)
+    begin: c.mode === 'state' && begin > 0 ? begin : 0,
     resetCd: !!c.resetCd,
     // the cast is refused in the born state after a deployment (CastSkill `_canSwitchDuringBorn` / `_canCastDuringBorn`
     // off; skills.js _born)

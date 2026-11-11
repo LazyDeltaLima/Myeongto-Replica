@@ -62,6 +62,7 @@ test('信仰搅拌机 S2: a lethal hit with fewer than 30 bullets left is still 
     const foe = h.b.enemies[0];
     assert.equal(u.skill.id, 'skchr_rmixer_2');
     assert.ok(u.skill.activate('test', { free: true }), 'S2 on');
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     u.skill.ammoLeft = left;
     const hp = u.hp;
     h.b.dealDamage(foe, u, { amount: u.s.maxHp * 10, type: 'true', tags: ['test'] });
@@ -87,6 +88,7 @@ test('信仰搅拌机 S2 steps aside while she holds 不死 (坚固维式重锤\
   lethal();                                            // before the skill: the hammer's lock starts (8 s of 不死)
   assert.ok(u.alive && holdsUndying(h.b, u), 'the hammer holds her');
   assert.ok(u.skill.activate('test', { free: true }), 'S2 on');
+  h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
   const ammo = u.skill.ammoLeft;
   lethal();
   assert.ok(u.alive, 'still standing (不死)');
@@ -117,6 +119,7 @@ test('信仰搅拌机 S2 guards again in a new deployment although the old 不�
   assert.ok(h.b.redeploy(u, { free: true, tile: [9, 6] }), 'redeployed');
   assert.ok(!holdsUndying(h.b, u), 'the window ended with its deployment');
   assert.ok(u.skill.activate('test', { free: true }), 'S2 on');
+  h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
   const ammo = u.skill.ammoLeft;
   lethal();
   assert.ok(u.alive, 'S2 blocks it');

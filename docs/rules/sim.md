@@ -3052,3 +3052,14 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 - 한 기록 안의 순서: 스탯 버프와 앞 단계 동작(버프 순서대로) → 해머 → 뒤 단계 동작(버프 순서대로) → 아이템 ID 동작. 뒤 단계 24개는 전에 아이템 ID로 돌던 것이라 훅 순서와 고정 시드 전투가 그대로다(기본 시즌 golden 그대로).
 - 확인: `test/content/items.test.js` 「an item runs the behaviours of the buff keys it carries, whatever its id」(옛 코드에서 실패 확인), `node tools/season-coverage.mjs act3autochess`(장비 `wrong` 4 → 2: 페가수스의 투구·랜스 ID를 다시 쓰는 규정 장비에는 그 버프가 없어 이제 아무것도 돌지 않음), golden `act3-roster` 한 판(`roster-055`: 不退者之盾을 든 오퍼레이터가 빙결을 막음)만 바뀜 — 이 두 장비를 든 다른 판에는 막을 상태가 오지 않음.
 - 준비 쪽도 같다(2026-11-11): 장비 사용·법술 처리(내장 `server/match/builtinMeta.js`와 `server/sim/content/items/meta.js` `PREP`)는 기록이 가진 버프 키로 등록된다. 규정이 같은 뜻으로 이름만 바꾼 키(같은 아이템·설명·수치, `server/sim/content/items/aliases.js`)는 지난 시즌 키로 읽는다: 긴급 차출권·신분인식표·돈독 오른 인형·인사부 파일·비콘 — 그래서 규정에서 신분인식표·돈독 오른 인형·인사부 파일·비콘이 처음으로 효과를 내고, 긴급 차출권은 고급의 2명을 제대로 받는다(전: 버프를 못 찾아 1명). 뜻이 바뀐 키는 별칭이 아니다: 규정의 호출 모듈은 「그 오퍼레이터의 첫 맹약」만 보므로(`use_equip_spe_goods_first_bond`) 이제 지난 시즌의 제안을 하지 않는다(처리기 없음), 간이 통신기(첫 맹약만)·의태 물질(같은 등급으로)도 마찬가지. 확인: `test/content/items.test.js` 「prep behaviours run by the buff keys an item carries」(옛 코드에서 실패 확인), 커버리지 장비 `wrong` 2 → 0, golden `act3-matches` 네 판 모두 바뀜(기본 시즌 그대로).
+
+## 스킬 시작 클립 (2026-11-11, 관리자 결정 「풀 전체」)
+
+- **규칙**(공식 클라에서 확인): 스킬 프리팹이 시작 클립을 트는(`_playSkillBeginAnim` 1, `_beginAnim`) `_switchToState` 1 시전은, 시전하면 바로 스킬 상태에 들어가 진행 중인 휘두름을 끊고 공격하지 않는다. 시작 클립 길이를 기다린 **뒤에** 스킬이 시작된다: 버프·수치, 키트의 `onStart`, `skillStart` 훅, 지속 시간, 스킬 능력. `SkillState.OnEnter` → `BasicSkill.OnBeforeSkillStart`가 `PlayBeginAnimation`을 띄우고, 이것이 클립 길이(`Character.PlayAnimation`이 돌려준 값)만큼 `AsyncUtil.WaitForFixedSeconds`로 기다린 뒤 `DoStartSkill`을 부른다. 모델에 그 클립이 없으면 기다리지 않는다. SP는 시전 때 빠진다(`CastSkill.DoCast` → `ReduceSp`).
+- 그 사이 기절·빙결·수면이면 시전이 사라진다: 스킬 상태가 끝나며(`SkillState.OnTick` → `OnExit`) `BasicSkill.InterruptIfNot`이 `m_startSkill`을 비우고, `DoStartSkill`은 그것이 비어 있으면 아무것도 하지 않는다. SP는 돌아오지 않고 스킬의 끝 효과도 없다(오로라 S1의 자기 기절 없음).
+- `_switchToState` 0 시전은 기다리지 않고 바로 시작한다(하이모어 S2, `diy.md` 「새 시즌 블루포이즌·하이모어·홈바운드·안드레아나」).
+- 구현: `tools/local-extract/skill_cast.py`가 `begin`(클립 키, 아래 방향 배치의 `_beginAnimDown`은 `beginDown`)을 쓰고, `tools/build-data.mjs skillCast`가 그 길이를 스킬 기록의 `cast.begin`(초)에 넣는다(127개 프리팹 행, 풀 전체; 아래 방향 클립은 풀의 모든 모델에서 길이가 같아 따로 두지 않음). `server/sim/skills.js`: `beginTime`(틱 단위로 반올림), `_beginCast`(스킬 상태·휘두름 끊기·'skill' 켜짐 사건 — 5번째 필드의 [타격, 끝]은 클립 뒤로 민 시각), `_tickBegin`(유닛 공격 갱신 뒤, 클라 코루틴이 `SimulateTick`에서 이어지듯), `_startSkill`. `ai.js updateAlly`는 클립의 마지막 틱에도 공격을 시작하지 않는다.
+- 시작 클립을 스스로 단계로 짠 키트는 `ownBegin`으로 엔진을 끈다: 첸 더 던스트릭 S3(`op-chen3.js`, 틱까지 맞춘 단계 — 위 「첸 S3」). 전에 키트가 따로 하던 우쿠시크 S1·안드레아나 S2·우요우 S2·오로라 S1/S2·바르카리스 S2는 엔진으로 옮겼다. 그 셋(우쿠시크·안드레아나·우요우)은 휘두름을 끊지 않았고, 우쿠시크·안드레아나는 지속 시간을 클립만큼 늘리지 않았다.
+- [추정·미조사: 시작 클립 동안 지속형 스킬의 SP 회복을 멈춤(스킬이 켜진 것처럼)].
+- 화면: 'skill' 켜짐 사건은 전처럼 시전 때 나가므로 렌더는 그때 시작 클립을 튼다. 스킬 버프의 이펙트는 이제 클립 뒤에 나온다.
+- 확인: `test/skill-begin.test.js`(옛 코드에서 3건 모두 실패 확인).

@@ -29,8 +29,8 @@
 //   (hpRegenRatio — 备注 "生命回复的效果为增加“生命回复速度（百分比）”属性，不受治疗加成和禁疗影响": no heal, 禁疗 does not stop it).
 // - S1 极速送达 (被动 ON_DEPLOY, 56 s): a timed deployment skill (activateOnDeploy, trigger NEVER): she takes off at each
 //   deployment for its duration — range 3-6, ATK +atk, attacks 2 targets (attack@max_target) — and lands when it ends
-//   (aglna2_s_1[switch_mode] → S1_Landing; the landing clip's length is not modelled).
-// - S2 重力自定义 (MANUAL, 22 s, data DEFAULT on its 3-10 — docs/rules/sim.md 「스킬 범위 발동」): she takes off at once; for chant_duration (2.5) s she glides
+//   (aglna2_s_1[switch_mode] → S1_Landing: its 1 s clip in the air, no attack — FLY_CLIP below; the S2 / S3 landings too).
+// - S2 重力自定义 (MANUAL, 22 s, data DEFAULT on its 3-10 — docs/rules/sim.md 「스킬 범위 발동」): she takes off once its begin clip Skill_2_Begin has played (the engine: data `cast.begin`, skills.js beginTime); for chant_duration (2.5) s she glides
 //   (吟唱: no attack, 无敌, the control statuses refused — 备注 "持有无敌、不可阻挡、晕眩/冻结/小睡/沉睡免疫，一减状态抵抗率×0")
 //   while a sweep released from her tile along her direction (备注 "宽3.0×厚1.3、飞行速度6.0的弹道…终点位于前方至多4.0格"; it
 //   goes through walls and stops at the last tile a flyer can cross) hits each selectable enemy once — her model rides it out
@@ -69,6 +69,7 @@ import { hasHp } from '../../../damage.js';
 import { RESIST_STATUSES } from '../../../buffs.js';
 import { TICK } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
+import { holdTakeOff, landAfter } from '../shared/liftoff.js';
 
 const S1 = 'skchr_aglna2_1';
 const S2 = 'skchr_aglna2_2';
@@ -111,6 +112,15 @@ function takeOff(battle, unit) {
   battle.fx('takeoff', { x: unit.x, y: unit.y, id: unit.id });
 }
 function land(battle, unit) { battle.releaseBlocked(unit); }   // the flyers she held
+/**
+ * Skill_1_End, Skill_2_End, Skill_3_End and Skill_3_Begin are all this long (data/assets.json `animations`; test/content/op_aglna2.test.js):
+ * the attack abilities of her modes S1_Landing / S2_Landing / S3_Landing and S3_TakeOff (`_timeMode` 1) — no attack while they play,
+ * airborne through a landing (shared/liftoff.js). S1's take-off at a deployment (S1_TakeOff: Start_2) is her deployment clip.
+ */
+export const FLY_CLIP = 1;
+const LAND_KEY = 'aglna2:landing';
+/** The landing clip after a skill's end `reason` (shared/liftoff.js). */
+function landClip(battle, unit, reason) { landAfter(battle, unit, FLY_CLIP, { key: LAND_KEY, reason, onLanded: () => land(battle, unit) }); }
 
 /** “一会儿见！”'s kit: 无敌, 孤立, not selectable by enemies, blocks nothing, no attack, no skill. */
 function markerKit() {
@@ -264,6 +274,8 @@ export default {
         }
         stopFlight(battle, unit);
         st = null;
+        // home after S3 (not cast again on the way): its landing clip (S3_Landing)
+        if (!skillOn(unit, S3)) landClip(battle, unit, 'duration');
         return;
       }
       if (f.r === unit.tileR && f.c === unit.tileC) { stopFlight(battle, unit); return; }   // turned back to her own tile
@@ -305,7 +317,7 @@ export default {
           mods: { atkPct: num(b1.atk) }, flags: LIFTOFF,
           targeting: { rangeGrid: r1?.rangeGrid ?? null, maxTargets: Math.max(1, Math.floor(num(b1['attack@max_target'], 1))) },
           onStart({ battle, unit }) { takeOff(battle, unit); },
-          onEnd({ battle, unit }) { land(battle, unit); },
+          onEnd({ battle, unit, reason }) { landClip(battle, unit, reason); },
         },
         [S2]: {
           kind: 'duration',
@@ -318,7 +330,7 @@ export default {
             if (chant > 0) battle.addBuff(unit, { key: CHANT_KEY, duration: chant, flags: { disarm: true, invulnerable: true }, tags: ['skill'] });
             glide(battle, unit, num(b2.buff_duration_levitate), num(b2.buff_duration_ground_bound), chant);
           },
-          onEnd({ battle, unit }) { battle.removeBuff(unit, CHANT_KEY); land(battle, unit); },
+          onEnd({ battle, unit, reason }) { battle.removeBuff(unit, CHANT_KEY); landClip(battle, unit, reason); },
         },
         [S3]: {
           kind: 'ammo',
@@ -328,6 +340,7 @@ export default {
           attack: { atkScale: num(b3['attack@atk_scale'], 1) },
           onStart({ battle, unit, skill }) {
             takeOff(battle, unit);
+            holdTakeOff(battle, unit, FLY_CLIP);   // S3_TakeOff: Skill_3_Begin
             // (a return flight still under way: she is put down where it was going at once)
             if (flight) { unit.x = flight.c; unit.y = flight.r; if (flight.home) arrive(battle, unit); else { stopFlight(battle, unit); snapBack(unit); } }
             st = { r0: unit.tileR, c0: unit.tileC, dir0: unit.dir, act: skill.activations, marker: null };
@@ -336,17 +349,18 @@ export default {
           onEnd({ battle, unit, reason }) {
             s3Targeting.rangeGrid = g39x4;
             battle.setExtraRange(unit, null);
-            land(battle, unit);
             // back to her deployment tile (备注 "技能结束时若位于初始位置则降落；否则执行一次以初始位置为目标的返回移动"): a flight
-            // home (the client's Comback movement, 2 tiles/s) and a 【移动】 there; the marker leaves as she lands
+            // home (the client's Comback movement, 2 tiles/s) and a 【移动】 there; the marker leaves as she lands, her landing clip after it (arrive)
             const away = !!st && (!atHome(unit) || !!flight);
             if (reason !== 'death' && away && unit.alive && unit.deployed) {
+              land(battle, unit);
               fly(battle, unit, st.r0, st.c0, true);
               return;
             }
             if (flight) { stopFlight(battle, unit); snapBack(unit); }
             dropMarker(battle);
             st = null;
+            landClip(battle, unit, reason);
           },
         },
       },
@@ -439,6 +453,7 @@ export default {
         battle.every(MOVE_CHECK, () => {
           if (!st || !skillOn(unit, S3) || !up(unit) || flight || !unit.canAct || unit.blocking.length) return;
           if (unit.swing || unit.atkCd > (1 - MOVE_ATTACK_PROGRESS) * unit.s.interval + 1e-9) return;   // her attack first
+          if (unit.skillStateUntil > battle.time + 1e-9) return;   // (the take-off mode S3_TakeOff first: the move is the S3 mode's)
           const tgt = moveTarget(battle, unit);
           if (tgt) fly(battle, unit, tgt.r, tgt.c, false);
         }, { owner: unit });

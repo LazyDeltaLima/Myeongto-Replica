@@ -404,7 +404,12 @@ test('2_13 蒂比 S1 专业喷绘技巧: rangeId trigger (an enemy in its 2-3 on
     assert.equal(hits.length, atk.reduce((n, c) => n + c.targets.length, 0), 'one shot per target (no 3 连射)');
     h.runUntil(() => !u.skill.active, 40);
     h.step();
-    assert.ok(!u.s.flags.liftoff, 'landed');
+    assert.ok(u.s.flags.liftoff, 'still in the air for her landing clip (S1_Landing)');
+    const t1 = h.b.time, n1 = h.hooksOf('attack').filter((c) => c.attacker === u).length;
+    h.run(0.9);
+    assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u).length, n1, 'no attack while she lands');
+    h.runUntil(() => !u.s.flags.liftoff, 2);
+    assert.ok(Math.abs(h.b.time - t1 - 1) < 0.1, `landed as Skill_End ends: ${h.b.time - t1}`);
     done(h);
     // an enemy attack from outside her range never sets S1 off (S2's 受到攻击后触发 is not hers)
     const h2 = run({ defs: { enemies: { r: dummy('r', { atk: 300, bat: 1, range: 3.2 }) } }, units: [U(id, 9, 5, { carryState: READY })], enemies: [{ key: 'r', pos: [9, 8] }] });

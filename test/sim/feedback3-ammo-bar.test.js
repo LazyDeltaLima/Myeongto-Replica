@@ -45,6 +45,7 @@ test('the full mark follows bullets added mid-skill only above it; without extra
   const u = h.unit('chess_char_6_01_a');
   h.step(1);
   u.skill.activate('test', { free: true });
+  h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
   const sk = u.skill;
   assert.equal(sk.ammoMax, sk.ammoLeft);
   const base = sk.ammoMax;

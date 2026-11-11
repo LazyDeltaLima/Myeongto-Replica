@@ -18,7 +18,7 @@ const S2 = 'skchr_aurora_2';
 const REST = 'aurora_t_1';
 /** skchr_aurora_2's attack (Modes/S2/Body/Attack `_triggerTimeCount`); the text's 9 too. */
 export const S2_BULLETS = 9;
-/** Skill_Begin, Skill_2_Begin (data/assets.json `animations`): `BasicSkill.PlayBeginAnimation` waits them out before the skill starts, no attack meanwhile. */
+/** Skill_Begin, Skill_2_Begin (data/assets.json `animations`): `BasicSkill.PlayBeginAnimation` waits them out before the skill starts, no attack meanwhile (data `cast.begin`, skills.js beginTime). */
 export const S1_BEGIN = 0.5;
 export const S2_BEGIN = 0.667;
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
@@ -33,8 +33,6 @@ export default {
         [S1]: {
           kind: 'duration', mods: { defPct: num(b1.def), blockCnt: num(b1.block_cnt) },
           onStart({ battle, unit, skill }) {
-            unit.swing = null; unit.castLeft = 0; unit.skillStateUntil = battle.time + S1_BEGIN;
-            skill.timeLeft += S1_BEGIN;
             const v = Math.min(0.95, Math.max(0, -num(b1.one_minus_status_resistance)));
             if (v > 0) battle.applyStatus(unit, 'resist', { duration: skill.timeLeft, value: v, source: unit });
           },
@@ -44,7 +42,6 @@ export default {
         },
         [S2]: {
           kind: 'ammo', ammo: S2_BULLETS, mods: { atkPct: num(b2.atk), batPct: num(b2.base_attack_time) },
-          onStart({ battle, unit }) { unit.swing = null; unit.castLeft = 0; unit.skillStateUntil = battle.time + S2_BEGIN; },
         },
       },
       talents: [{ install(battle, unit) {

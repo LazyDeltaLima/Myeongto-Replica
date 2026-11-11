@@ -58,6 +58,7 @@ describe('维什戴尔 kit — research 2026-10-07 §3 fixes', () => {
     const u = h.unit(1);
     const a = h.spawn('enemy_post', { pos: [10, 5] }), b = h.spawn('enemy_post', { pos: [10, 7] });
     u.skill.activate('manual', { free: true });
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     assert.equal(effectiveProfile(u).splashRadius, 2.5);
     const splashed = new Set();
     h.b.on('damaged', (c) => { if (c.source === u && c.dmg?.isAttack && c.dmg.isSplash && u.skill.active) splashed.add(c.target); });
@@ -71,6 +72,7 @@ describe('维什戴尔 kit — research 2026-10-07 §3 fixes', () => {
     const u = h.unit(1);
     const kite = h.spawn('enemy_kite', { pos: [10, 5] });
     u.skill.activate('manual', { free: true });
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     const got = { main: 0, shock: 0 };
     h.b.on('damaged', (c) => {
       if (c.source !== u || c.target !== kite) return;
@@ -162,6 +164,7 @@ describe('维什戴尔 kit — research 2026-10-07 §3 fixes', () => {
     h.run(0.5);
     const before = new Set(shadesOf(h, u));
     u.skill.activate('manual', { free: true });
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     const fresh = shadesOf(h, u).filter((w) => !before.has(w));
     assert.equal(fresh.length, 2);
     const sp = recOf({ sk: 2 }).skill.bb.sp;
@@ -287,6 +290,7 @@ describe('维什戴尔 through the real match path (seats[].diy → Match board 
     const before = new Set(b.allyUnits.filter((a) => a.alive && a.defId === SHADE));
     assert.equal(before.size, 1, 'the deploy shadow');
     u.skill.activate('manual', { free: true });
+    while (u.skill._begin) b.step();   // (after its begin clip: skills.js _beginCast)
     const prof = effectiveProfile(u);
     assert.equal(prof.splashRadius, 2.5);
     assert.ok(prof.canHitFly && !prof.groundOnly, 'S3 reaches air units');

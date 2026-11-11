@@ -356,6 +356,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
       h.step(1);
       const u = h.unit(1);
       u.skill.activate('manual', { free: true });
+      h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
       assert.ok(u.skill.active);
       const hits = [];
       const orig = h.b.dealDamage.bind(h.b);

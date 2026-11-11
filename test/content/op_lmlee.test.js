@@ -198,6 +198,7 @@ test('S2 驱凶辟邪: passive ASPD +15 / +20; cast on his attack, the target is
     const t = h.spawn('enemy_dummy', { pos: [10, 6] });
     const near = h.spawn('enemy_fly', { pos: [11, 6] }), far = h.spawn('enemy_dummy', { pos: [10, 8] });
     assert.ok(h.runUntil(() => u.skill.activations === 1, 3), `T${tier}: cast`);
+    h.runUntil(() => !u.skill._begin, 1);   // (after its begin clip: skills.js _beginCast)
     const mark = t.findBuff(`lmlee:mark:${u.id}`);
     assert.ok(mark, `T${tier}: marked`);
     assert.equal(t.s.taunt, 1, `T${tier}: taunt +1`);
@@ -228,6 +229,7 @@ test('S2 驱凶辟邪 bursts early: at the hit cap, when the target is knocked o
     const t = h.spawn('enemy_dummy', { pos: [10, 6] });
     u.skill.gainSp(999);
     assert.ok(h.runUntil(() => u.skill.activations === 1, 3));
+    h.runUntil(() => !u.skill._begin, 1);   // (after its begin clip: skills.js _beginCast)
     for (let i = 0; i < sk.bb.max_stack_cnt - 2; i++) h.b.dealDamage(u, t, { amount: 1, type: 'true' });
     assert.ok(t.findBuff(`lmlee:mark:${u.id}`), 'below the cap');
     h.b.dealDamage(u, t, { amount: 1, type: 'true' });
@@ -244,6 +246,7 @@ test('S2 驱凶辟邪 bursts early: at the hit cap, when the target is knocked o
     const by = h.spawn('enemy_dummy', { pos: [11, 6] });
     u.skill.gainSp(999);
     assert.ok(h.runUntil(() => u.skill.activations === 1, 3));
+    h.runUntil(() => !u.skill._begin, 1);   // (after its begin clip: skills.js _beginCast)
     h.b.dealDamage(u, t, { amount: 1e7, type: 'true' });
     assert.ok(!t.alive);
     assert.ok(from(h, u).some((c) => c.target === by && c.dmg.tags.includes('lmlee:burst')), 'the neighbour takes the burst');
@@ -254,9 +257,11 @@ test('S2 驱凶辟邪 bursts early: at the hit cap, when the target is knocked o
     const t = h.spawn('enemy_dummy', { pos: [10, 6] });
     u.skill.gainSp(999);
     assert.ok(h.runUntil(() => u.skill.activations === 1, 3));
+    h.runUntil(() => !u.skill._begin, 1);   // (after its begin clip: skills.js _beginCast)
     u.skill.gainSp(999);
     u.skill.opReadyAt = -Infinity;
     assert.ok(h.runUntil(() => u.skill.activations === 2, 3));
+    h.runUntil(() => !u.skill._begin, 1);   // (after its begin clip: skills.js _beginCast)
     assert.equal(from(h, u).filter((c) => c.dmg.tags.includes('lmlee:burst')).length, 1, 'the first mark burst');
     assert.ok(t.findBuff(`lmlee:mark:${u.id}`), 'a new mark');
     done(h);
@@ -267,6 +272,7 @@ test('S2 驱凶辟邪 bursts early: at the hit cap, when the target is knocked o
       const t = h.spawn('enemy_dummy', { pos: [10, 6] });
       u.skill.gainSp(999);
       assert.ok(h.runUntil(() => u.skill.activations === 1, 3));
+      h.runUntil(() => !u.skill._begin, 1);   // (after its begin clip: skills.js _beginCast)
       if (how === 'killed') h.b.dealDamage(t, u, { amount: 1e8, type: 'true' });
       else h.b.retreat(u);
       assert.equal(t.findBuff(`lmlee:mark:${u.id}`), null, how);
@@ -300,6 +306,7 @@ test('S3 贵客盈门 (AUTO, SP_FULL): range x-4, ATK / DEF +31 % / +37 %, taunt
     assert.deepEqual([u.skill.kind, u.skill.rule], ['toggle', 'SP_FULL']);
     u.skill.gainSp(999);
     h.step();
+    h.runUntil(() => !u.skill._begin, 1);   // (after its begin clip: skills.js _beginCast)
     assert.ok(u.skill.active, `T${tier}: on at full SP`);
     assert.deepEqual(u.liveRangeGrid, sk.rangeGrid, `T${tier}: x-4`);
     approx(u.s.atk, u.base.atk * (1 + sk.bb.atk), `T${tier}: ATK`);

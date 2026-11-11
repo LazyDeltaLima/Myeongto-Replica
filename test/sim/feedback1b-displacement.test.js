@@ -276,6 +276,7 @@ test('B5 audit: 缪尔赛思 S3 — a melee 流形 copy\'s pulse reaches air uni
     const t = tok();
     const e = h.spawn(key, { routeIndex: route, pos: [10, 7], mods: STILL });
     assert.ok(u.skill.activate('test', { free: true }), 'S3 on');
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     h.step(2);
     // 小力 − weight 0 = 0: all the way to the 急停 radius around the copy's centre (from √2 tiles)
     if (pulled) approx(Math.hypot(e.x - t.x, e.y - t.y), PULL_STOP_RADIUS, 1e-6, `${key}: pulled to the copy`);

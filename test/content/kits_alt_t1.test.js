@@ -99,7 +99,8 @@ test('1_01 隐现 S1 “不惹麻烦”: attack@trigger_time rounds of attack@at
     });
     const u = sel(h, id, s.skillId);
     assert.equal(u.skill.kind, 'ammo');
-    assert.ok(h.runUntil(() => u.skill.activations === 1 && !u.skill.active, 15));
+    // (ended: not while its begin clip plays — skills.js _beginCast)
+    assert.ok(h.runUntil(() => u.skill.activations === 1 && !u.skill.active && !u.skill._begin, 15));
     h.run(0.5); // the last round is still in flight
     assert.equal(h.hooksOf('ammoUsed').filter((c) => c.unit === u).length, bb['attack@trigger_time'], `${id} rounds`);
     const shots = dealt(h, u, (c) => c.dmg.isAttack && c.dmg.isSkill);

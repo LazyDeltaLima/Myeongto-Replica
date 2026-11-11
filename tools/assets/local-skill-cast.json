@@ -33,6 +33,7 @@
   },
   "skchr_aglna2_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -65,6 +66,7 @@
   },
   "skchr_agoat2_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "group": "par",
    "reset": 0,
@@ -97,6 +99,7 @@
   },
   "skchr_agoat2_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -166,6 +169,7 @@
   },
   "skchr_amiya3_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -213,6 +217,8 @@
     "time": 2,
     "wait": 1
    },
+   "begin": "Skill_2_Begin",
+   "beginDown": "Skill_Down_2_Begin",
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -238,6 +244,8 @@
   },
   "skchr_angel2_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
+   "beginDown": "Skill_Down_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -322,6 +330,7 @@
   },
   "skchr_aroma_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -347,6 +356,7 @@
   },
   "skchr_ascln_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -371,12 +381,14 @@
   },
   "skchr_aurora_1": {
    "ability": null,
+   "begin": "Skill_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_aurora_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -405,12 +417,14 @@
     "time": 2,
     "wait": 0
    },
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_beewax_1": {
    "ability": null,
+   "begin": "Skill_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -426,6 +440,7 @@
     "time": 1,
     "wait": 1
    },
+   "begin": "Skill_Begin",
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -443,6 +458,7 @@
   },
   "skchr_bgsnow_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -464,6 +480,7 @@
   },
   "skchr_bgsnow_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -509,12 +526,14 @@
   },
   "skchr_blaze2_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_blaze2_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -647,6 +666,7 @@
     "time": 1,
     "wait": 1
    },
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "group": "seq",
    "reset": 1,
@@ -754,6 +774,7 @@
   },
   "skchr_cammou_2": {
    "ability": null,
+   "begin": "Skill2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -773,12 +794,15 @@
   },
   "skchr_caper_2": {
    "ability": null,
+   "begin": "Skill_Begin",
+   "beginDown": "Skill_Down_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_cathy_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -801,6 +825,7 @@
   },
   "skchr_cello_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -852,6 +877,7 @@
   },
   "skchr_chen3_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -873,6 +899,7 @@
   },
   "skchr_chen3_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -950,6 +977,8 @@
   },
   "skchr_clemnt_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
+   "beginDown": "Skill_Down_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -965,6 +994,8 @@
     "time": 2,
     "wait": 0
    },
+   "begin": "Skill_3_Begin",
+   "beginDown": "Skill_Down_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -993,6 +1024,8 @@
   },
   "skchr_closur_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
+   "beginDown": "Skill_Down_2_Begin",
    "cls": "cast",
    "group": "par",
    "reset": 0,
@@ -1006,6 +1039,8 @@
   },
   "skchr_closur_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
+   "beginDown": "Skill_Down_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1067,6 +1102,7 @@
   },
   "skchr_cuttle_2": {
    "ability": null,
+   "begin": "Skill2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1086,6 +1122,7 @@
   },
   "skchr_demetr_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1101,6 +1138,7 @@
     "time": 1,
     "wait": 1
    },
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1142,18 +1180,21 @@
   },
   "skchr_dminon_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_dminon_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_dminon_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1185,6 +1226,7 @@
   },
   "skchr_ebnhlz_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1261,6 +1303,7 @@
   },
   "skchr_etlchi_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1273,6 +1316,7 @@
   },
   "skchr_excu2_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "range": 0,
    "reset": 0,
@@ -1280,6 +1324,7 @@
   },
   "skchr_excu2_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1317,6 +1362,7 @@
   },
   "skchr_f12yin_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1348,6 +1394,7 @@
   },
   "skchr_fartth_3": {
    "ability": null,
+   "begin": "Skill3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1376,6 +1423,7 @@
   },
   "skchr_flamtl_3": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1473,6 +1521,7 @@
   },
   "skchr_ghost2_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1503,6 +1552,7 @@
   },
   "skchr_glady_2": {
    "ability": null,
+   "begin": "Skill_2_Startup",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1662,6 +1712,7 @@
   },
   "skchr_gvial2_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1712,6 +1763,7 @@
   },
   "skchr_halo2_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1737,6 +1789,7 @@
   },
   "skchr_harold_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1752,6 +1805,7 @@
     "time": 2,
     "wait": 0
    },
+   "begin": "Skill_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1767,12 +1821,14 @@
     "time": 2,
     "wait": 0
    },
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_haruka_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1816,6 +1872,7 @@
   },
   "skchr_headb2_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "born": 0,
    "cls": "cast",
    "reset": 0,
@@ -1920,12 +1977,14 @@
   },
   "skchr_hodrer_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_hodrer_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1996,6 +2055,7 @@
   },
   "skchr_humus_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2027,6 +2087,7 @@
   },
   "skchr_ines_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2059,12 +2120,14 @@
   },
   "skchr_inside_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_inside_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2164,18 +2227,22 @@
   },
   "skchr_jesca2_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_jesca2_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_jesca2_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
+   "beginDown": "Skill_Down_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2195,6 +2262,7 @@
   },
   "skchr_ju_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2220,6 +2288,7 @@
   },
   "skchr_judge_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2253,6 +2322,7 @@
     "time": 2,
     "wait": 1
    },
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2304,30 +2374,35 @@
   },
   "skchr_kichi_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_kichi_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_kjera_2": {
    "ability": null,
+   "begin": "Skill_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_kroos2_1": {
    "ability": null,
+   "begin": "Skill_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_kroos2_2": {
    "ability": null,
+   "begin": "Skill_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2340,6 +2415,7 @@
   },
   "skchr_lemuen_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2352,6 +2428,7 @@
   },
   "skchr_lemuen_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2453,18 +2530,21 @@
     "time": 2,
     "wait": 1
    },
+   "begin": "Skill_2_Start",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_lmlee_3": {
    "ability": null,
+   "begin": "Skill_3_Start",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_logos_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2477,6 +2557,7 @@
   },
   "skchr_logos_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2511,6 +2592,7 @@
   },
   "skchr_lumen_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2543,12 +2625,14 @@
   },
   "skchr_mantra_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_mantra_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "group": "par",
    "reset": 0,
@@ -2568,12 +2652,15 @@
   },
   "skchr_mcnist_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
+   "beginDown": "Skill_Down_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_mcnist_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2608,6 +2695,7 @@
   },
   "skchr_mint_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2650,6 +2738,7 @@
   },
   "skchr_mitm_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2675,18 +2764,21 @@
   },
   "skchr_mizuki_3": {
    "ability": null,
+   "begin": "Skill_2_Start",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_mlynar_1": {
    "ability": null,
+   "begin": "Skill_1_Start",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_mlynar_2": {
    "ability": null,
+   "begin": "Skill_2_Start",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2705,12 +2797,14 @@
   },
   "skchr_mlyss_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_mlyss_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2863,6 +2957,7 @@
   },
   "skchr_nothin_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2890,6 +2985,7 @@
   },
   "skchr_nymph_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2911,12 +3007,14 @@
   },
   "skchr_oblvns_2": {
    "ability": null,
+   "begin": "Skill_2_Trans_B",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_oblvns_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "group": "par",
    "reset": 0,
@@ -2985,6 +3083,7 @@
   },
   "skchr_pallas_3": {
    "ability": null,
+   "begin": "Skill_03_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3058,12 +3157,14 @@
   },
   "skchr_pepe_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_pepe_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3083,6 +3184,7 @@
   },
   "skchr_phatm2_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3242,12 +3344,14 @@
   },
   "skchr_quercu_1": {
    "ability": null,
+   "begin": "Skill_begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_quercu_2": {
    "ability": null,
+   "begin": "Skill_2_begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3267,6 +3371,7 @@
   },
   "skchr_reckpr_2": {
    "ability": null,
+   "begin": "Skill_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3318,12 +3423,14 @@
   },
   "skchr_rmixer_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_rmixer_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3342,6 +3449,7 @@
   },
   "skchr_rockr_2": {
    "ability": null,
+   "begin": "Skill_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3361,6 +3469,7 @@
   },
   "skchr_rosesa_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3433,6 +3542,7 @@
   },
   "skchr_sbell2_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3480,12 +3590,14 @@
   },
   "skchr_shu_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_shu_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3511,6 +3623,7 @@
   },
   "skchr_siege2_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3526,6 +3639,7 @@
     "time": 2,
     "wait": 1
    },
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3738,6 +3852,7 @@
   },
   "skchr_surtr_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3797,6 +3912,7 @@
     "time": 2,
     "wait": 0
    },
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "group": "par",
    "reset": 0,
@@ -3875,6 +3991,7 @@
   },
   "skchr_swire2_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "range": 0,
    "reset": 0,
@@ -3907,6 +4024,7 @@
   },
   "skchr_swllow_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4116,6 +4234,7 @@
   },
   "skchr_titi_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4131,6 +4250,7 @@
     "time": 2,
     "wait": 0
    },
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "group": "par",
    "reset": 0,
@@ -4144,6 +4264,7 @@
   },
   "skchr_titi_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4180,12 +4301,14 @@
   },
   "skchr_tocka_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_turdus_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4213,6 +4336,8 @@
   },
   "skchr_udflow_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
+   "beginDown": "Skill_Down_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4239,6 +4364,7 @@
   },
   "skchr_ulpia_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4296,24 +4422,28 @@
   },
   "skchr_varkis_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_veen_1": {
    "ability": null,
+   "begin": "Skill_1_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_veen_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_veen_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4372,6 +4502,7 @@
   },
   "skchr_vigil_3": {
    "ability": null,
+   "begin": "Skill3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4430,6 +4561,8 @@
   },
   "skchr_vulpis_3": {
    "ability": null,
+   "begin": "Skill_3_Begin",
+   "beginDown": "Skill_Down_3_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4449,12 +4582,14 @@
   },
   "skchr_vvana_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
   },
   "skchr_vvana_3": {
    "ability": null,
+   "begin": "Skill_3_Begin_A",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4521,6 +4656,7 @@
   },
   "skchr_weedy_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4612,6 +4748,7 @@
   },
   "skchr_wisdel_2": {
    "ability": null,
+   "begin": "Skill_2_Begin",
    "born": 0,
    "cls": "cast",
    "reset": 0,
@@ -4628,6 +4765,7 @@
     "time": 2,
     "wait": 1
    },
+   "begin": "Skill_3_Begin",
    "born": 0,
    "cls": "cast",
    "reset": 0,

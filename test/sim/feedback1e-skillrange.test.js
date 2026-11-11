@@ -68,7 +68,8 @@ test('烛煌 S3 attacks with the skill range: an enemy only in 4-11 is hit while
   h.run(5);
   assert.equal(h.hooksOf('skillStart').length, 0, 'no enemy on the 4-11 (her rangeId): no cast, although she attacks the one on 3-1');
   h.spawn('enemy_far', { pos: [10, 7] });
-  assert.ok(h.runUntil(() => u.skill.active, 0.25), 'an enemy on 4-11: the next 0.2 s pass casts');
+  assert.ok(h.runUntil(() => u.skill.activations > 0, 0.25), 'an enemy on 4-11: the next 0.2 s pass casts');
+  assert.ok(h.runUntil(() => u.skill.active, u.skill.beginTime + 0.05), 'started after its begin clip (skills.js _beginCast)');
   assert.ok(sameSet(new Set(u.rangeKeys), keysOf(s3Grid(), u)), 'the range keys are 4-11');
   const mark = h.hooksOf('damaged').length;
   h.run(2);
@@ -329,6 +330,7 @@ test('audit: every selectable attack-range change attacks with the official grid
       if (s.skillType !== 'PASSIVE' && !/被动效果：攻击范围扩大/.test(s.desc)) {
         assert.ok(u.skill.activate('test', { free: true }), `${tag}: cast`);
         h.step();
+        h.runUntil(() => !u.skill._begin, 3);   // (after its begin clip: skills.js _beginCast)
         assert.ok(u.skill.active, `${tag}: running`);
       }
       assert.ok(sameSet(new Set(u.rangeKeys), want), `${tag}: the attack tiles (${u.rangeKeys.length} vs ${want.size})`);
@@ -355,6 +357,7 @@ test('信仰搅拌机 SPT-Y "攻击距离+1（部分技能不受此影响）": S
     assert.ok(sameSet(new Set(u.baseRangeKeys), keysOf(C[id].rangeGrid, u, plus)), `${tag}: the initial range`);
     assert.ok(u.skill.activate('test', { free: true }), `${tag}: cast`);
     h.step();
+    h.runUntil(() => !u.skill._begin, 3);   // (after its begin clip: skills.js _beginCast)
     const want = skillIndex === 2 ? keysOf(C[id].skills[2].rangeGrid, u, 0) : keysOf(C[id].rangeGrid, u, plus);
     assert.equal(u.rangeKeys.length, want.size, `${tag}: ${want.size} tiles while it runs`);
     assert.ok(sameSet(new Set(u.rangeKeys), want), `${tag}: the tiles`);
@@ -415,7 +418,8 @@ test('audit: the DEFAULT trigger of a skill with a rangeId reads that range (cli
     h.step();
     u.skill.gainSp(1000);
     h.run(0.25);
-    assert.equal(h.hooksOf('skillStart').length, 1, `${id}: cast on the next pass`);
+    // (cast now; the skill itself starts after its begin clip — skills.js _beginCast)
+    assert.equal(u.skill.activations, 1, `${id}: cast on the next pass`);
     done(h);
   }
 });

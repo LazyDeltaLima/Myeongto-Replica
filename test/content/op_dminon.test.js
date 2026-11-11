@@ -298,7 +298,7 @@ test('S1 停步 (MANUAL, data DEFAULT, 20 s): ASPD +58 / +70; each enemy on the 
     assert.ok(!u.skill.active && ![e, fly, off].some((t) => t.findBuff(haltKey(u))), 'the marks end with the skill');
     assert.equal(u.s.aspd, 100);
     u.skill.gainSp(999);
-    assert.ok(h.runUntil(() => u.skill.activations === 2, 3), 'again');
+    assert.ok(h.runUntil(() => u.skill.activations === 2 && u.skill.active, 3), 'again');   // (the skill starts after its begin clip: skills.js _beginCast)
     h.step();
     assert.equal(slugs(e).length, 2, 'a new cast: 停顿 again');
     // he leaves: his marks go with him

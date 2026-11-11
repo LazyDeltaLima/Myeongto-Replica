@@ -128,6 +128,7 @@ test('S2 水炮模式 (AUTO, SP_FULL): ATK +140 % / +170 %, interval ×3.2, rang
     assert.deepEqual([u.skill.kind, u.skill.rule], ['toggle', 'SP_FULL']);
     u.skill.gainSp(999);
     h.step();
+    h.runUntil(() => !u.skill._begin, 2);   // (the skill starts after its begin clip: skills.js _beginCast)
     assert.ok(u.skill.active, `T${tier}: on at full SP, no enemy needed`);
     approx(u.s.atk, u.base.atk * (1 + sk.bb.atk), `T${tier}: ATK`);
     // full potential: her ASPD is 108 (潜能「攻击速度+8」), so the interval ×100 / 108

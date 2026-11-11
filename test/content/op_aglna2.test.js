@@ -13,6 +13,7 @@ import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
 import { canTargetAlly } from '../../server/sim/targeting.js';
 import { COLS } from '../../server/sim/constants.js';
+import { FLY_CLIP } from '../../server/sim/content/kits/ops/op-aglna2.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -104,6 +105,7 @@ test('trait 巡空者: on the ground she blocks ground enemies, not flyers; airb
     h.b.kill(fl, null);
     // S2: take off (the walker walks on)
     assert.ok(u.skill.activate('test', { free: true }));
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     assert.ok(u.s.flags.liftoff && u.s.flags.blockFly, `${label(f)}: airborne`);
     assert.equal(w.blockedBy, null, `${label(f)}: the ground enemy released`);
     assert.equal(canTargetAlly(w, u, true), false, `${label(f)}: 对地规避`);
@@ -213,6 +215,9 @@ test('S1 极速送达 (被动 ON_DEPLOY): at each deployment she takes off for 5
     const same = ANY_ATK(h, u).filter((c) => c.dmg.attackId === first.dmg.attackId);
     assert.deepEqual(same.map((c) => c.target).sort((x, y) => x.id - y.id), [a, b].sort((x, y) => x.id - y.id), `${label(f)}: two targets`);
     h.runUntil(() => !u.skill.active, 60);
+    // her landing clip S1_Landing (FLY_CLIP): still in the air, then down
+    assert.ok(u.s.flags.liftoff && u.s.flags.blockFly, `${label(f)}: in the air through the landing clip`);
+    h.run(FLY_CLIP + 0.05);
     assert.ok(!u.s.flags.liftoff && !u.s.flags.blockFly, `${label(f)}: landed`);
     assert.deepEqual(u.liveRangeGrid, formOf(tier, elite).rangeGrid, `${label(f)}: 2-2`);
     h.run(0.4);   // (her T2 lapses within one refresh)
@@ -241,7 +246,7 @@ test('S2 重力自定义 (MANUAL, data DEFAULT on 3-10): takes off; 2.5 s 吟唱
     const fl = h.spawn('enemy_fly', { pos: [9, 6] });           // swept flyer
     const far = h.spawn('enemy_dummy', { pos: [10, 9] });       // 5 ahead: not swept
     const wide = h.spawn('enemy_dummy', { pos: [12, 6] });      // 2 aside: not swept
-    assert.ok(h.runUntil(() => u.skill.active, 1), `${label(f)}: cast with an enemy in 3-10 (none in her 2-2)`);
+    assert.ok(h.runUntil(() => u.skill.active, 1 + 1.5), `${label(f)}: cast with an enemy in 3-10 (none in her 2-2), started after its 1 s begin clip`);
     assert.ok(u.s.flags.liftoff, `${label(f)}: airborne`);
     assert.ok(u.s.flags.disarm && u.s.flags.invulnerable, `${label(f)}: 吟唱`);
     assert.equal(h.b.applyStatus(u, 'stun', { duration: 3, source: g }), false, `${label(f)}: control statuses refused while gliding`);
@@ -266,8 +271,10 @@ test('S2 重力自定义 (MANUAL, data DEFAULT on 3-10): takes off; 2.5 s 吟唱
     assert.equal(one.length, sk.bb['attack@max_target'], `${label(f)}: ${sk.bb['attack@max_target']} targets`);
     assert.ok(one.every((c) => c.type === 'arts'), `${label(f)}: arts`);
     h.runUntil(() => !u.skill.active, 30);
-    approx(h.hooksOf('skillEnd').at(-1).t - h.hooksOf('skillStart').at(-1).t, 22, `${label(f)}: 22 s from the cast`, 0.01);
+    approx(h.hooksOf('skillEnd').at(-1).t - h.hooksOf('skillStart').at(-1).t, 22, `${label(f)}: 22 s from its start (after the begin clip)`, 0.01);
     assert.deepEqual(u.liveRangeGrid, formOf(tier, elite).rangeGrid, `${label(f)}: 2-2 back`);
+    assert.ok(u.s.flags.liftoff, `${label(f)}: in the air through the landing clip S2_Landing`);
+    h.run(FLY_CLIP + 0.05);
     assert.ok(!u.s.flags.liftoff, `${label(f)}: landed`);
     done(h);
   }
@@ -329,12 +336,14 @@ test('S3 move: blocking nothing, she flies (2.4 tiles/s, 无敌, disarmed, her b
     const fl = h.spawn('enemy_fly', { pos: [11, 7] });
     assert.ok(h.runUntil(() => u.skill.active, 1), `${label(f)}: cast`);
     const ammo0 = u.skill.ammoLeft;
-    // her attack first: the take-off waits for 85 % of the attack cooldown (_attackCooldownProgress 0.85) and cuts no swing
-    let cdAtStart = null;
-    assert.ok(h.runUntil(() => { if (u.findBuff('aglna2:move')) return true; return false; }, 3), `${label(f)}: the flight starts`);
-    cdAtStart = u.atkCd;
+    // the take-off clip first (S3_TakeOff, FLY_CLIP s): no flight and no attack during it; then the flight waits for 85 % of the
+    // attack cooldown (_attackCooldownProgress 0.85) and cuts no swing — the S3 mode's attack ability is ready as it attaches, so
+    // she may fly before her first S3 attack [ASSUMED·미조사: whether the client's move check comes before that attack]
+    const tCast = h.b.time;
+    assert.ok(h.runUntil(() => !!u.findBuff('aglna2:move'), 3), `${label(f)}: the flight starts`);
+    assert.ok(h.b.time - tCast >= FLY_CLIP - 0.05, `${label(f)}: not during the take-off clip (${(h.b.time - tCast).toFixed(3)} s)`);
+    const cdAtStart = u.atkCd;
     assert.ok(cdAtStart <= 0.15 * u.s.interval + 1e-6 && !u.swing, `${label(f)}: off only near the end of the cooldown (${cdAtStart.toFixed(3)} / ${u.s.interval.toFixed(3)})`);
-    assert.ok(ANY_ATK(h, u).some((c) => c.target === fl), `${label(f)}: it was hit before she flew`);
     assert.ok(u.s.flags.invulnerable && u.s.flags.disarm && u.s.flags.liftoff && u.s.flags.kitMove, `${label(f)}: 无敌, disarmed, airborne in flight`);
     assert.ok(h.eventsOf('fx').some((e) => e[1] === 'aglnaFlight' && e[4].on === 1 && e[4].tx === 7 && e[4].ty === 11), `${label(f)}: the flight fx`);
     const t0 = h.b.time;
@@ -374,7 +383,9 @@ test('S3 move: blocking nothing, she flies (2.4 tiles/s, 无敌, disarmed, her b
     approx(h.b.time - t1, Math.hypot(1, 3) / 2, `${label(f)}: at 2 tiles/s`, 0.05);
     assert.deepEqual([u.x, u.y], [4, 10]);
     assert.ok(!m.alive, `${label(f)}: the marker left`);
-    assert.ok(!u.findBuff('aglna2:move') && !u.s.flags.liftoff, `${label(f)}: landed at home`);
+    assert.ok(!u.findBuff('aglna2:move') && u.s.flags.liftoff, `${label(f)}: home, her landing clip (S3_Landing) still in the air`);
+    h.run(FLY_CLIP + 0.05);
+    assert.ok(!u.s.flags.liftoff, `${label(f)}: landed at home`);
     done(h);
   }
   // blocking something, she stays
@@ -394,7 +405,8 @@ test('S3 move: blocking nothing, she flies (2.4 tiles/s, 无敌, disarmed, her b
 test('S3 move: the flight follows a moving flyer — its tile is chosen again every 0.1 s — and lands where the flyer is', () => {
   const { h, u } = field({ tier: 6, elite: true, skill: 2 });
   u.skill.gainSp(999);
-  const fl = h.spawn('enemy_flyfast', { route: { motion: 'FLY', start: [11, 4], end: [11, 12], checkpoints: [] } });   // flying away from her
+  // flying away from her (from one tile further back: her flight waits for the 1 s take-off clip, S3_TakeOff)
+  const fl = h.spawn('enemy_flyfast', { route: { motion: 'FLY', start: [11, 3], end: [11, 12], checkpoints: [] } });
   assert.ok(h.runUntil(() => u.skill.active && !!u.findBuff('aglna2:move'), 8), 'the flight starts');
   const from = h.eventsOf('fx').filter((e) => e[1] === 'aglnaFlight' && e[4].on === 1).pop()[4].tx;
   const tiles = new Set();
@@ -496,7 +508,7 @@ test('S2 重力自定义: her position stays while the dash fx sends the model t
     u.skill.gainSp(999);
     const x0 = u.x, y0 = u.y;
     h.spawn('enemy_dummy', { pos: [10, x0 + 1] });
-    assert.ok(h.runUntil(() => u.skill.active, 1), `${ahead}: cast`);
+    assert.ok(h.runUntil(() => u.skill.active, 1 + 1.5), `${ahead}: cast (started after its 1 s begin clip)`);
     const dash = h.eventsOf('fx').find((e) => e[1] === 'dash' && e[4].id === u.id);
     assert.ok(dash, `${ahead}: the glide announced`);
     assert.deepEqual([dash[4].tx, dash[4].ty, dash[4].chant], [x0 + want, y0, 2.5], `${ahead}: to ${want} ahead, for the 2.5 s 吟唱`);

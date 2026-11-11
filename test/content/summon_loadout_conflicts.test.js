@@ -52,6 +52,7 @@ const done = (h) => { assert.deepEqual(h.b.errors.map((e) => `${e.label} ${e.mes
 function castAndCollect(h, ops, tokenId) {
   for (const u of ops) assert.ok(u.skill.activate('test', { free: true }), `${u.player.playerId} cast`);
   h.step();
+  h.runUntil(() => ops.every((u) => !u.skill._begin), 2);   // (after its begin clip: skills.js _beginCast)
   return ops.map((u) => {
     const s = summons(h, u, tokenId);
     assert.equal(s.length, 1, `${u.player.playerId} summoned one`);

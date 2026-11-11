@@ -26,7 +26,7 @@ const SHIELD = 'varkis_s2[shield_core]';
 const MINOS = 'minos';
 /** Skill's OnAttack frames (0.467, 0.5, 0.533) after the first, the clip at its own speed (s). */
 export const S1_STRIKES = Object.freeze([0.033, 0.067]);
-/** Skill_2_Begin's length (s). */
+/** Skill_2_Begin's length (s): the engine waits it out before S2 starts (data `cast.begin`, skills.js beginTime). */
 export const S2_BEGIN = 0.333;
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
@@ -53,10 +53,6 @@ export default {
           attack: {
             atkScale: num(b2['attack@s2_atk_scale'], 1),
             afterAttack(battle, unit) { battle.heal(unit, unit, unit.s.maxHp * num(b2['attack@hp_ratio']), { self: true }); },
-          },
-          onStart({ battle, unit, skill }) {
-            unit.swing = null; unit.castLeft = 0; unit.skillStateUntil = battle.time + S2_BEGIN;
-            skill.timeLeft += S2_BEGIN;
           },
         },
       },

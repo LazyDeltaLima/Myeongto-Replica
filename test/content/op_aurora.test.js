@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
+import { ACT3, field, done, cast, begun, realMatch } from '../helpers/seasonPieces.js';
 import { S1_BEGIN, S2_BEGIN, S2_BULLETS } from '../../server/sim/content/kits/ops/op-aurora.js';
 
 const A = 'chess_char_3_07_a', B = 'chess_char_3_07_b';
@@ -79,6 +79,7 @@ test('T1: not while a skill runs (her Default mode\'s talent)', () => {
     const e = h.spawn('enemy_dummy', { pos: [10, 5] });
     block(h, u, e);
     cast(u);
+    begun(h, u);
     h.step();
     assert.ok(u.skill.active);
     assert.ok(!u.findBuff(REST), `S${sk + 1}: no rest while it runs`);
@@ -94,15 +95,17 @@ test('S1: DEF, block +2, 抵抗, no attack during Skill_Begin; the duration star
     const e = h.spawn('enemy_dummy', { pos: [10, 5] });
     block(h, u, e);
     cast(u);
-    h.step();
     const t0 = h.b.time, n0 = attacks(h, e).length;
+    assert.ok(!u.skill.active && u.s.def === def, `${id}: nothing before Skill_Begin has played`);
+    h.run(S1_BEGIN - 0.1);
+    assert.equal(attacks(h, e).length, n0, `${id}: the begin clip holds her attacks`);
+    begun(h, u);
+    near(h.b.time - t0, S1_BEGIN, `${id}: the skill starts as the clip ends`, 0.07);
     near(u.s.def, def + u.base.def * b1.def, `${id}: DEF`, 1e-3);
     assert.equal(u.s.blockCnt, block0 + b1.block_cnt, `${id}: block`);
     assert.ok(u.findBuff('resist') || u.buffs.some((x) => x.status === 'resist'), `${id}: 抵抗`);
-    h.run(S1_BEGIN - 0.1);
-    assert.equal(attacks(h, e).length, n0, `${id}: the begin clip holds her attacks`);
     h.runUntil(() => !u.skill.active, rec.duration + 2);
-    near(h.b.time - t0, rec.duration + S1_BEGIN, `${id}: duration after the clip`, 0.002);
+    near(h.b.time - t0, rec.duration + S1_BEGIN, `${id}: duration after the clip`, 0.003);
     assert.ok(u.s.flags.stun, `${id}: stunned as it ends`);
     const s = u.findBuff('stun');
     assert.ok(Math.abs(s.timeLeft - b1.stun) < 0.15, `${id}: the whole ${b1.stun} s: ${s.timeLeft}`);
@@ -126,14 +129,14 @@ test('S2: nine attacks, ATK up, the interval longer by base_attack_time; no atta
     const e = h.spawn('enemy_dummy', { pos: [10, 5] });
     block(h, u, e);
     cast(u);
-    h.step();
+    const n0 = attacks(h, e).length;
+    h.run(S2_BEGIN - 0.1);
+    assert.equal(attacks(h, e).length, n0, `${id}: the begin clip holds her attacks`);
+    begun(h, u);
     assert.equal(u.skill.spec.kind, 'ammo');
     assert.equal(u.skill.ammoLeft, S2_BULLETS);
     near(u.s.atk, atk + u.base.atk * b2.atk, `${id}: ATK`, 1e-3);
     near(u.s.interval, iv * (1 + b2.base_attack_time), `${id}: interval`, 1e-3);
-    const n0 = attacks(h, e).length;
-    h.run(S2_BEGIN - 0.1);
-    assert.equal(attacks(h, e).length, n0, `${id}: the begin clip holds her attacks`);
     h.runUntil(() => !u.skill.active, 60);
     assert.equal(attacks(h, e).length - n0, S2_BULLETS, `${id}: nine`);
     done(h);

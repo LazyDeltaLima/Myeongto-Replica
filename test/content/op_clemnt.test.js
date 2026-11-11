@@ -18,7 +18,8 @@ function field({ tier = 6, elite = true, skill = 0, potential = 6, dir = 'RIGHT'
   h.step(); return { h, u: h.unit(1) };
 }
 function done(h) { checkInvariants(h.b); assert.deepEqual(h.b.errors, []); }
-function start(u) { u.skill.gainSp(999, 'init'); assert.equal(u.skill.activate('test'), true); }
+// (through its begin clip: the skill starts as it ends — skills.js _beginCast)
+function start(h, u) { u.skill.gainSp(999, 'init'); assert.equal(u.skill.activate('test'), true); h.runUntil(() => !u.skill._begin, 3); }
 const hits = (h, tag) => h.hooksOf('damaged').filter((c) => c.dmg?.tags?.includes(tag));
 
 for (const tier of [5, 6]) for (const elite of [false, true]) test(`风暴潮 air-only automation retains ground-only normal attacks (${tier}/${elite})`, () => {
@@ -107,7 +108,7 @@ test('风暴潮 carries at most eight total weight, excludes flyers/self-bound e
   const es = [0, 1, 2].map(() => h.spawn('light', { pos: [10, 4] }));
   const heavy = h.spawn('heavy', { pos: [10, 4] }), fly = h.spawn('fly', { pos: [10, 4] });
   const bound = h.spawn('zero', { pos: [10, 4] }); h.b.addBuff(bound, { key: 'test:bound', flags: { selfBound: true, noMove: true } });
-  start(u); assert.ok(u.s.flags.disarm); h.run(0.7);
+  start(h, u); assert.ok(u.s.flags.disarm); h.run(0.7);
   assert.equal(u.mem.clemntCabin.passengers.length, 2);
   assert.equal(u.mem.clemntCabin.mass, 2);
   assert.ok(es[0].s.flags.unblockable && es[0].s.flags.disarm);
@@ -120,7 +121,7 @@ test('风暴潮 carries at most eight total weight, excludes flyers/self-bound e
 test('风暴潮 caps passengers at fifteen and cleans them on early skill end', () => {
   const { h, u } = field({ skill: 1 });
   for (let n = 0; n < 20; n++) h.spawn('zero', { pos: [10, 4] });
-  start(u); h.run(0.4); assert.equal(u.mem.clemntCabin.passengers.length, 15);
+  start(h, u); h.run(0.4); assert.equal(u.mem.clemntCabin.passengers.length, 15);
   const es = [...u.mem.clemntCabin.passengers]; u.skill.stop();
   assert.ok(es.every((e) => !e.s.flags.disarm && !e.s.flags.unblockable && !e.s.flags.noMove));
   assert.equal(u.mem.clemntCabin, null); done(h);
@@ -131,7 +132,7 @@ for (const reason of ['death', 'hidden', 'self-bound', 'teleport-immune', 'no-pa
     const { h, u } = field({ skill: 1 });
     const victim = h.spawn('light', { pos: [10, 4] });
     const survivor = h.spawn('light', { pos: [10, 4] });
-    start(u); h.run(0.7);
+    start(h, u); h.run(0.7);
     const c = u.mem.clemntCabin, carry = `clemnt:carry:${u.id}`;
     assert.deepEqual(c.passengers.map((e) => e.id), [victim.id, survivor.id]);
     assert.equal(c.mass, 2);
@@ -160,7 +161,7 @@ for (const [kind, count] of [['zero', 15], ['mid', 1]]) {
   test(`风暴潮 frees the ${kind === 'zero' ? 'fifteenth slot' : 'four-weight budget'} after a passenger dies`, () => {
     const { h, u } = field({ skill: 1 });
     const riders = Array.from({ length: count }, () => h.spawn(kind, { pos: [10, 4] }));
-    start(u); h.run(0.7);
+    start(h, u); h.run(0.7);
     const c = u.mem.clemntCabin;
     assert.equal(c.passengers.length, count);
     h.b.dealDamage(u, riders[0], { amount: 1e12, type: 'true' });
@@ -177,7 +178,7 @@ for (const [kind, count] of [['zero', 15], ['mid', 1]]) {
 test('风暴潮 returns a released passenger’s current weight after a weight modifier', () => {
   const { h, u } = field({ skill: 1 });
   const victim = h.spawn('light', { pos: [10, 4] });
-  start(u); h.run(0.7);
+  start(h, u); h.run(0.7);
   const c = u.mem.clemntCabin;
   assert.equal(c.mass, 5);
   h.b.addBuff(victim, { key: 'test:lighter', mods: { massFlat: -1 }, flags: { selfBound: true } });
@@ -192,14 +193,14 @@ test('风暴潮 stops before a blocked tile; vortex keeps its continuous stop po
   const { h, u } = field({ skill: 1 }); h.b.grid.setObstacle(10, 5, true);
   const fly = h.spawn('fly', { pos: [10, 5.55] });
   fly.def = { ...fly.def, epResistance: 99 };
-  start(u); h.run(0.7); assert.ok(u.mem.clemntCabin.stopped);
+  start(h, u); h.run(0.7); assert.ok(u.mem.clemntCabin.stopped);
   approx(u.mem.clemntCabin.x, 4.1); h.run(1.1);
   approx(fly.findBuff(`clemnt:vortex:${u.id}`).mods.moveMul, 0.3); approx(fly.elem.erosion, 10); // damage formula's 5% floor at 99 resistance
   assert.ok(hits(h, 'clemnt:vortex').some((c) => c.target === fly)); done(h);
 });
 
 test('风暴潮 normal attack hits five ground enemies in total, never all neighbours or a flyer', () => {
-  const { h, u } = field({ skill: 1 }); start(u); h.run(1.6);
+  const { h, u } = field({ skill: 1 }); start(h, u); h.run(1.6);
   const es = Array.from({ length: 9 }, () => h.spawn('heavy', { pos: [10, 4] }));
   const fly = h.spawn('fly', { pos: [10, 4] });
   const before = h.hooksOf('damaged').length;
@@ -209,7 +210,7 @@ test('风暴潮 normal attack hits five ground enemies in total, never all neigh
 });
 
 for (const elite of [false, true]) test(`风暴潮 splash uses the published 1.1 collision radius and 100% ATK (${elite})`, () => {
-  const { h, u } = field({ skill: 1, elite }); start(u); h.run(1.6); h.b.rng = () => 0.99;
+  const { h, u } = field({ skill: 1, elite }); start(h, u); h.run(1.6); h.b.rng = () => 0.99;
   const main = h.spawn('dummy', { pos: [10, 4] });
   const near = h.spawn('dummy', { pos: [10, 5] });
   // the collision test takes an enemy's 0.1 collider — a centre 1.15 away is splashed, 1.25 away is not
@@ -228,7 +229,7 @@ for (const elite of [false, true]) test(`风暴潮 splash uses the published 1.1
 });
 
 test('与海为敌 normal attacks hit three and spend no ammunition; remote erosion bursts fire three cross-shaped mixed hits', () => {
-  const { h, u } = field({ skill: 2 }); start(u); h.b.rng = () => 0.99;
+  const { h, u } = field({ skill: 2 }); start(h, u); h.b.rng = () => 0.99;
   const close = Array.from({ length: 3 }, () => h.spawn('dummy', { pos: [10, 4] }));
   performAttack(h.b, u, effectiveProfile(u), close);
   assert.equal(u.skill.ammoLeft, 10);
@@ -249,7 +250,7 @@ test('与海为敌 normal attacks hit three and spend no ammunition; remote eros
 
 // CN client projectile_chr_clemnt_s3 `_stopWhenSourceInvalid`: the shells still due stop with her, and hold no battle open
 for (const how of ['kill', 'retreat']) test(`与海为敌 shells stop when she is gone (${how})`, () => {
-  const { h, u } = field({ skill: 2 }); start(u);
+  const { h, u } = field({ skill: 2 }); start(h, u);
   const a = h.spawn('dummy', { pos: [11, 9] }), b = h.spawn('dummy', { pos: [12, 6] });
   h.b.emit('elementBurst', { source: null, target: a, element: 'erosion' }); h.step();
   h.b.emit('elementBurst', { source: null, target: b, element: 'erosion' }); h.step();
@@ -262,7 +263,7 @@ for (const how of ['kill', 'retreat']) test(`与海为敌 shells stop when she i
 });
 
 test('与海为敌 selects nearest marked enemy, suppresses duplicate bombing tiles and does not mark air or sleeping units', () => {
-  const { h, u } = field({ skill: 2 }); start(u);
+  const { h, u } = field({ skill: 2 }); start(h, u);
   const far = h.spawn('dummy', { pos: [12, 9] }), near = h.spawn('dummy', { pos: [11, 7] });
   const same = h.spawn('dummy', { pos: [11, 7] }), fly = h.spawn('fly', { pos: [11, 8] });
   const asleep = h.spawn('dummy', { pos: [11, 6] }); h.b.applyStatus(asleep, 'sleep', { duration: 5 });
@@ -278,7 +279,7 @@ test('风暴潮 splash and vortex never hit an unrevealed 隐匿 enemy', () => {
   const { h, u } = field({ skill: 1 });
   const seen = h.spawn('dummy', { pos: [10, 4] });
   const hid = h.spawn('dummy', { pos: [10, 5] }); h.b.addBuff(hid, { key: 'test:hide', flags: { stealth: true } });
-  start(u); h.run(8);
+  start(h, u); h.run(8);
   const mine = h.hooksOf('damaged').filter((c) => c.source === u);
   assert.ok(mine.some((c) => c.target === seen), 'the visible enemy is hit');
   assert.equal(mine.filter((c) => c.target === hid).length, 0, 'the 隐匿 one is not');
