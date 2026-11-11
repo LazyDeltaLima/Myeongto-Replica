@@ -1585,7 +1585,7 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
         if (!canUseItem(m, ps, { id: s.id })) return;
         if (freeSlot(ps.hand) < 0) return;
         if (ps.funds - price < reserve && !ps.completesItemMerge(s.id)) return;
-        const carriers = [...ps.board.values()].filter((p) => p.kind === 'chess' && (p.items || []).length < gd.equipPerChess).length;
+        const carriers = [...ps.board.values()].filter((p) => p.kind === 'chess' && (p.items || []).length < gd.equipSlotsOf(p.id)).length;
         if (!carriers) return;
         sc = 6 + (gd.tierOf(s.id) || 1) * 3 - price + (ps.completesItemMerge(s.id) ? 10 : 0);
       }
@@ -1795,7 +1795,7 @@ export function cellTarget(m, ps, ctx = context(m, ps)) {
   let best = null;
   let bestV = Infinity;
   for (const p of ps.allChess()) {
-    if (gd.isGolden(p.id) || gd.tierOf(p.id) >= 6 || (p.items || []).length >= gd.equipPerChess) continue;
+    if (gd.isGolden(p.id) || gd.tierOf(p.id) >= 6 || (p.items || []).length >= gd.equipSlotsOf(p.id)) continue;
     if ((p.items || []).some((it) => isMutationCell(gd, it.id)) || (ctx.copies.get(gd.baseIdOf(p.id)) || 0) >= 2) continue;
     const v = pieceValue(m, ps, p, ctx);
     if (v < bestV || (v === bestV && p.uid < best.uid)) { bestV = v; best = p; }
@@ -1870,7 +1870,7 @@ export function itemTarget(m, ps, item, ctx = context(m, ps)) {
   }
   const consume = typeof rec.kind === 'string' && rec.kind.startsWith('consume_on_equip');
   const list = byVal(deployed);
-  const free = (p) => (p.items || []).length < gd.equipPerChess;
+  const free = (p) => (p.items || []).length < gd.equipSlotsOf(p.id);
   // a consumable on a full carrier destroys one of its items (the replace rule, GitHub #263): a carrier with a free slot
   // first — the effect is the same on anyone
   if (consume) return list.find(free) || owned.find(free) || list[0] || owned[0] || null;

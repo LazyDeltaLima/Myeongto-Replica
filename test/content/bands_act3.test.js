@@ -61,12 +61,11 @@ test('规程 bands.json: bandType, relateBondIds, the 指令 stages from the eff
   for (const b of Object.values(DATA.bands)) assert.ok(!('skills' in b) && !('bandType' in b), b.bandId);
 });
 
-test('coverage: every strategy key of the default season is handled; 规程 lacks only the actives, 追随者们, 精巧设计\'s fusion reward and two bond directions', () => {
+test('coverage: every strategy key of the default season is handled; 规程 lacks only the actives, 追随者们 and two bond directions', () => {
   assert.deepEqual(coverageOf().totals.bands, { ok: 42, partial: 0, none: 0, wrong: 0 });
   const rows = coverageOf('act3autochess').bands;
   const notOk = rows.filter((r) => r.status !== 'ok' && !r.key.startsWith('skill_'));
   assert.deepEqual(notOk.map((r) => `${r.status} ${r.id} ${r.key}`).sort(), [
-    'none band_equipment promote_equip_extra_award',
     'none band_random gain_band_skill_from_pool_in_prep',
     'partial band_egir auto_chess_effect_replace',
     'partial band_victoria auto_chess_effect_replace',

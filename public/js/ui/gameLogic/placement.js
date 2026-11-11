@@ -437,11 +437,14 @@ function equipCheck(ctx, itemPiece, targetPiece) {
 
 /** Whether an item record is consumed on equip (data `kind` consume_on_equip*: it resolves at once and takes no slot). */
 const consumedOnEquip = (item) => typeof item?.kind === 'string' && item.kind.startsWith('consume_on_equip');
+/** The carrier's equipment slots: its record's `equipSlots` (规程's 机械 4 / 6; server gamedata equipSlotsOf), else 2. */
+const equipSlotsOf = (ctx, piece) => { const n = ctx.getChess?.(piece?.id)?.equipSlots; return Number.isInteger(n) && n > 0 ? n : 2; };
+
 /** Item effects that promote the carrier (博士投影): the server refuses them on an elite (builtinMeta 'already elite'). */
 const PROMOTE_KEYS = new Set(['use_equip_upgrade_char', 'equip_round_start_upgrade_char']);
 
 /**
- * Whether dropping item `uid` on the chess `targetPiece` opens the replace dialog: its two slots are used and the server
+ * Whether dropping item `uid` on the chess `targetPiece` opens the replace dialog: its slots are used and the server
  * would replace one of them — every item, a consume-on-equip one too (PRTS 卫戍协议/帮助 "达到上限强行佩戴会改为替换装备";
  * GitHub #263: the pick is destroyed, then the item resolves and the slot stays free). Not when nothing is replaced: an
  * attaching item that completes an item merge (the server merges it instead of equipping, `equipMerges`) or a
@@ -451,7 +454,7 @@ const PROMOTE_KEYS = new Set(['use_equip_upgrade_char', 'equip_round_start_upgra
  * @param {any} targetPiece
  */
 export function equipReplaces(ctx, uid, targetPiece) {
-  if (!Array.isArray(targetPiece?.items) || targetPiece.items.length < 2) return false;
+  if (!Array.isArray(targetPiece?.items) || targetPiece.items.length < equipSlotsOf(ctx, targetPiece)) return false;
   const rec = ctx.getItem(ctx.pieces.get(uid)?.piece?.id);
   if (!consumedOnEquip(rec)) return !equipMerges(ctx, uid);
   const promotes = Array.isArray(rec.buffs) && rec.buffs.some((b) => PROMOTE_KEYS.has(b?.key));

@@ -2,8 +2,8 @@
 // item, the same text and the same numbers under a new key. The prep side reads a renamed key as the default season's
 // (server/match/builtinMeta.js, items/meta.js, content/coverage.js); a key whose item changed meaning is no alias —
 // 规程's 寻呼模块 / 简易通讯机 take the operator's first bond only (use_equip_spe_goods_first_bond,
-// equip_destory_first_bond_char), its 拟态物质 falls back to an operator of the same tier (use_equip_reward_same_tier),
-// and they run nothing until they have handlers of their own.
+// equip_destory_first_bond_char), its 拟态物质 falls back to an operator of the same tier (use_equip_reward_same_tier);
+// they have handlers of their own (items/meta.js).
 
 /** Renamed key → the default season's key, each checked against both seasons' records (item, text, blackboard). */
 export const BUFF_KEY_ALIASES = Object.freeze({

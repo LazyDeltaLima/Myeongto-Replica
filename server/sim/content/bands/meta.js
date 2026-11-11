@@ -431,6 +431,27 @@ K.promote_char_extra_award = (ps) => ({
   },
 });
 
+// 机械师 精巧设计's passive "每回合首次装备合并进阶时，在调度中心出现3件装备（可能出现更高一阶的装备）免费获取其中1件": the round's
+// first `n` item merges into the 进阶 copy (PlayerState._mergeItem onMerge kind 'item'; a 规程 组合 is no 合并进阶) offer
+// `count` different items, `select_count` taken free (one pick-one offer each), as 寻呼模块's 调度中心 offer is played. The
+// items are drawn from the shop's items up to one tier above the shop level (at most 6), the stock gating as everywhere
+// [ASSUMED·화면: "可能出现更高一阶" 의 확률 — 공식 화면 미확인, 티어 상한만 한 단계 위로]. The active part
+// (skill_change_shop_equip) is the 指令 side.
+K.promote_equip_extra_award = (ps) => ({
+  onMerge(ctx, ev) {
+    if (!ev || ev.kind !== 'item') return;
+    const p = ps[0];
+    if (roundCounter(ctx, 'band:equipbonus') >= Math.max(1, int(p.n, 1))) return;
+    bumpRound(ctx, 'band:equipbonus');
+    const maxTier = Math.min(6, Math.max(1, ctx.shopLevel()) + 1);
+    for (let k = 0; k < Math.max(1, int(p.select_count, 1)); k++) {
+      const ids = [];
+      for (let j = 0; j < Math.max(1, int(p.count, 3)); j++) { const id = ctx.rollItem({ maxTier, exclude: ids }); if (id) ids.push(id); }
+      if (ids.length) ctx.offerItems(ids, { source: 'band' });
+    }
+  },
+});
+
 // 娜仁图亚 沙洲梦魇 "获得3名【萨尔贡】干员后使当前调度中心升级消耗资金-3，调度中心每个等级至多生效1次": every <bond> chess gained
 // (bought, granted, a merge's elite: one onGain each) counts; once `count` are counted and the current 调度中心 level has had
 // no discount yet, its level-up price drops by `value` (not below 0) and `count` are used up. Counted ones past that wait

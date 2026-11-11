@@ -1,4 +1,5 @@
-// server/match/player/items.js — PlayerState methods: items — g.equip (max 2, a 3rd replaces the one the player picks;
+// server/match/player/items.js — PlayerState methods: items — g.equip (the carrier's slots, gamedata equipSlotsOf: 2, 规程's
+// 机械 4 / 6; one more replaces the one the player picks;
 // consume-on-equip items), g.art (Arts on a tile, rotated by the facing) and g.destroy (hand / temp items; equipped
 // ones are locked).
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
@@ -78,7 +79,7 @@ export class PlayerItems {
    */
   _attach(target, item, replaceUid = null) {
     target.items = target.items || [];
-    while (target.items.length >= this.gd.equipPerChess) {
+    while (target.items.length >= this.gd.equipSlotsOf(target.id)) {
       const i = replaceUid != null ? target.items.findIndex((x) => x.uid === replaceUid) : -1;
       const [old] = target.items.splice(i >= 0 ? i : 0, 1);
       replaceUid = null;
@@ -93,7 +94,7 @@ export class PlayerItems {
    */
   _takeReplaced(target, replaceUid = null) {
     target.items = target.items || [];
-    if (target.items.length < this.gd.equipPerChess) return null;
+    if (target.items.length < this.gd.equipSlotsOf(target.id)) return null;
     const i = replaceUid != null ? target.items.findIndex((x) => x.uid === replaceUid) : -1;
     const idx = i >= 0 ? i : 0;
     const [piece] = target.items.splice(idx, 1);

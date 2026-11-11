@@ -361,6 +361,10 @@ export class GameData {
   get tempSize() { return posIntOr(this.economy.tempSize, DEFAULTS.tempSize); }
   get deployCap() { return posIntOr(this.economy.deployCap, DEFAULTS.deployCap); }
   get equipPerChess() { return posIntOr(this.economy.equipPerChess, DEFAULTS.equipPerChess); }
+  /** Equipment slots of chess `id`: the season record's `equipSlots` (规程 equipSlotNum — 机械 acrbot 4 / elite 6), else equipPerChess. */
+  equipSlotsOf(id) { const c = this.chess(id); return Number.isInteger(c?.equipSlots) && c.equipSlots > 0 ? c.equipSlots : this.equipPerChess; }
+  /** 规程's 组合 partner and result of item `id` (items.json fuseWith / fuseResult), or null. */
+  fusionOf(id) { const r = this.item(id); return r && r.fuseWith && r.fuseResult && this.item(r.fuseWith) && this.item(r.fuseResult) ? { with: r.fuseWith, result: r.fuseResult } : null; }
   get maxArtsPerRound() { return posIntOr(this.economy.maxArtsPerRound, DEFAULTS.maxArtsPerRound); }
   get goldenCopies() { return posIntOr(this.economy.goldenCopies, DEFAULTS.goldenCopies); }
   get itemMergeCount() { return posIntOr(this.economy.itemMergeCount, DEFAULTS.itemMergeCount); }

@@ -10,7 +10,7 @@
 //            piece is always a slotted slot of its owner's, and a DIY shop / reward card one of its stocked slots
 //   economy  funds / pendingFunds non-negative integers, LP finite, shop level in range, prices ≥ 0
 //   pieces   unique uids; hand 10 / temp 5 slots; temp holds pieces only while the hand is full (a free hand slot pulls
-//            a temp piece in, PlayerState._fillHandFromTemp); chess carry ≤ equipPerChess known items; a normal piece
+//            a temp piece in, PlayerState._fillHandFromTemp); chess carry ≤ their equipment slots (equipSlotsOf) known items; a normal piece
 //            holds ≤ 1 copy, an elite ≤ goldenCopies; merges are immediate (never `mergeCount` normal copies of one
 //            chess, never two copies of a mergeable normal item); every token's owner chess is deployed
 //   board    tiles inside the own region and legal for the piece (a range-bound summon inside its owner's attack
@@ -102,7 +102,7 @@ export function collectViolations(m, { limit = 25 } = {}) {
         const rec = pgd.chess(p.id);
         if (!rec) { fail(`${id}: unknown chess ${p.id}`); continue; }
         if (rec.isDiy && !rec.diyFor) fail(`${id}: owns ${p.id}, a 自选 slot it has not filled`);
-        if (!Array.isArray(p.items) || p.items.length > gd.equipPerChess) fail(`${id}: ${p.id} carries ${p.items && p.items.length} items`);
+        if (!Array.isArray(p.items) || p.items.length > gd.equipSlotsOf(p.id)) fail(`${id}: ${p.id} carries ${p.items && p.items.length} items`);
         for (const it of p.items || []) {
           note(ps, it);
           if (it.kind !== 'item' || !gd.item(it.id)) fail(`${id}: ${p.id} carries a bad item ${it.kind}:${it.id}`);
@@ -160,6 +160,11 @@ export function collectViolations(m, { limit = 25 } = {}) {
       const need = Number.isInteger(rec.upgradeNum) ? rec.upgradeNum : gd.itemMergeCount;
       const gid = rec.upgradeChessId || rec.goldenId;
       if (need > 1 && need < 100 && gid && gd.item(gid) && n >= need) fail(`${id}: owns ${n} copies of item ${itemId} (merges at ${need})`);
+    }
+    // 组合 pairs are immediate too (PlayerState._fuseItem)
+    for (const itemId of itemCounts.keys()) {
+      const f = gd.fusionOf(itemId);
+      if (f && itemCounts.has(f.with)) fail(`${id}: owns item ${itemId} and its 组合 partner ${f.with}`);
     }
     // bonds are up to date
     try {

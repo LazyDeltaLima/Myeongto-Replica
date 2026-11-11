@@ -958,6 +958,9 @@ function buildChess(ctx) {
       sellPrice: priceRow.chessSoldPrice ?? null,
       upgradeNum: cd.upgradeNum,
       upgradeChessId: cd.upgradeChessId || null,
+      // 规程's equipment slots of the operator (charChessDataDict equipSlotNum: 2, 机械 acrbot 4 / elite 6); null where the
+      // season has no such field (盟约: every operator carries 2, gamedata equipPerChess)
+      equipSlots: Number.isInteger(cd.equipSlotNum) && cd.equipSlotNum > 0 ? cd.equipSlotNum : null,
       status: { phase, level, skillLevel: status.skillLevel, equipLevel: status.equipLevel || 0 },
       stats: null, immunities: null, rangeId: null, rangeGrid: null,
       dmgType: null, attackKind: null, projectile: null, canHitFly: false, targetPriority: null,
@@ -2097,12 +2100,17 @@ function buildItems(ctx, effects) {
       upgradeNum, upgradeChessId: t.upgradeChessId || null,
       duration: t.trapDuration,
       giveBondId: t.giveBondId || null, givePowerId: t.givePowerId || null, canGiveBond: !!t.canGiveBond,
+      // 规程's 组合 (trapChessDataDict canFuse / fuseWith / fuseResult): owning this item and `fuseWith` together turns the
+      // pair into `fuseResult` ("若与…同时持有则组合为…"; player/acquire.js _fuseItem)
+      fuseWith: t.canFuse && t.fuseWith ? t.fuseWith : null, fuseResult: t.canFuse && t.fuseResult ? t.fuseResult : null,
       requiresBondId: ri?.requiresBond || null,
       effectId: t.effectId, effectName: eff?.name || null,
       desc: eff?.desc || null, descRaw: eff?.descRaw || null,
       buffs: (eff?.buffs || []).map((b) => ({ key: b.key, countType: b.countType, bb: b.bb, bbStr: b.bbStr })),
       params: eff?.params || {},
-      category: ri?.category || null, kind: ri?.kind || null, family: ri?.family || null,
+      // an item research 04 has no entry for (规程's new ones) is consumed on equip when the table says so: trapDuration 0
+      // (every such item reads 「装备时销毁」; 博士投影's delayed form has its research entry)
+      category: ri?.category || null, kind: ri?.kind || (!ri && t.trapDuration === 0 ? 'consume_on_equip' : null), family: ri?.family || null,
       implFormula: rule?.implFormula || ri?.implFormula || null,
       note: rule?.note || null,
       rangeGrid: Array.isArray(ri?.rangeGrids) ? ri.rangeGrids.map((g) => [g.row, g.col]) : null,
@@ -4688,6 +4696,8 @@ function validateAll(f) {
     if (!effects[it.effectId]) err(`item ${it.id}: effect missing`);
     if (it.goldenId && !items[it.goldenId]) err(`item ${it.id}: golden missing`);
     if (it.giveBondId && !bonds[it.giveBondId]) err(`item ${it.id}: giveBond ${it.giveBondId} missing`);
+    if (it.fuseWith && !items[it.fuseWith]) err(`item ${it.id}: fuseWith ${it.fuseWith} missing`);
+    if (it.fuseResult && !items[it.fuseResult]) err(`item ${it.id}: fuseResult ${it.fuseResult} missing`);
     if (it.requiresBondId && !bonds[it.requiresBondId]) err(`item ${it.id}: requiresBond ${it.requiresBondId} missing`);
   }
   for (const b of Object.values(bands)) if (!effects[b.effectId]) err(`band ${b.bandId}: effect missing`);
