@@ -27,16 +27,13 @@ const E3 = ACT3.enemies, E0 = BASE.enemies;
 const LEADER_FIELD = [];
 // 特训敌人 entries of 规程 (its new types CRITIC 精锐 / REBORN 重生 among them) and their escorts and offspring
 const SPECIAL_TYPE = [
-  'enemy_10163_mnctur_2', 'enemy_1064_snsbr', 'enemy_1067_snslime_2', 'enemy_1103_wdkght_2', 'enemy_1104_lfkght',
-  'enemy_1104_lfkght_3', 'enemy_1131_sbeast', 'enemy_1131_sbeast_2', 'enemy_1132_sarchn', 'enemy_1132_sarchn_2',
-  'enemy_1133_harchn', 'enemy_1133_harchn_2', 'enemy_1137_plasm', 'enemy_1138_tumor', 'enemy_1191_krgrg',
-  'enemy_1191_krgrg_2', 'enemy_1213_mtrsnp', 'enemy_1216_cansld', 'enemy_1219_mtrbty', 'enemy_1309_mhboar_2',
-  'enemy_1363_spnshd_2', 'enemy_1373_ltnhor', 'enemy_1373_ltnhor_2', 'enemy_1375_ltnclr', 'enemy_1375_ltnclr_2',
-  'enemy_1376_ltndru', 'enemy_1376_ltndru_2', 'enemy_1385_winbom', 'enemy_1385_winbom_2', 'enemy_1388_wingnt',
-  'enemy_1388_wingnt_2', 'enemy_1403_gunsho', 'enemy_1403_gunsho_2', 'enemy_1405_boomer_2', 'enemy_1406_chghmr',
-  'enemy_1409_bdguad_2', 'enemy_1428_lrsoul', 'enemy_1429_lrwzrd', 'enemy_1429_lrwzrd_2', 'enemy_1431_lrmzrd',
-  'enemy_1431_lrmzrd_2', 'enemy_1434_dsshel', 'enemy_1436_dsdivi', 'enemy_1436_dsdivi_2', 'enemy_1437_dsfull',
-  'enemy_1437_dsfull_2', 'enemy_9031_acrefd', 'enemy_9034_acblk', 'enemy_9039_acrefm',
+  'enemy_10163_mnctur_2', 'enemy_1064_snsbr', 'enemy_1067_snslime_2', 'enemy_1191_krgrg', 'enemy_1191_krgrg_2',
+  'enemy_1213_mtrsnp', 'enemy_1216_cansld', 'enemy_1219_mtrbty', 'enemy_1309_mhboar_2', 'enemy_1363_spnshd_2',
+  'enemy_1373_ltnhor', 'enemy_1373_ltnhor_2', 'enemy_1375_ltnclr', 'enemy_1375_ltnclr_2', 'enemy_1376_ltndru',
+  'enemy_1376_ltndru_2', 'enemy_1385_winbom', 'enemy_1385_winbom_2', 'enemy_1388_wingnt', 'enemy_1388_wingnt_2',
+  'enemy_1403_gunsho', 'enemy_1403_gunsho_2', 'enemy_1405_boomer_2', 'enemy_1406_chghmr', 'enemy_1409_bdguad_2',
+  'enemy_1428_lrsoul', 'enemy_1429_lrwzrd', 'enemy_1429_lrwzrd_2', 'enemy_1431_lrmzrd', 'enemy_1431_lrmzrd_2',
+  'enemy_9031_acrefd', 'enemy_9034_acblk', 'enemy_9039_acrefm',
 ];
 // enemies an enemy effect, choice or strategy of 规程 puts on the field
 const EFFECT_SPAWN = [
@@ -925,4 +922,206 @@ test('萨卡兹子裔寄生者: an enemy knocked out within 1.5 summons a 大君
   h.b.applyStatus(p, 'silence', { duration: 10, source: null });
   h.b.kill(put(h, DPVT, [10, 8.5], { tag: null }), null);
   assert.equal(alive(h, DZOMG).length, 0, 'silenced: none');
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// REBORN 复苏: the 变异 beasts, the 饲育者 and 集养者, two 骑士团 knights
+
+const SBEAST = 'enemy_1131_sbeast', HARCHN = 'enemy_1133_harchn', PLASM = 'enemy_1137_plasm', TUMOR = 'enemy_1138_tumor';
+
+test('变异沙地兽: knocked out, 2 畸变赘生物 `deathrattle.delay` (0.2) s later where it fell; silenced, none', () => {
+  const bb = E3[SBEAST].talents.bb;
+  assert.deepEqual([bb['deathrattle.cnt'], bb['deathrattle.delay'], E3[SBEAST].talents.bbStr['deathrattle.enemy_key']], [2, 0.2, PLASM]);
+  for (const silence of [false, true]) {
+    const { h } = waveField([SBEAST, PLASM], [{ chessId: 't_wall', row: 12, col: 2 }]);
+    const e = put(h, SBEAST, [10, 6], { tag: null });
+    if (silence) h.b.applyStatus(e, 'silence', { duration: 10, source: null });
+    h.step();
+    h.b.kill(e, h.unit('t_wall'));
+    runFor(h, 0.15);
+    assert.equal(alive(h, PLASM).length, 0, 'not before the delay');
+    runFor(h, 0.1);
+    const c = alive(h, PLASM);
+    assert.equal(c.length, silence ? 0 : 2, `silenced ${silence}`);
+    for (const o of c) assert.ok(Math.abs(o.x - 6) < 0.3 && Math.abs(o.y - 10) < 1e-6, 'where it fell');
+  }
+});
+
+test('变异巨岩蛛: one 畸变赘生物 at the SummonToken clip event every 5 s (from the start); knocked out, 4', () => {
+  const s = E3[HARCHN].skills[0];
+  assert.deepEqual([s.prefabKey, s.cooldown, s.initCooldown, s.bbStr.enemy_key], ['SummonToken', 5, 5, PLASM]);
+  const hit = E3[HARCHN].skillCast.summontoken.hit;
+  const { h } = waveField([HARCHN, PLASM], [{ chessId: 't_wall', row: 10, col: 5 }]);
+  const e = put(h, HARCHN, [10, 6], { tag: null });
+  let cast = null;
+  onSkill(h, e, (ab) => { if (ab === 'SummonToken' && cast == null) cast = h.b.time; });
+  h.runUntil(() => cast != null, 8);
+  assert.ok(cast != null && cast >= 5 - 1e-6 && cast < 8, `cast at its first attack slot after 5 s (${cast})`);
+  runFor(h, hit - 0.05);
+  assert.equal(alive(h, PLASM).length, 0, 'not before the clip event');
+  runFor(h, 0.1);
+  assert.equal(alive(h, PLASM).length, 1, 'one at the event');
+  h.b.kill(e, h.unit('t_wall'));
+  runFor(h, 0.3);
+  assert.equal(alive(h, PLASM).length, 5, 'four more when it falls');
+});
+
+test('畸变恶性瘤: while blocked its blocker\'s attack speed × 0.2 (one buff for two); unblocked, back', () => {
+  assert.equal(E3[TUMOR].talents.bb['atkSpeedDown.attack_speed'], -0.8);
+  const { h } = waveField([TUMOR], [{ chessId: 't_wall', row: 10, col: 6 }]);
+  const w = h.unit('t_wall'), base = w.s.aspd;
+  const e = blockedOn(h, TUMOR, w);
+  runFor(h, 0.2);
+  assert.ok(Math.abs(w.s.aspd - Math.max(20, base * 0.2)) < 1e-9, `× 0.2 (${w.s.aspd})`);
+  h.b.addBuff(w, { key: 't:aspd', mods: { aspd: 50 }, persist: true });
+  assert.ok(Math.abs(w.s.aspd - (base + 50) * 0.2) < 1e-9, `(base + 50) × 0.2 — a MULTIPLIER (${w.s.aspd})`);
+  blockedOn(h, TUMOR, w);
+  runFor(h, 0.2);
+  assert.ok(Math.abs(w.s.aspd - (base + 50) * 0.2) < 1e-9, 'two block it: still one buff');
+  for (const o of alive(h, TUMOR)) h.b.kill(o, w);
+  void e;
+  runFor(h, 0.3);
+  assert.equal(w.s.aspd, base + 50, 'back once none blocks');
+});
+
+test('微核沉积者: knocked out, a 赘生甲壳 (3000 HP, DEF 320, blocks 20) on its tile that blocks enemies; none on an occupied tile', () => {
+  const ct = '.cache/gamedata/excel/character_table.json';
+  if (fs.existsSync(ct)) {
+    const d = JSON.parse(fs.readFileSync(ct, 'utf8')).trap_156_dsshell.phases[0].attributesKeyFrames[0].data;
+    assert.deepEqual([d.maxHp, d.def, d.magicResistance, d.blockCnt], [3000, 320, 0, 20], 'the official table');
+  }
+  const key = 'enemy_1434_dsshel';
+  const { h } = waveField([key, PLASM], [{ chessId: 't_wall', row: 12, col: 2 }]);
+  const e = put(h, key, [10, 6], { tag: null });
+  h.step();
+  h.b.kill(e, h.unit('t_wall'));
+  const sh = h.b.allyUnits.find((u) => u.alive && u.defId === 'trap_156_dsshell');
+  assert.ok(sh && sh.kind === 'device' && sh.tileR === 10 && sh.tileC === 6, 'on its tile');
+  assert.deepEqual([sh.s.maxHp, sh.s.def, sh.s.blockCnt], [3000, 320, 20]);
+  const p = put(h, PLASM, [10, 7.4], { move: true, tag: null });
+  p.route.pts = null;
+  h.runUntil(() => p.blockedBy === sh, 5);
+  assert.ok(p.blockedBy === sh, 'an enemy is blocked by it');
+  const e2 = put(h, key, [12, 2], { tag: null });
+  h.b.kill(e2, null);
+  assert.equal(h.b.allyUnits.filter((u) => u.alive && u.defId === 'trap_156_dsshell').length, 1, 'no shell on the wall\'s tile');
+});
+
+test('蕴核饲育者: knocked out, 微核沉积者 (20 %) / 诡核集养者 (else 50 %) / 单核掠食者, its move speed × 3', () => {
+  const key = 'enemy_1437_dsfull', bb = E3[key].talents.bb, bs = E3[key].talents.bbStr;
+  assert.deepEqual([bb['0.prob1'], bb['0.prob2'], bb['0.move_speed']], [0.2, 0.5, 2]);
+  const kids = [bs['0.enemy_1'], bs['0.enemy_2'], bs['0.enemy_3']];
+  assert.deepEqual(kids, ['enemy_1434_dsshel', 'enemy_1436_dsdivi', 'enemy_1433_dsbasi']);
+  for (const [rolls, want] of [[[true], 0], [[false, true], 1], [[false, false], 2]]) {
+    const { h } = waveField([key, ...kids], [{ chessId: 't_wall', row: 12, col: 2 }]);
+    const e = put(h, key, [10, 6], { move: true, tag: null });
+    h.step();
+    const seen = [];
+    h.b.rng.chance = (p) => { seen.push(p); return rolls.shift(); };
+    const x0 = e.x, y0 = e.y;
+    h.b.kill(e, h.unit('t_wall'));
+    assert.deepEqual(seen, [0.2, 0.5].slice(0, seen.length), 'prob1 first, then prob2');
+    const out = kids.map((k) => alive(h, k));
+    assert.deepEqual(out.map((l) => l.length), [0, 1, 2].map((i) => (i === want ? 1 : 0)), `roll ${want}`);
+    const o = out[want][0];
+    assert.ok(Math.abs(o.s.moveSpeed - E3[kids[want]].stats.moveSpeed * 3) < 1e-9, `× 3 (${o.s.moveSpeed})`);
+    assert.ok(Math.abs(o.x - x0) < 1e-6 && Math.abs(o.y - y0) < 1e-6, 'where it fell');
+  }
+});
+
+test('诡核集养者: below half HP once, its 1.833 s Skill clip standing, then a copy with its HP ratio that never splits; silenced, it waits', () => {
+  const key = 'enemy_1436_dsdivi';
+  assert.equal(E3[key].talents.bb['0.hp_ratio'], 0.5);
+  assert.equal(E3[key].skills[0].bbStr.enemy_key, key);
+  const len = E3[key].skillCast['0'].dur;
+  for (const silence of [false, true]) {
+    const { h } = waveField([key], [{ chessId: 't_wall', row: 12, col: 2 }]);
+    const e = put(h, key, [10, 6], { move: true, tag: null });
+    h.step();
+    let casts = 0;
+    onSkill(h, e, (ab) => { if (ab === '0') casts++; });
+    if (silence) h.b.applyStatus(e, 'silence', { duration: 1, source: null });
+    h.b.dealDamage(null, e, { amount: e.s.maxHp * 0.45, type: 'true', canDodge: false });
+    assert.equal(casts, 0, 'above half: nothing');
+    h.b.dealDamage(null, e, { amount: e.s.maxHp * 0.1, type: 'true', canDodge: false });
+    assert.equal(casts, silence ? 0 : 1, `below half (silenced ${silence})`);
+    if (silence) {
+      runFor(h, 1.1);
+      h.b.dealDamage(null, e, { amount: 1, type: 'true', canDodge: false });
+      assert.equal(casts, 1, 'the listener waits: the next damage after the silence');
+    }
+    const x0 = e.x;
+    runFor(h, len - 0.05);
+    assert.equal(alive(h, key).length, 1, 'not before the clip ends');
+    assert.ok(Math.abs(e.x - x0) < 1e-9, 'it stands while it casts');
+    runFor(h, 0.1);
+    const all = alive(h, key);
+    assert.equal(all.length, 2, 'a copy');
+    const c = all.find((o) => o !== e);
+    assert.ok(Math.abs(c.hpRatio - e.hpRatio) < 1e-9, `the same HP ratio (${c.hpRatio} / ${e.hpRatio})`);
+    h.b.dealDamage(null, c, { amount: c.s.maxHp * 0.3, type: 'true', canDodge: false });
+    h.b.dealDamage(null, e, { amount: e.s.maxHp * 0.1, type: 'true', canDodge: false });
+    runFor(h, len + 0.2);
+    assert.equal(alive(h, key).length, 2, 'neither splits again');
+  }
+});
+
+test('沸血骑士团精锐: ATK +10 % and ASPD +5 per enemy knocked out, 10 at most; full, its next attack in the mode Rage', () => {
+  const key = 'enemy_1103_wdkght_2', bb = E3[key].talents.bb;
+  assert.deepEqual([bb['enhance.atk'], bb['enhance.attack_speed'], bb['enhance.max_stack_cnt']], [0.1, 5, 10]);
+  const { h } = waveField([key, PLASM], [{ chessId: 't_wall', row: 10, col: 6 }]);
+  const w = h.unit('t_wall');
+  const e = put(h, key, [12, 9], { tag: null });
+  h.step();
+  const atk0 = e.s.atk, as0 = e.s.aspd;
+  for (let i = 1; i <= 12; i++) {
+    h.b.kill(put(h, PLASM, [12, 3], { tag: null }), w);
+    const n = Math.min(10, i);
+    assert.ok(Math.abs(e.s.atk - atk0 * (1 + 0.1 * n)) < 1e-6 && e.s.aspd === as0 + 5 * n, `${i} knocked out: ${n} stacks`);
+  }
+  assert.equal(e.mode ?? null, null, 'no attack yet: the default mode');
+  e.x = w.tileC + 0.3; e.y = w.tileR;
+  e.mods.speedMul = 1;
+  h.runUntil(() => e.stats.attacks >= 1, 10);
+  assert.equal(e.mode, 'Rage', 'the mode Rage from its next attack');
+});
+
+test('锋盔骑士团学徒 / “左手”泰特斯·白杨: the highest-ATK unit without it ATK × 0.5 for 25 s at the clip event (every 25 / 10 s); 重生 5 s at full HP', () => {
+  const ATK = (id, atk) => chessRec({ id, profession: 'TANK', stats: { atk, maxHp: 1e7, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
+  for (const [key, cd] of [['enemy_1104_lfkght', 25], ['enemy_1104_lfkght_3', 10]]) {
+    const s = E3[key].skills[0];
+    assert.deepEqual([s.prefabKey, s.cooldown, s.initCooldown, s.bb.atk, s.bb.duration, E3[key].talents.bb['reborn.duration']], ['AtkDesWeaken', cd, cd, -0.5, 25, 5]);
+    const hit = E3[key].skillCast.atkdesweaken.hit;
+    const h = makeBattle({
+      content: 'generic', extraContent: [enemiesMod, bossesMod], seed: 7, autoFinish: false, timeLimit: 600, kind: 'normal', enemies: [],
+      defs: { chess: { t_wall: WALL('t_wall'), t_a5: ATK('t_a5', 500), t_a9: ATK('t_a9', 1200) }, enemies: { [key]: E3[key] } },
+      kits: { t_wall: NOATK, t_a5: NOATK, t_a9: NOATK },
+      units: [{ chessId: 't_wall', row: 10, col: 5 }, { chessId: 't_a5', row: 12, col: 1 }, { chessId: 't_a9', row: 12, col: 3 }],
+    });
+    h.step();
+    const e = put(h, key, [10, 6], { tag: null });
+    const a5 = h.unit('t_a5'), a9 = h.unit('t_a9');
+    const casts = [];
+    onSkill(h, e, (ab) => { if (ab === 'AtkDesWeaken') casts.push(h.b.time); });
+    h.runUntil(() => casts.length >= 1, 30);
+    assert.ok(casts[0] >= cd - 1e-6 && casts[0] < cd + 2, `first cast at ${casts[0]}`);
+    runFor(h, hit - 0.05);
+    assert.equal(a9.s.atk, 1200, 'not before the clip event');
+    runFor(h, 0.1);
+    assert.deepEqual([a9.s.atk, a5.s.atk], [600, 500], 'the highest ATK, × 0.5');
+    h.runUntil(() => casts.length >= 2, 30);
+    runFor(h, hit + 0.05);
+    // 10 s: the highest ATK still has the cut (600 > 500), so the next one is picked; 25 s: 学徒's second cast comes as
+    // the first cut ends (cooldown 25 + its cast), so 1200 is picked again
+    assert.deepEqual([a9.s.atk, a5.s.atk], cd < 25 ? [600, 250] : [600, 500], `second cast at ${casts[1]}`);
+    // 重生: knocked out, 5 s, then full HP
+    h.b.kill(e, a5);
+    assert.ok(e.alive, 'the first knock-out is a 重生');
+    runFor(h, 4.9);
+    assert.ok(e.s.flags.untargetable, 'still standing up');
+    runFor(h, 0.2);
+    assert.ok(!e.s.flags.untargetable && e.hp === e.s.maxHp, 'up again at full HP');
+    h.b.kill(e, a5);
+    assert.ok(!e.alive, 'the second is the end');
+  }
 });

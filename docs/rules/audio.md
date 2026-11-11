@@ -878,7 +878,7 @@
     0.3초마다 보고 바뀌면(등장 때 Horror도) 소리 전용 kitHit `acbunn:horror`/`acbunn:cute`(`content/enemies/invisible.js kitBoneSpike`; 공격 대상
     수 같은 sim 규칙은 그대로 은신 여부를 바로 봄).
   - 원핵의 악생자: 첫 피해에(`dslntf_tr_1` ON_TAKE_DAMAGE → 모드 1, PlayAudio `Awake`) kitHit `dslntf:awake`(`kitNucleus`). 원핵 껍데기
-    (`trap_156_dsshell`)에 저지될 때의 같은 길은 이 모드에 그 장치가 없어 없음.
+    (`trap_156_dsshell`)에 저지될 때의 같은 길은 아직 없음 — 지난 시즌에는 그 장치가 없고, 규정에서는 소핵의 퇴적자가 쓰러지며 남기지만(rules/sim.md 「규정 적·보스」 재생 나머지) 악생자가 그것을 부수는 규칙이 아직 없다.
   - 불타는 덩굴: 첫 공격의 폭발(`enemy_ftsjc[aoe]` — 근원에 `[first_attack]`이 있을 때 AOE 뒤 PlayAudio `enemy_ftsjc.aoe`) → fx `explode` `flameVine`.
   - '산크타의 눈': 탄을 빼앗을 때(`hlegle_a[steal]` — 대상 탄약 스킬 남은 수가 0이 아니면 빼앗고 PlayAudio `hlegle_steal_bullet_audio`) → fx `steal`
     (`from` = 그 적). 공식은 탄약 스킬의 탄만 본다(sim은 특성 탄도 빼앗음 — sim 규칙, 소리는 sim 사건을 따름).

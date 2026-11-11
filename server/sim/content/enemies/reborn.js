@@ -1,6 +1,7 @@
 // server/sim/content/enemies/reborn.js — REBORN 复苏 kits of 卫戍协议：规程 (factions.json type REBORN, "此类敌人首次被击倒后会重生")
-// and the units they bring: the 萨卡兹子裔 of the main story (official prefabs battle/enm_pfb_10 / _14, EN and CN alike) and
-// 规程's own 萨卡兹子裔寄生者 (CN prefab battle/enm_pfb_36). Their part of KITS.
+// and the units they bring: the 萨卡兹子裔 of the main story (official prefabs battle/enm_pfb_10 / _14, EN and CN alike),
+// 规程's own 萨卡兹子裔寄生者 (CN prefab battle/enm_pfb_36), the 变异 beasts that split (enm_pfb_7), the 饲育者 and 集养者 of
+// the sea (enm_pfb_17) and two 骑士团 knights (enm_pfb_6). Their part of KITS.
 //
 // The 子裔 do not stand up again themselves: their first knock-out summons a 重生造物 (enemy_vampires[bloodsucker_summon] /
 // enemy_dthrow_summon[dzoms]: ON_OWNER_KILLED, not a FALLDOWN, SummonEnemiesFollowMyRoute — the blackboard `delay` s after
@@ -8,8 +9,9 @@
 // enemy_bloodsucker_mark, which the auras of the 补给车 and the 集恨者 look for.
 
 import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
-import { T, elem, hurt, areaAllies, remainingRoute, spawnChildren, auraBuff, watchDeaths, silenced } from './helpers.js';
-import { ep } from './archetypes.js';
+import { T, elem, hurt, areaAllies, allTargets, remainingRoute, spawnChildren, auraBuff, watchDeaths, silenced, mode } from './helpers.js';
+import { interruptEnemyCast } from '../../ai.js';
+import { ep, reborn, skill } from './archetypes.js';
 import { hypot, powi } from '../../detmath.js';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -244,6 +246,191 @@ function kitParasite(ab) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// 变异 beasts (enm_pfb_7): split on death, 畸变恶性瘤 slows its blocker
+
+/**
+ * 变异沙地兽 / 变异岩蛛 / 变异巨岩蛛 (and their α): knocked out — not a FALLDOWN, not while silenced (deathrattle_sum[walk_only]:
+ * ON_OWNER_KILLED, CheckAbnormalFlag SILENCED unset, IfNot FilterDeathReason FALLDOWN, SummonEnemiesFollowMyRoute) — they
+ * split into `deathrattle.cnt` `deathrattle.enemy_key` `deathrattle.delay` s later where they fell, on the rest of the route.
+ * [추정·미조사: the `deathrattle.offset_bound` jitter of each spot is spawnChildren's fixed spread here — see the 子裔's
+ * `_randomOffsetBound` note; the projectile that flies to each spot is the view's]
+ */
+function splitOnDeath(ab) {
+  const key = ab.tS['deathrattle.enemy_key'], n = T(ab, 'deathrattle.cnt') ?? 0, delay = T(ab, 'deathrattle.delay') ?? 0;
+  return {
+    sil: true,
+    death(c, b, e) {
+      if (c.reason !== 'killed' || !key || !(n > 0)) return;
+      const route = remainingRoute(e);
+      const go = () => spawnChildren(b, e, key, n, { route });
+      if (delay > 0) b.after(delay, go, { holdsBattle: true }); else go();
+    },
+  };
+}
+const kitSplitBeast = (ab) => [splitOnDeath(ab)];
+
+/**
+ * A skill's ActiveBuff lands at its clip's attack event (`_waitForAttackEvent`: data/enemies.json `skillCast.hit`), so a cast
+ * cut before it (stun, freeze …) gives nothing; without an event, at the clip's end (as an attack without one strikes).
+ */
+function atCastEvent(b, e, s, fn) {
+  const c = s && s.cast, t = c && Number.isFinite(c.hit) ? c.hit : c && c.dur > 0 ? c.dur : 0;
+  if (!(t > 0)) { fn(); return; }
+  b.after(t - 1e-9, () => { if (e.alive && e.castLeft > 0) fn(); }, { owner: e });
+}
+
+/**
+ * 变异巨岩蛛 / α: the splits on death, and SummonToken (SILENCE line; AlwaysTrigger, cooldown 5 s from the start) — one
+ * `enemy_key` at its own spot on its route at the clip's event (harchn[sum_token]).
+ */
+function kitHugeSpider(ab) {
+  const s = ab.sk.SummonToken, key = s && s.bs.enemy_key, n = (s && s.bb.cnt) ?? 1;
+  return [splitOnDeath(ab), skill(s, (b, e) => atCastEvent(b, e, s, () => {
+    if (key) spawnChildren(b, e, key, n, { route: remainingRoute(e), pos: [e.y, e.x] });
+  }), { sil: true })];
+}
+
+/**
+ * 畸变恶性瘤: while blocked (BlockedToggleChecker `_blockMinCnt` 1) its blocker's attack speed × (1 + `atkSpeedDown.attack_speed`)
+ * (tumor_t_buff_blocker: ATTACK_SPEED MULTIPLIER, one buff however many block it — max stack 1). Its talent is a
+ * SilenceableTalent, but it is silence-immune and its line NORMAL: never off.
+ */
+function kitTumor(ab) {
+  const v = T(ab, 'atkSpeedDown.attack_speed') ?? 0;
+  return [{
+    iv: AURA_EVERY,
+    tick(b, e) { const u = e.blockedBy; if (u && v) auraBuff(b, u, 'ab:tumorSlow', AURA_EVERY, { aspdPct: v }, null, true); },
+  }];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// 海怪 of the 饲育者 (enm_pfb_17)
+
+/** 赘生甲壳 (character_table trap_156_dsshell, phase 0 — a TRAP token our data does not carry): HP, DEF, RES, block count. */
+const SHELL = 'trap_156_dsshell';
+const SHELL_STATS = Object.freeze({ hp: 3000, def: 320, res: 0, blockCnt: 20, name: '赘生甲壳' });
+
+/**
+ * A tile the shell may take (dsshel_t_1 SpawnTokenOnTargetTileWithCondition: buildable MELEE, LOWLAND, move cost 1 — not an
+ * obstacle-like tile — and not tile_start / tile_end / tile_telin / tile_telout); spawnDevice refuses one a unit holds.
+ */
+function shellTile(b, r, c) {
+  if (!b.grid.inRect(r, c)) return false;
+  const t = b.grid.tile(r, c);
+  return t.height === 'LOW' && (t.build === 'MELEE' || t.build === 'ALL') && !t.special && !b.grid.isObstacle(r, c);
+}
+
+/**
+ * 微核沉积者: knocked out, a 赘生甲壳 on its tile (an ally-side TRAP: blocks 20, enemies stop at it and break it). Its skill
+ * (a high-ground operator deployed onto it; its redeploy −35 % when the shell breaks) has no use in a battle without
+ * deployment.
+ */
+const kitShellBearer = () => [{
+  death(c, b, e) {
+    if (c.reason !== 'killed') return;
+    const r = Math.round(e.y), col = Math.round(e.x);
+    if (shellTile(b, r, col)) b.spawnDevice(SHELL, r, col, SHELL_STATS);
+  },
+}];
+
+/**
+ * 蕴核饲育者 / 异光体饲育者: knocked out (dsfull_tr_1, no death-reason check), one sea monster where it fell, on its route —
+ * `0.enemy_1` with `0.prob1`, else `0.enemy_2` with `0.prob2`, else `0.enemy_3` (nested RandomAction) — whose move speed
+ * × (1 + `0.move_speed`) for good (dsfull_tr_1[speed_up], MOVE_SPEED MULTIPLIER).
+ */
+function kitBreeder(ab) {
+  const p1 = T(ab, '0.prob1') ?? 0, p2 = T(ab, '0.prob2') ?? 0, spd = T(ab, '0.move_speed') ?? 0, n = T(ab, '0.cnt') ?? 1;
+  const keys = [ab.tS['0.enemy_1'], ab.tS['0.enemy_2'], ab.tS['0.enemy_3']];
+  return [{
+    death(c, b, e) {
+      if (c.reason !== 'killed') return;
+      const key = b.rng.chance(p1) ? keys[0] : b.rng.chance(p2) ? keys[1] : keys[2];
+      if (!key) return;
+      for (const o of spawnChildren(b, e, key, n, { route: remainingRoute(e), pos: [e.y, e.x] })) {
+        b.addBuff(o, { key: 'ab:dsfullSpeed', persist: true, visible: true, mods: { moveMul: 1 + spd } });
+      }
+    },
+  }];
+}
+
+/**
+ * 诡核集养者 / 异光体集养者: the first time its HP falls below `0.hp_ratio` (dsdivi_tr_1[listener], ON_APPLIED_MODIFIER — not
+ * while silenced, the listener waits) it casts skill `0` (TriggerEnemySkill, interrupting what it casts): the `Skill` clip,
+ * unmovable (BuffDuringCastingFixed UNMOVABLE_PRIVATE), then a copy of itself (dsdivi_tr_1: the skill's `enemy_key`) on its
+ * route with its HP ratio (CopyHealth by ratio) and the split mark, so the copy never splits; the listener is gone.
+ * [추정·미조사: the clip has no attack event in the data — the copy comes at the clip's end; the copy's spot offset
+ * (`offset_bound`) is spawnChildren's]
+ */
+function kitDivider(ab) {
+  const ratio = T(ab, '0.hp_ratio') ?? 0.5, s = ab.sk['0'], key = s && s.bs.enemy_key, len = (s && s.cast && s.cast.dur) || 0;
+  return [{
+    sil: true,
+    spawn(_b, e, a) { a.armed = !e.mem.splitMark; },
+    taken(_c, b, e, a) {
+      if (!a.armed || !e.alive || !(e.hpRatio < ratio)) return;
+      a.armed = false;
+      interruptEnemyCast(b, e);
+      e.skillAnimUntil = b.time + len;
+      b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: '0', n: 1 });
+      b.addBuff(e, { key: 'ab:dsdiviCast', duration: len, flags: { noMove: true, disarm: true } });
+      b.after(len, () => {
+        if (!e.alive || !key) return;
+        const hp = e.hpRatio;
+        for (const o of spawnChildren(b, e, key, 1, { route: remainingRoute(e) })) {
+          o.mem.splitMark = true;
+          if (o.mem.ab) for (const x of o.mem.ab.list) if ('armed' in x) x.armed = false;
+          o.hp = Math.max(1, o.s.maxHp * hp);
+        }
+      }, { owner: e });
+    },
+  }];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// 骑士团 (enm_pfb_6)
+
+/**
+ * 沸血骑士团精锐: a GlobalAuraAbility on its own side (TargetValidator `targetSide` 1, every motion) — each of those enemies
+ * knocked out (enemy_wdkght_t, ON_OWNER_KILLED) gives it a stack of ATK × (1 + `enhance.atk`) (MULTIPLIER) and ASPD
+ * + `enhance.attack_speed` (ADDITION), at most `enhance.max_stack_cnt`; full, its next attack switches it to the mode Rage
+ * (enemy_wdkght_t[switch_mode] ON_BEFORE_ATTACK, no FSM restart: the same attack, its Skill clip).
+ */
+function kitBloodKnight(ab) {
+  const atk = T(ab, 'enhance.atk') ?? 0, as = T(ab, 'enhance.attack_speed') ?? 0, cap = T(ab, 'enhance.max_stack_cnt') ?? Infinity;
+  return [{
+    spawn(b, e, a) { a.n = 0; watchDeaths(b, e); },
+    otherDeath(c, b, e, a) {
+      const u = c.unit;
+      if (c.reason !== 'killed' || !u || u === e || u.side !== 'enemy' || !(a.n < cap)) return;
+      a.n++;
+      b.addBuff(e, { key: 'ab:wdkght', persist: true, visible: true, refresh: 'replace', mods: { atkPct: atk * a.n, aspd: as * a.n } });
+    },
+    before(_c, b, e, a) { if (a.n >= cap && !a.rage) { a.rage = true; mode(b, e, 'Rage', false); } },
+  }];
+}
+
+/** 锋盔骑士团学徒's ATK cut on its target (lfkght_s[weaken]: the selector leaves out a unit that has it). */
+const WEAKEN = 'ab:lfkghtWeaken';
+
+/**
+ * 锋盔骑士团学徒 / “左手”泰特斯·白杨: AtkDesWeaken (SILENCE line; GlobalRange, the operator side, every motion, ATK_DES — the
+ * highest ATK — one unit without the cut) — at the clip's event its ATK × (1 + `atk`) (FINAL_SCALER) for `duration` s; and
+ * 重生 (RebornTalent: `reborn.duration` s, full HP — `hp_ratio` defaults to 1, one respawn).
+ */
+function kitLfKnight(ab) {
+  const s = ab.sk.AtkDesWeaken, cut = (s && s.bb.atk) ?? 0, dur = (s && s.bb.duration) ?? 0;
+  const pick = (b, e) => allTargets(b, e).filter((u) => !u.findBuff(WEAKEN)).sort((p, q) => q.s.atk - p.s.atk)[0];
+  return [skill(s, (b, e) => {
+    const u = pick(b, e);
+    if (!u) return;
+    atCastEvent(b, e, s, () => {
+      if (!u.alive || u.findBuff(WEAKEN)) return;
+      b.addBuff(u, { key: WEAKEN, duration: dur, visible: true, mods: { atkMul: 1 + cut } });
+    });
+  }, { sil: true, cond: (b, e) => !!pick(b, e) }), reborn({ dur: T(ab, 'reborn.duration') ?? 0 })];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // this module's part of KITS
 
 export const REBORN_KITS = {
@@ -267,4 +454,19 @@ export const REBORN_KITS = {
   enemy_1362_dfat: kitPunisher,                            // 萨卡兹子裔责罚者 · every 4th attack stuns all around; 大君之赐
   enemy_1362_dfat_2: kitPunisher,                          // 萨卡兹子裔惩戒者 · same; 慷慨之赐
   enemy_9030_acpara: kitParasite,                          // 萨卡兹子裔寄生者 · enemies knocked out near it: 大君之赐
+  enemy_1131_sbeast: kitSplitBeast,                        // 变异沙地兽 · knocked out: 2 畸变赘生物
+  enemy_1131_sbeast_2: kitSplitBeast,                      // 变异沙地兽α · 2 畸变恶性瘤
+  enemy_1132_sarchn: kitSplitBeast,                        // 变异岩蛛 · 3 畸变赘生物
+  enemy_1132_sarchn_2: kitSplitBeast,                      // 变异岩蛛α · 3 畸变恶性瘤
+  enemy_1133_harchn: kitHugeSpider,                        // 变异巨岩蛛 · one 畸变赘生物 every 5 s; knocked out: 4
+  enemy_1133_harchn_2: kitHugeSpider,                      // 变异巨岩蛛α · same, 畸变恶性瘤
+  enemy_1138_tumor: kitTumor,                              // 畸变恶性瘤 · its blocker's ASPD −80 %
+  enemy_1434_dsshel: kitShellBearer,                       // 微核沉积者 · knocked out: a 赘生甲壳 on its tile
+  enemy_1436_dsdivi: kitDivider,                           // 诡核集养者 · below half HP once: a copy of itself
+  enemy_1436_dsdivi_2: kitDivider,                         // 异光体集养者 · same
+  enemy_1437_dsfull: kitBreeder,                           // 蕴核饲育者 · knocked out: a fast sea monster (20 / 40 / 40 %)
+  enemy_1437_dsfull_2: kitBreeder,                         // 异光体饲育者 · same (20 / 56 / 24 %)
+  enemy_1103_wdkght_2: kitBloodKnight,                     // 沸血骑士团精锐 · ATK +10 %, ASPD +5 per enemy knocked out (×10)
+  enemy_1104_lfkght: kitLfKnight,                          // 锋盔骑士团学徒 · highest-ATK unit ATK −50 % 25 s; 重生
+  enemy_1104_lfkght_3: kitLfKnight,                        // “左手”泰特斯·白杨 · same, every 10 s
 };
