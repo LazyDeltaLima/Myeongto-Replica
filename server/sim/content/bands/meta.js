@@ -503,6 +503,22 @@ K.n_round_refresh_cnt_gain_coin = (ps) => ({
   },
 });
 
+// 规程's active 指令 (g.bandSkill, server/match/match/bandSkill.js: the gate, the target, the cost and the use limits are
+// the server's; these hooks are only the effect).
+// 小贾斯汀 私募基金 「点击使用：随机获得1-6资金（冷却回合数等同于获得资金）」: mingold..maxgold funds at once, and the stage's
+// COOLDOWN is that many rounds [ASSUMED·서버: an even draw over the range — the roll is the server's]
+K.skill_gain_gold_cd_by_gold = (ps) => ({
+  onBandSkill(ctx, ev) {
+    const p = ps[0];
+    const lo = Math.max(0, int(p.mingold, 1));
+    const hi = Math.max(lo, int(p.maxgold, lo));
+    const gold = lo + ctx.rng.int(hi - lo + 1);
+    ctx.addFunds(gold, 'band');
+    ev.cooldown = gold;
+    ev.handled = true;
+  },
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 // 鸭爵 “神秘顾客”: "从第5回合起，你和队友遭遇的部分敌人可能会替换为<鸭爵><高普尼克><流泪小子><圆仔>，击倒这些敌人者获得1资金奖励
 // （包括联防阶段）". A global handler rewrites the battle spawn list of every alive player while the band is held by that

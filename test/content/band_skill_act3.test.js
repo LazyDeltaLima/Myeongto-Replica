@@ -215,3 +215,16 @@ test('幻画为真 (ALL_LIMIT 1, 每场模拟限1次): one use a match, a new ro
   assert.equal(view().usesLeft, 0);
   assert.deepEqual(use({ uid: piece.uid }), { error: 'ALREADY', detail: 'no uses left' });
 });
+
+test('私募基金 (小贾斯汀, skill_gain_gold_cd_by_gold): 1–6 funds at once, and that many rounds of cooldown', () => {
+  const seen = new Set();
+  for (let seed = 1; seed <= 40; seed++) {
+    const { ps, use, view } = setup({ band: 'band_fund', handler: null, funds: 10, seed });
+    assert.deepEqual(use(), OK, `seed ${seed}`);
+    const gold = ps.funds - 10;
+    assert.ok(gold >= 1 && gold <= 6, `seed ${seed}: ${gold}`);
+    assert.equal(view().cooldown, gold, 'the cooldown is the funds gained');
+    seen.add(gold);
+  }
+  assert.deepEqual([...seen].sort(), [1, 2, 3, 4, 5, 6], 'every amount of the range comes up');
+});
