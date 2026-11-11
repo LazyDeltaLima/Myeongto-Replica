@@ -383,13 +383,18 @@ test('LOR-Δ “沙蚀” (stages 1 / 3): every damage instance he deals carries
   }
 });
 
-test('T2 故土潮声: 生命回复速度 +4 % max HP/s (an hpRegenRatio buff, no 治疗: 禁疗 does not stop it) once his last attack is 2 s old — off while he attacks; S2\'s spikes are no 主动攻击', () => {
+test('T2 故土潮声: 生命回复速度 +4 % max HP/s (an hpRegenRatio buff, no 治疗: 禁疗 does not stop it) once his last attack (or his deployment) is 2 s old — off while he attacks; S2\'s spikes are no 主动攻击', () => {
   for (const f of [[5, false, null], [6, true, LORX]]) {
     const [tier, elite, mod] = f;
     const { h, u } = field({ tier, elite, mod, skill: 0 });
     const r = formOf(tier, elite).talents.find((t) => t.index === 1).bb;
     assert.deepEqual([r.delay, r.hp_recovery_per_sec_by_max_hp_ratio], [2, 0.04]);
-    assert.deepEqual(u.findBuff('talent:thorns:tide')?.mods, { hpRegenRatio: 0.04 }, `${label(f)}: on from the deployment`);
+    // the official toggle starts off and turns on restoreDelay (2 s) after the deployment
+    assert.equal(u.findBuff('talent:thorns:tide'), null, `${label(f)}: off on deployment`);
+    h.run(1.8);
+    assert.equal(u.findBuff('talent:thorns:tide'), null, `${label(f)}: off 1.8 s after deployment`);
+    h.run(0.3);
+    assert.deepEqual(u.findBuff('talent:thorns:tide')?.mods, { hpRegenRatio: 0.04 }, `${label(f)}: on 2 s after the deployment`);
     approx(u.s.hpRegen, u.s.maxHp * 0.04, `${label(f)}: 4 % max HP / s`);
     u.skill.sp = 0;
     const e = h.spawn('enemy_dummy', { pos: [10, 6] });

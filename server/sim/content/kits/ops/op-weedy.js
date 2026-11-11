@@ -23,27 +23,35 @@
 //   pushes +base_force_level while she blocks ≥ cnt enemies.
 // - T1 工程蓄水炮 (the cannon, a hand piece the player places — "部署位置=全部位"): deploys with the board, leaves 20 s after
 //   each deployment (its talent `duration`) and comes back on its tile after its redeploy time (35 s; PUS-Y stage 3 "再部署
-//   时间减少8秒": the module variant's 27 s), paying its 5 DP, while she is on the field [ASSUMED·not checked: as 鸿雪's 打字机]. The
-//   cannon: untargetable ("不会受到攻击"), 禁疗, blocks nothing, 3-2 range, ranged physical, hits air, the nearest enemy to
-//   itself first; each attack pushes its target 小力 + 蓄水炮强化's base_force_level along its facing — a ground enemy on the
-//   three tiles ahead only. Its skill (the copy of S3 the data gives, sktok_weedy_token, MANUAL, 0 SP) is force-opened by the
+//   时间减少8秒": the module variant's 27 s), paying its 5 DP, while she is on the field (the official token card's
+//   `TokenCard.m_hostIsAlive`, as 鸿雪's 打字机). The cannon: untargetable ("不会受到攻击": its prefab's `_category` 2, which no
+//   enemy selector takes — no 无敌 flag, only 禁疗), blocks nothing, 3-2 range, ranged physical, the nearest ground enemy to
+//   itself first (its attack selector: `_targetMotion` WALK_ONLY, `_postFilter` DIST_TO_SOURCE_ASC — no air units); each
+//   attack pushes its target 小力 + 蓄水炮强化's base_force_level along its facing — a ground enemy on the three tiles ahead
+//   only. Its skill (the copy of S3 the data gives, sktok_weedy_token, MANUAL, 0 SP) is force-opened by the
 //   卫戍 strategy: free, once per deployment, by the data's DEFAULT (cast on its attack) — and it fires with every S3 of hers
 //   while it stands on one of the 4 tiles around her. It fires with her numbers (her ATK, her S3 level; the damage counts
-//   as hers [ASSUMED·not checked: "均以本体的数值为准"]) but its own force (+1 by 蓄水炮强化).
+//   as hers [ASSUMED·engine: the official cannon skill deals its own damage, its ATK scaled to 温蒂's
+//   (SetAtkScaleAsHostBased: atk_scale × her ATK at its cast) — whose damage it counts as for her bonds and talents is not
+//   settled]) but its own force (+1 by 蓄水炮强化).
 // - T2 蓄水炮强化 (the cannon's talent, x-5): while the cannon stands on one of the 4 tiles around her she gains `sp` SP every
-//   `interval` s of it (3 s; PUS-X stage 2+: 2.5 / 2 s — the module's token variant) [ASSUMED·not checked: the clock runs while it is
-//   there] and, PUS-X stage 2+, ATK +atk (the module's hidden token talent, 15 % / 20 %; PRTS 备注: on 温蒂 herself).
+//   `interval` s of it (3 s; PUS-X stage 2+: 2.5 / 2 s — the module's token variant) and, PUS-X stage 2+, ATK +atk (the module's
+//   hidden token talent, 15 % / 20 %; PRTS 备注: on 温蒂 herself). The clock runs while she is there and starts again on each
+//   entry (the official cannon talent: an AuraAbility giving her `periodic_sp`, `_removeBuffWhenTargetLeave`, the first SP one
+//   interval in).
 // - S1 炮管敲击 (AUTO, data DEFAULT — a "next attack"): that attack (every enemy she blocks) at atk_scale × ATK, each target
 //   pushed along her facing with `force` (中力) and 晕眩 `stun` s.
 // - S2 水炮模式 (AUTO, 持续时间无限; SP_FULL — a mode switch on herself, the owner's AUTO rule): attack interval ×(1 +
 //   base_attack_time) (PRTS lists it as a ratio, "+220%"), ATK +atk, range +ability_range_forward_extend, a ranged attack
-//   — one shot with a 0.9-tile splash (PRTS 备注), air units too [ASSUMED·not checked: a ranged attack reaches air] — every enemy it hits
-//   pushed with base_force_level (小力) along her facing.
+//   — one shot with a 0.9-tile splash (PRTS 备注), ground units only (the official S2 mode: its selector and its projectile's
+//   splash are `_targetMotion` WALK_ONLY) — every enemy it hits pushed with base_force_level (小力) along her facing.
 // - S3 液氮大炮 (MANUAL, data DEFAULT on its 4-1 box): at once, the enemy of the 4-1 with the shortest remaining path and
 //   every enemy within 1.2 of it (air units too) take atk_scale × ATK arts, the 移动创伤 (`value` × `dist` per tile moved,
-//   true damage, `duration` s) and a push of `force` along her facing; the cannon fires too (above). The shot is instant
-//   [ASSUMED·not checked: no travel time]. Pushes go along her facing (knockback[dir], as every 推击手 push) [ASSUMED·not checked: for S2 / S3,
-//   whose text gives no direction].
+//   true damage, `duration` s) and a push of `force` along her facing; the cannon fires too (above). The shot flies
+//   (`projectile_weedy_s3`: speed 8, `_alwaysHitTraceTargetInTheEnd`, the splash on arrival): the target is taken as the cast
+//   starts, the damage, the 移动创伤 and the pushes come where it is when the shot lands. Pushes go along the shooter's facing
+//   (the official `knockback[dir]`: `_useSourceDirection` — a target within 45° of it and over 0.25 tile away, else away
+//   from the shooter at force level −2, Battle.push).
 
 import { num, traitBb, skillRec, up, giveSp } from '../shared/tier1.js';
 import { stepOf, STEP_PER_TICK } from '../shared/bounds.js';
@@ -51,6 +59,7 @@ import { absoluteRangeKeys } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
 import { startCountdown } from '../../tokens.js';
 import { hypot } from '../../../detmath.js';
+import { TICK } from '../../../constants.js';
 
 const S1 = 'skchr_weedy_1';
 const S2 = 'skchr_weedy_2';
@@ -71,6 +80,8 @@ const LIFE_FALLBACK = 20;
 /** Seconds between two tries of a cannon to come back (tile busy, DP short, 温蒂 off the field). */
 const RETRY = 0.25;
 const TAG_NITRO = 'weedy:nitro';
+/** `projectile_weedy_s3` `_speed` (温蒂's and the cannon's 液氮炮). */
+const NITRO_SPEED = 8;
 
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 /** First talent of a normalised token def whose blackboard holds `key` (token talents keep no index). */
@@ -133,18 +144,33 @@ export function nitroTarget(battle, { shooter, grid, pick }) {
 
 export function liquidNitrogen(battle, { shooter, src, atk, sbb, grid, force, pick, target = nitroTarget(battle, { shooter, grid, pick }) }) {
   if (!target) return false;
-  const x = target.x, y = target.y;
-  battle.fx('frostNova', { x, y, r: NITRO_SPLASH, id: shooter.id, src: shooter.id, target: target.id, dmgType: 'arts', skill: 'weedy_3' });
   const amount = atk * num(sbb.atk_scale, 1);
   const rup = { duration: num(sbb.duration), perTile: num(sbb.value) * num(sbb.dist, 1), interval: num(sbb.interval, 0.066) };
   const dir = along(shooter);
-  for (const e of battle.foesInRadius(x, y, NITRO_SPLASH, true)) {
-    if (!e.alive) continue;
-    battle.dealDamage(src, e, { amount, type: 'arts', isSkill: true, tags: ['skill', TAG_NITRO] });
-    if (!e.alive) continue;
-    rupture(battle, src, e, rup);   // before the push: the push's displacement counts
-    battle.push(e, force, { from: shooter, dir });
-  }
+  const from = { x: shooter.x, y: shooter.y, fwd: shooter.fwd };   // the push is the shooter's as it fired (knockback[dir])
+  const land = (x, y) => {
+    battle.fx('frostNova', { x, y, r: NITRO_SPLASH, id: shooter.id, src: shooter.id, target: target.id, dmgType: 'arts', skill: 'weedy_3' });
+    for (const e of battle.foesInRadius(x, y, NITRO_SPLASH, true)) {
+      if (!e.alive) continue;
+      // the shot's hit effects on the target it traced (render/fx/kitofficial.js hit.weedy)
+      battle.dealDamage(src, e, { amount, type: 'arts', isSkill: true, tags: ['skill', TAG_NITRO], moment: e === target ? 'projectile_weedy_s3' : undefined });
+      if (!e.alive) continue;
+      rupture(battle, src, e, rup);   // before the push: the push's displacement counts
+      battle.push(e, force, { from: shooter.alive ? shooter : from, dir });
+    }
+  };
+  // the shot homes on its target at NITRO_SPEED and lands where the target is (or was, if it fell: `_alwaysHitTraceTargetInTheEnd`),
+  // also after its shooter left; flown here rather than as a Battle projectile, whose landing would mark the damage as a
+  // projectile's for the view
+  const seq = target.deploySeq;
+  const shot = { x: shooter.x, y: shooter.y, tx: target.x, ty: target.y };
+  battle.every(TICK, (b, sched) => {
+    if (target.alive && !target.hidden && target.deploySeq === seq) { shot.tx = target.x; shot.ty = target.y; }
+    const dx = shot.tx - shot.x, dy = shot.ty - shot.y, d = hypot(dx, dy), step = NITRO_SPEED * TICK;
+    if (d > step + 1e-9) { shot.x += (dx / d) * step; shot.y += (dy / d) * step; return; }
+    sched.cancel();
+    land(shot.tx, shot.ty);
+  });
   return true;
 }
 
@@ -171,6 +197,7 @@ function cannonKit(t, owner) {
     } : null,
     trait: {
       priority: 'nearest',
+      canHitFly: false,   // its attack selector: `_targetMotion` WALK_ONLY
       // "能攻击单个敌人并将其小力度地推开，该位移效果仅对前方三格内的地面敌方单位生效"
       afterHit(battle, unit, target) {
         if (!target || !target.alive || target.side !== 'enemy' || target.isFlying) return;
@@ -181,7 +208,7 @@ function cannonKit(t, owner) {
     },
     install(battle, unit) {
       battle.addBuff(unit, { key: 'trait:weedyCannon', flags: { noHeal: true }, persist: true, allowDead: true });   // 持有禁疗
-      // 部署后20秒自动撤退 — a countdown summon (content/tokens.js startCountdown): 无敌 [ASSUMED·not checked], 禁疗, its bar = the life left
+      // 部署后20秒自动撤退 — the life of a countdown summon (content/tokens.js startCountdown: the bar, only for COUNTDOWN_SUMMONS)
       battle.on('deploy', (ctx) => {
         if (ctx.unit !== unit || !(life > 0)) return;
         startCountdown(battle, unit, life);
@@ -249,7 +276,7 @@ export default {
           mods: { atkPct: num(b2.atk), batPct: num(b2.base_attack_time) },
           targeting: { rangeExtend: num(b2.ability_range_forward_extend) },
           attack: {
-            attack: 'ranged', projectile: 'bomb', splashRadius: WATER_SPLASH, canHitFly: true, hitAllBlocked: false, maxTargets: 1,
+            attack: 'ranged', projectile: 'bomb', splashRadius: WATER_SPLASH, canHitFly: false, hitAllBlocked: false, maxTargets: 1,
             // every enemy the shot hits is pushed once the hit is resolved (a push of the main target inside the hit would
             // move the splash centre: ai.js resolveHit centres it on the target after the main hit's callbacks)
             onEachHit({ unit, target }) {

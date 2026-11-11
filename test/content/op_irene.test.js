@@ -285,6 +285,53 @@ test('S3 判决 (MANUAL, DEFAULT on its x-1 box): every ground enemy of x-1 take
   done(h);
 });
 
+test('S2 / S3 and 白铁\'s 铁钳号 (an ally target of the enemy side, category DEFAULT — the official selectors take it): S2 opens on it alone and strikes it; S3\'s bombardments draw it at random beside the enemies', () => {
+  // S2: an ally target alone in 3-12 opens it (WALK_ONLY trigger selector, side ENEMY, category DEFAULT) and is struck
+  {
+    const { h, u } = field({ tier: 5, skill: 1, others: [{ uid: 3, chessId: 'chess_char_1_08_a', row: 10, col: 7, dir: 'UP' }] });
+    const crab = h.unit(3);
+    assert.ok(h.b.setAllyTarget(crab, true));
+    u.skill.gainSp(999);
+    assert.ok(h.runUntil(() => u.skill.activations === 1, 1.5), 'the ally target alone opens S2');
+    h.strike(u);
+    assert.ok(hitsBy(h, u).some((c) => c.target === crab && c.dmg.isSkill), 'S2 strikes it');
+    done(h);
+  }
+  // S3: a ground enemy and the ally target, 2 tiles apart in x-1 — the RANDOM draw takes both over the ten shots
+  {
+    const { h, u } = field({ tier: 6, elite: true, skill: 2, seed: 7, others: [{ uid: 3, chessId: 'chess_char_1_08_a', row: 12, col: 5, dir: 'UP' }] });
+    const crab = h.unit(3);
+    crab.hp = crab.s.maxHp = 1e9;
+    assert.ok(h.b.setAllyTarget(crab, true));
+    u.skill.gainSp(999);
+    const e = h.spawn('enemy_dummy', { pos: [10, 7] });
+    assert.ok(h.runUntil(() => u.skill.active, 1), 'opened');
+    const t0 = u.skill.lastStart;
+    h.runUntil(() => !u.skill.active, 5);
+    const bomb = hitsBy(h, u).filter((x) => x.t - t0 >= 0.2);
+    const onCrab = bomb.filter((x) => x.target === crab).length, onE = bomb.filter((x) => x.target === e).length;
+    assert.equal(onCrab + onE, 10, 'ten shots, one target each (2 tiles apart)');
+    assert.ok(onCrab > 0 && onE > 0, `both drawn (${onCrab} / ${onE})`);
+    done(h);
+  }
+});
+
+test('S3 判决: a stun ends the Skill state and the sequence group interrupts its bombardments — none after it; the skill still runs its 3.5 s', () => {
+  const { h, u } = field({ tier: 6, elite: true, skill: 2 });
+  u.skill.gainSp(999);
+  const a = h.spawn('enemy_dummy', { pos: [10, 7] });
+  assert.ok(h.runUntil(() => u.skill.active, 1), 'opened');
+  const t0 = u.skill.lastStart;
+  const bombs = () => hitsBy(h, u).filter((x) => x.target === a && x.t - t0 >= 0.2).length;
+  assert.ok(h.runUntil(() => bombs() >= 2, 2), 'two bombardments');
+  h.b.applyStatus(u, 'stun', { duration: 0.5, source: null, force: true });
+  const n = bombs();
+  h.runUntil(() => !u.skill.active, 5);
+  approx(h.b.time - t0, 3.5, '3.5 s', 0.02);
+  assert.equal(bombs(), n, 'no bombardment after the stun');
+  done(h);
+});
+
 test('SWO-X stage 3 审判之火: an air unit knocked out during her skill gives 6 SP once the skill ends — a levitated one too — not at stage 1, not a ground kill, not without the module', () => {
   for (const [tier, elite, mod] of [[6, true, SWOX], [5, true, SWOX], [6, true, SWOY], [6, false, null]]) {
     const lb = `T${tier} ${elite ? 'elite' : 'normal'} ${mod ?? 'none'}`;

@@ -1044,20 +1044,42 @@
 - 키트·테스트: 커널 직전 판의 `op-thorns.js`·`op-irene.js`·`op-weedy.js`와 테스트 셋. 바꾼 것:
   - 자동 발동: 셋의 MANUAL 스킬(쏜즈 S2 3-1·S3 3-3, 아이린 S2 3-12·S3 x-1, 위디 S3 4-1)은 자기 행이 없어 `DEFAULT` + 스킬 범위 상자(`_DefaultTriggerSkill`).
     upstream 테스트의 `SKILL_RANGE`·`ACTIVE_RANGE` 단언을 고침. 아이린 S2의 「지상 적이 없으면 안 켜짐」 막이(`guardActivation`)는 그대로 — 상자 안 게(铁钳号)는
-    `_allyTargetIn`으로 세지만 막이가 시전을 거른다. upstream 아군 대상 깃발(`allyTargets`)은 우리 `skills.js`가 읽지 않아 지움(하루카와 같음).
+    지상 대상으로 센다(2026-11-11, 아래 「공식 클라에서 확인한 것」). upstream 아군 대상 깃발(`allyTargets`)은 우리 `skills.js`가 읽지 않아 지움(하루카와 같음).
   - 아이린 재능 1 심판의 불꽃 + SWO-Y(고정 방어 무시 70) 시험: 공식 물리 피해식 `A − (1 − 백분율 관통)·max(0, 방어 − 고정 관통)` — 고정 몫을 먼저 뺀다
     (`research/reference/battle-mechanics-reference.md`); upstream 시험식(백분율 먼저)을 고침, 엔진은 그대로.
   - 아이린 S2 두 번째 충전: 자동 운영의 시전 막이(`BLOCK_SKILL_TICK` 회차 × 0.2초, ≈ 2초 남짓)만큼 떨어짐 — upstream 시험의 「3초」를 우리 규칙으로.
   - 위디: 합성 기록의 `placeOnRanged` 필드는 우리 포크에 없고 고대 규칙은 `shared/highGround.js meleeOnHighGround`(시험이 이미 봄) — 그 단언을 지움. 저수포의
     강제 스킬은 `DEFAULT`라 첫 일반 공격과 같은 틱에 나가 두 밀치기가 겹친다 — 시험은 거리 대신 그 탄의 밀치기 힘(저수포 힘 + 1)을 본다.
   - upstream 시험이 살아 있는 유닛을 `assert.deepEqual`에 넘기던 곳(아이린 넷·쏜즈 하나·위디 하나)은 id로(CONTRIBUTING §6).
-- 키트 주석에 남은 추정(키트 주석은 영어 꼴 「not checked」 태그, 15개 — 오퍼레이터별 줄은 관리자 메모의 열린 일):
-  - 쏜즈 [추정·미조사: 재능 1 독이 모듈 추가 피해·S2 가시에도 붙는지(능력 `Thorn` 출처)]·[추정·미조사: 그가 떠난 뒤에도 독이 남는지(이프리트 화상처럼 봄)]·
-    S2 [추정·미조사: 배치 직후·공격 전 상태를 「공격 안 함」으로 세는지]·[추정·미조사: 가시가 스킬 끝·퇴장·행동 불가 때 취소되는지].
-  - 아이린 S2 [추정·미조사: 지상 적이 없으면 안 켜지는지 — PRTS S3 비고의 반대로 봄]·S3 [추정·미조사: 첫 폭격 시점·적 없는 폭격]·[추정·미조사: 게(铁钳号)를
-    지상 적처럼 치는지].
-  - 위디 [추정·미조사: 저수포가 그녀가 필드에 있을 때만 재배치]·[추정·미조사: 저수포 스킬 수치 「본체 기준」]·[추정·미조사: 저수포 SP 시계가 언제 도는지]·
-    [추정·미조사: 저수포 탄이 공중을 치는지]·[추정·미조사: 액체 질소 탄 이동 시간 없음]·[추정·미조사: S2·S3 밀치기 방향 = 그녀의 방향]·[추정·미조사: 저수포 무적].
+- 공식 클라에서 확인한 것(2026-11-11 — 2026-11-04 판의 추정 15개):
+  - **쏜즈** 재능 1 신경 부식의 독은 그의 모든 능력의 타격에 붙는다(`PassiveAttachmentAbility` `_targetFamilyMask` 31 = 공격·스킬 등 모든
+    갈래 — S2 가시 능력 `Thorn`도). LOR-X 법술 추가 피해는 그 타격의 피해 계산(ON_CALCULATE_DAMAGE) 안의 몫이라 따로 독을 붙이지 않는다 — 키트와 같음.
+    그가 떠난 뒤에도 독은 남는다(버프의 틱은 출처를 보지 않고, `FixedValueDamage`는 출처가 없어도 피해를 냄) — 키트와 같음.
+    재능 2 고향 땅의 파도소리는 **배치 뒤 2초부터** 켜진다(`AdvancedCompoundToggleChecker`에 `_isInitToggled`가 없어 꺼진 채 붙고, 붙을 때 다음 켜짐
+    시각 = 배치 + `_restoreDelay` 2초) — 예전 키트는 배치하자마자 켰다(고침).
+  - **아이린** S2의 발동·타격 선택자(`BlockedOrAdvancedSelector`: 쪽 ENEMY·지상만 WALK_ONLY·카테고리 DEFAULT, `_minTargetNum` 1, 수동에서도 씀
+    `_useTriggerInManualMode`)는 지상 대상이 없으면 안 켜진다 — 그대로. 스테인리스의 게(글룸핀서호 - 프로토타입)는 프리팹이 쪽 ENEMY·카테고리
+    DEFAULT라(`sim.md` 「스킬 범위 발동」) 이 선택자에 걸린다: 게만 있어도 S2가 켜지고 게를 친다(고침, 적 뒤에 — 일반 공격의 차례).
+    S3는 묶음 능력(`AbilitySequenceGroup`): 첫 타격(Skill_3_Start 클립의 OnAttack) 뒤 **그 클립이 끝날 때 첫 폭격**, 이어 `multi_hit_interval`마다
+    (`MultiRangedAttack`이 `multi_` 접두사로 `times`·`hit_interval`을 읽음) 모두 `multi_times`발. 폭격 대상은 스킬 범위의 적 쪽 대상 가운데 무작위
+    (`_postFilter` 14 RANDOM, 공중 포함) — 게도 적과 같이 뽑힌다(예전 키트는 적이 없을 때만 게, 고침). 투사체는 바로 닿는다(`_immediatelyReach`).
+    대상이 없는 발은 아무도 안 맞고 수에 든다. 기절하면 남은 폭격이 없다(묶음이 지금 하위 능력도 끊음 `_alsoInterruptCurrentSubAbility`, 0·1번;
+    예전 키트는 기절 중에도 쐈다, 고침) — 스킬 3.5초는 그대로 흐른다. 첫 폭격 시각은 0.267초(클립 끝)로 예전 0.3초와 틱으로 같다.
+  - **위디** S2 물대포는 지상만(모드의 선택자·투사체 스플래시 모두 `_targetMotion` WALK_ONLY; 예전 키트는 공중도, 고침). S3 액체 질소 탄은 날아간다
+    (`projectile_weedy_s3` 속도 8, `_alwaysHitTraceTargetInTheEnd`, 닿을 때 스플래시; 예전 키트는 바로, 고침) — 저수포의 S3 탄도 같다. 탄이 시전보다
+    늦게 닿으므로 그 탄의 이펙트(`_effectsWhenReached` `weedy_skill_03_hit`·`_effectsWhenHit` `weedy_skill_01_hit`, 쫓던 대상에만)는 피해의 `moment`로
+    튼다(`render/fx/kitofficial.js` `hit.weedy`).
+    밀치기는 쏜 쪽의 방향(`knockback[dir]` `_useSourceDirection`: 대상이 그 방향 45° 안이고 0.25칸보다 멀면 그 방향, 아니면 쏜 쪽에서 멀어지는 쪽으로
+    힘 −2 — 엔진 `Battle.push`가 이미 그렇게 함), 저수포 탄은 저수포의 방향. 공학용 저수포: 일반 공격은 지상만(`_targetMotion` WALK_ONLY; 예전 키트는
+    공중도, 고침), 무적 표시는 없다(프리팹 이상 상태는 禁疗 7뿐, 적이 못 노리는 것은 `_category` 2 — 키트 주석만 고침), 재배치는 위디가 필드에 있을 때만
+    (토큰 카드 `TokenCard.m_hostIsAlive`, 파죰카 '타자기'와 같음), 재능 2 SP 시계는 위디가 둘레에 있는 동안만 돌고 들어올 때마다 새로 시작
+    (`AuraAbility` `periodic_sp`, `_removeBuffWhenTargetLeave`) — 키트와 같음. 저수포 S3 피해는 위디의 공격력(`SetAtkScaleAsHostBased`: 시전 때 `atk_scale`
+    × 위디 공격력) — 키트와 같음.
+- 키트 주석에 남은 추정:
+  - 쏜즈 S2 [추정·엔진: 가시가 스킬 끝·퇴장·행동 불가 때 취소되는지 — 공식 `Thorn` 능력은 배치 때 붙고(`_extraAbilities`, 스킬 끝에 안 뗌) 발동 노드
+    `TriggerAbility`는 기절을 안 봄; 기절이나 스킬의 모드 전환이 0.5초 대기를 끊는지는 못 봄]·LOR-X [추정·엔진: 어떤 피해가 ON_CALCULATE_DAMAGE를 도는지 —
+    가시는 돌고 독 틱은 안 도는 것으로 봄].
+  - 위디 [추정·엔진: 저수포 S3 피해를 누구 것으로 세는지 — 공식은 저수포 능력의 피해(공격력만 위디 기준), 키트는 위디 것으로 셈(맹약·재능 반응)].
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD 데이터: EN 클라에서 뽑음(2026-11-04, `tools/local-extract/add_operator.py --id …` 셋 한 번). 저수포 이펙트
   (`token_weedy_*` 3개)는 공용 토큰 팩 `pkgrps/btl_pfb_fx_token_2.ab`에서 따로. 화면 확인 전.
 - 테스트: `test/content/op_thorns.test.js`(12)·`op_irene.test.js`(10)·`op_weedy.test.js`(10) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물, 실제 매치 경로 하나씩

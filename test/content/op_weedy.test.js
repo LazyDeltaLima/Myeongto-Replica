@@ -120,7 +120,7 @@ test('S1 炮管敲击 (AUTO, data DEFAULT): her next attack — 120 % / 135 % AT
   }
 });
 
-test('S2 水炮模式 (AUTO, SP_FULL): ATK +140 % / +170 %, interval ×3.2, range +1, one ranged shot with a 0.9 splash (flyers too), every enemy hit pushed with 小力 along her facing; 持续时间无限', () => {
+test('S2 水炮模式 (AUTO, SP_FULL): ATK +140 % / +170 %, interval ×3.2, range +1, one ranged shot with a 0.9 splash, ground units only (the official mode\'s selector and splash: WALK_ONLY), every enemy hit pushed with 小力 along her facing; 持续时间无限', () => {
   for (const [tier, elite] of [[5, false], [6, true]]) {
     const sk = skillOf(tier, elite, S2);
     assert.deepEqual([sk.spCost, sk.bb.atk, sk.bb.base_attack_time, sk.bb.ability_range_forward_extend, sk.bb.base_force_level], elite ? [78, 1.7, 2.2, 1, 0] : [84, 1.4, 2.2, 1, 0], `T${tier}`);
@@ -135,14 +135,16 @@ test('S2 水炮模式 (AUTO, SP_FULL): ATK +140 % / +170 %, interval ×3.2, rang
     approx(u.s.interval, 1.2 * (1 + sk.bb.base_attack_time) * 100 / 108, `T${tier}: interval`);
     assert.deepEqual(u.liveRangeGrid, [[0, 0], [0, 1], [0, 2]], `T${tier}: +1 tile`);
     const main = h.spawn('enemy_dummy', { pos: [10, 7] });
-    const side = h.spawn('enemy_fly', { pos: [10.6, 7] });
+    const side = h.spawn('enemy_dummy', { pos: [10.6, 7] });
+    const fly = h.spawn('enemy_fly', { pos: [9.4, 7] });
     const far = h.spawn('enemy_dummy', { pos: [12, 7] });
     assert.ok(h.runUntil(() => from(h, u).length >= 2, 6), `T${tier}: a shot lands`);
     const hit = from(h, u);
     const id = hit[0].dmg.attackId;
     const one = hit.filter((c) => c.dmg.attackId === id);
-    assert.ok(one.some((c) => c.target === main) && one.some((c) => c.target === side), `T${tier}: target + the flyer within ${WATER_SPLASH}`);
+    assert.ok(one.some((c) => c.target === main) && one.some((c) => c.target === side), `T${tier}: target + the ground enemy within ${WATER_SPLASH}`);
     assert.ok(!one.some((c) => c.target === far));
+    assert.ok(!from(h, u).some((c) => c.target === fly), `T${tier}: the flyer within ${WATER_SPLASH} is not hit (WALK_ONLY)`);
     for (const c of one) approx(c.amount, u.s.atk, `T${tier}: full damage`);
     approx(main.x - 7, PUSH_TILES[0], `T${tier}: 小力 push (weight 0: 1.7 tiles)`, 0.06);
     h.run(60);
@@ -165,6 +167,11 @@ test('S3 液氮大炮 (MANUAL, DEFAULT on its 4-1 box): 290 % / 320 % ATK arts o
     const out = h.spawn('enemy_dummy', { pos: [12, 7] });
     assert.ok(h.runUntil(() => u.skill.activations === 1, 1), `T${tier}: cast`);
     h.strike(u);
+    // the shot flies (projectile_weedy_s3, speed 8): 2 tiles ≈ 0.25 s after the strike
+    assert.equal(from(h, u, 'weedy:nitro').length, 0, `T${tier}: nothing at the strike`);
+    const ts = h.b.time;
+    assert.ok(h.runUntil(() => from(h, u, 'weedy:nitro').length > 0, 1), `T${tier}: the shot lands`);
+    approx(h.b.time - ts, 2 / 8, `T${tier}: 2 tiles at speed 8`, 0.2);
     const shot = from(h, u, 'weedy:nitro');
     assert.deepEqual(shot.map((c) => c.target.id).sort((a, b) => a - b), [t.id, fly.id].sort((a, b) => a - b), `T${tier}: within ${NITRO_SPLASH}`);
     for (const c of shot) { assert.equal(c.type, 'arts'); approx(c.amount, u.s.atk * sk.bb.atk_scale, `T${tier}: arts`); }
@@ -207,14 +214,14 @@ test('移动创伤: a walker takes 1200 per tile it walks; a second application 
   done(h);
 });
 
-test('T1 工程蓄水炮: the placed cannon deploys with the board — untargetable, 禁疗, blocks nothing, 3-2, physical arrows at the nearest enemy (air too), its stats from the variant; its forced skill fires once per deployment with 温蒂\'s ATK and its own force +1', () => {
+test('T1 工程蓄水炮: the placed cannon deploys with the board — untargetable, 禁疗, blocks nothing, 3-2, physical arrows at the nearest ground enemy (no air: its selector is WALK_ONLY), its stats from the variant; its forced skill fires once per deployment with 温蒂\'s ATK and its own force +1', () => {
   for (const f of FORMS_ALL) {
     const [tier, elite, mod] = f;
     const { h, u, c } = field({ tier, elite, mod, skill: 0, cannon: [11, 5], dp: 100 });
     const v = tokOf(tier, elite, 0, elite ? mod : null);
     assert.ok(c && c.alive && c.deployed && c.ownerUnit === u, `${label(f)}: deployed with the board`);
     assert.deepEqual([c.base.atk, c.base.respawnTime, c.base.cost, c.s.blockCnt, c.base.bat], [v.stats.atk, v.stats.respawnTime, v.stats.cost, 0, 2.4], `${label(f)}: stats`);
-    assert.deepEqual([!!c.s.flags.untargetable, !!c.s.flags.noHeal, c.profile.attack, c.profile.canHitFly, c.profile.dmgType, c.profile.priority], [true, true, 'ranged', true, 'phys', 'nearest'], `${label(f)}: profile`);
+    assert.deepEqual([!!c.s.flags.untargetable, !!c.s.flags.noHeal, c.profile.attack, c.profile.canHitFly, c.profile.dmgType, c.profile.priority], [true, true, 'ranged', false, 'phys', 'nearest'], `${label(f)}: profile`);
     assert.deepEqual(c.liveRangeGrid, v.rangeGrid, `${label(f)}: 3-2`);
     assert.deepEqual([c.skill.id, c.skill.kind, c.skill.rule, c.skill.spCost], ['sktok_weedy_token', 'instant', 'DEFAULT', 0], `${label(f)}: its skill`);
     const near = h.spawn('enemy_dummy', { pos: [11, 7] }), farther = h.spawn('enemy_dummy', { pos: [11, 8] });
@@ -223,6 +230,7 @@ test('T1 工程蓄水炮: the placed cannon deploys with the board — untargeta
     const push0 = h.b.push.bind(h.b);
     h.b.push = (e, force, o) => { pushes.push({ id: e.id, force, from: o?.from?.id }); return push0(e, force, o); };
     assert.ok(h.runUntil(() => c.skill.activations === 1, 4), `${label(f)}: its skill on its first attack`);
+    h.run(1);   // (its 液氮炮 flies: projectile_weedy_s3, speed 8 — after the target its first arrow pushed)
     const sbb = v.skill.bb;
     const shot = from(h, u, 'weedy:nitro');
     assert.ok(shot.length >= 1 && shot.every((x) => Math.abs(x.amount - u.s.atk * sbb.atk_scale) < 1e-6), `${label(f)}: ${sbb.atk_scale * 100} % of 温蒂's ATK`);
@@ -235,7 +243,7 @@ test('T1 工程蓄水炮: the placed cannon deploys with the board — untargeta
   }
 });
 
-test('T1 工程蓄水炮: each attack pushes a ground target on the 3 tiles ahead with 小力 + 1 (weight 0: 2.14 tiles), a flyer is hit but not moved; it leaves after 20 s and comes back 35 s later (PUS-Y stage 3: 27 s) for 5 DP — not while 温蒂 is off the field', () => {
+test('T1 工程蓄水炮: each attack pushes a ground target on the 3 tiles ahead with 小力 + 1 (weight 0: 2.14 tiles), a flyer is not attacked; it leaves after 20 s and comes back 35 s later (PUS-Y stage 3: 27 s) for 5 DP — not while 温蒂 is off the field', () => {
   for (const f of [[5, false, null], [6, true, Y], [6, true, X]]) {
     const [tier, elite, mod] = f;
     const { h, u, c } = field({ tier, elite, mod, skill: 0, cannon: [11, 5], dp: 100 });
@@ -247,8 +255,8 @@ test('T1 工程蓄水炮: each attack pushes a ground target on the 3 tiles ahea
     approx(g.x - 6, PUSH_TILES[1], `${label(f)}: 小力 + 1`, 0.06);
     h.b.kill(g, null);
     const fl = h.spawn('enemy_fly', { pos: [11, 6] });
-    assert.ok(h.runUntil(() => from(h, c).some((x) => x.target === fl), 4), `${label(f)}: hits air`);
-    assert.equal(fl.x, 6, `${label(f)}: no push on a flyer`);
+    h.run(4);
+    assert.ok(!from(h, c).some((x) => x.target === fl), `${label(f)}: no air target`);
     h.b.kill(fl, null);
     const t0 = c.deployedAt;
     assert.ok(h.runUntil(() => !c.alive, 25), `${label(f)}: leaves`);
@@ -300,6 +308,7 @@ test('S3 with the cannon beside her: it fires its own 液氮炮 too (its nearest
     u.skill.gainSp(999);
     assert.ok(h.runUntil(() => u.skill.activations === 1, 1));
     h.strike(u);
+    h.run(1);   // (both 液氮炮 fly: speed 8)
     const shot = from(h, u, 'weedy:nitro');
     assert.ok(shot.some((x) => x.target === a), 'hers');
     assert.equal(shot.some((x) => x.target === b), fires, `the cannon at ${tile}`);
