@@ -122,12 +122,29 @@ describe('prep: official chip and equip bar (shop_hud)', () => {
     bar.update(1000, 500, 1, [false], t);
     assert.ok(bar.root.visible && bar.slots[0].visible && !bar.slots[1].visible);
     assert.equal(bar.slots[0].texture, t.normal);
-    assert.ok(Math.abs(bar.bg.position.x - 1014.75) < 1e-9 && Math.abs(bar.bg.position.y - (500 - 24.5 - 129.5)) < 1e-9);
+    assert.ok(Math.abs(bar.bgs[0].position.x - 1014.75) < 1e-9 && Math.abs(bar.bgs[0].position.y - (500 - 24.5 - 129.5)) < 1e-9);
     bar.update(1000, 500, 1, [false, true], t);
     assert.equal(bar.slots[1].texture, t.gold);
     assert.ok(Math.abs(bar.slots[1].width - 31 * 1.25) < 1e-9);
     v.setEquip([]); v.update(1 / 60, cam(), 0);
     assert.ok(!v._equipBar || !v._equipBar.root.visible, 'no items: no bar');
+  });
+
+  test('an operator with more slots (规程 “暴躁铁皮” 4 / 6) gets one pill per two slots, stacked upwards, every item drawn', () => {
+    const v = view({ tier: 5 }, { prep: true });
+    const bar = new HB.EquipBar(fake.P, v.hud);
+    const t = { bg: tex(74, 30), normal: tex(23, 6), gold: tex(31, 14) };
+    bar.update(1000, 500, 1, [false, false, true], t, 6);
+    assert.equal(bar.bgs.filter((b) => b.visible).length, 3, 'six slots: three pills');
+    assert.deepEqual(bar.slots.map((s) => s.visible), [true, true, true, false, false, false]);
+    const y0 = 500 - 24.5 - 129.5;
+    assert.ok(Math.abs(bar.bgs[2].position.x - 1014.75) < 1e-9 && Math.abs(bar.bgs[2].position.y - (y0 - 2 * HB.PREP_EQUIP.rise)) < 1e-9);
+    assert.ok(Math.abs(bar.slots[2].position.x - (1014.75 + HB.PREP_EQUIP.slots[0])) < 1e-9 && Math.abs(bar.slots[2].position.y - (y0 - HB.PREP_EQUIP.rise)) < 1e-9, 'the third item: the second pill\'s left dash');
+    assert.equal(bar.slots[2].texture, t.gold);
+    bar.update(1000, 500, 1, [false], t, 2);
+    assert.equal(bar.bgs.filter((b) => b.visible).length, 1, 'back to two slots: one pill');
+    v.setEquip([false, false, false, false], 4); v.update(1 / 60, cam(), 0);
+    assert.equal(v._equipSlots, 4);
   });
 
   test('the redeploy countdown: the clock disc with its ring draining, cost_lack while DP is short, nothing once ready', async () => {
@@ -177,7 +194,7 @@ describe('prep: official chip and equip bar (shop_hud)', () => {
     const { readFileSync } = await import('node:fs');
     const src = readFileSync(new URL('../public/js/render/app.js', import.meta.url), 'utf8');
     const mates = src.slice(src.indexOf('function syncMates('), src.indexOf('function syncMates(') + 2000);
-    assert.match(mates, /v\.setItems\(info\.items\.map[^\n]*\n(\s+\/\/[^\n]*\n)*\s+if \(v\.setEquip\) v\.setEquip\(info\.items\.map\(\(it\) => !!data\.item\(it\)\?\.isGolden\)\);/,
+    assert.match(mates, /v\.setItems\(info\.items\.map[^\n]*\n(\s+\/\/[^\n]*\n)*\s+if \(v\.setEquip\) v\.setEquip\(info\.items\.map\(\(it\) => !!data\.item\(it\)\?\.isGolden\), equipSlotsOf\(info\.defId\)\);/,
       "upstream ef101647's partner pieces (syncMates) set the official equip bar too, not only the old item pips");
     assert.equal((src.match(/v\.setItems\(/g) || []).length, (src.match(/v\.setEquip\(/g) || []).length, 'each setItems has its setEquip');
   });

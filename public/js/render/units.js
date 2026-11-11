@@ -1167,8 +1167,9 @@ export class UnitView {
   }
 
   /** Equipped item pips (prep): list of item icon URLs. */
-  /** local patch (LOCAL-PATCH.md 「전투 화면 UI」): the equipped items' golden flags, for the official prep equip bar (hud-bars.js). */
-  setEquip(gold) { this._equip = Array.isArray(gold) ? gold.map(Boolean) : []; }
+  /** local patch (LOCAL-PATCH.md 「전투 화면 UI」): the equipped items' golden flags and the operator's equipment slots
+   *  (2 unless its record says more — 规程's “暴躁铁皮” 4 / 6), for the official prep equip bar (hud-bars.js). */
+  setEquip(gold, slots = 2) { this._equip = Array.isArray(gold) ? gold.map(Boolean) : []; this._equipSlots = Number.isInteger(slots) && slots > 0 ? slots : 2; }
 
   setItems(urls) {
     const P = this.P;
@@ -2218,7 +2219,7 @@ export class UnitView {
     // local patch (LOCAL-PATCH.md 「전투 화면 UI」): in prep the official equip bar stands for the item pips when installed
     const eqTex = prep && this._equip?.length && this.alive ? equipTextures(this.P, this.ctx.assets) : null;
     if (eqTex && !this._equipBar) { this._equipBar = new EquipBar(this.P, this.hud); this._equipBar.anchor = this.hudAnchor; }
-    if (eqTex) this._equipBar.update(this.screen.x, this.screen.y, hudU(this.ctx), this._equip, eqTex);
+    if (eqTex) this._equipBar.update(this.screen.x, this.screen.y, hudU(this.ctx), this._equip, eqTex, this._equipSlots);
     else if (this._equipBar) this._equipBar.hide();
     for (let i = 0; i < this.itemPips.length; i++) {
       const pip = this.itemPips[i];

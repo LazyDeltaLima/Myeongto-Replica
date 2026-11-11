@@ -698,6 +698,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .eqr__ahead--l { left: calc(0% + .0225rem); } .eqr__ahead--r { left: calc(100% - .0225rem); }
 .eqr-host:not([style*="--eqr-ahead"]) .eqr__ahead { width: .16rem; height: .16rem; margin-left: -.08rem; top: .3rem; border-right: .045rem solid rgba(242, 242, 242, .82); border-bottom: .045rem solid rgba(242, 242, 242, .82); transform: rotate(45deg); background: none; }
 .eqr__opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .3rem; }
+/* more slots (规程 “暴躁铁皮” 4 / 6): two columns for four, three for five or six */
+.eqr__opts[data-n="5"], .eqr__opts[data-n="6"] { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .16rem; }
 .eqr__opt {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: .08rem; min-height: 2.5rem; padding: .18rem .16rem .5rem;
   text-align: center; color: inherit; cursor: pointer; overflow: hidden;

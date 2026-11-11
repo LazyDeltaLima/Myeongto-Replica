@@ -215,6 +215,9 @@ export async function createFieldView(host, options = {}) {
   signal?.throwIfAborted();
   const assets = resolveAssets(opts.assets);
   const data = makeData(opts.data);
+  /** An operator's equipment slots for the prep equip bar: its record's `equipSlots` (规程's “暴躁铁皮” 4 / 6 — server
+   *  gamedata equipSlotsOf, ui/gameLogic/placement.js), else 2. */
+  const equipSlotsOf = (chessId) => { const n = data.chess(chessId)?.equipSlots; return Number.isInteger(n) && n > 0 ? n : 2; };
   const settings = { damageNumbers: true, quality: 'high', ...(opts.settings || {}) };
   // 「自动」: settings.quality is the preset in effect (what every quality check below reads), stepped by auto-quality.js
   let autoPick = settings.quality === 'auto';
@@ -1072,7 +1075,7 @@ export async function createFieldView(host, options = {}) {
       if (info.kind === 'item' && v.setIcon) v.setIcon(info.icon); // an icon the manifest named late (onAssets)
       if (v.setCount) v.setCount(e.piece.kind === 'token' ? e.piece.count : 0);
       if (v.setItems) v.setItems(Array.isArray(e.piece.items) ? e.piece.items.map((it) => { const r = data.item(it?.id); return assets.itemIcon ? assets.itemIcon(r ? { trapId: r.trapId, iconId: r.iconId } : it?.id) : null; }) : []);
-      if (v.setEquip) v.setEquip(Array.isArray(e.piece.items) ? e.piece.items.map((it) => !!data.item(it?.id)?.isGolden) : []); // local patch: official equip bar (hud-bars.js)
+      if (v.setEquip) v.setEquip(Array.isArray(e.piece.items) ? e.piece.items.map((it) => !!data.item(it?.id)?.isGolden) : [], equipSlotsOf(e.piece.id)); // local patch: official equip bar (hud-bars.js)
       v._showFacing = e.area === 'board';
       // the stored facing (a piece held by the direction step shows the wheel's preview instead)
       if (e.area === 'board' && info.dir && !held.has(e.uid) && typeof v.setDir === 'function') v.setDir(info.dir);
@@ -1118,7 +1121,7 @@ export async function createFieldView(host, options = {}) {
       if (v.setItems && Array.isArray(info.items) && info.items.length) {
         v.setItems(info.items.map((it) => { const r = data.item(it); return assets.itemIcon ? assets.itemIcon(r ? { trapId: r.trapId, iconId: r.iconId } : it) : null; }));
         // the official equip bar like the own pieces (LOCAL-PATCH.md 「전투 화면 UI」; 0.2.0 merge)
-        if (v.setEquip) v.setEquip(info.items.map((it) => !!data.item(it)?.isGolden));
+        if (v.setEquip) v.setEquip(info.items.map((it) => !!data.item(it)?.isGolden), equipSlotsOf(info.defId));
       }
       views.set(info.id, v);
     }
@@ -1711,7 +1714,7 @@ export async function createFieldView(host, options = {}) {
     // at the unit, not only in the detail card) — prep surfaces only, the battle HUD stays as it is
     if (v.setItems && battleMeta?.prep && Array.isArray(info.items) && info.items.length) {
       v.setItems(info.items.map((it) => { const r = data.item(it); return assets.itemIcon ? assets.itemIcon(r ? { trapId: r.trapId, iconId: r.iconId } : it) : null; }));
-      if (v.setEquip) v.setEquip(info.items.map((it) => !!data.item(it)?.isGolden)); // local patch: official equip bar (hud-bars.js)
+      if (v.setEquip) v.setEquip(info.items.map((it) => !!data.item(it)?.isGolden), equipSlotsOf(info.defId)); // local patch: official equip bar (hud-bars.js)
     }
     v.setWorld(info.x, info.y, 0);
     v._seen = false;

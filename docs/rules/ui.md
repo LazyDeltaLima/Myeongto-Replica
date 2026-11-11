@@ -600,6 +600,9 @@
 칩 오른쪽, × 1.25)와 칸 `equip_0`/`equip_1`(23×6, ±12.8 / 13): 아이템마다 흰 알약(`equip_normal_icon`), [추정] 금색 아이템이면 빛나는 금색 알약(`equip_gold_icon` 31×14,
 제 크기). 이 바가 그려지면 예전 아이템 아이콘(item pips)은 숨긴다(캡처에 아이콘 없음). 그림은 로컬 추출(`extract.py --only ui/battlecommon`)만 있어서
 없는 서버는 예전 아이콘 그대로. 금색 여부는 `render/app.js`의 `setItems` 옆 `setEquip` 한 줄씩(2곳)이 넘긴다. 장비 바 그림은 git 밖 로컬 소재(`public/assets/local/ui/battlecommon`)다.
+장비 칸이 둘보다 많은 기물(규정 레이지 아이언하이드 `chess_char_5_22`: 일반 4·정예 6, 기록의 `equipSlots`)은 공식 알약(2칸)을 칸 둘마다 하나씩
+위로 쌓아(30단위 간격) 장착한 장비를 모두 그린다(관리자 결정 2026-11-12) [추정·화면: 그런 기물의 공식 장비 바는 못 봄 — HUD 프리팹에는 2칸 알약 하나뿐].
+상세 카드의 장비 절도 그 칸 수로 「EQUIP n/칸 수」·「최대 n개」, WebGL 없는 대체 필드는 장비 점을 모두 그린다.
 
 **재배치 카운트다운 (쓰러진 오퍼레이터)** (2026-10-31, 관리자 요청 「공식처럼 똑같이」): 같은 프리팹의 `battle_state`(공식 클라 `AutoChessDummyHud._UpdateBattleState`).
 - 카드를 아직 쓸 수 없는 동안(재배치 시간이 도는 중): `countdown_bg`(`countdown_background` 85×85 × 0.7, (0, 105), 루트 × 1.25 → 지름 74.4단위,

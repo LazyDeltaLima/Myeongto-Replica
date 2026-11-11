@@ -124,7 +124,8 @@ export function shieldedBar(hp, maxHp, ghostHp, shield) {
  */
 export const PREP_CHIP = Object.freeze({ x: -45.5, y: 115, interior: 37.5 });
 /** Prep equipment bar (`shop_hud` equip_bg, root scale 1.25), in HUD units: centre from hud_unit's centre, size, slots. */
-export const PREP_EQUIP = Object.freeze({ x: 14.75, y: 129.5, w: 92.5, h: 37.5, slots: Object.freeze([-16, 16.25]), slotW: 28.75, slotH: 7.5, scale: 1.25 });
+/** rise: the next pill of an operator with more than two slots, this far above the last [추정·화면]. */
+export const PREP_EQUIP = Object.freeze({ x: 14.75, y: 129.5, w: 92.5, h: 37.5, rise: 30, slots: Object.freeze([-16, 16.25]), slotW: 28.75, slotH: 7.5, scale: 1.25 });
 
 /**
  * Redeploy countdown over a knocked-out operator (the dummy HUD's battle_state, root scale 1.25), in HUD units: centre
@@ -468,31 +469,57 @@ export function equipTextures(P, assets) {
   return bg && normal && gold ? { bg, normal, gold } : null;
 }
 
-/** The prep equipment bar of one piece (see header), drawn into `parent`. */
+/**
+ * The prep equipment bar of one piece (see header), drawn into `parent`. An operator with more than two equipment
+ * slots (规程's “暴躁铁皮”: 4, elite 6 — the record's `equipSlots`) gets one official pill per two slots, stacked upwards
+ * (maintainer decision 2026-11-12) [추정·화면: the official bar of such an operator is not seen yet; the HUD prefab has one
+ * pill of two].
+ * Pills and dashes are made the first time a piece needs them and kept (no allocation in a frame that needs no more).
+ */
 export class EquipBar {
   constructor(P, parent) {
+    this.P = P;
     this.anchor = HUD_ANCHOR;
     this.root = new P.Container();
-    this.bg = new P.Sprite(P.Texture.EMPTY); this.bg.anchor.set(0.5);
-    this.slots = [0, 1].map(() => { const s = new P.Sprite(P.Texture.EMPTY); s.anchor.set(0.5); return s; });
-    this.root.addChild(this.bg, ...this.slots);
+    this.bgs = [];
+    this.slots = [];
+    this._grow(2);
     this.root.visible = false;
     parent.addChild(this.root);
   }
 
+  /** Enough pills and dashes for `n` slots (bgs first, so the dashes draw over every pill). */
+  _grow(n) {
+    const P = this.P;
+    const mk = () => { const s = new P.Sprite(P.Texture.EMPTY); s.anchor.set(0.5); return s; };
+    while (this.bgs.length * 2 < n) { const bg = mk(); this.bgs.push(bg); this.root.addChildAt(bg, this.bgs.length - 1); }
+    while (this.slots.length < n) { const sl = mk(); this.slots.push(sl); this.root.addChild(sl); }
+  }
+
   hide() { this.root.visible = false; }
 
-  /** Draw for feet at (x, y), `u` px per unit, for `gold` (one boolean per equipped item, at most 2 drawn) with textures `t`. */
-  update(x, y, u, gold, t) {
+  /**
+   * Draw for feet at (x, y), `u` px per unit, for `gold` (one boolean per equipped item) on `slots` equipment slots
+   * (at least the items; 2 by default) with textures `t`.
+   */
+  update(x, y, u, gold, t, slots = 2) {
     const E = PREP_EQUIP;
+    const n = Math.max(2, slots | 0, gold.length);
+    const pills = Math.ceil(n / 2);
+    if (this.bgs.length < pills) this._grow(pills * 2);
     this.root.visible = true;
     const cx = x + E.x * u, cy = hudAnchorY(y, u, this.anchor) - E.y * u;
-    this.bg.texture = t.bg; this.bg.position.set(cx, cy); this.bg.width = E.w * u; this.bg.height = E.h * u;
+    for (let k = 0; k < this.bgs.length; k++) {
+      const bg = this.bgs[k];
+      bg.visible = k < pills;
+      if (!bg.visible) continue;
+      bg.texture = t.bg; bg.position.set(cx, cy - k * E.rise * u); bg.width = E.w * u; bg.height = E.h * u;
+    }
     for (let i = 0; i < this.slots.length; i++) {
       const s = this.slots[i];
       s.visible = i < gold.length;
       if (!s.visible) continue;
-      s.position.set(cx + E.slots[i] * u, cy);
+      s.position.set(cx + E.slots[i % 2] * u, cy - Math.floor(i / 2) * E.rise * u);
       if (gold[i]) { s.texture = t.gold; s.width = t.gold.width * E.scale * u; s.height = t.gold.height * E.scale * u; }
       else { s.texture = t.normal; s.width = E.slotW * u; s.height = E.slotH * u; }
     }

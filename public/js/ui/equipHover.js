@@ -12,7 +12,12 @@
 // .7 of the hovered tile's depth (KR capture: the pill's bottom ≈ the tile's far edge); the full-state label text is
 // set at run time (not in the data) — 「장비 교체」 here. Without the sprites nothing is drawn (upstream look).
 //
-//   equipHoverState(ctx, itemUid, tile) → { uid, itemId, row, col, items: [itemId], full } | null   (pure)
+// An operator with more slots (规程's “暴躁铁皮”: 4, elite 6 — its record's `equipSlots`) gets the pill widened by one
+// 108-unit slot each, with a frame per slot [추정·화면: the official panel of such an operator is not seen yet — the CN
+// client's act3autochess_equip_slot_panel still has two slots, and its act3autochess_spequip_slot_panel only a 「full」
+// pill with the swap icon].
+//
+//   equipHoverState(ctx, itemUid, tile) → { uid, itemId, row, col, items: [itemId], slots, full } | null   (pure)
 //   <EquipHoverPanel view state />    state: equipHoverState(...) (+ `equipped: true` for the drop flash) | null
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
@@ -57,17 +62,20 @@ export function equipHoverState(ctx, itemUid, tile) {
   if (!piece || piece.kind !== 'chess') return null;
   const items = (Array.isArray(piece.items) ? piece.items : []).filter((it) => it && typeof it === 'object').map((it) => it.id);
   const intent = dropIntent(ctx, itemUid, target);
+  const n = ctx.getChess?.(piece.id)?.equipSlots;
   return {
     uid: piece.uid,
     itemId: ctx.pieces.get(itemUid)?.piece?.id || null,
     row: target.area === 'board' ? target.row : GEO.HAND_ROW,
     col: target.area === 'board' ? target.col : target.idx,
     items,
+    // the operator's equipment slots (规程's “暴躁铁皮” 4 / 6 — the record's `equipSlots`, as placement.js counts them), else 2
+    slots: Math.max(Number.isInteger(n) && n > 0 ? n : 2, items.length),
     full: !!intent?.confirmReplace,
   };
 }
 
-const sameState = (a, b) => !!a && !!b && a.uid === b.uid && a.row === b.row && a.col === b.col && a.full === b.full
+const sameState = (a, b) => !!a && !!b && a.uid === b.uid && a.row === b.row && a.col === b.col && a.full === b.full && a.slots === b.slots
   && !!a.equipped === !!b.equipped && a.items.join('|') === b.items.join('|');
 
 /** The follow point of a tile (client px): FOLLOW_DEPTH down its screen quad. */
@@ -79,9 +87,9 @@ function followPoint(g) {
   return { x: g.x, y: far + (near - far) * FOLLOW_DEPTH };
 }
 
-function Slot({ id, target, flash, art }) {
+function Slot({ i, id, target, flash, art }) {
   const icon = id ? itemIconUrl(data.get('assets'), data.lookup('items', id)) : null;
-  return html`<span class=${['eqh__slot', target && 'is-target', flash && 'is-flash'].filter(Boolean).join(' ')}>
+  return html`<span class=${['eqh__slot', target && 'is-target', flash && 'is-flash'].filter(Boolean).join(' ')} style=${`--i:${i}`}>
     <span class="eqh__equip">
       <i class="eqh__box"></i>
       ${icon ? html`<img class="eqh__icon" src=${icon} alt="" draggable=${false} />` : null}
@@ -123,21 +131,22 @@ export function EquipHoverPanel({ view, state }) {
   const at = followPoint(g);
   if (!at) return null;
   const n = shown.items.length;
-  // the slot the item goes into: the next free one (both used: the replace state lights none); the equipped flash
+  const count = Math.max(2, shown.slots || 2);
+  // the slot the item goes into: the next free one (all used: the replace state lights none); the equipped flash
   // plays on that slot, which now shows the item
-  const into = shown.full ? -1 : Math.min(n, 1);
-  const slots = [0, 1].map((i) => (shown.equipped && i === into
+  const into = shown.full ? -1 : Math.min(n, count - 1);
+  const slots = Array.from({ length: count }, (_, i) => (shown.equipped && i === into
     ? { id: shown.itemId, target: false, flash: true }
     : { id: shown.items[i] || null, target: !shown.equipped && i === into, flash: false }));
   const style = [
-    `left:${at.x.toFixed(1)}px`, `top:${at.y.toFixed(1)}px`,
+    `left:${at.x.toFixed(1)}px`, `top:${at.y.toFixed(1)}px`, `--eqh-n:${count}`,
     ...SPRITES.map((k) => `--eqh-${k}:url("${art[k]}")`),
   ].join(';');
   return html`<div class=${['eqh', shown.full && 'is-full', leaving && 'is-leaving'].filter(Boolean).join(' ')} style=${style} aria-hidden="true">
     <div class="eqh__p" key=${`${shown.uid}:${shown.row},${shown.col}`}>
       <i class="eqh__bg"></i>
-      <i class="eqh__fr eqh__fr--l"></i><i class="eqh__fr eqh__fr--r"></i>
-      ${slots.map((s, i) => html`<${Slot} key=${i} id=${s.id} target=${s.target} flash=${s.flash} art=${art} />`)}
+      ${slots.map((_, i) => html`<i key=${`f${i}`} class=${`eqh__fr eqh__fr--${i % 2 ? 'r' : 'l'}`} style=${`--i:${i}`}></i>`)}
+      ${slots.map((s, i) => html`<${Slot} key=${i} i=${i} id=${s.id} target=${s.target} flash=${s.flash} art=${art} />`)}
       ${shown.full ? html`<span class="eqh__matte"><i class="eqh__matte-bg"></i><i class="eqh__matte-loop"></i>
         <span class="eqh__swap"><i class="eqh__swap-icon"></i><span class="eqh__label">${t('替换装备')}</span></span></span>` : null}
     </div>

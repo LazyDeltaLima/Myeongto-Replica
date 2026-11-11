@@ -118,7 +118,7 @@ export function EquipReplaceDialog({ request, getItem = () => null, busy = false
         <${Button} variant="secondary" icon="close" class="eqr__cancel" onClick=${onCancel}>${t('取消')}<//>
         <${Button} variant="danger" class="eqr__ok" disabled=${!chosen} loading=${busy} data-autofocus onClick=${() => chosen && onConfirm(chosen.uid)}>
           ${confirmIcon ? html`<img class="eqr__ok-icon" src=${confirmIcon} alt="" draggable=${false} />` : null}${t('确认替换')}<//>`}>
-      <p class="eqr__lead">${tParts('「{name}」的装备栏已满（2/2）。选择一件装备进行替换，{warn}。', { name: html`<b>${request.targetName}</b>`, warn: html`<b class="t-red">${t('被替换的装备将被销毁')}</b>` })}</p>
+      <p class="eqr__lead">${tParts('「{name}」的装备栏已满（{n}/{n}）。选择一件装备进行替换，{warn}。', { n: request.options.length, name: html`<b>${request.targetName}</b>`, warn: html`<b class="t-red">${t('被替换的装备将被销毁')}</b>` })}</p>
       <div class="eqr__top">
         <div class="eqr__op" title=${request.targetName}>
           <span class="eqr__ava"><${UnitThumb} kind="chess" id=${request.targetId} golden=${request.golden} size="md" rec=${request.targetRec || null} /></span>
@@ -131,7 +131,7 @@ export function EquipReplaceDialog({ request, getItem = () => null, busy = false
         </div>
       </div>
       <div class="eqr__arrow" aria-hidden="true"><i class="eqr__aline"></i><i class="eqr__ahead eqr__ahead--l"></i><i class="eqr__ahead eqr__ahead--r"></i></div>
-      <div class="eqr__opts" role="radiogroup" aria-label=${t('选择被替换的装备')}>
+      <div class="eqr__opts" data-n=${request.options.length} role="radiogroup" aria-label=${t('选择被替换的装备')}>
         ${request.options.map((o) => html`<${ItemCard} key=${o.uid} id=${o.id} item=${o} rec=${getItem(o.id)} option=${true}
           selected=${o.uid === sel} onPick=${(uid) => setSel((s) => (s === uid ? null : uid))} />`)}
       </div>

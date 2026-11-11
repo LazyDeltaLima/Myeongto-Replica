@@ -10,7 +10,9 @@
    flash and the glow. */
 .eqh { --eh: calc(var(--ui-u, .015rem) * .72 * .8); position: fixed; width: 0; height: 0; z-index: var(--z-banner); pointer-events: none; }
 .eqh i, .eqh span { position: absolute; display: block; }
-.eqh__p { position: absolute; left: calc(var(--eh) * -167); bottom: calc(var(--eh) * 120); width: calc(var(--eh) * 334); height: calc(var(--eh) * 152);
+.eqh { --eqh-n: 2; }
+/* --eqh-n: the operator's equipment slots; past two the pill grows by one 108-unit slot each [추정·화면] */
+.eqh__p { --eqh-w: calc(334 + (var(--eqh-n) - 2) * 108); position: absolute; left: calc(var(--eh) * var(--eqh-w) * -.5); bottom: calc(var(--eh) * 120); width: calc(var(--eh) * var(--eqh-w)); height: calc(var(--eh) * 152);
   transform-origin: 50% 100%; animation: eqh-in .333s linear both; }
 .eqh.is-leaving .eqh__p { animation: eqh-out .4s linear both; }
 @keyframes eqh-in {
@@ -26,13 +28,11 @@
 .eqh__bg { inset: 0; background: var(--eqh-bg) center / 100% 100% no-repeat; opacity: .79; }
 /* Root_Frame_Normal / _Full: FrameL / FrameR 109 × 109 (pivots (1, .5) / (0, .5) at the pill centre + 2) */
 .eqh__fr { top: calc(var(--eh) * 21.5); width: calc(var(--eh) * 109); height: calc(var(--eh) * 109); background: var(--eqh-frame1) center / 100% 100% no-repeat; }
-.eqh__fr--l { left: calc(var(--eh) * 60); }
-.eqh__fr--r { left: calc(var(--eh) * 169); }
+.eqh__fr { left: calc(var(--eh) * (60 + var(--i, 0) * 108.5)); }
 .eqh.is-full .eqh__fr { background-image: var(--eqh-frame1_red); }
 /* Group_LeftSlot / Group_RightSlot: 108 × 108 at ±54 (+2); their 90 × 90 contents centred */
 .eqh__slot { top: calc(var(--eh) * 22); width: calc(var(--eh) * 108); height: calc(var(--eh) * 108); }
-.eqh__slot:nth-of-type(1) { left: calc(var(--eh) * 61); }
-.eqh__slot:nth-of-type(2) { left: calc(var(--eh) * 169); }
+.eqh__slot { left: calc(var(--eh) * (61 + var(--i, 0) * 108)); }
 .eqh__equip, .eqh__empty { left: calc(var(--eh) * 9); top: calc(var(--eh) * 9); width: calc(var(--eh) * 90); height: calc(var(--eh) * 90); }
 .eqh__box { inset: 0; background: #1e1e1e; }
 .eqh__icon { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
