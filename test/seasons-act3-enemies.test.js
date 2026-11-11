@@ -28,7 +28,7 @@ const LEADER_FIELD = [];
 // 特训敌人 entries of 规程 (its new types CRITIC 精锐 / REBORN 重生 among them) and their escorts and offspring
 const SPECIAL_TYPE = [
   'enemy_10163_mnctur_2', 'enemy_1064_snsbr', 'enemy_1067_snslime_2',
-  'enemy_1309_mhboar_2', 'enemy_1363_spnshd_2',
+  'enemy_1213_mtrsnp', 'enemy_1216_cansld', 'enemy_1219_mtrbty', 'enemy_1309_mhboar_2', 'enemy_1363_spnshd_2',
   'enemy_1373_ltnhor', 'enemy_1373_ltnhor_2', 'enemy_1375_ltnclr', 'enemy_1375_ltnclr_2', 'enemy_1376_ltndru',
   'enemy_1376_ltndru_2', 'enemy_1385_winbom', 'enemy_1385_winbom_2', 'enemy_1388_wingnt', 'enemy_1388_wingnt_2',
   'enemy_1428_lrsoul', 'enemy_1429_lrwzrd', 'enemy_1429_lrwzrd_2', 'enemy_1431_lrmzrd', 'enemy_1431_lrmzrd_2',
@@ -1271,61 +1271,4 @@ test('无畏掷弹兵: its first damage unblocked throws 4 bombs (ATK × 2 withi
   h.b.dealDamage(null, e, { amount: 1, type: 'true' });
   runFor(h, 3);
   assert.ok(e.mode !== 'D2L' && e.mode !== 'Light' && hits.every((x) => Math.abs(x.n - E3[BOOMER].stats.atk) < 1e-6), 'blocked: no bombs');
-});
-
-const MTRSNP = 'enemy_1213_mtrsnp', CANSLD = 'enemy_1216_cansld', MTRBTY = 'enemy_1219_mtrbty';
-const walls = (cells) => cells.map(([row, col], i) => ({ chessId: 't_wall', row, col, uid: i + 1 }));
-
-test('寻路者狙击手: ammo 1 — its first attack plain, the mode HeadShot right after it, two HeadShots (ATK × 2) on the one bullet, then plain again', () => {
-  assert.deepEqual([E3[MTRSNP].sp.initSp, E3[MTRSNP].talents.bb['shotbuff.attack@headshot_atk_scale'], E3[MTRSNP].talents.bb['shotbuff.attack@headshot_sp']], [1, 2, -1]);
-  const { h, hits } = waveField([MTRSNP], walls([[10, 4]]));
-  const e = put(h, MTRSNP, [10, 6], { tag: null });
-  const atk = E3[MTRSNP].stats.atk;
-  h.runUntil(() => hits.length >= 5, 30);
-  assert.deepEqual(hits.slice(0, 5).map((x) => x.n / atk), [1, 2, 2, 1, 1], 'plain, HeadShot × 2 (the second on the SP the attack began with), plain');
-  assert.ok(hits[1].at - hits[0].at < E3[MTRSNP].stats.bat - 0.5, `the HeadShot follows the switch at once (${(hits[1].at - hits[0].at).toFixed(2)} s)`);
-  assert.ok(Math.abs(hits[2].at - hits[1].at - E3[MTRSNP].stats.bat) < 0.1, 'the second on its cooldown');
-  assert.ok(e.mode !== 'HeadShot' && e.mem.ab.list[0].sp === 0, 'out of ammo, its first mode');
-});
-
-test('寻路者破阵者: ammo 2 — unblocked it switches to HeadShot at once and lobs 3 shells (3 × 3 box, ATK × 1), then fights only its blocker', () => {
-  assert.deepEqual([E3[CANSLD].sp.initSp, E3[CANSLD].stats.rangeRadius, E3[CANSLD].projModes.HeadShot.move], [2, 2.5, 'PARACURVE']);
-  // the target 2.4 tiles away; one wall 1 tile beyond it (in the box, out of reach), one 2 tiles beyond (out of the box)
-  const { h, hits } = waveField([CANSLD], walls([[10, 4], [10, 3], [10, 2]]));
-  const e = put(h, CANSLD, [10, 6.4], { tag: null });
-  runFor(h, 0.15);
-  assert.equal(e.mode, 'HeadShot', 'enemy_melee_and_ranged_spmode_check: unblocked with ammo, 0.1 s');
-  const atk = E3[CANSLD].stats.atk;
-  runFor(h, 30);
-  const on = (uid) => hits.filter((x) => x.t === h.unit(uid));
-  assert.deepEqual([on(1).length, on(2).length, on(3).length], [3, 3, 0], 'three shells: the target and the wall in its box');
-  assert.ok(hits.every((x) => Math.abs(x.n - atk) < 1e-6), 'physical ATK × 1');
-  assert.ok(e.mode !== 'HeadShot' && e.profile.melee, 'out of ammo: the melee mode');
-  const n = hits.length;
-  runFor(h, 15);
-  assert.equal(hits.length, n, 'unblocked, its melee mode reaches nobody');
-});
-
-test('寻路者传令兵: HeadShot arts ATK × 1.5 and 15 s 缴械 + 沉默, the next on a unit without it; out of ammo, arts melee on its blocker', () => {
-  assert.deepEqual([E3[MTRBTY].talents.bb['shotbuff.attack@headshot_atk_scale'], E3[MTRBTY].talents.bb['shotbuff.attack@headshot_disarmed_duration']], [1.5, 15]);
-  const atk = E3[MTRBTY].stats.atk;
-  {
-    const { h, hits } = waveField([MTRBTY], walls([[10, 4], [11, 5]]));
-    put(h, MTRBTY, [10, 6], { tag: null });
-    h.runUntil(() => hits.length >= 2, 20);
-    const [a, b] = hits;
-    assert.ok(a.t !== b.t, 'the second shot on the unit without 缴械');
-    assert.ok(hits.slice(0, 2).every((x) => Math.abs(x.n - atk * 1.5) < 1e-6), 'arts ATK × 1.5');
-    for (const x of [a, b]) assert.ok(x.t.s.flags.disarm && x.t.s.flags.silence, '缴械 and 沉默');
-    const hitA = a.at;
-    h.runUntil(() => !a.t.s.flags.disarm, 20);
-    assert.ok(Math.abs(h.b.time - hitA - 15) < 0.1, `15 s (${(h.b.time - hitA).toFixed(2)})`);
-    assert.equal(hits.length, 2, 'then its melee mode: nobody blocked, no attack');
-  }
-  // walking into its blocker: the shots first (in reach as it comes), then arts melee ATK × 1
-  const { h, hits } = waveField([MTRBTY], walls([[10, 5]]));
-  const e = put(h, MTRBTY, [10, 7], { move: true, tag: null });
-  h.runUntil(() => hits.length >= 4, 40);
-  assert.ok(e.blockedBy === h.unit(1));
-  assert.deepEqual(hits.slice(0, 4).map((x) => x.n / atk), [1.5, 1.5, 1, 1]);
 });

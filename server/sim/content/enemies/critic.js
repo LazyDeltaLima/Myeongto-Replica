@@ -5,9 +5,8 @@
 // The type itself carries no rule of its own: activity_table's enemyInfoDict CRITIC is the handbook's list of the type's
 // enemies, and none of the kits below reads the type.
 
-import { canTargetAlly, areaSelectable } from '../../targeting.js';
-import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
-import { T, hurt, areaAllies, lineShot, shoot, atCastEvent, mode, setForm, targetsNear, byPriority } from './helpers.js';
+import { canTargetAlly } from '../../targeting.js';
+import { T, hurt, areaAllies, lineShot, atCastEvent, mode } from './helpers.js';
 import { unbalancedBleed, skill } from './archetypes.js';
 import { hypot } from '../../detmath.js';
 
@@ -96,8 +95,6 @@ function kitIceGuard(ab) {
     death(c, b, e) {
       if (c.reason !== 'killed') return;
       const x = e.x, y = e.y, atk = e.s.atk;
-      // the projectile appears where it fell (its `_effectsToTargetWhenStart`), the blast is its end
-      b.fx('telegraph', { x, y, r: KRGRG_BLAST_RADIUS, dur: KRGRG_BLAST_DELAY, kind: 'deathBoom', id: e.id, ability: 'Boom' });
       b.after(KRGRG_BLAST_DELAY, () => {
         b.fx('explode', { x, y, r: KRGRG_BLAST_RADIUS, kind: 'deathBoom', id: e.id, ability: 'Boom' });
         for (const u of bothSidesAt(b, e, x, y, KRGRG_BLAST_RADIUS)) {
@@ -238,162 +235,6 @@ function kitGrenadier(ab) {
   }];
 }
 
-/** The 寻路者 trio's second prefab mode, the one their ammo turns on (enm_pfb_9 / _10 `Modes/HeadShot`). */
-const HEAD = 'HeadShot';
-
-/**
- * Half the side of 寻路者破阵者's shell box: projectile_enemy_cansld's BoxCollider2D 3 × 3 (battle/prefabs/[uc]projectiles),
- * its HitBehaviour taking every ally (`targetMotion` 3: ground and air, `_ignoreCamouflage`) whose collider meets the box
- * as the shell arrives (`_onlyCheckHitWhenReachTarget`).
- */
-const CANSLD_BOX = 1.5;
-
-/**
- * Enemy `e` is in its attack state, as the client's CheckUnitInAttackState reads it: a swing or a cast plays, or its
- * cooldown runs with a target still in reach (the attack state waits there for the next attack — ai.js enemyAttack's
- * reach: rangeRadius + an ally's collider; its blocker when it is blocked).
- */
-function inAttackState(b, e) {
-  if (e.swing || e.castLeft > 0) return true;
-  if (!(e.atkCd > 0)) return false;
-  if (e.blockedBy) return true;
-  const r = e.profile.melee ? 0 : e.base.rangeRadius;
-  return r > 0 && targetsNear(b, e, r + ALLY_COLLIDER_RADIUS).length > 0;
-}
-
-/**
- * The 寻路者 trio (CRITIC, enm_pfb_9 / _10): ammo as SP (enemy_database spData INCREASE_WITH_TIME with no increment: the
- * initial `initSp`, never refilled in this mode — the HUD shows it as bullets, `_showSpAsBulletMode`), two prefab modes,
- * Default and HeadShot, and the talent ShotBuff's buffs that move between them:
- * - enemy_spmode_check (every one), ON_BEFORE_ATTACK: with SP ≥ 1 in the first mode it switches to HeadShot, with less in
- *   HeadShot back to the first — no state restart, so the attack it comes before is still the old mode's and the next
- *   follows it at once (docs/rules/sim.md 「적의 모드 전환」: Enemy.CombatWrapper._DoCast). Run here as that attack is made
- *   (the 'attack' hook), on the SP it began with: the same switch, the same attack in the old mode.
- * - enemy_melee_and_ranged_spmode_check (`idle`: 破阵者, 传令兵), every 0.1 s while unblocked and not in its attack state
- *   (inAttackState): SP ≥ 1 in the first mode → HeadShot, less in HeadShot → the first — so an unblocked one with ammo
- *   shoots at once, and one out of ammo with nobody in reach walks on in its first mode.
- * HeadShot's attack ability (`blackboardPrefix` headshot_: ATK × `shotbuff.attack@headshot_atk_scale`) fires its own
- * projectile (data projModes.HeadShot) and spends `headshot_sp` (−1) at its attack event (BuffToOwner enemy_spmode_sp_reduce,
- * ModifySp); the attack is made by the engine and hit here (profile.deferHit while in HeadShot, so its swing and
- * attack events carry no engine shot: the fx 'enemyShot' draws the official one). `meleeDefault`: the first mode has only a
- * `_combat` MeleeAttack — its blocker alone (破阵者, 传令兵); 狙击手's first mode shoots plain shots and fights its blocker
- * in melee (`Attack_2`). `hit(b, e, t, x, y)`: HeadShot's effect where the shot lands. The `headshot_trapdamage` fixed arts
- * damage of 破阵者 / 传令兵 is on traps tagged TAG_TRAP_WPNSTS (冰淇淋机) only, which no 规程 field has.
- */
-function pathfinder(ab, e, { meleeDefault = false, idle = false, hit, pick = null }) {
-  const spd = (e.def.raw && e.def.raw.sp) || {};
-  const init = Math.max(0, Number.isFinite(spd.initSp) ? spd.initSp : 1);
-  const cost = -(T(ab, 'shotbuff.attack@headshot_sp') ?? -1);
-  const shot = (e.def.projModes && e.def.projModes[HEAD]) || null;
-  const set = (b, e2, on) => {
-    if ((e2.mode === HEAD) === on) return;
-    mode(b, e2, on ? HEAD : null, false);
-    setForm(b, e2, on ? HEAD : null);
-    e2.profile.deferHit = on;
-    if (meleeDefault) e2.profile.melee = !on;
-  };
-  return [{
-    iv: idle ? 0.1 : undefined,
-    spawn(b, e2, a) {
-      a.sp = init;
-      a.head = false;
-      if (meleeDefault) e2.profile.melee = true;
-      e2.profile.shot = 'none';
-    },
-    tick(b, e2, a) {
-      if (!idle || e2.blockedBy || inAttackState(b, e2)) return;
-      if (a.sp >= 1 && e2.mode !== HEAD) set(b, e2, true);
-      else if (a.sp < 1 && e2.mode === HEAD) set(b, e2, false);
-    },
-    // the attack about to be made is HeadShot's (its mode as it began: the switches below come after its strike)
-    before(c, b, e2, a) {
-      a.head = e2.mode === HEAD;
-      e2.profile.deferHit = a.head;
-      if (a.head && pick && c.targets.length) {
-        const t = pick(b, e2, c.targets);
-        if (t) c.targets = [t];
-      }
-    },
-    attack(c, b, e2, a) {
-      const was = a.head, sp = a.sp;
-      a.head = false;
-      if (was) {
-        const t = c.targets[0];
-        if (t) {
-          const x = t.x, y = t.y;
-          shoot(b, e2, t, shot, (u) => hit(b, e2, u, x, y), { hitDead: true });
-        }
-        a.sp = Math.max(0, a.sp - cost);
-      }
-      // enemy_spmode_check, on the SP this attack began with
-      if (sp >= 1 && !was) set(b, e2, true);
-      else if (sp < 1 && was) set(b, e2, false);
-    },
-  }];
-}
-
-/** HeadShot's hit on `u`: ATK × `scale` of `type`, the normal attack's (its projectile: 远程途径). */
-const headHit = (b, e, u, scale, type) => {
-  if (!u || !u.alive || !u.deployed) return false;
-  b.dealDamage(e, u, { amount: e.s.atk * scale, type, isAttack: true, isProjectile: true });
-  return true;
-};
-
-/** 寻路者狙击手 (enm_pfb_9): HeadShot shoots projectile_enemy_mtrsnp_headshot for physical ATK × `headshot_atk_scale` (2). */
-function kitPfSniper(ab, e) {
-  const scale = T(ab, 'shotbuff.attack@headshot_atk_scale') ?? 1;
-  return pathfinder(ab, e, { hit: (b, e2, u) => headHit(b, e2, u, scale, 'phys') });
-}
-
-/**
- * 寻路者破阵者 (enm_pfb_9): its first mode fights only its blocker; HeadShot (`_useDynamicAttackType`) lobs
- * projectile_enemy_cansld (PARACURVE 4 tiles/s, to its target's spot at the attack) whose 3 × 3 box (CANSLD_BOX) strikes
- * every ally there — ground and air — for physical ATK × `headshot_atk_scale` (1) as it arrives, on a dead target too
- * (`_alwaysHitTraceTargetInTheEnd`).
- */
-function kitPfBreaker(ab, e) {
-  const scale = T(ab, 'shotbuff.attack@headshot_atk_scale') ?? 1;
-  const R = CANSLD_BOX + ALLY_COLLIDER_RADIUS;
-  return pathfinder(ab, e, {
-    meleeDefault: true, idle: true,
-    hit(b, e2, _u, x, y) {
-      b.fx('explode', { x, y, r: CANSLD_BOX, kind: 'cansld', id: e2.id });
-      for (const o of b.allies()) {
-        if (o.alive && o.deployed && Math.abs(o.x - x) <= R + 1e-9 && Math.abs(o.y - y) <= R + 1e-9 && areaSelectable(e2, o)) {
-          b.dealDamage(e2, o, { amount: e2.s.atk * scale, type: 'phys', isAttack: true, isProjectile: true, tags: ['splash'] });
-        }
-      }
-    },
-  });
-}
-
-/**
- * 寻路者传令兵 (enm_pfb_10): its first mode fights only its blocker (arts); HeadShot shoots projectile_enemy_mtrbty for arts
- * ATK × `headshot_atk_scale` (1.5) and, on that hit, the client's buff disarmed_and_cant_use_skill (its buff table row:
- * buff key `disarmed`, abnormal flags DISARMED + SILENCED, `disarmed_duration` = `headshot_disarmed_duration` 15 s) — no
- * normal attack and no skill, 抵抗 shortening both. Its selector (SecondaryFilterAdvancedSelector `_buffKey` disarmed,
- * `_withoutThisBuff`) prefers the candidates without it: with one target its OnPostFilter keeps only those when any is
- * there, else all.
- */
-function kitPfHerald(ab, e) {
-  const scale = T(ab, 'shotbuff.attack@headshot_atk_scale') ?? 1;
-  const dur = T(ab, 'shotbuff.attack@headshot_disarmed_duration') ?? 0;
-  return pathfinder(ab, e, {
-    meleeDefault: true, idle: true,
-    pick(b, e2, targets) {
-      if (!targets[0].s.flags.disarm) return null;
-      const r = e2.base.rangeRadius + ALLY_COLLIDER_RADIUS;
-      const l = byPriority(e2, targetsNear(b, e2, r)).filter((u) => !u.s.flags.disarm);
-      return l[0] || null;
-    },
-    hit(b, e2, u) {
-      if (!headHit(b, e2, u, scale, 'arts') || !u.alive || !(dur > 0)) return;
-      b.applyStatus(u, 'disarm', { duration: dur, source: e2 });
-      b.applyStatus(u, 'silence', { duration: dur, source: e2 });
-    },
-  });
-}
-
 // ---------------------------------------------------------------------------------------------------------------
 // this module's part of KITS
 
@@ -405,7 +246,4 @@ export const CRITIC_KITS = {
   enemy_1403_gunsho_2: kitRapidCrossbow,                   // 速射劲弩手 · same
   enemy_1409_bdguad_2: kitMatteoGuard,                     // 马特奥的近卫 · 直击: 2 bombs; damage taken −40 % unblocked
   enemy_1405_boomer_2: kitGrenadier,                       // 无畏掷弹兵 · first hit unblocked: 4 bombs, then faster and lighter
-  enemy_1213_mtrsnp: kitPfSniper,                          // 寻路者狙击手 · ammo 1: HeadShot ATK × 2
-  enemy_1216_cansld: kitPfBreaker,                         // 寻路者破阵者 · melee; ammo 2: a 3 × 3 shell
-  enemy_1219_mtrbty: kitPfHerald,                          // 寻路者传令兵 · melee; ammo 1: ATK × 1.5 arts + 15 s 缴械·沉默
 };

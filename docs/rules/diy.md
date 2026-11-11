@@ -996,12 +996,25 @@
     있을 때만. 제시카의 방패 재배치(PRTS 卫戍协议/帮助 소환물 재배치)·방패 禁疗(PRTS 「持有禁疗」·토큰 프리팹 `jckshd_t`) 추정 표시도 지움.
   - 에이야퍄들라 S3 시험: 그녀가 이미 자기 3-1을 공격하던 중에 켜지므로(`DEFAULT`) 시전 순간 돌던 쿨다운(엔진은 남은 초 그대로 — `sim.md` 「일반 공격 타이밍」
     「아직 공식과 다른 것」)을 지나 첫 용암부터 공격 수를 센다.
-- 키트 주석에 남은 추정(키트 주석은 영어 꼴 「not checked」 태그):
-  - 제시카 S3 [추정·미조사: 회피한 폭발에도 기절이 붙는지 — 폭발 투사체의 명중 동작].
-  - 파죰카 [추정·미조사: 「정면」 칸(`bgsnow_focus[mark]`의 칸)에 자기 칸이 드는지 — ARC-Y 특성과 S3 날카로운 스케치 둘 다]·[추정·미조사: '타자기'가 그녀가 필드에
-    있을 때만 재배치되는지(이베리아 해사와 같다고 봄)]·[추정·미조사: '타자기'의 禁疗 — 토큰 프리팹].
-  - 에이야퍄들라 [추정·미조사: CCR-Y 특성 SP가 S2 폭발의 범위 피해·둘째 ½에는 안 붙는지 — 모듈 특성 버프]·S2 [추정·미조사: 주 대상 밖 적의 마법 저항 감소가
-    그 적의 피해 뒤인지 — `skchr_amgoat_2` 능력]·S3 [추정·미조사: 용암에 범위 피해가 없는지 — 용암 투사체 프리팹].
+- 남았던 추정 9개를 공식 클라에서 확인함(2026-11-11, 능력·투사체·토큰·모듈 프리팹과 투사체 명중 처리):
+  - 에이야퍄들라 S2 이그니션: 마법 저항 감소는 **주 대상에게만** 붙는다. S2의 `RangedAttack`이 `_activeBuffs`(감소)를 투사체 `projectile_amgoat_s2`에 넘기고,
+    그 투사체의 행동 컨트롤러가 `_onlyAddBuffsToTraceTarget`라 추적 대상 말고는 버프를 안 붙인다. 투사체는 맞힌 대상에 버프를 먼저 붙이고 그 뒤 공격의 피해
+    동작을 돌린다 — 주 대상은 감소 뒤 첫 피해(PRTS 비고와 같음), 폭발에 든 다른 적은 감소 없이 ½. 스킬 문구 「命中目标周围的敌人…法术抗性」는 둘레 적의 감소로
+    읽히지만 클라와 PRTS 비고는 주 대상만이다. 전엔 둘레 적도 피해 뒤에 감소를 받았다.
+  - 에이야퍄들라 CCR-Y 특성 SP: 그녀가 정예·보스 적에게 주는 **피해마다** 1 — 모듈 특성 버프 `v035_common_addsp`가 `ON_CALCULATE_DAMAGE`에서 대상 등급
+    (`ELITE_AND_BOSS`)만 보고 공격·범위 거르기가 없다. 그래서 S2 폭발이 정예에게 준 ½과 주 대상의 둘째 ½(`amgoat_s_2`의 `AdvancedApplyDamage`, 출처로 계산 —
+    `BattleFormula.CalculateDamage`가 출처의 피해 계산 이벤트를 돌림)도 센다. 피해를 계산하는 때라 회피 전(`hit`)에 센다. 전엔 공격의 첫 타격만 셌다.
+  - 에이야퍄들라 S3 볼케이노: 용암에 범위 피해가 없다 — S3 모드 공격(`RandomSelector`)의 투사체 `projectile_amgoat_s3`에 범위 타격(`HitBehaviour`)이 없고 대상
+    하나만 친다. 지금 규칙 그대로.
+  - 제시카 S3 포탄: 회피한 폭발에도 **기절이 붙는다** — 기절은 `ExtraBomb` 능력의 `_activeBuffs`이고, 포탄 자신은 버프를 안 붙이며(`_dontAddBuffs`) 명중 때
+    `projectile_chr_jesca2_s3_explosion`을 내고, 그 폭발 투사체가 맞힌 적마다 기절을 먼저 붙인 뒤 피해를 돌린다. 회피는 피해만 취소한다(빗나감으로 거르는
+    `isDamageMissable` 버프는 시전 때 그녀 자신의 명중률 굴림 `damageMissFlag` 기준이지 대상의 회피가 아님). 전엔 회피한 적에게 기절을 안 붙였다.
+  - 파죰카 「정면」(ARC-Y 특성·S3 날카로운 스케치가 보는 `bgsnow_focus[mark]`): 그녀의 공통 능력 `Focus` 오라 `ConstBoxRange` `5-1` — **자기 칸과 앞 5칸**. 그녀
+    사거리(3-6, S3 3-1)는 앞 3칸까지라 지금 판정(행 0·열 0 이상, S3는 3-2 줄)과 결과가 같고, 키트가 앞 5칸에서 자름.
+  - 파죰카 '타자기' 재배치: 그녀가 필드에 있을 때만 — 그녀가 퇴장하면 `BattleController.OnCharacterFinished` → `Deck.RecycleCard`가 소환물 카드의
+    `m_hostIsAlive`를 끄고(`TokenCard.OnHostRecycled`), 그 카드는 숨겨진다(`TokenCard.get_isHiddenByCardState`); 그녀가 다시 서면 켜짐(`OnHostSpawned`). 지금 규칙 그대로.
+  - 파죰카 '타자기' 禁疗: 없다 — 토큰 프리팹 `token_10026_bgsnow_subbow`에 이상 상태 버프가 없다(수명 퇴장 `bgsnow_subbow_t_1[withdraw]`·카드 재충전·방향·방어 감소뿐).
+    공격받지 않아 체력이 안 변하니 치료될 일도 없다. 키트도 禁疗를 걸지 않는다(`startCountdown`은 `COUNTDOWN_SUMMONS`가 아닌 타자기를 건드리지 않음) — 주석만 고침.
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD 데이터: EN 클라에서 뽑음(2026-11-04, `tools/local-extract/add_operator.py --id …` 셋 한 번). 소환물 이펙트
   (`token_jesca2_*` 6개·`token_bgsnow_*` 17개)는 공용 토큰 팩 `pkgrps/btl_pfb_fx_token_1.ab`·`_0.ab`에서 따로. 화면 확인 전.
 - 테스트: `test/content/op_jesca2.test.js`(10)·`op_bgsnow.test.js`(8)·`op_amgoat.test.js`(8) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물; 선발 수를 세는 테스트

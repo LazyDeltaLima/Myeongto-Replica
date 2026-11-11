@@ -11,8 +11,11 @@
 // 乱火's hidden 备注 "在最小值与最大值之间随机生成一个浮点数后向下取整").
 // - Trait (中坚术师) "攻击造成法术伤害": the profession default (ranged arts, hits air, block 1). Module CCR-X “错过的声音”
 //   adds "无视目标10点法术抗性" (trait bb magic_resist_penetrate_fixed: a permanent resIgnoreFlat), CCR-Y “宠物大赛第一名”
-//   "普通攻击命中精英或领袖敌人时获得1点技力" (trait bb sp: per hit of one of her attacks on an elite / leader — the S2
-//   explosion's splash and its second ½ are not further 命中 [ASSUMED·not checked: the module trait buff]; a running timed skill takes no SP, as always).
+//   "普通攻击命中精英或领袖敌人时获得1点技力" (trait bb sp): every damage instance of hers on an elite / leader — the module
+//   trait buff v035_common_addsp is ON_CALCULATE_DAMAGE CheckEnemyLevelMask ELITE_AND_BOSS → ModifySp, with no attack or
+//   splash filter, so the S2 explosion's share on each elite it reaches and its second ½ (amgoat_s_2's AdvancedApplyDamage,
+//   computed through the source: the source's ON_CALCULATE_DAMAGE runs) count too; counted at the hit, before a dodge
+//   (the event of the damage calculation). Confirmed in the official client. A running timed skill takes no SP, as always.
 // - T1 炎息 "在场时，所有友方【术师】职业干员的攻击力+14%" (full potential: +16%): an aura on every 【术师】 operator of the
 //   field (her included) while she is deployed (installAura, the kits' convention for field-wide talents; several sources
 //   keep the strongest). CCR-X stage 2+ turns it into "携带时…+22%" (full potential: +24%; the module talent's bb): the
@@ -30,13 +33,18 @@
 // - S2 点燃 (AUTO, 可充能 2, data DEFAULT): the next attack, on impact — the main target's RES ×(1 + magic_resistance) for
 //   `duration` s first, then an explosion of radius 1.5 around it (a 中点判定 splash) dealing atk_scale × ATK arts to
 //   every enemy in it, the main target included, each of the others then getting the same RES cut, and last
-//   atk_scale_2 × ATK arts to the main target again (the PRTS 备注's order; it names the main target's cut only as
-//   coming first, so the others' cut follows their hit [ASSUMED·not checked: skchr_amgoat_2's ability]; the cut is "同名效果取最高" through applyStrongest).
+//   atk_scale_2 × ATK arts to the main target again (the PRTS 备注's order). Only the main target's RES is cut: the
+//   RangedAttack hands its _activeBuffs (the cut) to projectile_amgoat_s2, whose action controller has
+//   _onlyAddBuffsToTraceTarget, and a projectile attaches its buffs to a hit target before it runs the attack's damage —
+//   the main target's cut lands before its first damage, the others in the explosion get none (confirmed in the official
+//   client; the skill text's "命中目标周围的敌人…法术抗性" reads the cut on them, the client and the PRTS 备注 do not).
+//   The cut is "同名效果取最高" through applyStrongest.
 //   The explosion reaches air units and skips enemies an area effect cannot select (foesInRadius); like the engine's
 //   profession splash it can be dodged.
 // - S3 火山 (MANUAL, 15 s): ATK +atk, attack interval base_attack_time (−1.1 s flat on her 1.6 s), the attack range x-3
 //   while it runs, each attack throws lava at attack@max_target enemies of that range drawn at random (all of them when
-//   fewer) — one projectile each, no splash [ASSUMED·not checked: the S3 lava projectile prefab — the text names none]. Trigger: the data's DEFAULT on its x-3 box
+//   fewer) — one projectile each, no splash (the S3 mode's RangedAttack with a RandomSelector fires projectile_amgoat_s3: no
+//   HitBehaviour, one hit on its target — confirmed in the official client). Trigger: the data's DEFAULT on its x-3 box
 //   (no row of its own in skillTriggerDataList: the client's _DefaultTriggerSkill, a selectable enemy on its rangeId).
 // - No summon (the forms list no token).
 
@@ -53,7 +61,7 @@ const IGNITE_RADIUS = 1.5;
 /** S3 火山's 技能范围 x-3 when the data carries no grid (range_table x-3: the tiles within 3 steps). */
 const X3 = Object.freeze([[3, 0], [2, -1], [2, 0], [2, 1], [1, -2], [1, -1], [1, 0], [1, 1], [1, 2], [0, -3], [0, -2], [0, -1],
   [0, 0], [0, 1], [0, 2], [0, 3], [-1, -2], [-1, -1], [-1, 0], [-1, 1], [-1, 2], [-2, -1], [-2, 0], [-2, 1], [-3, 0]]);
-/** Damage of the S2 explosion and its second ½ (not a further 命中 of the attack: CCR-Y counts the first). */
+/** Damage of the S2 explosion and its second ½ (not the attack's own hit: the main target's RES cut keys on that one). */
 const IGNITE_TAG = 'amgoat:ignite';
 const AURA_KEY = 'talent:amgoat:casters';
 const AURA_EVERY = 0.5;
@@ -119,7 +127,6 @@ export default {
               for (const e of battle.foesInRadius(x, y, IGNITE_RADIUS, true)) {
                 if (e === target) continue;
                 battle.dealDamage(unit, e, { amount: atk * num(b2.atk_scale, 1), type: 'arts', isAttack: true, isSplash: true, isSkill: true, tags: [IGNITE_TAG] });
-                resCut(battle, unit, e);
               }
               if (hasHp(target)) battle.dealDamage(unit, target, { amount: atk * num(b2.atk_scale_2, num(b2.atk_scale, 1)), type: 'arts', isAttack: true, isSkill: true, tags: [IGNITE_TAG] });
               battle.fx('explosion', { x, y, id: unit.id, r: IGNITE_RADIUS, dmgType: 'arts' });
@@ -158,18 +165,17 @@ export default {
         } },
       ],
       install(battle, unit) {
-        // module traits (none on the normal form): CCR-X 无视目标10点法术抗性, CCR-Y SP per hit on an elite / leader
+        // module traits (none on the normal form): CCR-X 无视目标10点法术抗性, CCR-Y SP per damage on an elite / leader
         if (!roguelikeOnly(chess)) {
           const tb = traitBb(chess);
           const pen = num(tb.magic_resist_penetrate_fixed);
           if (pen > 0) statBuff(battle, unit, 'trait:amgoat:resIgnore', { resIgnoreFlat: pen });
           const sp = num(tb.sp);
           if (sp > 0) {
-            battle.on('damaged', (ctx) => {
-              const d = ctx.dmg;
-              if (ctx.source !== unit || !d || !d.isAttack || d.isSplash || tagged(d, IGNITE_TAG) || !isEliteEnemy(ctx.target)) return;
+            onHitBy(battle, unit, (ctx) => {
+              if (!ctx.dmg || ctx.dmg.type === 'element' || !isEliteEnemy(ctx.target)) return;
               giveSp(unit, sp, 'trait');
-            }, { owner: unit });
+            });
           }
         }
         const sid = unit.skill?.id;

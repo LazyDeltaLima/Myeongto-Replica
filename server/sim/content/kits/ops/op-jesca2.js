@@ -54,9 +54,12 @@
 //   is cleared, not restarted; confirmed in the official client); it flies at BOMB_SPEED from her
 //   position to the centre of the farthest tile straight ahead of her current range, hits the first enemy it touches
 //   (BOMB_HIT_RADIUS, ground or air) or the end point, and explodes: every selectable enemy within
-//   attack@extrabomb.projectile_range takes attack@extrabomb.atk_scale × her ATK at the launch, physical (普通伤害, dodgeable),
-//   and is stunned attack@extrabomb.stun s (not when it dodged the hit [ASSUMED·not checked: the explosion projectile's
-//   hit behaviour]). The skill's end drops a pending shell.
+//   attack@extrabomb.projectile_range is stunned attack@extrabomb.stun s, then takes attack@extrabomb.atk_scale × her ATK at
+//   the launch, physical (普通伤害, dodgeable) — the stun lands even when it dodges the damage: the stun is the ExtraBomb
+//   ability's _activeBuffs, the shell itself adds none (_dontAddBuffs) and emits projectile_chr_jesca2_s3_explosion, which
+//   attaches them to each enemy it hits before it runs its damage; a dodge only cancels the damage (the missable-buff
+//   filter is her own hit-rate roll at the cast, not the target's dodge). Confirmed in the official client. The skill's
+//   end drops a pending shell.
 
 import { num, talentBb, traitBb, moduleOn, skillRec, batMod, up, giveSp, installReveal, tellDir } from '../shared/tier1.js';
 import { offsetTile, dirFromDelta, dirVec } from '../../../dir.js';
@@ -213,13 +216,12 @@ function flyShells(battle, unit, dt) {
 
 function explode(battle, unit, s) {
   battle.fx('bombard', { x: s.x, y: s.y, id: unit.id, r: s.radius });
-  const dodged = (unit.mem.jescaDodged = new Set());
   for (const e of battle.foesInRadius(s.x, s.y, s.radius)) {
     if (!e.alive) continue;
-    battle.dealDamage(unit, e, { amount: s.atk * s.scale, type: 'phys', isSkill: true, tags: ['skill', TAG_BOMB] });
-    if (e.alive && !dodged.has(e)) battle.applyStatus(e, 'stun', { duration: s.stun, source: unit });
+    // the projectile's buffs first (the stun), then its damage — a dodged one keeps the stun
+    battle.applyStatus(e, 'stun', { duration: s.stun, source: unit });
+    if (e.alive) battle.dealDamage(unit, e, { amount: s.atk * s.scale, type: 'phys', isSkill: true, tags: ['skill', TAG_BOMB] });
   }
-  unit.mem.jescaDodged = null;
 }
 
 export default {
@@ -318,10 +320,6 @@ export default {
             fireBomb(battle, unit, b3);
           }
           flyShells(battle, unit, c.dt ?? battle.dt);
-        }, { owner: unit });
-        // a shell's explosion that is dodged carries no stun [ASSUMED·not checked]
-        battle.on('dodge', (c) => {
-          if (c.source === unit && unit.mem.jescaDodged && c.dmg?.tags?.includes(TAG_BOMB)) unit.mem.jescaDodged.add(c.target);
         }, { owner: unit });
       },
     };

@@ -55,7 +55,7 @@ function field({ tier = 5, elite = false, mod = null, skill = 0, shield = ABOVE,
   if (shield) units.push({ uid: 2, kind: 'token', tokenId: SHIELD, ownerUid: 1, row: shield.row, col: shield.col });
   const h = makeBattle({
     defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed,
-    flags: { dpInit: dp, dpPerSec: 0, dpMax: 999 }, hooks: ['damaged', 'skillStart', 'skillEnd', 'statusApplied', 'death', 'deploy', 'spGain', 'ammoUsed'], captureNoisy: true,
+    flags: { dpInit: dp, dpPerSec: 0, dpMax: 999 }, hooks: ['damaged', 'skillStart', 'skillEnd', 'statusApplied', 'death', 'deploy', 'spGain', 'ammoUsed', 'dodge'], captureNoisy: true,
     units: [...units, ...others],
   });
   h.step();
@@ -307,7 +307,7 @@ test('S3 饱和迸射 (MANUAL, the official 重装 row TAKE_DAMAGE): 20 bullets,
   }
 });
 
-test('S3 shell: with her shield next to her at the cast it flies ahead at 5 tiles / s, bursts on the first enemy it touches: every enemy within 1.7 (air units too) takes 250 % ATK physical and a 5 s stun; no bullet spent; none without a shield, one when a shield comes during the skill, held while she is disarmed', () => {
+test('S3 shell: with her shield next to her at the cast it flies ahead at 5 tiles / s, bursts on the first enemy it touches: every enemy within 1.7 (air units too) takes a 5 s stun and 250 % ATK physical (the stun stands when it dodges); no bullet spent; none without a shield, one when a shield comes during the skill, held while she is disarmed', () => {
   for (const f of [[5, false, null], [6, true, SPTY]]) {
     const [tier, elite, mod] = f;
     const sk = skillOf(tier, elite, S3);
@@ -343,6 +343,23 @@ test('S3 shell: with her shield next to her at the cast it flies ahead at 5 tile
     t.mem.readyAt = h.b.time;
     assert.ok(h.runUntil(() => t.alive, 1), label(f));
     assert.ok(h.runUntil(() => bombHits(h, u).length > hits.length, 2), `${label(f)}: a second shell`);
+    done(h);
+  }
+  // a dodged explosion still stuns: the explosion projectile attaches the ExtraBomb stun before its damage, a dodge only
+  // cancels the damage (official client)
+  {
+    const { h, u } = field({ skill: 2, shield: FRONT });
+    const ev = h.spawn('enemy_dummy', { pos: [10, 7] }), hit = h.spawn('enemy_dummy', { pos: [11, 7] });
+    h.b.addBuff(ev, { key: 'test:evade', mods: { dodgePhys: 1 } });
+    u.skill.gainSp(999);
+    u.skill.activate('test');
+    assert.ok(h.runUntil(() => bombHits(h, u).length > 0, 3), 'the shell lands');
+    h.step();
+    assert.deepEqual(bombHits(h, u).map((c) => c.target.id), [hit.id], 'the evading enemy takes no damage');
+    assert.ok(h.hooksOf('dodge').some((c) => c.target === ev && c.dmg?.tags?.includes('jesca2:bomb')), 'it dodged the explosion');
+    const stunned = h.hooksOf('statusApplied').filter((c) => c.source === u && c.status === 'stun').map((c) => c.target.id);
+    assert.deepEqual(sortN(stunned), sortN([ev.id, hit.id]), 'both stunned, the dodger too');
+    assert.ok(ev.findBuff('stun'), 'its stun stands');
     done(h);
   }
   // no shield: no shell; disarmed: it waits
