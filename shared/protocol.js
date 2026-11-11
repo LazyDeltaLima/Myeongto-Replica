@@ -500,6 +500,13 @@ export const C2S = {
   'g.equip': { itemUid: isUid, targetUid: isUid, replaceUid: nullable(isUid), $optional: ['replaceUid'] },
   'g.art': { itemUid: isUid, row: (v) => isInt(v, 0, GEO.ROWS - 1), col: (v) => isInt(v, 0, GEO.COLS - 1), dir: isDir, $optional: ['dir'] },
   'g.destroy': { uid: isUid },
+  // 规程's active 指令 (server/match/match/bandSkill.js): the strategy's current stage names its target — none (点击使用),
+  // an own operator `uid`, a 调度中心 `slot`, or a tile of the own field `row` + `col` (board coordinates); a field the
+  // stage does not ask for is BAD_TARGET
+  'g.bandSkill': {
+    uid: isUid, slot: (v) => isInt(v, 0, 15), row: (v) => isInt(v, 0, GEO.ROWS - 1), col: (v) => isInt(v, 0, GEO.COLS - 1),
+    $optional: ['uid', 'slot', 'row', 'col'],
+  },
   'g.reward': { idx: (v) => isInt(v, 0, 5) },
   // idx up to 11: an 8-player 机变 draft holds 12 cards (GameData.spDraftCards); the server checks it against the draft
   'g.choice': { idx: (v) => isInt(v, 0, 11), choiceId: isId, $optional: ['choiceId'] },

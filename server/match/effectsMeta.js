@@ -55,7 +55,7 @@ import { createRng, deriveSeed } from '../sim/rng.js';
 export const HOOKS = Object.freeze([
   'onRoundStart', 'onIncome', 'onPrepStart', 'onPrepEnd', 'onGain', 'onSold', 'onRefresh', 'onPrice', 'onBuy',
   'onSpend', 'onMerge', 'onLevelUp', 'onBattleStart', 'onBattleResult', 'onChoicePick', 'onEquip', 'onArt',
-  'onDestroy', 'onLayers', 'onActiveBonds',
+  'onDestroy', 'onLayers', 'onActiveBonds', 'onBandSkill', 'onBandSkillUsed',
 ]);
 /** Non-hook members a handler object may carry. */
 const HANDLER_EXTRAS = new Set(['run', 'garrisonHooks']);

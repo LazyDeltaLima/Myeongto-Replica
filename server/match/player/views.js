@@ -76,6 +76,8 @@ export class PlayerViews {
       lp: this.lp,
       funds: this.funds,
       bandId: this.bandId,
+      // 规程's active 指令: stage, cost, uses, cooldown, usable (server/match/match/bandSkill.js bandSkillView)
+      bandSkill: typeof this.m.bandSkillView === 'function' ? this.m.bandSkillView(this) : null,
       ready: this.ready,
       canReady: this.alive && !this.personalChoice && this.m.phase === PHASE.PREP,
       personalChoice: this.personalChoice ? {
