@@ -29,7 +29,6 @@ const LEADER_FIELD = [];
 const SPECIAL_TYPE = [
   'enemy_10163_mnctur_2', 'enemy_1064_snsbr', 'enemy_1067_snslime_2',
   'enemy_1309_mhboar_2', 'enemy_1363_spnshd_2',
-  'enemy_1385_winbom', 'enemy_1385_winbom_2', 'enemy_1388_wingnt', 'enemy_1388_wingnt_2',
   'enemy_1428_lrsoul', 'enemy_1429_lrwzrd', 'enemy_1429_lrwzrd_2', 'enemy_1431_lrmzrd', 'enemy_1431_lrmzrd_2',
   'enemy_9031_acrefd', 'enemy_9034_acblk', 'enemy_9039_acrefm',
 ];
@@ -1431,5 +1430,102 @@ test('残党乐团鼓手: range 1.5 (the prefab\'s, the table −1); 2 attacks, 
       assert.ok(near.filter((x) => x.at < casts[0]).length === 2, 'two attacks before the first cast');
       assert.ok(near.some((x) => Math.abs(x.at - blast[0].at) < 1e-6), 'the blast takes the wall in range too');
     }
+  }
+});
+
+const WINGNT = 'enemy_1388_wingnt', WINBOM = 'enemy_1385_winbom';
+
+test('“投石机”: its first attack lobs an arts ATK × 1.5 snowball (range 2.5) on the target and the 4 tiles beside it; then the mode Normal, melee', () => {
+  assert.deepEqual([E3[WINGNT].stats.rangeRadius, E3[WINGNT].stats.rawRangeRadius, E3[WINGNT].talents.bb['FirstAttack.attack@first_atk_scale'], E3[WINGNT].proj.move],
+    [0, 2.5, 1.5, 'PARACURVE']);
+  for (const key of [WINGNT, `${WINGNT}_2`]) {
+    // the target 2.6 tiles away (the only one in reach: 2.5 + the collider); beside it a wall in its row and one in its
+    // column (in the cross), one on its diagonal and one 2 tiles along its row (out of it)
+    const { h, hits } = waveField([key], walls([[10, 4], [10, 3], [9, 4], [9, 3], [10, 2]]));
+    const e = put(h, key, [10, 6.6], { tag: null });
+    const types = new Set();
+    h.b.on('damaged', (c) => { if (c.source === e) types.add(c.dmg.type); });
+    h.runUntil(() => hits.length > 0, 10);
+    const atk = E3[key].stats.atk;
+    runFor(h, 0.1);
+    assert.equal(hits.length, 3, 'three units struck');
+    assert.deepEqual([1, 2, 3].map((u) => hits.filter((x) => x.t === h.unit(u)).length), [1, 1, 1], 'the target, the one beside it and the one above');
+    assert.ok(hits.every((x) => Math.abs(x.n - atk * 1.5) < 1e-6) && [...types].join() === 'arts', 'arts ATK × 1.5 (RES 0)');
+    runFor(h, 1.5);
+    assert.ok(e.mode === 'Normal' && e.profile.melee, 'the cast over: the mode Normal, melee');
+    runFor(h, 15);
+    assert.equal(hits.length, 3, 'unblocked, its melee reaches nobody: one snowball only');
+  }
+  // stunned before its strike: no snowball, still the Default mode — and its next attack throws it
+  const { h, hits } = waveField([WINGNT], walls([[10, 4]]));
+  const e = put(h, WINGNT, [10, 6.4], { tag: null });
+  h.runUntil(() => !!e.swing, 10);
+  h.b.applyStatus(e, 'stun', { duration: 2, source: null });
+  runFor(h, 1.9);
+  assert.ok(e.mode !== 'Normal' && hits.length === 0, 'cut before the strike: no throw, Default');
+  h.runUntil(() => hits.length > 0, 10);
+  runFor(h, 1.5);
+  assert.equal(e.mode, 'Normal', 'thrown later: Normal');
+});
+
+test('“喷射罐”: a 4 s arts channel of 3 hits (0.6, 1.6, 2.6 s), then 3 s 缴械; knocked out, arts ATK + 10 s cold on the ground units within 1.55 1 s later', () => {
+  const bb = E3[WINBOM].talents.bb;
+  assert.deepEqual([bb['Boom.attack@times'], bb['Boom.attack@cooldown'], bb['Boom.attack@attack_cd'], bb['Boom.atk_scale'], bb['Boom.freeze'], E3[WINBOM].stats.rangeRadius],
+    [3, 4, 3, 1, 10, 1]);
+  for (const key of [WINBOM, `${WINBOM}_2`]) {
+    const { h, hits } = waveField([key], walls([[10, 5]]));
+    const e = put(h, key, [10, 6], { tag: null });
+    const types = new Set();
+    h.b.on('damaged', (c) => { if (c.source === e) types.add(c.dmg.type); });
+    h.runUntil(() => hits.length >= 6, 30);
+    const atk = E3[key].stats.atk;
+    assert.ok(hits.every((x) => Math.abs(x.n - atk) < 1e-6) && [...types].join() === 'arts', 'arts ATK × 1 (RES 0)');
+    const at = hits.map((x) => x.at - hits[0].at);
+    for (const [i, want] of [[1, 1], [2, 2], [3, 7], [4, 8], [5, 9]]) assert.ok(Math.abs(at[i] - want) < 0.05, `hit ${i} at ${at[i].toFixed(3)} (${want})`);
+    assert.ok(e.stats.attacks === 2, 'two attacks: one for each channel');
+  }
+  // the 缴械 after the channel
+  {
+    const { h, hits } = waveField([WINBOM], walls([[10, 5]]));
+    const e = put(h, WINBOM, [10, 6], { tag: null });
+    h.runUntil(() => hits.length >= 1, 10);
+    const t0 = hits[0].at - 0.6;
+    h.runUntil(() => h.b.time >= t0 + 4.3, 10);
+    assert.ok(e.s.flags.disarm, 'enemy_winbom_attack_cd: disarmed after the channel');
+    h.runUntil(() => h.b.time >= t0 + 7.1, 10);
+    assert.ok(!e.s.flags.disarm, '3 s');
+  }
+  // a stun at 1 s cuts the channel: no third hit, 缴械 from then — and its cooldown (4 s from the cast) the next attack's
+  {
+    const { h, hits } = waveField([WINBOM], walls([[10, 5]]));
+    const e = put(h, WINBOM, [10, 6], { tag: null });
+    h.runUntil(() => hits.length >= 1, 10);
+    const t0 = hits[0].at - 0.6;
+    h.runUntil(() => h.b.time >= t0 + 1.7, 10);
+    h.b.applyStatus(e, 'stun', { duration: 0.5, source: null });
+    runFor(h, 0.1);
+    assert.ok(e.s.flags.disarm, 'the cut cast ends too: 缴械');
+    h.runUntil(() => hits.length >= 3, 10);
+    assert.ok(Math.abs(hits[2].at - t0 - 1.7 - 3 - 0.6) < 0.1, `the next channel once the 3 s are over (${(hits[2].at - t0).toFixed(2)})`);
+  }
+  // knocked out
+  for (const silence of [false, true]) {
+    // a wall 1 tile from it, one 2 tiles; an enemy beside it
+    const { h, hits } = waveField([WINBOM], walls([[10, 5], [10, 8]]));
+    const e = put(h, WINBOM, [10, 6.4], { tag: null });
+    const near = put(h, KRGRG, [10, 7], { tag: null });
+    if (silence) h.b.applyStatus(e, 'silence', { duration: 10, source: null });
+    h.step();
+    const w = h.unit(1);
+    h.b.kill(e, w);
+    const n0 = hits.length;
+    runFor(h, 0.95);
+    assert.equal(hits.length, n0, 'not before the projectile\'s 1 s life ends');
+    runFor(h, 0.1);
+    const got = hits.slice(n0);
+    if (silence) { assert.equal(got.length, 0, 'silenced: no blast'); continue; }
+    assert.deepEqual(got.map((x) => x.t), [w], 'the wall within 1.55 only — not the one 1.6 away, not the enemy');
+    assert.ok(Math.abs(got[0].n - E3[WINBOM].stats.atk) < 1e-6, 'arts ATK × 1');
+    assert.ok(w.findBuff('cold') && !h.unit(2).findBuff('cold') && !near.findBuff('cold'), '10 s cold on the operators\' side');
   }
 });

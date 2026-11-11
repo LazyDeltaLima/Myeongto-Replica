@@ -6,7 +6,7 @@
 // enemies, and none of the kits below reads the type.
 
 import { canTargetAlly, areaSelectable } from '../../targeting.js';
-import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
+import { ALLY_COLLIDER_RADIUS, TICK } from '../../constants.js';
 import { T, hurt, areaAllies, lineShot, shoot, atCastEvent, mode, setForm, targetsNear, byPriority } from './helpers.js';
 import { unbalancedBleed, skill } from './archetypes.js';
 import { hypot } from '../../detmath.js';
@@ -525,6 +525,161 @@ function kitBandDrummer(ab) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// “投石机” / “榴弹炮” and “喷射罐” / “喷爆罐” (enm_pfb_15)
+
+/**
+ * “投石机”'s snowball, projectile_enemy_wingnt (battle/prefabs/[uc]projectiles): two BoxCollider2D, 1 × 3 and 3 × 1, about
+ * its centre — a cross —, its HitBehaviour taking every ally (`targetMotion` 3: ground and air, `_ignoreCamouflage`) whose
+ * collider meets either box as it arrives (`_onlyCheckHitWhenReachTarget`, as 寻路者破阵者's shell). Half sizes.
+ */
+const WINGNT_CROSS = [[0.5, 1.5], [1.5, 0.5]];
+
+/** Does an ally's collider (ALLY_COLLIDER_RADIUS) at (ux, uy) meet the box of half sizes `hw` × `hh` about (x, y)? */
+function inBox(ux, uy, x, y, hw, hh) {
+  const dx = Math.max(0, Math.abs(ux - x) - hw), dy = Math.max(0, Math.abs(uy - y) - hh);
+  return dx * dx + dy * dy <= ALLY_COLLIDER_RADIUS * ALLY_COLLIDER_RADIUS + 1e-9;
+}
+
+/**
+ * “投石机” / “榴弹炮” (enm_pfb_15; the handbook lines are NORMAL — nothing silenceable). Two prefab modes:
+ * - Default: its only ability (`_attack` and `_combat` alike) is a RangedAttack in its A_Attack clip — the table's
+ *   rangeRadius is 0 (applyWay MELEE), the official one `rawRangeRadius` (2.5, the selector's CircleRange × it), ground
+ *   and air, its blocker too — that lobs projectile_enemy_wingnt (PARACURVE 4 tiles/s, on a dead target too:
+ *   `_alwaysHitTraceTargetInTheEnd`) for arts ATK × `FirstAttack.attack@first_atk_scale` (1.5; the RangedAttack's
+ *   `_damageType` MAGICAL — the handbook's PHYSIC is its melee, PRTS 「首次攻击…法术伤害」) on every ally in its cross
+ *   (WINGNT_CROSS: the target's tile and the 4 beside it);
+ * - Normal (clips B_*): a MeleeAttack, physical ATK on its blocker.
+ * The switch: its RangedAttack's BuffToOwner gives it enemy_wingnt_first_atk[succes_flag] at ON_SPELL_END and
+ * enemy_wingnt_t[check_mode] at ON_CAST_END, whose ON_BUFF_START switches to Normal when the flag is there (SwitchMode
+ * `_restartFSM` off) and clears it. ON_CAST_END comes however the cast ends — AbilityStandard.OnCastEnd raises it for any
+ * finish reason (공식 클라에서 확인) —, so a throw stunned after its strike still ends the Default mode, one cut before
+ * it does not.
+ */
+function kitSnowballer(ab, e) {
+  const scale = T(ab, 'FirstAttack.attack@first_atk_scale') ?? 1;
+  const range = (e.def.raw && e.def.raw.stats && e.def.raw.stats.rawRangeRadius) || 0;
+  const shot = e.def.proj || null;
+  const melee = (b, e2) => {
+    mode(b, e2, 'Normal', false);
+    setForm(b, e2, 'Normal');   // the view's B_* clips (fx 'phase')
+    e2.profile.melee = true;
+    e2.profile.deferHit = false;
+  };
+  return [{
+    spawn(b, e2, a) {
+      a.thrown = false;
+      e2.base.rangeRadius = Math.max(e2.base.rangeRadius || 0, range);
+      e2.profile.melee = false;
+      e2.profile.deferHit = true;
+      e2.profile.shot = 'none';
+    },
+    // the cast's end (its clip played out, or cut): enemy_wingnt_t[check_mode]
+    tick(b, e2, a) {
+      if (a.thrown && !(e2.castLeft > 0) && !e2.swing && e2.mode !== 'Normal') melee(b, e2);
+    },
+    attack(c, b, e2, a) {
+      if (e2.mode === 'Normal' || a.thrown) return;
+      const t = c.targets[0];
+      if (!t) return;
+      a.thrown = true;   // succes_flag: the spell ended
+      const x = t.x, y = t.y;
+      shoot(b, e2, t, shot, () => {
+        b.fx('explode', { x, y, r: 1.5, kind: 'wingnt', tiles: 'plus', id: e2.id });
+        for (const o of b.allies()) {
+          if (!o.alive || !o.deployed || !areaSelectable(e2, o)) continue;
+          if (!WINGNT_CROSS.some(([hw, hh]) => inBox(o.x, o.y, x, y, hw, hh))) continue;
+          b.dealDamage(e2, o, { amount: e2.s.atk * scale, type: 'arts', isAttack: true, isProjectile: true, tags: o === t ? [] : ['splash'] });
+        }
+      }, { hitDead: true });
+    },
+  }];
+}
+
+/**
+ * “喷射罐”'s normal attack, Default/Body/Flame (a MultiMeleeAttack with a ThreePartChannelingAnimation): `_timeMode` 3 —
+ * its attack time is the talent blackboard's `Boom.attack@cooldown` (4 s), not the attack interval («普通攻击不依赖攻击间隔») —
+ * and ThreePartChannelingAnimation.UpdatePlaybackSpeed plays Attack_Begin (0.6 s) and Attack_End (0.267 s) as they are
+ * with the loop in between (an attack time longer than the two clips: scale 1, the loop the rest — 공식 클라에서
+ * 확인); `_waitAttackEventForAllAttacks`: one hit at each
+ * OnAttack event, Attack_Loop's at its 0 s — so 0.6, 1.6, 2.6 s for its `Boom.attack@times` (3) hits.
+ */
+const WINBOM_BEGIN = 0.6, WINBOM_LOOP = 1;
+/**
+ * “喷射罐”'s knock-out blast, projectile_enemy_winbom: its CircleCollider2D radius and LIMITED `_lifeTime` (no movement,
+ * `_alwaysReachInTheEnd` with `_onlyCheckHitWhenReachTarget` — it strikes as its life ends, as 冰原卫法者's).
+ */
+const WINBOM_BLAST_RADIUS = 1.55, WINBOM_BLAST_DELAY = 1;
+
+/**
+ * “喷射罐” / “喷爆罐” (enm_pfb_15). Its normal attack (WINBOM_BEGIN): an arts channel on its target within range (1, ground
+ * and air) — `Boom.attack@times` hits of arts ATK × 1 (the ability's `atk_scale`, none in the blackboard) over
+ * `Boom.attack@cooldown` s standing, and as the cast ends (ON_CAST_END, for any finish reason — AbilityStandard.OnCastEnd)
+ * BuffToOwner enemy_winbom_attack_cd: DISARMED for `Boom.attack@attack_cd` (3) s — the next attack 7 s after the last
+ * began (PRTS 「单次普通攻击持续4s…结束后进入3s冷却」). Talents/Boom (BslimeTalent_1, SILENCE line): knocked out, not while
+ * 沉默 (projectile_on_killed), projectile_enemy_winbom where it fell — WINBOM_BLAST_DELAY s later arts ATK ×
+ * `Boom.atk_scale` (AdvancedApplyDamage MAGICAL, SPLASH) and `Boom.freeze` (10) s of 寒冷 (`_projectileBuffs` e2c_cold) on
+ * the ground allies within WINBOM_BLAST_RADIUS (HitBehaviour `targetSide` 2: the operators' side only). Its
+ * enemy_winbom_t[extinguish] puts out 紧急供暖器 (trap_winfire) in its 3 × 3, which no 规程 field has. The battle waits
+ * for the blast.
+ * [추정·미조사: each hit strikes the target the channel began on, none once it has fallen — whether MultiMeleeAttack picks
+ * again for its later hits was not read]
+ */
+function kitJetCanister(ab) {
+  const times = Math.max(1, T(ab, 'Boom.attack@times') ?? 1), chan = T(ab, 'Boom.attack@cooldown') ?? 0;
+  const rest = T(ab, 'Boom.attack@attack_cd') ?? 0;
+  const scale = T(ab, 'Boom.atk_scale') ?? 0, cold = T(ab, 'Boom.freeze') ?? 0;
+  const CD = 'ab:winbomAttackCd';
+  return [{
+    spawn(b, e) {
+      e.profile.deferHit = true;
+      e.profile.shot = 'none';
+    },
+    // the channel's end, played out or cut: enemy_winbom_attack_cd
+    tick(b, e, a) {
+      if (!a.chan || e.castLeft > 0) return;
+      a.chan = false;
+      if (rest > 0) b.addBuff(e, { key: CD, duration: rest, flags: { disarm: true } });
+    },
+    attack(c, b, e, a) {
+      const t = c.targets[0];
+      if (!t || !(chan > 0)) return;
+      a.chan = true;
+      // the ability's cooldown, its attack time, runs from the cast's start; one frame more, so the frame the channel ends
+      // (ai.js counts castLeft and atkCd down before it looks for a swing, the content's tick after) starts no swing
+      // before enemy_winbom_attack_cd is on
+      e.atkCd = chan + TICK;
+      e.castLeft = chan;
+      e.castSwing = true;
+      e.atkStandUntil = Math.max(e.atkStandUntil, b.time + chan);
+      const hit = () => {
+        if (!e.alive || !(e.castLeft > 0) || !t.alive || !t.deployed) return;
+        b.dealDamage(e, t, { amount: e.s.atk, type: 'arts', isAttack: true });
+      };
+      // the swing struck at Attack_Loop's event (data attackAnim hit 0): the channel's start
+      for (let i = 0; i < times; i++) {
+        const at = WINBOM_BEGIN + i * WINBOM_LOOP;
+        if (at < chan - 1e-9) b.after(at - 1e-9, hit, { owner: e });
+      }
+    },
+  }, {
+    sil: true,
+    death(c, b, e) {
+      if (c.reason !== 'killed') return;
+      const x = e.x, y = e.y, atk = e.s.atk;
+      b.fx('telegraph', { x, y, r: WINBOM_BLAST_RADIUS, dur: WINBOM_BLAST_DELAY, kind: 'deathBoom', id: e.id, ability: 'Boom' });
+      b.after(WINBOM_BLAST_DELAY, () => {
+        b.fx('explode', { x, y, r: WINBOM_BLAST_RADIUS, kind: 'deathBoom', id: e.id, ability: 'Boom' });
+        for (const u of areaAllies(b, e, x, y, WINBOM_BLAST_RADIUS)) {
+          if (u.isFlying) continue;
+          if (scale > 0) hurt(b, e, u, atk * scale, 'arts', { tags: ['splash'] });
+          if (cold > 0 && u.alive) b.applyStatus(u, 'cold', { duration: cold, source: e });
+        }
+      }, { holdsBattle: true });
+    },
+  }];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // this module's part of KITS
 
 export const CRITIC_KITS = {
@@ -544,4 +699,8 @@ export const CRITIC_KITS = {
   enemy_1375_ltnclr_2: kitBandClarinet,                    // 巫王乐团管乐家 · same
   enemy_1376_ltndru: kitBandDrummer,                       // 残党乐团鼓手 · 2 attacks, then arts ATK within 2
   enemy_1376_ltndru_2: kitBandDrummer,                     // 巫王乐团鼓手 · same
+  enemy_1388_wingnt: kitSnowballer,                        // “投石机” · first: an arts ATK × 1.5 cross snowball (2.5), then melee
+  enemy_1388_wingnt_2: kitSnowballer,                      // “榴弹炮” · same
+  enemy_1385_winbom: kitJetCanister,                       // “喷射罐” · 4 s channel of 3 arts hits, 3 s rest; knocked out: arts + 10 s cold within 1.55
+  enemy_1385_winbom_2: kitJetCanister,                     // “喷爆罐” · same
 };
