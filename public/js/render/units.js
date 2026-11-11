@@ -2560,8 +2560,9 @@ function defaultInterval(ctx, info) {
  * model / plate is centred on its ground point — the pointer (render/app.js moveDragVisual); it drops on (and equips
  * the unit on) the tile under the pointer.
  * The model's size is the prefab's (the standard 0.27 character scale = UNIT.modelScale), standing still on the ground
- * like the prefab's single 0 s Default clip [ASSUMED·화면: the official hand-slot item not compared with an official
- * screen yet — height, bob, shadow and the drag pose follow the prefab and the plate].
+ * like the prefab's single 0 s Default clip — on the floor and not bobbing, as on the official prep screen (maintainer
+ * check 2026-11-11) [ASSUMED·화면: the shadow and the drag pose still follow the plate; officially the item stays in its
+ * slot outlined while an outline-less copy follows with its feet at the pointer — docs/rules/render.md 「손 칸 장비 모델」].
  */
 export class ItemView {
   constructor(ctx, info) {
