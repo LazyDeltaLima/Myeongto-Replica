@@ -470,6 +470,29 @@ export const KIT_HIT_BANKS = Object.freeze({
   // starts — the 鳍's appearance), 假想敌：茧 (隐秘核心)'s 悲惨之雨 tile listeners' end (`_effectSettings` endAudioSignal acid_rain)
   'aceel:thunder': 'battle.ON_BUFF_START.Aceel_ThurderEnv',
   'acspider:rainend': 'battle.ON_CUSTOM_TRIGGER.acid_rain',
+  // 2026-11-12, docs/rules/audio.md 「원소 폭발 소리」: an element burst as it starts — the enemy's burst buff carries the signal
+  // (buff table ep_break_fire / water / sanity / anger_enemy audioSignal; ep_break_dark_enemy creates a buff with it), the
+  // operator's burst template creates one (ep_break_fire / water / sanity / dark_char). START and SHOW_EFFECT both sound at
+  // the buff's start (Entity.OnBuffStart → AddBuffEffect); only 灼燃 has a SHOW_EFFECT bank
+  'ep:fire': 'battle.ON_BUFF_START.ep_break_fire_audio',
+  'ep:fireshow': 'battle.ON_BUFF_SHOW_EFFECT.ep_break_fire_audio',
+  'ep:water': 'battle.ON_BUFF_START.ep_break_water_audio',
+  'ep:sanity': 'battle.ON_BUFF_START.ep_break_sanity_audio',
+  'ep:dark': 'battle.ON_BUFF_START.ep_break_dark_audio',
+  'ep:anger': 'battle.ON_BUFF_START.ep_break_anger_audio',
+  // 2026-11-12 (EN prefabs and buff templates): a 萨卡兹子裔 knocked out — enemy_vampires[bloodsucker_summon] (ON_OWNER_KILLED,
+  // not a FALLDOWN: CreateBuff with audioSignal bloodsucker_summon[audio]) / enemy_dthrow_summon[dzoms] (PlayAudio
+  // enemy_summon_dzoms), both as it falls, before the summon's delay; 魂灵法骸 / 魂灵残迹 taking a soul (…[captureSoul]'s soulBuff,
+  // audioSignal enemy_lrmzrd / lrwzrd_capture_soul); 神勇的帕拉杜利斯 setting off (Skills/rush ActionToOwner: SwitchMode Run +
+  // PlayAudio enemy_mnctur_run) and striking (enemy_mnctur_collide_char PlayAudio enemy_mnctur_rush_hit); 假想敌：镜眼's
+  // slow put on an arts attacker (acrefm[atk-spd-down] audioSignal enemy_9039_acrefm.refracting: a SHOW_EFFECT bank)
+  'bloodsucker:summon': 'battle.ON_BUFF_START.bloodsucker_summon[audio]',
+  'dzoms:summon': 'battle.ON_CUSTOM_TRIGGER.enemy_summon_dzoms',
+  'lrmzrd:capture': 'battle.ON_BUFF_START.enemy_lrmzrd_capture_soul',
+  'lrwzrd:capture': 'battle.ON_BUFF_START.enemy_lrwzrd_capture_soul',
+  'mnctur:run': 'battle.ON_CUSTOM_TRIGGER.enemy_mnctur_run',
+  'mnctur:hit': 'battle.ON_CUSTOM_TRIGGER.enemy_mnctur_rush_hit',
+  'acrefm:slow': 'battle.ON_BUFF_SHOW_EFFECT.enemy_9039_acrefm.refracting',
 });
 
 /**

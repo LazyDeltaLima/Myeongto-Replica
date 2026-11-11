@@ -142,6 +142,42 @@ const REVIVE_SOUNDS = Object.freeze({
 const ENEMY_STATUS_OFF_SOUNDS = Object.freeze({ enemy_2004_balloon: Object.freeze({ 'ab:takeoff': 'balloon:land' }) });
 export function enemyStatusOffSound(key, holderDef) { return ENEMY_STATUS_OFF_SOUNDS[holderDef]?.[key] ?? null; }
 /**
+ * 2026-11-12, docs/rules/audio.md 「원소 폭발 소리」: the `sfx.kit` keys of an element burst (sim fx 'burst' { id, element }) as it
+ * starts, by the sim's element (burn 灼燃 = FIRE, erosion 侵蚀 = WATER, neural 神经损伤 = SANITY, apoptosis 凋亡 = DARK, rampage
+ * 狂躁 = ANGER). Both sides sound, except an operator's 狂躁 (ep_break_anger_char creates no buff with a signal).
+ */
+const BURST_SOUNDS = Object.freeze({
+  burn: Object.freeze(['ep:fire', 'ep:fireshow']), erosion: Object.freeze(['ep:water']), neural: Object.freeze(['ep:sanity']),
+  apoptosis: Object.freeze(['ep:dark']), rampage: Object.freeze(['ep:anger']),
+});
+export function elementBurstSounds(ex, unitOf) {
+  const keys = ex && BURST_SOUNDS[ex.element];
+  if (!keys) return [];
+  return ex.element === 'rampage' && unitOf(ex.id)?.side !== 'enemy' ? [] : keys;
+}
+/**
+ * 2026-11-12: a 萨卡兹子裔's knock-out sound (sim 'die' with reason 'killed'): the template that summons its 重生造物 sounds
+ * as it falls (enemy_vampires[bloodsucker_summon] — 战士 / 工匠 / 链术师 / 集恨者 —, enemy_dthrow_summon[dzoms] — 轰击者 /
+ * 责罚者; EN client prefabs), not when the summon comes `delay` s later.
+ */
+const REBORN_SUMMON_SOUNDS = Object.freeze({
+  enemy_1222_dpvt: 'bloodsucker:summon', enemy_1222_dpvt_2: 'bloodsucker:summon', enemy_1223_dmech: 'bloodsucker:summon',
+  enemy_1223_dmech_2: 'bloodsucker:summon', enemy_1225_dkmage: 'bloodsucker:summon', enemy_1225_dkmage_2: 'bloodsucker:summon',
+  enemy_1226_dklord: 'bloodsucker:summon', enemy_1226_dklord_2: 'bloodsucker:summon',
+  enemy_1361_dthrow: 'dzoms:summon', enemy_1361_dthrow_2: 'dzoms:summon', enemy_1362_dfat: 'dzoms:summon', enemy_1362_dfat_2: 'dzoms:summon',
+});
+export function knockOutSound(def, reason) { return reason === 'killed' ? REBORN_SUMMON_SOUNDS[def] ?? null : null; }
+const MNCTUR = /^enemy_10163_mnctur/;
+/**
+ * 2026-11-12: 神勇的帕拉杜利斯's charge ending (sim fx 'enemySkill' rushEndNormal): its collision's sound when it struck a unit
+ * in this batch (its 'dmg', 6th field = the attacker — in Run it has no attack, so its only damage is the collision; the
+ * sim plays rushEndNormal right after it), none when it reached the spot with nobody met.
+ */
+export function mncturHitSound(ex, unitOf, batch) {
+  if (!ex || ex.ability !== 'rushEndNormal' || !MNCTUR.test(unitOf(ex.id)?.def || '') || !Array.isArray(batch)) return null;
+  return batch.some((x) => Array.isArray(x) && x[0] === 'dmg' && x[5] === ex.id) ? 'mnctur:hit' : null;
+}
+/**
  * 2026-11-03, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」: the `sfx.kit` keys (with a delay in game seconds, or null) an
  * enemy's buff or custom-trigger sound plays on for a sim fx event, from the EN client's enemy prefabs and buff templates —
  * a prisoner's 【解放】 (fx 'liberate', `forced` when another freed it), 阿利斯泰尔's piece picked up and vest taken, 绯红歌伶's
@@ -167,8 +203,12 @@ export function enemyBuffSounds(fx, ex, unitOf) {
       if (ex.kind === 'shotDown') { const d = def(ex.id); return d === 'enemy_9014_acstma' ? [['acstma:stun', null]] : d === 'enemy_9015_acstmb' ? [['acstmb:stun', null]] : []; }
       // acdums_t_1's switch after its hits (not the form a summon starts in or a 管 / 弦 hands it): to Passion switch_a
       if (ex.hit && (ex.kind === 'echo_gold' || ex.kind === 'echo_dark')) return [[ex.kind === 'echo_gold' ? 'acdums:switcha' : 'acdums:switchb', null]];
+      // 2026-11-12: 神勇的帕拉杜利斯 setting off on its charge (Skills/rush's ActionToOwner: SwitchMode Run, PlayAudio)
+      if (ex.form === 'Run' && MNCTUR.test(def(ex.id))) return [['mnctur:run', null]];
       return [];
     }
+    // 2026-11-12: 魂灵法骸 / 魂灵残迹 taking a soul (…[captureSoul]: soulBuff with its audioSignal, below 3 souls)
+    case 'capture': { const d = def(ex.id); return /^enemy_1431_lrmzrd/.test(d) ? [['lrmzrd:capture', null]] : /^enemy_1429_lrwzrd/.test(d) ? [['lrwzrd:capture', null]] : []; }
     case 'explode': return ex.kind === 'echoPulse' ? [['acdums:aoe', null]] : ex.kind === 'boil' && ex.n > 0 ? [['cjhot:hit', null, ex.n]]
       : ex.kind === 'flameVine' ? [['ftsjc:aoe', null]] : [];
     case 'steal': return /^enemy_10084_hlegle/.test(def(ex.from)) ? [['hlegle:steal', null]] : [];
@@ -191,7 +231,12 @@ export function enemyBuffSounds(fx, ex, unitOf) {
  * templates): her S1 屏障 tocka_s1[shield], S2 attack speed tocka_s2[auto_skill], S3 ATK tocka_s3[bonus] (on the ally and
  * on her) — the SHOW_EFFECT banks too: Entity.OnBuffStart → AddBuffEffect sounds them at the buff's start.
  */
-const STATUS_SOUNDS = Object.freeze({ 'tocka:shield': 'tocka:s1shield', 'tocka:auto': 'tocka:s2auto', 'tocka:bonus': 'tocka:s3bonus' });
+const STATUS_SOUNDS = Object.freeze({
+  'tocka:shield': 'tocka:s1shield', 'tocka:auto': 'tocka:s2auto', 'tocka:bonus': 'tocka:s3bonus',
+  // 2026-11-12: 假想敌：镜眼's slow on an arts attacker (acrefm[atk-spd-down], EXTEND: a refresh is no new start — nor here, the
+  // sim's 'status' on comes only as it is first put on)
+  'ab:acrefmSlow': 'acrefm:slow',
+});
 /**
  * A catalogue status by its applier's model (the sim 'status' 5th field): 予愿安洁莉娜 S2's sweep — 浮空 / 缚地 on each enemy
  * it reaches (aglna2_s_2[enemy] CreateBuff audioSignal …[levitate] / …[ground_bound]) [하한: an enemy already 浮空 / 缚地 when
@@ -2433,6 +2478,7 @@ export class AudioManager {
           if (!u) continue;
           u.gone = true; // 2026-11-03 (mlyssS3Range)
           if (u.side === 'enemy') this._enemyOut(e[1], now);
+          this._kitSound(knockOutSound(u.def, typeof e[2] === 'string' ? e[2] : null)); // 2026-11-12: a 萨卡兹子裔's summon sound
           const consumed = this.consumed.delete(e[1]);
           const m = this.getManifest();
           const url = deathSfxUrl(m, u, { consumed, reason: typeof e[2] === 'string' ? e[2] : null });
@@ -2568,6 +2614,8 @@ export class AudioManager {
           }
           if (e[1] === 'link' && e[4]?.id != null) for (let i = haloLinkCount(unitOf(e[4].id), e[4].ids); i > 0; i--) this._kitSound('halo2:s3link');
           for (const [k, d, n] of enemyBuffSounds(e[1], e[4], unitOf)) if (n) this._kitSounds(k, n); else this._kitSound(k, d);
+          if (e[1] === 'burst') for (const k of elementBurstSounds(e[4], unitOf)) this._kitSound(k);   // 2026-11-12
+          if (e[1] === 'enemySkill') this._kitSound(mncturHitSound(e[4], unitOf, ev));                  // 2026-11-12
           if (e[1] === 'zone' && e[4]?.kind === 'acspiderRain') this._acidRain(e[4]);
           // 2026-11-11: 谢拉格's giant switching form (sim fx 'phase' { id, form } at the switch's start) — that ability's banks
           if (e[1] === 'phase' && e[4]?.id != null && typeof e[4].form === 'string') {
