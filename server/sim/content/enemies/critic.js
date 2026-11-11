@@ -120,12 +120,19 @@ function kitIceGuard(ab) {
  */
 function kitLinePusher(ab) {
   const s = ab.sk.PowerHit, up = (s && s.bb.atk) ?? 0;
-  const BUFF = 'ab:chghmrPower';
+  const BUFF = 'ab:chghmrPower', MARK = 'ab:chghmrMark';
   const P = { mark: true, was: false };
+  // the mark is a buff of its own, enemy_chghmr_damage_up[mark] (its effect enemy_chghmr_buff while it lasts)
+  const setMark = (b, e, on) => {
+    P.mark = on;
+    if (on) b.addBuff(e, { key: MARK, persist: true, visible: true, fxTag: 'buff:enemy_chghmr_damage_up[mark]' });
+    else b.removeBuff(e, MARK);
+  };
   return [{
+    spawn(b, e) { setMark(b, e, true); },
     tick(b, e) {
       const now = !!e.blockedBy;
-      if (P.was && !now) P.mark = true;
+      if (P.was && !now && !P.mark) setMark(b, e, true);
       P.was = now;
     },
   }, s ? {
@@ -134,7 +141,7 @@ function kitLinePusher(ab) {
       if (up) b.addBuff(e, { key: BUFF, persist: true, mods: { atkPct: up } });
       atCastEvent(b, e, s, () => {
         if (t && t.alive && t.deployed) hurt(b, e, t, e.s.atk * (s.bb.atk_scale ?? 1), 'phys');
-        P.mark = false;
+        setMark(b, e, false);
         b.removeBuff(e, BUFF);
       });
     }, { sil: true, cond: (b, e) => P.mark && !!e.blockedBy }),
@@ -211,6 +218,7 @@ function kitGrenadier(ab) {
   const light = (b, e) => {
     if (e.mode === 'Light') return;
     mode(b, e, 'Light', false);
+    setForm(b, e, 'Light');   // the view's clips and effects of the mode (fx 'phase')
     b.addBuff(e, { key: 'ab:boomerLight', persist: true, mods: { moveFlat: ms, massFlat: mass } });
   };
   const trigger = {
@@ -395,6 +403,128 @@ function kitPfHerald(ab, e) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// the 乐团 trio (残党乐团 / 巫王乐团 圆号手 · 管乐家 · 鼓手, enm_pfb_15)
+
+/**
+ * The 乐团's 变奏 is off in this mode. Each one's Talents/switchMode (PassiveBuffAbility) puts on
+ * enemy_act29side[siwtch_mode_enthu] (圆号手, 鼓手) or [siwtch_mode_depressed] (管乐家) and
+ * [switchmode_buff_creator]: both look for the environment system env_008_act29side_audio_type_switcher
+ * (CheckContainsEnvSystem) as they start and, without it, finish there — so no mode switch, no buff_enthu /
+ * buff_depressed numbers (the `switchMode.enemy_act29side[…]` blackboards), no 激昂 / 沉郁 mode abilities — and the first
+ * leaves only its decoration, [enthu_fx_deco_only] (effect common_radical_01) or [depressed_fx_deco_only]
+ * (common_gloomyl_01), not derived, for good. No 规程 level (levels/activities/act1autochess, every
+ * level_act3autochess_*) and no buff of activity_table's act3autochess has that system.
+ */
+const bandDeco = (key) => ({
+  spawn(b, e) { b.addBuff(e, { key: `ab:${key}`, persist: true, visible: true, fxTag: `buff:enemy_act29side[${key}]` }); },
+});
+
+/**
+ * 鼓手's attack range: the prefab's CircleRange (Combat / Attack / Skills/aoeAttack selectors, CircleCollider2D 1.5). Its
+ * table rangeRadius is −1, and CircleRange.InitCollidersIfNot keeps the collider's own radius for a negative one.
+ */
+const LTNDRU_RANGE = 1.5;
+/**
+ * 鼓手's aoeAttack blast: enemy_ltndru[AOE] (BuffToOwner at the clip's attack event, `lifeTime` 0.2 s — the skill
+ * blackboard has no `duration_aoe`), ON_BUFF_FINISH an AOEDamage `_radius` 2 (no `range_radius` blackboard) around it.
+ */
+const LTNDRU_AOE_DELAY = 0.2, LTNDRU_AOE_RADIUS = 2;
+/** 圆号手's attackTwoTarget: its selector BlockedOrAdvancedSelector `_maxNum` 2 (the normal attack's 1). */
+const LTNHOR_TARGETS = 2;
+/** 管乐家's atkboostCore: enemy_ltnclr[boost_atk] `triggerInterval` 0.5 s. */
+const LTNCLR_BOOST_IV = 0.5;
+
+/**
+ * The SP of 圆号手 / 鼓手 (enemy_database spData maxSp 2): +1 for each normal attack as it strikes — 圆号手's
+ * enemy_ltnhor[charge_sp] (BuffToOwner of its Combat and Attack abilities, ON_SPELL_ON: ModifySp +1; its spType
+ * INCREASE_WITH_TIME has no increment), 鼓手's INCREASE_WHEN_ATTACK —, not for its skill's cast. Its skill (EnemySkill
+ * `_familyMask` 3: blocked or not) waits for SP = `spCost` and spends it as it casts: 2 attacks, then the skill.
+ */
+function bandSp(s) {
+  const cost = s && s.sp > 0 ? s.sp : 0;
+  const P = { sp: 0 };
+  return {
+    P, cost,
+    counter: { attack() { P.sp = Math.min(cost, P.sp + 1); } },
+    ready: () => cost > 0 && P.sp >= cost,
+    spend: () => { P.sp = Math.max(0, P.sp - cost); },
+  };
+}
+
+/**
+ * 残党乐团圆号手 / 巫王乐团圆号手: after 2 attacks (bandSp) Skills/attackTwoTarget (SILENCE line; SelectorTrigger: a target
+ * in its 1.5 range) — a RangedAttack in its Attack clip on up to LTNHOR_TARGETS allies (its blocker first, then by its
+ * targeting order), each its projectile_enemy_ltnhor for physical ATK at the clip's event. bandDeco: enthu.
+ */
+function kitBandHorn(ab) {
+  const s = ab.sk.attackTwoTarget;
+  const sp = bandSp(s);
+  const pick = (b, e) => {
+    const l = byPriority(e, targetsNear(b, e, e.base.rangeRadius + ALLY_COLLIDER_RADIUS));
+    const k = e.blockedBy;
+    const out = k && l.includes(k) ? [k, ...l.filter((u) => u !== k)] : l;
+    return out.slice(0, LTNHOR_TARGETS);
+  };
+  return [bandDeco('enthu_fx_deco_only'), sp.counter, skill(s, (b, e) => {
+    sp.spend();
+    const ts = pick(b, e);
+    const scale = s.bb.atk_scale ?? 1;
+    atCastEvent(b, e, s, () => {
+      for (const t of ts) {
+        if (!t.alive || !t.deployed) continue;
+        shoot(b, e, t, s.proj, (u) => { if (u && u.alive && u.deployed) b.dealDamage(e, u, { amount: e.s.atk * scale, type: 'phys', isAttack: true, isProjectile: true }); });
+      }
+    });
+  }, { sil: true, cond: (b, e) => sp.ready() && pick(b, e).length > 0 })];
+}
+
+/**
+ * 残党乐团管乐家 / 巫王乐团管乐家 (melee: only a Combat ability, its blocker): Talents/atkboostCore — every LTNCLR_BOOST_IV s
+ * while unblocked (no enemy_ltnclr[blocked_flag], atkboostChecker's BlockedToggleChecker) a stack of
+ * enemy_ltnclr[atk_boost_stack], ATK FINAL_ADDITION `atkboostCore.atk`, below `atkboostCore.max_stack_count`; its attack's
+ * end (enemy_ltnclr[revert_atk], ON_CAST_END) clears them — the first attack after a walk carries the boost. The
+ * `atkboostCore.attack@stun_duration` stun is the 沉郁 mode's attack, off here (bandDeco: depressed).
+ */
+function kitBandClarinet(ab) {
+  const add = T(ab, 'atkboostCore.atk') ?? 0, max = T(ab, 'atkboostCore.max_stack_count') ?? 0;
+  const KEY = 'ab:ltnclrBoost';
+  const clear = (b, e) => { if (e.alive) b.removeBuff(e, KEY); };
+  return [bandDeco('depressed_fx_deco_only'), {
+    iv: LTNCLR_BOOST_IV,
+    tick(b, e) {
+      if (e.blockedBy || !(add > 0) || !(max > 0)) return;
+      b.addBuff(e, { key: KEY, refresh: 'stack', stacks: 1, maxStacks: max, persist: true, mods: { atkFinal: add } });
+    },
+    attack(c, b, e) {
+      const end = e.castLeft > 0 ? e.castLeft : 0;
+      if (end > 1e-9) b.after(end, () => clear(b, e), { owner: e });
+      else clear(b, e);
+    },
+  }];
+}
+
+/**
+ * 残党乐团鼓手 / 巫王乐团鼓手 (ranged arts, LTNDRU_RANGE): after 2 attacks (bandSp) Skills/aoeAttack (SILENCE line;
+ * AlwaysTrigger, `_allowNoTarget`) — its Attack clip, and LTNDRU_AOE_DELAY s after the clip's event arts ATK on every
+ * ally within LTNDRU_AOE_RADIUS of it (AOEDamage MAGICAL, every motion). bandDeco: enthu.
+ * [추정·미조사: whether the blast still comes when it falls within those 0.2 s — here not]
+ */
+function kitBandDrummer(ab) {
+  const s = ab.sk.aoeAttack;
+  const sp = bandSp(s);
+  return [bandDeco('enthu_fx_deco_only'), {
+    spawn(b, e) { e.base.rangeRadius = Math.max(e.base.rangeRadius || 0, LTNDRU_RANGE); },
+  }, sp.counter, skill(s, (b, e) => {
+    sp.spend();
+    atCastEvent(b, e, s, () => b.after(LTNDRU_AOE_DELAY, () => {
+      if (!e.alive) return;
+      b.fx('explode', { x: e.x, y: e.y, r: LTNDRU_AOE_RADIUS, kind: 'ltndruAoe', id: e.id, ability: 'aoeAttack' });
+      for (const u of areaAllies(b, e, e.x, e.y, LTNDRU_AOE_RADIUS)) hurt(b, e, u, e.s.atk * (s.bb.atk_scale ?? 1), 'arts', { tags: ['splash'] });
+    }, { owner: e }));
+  }, { sil: true, cond: () => sp.ready() })];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // this module's part of KITS
 
 export const CRITIC_KITS = {
@@ -408,4 +538,10 @@ export const CRITIC_KITS = {
   enemy_1213_mtrsnp: kitPfSniper,                          // 寻路者狙击手 · ammo 1: HeadShot ATK × 2
   enemy_1216_cansld: kitPfBreaker,                         // 寻路者破阵者 · melee; ammo 2: a 3 × 3 shell
   enemy_1219_mtrbty: kitPfHerald,                          // 寻路者传令兵 · melee; ammo 1: ATK × 1.5 arts + 15 s 缴械·沉默
+  enemy_1373_ltnhor: kitBandHorn,                          // 残党乐团圆号手 · 2 attacks, then 2 targets; no 变奏 here
+  enemy_1373_ltnhor_2: kitBandHorn,                        // 巫王乐团圆号手 · same
+  enemy_1375_ltnclr: kitBandClarinet,                      // 残党乐团管乐家 · unblocked ATK +30 per 0.5 s (30 max), spent by its attack
+  enemy_1375_ltnclr_2: kitBandClarinet,                    // 巫王乐团管乐家 · same
+  enemy_1376_ltndru: kitBandDrummer,                       // 残党乐团鼓手 · 2 attacks, then arts ATK within 2
+  enemy_1376_ltndru_2: kitBandDrummer,                     // 巫王乐团鼓手 · same
 };

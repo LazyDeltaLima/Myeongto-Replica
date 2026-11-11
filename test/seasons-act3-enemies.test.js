@@ -29,8 +29,7 @@ const LEADER_FIELD = [];
 const SPECIAL_TYPE = [
   'enemy_10163_mnctur_2', 'enemy_1064_snsbr', 'enemy_1067_snslime_2',
   'enemy_1309_mhboar_2', 'enemy_1363_spnshd_2',
-  'enemy_1373_ltnhor', 'enemy_1373_ltnhor_2', 'enemy_1375_ltnclr', 'enemy_1375_ltnclr_2', 'enemy_1376_ltndru',
-  'enemy_1376_ltndru_2', 'enemy_1385_winbom', 'enemy_1385_winbom_2', 'enemy_1388_wingnt', 'enemy_1388_wingnt_2',
+  'enemy_1385_winbom', 'enemy_1385_winbom_2', 'enemy_1388_wingnt', 'enemy_1388_wingnt_2',
   'enemy_1428_lrsoul', 'enemy_1429_lrwzrd', 'enemy_1429_lrwzrd_2', 'enemy_1431_lrmzrd', 'enemy_1431_lrmzrd_2',
   'enemy_9031_acrefd', 'enemy_9034_acblk', 'enemy_9039_acrefm',
 ];
@@ -1180,11 +1179,14 @@ test('战线推进者: its first attack each time it is blocked is PowerHit — 
     const e = put(h, CHGHMR, [10, 7], { move: true, tag: null });
     if (silence) h.b.applyStatus(e, 'silence', { duration: 1e3, source: null });
     const w = h.unit('t_wall');
+    h.step();
+    assert.equal(e.findBuff('ab:chghmrMark')?.fxTag, 'buff:enemy_chghmr_damage_up[mark]', 'the mark as it spawns');
     h.runUntil(() => hits.length >= 2, 30);
     const first = hits[0].n, second = hits[1].n;
     if (silence) { assert.deepEqual([first, second], [atk, atk], 'silenced: plain attacks'); continue; }
     assert.ok(Math.abs(first - atk * 1.8) < 1e-6 && Math.abs(second - atk) < 1e-6, `PowerHit then a plain attack (${first}, ${second})`);
     assert.ok(!e.findBuff('ab:chghmrPower'), 'the ATK lasts only while it casts');
+    assert.ok(!e.findBuff('ab:chghmrMark'), 'the mark spent');
     // the block ends (its blocker stunned, the enemy held where it stands) and comes back: the mark again, PowerHit again
     h.b.addBuff(e, { key: 't:hold', persist: true, flags: { noMove: true } });
     h.b.applyStatus(w, 'stun', { duration: 1, source: null });
@@ -1193,6 +1195,7 @@ test('战线推进者: its first attack each time it is blocked is PowerHit — 
     const n = hits.length;
     h.runUntil(() => hits.length > n, 30);
     assert.ok(e.blockedBy === w && Math.abs(hits[n].n - atk * 1.8) < 1e-6, `PowerHit as it is blocked again (${hits[n].n})`);
+    assert.ok(!e.findBuff('ab:chghmrMark'), 'spent again');
   }
 });
 
@@ -1258,6 +1261,7 @@ test('无畏掷弹兵: its first damage unblocked throws 4 bombs (ATK × 2 withi
     assert.deepEqual(dirs, ['1,0', '0,1', '-1,0', '0,-1'], 'four bombs, four ways');
     assert.ok(hits.every((x) => Math.abs(x.n - E3[BOOMER].stats.atk * 2) < 1e-6), 'ATK × 2');
     assert.equal(e.mode, 'Light');
+    assert.equal(e.form, 'Light', 'the view\'s form (fx phase)');
     assert.equal(e.s.massLevel, E3[BOOMER].stats.massLevel - 2);
     h.b.dealDamage(null, e, { amount: 1, type: 'true' });
     runFor(h, 3);
@@ -1328,4 +1332,104 @@ test('寻路者传令兵: HeadShot arts ATK × 1.5 and 15 s 缴械 + 沉默, the
   h.runUntil(() => hits.length >= 4, 40);
   assert.ok(e.blockedBy === h.unit(1));
   assert.deepEqual(hits.slice(0, 4).map((x) => x.n / atk), [1.5, 1.5, 1, 1]);
+});
+
+const LTNHOR = 'enemy_1373_ltnhor', LTNCLR = 'enemy_1375_ltnclr', LTNDRU = 'enemy_1376_ltndru';
+/** The 乐团 stays in its first mode with the table's numbers: no 变奏 (no env_008_act29side_audio_type_switcher here). */
+const noVariation = (e, key, deco) => {
+  assert.ok(e.mode == null || e.mode === 'Default', `${key}: its first mode`);
+  assert.equal(e.s.atk, E3[key].stats.atk, `${key}: ATK as the table`);
+  assert.ok(Math.abs(e.s.interval - E3[key].stats.bat) < 1e-9, `${key}: attack interval as the table`);
+  const d = e.findBuff(`ab:${deco}`);
+  assert.ok(d && d.fxTag === `buff:enemy_act29side[${deco}]`, `${key}: only the decoration ${deco}`);
+};
+/** Damage of `hits` grouped into volleys (hits less than 0.3 s apart). */
+const volleys = (hits) => {
+  const out = [];
+  for (const x of hits) { const v = out[out.length - 1]; if (v && x.at - v[v.length - 1].at < 0.3) v.push(x); else out.push([x]); }
+  return out;
+};
+
+test('残党乐团圆号手: 2 attacks charge its SP, then attackTwoTarget — its blocker-or-range picks, 2 units, physical ATK; silenced, 1 unit each time', () => {
+  assert.deepEqual([E3[LTNHOR].sp.maxSp, E3[LTNHOR].sp.increment, E3[LTNHOR].skills[0].spCost, E3[LTNHOR].skills[0].prefabKey], [2, 0, 2, 'attackTwoTarget']);
+  for (const key of [LTNHOR, `${LTNHOR}_2`]) {
+    for (const silence of [false, true]) {
+      // two walls 1 tile from it (in its 1.5 range), one 3 tiles away
+      const { h, hits } = waveField([key], walls([[10, 5], [11, 6], [10, 3]]));
+      const e = put(h, key, [10, 6], { tag: null });
+      if (silence) h.b.applyStatus(e, 'silence', { duration: 1e3, source: null });
+      const casts = [];
+      onSkill(h, e, (ab) => { if (ab === 'attackTwoTarget') casts.push(h.b.time); });
+      h.step();
+      noVariation(e, key, 'enthu_fx_deco_only');
+      runFor(h, E3[key].stats.bat * 6 + 1);
+      const v = volleys(hits);
+      assert.ok(v.length >= 6, `${v.length} volleys`);
+      assert.deepEqual(v.slice(0, 6).map((x) => x.length), silence ? [1, 1, 1, 1, 1, 1] : [1, 1, 2, 1, 1, 2], 'attack, attack, the skill on two');
+      if (!silence) {
+        assert.equal(casts.length, 2);
+        assert.deepEqual(new Set(v[2].map((x) => x.t)), new Set([h.unit(1), h.unit(2)]), 'the two walls in range');
+      }
+      assert.ok(hits.every((x) => Math.abs(x.n - E3[key].stats.atk) < 1e-6 && x.t !== h.unit(3)), 'physical ATK, nobody out of range');
+    }
+  }
+});
+
+test('残党乐团管乐家: ATK +30 every 0.5 s while unblocked (30 stacks at most), its first attack after the walk carries them, its attack\'s end clears them', () => {
+  const bb = E3[LTNCLR].talents.bb;
+  assert.deepEqual([bb['atkboostCore.atk'], bb['atkboostCore.max_stack_count'], E3[LTNCLR].applyWay], [30, 30, 'MELEE']);
+  const atk = E3[LTNCLR].stats.atk;
+  {
+    // standing alone: the stacks stop at 30
+    const { h } = waveField([LTNCLR], walls([[2, 2]]));
+    const e = put(h, LTNCLR, [10, 6], { tag: null });
+    h.step();
+    noVariation(e, LTNCLR, 'depressed_fx_deco_only');
+    runFor(h, 0.55);
+    assert.equal(e.findBuff('ab:ltnclrBoost')?.stacks, 1, 'the first at 0.5 s');
+    runFor(h, 20);
+    assert.equal(e.findBuff('ab:ltnclrBoost')?.stacks, 30);
+    assert.equal(e.s.atk, atk + 30 * 30, 'ATK FINAL_ADDITION 30 × 30');
+  }
+  // walking into its blocker
+  const { h, hits } = waveField([`${LTNCLR}_2`], walls([[10, 5]]));
+  const key = `${LTNCLR}_2`, atk2 = E3[key].stats.atk;
+  const e = put(h, key, [10, 8], { move: true, tag: null });
+  const w = h.unit(1);
+  h.runUntil(() => e.blockedBy === w, 20);
+  const k = e.findBuff('ab:ltnclrBoost')?.stacks ?? 0;
+  assert.ok(k >= 2, `${k} stacks on the way`);
+  h.runUntil(() => hits.length >= 1, 10);
+  assert.equal(e.findBuff('ab:ltnclrBoost')?.stacks, k, 'blocked: no more stacks; kept until the attack ends');
+  assert.ok(Math.abs(hits[0].n - (atk2 + 30 * k)) < 1e-6, `the boosted first attack (${hits[0].n})`);
+  h.runUntil(() => !e.findBuff('ab:ltnclrBoost'), 3);
+  assert.ok(!e.findBuff('ab:ltnclrBoost'), 'its attack\'s end clears them');
+  h.runUntil(() => hits.length >= 2, 10);
+  assert.ok(Math.abs(hits[1].n - atk2) < 1e-6, 'then plain arts ATK');
+});
+
+test('残党乐团鼓手: range 1.5 (the prefab\'s, the table −1); 2 attacks, then aoeAttack — arts ATK within 2, 0.2 s after its clip\'s event; silenced, none', () => {
+  assert.deepEqual([E3[LTNDRU].stats.rangeRadius, E3[LTNDRU].sp.type, E3[LTNDRU].skills[0].prefabKey, E3[LTNDRU].skillCast.aoeattack.hit], [0, 'INCREASE_WHEN_ATTACK', 'aoeAttack', 0.667]);
+  for (const key of [LTNDRU, `${LTNDRU}_2`]) {
+    for (const silence of [false, true]) {
+      // a wall 1 tile from it (in range), one 2 tiles (out of range, in the blast), one 3 tiles (neither)
+      const { h, hits } = waveField([key], walls([[10, 5], [12, 6], [10, 3]]));
+      const e = put(h, key, [10, 6], { tag: null });
+      if (silence) h.b.applyStatus(e, 'silence', { duration: 1e3, source: null });
+      const casts = [];
+      onSkill(h, e, (ab) => { if (ab === 'aoeAttack') casts.push(h.b.time); });
+      h.step();
+      noVariation(e, key, 'enthu_fx_deco_only');
+      runFor(h, E3[key].stats.bat * 7 + 1);
+      const atk = E3[key].stats.atk;
+      const blast = hits.filter((x) => x.t === h.unit(2));
+      assert.ok(hits.every((x) => Math.abs(x.n - atk) < 1e-6) && !hits.some((x) => x.t === h.unit(3)), 'arts ATK, nothing 3 tiles away');
+      if (silence) { assert.equal(blast.length + casts.length, 0, 'silenced: no blast'); continue; }
+      assert.ok(casts.length >= 2 && blast.length === casts.length, `one blast a cast (${casts.length}, ${blast.length})`);
+      assert.ok(Math.abs(blast[0].at - casts[0] - 0.667 - 0.2) < 0.04, `0.2 s after the event (${(blast[0].at - casts[0]).toFixed(3)})`);
+      const near = hits.filter((x) => x.t === h.unit(1));
+      assert.ok(near.filter((x) => x.at < casts[0]).length === 2, 'two attacks before the first cast');
+      assert.ok(near.some((x) => Math.abs(x.at - blast[0].at) < 1e-6), 'the blast takes the wall in range too');
+    }
+  }
 });
