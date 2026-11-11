@@ -10,6 +10,7 @@ import { ALLY_COLLIDER_RADIUS, TICK } from '../../constants.js';
 import { T, hurt, areaAllies, lineShot, shoot, atCastEvent, mode, setForm, targetsNear, byPriority } from './helpers.js';
 import { unbalancedBleed, skill } from './archetypes.js';
 import { hypot, sin, cos } from '../../detmath.js';
+import { hitFx } from '../../damage.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -941,7 +942,8 @@ function kitRagingBoar(ab) {
       // Crash: units entering the aura while it walks on its own
       const now = new Set(areaAllies(b, e, e.x, e.y, MHBOAR_CRASH_RADIUS + ALLY_COLLIDER_RADIUS).filter((u) => b.grid.isLow(u.tileR, u.tileC)));
       const walking = e.moving && !e.blockedBy && !held(e);
-      for (const u of now) if (!a.inside.has(u) && walking && crash > 0) hurt(b, e, u, e.s.moveSpeed * crash, 'phys', { tags: ['mhboarCrash'] });
+      // (the hit's effect moment 'buff:mhboar_crash': the crash buff's enemy_mhboar_hit_02 on the unit — display only, damage.js hitFx)
+      for (const u of now) if (!a.inside.has(u) && walking && crash > 0 && hurt(b, e, u, e.s.moveSpeed * crash, 'phys', { tags: ['mhboarCrash'] }) > 0) hitFx(b, u, 'buff:mhboar_crash', e);
       a.inside = now;
     },
     dealt(c, b, e, a) {
@@ -1022,7 +1024,8 @@ function kitParadulis(ab) {
       const hit = e.blockedBy && e.blockedBy.alive ? e.blockedBy
         : areaAllies(b, e, e.x, e.y, reach).filter((u) => !u.isFlying).sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || p.id - q.id)[0];
       if (hit) {
-        hurt(b, e, hit, e.s.atk * scale, 'phys', { tags: ['mncturRush'] });
+        // (the moment 'buff:enemy_mnctur_collide_char': its template's enemy_mnctur_rush_hit on the unit — display only, hitFx)
+        if (hurt(b, e, hit, e.s.atk * scale, 'phys', { tags: ['mncturRush'] }) > 0) hitFx(b, hit, 'buff:enemy_mnctur_collide_char', e);
         endRun(b, e);
         return;
       }

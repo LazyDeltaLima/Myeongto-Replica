@@ -34,6 +34,10 @@ export function renderInfo(u) {
     dir: typeof u.dir === 'string' ? u.dir : undefined,
     // the unit's current model form (UnitInfo.form: an enemy's mode, a 傀儡师's 替身): the view starts in it (UnitView reads info.form)
     form: typeof u.form === 'string' ? u.form : undefined,
+    // a walking ally built from an enemy record (UnitInfo `walks`: 规程's 莱塔尼亚 summons, 谢拉格's giant — sim snapshot.js
+    // unitInfo): drawn as that enemy (render/units.js enemyModel, fxgame.js erec). 2026-11-12: it was dropped here, so a
+    // real match drew them as plain summons — only views built straight from UnitInfo in tests saw it
+    walks: u.walks === true ? true : undefined,
     // DESIGN §16 loadout of an ally (UnitInfo.skillIndex / moduleId): the Spine actor plays that skill's clip, and a
     // tap hands them to the detail card (a teammate's unit shows its owner's skill / module)
     skillIndex: Number.isInteger(u.skillIndex) ? u.skillIndex : undefined,
@@ -53,4 +57,14 @@ export function renderInfo(u) {
       ? { charId: u.diy.charId, skillIndex: Number.isInteger(u.diy.skillIndex) ? u.diy.skillIndex : null, uniEquipId: typeof u.diy.uniEquipId === 'string' ? u.diy.uniEquipId : null }
       : undefined,
   };
+}
+
+/**
+ * 2026-11-12 (docs/rules/fx.md 「규정 액티브 전략의 표식·칸 이펙트」): a device made of an enemy record `rec` (宝藏探机's chest
+ * enemy_9038_achest — the client's ally unit) as the view draws it: the walking-ally path (`walks`: that enemy's model, size
+ * and bindings, an ally's bars) with the record's model and names. Any other unit (no record) unchanged — a DeviceView box.
+ */
+export function deviceAsEnemy(info, rec) {
+  if (!info || info.kind !== 'device' || !rec || typeof rec !== 'object') return info;
+  return { ...info, walks: true, name: info.name || rec.name || info.defId, spine: rec.spine || info.defId, avatar: rec.iconId || rec.avatar || info.defId };
 }

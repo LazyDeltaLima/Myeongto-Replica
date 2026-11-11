@@ -159,12 +159,13 @@ import { pieceDirOf, pickUnitOf } from './app/pick.js';
 import { dirVector } from './face-turn.js'; // an operator's front (render.md 「공격 방향」)
 import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS } from './app/tune.js';
 import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, penShown, leaderShown } from './app/view.js';
-import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
+import { renderInfo, FORCED_EXIT, showsDeathFx, deviceAsEnemy } from './app/info.js';
 import { resolveAssets, makeData, withTimeout, capWait, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
 import { autoQuality, autoQualityStepper, onAutoQuality } from './auto-quality.js'; // settings 「自动」 (render.md 「자동 화면 품질」)
 import { frameScale, loadLevelStepper } from './load-level.js'; // 2026-10-30: the adaptive load level's judgement (render.md 「적응 부하 단계」)
 import { t } from '../../../shared/i18n.js';
 import { syncGoldenFx } from './fxgolden.js'; // local patch: the prep elite glow
+import { bandMarksOf, bandMarkFxByUid, bandTileFx, syncBandMarks } from './fxband.js'; // 2026-11-12: 规程's 指令 marks in the prep
 import { createRouteCursors, createBattleCursors } from './fxroute.js'; // the boss route preview (LOCAL-PATCH.md 「보스 경로 미리보기」); the battle start's official one (render.md 「적 경로 미리보기」)
 
 export { ensurePixi } from './app/pixi.js';
@@ -372,6 +373,9 @@ export async function createFieldView(host, options = {}) {
   // prep field (render/prepfield.js): identity on the own board, the boss-field half in the Final Assault prep
   let prepXf = IDENTITY;
   let lastPrep = null;        // { ps, o } of the last setPrep (re-applied when the prep field changes)
+  // 2026-11-12 (render/fxband.js): 规程's 指令 marks of the round — uid → the prefabs over that operator, the tile floors
+  // ({ bundle, name, x, y, z } in world space); `bandSync` one more sync pass after the marks went
+  let bandMarkUids = new Map(), bandTiles = [], bandSync = false, bandTilesWait = false;
   const hlReq = new Map();    // highlight group → { tiles (board space), style } requested through highlightTiles
   const overlayTone = new Map(); // 3D overlay group → 'heal' (blue stripes) | 'skill' (red); absent = orange
   const overlay3d = new Map(); // local patch: highlight group → display tiles drawn by the 3D board overlay (drawHighlight)
@@ -1090,11 +1094,50 @@ export async function createFieldView(host, options = {}) {
       return { ...u, x: p.col, y: p.row, dir, facing: dir === 'LEFT' ? -1 : 1 };
     }).filter(Boolean) : [];
     syncMates([...mapChars, ...(prepXf.kind === 'bossPrep' && src.bossMate && Array.isArray(src.bossMate.units) ? src.bossMate.units : [])]);
+    // 2026-11-12 (render/fxband.js, docs/rules/fx.md 「규정 액티브 전략의 표식·칸 이펙트」): 规程's marks — the operators'
+    // effects (synced every frame), the tiles' floors, and 宝藏探机's chests standing on their tiles
+    const marks = bandMarksOf(src);
+    bandMarkUids = bandMarkFxByUid(marks);
+    bandTiles = bandTileFx(marks).map((t) => ({ bundle: t.bundle, name: t.name, ...boardWorld(t.row, t.col) }));
+    bandSync = true;
+    syncChests(Array.isArray(src.bandSkill?.chests) ? src.bandSkill.chests : []);
     prepPieces = list.filter((e) => e.key && views.has(e.key));
     if (prepPieces.length === seen.size) prepSynced = true; // local patch: every piece found its slot (the scene is up)
     if (dragState && !views.has(dragState.key)) { drag.reset(); endDragVisual(false); }
     holdScene(false); // the prep pieces reference their models now (a battle's hold ends here)
     return true;
+  }
+
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 액티브 전략의 표식·칸 이펙트」): 宝藏探机's chests on the own board in the prep
+   * (m.private.bandSkill.chests [{ row, col, enemyId }], board space) — read-only 'c:<row>,<col>' views drawn as their enemy
+   * record's model (deviceInfo), never picked or dragged; rebuilt when the record changes.
+   */
+  function syncChests(list) {
+    const keep = new Set();
+    for (const ch of list) {
+      if (!ch || !Number.isInteger(ch.row) || !Number.isInteger(ch.col) || typeof ch.enemyId !== 'string') continue;
+      const w = boardWorld(ch.row, ch.col);
+      const id = `c:${ch.row},${ch.col}`;
+      keep.add(id);
+      let v = views.get(id);
+      if (v && v._sig !== ch.enemyId) { dropView(id); v = null; }
+      if (v) { v.setWorld(w.x, w.y, w.z); continue; }
+      v = new UnitView(ctx, deviceInfo({ id, kind: 'device', side: 'ally', defId: ch.enemyId, x: w.x, y: w.y, facing: 1, maxHp: 1 }), { prep: true });
+      v._sig = ch.enemyId;
+      v.setWorld(w.x, w.y, w.z);
+      v._showFacing = false;
+      views.set(id, v);
+    }
+    for (const k of [...views.keys()]) if (String(k).startsWith('c:') && !keep.has(k)) dropView(k);
+  }
+  /**
+   * 2026-11-12: a device made of an enemy record (宝藏探机's chest, enemy_9038_achest: an ally unit of the client) is drawn
+   * as that enemy's model — the walking-ally path (UnitInfo `walks`: the record's model, size and bindings, an ally's
+   * bars) — with the record's names; any other device stays a DeviceView box.
+   */
+  function deviceInfo(info) {
+    return deviceAsEnemy(info, info.kind === 'device' && info.defId ? data.enemy(info.defId) : null);
   }
 
   /**
@@ -1707,9 +1750,9 @@ export async function createFieldView(host, options = {}) {
     if (v) return v;
     const info = infos.get(id);
     if (!info || gone.has(id)) return null;
-    v = info.kind === 'device' ? new DeviceView(ctx, info)
+    v = info.kind === 'device' && !deviceInfo(info).walks ? new DeviceView(ctx, info)
       : info.kind === 'item' ? new ItemView(ctx, scoutItemInfo(info))
-      : new UnitView(ctx, info, { prep: !!battleMeta?.prep && info.side === 'ally' });
+      : new UnitView(ctx, deviceInfo(info), { prep: !!battleMeta?.prep && info.side === 'ally' });
     // a teammate's operator shows its equipped items like the own prep bench does (item pips; user playtest #2:
     // at the unit, not only in the detail card) — prep surfaces only, the battle HUD stays as it is
     if (v.setItems && battleMeta?.prep && Array.isArray(info.items) && info.items.length) {
@@ -2272,6 +2315,14 @@ export async function createFieldView(host, options = {}) {
       lap('hud');
       syncStatusFx(views, fxGame, mode === 'battle'); // local patch: official status effects (fxstatus.js)
       syncGoldenFx(views, fxGame, mode === 'prep'); // local patch: the official elite glow in the prep (fxgolden.js)
+      // 2026-11-12: 规程's 指令 marks (fxband.js) in the prep — the operators' every frame while there are some (their views
+      // are rebuilt, the layer loads late), the tiles' when they changed or until the effect index is up; a battle or
+      // enterPrepMode's clear() takes both with the views and the layer's effects
+      if (mode === 'prep' && (bandMarkUids.size || bandSync || bandTilesWait)) {
+        if (bandMarkUids.size || bandSync) syncBandMarks(views, fxGame, true, bandMarkUids);
+        if (bandSync || bandTilesWait) bandTilesWait = !fxGame.setBandTiles(bandTiles);
+        bandSync = false;
+      }
       lap('status');
       routeCursors.sync(leader && !leaderHidden && mode === 'prep' && prepXf.kind === 'bossPrep' ? leader.stand.entry.paths : null, leader?.stand.entry.fly ? 'FLY' : 'WALK', dt);
       lap('misc');

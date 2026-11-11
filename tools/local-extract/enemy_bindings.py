@@ -910,8 +910,22 @@ def render_entry(r, projs):
         rest = re.sub(r'^Modes/[^/]+/(Body/)?', '', a['path'])
         return bool(a.get('common')) or rest.count('/') <= 1
 
+    # (2026-11-12) an AuraAbility in a talent's plain folder — no ability above it (假想敌：影役's Talents/Aura holds its
+    # Invisible and its Aura side by side) — is attached with the talent: its own `_effects` are held like a direct one's
+    # (CommonAbilities/… wrappers, 扎罗's FearAura, stay nested: the wrapper attaches them while it runs)
+    ab_paths = {a['path'] for a in r['abilities']}
+
+    # (a mode's too: 神勇的帕拉杜利斯's Modes/Run/Body/Talents/CollideChar/Aura, whose `_passiveBuffs` enemy_mnctur_run_fx holds
+    # enemy_mnctur_move_1 on it for the Run mode)
+    def talent_aura(a):
+        parts = a['path'].split('/')
+        rest = re.sub(r'^Modes/[^/]+/(Body/)?', '', a['path']).split('/')
+        aura_like = bool(a.get('auraFx')) or any(b.get('by') in ('aura', 'globalAura') for b in a.get('buffs') or [])
+        return (aura_like and rest[0] in ('Talents', 'Talent') and len(rest) > 2
+                and not any('/'.join(parts[:i]) in ab_paths for i in range(2, len(parts))))
+
     def held_of(lst):
-        lst = [a for a in lst if direct(a)]
+        lst = [a for a in lst if direct(a) or talent_aura(a)]
         return uniq([x for a in lst for b in (a.get('buffs') or []) + (a.get('passiveBuffs') or []) if held(b)
                      for x in own(b) if x not in STATUS_DRAWN] + [x for a in lst for x in a.get('auraFx', [])])
     aura = held_of([a for a in r['abilities'] if a.get('mode') is None])
@@ -947,7 +961,7 @@ def render_entry(r, projs):
         out['camera'] = camera
     # (2026-10-23) an AuraAbility's own `_effects` under another ability (扎罗's CommonAbilities/FearAura/Aura: its range,
     # on while 【远古威慑】 runs): held by the sim's status that stands for that ability (render/fxstatus.js KEY_FX)
-    nested = uniq(x for a in r['abilities'] if not direct(a) for x in a.get('auraFx', []) if x not in STATUS_DRAWN)
+    nested = uniq(x for a in r['abilities'] if not direct(a) and not talent_aura(a) for x in a.get('auraFx', []) if x not in STATUS_DRAWN)
     if nested:
         out['auraNested'] = nested
     # (2026-10-21) every other buff of its own with an effect, by the client's buff key: the sim's status that stands for that
@@ -975,6 +989,15 @@ def render_entry(r, projs):
                             inv += [x for x in names if x not in inv]
                         if 'INVISIBLE' in (b.get('flags') or []):
                             stealth += [x for x in names if x not in stealth]
+    # (2026-11-12) an aura's buff with no effect of its own whose template creates effects (CreateEffect, template `fx`) on the
+    # unit it reaches — 神勇的帕拉杜利斯's enemy_mnctur_collide_char: enemy_mnctur_rush_hit on the operator it runs into. Bound
+    # by the buff key like an effect of its own; the sim names the moment on that hit (damage.js hitFx 'buff:<key>')
+    for a in r['abilities']:
+        for b in a.get('buffs') or []:
+            names = [x for x in strs((b.get('template') or {}).get('fx')) if x not in STATUS_DRAWN]
+            if b.get('by') in ('aura', 'globalAura') and b.get('key') and not own(b) and names:
+                lst = buff_fx.setdefault(b['key'], [])
+                lst += [x for x in names if x not in lst]
     # the buffs its buffs' nodes create on it (template `derived`), and what a buff's end creates (ON_BUFF_FINISH 1: played
     # once as the sim's status ends — `buffEnd`)
     buff_end = {}

@@ -161,7 +161,7 @@ const FX_GUESS = [
  * after the first throw (SwitchMode, no effect of its own). Its attachment blink ('teleport' kind 'parasite') draws nothing either: the client
  * prefab has no effect for it, only the Parasitic clip (render/units.js FORMS).
  */
-const SILENT_PHASES = new Set(['bombed', 'warning', 'larva', 'grown', 'feed', 'fed', 'stopped', 'detached', 'passengers', 'Normal']);
+const SILENT_PHASES = new Set(['bombed', 'warning', 'larva', 'grown', 'feed', 'fed', 'stopped', 'detached', 'passengers', 'Normal', 'Run']);
 
 /** Visual spec of an fx kind (see FX_KINDS); `extra.kind` / `extra.element` may pick a better colour. */
 export function fxSpec(kind, extra = {}) {

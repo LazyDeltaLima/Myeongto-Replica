@@ -49,7 +49,8 @@ function kitMirrorEye(ab) {
     taken(c, b) {
       const s = c.source;
       if (c.dmg.type !== 'arts' || !s || !s.alive || !(dur > 0)) return;
-      b.addBuff(s, { key: 'ab:acrefmSlow', duration: dur, refresh: 'replace', visible: true, mods: { aspd }, fxTag: 'buff:acrefm[atk-spd-down]' });
+      // (`source`: 镜眼 — the status's applier, whose binding draws the buff's enemy_acrefm_buff on the operator; display only)
+      b.addBuff(s, { key: 'ab:acrefmSlow', duration: dur, refresh: 'replace', visible: true, mods: { aspd }, source: c.target, fxTag: 'buff:acrefm[atk-spd-down]' });
     },
   }];
 }

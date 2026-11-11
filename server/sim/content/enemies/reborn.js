@@ -240,7 +240,8 @@ function kitBoneGuard(ab) {
     taken(c, b) {
       const s = c.source;
       if (!s || !s.alive || s.side !== 'ally' || !(dur > 0) || s.findBuff('ab:spnshdSlow')) return;
-      b.addBuff(s, { key: 'ab:spnshdSlow', duration: dur, refresh: 'keep', visible: true, mods: { aspd }, fxTag: 'buff:enemy_spnshd_atkspeed[d]' });
+      // (`source`: the 领袖 — the status's applier, whose binding draws the buff's enemy_spnshd_debuff on the operator; display only)
+      b.addBuff(s, { key: 'ab:spnshdSlow', duration: dur, refresh: 'keep', visible: true, mods: { aspd }, source: c.target, fxTag: 'buff:enemy_spnshd_atkspeed[d]' });
     },
     death(c, b, e) { if (c.reason === 'killed' && key && cnt > 0) spawnChildren(b, e, key, cnt, { route: remainingRoute(e) }); },
   }];

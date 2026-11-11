@@ -675,6 +675,12 @@ export const FORMS = Object.freeze({
   // B_* clip set (SwitchMode, no change clip; the sim times its melee from B_Attack, enemies.json attackAnim.modes.Normal)
   enemy_1388_wingnt: WINGNT_NORMAL,
   enemy_1388_wingnt_2: WINGNT_NORMAL,
+  // 2026-11-12: 神勇的帕拉杜利斯's charge (critic.js kitParadulis → form 'Run', null as Skill_End ends): the prefab mode Run,
+  // whose SimpleUnitAnimatorHooker plays Skill for Idle and Move (its run); no change clip (SwitchMode — Skill_Begin and
+  // Skill_End are the rush / rushEndNormal skills' own clips)
+  enemy_10163_mnctur_2: Object.freeze({
+    Run: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Skill', deploy: 'Skill', move: loop('Skill') }) }),
+  }),
   enemy_10081_mpplai: Object.freeze({
     translator_fuchou: Object.freeze({ change: 'A_Die_B', roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }),
     translator_youling: Object.freeze({ change: 'A_Die_C', roles: clipSet('C_Idle', 'C_Move', 'C_Die') }),

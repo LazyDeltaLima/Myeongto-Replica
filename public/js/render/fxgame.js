@@ -257,6 +257,8 @@ const FORM_MODES = Object.freeze({
   // 2026-11-11: 规程's 寻路者 trio (ammo mode) and 无畏掷弹兵 after its bombs (render/units.js FORMS)
   enemy_1213_mtrsnp: HEADSHOT_MODES, enemy_1216_cansld: HEADSHOT_MODES, enemy_1219_mtrbty: HEADSHOT_MODES,
   enemy_1405_boomer_2: Object.freeze({ Light: 'Light' }),
+  // 2026-11-12: 神勇的帕拉杜利斯's charge (critic.js → form 'Run'): the prefab mode Run — its aura's enemy_mnctur_move_1 on it
+  enemy_10163_mnctur_2: Object.freeze({ Run: 'Run' }),
   // 2026-11-12: “投石机” / “榴弹炮” after the first throw (critic.js kitSnowballer → form 'Normal'): the prefab mode Normal
   enemy_1388_wingnt: Object.freeze({ Normal: 'Normal' }), enemy_1388_wingnt_2: Object.freeze({ Normal: 'Normal' }),
   enemy_10081_mpplai: Object.freeze({ translator_fuchou: 'ModeB', translator_youling: 'MoveC', translator_shushi: 'ModeD' }),
@@ -3161,6 +3163,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!t) return;
     for (const m of list) {
       if (!Array.isArray(m) || typeof m[0] !== 'string') continue;
+      // 2026-11-12 (docs/rules/fx.md 「규정 특수 적 항목·호위」): 'buff:<client buff key>' owned by an enemy (or a walking ally of
+      // an enemy record) — that buff's effect in the owner's binding (enemy-modes.json buffFx: its overrideEffectKey, or an
+      // aura buff's template CreateEffect), once on the unit hit: 野性三角兽's crash, 神勇的帕拉杜利斯's collision
+      if (m[0].startsWith('buff:')) {
+        const o = views.get(m[1]);
+        const r = o && (o.isEnemy || o.info?.walks) && eOn(o) ? api.enemyBuffFx(o, 'key', m[0].slice(5)) : null;
+        if (r) for (const [b, n] of r.on) api.statusOnce(t, b, n);
+        continue;
+      }
       officialKitFx(['fx', 'hit', t.x, t.y, { k: m[0], src: m[1], id: tid, by, life: m[2], fly: t.flying ? 1 : 0 }], views);
     }
   }
@@ -5254,9 +5265,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   const AC_PHASE_BUFF = { acspiderEvade: 'acspdier[evade]', aceelShield: 'aceel[shield]' };
   const AC_NO_BORN = new Set(['enemy_9036_acweb']);
+  // 2026-11-12 (docs/rules/fx.md 「규정 특수 적 항목·호위」): enemies whose sim form change is the client's SwitchMode alone — it
+  // creates no effect (stepEnemies), so the 'phase' of their setForm draws no stand-in: 神勇的帕拉杜利斯 into Run and back
+  const SWITCH_ONLY = new Set(['enemy_10163_mnctur_2']);
   function acBossFx(e, views) {
     const o = e[4];
-    if (!o || typeof o !== 'object' || level() >= 3) return false;
+    if (!o || typeof o !== 'object') return false;
+    if (e[1] === 'phase' && 'form' in o && SWITCH_ONLY.has(views.get(o.id)?.info?.defId)) return true;
+    if (level() >= 3) return false;
     if (e[1] === 'phase' && (o.kind in AC_PHASE_BUFF || o.kind === 'aceelShieldEnd')) {
       const v = views.get(o.id);
       if (!eOn(v)) return false;
@@ -5307,6 +5323,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * the effect extracted.
    */
   const acRains = new Map();   // `${spider id}:${field}` → { id, live: the floors }
+  const bandTiles = new Map(); // 2026-11-12 (setBandTiles): `${bundle}/${name}@${x},${y}` → { l: its live entry once loaded, off }
   function acRainOff(key) {
     for (const l of acRains.get(key)?.live || []) if (!l.stopped) zoneEnd(l, Math.min(l.until ?? clockS, clockS), true);
     acRains.delete(key);
@@ -6322,6 +6339,36 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * [ASSUMED] the camera's position and turn, as Unity parents it, and on while the storm blows over any half; and the
      * mounds the wind reaches wear their sand marks (stormMarks).
      */
+    /**
+     * 2026-11-12 (docs/rules/fx.md 「규정 액티브 전략의 표식·칸 이펙트」): the prep's tile effects of 规程's tile 指令 —
+     * [{ bundle, name, x, y, z }] on the floor (render/fxband.js bandTileFx: 溃心领域's map_v079_dikuai02 on its marked
+     * tile), each held until a list without it or the next clear(); one per prefab and tile. Static floor meshes under
+     * the units, pinned (never ended by the caps). false while the effect index has not loaded (call again), else true.
+     */
+    setBandTiles(list) {
+      const want = new Map();
+      for (const t of Array.isArray(list) ? list : []) {
+        const x = Number(t?.x), y = Number(t?.y);
+        if (!t || typeof t.bundle !== 'string' || typeof t.name !== 'string' || !Number.isFinite(x) || !Number.isFinite(y)) continue;
+        want.set(`${t.bundle}/${t.name}@${x},${y}`, { bundle: t.bundle, name: t.name, x, y, z: Number(t.z) || 0 });
+      }
+      for (const [k, rec] of bandTiles) {
+        if (want.has(k) && !(rec.l && !live.includes(rec.l))) continue;   // (kept unless a cap or a lost context dropped it)
+        rec.off = true;
+        if (rec.l) { rec.l.keep = false; rec.l.inst.stop(true); }
+        bandTiles.delete(k);
+      }
+      if (failed) return true;
+      if (!index && want.size) return false;
+      for (const [k, t] of want) {
+        if (bandTiles.has(k) || !index?.bundles?.[t.bundle]?.includes(t.name)) continue;
+        const rec = { l: null, off: false };
+        bandTiles.set(k, rec);
+        spawn(t.bundle, t.name, { x: t.x, y: t.y, z: t.z }, { owner: null, buff: true, keep: true, pinned: true, until: Infinity, tag: 'bandTile' }, { over: false })
+          .then((l) => { if (!l) { if (bandTiles.get(k) === rec) bandTiles.delete(k); return; } if (rec.off) { l.keep = false; l.inst.stop(true); } else rec.l = l; });
+      }
+      return true;
+    },
     /** 2026-11-11: the camera effects of the level on the board (names; [] none) — see stageCams. */
     setStageCamera(names) {
       stageCams.clear();
@@ -6852,6 +6899,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       camFx.clear(); camWant.clear();
       acRains.clear();   // 2026-11-11: 悲惨之雨's floors (dropped with `live` above)
       soulBalls.clear(); soulLines.clear();   // 2026-11-12: 魂灵法骸's fireballs, 魂灵残迹's laser (dropped with `live`)
+      for (const rec of bandTiles.values()) rec.off = true;   // 2026-11-12: the prep's tile 指令 floors (dropped with `live`)
+      bandTiles.clear();
       if (mod) showLayers();
     },
 
