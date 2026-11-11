@@ -2013,6 +2013,24 @@ const SHOP_EXCLUDED_ITEMS = Object.freeze({
 });
 
 /**
+ * 「带有特殊效果的维式重锤」: the normal ids of the hammer kinds the first effect with `hammer_N` keys names, in that order
+ * (盟约 蒸汽之心: the four of SHOP_EXCLUDED_ITEMS; 规程 终极维式重锤 「每有一种带有特殊效果的维式重锤」: those four and
+ * 电流维式重锤; sim items/battle.js hammerListOf reads the same list). 维多利亚's <每叠加25层> 「获得一件带有随机特殊效果的维式重锤」
+ * (pool_equip_vict) draws from it, and in another season it is what the shop leaves out — the default season's
+ * playtest rule carried to the fifth kind (maintainer decision 2026-11-11 [ASSUMED·서버: the shop pool is server-side];
+ * 终极维式重锤 stays sold).
+ */
+function specialHammerIds(effects) {
+  for (const e of Object.values(effects)) {
+    for (const b of e?.buffs || []) {
+      const keys = Object.keys(b?.bbStr || {}).filter((k) => /^hammer_\d+$/.test(k)).sort(naturalCmp);
+      if (keys.length) return keys.map((k) => `${b.bbStr[k]}_a`);
+    }
+  }
+  return [];
+}
+
+/**
  * Rules the official item text leaves out, by normal item id (both qualities): `note` = a player-facing line shown under
  * the effect in the item card (items.json `note`), `implFormula` replaces research 04's formula.
  *   突变细胞 — not consumed (player feedback after 0.1.0): PRTS 卫戍协议：盟约 下半/PRTS盟约记录 备注 "生效时，原干员销毁，
@@ -2072,6 +2090,8 @@ function buildItems(ctx, effects) {
     shopByBase.set(s.itemId, s);
     if (s.goldenItemId) shopByBase.set(s.goldenItemId, s);
   }
+  const seasonHammers = new Set(specialHammerIds(effects));
+  const raisesBlock = (id) => /阻挡数\+/.test(effects[act.trapChessDataDict[id]?.effectId]?.desc || '');
   const out = {};
   for (const chessId of Object.keys(act.trapChessDataDict).sort(naturalCmp)) {
     const t = act.trapChessDataDict[chessId];
@@ -2087,7 +2107,8 @@ function buildItems(ctx, effects) {
     const ri = defId ? researchItems.get(defId) : undefined;
     const isGolden = !!t.isGolden;
     const upgradeNum = t.upgradeNum;
-    const excluded = defId && Object.hasOwn(SHOP_EXCLUDED_ITEMS, defId) ? SHOP_EXCLUDED_ITEMS[defId] : null;
+    const excluded = SEASON !== DEFAULT_SEASON && seasonHammers.has(baseId) ? '维多利亚盟约每25层 / 凯瑟琳特质'
+      : defId && Object.hasOwn(SHOP_EXCLUDED_ITEMS, defId) ? SHOP_EXCLUDED_ITEMS[defId] : null;
     const rule = defId && Object.hasOwn(ITEM_RULES, defId) ? ITEM_RULES[defId] : null;
     out[chessId] = {
       id: chessId, baseId, goldenId: shop?.goldenItemId || null, isGolden,
@@ -2110,7 +2131,9 @@ function buildItems(ctx, effects) {
       params: eff?.params || {},
       // an item research 04 has no entry for (规程's new ones) is consumed on equip when the table says so: trapDuration 0
       // (every such item reads 「装备时销毁」; 博士投影's delayed form has its research entry)
-      category: ri?.category || null, kind: ri?.kind || (!ri && t.trapDuration === 0 ? 'consume_on_equip' : null), family: ri?.family || null,
+      // its category only steers the AI seats (bot.js: SURVIVAL goes to blockers first): from the text, an item that raises
+      // the block count (阻挡数+) and its 组合 partner are SURVIVAL, the rest stays unclassified (to the damage dealers)
+      category: ri?.category || (!ri && (raisesBlock(chessId) || (t.canFuse && t.fuseWith && raisesBlock(t.fuseWith))) ? 'SURVIVAL' : null), kind: ri?.kind || (!ri && t.trapDuration === 0 ? 'consume_on_equip' : null), family: ri?.family || null,
       implFormula: rule?.implFormula || ri?.implFormula || null,
       note: rule?.note || null,
       rangeGrid: Array.isArray(ri?.rangeGrids) ? ri.rangeGrids.map((g) => [g.row, g.col]) : null,
@@ -4118,18 +4141,31 @@ function buildChoices(ctx, effects, items, chess) {
       pool_equip_narant: { kind: 'equip', rule: 'shopEligible', assumed: true },
       // "获得一件带有随机特殊效果的维式重锤": the 4 hammers with a special effect (never sold, SHOP_EXCLUDED_ITEMS); the
       // weights are server-side (PRTS 11-25 note: "装备【灼燃维式重锤】的出现概率调整") — uniform [ASSUMED]
-      pool_equip_vict: { kind: 'equip', items: ['灼燃维式重锤', '坚固维式重锤', '加速维式重锤', '战栗维式重锤'].map(itemByName), assumed: true },
+      // (规程: the same text, five kinds with 电流维式重锤 — specialHammerIds; 盟约's four in the same order as before)
+      pool_equip_vict: { kind: 'equip', items: specialHammerIds(effects).filter((id) => items[id]), assumed: true },
       // 卫戍协议：规程's 谢拉格: every 100 layers one 谢拉格不融冰 (bond_layer_added_reward_equip pool_equip_kjeragbond2; the pool
       // itself is server-side): that one item — only for a season whose effects name the pool (the default season has an
       // item of that name too)
       ...(poolUsed('pool_equip_kjeragbond2') ? { pool_equip_kjeragbond2: { kind: 'equip', items: [itemByName('谢拉格不融冰')], assumed: true } } : {}),
-      pool_equip_pepe: { kind: 'equip', weighted: [['盟约之币', 45], ['萨尔贡浓茶', 45], ['黄沙罗盘', 10]].map(([n, w]) => [itemByName(n), w]), goldenWeights: [40, 40, 20], assumed: true },
-      // 洛洛的定制品: 8 items with measured weights (路标月报#2「卡池相关机制」item 6 — 10维式重锤2战栗2坚固2加速2灼燃
-      // 1有限加速器4护盾无人机4激光发射器; the pool is a subset of the shared equipment pool, so the four shop-sold
-      // entries go through the item stock). Supersedes the 4-special-hammer reading (user playtest #4, first-hand:
-      // "几个特殊的维式重锤是干员洛洛或者维多利亚阵营获得的" — the special four remain exclusive to this pool and
-      // 维多利亚's, they are just no longer the whole of it)
-      pool_equip_rockr: { kind: 'equip', weighted: [['维式重锤', 10], ['战栗维式重锤', 2], ['坚固维式重锤', 2], ['加速维式重锤', 2], ['灼燃维式重锤', 2], ['有限加速器', 1], ['护盾无人机', 4], ['激光发射器', 4]].map(([n, w]) => [itemByName(n), w]), assumed: true },
+      ...(SEASON === DEFAULT_SEASON ? {
+        pool_equip_pepe: { kind: 'equip', weighted: [['盟约之币', 45], ['萨尔贡浓茶', 45], ['黄沙罗盘', 10]].map(([n, w]) => [itemByName(n), w]), goldenWeights: [40, 40, 20], assumed: true },
+        // 洛洛的定制品: 8 items with measured weights (路标月报#2「卡池相关机制」item 6 — 10维式重锤2战栗2坚固2加速2灼燃
+        // 1有限加速器4护盾无人机4激光发射器; the pool is a subset of the shared equipment pool, so the four shop-sold
+        // entries go through the item stock). Supersedes the 4-special-hammer reading (user playtest #4, first-hand:
+        // "几个特殊的维式重锤是干员洛洛或者维多利亚阵营获得的" — the special four remain exclusive to this pool and
+        // 维多利亚's, they are just no longer the whole of it)
+        pool_equip_rockr: { kind: 'equip', weighted: [['维式重锤', 10], ['战栗维式重锤', 2], ['坚固维式重锤', 2], ['加速维式重锤', 2], ['灼燃维式重锤', 2], ['有限加速器', 1], ['护盾无人机', 4], ['激光发射器', 4]].map(([n, w]) => [itemByName(n), w]), assumed: true },
+      } : {
+        // 规程's pools that name no default-season item (the pools are server-side, weights [ASSUMED·서버]); 「小概率」 is
+        // read as 10 %, the default season's 佩佩 pool of the same wording (pool_equip_pepe, itself [ASSUMED])
+        // 凯瑟琳 garrison_139_a 「<获得时>获得一件维式重锤，小概率获得特殊维式重锤」: the plain hammer 90, the special kinds 10 between them
+        pool_equip_kathe_0: { kind: 'equip', weighted: [[itemByName('维式重锤'), 90], ...specialHammerIds(effects).map((id) => [id, 10 / specialHammerIds(effects).length])], assumed: true },
+        // 凯瑟琳 garrison_139_b 「<获得时>获得一件特殊维式重锤，小概率获得终极维式重锤」: the special kinds 90 between them, 终极维式重锤 10
+        pool_equip_rockr: { kind: 'equip', weighted: [...specialHammerIds(effects).map((id) => [id, 90 / specialHammerIds(effects).length]), [itemByName('终极维式重锤'), 10]], assumed: true },
+        // 异客 garrison_161 「<进入休整期时>获得1件（精锐 2件）“盟约之币”或“萨尔贡浓茶”，有小概率发现“拟态物质”」: 佩佩's shape (its elite
+        // 「有概率」 had other weights; 异客's elite text keeps 「小概率」, so one table)
+        pool_equip_pasngr: { kind: 'equip', weighted: [['盟约之币', 45], ['萨尔贡浓茶', 45], ['拟态物质', 10]].map(([n, w]) => [itemByName(n), w]), assumed: true },
+      }),
       pool_chess_glady: { kind: 'chess', items: ['斯卡蒂', '幽灵鲨', '深巡'].map(chessByName), assumed: true },
       // 10野鬃10灰毫3远牙 (路标月报#2 item 6; was an even-ish 45/45/10 guess)
       pool_char_pinus: { kind: 'chess', weighted: [['野鬃', 10], ['灰毫', 10], ['远牙', 3]].map(([n, w]) => [chessByName(n), w]), assumed: true },
