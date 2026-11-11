@@ -159,9 +159,17 @@ function kitParrot(ab) {
  */
 const RUSH_LISTEN = 0.1;
 
-function kitRush(ab) {
-  const ms = T(ab, 'rush.dlancer_t[trigger].move_speed') ?? 0, iv = T(ab, 'rush.dlancer_t[trigger].interval') ?? 0.5;
-  const max = T(ab, 'rush.dlancer_t[trigger].trig_cnt') ?? 0, scale = T(ab, 'firstattack.atk_scale') ?? 0;
+/**
+ * The rush of 萨卡兹穿刺手 (talent keys `rush.dlancer_t[trigger].*` / `firstattack.atk_scale`, physical) — and of 赏金猎人“骑士”
+ * (enemy_1413_mmstck, 规程's 悬赏·特异 card; official prefab battle/enm_pfb_16: templates enemy_mmstck_t_listener[a] / [b],
+ * enemy_mmstck_t[trigger], enemy_mmstck_t_atk — the same nodes, its listener [a] checking 晕眩 and 束缚 together
+ * (CheckAbnormalFlags) where 穿刺手 has one listener each, its speed layers ended with the trigger
+ * (`_finishDerivedBuffIfParentFinish`, as here for both), and its bonus hit MAGICAL: `Rush.enemy_mmstck_t[trigger].*`,
+ * `FirstAttack.atk_scale` 550, arts). Its RopeTriggerAbility answers a stage rope no 规程 stage has.
+ */
+function kitRush(ab, { prefix = 'rush.dlancer_t[trigger]', scaleKey = 'firstattack.atk_scale', type = 'phys' } = {}) {
+  const ms = T(ab, `${prefix}.move_speed`) ?? 0, iv = T(ab, `${prefix}.interval`) ?? 0.5;
+  const max = T(ab, `${prefix}.trig_cnt`) ?? 0, scale = T(ab, scaleKey) ?? 0;
   // 晕眩 / 束缚 only (the client's STUNNED / UNMOVABLE flags: not 冻结, 沉睡 or 浮空, which hold flags.stun here too)
   const held = (e) => e.buffs.some((x) => x.status === 'stun' || x.status === 'bind');
   const stop = (b, e, a) => { a.on = false; a.n = 0; b.removeBuff(e, 'ab:rush'); };
@@ -186,7 +194,7 @@ function kitRush(ab) {
       const t = c.target;
       const amount = e.s.moveSpeed * scale;
       stop(b, e, a);
-      if (t && t.alive && amount > 0) b.dealDamage(e, t, { amount, type: 'phys', canDodge: false, isSkill: true, noSp: true, tags: ['enemyAbility', 'rush'] });
+      if (t && t.alive && amount > 0) b.dealDamage(e, t, { amount, type, canDodge: false, isSkill: true, noSp: true, tags: ['enemyAbility', 'rush'] });
     },
   }];
 }
@@ -379,13 +387,16 @@ const UBBA_AURA_RADIUS = 1.7;
 const UBBA_AURA_EVERY = 0.2;
 
 /**
- * 搏命享受者 (enemy_10196_ubba_2, 规程's leader waves h07_08 / h08_04; official prefab battle/enm_pfb_30): Talents/Talent1, an
- * AuraAbility (radius 1.7, its validator the owner's side, all motions) — the other enemies there take physical and arts
- * damage × (1 − `Talent1.damage_resistance`) (enemy_ubba_damage_resistance: DamageScale `_isOneMinus`, `disableOverride` —
- * one buff per 搏命享受者, so two multiply). Its 警戒 mode (Modes/Warning: faster, chasing the unit that set it off) starts
- * from units holding ubtower_warning_mask[target], which only the main story's watchtower gives: no 规程 stage has one,
- * so it never starts here. [추정·엔진: whether the aura's `_selfOption` DEFAULT counts the giver was not read — 「周围敌人」,
- * read as the others]
+ * 搏命享受者 (enemy_10196_ubba_2, 规程's leader waves h07_08 / h08_04) and 搏命养家者 (enemy_10196_ubba, its 悬赏·精英 card and
+ * the same waves; official prefabs battle/enm_pfb_30, the same tree): Talents/Talent1, an AuraAbility (radius 1.7, its
+ * validator the owner's side, all motions) — the enemies there take physical and arts damage × (1 −
+ * `Talent1.damage_resistance`) (enemy_ubba_damage_resistance: DamageScale `_isOneMinus`, `disableOverride` — one buff per
+ * giver, so two multiply). The giver is among them: the aura's `_selfOption` is DEFAULT, and only EXCLUDE leaves the
+ * owner out (`AuraAbility.DealTargetTouched`; INCLUDE adds it at attach) — the aura has a body of its own (a kinematic
+ * Rigidbody2D on Talent1), so its trigger meets the owner's collider like any other enemy's (공식 클라에서 확인). Until
+ * this the aura skipped its giver. Its 警戒 mode (Modes/Warning: faster, chasing the unit that set it off) starts from
+ * units holding ubtower_warning_mask[target], which only the main story's watchtower gives: no 规程 stage has one, so it
+ * never starts here.
  */
 function kitUbba(ab) {
   const m = 1 - (T(ab, 'Talent1.damage_resistance') ?? 0);
@@ -393,7 +404,7 @@ function kitUbba(ab) {
     iv: UBBA_AURA_EVERY,
     tick(b, e) {
       const key = `ab:ubba:${e.id}`;
-      for (const o of b.enemiesInRadius(e.x, e.y, UBBA_AURA_RADIUS)) if (o !== e) auraBuff(b, o, key, UBBA_AURA_EVERY, { physTakenMul: m, artsTakenMul: m });
+      for (const o of b.enemiesInRadius(e.x, e.y, UBBA_AURA_RADIUS)) auraBuff(b, o, key, UBBA_AURA_EVERY, { physTakenMul: m, artsTakenMul: m });
     },
   }];
 }
@@ -429,7 +440,7 @@ export const SPECIAL_KITS = Object.freeze({
   enemy_1119_vofsd: kitPrisoner(),                                   // 强壮囚犯 · + RES and regen when freed
   enemy_1121_lifbos: kitPrisoner(true),                              // 重犯 · confined DEF up; first liberation frees every prisoner
   enemy_1121_lifbos_2: kitPrisoner(true),                            // 传奇重犯 · same
-  enemy_1072_dlancer: kitRush,                                       // 萨卡兹穿刺手 · accelerates while walking; first hit after block ×speed
+  enemy_1072_dlancer: (ab) => kitRush(ab),                          // 萨卡兹穿刺手 · accelerates while walking; first hit after block ×speed
   enemy_1320_wdrrl_2: kitFirstAoe,                                   // 萨卡兹悖谬暴虐兵长 · block ≥3 only; first attack splashes
   enemy_1302_ymtro_2: (ab) => [blockWeight(4), ...kitBus(ab, { camel: false })],  // “越长尘” · block ≥4; carries up to 4 passengers (no slow)
   enemy_1329_cbshld: kitDefDecay,                                    // 弧光镜卫 · DEF/RES drop with every damage instance
@@ -444,7 +455,9 @@ export const SPECIAL_KITS = Object.freeze({
   // only); its 源石污染区 is a switch of the dynamic REED_TILE under it (enemy_lrboom[triggerTile]) and 活性源石风暴 a stage
   // device — no 规程 stage has either
   enemy_1424_lrboom: (ab) => [deathBoom({ scale: T(ab, 'Boom.atk_scale') ?? 0, r: LRBOOM_RADIUS, ability: 'Boom' })],
-  enemy_10196_ubba_2: kitUbba,                                       // 搏命享受者 (规程) · damage taken ×0.75 for the enemies around it
+  enemy_10196_ubba_2: kitUbba,                                       // 搏命享受者 (规程) · damage taken ×0.75 for the enemies around it (itself too)
+  enemy_10196_ubba: kitUbba,                                         // 搏命养家者 (规程 悬赏 / leader waves) · same
+  enemy_1413_mmstck: (ab) => kitRush(ab, { prefix: 'Rush.enemy_mmstck_t[trigger]', scaleKey: 'FirstAttack.atk_scale', type: 'arts' }), // 赏金猎人“骑士” (规程 悬赏) · as 穿刺手, arts bonus
   enemy_9040_accrit: kitCritic,                                      // 假想敌：丛生 (规程) · first damage on each unit ×2 + 5 s HEAL_FREE
   enemy_1425_lrcmra: kitChimera,                                     // 孽罪奇美拉 · activated on infection: arts attacks + pollution aura
   enemy_1425_lrcmra_2: kitChimera,                                   // 渎罪奇美拉 · same

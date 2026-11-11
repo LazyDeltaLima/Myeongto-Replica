@@ -109,6 +109,7 @@
 //                   several keys (kitEp, kitStealth, kitTimes, kitRefraction, kitPrisoner, kitDeathSpawn, kitStun3 …)
 //   invisible.js, times.js, element.js, dot.js, reflection.js, reborn.js, critic.js, fly.js, special.js — one file per special type
 //                   (factions.json): its kits, its kit-only constants and its part of KITS
+//   bounty.js       the main-story enemies only 规程's 悬赏 cards bring (not the bounty leaders below)
 //   leaders.js      bounty (悬赏) leaders: kitLeaderMisc (single form) and the multi-form kits
 // Every name this file exported before the split is still exported from here.
 
@@ -123,6 +124,7 @@ import { REBORN_KITS } from './enemies/reborn.js';
 import { CRITIC_KITS } from './enemies/critic.js';
 import { FLY_KITS } from './enemies/fly.js';
 import { SPECIAL_KITS } from './enemies/special.js';
+import { BOUNTY_KITS } from './enemies/bounty.js';
 import { LEADER_KITS } from './enemies/leaders.js';
 import { hypot } from '../detmath.js';
 import { enemyHasAttack, interruptEnemyCast } from '../ai.js';
@@ -450,6 +452,7 @@ export const KITS = Object.freeze({
   ...CRITIC_KITS,
   ...FLY_KITS,
   ...SPECIAL_KITS,
+  ...BOUNTY_KITS,
   ...LEADER_KITS,
 });
 
@@ -469,6 +472,10 @@ export const STATS_ONLY = Object.freeze({
   enemy_9012_acloon: '炎佑 is a bond summon (bonds.js)', enemy_9024_acsgnt: '“不眠雪山” is a bond summon (bonds/giant.js)',
   enemy_10040_cnvbln: '狂欢时刻 absent', enemy_10043_sailor: 'bridges/cannons absent',
   enemy_10073_mpcar: 'plain', enemy_10124_uashld_2: 'taunt is data; 矿工游击队 absent',
+  // 规程's own units of our side, named only by its enemy effects' `enemy_exclude` (they are no enemy there): 莱塔尼亚's
+  // summons (bonds/walker.js) and 宝藏探机's chest (bands/battle.js)
+  enemy_9025_aclts: '“一个小节” is a bond summon (bonds/walker.js)', enemy_9026_acltm: '“一个乐部” is a bond summon (bonds/walker.js)',
+  enemy_9038_achest: '“模拟宝藏” is a 指令 device of our side (bands/battle.js)',
 });
 
 // 圣杯 damage sharing (PRTS 愧悔魂灵圣杯: "令半径1.7范围内未受其他…圣杯影响的行动方式为地面的敌方单位受到的伤害降低至5%

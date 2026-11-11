@@ -28,11 +28,7 @@ const LEADER_FIELD = [];
 // 特训敌人 entries of 规程 (its new types CRITIC 精锐 / REBORN 重生 among them) and their escorts and offspring
 const SPECIAL_TYPE = [];
 // enemies an enemy effect, choice or strategy of 规程 puts on the field
-const EFFECT_SPAWN = [
-  'enemy_10003_trwlpl_2', 'enemy_10077_mpbarr', 'enemy_10123_uareap', 'enemy_10146_nscola', 'enemy_10147_nsbomb',
-  'enemy_10196_ubba', 'enemy_10229_agactr_2', 'enemy_1413_mmstck', 'enemy_2135_shkrbt', 'enemy_9025_aclts',
-  'enemy_9026_acltm', 'enemy_9038_achest',
-];
+const EFFECT_SPAWN = [];
 const PENDING = new Set([...LEADER_FIELD, ...SPECIAL_TYPE, ...EFFECT_SPAWN]);
 
 const SEASON_DIR = new URL('../data/seasons/act3autochess/', import.meta.url);
@@ -706,7 +702,7 @@ test('恶尘源石虫: knocked out, ATK × 3.5 physical on the ground units with
   assert.deepEqual(run(true), [0, 0], 'the SILENCE line');
 });
 
-test('搏命享受者: the other enemies within 1.7 take physical and arts damage × 0.75, one buff per 搏命享受者 (two multiply)', () => {
+test('搏命享受者: the enemies within 1.7 — itself too (`_selfOption` DEFAULT) — take physical and arts damage × 0.75, one buff per 搏命享受者 (two multiply)', () => {
   const key = 'enemy_10196_ubba_2', other = 'enemy_1424_lrboom';
   const dr = E3[key].talents.bb['Talent1.damage_resistance'];
   assert.equal(dr, 0.25);
@@ -718,11 +714,11 @@ test('搏命享受者: the other enemies within 1.7 take physical and arts damag
   const hit = (e) => { const hp = e.hp; h.b.dealDamage(w, e, { amount: 1000, type: 'arts', canDodge: false }); return hp - e.hp; };
   assert.ok(Math.abs(hit(near) - 1000 * (1 - res / 100) * (1 - dr)) < 1e-6, 'within 1.7');
   assert.ok(Math.abs(hit(far) - 1000 * (1 - res / 100)) < 1e-6, 'out of range');
-  assert.ok(Math.abs(hit(u1) - 1000 * (1 - E3[key].stats.res / 100)) < 1e-6, 'not itself');
+  assert.ok(Math.abs(hit(u1) - 1000 * (1 - E3[key].stats.res / 100) * (1 - dr)) < 1e-6, 'itself too');
   put(h, key, [10, 9.5], { tag: null });   // 0.5 from the near one, 1.5 from the first
   runFor(h, 0.5);
   assert.ok(Math.abs(hit(near) - 1000 * (1 - res / 100) * (1 - dr) ** 2) < 1e-6, 'two of them: × 0.75²');
-  assert.ok(Math.abs(hit(u1) - 1000 * (1 - E3[key].stats.res / 100) * (1 - dr)) < 1e-6, 'each in the other\'s aura');
+  assert.ok(Math.abs(hit(u1) - 1000 * (1 - E3[key].stats.res / 100) * (1 - dr) ** 2) < 1e-6, 'its own aura and the other\'s');
 });
 
 test('假想敌：丛生: its first damage on each unit × 2 (accrit[critical-hit]) and 5 s HEAL_FREE on it; a unit once hit, plain', () => {
@@ -1936,4 +1932,161 @@ test('神勇的帕拉杜利斯: unblocked with an operator ahead on its row, 冲
   assert.ok(e3.mode !== 'Run' && !e3.trace, 'cut: no Run');
   g.h.runUntil(() => e3.mode === 'Run', 15);
   assert.equal(e3.mode, 'Run', 'the next cast runs');
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// the main-story enemies only 规程's 悬赏 cards bring (content/enemies/bounty.js; 搏命养家者 / 赏金猎人“骑士” in special.js)
+
+/** Every fx of `kind` (and `sub` kind) the battle sends from now. */
+function fxLog(h, kind, sub = null) {
+  const out = [], orig = h.b.fx.bind(h.b);
+  h.b.fx = (k, p) => { if (k === kind && (!sub || (p && p.kind === sub))) out.push({ ...p, at: h.b.time }); return orig(k, p); };
+  return out;
+}
+
+test('开天汽水瓶: loses 120 HP a second (sourceless); every 0.5 s MOVE_SPEED × (1 + 0.3 n), n ≤ 25 — a stun starts it over', () => {
+  const key = 'enemy_10146_nscola', bb = E3[key].talents.bb;
+  assert.deepEqual([bb['Passive.fixed_value_damage'], bb['Passive.enemy_nscola[speed].move_speed'], bb['Passive.enemy_nscola[speed].interval'], bb['Passive.enemy_nscola[speed].max_time']], [120, 0.3, 0.5, 25]);
+  const { h } = waveField([key], []);
+  const e = put(h, key, [10, 12], { move: true, tag: null });
+  const hp0 = e.hp, base = e.s.moveSpeed;
+  runFor(h, 1.05);
+  assert.ok(Math.abs(hp0 - e.hp - 120) < 1e-6, `1 s: 120 lost (${hp0 - e.hp})`);
+  assert.ok(Math.abs(e.s.moveSpeed - base * 1.6) < 1e-9, 'two steps: × 1.6');
+  h.b.applyStatus(e, 'stun', { duration: 0.6, source: null });   // over its next step (1.5 s)
+  runFor(h, 0.6);
+  assert.ok(Math.abs(e.s.moveSpeed - base) < 1e-9, 'stunned at its step: back to 1');
+  runFor(h, 0.5);
+  assert.ok(Math.abs(e.s.moveSpeed - base * 1.3) < 1e-9, 'then again from 1');
+});
+
+test('遮天面包机: every 2.5 s (the first 2.5 s in) a bomb on the spot under it — 0.5 s later ATK × 2 physical on the ground units within 1', () => {
+  const key = 'enemy_10147_nsbomb', bb = E3[key].talents.bb;
+  assert.deepEqual([bb['Passive.interval'], bb['Passive.range_radius'], bb['Passive.atk_scale']], [2.5, 1, 2]);
+  const { h, hits } = waveField([key], [{ chessId: 't_wall', row: 10, col: 6, uid: 1 }, { chessId: 't_wall', row: 10, col: 8, uid: 2 }]);
+  const booms = fxLog(h, 'explode', 'nsbomb');
+  const e = put(h, key, [10, 6.5], { tag: null });
+  const t0 = h.b.time;
+  h.runUntil(() => booms.length >= 1, 10);
+  assert.ok(Math.abs(booms[0].at - t0 - 3) < 0.05, `the first lands 2.5 + 0.5 s in (${booms[0].at - t0})`);
+  assert.equal(hits.length, 1, 'one unit within 1');
+  assert.ok(hits[0].t === h.unit(1) && Math.abs(hits[0].n - e.s.atk * 2) < 1e-6, 'ATK × 2 on the near one');
+  h.runUntil(() => booms.length >= 2, 10);
+  assert.ok(Math.abs(booms[1].at - booms[0].at - 2.5) < 0.05, 'every 2.5 s');
+});
+
+test('炫目刀技厨师: the ground enemies within 2.5 — itself too — ASPD +50, RES +25; a flyer or one farther, not', () => {
+  const key = 'enemy_10229_agactr_2', other = 'enemy_1424_lrboom', fly = 'enemy_10146_nscola';
+  const bb = E3[key].talents.bb;
+  assert.deepEqual([bb['AuraAttributeUp.range_radius'], bb['AuraAttributeUp.attack_speed'], bb['AuraAttributeUp.magic_resistance']], [2.5, 50, 25]);
+  const { h } = waveField([key, other, fly], []);
+  const cook = put(h, key, [10, 8], { tag: null }), near = put(h, other, [10, 10], { tag: null });
+  const far = put(h, other, [10, 4], { tag: null }), air = put(h, fly, [10, 9], { tag: null });
+  runFor(h, 0.5);
+  for (const [u, k, on] of [[cook, key, true], [near, other, true], [far, other, false], [air, fly, false]]) {
+    assert.equal(u.s.aspd, E3[k].stats.aspd + (on ? 50 : 0), `${k} aspd`);
+    assert.equal(u.s.res, E3[k].stats.res + (on ? 25 : 0), `${k} res`);
+  }
+});
+
+test('内测版自助出餐终端: unblocked it never swings; Spawn (Skill clip, 3 s in, then 5 s after each cast) — one 迷茫的修理小助手 at its clip event', () => {
+  const key = 'enemy_10077_mpbarr', kid = 'enemy_10073_mpcar';
+  assert.equal(E3[key].skills[0].bbStr.enemy_key, kid);
+  const { h } = waveField([key, kid], []);
+  const kids = () => h.b.enemies.filter((x) => x.alive && x.defId === kid);
+  const e = put(h, key, [10, 10], { tag: null });
+  const t0 = h.b.time;
+  h.runUntil(() => kids().length >= 1, 10);
+  assert.ok(Math.abs(h.b.time - t0 - 3.9) < 0.1, `first at 3 + 0.9 s (${h.b.time - t0})`);
+  assert.ok(kids()[0].route, 'on a route');
+  h.runUntil(() => kids().length >= 2, 15);
+  assert.ok(Math.abs(h.b.time - t0 - 11.4) < 0.15, `second at 3 + 2.5 + 5 + 0.9 s (${h.b.time - t0})`);
+  assert.ok(e.alive);
+});
+
+test('破城者: weight 3; SkyProjectile (10 s, the first 5 s in) — up to 3 missiles 0.2 s apart, each on a ground unit not hit yet, landing 0.6 s later: ATK × 0.7 physical within 1.1', () => {
+  const key = 'enemy_10123_uareap';
+  assert.equal(E3[key].skills[0].bb.atk_scale, 0.7);
+  const run = (cols) => {
+    const { h, hits } = waveField([key], cols.map((c, i) => ({ chessId: 't_wall', row: 10, col: c, uid: i + 1 })));
+    const booms = fxLog(h, 'explode', 'uareap');
+    const e = put(h, key, [10, 7], { tag: null });
+    assert.equal(e.blockWeight, 3);
+    h.runUntil(() => booms.length >= 1, 10);
+    runFor(h, 1);
+    return { h, hits: hits.filter((x) => x.at >= booms[0].at - 1e-9 && x.at <= booms[0].at + 0.5), booms, e };
+  };
+  {
+    const { booms, h, hits, e } = run([6, 8]);
+    assert.equal(booms.length, 2, 'two units in range: two missiles');
+    assert.ok(Math.abs(booms[1].at - booms[0].at - 0.2) < 0.02, '0.2 s apart');
+    assert.notEqual(booms[0].x, booms[1].x, 'each on another unit');
+    for (const u of [h.unit(1), h.unit(2)]) assert.ok(hits.some((x) => x.t === u && Math.abs(x.n - e.s.atk * 0.7) < 1e-6), 'ATK × 0.7');
+  }
+  assert.equal(run([5, 6, 8, 9]).booms.length, 2, 'a unit farther than 1.7 + 0.25 is not shot');
+});
+
+test('聆风猎手: hit by a unit while not blocked → blinks onto that unit\'s tile (the nearest ground tile), its attack ready; 30 s before the next', () => {
+  const key = 'enemy_2135_shkrbt';
+  assert.equal(E3[key].skills[0].bb.cooldown, 30);
+  const { h } = waveField([key], [{ chessId: 't_wall', row: 10, col: 4, uid: 1 }, { chessId: 't_wall', row: 11, col: 2, uid: 2 }]);
+  const e = put(h, key, [10, 12], { tag: null });
+  h.step();
+  h.b.dealDamage(h.unit(1), e, { amount: 10, type: 'phys', canDodge: false });
+  assert.deepEqual([e.x, e.y], [4, 10], 'onto the low tile of its attacker');
+  assert.equal(e.atkCd, 0);
+  e.x = 12; e.y = 10;
+  h.b.dealDamage(h.unit(2), e, { amount: 10, type: 'phys', canDodge: false });
+  assert.deepEqual([e.x, e.y], [12, 10], 'cooling down: stays');
+  runFor(h, 30);
+  if (e.blockedBy) h.b._unblock(e);
+  e.x = 12; e.y = 10;
+  h.b.dealDamage(h.unit(2), e, { amount: 10, type: 'phys', canDodge: false });
+  assert.ok(h.b.grid.groundPassable(Math.round(e.y), Math.round(e.x)) && !(e.x === 2 && e.y === 11), 'the attacker on a high tile: the nearest ground tile');
+  assert.ok(Math.hypot(e.x - 2, e.y - 11) <= 1 + 1e-9, `next to it (${e.x}, ${e.y})`);
+});
+
+test('暴走食人花: a unit within 1 (blocked or not) is bitten — Attack_Begin 1.5 s, at 0.8 s devoured (killed); then 20 s digesting (mode Eat, no move, stun-immune); then again', () => {
+  const key = 'enemy_10003_trwlpl_2';
+  assert.equal(E3[key].skills.find((s) => s.prefabKey === 'Eat').bb.duration, 20);
+  const { h } = waveField([key], [{ chessId: 't_wall', row: 10, col: 7, uid: 1 }, { chessId: 't_wall', row: 10, col: 9, uid: 2 }]);
+  const e = put(h, key, [10, 8], { tag: null });
+  const t0 = h.b.time;
+  h.runUntil(() => !h.unit(1).alive || !h.unit(2).alive, 5);
+  assert.ok(Math.abs(h.b.time - t0 - 0.8) < 0.1, `devoured at the clip's event (${h.b.time - t0})`);
+  runFor(h, 1);
+  assert.equal(e.mode, 'Eat', 'digesting');
+  assert.ok(e.s.flags.noMove);
+  assert.equal(h.b.applyStatus(e, 'stun', { duration: 1, source: null }), false, 'stun-immune meanwhile');
+  assert.equal(h.b.applyStatus(e, 'fear', { duration: 1, source: null }), false, 'and fear-immune (enemy_trwlpl_s), unlike its bite');
+  const left = [h.unit(1), h.unit(2)].find((u) => u.alive);
+  runFor(h, 15);
+  assert.ok(left.alive, 'no bite while it digests');
+  h.runUntil(() => !left.alive, 10);
+  assert.ok(h.b.time - t0 > 21.5, `the next after 1.5 + 20 s (${h.b.time - t0})`);
+});
+
+test('搏命养家者 (the 悬赏 card\'s) = 搏命享受者\'s aura: itself and the enemies within 1.7 take damage × 0.75', () => {
+  const key = 'enemy_10196_ubba';
+  assert.equal(E3[key].talents.bb['Talent1.damage_resistance'], 0.25);
+  const { h } = waveField([key], [{ chessId: 't_wall', row: 12, col: 4, uid: 1 }]);
+  const e = put(h, key, [10, 8], { tag: null });
+  runFor(h, 0.5);
+  const hp = e.hp;
+  h.b.dealDamage(h.unit(1), e, { amount: 1000, type: 'arts', canDodge: false });
+  assert.ok(Math.abs(hp - e.hp - 1000 * (1 - E3[key].stats.res / 100) * 0.75) < 1e-6);
+});
+
+test('赏金猎人“骑士”: as 萨卡兹穿刺手 — accelerating while free, its first hit after the block adds move speed × 550 ARTS damage and ends the rush', () => {
+  const key = 'enemy_1413_mmstck', bb = E3[key].talents.bb;
+  assert.deepEqual([bb['Rush.enemy_mmstck_t[trigger].move_speed'], bb['Rush.enemy_mmstck_t[trigger].trig_cnt'], bb['FirstAttack.atk_scale']], [0.5, 25, 550]);
+  const { h } = waveField([key], [{ chessId: 't_wall', row: 10, col: 5, uid: 1 }]);
+  const rush = [];
+  h.b.on('damaged', (c) => { if (c.dmg && c.dmg.tags && c.dmg.tags.includes('rush')) rush.push(c.dmg.type); });
+  const e = put(h, key, [10, 12], { move: true, tag: null });
+  runFor(h, 1.05);
+  assert.ok(e.s.moveSpeed > E3[key].stats.moveSpeed * 1.9, 'two layers: × 2');
+  h.runUntil(() => rush.length >= 1, 40);
+  assert.deepEqual(rush, ['arts']);
+  assert.ok(!e.findBuff('ab:rush'), 'the rush ends');
 });
