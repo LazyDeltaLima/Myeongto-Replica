@@ -48,8 +48,9 @@
 
 import {
   num, buffsOf, bandRecord, isOp, onField, isElite, tierOf, isMember, activeBondIds, playerOps, passiveBuff, fxOn, tplFx,
-  matchBands, gainLayers, alliesAround, N4, baseChessId, isGroundOp, directMods, effectRecord, battleStore,
+  matchBands, gainLayers, alliesAround, N4, baseChessId, isGroundOp, directMods, effectRecord, battleStore, tileKey,
 } from '../support/index.js';
+import { COLS } from '../../constants.js';
 import { weaknessRetype, addShieldLayer, PRIO_RESPAWN, reviveNow } from '../items/battle.js';
 import { addCapMod } from '../garrisons/effects/triggered.js';
 import { spawnMapChar } from '../tokens.js';
@@ -481,10 +482,109 @@ export function reserve(battle) {
   }
 }
 
+// 规程's MAP_TILE 指令 in battle. A tile mark (bands/meta.js, 溃心领域: { effectId, row, col } in board coordinates) runs its
+// effect's buff on that tile of the player's field (Battle.mapTile):
+//
+//   act3autochess_band19_buff 溃心领域 「战斗开始后首次经过该地块的敌人获得恐惧，持续3秒」: the client's global buff gives every
+//                             enemy (its prefab's targetSide 2, targetMotion 3: ground and flying) the template, whose
+//                             ON_OWNER_ROOT_TILE_CHANGED checks the enemy's position against the marked tile
+//                             (AutoChessCheckPosition, _checkPlayerIndex) and, while its own `triggered` is 0, gives it
+//                             `fear` and sets `triggered` — so each enemy is feared once, the first time its root tile
+//                             becomes the tile. Ours: the enemy's tile (rounded position) read after the moves of each
+//                             tick; the tile it is first seen on is no change [ASSUMED·엔진: the client's first tile]; the fear
+//                             has no source (a global buff's), which makes it flutter inside its tile (sim/fear.js) for
+//                             `fear` s [ASSUMED·CN: the buff's source].
+//
+// 宝藏探机's chests (bands/meta.js BAND_CHEST, the input's `bandChests`: { id, row, col, enemyId, coin }) stand on their tiles
+// from the start as an ally-side unit with no attack (a device: no enemy or ally selects it) and the enemy record's HP. The
+// prefab of enemy_9038_achest: an AuraAbility of radius 0.5 over ground enemies (targetMotion 1) whose achest[aura_enemy]
+// InstantKills the chest (_killSource, _skipReborn) as one enters — 「被敌人触碰后永久消失」; ours: a ground enemy (not
+// hidden) within 0.5 of the chest's centre [ASSUMED·엔진: the enemy's collider radius is not added]. At the battle end a
+// standing chest pays its coin (「战斗结束后提供1资金」, Battle.addCoins) and a fallen one is reported in the player's result
+// (`bandChestsGone`: the match removes it). A chest whose tile is no ground passage of this field (a boss field) or is
+// taken is left out of this battle and stays [ASSUMED·CN].
+
+/** 0.5 — the chest's aura radius (enemy_9038_achest, AuraAbility CircleCollider2D), squared. */
+const CHEST_TOUCH_SQ = 0.25;
+
+const TILE_MARK_BY_KEY = {
+  act3autochess_band19_buff(battle, ps, [r, c], p) {
+    const fear = num(p.fear, 0);
+    if (!(fear > 0)) return;
+    const k = r * COLS + c;
+    const last = new WeakMap();
+    const done = new WeakSet();
+    battle.on('tick', () => {
+      for (const e of battle.enemies) {
+        if (!e.alive || e.hidden || done.has(e)) continue;
+        const now = tileKey(e);
+        const before = last.get(e);
+        last.set(e, now);
+        if (before === undefined || before === now || now !== k) continue;
+        done.add(e);
+        battle.applyStatus(e, 'fear', { duration: fear, source: null });
+      }
+    });
+  },
+};
+
+function installTileMark(battle, ps, m) {
+  const tile = battle.mapTile(ps, m.row, m.col);
+  if (!battle.grid.inRect(tile[0], tile[1])) return;
+  for (const b of buffsOf(effectRecord(m.effectId, battle))) {
+    const f = b.bbKey ? TILE_MARK_BY_KEY[b.bbKey] : null;
+    if (f) f(battle, ps, tile, b.p);
+  }
+}
+
+function installChests(battle) {
+  for (const ps of battle.players) {
+    const list = Array.isArray(ps.input?.bandChests) ? ps.input.bandChests : [];
+    const chests = [];
+    for (const x of list) {
+      if (!x || typeof x.id !== 'string' || !Number.isInteger(x.row) || !Number.isInteger(x.col) || typeof x.enemyId !== 'string') continue;
+      const [r, c] = battle.mapTile(ps, x.row, x.col);
+      if (!battle.grid.inRect(r, c) || !battle.grid.walkable(r, c, true)) continue;
+      const rec = battle.data.getEnemy ? battle.data.getEnemy(x.enemyId) : null;
+      const u = battle.spawnDevice(x.enemyId, r, c, { hp: num(rec?.stats?.maxHp, 100), blockCnt: 0, name: rec?.name ?? x.enemyId });
+      if (!u) continue;
+      u.ownerId = ps.playerId;
+      u.mem.bandChest = x.id;
+      chests.push({ u, id: x.id, coin: Math.max(0, Math.floor(num(x.coin, 0))) });
+    }
+    if (!chests.length) continue;
+    battle.on('tick', () => {
+      for (const ch of chests) {
+        const u = ch.u;
+        if (!u.alive) continue;
+        for (const e of battle.enemies) {
+          if (!e.alive || e.hidden || e.isFlying) continue;
+          const dx = e.x - u.x, dy = e.y - u.y;
+          if (dx * dx + dy * dy <= CHEST_TOUCH_SQ) { battle.kill(u, null); break; }
+        }
+      }
+    });
+    battle.on('battleEnd', ({ result }) => {
+      const gone = [];
+      for (const ch of chests) {
+        if (ch.u.alive) { if (ch.coin > 0) battle.addCoins(ps.playerId, ch.coin); } else gone.push(ch.id);
+      }
+      const pp = result && result.perPlayer ? result.perPlayer[ps.playerId] : null;
+      if (pp && gone.length) pp.bandChestsGone = gone;
+    });
+  }
+}
+
 function installMarks(battle) {
+  installChests(battle);
   for (const ps of battle.players) {
     for (const m of marksOf(ps)) {
-      if (m.uid == null) continue;
+      if (m.uid == null) {
+        if (Number.isInteger(m.row) && Number.isInteger(m.col)) {
+          try { installTileMark(battle, ps, m); } catch (e) { battle._handlerError?.(`band:${ps.bandId}:mark`, null, e); }
+        }
+        continue;
+      }
       const u = markedUnit(battle, ps, m.uid);
       if (!u) continue;
       const key = keyOf(ps.bandId || 'band', `mark:${m.effectId}`);

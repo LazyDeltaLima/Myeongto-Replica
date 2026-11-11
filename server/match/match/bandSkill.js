@@ -160,6 +160,8 @@ export class MatchBandSkill {
     if (filter === 'PASSABLE_AND_BUILDABLE') {
       if (!tile.buildable || tile.buildable === 'NONE') return false;
       if (ps.board.has(tileKey(row, col))) return false;
+      // a 宝藏探机 chest makes its tile undeployable while it stands (content/bands/meta.js BAND_CHEST)
+      if (ps.bandChestsNow().some((x) => x.row === row && x.col === col)) return false;
     }
     return true;
   }
@@ -194,6 +196,7 @@ export class MatchBandSkill {
       ps.counters[READY_ROUND] = this.round + n;
     }
     this.dispatcher.runKey(ps, key, 'onBandSkillUsed', source, { ...ev, cost });
+    if (tr.target && tr.target.kind === 'tile') ps.invalidateDeployMap(); // a chest closes its tile (PlayerState.deployMap)
     ps.recompute();
     this.markPrivate(ps);
     return OK;
@@ -203,8 +206,8 @@ export class MatchBandSkill {
    * m.private `bandSkill`: the player's active 指令 (null: the strategy has none) — the stage the panel shows and whether
    * it can be used now: { stage, stageCount, effectId, type, target: { type, filter }, cost, avail: { type, count },
    * usesLeft (null: no count), cooldown (rounds left), usable, blocked (the refusal's detail or code when not usable),
-   * marks (the marks this round's uses left for the round's battle: [{ effectId, uid? | itemId? }] — PlayerState
-   * bandMarksNow) }.
+   * marks (the marks this round's uses left for the round's battle: [{ effectId, uid? | itemId? | row?, col? }] —
+   * PlayerState bandMarksNow), chests (宝藏探机's chests standing on the board: [{ row, col, enemyId }] — bandChestsNow) }.
    * The target is not part of `usable` (the client highlights the targets its filter allows).
    */
   bandSkillView(ps) {
@@ -224,7 +227,11 @@ export class MatchBandSkill {
       cooldown: st.cooldown,
       usable: !b,
       blocked: b ? (b.detail || b.error) : null,
-      marks: ps.bandMarksNow().map((mk) => ({ effectId: mk.effectId, ...(mk.uid != null ? { uid: mk.uid } : null), ...(mk.itemId ? { itemId: mk.itemId } : null) })),
+      marks: ps.bandMarksNow().map((mk) => ({
+        effectId: mk.effectId, ...(mk.uid != null ? { uid: mk.uid } : null), ...(mk.itemId ? { itemId: mk.itemId } : null),
+        ...(mk.row != null ? { row: mk.row, col: mk.col } : null),
+      })),
+      chests: ps.bandChestsNow().map((x) => ({ row: x.row, col: x.col, enemyId: x.enemyId })),
     };
   }
 }

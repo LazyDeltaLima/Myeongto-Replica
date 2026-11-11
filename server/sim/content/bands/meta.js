@@ -984,6 +984,60 @@ K.skill_mark_shop_equip_tag = (ps) => ({
   },
 });
 
+// The two MAP_TILE 指令 (target { kind: 'tile', row, col }: board coordinates — the battle maps them onto its field as it
+// maps the pieces; the tile check is match/bandSkill.js _bandSkillTile).
+const targetTile = (ev) => (ev.target && ev.target.kind === 'tile' && Number.isInteger(ev.target.row) && Number.isInteger(ev.target.col) ? ev.target : null);
+
+// 妮芙 溃心领域 「选择一个可用地块，战斗开始后首次经过该地块的敌人获得恐惧，持续3秒」: skill_mark_pos_grow_use_cnt { tag: eff_band19 } —
+// a mark on the tile for the round's battle (addMark, row / col); its uses per round grow by the stage (第4、8、12回合时升级,
+// the stages' ROUND_RESET counts — use_count / add_count are 0 in every stage). The battle runs eff_band19's buff
+// (bands/battle.js TILE_MARK_BY_KEY). Two uses may mark the same tile [ASSUMED·CN: nothing in the text refuses it].
+K.skill_mark_pos_grow_use_cnt = (ps) => ({
+  onBandSkill(ctx, ev) {
+    const t = targetTile(ev);
+    if (!t) return nothing(ev, 'no tile');
+    const tag = typeof ps[0].tag === 'string' && ps[0].tag ? ps[0].tag : null;
+    if (!tag || !ctx.gd.effect(tag)) return nothing(ev, 'no effect');
+    addMark(ctx, ev, { effectId: tag, row: t.row, col: t.col });
+  },
+});
+
+// 寻宝人 宝藏探机 「选择一个可用地块，部署1个“模拟宝藏”…“模拟宝藏”：被敌人触碰就会永久消失，战斗结束时若仍存在则获得额外1资金」:
+// skill_add_pos_effect_enemy { coin, enemy_id: enemy_9038_achest }. The enemy record's lines say what the chest is: 「友方单位」,
+// 「只能部署在可通行地面，并使所在格无法部署」 (PASSABLE_AND_BUILDABLE, and its prefab's achest[tile_buildable] rewrites its tile to
+// buildable NONE while it lives), 「被敌人触碰后永久消失」, 「战斗结束后提供1资金」. So a use leaves a chest on the tile — a hidden
+// persistent effect BAND_CHEST of the player, `data` { row, col, enemyId, coin } — that stays from battle to battle until an
+// enemy touches it: the tile takes no piece meanwhile (PlayerState.deployMap), every battle of the player's own round
+// fields it (battle input `bandChests`, bands/battle.js installChests), a battle that ends with it standing pays `coin`,
+// and a battle in which it was touched reports it gone (result `bandChestsGone`) — the effect is removed at that
+// result (BAND_CHEST_EFFECT). [ASSUMED·CN: the chest stays across battles — read from 「永久消失」 and the undeployable tile
+// the record names; not in a 联防 battle (no battle of the player's own field), as the marks.]
+export const BAND_CHEST = 'effect:band_chest';
+const CHEST_SEQ = 'band:chest:n';
+K.skill_add_pos_effect_enemy = (ps) => ({
+  onBandSkill(ctx, ev) {
+    const t = targetTile(ev);
+    if (!t) return nothing(ev, 'no tile');
+    const p = ps[0];
+    const enemyId = typeof p.enemy_id === 'string' && p.enemy_id ? p.enemy_id : null;
+    if (!enemyId) return nothing(ev, 'no enemy id');
+    const n = ctx.incCounter(CHEST_SEQ, 1);
+    ctx.addEffect({
+      id: `band:chest:${n}`, key: BAND_CHEST, hidden: true, battle: false, iconKind: 'band',
+      data: { round: ctx.round, bandId: ev.bandId, effectId: ev.effectId, row: t.row, col: t.col, enemyId, coin: Math.max(0, Math.floor(num(p.coin, 0))) },
+    });
+    ev.handled = true;
+  },
+});
+/** The persistent effect of a chest: gone after a battle result that reports it touched. */
+export const BAND_CHEST_EFFECT = {
+  onBattleResult(ctx, ev) {
+    const ref = ctx.source && ctx.source.ref;
+    const gone = ev && ev.result && Array.isArray(ev.result.bandChestsGone) ? ev.result.bandChestsGone : null;
+    if (ref && gone && gone.includes(ref.id)) ctx.removeEffect(ref.id);
+  },
+};
+
 // ---------------------------------------------------------------------------------------------------------------
 // 鸭爵 “神秘顾客”: "从第5回合起，你和队友遭遇的部分敌人可能会替换为<鸭爵><高普尼克><流泪小子><圆仔>，击倒这些敌人者获得1资金奖励
 // （包括联防阶段）". A global handler rewrites the battle spawn list of every alive player while the band is held by that
@@ -1216,4 +1270,5 @@ export function registerMeta(registry, data = gameData()) {
   }
   registry.global('bands_ducklord', duckGlobal);
   registry.effect(BAND_MARK.slice('effect:'.length), BAND_MARK_EFFECT);
+  registry.effect(BAND_CHEST.slice('effect:'.length), BAND_CHEST_EFFECT);
 }

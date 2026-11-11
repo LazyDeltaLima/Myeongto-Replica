@@ -10,7 +10,7 @@ import { boardOrder, pieceDir } from '../board.js';
 import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains, pieceBonds } from '../bondsMeta.js';
 import { handRules, swapBondRecord } from '../../sim/content/bonds/dispatch.js';
 import { handRules as switchHandRules } from '../../sim/content/garrisons/effects/switch.js';
-import { BAND_MARK, STAGE_COUNTER } from '../../sim/content/bands/meta.js';
+import { BAND_MARK, BAND_CHEST, STAGE_COUNTER } from '../../sim/content/bands/meta.js';
 import { markInputNeeds } from '../../sim/content/bands/battle.js';
 
 export class PlayerRound {
@@ -153,7 +153,8 @@ export class PlayerRound {
 
   /**
    * The 规程 marks the player's drag 指令 left for this round's battle (content/bands/meta.js addMark):
-   * [{ effectId, uid?, itemId?, capAdd? }] — an operator mark only while the operator is still the player's.
+   * [{ effectId, uid?, itemId?, capAdd?, row?, col? }] — an operator mark only while the operator is still the player's;
+   * a tile mark (溃心领域) in board coordinates.
    */
   bandMarksNow() {
     const out = [];
@@ -161,7 +162,23 @@ export class PlayerRound {
       if (!e || e.key !== BAND_MARK || !e.data || e.data.round !== this.m.round || typeof e.data.effectId !== 'string') continue;
       const d = e.data;
       if (d.uid != null && !this.find(d.uid)) continue;
-      out.push({ effectId: d.effectId, ...(d.uid != null ? { uid: d.uid } : null), ...(d.itemId ? { itemId: d.itemId } : null), ...(d.capAdd ? { capAdd: d.capAdd } : null) });
+      out.push({
+        effectId: d.effectId, ...(d.uid != null ? { uid: d.uid } : null), ...(d.itemId ? { itemId: d.itemId } : null), ...(d.capAdd ? { capAdd: d.capAdd } : null),
+        ...(Number.isInteger(d.row) && Number.isInteger(d.col) ? { row: d.row, col: d.col } : null),
+      });
+    }
+    return out;
+  }
+
+  /**
+   * 宝藏探机's chests standing on the player's board (content/bands/meta.js BAND_CHEST): [{ id, row, col, enemyId, coin }]
+   * in board coordinates, oldest first. They stay until a battle reports them touched.
+   */
+  bandChestsNow() {
+    const out = [];
+    for (const e of this.effects) {
+      if (!e || e.key !== BAND_CHEST || !e.data || !Number.isInteger(e.data.row) || !Number.isInteger(e.data.col) || typeof e.data.enemyId !== 'string') continue;
+      out.push({ id: e.id, row: e.data.row, col: e.data.col, enemyId: e.data.enemyId, coin: Number(e.data.coin) || 0 });
     }
     return out;
   }
@@ -181,6 +198,8 @@ export class PlayerRound {
     // its item to every board operator with a free slot (the slots of the operator it fights as); the rest goes to the
     // battle (`bandMarks`, content/bands/battle.js)
     const bandMarks = marks ? this.bandMarksNow() : [];
+    // 宝藏探机's chests: every battle of the round's own (the 联防 field passes marks false, as for the marks)
+    const bandChests = marks ? this.bandChestsNow() : [];
     const upgrade = new Set();
     const gifts = [];
     let wantsHand = false;
@@ -237,6 +256,7 @@ export class PlayerRound {
       // the strategy stage the player reached (content/bands/meta.js bandStageIndex) and the round's marks
       ...(this.counters[STAGE_COUNTER] > 0 ? { bandStage: this.counters[STAGE_COUNTER] } : null),
       ...(bandMarks.length ? { bandMarks } : null),
+      ...(bandChests.length ? { bandChests } : null),
       playerEffects: this.effects.filter((e) => e.battle !== false).map((e) => ({
         id: e.id, key: e.key ?? null, source: e.iconKind ?? null, params: e.params ?? null, counter: e.counter ?? null, data: e.data ?? null,
       })),

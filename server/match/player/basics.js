@@ -222,6 +222,10 @@ export class PlayerBasics {
       this._deployMap = null;
       this._legalityStale = true;
     }
+    // 宝藏探机's chests close their tiles (Match.deployMapFor): one placed or touched changes the map
+    const chests = typeof this.bandChestsNow === 'function' ? this.bandChestsNow().map((x) => x.id).join() : '';
+    if (this._deployMap && (this._deployChests ?? '') !== chests) this._deployMap = null;
+    this._deployChests = chests;
     if (!this._deployMap) this._deployMap = this.m.deployMapFor(this, field);
     this._deployField = field;
     return this._deployMap;

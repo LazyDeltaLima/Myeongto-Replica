@@ -67,6 +67,8 @@ const isPerPlayer = (p) => isPlain(p) && isInt(p.killed, 0, 1e5) && isInt(p.tota
   && (p.tempLayerGains === undefined || isMap(p.tempLayerGains, RESULT_LIMITS.layerGains, isId, (v) => isNum(v, 0, 1e4)))
   && isStat(p.coins) && isStat(p.damageDealt) && isStat(p.bossDamage) && isStat(p.healingDone) && isStat(p.deaths)
   && isList(p.unitsEnd, RESULT_LIMITS.unitsEnd, isUnitEnd)
+  // 宝藏探机's chests touched in the battle (卫戍协议：规程, server/sim/content/bands/battle.js): absent when none fell
+  && (p.bandChestsGone === undefined || isList(p.bandChestsGone, RESULT_LIMITS.unitsEnd, (x) => isStr(x, 64)))
   && (p.unitStats === undefined || isList(p.unitStats, RESULT_LIMITS.unitStats, isUnitStat));
 const isUnspawned = (u) => isPlain(u) && isId(u.enemyKey) && nullable(isId)(u.sourcePlayerId) && nullable((v) => isStr(v, 16))(u.tag)
   && optional((v) => isNum(v, 0, 1e6))(u.time);
