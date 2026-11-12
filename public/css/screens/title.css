@@ -323,9 +323,11 @@
 .season-tabs__opts.has-art .season-tabs__opt.is-on { box-shadow: 0 0 0 2px var(--mint-500) inset; }
 .season-tabs__emb { position: absolute; left: .08rem; top: 50%; height: 72%; transform: translateY(-50%); pointer-events: none; }
 .season-tabs__name { position: relative; display: inline-flex; align-items: center; gap: .04rem; }
-/* a narrow tab (a phone: about 75 px) has no room beside the name: the emblem sinks behind it, smaller and faint */
-.season-tabs__opts.has-art { container-type: inline-size; }
-@container (max-width: 240px) {
+/* a narrow tab (a phone: about 75 px) has no room beside the name: the emblem sinks behind it, smaller and faint. The
+   row is narrow (240 px or less) while the rem is about 72 px or less: the login box is 4.9rem, the label about 62 px
+   (theme.css: the rem is min(100vw / 19.2, 100vh / 10.8)); a media query, as container queries are not for Safari 15
+   or Firefox ESR (test/client-static.test.js) */
+@media (max-width: 1380px), (max-height: 776px) {
   .season-tabs__emb { left: .04rem; height: 62%; opacity: .45; }
 }
 /* an invitation of a room of another season than the picked one: its season, the card's last line (ui/season.js InviteSeason) */
