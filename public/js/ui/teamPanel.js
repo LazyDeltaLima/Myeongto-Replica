@@ -20,6 +20,8 @@
 // The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): more than four rows mark the list `is-8`, which
 // shrinks every row (css/hud-art.css: a smaller --u; css/screens/game.css: smaller portraits and gaps) so eight fit
 // between the top bar and the shop bar [추정: the official list has four].
+// 规程 (ui/avatarBadges.js): the 完美连胜 badge on a portrait's corner, and in a boss round each portrait's glow by its
+// player's share of the leader, the own share beside the own portrait.
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { PHASE } from '../../../shared/constants.js';
@@ -28,6 +30,7 @@ import { PlayerAvatar, LpTower, GIcon, LocalSprite } from './gameComponents.js';
 import { EmoteBubble } from './emotes.js';
 import { STATUS_META, sortedPlayers, teamFrameIds } from './gameLogic.js';
 import { MissTag, uniteRemaining } from './hud.js';
+import { AvatarBadges } from './avatarBadges.js';
 import { localAsset } from '../data.js';
 import { t } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
@@ -155,6 +158,7 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
           ${card.mask ? html`<span class=${`team__mask is-${card.mask}`} aria-hidden="true"><i></i></span>` : null}
           ${watched && !self ? html`<span class="team__watch" aria-hidden="true"></span>` : null}
           ${lp.left != null ? html`<${MissTag} n=${lp.left} name=${self ? null : playerName(p.name) || t('博士')} />` : null}
+          <${AvatarBadges} player=${p} self=${self} phase=${pub?.phase} />
         </button>
         <div class="team__info">
           <span class="team__name">${playerName(p.name) || t('博士')}</span>

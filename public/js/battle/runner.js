@@ -495,6 +495,13 @@ export function createBattleRunner(deps) {
         for (const pid of Object.keys(pool.byPlayer).slice(0, RESULT_LIMITS.players)) by[pid] = pool.byPlayer[pid];
         msg.by = by;
       }
+      // each player's top operator against the leader (规程's boss-damage list): only when it changed — it moves a few
+      // times a fight, the reports go 4 times a second
+      if (p.top) {
+        const top = Object.fromEntries(Object.entries(p.top).slice(0, RESULT_LIMITS.players));
+        const json = JSON.stringify(top);
+        if (json !== e.topSent) { msg.top = top; e.topSent = json; }
+      }
     } else {
       msg.leaks = Math.min(1e6, p.leaks);
       // 联防: the leakers' enemies still standing (shared/protocol.js b.progress `left`, ≤ RESULT_LIMITS.players)
@@ -702,7 +709,7 @@ export function createBattleRunner(deps) {
       sim: null, battle: null, meter: null, cursors: null, seq, elapsed: Number(msg.elapsed) || 0, endReason: null, ready: null,
       authoritative: !!msg.authoritative, watch: !!msg.watch, own: !msg.watch, speed,
       members: (msg.spec.players || []).map((p) => p && p.playerId).filter(Boolean),
-      t0: null, lastProgressAt: -Infinity, done: false, resultSent: false,
+      t0: null, lastProgressAt: -Infinity, topSent: null, done: false, resultSent: false,
       result: null, delivery: null,
       // counted leaks so far (normal fields; noteLeaks) and the Battle state they were counted at; 联防 fields: each
       // leaker's enemies still standing (noteUniteLeft)

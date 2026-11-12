@@ -4506,8 +4506,32 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       singleReconnectTime: ac.constData?.singleReconnectTime ?? 86400, trainingModeId: act.constData.trainingModeId || null,
       discountColor: ac.constData?.discountColor || '#59f4ca', premiumColor: ac.constData?.premiumColor || '#ff5454', normalColor: ac.constData?.normalColor || '#ffc600',
       pingConds: (ac.constData?.pingConds || []).map((p) => ({ minMs: p.cond, textRaw: p.txt })),
+      // 规程's avatar badges (absent from a season whose table has none — the page and the server show none then):
+      // the 完美连胜 count's two badge steps, the boss-damage share's three glow steps (the BOSS_HIT broadcasts' 20 / 50 /
+      // 80 %), the boss-damage list's row styles by percent (styleStatusId bg_1…) and its delay after the boss fight starts
+      ...avatarBadgeConstants(ac),
     },
   };
+}
+
+/**
+ * The avatar badge constants of a season's autoChessData (constData.playerAvatarWinStreakThresholds,
+ * playerAvatarBossDamageThresholds, bossDamageStatsShowDelayTime; bossDamageStatsStyleList) — only those its table has.
+ * @param {any} ac
+ */
+function avatarBadgeConstants(ac) {
+  const c = ac.constData || {};
+  const nums = (v) => (Array.isArray(v) && v.length && v.every((x) => Number.isFinite(x)) ? v.slice() : null);
+  const out = {};
+  const streak = nums(c.playerAvatarWinStreakThresholds);
+  if (streak) out.winStreakThresholds = streak;
+  const boss = nums(c.playerAvatarBossDamageThresholds);
+  if (boss) out.bossDamageThresholds = boss;
+  const styles = Array.isArray(ac.bossDamageStatsStyleList) ? ac.bossDamageStatsStyleList : Object.values(ac.bossDamageStatsStyleList || {});
+  const rows = nums(styles.map((s) => s && s.damageThreshold));
+  if (rows) out.bossDamageRowThresholds = rows;
+  if (Number.isFinite(c.bossDamageStatsShowDelayTime)) out.bossDamageStatsDelay = c.bossDamageStatsShowDelayTime;
+  return out;
 }
 
 // ===== potential (0.2.2) =========================================================================

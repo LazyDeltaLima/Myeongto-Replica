@@ -806,3 +806,17 @@
 .gm.has-hud-art .bpause { position: absolute; left: 50%; top: calc(50% - var(--u) * 17); z-index: 2; display: flex; align-items: center; justify-content: center;
   width: calc(var(--u) * 157); height: calc(var(--u) * 47); transform: translate(-50%, -50%); pointer-events: none; white-space: nowrap;
   background: var(--ha-pause, rgba(0, 0, 0, .6)) center / 100% 100% no-repeat; font-size: calc(var(--u) * 15); font-weight: 700; color: #d7fff3; letter-spacing: .04em; }
+
+/* ---- 规程's bond phase (ui/bondStrip.js bondPhaseOf; seasonFeature 'bondPhase'): Ⅰ·Ⅱ·Ⅲ over an active disc — the HUD bond
+   item's img_level, 24×24 centred 31.3 above the item's centre (the disc's 9 above it), bondphaseicon/bond_level_N — and
+   阶段 Ⅱ after the count pill of the bond dialog (bond_phase/phase_text; a CN capture 2026-11-11: a mint plate, dark text) ---- */
+.bslot__phase {
+  position: absolute; z-index: 2; left: 50%; top: calc(var(--u, .015rem) * -2); width: calc(var(--u, .015rem) * 24); height: calc(var(--u, .015rem) * 24);
+  transform: translateX(-50%); display: grid; place-items: center; pointer-events: none; font-style: normal;
+  color: #fff; font-size: calc(var(--u, .015rem) * 17); font-weight: 700; line-height: 1; text-shadow: 0 0 calc(var(--u, .015rem) * 3) #000;
+}
+.bslot__phase.has-sprite { background: var(--phase) center / contain no-repeat; }
+.bpop__phase {
+  display: inline-flex; align-items: center; margin: 0 calc(var(--u, .015rem) * -8) 0 calc(var(--u, .015rem) * 6); align-self: stretch;
+  padding: 0 calc(var(--u, .015rem) * 8); background: #00e6b0; color: #02140f; font-size: calc(var(--u, .015rem) * 16); font-weight: 700; white-space: nowrap;
+}

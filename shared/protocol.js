@@ -543,7 +543,10 @@ export const C2S = {
     by: (v) => isMap(v, RESULT_LIMITS.players, isId, (x) => isNum(x, 0, BIG)), done: isBool,
     left: (v) => isMap(v, RESULT_LIMITS.players, isId, (x) => isInt(x, 0, 1e5)),
     leaksBy: (v) => isMap(v, RESULT_LIMITS.players, isId, (x) => isNum(x, 0, 1e6)),
-    $optional: ['resolved', 'leaks', 'bossDmg', 'by', 'done', 'left', 'leaksBy'],
+    // a boss / hidden field: each player's operator that dealt the leader the most (its chess id; spec.js bossTopUnits) —
+    // sent only when it changed since the authority's previous report (the server keeps the last one: f.bossTop)
+    top: (v) => isMap(v, RESULT_LIMITS.players, isId, isId),
+    $optional: ['resolved', 'leaks', 'bossDmg', 'by', 'done', 'left', 'leaksBy', 'top'],
   },
   'b.result': { battleId: isId, result: isBattleResult },
 };

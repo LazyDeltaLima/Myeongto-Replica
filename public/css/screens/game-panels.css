@@ -549,11 +549,11 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 
 /* Grid image boxes: definite 100% tracks so `height: 100%` images resolve against the box (an auto track would
    let non-square art overflow its frame). */
-.uthumb__art, .bandicon, .dhead__icon, .spcard__icon, .effect, .pavatar__img, .brief-etype__icon, .scard__itemart, .bglyph {
+.uthumb__art, .bandicon, .dhead__icon, .spcard__icon, .pavatar__img, .brief-etype__icon, .scard__itemart, .bglyph {
   grid-template-rows: 100%;
   grid-template-columns: 100%;
 }
-.spcard__icon img, .dhead__icon img, .scard__itemart img, .effect img { max-width: 100%; max-height: 100%; }
+.spcard__icon img, .dhead__icon img, .scard__itemart img { max-width: 100%; max-height: 100%; }
 
 /* ---- direction wheel (ui/facingWheel.js, research 09 §1.2): white diamond, 4 chevrons, "✕ 点击取消", orange range ---- */
 .fwheel { position: fixed; inset: 0; z-index: 6; touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair; }
@@ -892,3 +892,61 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bskill-tip em { font-style: normal; color: #2ef0b4; }
 /* the pointed 调度中心 card */
 .scard.is-skill-target { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 22px rgba(255, 255, 255, .75); z-index: 1; }
+
+/* ---- 规程's avatar badges and boss-damage list (ui/avatarBadges.js; docs/rules/ui.md 「규정 HUD 새 요소」).
+   Sizes go by the portrait (`.team__btn`, 94 px at 1600 × 900): the theme's win_streak_1_base 40×36 / _2_base 68×68 drawn at
+   ≈ .48 / .8 of it with the count in black / #F68A25, half over the top-right corner; without the theme's sprites a yellow
+   triangle / an orange star in CSS. In a boss round the glow steps 1–3 (scan_light #FFC500 / #FFAE51 / #FF9A5E, the
+   damage_fx_middle_light band through it, step 3 the damage_fx_frame_cross frame and damage_fx_dec above and below). ---- */
+.abadge {
+  position: absolute; z-index: 4; right: 0; top: 0; width: 48%; aspect-ratio: 40 / 36; transform: translate(45%, -45%);
+  display: grid; place-items: center; pointer-events: none;
+  background: #ffd23a; clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.abadge b { margin-top: 22%; font-size: .14rem; line-height: 1; color: #000; font-weight: 800; }
+.abadge.is-r2 { width: 76%; aspect-ratio: 1; background: #2a1404; clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.abadge.is-r2 b { margin-top: 8%; font-size: .17rem; color: #f68a25; }
+.abadge.has-sprite { clip-path: none; background: var(--abadge) center / contain no-repeat; filter: drop-shadow(0 0 .04rem rgba(255, 200, 60, .8)); }
+.aglow { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.aglow i { position: absolute; display: block; }
+.aglow__scan { inset: 0; box-shadow: 0 0 .16rem .05rem var(--aglow-c, #ffc500), inset 0 0 .12rem .02rem var(--aglow-c, #ffc500); opacity: .8; }
+.aglow__mid { left: -42%; right: -42%; top: 50%; height: 27%; transform: translateY(-50%); background: var(--aglow-mid, linear-gradient(90deg, transparent, rgba(243, 173, 113, .8), transparent)) center / 100% 100% no-repeat; opacity: .78; }
+.aglow.is-r1 { --aglow-c: #ffc500; }
+.aglow.is-r2 { --aglow-c: #ffae51; }
+.aglow.is-r3 { --aglow-c: #ff9a5e; }
+.aglow__cross { inset: -4%; background: var(--aglow-cross, none) center / 100% 100% no-repeat; outline: var(--aglow-cross-line, 2px solid rgba(255, 154, 94, .75)); }
+.aglow__dec { left: 50%; top: 0; width: 72%; height: 21%; transform: translate(-50%, -70%); background: var(--aglow-dec, linear-gradient(#ff9a5e, #ff9a5e) center / 60% 30% no-repeat) center / contain no-repeat; }
+.aglow__dec.is-down { top: auto; bottom: 0; transform: translate(-50%, 70%) scaleY(-1); }
+.bdmg__pct { display: inline-flex; align-items: baseline; gap: .02rem; color: #fff; white-space: nowrap; text-shadow: 0 1px 3px #000; }
+.bdmg__pct b { font-size: .2rem; font-weight: 700; }
+.bdmg__pct small { font-size: .15rem; font-weight: 700; }
+.abadge__pct { position: absolute; z-index: 4; left: calc(100% + .08rem); top: 50%; transform: translateY(-50%); pointer-events: none; }
+/* ✗ (icon_damage): two strokes */
+.bdmg__x { width: .14rem; height: .14rem; align-self: center; background: #fff;
+  -webkit-mask: linear-gradient(45deg, transparent 40%, #000 40% 60%, transparent 60%), linear-gradient(-45deg, transparent 40%, #000 40% 60%, transparent 60%);
+  mask: linear-gradient(45deg, transparent 40%, #000 40% 60%, transparent 60%), linear-gradient(-45deg, transparent 40%, #000 40% 60%, transparent 60%); }
+/* the list (boss_damage_stats_panel, right-centre; rows boss_damage_stats_item 238×75: the name right-aligned in #5AF2C2,
+   ✗ n% under it, the operator's portrait at the right) */
+.bdmg { position: absolute; z-index: 6; right: .3rem; top: 50%; transform: translateY(-50%); width: 2.4rem; display: flex; flex-direction: column; align-items: flex-end; gap: .04rem; pointer-events: auto; }
+.bdmg__toggle {
+  display: inline-flex; align-items: center; gap: .06rem; height: .34rem; padding: 0 .14rem; border: 0; cursor: pointer;
+  background: rgba(255, 255, 255, .2); color: #fff; font: inherit; font-size: .13rem;
+}
+.bdmg__arrow { width: .07rem; height: .1rem; background: #fff; clip-path: polygon(100% 0, 0 50%, 100% 100%); }
+.bdmg.is-hidden .bdmg__arrow { transform: scaleX(-1); }
+.bdmg__list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .04rem; }
+.bdmg__row {
+  position: relative; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; column-gap: .1rem; align-items: center;
+  width: 2.4rem; min-height: .72rem; padding: .04rem .04rem .04rem .1rem; box-sizing: border-box;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, .55) 40%, rgba(0, 0, 0, .7));
+}
+.bdmg__name { grid-column: 1; grid-row: 1; justify-self: end; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #5af2c2; font-size: .16rem; text-shadow: 0 1px 2px #000; }
+.bdmg__row .bdmg__pct { grid-column: 1; grid-row: 2; justify-self: end; }
+.bdmg__op { grid-column: 2; grid-row: 1 / 3; }
+.bdmg__row.is-r1 { box-shadow: inset -.03rem 0 0 rgba(255, 197, 0, .5); }
+.bdmg__row.is-r2 { box-shadow: inset -.03rem 0 0 rgba(255, 174, 81, .8); }
+.bdmg__row.is-r3 { box-shadow: inset -.04rem 0 0 #ff9a5e; }
+@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
+  .bdmg { top: 1.25rem; transform: none; width: 2rem; }
+  .bdmg__row { width: 2rem; min-height: .6rem; }
+}

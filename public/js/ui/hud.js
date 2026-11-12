@@ -37,6 +37,7 @@ import { serverNow, createStore, useStore } from '../store.js';
 import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason, countdownWarnAt, overflowOf } from './gameLogic.js';
 import { overtimeState, overtimeDrainPerSec, remainAt } from './matchStatus.js';
 import { hotkeyLabelOf } from './settings.js';
+import { BuffButton } from './effectsList.js';
 import { t, tParts } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -377,7 +378,7 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  *     `left` (a leaker in 联防): its enemies still standing — the capsule's ×N tag
  */
 export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
-  config = null, frozenAt = null, pause = null, live = null, spectator = false, onTimerWarn }) {
+  config = null, frozenAt = null, pause = null, live = null, spectator = false, onTimerWarn, effects = null }) {
   const phase = pub?.phase;
   const boss = isBossPhase(phase);
   const warnAt = countdownWarnAt(pub, config);
@@ -418,6 +419,7 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
     </div>
 
     <div class="gtop__center brackets">
+      <${BuffButton} effects=${effects} />
       <${Tooltip} text=${btn.left.tip} placement="bottom">
         <${CheckBtn} sprite=${btn.left.sprite} cls=${cx('gtop__iconbtn', btn.left.back && 'is-back')} label=${btn.left.label}
           chev=${btn.left.back ? '◀◀' : null} on=${!!drawer && !pen} onClick=${onLeft} testid="check-player" />

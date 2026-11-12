@@ -37,7 +37,9 @@ import { html, BondDisc, Icon, MicroLabel, Tooltip } from './components.js';
 import { RichText, UnitThumb, BondGlyph, GIcon } from './gameComponents.js';
 import { sortBonds, bondMembers, nextThreshold, bondRequireCount, bondTier, harmonyMembers, HARMONY_BOND, memberHeadCount, memberLit, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
 import { formatBondEffect } from './richText.js';
-import { bondIconUrl } from './assetUrls.js';
+import { bondIconUrl, uiUrl } from './assetUrls.js';
+import { store } from '../store.js';
+import { seasonFeature } from '../../../shared/seasons.js';
 import { data } from '../data.js';
 import { bondBoardStyle, bondBoardOf } from './hudArt.js'; // local patch
 import { t, tc, tParts, tName } from '../../../shared/i18n.js';
@@ -91,6 +93,19 @@ function stripWheel(e) {
   e.preventDefault();
 }
 
+const ROMAN = ['', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'];
+
+/**
+ * A bond's phase on the strip (规程, seasonFeature 'bondPhase'): the thresholds its count reached (`tier`), shown on an
+ * active bond with two thresholds or more — a bond with one shows none (an official CN screen, 独行: maintainer
+ * 2026-11-12); 0 = no mark.
+ * @param {{ active?: boolean, tier?: number }} b @param {number[]} th
+ */
+export function bondPhaseOf(b, th) {
+  const n = Math.trunc(Number(b?.tier) || 0);
+  return b?.active && Array.isArray(th) && th.length >= 2 && n >= 1 ? Math.min(n, th.length, 3) : 0;
+}
+
 /** The "👁 name" tag of a teammate's strip (DESIGN §20.15). */
 function OwnerTag({ owner }) {
   return html`<span class="bstrip__owner" title=${t('正在查看 {owner} 的盟约', { owner })} data-owner=${owner}>
@@ -103,6 +118,8 @@ function OwnerTag({ owner }) {
  *   owner?: string|null }} props — owner: the watched teammate's name (null = your own bonds)
  */
 export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null, max = 14, owner = null }) {
+  // (a plain read, not a hook: the room's season never changes in a match, and tests call these views as functions)
+  const phase = seasonFeature(store.get().room?.season, 'bondPhase');
   const sorted = sortBonds(bonds, (id) => data.lookup('bonds', id));
   if (!sorted.length) {
     return html`<div class=${cx('bstrip', 'bstrip--empty', owner && 'is-other')} data-owner=${owner || null}>
@@ -136,8 +153,12 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       // 临时层数 in the shown count (the battle's live layers: ui/watchBonds.js withLiveLayers `tempLayers`): the official
       // HUD draws the whole count in yellow (CN capture 2026-11-11; docs/rules/ui.md 「임시 중첩 표시」)
       const temp = b.tempLayers > 0 && !rec?.noStack ? b.tempLayers : 0;
+      const phaseN = phase ? bondPhaseOf(b, th) : 0;
+      const phaseArt = phaseN ? uiUrl(m, `bondPhaseIcon/bond_level_${phaseN}`) : null;
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null} style=${board.style} data-full=${board.full ? '1' : null}
-          data-temp=${temp || null} class=${cx('bslot', b.active && 'is-active', temp && 'has-temp', openId === b.bondId && 'is-open')}>
+          data-temp=${temp || null} data-phase=${phaseN || null} class=${cx('bslot', b.active && 'is-active', temp && 'has-temp', openId === b.bondId && 'is-open')}>
+        ${phaseN ? html`<i class=${cx('bslot__phase', phaseArt && 'has-sprite')} style=${phaseArt ? `--phase:url("${phaseArt}")` : undefined}
+          title=${t('阶段 {n}', { n: ROMAN[phaseN] })} aria-hidden="true">${phaseArt ? null : ROMAN[phaseN]}</i>` : null}
         <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : b.layers ?? 0}
           tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
@@ -198,6 +219,8 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   const th = Array.isArray(entry?.thresholds) && entry.thresholds.length ? entry.thresholds : b.thresholds || [];
   const tier = off ? 0 : entry?.tier ?? bondTier(count, th, b.maxCount);
   const active = !off && (entry ? !!entry.active : tier > 0);
+  // 规程: 阶段 Ⅱ beside the count pill (autochess_hud_bond_detail_dialog bond_phase/phase_text), as on the strip
+  const phaseN = seasonFeature(store.get().room?.season, 'bondPhase') ? bondPhaseOf({ active, tier }, th) : 0;
   // (自选 pieces are their operators: the own ones by m.private.diy, a watched teammate's by the pick its unit carries;
   // their rows wear no 「自选」 badge — maintainer decision 2026-10-08, docs/LOCAL-PATCH.md 「0.2.0 병합」)
   const dd = { chess: data.get('chess'), backups: data.get('backups') };
@@ -230,7 +253,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
         <${MicroLabel} tone="mint">${b.isCore ? t('CORE BOND // 核心盟约') : t('ADD-ON BOND // 附加盟约')}</${MicroLabel}>
         ${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" />${tParts('{owner} 的盟约', { owner: html`<b>${owner}</b>` })}</span>` : null}
         <h3 class="bpop__name">${b.name}</h3>
-        ${th.length && !off ? html`<span class=${cx('bpop__need', active && 'is-active')}><i class="bpop__needicon"></i><b class="num"><span class="bpop__needn">${count}</span><span class="bpop__needm">/${need ?? '-'}</span></b>${active ? html`<i class="bpop__needok"></i>` : html`<em>${t('尚未激活')}</em>`}</span>` : null}
+        ${th.length && !off ? html`<span class=${cx('bpop__need', active && 'is-active')}><i class="bpop__needicon"></i><b class="num"><span class="bpop__needn">${count}</span><span class="bpop__needm">/${need ?? '-'}</span></b>${active ? html`<i class="bpop__needok"></i>` : html`<em>${t('尚未激活')}</em>`}${phaseN ? html`<span class="bpop__phase" data-phase=${phaseN}>${t('阶段 {n}', { n: ROMAN[phaseN] })}</span>` : null}</span>` : null}
         ${b.noStack ? null : html`<span class="bpop__stack">${t('层数')} <b class="num">${layers - temp}</b>${tempTag()}</span>`}${/* local patch: the client's count pill and 层数 (autochess_hud_bond_detail_dialog; css/hud-art.css) */ ''}
         <div class="bpop__facts">
           ${off ? null : html`<span>${t('在场')} <b class="num">${count}</b>${need != null ? html`<small class="num">/${need}</small>` : null}${countsHand ? html`<small>${t('（含整备区）')}</small>` : null}${harmony ? html`<small class="bpop__hnote" data-harmony=${harmony}>${t('（含{harmonyName} +{harmony}）', { harmonyName, harmony })}</small>` : null}</span>`}

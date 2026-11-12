@@ -253,6 +253,8 @@ function buildState() {
   // I am the second of the first pair → the mirrored right half (no bossPairs here: the client pairs by seat, camera.js bossPairOf)
   if (VARIANTS.has('bossR')) { players[0].seat = 1; players[1].seat = 0; }
   if (VARIANTS.has('dead')) { players[0].alive = false; players[0].status = 'dead'; players[0].lp = 0; priv.lp = 0; }
+  // 规程's 完美连胜 badges (server views.js _badgeView winStreak; shown when the season's config has the thresholds)
+  [5, 4, 2, 0].forEach((n, i) => { if (n) players[i].winStreak = n; });
 
   const pub = {
     phase: PHASE.PREP, round: 6, lastRound: 14, bossRound: 14, hiddenRound: 15, deadline: Date.now() + 74000, serverNow: Date.now(), modeId: 'mode_multi_hard', difficulty: 'HARD',
@@ -472,6 +474,8 @@ function startCombat(phase) {
   // solo pause (g.pause → m.public.paused)
   if (VARIANTS.has('paused')) pub.paused = true;
   pub.players.forEach((p, i) => { p.status = phase === PHASE.SETTLE ? 'done' : i === 1 ? 'done' : 'combat'; });
+  // 规程's boss-damage glow and list (views.js _badgeView bossPct / bossTop): shares and each player's top operator
+  if (boss) pub.players.forEach((p, i) => { p.bossPct = [52, 24, 82, 3][i]; p.bossTop = (S.priv.board || [])[i]?.id || null; });
   if (phase === PHASE.UNITE) { pub.players[1].status = 'helping'; pub.players[0].status = 'helping'; }
   // 联防 live counter (user playtest #6 item 7; server m.public unite / players[].uniteLeft / pendingLp): ?variant=leaker
   // — you and 灰烬 let enemies through, the AI and Doctor·B help; otherwise Doctor·B leaked. The first leaker's count of
@@ -555,7 +559,8 @@ function startCombat(phase) {
     enemies.push({ id: id++, kind: 'enemy', side: 'enemy', ownerId: ME, defId: key, name: e?.name, spine: key, avatar: key, x: startX + rnd() * 0.3, y, facing: -1, maxHp: e?.stats?.maxHp || 3000, hp: e?.stats?.maxHp || 3000, spawnAt: i * 0.9, dir: boss ? (i % 2 ? -1 : 1) : -1, dead: false });
   }
   if (boss) {
-    const bossRec = data.lookup('bosses', phase === PHASE.HIDDEN_CORE ? 'boss_8' : 'boss_5');
+    // (规程's boss table has no boss_5: its first leader)
+    const bossRec = data.lookup('bosses', phase === PHASE.HIDDEN_CORE ? 'boss_8' : 'boss_5') || data.lookup('bosses', Object.keys(data.get('bosses') || {})[0]);
     const e = data.lookup('enemies', bossRec.enemyKey);
     enemies.push({ id: id++, kind: 'enemy', side: 'enemy', ownerId: ME, defId: bossRec.enemyKey, name: bossRec.name, spine: bossRec.enemyKey, avatar: bossRec.enemyKey, x: 10, y: 3, facing: -1, maxHp: e?.stats?.maxHp || 1e5, hp: (e?.stats?.maxHp || 1e5) * 0.62, spawnAt: 0, dir: 0, boss: true, dead: false });
   }
@@ -941,7 +946,8 @@ async function boot() {
     me: { playerId: ME, name: '凯尔希', token: null },
     connection: { status: 'online', ping: 42, attempt: 0, retryAt: 0, lastError: null, everOnline: true },
     clock: { offset: 0, rtt: 20, synced: true },
-    room: { code: 'MOCK', hostId: ME, mode: 'coop', difficulty: 'HARD', inMatch: true, seats: PLAYERS.map((p) => ({ seat: p.seat, playerId: p.playerId, name: p.name, isBot: p.isBot, ready: true, connected: true })) },
+    room: { code: 'MOCK', hostId: ME, mode: 'coop', difficulty: 'HARD', inMatch: true, seats: PLAYERS.map((p) => ({ seat: p.seat, playerId: p.playerId, name: p.name, isBot: p.isBot, ready: true, connected: true })),
+      ...(SEASON ? { season: SEASON } : {}) },
   });
   // the language as the app picks it (?lang=ko|en|ja|zh-TW, else the stored choice): before the data, so the game texts follow
   await initLang().catch((err) => console.warn('[mock] language setup failed', err));

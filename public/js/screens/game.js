@@ -79,6 +79,7 @@ import { html, Spinner, PhaseBanner, ResultDialog, Icon, Button, confirmDialog, 
 import { useGameData, GIcon, PlayerAvatar } from '../ui/gameComponents.js';
 import { enemyIconUrl } from '../ui/assetUrls.js';
 import { useFieldView } from '../ui/fieldHost.js';
+import { BossDamagePanel } from '../ui/avatarBadges.js';
 import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, matchLpCap, battleHud } from '../ui/hud.js';
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { TeamPanel } from '../ui/teamPanel.js';
@@ -92,7 +93,6 @@ import { Ticker } from '../ui/ticker.js';
 import { EmoteWheel } from '../ui/emotes.js';
 import { GameChat } from '../ui/chat.js';
 import { DebugPanel } from '../ui/debugPanel.js'; // local patch: local debug mode only (m.private.debug)
-import { EffectsList } from '../ui/effectsList.js';
 import { BandSkill } from '../ui/bandSkill.js';
 import { RoundDamage } from '../ui/roundDamage.js';
 import { CombatHud } from '../ui/combatHud.js';
@@ -1852,7 +1852,7 @@ function MatchScreen() {
         readyBusy=${readyBusy} readyCount=${readyCount} playerCount=${solo ? 1 : aliveCount}
         pen=${pen} penAvail=${penAvail} onPen=${togglePen} config=${gd.config} frozenAt=${frozenAt} onTimerWarn=${timerCue}
         pause=${canPause || paused ? { show: canPause, paused, busy: pauseBusy, onToggle: () => togglePause(!paused) } : null}
-        live=${liveLpNow} spectator=${spectator} />
+        live=${liveLpNow} spectator=${spectator} effects=${watchingOther && field ? (field.effects ?? null) : priv?.effects} />
       ${/* the in-match 重新开始 vote, under the bond strip (ui/restartVote.js) */ ''}
       <${RestartVoteBanner} pub=${pub} myId=${myId} />
 
@@ -1875,8 +1875,8 @@ function MatchScreen() {
       </div>
 
       ${showBandSkill ? html`<${BandSkill} view=${view} priv=${priv} phase=${phase} combat=${combat} />` : null}
-      <div class="gm__effects"><${EffectsList} effects=${watchingOther && field ? (field.effects ?? null) : priv?.effects} />
-        <${RoundDamage} pub=${pub} priv=${priv} myId=${myId} place="desktop" spectator=${spectator} /></div>
+      <${BossDamagePanel} pub=${pub} myId=${myId} />
+      <div class="gm__effects"><${RoundDamage} pub=${pub} priv=${priv} myId=${myId} place="desktop" spectator=${spectator} /></div>
       ${priv?.debug && !spectator ? html`<${DebugPanel} debug=${priv.debug} prep=${phase === PHASE.PREP} diy=${priv.diy} />` : null /* local patch: local debug mode */}
 
       ${watchingOther && !combat ? html`<div class="gm__watching" role="status">

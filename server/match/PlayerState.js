@@ -236,6 +236,8 @@ export class PlayerState {
       dmgDealt: 0, kills: 0, leaks: 0, gold: 0, refreshes: 0, merges: 0, itemMerges: 0, itemsEquipped: 0,
       bossDamage: 0, lpLost: 0, buys: 0, sells: 0, perfectRounds: 0, fundsGained: 0, healing: 0,
     };
+    /** 完美连胜: the rounds in a row whose own battle was perfect (settle.js; 规程's avatar badge, m.public winStreak) */
+    this.winStreak = 0;
     /** the settlement's per-operator numbers (server/match/unitTally.js): row key → row; kept apart from `stats` */
     this.unitTally = new Map();
     /** 联防 as a leaker: enemies its leaks sent in over the match (re-entered or not) and those that still got through */
