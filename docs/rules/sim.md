@@ -2755,26 +2755,32 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 - [추정·미조사: 나란투야(전략)가 빌려 준 장비(`lendItemEffects`)가 자기 것과 같은 장비일 때 — 지금은 빌린 것도 따로 겹침, 덮어쓰기 묶음 둘은 같은 줄에 섬; 빌려 주기의 클라 경로를 안 읽음]
 - 테스트 `test/content/items.test.js` 「two advanced 源石溶剂 on one operator…」·「override-grouped item buffs…」.
 
-### 연합 방어에 쓰러진 채 들어온 에기르(맹약) 구성원도 부활 횟수를 쓴다 (upstream #882, upstream `ae8ed5eb0`과 차례만 다름, 2026-11-13)
+### 에기르(맹약) 부활은 공식 클라대로 — 쓰러질 때마다·쓰러진 차례로, 연합 방어에 쓰러진 채 든 구성원도 (upstream #882, 관리자 결정 2026-11-13)
 
-- 규칙: 에기르 부활 단계(`max_free_respawn_cnt` 3; 기본 시즌 5명, 규정 6명)가 켜진 플레이어의 구성원이 자기 전투에서 쓰러진 채 연합 방어에 들어오면(`carryState.down`, 강제 퇴장 `FORCED_EXIT`),
-  전투 시작의 삼키기와 그 부활이 끝난 뒤 남은 부활 횟수로 **곧바로 무료 재배치**된다(가득 찬 HP, 부활 이펙트). 여럿이면 처음 배치 차례(왼쪽 열부터, 열 안에서 위부터 — 「작전 시작 차례 배치」),
-  횟수가 없으면 지금처럼 쓰러진 자리에서 재배치 시간을 센다. 어느 쪽이든 그 강제 퇴장이 그 구성원의 첫 끝남이라, 나중에 쓰러지면 부활하지 않는다(구성원당 한 번 — 아래 「공식과 다른 점」).
-  쓰러짐 효과(불굴·스펙터 등)·쓰러짐 수는 그대로 없다. 규정 `_2`(정비 구역 소환)는 이 길을 타지 않는다(템플릿이 HP_ZERO·HP_ZERO_WITH_NO_SOURCE·FALLDOWN만 봄).
-  `bonds/nation/egir.js installEgir`. 전에는 강제 퇴장이 부활 횟수를 안 써서 재배치 시간만 셌다(upstream도 `ae8ed5eb0` 전까지 같음).
-- 근거(공식 클라에서 확인): 연합 방어 전투 시작은 `MainGameInBattle._StartBattle` — 배치(`_Prebuilt`) → `_OnAutoChessModeChanged`(모든 캐릭터의 `ON_AUTO_CHESS_MODE_CHANGED` = 삼키기 표시) →
-  `MainGameInHelpBattle.StartMainBattle`: 한 틱 뒤 `_ApplyChessStatus`가 캐릭터 목록 차례로 이어받을 상태가 없는 유닛을 `Entity.FinishWithNoReason`(끝난 이유 `OTHER`)로 끝내고, 한 틱 뒤 자동
-  시전·배치가 시작된다. `Entity.OnFinish`는 끝난 이유와 상관없이 버프의 `ON_OWNER_FINISH`를 돌리고(죽음 이유가 아니라 `ON_OWNER_KILLED`·쓰러짐 수는 없음), 맹약 템플릿
-  `act1autochess_bond_eff_egir`의 `ON_OWNER_FINISH`는 `MOVE_LIKE_RESPAWN_SELF`만 거른 뒤 인원·편별 횟수(`free_respawn_cnt_a/b` < `max_free_respawn_cnt`)를 보고 다음 배치를 즉시·무료로
-  만든다(`CreateCardBuff` UNTIL_NEXT_SPAWN). upstream #882가 든 공식 일본 서버 녹화(제3자): 앞 전투에서 쓰러진 스펙터·스카디가 연합 방어 시작에 부활. upstream은 쓰러진 채 들어온 구성원을
-  삼키기 부활의 위치 스캔에 섞었지만, 클라는 삼키기 쪽이 먼저 횟수를 쓴다.
-- [추정·엔진: 삼키기 피해(`[eat_mark]` `ON_BUFF_LATE_ENABLE`, 버프의 첫 늦은 틱)가 이 제거보다 먼저 — 코루틴 yield와 늦은 틱의 차례; 쓰러진 채 들어온 구성원끼리의 차례는 캐릭터 목록(`UnorderedArray`)
-  차례인데 삼키기로 빠진 유닛이 목록을 섞을 수 있어 배치 차례로 둠]
-- 공식과 다른 점(관리자 결정 기다림, 2026-11-13 공식 클라에서 확인): ① 맹약 버프는 전역 버프(`env_gbuff_new`, `add_times` 없음)라 `Unit.OnBorn` → `BattleController.RegisterUnit`이
-  배치될 때마다 새로 붙이고, 그 `ON_BUFF_START`가 `reborn_mask`를 0으로 되돌린다 — 그래서 클라에서는 횟수가 남는 한 한 구성원이 **여러 번** 부활한다(지금 규칙: 구성원당 첫 쓰러짐 한 번,
-  관리자 결정 2026-10-05). ② 횟수는 끝날 때(`ON_OWNER_FINISH`) 바로 오르므로 삼키기에서 누가 횟수를 받는지는 **쓰러진 차례**다(지금 규칙: 삼키기가 끝난 뒤 좌하→우상 위치 스캔, 커뮤니티 제보
-  2026-10-07).
-- 테스트 `test/content/bonds_core.test.js` 「阿戈尔 5 slots in 联防 and on the boss field…」, `test/match/unitedown.test.js` 「…a 阿戈尔 member entering down…(upstream #882)」(실제 판 경로).
+- 규칙(`bonds/nation/egir.js installEgir`): 에기르 부활 단계(`max_free_respawn_cnt` 3; 기본 시즌 5명, 규정 6명)가 켜진 플레이어의 구성원이 쓰러지면 횟수가 남는 한 **그 자리에서 곧바로**
+  무료 재배치된다(가득 찬 HP, SP 처음값). 같은 구성원도 부활한 뒤 다시 쓰러지면 횟수가 남는 한 또 부활한다. 전투 시작 삼키기로 쓰러진 구성원도 **쓰러진 차례**로 바로 횟수를 쓰고
+  (남은 삼키기 표식은 취소), 불굴(맹약, 우선순위 10)은 에기르(11)가 이미 세운 구성원에는 굴리지 않는다. 쓰러지지 않은 구성원은 횟수를 안 쓰고, 자기 구원(키트·장비)이 막은 쓰러짐과
+  자기 부활(M3 고치 갑옷·에르망가르드)이 받은 쓰러짐(`revivedBy`)도 안 쓴다(관리자 결정 2026-10-05 그대로).
+  연합 방어에 쓰러진 채 들어온 구성원(`carryState.down`, 강제 퇴장 `FORCED_EXIT`)은 모든 삼키기가 끝난 뒤 남은 횟수로 처음 배치 차례(왼쪽 열부터, 열 안에서 위부터)대로 곧바로 부활하고,
+  횟수가 없으면 쓰러진 자리에서 재배치 시간을 센다. 그 강제 퇴장은 쓰러짐이 아니라 쓰러짐 효과(불굴·스펙터 등)·쓰러짐 수는 없다.
+  전에는 구성원당 첫 쓰러짐 한 번(관리자 결정 2026-10-05, 문구 「首次被击倒时」), 삼키기 부활은 삼키기가 끝난 뒤 좌하→우상 위치 스캔(커뮤니티 제보 2026-10-07; 0.2.0 전에는 쓰러진 차례),
+  쓰러진 채 들어온 구성원은 횟수를 안 씀이었다. upstream은 #882를 `ae8ed5eb0`에서 고쳤지만 그 구성원들을 위치 스캔에 섞는다.
+- 규정 `_2`(정비 구역 소환, `installEgirAct3`)도 삼키기로 쓰러진 구성원을 쓰러진 차례로 바로 처리한다(카운터가 `ON_OWNER_FINISH`에서 오름). 그쪽 첫 쓰러짐 표시(`egir_first_finish_flag`)는
+  `ON_BUFF_START`가 되돌리지 않는 캐릭터 공유 블랙보드라 구성원당 한 번 그대로이고, 강제 퇴장(`OTHER`)은 HP_ZERO·HP_ZERO_WITH_NO_SOURCE·FALLDOWN이 아니라 소환하지 않는다.
+- 근거(공식 클라에서 확인): 맹약 효과 `bondeffect_egir`는 전역 버프 룬 `env_gbuff_new`이고 `add_times`가 없어 추가 횟수 제한이 없다(`GlobalBuff.OnInit`·`TryAddBuff`). `Unit.OnBorn` →
+  `BattleController.RegisterUnit`이 배치(탄생)마다 모든 전역 버프를 붙이고, `act1autochess_bond_eff_egir`의 `ON_BUFF_START`가 `reborn_mask`를 0으로 덮어쓴다 — 버프는 끝날 때 모두
+  지워지므로(`Entity.OnFinish`) 다음 배치의 새 버프에서 다시 0. `ON_OWNER_FINISH`는 `MOVE_LIKE_RESPAWN_SELF`만 거르고 `reborn_mask` 0·인원·편별 횟수(`free_respawn_cnt_a/b` <
+  `max_free_respawn_cnt`)를 보고 횟수를 올린 뒤 다음 배치를 즉시·무료로(`CreateCardBuff` UNTIL_NEXT_SPAWN) — 횟수는 끝나는 그 순간 오른다. 연합 방어 시작은
+  `MainGameInBattle._StartBattle`: 배치(`_Prebuilt`) → `_OnAutoChessModeChanged`(삼키기 표시) → `MainGameInHelpBattle.StartMainBattle`: 한 틱 뒤 `_ApplyChessStatus`가 이어받을 상태가 없는
+  유닛을 `Entity.FinishWithNoReason`(끝난 이유 `OTHER`)로 끝내고 한 틱 뒤 자동 시전·배치가 시작된다. `Entity.OnFinish`는 끝난 이유와 상관없이 `ON_OWNER_FINISH`를 돌린다(죽음 이유가
+  아니라 `ON_OWNER_KILLED`·쓰러짐 수는 없음). upstream #882가 든 공식 일본 서버 녹화(제3자): 앞 전투에서 쓰러진 스펙터·스카디가 연합 방어 시작에 부활.
+- [추정·엔진: 클라는 부활한 카드를 자동 배치가 시작될 때 내놓는다(삼키기 뒤) — 우리는 곧바로 세우고 남은 표식만 취소해 결과가 같게 둠; 삼키기 피해(`[eat_mark]` `ON_BUFF_LATE_ENABLE`)가
+  강제 퇴장 제거보다 먼저인 것은 코루틴 yield와 늦은 틱의 차례; 쓰러진 채 든 구성원끼리는 캐릭터 목록(`UnorderedArray`) 차례인데 삼키기로 빠진 유닛이 목록을 섞을 수 있어 배치 차례로 둠]
+- [추정·미조사: 클라의 `ON_OWNER_FINISH`는 철수류 끝남에도 돈다 — 우리는 쓰러짐('killed')과 연합 방어 강제 퇴장만 셈; 이 모드에서 스스로 철수하는 에기르 구성원은 없음. 연합 방어에서 두
+  플레이어가 같은 편이면 클라 횟수(`free_respawn_cnt_a/b`)를 함께 쓸 수 있으나 우리는 플레이어마다 → bundles 줄]
+- 테스트 `test/content/bonds_core.test.js` 「阿戈尔 5: in the fight…」·「…the battle-start devour's knock-outs take the slots at once, in knock-out order…」·「…the slots the devour leaves…」·
+  「阿戈尔 5 slots in 联防…」, `feedback4-egir-unite.test.js` 「联防: a member a teammate's devour knocks out…」, `feedback3-egir-down.test.js`, `bonds_act3.test.js` 「阿戈尔 6 (_2): the devour's
+  knock-outs call at once…」, `test/match/unitedown.test.js` 「…a 阿戈尔 member entering down…(upstream #882)」(실제 판 경로).
 
 ## upstream 0.3.4 개발분 대조 이식 — 매치·서버 (2026-11-07)
 
@@ -3139,7 +3145,7 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 - **빅토리아·에기르**: 템플릿은 지난 시즌 그대로, 수치만 시즌 것(빅토리아 장비당 0.4 + 승급 0.4, 에기르 부활 6명). 전략이 바꾸는 다른 방향(`_2`)은 규정 고유 템플릿이다:
   - **빅토리아 `bondeffect_victoria_2` → `act3autochess_bond_eff_victoria`**(2026-11-12, `bonds/nation/victoria.js installVictoriaAct3`, 락락 전략을 든 플레이어만): 장비 든 구성원 피해 배율은 같다. 6명: 전투 시작에 장비를 하나라도 든 구성원(`ON_BUFF_START`의 `equip_cnt` ≠ 0, 자기 플레이어 6명이면 `_power` 생성)이 스킬을 켤 때마다(`ON_SKILL_CAST_SUCCEED`) 둘레 3×3(`[share_equip]` `AutoChessShareEquipEffect`, 범위 `x-4`, 장비 티어 제한 없음 — 나란투야 사르곤의 `filter_item_level` 없음)의 오퍼레이터에게 자기가 든 장비 효과를 min(`share_equip_duration_max` 200, `share_equip_duration_base` 30 + `share_equip_duration_per_stack` 0.1·L)초 빌려준다(`items.js lendItemEffects`, 같은 장비를 다시 빌려주면 시간만 새로). `[share_equip]`는 EXTEND라 돌고 있는 동안의 재시전은 시간만 새로 채우고 받는 오퍼레이터는 첫 시전 때의 그대로다(대상 캐시 `_targetsCacheKey`; 덮어쓰기 그룹은 새 버프를 안 더하므로 `ON_BUFF_ENABLE`이 다시 안 돎 — 공식 클라에서 확인). 그 버프가 끝나면(빌려준 구성원이 쓰러지거나 철수해도) `ON_BUFF_DISABLE` `AutoChessRemoveEquipEffectByAlias`로 빌려준 효과를 바로 거둔다(`items.js endLentItems`). 지난 시즌 6명의 「장비당 공격력」은 없다. 시험 `bonds_act3.test.js` 「洛洛's 维多利亚 6 (_2)」.
   - **에기르 `bondeffect_egir_2` → `act3autochess_bond_eff_egir`**(2026-11-12, `bonds/nation/egir.js installEgirAct3`, 글래디아 전략을 든 플레이어만): 템플릿은 지난 시즌(`act1…`)과 HP(`[max_hp]`)·삼키기(`ON_AUTO_CHESS_MODE_CHANGED` 범위 `1-1` = 앞 칸, 표시된 구성원을 거쳐 `x-5`, `[eat_mark]` 같음)가 같고 `ON_OWNER_FINISH`만 다르다. 6명: 구성원이 쓰러지면(HP_ZERO·HP_ZERO_WITH_NO_SOURCE·FALLDOWN = 우리 'killed') 그 구성원의 **첫** 쓰러짐일 때만(`egir_first_finish_flag` — 아무도 안 와도 씀), 그 플레이어의 소환이 `switch_cnt_max`(3) 미만이면(AUTOCHESS 전역 `bond_eff_egir_switch_cnt_<편>`, 누가 왔을 때만 +1) 정비 구역 맨 오른쪽의 그 칸에 설 수 있는 [에기르] 오퍼레이터(`AutoChessCheckSwitchWithHand`·`AutoChessMarkSwitchWithHand`: `_selectType` RIGHT, `_putType` ORIGINAL, `_checkBond` egirShip, `_buildableType` NONE)가 그 칸에 같은 방향으로 들어오고 구성원은 쓰러진 몸 없이 떠난다(카시미어 6명 교대와 같은 엔진: 대기 유닛 `createReserveAlly`·`fieldReserve`). 들어온 오퍼레이터는 `[attr_extend]`로 떠난 구성원의 삼키기 몫(`egir_bond_atk`·`egir_bond_block_cnt` `[extend]` — 공격력 최종 가산·저지 수; 체력 몫은 전략 장비의 `egir_band_equip_extra`가 있을 때만이고 이 모드에는 없음)을 받고, 자기 첫 쓰러짐에 다시 부른다. 맹약 활성은 전투 입력 그대로(문구 「不改变场上的盟约激活状态」). 전투 입력에는 그 플레이어가 6명이고 이 방향일 때 정비 구역의 [에기르](조화 포함) 오퍼레이터가 배치 종류와 상관없이 실린다(`hand` 규칙 `position` null). 시험 「歌蕾蒂娅's 阿戈尔 6 (_2)」 셋(실제 판 경로 포함).
-  - [추정·CN: 정비 구역 소환 노드는 CN 전용이라 못 읽음 — 「현재 위치에 배치 가능한」(문구 「可部署至当前位置的」)은 쓰러진 구성원과 같은 배치 종류(특질 소환 `garrisons/effects/switch.js`의 `_checkOriginBuildable`과 같게); 횟수는 플레이어마다(지난 시즌 부활과 같게); 전투 시작 삼키기로 쓰러진 구성원은 모든 삼키기가 끝난 뒤 보드 순서(`egirReviveScan`)로 — 지난 시즌 부활의 2026-10-07 커뮤니티 제보와 같게; 소환은 다른 쓰러짐 처리기 뒤(우선순위 −1000, 카시미어 교대와 같게)라 구원·불굴이 먼저 답함]
+  - [추정·CN: 정비 구역 소환 노드는 CN 전용이라 못 읽음 — 「현재 위치에 배치 가능한」(문구 「可部署至当前位置的」)은 쓰러진 구성원과 같은 배치 종류(특질 소환 `garrisons/effects/switch.js`의 `_checkOriginBuildable`과 같게); 횟수는 플레이어마다(지난 시즌 부활과 같게); 소환은 다른 쓰러짐 처리기 뒤(우선순위 −1000, 카시미어 교대와 같게)라 구원·불굴이 먼저 답함]. 삼키기로 쓰러진 구성원은 쓰러진 차례로 바로(공식 클라 — 위 「에기르(맹약) 부활은 공식 클라대로」, 2026-11-13; 그 전에는 삼키기 뒤 보드 순서)
 - **쉐라그 6명 설산 거인 `act3autochess_bond_eff_kjerag_power`**(`bonds/nation/kjerag.js` → `bonds/giant.js`, 2026-11-11): 자기 쉐라그 구성원이 6명(`power_bond_char_cnt`)인 플레이어마다 전투 시작에 「不眠雪山」(`enemy_9024_acsgnt`, 공식 한국어 이름 없음) 하나 — 그 플레이어의 마지막 쉐라그 오퍼레이터 칸과 상하좌우(`x-5`) 중 지상 칸, 없으면 가장 가까운 지상 칸(`FindNearestPassableTileForLastCharacter` → `SummonEnemyWithRuntimeRoute _summonOnNearestPassableTile`). 라이타니엔 소환물과 같은 **걷는 아군**(`bonds/walker.js`, 禁疗, 동결 면역은 적 자료대로). 수치는 CN 프리팹(`battle/enm_pfb_36.ab`)과 규정 표 템플릿 `acsgnt[…]`:
   - 맹약 버프(재능 `BondBuff`, 1초마다): n = ⌊그 플레이어의 쉐라그 중첩 ÷ `stackStep` 3⌋, 공격력 +(0.5 + 0.01·n)·최대 HP +(0 + 0.02·n)(둘 다 MULTIPLIER).
   - **거인 형태**(覆雪苏醒, 처음 형태 `Giant`): 걸어서 대상을 쫓고(라이타니엔 소환물과 같은 추적 능력), 저지 없음(`block_free`). 사거리 2.4 안의 지상·공중 적 하나에 투사체 `projectile_enemy_acsgnt` 마법 — 투사체가 닿으면 그 주변 반경 1.1(`CircleCollider2D`) 안 **지상** 적 모두에게도 같은 피해(`_hitNumType` INFINITY, `_exceptTraceTarget`·`_alwaysHitTraceTargetInTheEnd`, 위장 무시). 저지할 수 있는 지상 적(BLOCK_FREE·LEVITATE·ATTRACTED가 아닌)이 0.8 안에 오면 `Switch2Snowy`(A_Change 1초, 침묵 무시) → 설산 형태.

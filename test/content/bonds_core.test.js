@@ -454,7 +454,7 @@ test('阿戈尔 devour order: left first, then top first (row 0 is the bottom: t
   checkInvariants(h.b);
 });
 
-test('阿戈尔 5: in the fight the 3 slots go to the first 3 members knocked out, wherever they stand; a later first knock-out stays down; a second knock-out is final; 3 members: none', () => {
+test('阿戈尔 5: in the fight the 3 slots go to the first 3 knock-outs, wherever they stand — a member again on a later knock-out; then none; 3 members: none', () => {
   const list = [];
   for (let i = 0; i < 5; i++) list.push([`g${i}_a`, ['egirShip'], { skill: { spCost: 30, initSp: 5, duration: 10 } }]);
   // one per row pair so nobody devours anybody: col 3 rows 9–12 (g0 bottom … g3 top), g4 at (9,5). PRTS 盟约记录 阿戈尔
@@ -485,7 +485,7 @@ test('阿戈尔 5: in the fight the 3 slots go to the first 3 members knocked ou
     assert.equal(redeploys(us[i]), 0);
   }
   kill(us[4]);
-  assert.ok(!us[4].alive, 'a second knock-out is final');
+  assert.ok(!us[4].alive, 'a second knock-out finds no slot either');
   assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'revive').length, 3, 'three revives');
   checkInvariants(h.b);
   // a member moved off its board tile (突袭 / relocation) revives where it was knocked out; later redeploys go home
@@ -498,6 +498,14 @@ test('阿戈尔 5: in the fight the 3 slots go to the first 3 members knocked ou
   assert.ok(m.alive && m.tileR === 12 && m.tileC === 8, 'revived on the tile it fell on');
   assert.deepEqual([m.homeR, m.homeC], home, 'home unchanged');
   checkInvariants(hm.b);
+  // a member revived once is revived again while slots last (the client puts the bond buff back at each deployment and
+  // its ON_BUFF_START clears reborn_mask; one per member until 2026-11-13)
+  const ha = makeBattle({ defs: defsOf(list), units, bonds: { egirShip: bondOn(5, 0, null, [3, 5]) } });
+  ha.step(1);
+  const again = ha.unit('g0_a');
+  assert.deepEqual([1, 2, 3, 4].map(() => { ha.b.dealDamage(null, again, { amount: 1e9, type: 'true' }); return again.alive; }),
+    [true, true, true, false], 'g0: three knock-outs, three revives; the fourth stays down');
+  checkInvariants(ha.b);
   // 3 members: no revive
   const h3 = makeBattle({ defs: defsOf(list), units: units.slice(1, 4), bonds: { egirShip: bondOn(3, 0, null, [3, 5]) } });
   h3.step(1);
@@ -792,7 +800,7 @@ function egirFood({ downB4 = false } = {}) {
   return { defs: defsOf(list), units };
 }
 
-test('阿戈尔 5 (community report, 2026-10-07) step 3: the battle-start devour\'s knock-outs revive once every devour is over, by position from the bottom-left (columns from the left, bottom first) — not in knock-out order; normal, 联防, the mirrored boss player', () => {
+test('阿戈尔 5: the battle-start devour\'s knock-outs take the slots at once, in knock-out order (the official client; by position from the bottom-left 2026-10-07 – 2026-11-13); normal, 联防, the mirrored boss player', () => {
   for (const kind of ['normal', 'unite', 'bossR']) {
     const { defs, units } = egirFood({ downB4: kind === 'unite' });
     const seq = [];
@@ -809,23 +817,23 @@ test('阿戈尔 5 (community report, 2026-10-07) step 3: the battle-start devour
     const uid = (u) => u.uid;
     const kos = h.hooksOf('death').filter((c) => c.reason === 'killed').map((c) => uid(c.unit));
     assert.deepEqual(kos, [1, 2, 4, 3], `${kind}: knocked out F1, F2, F4, F3`);
-    // every mark resolves first, then the revives — F3 (10,4), F2 (11,4), F1 (12,4) of the left column, bottom first; F4
-    // (9,5), in the next column, finds no slot. Until 0.2.0 (knock-out order, DESIGN §24.3): F1, F2, F4 at once, F3 down.
-    // The other reading of 「左下到右上」 (rows from the bottom) would revive F4, F3, F2 and leave F1 down.
-    assert.deepEqual(seq, ['mark 11→1', 'mark 12→2', 'mark 13→3', 'mark 14→4', 'mark 15→3', 'mark 15→13', 'revive 3', 'revive 2', 'revive 1'], kind);
+    // each knock-out takes a slot as it happens (act1autochess_bond_eff_egir ON_OWNER_FINISH raises the counter): F1, F2,
+    // F4 are back at once, F3 (knocked out last, by B5's mark) finds none. From 2026-10-07 to 2026-11-13 the revives
+    // waited for the end of the devour and went by position (F3, F2, F1 — the community report's scan), F4 down.
+    assert.deepEqual(seq, ['mark 11→1', 'revive 1', 'mark 12→2', 'revive 2', 'mark 13→3', 'mark 14→4', 'revive 4', 'mark 15→3', 'mark 15→13'], kind);
     const by = (id) => h.b.allyUnits.find((u) => u.uid === id);
-    assert.deepEqual([1, 2, 3, 4].map((id) => by(id).alive), [true, true, true, false], `${kind}: F4 stays down`);
+    assert.deepEqual([1, 2, 3, 4].map((id) => by(id).alive), [true, true, false, true], `${kind}: F3 stays down`);
     assert.ok(by(13).alive && !kos.includes(13), `${kind}: B3, marked but standing, takes no slot`);
     assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'revive' && x[4]?.src === 'bond:egirShip').length, 3, `${kind}: the 3 slots`);
     if (kind === 'unite') assert.ok(!by(14).alive && by(14).removeReason === FORCED_EXIT, '联防: B4 entered down — its mark resolved, it stays forced out');
-    // the slots are gone: B1's first knock-out in the fight stays down, F4 stays down
+    // the slots are gone: B1's first knock-out in the fight stays down, F3 stays down
     h.b.dealDamage(null, by(11), { amount: 1e9, type: 'true' });
-    assert.ok(!by(11).alive && !by(4).alive, `${kind}: no slot left`);
+    assert.ok(!by(11).alive && !by(3).alive, `${kind}: no slot left`);
     checkInvariants(h.b);
   }
 });
 
-test('阿戈尔 5 (community report, 2026-10-07): the slots the devour leaves go to later knock-outs in time order; an uneaten member takes one only by being knocked out; a member 不屈 redeploys during the devour is awake at the scan and takes none [ASSUMED]', () => {
+test('阿戈尔 5: the slots the devour leaves go to later knock-outs in time order; an uneaten member takes one only by being knocked out; 不屈 does not roll on a devour knock-out a slot answers', () => {
   const { defs } = egirFood();
   // only F1 and F2 are eaten: B1 → F1, B2 → F2; B3 (10,3), B4 (9,4), B5 (9,6) face empty tiles
   const units = [
@@ -842,20 +850,21 @@ test('阿戈尔 5 (community report, 2026-10-07): the slots the devour leaves go
     return { h, by, kill, egirRevives };
   };
   const a = run();
-  assert.deepEqual(a.h.hooksOf('deploy').filter((c) => !c.initial).map((c) => c.unit.uid), [2, 1], 'F2 (11,4) before F1 (12,4): bottom first');
+  assert.deepEqual(a.h.hooksOf('deploy').filter((c) => !c.initial).map((c) => c.unit.uid), [1, 2], 'F1 (B1 marks first) before F2: knock-out order');
   assert.deepEqual(a.egirRevives(), [1, 2]);
-  // the third slot: the first member knocked out in the fight — B5, never eaten; then none (B3), and F1's second knock-out
-  assert.deepEqual([15, 13, 1].map(a.kill), [true, false, false], 'B5 takes the last slot; B3 and F1 (a second knock-out) stay down');
+  // the third slot: the first member knocked out in the fight — B5, never eaten; then none (B3, F1's second knock-out)
+  assert.deepEqual([15, 13, 1].map(a.kill), [true, false, false], 'B5 takes the last slot; B3 and F1 stay down');
   checkInvariants(a.h.b);
-  // 不屈 at p = 1 (0.18 + 0.004 × 300): it rolls on each devour knock-out (a 被击倒 like any other) and redeploys F1 and F2 at
-  // once; awake at the scan, they take no slot — all 3 are left for the fight, where 阿戈尔 (death priority 11) comes first.
-  // Until 0.2.0 the 阿戈尔 revive answered both knock-outs at once (2 slots) and 不屈 never rolled.
+  // 不屈 at p = 1 (0.18 + 0.004 × 300): 阿戈尔 (death priority 11) answers F1's and F2's devour knock-outs first, so 不屈
+  // finds them standing; in the fight B5 takes the last slot, then 不屈 redeploys B3 and B4. From 2026-10-07 to 2026-11-13
+  // (the revives waited for the end of the devour) 不屈 redeployed F1 and F2 and the 3 slots were left for the fight.
   const b = run({ indomShip: bondOn(2, 300, 1, [2, 3]) });
   assert.ok(b.by(1).alive && b.by(2).alive, 'F1 and F2 stand again');
-  assert.equal(b.h.eventsOf('fx').filter((x) => x[1] === 'revive' && x[4]?.src === 'bond:indomShip').length, 2, 'by 不屈');
-  assert.deepEqual(b.egirRevives(), [], 'no 阿戈尔 slot at the battle start');
+  assert.equal(b.h.eventsOf('fx').filter((x) => x[1] === 'revive' && x[4]?.src === 'bond:indomShip').length, 0, 'not by 不屈');
+  assert.deepEqual(b.egirRevives(), [1, 2], 'two 阿戈尔 slots at the battle start');
   assert.deepEqual([15, 13, 14].map(b.kill), [true, true, true]);
-  assert.deepEqual(b.egirRevives(), [1, 2, 3], 'the 3 slots, in the fight');
+  assert.deepEqual(b.egirRevives(), [1, 2, 3], 'the third slot: B5');
+  assert.equal(b.h.eventsOf('fx').filter((x) => x[1] === 'revive' && x[4]?.src === 'bond:indomShip').length, 2, 'B3 and B4 by 不屈');
   checkInvariants(b.h.b);
 });
 

@@ -508,6 +508,25 @@ test('歌蕾蒂娅\'s 阿戈尔 6 (_2): a member\'s first knock-out calls the �
   assert.deepEqual(b.errors, []);
 });
 
+test('阿戈尔 6 (_2): the devour\'s knock-outs call at once, in knock-out order (the official client; by the board scan 2026-11-12 – 2026-11-13)', () => {
+  // m1 (12,3) marks first (left, then top) and knocks b (12,4) out; m2 (10,3) then knocks a (10,4) out. One melee
+  // candidate: it comes for b, the first knocked out — the board scan (bottom first) gave it to a
+  const low = { stats: { maxHp: 3000 } };
+  const list = [['m1_a', ['egirShip']], ['m2_a', ['egirShip']], ['a_a', ['egirShip'], low], ['b_a', ['egirShip'], low],
+    ['s1_a', ['egirShip']], ['s2_a', ['egirShip']], ['h7_a', ['egirShip']]];
+  const at = { m1_a: [12, 3], b_a: [12, 4], m2_a: [10, 3], a_a: [10, 4], s1_a: [12, 7], s2_a: [10, 8] };
+  const h = fight(list, { egirShip: bondOn(6, 0) }, {
+    bandId: 'band_egir',
+    units: Object.entries(at).map(([chessId, [row, col]]) => ({ chessId, row, col, dir: 'RIGHT' })),
+    reserve: [{ chessId: 'h7_a', slot: 7 }],
+  });
+  const [a, b, h7] = ['a_a', 'b_a', 'h7_a'].map((id) => h.unit(id));
+  assert.deepEqual(h.hooksOf('death').filter((c) => c.reason === 'killed').map((c) => c.unit.defId), ['b_a', 'a_a'], 'b first');
+  assert.ok(h7.alive && h7.tileR === 12 && h7.tileC === 4, 'the candidate on b\'s tile');
+  assert.ok(b.removed && !a.removed && h.b.isDown(a), 'a lies down');
+  assert.deepEqual(h.b.errors, []);
+});
+
 test('阿戈尔 6 (_2): no candidate of the class or a retreat calls nobody; no candidates at 5 members or without 歌蕾蒂娅 (the season\'s revive)', () => {
   {
     const h = egirFight([['h1_a', 1, ['egirShip']], ['h2_a', 2, ['egirShip']]]);

@@ -103,10 +103,10 @@ test('联防: the chain goes on through a teammate\'s 阿戈尔 — the gains eq
   checkInvariants(mate.b);
 });
 
-test('联防: a member a teammate\'s devour knocks out waits for every devour pass, then takes its owner\'s slot by position (community report, 2026-10-07; DESIGN §25.22.5)', () => {
+test('联防: a member a teammate\'s devour knocks out takes its owner\'s slot at once, in knock-out order (the official client; by position after every pass 2026-10-07 – 2026-11-13)', () => {
   // p1's 乌尔比安 → p2's 幽灵鲨 (field 10,10) → p2's fodder (10,11); on p2's board 海霓 (12,3) → 水月 (12,4); p2 holds 5
-  // 阿戈尔. p1's pass runs first (players' order): it knocks 幽灵鲨 out; p2's pass knocks 水月 out; then p2's revives —
-  // 幽灵鲨 (field col 10) before 水月 (col 12). Until 0.2.0 she stood again right after p1's mark, before p2's pass.
+  // 阿戈尔. p1's pass runs first (players' order): it knocks 幽灵鲨 out — p2's slot revives her at once (the client takes
+  // it in ON_OWNER_FINISH; her pending marks are cancelled) —; p2's pass knocks 水月 out, revived at once too.
   const seq = [];
   const p2Units = [
     { uid: 200, kind: 'chess', chessId: HN, row: 12, col: 3, dir: 'RIGHT' }, { uid: 201, kind: 'chess', chessId: MIZUKI, row: 12, col: 4, dir: 'RIGHT' },
@@ -122,7 +122,7 @@ test('联防: a member a teammate\'s devour knocks out waits for every devour pa
     },
   });
   h.step();
-  assert.deepEqual(seq, ['mark 1→100', 'mark 1→101', 'mark 200→201', 'revive 100', 'revive 201']);
+  assert.deepEqual(seq, ['mark 1→100', 'revive 100', 'mark 1→101', 'mark 200→201', 'revive 201']);
   assert.ok(h.unit(100).alive && h.unit(201).alive, 'both stand again, on p2\'s slots');
   assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'revive' && x[4]?.src === 'bond:egirShip').length, 2);
   checkInvariants(h.b);
