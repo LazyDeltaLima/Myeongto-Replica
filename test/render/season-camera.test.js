@@ -51,3 +51,15 @@ test('规程 boss 全景: the fitted camera puts a left bench slot where the off
   const was = old.project(9, 0, 0);
   assert.ok(Math.hypot(was.x - 830, was.y - 915) > 40, `the level value puts it at ${was.x.toFixed(0)}, ${was.y.toFixed(0)}`);
 });
+
+test('规程 联防: the right half mirrors the fitted left battle, the 全景 carries the boss 全景 correction', () => {
+  const s = stageOf(ACT3, 'act3autochess_m02');
+  const c = stageCameraConfig(s);
+  const P = (k) => c[k].slice(1, -1).split(',').map(Number);
+  const L = (k) => s.config[k].slice(1, -1).split(',').map(Number);
+  const [lx, ly, lz] = P('left_battle_camera_param'), [rx, ry, rz] = P('right_battle_camera_param');
+  assert.deepEqual([rx, ry, rz], [-lx, ly, lz], 'mirror of the left');
+  const d = (a, b) => a.map((v, i) => Math.round((v - b[i]) * 100) / 100);
+  assert.deepEqual(d(P('mid_battle_camera_param'), L('mid_battle_camera_param')), d(P('mid_boss_battle_camera_param'), L('mid_boss_battle_camera_param')),
+    'the 联防 全景 moved like the boss 全景');
+});

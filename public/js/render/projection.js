@@ -67,13 +67,19 @@ export const OFFICIAL = Object.freeze({
  * as the 盟约 levels'). 规程's battle cameras (docs/rules/render.md 「규정 전투 카메라」): controller positions fitted to
  * official CN battle screenshots with the official rotation and FOV — the left normal battle on m03 and the boss field's
  * 全景 on m02, both 1920 × 1080 (300–400 board feature matches against our view of the same stage, 1 px rms; pitch and
- * FOV left free come out 30° / 40°): the bench row in view, as the official battle shows it. [ASSUMED·화면: one screenshot each; the right
- * normal and the boss halves keep the level values; the CN camera plugin's own settings could not be read]
+ * FOV left free come out 30° / 40°): the bench row in view, as the official battle shows it. The 联防 halves and 全景 follow by the level
+ * values' symmetry (below); 隐秘核心 is the boss field (its 全景 key). [ASSUMED·화면: one screenshot each; the boss halves
+ * keep the level values; the CN camera plugin's own settings could not be read]
  */
 export const SEASON_CAMERA_PARAMS = Object.freeze({
   act3autochess: Object.freeze({
     left_battle_camera_param: '(-5.4,0.8,-1.52,1)',
     mid_boss_battle_camera_param: '(0,-7.49,-4.01,1)',
+    // [ASSUMED·화면: no screenshot — carried over by the level values' symmetry (maintainer 2026-11-12): the 联防 right
+    // half mirrors the left battle's (the levels: (−4, …) / (4, …)), and the 联防 全景 is the boss 全景 moved up the field
+    // (the levels: mid_battle = mid_boss + (0, 7.95, 0)) — the boss fit's correction (0, +0.46, +0.21) on it]
+    right_battle_camera_param: '(5.4,0.8,-1.52,1)',
+    mid_battle_camera_param: '(0,0.46,-4.01,1)',
   }),
 });
 
