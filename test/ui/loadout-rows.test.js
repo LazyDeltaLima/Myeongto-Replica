@@ -165,9 +165,11 @@ test('the module card reads its talent changes at the operator\'s 潜能, as 局
   const lines = texts(ModuleInfo({ m: null, golden: ex, opt: { id: rea.uniEquipId, rec: rea }, potential: 6 }));
   assert.ok(lines.some((x) => x.includes('每攻击到一个敌人回复自身<@ba.kw>50</>生命')), lines.join(' | '));
   assert.ok(lines.some((x) => x === '攻击范围内存在2名及以上敌人时攻击速度<@ba.kw>+12</>'));
-  // the detail hands the operator's 潜能 to it
+  // the detail hands the operator's 潜能 to its module section, which hands it to the card (screens/loadoutSections.js)
   const src = readFileSync(path.join(ROOT, 'public/js/screens/loadout.js'), 'utf8');
-  assert.match(src, /<\$\{ModuleInfo\} m=\$\{m\} golden=\$\{golden\} opt=\$\{modOpt\} potential=\$\{opsOf\(ops, chess\.charId\)\.potential\} \/>/);
+  assert.match(src, /<\$\{ModuleSection\} m=\$\{m\} golden=\$\{golden\} moduleOptions=\$\{opt\.moduleOptions\} module=\$\{choice\.module\}\s+onPick=\$\{\(id\) => onChange\(\{ module: id \}\)\} potential=\$\{opsOf\(ops, chess\.charId\)\.potential\} \/>/);
+  const sections = readFileSync(path.join(ROOT, 'public/js/screens/loadoutSections.js'), 'utf8');
+  assert.match(sections, /<\$\{ModuleInfo\} m=\$\{m\} golden=\$\{golden\} opt=\$\{modOpt\} potential=\$\{potential\} \/>/);
 });
 
 test('css: the selected skill\'s frame is square around its icon (GitHub #398 / PR #399): no img max-width clamp, fill beats `.lo-sicon img`', () => {

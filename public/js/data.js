@@ -31,6 +31,7 @@ import { useEffect, useReducer } from '../vendor/hooks.module.js';
 import { applyFileOverlay } from '../../shared/i18nData.js';
 import { canonicalLang } from '../../shared/i18nPacks.js';
 import { DEFAULT_SEASON, seasonOf } from '../../shared/seasons.js';
+import { withSeasonArt } from './ui/assetUrls.js';
 
 /** Known data files (name → URL basename). Unknown names are allowed too (`/data/<name>.json`). */
 export const DATA_FILES = Object.freeze({
@@ -104,6 +105,8 @@ export const ART_MANIFEST_TIMEOUT_MS = 8000;
 
 /** Manifests the emote button waits on. A hang here used to leave every cell blank (GitHub #99). */
 const ART_MANIFESTS = new Set(['local', 'assets']);
+/** What a later season's view of data/assets.json is built from (createDataStore seasonAssets). */
+const SEASON_ART_INPUTS = new Set(['local', 'bands', 'bonds']);
 
 /**
  * A failed load worth retrying: the request itself failed (network error) or the server answered 5xx / 408 / 429 — not a
@@ -157,11 +160,42 @@ export function createDataStore(opts = {}) {
   /** The 卫戍协议 season whose files are read (shared/seasons.js; setSeason): the default's are /data/<file>. */
   let season = DEFAULT_SEASON;
 
-  const notify = (name) => {
+  const tell = (name) => {
     for (const fn of [...listeners]) {
       try { fn(name); } catch (err) { console.error('[data] listener failed', err); }
     }
   };
+  // a later season's art manifest is built from the extract and the season's band / bond records (seasonAssets):
+  // their arrival changes it
+  const notify = (name) => {
+    tell(name);
+    if (SEASON_ART_INPUTS.has(name) && season !== DEFAULT_SEASON) tell('assets');
+  };
+
+  /** @type {{ m: any, local: any, bands: any, bonds: any, season: string, value: any } | null} */
+  let seasonArtMemo = null;
+  /**
+   * data/assets.json as the season on screen reads it: a later season's own icons over 盟约's (ui/assetUrls.js
+   * withSeasonArt), built once per input; the file itself for the default season.
+   */
+  function seasonAssets() {
+    const m = entries.get('assets')?.value ?? null;
+    if (season === DEFAULT_SEASON || !m) return m;
+    const local = entries.get('local')?.value ?? null;
+    const bands = entries.get('bands')?.value ?? null;
+    const bonds = entries.get('bonds')?.value ?? null;
+    const c = seasonArtMemo;
+    if (c && c.m === m && c.local === local && c.bands === bands && c.bonds === bonds && c.season === season) return c.value;
+    const recs = (name) => {
+      const e = entries.get(name);
+      if (!e || e.status !== 'ready') return [];
+      if (!e.index) e.index = buildIndex(name, e.value);
+      return [...e.index.values()];
+    };
+    const value = withSeasonArt(m, local, season, { bands: recs('bands'), bonds: recs('bonds') });
+    seasonArtMemo = { m, local, bands, bonds, season, value };
+    return value;
+  }
 
   // another season's files: /data/s/<season>/<file> (the server answers the season's own file, else the default's);
   // the art manifests are the same for every season
@@ -370,7 +404,7 @@ export function createDataStore(opts = {}) {
     /** Load several files; resolves when all settled. */
     loadAll: (...names) => Promise.all(names.flat().map(load)),
     /** JSON of a loaded file in the current locale (null when missing / not loaded yet). */
-    get: (name) => localizedEntry(name)?.value ?? entries.get(name)?.value ?? null,
+    get: (name) => (name === 'assets' ? seasonAssets() : localizedEntry(name)?.value ?? entries.get(name)?.value ?? null),
     /** The file exactly as downloaded (Chinese texts), whatever the locale. */
     getRaw: (name) => entries.get(name)?.value ?? null,
     /** 'idle' | 'loading' | 'ready' | 'missing' */
@@ -407,6 +441,7 @@ export function createDataStore(opts = {}) {
       const next = seasonOf(id);
       if (next === season) return Promise.resolve();
       season = next;
+      if (entries.has('assets')) tell('assets'); // its season view changes now (seasonAssets)
       // the season's game texts first (a file each language), so the files read again come localized with them
       return loadSeasonOverlays().catch(() => {}).then(() => Promise.all([...entries.keys()].filter((n) => !ART_MANIFESTS.has(n)).map(invalidate))).then(() => {});
     },

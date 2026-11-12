@@ -57,7 +57,9 @@ import { LoadoutHost } from './screens/loadout.js';
 import { StatsHost } from './screens/stats.js';
 import { recordResult, recordQuit, installStatsRecorder } from './ui/stats.js';
 import { installLoadoutSync, installOwnershipSync, installDiySync, setLoadoutSeason } from './ui/loadoutSync.js';
+import { installCardSync } from './ui/cardSync.js';
 import { installSeasons, activeSeason, loadPickedSeason, parseSeasonParam } from './ui/season.js';
+import { DEFAULT_SEASON } from '../../shared/seasons.js';
 import { installDiyPresets } from './ui/diyPresets.js'; // 맹약별 선발 프리셋
 import { startBuildGuard } from './ui/buildGuard.js';
 import { installChat } from './ui/chat.js';
@@ -483,6 +485,7 @@ async function boot() {
   installResources();
   installOwnershipSync({ net });
   installDiySync({ net });
+  installCardSync({ net }); // 名片干员: the operator on this browser's seat card (room.card, ui/seatArt.js)
   installDiyPresets();
   net.attachBrowserHooks();
   // Audio: unlock on first gesture, BGM follows the route / match phase (js/audio.js).
@@ -511,6 +514,11 @@ async function boot() {
     splash.classList.add('is-done');
     setTimeout(() => splash.remove(), 300);
   }
+  // the 盟约 entry animation before the title screen (ui/entryFilm.js); never over a restored match, and only while the
+  // season on screen is 盟约 (the film is that event's)
+  import('./ui/entryFilm.js')
+    .then((m) => m.playEntryFilm({ skip: () => selectRoute(store.get()) === 'game' || activeSeason(store.get()) !== DEFAULT_SEASON }))
+    .catch((err) => console.warn('[app] entry film unavailable', err));
   // `import`: a module of this page by its path from /js/ (`__SP__.import('./ui/lang.js')`, tests and the console). The
   // page loads its modules under the build's /b/<tag>/r/ URLs (server/http/buildTag.js), so an absolute import('/js/…')
   // would load a second copy with its own state, not the page's.

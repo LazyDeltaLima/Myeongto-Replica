@@ -332,7 +332,7 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
       await page.keyboard.press('Escape');
       await sleep(300);
       await tapText('.mode-card', '同盟模拟');
-      await tapText('.create-box button', '创建同盟');
+      await tapText('.ally-create__go', '创建同盟');
       await page.waitForSelector('.room-bar__right', { timeout: 15000 });
       await sleep(500);
       assert.deepEqual(await touchAreaThefts(page), [], `${dev} room`);
@@ -393,7 +393,7 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
       await page.screenshot({ path: path.join(OUT, `device-${dev}-lobby.png`) });
       assert.deepEqual(await layoutProblems(page), [], `${dev} lobby`);
       await tapText('.mode-card', '同盟模拟');
-      await tapText('.create-box button', '创建同盟');
+      await tapText('.ally-create__go', '创建同盟');
       await page.waitForSelector('.room-bar__right', { timeout: 15000 });
       await sleep(500);
       await page.screenshot({ path: path.join(OUT, `device-${dev}-room.png`) });

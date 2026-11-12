@@ -1,0 +1,275 @@
+// A later season's own UI art (public/js/ui/seasonArt.js; tools/local-extract/season_ui.py writes the manifest groups
+// `season/<id>/…`): 盟约 never asks for it, a season without the extract gets null (the page keeps its 盟约 art), the
+// Korean page takes the logo written over in Korean (maintainer decision 2026-11-08), and the loading pictures 规程
+// renamed reach the 盟约 file they are a copy of.
+
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const S = 'act3autochess';
+const entry = (p) => ({ path: p, w: 10, h: 10, kind: 'Sprite' });
+let local = {
+  version: 1,
+  groups: {
+    [`season/${S}/backdrop`]: { title: entry(`/assets/local/season/${S}/backdrop/title.jpg`) },
+    [`season/${S}/logo`]: {
+      title_season: entry(`/assets/local/season/${S}/logo/title_season.png`),
+      title_season_ko: entry(`/assets/local/season/${S}/logo/title_season_ko.png`),
+      season_logo_settle_game: entry(`/assets/local/season/${S}/logo/season_logo_settle_game.png`),
+    },
+  },
+};
+const assets = { ui: { 'loading/loading_ac_core': '/assets/ui/loading/loading_ac_core.png', 'loading/loading_ac_hard': '/assets/ui/loading/loading_ac_hard.png' } };
+globalThis.fetch = async (url) => {
+  const u = String(url);
+  if (u.endsWith('/local-assets.json')) return { ok: true, status: 200, json: async () => local };
+  if (u.endsWith('/assets.json')) return { ok: true, status: 200, json: async () => assets };
+  return { ok: false, status: 404, json: async () => ({}) };
+};
+
+describe('season art', () => {
+  test('盟约 draws none of it; a later season its backdrop and logos; the Korean page its Korean logo', async () => {
+    const { data } = await import('../../public/js/data.js');
+    await data.load('local');
+    const { seasonBackdrop, seasonLogo, seasonSettleLogo } = await import('../../public/js/ui/seasonArt.js');
+    assert.equal(seasonBackdrop('act2autochess'), null);
+    assert.equal(seasonLogo('act2autochess', 'ko'), null);
+    assert.equal(seasonBackdrop(S), `/assets/local/season/${S}/backdrop/title.jpg`);
+    assert.equal(seasonLogo(S, 'ko'), `/assets/local/season/${S}/logo/title_season_ko.png`);
+    assert.equal(seasonLogo(S, 'zh'), `/assets/local/season/${S}/logo/title_season.png`);
+    assert.equal(seasonLogo(S, 'en'), `/assets/local/season/${S}/logo/title_season.png`);
+    assert.equal(seasonSettleLogo(S), `/assets/local/season/${S}/logo/season_logo_settle_game.png`);
+  });
+
+  test('a season without the extract falls back (null), the Korean page to the official logo when no Korean copy', async () => {
+    const { data } = await import('../../public/js/data.js');
+    const { seasonBackdrop, seasonLogo } = await import('../../public/js/ui/seasonArt.js');
+    local = { version: 1, groups: { [`season/${S}/logo`]: { title_season: entry('/x/title_season.png') } } };
+    await data.invalidate('local'); await data.load('local');
+    assert.equal(seasonBackdrop(S), null);
+    assert.equal(seasonLogo(S, 'ko'), '/x/title_season.png');
+    local = { version: 1, groups: {} };
+    await data.invalidate('local'); await data.load('local');
+    assert.equal(seasonLogo(S, 'ko'), null);
+  });
+
+  test("规程's renamed loading pictures show the 盟约 file they copy; a name kept is looked up as it is", async () => {
+    const { data } = await import('../../public/js/data.js');
+    await data.load('assets');
+    const { loadingArt, LOADING_SAME } = await import('../../public/js/ui/battleArt.js');
+    assert.equal(loadingArt({ loadingPic: 'loading_ac_normal', code: 'AC-MP-2', name: 'x' })?.pic, '/assets/ui/loading/loading_ac_core.png');
+    assert.equal(loadingArt({ loadingPic: 'loading_ac_hard', code: 'x', name: 'x' })?.pic, '/assets/ui/loading/loading_ac_hard.png');
+    assert.equal(loadingArt({ loadingPic: 'loading_ac_funny', code: 'x', name: 'x' }), null, 'its 盟约 copy is not in this manifest');
+    // every loading picture of the season's modes is the manifest's or a copy of one
+    const cfg = JSON.parse(readFileSync(path.join(ROOT, `data/seasons/${S}/config.json`), 'utf8'));
+    const have = new Set(['loading_ac_core', 'loading_ac_prototype', 'loading_ac_hard', 'loading_ac_abyss']);
+    for (const m of Object.values(cfg.modes)) {
+      if (m.type === 'TRAINING' || !m.loadingPic) continue;
+      assert.ok(have.has(m.loadingPic) || have.has(LOADING_SAME[m.loadingPic]), `${m.modeId} ${m.loadingPic}`);
+    }
+  });
+});
+
+describe('the title season change through the dark', () => {
+  test('down in 0.35 s, up in 0.45 s, as the CSS draws it', async () => {
+    const { SEASON_FADE } = await import('../../public/js/screens/title.js');
+    assert.deepEqual({ ...SEASON_FADE }, { out: 350, in: 450 });
+    const css = readFileSync(path.join(ROOT, 'public/css/screens/title.css'), 'utf8');
+    assert.match(css, /\.title-bg__veil \{[^}]*transition: opacity 450ms/);
+    assert.match(css, /\.title-bg__veil\.is-dark \{[^}]*transition-duration: 350ms/);
+  });
+});
+
+describe('the full local extract keeps the season groups', () => {
+  test('extract.py keeps season/* of the previous manifest on a run without --only', () => {
+    const src = readFileSync(path.join(ROOT, 'tools/local-extract/extract.py'), 'utf8');
+    assert.match(src, /if not args\.only:\n\s+#[^\n]*\n\s+old = \{g: v for g, v in old\.items\(\) if g\.startswith\('season\/'\)\}/);
+  });
+});
+
+describe("a later season's own icons", () => {
+  const icons = {
+    [`season/${S}/bandicon`]: { icon_gvial2: entry('/s/band/icon_gvial2.png'), icon_amiya: entry('/s/band/icon_amiya.png') },
+    [`season/${S}/bondicon`]: { icon_ursusShip: entry('/s/bond/icon_ursusShip.png') },
+    [`season/${S}/shopitemicon`]: { trap_1126_acarm126: entry('/s/item/trap_1126_acarm126.png') },
+    [`season/${S}/medalicon`]: { trophy_level6_icon: entry('/s/medal/6.png'), trophy_level1_icon: entry('/s/medal/1.png') },
+    [`season/${S}/modeicon`]: { mode_hard_icon: entry('/s/mode/hard.png') },
+    [`season/${S}/bondboardicon`]: { '1_1': entry('/s/board/1_1.png') },
+  };
+  const base = {
+    bands: { band_amiya: '/assets/band/band_amiya.png' }, bonds: { yanShip: '/assets/bond/yanShip.png' }, items: {},
+    ui: { 'medalIcon/trophy_level1_icon': '/en/1.png', 'modeIcon/mode_hard_icon': '/en/hard.png', 'bondBoardIcon/1_1': '/en/1_1.png' },
+  };
+  const records = {
+    bands: [{ bandId: 'band_survive', iconId: 'icon_gvial2' }, { bandId: 'band_amiya', iconId: 'icon_amiya' }, { bandId: 'band_none', iconId: 'icon_none' }],
+    bonds: [{ bondId: 'ursusShip', iconId: 'icon_ursusShip' }, { bondId: 'yanShip', iconId: 'icon_yanShip' }],
+  };
+
+  test('the season takes its strategy, bond, equipment and medal icons by its records; mode and bond-ring art stay', async () => {
+    const { withSeasonArt, bandIconUrl, bondIconUrl, itemIconUrl, uiUrl, effectIconUrl } = await import('../../public/js/ui/assetUrls.js');
+    const m = withSeasonArt(base, { groups: icons }, S, records);
+    assert.equal(bandIconUrl(m, 'band_survive'), '/s/band/icon_gvial2.png', 'by the record, not the band id');
+    assert.equal(bandIconUrl(m, 'band_amiya'), '/s/band/icon_amiya.png', "the season's own copy first");
+    assert.equal(bandIconUrl(m, 'band_none'), null);
+    assert.equal(effectIconUrl(m, { iconKind: 'band', iconId: 'icon_gvial2' }), '/s/band/icon_gvial2.png');
+    assert.equal(bondIconUrl(m, 'ursusShip'), '/s/bond/icon_ursusShip.png');
+    assert.equal(bondIconUrl(m, 'yanShip'), '/assets/bond/yanShip.png', 'a record the extract lacks keeps its icon');
+    assert.equal(itemIconUrl(m, { iconId: 'trap_1126_acarm126' }), '/s/item/trap_1126_acarm126.png');
+    assert.equal(uiUrl(m, 'medalIcon/trophy_level6_icon'), '/s/medal/6.png');
+    assert.equal(uiUrl(m, 'medalIcon/trophy_level1_icon'), '/s/medal/1.png');
+    assert.equal(uiUrl(m, 'modeIcon/mode_hard_icon'), '/en/hard.png');
+    assert.equal(uiUrl(m, 'bondBoardIcon/1_1'), '/en/1_1.png');
+    assert.equal(base.bands.band_amiya, '/assets/band/band_amiya.png', 'the manifest itself is not changed');
+    assert.ok(withSeasonArt(base, { groups: {} }, S, records) === base, 'no extract: the manifest as it is');
+  });
+
+  test("the data store hands 盟约 the file and a later season its view, rebuilt as the extract and records arrive", async () => {
+    const { createDataStore } = await import('../../public/js/data.js');
+    const files = {
+      'assets.json': base, 'local-assets.json': { groups: icons },
+      [`s/${S}/bands.json`]: records.bands, [`s/${S}/bonds.json`]: records.bonds,
+      'bands.json': [{ bandId: 'band_amiya', iconId: 'icon_amiya' }], 'bonds.json': [],
+    };
+    const fetch = async (url) => {
+      const k = String(url).replace(/^\/data\//, '');
+      return Object.hasOwn(files, k) ? { ok: true, status: 200, json: async () => files[k] } : { ok: false, status: 404, json: async () => ({}) };
+    };
+    const store = createDataStore({ fetch, timeoutMs: 0 });
+    const told = [];
+    store.subscribe((n) => told.push(n));
+    await store.loadAll('assets', 'bands', 'bonds');
+    assert.ok(store.get('assets') === base, '盟约 reads the file');
+    await store.setSeason(S);
+    assert.equal(store.get('assets').bands.band_survive, undefined, 'no extract loaded yet');
+    told.length = 0;
+    await store.load('local');
+    assert.ok(told.includes('assets'), "the extract's arrival re-renders the art readers");
+    assert.equal(store.get('assets').bands.band_survive, '/s/band/icon_gvial2.png');
+    assert.ok(store.get('assets') === store.get('assets'), 'built once per input');
+    assert.ok(store.getRaw('assets') === base);
+    told.length = 0;
+    await store.setSeason('act2autochess');
+    assert.ok(told.includes('assets'));
+    assert.ok(store.get('assets') === base);
+  });
+});
+
+describe("阿米娅's 医疗 form: a body with its E2 art alone", () => {
+  const m = { chars: { char_1037_amiya3: { avatarE2: '/a/amiya3_2.png', portraitE2: '/p/amiya3_2.png' } } };
+  const rec = (golden) => ({
+    charId: 'char_002_amiya', tmplId: 'char_1037_amiya3', isGolden: golden,
+    assets: { avatar: golden ? 'char_1037_amiya3_2' : 'char_1037_amiya3', portrait: `char_1037_amiya3_${golden ? 2 : 1}` },
+  });
+
+  test('draws that art at every level, the card as the body', async () => {
+    const { chessAvatarUrl, chessPortraitUrl } = await import('../../public/js/ui/assetUrls.js');
+    for (const golden of [false, true]) {
+      assert.equal(chessAvatarUrl(m, rec(golden)), '/a/amiya3_2.png', `avatar golden=${golden}`);
+      assert.equal(chessPortraitUrl(m, rec(golden)), '/p/amiya3_2.png', `portrait golden=${golden}`);
+    }
+    const { data } = await import('../../public/js/data.js');
+    await data.load('local');
+    const { cardArt } = await import('../../public/js/ui/detailArt.js');
+    local = { version: 1, groups: { chararts: { char_1037_amiya3: { path: '/c/amiya3.webp', w: 1, h: 1, kind: 'Illust', frame: { x: 0, y: 0, w: 1, h: 1 } } } } };
+    await data.invalidate('local'); await data.load('local');
+    assert.equal(cardArt(m, rec(false)).src, '/c/amiya3.webp', "the card's 立绘 is the body's");
+  });
+});
+
+describe("the title's season tabs show each season's picture (maintainer decision 2026-11-10)", () => {
+  test("盟约 its desert and emblem, 规程 its activity card and emblem; none when one season lacks them", async () => {
+    const { data } = await import('../../public/js/data.js');
+    const { seasonTabArt } = await import('../../public/js/ui/seasonArt.js');
+    assets.ui['entry/bkg_02'] = '/assets/ui/entry/bkg_02.png';
+    assets.ui['entry/season_logo'] = '/assets/ui/entry/season_logo.png';
+    await data.invalidate('assets'); await data.load('assets');
+    local = { version: 1, groups: {
+      [`season/${S}/banner`]: { tab: entry(`/assets/local/season/${S}/banner/tab.jpg`) },
+      [`season/${S}/logo`]: { season_logo: entry(`/assets/local/season/${S}/logo/season_logo.png`) },
+    } };
+    await data.invalidate('local'); await data.load('local');
+    assert.deepEqual(seasonTabArt('act2autochess'), { bg: '/assets/ui/entry/bkg_02.png', emblem: '/assets/ui/entry/season_logo.png' });
+    assert.deepEqual(seasonTabArt(S), { bg: `/assets/local/season/${S}/banner/tab.jpg`, emblem: `/assets/local/season/${S}/logo/season_logo.png` });
+    local = { version: 1, groups: {} };
+    await data.invalidate('local'); await data.load('local');
+    assert.equal(seasonTabArt(S), null, 'no extract: the tabs stay words');
+    const src = readFileSync(path.join(ROOT, 'public/js/ui/season.js'), 'utf8');
+    assert.match(src, /const art = arts\.every\(Boolean\);/, 'all tabs or none');
+  });
+});
+
+describe("规程's default UI theme in its shop and HUD (maintainer decision 2026-11-10: its sizes and art, that season only)", () => {
+  const skin = {};
+  for (const n of ['chess_frame_normal', 'chess_frame_level_five', 'chess_frame_level_six', 'bg_close', 'refresh_bg_normal', 'bg_black', 'level', 'mask_char', 'btn_check_enemy']) skin[n] = entry(`/s/skin/${n}.png`);
+  const groups = {
+    [`season/${S}/skin`]: skin,
+    [`season/${S}/bondboard`]: { '3_0': entry('/s/bb/3_0.png'), '3_2': entry('/s/bb/3_2.png'), '3_3': entry('/s/bb/3_3.png') },
+    [`season/${S}/chesslevelsprite`]: { chess_level_icon_5: entry('/s/lv/5.png') },
+  };
+  const base = { ui: {
+    'shopCard/frame_lv1': '/en/f1.png', 'shopCard/frame_lv2': '/en/f2.png', 'shopCard/frame_lv3': '/en/f3.png', 'shopCard/bg_black': '/en/black.png',
+    'shopPanel/bg_close': '/en/close.png', 'shopPanel/refresh_bg_normal': '/en/refresh.png', 'shopPanel/level': '/en/level.png',
+    'shopCard/img_chess_level_5': '/en/lv5.png', 'bondBoardIcon/3_2': '/en/3_2.png', 'bondBoardIcon/1_0': '/en/1_0.png',
+  } };
+  const withData = async (m, fn) => {
+    const { data } = await import('../../public/js/data.js');
+    const get = data.get;
+    data.get = (n) => (n === 'assets' ? m : n === 'local' ? { groups: {} } : get.call(data, n));
+    try { await fn(); } finally { data.get = get; }
+  };
+
+  test('the season view carries the theme sprites and the composed bond boards', async () => {
+    const { withSeasonArt, uiUrl } = await import('../../public/js/ui/assetUrls.js');
+    const m = withSeasonArt(base, { groups }, S);
+    assert.equal(uiUrl(m, 'seasonSkin/chess_frame_normal'), '/s/skin/chess_frame_normal.png');
+    assert.equal(uiUrl(m, 'seasonBondBoard/3_0'), '/s/bb/3_0.png');
+    assert.equal(uiUrl(base, 'seasonSkin/chess_frame_normal'), null, '盟约 has none');
+  });
+
+  test('the shop takes the theme frames (by tier), its sprites by name and has-shop-theme; 盟约 stays on its own', async () => {
+    const { withSeasonArt } = await import('../../public/js/ui/assetUrls.js');
+    const { shopArt } = await import('../../public/js/ui/shopArt.js');
+    await withData(withSeasonArt(base, { groups }, S), async () => {
+      const a = shopArt();
+      assert.match(a.cls, /has-shop-art/);
+      assert.match(a.cls, /has-shop-theme/);
+      assert.match(a.style, /--sa-card-frame1:url\("\/s\/skin\/chess_frame_normal\.png"\)/);
+      assert.match(a.style, /--sa-card-frame2:url\("\/s\/skin\/chess_frame_level_five\.png"\)/);
+      assert.match(a.style, /--sa-card-frame3:url\("\/s\/skin\/chess_frame_level_six\.png"\)/);
+      assert.match(a.style, /--sa-card-black:url\("\/s\/skin\/bg_black\.png"\)/);
+      assert.match(a.style, /--sa-card-mask:url\("\/s\/skin\/mask_char\.png"\)/);
+      assert.match(a.style, /--sa-up-level:url\("\/en\/level\.png"\)/, "the theme's `level` is another sprite");
+    });
+    await withData(base, async () => {
+      const a = shopArt();
+      assert.doesNotMatch(a.cls, /has-shop-theme/);
+      assert.match(a.style, /--sa-card-frame1:url\("\/en\/f1\.png"\)/);
+      assert.doesNotMatch(a.style, /--sa-card-mask/);
+    });
+  });
+
+  test("tier chips, bond boards and the 🔍 buttons take the season's own where it has them", async () => {
+    const { withSeasonArt } = await import('../../public/js/ui/assetUrls.js');
+    const { tierChipUrl } = await import('../../public/js/ui/components.js');
+    const { bondBoardStyle } = await import('../../public/js/ui/hudArt.js');
+    const { checkSprite } = await import('../../public/js/ui/hud.js');
+    await withData(withSeasonArt(base, { groups }, S), async () => {
+      assert.equal(tierChipUrl(5), '/s/lv/5.png');
+      assert.deepEqual(bondBoardStyle(3, 2), { style: '--bb:url("/s/bb/3_2.png");--bb-sz:93.75%', full: false });
+      assert.deepEqual(bondBoardStyle(3, 0), { style: '--bb:url("/s/bb/3_0.png");--bb-sz:93.75%', full: false }, 'its unlit board keeps the segments');
+      assert.equal(bondBoardStyle(3, 3).full, true);
+      assert.deepEqual(checkSprite('btn_check_enemy'), { url: '/s/skin/btn_check_enemy.png', theme: true });
+      assert.equal(checkSprite('btn_check_player_back').theme, false, 'a state the theme lacks keeps its own');
+    });
+    await withData(base, async () => {
+      assert.equal(tierChipUrl(5), '/en/lv5.png');
+      assert.deepEqual(bondBoardStyle(3, 2), { style: '--bb:url("/en/3_2.png")', full: false });
+      assert.deepEqual(bondBoardStyle(3, 0), { style: '--bb:url("/en/1_0.png")', full: false });
+      assert.equal(checkSprite('btn_check_enemy').theme, false);
+    });
+  });
+});

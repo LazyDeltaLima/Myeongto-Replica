@@ -159,9 +159,9 @@
    at 100 % — stretching both to one box made the rings 14 % bigger than an active disc. */
 .gm.has-hud-art .bslot .bond__disc {
   position: absolute; left: 50%; top: calc(50% - var(--u) * 9); width: calc(var(--u) * 80); height: calc(var(--u) * 80); transform: translate(-50%, -50%);
-  background: var(--bb) center / 84.2% 84.2% no-repeat;
+  background: var(--bb) center / var(--bb-sz, 84.2%) var(--bb-sz, 84.2%) no-repeat;
 }
-.gm.has-hud-art .bslot[data-full] .bond__disc { background-size: 100% 100%; }
+.gm.has-hud-art .bslot[data-full] .bond__disc { background-size: var(--bb-sz, 100%) var(--bb-sz, 100%); }
 .gm.has-hud-art .bslot .bond__ring { display: none; }
 .gm.has-hud-art .bslot .bond__core { width: calc(var(--u) * 36); height: calc(var(--u) * 36); background: none !important; box-shadow: none !important; border: 0; }
 .gm.has-hud-art .bslot .bond__icon { width: 100%; height: 100%; filter: brightness(0) invert(.78); }
@@ -439,9 +439,9 @@
 }
 .gm.has-hud-art .bpop__disc {
   position: absolute; left: calc(var(--u) * 3.4); top: calc(var(--u) * 9.2); width: calc(var(--u) * 80); height: calc(var(--u) * 80);
-  border: 0; border-radius: 0; box-shadow: none; background: var(--bb) center / 84.2% 84.2% no-repeat; /* the ring sprites' padding: see .bslot .bond__disc */
+  border: 0; border-radius: 0; box-shadow: none; background: var(--bb) center / var(--bb-sz, 84.2%) var(--bb-sz, 84.2%) no-repeat; /* the ring sprites' padding: see .bslot .bond__disc */
 }
-.gm.has-hud-art .bpop__disc[data-full] { background-size: 100% 100%; }
+.gm.has-hud-art .bpop__disc[data-full] { background-size: var(--bb-sz, 100%) var(--bb-sz, 100%); }
 .gm.has-hud-art .bpop__disc .bglyph { width: calc(var(--u) * 36); height: calc(var(--u) * 36); }
 .gm.has-hud-art .bpop__disc .bglyph img { filter: brightness(0) invert(.72); opacity: .8; }
 .gm.has-hud-art .bpop__disc[data-full] .bglyph img { filter: brightness(0); opacity: 1; }
@@ -806,6 +806,14 @@
 .gm.has-hud-art .bpause { position: absolute; left: 50%; top: calc(50% - var(--u) * 17); z-index: 2; display: flex; align-items: center; justify-content: center;
   width: calc(var(--u) * 157); height: calc(var(--u) * 47); transform: translate(-50%, -50%); pointer-events: none; white-space: nowrap;
   background: var(--ha-pause, rgba(0, 0, 0, .6)) center / 100% 100% no-repeat; font-size: calc(var(--u) * 15); font-weight: 700; color: #d7fff3; letter-spacing: .04em; }
+
+/* 🔍 buttons of a later season's UI theme (规程 ac_n_initial, ui/hud.js checkSprite): the theme's own art at 73×41, 6 units
+   below the button's centre, with no bg_check_btn plate (img_normal of the CN autochess_hud_panel) */
+.gm.has-hud-art .gtop__iconbtn.has-sprite.is-theme, .gm.has-hud-art .enemybtn.has-sprite.is-theme,
+.gm.has-hud-art .gtop__iconbtn.has-sprite.is-theme:hover, .gm.has-hud-art .enemybtn.has-sprite.is-theme:hover:not(.is-grey),
+.gm.has-hud-art .gtop__iconbtn.has-sprite.is-theme.is-on, .gm.has-hud-art .enemybtn.has-sprite.is-theme.is-wide:hover:not(.is-grey) {
+  background: var(--chk-sprite) center calc(50% + var(--u) * 6) / calc(var(--u) * 73) calc(var(--u) * 41) no-repeat;
+}
 
 /* ---- 规程's bond phase (ui/bondStrip.js bondPhaseOf; seasonFeature 'bondPhase'): Ⅰ·Ⅱ·Ⅲ over an active disc — the HUD bond
    item's img_level, 24×24 centred 31.3 above the item's centre (the disc's 9 above it), bondphaseicon/bond_level_N — and

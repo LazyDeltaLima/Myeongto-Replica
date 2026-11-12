@@ -1245,6 +1245,7 @@ export class AudioManager {
     this.bgmSeason = null;    // the season whose tracks the key resolves to (resolveBgm)
     this.bgm = null;          // { key, loopUrl, nodes: [{src, gain}], gain }
     this.bgmToken = 0;
+    this.lastBgmKey = null;   // the key the screen asked for last (ui/entryFilm.js holdBgm starts it after the film)
     this.units = new Map();   // battle unit id → defId
     this.lastAttacker = new Map(); // target id → { def, at } of the hostile attack last aimed at it (its impact sound)
     this.chainStruck = new Map(); // unit id → time a chain bounce struck it (sim 'atk' 'chain': its 'dmg' is a bounce's)
@@ -1501,6 +1502,7 @@ export class AudioManager {
    */
   playBgm(key, season = null) {
     try {
+      this.lastBgmKey = key;
       this.bgmSeason = typeof season === 'string' && season ? season : null;
       if (!this.ctx) { this.wantBgm = key; return; }
       const track = resolveBgm(this.getManifest(), key, this.bgmSeason);

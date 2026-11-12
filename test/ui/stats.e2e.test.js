@@ -89,8 +89,8 @@ describe('统计数据 page (real server, headless Chrome)', { skip: !ENABLED &&
   }
   const texts = (c, sel) => c.page.$$eval(sel, (els) => els.map((e) => e.innerText.replace(/\s+/g, ' ').trim()));
   const stored = (c) => c.page.evaluate(() => { const r = localStorage.getItem('sp.pref.stats'); return r ? JSON.parse(r) : null; });
-  // the lobby's entry is the name chip (me-chip) at the right of its top bar
-  const openStats = async (c, from = '.lobby-screen .me-chip') => {
+  // the lobby's entry is the hub's 成就统计 card with the Doctor's name (screens/lobby.js AchievementCard)
+  const openStats = async (c, from = '.lobby-screen .hub-ach') => {
     await c.click(from);
     await c.page.waitForSelector('.st .st-tab', { visible: true, timeout: 15000 });
     await c.page.waitForFunction(() => !document.querySelector('.st-loading'), { timeout: 15000 }); // the game data behind the tabs
@@ -151,7 +151,8 @@ describe('统计数据 page (real server, headless Chrome)', { skip: !ENABLED &&
   test('phone in landscape (844×390): the page and the re-view fit; no console errors', async () => {
     const c = await open({ w: 844, h: 390, stored: JSON.stringify(seed()) });
     await c.page.waitForSelector('.lobby-screen');
-    await openStats(c);
+    // a short screen hides the hub's left column: 成就统计 is a plate of the right column (screens/lobby.js SidePlate)
+    await openStats(c, '.lobby-screen .hub-plate--ach');
     const fits = () => c.page.evaluate(() => {
       const st = document.querySelector('.st').getBoundingClientRect();
       const top = document.querySelector('.st-top').getBoundingClientRect();
@@ -308,7 +309,7 @@ describe('统计数据: the real flows (a fast real server, headless Chrome)', {
       assert.equal(env.records[0].players[0].roundsPassed, 1, 'one round cleared — the server\'s own count for a quit in round 2');
       assert.ok(env.records[0].players[0].bandId, 'its strategy');
       // the page: one game counted, one left out, both in the history
-      await c.click('.lobby-screen .me-chip');
+      await c.click('.lobby-screen .hub-ach');
       await c.page.waitForSelector('.st .st-card', { visible: true });
       assert.equal((await c.page.$$eval('.st-card__num', (els) => els.map((e) => e.textContent)))[0], '1');
       assert.match(await c.page.$eval('.st-rule', (e) => e.textContent), /另有 1 局未计入统计/);

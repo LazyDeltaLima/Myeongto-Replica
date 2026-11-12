@@ -45,7 +45,7 @@
 | 한국어 번역 (UI·데이터·공식 문구) | `public/js/i18n/*`, `public/i18n/ko/*`, `tools/i18n/*` | — |
 | 협동 방 채팅, 채팅 맹약 (8개국, 맹약 아이콘) | `server/local-patch.js`, `shared/local.js`, `public/js/ui/chat.js`, `public/js/ui/faction.js`, `public/css/chat.css` | — |
 | 채팅 알림음 (다른 참가자의 새 채팅에 이모티콘 효과음, 설정에서 끄기·볼륨·간격·맹약 선택 알림) | `public/js/audio.js` `chatNotification`, `public/js/ui/chat.js`, `public/js/ui/settings.js` | `audio.md` 「채팅 알림음」 |
-| 로비 업데이트 소식 (작전 팁 칸의 「업데이트」 탭 + 「업데이트 소식」 창, 원문 `CHANGELOG.md`) | `server/http/changelog.js`, `public/js/ui/patchNotes.js`, `public/js/screens/lobby.js`, `test/changelog.test.js` | `ui.md` 「로비 업데이트 소식」 |
+| 로비 업데이트 소식 (허브의 「업데이트」 카드 — 휴대폰은 작전 팁 칸의 탭 — + 「업데이트 소식」 창, 원문 `CHANGELOG.md`) | `server/http/changelog.js`, `public/js/ui/patchNotes.js`, `public/js/screens/lobby.js`, `test/changelog.test.js` | `ui.md` 「로비 업데이트 소식」 |
 | 서버 재시작 예고 (배포 전 카운트다운, 마지막 5분 판 시작 거부) | `server/local-restart.js`, `public/js/ui/restartNotice.js`, `test/local-restart.test.js` | `ui.md` 「서버 재시작 예고」 |
 | 무중단 배포: 서버 세대(`SP_GEN`, accept·drain·standby, `sp_gen` 쿠키, `/healthz/accept`), 드레인 중 새 방·참가·판 시작 거부, 옛 서버 스스로 종료(최대 3시간), 페이지 옮겨 가기(3초·판 끝·다른 탭) | `server/local-generation.js`, `public/js/ui/generation.js`, `test/local-generation.test.js` | `ui.md` 「무중단 배포 — 서버 세대」 |
 | `SP_MAX_BOTS` (방마다 AI 팀원 한도), `SP_MAX_BOTS_TOTAL`·`SP_MAX_BOTS_PER_ADDR` (서버 전체·네트워크별 AI 팀원 한도, 연결된 사람이 앉은 방의 AI만 셈, 거절은 `BOT_LIMIT`) | `server/local-patch.js` `botCap` | — |
@@ -57,7 +57,7 @@
 | 리소스 미리 받기 (음성 언어 선택 포함) | `public/js/resources.js`, `public/resource-worker.js`, `tools/build-browser-resources.mjs`, `public/css/resources.css` | `render.md` 「제보 #10 조사 중 찾은 이펙트 계층·리소스 캐시 버그」·「배포 직후 리소스 캐시 정리·다시 받기와 판 진입」 |
 | 오퍼레이터 음성 언어 선택(한국어/일본어/끄기)과 정비 단계 대사(선택·배치) — 원본 #73 「干员战斗语音」 위에 | `tools/assets/voice.mjs`, `public/js/voice.js`, `public/js/voicePolicy.js` | `audio.md` 「음성」 |
 | 선발 오퍼레이터 (0.2.0부터 upstream 自选 틀, 후보 = 望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶) | `shared/local-diy.js`, `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln}.js`, `tools/build-data.mjs DIY_LOCAL_INCLUDED` | `diy.md` |
-| 규정 선발 편성 12칸·「선발 편성 확정」 단계(3/3, 등급마다 2명, 규정만) | `server/match/match/diyChoose.js`, `server/match/gamedata.js diyChoose`, `shared/protocol.js DIY_LIMITS`·`g.diyChoose`·`g.diyReady`, `public/js/ui/gameLogic/draft.js autoDiyChoice` | `diy.md` 「규정 선발 편성 12칸과 선발 편성 확정 단계」 |
+| 규정 선발 편성 12칸·「선발 편성 확정」 단계(3/3, 등급마다 2명, 규정만) | `server/match/match/diyChoose.js`, `server/match/gamedata.js diyChoose`, `shared/protocol.js DIY_LIMITS`·`g.diyChoose`·`g.diyReady`, `public/js/screens/diyChoose.js`, `public/js/ui/gameLogic/draft.js toggleDiyChoice`·`diyChooseRows` | `diy.md` 「규정 선발 편성 12칸과 선발 편성 확정 단계」, `ui.md` 「규정 선발 편성 확정 화면」 |
 | 선발 소환물 모델 (望 바둑돌·维什戴尔 혼령의 그림자: 웹 미러에 모델이 없어 클라이언트에서 추출) | `tools/local-extract/extract.py TOKEN_SPINES` → `public/assets/local/spine/token/<id>/`, `node tools/fetch-assets.mjs --local-spines` → `tools/assets/local-token-spines.json` | `diy.md` 「소환물 모델」 |
 | 함정형 소환물 표시 (望 바둑돌은 HP 바 없음, 望 바둑돌·사일런스 의료 드론은 방향 선택 없이 바로 배치) | `shared/trap-tokens.js` | — |
 | 정비 화면 HUD 공식 모양 (라운드 띠·맹약 원·준비 완료 버튼·카운트다운·플레이어 목록·맹약 팝업·기물 정보 창) | `public/js/ui/hudArt.js`, `public/js/ui/detailArt.js`, `public/css/hud-art.css` | `ui.md` 「정비 화면 HUD」 |

@@ -14,6 +14,8 @@ import { DEFAULT_SEASON, isSeasonId, seasonInfo, seasonOf } from '../../../share
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { html } from './components.js';
 import { toast } from './toasts.js';
+import { useData } from '../data.js';
+import { seasonTabArt } from './seasonArt.js';
 import { t } from '../../../shared/i18n.js';
 
 /** The remembered pick (store.js loadPref). */
@@ -55,6 +57,12 @@ export function seasonQueueCounts(s, season, large) {
   if (seasonOf(season) === DEFAULT_SEASON) return large ? s.ui.queueCounts8 : s.ui.queueCounts;
   const c = s.ui.queueCountsBy?.[season];
   return (large ? c?.counts8 : c?.counts) ?? null;
+}
+
+/** The 快速匹配 queue's waiting Doctors of a season, { [difficulty]: n } (lobby.queueCounts `quick` → ui.queueQuick). @param {any} s @param {string} season */
+export function seasonQuickCounts(s, season) {
+  if (seasonOf(season) === DEFAULT_SEASON) return s.ui.queueQuick ?? null;
+  return s.ui.queueCountsBy?.[season]?.quick ?? null;
 }
 
 /** The season's word of the title (卫戍协议：<name>), translated. @param {unknown} id */
@@ -113,15 +121,25 @@ function NewMark({ id }) {
   return id === DEFAULT_SEASON ? null : html`<span class="season-new">NEW</span>`;
 }
 
-/** The title's season tabs (top of the login box; mockup C). Nothing while one season is offered or an invitation waits. */
+/**
+ * The title's season tabs (top of the login box; mockup C). Nothing while one season is offered or an invitation waits.
+ * Each tab shows its season's picture and emblem (ui/seasonArt.js seasonTabArt; maintainer decision 2026-11-10) when
+ * every offered season has them; else the names alone.
+ */
 export function SeasonTabs() {
   const st = useStore((s) => ({ offered: offeredSeasonsOf(s), picked: pickedSeason(s), invite: !!s.ui.pendingJoin }), shallowEqualDeep);
+  useData('assets', 'local');
   if (st.offered.length < 2 || st.invite) return null;
+  const arts = st.offered.map(seasonTabArt);
+  const art = arts.every(Boolean);
   return html`<div class="season-tabs">
     <span class="season-tabs__k">${t('赛季')}<small>SEASON</small></span>
-    <span class="season-tabs__opts" role="radiogroup" aria-label=${t('赛季')}>
-      ${st.offered.map((id) => html`<button key=${id} type="button" role="radio" aria-checked=${id === st.picked ? 'true' : 'false'}
-        class=${`season-tabs__opt tapx${id === st.picked ? ' is-on' : ''}`} onClick=${() => pickSeason(id)}>${seasonName(id)}<${NewMark} id=${id} /></button>`)}
+    <span class=${`season-tabs__opts${art ? ' has-art' : ''}`} role="radiogroup" aria-label=${t('赛季')}>
+      ${st.offered.map((id, i) => html`<button key=${id} type="button" role="radio" aria-checked=${id === st.picked ? 'true' : 'false'}
+        class=${`season-tabs__opt tapx${id === st.picked ? ' is-on' : ''}`} onClick=${() => pickSeason(id)}
+        style=${art ? `--tab-art: url("${arts[i].bg}")` : null}>${art
+          ? html`<img class="season-tabs__emb" src=${arts[i].emblem} alt="" draggable="false" /><span class="season-tabs__name">${seasonName(id)}<${NewMark} id=${id} /></span>`
+          : html`${seasonName(id)}<${NewMark} id=${id} />`}</button>`)}
     </span>
   </div>`;
 }
@@ -163,11 +181,30 @@ export function SeasonChip() {
   </span>`;
 }
 
-/** The room's season (room screen), while several seasons are offered or the room's is not the default. */
-export function SeasonBadge() {
+/**
+ * The 赛季 row's switch of 创建同盟's 选择模拟协议 (screens/lobby.js ProtoRules `season`): the season the new room plays,
+ * the same pick as the top bar's chip (pickSeason) — a room's season is fixed when it is made (maintainer decisions
+ * 2026-11-07, 2026-11-08: its mode bar only shows it). Nothing while one season is offered (hasSeasonPicker).
+ */
+export function SeasonPick({ class: cls = '' }) {
+  const st = useStore((s) => ({ offered: offeredSeasonsOf(s), picked: pickedSeason(s) }), shallowEqualDeep);
+  if (st.offered.length < 2) return null;
+  return html`<div class=${`dpick rpick ${cls}`.trim()} role="radiogroup" aria-label=${t('赛季')} data-testid="ally-season">
+    ${st.offered.map((id) => html`<button key=${id} type="button" role="radio" aria-checked=${id === st.picked ? 'true' : 'false'} data-season=${id}
+      class=${`dpick__opt rpick__opt${id === st.picked ? ' is-active' : ''}`} onClick=${() => id !== st.picked && pickSeason(id)}>${seasonName(id)}<${NewMark} id=${id} /></button>`)}
+  </div>`;
+}
+
+/**
+ * The room's season, the first part of its mode bar (screens/room.js), read-only (maintainer decision 2026-11-07: a room
+ * keeps the season it was created in): while several seasons are offered or the room's is not the default. The room's
+ * top bar no longer repeats it (maintainer decision 2026-11-08).
+ */
+export function RoomSeasonSeg() {
   const st = useStore((s) => ({ season: seasonOf(s.room?.season), shown: hasSeasonPicker(s) || seasonOf(s.room?.season) !== DEFAULT_SEASON }), shallowEqual);
   if (!st.shown) return null;
-  return html`<span class=${`season-badge${st.season !== DEFAULT_SEASON ? ' season-badge--new' : ''}`}>${t('赛季')} · ${seasonName(st.season)}</span>`;
+  return html`<span class=${`rs-mode__seg rs-mode__season${st.season !== DEFAULT_SEASON ? ' is-new' : ''}`} data-testid="room-season"
+    title=${t('赛季')}>${seasonName(st.season)}</span>`;
 }
 
 /** shallowEqual that compares one level of arrays inside (the `offered` list). */

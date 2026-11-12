@@ -157,8 +157,7 @@ async function coopSetup(host, guest, { bots }) {
   await host.open();
   await host.enter('凯尔希');
   await host.click('.mode-card', '同盟模拟');
-  await host.click('.diff-card', '标准模拟');
-  await host.click('.create-box button', '创建同盟');
+  await host.click('.ally-create__go', '创建同盟');
   const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
   for (let i = 0; i < bots; i++) {
     await host.click('button', '添加 AI 队友');
@@ -252,8 +251,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
       await host.open();
       await host.enter('凯尔希');
       await host.click('.mode-card', '同盟模拟');
-      await host.click('.diff-card', '标准模拟');
-      await host.click('.create-box button', '创建同盟');
+      await host.click('.ally-create__go', '创建同盟');
       const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
       await guest.open(`?room=${room.code}`);
       await guest.enter('阿米娅');

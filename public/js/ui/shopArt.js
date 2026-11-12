@@ -5,6 +5,11 @@
 // the look; the price hexagon (`cost_bg_1` / `cost_bg_2`) is only in the local-client extraction (ui/battle) and falls
 // back to upstream's CSS hexagon. Without the manifest sprites the bar keeps upstream's CSS look (no `has-shop-art`).
 //
+// A later season with its own default UI theme (规程: ac_n_initial, maintainer decision 2026-11-10 — its sizes and art in
+// that season only) has the theme's sprites in the season's manifest view (`seasonSkin/*`, ui/assetUrls.js
+// withSeasonArt): they replace the same-named ones, the three card frames by the theme's names, and the bar takes
+// `has-shop-theme` (the theme prefabs' geometry, css/shop-art.css 「规程 default theme」).
+//
 //   shopArt()            { cls, style } for the <section class="shopbar"> (ui/shopBar.js)
 //   garrisonMarkUrl(c)   the card watermark: the type icon of the chess' 特质 (garrison eventTypeIcon — the prefab's
 //                        `garrison_icon`, 65×65 at 35 % alpha, its sprite set at run time through the card's
@@ -55,6 +60,17 @@ const LOCAL = Object.freeze({
   '--sa-cost-grey': 'cost_bg_2',
 });
 
+/** Web key → the theme's sprite of that slot when its name differs (panel_shop_main / autochess_shop_card_item of the
+ * theme bundle; the card frames go by tier there too: chess_frame_hub normal / level_five / level_six). */
+const THEME_NAME = Object.freeze({
+  'shopCard/frame_lv1': 'chess_frame_normal', 'shopCard/frame_lv2': 'chess_frame_level_five', 'shopCard/frame_lv3': 'chess_frame_level_six',
+  // the theme's `level` is the folded shop's LEVEL box, another sprite
+  'shopPanel/level': null,
+});
+/** CSS variable → theme sprite with no EN counterpart: the portrait's soft mask (root_char SoftMask, red channel), the
+ * card's grey matte (disable_matte) and the upgrade box's inner plate (inner_bg). */
+const THEME_ONLY = Object.freeze({ '--sa-card-mask': 'mask_char', '--sa-card-disable': 'disable_color', '--sa-up-matte': 'frame_matte' });
+
 let cache = { m: null, l: null, v: null };
 
 /** { cls, style } of the shop bar: `has-shop-art` and the sprite variables, or nothing when the manifest lacks them. */
@@ -63,9 +79,20 @@ export function shopArt() {
   const l = data.get('local');
   if (cache.m === m && cache.l === l && cache.v) return cache.v;
   const vars = [];
+  const theme = !!uiUrl(m, 'seasonSkin/chess_frame_normal');
+  const themed = (key) => {
+    const name = Object.hasOwn(THEME_NAME, key) ? THEME_NAME[key] : key.slice(key.indexOf('/') + 1);
+    return theme && name ? uiUrl(m, `seasonSkin/${name}`) : null;
+  };
   for (const [k, key] of Object.entries(WEB)) {
-    const u = uiUrl(m, key);
+    const u = themed(key) || uiUrl(m, key);
     if (u) vars.push(`${k}:url("${u}")`);
+  }
+  if (theme) {
+    for (const [k, name] of Object.entries(THEME_ONLY)) {
+      const u = uiUrl(m, `seasonSkin/${name}`);
+      if (u) vars.push(`${k}:url("${u}")`);
+    }
   }
   let cost = false;
   for (const [k, name] of Object.entries(LOCAL)) {
@@ -73,8 +100,9 @@ export function shopArt() {
     if (u) { vars.push(`${k}:url("${u}")`); cost = true; }
   }
   // the frames, the close box and the buttons carry the look: without them stay on upstream's CSS
-  const ok = !!(uiUrl(m, 'shopCard/frame_lv1') && uiUrl(m, 'shopPanel/bg_close') && uiUrl(m, 'shopPanel/refresh_bg_normal'));
-  const v = ok ? { cls: `has-shop-art${cost ? ' has-shop-cost' : ''}`, style: vars.join(';') } : { cls: '', style: '' };
+  const ok = !!((themed('shopCard/frame_lv1') || uiUrl(m, 'shopCard/frame_lv1')) && (themed('shopPanel/bg_close') || uiUrl(m, 'shopPanel/bg_close'))
+    && (themed('shopPanel/refresh_bg_normal') || uiUrl(m, 'shopPanel/refresh_bg_normal')));
+  const v = ok ? { cls: `has-shop-art${cost ? ' has-shop-cost' : ''}${theme ? ' has-shop-theme' : ''}`, style: vars.join(';') } : { cls: '', style: '' };
   cache = { m, l, v };
   return v;
 }

@@ -80,6 +80,12 @@ export const GUIDE_PAGES = Object.freeze([
  * manifest keys are the data/local-assets.json group and name — ui['emoticon/<dir>/<picId>'], ui['guide/<key>'] — so
  * the client looks both up by the same names (public/js/data.js artUrls: the local file first, then this copy).
  */
+/** The waiting room's seat card sprites (player_solt_item_room) beyond icon_card / host_top_tag / icon_self_room: ui['room/<name>']. */
+export const SEAT_SPRITES = Object.freeze(['bg_normal2', 'bg_frame', 'front_matte_normal', 'front_matte_select1', 'front_matte_select2',
+  'bg_top_normal', 'bg_top_ready', 'select_glow_up', 'select_deco_line', 'select_deco_down1', 'select_deco_down2', 'icon_prepared',
+  'card_deco_self', 'btn_card_detail', 'unfold_matte', 'unfold_bg_normal', 'bg_empty', 'card_empty', 'bg_plus', 'bg_guest', 'card_line',
+  'btn_kick', 'bg_disconnect', 'icon_disconnect']);
+
 export const UI_EXTRAS = (() => {
   const L = [];
   const mc = 'ui/autochess/[uc]autochessouter/modechoice/auto_chess_mode_choice_state/';
@@ -108,6 +114,22 @@ export const UI_EXTRAS = (() => {
   L.push(['prepReady', 'countdown_arrow', `${pr}countdown_arrow.png`]);
   const si = 'ui/autochess/[uc]autochessouter/stageinfo/auto_chess_stage_info_state/';
   for (const k of ['img_title_mode_abyss', 'img_title_mode_funny', 'img_title_mode_hard', 'img_title_mode_normal', 'btn_confirm', 'btn_confirmed']) L.push(['stageInfo', k, `${si}${k}.png`]);
+  // the room's group_mode bar (auto_chess_room_state: bg_mode, the difficulty's light and icon, btn_switch_mode), the
+  // matching range's two icons (wide_icon / accurate_icon: the mirror files them under the room state, which shows them
+  // too; 选择模拟协议's 快速匹配 switch draws them as auto_chess_mode_choice_pop_view's btn_range_switch does) and the
+  // seat card's 名片 icon and host tag (player_solt_item_room)
+  const rm = 'ui/autochess/[uc]autochessouter/room/';
+  for (const k of ['bg_mode', 'btn_switch_mode', 'light_mode', 'icon_easy', 'icon_normal', 'icon_hard', 'icon_abyss', 'wide_icon', 'accurate_icon']) L.push(['room', k, `${rm}auto_chess_room_state/${k}.png`]);
+  for (const k of ['icon_card', 'host_top_tag', 'icon_self_room']) L.push(['room', k, `${rm}playercard/player_solt_item_room/${k}.png`]);
+  // the rest of the seat card (player_solt_item_room): the card and its frame, the top strips, the mattes and lines of a
+  // ready card, the name card's frame and ⋯ tag, its menu, the empty seat, the kick button, the disconnected band
+  for (const k of SEAT_SPRITES) L.push(['room', k, `${rm}playercard/player_solt_item_room/${k}.png`]);
+  // the strategy draft's player list rows (prefab_auto_chess_band_choose_player_card_item; its arrow is the band item's)
+  const bc = 'ui/autochess/[uc]autochessouter/bandchoose/';
+  for (const k of ['player_card_self_frame', 'icon_self_room', 'player_card_waiting', 'player_card_selecting', 'shallow_main', 'player_card_team_frame', 'player_card_ready']) {
+    L.push(['bandChoose', k, `${bc}prefab_auto_chess_band_choose_player_card_item/${k}.png`]);
+  }
+  L.push(['bandChoose', 'team_list_selected_arrow', `${bc}prefab_auto_chess_band_item/team_list_selected_arrow.png`]);
   for (const e of EMOTE_CATALOG) L.push([`emoticon/${e.dir}`, e.picId, `ui/emoticon/theme/[uc]${e.themeId}/icon/${e.picId}.png`]);
   for (const k of GUIDE_PAGES) L.push(['guide', k, `arts/guidebookpages/[pack]autochess/${k}.png`]);
   return Object.freeze(L.map((x) => Object.freeze(x)));
@@ -381,7 +403,7 @@ export function collectEnemyIds({ assets07, enemies05, maps05, ops03 }) {
 export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsData, charword = null, voiceLang = 'cn',
   voiceSlots = VOICE_BATTLE_SLOTS,
   extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {}, localTokenSpines = {}, localItemSpines = {}, extraOperators = {},
-  moduleTypes = [], charModes = loadCharModes(), charAudio = loadCharAudio(), tokenSkills = loadTokenSkills(), skillCast = loadSkillCast(), skillBegin = loadSkillBegin() }) { // local patch: charModes, charAudio (2026-10-10)
+  moduleTypes = [], statsTemplate = [], charModes = loadCharModes(), charAudio = loadCharAudio(), tokenSkills = loadTokenSkills(), skillCast = loadSkillCast(), skillBegin = loadSkillBegin() }) { // local patch: charModes, charAudio (2026-10-10)
   const notes = [];
   /** @type {Map<string, any>} */
   const models = new Map();
@@ -722,6 +744,9 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     }
   }
   for (const [group, key, path] of UI_EXTRAS) addUi(group, key, joinUrl(RAW.aa2, path));
+  // the official statistics template (tools/assets/stats-template.mjs): one file per job, CDN files and the pictures
+  // embedded in its stylesheet (data URLs); a job without a URL keeps a file already on disk
+  for (const { name, ...job } of statsTemplate) ui[`statistics/${name}`] = { alts: [job] };
 
   // --- audio ----------------------------------------------------------------
   const bgmLeaf = (bankName) => {

@@ -24,7 +24,7 @@ import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfo, matchInfoModel, InfoTitle } from '../ui/matchInfo.js';
 import { LoadoutButton } from './loadout.js';
 import { actions } from '../ui/gameActions.js';
-import { factionTypes, sortedPlayers, phaseTotalSeconds } from '../ui/gameLogic.js';
+import { factionTypes, sortedPlayers, phaseTotalSeconds, startStepCount } from '../ui/gameLogic.js';
 import { enemyIconUrl, factionIconUrl } from '../ui/assetUrls.js';
 import { useStore } from '../store.js';
 import { data, localAsset } from '../data.js';
@@ -113,7 +113,7 @@ export function BriefingScreen() {
 
   return html`<div class="screen brief">
     <div class="brief__bg" aria-hidden="true"></div>
-    <${StepHeader} step=${1} of=${2} title=${t('确认本局信息')} micro="BRIEFING // INFO CHECK" pub=${pub}
+    <${StepHeader} step=${1} of=${startStepCount(gd.config)} title=${t('确认本局信息')} micro="BRIEFING // INFO CHECK" pub=${pub}
       total=${phaseTotalSeconds(pub, gd.config)} config=${gd.config} onExit=${() => setExit(true)} />
     <main class="brief__main">
       <section class="brief__left">

@@ -73,6 +73,7 @@ import { collectLeaves, downloadLeaves, resolveTemplate, totalBytes, contentHash
 import { fontJobs, buildFonts } from './assets/fonts.mjs';
 import { skelParserAvailable } from './assets/skel.mjs';
 import { tidyVoice } from './assets/voice.mjs'; // local patch
+import { statsTemplateJobs } from './assets/stats-template.mjs';
 import { isLocalDiyPick } from '../shared/local-diy.js'; // local patch: only the offered 自选 picks get art
 import { chessBody } from '../shared/standIn.js';
 
@@ -451,6 +452,8 @@ async function main() {
   for (const b of Object.values(dataBosses || {})) if (b?.enemyKey && typeof b.handbookId === 'string') extraHandbook[b.enemyKey] = b.handbookId;
   const localEnemySpines = await syncLocalSpines(opts, 'enemy');
   const localTokenSpines = await syncLocalSpines(opts, 'token');
+  // the official statistics template's artwork and fonts (the 成就统计 window): its stylesheet is cached in .cache/
+  const statsTemplate = await statsTemplateJobs(ROOT, { offline: opts.offline || opts.dryRun, log });
   const localItemSpines = await syncLocalSpines(opts, 'item');
   const plan = buildPlan({
     assets07, ops03, enemies05, maps05, audio, modelsData, charword, voiceLang: opts.voiceLang,
@@ -464,6 +467,7 @@ async function main() {
     localItemSpines,
     extraOperators: extras.extraOperators,
     moduleTypes: extras.moduleTypes,
+    statsTemplate,
   });
   const leaves = collectLeaves(plan.template);
   log(`[plan] ${leaves.length} files + ${plan.models.size} Spine models ` +

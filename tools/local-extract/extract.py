@@ -46,7 +46,8 @@ Usage:
 
 Writes <out>/**.png|.webp|.skel|.atlas and data/local-assets.json (manifest of what was extracted). With --only, just
 the jobs whose output subdir starts with one of the prefixes run, and their groups replace those of the existing
-manifest (every other group is kept as is).
+manifest (every other group is kept as is). A full run keeps the season groups (season/<id>/…) of
+tools/local-extract/season_ui.py, which reads a later season's art from the client that has it.
 Everything is (c) Hypergryph; for private, non-commercial fan use only.
 """
 import argparse
@@ -1108,11 +1109,14 @@ def main():
     if op_ids:
         total += export_operator_pages(ab_root, out_root, manifest, print, op_ids)
     old = {}
-    if args.only and Path(args.manifest).exists():
+    if Path(args.manifest).exists():
         try:
             old = json.loads(Path(args.manifest).read_text(encoding='utf-8')).get('groups') or {}
         except (OSError, ValueError) as e:
             print(f'warn: previous manifest unreadable ({e}); writing only the re-extracted groups', file=sys.stderr)
+    if not args.only:
+        # a full run rewrites every group of its own; a season's art (tools/local-extract/season_ui.py) is another tool's
+        old = {g: v for g, v in old.items() if g.startswith('season/')}
     groups = merge_manifest(old, manifest, set(manifest))  # a missing bundle keeps its previous group
     count = sum(len(v) for v in groups.values())
     doc = {'version': 1, 'source': 'local-client', 'count': count, 'groups': groups}

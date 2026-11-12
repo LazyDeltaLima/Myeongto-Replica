@@ -284,7 +284,10 @@ const useChat = () => {
   return { lines: chat?.lines || [], seen: chat?.seen || 0, myId, online };
 };
 
-/** Room screen chat panel (co-op rooms). */
+/**
+ * Room screen chat panel (co-op rooms): a column left of the seats on every screen (a short one too, maintainer decision
+ * 2026-11-08), folded to a 聊天 button with the unread count; the open state is remembered.
+ */
 export function RoomChat() {
   const { lines, seen, myId, online } = useChat();
   const [open, setOpen] = useState(() => loadPref(PREF_ROOM_OPEN, true) !== false);

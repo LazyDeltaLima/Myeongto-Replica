@@ -116,20 +116,30 @@ test('the switch: 自定义 with its ⚙ after it; 同盟匹配 locks it with th
   assert.equal(R.lobbyRuleset(), 'custom');
 });
 
-test('the lobby and the room: room.create / room.setRuleset carry the settings; a custom room has no 匹配补位; the bar line-up', () => {
+test('the lobby and the room: room.create / room.setRuleset carry the settings; a custom room matchmakes for 快速匹配; the bar line-up', () => {
   const lobby = read('public/js/screens/lobby.js');
-  assert.match(lobby, /ruleset === 'custom'\s*\? \{ mode: roomMode, difficulty, ruleset, custom: customDraft\(\), \.\.\.sizeFields\(roomMode, size\), \.\.\.seasonFields\(season\) \}/);
+  // (规程: the remembered 自定义 / 8 seats stand aside — roomRuleset, `big`; a solo room's grade in gradeFields)
+  assert.match(lobby, /roomRuleset === 'custom'\s*\? \{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, custom: customDraft\(\), \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\) \}/);
+  assert.match(lobby, /const roomRuleset = limited && ruleset === 'custom' \? 'classic' : ruleset;/);
   assert.match(lobby, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS, season\)/);
   assert.match(lobby, /<\$\{CustomRulesDialog\} \/>/);
   const room = read('public/js/screens/room.js');
+  // the host edits a custom room's settings (sent at once); 确认 of 选择模拟协议 sends the lobby's for a new 自定义
   assert.match(room, /net\.request\('room\.setRuleset', \{ preset: 'custom', custom \}\)/);
-  assert.match(room, /disabled=\$\{isCustom \|\| !facts\.canQueue \|\| !online\}/);
+  assert.match(room, /net\.request\('room\.setRuleset', ruleset === 'custom' \? \{ preset: ruleset, custom: customDraft\(\) \} : \{ preset: ruleset \}\)/);
   assert.match(room, /readonly: true/);
-  // 「AI 队友最后选择」 under the ready count, the switch alone in the row under the difficulty
-  const center = room.slice(room.indexOf('<div class="room-bar__center">'), room.indexOf('<div class="room-bar__status">'));
-  assert.match(center, /<\$\{AiLastToggle\}/);
-  const row = room.slice(room.indexOf('<div class="room-bar__row">'), room.indexOf('<div class="room-bar__center">'));
-  assert.doesNotMatch(row, /AiLastToggle/);
+  // 匹配补位 is offered to a custom room too (fillOption); its button is enabled by the ready rule alone
+  assert.match(room, /disabled=\$\{!fillOpt\.enabled \|\| !online \|\| busy === 'fill'\}/);
+  // the mode bar (the event's group_mode): one button — 赛季 · 规则 · 难度 · 人数 — opening 选择模拟协议, no ⚙ menu; 人数 is a
+  // row of that dialog; 「AI 队友最后选择」 ends the status line
+  const bar = room.slice(room.indexOf('function ModeBar('), room.indexOf('/**', room.indexOf('function ModeBar(')));
+  assert.match(bar, /<button type="button" class=\$\{`rs-mode/);
+  assert.equal((bar.match(/<button /g) || []).length, 1, 'the bar is one button');
+  for (const id of ['room-difficulty', 'room-ruleset', 'room-size']) assert.match(bar, new RegExp(`data-testid="${id}"`));
+  assert.doesNotMatch(room, /room-gear|RoomOptions|rs-pill/);
+  assert.match(room, /onSize=\$\{sizeOpt \? \(n\) => setProto\(\{ \.\.\.proto, size: n \}\) : null\}/);
+  const hint = room.slice(room.indexOf('<div class="rs-hint">'), room.indexOf('</div>', room.indexOf('<div class="rs-hint">')));
+  assert.match(hint, /<\$\{AiLastToggle\}/);
   assert.match(read('public/index.html'), /css\/screens\/custom-rules\.css/);
 });
 

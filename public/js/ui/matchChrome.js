@@ -184,7 +184,7 @@ export function StepHeader({ step, of, title, micro, pub, total, config = null, 
       <div class="stephead__meta">
         <${PingPill} ms=${conn.ping} online=${conn.status === 'online'} />
         ${pub?.difficulty || rules.preset !== 'classic' ? html`<span class="stephead__tags">
-          ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} />` : null}
+          ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} modeId=${pub.modeId} />` : null}
           ${rules.preset !== 'classic' ? html`<span class=${`rtag rtag--${rules.preset}`} data-testid="match-ruleset">${t(PRESET_LABELS[rules.preset])}</span>` : null}
         </span>` : null}
       </div>

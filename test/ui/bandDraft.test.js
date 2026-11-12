@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { ERR, PHASE } from '../../shared/constants.js';
 import { normalizeDraft } from '../../public/js/ui/gameLogic.js';
 import { makeMatch, DATA } from '../match/harness.js';
-import { draftCanPass, teammateBands, timeoutBand, allowedBands, autoPickBand, draftClock, draftTip, draftSelection, presetPreviewPicks, presetChoiceTags, presetOptions } from '../../public/js/screens/bandDraft.js';
+import { draftCanPass, teammateBands, timeoutBand, allowedBands, autoPickBand, draftClock, draftTip, draftSelection, presetPreviewPicks, presetChoiceTags, presetOptions, draftArt, cutSkipArrow } from '../../public/js/screens/bandDraft.js';
 import { BAND_TURN_SECONDS } from '../../server/match/Match.js';
 
 const TURN_MS = BAND_TURN_SECONDS * 1000;
@@ -367,5 +367,32 @@ describe('UI: one countdown and the highlighted band (user playtest #4 item 4)',
     assert.equal(m.draftTurn(), 'p_0');
     if (m.draft.order.length - m.draft.idx > 1) assert.deepEqual(m.handle('p_0', { t: 'g.bandSkip' }), { ok: true }, 'the co-op skip stays');
     m.dispose();
+  });
+});
+
+// the official look (maintainer decision 2026-11-08): a part draws the bandChoose sprites only with all of them, else its CSS look
+describe('draft art: the official sprites per part', () => {
+  const ORDER = ['player_list_back', 'player_list_back_dec', 'player_list_dec_back', 'player_card_self_frame', 'icon_self_room',
+    'team_list_selected_arrow', 'player_card_waiting', 'player_card_selecting', 'player_card_team_frame', 'player_card_ready'];
+  const DETAIL = ['team_info_back', 'team_icon_frame', 'team_hp_back', 'team_id_title', 'team_intro_title'];
+  const manifest = (names) => ({ ui: Object.fromEntries(names.map((n) => [`bandChoose/${n}`, `/assets/ui/bandChoose/${n}.png`])) });
+  test('every sprite present: one CSS variable each, pointing at the manifest URL', () => {
+    const m = manifest([...ORDER, ...DETAIL]);
+    const order = draftArt('order', m);
+    for (const n of ORDER) assert.ok(order.includes(`url("/assets/ui/bandChoose/${n}.png")`), n);
+    assert.equal(order.split(';').length, ORDER.length);
+    const detail = draftArt('detail', m);
+    for (const n of DETAIL) assert.ok(detail.includes(`/${n}.png`), n);
+    assert.ok(!detail.includes('player_card'), 'the detail part carries only its own sprites');
+  });
+  test('one sprite missing (a mirror without the new ones): that part keeps its CSS look, the other still draws', () => {
+    const m = manifest([...ORDER.filter((n) => n !== 'player_card_ready'), ...DETAIL]);
+    assert.equal(draftArt('order', m), '');
+    assert.ok(draftArt('detail', m).length > 0);
+    assert.equal(draftArt('order', null), '');
+    assert.equal(draftArt('detail', { ui: {} }), '');
+  });
+  test('the 跳过 arrow is cut only where a canvas exists: no DOM → null (the button keeps its icon)', async () => {
+    assert.equal(await cutSkipArrow('/assets/ui/bandChoose/btn_skip.png'), null);
   });
 });

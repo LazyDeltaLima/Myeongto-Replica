@@ -1,293 +1,540 @@
 /* ==========================================================================================
-   screens/room.css — room/waiting screen: invite key, 4 seat cards (8 in two rows: the 8-player mode), bottom action bar.
+   screens/room.css — the room (waiting) screen after upstream 0.3.3, laid out like the event's room: the top bar (leave,
+   mode and ping, tools, 同盟密钥; 干员调配 on a short screen), tall seat cards with their name plates (8 in two rows: the
+   8-player mode), the room chat at the left with 干员调配 under it, the bottom (the status line with the 观战席 and
+   「AI 队友最后选择」, the event's mode bar — group_mode's sprites —, 匹配补位 and the big 开始模拟 / 准备就绪 —
+   `.proto-start`, screens/lobby.css). Text follows `--t` like the lobby hub (lobby.css).
    ========================================================================================== */
 
-.room-screen .topbar { height: 1.36rem; }
-.room-ping { display: flex; flex-direction: column; align-items: flex-start; gap: .04rem; }
-
-/* ---- invite key ---------------------------------------------------------------------------------------- */
-.invite {
-  --bk-c: var(--mint-500);
-  display: grid;
-  grid-template-columns: auto auto;
-  column-gap: .2rem;
-  row-gap: .06rem;
-  align-items: center;
-  padding: .1rem .16rem .12rem;
-  background: rgba(0, 0, 0, .38);
-  border: 1px solid var(--line);
-}
-.invite__label { grid-column: 1 / -1; display: flex; align-items: center; gap: .07rem; font-size: .14rem; color: var(--text-lo); }
-.invite__label .icon { width: .16rem; height: .16rem; color: var(--mint-500); }
-.invite__code { display: flex; gap: .06rem; }
-.invite__code span {
-  display: grid;
-  place-items: center;
-  width: .46rem;
-  height: .58rem;
-  background: linear-gradient(180deg, rgba(78, 216, 175, .1), rgba(78, 216, 175, .02));
-  border-bottom: 2px solid var(--mint-600);
-  color: var(--mint-400);
-  font-size: .44rem;
-  font-weight: 700;
-  line-height: 1;
-  text-shadow: 0 0 .16rem rgba(23, 249, 183, .45);
-}
-.invite__btns { display: flex; flex-direction: column; gap: .06rem; }
-.solo-note { display: flex; flex-direction: column; align-items: flex-end; gap: .03rem; font-size: .16rem; color: var(--text-lo); }
-
-/* ---- seats ------------------------------------------------------------------------------------------------ */
-.seats {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 3.8rem));
-  grid-template-rows: minmax(0, 6rem);
-  justify-content: center;
-  align-content: center;
-  gap: .3rem;
-  padding: .3rem .6rem .24rem;
-}
-.seats--solo { grid-template-columns: 3.8rem minmax(0, 6.4rem); }
-/* the 8-player mode: two rows of four, each card about half as tall (avatar, name and foot shrunk to fit) */
-.seats--8 { grid-template-rows: repeat(2, minmax(0, 3.1rem)); gap: .18rem .3rem; padding-top: .18rem; padding-bottom: .16rem; }
-.seats--8 .seat { gap: .03rem; padding: .08rem .16rem .1rem; }
-.seats--8 .seat__no { font-size: .18rem; }
-.seats--8 .seat__art { margin: .03rem 0 .02rem; gap: .04rem; }
-.seats--8 .seat__art .avatar { --av: 1.05rem; }
-.seats--8 .seat__radar { width: .8rem; height: .8rem; }
-.seats--8 .seat__wait { font-size: .16rem; }
-.seats--8 .seat__name { font-size: .2rem; }
-.seats--8 .seat__foot { min-height: .36rem; margin-top: .02rem; padding-top: .05rem; }
-.seats--8 .seat__state { font-size: .15rem; }
-.seats--8 .seat__state .icon { width: .18rem; height: .18rem; }
-
-.seat {
-  --bk-c: var(--line-3);
-  --bk-l: .18rem;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .07rem;
-  height: 100%;
-  min-height: 0;
-  padding: .16rem .2rem .18rem;
-  background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, .014) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, rgba(29, 35, 32, .95), rgba(11, 14, 13, .97));
-  border: 1px solid var(--line);
-  box-shadow: 0 .14rem .34rem rgba(0, 0, 0, .4);
-  transition: border-color var(--t-med), box-shadow var(--t-med);
-  animation: seat-in var(--t-slow) var(--ease-out) backwards;
-  animation-delay: calc(var(--seat-i, 0) * 60ms);
-}
-@keyframes seat-in { from { opacity: 0; transform: translateY(.18rem); } }
-.seat::before {
-  content: '';
+.rs { --t: 1rem; --t-step: calc((1rem - 64px) / 12); --chat-w: 3.7rem; background: #0a0b0b; color: #eef0ef; }
+.rs:lang(ko) { word-break: keep-all; overflow-wrap: break-word; }
+.rs-hint, .rs-brief p, .rs-brief li { text-wrap: pretty; }
+.rseat__add, .rseat__wait b { text-wrap: balance; }
+.rs__bg {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 3px;
-  background: var(--line-2);
-  transition: background var(--t-med), box-shadow var(--t-med);
-}
-.seat__head { align-self: stretch; display: flex; align-items: center; gap: .1rem; }
-.seat__no { font-size: .22rem; font-weight: 700; color: var(--text-md); padding-left: .08rem; border-left: 3px solid var(--line-3); line-height: 1.1; }
-.seat__host {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: .04rem;
-  padding: .02rem .09rem;
-  background: var(--gold);
-  color: #1d1400;
-  font-size: .13rem;
-  font-weight: 700;
-}
-.seat__host .icon { width: .15rem; height: .15rem; }
-.seat__art {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: .08rem;
-  margin: .06rem 0 .04rem;
-  overflow: hidden;
+  inset: 0;
+  pointer-events: none;
   background:
-    radial-gradient(circle at 50% 42%, rgba(78, 216, 175, .08), transparent 62%),
-    linear-gradient(rgba(78, 216, 175, .04) 1px, transparent 1px) 0 0 / .3rem .3rem,
-    linear-gradient(90deg, rgba(78, 216, 175, .04) 1px, transparent 1px) 0 0 / .3rem .3rem,
-    #0b0e0d;
-  border: 1px solid rgba(255, 255, 255, .04);
+    radial-gradient(60% 50% at 30% 40%, rgba(23, 249, 183, .05), transparent 70%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .02) 0 1px, transparent 1px 4px),
+    linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px) 0 0 / 1.1rem 1.1rem,
+    linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px) 0 0 / 1.1rem 1.1rem,
+    radial-gradient(120% 90% at 50% 30%, #161818, #070808);
 }
-.seat__stripes {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: .14rem;
-  background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, .06) 0 .05rem, transparent .05rem .1rem);
-}
-.seat__art .avatar { --av: 2.1rem; }
-.seat__bot-label {
-  display: flex;
-  align-items: center;
-  gap: .05rem;
-  padding: .02rem .1rem;
-  background: rgba(159, 212, 255, .1);
-  border: 1px solid rgba(159, 212, 255, .35);
-  color: var(--ice);
-  font-size: .14rem;
-  font-weight: 700;
-}
-.seat__bot-label .icon { width: .16rem; height: .16rem; }
-.seat__who { display: flex; align-items: center; gap: .08rem; max-width: 100%; }
-.seat__name { font-size: .26rem; font-weight: 700; max-width: 3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.seat__you { flex: none; padding: .01rem .07rem; background: var(--mint-500); color: var(--text-on-mint); font-size: .13rem; font-weight: 700; }
-.seat__foot {
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .1rem;
-  min-height: .46rem;
-  margin-top: .06rem;
-  padding-top: .1rem;
-  border-top: 1px solid var(--line);
-}
-.seat__foot .tt-anchor { position: absolute; right: .14rem; bottom: .14rem; }
-.seat__state { display: flex; align-items: center; gap: .06rem; font-size: .18rem; font-weight: 700; letter-spacing: .06em; }
-.seat__state .icon { width: .22rem; height: .22rem; }
-.seat__state--ready { color: var(--mint-400); }
-.seat__state--waiting { color: var(--text-lo); }
-.seat__state--offline { color: var(--orange-hi); }
-.seat__state--host { color: var(--gold-2); }
+.rs-top, .rs-seats, .rs-foot { position: relative; }
 
-.seat.is-ready { --bk-c: var(--mint-500); border-color: var(--mint-800); }
-.seat.is-ready::before { background: var(--mint-500); box-shadow: 0 0 .12rem rgba(23, 249, 183, .6); }
-.seat.is-host .seat__no { border-left-color: var(--gold); }
-.seat.is-me { box-shadow: 0 0 0 1px rgba(78, 216, 175, .28), 0 0 .44rem rgba(23, 249, 183, .12), 0 .14rem .34rem rgba(0, 0, 0, .4); }
-.seat.is-me .seat__no { color: var(--mint-400); }
-.seat.is-offline::before { background: var(--orange); }
-.seat.is-bot .seat__art { background:
-    radial-gradient(circle at 50% 42%, rgba(159, 212, 255, .08), transparent 62%),
-    linear-gradient(rgba(159, 212, 255, .04) 1px, transparent 1px) 0 0 / .3rem .3rem,
-    linear-gradient(90deg, rgba(159, 212, 255, .04) 1px, transparent 1px) 0 0 / .3rem .3rem,
-    #0b0e10; }
-
-.seat--empty { background: rgba(10, 13, 12, .5); border-style: dashed; border-color: var(--line-2); box-shadow: none; }
-.seat--empty .seat__art { background: transparent; border: 0; }
-.seat__radar {
-  width: 1.3rem;
-  height: 1.3rem;
-  border-radius: 50%;
-  background:
-    repeating-radial-gradient(circle, transparent 0 .2rem, rgba(78, 216, 175, .14) .2rem .21rem),
-    /* same geometry as .title-bg__sweep: bright edge at 100% (== 0deg) so it leads the clockwise
-       rotation and the glow trails behind; see the comment in screens/title.css. */
-    conic-gradient(from 0deg, transparent 0 75%, rgba(23, 249, 183, .2) 100%);
-  -webkit-mask-image: radial-gradient(circle, #000 60%, transparent 71%);
-  mask-image: radial-gradient(circle, #000 60%, transparent 71%);
-  animation: radar-sweep 4s linear infinite;
-}
-@keyframes radar-sweep { to { transform: rotate(360deg); } }
-.seat__wait { font-size: .2rem; color: var(--text-lo); letter-spacing: .08em; }
-.seat--empty .seat__foot { border-top-style: dashed; }
-
-.solo-brief {
-  --bk-c: var(--mint-500);
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  gap: .14rem;
-  height: 100%;
-  padding: .34rem .4rem;
-  background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, .014) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, rgba(24, 29, 27, .92), rgba(11, 14, 13, .95));
-  border: 1px solid var(--line);
-  animation: seat-in var(--t-slow) 80ms var(--ease-out) backwards;
-}
-.solo-brief h2 { font-size: .36rem; font-weight: 900; letter-spacing: .06em; }
-.solo-brief p { font-size: .18rem; color: var(--text-md); }
-.solo-brief ul { margin: .06rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .08rem; font-size: .16rem; color: var(--text-lo); }
-.solo-brief li::before { content: ''; display: inline-block; width: .06rem; height: .06rem; margin: 0 .12rem .02rem 0; background: var(--mint-600); transform: rotate(45deg); vertical-align: middle; }
-.solo-brief b { color: var(--text-hi); }
-
-/* ---- spectator seats (观战席, community report #26) -------------------------------------------------------------- */
-.specbar {
-  /* over the room bar and its widened touch areas (css/devices.css), which reach up to this strip on a phone */
-  position: relative;
-  z-index: 2;
+/* ---- top bar ------------------------------------------------------------------------------------------- */
+.rs .rs-top {
   flex: none;
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .2rem;
+  height: auto;
+  padding: .16rem .3rem 0 .22rem;
+  background: none;
+  border-bottom: 0;
+  z-index: 3;
+}
+.rs-top__left { display: flex; align-items: center; flex-wrap: wrap; gap: .16rem; min-width: 0; }
+.rs .rs-exit.btn { --sq: max(.64rem, 34px); height: max(.64rem, 34px); }
+.rs-clock { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
+.rs-clock > b { font-size: calc(.2 * var(--t)); font-weight: 700; white-space: nowrap; }
+.rs-clock__ping { display: inline-flex; align-items: center; gap: .08rem; font-size: calc(.15 * var(--t)); color: #9aa19e; }
+.rs-clock__ping .ping { height: auto; min-height: .32rem; padding-top: 1px; padding-bottom: 1px; }
+.rs-tools { display: flex; gap: .08rem; margin-left: .1rem; }
+.rs-tools .settings-btn .icon { width: max(.22rem, 18px); height: max(.22rem, 18px); }
+/* a finger's size on a touch screen (an iPad's .36rem is under 20 px) */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .rs-tools .btn--square { --sq: max(.36rem, 32px); height: max(.36rem, 32px); }
+}
+.rs-top__right { display: flex; align-items: center; gap: .14rem; }
+.rs .rs-loadout {
+  --pl-ink: #222b28;
+  display: flex;
+  align-items: center;
+  gap: .1rem;
+  height: max(.56rem, 32px, calc(34px * var(--sp-ui, 1)));
+  padding: 0 .2rem 0 .14rem;
+  font-size: calc(.18 * var(--t));
+  color: #111816;
+  background:
+    linear-gradient(var(--pl-ink), var(--pl-ink)) left .05rem center / 2px 54% no-repeat,
+    linear-gradient(var(--pl-ink), var(--pl-ink)) right .05rem center / 2px 54% no-repeat,
+    linear-gradient(180deg, #e8edea, #c6cfcb);
+  border: 1px solid rgba(255, 255, 255, .5);
+  box-shadow: 0 .04rem .14rem rgba(0, 0, 0, .5);
+}
+.rs .rs-loadout:not(:disabled):hover { border-color: #fff; filter: brightness(1.05); }
+.rs .rs-loadout .lo-entry__icon, .rs .rs-loadout > .btn__icon {
+  width: max(.36rem, 22px);
+  height: max(.36rem, 22px);
+  padding: .04rem;
+  box-sizing: border-box;
+  color: var(--mint-400);
+  background: #182120;
+}
+.rs .rs-loadout .btn__label { font-weight: 900; color: #111816; }
+.rs-key {
+  display: flex;
+  align-items: center;
+  gap: .14rem;
+  height: max(.56rem, 32px, calc(34px * var(--sp-ui, 1)));
+  padding: 0 .06rem 0 .2rem;
+  background: rgba(28, 30, 30, .9);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: .06rem;
+}
+.rs-key__k { padding-right: .14rem; font-size: calc(.17 * var(--t)); color: #b7bdbb; border-right: 1px solid rgba(255, 255, 255, .25); white-space: nowrap; }
+.rs-key__code { font-size: calc(.28 * var(--t)); letter-spacing: .06em; color: #f2f4f3; white-space: nowrap; }
+.rs-key__copy {
+  height: 78%;
+  padding: 0 .26rem;
+  font: inherit;
+  font-size: calc(.2 * var(--t));
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  color: #1b1e1d;
+  background: linear-gradient(180deg, #e9edeb, #c3cac7);
+  border: 0;
+  border-radius: .05rem;
+}
+.rs-key__copy:hover, .rs-key__copy:focus-visible { filter: brightness(1.06); }
+.rs-key__link {
+  display: grid;
+  place-items: center;
+  width: max(.44rem, 28px);
+  height: 78%;
+  padding: 0;
+  color: #c9cecc;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .15);
+  border-radius: .05rem;
+}
+.rs-key__link:hover, .rs-key__link:focus-visible { border-color: rgba(255, 255, 255, .4); }
+.rs-key__link .icon { width: 60%; height: 60%; }
+.rs-key--solo { gap: .1rem; padding-right: .2rem; font-size: calc(.16 * var(--t)); color: #b7bdbb; }
+
+/* ---- seats: the event's seat card (player_solt_item_room) --------------------------------------------------------
+   One prefab unit is `--u`: the card is 234 × 486 and every box sits at its prefab place (anchoredPosition and size,
+   turned into left / top from the card's top-left corner). The card is as wide as `--w` allows and as tall as the row
+   allows (`--seats-h` / `--seats-w`: the row's content box, measured by room.js useSeatBox; no container queries). With the sprites (`.rs-seats.has-art`, room.js seatArt) the boxes draw them; without them the same
+   boxes keep a CSS look. */
+.rs-seats {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: .12rem;
-  padding: 0 .6rem .16rem;
-  font-size: .15rem;
-  color: var(--text-lo);
+  gap: max(.3rem, 2.2vw);
+  padding: 0 .4rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
-/* one row, whatever the names and the screen: what does not fit scrolls, the label and the seat count stay */
-/* a ✕'s touch area grows left, over its own chip, never over the next chip's */
-.specbar__list { display: flex; align-items: center; gap: .1rem; min-width: 0; overflow-x: auto; scrollbar-width: none; --tap-left: 100%; --tap-tx: -100%; }
-.specbar__list::-webkit-scrollbar { display: none; }
-.specbar__label { flex: none; display: flex; align-items: baseline; gap: .06rem; font-weight: 700; color: var(--text-md); }
-.specbar__label .icon { width: .18rem; height: .18rem; align-self: center; color: var(--mint-500); }
-.specbar__label b { color: var(--mint-400); }
-.specbar__who {
+.rseat {
+  --w: min(18vw, 3.4rem, calc((100vw - 1.6rem) / var(--n, 4) - .3rem));
+  /* the top strip and the kick button stand 14 units over the card; the lines of a ready card hang under it */
+  --u: min(calc(var(--w) / 234), calc((var(--seats-h, 60vh) - 16px) / 520));
+  position: relative;
+  isolation: isolate;
+  flex: none;
+  width: calc(234 * var(--u));
+  height: calc(486 * var(--u));
+  margin-top: calc(10 * var(--u));
+  animation: rseat-in 480ms cubic-bezier(.16, .84, .3, 1) backwards;
+  animation-delay: calc(150ms + var(--i) * 70ms);
+}
+.rseat > * { position: absolute; }
+/* the decorations never take a press (a card's glow reaches under its neighbour's ⋯ and kick buttons); one's own card
+   (its ⋯ menu) draws over its neighbours */
+.rseat__clip, .rseat__bg, .rseat__matte, .rseat__roots, .rseat__cline, .rseat__state, .rseat__lost { pointer-events: none; }
+.rseat.is-me { z-index: 1; }
+/* [ASSUMED·화면] the room comes up card by card: upstream's design (community PR #643), not a recording of the event */
+@keyframes rseat-in { from { opacity: 0; transform: translateY(.16rem) scale(1.03); filter: brightness(1.9) saturate(.3); } 55% { filter: none; } }
+.rs__bg { animation: rs-fade 440ms ease-out backwards; }
+.rs-top { animation: rs-fade 320ms ease-out 120ms backwards; }
+.rs-brief { animation: rs-right 440ms cubic-bezier(.16, .84, .3, 1) 260ms backwards; }
+.rs-foot { animation: rs-rise 420ms cubic-bezier(.16, .84, .3, 1) 300ms backwards; }
+@keyframes rs-fade { from { opacity: 0; } }
+@keyframes rs-right { from { opacity: 0; transform: translateX(.36rem); } }
+@keyframes rs-rise { from { opacity: 0; transform: translateY(.22rem); } }
+.rs--solo .rseat { --w: min(calc(2.7 * var(--t)), 34vw); }
+
+/* the line up from the top strip (line_up, 4 × 112) and a ready card's glow over it (grad_top) */
+.rseat__clip { left: calc(118 * var(--u)); top: calc(-109 * var(--u)); width: max(1px, calc(4 * var(--u))); height: calc(112 * var(--u)); z-index: -1;
+  background: linear-gradient(transparent, #4a4d4c); }
+.rseat.is-lit .rseat__clip { background: linear-gradient(transparent, #24d4ab); }
+.rseat.is-lit .rseat__clip::after { content: ''; position: absolute; left: calc(-118 * var(--u)); bottom: calc(4 * var(--u)); width: calc(234 * var(--u)); height: calc(79 * var(--u));
+  background: linear-gradient(transparent, rgba(10, 188, 157, .22)); }
+/* the card (bg_normal2 / bg_empty, sliced, with their glow around) */
+.rseat__bg { left: calc(-33 * var(--u)); top: calc(-8 * var(--u)); width: calc(300 * var(--u)); height: calc(528 * var(--u)); z-index: -1;
+  clip-path: inset(calc(34 * var(--u)) calc(33 * var(--u))); background: linear-gradient(#d9dadb, #b8b9ba 10%, #3b3d3d 26%, #1d1f1f 60%, #151616); }
+.rseat--empty .rseat__bg { left: calc(-34 * var(--u)); top: calc(-20.6 * var(--u)); width: calc(302 * var(--u)); height: calc(578 * var(--u));
+  clip-path: inset(calc(20.6 * var(--u)) calc(34 * var(--u)) calc(71.4 * var(--u))); background: linear-gradient(rgba(40, 42, 42, .75), rgba(24, 25, 25, .55)); }
+/* the portrait box (group_char) under the matte (front_matte_normal) and the frame (bg_frame) */
+.rseat__art { left: 0; top: calc(25.9 * var(--u)); width: calc(234 * var(--u)); height: calc(460 * var(--u)); display: grid; place-items: center; overflow: hidden; }
+.rseat__art img { position: absolute; left: 50%; top: 0; height: 118%; width: auto; max-width: none; transform: translateX(-50%); }
+.rseat__art > .avatar { --av: calc(150 * var(--u)); margin-top: calc(-80 * var(--u)); }
+.rseat.is-offline .rseat__art img { filter: grayscale(.8) brightness(.6); }
+.rseat__matte { left: 0; top: calc(25.8 * var(--u)); width: calc(234 * var(--u)); height: calc(460 * var(--u)); pointer-events: none;
+  background: linear-gradient(rgba(0, 0, 0, .28), transparent 18%, rgba(0, 0, 0, .1) 55%, rgba(0, 0, 0, .97));
+  box-shadow: inset 0 0 0 max(1px, calc(2 * var(--u))) #3f3f3f; }
+/* a ready card (and the host's): the mattes (front_matte_select2 at the top, front_matte_select1 mint at the foot — fainter
+   than the prefab's, maintainer decision 2026-11-08) and the mint frame
+   [ASSUMED·화면] the prefab tints these by animation: the mint is this remake's */
+.rseat.is-lit .rseat__matte { box-shadow: inset 0 0 0 max(1px, calc(2 * var(--u))) #24d4ab; }
+.rseat.is-lit .rseat__matte::before, .rseat.is-lit .rseat__matte::after { content: ''; position: absolute; left: 0; right: 0; }
+.rseat.is-lit .rseat__matte::before { top: calc(2 * var(--u)); height: calc(261 * var(--u)); background: linear-gradient(rgba(0, 0, 0, .14), transparent); }
+.rseat.is-lit .rseat__matte::after { bottom: 0; height: calc(261 * var(--u)); background: linear-gradient(rgba(34, 200, 160, 0), rgba(34, 200, 160, .5) 50%, rgba(19, 113, 91, .62)); }
+/* the lines hanging under a ready card (select_deco_down1 and select_deco_down2) */
+.rseat__roots { left: calc(7 * var(--u)); top: calc(485 * var(--u)); width: calc(226 * var(--u)); height: calc(135 * var(--u)); z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, transparent 49.4%, rgba(36, 212, 171, .45) 49.4% 50.6%, transparent 50.6%);
+  -webkit-mask: linear-gradient(#000, transparent); mask: linear-gradient(#000, transparent); }
+/* the top strip (bg_top_normal / bg_top_ready, 234 × 32) */
+.rseat__strip { left: 0; top: calc(-6.2 * var(--u)); width: calc(234 * var(--u)); height: calc(32 * var(--u)); display: flex; align-items: center; justify-content: space-between;
+  padding: 0 calc(10 * var(--u)); background: #3f3f3f; }
+.rseat__strip i { width: calc(64 * var(--u)); height: calc(9 * var(--u)); background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .35) 0 calc(3 * var(--u)), transparent 0 calc(5 * var(--u))); }
+.rseat__strip span { font-size: max(8px, calc(14 * var(--u))); font-weight: 800; letter-spacing: .04em; color: rgba(255, 255, 255, .35); }
+.rseat.is-lit .rseat__strip { background: #2ad9ad; }
+.rseat.is-lit .rseat__strip i { background: repeating-linear-gradient(90deg, rgba(0, 40, 30, .5) 0 calc(3 * var(--u)), transparent 0 calc(5 * var(--u))); }
+.rseat.is-lit .rseat__strip span { color: rgba(0, 0, 0, .45); }
+/* the state of a ready card (icon_prepared + 已就绪, the host's crown + 创建者) at (20, −123) */
+.rseat__state { left: 0; top: calc(343.5 * var(--u)); width: calc(234 * var(--u)); height: calc(45 * var(--u)); display: flex; align-items: center; justify-content: center;
+  gap: calc(8 * var(--u)); font-size: max(10px, calc(24 * var(--u))); font-weight: 900; line-height: 1; white-space: nowrap; color: #051612;
+  text-shadow: 0 0 calc(6 * var(--u)) rgba(120, 255, 215, .85), 0 0 calc(2 * var(--u)) rgba(120, 255, 215, .9); }
+.rseat__box { flex: none; display: grid; place-items: center; width: max(10px, calc(30 * var(--u))); height: max(10px, calc(30 * var(--u))); }
+.seat__state--ready .rseat__box { border: max(1px, calc(3 * var(--u))) solid currentColor; }
+.seat__state--ready .rseat__box::before { content: ''; width: 40%; height: 65%; border: solid currentColor; border-width: 0 max(1px, calc(3 * var(--u))) max(1px, calc(3 * var(--u))) 0; transform: translateY(-12%) rotate(45deg); }
+.rseat__box .icon { width: 100%; height: 100%; }
+/* a dropped Doctor (group_disconnect at (0, 28), 234 × 126) */
+.rseat__lost { left: 0; top: calc(152 * var(--u)); width: calc(234 * var(--u)); height: calc(126 * var(--u)); display: flex; align-items: center; justify-content: center;
+  gap: calc(8 * var(--u)); font-size: max(10px, calc(20 * var(--u))); font-weight: 800; color: #ff6767; background: linear-gradient(90deg, rgba(90, 10, 14, .85), rgba(60, 8, 10, .6)); }
+.rseat__lost-ico { display: grid; place-items: center; width: calc(35 * var(--u)); height: calc(46 * var(--u)); }
+.rseat__lost-ico .icon { width: 100%; height: 100%; }
+/* 移出 / 移除 AI 队友 (btn_kick, 76 × 47) on the top right corner */
+.rseat__kick { left: calc(181.8 * var(--u)); top: calc(-14 * var(--u)); z-index: 3; width: calc(76 * var(--u)); height: calc(47 * var(--u)); min-width: 24px; min-height: 18px;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0; color: #ff6b6b; background: #3b0b10; border: 0; border-radius: 999px;
+  box-shadow: inset 0 0 0 max(1px, calc(2 * var(--u))) #8e2630; }
+.rseat__kick .icon { width: max(10px, calc(22 * var(--u))); height: max(10px, calc(22 * var(--u))); }
+.rseat__kick .icon + .icon { width: max(8px, calc(15 * var(--u))); margin-left: -2px; }
+.rseat__kick:hover:not(:disabled), .rseat__kick:focus-visible { filter: brightness(1.3); }
+/* the name card (btn_card: bg_back 270 × 77 at (0.2, −190.4)); one's own in card_deco_self with the self tag and ⋯ */
+.rseat__plate { left: calc(-17.8 * var(--u)); top: calc(394.9 * var(--u)); width: calc(270 * var(--u)); height: calc(77 * var(--u)); z-index: 2;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; align-content: center; column-gap: calc(12 * var(--u)); row-gap: calc(3 * var(--u));
+  padding: 0 calc(18 * var(--u)) 0 calc(14 * var(--u)); background: rgba(55, 55, 55, .35); }
+.rseat.is-lit .rseat__plate { background: rgba(20, 60, 50, .45); }
+.rseat.is-me .rseat__plate::before { content: ''; position: absolute; left: calc(-16.5 * var(--u)); top: calc(-5 * var(--u)); width: calc(291 * var(--u)); height: calc(87 * var(--u));
+  z-index: -1; pointer-events: none; box-shadow: inset 0 0 0 max(1px, calc(2 * var(--u))) rgba(36, 212, 171, .45); background: linear-gradient(35deg, rgba(36, 212, 171, .35), transparent 30%); }
+.rseat__plate .avatar { --av: calc(52 * var(--u)); grid-row: 1 / 3; }
+.rseat__plate .avatar__badge--self { display: none; } /* the self tag says it */
+.rseat__who { display: flex; align-items: center; gap: calc(6 * var(--u)); min-width: 0; font-size: max(10px, calc(22 * var(--u))); line-height: 1.1; color: #fff; }
+.rseat__who .seat__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seat__you { flex: none; padding: 0 .06rem; font-size: max(8px, calc(13 * var(--u))); font-weight: 700; color: var(--text-on-mint); background: var(--mint-500); }
+.rseat__doc { font-size: max(7px, calc(13 * var(--u))); letter-spacing: .06em; white-space: nowrap; overflow: hidden; color: rgba(255, 255, 255, .45); }
+.rseat__me { position: absolute; left: calc(-23.5 * var(--u)); top: calc(388.5 * var(--u)); z-index: 4; width: max(14px, calc(41 * var(--u))); height: max(14px, calc(41 * var(--u))); display: grid; place-items: center; }
+.rseat__plate .rseat__me { left: calc(-5.7 * var(--u)); top: calc(-6.4 * var(--u)); }
+.rseat__me .sprite { width: 100%; height: 100%; }
+.rseat__me > .icon { width: 100%; height: 100%; padding: 2px; color: #08221b; background: #4fe8c0; border-radius: 3px; }
+/* ⋯ (btn_card_detail, 54 × 33 at the name card's top right) and its menu (group_unfold: unfold_matte, one 更换立绘 button) */
+.rseat__menu-root { inset: 0; pointer-events: none; z-index: 5; }
+.rseat__more { position: absolute; left: calc(207.2 * var(--u)); top: calc(385.9 * var(--u)); width: calc(54 * var(--u)); height: calc(33 * var(--u)); min-width: 22px; min-height: 14px;
+  display: inline-flex; align-items: center; justify-content: center; gap: calc(4 * var(--u)); padding: 0; pointer-events: auto;
+  background: #cfd2d2; border: 0; border-radius: 999px; box-shadow: 0 calc(2 * var(--u)) calc(4 * var(--u)) rgba(0, 0, 0, .5); }
+.rseat__more i { width: max(2px, calc(7 * var(--u))); height: max(2px, calc(7 * var(--u))); border-radius: 50%; background: #2a2a2a; }
+.rseat__more:hover, .rseat__more:focus-visible, .rseat__more[aria-expanded='true'] { filter: brightness(1.15); }
+.rseat__menu { position: absolute; left: calc(-41 * var(--u)); top: calc(182.6 * var(--u)); width: calc(316 * var(--u)); height: calc(256 * var(--u)); pointer-events: auto;
+  display: grid; place-items: center; background: radial-gradient(closest-side, rgba(0, 0, 0, .92), rgba(0, 0, 0, .75) 70%, transparent); }
+.rseat__pick { display: inline-flex; align-items: center; justify-content: center; gap: calc(10 * var(--u)); width: calc(165 * var(--u)); min-width: max-content; height: calc(41 * var(--u)); min-height: 24px;
+  padding: 0 calc(16 * var(--u)); font: inherit; font-size: max(11px, calc(20 * var(--u))); font-weight: 700; white-space: nowrap; color: #fff;
+  background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; }
+.rseat__pick:hover, .rseat__pick:focus-visible { border-color: #5df0c6; }
+.rseat__pick .icon, .rseat__pick .rseat__pick-ico { flex: none; width: 1.15em; height: .9em; object-fit: contain; }
+
+/* an empty seat: + 邀请 (bg_plus at (2, 51), the title at (0, −15), the first seat's tip at (0, −45.3)), its lines
+   (card_line) and the empty name card (card_empty at (2, −197.9)) where the host's 添加 AI 队友 sits */
+.rseat--empty .rseat__strip { background: #3f3f3f; }
+.rseat__cline { left: calc(33 * var(--u)); top: calc(273 * var(--u)); width: max(1px, calc(2 * var(--u))); height: calc(80 * var(--u)); background: rgba(255, 255, 255, .16); }
+.rseat__cline::after { content: ''; position: absolute; left: calc(174 * var(--u)); top: calc(-220 * var(--u)); width: 100%; height: calc(100 * var(--u)); background: inherit; }
+.rseat--empty.is-first .rseat__cline { top: calc(313 * var(--u)); height: calc(40 * var(--u)); }
+.rseat--empty.is-first .rseat__cline::after { top: calc(-260 * var(--u)); height: calc(72 * var(--u)); }
+.rseat__invite { left: 0; top: calc(138.5 * var(--u)); width: calc(234 * var(--u)); height: calc(170 * var(--u)); display: flex; flex-direction: column; align-items: center;
+  padding: 0; font: inherit; color: #eef0ef; background: none; border: 0; }
+.rseat__plus { position: relative; flex: none; width: calc(106 * var(--u)); height: calc(107 * var(--u)); margin-left: calc(4 * var(--u));
+  background: linear-gradient(#e8e8e8, #e8e8e8) center / calc(8 * var(--u)) 74% no-repeat, linear-gradient(#e8e8e8, #e8e8e8) center / 74% calc(8 * var(--u)) no-repeat; }
+.rseat__invite b { margin-top: calc(10 * var(--u)); font-size: max(11px, calc(22 * var(--u))); font-weight: 700; line-height: 1.2; }
+.rseat__tip { margin-top: calc(6 * var(--u)); max-width: calc(220 * var(--u)); font-size: max(8px, calc(16 * var(--u))); line-height: 1.2; color: #8a8a88; text-wrap: balance; }
+.rseat__invite:hover .rseat__plus, .rseat__invite:focus-visible .rseat__plus { filter: drop-shadow(0 0 calc(6 * var(--u)) #5df0c6); }
+.rseat__wait { left: 0; top: calc(150 * var(--u)); width: calc(234 * var(--u)); display: flex; flex-direction: column; align-items: center; gap: calc(12 * var(--u)); color: #b7bdbb; }
+.rseat__guest { width: calc(101 * var(--u)); height: calc(104 * var(--u));
+  background: radial-gradient(circle at 50% 22%, #8a8a8a 0 calc(11 * var(--u)), transparent calc(12 * var(--u))), linear-gradient(#8a8a8a, #8a8a8a) 50% 70% / 30% 46% no-repeat; opacity: .6; }
+.rseat__wait b { font-size: max(10px, calc(18 * var(--u))); text-align: center; text-wrap: balance; }
+.rseat__slot { left: calc(-18.5 * var(--u)); top: calc(388.9 * var(--u)); width: calc(275 * var(--u)); height: calc(104 * var(--u)); display: grid; place-items: center;
+  padding: 0 calc(22 * var(--u)); background: rgba(0, 0, 0, .35); box-shadow: inset calc(3 * var(--u)) 0 0 rgba(255, 255, 255, .12), inset calc(-3 * var(--u)) 0 0 rgba(255, 255, 255, .12); }
+.rseat__add.btn { max-width: 100%; height: auto; min-height: max(24px, calc(44 * var(--u))); padding-block: .02rem; font-size: max(10px, calc(19 * var(--u))); white-space: normal; line-height: 1.1; text-align: center; }
+.rseat__cap { font-size: max(9px, calc(15 * var(--u))); text-align: center; }
+
+/* with the event's sprites */
+.has-art .rseat__clip { background: #4a4d4c; -webkit-mask: var(--st-line) center / 100% 100% no-repeat; mask: var(--st-line) center / 100% 100% no-repeat; }
+.has-art .rseat.is-lit .rseat__clip { background: #24d4ab; }
+.has-art .rseat.is-lit .rseat__clip::after { background: #0abc9d; opacity: .7; -webkit-mask: var(--st-glow) center / 100% 100% no-repeat; mask: var(--st-glow) center / 100% 100% no-repeat; }
+.has-art .rseat__bg { clip-path: none; background: none; border-style: solid; border-color: transparent;
+  border-width: calc(212 * var(--u)) calc(78 * var(--u)) calc(43 * var(--u)) calc(75 * var(--u));
+  border-image: var(--st-bg) 212 78 43 75 fill / calc(212 * var(--u)) calc(78 * var(--u)) calc(43 * var(--u)) calc(75 * var(--u)) stretch; }
+.has-art .rseat--empty .rseat__bg { border-width: calc(55 * var(--u)) calc(44 * var(--u)) calc(245 * var(--u)) calc(44 * var(--u));
+  border-image: var(--st-empty) 55 44 245 44 fill / calc(55 * var(--u)) calc(44 * var(--u)) calc(245 * var(--u)) calc(44 * var(--u)) stretch; }
+.has-art .rseat__matte { background: var(--st-matte) center / 100% 100% no-repeat; }
+.has-art .rseat.is-lit .rseat__matte::before { background: var(--st-up) center / 100% 100% no-repeat; }
+.has-art .rseat.is-lit .rseat__matte::after { background: #16b08b; opacity: .6; -webkit-mask: var(--st-down) center / 100% 100% no-repeat; mask: var(--st-down) center / 100% 100% no-repeat; }
+.has-art .rseat__roots { background: none; -webkit-mask: none; mask: none; }
+.has-art .rseat__roots::before, .has-art .rseat__roots::after { content: ''; position: absolute; }
+.has-art .rseat__roots::before { left: calc(7 * var(--u)); top: calc(6 * var(--u)); width: calc(206 * var(--u)); height: calc(26 * var(--u)); background: var(--st-deco) center / 100% 100% no-repeat; }
+.has-art .rseat__roots::after { inset: 0; background: #24d4ab; opacity: .45; -webkit-mask: var(--st-roots) center / 100% 100% no-repeat; mask: var(--st-roots) center / 100% 100% no-repeat; }
+.has-art .rseat__strip { background: var(--st-top) center / 100% 100% no-repeat; }
+.has-art .rseat.is-lit .rseat__strip { background: var(--st-top-on) center / 100% 100% no-repeat; }
+.has-art .rseat__strip > * { visibility: hidden; } /* the sprite has its own marks; P# would sit on them */
+.has-art .seat__state--ready .rseat__box { border: 0; background: currentColor; -webkit-mask: var(--st-ok) center / 100% 100% no-repeat; mask: var(--st-ok) center / 100% 100% no-repeat; }
+.has-art .seat__state--ready .rseat__box::before { content: none; }
+.has-art .rseat__lost { background: var(--st-lost) center / 100% 100% no-repeat; }
+.has-art .rseat__lost-ico { background: var(--st-lost-ico) center / 100% 100% no-repeat; }
+.has-art .rseat__lost-ico .icon { visibility: hidden; }
+.has-art .rseat__kick { background: var(--st-kick) center / 100% 100% no-repeat; box-shadow: none; }
+.has-art .rseat__kick .icon { visibility: hidden; }
+.has-art .rseat.is-me .rseat__plate::before { box-shadow: none; background: var(--st-self) center / 100% 100% no-repeat; }
+.has-art .rseat__more { background: var(--st-more) center / 100% 100% no-repeat; box-shadow: none; }
+.has-art .rseat__more i { visibility: hidden; }
+.has-art .rseat__menu { background: var(--st-unfold) center / 100% 100% no-repeat; }
+.has-art .rseat__pick { background: var(--st-unfold-btn) center / 100% 100% no-repeat; border: 0; }
+.has-art .rseat__cline { background: var(--st-cline) center / 100% 100% no-repeat; width: max(1px, calc(4 * var(--u))); }
+.has-art .rseat__plus { background: var(--st-plus) center / 100% 100% no-repeat; }
+.has-art .rseat__guest { background: var(--st-guest) center / 100% 100% no-repeat; opacity: 1; }
+.has-art .rseat__slot { background: var(--st-slot) center / 100% 100% no-repeat; box-shadow: none; }
+
+/* the 8-player mode: two rows of four smaller cards */
+.rs-seats.seats--8 { display: grid; grid-template-columns: repeat(4, auto); grid-template-rows: auto auto; place-content: center; gap: calc(28px + 1vh) max(.2rem, 1.4vw);
+  --w8: min(18vw, 3.4rem, calc((100vw - 1.6rem) / 4 - .3rem)); }
+.rs-seats.seats--8 .rseat { --u: min(calc(var(--w8) / 234), calc((var(--seats-h, 60vh) - 40px - 1vh) / 1010)); }
+.seats--8 .rseat__doc { display: none; }
+
+/* 独立模拟: the briefing beside the single seat */
+.rs-brief { align-self: center; max-width: min(5rem, 46vw); max-height: 100%; overflow-y: auto; scrollbar-width: thin; padding: .24rem .3rem; background: rgba(10, 13, 12, .8); border: 1px solid var(--line); }
+.rs-brief h2 { margin: .06rem 0; font-size: calc(.32 * var(--t)); color: var(--d-color); }
+.rs-brief h2 .num { white-space: nowrap; }
+.rs-brief p { margin: 0 0 .1rem; font-size: calc(.17 * var(--t)); color: var(--text-md); }
+.rs-brief ul { margin: 0; padding-left: .24rem; font-size: calc(.16 * var(--t)); color: var(--text-lo); line-height: 1.7; }
+.rs-brief b { color: var(--text-hi); }
+@media (max-height: 640px) {
+  .rs-brief { max-width: min(7rem, 46vw); }
+  .rs-brief ul { line-height: 1.45; }
+}
+
+/* ---- the room chat: a column left of the seats (they give up the width) ---------------------------------------- */
+/* `--chat-w` is the column's width (chat.css's on a touch screen, a phone's own below); the selectors outweigh chat.css's
+   older padding, which loads after this file */
+.rs.has-chat .rs-seats.seats { padding-left: calc(var(--chat-w) + .5rem); }
+.rs.has-chat .rs-hint .specbar { padding-left: 0; } /* (chat.css pads the old strip under the seats) */
+.rs.has-chat .rseat { --w: min(18vw, 3.4rem, calc((100vw - var(--chat-w) - var(--seats-pad, 1.7rem)) / var(--n, 4) - .3rem)); }
+.rs.has-chat .rs-seats.seats--8 { --w8: min(18vw, 3.4rem, calc((100vw - var(--chat-w) - var(--seats-pad, 1.7rem)) / 4 - .3rem)); }
+@media (pointer: coarse), (any-pointer: coarse) { .rs { --chat-w: max(3.7rem, 230px); } }
+/* the chat ends above the bottom row, where 干员调配 sits under it as wide as the chat (maintainer decision 2026-11-08) */
+.rs .chat--room { top: 1.1rem; bottom: 1.38rem; left: .22rem; width: var(--chat-w); }
+.rs .chat-fold { bottom: 1.38rem; left: .22rem; }
+
+/* ---- bottom: the status line over the row of 干员调配, the mode bar, 匹配补位 and the big button --------------------- */
+.rs-foot {
+  flex: none;
+  display: grid;
+  grid-template-columns: var(--chat-w) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: .1rem .2rem;
+  padding: .1rem .3rem .2rem .22rem;
+  z-index: 2;
+}
+/* the status line (ready count, status, 观战席, AI 队友最后选择) spans the bar right of the chat, so six long spectator
+   names fit on a desktop */
+.rs-foot .rs-hint { grid-row: 1; grid-column: 2 / -1; min-width: 0; }
+.rs-foot__lo { grid-row: 2; grid-column: 1; align-self: stretch; display: flex; }
+.rs .rs-foot__lo .rs-loadout { flex: 1 1 auto; height: auto; min-height: max(.86rem, 40px); justify-content: center; font-size: calc(.22 * var(--t)); }
+.rs-foot .rs-mode { grid-row: 2; grid-column: 2; justify-self: end; align-self: center; }
+/* touch: the status line's controls reach 44 px (devices.css); the row under them starts below that reach */
+@media (pointer: coarse), (any-pointer: coarse) { .rs-foot { row-gap: max(.1rem, 12px); } }
+.rs-foot > .rs-foot__right { grid-row: 2; grid-column: 3; }
+.rs-hint { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .06rem .16rem; margin: 0; font-size: calc(.18 * var(--t)); color: #d6dad8; text-align: center; }
+.room-bar__status .icon { width: 1.1em; height: 1.1em; margin-right: 4px; vertical-align: -2px; }
+.room-bar__match b { color: var(--text-hi); }
+.rs-ready { display: inline-flex; align-items: center; gap: 2px; font-size: calc(.16 * var(--t)); color: #9aa19e; }
+.rs-ready .icon { width: max(.2rem, 13px); height: max(.2rem, 13px); color: #4b504e; }
+.rs-ready .icon.is-on { color: #4fe8c0; }
+.rs-ready b { margin-left: .06rem; color: #eef0ef; }
+
+/* the event room's group_mode (auto_chess_room_state): one capsule (bg_mode, sliced 30 px at each end) of 赛季 | 规则 |
+   难度 | 人数, white 20 % lines (2×23), the difficulty's icon and light (light_mode 187×82) in its colour, the round
+   switch (btn_switch_mode 60×61) over the right end. `--o` is one unit of the event's 1280×720 canvas (.015rem: the
+   page's rem is 1/19.2 of the width, 1/10.8 of the height), at 0.8 on a desktop — the bar holds four parts, the
+   event's two */
+.rs-mode {
+  --o: .012rem;
+  position: relative;
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: .06rem;
-  min-height: .36rem;
-  padding: 0 .1rem;
-  border: 1px solid var(--line-2);
-  background: rgba(0, 0, 0, .32);
-  color: var(--text-hi);
+  min-width: 0;
+  max-width: calc(100% - var(--o) * 30);
+  height: calc(var(--o) * 57);
+  margin-right: calc(var(--o) * 30);
+  padding: 0;
+  font: inherit;
+  color: #cacaca;
+  white-space: nowrap;
+  background: none;
+  border-style: solid;
+  border-width: 0 calc(var(--o) * 30);
+  border-color: transparent;
+  border-image: var(--rm-bg) 0 30 fill / 0 calc(var(--o) * 30) stretch;
+  cursor: pointer;
 }
+.rs-mode.no-art { border: 0; padding: 0 calc(var(--o) * 30); background: rgba(8, 9, 9, .92); border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.rs-mode.is-ro { cursor: help; }
+.rs-mode:disabled { cursor: default; }
+.rs-mode:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; }
+.rs-mode__seg { position: relative; isolation: isolate; flex: 0 0 auto; display: inline-flex; align-items: center; gap: calc(var(--o) * 6); padding: 0 calc(var(--o) * 18); font-size: calc(var(--o) * 19); }
+/* a bar wider than its place (a narrow phone) cuts the difficulty's name rather than reaching over the buttons */
+.rs-mode__diff { flex-shrink: 1; min-width: 0; }
+.rs-mode__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rs-mode__seg + .rs-mode__seg::before { content: ''; position: absolute; left: -1px; top: 50%; width: max(1px, calc(var(--o) * 2)); height: calc(var(--o) * 23); transform: translateY(-50%); background: rgba(255, 255, 255, .2); }
+.rs-mode__season { font-weight: 700; color: var(--mint-400); }
+.rs-mode__season.is-new { color: var(--gold); }
+.rs-mode .rs-mode__rules { color: #cacaca; }
+.rs-mode__diff { color: var(--rm-c); }
+.rs-mode__diff .icon { width: 1.2em; height: 1.2em; }
+.rs-mode__light { position: absolute; left: 50%; top: 50%; z-index: -1; width: calc(var(--o) * 187); height: calc(var(--o) * 82); transform: translate(-50%, -50%); pointer-events: none;
+  background: var(--rm-c); -webkit-mask: var(--rm-light) center / 100% 100% no-repeat; mask: var(--rm-light) center / 100% 100% no-repeat; }
+.rs-mode__ico { flex: none; width: calc(var(--o) * 25); height: calc(var(--o) * 31); background: var(--rm-ico) center / contain no-repeat; }
+.rs-mode__ico.is-tint { background: var(--rm-c); -webkit-mask: var(--rm-ico) center / contain no-repeat; mask: var(--rm-ico) center / contain no-repeat; }
+.rs-mode__code { font-size: .7em; font-weight: 600; opacity: .7; }
+.rs-mode__knob { flex: none; display: grid; place-items: center; width: calc(var(--o) * 60); height: calc(var(--o) * 61); margin: 0 calc(var(--o) * -30) 0 calc(var(--o) * 4);
+  background: var(--rm-knob) center / 100% 100% no-repeat; transition: filter var(--t-fast); }
+.rs-mode.no-art .rs-mode__knob { margin-right: calc(var(--o) * -24); color: #1b1e1d; background: linear-gradient(180deg, #eceeed, #b9bfbd); border-radius: 50%; }
+.rs-mode__knob .icon { width: 60%; height: 60%; }
+.rs-mode:hover:not(:disabled) .rs-mode__knob, .rs-mode:focus-visible .rs-mode__knob { filter: brightness(1.15); }
+.rs-mode:hover:not(:disabled) .rs-mode__seg { color: #e6e6e6; }
+.rs-mode:hover:not(:disabled) .rs-mode__diff { color: var(--rm-c); filter: brightness(1.12); }
+
+/* 匹配补位 (a dark box) as tall as the big button beside it, its badge the Doctors of the queue it draws from */
+.rs-foot__right { display: flex; align-items: stretch; justify-content: flex-end; gap: .14rem; }
+.rs-foot__right > .tt-anchor { display: flex; }
+.rs-fill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .08rem;
+  min-width: 2.3rem;
+  min-height: max(.86rem, 40px);
+  padding: 0 .2rem;
+  font: inherit;
+  font-size: calc(.22 * var(--t));
+  font-weight: 700;
+  white-space: nowrap;
+  color: #e8e8e8;
+  background: rgba(16, 22, 20, .92);
+  border: 1px solid rgba(255, 255, 255, .22);
+}
+.rs-fill .icon { width: 1.2em; height: 1.2em; color: var(--ice); }
+.rs-fill:hover:not(:disabled), .rs-fill:focus-visible { border-color: var(--mint-600); }
+.rs-fill:disabled { opacity: .55; cursor: default; }
+.room-fill__n { margin-left: .04rem; }
+.room-fill__n.is-on { background: rgba(78, 216, 175, .2); color: var(--mint-400); }
+.rs-go.proto-start { flex: none; width: min(4.6rem, 40vw); }
+.rs-go .proto-start__label { flex: 1 1 auto; padding-right: 8%; font-size: min(calc(.4 * var(--t)), .46rem); white-space: normal; line-height: 1.1; }
+.rs-go .proto-start__rook { font-size: min(calc(.36 * var(--t)), .4rem); }
+.rs-go .proto-start__mark small { font-size: min(calc(.08 * var(--t)), .1rem); }
+.rs-go__box { flex: none; display: grid; place-items: center; width: max(.5rem, 28px); height: max(.5rem, 28px); border: 3px solid currentColor; border-radius: 6px; }
+.rs-go__box .icon { width: 80%; height: 80%; }
+.rs-go__icon { flex: none; display: grid; place-items: center; width: max(.5rem, 28px); height: max(.5rem, 28px); }
+.rs-go__icon .icon { width: 100%; height: 100%; }
+.rs-go.is-ready { background: linear-gradient(180deg, #7ff3d4, #4fe0bf); }
+
+/* ---- spectator seats (观战席, community report #26) in the status line --------------------------------------------- */
+.specbar { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: .1rem; min-width: 0; max-width: 100%; font-size: calc(.15 * var(--t)); color: var(--text-lo); }
+/* 名单 (maintainer decision 2026-11-08): the names fold into a button whose list opens upwards, so the status line stays
+   one line; in the list a name is whole. It opens leftwards from the button's right edge: the button sits at the line's
+   right end, by the screen's edge on a phone */
+.specroster { flex: none; position: relative; display: inline-flex; --tap-w: 100%; }
+.specroster__btn { justify-content: flex-start; white-space: nowrap; }
+.specroster__btn .specseats__caret { margin-left: auto; }
+/* a narrow phone keeps the line one line: the reserved count stays in the list */
+@media (max-width: 700px) { .specroster__btn .specbar__res { display: none; } }
+.specbar__list { position: absolute; z-index: 60; right: 0; bottom: calc(100% + 3px); display: flex; flex-direction: column; align-items: stretch; gap: 4px;
+  min-width: max(100%, 3.2rem); max-height: 75vh; overflow-y: auto; padding: max(.06rem, 4px); background: rgba(10, 14, 13, .97); border: 1px solid var(--line-2);
+  box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .6); }
+.specbar__list .specbar__who { justify-content: space-between; }
+.specbar__list .specbar__name { max-width: none; margin-right: auto; }
+/* the host's ✕ fills its row and its touch area never grows into the row above or below (css/devices.css): on a touch
+   screen a row is touch sized */
+.specbar__list { --tap-h: 100%; }
+.specbar__list .specbar__who > .btn { align-self: stretch; height: auto; min-height: 0; }
+.sp-coarse .specbar__list .specbar__who { min-height: 32px; }
+.specbar__label { flex: none; display: flex; align-items: baseline; gap: .06rem; font-weight: 700; color: var(--text-md); }
+.specbar__label .icon { width: 1.1em; height: 1.1em; align-self: center; color: var(--mint-500); }
+.specbar__label b { color: var(--mint-400); }
+.specbar__who { flex: none; display: inline-flex; align-items: center; gap: .06rem; min-height: .32rem; padding: 0 .1rem; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .32); color: var(--text-hi); }
 .specbar__who.is-me { border-color: var(--mint-600); }
 .specbar__who.is-offline { color: var(--text-dim); }
-/* the longest name would wrap six chips into two rows and shrink the seats */
 .specbar__name { max-width: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .specbar__res { color: var(--amber); font-size: .9em; white-space: nowrap; }
 .specbar__who > .icon { width: .16rem; height: .16rem; }
+.specseats { flex: none; position: relative; display: inline-flex; --tap-w: 100%; }
+.specseats__btn { display: inline-flex; align-items: center; justify-content: space-between; gap: .08rem; height: max(.3rem, 20px); min-width: max(.72rem, 46px);
+  padding: 0 max(.08rem, 5px) 0 max(.12rem, 7px); background: #0a0d0c; border: 1px solid var(--line-3); color: var(--text-hi); font-size: max(.14rem, 10px); font-weight: 700; cursor: pointer; }
+.specseats__btn:hover, .specseats__btn.is-open { border-color: var(--mint-600); }
+.specseats__caret { color: var(--mint-400); font-size: .8em; }
+.specseats__menu { position: absolute; z-index: 60; left: 0; bottom: calc(100% + 3px); min-width: 100%; background: rgba(10, 14, 13, .97); border: 1px solid var(--line-2); box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .6); }
+.specseats__row { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .12rem; min-height: max(.3rem, 24px); padding: 0 max(.1rem, 7px);
+  border: 0; background: transparent; color: var(--text-md); font-size: max(.14rem, 10px); white-space: nowrap; cursor: pointer; }
+.specseats__row + .specseats__row { border-top: 1px solid var(--line); }
+.specseats__row:hover:not(:disabled) { background: var(--mint-a10); }
+.specseats__row.is-on { background: var(--mint-a10); color: var(--mint-400); font-weight: 700; }
+.specseats__row:disabled { color: var(--text-dim); cursor: default; }
 
-/* ---- bottom bar ----------------------------------------------------------------------------------------- */
-.room-bar {
-  position: relative;
-  flex: none;
+/* ---- 名片干员 picker ---------------------------------------------------------------------------------------- */
+.cardpick .modal__body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: .12rem; overflow: hidden; }
+.cardpick__bar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .12rem; }
+.cardpick__search { flex: 1 1 2.6rem; min-width: 0; }
+.cardpick__stars { display: inline-flex; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); }
+.cardpick__stars button { min-height: .44rem; padding: 0 .16rem; border: 0; border-right: 1px solid var(--line); background: none; color: var(--text-lo); font-size: .16rem; font-weight: 700; }
+.cardpick__stars button:last-child { border-right: 0; }
+.cardpick__stars button:hover { color: var(--text-hi); }
+.cardpick__stars button.is-on { background: var(--mint-500); color: var(--text-on-mint); }
+.cardpick__grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 5.2rem;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: .3rem;
-  height: 1.5rem;
-  padding: 0 .6rem;
-  background: linear-gradient(0deg, rgba(7, 9, 8, .96), rgba(10, 13, 12, .7));
-  border-top: 1px solid var(--line);
+  font-size: .14rem;
+  grid-template-columns: repeat(auto-fill, minmax(max(.96rem, 6.6em), 1fr));
+  align-content: start;
+  gap: .08rem;
+  padding: 2px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
-.room-bar::before {
-  content: '';
-  position: absolute;
-  left: .6rem;
-  right: .6rem;
-  top: -1px;
-  height: 1px;
-  background: linear-gradient(90deg, var(--mint-700), transparent 30%, transparent 70%, var(--mint-700));
-}
-.room-bar__left { display: flex; align-items: center; gap: .22rem; min-width: 0; }
-.room-bar__label { display: flex; flex-direction: column; font-size: .17rem; font-weight: 700; color: var(--text-md); line-height: 1.35; }
-.room-bar__center { display: flex; flex-direction: column; align-items: center; gap: .06rem; }
-.room-bar__right { justify-self: end; display: flex; align-items: center; gap: .16rem; }
-.room-bar__status { font-size: .15rem; }
-.room-bar__status .icon { width: .18rem; height: .18rem; margin-right: .05rem; vertical-align: -.03rem; }
+.cardpick__op { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: .03rem; padding: .03rem; border: 1px solid var(--line); background: rgba(0, 0, 0, .3); color: var(--text-md); transition: border-color var(--t-fast), color var(--t-fast); }
+.cardpick__op:hover { border-color: var(--line-3); color: var(--text-hi); }
+.cardpick__op.is-on { border-color: var(--mint-400); box-shadow: 0 0 0 1px var(--mint-400); color: var(--text-hi); }
+.cardpick__img { display: grid; place-items: center; aspect-ratio: 1; overflow: hidden; background: linear-gradient(180deg, #2a302d, #151917); }
+.cardpick__img img { width: 100%; height: 100%; object-fit: cover; }
+.cardpick__img .icon { width: 45%; height: 45%; color: var(--mint-400); }
+.cardpick__glyph { font-size: .36rem; font-weight: 900; color: rgba(255, 255, 255, .3); }
+.cardpick__name { text-align: center; font-size: .14rem; line-height: 1.15; text-wrap: balance; }
+.cardpick__star { position: absolute; top: .04rem; right: .04rem; padding: 0 .04rem; background: #d9dedc; color: #111; font-size: .12rem; font-weight: 800; }
+.cardpick__op.r6 .cardpick__star { background: #ffcf5a; }
+.cardpick__op.r5 .cardpick__star { background: #f2e06b; }
+.cardpick__empty { flex: none; margin: 0; font-size: .16rem; color: var(--text-lo); }
+.cardpick__note { flex: none; display: flex; align-items: center; gap: .06rem; margin: 0; font-size: .15rem; color: var(--text-lo); }
+.cardpick__note .icon { flex: none; width: .18rem; height: .18rem; }
 
+/* ---- shared pickers (the lobby, the custom rules, the match's tags use these too) ------------------------------- */
 .dpick { display: flex; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); }
 .dpick__opt {
   --d-color: var(--amber);
@@ -318,70 +565,100 @@
 }
 .dpick__opt.is-active .icon { opacity: 1; filter: drop-shadow(0 0 5px var(--d-color)); }
 .dpick--ro { border: 0; background: none; gap: .18rem; align-items: center; font-size: .14rem; }
-/* 「AI 队友最后选择」 (GitHub #338, co-op): one switch styled like a difficulty option, under the difficulty picker */
-/* the options column is as wide as its widest line and every line spans it (maintainer request 2026-10-15): the four
-   difficulty options share it equally, the line under it is 规则 | AI 队友最后选择 in two equal halves */
-.room-bar__opts { display: grid; gap: .08rem; min-width: 0; }
-.room-bar__opts > .dpick:not(.dpick--ro) > .dpick__opt { flex: 1 1 0; justify-content: center; }
 .ailast { display: flex; align-items: center; gap: .12rem; font-size: .14rem; }
-.ailast__opt { --d-color: var(--mint-400); height: .36rem; padding: 0 .14rem; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); font-size: .15rem; letter-spacing: .04em; }
+.rs-foot .ailast__opt { white-space: nowrap; }
+.ailast__opt { --d-color: var(--mint-400); height: auto; min-height: .36rem; padding: .02rem .14rem; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); font-size: .15rem; letter-spacing: .04em; }
 .ailast__opt:last-child { border-right: 1px solid var(--line-2); }
 .ailast__opt .icon { opacity: .25; }
 .ailast__opt .icon.is-on { opacity: 1; }
-/* 규칙 모드 (shared/ruleset.js): the 经典 / 休闲 picker beside the 「AI 队友最后选择」 switch, in its size; the title's tag */
-.room-bar__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: .08rem; }
-.room-bar__row > :only-child { grid-column: 1 / -1; }
-.room-bar__row > .tt-anchor, .room-bar__row .ailast > .tt-anchor { display: flex; flex: 1; min-width: 0; }
-.room-bar__row .rpick, .room-bar__row .rpick__opt, .room-bar__row .ailast__opt { flex: 1; justify-content: center; }
-/* the 人数 switch (room.setSize) beside the 规则 picker: its two short options take their own width */
-.room-bar__row--size { grid-template-columns: minmax(0, 1fr) auto; }
-.room-bar__row .roomsize .rpick__opt { min-width: .56rem; }
-/* the host's 观战席 count, in the strip under the seats. On a phone the button stays small: .tapx gives it the touch area */
-.specseats { flex: none; position: relative; display: inline-flex; --tap-w: 100%; }
-.specseats__btn { display: inline-flex; align-items: center; justify-content: space-between; gap: .08rem; height: max(.3rem, 20px); min-width: max(.72rem, 46px);
-  padding: 0 max(.08rem, 5px) 0 max(.12rem, 7px); background: #0a0d0c; border: 1px solid var(--line-3); color: var(--text-hi); font-size: max(.14rem, 10px); font-weight: 700; cursor: pointer; }
-.specseats__btn:hover, .specseats__btn.is-open { border-color: var(--mint-600); }
-.specseats__caret { color: var(--mint-400); font-size: .8em; }
-.specseats__menu { position: absolute; z-index: 60; left: 0; bottom: calc(100% + 3px); min-width: 100%; background: rgba(10, 14, 13, .97); border: 1px solid var(--line-2); box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .6); }
-.specseats__row { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .12rem; min-height: max(.3rem, 24px); padding: 0 max(.1rem, 7px);
-  border: 0; background: transparent; color: var(--text-md); font-size: max(.14rem, 10px); white-space: nowrap; cursor: pointer; }
-.specseats__row + .specseats__row { border-top: 1px solid var(--line); }
-.specseats__row:hover:not(:disabled) { background: var(--mint-a10); }
-.specseats__row.is-on { background: var(--mint-a10); color: var(--mint-400); font-weight: 700; }
-.specseats__row:disabled { color: var(--text-dim); cursor: default; }
 .rpick__opt { height: .36rem; padding: 0 .16rem; font-size: .15rem; letter-spacing: .04em; }
 .rpick__opt[data-ruleset='classic'] { --d-color: var(--amber); }
 .rpick__opt[data-ruleset='casual'] { --d-color: var(--mint-400); }
-/* the waiting Doctors of a preset (the lobby's 同盟匹配) */
 .rpick__n { min-width: .22rem; padding: 0 .05rem; border-radius: .11rem; background: rgba(255, 255, 255, .08); font-size: .13rem; line-height: 1.5; text-align: center; color: var(--text-md); }
 .rpick__opt.is-active .rpick__n { background: rgba(255, 255, 255, .14); background: color-mix(in srgb, var(--d-color) 25%, transparent); color: var(--d-color); }
+/* the official range track (auto_chess_mode_choice_pop_view's btn_range_switch, maintainer decision 2026-11-08) for the
+   规则 / 人数 switches of 选择模拟协议 and the 成就统计 window: a dark capsule (range_bg: #0d0d0d, a 1 px white 24 % edge)
+   whose picked option is the white hatched pill (range_selectbg, its shadow under it) and takes the most room — two
+   options: three quarters, as the official pill; three: about half —, the others grey. lobby.css draws 快速匹配's switch
+   (.qrange) from the same pill */
+:root { --rtrack-pill: repeating-linear-gradient(135deg, rgba(255, 255, 255, .93) 0 2px, rgba(229, 229, 229, .93) 2px 5px); }
+.dpick.rtrack { gap: 0; padding: .045rem; border: 1px solid rgba(228, 236, 234, .24); border-radius: 999px; background: rgba(13, 13, 13, .86); }
+.rtrack .dpick__opt {
+  flex: 1 1 0; justify-content: center; min-width: max-content; padding: 0 .12rem; border: 0; border-radius: 999px;
+  color: #8f9293; font-weight: 600; letter-spacing: .02em; white-space: nowrap; box-shadow: none;
+  transition: flex-grow var(--t-med), color var(--t-fast), background-color var(--t-med);
+}
+.rtrack .dpick__opt.is-active { flex-grow: 2.1; color: #242424; font-weight: 800; background: var(--rtrack-pill); box-shadow: 0 .03rem .06rem rgba(0, 0, 0, .6); }
+.rtrack.lobby-size .dpick__opt.is-active { flex-grow: 3; }
+.rtrack .dpick__opt:hover:not(:disabled):not(.is-active) { color: #e9eceb; background: transparent; }
+.rtrack .rpick__opt[data-ruleset='custom'].is-active { color: #5a2fa8; }
+.rtrack .rpick__n { background: rgba(255, 255, 255, .08); color: inherit; }
+.rtrack .rpick__opt.is-active .rpick__n { background: rgba(0, 0, 0, .1); color: #242424; }
+.rtrack .rpick__gear { align-self: stretch; height: auto; border: 0; border-radius: 999px; background: transparent; box-shadow: none; }
+.rtrack .rpick__gear.is-active { background: var(--custom-a); box-shadow: none; }
 .rtag { padding: .02rem .1rem; border: 1px solid currentColor; font-size: .16rem; letter-spacing: .06em; color: var(--amber); }
 .rtag--casual { color: var(--mint-400); }
 .rtag--size { color: var(--ice); } /* the 8-player mode */
 
-.ready-count[hidden] { display: none; }
-.ready-count { display: flex; align-items: baseline; gap: .06rem; font-size: .16rem; }
-.ready-count b { font-size: .36rem; line-height: 1; color: var(--mint-400); text-shadow: 0 0 .14rem rgba(23, 249, 183, .45); }
-.ready-count .t-dim { font-size: .22rem; }
-.ready-count__icons { display: flex; gap: .02rem; margin-left: .12rem; align-self: center; }
-.ready-count__icons .icon { width: .28rem; height: .28rem; color: var(--line-3); transition: color var(--t-med); }
-.ready-count__icons .icon.is-on { color: var(--mint-400); filter: drop-shadow(0 0 4px var(--mint-glow)); }
-
-.room-bar .btn--xl { min-width: 3.2rem; letter-spacing: .2em; }
-/* 랜덤 매칭 for the empty seats (screens/room.js): 干员调配 and 匹配补位 stacked; the matching status line */
-.room-bar__stack { display: flex; flex-direction: column; gap: .08rem; }
-.room-bar__stack .btn { width: 100%; justify-content: center; }
-/* with the stack beside it, 开始模拟 takes the stack's height so the right column's buttons share top and bottom edges
-   (maintainer request 2026-10-15) */
-.room-bar__right--stack { align-items: stretch; }
-.room-bar__right--stack > .tt-anchor { display: flex; }
-.room-bar__right--stack .btn--xl { height: auto; }
-/* 匹配补位's badge: the Doctors waiting in this room's queue (its difficulty × ruleset, lobby.queueCounts) */
-.room-fill__n { margin-left: .08rem; }
-.room-fill__n.is-on { background: rgba(78, 216, 175, .2); color: var(--mint-400); }
-.room-bar__match b { color: var(--text-hi); }
-
-/* the room's 卫戍协议 season under the title while the server offers several (ui/season.js SeasonBadge) */
-.season-badge { display: inline-flex; align-items: center; gap: .05rem; margin-top: .02rem; padding: 0 .08rem; height: max(.24rem, 18px);
-  font-size: max(.13rem, 10px); color: var(--mint-400); border: 1px solid var(--mint-a35); background: var(--mint-a10); white-space: nowrap; }
-.season-badge--new { color: var(--gold); border-color: rgba(255, 198, 0, .45); background: var(--gold-a20); }
+/* ---- short landscape phones (≤ 520 CSS px tall; 1rem is ~40 px: the text gets its own sizes) ------------------- */
+@media (max-height: 520px) {
+  /* the chat is the desktop's left column, under the top bar down to the bottom edge; the seats and the bottom rows sit
+     right of it, the status line centred (maintainer decision 2026-11-08); the mode bar near the event's own scale (.015rem) — .013rem fits it beside the buttons */
+  .rs { --chat-w: 190px; --seats-pad: 36px; }
+  .rs .chat--room { top: 52px; bottom: 10px; left: 10px; height: auto; max-height: none; }
+  .rs .chat-fold { top: 52px; bottom: auto; left: 10px; }
+  .rs.has-chat .rs-seats.seats { padding-left: calc(var(--chat-w) + 16px); }
+  .rs-foot { grid-template-columns: minmax(0, 1fr) auto; }
+  .rs.has-chat .rs-foot { padding-left: calc(var(--chat-w) + 16px); }
+  .rs-foot .rs-hint { grid-column: 1 / -1; }
+  .rs-foot .rs-mode { --o: .013rem; grid-column: 1; justify-self: center; }
+  .rs-foot > .rs-foot__right { grid-column: 2; }
+  .rs .rs-top { padding-top: 6px; }
+  .rs-seats { gap: 12px; padding: 0 10px; }
+  .rs--solo .rseat { --w: min(calc(2.7 * var(--t)), 3.4rem, 34vw); }
+  .rseat__doc, .rseat__who .seat__you, .rseat__tip { display: none; }
+  .rseat__plate { grid-template-rows: auto; }
+  /* the 8-player room is one row of eight (two rows of the 486-unit card leave a card too small to read) */
+  .rs-seats.seats--8 { grid-template-columns: repeat(8, auto); grid-template-rows: auto; gap: 6px; }
+  .rs-seats.seats--8 .rseat { --u: min(calc((var(--seats-w, 100vw) - 42px) / 1872), calc((var(--seats-h, 60vh) - 16px) / 520)); }
+  .seats--8 .rseat__plate { padding: 0 3px; }
+  .seats--8 .rseat__plate .avatar, .seats--8 .rseat__strip span { display: none; }
+  .cardpick__grid, .cardpick__name { font-size: min(.14rem, 11px); }
+  .rs-foot { padding-bottom: 8px; gap: 8px; }
+  .rs-clock > b { font-size: min(calc(.28 * var(--t)), calc(20px + var(--t-step))); }
+  .rs-clock__ping, .rs-ready { font-size: min(calc(.22 * var(--t)), calc(15px + var(--t-step))); }
+  .rs-hint, .specbar { font-size: min(calc(.28 * var(--t)), calc(14px + var(--t-step) / 2)); }
+  .rs-brief { max-width: min(11rem, 62vw); padding: calc(6px - max(0px, var(--t-step))) 12px; }
+  .rs-brief h2 { font-size: min(calc(.32 * var(--t)), calc(20px + var(--t-step))); }
+  .rs-brief p { font-size: min(calc(.17 * var(--t)), calc(14px + var(--t-step))); }
+  .rs-brief ul { font-size: min(calc(.16 * var(--t)), calc(13px + var(--t-step))); line-height: 1.35; }
+  .rs-key__code { font-size: calc(.36 * var(--t)); }
+  .rs-key__copy { font-size: min(calc(.26 * var(--t)), calc(18px + var(--t-step))); }
+  .rs-fill { min-width: 0; min-height: 46px; padding: 0 9px; font-size: min(calc(.26 * var(--t)), calc(15px + var(--t-step))); }
+  .rs-go.proto-start { height: auto; min-height: 46px; }
+  .rs-go .proto-start__mark { display: none; }
+  .rs-go .proto-start__label { font-size: min(calc(.46 * var(--t)), calc(20px + var(--t-step))); }
+  .rs-tools { margin-left: 0; }
+  .rs-tools > :not(.modal), .rs-key__k { display: none; }
+  .ailast__opt { min-height: 24px; font-size: min(calc(.24 * var(--t)), calc(13px + var(--t-step))); }
+}
+/* narrow phones (640 × 360): a narrower chat, a smaller big button, 匹配补位 without its icon on two lines */
+@media (max-height: 520px) and (max-width: 720px) {
+  .rs { --chat-w: 160px; }
+  .rs-go.proto-start { width: 140px; }
+  .rs-fill { white-space: normal; line-height: 1.1; text-align: center; }
+  .rs-fill > .icon { display: none; }
+  .rs-foot .rs-mode { --o: .012rem; }
+  .rs-mode__code { display: none; }
+  /* eight cards of ~50 px: a ready card keeps its check / crown without the words, 添加 AI 队友 without its icon */
+  .seats--8 .rseat__said, .seats--8 .rseat__add .icon { display: none; }
+  .seats--8 .rseat__box { width: 14px; height: 14px; }
+  .seats--8 .rseat__add.btn { padding: 0 2px; font-size: 9px; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .rs-seats { justify-content: flex-start; }
+  .rseat { --w: max(1.8rem, 42vw); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rseat, .rs__bg, .rs-top, .rs-brief, .rs-foot { animation: none; }
+}

@@ -32,7 +32,8 @@ import { CapsuleTransHost, PingPanel, battleArt } from './battleArt.js';
 import { PHASE } from '../../../shared/constants.js';
 import { html, Button, Icon, PingPill, Countdown, Tooltip, MicroLabel, DifficultyTag, useTicker } from './components.js';
 import { Sprite, LpTower, GIcon, LocalSprite } from './gameComponents.js';
-import { localAsset } from '../data.js';
+import { data, localAsset } from '../data.js';
+import { uiUrl } from './assetUrls.js';
 import { serverNow, createStore, useStore } from '../store.js';
 import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason, countdownWarnAt, overflowOf } from './gameLogic.js';
 import { overtimeState, overtimeDrainPerSec, remainAt } from './matchStatus.js';
@@ -310,10 +311,21 @@ export function checkButtons({ pen, penAvail, infoOpen }) {
   return { left, right };
 }
 
+/**
+ * The sprite of a 🔍 button state: a later season's UI theme's own (`seasonSkin/*`: 规程 has btn_check_player_normal and
+ * btn_check_enemy, drawn with no bg_check_btn plate — the theme's skin_config img_check_player / img_check_enemy, 73×41
+ * 6 units down), else the local-client one. The states the theme lacks keep theirs.
+ * @param {string} sprite @returns {{ url: string|null, theme: boolean }}
+ */
+export function checkSprite(sprite) {
+  const theme = uiUrl(data.get('assets'), `seasonSkin/${sprite}`);
+  return theme ? { url: theme, theme: true } : { url: localAsset('ui/battle', sprite), theme: false };
+}
+
 /** One official 🔍 button: the sprite when installed, a CSS look-alike (icon + chevrons) otherwise; `hotkey` = the key label under it. */
 function CheckBtn({ sprite, cls, label, chev, on, disabled, onClick, testid, hotkey = null }) {
-  const url = localAsset('ui/battle', sprite);
-  return html`<button type="button" class=${cx(cls, 'tapx', url && 'has-sprite', chev && 'is-wide', on && 'is-on')}
+  const { url, theme } = checkSprite(sprite);
+  return html`<button type="button" class=${cx(cls, 'tapx', url && 'has-sprite', chev && 'is-wide', on && 'is-on', theme && 'is-theme')}
       style=${url ? `--chk-sprite:url("${url}")` : ''} aria-label=${label} aria-disabled=${disabled ? 'true' : 'false'}
       data-sprite=${sprite} data-testid=${testid} onClick=${onClick}>
     ${url ? null : html`<${Icon} name="search" />${chev ? html`<span class="enemybtn__chev">${chev}</span>` : null}`}
@@ -414,7 +426,7 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
       <${Button} variant="danger" size="lg" square=${true} icon="exit" onClick=${onExit} aria-label=${t('离开')} title=${t('离开 / 暂离')} class="gtop__exit tapx" />
       <div class="gtop__meta">
         <${LivePing} />
-        ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} size="sm" />` : null}
+        ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} modeId=${pub.modeId} size="sm" />` : null}
       </div>
     </div>
 

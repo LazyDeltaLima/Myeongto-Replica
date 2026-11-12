@@ -32,6 +32,7 @@ import { audio } from '../audio.js';
 import { playMatchEndVoice } from '../voice.js'; // local patch: the 结算 line on a won settlement
 import { sentText } from '../ui/lang.js';
 import { FeedbackButton } from '../ui/feedback.js'; // local patch: the settlement screen's feedback
+import { seasonSettleLogo } from '../ui/seasonArt.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -153,14 +154,17 @@ export function ResultView({ res, pub = null, myId = null, backLabel, onBack, qu
   const shownTab = tabs && tabs.some((x) => x.id === tab) ? tab : 'members';
   const bg = uiUrl(gd.m, r.victory ? 'settle/settlemen_teamshow_success' : 'settle/settlemen_teamshow_fail');
   const mins = r.durationMs ? Math.round(r.durationMs / 60000) : null;
+  // the season's own result logo (ui/seasonArt.js; a stored record names its season, a live match is the loaded one's)
+  const settleLogo = seasonSettleLogo(res?.season || data.season());
+  const defaultLogo = html`<${Sprite} k="entry/season_logo_settle" class="result__logoimg" fallback=${html`<${MicroLabel} tone="mint">STRONGHOLD PROTOCOL</${MicroLabel}>`} />`;
 
   return html`<div class=${cx('screen', 'result', r.victory ? 'is-win' : 'is-lose')}>
     <div class="result__bg" aria-hidden="true" style=${bg ? `--result-bg:url("${bg}")` : undefined}></div>
     <div class="result__grid" aria-hidden="true"></div>
     <main class="result__main">
       <section class="result__hero">
-        <div class="result__logo"><${Sprite} k="entry/season_logo_settle" class="result__logoimg" fallback=${html`<${MicroLabel} tone="mint">STRONGHOLD PROTOCOL</${MicroLabel}>`} /></div>
-        ${r.difficulty ? html`<${DifficultyTag} difficulty=${r.difficulty} size="lg" />` : null}
+        <div class="result__logo">${settleLogo ? html`<${Img} src=${settleLogo} class="result__logoimg" fallback=${defaultLogo} />` : defaultLogo}</div>
+        ${r.difficulty ? html`<${DifficultyTag} difficulty=${r.difficulty} modeId=${r.modeId} season=${res?.season} size="lg" />` : null}
         <h1 class="result__headline">${r.victory ? t('模拟完成') : t('模拟失败')}</h1>
         <p class="result__sub">${r.victory ? t('成功卫戍 · 敌方领袖已被击败') : t('防线已被突破')}</p>
         <div class="result__rounds">

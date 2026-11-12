@@ -14,7 +14,8 @@
 import { h, Fragment } from '../../vendor/preact.module.js';
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from '../../vendor/hooks.module.js';
 import htm from '../../vendor/htm.module.js';
-import { DIFFICULTY_NAMES, DIFFICULTY_COLORS } from '../../../shared/constants.js';
+import { DIFFICULTY_NAMES, DIFFICULTY_COLORS, FAST_GRADE, gradeDifficulty } from '../../../shared/constants.js';
+import { modeGrade } from '../../../shared/seasons.js';
 import { t } from '../../../shared/i18n.js';
 import { serverNow } from '../store.js';
 import { data, useData, localAsset } from '../data.js';
@@ -186,12 +187,14 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 export const roman = (n) => ROMAN[n | 0] || '';
 
 /**
- * Official tier chip sprite URL (web manifest `shopCard/img_chess_level_N`, else the local-client
+ * Official tier chip sprite URL (a later season's own `chessLevelSprite/chess_level_icon_N` — 规程 redrew them, its
+ * theme's chess_level_icon_hub; else the web manifest `shopCard/img_chess_level_N`, else the local-client
  * `ui/battle/img_chess_level_N`), or null (CSS fallback).
  * @param {number} t 1..6
  */
 export function tierChipUrl(t) {
-  return uiUrl(data.get('assets'), `shopCard/img_chess_level_${t}`) || localAsset('ui/battle', `img_chess_level_${t}`);
+  const m = data.get('assets');
+  return uiUrl(m, `chessLevelSprite/chess_level_icon_${t}`) || uiUrl(m, `shopCard/img_chess_level_${t}`) || localAsset('ui/battle', `img_chess_level_${t}`);
 }
 
 /**
@@ -464,7 +467,7 @@ const modalStack = []; // open modals, topmost last: only the topmost handles ke
  * @param {{ open: boolean, title?: any, micro?: string, tone?: string, onClose?: Function, actions?: any,
  *   width?: string, closeOnBackdrop?: boolean, class?: string, children?: any }} props
  */
-export function Modal({ open, title, micro, tone = 'mint', onClose, actions, width, closeOnBackdrop = true, class: cls, children }) {
+export function Modal({ open, title, micro, tone = 'mint', onClose, actions, width, closeOnBackdrop = true, class: cls, veilClass, children }) {
   const boxRef = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -514,7 +517,7 @@ export function Modal({ open, title, micro, tone = 'mint', onClose, actions, wid
     };
   }, [open]);
   if (!open) return null;
-  return html`<div class="modal" role="presentation"
+  return html`<div class=${cx('modal', veilClass)} role="presentation"
       onMouseDown=${(e) => { if (closeOnBackdrop && e.target === e.currentTarget && onClose) onClose(); }}>
     <div ref=${boxRef} class=${cx('modal__box', 'brackets', `modal__box--${tone}`, cls)} role="dialog" aria-modal="true" tabindex="-1"
          style=${width ? `width:${width}` : undefined}>
@@ -921,12 +924,18 @@ export function DifficultyIcon({ difficulty, class: cls }) {
   return html`<${Icon} name="rook" class=${cls} />`;
 }
 
+/** A 规程等级's name (docs/rules/ui.md 「규정 모드」): 极速模拟 or 规程等级 N. @param {number} grade */
+export const gradeName = (grade) => (grade === FAST_GRADE ? t('极速模拟') : t('规程等级 {n}', { n: grade }));
+
 /**
- * Difficulty tag: coloured glyph + name (标准/险境/绝境/终极模拟).
- * @param {{ difficulty: string, size?: 'sm'|'md'|'lg', class?: string, code?: string }} props
+ * Difficulty tag: coloured glyph + name (标准/险境/绝境/终极模拟). With the match's `modeId` (and `season`, else the
+ * loaded data's): a 规程等级 mode names its grade (shared/seasons.js modeGrade).
+ * @param {{ difficulty: string, size?: 'sm'|'md'|'lg', class?: string, code?: string, modeId?: string, season?: string }} props
  */
-export function DifficultyTag({ difficulty, size = 'md', class: cls, code }) {
-  const name = DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : difficulty || '—';
+export function DifficultyTag({ difficulty, size = 'md', class: cls, code, modeId, season }) {
+  const grade = modeId ? modeGrade(modeId, season || data.season()) : null;
+  if (grade !== null) difficulty = gradeDifficulty(grade);
+  const name = grade !== null ? gradeName(grade) : DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : difficulty || '—';
   const color = DIFFICULTY_COLORS[difficulty] || 'var(--text-lo)';
   return html`<span class=${cx('dtag', `dtag--${size}`, cls)} style=${`--d-color:${color}`}>
     <${DifficultyIcon} difficulty=${difficulty} class="dtag__icon" />
@@ -935,13 +944,37 @@ export function DifficultyTag({ difficulty, size = 'md', class: cls, code }) {
   </span>`;
 }
 
+let measureCanvas = null;
+
+/**
+ * Whether `text` fits an input's inner width in the input's own ::placeholder font (TextField `placeholderShort`); the
+ * letter spacing is added per character, as a canvas measures without it. Where the pseudo-element's style cannot be
+ * read the input's own font stands in; where nothing can be measured, it fits (the whole placeholder stays).
+ * @param {HTMLInputElement} input
+ * @param {string} text
+ */
+export function placeholderFits(input, text) {
+  try {
+    let st = null;
+    try { st = getComputedStyle(input, '::placeholder'); } catch { st = null; }
+    if (!st?.fontSize) st = getComputedStyle(input);
+    measureCanvas ||= document.createElement('canvas');
+    const ctx = measureCanvas.getContext('2d');
+    if (!ctx) return true;
+    ctx.font = `${st.fontStyle} ${st.fontWeight} ${st.fontSize} ${st.fontFamily}`;
+    const width = ctx.measureText(text).width + (parseFloat(st.letterSpacing) || 0) * [...text].length;
+    const cs = getComputedStyle(input);
+    return width <= input.clientWidth - parseFloat(cs.paddingLeft || '0') - parseFloat(cs.paddingRight || '0');
+  } catch { return true; }
+}
+
 /**
  * Bracketed text input.
  * @param {{ label?: any, micro?: string, value: string, onInput: (v: string) => void, onEnter?: Function,
  *   placeholder?: string, maxLength?: number, transform?: (v: string) => string, autoFocus?: boolean,
  *   disabled?: boolean, size?: 'md'|'lg'|'code', icon?: string, class?: string, inputRef?: any, name?: string }} props
  */
-export function TextField({ label, micro, value, onInput, onEnter, placeholder, maxLength, transform, autoFocus, disabled, size = 'md', icon, class: cls, inputRef, name, hint, invalid }) {
+export function TextField({ label, micro, value, onInput, onEnter, placeholder, placeholderShort, maxLength, transform, autoFocus, disabled, size = 'md', icon, class: cls, inputRef, name, hint, invalid, ariaLabel, modalFocus = false }) {
   const localRef = useRef(null);
   const ref = inputRef || localRef;
   const composing = useRef(false);
@@ -957,11 +990,25 @@ export function TextField({ label, micro, value, onInput, onEnter, placeholder, 
     onInput?.(v);
   };
   const id = useMemo(() => `tf-${Math.random().toString(36).slice(2, 8)}`, []);
+  const [phShort, setPhShort] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!placeholderShort || !placeholder || !el) { setPhShort(false); return undefined; }
+    let live = true;
+    const check = () => { if (live) setPhShort(!placeholderFits(el, placeholder)); };
+    check();
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(check) : null;
+    ro?.observe(el);
+    const fonts = globalThis.document?.fonts;
+    fonts?.addEventListener?.('loadingdone', check);
+    return () => { live = false; ro?.disconnect(); fonts?.removeEventListener?.('loadingdone', check); };
+  }, [placeholder, placeholderShort]);
   return html`<label class=${cx('field', `field--${size}`, disabled && 'is-disabled', invalid && 'is-invalid', cls)} for=${id}>
     ${label || micro ? html`<span class="field__label">${label}${micro ? html`<span class="micro">${micro}</span>` : null}</span>` : null}
     <span class="field__box brackets">
       ${icon ? html`<${Icon} name=${icon} class="field__icon" />` : null}
-      <input id=${id} ref=${ref} class="field__input" name=${name} value=${value} placeholder=${placeholder}
+      <input id=${id} ref=${ref} class="field__input" name=${name} value=${value} placeholder=${phShort && placeholderShort ? placeholderShort : placeholder}
+        aria-label=${ariaLabel} data-autofocus=${modalFocus ? '' : undefined}
         maxLength=${maxLength} disabled=${disabled} autocomplete="off" spellcheck=${false}
         onInput=${handle}
         oncompositionstart=${() => { composing.current = true; }}

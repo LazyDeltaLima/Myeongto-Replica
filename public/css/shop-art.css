@@ -238,3 +238,54 @@
 .shopbar.has-shop-art .rwtag__sub { font-size: calc(var(--u) * 11); }
 .shopbar.has-shop-art .rwtag__later { margin-top: 0; font-size: calc(var(--u) * 12); padding: calc(var(--u) * 2) calc(var(--u) * 6); }
 .shopbar.has-shop-art .shopbar__reward::before { inset: calc(var(--u) * -4) calc(var(--u) * -3); }
+
+/* ---- 规程 default theme (ac_n_initial: panel_shop_main + autochess_shop_card_item of the theme bundle; js/ui/shopArt.js
+   puts its sprites in the same variables and sets `has-shop-theme` — maintainer decision 2026-11-10, that season only) ---- */
+/* card 155×187 on bg_black (no bg_common / repeat_line); the tier frame 155×191, 2 units lower (group_frame) */
+.shopbar.has-shop-theme .scard { width: calc(var(--u) * 155); height: calc(var(--u) * 187); }
+.shopbar.has-shop-theme .scard:not(.scard--sold) { overflow: visible; }
+.shopbar.has-shop-theme .scard:not(.scard--sold)::before { top: 0; bottom: calc(var(--u) * -4); }
+.shopbar.has-shop-theme .scard__bg { background: none; }
+.shopbar.has-shop-theme .scard--item .scard__bg { background: var(--sa-card-deco) center 40% / calc(var(--u) * 128) calc(var(--u) * 99) no-repeat; }
+/* portrait 112×224 pinned 9.5 right of and 29.5 above the card's top-right corner (char_portrait, pivot 1,1), faded by
+   root_char's soft mask (mask_char's red channel, the card's own size) */
+.shopbar.has-shop-theme .scard__art {
+  top: calc(var(--u) * -29.5); right: calc(var(--u) * -9.5); width: calc(var(--u) * 112); height: calc(var(--u) * 224); object-fit: cover; object-position: center top;
+  -webkit-mask: var(--sa-card-mask) calc(var(--u) * -52.5) calc(var(--u) * 29.5) / calc(var(--u) * 155) calc(var(--u) * 187) no-repeat;
+  mask: var(--sa-card-mask) calc(var(--u) * -52.5) calc(var(--u) * 29.5) / calc(var(--u) * 155) calc(var(--u) * 187) no-repeat luminance; mask-mode: luminance;
+}
+/* watermark 70×70 centred 37 left / 31 up (garrison_icon), #FFFFFF33 (skinColorDataDict garrisonIconColor) */
+.shopbar.has-shop-theme .scard__water { left: calc(var(--u) * 5.5); top: calc(var(--u) * 27.5); width: calc(var(--u) * 70); height: calc(var(--u) * 70); opacity: .2; }
+/* tier chip 26×26 centred 18 / 19 from the top-left (root_tier) */
+.shopbar.has-shop-theme .scard__top { left: calc(var(--u) * 5); top: calc(var(--u) * 6); }
+.shopbar.has-shop-theme .scard__top .tier { width: calc(var(--u) * 26); height: calc(var(--u) * 26); }
+/* name bar centred 25 above the bottom with the 24-unit profession icon (root_name), the bonds above it (bond_list
+   44 under the centre) */
+.shopbar.has-shop-theme .scard__body { padding-bottom: calc(var(--u) * 13); }
+.shopbar.has-shop-theme .scard__bonds { padding-bottom: calc(var(--u) * 7); }
+.shopbar.has-shop-theme .scard__name { background: none; padding-left: calc(var(--u) * 29); }
+.shopbar.has-shop-theme .scard__class { bottom: calc(var(--u) * 15); left: calc(var(--u) * 4); }
+.shopbar.has-shop-theme .scard__prof { width: calc(var(--u) * 24); height: calc(var(--u) * 24); filter: brightness(0) invert(.94); opacity: 1; }
+.shopbar.has-shop-theme .scard__skill { bottom: calc(var(--u) * 44); }
+.shopbar.has-shop-theme .scard--sold { width: calc(var(--u) * 158); height: calc(var(--u) * 187); }
+.shopbar.has-shop-theme .scard.is-disabled:not(.is-armed)::after, .shopbar.has-shop-theme.is-locked .scard:not(.scard--sold)::after {
+  background: var(--sa-card-disable) center / 100% 100%; mix-blend-mode: normal;
+}
+/* upgrade box 112×188 (group_normal), its inner plate 101×85 under the frame */
+.shopbar.has-shop-theme .lvcard { width: calc(var(--u) * 112); height: calc(var(--u) * 188); }
+.shopbar.has-shop-theme .lvcard__frame { top: calc(var(--u) * 35);
+  background: var(--sa-up-frame) center / 100% 100% no-repeat, var(--sa-up-matte) center / calc(var(--u) * 101) calc(var(--u) * 85) no-repeat; }
+.shopbar.has-shop-theme .lvcard__label { top: calc(var(--u) * 164); }
+/* 冻结 / 刷新: buttons 144×49, their art 168×72 9 units lower; icon 41 left of the centre, text 26 right (56 wide) */
+.shopbar.has-shop-theme .toolbtn { width: calc(var(--u) * 144); height: calc(var(--u) * 49); }
+.shopbar.has-shop-theme .toolbtn::before, .shopbar.has-shop-theme .toolbtn--amber:not(:disabled)::before {
+  width: calc(var(--u) * 168); height: calc(var(--u) * 72); transform: translate(-50%, calc(-50% + var(--u) * 9)); }
+.shopbar.has-shop-theme .toolbtn__img { left: calc(50% - var(--u) * 41); }
+.shopbar.has-shop-theme .toolbtn > span:not([class]) { left: calc(50% + var(--u) * 26); width: calc(var(--u) * 56); }
+/* close box (btn_close 184×205, bg_close 192×213), the funds plate 120×47 inside its top (root_main_money 188 up) */
+.shopbar.has-shop-theme .funds { width: calc(var(--u) * 184); height: calc(var(--u) * 205); margin-top: calc(var(--u) * -18);
+  background: var(--sa-close) center calc(100% + var(--u) * .5) / calc(var(--u) * 192) calc(var(--u) * 213) no-repeat; }
+.shopbar.has-shop-theme .funds__hex { width: calc(var(--u) * 120); height: calc(var(--u) * 47); top: calc(var(--u) * -6.5); padding-left: calc(var(--u) * 40); }
+.shopbar.has-shop-theme .funds__collapse { background-size: calc(var(--u) * 122) calc(var(--u) * 68); }
+.shopbar.has-shop-theme .funds__collapse .icon { width: calc(var(--u) * 18); height: calc(var(--u) * 18); }
+.shopbar.has-shop-theme .shopbar__row, .shopbar.has-shop-theme .shopbar__cards { gap: calc(var(--u) * 7); }

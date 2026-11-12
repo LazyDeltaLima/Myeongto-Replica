@@ -12,7 +12,8 @@
 // The art: the operator's 立绘 when the local client extraction lists it (data/local-assets.json group `chararts`,
 // `<charId>` — tools/local-extract/chararts_extract.py: the default art `<charId>_1` and its `illust_<charId>_1` frame,
 // the client's per-art size and offset that line the faces up), placed by that frame (css/hud-art.css `--fx/--fy/--fw/
-// --fh`); else the web manifest's half-body portrait (180×360); else no art.
+// --fh`); else the web manifest's half-body portrait (180×360); else no art. A chess with a character template is drawn
+// as its body, its `tmplId` (阿米娅's 医疗 form is char_1037_amiya3's art, not 阿米娅's own).
 //
 // 0.2.0 补位 (docs/LOCAL-PATCH.md 「0.2.0 병합」): a chess the player fields as its stand-in shows the
 // stand-in like ChessDetail does — art, class, name, stats, range, skill, talents (its backup selection) — with ChessDetail's
@@ -63,7 +64,7 @@ export function artParts(blocks) {
  * @returns {{ src: string|null, full: boolean, frame: { x: number, y: number, w: number, h: number } | null }}
  */
 export function cardArt(m, chess) {
-  const id = chess?.charId;
+  const id = (typeof chess?.tmplId === 'string' && chess.tmplId) || chess?.charId;
   const e = id ? data.get('local')?.groups?.chararts?.[id] : null;
   const src = id ? localAsset('chararts', id) : null;
   if (src) {

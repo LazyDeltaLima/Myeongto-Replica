@@ -17,7 +17,13 @@
 // 2026-11-02): every waiting Doctor gets the vote (room.matchFound `vote`) in the confirmation's place, a no keeps the
 // place in the queue, and the room.queueState that follows a vote says how it ended (`vote`: 'failed' / 'started').
 //
-// store ui.queue: null, or { difficulty, ruleset, size, count, since, party, found } — since in this page's clock; party = queued with
+// 快速匹配 (maintainer decision 2026-11-07; docs/rules/ui.md 「랜덤 매칭」 「빠른 매칭」): room.queue { difficulty, quick: true }
+// queues alone for any ruleset and room size of the difficulty; its queueState has `quick` and no ruleset / size, its
+// count is the whole difficulty's pool, and room.matchFound names the group's ruleset and size (+ quick: true).
+// lobby.queueCounts `quick` = { [difficulty]: n } of the quick queue alone (store ui.queueQuick; the other seasons' in
+// `seasons[id].quick`).
+//
+// store ui.queue: null, or { difficulty, ruleset, size, quick, count, since, party, found } — since in this page's clock; party = queued with
 // the room; found: null or { players, accepted, mine, deadline, total, vote } (deadline in server time for components.js
 // Countdown, total = the window's seconds for its gauge; vote: null, or { need, declined, no, by } of a 「바로 시작」 vote).
 //
@@ -26,7 +32,7 @@
 // that forms while the tab is hidden blinks the tab title until the player comes back (flashTitle).
 
 import { useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTY_NAMES, LARGE_MIN_PLAYERS, MAX_SEATS, seatsOf } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, LARGE_MIN_PLAYERS, MAX_SEATS, modeIdFor, seatsOf } from '../../../shared/constants.js';
 import { html, Button, Countdown, Modal, Spinner, useTicker } from './components.js';
 import { toast, toastError } from './toasts.js';
 import { net } from '../net.js';
@@ -34,6 +40,9 @@ import { store, useStore, serverNow } from '../store.js';
 import { audio } from '../audio.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { presetName } from './ruleset.js';
+import { customSummary } from './customSummary.js';
+import { customDiffs, officialBans } from '../../../shared/ruleset.js';
+import { getBond, getBoss, getStage, getConfig, getMode } from '../data.js';
 import { seasonFields } from './season.js';
 
 /**
@@ -119,7 +128,7 @@ export function installMatchQueue({ net: n = net } = {}) {
     if (msg.vote === 'started') toast(t('赞成的 {n} 名博士已先行开始，继续匹配', { n: msg.started ?? 0 }), 'info');
     else if (msg.vote === 'failed') toast(t('赞成未满 {n} 名，继续匹配', { n: LARGE_MIN_PLAYERS }), 'info');
     else if (prev?.found) toast(t('有博士未接受，继续匹配'), 'info');
-    setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), party: !!msg.party, found: null });
+    setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), quick: msg.quick === true, count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), party: !!msg.party, found: null });
   });
   n.on('room.matchFound', (msg) => {
     const prev = store.get().ui.queue;
@@ -127,6 +136,10 @@ export function installMatchQueue({ net: n = net } = {}) {
     if (!prev?.found) flashTitle(msg.vote ? t('提前开始投票') : t('匹配成功'));
     setQueue({
       ...(prev || { difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), count: msg.players, since: Date.now(), party: false }),
+      // a 快速匹配 Doctor's group has the ruleset and size of the queue it filled: the confirmation names them
+      ...(msg.quick === true ? { quick: true, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size) } : {}),
+      // a custom room's empty seats (server/matchmaking.js): its settings, so the 快速匹配 Doctor sees what they accept
+      ...(msg.custom && typeof msg.custom === 'object' ? { custom: msg.custom } : {}),
       found: { players: msg.players, accepted: msg.accepted, mine: !!msg.mine, deadline: serverNow() + msg.inMs,
         total: prev?.found?.total ?? Math.max(1, Math.ceil(msg.inMs / 1000)),
         vote: msg.vote ? { need: msg.need ?? LARGE_MIN_PLAYERS, declined: msg.declined ?? 0, no: !!msg.no, by: typeof msg.by === 'string' ? msg.by : null } : null },
@@ -141,7 +154,7 @@ export function installMatchQueue({ net: n = net } = {}) {
   // the waiting Doctors of every queue (the lobby's 同盟匹配 card): { [ruleset]: { [difficulty]: n } }, of the 8-player queues too
   const countsOf = (c) => (c && typeof c === 'object' ? c : null);
   // (the other offered 卫戍协议 seasons' in `seasons`: ui/season.js seasonQueueCounts)
-  n.on('lobby.queueCounts', (msg) => store.patch('ui', { queueCounts: countsOf(msg.counts), queueCounts8: countsOf(msg.counts8), queueCountsBy: countsOf(msg.seasons) }));
+  n.on('lobby.queueCounts', (msg) => store.patch('ui', { queueCounts: countsOf(msg.counts), queueCounts8: countsOf(msg.counts8), queueQuick: countsOf(msg.quick), queueCountsBy: countsOf(msg.seasons) }));
   n.on('welcome', (msg) => { if (!msg.resumed && store.get().ui.queue) setQueue(null); });
   // while queued the page's audio stays up in a hidden tab; the title blink ends with its group
   store.subscribe((s, prev) => {
@@ -160,6 +173,10 @@ export function installMatchQueue({ net: n = net } = {}) {
 export const joinQueue = (difficulty, ruleset, size = MAX_SEATS, season = null) =>
   net.request('room.queue', { difficulty, ...(ruleset ? { ruleset } : {}), ...(size !== MAX_SEATS ? { size } : {}), ...(season ? seasonFields(season) : {}) });
 
+/** room.queue for 快速匹配: the difficulty (and season) alone. @returns {Promise<any>} */
+export const joinQuickQueue = (difficulty, season = null) =>
+  net.request('room.queue', { difficulty, quick: true, ...(season ? seasonFields(season) : {}) });
+
 /** room.queueVote: propose 「바로 시작」 in the 8-player queue the player waits in (header). @returns {Promise<any>} */
 export const proposeStart = () => net.request('room.queueVote', {});
 
@@ -176,6 +193,22 @@ export const mmss = (ms) => {
  * The queue dialog (rendered by the lobby and room screens while ui.queue is set): the waiting dialog for a player
  * queued alone, the confirmation for everyone once a group formed (a queued room's waiting state is in its room bar).
  */
+/**
+ * A custom room's settings in the confirmation (maintainer decision 2026-11-07): how many differ from the official rules
+ * of the difficulty and room size, and the summary lines (ui/customSummary.js), as the room's invitation lists them.
+ * @param {unknown} custom the room's custom settings (room.matchFound `custom`)
+ * @param {string} difficulty @param {number} size
+ * @returns {{ n: number, lines: string[] }}
+ */
+export function customFound(custom, difficulty, size) {
+  const mode = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor('coop', difficulty)) : null;
+  const rounds = Number.isInteger(mode?.lastRound) ? mode.lastRound : null;
+  const bans = officialBans(getConfig(), difficulty, size);
+  const lookup = { bond: getBond, boss: getBoss, stage: getStage };
+  const lines = customSummary(custom, { bans, rounds, name: (kind, id) => lookup[kind](id)?.name || id, hidden: (id) => !!getBoss(id)?.hidden });
+  return { n: customDiffs(custom, { bans, rounds }).length, lines: lines.map((l) => l.text) };
+}
+
 export function MatchQueueDialog() {
   const queue = useStore((s) => s.ui.queue);
   const [busy, setBusy] = useState(null);
@@ -188,8 +221,11 @@ export function MatchQueueDialog() {
   };
   const cancel = () => run('cancel', { t: 'room.unqueue' });
   const cap = seatsOf(queue.size);
-  const name = t(DIFFICULTY_NAMES[queue.difficulty] || queue.difficulty) + (queue.ruleset ? ` · ${presetName(queue.ruleset)}` : '')
-    + (cap !== MAX_SEATS ? ` · ${t('{n} 人同盟', { n: cap })}` : '');
+  // waiting for 快速匹配: no ruleset or size yet; once a group forms its ruleset and size (「经典 · 4人」)
+  const quickWait = queue.quick && !queue.found;
+  const name = t(DIFFICULTY_NAMES[queue.difficulty] || queue.difficulty) + (quickWait ? ` · ${t('快速匹配')}`
+    : (queue.ruleset ? ` · ${presetName(queue.ruleset)}` : '') + (queue.quick || cap !== MAX_SEATS ? ` · ${t('{n}人', { n: cap })}` : ''))
+    + (queue.quick && queue.found ? ` · ${t('快速匹配')}` : '');
 
   if (queue.found?.vote) {
     const f = queue.found, v = f.vote;
@@ -224,6 +260,7 @@ export function MatchQueueDialog() {
           <span class="queue-dialog__mode">${t('同盟模拟')} · ${name}</span>
           <span>${t('{players} 名博士', { players: f.players })}</span>
           <span class="t-lo">${t('已接受 {accepted}/{players}', { accepted: f.accepted, players: f.players })}</span>
+          ${queue.custom ? html`<${FoundCustom} custom=${queue.custom} difficulty=${queue.difficulty} size=${cap} />` : null}
         </div>
       </div>
     <//>`;
@@ -236,10 +273,21 @@ export function MatchQueueDialog() {
       <div class="queue-dialog__clock num">${mmss(Date.now() - queue.since)}</div>
       <div class="queue-dialog__lines">
         <span class="queue-dialog__mode">${t('同盟模拟')} · ${name}</span>
-        <span>${t('排队中的博士：{count}/{n}', { count: Math.min(cap, queue.count), n: cap })}</span>
-        <span class="t-lo">${t('凑齐 {n} 名博士后开始', { n: cap })}</span>
+        ${quickWait ? html`<span>${t('同难度等待中的博士：{count}', { count: queue.count })}</span>
+          <span class="t-lo">${t('规则、人数不限，进入空位')}</span>`
+        : html`<span>${t('排队中的博士：{count}/{n}', { count: Math.min(cap, queue.count), n: cap })}</span>
+          <span class="t-lo">${t('凑齐 {n} 名博士后开始', { n: cap })}</span>`}
         ${cap > MAX_SEATS ? html`<span class="t-lo">${t('满 {n} 名可投票提前开始', { n: LARGE_MIN_PLAYERS })}</span>` : null}
       </div>
     </div>
   <//>`;
+}
+
+/** The confirmation's custom block: 「自定义 · 与官方不同的设置 n 项」 and the lines (customFound). */
+function FoundCustom({ custom, difficulty, size }) {
+  const { n, lines } = customFound(custom, difficulty, size);
+  return html`<div class="queue-dialog__custom" data-testid="found-custom">
+    <b>${presetName('custom')} · ${t('与官方不同的设置 {n} 项', { n })}</b>
+    ${lines.length ? html`<ul>${lines.map((l, i) => html`<li key=${i}>${l}</li>`)}</ul>` : null}
+  </div>`;
 }

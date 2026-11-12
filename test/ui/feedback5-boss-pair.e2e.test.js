@@ -47,9 +47,9 @@ async function coopAtBoss(P, base, prefix) {
   const guest = new Client(P, base, 'guest', { prefix: `${prefix}-guest`, w: 1280, h: 720 });
   await host.open();
   await host.enter('凯尔希');
+  // 同盟模拟 → 选择模拟协议 → 创建同盟: the room at the remembered difficulty (标准 on a fresh page)
   await host.click('.mode-card', '同盟模拟');
-  await host.click('.diff-card', '标准模拟');
-  await host.click('.create-box button', '创建同盟');
+  await host.click('.ally-create__go', '创建同盟');
   const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
   for (let i = 0; i < 2; i++) { await host.click('button', '添加 AI 队友'); await sleep(600); }
   await guest.open(`?room=${room.code}`);

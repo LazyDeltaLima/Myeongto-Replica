@@ -250,11 +250,15 @@ test('the 普通 / 精锐 toggle: 精锐 is the shown variant, the tabs say so, 
 test('place in the detail: after the skills, before the modules; the first .lo-seg stays the skill level toggle (e2e selector)', () => {
   const src = read('public/js/screens/loadout.js');
   const detail = src.slice(src.indexOf('function Detail('), src.indexOf('// ---- filters'));
-  const toggle = detail.indexOf("aria-label=${t('技能等级')}");
-  const skills = detail.indexOf("aria-label=${t('选择技能')}");
+  const skills = detail.indexOf('<${SkillSection} ');
   const stats = detail.indexOf('<${LoadoutStats} base=${chess}');
-  const mods = detail.indexOf('<section class="lo-sec lo-sec--mod">');
-  assert.ok(toggle > 0 && skills > toggle && stats > skills && mods > stats, 'skills (and their level toggle) → 局内数值 → modules');
+  const mods = detail.indexOf('<${ModuleSection} ');
+  assert.ok(skills > 0 && stats > skills && mods > stats, 'skills (and their level toggle) → 局内数值 → modules');
+  // the skill section opens with its level toggle, before its cards (screens/loadoutSections.js)
+  const sec = read('public/js/screens/loadoutSections.js');
+  const skillSec = sec.slice(sec.indexOf('export function SkillSection('), sec.indexOf('export function ModuleSection('));
+  const toggle = skillSec.indexOf("aria-label=${t('技能等级')}");
+  assert.ok(toggle > 0 && skillSec.indexOf("aria-label=${t('选择技能')}") > toggle, 'the level toggle before the skill cards');
   // one record resolution, shared with the card: chessLoadout, the card's block, trait and talent helpers — no stat arithmetic of its own
   const shared = read('public/js/ui/loadoutStats.js');
   assert.match(src, /import \{ LoadoutStats \} from '\.\.\/ui\/loadoutStats\.js';/);

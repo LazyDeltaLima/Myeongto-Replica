@@ -27,15 +27,23 @@ test('lobby: room.create / room.queue carry size 8 only for an 8-seat alliance (
   assert.deepEqual(sizeFields('solo', 8), {}, 'a solo room is never an 8-seat one');
   assert.deepEqual(sizeFields('coop', 4), {});
   const src = read('public/js/screens/lobby.js');
-  assert.match(src, /\.\.\.sizeFields\(roomMode, size\)/);
+  assert.match(src, /\.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\)/);
+  assert.match(src, /const big = roomMode !== 'solo' && !limited && size === LARGE_SEATS;/); // 规程: no 8 seats yet
   assert.match(src, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS, season\)/);
   assert.match(src, /savePref\('lobby\.size', n\)/);
-  // the switch sits at the right end of the 01 label (like 规则 on the 02 label), hidden in place for 独立模拟
-  const label = src.slice(src.indexOf('<span class="section-label__idx num">01</span>'), src.indexOf('<div class="mode-cards">'));
-  assert.match(label, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{pickSize\} hidden=\$\{roomMode === 'solo'\}/);
-  assert.match(src, /lobby-size\$\{hidden \? ' is-hidden' : ''\}/);
-  assert.match(read('public/css/screens/lobby.css'), /\.lobby-size\.is-hidden \{ visibility: hidden; \}/, 'hidden, not removed: the label row keeps its height');
-  assert.match(src, /<\$\{CustomSummary\}[^>]*size=\$\{big \? LARGE_SEATS : MAX_SEATS\}/, 'the summary compares with the 8-player bans');
+  // 人数 (maintainer decisions 2026-11-07): a row of 选择模拟协议's rules in 同盟匹配 only, and in 创建同盟's bar on 选择同盟方式;
+  // 独立模拟 has none
+  const rules = src.slice(src.indexOf('export function ProtoRules('), src.indexOf('export function ProtocolSelect('));
+  assert.match(rules, /\$\{matching \? html`<span class="proto-rules__row">\s*<\$\{RowKey\} text=\$\{t\('人数'\)\} \/>/);
+  assert.match(rules, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{quick\}/);
+  // 创建同盟 is 选择模拟协议 (roomMode 'coop'): its 人数 is the rules' room row, fed by the lobby's pick
+  assert.match(rules, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{readOnly \|\| sizeLocked\}/);
+  assert.match(src, /onSize=\$\{roomMode === 'solo' \? null : pickSize\}/);
+  // a custom summary only for 独立模拟's / a room's 自定义 (同盟匹配 has no 自定义), in the brief: a solo room is never an
+  // 8-seat one
+  const brief = src.slice(src.indexOf('export function CustomBrief('), src.indexOf('export function QuickRange('));
+  assert.match(brief, /if \(roomMode === 'match' \|\| ruleset !== 'custom'\) return null;/);
+  assert.match(brief, /<\$\{CustomSummary\}[^>]*size=\$\{MAX_SEATS\}/);
 });
 
 test('matchQueue: joinQueue adds size only for an 8-player queue; counts8 and size reach the store; the dialog counts to the size', () => {
@@ -123,7 +131,7 @@ test('in-match UI: the 8-row player list, the compact draft order, the 12-card �
   assert.match(read('public/js/ui/teamPanel.js'), /players\.length > 4 && 'is-8'/);
   assert.match(read('public/css/hud-art.css'), /\.team\.is-8 \{ --u: calc\(var\(--ui-u, \.015rem\) \* \.6\); \}/);
   assert.match(read('public/js/screens/bandDraft.js'), /draft\.order\.length > 4 && 'is-8'/);
-  assert.match(read('public/css/screens/draft.css'), /\.draft-order\.is-8 \{/);
+  assert.match(read('public/css/screens/draft.css'), /\.draft-order\.is-8 \.dorder \{/);
   const choice = read('public/js/ui/choiceOverlay.js');
   assert.match(choice, /sp\.cards\.length > 6 && 'spov__grid--12'/);
   assert.match(read('public/css/screens/game-panels.css'), /\.spov__grid--12 \{ grid-template-columns: repeat\(4/);

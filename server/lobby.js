@@ -122,6 +122,15 @@
 //     default season's in the session's own fields, another's in session.seasonal). A seat takes those of its room's
 //     season (humanSeat); a message of another season than the room's is only stored on the session (OK), never on the
 //     seat or the match.
+//   * 名片干员 (after upstream 0.3.3, the seat cards of the waiting room): room.card { charId } — the operator whose
+//     portrait fills the player's seat card, '' for none — is kept only when it is a visible, non-自选 chess charId of the
+//     data or a 自选 pick this server offers (cardCharIds; the room's season's data, outside a room the default season's;
+//     another id: BAD_MSG, the stored one stays). Stored on the session (it follows the player into the next room) and
+//     the seat; the room's members see it as room.state seats[].card (human seats with a card only). Checked again when
+//     the player takes a seat (humanSeat): a card the room's season lacks is left off the seat, never cleared from the
+//     session. Cosmetic: any phase, spectators too (stored on the session), never handed to a match. [ASSUMED·자료 없음:
+//     the event's card shows the account's assistant (名片形象); this remake has no accounts, so the pick is made on
+//     one's own seat card and kept in the browser — ui/seatArt.js]
 //   * Spectator seats (community report #26, owner's decision 2026-10-04 — a remake feature, the official room has none):
 //     room.spectate { code } takes one of a co-op room's spectator seats (`spectatorSeats`, below), in its lobby or while its
 //     match runs (▸ solo rooms: ROOM_FULL). A spectator is not a player: never in `seats`, never counted for the 1–4 players
@@ -224,6 +233,23 @@ function opsCharIds(data) {
   if (!data || typeof data !== 'object') return new Set();
   let ids = OPS_IDS.get(data);
   if (!ids) { ids = cultivationCharIds(data.chess, data.backups); OPS_IDS.set(data, ids); }
+  return ids;
+}
+
+/** The operator charIds a seat card may show (room.card's whitelist; the client's picker list is ui/seatArt.js
+ * cardOperators): the visible, non-自选 chess records plus the 自选 picks this server offers (`backups.diy.ownedPool`
+ * filtered by shared/local-diy.js — operators with no chess record of their own). */
+const CARD_IDS = new WeakMap();
+function cardCharIds(data) {
+  if (!data || typeof data !== 'object') return new Set();
+  let ids = CARD_IDS.get(data);
+  if (ids) return ids;
+  ids = new Set();
+  const chess = data.chess && typeof data.chess === 'object' ? data.chess : null;
+  if (chess) for (const c of Object.values(chess)) if (c && !c.isDiy && c.visible !== false && typeof c.charId === 'string') ids.add(c.charId);
+  const pool = data.backups?.diy?.ownedPool;
+  if (Array.isArray(pool)) for (const id of pool) if (typeof id === 'string' && id && isLocalDiyPick(id)) ids.add(id);
+  CARD_IDS.set(data, ids);
   return ids;
 }
 
@@ -351,7 +377,9 @@ export class Room {
       maxBots: localPatch.maxBotsSetting(), // local patch
       ...(this.size > MAX_SEATS && localPatch.largeBots() ? { largeBots: true } : {}), // AI seats in an 8-player room (local debug)
       seats: this.seats.map((s) => (s
-        ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
+        ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left,
+          // 名片干员 (room.card): only a human seat with a card carries the key
+          ...(!s.isBot && s.card ? { card: s.card } : {}) }
         : null)),
       spectatorSeats: this.spectatorSeats,
       spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected,
@@ -490,6 +518,7 @@ export class Lobby {
       case 'room.loadout': return this.loadout(session, msg);
       case 'room.ownership': return this.ownership(session, msg);
       case 'room.diy': return this.diy(session, msg);
+      case 'room.card': return this.card(session, msg);
       case 'room.spectate': return this.spectate(session, msg);
       case 'room.removeSpectator': return this.removeSpectator(session, msg);
       case 'room.reserveSeat': return this.reserveSeat(session, msg);
@@ -996,6 +1025,23 @@ export class Lobby {
     return OK;
   }
 
+  /**
+   * 名片干员 (room.card, header): the operator on the player's seat card, '' for none — a charId of cardCharIds for the
+   * room's season (outside a room the default season's). Kept on the session and the seat; a change is broadcast to the
+   * room. Cosmetic: accepted in any phase, never touches a match.
+   */
+  card(session, { charId }) {
+    const room = this.roomOf(session);
+    if (charId && !cardCharIds(this.safeData(room ? room.season : DEFAULT_SEASON)).has(charId)) return fail(ERR.BAD_MSG, 'unknown operator');
+    session.card = charId || null;
+    const seat = room ? room.seatOf(session.playerId) : null;
+    if (seat && !seat.isBot && seat.card !== session.card) {
+      seat.card = session.card;
+      this.broadcastState(room);
+    }
+    return OK;
+  }
+
   /** Extra fields of every `welcome` (net.js): the operators a 自选 slot may field (shared/diy.js `kitted`). */
   /**
    * The first pong of every socket (net.js connectInfo, before any hello): `seasons` = the 卫戍协议 seasons rooms may name
@@ -1352,6 +1398,8 @@ export class Lobby {
       ops: kept.ops || null,
       notOwned: kept.notOwned || null,
       diy: kept.diy || null,
+      // 名片干员 (room.card, header): the session's card when the room's season has that operator
+      card: session.card && cardCharIds(this.safeData(season)).has(session.card) ? session.card : null,
     };
   }
 

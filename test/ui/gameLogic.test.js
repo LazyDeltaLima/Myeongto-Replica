@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  autoDiyChoice,
+  diySlotTier, startStepCount, diyChooseRows, toggleDiyChoice,
   phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold, bondRequireCount,
   holdsBattleEnd, settleBattleEnd, ownRoundLoss, roundResultBox, RESULT_BOX_MS,
   bondMembers, memberHeadCount, memberLit, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
@@ -57,7 +57,7 @@ describe('phases', () => {
     assert.equal(phaseMode(null), 'loading');
     assert.equal(phaseMode(PHASE.INFO_CHECK), 'briefing');
     assert.equal(phaseMode(PHASE.BAND_DRAFT), 'draft');
-    assert.equal(phaseMode(PHASE.DIY_CHOOSE), 'draft', '规程\'s 确定自选编队 keeps the draft screen for now');
+    assert.equal(phaseMode(PHASE.DIY_CHOOSE), 'diyChoose', '规程\'s 确定自选编队 has its own screen (screens/diyChoose.js)');
     assert.equal(phaseMode(PHASE.BATTLE_CHECK), 'boot');
     for (const p of [PHASE.PREP, PHASE.SP_DRAFT, PHASE.ROUND_START]) assert.equal(phaseMode(p), 'prep');
     for (const p of [PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]) assert.equal(phaseMode(p), 'combat');
@@ -1004,13 +1004,45 @@ describe('special terrain tip', () => {
   });
 });
 
-test('autoDiyChoice: 规程\'s 确定自选编队 brings the chosen slots, else the first two of each tier; nothing once ready', () => {
-  const lineup = Object.fromEntries(['chess_char_5_diy1_a', 'chess_char_5_diy3_a', 'chess_char_5_diy4_a', 'chess_char_6_diy2_a']
-    .map((id) => [id, { charId: 'x', skillIndex: 0, uniEquipId: null }]));
+describe('规程\'s 确定自选编队 (screens/diyChoose.js)', () => {
   const perTier = { 5: 2, 6: 2 };
-  assert.deepEqual(autoDiyChoice({ lineup, chosen: [], ready: false, perTier }), ['chess_char_5_diy1_a', 'chess_char_5_diy3_a', 'chess_char_6_diy2_a']);
-  assert.deepEqual(autoDiyChoice({ lineup, chosen: ['chess_char_5_diy4_a'], ready: false, perTier }), ['chess_char_5_diy4_a']);
-  assert.deepEqual(autoDiyChoice({ lineup: {}, chosen: [], ready: false, perTier }), []);
-  assert.equal(autoDiyChoice({ lineup, chosen: [], ready: true, perTier }), null);
-  assert.equal(autoDiyChoice(undefined), null);
+  const S5 = (n) => `chess_char_5_diy${n}_a`;
+  const S6 = (n) => `chess_char_6_diy${n}_a`;
+
+  test('the phase has its own screen; the step headers count 3 steps where the season lists CUSTOM_CHECK', () => {
+    assert.equal(phaseMode('DIY_CHOOSE'), 'diyChoose');
+    assert.equal(phaseMode('BAND_DRAFT'), 'draft');
+    const steps = (...s) => ({ timers: { enterSteps: s.map((step) => ({ step })) } });
+    assert.equal(startStepCount(steps('INFO_CHECK', 'BAND_CHECK', 'CUSTOM_CHECK', 'BATTLE_CHECK')), 3);
+    assert.equal(startStepCount(steps('INFO_CHECK', 'BAND_CHECK', 'BATTLE_CHECK')), 2);
+    assert.equal(startStepCount({}), 2);
+    assert.equal(startStepCount(null), 2);
+    assert.equal(diySlotTier(S6(3)), 6);
+    assert.equal(diySlotTier('chess_char_6_01_a'), null);
+  });
+
+  test('a tap toggles a card; on a full tier the earliest choice of that tier makes room (maintainer decision 2026-11-11)', () => {
+    assert.deepEqual(toggleDiyChoice([], S5(1), perTier), [S5(1)]);
+    assert.deepEqual(toggleDiyChoice([S5(1), S6(2)], S5(1), perTier), [S6(2)], 'a chosen card leaves');
+    assert.deepEqual(toggleDiyChoice([S5(1), S6(2)], S5(4), perTier), [S5(1), S6(2), S5(4)], 'room left in the tier');
+    // full Ⅴ: 5-3 was chosen before 5-1, so 5-3 goes; the Ⅵ choice stays
+    assert.deepEqual(toggleDiyChoice([S5(3), S6(2), S5(1)], S5(6), perTier), [S6(2), S5(1), S5(6)]);
+    assert.deepEqual(toggleDiyChoice([S5(1)], S5(2), { 5: 1 }), [S5(2)]);
+    assert.deepEqual(toggleDiyChoice([S5(1)], S6(1), { 5: 2 }), [S5(1)], 'a tier without a limit takes nothing');
+    assert.deepEqual(toggleDiyChoice(undefined, S5(1), perTier), [S5(1)]);
+  });
+
+  test('the rows: one per tier in tier order, lineup order inside, the chosen count and the cards out this match', () => {
+    const pick = { charId: 'char_x', skillIndex: 0, uniEquipId: null };
+    const lineup = { [S6(2)]: pick, [S5(3)]: pick, [S5(1)]: pick, junk_slot: pick };
+    const rows = diyChooseRows({ lineup, chosen: [S5(1)], ready: false, perTier }, undefined, (id) => id === S5(3));
+    assert.deepEqual(rows.map((r) => [r.tier, r.limit, r.count, r.slots.map((s) => s.slotId)]),
+      [[5, 2, 1, [S5(3), S5(1)]], [6, 2, 0, [S6(2)]]]);
+    assert.deepEqual(rows[0].slots.map((s) => [s.chosen, s.off]), [[false, true], [true, false]]);
+    // the screen's own order of choice wins over the view's
+    assert.equal(diyChooseRows({ lineup, chosen: [S5(1)], perTier }, [S6(2)])[1].count, 1);
+    // a tier with no lineup cards still has its row (the official 尚不存在n阶自选编队)
+    assert.deepEqual(diyChooseRows({ lineup: {}, chosen: [], perTier }).map((r) => [r.tier, r.slots.length]), [[5, 0], [6, 0]]);
+    assert.deepEqual(diyChooseRows(null), []);
+  });
 });
