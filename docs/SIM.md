@@ -1511,7 +1511,7 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   unless it names an ability itself — fx scheduled for later (`battle.after`) carry none; the client binds the enemy's official cast / hit effects and
   `ON_ABILITY_*` sounds by it; `hold: 1` marks a cast that lasts until its `enemySkillEnd` `{ id, ability }` (子代's 摄食, `bosses.js kitBrood`: the
   client's ON_CAST_START … ON_CAST_END — the effects held to the cast's end end then); `enemySkillReady` `{ id, ability, on }`: an enemy skill's
-  ready hint on (1, its SP full) / off (0, cast) — the prefab's `ReadyEnemySkillEffect` (萨卡兹子裔责罚者's StunAttack, `content/enemies/reborn.js
+  ready hint on (1, its SP full) / off (0, its cast finished or cut — the client's OnCastFinish) — the prefab's `ReadyEnemySkillEffect` (萨卡兹子裔责罚者's StunAttack, `content/enemies/reborn.js
   kitPunisher`); none is sent when the enemy falls; `enemyShot` `{ id, from?, tgt, key, move, speed, t }`: an enemy content ability's official projectile leaves
   (`content/enemies/helpers.js shoot` — `id` the shooter, `from` the unit it leaves when that is not the shooter (a chain / bounce hop), `key` the
   projectile prefab, `t` its flight in game seconds; its effect lands then; `zone` 1 when it lands as an area whose fx `zone` { id, ability }

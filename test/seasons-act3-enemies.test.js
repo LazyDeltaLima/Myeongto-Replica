@@ -870,9 +870,9 @@ test('萨卡兹子裔责罚者: after 3 attacks (spCost 3) StunAttack is cast in
   const { h, hits, e, casts, ready } = run(false);
   assert.ok(h.runUntil(() => casts.length > 0, 40), 'cast');
   const c = casts[0];
-  // the ready hint (ReadyEnemySkillEffect enemy_dfat_skill_hint): on as the third attack fills the SP, off at the cast
-  assert.deepEqual(ready.map((x) => [x.on, x.ability, x.attacks]), [[1, 'StunAttack', 3], [0, 'StunAttack', 3]]);
-  assert.ok(ready[1].at === c.at, 'off as it is cast');
+  // the ready hint (ReadyEnemySkillEffect enemy_dfat_skill_hint): on as the third attack fills the SP, off as the cast
+  // finishes (OnCastFinish; `_stopBeforeCast` 0 — not as it starts)
+  assert.deepEqual(ready.map((x) => [x.on, x.ability, x.attacks]), [[1, 'StunAttack', 3]], 'still on while it casts');
   assert.equal(c.ability, 'StunAttack');
   assert.equal(c.attacks, 3, 'after three normal attacks');
   assert.ok(Math.abs(e.skillAnimUntil - c.at - 1.6) < 1e-6, `its Skill clip, 1.6 s (${e.skillAnimUntil - c.at})`);   // the tick's snapshot
@@ -887,6 +887,9 @@ test('萨卡兹子裔责罚者: after 3 attacks (spCost 3) StunAttack is cast in
   const own = hits.filter((x) => x.at >= c.at);
   assert.ok(own.some((x) => x.t === h.unit(1)) && own.some((x) => x.t === h.unit(2)) && !own.some((x) => x.t === h.unit(3)), 'both hit, the third not');
   assert.equal(e.stats.attacks, atk, 'in place of the normal attack');
+  h.runUntil(() => ready.length > 1, 3);
+  assert.deepEqual([ready[1].on, ready[1].ability], [0, 'StunAttack']);
+  assert.ok(Math.abs(ready[1].at - c.at - 1.6) <= TICK + 1e-6, `off as the cast finishes (${(ready[1].at - c.at).toFixed(3)})`);
   // the SP starts again: the next cast after three more attacks; its targets are taken as it starts (`_selectTargetSource`
   // FROM_OWNER) — the one a row down withdrawn before the attack event is not hit
   assert.ok(h.runUntil(() => casts.length > 1, 60), 'cast again');
@@ -895,6 +898,14 @@ test('萨卡兹子裔责罚者: after 3 attacks (spCost 3) StunAttack is cast in
   const n2 = hits.length;
   h.runUntil(() => h.b.time >= casts[1].at + 0.567 + 2 * TICK, 2);
   assert.ok(hits.slice(n2).some((x) => x.t === h.unit(1)) && !hits.slice(n2).some((x) => x.t === h.unit(2)), 'the withdrawn one is not hit');
+  // a cast cut short (a stun) clears it at once, and only once
+  const k = run(false);
+  assert.ok(k.h.runUntil(() => k.casts.length > 0, 40));
+  k.h.b.applyStatus(k.e, 'stun', { duration: 3, source: null });
+  k.h.step();
+  assert.deepEqual(k.ready.map((x) => x.on), [1, 0], 'off as the cast is cut');
+  k.h.runUntil(() => k.h.b.time >= k.casts[0].at + 2, 3);
+  assert.deepEqual(k.ready.map((x) => x.on), [1, 0], 'no second off at the cast\'s planned end');
   const q = run(true);
   q.h.runUntil(() => q.e.stats.attacks >= 5, 40);
   assert.ok(!q.casts.length && !q.h.unit(1).s.flags.stun && !q.hits.some((x) => x.t === q.h.unit(2)), 'silenced: plain attacks, no cast');

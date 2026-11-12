@@ -187,35 +187,38 @@ function kitThrower(ab) {
  * ATTACK and COMBAT families) and, at the clip's attack event, its blocker and every unit within DFAT_STUN_REACH its
  * selection takes (EnemyBlockerOrAdvancedSelector: the blocker first, then the range; no `_limitTargetNum`, so all — taken
  * as the cast starts) take physical ATK × 1 and `stun` s of 晕眩. The cast reports its clip: fx 'enemySkill' (ability
- * StunAttack) and `skillAnimUntil` to the cast's end; its readiness as fx 'enemySkillReady' (on 1 / 0).
+ * StunAttack) and `skillAnimUntil` to the cast's end; its readiness as fx 'enemySkillReady': on 1 as the SP fills, on 0 as
+ * the cast finishes or is cut (ReadyEnemySkillEffect clears its effect in OnCastFinish — `_stopBeforeCast` 0 — and
+ * OnDetach, as the official client does).
  * [추정·미조사: SP comes on silenced attacks too, as the 乐团's counters]
  */
 function kitPunisher(ab) {
   const s = ab.sk.StunAttack, cost = s && s.sp > 0 ? s.sp : 0, dur = (s && s.bb.stun) || 0;
-  const P = { sp: 0 };
+  const P = { sp: 0, lit: 0 };
   const pick = (b, e) => {
     const out = e.blockedBy && e.blockedBy.alive ? [e.blockedBy] : [];
     for (const u of areaAllies(b, e, e.x, e.y, DFAT_STUN_REACH)) if (!out.includes(u)) out.push(u);
     return out;
   };
-  // the prefab's ReadyEnemySkillEffect (enemy_dfat_skill_hint): fx 'enemySkillReady' on 1 as the SP fills, on 0 at the cast
+  // the prefab's ReadyEnemySkillEffect (enemy_dfat_skill_hint): fx 'enemySkillReady' on 1 as the SP fills, on 0 as the cast ends
   const ready = (b, e, on) => b.fx('enemySkillReady', { x: e.x, y: e.y, id: e.id, ability: 'StunAttack', on });
+  const off = (b, e, n) => { if (n && P.lit === n) { P.lit = 0; ready(b, e, 0); } };   // once per fill
   return [...kitReborn('Attack')(ab), { attack(_c, b, e) {
     if (!(cost > 0) || P.sp >= cost) return;
     P.sp++;
-    if (P.sp >= cost) ready(b, e, 1);
-  } }, skill(s, (b, e) => {
+    if (P.sp >= cost) { P.lit = (P.n = (P.n ?? 0) + 1); ready(b, e, 1); }
+  } }, { ...skill(s, (b, e) => {
     P.sp = 0;
-    ready(b, e, 0);
-    const k = e.mem.ab && e.mem.ab.casting;
+    const k = e.mem.ab && e.mem.ab.casting, n = P.lit;
     if (k) e.skillAnimUntil = k.until;
+    if (k && k.until > b.time) b.after(k.until - b.time, () => off(b, e, n), { owner: e }); else off(b, e, n);
     const hit = pick(b, e);
     atCastEvent(b, e, s, () => {
       b.fx('explode', { x: e.x, y: e.y, r: DFAT_STUN_RADIUS, kind: 'dfatStun', id: e.id, ability: 'StunAttack' });
       for (const u of hit) hurt(b, e, u, e.s.atk, 'phys');   // one gone meanwhile (knocked out, withdrawn) is not alive
       if (dur > 0) for (const u of hit) if (u.alive) b.applyStatus(u, 'stun', { duration: dur, source: e });
     });
-  }, { sil: true, cond: (b, e) => cost > 0 && P.sp >= cost && pick(b, e).length > 0 })];
+  }, { sil: true, cond: (b, e) => cost > 0 && P.sp >= cost && pick(b, e).length > 0 }), onCut(b, e) { off(b, e, P.lit); } }];
 }
 
 /**
