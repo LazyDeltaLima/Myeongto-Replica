@@ -182,27 +182,40 @@ function kitThrower(ab) {
 }
 
 /**
- * 萨卡兹子裔责罚者 / 惩戒者: StunAttack (SILENCE line, `spCost` attacks then the next) — instead of that attack, its blocker
- * and every unit within DFAT_STUN_REACH its selection takes (EnemyBlockerOrAdvancedSelector: the blocker first, then the
- * range; no `_limitTargetNum`, so all) take physical ATK × 1 and `stun` s of 晕眩.
+ * 萨卡兹子裔责罚者 / 惩戒者: StunAttack (SILENCE line, `spCost` 3 — one SP per normal attack). With the SP full it is cast
+ * at an attack slot in place of the normal attack (content/enemies.js onSkillSlot, its `skillCast`: the `Skill` clip, the
+ * ATTACK and COMBAT families) and, at the clip's attack event, its blocker and every unit within DFAT_STUN_REACH its
+ * selection takes (EnemyBlockerOrAdvancedSelector: the blocker first, then the range; no `_limitTargetNum`, so all — taken
+ * as the cast starts) take physical ATK × 1 and `stun` s of 晕眩. The cast reports its clip: fx 'enemySkill' (ability
+ * StunAttack) and `skillAnimUntil` to the cast's end; its readiness as fx 'enemySkillReady' (on 1 / 0).
+ * [추정·미조사: SP comes on silenced attacks too, as the 乐团's counters]
  */
 function kitPunisher(ab) {
-  const s = ab.sk.StunAttack, every = s && s.sp > 0 ? s.sp + 1 : 0, dur = (s && s.bb.stun) || 0;
-  return [...kitReborn('Attack')(ab), {
-    sil: true,
-    spawn(_b, _e, a) { a.n = 0; },
-    attack(c, b, e, a) {
-      if (!every || ++a.n % every) return;
-      const hit = new Set(c.targets.filter((t) => t && t.alive));
-      for (const u of areaAllies(b, e, e.x, e.y, DFAT_STUN_REACH)) {
-        if (hit.has(u)) continue;
-        hit.add(u);
-        hurt(b, e, u, e.s.atk, 'phys', { isSkill: false });
-      }
-      b.fx('explode', { x: e.x, y: e.y, r: DFAT_STUN_RADIUS, kind: 'dfatStun' });
+  const s = ab.sk.StunAttack, cost = s && s.sp > 0 ? s.sp : 0, dur = (s && s.bb.stun) || 0;
+  const P = { sp: 0 };
+  const pick = (b, e) => {
+    const out = e.blockedBy && e.blockedBy.alive ? [e.blockedBy] : [];
+    for (const u of areaAllies(b, e, e.x, e.y, DFAT_STUN_REACH)) if (!out.includes(u)) out.push(u);
+    return out;
+  };
+  // the prefab's ReadyEnemySkillEffect (enemy_dfat_skill_hint): fx 'enemySkillReady' on 1 as the SP fills, on 0 at the cast
+  const ready = (b, e, on) => b.fx('enemySkillReady', { x: e.x, y: e.y, id: e.id, ability: 'StunAttack', on });
+  return [...kitReborn('Attack')(ab), { attack(_c, b, e) {
+    if (!(cost > 0) || P.sp >= cost) return;
+    P.sp++;
+    if (P.sp >= cost) ready(b, e, 1);
+  } }, skill(s, (b, e) => {
+    P.sp = 0;
+    ready(b, e, 0);
+    const k = e.mem.ab && e.mem.ab.casting;
+    if (k) e.skillAnimUntil = k.until;
+    const hit = pick(b, e);
+    atCastEvent(b, e, s, () => {
+      b.fx('explode', { x: e.x, y: e.y, r: DFAT_STUN_RADIUS, kind: 'dfatStun', id: e.id, ability: 'StunAttack' });
+      for (const u of hit) hurt(b, e, u, e.s.atk, 'phys');   // one gone meanwhile (knocked out, withdrawn) is not alive
       if (dur > 0) for (const u of hit) if (u.alive) b.applyStatus(u, 'stun', { duration: dur, source: e });
-    },
-  }];
+    });
+  }, { sil: true, cond: (b, e) => cost > 0 && P.sp >= cost && pick(b, e).length > 0 })];
 }
 
 /**

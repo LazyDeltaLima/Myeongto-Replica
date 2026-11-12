@@ -853,22 +853,51 @@ test('萨卡兹子裔轰击者: its shell lies 4 s where it landed, then physica
   for (const x of first) assert.ok(Math.abs(x.n - atk) < 1e-6, 'ATK × 1 (DEF 0)');
 });
 
-test('萨卡兹子裔责罚者: every 4th attack (spCost 3) hits and stuns 4 s its blocker and every unit touching its 1-tile circle; silenced, plain attacks', () => {
+test('萨卡兹子裔责罚者: after 3 attacks (spCost 3) StunAttack is cast in place of the 4th — its Skill clip, and at its attack event its blocker and every unit touching its 1-tile circle take ATK and a 4 s stun; silenced, plain attacks', () => {
   const key = 'enemy_1362_dfat', s = E3[key].skills.find((x) => x.prefabKey === 'StunAttack');
   assert.deepEqual([s.spCost, s.bb.stun], [3, 4]);
+  assert.deepEqual(E3[key].skillCast.stunattack, { family: 3, clip: 'Skill', dur: 1.6, hit: 0.567, max: 1, time: 0 });
   const run = (silence) => {
     const { h, hits } = waveField([key], [{ chessId: 't_wall', row: 10, col: 6, uid: 1 }, { chessId: 't_wall', row: 11, col: 6, uid: 2 }, { chessId: 't_wall', row: 12, col: 6, uid: 3 }]);
     const e = blockedOn(h, key, h.unit(1));
     if (silence) h.b.applyStatus(e, 'silence', { duration: 60, source: null });
-    h.runUntil(() => e.stats.attacks >= 4, 40);
-    h.step();
-    return { h, hits };
+    const casts = [], ready = [];
+    onSkill(h, e, (ability) => casts.push({ ability, at: h.b.time, attacks: e.stats.attacks }));
+    const fx = h.b.fx.bind(h.b);
+    h.b.fx = (kind, p) => { if (kind === 'enemySkillReady' && p?.id === e.id) ready.push({ on: p.on, ability: p.ability, attacks: e.stats.attacks, at: h.b.time }); return fx(kind, p); };
+    return { h, hits, e, casts, ready };
   };
-  const { h, hits } = run(false);
+  const { h, hits, e, casts, ready } = run(false);
+  assert.ok(h.runUntil(() => casts.length > 0, 40), 'cast');
+  const c = casts[0];
+  // the ready hint (ReadyEnemySkillEffect enemy_dfat_skill_hint): on as the third attack fills the SP, off at the cast
+  assert.deepEqual(ready.map((x) => [x.on, x.ability, x.attacks]), [[1, 'StunAttack', 3], [0, 'StunAttack', 3]]);
+  assert.ok(ready[1].at === c.at, 'off as it is cast');
+  assert.equal(c.ability, 'StunAttack');
+  assert.equal(c.attacks, 3, 'after three normal attacks');
+  assert.ok(Math.abs(e.skillAnimUntil - c.at - 1.6) < 1e-6, `its Skill clip, 1.6 s (${e.skillAnimUntil - c.at})`);   // the tick's snapshot
+  assert.ok(Math.abs(e.castLeft - (1.6 - (h.b.time - c.at))) < TICK + 1e-6, 'it stands for the cast');
+  const atk = e.stats.attacks;
+  h.runUntil(() => h.b.time >= c.at + 0.567 - 0.05, 2);
+  assert.ok(!h.unit(1).s.flags.stun, 'nothing before the attack event');
+  h.runUntil(() => h.unit(1).s.flags.stun, 1);
+  const first = hits.find((x) => x.at >= c.at);
+  assert.ok(first && first.at - c.at >= 0.567 - 1e-6 && first.at - c.at <= 0.567 + TICK, `at the clip's attack event, the first tick after it (${first && (first.at - c.at).toFixed(3)})`);
   assert.ok(h.unit(1).s.flags.stun && h.unit(2).s.flags.stun && !h.unit(3).s.flags.stun, 'the blocker and the one a row down, not two rows down');
-  assert.ok(hits.some((x) => x.t === h.unit(2)) && !hits.some((x) => x.t === h.unit(3)), 'the one a row down is hit');
+  const own = hits.filter((x) => x.at >= c.at);
+  assert.ok(own.some((x) => x.t === h.unit(1)) && own.some((x) => x.t === h.unit(2)) && !own.some((x) => x.t === h.unit(3)), 'both hit, the third not');
+  assert.equal(e.stats.attacks, atk, 'in place of the normal attack');
+  // the SP starts again: the next cast after three more attacks; its targets are taken as it starts (`_selectTargetSource`
+  // FROM_OWNER) — the one a row down withdrawn before the attack event is not hit
+  assert.ok(h.runUntil(() => casts.length > 1, 60), 'cast again');
+  assert.equal(casts[1].attacks, 6, 'three more attacks');
+  h.b.retreat(h.unit(2));
+  const n2 = hits.length;
+  h.runUntil(() => h.b.time >= casts[1].at + 0.567 + 2 * TICK, 2);
+  assert.ok(hits.slice(n2).some((x) => x.t === h.unit(1)) && !hits.slice(n2).some((x) => x.t === h.unit(2)), 'the withdrawn one is not hit');
   const q = run(true);
-  assert.ok(!q.h.unit(1).s.flags.stun && !q.hits.some((x) => x.t === q.h.unit(2)), 'silenced: none');
+  q.h.runUntil(() => q.e.stats.attacks >= 5, 40);
+  assert.ok(!q.casts.length && !q.h.unit(1).s.flags.stun && !q.hits.some((x) => x.t === q.h.unit(2)), 'silenced: plain attacks, no cast');
 });
 
 test('新生血裔: arts × (0.2 × enemies its target blocks + 1), heals 2.2 × the damage; knocked out, a 血珀', () => {

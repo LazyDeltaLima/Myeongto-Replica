@@ -111,6 +111,9 @@ export const FX_KINDS = Object.freeze({
   enemySkill: { a: 'none', c: 0xffffff },
   // the end of a held enemy skill (an 'enemySkill' with `hold`: 子代's 摄食 — bosses.js kitBrood): { id, ability }
   enemySkillEnd: { a: 'none', c: 0xffffff },
+  // an enemy skill's ready hint on / off (the prefab's ReadyEnemySkillEffect — 萨卡兹子裔责罚者: enemies/reborn.js kitPunisher):
+  // { id, ability, on }
+  enemySkillReady: { a: 'none', c: 0xffffff },
   // an enemy ability's official projectile leaving (sim enemies/helpers.js shoot: { id, from?, tgt, key, move, speed, t }) —
   // drawn by the official-effect layer when it knows `key`; nothing procedural (the kit's own fx stay)
   enemyShot: { a: 'none', c: 0xffffff },
