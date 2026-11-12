@@ -681,6 +681,15 @@ export const FORMS = Object.freeze({
   enemy_10163_mnctur_2: Object.freeze({
     Run: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Skill', deploy: 'Skill', move: loop('Skill') }) }),
   }),
+  // 2026-11-12: 暴走食人花 digesting (bounty.js kitTrwlpl → form 'eat' for 20 s, null back): the prefab mode Eat — its
+  // SimpleUnitAnimatorHooker leaves out Move and turns Die into Attack_Die, its Skills/Eat a ThreePartChannelingAnimation
+  // looping Attack_Idle and closing on Attack_End; the switch (SwitchMode) has no clip of its own
+  enemy_10003_trwlpl_2: Object.freeze({
+    eat: Object.freeze({
+      change: null, leave: 'Attack_End',
+      roles: Object.freeze({ idle: 'Attack_Idle', deploy: 'Attack_Idle', move: loop('Attack_Idle'), stun: loop('Attack_Idle'), die: 'Attack_Die', attack: null, skill: null }),
+    }),
+  }),
   enemy_10081_mpplai: Object.freeze({
     translator_fuchou: Object.freeze({ change: 'A_Die_B', roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }),
     translator_youling: Object.freeze({ change: 'A_Die_C', roles: clipSet('C_Idle', 'C_Move', 'C_Die') }),
@@ -1067,6 +1076,15 @@ export class UnitView {
 
   _formSpec() {
     return this.form ? FORMS[this.info.spine || this.info.defId]?.[this.form] || null : null;
+  }
+
+  /**
+   * 2026-11-12: whether this model draws form `k` itself (FORMS / SKIN_FORMS of its skeleton; null: back from one of them) —
+   * fxgame.js then draws no stand-in puff for the mode switch (docs/rules/fx.md 「규정 특수 적 항목·호위」).
+   */
+  knowsForm(k) {
+    const id = this.info.spine || this.info.defId;
+    return k == null ? !!(FORMS[id] || SKIN_FORMS[id]) : !!(FORMS[id]?.[k] || SKIN_FORMS[id]?.[k]);
   }
 
   /**

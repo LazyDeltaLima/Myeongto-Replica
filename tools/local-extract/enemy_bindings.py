@@ -614,6 +614,19 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
                 walk(v, ev)
     for ev, acts in (t.get('eventToActions') or {}).items():
         walk(acts, str(ev))
+    # (2026-11-12) a blink (Nodes.BlinkNode in ON_BUFF_START): the effects its CreateEffect nodes make before it (where the
+    # unit leaves) and after it (where it lands) — 聆风猎手's enemy_shkrbt_blink: enemy_shkrbt_skill_01_start, then _end
+    acts0 = (t.get('eventToActions') or {}).get('0') or (t.get('eventToActions') or {}).get(0) or []
+    if depth == 0 and isinstance(acts0, list) and any(str((n or {}).get('$type') or '').endswith('BlinkNode') for n in acts0):
+        side = 'from'
+        for n in acts0:
+            typ = str((n or {}).get('$type') or '')
+            if typ.endswith('BlinkNode'):
+                side = 'to'
+            elif typ.endswith('+CreateEffect') and isinstance(n.get('_effectKey'), str) and n['_effectKey'].lower() in FX:
+                lst = out.setdefault('blink', {}).setdefault(side, [])
+                if n['_effectKey'] not in lst:
+                    lst.append(n['_effectKey'])
     return out or None
 
 
@@ -799,7 +812,8 @@ def names_of_part(p):
     pr = p.get('proj') or {}
     for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart', 'stop'):
         out += pr.get(f, [])
-    out += p.get('summon', [])
+    out += p.get('summon', []) + p.get('dying', [])
+    out += [x for side in ('from', 'to') for x in (p.get('blink') or {}).get(side, [])]
     for sp in pr.get('sub', []):
         for f in ('trail', 'hit', 'reached', 'targetStart', 'start'):
             out += sp.get(f, [])
@@ -875,7 +889,21 @@ def render_entry(r, projs):
                   for o in a.get('otherFx') or [] if o.get('field') == '_buffs.blackboard.valueStr')
         if dr:
             part['summon'] = dr
-        if any(part.get(f) for f in ('cast', 'hit', 'attach', 'hitBuff', 'buff', 'proj', 'line', 'tile', 'summon')):
+        # (2026-11-12) the blink its buff makes (template `blink`: where it leaves / where it lands — 聆风猎手's Blink), and the
+        # effects a buff it holds creates as its owner's HP would reach zero (Buff.Event 27 ON_BEFORE_TRY_SET_HP_ZERO:
+        # 暴走食人花 killed while digesting, enemy_trwlpl_s → enemy_trwlpl_end-vomit_01) — `dying`
+        for a in lst:
+            for kk in ('activeBuffs', 'buffs'):
+                for b in a.get(kk) or []:
+                    bl = (b.get('template') or {}).get('blink') or {}
+                    for side in ('from', 'to'):
+                        if bl.get(side):
+                            tgt = part.setdefault('blink', {}).setdefault(side, [])
+                            tgt += [x for x in bl[side] if x not in tgt]
+        dying = uniq(x for a in lst for b in a.get('buffs') or [] for x in ((b.get('template') or {}).get('onEvent') or {}).get('27', []))
+        if dying:
+            part['dying'] = dying
+        if any(part.get(f) for f in ('cast', 'hit', 'attach', 'hitBuff', 'buff', 'proj', 'line', 'tile', 'summon', 'blink')):
             part['anim'] = next((a['anim'] for a in lst if a.get('anim')), None)
             if part['anim'] is None:
                 del part['anim']

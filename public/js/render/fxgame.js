@@ -236,6 +236,19 @@ const HEADSHOT_MODES = Object.freeze({ HeadShot: 'HeadShot' });
 const SHOT_BLASTS = new Set(['bomb', 'cansld', 'wingnt']);
 /** 2026-11-11: 'explode' kinds whose official blast has no effect of its own — the ability's cast effects draw it. */
 const CAST_BLASTS = new Set(['ltndruAoe']);
+/**
+ * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」): 'atk' kinds that are the shot of the enemy's running ability, not its plain
+ * attack — 破城者's SkyProjectile missiles (bounty.js kitUareap, MultiRangedAttack of projectile_enemy_uareap_skill): no
+ * plain-attack effects; the projectile shows only at its burst ('explode', AREA_SHOT_BLASTS).
+ */
+const ABILITY_SHOT_ATKS = new Set(['uareapMissile']);
+/**
+ * 2026-11-12: 'explode' kinds of an ability's projectile bursting where it reached (eprojAreaFx) whose units hit get the
+ * projectile's `_effectsWhenHit` only (dblastHit) — not its reach effects again, nor the enemy's plain hit: 破城者's missile
+ * (projectile_enemy_uareap_skill: AttachToTarget `_delayToStart` 0.6 on the spot, `_effectsWhenReached` enemy_uareap_skill_hit_01,
+ * no hit effect).
+ */
+const AREA_SHOT_BLASTS = new Set(['uareap']);
 const FORM_MODES = Object.freeze({
   enemy_1116_liprr: PRISONER_MODES, enemy_1116_liprr_2: PRISONER_MODES, enemy_1118_lidbox_2: PRISONER_MODES,
   enemy_1119_vofsd: PRISONER_MODES, enemy_1121_lifbos: PRISONER_MODES, enemy_1121_lifbos_2: PRISONER_MODES,
@@ -5098,11 +5111,33 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const o = e[4], src = views.get(o.id);
     if (!src || !eOn(src) || level() >= 3) return false;
     const pr = eskillPart(src, o.ability)?.proj;
+    if (pr?.move === 'TRACE_TARGET_WITHIN_TIME' && Array.isArray(pr.trail) && pr.trail.length) return eprojDrop(e, src, pr);
     if (!pr || Array.isArray(pr.trail) && pr.trail.length) return false;   // one that flies there: its shot draws it
     const start = [...(pr.start || []), ...(pr.targetStart || []), ...(pr.tileStart || [])];
     if (![...start, ...(pr.hit || []), ...(pr.reached || [])].some(efx)) return false;
     const x = Number(e[2]), y = Number(e[3]);
     for (const n of start.slice(0, MAX_HIT_FX)) { const r = efx(n); if (r) spawn(r[0], r[1], { x, y, z: 0 }, { owner: null, buff: false }, { over: false }); }
+    dshells.push({ x, y, id: o.id, pr: { stop: pr.reached || [], hit: pr.hit || [] }, src, marks: [], done: false });
+    if (dshells.length > 64) dshells.shift().done = true;
+    return true;
+  }
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」): an enemy ability's projectile dropped on a spot in a set time — sim fx
+   * 'telegraph' { x, y, r, dur, id, ability } as it leaves, 'explode' { …, id, ability } `dur` s later, the burst's damage right
+   * after it in that tick (遮天面包机's Bomb, bounty.js kitNsbomb: projectile_enemy_nsbomb, AdvancedMovement TRACE_TARGET_WITHIN_TIME
+   * `_onlyReachedInTime` 0.5 to the tile under it). Its `_mainEffect` (proj.trail: enemy_nsbomb_attack_01_trail, cleared as it
+   * reaches) flies from its `_mountPointType` point to the spot over `dur`; at the burst its `_effectsWhenReached` (proj.reached:
+   * enemy_nsbomb_attack_01_hit_01) play on the spot once (dshellBlast) and its `_effectsWhenHit` (proj.hit: _hit_02) on each
+   * unit the burst hits (dblastHit) — not the reach effect again on each. true = drawn (no stand-in ring or blast).
+   */
+  function eprojDrop(e, src, pr) {
+    const o = e[4], r = efx(pr.trail[0]);
+    if (!r) return false;
+    const x = Number(e[2]), y = Number(e[3]), dur = Math.max(0.04, Number(o.dur) || 0);
+    if (camRef && !trailFull()) {
+      const from = eshotFrom(src, pr.mount);
+      launchTrail({ inst: null, esrc: src.id, etgt: null, tgt: null, x0: from.x, y0: from.y, z0: from.z, tx: x, ty: y, tz: 0, k: 0, dur, arc: 0 }, r[0], r[1]);
+    } else if (dry && trace) trace({ kind: 'spawn', names: [r[1]], by: ownerOf(src), on: null, tag: 'dropTrail', facing: 1 });   // tests
     dshells.push({ x, y, id: o.id, pr: { stop: pr.reached || [], hit: pr.hit || [] }, src, marks: [], done: false });
     if (dshells.length > 64) dshells.shift().done = true;
     return true;
@@ -5239,6 +5274,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
     if (e[1] !== 'zone') {
       for (const n of names.slice(0, MAX_HIT_FX)) { const r = efx(n); spawn(r[0], r[1], at, { owner: null, buff: false }, { over: false }); }
+      // 2026-11-12: its burst's damage of this tick — the projectile's own hit effects on each unit (AREA_SHOT_BLASTS)
+      if (AREA_SHOT_BLASTS.has(o.kind) && v) {
+        dblasts.set(o.id, { t: clockS, rec: { src: v, pr: { hit: pr.hit || [] } } });
+        if (dblasts.size > 64) dblasts.delete(dblasts.keys().next().value);
+      }
       return true;
     }
     const dur = Math.max(0, Number(o.dur ?? o.duration) || 0);
@@ -5266,8 +5306,31 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const AC_PHASE_BUFF = { acspiderEvade: 'acspdier[evade]', aceelShield: 'aceel[shield]' };
   const AC_NO_BORN = new Set(['enemy_9036_acweb']);
   // 2026-11-12 (docs/rules/fx.md 「규정 특수 적 항목·호위」): enemies whose sim form change is the client's SwitchMode alone — it
-  // creates no effect (stepEnemies), so the 'phase' of their setForm draws no stand-in: 神勇的帕拉杜利斯 into Run and back
-  const SWITCH_ONLY = new Set(['enemy_10163_mnctur_2']);
+  // creates no effect (stepEnemies), so the 'phase' of their setForm draws no stand-in: 神勇的帕拉杜利斯 into Run and back,
+  // 暴走食人花 into Eat and back (whether or not the view says it knows the form: formSwitchOnly is the general rule)
+  const SWITCH_ONLY = new Set(['enemy_10163_mnctur_2', 'enemy_10003_trwlpl_2']);
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」): an enemy skill cast in a mode the sim holds as a form, whose buff's effect
+   * lasts while that buff does — held from its 'enemySkill' until the 'phase' leaving that form (or its death): defId →
+   * { ability: form }. 暴走食人花's Skills/Eat in mode Eat (bounty.js kitTrwlpl → form 'eat' for its 20 s): enemy_trwlpl_s's
+   * effect enemy_trwlpl_idlebuff_02 (a looping prefab).
+   */
+  const FORM_HELD_SKILLS = Object.freeze({ enemy_10003_trwlpl_2: Object.freeze({ Eat: 'eat' }) });
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 특수 적 항목·호위」): a sim 'phase' { id, kind, form } of an enemy (or a walking ally)
+   * into a form its model draws (render/units.js FORMS / SKIN_FORMS: the view's knowsForm — every FORM_MODES form is one), or
+   * back (form null) — the client's SwitchMode, which creates no effect: the clip set (and its change clip) is the switch, no
+   * stand-in puff on top. A form the model does not draw keeps the puff (nothing else shows it).
+   */
+  function formSwitchOnly(o, views) {
+    const v = views.get(o.id);
+    if (!v?.info || !(v.info.side === 'enemy' || v.info.walks)) return false;
+    return typeof v.knowsForm === 'function' && !!v.knowsForm(o.form);
+  }
+  function formHeldEnd(o, views) {
+    const v = views.get(o.id), m = v ? FORM_HELD_SKILLS[v.info?.defId] : null;
+    if (m) for (const [k, f] of Object.entries(m)) if (o.form !== f) eskillFx(v, k, { on: false });
+  }
   function acBossFx(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object') return false;
@@ -5722,7 +5785,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * `loop`, cut at 20 s [추정: an end the sim does not announce]; once otherwise), its projectile's trail to `target` with its
    * start effects there; the units its damage hits next get its hit effects (eskillHit). true when the enemy binds it.
    */
-  function eskillFx(v, key, { on = true, loop = false, target = null, hold = false } = {}) {
+  function eskillFx(v, key, { on = true, loop = false, target = null, hold = false, cap = 20 } = {}) {
     const part = eskillPart(v, key);
     if (!part || !eOn(v)) return false;
     const pr0 = part.proj || {};
@@ -5731,6 +5794,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const id = ownerOf(v);
     if (!on) {
       for (const l of live) if (l.tag === 'eskill' && l.owner === id) l.inst.stop();
+      if (trace) trace({ kind: 'eskillEnd', names: [key], by: id, at: null });   // tests: its held effects stopped
       if (v._fxESkill) { v._fxESkill.hold = false; v._fxESkill.t = -99; }   // a held skill's end: its later damage is no hit of it
       return true;
     }
@@ -5748,7 +5812,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (loops.length) eplay(v, loops, { buff: true, tag: 'eskill', until: clockS + ESKILL_HOLD_CAP });
     } else eplay(v, edirs(v, part, part.cast), { tag: 'cast' });
     const own = [...(part.buff || []), ...(part.attach || [])];
-    if (own.length) eplay(v, own, loop ? { buff: true, tag: 'eskill', until: clockS + 20 } : { tag: 'cast' });
+    if (own.length) eplay(v, own, loop ? { buff: true, tag: 'eskill', until: clockS + cap } : { tag: 'cast' });
     const pr = part.proj;
     if (target && pr && target !== v) {
       if (Array.isArray(pr.targetStart)) eplay(v, pr.targetStart, { at: target });
@@ -6174,6 +6238,32 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!eOn(v)) return;
     const dead = edeadOf(v);
     if (dead) eplay(v, [dead], { owner: null, tag: 'dead' });
+    // 2026-11-12: knocked out in a form-held skill (FORM_HELD_SKILLS) — the effects its buff creates as the HP would reach
+    // zero (enemy-modes.json skills[…].dying, Buff.Event ON_BEFORE_TRY_SET_HP_ZERO): 暴走食人花 digesting, enemy_trwlpl_end-vomit_01
+    const held = FORM_HELD_SKILLS[v.info?.defId];
+    if (held && level() < 3) {
+      for (const [k, f] of Object.entries(held)) {
+        if ((v.form ?? v.info?.form) !== f) continue;
+        const dying = eskillPart(v, k)?.dying;
+        if (Array.isArray(dying) && dying.length) eplay(v, dying, { owner: null, tag: 'dead' });
+      }
+    }
+  }
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」): an enemy's blink — sim fx 'teleport' { x, y, fromX, fromY, id, ability }
+   * (bounty.js kitShkrbt: 聆风猎手's Blink). Its buff's template (enemy-modes.json skills[ability].blink, enemy_bindings.py)
+   * creates `from` on it before its BlinkNode — where it leaves (enemy_shkrbt_skill_01_start: no FollowMountPoint, it stays
+   * there) — and `to` after it, on it where it lands (enemy_shkrbt_skill_01_end). true = drawn (no stand-in blink).
+   */
+  function eblinkFx(e, views) {
+    const o = e[4], v = views.get(o.id);
+    if (!eOn(v) || level() >= 3) return false;
+    const bl = eskillPart(v, o.ability)?.blink;
+    if (!bl || ![...(bl.from || []), ...(bl.to || [])].some(efx)) return false;
+    const fx0 = Number(o.fromX), fy0 = Number(o.fromY);
+    if (Number.isFinite(fx0) && Number.isFinite(fy0)) eplay(v, bl.from || [], { at: { x: fx0, y: fy0, z: 0 }, owner: null });
+    eplay(v, bl.to || [], {});
+    return true;
   }
 
 
@@ -6496,6 +6586,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (efoe(src)) {
             if (!eOn(src)) return;
             if (src._fxESkill?.inPlace) { src._fxESkill.inPlace = false; return; }   // the ability's strike (inPlaceOfAttack)
+            if (ABILITY_SHOT_ATKS.has(e[3])) return;   // 2026-11-12: its ability's shot (破城者's missiles), drawn at its burst
             const tgt = views.get(e[2]);
             const p = estrikeFx(src, e[3]);
             if (tgt && p?.part) {
@@ -6604,6 +6695,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'shotSlow' && e[4]) { shotSlowFx(e[4]); return; }
           // 2026-10-31: 刺胄之弹's flight — its boss skill's projectile trail rides the shell (then the cast's effects below)
           if (e[1] === 'shell' && e[4]?.caster != null && e[4].id != null && typeof e[4].ability === 'string' && eshellRide(e, views)) ownFx.add(e);
+          if (e[1] === 'phase' && e[4]?.id != null && 'form' in e[4]) {
+            formHeldEnd(e[4], views);   // 2026-11-12: 暴走食人花's digest
+            if (formSwitchOnly(e[4], views)) ownFx.add(e);   // 2026-11-12: a known form's switch, no puff
+          }
           if (acBossFx(e, views)) { ownFx.add(e); return; }   // 2026-11-10: 假想敌：茧 / 鳍 (规程)
           if (SOUL_KINDS.has(e[1]) && e[4]?.id != null) { if (soulFx(e, views)) ownFx.add(e); return; }   // 2026-11-12: 魂灵法骸 / 魂灵残迹
           // 2026-11-11: an enemy's summon (fx 'summon' { id: its parent, key }) whose summoned enemy has an extracted
@@ -6635,6 +6730,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             const pr = from && views.get(o.to) ? eshotDrawable(views.get(o.caster) || from, SHOT_BEAMS[o.kind]) : null;
             if (pr && !pr.link && efx(Array.isArray(pr.trail) ? pr.trail[0] : null)) { ownFx.add(e); return; } // its trail flies instead
           }
+          if (e[1] === 'teleport' && e[4]?.id != null && typeof e[4].ability === 'string' && eblinkFx(e, views)) { ownFx.add(e); return; }   // 2026-11-12: 聆风猎手
           // 2026-10-10: an enemy's skill / special action naming its ability (fx 'enemySkill' and the fx of its cast) — that ability's official
           // effects, and no procedural stand-in for it (standInOff's kinds) when the enemy binds it
           if (e[4] && typeof e[4] === 'object') {
@@ -6643,6 +6739,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             if (v?.info?.side === 'enemy' || v?.info?.walks) {   // (2026-11-11: a walking ally's ability too)
               // 2026-10-15: a held skill's end ('enemySkillEnd' { id, ability } after an 'enemySkill' with `hold`)
               if (e[1] === 'enemySkillEnd') { eskillFx(v, k, { on: false }); return; }
+              // 2026-11-12: a skill whose buff effect lasts with its form (FORM_HELD_SKILLS) — held to that form's end
+              if (e[1] === 'enemySkill' && FORM_HELD_SKILLS[v.info?.defId]?.[k]) { eskillFx(v, k, { loop: true, cap: ESKILL_HOLD_CAP }); return; }
               const tgt = o.target ?? o.tgt ?? o.to;
               if (eskillFx(v, k, { target: tgt != null ? views.get(tgt) || null : null, hold: e[1] === 'enemySkill' && !!o.hold }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
               return;
