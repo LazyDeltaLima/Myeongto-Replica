@@ -876,6 +876,8 @@ export class UnitView {
     this.hasDir = !this.enemyModel && typeof info.dir === 'string' && DIRS.includes(info.dir.toUpperCase());
     this.facing = this.dir === 'LEFT' ? -1 : 1;
     this.visFacing = this.enemyModel ? -1 : this.facing;
+    // an enemy's body direction (Entity.direction) as its walk last turned it: UP / DOWN / 'side' (onEnemySkill)
+    this.moveWay = 'side';
     // an operator's / summon's facing while it fights (render/face-turn.js): the mirror `lr`, Back / Front `ud`, `dir4`;
     // its deploy direction until an attack turns it (turnTo); `faceUd` the half shown (Back / Front: a turn changes it
     // edge-on, half way through — `turnS` { t, shown } the turn under way)
@@ -1350,6 +1352,9 @@ export class UnitView {
         if (this.imp) this.imp.dirty = true;
       }
     }
+    // its walk turns its body too (Enemy._MoveByCursor: FaceTo its next direction while the next checkpoint is over 0.25
+    // tiles away → OnFaceChanged); the view knows only the walk's velocity
+    if (this.enemyModel && s.vx * s.vx + s.vy * s.vy > 1e-4) this.moveWay = faceWay(s.vx, s.vy);
     if (this.enemyModel && !this.slide?.face && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
     // an operator on a kit's flight (snapshot anim MOVE: 予愿安洁莉娜 S3, whose flight `_faceToMoveDirection`) faces its
     // travel, and its own direction again once it stands
@@ -1587,7 +1592,8 @@ export class UnitView {
   /**
    * 2026-11-12: an enemy ability cast now (the sim's fx 'enemySkill' { id, ability, dur? }; `late` = game s the fx is shown
    * late; `o`: { dur: its channel's game s, aim: { x, y } of its target }): its own clip once, or its three-part channel over
-   * `dur` in the way it faces `aim` (ESKILL_CLIPS), unless that would have ended already. True when it plays.
+   * `dur` in the way it faces `aim` (ESKILL_CLIPS; within 0.2 tiles of `aim`, the way it last walked), unless that would
+   * have ended already. True when it plays.
    */
   onEnemySkill(ability, late = 0, o = null) {
     const spec = this.isEnemy && this.alive && this.actor ? ESKILL_CLIPS[this.info.spine || this.info.defId]?.[ability] : null;
@@ -1600,7 +1606,11 @@ export class UnitView {
     }
     const total = Number(o?.dur) - late;
     if (!(total > 0)) return false;
-    const way = o?.aim && Number.isFinite(o.aim.x) && Number.isFinite(o.aim.y) ? faceWay(o.aim.x - this.x, o.aim.y - this.y) : 'side';
+    // the ability's `_faceToTarget` turns it to the target (Entity.FaceToTarget: only beyond 0.2 tiles) and an enemy's face
+    // turns its body the FOUR_WAYS way (Enemy.SetBodyDirectionWithPolicy, DEFAULT_FOUR_WAYS); nearer, the walk's way stays
+    const dx = o?.aim ? o.aim.x - this.x : NaN, dy = o?.aim ? o.aim.y - this.y : NaN;
+    if (Number.isFinite(dx) && Number.isFinite(dy) && dx * dx + dy * dy > 0.04) this.moveWay = faceWay(dx, dy);
+    const way = this.moveWay;
     const set = (way === 'DOWN' ? spec.down : way === 'UP' ? spec.up : null) || spec;
     const a = this.actor;
     return a.chant({ begin: set.begin, loop: set.loop, end: set.end, total });

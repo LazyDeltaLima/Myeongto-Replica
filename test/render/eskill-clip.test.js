@@ -178,3 +178,25 @@ test('render/app.js hands each fx \'enemySkill\' to its view', () => {
   const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
   assert.match(app, /if \(e\[1\] === 'enemySkill' && e\[4\] && typeof e\[4\]\.ability === 'string' && e\[4\]\.id != null\) \{\n {10}const t = e\[4\]\.tgt != null \? views\.get\(e\[4\]\.tgt\) : null;\n {10}views\.get\(e\[4\]\.id\)\?\.onEnemySkill\?\.\(e\[4\]\.ability, LATE\.get\(e\) \|\| 0, \{ dur: Number\(e\[4\]\.dur\) \|\| 0, aim: t \? \{ x: t\.x, y: t\.y \} : null \}\);/);
 });
+
+test('“喷射罐”: the set follows its body direction — the target\'s FOUR_WAYS axis beyond 0.2 tiles, nearer the way it last walked (or last faced)', async () => {
+  const WINBOM = 'enemy_1385_winbom';
+  const cast = async (walk, aim, uid) => {
+    const v = await view(WINBOM, uid, 8, 9);
+    if (walk) v.sync({ x: 8, y: 9, hp: 1000, maxHp: 1000, sp: 0, spMax: 0, flags: 0, anim: 0, vx: walk[0], vy: walk[1] }, 0);
+    v.sync({ x: 8, y: 9, hp: 1000, maxHp: 1000, sp: 0, spMax: 0, flags: 0, anim: 0, vx: 0, vy: 0 }, 0);   // it stops, blocked
+    assert.equal(v.onEnemySkill('Flame', 0, { dur: 4, aim: aim && { x: 8 + aim[0], y: 9 + aim[1] } }), true);
+    return v;
+  };
+  assert.equal((await cast([0, -0.6], [0.1, 0], 21)).actor.current, 'Skill_Down_Begin', 'walked down, target 0.1 to its side: still down');
+  assert.equal((await cast([0, 0.6], null, 22)).actor.current, 'Skill_Up_Begin', 'walked up, no target position: up');
+  assert.equal((await cast([0.6, 0], [0, -0.15], 23)).actor.current, 'Attack_Begin', 'walked sideways, target 0.15 below: still the side set');
+  assert.equal((await cast([0, -0.6], [0.5, 0], 24)).actor.current, 'Attack_Begin', 'walked down, target 0.5 to its side: it turns');
+  assert.equal((await cast(null, [0.1, 0.1], 25)).actor.current, 'Attack_Begin', 'never walked: the side set');
+  assert.equal((await cast(null, [0.3, 0.3], 26)).actor.current, 'Skill_Up_Begin', 'a diagonal tie takes UP (FOUR_WAYS order)');
+  const v = await cast(null, [0, -0.5], 27);
+  assert.equal(v.actor.current, 'Skill_Down_Begin');
+  frames(v, 4.5);
+  v.onEnemySkill('Flame', 0, { dur: 4, aim: { x: 8.05, y: 9 } });
+  assert.equal(v.actor.current, 'Skill_Down_Begin', 'its next channel at a target within 0.2: the way its last cast faced');
+});
