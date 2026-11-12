@@ -193,7 +193,8 @@ they do not resume the previous skill state.
 退场状态的干员强制退场", user playtest #5 item 2): `start()` deploys it with everyone (initial `deploy` fires), then — before
 `battleStart` — withdraws it with reason `FORCED_EXIT` (constants.js `'forcedExit'`) and HP 0 (the end-of-phase HP ratio, as after
 `kill`): it is down on its tile (`isDown`, b.snap `down`) with its full redeploy timer and redeploys by the normal rule; no `kill` hook, no `'killed'` death (knock-out
-effects such as 深海 / 不屈 revives or 崇高牺牲 layers fired in its own combat), no `deaths` count. Right after `battleStart`
+effects such as 深海 / 不屈 revives or 崇高牺牲 layers fired in its own combat), no `deaths` count — but a 阿戈尔 member takes a
+slot of the 5-tier free respawn left after the battle-start devour and is back at once (upstream #882; docs/rules/sim.md). Right after `battleStart`
 its timer is re-read (`deathAt + respawnTime × persist.redeployMul × s.redeployMul`), so a redeploy-time effect switched on
 by a `battleStart` handler covers it like a later knock-out (机变 征召 −50 %; 征召's row check does not count it [ASSUMED]).
 

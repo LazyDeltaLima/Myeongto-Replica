@@ -627,7 +627,7 @@ test('阿戈尔 5: an operator\'s own save or revive uses no slot (斯卡蒂\'s 
   checkInvariants(hb.b);
 });
 
-test('阿戈尔 5 slots in 联防 and on the boss field: a member entering down takes none until it is knocked out after standing up; a 调和 member takes one; a mirrored player counts its own knock-outs', () => {
+test('阿戈尔 5 slots in 联防 and on the boss field: a member entering down takes one at the start (upstream #882) and none for a later knock-out; a 调和 member takes one; a mirrored player counts its own knock-outs', () => {
   const list = [['g0_a', ['egirShip']], ['g1_a', ['egirShip']], ['g2_a', ['egirShip']], ['g3_a', ['egirShip']], ['g4_a', ['egirShip']], ['mani_a', ['maniShip']]];
   // five members in five columns (one per column, nobody in front of anybody): g0 col 3 … g4 col 7
   const units = list.slice(0, 5).map(([chessId], i) => ({ chessId, row: 9 + (i % 2) * 3, col: 3 + i }));
@@ -636,20 +636,26 @@ test('阿戈尔 5 slots in 联防 and on the boss field: a member entering down 
     h.b.dealDamage(null, u, { amount: 1e9, type: 'true' });
     return u.alive;
   };
-  // 联防: g0 entered down (forced out before battleStart — not a 击倒, so no slot); g4 and g3 take two slots, g0's first
-  // knock-out after it stands back up takes the third, g1 finds none
+  // 联防: g0 and g2 entered down (forced out before battleStart — no 击倒 effects, but the client's start-of-battle removal
+  // runs the template's ON_OWNER_FINISH, upstream #882): both take a slot at once, in the deployment order (g0's column
+  // first); g4 takes the third; g3 finds none; g0's later knock-out is not its first and stays down
   const hu = makeBattle({
     kind: 'unite', defs: defsOf(list), autoFinish: false, timeLimit: 60, bonds: { egirShip: bondOn(5, 0, null, [3, 5]) },
-    units: units.map((u, i) => (i === 0 ? { ...u, carryState: { down: true } } : u)),
+    units: units.map((u, i) => (i === 0 || i === 2 ? { ...u, carryState: { down: true } } : u)),
+    hooks: ['death', 'deploy'],
   });
   hu.step(1);
-  const g0 = hu.unit('g0_a');
-  assert.ok(!g0.alive, 'g0 forced out');
-  assert.deepEqual(['g4_a', 'g3_a'].map((id) => revives(hu, id)), [true, true]);
-  assert.ok(hu.runUntil(() => g0.alive && g0.deployed, 25), 'g0 stands back up inside the redeploy time');
-  assert.equal(revives(hu, 'g0_a'), true, 'g0: its first knock-out takes the third slot');
-  assert.equal(revives(hu, 'g1_a'), false, 'g1: none left');
+  const [g0, g2] = ['g0_a', 'g2_a'].map((id) => hu.unit(id));
+  assert.ok(hu.hooksOf('death').some((c) => c.unit === g0 && c.reason === FORCED_EXIT), 'g0 forced out');
+  assert.ok(g0.alive && g2.alive && !g0.removed, 'g0 and g2 back on the field at the start');
+  close(g0.hp, g0.s.maxHp, 1e-6, 'full HP');
+  assert.deepEqual(hu.hooksOf('deploy').filter((c) => !c.initial).map((c) => c.unit.defId), ['g0_a', 'g2_a'], 'in the deployment order');
+  assert.deepEqual(hu.eventsOf('fx').filter((x) => x[1] === 'revive' && x[4]?.src === 'bond:egirShip').map((x) => x[4].n), [1, 2]);
+  assert.equal(hu.b._pp('p1').deaths, 0, 'not a knock-out');
+  assert.deepEqual(['g4_a', 'g3_a', 'g0_a'].map((id) => revives(hu, id)), [true, false, false], 'g4 the third slot; none left');
   checkInvariants(hu.b);
+  // no slot left for a member entering down: 3 slots, the devour of the left column takes them (the community report
+  // scan), the member entering down stays out and redeploys by the normal rule — covered by the devour-food test below
   // 调和 (an active 调和 member enjoys the core bonds): knocked out first, it takes the first slot
   const hm = makeBattle({
     defs: defsOf(list), autoFinish: false, timeLimit: 60,

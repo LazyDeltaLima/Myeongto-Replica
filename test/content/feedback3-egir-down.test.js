@@ -2,7 +2,7 @@
 // owner's decision 2026-10-04): an operator down at the end of its own combat still takes part in the battle-start devour
 // as if it stood (marking order, the unit in front, base ATK / block gains, its own marks' 物理流失) and is then forced
 // out — it used to be forced out first, which broke the chain at its tile. Nothing lands on it (it is never knocked out
-// again, revived or devoured).
+// again or devoured); with 阿戈尔 5 active it then takes a free-respawn slot the devour left (upstream #882).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -77,7 +77,7 @@ function head(ghostDown, five) {
   return h;
 }
 
-test('联防 阿戈尔: a down member at the head of the chain devours as if it stood — its 物理流失 lands (credited to it), then it stays out', () => {
+test('联防 阿戈尔: a down member at the head of the chain devours as if it stood — its 物理流失 lands (credited to it), then it stays out (3 members) or takes the slot after the devour\'s (5 members, upstream #882)', () => {
   for (const five of [false, true]) {
     const tag = five ? '5 members' : '3 members';
     const up = head(false, five);
@@ -90,7 +90,7 @@ test('联防 阿戈尔: a down member at the head of the chain devours as if it 
     assert.deepEqual(pairs(down), [[GHOST, GLADY], [GHOST, FODDER]], `${tag}: her two marks; 歌蕾蒂娅's on the fodder is cancelled (knocked out first)`);
     assert.ok(!fodder.alive, `${tag}: the fodder falls`);
     assert.equal(ghost.stats.kills, up.unit(GHOST).stats.kills, `${tag}: the kills are hers, as standing`);
-    assert.ok(!ghost.alive && ghost.removeReason === FORCED_EXIT && down.b.isDown(ghost), `${tag}: 幽灵鲨 stays forced out`);
+    assert.ok(down.hooksOf('death').some((c) => c.unit === ghost && c.reason === FORCED_EXIT), `${tag}: 幽灵鲨 forced out`);
     const revived = (h, u) => h.hooksOf('deploy').filter((c) => c.unit === u && !c.initial).length;
     if (five) {
       // the 5-tier revive: 歌蕾蒂娅's first knock-out (by the down 幽灵鲨's mark) spends a charge, as standing
@@ -98,9 +98,13 @@ test('联防 阿戈尔: a down member at the head of the chain devours as if it 
       assert.equal(revived(up, up.unit(GLADY)), 1);
       assert.ok(glady.alive, '歌蕾蒂娅 stands again');
       close(glady.hp, glady.s.maxHp, 1e-6, 'at full HP: no further mark on her');
-      assert.equal(revived(down, ghost), 0, 'the down 幽灵鲨 spends nothing');
+      // then the down 幽灵鲨 takes the next slot (the client's start-of-battle removal runs ON_OWNER_FINISH, upstream #882)
+      assert.equal(revived(down, ghost), 1, 'the down 幽灵鲨 is back at the start');
+      assert.ok(ghost.alive && ghost.deployed, '幽灵鲨 stands');
+      assert.deepEqual(down.hooksOf('deploy').filter((c) => !c.initial).map((c) => c.unit.defId), [GLADY, GHOST], 'the devour\'s revive first');
     } else {
       assert.ok(!glady.alive, '歌蕾蒂娅 falls to 幽灵鲨\'s mark (3 members: no revive)');
+      assert.ok(!ghost.alive && ghost.removeReason === FORCED_EXIT && down.b.isDown(ghost), `${tag}: 幽灵鲨 stays forced out`);
     }
     assert.equal(down.result().perPlayer.p1.deaths, up.result().perPlayer.p1.deaths, `${tag}: the same knock-outs`);
     checkInvariants(down.b);

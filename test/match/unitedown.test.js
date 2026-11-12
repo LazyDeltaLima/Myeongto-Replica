@@ -121,3 +121,43 @@ test('the docs describe the rule (docs/META.md §4, docs/SIM.md §1.1 / §9, doc
   assert.match(PLAYING, /作战结束时已被击倒的干员在原位倒地/);
   assert.ok(!/已倒下的干员不参加/.test(PLAYING));
 });
+
+for (const clientCombat of [true, false]) {
+  test(`联防 (${clientCombat ? 'client-side combat' : 'server-run fallback'}): a 阿戈尔 member entering down with the 5-tier active takes a free-respawn slot at the start (upstream #882)`, () => {
+    // official recording (Japanese server, third party): 幽灵鲨 and 斯卡蒂, knocked out in the helper's own combat, come
+    // back at the start of 联防, spending 阿戈尔 5 revives; the client's start-of-battle removal (`_ApplyChessStatus`,
+    // reason OTHER) runs the bond template's ON_OWNER_FINISH
+    const dead = new Set();
+    const h = makeMatch({
+      mode: 'coop', humans: 3, seed: 3702, fake: true, clientCombat,
+      script: (b) => (b.kind === 'normal' ? { leaks: { p_0: 3 }, deadUids: [...dead] } : {}),
+    }).start();
+    const m = h.m;
+    h.toPrep(1);
+    const p1 = h.ps('p_1'), p2 = h.ps('p_2');
+    // five different 阿戈尔 on p_1's board, never one in front of another (no devour)
+    const skip = new Set();
+    const members = ['chess_char_1_04_a', 'chess_char_2_07_a', 'chess_char_3_05_a', 'chess_char_3_09_a', 'chess_char_4_09_a'].map((id) => {
+      const at = legalTileFor(m, p1, id, skip);
+      for (const dc of [-1, 1]) skip.add(`${at[0]},${at[1] + dc}`);
+      return give(m, p1, id, 'board', at);
+    });
+    give(m, p2, chessOfTier(1, (c) => c.position === 'RANGED').find((x) => m.pool.has(x)), 'board',
+      legalTileFor(m, p2, chessOfTier(1, (c) => c.position === 'RANGED').find((x) => m.pool.has(x))));
+    const down = members[0];
+    dead.add(down.uid);
+    h.drive(() => m.phase === PHASE.UNITE);
+    assert.equal(m.unitePlan.helpers[0].playerId, 'p_1');
+    const { players, battle: b } = uniteBattle(m, clientCombat);
+    const inp = players.find((p) => p.playerId === 'p_1');
+    assert.deepEqual(inp.units.find((x) => x.uid === down.uid)?.carryState, { down: true });
+    assert.ok(inp.bonds?.egirShip?.count >= 5, `the 5-tier is active (${JSON.stringify(inp.bonds?.egirShip)})`);
+    do b.step(); while (b.waveT0 == null);
+    const u = b.allyUnits.find((x) => x.uid === down.uid && x.ownerId === 'p_1');
+    assert.ok(u.alive && u.deployed, 'back on the field at the start');
+    assert.ok(Math.abs(u.hp - u.s.maxHp) < 1e-6, 'at full HP');
+    assert.ok(b.drainEvents().some((e) => e[0] === 'fx' && e[1] === 'revive' && e[4]?.src === 'bond:egirShip'), 'the 阿戈尔 revive');
+    checkInvariants(m);
+    m.dispose();
+  });
+}

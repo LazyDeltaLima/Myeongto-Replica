@@ -3,8 +3,8 @@
 //   act1autochess_bond_eff_egir   members max HP +(base_max_hp + max_hp_per_stack·L) (直接乘算); battle start devour (see
 //                                 devour(): the marker's gained base ATK is a 最终加算, `atkFinal`, not scaled by its ATK
 //                                 +%); 5: max_free_respawn_cnt free redeploys, one per member on its first knock-out — the
-//                                 devour's knock-outs by board position once every devour is over (egirReviveScan), later
-//                                 ones at once
+//                                 devour's knock-outs by board position once every devour is over (egirReviveScan), then
+//                                 the 联防 members entering down (upstream #882), later ones at once
 //   act3autochess_bond_eff_egir   (卫戍协议：规程, bondeffect_egir_2 — 歌蕾蒂娅's strategy switches the bond to it) the same
 //                                 HP and devour; 6: a member's first knock-out calls the 整备区's rightmost 阿戈尔 of its
 //                                 deploy class onto its tile (≤ switch_cnt_max), with its devour gains (installEgirAct3)
@@ -50,7 +50,8 @@ function devourGains(battle) {
 
 /**
  * 联防: an operator forced out at the deployment (carry.down, Battle.start, before battleStart) still stands on its
- * deploy position for the devour (PRTS 盟约记录 最先部署). The forced exit is not a knock-out, so it takes no 5-tier slot.
+ * deploy position for the devour (PRTS 盟约记录 最先部署). The forced exit is not a knock-out (no 被击倒 effects), but a
+ * 5-tier member takes a slot left by the devour for it (installEgir, upstream #882).
  */
 function egirDownAtStart(battle, u) {
   return S.isOp(u) && !u.alive && u.removeReason === FORCED_EXIT && !!u.carry && u.carry.down === true
@@ -211,7 +212,8 @@ function installEgir(battle, pid, bb, members) {
   // redeploy since 0.2.0) answers the knock-out before this hook and marks it `revivedBy`: that knock-out is not the
   // member's first either — the slot waits for its first unanswered knock-out (the owner's decision of 2026-10-05: an
   // operator's own revive uses no slot; [ASSUMED] for 埃芒加德, a band, as for M3茧甲, the item revive the owner named).
-  // An operator entering 联防 down (FORCED_EXIT) is not knocked out either; a 调和 member counts like any other. Each
+  // An operator entering 联防 down (FORCED_EXIT) is not knocked out either, but takes a slot the devour left (the flush
+  // below, upstream #882); a 调和 member counts like any other. Each
   // battle (normal, 联防, boss) counts its own. PRTS: the knocked-out unit's next deployment has 0 redeploy time and 0
   // cost, i.e. it IS knocked out (被击倒 triggers fire) and redeploys where it lies (the engine's rest tile,
   // Battle._layBody: the tile it was knocked out on — a raid-relocated member comes back where it fell —, or its own home
@@ -237,6 +239,18 @@ function installEgir(battle, pid, bb, members) {
     for (const u of batch.splice(0).filter((x) => !x.alive && !x.removed).sort(egirReviveScan)) {
       if (revives >= max) break;
       revive(u);
+    }
+    // 联防: a member entering down (carry.down, forced out by Battle.start) is removed by the client after the devour
+    // (MainGameInHelpBattle.StartMainBattle: one tick after the mode change, `_ApplyChessStatus` finishes every unit
+    // without a carried status — reason OTHER), and the template's ON_OWNER_FINISH filters only MOVE_LIKE_RESPAWN_SELF:
+    // that removal takes a slot like a knock-out (an official recording, upstream #882). So once the devour's revives
+    // are done, the members lying down since the start take the slots left, in the deployment order (the client's
+    // character list) [ASSUMED·엔진: the list is reordered by the units the devour removed]; without a slot they stay
+    // down and redeploy by the normal rule. Either way that removal was their first finish.
+    const down = members.filter((u) => memberOps.has(u) && !knockedOut.has(u) && egirDownAtStart(battle, u));
+    for (const u of down.sort((a, b) => a.deploySeq - b.deploySeq)) {
+      knockedOut.add(u);
+      if (revives < max) revive(u);
     }
   });
   battle.on('death', (c) => {

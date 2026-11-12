@@ -2755,6 +2755,27 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 - [추정·미조사: 나란투야(전략)가 빌려 준 장비(`lendItemEffects`)가 자기 것과 같은 장비일 때 — 지금은 빌린 것도 따로 겹침, 덮어쓰기 묶음 둘은 같은 줄에 섬; 빌려 주기의 클라 경로를 안 읽음]
 - 테스트 `test/content/items.test.js` 「two advanced 源石溶剂 on one operator…」·「override-grouped item buffs…」.
 
+### 연합 방어에 쓰러진 채 들어온 에기르(맹약) 구성원도 부활 횟수를 쓴다 (upstream #882, upstream `ae8ed5eb0`과 차례만 다름, 2026-11-13)
+
+- 규칙: 에기르 부활 단계(`max_free_respawn_cnt` 3; 기본 시즌 5명, 규정 6명)가 켜진 플레이어의 구성원이 자기 전투에서 쓰러진 채 연합 방어에 들어오면(`carryState.down`, 강제 퇴장 `FORCED_EXIT`),
+  전투 시작의 삼키기와 그 부활이 끝난 뒤 남은 부활 횟수로 **곧바로 무료 재배치**된다(가득 찬 HP, 부활 이펙트). 여럿이면 처음 배치 차례(왼쪽 열부터, 열 안에서 위부터 — 「작전 시작 차례 배치」),
+  횟수가 없으면 지금처럼 쓰러진 자리에서 재배치 시간을 센다. 어느 쪽이든 그 강제 퇴장이 그 구성원의 첫 끝남이라, 나중에 쓰러지면 부활하지 않는다(구성원당 한 번 — 아래 「공식과 다른 점」).
+  쓰러짐 효과(불굴·스펙터 등)·쓰러짐 수는 그대로 없다. 규정 `_2`(정비 구역 소환)는 이 길을 타지 않는다(템플릿이 HP_ZERO·HP_ZERO_WITH_NO_SOURCE·FALLDOWN만 봄).
+  `bonds/nation/egir.js installEgir`. 전에는 강제 퇴장이 부활 횟수를 안 써서 재배치 시간만 셌다(upstream도 `ae8ed5eb0` 전까지 같음).
+- 근거(공식 클라에서 확인): 연합 방어 전투 시작은 `MainGameInBattle._StartBattle` — 배치(`_Prebuilt`) → `_OnAutoChessModeChanged`(모든 캐릭터의 `ON_AUTO_CHESS_MODE_CHANGED` = 삼키기 표시) →
+  `MainGameInHelpBattle.StartMainBattle`: 한 틱 뒤 `_ApplyChessStatus`가 캐릭터 목록 차례로 이어받을 상태가 없는 유닛을 `Entity.FinishWithNoReason`(끝난 이유 `OTHER`)로 끝내고, 한 틱 뒤 자동
+  시전·배치가 시작된다. `Entity.OnFinish`는 끝난 이유와 상관없이 버프의 `ON_OWNER_FINISH`를 돌리고(죽음 이유가 아니라 `ON_OWNER_KILLED`·쓰러짐 수는 없음), 맹약 템플릿
+  `act1autochess_bond_eff_egir`의 `ON_OWNER_FINISH`는 `MOVE_LIKE_RESPAWN_SELF`만 거른 뒤 인원·편별 횟수(`free_respawn_cnt_a/b` < `max_free_respawn_cnt`)를 보고 다음 배치를 즉시·무료로
+  만든다(`CreateCardBuff` UNTIL_NEXT_SPAWN). upstream #882가 든 공식 일본 서버 녹화(제3자): 앞 전투에서 쓰러진 스펙터·스카디가 연합 방어 시작에 부활. upstream은 쓰러진 채 들어온 구성원을
+  삼키기 부활의 위치 스캔에 섞었지만, 클라는 삼키기 쪽이 먼저 횟수를 쓴다.
+- [추정·엔진: 삼키기 피해(`[eat_mark]` `ON_BUFF_LATE_ENABLE`, 버프의 첫 늦은 틱)가 이 제거보다 먼저 — 코루틴 yield와 늦은 틱의 차례; 쓰러진 채 들어온 구성원끼리의 차례는 캐릭터 목록(`UnorderedArray`)
+  차례인데 삼키기로 빠진 유닛이 목록을 섞을 수 있어 배치 차례로 둠]
+- 공식과 다른 점(관리자 결정 기다림, 2026-11-13 공식 클라에서 확인): ① 맹약 버프는 전역 버프(`env_gbuff_new`, `add_times` 없음)라 `Unit.OnBorn` → `BattleController.RegisterUnit`이
+  배치될 때마다 새로 붙이고, 그 `ON_BUFF_START`가 `reborn_mask`를 0으로 되돌린다 — 그래서 클라에서는 횟수가 남는 한 한 구성원이 **여러 번** 부활한다(지금 규칙: 구성원당 첫 쓰러짐 한 번,
+  관리자 결정 2026-10-05). ② 횟수는 끝날 때(`ON_OWNER_FINISH`) 바로 오르므로 삼키기에서 누가 횟수를 받는지는 **쓰러진 차례**다(지금 규칙: 삼키기가 끝난 뒤 좌하→우상 위치 스캔, 커뮤니티 제보
+  2026-10-07).
+- 테스트 `test/content/bonds_core.test.js` 「阿戈尔 5 slots in 联防 and on the boss field…」, `test/match/unitedown.test.js` 「…a 阿戈尔 member entering down…(upstream #882)」(실제 판 경로).
+
 ## upstream 0.3.4 개발분 대조 이식 — 매치·서버 (2026-11-07)
 
 upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 둘 다 손 이식이고 새 시험이 수정 전 코드에서 실패하는 것을 확인했다. golden은 그대로.
