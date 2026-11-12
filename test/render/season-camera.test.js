@@ -38,3 +38,16 @@ test('规程 battle camera: the bench row stands in view (feet ≈ the official 
   // the field's far row stays in view
   assert.ok(act3.project(5, 12.5, 0).y > 150, 'the far field row under the top HUD');
 });
+
+test('规程 boss 全景: the fitted camera puts a left bench slot where the official screenshot has its operator', () => {
+  const s2 = stageOf(ACT3, 'act3autochess_m02');
+  const rect = { r0: 0, r1: 5, c0: 0, c1: 20 };
+  const act3 = presetCamera('boss', VIEW, { rect, side: 'L', config: stageCameraConfig(s2) });
+  const old = presetCamera('boss', VIEW, { rect, side: 'L', config: s2.config });
+  // the left player's hand slot 9 on the boss field (finalAssault.js bossFieldPlacement: row 7 → 0): the official
+  // screenshot (m02, 全景, 1920 × 1080) has a bench operator standing there with its feet at ≈ (830, 915)
+  const feet = act3.project(9, 0, 0);
+  assert.ok(Math.abs(feet.x - 830) < 20 && Math.abs(feet.y - 915) < 20, `feet at ${feet.x.toFixed(0)}, ${feet.y.toFixed(0)}`);
+  const was = old.project(9, 0, 0);
+  assert.ok(Math.hypot(was.x - 830, was.y - 915) > 40, `the level value puts it at ${was.x.toFixed(0)}, ${was.y.toFixed(0)}`);
+});

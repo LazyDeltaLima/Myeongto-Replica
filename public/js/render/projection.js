@@ -64,13 +64,17 @@ export const OFFICIAL = Object.freeze({
 
 /**
  * Camera params a season's official client frames with instead of its levels' `configBlackBoard` ones (which are the same
- * as the 盟约 levels'). 规程's battle camera (docs/rules/render.md 「규정 전투 카메라」): the controller position fitted to an
- * official CN battle screenshot of 规程 m03 (1920 × 1080, 101 board feature matches, 5 px rms with the official rotation
- * and FOV) — the bench row in full view, as the official battle shows it. [ASSUMED·화면: one screenshot, the left
- * normal battle only; the CN camera plugin's own settings could not be read]
+ * as the 盟约 levels'). 规程's battle cameras (docs/rules/render.md 「규정 전투 카메라」): controller positions fitted to
+ * official CN battle screenshots with the official rotation and FOV — the left normal battle on m03 and the boss field's
+ * 全景 on m02, both 1920 × 1080 (300–400 board feature matches against our view of the same stage, 1 px rms; pitch and
+ * FOV left free come out 30° / 40°): the bench row in view, as the official battle shows it. [ASSUMED·화면: one screenshot each; the right
+ * normal and the boss halves keep the level values; the CN camera plugin's own settings could not be read]
  */
 export const SEASON_CAMERA_PARAMS = Object.freeze({
-  act3autochess: Object.freeze({ left_battle_camera_param: '(-5.43,0.76,-1.56,1)' }),
+  act3autochess: Object.freeze({
+    left_battle_camera_param: '(-5.4,0.8,-1.52,1)',
+    mid_boss_battle_camera_param: '(0,-7.49,-4.01,1)',
+  }),
 });
 
 /** A stage's camera config: its `config` with its season's SEASON_CAMERA_PARAMS on top (the season = the id's prefix). */
