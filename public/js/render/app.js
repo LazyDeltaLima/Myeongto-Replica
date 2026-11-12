@@ -1987,6 +1987,8 @@ export async function createFieldView(host, options = {}) {
         // an attack behaviour that strikes nothing (fx `signal`, over `t` game s when given: 秘术师 'mysticStore', 凯尔希·思衡托's
         // S3 take-off; `attackTurn`: over the attack interval, the fx's `t` being something else — 涤火杰西卡's shell flight), a strike just made (`strike`: 焰尾's 前锋剑术) or a channel held while `on` (蕾缪安 S2's aim, `on` 1 / 0)
         // → its role's `signals` clip, UnitView.onSignal
+        // 2026-11-12: an enemy ability cast in a clip of its own (fx 'enemySkill' { id, ability } — render/units.js ESKILL_CLIPS)
+        if (e[1] === 'enemySkill' && e[4] && typeof e[4].ability === 'string' && e[4].id != null) views.get(e[4].id)?.onEnemySkill?.(e[4].ability, LATE.get(e) || 0);
         if (e[4] && typeof e[4] === 'object' && typeof e[4].signal === 'string' && e[4].id != null) views.get(e[4].id)?.onSignal?.(e[4].signal, !e[4].attackTurn && Number(e[4].t) > 0 ? Number(e[4].t) : null, !!e[4].strike, e[4].on ?? null);
         // 予愿安洁莉娜 S2's 吟唱: her model glides out along the sweep and back (UnitView.glide; the sim keeps her on her tile)
         if (e[1] === 'dash' && e[4] && typeof e[4] === 'object' && Number(e[4].chant) > 0) {

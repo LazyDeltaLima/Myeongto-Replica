@@ -64,3 +64,14 @@ test('render/app.js hands every stage it shows to the layer', () => {
   assert.match(app, /import \{ createFxLayer, stageTileFx \} from '\.\/fxgame\.js';/);
   assert.match(app, /stageRec = st;\n {4}tiles\.setStage\(st\);\n {4}fxGame\.setStageTiles\(stageTileFx\(st\)\);/);
 });
+
+test('every TILE_FX prefab is in the extracted effect index (the 泥沼 from EN/CN pkgrps/btl_pfb_fx_mapeff_4.ab, 2026-11-12)', (t) => {
+  let index;
+  try { index = JSON.parse(read('public/assets/local/fx/index.json')); } catch { return t.skip('no extracted effects'); }
+  for (const [key, [bundle, name]] of Object.entries(TILE_FX)) {
+    assert.ok((index.bundles?.[bundle] || []).includes(name), `${key}: ${bundle}/${name} extracted`);
+    const def = JSON.parse(read(`public/assets/local/fx/${bundle}/${name}.json`));
+    assert.ok(def.nodes?.length > 1, `${name}: a tree`);
+  }
+  assert.equal(index.sources?.['mapeff/mapeff_mud_ground_01']?.pack, 'pkgrps/btl_pfb_fx_mapeff_4.ab');
+});

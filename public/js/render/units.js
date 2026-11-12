@@ -479,6 +479,18 @@ export const STEALTH_FORMS = Object.freeze({ enemy_9008_acbunn: 'revealed' });
  * `half_cnt` 2 (two riders, GuysB / GuysD), Full at `max_cnt` 5 (five, GuysB–GuysF).
  */
 export const SKIN_FORMS = Object.freeze({ enemy_10159_mntrjn: Object.freeze({ half: 'Half', full: 'Full' }) });
+/**
+ * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」·「규정 살카즈 후예 무리」): enemy abilities cast in a clip of their own, per
+ * Spine id: ability (the sim's fx 'enemySkill' { id, ability }) → clip (the prefab's Skills/<ability> clip, the effect binding's
+ * `anim` in enemy-modes.json). The clip plays once from the cast (UnitView.onEnemySkill → SpineActor.chant: the attacks
+ * meanwhile play no attack clip; a stun or death cuts it): 破城者's SkyProjectile fires its three missiles inside its one
+ * F_Skill, not an attack clip each; 萨卡兹子裔责罚者 / 惩戒者 strike their StunAttack in Skill.
+ */
+export const ESKILL_CLIPS = Object.freeze({
+  enemy_10123_uareap: Object.freeze({ SkyProjectile: 'F_Skill' }),
+  enemy_1362_dfat: Object.freeze({ StunAttack: 'Skill' }),
+  enemy_1362_dfat_2: Object.freeze({ StunAttack: 'Skill' }),
+});
 
 /**
  * 要塞 (fortress) operators whose blocked and unblocked attacks are two clips of one role, per Spine id: [melee, ranged]
@@ -1542,6 +1554,18 @@ export class UnitView {
     // `strike`: the attack struck now — the clip from its strike frame (as an 'atk' event's signal: SpineActor._signalStrike)
     if (strike) this.actor.attack(this.atkInterval, false, signal);
     else this.actor.signalSwing(signal, t > 0 ? t : this.atkInterval);
+  }
+
+  /**
+   * 2026-11-12: an enemy ability cast now (the sim's fx 'enemySkill' { id, ability }; `late` = game s the fx is shown late): its
+   * own clip once (ESKILL_CLIPS), unless that clip would have ended already. True when it plays.
+   */
+  onEnemySkill(ability, late = 0) {
+    const clip = this.isEnemy && this.alive && this.actor ? ESKILL_CLIPS[this.info.spine || this.info.defId]?.[ability] : null;
+    if (!clip || !this.actor.has(clip)) return false;
+    const dur = this.actor.dur(clip);
+    if (!(dur > 0) || late >= dur) return false;
+    return this.actor.chant({ loop: clip, total: dur });
   }
 
   /** One attack hit now (b.ev 'atk'); `signal` = its 5th field: the client ability it is (a talent's own attack 'T.1'). */

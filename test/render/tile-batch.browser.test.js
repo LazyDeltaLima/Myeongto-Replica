@@ -2,7 +2,8 @@
 // drawn with separate renderers and merged. 规程's 悲惨之雨 floor (44 tiles, 4 renderers: a view-facing system, a local-aligned
 // quad and two mesh particles, material clips) keeps its picture; the battlefield's 草地 (16 tiles: two wall meshes and two
 // particle systems, each pair of one sorting order) differs only where neighbouring tiles' walls meet — there the pairs blend in
-// another order (each renderer's copies far to near, then the next renderer; apart, three.js sorted all of them by depth).
+// another order (each renderer's copies far to near, then the next renderer; apart, three.js sorted all of them by depth); the
+// 泥沼 (12 tiles, m06's and act2autochess_m02's count: a floor mesh and two particle systems, when it is extracted).
 //
 // Opt-in (starts Chrome): RENDER_E2E=1 node --test test/render/tile-batch.browser.test.js
 
@@ -17,6 +18,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const FX = (b, n) => path.join(ROOT, `public/assets/local/fx/${b}/${n}.json`);
 const enabled = process.env.RENDER_E2E === '1' && existsSync(CHROME) && existsSync(FX('pfx_enemy_20', 'enemy_acspider_debuff_ground_01')) && existsSync(FX('mapeff', 'mapeff_079_dikuai_01'));
+const MUD = existsSync(FX('mapeff', 'mapeff_mud_ground_01'));
 const skip = enabled ? false : 'set RENDER_E2E=1 (needs Chrome and the extracted 悲惨之雨 floor and 草地 effects)';
 
 describe('TileBatch keeps the picture of the copies it merges', { skip }, () => {
@@ -32,12 +34,12 @@ describe('TileBatch keeps the picture of the copies it merges', { skip }, () => 
     await srv?.close();
   });
 
-  test('the 悲惨之雨 floor on 44 tiles and the 草地 on 16: separate and merged draws', async () => {
+  test('the 悲惨之雨 floor on 44 tiles, the 草地 on 16 and the 泥沼 on 12: separate and merged draws', async () => {
     const page = await browser.newPage();
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto(`http://127.0.0.1:${srv.port}/index.html`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    const out = await page.evaluate(async () => {
+    const out = await page.evaluate(async (mud) => {
       const THREE = await import('/vendor/three.module.js');
       const { FxLibrary, FxInstance, TileBatch } = await import('/js/render/fxplayer.js');
       const W = 960, H = 540;
@@ -53,7 +55,7 @@ describe('TileBatch keeps the picture of the copies it merges', { skip }, () => 
       let s = 12345;
       Math.random = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
       const rows = {};
-      for (const [bundle, name, nr, nc] of [['pfx_enemy_20', 'enemy_acspider_debuff_ground_01', 4, 11], ['mapeff', 'mapeff_079_dikuai_01', 4, 4]]) {
+      for (const [bundle, name, nr, nc] of [['pfx_enemy_20', 'enemy_acspider_debuff_ground_01', 4, 11], ['mapeff', 'mapeff_079_dikuai_01', 4, 4], ...(mud ? [['mapeff', 'mapeff_mud_ground_01', 3, 4]] : [])]) {
         const def = await lib.load(bundle, name);
         const scene = new THREE.Scene(), insts = [];
         for (let r = 0; r < nr; r++) for (let c = 0; c < nc; c++) {
@@ -86,7 +88,7 @@ describe('TileBatch keeps the picture of the copies it merges', { skip }, () => 
         for (const i of insts) i.dispose();
       }
       return rows;
-    });
+    }, MUD);
     assert.deepEqual(errors, []);
     console.log(JSON.stringify(out));
     for (const r of out.enemy_acspider_debuff_ground_01) {
@@ -96,6 +98,12 @@ describe('TileBatch keeps the picture of the copies it merges', { skip }, () => 
     for (const r of out.mapeff_079_dikuai_01) {
       assert.equal(r.callsA, 64); assert.equal(r.callsB, 4);
       assert.ok(r.off < r.lit * 0.05, `草地: ${r.off} channels of ${r.lit} lit differ (frame ${r.f}) — only where tiles meet`);
+    }
+    for (const r of out.mapeff_mud_ground_01 || []) {
+      // apart: up to 36 (a bubble system with no live particle draws nothing), merged: 3, the same picture
+      assert.ok(r.callsA <= 36 && r.callsA >= 30 && r.merged === r.callsA, `泥沼 apart: ${r.callsA} calls, ${r.merged} merged`);
+      assert.equal(r.callsB, 3);
+      assert.equal(r.off, 0, `泥沼 keeps its picture (frame ${r.f}, largest channel difference ${r.max})`);
     }
   });
 });
