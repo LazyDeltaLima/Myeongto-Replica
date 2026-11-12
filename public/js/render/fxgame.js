@@ -502,6 +502,41 @@ export function stageTileFx(stage) {
   return out;
 }
 
+/**
+ * 2026-11-12 (docs/rules/fx.md 「규정 대포 「염괴포」」, official client: token prefab trap_196_cnnon of pkgrps/btl_pfb_tokens_2.ab):
+ * 规程 m10's 盐坨子炮, an enemy-side stage device the sim runs by its key (content/devices.js tickCannon) — no unit, so its
+ * effects are the board's (createFxLayer setCannons / cannonFx). Its muzzle (`Graphic/Mesh/FixedMuzzle`, the MeshAnimator's
+ * `_muzzleTransform`: local (0, −0.138, −0.456), the mesh facing DOWN) stands 0.456 above the cannon and 0.138 along its
+ * barrel; its SpecialPoint0 (`_specialPoint0`, the mesh node trap_196_cnnon) is at the root with the turn of the
+ * 土石结构's (the same quaternion, MOUND_SP0_TURN) — every 盐坨子炮 of the data faces DOWN, the only turn read.
+ */
+export const CANNON_KEY = 'trap_196_cnnon';
+export const CANNON_MUZZLE = Object.freeze({ fwd: 0.138, up: 0.456 });
+/** Board steps (x = column, y = row) of a device direction (server/sim/dir.js DIR_VEC: DOWN = −row). */
+const CANNON_STEP = Object.freeze({ UP: [0, 1], DOWN: [0, -1], LEFT: [-1, 0], RIGHT: [1, 0] });
+/** content/devices.js CANNON_REACH: its own tile and the four ahead (range 4-1). */
+const CANNON_REACH = 4;
+
+/**
+ * The 盐坨子炮 of a stage on the battle `rect` ({ r0, r1, c0, c1 }): [{ r, c, dir }] — active ones whose lane (its tile and
+ * the four ahead) reaches the rect, as the sim's buildCannons takes them.
+ */
+export function stageCannons(stage, rect) {
+  const out = [];
+  for (const d of Array.isArray(stage?.devices) ? stage.devices : []) {
+    if (d?.key !== CANNON_KEY || !Array.isArray(d.pos) || !(typeof d.active === 'boolean' ? d.active : !d.hidden)) continue;
+    const [r, c] = d.pos, dir = CANNON_STEP[d.dir] ? d.dir : 'DOWN', [sx, sy] = CANNON_STEP[dir];
+    if (!Number.isInteger(r) || !Number.isInteger(c)) continue;
+    let on = !rect;
+    for (let k = 0; k <= CANNON_REACH && !on; k++) {
+      const rr = r + sy * k, cc = c + sx * k;
+      on = rr >= rect.r0 && rr <= rect.r1 && cc >= rect.c0 && cc <= rect.c1;
+    }
+    if (on) out.push({ r, c, dir });
+  }
+  return out;
+}
+
 export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {}, trace = null, dry = false }) {
   let index = null, modes = null, emodes = null, plays = null;
   if (typeof fetch === 'function') {
@@ -5256,6 +5291,112 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (dblasts.size > 64) dblasts.delete(dblasts.keys().next().value);
     return true;
   }
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 대포 「염괴포」」): the 盐坨子炮 on this battle's field (setCannons) —
+   * `${c},${r}` → { c, r, z, dir, pax: the live passenger mark | null, paxOn }. Their rows of enemy-modes.json
+   * (enemy_bindings.py: the stage device read as a boss's token): `aura` trap_cnnon_idle, `buffFx` trap_cnnon[born]
+   * trap_cnnon_start, `passenger` trap_cnnon_buff, the talent EnemyCannon00D's cast trap_cnnon_attack_start and shell
+   * projectile_trap_cnnon_small_death (trail trap_cnnon_trail_1, reach trap_cnnon_explode_1, hit trap_cnnon_explode_hit).
+   */
+  const cannons = new Map();
+  const cannonRow = () => emodes?.[CANNON_KEY] || null;
+  const cannonOn = () => !!(index && emodes && !failed && q() !== 'low' && cannonRow());
+  /** A point of cannon `k`: `up` above its tile, `fwd` along its barrel. */
+  const cannonAt = (k, up = 0, fwd = 0) => {
+    const [sx, sy] = CANNON_STEP[k.dir] || CANNON_STEP.DOWN;
+    return { x: k.c + sx * fwd, y: k.r + sy * fwd, z: (k.z || 0) + up };
+  };
+  const cannonDir = (k) => { const [x, y] = CANNON_STEP[k.dir] || CANNON_STEP.DOWN; return { x, y }; };
+  /**
+   * One effect of a cannon (no owner, on the upper layer, for battle `gen`): `turn` its root's turn (SpecialPoint0's), `dir`
+   * the direction it is played with (the cannon's: `ParticleEffect.FaceTo`). Resolves its live entry, or null.
+   */
+  async function cannonPlay(gen, name, at, extra, { turn = null, dir = null } = {}) {
+    const r = efx(name);
+    if (!r) return null;
+    if (trace) trace({ kind: 'spawn', names: [r[1]], by: null, on: null, tag: extra.tag, at: { x: at.x, y: at.y, z: at.z } }); // tests
+    if (dry) { dryFollow(r[0], r[1], null, null); return null; }
+    if (!(await ensure()) || !lib) return null;
+    const def = await lib.load(r[0], r[1]);
+    if (!mod || !def || gen !== stormGen) return null;
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), dir, pinned: !!extra.pinned });
+    inst.object.position.set(at.x, at.y, at.z || 0);
+    if (turn) inst.nodes[0]?.quaternion.set(turn[0], turn[1], turn[2], turn[3]);
+    return addLive(inst, { view: at, owner: null, ...extra }, layers.over);
+  }
+  /**
+   * Every frame: the battle's cannons stand (once each, when the layer and its tables are up): each one's trap_cnnon_a[effect_1] (INFINITY: trap_cnnon_idle at SpecialPoint0, held) and
+   * trap_cnnon[born] (lifeTime 5: trap_cnnon_start on the ground, ended with the buff) — the client's token spawns as the
+   * battle starts. Its trap_cnnon_a[death_effect] (trap_cnnon_destroyed as it dies) never plays: the sim's cannon does not die.
+   */
+  function stepCannons() {
+    if (!cannons.size || !cannonOn()) return;
+    const row = cannonRow(), gen = stormGen;
+    for (const k of cannons.values()) {
+      if (k.laid) continue;
+      k.laid = true;
+      for (const n of row.aura || []) cannonPlay(gen, n, cannonAt(k), { buff: true, keep: true, pinned: true, tag: 'cannonIdle' }, { turn: MOUND_SP0_TURN, dir: cannonDir(k) });
+      // (laid late — the effect files still loading — its born effect only while its 5 s last)
+      if (clockS < k.t0 + 5) for (const n of row.buffFx?.['trap_cnnon[born]'] || []) cannonPlay(gen, n, cannonAt(k), { buff: true, until: k.t0 + 5, tag: 'cannonBorn' }, { dir: cannonDir(k) });
+    }
+  }
+  /** Cannon `k` takes a passenger on board (`on`) or lets it go: DurbusAbility `_passengerEffects` on the cannon meanwhile. */
+  function cannonCarry(k, on) {
+    if (!on) {
+      k.paxOn = false;
+      if (k.pax) { k.pax.keep = false; k.pax.inst.stop(true); k.pax = null; }
+      if (trace) trace({ kind: 'cannonCarryOff', names: [], by: null, at: null }); // tests
+      return;
+    }
+    if (k.paxOn) return;
+    k.paxOn = true;
+    const n = cannonRow()?.passenger?.[0], gen = stormGen;
+    if (n) cannonPlay(gen, n, cannonAt(k), { buff: true, keep: true, tag: 'cannonPax' }, { dir: cannonDir(k) })
+      .then((l) => { if (!l) return; if (!k.paxOn || gen !== stormGen) { l.keep = false; l.inst.stop(true); } else k.pax = l; }, () => {});
+  }
+  /**
+   * The sim's fx 'cannon' { x, y: the cannon, carry: 1 | 0, pax } (it takes / drops a passenger) or { fire: 1, tx, ty: the
+   * tile, t: the flight, pax } (content/devices.js fireCannon): its cast effect (EffectBehaviour `_effectsWhenStart`
+   * trap_cnnon_attack_start, SpecialPoint0 with its turn) and the shell's trail from the muzzle to that tile in `t` (the
+   * projectile's `_raiseHeight` 0.7 arc). true = drawn.
+   */
+  function cannonFx(e) {
+    const o = e[4] || {}, k = cannons.get(`${Number(e[2])},${Number(e[3])}`);
+    if (!k || !cannonOn()) return false;
+    if (o.carry != null) { cannonCarry(k, !!o.carry); return true; }
+    const part = cannonRow().skills?.enemycannon00d, pr = part?.proj;
+    const tx = Number(o.tx), ty = Number(o.ty), t = Number(o.t);
+    if (!o.fire || !pr || !Number.isFinite(tx) || !Number.isFinite(ty)) return false;
+    const gen = stormGen;
+    for (const n of part.cast || []) cannonPlay(gen, n, cannonAt(k), { buff: false, tag: 'cannonCast' }, { turn: MOUND_SP0_TURN, dir: cannonDir(k) });
+    const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
+    if (r && t > 0 && t <= 6 && level() < 3) {
+      const p0 = cannonAt(k, CANNON_MUZZLE.up, CANNON_MUZZLE.fwd);
+      if (dry) { if (trace) trace({ kind: 'spawn', names: [r[1]], by: null, on: null, tag: 'cannonShell', at: p0, to: { x: tx, y: ty } }); return true; } // tests
+      if (!camRef || trailFull()) return true;
+      const rec = { inst: null, esrc: null, etgt: null, tgt: null, x0: p0.x, y0: p0.y, z0: p0.z, tx, ty, tz: tileTop(tx, ty), k: 0, dur: Math.max(0.04, t), arc: Math.max(0, Number(pr.raise) || 0) };
+      ensure().then((ok) => { if (ok && lib) launchTrail(rec, r[0], r[1]); }, () => {});
+    }
+    return true;
+  }
+  /**
+   * The sim's fx 'explode' { x, y, kind: 'cnnonShell', hit: [unit ids] } where a 盐坨子炮's shell lands: its
+   * `_effectsWhenReached` on the tile and its `_effectsWhenHit` on each unit it hits. true = drawn (no stand-in blast).
+   */
+  function cannonBlast(e, views) {
+    const pr = cannonOn() ? cannonRow().skills?.enemycannon00d?.proj : null;
+    if (!pr || level() >= 3) return false;
+    const x = Number(e[2]), y = Number(e[3]), gen = stormGen;
+    const at = { x, y, z: tileTop(x, y) };
+    for (const n of (pr.reached || []).slice(0, MAX_HIT_FX)) cannonPlay(gen, n, at, { buff: false, tag: 'cannonBlast' });
+    const hit = (pr.hit || []).map((n) => efx(n)).filter(Boolean).slice(0, MAX_HIT_FX);
+    for (const id of Array.isArray(e[4]?.hit) ? e[4].hit : []) {
+      const v = views.get(id);
+      if (!v || v.alive === false || v.remove) continue;
+      for (const r of hit) spawn(r[0], r[1], v, { owner: null, buff: false, tag: 'cannonHit' }, { over: true });
+    }
+    return true;
+  }
   /** The projectile record of shot `key` when it can be drawn officially (the layer on, its trail or hit extracted), else null. */
   function eshotDrawable(owner, key) {
     if (!owner || !index || !emodes || failed || q() === 'low') return null;
@@ -6631,6 +6772,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       stageCams.clear();
       for (const n of Array.isArray(names) ? names : []) if (typeof n === 'string' && n) stageCams.add(n);
     },
+    /**
+     * 2026-11-12: the 盐坨子炮 of this battle ([{ r, c, z, dir }] — render/app.js enterBattle: stageCannons of the stage on
+     * the battle rect; [] none), laid as the battle starts (stepCannons), until the next clear().
+     */
+    setCannons(list) {
+      for (const k of cannons.values()) cannonCarry(k, false);
+      cannons.clear();
+      for (const d of Array.isArray(list) ? list : []) {
+        const r = Number(d?.r), c = Number(d?.c);
+        if (!Number.isInteger(r) || !Number.isInteger(c)) continue;
+        cannons.set(`${c},${r}`, { r, c, z: Number(d.z) || 0, dir: CANNON_STEP[d.dir] ? d.dir : 'DOWN', pax: null, paxOn: false, laid: false, t0: clockS });
+      }
+    },
     async setStorm(storm, mounds) {
       const gen = stormGen;
       if (!Array.isArray(storm) || !storm.length || q() === 'low' || failed || !(dry || await ensure()) || gen !== stormGen) return;
@@ -6882,6 +7036,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[4]?.id != null && typeof e[4].ability === 'string' && e[4].caster == null
             && (e[1] === 'telegraph' ? eprojTelegraph(e, views) : e[1] === 'explode' && dshellBlast(e))) { ownFx.add(e); return; }
           if (e[1] === 'explode' && e[4]?.id != null && SHOT_BLASTS.has(e[4].kind)) { if (eshotBlast(e, views)) ownFx.add(e); return; }
+          // 2026-11-12: 规程 m10's 盐坨子炮 (cannonFx, cannonBlast)
+          if (e[1] === 'cannon') { if (cannonFx(e)) ownFx.add(e); return; }
+          if (e[1] === 'explode' && e[4]?.kind === 'cnnonShell') { if (cannonBlast(e, views)) ownFx.add(e); return; }
           // 2026-11-11: 残党乐团鼓手's aoeAttack — its buff enemy_ltndru[AOE]'s AOEDamage creates no effect (`_createEffect`
           // false, no `_hitEffectKey`): the ability's cast effects (its wave, enemy_ltndru_attack_ap_start_02) are the blast
           // 2026-11-12: a skill's strike the sim sends as its blast (SPELL_BLASTS) — the strike's cast effects now, no stand-in
@@ -7022,6 +7179,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       flushStoneBirths(lastViews); // local patch
       flushEnemyBirths(lastViews); stepEnemies(lastViews); // 2026-10-10: the enemies' born effects, modes, skill clips
       stepStageTiles(); // 2026-11-12: the stage's tile effects (setStageTiles)
+      stepCannons(); // 2026-11-12: 规程 m10's 盐坨子炮 (setCannons)
       if (lastViews && (soulBalls.size || soulLines.size)) stepSouls(lastViews, dt * gameRate()); // 2026-11-12: 魂灵法骸's fireballs
       if (index) flushDeploys(lastViews); // 2026-10-11: the operators' / tokens' deploy effects
       if (index) stepTokenAuras(lastViews); // 2026-10-22: the summons' skill auras
@@ -7178,6 +7336,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       camFx.clear(); camWant.clear();
       acRains.clear();   // 2026-11-11: 悲惨之雨's floors (dropped with `live` above)
       soulBalls.clear(); soulLines.clear();   // 2026-11-12: 魂灵法骸's fireballs, 魂灵残迹's laser (dropped with `live`)
+      cannons.clear();   // 2026-11-12: the 盐坨子炮 (dropped with `live`; the next battle's setCannons lays them)
       for (const rec of bandTiles.values()) rec.off = true;   // 2026-11-12: the prep's tile 指令 floors (dropped with `live`)
       bandTiles.clear();
       for (const rec of stageTiles.values()) { rec.l = null; rec.none = false; }   // 2026-11-12: the stage's tile effects (dropped with `live`; laid again next frame)

@@ -259,3 +259,33 @@ test('规程 盐坨子炮 (m10, trap_196_cnnon): every 6 s a shell at its lane\'
   assert.ok(!w.hidden);
 });
 
+test('规程 盐坨子炮: a passenger stays the cannon\'s until its shell lands — nobody else boards in flight; the renderer\'s \'cannon\' signals', () => {
+  const id = 'act3autochess_m10';
+  const enemies = {
+    enemy_walk: enemyRec({ key: 'enemy_walk', hp: 1e7, speed: 1, mass: 1 }),
+    enemy_next: enemyRec({ key: 'enemy_next', hp: 1e7, speed: 1, mass: 1 }),
+  };
+  const h = makeBattle({ stageId: id, defs: { ...stageDefs(id), chess: { t_far: guardRec('t_far') }, enemies },
+    units: [{ chessId: 't_far', row: 9, col: 6 }],
+    enemies: [{ key: 'enemy_walk', pos: [12.6, 6], route: standStill([12.6, 6]) }, { key: 'enemy_next', pos: [12.2, 6], route: standStill([12.2, 6]) }],
+    autoFinish: false, timeLimit: 60 });
+  const sig = [];
+  const fx = h.b.fx.bind(h.b);
+  h.b.fx = (kind, p) => { if (kind === 'cannon' && p.x === 6 && p.y === 13) sig.push({ ...p, at: h.b.time }); return fx(kind, p); };
+  h.step(1);
+  const w = h.enemy('enemy_walk'), nx = h.enemy('enemy_next');
+  assert.ok(w.hidden && !nx.hidden, 'the nearer walker boards first');
+  // the shell leaves at 6 s and flies 4 tiles (13,6) → (9,6) at 5/s: lands at 6.8 s
+  h.runUntil(() => sig.some((s) => s.fire), 8);
+  const fire = sig.find((s) => s.fire);
+  assert.deepEqual([fire.tx, fire.ty, fire.pax], [6, 9, w.id]);
+  assert.ok(Math.abs(fire.t - 0.8) < 1e-9);
+  h.run(0.5);
+  assert.ok(!nx.hidden, 'in flight the cannon still holds the first passenger: nobody else boards');
+  h.run(0.5);
+  assert.ok(!w.hidden && nx.hidden, 'landed: the first is dropped, the second boards');
+  const carry = sig.filter((s) => 'carry' in s).map((s) => [s.carry, s.pax === w.id ? 'w' : 'n', Math.round(s.at * 10) / 10]);
+  assert.deepEqual(carry.slice(0, 3).map((c) => c.slice(0, 2)), [[1, 'w'], [0, 'w'], [1, 'n']]);
+  assert.ok(Math.abs(carry[1][2] - 6.8) <= 0.1, `released as the shell lands: ${carry[1][2]}`);
+});
+

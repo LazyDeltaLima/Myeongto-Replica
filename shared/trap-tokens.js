@@ -14,6 +14,11 @@
 // `_alwaysHideSp`); what shows is its effect token_aglna2_agairp_01 (render/fxgame.js) — so the client draws no avatar
 // diamond, shadow, bar or facing for it (2026-10-11, maintainer report).
 
+// 规程's 淤困之茧 (enemy_9036_acweb, the 假想敌：茧's summon; CN battle/enm_pfb_37.ab) has an EmptyAnimator and no Spine too, but
+// keeps the rest of an enemy: its Shadow (an enabled SpriteRenderer, half alpha), its UIMountPoint and no `_alwaysHideHp` —
+// so no model and no avatar diamond, its shadow and bars as any enemy's; what shows of it is the web its acweb[bundling]
+// creates on the operator it binds (render/fxstatus.js) (2026-11-12, official client).
+
 /** Summons drawn without an HP bar (untargetable, invulnerable traps; 香槟炸弹; the bodiless markers below). */
 export const NO_HP_TOKENS = Object.freeze(new Set(['token_10064_wang_stone1', 'token_10031_swire2_gdtrap', 'token_10071_aglna2_agairp']));
 /**
@@ -28,6 +33,8 @@ export const NO_SP_TOKENS = Object.freeze(new Set(['enemy_9012_acloon']));
 export const FLASH_HP_TOKENS = Object.freeze(new Set(['enemy_9012_acloon']));
 /** Summons with no body of their own: only their effect is drawn. */
 export const BODYLESS_TOKENS = Object.freeze(new Set(['token_10071_aglna2_agairp']));
+/** Units with an empty body (EmptyAnimator, no Spine) that keep their shadow and bars: no model, no avatar diamond. */
+export const EMPTY_BODY_UNITS = Object.freeze(new Set(['enemy_9036_acweb']));
 /** Summons placed without the direction step. */
 export const FACINGLESS_TOKENS = Object.freeze(new Set(['token_10064_wang_stone1', 'token_10000_silent_healrb']));
 
@@ -36,3 +43,4 @@ export const noSpBar = (id) => typeof id === 'string' && NO_SP_TOKENS.has(id);
 export const flashHpBar = (id) => typeof id === 'string' && FLASH_HP_TOKENS.has(id);
 export const facingless = (id) => typeof id === 'string' && FACINGLESS_TOKENS.has(id);
 export const bodyless = (id) => typeof id === 'string' && BODYLESS_TOKENS.has(id);
+export const emptyBody = (id) => typeof id === 'string' && EMPTY_BODY_UNITS.has(id);

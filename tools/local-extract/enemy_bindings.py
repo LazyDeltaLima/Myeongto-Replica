@@ -170,6 +170,9 @@ def enemy_table():
     return E
 
 
+STAGE_DEVICE_KEYS = ('trap_196_cnnon',)   # 2026-11-12: 盐坨子炮 (docs/rules/fx.md 「규정 대포 「염괴포」」)
+
+
 def device_keys():
     """{token key: [skill prefab, …]} of the enemy-side tokens of data/waves.json (template `devices[]`) and data/enemies.json
     (`devices[]`), the seasons' too — build-data's templateDevice records (`skill.prefabId` / `skillId`)."""
@@ -195,6 +198,14 @@ def device_keys():
     for name in ('waves.json', 'enemies.json'):
         for p in data_files(name):
             walk(json.loads(p.read_text(encoding='utf-8')))
+    # the enemy-side stage devices the sim runs by their key (content/devices.js: 规程 m10's 盐坨子炮), read like a boss's
+    # token; the other stage devices (crates, platforms, blowers …) are left out — their effects are the board's
+    for p in data_files('stages.json'):
+        doc = json.loads(p.read_text(encoding='utf-8'))
+        for st in (doc.get('stages') or doc).values() if isinstance(doc, dict) else []:
+            for d in (st.get('devices') or []) if isinstance(st, dict) and isinstance(st.get('devices'), list) else []:
+                if isinstance(d, dict) and d.get('key') in STAGE_DEVICE_KEYS:
+                    take(d)
     return acc
 
 
@@ -744,6 +755,9 @@ def emit_part(abilities, projs):
         # 2026-11-11: a tile listener's (AttachListenerToTileAbility) `_effectSettings[].effectKey`: one effect on each tile it
         # casts on, held while the tile listener stays (`m_castedTileEffect`) — 假想敌：茧 (隐秘核心)'s 悲惨之雨 floor
         tile += [o['fx'] for o in a.get('otherFx') or [] if o.get('field') == '_effectSettings.effectKey']
+        # 2026-11-12: an EffectBehaviour's `_effectsWhenStart` on the ability (盐坨子炮's EnemyCannon00D:
+        # trap_cnnon_attack_start) — on the caster as its cast starts
+        cast += [o['fx'] for o in a.get('otherFx') or [] if o.get('field') == '_effectsWhenStart' and o['fx'] not in cast]
         # a buff the attack / skill puts on its targets: its own effect (overrideEffectKey, else the template's effectKey) —
         # not the effects its nodes create later (a shield's break, a trap's end)
         for b in a.get('activeBuffs') or []:
@@ -1089,6 +1103,11 @@ def render_entry(r, projs):
                   for x in (b.get('template') or {}).get('fx') or [])
     if handed:
         out['handed'] = handed
+    # 2026-11-12: a DurbusAbility's `_passengerEffects` (盐坨子炮's Eat: trap_cnnon_buff) — the carrier holding n passengers
+    # shows the n-th, none with none (`DurbusAbility._UpdatePassengerEffect`, official client)
+    pax = [o['fx'] for a in r['abilities'] for o in a.get('otherFx') or [] if o.get('field') == '_passengerEffects']
+    if pax:
+        out['passenger'] = pax
     # (2026-10-23) its rebirths' effects (RebornTalent `_effects`, enemy_record `rebornFx`): [{ mode: the mode holding the
     # talent (absent: outside the modes), fx, clear: finished as the rebirth ends, to: the mode it reborns into }]
     reborn = [dict({'fx': a['rebornFx']['fx'], 'clear': a['rebornFx']['clear'], 'to': a['rebornFx']['mode']},
@@ -1133,7 +1152,7 @@ def render_entry(r, projs):
 
 def entry_names(e):
     out = [e.get('start'), e.get('dead')] + list(e.get('aura', [])) + list(e.get('handed', [])) + list(e.get('auraNested', []))
-    out += list(e.get('camera', [])) + list(e.get('born', []))
+    out += list(e.get('camera', [])) + list(e.get('born', [])) + list(e.get('passenger', []))
     out += [x for rb in e.get('reborn') or [] for x in rb['fx']]
     out += [x for ra in e.get('rebornAbility') or [] for x in ra['cast'] + [b['fx'] for b in ra['buffs']]]
     for k in ('buffFx', 'buffEnd', 'buffBlocked'):

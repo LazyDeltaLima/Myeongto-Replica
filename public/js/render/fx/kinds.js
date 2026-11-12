@@ -79,6 +79,9 @@ export const FX_KINDS = Object.freeze({
   // for their official effects (not drawn yet), nothing in the fallback
   capture: { a: 'none', c: 0x9fd8ff }, orbit: { a: 'none', c: 0x9fd8ff }, orbitEnd: { a: 'none', c: 0x9fd8ff },
   laser: { a: 'none', c: 0x9fd8ff }, laserEnd: { a: 'none', c: 0x9fd8ff },
+  // 2026-11-12: 规程 m10's 盐坨子炮 (sim content/devices.js) boards / drops a passenger, fires — state for its official
+  // effects (render/fxgame.js cannonFx); nothing in the fallback (its landing is the 'explode' cnnonShell blast)
+  cannon: { a: 'none', c: 0xffb070 },
   roadTiles: { a: 'none', c: 0x9fd8ff }, // 引星棘刺 T2's straight-road tiles (render/fx/kitofficial.js; nothing in the fallback)
   // 予愿安洁莉娜 S3's flight on / off (sim kit op-aglna2.js): her body flies there itself — render/fxgame.js plays the official
   // trail, nothing in the fallback

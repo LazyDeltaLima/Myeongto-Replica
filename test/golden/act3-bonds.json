@@ -406,8 +406,8 @@
       ],
       "enemies": {"enemy_1010_demon":[7,7,0,5202,130637],"enemy_1422_lrsldr_2":[14,14,0,724,191601],"enemy_1425_lrcmra_2":[3,3,0,10376,186624]},
       "hooks": [1,36,2941,587,587,1225,1347,115,28,28,25,22,0,8775,287,19,24,0,1,38,3,0,7],
-      "events": {"atk":753,"deploy":12,"die":28,"dmg":1247,"engage":7,"face":38,"fx":100,"heal":99,"layer":3,"skill":47,"spawn":34,"status":436,"swing":385,"tplfx":3},
-      "fx": {"crit":24,"displace":24,"dodge":7,"explode":16,"garrison":3,"kitHit":26},
+      "events": {"atk":753,"deploy":12,"die":28,"dmg":1247,"engage":7,"face":38,"fx":122,"heal":99,"layer":3,"skill":47,"spawn":34,"status":436,"swing":385,"tplfx":3},
+      "fx": {"cannon":22,"crit":24,"displace":24,"dodge":7,"explode":16,"garrison":3,"kitHit":26},
       "snaps": "327f100d 0310453f f801683b 9fbd9baf 64f20658 d7d8974c fdc6879f 6f87c785 e58e18c3 5b99a587"
     },
     "bond-iberiaShip-low": {
@@ -793,8 +793,8 @@
       ],
       "enemies": {"enemy_1045_hammer_2":[2,2,0,0,99533],"enemy_1061_zomshd":[11,11,0,3463,293034]},
       "hooks": [1,28,2363,169,169,398,398,2929,13,19,11,8,0,7022,41,15,13,0,1,13,0,0,0],
-      "events": {"atk":172,"castHit":4,"deploy":15,"die":19,"dmg":398,"engage":7,"face":35,"fx":75,"heal":30,"skill":25,"spawn":28,"status":58,"swing":194},
-      "fx": {"drone":34,"explode":13,"hunterReload":4,"link":1,"lure":3,"phase":7,"strike":4,"summon":6,"volley":3},
+      "events": {"atk":172,"castHit":4,"deploy":15,"die":19,"dmg":398,"engage":7,"face":35,"fx":88,"heal":30,"skill":25,"spawn":28,"status":58,"swing":194},
+      "fx": {"cannon":13,"drone":34,"explode":13,"hunterReload":4,"link":1,"lure":3,"phase":7,"strike":4,"summon":6,"volley":3},
       "snaps": "d8fc761f d31c66ab 03946071 261c411d dc85476b ff749d81 7055bcca 56570e44"
     },
     "bond-lethaniaShip-low": {
@@ -1376,8 +1376,8 @@
       ],
       "enemies": {"enemy_1249_lysdb_2":[7,7,0,704,104509],"enemy_1251_lysyta":[20,20,0,1444,136858],"enemy_1329_cbshld":[5,5,0,3331,124416]},
       "hooks": [1,51,2163,235,235,427,357,4,34,44,39,39,20,7214,146,16,32,0,1,35,0,0,1],
-      "events": {"atk":306,"deploy":19,"die":44,"dmg":344,"engage":5,"face":27,"fx":108,"heal":2,"skill":78,"spawn":43,"status":100,"swing":250,"tplfx":16},
-      "fx": {"aoe":14,"blink":5,"bombard":1,"bombardShell":1,"buff":1,"dilemma":2,"dodge":1,"explode":11,"kitHit":13,"link":1,"shieldBreak":7,"stacks":47,"substitute":1,"summon":2,"swap":1},
+      "events": {"atk":306,"deploy":19,"die":44,"dmg":344,"engage":5,"face":27,"fx":120,"heal":2,"skill":78,"spawn":43,"status":100,"swing":250,"tplfx":16},
+      "fx": {"aoe":14,"blink":5,"bombard":1,"bombardShell":1,"buff":1,"cannon":12,"dilemma":2,"dodge":1,"explode":11,"kitHit":13,"link":1,"shieldBreak":7,"stacks":47,"substitute":1,"summon":2,"swap":1},
       "snaps": "3af101cd 891a5307 496f0ec7 dfd9de20 d935ead2 b7f05d96 31edc919 79750cc1"
     },
     "bond-sargonShip-low": {
@@ -1794,8 +1794,8 @@
       ],
       "enemies": {"enemy_1009_lurker":[20,20,0,4246,109486],"enemy_1019_jshoot_2":[7,7,0,8462,47029],"enemy_9034_acblk":[2,2,0,15907,59720]},
       "hooks": [1,38,3087,131,131,503,503,3168,29,29,9,6,0,8252,552,19,29,0,1,29,0,0,0],
-      "events": {"atk":166,"castHit":1,"deploy":9,"die":29,"dmg":503,"engage":3,"face":23,"fx":32,"heal":59,"skill":15,"spawn":37,"status":81,"swing":140,"tplfx":283},
-      "fx": {"anchor":1,"camouflage":1,"counter":1,"displace":4,"explode":17,"kitHit":1,"pull":1,"tornado":1,"tornadoPulse":5},
+      "events": {"atk":166,"castHit":1,"deploy":9,"die":29,"dmg":503,"engage":3,"face":23,"fx":49,"heal":59,"skill":15,"spawn":37,"status":81,"swing":140,"tplfx":283},
+      "fx": {"anchor":1,"camouflage":1,"cannon":17,"counter":1,"displace":4,"explode":17,"kitHit":1,"pull":1,"tornado":1,"tornadoPulse":5},
       "snaps": "a3f307ac 37dce054 acafcec9 f6bd1fe7 00d84fe2 ac0128de 6b74a083 1649d394 796b36fe 8882300e 31c88eeb"
     },
     "bond-suntShip-low": {
@@ -2246,8 +2246,8 @@
       ],
       "enemies": {"enemy_1229_darmy":[10,10,0,150,104509],"enemy_1229_darmy_2":[7,7,0,1281,95800],"enemy_1275_dwlock_2":[3,3,0,15396,104509]},
       "hooks": [1,36,2502,175,175,454,472,1698,27,31,10,8,0,4107,41,6,20,0,1,27,10,4,0],
-      "events": {"atk":243,"deploy":16,"die":31,"dmg":471,"engage":8,"face":16,"fx":65,"heal":43,"layer":10,"skill":18,"spawn":34,"status":113,"swing":193,"tplfx":11},
-      "fx": {"aoe":1,"beam":5,"burst":4,"disappear":1,"displace":1,"dp":11,"enemySkill":3,"explode":5,"garrison":10,"kitHit":3,"mitmGone":1,"mitmReborn":1,"mitmSkill":1,"mysticStore":4,"parry":1,"pull":1,"shield":1,"shieldBreak":1,"summon":6,"tockaFx":2,"tockaMove":1,"volley":1},
+      "events": {"atk":243,"deploy":16,"die":31,"dmg":471,"engage":8,"face":16,"fx":69,"heal":43,"layer":10,"skill":18,"spawn":34,"status":113,"swing":193,"tplfx":11},
+      "fx": {"aoe":1,"beam":5,"burst":4,"cannon":4,"disappear":1,"displace":1,"dp":11,"enemySkill":3,"explode":5,"garrison":10,"kitHit":3,"mitmGone":1,"mitmReborn":1,"mitmSkill":1,"mysticStore":4,"parry":1,"pull":1,"shield":1,"shieldBreak":1,"summon":6,"tockaFx":2,"tockaMove":1,"volley":1},
       "snaps": "7c3a8e82 60825e5c 796a171a 4c1acad5 97d1263e 9e4816b9 421a9309 160a920e cc2342fb"
     },
     "bond-yanShip-low": {

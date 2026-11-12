@@ -61,7 +61,7 @@ test('setStageTiles: one per tile on the floor layer, held, laid again after a c
 
 test('render/app.js hands every stage it shows to the layer', () => {
   const app = read('public/js/render/app.js');
-  assert.match(app, /import \{ createFxLayer, stageTileFx \} from '\.\/fxgame\.js';/);
+  assert.match(app, /import \{ createFxLayer, stageTileFx(, stageCannons)? \} from '\.\/fxgame\.js';/);
   assert.match(app, /stageRec = st;\n {4}tiles\.setStage\(st\);\n {4}fxGame\.setStageTiles\(stageTileFx\(st\)\);/);
 });
 

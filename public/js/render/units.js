@@ -75,7 +75,7 @@ import { SpineActor } from './spine.js';
 import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
-import { noHpBar, noSpBar, flashHpBar, facingless, bodyless } from '../../../shared/trap-tokens.js'; // local patch; 2026-10-11 bodyless markers
+import { noHpBar, noSpBar, flashHpBar, facingless, bodyless, emptyBody } from '../../../shared/trap-tokens.js'; // local patch; 2026-10-11 bodyless markers
 import { UF_CAMOU, UF_LIFTOFF } from '../../../shared/local.js'; // local patch: 迷彩 icon; 起飞
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
 import { EliteRing, eliteBadgeTexture, ELITE_BADGE } from './elite-mark.js'; // the prep elite ring (low quality) and badge (setting)
@@ -914,6 +914,7 @@ export class UnitView {
     this.modelSX = NaN;           // the Spine model's display scale (x with the facing mirror) — render/fxgame.js specialPoint
     this.modelSY = NaN;
     this.bodyless = bodyless(info.defId);   // a summon drawn by its effect only (shared/trap-tokens.js BODYLESS_TOKENS)
+    this.emptyBody = emptyBody(info.defId);  // 2026-11-12: no model or diamond, its shadow and bars kept (EMPTY_BODY_UNITS)
     this.dir = this.enemyModel ? null : unitDir(info);
     // whether the direction is known (UnitInfo / piece `dir`), not just the legacy ±1: battle and scouting views show
     // the ground wedge only then (a derived RIGHT would mislabel an UP / DOWN operator)
@@ -2115,8 +2116,8 @@ export class UnitView {
       }
     }
     // the diamond is only needed while no model shows (a cross-fade keeps whatever diamond was already up); a bodiless
-    // marker (shared/trap-tokens.js) shows none — only its effect
-    if (this.bodyless) this.fallback.visible = false;
+    // marker (shared/trap-tokens.js) shows none — only its effect —, nor does an empty body (EMPTY_BODY_UNITS: 淤困之茧)
+    if (this.bodyless || this.emptyBody) this.fallback.visible = false;
     else if (!spineShown) this._ensurePicture();
     if (!spineShown || this.swapT < 1) {
       const size = s * UNIT.diamond * (this.isBoss ? 1.5 : 1);

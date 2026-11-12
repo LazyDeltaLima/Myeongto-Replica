@@ -699,8 +699,8 @@ const CANNON_ARRIVE = 0.1;
  * of the highest 仇恨 (NOT_STUNNED_HATRED_DES: taunt, then the latest deployed) on its own tile and the four ahead
  * (range 4-1); the shell (speed 5) lands on that ally's tile at its fire-time position and deals physical ATK × 1 to
  * every ally of any motion in the 3×3 around it (`x-4`, camouflage ignored). Between shots its Eat (a DurbusAbility)
- * takes on board the nearest same-side ground enemy of weight ≤ 3 within radius 1 (one at a time); a shot carries the
- * passenger it held at the cast start and drops it at the landing point ± 0.2, where it walks on along its own route —
+ * takes on board the nearest same-side ground enemy of weight ≤ 3 within radius 1 (one at a time, until the shell that
+ * carries it lands); a shot carries the passenger it held at the cast start and drops it at the landing point ± 0.2, where it walks on along its own route —
  * `talent@branch_id`'s branch route is not found in this mode's level data, and the client then keeps the route
  * (DurbusAbility._DoReleasePassengers; maintainer decision 2026-11-11) [추정·미조사: which level fills the scheduler's
  * branches and the map's extra routes in this mode — research note on 盐坨子炮].
@@ -718,7 +718,7 @@ function buildCannons(battle, st) {
     }
     if (!lane.length) continue;   // a cannon of another field: its lane is not on this battle's
     const stats = d.raw?.stats ?? d.stats ?? {};
-    st.cannons.push({ alias: aliasOf(d), x: d.col, y: d.row, lane: new Set(lane), atk: num(stats.atk, 0), sp: 0, pax: null });
+    st.cannons.push({ alias: aliasOf(d), x: d.col, y: d.row, lane: new Set(lane), atk: num(stats.atk, 0), sp: 0, pax: null, shot: false });
   }
 }
 
@@ -732,7 +732,7 @@ function cannonCanEat(battle, e) {
 /** A cannon of this battle, every tick (ensureTick): Eat looks for a passenger, the SP charges, a shot at 6 SP. */
 function tickCannon(battle, k, dt) {
   if (!battle.started) return;
-  if (k.pax && !k.pax.alive) k.pax = null;
+  if (k.pax && !k.pax.alive) { cannonCarry(battle, k, k.pax, 0); k.pax = null; k.shot = false; }
   if (!k.pax) {
     // Eat (DurbusAbility._SearchPassengers every tick, max_target 1) [추정·엔진: its selector's HATRED_DES among
     // enemies — read here as the nearest, then the earliest spawned]
@@ -744,11 +744,21 @@ function tickCannon(battle, k, dt) {
       battle._setHidden(o, true, { fx: false });
       o.pauseUntil = Infinity;   // carried: it neither walks its route nor waits out its legs
       k.pax = o;
+      cannonCarry(battle, k, o, 1);
     }
   }
   if ((k.sp += dt) < CANNON_EVERY - 1e-9) return;
   k.sp -= CANNON_EVERY;
   fireCannon(battle, k);
+}
+
+/**
+ * The renderer's signal that cannon `k` takes enemy `e` on board (`on` 1) or lets it go (0): the official DurbusAbility
+ * puts its `_passengerEffects` (trap_cnnon_buff) on the cannon while it holds a passenger (`_UpdatePassengerEffect`) and
+ * `_buffsWhenCarryPassenger` (cnnon_carry_enemy, its sound cnnon_carry_enemy_audio) on the cannon as it takes one.
+ */
+function cannonCarry(battle, k, e, on) {
+  battle.fx('cannon', { x: k.x, y: k.y, carry: on, pax: e.id });
 }
 
 function fireCannon(battle, k) {
@@ -760,20 +770,25 @@ function fireCannon(battle, k) {
   // go) — the passenger stays on board
   if (!cands.length) return;
   const r = cands[0].tileR, c = cands[0].tileC;
-  const pax = k.pax;   // cnnon_t[mark_passenger] at the cast start: the passenger it carries now
-  k.pax = null;
+  // cnnon_t[mark_passenger] at the cast start: the passenger it carries now. It stays one of the cannon's passengers until
+  // the shell lands (DurBusAbilityReleasePassenger on arrival), so Eat (max_target 1: `_SearchPassengers` takes nobody
+  // while it holds `m_maxCount`) takes no other meanwhile
+  const pax = k.shot ? null : k.pax;
+  if (pax) k.shot = true;
   const flight = hypot(c - k.x, r - k.y) / CANNON_SHOT_SPEED;
-  // (no shot or device drawing yet: the official trap_cnnon_* effects and the device model are the renderer's — only the
-  // landing as a generic blast)
+  // the renderer's signal (render/fxgame.js cannonFx): the cast (trap_cnnon_attack_start on the cannon) and the shell
+  // (projectile_trap_cnnon_small_death) from the cannon to the tile, `t` s in the air; its landing is the 'explode' below
+  battle.fx('cannon', { x: k.x, y: k.y, fire: 1, tx: c, ty: r, t: flight, pax: pax ? pax.id : null });
   battle.after(flight, () => {
-    battle.fx('explode', { x: c, y: r, r: 1.5, kind: 'cnnonShell' });
     // the shell's range x-4: the 3×3 around its point, any motion, 迷彩 ignored — physical, the device's ATK × 1
-    for (const a of battle.allies()) {
-      if (!a.alive || !a.deployed || a.hidden || a.kind === 'device' || !areaSelectable(null, a)) continue;
-      if (Math.abs(a.tileR - r) > 1 || Math.abs(a.tileC - c) > 1) continue;
-      battle.dealDamage(null, a, { amount: k.atk, type: 'phys', sourceless: true, isSplash: true, tags: ['cnnonShell'] });
-    }
-    if (!pax || !pax.alive) return;
+    const hit = battle.allies().filter((a) => a.alive && a.deployed && !a.hidden && a.kind !== 'device' && areaSelectable(null, a)
+      && Math.abs(a.tileR - r) <= 1 && Math.abs(a.tileC - c) <= 1);
+    // `hit`: the units it hits (the renderer plays the shell's `_effectsWhenHit` on them)
+    battle.fx('explode', { x: c, y: r, r: 1.5, kind: 'cnnonShell', hit: hit.map((a) => a.id) });
+    for (const a of hit) battle.dealDamage(null, a, { amount: k.atk, type: 'phys', sourceless: true, isSplash: true, tags: ['cnnonShell'] });
+    if (!pax) return;
+    if (k.pax === pax) { k.pax = null; k.shot = false; cannonCarry(battle, k, pax, 0); }
+    if (!pax.alive) return;
     // DurBusAbilityReleasePassenger on the shell's trace point ± `_randomOffsetBound`; the route stays its own
     pax.x = c + battle.rng.range(-CANNON_DROP_SCATTER, CANNON_DROP_SCATTER);
     pax.y = r + battle.rng.range(-CANNON_DROP_SCATTER, CANNON_DROP_SCATTER);

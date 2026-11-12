@@ -4174,6 +4174,17 @@ sim.md 「규정 적·보스」 「수배 카드가 부르는 본편 적」 아�
 - **스카이브레이크 탄산음료**(`enemy_10146_nscola`)·**炫目刀技厨师**(공식 한국어 이름 없음, 「현란한 칼솜씨 요리사」, `enemy_10229_agactr_2`): `enemy_nscola_buff_01`·`enemy_agactr_range_02`는 전부터 등장부터 붙는 오라(바인딩 `aura`). 탄산음료의 가속·생명 유실 버프(`enemy_nscola[speed]`·`[passive]`)에는 이펙트 노드가 없다(규정 표 템플릿).
 - 확인: `test/render/bounty-fx.test.js` — 실제 규정 키트(`content/enemies/bounty.js`)의 사건 → 견본 바인딩 렌더 층 + 추출 바인딩 대조. 연결을 하나씩 되돌리면(`eprojDrop`, `ABILITY_SHOT_ATKS`, `AREA_SHOT_BLASTS`, `SWITCH_ONLY`, `FORM_HELD_SKILLS` 둘, `FORMS`, `eblinkFx`, `dying`) 모두 실패. 추출 변경으로 렌더 표가 바뀐 적은 둘(聆风猎手 `skills.blink`, 식인꽃 `dying`)뿐. [화면 미확인 — `checks/arena.md`]
 
+## 규정 대포 「염괴포」 (2026-11-12, 공식 클라에서 확인)
+
+규정 m10의 염괴포(盐坨子炮, `trap_196_cnnon`)는 시뮬이 키로 돌리는 적 편 장치다(sim.md 「규정 전장을 19×21 틀로」 대포). 유닛이 아니어서 이펙트는 판의 것으로 그린다. 근거는 EN 토큰 프리팹(`pkgrps/btl_pfb_tokens_2.ab`의 `trap_196_cnnon`)과 이펙트 번들 `battle/prefabs/effects/trap.ab`(EN·CN 같음). 바인딩은 `enemy_bindings.py`가 스테이지 장치인 이 대포를 보스 토큰처럼 읽는다(`STAGE_DEVICE_KEYS`).
+
+- **세울 때**: 전투가 시작되면 렌더(`app.js` → `fxgame.js setCannons`, 그 전투 칸에 길이 닿는 대포만 — 시뮬 `buildCannons`와 같은 규칙, `stageCannons`)가 대포마다 `trap_cnnon_a[effect_1]`의 `trap_cnnon_idle`(INFINITY, SpecialPoint0 — 메시 노드 `trap_196_cnnon`, 토석 구조물의 SpecialPoint0과 같은 회전)을 깔고, `trap_cnnon[born]`(lifeTime 5초)의 `trap_cnnon_start`를 땅 가운데에 5초 튼다. 정비 중에는 없다(공식 토큰은 전투 시작에 생김).
+- **쏠 때**: 시뮬 fx `cannon` `{ fire, tx, ty, t, pax }`에 재능 `EnemyCannon00D`의 `EffectBehaviour` `_effectsWhenStart` `trap_cnnon_attack_start`(SpecialPoint0, 회전 포함)와, 포탄 `projectile_trap_cnnon_small_death`의 꼬리 `trap_cnnon_trail_1`을 총구에서 그 칸까지 `t`초 동안 `_raiseHeight` 0.7의 곡선으로. 총구는 MeshAnimator `_muzzleTransform`(`Graphic/Mesh/FixedMuzzle`, 로컬 (0, −0.138, −0.456)): 대포 위 0.456, 포신 쪽(아래 = −행)으로 0.138. 데이터의 염괴포는 넷 다 아래를 봐서 다른 방향의 회전은 읽지 않았다.
+- **떨어질 때**: 시뮬 `explode` `cnnonShell`이 맞는 유닛 id(`hit`)를 싣고, 렌더가 그 칸에 `_effectsWhenReached` `trap_cnnon_explode_1`, 맞은 유닛마다 `_effectsWhenHit` `trap_cnnon_explode_hit`을 튼다. 대체 폭발은 안 그린다.
+- **승객 표시**: `Eat`(DurbusAbility)의 `_passengerEffects` `trap_cnnon_buff`는 대포가 승객을 들고 있는 동안 대포 자신에게 붙는다 — `_UpdatePassengerEffect`가 승객 n명이면 n번째 이펙트를 켜고, 0명이면 `_FinishPassengerEffect`로 끈다. 승객은 포탄이 떨어질 때 풀려나므로(`DurBusAbilityReleasePassenger`) 표시는 태울 때(fx `cannon` `carry: 1`)부터 떨어질 때(`carry: 0`)까지다. 태울 때 대포에 거는 `cnnon_carry_enemy`의 소리 `cnnon_carry_enemy_audio`는 audio.md 몫.
+- **없는 것**: `trap_cnnon_a[death_effect]`의 `trap_cnnon_destroyed`(쓰러질 때)는 시뮬의 대포가 쓰러지지 않아 안 튼다(sim.md [추정·엔진]). 본편 보스용 갈래(`EnemyCannon10`·`11`의 `projectile_trap_cnnon_large`, `cnnon_a[effect_manager]`의 `trap_cnnon_lockon`)는 규정과 무관. 대포 모델의 발사 클립(`FixedMuzzle`의 `_clip`)은 3D 보드가 움직이지 않는다.
+- 시험: `test/render/cannon-fx.test.js`(세우기·이벤트별 이펙트·총구 자리·다른 판 대포·추출 바인딩), `test/seasons-act3-stages.test.js` 「规程 盐坨子炮: a passenger stays…」(시뮬 신호). **화면은 안 봄**(`checks/arena.md`).
+
 ## 11-08 갱신 이펙트 번들 여섯 대조 (2026-11-10)
 
 CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는 여섯 — 아코르트·시빌라이트 에테르나·트라고디아·프라마닉스 더 프레리타·비비아나·위 — 를 CN에서 따로 뽑아 비교했다: 프리팹 수·노드·입자·텍스처(바이트까지)가 모두 같고, 다른 것은 재질 577개에 새로 적힌 float `_PremultiplyAlpha` 5뿐이다. 5는 `fxplayer.js`가 이미 값이 없을 때 쓰는 기본값(SrcAlpha; 1이면 미리 곱함)이라 그림이 같다 — 다시 뽑지 않는다. CN에만 있는 새 필드 둘: `OnFinishAnime._needStopParticleSystemWhenRecycle`(트라고디아 S3 셋, 이름으로 보아 풀에 돌려질 때 입자를 멈춤 — 우리는 이펙트와 함께 지움, `fx_coverage.py`에 분류)과 `ParticleEffect._disableBattleEffectShrink` 1(프라마닉스 더 프레리타 `sbell2_skill_03_hit`, 이미 0으로 가정하고 다르면 보고하는 필드).

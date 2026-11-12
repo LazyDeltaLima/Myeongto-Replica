@@ -152,7 +152,7 @@ import { layoutPen, penSignature } from './pen.js';
 import { IDENTITY, bossPrepField, tilesToDisp, leaderStand } from './prepfield.js';
 import { pickOnTile, pickBattle, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
-import { createFxLayer, stageTileFx } from './fxgame.js'; // local patch: official battle effects
+import { createFxLayer, stageTileFx, stageCannons } from './fxgame.js'; // local patch: official battle effects
 import { syncStatusFx, statusSource } from './fxstatus.js'; // local patch: official status effects
 import { ensurePixi } from './app/pixi.js';
 import { pieceDirOf, pickUnitOf } from './app/pick.js';
@@ -1729,6 +1729,8 @@ export async function createFieldView(host, options = {}) {
     const moundAt = (d) => ({ r: d.pos[0], c: d.pos[1], z: tiles.grid[d.pos[0]]?.[d.pos[1]]?.h || 0 });
     if (mounds.length) fxGame.strengthenMounds(mounds.filter((d) => d.skill?.skillId === 'sktok_mound' && d.skill.level >= 2).map(moundAt));
     if (!battleMeta.prep && Array.isArray(meta.storm) && meta.storm.length) fxGame.setStorm(meta.storm, mounds.map(moundAt));
+    // 2026-11-12: 规程 m10's 盐坨子炮 on this field (fxgame.js setCannons: their idle and born effects, the sim's 'cannon')
+    fxGame.setCannons(battleMeta.prep ? [] : stageCannons(stageRec, rect).map((k) => ({ ...k, z: tiles.grid[k.r]?.[k.c]?.h || 0 })));
     return true;
   }
 
