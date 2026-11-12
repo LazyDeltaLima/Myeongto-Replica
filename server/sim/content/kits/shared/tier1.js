@@ -246,6 +246,45 @@ export function freeTileAround(battle, unit, ok) {
   return null;
 }
 
+/**
+ * The first `need` of `tiles` ([r, c], free tiles of `unit`'s range) in the order of the official TileSelector filter
+ * BETTER_ENEMY_WITH_COLLIDER with `_alwaysRandomInTheEnd` (`TileSelector._DoFilter`; 黑键 S2, W S2 — PRTS 备注 "可选敌人中点所在
+ * 地块（按地块上所有可选敌人中最高仇恨值降序）>距离其它可选敌人最近地块>其它地块（随机排序）"): ① the tiles a selectable enemy
+ * (`profile`) stands on, by the best of them in the hatred order (`_CheckHatredEnemyOnTile`); ② then, for each selectable
+ * enemy of `unit`'s range in the hatred order (the selector's own targets: OnPostFilter HATRED_DES), the tile of `tiles`
+ * nearest it — none when that one is already taken (`_GetNearestTile` looks at all of them, the first of equal distances);
+ * ③ then the rest at random (battle.rng). The list is reordered by swaps, as the client's.
+ */
+export function betterEnemyTiles(battle, unit, tiles, need, profile) {
+  const list = tiles.slice();
+  const n = Math.min(need, list.length);
+  if (!(n > 0)) return [];
+  const swap = (a, b) => { const t = list[a]; list[a] = list[b]; list[b] = t; };
+  const foes = sortEnemyTargets(battle, unit, battle.enemiesInKeys(unit.rangeKeys, unit, profile), null);
+  const rank = new Map();
+  foes.forEach((e, i) => { const k = posKey(e); if (!rank.has(k)) rank.set(k, i); });
+  const rankOf = ([r, c]) => rank.get(r * COLS + c) ?? Infinity;
+  let picked = 0;
+  for (let i = 0; i < list.length; i++) if (rankOf(list[i]) !== Infinity) swap(picked++, i);   // ①
+  const head = list.slice(0, picked).sort((a, b) => rankOf(a) - rankOf(b));
+  for (let i = 0; i < picked; i++) list[i] = head[i];
+  for (const e of foes) {   // ②
+    if (picked >= n) break;
+    let best = -1, bd = Infinity;
+    for (let i = 0; i < list.length; i++) {
+      const dx = list[i][1] - e.x, dy = list[i][0] - e.y, d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = i; }
+    }
+    if (best >= picked) swap(picked++, best);
+  }
+  if (picked < n) {   // ③
+    const rest = list.slice(picked);
+    battle.rng.shuffle(rest);
+    for (let i = 0; i < rest.length; i++) list[picked + i] = rest[i];
+  }
+  return list.slice(0, n);
+}
+
 /** Skill spec kind for an instant skill with (possible) charges. */
 export const instantKind = (def) => ((def?.skill?.maxCharges ?? 1) > 1 ? 'charges' : 'instant');
 

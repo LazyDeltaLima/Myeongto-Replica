@@ -248,20 +248,26 @@ describe('bounds (view.pieceScreenRect)', () => {
     assert.match(app, /pieceScreenRect\(uid\) \{[\s\S]*?if \(!v \|\| v\.destroyed \|\| !v\.placed\) return null;/);
   });
 
-  test('item plates: floating above the slot; centred on the pointer while dragged (lifted)', async () => {
+  test('item plates: floating above the slot; dragged, the plate stays and its copy has the pointer at its lower right', async () => {
     const { ItemView } = await import('../../public/js/render/units.js');
     const ctx = fakeViewCtx(fake.P, { assets: store(), cam });
     const it = new ItemView(ctx, { id: 'p:9', uid: 9, defId: 'item_x', x: 3, y: 7 });
     it.setWorld(3, 7, 0.16);
     it.update(1 / 60, cam(), 0);
-    let r = it.bounds();
-    assert.ok(Math.abs(r.y + r.height - it.screen.y) < 1e-6, 'resting: the plate above its anchor');
-    it.lift = 0.3;
+    const r0 = it.bounds();
+    assert.ok(Math.abs(r0.y + r0.height - it.screen.y) < 1e-6, 'resting: the plate above its anchor');
+    const g = cam().project(5, 9, 0.16);
+    it.holdAt(g.x, g.y);
     it.update(1 / 60, cam(), 0);
-    r = it.bounds();
-    const g = cam().project(3, 7, 0.16);
-    assert.ok(Math.abs(r.x + r.width / 2 - g.x) < 1e-6 && Math.abs(r.y + r.height / 2 - g.y) < 1e-6, 'dragged: centred on its ground point (the pointer)');
-    assert.equal(it.plate.anchor.y, 0.5);
+    assert.deepEqual(it.bounds(), r0, 'dragged: the plate stays in its slot');
+    assert.equal(it.plate.anchor.y, 1);
+    const c = it.copy;
+    assert.ok(c && c.plate.visible && c.plate.texture === it.plate.texture);
+    const size = c.plate.scale.x * 128;
+    assert.ok(Math.abs(c.root.x + size / 2 - g.x) < 1e-6 && Math.abs(c.root.y - g.y) < 1e-6, 'the copy: the pointer at its lower right');
+    assert.equal(it.ring, null, 'no outline for a plate');
+    it.endHold();
+    it.destroy();
   });
 });
 

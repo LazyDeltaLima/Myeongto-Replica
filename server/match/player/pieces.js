@@ -74,6 +74,7 @@ export class PlayerPieces {
    * slot is free (`toTemp`) moves into the hand at the next recompute (_fillHandFromTemp).
    */
   stow(piece, { allowTemp = true, toTemp = false, preferIdx = null } = {}) {
+    if (this.bagMode) return this._stowZone(piece, { allowTemp, toTemp, preferIdx });
     if (!toTemp) {
       if (Number.isInteger(preferIdx) && preferIdx >= 0 && preferIdx < this.hand.length && this.hand[preferIdx] == null) {
         this.hand[preferIdx] = piece;
@@ -90,9 +91,68 @@ export class PlayerPieces {
     return 'temp';
   }
 
-  /** Overflow refill order: the visible row right-to-left, then the hidden queue. */
+  /**
+   * stow in 规程 (bagMode): an item into the 装备区 (the five visible temp slots, right → left as the hand), an operator or
+   * a summon stack into the hand; what its zone has no room for joins the hidden queue behind the five (temp[5…], due at
+   * the deadline as any overflow, _putTemp) — or, `allowTemp` false, is refused (null). `toTemp` (an operator: wait in
+   * the queue although the hand has room — the next recompute pulls it in) means nothing for an item, whose zone is the
+   * temp row. Returns 'hand' | 'temp' | null.
+   */
+  _stowZone(piece, { allowTemp, toTemp, preferIdx }) {
+    const bag = this.zoneOf(piece.kind) === 'bag';
+    if (bag || !toTemp) {
+      if (!bag && Number.isInteger(preferIdx) && preferIdx >= 0 && preferIdx < this.hand.length && this.hand[preferIdx] == null) {
+        this.hand[preferIdx] = piece;
+        return 'hand';
+      }
+      const i = this.freeZoneSlot(piece.kind);
+      if (i >= 0) {
+        if (bag) { this._putTemp(i, piece); return 'temp'; }
+        this.hand[i] = piece;
+        return 'hand';
+      }
+      if (!allowTemp) return null;
+    }
+    this._putTemp(Math.max(TEMP_SIZE, this.temp.length), piece);
+    return 'temp';
+  }
+
+  /** Overflow refill order: the visible row right-to-left, then the hidden queue (bagMode: the queue only). */
   tempPieces() {
+    if (this.bagMode) return this.temp.slice(TEMP_SIZE).filter(Boolean);
     return this.temp.slice(0, TEMP_SIZE).reverse().concat(this.temp.slice(TEMP_SIZE)).filter(Boolean);
+  }
+
+  /**
+   * _fillHandFromTemp in 规程 (bagMode): the hidden queue, in arrival order [ASSUMED·서버], into a free slot of each
+   * piece's own zone — an operator / summon stack into the hand, an item into the 装备区 (no deadline there) — the rest
+   * stays queued, compacted. A piece in the wrong zone (none is put there; a state set up by hand) is moved to its own
+   * zone or the queue first. Returns the number moved into the hand.
+   */
+  _fillZones() {
+    let moved = 0;
+    for (let i = 0; i < this.hand.length; i++) {
+      const p = this.hand[i];
+      if (p && this.zoneOf(p.kind) === 'bag') { this.hand[i] = null; this._stowZone(p, { allowTemp: true, toTemp: false, preferIdx: null }); }
+    }
+    for (let j = 0; j < TEMP_SIZE; j++) {
+      const p = this.temp[j];
+      if (p && this.zoneOf(p.kind) !== 'bag') { this._detach({ piece: p, area: 'temp', idx: j }); this._putTemp(Math.max(TEMP_SIZE, this.temp.length), p); }
+    }
+    const queue = this.temp.slice(TEMP_SIZE).filter(Boolean);
+    const rest = [];
+    this.temp.length = TEMP_SIZE;
+    for (const p of queue) {
+      const bag = this.zoneOf(p.kind) === 'bag';
+      const i = this.freeZoneSlot(p.kind);
+      if (i < 0) { rest.push(p); continue; }
+      this._tempDue.delete(p.uid);
+      if (bag) this._putTemp(i, p);
+      else { this.hand[i] = p; moved++; }
+    }
+    // moving within the queue keeps each piece's deadline
+    for (const p of rest) this.temp.push(p);
+    return moved;
   }
 
   /**
@@ -104,6 +164,7 @@ export class PlayerPieces {
    * @returns {number}
    */
   _fillHandFromTemp() {
+    if (this.bagMode) return this._fillZones();
     let moved = 0;
     const indices = Array.from({ length: TEMP_SIZE }, (_, i) => TEMP_SIZE - 1 - i)
       .concat(Array.from({ length: Math.max(0, this.temp.length - TEMP_SIZE) }, (_, i) => TEMP_SIZE + i));

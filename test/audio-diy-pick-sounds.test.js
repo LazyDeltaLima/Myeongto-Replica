@@ -209,6 +209,7 @@ describe('선발 白铁 / 遥 / 真言 custom-trigger sounds (2026-11-03)', () =
       const u = h.unit(1);
       u.skill.gainSp(999);
       assert.ok(u.skill.activate('test'));
+      h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
       const low = h.spawn('e_d', { pos: [10, 7] });
       low.hp = 1;
       const other = h.spawn('e_d', { pos: [9, 6] });
@@ -387,7 +388,8 @@ describe('선발 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr: buff, custom-trigge
     assert.ok(s2.u.skill.activations >= 1, 'S2 cast');
     assert.ok(count(s2.played, 'p_atk_rdbrknclsfr_h') >= 2, `a sound each shot (${s2.played})`);
     let e1;
-    const s3 = hear({ units: unit(2), secs: 40, until: (h) => h.unit(1).skill.activations && !h.unit(1).skill.active,
+    // (until it has ended: not while its begin clip plays — skills.js _beginCast)
+    const s3 = hear({ units: unit(2), secs: 40, until: (h) => h.unit(1).skill.activations && !h.unit(1).skill.active && !h.unit(1).skill._begin,
       prep: (h, u) => {
         e1 = h.spawn('e_d', { pos: [11, 7] });
         u.skill.gainSp(999);

@@ -17,7 +17,8 @@ import { GEO } from '../../shared/constants.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
-const { prepCameraFor, foldCamera, sideCamera, selectedTile, prepCamera, deployFoldsShop } = await import('../../public/js/ui/gameLogic.js');
+const { prepCameraFor, foldCamera, sideCamera, sideCameraOn, selectedTile, prepCamera, deployFoldsShop, sanitizeSettings, DEFAULT_SETTINGS } = await import('../../public/js/ui/gameLogic.js');
+const { seasonFeature } = await import('../../shared/seasons.js');
 const { hudBands, HUD_REM } = await import('../../public/js/ui/fieldHost.js');
 const { presetCamera, tileQuad } = await import('../../public/js/render/projection.js');
 
@@ -84,6 +85,28 @@ describe('the camera choice (gameLogic prepCameraFor / foldCamera)', () => {
     assert.deepEqual(sideCamera({ selected: at }), { sideBy: true, at });
     assert.deepEqual(sideCamera({}), { sideBy: false, at: null });
     assert.deepEqual(sideCamera(null), { sideBy: false, at: null });
+  });
+
+  test('sideCamera without the turn (规程, or the setting off): the held camera and the selected tile\'s move stay, flat', () => {
+    const at = { row: 7, col: 6 };
+    assert.deepEqual(sideCamera({ held: true, tilt: false }), { sideBy: false, at: null });
+    assert.deepEqual(sideCamera({ selected: at, tilt: false }), { sideBy: false, at });
+    assert.deepEqual(sideCamera({ held: true, tilt: true }), { sideBy: true, at: null });
+  });
+
+  test('sideCameraOn: auto follows the season (盟约 on, 规程 off), on / off override it; the setting defaults to auto', () => {
+    assert.equal(seasonFeature('act2autochess', 'noSideCamera'), false);
+    assert.equal(seasonFeature('act3autochess', 'noSideCamera'), true);
+    assert.equal(seasonFeature(undefined, 'noSideCamera'), false, 'a room naming no season is 盟约');
+    assert.equal(sideCameraOn('auto', false), true);
+    assert.equal(sideCameraOn('auto', true), false);
+    assert.equal(sideCameraOn('on', true), true);
+    assert.equal(sideCameraOn('off', false), false);
+    assert.equal(sideCameraOn(undefined, true), false);
+    assert.equal(DEFAULT_SETTINGS.sideCamera, 'auto');
+    assert.equal(sanitizeSettings({ sideCamera: 'off' }).sideCamera, 'off');
+    assert.equal(sanitizeSettings({ sideCamera: 'tilt' }).sideCamera, 'auto');
+    assert.equal(sanitizeSettings({}).sideCamera, 'auto');
   });
 
   test('selectedTile: the piece shown selected, and the one a press let go of until the release', () => {

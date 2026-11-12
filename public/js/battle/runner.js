@@ -44,6 +44,9 @@
 // Battle.addLayers — normal battles only) as absolute counts per player, published as state().bondLayers
 // { [playerId]: { [bondId]: n } } (every battle of the round: the own one, the teammates' replicas) whenever one grows;
 // the bond strip of the player on screen — the own one, or a watched teammate's — shows them live (ui/watchBonds.js).
+// The 临时层数 part of those counts (卫戍协议：规程, Battle.tempLayerGainsOf) is published beside them as
+// state().bondTemp { [playerId]: { [bondId]: n } }: the strip draws such a count in yellow and the popup splits it
+// (layers − temp, then + temp), as the official HUD does.
 //
 // The sim (≈ 0.2–1 ms per tick) runs on the main thread: one battle at a time is stepped for display (plus an
 // authoritative one if it is not the one on screen). stats() exposes the measured cost.
@@ -51,7 +54,7 @@
 //   import { battleRunner } from './battle/runner.js'     (browser singleton wired to net.js + store.js; null in Node)
 //   battleRunner.on('snap' | 'ev' | 'field' | 'state', fn) → off
 //   battleRunner.state()  → { battleId, fieldId, kind, authoritative, watch, done, own, members, loading, paused, leaks,
-//                              uniteLeft, bondLayers, mine } | null — `mine` { battleId, fieldId, kind, done }: the
+//                              uniteLeft, bondLayers, bondTemp, mine } | null — `mine` { battleId, fieldId, kind, done }: the
 //                              latest own battle (not watched), on screen or not — a teammate watched while the own
 //                              battle runs (maintainer decision 2026-10-25) leaves it stepping off screen | null
 //   battleRunner.stats()  → { ticks, stepMs, avgTickMs, maxFrameMs, catchups, errors, battles }
@@ -266,11 +269,11 @@ export function createBattleRunner(deps) {
    * Live bond layers of every battle simulated here (DESIGN §20.15): { [playerId]: { [bondId]: n } } — only the bonds
    * whose layers grew in this round's battle, as absolute counts (the battle's live copy, ≤ BOND_LAYER_CAP).
    */
-  function layerMap() {
+  function layerMap(key = 'live') {
     const out = {};
     for (const e of entries.values()) {
-      if (!e.live) continue;
-      for (const [pid, m] of Object.entries(e.live)) out[pid] = { ...(out[pid] || {}), ...m };
+      if (!e[key]) continue;
+      for (const [pid, m] of Object.entries(e[key])) out[pid] = { ...(out[pid] || {}), ...m };
     }
     return out;
   }
@@ -293,11 +296,11 @@ export function createBattleRunner(deps) {
 
   function state() {
     const e = cur;
-    if (!e) return loading ? { loading: true, battleId: loading.battleId, fieldId: loading.fieldId, kind: loading.kind, leaks: leakMap(), uniteLeft: uniteLeftMap(), bondLayers: layerMap(), mine: mineOf() } : null;
+    if (!e) return loading ? { loading: true, battleId: loading.battleId, fieldId: loading.fieldId, kind: loading.kind, leaks: leakMap(), uniteLeft: uniteLeftMap(), bondLayers: layerMap(), bondTemp: layerMap('temp'), mine: mineOf() } : null;
     return {
       battleId: e.battleId, fieldId: e.fieldId, kind: e.kind, authoritative: e.authoritative, watch: e.watch,
       done: e.done, own: e.own, members: e.members.slice(), loading: !!loading, speed: e.speed, paused: pausedAt != null,
-      leaks: leakMap(), uniteLeft: uniteLeftMap(), bondLayers: layerMap(), mine: mineOf(),
+      leaks: leakMap(), uniteLeft: uniteLeftMap(), bondLayers: layerMap(), bondTemp: layerMap('temp'), mine: mineOf(),
     };
   }
 
@@ -340,17 +343,20 @@ export function createBattleRunner(deps) {
   /**
    * Re-read an entry's live bond layers (DESIGN §20.15): per player of its spec, the bonds whose layers in the battle's
    * live copy (Battle.addLayers, clamped at BOND_LAYER_CAP like the client's AddBondCount) exceed the spec's start
-   * count. Nothing to do when the battle disables gains (联防, boss rounds).
+   * count, and the 临时层数 part of each such count (`e.temp`, same shape: Battle.tempLayerGainsOf). Nothing to do when
+   * the battle disables gains (联防, boss rounds).
    */
   function noteLayers(e) {
     const b = e.battle;
     if (!b || (b.flags && b.flags.layerGainsEnabled === false) || typeof b.getPlayer !== 'function') return;
     let sum = 0;
     let live = null;
+    let temp = null;
     for (const sp of Array.isArray(e.spec.players) ? e.spec.players : []) {
       const ps = sp && sp.playerId != null ? b.getPlayer(sp.playerId) : null;
       if (!ps || !ps.bonds || typeof ps.bonds !== 'object') continue;
       const start = sp.bonds && typeof sp.bonds === 'object' ? sp.bonds : {};
+      const tl = typeof b.tempLayerGainsOf === 'function' ? b.tempLayerGainsOf(sp.playerId) : {};
       for (const id of Object.keys(ps.bonds)) {
         const n = Number(ps.bonds[id] && ps.bonds[id].layers) || 0;
         const from = Number(start[id] && start[id].layers) || 0;
@@ -359,11 +365,14 @@ export function createBattleRunner(deps) {
         if (!live) live = {};
         if (!live[sp.playerId]) live[sp.playerId] = {};
         live[sp.playerId][id] = n;
+        const t = Math.min(n, Number(tl[id]) || 0);
+        if (t > 0) ((temp ??= {})[sp.playerId] ??= {})[id] = t;
       }
     }
     if (sum === e.layerSum) return;
     e.layerSum = sum;
     e.live = live;
+    e.temp = temp;
     leaksDirty = true;
   }
 
@@ -485,6 +494,13 @@ export function createBattleRunner(deps) {
         const by = {};
         for (const pid of Object.keys(pool.byPlayer).slice(0, RESULT_LIMITS.players)) by[pid] = pool.byPlayer[pid];
         msg.by = by;
+      }
+      // each player's top operator against the leader (规程's boss-damage list): only when it changed — it moves a few
+      // times a fight, the reports go 4 times a second
+      if (p.top) {
+        const top = Object.fromEntries(Object.entries(p.top).slice(0, RESULT_LIMITS.players));
+        const json = JSON.stringify(top);
+        if (json !== e.topSent) { msg.top = top; e.topSent = json; }
       }
     } else {
       msg.leaks = Math.min(1e6, p.leaks);
@@ -693,13 +709,14 @@ export function createBattleRunner(deps) {
       sim: null, battle: null, meter: null, cursors: null, seq, elapsed: Number(msg.elapsed) || 0, endReason: null, ready: null,
       authoritative: !!msg.authoritative, watch: !!msg.watch, own: !msg.watch, speed,
       members: (msg.spec.players || []).map((p) => p && p.playerId).filter(Boolean),
-      t0: null, lastProgressAt: -Infinity, done: false, resultSent: false,
+      t0: null, lastProgressAt: -Infinity, topSent: null, done: false, resultSent: false,
       result: null, delivery: null,
       // counted leaks so far (normal fields; noteLeaks) and the Battle state they were counted at; 联防 fields: each
       // leaker's enemies still standing (noteUniteLeft)
       leaks: 0, leakMark: '', left: null,
-      // live bond layers grown in this battle { [playerId]: { [bondId]: n } } and their total gain (noteLayers)
-      live: null, layerSum: 0,
+      // live bond layers grown in this battle { [playerId]: { [bondId]: n } }, their 临时层数 part (same shape) and their
+      // total gain (noteLayers)
+      live: null, temp: null, layerSum: 0,
       // state-bearing events of the steps run while the tab was hidden (hold(); delivered by the next rendered frame;
       // heldAt = the game time each was drained at), and whether that backlog overflowed (the next frame re-enters the
       // view from the field meta); the event batches of the current sliced step (stepEntry)

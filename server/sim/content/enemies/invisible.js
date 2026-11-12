@@ -3,7 +3,7 @@
 
 import { canTargetAlly, enemyStealthed } from '../../targeting.js';
 import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
-import { T, elem, hurt, targetsNear, byPriority, auraBuff, lineShot, mode } from './helpers.js';
+import { T, elem, hurt, targetsNear, byPriority, auraBuff, auraAllies, lineShot, mode } from './helpers.js';
 import { stealth, onHitStatus, skill, kitStealth } from './archetypes.js';
 import { hypot } from '../../detmath.js';
 
@@ -187,6 +187,46 @@ function kitBoneSpike() {
   }];
 }
 
+/**
+ * 假想敌：影役 (规程 only; CN client prefab enemy_9034_acblk): 隐匿 (its talent `Invisible`: ToggleablePassiveBuffAbility
+ * with AdvancedCompoundToggleChecker `_disableWhenBlocked`, `_restoreDelay` 3 — the common 隐匿, stealth()), and its `Aura`
+ * (AuraAbility, NORMAL line: silence does not stop it; CircleRange of radius `Aura.range_radius` 1.8 taking an operator
+ * whose collider meets it — + ALLY_COLLIDER_RADIUS as the other enemy auras —, TargetValidator: the other side, ground
+ * and air) gives acblk[aura-blockVolume]: BLOCK_CNT `Aura.block_cnt` (−1), maxStackCnt 1 — one key, so two 影役 take
+ * one block (「不可叠加」); `_removeBuffWhenTargetLeave`, `_removeBuffWhenAbilityDetached`: it goes with the unit leaving
+ * or the 影役's end. A blocker over its new count lets its last enemy go (Battle blocking). Whom the aura reaches: the
+ * operators a buff aura of an enemy takes (auraAllies — no 隐匿 one). Its ranged arts attack is the engine's.
+ */
+function kitShadowServant(ab) {
+  const r = (T(ab, 'Aura.range_radius') ?? 0) + ALLY_COLLIDER_RADIUS, n = T(ab, 'Aura.block_cnt') ?? 0;
+  return [stealth(), {
+    spawn(b, e) { e.mem.ab.blockAura = { r, n }; },
+    tick(b) { syncBlockAura(b); },
+    death(c, b) { syncBlockAura(b); },   // the aura ends with it
+  }];
+}
+
+const BLOCK_AURA = 'ab:acblkAura';
+
+/**
+ * 影役's auras, all at once: every operator inside one living 影役's aura holds the one BLOCK_AURA buff (the value of the
+ * first 影役 that reaches it), every other loses it — so a unit inside two auras keeps it until it has left both, and an
+ * aura ends with its 影役.
+ */
+function syncBlockAura(b) {
+  const want = new Map();
+  for (const o of b.enemies) {
+    const k = o && o.alive && o.mem.ab && o.mem.ab.blockAura;
+    if (!k || !k.n) continue;
+    for (const u of auraAllies(b, o, o.x, o.y, k.r)) if (!want.has(u)) want.set(u, k.n);
+  }
+  for (const u of b.allies()) {
+    const has = !!u.findBuff(BLOCK_AURA), n = want.get(u);
+    if (n != null && !has) b.addBuff(u, { key: BLOCK_AURA, persist: true, visible: true, mods: { blockCnt: n }, fxTag: 'buff:acblk[aura-blockVolume]' });
+    else if (n == null && has) b.removeBuff(u, BLOCK_AURA);
+  }
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
@@ -207,6 +247,7 @@ export const INVISIBLE_KITS = Object.freeze({
   enemy_10042_prtrop: kitStealth,                                    // 架桥船工 · stealth (bridges n/a)
   enemy_10042_prtrop_2: kitStealth,                                  // 扶桥老手 · stealth
   enemy_9008_acbunn: kitBoneSpike,                                   // 假想敌：骨刺 · stealth; hits 3 targets while stealthed
+  enemy_9034_acblk: kitShadowServant,                                // 假想敌：影役 · stealth; operators within 1.8 block −1 (one, however many)
   enemy_1175_dushdo_2: kitShadowBlade,                               // 深池伙友影刃精英 · stealth; BAT −1.3 s next to 卫队精英
   enemy_2034_sythef: (ab) => [stealth(), onHitStatus('stun', T(ab, 'Combat.attack@stun'))],   // 流泪小子 · stealth, attacks stun
   enemy_2034_sythef_2: (ab) => [stealth(), onHitStatus('stun', T(ab, 'Combat.attack@stun'))], // 流泪小子 · same

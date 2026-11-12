@@ -10,7 +10,7 @@ const REAL = { skip: !hasGeneratedData() };
 const TICK = 1 / 30;
 const dummy = { d: enemyRec({ key: 'd', hp: 1e9, atk: 0, speed: 0 }) };
 
-/** The operator on (9,5) with one skill, a dummy on `pos`; its cast started. */
+/** The operator on (9,5) with one skill, a dummy on `pos`; its cast started (through a begin clip: the skill's start, skills.js _beginCast). */
 function cast(chessId, skillIndex, { pos = [9, 6], units = [], foes = null } = {}) {
   const h = makeBattle({
     seed: 3, autoFinish: false, timeLimit: 90, defs: { enemies: dummy }, captureNoisy: true, hooks: ['damaged', 'statusApplied'],
@@ -20,6 +20,7 @@ function cast(chessId, skillIndex, { pos = [9, 6], units = [], foes = null } = {
   h.run(1);
   const u = h.unit(chessId);
   assert.ok(u.skill.activate('test', { free: true }), 'cast');
+  h.runUntil(() => !u.skill._begin, 3);
   return { h, u, t0: h.b.time, e: h.b.enemies[0], t: u.skill.castTiming() };
 }
 const skillDmg = (h, u) => h.hooksOf('damaged').filter((c) => c.source === u && c.dmg?.isSkill && !c.dmg?.isAttack);
@@ -299,6 +300,7 @@ for (const [name, charId, extra] of [['贝洛内', 'char_4037_demetr', []], ['Mo
     h.run(1);
     const u = h.unit(1);
     assert.ok(u.skill.activate('test', { free: true }), 'cast');
+    h.runUntil(() => !u.skill._begin, 3);   // (the skill's start, after its begin clip: skills.js _beginCast)
     return { h, u, t0: h.b.time, tile: [u.tileR, u.tileC], t: u.skill.castTiming() };
   };
   test(`${name} S3 moves as its clip with no OnAttack ends, not as the cast starts`, REAL, () => {

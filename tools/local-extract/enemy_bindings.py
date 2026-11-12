@@ -83,6 +83,10 @@ BUFF_CLASSES = {
     9073738633337710967: 'aura',               # Torappu.Battle.Abilities.AuraAbility (onto the units in its range)
     -5793748974791823428: 'globalAura',        # Torappu.Battle.Abilities.GlobalAuraAbility
     7085803614365642631: 'afterAffecting',     # Torappu.Battle.Abilities.BuffAfterAffecting
+    # (2026-11-12) not a buff holder: an enemy skill's behaviour that shows `_effect` on its owner while the skill is ready
+    # (ReadyEnemySkillEffect.OnTick creates it when none is alive and the skill can cast; cleared at the cast's finish, at the
+    # cast's start when `_stopBeforeCast`, and at the detach)
+    4462941303057647761: 'ready',              # Torappu.Battle.ReadyEnemySkillEffect
 }
 # statuses render/fxstatus.js already draws from the sim's status events (STATUS_FX): not an enemy's own aura
 STATUS_DRAWN = {'common_invisible', 'common_buff_micai_01', 'common_levitate_01'}
@@ -485,6 +489,10 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
         if BUFF_CLASSES.get((d.get('m_Script') or {}).get('m_PathID')) == 'reborn' and d.get('_useAbilityToHandle') and d.get('_abilityName'):
             a['rebornHandle'] = {'name': d['_abilityName'], 'finish': 1 if d.get('_finishHandleAbilityAfterReborn') else 0,
                                  'to': d.get('_modeIndex') or 0}
+        # (2026-11-12) the skill's ready effect (ReadyEnemySkillEffect `_effect`; `_stopBeforeCast`: gone at the cast's start,
+        # else at its finish) — 萨卡兹子裔责罚者's enemy_dfat_skill_hint
+        if BUFF_CLASSES.get((d.get('m_Script') or {}).get('m_PathID')) == 'ready' and isinstance(d.get('_effect'), str) and d['_effect']:
+            a['readyFx'] = {'fx': d['_effect'], 'early': 1 if d.get('_stopBeforeCast') else 0}
         if d.get('_projectileKey'):
             p = {'key': d['_projectileKey'], 'mount': enum(MOUNTS, d.get('_mountPointType'))}
             ex = strs([x.get('_projectileKey') if isinstance(x, dict) else x for x in d.get('_extraProjectileKeys') or []])
@@ -614,6 +622,19 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
                 walk(v, ev)
     for ev, acts in (t.get('eventToActions') or {}).items():
         walk(acts, str(ev))
+    # (2026-11-12) a blink (Nodes.BlinkNode in ON_BUFF_START): the effects its CreateEffect nodes make before it (where the
+    # unit leaves) and after it (where it lands) — 聆风猎手's enemy_shkrbt_blink: enemy_shkrbt_skill_01_start, then _end
+    acts0 = (t.get('eventToActions') or {}).get('0') or (t.get('eventToActions') or {}).get(0) or []
+    if depth == 0 and isinstance(acts0, list) and any(str((n or {}).get('$type') or '').endswith('BlinkNode') for n in acts0):
+        side = 'from'
+        for n in acts0:
+            typ = str((n or {}).get('$type') or '')
+            if typ.endswith('BlinkNode'):
+                side = 'to'
+            elif typ.endswith('+CreateEffect') and isinstance(n.get('_effectKey'), str) and n['_effectKey'].lower() in FX:
+                lst = out.setdefault('blink', {}).setdefault(side, [])
+                if n['_effectKey'] not in lst:
+                    lst.append(n['_effectKey'])
     return out or None
 
 
@@ -747,7 +768,9 @@ def emit_part(abilities, projs):
             if proj is None and p['key'] in projs:
                 pr = projs[p['key']]
                 proj = {'key': p['key'], 'mount': MOUNTS.index(p['mount']) if p['mount'] in MOUNTS else None}
-                for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart'):
+                # (2026-11-11) `stop`: `_effectsWhenStop`, where it stops — 萨卡兹子裔轰击者's shell blows up there after lying
+                # its `_delayTime` (projectile_enemy_dthrow's enemy_dthrow_attack_fire_explode)
+                for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart', 'stop'):
                     if pr.get(f):
                         proj[f] = pr[f]
                 for f in ('move', 'speed', 'raise', 'link', 'fallingTime'):
@@ -795,8 +818,10 @@ def names_of_part(p):
     out = list(p.get('cast', [])) + list(p.get('hit', [])) + list(p.get('attach', [])) + list(p.get('hitBuff', [])) + list(p.get('tile', []))
     out += [x['fx'] for x in p.get('line', [])]
     pr = p.get('proj') or {}
-    for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart'):
+    for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart', 'stop'):
         out += pr.get(f, [])
+    out += p.get('summon', []) + p.get('dying', []) + p.get('ready', [])
+    out += [x for side in ('from', 'to') for x in (p.get('blink') or {}).get(side, [])]
     for sp in pr.get('sub', []):
         for f in ('trail', 'hit', 'reached', 'targetStart', 'start'):
             out += sp.get(f, [])
@@ -865,13 +890,46 @@ def render_entry(r, projs):
                      for x in (strs(b.get('fx')) or ((b.get('template') or {}).get('key') or [])))
         if buffs:
             part['buff'] = buffs
-        if any(part.get(f) for f in ('cast', 'hit', 'attach', 'hitBuff', 'buff', 'proj', 'line', 'tile')):
+        # (2026-11-11) a split on death (buff template deathrattle_sum[walk_only]: ON_OWNER_KILLED SummonEnemiesFollowMyRoute,
+        # then CreateEffect on the BUFF_OWNER and EmitProjectile from it, GROUND, to each unit summoned — their keys the buff's
+        # blackboard valueStr): `summon` = that effect on the one that fell (its projectile is the part's `proj`)
+        dr = uniq(o['fx'] for a in lst if any(str(b.get('tmpl') or '').startswith('deathrattle_sum') for b in a.get('buffs') or [])
+                  for o in a.get('otherFx') or [] if o.get('field') == '_buffs.blackboard.valueStr')
+        if dr:
+            part['summon'] = dr
+        # (2026-11-12) the blink its buff makes (template `blink`: where it leaves / where it lands — 聆风猎手's Blink), and the
+        # effects a buff it holds creates as its owner's HP would reach zero (Buff.Event 27 ON_BEFORE_TRY_SET_HP_ZERO:
+        # 暴走食人花 killed while digesting, enemy_trwlpl_s → enemy_trwlpl_end-vomit_01) — `dying`
+        for a in lst:
+            for kk in ('activeBuffs', 'buffs'):
+                for b in a.get(kk) or []:
+                    bl = (b.get('template') or {}).get('blink') or {}
+                    for side in ('from', 'to'):
+                        if bl.get(side):
+                            tgt = part.setdefault('blink', {}).setdefault(side, [])
+                            tgt += [x for x in bl[side] if x not in tgt]
+        dying = uniq(x for a in lst for b in a.get('buffs') or [] for x in ((b.get('template') or {}).get('onEvent') or {}).get('27', []))
+        if dying:
+            part['dying'] = dying
+        # (2026-11-12) its ready effect (ReadyEnemySkillEffect): `ready`, `readyEarly` 1 when it goes at the cast's start
+        rd = next((a['readyFx'] for a in lst if a.get('readyFx')), None)
+        if rd:
+            part['ready'] = [rd['fx']]
+            if rd['early']:
+                part['readyEarly'] = 1
+        if any(part.get(f) for f in ('cast', 'hit', 'attach', 'hitBuff', 'buff', 'proj', 'line', 'tile', 'summon', 'blink', 'ready')):
             part['anim'] = next((a['anim'] for a in lst if a.get('anim')), None)
             if part['anim'] is None:
                 del part['anim']
             skills[k] = part
     if skills:
         out['skills'] = skills
+    # (2026-11-11) a passive buff of template born_effect (CreateEffect on its owner as it starts, the key its blackboard
+    # valueStr — 变异沙地兽's children 腐化的原生质 / 畸变恶性瘤): `born` = played as it is born, beside the root's _startEffect
+    born = uniq(o['fx'] for a in r['abilities'] if any(b.get('tmpl') == 'born_effect' for b in a.get('buffs') or [])
+                for o in a.get('otherFx') or [] if o.get('field') == '_buffs.blackboard.valueStr')
+    if born:
+        out['born'] = born
     # an enemy's own buff held while the ability that holds it is attached (2026-10-21, client classes — BUFF_CLASSES): the
     # passive buffs of a PassiveBuffAbility that last (INFINITY, no node of their own that finishes them) — outside the modes
     # for its whole life (`aura`; a talent / common ability, the root's `_commonAbilities` wherever they sit: 黄金回响's
@@ -894,8 +952,22 @@ def render_entry(r, projs):
         rest = re.sub(r'^Modes/[^/]+/(Body/)?', '', a['path'])
         return bool(a.get('common')) or rest.count('/') <= 1
 
+    # (2026-11-12) an AuraAbility in a talent's plain folder — no ability above it (假想敌：影役's Talents/Aura holds its
+    # Invisible and its Aura side by side) — is attached with the talent: its own `_effects` are held like a direct one's
+    # (CommonAbilities/… wrappers, 扎罗's FearAura, stay nested: the wrapper attaches them while it runs)
+    ab_paths = {a['path'] for a in r['abilities']}
+
+    # (a mode's too: 神勇的帕拉杜利斯's Modes/Run/Body/Talents/CollideChar/Aura, whose `_passiveBuffs` enemy_mnctur_run_fx holds
+    # enemy_mnctur_move_1 on it for the Run mode)
+    def talent_aura(a):
+        parts = a['path'].split('/')
+        rest = re.sub(r'^Modes/[^/]+/(Body/)?', '', a['path']).split('/')
+        aura_like = bool(a.get('auraFx')) or any(b.get('by') in ('aura', 'globalAura') for b in a.get('buffs') or [])
+        return (aura_like and rest[0] in ('Talents', 'Talent') and len(rest) > 2
+                and not any('/'.join(parts[:i]) in ab_paths for i in range(2, len(parts))))
+
     def held_of(lst):
-        lst = [a for a in lst if direct(a)]
+        lst = [a for a in lst if direct(a) or talent_aura(a)]
         return uniq([x for a in lst for b in (a.get('buffs') or []) + (a.get('passiveBuffs') or []) if held(b)
                      for x in own(b) if x not in STATUS_DRAWN] + [x for a in lst for x in a.get('auraFx', [])])
     aura = held_of([a for a in r['abilities'] if a.get('mode') is None])
@@ -931,7 +1003,7 @@ def render_entry(r, projs):
         out['camera'] = camera
     # (2026-10-23) an AuraAbility's own `_effects` under another ability (扎罗's CommonAbilities/FearAura/Aura: its range,
     # on while 【远古威慑】 runs): held by the sim's status that stands for that ability (render/fxstatus.js KEY_FX)
-    nested = uniq(x for a in r['abilities'] if not direct(a) for x in a.get('auraFx', []) if x not in STATUS_DRAWN)
+    nested = uniq(x for a in r['abilities'] if not direct(a) and not talent_aura(a) for x in a.get('auraFx', []) if x not in STATUS_DRAWN)
     if nested:
         out['auraNested'] = nested
     # (2026-10-21) every other buff of its own with an effect, by the client's buff key: the sim's status that stands for that
@@ -959,6 +1031,15 @@ def render_entry(r, projs):
                             inv += [x for x in names if x not in inv]
                         if 'INVISIBLE' in (b.get('flags') or []):
                             stealth += [x for x in names if x not in stealth]
+    # (2026-11-12) an aura's buff with no effect of its own whose template creates effects (CreateEffect, template `fx`) on the
+    # unit it reaches — 神勇的帕拉杜利斯's enemy_mnctur_collide_char: enemy_mnctur_rush_hit on the operator it runs into. Bound
+    # by the buff key like an effect of its own; the sim names the moment on that hit (damage.js hitFx 'buff:<key>')
+    for a in r['abilities']:
+        for b in a.get('buffs') or []:
+            names = [x for x in strs((b.get('template') or {}).get('fx')) if x not in STATUS_DRAWN]
+            if b.get('by') in ('aura', 'globalAura') and b.get('key') and not own(b) and names:
+                lst = buff_fx.setdefault(b['key'], [])
+                lst += [x for x in names if x not in lst]
     # the buffs its buffs' nodes create on it (template `derived`), and what a buff's end creates (ON_BUFF_FINISH 1: played
     # once as the sim's status ends — `buffEnd`)
     buff_end = {}
@@ -1052,7 +1133,7 @@ def render_entry(r, projs):
 
 def entry_names(e):
     out = [e.get('start'), e.get('dead')] + list(e.get('aura', [])) + list(e.get('handed', [])) + list(e.get('auraNested', []))
-    out += list(e.get('camera', []))
+    out += list(e.get('camera', [])) + list(e.get('born', []))
     out += [x for rb in e.get('reborn') or [] for x in rb['fx']]
     out += [x for ra in e.get('rebornAbility') or [] for x in ra['cast'] + [b['fx'] for b in ra['buffs']]]
     for k in ('buffFx', 'buffEnd', 'buffBlocked'):

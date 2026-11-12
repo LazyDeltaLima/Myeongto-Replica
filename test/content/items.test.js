@@ -495,7 +495,7 @@ test('an item runs the behaviours of the buff keys it carries, whatever its id: 
   }
 });
 
-test('prep behaviours run by the buff keys an item carries: 规程\'s same-meaning renames read as the default season\'s keys, a changed item runs nothing', async () => {
+test('prep behaviours run by the buff keys an item carries: 规程\'s same-meaning renames read as the default season\'s keys, a changed item runs its own handler', async () => {
   const { BUFF_KEY_ALIASES } = await import('../../server/sim/content/items/aliases.js');
   // every alias: the same item (key), text and blackboard in both seasons
   const recs = (items, key) => Object.values(items).filter((r) => (r.buffs || []).some((b) => b.key === key));
@@ -514,9 +514,11 @@ test('prep behaviours run by the buff keys an item carries: 规程\'s same-meani
   for (const key of ['chess_item_2_02_e', 'chess_item_1_04_e', 'chess_item_2_07_e', 'chess_item_5_04_e', 'chess_item_6_08_e']) {
     assert.equal(typeof reg.get(`item:${key}`)?.onEquip, 'function', key);
   }
-  // 寻呼模块 now takes the operator's first bond only (use_equip_spe_goods_first_bond): not the default season's offer
+  // 寻呼模块 now takes the operator's first bond only (use_equip_spe_goods_first_bond): a handler of its own
+  // (items/meta.js, test/content/items_act3.test.js), not the default season's offer under an alias
   assert.ok(ACT3.items.chess_item_4_01_e_a.buffs.some((b) => b.key === 'use_equip_spe_goods_first_bond'));
-  assert.equal(reg.get('item:chess_item_4_01_e'), null);
+  assert.ok(!Object.hasOwn(BUFF_KEY_ALIASES, 'use_equip_spe_goods_first_bond'));
+  assert.equal(typeof reg.get('item:chess_item_4_01_e')?.onEquip, 'function');
 });
 
 test('护盾无人机: a heal by the carrier gives the target 1 shield layer (prob), at most 1', () => {

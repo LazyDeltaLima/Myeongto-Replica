@@ -109,7 +109,7 @@ export class BattleBlocking {
       const w = e.blockWeight ?? 1;
       if (!this._blockerFor(u, e, w)) return;
       const d2 = (e.x - px) * (e.x - px) + (e.y - py) * (e.y - py);
-      const r2 = u.kind === 'device' ? BLOCK_RADIUS_SQ.device : e.isFlying ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
+      const r2 = u.kind === 'device' ? (u.blockRadiusSq ?? BLOCK_RADIUS_SQ.device) : e.isFlying ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
       if (d2 > r2 || cands.some((x) => x.e === e)) return;   // (a large enemy is listed on each tile of its body)
       cands.push({ e, w, step: Math.floor(d2 / BLOCK_WEIGHT_GAP), i: e.deploySeq });
     };

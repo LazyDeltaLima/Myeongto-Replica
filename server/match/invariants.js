@@ -10,7 +10,7 @@
 //            piece is always a slotted slot of its owner's, and a DIY shop / reward card one of its stocked slots
 //   economy  funds / pendingFunds non-negative integers, LP finite, shop level in range, prices ≥ 0
 //   pieces   unique uids; hand 10 / temp 5 slots; temp holds pieces only while the hand is full (a free hand slot pulls
-//            a temp piece in, PlayerState._fillHandFromTemp); chess carry ≤ equipPerChess known items; a normal piece
+//            a temp piece in, PlayerState._fillHandFromTemp); chess carry ≤ their equipment slots (equipSlotsOf) known items; a normal piece
 //            holds ≤ 1 copy, an elite ≤ goldenCopies; merges are immediate (never `mergeCount` normal copies of one
 //            chess, never two copies of a mergeable normal item); every token's owner chess is deployed
 //   board    tiles inside the own region and legal for the piece (a range-bound summon inside its owner's attack
@@ -63,9 +63,15 @@ export function collectViolations(m, { limit = 25 } = {}) {
     if (ps.alive && m.phase !== PHASE.SETTLE && ps.lp <= 0 && m.teamLp == null && m.round > 0 && ps.bandId) fail(`${id}: alive with lp ${ps.lp}`);
     if (ps.hand.length !== gd.benchSize) fail(`${id}: hand has ${ps.hand.length} slots`);
     if (ps.temp.length < gd.tempSize) fail(`${id}: temp has fewer than ${gd.tempSize} visible slots`);
-    if (ps.temp.length > gd.tempSize && ps.temp.some((x) => x == null)) fail(`${id}: overflow queue has an unfilled slot`);
+    if (ps.temp.length > gd.tempSize && (ps.bagMode ? ps.temp.slice(gd.tempSize) : ps.temp).some((x) => x == null)) fail(`${id}: overflow queue has an unfilled slot`);
     // 临时整备区 = overflow only (PRTS 卫戍协议/帮助 §手牌区 "常规手牌区出现空位时自动移入", GitHub #82)
-    if (ps.temp.some(Boolean) && ps.hand.some((x) => x == null)) fail(`${id}: a temp piece waits while a hand slot is free`);
+    if (ps.bagMode) {
+      // 规程: the hand holds operators / summon stacks, the 装备区 (the five visible temp slots) equipment and 秘术; an
+      // overflow piece waits in the queue only while its own zone is full
+      if (ps.hand.some((p) => p && p.kind === 'item')) fail(`${id}: an item in the hand (规程 keeps them in the 装备区)`);
+      if (ps.temp.slice(0, gd.tempSize).some((p) => p && p.kind !== 'item')) fail(`${id}: a non-item piece in the 装备区`);
+      for (const p of ps.overflowPieces()) if (ps.freeZoneSlot(p.kind) >= 0) fail(`${id}: queued ${p.kind} ${p.id} waits while its zone has a free slot`);
+    } else if (ps.temp.some(Boolean) && ps.hand.some((x) => x == null)) fail(`${id}: a temp piece waits while a hand slot is free`);
     if (!(ps.shop.level >= 1 && ps.shop.level <= gd.maxShopLevel)) fail(`${id}: shop level ${ps.shop.level}`);
     if (!(ps.shop.upgradePrice >= 0)) fail(`${id}: upgradePrice ${ps.shop.upgradePrice}`);
     if (!Number.isInteger(ps.shop.freeRefreshes) || ps.shop.freeRefreshes < 0) fail(`${id}: freeRefreshes ${ps.shop.freeRefreshes}`);
@@ -82,6 +88,8 @@ export function collectViolations(m, { limit = 25 } = {}) {
       if (ps.funds || ps.pendingFunds) fail(`${id}: eliminated with funds ${ps.funds}+${ps.pendingFunds}`);
     }
     // 教鞭's personal choice (Match.offerBountyChoice): resolved before the prep ends — by its owner, the deadline or the bot
+    // 规程's 更换指令 (match/bandSkill.js setBandCommand): another strategy's, with an active 指令
+    if (ps.bandCommand != null && (ps.bandCommand === ps.bandId || !(m.gd.band(ps.bandCommand)?.skills || []).some((s) => s && s.type === 'ACTIVE'))) fail(`${id}: band command ${ps.bandCommand} (own ${ps.bandId})`);
     const pc = ps.personalChoice;
     if (pc) {
       if (!ps.alive || ps.ready || m.phase !== PHASE.PREP || pc.round !== m.round) fail(`${id}: a personal choice outside its own prep (${m.phase} R${m.round}, offered in R${pc.round})`);
@@ -102,7 +110,7 @@ export function collectViolations(m, { limit = 25 } = {}) {
         const rec = pgd.chess(p.id);
         if (!rec) { fail(`${id}: unknown chess ${p.id}`); continue; }
         if (rec.isDiy && !rec.diyFor) fail(`${id}: owns ${p.id}, a 自选 slot it has not filled`);
-        if (!Array.isArray(p.items) || p.items.length > gd.equipPerChess) fail(`${id}: ${p.id} carries ${p.items && p.items.length} items`);
+        if (!Array.isArray(p.items) || p.items.length > gd.equipSlotsOf(p.id)) fail(`${id}: ${p.id} carries ${p.items && p.items.length} items`);
         for (const it of p.items || []) {
           note(ps, it);
           if (it.kind !== 'item' || !gd.item(it.id)) fail(`${id}: ${p.id} carries a bad item ${it.kind}:${it.id}`);
@@ -160,6 +168,11 @@ export function collectViolations(m, { limit = 25 } = {}) {
       const need = Number.isInteger(rec.upgradeNum) ? rec.upgradeNum : gd.itemMergeCount;
       const gid = rec.upgradeChessId || rec.goldenId;
       if (need > 1 && need < 100 && gid && gd.item(gid) && n >= need) fail(`${id}: owns ${n} copies of item ${itemId} (merges at ${need})`);
+    }
+    // 组合 pairs are immediate too (PlayerState._fuseItem)
+    for (const itemId of itemCounts.keys()) {
+      const f = gd.fusionOf(itemId);
+      if (f && itemCounts.has(f.with)) fail(`${id}: owns item ${itemId} and its 组合 partner ${f.with}`);
     }
     // bonds are up to date
     try {

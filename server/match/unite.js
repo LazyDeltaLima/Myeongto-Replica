@@ -153,7 +153,7 @@ export function uniteBattleOpts(m, plan, timeLimit) {
     // wide field (3–4 helpers, 8-player mode): the halves from the right, 16 / 8 / 0 or 24 / 16 / 8 / 0 (wideStage.js)
     const colOffset = wave.wide ? wideOffsets(wave.wide)[i] : plan.helpers.length > 1 && i === 0 ? 8 : 0;
     // the layers its own combat reached (bondsView, the round's pending gains; PRTS "以其阵地当前的状态") — see header
-    const input = ps.battleInput({ side: 'L', colOffset, carry, reached: true });
+    const input = ps.battleInput({ side: 'L', colOffset, carry, reached: true, marks: false });
     const ev = { input, kind: 'unite', round: m.round, spawns: wave.spawns };
     m.dispatch(ps, 'onBattleStart', ev);
     return ev.input && typeof ev.input === 'object' ? ev.input : input;

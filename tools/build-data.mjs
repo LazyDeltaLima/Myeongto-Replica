@@ -958,6 +958,9 @@ function buildChess(ctx) {
       sellPrice: priceRow.chessSoldPrice ?? null,
       upgradeNum: cd.upgradeNum,
       upgradeChessId: cd.upgradeChessId || null,
+      // 规程's equipment slots of the operator (charChessDataDict equipSlotNum: 2, 机械 acrbot 4 / elite 6); null where the
+      // season has no such field (盟约: every operator carries 2, gamedata equipPerChess)
+      equipSlots: Number.isInteger(cd.equipSlotNum) && cd.equipSlotNum > 0 ? cd.equipSlotNum : null,
       status: { phase, level, skillLevel: status.skillLevel, equipLevel: status.equipLevel || 0 },
       stats: null, immunities: null, rangeId: null, rangeGrid: null,
       dmgType: null, attackKind: null, projectile: null, canHitFly: false, targetPriority: null,
@@ -1393,7 +1396,10 @@ function buildBackups(ctx, chess) {
   for (const id of need.keys()) if (!units[id]) warn(`unit ${id}: needed but neither a stand-in nor an owned pick`);
   const tokens = buildDiyTokens(ctx, units, ownedPool);
 
-  const coreBonds = Object.values(ac.bondInfoDict || {}).filter((b) => b.isPower && (b.powerIdList || []).length);
+  // the season's own bonds only: 规程's global bondInfoDict still lists 盟约's 拉特兰 (lateranoShip), which that season
+  // fields no longer — a pick of its power falls back like any pick without a core bond of the season
+  const coreBonds = Object.values(ac.bondInfoDict || {})
+    .filter((b) => b.isPower && (b.powerIdList || []).length && act.bondInfoDict?.[b.bondId]);
   const fallback = act.constData.fallbackBondId;
   const operators = {};
   for (const id of ownedPool) {
@@ -2010,6 +2016,24 @@ const SHOP_EXCLUDED_ITEMS = Object.freeze({
 });
 
 /**
+ * 「带有特殊效果的维式重锤」: the normal ids of the hammer kinds the first effect with `hammer_N` keys names, in that order
+ * (盟约 蒸汽之心: the four of SHOP_EXCLUDED_ITEMS; 规程 终极维式重锤 「每有一种带有特殊效果的维式重锤」: those four and
+ * 电流维式重锤; sim items/battle.js hammerListOf reads the same list). 维多利亚's <每叠加25层> 「获得一件带有随机特殊效果的维式重锤」
+ * (pool_equip_vict) draws from it, and in another season it is what the shop leaves out — the default season's
+ * playtest rule carried to the fifth kind (maintainer decision 2026-11-11 [ASSUMED·서버: the shop pool is server-side];
+ * 终极维式重锤 stays sold).
+ */
+function specialHammerIds(effects) {
+  for (const e of Object.values(effects)) {
+    for (const b of e?.buffs || []) {
+      const keys = Object.keys(b?.bbStr || {}).filter((k) => /^hammer_\d+$/.test(k)).sort(naturalCmp);
+      if (keys.length) return keys.map((k) => `${b.bbStr[k]}_a`);
+    }
+  }
+  return [];
+}
+
+/**
  * Rules the official item text leaves out, by normal item id (both qualities): `note` = a player-facing line shown under
  * the effect in the item card (items.json `note`), `implFormula` replaces research 04's formula.
  *   突变细胞 — not consumed (player feedback after 0.1.0): PRTS 卫戍协议：盟约 下半/PRTS盟约记录 备注 "生效时，原干员销毁，
@@ -2069,6 +2093,8 @@ function buildItems(ctx, effects) {
     shopByBase.set(s.itemId, s);
     if (s.goldenItemId) shopByBase.set(s.goldenItemId, s);
   }
+  const seasonHammers = new Set(specialHammerIds(effects));
+  const raisesBlock = (id) => /阻挡数\+/.test(effects[act.trapChessDataDict[id]?.effectId]?.desc || '');
   const out = {};
   for (const chessId of Object.keys(act.trapChessDataDict).sort(naturalCmp)) {
     const t = act.trapChessDataDict[chessId];
@@ -2084,7 +2110,8 @@ function buildItems(ctx, effects) {
     const ri = defId ? researchItems.get(defId) : undefined;
     const isGolden = !!t.isGolden;
     const upgradeNum = t.upgradeNum;
-    const excluded = defId && Object.hasOwn(SHOP_EXCLUDED_ITEMS, defId) ? SHOP_EXCLUDED_ITEMS[defId] : null;
+    const excluded = SEASON !== DEFAULT_SEASON && seasonHammers.has(baseId) ? '维多利亚盟约每25层 / 凯瑟琳特质'
+      : defId && Object.hasOwn(SHOP_EXCLUDED_ITEMS, defId) ? SHOP_EXCLUDED_ITEMS[defId] : null;
     const rule = defId && Object.hasOwn(ITEM_RULES, defId) ? ITEM_RULES[defId] : null;
     out[chessId] = {
       id: chessId, baseId, goldenId: shop?.goldenItemId || null, isGolden,
@@ -2097,12 +2124,19 @@ function buildItems(ctx, effects) {
       upgradeNum, upgradeChessId: t.upgradeChessId || null,
       duration: t.trapDuration,
       giveBondId: t.giveBondId || null, givePowerId: t.givePowerId || null, canGiveBond: !!t.canGiveBond,
+      // 规程's 组合 (trapChessDataDict canFuse / fuseWith / fuseResult): owning this item and `fuseWith` together turns the
+      // pair into `fuseResult` ("若与…同时持有则组合为…"; player/acquire.js _fuseItem)
+      fuseWith: t.canFuse && t.fuseWith ? t.fuseWith : null, fuseResult: t.canFuse && t.fuseResult ? t.fuseResult : null,
       requiresBondId: ri?.requiresBond || null,
       effectId: t.effectId, effectName: eff?.name || null,
       desc: eff?.desc || null, descRaw: eff?.descRaw || null,
       buffs: (eff?.buffs || []).map((b) => ({ key: b.key, countType: b.countType, bb: b.bb, bbStr: b.bbStr })),
       params: eff?.params || {},
-      category: ri?.category || null, kind: ri?.kind || null, family: ri?.family || null,
+      // an item research 04 has no entry for (规程's new ones) is consumed on equip when the table says so: trapDuration 0
+      // (every such item reads 「装备时销毁」; 博士投影's delayed form has its research entry)
+      // its category only steers the AI seats (bot.js: SURVIVAL goes to blockers first): from the text, an item that raises
+      // the block count (阻挡数+) and its 组合 partner are SURVIVAL, the rest stays unclassified (to the damage dealers)
+      category: ri?.category || (!ri && (raisesBlock(chessId) || (t.canFuse && t.fuseWith && raisesBlock(t.fuseWith))) ? 'SURVIVAL' : null), kind: ri?.kind || (!ri && t.trapDuration === 0 ? 'consume_on_equip' : null), family: ri?.family || null,
       implFormula: rule?.implFormula || ri?.implFormula || null,
       note: rule?.note || null,
       rangeGrid: Array.isArray(ri?.rangeGrids) ? ri.rangeGrids.map((g) => [g.row, g.col]) : null,
@@ -2140,9 +2174,56 @@ function buildBands(ctx, effects) {
       params: eff?.params || {},
       victorCount: b.victorCount, rewardModulus: b.bandRewardModulus ?? 1,
       unlockDesc: meta.unlockDesc || null,
+      ...(act.skillInfoDataDict ? bandSeasonFields(ctx, b, effects) : {}),
     };
   }
   return out;
+}
+
+/**
+ * 规程's strategy fields (a season whose table has skillInfoDataDict): `bandType` (GENERAL / BONDRELEVANT),
+ * `relateBondIds` (relateBondList: the bonds a BONDRELEVANT strategy belongs to), `masterVictorCount`,
+ * `offseasonPriority`, and `skills` — the strategy's 指令 stages in unlock order from its effectId: each stage's skill
+ * (type PASSIVE / ACTIVE / NONE = locked, cost, `avail` {type ROUND_RESET / COOLDOWN / ALL_LIMIT / DEFAULT, count}, the
+ * target of an ACTIVE one), its effect's buffs and params, and `next` — the condition (unlockType + params) that moves
+ * the strategy to the next stage, null on the last (unlockType band_skill_load).
+ */
+function bandSeasonFields(ctx, b, effects) {
+  const si = ctx.act.skillInfoDataDict;
+  const skills = [];
+  const seen = new Set();
+  for (let id = b.effectId; id && !seen.has(id); ) {
+    seen.add(id);
+    const s = si[id];
+    if (!s) { warn(`band ${b.bandId}: skill ${id} missing from skillInfoDataDict`); break; }
+    if (s.bandId !== b.bandId) warn(`band ${b.bandId}: skill ${id} names band ${s.bandId}`);
+    const eff = effects[id];
+    if (!eff) warn(`band ${b.bandId}: skill effect ${id} missing`);
+    const dp = textPair(s.skillDesc);
+    const next = s.unlockEffectId && s.unlockType !== 'band_skill_load'
+      ? { effectId: s.unlockEffectId, unlockType: s.unlockType, unlockParams: [...(s.unlockParam || [])] } : null;
+    skills.push({
+      effectId: id, name: eff?.name || null, type: s.skillType, cost: s.skillCost ?? 0,
+      avail: { type: s.skillAvailType || 'DEFAULT', count: s.skillAvailCount ?? 0 },
+      ...(s.targetType ? { target: { type: s.targetType, filter: s.targetFilterType || null, tip: s.targetTip || null } } : {}),
+      ...(s.isUnusableAtSpecialRecruit ? { unusableAtSpecialRecruit: true } : {}),
+      minorUnlock: !!s.minorUnlock,
+      showTag: ctx.act.effectInfoDataDict?.[id]?.showTag ?? null,
+      desc: dp.desc, descRaw: dp.descRaw,
+      buffs: (eff?.buffs || []).map((x) => ({ key: x.key, bb: x.bb, bbStr: x.bbStr })),
+      params: eff?.params || {},
+      next,
+    });
+    id = next ? next.effectId : null;
+  }
+  const covered = new Set(skills.map((s) => s.effectId));
+  for (const s of Object.values(si)) if (s.bandId === b.bandId && !covered.has(s.effectId)) warn(`band ${b.bandId}: skill ${s.effectId} is no stage of its chain`);
+  return {
+    bandType: b.bandType || 'GENERAL',
+    relateBondIds: Array.isArray(b.relateBondList) ? [...b.relateBondList] : [],
+    masterVictorCount: b.masterVictorCount ?? null, offseasonPriority: b.offseasonPriority ?? null,
+    skills,
+  };
 }
 
 // ===== enemies ==================================================================================
@@ -2798,7 +2879,7 @@ function opShot(ctx, charId, charSkills) {
  * the next attack), 'state' (CastSkill `_switchToState` 1: the unit stays in its Skill state until the skill ability
  * ends) or 'free' (`_switchToState` 0); `resetCd` 1 = `_resetAbilityCooldownWhenCastEnd`; `bornWait` 1 = the cast is
  * refused while the unit is in its born state (`born` 0: the prefab's `_canSwitchDuringBorn` / `_canCastDuringBorn` off —
- * server/sim/skills.js _born). With a skill ability: `time`
+ * server/sim/skills.js _born); `begin` = the length of a 'state' cast's begin clip (`_playSkillBeginAnim`). With a skill ability: `time`
  * = its `_timeMode` (0 the attack interval, 1 its clip, 2 / 3 `cd`), `cd` (time 2: `_cooldown`, 3: the blackboard
  * value of `_cooldownKey`), its clip (`clip`, `dur`, the first OnAttack frame `hit` — Front skeleton, data/assets.json,
  * a key the skeleton lacks also tried as `<key>_Loop`), abilityTiming's `max` / `pre` / `wait` and abilityFace's `face`
@@ -2811,12 +2892,17 @@ function skillCast(ctx, charId, s) {
   const out = { mode: c.cls === 'replace' ? 'replace' : c.state ? 'state' : 'free' };
   if (c.cls === 'cast' && c.reset) out.resetCd = 1;
   if (c.cls === 'cast' && c.born === 0) out.bornWait = 1;
+  const sp = ctx.manifest?.chars?.[charId]?.spine?.front;
+  // the begin clip of a 'state' cast (`begin` s): the Skill state plays it and starts the skill once it has played
+  // (`BasicSkill.PlayBeginAnimation` waits the clip's length — none when the skeleton lacks it; server/sim/skills.js
+  // _beginCast). The `beginDown` clip of a unit deployed facing down is as long in every pool skeleton, so it is not kept.
+  const beginLen = out.mode === 'state' && typeof c.begin === 'string' && c.begin ? sp?.animations?.[c.begin] : null;
+  if (typeof beginLen === 'number' && beginLen > 0) out.begin = beginLen;
   const a = c.ability;
   if (!a || typeof a !== 'object') return out;
   out.time = Number.isInteger(a.time) ? a.time : 0;
   if (out.time === 2 && a.cd > 0) out.cd = a.cd;
   if (out.time === 3 && Number(s.bb?.[a.cdKey]) > 0) out.cd = Number(s.bb[a.cdKey]);
-  const sp = ctx.manifest?.chars?.[charId]?.spine?.front;
   for (const n of a.anim ? [a.clip, a.anim, `${a.anim}_Loop`] : []) {
     const dur = n ? sp?.animations?.[n] : null;
     if (!(typeof dur === 'number' && dur > 0)) continue;
@@ -4106,18 +4192,31 @@ function buildChoices(ctx, effects, items, chess) {
       pool_equip_narant: { kind: 'equip', rule: 'shopEligible', assumed: true },
       // "获得一件带有随机特殊效果的维式重锤": the 4 hammers with a special effect (never sold, SHOP_EXCLUDED_ITEMS); the
       // weights are server-side (PRTS 11-25 note: "装备【灼燃维式重锤】的出现概率调整") — uniform [ASSUMED]
-      pool_equip_vict: { kind: 'equip', items: ['灼燃维式重锤', '坚固维式重锤', '加速维式重锤', '战栗维式重锤'].map(itemByName), assumed: true },
+      // (规程: the same text, five kinds with 电流维式重锤 — specialHammerIds; 盟约's four in the same order as before)
+      pool_equip_vict: { kind: 'equip', items: specialHammerIds(effects).filter((id) => items[id]), assumed: true },
       // 卫戍协议：规程's 谢拉格: every 100 layers one 谢拉格不融冰 (bond_layer_added_reward_equip pool_equip_kjeragbond2; the pool
       // itself is server-side): that one item — only for a season whose effects name the pool (the default season has an
       // item of that name too)
       ...(poolUsed('pool_equip_kjeragbond2') ? { pool_equip_kjeragbond2: { kind: 'equip', items: [itemByName('谢拉格不融冰')], assumed: true } } : {}),
-      pool_equip_pepe: { kind: 'equip', weighted: [['盟约之币', 45], ['萨尔贡浓茶', 45], ['黄沙罗盘', 10]].map(([n, w]) => [itemByName(n), w]), goldenWeights: [40, 40, 20], assumed: true },
-      // 洛洛的定制品: 8 items with measured weights (路标月报#2「卡池相关机制」item 6 — 10维式重锤2战栗2坚固2加速2灼燃
-      // 1有限加速器4护盾无人机4激光发射器; the pool is a subset of the shared equipment pool, so the four shop-sold
-      // entries go through the item stock). Supersedes the 4-special-hammer reading (user playtest #4, first-hand:
-      // "几个特殊的维式重锤是干员洛洛或者维多利亚阵营获得的" — the special four remain exclusive to this pool and
-      // 维多利亚's, they are just no longer the whole of it)
-      pool_equip_rockr: { kind: 'equip', weighted: [['维式重锤', 10], ['战栗维式重锤', 2], ['坚固维式重锤', 2], ['加速维式重锤', 2], ['灼燃维式重锤', 2], ['有限加速器', 1], ['护盾无人机', 4], ['激光发射器', 4]].map(([n, w]) => [itemByName(n), w]), assumed: true },
+      ...(SEASON === DEFAULT_SEASON ? {
+        pool_equip_pepe: { kind: 'equip', weighted: [['盟约之币', 45], ['萨尔贡浓茶', 45], ['黄沙罗盘', 10]].map(([n, w]) => [itemByName(n), w]), goldenWeights: [40, 40, 20], assumed: true },
+        // 洛洛的定制品: 8 items with measured weights (路标月报#2「卡池相关机制」item 6 — 10维式重锤2战栗2坚固2加速2灼燃
+        // 1有限加速器4护盾无人机4激光发射器; the pool is a subset of the shared equipment pool, so the four shop-sold
+        // entries go through the item stock). Supersedes the 4-special-hammer reading (user playtest #4, first-hand:
+        // "几个特殊的维式重锤是干员洛洛或者维多利亚阵营获得的" — the special four remain exclusive to this pool and
+        // 维多利亚's, they are just no longer the whole of it)
+        pool_equip_rockr: { kind: 'equip', weighted: [['维式重锤', 10], ['战栗维式重锤', 2], ['坚固维式重锤', 2], ['加速维式重锤', 2], ['灼燃维式重锤', 2], ['有限加速器', 1], ['护盾无人机', 4], ['激光发射器', 4]].map(([n, w]) => [itemByName(n), w]), assumed: true },
+      } : {
+        // 规程's pools that name no default-season item (the pools are server-side, weights [ASSUMED·서버]); 「小概率」 is
+        // read as 10 %, the default season's 佩佩 pool of the same wording (pool_equip_pepe, itself [ASSUMED])
+        // 凯瑟琳 garrison_139_a 「<获得时>获得一件维式重锤，小概率获得特殊维式重锤」: the plain hammer 90, the special kinds 10 between them
+        pool_equip_kathe_0: { kind: 'equip', weighted: [[itemByName('维式重锤'), 90], ...specialHammerIds(effects).map((id) => [id, 10 / specialHammerIds(effects).length])], assumed: true },
+        // 凯瑟琳 garrison_139_b 「<获得时>获得一件特殊维式重锤，小概率获得终极维式重锤」: the special kinds 90 between them, 终极维式重锤 10
+        pool_equip_rockr: { kind: 'equip', weighted: [...specialHammerIds(effects).map((id) => [id, 90 / specialHammerIds(effects).length]), [itemByName('终极维式重锤'), 10]], assumed: true },
+        // 异客 garrison_161 「<进入休整期时>获得1件（精锐 2件）“盟约之币”或“萨尔贡浓茶”，有小概率发现“拟态物质”」: 佩佩's shape (its elite
+        // 「有概率」 had other weights; 异客's elite text keeps 「小概率」, so one table)
+        pool_equip_pasngr: { kind: 'equip', weighted: [['盟约之币', 45], ['萨尔贡浓茶', 45], ['拟态物质', 10]].map(([n, w]) => [itemByName(n), w]), assumed: true },
+      }),
       pool_chess_glady: { kind: 'chess', items: ['斯卡蒂', '幽灵鲨', '深巡'].map(chessByName), assumed: true },
       // 10野鬃10灰毫3远牙 (路标月报#2 item 6; was an even-ish 45/45/10 guess)
       pool_char_pinus: { kind: 'chess', weighted: [['野鬃', 10], ['灰毫', 10], ['远牙', 3]].map(([n, w]) => [chessByName(n), w]), assumed: true },
@@ -4177,6 +4276,10 @@ const DEFAULT_ENEMY_MULTIPLIERS = {
  * The steps of the enemy effects (activity_table effectInfoDataDict / effectBuffInfoDataDict, data/effects.json): 攻坚装备
  * (aceffect_enemy_3) ATK and HP, 补给线II (aceffect_enemy_2_2) HP, 补给线 (aceffect_enemy_2) HP, 急行军 (aceffect_enemy_1)
  * speed. 盟约: 1.1 / 1.2 / 1.2 / 1.08 / +0.15; 规程 gives 1.11 / 1.2 / 1.3 / 1.08 / +0.3 under the same ids.
+ * [ASSUMED·서버] 规程's rounds take the 盟约 per-round step counts (research 01 A3, by modeType × modeDifficulty) with
+ * these steps: which enemy effects a round carries is the server's, and 规程's 34 new ENEMY effects (攻坚装备XIII–LVII,
+ * 补给线VI–VIII, some with attack speed +5 / +10) are named by no client table (modeDataDict has eventIds and the
+ * 模拟强度 text only), so they stay unused (docs/rules/sim.md 「규정 적·보스」 라운드 적 효과).
  */
 function enemySteps(effects) {
   const bb = (id, k, d) => {
@@ -4359,6 +4462,8 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       shopClearedAtCombatStart: 'unfrozenSlots',
       itemSellable: false, itemDestroyRefund: 0,
       benchSize: act.constData.maxDeckChessCnt, tempSize: 5, deployCap: act.constData.maxBattleChessCnt,
+      // 规程's 装备区 (none before it): the five temp tiles became equipment-only (map tile_acbag; PlayerState bagMode)
+      ...(act.constData.maxDeckEquipmentChessCnt > 0 ? { equipHandSize: act.constData.maxDeckEquipmentChessCnt } : {}),
       storeCntMax: act.constData.storeCntMax,
       equipPerChess: 2, maxArtsPerRound: 2,
       poolCopies: { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 },
@@ -4468,8 +4573,32 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       singleReconnectTime: ac.constData?.singleReconnectTime ?? 86400, trainingModeId: act.constData.trainingModeId || null,
       discountColor: ac.constData?.discountColor || '#59f4ca', premiumColor: ac.constData?.premiumColor || '#ff5454', normalColor: ac.constData?.normalColor || '#ffc600',
       pingConds: (ac.constData?.pingConds || []).map((p) => ({ minMs: p.cond, textRaw: p.txt })),
+      // 规程's avatar badges (absent from a season whose table has none — the page and the server show none then):
+      // the 完美连胜 count's two badge steps, the boss-damage share's three glow steps (the BOSS_HIT broadcasts' 20 / 50 /
+      // 80 %), the boss-damage list's row styles by percent (styleStatusId bg_1…) and its delay after the boss fight starts
+      ...avatarBadgeConstants(ac),
     },
   };
+}
+
+/**
+ * The avatar badge constants of a season's autoChessData (constData.playerAvatarWinStreakThresholds,
+ * playerAvatarBossDamageThresholds, bossDamageStatsShowDelayTime; bossDamageStatsStyleList) — only those its table has.
+ * @param {any} ac
+ */
+function avatarBadgeConstants(ac) {
+  const c = ac.constData || {};
+  const nums = (v) => (Array.isArray(v) && v.length && v.every((x) => Number.isFinite(x)) ? v.slice() : null);
+  const out = {};
+  const streak = nums(c.playerAvatarWinStreakThresholds);
+  if (streak) out.winStreakThresholds = streak;
+  const boss = nums(c.playerAvatarBossDamageThresholds);
+  if (boss) out.bossDamageThresholds = boss;
+  const styles = Array.isArray(ac.bossDamageStatsStyleList) ? ac.bossDamageStatsStyleList : Object.values(ac.bossDamageStatsStyleList || {});
+  const rows = nums(styles.map((s) => s && s.damageThreshold));
+  if (rows) out.bossDamageRowThresholds = rows;
+  if (Number.isFinite(c.bossDamageStatsShowDelayTime)) out.bossDamageStatsDelay = c.bossDamageStatsShowDelayTime;
+  return out;
 }
 
 // ===== potential (0.2.2) =========================================================================
@@ -4700,10 +4829,19 @@ function validateAll(f) {
     if (!effects[it.effectId]) err(`item ${it.id}: effect missing`);
     if (it.goldenId && !items[it.goldenId]) err(`item ${it.id}: golden missing`);
     if (it.giveBondId && !bonds[it.giveBondId]) err(`item ${it.id}: giveBond ${it.giveBondId} missing`);
+    if (it.fuseWith && !items[it.fuseWith]) err(`item ${it.id}: fuseWith ${it.fuseWith} missing`);
+    if (it.fuseResult && !items[it.fuseResult]) err(`item ${it.id}: fuseResult ${it.fuseResult} missing`);
     if (it.requiresBondId && !bonds[it.requiresBondId]) err(`item ${it.id}: requiresBond ${it.requiresBondId} missing`);
   }
   for (const b of Object.values(bands)) if (!effects[b.effectId]) err(`band ${b.bandId}: effect missing`);
   for (const b of Object.values(bands)) for (const id of b.bondIds || []) if (!bonds[id]) err(`band ${b.bandId}: bond ${id} missing`);
+  for (const b of Object.values(bands)) {
+    if (!b.skills) continue;
+    if (b.skills[0]?.effectId !== b.effectId) err(`band ${b.bandId}: its first skill stage is not its effect ${b.effectId}`);
+    for (const s of b.skills) if (!effects[s.effectId]) err(`band ${b.bandId}: skill effect ${s.effectId} missing`);
+    if (b.skills.at(-1)?.next) err(`band ${b.bandId}: its last skill stage unlocks ${b.skills.at(-1).next.effectId}`);
+    for (const id of b.relateBondIds || []) if (!bonds[id]) err(`band ${b.bandId}: related bond ${id} missing`);
+  }
   for (const w of Object.values(waves)) {
     for (const sp of w.spawns) {
       if (sp.action) continue;
@@ -4825,6 +4963,7 @@ async function main() {
   const choices = buildChoices(ctx, effects, items, chess);
   // the bonds each strategy is built around (DESIGN §21.26): the bot skips, and the strategy draft marks 本局禁用, a band
   // whose bond the mode switches off
+  // (规程: a BONDRELEVANT strategy's relateBondList joins them — its texts name the bond in 【…】, not <…>)
   for (const b of Object.values(bands)) b.bondIds = bandBondIds(b, { bonds, pools: choices.pools });
   const config = buildConfig({ ...ctx, effects }, waves, stages, bands, chess, items);
   const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens, backups };

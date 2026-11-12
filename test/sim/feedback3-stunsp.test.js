@@ -27,7 +27,8 @@ test('洛洛 S2 自负此轭: the data matches skill_table (lv 4 / 7), the stun 
   });
   const u = h.unit('chess_char_2_10_a');
   h.step();
-  assert.ok(u.skill.active, 'cast at once');
+  assert.ok(u.skill.activations === 1, 'cast at once');
+  h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
   h.runUntil(() => !u.skill.active, 45);
   h.step();
   const stun = h.hooksOf('statusApplied').find((c) => c.status === 'stun' && c.target === u);

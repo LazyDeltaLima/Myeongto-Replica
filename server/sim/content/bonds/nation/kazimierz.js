@@ -8,8 +8,9 @@
 //                                      members' 普通伤害 (isNormalDamage: skill hits too) adds pure_atk_scale×ATK true damage
 //   act3autochess_bond_eff_kazimierz   (卫戍协议：规程, bondeffect_kazimierz_2) the same deploy count and ATK; 6: for
 //                                      ex_damage_duration s after its deployment or a skill's cast, each damage a member
-//                                      deals but an 附加 one adds ATK × ex_atk_scale 真实 (附加). The 6-tier switch with
-//                                      the preparation bench's rightmost member is not written yet (bundle sim-K)
+//                                      deals but an 附加 one adds ATK × ex_atk_scale 真实 (附加); a ground member knocked
+//                                      out leaves the field and the 整备区's rightmost 卡西米尔 ground operator comes in on
+//                                      its tile ([switch], the reserve operators of reserveKazimierz)
 
 import * as S from '../../support/index.js';
 import { isNormalDamage, isHpLoss } from '../../../damage.js';
@@ -78,6 +79,29 @@ function installKazimierz(battle, pid, bb, members) {
   for (const u of members) onUnitDamaged(battle, u, onDmg);
 }
 
+const benchKey = (pid) => `bond:kazimierz:bench:${pid}`;
+
+/**
+ * The 6 switch's candidates (act3autochess_bond_eff_kazimierz_power[switch] AutoChessMarkSwitchWithHand: `_checkBond`
+ * kazimierzShip, `_buildableType` MELEE, `_selectType` RIGHT): the player's 整备区 卡西米尔 members of the ground deploy
+ * class, rightmost slot first, as reserve operators (battle/players.js createReserveAlly) — created before any content
+ * installs, so they carry their bonds, items and kit like a board operator once fielded.
+ */
+function reserveKazimierz(battle, pid, bb) {
+  if (!reached(battle, pid, 'kazimierzShip', bb.power_bond_char_cnt)) return;
+  const ps = S.player(battle, pid);
+  const hand = Array.isArray(ps?.input?.reserve) ? ps.input.reserve : [];
+  const bench = S.battleStore(battle, benchKey(pid), () => []);
+  for (const inp of [...hand].filter((h) => h && Number.isInteger(h.slot)).sort((a, b) => b.slot - a.slot)) {
+    const def = battle._allyDefFromInput(inp);
+    if (!def || def.position !== 'MELEE') continue;
+    const probe = { kind: 'op', side: 'ally', ownerId: pid, def, items: Array.isArray(inp.items) ? inp.items : [] };
+    if (!S.isMember(battle, probe, 'kazimierzShip')) continue;
+    const u = battle.createReserveAlly(ps, inp);
+    if (u) bench.push(u);
+  }
+}
+
 function installKazimierzAct3(battle, pid, bb, members) {
   // kazimierz_born: one count for the field (installKazimierz, the same global blackboard)
   const st = S.battleStore(battle, 'bond:kazimierz:born', () => ({ deploys: 0, applies: [] }));
@@ -107,12 +131,28 @@ function installKazimierzAct3(battle, pid, bb, members) {
     if (k > 0) battle.dealDamage(u, t, { amount: k * num(u.s.atk), type: 'true', canDodge: false, tags: ['bond:kazimierz', 'addition'] });
   };
   for (const u of members) onDealt(battle, u, onDmg);
+  // [switch] (kazimierz_power ON_BUFF_START, CheckBuildableType MELEE `_checkOriginCondition`: the ground deploy class):
+  // ON_OWNER_FINISH with HP_ZERO / HP_ZERO_WITH_NO_SOURCE — a knock-out, with or without a source (our 'killed'), not a
+  // retreat or forced exit — the member "离场" (no body, no redeploy) and the next candidate is fielded on the tile it
+  // lies on, facing its way. A fielded candidate is a member too (its own [switch], the deploy count, [ex_damage]). The
+  // bond states stay as they are ("不改变当前盟约的激活状态": the battle's bond counts are its input's)
+  const bench = S.battleStore(battle, benchKey(pid), () => []);
+  if (!bench.length) return;
+  battle.on('death', ({ unit, reason }) => {
+    if (reason !== 'killed' || unit.alive || unit.removed || !memberSet.has(unit) || !S.isGroundOp(unit)) return;
+    const next = bench.find((u) => !(u.deploySeq > 0));
+    if (!next) return;
+    const tile = battle.restTile(unit);
+    unit.removed = true;
+    // (the view sees the knock-out's 'die' and the candidate's 'deploy': no switch effect of its own yet)
+    if (!battle.fieldReserve(next, tile, unit.dir)) unit.removed = false;
+  }, { priority: -1000 });
 }
 
 export const TEMPLATES = Object.freeze({
   act2autochess_bond_eff_kazimierz: { bond: 'kazimierzShip', battle: installKazimierz },
   act3autochess_bond_eff_kazimierz: {
-    bond: 'kazimierzShip', battle: installKazimierzAct3, bb: 'record',
-    partial: ['6: switch with the preparation bench\'s rightmost member'],
+    bond: 'kazimierzShip', battle: installKazimierzAct3, bb: 'record', reserve: reserveKazimierz,
+    hand: (bb) => ({ position: 'MELEE', need: num(bb.power_bond_char_cnt) }),
   },
 });

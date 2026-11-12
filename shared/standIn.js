@@ -41,7 +41,7 @@ export function statusKey(status) {
  */
 export const IDENTITY_FIELDS = Object.freeze([
   'chessId', 'baseId', 'goldenId', 'isGolden', 'tier', 'identifier', 'isHidden', 'isDiy', 'visible', 'chessType', 'backup',
-  'shopSortId', 'bonds', 'garrisonIds', 'price', 'sellPrice', 'upgradeNum', 'upgradeChessId', 'status', 'diyRequirement',
+  'shopSortId', 'bonds', 'garrisonIds', 'price', 'sellPrice', 'upgradeNum', 'upgradeChessId', 'equipSlots', 'status', 'diyRequirement',
 ]);
 
 /** The form of `charId` at a chess `status`, or null. */

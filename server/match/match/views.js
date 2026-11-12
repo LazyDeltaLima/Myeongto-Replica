@@ -12,7 +12,7 @@ import { bountySpawns, previewOf } from '../waves.js';
 import { timelineAt } from '../fields.js';
 import { bossFieldPlacement } from '../finalAssault.js';
 import { bossFieldPaths } from '../bossPath.js';
-import { battleProgress } from '../../sim/spec.js';
+import { battleProgress, bossTopUnits } from '../../sim/spec.js';
 import { DRAFT_CONFIRM_SECONDS, INFO_CHECK_SECONDS } from './common.js';
 
 /**
@@ -55,6 +55,29 @@ export class MatchViews {
       case PHASE.ROUND_START: return 'acting';
       default: return 'done';
     }
+  }
+
+  /**
+   * 规程's avatar badges, sent only by a season whose table has them (config.constants, tools/build-data.mjs
+   * avatarBadgeConstants): `winStreak` — the 完美连胜 count (settle.js), when ≥ 1 — and, an alive player in a boss round,
+   * `bossPct`: their share of this leader's pool (SharedBossPool.byPlayer, the BOSS_HIT broadcasts' tally) in whole
+   * percent, floored, so the 20 / 50 / 80 % glow steps light when the share reaches them; `bossTop`: the chess id of their
+   * operator that dealt the leader the most (spec.js bossTopUnits — the field's b.progress `top`, a server-run field's
+   * own battle).
+   * @returns {{ winStreak?: number, bossPct?: number, bossTop?: string }}
+   */
+  _badgeView(ps) {
+    const c = this.gd.config.constants || {};
+    const out = {};
+    if (Array.isArray(c.winStreakThresholds) && ps.winStreak > 0) out.winStreak = ps.winStreak;
+    const pool = this.bossPool;
+    if (Array.isArray(c.bossDamageThresholds) && pool && ps.alive && (this.phase === PHASE.FINAL_ASSAULT || this.phase === PHASE.HIDDEN_CORE)) {
+      out.bossPct = pool.maxHp > 0 ? Math.max(0, Math.min(100, Math.floor(((pool.byPlayer.get(ps.playerId) || 0) / pool.maxHp) * 100))) : 0;
+      const f = this.fields.find((x) => x.players.includes(ps.playerId));
+      const top = !f ? null : f.battle ? bossTopUnits(f.battle)?.[ps.playerId] : f.bossTop?.[ps.playerId];
+      if (typeof top === 'string') out.bossTop = top;
+    }
+    return out;
   }
 
   fieldOf(ps) {
@@ -118,6 +141,8 @@ export class MatchViews {
         autoplay: ps.autoplay,
         // the LP this round's own battle will cost at settlement so far (COMBAT / 联防 only, omitted when 0)
         ...this._pendingLpView(ps),
+        // 规程's avatar badges: 完美连胜, and in a boss round the share of the leader and the top operator (_badgeView)
+        ...this._badgeView(ps),
       })),
       fields: this.fields.map((f) => {
         const v = { fieldId: f.fieldId, kind: f.kind, players: f.players.slice(), live: !!f.live };

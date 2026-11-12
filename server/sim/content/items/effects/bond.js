@@ -2,12 +2,44 @@
 // Keyed by the official buff key (bbStr.key of the item record's battle buff); items/battle.js runs them for every record
 // that carries the key, whatever its item id (items/shared.js: the entry shape and the early / late order).
 
-import { num, onField, unitBonds, alliesAround, passiveBuff, tplFx, contentInfo, directMods } from '../../support/index.js';
+import { num, onField, unitBonds, alliesAround, passiveBuff, tplFx, contentInfo, directMods, battleStore, gainLayers, activeBondIds } from '../../support/index.js';
 import { isHpLoss, isNormalDamage } from '../../../damage.js';
-import { early, late, partnerOf, isProc, procTags, chance, isAddition, memberOf, carries } from '../shared.js';
+import { early, late, partnerOf, isProc, procTags, chance, isAddition, memberOf, carries, isContinuous as isContinuousDmg } from '../shared.js';
 
 /** chess_item_5_09_e, chess_item_6_01_e, chess_item_6_02_e, chess_item_6_03_e, chess_item_6_04_e, chess_item_6_06_e, chess_item_6_07_e, chess_item_6_11_e, act2autochess_equip_acarm121_ability (early) */
 export const BUFFS = {
+  // 多功能补剂 (规程, act3autochess_equip_acarm131_global_buff): each damage the carrier outputs (not 持续; ON_OUTPUT_DAMAGE
+  //   `_filterModifierCancelled`) ⇒ 临时层数 +temp_stack_count_add for each active bond of its own (AutoChessAddBondStackCount
+  //   `_useTargetBond` `_isTemp`), until temp_stack_count_max in the battle — one count per operator however many copies
+  //   (a shared blackboard keyed by its chess). Item procs do not count (this fork's rule: procs never re-trigger items)
+  act3autochess_equip_acarm131_global_buff: late(function act3_multiTonic(battle, u, p, S) {
+    const add = Math.floor(num(p.temp_stack_count_add)), max = Math.floor(num(p.temp_stack_count_max));
+    if (!(add > 0 && max > 0)) return;
+    const used = battleStore(battle, 'item:multiTonic', () => new Map());
+    S.on('damaged', (c) => {
+      if (c.source !== u || c.type === 'element' || isProc(c.dmg) || isContinuousDmg(c.dmg) || !c.target || c.target.side !== 'enemy') return;
+      const cur = used.get(u) ?? 0;
+      if (cur >= max) return;
+      const next = Math.min(max, cur + add);
+      used.set(u, next);
+      gainLayers(battle, { playerId: u.ownerId, bonds: unitBonds(u, battle), n: next - cur, temp: true, reason: 'item', source: u });
+    });
+  }),
+  // 佣兵名牌 (规程, act3autochess_equip_acarm141_global_buff): ATK and max HP +atk / +hp × the player's active bonds
+  //   (AutoChessAssignActiveGarrisonBondCntToBlackboard, clamped to max_layer; MULTIPLIER, 直接乘算), counted when the buff
+  //   starts — each deployment
+  act3autochess_equip_acarm141_global_buff: late(function act3_mercTag(battle, u, p, S) {
+    const atk = num(p.atk), hp = num(p.hp), cap = Math.max(0, Math.floor(num(p.max_layer, 8)));
+    if (!atk && !hp) return;
+    const key = S.key('bonds');
+    const sync = () => {
+      const n = Math.min(cap, activeBondIds(battle, u.ownerId).length);
+      if (n > 0) S.buff(u, { key, mods: directMods({ atk: atk * n, hp: hp * n }), refresh: 'replace', persist: true, allowDead: true });
+      else battle.removeBuff(u, key);
+    };
+    S.on('deploy', (c) => { if (c.unit === u) sync(); });
+    sync();
+  }),
   // 天马之盔: with 天马之枪 ⇒ 生命回复 hp_recovery_per_sec_by_max_hp_ratio × max HP per second. Client buff graph
   //   act2autochess_equip_acarm118_global_buff ON_BUFF_START: AutoChessCheckHasEquip → [ex] with the attribute
   //   HP_RECOVERY_PER_SEC_BY_MAX_HP_RATIO — the unit's own regeneration (hpRegenRatio: continuous, no 治疗 event), judged

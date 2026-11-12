@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
+import { ACT3, field, done, cast, begun, realMatch } from '../helpers/seasonPieces.js';
 import { S1_BEGIN } from '../../server/sim/content/kits/ops/op-turdus.js';
 
 const A = 'chess_char_3_03_a', B = 'chess_char_3_03_b';
@@ -108,8 +108,9 @@ test('S1: ASPD +, no attack during its begin clip, one more unit in the chain', 
     assert.equal(u.skill.id, S1);
     const aspd = u.s.aspd;
     cast(u);
-    near(u.skillStateUntil, h.b.time + S1_BEGIN, `${id}: held for the begin clip`);
-    h.step();
+    assert.ok(Math.abs(u.skillStateUntil - (h.b.time + S1_BEGIN)) < 1 / 60, `${id}: held for the begin clip (in whole ticks)`);
+    assert.equal(u.s.aspd, aspd, `${id}: no ASPD before the clip has played`);
+    begun(h, u);
     assert.equal(u.s.aspd, aspd + bb.attack_speed, `${id}: ASPD`);
     for (const [i, r] of [0.1, 0.2, 0.3, 0.4, 0.5].entries()) h.unit(2 + i).hp = 1e9 * r;
     h.runUntil(() => healsBy(h, u).length >= 4, 12);

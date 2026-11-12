@@ -53,7 +53,8 @@ function done(h) {
   checkInvariants(h.b);
   assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0]));
 }
-function cast(u) { u.skill.gainSp(999); assert.ok(u.skill.activate('test')); }
+/** Cast now and step through its begin clip: the skill has started (skills.js _beginCast). */
+function cast(h, u) { u.skill.gainSp(999); assert.ok(u.skill.activate('test')); h.runUntil(() => !u.skill._begin, 2); }
 const palsy = (e) => e.findBuff('palsy')?.stacks ?? 0;
 
 test('真言 in every 自选 form: her operator kit (all three skills authored), stats + PRI-X attributes, 3-1 range, ranged arts that hits air units, targetable by ground enemies, 萨尔贡 bond, no 特质', () => {
@@ -133,7 +134,7 @@ test('S2 意识联协 (MANUAL, data DEFAULT): 25 s, attack interval 1.6 − 0.6 
     const out = h.spawn('enemy_dummy', { pos: [11.5, 12.1] });
     const sent = [], fx0 = h.b.fx.bind(h.b);
     h.b.fx = (k, o) => { if (k === 'kitHit') sent.push(o); return fx0(k, o); };
-    cast(u);
+    cast(h, u);
     approx(u.s.interval, 1.6 + b.base_attack_time, `T${tier}: interval`);
     const a0 = h.hooksOf('attack').filter((c) => c.attacker === u).length;
     h.runUntil(() => h.hooksOf('attack').filter((c) => c.attacker === u).length > a0, 2);
@@ -205,7 +206,7 @@ test('S3 无言为真 麻痹付与 and the cap 2: 0.1 s after the cast every ene
     const { h, u } = field({ tier, elite, skill: 2, others });
     const inside = h.unit(2), outside = h.unit(3);
     for (const a of [inside, outside]) { a.skill.sp = 0; a.skill.charges = 0; }
-    cast(u);
+    cast(h, u);
     h.run(0.05);
     // nobody on her range yet: the grant at 0.1 s is kept
     h.run(0.1);
@@ -257,7 +258,7 @@ test('S3 无言为真 麻痹付与 and the cap 2: 0.1 s after the cast every ene
 
 test('S3 无言为真: an enemy holding 3 麻痹 entering her range keeps 2 and bounces the third; 溢出麻痹 left when it leaves the range or the skill ends all bounce at once; a 麻痹免疫 enemy counts the stacks she gives it', () => {
   const { h, u } = field({ tier: 6, elite: true, skill: 2 });
-  cast(u);
+  cast(h, u);
   h.run(0.2);   // the grant of 0.1 s finds nobody (kept, never fired again here)
   const e = h.spawn('enemy_dummy', { pos: [10, 12] });   // off her range
   h.b.applyStatus(e, 'palsy', { value: 3 });
@@ -284,7 +285,7 @@ test('S3 无言为真: an enemy holding 3 麻痹 entering her range keeps 2 and 
   // 麻痹免疫: her grants count (ineffective stacks), so the second grant overflows
   const { h: h2, u: u2 } = field({ tier: 6, elite: true, skill: 2, others: [{ uid: 2, chessId: 'chess_char_1_08_a', row: 11, col: 6 }] });
   const imm = h2.spawn('enemy_immune', { pos: [10, 7] });
-  cast(u2);
+  cast(h2, u2);
   h2.run(0.2);
   assert.equal(palsy(imm), 0, 'no 麻痹 buff (immune)');
   assert.equal(imm.mem.mantraPalsy, 2, 'counted');
@@ -334,7 +335,7 @@ test('T1 噤声限域: an enemy whose attack a 麻痹 stack interrupts takes 145
   h.run(2.2);
   assert.equal(interrupts, 2, 'its attacks were interrupted');
   assert.equal(tagged(h, u, 'mantraHush').length, 0, 'a 隐匿 enemy: no effect');
-  cast(u);
+  cast(h, u);
   h.run(0.6);
   assert.ok(!e.s.flags.reveal, 'not revealed (off her range)');
   h.b.applyStatus(e, 'palsy', { value: 2 });

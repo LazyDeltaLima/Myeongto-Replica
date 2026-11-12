@@ -114,7 +114,7 @@ test('S1 二重咏唱 (MANUAL, data DEFAULT, 25 s): ASPD +38 / +45 on the first 
   }
 });
 
-test('S2 点燃 (AUTO, 2 charges, data DEFAULT): main target RES ×0.85 / ×0.8 first, ½ explosion on every enemy within 1.5 (flyers too), then ½ again on the main target; the others\' RES cut after their hit, 6 s', () => {
+test('S2 点燃 (AUTO, 2 charges, data DEFAULT): main target RES ×0.85 / ×0.8 first, ½ explosion on every enemy within 1.5 (flyers too), then ½ again on the main target; only the main target\'s RES is cut (the projectile\'s _onlyAddBuffsToTraceTarget), 6 s', () => {
   for (const [tier, elite, mod] of [[5, false, null], [6, true, null], [6, true, CCRX]]) {
     const sk = skillOf(tier, elite, S2);
     const { h, u } = field({ tier, elite, mod, skill: 1 });
@@ -143,12 +143,12 @@ test('S2 点燃 (AUTO, 2 charges, data DEFAULT): main target RES ×0.85 / ×0.8 
     for (const e of [n1, n2, fly]) {
       const hs = hits.filter((c) => c.target === e);
       assert.equal(hs.length, 1, `T${tier}: one explosion hit on ${e.tileR},${e.tileC}`);
-      approx(hs[0].amount, arts(atk * sk.bb.atk_scale, 50, ign), `T${tier}: ½ before its own RES cut`);
+      approx(hs[0].amount, arts(atk * sk.bb.atk_scale, 50, ign), `T${tier}: ½ on its own RES`);
       assert.deepEqual([hs[0].type, hs[0].dmg.isSplash, hs[0].dmg.isSkill], ['arts', true, true]);
     }
     assert.ok(!hits.some((c) => c.target === far), `T${tier}: 2 tiles away — outside the 1.5 explosion`);
-    for (const e of [main, n1, n2, fly]) approx(e.s.res, cut, `T${tier}: RES ×${1 + sk.bb.magic_resistance}`);
-    approx(far.s.res, 50, `T${tier}: untouched`);
+    approx(main.s.res, cut, `T${tier}: the main target's RES ×${1 + sk.bb.magic_resistance}`);
+    for (const e of [n1, n2, fly, far]) approx(e.s.res, 50, `T${tier}: ${e.tileR},${e.tileC} keeps its RES — the cut goes to the main target only`);
     assert.equal(u.skill.charges, 1, `T${tier}: one charge spent`);
     // the next attack spends the second charge; the cut stays one (同名效果取最高) and lasts 6 s
     assert.ok(h.runUntil(() => u.skill.charges === 0, 4));
@@ -298,7 +298,7 @@ test('T2 乱火: 10–19 SP at every deployment (a floored draw); CCR-Y stage 3 
   assert.match(t1.desc, /随机获得10（\+3）~19（\+4）点技力并随机提升6~15的攻击速度/);
 });
 
-test('modules: CCR-X "无视目标10点法术抗性" at stages 1 and 3 (her normal attack on RES 50 deals × 0.6); CCR-Y "普通攻击命中精英或领袖敌人时获得1点技力" — not on a normal enemy, not from S2\'s explosion', () => {
+test('modules: CCR-X "无视目标10点法术抗性" at stages 1 and 3 (her normal attack on RES 50 deals × 0.6); CCR-Y "普通攻击命中精英或领袖敌人时获得1点技力" — not on a normal enemy; every damage on an elite, S2\'s explosion and second ½ included', () => {
   for (const f of FORMS_ALL) {
     const [tier, elite, mod] = f;
     const { h, u } = field({ tier, elite, mod, skill: 2 });
@@ -326,18 +326,20 @@ test('modules: CCR-X "无视目标10点法术抗性" at stages 1 and 3 (her norm
     if (y) for (const c of h.hooksOf('spGain').filter((s) => s.unit === u && s.reason === 'trait')) assert.equal(c.amount, 1);
     done(h);
   }
-  // S2's explosion and second ½ are no further 命中 (CCR-Y stage 3): one SP per ignited attack on an elite
+  // CCR-Y stage 3 (v035_common_addsp, ON_CALCULATE_DAMAGE): the ignited attack on an elite with an elite beside it — its
+  // hit, the explosion's share on the neighbour and the second ½ on the main target: three SP
   const { h, u } = field({ tier: 6, elite: true, mod: CCRY, skill: 1 });
   h.run(0.6);
   u.skill.charges = 0;
   u.skill.sp = 0;
   const el = h.spawn('enemy_elite', { pos: [10, 8] });
-  h.spawn('enemy_elite', { pos: [10, 9] });
+  const el2 = h.spawn('enemy_elite', { pos: [10, 9] });
   u.skill.gainSp(999);
   const k0 = h.hooksOf('spGain').filter((c) => c.unit === u && c.reason === 'trait').length;
   assert.ok(h.runUntil(() => hitsBy(h, u).filter((c) => c.target === el && c.dmg.isSkill).length >= 2, 4));
   h.step();
-  assert.equal(h.hooksOf('spGain').filter((c) => c.unit === u && c.reason === 'trait').length - k0, 1, 'one SP for the ignited attack');
+  assert.equal(hitsBy(h, u).filter((c) => c.target === el2 && c.dmg.isSplash).length, 1, 'the explosion reaches the neighbour');
+  assert.equal(h.hooksOf('spGain').filter((c) => c.unit === u && c.reason === 'trait').length - k0, 3, 'one SP per damage on an elite');
   done(h);
 });
 

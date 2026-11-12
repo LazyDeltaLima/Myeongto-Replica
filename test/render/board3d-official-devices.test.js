@@ -117,4 +117,116 @@ describe('official scene devices: 射击台 and 特制水上平台 models, nothi
     assert.ok(built.devices.mesh(OFFICIAL_DEVICE.waterPlatform).children.length >= 2);
     built.dispose();
   });
+
+  // 2026-11-12: 赘生甲壳 (trap_156_dsshell, 规程's 微核沉积者 leaves it where it falls) — a battle device drawn by its own
+  // model (scene.js _createOfficialDevice by the device's key, units.js DeviceView `key`), the other battle devices as before
+  test('a battle device: 赘生甲壳 by its own model, any other by the crate\'s (crateTop) or the procedural box', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    const models = (keys) => {
+      const d = fakeDevices(keys, {});
+      const mesh = d.mesh;
+      d.mesh = (k) => { const g = mesh(k); g.userData.materials = [{ uniforms: { uOpacity: { value: 1 } }, dispose() {} }]; return g; };
+      return d;
+    };
+    const drawn = () => board.dynamic.children.filter((o) => o.name?.startsWith('dev:')).map((o) => o.name).sort();
+    board.officialBuilt = { devices: models([OFFICIAL_DEVICE.crate, OFFICIAL_DEVICE.shell]), update() {}, dispose() {} };
+    const box = { x: 5, y: 10, z: 0, size: 0.7, height: 0.36, alpha: 1 };
+    const shell = board.createDevice(), crate = board.createDevice(), other = board.createDevice();
+    shell.update(null, { ...box, top: 'platformTop', key: 'trap_156_dsshell' });
+    crate.update(null, { ...box, top: 'crateTop', key: 'trap_1105_accrate' });
+    other.update(null, { ...box, top: 'platformTop', key: 'trap_4_xxx' });
+    assert.deepEqual(drawn(), ['dev:trap_1105_accrate', 'dev:trap_156_dsshell'], 'the shell\'s model, the crate\'s; the third a box');
+    for (const h of [shell, crate, other]) h.destroy();
+    assert.deepEqual(drawn(), []);
+    board.officialBuilt = { devices: models([OFFICIAL_DEVICE.crate]), update() {}, dispose() {} };   // an older extract: no shell model
+    const old = board.createDevice();
+    old.update(null, { ...box, top: 'platformTop', key: 'trap_156_dsshell' });
+    assert.deepEqual(drawn(), [], 'no model of it: the procedural box');
+    old.destroy();
+    board.officialBuilt = null;
+    board.destroy();
+  });
+
+  // its MeshAnimator's legacy clips (Born = Appear, Die = Break), exported as per-part frames (scene_extract.py DEVICE_CLIPS)
+  test('the extracted 赘生甲壳 clips: Born grows all ten parts from 0.001, Die moves eight of them (not Part4 / Part9) from rest; pose() swaps to the parts and back', { skip: !devDoc?.devices?.trap_156_dsshell?.clips && '赘生甲壳 clips not extracted (scene_extract.py --devices)' }, () => {
+    const clips = devDoc.devices.trap_156_dsshell.clips;
+    const PARTS = Array.from({ length: 10 }, (_, i) => `group1/Part${i + 1}`);
+    assert.deepEqual([clips.Born.clip, clips.Die.clip], ['Appear', 'Break']);
+    assert.ok(clips.Born.dur === 1.25 && clips.Die.dur === 1.25 && clips.Die.fps > 0);
+    assert.deepEqual(Object.keys(clips.Born.frames).sort(), [...PARTS].sort());
+    assert.deepEqual(Object.keys(clips.Die.frames).sort(), PARTS.filter((p) => !/Part(4|9)$/.test(p)).sort());
+    const I = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0];
+    for (const [p, f] of Object.entries(clips.Die.frames)) {
+      assert.equal(f.length, 12 * (Math.round(1.25 * clips.Die.fps) + 1), p);
+      assert.ok(f.slice(0, 12).every((v, i) => Math.abs(v - I[i]) < 0.02), `${p} starts at rest`);
+      assert.ok(f.slice(-12).some((v, i) => Math.abs(v - I[i]) > 0.05), `${p} has moved`);
+    }
+    for (const f of Object.values(clips.Born.frames)) assert.ok(Math.abs(f[0] - 0.001) < 1e-4 && Math.abs(f.at(-12) - 1) < 0.01, 'from 0.001 to its size');
+    const g = manifest.groups['scene/devices'];
+    const raw = readFileSync(onDisk(g.geom.path));
+    const dv = { doc: devDoc, buffer: raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) };
+    const built = buildOfficialScene(THREE, { stageId: 'act3autochess_m01', doc: { groups: [], materials: {} }, buffer: new ArrayBuffer(0), textures: {}, lightmaps: [], devices: { stageId: 'devices', ...dv, textures: {}, lightmaps: [] } }, focusUniforms(THREE));
+    const D = built.devices;
+    const grp = D.mesh(OFFICIAL_DEVICE.shell, { fade: true });
+    const whole = grp.userData.whole, parts = grp.userData.parts;
+    assert.equal(whole.length, 1, 'standing: one mesh');
+    assert.equal(parts.byPart.size, 10);
+    assert.ok(!parts.group.visible && whole[0].visible);
+    for (const pg of parts.byPart.values()) for (const m of pg.children) assert.ok(m.material === whole[0].material, 'the parts share the whole model\'s fade material');
+    assert.equal(grp.userData.materials.length, 1);
+    assert.ok(grp.userData.materials[0].uniforms.uTint?.value === 1 && /outgoing \*= uTint;/.test(grp.userData.materials[0].fragmentShader), 'its own tint, multiplied into the colour');
+    const box = () => { const b = new THREE.Box3(); grp.updateMatrixWorld(true); for (const pg of parts.byPart.values()) b.expandByObject(pg); return b; };
+    assert.equal(D.pose(grp, 'Born', 0), true);
+    assert.ok(parts.group.visible && !whole[0].visible, 'a clip draws the parts');
+    const born0 = box();
+    assert.ok(born0.max.x - born0.min.x < 0.01, 'Born starts tiny');
+    D.pose(grp, 'Die', 0);
+    const rest = box();
+    assert.ok(Math.abs(rest.max.x - rest.min.x - 1.1) < 0.1, `Die starts at the model's size (${rest.max.x - rest.min.x})`);
+    D.pose(grp, 'Die', 1.25);
+    const end = box();
+    assert.ok(end.max.x - end.min.x > rest.max.x - rest.min.x + 0.1, 'the parts have flown apart');
+    assert.ok(parts.byPart.get('group1/Part4').matrix.equals(new THREE.Matrix4()), 'a part Break does not move stays');
+    D.pose(grp, 'Die', 0.6);
+    const mid = parts.byPart.get('group1/Part1').matrix.elements.slice();
+    D.pose(grp, 'Die', 0.6 + 1 / 60);
+    assert.ok(parts.byPart.get('group1/Part1').matrix.elements.some((v, i) => Math.abs(v - mid[i]) > 1e-6), 'between frames it moves on (interpolated)');
+    assert.equal(D.pose(grp, null), true);
+    assert.ok(!parts.group.visible && whole[0].visible, 'back to the standing model');
+    assert.equal(D.pose(grp, 'Spin', 0), false, 'a clip it does not have');
+    const crate = D.mesh(OFFICIAL_DEVICE.crate);
+    assert.ok(!crate.userData.parts && D.clip(OFFICIAL_DEVICE.crate, 'Die') === null, 'other devices have no clips');
+    for (const m of grp.userData.materials) m.dispose();
+    built.dispose();
+  });
+
+  test('the device handle hands the clip to pose() and reports its length', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    const calls = [];
+    const d = fakeDevices([OFFICIAL_DEVICE.shell], {});
+    const mesh = d.mesh;
+    const mat = { uniforms: { uOpacity: { value: 1 }, uTint: { value: 1 } }, dispose() {} };
+    d.mesh = (k) => { const g = mesh(k); g.userData.materials = [mat]; return g; };
+    d.clip = (k, n) => (k === OFFICIAL_DEVICE.shell && n === 'Die' ? { dur: 1.25 } : null);
+    d.pose = (g, n, t) => { calls.push([g.name, n, t]); return true; };
+    board.officialBuilt = { devices: d, update() {}, dispose() {} };
+    const h = board.createDevice();
+    assert.equal(h.clipDur('Die'), 0, 'nothing known before its first update');
+    const b = { x: 5, y: 10, z: 0, size: 0.7, height: 0.36, alpha: 1, top: 'platformTop', key: OFFICIAL_DEVICE.shell };
+    h.update(null, b);
+    assert.equal(h.clipDur('Die'), 1.25);
+    assert.equal(h.clipDur('Born'), 0);
+    h.update(null, { ...b, clip: { name: 'Die', t: 0.4 } });
+    assert.deepEqual(calls, [['dev:trap_156_dsshell', null, 0], ['dev:trap_156_dsshell', 'Die', 0.4]]);
+    h.update(null, { ...b, clip: { name: 'Die', t: 0.9 }, tint: 0.3, alpha: 0.8 });
+    assert.ok(mat.uniforms.uTint.value === 0.3 && mat.uniforms.uOpacity.value === 0.8, 'the dead colour tween reaches its materials');
+    h.destroy();
+    board.officialBuilt = null;
+    board.destroy();
+  });
+
+  test('the extracted 赘生甲壳: one ground model about a tile wide (scene_extract.py DEVICE_KEYS)', { skip: !devDoc?.devices?.trap_156_dsshell && '赘生甲壳 not extracted (scene_extract.py --devices)' }, () => {
+    const [lo, hi] = devDoc.devices.trap_156_dsshell.bounds;
+    assert.ok(lo[2] > -0.05 && hi[2] < 0.6 && hi[0] - lo[0] > 0.8 && hi[0] - lo[0] < 1.4, JSON.stringify(devDoc.devices.trap_156_dsshell));
+  });
 });

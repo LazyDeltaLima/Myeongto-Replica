@@ -357,7 +357,9 @@ export class BattleLifecycle {
       // SP only (match/unite.js). `sp` is the official 技力 — stored charges included (PRTS 技能 "可充能X次…当前技力上限等于该
       // 技能技力需求的X倍"); a running skill spent its SP at activation, so it reports what was left (0 for one charge).
       // `skillActive` is reported, never carried.
-      pp.unitsEnd = ps.units.filter((u) => u.kind === 'op' || (u.kind === 'token' && u.uid != null)).map((u) => ({
+      // (a reserve operator — a 整备区 piece content may field, players.js createReserveAlly — only once fielded)
+      const units = ps.units.filter((u) => !(u.reserve && !(u.deploySeq > 0)));
+      pp.unitsEnd = units.filter((u) => u.kind === 'op' || (u.kind === 'token' && u.uid != null)).map((u) => ({
         uid: u.uid, id: u.id, defId: u.defId,
         hpPct: u.alive ? Math.max(0, Math.min(1, u.hp / u.s.maxHp)) : 0,
         sp: u.skill && !u.skill.noSkill ? Math.round(u.skill.spTotal * 100) / 100 : 0,
@@ -366,7 +368,7 @@ export class BattleLifecycle {
       }));
       // `boss` / `assist` / `ownerUid` feed the settlement's per-operator charts (server/match/unitTally.js): a unit the
       // battle created (no board uid) names the nearest summoner up its chain that has one, so it counts for that operator
-      pp.unitStats = ps.units.map((u) => {
+      pp.unitStats = units.map((u) => {
         const e = {
           id: u.id, uid: u.uid, defId: u.defId, name: u.name, kind: u.kind,
           dmg: Math.round(u.stats.dmg), kills: u.stats.kills, heal: Math.round(u.stats.heal), taken: Math.round(u.stats.taken), attacks: u.stats.attacks,

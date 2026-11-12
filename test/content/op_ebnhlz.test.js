@@ -332,13 +332,32 @@ test('S2 荒芜回响 (AUTO: full SP and one free placeable tile in his range, n
     assert.ok(castLanded(h), 'its Skill_2 hit');
     const rem = h.b.allyUnits.filter((t) => t.kind === 'token' && t.defId === REMNANT);
     assert.equal(rem.length, N + 2, `${N} + 1 energies + 1 remnants`);
-    assert.deepEqual([rem[0].tileR, rem[0].tileC], [10, 7], 'the enemy\'s tile first');
-    const d = (t) => Math.hypot(t.tileC - 7, t.tileR - 10);
-    for (let i = 2; i < rem.length; i++) assert.ok(d(rem[i]) >= d(rem[i - 1]) - 1e-9, 'then by the distance to the enemy');
+    assert.deepEqual([rem[0].tileR, rem[0].tileC], [10, 7], 'the enemy\'s tile first (the others: its nearest tile is taken ⇒ at random)');
     assert.deepEqual(stored(u), { n: 0, e: 0 }, 'every energy spent');
     assert.equal(energyHits(h, u).length, 0, 'none left for the attack');
     void e;
     done(h);
+  }
+  // the official TileSelector order past the enemies' tiles: an enemy of his range on a tile that is not free (another
+  // operator's) gets the free tile nearest it; an enemy outside his range counts for nothing (then at random)
+  {
+    const other = [{ uid: 2, diy: { slot: SLOT[5], charId: EBN, skillIndex: 0 }, row: 10, col: 6, dir: 'RIGHT' }];
+    const cast = (seed, pos) => {
+      const { h, u } = field({ tier: 5, skill: 1, others: other, seed });
+      holdSkill(h.unit(2));
+      holdSkill(u);
+      h.spawn('enemy_dummy', { pos });
+      u.skill.gainSp(999);
+      assert.ok(h.runUntil(() => u.skill.activations === 1, 5), 'cast');
+      assert.ok(castLanded(h), 'its Skill_2 hit');
+      const rem = h.b.allyUnits.filter((t) => t.kind === 'token' && t.defId === REMNANT);
+      assert.ok(rem.length >= 1, 'a remnant');   // (energies stored by his attacks meanwhile add more: the first is the one placed first)
+      done(h);
+      return `${rem[0].tileR},${rem[0].tileC}`;
+    };
+    for (const seed of [1, 2, 3, 4]) assert.equal(cast(seed, [10, 6.4]), '10,7', `seed ${seed}: the free tile nearest the enemy on the other operator's tile`);
+    const out = [1, 2, 3, 4, 5, 6].map((seed) => cast(seed, [10, 8.45]));
+    assert.ok(out.some((k) => k !== '10,7'), `an enemy outside his range draws nothing: ${out.join(' ')}`);
   }
   // the flat stage's edge (col 2: RANGED tiles; cols 0–1 none): facing LEFT from (10, 2) no tile of his range is free
   {
@@ -382,6 +401,7 @@ test('旧日残影: a selectable ground enemy within 1.35 activates it; 0.93 s l
     assert.ok(castLanded(h), 'its Skill_2 hit');
     const r = h.b.allyUnits.find((t) => t.kind === 'token' && t.defId === REMNANT && t.tileR === 10 && t.tileC === 7);
     assert.ok(r && r.alive, 'a remnant on the enemy');
+    assert.ok(r.s.flags.untargetable, 'no enemy selects it (TRAP_OR_ITEM)');
     const near = h.spawn('enemy_dummy', { pos: [11, 8] });   // 1.41 away: outside
     const fly = h.spawn('enemy_fly', { pos: [10, 8] });
     const t0 = h.b.time;

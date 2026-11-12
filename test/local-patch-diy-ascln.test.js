@@ -118,6 +118,7 @@ describe('阿斯卡纶 kit — research 2026-10-07 §4 fixes', () => {
     h.b.addBuff(u, { key: 'test:tough', mods: { defFlat: 1e6 } });
     h.b.addBuff(hitter, { key: 'test:calm', flags: { disarm: true } });
     u.skill.activate('manual', { free: true });
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     u.skill.extend?.(400);
     const seen = [];
     h.b.on('hit', (c) => { if (c.source === hitter) seen.push(!!c.dmg.cancel); }, { priority: -100 });
@@ -147,6 +148,7 @@ describe('阿斯卡纶 kit — research 2026-10-07 §4 fixes', () => {
     assert.equal(u.s.taunt, -1);
     u.skill.activate('manual', { free: true });
     h.step();
+    h.runUntil(() => !u.skill._begin, 2);   // (after its begin clip: skills.js _beginCast)
     assert.equal(u.s.taunt, 1);
     assert.equal(u.s.dodgePhys, recOf({ sk: 2 }).trait.bb.prob, 'the trait dodge stays');
   });

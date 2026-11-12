@@ -32,7 +32,7 @@
 //     fires on another event and reads the player's refreshes of the round (roundStats), like 本回合每获得过 / 每花费.
 
 import { H as LAYERS } from './prep/layers.js';
-import { H as SHOP } from './prep/shop.js';
+import { H as SHOP, SPECIAL_REFRESH } from './prep/shop.js';
 import { H as EQUIP } from './prep/equip.js';
 import { H as TRIGGERS } from './prep/triggers.js';
 
@@ -53,4 +53,6 @@ export const HANDLERS = (() => {
 
 export function registerMeta(registry) {
   for (const [key, h] of Object.entries(HANDLERS)) registry.garrison(key, h);
+  // 灵知's special refresh waits for the player's next manual refresh, whether or not 灵知 is still owned (prep/shop.js)
+  registry.global('garrison_special_refresh', SPECIAL_REFRESH);
 }

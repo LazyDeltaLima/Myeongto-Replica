@@ -229,6 +229,9 @@ export const KEY_FX = Object.freeze({
   'angel2:barrier': cite(['angel2_s_2[shield][trigger]', 'angel2_s_2[select_target]'], (v) => (fxCode(v) === 'angel2' ? ANGEL2_SELF : ANGEL2_OTHER)),
   // element bursts (ep_break_*): 凋亡 ep_break_dark[damage] on both sides; 灼燃 ep_fire_magic_res_down and 侵蚀
   // ep_water_def_down (the DEF cut, `erosionDown`) on operators only — an enemy's 灼燃 / 侵蚀 burst has its hit effect only
+  // (2026-11-11) 蕴核饲育者 / 异光体饲育者's child (规程): dsfull_tr_1[derived][n] ON_OWNER_KILLED summons it and gives it
+  // dsfull_tr_1[speed_up] (overrideEffectKey enemy_dsfull_buff_03, INFINITY) — the sim's 'ab:dsfullSpeed' (content/enemies/reborn.js kitBreeder)
+  'ab:dsfullSpeed': cite('dsfull_tr_1[speed_up]', ['pfx_enemy_3', 'enemy_dsfull_buff_03', 0]),
   apoptosisBurst: keyed('ep_break_dark[damage]', 'common', 0.5),
   burnBurst: cite('ep_fire_magic_res_down', (v) => (v.isEnemy ? null : BURN_BURST)),
   erosionDown: cite('ep_water_def_down', (v) => (v.isEnemy ? null : EROSION_DOWN)),
@@ -322,6 +325,12 @@ export const KEY_FX = Object.freeze({
   // autochess_acarm037_buff[attack_speed] (act1vautochess_acarm037_buff, trap_acgarm_buff_03) made again with each stack (RENEWED)
   'item:yanDagger': cite('act1vautochess_acarm024_buff', ['trap', 'trap_acarm40_buff', OWN]),
   'item:accel': cite('act1vautochess_acarm037_buff', ['trap', 'trap_acgarm_buff_03', OWN]),
+  // 2026-11-11 (묶음 fx-B): 规程's equipment buffs (CN templates, prefabs in the CN client's trap.ab) — 灵巧涡轮手套's
+  // [atk_speed] (effectKey trap_acarm132_buff_01, a loop) from each deployment until a hit lowers HP, 动能加速器's layer_max
+  // buff (overrideEffectKey trap_acarm149_buff_01), 汲取者之镰's skill-long [heal_free] (overrideEffectKey trap_acarm154_buff_01)
+  'item:turboGlove': cite('act3autochess_equip_acarm132_global_buff[atk_speed]', ['trap', 'trap_acarm132_buff_01', OWN]),
+  'item:kineticMax': cite('act3autochess_equip_acarm149_global_buff', ['trap', 'trap_acarm149_buff_01', OWN]),
+  'item:reaperScythe': cite('act3autochess_equip_acarm154_global_buff', ['trap', 'trap_acarm154_buff_01', OWN]),
   // 战场#06's 沙尘暴 on an unsheltered operator (EN template sand_storm[ally], ON_BUFF_TRIGGER): storm[attr_to_ally] — its
   // SwitchDirection on the storm's direction (the buff's `fx`, devices.js tickStorm) creates map_desert_03_<the side the
   // wind comes from> (DOWN → _up) at the HIT point — and storm[attr_to_ally_mark] buff_desert_01 over the head
@@ -423,7 +432,8 @@ function fxCode(v) {
 export function statusSource(views, e) {
   const info = e[5] && typeof e[5] === 'object' ? e[5] : null;
   if (e[4] == null && !info) return null;
-  return { src: e[4] != null ? fxCode(views.get(e[4])) || null : null, fx: info?.fx ?? null, n: Number(info?.n) || 0 };
+  // `id`: the applier's unit id (2026-11-11 — wantedStatusFx's bySrc finds an enemy applier's view by it; `src` is its fx code)
+  return { src: e[4] != null ? fxCode(views.get(e[4])) || null : null, id: e[4] ?? null, fx: info?.fx ?? null, n: Number(info?.n) || 0 };
 }
 
 /** The STATUS_FX key of a sim 'status' key ('tremble', 'skill:haini_slow', 'talent:weak_fragile' …), or null. */
@@ -552,6 +562,37 @@ export function wornPrefabs(plays) {
 
 function put(out, k, spec) { if (spec && !out.has(k)) out.set(k, spec); }
 let playsNow = null;   // wantedStatusFx's `plays` (byName, keyed specs)
+/**
+ * 2026-11-11 (docs/rules/fx.md 「규정 살카즈 후예 무리」): an enemy's own status whose official effect follows a count on the
+ * field — status key → (count) → the client buff keys (`own('key', …)`, its binding's buffFx) or null. 萨卡兹子裔集恨者 /
+ * 集怒者 (sim 'ab:dklord', content/enemies/reborn.js kitLord): its GlobalAuraAbility enemy_dklord_aura on every 重生造物 puts
+ * one stack of enemy_dklord_atk on the 集恨者 itself (`_buffOwner` BUFF_SOURCE); ON_BUFF_LATE_ENABLE creates
+ * ememy_dklord_atk[effect_1] (overrideEffectKey enemy_dklord_buff_01) above 2 stacks and [effect_2] (enemy_dklord_buff_02)
+ * from 5, ON_BUFF_FINISH ends [effect_2] under 5 and [effect_1] at 2 or fewer — the count is the 重生造物 on its field
+ * (the stack count is uncapped, maxStackCnt −1; the sim caps only the ATK at max_valid_stack_cnt).
+ */
+const BLOODSUCKER_MARK = new Set(['enemy_1220_dzoms', 'enemy_1220_dzoms_2', 'enemy_1221_dzomg', 'enemy_1221_dzomg_2']);   // their CommonAbility/mark
+const COUNTED_TAGS = Object.freeze({
+  'ab:dklord': Object.freeze({ count: (v) => v.isEnemy && BLOODSUCKER_MARK.has(v.info?.defId),
+    tag: (n) => (n >= 5 ? 'ememy_dklord_atk[effect_1]|ememy_dklord_atk[effect_2]' : n > 2 ? 'ememy_dklord_atk[effect_1]' : null) }),
+});
+const COUNTED = Object.entries(COUNTED_TAGS);
+/**
+ * 2026-11-12 (docs/rules/fx.md 「규정 영혼의 유해 무리」): enemy_lrmzrd[fx_ctrl] / enemy_lrwzrd[fx_ctrl] by the souls held
+ * (soulBuff ≥ 1 / 2 / 3: enemy_v050[fx][stack_1] / _2 / _3, each kept once created, finished as the count drops below it).
+ */
+const SOUL_TAGS = Object.freeze([null, 1, 2, 3].map((n) => (n ? Array.from({ length: n }, (_, i) => `enemy_v050[fx][stack_${i + 1}]`).join('|') : null)));
+/** Live views on the field that each COUNTED_TAGS entry counts (syncStatusFx sets them once per frame). */
+const countedNow = new Map();
+/** Count the views COUNTED_TAGS counts (`views`: the field's views; alive, not leaving). */
+export function countForStatus(views) {
+  countedNow.clear();
+  for (const [k, c] of COUNTED) {
+    let n = 0;
+    for (const v of views.values()) if (v && v.alive && !v.remove && c.count(v)) n++;
+    countedNow.set(k, n);
+  }
+}
 const byName = (out, spec) => {
   if (!spec) return;
   if (typeof spec[1] === 'string') put(out, `${spec[0]}/${spec[1]}`, spec);
@@ -600,6 +641,8 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
   // 2026-10-23: the passive buffs of the mode an enemy with several modes is in (prisoners' 【解放】, 守墓石像's statue, the
   // 逐火 ember …) — held while the mode is on; one a status names too is the same `bundle/prefab` key, drawn once
   if (own) { const r = own('mode'); if (r) byOwn(r); }
+  // 2026-11-12: the souls a 魂灵法骸 / 魂灵残迹 holds (fxgame.js soulFx counts them) — its [fx_ctrl]'s stack buffs, 1 … n together
+  if (own && v._fxSouls > 0) { const r = own('key', SOUL_TAGS[Math.min(SOUL_TAGS.length - 1, v._fxSouls)]); if (r) byOwn(r); }
   if (f & UF.STUNNED) put(out, 'stun', STATUS_FX.stun);
   if (f & UF.FROZEN) put(out, 'freeze', frozenFx(v));
   if (f & UF.COLD) put(out, 'cold', STATUS_FX.cold);
@@ -616,11 +659,17 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
   if (v.statuses) {
     for (const k of v.statuses) {
       const from = v.statusFrom?.get?.(k) || null;
+      const counted = own ? COUNTED_TAGS[k] : null;
+      if (counted) {
+        const tag = counted.tag(countedNow.get(k) || 0), r = tag ? own('key', tag) : null;
+        if (r) byOwn(r);
+        continue;
+      }
       // the client buff an enemy's own status stands for (its `fxTag` 'buff:<client buff keys>'), a rebirth's 无敌 (`ab:…:inv`,
       // reborn() in server/sim/content/enemies/archetypes.js): the enemy's own buff effects — none bound, nothing drawn
       const tag = typeof from?.fx === 'string' && from.fx.startsWith('buff:') ? from.fx.slice(5) : null;
       if (tag != null || /^ab:.*:inv$/.test(k)) {
-        const r = own ? (tag != null ? own('key', tag) : own('inv')) : bySrc && tag != null ? bySrc(from?.src, tag) : null;
+        const r = own ? (tag != null ? own('key', tag) : own('inv')) : bySrc && tag != null ? bySrc(from?.id ?? null, tag) : null;
         if (r) byOwn(r);
         continue;
       }
@@ -676,6 +725,7 @@ export function syncStatusFx(views, fxGame, battle) {
   const plays = typeof fxGame.plays === 'function' ? fxGame.plays() : null;
   const readyOf = typeof fxGame.readyFx === 'function' ? fxGame.readyFx : null;
   const viewOf = (id) => views.get(id);
+  countForStatus(views);
   for (const v of views.values()) {
     if (!v || typeof v.flags !== 'number') continue;
     v._statusIcons = icons;

@@ -79,6 +79,7 @@ import { html, Spinner, PhaseBanner, ResultDialog, Icon, Button, confirmDialog, 
 import { useGameData, GIcon, PlayerAvatar } from '../ui/gameComponents.js';
 import { enemyIconUrl } from '../ui/assetUrls.js';
 import { useFieldView } from '../ui/fieldHost.js';
+import { BossDamagePanel } from '../ui/avatarBadges.js';
 import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, matchLpCap, battleHud } from '../ui/hud.js';
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { TeamPanel } from '../ui/teamPanel.js';
@@ -92,7 +93,7 @@ import { Ticker } from '../ui/ticker.js';
 import { EmoteWheel } from '../ui/emotes.js';
 import { GameChat } from '../ui/chat.js';
 import { DebugPanel } from '../ui/debugPanel.js'; // local patch: local debug mode only (m.private.debug)
-import { EffectsList } from '../ui/effectsList.js';
+import { BandSkill } from '../ui/bandSkill.js';
 import { RoundDamage } from '../ui/roundDamage.js';
 import { CombatHud } from '../ui/combatHud.js';
 import { SettingsModal, settingsStore } from '../ui/settings.js';
@@ -103,7 +104,7 @@ import { actions } from '../ui/gameActions.js';
 import { FacingWheel, holdPiece, setPieceDir, syncPieceDirs, showRange, useTileScreen } from '../ui/facingWheel.js';
 import { Underframe, underframeRect, TempRowNotice } from '../ui/underframe.js';
 import { StandInTags } from './game/standInTags.js';
-import { needsFacing, facingIntent, previewGrid, pieceDir, underframeActions, retreatSlot, itemDestroyable } from '../ui/facing.js';
+import { needsFacing, facingIntent, previewGrid, previewHeal, pieceDir, underframeActions, retreatSlot, itemDestroyable } from '../ui/facing.js';
 import { EquipReplaceDialog, replaceRequest, replaceIntent } from '../ui/equipReplace.js';
 import { EquipHoverPanel, equipHoverState } from '../ui/equipHover.js'; // local patch: the official equip-slot popup
 import { pauseAvailable, isPaused, frozenNow } from '../ui/matchStatus.js';
@@ -115,8 +116,8 @@ import {
   snapHud, activeBubbles, shortcutFor, shortcutBlocked, closesOnFieldPress, closesOnOutsidePress, drawerClosesOnPress, openedFromWindow, windowCardGone, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, normalizePersonalChoice, sortedPlayers,
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
-  previewEnemyKey, prepCamera, prepCameraFor, foldCamera, sideCamera, selectedTile, deployFoldsShop, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
-  mergeTarget, modeOffBonds, readyFundsPrompt, readyOverflowPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull,
+  previewEnemyKey, prepCamera, prepCameraFor, foldCamera, sideCamera, sideCameraOn, selectedTile, deployFoldsShop, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
+  mergeTarget, modeOffBonds, readyFundsPrompt, readyOverflowPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull, bagFull,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
 import { matchToast } from '../ui/matchToast.js';
@@ -126,6 +127,7 @@ import { DiyChooseScreen } from './diyChoose.js';
 import { ResultScreen } from './result.js';
 import { net } from '../net.js';
 import { store, useStore, shallowEqual, serverNow, isSpectating, reservedRank } from '../store.js';
+import { seasonFeature } from '../../../shared/seasons.js';
 import { battleRunner } from '../battle/runner.js';
 import { isClientCombat, observeTarget, teammateProgress, ownProgress, cameraLayers, layerCamera, sidesOf, resumedWatch, followedScout } from '../battle/observe.js';
 import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, popupView } from '../ui/watchBonds.js';
@@ -140,7 +142,7 @@ import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
 import { battleOverOf, battleLossOf } from '../audioOfficial.js'; // local patch: round_result_dialog sound
 import { useDocClass, FullscreenButton } from '../ui/device.js';
 // MatchEnded, PausedOverlay, the highlight styles and keepEarly live in ./game/*.js.
-import { HUD_HZ_MS, MERGE_HL, SEL_RANGE, cx } from './game/marks.js';
+import { HUD_HZ_MS, MERGE_HL, SEL_RANGE, SEL_RANGE_HEAL, SEL_RANGE_SKILL, cx } from './game/marks.js';
 import { keepEarly } from './game/early.js';
 import { MatchEnded, PausedOverlay } from './game/overlays.js';
 import { inspectRange, skillButton } from './game/range.js';
@@ -819,7 +821,10 @@ function MatchScreen() {
   // effect runs again when that ends (gameLogic foldCamera). Picking reads the camera of every frame (render/pick.js).
   // A held or selected piece is the exception: the official side camera. All of them fly on the official rig's two
   // clocks, both ways (render/projection.js SIDE_BY, flyRig).
-  const side = sideCamera({ held: deployFold, selected: selNow });
+  // settings → 画面 「拿起棋子时侧面镜头」: 'auto' = the season's official client (规程 has no side camera)
+  const sideSet = useStore((s) => s.sideCamera, Object.is, settingsStore);
+  const seasonNoSide = useStore((s) => seasonFeature(s.room?.season, 'noSideCamera'));
+  const side = sideCamera({ held: deployFold, selected: selNow, tilt: sideCameraOn(sideSet, seasonNoSide) });
   useEffect(() => {
     const cur = camRef.current;
     const next = foldCamera({
@@ -863,7 +868,6 @@ function MatchScreen() {
     if (asked === 'fallback' || globalThis.__SP_RENDER__ === 'fallback') return;
     toast(t('渲染器暂时未能加载，已切换为简化视图（功能不受影响，可刷新重试）'), 'info', { ttl: 5000 });
   }, [viewKind, viewUpgrading]);
-
 
   // phase changes: banners, sounds, resets
   const phaseKey = `${phase}:${pub?.round}`;
@@ -1199,7 +1203,7 @@ function MatchScreen() {
       const rec = piece.kind === 'item' ? gd.item(piece.id) : piece.kind === 'token' ? gd.token(piece.id) : ownShown(piece.id);
       holdPiece(view, piece.uid, { row: t.row, col: t.col });
       setSel(null);
-      setFacing({ uid: piece.uid, piece, row: t.row, col: t.col, grid: previewGrid(lookups, piece), name: rec?.name || '' });
+      setFacing({ uid: piece.uid, piece, row: t.row, col: t.col, grid: previewGrid(lookups, piece), heal: previewHeal(lookups, piece), name: rec?.name || '' });
       audio.sfx('pick', { volume: 0.5 });
     };
     const offs = [
@@ -1696,10 +1700,11 @@ function MatchScreen() {
   const strip = screenStrip({
     pub, priv, myId, combat, settle: settleMode, watchingOther, watching, home,
     battleFieldId: cc ? (battleState?.fieldId || null) : (combat || settleMode ? lastFieldRef.current : null),
-    field, layers, layer, who: watchWho, bondLayers: battleState?.bondLayers || null,
+    field, layers, layer, who: watchWho, bondLayers: battleState?.bondLayers || null, bondTemp: battleState?.bondTemp || null,
   });
   const stripFid = strip.fieldId;
   const liveLayers = (combat || settleMode) && battleState?.bondLayers ? battleState.bondLayers : null;
+  const liveTemp = liveLayers && battleState?.bondTemp ? battleState.bondTemp : null; // their 临时层数 part (yellow)
   // the observing pill names the player whose bonds the strip shows (the same teammate as the strip's "👁 name" tag)
   const observingName = cc && combat && watchedFid ? (!strip.self && stripFid === watchedFid ? strip.name : (players.find((p) => p.fieldId === watchedFid || ownFieldId(p.playerId) === watchedFid)?.name || t('队友'))) : null;
   const watchedP = watchingOther ? (players.find((p) => p.playerId !== myId && (watching === ownFieldId(p.playerId) || (watching === p.fieldId && String(watching).startsWith('n:')))) || null) : null;
@@ -1717,7 +1722,7 @@ function MatchScreen() {
   // and as members your pieces or their operators on the field on screen — under client-side combat the battle's own
   // (the runner's field meta is taken before they deploy); a battle sends no bench (a prep scout does: ownerBoard)
   const popOps = cc && battleRunner && field?.local && bondOpen && bondOpen.ownerId !== myId ? battleRunner.ownerOps(bondOpen.ownerId, field.fieldId) : null;
-  const bondPop = popupView({ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers });
+  const bondPop = popupView({ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers, temp: liveTemp });
   const openBond = (id, ownerId, from) => { setBondOpen((b) => toggleBond(b, id, ownerId, from)); audio.sfx('click', { volume: 0.4 }); };
   // local patch (maintainer 2026-10-06): a press outside the bond popup closes it (the strip's discs, its < > and the card's
   // bond cells keep their own toggles)
@@ -1777,12 +1782,13 @@ function MatchScreen() {
   const ufOpts = { actions: ufActions, onBoard: !!ufActions?.retreat, skill: ufSkill }; // the official menu's button rect (underframeRect)
   // the temp overflow row holds pieces (user playtest #3 item 3): framed and labelled on the own prep board
   const temp = tempInfo(priv);
-  const tempNotice = temp.count > 0 && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;
+  // (规程: the visible row is the 装备区, the overflow queue behind it is not drawn — no frame)
+  const tempNotice = temp.count > 0 && !(Number(priv?.bag) > 0) && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;
   // the ready button shows why it is refused under it (ui/hud.js ReadyToggle): the effects column moves down a line
   const readyWhy = phase === PHASE.PREP && alive && !priv?.ready && (hasPersonalChoice || temp.count > 0);
   // the official bottom band (panel_bottom_tips): ready / overflow / full hand in the prep, the own battle over in a battle
   const tipType = spectator || !battleArt('waiting').cls ? null : bottomTipType({
-    prep: phase === PHASE.PREP, watching: watchingOther, ready: !!priv?.ready, overflow: temp.count > 0, full: !!priv && handFull(priv),
+    prep: phase === PHASE.PREP, watching: watchingOther, ready: !!priv?.ready, overflow: temp.count > 0, full: !!priv && handFull(priv), bag: Number(priv?.bag) > 0, bagFull: !!priv && bagFull(priv),
     ownDone: !!myDone && (phase === PHASE.COMBAT || phase === PHASE.UNITE), alive,
   });
   // the frame the panels are laid out in: the HUD layer (client px; inside the safe-area insets of a notched phone),
@@ -1825,18 +1831,18 @@ function MatchScreen() {
     live: typeof liveStats === 'function' ? liveStats() : liveStats,
     loadout: detailLoadout, getChess: gd.chess, backups: gd.backups,
   }) : null;
-  if (cardRange && skillRangeOn) cardRange.grid = ufSkill.grid;
+  if (cardRange && skillRangeOn) { cardRange.grid = ufSkill.grid; cardRange.skill = true; }
   const cardRangeKey = cardRange ? JSON.stringify(cardRange) : '';
   useEffect(() => {
     if (!view) return undefined;
-    showRange(view, cardRange?.grid, cardRange?.row, cardRange?.col, cardRange?.dir, SEL_RANGE);
+    showRange(view, cardRange?.grid, cardRange?.row, cardRange?.col, cardRange?.dir, cardRange?.skill ? SEL_RANGE_SKILL : cardRange?.heal ? SEL_RANGE_HEAL : SEL_RANGE);
     return () => showRange(view, null, 0, 0, null, SEL_RANGE);
   }, [view, cardRangeKey, showPrep, field]);
   // the card's bond chips — and the popup a chip opens: a battle / scouted unit's OWNER's bonds (yours, or that
   // teammate's — m.public + live layers), your own piece's yours, a popup member card the popup's player; shop / reward
   // cards read the strip's (ui/watchBonds.js detailBondOwner)
   const detailOwner = detailBondOwner(detailTarget, { pub, myId, stripOwnerId: strip.ownerId });
-  const detailBonds = detailOwner === strip.ownerId ? stripBonds : playerBonds({ pub, priv, myId, ownerId: detailOwner, live: liveLayers });
+  const detailBonds = detailOwner === strip.ownerId ? stripBonds : playerBonds({ pub, priv, myId, ownerId: detailOwner, live: liveLayers, temp: liveTemp });
   // bonds this mode never activates (标准: 10 of 23, 奥术 among them) — shown 本局禁用 on cards, chips and the popup
   const offBonds = modeOffBonds(getMode(pub?.modeId));
   const loadArt = loadingArt(getMode(pub?.modeId)); // the battle loading screen's picture, code and mode name
@@ -1849,7 +1855,9 @@ function MatchScreen() {
     id: p.playerId, avatar: html`<${PlayerAvatar} player=${p} size="sm" self=${p.playerId === myId} />`, lp: p.lp, mine: p.playerId === myId })) : [];
 
   const hudLook = hudArt(); // local patch
-  return html`<div class=${cx('screen', 'gm', `gm--${mode}`, drag && 'is-dragging', barCollapsed && 'is-collapsed', (sp || hasPersonalChoice) && 'has-sp', pen && 'is-pen', readyWhy && 'has-readywhy', hudLook.cls)}
+  // 规程's active 指令 (ui/bandSkill.js): the own strategy's, on the own field (not while watching a teammate's)
+  const showBandSkill = !!priv?.bandSkill && !spectator && alive && !watchingOther;
+  return html`<div class=${cx('screen', 'gm', `gm--${mode}`, drag && 'is-dragging', barCollapsed && 'is-collapsed', (sp || hasPersonalChoice) && 'has-sp', pen && 'is-pen', readyWhy && 'has-readywhy', showBandSkill && 'has-bskill', hudLook.cls)}
       style=${hudLook.style} data-camera=${pen ? 'pen' : camKind}>
     <div class="gm__field" ref=${hostRef} onContextMenu=${(e) => e.preventDefault()}></div>
     ${fieldLoading ? html`<div class="gm__loading"><${Spinner} label="LOADING FIELD" /></div>` : null}
@@ -1873,7 +1881,7 @@ function MatchScreen() {
         readyBusy=${readyBusy} readyCount=${readyCount} playerCount=${solo ? 1 : aliveCount}
         pen=${pen} penAvail=${penAvail} onPen=${togglePen} config=${gd.config} frozenAt=${frozenAt} onTimerWarn=${timerCue}
         pause=${canPause || paused ? { show: canPause, paused, busy: pauseBusy, onToggle: () => togglePause(!paused) } : null}
-        live=${liveLpNow} spectator=${spectator} />
+        live=${liveLpNow} spectator=${spectator} effects=${watchingOther && field ? (field.effects ?? null) : priv?.effects} />
       ${/* the in-match 重新开始 vote, under the bond strip (ui/restartVote.js) */ ''}
       <${RestartVoteBanner} pub=${pub} myId=${myId} />
 
@@ -1895,8 +1903,9 @@ function MatchScreen() {
         </div>
       </div>
 
-      <div class="gm__effects"><${EffectsList} effects=${watchingOther && field ? (field.effects ?? null) : priv?.effects} />
-        <${RoundDamage} pub=${pub} priv=${priv} myId=${myId} place="desktop" spectator=${spectator} /></div>
+      ${showBandSkill ? html`<${BandSkill} view=${view} priv=${priv} phase=${phase} combat=${combat} />` : null}
+      <${BossDamagePanel} pub=${pub} myId=${myId} />
+      <div class="gm__effects"><${RoundDamage} pub=${pub} priv=${priv} myId=${myId} place="desktop" spectator=${spectator} /></div>
       ${priv?.debug && !spectator ? html`<${DebugPanel} debug=${priv.debug} prep=${phase === PHASE.PREP} diy=${priv.diy} />` : null /* local patch: local debug mode */}
 
       ${watchingOther && !combat ? html`<div class="gm__watching" role="status">
@@ -1999,7 +2008,7 @@ function MatchScreen() {
       tone=${resultBox.tone} duration=${resultBox.duration} onDone=${() => setResultBox(null)} />` : null}
 
     ${facing && view ? html`<${FacingWheel} key=${`${facing.uid}:${facing.row},${facing.col}`} view=${view} row=${facing.row} col=${facing.col}
-      grid=${facing.grid} name=${facing.name} onPreview=${previewFacing} onCommit=${commitFacing} onCancel=${cancelFacing} />` : null}
+      grid=${facing.grid} heal=${!!facing.heal} name=${facing.name} onPreview=${previewFacing} onCommit=${commitFacing} onCancel=${cancelFacing} />` : null}
 
     ${goldAsk ? html`<${ReadyTipDialog} key=${goldAsk.text} text=${goldAsk.text} check=${goldAsk.check} onAnswer=${(ok, noMore) => {
       if (ok && noMore) goldTipOff.current = true;

@@ -356,6 +356,7 @@ test('怒潮凛冬 through the real match path (seats[].diy → Match board → 
   assert.ok(u && !u.kit.generic && u.skill.id === S2, 'her kit, S2');
   u.skill.gainSp(u.skill.spCost);
   b.step(); b.step();
+  for (let i = 0; i < 60 && u.skill._begin; i++) b.step();   // (the skill starts after its begin clip: skills.js _beginCast)
   assert.ok(u.skill.active, 'S2 (AUTO, a self buff): on at full SP');
   for (let i = 0; i < 30 * 90 && !hits.length && !b.finished; i++) b.step();
   assert.ok(hits.length && hits.every((x) => x === 'phys'), 'physical hits');

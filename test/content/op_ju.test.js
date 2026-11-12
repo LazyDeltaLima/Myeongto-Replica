@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACT3, field, done, cast, fill, realMatch } from '../helpers/seasonPieces.js';
+import { ACT3, field, done, cast, begun, fill, realMatch } from '../helpers/seasonPieces.js';
 import { CRIPPLE, DONE, S2_START_DELAY, S2_GAP, isCrippled } from '../../server/sim/content/kits/ops/op-ju.js';
 
 const A = 'chess_char_2_18_a', B = 'chess_char_2_18_b';
@@ -117,6 +117,7 @@ test('S2 良翼难乘: ATK +, two targets; the extra damage ≥ 0.9 s after the 
     for (const x of [e1, e2, e3]) x.hp = x.s.maxHp * 0.3;
     cast(u);
     h.step();
+    begun(h, u);   // (the skill starts after its begin clip: skills.js _beginCast)
     near(u.s.atk, atk0 * (1 + bb.atk), `${id}: ATK`);
     assert.equal(u.skill.spec.targeting.maxTargets, bb['attack@max_target_s2']);
     const extra = () => h.hooksOf('damaged').filter((c) => c.source === u && c.dmg?.tags?.includes('ju:extra'));

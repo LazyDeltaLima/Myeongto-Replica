@@ -1,7 +1,7 @@
 // server/sim/content/garrisons/prep/layers.js — prep-side 特质: layer gains and the 规程 temp-layer conversions (garrisons/meta.js header).
 
 import { metaBonds, frontPiece, behindPiece, distinctTiers } from '../../support/meta.js';
-import { ids, num, requireActiveOf, topActiveBondMeta, selfView, onBoard, chessOnBoard, addAll, sameRowCount } from './shared.js';
+import { ids, num, requireActiveOf, topActiveBondMeta, selfView, onBoard, chessOnBoard, addAll, sameRowCount, growingValue } from './shared.js';
 
 /** effectKey → handler. */
 export const H = {};
@@ -99,6 +99,37 @@ H.SERVER_ADD_BOND_POSITION = {
   },
 };
 
+// 规程's 旅骨 garrison_28 「<休整期结束时>使自身及身前一格干员已激活的盟约叠加等同于其售出价格的层数」 (精锐 2倍): the same two
+// targets as POSITION, each target's active bonds gaining its OWN sell price (PlayerState.sellPriceOf) × multi
+// [ASSUMED·화면: 「其」 read as each operator's own price, not 旅骨's — the same in 规程 but for 海沫 / 温蒂].
+H.SERVER_ADD_BOND_POSITION_COUNT_SELL_PRICE = {
+  run(ctx) {
+    const { bb, bbStr } = ctx.source;
+    const me = selfView(ctx);
+    if (!onBoard(me)) return;
+    const other = bbStr.dir === 'behind' ? behindPiece(ctx, me) : frontPiece(ctx, me);
+    const targets = [me];
+    if (other && other.kind === 'chess' && other.uid !== me.uid) targets.push(other);
+    for (const t of targets) {
+      const n = ctx.sellPrice(t.uid) * num(bb.multi, 1);
+      for (const b of metaBonds(ctx, t)) if (ctx.bondActive(b)) ctx.addLayers(b, n, { requireActive: true });
+    }
+  },
+};
+
+// 规程's 棘刺 garrison_32 「<休整期结束时>使已激活的【伊比利亚】叠加等同于场上所有干员售出价格的层数（每回合至多叠加12层）」
+// (精锐 2倍, 24): Σ the sell prices of the board's chess (tokens are no 干员) × multi, at most `max` — once a round.
+H.SERVER_ADD_BOND_BOARD_SELL_PRICE = {
+  run(ctx) {
+    const { bb, bbStr } = ctx.source;
+    let sum = 0;
+    for (const p of chessOnBoard(ctx)) sum += ctx.sellPrice(p.uid);
+    let n = sum * num(bb.multi, 1);
+    if (num(bb.max, 0) > 0) n = Math.min(n, num(bb.max));
+    addAll(ctx, ids(bbStr.bond), n, true);
+  },
+};
+
 H.SERVER_ADD_BOND_ROUND_COIN_COST = {
   run(ctx) {
     const { bb, bbStr, garrison } = ctx.source;
@@ -155,3 +186,37 @@ function convertTemp(ctx, perChar) {
 }
 H.SERVER_CONVERT_TEMP_BOND_BY_BOND_CHAR = { run(ctx) { convertTemp(ctx, true); } };
 H.SERVER_CONVERT_TEMP_BOND = { run(ctx) { convertTemp(ctx, false); } };
+
+// 规程 极光 garrison_50 「<获得时>【谢拉格】层数+{showtag_value_1}（每次触发后升级，至多叠加12层）」: the growing value (shared.js
+// growingValue: 1, 2, … 12), no active bond needed (the text names none)
+H.SERVER_ADD_BOND_UPGRADE_LAYER = {
+  run(ctx) {
+    const { bbStr, garrison } = ctx.source;
+    addAll(ctx, ids(bbStr.bond), growingValue(ctx), requireActiveOf(garrison));
+  },
+};
+
+// 规程 流明 garrison_31 「<战斗结束时>每有一名存活的我方干员，使已激活的【伊比利亚】【聚合】层数+1」 and 夜莺 163 「…使自身已激活的盟约层数
+// +1（至多9层）」 (bbStr.bond SELF): the own normal battle's result (SERVER_BATTLE_FIN → onBattleResult) — the operators
+// standing at its end (unitsEnd alive: board chess, not the summons), × count, max_count a run.
+H.SERVER_ADD_ACTIVATED_BOND_BY_ALIVE_CHAR = {
+  onBattleResult(ctx, ev) {
+    const { bb, bbStr, garrison, piece } = ctx.source;
+    const units = ev && ev.result && Array.isArray(ev.result.unitsEnd) ? ev.result.unitsEnd : [];
+    const alive = units.filter((u) => u && u.alive && ctx.chessRecord(u.defId)).length;
+    let n = alive * num(bb.count, 1);
+    if (num(bb.max_count, 0) > 0) n = Math.min(n, num(bb.max_count));
+    const bonds = String(bbStr.bond ?? '').trim() === 'SELF' ? metaBonds(ctx, piece) : ids(bbStr.bond);
+    addAll(ctx, bonds, n, requireActiveOf(garrison));
+  },
+};
+
+// 规程 涤火杰西卡 garrison_83 「<休整期结束时>场上每有一名携带装备的干员，使已激活的【维多利亚】【坚守】层数+2」: board chess with at
+// least one equipment, the trait's owner included
+H.SERVER_ADD_BOND_BOARD_EQUIP_CHAR = {
+  run(ctx) {
+    const { bb, bbStr, garrison } = ctx.source;
+    const n = chessOnBoard(ctx).filter((p) => Array.isArray(p.items) && p.items.length > 0).length;
+    addAll(ctx, ids(bbStr.bond), n * num(bb.count, 1), requireActiveOf(garrison));
+  },
+};

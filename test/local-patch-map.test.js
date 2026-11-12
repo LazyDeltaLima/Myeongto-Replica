@@ -46,14 +46,22 @@ describe('local patch: official equip-slot popup', () => {
 
   test('an operator that takes the item: its slots, the item, the replace state', () => {
     assert.deepEqual(equipHoverState(ctx, eq.uid, { row: 9, col: 3, area: 'board' }),
-      { uid: empty.uid, itemId: EQUIP, row: 9, col: 3, items: [], full: false });
+      { uid: empty.uid, itemId: EQUIP, row: 9, col: 3, items: [], slots: 2, full: false });
     assert.deepEqual(equipHoverState(ctx, eq.uid, { row: 10, col: 4, area: 'board' })?.items, ['chess_item_1_02_e_a']);
     const f = equipHoverState(ctx, eq.uid, { row: 9, col: 5, area: 'board' });
     assert.equal(f.full, true, 'both slots used ⇒ the drop replaces');
     assert.equal(f.items.length, 2);
     // a bench operator: the hand row, the slot index as the column
     assert.deepEqual(equipHoverState(ctx, eq.uid, { row: GEO.HAND_ROW, col: 0, area: 'hand', idx: 0 }),
-      { uid: bench.uid, itemId: EQUIP, row: GEO.HAND_ROW, col: 0, items: [], full: false });
+      { uid: bench.uid, itemId: EQUIP, row: GEO.HAND_ROW, col: 0, items: [], slots: 2, full: false });
+  });
+
+  test('an operator with more slots (规程 “暴躁铁皮” 4): the popup has them all, and two items are not full yet', () => {
+    const more = { ...ctx, getChess: (id) => (id === full.id ? { ...ctx.getChess(id), equipSlots: 4 } : ctx.getChess(id)) };
+    const f = equipHoverState(more, eq.uid, { row: 9, col: 5, area: 'board' });
+    assert.equal(f.slots, 4);
+    assert.equal(f.full, false, 'two of four slots used: the item goes into the third');
+    assert.equal(equipHoverState(ctx, eq.uid, { row: 9, col: 5, area: 'board' }).slots, 2);
   });
 
   test('no popup: tokens, empty tiles, the hand items, arts, nothing under the pointer', () => {

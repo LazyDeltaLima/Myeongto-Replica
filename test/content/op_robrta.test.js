@@ -163,7 +163,7 @@ test('DEF does not stack from two machines, the second takes over when the first
   done(h);
 });
 
-test('Holding: a deployment sets it to cnt (cap +1 with CRA-X); a machine that left comes back paying cost and one held after its redeploy time', () => {
+test('Holding: a deployment sets it to cnt, then CRA-X adds its +1 (the trait ability attaches after the born buffs; cap +1); a machine that left comes back paying cost and one held after its redeploy time', () => {
   for (const id of FORMS) {
     const cnt = talent(id).cnt, extra = ACT3.chess[id].trait.bb.cnt ?? 0;
     assert.equal(cnt, 3);
@@ -171,20 +171,20 @@ test('Holding: a deployment sets it to cnt (cap +1 with CRA-X); a machine that l
     const { h, u } = facing(id);
     u.skill.locked = true;
     const st = u.mem.craftsman, m = h.unit(2);
-    assert.equal(st.stock, cnt, `${id}: held`);
+    assert.equal(st.stock, cnt + extra, `${id}: held`);
     assert.equal(st.cap, cnt + extra, `${id}: cap`);
     const dp = () => h.b.getPlayer(u.ownerId).dp;
     h.b.retreat(m, { reason: 'retreat' });
     const d0 = dp(), t0 = h.b.time;
     assert.ok(h.runUntil(() => m.alive, m.base.respawnTime + 1), `${id}: back`);
     near(h.b.time - t0, m.base.respawnTime, `${id}: its redeploy time`, 0.3);
-    assert.equal(st.stock, cnt - 1, `${id}: one held`);
+    assert.equal(st.stock, cnt + extra - 1, `${id}: one held`);
     near(d0 - dp(), m.base.cost, `${id}: its cost`);
     st.stock = 1;
     h.b.retreat(u, { reason: 'retreat' });
     assert.ok(!m.alive, `${id}: leaves with her`);
     assert.ok(h.b.redeploy(u, { free: true }));
-    assert.equal(st.stock, cnt, `${id}: refreshed, not added`);
+    assert.equal(st.stock, cnt + extra, `${id}: refreshed (not added), then CRA-X's +1`);
     done(h);
   }
 });

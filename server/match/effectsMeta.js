@@ -46,6 +46,7 @@ import { itemKey } from './gamedata.js';
 import { boardOrder, parseKey, tileKey } from './board.js';
 import { pieceBonds as bondsOfPiece } from './bondsMeta.js';
 import { registerAllMeta } from '../sim/content/index.js';
+import { bandCommandKey, bandPassiveKey } from '../sim/content/bands/meta.js';
 import { registerBuiltins } from './builtinMeta.js';
 import { msg, dn } from '../../shared/i18n.js';
 import { onGiftTicker } from './botEmotes.js';
@@ -55,7 +56,7 @@ import { createRng, deriveSeed } from '../sim/rng.js';
 export const HOOKS = Object.freeze([
   'onRoundStart', 'onIncome', 'onPrepStart', 'onPrepEnd', 'onGain', 'onSold', 'onRefresh', 'onPrice', 'onBuy',
   'onSpend', 'onMerge', 'onLevelUp', 'onBattleStart', 'onBattleResult', 'onChoicePick', 'onEquip', 'onArt',
-  'onDestroy', 'onLayers', 'onActiveBonds',
+  'onDestroy', 'onLayers', 'onActiveBonds', 'onBandSkill', 'onBandSkillUsed',
 ]);
 /** Non-hook members a handler object may carry. */
 const HANDLER_EXTRAS = new Set(['run', 'garrisonHooks']);
@@ -256,9 +257,17 @@ export class EffectDispatcher {
       for (const [key, h] of reg.globals()) this._call(ps, key, h, hook, { kind: 'global', key }, ev);
       // 2. band
       if (ps.bandId) {
-        const key = `band:${ps.bandId}`;
+        // a 指令 taken from another strategy (PlayerState.bandCommand, match/bandSkill.js setBandCommand): the own
+        // strategy runs without its own 指令 (its passive part only), then the taken 指令 as the other strategy's
+        const cmd = ps.bandCommand;
+        const key = cmd && reg.has(bandCommandKey(ps.bandId)) ? bandPassiveKey(ps.bandId) : `band:${ps.bandId}`;
         const h = reg.get(key);
         if (h) this._call(ps, key, h, hook, { kind: 'band', key, bandId: ps.bandId, band: this.m.gd.band(ps.bandId) }, ev);
+        if (cmd) {
+          const ck = bandCommandKey(cmd);
+          const ch = reg.get(ck);
+          if (ch) this._call(ps, ck, ch, hook, { kind: 'band', key: ck, bandId: cmd, band: this.m.gd.band(cmd) }, ev);
+        }
       }
       // 3. bonds
       for (const bondId of this.m.gd.bondIds) {
@@ -578,7 +587,14 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     addFunds: (n, reason = '') => ps.addFunds(finiteInt(n), { reason }),
     addPendingFunds: (n) => { const v = finiteInt(n); if (v > 0) { ps.pendingFunds += v; ps.dirty(); } return v > 0 ? v : 0; },
     spendFunds: (n) => { const v = finiteInt(n); if (!ps.spend(v)) return false; ps._afterSpend(v, 'effect'); return true; },
+    /** The sell price of an owned chess piece (PlayerState.sellPriceOf), and the price a 特质 gives it (规程's 海沫). */
+    sellPrice: (uid) => { const l = ps.find(uid); return l && l.piece.kind === 'chess' ? ps.sellPriceOf(l.piece) : 0; },
+    setSellPrice: (uid, v) => { const l = ps.find(uid); if (!l || l.piece.kind !== 'chess' || !Number.isFinite(v)) return 0; l.piece.sellPrice = Math.max(0, Math.trunc(v)); ps.dirty(); return l.piece.sellPrice; },
     grantFreeRefresh: (n = 1) => { const v = finiteInt(n); if (v > 0) { ps.shop.freeRefreshes += v; ps.dirty(); } return ps.shop.freeRefreshes; },
+    /** Lower the current 调度中心 level-up price by `n` (not below 0; 规程's 娜仁图亚); returns the new price. */
+    discountLevelUp: (n) => { const v = finiteInt(n); if (v > 0) { ps.shop.upgradePrice = Math.max(0, ps.shop.upgradePrice - v); ps.dirty(); } return ps.shop.upgradePrice; },
+    /** Queue one more promotion reward (晋升奖励, the merge's own offer; 规程's 复奏). */
+    promotionReward: () => !!ps.pushRewardOffer('merge'),
 
     // ---- prices (onPrice only; the same as writing ev.price)
     modifyPrice: (delta) => { if (hook === 'onPrice' && ev && Number.isFinite(delta)) ev.price = Math.max(0, (Number(ev.price) || 0) + delta); return ev ? ev.price : null; },
@@ -671,6 +687,8 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       return m.dispatcher.triggerGarrisons(ps, l.piece, eventType, { asPiece: as ? as.piece : null, triggeredBy: source.key || null });
     },
     promote: (uid) => { const l = ps.find(uid); return l ? ps.promote(l.piece) : false; },
+    /** Sell an owned chess piece as the sell intent does (price, onSold, funds; PREP only); true when sold. */
+    sell: (uid) => { const r = ps.sell(uid); return !!(r && r.ok); },
     /** 突变细胞's transformation: destroy a chess piece wherever it stands (its equipment returns to the hand first), then
      *  gain `chessId` like any gained operator — hand, overflow temp, a completed merge as usual
      *  (PlayerState.transformChess). Returns the gained piece's view (the elite after a merge) or null. */
@@ -719,6 +737,23 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       ps.dirty();
       return true;
     },
+    /** The kind ('chess' | 'item') of every shop position, empty ones included (the order of shopSlots()). */
+    shopKinds: () => ps._shopKinds().slice(),
+    /** The shop refreshed by an effect at no price (PlayerState.effectRefresh: `adjust()` runs before onRefresh). */
+    refreshShop: (adjust = null) => { ps.effectRefresh(adjust, source.key || 'effect'); return ps.shop.slots.length; },
+    /** A new item card of the shop's own draw (shop RNG and level), none of `exclude` — for setShopSlot. */
+    rollShopItem: (exclude = []) => { const s = ps.rollShopItem(Array.isArray(exclude) ? exclude : []); return s ? s.id : null; },
+    /** One 目标生命值 pool for the alliance now (Final Assault, a custom 「共享」 match): a player's LP is only a share. */
+    lpShared: () => m.teamLp != null,
+    /** Change the player's 目标生命值 by `n` (never below 1 while alive); returns the change made. */
+    addLp: (n) => {
+      const v = finiteInt(n);
+      if (!ps.alive || !v || m.teamLp != null) return 0;
+      const before = ps.lp;
+      ps.lp = Math.max(1, ps.lp + v);
+      if (ps.lp !== before) { ps.dirty(); m.markPublic?.(); }
+      return ps.lp - before;
+    },
     addDeployCap: (n) => { const v = finiteInt(n); ps.deployCapBonus += v; ps.dirty(); return ps.deployCap; },
     setDeployCapAtLeast: (n) => { const v = finiteInt(n); if (v > ps.deployCapMin) { ps.deployCapMin = Math.min(v, 12); ps.dirty(); } return ps.deployCap; },
     setBondCountBonus: (bondId, n) => { if (gd.bond(bondId) && Number.isInteger(n)) { ps.bondCountBonus[bondId] = n; ps.recompute(); } },
@@ -742,6 +777,8 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     // ---- bounties / choices
     addBounty: (card) => m.addBounty(ps, card),
     offerBountyChoice: (cards, sourceItemId) => m.offerBountyChoice(ps, cards, sourceItemId),
+    // 规程's 更换指令 (choiceType SKILL_CHANGE): { choiceEvent, desc, sourceItemId? | sourceBandId? } — match/bandSkill.js
+    offerBandSkillChoice: (opts) => m.offerBandSkillChoice(ps, opts),
 
     // ---- messaging
     // a string or a shared/i18n.js msg(msgid, params)

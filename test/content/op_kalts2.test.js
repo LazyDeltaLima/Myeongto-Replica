@@ -237,6 +237,7 @@ test('S2 保护性拒止 (MANUAL, data DEFAULT on its y-11: a selectable enemy t
     assert.equal(u.skill.activations, 0, `${label(f)}: an injured ally alone in the y-11: no cast (the basic strategy counts enemies)`);
     const n0 = log.length;
     assert.equal(u.skill.activate('test'), true, `${label(f)}: cast by hand`);
+    h.runUntil(() => u.skill.active, 2);   // (the skill starts after its begin clip: skills.js _beginCast)
     assert.deepEqual([u.liveRangeGrid, u.skill.ammoMax], [sk.rangeGrid, 10], `${label(f)}: y-11, 10 shots`);
     approx(u.s.atk, u.base.atk * (1 + sk.bb.atk), `${label(f)}: ATK`);
     assert.ok(h.runUntil(() => u.skill.ammoLeft === 9, 3), `${label(f)}: one shot (the cast's attack)`);

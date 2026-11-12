@@ -15,7 +15,8 @@ test('SIM.md §10: 隐现 S2 fires 14 shots then ends', () => {
     hooks: ['ammoUsed', 'skillEnd'],
   });
   const u = h.unit('chess_char_1_01_a');
-  assert.ok(h.runUntil(() => u.skill.activations === 1, 60));
+  // (its start: after the cast's begin clip — skills.js _beginCast)
+  assert.ok(h.runUntil(() => u.skill.activations === 1 && u.skill.active, 60));
   h.runUntil(() => !u.skill.active, 60);
   assert.equal(h.hooksOf('ammoUsed').length, 14);
   checkInvariants(h.b);
@@ -36,7 +37,7 @@ test('SIM.md example 1: ammo sniper kit with talent (+2 ammo after 20 s)', () =>
   const u = h.unit('chess_char_1_01_a');
   h.run(25);
   h.spawn('enemy_dummy', { pos: [10, 6] });
-  h.runUntil(() => u.skill.activations === 1, 10);
+  h.runUntil(() => u.skill.activations === 1 && u.skill.active, 10);   // (after its begin clip)
   h.runUntil(() => !u.skill.active, 60);
   assert.equal(h.hooksOf('ammoUsed').length, 14 + 2);
   assert.equal(u.s.taunt, 0, 'taunt −1 removed after the skill');

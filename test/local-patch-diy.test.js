@@ -37,7 +37,7 @@ const PICKS = [...Object.values(CHAR), 'char_1052_kalts2', 'char_4231_clemnt', '
   'char_4037_demetr', 'char_4226_veen', 'char_1051_headb2', 'char_4179_monstr', 'char_2025_shu', 'char_322_lmlee', 'char_416_zumama', 'char_4046_ebnhlz',
   'char_1034_jesca2', 'char_4055_bgsnow', 'char_180_amgoat',
   'char_293_thorns', 'char_4009_irene', 'char_400_weedy',
-  'char_113_cqbw', 'char_4027_heyak', 'char_4228_closur', 'char_4246_dminon'];
+  'char_113_cqbw', 'char_4027_heyak', 'char_4228_closur', 'char_4246_dminon', 'char_4217_makoto'];
 const STONE = 'token_10064_wang_stone1';
 const SHADE = 'token_10035_wisdel_wward';
 const MOD = (key) => `uniequip_002_${key}`;
@@ -60,19 +60,19 @@ const battle = (key, sk, r, c, extra = [], secs = 25) => {
 const POS = { wang: [11, 3], chen3: [10, 4], wisdel: [11, 4], oblvns: [10, 4], ascln: [10, 4] };
 
 describe('선발 picks on upstream 自选 (shared/local-diy.js, server/lobby.js welcome / room.diy, tools/build-data.mjs)', () => {
-  test('offered: the welcome\'s diyKitted is exactly the owner\'s thirty-eight in that order — the client picker (diyPool kitted) shows them only', async () => {
+  test('offered: the welcome\'s diyKitted is exactly the owner\'s thirty-nine in that order — the client picker (diyPool kitted) shows them only', async () => {
     const { Lobby } = await import('../server/lobby.js');
     assert.deepEqual([...LOCAL_DIY_PICKS], PICKS);
     const kitted = Lobby.prototype.welcomeInfo.call({}).diyKitted;
     assert.deepEqual([...kitted].sort(), [...PICKS].sort());
     for (const tier of [5, 6]) assert.deepEqual(diyPool(tier, { data: DATA, kitted }).sort(), [...PICKS].sort(), `tier ${tier}`);
-    // the data is our thirty-eight (hard fork 2026-10-07, tools/build-data.mjs): upstream's other owned picks and the prototypes are gone
+    // the data is our thirty-nine (hard fork 2026-10-07, tools/build-data.mjs): upstream's other owned picks and the prototypes are gone
     assert.deepEqual(BACKUPS.diy.ownedPool, [...LOCAL_DIY_PICKS]);
     assert.deepEqual(BACKUPS.diy.prototypes, { 5: [], 6: [] });
     assert.equal(isPrototypePick(DATA, 6, 'char_609_acguad'), false, 'a stand-in is no 自选 prototype here');
-    assert.deepEqual(diyPool(6, { data: DATA, kitted: KITTED_CHARS }), [...LOCAL_DIY_PICKS], 'diyPool with the whole kit list: still the thirty-eight');
+    assert.deepEqual(diyPool(6, { data: DATA, kitted: KITTED_CHARS }), [...LOCAL_DIY_PICKS], 'diyPool with the whole kit list: still the thirty-nine');
     assert.equal(isLocalDiyPick('char_112_siege'), false);
-    assert.deepEqual(Object.keys(OPERATOR_KITS).sort(), [...PICKS].sort(), 'a kit (ops/op-<codename>.js) for each of the thirty-eight, no other');
+    assert.deepEqual(Object.keys(OPERATOR_KITS).sort(), [...PICKS].sort(), 'a kit (ops/op-<codename>.js) for each of the thirty-nine, no other');
   });
 
   test('accepted: room.diy keeps the five and drops anyone else (another owned 6★, a prototype, a reserve) — the seat never holds one', async () => {
@@ -356,6 +356,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
       h.step(1);
       const u = h.unit(1);
       u.skill.activate('manual', { free: true });
+      h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
       assert.ok(u.skill.active);
       const hits = [];
       const orig = h.b.dealDamage.bind(h.b);
@@ -524,7 +525,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     let dpBefore = 0;
     for (let i = 0; i < 20 / 0.05 && !used.alive; i++) { dpBefore = hc.b.players[0].dp; hc.step(1); }
     assert.ok(used.alive && used.mem.wangUsed === false, 'redeployed');
-    assert.equal(w.mem.wang.stock, stock0, 'a return takes no stone of the stock (PRTS 「原地再部署」, maintainer decision 2026-10-08)');
+    assert.equal(w.mem.wang.stock, stock0 - 1, 'a return takes one stone of the stock (the client draws a card: Deck.Card.Draw; maintainer decision 2026-11-11)');
     assert.ok(hc.b.players[0].dp < dpBefore - 1.5, 'its DP cost paid (2 for the VI elite: module −1)');
     // S1 with stones in the stock: 「立即获得两枚棋子」 adds cards only — no stone goes on a new tile (maintainer decision
     // 2026-10-11: the client deploys only the prep pieces; until then the two went next to hers)
@@ -664,9 +665,9 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const w = h.unit(1);
     assert.equal(w.mem.wang.prepPlaced, 6);
     assert.ok(h.hooksOf('skillStart').some((x) => x.unit === w), 'S1 cast');
-    // the start hand (deploy limit − 6 placed) + S1's 2 cards, which stay in the hand (no stone of the hand goes on a new
-    // tile — maintainer decision 2026-10-11; until then S1 put both next to hers and the hand stayed at its start count)
-    assert.equal(w.mem.wang.stock, Math.min(w.mem.wang.deckCap, w.mem.wang.fieldCap - 6 + 2), 'start hand + 2 cards: the 6 on the field are not counted');
+    // the start hand (铸子 cnt 7 on her birth — the 6 placed spend none) + S1's 2 cards, ≤ 最多拥有, which stay in the hand
+    // (no stone of the hand goes on a new tile — maintainer decision 2026-10-11)
+    assert.equal(w.mem.wang.stock, Math.min(w.mem.wang.deckCap, 7 + 2), 'start hand + 2 cards: the 6 on the field are not counted');
     const d = makeBattle({ seed: 5, captureNoisy: true, units: [op('wang', { sk: 0, row: 11, col: 3 }), stone(9, 6, 50), stone(9, 7, 51)],
       enemies: [{ key: 'enemy_1001_bigbo', time: 0, route: 0, count: 1 }] });
     d.runUntil(() => d.hooksOf('damaged').some((x) => x.dmg?.tags?.includes('dot')), 30);
@@ -945,13 +946,13 @@ describe('望 棋子 through the real match path (seats[].diy → Match board �
     return { h, m, ps, b };
   };
 
-  test('seven prep stones (her deploy limit at full potential) = no stock: a used-up stone still comes back on its prep tile for DP, before any S1 (maintainer decision 2026-10-08); the client sees die → deploy', async () => {
+  test('seven prep stones (her deploy limit at full potential), stock 铸子 cnt 7: a used-up stone comes back on its prep tile for DP and one stone of the stock, before any S1 (maintainer decision 2026-11-11); the client sees die → deploy', async () => {
     const { b, m } = await wangMatch(0, 1);
     b.start();
     while (b.waveT0 == null) b.step(); // the battle-start deployment, one piece every 0.2 s (lifecycle.js _prebuiltStep)
     const wu = b.allyUnits.find((u) => u.kind === 'op');
     assert.equal(wu.def.charId, CHAR.wang);
-    assert.equal(wu.mem.wang.stock, 0, 'stock = 7 − the stones placed in the prep');
+    assert.equal(wu.mem.wang.stock, 7, 'stock = 铸子 cnt on her birth (charge_token[refresh]): the prep stones deploy free');
     for (const t of b.allyUnits.filter((u) => u.kind === 'token' && !u.kit?.follower)) assert.ok(t.kit?.fromTokens && !t.kit.generic, 'placed stones run the stone kit');
     // every placed stone's battle-start birth brings its 跟子, 0.25 s after it (maintainer decision 2026-10-11: the
     // client's automatic deployment is `spawnManually: true`; until then none at the battle start)
@@ -965,16 +966,19 @@ describe('望 棋子 through the real match path (seats[].diy → Match board �
     b.on('skillStart', (c) => { if (c.unit === wu) casts++; });
     // filtered at the end: a 跟子 gets mem.wangFollower only after its deploy fires
     b.on('deploy', (c) => { if (c.unit.kind === 'token' && b.time > b.waveT0 + 0.5) back.push([c.unit, c.unit.tileR, c.unit.tileC, c.unit.homeR, c.unit.homeC, casts]); });
-    let dp = b.getPlayer('p_0').dp, paid = 0;
+    let dp = b.getPlayer('p_0').dp, paid = 0, afterFirst = null;
     const ev = [];
     while (!b.finished && b.time < 30) {
       b.step(); ev.push(...b.drainEvents());
+      // the stock just after the first stone's return (the card is drawn after the birth, as the client's Deck.Card.Draw)
+      if (afterFirst == null && back.some(([u]) => !u.mem.wangFollower)) afterFirst = { stock: wu.mem.wang.stock, casts };
       const now = b.getPlayer('p_0').dp;
       if (now < dp - 1) paid++;
       dp = now;
     }
     const stones = back.filter(([u]) => !u.mem.wangFollower);
-    assert.ok(stones.some((x) => x[5] === 0), `a used-up stone came back before S1, with the stock at 0 (${stones.length})`);
+    assert.ok(stones.some((x) => x[5] === 0), `a used-up stone came back before S1 (${stones.length})`);
+    assert.deepEqual(afterFirst, { stock: 6, casts: 0 }, 'the first return took one stone of the stock (7 → 6)');
     assert.ok(paid > 0, 'its return paid DP');
     for (const [, r, c, hr, hc] of stones) assert.deepEqual([r, c], [hr, hc], 'on the tile placed in the prep');
     const id = stones[0][0].id;

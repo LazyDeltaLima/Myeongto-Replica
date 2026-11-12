@@ -42,6 +42,8 @@ export class MatchIntents {
       case 'g.equip': return ps.equip(msg.itemUid, msg.targetUid, msg.replaceUid ?? null);
       case 'g.art': return ps.useArt(msg.itemUid, msg.row, msg.col, msg.dir);
       case 'g.destroy': return ps.destroy(msg.uid);
+      // 规程's active 指令 (match/bandSkill.js): the target its stage asks for — uid, slot, or row + col
+      case 'g.bandSkill': return this.useBandSkill(ps, msg);
       case 'g.reward': return ps.pickReward(msg.idx);
       case 'g.choice': return msg.choiceId !== undefined
         ? this.pickPersonalChoice(ps, msg.idx, msg.choiceId)

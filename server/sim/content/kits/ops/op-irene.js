@@ -27,14 +27,15 @@
 //   hit meets an air unit when the levitation took.
 // - S2 裂潮 (MANUAL, attack SP, 2 charges, 技能范围 3-12, data DEFAULT on that box): at once, up to max_target ground enemies of the
 //   skill range take atk_scale × ATK physical, and those of 重量 ≤ value (3) are levitated `levitate` s. It cannot be opened
-//   while its range holds no ground enemy at all [ASSUMED·not checked: PRTS's S3 note "仅存在飞行单位时，该技能也可开启" marks the opposite
-//   as the rule for this ground-only skill].
+//   while its range holds no ground target at all (the official skill trigger: a WALK_ONLY selector, `_minTargetNum` 1, used in
+//   manual mode too — PRTS's S3 note "仅存在飞行单位时，该技能也可开启" marks the opposite for S3).
 // - S3 判决 (MANUAL, attack SP, 技能范围 x-1, data DEFAULT on that box — PRTS: opens with only flyers in range): every ground enemy of
 //   the skill range takes atk_scale × ATK physical and is levitated `levitate` s, then multi_times (10) bombardments, one
 //   every multi_hit_interval (0.3) s, each on a random enemy of the skill range (flyers included) hitting every enemy within
 //   1.1 of it (中点判定; PRTS 溅射半径1.1, 可对空) for multi_atk_scale × ATK physical; the skill runs PRTS's fixed 3.5 s with
-//   no normal attack [ASSUMED·not checked: the first bombardment one interval after the opening strike; a bombardment with no enemy in
-//   the skill range is skipped].
+//   no normal attack. The official prefab is a sequence group: the opening strike (Skill_3_Start, its OnAttack frame), then as
+//   that clip ends the first bombardment and the others multi_hit_interval apart (MultiRangedAttack reads `times` /
+//   `hit_interval` under its `multi_` prefix); a shot finding no target hits nobody and still counts; a stun stops the rest.
 
 import { num, talentBb, traitBb, skillRec, statBuff, toggleBuff, giveSp, onHitBy } from '../shared/tier1.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
@@ -59,7 +60,8 @@ const keysOf = (unit, grid) => absoluteRangeKeys(grid, unit.tileR, unit.tileC, u
 const seaMonsterOnField = (battle) => battle.enemies.some((e) => e.alive && !e.hidden && Array.isArray(e.def?.tags) && e.def.tags.includes('seamonster'));
 
 /**
- * A skill that strikes ground enemies only cannot be opened while its range holds no ground enemy: every activation path
+ * A skill that strikes ground enemies only cannot be opened while its range holds no ground enemy (nor a ground target of the
+ * enemy side: 白铁's 铁钳号, an ally target — the official trigger selector's side / category take it): every activation path
  * (the strategy's DEFAULT box check, content) is refused and the charge stays — the pattern of 莎草 S2 (ops/chess_char_2_06-papyrs.js,
  * non-enumerable: never serialised).
  */
@@ -67,7 +69,7 @@ function guardActivation(battle, unit, grid) {
   const sk = unit.skill;
   if (!sk || Object.prototype.hasOwnProperty.call(sk, 'activate')) return;
   const activate = sk.activate;
-  const ok = () => battle.unitsInGrid(unit, grid, { side: 'enemy' }).some((e) => !e.isFlying);
+  const ok = () => battle.unitsInGrid(unit, grid, { side: 'enemy' }).some((e) => !e.isFlying) || battle.allyTargetsInKeys(keysOf(unit, grid), unit).length > 0;
   Object.defineProperty(sk, 'activate', {
     configurable: true, writable: true, enumerable: false,
     value(reason, opts) { return ok() ? activate.call(this, reason, opts) : false; },
@@ -82,6 +84,24 @@ export default {
     const s2 = skillRec(chess, S2), s3 = skillRec(chess, S3);
     const grid2 = s2?.rangeGrid ?? R3_12, grid3 = s3?.rangeGrid ?? X_1;
     const levitate = (battle, unit, e, s) => { if (e.alive && s > 0) battle.applyStatus(e, 'levitate', { duration: s, source: unit }); };
+    const times3 = Math.max(0, Math.floor(num(b3.multi_times, 10)));
+    /**
+     * One S3 bombardment (MultiRangedAttack spell, `_selectTargetTiming` 1): a target drawn at random (`_postFilter` 14 RANDOM)
+     * among the enemy-side targets of the skill range, ground and air, the 铁钳号 included; its projectile reaches at once
+     * (`projectile_chr_irene_s_3` AttachToTarget `_immediatelyReach`) and hits every target within 1.1 of it. No target: the
+     * shot is spent on nobody.
+     */
+    const bombard = (battle, unit) => {
+      const m = unit.mem.ireneS3;
+      m.n++;
+      const cands = battle.enemiesInKeys(keysOf(unit, grid3), unit, AIR);   // 白铁's 铁钳号 among them (queries.js _pushAllyTargets)
+      if (!cands.length) return;
+      const c = battle.rng.pick(cands);
+      battle.fx('aoe', { x: c.x, y: c.y, radius: S3_SPLASH, id: unit.id, skill: 'irene:judgment' });
+      for (const e of battle.foesInRadius(c.x, c.y, S3_SPLASH, true)) {
+        battle.dealDamage(unit, e, { amount: unit.s.atk * num(b3.multi_atk_scale, 1), type: 'phys', isSkill: true, isSplash: e !== c, tags: ['skill'] });
+      }
+    };
 
     return {
       skills: {
@@ -100,12 +120,15 @@ export default {
         },
         [S2]: {
           kind: num(s2?.maxChargeTime, 1) > 1 ? 'charges' : 'instant',
-          // [ASSUMED·not checked] its strike and its guard (guardActivation) take ground enemies only: 白铁's 铁钳号 alone does not open
-          // it (the strategy counts it in the box — skills.js _allyTargetIn — and the guard refuses the cast)
+          // its strike and its guard (guardActivation) take ground targets of the enemy side, 白铁's 铁钳号 too (the official skill
+          // trigger and strike share one BlockedOrAdvancedSelector: `_targetSide` 2 ENEMY, `_targetMotion` 1 WALK_ONLY,
+          // `_targetCategory` 1 DEFAULT, `_minTargetNum` 1, `_useTriggerInManualMode` — the 铁钳号's prefab is side 2 / category 1,
+          // docs/rules/sim.md 「스킬 범위 발동」), after the enemies as every attack takes it (ai.js acquireTargets)
           onStart({ battle, unit, skill }) {   // (`_selectTargetTiming` 0)
-            const list = battle.enemiesInKeys(keysOf(unit, grid2), unit, GROUND);
+            const list = battle.enemiesInKeys(keysOf(unit, grid2), unit, GROUND).filter((e) => !battle.isAllyTarget(e));
             sortEnemyTargets(battle, unit, list, null);
-            skill.castPick = list.slice(0, Math.max(1, Math.floor(num(b2.max_target, 1))));
+            const all = list.concat(battle.allyTargetsInKeys(keysOf(unit, grid2), unit));
+            skill.castPick = all.slice(0, Math.max(1, Math.floor(num(b2.max_target, 1))));
           },
           onStrike({ battle, unit, skill }) {
             const v = skill.castPick.filter((e) => e.alive);
@@ -122,34 +145,37 @@ export default {
           duration: S3_DURATION,
           attack: { noAttack: true },
           castHolds: true,   // the first strike is on Skill_3_Start's OnAttack
-          // 白铁's 铁钳号·原型机 (a registered ally target) is struck like an enemy — the owner's rule of 2026-10-08; its kit
-          // cancels the hits [ASSUMED·not checked: its strikes take it like a ground enemy of the skill range]
-          onStart({ unit }) { unit.mem.ireneS3 = { t: 0, n: 0 }; },
+          // 白铁's 铁钳号·原型机 (a registered ally target) is struck like an enemy — the owner's rule of 2026-10-08, and the official
+          // selectors' side / category take it: the opening strike's (WALK_ONLY) and each bombardment's (RANDOM over every motion);
+          // its kit cancels the hits
+          onStart({ unit }) { unit.mem.ireneS3 = { start: null, n: 0, stop: false }; },
+          // the bombardments are the sequence group's second ability (MultiRangedAttack: `multi_times` shots, `multi_hit_interval`
+          // apart, the first as the Skill_3_Start clip ends); a stun ends the Skill state and the group interrupts its current
+          // sub-ability (`_alsoInterruptCurrentSubAbility`, indices 0 and 1): no bombardment after it — the skill's 3.5 s run on
+          onCastCut({ unit }) { if (unit.mem.ireneS3) unit.mem.ireneS3.stop = true; },
+          onCastEnd({ battle, unit }) {
+            const m = unit.mem.ireneS3;
+            if (!m || m.stop || m.start != null) return;
+            m.start = battle.time;
+            bombard(battle, unit);
+          },
           onStrike({ battle, unit, skill }) {
             skill.castHit();
-            const v = [...battle.enemiesInKeys(keysOf(unit, grid3), unit, GROUND), ...battle.allyTargetsInKeys(keysOf(unit, grid3), unit)];
+            const v = battle.enemiesInKeys(keysOf(unit, grid3), unit, GROUND);
             battle.fx('aoe', { x: unit.x, y: unit.y, radius: 1.5, id: unit.id, skill: 'irene:judgment' });
             for (const e of v) {
               battle.dealDamage(unit, e, { amount: unit.s.atk * num(b3.atk_scale, 1), type: 'phys', isSkill: true, tags: ['skill'] });
               levitate(battle, unit, e, num(b3.levitate));
             }
           },
-          onTick({ battle, unit, dt }) {
+          onTick({ battle, unit }) {
             const m = unit.mem.ireneS3;
-            if (!m) return;
-            m.t += dt;
-            const iv = Math.max(0.05, num(b3.multi_hit_interval, 0.3)), times = Math.max(0, Math.floor(num(b3.multi_times, 10)));
-            while (m.n < times && m.t + 1e-9 >= (m.n + 1) * iv) { // loop-cap: interval floored at 0.05 and a slash count
-              m.n++;
-              const foes = battle.enemiesInKeys(keysOf(unit, grid3), unit, AIR);
-              const cands = foes.length ? foes : battle.allyTargetsInKeys(keysOf(unit, grid3), unit);   // (the 铁钳号 when no enemy)
-              if (!cands.length) continue;
-              const c = battle.rng.pick(cands);
-              battle.fx('aoe', { x: c.x, y: c.y, radius: S3_SPLASH, id: unit.id, skill: 'irene:judgment' });
-              for (const e of [...battle.foesInRadius(c.x, c.y, S3_SPLASH, true), ...battle.allyTargetsInRadius(c.x, c.y, S3_SPLASH, unit)]) {
-                battle.dealDamage(unit, e, { amount: unit.s.atk * num(b3.multi_atk_scale, 1), type: 'phys', isSkill: true, isSplash: e !== c, tags: ['skill'] });
-              }
-              if (!unit.alive || !unit.skill?.active) return;
+            if (!m || m.stop || m.start == null) return;
+            if (!unit.canAct) { m.stop = true; return; }
+            const iv = Math.max(0.05, num(b3.multi_hit_interval, 0.3));
+            while (m.n < times3 && battle.time + 1e-9 >= m.start + m.n * iv) { // loop-cap: interval floored at 0.05 and a shot count
+              bombard(battle, unit);
+              if (!unit.alive || !unit.skill?.active || m.stop) return;
             }
           },
           onEnd({ unit }) { unit.mem.ireneS3 = null; },

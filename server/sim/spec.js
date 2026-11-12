@@ -102,7 +102,11 @@ export function buildBattleSpec(o = {}) {
   // the halves (3 | 4) of an 8-player mode's wide 联防 field (Battle `wide`, wideStage.js); absent on every other field
   if (wideHalves(o.wide) && spec.kind === 'unite') spec.wide = o.wide;
   const out = JSON.parse(JSON.stringify(spec, specReplacer));
-  for (const p of out.players) for (const u of (p && Array.isArray(p.units) ? p.units : [])) if (u && typeof u === 'object') sanitizeUnitLoadout(u);
+  for (const p of out.players) {
+    for (const u of (p && Array.isArray(p.units) ? p.units : [])) if (u && typeof u === 'object') sanitizeUnitLoadout(u);
+    // the 整备区 operators a bond may field (PlayerBattleInput `reserve`: { slot } instead of a tile) — chess entries only
+    if (p && Array.isArray(p.reserve)) p.reserve = p.reserve.filter((u) => u && typeof u === 'object' && u.kind === 'chess' && Number.isInteger(u.slot)).map(sanitizeUnitLoadout);
+  }
   return out;
 }
 
@@ -333,6 +337,37 @@ export function battleProgress(battle) {
     const leaksBy = {};
     for (const pid of Object.keys(pp).slice(0, 4)) leaksBy[pid] = Math.min(1e6, leakEntries(pp[pid]).reduce((n, l) => n + leakLpr(l), 0));
     out.leaksBy = leaksBy;
+    const top = bossTopUnits(battle);
+    if (top) out.top = top;
+  }
+  return out;
+}
+
+/**
+ * Each player's operator that dealt the leader the most so far — { [playerId]: the board piece's chess id } (规程's
+ * boss-damage list shows its portrait, 공식 클라에서 확인 by the maintainer 2026-11-12). A unit the battle created (no
+ * board uid: a summon) counts for the nearest summoner up its chain that has one, as the settlement's charts
+ * (lifecycle.js unitStats `ownerUid`). A player who dealt nothing is left out; null when nobody did.
+ * @param {any} battle
+ * @returns {Record<string, string>|null}
+ */
+export function bossTopUnits(battle) {
+  let out = null;
+  for (const ps of (battle && battle.players) || []) {
+    const byUid = new Map();
+    for (const u of ps.units || []) {
+      const boss = Number(u && u.stats && u.stats.boss) || 0;
+      if (!(boss > 0)) continue;
+      let o = u;
+      for (let i = 0; o && o.uid == null && i < 8; i++) o = o.ownerUnit;
+      if (!o || o.uid == null) continue;
+      const e = byUid.get(o.uid) || { dmg: 0, def: o.defId };
+      e.dmg += boss;
+      byUid.set(o.uid, e);
+    }
+    let best = null;
+    for (const e of byUid.values()) if (typeof e.def === 'string' && (!best || e.dmg > best.dmg)) best = e;
+    if (best) (out ||= {})[ps.playerId] = best.def;
   }
   return out;
 }

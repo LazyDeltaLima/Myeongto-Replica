@@ -112,6 +112,7 @@ export class Unit {
     this.aggroSeq = 0;          // 仇恨 order (the later the more attacked): = deploySeq, except summons of the initial deployment
     this.spawnSeq = 0;
     this.elem = { burn: 0, neural: 0, apoptosis: 0, erosion: 0 };
+    if (this.side === 'enemy') this.elem.rampage = 0;   // 狂躁: enemies only so far (constants.js ELEMENT.rampage)
     this.burstPending = null;   // { [element]: true } while that element's burst resolves (damage.js burstLocked)
     this.tags = new Set(init.tags || []);
     this.mem = {};              // free scratch space for content (per unit)
@@ -175,7 +176,7 @@ export class Unit {
     const atk = Math.max(0, fin(((b.atk + a('atkFlat')) * Math.max(0, 1 + a('atkPct')) + a('atkFinal')) * m('atkMul') * cm.atk, fin(b.atk, 0)));
     const def = Math.max(0, fin((b.def + a('defFlat')) * Math.max(0, 1 + a('defPct')) * m('defMul') * cm.def, fin(b.def, 0)));
     const res = clamp(fin((b.res + a('resFlat')) * m('resMul'), fin(b.res, 0)), 0, 100);
-    const aspd = clamp(fin(b.aspd + a('aspd'), 100), ASPD_MIN, ASPD_MAX);
+    const aspd = clamp(fin((b.aspd + a('aspd')) * Math.max(0, 1 + a('aspdPct')), 100), ASPD_MIN, ASPD_MAX);
     const bBat = fin(b.bat, 1) > 0 ? fin(b.bat, 1) : 1;
     const bat = fin(bBat * Math.max(0.1, 1 + a('batPct')), bBat);
     const s = {

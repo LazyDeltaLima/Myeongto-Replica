@@ -1535,6 +1535,7 @@ test('skill stat mods match the official text at both levels (normal Lv4 / elite
       h.step();
       const u = h.unit(cid);
       assert.ok(u.skill.activate('test', { free: true }), `${cid} activates`);
+      h.runUntil(() => !u.skill._begin, 2);   // (after its begin clip: skills.js _beginCast)
       const m = String(u.def.skill.description).match(re);
       assert.ok(m, `${cid} text has ${re}`);
       const want = key === 'aspd' ? +m[1] : +m[1] / 100;
@@ -1576,6 +1577,7 @@ test('default skills: attack-interval rule of the AK calculator — a shortening
       const v = u.def.skill.bb.base_attack_time;
       assert.ok(Number.isFinite(v) && v !== 0, `${cid} has base_attack_time`);
       assert.ok(u.skill.activate('test', { free: true }), `${cid} activates`);
+      h.runUntil(() => !u.skill._begin, 2);   // (after its begin clip: skills.js _beginCast)
       const bat = rule === 'flat' ? u.base.bat + v : u.base.bat * (1 + v);
       assert.ok(near(u.s.interval, bat * 100 / u.s.aspd, 1e-9), `${cid} (${rule} ${v}): interval ${u.s.interval} ≠ ${bat * 100 / u.s.aspd}`);
       checkInvariants(h.b);

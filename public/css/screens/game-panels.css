@@ -283,6 +283,8 @@
 .bpop__sec h4 { font-size: .16rem; color: var(--mint-400); display: flex; align-items: baseline; gap: .08rem; }
 .bpop__sec h4 small { font-size: .13rem; color: var(--text-lo); font-weight: 400; }
 .bpop__sec--now { padding: .1rem .12rem; background: rgba(78, 216, 175, .06); border-left: 3px solid var(--mint-500); }
+/* 规程: the strategy that switched this bond's direction (bondStrip.js swappedBond) */
+.bpop__swap { margin: 0 0 .08rem; padding: .03rem .08rem; background: rgba(46, 240, 180, .1); border-left: 2px solid #2ef0b4; color: #bdf5e3; font-size: .7em; line-height: 1.4; }
 .bpop__desc { font-size: .15rem; line-height: 1.7; color: var(--text-md); }
 .bpop__members { display: grid; grid-template-columns: repeat(5, 1fr); gap: .08rem; }
 .bpop__member { position: relative; display: flex; flex-direction: column; align-items: center; gap: .03rem; padding: .04rem 0; background: none; border: 1px solid transparent; }
@@ -547,11 +549,11 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 
 /* Grid image boxes: definite 100% tracks so `height: 100%` images resolve against the box (an auto track would
    let non-square art overflow its frame). */
-.uthumb__art, .bandicon, .dhead__icon, .spcard__icon, .effect, .pavatar__img, .brief-etype__icon, .scard__itemart, .bglyph {
+.uthumb__art, .bandicon, .dhead__icon, .spcard__icon, .pavatar__img, .brief-etype__icon, .scard__itemart, .bglyph {
   grid-template-rows: 100%;
   grid-template-columns: 100%;
 }
-.spcard__icon img, .dhead__icon img, .scard__itemart img, .effect img { max-width: 100%; max-height: 100%; }
+.spcard__icon img, .dhead__icon img, .scard__itemart img { max-width: 100%; max-height: 100%; }
 
 /* ---- direction wheel (ui/facingWheel.js, research 09 §1.2): white diamond, 4 chevrons, "✕ 点击取消", orange range ---- */
 .fwheel { position: fixed; inset: 0; z-index: 6; touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair; }
@@ -698,6 +700,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .eqr__ahead--l { left: calc(0% + .0225rem); } .eqr__ahead--r { left: calc(100% - .0225rem); }
 .eqr-host:not([style*="--eqr-ahead"]) .eqr__ahead { width: .16rem; height: .16rem; margin-left: -.08rem; top: .3rem; border-right: .045rem solid rgba(242, 242, 242, .82); border-bottom: .045rem solid rgba(242, 242, 242, .82); transform: rotate(45deg); background: none; }
 .eqr__opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .3rem; }
+/* more slots (规程 “暴躁铁皮” 4 / 6): two columns for four, three for five or six */
+.eqr__opts[data-n="5"], .eqr__opts[data-n="6"] { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .16rem; }
 .eqr__opt {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: .08rem; min-height: 2.5rem; padding: .18rem .16rem .5rem;
   text-align: center; color: inherit; cursor: pointer; overflow: hidden;
@@ -806,3 +810,143 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   border-top: 1px solid rgba(255, 255, 255, .07); font-size: calc(var(--q) * 11.5); color: #8ea39d;
 }
 .rdmg__ft b { color: var(--text-hi, #e8f1ee); font-weight: 700; }
+
+/* ---- 规程's active 指令 (ui/bandSkill.js): the official autochess_hud_panel `panel_skill` / `skill_view`, 160 × 100 at the
+   right edge, in units of the official 1080-high HUD. The prep's place is the effects column's old top (under the ready
+   count; the column steps down under it), the battle's is above the funds (`skill_layout_battle`: 180 up). The bar
+   (bg_skill_bottom 168 × 60, 12 past the right edge, 5 down) carries 🔍 + 「查看」 left of the round portrait (bg 79,
+   icon 85 masked to it); the cost circle (group_cost) on its top, the counter (group_counter: uses / cooldown / lock)
+   on its bottom; the detail (autochess_hud_skill_detail_dialog, 375 wide) opens 148 left of the right edge. ---- */
+.bskill {
+  --u: var(--ui-u, .015rem); position: absolute; right: .3rem; width: calc(var(--u) * 160); height: calc(var(--u) * 100);
+  top: max(2.4rem, calc(1.31rem + var(--u) * 114)); color: #fff; user-select: none; -webkit-user-select: none;
+}
+.gm.has-readywhy .bskill.is-prep { top: calc(max(2.4rem, calc(1.31rem + var(--u) * 114)) + max(.3rem, 16px)); }
+.gm--prep.has-bskill .gm__effects { top: calc(max(2.4rem, calc(1.31rem + var(--ui-u, .015rem) * 114)) + var(--ui-u, .015rem) * 108); }
+.gm--prep.has-bskill.has-readywhy .gm__effects { top: calc(max(2.4rem, calc(1.31rem + var(--ui-u, .015rem) * 114)) + var(--ui-u, .015rem) * 108 + max(.3rem, 16px)); }
+.bskill.is-battle { top: auto; bottom: calc(var(--u) * 130); }
+/* the official HUD's battle cost counter sits at the right edge 2.3rem up (css/hud-art.css .dpbox): the portrait right
+   above it, as the official battle screen shows it (2026-11-12) */
+.gm.has-hud-art .bskill.is-battle { bottom: calc(2.3rem + .95rem); }
+.bskill__look {
+  position: absolute; right: calc(var(--u) * -12); top: calc(50% - var(--u) * 25); width: calc(var(--u) * 168); height: calc(var(--u) * 60);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 2);
+  padding: 0 calc(var(--u) * 112) 0 0; border: 0; border-radius: calc(var(--u) * 10); background: rgba(30, 32, 35, .88);
+  box-shadow: 0 calc(var(--u) * 2) calc(var(--u) * 8) rgba(0, 0, 0, .5); color: rgba(255, 255, 255, .5); font-size: calc(var(--u) * 15); line-height: 1; cursor: pointer;
+}
+.bskill__look:hover, .bskill.is-open .bskill__look { color: rgba(255, 255, 255, .85); }
+.bskill__lookico { width: calc(var(--u) * 15); height: calc(var(--u) * 15); }
+.bskill__band { position: absolute; right: 0; top: 0; width: calc(var(--u) * 100); height: calc(var(--u) * 100); cursor: pointer; outline: none; }
+/* the drag starts on a touch too: none beats css/devices.css's `[role="button"] { touch-action: manipulation }` (loaded
+   last, which lets the browser take the move for a pan and cancel the pointer) */
+.bskill .bskill__band { touch-action: none; }
+.bskill.is-on .bskill__band { cursor: grab; }
+.bskill.is-on.is-drag .bskill__band { cursor: grabbing; }
+.bskill__ring {
+  position: absolute; inset: calc(var(--u) * 10.5); border-radius: 50%; overflow: hidden; background: #2f2f2f;
+  box-shadow: 0 0 0 calc(var(--u) * 3) #2f7566; transition: box-shadow var(--t-fast, .12s);
+}
+.bskill.is-on .bskill__ring { box-shadow: 0 0 0 calc(var(--u) * 3) #1de9b6, 0 0 calc(var(--u) * 14) rgba(0, 255, 190, .55); }
+.bskill.is-on .bskill__band:hover .bskill__ring, .bskill.is-on .bskill__band:focus-visible .bskill__ring,
+.bskill.is-drag .bskill__ring { box-shadow: 0 0 0 calc(var(--u) * 3) #7fffe0, 0 0 calc(var(--u) * 24) rgba(0, 255, 190, .9); }
+.bskill.is-locked .bskill__ring { box-shadow: 0 0 0 calc(var(--u) * 3) #8a8a8a; }
+/* a strategy without an active 指令: the official variant_passive ring (dark teal); a press opens only its detail */
+.bskill.is-passive .bskill__ring { box-shadow: 0 0 0 calc(var(--u) * 3) #2a6f62; }
+.bskill.is-passive .bskill__band { cursor: help; }
+.bskill__icon { display: block; width: 108%; height: 108%; margin: -4%; object-fit: cover; }
+.bskill.is-off .bskill__icon { filter: saturate(.4) brightness(.62); }
+.bskill.is-locked .bskill__icon { filter: grayscale(1) brightness(.5); }
+.bskill__glyph { display: grid; place-items: center; width: 100%; height: 100%; font-size: calc(var(--u) * 34); font-weight: 900; color: #9fe9d6; }
+.bskill__cost {
+  position: absolute; left: 50%; top: 0; transform: translateX(-50%); min-width: calc(var(--u) * 30); height: calc(var(--u) * 30); box-sizing: border-box;
+  display: grid; place-items: center; border-radius: calc(var(--u) * 15); border: calc(var(--u) * 2) solid #9a9a9a; background: #2c2e31;
+  font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-size: calc(var(--u) * 17); font-weight: 500; letter-spacing: -.06em; line-height: 1;
+}
+.bskill__cost.is-short { color: #ff5a4f; border-color: #ff5a4f; }
+.bskill__count {
+  position: absolute; left: 50%; bottom: calc(var(--u) * 6); transform: translateX(-50%); display: flex; align-items: center; gap: calc(var(--u) * 4);
+  height: calc(var(--u) * 18); padding: 0 calc(var(--u) * 7); border-radius: calc(var(--u) * 9); background: rgba(10, 12, 14, .9); color: #fff; white-space: nowrap;
+  font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-size: calc(var(--u) * 15); font-weight: 500; letter-spacing: -.06em; line-height: 1;
+}
+.bskill__count.is-zero { color: #ff6a5f; }
+.bskill__cv { color: #8ef7d6; }
+.bskill__cico { width: calc(var(--u) * 11); height: calc(var(--u) * 11); color: #d8d8d8; }
+.bskill__detail {
+  position: absolute; right: calc(var(--u) * 148); top: calc(50% - var(--u) * 80); width: calc(var(--u) * 375); box-sizing: border-box; z-index: 2;
+  padding: calc(var(--u) * 15) calc(var(--u) * 20); background: rgba(20, 21, 23, .96); border: 1px solid rgba(255, 255, 255, .12);
+  box-shadow: 0 calc(var(--u) * 6) calc(var(--u) * 18) rgba(0, 0, 0, .6); pointer-events: none; text-align: left;
+}
+.bskill.is-battle .bskill__detail { top: auto; bottom: calc(50% - var(--u) * 80); }
+.bskill__name { display: block; padding-bottom: calc(var(--u) * 10); margin-bottom: calc(var(--u) * 10); border-bottom: 1px solid rgba(255, 255, 255, .1); font-size: calc(var(--u) * 20); color: #fff; }
+.bskill__desc { margin: 0; font-size: calc(var(--u) * 16); line-height: 1.45; color: #bcbcbc; white-space: pre-line; }
+/* the drag (autochess_skill_drag_widget): the arrow from the portrait to the pointer, the target tip at the top
+   (drag_tip 404 × 75 — under the bond strip here: ours reaches lower than the official) */
+.bskill-drag { position: fixed; inset: 0; z-index: 40; pointer-events: none; }
+.bskill-arrow { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.bskill-arrow__glow { fill: #00ffbe; opacity: .22; filter: blur(8px); }
+.bskill-tip {
+  --u: var(--ui-u, .015rem); position: absolute; left: 50%; top: calc(var(--sa-t, 0px) + var(--u) * 190); transform: translateX(-50%);
+  padding: calc(var(--u) * 12) calc(var(--u) * 40); border-radius: calc(var(--u) * 40); background: rgba(4, 22, 18, .92); white-space: nowrap;
+  box-shadow: 0 0 0 1px rgba(0, 255, 190, .35), 0 0 calc(var(--u) * 18) rgba(0, 255, 190, .35); font-size: calc(var(--u) * 22); font-weight: 700; color: #fff;
+}
+.bskill-tip em { font-style: normal; color: #2ef0b4; }
+/* the pointed 调度中心 card */
+.scard.is-skill-target { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 22px rgba(255, 255, 255, .75); z-index: 1; }
+
+/* ---- 规程's avatar badges and boss-damage list (ui/avatarBadges.js; docs/rules/ui.md 「규정 HUD 새 요소」).
+   Sizes go by the portrait (`.team__btn`, 94 px at 1600 × 900): the theme's win_streak_1_base 40×36 / _2_base 68×68 drawn at
+   ≈ .48 / .8 of it with the count in black / #F68A25, half over the top-right corner; without the theme's sprites a yellow
+   triangle / an orange star in CSS. In a boss round the glow steps 1–3 (scan_light #FFC500 / #FFAE51 / #FF9A5E, the
+   damage_fx_middle_light band through it, step 3 the damage_fx_frame_cross frame and damage_fx_dec above and below). ---- */
+.abadge {
+  position: absolute; z-index: 4; right: 0; top: 0; width: 48%; aspect-ratio: 40 / 36; transform: translate(45%, -45%);
+  display: grid; place-items: center; pointer-events: none;
+  background: #ffd23a; clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.abadge b { margin-top: 22%; font-size: .14rem; line-height: 1; color: #000; font-weight: 800; }
+.abadge.is-r2 { width: 76%; aspect-ratio: 1; background: #2a1404; clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.abadge.is-r2 b { margin-top: 8%; font-size: .17rem; color: #f68a25; }
+.abadge.has-sprite { clip-path: none; background: var(--abadge) center / contain no-repeat; filter: drop-shadow(0 0 .04rem rgba(255, 200, 60, .8)); }
+.aglow { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.aglow i { position: absolute; display: block; }
+.aglow__scan { inset: 0; box-shadow: 0 0 .16rem .05rem var(--aglow-c, #ffc500), inset 0 0 .12rem .02rem var(--aglow-c, #ffc500); opacity: .8; }
+.aglow__mid { left: -42%; right: -42%; top: 50%; height: 27%; transform: translateY(-50%); background: var(--aglow-mid, linear-gradient(90deg, transparent, rgba(243, 173, 113, .8), transparent)) center / 100% 100% no-repeat; opacity: .78; }
+.aglow.is-r1 { --aglow-c: #ffc500; }
+.aglow.is-r2 { --aglow-c: #ffae51; }
+.aglow.is-r3 { --aglow-c: #ff9a5e; }
+.aglow__cross { inset: -4%; background: var(--aglow-cross, none) center / 100% 100% no-repeat; outline: var(--aglow-cross-line, 2px solid rgba(255, 154, 94, .75)); }
+.aglow__dec { left: 50%; top: 0; width: 72%; height: 21%; transform: translate(-50%, -70%); background: var(--aglow-dec, linear-gradient(#ff9a5e, #ff9a5e) center / 60% 30% no-repeat) center / contain no-repeat; }
+.aglow__dec.is-down { top: auto; bottom: 0; transform: translate(-50%, 70%) scaleY(-1); }
+.bdmg__pct { display: inline-flex; align-items: baseline; gap: .02rem; color: #fff; white-space: nowrap; text-shadow: 0 1px 3px #000; }
+.bdmg__pct b { font-size: .2rem; font-weight: 700; }
+.bdmg__pct small { font-size: .15rem; font-weight: 700; }
+.abadge__pct { position: absolute; z-index: 4; left: calc(100% + .08rem); top: 50%; transform: translateY(-50%); pointer-events: none; }
+/* ✗ (icon_damage): two strokes */
+.bdmg__x { width: .14rem; height: .14rem; align-self: center; background: #fff;
+  -webkit-mask: linear-gradient(45deg, transparent 40%, #000 40% 60%, transparent 60%), linear-gradient(-45deg, transparent 40%, #000 40% 60%, transparent 60%);
+  mask: linear-gradient(45deg, transparent 40%, #000 40% 60%, transparent 60%), linear-gradient(-45deg, transparent 40%, #000 40% 60%, transparent 60%); }
+/* the list (boss_damage_stats_panel, right-centre; rows boss_damage_stats_item 238×75: the name right-aligned in #5AF2C2,
+   ✗ n% under it, the operator's portrait at the right) */
+.bdmg { position: absolute; z-index: 6; right: .3rem; top: 50%; transform: translateY(-50%); width: 2.4rem; display: flex; flex-direction: column; align-items: flex-end; gap: .04rem; pointer-events: auto; }
+.bdmg__toggle {
+  display: inline-flex; align-items: center; gap: .06rem; height: .34rem; padding: 0 .14rem; border: 0; cursor: pointer;
+  background: rgba(255, 255, 255, .2); color: #fff; font: inherit; font-size: .13rem;
+}
+.bdmg__arrow { width: .07rem; height: .1rem; background: #fff; clip-path: polygon(100% 0, 0 50%, 100% 100%); }
+.bdmg.is-hidden .bdmg__arrow { transform: scaleX(-1); }
+.bdmg__list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .04rem; }
+.bdmg__row {
+  position: relative; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; column-gap: .1rem; align-items: center;
+  width: 2.4rem; min-height: .72rem; padding: .04rem .04rem .04rem .1rem; box-sizing: border-box;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, .55) 40%, rgba(0, 0, 0, .7));
+}
+.bdmg__name { grid-column: 1; grid-row: 1; justify-self: end; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #5af2c2; font-size: .16rem; text-shadow: 0 1px 2px #000; }
+.bdmg__row .bdmg__pct { grid-column: 1; grid-row: 2; justify-self: end; }
+.bdmg__op { grid-column: 2; grid-row: 1 / 3; }
+.bdmg__row.is-r1 { box-shadow: inset -.03rem 0 0 rgba(255, 197, 0, .5); }
+.bdmg__row.is-r2 { box-shadow: inset -.03rem 0 0 rgba(255, 174, 81, .8); }
+.bdmg__row.is-r3 { box-shadow: inset -.04rem 0 0 #ff9a5e; }
+@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
+  .bdmg { top: 1.25rem; transform: none; width: 2rem; }
+  .bdmg__row { width: 2rem; min-height: .6rem; }
+}

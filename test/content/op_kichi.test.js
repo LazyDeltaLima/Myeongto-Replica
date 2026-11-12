@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
+import { ACT3, field, done, cast, begun, realMatch } from '../helpers/seasonPieces.js';
 
 const A = 'chess_char_3_17_a', B = 'chess_char_3_17_b';
 const FORMS = [A, B];
@@ -61,6 +61,7 @@ test('S1: base attack time +base_attack_time s; a stack of ATK +atk after each a
     const r = rec(id, S1), base = u.s.atk, bat = u.s.bat;
     h.spawn('enemy_dummy', { pos: FRONT });
     cast(u);
+    begun(h, u);   // (the skill starts after its begin clip: skills.js _beginCast)
     near(u.s.bat, bat + r.bb.base_attack_time, `${id}: its attack time`);
     near(u.s.atk, base, `${id}: nothing before an attack`);
     const first = h.hooksOf('damaged').length;
@@ -84,6 +85,7 @@ test('S2: ATK +atk, base attack time up; 停顿 → 束缚 → 晕眩 → 停顿
     const r = rec(id, S2), base = u.s.atk, bat = u.s.bat;
     const e1 = h.spawn('enemy_dummy', { pos: FRONT }), e2 = h.spawn('enemy_dummy', { pos: FRONT });
     cast(u);
+    begun(h, u);   // (the skill starts after its begin clip: skills.js _beginCast)
     near(u.s.atk, base * (1 + r.bb.atk), `${id}: ATK`);
     near(u.s.bat, bat + r.bb.base_attack_time, `${id}: its attack time`);
     const seen = () => h.hooksOf('statusApplied').filter((c) => c.target === e1 && c.source === u);

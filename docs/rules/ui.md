@@ -396,8 +396,8 @@
   [추정·미조사: 클라 값을 아직 안 읽음] 방식: 클라이언트의 칸 강조는 셰이더 `Torappu/Scene/Special/HighlightTile`에 머티리얼을 실행 중에 만든다. 테두리 없음, 놓을 칸의
   흰 표시·출발 칸 표시도 없음(빨간 불가 표시는 유지). 방향을 고르는 동안에도 초록이 남는다(캡처 그대로, `holdPiece`가 다시 켜고 닫힐 때 끔).
 - 공격 범위(3D 보드, stripes: 방향 선택 `facing`, 선택한 기물 `selRange` 등): `range_material`(셰이더 `Torappu/Battle/AttackRange`: 알파 블렌드,
-  깊이 쓰기 없음, `_Color.a` 0.749, `_AnimationSpeed` 0.5)대로 `sprite_attack_range`(대각선 흰 줄 3개/칸) × 주황 255,140,0([추정] 실행 중 색 —
-  캡처 225,148,20 = 0.75·주황 + 0.25·초록과 맞음), 흐르는 방향 [추정]. 그림이 없으면 같은 모양의 절차 텍스처. 이전의 Pixi 주황 칠·SVG 줄무늬는 3D에서 안 그린다.
+  깊이 쓰기 없음, `_Color.a` 0.749, `_AnimationSpeed` 0.5)대로 `sprite_attack_range`(대각선 흰 줄 3개/칸) × 색, 흐르는 방향 [추정·엔진: 셰이더의 흐름 방향은 안 읽음]. 그림이 없으면 같은 모양의 절차 텍스처. 이전의 Pixi 주황 칠·SVG 줄무늬는 3D에서 안 그린다.
+  색(2026-11-11, 공식 클라에서 확인): 전투 씬의 `GridRangeDrawer`가 실행 중에 머티리얼 색을 정한다 — 보여 줄 범위(`Unit.rangeToShow` = 지금 모드의 `_rangeToShow`, 없으면 공격 트리거)의 능력이 치료 능력(`BattleUtil.IsAbilityHeal`: `Abilities.Heal` 계열)이면 `_healRangeColor` (0, 200, 255), 아니면 `_attackRangeColor` (255, 128, 0). 두 시즌 모든 전장 씬이 같은 값(전에 쓰던 주황 255,140,0은 캡처로 맞춘 근사였다). 오퍼레이터의 공격 능력은 그 범위의 부모 오브젝트 `Attack`(또는 `Heal`)의 첫 능력 컴포넌트다: 두 시즌 풀의 오퍼레이터·대체 오퍼레이터 전원을 프리팹으로 대조하니 `Heal`/`RangedHeal`인 것은 정확히 직업 메딕 중 주술 의료(incantationmedic: 공격 능력이 피해 공격)를 뺀 것이고, 바드(스카디 더 커럽팅 하트·이디아)는 `AuraAbility`라 주황이다 → `ui/facing.js healRange`. 방향 선택(`FACING_HEAL_STYLE`)과 상세 카드의 범위(`SEL_RANGE_HEAL`, 정비·전투 모두)가 쓰고, 3D 판은 파란 층(`tileOverlay` `healStripes`)을 하나 더 둔다. CN 「규정」 캡처에서 해럴드(메딕, 공격 오브젝트에 능력 셋 — 첫째가 `RangedHeal`)의 방향 선택 범위가 파랗다(≈ 40,170,230, 초록 칸과 섞임). 필드 메뉴의 스킬 범위 토글(`GridRangeDrawer.TurnOnSkill`)은 직업과 상관없이 늘 `_skillRangeColor` (255, 0, 0) 빨강이다(공식 클라에서 확인) → `SEL_RANGE_SKILL`, 빨간 층 `skillStripes`.
 - 배치 중인 기물(드래그 중·방향 선택 중) 반투명 `GHOST_ALPHA` 0.6 [추정](관리자 제보: 배치 중에는 더 투명하다).
 - 모듈로 늘어나는 공격 범위(관리자 제보 2026-10-10: 정예 「시」 SPC-X가 방향 선택 줄무늬·배치 중 카드에서 3×3으로 보임): `shared/loadoutRecord.js
   attackRangeGrid`가 중국어 문구(`trait.moduleDesc` 「攻击范围扩大」, 스킬 「被动效果：攻击范围扩大」, `traitRangeExtend`의 「集成战略」)로 판단했는데 클라는
@@ -600,6 +600,9 @@
 칩 오른쪽, × 1.25)와 칸 `equip_0`/`equip_1`(23×6, ±12.8 / 13): 아이템마다 흰 알약(`equip_normal_icon`), [추정] 금색 아이템이면 빛나는 금색 알약(`equip_gold_icon` 31×14,
 제 크기). 이 바가 그려지면 예전 아이템 아이콘(item pips)은 숨긴다(캡처에 아이콘 없음). 그림은 로컬 추출(`extract.py --only ui/battlecommon`)만 있어서
 없는 서버는 예전 아이콘 그대로. 금색 여부는 `render/app.js`의 `setItems` 옆 `setEquip` 한 줄씩(2곳)이 넘긴다. 장비 바 그림은 git 밖 로컬 소재(`public/assets/local/ui/battlecommon`)다.
+장비 칸이 둘보다 많은 기물(규정 레이지 아이언하이드 `chess_char_5_22`: 일반 4·정예 6, 기록의 `equipSlots`)은 공식 알약(2칸)을 칸 둘마다 하나씩
+위로 쌓아(30단위 간격) 장착한 장비를 모두 그린다(관리자 결정 2026-11-12) [추정·화면: 그런 기물의 공식 장비 바는 못 봄 — HUD 프리팹에는 2칸 알약 하나뿐].
+상세 카드의 장비 절도 그 칸 수로 「EQUIP n/칸 수」·「최대 n개」, WebGL 없는 대체 필드는 장비 점을 모두 그린다.
 
 **재배치 카운트다운 (쓰러진 오퍼레이터)** (2026-10-31, 관리자 요청 「공식처럼 똑같이」): 같은 프리팹의 `battle_state`(공식 클라 `AutoChessDummyHud._UpdateBattleState`).
 - 카드를 아직 쓸 수 없는 동안(재배치 시간이 도는 중): `countdown_bg`(`countdown_background` 85×85 × 0.7, (0, 105), 루트 × 1.25 → 지름 74.4단위,
@@ -1947,7 +1950,7 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   - 트래픽(측정 2026-11-06, 2인+봇 2 협동, 서버 전투 2판 58건, 오퍼레이터 최대 8명): 메시지 평균 221 B·최대 292 B(전: 평균 약 113 B·최대 134 B). 2026-10-25에 「대미지만」으로 줄였던 것을 탭을 위해 되돌렸다.
   - 이 패널은 공식에 없는 기능이다. 근거는 xinhai 포크의 통계 확장(포크의 네 수치 대신 관리자가 고른 2안).
 
-## 기물을 고르고 집을 때의 측면 카메라 (2026-11-06, 측면 카메라 2026-11-07)
+## 기물을 고르고 집을 때의 측면 카메라 (2026-11-06, 측면 카메라 2026-11-07, 시즌별 2026-11-11)
 
 - 공식 동작(공식 클라에서 확인, 비공개 녹화와 대조 — 재투영 오차 1~4 px). 관리자 결정 2026-11-07로 옮겼다. 공식 카메라의 `Offset` 노드가 `Placeholders/SideBy`(위치 (−0.75, −0.5, −1.0), Y축 −10°)로 옮겨 가며 돈다(`render/projection.js SIDE_BY`, `Camera.yaw`). 판의 세로축 기준 회전이라 앞뒤로 숙이는 `tilt`와 달리 판이 옆으로 기운다.
 
@@ -1957,6 +1960,9 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   | 기물 고름 | 자기 기물을 탭함 | 그 칸의 x, y + 상점 상태의 높이 z | SideBy |
   | 기물 집음·방향 휠 | 드래그, 합법 드롭의 방향 휠 | 상점 접힘(`left_prepare`) | SideBy |
 
+- **규정에는 측면 카메라가 없다**(관리자 결정 2026-11-11). CN 「규정」 녹화(1920×1080, 오퍼레이터·장비 끌기와 방향 선택 4장)에서 판이 기울지 않고, 같은 전장의 세 장은 카메라가 같다. 규정을 돌리는 공식 CN 클라에는 측면 카메라를 거는 `AutoChessCameraPlugin._RefreshSideBy`가 없고 플러그인이 새 설정(`AutoChessCameraPlugin.CameraSettings`)을 받는다(공식 클라에서 확인). 카메라 프리팹(`cameracontroller` `SideBy`)·플러그인 프리팹(`act3autochess_battle_camera_plugin` `_moveTween` 12·`_scaleTween` 9)·레벨 카메라 값(`configBlackBoard`)은 맹약과 같다. 맹약은 지금 시즌을 돌리는 EN 클라대로 측면 카메라. 시즌 스위치 `shared/seasons.js` `noSideCamera`, 고르는 곳 `ui/gameLogic/camera.js sideCameraOn`·`sideCamera`(`tilt`).
+  - 규정에서도 기물을 집으면 상점이 접히고, 고르면 카메라가 그 칸으로 간다(위 표에서 `Offset`만 기본). 집을 때 접히는 것은 녹화 4장이 모두 접힌 상점이라 맞다. [추정·CN: 고를 때 칸으로 가는 것(`CUSTOM_CHARACTER`)은 CN 클라에도 그 이름이 남아 있지만 규정 코드를 못 읽고 탭으로 고르는 녹화가 없음]
+  - 설정 → 화면 「拿起棋子时侧面镜头」(`sideCamera`): 자동(기본, 시즌대로) · 켜짐 · 꺼짐. 두 시즌에 같은 값이 걸린다. 공식에 없는 선택지지만 관리자 요청으로 둔다(관리자 결정 2026-11-11).
 - 고쳐 쓴 값은 공식 값에서 나온다: 집은 상태 카메라 5.93열·3.99행·높이 11.10, 상점 카메라 대비 필드 중앙 칸 ×1.116(녹화 측정 ×1.108~1.113), 고른 상태 (6열, 7행) ×0.916(측정 ×0.918). 별도 확대 값은 없다(`test/render/projection.test.js`).
 - 비행(공식 클라에서 확인, 녹화의 멈춘 비행 프레임과 맞음): 컨트롤러는 레벨의 `move_time` 0.25초, `Offset`의 위치·회전은 `_moveTime` 0.2초, 둘 다 OutQuart. 둘을 따로 보간한다(`flyRig`, `render/app.js stepCamera`). 손으로 상점을 접고 펼 때(전 0.75초 InOutCubic)와 적 대기열을 오갈 때(전 0.25초 InOutCubic)도 같은 비행이다(관리자 결정 2026-11-07). 고른 뒤 다른 기물을 고르거나 집으면 그 자리에서 새 비행이 시작된다. 방향 휠은 카메라를 더 옮기지 않는다.
 - 모델: 공식 모델은 판에 붙은 `Graphic` 평면이라 측면 카메라에서 화면 왼쪽으로 약 5° 기운다(녹화의 대기열 모델과 대조). 우리 모델도 `Unit.body`를 `Camera.lean`만큼 돌린다. 머리 위 표시는 공식처럼 똑바로 선다.
@@ -1967,9 +1973,9 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
 - 플레이어의 접기 상태로 돌아오는 것은 [추정·화면: 공식에서 상점을 접어 둔 채 집었다 놓는 경우를 화면으로 보지 않음].
 - HUD: 공식 비율 그대로이되 `clearHud`가 보드 띠를 HUD 밖에 둔다. 측면 카메라의 줄은 기울어 있어 띠는 시선 축 위의 점으로 잰다(왼쪽 끝이 낮지만 그 위에는 HUD가 없다). 1920×1080 집은 상태에서 위로 5.4 px, 844×390에서 8 px쯤 옮겨진다. 고른 상태는 그 칸만 HUD 밖에 두므로 데스크톱에서는 공식 그대로다.
 - 비행 중에 포인터가 멈춰 있어도 잡은 기물과 드롭 칸이 따라오도록 `render/drag.js refresh`가 포인터 아래 칸을 다시 읽는다.
-- 설정 「拿起棋子时收起商店」(`deployFold`)은 공식에 없는 선택지라 주석 처리했다(관리자 결정 2026-11-07). 토글은 `ui/settings.js`에 주석으로 남고, 저장된 끔도 더는 읽지 않는다.
+- 설정 「拿起棋子时收起商店」(`deployFold`)은 공식에 없는 선택지라 주석 처리했다(관리자 결정 2026-11-07; 측면 카메라 설정은 위 규정 줄). 토글은 `ui/settings.js`에 주석으로 남고, 저장된 끔도 더는 읽지 않는다.
 - 필드 기물 탭의 카메라 위치, 상점을 접어 둔 채 고르기, 보스 라운드, 오른쪽 보드는 공식 클라에서 확인했지만 조사한 녹화에는 없다. [화면 미확인]
-- 확인: `test/render/projection.test.js` 「the official side camera」, `test/ui/issue5-fold-camera.test.js`, `test/render/drag.test.js`. Windows Chrome 모의 판(1920×1080, 844×390): 탭·집기·휠·취소 뒤 카메라가 시작값과 정확히 같음, 휠 칸이 측면 카메라의 드롭 칸과 같음. 그림 드로콜 프레임당 17.5(상점)→17.4(측면), 15개 유닛.
+- 확인: `test/render/projection.test.js` 「the official side camera」, `test/ui/issue5-fold-camera.test.js`(시즌·설정: 「sideCameraOn」), `test/render/drag.test.js`. Windows Chrome 모의 판(1920×1080, 844×390): 탭·집기·휠·취소 뒤 카메라가 시작값과 정확히 같음, 휠 칸이 측면 카메라의 드롭 칸과 같음. 그림 드로콜 프레임당 17.5(상점)→17.4(측면), 15개 유닛.
 
 ## 알뜰살뜰 인형 효과 아이콘 하나 (2026-10-25, 관리자 결정)
 
@@ -1977,7 +1983,7 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   하나씩 쌓였다 — 하나만 보이고, 툴팁에 실제로 라운드마다 받는 자금을 보여 달라.
 - 서버의 효과는 그대로 인형마다 하나(`server/match/builtinMeta.js gain_coin_when_round_start`, 게임 동작 변화 없음). 보이는 목록
   (`server/match/player/views.js effectsView`)만 `effect:builtin_round_coin` 효과들을 첫 인형 자리의 한 항목으로 합치고 `roundFunds`(합한
-  라운드당 자금)·`stack`(쓴 개수)을 싣는다. 툴팁(`public/js/ui/effectsList.js`)은 아이템 설명 대신 「每回合开始时额外获得 {n} 资金」과, 둘 이상이면
+  라운드당 자금)·`stack`(쓴 개수)을 싣는다. 목록 줄(`public/js/ui/effectsList.js`; 2026-11-12까지는 툴팁)은 아이템 설명 대신 「每回合开始时额外获得 {n} 资金」과, 둘 이상이면
   「已使用 {n} 个」. 아이콘에 숫자 배지는 달지 않는다(배지는 다른 효과에서 남은 횟수라 헷갈림). 효과 줄은 10개까지라 인형이 다른 효과를 밀어내던
   것도 없어진다.
 - 시험: `test/content/items.test.js` 「精打细算玩偶 used three times」(일반 둘 + 정예 하나 → 한 항목, `roundFunds` 4 = 다음 라운드 시작에 실제로 받은 자금).
@@ -2164,6 +2170,45 @@ upstream 0.3.3(`dev` eff7d93ab)의 공식 느낌 화면을 손으로 이식한�
 - **그림**: 규정 클라의 추출물(`tools/local-extract/season_ui.py`의 `prefabs` — 위 프리팹들이 보여 주는 그림을 그 프리팹의 참조대로: 보통 이미지, 그리고 공식 클라의 아틀라스 이미지(`_initAtlas`·`_initSpriteId`)는 아틀라스 텍스처에서 잘라 냄)이 `diyChooseArt/…`로 들어온다. 추출이 없으면 CSS 색으로 그린다.
 - 이 단계 동안 「오퍼레이터 설정」은 없다(편성은 전략 선택까지 바꿀 수 있고, 이 단계부터는 다음 판에 적용).
 - 확인: `test/ui/gameLogic.test.js` 「规程's 确定自选编队」(찬 등급에서 가장 먼저 고른 것이 빠짐, 등급 줄·금지, 단계 수). Windows Chrome(로컬 서버, 2026-11-11): 1600×900·휴대폰 터치 844×390, 규정 연합 4인(AI 셋) — 들어가기, 셋 고르기(서버의 `chosen`과 같음), 찬 Ⅴ에서 넷째를 누르면 가장 먼저 고른 칸이 빠짐(2/2·1/2), 준비 화면, 준비하면 다음 단계로.
+
+## 임시 중첩 표시 (2026-11-11, 공식 CN 화면)
+
+- 근거: 관리자가 준 CN 서버 전투 화면 한 장(「클로저」 테마, 규정 우르수스 6명). 맹약 줄 원판 숫자는 고정 + 임시 중첩의 합계(우르수스 193)를 **노란 글자**로, 임시 중첩이 없는 맹약(견수 61)은 흰 글자. 맹약 상세 창 오른쪽 위는 「层数 49」(고정) 아래 한 줄에 노란 「+ 144」(임시). 효과 수치(공격력 +180% 등)는 합계 기준.
+- 구현: 전투 중 중첩은 브라우저가 돌리는 전투에서 읽는다(`battle/runner.js noteLayers` → `state().bondLayers`). 임시 중첩(`Battle.tempLayerGainsOf`, 결과의 `tempLayerGains`와 같은 장부)을 그 옆에 `state().bondTemp`로 내보내고, `ui/watchBonds.js withLiveLayers`가 그 합계를 쓰는 맹약 항목에 `tempLayers`로 붙인다(보이는 합계를 넘지 않음, 서버 정산이 이미 더 큰 값이면 붙이지 않음). 맹약 줄은 `has-temp`면 숫자가 노란색(#f2c510, 캡처에서 뽑음), 상세 창은 `层数` 뒤에 고정 중첩, 그 아래에 `+ n`(`bpop__temp`, 공식 그림 HUD) — 공식 그림이 없는 화면은 정보 줄에 `层数 49 + 144`. 효과 설명은 합계로 셈. 보고 있는 팀원의 맹약 줄과 카드 맹약 칩에서 연 상세 창도 같다.
+- 시험: `test/ui/temp-layers.test.js`, `test/match/watch-bonds.test.js`(runner `bondTemp`).
+
+## HUD 숫자 글꼴 (2026-11-11, 관리자 결정)
+
+- 공식 클라에서 확인: HUD 프리팹의 Text는 글꼴 칸이 비어 있고 같은 오브젝트의 `DynFontLoader._fontName`이 이름으로 글꼴을 정한다. 숫자는 대부분 `Novecentowide-Medium` — 맹약 원판 수(`autochess_hud_bond_item` `text_num` 16), 맹약 상세 창의 중첩 수·인원(`text_cur_stack` 16·`text_char_cnt` 18), 위쪽 라운드·LP·처치 수(`root_round` `text_num`·`root_hp` `text_hp`·`group_battle` `text_num` 20), 상점 비용·자금·레벨, 라운드 시작 창, 보스 준비 창의 체력. 오퍼레이터 카드 스탯·레벨은 `Novecentowide-Normal`, 글자는 `NotoSansHans-Medium`·`SourceHanSansCN-Heavy`, 카운트다운만 비트맵 숫자 글꼴(`auto_chess_num_font`, 테마마다 따로).
+- 우리 공개 글꼴(`tools/assets/fonts.mjs`)은 Novecento Wide Normal 하나뿐이고, 무료 배포판에도 Medium은 없다(유료). 무료판의 사용권(Synthview Desktop EULA)은 웹 글꼴 삽입을 금지한다. 그래서 Medium 자리는 **Lexend Exa**(SIL OFL 1.1, google/fonts 커밋 고정, `tools/assets/fonts.mjs`가 다른 공개 글꼴과 함께 받음)로 대신한다(관리자 결정 2026-11-11). 공개 OFL 후보의 숫자를 겹쳐 비교해 가장 가까운 것: 숫자 높이는 같고(0.724 대 0.729 em) 숫자 폭이 0.06 em 넓어 크기는 그대로, 굵기 500, 자간 −0.06 em. 글꼴이 안 오면 Novecento Wide Normal로 그린다. Normal 자리(카드 스탯 등)는 지금 그대로 Novecento Wide Normal.
+- 이번에 바꾼 곳(공식 그림 HUD): 맹약 원판 수는 Bender 굵게 12.4 → Medium 자리 글꼴 500 **16**(프리팹 크기 — 12.4는 Bender가 커 보여 줄였던 값, 공식 글꼴로는 캡처의 숫자 폭이 16에서 맞음, 관리자 결정 2026-11-11 시안 B), 상세 창 중첩 수·임시 중첩·인원 400 → 500, 위쪽 라운드·LP·처치 수 Bender → Medium 자리 글꼴 500. 상점·라운드 시작 창·보스 준비 창·카드 스탯은 아직 지금 글꼴.
+- 시험: `test/ui/hud-number-font.test.js`, `test/ui/official-ui-gaps.test.js`(원판 수 16).
+
+## 규정 액티브 전략 — 초상·클릭·드래그 (2026-11-12, 공식 CN 화면 3장, 관리자 결정)
+
+- 서버 쪽은 `server/match/match/bandSkill.js`(`g.bandSkill`, 보기 `m.private.bandSkill`), 규칙은 [sim.md](sim.md) 「규정 전략」 「액티브 지령 사용」. 화면은 `ui/bandSkill.js`.
+- **공식 클라에서 확인**(CN 전투 HUD 번들의 `autochess_hud_panel` `panel_skill`): 지령 초상 `skill_view`(160×100)는 오른쪽 끝, 정비 중에는 위(`skill_layout_prepare`), 전투 중에는 아래(`skill_layout_battle`, 아래에서 180). 둥근 초상(바탕 원 79, 아이콘 85를 원으로 가림), 왼쪽으로 뻗은 막대(168×60) 위 🔍 + 「查看」, 초상 위 비용 원(`group_cost`), 아래 횟수 알약(`group_counter`: 자물쇠 `ic_skill_lock` / 시계 `ic_skill_cooldown` + 숫자), 테두리 셋(`variant_active`·`variant_passive`·`variant_invalid`), 누르는 곳 둘(`btn_active_no_target` 클릭 지령, `active_target_trigger` 드래그 시작). 설명 창 `autochess_hud_skill_detail_dialog`(폭 375, 초상 왼쪽: 전략 이름 · 줄 · 스킬 설명). 드래그 위젯 `autochess_skill_drag_widget`: 초상에서 포인터까지 청록 띠 + 점 무늬 + 화살촉(촉이 포인터), 위 가운데 안내 칸 `drag_tip`.
+- **공식 화면**(관리자가 준 CN 「绝境模拟」 3장, 2026-11-12): 드래그 중 안내 「请指向 战场或整备区的干员」(강조 청록) — 「내 오퍼레이터」 대상은 전장 위와 정비 구역 기물 둘 다. 강조는 **가리킨 대상 하나의 발밑 타일만** 밝게 빛나고 다른 대상은 그대로. 비용 0인 지령은 위 숫자 원이 없다(비용 5인 지령은 「5」, 같은 지령이 우르수스를 사서 내려가면 「1」). 전투 중에는 초상이 오른쪽 아래 자금 숫자 위로 내려가고 테두리가 흐리다. 이름표는 없다.
+- 구현: 정비 중 자리는 효과 아이콘 열이 있던 자리(준비 인원 줄 아래)이고 효과 열은 그 아래로 내려간다(`.gm.has-bskill`). 클릭 지령은 초상을 누르면 바로 쓴다(확인 없음, 관리자 결정 2026-11-12). 드래그 지령은 초상에서 끌기 시작(8 px), 대상 판정은 기물 끌기와 같은 판정(`view.pickAt` → render/app.js `pieceAt`·`pickBoardTile`) — 기물은 `m.private`의 `board`·`hand`에 있는 것만(필터 `CHAR`면 오퍼레이터만), 보급센터 카드는 `.shopbar__cards [data-slot]`(보상 카드 줄 아님, 칸 종류 `EQUIP`/`CHAR`), 지형 칸은 전장 칸(땅 판정은 서버). 가리킨 대상의 타일만 흰빛(`BAND_SKILL_HL`, 묶음 `bandSkill`), 보급센터 카드는 흰 테두리. 대상 위에서 놓으면 `g.bandSkill`, 다른 곳에서 놓거나 Esc면 취소. 못 쓰는 지령(쿨·다 씀·자금 부족·잠김·준비 완료 뒤·전투 중)은 테두리가 흐리거나(잠김은 회색) 누르면 설명이 열린다. 비용이 자금보다 크면 비용 숫자가 빨강, 남은 횟수 0은 빨강.
+- 폰: 대상은 손가락 바로 밑(띄움 없음, 이름표 없음 — 관리자 결정 2026-11-12). 초상의 `touch-action: none`이 css/devices.css의 `[role="button"] { touch-action: manipulation }`에 지면 첫 이동에서 브라우저가 터치를 가져가 `pointercancel`이 난다(선택자를 한 단계 높임).
+- 효과 아이콘 열은 공식에 없는 우리 기능이라 폰에서는 「EFFECTS n」 단추로 접혔다가, 같은 날 두 시즌 모두 공식 규정 HUD의 강화 효과 단추로 바뀌었다(아래 「규정 HUD 새 요소」).
+- [ASSUMED·화면] 안내 문구 셋 — 보급센터 오퍼레이터·보급센터 장비·지형 칸(표의 `targetTip` 키만 있고 글은 클라 문자열): 「请指向调度中心的干员」·「请指向调度中心的装备」·「请指向战场的可用地块」로 우리가 씀. 지형 칸 지령에서 어느 칸이 쓸 수 있게 보이는지도 공식 화면 전(서버 판정은 지상 타일, 잠정).
+- **패시브 전략·진행·맹약 방향**(관리자 결정 2026-11-12): 공식 초상에는 패시브 테두리 `variant_passive`가 있어, 액티브 지령이 없는 규정 전략도 같은 초상을 띄운다(어두운 청록 테두리, 끌기·사용 없음, 누르면 설명만). 서버는 그때도 `m.private.bandSkill`을 보낸다(`_bandPassiveView`: `usable` false, `blocked` `'passive'`; 단계 표가 없는 기본 시즌은 null). 표의 `showTag`가 `value_target`인 단계는 진행 `tag {value, target}`(`server/sim/content/bands/progress.js` — 각 전략 처리기의 카운터를 읽기만 함): 나란투야 얻은 【사르곤】 수/3, 락락 산 【빅토리아】 수/3, 무에나 이번 라운드 자금/3, 피구리노 이번 라운드 수동 갱신/1, 키아베 갱신/4, 그리고 문구에 「{@tag}」 자리가 없는 시우루스·샤마르·리프레사는 이번 라운드 「라운드마다 첫 ○○」 횟수/1. 다음 단계가 있는 단계는 해제 진행 `unlock`(라운드·보급센터 레벨·사용한 자금·맹약 인원). 보이는 곳: 진행은 **초상 알약과 문구 둘 다** — 알약에 「값/목표」(잠긴 단계는 자물쇠 뒤에, 액티브 단계는 남은 횟수 그대로), 문구의 「{@tag}」·「{@unlock}」 자리에 「(값/목표)」 강조. 단계가 오르는 패시브(와파린 집중 케어 1·2·3단계)의 단계는 **문구에만**(알약 없음). [ASSUMED·화면] 공식이 이 값을 어디에 어떤 꼴로 띄우는지는 표에 없다(값/목표를 알약·문구 자리에 — 관리자 결정 2026-11-12).
+- 맹약 방향을 바꾸는 전략(`auto_chess_effect_replace` — 나란투야·쉐라·피구리노·플레임테일·왕, 전투가 그 방향을 돌리는 것만: `_bandBondSwaps`, 서버 `bondSwaps {bondId: effectId}`)을 든 플레이어의 맹약 창은 그 방향 효과(`effects.json`의 이름·문구, `bondStrip.js swappedBond`)를 보이고, 문구 위에 「⇄ 전략 「…」: 이 맹약은 다른 방향 효과로 적용」 한 줄(관리자 결정 2026-11-12). 관전 중인 팀원의 창은 그 팀원의 전략을 모르므로 바꾸지 않는다.
+- 아직 아님: 공식 그림(테두리·막대·화살표 스프라이트를 그대로 쓰는 것 — 관리자 결정 2026-11-11 후순위), 단계가 오를 때·쓸 때의 연출(`unlock_anim`·`activate_anim`), 다음 전투 표식 이펙트(`m.private.bandSkill.marks`).
+- 시험: `test/ui/band-skill.test.js`, `test/content/band_progress_act3.test.js`(진행 값은 실제 구매·갱신·판매로 — 카운터 이름이 바뀌면 실패).
+
+## 규정 HUD 새 요소 — 강화 효과 단추·완벽 연승·보스 피해 순위·맹약 단계 (2026-11-12, 공식 CN 화면, 관리자 결정)
+
+CN 11-01부터 들어온 전투 HUD 요소 넷(EN 10-14 클라에는 없음). 공식 클라에서 확인: CN 전투 HUD 번들의 `autochess_hud_panel`·`autochess_hud_buff_dialog`·`autochess_hud_buff_item`·`autochess_hud_bond_item`·`boss_damage_stats_panel`·`boss_damage_stats_item`, 기본 테마(`ac_n_initial`)의 `panel_win_streak`·`panel_boss_damage`, 활동 표 `autoChessData.constData`·`bossDamageStatsStyleList`·`skinEffectPreviewDict`.
+
+- **강화 효과 단추·목록 창**(`ui/effectsList.js BuffButton`, 관리자 결정 2026-11-12: **두 시즌 모두** — 오른쪽 효과 아이콘 열을 없앰): 🔍(시뮬레이션 정보) 바로 왼쪽(`btn_check_buff`, 🔍 중심에서 90 왼쪽, 같은 90×55 칸), 테마 그림 `buff_btn_clickable` 59×37(6 위) + 효과 수(19, #03FBB9), 펼치면 `buff_btn_opened` + 수 #02140F. 누르면 아래에 목록 창(417 폭, 최대 410 높이, 넘치면 스크롤, 바탕 `bg_player_info`) — 줄마다 아이콘 바탕(76×75) + 아이콘 · 이름(20) · 설명(16, 흰 60%). 종류·남은 횟수(현상금의 「남은 작전 N」)는 이름 옆 작은 글씨로 우리가 더함. 목록은 `m.private.effects`(관전 중에는 그 팀원의 것). 테마 그림이 없는 시즌(지금 시즌)·서버는 같은 자리에 우리 모양 단추. [ASSUMED·화면] 효과가 없으면 단추를 숨김(13라운드 공식 화면에 단추가 없음 — 비었을 때만인지는 못 봄). [ASSUMED·CN] 어떤 효과가 목록에 드는지는 CN 코드라, 우리 효과 목록 그대로.
+- **완벽 연승 배지**(`ui/avatarBadges.js`, 규정만): 표 `playerAvatarWinStreakThresholds` [3, 5] — 3·4는 노란 삼각(`win_streak_1_base`, 수 검정), 5 이상은 별(`win_streak_2_base`, 수 #F68A25), 왼쪽 팀 목록 초상의 오른쪽 위. 세는 것은 테마 효과 목록 이름 「完美连胜」대로 **완벽 작전(누수 없음)이 이어진 라운드 수**(공식 화면 두 장의 4 삼각·5 별과 맞음; 관리자 2026-11-11 「배지는 연승」). 서버 `PlayerState.winStreak`(정산 `settle.js`에서 자기 전투가 완벽이면 +1, 센 누수가 있으면 0) → `m.public players[].winStreak`(1 이상일 때만, 표에 문턱이 있는 시즌만).
+- **보스 피해**(규정만): 보스 라운드 동안 각 초상이 그 플레이어의 리더 피해 몫으로 빛남 — 표 `playerAvatarBossDamageThresholds` [0.2, 0.5, 0.8](방송 「…超过20%/50%/80%!」와 같은 몫, `SharedBossPool.byPlayer`) 1·2·3단계: `scan_light` #FFC500 / #FFAE51 / #FF9A5E에 `damage_fx_middle_light`, 3단계는 `damage_fx_frame_cross` 틀과 위아래 `damage_fx_dec`. 내 초상 옆에 「✗ n%」. 오른쪽 가운데 순위 창(`boss_damage_stats_panel`): 나 밖의 플레이어를 몫 순으로, 줄마다 이름(#5AF2C2) · ✗ n% · **그 플레이어가 이 보스에 가장 많이 피해를 준 기물**의 초상과 등급(관리자가 공식 확인 2026-11-12), 위 「숨김/표시」 단추, 보스전 시작 `bossDamageStatsShowDelayTime` 5초 뒤에 뜸. 서버 `m.public players[].bossPct`(몫, 정수 % 내림 — 20 %에 닿을 때 빛이 켜짐)·`bossTop`(그 기물의 chess id). 1위 기물은 전투가 셈(`spec.js bossTopUnits`: 소환물 피해는 보드 기물에, 결산 차트와 같은 방식) — 브라우저 전투는 보고 `b.progress`의 `top`(바뀔 때만 보냄, 4 Hz 보고에 덧붙임), 서버 전투는 그 전투에서 바로. [ASSUMED·CN] 표 `bossDamageStatsStyleList`(30 / 60 / 100 → `bg_1~3`)를 순위 줄의 꾸밈 단계로 씀(어느 노드가 켜지는지는 CN 코드).
+- **맹약 단계 Ⅰ·Ⅱ·Ⅲ**(`bondStrip.js bondPhaseOf`, 시즌 스위치 `bondPhase` — 규정만, 관리자 결정 2026-11-12): 켜진 맹약 원판 위(`img_level` 24×24, 그림 `bondphaseicon/bond_level_N`)에 **도달한 문턱 수**, 맹약 창의 인원 알약 뒤에 「단계 Ⅱ」(`bond_phase/phase_text`). 문턱이 둘 이상인 맹약만 — **문턱 하나인 맹약은 표시 없음**(관리자가 공식 화면에서 확인 2026-11-12: 독행). 공식 화면: 우르수스 [3, 6] 6·8명 Ⅱ, 궁극기 [2, 5] Ⅱ·Ⅰ, 아케인 [2, 3] Ⅰ, 견수 Ⅰ, 꺼진 맹약은 없음. [ASSUMED·화면] 문턱 순번으로 읽은 것은 위 화면들과 맞는 읽기(단계 숫자의 정의를 표가 주지 않음).
+- 테마 그림은 시즌 그림(`seasonSkin/*`, `bondPhaseIcon/*`)에서 찾고, 없으면 CSS 모양(삼각·별·빛 테두리·글자 Ⅱ).
+- 네트워크: `bossPct`·`bossTop`은 `m.public` 행 델타로(보스 라운드 ~1 Hz, 바뀐 필드만), `top`은 바뀔 때만 — 경기 동안 몇 번. 따로 줄일 것 없음(관리자 요청으로 검토 2026-11-12).
+- 시험: `test/match/avatar-badges.test.js`(표 상수, 실제 경기 경로로 연승 세기·초기화, 보스 몫 내림·1위 기물, 소환물 귀속, `b.progress top` 검사, 화면 단계·맹약 단계).
 
 ## 규정 모드 — 규정 등급 1~20·고속 시뮬레이션, 해금 없음, 커스텀·8인 막기 (2026-11-12, 관리자 결정 2026-11-08·2026-11-11)
 

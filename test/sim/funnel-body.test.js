@@ -205,6 +205,7 @@ test('Kjera S2: a lock that leaves her range still takes drone hits, and the bod
     });
     h.step();
     const u = h.unit(1), e = h.enemies()[0];
+    h.runUntil(() => !u.skill._begin, 2);   // (after its begin clip: skills.js _beginCast)
     assert.ok(u.skill.active, `${id} opens on the carried SP`);
     assert.ok(h.runUntil(() => e.alive && !bodyInKeys(e, u.rangeKeySet), 8), `${id}: the lock leaves range`);
     h.run(1.5);

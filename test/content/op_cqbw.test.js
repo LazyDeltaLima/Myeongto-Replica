@@ -292,7 +292,7 @@ test('S3 D12 (MANUAL, data DEFAULT, 42 / 39 SP from 14 / 17): bombs stuck to the
   done(two.h);
 });
 
-test('T1 设伏: 10 s after each deployment 60 % physical and arts dodge, taunt −1, until she leaves; ART-Y stage 3: after 8 s, and ATK +1.25 % a second up to +20 %, reset by damage taken (not by a dodge or a 流失)', () => {
+test('T1 设伏: 10 s after each deployment 60 % physical and arts dodge, taunt −1, until she leaves; ART-Y stage 3: after 8 s, and ATK +1.25 % a second up to +20 %, reset by damage taken (a dodged hit too; not a 流失 or a 无敌 one)', () => {
   for (const f of FORMS_ALL) {
     const [tier, elite, mod] = f;
     const { h, u } = field({ tier, elite, mod, skill: 2 });
@@ -324,7 +324,9 @@ test('T1 设伏: 10 s after each deployment 60 % physical and arts dodge, taunt 
     assert.equal(u.findBuff('cqbw_t_1[evade]'), null, `${label(f)}: gone when she leaves`);
     done(h);
   }
-  // a dodged hit does not reset the ramp (dodges come from the 60 % of 设伏)
+  // a dodged hit resets the ramp too: cqbw_e_003_t (gained at her deployment) runs its ON_TAKE_DAMAGE before 设伏's evade
+  // (gained seconds later; same event priority ⇒ the order they were gained), so the hit is not cancelled yet; a 无敌 one is
+  // (cancelled before any buff runs: IfModifierTarget refuses it)
   const { h, u } = field({ tier: 6, elite: true, mod: Y, skill: 2, seed: 9 });
   h.run(12);
   const e = h.spawn('enemy_dummy', { pos: [10, 12] });
@@ -335,11 +337,16 @@ test('T1 设伏: 10 s after each deployment 60 % physical and arts dodge, taunt 
     const n = h.hooksOf('dodge').length;
     h.b.dealDamage(e, u, { amount: 1, type: 'phys' });
     if (h.hooksOf('dodge').length > n) {
-      assert.ok(before > 0 && u.findBuff('talent:cqbw:ramp')?.stacks === before, 'a dodge keeps the ramp');
+      assert.ok(before > 0 && u.findBuff('talent:cqbw:ramp') === null, 'a dodge clears it');
       checked++;
     } else assert.equal(u.findBuff('talent:cqbw:ramp'), null, 'a hit that lands clears it');
   }
   assert.equal(checked, 3, 'three dodges seen');
+  h.run(3);
+  const held = u.findBuff('talent:cqbw:ramp')?.stacks ?? 0;
+  h.b.addBuff(u, { key: 'test:invuln', flags: { invulnerable: true } });
+  h.b.dealDamage(e, u, { amount: 1, type: 'phys' });
+  assert.ok(held > 0 && u.findBuff('talent:cqbw:ramp')?.stacks === held, '无敌: kept');
   done(h);
 });
 

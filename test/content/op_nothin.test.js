@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ACT3, field, done, cast, fill, realMatch } from '../helpers/seasonPieces.js';
+import { ACT3, field, done, cast, fill, begun, realMatch } from '../helpers/seasonPieces.js';
 import { S2_BEGIN } from '../../server/sim/content/kits/ops/op-nothin.js';
 
 const A = 'chess_char_3_20_a', B = 'chess_char_3_20_b';

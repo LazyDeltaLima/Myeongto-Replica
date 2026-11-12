@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
+import { ACT3, field, done, cast, begun, realMatch } from '../helpers/seasonPieces.js';
 import { COLS } from '../../server/sim/constants.js';
 
 const A = 'chess_char_1_11_a', B = 'chess_char_1_11_b';
@@ -45,6 +45,7 @@ test('S1: ATK +atk, no end of its own; S2: ASPD +attack_speed for its time', () 
     const a = field(id, { skill: 0 });
     const a0 = a.u.s.atk;
     cast(a.u);
+    begun(a.h, a.u);   // (the skill starts after its begin clip: skills.js _beginCast)
     near(a.u.s.atk, a0 * (1 + b1.atk), `${id}: ATK`, 1e-2);
     a.h.run(120);
     assert.ok(a.u.skill.active, `${id}: S1 still on`);
@@ -52,6 +53,7 @@ test('S1: ATK +atk, no end of its own; S2: ASPD +attack_speed for its time', () 
     const s = field(id, { skill: 1 });
     const v0 = s.u.s.aspd;
     cast(s.u);
+    begun(s.h, s.u);
     near(s.u.s.aspd, v0 + b2.attack_speed, `${id}: ASPD`);
     assert.ok(s.h.runUntil(() => !s.u.skill.active, 20), `${id}: S2 ends`);
     done(s.h);

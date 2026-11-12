@@ -22,6 +22,7 @@ for (const id of ['chess_char_3_04_a', 'chess_char_3_04_b']) {
       const u = h.unit(id), e = h.enemy('enemy_sw');
       assert.equal(u.skill.id, 'skchr_swire2_3');
       assert.ok(u.skill.activate('test', { free: true }));
+      h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
       const t0 = ds.getChess(id, { skillIndex: 2 }).talents[0].bb;
       const cap = u.skill.bb.sp;
       assert.equal(cap, 10);

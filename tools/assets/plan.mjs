@@ -391,6 +391,8 @@ export function collectEnemyIds({ assets07, enemies05, maps05, ops03 }) {
  * @param {Record<string, import('./spine.mjs').LocalSpineMeta>} [p.localTokenSpines] the same for the token (summon)
  *   models (tools/assets/local-token-spines.json): each planned token listed gets `spineLocal` = { group:
  *   'spine/token/<id>', ...meta } beside its web `spine`, if any (most have none: the client drew the avatar)
+ * @param {Record<string, import('./spine.mjs').LocalSpineMeta>} [p.localItemSpines] the equipment models of the local client
+ *   (tools/assets/local-item-spines.json, trapId → meta): `itemSpines[trapId]` = { group: 'spine/item/<trapId>', ...meta }
  * @param {Record<string, any>} [p.extraOperators] charId → { subProfessionId, nationId, skills: [{ index, skillId, iconId }] }
  *   of characters research 07 does not list (the 自选 owned-6★ picks, data/backups.json `units`): planned like the pool
  *   operators from patternOperator
@@ -400,7 +402,7 @@ export function collectEnemyIds({ assets07, enemies05, maps05, ops03 }) {
  */
 export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsData, charword = null, voiceLang = 'cn',
   voiceSlots = VOICE_BATTLE_SLOTS,
-  extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {}, localTokenSpines = {}, extraOperators = {},
+  extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {}, localTokenSpines = {}, localItemSpines = {}, extraOperators = {},
   moduleTypes = [], statsTemplate = [], charModes = loadCharModes(), charAudio = loadCharAudio(), tokenSkills = loadTokenSkills(), skillCast = loadSkillCast() }) { // local patch: charModes, charAudio (2026-10-10)
   const notes = [];
   /** @type {Map<string, any>} */
@@ -690,6 +692,13 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   }
   const items = {};
   for (const [trapId, it] of Object.entries(assets07?.items || {})) items[trapId] = leaf(alt(`item/${trapId}.png`, it.icon?.url, it.icon?.bytes));
+  // the equipment models of the local client (tools/assets/local-item-spines.json), drawn on the hand slots in place of
+  // the icon plate when data/local-assets.json lists their files (public/js/assets.js itemSpineEntry; the plate stays
+  // the fallback: a missing or failed model, the magic items whose prefab draws none)
+  const itemSpines = {};
+  for (const [trapId, loc] of Object.entries(localItemSpines || {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+    if (loc && typeof loc === 'object' && /^trap_\d+_[a-z0-9_]+$/i.test(trapId)) itemSpines[trapId] = literal({ group: `spine/item/${trapId}`, ...loc });
+  }
   const bands = {};
   for (const [bandId, b] of Object.entries(assets07?.bands || {})) bands[bandId] = leaf(alt(`band/${bandId}.png`, b.icon?.url, b.icon?.bytes));
 
@@ -831,7 +840,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   if (!Object.keys(voice).length) notes.push('battle voice: charword_table.json has no slots (index missing?)');
 
   const template = {
-    chars, enemies, tokens, bonds, items, bands, skills, skillsById, modules, ui, prof,
+    chars, enemies, tokens, bonds, items, itemSpines, bands, skills, skillsById, modules, ui, prof,
     audio: {
       bgm,
       bossBgm: Object.fromEntries(Object.entries(bossBgm).sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true }))),

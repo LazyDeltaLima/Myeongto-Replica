@@ -240,6 +240,10 @@ export const KIT_OFFICIAL = {
     clemnt: cite('clemnt_t1[dice_damage]', (o) => (o.k === 'clemnt_t1[dice_damage]' ? { play: [once('clemnt_talent_hit_01', 'id')] } : null)),
     // 归溟幽灵鲨 S3: ghost2_s_3[attack] on a target whose HP ratio is ≥ hers (FilterByTargetHpRatio) — the extra damage and hit_02
     ghost2: cite('ghost2_s_3[attack]', (o) => (o.k === 'ghost2_s_3[attack]' ? { play: [once('ghost2_skill_03_hit_02', 'id')] } : null)),
+    // (2026-11-11) 温蒂 S3 / her cannon's 液氮炮 (projectile_weedy_s3, speed 8: it lands after the cast, past the skill's pending
+    // hits) on the target it traced: `_effectsWhenReached` weedy_skill_03_hit, `_effectsWhenHit` weedy_skill_01_hit
+    // (`_onlyPlayHitEffectOnTraceTarget`)
+    weedy: cite('projectile_weedy_s3', (o) => (o.k === 'projectile_weedy_s3' ? { play: [once('weedy_skill_03_hit', 'id'), once('weedy_skill_01_hit', 'id')] } : null)),
     // 锏 S2: blkkgt_s_2[check_block] gives the enemy [blocked] or [not_blocked] by CheckBlocked — both blkkgt_skill_02_hit_2, with the
     // first of its slashes
     blkkgt: cite(['blkkgt_s_2[blocked]', 'blkkgt_s_2[not_blocked]'], (o) => (o.k === 'blkkgt_s_2[blocked]' || o.k === 'blkkgt_s_2[not_blocked]'
@@ -349,6 +353,12 @@ export const KIT_OFFICIAL = {
   // (2026-11-07) 만트라: S3's 溢出 on its holder (projectile_chr_mantra_s3_2's hit); T2's mark on the tile it listens to (`_effectSettings` castedTimeThreshold 1)
   mantraArc: { mantra: cite('projectile_chr_mantra_s3_2', () => ({ play: [once('mantra_bounce_hit_01', 'point')] })) },
   mantraGate: { mantra: cite('char_4204_mantra/Others/Direction/Talents/2/TileListener', () => ({ play: [once('mantra_mark_01', 'point')] })) },
+  // (2026-11-11) 蜜蜡 S2: the 沙之碑 (token_10011_beewax_oblisk) casts its own skill sktok_beewax as it is placed — the stun burst
+  // the kit's 'obelisk' stands for — whose `_castEffects` ON_CAST_START plays token_beewax_skill_02_range on it once
+  // (pkgrps/btl_pfb_fx_token_0.ab → bundle beewax_token); no stand-in pillar
+  obelisk: {
+    beewax: cite('sktok_beewax', () => ({ play: [{ ...once('token_beewax_skill_02_range', 'id'), bundle: 'beewax_token' }] })),
+  },
   mitmReborn: {
     // Modes/Reborn trshrb_switch `_castEffects`, as its ReBorn clip starts
     mitm: cite('token_10037_mitm_trshrb/Modes/Reborn/Body/Talents/1', () => ({ play: [{ n: 'token_mitm_trshrb_birth_01', on: 'point', life: 1, bundle: 'mitm_token' }] })),

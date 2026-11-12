@@ -707,7 +707,15 @@ export function specBounds(spec, gd = null) {
       const v = Number(b && b.layers);
       if (Number.isFinite(v) && v > 0) startLayers.set(id, v);
     }
-    players.set(p.playerId, { chess, all, names, defIds, bonds: gd ? layerBondsOf(p, gd) : null, startLayers, layerAllow: gd ? layerAllowanceOf(p, gd) : new Map() });
+    // 宝藏探机's chests (PlayerBattleInput `bandChests`, content/bands/battle.js): each one standing at the end pays its coin;
+    // a result may report only these as gone
+    const chests = new Set();
+    for (const x of Array.isArray(p.bandChests) ? p.bandChests : []) {
+      if (!x || typeof x.id !== 'string') continue;
+      chests.add(x.id);
+      bountyCoins += Math.max(0, Math.floor(Number(x.coin) || 0));
+    }
+    players.set(p.playerId, { chess, all, names, defIds, chests, bonds: gd ? layerBondsOf(p, gd) : null, startLayers, layerAllow: gd ? layerAllowanceOf(p, gd) : new Map() });
   }
   const round = Number(spec && spec.round) || 0;
   return {
@@ -931,6 +939,8 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         damageDealt: stat(p.damageDealt), bossDamage: stat(p.bossDamage), healingDone: stat(p.healingDone), deaths: Math.trunc(stat(p.deaths)),
         unitsEnd, unitStats,
       };
+      const gone = Array.isArray(p.bandChestsGone) ? [...new Set(p.bandChestsGone.filter((id) => own.chests.has(id)))] : [];
+      if (gone.length) perPlayer[pid].bandChestsGone = gone;
       // the HUD capsule's numerator: kept only when the client reported one (an absent value must stay absent — the
       // teammate UI then falls back to `killed`, never to a fabricated 0); clamped to the denominator
       if (Number.isInteger(p.resolved) && p.resolved >= 0) perPlayer[pid].resolved = Math.min(p.total, p.resolved);

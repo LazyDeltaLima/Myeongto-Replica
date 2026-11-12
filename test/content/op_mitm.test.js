@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
+import { ACT3, field, done, cast, begun, realMatch } from '../helpers/seasonPieces.js';
 import { BORN, CAR, SKILL_FORM, WASTE } from '../../server/sim/content/kits/ops/op-mitm.js';
 import { COLS } from '../../server/sim/constants.js';
 
@@ -212,6 +212,7 @@ test('S2: ATK +atk, 12 DP over its time; the car stops attacking with block 2 an
     assert.ok(h.runUntil(() => hitsOn(h, t, e).length > 0, 5), `${id}: the car attacks before`);
     const a0 = u.s.atk, d0 = t.s.def, dp0 = dp(h);
     cast(u);
+    begun(h, u);   // (the skill starts after its begin clip: skills.js _beginCast)
     near(u.s.atk, a0 * (1 + b2.atk), `${id}: ATK`, 1e-2);
     assert.ok(t.findBuff(SKILL_FORM));
     assert.equal(t.s.blockCnt, b2['mitm_s_2[to_token].block_cnt']);
@@ -270,6 +271,7 @@ test('What the model is told: 전술 포인트, ReBorn, 잔해 and S2 each as a 
   assert.ok(!sent.some(([n, o]) => n === 'summon' && o.id === t.id), 'the return is no new summon');
   u.skill.locked = false;
   cast(u);
+  begun(h, u);   // (the skill starts after its begin clip: skills.js _beginCast)
   assert.ok(sent.some(([n, o]) => n === 'mitmSkill' && o.id === t.id && o.form === 'skill'), 'S2');
   done(h);
   const k = withCar(B, 1);

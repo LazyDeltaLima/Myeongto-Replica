@@ -59,6 +59,14 @@
   min-width: calc(var(--u) * 35); height: calc(var(--u) * 22); padding: 0 calc(var(--u) * 6); clip-path: none;
   background: var(--ha-round) center / 100% 100% no-repeat; color: #171717; font-size: calc(var(--u) * 20);
 }
+/* the HUD counters' font: Novecentowide-Medium as the client's round / HP / kill Text nodes (root_round text_num,
+   root_hp text_hp, group_battle text_num: DynFontLoader; docs/rules/ui.md 「HUD 숫자 글꼴」, maintainer decision
+   2026-11-11). No free Medium face may be embedded: Lexend Exa (SIL OFL) stands in at the same digit height, 500, its
+   digits .06 em wider taken back by the spacing (maintainer decision 2026-11-11) */
+.gm.has-hud-art .roundbox__num, .gm.has-hud-art .capsule__kills, .gm.has-hud-art .gtop__center .lp--lg {
+  font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 500; letter-spacing: -.06em;
+}
+.gm.has-hud-art .capsule__kills b { font-weight: 500; }
 /* the phase pill: bg_rest in frame_mid_normal (休息一下: icon_rest + 17 px #40b196); battle / 联防 their own pills */
 .gm.has-hud-art .capsule {
   height: calc(var(--u) * 51); min-width: calc(var(--u) * 183); padding: 0 calc(var(--u) * 22); gap: calc(var(--u) * 8); justify-content: center;
@@ -168,12 +176,15 @@
 /* the stack number on matte_num (42×25, 16 px white), on the ring's lower edge (KR captures: ≈ .75 of the radius under
    the centre; the prefab's 8 units looked too high in play, maintainer 2026-10-06). (2026-10-07) the CN prep capture puts the
    digits' centre .35 of the ring (53 units across) under its centre, over its bottom edge — 15 here gave .27 → 19.5.
-   The prefab's 16 px drew the digits .22 of the ring tall in our font against the capture's .17 (the client font is
-   smaller per px): 16 × .17 / .22 ≈ 12.4 units (maintainer decision 2026-10-12) */
+   The prefab's 16 px drew the digits .22 of the ring tall in Bender against the capture's .17, so 12.4 units stood in
+   (maintainer decision 2026-10-12). The client font is Novecentowide-Medium (text_num's DynFontLoader; docs/rules/ui.md
+   「HUD 숫자 글꼴」): in it the prefab's 16 px gives the captures' width — 16 again (maintainer decision 2026-11-11), the
+   Lexend Exa standing in for Medium (500, -.06 em; maintainer decision 2026-11-11) */
 .gm.has-hud-art .bslot .bond__count {
   position: absolute; left: 50%; top: calc(50% + var(--u) * 19.5); right: auto; bottom: auto; transform: translate(-50%, -50%);
   min-width: calc(var(--u) * 42); height: calc(var(--u) * 25); padding: 0 calc(var(--u) * 4); display: grid; place-items: center;
-  background: var(--ha-num) center / 100% 100% no-repeat; border: 0; border-radius: 0; color: #fff; font-size: calc(var(--u) * 12.4); box-shadow: none;
+  background: var(--ha-num) center / 100% 100% no-repeat; border: 0; border-radius: 0; color: #fff; font-size: calc(var(--u) * 16); box-shadow: none;
+  font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 500; letter-spacing: -.06em;
 }
 /* the name: text_name (74×22 at 31 under the item's centre, 14 px, UpperCenter, line spacing .8) — its line hangs from the
    box's top 20 under the centre, the glyphs ≈ 36 under the disc's centre (CN 联防 capture .73 of the ring; upstream-style
@@ -217,6 +228,7 @@
 /* ---- bond disc, inactive (autochess_hud_bond_item _inactiveColorConfig: name #f4f4f4 at 70 %, stack #b2b2b2) ---- */
 .gm.has-hud-art .bslot:not(.is-active) .bond__name { color: rgba(244, 244, 244, .7); }
 .gm.has-hud-art .bslot:not(.is-active) .bond__count { color: #b2b2b2; }
+.gm.has-hud-art .bslot.has-temp .bond__count { color: #f2c510; } /* 临时层数 (screens/game.css), inactive or not */
 
 /* ---- the bond list's fold tab (bond_list_info_view btn_synergy, `has-hud-fold`): under the open list the small
    btn_close (37×17, "︽") on the bottom edge of the matte (its centre 3 units above it); folded, btn_open (102×37) with
@@ -446,7 +458,7 @@
   background: var(--ha-bd-off, none) center / 100% 100% no-repeat, rgba(170, 40, 40, .75); color: #fff; font-size: calc(var(--u) * 16);
 }
 .gm.has-hud-art .bpop__need.is-active { background: var(--ha-bd-on, none) center / 100% 100% no-repeat, rgba(70, 70, 70, .8); }
-.gm.has-hud-art .bpop__need b { font-family: 'Novecento Wide', var(--font-num); font-size: calc(var(--u) * 18); font-weight: 400; }
+.gm.has-hud-art .bpop__need b { font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-size: calc(var(--u) * 18); font-weight: 500; letter-spacing: -.06em; } /* text_char_cnt: Novecentowide-Medium (Lexend Exa in its place) */
 /* the count's colours: CN main_text AUTO_CHESS_BATTLE_BOND_INACTIVE_CHAR_COUNT_FORMAT <color=#F0F0F0>{0}</color><color=#A3A3A3>/{1}</color>,
    …_ACTIVE_… <color=#25FFCD>{0}</color><color=#B0B0B0>/{1}</color> ({1} = the bond's one activeCount) */
 .gm.has-hud-art .bpop__needn { color: #f0f0f0; }
@@ -461,7 +473,11 @@
 .gm.has-hud-art .bpop__stack {
   display: block; position: absolute; right: calc(var(--u) * 25); top: calc(var(--u) * 34.5); transform: translateY(-50%); color: #d0d0d0; font-size: calc(var(--u) * 16);
 }
-.gm.has-hud-art .bpop__stack b { color: #fff; font-family: 'Novecento Wide', var(--font-num); font-weight: 400; margin-left: calc(var(--u) * 4); }
+.gm.has-hud-art .bpop__stack b { color: #fff; font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 500; letter-spacing: -.06em; margin-left: calc(var(--u) * 4); } /* text_cur_stack: Novecentowide-Medium (Lexend Exa in its place) */
+/* + the 临时层数 under 层数, right-aligned with it (CN capture 2026-11-11: 「层数 49」 then a yellow 「+ 144」 one line lower) */
+.gm.has-hud-art .bpop__stack .bpop__temp {
+  position: absolute; right: 0; top: 100%; margin: calc(var(--u) * 4) 0 0; font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-size: 1em; font-weight: 500; letter-spacing: -.06em; white-space: nowrap;
+}
 .gm.has-hud-art .bpop__close { position: absolute; z-index: 3; right: calc(var(--u) * 4); top: calc(var(--u) * 4); width: calc(var(--u) * 20); height: calc(var(--u) * 20); border: 0; opacity: .6; }
 /* the content is the client's one _descText (AutoChessBattleUIBondDetailView._RenderContent → AutoChessBattleUtil.GetBondDesc
    (bondId, stack): the bond effect's text with its numbers at the current layers = our 当前效果, formatBondEffect), then the
@@ -797,4 +813,18 @@
 .gm.has-hud-art .gtop__iconbtn.has-sprite.is-theme:hover, .gm.has-hud-art .enemybtn.has-sprite.is-theme:hover:not(.is-grey),
 .gm.has-hud-art .gtop__iconbtn.has-sprite.is-theme.is-on, .gm.has-hud-art .enemybtn.has-sprite.is-theme.is-wide:hover:not(.is-grey) {
   background: var(--chk-sprite) center calc(50% + var(--u) * 6) / calc(var(--u) * 73) calc(var(--u) * 41) no-repeat;
+}
+
+/* ---- 规程's bond phase (ui/bondStrip.js bondPhaseOf; seasonFeature 'bondPhase'): Ⅰ·Ⅱ·Ⅲ over an active disc — the HUD bond
+   item's img_level, 24×24 centred 31.3 above the item's centre (the disc's 9 above it), bondphaseicon/bond_level_N — and
+   阶段 Ⅱ after the count pill of the bond dialog (bond_phase/phase_text; a CN capture 2026-11-11: a mint plate, dark text) ---- */
+.bslot__phase {
+  position: absolute; z-index: 2; left: 50%; top: calc(var(--u, .015rem) * -2); width: calc(var(--u, .015rem) * 24); height: calc(var(--u, .015rem) * 24);
+  transform: translateX(-50%); display: grid; place-items: center; pointer-events: none; font-style: normal;
+  color: #fff; font-size: calc(var(--u, .015rem) * 17); font-weight: 700; line-height: 1; text-shadow: 0 0 calc(var(--u, .015rem) * 3) #000;
+}
+.bslot__phase.has-sprite { background: var(--phase) center / contain no-repeat; }
+.bpop__phase {
+  display: inline-flex; align-items: center; margin: 0 calc(var(--u, .015rem) * -8) 0 calc(var(--u, .015rem) * 6); align-self: stretch;
+  padding: 0 calc(var(--u, .015rem) * 8); background: #00e6b0; color: #02140f; font-size: calc(var(--u, .015rem) * 16); font-weight: 700; white-space: nowrap;
 }

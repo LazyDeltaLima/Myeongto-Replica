@@ -406,6 +406,7 @@ test('黄金盟誓: attacks deal true damage; lasts while the owner skill runs',
   const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy({ def: 5000 }) } }, kits: { chess_char_6_07_a: kit }, units: [{ chessId: 'chess_char_6_07_a', row: 12, col: 3 }], enemies: [{ key: 'enemy_dummy', pos: [9, 6] }], autoFinish: false, timeLimit: 30,
     setup: (b) => b.on('damaged', (c) => { if (c.source?.defId === TOKEN_IDS.goldenOath) types.add(c.type); }) });
   h.step(2);
+  h.runUntil(() => h.b.allyUnits.some((x) => x.defId === TOKEN_IDS.goldenOath), 2);   // (its owner's skill starts after the begin clip: skills.js _beginCast)
   const lion = h.b.allyUnits.find((x) => x.defId === TOKEN_IDS.goldenOath);
   assert.ok(lion && lion.alive);
   assert.equal(lion.profile.dmgType, 'true');

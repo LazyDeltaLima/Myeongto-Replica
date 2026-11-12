@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
+import { ACT3, field, done, cast, begun, realMatch } from '../helpers/seasonPieces.js';
 import { S2_BEGIN } from '../../server/sim/content/kits/ops/op-cuttle.js';
 
 const A = 'chess_char_2_24_a', B = 'chess_char_2_24_b';
@@ -12,7 +12,7 @@ const FORMS = [A, B];
 const S1 = 'skcom_atk_up[3]', S2 = 'skchr_cuttle_2';
 const DEBUFF = 'cuttle_s_2[debuff]';
 const bbOf = (id, sk) => ACT3.chess[id].skills.find((s) => s.skillId === sk).bb;
-const near = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
+const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const dmgOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e);
 
 test('Skill2_Begin is the clip the kit holds for', () => {
@@ -53,8 +53,9 @@ test('S2: no attack during its begin clip, ATK +, the hit slows by its blackboar
     const e = h.spawn('enemy_dummy', { pos: [10, 6] });
     const atk = u.s.atk;
     cast(u);
-    near(u.skillStateUntil, h.b.time + S2_BEGIN, `${id}: held`);
-    h.step();
+    near(u.skillStateUntil, h.b.time + S2_BEGIN, `${id}: held (the clip in whole ticks)`, 1 / 60);
+    assert.equal(u.s.atk, atk, `${id}: no ATK before the clip has played`);
+    begun(h, u);
     near(u.s.atk, atk + u.base.atk * b2.atk, `${id}: ATK`);
     h.hooks.damaged.length = 0;
     h.runUntil(() => !!e.findBuff(DEBUFF), 8);

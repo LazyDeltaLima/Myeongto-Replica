@@ -21,6 +21,8 @@ export class PlayerViews {
       count: p.kind === 'token' ? (p.count || 1) : 1,
       ownerUid: p.kind === 'token' ? p.ownerUid ?? null : null,
     };
+    // the sell price when it is not the record's (规程's 海沫 / 温蒂: economy.js sellPriceOf) — the detail panel shows it
+    if (p.kind === 'chess') { const sp = this.sellPriceOf(p); if (sp !== (rec?.sellPrice ?? 1)) v.sellPrice = sp; }
     if (rc) { v.row = rc[0]; v.col = rc[1]; v.dir = pieceDir(p); }
     return v;
   }
@@ -76,13 +78,20 @@ export class PlayerViews {
       lp: this.lp,
       funds: this.funds,
       bandId: this.bandId,
+      // 规程's active 指令: stage, cost, uses, cooldown, usable (server/match/match/bandSkill.js bandSkillView)
+      bandSkill: typeof this.m.bandSkillView === 'function' ? this.m.bandSkillView(this) : null,
       ready: this.ready,
       canReady: this.alive && !this.personalChoice && this.m.phase === PHASE.PREP,
       personalChoice: this.personalChoice ? {
         id: this.personalChoice.id,
         round: this.personalChoice.round,
         sourceItemId: this.personalChoice.sourceItemId,
-        cards: this.personalChoice.cards.map((c) => bountyCard(this.gd, c)),
+        // 'bounty' (教鞭) or 'bandSkill' (规程's 更换指令: cards of 指令, server/match/match/bandSkill.js bandCommandCard)
+        kind: this.personalChoice.kind === 'bandSkill' ? 'bandSkill' : 'bounty',
+        choiceEvent: this.personalChoice.choiceEvent ?? null,
+        cards: this.personalChoice.kind === 'bandSkill'
+          ? this.personalChoice.cards.map((c) => this.m.bandCommandCard(this, c))
+          : this.personalChoice.cards.map((c) => bountyCard(this.gd, c)),
       } : null,
       shop: {
         level: this.shop.level,
@@ -105,6 +114,9 @@ export class PlayerViews {
       // (render/app.js; PRTS 卫戍协议/帮助 §手牌区 "溢出单位无法查看，在临时手牌区出现空位时自动移入", as upstream 92b97ecb —
       // maintainer decision 2026-10-17, see docs/rules/sim.md 「임시 정비 구역 뒤 숨은 대기열」)
       temp: this.temp.map((p) => (p ? this.pieceView(p) : null)),
+      // 规程's 装备区 (GameData.equipHandSize; 0 = none): the five visible temp slots are the equipment zone, not overflow —
+      // only the queue behind them is (docs/rules/sim.md 「규정 장비 구역」)
+      bag: this.gd.equipHandSize,
       board,
       // The stage's 外勤医疗 reserve medic is present during prep, but is not a draggable board piece.
       prepMapChars: this.m.prepMapChars(this),

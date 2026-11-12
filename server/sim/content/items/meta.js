@@ -196,6 +196,132 @@ const PREP = [
   })],
 ];
 
+// ---- 规程 (act3autochess): new keys whose items changed meaning (items/aliases.js keeps the renamed same ones)
+
+/** The operator's 第一盟约: the first bond of its chess record (a 自选 piece: the operator it stands for), or null. */
+const firstBond = (ctx, piece) => {
+  const b = piece && ctx.chessRecord(piece.id)?.bonds;
+  return Array.isArray(b) && typeof b[0] === 'string' ? b[0] : null;
+};
+const hasBondOf = (ctx, id, bond) => !!(bond && ctx.gd.chess(id)?.bonds?.includes(bond));
+const nothingToast = (ctx, ev) => ctx.toast(msg('{who}：没有可获得的同盟约干员', { who: dn(ctx.gd.item(ev.item?.id)?.name || '') }), 'warn');
+
+PREP.push(
+  // 简易通讯机 — equip_destory_first_bond_char {count}: "装备时销毁，随机获得1名拥有该干员第一盟约的干员" — 盟约's same-bond
+  // grant (any bond of the target) narrowed to the first bond, the tier ≤ the shop level as there
+  ['equip_destory_first_bond_char', null, () => ({
+    onEquip(ctx, ev) {
+      const p = buffP(ctx, ev.item && ev.item.id, 'equip_destory_first_bond_char') || {};
+      const bond = firstBond(ctx, ev.target);
+      let got = 0;
+      for (let k = 0; k < Math.max(1, int(p.count, 1)); k++) {
+        const id = bond ? ctx.rollChess({ maxTier: Math.max(1, ctx.shopLevel()), filter: (x) => hasBondOf(ctx, x, bond) }) : null;
+        if (id && ctx.grantChess(id)) got++;
+      }
+      if (!got) nothingToast(ctx, ev);
+    },
+  })],
+
+  // 投机骰子 — equip_destory_skill_pool {choice_event: skill_change_1}: "装备时销毁，从3个指令中选择1个替换当前指令" — the
+  // 更换指令 personal choice of the item's text count (server/match/match/bandSkill.js offerBandSkillChoice: the pool and
+  // the swap). Refused — the dice stays where it was — when the choice cannot open (another personal choice is open,
+  // nothing to offer).
+  ['equip_destory_skill_pool', null, () => ({
+    onEquip(ctx, ev) {
+      const p = buffP(ctx, ev.item && ev.item.id, 'equip_destory_skill_pool') || {};
+      const r = ctx.offerBandSkillChoice({ choiceEvent: p.choice_event, desc: ctx.gd.item(ev.item?.id)?.desc ?? '', sourceItemId: ev.item?.id ?? null });
+      if (!r.ok) { ev.error = r.error; ev.detail = r.detail; }
+    },
+  })],
+
+  // 寻呼模块 — use_equip_spe_goods_first_bond {option_count, select_count}: "在调度中心出现至多3名拥有该干员第一盟约的干员，
+  // 免费获取其中1名（不高于当前调度中心等级）" — 盟约's 寻呼模块 (above) on the first bond; `select_count` pick-one offers
+  ['use_equip_spe_goods_first_bond', null, () => ({
+    onEquip(ctx, ev) {
+      const p = buffP(ctx, ev.item && ev.item.id, 'use_equip_spe_goods_first_bond') || {};
+      const bond = firstBond(ctx, ev.target);
+      const ids = [];
+      for (let k = 0; k < Math.max(1, int(p.option_count, 3)) && bond; k++) {
+        const id = ctx.rollChess({ maxTier: Math.max(1, ctx.shopLevel()), filter: (x) => hasBondOf(ctx, x, bond) && !ids.includes(x) });
+        if (id) ids.push(id);
+      }
+      if (!ids.length) { nothingToast(ctx, ev); return; }
+      for (let k = 0; k < Math.max(1, int(p.select_count, 1)); k++) ctx.offerChess(ids, { source: 'item' });
+    },
+  })],
+
+  // 拟态物质 — use_equip_reward_same_tier: "装备时销毁，若已拥有至少2名该初始干员，则再获得1名该初始干员；否则随机获得1名同阶
+  // 干员" — 盟约's 拟态物质 (builtinMeta use_equip_reward_char_chess: past the stock, any copy owned counts) whose 否则 draws
+  // an operator of the target's tier instead of one sharing a bond
+  ['use_equip_reward_same_tier', null, () => ({
+    onEquip(ctx, ev) {
+      const base = ctx.gd.baseIdOf(ev.target.id);
+      const owned = [...ctx.board(), ...ctx.hand(), ...ctx.temp()].filter((x) => x && x.kind === 'chess' && !x.golden && ctx.gd.baseIdOf(x.id) === base).length;
+      if (owned >= 2) { ctx.grantChess(base, { requirePool: false }); return; }
+      const tier = ctx.gd.tierOf(ev.target.id);
+      const id = ctx.rollChess({ tier, ignoreCounts: true });
+      if (!id) nothingToast(ctx, ev);
+      else ctx.grantChess(id, { requirePool: false });
+    },
+  })],
+
+  // 定期存折 — equip_destory_gain_coin {value, n, delta}: "装备时销毁，获得{showtag_value_1}资金（持有时每回合+1）" — the item
+  // grows by `delta` every `n` round starts while it is owned, from `value` [ASSUMED·화면: 산 라운드부터 센다 — 공식 화면의
+  // 숫자 표시 미확인]; only worn items run prep hooks, so the count is the rounds since it was gained (piece.boughtRound)
+  ['equip_destory_gain_coin', null, () => ({
+    onEquip(ctx, ev) {
+      const p = buffP(ctx, ev.item && ev.item.id, 'equip_destory_gain_coin') || {};
+      const since = Number.isInteger(ev.item?.boughtRound) ? Math.max(0, ctx.round - ev.item.boughtRound) : 0;
+      const v = int(p.value, 0) + int(p.delta, 1) * Math.floor(since / Math.max(1, int(p.n, 1)));
+      if (v > 0) ctx.addFunds(v, 'item');
+    },
+  })],
+
+  // 一次性促销券 — use_equip_spe_goods_equip {option_count, select_count}: "装备时销毁，在调度中心出现3件装备，免费获取其中1件
+  // （不高于当前调度中心等级）" (the 进阶 copy 6 / 2): `select_count` pick-one offers sharing the `option_count` items
+  // [ASSUMED·화면: 6개 중 2개 고르기를 3개씩 두 번으로 — 공식 고르기 창 미확인]
+  ['use_equip_spe_goods_equip', null, () => ({
+    onEquip(ctx, ev) {
+      const p = buffP(ctx, ev.item && ev.item.id, 'use_equip_spe_goods_equip') || {};
+      const ids = [];
+      for (let k = 0; k < Math.max(1, int(p.option_count, 3)); k++) {
+        const id = ctx.rollItem({ maxTier: Math.max(1, ctx.shopLevel()), exclude: ids });
+        if (id) ids.push(id);
+      }
+      const picks = Math.max(1, int(p.select_count, 1));
+      const per = Math.max(1, Math.ceil(ids.length / picks));
+      for (let k = 0; k < picks && k * per < ids.length; k++) ctx.offerItems(ids.slice(k * per, (k + 1) * per), { source: 'item' });
+    },
+  })],
+
+  // 人事部记录 — equip_use_main_bond: "装备时销毁，立刻特殊刷新1次调度中心，优先出现拥有该干员第一盟约的干员（不高于当前调度中心
+  // 等级）" — every operator card of the shop is drawn again, a first-bond operator where the pool has one (佩佩's special
+  // refresh, bands/meta.js), else any; free, the item cards and the freeze as they are [ASSUMED·화면: 장비 칸도 다시 뽑는지]
+  ['equip_use_main_bond', null, () => ({
+    onEquip(ctx, ev) {
+      const bond = firstBond(ctx, ev.target);
+      const maxTier = Math.max(1, ctx.shopLevel());
+      const slots = ctx.shopSlots();
+      for (let i = 0; i < slots.length; i++) {
+        if (!slots[i] || slots[i].kind !== 'chess') continue;
+        const id = (bond && ctx.rollChess({ maxTier, filter: (x) => hasBondOf(ctx, x, bond) })) || ctx.rollChess({ maxTier });
+        if (id) ctx.setShopSlot(i, { kind: 'chess', id });
+      }
+    },
+  })],
+
+  // 卫戍推荐信 — prep_end_act_bond {count}: "休整期结束时，使携带者所属的已激活盟约层数+1" (worn, not consumed): every bond of
+  // the carrier active at the prep's end gains `count` layers
+  ['prep_end_act_bond', null, () => ({
+    onPrepEnd(ctx) {
+      const { piece, holder } = ctx.source;
+      if (!piece || !holder) return;
+      const n = int((buffP(ctx, piece.id, 'prep_end_act_bond') || {}).count, 1);
+      for (const b of ctx.pieceBonds(holder.uid)) if (ctx.bondActive(b)) ctx.addLayers(b, n, { requireActive: true, reason: 'item' });
+    },
+  })],
+);
+
 /** The buff keys items/meta.js acts on (content/coverage.js). */
 export const PREP_BUFF_KEYS = Object.freeze([...new Set(PREP.map(([k]) => k))]);
 

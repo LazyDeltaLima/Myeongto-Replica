@@ -81,9 +81,11 @@ test('信仰搅拌机 S3 start reloads other 拉特兰 operators (Lv4 +2 / elite
     h.step();
     const ins = h.unit('chess_char_1_01_a'), mix = h.unit(id);
     assert.ok(ins.skill.activate('test', { free: true }));
+    h.runUntil(() => ins.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     ins.skill.ammoLeft -= 5;   // fired: only fired bullets come back (RecoverEventCount)
     const before = ins.skill.ammoLeft;
     assert.ok(mix.skill.activate('test', { free: true }));
+    h.runUntil(() => mix.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     assert.equal(ins.skill.ammoLeft, before + D(id).skill.bb.ammo);
   }
 });
@@ -297,6 +299,7 @@ test('瑰盐 S2: allies in range take 80 % of phys/arts damage now, 20 % as 5 s 
   h.run(0.3);
   approx(ally.s.healingTakenMul, t0.heal_scale, 1e-9);
   assert.ok(u.skill.activate('test', { free: true }));
+  h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
   approx(u.s.interval, u.base.bat + bb.base_attack_time, 1e-9);
   const before = noisy(h, 'damaged').length;
   h.b.dealDamage(null, ally, { amount: 1000, type: 'arts' });
@@ -390,6 +393,7 @@ test('阿罗玛: first attack ×1.1 + 2.5 s levitation; S2: +ATK and landing dam
   // a second enemy: skill on before it is bubbled → landing damage
   assert.ok(u.skill.activate('test', { free: true }));
   const e2 = h.spawn('enemy_dummy', { pos: [10, 7] }); // on her line: struck by the next attack too (轰击术师)
+  h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
   approx(u.s.atk, u.base.atk * (1 + bb.atk), 1e-9);
   h.runUntil(() => dmgBy(h, u, (c) => c.dmg?.tags?.includes('landing')).length >= 1, 15);
   const land = dmgBy(h, u, (c) => c.dmg?.tags?.includes('landing'));
@@ -434,6 +438,7 @@ test('凯瑟琳: 2 placed support devices shield allies (20 % of her HP), 6 %/s 
   assert.ok(ally.findBuff('cathy:shield').shield > left + u.s.maxHp * tb.shield_ratio_each_trigger * 0.99, 'refills 6 %/s');
   // S2
   assert.ok(u.skill.activate('test', { free: true }));
+  h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
   approx(u.s.maxHp, u.base.maxHp * (1 + bb.max_hp), 1e-9);
   const a0 = noisy(h, 'attack').filter((c) => c.attacker === u).length;
   h.b.dealDamage(null, ally, { amount: 1e5, type: 'phys' }); // breaks the shield (and more)
@@ -679,6 +684,7 @@ test('录武官 S2: healed allies regain 80 HP whenever damaged for 10 s; 学成
   approx(u.skill.sp, sp0 + t0.sp, 1e-9);
   approx(u.s.aspd, u.base.aspd + t0.attack_speed, 1e-9);
   assert.ok(u.skill.activate('test', { free: true }));
+  h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
   approx(u.s.atk, u.base.atk * (1 + bb.atk), 1e-9);
   h.b.dealDamage(null, ally, { amount: ally.s.maxHp * 0.6, type: 'true' });
   h.runUntil(() => ally.findBuff(`reckpr:guard:${u.id}`), 5);
@@ -967,6 +973,7 @@ test('卡涅利安 / 蜜蜡 elite trait: keep DEF +100 % / RES +10 during the sk
     h.step();
     const u = h.unit(id);
     u.skill.activate('test', { free: true });
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     approx(u.s.def, u.base.def * (1 + tb[`${pre}[buff].def`]), 1e-9, id);
     approx(u.s.res, u.base.res + tb[`${pre}[buff].magic_resistance`], 1e-9, id);
   }
@@ -1235,6 +1242,7 @@ test('elite (精锐) kits read the Lv7 blackboard: skill magnitudes differ from 
     const [h, u, bb] = mk(id);
     assert.notDeepEqual(bb, D(id.replace(/_b$/, '_a')).skill.bb, `${id}: Lv7 blackboard differs`);
     assert.ok(u.skill.activate('test', { free: true }), id);
+    h.runUntil(() => !u.skill._begin, 2);   // (after its begin clip: skills.js _beginCast)
     h.strike(u);
     check(u, bb);
     checkInvariants(h.b);
@@ -1314,6 +1322,7 @@ test('焰尾 S3 dodge stacks independently with the 卡西米尔 aura (elite 80 
     const u = h.unit(id);
     const e = h.spawn('enemy_dummy', { pos: [12, 9] });
     assert.ok(u.skill.activate('test', { free: true }));
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     let landed = 0;
     const N = 3000;
     for (let i = 0; i < N; i++) if (h.b.dealDamage(e, u, { amount: 1, type: i % 2 ? 'phys' : 'arts', isAttack: true }) > 0 || u.hp < u.s.maxHp) { landed++; u.hp = u.s.maxHp; }

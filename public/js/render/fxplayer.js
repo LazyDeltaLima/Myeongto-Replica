@@ -45,6 +45,13 @@ export const PAUSE_KEYS = Object.freeze(['pauseIf', 'pauseOther', 'pauseAnim', '
 export const MAX_LASTING = 48;
 /** The player's own backstop over every instance (a caller without its own cap, or two views at once). */
 const PLAYER_CAP = MAX_INSTANCES + MAX_LASTING + 8;
+/**
+ * 2026-11-12: the backstop of the pinned instances (FxInstance opts.pinned — render/fxgame.js's `pinned` entries, which its
+ * caps never end: an operator's always-on effects, the board's own, a floor laid on every tile of a field), counted apart
+ * from PLAYER_CAP. They were counted in it, and the oldest went first: 规程's 悲惨之雨 floors (44 on a field) ended the
+ * sandstorm and the other board effects lit before them.
+ */
+const PINNED_CAP = 512;
 const GRAVITY = new THREE.Vector3(0, 0, 9.81); // Unity battle frame: +z is down (z = −height)
 /** Particle systems alive (registered by their constructor, removed by dispose). */
 const systems = new Set();
@@ -2938,6 +2945,7 @@ function shapeSample(sh, p, d, ms = null, ctx = null) {
 // ---------------------------------------------------------------- effect instance
 
 const live = [];
+let livePinned = 0;   // the pinned instances of `live` (PINNED_CAP)
 /** Clip tracks on material properties: the uniform each drives, and a colour component → vector axis. */
 const CLIP_UNIFORM = { _Amount: 'uAmount', _Opacity: 'uOpacity', _BorderWidth: 'uBorder', _TintColor: 'uTint', _MainColor: 'uTint', _Color: 'uTint',
   // local patch: the … Double dissolve's two amounts / borders
@@ -3011,7 +3019,7 @@ export function hasBackOrder(def) {
 export class FxInstance {
   /**
    * @param {any} def FxLibrary.load result
-   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, dir?: {x: number, y: number}|null, body?: string|null, speed?: number, delays?: boolean, scale?: number, floor?: number|null, split?: boolean|'backOnly', atSpawn?: boolean, pivot?: boolean, hold?: number|null, ahead?: boolean, tilt?: number[]|null }} [opts]
+   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, dir?: {x: number, y: number}|null, body?: string|null, speed?: number, delays?: boolean, scale?: number, floor?: number|null, split?: boolean|'backOnly', atSpawn?: boolean, pivot?: boolean, hold?: number|null, ahead?: boolean, tilt?: number[]|null, pinned?: boolean }} [opts]
    *   tilt (2026-10-22): a Unity quaternion the whole prefab is turned by inside the Unity frame — the `Graphic` rotation of
    *   the unit it is created on (render/fxpoints.js GRAPHIC_TILT / takesGraphicTurn); world-space particles are not turned
    *   facing / dir / body (maintainer decision 2026-10-11 「공식대로」): the effect turns as the client's `ParticleEffect.FaceTo`
@@ -3037,6 +3045,7 @@ export class FxInstance {
     this.def = def;
     this.moveScale = 1; this.shaderAhead = 0;   // setMoveScale
     this.hold = opts.hold ?? null; // local patch: freeze the effect at this time (s) — a mark that stays once shown
+    this.pinned = !!opts.pinned;   // 2026-11-12: counted under PINNED_CAP, not PLAYER_CAP
     this.q = QUALITY[opts.quality] || QUALITY.high;
     this.time = 0;
     this.object = new THREE.Group();            // placed in board coordinates by the caller
@@ -3332,7 +3341,10 @@ export class FxInstance {
     }
     this.clipV = [];
     live.push(this);
-    while (live.length > PLAYER_CAP) live[0].dispose(); // the oldest goes (dispose removes it from `live`)
+    if (this.pinned) livePinned++;
+    // the oldest of its kind goes (dispose removes it from `live`): pinned and other instances have their own caps
+    while (live.length - livePinned > PLAYER_CAP) live.find((x) => !x.pinned).dispose();
+    while (livePinned > PINNED_CAP) live.find((x) => x.pinned).dispose();
   }
 
   /**
@@ -3791,7 +3803,7 @@ export class FxInstance {
     for (const sk of this.skeletons || []) sk.dispose();
     this.object.removeFromParent();
     const i = live.indexOf(this);
-    if (i >= 0) live.splice(i, 1);
+    if (i >= 0) { live.splice(i, 1); if (this.pinned) livePinned--; }
   }
 }
 
@@ -4016,6 +4028,231 @@ export class FlightBatch {
   dispose() {
     for (const g of this.groups.values()) for (const sl of g.slots) sl.batch?.dispose();
     this.groups.clear();
+  }
+}
+
+// ---- 2026-11-12: one prefab laid on many tiles drawn together ----------------------------------------------------------
+const LINEAR = [0, 1, 2, 4, 5, 6, 8, 9, 10];
+/** Do two world matrices (their elements) turn and scale alike — differ by their translation only? */
+function sameLinear(a, b) {
+  for (const k of LINEAR) if (Math.abs(a[k] - b[k]) > 1e-6 * (1 + Math.abs(a[k]))) return false;
+  return true;
+}
+const INSTANCE_NAMES = new Set(INSTANCE_ATTRS.map(([name]) => name));
+/** The meshes of an instance drawn from rows (particle systems, MeshRenderers), in its nodes' order: alike in every copy. */
+function rowMeshes(inst) {
+  const out = [];
+  inst.object.traverse((o) => {
+    const g = o.geometry;
+    if (o.isMesh && !o.isSkinnedMesh && g?.isInstancedBufferGeometry && g.getAttribute('iPos')) out.push(o);
+  });
+  return out;
+}
+/** Is `o` drawn as far as its scene goes? */
+const shownAll = (o) => shown(o, null);
+const tileM3 = new THREE.Matrix3(), tileV = new THREE.Vector3();
+const rowsOf = new WeakMap();   // instance → its row meshes (rowMeshes)
+const TILE_FAR_FIRST = (a, b) => b.userData.tileDepth - a.userData.tileDepth;
+
+/** The rows of several copies of one renderer in one instanced draw, in the frame of the first copy's renderer. */
+class TileRows {
+  constructor(scene) {
+    this.room = PS_ROOM0;
+    this.ib = null; this.g = null; this.src = null;
+    this.mesh = new THREE.Mesh(new THREE.InstancedBufferGeometry());
+    this.mesh.frustumCulled = false;
+    this.mesh.matrixAutoUpdate = false;
+    this.mesh.visible = false;
+    scene.add(this.mesh);
+    this.n = 0;
+  }
+
+  /** A geometry over `src`'s shape (its index, draw range and every attribute but the rows, shared) with `room` rows. */
+  build(src, room) {
+    const g = new THREE.InstancedBufferGeometry();
+    g.index = src.index;
+    for (const [name, at] of Object.entries(src.attributes)) if (!INSTANCE_NAMES.has(name)) g.setAttribute(name, at);
+    g.setDrawRange(src.drawRange.start, src.drawRange.count);
+    const ib = new THREE.InstancedInterleavedBuffer(new Float32Array(room * IV), IV, 1);
+    ib.setUsage(THREE.DynamicDrawUsage);
+    for (const [name, size, offset] of INSTANCE_ATTRS) g.setAttribute(name, new THREE.InterleavedBufferAttribute(ib, size, offset));
+    if (this.ib) ib.array.set(this.ib.array.subarray(0, Math.min(this.ib.array.length, room * IV)));
+    if (this.g) this.drop(this.g);
+    this.mesh.geometry = g;
+    this.g = g; this.ib = ib; this.src = src; this.room = room;
+  }
+
+  /** Dispose a geometry of this batch without what it shares with its renderers (three.js deletes every attribute's buffer). */
+  drop(g) {
+    for (const name of Object.keys(g.attributes)) if (!INSTANCE_NAMES.has(name)) g.deleteAttribute(name);
+    g.setIndex(null);
+    g.dispose();
+  }
+
+  begin(src) {
+    this.n = 0;
+    if (src !== this.src) besideRandom(() => this.build(src, this.room));   // its shape's geometry: the first copy's
+  }
+
+  /** The rows of renderer `x`, moved by (dx, dy, dz) in its own frame. */
+  add(x, dx, dy, dz) {
+    const g = x.geometry, a = g.getAttribute('iPos'), rows = a.isInterleavedBufferAttribute;
+    if (rows && a.data.stride !== IV) return false;
+    const count = rows ? g.instanceCount : 1, n = this.n;
+    if (!count) return false;
+    if (n + count > this.room) { const room = Math.max(n + count, this.room * 2); besideRandom(() => this.build(this.src, room)); }
+    const D = this.ib.array;
+    if (rows) D.set(a.data.array.subarray(0, count * IV), n * IV);
+    else {   // a MeshRenderer: one row, an attribute each (FxInstance)
+      for (const [name, size, offset] of INSTANCE_ATTRS) {
+        const at = g.getAttribute(name);
+        for (let k = 0; k < size; k++) D[n * IV + offset + k] = at ? at.array[k] : 0;
+      }
+    }
+    for (let i = n * IV, end = (n + count) * IV; i < end; i += IV) { D[i + IV_POS] += dx; D[i + IV_POS + 1] += dy; D[i + IV_POS + 2] += dz; }
+    this.n = n + count;
+    return true;
+  }
+
+  /** Drawn with renderer `x`'s material, order, layers and world matrix. */
+  end(x) {
+    const on = this.n > 0 && !!x;
+    if (on) { this.ib.clearUpdateRanges(); this.ib.addUpdateRange(0, this.n * IV); this.ib.needsUpdate = true; }
+    this.g && (this.g.instanceCount = this.n);
+    this.mesh.visible = on;
+    if (!on) return;
+    this.mesh.material = x.material;
+    this.mesh.renderOrder = x.renderOrder;
+    this.mesh.layers.mask = x.layers.mask;
+    this.mesh.matrix.copy(x.matrixWorld);
+    this.mesh.matrixWorld.copy(x.matrixWorld);
+  }
+
+  dispose() { this.mesh.removeFromParent(); if (this.g) this.drop(this.g); this.g = null; this.src = null; }
+}
+
+/**
+ * 规程's 悲惨之雨 lays its floor on every tile of a field (44 at once) and a battlefield's tile effects lie on a dozen tiles
+ * or more: as many draws per renderer (176 for the floor, 4 renderers of which 3 meshes or aligned quads that FlightBatch
+ * cannot take). Copies of one prefab at the same effect time, turned and scaled alike — a floor laid on many tiles at once —
+ * differ only by where they are: each renderer of them is drawn once, every copy's rows moved into the first copy's frame by
+ * the distance between them, so any renderer mode, alignment, material clip or shader clock looks as it did (every copy's
+ * material holds the same values). The particles still simulate in their own systems (their own randomness).
+ * Call `sync` right before the render, after the instances' update, and `restore` right after it: the copies' own meshes are
+ * hidden only for that render (a MeshRenderer's `visible` is its clip's switch). A sorting system and a skinned mesh keep
+ * their own draws.
+ * The look is compared pixel by pixel with the separate draws: test/render/tile-batch.browser.test.js.
+ */
+export class TileBatch {
+  constructor() {
+    this.fw = new THREE.Vector3();
+    this.cp = new THREE.Vector3();
+    this.pools = new Map();   // def → { slots: [its mergeable row meshes' indices], n: row meshes, sets: [{ scene, rows: [TileRows per slot] }] }
+    this.hidden = [];
+  }
+
+  /**
+   * Which of the prefab's row meshes merge (read from one instance: the same for every copy) — all but a sorting system's,
+   * which orders its rows by the camera itself. Unlike FlightBatch, renderers sharing a sorting order merge too: the copies
+   * lie on distinct tiles, so one draws over another only at their edges, and within each copy those renderers keep their
+   * order (the first copy's, the same in each: they are placed alike).
+   */
+  slotsOf(meshes) {
+    const out = [];
+    meshes.forEach((o, i) => { if (!Object.hasOwn(o, 'onBeforeRender')) out.push(i); });
+    return out;
+  }
+
+  /**
+   * `insts`: the live instances laid on tiles, in any scenes; `camera` the one they are drawn with (each renderer's copies
+   * farthest first, as three.js orders them apart). @returns the copies merged.
+   */
+  sync(insts, camera = null) {
+    if (camera) { camera.getWorldDirection(this.fw); this.cp.setFromMatrixPosition(camera.matrixWorld); } else this.fw.set(0, 0, 0);
+    const groups = new Map();   // `${def name} ${scene} ${time …}` → { def, scene, members }
+    for (const inst of insts) {
+      if (inst.empty || inst.disposed || inst.wait > 0 || inst.kids) continue;
+      let scene = inst.object;
+      while (scene.parent) scene = scene.parent;
+      if (!scene.isScene) continue;
+      const sms = inst.sms.length ? inst.sms.map((m) => `${m.cur}:${m.t}:${m.tr ? m.tr.to : ''}`).join(',') : '';
+      inst.object.updateMatrixWorld(true);
+      const e = inst.object.matrixWorld.elements;   // its turn and scale (a copy turned otherwise goes with its own kind)
+      let turn = '';
+      for (const k of LINEAR) turn += `${Math.round(e[k] * 1e5)},`;
+      const key = `${scene.id} ${inst.time} ${inst.floor} ${inst.stopping ? 1 : 0} ${inst.moveScale} ${inst.shaderAhead} ${sms} ${turn}`;
+      const pool = this.pools.get(inst.def) || this.pools.set(inst.def, { slots: null, n: 0, sets: [] }).get(inst.def);
+      let g = groups.get(inst.def)?.get(key);
+      if (!g) {
+        if (!groups.has(inst.def)) groups.set(inst.def, new Map());
+        groups.get(inst.def).set(key, (g = { scene, members: [] }));
+      }
+      let rm = rowsOf.get(inst);
+      if (!rm) rowsOf.set(inst, (rm = rowMeshes(inst)));
+      pool.slots ||= this.slotsOf(rm);
+      pool.n ||= rm.length;
+      if (rm.length !== pool.n) continue;
+      g.members.push(inst);
+    }
+    let merged = 0;
+    for (const [def, pool] of this.pools) {
+      const keyed = [...(groups.get(def)?.values() || [])].filter((g) => g.members.length > 1);
+      // a set of batches per group of copies, kept for the next frames (in the scene of its group)
+      while (pool.sets.length > keyed.length) for (const b of pool.sets.pop().rows) b.dispose();
+      keyed.forEach((g, k) => {
+        let set = pool.sets[k];
+        if (set && set.scene !== g.scene) { for (const b of set.rows) b.dispose(); set = null; }
+        if (!set) pool.sets[k] = set = { scene: g.scene, rows: pool.slots.map(() => besideRandom(() => new TileRows(g.scene))) };
+        pool.slots.forEach((i, j) => { merged += this.merge(set.rows[j], g.members, i); });
+      });
+      if (!pool.sets.length && !groups.has(def)) this.pools.delete(def);
+    }
+    return merged;
+  }
+
+  /** Row mesh `i` of each copy in batch `b`: drawn there when two or more show it alike. @returns the copies merged. */
+  merge(b, members, i) {
+    let lead = null, c = 0;
+    const take = [];
+    for (const m of members) {
+      const x = rowsOf.get(m)[i];
+      if (!x.visible || !shownAll(x)) continue;
+      if (lead && (x.material.uniforms.uFloor?.value !== lead.material.uniforms.uFloor?.value || !sameLinear(x.matrixWorld.elements, lead.matrixWorld.elements))) continue;
+      if (!lead) lead = x;
+      const f = x.matrixWorld.elements;
+      x.userData.tileDepth = (f[12] - this.cp.x) * this.fw.x + (f[13] - this.cp.y) * this.fw.y + (f[14] - this.cp.z) * this.fw.z;
+      take.push(x);
+      c++;
+    }
+    if (c < 2) { b.n = 0; b.end(null); return 0; }
+    take.sort(TILE_FAR_FIRST);
+    b.begin(lead.geometry);
+    const e = lead.matrixWorld.elements;
+    tileM3.setFromMatrix4(lead.matrixWorld).invert();
+    let n = 0;
+    for (const x of take) {
+      const f = x.matrixWorld.elements;
+      tileV.set(f[12] - e[12], f[13] - e[13], f[14] - e[14]).applyMatrix3(tileM3);
+      if (!b.add(x, tileV.x, tileV.y, tileV.z)) continue;
+      x.visible = false;
+      this.hidden.push(x);
+      n++;
+    }
+    b.end(lead);
+    return n;
+  }
+
+  /** After the render: the copies' own meshes as they were, the merged draws off until the next sync. */
+  restore() {
+    for (const x of this.hidden) x.visible = true;
+    this.hidden.length = 0;
+    for (const pool of this.pools.values()) for (const set of pool.sets) for (const b of set.rows) b.mesh.visible = false;
+  }
+
+  dispose() {
+    this.restore();
+    for (const pool of this.pools.values()) for (const set of pool.sets) for (const b of set.rows) b.dispose();
+    this.pools.clear();
   }
 }
 

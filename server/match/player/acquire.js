@@ -285,6 +285,9 @@ export class PlayerAcquire {
     if (!deferMerge && this.completesItemMerge(itemId)) {
       piece = this._mergeItem(itemId, piece);
       if (!piece) return null;
+    } else if (!deferMerge && this.completesItemFusion(itemId)) {
+      piece = this._fuseItem(itemId, piece);
+      if (!piece) return null;
     } else {
       this.stow(piece, { allowTemp: true, toTemp });
     }
@@ -313,6 +316,40 @@ export class PlayerAcquire {
     return golden;
   }
 
+  /**
+   * 规程's 组合 (items.json fuseWith / fuseResult, trapChessDataDict canFuse): the owned copy of `id`'s partner — hand,
+   * temp or equipped, a prep-end grant still waiting (deferMerge) left out — or null.
+   */
+  _fusionPartner(id) {
+    const f = this.gd.fusionOf(id);
+    return f ? this._itemLocations(f.with).find((l) => !l.piece.deferMerge) || null : null;
+  }
+
+  completesItemFusion(id) { return !!this._fusionPartner(id); }
+
+  /**
+   * 组合 ("若与…同时持有则组合为…"): owning both items of a pair turns them into the pair's result at once, wherever each
+   * is — hand, temp or worn — and the result goes to the hand, like an item merge into the 进阶 copy (PRTS 卫戍协议/帮助
+   * "已拥有2件同一初始装备时…自动合并…发送至手牌区"; worn parts come off as a merge's do). [ASSUMED·화면] that 持有 is
+   * owning (定期存折's "持有时每回合+1" is the copy in the hand), not both worn by one operator. The result holds the
+   * parts' stock copies the way a merged 进阶 copy does (_mergeItem). `incoming`: the piece being gained (not yet stowed);
+   * null fuses an owned copy of `itemId`.
+   */
+  _fuseItem(itemId, incoming = null) {
+    const f = this.gd.fusionOf(itemId);
+    if (!f) return null;
+    const own = incoming ? { piece: incoming, area: 'new' } : this._itemLocations(itemId).find((l) => !l.piece.deferMerge);
+    const partner = this._fusionPartner(itemId);
+    if (!own || !partner) return null;
+    const consumed = [own, partner];
+    for (const l of consumed) if (l.area !== 'new') this._detach(l);
+    const pooled = consumed.filter((l) => !l.piece.noPool).reduce((n, l) => n + this.m.itemPool.copiesOf(l.piece), 0);
+    const extra = pooled === 0 ? { noPool: true } : pooled < this.m.itemPool.need(f.result) ? { poolHeld: pooled } : {};
+    const result = this.newPiece('item', f.result, extra);
+    this.stow(result, { allowTemp: true });
+    return result;
+  }
+
   /** Merge every identical normal item pair currently owned (after equips / returns). */
   checkItemMerges() {
     // Bound the work by the actual inventory, including hidden overflow and equipped items.
@@ -329,6 +366,12 @@ export class PlayerAcquire {
         const rec = this.gd.item(id);
         const need = Number.isInteger(rec.upgradeNum) ? rec.upgradeNum : this.gd.itemMergeCount;
         if (n >= need) { if (this._mergeItem(id, null)) did = true; break; }
+      }
+      // then 组合 pairs (_fuseItem)
+      if (!did) {
+        const owned = [...this.hand, ...this.temp, ...this.allChess().flatMap((h) => h.items || [])];
+        const p = owned.find((x) => x && x.kind === 'item' && !x.deferMerge && this.completesItemFusion(x.id));
+        if (p && this._fuseItem(p.id, null)) did = true;
       }
       if (!did) return;
     }

@@ -10,7 +10,8 @@ A skill prefab's root MonoBehaviour is its skill class (docs/rules/sim.md 「즉
 The skill ability is the animated ability on the root (`AbstractAnimatedAbility`: `_animKey`, `_timeMode`, `_cooldown`,
 `_maxAnimScale`, `_preDelay`, `_waitForAttackEvent`), else the first child of the root group (`_abilities` order) with a
 clip of its own (见行者 S2 knock_back `Skill`, not the clip-less aura), else the first one below it by path (引星棘刺 S2
-Mark / Token, 锡人 S2 HitEnemy / HitTile play one clip). Its time (the client's `AbstractAnimatedAbility.get_cooldown` / `DoAttach` /
+Mark / Token, 锡人 S2 HitEnemy / HitTile play one clip) — an ability of the skill's `_extraAbilities` only when the skill's own
+buffs trigger it as the skill starts (`cast_extras`). Its time (the client's `AbstractAnimatedAbility.get_cooldown` / `DoAttach` /
 `UpdatePlaybackSpeed`): `_timeMode` 0 FROM_ATTACK_SPEED = the unit's attack interval, 1 FROM_ANIMATION = its clip length,
 2 SPECIFIED = `_cooldown`, 3 LOAD_FROM_BLACKBOARD = the blackboard value `_cooldownKey`; the clip is scaled to that time
 within [0.1, `_maxAnimScale`] as an attack's; its facing flags (`face`, as tools/local-extract/attack_timing.py: 1 its
@@ -44,7 +45,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from char_modes import char_skill_prefabs, skills_tree  # noqa: E402
+from char_modes import buff_templates, char_skill_prefabs, skills_tree  # noqa: E402
 from client_path import clients, earlier, kept, kept_all, skills_of, skin_keys  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -104,14 +105,55 @@ def group_subs(sid, comps):
     return {'group': 'seq' if '_alwaysNext' in grp else 'par', 'subs': subs}
 
 
-# An ability under the skill that its buffs cast later (TriggerAbility), so it is not how the skill is cast: 车尔尼 S2's FinalAttack comes
-# at `interval` s (pianst_s_2_buff_2 ON_BUFF_TRIGGER). Other `_extraAbilities` are still read as the skill's ability.
-LATER_ABILITIES = {'skchr_pianst_2': 'skchr_pianst_2/FinalAttack'}
+# Buff.Event keys of a template's `eventToActions` that run as the skill starts: ON_BUFF_START 0 (a buff of the skill's own
+# ability starts with it), ON_SKILL_START 33
+START_EVENTS = (0, 33)
 
 
-def skill_entry(sid, comps3):
+def triggered(nodes, out):
+    """The `_abilityName` of every TriggerAbility node in `nodes` (nested condition nodes too) → `out`."""
+    if isinstance(nodes, dict):
+        if str(nodes.get('$type', '')).endswith('+TriggerAbility') and isinstance(nodes.get('_abilityName'), str):
+            out.add(nodes['_abilityName'])
+        for v in nodes.values():
+            triggered(v, out)
+    elif isinstance(nodes, list):
+        for v in nodes:
+            triggered(v, out)
+    return out
+
+
+def cast_extras(sid, sk, comps3, templates):
+    """{GameObject path: True|False} of the skill's `_extraAbilities`: True when the skill's own buffs (the `_buffs` of its root
+    ability and of its root group's children) trigger that ability as the skill starts (a TriggerAbility naming it by GameObject
+    or `namedAsAlias` in their template's ON_BUFF_START / ON_SKILL_START). `BasicSkill.OnBorn` attaches the extra abilities as the
+    unit is deployed; they are not the skill's ability (`get_ability`), and the other ones are cast later — at the skill's end
+    (灵知 S3, 薄绿 S2 FinalAttack, ON_SKILL_FINISH), every `interval` (车尔尼 S2 FinalAttack, ON_BUFF_TRIGGER), on a hit
+    (棘刺 S2 Thorn, ON_TAKE_DAMAGE) —, so they say nothing of how the skill is cast. Those the start triggers (菲莱 S1
+    SkillAnimation, 归溟幽灵鲨 S1 ExchangeHp, 贝洛内 S3 FlyToTarget: the cast waits for their clip as for the root's own — docs/rules/sim.md
+    「즉발 스킬의 시전」) stand for the skill ability."""
+    by_pid = {pid: (gp, d) for gp, d, pid in comps3}
+    extras = {}
+    for ref in sk.get('_extraAbilities') or []:
+        hit = by_pid.get(ref.get('m_PathID')) if isinstance(ref, dict) else None
+        if hit:
+            gp, d = hit
+            extras[gp] = {gp.split('/')[-1], (d.get('_metadata') or {}).get('namedAsAlias') or ''} - {''}
+    if not extras:
+        return {}
+    own = [d for gp, d, _pid in comps3 if gp == sid] + group_children(sid, comps3)[1]
+    names = set()
+    for d in own:
+        for b in d.get('_buffs') or []:
+            tpl = templates.get(b.get('templateKey')) if isinstance(b, dict) else None
+            for ev in START_EVENTS:
+                triggered((tpl or {}).get(ev), names)
+    return {gp: bool(ns & names) for gp, ns in extras.items()}
+
+
+def skill_entry(sid, comps3, templates):
     """{cls, state?, reset?, ability, group?, subs?} of one skill prefab's components [(GameObject path, MonoBehaviour,
-    path id)], or None."""
+    path id)], or None. `templates`: the buff templates (char_modes.buff_templates), for cast_extras."""
     comps = [(gp, d) for gp, d, _pid in comps3]
     root = [d for gp, d in comps if gp == sid]
     sk = next((d for d in root if '_maxTriggerTime' in d), None)
@@ -126,6 +168,17 @@ def skill_entry(sid, comps3):
         state = int(sk.get('_switchToState') or 0)
         e = {'cls': 'cast', 'state': state, 'reset': int(sk.get('_resetAbilityCooldownWhenCastEnd') or 0), **word}
         # only CastSkill (and its subclasses) carries the born flags: AppearSkill / ToggleSkill / AttachOrDetachSkill cast in it
+        # BasicSkill `_playSkillBeginAnim` with a `_beginAnim` (`_beginAnimDown` for a unit deployed facing down,
+        # `get_beginAnim`): the Skill state's OnEnter plays that clip and starts the skill only once it has played
+        # (`OnBeforeSkillStart` → `PlayBeginAnimation` → `DoStartSkill`); a `_switchToState` 0 cast starts at once. A skill with
+        # a 吟唱 (a ChantBeforeSkill behaviour on its root: `_buffsWhenStartChant`; `BasicSkill.get_hasChant`) runs
+        # `ChantBeforeSkill.StartChant` there instead — its own begin / loop / end clips over the chant's time, never `_beginAnim`
+        # (予愿安洁莉娜 S2: Skill_2_Takeoff_*, the kit's 吟唱) —, so it has no begin clip here
+        chant = any('_buffsWhenStartChant' in d for gp, d in comps if gp == sid)
+        if state and not chant and sk.get('_playSkillBeginAnim') and (sk.get('_beginAnim') or sk.get('_beginAnimDown')):
+            e['begin'] = sk.get('_beginAnim') or ''
+            if sk.get('_beginAnimDown'):
+                e['beginDown'] = sk['_beginAnimDown']
         flag = '_canSwitchDuringBorn' if state else '_canCastDuringBorn'
         if flag in sk and not sk.get(flag):
             e['born'] = 0
@@ -140,8 +193,9 @@ def skill_entry(sid, comps3):
         # clip-less aura that sorts first by name)
         ab = next((a for a in map(ability, group_children(sid, comps3)[1]) if a is not None and a.get('anim')), None)
     if ab is None:
-        later = LATER_ABILITIES.get(sid)
-        subs = sorted((gp, a) for gp, a in ((gp, ability(d)) for gp, d in comps if gp != sid and gp != later) if a is not None)
+        later = [gp for gp, now in cast_extras(sid, sk, comps3, templates).items() if not now]
+        subs = sorted((gp, a) for gp, a in ((gp, ability(d)) for gp, d in comps if gp != sid and not any(gp == x or gp.startswith(x + '/') for x in later))
+                      if a is not None)
         ab = subs[0][1] if subs else None
     # the ThreePart component that plays the clip of an ability with no `_animKey` (ThreePartChannelingAnimation `_default`,
     # ThreePartOneshotAnimation `_beginAnim` / `_oneshotAnim`): the clip's OnAttack frame is what the ability waits for
@@ -158,7 +212,11 @@ def skill_entry(sid, comps3):
 
 
 def resolve_clips(entry, keys):
-    """The clip names of `entry`'s ability through its operator's skin key table: `clip` (when it is not the key), chan / three."""
+    """The clip names of `entry`'s ability through its operator's skin key table: `clip` (when it is not the key), chan / three;
+    the begin clips (`begin`, `beginDown`) too."""
+    for k in ('begin', 'beginDown'):
+        if entry.get(k):
+            entry[k] = keys.get(entry[k], entry[k])
     ab = entry.get('ability')
     if not isinstance(ab, dict):
         return
@@ -180,8 +238,10 @@ def main():
         want.update(p for p in prefabs if p)
     if args.id:
         want = skills_of(args.id, char_skill_prefabs())
-    comps = {}
+    comps, templates = {}, {}
     for client in clients(args.client):
+        for k, v in buff_templates(client).items():
+            templates.setdefault(k, v)
         tree = skills_tree(client)
         if not tree:
             print(f'no skill bundle under {client}', file=sys.stderr)
@@ -199,7 +259,7 @@ def main():
     table = skin_keys()
     owner = {p: cid for cid, prefabs in char_skill_prefabs().items() for p in prefabs if p}
     for sid in sorted(comps):
-        e = skill_entry(sid, comps[sid])
+        e = skill_entry(sid, comps[sid], templates)
         if e:
             resolve_clips(e, table.get(owner.get(sid), {}))
             out[sid] = e

@@ -489,6 +489,9 @@ export function tube(g, a, b, rad, seg = 8, col = [1, 1, 1]) {
 // ---- devices ----------------------------------------------------------------------------------------------------
 
 const DEVICE_KINDS = new Set(['crate', 'platform', 'mound', 'blower', 'turret', 'waterPlatform', 'bush', 'sealedFloor']);
+/** Devices the sim gives no role (tools/build-data.mjs DEVICE_ROLES) but the board draws, by key: 规程 m10's 盐坨子炮 (an
+ *  enemy-side cannon the sim runs by its key, content/devices.js tickCannon). */
+const DEVICE_KEY_KINDS = Object.freeze({ trap_196_cnnon: 'cannon' });
 
 /**
  * Active stage devices standing on drawn tiles: `{ kind, r, c, dir, z0, key, alias, rangeTiles }`. Every visible
@@ -503,13 +506,14 @@ export function stageDevices(stage, grid) {
   const out = [];
   for (const d of list) {
     if (!d || !Array.isArray(d.pos) || !Number.isInteger(d.pos[0]) || !Number.isInteger(d.pos[1])) continue;
-    if (!DEVICE_KINDS.has(d.role)) continue;
+    const kind = DEVICE_KINDS.has(d.role) ? d.role : DEVICE_KEY_KINDS[d.key];
+    if (!kind) continue;
     const active = typeof d.active === 'boolean' ? d.active : !d.hidden;
     if (!active) continue;
     const [r, c] = d.pos;
     const t = grid?.[r]?.[c];
     if (!t || !t.drawn) continue;
-    out.push({ kind: d.role, r, c, dir: ['UP', 'DOWN', 'LEFT', 'RIGHT'].includes(d.dir) ? d.dir : 'UP', z0: t.h, key: d.key || null, alias: d.alias || null, rangeTiles: Array.isArray(d.rangeTiles) ? d.rangeTiles : null });
+    out.push({ kind, r, c, dir: ['UP', 'DOWN', 'LEFT', 'RIGHT'].includes(d.dir) ? d.dir : 'UP', z0: t.h, key: d.key || null, alias: d.alias || null, rangeTiles: Array.isArray(d.rangeTiles) ? d.rangeTiles : null });
   }
   return out;
 }

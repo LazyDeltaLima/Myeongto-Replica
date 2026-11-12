@@ -79,6 +79,9 @@
 //                The mirror rule for an ally's 隐匿 — enemy area effects skip it even when it blocks the enemy (0.1.3, GitHub #97) — is areaAllies.
 //   REFLECTION — 折射 (ba.refraction "生效时，法术抗性+70"): RES +refracting.magic_resistance while NOT silenced
 //                (the ability line is SILENCE-flagged: silencing turns it off); 镜膜 also gets max HP +100 % until its first silence, which permanently stops its fan.
+//   REBORN 复苏 (规程) — "首次被击倒后会重生": the main story's 萨卡兹子裔 summon a 重生造物 on their first knock-out
+//                (enemies/reborn.js; its header has the official templates).
+//   CRITIC 精锐 (规程) — main-story enemies with no rule of the type's own: enemies/critic.js.
 //   SPECIAL    — mostly stats; prisoners, 穿刺手, 暴虐兵长, 镜卫, 动力装甲 … in enemies/special.js.
 // Every enemy key of data/enemies.json is either in KITS (this file), BOSS_KEYS (bosses.js) or STATS_ONLY (with the
 // reason) — pinned by test/content/enemies_bosses.test.js. Bounty (悬赏) leaders are included: multi-form ones
@@ -104,8 +107,9 @@
 //   archetypes.js   ability building blocks (stealth, splashAttack, deathBoom, refraction, float, reborn, husk, statue,
 //                   artsBarrier, bleed, pollution, dmgZone, skill(), blinkForward …) and the archetype kits reused by
 //                   several keys (kitEp, kitStealth, kitTimes, kitRefraction, kitPrisoner, kitDeathSpawn, kitStun3 …)
-//   invisible.js, times.js, element.js, dot.js, reflection.js, fly.js, special.js — one file per special type
+//   invisible.js, times.js, element.js, dot.js, reflection.js, reborn.js, critic.js, fly.js, special.js — one file per special type
 //                   (factions.json): its kits, its kit-only constants and its part of KITS
+//   bounty.js       the main-story enemies only 规程's 悬赏 cards bring (not the bounty leaders below)
 //   leaders.js      bounty (悬赏) leaders: kitLeaderMisc (single form) and the multi-form kits
 // Every name this file exported before the split is still exported from here.
 
@@ -116,8 +120,11 @@ import { TIMES_KITS } from './enemies/times.js';
 import { ELEMENT_KITS } from './enemies/element.js';
 import { DOT_KITS } from './enemies/dot.js';
 import { REFLECTION_KITS } from './enemies/reflection.js';
+import { REBORN_KITS } from './enemies/reborn.js';
+import { CRITIC_KITS } from './enemies/critic.js';
 import { FLY_KITS } from './enemies/fly.js';
 import { SPECIAL_KITS } from './enemies/special.js';
+import { BOUNTY_KITS } from './enemies/bounty.js';
 import { LEADER_KITS } from './enemies/leaders.js';
 import { hypot } from '../detmath.js';
 import { enemyHasAttack, interruptEnemyCast } from '../ai.js';
@@ -387,6 +394,14 @@ function onSkillSlot(b, c) {
   c.cast = { dur, atkCd: cast.resetMain && !open ? dur + (cast.waitFirst ? e.s.interval : 0) : e.s.interval };
   ab.casting = dur > 0 ? { a, cast, until: b.time + dur, open } : null;
   castSkill(b, e, a);
+  // a skill whose spell casts another one at once (TriggerEnemySkill with `_interruptCurAbility`, e.g. 复核洋流使者's
+  // `0` → `1`): its fire hands that cast back (`a.next` = { dur }) and the slot plays it instead, cut like any skill cast
+  const nx = a.next;
+  if (nx) {
+    a.next = null;
+    c.cast = { dur: nx.dur, atkCd: e.s.interval };
+    ab.casting = nx.dur > 0 ? { a: nx.a ?? a, cast: nx.cast ?? cast, until: b.time + nx.dur, open: false } : null;
+  }
 }
 
 /** Does cast record `cast` wait for a projectile — itself, or a child of its sequence (死亡之眼's LineAttack)? */
@@ -441,8 +456,11 @@ export const KITS = Object.freeze({
   ...ELEMENT_KITS,
   ...DOT_KITS,
   ...REFLECTION_KITS,
+  ...REBORN_KITS,
+  ...CRITIC_KITS,
   ...FLY_KITS,
   ...SPECIAL_KITS,
+  ...BOUNTY_KITS,
   ...LEADER_KITS,
 });
 
@@ -457,11 +475,15 @@ export const STATS_ONLY = Object.freeze({
   enemy_1251_lysyta: 'R-series armour interaction absent', enemy_1251_lysyta_2: 'same',
   enemy_1252_lysytb_2: 'same', enemy_1254_lypa_2: 'no listed ability', enemy_1325_cbgpro: 'plain', enemy_1325_cbgpro_2: 'plain',
   enemy_1381_winman: 'plain', enemy_1381_winman_2: 'plain', enemy_1387_winshd: '封冻/供暖器 zones absent', enemy_1415_mmkabi_2: 'chains absent',
-  enemy_1433_dsbasi: 'plain', enemy_1433_dsbasi_2: 'plain', enemy_1438_dspred: '赘生甲壳 absent',
+  enemy_1137_plasm: 'plain', enemy_1433_dsbasi: 'plain', enemy_1433_dsbasi_2: 'plain',
   enemy_2002_bearmi: 'plain', enemy_2002_bearmi_2: 'plain',
   enemy_9012_acloon: '炎佑 is a bond summon (bonds.js)', enemy_9024_acsgnt: '“不眠雪山” is a bond summon (bonds/giant.js)',
   enemy_10040_cnvbln: '狂欢时刻 absent', enemy_10043_sailor: 'bridges/cannons absent',
   enemy_10073_mpcar: 'plain', enemy_10124_uashld_2: 'taunt is data; 矿工游击队 absent',
+  // 规程's own units of our side, named only by its enemy effects' `enemy_exclude` (they are no enemy there): 莱塔尼亚's
+  // summons (bonds/walker.js) and 宝藏探机's chest (bands/battle.js)
+  enemy_9025_aclts: '“一个小节” is a bond summon (bonds/walker.js)', enemy_9026_acltm: '“一个乐部” is a bond summon (bonds/walker.js)',
+  enemy_9038_achest: '“模拟宝藏” is a 指令 device of our side (bands/battle.js)',
 });
 
 // 圣杯 damage sharing (PRTS 愧悔魂灵圣杯: "令半径1.7范围内未受其他…圣杯影响的行动方式为地面的敌方单位受到的伤害降低至5%

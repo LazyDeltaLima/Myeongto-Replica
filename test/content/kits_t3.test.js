@@ -699,7 +699,8 @@ test('3_18 忍冬: 隐狐之艺 DP, decaying ASPD, all blocked + stun, camouflag
   assert.ok(c.runUntil(() => !!z.findBuff('vulpis:camouShown'), 2), 'on again');
   fill(z);
   c.spawn('enemy_f', { pos: [10, 5] });
-  assert.ok(c.runUntil(() => z.skill.activations === 2, 5));
+  // (its start: after the cast's begin clip — skills.js _beginCast)
+  assert.ok(c.runUntil(() => z.skill.activations === 2 && !z.skill._begin, 5));
   assert.ok(!z.s.flags.camou, 'until the next cast');
   done(c);
 

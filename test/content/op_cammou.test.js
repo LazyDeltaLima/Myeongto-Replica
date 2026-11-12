@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
+import { ACT3, field, done, cast, begun, realMatch } from '../helpers/seasonPieces.js';
 import { DRONE_TAG } from '../../server/sim/content/kits/ops/op-cammou.js';
 
 const A = 'chess_char_1_09_a', B = 'chess_char_1_09_b';
@@ -66,6 +66,7 @@ test('S2: range 3-3, ATK +atk; the drone locks one enemy and hits at her interva
     const times = [];
     h.b.on('damaged', (c) => { if (c.target === e && c.dmg?.tags?.includes(DRONE_TAG)) times.push(h.b.time); });
     cast(u);
+    begun(h, u);   // (the skill starts after its begin clip: skills.js _beginCast)
     assert.ok(grid.length > before, `${id}: larger`);
     assert.equal(u.rangeKeys.length, grid.length, `${id}: the skill's`);
     near(u.s.atk, a0 * (1 + b.atk), `${id}: ATK`, 1e-2);
@@ -100,6 +101,47 @@ test('S2: the lock outlives her range; the drone goes on through her stun; a dea
   assert.equal(drones(h, u, other).length, again, 'still on its lock');
   h.b.kill(e, null);
   assert.ok(h.runUntil(() => drones(h, u, other).length > again, 3), 'on to the next');
+  done(h);
+});
+
+test('S2: the drone goes out with one of her attacks, on its target, and hits at once; after its enemy dies the next waits for her next attack', () => {
+  for (const id of FORMS) {
+    const { h, u } = field(id, { skill: 1, seed: 11 });
+    const e = h.spawn('enemy_dummy', { pos: FRONT });
+    const other = h.spawn('enemy_dummy', { pos: [10, 7] });
+    h.b.addBuff(e, { key: 'test:taunt', mods: { taunt: 5 } });
+    const attacks = [], droneAt = [];
+    h.b.on('attack', (c) => { if (c.attacker === u && u.skill.active) attacks.push({ t: h.b.time, target: c.targets?.[0] }); });
+    h.b.on('damaged', (c) => { if (c.source === u && c.dmg?.tags?.includes(DRONE_TAG)) droneAt.push({ t: h.b.time, target: c.target }); });
+    cast(u);
+    assert.ok(h.runUntil(() => droneAt.length >= 1, 10), `${id}: a drone hit`);
+    assert.ok(attacks.length >= 1 && attacks[0].t <= droneAt[0].t + 1e-9, `${id}: not before her first attack (${attacks[0]?.t} / ${droneAt[0].t})`);
+    assert.equal(droneAt[0].target, attacks[0].target, `${id}: on that attack's target`);
+    assert.ok(droneAt[0].t - attacks[0].t < 0.1, `${id}: at once`);
+    h.b.kill(e, null);
+    const tk = h.b.time;
+    assert.ok(h.runUntil(() => droneAt.some((x) => x.target === other), 10), `${id}: on to the next`);
+    const next = droneAt.find((x) => x.target === other), att = attacks.find((a) => a.t >= tk - 1e-9);
+    assert.ok(att && att.t <= next.t + 1e-9 && att.target === other, `${id}: with her next attack (${att?.t} / ${next.t})`);
+    done(h);
+  }
+});
+
+test('S2: a new attack interval re-times the drone\'s wait keeping its progress', () => {
+  const { h, u } = field(B, { skill: 1, seed: 11 });
+  const e = h.spawn('enemy_dummy', { pos: FRONT });
+  const times = [];
+  h.b.on('damaged', (c) => { if (c.target === e && c.dmg?.tags?.includes(DRONE_TAG)) times.push(h.b.time); });
+  cast(u);
+  assert.ok(h.runUntil(() => times.length >= 1, 10));
+  const i0 = u.s.interval, t0 = times[0];
+  h.runUntil(() => h.b.time >= t0 + i0 / 2 - 1e-9, 5);
+  const ta = h.b.time, left = t0 + i0 - ta;
+  h.b.addBuff(u, { key: 'test:aspd', mods: { aspd: 100 } });
+  const i1 = u.s.interval;
+  assert.ok(i1 < i0 * 0.9, 'faster');
+  assert.ok(h.runUntil(() => times.length >= 2, 5));
+  near(times[1] - ta, left * (i1 / i0), 'remaining × new ÷ old', 0.1);
   done(h);
 });
 

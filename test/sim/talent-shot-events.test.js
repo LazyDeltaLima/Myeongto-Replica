@@ -49,6 +49,7 @@ test('寒芒克洛丝 in her skill: no talent swing — the roll stays at the hi
   h.step();
   const u = h.unit(id);
   assert.ok(u.skill.activate('test', { free: true }));
+  h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
   const t1 = h.b.time;
   h.run(Math.min(15, u.skill.timeLeft - 0.5));
   assert.equal(h.eventsOf('swing').filter((e) => e[1] === u.id && e[8] === 'T.1').length, 0);

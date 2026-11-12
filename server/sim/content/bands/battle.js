@@ -37,7 +37,9 @@
 //                                               elite or not) stand on the field get ATK +atk
 //   act2autochess_band3_buff  伊奥莱塔 统御号令 at combat start n = elite operators on the field ⇒ every elite operator
 //                                               ATK +atk_per_cnt × n, HP +max_hp_per_cnt × n (all 直接乘算)
-//   auto_chess_change_map     Touch 外勤医疗    "所有玩家场地上出现一名<预备干员-医疗>": while any alive player of the match
+//   attr_common_global_buff   陈 以己之长 (规程) the second buff: elite operators (filter_autochess_golden) ATK +atk
+//                                               (直接乘算), ASPD +attack_speed
+//   auto_chess_change_map    Touch 外勤医疗    "所有玩家场地上出现一名<预备干员-医疗>": while any alive player of the match
 //                                               holds band_amedic, every player's field gets the map character of the
 //                                               variant whose common_condition holds for that player's elites on the field
 //                                               (condition_golden_chess_le cnt → 预备干员-医疗, _ge cnt → Touch), spawned at
@@ -46,9 +48,11 @@
 
 import {
   num, buffsOf, bandRecord, isOp, onField, isElite, tierOf, isMember, activeBondIds, playerOps, passiveBuff, fxOn, tplFx,
-  matchBands, gainLayers, alliesAround, N4, baseChessId, isGroundOp, directMods,
+  matchBands, gainLayers, alliesAround, N4, baseChessId, isGroundOp, directMods, effectRecord, battleStore, tileKey,
 } from '../support/index.js';
+import { COLS } from '../../constants.js';
 import { weaknessRetype, addShieldLayer, PRIO_RESPAWN, reviveNow } from '../items/battle.js';
+import { addCapMod } from '../garrisons/effects/triggered.js';
 import { spawnMapChar } from '../tokens.js';
 
 export const AMEDIC_BAND = 'band_amedic';
@@ -237,6 +241,16 @@ const BY_KEY = {
       for (const u of elites) passiveBuff(battle, u, keyOf(bandId), mods);
     });
   },
+
+  // 陈 以己之长 (规程's second buff): "精锐干员额外获得攻击力+16%，攻击速度+16" — the player's elite operators
+  // (filter_autochess_golden) ATK +atk (直接乘算) and ASPD +attack_speed for the whole battle
+  attr_common_global_buff(battle, ps, p, bandId) {
+    const mods = directMods({ atk: num(p.atk), hp: num(p.max_hp) });
+    if (num(p.attack_speed)) mods.aspd = num(p.attack_speed);
+    if (!Object.keys(mods).length) return;
+    const elitesOnly = num(p.filter_autochess_golden) > 0;
+    for (const u of playerOps(battle, ps.playerId)) if (!elitesOnly || isElite(u)) passiveBuff(battle, u, keyOf(bandId, 'attr'), mods);
+  },
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -292,15 +306,295 @@ export function hasBattlePart(bandId, scope = null) {
   return buffsOf(bandRecord(bandId, scope)).some((b) => (b.bbKey && BY_KEY[b.bbKey]) || b.key === 'auto_chess_change_map');
 }
 
+/**
+ * The strategy's buffs in this battle: those of the stage the player reached (PlayerBattleInput `bandStage`, 规程's
+ * 指令 stages — bands/meta.js bandStageIndex), else the record's own (one stage).
+ */
+export function bandBattleBuffs(band, stage) {
+  if (!band) return [];
+  const stages = Array.isArray(band.skills) && band.skills.length ? band.skills : null;
+  if (!stages) return buffsOf(band);
+  const i = Math.max(0, Math.min(stages.length - 1, Math.trunc(num(stage, 0)) || 0));
+  return buffsOf(stages[i]);
+}
+
 export function install(battle) {
   for (const ps of battle.players) {
     const band = ps.bandId ? bandRecord(ps.bandId, battle) : null;
     if (!band) continue;
-    for (const b of buffsOf(band)) {
+    for (const b of bandBattleBuffs(band, ps.input?.bandStage)) {
       const f = b.bbKey ? BY_KEY[b.bbKey] : null;
       if (!f) continue;
       try { f(battle, ps, b.p, ps.bandId); } catch (e) { battle._handlerError?.(`band:${ps.bandId}`, null, e); }
     }
   }
   installMapChars(battle);
+  installMarks(battle);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// 规程's marks (bands/meta.js addMark): the drag 指令 whose effect waits for the next battle. The battle input carries the
+// round's marks (PlayerBattleInput `bandMarks`: [{ effectId, uid | itemId, capAdd? }], server/match/player/round.js);
+// the input already applied what changes the fielded units (全场聚焦: the operator as its elite; 电气化！: the item on every
+// operator with a free slot — markInputNeeds). The rest runs here on the marked operator, by the buff of the mark's
+// effect (its bbStr.key, the client's buff template of 规程's table):
+//
+//   act3autochess_band12_buff 意志鼓舞 「下次战斗开始时立即击倒并复活，并获得额外2次复活次数」: ON_AUTO_CHESS_MODE_CHANGED with
+//                             start_dead → [kill]: the operator is knocked out at combat start and rebuilt on its tile at
+//                             once (reborn_mask 1: that knock-out uses no revive — ours: no reviveNow takes it, its 被击倒时
+//                             effects run, and it comes back after every other `death` handler: 部署时 effects run, SP
+//                             reset); then, like 埃芒加德's band28 template, its next max_respawn_cnt knock-outs revive at
+//                             once, free, where it lies (reviveNow) — counted per operator (band12_buff_respawn_cnt).
+//   act1autochess_band17_buff 药枚实验 the 桑葚 template on the marked operator alone: [self] puts [check] on the player's
+//                             units 0.1 s into the battle and the marked one keeps [core] only while none of them stands in
+//                             a column further right — so the shield chance (prob: 20 % / 35 % by the stage) works on the
+//                             front-most column only, as the passive 桑葚 band; a later (re)deployment of the operator
+//                             judges again.
+//   act3autochess_band22_buff 消解空间 「首次受到伤害时使其击倒，并召唤整备区最右侧干员」: ON_TAKE_DAMAGE —
+//                             AutoChessCheckSwitchWithHand (RIGHT, ORIGINAL, no class or bond filter: nothing without a
+//                             hand operator, and the next damage checks again), reborn_mask −1 (no revive), the switch,
+//                             InstantKill: the rightmost 整备区 operator comes in on its tile, facing its way, and the
+//                             operator leaves without a body (as the switch 特质, garrisons/effects/switch.js). The hand
+//                             operators reach the battle in the input's `reserve`.
+//   capAdd                    正直教官: + capAdd on the operator's 特质 caps (garrisons/effects/triggered.js addCapMod).
+// [ASSUMED·CN: the buff of a mark lands on the marked operator (skill_target_chess — the classes are CN-only); a revive or
+// switch of another rule that the client's reborn_mask would not stop is stopped here too (c.revivedBy); the start
+// knock-out counts as a knock-out for 被击倒时 effects and the results.]
+
+export const MARK_UPGRADE = 'auto_chess_battle_chess_upgrade';
+export const MARK_GIVE_ALL = 'auto_chess_battle_give_all_equip';
+const MARK_SWAP = 'act3autochess_band22_buff';
+/** death priorities: the mark's knock-outs take no revive (before every revive), its rebuild / switch come last. */
+const PRIO_MARK_LOCK = 1000;
+const PRIO_MARK_LAST = -2000;
+
+/** What a mark's effect record asks of the battle input: { upgrade, giveItem, hand } (server/match/player/round.js). */
+export function markInputNeeds(eff) {
+  const out = { upgrade: false, giveItem: false, hand: false };
+  for (const b of buffsOf(eff)) {
+    if (b.key === MARK_UPGRADE) out.upgrade = true;
+    else if (b.key === MARK_GIVE_ALL) out.giveItem = true;
+    else if (b.bbKey === MARK_SWAP) out.hand = true;
+  }
+  return out;
+}
+
+const marksOf = (ps) => (Array.isArray(ps.input?.bandMarks) ? ps.input.bandMarks.filter((m) => m && typeof m === 'object') : []);
+const markedUnit = (battle, ps, uid) => battle.allyUnits.find((u) => isOp(u) && u.ownerId === ps.playerId && !u.reserve && u.uid === uid) ?? null;
+
+/** No revive takes `u`'s knock-out while `lock()` holds (the client's reborn_mask ≠ 0). */
+function lockRevive(battle, u, lock) {
+  battle.on('death', (c) => { if (c.unit === u && lock()) c.revivedBy = c.revivedBy || 'band:mark'; }, { priority: PRIO_MARK_LOCK });
+}
+
+const MARK_BY_KEY = {
+  act3autochess_band12_buff(battle, ps, u, p, key) {
+    const max = Math.max(0, Math.floor(num(p.max_respawn_cnt, 0)));
+    let starting = false;
+    let used = 0;
+    lockRevive(battle, u, () => starting);
+    battle.on('death', (c) => {
+      if (c.unit !== u || starting || used >= max || !reviveNow(battle, c, 'band')) return;
+      used++;
+      fxOn(battle, 'revive', u, key, ps.bandId, { left: max - used });
+      tplFx(battle, u, 'map_act1autochess_reinforce_02', u);
+    }, { priority: PRIO_BAND_REVIVE });
+    battle.on('death', (c) => {
+      if (c.unit !== u || !starting) return;
+      starting = false;
+      if (!u.alive && !u.removed && battle.redeploy(u, { free: true })) fxOn(battle, 'revive', u, key, ps.bandId, { start: true });
+    }, { priority: PRIO_MARK_LAST });
+    if (!(num(p.start_dead, 0) > 0)) return;
+    battle.on('battleStart', () => {
+      if (!onField(u)) return;
+      starting = true;
+      battle.kill(u, null);
+      starting = false;
+    });
+  },
+
+  act1autochess_band17_buff(battle, ps, u, p, key) {
+    const pr = num(p.prob);
+    if (!(pr > 0)) return;
+    let core = false;
+    const judge = () => {
+      if (!u.alive || !u.deployed) return;
+      const me = u.tileC;
+      core = !battle.allies(ps.playerId).some((a) => a !== u && a.tileC > me);
+    };
+    let begun = false;
+    battle.on('battleStart', () => { begun = true; battle.after(0.1, judge, { owner: u }); });
+    battle.on('deploy', (c) => {
+      if (!begun || c.unit !== u) return;
+      core = false;
+      const seq = u.deploySeq;
+      battle.after(0.1, () => { if (u.deploySeq === seq) judge(); }, { owner: u });
+    });
+    battle.on('attack', (c) => {
+      if (c.attacker !== u || !core || !u.alive) return;
+      if (!(pr >= 1 || battle.rng() < pr)) return;
+      if (addShieldLayer(battle, u, `${key}:shield`, 1)) fxOn(battle, 'shield', u, key, ps.bandId);
+    });
+  },
+
+  act3autochess_band22_buff(battle, ps, u, _p, key) {
+    let pending = false;
+    lockRevive(battle, u, () => pending);
+    battle.on('damaged', (c) => {
+      if (pending || c.target !== u || !u.alive || c.type === 'element') return;
+      if (!handCandidate(battle, ps.playerId)) return;
+      pending = true;
+      battle.kill(u, null);
+    });
+    battle.on('death', (c) => {
+      if (c.unit !== u || !pending) return;
+      pending = false;
+      const next = handCandidate(battle, ps.playerId);
+      if (!next || u.removed) return;
+      const tile = battle.restTile(u);
+      u.removed = true;
+      if (battle.fieldReserve(next, tile, u.dir)) fxOn(battle, 'garrison', next, key, ps.bandId, { from: u.id });
+      else u.removed = false;
+    }, { priority: PRIO_MARK_LAST });
+  },
+};
+
+const benchKey = (pid) => `band:mark:bench:${pid}`;
+/** The rightmost hand operator of the player's reserve not fielded yet, or null. */
+function handCandidate(battle, pid) {
+  for (const u of battleStore(battle, benchKey(pid), () => [])) if (!(u.deploySeq > 0) && !u.alive) return u;
+  return null;
+}
+
+/**
+ * Before any content installs (content/index.js `reserve`): the hand operators a 消解空间 mark may call — every chess of
+ * the input's `reserve`, rightmost slot first (shared per slot with the other switch rules: createReserveAlly).
+ */
+export function reserve(battle) {
+  for (const ps of battle.players || []) {
+    if (!marksOf(ps).some((m) => m.uid != null && markInputNeeds(effectRecord(m.effectId, battle)).hand)) continue;
+    const hand = Array.isArray(ps.input?.reserve) ? ps.input.reserve : [];
+    const bench = battleStore(battle, benchKey(ps.playerId), () => []);
+    for (const inp of [...hand].filter((h) => h && Number.isInteger(h.slot)).sort((a, b) => b.slot - a.slot)) {
+      const u = battle.createReserveAlly(ps, inp);
+      if (u && !bench.includes(u)) bench.push(u);
+    }
+  }
+}
+
+// 规程's MAP_TILE 指令 in battle. A tile mark (bands/meta.js, 溃心领域: { effectId, row, col } in board coordinates) runs its
+// effect's buff on that tile of the player's field (Battle.mapTile):
+//
+//   act3autochess_band19_buff 溃心领域 「战斗开始后首次经过该地块的敌人获得恐惧，持续3秒」: the client's global buff gives every
+//                             enemy (its prefab's targetSide 2, targetMotion 3: ground and flying) the template, whose
+//                             ON_OWNER_ROOT_TILE_CHANGED checks the enemy's position against the marked tile
+//                             (AutoChessCheckPosition, _checkPlayerIndex) and, while its own `triggered` is 0, gives it
+//                             `fear` and sets `triggered` — so each enemy is feared once, the first time its root tile
+//                             becomes the tile. Ours: the enemy's tile (rounded position) read after the moves of each
+//                             tick; the tile it is first seen on is no change [ASSUMED·엔진: the client's first tile]; the fear
+//                             has no source (a global buff's), which makes it flutter inside its tile (sim/fear.js) for
+//                             `fear` s [ASSUMED·CN: the buff's source].
+//
+// 宝藏探机's chests (bands/meta.js BAND_CHEST, the input's `bandChests`: { id, row, col, enemyId, coin }) stand on their tiles
+// from the start as an ally-side unit with no attack (a device: no enemy or ally selects it) and the enemy record's HP. The
+// prefab of enemy_9038_achest: an AuraAbility of radius 0.5 over ground enemies (targetMotion 1) whose achest[aura_enemy]
+// InstantKills the chest (_killSource, _skipReborn) as one enters — 「被敌人触碰后永久消失」; ours: a ground enemy (not
+// hidden) within 0.5 of the chest's centre [ASSUMED·엔진: the enemy's collider radius is not added]. At the battle end a
+// standing chest pays its coin (「战斗结束后提供1资金」, Battle.addCoins) and a fallen one is reported in the player's result
+// (`bandChestsGone`: the match removes it). A chest whose tile is no ground passage of this field (a boss field) or is
+// taken is left out of this battle and stays [ASSUMED·CN].
+
+/** 0.5 — the chest's aura radius (enemy_9038_achest, AuraAbility CircleCollider2D), squared. */
+const CHEST_TOUCH_SQ = 0.25;
+
+const TILE_MARK_BY_KEY = {
+  act3autochess_band19_buff(battle, ps, [r, c], p) {
+    const fear = num(p.fear, 0);
+    if (!(fear > 0)) return;
+    const k = r * COLS + c;
+    const last = new WeakMap();
+    const done = new WeakSet();
+    battle.on('tick', () => {
+      for (const e of battle.enemies) {
+        if (!e.alive || e.hidden || done.has(e)) continue;
+        const now = tileKey(e);
+        const before = last.get(e);
+        last.set(e, now);
+        if (before === undefined || before === now || now !== k) continue;
+        done.add(e);
+        battle.applyStatus(e, 'fear', { duration: fear, source: null });
+      }
+    });
+  },
+};
+
+function installTileMark(battle, ps, m) {
+  const tile = battle.mapTile(ps, m.row, m.col);
+  if (!battle.grid.inRect(tile[0], tile[1])) return;
+  for (const b of buffsOf(effectRecord(m.effectId, battle))) {
+    const f = b.bbKey ? TILE_MARK_BY_KEY[b.bbKey] : null;
+    if (f) f(battle, ps, tile, b.p);
+  }
+}
+
+function installChests(battle) {
+  for (const ps of battle.players) {
+    const list = Array.isArray(ps.input?.bandChests) ? ps.input.bandChests : [];
+    const chests = [];
+    for (const x of list) {
+      if (!x || typeof x.id !== 'string' || !Number.isInteger(x.row) || !Number.isInteger(x.col) || typeof x.enemyId !== 'string') continue;
+      const [r, c] = battle.mapTile(ps, x.row, x.col);
+      if (!battle.grid.inRect(r, c) || !battle.grid.walkable(r, c, true)) continue;
+      const rec = battle.data.getEnemy ? battle.data.getEnemy(x.enemyId) : null;
+      const u = battle.spawnDevice(x.enemyId, r, c, { hp: num(rec?.stats?.maxHp, 100), blockCnt: 0, name: rec?.name ?? x.enemyId });
+      if (!u) continue;
+      u.ownerId = ps.playerId;
+      u.mem.bandChest = x.id;
+      chests.push({ u, id: x.id, coin: Math.max(0, Math.floor(num(x.coin, 0))) });
+    }
+    if (!chests.length) continue;
+    battle.on('tick', () => {
+      for (const ch of chests) {
+        const u = ch.u;
+        if (!u.alive) continue;
+        for (const e of battle.enemies) {
+          if (!e.alive || e.hidden || e.isFlying) continue;
+          const dx = e.x - u.x, dy = e.y - u.y;
+          if (dx * dx + dy * dy <= CHEST_TOUCH_SQ) { battle.kill(u, null); break; }
+        }
+      }
+    });
+    battle.on('battleEnd', ({ result }) => {
+      const gone = [];
+      for (const ch of chests) {
+        if (ch.u.alive) { if (ch.coin > 0) battle.addCoins(ps.playerId, ch.coin); } else gone.push(ch.id);
+      }
+      const pp = result && result.perPlayer ? result.perPlayer[ps.playerId] : null;
+      if (pp && gone.length) pp.bandChestsGone = gone;
+    });
+  }
+}
+
+function installMarks(battle) {
+  installChests(battle);
+  for (const ps of battle.players) {
+    for (const m of marksOf(ps)) {
+      if (m.uid == null) {
+        if (Number.isInteger(m.row) && Number.isInteger(m.col)) {
+          try { installTileMark(battle, ps, m); } catch (e) { battle._handlerError?.(`band:${ps.bandId}:mark`, null, e); }
+        }
+        continue;
+      }
+      const u = markedUnit(battle, ps, m.uid);
+      if (!u) continue;
+      const key = keyOf(ps.bandId || 'band', `mark:${m.effectId}`);
+      try {
+        if (num(m.capAdd, 0) > 0) { addCapMod(battle, u, Math.floor(num(m.capAdd, 0)), 0); continue; }
+        for (const b of buffsOf(effectRecord(m.effectId, battle))) {
+          const f = b.bbKey ? MARK_BY_KEY[b.bbKey] : null;
+          if (f) f(battle, ps, u, b.p, key);
+        }
+      } catch (e) { battle._handlerError?.(`band:${ps.bandId}:mark`, u, e); }
+    }
+  }
 }

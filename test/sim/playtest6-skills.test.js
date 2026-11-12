@@ -471,7 +471,8 @@ test('#3 忍冬 with 6 叙拉古: the bond 隐匿 ends at 32 + 0.4 × layers s; 
   assert.equal(h.hooksOf('damaged').filter((c) => c.source === r && c.target === u).length, 0, 'and does not');
   // it lasts until her next cast
   fill(u);
-  assert.ok(h.runUntil(() => u.skill.activations === 2, 5));
+  // (its start: after the cast's begin clip — skills.js _beginCast)
+  assert.ok(h.runUntil(() => u.skill.activations === 2 && !u.skill._begin, 5));
   assert.ok(!u.s.flags.camou, 'the next cast ends it');
   done(h);
 });
@@ -500,7 +501,8 @@ test('#3 伪装服 (timed 隐匿) on 忍冬 is neither made permanent nor stripp
   h.b.applyStatus(u, 'stealth', { duration: 5, source: u });
   fill(u);
   h.spawn('enemy_f', { pos: [10, 5] });
-  assert.ok(h.runUntil(() => u.skill.activations === 2, 5));
+  // (its start: after the cast's begin clip — skills.js _beginCast)
+  assert.ok(h.runUntil(() => u.skill.activations === 2 && !u.skill._begin, 5));
   assert.ok(!u.s.flags.camou && u.s.flags.stealth, 'the cast strips the 迷彩, not a 隐匿');
   done(h);
 });

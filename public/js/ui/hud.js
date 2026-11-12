@@ -35,9 +35,10 @@ import { Sprite, LpTower, GIcon, LocalSprite } from './gameComponents.js';
 import { data, localAsset } from '../data.js';
 import { uiUrl } from './assetUrls.js';
 import { serverNow, createStore, useStore } from '../store.js';
-import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason, countdownWarnAt } from './gameLogic.js';
+import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason, countdownWarnAt, overflowOf } from './gameLogic.js';
 import { overtimeState, overtimeDrainPerSec, remainAt } from './matchStatus.js';
 import { hotkeyLabelOf } from './settings.js';
+import { BuffButton } from './effectsList.js';
 import { t, tParts } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -259,7 +260,8 @@ export function pendingTip(lp, pending, { unite = false, cap = 10, left = null, 
  * @returns {{ count: number, items: number }}
  */
 export function tempInfo(priv) {
-  const list = (Array.isArray(priv?.temp) ? priv.temp : []).filter((p) => p && typeof p === 'object');
+  // overflow only: in 规程 the five visible slots are the 装备区 (gameLogic overflowOf)
+  const list = overflowOf(priv);
   return { count: list.length, items: list.filter((p) => p.kind === 'item').length };
 }
 
@@ -388,7 +390,7 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  *     `left` (a leaker in 联防): its enemies still standing — the capsule's ×N tag
  */
 export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
-  config = null, frozenAt = null, pause = null, live = null, spectator = false, onTimerWarn }) {
+  config = null, frozenAt = null, pause = null, live = null, spectator = false, onTimerWarn, effects = null }) {
   const phase = pub?.phase;
   const boss = isBossPhase(phase);
   const warnAt = countdownWarnAt(pub, config);
@@ -429,6 +431,7 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
     </div>
 
     <div class="gtop__center brackets">
+      <${BuffButton} effects=${effects} />
       <${Tooltip} text=${btn.left.tip} placement="bottom">
         <${CheckBtn} sprite=${btn.left.sprite} cls=${cx('gtop__iconbtn', btn.left.back && 'is-back')} label=${btn.left.label}
           chev=${btn.left.back ? '◀◀' : null} on=${!!drawer && !pen} onClick=${onLeft} testid="check-player" />

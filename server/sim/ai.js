@@ -164,7 +164,8 @@ export function updateAlly(b, u, dt) {
   // the Skill state of a skill cast (skills.js _paceInstant, 'state'): no attack until its skill ability ends — the
   // attack cooldown keeps running meanwhile (and the unit has left its attack state)
   // (a stage of the cast still to come: on the clip's last tick the skill ticks after this — it may move the unit, skills.js _tickCast)
-  if (u.skillStateUntil > b.time + 1e-9 || (sk?._castStage && !sk._castStage.cut)) { u.atkSpell = 0; return; }
+  // (a begin clip's last tick: the skill starts after this, in its tick — skills.js _tickBegin)
+  if (u.skillStateUntil > b.time + 1e-9 || (sk?._castStage && !sk._castStage.cut) || sk?._begin) { u.atkSpell = 0; return; }
   if (u.faceTgt) holdFaceTarget(b, u, prof);
   if (u.atkCd > 0 || u.castLeft > 0) return;
   // a 'replace' cast (skills.js): this attack goes out as the skill, with or without a target of the attack's own
@@ -178,7 +179,7 @@ export function updateAlly(b, u, dt) {
   u.trait.hadTarget = true;
   if (sk && sk.onAboutToAttack()) {
     if (sk.replacing) { startReplacement(b, u, sk); return; }
-    if (u.skillStateUntil > b.time + 1e-9) { u.atkSpell = 0; return; }   // a 'state' cast: no attack until its skill ability ends
+    if (u.skillStateUntil > b.time + 1e-9 || sk._begin) { u.atkSpell = 0; return; }   // a 'state' cast: no attack until its skill ability ends
     prof = effectiveProfile(u);
     if (prof.noAttack || !u.alive) return;
     targets = acquireTargets(b, u, prof);
@@ -614,8 +615,14 @@ export function acquireTargets(b, u, prof) {
     const n = targetCount(u, prof);
     return n >= all.length ? all : all.slice(0, n);
   }
-  // an ally target (Battle.setAllyTarget: 白铁's 铁钳号·原型机, an enemy-camp summon with 嘲讽等级 −2) after every enemy
-  const extra = b._allyTargets && b._allyTargets.size ? b.allyTargetsInKeys(u.rangeKeys, u) : null;
+  // an ally target (Battle.setAllyTarget: 白铁's 铁钳号·原型机, an enemy-camp summon with 嘲讽等级 −2) after every enemy:
+  // enemiesInKeys lists it among them (an ally's enemy selection takes it), taken out here and put last
+  let extra = null;
+  if (b._allyTargets && b._allyTargets.size) {
+    let n = 0;
+    for (const x of cands) if (b.isAllyTarget(x)) (extra ??= []).push(x); else cands[n++] = x;
+    cands.length = n;
+  }
   if (extra && extra.length) {
     if (prof.allInRange) return cands.concat(extra);
     sortEnemyTargets(b, u, cands, prof.priority);

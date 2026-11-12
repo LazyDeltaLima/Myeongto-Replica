@@ -39,6 +39,7 @@ test('user Given strategy medics When inspecting them Then their healing tiles r
   for (const id of ['char_613_acmedc', 'char_605_cmedic']) {
     const r = inspectRange(args(medic(id)));
     assert.equal(r.grid.length, 12);
+    assert.equal(r.heal, true, 'a medic\'s range is striped as a heal range');
     const tiles = rangeTiles(r.grid, r.row, r.col, r.dir);
     assert.equal(tiles.length, 12);
     assert.ok(tiles.some(([row, col]) => row === 12 && col === 4));

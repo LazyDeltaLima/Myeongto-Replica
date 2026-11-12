@@ -3,11 +3,15 @@
 // Each operator carries `unit.def.raw.garrisonIds` (elite chess carry the `_b` garrisons); the IN_BATTLE ones are
 // dispatched here by their effectKey (bbStr.key for battle runes, else effectType — docs/DATA.md §4):
 //
-//   ADD_BOND            grants `give_garrison_id` to other operators before the first deployment (targets parsed from
-//                       the text: 身前一格 / 身前一格【X】/ 自身和身前一格 / 同一行最右边 / 所有【X】). A unit owns a garrison id
-//                       at most once (耀骑士临光 already carries the 144/159 it grants to itself). A granted trait keeps
-//                       its data cap like a native one: 华法琳's garrison_95 stops at 7 / 14 layers per battle (PRTS 下半
-//                       3月27日更新#2: 「从 初始12/精锐24 降低至 初始7/精锐14」; GitHub #175, PR #192 by @kukiC).
+//   ADD_BOND            grants `give_garrison_id` to other operators before the first deployment (targets by the
+//                       battleRuneKey: front / back tile, rightmost of the row, all of the player; effects/grants.js).
+//                       Every grant is a copy of its own, as in the official client (each grant appends a rune of its
+//                       own to the target; the global buffs of these traits are outside any override group): two
+//                       华法琳 facing one operator give it two garrison_95, +2 per skill. A granted trait keeps its data
+//                       cap like a native one, per operator and trait id, shared by the copies (the client counts it
+//                       on the operator under the trait's garrison_key): 华法琳's garrison_95 stops at 7 / 14 layers per
+//                       battle however many grant it (PRTS 下半 3月27日更新#2: 「从 初始12/精锐24 降低至 初始7/精锐14」;
+//                       GitHub #175, PR #192 by @kukiC).
 //   layer events        act1autochess_gar_event_useskill (skillStart) · _selfkillenemy (kill, every check_cnt
 //                       kills since its last deployment) ·
 //                       _selfdead (death 'killed'; texts with 替身 also on every substitute ⇄ body swap, read from the
@@ -44,7 +48,7 @@
 //
 // Files, by effect-key family: effects/grants.js (ADD_BOND targets), effects/events.js (the layer events, fireGain,
 // 魔王's extra), effects/stats.js (the fixed stat 特质 and the layer readers), effects/hits.js (the hit modifiers, 弱点伤害);
-// shared.js what they share. install() keeps one order, so the hooks register as before: the grants, then the installers
+// effects/switch.js (规程's hand switches: the candidates, reserve()); shared.js what they share. install() keeps one order, so the hooks register as before: the grants, then the installers
 // by effect key in the order the carriers' 特质 first appear, then the hit modifiers, then the layer readers.
 
 import * as S from '../support/index.js';
@@ -52,11 +56,15 @@ import { EMPTY } from './shared.js';
 import { grantTargets } from './effects/grants.js';
 import { EVENTS } from './effects/events.js';
 import { STAT_INSTALLERS, READERS, installReaders } from './effects/stats.js';
-import { HIT_KEYS, installHitMods } from './effects/hits.js';
+import { HIT_KEYS, installHitMods, DAMAGE_INSTALLERS } from './effects/hits.js';
+import { TRIGGERED_KEYS } from './effects/triggered.js';
+import { SWITCH_INSTALLERS } from './effects/switch.js';
 
 export { GARRISON_OPTIONS, fireGain } from './effects/events.js';
+export { TRIGGERED_KEYS } from './effects/triggered.js';
 export { stepsOf } from './effects/stats.js';
 export { weaknessType, WEAKNESS_PRIORITY } from './effects/hits.js';
+export { reserve, handRules as switchHandRules } from './effects/switch.js';
 
 function garrisonIdsOf(u) {
   const list = u?.def?.raw?.garrisonIds ?? u?.def?.garrisonIds;
@@ -66,7 +74,10 @@ function garrisonIdsOf(u) {
 /** Installers by effect key, in this order (an effect key in two families throws). */
 const INSTALLERS = (() => {
   const out = {};
-  for (const t of [EVENTS, STAT_INSTALLERS, {
+  // a garrison_trigger_buff effect garrison does nothing on its own: its event 特质 runs it (effects/triggered.js) — but
+  // for the switch's handler, installed with the battle (effects/switch.js)
+  const triggered = Object.fromEntries(TRIGGERED_KEYS.filter((k) => !Object.hasOwn(SWITCH_INSTALLERS, k)).map((k) => [k, () => {}]));
+  for (const t of [EVENTS, STAT_INSTALLERS, DAMAGE_INSTALLERS, SWITCH_INSTALLERS, triggered, {
     // grants are resolved in install(); 风丸's rule lives in the prep economy
     ADD_BOND() {},
     NONE() {},
@@ -84,17 +95,19 @@ const INSTALLERS = (() => {
 
 export function install(battle) {
   const all = [];
-  const owned = new Map(); // unit → Set(garrisonId)
+  const owned = new Map(); // unit → Map(garrisonId → copies)
   const add = (unit, g, grantedBy = null) => {
-    let set = owned.get(unit);
-    if (!set) { set = new Set(); owned.set(unit, set); }
-    if (set.has(g.garrisonId)) return null;
-    set.add(g.garrisonId);
+    let held = owned.get(unit);
+    if (!held) { held = new Map(); owned.set(unit, held); }
+    const n = (held.get(g.garrisonId) ?? 0) + 1;
+    if (!grantedBy && n > 1) return null; // the chess's own list names an id once
+    held.set(g.garrisonId, n);
     const bb = g.bb || {};
     const cap = S.num(bb.max_add_count_per_battle, 0) > 0 ? S.num(bb.max_add_count_per_battle) : Infinity;
     const it = {
       unit, g, gid: g.garrisonId, key: g.effectKey, bb, bbStr: g.bbStr || {}, grantedBy,
-      cap, capKey: `gar:${g.garrisonId}:${unit.id}`, cnt: 0, k: -1,
+      // the per-battle cap is the operator's per trait id, shared by its copies; each copy's buff is its own
+      cap, capKey: `gar:${g.garrisonId}:${unit.id}`, buffKey: n > 1 ? `gar:${g.garrisonId}#${n}` : `gar:${g.garrisonId}`, cnt: 0, k: -1,
     };
     all.push(it);
     return it;

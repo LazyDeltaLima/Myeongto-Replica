@@ -68,6 +68,12 @@ export function cast(u, reason = 'test') {
   assert.ok(u.skill.activate(reason), `cast ${u.skill.id}`);
 }
 
+/** Through a cast's begin clip (data `cast.begin`, server/sim/skills.js _beginCast): the skill has started when it returns. */
+export function begun(h, u, max = 3) {
+  h.runUntil(() => !u.skill._begin, max);
+  assert.ok(!u.skill._begin, `${u.skill.id}: its begin clip is over`);
+}
+
 /** Real match path: a 规程 match buys, places and fights the piece (`id`) of that season's data (ACT3_ON_BASE_FIELD): no handler error. */
 export async function realMatch(id, charId) {
   const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');

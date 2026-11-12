@@ -5,7 +5,6 @@
 // the player state).
 
 import { ERR, PHASE } from '../../../shared/constants.js';
-import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
 import { itemIdOfKey } from '../../sim/content/support/index.js';
 
@@ -29,11 +28,12 @@ export class PlayerPrep {
     if (!Number.isInteger(idx) || idx < 0 || idx >= offer.slots.length) return fail(ERR.BAD_TARGET);
     const slot = offer.slots[idx];
     if (!slot || slot.sold) return fail(ERR.SOLD_OUT);
-    const handFull = freeSlot(this.hand) < 0;
+    // a full zone refuses it: the hand, or 规程's 装备区 for an item (bagMode)
+    const handFull = this.freeZoneSlot(slot.kind) < 0;
     if (slot.kind === 'item') {
       if (!this.gd.item(slot.id)) return fail(ERR.BAD_TARGET);
       if (!this.m.itemPool.canGain(slot.id)) return fail(ERR.SOLD_OUT);
-      if (handFull) return fail(ERR.HAND_FULL);
+      if (handFull) return fail(this.zoneFullError('item'));
     } else {
       const rec = this.gd.chess(slot.id);
       if (!rec || (rec.isDiy && !rec.diyFor)) return fail(ERR.BAD_TARGET);
@@ -73,7 +73,7 @@ export class PlayerPrep {
     if (this.ready === !!on) return OK;
     this.ready = !!on;
     // un-ready: the player can act again, so what overflowed while it was ready is due at this prep's deadline
-    if (!on) for (const p of this.temp) if (p && this.tempDue(p) > this.prepsEnded) this._tempDue.set(p.uid, this.prepsEnded);
+    if (!on) for (const p of this.overflowPieces()) if (this.tempDue(p) > this.prepsEnded) this._tempDue.set(p.uid, this.prepsEnded);
     this.dirty();
     this.m.onReadyChanged(this);
     return OK;
@@ -90,7 +90,8 @@ export class PlayerPrep {
     let changed = false;
     for (let i = 0; i < this.temp.length; i++) {
       const p = this.temp[i];
-      if (!p || this.tempDue(p) > this.prepsEnded) continue;
+      // 规程's 装备区 (bagMode's five visible slots) is no overflow: nothing there is resolved
+      if (!p || this.isBagSlot(i) || this.tempDue(p) > this.prepsEnded) continue;
       this.temp[i] = null;
       this._tempDue.delete(p.uid);
       changed = true;

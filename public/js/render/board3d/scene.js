@@ -358,7 +358,7 @@ export class BoardScene {
         for (const m of built.meshes) this.officialRoot.add(m);
         this.officialBuilt = built;
         this.opts.onOfficial?.({ stageId: built.stageId, highland: built.highland, platform: built.devices?.top(OFFICIAL_DEVICE.platform) ?? null,
-          waterPlatform: built.devices?.top(OFFICIAL_DEVICE.waterPlatform) ?? null });
+          waterPlatform: built.devices?.top(OFFICIAL_DEVICE.waterPlatform) ?? null, camera: built.camera ?? null });
       }
       // the 8-player mode's wide 联防 field (render/app.js shows the stage widened): a second copy of the island
       const copy = this.officialBuilt.setWide?.(stage._wide || 0);
@@ -524,11 +524,14 @@ export class BoardScene {
     if (OD) {
       const seen = new Set();  // board.devices may list a tile twice (a device of two overlapping areas)
       for (const d of board.devices) {
-        const key = d.kind === 'platform' || d.kind === 'waterPlatform' || d.kind === 'mound' ? OFFICIAL_DEVICE[d.kind] : null;
+        const key = d.kind === 'platform' || d.kind === 'waterPlatform' || d.kind === 'mound' || d.kind === 'cannon' ? OFFICIAL_DEVICE[d.kind] : null;
         if (!key || !OD.has(key) || seen.has(`${d.r},${d.c}`)) continue;
         seen.add(`${d.r},${d.c}`);
         const g = OD.mesh(key);
         g.position.set(d.c, d.r, d.z0);
+        // the 盐坨子炮 model as exported faces DOWN (its barrel toward −row), the way all four of m10 face; another
+        // direction turns it about the up axis
+        if (d.kind === 'cannon') g.rotation.z = ({ DOWN: 0, RIGHT: Math.PI / 2, UP: Math.PI, LEFT: -Math.PI / 2 })[d.dir] ?? 0;
         this._addOfficialDevice(g);
       }
     }
@@ -770,15 +773,24 @@ export class BoardScene {
   _createOfficialDevice() {
     const self = this;
     let grp = null, ref = null, dead = false, fallback = null, owner = null;
+    let lastKey = null;
     const h = {
       mesh: null,
       board: this,
       get destroyed() { return dead; },
+      /** Seconds of the official model's clip `name` (Born / Die) for the device last updated, 0 without one. */
+      clipDur(name) {
+        const c = lastKey && grp ? self._officialDevices?.clip?.(lastKey, name) : null;
+        return c && c.dur > 0 ? c.dur : 0;
+      },
       update(cam, b) {
         if (!b || dead) return;
         if (!ref) ref = { size: b.size || 1, height: b.height || 1 };  // the first update: the box at full size
         const OD = self._officialDevices;
-        const official = !!OD && OD.has(OFFICIAL_DEVICE.crate) && (!b.top || b.top === 'crateTop');
+        // 2026-11-12: a battle device with a model of its own (b.key: 赘生甲壳), else a crate's (its crateTop box)
+        const key = b.key === OFFICIAL_DEVICE.shell ? b.key : OFFICIAL_DEVICE.crate;
+        const official = !!OD && OD.has(key) && (key !== OFFICIAL_DEVICE.crate || !b.top || b.top === 'crateTop');
+        lastKey = official ? key : null;
         if (grp && owner !== OD) {  // the official scene was rebuilt / dropped: its models are gone
           self.dynamic.remove(grp); for (const m of grp.userData.materials) m.dispose(); grp = null;
         }
@@ -791,7 +803,7 @@ export class BoardScene {
         if (official && !grp) {
           {
             owner = OD;
-            grp = OD.mesh(OFFICIAL_DEVICE.crate, { fade: true });
+            grp = OD.mesh(key, { fade: true });
             grp.userData.officialDevice = true;
             grp.traverse((o) => { if (o.isMesh) o.castShadow = true; });
             self.dynamic.add(grp);
@@ -803,7 +815,15 @@ export class BoardScene {
         grp.position.set(b.x, b.y, b.z);
         const s = (b.size || ref.size) / ref.size;
         grp.scale.set(s, s, Math.max(0.001, (b.height ?? ref.height) / ref.height));
-        for (const m of grp.userData.materials) { m.uniforms.uOpacity.value = a; m.depthWrite = a > 0.98; }
+        const tint = Math.max(0, Math.min(1, b.tint ?? 1));
+        for (const m of grp.userData.materials) {
+          m.uniforms.uOpacity.value = a; m.depthWrite = a > 0.98;
+          if (m.uniforms.uTint) m.uniforms.uTint.value = tint;
+        }
+        // 2026-11-12: its legacy clip (b.clip { name, t }: 赘生甲壳's Born / Die), else the standing model
+        const posed = OD.pose?.(grp, b.clip?.name || null, b.clip?.t || 0);
+        if (posed !== grp.userData.posed) { grp.userData.posed = posed; self.renderer.shadowMap.needsUpdate = true; }
+        if (b.clip) self.renderer.shadowMap.needsUpdate = true;
       },
       destroy() {
         if (dead) return;

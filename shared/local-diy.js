@@ -1,7 +1,8 @@
 // shared/local-diy.js — local patch (docs/LOCAL-PATCH.md 「선발 오퍼레이터」): the 自选 picks this server offers and accepts.
 // The owner's decisions (2026-10-05, kept on upstream 0.2.0's 自选 framework 2026-10-07; three more 2026-10-11): only these
 // owned 6★, in this order — 望, 赤刃明霄陈, 维什戴尔, 丰川祥子 (a collab upstream leaves out), 阿斯卡纶, 凯尔希·思衡托,
-// 克莱门莎, 予愿安洁莉娜, since 2026-10-26 酒神 and, since 2026-11-01, 冻河 and 塔露拉 (CN-only so far) — and no prototype (原型干员 / 预备干员) at either tier. Since the hard
+// 克莱门莎, 予愿安洁莉娜, since 2026-10-26 酒神 and, since 2026-11-01, 冻河 and 塔露拉 (CN-only so far), the later
+// additions of docs/rules/diy.md and, since 2026-11-12, 结城理 (a CN-only collab upstream leaves out) — and no prototype (原型干员 / 预备干员) at either tier. Since the hard
 // fork from 0.2.0 (2026-10-07) they are the whole 自选 data: tools/build-data.mjs
 // builds data/backups.json `diy.ownedPool` from this list (`diy.prototypes` empty) and only their kits exist
 // (kits/index.js OPERATOR_KIT_FILES). The entrance keeps narrowing to them, a guard on top of the data — server/lobby.js
@@ -15,7 +16,7 @@ export const LOCAL_DIY_PICKS = Object.freeze(['char_2027_wang', 'char_1050_chen3
   'char_4072_ironmn', 'char_4202_haruka', 'char_179_cgbird', 'char_4065_judge', 'char_4133_logos', 'char_4098_vvana',
   'char_4037_demetr', 'char_4226_veen', 'char_1051_headb2', 'char_4179_monstr', 'char_2025_shu', 'char_322_lmlee', 'char_416_zumama',
   'char_4046_ebnhlz', 'char_1034_jesca2', 'char_4055_bgsnow', 'char_180_amgoat', 'char_293_thorns', 'char_4009_irene', 'char_400_weedy',
-  'char_113_cqbw', 'char_4027_heyak', 'char_4228_closur', 'char_4246_dminon']);
+  'char_113_cqbw', 'char_4027_heyak', 'char_4228_closur', 'char_4246_dminon', 'char_4217_makoto']);
 
 /** Whether `charId` may be picked for a 自选 slot here. @param {string} charId */
 export function isLocalDiyPick(charId) {

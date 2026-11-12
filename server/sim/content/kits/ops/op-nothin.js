@@ -20,7 +20,7 @@ import { num, talentBb, skillRec, up } from '../shared/tier1.js';
 
 const S1 = 'skchr_nothin_1';
 const S2 = 'skchr_nothin_2';
-/** Skill_2_Begin's length (data/assets.json `animations`): no attack during it, and the pick at its end. */
+/** Skill_2_Begin's length (data/assets.json `animations`): no attack during it, and the pick at its end (data `cast.begin`, skills.js beginTime). */
 export const S2_BEGIN = 1.1;
 const SLOW = 'nothin_s_2[a][attack_speed_down]';
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
@@ -46,17 +46,13 @@ export default {
         },
         [S2]: {
           kind: 'toggle',
-          onStart({ battle, unit, skill }) {
-            unit.skillStateUntil = battle.time + S2_BEGIN;
+          // (the engine starts it as Skill_2_Begin ends: data `cast.begin`, skills.js beginTime)
+          onStart({ battle, unit }) {
             battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'nothin:s2' });
-            const n = skill.activations;
-            battle.after(S2_BEGIN, () => {
-              if (!up(unit) || !skill.active || skill.activations !== n) return;
-              const pool = KEYS.filter((k) => k !== unit.trait.nothinLast);
-              const key = battle.rng.pick(pool);
-              unit.trait.nothinLast = key;
-              battle.addBuff(unit, { key, visible: true, mods: modsOf[key] });
-            }, { owner: unit });
+            const pool = KEYS.filter((k) => k !== unit.trait.nothinLast);
+            const key = battle.rng.pick(pool);
+            unit.trait.nothinLast = key;
+            battle.addBuff(unit, { key, visible: true, mods: modsOf[key] });
           },
           onEnd({ battle, unit }) { for (const k of KEYS) battle.removeBuff(unit, k); },
         },

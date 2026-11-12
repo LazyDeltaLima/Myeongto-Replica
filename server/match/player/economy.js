@@ -5,7 +5,6 @@
 // the player state).
 
 import { ERR, PHASE, layerGainRoom } from '../../../shared/constants.js';
-import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
 
 /** The phases whose layer gains the owner hears (m.layer); a battle's gains sound from its own 'layer' events. */
@@ -156,7 +155,8 @@ export class PlayerEconomy {
     if (slot.sold) return fail(ERR.SOLD_OUT);
     const price = this.priceOf(slot);
     if (this.funds < price) return fail(ERR.NO_FUNDS);
-    const handFull = freeSlot(this.hand) < 0;
+    // a full zone refuses it: the hand, or 规程's 装备区 for an item (bagMode)
+    const handFull = this.freeZoneSlot(slot.kind) < 0;
     let piece;
     if (slot.kind === 'chess') {
       const rec = this.gd.chess(slot.id);
@@ -173,7 +173,7 @@ export class PlayerEconomy {
     } else {
       if (!this.gd.item(slot.id)) return fail(ERR.BAD_TARGET);
       if (!this.m.itemPool.canGain(slot.id)) return fail(ERR.SOLD_OUT);
-      if (handFull) return fail(ERR.HAND_FULL);
+      if (handFull) return fail(this.zoneFullError('item'));
       this.spend(price);
       slot.sold = true;
       piece = this.acquireItem(slot.id, { source: 'buy' });
@@ -205,6 +205,35 @@ export class PlayerEconomy {
     return OK;
   }
 
+  /**
+   * A refresh an effect carries out and pays for itself (规程's 指令 「刷新调度中心」: content/bands/meta.js): the manual
+   * refresh without its price — the freeze is cancelled, every slot rerolled, `adjust()` may then rewrite slots (the
+   * 指令's own 「必定包含 / 优先」), and it counts and dispatches as a manual refresh (onRefresh `free`, `source`)
+   * [ASSUMED·CN: whether a 指令's refresh counts as a 主动刷新 for the 特质 and strategies that count those — the client's
+   * skill classes exist only in the CN client].
+   * @param {(() => void) | null} [adjust]
+   * @param {string} [source]
+   */
+  effectRefresh(adjust = null, source = 'effect') {
+    this.shop.frozen = false;
+    this.rollShop({ keepFrozen: false });
+    if (typeof adjust === 'function') adjust();
+    this.stats.refreshes++;
+    this.round.refreshes++;
+    this.m.dispatch(this, 'onRefresh', { slots: this.shop.slots, free: true, price: 0, source });
+    this.dirty();
+  }
+
+  /** A new shop item card of the shop's draw (the shop RNG and level), none of `exclude`; null when none is left. */
+  rollShopItem(exclude = []) {
+    for (let k = 0; k < 8; k++) {
+      const s = this._rollItemSlot();
+      if (!s) return null;
+      if (!exclude.includes(s.id)) return s;
+    }
+    return null;
+  }
+
   freeze() {
     const g = this._gate(); if (g) return g;
     this.shop.frozen = !this.shop.frozen;
@@ -229,6 +258,16 @@ export class PlayerEconomy {
     return OK;
   }
 
+  /**
+   * What selling a chess piece pays: the price a 特质 gave this piece (piece.sellPrice — 规程's 海沫 「自身售出价格+1」,
+   * garrisons/prep/shop.js), else its chess's (GameData.sellPrice, 温蒂's fixed price included).
+   */
+  sellPriceOf(piece) {
+    if (!piece || piece.kind !== 'chess') return 0;
+    if (Number.isFinite(piece.sellPrice) && piece.sellPrice >= 0) return piece.sellPrice;
+    return this.gd.sellPrice(piece.id);
+  }
+
   sell(uid) {
     const g = this._gate(); if (g) return g;
     const loc = this.find(uid);
@@ -241,7 +280,7 @@ export class PlayerEconomy {
     for (const it of piece.items || []) this.stow(it, { allowTemp: true });
     piece.items = [];
     this.returnCopies(piece);
-    const ev = { piece, gain: this.gd.sellPrice(piece.id) };
+    const ev = { piece, gain: this.sellPriceOf(piece) };
     this.m.dispatch(this, 'onSold', ev);
     const gain = Number.isFinite(ev.gain) ? Math.max(0, Math.trunc(ev.gain)) : 1;
     this.addFunds(gain, { reason: 'sell' });

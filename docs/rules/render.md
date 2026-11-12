@@ -29,11 +29,16 @@
   벤치는 청록 2× 곱하기 `tileOverlay.js BENCH_TINT` (0.29, 0.55, 0.65) — 클라이언트 상수 `AUTOCHESS_VALID_HANDTILE_CUSTOM_HIGHLIGHT`의 값을
   아직 안 읽어 [추정·미조사], 관리자 캡처(아이템 드래그 중 벤치 전체가 청록: 판자 245,198,138 → 140,215,177)에 맞춤. `app.js syncOverlay3d`가 7·8행(일반 정비)을 벤치 틴트로 보낸다.
 - **장비 장착 팝업** (`ui/equipHover.js`, `css/equip-hover.css`): 아이템을 장착 가능한 오퍼레이터 위로 끌면 뜨는 2칸 알약 — 프리팹
-  `act1autochess_equip_slot_panel`(UIAutoChessDragEquipPanel) 그대로: 루트 배율 .8, 알약 334×152가 기준점 120단위 위, 칸마다 #1e1e1e 상자·아이템 아이콘·
+  `act1autochess_equip_slot_panel`(UIAutoChessDragEquipPanel; 두 시즌의 `act2`·`act3autochess_equip_slot_panel`도 CN 클라에서 같은 값) 그대로: 루트 배율 .8, 알약 334×152가 기준점 120단위 위, 칸마다 #1e1e1e 상자·아이템 아이콘·
   흰 테두리(`img_EquipSlot_frame2` 9-slice), 아이템이 들어갈 칸(= 장착 수 번째)은 `frame3` + `SlotGlow` × #55ffeb 가산 맥동(1 ↔ .4, .7초), 두 칸 다
   차면 빨간 괄호(`frame1_red`) + 붉은 막(`img_EquipSlot_glow` α.71) + 교체 아이콘 + 「장비 교체」(문구는 실행 중에 정해져 데이터에 없음 [추정]) → 놓으면
   기존 교체 창. 등장(.333초)·닫힘(.4초)·장착 플래시(칸 1.333배 튐 + 청록 채움, .417초)는 프리팹 클립 값. [추정] 기준점 = 칸 화면 깊이의 .7(캡처: 알약 아래 ≈ 칸 뒤쪽 가장자리).
+  크기(2026-11-11): 공식 CN 1080p 캡처(장비를 필드 오퍼레이터 위로 끄는 장면)에서 칸 간격(108단위)이 83 px — 1080p에서 1단위 ≈ 1 px, HUD 단위(`--ui-u`, 기본 UI 크기에서 공식 HUD와 같음)의 .72배다. 그래서 `--eh` = `--ui-u` × .72 × .8(전에는 × .8만이라 1.4배 컸다). 다른 해상도·UI 크기에서도 HUD 단위를 따라간다 [추정·화면: 패널이 실행 중에 붙는 캔버스의 배율은 클라에서 안 읽음, 1080p 캡처 하나로 맞춤].
   그림은 `ui/battle` 그룹(extract.py 기존 추출)이고 없으면 팝업 없음(원본 그대로). 정비 중 기물 위 장비 바(`hud-bars.js EquipBar`, `ui.md` 「전투 화면 UI」)와는 별개.
+  장비 칸이 둘보다 많은 기물(규정 레이지 아이언하이드 4·6칸)은 알약을 칸 하나(108단위)씩 넓히고 칸마다 테두리를 두어 칸 수만큼 그리며, 다 찬 상태도 그 칸 수로 판단한다
+  (관리자 결정 2026-11-12). 교체 창은 「(n/n)」으로 칸 수를 쓰고, 고를 장비가 5·6개면 3열이다 [추정·화면: CN 클라의 규정 팝업 프리팹은 여전히 2칸이고, 따로 「가득 참」
+  알약(`act3autochess_spequip_slot_panel`)과 카드 격자 교체 창(`equip_multi_slot_replace_dialog`·`spequipment_item`)이 있어 칸 많은 기물은 그쪽을 쓰는 것으로 보이나
+  어느 때 쓰는지는 공식 화면을 못 봄].
 - 확인: Chrome `public/dev/game-mock.html?stage=act1autochess_m04`(대기·오퍼레이터 드래그·아이템 드래그 4가지 대상·놓기·「!!!」), 테스트
   `test/local-patch-map.test.js`. 미확인: 전투 중 「!!!」(실제 대전), 시작 상자 삼각형·점선 색(캡처 해상도 한계), 공식 「장비 교체」 문구.
 - git 밖 생성물: `public/assets/local/board/fx/`, `data/local-assets.json`(바뀌면 `node tools/build-browser-resources.mjs`).
@@ -67,6 +72,19 @@
   `roundSceneId`, `board3d/scene.js`의 `sceneId` 키·`_officialFor`, 그 테스트. 실제 경기 경로: `test/match/feedback5-unite-map.test.js`
   (필드 meta·spec·`publicView()` 모두 경기 stageId), 브라우저 `test/e2e/coop.e2e.mjs`(`SP_E2E=1`, 联防 필드가 경기 맵을 그림) [실제 판 이상 없음 2026-10-28].
 - 알려진 차이: 공식 물 셰이더는 근사(깊은 색 하나 — 공식은 해안 근처가 깊이에 따라 청록으로 얕아짐, 거품·커스틱·하늘 반사 없음), m04 밀물 연출 미구현, `_HG_VERTEX_COLOR_BLEND`의 노이즈 항(`_BlendNoiseStrength`·`_BlendMaskNoiseSkew`)은 읽지 않음.
+
+## 규정 전장 공식 씬 (2026-11-11, 공식 클라에서 확인)
+
+- **구조**: 규정(`act3autochess`)의 스테이지 씬(`scenes/activities/act3autochess/level_<전장>.ab`)에는 36×55 논리 맵의 칸 오브젝트와 렌더러 하나뿐이다. 전투가 그리는 지형은 하위 레벨마다 하나인 레벨 프리팹 셋(`battle/prefabs/levelprefabs/activities/act3autochess/level_<전장>/level_<전장>_sub_01…03`)에 있다: 테마 메시, 프리팹 자신의 라이트맵·섀도마스크(`PrefabLightmapData` — 렌더러마다 라이트맵 번호와 배율·오프셋), 주광, `MapGraphic`(테마, `highlandHeight` 0.4). 프리팹 공간은 그 하위 레벨의 칸 좌표다(칸 (r, c) = 루트에서 (c, r, −높이)).
+- **붙이기**: 시뮬이 읽는 19×21 틀에 칸을 놓는 방식(`tools/level-fields.mjs` `STAGE_PIECES`, sim.md 「규정 전장을 19×21 틀로」)과 똑같이 프리팹 지형을 잘라 옮긴다(`scene_extract.py` `FRAME_PIECES`): `sub_03`의 6행 이하(보스 판과 그 아래)는 그대로, 7행 이상(적 대기 칸과 그 위)은 7행 위로, `sub_01`의 10열 이하(자기 판·정비 줄과 그 왼쪽 섬)는 7행 위로, `sub_02`의 11열 이상(오른쪽 판과 그 오른쪽 섬, 정비 줄 아래 한 줄 포함)은 8행 위로. 자르는 선을 지나는 삼각형은 잘라서 속성을 보간한다. 그래서 자른 선을 가로지르는 바위·턱이 선에서 끊겨 보인다. 공식 클라는 판마다 그 하위 레벨 하나만 보여 준다(어느 모드에 어느 조각인지는 화면 몫, 아래).
+- **테마**: 사막 `map_autochesssand`(m01–m04·m06), 도시 `map_survivaloasis_city`(m05), 얼음 `map_icewild`(m09·m11, `Torappu/Scene/Standard-Ice`), `map_ltny2`(m10·m12, `StandardBloom`). 얼음·블룸 셰이더도 `official.js`의 Standard 길로 그린다(얼음 반사·블룸 [추정·화면: 공식 화면과 나란히 보지 않음]). 불투명 재질은 알파 1을 쓴다(얼음 텍스처의 알파는 투명도가 아니라 데이터라, 알파가 있는 캔버스인 맵 미리보기에 구멍이 났다).
+- **CN 텍스처는 따로**: CN 클라에서 뽑은 텍스처는 `scene/tex/cn/`에 둔다(`scene_extract.py --cn`, CAB 색인 `.cache/scene-cab-index-cn.json`). 두 클라가 같은 이름의 테마 텍스처를 다르게 싣고 있어서다(압축이 달라 픽셀이 최대 74/255 다르고, `TX_Survivaloasis_E`는 한 영역의 내용이 다름) — 한 쪽 추출이 다른 쪽 씬이 확인받은 텍스처를 바꾸면 안 된다.
+- **새 타일**: 가속 칸(`tile_speedup`, 기호 `u`)·초원(`tile_duel_grassland`, `G`)·임시 정비 칸(`tile_acbag`)·늪(`tile_mire`)·벽(`tile_wall`)의 클라 타일 프리팹에는 렌더러가 없다 — 그림은 레벨 프리팹 지형에 들어 있어 공식 씬과 함께 그려진다. 공식 씬이 없을 때의 절차 판에서는 `u`·`G`를 보통 길(`r`)로 그린다(`style.js TILEKEY_GLYPH`; 모르는 기호의 줄무늬 길 대신). 초원·늪 타일 프리팹의 `_effect`(타일 위 맵 이펙트 `mapeff_079_dikuai_01`·`mapeff_mud_ground_01`)는 이펙트 층이 칸마다 깐다(2026-11-12, 늪은 프리팹을 뽑은 뒤) — fx.md 「규정 전장의 화면·맵 이펙트」.
+- **염괴포 모델**(`trap_196_cnnon`, m10): 시뮬 역할 없이 키로 도는 적 편 장치라 3D 보드가 키로 찾아(`layout.js DEVICE_KEY_KINDS` → `cannon`) 공식 모델(EN `pkgrps/btl_pfb_tokens_2.ab`의 `Graphic/Mesh/trap_196_cnnon`, `scene_extract.py --devices`)을 그 칸에 세운다. 모델은 포신이 아래(−행)를 보는 방향으로 나오고 m10의 넷도 모두 DOWN이다. 포탄·폭발 이펙트는 아직 일반 폭발(sim.md 「대포 「염괴포」」).
+- **증식 갑각 모델**(`trap_156_dsshell`, 2026-11-12): 소핵의 퇴적자가 쓰러진 칸에 전투 중 생기는 장치라 3D 보드의 전투 장치 손잡이(`scene.js _createOfficialDevice`)가 장치 키(`units.js DeviceView`의 `key`)로 공식 모델을 고른다 — EN `pkgrps/btl_pfb_tokens_1.ab`의 `Graphic/Mesh/trap_156_dsshell/group1/Part1~10`(`MultiMeshTileGraphic`, `scene_extract.py --devices`). 다른 전투 장치는 전처럼(`crateTop` 상자만 阻隔工事 모델, 나머지는 절차 상자). **클립**(2026-11-12, 공식 클라에서 확인): 프리팹 `MeshAnimator` `_animations`가 `Born` = 레거시 클립 `Appear`, `Die` = `Break`(둘 다 1.25초, 24fps, `Animation` 컴포넌트는 `Graphic/Mesh/trap_156_dsshell`). `Appear`는 `group1`이 크기 0.001에서 1로 자라며 위에서 떨어져 튀고, `Break`는 조각 10개 중 8개(Part4·Part9 빼고)가 위치·회전·크기 곡선으로 흩어져 떨어진다(일부는 바닥 아래 0.18칸까지). `scene_extract.py`가 두 클립의 에르미트 곡선을 30fps로 뽑아 조각마다 쉬는 자세에서의 보드 공간 변화 행렬(3×4)로 `devices.trap_156_dsshell.clips`에 적고, 움직이는 렌더러는 서 있는 모델(재질마다 메시 하나) 옆에 조각별 그룹(`part`)으로 따로 둔다. 화면은 장치 손잡이가 클립 동안만 조각 메시로 바꿔 그리고(`official.js pose` — 프레임 사이 보간, 서 있을 때는 전과 같은 메시 하나), `DeviceView`가 생길 때 `Born`을 튼다. 쓰러질 때는 공식 `Character.States.DeadState`대로(공식 클라에서 확인): `_useSpecificDeadAnim`이 꺼져 있어 `m_delayToRecycle`은 기본 1초 그대로이고 `Die`를 클립 길이 ÷ 1초 배속(1.25배)으로 그 1초에 맞춰 튼 뒤 거둔다; `_showDeadTweenColor` 1이라 그 1초를 셋으로 나눈 색 트윈 — 기다림, 색 × 1→0(검게), 알파 1→0(`units.js deviceDeath`, 셰이더 `uTint`). 크기는 줄지 않고 일반 장치 부서짐(줄어듦 + `crateBreak` 파편)은 클립이 없는 장치에만. [추정·엔진: 세 토막의 ease — DOTween 기본값 OutQuad로 둠] [화면 미확인 — `checks/arena.md`]
+- **맵 미리보기**: 브리핑 카드의 미리보기는 지금까지처럼 우리 3D 보드로 찍는다(`tools/map-previews.mjs --season act3autochess`, 1024×448). 공식 클라에도 이번 시즌부터 하위 레벨마다 512×512 미리보기(`arts/ui/stage/mappreviews/act3autochess_<전장>_sub_0N`)가 있지만, 카드 모양(넓은 띠, 관리자 결정 2026-10-11)과 달라 쓰지 않았다.
+- **화면 몫** [추정·화면: 공식 화면으로 확인 전]: 혼자 판의 조각 `sub_01`은 적 대기 칸이 자기 판 오른쪽(12–18열)이다. 우리 틀은 지난 시즌처럼 판 위(14–18행, `sub_03`의 적 칸)에 둔다. 혼자 판에서 공식 화면이 적을 어디에 세우고 카메라가 어디를 보는지는 공식 화면으로 정한다(프리팹 `StoreValueComponent`의 `camera_offset`은 세 조각 모두 (5.5, −2.6, −9.78), 초점은 프리팹 루트).
+- 시험: `test/render/board3d-official.test.js` 「clip_rect…」·「규정 (act3autochess) board」·「extracted 规程 scenes」.
 
 ## 배치 낙하 (2026-10-07)
 - 관리자 제보(공식 화면 캡처 프레임 시트·Start 클립 조사, 비공개 조사 기록). 낙하는 코드가 아니라 각 모델의 Spine `Start` 클립이다(143명 중 103명: 몸 높이 0.6–7배 위에서, 착지 중앙값 0.2초, 가속·튐 없음,
@@ -1345,3 +1363,15 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
 
 새 시즌 「규정」의 적 중 지금 `data/assets.json`에 없던 96종(시즌 표 `data/seasons/act3autochess/enemies.json`)을 넣었다. `fetch-assets.mjs`가 시즌마다의 적 표도 읽고(`seasonEnemyIds`), 78종은 다른 적처럼 웹 모델(Ark-Models). 규정 자신의 적 18종(`enemy_9024`–`9040`)은 웹에 없고 EN 클라에도 없어 CN 클라 핫업데이트본의 `refs/arts/enm_art_30.ab`에서 뽑는다(`extract.py ENEMY_SPINES`, 15종) — 로컬 추출물이 없으면 아이콘. 가상적: 기계(`enemy_9029_acfnc_2`)·지느러미 숨은 핵심(`enemy_9037_aceel_2`)은 프리팹의 Spine이 바탕 적의 스켈레톤을 읽어 바탕 적의 로컬 모델을 쓴다(`plan.mjs`). 정체의 고치(`enemy_9036_acweb`)는 프리팹에 Spine이 없다(그림은 묶인 오퍼레이터 위 거미줄 이펙트, fx.md 「규정 보스 고치·지느러미의 이펙트」).
 - 확인: `test/feedback1d-models.test.js`(커밋된 메타데이터·`_2`의 바탕 모델·웹 모델 없음). [화면 미확인: 클립 역할(`anims` — `A_`/`B_` 형태가 있는 적, 공격 클립이 `Idle`로 잡힌 `acfnca`·`achest`)과 크기·위치는 아레나·실제 판에서 안 봄]
+
+## 손 칸 장비 모델 (2026-11-11, 관리자 요청 「장비를 2D 아이콘 대신 모델로, 두 시즌 같이」)
+
+손 칸·임시 칸·관전 판의 장비는 아이콘 판 대신 공식 클라의 장비 모델을 그린다. 공식 클라는 장비를 장치(trap) 캐릭터로 만들고, 그 전투 프리팹(소환물과 같은 `pkgrps/btl_pfb_tokens_*.ab`)은 `Graphic/DefaultSkin` → `FaceSwitcher/Front`의 SkeletonAnimation 하나로 Spine 모델을 그린다(공식 클라에서 확인).
+- 목록은 두 시즌 장비 표의 `trapId` 전부(`extract.py item_spine_ids`, 91개). 지금 시즌 59개는 EN 클라, 규정 32개는 CN 클라 핫업데이트본 `btl_pfb_tokens_6.ab`에만 있어 `--game` 루트에 없는 것은 CN 클라(`SP_CLIENT_CN`)에서 찾는다. 프리팹이 다른 장비의 스켈레톤을 그리는 경우가 많다(빅토리아 해머 `trap_1041_acarm041` → `trap_1024_acarm024`의 것, 같은 묶음 안 사본) — 장치 ID가 아니라 프리팹의 SkeletonDataAsset을 따른다.
+- 마법 아이템 '신비한 고객'(`chess_item_6_01_m`)·두루마리(`_6_02_m`)·교편(`_6_03_m`)은 프리팹에 Spine이 없다(빈 Graphic) → 아이콘 판 그대로.
+- 모델 88개는 모두 클립이 하나(`Default`, 하나는 `animation`)이고 길이 0초다: 프리팹의 SkeletonAnimation도 `Default`를 반복 없이 튼다 → 정지 자세. 그래서 장비마다 살아 있는 스켈레톤을 두지 않고, 모델마다 한 번 공유 렌더 텍스처 칸(`render/item-models.js`, 128 CSS px 칸, 1 타일 = 128 px로 그림)에 그려 같은 모델의 장비는 그 칸의 Sprite로 그린다. WebGL 컨텍스트가 돌아오면 칸을 다시 그린다.
+- 크기는 프리팹의 표준 캐릭터 배율 0.27(`FaceSwitcher` scale) = `UNIT.modelScale`, 소환물과 같은 규칙. 칸보다 큰 모델은 칸에 맞춰 작게 그리고 그만큼 키워 보인다(지금 시즌 56개 중 4개).
+- 재기(`bench/draw` 장면 `items`·`items-live`, Windows Chrome GPU): 장비 40개 — 아이콘 판 3회·0.026–0.046 ms, 스냅숏 1회·0.039–0.046 ms, 장비마다 스켈레톤 3회·0.077 ms; 80개 — 판 5회·0.052 ms, 스냅숏 1회·0.060 ms, 스켈레톤 5회·0.133 ms.
+- 높이·움직임: 모델은 칸 바닥에 서고(프리팹의 그림이 바닥 높이 0) 위아래로 흔들리지 않는다 — 공식 CN 정비 화면 캡처에서 손 칸 장비가 바닥에 섬, 정지는 관리자 확인 2026-11-11.
+- 끌 때(2026-11-11, 공식 CN 정비 화면 캡처 둘): 원래 장비는 제자리에 남아 청록 윤곽선(`COLORS.heldOutline` = 102,240,212, 캡처 ≈ 100,225,200)이 둘리고, 윤곽선 없는 사본이 포인터를 따라간다 — 포인터 끝이 사본 모델 상자의 오른쪽 아래(오른쪽 끝·바닥)에 오고, 사본 밑 바닥 점에 그림자, 사본은 다른 유닛 위에 그린다(`ItemView.holdAt`·`endHold`, `render/app.js moveDragVisual`). 놓을 칸에 놓으면 장비가 사본 자리에서 그 칸으로 날아가고, 아니면 사본만 사라진다. 윤곽선은 모델마다 처음 끌 때 한 번 그리는 작은 텍스처(`item-models.js outline`: 스냅숏을 원 둘레 12곳에 2 px 밀어 그린 뒤 색을 SRC_IN으로 채움 — 필터·매 프레임 다시 그리기 없음). 아이콘 판(마법 아이템 셋)은 윤곽선 없이 사본만. 장비를 끄는 동안 필드는 오퍼레이터가 선 칸만 초록이고 손 칸 줄은 청록 — 원래 그렇게 그리고 있었다(실제 판 화면에서 확인). 공식 끌기 설정 `AutoChessDragState._touchOffset` (0, 0.03)·`_overlapOffset` (0, 0, −0.45)가 있지만 어디에 쓰이는지는 확인하지 않았다 — 사본 자리는 캡처에 맞춤 [추정·화면: 캡처 두 장의 포인터 자리로 맞춤, 공식 클라에서 사본을 놓는 곳은 미확인].
+- 확인: `test/item-models.test.js`(두 시즌 장비 전부 모델 또는 마법 아이템 셋, 0초 클립, 공유 스켈레톤, `itemSpines` = 커밋된 메타데이터, 스냅숏 칸 공유·가득 찬 칸 넘겨주기·컨텍스트 복구, `ItemView` 모델·판, EN 다음 CN 찾기). 렌더 데모(손·임시 칸에 15개씩)에서 지금 시즌 56개·규정 27개(황금 아닌 것)가 모두 모델로 그려짐을 봄. 끌기는 `test/item-models.test.js`(윤곽선 텍스처, 제자리·사본·포인터 오른쪽 아래), `test/render/unitview.test.js`(아이콘 판)와 Windows Chrome 실제 판(1920×1080, 규정·맹약: 손 칸에 윤곽선, 사본이 포인터 왼쪽 위, 오퍼레이터 위에서 장착 칸 팝업).

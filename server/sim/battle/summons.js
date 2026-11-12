@@ -77,10 +77,11 @@ export class BattleSummons {
   }
 
   /**
-   * Spawn a stage device (e.g. crates). opts: { hp, obstacle, obstacleKind, blockCnt, name, def, res, atk, bat, aspd }.
+   * Spawn a stage device (e.g. crates). opts: { hp, obstacle, obstacleKind, blockCnt, blockRadiusSq, name, def, res, atk, bat, aspd }.
    * An `obstacle` device is an obstacle-like tile by default (`obstacleKind` 'crate': enemies route around it at cost
    * 1000 and, when it is the only way, walk into it, get blocked by it and break it — research 08 §3.1); 'block' makes
-   * the tile impassable.
+   * the tile impassable. `blockRadiusSq`: the device's own squared block radius (its prefab's `_blockRadiusSquare`), else
+   * the devices' BLOCK_RADIUS_SQ.device.
    */
   spawnDevice(key, row, col, opts = {}) {
     // Devices are ally-side units on a field tile: never outside the rect, never on top of a living unit or of a
@@ -103,6 +104,7 @@ export class BattleSummons {
     u.skill = new SkillRuntime(this, u, null, null, {});
     u.obstacle = !!opts.obstacle;
     u.obstacleKind = opts.obstacleKind === 'block' ? 'block' : 'crate';
+    if (opts.blockRadiusSq > 0) u.blockRadiusSq = opts.blockRadiusSq;
     u.alive = true;
     u.deployed = true;
     u.ground = true;

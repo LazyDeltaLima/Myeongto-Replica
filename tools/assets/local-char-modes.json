@@ -2419,13 +2419,11 @@
    ],
    [
     "jesca2_skill_03_start_01",
-    "jesca2_skill_03_start_01_02",
-    "jesca2_skill_03_start_02"
+    "jesca2_skill_03_start_01_02"
    ],
    [
     "jesca2_skill_03_start_01",
-    "jesca2_skill_03_start_01_02",
-    "jesca2_skill_03_start_02"
+    "jesca2_skill_03_start_01_02"
    ]
   ],
   "hit": [
@@ -2587,6 +2585,37 @@
   "castTgt": [
    "jesca2_attack_start_01_02",
    "jesca2_skill_01_start_01_02"
+  ],
+  "talentAtk": [
+   null,
+   null,
+   null,
+   {
+    "ExtraBomb": {
+     "cast": [
+      "jesca2_skill_03_start_02"
+     ],
+     "trail": [
+      "jesca2_skill_03_trail_02"
+     ],
+     "hit": [
+      "jesca2_skill_03_hit_02"
+     ]
+    }
+   },
+   {
+    "ExtraBomb": {
+     "cast": [
+      "jesca2_skill_03_start_02"
+     ],
+     "trail": [
+      "jesca2_skill_03_trail_02"
+     ],
+     "hit": [
+      "jesca2_skill_03_hit_02"
+     ]
+    }
+   }
   ],
   "start": "jesca2_birth_01",
   "dirs": [
@@ -4558,13 +4587,28 @@
      "phatm2_skill_01_start_01"
     ],
     "buff": [],
-    "target": [
-     "phatm2_skill_01_hit_aim_01",
-     "phatm2_skill_01_hit_02_aim_01"
-    ],
+    "target": [],
     "targetBuff": [
      "phatm2_skill_01_debuff_01"
     ],
+    "castTgt": [
+     "phatm2_skill_01_hit_aim_01",
+     "phatm2_skill_01_hit_02_aim_01"
+    ],
+    "castTgtOpt": {
+     "phatm2_skill_01_hit_aim_01": {
+      "s": 2,
+      "e": 3,
+      "o": 1,
+      "t": 2
+     },
+     "phatm2_skill_01_hit_02_aim_01": {
+      "s": 2,
+      "e": 3,
+      "o": 1,
+      "t": 2
+     }
+    },
     "hitGroups": {
      "g": [
       [
@@ -22159,6 +22203,205 @@
    }
   ]
  },
+ "char_4217_makoto": {
+  "modes": [
+   "Default",
+   "Stand_S1",
+   "Stand_S2",
+   "Stand_S3_1",
+   "Stand_S3_2",
+   "Switch2Normal"
+  ],
+  "proj": [
+   [],
+   [
+    "projectile_chr_makoto_s1"
+   ],
+   [],
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [],
+   [
+    "makoto_skill_01_start_01",
+    "makoto_skill_01_start_02"
+   ],
+   [
+    "makoto_skill_02_start_01"
+   ],
+   [],
+   [],
+   []
+  ],
+  "hit": [
+   [],
+   [
+    "makoto_skill_01_heal_01",
+    "makoto_skill_01_hit_01"
+   ],
+   [],
+   [],
+   [],
+   []
+  ],
+  "trail": [
+   [],
+   [
+    "makoto_skill_01_trail_01"
+   ],
+   [],
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [
+    "makoto_skill_01_buff_01"
+   ],
+   [
+    "makoto_skill_02_buff_01",
+    "makoto_skill_02_range_01",
+    "makoto_skill_02_range_02",
+    "makoto_skill_02_range_02_start"
+   ],
+   [
+    "makoto_skill_03_p1_buff_01_L",
+    "makoto_skill_03_p1_range_01",
+    "makoto_skill_03_p1_range_01_start"
+   ],
+   [
+    "makoto_skill_03_p2_buff_01",
+    "makoto_skill_03_p2_range_01",
+    "makoto_skill_03_p2_range_02_start",
+    "makoto_skill_03_p2_range_02"
+   ],
+   []
+  ],
+  "castOpt": [
+   {
+    "makoto_attack_a_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "makoto_attack_b_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "makoto_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "makoto_skill_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "makoto_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "makoto_skill_03_p1_start_A_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "makoto_skill_03_p1_start_B_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {},
+   {}
+  ],
+  "clipFx": [
+   {
+    "src": "Attack_A",
+    "loop": 0,
+    "groups": [
+     {
+      "anim": "Attack_A",
+      "cast": [
+       "makoto_attack_a_start_01"
+      ],
+      "hit": [
+       "makoto_attack_a_hit_01"
+      ]
+     },
+     {
+      "anim": "Attack_B",
+      "cast": [
+       "makoto_attack_b_start_01"
+      ],
+      "hit": [
+       "makoto_attack_b_hit_01"
+      ]
+     }
+    ]
+   },
+   null,
+   null,
+   {
+    "src": "Doll_Skill_3_P1_Attack_A",
+    "loop": 0,
+    "groups": [
+     {
+      "anim": "Doll_Skill_3_P1_Attack_A",
+      "cast": [
+       "makoto_skill_03_p1_start_A_01"
+      ],
+      "hit": []
+     },
+     {
+      "anim": "Doll_Skill_3_P1_Attack_B",
+      "cast": [
+       "makoto_skill_03_p1_start_B_01"
+      ],
+      "hit": []
+     }
+    ]
+   },
+   null,
+   null
+  ],
+  "start": "common_char_birth_01_delay_02",
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_4221_ju": {
   "modes": [
    "Default",
@@ -22627,7 +22870,7 @@
     "veen_attack_rank_01_hit_01"
    ],
    [
-    "veen_attack_rank_02_hit_01"
+    "veen_attack_rank_01_hit_01"
    ],
    [
     "veen_skill_03_hit_01"
@@ -22682,6 +22925,48 @@
      "o": 0
     }
    }
+  ],
+  "talentAtk": [
+   {
+    "AttackWithMergeBall": {
+     "cast": [
+      "veen_attack_start_01"
+     ],
+     "trail": [
+      "veen_trail_01"
+     ],
+     "hit": [
+      "veen_attack_rank_02_hit_01"
+     ]
+    }
+   },
+   {
+    "AttackWithMergeBall": {
+     "cast": [
+      "veen_skill_01_start_01"
+     ],
+     "trail": [
+      "veen_trail_01"
+     ],
+     "hit": [
+      "veen_attack_rank_02_hit_01"
+     ]
+    }
+   },
+   {
+    "AttackWithMergeBall": {
+     "cast": [
+      "veen_skill_02_start_01"
+     ],
+     "trail": [
+      "veen_trail_01"
+     ],
+     "hit": [
+      "veen_attack_rank_02_hit_01"
+     ]
+    }
+   },
+   null
   ],
   "shotFrom": [
    10,

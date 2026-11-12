@@ -29,12 +29,17 @@
 // dimmed until owned (not bought, or not in the shop yet), left out when all its bonds are off this match (m.private.diyBanned), as banned members are — and opens the operator's card; a watched
 // teammate's 自选 pieces on the field are rows too (their picks are not sent), opening THEIR operator's card (the unit's
 // pick goes with onMember: never the empty 甄选干员 slot's card).
+// 规程: a strategy that switches a bond's direction for its holder (m.private.bandSkill.bondSwaps, the server's word —
+// server/match/match/bandSkill.js _bandBondSwaps) makes the popup show that direction's effect (its effects.json name
+// and text) under a line naming the strategy (maintainer decision 2026-11-12).
 
 import { html, BondDisc, Icon, MicroLabel, Tooltip } from './components.js';
 import { RichText, UnitThumb, BondGlyph, GIcon } from './gameComponents.js';
 import { sortBonds, bondMembers, nextThreshold, bondRequireCount, bondTier, harmonyMembers, HARMONY_BOND, memberHeadCount, memberLit, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
 import { formatBondEffect } from './richText.js';
-import { bondIconUrl } from './assetUrls.js';
+import { bondIconUrl, uiUrl } from './assetUrls.js';
+import { store } from '../store.js';
+import { seasonFeature } from '../../../shared/seasons.js';
 import { data } from '../data.js';
 import { bondBoardStyle, bondBoardOf } from './hudArt.js'; // local patch
 import { t, tc, tParts, tName } from '../../../shared/i18n.js';
@@ -88,6 +93,19 @@ function stripWheel(e) {
   e.preventDefault();
 }
 
+const ROMAN = ['', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'];
+
+/**
+ * A bond's phase on the strip (规程, seasonFeature 'bondPhase'): the thresholds its count reached (`tier`), shown on an
+ * active bond with two thresholds or more — a bond with one shows none (an official CN screen, 独行: maintainer
+ * 2026-11-12); 0 = no mark.
+ * @param {{ active?: boolean, tier?: number }} b @param {number[]} th
+ */
+export function bondPhaseOf(b, th) {
+  const n = Math.trunc(Number(b?.tier) || 0);
+  return b?.active && Array.isArray(th) && th.length >= 2 && n >= 1 ? Math.min(n, th.length, 3) : 0;
+}
+
 /** The "👁 name" tag of a teammate's strip (DESIGN §20.15). */
 function OwnerTag({ owner }) {
   return html`<span class="bstrip__owner" title=${t('正在查看 {owner} 的盟约', { owner })} data-owner=${owner}>
@@ -100,6 +118,8 @@ function OwnerTag({ owner }) {
  *   owner?: string|null }} props — owner: the watched teammate's name (null = your own bonds)
  */
 export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null, max = 14, owner = null }) {
+  // (a plain read, not a hook: the room's season never changes in a match, and tests call these views as functions)
+  const phase = seasonFeature(store.get().room?.season, 'bondPhase');
   const sorted = sortBonds(bonds, (id) => data.lookup('bonds', id));
   if (!sorted.length) {
     return html`<div class=${cx('bstrip', 'bstrip--empty', owner && 'is-other')} data-owner=${owner || null}>
@@ -130,18 +150,42 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       const next = nextThreshold(b.count ?? 0, th);
       const need = bondRequireCount(rec, th); // the client's m: the bond's one activeCount (gameLogic bondRequireCount)
       const board = bondBoardOf(th, b.count ?? 0, !!b.active); // local patch: the official disc board (hudArt.js)
+      // 临时层数 in the shown count (the battle's live layers: ui/watchBonds.js withLiveLayers `tempLayers`): the official
+      // HUD draws the whole count in yellow (CN capture 2026-11-11; docs/rules/ui.md 「임시 중첩 표시」)
+      const temp = b.tempLayers > 0 && !rec?.noStack ? b.tempLayers : 0;
+      const phaseN = phase ? bondPhaseOf(b, th) : 0;
+      const phaseArt = phaseN ? uiUrl(m, `bondPhaseIcon/bond_level_${phaseN}`) : null;
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null} style=${board.style} data-full=${board.full ? '1' : null}
-          class=${cx('bslot', b.active && 'is-active', openId === b.bondId && 'is-open')}>
+          data-temp=${temp || null} data-phase=${phaseN || null} class=${cx('bslot', b.active && 'is-active', temp && 'has-temp', openId === b.bondId && 'is-open')}>
+        ${phaseN ? html`<i class=${cx('bslot__phase', phaseArt && 'has-sprite')} style=${phaseArt ? `--phase:url("${phaseArt}")` : undefined}
+          title=${t('阶段 {n}', { n: ROMAN[phaseN] })} aria-hidden="true">${phaseArt ? null : ROMAN[phaseN]}</i>` : null}
         <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : b.layers ?? 0}
           tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
-          title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${need ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
+          title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${need ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}${temp ? ` · ${t('临时层数')} +${temp}` : ''}`} />
         <span class=${cx('bslot__count', 'num', next == null && 'is-max')}>${b.count ?? 0}<small>/${need ?? '-'}</small></span>
       </div>`;
     })}
     ${sorted.length > shown.length ? html`<span class="bstrip__more num">+${sorted.length - shown.length}</span>` : null}
   </div>`;
   return layersDisabled ? html`<${Tooltip} text=${t('层数叠加已禁用')} placement="bottom">${strip}<//>` : strip;
+}
+
+/**
+ * The bond record with another direction's effect (规程's direction switch): the effect's id, name and text; the
+ * placeholders keep the bond's base / per-stack names by index (formatBondEffect).
+ * @param {any} b bonds.json record
+ * @param {string} effectId
+ * @param {any} eff effects.json record
+ */
+export function swappedBond(b, effectId, eff) {
+  const src = eff.descRaw || eff.desc || '';
+  const byIndex = new Map((Array.isArray(b.effectDescParams) ? b.effectDescParams : []).map((p) => [p.index, p]));
+  const params = [...String(src).matchAll(/\{(\d+)(?::([^{}]+))?\}/g)].map((m) => {
+    const i = Number(m[1]);
+    return { index: i, format: m[2] || null, base: byIndex.get(i)?.base ?? null, perStack: byIndex.get(i)?.perStack ?? null };
+  });
+  return { ...b, effectId, effectName: eff.name ?? b.effectName, effectDesc: eff.desc ?? b.effectDesc, effectDescRaw: eff.descRaw ?? b.effectDescRaw, effectDescParams: params, swappedFrom: b.effectId };
 }
 
 /**
@@ -159,13 +203,24 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
  *   `entry.harmony` (the server's bond views: the +1 调和 added to `count`): 在场 n（含调和 +1） and the 调和 row
  */
 export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember, place = null, over = false, beside = null, owner = null, off = false }) {
-  const b = data.lookup('bonds', bondId);
-  if (!b) return null;
+  const base = data.lookup('bonds', bondId);
+  if (!base) return null;
+  const swapTo = priv?.bandSkill?.bondSwaps?.[bondId] || null;
+  const swapEff = swapTo ? data.lookup('effects', swapTo) : null;
+  const b = swapEff ? swappedBond(base, swapTo, swapEff) : base;
+  const swapBand = swapEff ? data.lookup('bands', priv.bandId)?.name || '' : null;
   const count = entry?.count ?? 0;
   const layers = entry?.layers ?? 0;
+  // the 临时层数 part of `layers` (a battle's live count, ui/watchBonds.js withLiveLayers): the official dialog shows the
+  // fixed layers after 层数 and + the temporary ones in yellow under it (CN capture 2026-11-11); the effect text keeps
+  // the whole count, as the client's
+  const temp = Math.min(layers, Math.max(0, Math.floor(Number(entry?.tempLayers) || 0)));
+  const tempTag = () => (temp ? html`<small class="bpop__temp num" title=${t('临时层数')}>+ ${temp}</small>` : null); // (a fresh vnode per use)
   const th = Array.isArray(entry?.thresholds) && entry.thresholds.length ? entry.thresholds : b.thresholds || [];
   const tier = off ? 0 : entry?.tier ?? bondTier(count, th, b.maxCount);
   const active = !off && (entry ? !!entry.active : tier > 0);
+  // 规程: 阶段 Ⅱ beside the count pill (autochess_hud_bond_detail_dialog bond_phase/phase_text), as on the strip
+  const phaseN = seasonFeature(store.get().room?.season, 'bondPhase') ? bondPhaseOf({ active, tier }, th) : 0;
   // (自选 pieces are their operators: the own ones by m.private.diy, a watched teammate's by the pick its unit carries;
   // their rows wear no 「自选」 badge — maintainer decision 2026-10-08, docs/LOCAL-PATCH.md 「0.2.0 병합」)
   const dd = { chess: data.get('chess'), backups: data.get('backups') };
@@ -198,11 +253,11 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
         <${MicroLabel} tone="mint">${b.isCore ? t('CORE BOND // 核心盟约') : t('ADD-ON BOND // 附加盟约')}</${MicroLabel}>
         ${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" />${tParts('{owner} 的盟约', { owner: html`<b>${owner}</b>` })}</span>` : null}
         <h3 class="bpop__name">${b.name}</h3>
-        ${th.length && !off ? html`<span class=${cx('bpop__need', active && 'is-active')}><i class="bpop__needicon"></i><b class="num"><span class="bpop__needn">${count}</span><span class="bpop__needm">/${need ?? '-'}</span></b>${active ? html`<i class="bpop__needok"></i>` : html`<em>${t('尚未激活')}</em>`}</span>` : null}
-        ${b.noStack ? null : html`<span class="bpop__stack">${t('层数')} <b class="num">${layers}</b></span>`}${/* local patch: the client's count pill and 层数 (autochess_hud_bond_detail_dialog; css/hud-art.css) */ ''}
+        ${th.length && !off ? html`<span class=${cx('bpop__need', active && 'is-active')}><i class="bpop__needicon"></i><b class="num"><span class="bpop__needn">${count}</span><span class="bpop__needm">/${need ?? '-'}</span></b>${active ? html`<i class="bpop__needok"></i>` : html`<em>${t('尚未激活')}</em>`}${phaseN ? html`<span class="bpop__phase" data-phase=${phaseN}>${t('阶段 {n}', { n: ROMAN[phaseN] })}</span>` : null}</span>` : null}
+        ${b.noStack ? null : html`<span class="bpop__stack">${t('层数')} <b class="num">${layers - temp}</b>${tempTag()}</span>`}${/* local patch: the client's count pill and 层数 (autochess_hud_bond_detail_dialog; css/hud-art.css) */ ''}
         <div class="bpop__facts">
           ${off ? null : html`<span>${t('在场')} <b class="num">${count}</b>${need != null ? html`<small class="num">/${need}</small>` : null}${countsHand ? html`<small>${t('（含整备区）')}</small>` : null}${harmony ? html`<small class="bpop__hnote" data-harmony=${harmony}>${t('（含{harmonyName} +{harmony}）', { harmonyName, harmony })}</small>` : null}</span>`}
-          ${b.noStack ? html`<span>${t('层数不显示')}</span>` : html`<span>${t('层数')} <b class="num t-mint">${layers}</b></span>`}
+          ${b.noStack ? html`<span>${t('层数不显示')}</span>` : html`<span>${t('层数')} <b class="num t-mint">${layers - temp}</b>${tempTag()}</span>`}
           <span class=${active ? 't-mint' : 't-lo'}>${active ? (th.length > 1 ? t('已激活 · {tier} 阶', { tier }) : t('已激活')) : off ? t('本局禁用') : t('未激活')}</span>
         </div>
       </div>
@@ -212,6 +267,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
       ${th.map((n, i) => html`<span key=${i} class=${cx('bpop__tier', i < tier && 'is-on')}><b class="num">${n}</b><small>${b.maxCount != null ? t('名及以下') : tc('bond-threshold', '名')}</small></span>`)}
     </div>
     ${hasNow ? html`<section class=${cx('bpop__sec', 'bpop__sec--now', active && 'is-active')}>
+      ${swapBand != null ? html`<p class="bpop__swap" role="note">⇄ ${t('策略「{band}」：此盟约改为另一方向的效果', { band: swapBand })}</p>` : null}
       <h4>${t('当前效果')} ${b.noStack ? null : html`<small class="num">${t('（{layers} 层）', { layers })}</small>`}</h4>
       <${RichText} as="p" text=${formatBondEffect(b, layers)} class="bpop__desc" />
     </section>` : null}

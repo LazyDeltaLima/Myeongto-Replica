@@ -89,11 +89,16 @@ const KNOWN = {
   'KEY_FX item:cauldron|*': ['untabled', 'as item:dualArm — 天师古鼎\'s act1autochess_acarm077_buff [attr]'],
   'KEY_FX item:yanDagger|*': ['untabled', 'as item:dualArm — 炎国短刀\'s act1vautochess_acarm024_buff (this season\'s eff_acarm040, 묶음 U)'],
   'KEY_FX item:accel|*': ['untabled', 'as item:dualArm — 有限加速器\'s act1vautochess_acarm037_buff (this season\'s eff_acarm052, 묶음 U)'],
+  'KEY_FX item:turboGlove|*': ['untabled', 'as item:dualArm — 规程\'s 灵巧涡轮手套: the CN template act3autochess_equip_acarm132_global_buff[atk_speed] (test/render/season-equip-fx checks it)'],
+  'KEY_FX item:kineticMax|*': ['untabled', 'as item:turboGlove — 动能加速器\'s act3autochess_equip_acarm149_global_buff'],
+  'KEY_FX item:reaperScythe|*': ['untabled', 'as item:turboGlove — 汲取者之镰\'s act3autochess_equip_acarm154_global_buff'],
   'KEY_FX ab:exposed|*': ['untabled', 'weak[limit] is a BuffDB buff (loadFromDB): its overrideEffectKey buff_weak[limit] is in the client buff table (gamedata buff_table), not a template row'],
   'HINT_FX weak[limit]|*': ['untabled', 'as KEY_FX ab:exposed'],
   'STACK_FX palsy|*': ['untabled', 'as KEY_FX ab:exposed — palsy[stack] (overrideEffectKey common_061_numb_01, its prefab switching to _02 / _03 by the stacks)'],
+  'KEY_FX ab:dsfullSpeed|*': ['untabled', '蕴核饲育者\'s dsfull_tr_1[derived][n] (an enemy buff template, ON_OWNER_KILLED) gives the child it summons dsfull_tr_1[speed_up] (enemy_dsfull_buff_03): the binding table holds the charpacks\' rows only'],
   'KEY_FX ab:aweAura|*': ['untabled', '扎罗\'s FearAura AuraAbility `_effects` (its prefab, enemy-modes.json `auraNested`): the binding table holds the charpacks\' rows only'],
   'KIT_OFFICIAL burst.wisdel|*': ['untabled', '위셔델\'s shade strikes through its skill prefab sktok_wisdel_wward and projectile_chr_wisdel_token: the binding table holds no row of a token\'s skill prefab'],
+  'KIT_OFFICIAL obelisk.beewax|*': ['untabled', '비즈왁스\'s 沙之碑 casting its skill sktok_beewax (`_castEffects` token_beewax_skill_02_range): the binding table holds no row of a token\'s skill prefab'],
   'KIT_OFFICIAL refresh.mlyss|token_10030_mlyss_wtrman_split_start_01': ['missing', '뮤엘시스\'s casting 流形: sktok_mlyss_wtrman_3/SpawnTokenS3 `_castEffects` — the binding table holds no row of a token\'s skill prefab (its other cite, the refill, has rows)'],
   'DEPLOY_FX DEPLOY_FX|*': ['untabled', 'the client\'s default effects (DefaultEffects), not a binding row'],
   'fxgame screen_desert_up_to_down|screen_desert_up_to_down': ['missing', 'sand_storm[camera_effect] creates screen_desert_*_empty (SwitchDirection branches), a wrapper whose `_effects` is this looping prefab (not extracted itself): the hand plays the inner one'],
@@ -122,6 +127,15 @@ const KNOWN = {
 
 /** The template rows whose prefab nothing in render/ plays: 'key|prefab' → reason (test/helpers/fxBindings.js unplayed). */
 const UNPLAYED = {
+  // 结城理 (自选), 2026-11-12: the persona switch, S2's execute, S3's 弱点 hit / heal and the 总攻击 — kit events not wired to their rows yet (bundle fx-V)
+  'makoto_change_01_effect|makoto_change_01': 'unconditional',
+  'makoto_switchend2normal_talent_2_effect|makoto_change_01': 'unconditional',
+  'makoto_s2_fear_aura_inst_kill|makoto_skill_02_hit_01_finish': 'condOther',
+  'makoto_s3_1_standin|makoto_skill_03_p1_hit_02': 'condOther',
+  'makoto_s3_1_attack_weak_effect|makoto_skill_03_p1_weak_01': 'unconditional',
+  'makoto_s3_2_be_healed|makoto_skill_03_p2_heal_01': 'unconditional',
+  'makoto_switchend2normal_talent_2_effect|makoto_talent_chance_01': 'unconditional',
+  'makoto_allout_attack_effect|makoto_talent_finish_01': 'condOther',
   // 国度 (自选), 赫德雷 and 机械师 (规程 pieces), 2026-11-08: kit events not wired to their template rows yet (bundle fx-V)
   // 奥尔佳 and 阿米娅's 医疗 form (规程 pieces), 2026-11-08: S2's debuff on her target, the trait heal's hit — kit events not wired yet (bundle fx-V)
   // 铸铁 (a 规程 piece), 2026-11-10: 佣兵之韧's ASPD buff once her kill count is done — the kit's buff not wired to its row yet (bundle fx-V)

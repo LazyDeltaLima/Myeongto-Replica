@@ -2,6 +2,8 @@
 // KITS (split from content/enemies.js).
 
 import { periodicDamage } from '../../damage.js';
+import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
+import { hypot } from '../../detmath.js';
 import {
   stOf, T, elem, hurt, targetsNear, areaAllies, areaAlliesInTiles, targetAndArea, byPriority, setForm, onTerrain, canCast, mode,
 } from './helpers.js';
@@ -9,6 +11,9 @@ import { taunt, ep, deathSpawn, deathBoom, setFloat, float, skill, kitEp, kitStu
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
+
+/** 赘生甲壳 (content/enemies/reborn.js SHELL: 微核沉积者 leaves it, 复核洋流使者 eats it). */
+const SHELL_KEY = 'trap_156_dsshell';
 
 /** 假想敌：淤困: element damage its host's burst spreads to the allies of the 4 tiles around (PRTS 假想敌：淤困 "附着对象元素爆发时
  *  …对附着对象及周围4格内的所有我方单位…造成1000同类型元素损伤"; the host itself is in its 爆发冷却). */
@@ -259,21 +264,46 @@ function kitFlameVine(ab) {
   }];
 }
 
+/**
+ * 元核孽生者 / 异光体孽生者 (prefab enm_pfb_17, 공식 클라에서 확인). dslntf_tr_1: the first damage taken — or a block by a
+ * 赘生甲壳 (`ON_OWNER_BLOCKEE_CHANGED`, the blocker holding `trap_156_dsshell[core]`) — puts it in the 临战 state: move
+ * speed × `0.move_speed`, mode `1` (its first mode's Combat is an EmptyActiveAbility: blocked by an operator, it does
+ * not attack until hurt) and the PlayAudio `Awake`. Mode `1` carries two auras: talent `1`'s neural pulse and talent
+ * `3`'s dslntf_s_1[block] — on each ally-side unit within `3.range_radius` (its collider met), every category and
+ * profession; on a 赘生甲壳 (`[core]`) it takes `3.hp_ratio` of its own max HP as 真实 damage (DamageViaMaxHpRatio reads
+ * `hp_ratio`, `_multiplyByKey` off), effect enemy_dslntf_buff_02 on itself, and the shell dies at once.
+ */
 function kitNucleus(ab) {
+  const st = { on: false };   // the 临战 state (one kit per enemy)
+  const wake = (b, e) => {
+    if (st.on) return;
+    st.on = true;
+    // dslntf_tr_1[aura_effect] comes with it (overrideEffectKey enemy_dslntf_buff_03 on it: the buff's `fxTag`)
+    b.addBuff(e, { key: 'ab:combat', persist: true, visible: true, mods: { moveMul: T(ab, '0.move_speed') ?? 1 }, fxTag: 'buff:dslntf_tr_1[aura_effect]' });
+    mode(b, e, '1');
+    setForm(b, e, '1');   // the view's mode-1 clips (fx 'phase': Skill_Idle / Skill_Move / Skill_Attack)
+    // dslntf_tr_1's PlayAudio `Awake` as it switches to mode 1 (sound only)
+    b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'dslntf:awake' });
+  };
+  const breakR = (T(ab, '3.range_radius') ?? 0) + ALLY_COLLIDER_RADIUS, ratio = T(ab, '3.hp_ratio') ?? 0;
   return [{
-    taken(c, b, e, a) {
-      if (a.on) return;
-      a.on = true;
-      b.addBuff(e, { key: 'ab:combat', persist: true, visible: true, mods: { moveMul: T(ab, '0.move_speed') ?? 1 } });
-      // dslntf_tr_1 SwitchMode 1: the mode whose Combat is its only attack (its first mode has none — blocked by an
-      // operator it does not attack until hurt; the other switch, blocked by a 深海 shell device, has no device here)
-      mode(b, e, '1');
-      // dslntf_tr_1's PlayAudio `Awake` as it switches to mode 1 (sound only)
-      b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'dslntf:awake' });
-    },
+    taken(_c, b, e) { wake(b, e); },
+    blocked(c, b, e) { if (c.blocker && c.blocker.defId === SHELL_KEY) wake(b, e); },
     iv: T(ab, '1.interval') ?? 1,
     // 【孽生者的神经毒素】 "（无视迷彩，同名效果不叠加…）": an area selection (no unblocking 隐匿 ally)
-    tick(b, e, a) { if (!a.on) return; for (const u of areaAllies(b, e, e.x, e.y, T(ab, '1.range_radius') ?? 0)) elem(b, e, u, 'neural', e.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0)); },
+    tick(b, e) { if (!st.on) return; for (const u of areaAllies(b, e, e.x, e.y, T(ab, '1.range_radius') ?? 0)) elem(b, e, u, 'neural', e.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0)); },
+  }, {
+    // talent 3 (mode 1 only): every 赘生甲壳 it touches breaks, at a fifth of its HP each
+    tick(b, e) {
+      if (!st.on) return;
+      for (const u of b.allyUnits) {   // (devices: not in b.allies())
+        if (!u.alive || u.defId !== SHELL_KEY || hypot(u.x - e.x, u.y - e.y) > breakR + 1e-9) continue;
+        hurt(b, e, e, e.s.maxHp * ratio, 'true');
+        b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'dslntf:break' });
+        b.kill(u, e);
+        if (!e.alive) return;
+      }
+    },
   }];
 }
 

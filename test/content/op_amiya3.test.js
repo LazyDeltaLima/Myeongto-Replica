@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACT3, field, done, cast, fill, realMatch } from '../helpers/seasonPieces.js';
+import { ACT3, field, done, cast, begun, fill, realMatch } from '../helpers/seasonPieces.js';
 import { kitKeyOfChar } from '../../server/sim/content/kits/index.js';
 import { chessBody } from '../../shared/standIn.js';
 import { S2_TARGETS } from '../../server/sim/content/kits/ops/op-amiya3.js';
@@ -66,6 +66,7 @@ test('S1 哀恸共情: ASPD +attack_speed; each attack heals every other ally on
     const aspd0 = u.s.aspd;
     cast(u);
     h.step();
+    begun(h, u);   // (the skill starts after its begin clip: skills.js _beginCast)
     assert.equal(u.s.aspd - aspd0, bb.attack_speed, `${id}: ASPD`);
     const near = h.unit(2), out = h.unit(3);
     for (const a of [near, out, u]) a.hp = a.s.maxHp * 0.3;

@@ -296,15 +296,52 @@ function modsWithoutBounty(mods) {
   return copy;
 }
 
-/** Spawn `n` enemies at the parent's position that continue its route. Returns the spawned units. */
+/**
+ * The tile a summon node spawns on (LitePhysicsUtil.FindNearestPassableTile): the nearest tile to (x, y) that `walk`
+ * (the node's `_passableMask` WALK_ONLY) lets a ground unit through — any tile with NONE —, the first in row order on a
+ * tie (a strict less-than); null when there is none. (Its `_trySummonOutsideWhenInObstacle` weight is not modelled: no
+ * 规程 summoner stands on an obstacle.)
+ */
+function summonTile(b, x, y, walk) {
+  const g = b.grid, R = g.rect;
+  let best = null, bd = Infinity;
+  for (let r = R.r0; r <= R.r1; r++) {
+    for (let c = R.c0; c <= R.c1; c++) {
+      if (walk && !g.groundPassable(r, c)) continue;
+      const d = (c - x) * (c - x) + (r - y) * (r - y);
+      if (d < bd - 1e-12) { bd = d; best = [r, c]; }
+    }
+  }
+  return best;
+}
+
+/**
+ * Spawn `n` enemies at the parent's position that continue its route. Returns the spawned units.
+ * `opts.spot` { bound, walk }: the official summon nodes' spot (SummonEnemiesFollowMyRoute / …WithBuff with `_useMapPosition`
+ * off, Scheduler.SpawnSummonedEnemyTrackedInGameMode): the centre of summonTile(the source spot), then — `_ignoreOffset`
+ * off — each one at that centre + (Range(−bound, bound), Range(−bound, bound)) (x drawn first; `bound` = the blackboard
+ * `offset_bound` over the node's `_randomOffsetBound`), kept only where its route can reach (Route.CheckReachable: a tile
+ * a ground unit walks), else the centre. Without it: the source spot, several 0.2 apart.
+ */
 export function spawnChildren(b, parent, key, n, opts = {}) {
   const out = [];
   const route = opts.route ?? remainingRoute(parent);
   const cnt = Math.max(0, Math.min(20, Math.floor(n)));
   const mods = modsWithoutBounty(opts.mods ?? parent.mods ?? null);
+  const sp = opts.spot ? (opts.pos ?? [parent.y, parent.x]) : null;
+  const tile = sp ? summonTile(b, sp[1], sp[0], opts.spot.walk !== false) : null;
+  const bound = opts.spot ? Math.max(0, Number(opts.spot.bound) || 0) : 0;
   for (let i = 0; i < cnt; i++) {
     const off = cnt > 1 ? (i - (cnt - 1) / 2) * 0.2 : 0;
-    const pos = opts.pos ?? [parent.y, parent.x + off];
+    let pos = opts.pos ?? [parent.y, parent.x + off];
+    if (sp) {
+      pos = tile ? [tile[0], tile[1]] : sp;
+      if (bound > 0) {
+        const dx = b.rng.range(-bound, bound), dy = b.rng.range(-bound, bound);
+        const y = pos[0] + dy, x = pos[1] + dx;
+        if (b.grid.groundPassable(Math.round(y), Math.round(x))) pos = [y, x];
+      }
+    }
     const c = b.spawnEnemy(key, {
       pos, route, mods, tag: opts.tag ?? null, countInTotal: opts.countInTotal,
       ownerPlayerId: parent.ownerId ?? null, sourcePlayerId: parent.sourcePlayerId ?? null,
@@ -385,7 +422,7 @@ export function shoot(b, from, t, shot, onHit, opts = {}) {
 /**
  * Fire an official FIXED_DIRECTION projectile (`shot`: data/enemies.json `skills[i].proj`, move FIXED_DIRECTION — 重弩突袭者
  * 直击's projectile_enemy_msnip) from `from` the way of `aim` (a unit or point): it flies straight along the nearest of the
- * four map axes and ends on the first ally it touches — `onHit(target)` then — or, touching none, after `shot.life` s
+ * four map axes and ends on the first ally it touches — `onHit(target, { x, y })` then, with where it stopped — or, touching none, after `shot.life` s
  * (`onExpire()`). Official client (EN, docs/rules/sim.md 「FIXED_DIRECTION 투사체」): FarthestPointMovement._SetTargetPosAndDirection
  * (`_useDirToTarget` → MapUtil.NormalizeDirectionToFourWays) and AdvancedMovement.OnInit (no reach point for FIXED_DIRECTION:
  * it never "arrives"); its SelectorHitBehaviour (`_hitPasserby`, every `_interval` 0.03 s) takes the allies whose collider
@@ -430,7 +467,18 @@ export function lineShot(b, unit, aim, shot, onHit, opts = {}) {
       t: Math.round((at / speed) * 1000) / 1000, dir, range: Math.round(at * 1000) / 1000 });
   }
   return b.addProjectile({ from: { x: from.x, y: from.y }, dir: { x: dir[0], y: dir[1] }, speed, maxAge: life, visual: opts.visual ?? 'enemy', source: src, fixed: shot?.adjust === 0, noWipe: shot?.elim === 0,
-    sweep: (p) => touching(p.x, p.y), onHit: (c) => onHit(c.target), onExpire: () => opts.onExpire?.() });
+    sweep: (p) => touching(p.x, p.y), onHit: (c) => onHit(c.target, { x: c.x, y: c.y }), onExpire: () => opts.onExpire?.() });
+}
+
+/**
+ * A skill's effect lands at its clip's attack event (`_waitForAttackEvent`: data/enemies.json `skillCast.hit`), so a cast
+ * cut before it (stun, freeze …) gives nothing; without an event, at the clip's end (as an attack without one strikes).
+ * `at`: another event of the clip, s from the cast's start (a MultiRangedAttack's later shots, `_waitAttackEventForAllAttacks`).
+ */
+export function atCastEvent(b, e, s, fn, at = null) {
+  const c = s && s.cast, t = at != null ? at : c && Number.isFinite(c.hit) ? c.hit : c && c.dur > 0 ? c.dur : 0;
+  if (!(t > 0)) { fn(); return; }
+  b.after(t - 1e-9, () => { if (e.alive && e.castLeft > 0) fn(); }, { owner: e });
 }
 
 /**

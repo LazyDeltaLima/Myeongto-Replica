@@ -4,7 +4,7 @@
 // field and deploy map, and the guarded meta dispatch (dispatch, dispatchItem → effectsMeta.js EffectDispatcher).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
-import { buildDeployMap } from '../board.js';
+import { buildDeployMap, tileKey } from '../board.js';
 
 export class MatchInfra {
   /** Run a callback with error isolation, then flush the views. */
@@ -116,7 +116,10 @@ export class MatchInfra {
    * Pure — no PlayerState cache is touched (the read-only checker invariants.js uses it; PlayerState.deployMap caches).
    */
   deployMapFor(ps, field = this.deployFieldOf(ps)) {
-    return buildDeployMap(this.stage, { deviceOverrides: ps.deviceOverrides, tileOverrides: ps.tileOverrides, field });
+    const map = buildDeployMap(this.stage, { deviceOverrides: ps.deviceOverrides, tileOverrides: ps.tileOverrides, field });
+    // 宝藏探机's chests (content/bands/meta.js BAND_CHEST): 「使所在格无法部署」 while they stand
+    if (typeof ps.bandChestsNow === 'function') for (const x of ps.bandChestsNow()) map.delete(tileKey(x.row, x.col));
+    return map;
   }
 
   dispatch(ps, hook, ev = {}, opts = {}) {

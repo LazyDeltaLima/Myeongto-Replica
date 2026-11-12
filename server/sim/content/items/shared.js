@@ -31,6 +31,11 @@ export const chance = (battle, p) => p > 0 && (p >= 1 || battle.rng() < p);
  * true damage, 卡西米尔 [ex]'s), and an item's proc (this fork's rule: procs never re-trigger item procs).
  */
 export const isAddition = (dmg) => !!(dmg && dmg.tags && (dmg.tags.indexOf('addition') >= 0 || isProc(dmg)));
+/**
+ * 持续伤害 — the client's shared flag IS_CONTINUOUS that the 规程 item graphs filter out of ON_OUTPUT_DAMAGE
+ * (FilterDamageModifer `_sharedFlag` IS_CONTINUOUS): damage over time, tag 'dot' / 'periodic'.
+ */
+export const isContinuous = (dmg) => !!(dmg && dmg.tags && (dmg.tags.indexOf('dot') >= 0 || dmg.tags.indexOf('periodic') >= 0));
 /** An ally built from an enemy record — PRTS's 敌人类我方单位 (炎佑 enemy_9012_acloon). */
 export const ENEMY_RECORD = /^enemy_/;
 

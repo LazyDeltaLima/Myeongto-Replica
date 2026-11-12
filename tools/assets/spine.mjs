@@ -52,6 +52,8 @@ export const localEnemySpineGroup = (id) => `spine/enemy/${id}`;
 export const LOCAL_TOKEN_SPINE_DIR = 'local/spine/token/';
 /** Its data/local-assets.json group of a token (`spine/token/<id>`). */
 export const localTokenSpineGroup = (id) => `spine/token/${id}`;
+/** Where tools/local-extract/extract.py writes the equipment Spine models (item_spine_ids), under public/assets. */
+export const LOCAL_ITEM_SPINE_DIR = 'local/spine/item/';
 
 /**
  * Spine models extracted from the local client under `base` (a LOCAL_*_SPINE_DIR): every `<base><id>/` whose id matches
@@ -91,6 +93,12 @@ export const findLocalEnemyModels = (root) => findLocalModels(root, LOCAL_ENEMY_
  * @param {string} root absolute public/assets directory
  */
 export const findLocalTokenModels = (root) => findLocalModels(root, LOCAL_TOKEN_SPINE_DIR, /^(token|trap)_\d+_[a-z0-9_]+$/i);
+/**
+ * Equipment Spine models extracted from the local client (tools/local-extract/extract.py item_spine_ids: the trapId of
+ * every item of the item tables): every `local/spine/item/<trapId>/` holding a skeleton, its atlas and a page PNG.
+ * @param {string} root absolute public/assets directory
+ */
+export const findLocalItemModels = (root) => findLocalModels(root, LOCAL_ITEM_SPINE_DIR, /^trap_\d+_[a-z0-9_]+$/i);
 
 /**
  * @typedef {{ skel: string, atlas: string, textures: string[], pma: boolean, anims: any, animations: Record<string, number>,
@@ -221,6 +229,8 @@ export const localEnemySpineMeta = localSpineMeta;
 export const LOCAL_ENEMY_SPINES_FILE = 'tools/assets/local-enemy-spines.json';
 /** Committed metadata of the local-client token models: tools/assets/local-token-spines.json. */
 export const LOCAL_TOKEN_SPINES_FILE = 'tools/assets/local-token-spines.json';
+/** Committed metadata of the local-client equipment models: tools/assets/local-item-spines.json. */
+export const LOCAL_ITEM_SPINES_FILE = 'tools/assets/local-item-spines.json';
 
 /**
  * The `models` of a committed local-model metadata file (LOCAL_ENEMY_SPINES_FILE / LOCAL_TOKEN_SPINES_FILE: id →

@@ -36,6 +36,8 @@ const rawOf = (view) => (view && view.raw) || view || null;
 
 /** Range highlight of the wheel / a selected unit (orange, drawn under the units by the render engine). */
 export const FACING_STYLE = Object.freeze({ group: 'facing', color: 0xff9c33, fill: 0.36, line: 1 });
+/** The wheel's range of a heal-range unit (ui/facing.js healRange): blue stripes on the 3D board. */
+export const FACING_HEAL_STYLE = Object.freeze({ ...FACING_STYLE, color: 0x33c8ff, heal: true });
 
 // ---- view bridge ---------------------------------------------------------------------------------------------------
 
@@ -184,7 +186,7 @@ function Chevron({ dir, on }) {
  * @param {{ view: any, row: number, col: number, grid: Array<[number, number]>|null, name?: string,
  *   onPreview?: (dir: string|null) => void, onCommit: (dir: string) => void, onCancel: () => void }} props
  */
-export function FacingWheel({ view, row, col, grid, name = '', onPreview, onCommit, onCancel }) {
+export function FacingWheel({ view, row, col, grid, heal = false, name = '', onPreview, onCommit, onCancel }) {
   const g = useTileScreen(view, row, col);
   const [dir, setDir] = useState(null);
   const [drag, setDrag] = useState(null); // { id } while a pointer is down
@@ -203,7 +205,7 @@ export function FacingWheel({ view, row, col, grid, name = '', onPreview, onComm
   live.current = { g, half, dead, dir, bdir, mirror, onCommit, onCancel, onPreview, basis };
 
   // preview: model / wedge direction and the rotated range under the units
-  const tiles = useRangeHighlight(view, grid, row, col, bdir);
+  const tiles = useRangeHighlight(view, grid, row, col, bdir, heal);
   useEffect(() => { try { onPreview?.(bdir); } catch { /* ignore */ } }, [bdir]);
   useEffect(() => () => { showRange(view, null, row, col, null); }, []);
 
@@ -300,9 +302,9 @@ export function FacingWheel({ view, row, col, grid, name = '', onPreview, onComm
 }
 
 /** Keep the view's 'facing' highlight group on the rotated range; returns the tiles. */
-function useRangeHighlight(view, grid, row, col, dir) {
+function useRangeHighlight(view, grid, row, col, dir, heal) {
   const [tiles, setTiles] = useState([]);
-  useLayoutEffect(() => { setTiles(showRange(view, grid, row, col, dir)); }, [view, grid, row, col, dir]);
+  useLayoutEffect(() => { setTiles(showRange(view, grid, row, col, dir, heal ? FACING_HEAL_STYLE : FACING_STYLE)); }, [view, grid, row, col, dir, heal]);
   return tiles;
 }
 

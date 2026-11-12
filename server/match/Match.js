@@ -193,6 +193,7 @@
 //                    b.pool, the merged team LP, overtime, bounties after a boss field
 //   settle.js        SETTLE and RESULT
 //   restart.js       the in-match 重新开始 vote and the match's end for a new one
+//   bandSkill.js     规程's active 指令: g.bandSkill (gate, target, cost, use limits) and m.private bandSkill
 //   common.js        what the modules share (FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS — re-exported here, OK,
 //                    fail, BOSS_CLOCK_MS)
 
@@ -225,6 +226,7 @@ import { MatchUnite } from './match/unitePhase.js';
 import { MatchBoss } from './match/bossRounds.js';
 import { MatchSettle } from './match/settle.js';
 import { MatchRestart } from './match/restart.js';
+import { MatchBandSkill } from './match/bandSkill.js';
 import { resolveRuleset } from '../../shared/ruleset.js';
 import { DEFAULT_SEASON, seasonOf } from '../../shared/seasons.js';
 
@@ -453,7 +455,7 @@ export class Match {
 }
 
 // the method modules, in this order (a name defined twice is an error, never a silent override)
-for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause, MatchPhases, MatchDiyChoose, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchReports, MatchUnite, MatchBoss, MatchSettle, MatchRestart]) {
+for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause, MatchPhases, MatchDiyChoose, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchReports, MatchUnite, MatchBoss, MatchSettle, MatchRestart, MatchBandSkill]) {
   for (const key of Reflect.ownKeys(part.prototype)) {
     if (key === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Match.prototype, key)) throw new Error(`Match.${String(key)} is defined twice`);

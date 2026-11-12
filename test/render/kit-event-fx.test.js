@@ -56,7 +56,6 @@ const VERDICT = {
   jungleSoul: { gvial2: ['skill', 3] },
   knack: { reckpr: ['skill', 2] },
   meltdown: { blaze2: ['standIn', "sent on the enemy (the burn burst's own effect; blaze2_t_1 creates none)"] },
-  obelisk: { beewax: ['standIn', 'sent by her token'] },
   overclock: { cathy: ['skill', 2], hsguma: ['skill', 3] },
   overload: { rmixer: ['skill', 2], gvial2: ['skill', 2], oxi: ['none', 'S3 过载: the client only sounds oxi_s_3_overload (an AudioOnEventBehaviour on event 8)'] },
   reweave: { cetsyr: ['skill', 3, "the name rules' S3 buffs (charpack S3 AuraHeal / skchr_cetsyr_3 Encourage passives); S2: cetsyr_skill_02_trail_start"] },
@@ -787,7 +786,7 @@ test('fxgame.js (2026-10-31): 赤刃明霄陈 S2 counts her slashes from _hit_01
 });
 
 test('fxgame.js (2026-10-31): 卡西米尔\'s [ex] wave lasts its buff [ex_damage_effect] (LIMITED 0.5 s), then its _delayToFinish', () => {
-  assert.match(GAME, /const TPL_BUFF_S = \{ common_071_bond_kazimierz_hit_01_new: 0\.5 \};/);
+  assert.match(GAME, /const TPL_BUFF_S = \{ common_071_bond_kazimierz_hit_01_new: 0\.5, /);
   assert.match(GAME, /if \(life > 0\) p\.then\(\(l\) => \{ if \(l\) zoneEnd\(l, Math\.max\(clockS, t0 \+ life\), true\); \}\);/);
 });
 

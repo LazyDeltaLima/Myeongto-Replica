@@ -11,6 +11,8 @@
 // It drives a real Chrome (GPU) against a running server that has the local-client extraction (assets/local scene/*):
 //
 //   node tools/map-previews.mjs --base http://localhost:3000 [--chrome <path>] [--only id,id] [--width 1024] [--height 448]
+//        [--season <id>]   another season's battlefields (data/seasons/<id>/stages.json; the server must offer it, SP_SEASONS);
+//                          the other previews of the group are kept
 //
 // Writes public/assets/local/stage/preview/<stageId>.webp (git-ignored, like every local-client asset) and the
 // `stage/preview` group of data/local-assets.json (other groups kept). Run tools/build-browser-resources.mjs after it.
@@ -57,7 +59,8 @@ async function main() {
   const H = Math.max(64, Math.min(2048, Number(opt.height) || PICTURE.h));
   const chrome = typeof opt.chrome === 'string' ? opt.chrome : process.env.CHROME_PATH || CHROMES.find((p) => fs.existsSync(p));
   if (!chrome) throw new Error('no Chrome: pass --chrome or set CHROME_PATH');
-  const stages = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/stages.json'), 'utf8'));
+  const season = typeof opt.season === 'string' ? opt.season : null;
+  const stages = JSON.parse(fs.readFileSync(path.join(ROOT, season ? `data/seasons/${season}/stages.json` : 'data/stages.json'), 'utf8'));
   const only = typeof opt.only === 'string' ? new Set(opt.only.split(',')) : null;
   const ids = Object.keys(stages).filter(isBattlefield).filter((id) => !only || only.has(id)).sort();
   if (!ids.length) throw new Error('no stage to draw');
@@ -76,7 +79,7 @@ async function main() {
     const page = await browser.newPage();
     page.on('pageerror', (e) => problems.push(e.message));
     await page.goto(`${base}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    shots = await page.evaluate(async ({ ids, W, H, frame, focus, margin, band }) => {
+    shots = await page.evaluate(async ({ ids, W, H, frame, focus, margin, band, season }) => {
       const { assets } = await import('/js/assets.js');
       const { data } = await import('/js/data.js');
       const { loadBoard3d } = await import('/js/render/board3d/load.js');
@@ -85,6 +88,7 @@ async function main() {
       const { AREAS } = await import('/js/render/board3d/layout.js');
       const { fitCamera, CAMERA_PRESETS } = await import('/js/render/projection.js');
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      if (season) await data.setSeason(season);
       await data.loadAll('stages');
       const b3 = await loadBoard3d(assets);
       if (b3.status !== 'ok') throw new Error(`3D board unavailable: ${b3.why}`);
@@ -111,7 +115,7 @@ async function main() {
       }
       board.destroy();
       return out;
-    }, { ids, W, H, frame: FRAME, focus: FOCUS, margin: MARGIN, band: BAND });
+    }, { ids, W, H, frame: FRAME, focus: FOCUS, margin: MARGIN, band: BAND, season });
   } finally {
     clearTimeout(hard);
     await browser.close().catch(() => {});
@@ -128,7 +132,7 @@ async function main() {
   }
   const manPath = path.join(ROOT, 'data/local-assets.json');
   const man = JSON.parse(fs.readFileSync(manPath, 'utf8'));
-  const groups = { ...(man.groups || {}), [GROUP]: { ...(only ? man.groups?.[GROUP] : null), ...group } };
+  const groups = { ...(man.groups || {}), [GROUP]: { ...(only || season ? man.groups?.[GROUP] : null), ...group } };
   const sorted = Object.fromEntries(Object.keys(groups).sort().map((g) => [g, Object.fromEntries(Object.entries(groups[g]).sort(([a], [b]) => a.localeCompare(b)))]));
   man.groups = sorted;
   man.count = Object.values(sorted).reduce((n, g) => n + Object.keys(g).length, 0);

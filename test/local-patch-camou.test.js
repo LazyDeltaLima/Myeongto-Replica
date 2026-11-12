@@ -33,6 +33,7 @@ test('snapshot: 迷彩 sets UF_CAMOU next to UF.STEALTH; 隐匿 sets UF.STEALTH 
   const kroos = h.unit('chess_char_4_06_b'), other = h.unit('chess_char_1_01_a');
   if (!kroos.skill.active) kroos.skill.activate('manual', { free: true });
   h.step(1);
+  h.runUntil(() => !kroos.skill._begin, 2);   // (after its begin clip: skills.js _beginCast)
   assert.ok(kroos.s.flags.camou, 'S1 无痕 gives 迷彩');
   const fk = flagsOf(kroos);
   assert.ok(fk & UF.STEALTH, 'see-through like 隐匿');

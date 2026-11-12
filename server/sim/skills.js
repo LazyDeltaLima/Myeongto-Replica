@@ -66,7 +66,7 @@
 
 import { absoluteRangeKeys } from './targeting.js';
 import { castFace } from './ai.js';
-import { BLOCK_SKILL_TICK, COLS, MIN_ANIM_SCALE } from './constants.js';
+import { BLOCK_SKILL_TICK, COLS, MIN_ANIM_SCALE, TICK } from './constants.js';
 
 const TICK_RULES = new Set(['SP_FULL', 'SEARCH', 'CUSTOM_RANGE', 'SKILL_RANGE', 'ACTIVE_RANGE', 'GDGLOW_SKILL_2']);
 /** True when a SkillSpec `targeting` changes the unit's range while the skill runs (Battle._refreshRange). */
@@ -125,6 +125,7 @@ export class SkillRuntime {
     // the cast replaces the unit's next attack; 'state' — the unit stays in its Skill state while the skill ability
     // plays; 'free' — no state change. null (not read): the one-attack-interval rule of #298
     this.cast = d.cast ?? null;
+    this._begin = null;           // a 'state' cast playing its begin clip before the skill starts: { until, reason, free } (_beginCast)
     this._replace = null;         // a 'replace' cast waiting for the unit's next attack: { reason }
     if (this.kind === 'passive') this.baseSpCost = 0;
     this._spCostMul = 1;          // content may set spCostMul (e.g. 绝技 ×0.7) — see the accessor below
@@ -257,6 +258,7 @@ export class SkillRuntime {
     this._hurt = false;
     this.nextCastAt = -Infinity;
     this._replace = null;
+    this._begin = null;
     this._castStage = null;
     this._durationFrom = 0;
     this._castLost = false;
@@ -364,6 +366,7 @@ export class SkillRuntime {
   tickActive(dt) {
     if (this.noSkill) return;
     if (this.kind !== 'passive' && this.sp > this.spCost) this._normalize();
+    if (this._begin) { this._tickBegin(); return; }
     if (this._castStage?.instant) this._tickCast();   // (the instant skill itself has ended)
     if (this.active && this.kind !== 'passive') {
       if (this._castStage) {
@@ -634,7 +637,7 @@ export class SkillRuntime {
    * when its ability's ON signal sounds and when it ends — the next ability of a sequence group starts then (public/js/audio.js
    * cast cues, docs/rules/audio.md 「스킬 시전 능력 소리」). A display field too.
    */
-  _evOn(reason) {
+  _evOn(reason, lead = 0) {
     const v = typeof this.spec.castVariant === 'function' ? this._call('castVariant', { reason }) : null;
     const c = this.cast;
     const ev = ['skill', this.unit.id, 1];
@@ -642,27 +645,95 @@ export class SkillRuntime {
     if (c && c.mode !== 'replace' && c.time != null) {
       const t = this.castTiming();
       if (ev.length < 4) ev.push(null);
-      ev.push([Math.round(t.strike * 1000) / 1000, Math.round(t.action * 1000) / 1000]);
+      // (`lead`: the begin clip the skill ability waits for — its times count from this event)
+      ev.push([Math.round((lead + t.strike) * 1000) / 1000, Math.round((lead + t.action) * 1000) / 1000]);
     }
     this.battle._ev(ev);
+  }
+
+  /**
+   * The begin clip a cast of this skill plays before the skill starts (s, whole ticks; 0: none) — data `cast.begin`: a 'state'
+   * cast (`_switchToState` 1) whose prefab plays a begin clip (`_playSkillBeginAnim`, `_beginAnim`). The client's
+   * `SkillState.OnEnter` → `BasicSkill.OnBeforeSkillStart` runs `PlayBeginAnimation`, which waits the clip's length
+   * (`AsyncUtil.WaitForFixedSeconds`) and then `DoStartSkill` (docs/rules/sim.md 「스킬 시작 클립」). A kit that plays the
+   * begin itself (`ownBegin`: 赤刃明霄陈's S3 stages) keeps it out; a `_switchToState` 0 cast starts at once.
+   */
+  get beginTime() {
+    const c = this.cast;
+    if (!c || c.mode !== 'state' || !(c.begin > 0) || this.spec.ownBegin) return 0;
+    return Math.max(1, Math.round(c.begin / TICK)) * TICK;
   }
 
   /** Activate now (consumes one charge). Returns true on success. */
   activate(reason = 'manual', { free = false } = {}) {
     if (this.noSkill || this.kind === 'passive') return false;
+    if (this._begin) return false;   // (a cast still plays its begin clip)
     if (!free && !this.ready) return false;
     if (this.active && this.isTimed) return false;
     const u = this.unit;
     if (!u.alive || !u.deployed) return false;
-    if (!free) {
-      const wasFull = this.charges >= this.maxCharges;
-      this.charges--;
-      if (this.maxCharges === 1 || wasFull) this.sp = 0;
-    }
     this.activations++;
     this.lastStart = this.battle.time;
-    const b = this.battle;
     if (this.manual) this.blockTicks = BLOCK_SKILL_TICK;
+    const begin = this.beginTime;
+    if (begin > 0) this._beginCast(reason, begin, free);
+    else {
+      if (!free) this._spend();
+      this._startSkill(reason);
+    }
+    return true;
+  }
+
+  /** The cast's cost: one charge, and the SP when it was the only one or the bar was full (`CastSkill.DoCast` → `BasicSkill.ReduceSp`). */
+  _spend() {
+    const wasFull = this.charges >= this.maxCharges;
+    this.charges--;
+    if (this.maxCharges === 1 || wasFull) this.sp = 0;
+  }
+
+  /**
+   * A cast with a begin clip (beginTime): the unit enters its Skill state now — the swing in progress is cut, no attack
+   * (ai.js updateAlly) — and the view plays the clip (the 'skill' on event). The skill itself — its cost, its mods,
+   * `onStart`, the 'skillStart' hook, its time, its skill ability — starts as the clip ends (_tickBegin): the client's clip
+   * waits before `DoStartSkill` → `SkillState._StartSkill` → `BasicSkill.Cast`, whose `CastSkill.DoCast` spends the SP
+   * (`ReduceSp`) and whose `OnCastSucceed` stops the SP recovery; until then the bar stays as it was (`BasicSkill.isAffecting`
+   * is the skill ability's, not cast yet). A stun, freeze or sleep meanwhile loses the cast and keeps the SP
+   * (`SkillState.OnExit` → `BasicSkill.InterruptIfNot` clears the start the clip waits for: `DoStartSkill` then does nothing).
+   */
+  _beginCast(reason, begin, free = false) {
+    const b = this.battle;
+    const u = this.unit;
+    // (a 'state' cast leaves the born state: see _startSkill)
+    if (u.bornUntil > b.time) u.bornUntil = b.time;
+    this._begin = { until: b.time + begin, reason, free };
+    this._enterSkillState({ action: begin });
+    u.skillAnimUntil = Math.max(u.skillAnimUntil ?? -Infinity, b.time + SKILL_ANIM_WINDOW);
+    this._evOn(reason, begin);
+  }
+
+  /** The begin clip of a cast, in its unit's tick (after its attack update, as the client's coroutine resumes in `SimulateTick`). */
+  _tickBegin() {
+    const g = this._begin;
+    const u = this.unit;
+    const b = this.battle;
+    if (!u.alive || !u.deployed) { this._begin = null; return; }
+    // (a stun / freeze / sleep has ended the Skill state — ai.js updateAlly clears skillStateUntil)
+    if (!u.canAct || u.skillStateUntil < g.until - 1e-9) {
+      this._begin = null;
+      this._call('onBeginLost');
+      b._ev(['skill', u.id, 0]);
+      return;
+    }
+    if (b.time + 1e-9 < g.until) return;
+    this._begin = null;
+    if (!g.free) this._spend();
+    this._startSkill(g.reason, true);
+  }
+
+  /** The skill starts (activate, or the end of its begin clip — `begun`: its 'skill' on event went out with the cast). */
+  _startSkill(reason, begun = false) {
+    const u = this.unit;
+    const b = this.battle;
     if (this.isTimed) {
       this.active = true;
       this.timeLeft = this.kind === 'duration' ? Math.max(0.01, this.duration) : (this.kind === 'ammo' && this.duration > 0 ? this.duration : Infinity);
@@ -687,7 +758,7 @@ export class SkillRuntime {
     // a 'state' cast leaves the born state (`Character.SwitchToSkillState` switches the state machine to SKILL, which hands
     // over to IDLE as it ends): the unit's attacks are no longer held for the rest of BORN_TIME (ai.js updateAlly)
     if (this.cast?.mode === 'state' && u.bornUntil > b.time) u.bornUntil = b.time;
-    this._evOn(reason);
+    if (!begun) this._evOn(reason);
     u.skillAnimUntil = b.time + SKILL_ANIM_WINDOW;
     // a CastSkill casts its skill ability now: the unit turns by its flags (ai.js castFace; a 'replace' cast turns as
     // its attack starts — ai.js startReplacement / swingFace)

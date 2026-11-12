@@ -246,6 +246,8 @@ function chen3(bb, chess, def) {
     };
     return {
       kind: 'duration',
+      // (its begin clip is the stage 'begin' below, timed to the tick: not the engine's skills.js beginTime)
+      ownBegin: true,
       targeting: S3_TARGETING,
       attack: S3_ATTACK,
       onStart({ battle, unit, skill }) {

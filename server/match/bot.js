@@ -85,6 +85,7 @@ import { computeBonds } from './bondsMeta.js';
 import { isFlyKey } from './waves.js';
 import { mitigate } from '../sim/damage.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
+import { bandStages } from '../sim/content/bands/meta.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
 
 /**
@@ -1376,12 +1377,131 @@ function takeOffers(m, ps) {
       if (offer.slots.some((s) => !s.sold)) { ps.offers.shift(); ps.dirty(); continue; }
       break;
     }
-    if (freeSlot(ps.hand) < 0) sellWeakestHand(m, ps, { keepPairs: false });
+    // room in the pick's zone: selling a bench operator frees nothing in 规程's 装备区
+    const kind = offer.slots[best].kind;
+    if (ps.freeZoneSlot(kind) < 0 && ps.zoneOf(kind) === 'hand') sellWeakestHand(m, ps, { keepPairs: false });
     if (!tryDo(() => ps.pickReward(best))) {
       // could not take it (sold out / no room): drop the offer
       ps.offers.shift();
       ps.dirty();
     }
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// 规程's active 指令 (server/match/match/bandSkill.js): when an AI seat uses its strategy's 指令. No official bot exists
+// to copy [ASSUMED·자료 없음] — a simple rule per handler key (the stage's buff key, content/bands/meta.js), both steps at
+// the prep's start, before the buying spends the funds: the `shop` step, the 指令 that add or change shop cards, pay
+// funds or mark a shop item; then the `board` step, those on an own operator (the board of the last round, placed again
+// below) or a field tile. A priced use keeps half the funds; a shop-step 指令 runs once a prep, an operator / tile one
+// as many times as the round allows. Each rule lists target
+// candidates in preference order; the match refuses a use that does nothing without charging (the handlers' ev.error),
+// so the first accepted candidate is the use. A rule absent here is never used (献身护卫 lowers the seat's own LP; the
+// shop-card swaps 出航时刻 / 纸片替身 have no value model here).
+
+const BAND_SKILL_SHOP = new Set([
+  'skill_take_shop_char', 'skill_gain_all_shop_char', 'skill_gain_bond_char', 'skill_next_equip_buy_discount',
+  'skill_refresh_shop_high_tier', 'skill_refresh_shop_bond_char', 'skill_refresh_shop_board_char', 'skill_change_shop_equip',
+  'skill_gain_gold_cd_by_gold', 'skill_mark_shop_equip_tag',
+]);
+
+/** The rule's candidates: a list of g.bandSkill targets ({} = no target), best first. */
+function bandSkillTargets(m, ps, key, stage) {
+  const ctx = context(m, ps);
+  const val = (p) => pieceValue(m, ps, p, ctx);
+  const chess = (list) => list.filter((p) => p && p.kind === 'chess');
+  const board = () => chess([...ps.board.values()]);
+  const hand = () => chess(ps.hand);
+  const byValue = (list, asc = false) => [...list].sort((a, b) => (asc ? val(a) - val(b) : val(b) - val(a)));
+  const uids = (list) => list.map((p) => ({ uid: p.uid }));
+  const canElite = (p) => !m.gd.isGolden(p.id) && !!m.gd.goldenIdOf(p.id);
+  switch (key) {
+    case 'skill_mark_shop_equip_tag': {
+      // 电气化！: the shop's best equipment card (tier), so every operator with a free slot carries it next battle
+      const slots = ps.shop.slots.map((s, i) => ({ s, i })).filter(({ s }) => s && !s.sold && s.kind === 'item');
+      return slots.sort((a, b) => m.gd.tierOf(b.s.id) - m.gd.tierOf(a.s.id) || a.i - b.i).map(({ i }) => ({ slot: i }));
+    }
+    case 'skill_mark_char_inst_tag': {
+      const tag = stage.buffs?.find((b) => b.key === key)?.bbStr?.tag ?? null;
+      const ops = board();
+      if (tag === 'eff_band22') return hand().length ? uids(byValue(ops, true)) : []; // 消解空间: the weakest one gives way
+      if (tag === 'eff_band17' || tag === 'eff_band18') {
+        // 药枚实验: only the front-most column has the chance (bands/battle.js)
+        const front = Math.max(-1, ...[...ps.board.entries()].filter(([, p]) => p && p.kind === 'chess').map(([k]) => parseKey(k)[1]));
+        return uids(byValue(ops.filter((p) => [...ps.board.entries()].some(([k, q]) => q === p && parseKey(k)[1] === front))));
+      }
+      if (tag === 'eff_band14') return uids(byValue(ops.filter(canElite))); // 全场聚焦
+      return uids(byValue(ops)); // 意志鼓舞
+    }
+    case 'skill_layer_limit_grow_round': case 'skill_act_bond_grow_garr_cnt': case 'skill_copy_char_with_equip':
+      return uids(byValue(board()));
+    case 'skill_garr_event_extra_exec': case 'skill_trigger_garr_event':
+      return uids(byValue([...board(), ...hand()]));
+    case 'skill_upgrade_char':
+      return uids(byValue(board().filter(canElite)));
+    case 'skill_sell_char_bond_layer':
+      // 东之极道: the weakest bench operator, while some bond is active (its layers are the point)
+      return Object.values(ps.bonds).some((b) => b && b.active) ? uids(byValue(hand(), true)) : [];
+    case 'skill_transform_char_up_tier':
+      return uids(byValue(hand().filter((p) => (m.gd.tierOf(p.id) || 1) < 6), true));
+    case 'skill_remove_gain_bond_char':
+      return stage.buffs?.some((b) => b.key === key && Number(b.bb?.in_shop) === 1) ? [] : uids(byValue(hand(), true));
+    case 'skill_mark_pos_grow_use_cnt': case 'skill_add_pos_effect_enemy': {
+      const filter = stage.target?.filter;
+      const deploy = ps.deployMap();
+      const tiles = [];
+      for (let r = FIELD.r0; r <= FIELD.r1; r++) for (let c = FIELD.c0; c <= FIELD.c1; c++) if (m._bandSkillTile(ps, r, c, filter)) tiles.push([r, c]);
+      if (key === 'skill_mark_pos_grow_use_cnt') {
+        // 溃心领域: a lane tile (no piece may stand on it — the enemies' road), the front first
+        const lanes = tiles.filter(([r, c]) => !deploy.has(tileKey(r, c)));
+        return (lanes.length ? lanes : tiles).sort((a, b) => b[1] - a[1] || a[0] - b[0]).map(([row, col]) => ({ row, col }));
+      }
+      // 宝藏探机: only with deploy tiles to spare, the rearmost (farthest from the enemies' entry)
+      const free = [...deploy.keys()].filter((k) => !ps.board.has(k)).length;
+      if (free - Math.max(0, ps.deployCap - board().length) < 2) return [];
+      return tiles.sort((a, b) => a[1] - b[1] || a[0] - b[0]).map(([row, col]) => ({ row, col }));
+    }
+    default:
+      return BAND_SKILL_SHOP.has(key) ? [{}] : [];
+  }
+}
+
+/** The 指令 keys bandSkillTargets has a rule for (the others are never used by an AI seat). */
+const BAND_SKILL_RULES = new Set([
+  ...BAND_SKILL_SHOP, 'skill_mark_char_inst_tag', 'skill_layer_limit_grow_round', 'skill_act_bond_grow_garr_cnt',
+  'skill_copy_char_with_equip', 'skill_garr_event_extra_exec', 'skill_trigger_garr_event', 'skill_upgrade_char',
+  'skill_sell_char_bond_layer', 'skill_transform_char_up_tier', 'skill_remove_gain_bond_char', 'skill_mark_pos_grow_use_cnt',
+  'skill_add_pos_effect_enemy',
+]);
+
+/**
+ * 更换指令 (match/bandSkill.js offerBandSkillChoice) for an AI seat: the first card whose 指令 a rule above uses (a 指令 it
+ * would never use is worth nothing to it), else the first card — the cards come shuffled from the meta rng
+ * [ASSUMED·자료 없음: no official bot to copy]. Returns the card index.
+ */
+export function botPickBandCommand(m, ps, cards) {
+  const keysOf = (bandId) => bandStages(m.gd.band(bandId)).flatMap((s) => (s && s.type === 'ACTIVE' ? (s.buffs || []).map((b) => b && b.key) : []));
+  const i = cards.findIndex((c) => keysOf(c && c.bandId).some((k) => BAND_SKILL_RULES.has(k)));
+  return i >= 0 ? i : 0;
+}
+
+/** Use the seat's active 指令 in prep step `step` ('shop' | 'board') while the rule has a target and the match accepts. */
+export function useBandSkill(m, ps, step) {
+  if (typeof m._bandSkillState !== 'function') return;
+  for (let guard = 0; guard < 4; guard++) {
+    const st = m._bandSkillState(ps, false);
+    if (!st || m._bandSkillBlock(ps, st)) return;
+    const key = (st.stage.buffs || []).map((b) => b && b.key).find((k) => typeof k === 'string' && k.startsWith('skill_') && !k.startsWith('skill_cost_'));
+    if (!key || BAND_SKILL_SHOP.has(key) !== (step === 'shop')) return;
+    // at most half the funds (bison's 打包速递 starts at 9, the cost keys bring it down round by round)
+    if (st.cost > 0 && st.cost * 2 > ps.funds) return;
+    let done = false;
+    for (const t of bandSkillTargets(m, ps, key, st.stage)) {
+      if (tryDo(() => m.useBandSkill(ps, t))) { done = true; break; }
+    }
+    // once in the shop step (a second refresh would roll away the cards the first one brought, before the buying; the
+    // DEFAULT 指令 with no use limit are all shop ones); the board step uses the round's uses (溃心领域)
+    if (!done || step === 'shop') return;
   }
 }
 
@@ -1403,6 +1523,11 @@ export function* botPrepBeginSteps(m, ps) {
   if (!ps.alive || ps.ready) return null;
   m.autoPickPersonalChoice(ps, 'bot');
   // 1. reward offers (free)
+  takeOffers(m, ps);
+  // 规程's 指令, before the buying spends the funds: those that work on the shop (the cards they add or roll are bought
+  // below), then those on an own operator (the board of last round) or a field tile
+  useBandSkill(m, ps, 'shop');
+  useBandSkill(m, ps, 'board');
   takeOffers(m, ps);
   yield;
   // 2. economy: dead bench weight back to funds, units toward a full board, the level curve, then everything else;
@@ -1583,9 +1708,9 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
         if (fillOnly) return;
         if (!m.itemPool.canGain(s.id)) return; // the shared equipment stock ran out since the roll (buy would fail SOLD_OUT)
         if (!canUseItem(m, ps, { id: s.id })) return;
-        if (freeSlot(ps.hand) < 0) return;
+        if (ps.freeZoneSlot('item') < 0) return; // the hand, or 规程's 装备区
         if (ps.funds - price < reserve && !ps.completesItemMerge(s.id)) return;
-        const carriers = [...ps.board.values()].filter((p) => p.kind === 'chess' && (p.items || []).length < gd.equipPerChess).length;
+        const carriers = [...ps.board.values()].filter((p) => p.kind === 'chess' && (p.items || []).length < gd.equipSlotsOf(p.id)).length;
         if (!carriers) return;
         sc = 6 + (gd.tierOf(s.id) || 1) * 3 - price + (ps.completesItemMerge(s.id) ? 10 : 0);
       }
@@ -1795,7 +1920,7 @@ export function cellTarget(m, ps, ctx = context(m, ps)) {
   let best = null;
   let bestV = Infinity;
   for (const p of ps.allChess()) {
-    if (gd.isGolden(p.id) || gd.tierOf(p.id) >= 6 || (p.items || []).length >= gd.equipPerChess) continue;
+    if (gd.isGolden(p.id) || gd.tierOf(p.id) >= 6 || (p.items || []).length >= gd.equipSlotsOf(p.id)) continue;
     if ((p.items || []).some((it) => isMutationCell(gd, it.id)) || (ctx.copies.get(gd.baseIdOf(p.id)) || 0) >= 2) continue;
     const v = pieceValue(m, ps, p, ctx);
     if (v < bestV || (v === bestV && p.uid < best.uid)) { bestV = v; best = p; }
@@ -1870,7 +1995,7 @@ export function itemTarget(m, ps, item, ctx = context(m, ps)) {
   }
   const consume = typeof rec.kind === 'string' && rec.kind.startsWith('consume_on_equip');
   const list = byVal(deployed);
-  const free = (p) => (p.items || []).length < gd.equipPerChess;
+  const free = (p) => (p.items || []).length < gd.equipSlotsOf(p.id);
   // a consumable on a full carrier destroys one of its items (the replace rule, GitHub #263): a carrier with a free slot
   // first — the effect is the same on anyone
   if (consume) return list.find(free) || owned.find(free) || list[0] || owned[0] || null;
@@ -1955,6 +2080,22 @@ function makeHandRoom(m, ps, piece = null) {
 }
 
 /**
+ * 规程 (bagMode): an item queued behind a full 装备区 (PlayerState._stowZone). Selling an operator frees nothing there:
+ * a 突变细胞 on a bot's own seat takes the place of the cheapest other item of the zone (destroyed; the freed slot pulls
+ * the queued one in at the recompute), anything else is destroyed — a human's under AI 托管 too, as its deadline would.
+ */
+function resolveQueuedItem(m, ps, p) {
+  const gd = ps?.gd || m.gd;
+  const inBag = () => ps.temp.indexOf(p) >= 0 && ps.isBagSlot(ps.temp.indexOf(p));
+  if (isMutationCell(gd, p.id) && ps.isBot && !ps.autoplay) {
+    const junk = ps.temp.filter((x, i) => x && ps.isBagSlot(i) && x.kind === 'item' && !isMutationCell(gd, x.id))
+      .sort((a, b) => ((gd.item(a.id) || {}).price || 0) - ((gd.item(b.id) || {}).price || 0) || a.uid - b.uid)[0];
+    if (junk && tryDo(() => ps.destroy(junk.uid)) && inBag()) return;
+  }
+  if (!inBag()) tryDo(() => ps.destroy(p.uid));
+}
+
+/**
  * Empty the temp row before Ready. A freed hand slot pulls the temp pieces in by itself, rightmost first
  * (PlayerState._fillHandFromTemp), so the pieces are decided right → left: the one at hand is always the next a freed
  * slot takes. A chess: the weakest bench single is sold to make room (it may be the temp chess itself), else the temp
@@ -1964,6 +2105,7 @@ function resolveTemp(m, ps) {
   // Track pieces, not indices: draining an extended queue refills and compacts its visible window.
   for (const p of ps.tempPieces()) {
     if (!ps.temp.includes(p)) continue;
+    if (ps.bagMode && p.kind === 'item') { resolveQueuedItem(m, ps, p); continue; }
     const idx = freeSlot(ps.hand); // (a recompute pulls it in; a state set up without one)
     if (idx >= 0 && tryDo(() => ps.move(p.uid, { area: 'hand', idx }))) continue;
     if (p.kind === 'chess') {
@@ -1981,7 +2123,7 @@ function resolveTemp(m, ps) {
   }
   // anything left (e.g. sells failed): final sweep — tokens cannot be sold, they are dropped with the temp slot (and
   // come back at the next round start, PlayerState.startRound)
-  for (const p of [...ps.temp]) {
+  for (const p of ps.overflowPieces()) {
     if (!p || !ps.temp.includes(p)) continue;
     if (p.kind === 'chess') tryDo(() => ps.sell(p.uid));
     else if (p.kind === 'item') tryDo(() => ps.destroy(p.uid));

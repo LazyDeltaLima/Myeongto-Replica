@@ -27,14 +27,14 @@ const dummy = (o = {}) => ({ ...enemyRec({ key: 'e_dummy', hp: 1e7, speed: 0, ..
 const gains = (h, pid = 'p1') => h.result().perPlayer[pid].layerGains;
 const approx = (a, b, msg = '') => assert.ok(Math.abs(a - b) < 1e-6, `${msg} ${a} ≈ ${b}`);
 
-/** Battle with synthetic operators: units = [{ id, g: garrisonIds, row, col, bonds?, o? }]. */
+/** Battle with synthetic operators: units = [{ id, g: garrisonIds, row, col, dir?, bonds?, o? }]. */
 function battle({ units, bonds = {}, enemies = [], edefs = {}, kind, seed = 3, players } = {}) {
   const chess = {};
   for (const u of units) chess[u.id] = rec(u.id, u.g ?? [], { bonds: u.bonds ?? [], ...(u.o || {}) });
   const h = makeBattle({
     kind, seed, bonds, players,
     defs: { chess, enemies: { e_dummy: dummy(), ...edefs } },
-    units: units.map((u) => ({ chessId: u.id, row: u.row, col: u.col })),
+    units: units.map((u) => ({ chessId: u.id, row: u.row, col: u.col, ...(u.dir ? { dir: u.dir } : null) })),
     enemies, autoFinish: false, timeLimit: 400,
   });
   h.step(1);
@@ -374,6 +374,7 @@ test('缇缇 125 + S2 封护 (GitHub #162): every 0.25 s sleep pulse of the ward
       const tt = h.unit(id);
       tt.skill.gainSp(1000);
       assert.ok(tt.skill.activate('test'), `${id}: S2 cast`);
+      h.runUntil(() => tt.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
       assert.equal(tt.skill.id, 'skchr_titi_2');
       return { h, tt };
     };
@@ -438,6 +439,37 @@ test('ADD_BOND 华法琳 72: the front operator gets garrison_95 (own active bon
     checkInvariants(h.b);
     cover(gid); cover(give);
   }
+});
+
+// Official client: each grant appends a rune of its own to the target (the client does not look for a copy it holds
+// already), the global buff of garrison_95 is outside any override group, and the per-battle cap is counted on the
+// operator under the trait's garrison_key — so two 华法琳 facing one operator give +2 a skill, together up to 7.
+test('ADD_BOND 华法琳 72 ×2 on one operator: two copies of garrison_95 (+1 each a skill), sharing the cap of 7; a normal and an elite stack apart', () => {
+  const front = { id: 'front', row: 10, col: 5, bonds: ['yanShip'] };
+  const two = battle({
+    units: [{ id: 'w1', g: ['garrison_72_a'], row: 10, col: 4 }, { id: 'w2', g: ['garrison_72_a'], row: 9, col: 5, dir: 'UP' }, front],
+    bonds: { yanShip: B(0) },
+  });
+  const f = two.unit('front');
+  assert.equal(two.eventsOf('fx').filter((e) => e[1] === 'garrisonGrant' && e[4].id === f.id).length, 2, 'two grants');
+  skill(two, f);
+  assert.deepEqual(gains(two), { yanShip: 2 }, 'both copies fire');
+  for (let i = 0; i < 2; i++) skill(two, f);
+  assert.deepEqual(gains(two), { yanShip: 6 });
+  skill(two, f);
+  assert.deepEqual(gains(two), { yanShip: 7 }, 'the fourth skill reaches the cap of 7 (one layer left)');
+  for (let i = 0; i < 10; i++) skill(two, f);
+  assert.deepEqual(gains(two), { yanShip: 7 }, 'the copies share the cap');
+  checkInvariants(two.b);
+  const mixed = battle({
+    units: [{ id: 'w1', g: ['garrison_72_a'], row: 10, col: 4 }, { id: 'w2', g: ['garrison_72_b'], row: 9, col: 5, dir: 'UP' }, front],
+    bonds: { yanShip: B(0) },
+  });
+  skill(mixed, mixed.unit('front'));
+  assert.deepEqual(gains(mixed), { yanShip: 3 }, 'garrison_95_a +1 and garrison_95_b +2');
+  for (let i = 0; i < 20; i++) skill(mixed, mixed.unit('front'));
+  assert.deepEqual(gains(mixed), { yanShip: 7 + 14 }, 'each id has its own cap');
+  checkInvariants(mixed.b);
 });
 
 test('ADD_BOND 寒芒克洛丝 73 (front → 精准 +1 / +2, cap 10 / 20) and 凛御银灰 126 (front 【谢拉格】 → 60 % freeze trait)', () => {
@@ -517,6 +549,25 @@ test('ADD_BOND 耀骑士临光 145 / 160 (real chess): self + front get 144 (red
     checkInvariants(h.b);
     for (const g of D.chess[id].garrisonIds) cover(g);
   }
+});
+
+test('ADD_BOND 耀骑士临光 ×2 in a row: the front one holds her own 144 / 159 plus the copies granted from behind (two buffs each)', () => {
+  const id = 'chess_char_6_17_a';
+  const h = makeBattle({
+    defs: { chess: { front: rec('front', []) } },
+    units: [{ chessId: id, row: 10, col: 3 }, { chessId: id, row: 10, col: 4 }, { chessId: 'front', row: 10, col: 5 }],
+    bonds: { kazimierzShip: B(9) }, autoFinish: false,
+  });
+  h.step(1);
+  const [back, mid] = h.b.allyUnits.filter((u) => u.def.id === id || u.chessId === id).sort((a, b) => a.homeC - b.homeC);
+  const f = h.unit('front');
+  const keys = (u, gid) => u.buffs.filter((b) => b.key === `gar:${gid}` || b.key.startsWith(`gar:${gid}#`));
+  assert.equal(keys(back, 'garrison_159_a').length, 1, 'the back one: her own only');
+  assert.equal(keys(mid, 'garrison_159_a').length, 2, 'the middle one: her own + the back one\'s');
+  assert.equal(keys(mid, 'garrison_144_a').length, 2);
+  for (const b of keys(mid, 'garrison_159_a')) approx(b.mods.aspd, 3 * 0.5, '9 layers / 3 × ASPD, each copy');
+  assert.equal(keys(f, 'garrison_159_a').length, 1, 'the front operator: the middle one\'s');
+  checkInvariants(h.b);
 });
 
 test('respawnTimeByBond 144 has no 5% floor (#370): redeployMul is max(0, 1 + respawn_time * steps)', () => {

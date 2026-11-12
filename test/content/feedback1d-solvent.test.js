@@ -178,6 +178,7 @@ test('信仰搅拌机 S3 counter: any damage (an attack, a sourceless zone tick)
     h.step();
     const u = h.unit(id);
     assert.ok(u.skill.activate('test', { free: true }));
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     const left0 = u.skill.ammoLeft;
     const used = () => h.hooksOf('ammoUsed').filter((c) => c.unit === u).length;
     const zone = (amount = 10) => h.b.dealDamage(null, u, { amount, type: 'true', canDodge: false, tags: ['zone'] });

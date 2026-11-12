@@ -93,6 +93,7 @@ test('a whole-field skill (纯烬艾雅法拉 S3 "攻击范围扩大至整个战
   h.step();
   assert.ok(u.skill.activate('test', { free: true }));
   h.step();
+  h.runUntil(() => !u.skill._begin, 2);   // (after its begin clip: skills.js _beginCast)
   const live = { ...unitStatsEntry(u, u._s), src: 'battle' };
   assert.ok(live.range.length >= FIELD_WIDE_CELLS);
   const stats = ChessDetail({ chess: data.lookup('chess', id), piece: null, editable: false, bonds: [], loadout: null, live }).find((b) => b.key === 'stats');
@@ -116,6 +117,7 @@ test('远牙 S3 光羽箭 (default, "攻击范围改为前方无限长的直线"
   h.step();
   assert.ok(u.skill.activate('test', { free: true }));
   h.step();
+  h.runUntil(() => !u.skill._begin, 2);   // (after its begin clip: skills.js _beginCast)
   const live = { ...unitStatsEntry(u, u._s), src: 'battle' };
   const box = rangeGridBox(live.range);
   assert.equal(box.cols, 21);

@@ -23,6 +23,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { hasGeneratedData, getDefaultSource } from '../../server/sim/simdata.js';
+import { FLY_CLIP } from '../../server/sim/content/kits/ops/chess_char_2_13-tippi.js';
 
 const REAL = { skip: !hasGeneratedData() };
 const ds = getDefaultSource();
@@ -131,7 +132,7 @@ test('F3: the pipeline — a ground enemy\'s damage, element and statuses never 
   assert.equal(h.b.applyStatus(u, 'stun', { duration: 0.2, source: f }), true, 'a flyer\'s stun lands');
   // landed: the ground enemy reaches her again
   h.runUntil(() => !u.skill.active, 40);
-  h.run(0.5);
+  h.run(FLY_CLIP + 0.5);   // (her landing clip S1_Landing first, in the air: shared/liftoff.js)
   assert.equal(u.s.flags.liftoff, undefined);
   assert.ok(h.b.dealDamage(g, u, { amount: 300, type: 'true', isSkill: true }) > 0, 'landed: ground ability lands');
   done(h);

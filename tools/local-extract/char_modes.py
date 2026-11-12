@@ -680,13 +680,21 @@ def skill_effects(tree, projectiles=None):
             if isinstance(c, dict):
                 add(e['end']['cast'] if end else e['cast'] if c.get('_oneshot', 1) else e['castLoop'], effect_names(c))
         hg = hit_groups(d)
+        # 2026-11-11: a skill ability's swing-start CastTargetEffectOptions (`_startEvent` ON_CAST_START) are created on its
+        # cast targets as its cast starts, not at the damage (酒神 S1 skchr_phatm2_1's aim marks phatm2_skill_01_hit_aim_01 /
+        # _hit_02_aim_01): `castTgt` with their timing in `castTgtOpt` (cast_target_timing), out of `target` and the shot's hits
+        swing_tgt = {} if end else cast_target_swing(d)
+        if swing_tgt:
+            add(e.setdefault('castTgt', []), list(swing_tgt))
+            e.setdefault('castTgtOpt', {}).update({k: v for k, v in swing_tgt.items() if k not in e['castTgtOpt']})
+        hit_names = lambda k: [x for x in effect_names(d.get(k) or []) if k != '_castTargetEffects' or x not in swing_tgt]
         if not end:   # (2026-10-21) the hits of every component of this GameObject (shotHit below)
             gh = e.setdefault('_gpHits', {}).setdefault(gp, [])
             for k in HIT_KEYS:
-                add(gh, effect_names(d.get(k) or []))
+                add(gh, hit_names(k))
         for k in HIT_KEYS:
             if k != '_hitEffects' or not hg or hg.get('keep'):
-                add(e['end']['hit'] if end else e['target'], effect_names(d.get(k) or []))
+                add(e['end']['hit'] if end else e['target'], hit_names(k))
         if hg and not end and 'hitGroups' not in e:
             e['hitGroups'] = hg   # 2026-10-16: the skill's per-strike hits (阿斯卡纶 S1 skchr_ascln_1)
         sp = strike_projectiles(d) if projectiles and not end else None
@@ -898,8 +906,9 @@ def mode_parts(tree, mode_paths, projectiles=None):
                 if configs and any(x.get('_buffKey') for q, cs in by_go.items() if q.startswith(gp + '/Trigger') for x in cs):
                     tal[parts[2]] = gp
                 # (a config group's first attack whose own Selector holds a SelfConditionalValidator on a buff of hers: 折桠 S2's
-                # FirstAttack, while branch_s_2[first] holds; its swing is the sim's 'FirstAttack')
-                if configs and parts[2].startswith('First') and any(x.get('_checkContainBuffs') == 1 and x.get('_buffKeys') for x in by_go.get(gp + '/Selector', [])):
+                # FirstAttack, while branch_s_2[first] holds; its swing is the sim's 'FirstAttack'. 2026-11-11: by its Selector, not
+                # its name — 维伊's AttackWithMergeBall while she holds veen_charge_ball_merged, the sim's 'AttackWithMergeBall')
+                if configs and any(x.get('_checkContainBuffs') == 1 and x.get('_buffKeys') for x in by_go.get(gp + '/Selector', [])):
                     tal[parts[2]] = gp
         parts = {k: collect(i, ap) for k, ap in sorted(tal.items())}
         # 2026-11-10: a ContinuouslyRangedHeal's `_secondProjectileKey` — the shot of a heal on the same ally as the attack before
@@ -944,6 +953,13 @@ def cast_target_timing(d, out):
             for x in c.get('_effects') or []:
                 if isinstance(x, str) and x:
                     out.setdefault(x, {**cast_timing(c), 't': 2})
+
+
+def cast_target_swing(d):
+    """{ name: timing } of ability `d`'s `_castTargetEffects` that start at ON_CAST_START (cast_target_timing's s 2)."""
+    t = {}
+    cast_target_timing(d, t)
+    return {k: v for k, v in t.items() if v['s'] == 2}
 
 
 def modes_of(path, projectiles=None, tree=None):

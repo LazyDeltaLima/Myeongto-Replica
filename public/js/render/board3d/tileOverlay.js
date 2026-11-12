@@ -15,14 +15,16 @@
 //   stripes  range previews (the direction wheel's 'facing', a selected piece's 'selRange' …): the client's attack-range
 //            material (battle/[pack]common.ab `range_material`, shader Torappu/Battle/AttackRange): texture
 //            `sprite_attack_range` (white diagonal stripes, 3 per tile) × colour, alpha _Color.a 0.749, alpha blend, no
-//            depth write, scrolling (_AnimationSpeed 0.5). Colour orange 255,140,0 (the capture: 225,148,20 over the green
-//            tint = 0.75 · orange + 0.25 · green) [추정: set at run time]. Without the extracted texture a procedural copy
-//            (same stripes) is used.
+//            depth write, scrolling (_AnimationSpeed 0.5). Colour: the battle scene's GridRangeDrawer `_attackRangeColor`
+//            255,128,0, or `_healRangeColor` 0,200,255 when the unit's range is a heal ability's (a medic's — the official
+//            client tints the material at run time; every stage scene of both seasons has these values), and
+//            `_skillRangeColor` 255,0,0 for a skill's range (the field menu's skill toggle, GridRangeDrawer.TurnOnSkill).
+//            The heal and skill tiles are layers of their own (setStripes' `heal`, `skill`). Without the extracted texture a procedural copy (same stripes) is used.
 //
 //   const ov = new TileOverlay(THREE, scene)
 //   ov.setTint(tiles | null, heightAt)        [[r, c]] board tiles; heightAt(r, c) = top height (tiles.heightAt)
 //   ov.setBenchTint(tiles | null, heightAt)
-//   ov.setStripes(tiles | null, heightAt)
+//   ov.setStripes(tiles | null, heightAt, heal?, skill?)  heal / skill: the heal-range (blue) / skill-range (red) tiles
 //   ov.setStripeImage(img)                    HTMLImageElement of sprite_attack_range (optional)
 //   ov.update(timeSec) · ov.dispose()
 // Geometry is rebuilt only when a set changes (a few hundred vertices); nothing is allocated per frame.
@@ -31,8 +33,9 @@
 export const TINT = Object.freeze([0.29, 0.55, 0.29]);
 /** 2× modulate source colour of the bench tint (× 0.58, 1.1, 1.3 — teal; fitted to the KR capture). */
 export const BENCH_TINT = Object.freeze([0.29, 0.55, 0.65]);
-/** Attack-range stripes: colour (sRGB 0..1), alpha (range_material _Color.a), scroll speed (uv / s, _AnimationSpeed). */
-export const STRIPES = Object.freeze({ color: [1, 0.55, 0], alpha: 0.749, speed: 0.5 });
+/** Attack-range stripes: colour (sRGB 0..1; GridRangeDrawer `_attackRangeColor`, `heal` its `_healRangeColor`), alpha
+ * (range_material _Color.a), scroll speed (uv / s, _AnimationSpeed); `skill` its `_skillRangeColor`. */
+export const STRIPES = Object.freeze({ color: [1, 128 / 255, 0], heal: [0, 200 / 255, 1], skill: [1, 0, 0], alpha: 0.749, speed: 0.5 });
 /** Lift of the overlays above coplanar board surfaces (depth units, polygon offset). */
 const OFFSET = { tint: [-1, -4], stripes: [-2, -8] };
 const RAISED = 0.01;
@@ -148,7 +151,15 @@ export class TileOverlay {
       transparent: true, depthWrite: false, depthTest: true, fog: false, toneMapped: false, blending: T.NormalBlending,
       polygonOffset: true, polygonOffsetFactor: OFFSET.stripes[0], polygonOffsetUnits: OFFSET.stripes[1],
     }), 901);
-    this.keys = { tint: '', bench: '', stripes: '' };
+    // the heal / skill ranges: the same material in their colour, sharing the texture and the scroll
+    const layer = (color) => {
+      const m = this._mesh(this.stripes.material.clone(), 901);
+      m.material.uniforms = { ...this.stripes.material.uniforms, uColor: { value: new T.Vector3(...color) } };
+      return m;
+    };
+    this.healStripes = layer(STRIPES.heal);
+    this.skillStripes = layer(STRIPES.skill);
+    this.keys = { tint: '', bench: '', stripes: '', healStripes: '', skillStripes: '' };
     this.rev = 0; // bumped by every change of what is drawn (the board redraws: scene.js BOARD_REDRAW_MAX_S)
   }
 
@@ -189,7 +200,7 @@ export class TileOverlay {
       g.setIndex(new T.BufferAttribute(data.index, 1));
     }
     mesh.geometry = g;
-    mesh.visible = !!data && (which !== 'stripes' || !!this.stripes.material.uniforms.uMap.value);
+    mesh.visible = !!data && (!/^(stripes|healStripes|skillStripes)$/.test(which) || !!this.stripes.material.uniforms.uMap.value);
   }
 
   /** Deployable tiles of the dragged piece (null / [] clears). */
@@ -198,8 +209,12 @@ export class TileOverlay {
   /** Bench slots that take the dragged piece (null / [] clears). */
   setBenchTint(tiles, heightAt) { this._set('bench', tiles, heightAt); }
 
-  /** Range preview tiles (null / [] clears). */
-  setStripes(tiles, heightAt) { this._set('stripes', tiles, heightAt); }
+  /** Range preview tiles (null / [] clears); `heal` / `skill`: the heal-range / skill-range tiles, drawn blue / red. */
+  setStripes(tiles, heightAt, heal = null, skill = null) {
+    this._set('stripes', tiles, heightAt);
+    this._set('healStripes', heal, heightAt);
+    this._set('skillStripes', skill, heightAt);
+  }
 
   /** The client's stripe texture (replaces the procedural copy). */
   setStripeImage(img) {
@@ -214,11 +229,12 @@ export class TileOverlay {
 
   update(t) {
     this.time = t;
-    if (this.stripes.visible) this.stripes.material.uniforms.uShift.value = -((t * STRIPES.speed) % 1);
+    // one uniform object shared by both layers
+    if (this.stripes.visible || this.healStripes.visible || this.skillStripes.visible) this.stripes.material.uniforms.uShift.value = -((t * STRIPES.speed) % 1);
   }
 
   dispose() {
-    for (const m of [this.tint, this.bench, this.stripes]) {
+    for (const m of [this.tint, this.bench, this.stripes, this.healStripes, this.skillStripes]) {
       this.parent?.remove?.(m);
       m.geometry.dispose();
       m.material.dispose();

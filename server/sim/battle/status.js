@@ -211,9 +211,11 @@ export class BattleStatus {
     }
     // (the client shortens the buff as it runs — the client's `Buff._PreprocessDeltaTime`: dt ÷ max(0.001, 1 − 抵抗) —,
     // the same length as this × (1 − 抵抗) while the 抵抗 stays as it was at the application)
+    // A buff's `data.statusTimeAdd` adds to the same attribute (ONE_MINUS_STATUS_RESISTANCE ADDITION — 规程's 驱逐者瓦斯 +1):
+    // the time runs dt ÷ (1 − 抵抗 + Σ add), clamped to [0.001, 1000] like the client's attribute
     if (RESIST_STATUSES.has(key) && !opts.resistApplied) {
-      const rv = this.resistOf(target);
-      if (rv > 0) duration *= Math.max(0.001, 1 - rv);
+      const rv = this.resistOf(target), add = this.statusTimeAdd(target);
+      if (rv > 0 || add !== 0) duration *= Math.min(1000, Math.max(0.001, 1 - rv + add));
     }
     // 浮空 / 缚地 (ba.levitate, ba.groundbind): "对重量大于3的单位持续时间减半"
     if ((key === 'levitate' || key === 'groundbind') && target.s.massLevel > LEVITATE_HALF_WEIGHT) duration /= 2;
@@ -279,6 +281,14 @@ export class BattleStatus {
       if (v > r) r = v;
     }
     return Math.min(0.95, r);
+  }
+
+  /** Σ `data.statusTimeAdd` of the unit's buffs (applyStatus: added to its 1 − 抵抗; 0 without any). */
+  statusTimeAdd(unit) {
+    if (!unit || !unit.buffs.length) return 0;
+    let a = 0;
+    for (const b of unit.buffs) { const v = b.data && b.data.statusTimeAdd; if (Number.isFinite(v)) a += v; }
+    return a;
   }
 
   /** 诱导 target point of an `attract` status buff (enemy walks there; see ai.js moveAttracted). */

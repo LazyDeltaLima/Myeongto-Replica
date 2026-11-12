@@ -238,6 +238,7 @@ test('S3 “明灭” (MANUAL, DEFAULT on its rangeId 1-1 box, every cast): 15 s
     h.run(1);
     assert.deepEqual([u.skill.rule, u.skill.triggerGrid, u.skill.activations], ['DEFAULT', sk.rangeGrid, 1], `T${tier}: enemies on the 3-2 only — the trigger box stays the data's 1-1`);
     u.skill.activate('test');
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     approx(u.skill.timeLeft, 25, `T${tier}: 持续时间延长至25秒`, 0.01);
     assert.deepEqual(u.liveRangeGrid, RANGE_3_2, `T${tier}: 3-2 while it runs`);
     const n1 = atkHits(h, u).length;
@@ -252,6 +253,7 @@ test('S3 “明灭” (MANUAL, DEFAULT on its rangeId 1-1 box, every cast): 15 s
     h.step();
     u.skill.gainSp(999);
     u.skill.activate('test');
+    h.runUntil(() => u.skill.active, 2);   // (after its begin clip: skills.js _beginCast)
     assert.deepEqual([Math.round(u.skill.timeLeft), u.liveRangeGrid], [15, [[0, 0], [0, 1]]], `T${tier}: the first cast of the new deployment`);
     // the 'skill' on events name the cast's variant (render: mode S3_2 and the _B clips): only the second cast's
     assert.deepEqual(h.eventsOf('skill').filter((x) => x[1] === u.id && x[2] === 1).map((x) => x[3] ?? null), [null, 'later', null], `T${tier}: variants`);
@@ -299,7 +301,7 @@ test('T2 散华: hits on elite / leader enemies give a 护盾 layer at 20 % (AFT
     const { h, u } = field({ tier, elite, mod, skill: s3 ? 2 : 1, seed: 21 });
     if (!s3) h.b.on('spGain', (c) => { if (c.unit === u) c.amount = 0; });
     const el = h.spawn('enemy_elite', { pos: [10, 6] });
-    if (s3) { u.skill.gainSp(999); u.skill.activate('test'); u.skill.extend(600); }
+    if (s3) { u.skill.gainSp(999); u.skill.activate('test'); h.runUntil(() => u.skill.active, 2); u.skill.extend(600); }   // (extended once started, after its begin clip)
     let gains = 0, rolls = 0;
     const cap = mod === AFTY && tier === 6 ? 2 : 1;
     h.b.on('damaged', (c) => {

@@ -56,3 +56,19 @@ export function rowCondition(ctx, me) {
   if (bbStr.conditionkey === 'character_same_row') return sameRowCount(ctx, me) >= num(bb.check_count, 0);
   return true;
 }
+
+/**
+ * 规程's growing 获得时 特质 (极光 SERVER_ADD_BOND_UPGRADE_LAYER, 忍冬 SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT): the k-th run
+ * (k = 0, 1, …) gives count + delta × ⌊k ÷ n⌋, at most count + max_count — 「每次触发后升级，至多叠加12层」 (count 1,
+ * delta 1, max_count 11), 「触发2次后升级，至多获得3次」 (n 2, max_count 2). The runs are counted per player and 特质 (the
+ * normal and elite record share one count: the same text and numbers) — [ASSUMED·화면: the card's {showtag_value_1}
+ * is read as that player-wide count; whether a copy sold and bought again starts over is not settled].
+ */
+export function growingValue(ctx) {
+  const { bb, garrisonId } = ctx.source;
+  const key = `gar:grow:${String(garrisonId).replace(/_[ab]$/, '')}`;
+  const k = ctx.counter(key);
+  ctx.incCounter(key, 1);
+  const base = num(bb.count, 1);
+  return Math.min(base + num(bb.delta_count, 0) * Math.floor(k / Math.max(1, num(bb.n, 1))), base + num(bb.max_count, 0));
+}

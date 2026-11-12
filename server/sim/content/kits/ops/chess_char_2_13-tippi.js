@@ -3,6 +3,7 @@
 
 import { num, talentBb, up, onHitOn } from '../shared/tier1.js';
 import { onDefaultSkill } from '../shared/tier2.js';
+import { LIFTOFF_FLAGS, holdTakeOff, landAfter } from '../shared/liftoff.js';
 
 /**
  * 起飞 of 蒂比's skills (gamedata_const ba.liftoff "不阻挡地面敌人且不会被地面敌人攻击，可以阻挡飞行敌人"): the skill's flags
@@ -11,15 +12,22 @@ import { onDefaultSkill } from '../shared/tier2.js';
  * ticks of a debuff already on her) and `blockFly` (blocks flyers at the air radius). She stays a ground unit on her tile (PRTS 行动方式 "起飞的
  * 干员仍然是地面单位": `unit.ground` unchanged — 隐德来希's 血镰 still counts her; 地面干员 bonds / items read her position).
  */
-const LIFTOFF_FLAGS = Object.freeze({ blockFly: true, liftoff: true });
-/** 蒂比 take-off: the ground enemies she blocked walk on. */
+/**
+ * Skill_Begin, Skill_End, Skill_2_Begin, Skill_2_End are all this long (data/assets.json `animations`; test/content/kits_alt_t2.test.js, test/sim/feedback1f-liftoff.test.js):
+ * the attack abilities of her modes S1_TakeOff / S1_Landing / S2_TakeOff / S2_Landing (`_timeMode` 1) — no attack while they
+ * play (shared/liftoff.js).
+ */
+export const FLY_CLIP = 1;
+const LAND_KEY = 'tippi:landing';
+/** 蒂比 take-off: the ground enemies she blocked walk on; no attack during the take-off clip. */
 function tippiTakeOff({ battle, unit }) {
   battle.releaseBlocked(unit);
   battle.fx('takeoff', { x: unit.x, y: unit.y, id: unit.id });
+  holdTakeOff(battle, unit, FLY_CLIP);
 }
-/** 蒂比 landing when the airborne skill ends: the flyers she held are released. */
-function tippiLand({ battle, unit }) {
-  battle.releaseBlocked(unit);
+/** 蒂比 landing when the airborne skill ends: the landing clip in the air, then the flyers she held are released. */
+function tippiLand({ battle, unit, reason }) {
+  landAfter(battle, unit, FLY_CLIP, { key: LAND_KEY, reason, onLanded: () => battle.releaseBlocked(unit) });
 }
 
 export default {

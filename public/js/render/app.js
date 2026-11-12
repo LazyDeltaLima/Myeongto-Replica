@@ -32,7 +32,10 @@
 //                                               ~2-frame buffer at the battle's game speed
 //   view.debugFx(key, unitId) → Promise<bool>   local patch (/debug.html): one official effect prefab on a battle unit
 //   view.highlightTiles(tiles, style)          [[r,c]] | [{row,col}]; style 'legal'|'illegal'|'range'|'rangeStand'|
-//                                               'hover'|'target'|{color,fill,line,group}; highlightTiles(null) clears all
+//                                               'hover'|'target'|{color,fill,line,group,heal,skill}; highlightTiles(null) clears all
+//                                               (`heal` / `skill`: a heal / skill range — the 3D board stripes it blue / red)
+//   view.pickAt(clientX, clientY)              prep: { piece: { uid, kind, area } | null, tile: { row, col } | null } under a
+//                                               client point (a DOM drag onto the field: ui/bandSkill.js)
 //   view.on(name, fn) → unsubscribe ; view.off(name, fn)
 //        pieceDragStart { uid, piece, from } · pieceDrop { uid, piece, from, target } · pieceDragEnd {uid, dropped}
 //        pieceClick { uid, piece, button, detail, clientX, clientY } (battle units: { unitId, uid, unit, … })
@@ -50,7 +53,8 @@
 // drops on the tile under the pointer (render/drag.js). A dragged unit stands on that tile while it is a legal target
 // (a board tile or a bench slot: drag.js dragStandTile; the official deploy drag, the owner's recording of 2026-10-09,
 // PR #403's report) and is held under the pointer elsewhere — its drawn feet DRAG_HOLD_TILES below it, the pointer on
-// its body; an item plate stays centred on the pointer. An item dropped on a unit's tile equips that unit.
+// its body; a dragged item stays in its slot, ringed, while a copy follows the pointer (units.js ItemView holdAt). An item
+// dropped on a unit's tile equips that unit.
 //   Direction step (ui/facingWheel.js, research 09 §1.2):
 //   view.tileScreen(row, col) → { x, y, s, poly: [[x,y]×4] } (client px: tile-top centre, px per tile, corners) | null
 //   view.holdPiece(uid, {row,col} | null)       keep a dropped prep piece standing on a tile while its direction is
@@ -59,7 +63,7 @@
 //   view.setSettings({ damageNumbers, quality: 'auto'|'high'|'medium'|'low', frameLimit: 0|30|60|120 }) ; view.resize() ; view.destroy()
 //   view.isReady() → false while the first frame is held back (its textures go up behind the loading screen); then
 //        emits ready (no payload) after the first frame that draws the field ("first frame" below)
-//   view.stats() → { fps, frameMs, cpuMs, renderMs, parts, units, particles, impostor, impostorAtlas, boardArt, … } (dev / perf)
+//   view.stats() → { fps, frameMs, cpuMs, renderMs, parts, units, particles, impostor, impostorAtlas, itemModels, boardArt, … } (dev / perf)
 //   view.census() → { objs, shown, tex, base, ticker, views, pen, gone, fxLive, fxNotes, fxTrails, topUnits, topFx, lodSec,
 //        lodSteps, fxSkip, b3, fxGl, fxLib, spine } (perf: what the page holds; since the last call the costliest unit views
 //        and effects, the seconds at each load level and its steps, why official effects did not play; the GPU memory of the
@@ -136,6 +140,7 @@ import { backdropTextures, shadowTexture, refreshTierChips, refreshDownLabels, s
 import { TILE_H, TIER_COLORS, COLORS, tileTop } from './style.js';
 import { loadBoardArt } from './boardArt.js';
 import { ImpostorAtlas } from './impostor.js';
+import { ItemModels } from './item-models.js';
 import { loadBoard3d, webgl2Available } from './board3d/load.js';
 import { createRetry3d } from './app/retry3d.js';
 import { noteRender } from '../diag.js';
@@ -147,19 +152,20 @@ import { layoutPen, penSignature } from './pen.js';
 import { IDENTITY, bossPrepField, tilesToDisp, leaderStand } from './prepfield.js';
 import { pickOnTile, pickBattle, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
-import { createFxLayer } from './fxgame.js'; // local patch: official battle effects
+import { createFxLayer, stageTileFx } from './fxgame.js'; // local patch: official battle effects
 import { syncStatusFx, statusSource } from './fxstatus.js'; // local patch: official status effects
 import { ensurePixi } from './app/pixi.js';
 import { pieceDirOf, pickUnitOf } from './app/pick.js';
 import { dirVector } from './face-turn.js'; // an operator's front (render.md 「공격 방향」)
 import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS } from './app/tune.js';
 import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, penShown, leaderShown } from './app/view.js';
-import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
+import { renderInfo, FORCED_EXIT, showsDeathFx, deviceAsEnemy } from './app/info.js';
 import { resolveAssets, makeData, withTimeout, capWait, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
 import { autoQuality, autoQualityStepper, onAutoQuality } from './auto-quality.js'; // settings 「自动」 (render.md 「자동 화면 품질」)
 import { frameScale, loadLevelStepper } from './load-level.js'; // 2026-10-30: the adaptive load level's judgement (render.md 「적응 부하 단계」)
 import { t } from '../../../shared/i18n.js';
 import { syncGoldenFx } from './fxgolden.js'; // local patch: the prep elite glow
+import { bandMarksOf, bandMarkFxByUid, bandTileFx, syncBandMarks } from './fxband.js'; // 2026-11-12: 规程's 指令 marks in the prep
 import { createRouteCursors, createBattleCursors } from './fxroute.js'; // the boss route preview (LOCAL-PATCH.md 「보스 경로 미리보기」); the battle start's official one (render.md 「적 경로 미리보기」)
 
 export { ensurePixi } from './app/pixi.js';
@@ -210,6 +216,9 @@ export async function createFieldView(host, options = {}) {
   signal?.throwIfAborted();
   const assets = resolveAssets(opts.assets);
   const data = makeData(opts.data);
+  /** An operator's equipment slots for the prep equip bar: its record's `equipSlots` (规程's “暴躁铁皮” 4 / 6 — server
+   *  gamedata equipSlotsOf, ui/gameLogic/placement.js), else 2. */
+  const equipSlotsOf = (chessId) => { const n = data.chess(chessId)?.equipSlots; return Number.isInteger(n) && n > 0 ? n : 2; };
   const settings = { damageNumbers: true, quality: 'high', ...(opts.settings || {}) };
   // 「自动」: settings.quality is the preset in effect (what every quality check below reads), stepped by auto-quality.js
   let autoPick = settings.quality === 'auto';
@@ -364,7 +373,11 @@ export async function createFieldView(host, options = {}) {
   // prep field (render/prepfield.js): identity on the own board, the boss-field half in the Final Assault prep
   let prepXf = IDENTITY;
   let lastPrep = null;        // { ps, o } of the last setPrep (re-applied when the prep field changes)
+  // 2026-11-12 (render/fxband.js): 规程's 指令 marks of the round — uid → the prefabs over that operator, the tile floors
+  // ({ bundle, name, x, y, z } in world space); `bandSync` one more sync pass after the marks went
+  let bandMarkUids = new Map(), bandTiles = [], bandSync = false, bandTilesWait = false;
   const hlReq = new Map();    // highlight group → { tiles (board space), style } requested through highlightTiles
+  const overlayTone = new Map(); // 3D overlay group → 'heal' (blue stripes) | 'skill' (red); absent = orange
   const overlay3d = new Map(); // local patch: highlight group → display tiles drawn by the 3D board overlay (drawHighlight)
   let legalKeep = null;        // local patch: { uid, tiles } — the deploy tiles of a board drop, lit again by its holdPiece
   // enemy preview pen (render/pen.js): figure key → UnitView (own map: never touched by the battle sync)
@@ -445,6 +458,10 @@ export async function createFieldView(host, options = {}) {
   setupCleanup.push(() => impostors.destroy());
   timing?.part?.('effects');
   ctx.impostors = impostors;
+  // the hand items' equipment models: one still snapshot per model in a shared page (render/item-models.js)
+  const itemModels = new ItemModels(app.renderer, assets);
+  setupCleanup.push(() => itemModels.destroy());
+  ctx.itemModels = itemModels;
   tiles.setView(bandFor('prep'), camRect(), fieldRows('prep'));
   // the real board art of the local client (optional): wait briefly so the first frame already uses it; a late
   // arrival swaps the atlas in place
@@ -479,6 +496,7 @@ export async function createFieldView(host, options = {}) {
         // the official scene's tile heights (style.js tileTop): the units, picking and highlights follow them
         onOfficial: (info) => {
           timing?.late('scene');
+          fxGame.setStageCamera(info?.camera ? [info.camera] : []); // 2026-11-11: the level's camera effect (规程's ice stages)
           const h = info?.highland ?? null;
           const p = info?.platform ?? null;  // the official 射击台 model's plate (style.js tileTop 'platform')
           const w = info?.waterPlatform ?? null;  // the official 特制水上平台 deck (tiles.js devH)
@@ -851,6 +869,7 @@ export async function createFieldView(host, options = {}) {
     if (wh != null && st.waterPlatformHeight !== wh) st = { ...st, waterPlatformHeight: wh };
     stageRec = st;
     tiles.setStage(st);
+    fxGame.setStageTiles(stageTileFx(st)); // 2026-11-12: the tiles' map effects (规程's 草地, the 泥沼 — fxgame.js TILE_FX)
     tiles.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
     if (board3d) {
       board3d.setStage(st); board3d.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
@@ -900,7 +919,7 @@ export async function createFieldView(host, options = {}) {
       const rec = data.item(piece.id);
       const tier = rec?.tier || piece.tier || 1;
       const url = assets.itemIcon ? assets.itemIcon(rec ? { trapId: rec.trapId, iconId: rec.iconId } : piece.id) : null;
-      return { kind: 'item', defId: piece.id, icon: url, color: (piece.golden || rec?.isGolden) ? 0xffc600 : TIER_COLORS[tier] || TIER_COLORS[1] };
+      return { kind: 'item', defId: piece.id, trapId: rec?.trapId || null, icon: url, color: (piece.golden || rec?.isGolden) ? 0xffc600 : TIER_COLORS[tier] || TIER_COLORS[1] };
     }
     if (kind === 'token') {
       const rec = data.token(piece.id);
@@ -1037,6 +1056,7 @@ export async function createFieldView(host, options = {}) {
         const moved = !prevHome || prevHome.x !== w.x || prevHome.y !== w.y || prevHome.z !== w.z;
         if (dragState && dragState.key === key) {
           dragState.home = w;                       // being dragged: only its home slot changes
+          if (v instanceof ItemView) { v.x = w.x; v.y = w.y; v.z = w.z; } // an item stays in its slot (its copy is dragged)
         } else if (pending.has(key) && !moved && !splitLanded(e, pending.get(key).board, list) && !(e.area === 'board' && !prevBoard.has(e.uid))) {
           // dropped, but this state predates the server applying the move: stay at the drop target. Not a piece this
           // state shows newly on the board — the move was applied (the direction wheel's holdPiece already made the
@@ -1060,7 +1080,7 @@ export async function createFieldView(host, options = {}) {
       if (info.kind === 'item' && v.setIcon) v.setIcon(info.icon); // an icon the manifest named late (onAssets)
       if (v.setCount) v.setCount(e.piece.kind === 'token' ? e.piece.count : 0);
       if (v.setItems) v.setItems(Array.isArray(e.piece.items) ? e.piece.items.map((it) => { const r = data.item(it?.id); return assets.itemIcon ? assets.itemIcon(r ? { trapId: r.trapId, iconId: r.iconId } : it?.id) : null; }) : []);
-      if (v.setEquip) v.setEquip(Array.isArray(e.piece.items) ? e.piece.items.map((it) => !!data.item(it?.id)?.isGolden) : []); // local patch: official equip bar (hud-bars.js)
+      if (v.setEquip) v.setEquip(Array.isArray(e.piece.items) ? e.piece.items.map((it) => !!data.item(it?.id)?.isGolden) : [], equipSlotsOf(e.piece.id)); // local patch: official equip bar (hud-bars.js)
       v._showFacing = e.area === 'board';
       // the stored facing (a piece held by the direction step shows the wheel's preview instead)
       if (e.area === 'board' && info.dir && !held.has(e.uid) && typeof v.setDir === 'function') v.setDir(info.dir);
@@ -1075,11 +1095,50 @@ export async function createFieldView(host, options = {}) {
       return { ...u, x: p.col, y: p.row, dir, facing: dir === 'LEFT' ? -1 : 1 };
     }).filter(Boolean) : [];
     syncMates([...mapChars, ...(prepXf.kind === 'bossPrep' && src.bossMate && Array.isArray(src.bossMate.units) ? src.bossMate.units : [])]);
+    // 2026-11-12 (render/fxband.js, docs/rules/fx.md 「규정 액티브 전략의 표식·칸 이펙트」): 规程's marks — the operators'
+    // effects (synced every frame), the tiles' floors, and 宝藏探机's chests standing on their tiles
+    const marks = bandMarksOf(src);
+    bandMarkUids = bandMarkFxByUid(marks);
+    bandTiles = bandTileFx(marks).map((t) => ({ bundle: t.bundle, name: t.name, ...boardWorld(t.row, t.col) }));
+    bandSync = true;
+    syncChests(Array.isArray(src.bandSkill?.chests) ? src.bandSkill.chests : []);
     prepPieces = list.filter((e) => e.key && views.has(e.key));
     if (prepPieces.length === seen.size) prepSynced = true; // local patch: every piece found its slot (the scene is up)
     if (dragState && !views.has(dragState.key)) { drag.reset(); endDragVisual(false); }
     holdScene(false); // the prep pieces reference their models now (a battle's hold ends here)
     return true;
+  }
+
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 액티브 전략의 표식·칸 이펙트」): 宝藏探机's chests on the own board in the prep
+   * (m.private.bandSkill.chests [{ row, col, enemyId }], board space) — read-only 'c:<row>,<col>' views drawn as their enemy
+   * record's model (deviceInfo), never picked or dragged; rebuilt when the record changes.
+   */
+  function syncChests(list) {
+    const keep = new Set();
+    for (const ch of list) {
+      if (!ch || !Number.isInteger(ch.row) || !Number.isInteger(ch.col) || typeof ch.enemyId !== 'string') continue;
+      const w = boardWorld(ch.row, ch.col);
+      const id = `c:${ch.row},${ch.col}`;
+      keep.add(id);
+      let v = views.get(id);
+      if (v && v._sig !== ch.enemyId) { dropView(id); v = null; }
+      if (v) { v.setWorld(w.x, w.y, w.z); continue; }
+      v = new UnitView(ctx, deviceInfo({ id, kind: 'device', side: 'ally', defId: ch.enemyId, x: w.x, y: w.y, facing: 1, maxHp: 1 }), { prep: true });
+      v._sig = ch.enemyId;
+      v.setWorld(w.x, w.y, w.z);
+      v._showFacing = false;
+      views.set(id, v);
+    }
+    for (const k of [...views.keys()]) if (String(k).startsWith('c:') && !keep.has(k)) dropView(k);
+  }
+  /**
+   * 2026-11-12: a device made of an enemy record (宝藏探机's chest, enemy_9038_achest: an ally unit of the client) is drawn
+   * as that enemy's model — the walking-ally path (UnitInfo `walks`: the record's model, size and bindings, an ally's
+   * bars) — with the record's names; any other device stays a DeviceView box.
+   */
+  function deviceInfo(info) {
+    return deviceAsEnemy(info, info.kind === 'device' && info.defId ? data.enemy(info.defId) : null);
   }
 
   /**
@@ -1106,7 +1165,7 @@ export async function createFieldView(host, options = {}) {
       if (v.setItems && Array.isArray(info.items) && info.items.length) {
         v.setItems(info.items.map((it) => { const r = data.item(it); return assets.itemIcon ? assets.itemIcon(r ? { trapId: r.trapId, iconId: r.iconId } : it) : null; }));
         // the official equip bar like the own pieces (LOCAL-PATCH.md 「전투 화면 UI」; 0.2.0 merge)
-        if (v.setEquip) v.setEquip(info.items.map((it) => !!data.item(it)?.isGolden));
+        if (v.setEquip) v.setEquip(info.items.map((it) => !!data.item(it)?.isGolden), equipSlotsOf(info.defId));
       }
       views.set(info.id, v);
     }
@@ -1338,6 +1397,10 @@ export async function createFieldView(host, options = {}) {
       tiles.clearHighlights(key);
       if (key === 'dragFrom' || key === 'dragTarget') return;
       overlay3d.set(key, t);
+      // a heal range (a medic's: the style's `heal`) is striped blue, a skill's range (`skill`) red
+      // (board3d/tileOverlay.js STRIPES)
+      const tone = style && typeof style === 'object' ? (style.skill ? 'skill' : style.heal ? 'heal' : null) : null;
+      if (tone) overlayTone.set(key, tone); else overlayTone.delete(key);
       syncOverlay3d();
       return;
     }
@@ -1354,9 +1417,9 @@ export async function createFieldView(host, options = {}) {
     const isBench = ([r]) => prepXf === IDENTITY && (r === GEO.HAND_ROW || r === GEO.TEMP_ROW);
     o.setTint(legal.filter((t) => !isBench(t)), heightAt);
     o.setBenchTint?.(legal.filter(isBench), heightAt);
-    const s = [];
-    for (const [g, t] of overlay3d) if (g !== 'legal') s.push(...t);
-    o.setStripes(s, heightAt);
+    const s = [], h = [], k = [];
+    for (const [g, t] of overlay3d) if (g !== 'legal') { const tone = overlayTone.get(g); (tone === 'heal' ? h : tone === 'skill' ? k : s).push(...t); }
+    o.setStripes(s, heightAt, h, k);
   }
   function clearHl(group) {
     if (group) hlReq.delete(group); else hlReq.clear();
@@ -1390,9 +1453,15 @@ export async function createFieldView(host, options = {}) {
     const v = views.get(key);
     if (!v) return;
     dragState = { uid: p.uid, key, view: v, from: p.from, home: v._home || { x: v.x, y: v.y, z: v.z } };
-    v.lift = 0.3;
-    v.ghost = true; // local patch: see-through while placed (units.js GHOST_ALPHA)
-    v._tween = null;
+    if (v instanceof ItemView) {
+      // an item stays in its slot, ringed, while an outline-less copy follows the pointer (official prep screen;
+      // units.js ItemView holdAt)
+      v.holdAt(p.x ?? v.screen.x, p.y ?? v.screen.y);
+    } else {
+      v.lift = 0.3;
+      v.ghost = true; // local patch: see-through while placed (units.js GHOST_ALPHA)
+      v._tween = null;
+    }
     const t = pieceTile(p.piece);
     if (t) drawHighlight([[t.row, t.col]], 'hover', 'dragFrom');
     drawHighlight(legalTiles(p.piece), 'legal', 'legal');
@@ -1402,25 +1471,25 @@ export async function createFieldView(host, options = {}) {
     if (!dragState) return;
     const v = dragState.view;
     const item = v instanceof ItemView;
+    if (item) v.holdAt(p.x, p.y);
     // a unit over a legal drop target — the tile under the pointer, on the board or the bench (render/drag.js
     // dragStandTile) — stands on it, lifted, as in the official deploy drag (the owner's recording of 2026-10-09): the
     // world point the drop tween goes to (boardWorld, the prep field transform applied), set at once, no tween
     const stand = item ? null : dragStandTile(p);
-    if (stand) {
+    if (item) { /* the copy is placed by the view itself (ItemView _placeCopy) */ } else if (stand) {
       const w = boardWorld(stand.row, stand.col, stand.bench);
       v.x = w.x; v.y = w.y; v.z = w.z;
     } else {
       // otherwise held under the pointer (the player still sees what they carry): a unit with its drawn (lifted) feet
-      // DRAG_HOLD_TILES of its own px per tile below it (the scale at the pointer's ground, refined once at the feet), an
-      // item plate centred on it
+      // DRAG_HOLD_TILES of its own px per tile below it (the scale at the pointer's ground, refined once at the feet)
       const g = cam.unproject(p.x, p.y, 0);
-      const hold = item ? 0 : DRAG_HOLD_TILES;
+      const hold = DRAG_HOLD_TILES;
       const s0 = g ? cam.scaleAt(g.x, g.y, 0) : cam.scale;
       const t = pickTile(cam, p.x, p.y + hold * s0, heightAt, tiles.levels, 19, boardCols());
       const z = t ? heightAt(t.row, t.col) : 0;
-      const up = item ? z : z + (v.lift || 0) + (v.hover || 0);
+      const up = z + (v.lift || 0) + (v.hover || 0);
       let w = cam.unproject(p.x, p.y + hold * s0, up);
-      if (w && hold) w = cam.unproject(p.x, p.y + hold * cam.scaleAt(w.x, w.y, up), up) || w;
+      if (w) w = cam.unproject(p.x, p.y + hold * cam.scaleAt(w.x, w.y, up), up) || w;
       if (w) {
         v.x = Math.max(-1, Math.min(21, w.x));
         v.y = Math.max(-1, Math.min(19, w.y));
@@ -1439,7 +1508,13 @@ export async function createFieldView(host, options = {}) {
     if (!dragState) return;
     const v = dragState.view;
     const t = p.target;
-    if (t && (t.area === 'board' || t.area === 'hand')) {
+    const onTile = !!(t && (t.area === 'board' || t.area === 'hand'));
+    if (v instanceof ItemView) {
+      // the copy goes; dropped on a tile, the item flies there from where the copy stood, else it never left its slot
+      const g = v.endHold();
+      if (onTile && g) { v.x = g.x; v.y = g.y; v.z = g.z; }
+    }
+    if (onTile) {
       const row = t.area === 'board' ? t.row : GEO.HAND_ROW, col = t.area === 'board' ? t.col : t.idx;
       const w = boardWorld(row, col, t.area === 'hand');
       v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: w.x, ty: w.y, tz: w.z, t: 0 };
@@ -1462,6 +1537,7 @@ export async function createFieldView(host, options = {}) {
     if (dragState) {
       const v = dragState.view;
       const h = dragState.home;
+      if (v instanceof ItemView && !v.destroyed) v.endHold();
       if (cancelled && v && !v.destroyed) v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: h.x, ty: h.y, tz: h.z, t: 0 };
       if (v) { v.lift = 0; v.ghost = held.has(dragState.uid); } // local patch
     }
@@ -1665,7 +1741,7 @@ export async function createFieldView(host, options = {}) {
   function scoutItemInfo(info) {
     const rec = data.item(info.defId);
     const tier = rec?.tier || info.tier || 1;
-    return { ...info,
+    return { ...info, trapId: rec?.trapId || null,
       icon: assets.itemIcon ? assets.itemIcon(rec ? { trapId: rec.trapId, iconId: rec.iconId } : info.defId) : null,
       color: (info.golden || rec?.isGolden) ? 0xffc600 : TIER_COLORS[tier] || TIER_COLORS[1] };
   }
@@ -1675,14 +1751,14 @@ export async function createFieldView(host, options = {}) {
     if (v) return v;
     const info = infos.get(id);
     if (!info || gone.has(id)) return null;
-    v = info.kind === 'device' ? new DeviceView(ctx, info)
+    v = info.kind === 'device' && !deviceInfo(info).walks ? new DeviceView(ctx, info)
       : info.kind === 'item' ? new ItemView(ctx, scoutItemInfo(info))
-      : new UnitView(ctx, info, { prep: !!battleMeta?.prep && info.side === 'ally' });
+      : new UnitView(ctx, deviceInfo(info), { prep: !!battleMeta?.prep && info.side === 'ally' });
     // a teammate's operator shows its equipped items like the own prep bench does (item pips; user playtest #2:
     // at the unit, not only in the detail card) — prep surfaces only, the battle HUD stays as it is
     if (v.setItems && battleMeta?.prep && Array.isArray(info.items) && info.items.length) {
       v.setItems(info.items.map((it) => { const r = data.item(it); return assets.itemIcon ? assets.itemIcon(r ? { trapId: r.trapId, iconId: r.iconId } : it) : null; }));
-      if (v.setEquip) v.setEquip(info.items.map((it) => !!data.item(it)?.isGolden)); // local patch: official equip bar (hud-bars.js)
+      if (v.setEquip) v.setEquip(info.items.map((it) => !!data.item(it)?.isGolden), equipSlotsOf(info.defId)); // local patch: official equip bar (hud-bars.js)
     }
     v.setWorld(info.x, info.y, 0);
     v._seen = false;
@@ -1911,6 +1987,12 @@ export async function createFieldView(host, options = {}) {
         // an attack behaviour that strikes nothing (fx `signal`, over `t` game s when given: 秘术师 'mysticStore', 凯尔希·思衡托's
         // S3 take-off; `attackTurn`: over the attack interval, the fx's `t` being something else — 涤火杰西卡's shell flight), a strike just made (`strike`: 焰尾's 前锋剑术) or a channel held while `on` (蕾缪安 S2's aim, `on` 1 / 0)
         // → its role's `signals` clip, UnitView.onSignal
+        // 2026-11-12: an enemy ability cast in a clip of its own (fx 'enemySkill' { id, ability } — render/units.js ESKILL_CLIPS)
+        // (its channel over `dur`, in the way it faces its target `tgt`: “喷射罐”'s Flame)
+        if (e[1] === 'enemySkill' && e[4] && typeof e[4].ability === 'string' && e[4].id != null) {
+          const t = e[4].tgt != null ? views.get(e[4].tgt) : null;
+          views.get(e[4].id)?.onEnemySkill?.(e[4].ability, LATE.get(e) || 0, { dur: Number(e[4].dur) || 0, aim: t ? { x: t.x, y: t.y } : null });
+        }
         if (e[4] && typeof e[4] === 'object' && typeof e[4].signal === 'string' && e[4].id != null) views.get(e[4].id)?.onSignal?.(e[4].signal, !e[4].attackTurn && Number(e[4].t) > 0 ? Number(e[4].t) : null, !!e[4].strike, e[4].on ?? null);
         // 予愿安洁莉娜 S2's 吟唱: her model glides out along the sweep and back (UnitView.glide; the sim keeps her on her tile)
         if (e[1] === 'dash' && e[4] && typeof e[4] === 'object' && Number(e[4].chant) > 0) {
@@ -2240,6 +2322,14 @@ export async function createFieldView(host, options = {}) {
       lap('hud');
       syncStatusFx(views, fxGame, mode === 'battle'); // local patch: official status effects (fxstatus.js)
       syncGoldenFx(views, fxGame, mode === 'prep'); // local patch: the official elite glow in the prep (fxgolden.js)
+      // 2026-11-12: 规程's 指令 marks (fxband.js) in the prep — the operators' every frame while there are some (their views
+      // are rebuilt, the layer loads late), the tiles' when they changed or until the effect index is up; a battle or
+      // enterPrepMode's clear() takes both with the views and the layer's effects
+      if (mode === 'prep' && (bandMarkUids.size || bandSync || bandTilesWait)) {
+        if (bandMarkUids.size || bandSync) syncBandMarks(views, fxGame, true, bandMarkUids);
+        if (bandSync || bandTilesWait) bandTilesWait = !fxGame.setBandTiles(bandTiles);
+        bandSync = false;
+      }
       lap('status');
       routeCursors.sync(leader && !leaderHidden && mode === 'prep' && prepXf.kind === 'bossPrep' ? leader.stand.entry.paths : null, leader?.stand.entry.fly ? 'FLY' : 'WALK', dt);
       lap('misc');
@@ -2578,6 +2668,20 @@ export async function createFieldView(host, options = {}) {
       return { x: r.left + c.x, y: r.top + c.y, s: c.s, poly: [corner(-0.5, 0.5), corner(0.5, 0.5), corner(0.5, -0.5), corner(-0.5, -0.5)], mirror: mode === 'prep' && prepXf.mirror };
     },
     /**
+     * What lies under a CLIENT point in the prep, judged as the piece drag judges it (render/drag.js): the own piece
+     * standing on the tile there and that BOARD-space tile — for a drag that starts in the DOM (ui/bandSkill.js, 规程's
+     * 指令). null outside the prep or off the canvas.
+     */
+    pickAt(clientX, clientY) {
+      if (destroyed || mode !== 'prep') return null;
+      const r = canvas.getBoundingClientRect();
+      const x = clientX - r.left, y = clientY - r.top;
+      if (!(x >= 0 && y >= 0 && x <= r.width && y <= r.height)) return null;
+      const p = pieceAt(x, y);
+      const t = pickBoardTile(x, y);
+      return { piece: p ? { uid: p.uid, kind: p.kind, area: p.area } : null, tile: t && t.row >= 0 ? { row: t.row, col: t.col } : null };
+    },
+    /**
      * True when the view itself stripes range previews ('facing' / 'selRange' / 'range' groups) under the units (the 2D
      * board): the direction wheel then needs no striped overlay of its own (it would cover the units).
      */
@@ -2669,7 +2773,7 @@ export async function createFieldView(host, options = {}) {
     },
     stats() {
       return {
-        fps: Math.round(fps * 10) / 10, frameMs: Math.round(frameMs * 100) / 100, cpuMs: Math.round(cpuMs * 100) / 100, renderMs: Math.round(renderMs * 100) / 100, mode, units: views.size, impostor: impInterval, impostorAtlas: { ...impostors.stats }, boardArt: !!tiles.atlas.art,
+        fps: Math.round(fps * 10) / 10, frameMs: Math.round(frameMs * 100) / 100, cpuMs: Math.round(cpuMs * 100) / 100, renderMs: Math.round(renderMs * 100) / 100, mode, units: views.size, impostor: impInterval, impostorAtlas: { ...impostors.stats }, itemModels: { ...itemModels.stats }, boardArt: !!tiles.atlas.art,
         board3d: board3d ? { on: true, ...board3d.stats(), losses: recover.count }
           : { on: false, pref: boardPref, error: board3dError, recovering: retry3d.state().pending, waiting: retry3d.state().waiting || retry3d.state().spent, losses: recover.count },
         pen: penViews.size, prepField: prepXf.kind === 'bossPrep' ? prepXf.side : null, lod: loadLevel, culled: culledCount,

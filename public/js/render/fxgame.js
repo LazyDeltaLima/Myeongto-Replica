@@ -231,12 +231,47 @@ const loadEnemyModes = () => (enemyModesPromise ||= getJson(ENEMY_MODES_URL));
 const PRISONER_MODES = Object.freeze({ warning: 'R', liberty: 'L' });
 const EMBER_MODES = Object.freeze({ husk: 'Prop' });
 const STATUE_MODES = Object.freeze({ stone: 'Stone', fly: 'Fly' });
+const HEADSHOT_MODES = Object.freeze({ HeadShot: 'HeadShot' });
+/** 2026-11-11: the sim's 'explode' kinds that are an enemy's official shot bursting where it touched (fxgame eshotBlast). */
+const SHOT_BLASTS = new Set(['bomb', 'cansld', 'wingnt']);
+/** 2026-11-11: 'explode' kinds whose official blast has no effect of its own — the ability's cast effects draw it. */
+const CAST_BLASTS = new Set(['ltndruAoe']);
+/**
+ * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」): 'atk' kinds that are the shot of the enemy's running ability, not its plain
+ * attack — 破城者's SkyProjectile missiles (bounty.js kitUareap, MultiRangedAttack of projectile_enemy_uareap_skill): no
+ * plain-attack effects; the projectile shows only at its burst ('explode', AREA_SHOT_BLASTS).
+ */
+const ABILITY_SHOT_ATKS = new Set(['uareapMissile']);
+/**
+ * 2026-11-12: 'explode' kinds of an ability's projectile bursting where it reached (eprojAreaFx) whose units hit get the
+ * projectile's `_effectsWhenHit` only (dblastHit) — not its reach effects again, nor the enemy's plain hit: 破城者's missile
+ * (projectile_enemy_uareap_skill: AttachToTarget `_delayToStart` 0.6 on the spot, `_effectsWhenReached` enemy_uareap_skill_hit_01,
+ * no hit effect).
+ */
+const AREA_SHOT_BLASTS = new Set(['uareap']);
+/**
+ * 2026-11-12 (docs/rules/fx.md 「규정 살카즈 후예 무리」): an enemy skill whose strike (its clip's attack event) the sim sends
+ * as 'explode' of a kind: its cast effects of ON_SPELL_ON (enemy-modes.json opt `s` 4) play there, not at its 'enemySkill',
+ * and the blast draws no stand-in (its hits are the skill's, eskillHit) — defId → { ability: kind }. 萨卡兹子裔责罚者 /
+ * 惩戒者's StunAttack (reborn.js kitDfat: its Skill clip, the strike 0.567 s in): enemy_dfat_skill_start_01.
+ */
+const DFAT_STUN = Object.freeze({ StunAttack: 'dfatStun' });
+const SPELL_BLASTS = Object.freeze({ enemy_1362_dfat: DFAT_STUN, enemy_1362_dfat_2: DFAT_STUN });
+/**
+ * 2026-11-12 (docs/rules/fx.md 「규정 재생 무리」): an enemy kit's moment (the sim's fx 'kitHit' { id, k }) whose client buff
+ * creates an effect once on that enemy — k → the buff key in the enemy's binding `buffFx` (ekitHitFx): 元核孽生者 / 异形孽生者
+ * breaking a 赘生甲壳 (element.js kitNucleus 'dslntf:break': dslntf_s_1[block]'s CreateEffect enemy_dslntf_buff_02, BUFF_SOURCE
+ * — the 孽生者).
+ */
+const EKIT_HIT_FX = Object.freeze({ 'dslntf:break': 'dslntf_s_1[block]' });
 const FORM_MODES = Object.freeze({
   enemy_1116_liprr: PRISONER_MODES, enemy_1116_liprr_2: PRISONER_MODES, enemy_1118_lidbox_2: PRISONER_MODES,
   enemy_1119_vofsd: PRISONER_MODES, enemy_1121_lifbos: PRISONER_MODES, enemy_1121_lifbos_2: PRISONER_MODES,
   enemy_1172_dugago: STATUE_MODES, enemy_1172_dugago_2: STATUE_MODES,
   enemy_1288_duskls: EMBER_MODES, enemy_1288_duskls_2: EMBER_MODES, enemy_1292_duskld: EMBER_MODES, enemy_9010_acpupp: EMBER_MODES,
   enemy_2025_syufo: Object.freeze({ crawl: 'Normal' }),
+  enemy_1438_dspred: Object.freeze({ 1: '1' }),   // 2026-11-12: its B_Attack is the binding's mode-1 Attack (the hooker's pair)
+  enemy_1439_dslntf: Object.freeze({ 1: '1' }), enemy_1439_dslntf_2: Object.freeze({ 1: '1' }),
   enemy_1509_mousek: Object.freeze({ noShield: 'NoShield' }),   // its last barrier layer's end (archetypes.js artsBarrier brokeForm)
   enemy_1516_jakill: Object.freeze({ form2: 'R' }),
   enemy_1535_wlfmster: Object.freeze({ form2: 'M2' }),
@@ -249,6 +284,13 @@ const FORM_MODES = Object.freeze({
   enemy_9017_achunt: Object.freeze({ charge: 'S1' }),
   enemy_1040_bombd: Object.freeze({ bombed: 'S1' }),
   enemy_9024_acsgnt: Object.freeze({ Giant: 'Giant', SnowyMountain: 'SnowyMountain' }),   // 谢拉格's giant (a walking ally)
+  // 2026-11-11: 规程's 寻路者 trio (ammo mode) and 无畏掷弹兵 after its bombs (render/units.js FORMS)
+  enemy_1213_mtrsnp: HEADSHOT_MODES, enemy_1216_cansld: HEADSHOT_MODES, enemy_1219_mtrbty: HEADSHOT_MODES,
+  enemy_1405_boomer_2: Object.freeze({ Light: 'Light' }),
+  // 2026-11-12: 神勇的帕拉杜利斯's charge (critic.js → form 'Run'): the prefab mode Run — its aura's enemy_mnctur_move_1 on it
+  enemy_10163_mnctur_2: Object.freeze({ Run: 'Run' }),
+  // 2026-11-12: “投石机” / “榴弹炮” after the first throw (critic.js kitSnowballer → form 'Normal'): the prefab mode Normal
+  enemy_1388_wingnt: Object.freeze({ Normal: 'Normal' }), enemy_1388_wingnt_2: Object.freeze({ Normal: 'Normal' }),
   enemy_10081_mpplai: Object.freeze({ translator_fuchou: 'ModeB', translator_youling: 'MoveC', translator_shushi: 'ModeD' }),
 });
 
@@ -431,6 +473,35 @@ export function trailNames(binding) {
   return [...out];
 }
 
+/**
+ * 2026-11-12 (official client: a tile prefab's `_effect`, played by the Tile on its tile for as long as the map stands — the
+ * EN and CN `[uc]tiles.ab` agree): the map effects of a stage's tiles, by tileKey. Of the tiles our stages use, 规程's 草地
+ * (m09) and the 泥沼 of 规程 m06 and act2autochess_m02 have one drawn here; tile_start / tile_end are the 3D board's gates and
+ * tile_infection its InfectionFx (board3d/scene.js); tile_smog's `tile_smog` is not extracted (the 3D board's smog
+ * material stands in). The mud's prefab is not extracted yet either (not found in the client bundles searched so far).
+ */
+export const TILE_FX = Object.freeze({
+  tile_duel_grassland: Object.freeze(['mapeff', 'mapeff_079_dikuai_01']),
+  tile_mire: Object.freeze(['mapeff', 'mapeff_mud_ground_01']),
+});
+
+/** The tile effects of a stage record (data/stages.json: `rows` of glyphs, `tiles` their legend): [{ bundle, name, x, y }]. */
+export function stageTileFx(stage) {
+  const legend = stage && typeof stage.tiles === 'object' && stage.tiles ? stage.tiles : {};
+  const fx = new Map();
+  for (const [g, d] of Object.entries(legend)) if (TILE_FX[d?.tileKey]) fx.set(g, TILE_FX[d.tileKey]);
+  const out = [];
+  if (!fx.size || !Array.isArray(stage.rows)) return out;
+  stage.rows.forEach((line, r) => {
+    if (typeof line !== 'string') return;
+    for (let c = 0; c < line.length; c++) {
+      const e = fx.get(line[c]);
+      if (e) out.push({ bundle: e[0], name: e[1], x: c, y: r });
+    }
+  });
+  return out;
+}
+
 export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {}, trace = null, dry = false }) {
   let index = null, modes = null, emodes = null, plays = null;
   if (typeof fetch === 'function') {
@@ -481,7 +552,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (dry) { dryFollow(bundle, name, null, null); return; }
     const def = await lib.load(bundle, name);
     if (!mod || !def || gen !== stormGen) return;
-    const inst = new mod.fxp.FxInstance(def, { quality: q() });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), pinned: !!extra?.pinned });
     inst.object.position.set(at.x, at.y, at.z || 0);
     if (turn) inst.nodes[0]?.quaternion.set(turn[0], turn[1], turn[2], turn[3]);
     addLive(inst, { view: extra?.camera ? null : at, owner: null, tag: 'storm', ...extra }, layers.over);
@@ -690,6 +761,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function teardown() {
     api.clear();
     flightBatch?.dispose(); flightBatch = null;
+    tileBatch?.dispose(); tileBatch = null;
     gen++;
     loading = null; variants = null; warmNext = 2;
     clearTimeout(warmTimer); warmTimer = 0;
@@ -1953,6 +2025,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const trails = [];               // { inst, tgt view, x0, y0, tx, ty, k, dur, arc }
   const heldFlights = [];          // this frame's held trails' effects (FlightBatch), reused
   let flightBatch = null;
+  const tileInsts = [];            // 2026-11-12: this frame's effects laid on tiles (`tiled`, TileBatch), reused
+  let tileBatch = null;
   /** MAX_TRAILS in flight: the shot stays procedural (counted for the perf HUD, perfSkips). */
   // (2026-11-04) a shot 逻各斯 S3 holds stays in the air many times longer: those have their own allowance (MAX_SLOWED)
   const trailFull = () => {
@@ -2533,7 +2607,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (aim && !official) facing = aimFacing(null, def, aim, at);
     const d = aim ? { x: Number(at.x) - Number(aim.x), y: Number(at.y) - Number(aim.y) } : dir;
     const sp = playSpeed(def.face, entry.speed ?? 1, gameRate());
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir: d, body: unit ? facingDir(unit) : null, speed: sp, split, floor: drop ? null : at.z < 0 || !over ? at.z || 0 : 0, tilt: drop ? null : tiltOn(unit, def) });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir: d, body: unit ? facingDir(unit) : null, speed: sp, split, floor: drop ? null : at.z < 0 || !over ? at.z || 0 : 0, tilt: drop ? null : tiltOn(unit, def), pinned: !!entry.pinned });
     if (aim && !official) aimAlong(inst, aim, at);
     if (!drop) at = lifted(at, def, !!entry.buff); // local patch: its _spawnLocation
     if (!drop && Number.isFinite(def.height)) at = overHeight(at, def.height); // 2026-10-10: `_overwriteHeight`
@@ -2601,7 +2675,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // A template effect that is a buff's own (`overrideEffectKey`), not a CreateEffect node: it lasts the buff, then
   // Effect.FinishMe — gone its prefab's `_delayToFinish` later (def.finish). 2026-10-31: 카시미어 맹약 [ex] 파동, the AOEDamage
   // `_buffs` [ex_damage_effect] (LIMITED 0.5 s, buff template; official client) — it played its whole 2.83 s prefab before.
-  const TPL_BUFF_S = { common_071_bond_kazimierz_hit_01_new: 0.5 };
+  // 2026-11-11 (묶음 fx-B): 规程's 不退者卫护系统 — act3autochess_equip_acarm148_global_buff[effect] (overrideEffectKey
+  // trap_acarm148_buff, LIMITED durationKey attract_duration: 3 on every item that carries it, test/render/season-equip-fx).
+  const TPL_BUFF_S = { common_071_bond_kazimierz_hit_01_new: 0.5, trap_acarm148_buff: 3 };
   // A 护盾 layer blocking a hit (sim damage.js absorbShields → fx 'parry' {id, buff}): the client's BlockDamage.Execute
   // plays the buff blackboard's `effect` (GetStringOrDefault, the node's
   // _specifyBlockEffect the default) on the holder, else common_buff_parry_01. Empty in archet_t_2, kalts2_t_2[shield],
@@ -2686,12 +2762,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // common_firedamage_hit (none on an operator: its 灼燃 shows ep_fire_magic_res_down's buff_burn, fxstatus.js), water
   // common_waterElementExplosion / common_waterdamage_hit, dark common_darkdamage_hit on both; 神经 on an operator is
   // ep_break_sanity[epfree]'s overrideEffectKey common_nerve_injury_01_hit, on an enemy none of its own (its palsy[stack] is
-  // the 麻痹 status: fxstatus.js STACK_FX) [operator, enemy]
+  // the 麻痹 status: fxstatus.js STACK_FX) [operator, enemy]. 2026-11-11: 狂躁 (CN) on an enemy, ep_break_anger_enemy's
+  // common_maniadamage_hit (CN common.ab); the operators' ep_break_anger_char has no buff template of its own in the
+  // tables (and the sim gives operators no 狂躁 yet)
   const BURST_FX = {
     burn: [null, 'common_firedamage_hit'],
     erosion: ['common_waterElementExplosion', 'common_waterdamage_hit'],
     apoptosis: ['common_darkdamage_hit', 'common_darkdamage_hit'],
     neural: ['common_nerve_injury_01_hit', null],
+    rampage: [null, 'common_maniadamage_hit'],
   };
   // 2026-10-31: 麻痹震颤 (sim fx 'palsy' { id }, ai.js) is the client BuffDB buff palsying (gamedata buff_table: duration 0.5,
   // overrideEffectKey common_061_numb_hit_01 — a one-shot at the HIT point, `_delayToFinish` 0.5), played on the enemy
@@ -3146,6 +3225,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!t) return;
     for (const m of list) {
       if (!Array.isArray(m) || typeof m[0] !== 'string') continue;
+      // 2026-11-12 (docs/rules/fx.md 「규정 특수 적 항목·호위」): 'buff:<client buff key>' owned by an enemy (or a walking ally of
+      // an enemy record) — that buff's effect in the owner's binding (enemy-modes.json buffFx: its overrideEffectKey, or an
+      // aura buff's template CreateEffect), once on the unit hit: 野性三角兽's crash, 神勇的帕拉杜利斯's collision
+      if (m[0].startsWith('buff:')) {
+        const o = views.get(m[1]);
+        const r = o && (o.isEnemy || o.info?.walks) && eOn(o) ? api.enemyBuffFx(o, 'key', m[0].slice(5)) : null;
+        if (r) for (const [b, n] of r.on) api.statusOnce(t, b, n);
+        continue;
+      }
       officialKitFx(['fx', 'hit', t.x, t.y, { k: m[0], src: m[1], id: tid, by, life: m[2], fly: t.flying ? 1 : 0 }], views);
     }
   }
@@ -4296,6 +4384,23 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
   /**
+   * 2026-11-11, official client: a skill ability's swing-start CastTargetEffectOptions (modes.json skills[i].castTgt, timed by
+   * castTgtOpt — char_modes.py skill_effects): created on its cast target as the skill's attack starts its cast — 酒神 S1
+   * skchr_phatm2_1 (a next-attack skill: the sim's 'skill' on, then that attack's 'swing') puts its aim marks
+   * phatm2_skill_01_hit_aim_01 / _hit_02_aim_01 over the target then. Before, they sat in skills[i].target and waited
+   * PENDING_S for a damage at the skill's start, half a second before her strike, so they never played.
+   */
+  function skillCastTgtFx(v, c, tgt) {
+    if (!v._fxSkillOn || c.skip) return;
+    const sk = skillBind(v), names = extracted(v, sk?.castTgt).filter((n) => !KIT_OWNED.has(n));
+    tgt ||= lastTarget(v);
+    if (!names.length || !tgt || tgt.alive === false || tgt.remove) return;
+    for (const n of names) {
+      const loop = sk.castTgtOpt?.[n]?.o === 0;
+      play(v, 'attackHit', 0, { at: tgt, names: [n], tag: loop ? 'castLoop' : 'cast', until: loop ? c.end : null, speed: c.speed, cast: c });
+    }
+  }
+  /**
    * The clip group of a new cast of `v` (modes.json clipFx[mode], fxmap.js clipGroup — 비나 빅토리아's Attack_1 / Attack_2
    * cast siege2_attack_start_01 / _02): the group of the attack clip its model plays; its extracted cast / hit names. And
    * (2026-10-21) the child of the mode's ability group the attack casts (altFx, fxmap.js altGroup — 迷迭香 Attack_A / _B,
@@ -4389,6 +4494,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const cast = castOf(own, c.group);
     inputFx(src, c, mode, 'swing', face);
     castTgtFx(src, c, mode, kind, face);
+    skillCastTgtFx(src, c, face);
     if (cast.length || split) { playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing')); return; }
     // no mode binding: the name mapping's attack start, at the swing like the client's ON_CAST_START majority [추정]
     if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
@@ -4411,6 +4517,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         else if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
         inputFx(src, c, mode, 'swing', tgt);
         castTgtFx(src, c, mode, kind, tgt);
+        skillCastTgtFx(src, c, tgt);
       }
     }
     if (c.struckAt != null && clockS - c.struckAt < 0.03) return;   // another target of the same strike
@@ -4883,6 +4990,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return eprojAll.get(key) || null;
   }
   const eshotLand = new Map();   // `${shooter id}:${target id}` → battle clock its official shot lands (eskillHit)
+  const eshotLast = new Map();   // shooter id → { tgt, t } of its latest official shot at a unit (eshotBlast: a dead target)
   const ezoneShots = new Map();  // enemy id → the projectile record of its shot that lands as an area (eshotFx `zone`, eprojAreaFx)
   /**
    * 2026-10-22 (maintainer request): an enemy's shell fired at a spot (content/enemies/fly.js kitShell — 帝国炮火先兆者 /
@@ -4942,6 +5050,181 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (level() < 3) for (const [b, n] of rec.hits) spawn(b, n, { x, y, z: 0 }, { owner: null, buff: false });
     return true;
   }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 살카즈 후예 무리」): 萨卡兹子裔轰击者 / 毁击者's shell (content/enemies/reborn.js kitThrower:
+   * fx 'telegraph' { x, y, r, dur, kind: 'dthrowShell', id } where it lands, 'explode' { x, y, r, kind } there `dur` s later,
+   * the blast's damage right after it in that tick). projectile_enemy_dthrow (ParacurveMovement `_delayAfterReached`,
+   * `_delayTime` 4) lies where it lands: its `_effectsWhenReached` (enemy_dthrow_attack_fire_ground) stands on the spot
+   * until it stops (`_clearReachedEffectWhenStop`), then its `_effectsWhenStop` (enemy_dthrow_attack_fire_explode) plays
+   * there and its `_effectsWhenHit` (enemy_dthrow_attack_hit) on each unit the blast hits (HitBehaviour
+   * `_onlyCheckHitWhenStop`). The flight is its attack's trail ('atk'); the sim cancels that attack's own hit, so nothing
+   * lands with it. true = drawn here (no stand-in ring or blast).
+   */
+  /**
+   * Whether the enemy `o.key` an enemy (`o.id`) summons has its own extracted birth effect (enemy-modes.json `start`, or its
+   * born_effect buff's `born`); and a split on death (the summoner's skill part with `summon`: deathrattle_sum[walk_only])
+   * plays its effects now — 2026-11-11.
+   */
+  function esummonBorn(e, views) {
+    const o = e[4], parent = o.id != null ? views.get(o.id) : null;
+    if (!parent?.info || parent.info.side !== 'enemy' || !eOn(parent)) return false;
+    const split = esplitFx(e, parent, views);
+    const c = emodes?.[o.key];
+    return split || (typeof c?.start === 'string' && !!efx(c.start)) || (Array.isArray(c?.born) && c.born.some(efx));
+  }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 재생 무리」): 变异沙地兽 / 变异岩蛛 / 变异巨岩蛛 splitting where they fell — the sim's fx
+   * 'summon' { id: the one that fell, key, n } (content/enemies/reborn.js splitOnDeath) after its 'spawn' of each child. Their
+   * talent buff (template deathrattle_sum[walk_only]) runs, for each unit it summons, CreateEffect on its owner (the part's
+   * `summon`: enemy_sbeast_skill_start …, where it fell) and EmitProjectile from it (GROUND) to that unit (the part's `proj`:
+   * projectile_enemy_sbeast's trail). true = drawn.
+   */
+  function esplitFx(e, parent, views) {
+    const o = e[4], b = ebindOf(parent);
+    const part = b?.skills ? Object.values(b.skills).find((p) => Array.isArray(p?.summon) && p.summon.length) : null;
+    if (!part || !part.summon.some(efx) || level() >= 3) return false;
+    const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
+    const kids = [];
+    for (const [id, t] of eborn) if (t === clockS && views.get(id)?.info?.defId === o.key) kids.push(views.get(id));
+    const pr = part.proj, r = efx(Array.isArray(pr?.trail) ? pr.trail[0] : null), speed = Number(pr?.speed) > 0 ? Number(pr.speed) : 0;
+    for (let i = 0; i < Math.max(1, kids.length); i++) eplay(parent, part.summon, { at, owner: null, tag: 'split' });
+    if (r && speed > 0 && camRef && !trailFull()) {
+      for (const k of kids) {
+        const dur = Math.max(0.04, Math.hypot(k.x - at.x, k.y - at.y) / speed);
+        launchTrail({ inst: null, esrc: parent.id, etgt: k.id, tgt: k, x0: at.x, y0: at.y, z0: 0, ...aimOf(k), k: 0, dur, arc: Number(pr.raise) > 0 ? Number(pr.raise) : 0 }, r[0], r[1]);
+      }
+    } else if (r && dry && trace) for (const k of kids) trace({ kind: 'spawn', names: [r[1]], by: ownerOf(parent), on: ownerOf(k), tag: 'splitTrail', facing: 1 });   // tests
+    return true;
+  }
+  const dshells = [];   // { x, y, id, pr, src, marks: [live entries], done }
+  const dblasts = new Map();   // thrower id → { t: the battle clock of its blast, rec }
+  function dshellFx(e, views) {
+    const o = e[4], src = o.id != null ? views.get(o.id) : null;
+    if (!src || !eOn(src) || level() >= 3) return false;
+    let shot;
+    try { shot = enemyShot(enemyDef(src.info?.defId), src.info?.form); } catch { shot = undefined; }
+    const pr = shot?.key ? eprojByKey(src, shot.key) : null;
+    if (!pr || ![...(pr.reached || []), ...(pr.stop || []), ...(pr.hit || [])].some(efx)) return false;
+    const x = Number(e[2]), y = Number(e[3]), dur = Math.max(0.05, Number(o.dur) || 0);
+    const rec = { x, y, id: o.id, pr, src, marks: [], done: false };
+    dshells.push(rec);
+    if (dshells.length > 64) dshells.shift().done = true;
+    for (const n of pr.reached || []) {
+      const r = efx(n);
+      if (!r) continue;
+      spawn(r[0], r[1], { x, y, z: 0 }, { owner: null, buff: false, until: clockS + dur + 0.5, tag: 'dshell' }, { over: false }).then((l) => {
+        if (!l) return;
+        if (rec.done) l.inst.stop(); else rec.marks.push(l);
+      });
+    }
+    return true;
+  }
+  /** fx 'explode' of a shell dshellFx drew (by its spot): its ground effect goes, its stop effect plays, its hits follow. */
+  function dshellBlast(e) {
+    const x = Number(e[2]), y = Number(e[3]);
+    const id = e[4]?.id;
+    const i = dshells.findIndex((r) => !r.done && (id == null || r.id === id) && Math.hypot(r.x - x, r.y - y) < 0.05);
+    if (i < 0) return false;
+    const rec = dshells.splice(i, 1)[0];
+    rec.done = true;
+    for (const l of rec.marks) l.inst.stop();
+    if (level() < 3) {
+      for (const n of rec.pr.stop || []) {
+        const r = efx(n);
+        if (r) spawn(r[0], r[1], { x, y, z: 0 }, { owner: null, buff: false, tag: 'dshell' }, { over: false });
+      }
+    }
+    dblasts.set(rec.id, { t: clockS, rec });
+    if (dblasts.size > 64) dblasts.delete(dblasts.keys().next().value);
+    return true;
+  }
+  /** A 'dmg' on `tid` by thrower `by` in the tick of its shell's blast: the projectile's hit effect on it. */
+  function dblastHit(tid, by, views) {
+    const b = dblasts.get(by);
+    if (!b) return false;
+    if (b.t !== clockS) { dblasts.delete(by); return false; }
+    const tgt = views.get(tid);
+    if (tgt && level() < 3) eplay(b.rec.src, (b.rec.pr.hit || []).slice(0, MAX_HIT_FX), { at: tgt });
+    return true;
+  }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 정예 무리」): an official projectile of an enemy's ability that appears on a spot and
+   * strikes there as its life ends — sim fx 'telegraph' { x, y, r, dur, id, ability } as it appears, 'explode' { …, id, ability }
+   * `dur` s later, the strike's damage right after it in that tick (冰原卫法者 / 御法者's Boom, critic.js kitIceGuard:
+   * projectile_enemy_krgrg where it fell). Its `_effectsToTargetWhenStart` (enemy-modes.json skills[ability].proj
+   * `targetStart`: enemy_krgrg_die_start / _02, one-shot 2.5 s) play on the spot as it appears, its `_effectsWhenHit`
+   * (`hit`: enemy_krgrg_die_hit) on each unit the strike hits (dblastHit), its reach effects at the strike (none so far).
+   * The enemy's view is gone by the strike: the record keeps what it needs. true = drawn (no stand-in ring or blast).
+   */
+  function eprojTelegraph(e, views) {
+    const o = e[4], src = views.get(o.id);
+    if (!src || !eOn(src) || level() >= 3) return false;
+    const pr = eskillPart(src, o.ability)?.proj;
+    if (pr?.move === 'TRACE_TARGET_WITHIN_TIME' && Array.isArray(pr.trail) && pr.trail.length) return eprojDrop(e, src, pr);
+    if (!pr || Array.isArray(pr.trail) && pr.trail.length) return false;   // one that flies there: its shot draws it
+    const start = [...(pr.start || []), ...(pr.targetStart || []), ...(pr.tileStart || [])];
+    if (![...start, ...(pr.hit || []), ...(pr.reached || [])].some(efx)) return false;
+    const x = Number(e[2]), y = Number(e[3]);
+    for (const n of start.slice(0, MAX_HIT_FX)) { const r = efx(n); if (r) spawn(r[0], r[1], { x, y, z: 0 }, { owner: null, buff: false }, { over: false }); }
+    dshells.push({ x, y, id: o.id, pr: { stop: pr.reached || [], hit: pr.hit || [] }, src, marks: [], done: false });
+    if (dshells.length > 64) dshells.shift().done = true;
+    return true;
+  }
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」): an enemy ability's projectile dropped on a spot in a set time — sim fx
+   * 'telegraph' { x, y, r, dur, id, ability } as it leaves, 'explode' { …, id, ability } `dur` s later, the burst's damage right
+   * after it in that tick (遮天面包机's Bomb, bounty.js kitNsbomb: projectile_enemy_nsbomb, AdvancedMovement TRACE_TARGET_WITHIN_TIME
+   * `_onlyReachedInTime` 0.5 to the tile under it). Its `_mainEffect` (proj.trail: enemy_nsbomb_attack_01_trail, cleared as it
+   * reaches) flies from its `_mountPointType` point to the spot over `dur`; at the burst its `_effectsWhenReached` (proj.reached:
+   * enemy_nsbomb_attack_01_hit_01) play on the spot once (dshellBlast) and its `_effectsWhenHit` (proj.hit: _hit_02) on each
+   * unit the burst hits (dblastHit) — not the reach effect again on each. true = drawn (no stand-in ring or blast).
+   */
+  function eprojDrop(e, src, pr) {
+    const o = e[4], r = efx(pr.trail[0]);
+    if (!r) return false;
+    const x = Number(e[2]), y = Number(e[3]), dur = Math.max(0.04, Number(o.dur) || 0);
+    if (camRef && !trailFull()) {
+      const from = eshotFrom(src, pr.mount);
+      launchTrail({ inst: null, esrc: src.id, etgt: null, tgt: null, x0: from.x, y0: from.y, z0: from.z, tx: x, ty: y, tz: 0, k: 0, dur, arc: 0 }, r[0], r[1]);
+    } else if (dry && trace) trace({ kind: 'spawn', names: [r[1]], by: ownerOf(src), on: null, tag: 'dropTrail', facing: 1 });   // tests
+    dshells.push({ x, y, id: o.id, pr: { stop: pr.reached || [], hit: pr.hit || [] }, src, marks: [], done: false });
+    if (dshells.length > 64) dshells.shift().done = true;
+    return true;
+  }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 정예 무리」): the burst of an enemy's official shot where it touched — sim fx 'explode'
+   * { x, y, r, kind: 'bomb' | 'cansld' | 'wingnt', id } (critic.js bombBlast: 马特奥的近卫's projectile_enemy_bdguad, 无畏掷弹兵's
+   * projectile_enemy_boomer, both BoomerHitBehaviour; kitPfBreaker: 寻路者破阵者's projectile_enemy_cansld; kitSnowballer:
+   * “投石机”'s projectile_enemy_wingnt, its cross of two boxes), its damage right
+   * after it in that tick. A straight shot (FIXED_DIRECTION: the bombs) has no landing of its own in eshotFx — its reach
+   * effects (`_effectsWhenReached`: enemy_bdguad_skill_01_hit, enemy_boomer_skill_hit) play here once, on the spot; a lobbed
+   * one's (the 破阵者's enemy_cansld_skill_01_hit) already played as it landed (eshotFx). The units the burst damages get the
+   * projectile's `_effectsWhenHit` only (none of these has one) — not its reach effects again on each. The projectile is the
+   * running ability's (the bombs: 'enemySkill' CrossBomb / Bomb), else the shot of the enemy's mode now (the 破阵者's HeadShot).
+   * true = drawn (no stand-in blast or box).
+   */
+  function eshotBlast(e, views) {
+    const o = e[4], src = views.get(o.id);
+    if (!src || !eOn(src) || level() >= 3) return false;
+    let pr = src._fxESkill?.part?.proj;
+    if (!pr?.key) {
+      let shot;
+      try { shot = enemyShot(enemyDef(src.info?.defId), src.info?.form); } catch { shot = undefined; }
+      pr = shot?.key ? eprojByKey(src, shot.key) : null;
+    }
+    if (!pr || ![...(pr.reached || []), ...(pr.hit || []), ...(pr.trail || [])].some(efx)) return false;
+    // a straight shot's reach effects here; a lobbed one's played as it landed on its target (eshotFx) — unless that target
+    // fell meanwhile and the shell still came down (“投石机”'s `_alwaysHitTraceTargetInTheEnd`): then here, on the spot
+    const last = pr.move === 'FIXED_DIRECTION' ? null : eshotLast.get(o.id);
+    const tv = last && Math.abs(clockS - last.t) < 0.6 ? views.get(last.tgt) : null;
+    if (pr.move === 'FIXED_DIRECTION' || (last && Math.abs(clockS - last.t) < 0.6 && (!tv || tv.alive === false || tv.remove))) {
+      const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
+      for (const n of (pr.reached || []).slice(0, MAX_HIT_FX)) { const r = efx(n); if (r) spawn(r[0], r[1], at, { owner: null, buff: false }, { over: false }); }
+    }
+    dblasts.set(o.id, { t: clockS, rec: { src, pr: { hit: pr.hit || [] } } });
+    if (dblasts.size > 64) dblasts.delete(dblasts.keys().next().value);
+    return true;
+  }
   /** The projectile record of shot `key` when it can be drawn officially (the layer on, its trail or hit extracted), else null. */
   function eshotDrawable(owner, key) {
     if (!owner || !index || !emodes || failed || q() === 'low') return null;
@@ -4983,6 +5266,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (o.zone && o.id != null) { ezoneShots.set(o.id, pr); if (ezoneShots.size > 64) ezoneShots.delete(ezoneShots.keys().next().value); }
     const land = [...new Set([...(pr.hit || []), ...(o.zone ? [] : pr.reached || [])])].filter((n) => efx(n)).slice(0, MAX_HIT_FX);
     eshotLand.set(`${o.id ?? o.from}:${o.tgt}`, clockS + t);
+    eshotLast.set(o.id ?? o.from, { tgt: o.tgt, t: clockS + t });
+    if (eshotLast.size > 64) eshotLast.delete(eshotLast.keys().next().value);
     const go = () => { if (land.length && tgt.alive !== false && !tgt.remove && level() < 3) eplay(owner, land, { at: tgt }); };
     if (t > 0) castsDelayed.push({ t: clockS + t, run: go, esrc: o.id ?? o.from, etgt: o.tgt }); else go();   // esrc, etgt: shotSlowFx
     return true;
@@ -5038,6 +5323,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
     if (e[1] !== 'zone') {
       for (const n of names.slice(0, MAX_HIT_FX)) { const r = efx(n); spawn(r[0], r[1], at, { owner: null, buff: false }, { over: false }); }
+      // 2026-11-12: its burst's damage of this tick — the projectile's own hit effects on each unit (AREA_SHOT_BLASTS)
+      if (AREA_SHOT_BLASTS.has(o.kind) && v) {
+        dblasts.set(o.id, { t: clockS, rec: { src: v, pr: { hit: pr.hit || [] } } });
+        if (dblasts.size > 64) dblasts.delete(dblasts.keys().next().value);
+      }
       return true;
     }
     const dur = Math.max(0, Number(o.dur ?? o.duration) || 0);
@@ -5064,9 +5354,37 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   const AC_PHASE_BUFF = { acspiderEvade: 'acspdier[evade]', aceelShield: 'aceel[shield]' };
   const AC_NO_BORN = new Set(['enemy_9036_acweb']);
+  // 2026-11-12 (docs/rules/fx.md 「규정 특수 적 항목·호위」): enemies whose sim form change is the client's SwitchMode alone — it
+  // creates no effect (stepEnemies), so the 'phase' of their setForm draws no stand-in: 神勇的帕拉杜利斯 into Run and back,
+  // 暴走食人花 into Eat and back (whether or not the view says it knows the form: formSwitchOnly is the general rule)
+  const SWITCH_ONLY = new Set(['enemy_10163_mnctur_2', 'enemy_10003_trwlpl_2']);
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」): an enemy skill cast in a mode the sim holds as a form, whose buff's effect
+   * lasts while that buff does — held from its 'enemySkill' until the 'phase' leaving that form (or its death): defId →
+   * { ability: form }. 暴走食人花's Skills/Eat in mode Eat (bounty.js kitTrwlpl → form 'eat' for its 20 s): enemy_trwlpl_s's
+   * effect enemy_trwlpl_idlebuff_02 (a looping prefab).
+   */
+  const FORM_HELD_SKILLS = Object.freeze({ enemy_10003_trwlpl_2: Object.freeze({ Eat: 'eat' }) });
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 특수 적 항목·호위」): a sim 'phase' { id, kind, form } of an enemy (or a walking ally)
+   * into a form its model draws (render/units.js FORMS / SKIN_FORMS: the view's knowsForm — every FORM_MODES form is one), or
+   * back (form null) — the client's SwitchMode, which creates no effect: the clip set (and its change clip) is the switch, no
+   * stand-in puff on top. A form the model does not draw keeps the puff (nothing else shows it).
+   */
+  function formSwitchOnly(o, views) {
+    const v = views.get(o.id);
+    if (!v?.info || !(v.info.side === 'enemy' || v.info.walks)) return false;
+    return typeof v.knowsForm === 'function' && !!v.knowsForm(o.form);
+  }
+  function formHeldEnd(o, views) {
+    const v = views.get(o.id), m = v ? FORM_HELD_SKILLS[v.info?.defId] : null;
+    if (m) for (const [k, f] of Object.entries(m)) if (o.form !== f) eskillFx(v, k, { on: false });
+  }
   function acBossFx(e, views) {
     const o = e[4];
-    if (!o || typeof o !== 'object' || level() >= 3) return false;
+    if (!o || typeof o !== 'object') return false;
+    if (e[1] === 'phase' && 'form' in o && SWITCH_ONLY.has(views.get(o.id)?.info?.defId)) return true;
+    if (level() >= 3) return false;
     if (e[1] === 'phase' && (o.kind in AC_PHASE_BUFF || o.kind === 'aceelShieldEnd')) {
       const v = views.get(o.id);
       if (!eOn(v)) return false;
@@ -5117,6 +5435,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * the effect extracted.
    */
   const acRains = new Map();   // `${spider id}:${field}` → { id, live: the floors }
+  const bandTiles = new Map(); // 2026-11-12 (setBandTiles): `${bundle}/${name}@${x},${y}` → { l: its live entry once loaded, off }
   function acRainOff(key) {
     for (const l of acRains.get(key)?.live || []) if (!l.stopped) zoneEnd(l, Math.min(l.until ?? clockS, clockS), true);
     acRains.delete(key);
@@ -5140,7 +5459,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (Array.isArray(g) && !cell?.drawn) continue;   // off the drawn board
         const at = { x: c, y: r, z: cell ? (cell.h || 0) + (cell.devH || 0) : 0 };
         for (const n of names) {
-          spawn(n[0], n[1], at, { owner: null, buff: false, until, tag: 'acRain' }, { over: false }).then((l) => {
+          spawn(n[0], n[1], at, { owner: null, buff: false, until, tag: 'acRain', pinned: true, tiled: true }, { over: false }).then((l) => {
             if (!l) return;
             if (acRains.get(key) !== rec) { zoneEnd(l, clockS, true); return; }   // its rain ended while it loaded
             zoneEnd(l, until, true);
@@ -5157,6 +5476,106 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!v || v.alive === false || v.remove) acRainOff(key);
       else if (rec.live.length && rec.live.every((l) => l.stopped)) acRains.delete(key);
     }
+  }
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 영혼의 유해 무리」): 规程's 注能 / 粹影魂灵法骸 and 聚焦 / 棱镜魂灵残迹 (content/enemies/critic.js
+   * kitSoulMage / kitSoulWizard). true = drawn here, no stand-in:
+   * - the souls it holds: its soulBuff count changes only at the sim's fx 'capture' { id, n } (n held after), 'orbit' (one
+   *   spent) and 'laser' (all spent) — counted here per view (`_fxSouls`), and its Common/Effect buff [fx_ctrl] (every
+   *   0.3 s) keeps enemy_v050[fx][stack_1 … n] on it (FilterByBuffStackCount GE 1 / 2 / 3, each derived buff created once
+   *   and finished as the count drops below: soul_01 … soul_0n together) — fxstatus.js wantedStatusFx (SOUL_TAGS);
+   * - 'orbit' { id, n, key, r, ang, speed }: one fireball, projectile `key`'s `_mainEffect` (enemy-modes.json
+   *   skills.summonfireball.proj.trail: enemy_Irmzrd_buff_01) circling its caster — RotateAroundMovement: the caster's
+   *   world position + `r` along its direction, turned `speed` degrees a second about the map's forward axis (counter-
+   *   clockwise, the sim's `ang` in the map frame); 'orbitEnd' { id, n, tgt } ends it (finished as a stopped projectile's
+   *   main effect) and its `_effectsWhenHit` (proj.hit: enemy_Irmzrd_skill_hit_01) play on `tgt` when it struck one;
+   * - 'laser' { id, x, y, to, key }: projectile `key`'s PositionBasedLineRenderer `_mainEffect` (enemy_lrwzrd_skill_line_01,
+   *   world LineRenderers): its first point the caster's muzzle point (`_useMuzzlePointOffset`; `_startWorldOffset` and the
+   *   facing's `_extraOffsetLeft` / `_Right` are a few hundredths of a tile — left out), its last the projectile's body —
+   *   the HARPOON flies 1000 tiles / s, so at once the map's edge `to`, at the muzzle point's height (the same offset
+   *   carried to the end) [추정·미조사: after the projectile reached its end the client adds `_endWorldOffsetWhenNotHit`
+   *   (y 100) to the last point — not drawn]; 'laserEnd' { id } finishes it. Its hits on the units it strikes are the
+   *   running Laser skill's (eskillHit: proj.hit enemy_lrwzrd_skill_hit_02 per 'dmg').
+   */
+  const SOUL_KINDS = new Set(['capture', 'orbit', 'orbitEnd', 'laser', 'laserEnd']);
+  const soulBalls = new Map();   // caster id → Map(ball n → { at, ang, speed, r, l, done })
+  const soulLines = new Map();   // caster id → { l, from, to, done }
+  function soulFx(e, views) {
+    const o = e[4], kind = e[1];
+    const v = o?.id != null ? views.get(o.id) : null;
+    if (kind === 'capture') { if (v) v._fxSouls = Math.max(0, Number(o.n) || 0); return eOn(v); }
+    if (kind === 'orbit' || kind === 'laser') if (v) v._fxSouls = kind === 'laser' ? 0 : Math.max(0, (v._fxSouls || 0) - 1);
+    if (kind === 'orbitEnd') return soulBallEnd(o, views);
+    if (kind === 'laserEnd') { soulLineEnd(o.id); return true; }
+    if (!eOn(v) || level() >= 3) return false;
+    const pr = eprojOf(v, o.key) || eskillPart(v, kind === 'orbit' ? 'summonFireball' : 'Laser')?.proj;
+    const r = efx(Array.isArray(pr?.trail) ? pr.trail[0] : null);
+    if (!r) return false;
+    if (kind === 'orbit') {
+      const ball = { at: { x: v.x, y: v.y, z: (v.z || 0) + (v.hover || 0) }, ang: Number(o.ang) || 0, speed: Number(o.speed) || 0,
+        rad: Number(o.r) || 0, l: null, done: false, hit: pr.hit || [] };
+      soulBallPlace(ball, v);
+      let m = soulBalls.get(o.id);
+      if (!m) soulBalls.set(o.id, m = new Map());
+      m.set(o.n, ball);
+      spawn(r[0], r[1], ball.at, { owner: null, buff: false, until: clockS + 3600, tag: 'soulBall' }, { over: true }).then((l) => {
+        if (!l) return;
+        if (ball.done) { finishShot(l.inst, l); return; }
+        ball.l = l;
+      });
+      return true;
+    }
+    soulLineEnd(o.id);
+    const to = Array.isArray(o.to) ? o.to.map(Number) : null;
+    if (!to || !to.every(Number.isFinite)) return false;
+    let from;
+    try { from = eshotFrom(v, pr.mount); } catch { from = null; }   // (no camera yet: at its feet)
+    if (!from || ![from.x, from.y, from.z].every(Number.isFinite)) from = { x: v.x, y: v.y, z: (v.z || 0) + (v.hover || 0) };
+    const lift = from.z - ((v.z || 0) + (v.hover || 0));
+    const rec = { l: null, from, to: { x: to[0], y: to[1], z: lift }, done: false };
+    soulLines.set(o.id, rec);
+    spawn(r[0], r[1], { x: from.x, y: from.y, z: 0 }, { owner: null, buff: false, until: clockS + 3600, tag: 'soulLaser' }, { over: true }).then((l) => {
+      if (!l) return;
+      if (rec.done) { finishShot(l.inst, l); return; }
+      rec.l = l;
+      l.inst.setLine?.(rec.from, rec.to);
+    });
+    return true;
+  }
+  /** A fireball `ball` at its angle now, about caster `v`'s position. */
+  function soulBallPlace(ball, v) {
+    const a = (ball.ang * Math.PI) / 180;
+    ball.at.x = v.x + ball.rad * Math.cos(a);
+    ball.at.y = v.y + ball.rad * Math.sin(a);
+    ball.at.z = (v.z || 0) + (v.hover || 0);
+  }
+  function soulBallEnd(o, views) {
+    const m = soulBalls.get(o.id), ball = m?.get(o.n);
+    if (!ball) return true;
+    m.delete(o.n);
+    if (!m.size) soulBalls.delete(o.id);
+    ball.done = true;
+    if (ball.l) finishShot(ball.l.inst, ball.l);
+    const tgt = o.tgt != null ? views.get(o.tgt) : null;
+    const v = views.get(o.id);
+    if (tgt && level() < 3) eplay(v || tgt, ball.hit.slice(0, MAX_HIT_FX), { at: tgt });
+    return true;
+  }
+  function soulLineEnd(id) {
+    const rec = soulLines.get(id);
+    if (!rec) return;
+    soulLines.delete(id);
+    rec.done = true;
+    if (rec.l) finishShot(rec.l.inst, rec.l);
+  }
+  /** The fireballs turn about their casters (game time `g`); a caster gone takes its fireballs and laser with it. */
+  function stepSouls(views, g) {
+    for (const [id, m] of soulBalls) {
+      const v = views.get(id);
+      if (!v || v.alive === false || v.remove) { for (const n of [...m.keys()]) soulBallEnd({ id, n, tgt: null }, views); continue; }
+      for (const ball of m.values()) { ball.ang += ball.speed * g; soulBallPlace(ball, v); }
+    }
+    for (const id of [...soulLines.keys()]) { const v = views.get(id); if (!v || v.alive === false || v.remove) soulLineEnd(id); }
   }
   /**
    * 2026-10-10: “萨米的意志”'s 冰凌 — sim fx 'column' { x, y, c, id, key, sub, r0, dir, speed, dist, life } once at the strike
@@ -5415,7 +5834,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * `loop`, cut at 20 s [추정: an end the sim does not announce]; once otherwise), its projectile's trail to `target` with its
    * start effects there; the units its damage hits next get its hit effects (eskillHit). true when the enemy binds it.
    */
-  function eskillFx(v, key, { on = true, loop = false, target = null, hold = false } = {}) {
+  function eskillFx(v, key, { on = true, loop = false, target = null, hold = false, cap = 20 } = {}) {
     const part = eskillPart(v, key);
     if (!part || !eOn(v)) return false;
     const pr0 = part.proj || {};
@@ -5424,12 +5843,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const id = ownerOf(v);
     if (!on) {
       for (const l of live) if (l.tag === 'eskill' && l.owner === id) l.inst.stop();
+      if (trace) trace({ kind: 'eskillEnd', names: [key], by: id, at: null });   // tests: its held effects stopped
       if (v._fxESkill) { v._fxESkill.hold = false; v._fxESkill.t = -99; }   // a held skill's end: its later damage is no hit of it
       return true;
     }
     const k = `${id}:${key.toLowerCase()}`;
     // 2026-10-15: a talent buff's effect held until this ability starts (enemy-modes.json `auraEnd`: 子代's tentac_grow → Grow)
     for (const l of live) if (l.owner === id && l.tag === `aura:${key.toLowerCase()}`) l.inst.stop();
+    // 2026-11-12: its ready mark, when it goes as the cast starts (ReadyEnemySkillEffect `_stopBeforeCast`, ereadyFx)
+    if (part.readyEarly) for (const l of live) if (l.owner === id && l.tag === `ready:${key.toLowerCase()}`) l.inst.stop();
     v._fxESkill = { part, t: clockS, hold, held: hold ? new Set() : null, inPlace: inPlaceOfAttack(v, part) };
     if (clockS - (eskillSeen.get(k) ?? -9) < 1) return true;
     eskillSeen.set(k, clockS);
@@ -5439,9 +5861,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const names = edirs(v, part, part.cast), loops = names.filter((n) => part.opt?.[n]?.o === 0);
       eplay(v, names.filter((n) => !loops.includes(n)), { tag: 'cast' });
       if (loops.length) eplay(v, loops, { buff: true, tag: 'eskill', until: clockS + ESKILL_HOLD_CAP });
-    } else eplay(v, edirs(v, part, part.cast), { tag: 'cast' });
+    } else {
+      // (2026-11-12) the strike's own cast effects wait for the strike when the sim signals it (SPELL_BLASTS)
+      const atBlast = !!SPELL_BLASTS[v.info?.defId]?.[key];
+      const names = atBlast ? (part.cast || []).filter((n) => part.opt?.[n]?.s !== CAST_EVENT.SPELL_ON) : part.cast;
+      eplay(v, edirs(v, part, names), { tag: 'cast' });
+    }
     const own = [...(part.buff || []), ...(part.attach || [])];
-    if (own.length) eplay(v, own, loop ? { buff: true, tag: 'eskill', until: clockS + 20 } : { tag: 'cast' });
+    if (own.length) eplay(v, own, loop ? { buff: true, tag: 'eskill', until: clockS + cap } : { tag: 'cast' });
     const pr = part.proj;
     if (target && pr && target !== v) {
       if (Array.isArray(pr.targetStart)) eplay(v, pr.targetStart, { at: target });
@@ -5467,6 +5894,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!v?.info?.walks || typeof part?.anim !== 'string') return false;
     const m = ebindOf(v)?.modes?.[emodeOf(v) ?? -1];
     return Array.isArray(m?.anim) && m.anim.includes(part.anim);
+  }
+  /** An enemy kit's moment (EKIT_HIT_FX): its client buff's effects once on that enemy. true = drawn here. */
+  function ekitHitFx(o, views) {
+    const v = o.id != null ? views.get(o.id) : null;
+    if (!v || !eOn(v) || level() >= 3) return false;
+    const names = ebindOf(v)?.buffFx?.[EKIT_HIT_FX[o.k]];
+    if (!Array.isArray(names) || !names.some(efx)) return false;
+    eplay(v, names, { tag: 'cast' });
+    return true;
   }
   /** A 'dmg' on `tid` by enemy `by` (the sim's attacker field) within 3 s of its ability: that ability's hit effects. */
   function eskillHit(tid, by, views) {
@@ -5681,6 +6117,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const b = ebindOf(v);
       v._fxEMode = emodeOf(v);
       if (b.start) eplay(v, [b.start], { tag: 'born' });
+      // 2026-11-11: its born_effect buff's CreateEffect (enemy-modes.json `born`: 腐化的原生质's plasm_birth_01_start …)
+      if (Array.isArray(b.born) && b.born.length) eplay(v, b.born, { tag: 'born' });
       if (Array.isArray(b.aura) && b.aura.length) {
         // 2026-10-15: an aura that ends into an ability (`auraEnd`) is tagged by it — eskillFx stops it as that ability starts
         const end = b.auraEnd || {};
@@ -5699,9 +6137,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * The mode is tracked whenever the bindings are loaded (the sound needs it at quality 'low' too).
    */
   function stepEnemies(views) {
-    if (!emodes || !views) return;
-    if (acRains.size) stepAcRains(views);
     camWant.clear();
+    for (const n of stageCams) camWant.add(n);   // 2026-11-11: the level's own (setStageCamera), whatever the enemies
+    if (!emodes || !views) { if (stageCams.size || camFx.size) syncCameraFx(); return; }
+    if (acRains.size) stepAcRains(views);
     for (const v of views.values()) {
       // (2026-11-11: a walking ally from an enemy record too — its form's mode, told to the sound)
       if ((v?.info?.side !== 'enemy' && !v?.info?.walks) || v.alive === false || !ebindOf(v)) continue;
@@ -5760,27 +6199,60 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   const camWant = new Set();
   const camFx = new Map();   // effect name → { l: live entry (null while it loads), off }
+  /**
+   * 2026-11-11 (docs/rules/fx.md 「규정 전장의 화면·맵 이펙트」): the camera effect of the level the board shows — its level
+   * prefabs' MapGraphic `_effectSettings.cameraEffect` (规程's ice stages m09 / m11: screen_ICEWILD_frost_01, every sub-level
+   * the same), from the official scene (render/app.js onOfficial → setStageCamera). Held as the enemies' are, in prep and
+   * battle alike [추정·화면: the official screen not seen beside it]; a clear() drops the live one and the next frame starts it
+   * again. Found by name in the extracted effects (tplPrefab).
+   */
+  const stageCams = new Set();
+  /**
+   * 2026-11-12: the stage's tile effects (setStageTiles: TILE_FX by tileKey) — one per tile, on the floor layer, in prep and
+   * battle alike, pinned (never ended by the caps) and laid on tiles (`tiled`: fxplayer.js TileBatch draws each of their
+   * renderers once, 64 draws → 4 for m09's 16 草地). A clear() drops them with the rest; the next frame lays them again, at once
+   * (one effect time, so they still merge). A tile off the drawn board has none.
+   */
+  const stageTiles = new Map();   // `${bundle}/${name}@${x},${y}` → { t: { bundle, name, x, y }, l: its live entry once loaded, off, loading, none: its spawn gave nothing (tried again after a clear()) }
+  function stepStageTiles() {
+    if (!stageTiles.size || failed || q() === 'low') return;
+    if (!index) { if (!dry) ensure(); return; }   // the layer is made for them (a stage with tile effects and no effect yet)
+    let g = null;
+    try { g = grid(); } catch { /* every tile */ }
+    for (const rec of stageTiles.values()) {
+      if (rec.loading || rec.none || (rec.l && live.includes(rec.l))) continue;
+      rec.l = null;
+      const t = rec.t, cell = Array.isArray(g) ? g[t.y]?.[t.x] : null;
+      if (Array.isArray(g) && !cell?.drawn) continue;
+      if (!index.bundles?.[t.bundle]?.includes(t.name)) continue;
+      rec.loading = true;
+      const at = { x: t.x, y: t.y, z: cell ? (cell.h || 0) + (cell.devH || 0) : 0 };
+      spawn(t.bundle, t.name, at, { owner: null, buff: true, keep: true, pinned: true, tiled: true, until: Infinity, tag: 'stageTile' }, { over: false })
+        .then((l) => { rec.loading = false; if (!l) { rec.none = true; return; } if (rec.off) { l.keep = false; l.inst.stop(true); } else rec.l = l; }, () => { rec.loading = false; });
+    }
+  }
   function syncCameraFx() {
     for (const [n, c] of camFx) {
       if (camWant.has(n)) continue;
       camFx.delete(n);
       c.off = true;
-      if (trace) trace({ kind: 'cameraOff', names: [n], by: null, at: null });
+      if (trace && c.on) trace({ kind: 'cameraOff', names: [n], by: null, at: null });
       if (c.l && !c.l.inst.done) c.l.inst.stop(true);
     }
     for (const n of camWant) if (!camFx.has(n)) startCameraFx(n);
   }
   async function startCameraFx(name) {
-    const c = { l: null, off: false };
+    const c = { l: null, off: false, on: false };
     camFx.set(name, c);
-    const r = efx(name);
-    if (!r) return;
+    const r = efx(name) || (stageCams.has(name) ? tplPrefab(name) : null);
+    if (!r) { if (!index) camFx.delete(name); return; }   // (the list not loaded yet: tried again next frame)
+    c.on = true;   // (started: its end is traced)
     if (trace) trace({ kind: 'camera', names: [name], by: null, at: null });
     if (dry) { dryFollow(r[0], r[1], null, null); return; }
     const gen = stormGen;
     const def = await lib.load(r[0], r[1]);
     if (c.off || gen !== stormGen || !mod || !def) return;
-    const inst = new mod.fxp.FxInstance(def, { quality: q() });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), pinned: true });
     c.l = addLive(inst, { view: null, owner: null, tag: 'camera', camera: true, buff: true, keep: true, pinned: true }, layers.over);
   }
   /**
@@ -5855,6 +6327,59 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!eOn(v)) return;
     const dead = edeadOf(v);
     if (dead) eplay(v, [dead], { owner: null, tag: 'dead' });
+    // 2026-11-12: knocked out in a form-held skill (FORM_HELD_SKILLS) — the effects its buff creates as the HP would reach
+    // zero (enemy-modes.json skills[…].dying, Buff.Event ON_BEFORE_TRY_SET_HP_ZERO): 暴走食人花 digesting, enemy_trwlpl_end-vomit_01
+    const held = FORM_HELD_SKILLS[v.info?.defId];
+    if (held && level() < 3) {
+      for (const [k, f] of Object.entries(held)) {
+        if ((v.form ?? v.info?.form) !== f) continue;
+        const dying = eskillPart(v, k)?.dying;
+        if (Array.isArray(dying) && dying.length) eplay(v, dying, { owner: null, tag: 'dead' });
+      }
+    }
+  }
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」): an enemy's blink — sim fx 'teleport' { x, y, fromX, fromY, id, ability }
+   * (bounty.js kitShkrbt: 聆风猎手's Blink). Its buff's template (enemy-modes.json skills[ability].blink, enemy_bindings.py)
+   * creates `from` on it before its BlinkNode — where it leaves (enemy_shkrbt_skill_01_start: no FollowMountPoint, it stays
+   * there) — and `to` after it, on it where it lands (enemy_shkrbt_skill_01_end). true = drawn (no stand-in blink).
+   */
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 살카즈 후예 무리」): an enemy skill's ready mark — sim fx 'enemySkillReady' { id, ability,
+   * on } (reborn.js kitDfat: on 1 as the SP fills, on 0 as the mark goes). ReadyEnemySkillEffect: `_effect` (enemy-modes.json
+   * skills[ability].ready: enemy_dfat_skill_hint) on its owner while the skill is ready, cleared at the cast's finish (at its
+   * start when `_stopBeforeCast`: `readyEarly`, eskillFx) and at the detach — a knock-out stops it with the owner's held
+   * effects (stopOwned). true = drawn here.
+   */
+  function ereadyFx(o, views) {
+    const v = views.get(o.id);
+    if (!eOn(v) || typeof o.ability !== 'string') return false;
+    const part = eskillPart(v, o.ability);
+    if (!part?.ready?.some(efx)) return false;
+    const tag = `ready:${o.ability.toLowerCase()}`, id = ownerOf(v);
+    for (const l of live) if (l.owner === id && l.tag === tag) l.inst.stop();
+    if (Number(o.on)) eplay(v, part.ready, { buff: true, tag });
+    else if (trace) trace({ kind: 'readyEnd', names: part.ready, by: id, at: null });   // tests: its mark stopped
+    return true;
+  }
+  /** The 'explode' of a skill's strike (SPELL_BLASTS): its ON_SPELL_ON cast effects on the caster now. */
+  function espellBlast(e, views) {
+    const o = e[4], v = views.get(o.id);
+    const part = eOn(v) ? eskillPart(v, o.ability) : null;
+    if (!part) return false;
+    const names = (part.cast || []).filter((n) => part.opt?.[n]?.s === CAST_EVENT.SPELL_ON && efx(n));
+    if (level() < 3) eplay(v, edirs(v, part, names), { tag: 'cast' });
+    return names.length > 0 || (part.hit || []).some(efx);
+  }
+  function eblinkFx(e, views) {
+    const o = e[4], v = views.get(o.id);
+    if (!eOn(v) || level() >= 3) return false;
+    const bl = eskillPart(v, o.ability)?.blink;
+    if (!bl || ![...(bl.from || []), ...(bl.to || [])].some(efx)) return false;
+    const fx0 = Number(o.fromX), fy0 = Number(o.fromY);
+    if (Number.isFinite(fx0) && Number.isFinite(fy0)) eplay(v, bl.from || [], { at: { x: fx0, y: fy0, z: 0 }, owner: null });
+    eplay(v, bl.to || [], {});
+    return true;
   }
 
 
@@ -6020,6 +6545,60 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * [ASSUMED] the camera's position and turn, as Unity parents it, and on while the storm blows over any half; and the
      * mounds the wind reaches wear their sand marks (stormMarks).
      */
+    /**
+     * 2026-11-12 (docs/rules/fx.md 「규정 액티브 전략의 표식·칸 이펙트」): the prep's tile effects of 规程's tile 指令 —
+     * [{ bundle, name, x, y, z }] on the floor (render/fxband.js bandTileFx: 溃心领域's map_v079_dikuai02 on its marked
+     * tile), each held until a list without it or the next clear(); one per prefab and tile. Static floor meshes under
+     * the units, pinned (never ended by the caps). false while the effect index has not loaded (call again), else true.
+     */
+    setBandTiles(list) {
+      const want = new Map();
+      for (const t of Array.isArray(list) ? list : []) {
+        const x = Number(t?.x), y = Number(t?.y);
+        if (!t || typeof t.bundle !== 'string' || typeof t.name !== 'string' || !Number.isFinite(x) || !Number.isFinite(y)) continue;
+        want.set(`${t.bundle}/${t.name}@${x},${y}`, { bundle: t.bundle, name: t.name, x, y, z: Number(t.z) || 0 });
+      }
+      for (const [k, rec] of bandTiles) {
+        if (want.has(k) && !(rec.l && !live.includes(rec.l))) continue;   // (kept unless a cap or a lost context dropped it)
+        rec.off = true;
+        if (rec.l) { rec.l.keep = false; rec.l.inst.stop(true); }
+        bandTiles.delete(k);
+      }
+      if (failed) return true;
+      if (!index && want.size) return false;
+      for (const [k, t] of want) {
+        if (bandTiles.has(k) || !index?.bundles?.[t.bundle]?.includes(t.name)) continue;
+        const rec = { l: null, off: false };
+        bandTiles.set(k, rec);
+        spawn(t.bundle, t.name, { x: t.x, y: t.y, z: t.z }, { owner: null, buff: true, keep: true, pinned: true, until: Infinity, tag: 'bandTile' }, { over: false })
+          .then((l) => { if (!l) { if (bandTiles.get(k) === rec) bandTiles.delete(k); return; } if (rec.off) { l.keep = false; l.inst.stop(true); } else rec.l = l; });
+      }
+      return true;
+    },
+    /**
+     * 2026-11-12: the stage's tile effects ([{ bundle, name, x, y }] — stageTileFx of the stage on the board; [] none), held
+     * until a list without them, laid again after a clear() — see stageTiles.
+     */
+    setStageTiles(list) {
+      const want = new Map();
+      for (const t of Array.isArray(list) ? list : []) {
+        const x = Number(t?.x), y = Number(t?.y);
+        if (!t || typeof t.bundle !== 'string' || typeof t.name !== 'string' || !Number.isInteger(x) || !Number.isInteger(y)) continue;
+        want.set(`${t.bundle}/${t.name}@${x},${y}`, { bundle: t.bundle, name: t.name, x, y });
+      }
+      for (const [k, rec] of stageTiles) {
+        if (want.has(k)) continue;
+        rec.off = true;
+        if (rec.l) { rec.l.keep = false; rec.l.inst.stop(true); }
+        stageTiles.delete(k);
+      }
+      for (const [k, t] of want) if (!stageTiles.has(k)) stageTiles.set(k, { t, l: null, off: false, loading: false, none: false });
+    },
+    /** 2026-11-11: the camera effects of the level on the board (names; [] none) — see stageCams. */
+    setStageCamera(names) {
+      stageCams.clear();
+      for (const n of Array.isArray(names) ? names : []) if (typeof n === 'string' && n) stageCams.add(n);
+    },
     async setStorm(storm, mounds) {
       const gen = stormGen;
       if (!Array.isArray(storm) || !storm.length || q() === 'low' || failed || !(dry || await ensure()) || gen !== stormGen) return;
@@ -6142,6 +6721,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (efoe(src)) {
             if (!eOn(src)) return;
             if (src._fxESkill?.inPlace) { src._fxESkill.inPlace = false; return; }   // the ability's strike (inPlaceOfAttack)
+            if (ABILITY_SHOT_ATKS.has(e[3])) return;   // 2026-11-12: its ability's shot (破城者's missiles), drawn at its burst
             const tgt = views.get(e[2]);
             const p = estrikeFx(src, e[3]);
             if (tgt && p?.part) {
@@ -6201,6 +6781,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (Array.isArray(e[8])) hitMoments(e[8], tid, by, views);   // 2026-10-24 (묶음 S3): its kit effect moments
           if (stoneHit(tid, views)) return; // a 望 stone blast's hit effect
           if (pendingHit(tid, views, by)) return; // local patch: a skill's damage without an attack
+          if (by != null && dblasts.size && dblastHit(tid, by, views)) return;   // 2026-11-11: a 轰击者 shell's blast
           let a = lastAtk.get(tid);
           if (a && by != null && ownerOf(a.src) !== by) a = null; // another unit's damage: not that attack's hit
           if (!a && by != null) a = ownAtk.get(`${by}:${tid}`) ?? null; // its own attack, replaced on lastAtk by another unit's
@@ -6249,7 +6830,38 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'shotSlow' && e[4]) { shotSlowFx(e[4]); return; }
           // 2026-10-31: 刺胄之弹's flight — its boss skill's projectile trail rides the shell (then the cast's effects below)
           if (e[1] === 'shell' && e[4]?.caster != null && e[4].id != null && typeof e[4].ability === 'string' && eshellRide(e, views)) ownFx.add(e);
+          if (e[1] === 'phase' && e[4]?.id != null && 'form' in e[4]) {
+            formHeldEnd(e[4], views);   // 2026-11-12: 暴走食人花's digest
+            if (formSwitchOnly(e[4], views)) ownFx.add(e);   // 2026-11-12: a known form's switch, no puff
+          }
           if (acBossFx(e, views)) { ownFx.add(e); return; }   // 2026-11-10: 假想敌：茧 / 鳍 (规程)
+          if (SOUL_KINDS.has(e[1]) && e[4]?.id != null) { if (soulFx(e, views)) ownFx.add(e); return; }   // 2026-11-12: 魂灵法骸 / 魂灵残迹
+          // 2026-11-11: an enemy's summon (fx 'summon' { id: its parent, key }) whose summoned enemy has an extracted
+          // `_startEffect` — that child's birth effect is the official one (flushEnemyBirths, on its 'spawn'): no stand-in
+          // puff at the parent (萨卡兹子裔's 重生造物 enemy_dzoms_born_01 …)
+          if (e[1] === 'summon' && typeof e[4]?.key === 'string' && esummonBorn(e, views)) { ownFx.add(e); return; }
+          // 2026-11-11: 萨卡兹子裔轰击者's shell lying where it landed, then its blast (规程)
+          if ((e[1] === 'telegraph' || e[1] === 'explode') && e[4]?.kind === 'dthrowShell') {
+            if (e[1] === 'telegraph' ? dshellFx(e, views) : dshellBlast(e)) ownFx.add(e);
+            return;
+          }
+          // 2026-11-11: 冰原卫法者's projectile appearing where it fell, then its strike; the bombs and shells of 规程's CRITIC
+          // enemies bursting where they touched (eprojTelegraph, eshotBlast)
+          if (e[4]?.id != null && typeof e[4].ability === 'string' && e[4].caster == null
+            && (e[1] === 'telegraph' ? eprojTelegraph(e, views) : e[1] === 'explode' && dshellBlast(e))) { ownFx.add(e); return; }
+          if (e[1] === 'explode' && e[4]?.id != null && SHOT_BLASTS.has(e[4].kind)) { if (eshotBlast(e, views)) ownFx.add(e); return; }
+          // 2026-11-11: 残党乐团鼓手's aoeAttack — its buff enemy_ltndru[AOE]'s AOEDamage creates no effect (`_createEffect`
+          // false, no `_hitEffectKey`): the ability's cast effects (its wave, enemy_ltndru_attack_ap_start_02) are the blast
+          // 2026-11-12: a skill's strike the sim sends as its blast (SPELL_BLASTS) — the strike's cast effects now, no stand-in
+          if (e[1] === 'explode' && e[4]?.id != null && typeof e[4].ability === 'string' && SPELL_BLASTS[views.get(e[4].id)?.info?.defId]?.[e[4].ability] === e[4].kind) {
+            if (espellBlast(e, views)) ownFx.add(e);
+            return;
+          }
+          if (e[1] === 'explode' && e[4]?.id != null && CAST_BLASTS.has(e[4].kind) && typeof e[4].ability === 'string') {
+            const v = views.get(e[4].id), part = eOn(v) ? eskillPart(v, e[4].ability) : null;
+            if (part && (part.cast || []).some(efx)) ownFx.add(e);
+            return;
+          }
           // 2026-10-31: an enemy ability's area (【污染秽蚀】, 毒雾, 刺胄之弹's landing) or death burst — its projectile's
           // effects, else the stand-in zone / ring (not the ability's cast below)
           if ((e[1] === 'zone' || e[1] === 'explode') && e[4]?.id != null && e[4].caster == null && typeof e[4].ability === 'string') { if (eprojAreaFx(e, views)) ownFx.add(e); return; }
@@ -6258,6 +6870,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             const pr = from && views.get(o.to) ? eshotDrawable(views.get(o.caster) || from, SHOT_BEAMS[o.kind]) : null;
             if (pr && !pr.link && efx(Array.isArray(pr.trail) ? pr.trail[0] : null)) { ownFx.add(e); return; } // its trail flies instead
           }
+          if (e[1] === 'teleport' && e[4]?.id != null && typeof e[4].ability === 'string' && eblinkFx(e, views)) { ownFx.add(e); return; }   // 2026-11-12: 聆风猎手
+          if (e[1] === 'enemySkillReady' && e[4]?.id != null) { if (ereadyFx(e[4], views)) ownFx.add(e); return; }   // 2026-11-12: a skill's ready mark
           // 2026-10-10: an enemy's skill / special action naming its ability (fx 'enemySkill' and the fx of its cast) — that ability's official
           // effects, and no procedural stand-in for it (standInOff's kinds) when the enemy binds it
           if (e[4] && typeof e[4] === 'object') {
@@ -6266,6 +6880,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             if (v?.info?.side === 'enemy' || v?.info?.walks) {   // (2026-11-11: a walking ally's ability too)
               // 2026-10-15: a held skill's end ('enemySkillEnd' { id, ability } after an 'enemySkill' with `hold`)
               if (e[1] === 'enemySkillEnd') { eskillFx(v, k, { on: false }); return; }
+              // 2026-11-12: a skill whose buff effect lasts with its form (FORM_HELD_SKILLS) — held to that form's end
+              if (e[1] === 'enemySkill' && FORM_HELD_SKILLS[v.info?.defId]?.[k]) { eskillFx(v, k, { loop: true, cap: ESKILL_HOLD_CAP }); return; }
               const tgt = o.target ?? o.tgt ?? o.to;
               if (eskillFx(v, k, { target: tgt != null ? views.get(tgt) || null : null, hold: e[1] === 'enemySkill' && !!o.hold }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
               return;
@@ -6282,6 +6898,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'spGain' && e[4] && 'form' in e[4]) { const v = views.get(e[4].id); if (v && heldOf(v, e[4].form) > 0) defaultModeFx(v, false, e[4].form); }
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
           if (e[1] === 'kitHit' && e[4]?.k === 'judge:barrier') judgeShield(e[4], views);
+          if (e[1] === 'kitHit' && EKIT_HIT_FX[e[4]?.k]) { if (ekitHitFx(e[4], views)) ownFx.add(e); return; }   // 2026-11-12
           if (e[1] === 'shieldBreak' && e[4] && brokeOwn.delete(e[4].id)) { ownFx.add(e); return; } // 2026-10-23: its official break drew it (parryFx)
           if (e[1] === 'explode' && e[4]?.kind === 'expose' && exposeFx(e, views)) { ownFx.add(e); return; }
           // 2026-10-31: 巨大的丑东西's self-destruct — its rebirth ability bomb[reborning] draws the official range and blast
@@ -6372,6 +6989,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       stepWolves(dt);
       flushStoneBirths(lastViews); // local patch
       flushEnemyBirths(lastViews); stepEnemies(lastViews); // 2026-10-10: the enemies' born effects, modes, skill clips
+      stepStageTiles(); // 2026-11-12: the stage's tile effects (setStageTiles)
+      if (lastViews && (soulBalls.size || soulLines.size)) stepSouls(lastViews, dt * gameRate()); // 2026-11-12: 魂灵法骸's fireballs
       if (index) flushDeploys(lastViews); // 2026-10-11: the operators' / tokens' deploy effects
       if (index) stepTokenAuras(lastViews); // 2026-10-22: the summons' skill auras
       stepLines(); // 2026-10-10: buff line effects follow their units
@@ -6461,6 +7080,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       heldFlights.length = 0;
       for (const r of trails) if (r.rate < 1 && r.inst) heldFlights.push(r.inst);
       if (heldFlights.length || flightBatch) perf.merged = (flightBatch ||= new mod.fxp.FlightBatch(layers.over.scene)).sync(heldFlights, camera);
+      // 2026-11-12: a prefab laid on many tiles at once (规程's 悲惨之雨 floors, the battlefield's tile effects) is drawn once per
+      // renderer (fxplayer.js TileBatch) — its copies' own meshes are back after the draws (restore)
+      tileInsts.length = 0;
+      for (const l of live) if (l.tiled && !l.hidden) tileInsts.push(l.inst);
+      if (tileInsts.length || tileBatch) perf.tiled = (tileBatch ||= new mod.fxp.TileBatch()).sync(tileInsts, camera);
       // local patch: the split scene's back renderers after the lower canvas's own, its front ones before the upper's
       const S = layers.split, { FX_BACK, FX_FRONT } = mod.fxp;
       const draw = (L, scene, mask, clear) => {
@@ -6474,6 +7098,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (S.n) { S.scene.matrixWorldAutoUpdate = false; try { draw(layers.over, S.scene, FX_FRONT, true); } finally { S.scene.matrixWorldAutoUpdate = true; } }
         draw(layers.over, layers.over.scene, 0, !S.n);
       }
+      tileBatch?.restore();
       camera.layers.set(0);
       perf.updateMs = perf.updateMs * 0.9 + (t1 - t0) * 0.1;
       perf.renderMs = perf.renderMs * 0.9 + (performance.now() - t1) * 0.1;
@@ -6513,13 +7138,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); packs.clear(); lemMarks.clear(); lemMarkFx.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
-      castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); ebreath.clear(); eshotLand.clear(); emortars.length = 0;
+      castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); ebreath.clear(); eshotLand.clear(); eshotLast.clear(); emortars.length = 0; dshells.length = 0; dblasts.clear();
       deployed.clear(); onField.clear(); moved.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
       linkAxes.clear(); linkRuns.clear(); // 2026-10-22
       brokeOwn.clear(); // 2026-10-23
       for (const c of camFx.values()) c.off = true;   // 2026-11-10: the enemies' camera effects (dropped with `live` above)
       camFx.clear(); camWant.clear();
       acRains.clear();   // 2026-11-11: 悲惨之雨's floors (dropped with `live` above)
+      soulBalls.clear(); soulLines.clear();   // 2026-11-12: 魂灵法骸's fireballs, 魂灵残迹's laser (dropped with `live`)
+      for (const rec of bandTiles.values()) rec.off = true;   // 2026-11-12: the prep's tile 指令 floors (dropped with `live`)
+      bandTiles.clear();
+      for (const rec of stageTiles.values()) { rec.l = null; rec.none = false; }   // 2026-11-12: the stage's tile effects (dropped with `live`; laid again next frame)
       if (mod) showLayers();
     },
 
@@ -6596,7 +7225,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         gl: mod ? [layers.under, layers.over].reduce((a, L) => [a[0] + (L.renderer.info.memory?.textures ?? 0), a[1] + (L.renderer.info.memory?.geometries ?? 0)], [0, 0]) : null,
         lib: lib ? { tex: lib.textures.size, mesh: lib.meshes.size, defs: lib.defs.size } : null,
         updateMs: Math.round(perf.updateMs * 100) / 100, renderMs: Math.round(perf.renderMs * 100) / 100,
-        calls: perf.calls, merged: perf.merged ?? 0, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
+        calls: perf.calls, merged: perf.merged ?? 0, tiled: perf.tiled ?? 0, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
         recent: recent.slice(), trails: trails.length, preload: preQueue.length, // local patch; 2026-10-30: effect files still queued (preload)
         buffs: live.filter((l) => l.buff && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // local patch: the looping effects on now
         paused: live.filter((l) => l.paused && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // 2026-10-21: held by a pause behaviour (stepPauses)

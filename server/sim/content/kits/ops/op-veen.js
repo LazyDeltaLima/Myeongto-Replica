@@ -229,6 +229,13 @@ export default {
         } },
       ],
       install(battle, unit) {
+        // the ability the attack is (Default / S1 / S2: an ability group): AttackWithMergeBall while she holds a 转置能量 — its
+        // Selector asks for veen_charge_ball_merged, the Trait ChargeableGroup's buff once merge_cnt energies merged (T1 reads
+        // the same buff) — else AttackBase; its 'atk' signal picks that child's shot hit (char_modes.py talentAtk:
+        // veen_attack_rank_02_hit_01, AttackBase's _01). S3's attack is one ability.
+        battle.on('beforeAttack', (ctx) => {
+          if (ctx.attacker === unit && stateOf(unit).t > 0 && !skillOn(unit, S3)) ctx.signal = 'AttackWithMergeBall';
+        }, { owner: unit });
         // MSC-Y: ASPD while she holds stored energy
         const msc = num(hidden.attack_speed);
         if (msc) toggleBuff(battle, unit, 'trait:veen:stored', () => { const v = stateOf(unit); return v.s + v.t > 0; }, { aspd: msc });

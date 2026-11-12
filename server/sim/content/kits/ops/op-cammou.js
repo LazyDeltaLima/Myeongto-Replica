@@ -6,24 +6,20 @@
 // projectile_chr_cammou_funnel_s2 (`_hitNumType` 2, `_stopWhenSourceInvalid`, attached to its target), buff_template_data cammou_tr, cammou_s_2.
 // - 协调一致: ASPD +attack_speed, the drone's too (it hits at her interval).
 // - S1 攻击力强化·β型: ATK +atk (mode S1 only changes the drawings).
-// - S2 同步索敌攻击: range 3-3, ATK +atk. The drone is released on her target and stays locked, inside her range or not, until that enemy dies or the skill ends; meanwhile the unreleased drone's
-//   addition is off. Her attacks and the drone's hits each stun for attack@stun s at attack@prob (cammou_s_2 on both abilities). Her statuses do not stop it (PRTS 备注): the skill's tick runs it.
-//   [ASSUMED·미조사: the locked drone hits at her attack interval, with the trait's ramp; the projectile's own hit timing was not read — as 洛洛 and 耶拉's released drones]
+// - S2 同步索敌攻击: range 3-3, ATK +atk. Meanwhile the unreleased drone's addition is off. Her attacks and the drone's hits each stun for attack@stun s at attack@prob (cammou_s_2 on
+//   both abilities). Official client (FunnelRemoteAttack `_funnelAction` → projectile_chr_cammou_funnel_s2, FunnelHitbehaviour): the drone is released as one of her attacks goes out
+//   (DoCastOnTargets), on that attack's target, when none is out; it stays on that enemy, inside her range or not, until the enemy dies or turns invalid (its `_targetOptions`), she
+//   dies or the skill ends, and the next one waits for her next attack. It hits on its own timer: at once as it is placed (`_waitFirstPeriod` 0), then every attack interval of hers
+//   (`Entity.attackTime`), re-timed keeping its progress when that interval changes (RangedAttack.OnAttackTimeChanged → PeriodicTimer.ResetButKeepProgress: remaining × new ÷ old), each
+//   hit with the trait's ramp (CammouTrait.SetFunnelAtkScale: a new target starts over). Her statuses do not stop it (PRTS 备注): the skill's tick runs it.
 
-import { canTargetEnemy, sortEnemyTargets } from '../../../targeting.js';
+import { canTargetEnemy } from '../../../targeting.js';
 import { num, talentBb, skillRec, up } from '../shared/tier1.js';
 
 const S1 = 'skcom_atk_up[2]';
 const S2 = 'skchr_cammou_2';
 export const DRONE_TAG = 'cammou:drone';
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-
-const firstTarget = (battle, unit) => {
-  const list = battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile);
-  for (const e of battle.blockedTargets(unit, unit.profile)) if (!list.includes(e)) list.push(e);
-  sortEnemyTargets(battle, unit, list, unit.profile.priority);
-  return list[0] ?? null;
-};
 
 export default {
   char_328_cammou: (bb, chess) => {
@@ -41,16 +37,25 @@ export default {
             const key = typeof unit.profile.funnelMul === 'function' ? 'funnelMul' : 'dmgMul';
             const mul = unit.profile[key];
             unit.profile = { ...unit.profile, [key]: null };
-            unit.mem.cammouDrone = { lock: null, cd: 0, key, mul, target: unit.trait.funnelTarget, scale: unit.trait.funnelScale };
+            unit.mem.cammouDrone = { lock: null, cd: 0, period: 0, key, mul, target: unit.trait.funnelTarget, scale: unit.trait.funnelScale };
+          },
+          onAttack({ unit, targets }) {
+            const d = unit.mem.cammouDrone, t = targets?.[0];
+            if (!d || d.lock || !t?.alive || !canTargetEnemy(unit, t, unit.profile)) return;
+            d.lock = t;
+            d.cd = 0;
+            d.period = unit.s.interval;
           },
           onTick({ battle, unit, dt }) {
             const d = unit.mem.cammouDrone;
             if (!d || !unit.alive || !unit.skill.active) return;
-            d.cd = Math.max(0, d.cd - dt);
             if (d.lock && !canTargetEnemy(unit, d.lock, unit.profile)) d.lock = null;
-            if (!d.lock) d.lock = firstTarget(battle, unit);
-            if (!d.lock || d.cd > 1e-9) return;
-            d.cd = unit.s.interval;
+            if (!d.lock) return;
+            const p = unit.s.interval;
+            if (p !== d.period) { d.cd = d.period > 0 ? d.cd * (p / d.period) : 0; d.period = p; }
+            d.cd = Math.max(0, d.cd - dt);
+            if (d.cd > 1e-9) return;
+            d.cd = p;
             const f = unit.profile.funnel;
             d.scale = d.target === d.lock.id ? Math.min(f.max, (d.scale ?? f.init) + f.delta) : f.init;
             d.target = d.lock.id;

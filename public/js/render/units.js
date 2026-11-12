@@ -57,7 +57,7 @@
 // like a filling progress ring, and its refill was the same white as the 元素值 left. The disc comes from the hudRings
 // atlas, the bars are tinted Texture.WHITE sprites; built on first use and hidden when idle.
 //
-// ItemView renders hand items as a floating icon plate; DeviceView renders battle devices (crates) as 3D boxes
+// ItemView renders hand items as their equipment model (render/item-models.js) or a floating icon plate; DeviceView renders battle devices (crates) as 3D boxes
 // with an HP bar once damaged.
 //
 // Cost control (low-end devices): a unit whose body is outside the viewport (`ctx.viewport()`, with a margin) is not
@@ -479,6 +479,38 @@ export const STEALTH_FORMS = Object.freeze({ enemy_9008_acbunn: 'revealed' });
  * `half_cnt` 2 (two riders, GuysB / GuysD), Full at `max_cnt` 5 (five, GuysB–GuysF).
  */
 export const SKIN_FORMS = Object.freeze({ enemy_10159_mntrjn: Object.freeze({ half: 'Half', full: 'Full' }) });
+/**
+ * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」·「규정 살카즈 후예 무리」): enemy abilities cast in a clip of their own, per
+ * Spine id: ability (the sim's fx 'enemySkill' { id, ability }) → clip (the prefab's Skills/<ability> clip, the effect binding's
+ * `anim` in enemy-modes.json). The clip plays once from the cast (UnitView.onEnemySkill → SpineActor.chant: the attacks
+ * meanwhile play no attack clip; a stun or death cuts it): 破城者's SkyProjectile fires its three missiles inside its one
+ * F_Skill, not an attack clip each; 萨卡兹子裔责罚者 / 惩戒者 strike their StunAttack in Skill. An object is a three-part channel
+ * over the fx's `dur` (ThreePartChannelingAnimation: its `_default` begin / loop / end, `_down` / `_up` when the enemy faces
+ * DOWN / UP as it casts — `_GetAnimBundle`; begin and end at their own speed and the loop for the rest, as UpdatePlaybackSpeed
+ * does while `dur` ≥ begin + end): “喷射罐” / “喷爆罐”'s Flame (4 s ≥ 0.6 + 0.267).
+ */
+const WINBOM_FLAME = Object.freeze({
+  begin: 'Attack_Begin', loop: 'Attack_Loop', end: 'Attack_End',
+  down: Object.freeze({ begin: 'Skill_Down_Begin', loop: 'Skill_Down_Loop', end: 'Skill_Down_End' }),
+  up: Object.freeze({ begin: 'Skill_Up_Begin', loop: 'Skill_Up_Loop', end: 'Skill_Up_End' }),
+});
+export const ESKILL_CLIPS = Object.freeze({
+  enemy_10123_uareap: Object.freeze({ SkyProjectile: 'F_Skill' }),
+  enemy_1362_dfat: Object.freeze({ StunAttack: 'Skill' }),
+  enemy_1362_dfat_2: Object.freeze({ StunAttack: 'Skill' }),
+  enemy_1385_winbom: Object.freeze({ Flame: WINBOM_FLAME }),
+  // 复核洋流使者's skill 1 (eating a 赘生甲壳): AnimatedActionToTargetAbility `_animKey` Skill, `_timeMode` 1 (the clip, 2.6 s)
+  enemy_1438_dspred: Object.freeze({ 1: 'Skill' }),
+  enemy_1385_winbom_2: Object.freeze({ Flame: WINBOM_FLAME }),
+});
+/**
+ * The way an enemy faces a spot (dx, dy from it, map tiles): the FOUR_WAYS axis nearest to it, UP / DOWN or 'side' (a tie
+ * takes UP, then the sides, then DOWN) — as the sim aims 直击 shots (content/enemies/critic.js muzzleAt).
+ */
+export function faceWay(dx, dy) {
+  const ways = [dy, dx, -dy, -dx];
+  return ['UP', 'side', 'DOWN', 'side'][ways.indexOf(Math.max(...ways))];
+}
 
 /**
  * 要塞 (fortress) operators whose blocked and unblocked attacks are two clips of one role, per Spine id: [melee, ranged]
@@ -530,6 +562,9 @@ const STATUE = Object.freeze({
   fly: Object.freeze({ change: null, roles: clipSet('Idle_2', 'Move_2', 'Die_2', 'Attack_2') }),
 });
 const JAKILL2 = clipSet('C2_Idle', 'C2_Move', 'C2_Die', 'C2_Attack');
+const HEADSHOT_B = Object.freeze({
+  HeadShot: Object.freeze({ change: null, roles: Object.freeze({ attack: loop('Attack_B', 'attackAny'), skill: Object.freeze({ begin: null, loop: 'Attack_B', end: null, via: 'attack', index: 0, idle: null }) }) }),
+});
 /** A prisoner's 'warning' (mode R) and 'liberty' (mode L) clip sets: the clip-name suffix of each (see the list above). */
 const prisoner = (warn, free) => Object.freeze({
   warning: Object.freeze({ change: null, roles: clipSet(`Idle${warn}`, `Move${warn}`, `Die${warn}`, `Attack${warn}`) }),
@@ -577,6 +612,8 @@ const MACH = Object.freeze({
   rest: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Default', die: 'End', ...OFF_ATTACK }) }),
   running: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Idle', die: 'End', ...OFF_ATTACK }) }),
 });
+const WINGNT_NORMAL = Object.freeze({ Normal: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }) });
+const DSLNTF_AWAKE = Object.freeze({ 1: Object.freeze({ change: null, roles: clipSet('Skill_Idle', 'Skill_Move', 'Die', 'Skill_Attack') }) });
 export const FORMS = Object.freeze({
   trap_039_dstnta: BROOD,
   // 2026-11-11: 规程's 谢拉格 6 giant 「不眠雪山」 (enemy_9024_acsgnt, a walking ally — server content/bonds/giant.js, forms
@@ -655,6 +692,43 @@ export const FORMS = Object.freeze({
   }),
   enemy_9008_acbunn: Object.freeze({
     revealed: Object.freeze({ change: null, roles: clipSet('Idle_B', 'Move_B', 'Die_B', 'Attack_B') }),
+  }),
+  // 2026-11-11: 规程's 寻路者 trio in their ammo mode (server content/enemies/critic.js pathfinder → form 'HeadShot', null back):
+  // the prefab mode HeadShot, whose attack ability plays Attack_B (破阵者 / 传令兵 — the sim times it from the same clip,
+  // enemies.json attackAnim.modes.HeadShot); 狙击手's HeadShot attacks on its plain Attack, so only its effects change
+  // (fxgame.js FORM_MODES)
+  enemy_1216_cansld: HEADSHOT_B,
+  enemy_1219_mtrbty: HEADSHOT_B,
+  enemy_1213_mtrsnp: Object.freeze({ HeadShot: Object.freeze({ change: null, roles: Object.freeze({}) }) }),
+  // 2026-11-11: 无畏掷弹兵 after its 4 bombs (critic.js kitGrenadier → form 'Light'): the prefab mode Light's clip set
+  enemy_1405_boomer_2: Object.freeze({
+    Light: Object.freeze({ change: null, roles: clipSet('Idle_2', 'Move_2', 'Die_2', 'Attack_2') }),
+  }),
+  // 2026-11-12: “投石机” / “榴弹炮” after the first throw (critic.js kitSnowballer → form 'Normal'): the prefab mode Normal's
+  // B_* clip set (SwitchMode, no change clip; the sim times its melee from B_Attack, enemies.json attackAnim.modes.Normal)
+  enemy_1388_wingnt: WINGNT_NORMAL,
+  enemy_1388_wingnt_2: WINGNT_NORMAL,
+  // 2026-11-12: 复核洋流使者 after it eats a 赘生甲壳 (reborn.js kitShellEater → form '1'): the prefab mode 1's
+  // SimpleUnitAnimatorHooker (Idle / Default / Move / Die / Attack → B_*); SwitchMode, no change clip
+  enemy_1438_dspred: Object.freeze({ 1: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }) }),
+  // 2026-11-12: 元核孽生者 / 异形孽生者 in their 临战 state (element.js kitNucleus → form '1'): the prefab mode 1's hooker
+  // (Move → Skill_Move, Idle → Skill_Idle; Die stays) and its Combat's Skill_Attack; SwitchMode, no change clip
+  enemy_1439_dslntf: DSLNTF_AWAKE,
+  enemy_1439_dslntf_2: DSLNTF_AWAKE,
+  // 2026-11-12: 神勇的帕拉杜利斯's charge (critic.js kitParadulis → form 'Run', null as Skill_End ends): the prefab mode Run,
+  // whose SimpleUnitAnimatorHooker plays Skill for Idle and Move (its run); no change clip (SwitchMode — Skill_Begin and
+  // Skill_End are the rush / rushEndNormal skills' own clips)
+  enemy_10163_mnctur_2: Object.freeze({
+    Run: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Skill', deploy: 'Skill', move: loop('Skill') }) }),
+  }),
+  // 2026-11-12: 暴走食人花 digesting (bounty.js kitTrwlpl → form 'eat' for 20 s, null back): the prefab mode Eat — its
+  // SimpleUnitAnimatorHooker leaves out Move and turns Die into Attack_Die, its Skills/Eat a ThreePartChannelingAnimation
+  // looping Attack_Idle and closing on Attack_End; the switch (SwitchMode) has no clip of its own
+  enemy_10003_trwlpl_2: Object.freeze({
+    eat: Object.freeze({
+      change: null, leave: 'Attack_End',
+      roles: Object.freeze({ idle: 'Attack_Idle', deploy: 'Attack_Idle', move: loop('Attack_Idle'), stun: loop('Attack_Idle'), die: 'Attack_Die', attack: null, skill: null }),
+    }),
   }),
   enemy_10081_mpplai: Object.freeze({
     translator_fuchou: Object.freeze({ change: 'A_Die_B', roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }),
@@ -802,6 +876,8 @@ export class UnitView {
     this.hasDir = !this.enemyModel && typeof info.dir === 'string' && DIRS.includes(info.dir.toUpperCase());
     this.facing = this.dir === 'LEFT' ? -1 : 1;
     this.visFacing = this.enemyModel ? -1 : this.facing;
+    // an enemy's body direction (Entity.direction) as its walk last turned it: UP / DOWN / 'side' (onEnemySkill)
+    this.moveWay = 'side';
     // an operator's / summon's facing while it fights (render/face-turn.js): the mirror `lr`, Back / Front `ud`, `dir4`;
     // its deploy direction until an attack turns it (turnTo); `faceUd` the half shown (Back / Front: a turn changes it
     // edge-on, half way through — `turnS` { t, shown } the turn under way)
@@ -1045,6 +1121,15 @@ export class UnitView {
   }
 
   /**
+   * 2026-11-12: whether this model draws form `k` itself (FORMS / SKIN_FORMS of its skeleton; null: back from one of them) —
+   * fxgame.js then draws no stand-in puff for the mode switch (docs/rules/fx.md 「규정 특수 적 항목·호위」).
+   */
+  knowsForm(k) {
+    const id = this.info.spine || this.info.defId;
+    return k == null ? !!(FORMS[id] || SKIN_FORMS[id]) : !!(FORMS[id]?.[k] || SKIN_FORMS[id]?.[k]);
+  }
+
+  /**
    * The unit changed mode (the `form` of a sim fx — shared/protocol.js fxForm; `fx` = that fx's extra): the mode's clip
    * set (FORMS) after its change clip, and its closing clip (`end`, landing in the `next` form's clips) timed to end
    * `fx.dur` game s later — the unit is still in this mode while it plays (an ember can be beaten in its last second),
@@ -1153,8 +1238,9 @@ export class UnitView {
   }
 
   /** Equipped item pips (prep): list of item icon URLs. */
-  /** local patch (LOCAL-PATCH.md 「전투 화면 UI」): the equipped items' golden flags, for the official prep equip bar (hud-bars.js). */
-  setEquip(gold) { this._equip = Array.isArray(gold) ? gold.map(Boolean) : []; }
+  /** local patch (LOCAL-PATCH.md 「전투 화면 UI」): the equipped items' golden flags and the operator's equipment slots
+   *  (2 unless its record says more — 规程's “暴躁铁皮” 4 / 6), for the official prep equip bar (hud-bars.js). */
+  setEquip(gold, slots = 2) { this._equip = Array.isArray(gold) ? gold.map(Boolean) : []; this._equipSlots = Number.isInteger(slots) && slots > 0 ? slots : 2; }
 
   setItems(urls) {
     const P = this.P;
@@ -1266,6 +1352,9 @@ export class UnitView {
         if (this.imp) this.imp.dirty = true;
       }
     }
+    // its walk turns its body too (Enemy._MoveByCursor: FaceTo its next direction while the next checkpoint is over 0.25
+    // tiles away → OnFaceChanged); the view knows only the walk's velocity
+    if (this.enemyModel && s.vx * s.vx + s.vy * s.vy > 1e-4) this.moveWay = faceWay(s.vx, s.vy);
     if (this.enemyModel && !this.slide?.face && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
     // an operator on a kit's flight (snapshot anim MOVE: 予愿安洁莉娜 S3, whose flight `_faceToMoveDirection`) faces its
     // travel, and its own direction again once it stands
@@ -1498,6 +1587,33 @@ export class UnitView {
     // `strike`: the attack struck now — the clip from its strike frame (as an 'atk' event's signal: SpineActor._signalStrike)
     if (strike) this.actor.attack(this.atkInterval, false, signal);
     else this.actor.signalSwing(signal, t > 0 ? t : this.atkInterval);
+  }
+
+  /**
+   * 2026-11-12: an enemy ability cast now (the sim's fx 'enemySkill' { id, ability, dur? }; `late` = game s the fx is shown
+   * late; `o`: { dur: its channel's game s, aim: { x, y } of its target }): its own clip once, or its three-part channel over
+   * `dur` in the way it faces `aim` (ESKILL_CLIPS; within 0.2 tiles of `aim`, the way it last walked), unless that would
+   * have ended already. True when it plays.
+   */
+  onEnemySkill(ability, late = 0, o = null) {
+    const spec = this.isEnemy && this.alive && this.actor ? ESKILL_CLIPS[this.info.spine || this.info.defId]?.[ability] : null;
+    if (!spec) return false;
+    if (typeof spec === 'string') {
+      if (!this.actor.has(spec)) return false;
+      const dur = this.actor.dur(spec);
+      if (!(dur > 0) || late >= dur) return false;
+      return this.actor.chant({ loop: spec, total: dur });
+    }
+    const total = Number(o?.dur) - late;
+    if (!(total > 0)) return false;
+    // the ability's `_faceToTarget` turns it to the target (Entity.FaceToTarget: only beyond 0.2 tiles) and an enemy's face
+    // turns its body the FOUR_WAYS way (Enemy.SetBodyDirectionWithPolicy, DEFAULT_FOUR_WAYS); nearer, the walk's way stays
+    const dx = o?.aim ? o.aim.x - this.x : NaN, dy = o?.aim ? o.aim.y - this.y : NaN;
+    if (Number.isFinite(dx) && Number.isFinite(dy) && dx * dx + dy * dy > 0.04) this.moveWay = faceWay(dx, dy);
+    const way = this.moveWay;
+    const set = (way === 'DOWN' ? spec.down : way === 'UP' ? spec.up : null) || spec;
+    const a = this.actor;
+    return a.chant({ begin: set.begin, loop: set.loop, end: set.end, total });
   }
 
   /** One attack hit now (b.ev 'atk'); `signal` = its 5th field: the client ability it is (a talent's own attack 'T.1'). */
@@ -2204,7 +2320,7 @@ export class UnitView {
     // local patch (LOCAL-PATCH.md 「전투 화면 UI」): in prep the official equip bar stands for the item pips when installed
     const eqTex = prep && this._equip?.length && this.alive ? equipTextures(this.P, this.ctx.assets) : null;
     if (eqTex && !this._equipBar) { this._equipBar = new EquipBar(this.P, this.hud); this._equipBar.anchor = this.hudAnchor; }
-    if (eqTex) this._equipBar.update(this.screen.x, this.screen.y, hudU(this.ctx), this._equip, eqTex);
+    if (eqTex) this._equipBar.update(this.screen.x, this.screen.y, hudU(this.ctx), this._equip, eqTex, this._equipSlots);
     else if (this._equipBar) this._equipBar.hide();
     for (let i = 0; i < this.itemPips.length; i++) {
       const pip = this.itemPips[i];
@@ -2554,8 +2670,16 @@ function defaultInterval(ctx, info) {
 // =============================================================================================================
 
 /**
- * Hand item: icon plate floating above its slot. While dragged (`lift` > 0) the plate is centred on its ground point —
- * the pointer (render/app.js moveDragVisual); it drops on (and equips the unit on) the tile under the pointer.
+ * Hand item: the item's equipment model (the client's Spine model of its trap prefab — render/item-models.js, a still
+ * snapshot shared by every view of the same model) standing on its slot, else — no extracted model, still loading, or
+ * one of the magic items whose prefab draws none — an icon plate floating above it.
+ * While dragged (`holdAt`, render/app.js moveDragVisual) the item stays in its slot ringed in COLORS.heldOutline and an
+ * outline-less copy with its own shadow follows the pointer, the pointer at the copy's lower right (the model's box: its
+ * right edge and its bottom), as on the official prep screen (CN recording 2026-11-11, docs/rules/render.md 「손 칸 장비
+ * 모델」); it drops on (and equips the unit on) the tile under the pointer, the item flying there from the copy.
+ * The model's size is the prefab's (the standard 0.27 character scale = UNIT.modelScale), standing still on the ground
+ * like the prefab's single 0 s Default clip — on the floor and not bobbing, as on the official prep screen (maintainer
+ * check 2026-11-11).
  */
 export class ItemView {
   constructor(ctx, info) {
@@ -2578,7 +2702,86 @@ export class ItemView {
     this.root.addChild(this.plate);
     this.info.icon = null;
     this.setIcon(info.icon);
+    this.model = null;      // Sprite of the model's snapshot, once drawn
+    this.snap = null;
+    this._modelRef = null;
+    this._loadModel();
     this.hud = null;
+    this.held = null;       // { x, y } canvas px of the pointer while dragged (holdAt), else null
+    this.copy = null;       // the dragged copy: { root, model, plate, shadow, g } — made on the first drag
+    this.ring = null;       // the outline Sprite behind the model while dragged
+  }
+  /** Start / move the drag: the item stays, its copy follows the pointer (canvas px). */
+  holdAt(x, y) { this.held = { x, y }; }
+  /**
+   * End the drag: the copy goes; returns the world point it stood on (the drop flies the item from there), or null.
+   * @returns {{ x: number, y: number, z: number }|null}
+   */
+  endHold() {
+    const g = this.held && this.copy?.g ? { ...this.copy.g } : null;
+    this.held = null;
+    if (this.copy) { this.copy.root.visible = false; this.copy.shadow.visible = false; }
+    if (this.ring) this.ring.visible = false;
+    return g;
+  }
+  _makeCopy() {
+    const P = this.P, root = new P.Container();
+    const plate = new P.Sprite(this.plate.texture);
+    plate.anchor.set(0.5, 1);
+    root.addChild(plate);
+    const shadow = new P.Sprite(this.shadow.texture);
+    shadow.anchor.set(0.5);
+    this.ctx.layers.shadow.addChild(shadow);
+    this.ctx.layers.units.addChild(root);
+    root.zIndex = 1e9;      // over every unit, as the official copy is drawn over the operator it is held above
+    this.copy = { root, model: null, plate, shadow, g: { x: 0, y: 0, z: 0 } };
+  }
+  /** The copy's frame (update, while held): the pointer at its box's lower right, its shadow under its ground point. */
+  _placeCopy(cam, sn) {
+    if (!this.copy) this._makeCopy();
+    const c = this.copy, h = this.held;
+    c.root.visible = true; c.shadow.visible = true;
+    const g0 = cam.unproject(h.x, h.y, this.z);
+    const s = g0 ? cam.scaleAt(g0.x, g0.y, this.z) : cam.scale;
+    let gx, gy;
+    if (sn) {
+      if (!c.model) { c.model = new this.P.Sprite(sn.texture); c.root.addChild(c.model); }
+      c.model.texture = sn.texture;
+      c.model.visible = true; c.plate.visible = false;
+      const k = s / sn.k, side = sn.texture.width * k;
+      c.model.scale.set(k);
+      c.model.anchor.set(sn.ax, sn.ay);
+      // the box's right edge and bottom at the pointer: the ground point left of it by half the box and its offset
+      gx = h.x - ((0.5 - sn.ax) * side + (sn.width * side) / 2);
+      gy = h.y - (sn.bottom - sn.ay) * side;
+    } else {
+      if (c.model) c.model.visible = false;
+      c.plate.visible = true;
+      c.plate.texture = this.plate.texture;
+      const size = s * 0.62;
+      c.plate.scale.set(size / 128);
+      gx = h.x - size / 2; gy = h.y;
+    }
+    c.root.position.set(gx, gy);
+    const w = cam.unproject(gx, gy, this.z);
+    if (w) { c.g.x = w.x; c.g.y = w.y; c.g.z = this.z; }
+    const sh = cam.project(c.g.x, c.g.y, c.g.z, SH_P);
+    c.shadow.position.set(sh.x, sh.y);
+    c.shadow.scale.set((s * 0.55) / c.shadow.texture.width);
+    c.shadow.alpha = 0.35;
+    placeOnGround(this.ctx, c.shadow, this.ctx.layers.shadow, c.g.y, c.g.z);
+  }
+  /** The ring behind the model while held (render/item-models.js outline, drawn once per model). */
+  _placeRing(sn, k) {
+    if (!this.ring) {
+      const tex = this.ctx.itemModels?.outline?.(sn, COLORS.heldOutline);
+      if (!tex) return;
+      this.ring = new this.P.Sprite(tex);
+      this.root.addChildAt(this.ring, 0);
+    }
+    this.ring.visible = true;
+    this.ring.scale.set(k);
+    this.ring.anchor.set(sn.ax, sn.ay);
   }
   /** Show the item's icon (an URL; the plain plate until it loads) — again when the asset manifest named it late. */
   setIcon(url) {
@@ -2587,34 +2790,83 @@ export class ItemView {
     const a = this.ctx.assets;
     if (a?.image) a.image(url).then((img) => { if (!this.destroyed && img && this.info.icon === url) this.plate.texture = itemTexture(String(this.info.defId), img, this.info.color || 0x9aa5a0); }, () => {});
   }
+  /** Take the equipment model's snapshot when the local-art manifest lists the model (assets.js itemSpine). */
+  _loadModel() {
+    const models = this.ctx.itemModels, a = this.ctx.assets;
+    if (this.destroyed || this.model || this._modelRef || !models || !a?.itemSpine || !this.info.trapId) return;
+    const entry = a.itemSpine(this.info.trapId);
+    const ref = entry ? models.acquire(entry) : null;
+    if (!ref) return;
+    this._modelRef = ref;
+    ref.ready.then((snap) => {
+      if (this.destroyed || ref !== this._modelRef) return;
+      if (!snap) { models.release(ref); this._modelRef = null; return; }
+      this.snap = snap;
+      this.model = new this.P.Sprite(snap.texture);
+      this.model.anchor.set(snap.ax, snap.ay);
+      this.root.addChild(this.model);
+      this.plate.visible = false;
+    }, () => {});
+  }
+  /** The local-art manifest arrived late or the tab is shown again (render/app.js): the model, when it has none. */
+  retryAssets() { this._loadModel(); }
   setWorld(x, y, z = 0) { this.x = x; this.y = y; this.z = z; }
   /** A battle snapshot sample (syncBattle syncs every unit of the field): a hand item on a scouted prep board rides
    *  the units as kind 'item' (Match.prepFieldMeta) — follow its position, there is nothing else to animate. */
   sync(s) { this.x = s.x; this.y = s.y; }
   update(dt, cam, t) {
-    const lifted = this.lift > 0;
-    const p = cam.project(this.x, this.y, lifted ? this.z : this.z + this.lift + 0.12 + Math.sin(t * 2 + this.bob) * 0.03, this.screen);
+    const sn = this.model ? this.snap : null;
+    const z = sn ? this.z : this.z + 0.12 + Math.sin(t * 2 + this.bob) * 0.03;
+    const p = cam.project(this.x, this.y, z, this.screen);
     this.placed = true;
     this.root.position.set(p.x, p.y);
-    this.root.zIndex = unitDepthKey(cam, this.x, this.y, this.lift);
-    const size = p.s * 0.62;
-    this.plate.scale.set(size / 128);
-    this.plate.anchor.set(0.5, lifted ? 0.5 : 1);
+    this.root.zIndex = unitDepthKey(cam, this.x, this.y, 0);
     this.root.alpha = this.dimmed ? 0.35 : 1;
+    if (sn) {
+      // the snapshot was drawn at sn.k px per tile
+      const k = p.s / sn.k, side = sn.texture.width * k;
+      this.model.scale.set(k);
+      this.model.anchor.set(sn.ax, sn.ay);
+      this._box = { w: sn.width * side, h: (sn.bottom - sn.top) * side, dx: (0.5 - sn.ax) * side, up: (sn.ay - sn.top) * side, down: (sn.bottom - sn.ay) * side };
+      this.screen.top = p.y - this._box.up;
+      if (this.held) this._placeRing(sn, k);
+      else if (this.ring) this.ring.visible = false;
+    } else {
+      const size = p.s * 0.62;
+      this.plate.scale.set(size / 128);
+      this.plate.anchor.set(0.5, 1);
+      this._box = null;
+      this.screen.top = p.y - size;
+    }
+    if (this.held) this._placeCopy(cam, sn);
     placeOnGround(this.ctx, this.shadow, this.ctx.layers.shadow, this.y, this.z);
     const sh = cam.project(this.x, this.y, this.z, SH_P);
     this.shadow.position.set(sh.x, sh.y);
     this.shadow.scale.set((p.s * 0.55) / this.shadow.texture.width);
     this.shadow.alpha = 0.35;
-    this.screen.top = lifted ? p.y - size / 2 : p.y - size;
   }
-  /** Canvas-space bounds (CSS px) of the plate (centred on the pointer while dragged). */
+  /** Canvas-space bounds (CSS px) of the model / plate in its slot (where it stays while its copy is dragged). */
   bounds() {
+    const b = this._box;
+    if (b) return { x: this.screen.x + b.dx - b.w / 2, y: this.screen.y - b.up, width: b.w, height: b.h };
     const w = (this.screen.s || 1) * 0.62;
-    return { x: this.screen.x - w / 2, y: this.lift > 0 ? this.screen.y - w / 2 : this.screen.y - w, width: w, height: w };
+    return { x: this.screen.x - w / 2, y: this.screen.y - w, width: w, height: w };
   }
   setHover() {}
-  destroy() { if (this.destroyed) return; this.destroyed = true; this.shadow.destroy(); this.root.destroy({ children: true }); }
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    if (this._modelRef) { this.ctx.itemModels?.release(this._modelRef); this._modelRef = null; }
+    if (this.copy) {
+      this.copy.shadow.destroy();
+      this.copy.root.destroy({ children: true, texture: false });
+      this.copy = null;
+    }
+    this.shadow.destroy();
+    // the snapshot texture is shared (render/item-models.js): the sprite goes, the texture stays
+    if (this.model) { this.model.destroy({ texture: false }); this.model = null; }
+    this.root.destroy({ children: true });
+  }
 }
 
 // =============================================================================================================
@@ -2625,6 +2877,22 @@ export class ItemView {
  * that turns to its target and flashes on attack, HP bar once damaged, and a break-apart on death.
  */
 const GENERIC_DEVICE = Object.freeze({ size: 0.7, height: 0.36, top: 'platformTop', side: 'forbidSide' });
+/**
+ * A device's death with an official Die clip (赘生甲壳; 2026-11-12, 공식 클라에서 확인): Character.States.DeadState.OnEnter
+ * plays the animator's Die at speed clip / delayToRecycle (`_useSpecificDeadAnim` off: m_delayToRecycle stays 1 s, the
+ * object is recycled then), and `_showDeadTweenColor` runs a DOTween sequence over that delay in thirds — a wait, the
+ * colour × 1→0 (to black), then the alpha 1→0. [ASSUMED·엔진: the thirds' ease — DOTween's default OutQuad]
+ */
+export const DEVICE_RECYCLE_DELAY = 1;
+const outQuad = (u) => 1 - (1 - u) * (1 - u);
+/** At `e` s after death, for a Die clip of `clip` s: { t: the clip's time, tint: the colour factor, alpha }. */
+export function deviceDeath(e, clip) {
+  const D = DEVICE_RECYCLE_DELAY, third = D / 3;
+  const x = Math.max(0, Math.min(D, e));
+  const seg = (i) => outQuad(Math.max(0, Math.min(1, (x - i * third) / third)));
+  return { t: x * (clip / D), tint: 1 - seg(1), alpha: 1 - seg(2) };
+}
+
 export class DeviceView {
   constructor(ctx, info) {
     const P = ctx.P;
@@ -2637,6 +2905,9 @@ export class DeviceView {
     this.x = Number(info.x) || 0; this.y = Number(info.y) || 0; this.z = 0;
     this.hp = Number(info.maxHp) || 100; this.maxHp = this.hp;
     this.alive = true; this.remove = false; this.dying = 0; this.flags = 0;
+    // an official model's legacy clips (the 3D board's box.clipDur: 赘生甲壳's MeshAnimator Born = Appear, Die = Break):
+    // seconds since it appeared, and the Die clip's length while it plays (0: the generic break below)
+    this.bornT = 0; this.dieClip = 0;
     this.facing = info.facing === -1 ? -1 : 1;
     this.aim = this.facing > 0 ? 0 : Math.PI; this.aimTo = this.aim; this.fire = 0;
     this.screen = { x: 0, y: 0, s: 1, top: 0 };
@@ -2669,18 +2940,34 @@ export class DeviceView {
   onStatus() {}
   setSkill() {}
   setFacing() {}
-  die() { if (!this.alive) return; this.alive = false; this.dying = 0.45; this.ctx.fx?.crateBreak?.(this.x, this.y, this.z, this.turret ? 0x6c777d : null); }
-  revive() { this.alive = true; this.dying = 0; this.remove = false; }
+  die() {
+    if (!this.alive) return;
+    this.alive = false;
+    // a model with a Die clip: the client's Character DeadState — the clip fitted into the recycle delay, the dead colour
+    // tween over it (deviceDeath); no debris of its own
+    const clip = this.box?.clipDur?.('Die') || 0;
+    if (clip > 0) { this.dieClip = clip; this.dying = DEVICE_RECYCLE_DELAY; return; }
+    this.dying = 0.45;
+    this.ctx.fx?.crateBreak?.(this.x, this.y, this.z, this.turret ? 0x6c777d : null);
+  }
+  revive() { this.alive = true; this.dying = 0; this.dieClip = 0; this.remove = false; }
   update(dt, cam, t) {
     const shake = this.shake > 0 ? Math.sin(t * 80) * this.shake * 0.05 : 0;
     this.shake = Math.max(0, (this.shake || 0) - dt);
-    const k = this.dying > 0 ? Math.max(0, this.dying / 0.45) : 1;
+    const clipped = this.dieClip > 0;
+    const dead = clipped ? deviceDeath(DEVICE_RECYCLE_DELAY - this.dying, this.dieClip) : null;
+    const k = this.dying > 0 ? (dead ? dead.alpha : Math.max(0, this.dying / 0.45)) : 1;
+    let clip = null;
+    if (dead) clip = { name: 'Die', t: dead.t };
+    else if (this.alive && this.bornT < (this.box?.clipDur?.('Born') || 0)) clip = { name: 'Born', t: this.bornT };
+    this.bornT += dt;
     if (this.dying > 0) { this.dying -= dt; if (this.dying <= 0) this.remove = true; }
     const zKey = rowDepthKey(cam, Math.round(this.y)) + ROW_KEY.devices;
-    const size = this.spec.size * (0.6 + 0.4 * k), height = this.spec.height * k;
+    const kk = clipped ? 1 : k;   // a clip keeps the model's size
+    const size = this.spec.size * (0.6 + 0.4 * kk), height = this.spec.height * kk;
     const g = this.gfx;
     if (this.box) {
-      this.box.update(cam, { x: this.x + shake, y: this.y, z: this.z, size, height, top: this.spec.top, side: this.spec.side, alpha: k });
+      this.box.update(cam, { x: this.x + shake, y: this.y, z: this.z, size, height, top: this.spec.top, side: this.spec.side, alpha: k, key: this.info.defId, clip, tint: dead ? dead.tint : 1 });
       if (this.box.mesh) {
         if (!this.box.mesh.parent) this.ctx.layers.units.addChild(this.box.mesh);
         this.box.mesh.zIndex = zKey;

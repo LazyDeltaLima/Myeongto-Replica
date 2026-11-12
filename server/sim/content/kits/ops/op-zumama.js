@@ -35,8 +35,10 @@
 //   +atk, attack interval +base_attack_time s (a flat +0.4 on her 1.6 s), and every enemy she blocks is stunned while it is
 //   blocked and the skill runs (the charpack's _buffsToBlockee 'stun'): a stun pulse of STUN_PULSE s renewed every tick
 //   past 抵抗 (`resistApplied`: "持续时间不会因抵抗等效果被缩短或延长") and refused only by a 晕眩 immunity — so it ends at most
-//   STUN_PULSE s after the block or the skill. [ASSUMED·not checked] a blockee that turns 无敌 and 无法选中 at once loses it after one pulse
-//   (the engine refuses statuses on such a unit; Terra: the official one stays).
+//   STUN_PULSE s after the block or the skill. A blockee that turns 无敌 and 无法选中 at once keeps the stun it holds while
+//   it stays blocked — the official BlockedToggleChecker adds the buffs once, as an enemy enters her block list, and
+//   removes them as it leaves (or as the skill's mode ends); the engine refuses a new status on such a unit, so the pulse
+//   stretches the one it holds.
 // - S3 钢铁意志 (MANUAL; 重装 TAKE_DAMAGE): `duration` s, ATK / DEF +atk / +def, block +block_cnt,
 //   生命回复速度 +hp_recovery_per_sec_by_max_hp_ratio × max HP (hpRegenRatio — checklist 11: no heal, 禁疗-proof); when it ends
 //   she is stunned `stun` s (zumama_s_3 ON_BUFF_FINISH 'stun'; a stunned operator blocks nobody). The sequence Hensin → SwitchMode
@@ -80,7 +82,12 @@ export default {
           mods: { atkPct: num(b2.atk), batPct: batMod(b2.base_attack_time, chess) },
           onTick({ battle, unit }) {
             for (const e of unit.blocking) {
-              if (e.alive && e.blockedBy === unit) battle.applyStatus(e, 'stun', { duration: STUN_PULSE, source: unit, resistApplied: true });
+              if (!e.alive || e.blockedBy !== unit) continue;
+              if (battle.applyStatus(e, 'stun', { duration: STUN_PULSE, source: unit, resistApplied: true })) continue;
+              // refused on a blockee that turned 无敌 + 无法选中: the stun it holds stays while it is blocked (the official
+              // BlockedToggleChecker adds _buffsToBlockee once as an enemy enters her block list and removes them as it leaves)
+              const st = e.s.flags.invulnerable && e.s.flags.untargetable ? e.findBuff('stun') : null;
+              if (st && st.timeLeft !== Infinity && st.timeLeft < STUN_PULSE) st.timeLeft = STUN_PULSE;
             }
           },
         },

@@ -5,7 +5,8 @@
 
 import * as S from '../../support/index.js';
 import { mitigate } from '../../../damage.js';
-import { EMPTY } from '../shared.js';
+import { EMPTY, inRangeOf } from '../shared.js';
+import { bondSteps } from './triggered.js';
 
 /** The effect keys installHitMods reads. */
 export const HIT_KEYS = Object.freeze(['act1autochess_gar_eff_attack_enemy', 'act2autochess_gar_eff_ab_damageScaleByBond', 'act1autochess_gar_eff_chaos']);
@@ -71,3 +72,43 @@ export function installHitMods(battle, by) {
     }, { priority: WEAKNESS_PRIORITY });
   }
 }
+
+/**
+ * 规程's 特质 on their operators' damage output (client ON_OUTPUT_DAMAGE: the `damaged` hook of a phys / arts / true hit —
+ * an element fill is no damage output):
+ *   act3autochess_gar_effect_firstdamgecold   角峰: the first damage to each enemy ("对每名敌人首次造成伤害时") gives it
+ *                                             `cold` s of 寒冷 — a durable per-holder flag on the enemy (…[flag]
+ *                                             independentCharacterSource, UNIQUE), so once per enemy per battle.
+ *   act3autochess_gar_effect_attackslow_inrange  水月: the holder and the operators of range_id (x-5, the plus) — every
+ *                                             damage they deal slows the target: MOVE_SPEED FINAL_SCALER
+ *                                             × (1 + numerator × floor(layers of bond_id / denominator)) for slow_duration s
+ *                                             (one instance per holder, refreshed [ASSUMED·CN: the dynamic ability prefab
+ *                                             that hands the buff to the range is CN-only]).
+ */
+export const DAMAGE_INSTALLERS = {
+  act3autochess_gar_effect_firstdamgecold(battle, list) {
+    const m = new Map(list.map((it) => [it.unit, it]));
+    for (const it of list) it.seen = new Set();
+    battle.on('damaged', ({ source, target, type, amount }) => {
+      const it = source ? m.get(source) : null;
+      if (!it || !target || target.side !== 'enemy' || type === 'element' || !(amount > 0) || it.seen.has(target)) return;
+      it.seen.add(target);
+      if (target.alive) battle.applyStatus(target, 'cold', { duration: S.num(it.bb.cold, 0), source });
+    });
+  },
+
+  act3autochess_gar_effect_attackslow_inrange(battle, list) {
+    battle.on('damaged', ({ source, target, type, amount }) => {
+      if (!source || !S.isOp(source) || !target || target.side !== 'enemy' || !target.alive || type === 'element' || !(amount > 0)) return;
+      for (const it of list) {
+        const h = it.unit;
+        if (source.ownerId !== h.ownerId || !S.onField(h)) continue;
+        if (source !== h && !inRangeOf(h, source, it.bbStr.range_id, S.inRange)) continue;
+        const k = bondSteps(battle, h.ownerId, [it.bbStr.bond_id].filter(Boolean), it.bb.denominator);
+        if (!(k > 0)) continue;
+        const mul = Math.max(0, 1 + S.num(it.bb.numerator, 0) * k);
+        battle.addBuff(target, { key: `gar:${it.gid}:${h.id}`, duration: S.num(it.bb.slow_duration, 0), refresh: 'replace', mods: { moveMul: mul }, visible: true });
+      }
+    });
+  },
+};

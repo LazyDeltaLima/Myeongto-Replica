@@ -16,8 +16,9 @@
 //   stands on his tile / the tile in front or he blocks it), range 3-12, hits air units (data canHitFly), blocks 2.
 //   Module LOR-X “盐与沙” adds "攻击附带10%攻击力的法术伤害" (trait atk_scale_m; thorns_e_002_tr: ON_CALCULATE_DAMAGE, attack
 //   type ADDITION — PRTS "造成预计算法术附加伤害"): atk_scale_m × ATK arts after every hit of his attacks (the trait's
-//   afterHit, as 拉普兰德 / 断崖 / 仇白 / 银灰 do it; tags module / addition) and of S2's spikes [ASSUMED·not checked: the Thorn ability
-//   calculates its damage like an attack; the fixed-value poison ticks do not]. Module LOR-Δ “沙蚀” adds
+//   afterHit, as 拉普兰德 / 断崖 / 仇白 / 银灰 do it; tags module / addition) and of S2's spikes (the official client's Thorn ability
+//   is a MeleeAttack of the trait's atk_scale) [ASSUMED·engine: which damage runs ON_CALCULATE_DAMAGE — the fixed-value poison
+//   ticks taken as not]. Module LOR-Δ “沙蚀” adds
 //   "造成伤害时附带相当于10%伤害的神经损伤" (trait ep_damage_ratio; thorns_e_003_tr: ON_AFTER_OUTPUT_DAMAGE, every damage
 //   type): ep_damage_ratio × the HP damage of every damage instance he deals — attacks, spikes, LOR-X additions and the
 //   poison ticks — as 神经损伤 (docs/SIM.md §7.2 element conventions).
@@ -27,7 +28,10 @@
 //   damage[ranged] (an enemy whose 攻击方式 includes 远程: data applyWay RANGED or ALL; PRTS "伤害加倍为数值提升") as a fixed
 //   arts 持续伤害 (FixedValueDamage MAGICAL, attack type BUFF: RES applies, no dodge, tags dot). A new hit refreshes the
 //   duration and keeps the damage value and the tick rhythm (PRTS "仅刷新持续时间而不改变伤害数值"). The ticks go on after
-//   he leaves the field [ASSUMED·not checked: as 伊芙利特's 灼伤]. A dodged hit poisons nothing (no `damaged`; 击中目标的攻击).
+//   he leaves the field (the official client: a buff's tick has no check of its source, and FixedValueDamage deals its
+//   damage with or without one). A dodged hit poisons nothing (no `damaged`; 击中目标的攻击). The poison rides every ability
+//   of his (PassiveAttachmentAbility `_targetFamilyMask` 31 = all families: attacks and the skill's Thorn spikes), once per
+//   hit — LOR-X's arts addition is part of that hit's damage calculation (ON_CALCULATE_DAMAGE), no hit of its own.
 //   LOR-X stage 2+ (thorns_e_002_t: no end of its own, cnt 1; every hit a new [mark] of `duration` s whose start adds 1
 //   to cnt up to max_cnt; a tick without a [mark] ends it — damage × cnt) "可叠加4次": the tick is the first application's
 //   value × the hits so far (≤ max_cnt; PRTS "以第一层的伤害数值为基础进行翻倍"), the poison ending `duration` s after the
@@ -38,8 +42,9 @@
 //   (battle_equip_table: no talent part in phase 1).
 // - T2 故土潮声 "如果2秒内没有主动攻击过，每秒恢复最大生命3.5%的生命" (full potential: 4%): PRTS "增加“生命回复速度（百分比）”属性，
 //   不受治疗加成和禁疗影响" — an hpRegenRatio buff (checklist 11, never battle.heal), on while his last attack is at least
-//   `delay` s old (the toggle's restoreDelay after the attack states) and from his deployment on [ASSUMED·not checked: no attack yet counts as
-//   "2秒内没有主动攻击过"]. The S2 spikes are no 主动攻击 (PRTS "不会使第二天赋效果中断").
+//   `delay` s old (the toggle's restoreDelay after the attack states) and from `delay` s after his deployment on (the official
+//   client: AdvancedCompoundToggleChecker without `_isInitToggled` starts off, and attaching it sets the next active time to the
+//   deployment + restoreDelay). The S2 spikes are no 主动攻击 (PRTS "不会使第二天赋效果中断").
 // - S1 攻击力强化·γ型 (MANUAL, data DEFAULT): ATK +atk for `duration` s.
 // - S2 护身尖刺 (MANUAL, 技能范围 3-1, data DEFAULT on that box — _DefaultTriggerSkill): "停止攻击" (no normal attack; PRTS "技能期间，自身丢失全部视野"),
 //   ATK +atk, DEF +def; every 普通伤害 an enemy deals him (PRTS "指受到普通伤害（伤害类型），而非由普通攻击造成的伤害";
@@ -48,7 +53,9 @@
 //   stands on the 3-1 (none: no cast, no cooldown spent): 0.5 s later (its `_preDelay`) up to max_target enemies of the 3-1 as
 //   the cast started — ground and air, the usual target order — each take ATK ×
 //   the trait's atk_scale (PRTS "始终受降低攻击倍率特性的影响") physical, a skill hit that is no normal attack (no `attack`
-//   event, no SP), cancelled when the skill has ended, he left or cannot act by then [ASSUMED·not checked]. The 3-1 is not his
+//   event, no SP), cancelled when the skill has ended, he left or cannot act by then [ASSUMED·engine: the official Thorn
+//   ability is attached at deployment (`_extraAbilities`, not detached at the skill's end) and TriggerAbility checks no
+//   stun — whether a stun or the skill's mode switch interrupts its 0.5 s wait is not read]. The 3-1 is not his
 //   attack range: the card keeps his 3-12.
 // - S3 至高之术 (MANUAL, attack SP, data DEFAULT on its 3-3 box): range 3-3, ATK +atk, ASPD +attack_speed, every attack at
 //   full ATK ("远程攻击不再降低攻击力": the skill's attack profile has no 0.8 — dmgMul 1, as 领主·Sharp S1) for `duration` s;
@@ -176,8 +183,10 @@ export default {
         { install(battle, unit) { // 故土潮声: 生命回复速度 while no attack of his is younger than `delay` s
           const r = num(t1.hp_recovery_per_sec_by_max_hp_ratio), delay = num(t1.delay, 2);
           if (!(r > 0)) return;
-          unit.mem.thornsAttackAt = -Infinity;
-          battle.on('deploy', (c) => { if (c.unit === unit) unit.mem.thornsAttackAt = -Infinity; }, { owner: unit });
+          // the toggle starts off on deployment and turns on `delay` s later (`_isInitToggled` false: the attach sets the next
+          // active time to now + restoreDelay)
+          unit.mem.thornsAttackAt = battle.time;
+          battle.on('deploy', (c) => { if (c.unit === unit) unit.mem.thornsAttackAt = battle.time; }, { owner: unit });
           battle.on('attack', (c) => { if (c.attacker === unit) unit.mem.thornsAttackAt = battle.time; }, { owner: unit });
           const apply = () => {
             const want = up(unit) && battle.time - unit.mem.thornsAttackAt >= delay - 1e-9;
@@ -186,7 +195,7 @@ export default {
             else if (!want && has) battle.removeBuff(unit, REGEN_KEY);
           };
           battle.on('tick', apply, { owner: unit });
-          battle.on('battleStart', apply, { owner: unit });
+          battle.on('battleStart', () => { unit.mem.thornsAttackAt = Math.max(unit.mem.thornsAttackAt, battle.time); apply(); }, { owner: unit });
           battle.on('deploy', (c) => { if (c.unit === unit && battle.started) apply(); }, { owner: unit });
         } },
       ],

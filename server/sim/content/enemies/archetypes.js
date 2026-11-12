@@ -12,7 +12,7 @@ import {
 import { hypot } from '../../detmath.js';
 import { planLeg } from '../../ai.js';
 import { expectedFinal } from './helpers.js'; // local patch: blocked numbers
-import { mitigate } from '../../damage.js'; // local patch: blocked numbers
+import { mitigate, periodicDamage } from '../../damage.js'; // local patch: blocked numbers
 import { damageNumberFlag, blockedEvent } from '../../local-hud.js'; // local patch: blocked numbers
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -214,6 +214,28 @@ const deathBoom = ({ scale, type = 'phys', r = BOOM_RADIUS, status = null, sil =
     }
   },
 });
+
+/**
+ * "失衡移动时损失生命" (talent `unbalanced_bleed`: 弧光锋卫 and 规程's 冰原卫法者 / 冰原御法者 — the buff templates
+ * enemy_cbjedi_bleed / enemy_krgrg_bleed are the same graph). PRTS 弧光锋卫 修正 "失衡移动时持续受到真实伤害", 天赋 "处于失衡状态时，
+ * 每0.066s受到400点无来源真实持续伤害" (data unbalanced_bleed.damage / .interval; 伤害分类: 弧光锋卫失衡状态下的自残伤害 is BUFF
+ * damage): damage, not a 流失 (player report D1 audit) — every `interval` s for as long as the state lasts
+ * (battle/displacement.js _unbalance: a push's 位移时间, a pull's force window even after the 急停 or with no movement).
+ * Until 0.2.2 one hit in proportion to the tiles moved [ASSUMED], from the position jump.
+ */
+const unbalancedBleed = (ab) => {
+  const v = T(ab, 'unbalanced_bleed.damage') ?? 0, iv = T(ab, 'unbalanced_bleed.interval') ?? 0;
+  return [{
+    tick(b, e, a, dt) {
+      if (!(v > 0 && iv > 0) || !unbalancedNow(b, e)) { a.bleed = 0; return; }
+      a.bleed = (a.bleed ?? 0) + dt;
+      while (a.bleed >= iv - 1e-9 && e.alive) {
+        a.bleed -= iv;
+        b.dealDamage(null, e, { ...periodicDamage(v), tags: ['dot', 'periodic', 'unbalanced'] });
+      }
+    },
+  }];
+};
 
 /**
  * 折射: RES +res while not silenced. 镜膜's optional max HP bonus is permanently lost on the first silence
@@ -766,6 +788,6 @@ export {
   stealth, unblockable, runWhenHit, blockWeight, taunt, maxTargets, ep, onHitStatus, splashAttack, pathKeysAhead,
   noAirTargets, resist, immuneTo, nthAttackStatus, nthAttackPower, enemyAura, allyAura, lowHpBuff, deathSpawn,
   deathBoom, refraction, setFloat, float, selfFear, freeAllPrisoners, reborn, frontGuard, faceMove, faceCrowd,
-  unbalanced, artsBarrier, husk, statue, bleed, pollution, dmgZone, skill, kitEp, kitStealth, kitTimes, kitRefraction,
+  unbalanced, unbalancedBleed, artsBarrier, husk, statue, bleed, pollution, dmgZone, skill, kitEp, kitStealth, kitTimes, kitRefraction,
   kitPrisoner, kitDeathSpawn, kitStun3, kitSelfFear, kitEmber, kitPolluted,
 };

@@ -266,6 +266,14 @@ export function installContent(battle, { mode = 'full', extra = null } = {}) {
     const view = withUnitLoadouts(battle.data, (battle.players || []).map((p) => p && p.input));
     if (view && view !== battle.data) battle.data = view;
   } catch (e) { battle._handlerError?.('loadoutView', null, e); }
+  // reserve operators first (a module's `reserve(battle)`: 整备区 pieces content may field — battle/players.js
+  // createReserveAlly), so every module's install below sees them as it sees the board's operators
+  if (mode === 'full') {
+    for (const [name, mod] of MODULES) {
+      if (typeof mod.reserve !== 'function') continue;
+      try { mod.reserve(battle); } catch (e) { battle._handlerError(`content:${name}.reserve`, null, e); }
+    }
+  }
   for (const u of battle.allyUnits) {
     if (u.kit) continue;
     try { battle._setupUnit(u); } catch (e) { battle._handlerError('setupUnit', u, e); }

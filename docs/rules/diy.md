@@ -42,12 +42,17 @@
       같은 때 돌아올 돌이 여럿이면 0.2초에 하나씩 차례로 돌아온다(`op-wang.js AUTO_TRIGGER_INTERVAL`, `redeployUsed`가 한 번에 하나). 그 전엔
       0.25초마다 돌아올 수 있는 돌을 한꺼번에 돌려보냈다. [남은 차이: 클라 루프는 그 플레이어의 오퍼레이터 재배치와 같은 루프라 둘이 한 회차를
       나눠 쓰는데, 오퍼레이터 재배치는 엔진 `Battle._checkRedeploys`가 매 틱 따로 한다.] 테스트 `test/local-patch-diy-wang.test.js` 「one per 0.2 s」.
-      **돌아올 때 재고를 쓰지 않는다** — 놓은 돌은 전투 내내 소모 → DP 내고 복귀를 되풀이한다(2026-10-08 관리자 결정, `op-wang.js
-      RETURN_USES_STOCK`(false)). 근거: PRTS 卫戍协议/帮助 「若召唤物在战斗期间退场，将在满足条件后立即原地再部署1个」(재고 언급 없음), 관리자의 플레이 기억
-      (DP를 쓰며 다시 놓이는 바둑돌 때문에 다른 오퍼레이터가 퇴각했다), 아래 영상의 DP 감소. 실제 경기 경로 확인: m04 3·4라운드에서 望(돌 6개) +
-      琳琅诗怀雅면 돌 복귀 DP 때문에 行商 지불이 막혀 琳琅诗怀雅가 퇴각한다. 전투 시작 재고 = 배치 한도 − 정비 때 놓은 수(다 놓으면 0) — 손패는
-      새 칸에 놓이지 않고(아래 「손패 돌은 새 칸에 놓지 않는다」) 阻回(손패가 가득 차면 S1/S2 SP 정지)·S3 충전·S3 종료 조건에만 쓰인다
-      (공식은 복귀도 같은 토큰 카드 1장으로 하고 철수 때 1장이 돌아와 순증감이 없다 — 아래 「돌아올 때 재고를 쓰지 않는다」와 같은 결과 [추론: 카드 반환 코드는 안 읽음]).
+      **돌아올 때 재고 하나를 쓴다**(관리자 결정 2026-11-11 「공식대로」, 2026-11-11 공식 클라에서 확인): 발동으로 철수한 돌의 카드 장수는 돌아오지
+      않고(`Deck.RecycleCard` → `Card.OnRecycle`은 재배치 타이머만, `TokenCard.OnRecycle`은 필드 수만 — 「선발 추가 스테인리스·하루카·나이팅게일」
+      소환물 복귀 줄), 자동 재배치는 `Card.Draw`(`freely` 거짓, 돌 프리팹은 무한 카드 아님)로 한 장을 쓴다. 재고가 0이면 S1/S2 「立即获得两枚棋子」·S3
+      충전까지 기다린다. DP도 그대로 낸다(관리자의 플레이 기억 — DP를 쓰며 다시 놓이는 바둑돌 때문에 다른 오퍼레이터가 퇴각했다 — 과 맞음).
+      **전투 시작 재고 = 재능 铸子의 `cnt`**(潜能3 이상 7, 아래 잠재 줄; 보유 상한까지): 망이 설 때마다 공식 `wang_t_1` = `charge_token[refresh]`
+      (ON_OWNER_BORN `RechargeToken` `_refreshRemainingCnt` → `TokenCard.Recharge`가 장수를 min(cnt, 보유 상한)으로 덮어씀) — 전투 시작과 망이 쓰러졌다
+      다시 설 때 모두. 정비 때 놓은 돌은 재고를 안 쓴다: 전투 시작 배치(`MainGameInBattle._Prebuilt` → `Deck.SpawnCharacterOrToken`)가 `freely` 참이라
+      `Card.Draw`가 장수를 줄이지 않는다. 손패는 새 칸에 놓이지 않고(아래 「손패 돌은 새 칸에 놓지 않는다」) 복귀·阻回(손패가 가득 차면 S1/S2 SP
+      정지)·S3 충전·S3 종료 조건에 쓰인다. 예전 규칙(2026-10-08 – 2026-11-11, 관리자 결정 2026-10-08): 복귀는 재고를 안 씀(PRTS 卫戍协议/帮助
+      「若召唤物在战斗期间退场，将在满足条件后立即原地再部署1个」, 재고 언급 없음), 전투 시작 재고 = 배치 한도 − 정비 때 놓은 수. 그보다 앞(2026-10-07)은
+      복귀가 재고를 쓰되 시작 재고가 배치 한도 − 놓은 수라 다 놓으면 S1 전까지 돌이 하나도 돌아오지 않았다.
       배치 한도는 6, 모듈(`uniequip_002_wang`, VI 정예)이면 7
       (토큰 `byModule` stats — 키트가 정규화된 `stats`에서 읽어 늘 6이던 버그를 2026-10-08 `stoneLimits`로 고침; 정비 손패는 이미 7장이었다).
       **2026-10-09 잠재 이식 뒤**: 배치 한도·보유 상한은 플레이어의 潜能을 따른다 — 潜能3 이상(기본 6) 7 / 8, 모듈이면 배치 한도 8(보유 8); 潜能1–2면
@@ -56,8 +61,9 @@
       잠재에 따라 돌 수가 달라지는 것이 맞다(관리자 확인 2026-10-09).
       跟子는 소모되면 끝.
       - 이전 규칙(2026-10-07 ~ 2026-10-08, `RETURN_USES_STOCK = true`): 돌아올 때마다 재고 1개를 썼다(관리자가 기억하던 함정술사 규칙).
-        정비 때 다 놓으면 재고 0 → S1(21초)까지 아무 돌도 안 돌아오고, S3면 전투 내내 안 돌아왔다 — 2026-10-08 관리자 제보로 되돌림. 그 전(2026-10-06 ~ 2026-10-07)이 지금과 같은 규칙이었고, 더 전 모델(재배치마다
-        재고 1개, 재고 7 − 놓은 수)은 2026-10-06 관리자 제보로 바꿨던 것.
+        정비 때 다 놓으면 재고 0 → S1(21초)까지 아무 돌도 안 돌아오고, S3면 전투 내내 안 돌아왔다 — 2026-10-08 관리자 제보로 되돌림. 그 전(2026-10-06 ~ 2026-10-07)은
+        2026-10-08 ~ 2026-11-11과 같은 규칙(복귀가 재고를 안 씀)이었고, 더 전 모델(재배치마다 재고 1개, 재고 7 − 놓은 수)은 2026-10-06 관리자 제보로
+        바꿨던 것. 2026-11-11의 공식 규칙은 둘 다 아니다: 복귀는 재고를 쓰지만 시작 재고가 놓은 수와 상관없이 铸子 `cnt`(위).
       - 영상 확인(2026-10-07~08, 공식 플레이 녹화 — 비공개 녹화, OpenCV 템플릿 추적 + 구간 확대; 레벨 6 VI 정예 왕 = 모듈, 배치 한도 7):
         정비 때 돌 7개 — 아래 줄 왼쪽 2·오른쪽 2, 위 줄 3(관리자 확인 2026-10-08; 처음 분석은 위 줄을 놓쳐 5개로 잘못 셌다). 전투 시작
         (7.5–9.0초)에 돌이 약 0.5초 간격으로 하나씩 나타난다. 아래 오른쪽 2개와 위 오른쪽 1개가 9.5–10.1초에 발동·소모된 뒤 그 칸들은 영상 끝
@@ -66,7 +72,9 @@
         것은 돌아온 돌이 x-1 마름모 안의 적에게 곧바로 다시 발동·소모됐기 때문일 수 있고, 아래 DP 감소가 그 복귀 비용과 맞는다 — 영상만으로는 못 가린다.
         [불확실] 10초부터 DP 카운터가 약 1.5초마다 2–3씩 줄어든다(10→11→9, 10→8, 10→7, 8→6, 8→5 …, S3 중 3→0). 바둑돌 DP(3, 모듈 2)와
         비슷하지만 놓인 돌이 화면에 남지 않고(보스 그림에 가려진 칸이면 안 보임), 다른 오퍼레이터의 소비일 수도 있어 판단하지 않았다.
-        S3(24.3초~): 보스 쪽에 마름모 테두리(`x-1`)의 초록 폭발이 0.5–1초 간격으로 반복된다. 이 영상은 S3 판이라 S1/S2 보충은 확인할 수 없다. 실제 경기 경로 테스트: `test/local-patch-diy.test.js` 「six prep stones = no stock」.
+        S3(24.3초~): 보스 쪽에 마름모 테두리(`x-1`)의 초록 폭발이 0.5–1초 간격으로 반복된다. 이 영상은 S3 판이라 S1/S2 보충은 확인할 수 없다.
+        2026-11-11 공식 클라 확인(시작 재고 = 铸子 `cnt`, 복귀마다 1장)으로는 돌이 돌아오므로 빈 칸은 2026-10-08 쪽 해석(돌아오자마자 다시 소모)과 맞다.
+        실제 경기 경로 테스트: `test/local-patch-diy.test.js` 「seven prep stones … stock 铸子 cnt 7」.
     - 은신(隐匿) 적: 선택할 수 없는 적(隐匿 미노출, untargetable)은 돌을 발동시키지도 않고 폭발에도 맞지 않는다(PRTS 작전 메커니즘
       「AOE的判定是对攻击范围内的每个可以被选中的敌人进行判定」, 엔진의 `Battle.foesInRadius`와 같은 규칙).
     - 정비 단계에 놓은 자리 그대로 전투를 시작한다. **전투 시작 자동 배치에도 돌마다 跟子 1개** (관리자 결정 2026-10-11 「공식대로」): 클라
@@ -161,8 +169,8 @@
       끝나는 조건은 재고 소진·탄약 소진·수동 종료뿐이고(공식 클라 `WangS3CastSkillWithLimitTimes.OnTick`: 손패 0 + 지을 跟子 없음
       `!hasRemainingBuildCnt` — 손패가 0이어도 이어 짓는 跟子가 남았으면 그것까지 기다린다, 2026-10-10 `followAround`), 남은 탄약은 돌로 돌아온다(엔진 `end()`가 onEnd 전에 `ammoLeft`를 0으로 만들어 이전엔
       반환이 늘 0이었음 → 킷이 따로 기억, 손패 7장까지). **정비 단계에 돌을 하나도 놓지 않았으면** 아무것도 충전·배치하지 않고 끝나지 않는다
-      (관리자의 실제 게임 관찰 2026-10-06; 자료에는 직접 문장 없음). 손패가 새 칸에 나가지 않으니 손패는 S3 중 줄지 않고(복귀는 재고를 안 씀, 위),
-      S3는 사실상 탄약 소진(복귀한 돌의 S3 跟子)·수동 종료로 끝난다 — 2026-10-11 전보다 훨씬 오래 간다(실제 경기 경로 m04에서 수십 초).
+      (관리자의 실제 게임 관찰 2026-10-06; 자료에는 직접 문장 없음). 손패는 S3 중 복귀한 돌마다 하나씩 줄어
+      (위 「돌아올 때 재고 하나를 쓴다」, 2026-11-11부터), S3는 탄약 소진(복귀한 돌의 S3 跟子)·손패 소진·수동 종료로 끝난다.
     - **손패 돌은 새 칸에 놓지 않는다** (관리자 결정 2026-10-11 「공식대로(빼기)」): 클라의 전투 중 배치 경로는
       `AutoChessBattleTrigger._TryDeployAvailableCharacter` 하나뿐이고, 이것은 `battleChessInsts`(정비 때 필드에 놓인 말)를
       **정비 위치에만** 놓는다(`_AutoDeploy`: 대기 더미 칸 또는 `chessInst.pos`). 손패에만 있는 돌(정비 때 안 놓은 것, S1/S2 「즉시 2개
@@ -791,16 +799,20 @@
 - 하루카의 비눗방울은 그녀가 떠나도 남는다(공식 클라에서 확인, 2026-11-03): 재능 능력(`Talents/1`)의 버프 `haruka_t_1`는 수명 `INFINITY`, 버프 템플릿에
   주인 쪽 이벤트가 없고, 능력은 제 주인에게 건 패시브 버프만 들고 있어(`Ability.m_passiveBuffUids`) 남에게 준 버프를 주인 퇴장 때 걷는 길이 없다.
 - 키트 주석에 남은 추정:
-  - 스테인리스 [추정·미조사: 장치 재고 — 배치마다 +cnt, 상한 cnt + CRA-X 1, 상한을 넘는 `RechargeToken`은 버림; 게가 SP를 받는 것은 게를 고른 공격뿐(적 쪽
-    선택자를 쓰는 범위 스킬도 게를 고르는지는 안 봄); 소환물도 게를 침 — 덱 `RechargeToken`(`Deck.RechargeToken`·`Card.RechargeToken`, 색인에 없음)과
-    위수협의 손패 규칙을 읽어야 함].
+  - 스테인리스 장치 재고: 배치마다 재능 +cnt(`charge_token[born]`, ON_OWNER_BORN), 그 뒤 CRA-X의 특성 능력이 붙으며 +1(`trigger_charge_token`), 상한 cnt + CRA-X 1, 상한을 넘는 수는 버림(`Deck.TokenCard.Recharge`가 상한으로 자름) — 공식 클라에서 확인(2026-11-11, 차례는 로베르타 줄). 배치 전 카드에서 도는 CRA-X 한 번은 배치 때 상한에 묻힌다.
+  - 게가 SP를 받는 공격: 게를 고른 평타만이 아니라 우리 편의 모든 적 선택자(범위 스킬·스플래시·소환물 공격)가 게를 고른다 — 공식 클라에서 확인
+    (2026-11-11, `TargetOptions.VerifyTarget`은 유닛의 `_side`만 봄; 관리자 결정 2026-11-11 「공식대로」, 엔진 변경은 `sim.md` 「스킬 범위 발동」 게 줄).
+    게는 `untargetable` 대신 `enemyCamp` 깃발로 적의 선택에서 빠진다.
 - 쓰러진 소환물의 복귀(관리자 결정 2026-11-03 「공식대로」, 공식 클라에서 확인): 위수협의 자동 배치(`AutoChessBattleTrigger._TryDeployAvailableCharacter`)는
   정비 때 놓인 말마다 그 카드의 `readyToSpawn`을 묻는다 — 토큰 카드(`Deck.TokenCard`)는 최대 배치 수 미만, 그리고 기본 카드 검사: 숨김 아님(남은 장수
   `remainingCnt` > 0, 주인 생존 `m_hostIsAlive`), 상태 READY·QUEUING(재배치 시간이 지남), DP 충분 — 이면 `_AutoDeploy`가 `freely: false`로 한 장을 쓴다.
   장치 셋·환영·사일런스 드론·망의 바둑돌 모두 카드 정책 `DEFAULT`(토큰 프리팹 `_cardPolicy` 0). 그래서 스테인리스 장치·나이팅게일 환영은 **재고 하나를 쓰고
   DP를 내며 재배치 시간 뒤, 주인이 서 있을 때만** 자기 칸에 돌아온다. 바꾼 것: 나이팅게일 환영이 그녀가 쓰러져 있어도 돌아오던 것(upstream) → 그녀가
-  다시 설 때까지 기다림(사일런스 드론·스테인리스 장치와 같음). 망의 바둑돌(재고를 쓰지 않음, 위 「망」 관리자 결정 2026-10-08)은 발동 때 철수(`Withdraw`)로
-  떠나서 카드가 돌아오는지가 다르다 [추정·미조사: 토큰 철수 때 카드 장수가 돌아오는 코드는 안 읽음] — 그대로 둠.
+  다시 설 때까지 기다림(사일런스 드론·스테인리스 장치와 같음). 떠난 토큰의 카드 장수는 어떤 이유로 떠나도(쓰러짐·철수·발동 소모) 돌아오지 않는다
+  (2026-11-11 공식 클라에서 확인): `BattleController.OnCharacterFinished` → `Deck.RecycleCard` → 카드의 `OnRecycle` — `Card.OnRecycle`은 재배치 타이머만
+  다시 걸고, `TokenCard.OnRecycle`은 필드 수(`m_spawnedCnt`)만 줄인다; 위수협 모드(`AutoChessGameMode`)는 카드 회수 훅을 덮어쓰지 않는다. 장수는
+  `Card.Draw`가 무한 카드(`isInfinity`)가 아니고 무료 배치(`freely`)가 아닐 때 하나 줄인다. 그래서 망의 바둑돌도 복귀 때 재고 하나를 쓴다(관리자 결정
+  2026-11-11 「공식대로」 — 아래 「망」 줄).
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD 데이터: EN 클라에서 뽑음(2026-11-03, `tools/local-extract/add_operator.py --id …` 세 명 한 번). 장치 이펙트
   (`token_ironmn_pile*`)는 공용 토큰 팩에서, 나이팅게일 S1의 `common_ignite_support`는 공용 번들에서 따로(`fx_extract.py --pack`). 화면 확인 전.
   하루카 비눗방울 깨짐의 `haruka_talent_02_hit`·스테인리스 장치 회수의 `ironmn_beidong_buff`는 2026-11-03부터 그린다(`fx.md` 「모듈 장비 배치 이펙트·선발 키트
@@ -881,7 +893,12 @@
     OnAttack 0.233·0.433초 — 헬라그 S1과 같은 꼴). upstream은 두 타격을 한 번에.
   - 벨로네 S2 참모의 수단의 공격은 투사체(`projectile_chr_demetr_s2`, 초당 10칸 — 추출한 S2 모드 사격)로 날아가 닿을 때 맞힌다(티피와 같은 꼴, `sim.md` 「오퍼레이터
     공격 형태」). upstream은 즉시 타격(추정 표시).
-  - 벨로네 S3 청산이 끝나 돌아올 때: 버프 `demetr_s3[respawn_end]`(RespawnEnd 능력)의 무적·저지 없음·SP 회복 정지·스킬 사용 불가 0.5초(upstream은 0.5초 불사).
+  - 벨로네 S3 청산이 끝나 돌아올 때(2026-11-11, 공식 클라에서 확인 — `DemetrS3CastSkill._RespawnToLocatedPos`): 정위치 칸에 서 있거나 그 칸에 자기 결속이 있으면
+    그 자리에서 `RespawnEnd` 능력을 시전하고, 아니면 강제 철수. 시전 동안(클립 `Skill_3_ReStart_Begin` 0.2초 — `_timeMode` 0·`_maxAnimScale` 1이라 그의 공격 시간이
+    더 짧을 때만 그 시간, `AbstractAnimatedAbility.UpdatePlaybackSpeed`) 버프 `demetr_s3[respawn_end]`(`BuffToOwnerDuringAbility` 시전 시작 → 시전 끝)로 무적·저지 없음·
+    SP 회복 정지·스킬 사용 불가·기절과 빙결 면역(`abnormalImmunes`·`abnormalAntis`), 공격 없음. 시전 끝(`ActionToOwner` ON_CAST_END)에 결속을 거두고 정위치로 다시
+    배치(SP 비움, 실패하면 즉사 — 결속이나 그가 칸을 지키므로 일어나지 않음)하며 보호도 그때 끝난다: 옮긴 뒤에는 보호가 없다. 이펙트·소리(`demetr_s3[effect_1]`, 'teleport'
+    `back`)는 시전 시작에 그가 선 자리에서. 2026-11-03~11-11에는 끝나는 순간 옮기고 그 뒤 0.5초 보호(upstream은 0.5초 불사).
   - 비이 S3 '적철에 새겨라'의 튕김: 이 탄이 **맞힌 횟수가 가장 적은** 적부터, 지금 맞은 적은 다른 적이 닿는 곳에 없을 때만, 같으면 가까운 순
     (투사체 `projectile_chr_veen_s3` `_sortTargetsByHitCountAsc`·`_allowRepetitionIfNoTarget`, 공식 클라에서 확인). upstream은 「아직 안 맞은 적 → 다른 적 → 같은 적」
     (순서를 추정 표시).
@@ -899,10 +916,12 @@
   - 테스트 쪽: 넷의 upstream 테스트가 살아 있는 유닛을 `assert.deepEqual`/`equal`에 넘기던 곳을 id·`===` 비교로(CONTRIBUTING §6), 추출한 공격 타이밍·투사체 뒤에는
     「N초 뒤」가 아니라 「타격·치료가 들어올 때까지」 기다림. 넷 다 실제 매치 경로 시험을 더함(upstream 테스트에 없음).
 - 남은 추정:
-  - 벨로네 S1 둘째 타격 시점은 공식 클라에서 확인(2026-11-03, 위 「선발 추가 헬라그」와 같은 `_waitAttackEventForAllAttacks` — 클립의 다음 공격 이벤트); S3 이동은 클립 `Skill_3_ReStart_Begin` 끝(0.2초, `sim.md` 「즉발 스킬의 시전」, 2026-11-05 공식 클라에서 확인); 복귀 보호 길이
-    [추정·미조사: RespawnEnd 능력의 길이를 두 클립 0.5초로 읽음, 끝나는 조건은 안 읽음].
-  - 지마 S3 거침없는 기세 [추정·미조사: 망치 스플래시 몫이 `atk_scale_2`에 `atk_scale`까지 곱하는지, 그 타격이 일반 공격으로 세는지 — 능력 클래스의 코드]·
-    [추정·미조사: 확산의 「인접」 = 상하좌우 4칸 — 고지대 AoE 클래스(`_aoeSelector`)의 코드]
+  - 벨로네 S1 둘째 타격 시점은 공식 클라에서 확인(2026-11-03, 위 「선발 추가 헬라그」와 같은 `_waitAttackEventForAllAttacks` — 클립의 다음 공격 이벤트); S3 이동은 클립 `Skill_3_ReStart_Begin` 끝(0.2초, `sim.md` 「즉발 스킬의 시전」, 2026-11-05 공식 클라에서 확인); 복귀 보호의 길이와 차례는
+    위 「돌아올 때」(2026-11-11 공식 클라에서 확인).
+  - 지마 S3 거침없는 기세: 망치 스플래시 몫은 블랙보드 `atk_scale_2`(없으면 `_splashAtkScale` 1) × 능력의 `atk_scale`(곱 — `MultiMeleeAttackWithSplashDmg.DoSetData`,
+    2026-11-11 공식 클라에서 확인). 확산의 「인접」은 상하좌우 4칸(`Headb2AttackHighlandAOEBase._GetNeighborTiles`, 같은 날 확인 — 키트 그대로).
+    [추정·미조사: 특성의 `attack@atk_scale_2`(0.5)가 S3 능력의 블랙보드에 들어가는지 — 그 블랙보드는 스킬 표 블랙보드 + 재능의 `skill@` 키인데, 같은 능력의 고지대 AoE가
+    재능 1의 `attack@splash_atk_scale`을 거기서 읽으므로 들어가는 길이 따로 있을 것; 못 들어가면 몫은 1(지금의 두 배). 그 타격이 일반 공격으로 세는지(`useDynamicAttackType`)도 안 읽음]
     기절·빙결·수면은 스킬을 끝내고 남은 망치도 사라진다(2026-11-05, 공식 클라에서 확인): 망치 다섯은 묶음이 아니라 능력 하나(`headb2_s3`, `_additionalTimes` 4)라, `SkillState.OnTick` → `BasicSkill.InterruptIfNot`이 그 능력을 끊으면 다음 망치가 없고, 능력이 시전 중이 아니니 `BasicSkill.OnTick`이 스킬을 끝낸다(`rules/sim.md` 「즉발 스킬의 시전」의 순차 묶음과 다름). 끊겼을 때 표시·동작은 공식 화면과 대조 안 함.
 - Mon3tr의 연쇄 튕김은 치료 금지(禁疗)·고립(孤立) 아군도 고르고 치료한다(2026-11-03, 공식 클라에서 확인): 그녀 치료 투사체의 튕김 선택기
   `ChainedSelectorWithFilter`는 `_ignoreHealFree`·`_ignoreAllyTargetFree`가 켜져 있고, 대상 검사(`TargetOptions`)는 그 옵션이 켜지면 禁疗(치료 목적일 때)·
@@ -947,12 +966,22 @@
     기다리고 잔상은 그 타격에 나온다. upstream 테스트의 「시전 즉시」를 그 타격까지 기다리게 고침.
   - 에벤홀츠 S1 급속 변주는 적이 사거리에 들어오면 바로 켜지는데, 그때 돌던 공격 쿨다운(3초 간격의 남은 몫)이 그대로라 첫 S1 공격이 그만큼 늦다. 공식은 S1 모드의
     공격 능력이 따로 쿨다운을 가진다 — 엔진이 유닛당 쿨다운 하나인 알려진 차이(`sim.md` 「일반 공격 타이밍」 「아직 공식과 다른 것」). 시험은 그 차이만큼 기다림.
+- 공식 클라에서 확인해 고친 것(2026-11-11):
+  - 리 S2 축귀벽사의 표식이 세는 타격: `lmlee_s_2[paper]` ON_TAKE_DAMAGE에는 피해 거르기 노드가 없고, 공식 클라는 대상에서 취소된 피해(무적·빗나감·
+    회피·보호막이 다 막음)도 모든 버프의 ON_TAKE_DAMAGE를 돌린다(`Entity.OnTakeDamage` → `BuffContainer.OnTakeDamage`). 그래서 보호막이 막은 타격
+    (전에도 셈)에 더해 **회피된 타격·무적인 적에 맞은 타격도 센다**. 원소 손상은 다른 길(ON_TAKE_DAMAGE 없음)이라 안 센다. 엔진은 `dealDamage`의
+    취소 출구마다 훅 `voidHit`(이유 `why`: invulnerable·cancel·dodge·limit, 듣는 키트가 없으면 내지 않음)을 내고 리 키트가 그것도 센다.
+  - 유넥티스 S2: 공식 `BlockedToggleChecker`는 적이 저지 목록에 들어올 때 `_buffsToBlockee`를 한 번 붙이고 빠질 때(또는 스킬 모드가 끝날 때) 뗀다.
+    그래서 저지된 채로 무적 + 선택 불가가 된 적도 기절이 **남는다**. 엔진은 그런 유닛에 새 상태를 안 붙이므로 키트가 들고 있는 기절을 늘인다.
+  - 에벤홀츠 S2 잔상 칸 순서: 스킬 프리팹 `EbnhlzS2SpawnTokenAbility` + `TileSelector`(`_filterType` 7, `_alwaysRandomInTheEnd`) — ① 적이 선 빈 칸을
+    그 칸 적의 가장 높은 위협도(HATRED_DES = 엔진의 기본 오퍼레이터 대상 순서) 순 ② **그의 범위 안** 지상 적을 위협도 순으로, 각 적에게 가장 가까운
+    칸(이미 고른 칸이면 건너뜀, 같은 거리는 앞 칸) ③ 남은 칸 무작위. 예전 키트는 ②를 필드 전체 적까지의 거리로 정렬했다. W S2와 같은 선택기
+    (`kits/shared/tier1.js betterEnemyTiles`, 위 W 절).
+  - 잔상: 공격의 `_selectTargetTiming` 1 BEFORE_SPELL_START — 0.93초 뒤 닿을 때 대상을 고른다(키트 그대로). 토큰 프리팹 `_category` 2 TRAP_OR_ITEM이라
+    적 선택기(`_targetCategory` 1 DEFAULT)에 걸리지 않는다 — **적이 잔상을 노리지 않게** 고침(W 「적 방향」과 같음).
 - 키트 주석에 남은 추정:
-  - 리 S2 축귀벽사 [추정·미조사: 보호막이 흡수한 타격도 세는지 — `lmlee_s_2[paper]`는 `ON_TAKE_DAMAGE`로 셈]·[추정·미조사: 리가 쓰러진 뒤의 폭발이 그의 마지막
-    공격력을 쓰는지].
-  - 유넥티스 S2 [추정·미조사: 막힌 적이 무적·선택 불가가 함께 되면 기절이 한 펄스 뒤 풀림 — 엔진이 그런 유닛에 상태를 안 붙임].
-  - 에벤홀츠 S2 [추정·미조사: 잔상 칸 순서의 「위협도」가 엔진의 기본 오퍼레이터 대상 순서인지, 같은 거리·마지막 무리의 무작위 순서]·잔상 [추정·미조사: 0.93초 뒤
-    닿을 때 대상을 다시 고르는지, 적이 잔상을 노릴 수 있는지 — 토큰 프리팹의 대상 깃발].
+  - 리 S2 축귀벽사 [추정·미조사: 리가 쓰러진 뒤의 폭발이 그의 마지막 공격력을 쓰는지 — 폭발은 표식 버프 ON_BUFF_FINISH의 `EmitProjectile`(출처 = 리,
+    출처가 없으면 안 쏨)이고 공격력은 투사체 피해 쪽에서 읽음, 죽은 출처의 속성은 안 읽음].
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD 데이터: EN 클라에서 뽑음(2026-11-04, `tools/local-extract/add_operator.py --id …` 네 명 한 번). 잔상 이펙트
   (`token_ebnhlz_*` 7개)는 공용 토큰 팩 `pkgrps/btl_pfb_fx_token_0.ab`에서 따로. 화면 확인 전.
 - 테스트: `test/content/op_shu.test.js`(10)·`op_lmlee.test.js`(9)·`op_zumama.test.js`(9)·`op_ebnhlz.test.js`(11) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물,
@@ -995,12 +1024,25 @@
     있을 때만. 제시카의 방패 재배치(PRTS 卫戍协议/帮助 소환물 재배치)·방패 禁疗(PRTS 「持有禁疗」·토큰 프리팹 `jckshd_t`) 추정 표시도 지움.
   - 에이야퍄들라 S3 시험: 그녀가 이미 자기 3-1을 공격하던 중에 켜지므로(`DEFAULT`) 시전 순간 돌던 쿨다운(엔진은 남은 초 그대로 — `sim.md` 「일반 공격 타이밍」
     「아직 공식과 다른 것」)을 지나 첫 용암부터 공격 수를 센다.
-- 키트 주석에 남은 추정(키트 주석은 영어 꼴 「not checked」 태그):
-  - 제시카 S3 [추정·미조사: 회피한 폭발에도 기절이 붙는지 — 폭발 투사체의 명중 동작].
-  - 파죰카 [추정·미조사: 「정면」 칸(`bgsnow_focus[mark]`의 칸)에 자기 칸이 드는지 — ARC-Y 특성과 S3 날카로운 스케치 둘 다]·[추정·미조사: '타자기'가 그녀가 필드에
-    있을 때만 재배치되는지(이베리아 해사와 같다고 봄)]·[추정·미조사: '타자기'의 禁疗 — 토큰 프리팹].
-  - 에이야퍄들라 [추정·미조사: CCR-Y 특성 SP가 S2 폭발의 범위 피해·둘째 ½에는 안 붙는지 — 모듈 특성 버프]·S2 [추정·미조사: 주 대상 밖 적의 마법 저항 감소가
-    그 적의 피해 뒤인지 — `skchr_amgoat_2` 능력]·S3 [추정·미조사: 용암에 범위 피해가 없는지 — 용암 투사체 프리팹].
+- 남았던 추정 9개를 공식 클라에서 확인함(2026-11-11, 능력·투사체·토큰·모듈 프리팹과 투사체 명중 처리):
+  - 에이야퍄들라 S2 이그니션: 마법 저항 감소는 **주 대상에게만** 붙는다. S2의 `RangedAttack`이 `_activeBuffs`(감소)를 투사체 `projectile_amgoat_s2`에 넘기고,
+    그 투사체의 행동 컨트롤러가 `_onlyAddBuffsToTraceTarget`라 추적 대상 말고는 버프를 안 붙인다. 투사체는 맞힌 대상에 버프를 먼저 붙이고 그 뒤 공격의 피해
+    동작을 돌린다 — 주 대상은 감소 뒤 첫 피해(PRTS 비고와 같음), 폭발에 든 다른 적은 감소 없이 ½. 스킬 문구 「命中目标周围的敌人…法术抗性」는 둘레 적의 감소로
+    읽히지만 클라와 PRTS 비고는 주 대상만이다. 전엔 둘레 적도 피해 뒤에 감소를 받았다.
+  - 에이야퍄들라 CCR-Y 특성 SP: 그녀가 정예·보스 적에게 주는 **피해마다** 1 — 모듈 특성 버프 `v035_common_addsp`가 `ON_CALCULATE_DAMAGE`에서 대상 등급
+    (`ELITE_AND_BOSS`)만 보고 공격·범위 거르기가 없다. 그래서 S2 폭발이 정예에게 준 ½과 주 대상의 둘째 ½(`amgoat_s_2`의 `AdvancedApplyDamage`, 출처로 계산 —
+    `BattleFormula.CalculateDamage`가 출처의 피해 계산 이벤트를 돌림)도 센다. 피해를 계산하는 때라 회피 전(`hit`)에 센다. 전엔 공격의 첫 타격만 셌다.
+  - 에이야퍄들라 S3 볼케이노: 용암에 범위 피해가 없다 — S3 모드 공격(`RandomSelector`)의 투사체 `projectile_amgoat_s3`에 범위 타격(`HitBehaviour`)이 없고 대상
+    하나만 친다. 지금 규칙 그대로.
+  - 제시카 S3 포탄: 회피한 폭발에도 **기절이 붙는다** — 기절은 `ExtraBomb` 능력의 `_activeBuffs`이고, 포탄 자신은 버프를 안 붙이며(`_dontAddBuffs`) 명중 때
+    `projectile_chr_jesca2_s3_explosion`을 내고, 그 폭발 투사체가 맞힌 적마다 기절을 먼저 붙인 뒤 피해를 돌린다. 회피는 피해만 취소한다(빗나감으로 거르는
+    `isDamageMissable` 버프는 시전 때 그녀 자신의 명중률 굴림 `damageMissFlag` 기준이지 대상의 회피가 아님). 전엔 회피한 적에게 기절을 안 붙였다.
+  - 파죰카 「정면」(ARC-Y 특성·S3 날카로운 스케치가 보는 `bgsnow_focus[mark]`): 그녀의 공통 능력 `Focus` 오라 `ConstBoxRange` `5-1` — **자기 칸과 앞 5칸**. 그녀
+    사거리(3-6, S3 3-1)는 앞 3칸까지라 지금 판정(행 0·열 0 이상, S3는 3-2 줄)과 결과가 같고, 키트가 앞 5칸에서 자름.
+  - 파죰카 '타자기' 재배치: 그녀가 필드에 있을 때만 — 그녀가 퇴장하면 `BattleController.OnCharacterFinished` → `Deck.RecycleCard`가 소환물 카드의
+    `m_hostIsAlive`를 끄고(`TokenCard.OnHostRecycled`), 그 카드는 숨겨진다(`TokenCard.get_isHiddenByCardState`); 그녀가 다시 서면 켜짐(`OnHostSpawned`). 지금 규칙 그대로.
+  - 파죰카 '타자기' 禁疗: 없다 — 토큰 프리팹 `token_10026_bgsnow_subbow`에 이상 상태 버프가 없다(수명 퇴장 `bgsnow_subbow_t_1[withdraw]`·카드 재충전·방향·방어 감소뿐).
+    공격받지 않아 체력이 안 변하니 치료될 일도 없다. 키트도 禁疗를 걸지 않는다(`startCountdown`은 `COUNTDOWN_SUMMONS`가 아닌 타자기를 건드리지 않음) — 주석만 고침.
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD 데이터: EN 클라에서 뽑음(2026-11-04, `tools/local-extract/add_operator.py --id …` 셋 한 번). 소환물 이펙트
   (`token_jesca2_*` 6개·`token_bgsnow_*` 17개)는 공용 토큰 팩 `pkgrps/btl_pfb_fx_token_1.ab`·`_0.ab`에서 따로. 화면 확인 전.
 - 테스트: `test/content/op_jesca2.test.js`(10)·`op_bgsnow.test.js`(8)·`op_amgoat.test.js`(8) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물; 선발 수를 세는 테스트
@@ -1020,20 +1062,42 @@
 - 키트·테스트: 커널 직전 판의 `op-thorns.js`·`op-irene.js`·`op-weedy.js`와 테스트 셋. 바꾼 것:
   - 자동 발동: 셋의 MANUAL 스킬(쏜즈 S2 3-1·S3 3-3, 아이린 S2 3-12·S3 x-1, 위디 S3 4-1)은 자기 행이 없어 `DEFAULT` + 스킬 범위 상자(`_DefaultTriggerSkill`).
     upstream 테스트의 `SKILL_RANGE`·`ACTIVE_RANGE` 단언을 고침. 아이린 S2의 「지상 적이 없으면 안 켜짐」 막이(`guardActivation`)는 그대로 — 상자 안 게(铁钳号)는
-    `_allyTargetIn`으로 세지만 막이가 시전을 거른다. upstream 아군 대상 깃발(`allyTargets`)은 우리 `skills.js`가 읽지 않아 지움(하루카와 같음).
+    지상 대상으로 센다(2026-11-11, 아래 「공식 클라에서 확인한 것」). upstream 아군 대상 깃발(`allyTargets`)은 우리 `skills.js`가 읽지 않아 지움(하루카와 같음).
   - 아이린 재능 1 심판의 불꽃 + SWO-Y(고정 방어 무시 70) 시험: 공식 물리 피해식 `A − (1 − 백분율 관통)·max(0, 방어 − 고정 관통)` — 고정 몫을 먼저 뺀다
     (`research/reference/battle-mechanics-reference.md`); upstream 시험식(백분율 먼저)을 고침, 엔진은 그대로.
   - 아이린 S2 두 번째 충전: 자동 운영의 시전 막이(`BLOCK_SKILL_TICK` 회차 × 0.2초, ≈ 2초 남짓)만큼 떨어짐 — upstream 시험의 「3초」를 우리 규칙으로.
   - 위디: 합성 기록의 `placeOnRanged` 필드는 우리 포크에 없고 고대 규칙은 `shared/highGround.js meleeOnHighGround`(시험이 이미 봄) — 그 단언을 지움. 저수포의
     강제 스킬은 `DEFAULT`라 첫 일반 공격과 같은 틱에 나가 두 밀치기가 겹친다 — 시험은 거리 대신 그 탄의 밀치기 힘(저수포 힘 + 1)을 본다.
   - upstream 시험이 살아 있는 유닛을 `assert.deepEqual`에 넘기던 곳(아이린 넷·쏜즈 하나·위디 하나)은 id로(CONTRIBUTING §6).
-- 키트 주석에 남은 추정(키트 주석은 영어 꼴 「not checked」 태그, 15개 — 오퍼레이터별 줄은 관리자 메모의 열린 일):
-  - 쏜즈 [추정·미조사: 재능 1 독이 모듈 추가 피해·S2 가시에도 붙는지(능력 `Thorn` 출처)]·[추정·미조사: 그가 떠난 뒤에도 독이 남는지(이프리트 화상처럼 봄)]·
-    S2 [추정·미조사: 배치 직후·공격 전 상태를 「공격 안 함」으로 세는지]·[추정·미조사: 가시가 스킬 끝·퇴장·행동 불가 때 취소되는지].
-  - 아이린 S2 [추정·미조사: 지상 적이 없으면 안 켜지는지 — PRTS S3 비고의 반대로 봄]·S3 [추정·미조사: 첫 폭격 시점·적 없는 폭격]·[추정·미조사: 게(铁钳号)를
-    지상 적처럼 치는지].
-  - 위디 [추정·미조사: 저수포가 그녀가 필드에 있을 때만 재배치]·[추정·미조사: 저수포 스킬 수치 「본체 기준」]·[추정·미조사: 저수포 SP 시계가 언제 도는지]·
-    [추정·미조사: 저수포 탄이 공중을 치는지]·[추정·미조사: 액체 질소 탄 이동 시간 없음]·[추정·미조사: S2·S3 밀치기 방향 = 그녀의 방향]·[추정·미조사: 저수포 무적].
+- 공식 클라에서 확인한 것(2026-11-11 — 2026-11-04 판의 추정 15개):
+  - **쏜즈** 재능 1 신경 부식의 독은 그의 모든 능력의 타격에 붙는다(`PassiveAttachmentAbility` `_targetFamilyMask` 31 = 공격·스킬 등 모든
+    갈래 — S2 가시 능력 `Thorn`도). LOR-X 법술 추가 피해는 그 타격의 피해 계산(ON_CALCULATE_DAMAGE) 안의 몫이라 따로 독을 붙이지 않는다 — 키트와 같음.
+    그가 떠난 뒤에도 독은 남는다(버프의 틱은 출처를 보지 않고, `FixedValueDamage`는 출처가 없어도 피해를 냄) — 키트와 같음.
+    재능 2 고향 땅의 파도소리는 **배치 뒤 2초부터** 켜진다(`AdvancedCompoundToggleChecker`에 `_isInitToggled`가 없어 꺼진 채 붙고, 붙을 때 다음 켜짐
+    시각 = 배치 + `_restoreDelay` 2초) — 예전 키트는 배치하자마자 켰다(고침).
+  - **아이린** S2의 발동·타격 선택자(`BlockedOrAdvancedSelector`: 쪽 ENEMY·지상만 WALK_ONLY·카테고리 DEFAULT, `_minTargetNum` 1, 수동에서도 씀
+    `_useTriggerInManualMode`)는 지상 대상이 없으면 안 켜진다 — 그대로. 스테인리스의 게(글룸핀서호 - 프로토타입)는 프리팹이 쪽 ENEMY·카테고리
+    DEFAULT라(`sim.md` 「스킬 범위 발동」) 이 선택자에 걸린다: 게만 있어도 S2가 켜지고 게를 친다(고침, 적 뒤에 — 일반 공격의 차례).
+    S3는 묶음 능력(`AbilitySequenceGroup`): 첫 타격(Skill_3_Start 클립의 OnAttack) 뒤 **그 클립이 끝날 때 첫 폭격**, 이어 `multi_hit_interval`마다
+    (`MultiRangedAttack`이 `multi_` 접두사로 `times`·`hit_interval`을 읽음) 모두 `multi_times`발. 폭격 대상은 스킬 범위의 적 쪽 대상 가운데 무작위
+    (`_postFilter` 14 RANDOM, 공중 포함) — 게도 적과 같이 뽑힌다(예전 키트는 적이 없을 때만 게, 고침). 투사체는 바로 닿는다(`_immediatelyReach`).
+    대상이 없는 발은 아무도 안 맞고 수에 든다. 기절하면 남은 폭격이 없다(묶음이 지금 하위 능력도 끊음 `_alsoInterruptCurrentSubAbility`, 0·1번;
+    예전 키트는 기절 중에도 쐈다, 고침) — 스킬 3.5초는 그대로 흐른다. 첫 폭격 시각은 0.267초(클립 끝)로 예전 0.3초와 틱으로 같다.
+  - **위디** S2 물대포는 지상만(모드의 선택자·투사체 스플래시 모두 `_targetMotion` WALK_ONLY; 예전 키트는 공중도, 고침). S3 액체 질소 탄은 날아간다
+    (`projectile_weedy_s3` 속도 8, `_alwaysHitTraceTargetInTheEnd`, 닿을 때 스플래시; 예전 키트는 바로, 고침) — 저수포의 S3 탄도 같다. 탄이 시전보다
+    늦게 닿으므로 그 탄의 이펙트(`_effectsWhenReached` `weedy_skill_03_hit`·`_effectsWhenHit` `weedy_skill_01_hit`, 쫓던 대상에만)는 피해의 `moment`로
+    튼다(`render/fx/kitofficial.js` `hit.weedy`).
+    밀치기는 쏜 쪽의 방향(`knockback[dir]` `_useSourceDirection`: 대상이 그 방향 45° 안이고 0.25칸보다 멀면 그 방향, 아니면 쏜 쪽에서 멀어지는 쪽으로
+    힘 −2 — 엔진 `Battle.push`가 이미 그렇게 함), 저수포 탄은 저수포의 방향. 공학용 저수포: 일반 공격은 지상만(`_targetMotion` WALK_ONLY; 예전 키트는
+    공중도, 고침), 무적 표시는 없다(프리팹 이상 상태는 禁疗 7뿐, 적이 못 노리는 것은 `_category` 2 — 키트 주석만 고침), 재배치는 위디가 필드에 있을 때만
+    (토큰 카드 `TokenCard.m_hostIsAlive`, 파죰카 '타자기'와 같음), 재능 2 SP 시계는 위디가 둘레에 있는 동안만 돌고 들어올 때마다 새로 시작
+    (`AuraAbility` `periodic_sp`, `_removeBuffWhenTargetLeave`) — 키트와 같음. 저수포 S3 피해는 위디의 공격력(`SetAtkScaleAsHostBased`: 시전 때 `atk_scale`
+    × 위디 공격력) — 키트와 같음.
+- 키트 주석에 남은 추정:
+  - 쏜즈 S2 [추정·엔진: 가시가 스킬 끝·퇴장·행동 불가 때 취소되는지 — 공식 `Thorn` 능력은 배치 때 붙고(`_extraAbilities`, 스킬 끝에 안 뗌) 발동 노드
+    `TriggerAbility`는 기절을 안 봄; 기절이나 스킬의 모드 전환이 0.5초 대기를 끊는지는 못 봄]·LOR-X [추정·엔진: 어떤 피해가 ON_CALCULATE_DAMAGE를 도는지 —
+    가시는 돌고 독 틱은 안 도는 것으로 봄].
+  - 위디 [추정·엔진: 저수포 S3 피해를 누구 것으로 세는지 — 공식은 저수포 능력의 피해(공격력만 위디 기준), 키트는 위디 것으로 셈(맹약·재능 반응)].
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD 데이터: EN 클라에서 뽑음(2026-11-04, `tools/local-extract/add_operator.py --id …` 셋 한 번). 저수포 이펙트
   (`token_weedy_*` 3개)는 공용 토큰 팩 `pkgrps/btl_pfb_fx_token_2.ab`에서 따로. 화면 확인 전.
 - 테스트: `test/content/op_thorns.test.js`(12)·`op_irene.test.js`(10)·`op_weedy.test.js`(10) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물, 실제 매치 경로 하나씩
@@ -1050,13 +1114,22 @@
   - S2 깜짝 상자: `ReplacementSkill`(`replace`). 지뢰는 다음 공격의 타격 순간에 놓인다.
   - S3 D12: 폭탄은 날지 않는다(`projectile_chr_cqbw_s3` `_immediatelyReach`·`_delayAfterReached`·`_delayTime` 3). 대상은 `_postFilter` 15 HP_DES, 공격력은 시전 시작에 저장(`_useCachedAtkOnly`). upstream의 포탄 비행 추정을 지웠다.
   - 적 방향: 프리팹 `_category` 2 TRAP_OR_ITEM이라 적 선택기(`_targetCategory` 1 DEFAULT)에 걸리지 않는다. upstream의 추정을 공식 값으로 바꿨다.
+  - S2 지뢰 칸(2026-11-11, 공식 클라에서 확인): 스킬 프리팹의 `TileSelector`(`_filterType` 7 BETTER_ENEMY_WITH_COLLIDER, `_alwaysRandomInTheEnd`)
+    순서 — ① 사람 없는 칸 가운데 선택 가능한 지상 적이 선 칸, 그 칸 적의 가장 높은 위협도(HATRED_DES) 순 ② 모자라면 **그녀 범위 안의** 지상 적을
+    위협도 순으로 하나씩, 각 적에게 가장 가까운 칸(이미 고른 칸이면 그 적은 건너뜀, 같은 거리면 앞 칸) ③ 그래도 모자라면 남은 칸 무작위. 예전 키트는
+    ②를 필드 전체 적까지의 거리로 봤다. 에벤홀츠 S2와 같은 선택기라 공용 함수 하나(`kits/shared/tier1.js betterEnemyTiles`).
+  - ART-Y 3단계 숨은 재능의 공격력 층(2026-11-11, 공식 클라에서 확인): `cqbw_e_003_t` ON_TAKE_DAMAGE가 `IfModifierTarget`(이미 취소된 피해는
+    거름) → 층 지움. 버프는 같은 이벤트 우선순위면 얻은 차례로 도는데 이 버프는 배치 때 얻으므로, 나중에 얻는 보호막이 다 막은 타격과 재능 1
+    설복이 회피한 타격도 **층을 지운다**. 무적(버프보다 먼저 취소)과 유실·원소 손상(ON_TAKE_DAMAGE 없음)은 안 지운다. 예전 키트는 회피를 뺐다.
+  - 쓰러질 때도 지뢰를 거둔다: 그녀의 공통 능력 버프 `cqbw_c`(템플릿 `die_to_kill_token`)가 ON_OWNER_FINISH에 KillTokens — 이유를 가리지 않고
+    필드를 떠날 때(동작은 그대로, 추정 표시만 지움).
 - **오올헤약**
   - S2 굽이쳐 흐르는 별들: 모드 `MultiRangedAttack` `_additionalTimes` 8·`_triggerDelta` 0.05 — 9발이 타격부터 0.05초 간격으로 나가고, 각 발이 나갈 때 무작위로 대상을 고른다(`_selectNum` 1, `_selectTargetTiming` 1). 기절하면 남은 발은 없다.
   - S3 박식한 자의 광언: `DEFAULT` + 스킬 범위 상자 3-10(자기 행 없음). 공격은 공격 클립의 타격에 회오리 셋을 낸다(upstream은 타이머로 직접 냄). 회오리는 속도 1·수명 4초라 **4칸**을 난다: PRTS 「5格远处中心点」은 자기 칸을 세는 값이다. 배율 곡선 `_scaleCurve`가 수명의 0.4428에서 1이 되어 PRTS의 1.77초와 맞는다. 함께 닿은 적은 `_postFilter` 4 HATRED_DES 차례, 공중 포함.
 - **클로저**: S1의 `trigger: 'SP_FULL'`은 그대로 둔다(아군·자신에게만 듣는 AUTO 스킬은 SP가 차면 켠다, kits README 체크리스트 5). S2·S3은 표의 전술가 행(`ALWAYS`). S1 보호막 버프 키를 클라 키 `closur_s_1[block]`으로 지어 상태 경로가 `closur_skill_01_shied_01`을 튼다.
 - 소환물 이펙트 규칙(`fx.md` 「소환물이 서 있는 동안의 버프」): 소환물 재능의 기간제 버프 `token_*_born[withdraw]`가 서 있는 동안의 이펙트로 이어진다. 이 규칙으로 에벤홀츠 소환물 `token_ebnhlz_buff`와 비즈왁스 소환물 `token_beewax_skill_02_buff`도 켜졌다. 끝 이펙트는 이미 있던 `dead`(`_deadEffect`) 경로로 난다.
 - 키트 주석에 남은 추정:
-  - W [추정·미조사: 보호막이 막은 타격도 공격력 층을 지우는지]·[추정·미조사: 지뢰 칸 고르기에서 타일 선택기의 정렬 값을 안 읽음 — 둘]·[추정·미조사: 쓰러질 때도 지뢰를 거두는지, 문구는 철수만 말함]·[추정·자료 없음: 지뢰 수 상한].
+  - W [추정·자료 없음: 지뢰 수 상한].
   - 오올헤약 [추정·엔진: 회피와 부양 버프의 차례]·[추정·자료 없음: 「模组加成」을 모듈 특성으로 봄]·[추정·엔진: 아직 나오지 않은 회오리는 그녀가 떠나면 안 나옴].
   - 클로저 [추정·자료 없음: 배치 비용 하한은 여기에 대응이 없음]·[추정·엔진: 둔화가 적 능력 쿨다운·상태 시간에 주는 영향은 넣지 않음].
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD: EN 클라에서 뽑음(`add_operator.py --id …` 셋 한 번). 소환물 이펙트는 두 오퍼레이터의 번들에 있어 토큰 팩 추출이 필요 없다. 화면 확인 전이다.
@@ -1073,6 +1146,24 @@
 - 키트 주석에 남은 추정은 모두 [추정·CN: CN에만 있는 오퍼레이터라 클라 로직을 못 읽음] — 국가 위 판정이 칸 기준인지, 공격 속도 감소의 최강값 선택, 재능 1 첫 틱 시점, 기절 중에도 피해, 철수·기습 점프를 퇴장으로 봄, 피해 뒤 기절 순서, S1 매 틱 검사·공중 포함, S2 2회차를 배치마다 셈, S3 다른 테리토리야의 국가 위 적 동시 공격·확산 피해의 공중 포함, S3 버프 수명(18곳).
 - 테스트: `test/content/op_dminon.test.js`(12) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 실제 매치 경로 하나(upstream 테스트에 없어 더함). 선발 수 37 → 38명(폼 154 → 157). golden `diy-066`·`diy-067`(새 시나리오), 다른 가족 변화 없음.
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD·그림: CN 클라에서 뽑음(`add_operator.py`). 연결이 남은 이펙트(`fx-wiring-report.mjs`)는 fx 묶음 몫이다. 화면 확인 전이다.
+
+## 유키 마코토 (2026-11-12, 관리자 결정)
+- 관리자 결정 2026-11-12: 结城理(`char_4217_makoto`, 6성 스페셜리스트 인형사, 페르소나 3 리로드 콜라보, CN에만 있음)를 선발에 넣는다(`LOCAL_DIY_PICKS` 끝). upstream은 콜라보 6성을 선발에서 빼고 키트도 없다. 공개 키트가 하나 있으나 출처·라이선스가 밝혀지지 않아 쓰지 않고, 키트 `op-makoto.js`는 공식 CN 표·CN 클라의 프리팹(`char_4217_makoto`·`skchr_makoto_1~3`)과 버프 템플릿 34개(`makoto_*`)로 새로 썼다.
+- 공식 규정 표(`act3autochess skillTriggerDataList`)에 그의 S3 행(`INVALID_IN_SKILL + ATTACK_RANGE_ENEMY + SKILL_RANGE_ENEMY`)이 있다 — 규정에서도 공식으로 고를 수 있는 오퍼레이터로 보인다. 이 행은 다른 새 목록 행처럼 읽지 않고 기본 전략(스킬 범위 x-1 상자)으로 둔다 [추정·CN: 목록 조건을 어떻게 합치는지는 CN 클라만 읽음]. 맹약 표에는 행이 없어 세 스킬 모두 `DEFAULT` + x-1 상자.
+- 맹약: 맹약은 세력으로 받는다 — 맹약에서는 라테라노(`laterano` 부세력), 규정에서는 라테라노가 없어 협방(`fallbackBondId`). 이를 위해 빌드의 선발 맹약 계산을 그 시즌의 맹약만 보게 고쳤다(`tools/build-data.mjs buildBackups`: 규정의 전역 `bondInfoDict`에는 맹약 시즌의 라테라노가 남아 있어 규정 데이터 검사가 실패했음).
+- 특성은 공용 인형사(`professions.js installDollkeeper`, 2초 교체·<대역> 20초·저지 0·교체 때 상태 이상과 기력 비움). 그만의 것:
+  - 모든 스킬이 「패시브: <대역> 상태에서 페르소나 소환 / 액티브: 즉시 <대역>으로 교체」 — 발동하면 곧바로 교체(`makoto_s<n>_trigger`), 치명상으로 들어가도 같은 페르소나가 싸운다. 페르소나 범위는 모든 스킬의 x-1(반지름 2 마름모).
+  - 재능 1 얽매이지 않는 힘: <대역>에서 공격력 +atk, 공격 딜레이 +0.4초, HP +max_hp_t1(PUM-Y 특성의 +max_hp가 더해짐 — 두 MULTIPLIER의 합). 본체에서 <대역>으로 바뀔 때(`makoto_switchbegin`의 모드 0 검사) x-1 안 적(지상·공중) 정지 sluggish초.
+  - S1 오르페우스: 범위에 HP 50% 미만 아군(지상·공중)이 있으면 가장 낮은 비율을 heal_scale×공격력 치료, 없으면 지상 적 1명에 atk_scale×공격력 마법(`AbilitySelectableGroup`의 차례).
+  - S2 타나토스: 지상 적 최대 max_target명에 atk_scale×공격력 마법, 맞은 적마다 prob 확률로 공포 fear초. 0.1초마다 범위(지상·공중)의 공포 상태 적 중 HP < kill_atk_scale×공격력이면 kill_damage 무출처 트루 대미지(로고스 S1과 같은 처형).
+  - S3 타나토스: 지상·공중 적 최대 max_target명에 약점 대미지(`common_weak_damage` — 물리·마법 중 덜 막는 쪽), 공격 속도 +talent@attack_speed. 타나토스로 치명상을 입으면(`makoto_tr`의 모드 3 분기) 남은 <대역> 시간 동안 오르페우스: 공격 없음, 저지 block_cnt, 범위 안 오퍼레이터(소환물·장치 제외, `professionMask` 639; 자신 포함) 물리·마법 회피 prob, interval초마다 가장 다친 아군 최대 max_target_heal명을 0.5초 뒤 heal_scale×공격력 치료. 이 교체는 1.5초(`Doll_Skill_3_P1toP2_ChangeBegin` 0.5초 + `ChangeEnd` 1초 — 모델 클립 길이, 공용 교체와 같은 순서)이고 남은 시간을 쓰지 않는다(`makoto_assign_standing_time`).
+  - S1·S2 페르소나나 오르페우스로 치명상을 입으면 쓰러진다(`makoto_tr`에 갈래 없음).
+  - 재능 2 S.E.E.S. 리더: <대역> 시간이 끝나 돌아올 때(쓰러질 때는 아님) 교체 시작 1.6초 뒤(`makoto_allout_attack_damage` triggerInterval) 필드의 모든 유키 마코토(협동의 다른 플레이어 것 포함, 「중첩 가능」) 주변 x-1의 모든 적(지상·공중)에 그의 공격력 × atk_scale 트루 대미지.
+- 키트 주석에 남은 추정:
+  - [추정·CN: `SetCastSkillManualTriggerOnly`는 CN에만 있는 노드] S3 타나토스에서 스킬로 오르페우스로 바꾸는 길은 수동 발동 전용이라 자동 조작은 쓰지 않는다고 봄 — 치명상으로만 바뀐다(공용 특성의 기력 정지로 어차피 준비되지 않음).
+  - [추정·CN] 돌아오는 교체와 총공격 자세(`Switch2Normal` 모드, `enter_normal_duration`) 길이는 표에 값이 없어 공용 2초 교체 안에 넣음. <대역>으로 들어가는 교체는 클립(`SwitchOut` 1초 + `Doll_Skill_<n>_SwitchIn` 1초)으로 공용 2초와 같다.
+  - 규정 S3 목록 행은 위.
+- 테스트: `test/content/op_makoto.test.js`(10) — 모든 폼·잠재, 세 스킬, 두 재능, 특성, PUM-Y 모듈, 실제 매치 경로(세 스킬). 선발 수 38 → 39명.
 
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에
@@ -1098,8 +1189,7 @@
   `_excludeInCombat`), 이동 쿨타임은 없다. 비행 중에는 공식도 무장해제(`[move_mode]` FORCE_DISARMED)라 그동안 공격이 없는 것은 의도. 다만 이동 스킬
   컴포넌트(그녀만 가진 CN 전용 클래스)의 `_availableValidator` 바로 뒤에 `_attackCooldownProgress` 0.85가 있다 → 「공격 쿨다운이 85% 이상 찼을 때만
   이동 시작」으로 읽고 넣었다(`MOVE_ATTACK_PROGRESS`; 그 전엔 0.1초마다 바로 떠서 시작된 공격 동작을 끊고 쿨다운도 처음부터 다시 기다렸다).
-  [추정] 이 필드의 뜻(CN 전용 클래스라 메서드를 볼 수 없음; 「착지 뒤 공격 쿨다운을 85%로 둠」일
-  가능성도 있음).
+  [추정·CN: 이 필드의 뜻 — CN 전용 클래스 `MoveLikeRespawnByProjectileBehaviour`라 메서드를 볼 수 없음; 메서드 이름 `_CheckInAttackAllowProgress`는 「공격 진행도가 허용 범위일 때」로 읽힘, 「착지 뒤 공격 쿨다운을 85%로 둠」일 가능성도 있음]. S3 모드의 공격 능력은 붙을 때 준비 상태라(`Ability.DoAttach` → `Reset`, EN) 이륙 클립 뒤 첫 판정에서 이동이 첫 공격보다 먼저다 [추정·CN: 이동 판정과 공격 상태의 같은 프레임 차례는 그 클래스의 것 — 공식 녹화 요청].
   렌더 fx `aglnaFlight`(켜기/끄기)가 공식 꼬리·좌우 이펙트를 붙이고, `KIT_OWNED`에 S3 세 이펙트를 넣어 `_buff_` 이름 규칙이 좌우 이펙트를 스킬 내내 틀던 것을 막음.
 - [추정] 속도 곡선·옆/높이 호 미구현(직선·일정 속도), 착지 직전에 그 칸이 막히면 다음 공중 적 칸, 없으면 제자리로 되돌아감, 좌우 이펙트는 이륙 때 방향 한 번,
   `_attackCooldownProgress`의 뜻(위),
@@ -1134,9 +1224,9 @@
   1초였고(끝점에서 약 0.8초 머묾) 복귀도 2.5초였다 → 위처럼 도착 즉시·도착 + 1초로. 높이: 그녀의 특성 블랙보드 `height_offset` 0.8(character_table, `[chant_end]`가
   `aglna2_tr`에서 가져와 그 높이로 올림; S3 `[mode]`는 고지대 칸이면 0.4)을 칸 단위로 써서, 비행 적 높이 `FLY_HOVER` 1.3 대신 0.8(S3 고지대 0.4)로 그린다 —
   `render/units.js LIFTOFF_HEIGHT`, S1·S3 이륙에도 적용(`render.md` 「이륙 높이」). 아레나에서 S3 범위 원이 여전히 그녀 칸에 있음을 확인.
-- [추정] 복귀 = 끝 클립이 끝날 때(`_interruptProjectileOnEndAnim` + `_afterEndAnim`; CN 전용 클래스라 메서드를 볼 수 없음 — 도착 0.67 + 1 + `Skill_2_Begin` 1 ≈ 吟唱 2.5초와 맞음),
+- [추정·CN: 吟唱 컴포넌트는 `ChantBeforeSkill`을 이은 CN 전용 `ChantWithProjectileBeforeSkill`(`StartChant`를 덮어씀, 필드 `m_waitByProjectile`·`m_buffOnAfterEndAnim`)이라 메서드를 볼 수 없음. EN `ChantBeforeSkill.StartChant`는 begin·loop·end 클립 뒤 `DoStartSkill`을 부르고 `_afterEndAnim`은 없다] 복귀 = 끝 클립이 끝날 때(`_interruptProjectileOnEndAnim` + `_afterEndAnim` — 도착 0.67 + 1 + `Skill_2_Begin` 1 ≈ 吟唱 2.5초와 맞음), `Skill_2_Begin`이 吟唱 안이고 스킬 시작(공격)이 그 뒤라고 둠(공식 녹화 요청),
   `height_offset`이 칸(월드) 단위(비행 적의 0.35는 0.27 캐릭터 공간), 속도 일정(이동 컴포넌트의 속도 곡선 ≈0.95–1.13·`_speed` 4.8은 안 씀, PRTS 6.0), 복귀는 순간 이동(`_restoreOnEnd`), 활공 중 바닥 높이는 그녀 칸 기준,
-  `Skill_2_Begin`(1초) 동안 시뮬은 이미 공격할 수 있음(첫 공격이 그 클립을 끊을 수 있음).
+  `Skill_2_Begin`(1초)의 마지막 0.17초 남짓 동안 시뮬은 이미 공격할 수 있음(吟唱 2.5초 뒤).
 - 테스트: `test/content/op_aglna2.test.js`(맵 끝에서 2칸·열린 곳 4칸, 위치 불변), `test/render/aglna2-s2-glide.test.js`(클립 순서·공격 대기·스킬 끝 처리,
   뷰 이동·도착 즉시 끝 클립·도착 + 1초 복귀·0.8까지 1초 상승).
 
@@ -1316,7 +1406,7 @@
 - 특성: 3초마다 DP −3, 모듈 MER-X −2(직업 `merchant`, 특성 bb). 못 내면 퇴각.
 - 재능 出其不意: 공식 클라에서 확인: `AdvancedCompoundToggleChecker`(`_isInitToggled` 꺼짐, `_disableWhenAttack`). 배치 때 꺼져 있고 `delay`초 뒤 켜진다. 그가 피해를 줄 때마다 꺼지고 다음 켜짐이 `delay`초 뒤로 밀린다(꺼져 있을 때도). 켜진 채 준 피해는 공격력 ×`atk_scale` + `stun`초 기절. 켜져 있는 동안 `nothin_t_1`·`nothin_t_1[eff]`의 이펙트.
 - S1 `skchr_nothin_1`(知难而退, AUTO): 가지고 있으면 저지 +1. HP 비율 ≤ `max_hp_ratio`일 때 시전(선택기 `_checkHpRatioCondition`): 공격·저지 없음, 조롱 등급 −1, 생명 회복 속도(%) `hp_recovery_per_sec_by_max_hp_ratio`, 5초.
-- S2 `skchr_nothin_2`(阴晴圆缺, 지속 무한): 토글. 이 모드에서는 저절로 닫지 않아(PRTS 卫戍协议/帮助) 떠날 때까지 간다. 시작 클립(`Skill_2_Begin` 1.1초) 끝에 셋 중 하나: 공식 클라에서 확인, `PassiveOneOfBuffAbility` `_selectMethod` RANDOM_BUT_NOT_LAST — 이번 배치의 직전 것을 뺀 균등(재배치 때 기억 지움). `nothin_s_2[a]` 피해 직전 대상 공격 속도 감소(5초, 연장·중첩 없음), `[b]` 공격 속도, `[c]` 물리 회피 + 저지 +1. 모두 공격력 +N%. 이펙트는 고른 버프의 상태 키, 이름 규칙은 `KIT_OWNED`로 끈다. 시작 소리 `ON_SKILL_SPECIAL_POINT`(프리팹 `_playExtraSignalAtSkillBegin`)는 시전 때, 스파인 이벤트 `lottery`는 클립 재생 때.
+- S2 `skchr_nothin_2`(阴晴圆缺, 지속 무한): 토글. 이 모드에서는 저절로 닫지 않아(PRTS 卫戍协议/帮助) 떠날 때까지 간다. 시작 클립(`Skill_2_Begin` 1.1초, 엔진 — `sim.md` 「스킬 시작 클립」) 끝에 셋 중 하나: 공식 클라에서 확인, `PassiveOneOfBuffAbility` `_selectMethod` RANDOM_BUT_NOT_LAST — 이번 배치의 직전 것을 뺀 균등(재배치 때 기억 지움). `nothin_s_2[a]` 피해 직전 대상 공격 속도 감소(5초, 연장·중첩 없음), `[b]` 공격 속도, `[c]` 물리 회피 + 저지 +1. 모두 공격력 +N%. 이펙트는 고른 버프의 상태 키, 이름 규칙은 `KIT_OWNED`로 끈다. 시작 소리 `ON_SKILL_SPECIAL_POINT`(프리팹 `_playExtraSignalAtSkillBegin`)는 시전 때, 스파인 이벤트 `lottery`는 클립 재생 때.
 
 ## 새 시즌 레토·이스티나·우쿠시크 (2026-11-06, 관리자 결정 2026-11-05)
 규정(`act3autochess`, 공개 전)의 기물(`chess_char_1_16`, `chess_char_2_21`, `chess_char_3_03`). 키트는 `SEASON_KIT_FILES`, 선발 후보 아님. 시험 `test/content/op_leto.test.js`·`op_glassb`·`op_turdus`(두 형태·두 스킬·모듈, 실제 대전 경로). 우쿠시크의 특질과 임시 중첩은 표가 나온 뒤(맹약·특질 묶음)에 한다.
@@ -1334,7 +1424,7 @@
 
 ### 우쿠시크 `char_4224_turdus` (T3, 체인 메딕)
 - 재능: 자신이 `turdus[free_jump]`·`turdus[atk_scale_up]`을 지니고, 치료 연쇄가 대상의 그 버프를 본다. 그래서 다른 우쿠시크에게도 듣는다(PRTS). 공식 클라에서 확인(`ChainLightningHitBehaviour.DoSelectTargetToHit`, `ChainedSelectorWithFilter`, `ai.js chainHealWalk`): 배율은 도약마다 이어진다. `atk_scale_up` 대상에서 × `chain.atk_scale_2`(그 대상과 이후 도약 모두, PRTS 「이번 연쇄의 이후 도약 전부」, 주 대상이어도), 앞 대상이 `free_jump`면 이번 도약은 감쇠 없음, `free_jump` 대상은 도약 수를 쓰지 않는다. PRTS의 예 100% → 114.75% → 114.75% → 97.54%(135%, 감쇠 85%)와 같다.
-- S1 `skchr_turdus_1`: 시작 클립 `Skill_1_Begin` 동안 공격 없음, 공격 속도 +N, 연쇄 대상 +`attack@chain.extra_value`.
+- S1 `skchr_turdus_1`: 시작 클립 `Skill_1_Begin` 동안 공격 없음(시전이 휘두름을 끊음), 공격 속도 +N, 연쇄 대상 +`attack@chain.extra_value`. 스킬과 지속 시간은 클립 뒤부터(엔진, `sim.md` 「스킬 시작 클립」 — 2026-11-11 전에는 키트가 공격만 막고 휘두름은 두었으며 지속 시간을 클립만큼 덜 셌다).
 - S2 `skchr_turdus_2`(즉발, `Skill_2` 클립): 시전 시작에 현재 HP의 `hp_ratio`를 잃되 죽지 않는다(`ON_CAST_START`, `_isUndeadable`, SP 없음). OnAttack 프레임에 범위 안 HP 비율 최저 > 자신과 가까운 순으로 대상을 고른다(`HP_RATIO_ASC_DIST_TO_SOURCE_ASC_FIRST`, 만피도 대상, 대상 없어도 시전). 투사체(속도 10)가 닿으면 연쇄 치료 100%.
 - 연쇄의 모든 대상이 받는 두 버프(`_activeBuffs`): `turdus_s2[continues_heal]`은 1초마다 `heal_scale` × 버프가 시작될 때의 그녀 공격력(첫 틱은 1초 뒤, 시전자별로 따로, 다시 걸면 다시 시작). `turdus_s2[try_camouflage]`는 0.1초마다 저지 중이면 위장을 풀고 아니면 건다(`turdus_s2[camouflage]`, 버프가 끝나면 함께 끝, 다시 걸면 위장이 바로 풀렸다가 다음 검사에서 돌아옴).
 - [추정·화면: 지속 치료가 주 대상에게만 가는지. PRTS 문구는 「대상」과 「치료의 모든 대상」을 나눠 적지만, 프리팹은 두 버프를 같은 `_activeBuffs`에 두어 조건 없이 함께 건다 — 프리팹대로 구현] → `mix-Q`
@@ -1366,7 +1456,7 @@
 ### 안드레아나 `char_218_cuttle` (T2, 신궁)
 - 재능 `cuttle_t_1`(`_deckBuffs`, `filterTag` `abyssal`, `disableOverride`): 자기 플레이어의 어비설 헌터 모두와 자신에게 전투 내내 공격 속도 +N. 배치 여부를 보지 않고, 둘이면 더해진다.
 - S1 `skcom_atk_up[3]`: 공격력 +N%.
-- S2 `skchr_cuttle_2`(`_switchToState` 1): 시작 클립 `Skill2_Begin` 동안 공격 없음, 공격력 +N%, 모드 S2 선택기가 HP 비율 0.5 이상만 고른다(`_filterMinHp`·`_minHpRatio`). 그런 적이 없으면 쏘지 않는다. 맞은 적은 `attack@duration`초 이동 속도 감소(적마다 하나).
+- S2 `skchr_cuttle_2`(`_switchToState` 1): 시작 클립 `Skill2_Begin` 동안 공격 없음(시전이 휘두름을 끊음, 스킬과 지속 시간은 클립 뒤부터 — 엔진, `sim.md` 「스킬 시작 클립」, 2026-11-11), 공격력 +N%, 모드 S2 선택기가 HP 비율 0.5 이상만 고른다(`_filterMinHp`·`_minHpRatio`). 그런 적이 없으면 쏘지 않는다. 맞은 적은 `attack@duration`초 이동 속도 감소(적마다 하나).
 - DEA-X `cuttle_e_trait`: 거리 `min_dist`~`max_dist`에서 피해 × 최대 1 + `damage_scale`, 선형. 표 값이 4.5이고 PRTS 비고는 「4칸 이상」이라 다르지만 표대로 한다.
 
 ### 표 전 기물의 만드는 차례
@@ -1380,7 +1470,7 @@
 - 재능 `kaitou_t_1[check_ep]`: 범위 안 적 하나라도 쇠약 손상(凋亡损伤) 폭발 중이면 공격력 +N%, 여럿이어도 하나(`AuraAbility`, `ignoreTargetFree`라 선택 불가 적도 센다).
 - S1 `skchr_kaitou_1`: 공격력 +N%, 모드 S1. 맞을 때마다 그 피해의 `attack@ep_damage_ratio`만큼 쇠약 손상 게이지(`ep_damage_based_on_damage_value`), 폭발 중이면 공격력의 `attack@extra_ep_damage_scale`만큼 원소 대미지(`kaitou_s_1[ep_damage]`, 스킬이 켜진 동안만).
 - S2 `skchr_kaitou_2`: 공격 속도 +N, 모드 S2 대상 2명(`_maxNum` 2), 같은 추가 원소 대미지. 게이지는 쌓지 않는다.
-- 폭발 판정은 그 타격 **전** 상태다. 공식 클라에서 확인: `Projectile.ActionController.OnHitTarget`이 `_activeBuffs`를 먼저 붙이고 피해 행동을 뒤에 돌린다. 그래서 게이지를 채워 막 폭발시킨 타격에는 추가 대미지가 없고 다음 타격부터 붙는다.
+- 폭발 판정은 그 타격 **전** 상태다. 공식 클라에서 확인: `Projectile.ActionController.OnHitTarget`이 `_activeBuffs`를 먼저 붙이고 피해 행동을 뒤에 돌린다. 그래서 게이지를 채워 막 폭발시킨 타격에는 추가 대미지가 없고 다음 타격부터 붙는다. 님프 S1 「디얄 일격」(`chess_char_5_22`, 지금 시즌에도 있음)도 같은 꼴이라 같이 고쳤다(2026-11-11, 프리팹 `Modes/S1/Body/Attack`의 `_activeBuffs` `nymph_s_1[ep_damage]`, 같은 ON_BUFF_START 템플릿; 전에는 게이지를 채운 뒤 폭발을 봤다).
 - PRI-X: 원소 폭발 중인 적에게 주는 모든 피해 × `damage_scale`(특성 bb, `kaitou_e_002_tr[dmg_up]`).
 
 ### 리프레사 `char_4031_liesel` (T2, 스플래시 캐스터)
@@ -1398,7 +1488,7 @@
 - S2 `skchr_pianst_2`: 최대 HP +N%, 도발 +1. NORMAL·SPLASH 공격을 받으면 피해 종류와 상관없이 공격력 +N% 한 겹, `max_stack_cnt`까지, 재능 뒤에(PRTS). 프리팹 값은 20이지만 표와 문구대로 10으로 한다.
 - 최종 공격: `interval`(18.6)초에 모드 `Empty`(공격 안 함), 그때 행동할 수 있으면 `_preDelay` 0.5초 뒤 공격력의 `atk_scale` 마법 대미지를 `x-1` 안 모두에게(공중 포함, PRTS). 스턴에 걸려 있거나 그사이 걸리면 없다(`_checkCanUseAblityFlag`).
 - 최종 공격의 이펙트·클립 시점은 `fx.md` 「W·클로저·브리지드·크리스틴·체르니·리프레사 키트 순간 이펙트」, `render.md` 「선발 클립 판정」.
-- `skill_cast.py`가 이 스킬의 나중 능력을 시전 능력으로 읽어 시작에 1.7초 멈췄다: `LATER_ABILITIES`로 뺌. 같은 꼴(`_extraAbilities`)의 다른 스킬 19개 행은 안 건드렸다. 클립은 `anim-keys.mjs`가 `FinalAttack`을 끝 클립으로 읽는다.
+- `skill_cast.py`가 이 스킬의 나중 능력을 시전 능력으로 읽어 시작에 1.7초 멈췄다: 빼냄(2026-11-11부터 손 목록 대신 일반 규칙 — `sim.md` 「즉발 스킬의 시전」의 `_extraAbilities`, 같은 꼴 9개도 같이). 클립은 `anim-keys.mjs`가 `FinalAttack`을 끝 클립으로 읽는다.
 - AST-X 1단계(`common_damage_on_*`, 수정자 키 `artsprotector_e_002_tr`): 스킬이 켜진 동안 그녀의 공격과 받는 적 피해마다 상대에게 공격력의 `atk_scale` 마법 대미지.
 
 ### 아오스타 `char_346_aosta` (T2, 산탄사수)
@@ -1418,14 +1508,14 @@
 - TAC-Y: 소환물이 저지한 적은 저지 동안 조롱 +`taunt_level`(비질 TAC-Y와 같은 방식). 1단계라 잔해 체력 변화·`mitm_e_002_[sp]`는 없다.
 
 ### 로베르타 `char_484_robrta` (T3, 기능공) · 전자동 스타일러 `token_10018_robrta_mach`
-- 재능: 배치 때 보유 수를 `cnt`로 **맞춘다**. 공식 클라에서 확인: `charge_token[refresh]`의 `_refreshRemainingCnt`면 `Deck.TokenCard.Recharge`가 더하지 않고 cnt로 놓는다(상한 안에서). CRA-X는 상한 +1, 비용 −2(소환물 표). CRA-X의 `trigger_charge_token`은 배치 전 카드에서 돈다(`_attachPassiveBuffsOnDummy`). [추정·미조사: 그 +1이 배치 때 맞추기보다 먼저라 덮이고, 상한은 S2로만 찬다. 순서는 안 읽음] 놓인 기계는 전투 시작에 무료로 서고, 떠난 기계는 재배치 시간 뒤 보유 1·비용을 내고 제자리로(`deviceReturn`, 스테인리스와 같음).
-- 기계: 공격 안 함, 치료 불가·무적, 지정 안 됨. 배치마다 `duration`초 뒤 떠난다(`robrta_mach_withdraw`). 바라보는 칸의 근접 칸 유닛(오퍼레이터·소환물, 장치 아님 — `professionMask`·PRTS)에게 방어력 +`def`(한 기계 것만: 다른 기계가 뒤를 잇는다), 실드 횟수는 **기계의 것**이라 다음 유닛은 남은 만큼만 받는다(PRTS). 횟수는 재능 문구의 것(표 칸 없음, 프리팹 `Talents/1`·`1+`). [추정·미조사: 두 기계가 한 유닛을 볼 때 실드을 각자 둔다. 같은 키 버프가 대체하는지 안 읽음]
+- 재능: 배치 때 보유 수를 `cnt`로 **맞춘다**. 공식 클라에서 확인: `charge_token[refresh]`의 `_refreshRemainingCnt`면 `Deck.TokenCard.Recharge`가 더하지 않고 cnt로 놓는다(상한 안에서). CRA-X는 상한 +1, 비용 −2(소환물 표). CRA-X의 `trigger_charge_token`(모듈의 TRAIT 부분 `robrta_equip_1_*_p1`)은 특성 능력이 붙을 때마다 +`cnt`: 배치 전 카드에서 한 번(`_attachPassiveBuffsOnDummy`), 그리고 배치마다 맞추기 **뒤**. 공식 클라에서 확인(2026-11-11): `Ability.DoAttach`는 주인이 더미이고 그 플래그가 꺼졌을 때만 패시브 버프를 건너뛰고, `Character.OnBorn`은 `Entity.OnBorn` → `BuffContainer.OnOwnerBorn`(재능 `charge_token[refresh]`, ON_OWNER_BORN)을 먼저 돌린 뒤 `m_traitAbility`를 붙인다. 그래서 CRA-X면 배치마다 보유 cnt + 1(= 상한). 놓인 기계는 전투 시작에 무료로 서고, 떠난 기계는 재배치 시간 뒤 보유 1·비용을 내고 제자리로(`deviceReturn`, 스테인리스와 같음).
+- 기계: 공격 안 함, 치료 불가·무적, 지정 안 됨. 배치마다 `duration`초 뒤 떠난다(`robrta_mach_withdraw`). 바라보는 칸의 근접 칸 유닛(오퍼레이터·소환물, 장치 아님 — `professionMask`·PRTS)에게 방어력 +`def`(한 기계 것만: 다른 기계가 뒤를 잇는다), 실드 횟수는 **기계의 것**이라 다음 유닛은 남은 만큼만 받는다(PRTS). 횟수는 재능 문구의 것(표 칸 없음, 프리팹 `Talents/1`·`1+`). 두 기계가 한 유닛을 보면 실드는 둘 다 붙고 먼저 붙은 것부터 쓴다: 프리팹의 두 버프(`robrta_mach_t`·`robrta_mach_t[def]`)가 `disableOverride` 0·`overrideType` 0이라 같은 키 버프를 줄 세우고 끝나지 않은 첫 것만 켠다(`Buff.OverrideGroup._DoUpdateInternal`, 공식 클라에서 확인) — 엔진의 「먼저 생긴 횟수 실드부터」(`absorbShields`)와 같다.
 - S1 공격력·방어력. S2 공격 안 함, 저지 +`block_cnt`, 방어력 +`def`, 끝날 때 보유 +1(`trigger_charge_token`).
 - 봇은 캐서린 장치처럼 오퍼레이터를 향해 놓는다(`bot.js FRONT_SUPPORT_TOKENS`).
 
 ### 클릭 `char_328_cammou` (T1, 메카 캐스터)
 - 재능: 공격 속도 +N, 드론은 그의 간격으로 친다. 특성 드론 경사 상한은 FUN-Y에서 120%(특성 bb).
-- S1 공격력만(모드 S1은 그림만 다름). S2: 범위 3-3, 공격력 +N. 드론은 그의 대상을 잠가 범위 밖이어도 그 적이 죽거나 스킬이 끝날 때까지 친다. 그동안 붙은 드론 추가 피해는 꺼진다. 자기 공격과 드론 타격이 각각 `attack@prob`로 `attack@stun`초 기절(`cammou_s_2`가 두 능력에 있음). 그의 상태 이상으로 멈추지 않는다(PRTS). [추정·미조사: 잠근 드론은 그의 공격 간격으로 경사를 올리며 친다. 프로젝타일 자체의 타격 간격은 안 읽음, 로로·쉐라의 풀린 드론과 같게]
+- S1 공격력만(모드 S1은 그림만 다름). S2: 범위 3-3, 공격력 +N. 드론은 그의 대상을 잠가 범위 밖이어도 그 적이 죽거나 스킬이 끝날 때까지 친다. 그동안 붙은 드론 추가 피해는 꺼진다. 자기 공격과 드론 타격이 각각 `attack@prob`로 `attack@stun`초 기절(`cammou_s_2`가 두 능력에 있음). 그의 상태 이상으로 멈추지 않는다(PRTS). 공식 클라에서 확인(2026-11-12, `FunnelRemoteAttack`의 `_funnelAction` → 투사체 `projectile_chr_cammou_funnel_s2`의 `FunnelHitbehaviour`): 드론은 그의 공격이 나갈 때(`DoCastOnTargets`) 그 공격의 대상에게, 나가 있는 드론이 없을 때만 풀린다. 그 적이 죽거나 대상 조건(`_targetOptions`)에서 벗어나거나 그가 쓰러지면 드론이 멈추고, 다음 드론은 그의 다음 공격을 기다린다(전에는 곧바로 그의 첫 대상에게 다시 붙었다). 타격은 드론 자신의 타이머로: 붙자마자 한 번(`_waitFirstPeriod` 0), 그 뒤 그의 공격 간격(`Entity.attackTime`)마다, 그 간격이 바뀌면 남은 시간 × 새 간격 ÷ 옛 간격(`RangedAttack.OnAttackTimeChanged` → `PeriodicTimer.ResetButKeepProgress`, 일반 공격 쿨다운과 같음 — sim.md 「일반 공격 타이밍」; 전에는 타격 때 정한 대기 그대로). 타격마다 특성 경사(`CammouTrait.SetFunnelAtkScale`: 대상이 바뀌면 처음 값, 같으면 한 단계씩 상한까지).
 
 ### 퀘르쿠스 `char_492_quercu` (T1, 비호자)
 - 특성: 스킬 중 공격은 범위에서 HP 비율이 가장 낮은 아군 치료(공격력 × `heal_scale`, BLS-X 1.0, 모드 S1·S2 `_postFilter` 3).
@@ -1455,9 +1545,9 @@
 
 ### 바르카리스 `char_4166_varkis` (T1, 센추리온)
 - 특성: 분기 공통(저지한 적 모두 공격). 모듈 귀갓길 CEN-Y: HP 비율이 `hp_ratio` 초과면 받는 물리 피해 ×(1 − `damage_resistance`)(`varkis_e_002_trait` ON_TAKE_DAMAGE).
-- 재능 영세불망(`varkis_t1[minos_atk_up]`): 그가 서 있는 동안 미노스 오퍼레이터(그 자신 포함, 소환물 제외)의 모든 피해가, 대상의 HP 비율이 자기 이하일 때 공격력 × `talent_atk_scale`(방어 앞, 피해마다 그 순간 비율, PRTS 비고). 여럿이면 곱하지 않고 먼저 배치한 바르카리스의 값 하나이고, 값이 더 높아도 나중 것은 꺼져 있다가 먼저 것이 떠나면 켜진다: 같은 키 버프는 덮어쓰기 그룹 DEFAULT의 큐에서 끝나지 않은 첫 버프만 켜지고(`Buff.OverrideGroup._DoUpdateInternal`), 이 버프는 `priority` −1에 `priorityBBKeys`와 속성 수정이 없어 우선순위가 같으므로 `instanceUid`가 작은 것, 곧 먼저 붙은 버프가 앞선다(`Buff._CalculatePriority`·`Buff.CompareTo`, 공식 클라에서 확인). [추정·미조사: 둘이 다 선 뒤 배치한 기물과 나중 바르카리스 자신에게 어느 오라가 먼저 붙는지, 여기서는 먼저 배치한 쪽]
+- 재능 영세불망(`varkis_t1[minos_atk_up]`): 그가 서 있는 동안 미노스 오퍼레이터(그 자신 포함, 소환물 제외)의 모든 피해가, 대상의 HP 비율이 자기 이하일 때 공격력 × `talent_atk_scale`(방어 앞, 피해마다 그 순간 비율, PRTS 비고). 여럿이면 곱하지 않고 먼저 배치한 바르카리스의 값 하나이고, 값이 더 높아도 나중 것은 꺼져 있다가 먼저 것이 떠나면 켜진다: 같은 키 버프는 덮어쓰기 그룹 DEFAULT의 큐에서 끝나지 않은 첫 버프만 켜지고(`Buff.OverrideGroup._DoUpdateInternal`), 이 버프는 `priority` −1에 `priorityBBKeys`와 속성 수정이 없어 우선순위가 같으므로 `instanceUid`가 작은 것, 곧 먼저 붙은 버프가 앞선다(`Buff._CalculatePriority`·`Buff.CompareTo`, 공식 클라에서 확인). 어느 오라가 먼저 붙는지도 공식 클라에서 확인(2026-11-12, `GlobalAuraAbility`): 재능은 `Character.OnInit`에서 붙어 `DoAttach`가 이미 선 유닛 모두에게 버프를 주고, 그 뒤 `ON_UNIT_BORN`(`Unit.OnBorn`이 유닛을 등록한 다음 냄)을 들어 새로 선 유닛에게 곧바로 준다. 듣는 쪽은 더한 차례로 불리므로(`EventPool`의 콜백 모음 `HashSet`, 지운 칸이 없을 때) 먼저 배치한 바르카리스의 버프가 모든 대상에 먼저 붙는다 — 이미 선 기물, 둘이 다 선 뒤 배치한 기물, 나중 바르카리스 자신(자기 오라는 붙을 때 아직 등록되지 않은 자신을 못 본다). 키트 그대로. 공식은 전투 중 떠난 유닛이 비운 콜백 칸을 나중 것이 다시 쓰면 그 뒤 선 유닛에게는 차례가 뒤집힐 수 있는데, 이 모드는 기물이 전투 시작에 다 서므로 따르지 않는다.
 - S1 급류 `skchr_varkis_1`: 다음 공격이 저지한 대상마다 `atk_scale`로 세 번. 공식 클라에서 확인: `_additionalTimes` 2, `_waitAttackEventForAllAttacks`라 간격은 클립 `Skill`의 공격 프레임(0.467·0.5·0.533).
-- S2 동포의 의지 `skchr_varkis_2`(`_switchToState` 1, `_beginAnim` `Skill_2_Begin` 0.333초): 시전이 휘두름을 끊고 시작 클립 동안 공격하지 않으며 지속 시간은 그 뒤부터. 공격 배율 `attack@s2_atk_scale`, 공격마다 한 번 자신 최대 HP의 `attack@hp_ratio` 치료(ON_SPELL_ON, PRTS 「반드시 치료」).
+- S2 동포의 의지 `skchr_varkis_2`(`_switchToState` 1, `_beginAnim` `Skill_2_Begin` 0.333초): 시전이 휘두름을 끊고 시작 클립 동안 공격하지 않으며 스킬과 지속 시간은 그 뒤부터(엔진, `sim.md` 「스킬 시작 클립」). 공격 배율 `attack@s2_atk_scale`, 공격마다 한 번 자신 최대 HP의 `attack@hp_ratio` 치료(ON_SPELL_ON, PRTS 「반드시 치료」).
 - 보호막: S2 중 자신에게 들어온 치료의 넘친 양(생명 복원 제외)이 보호막으로(`varkis_s2[shield]` `HEAL_CAN_GENERAL_SHIELD`, `ON_ES_OVER_ZERO`), 상한 최대 HP × `max_hp_ratio`. 다른 보호막 뒤에 소모(우선순위 −1000, PRTS 비고, `shieldLast`). 스킬이 끝나도 남고 스킬 밖에서 1초마다 `dynamic_dec_per_sec`씩 준다.
 
 ## 새 시즌 그레이스롯·아스트젠·그레이 더 라이트닝베어러·키치세이 (2026-11-07, 관리자 결정 2026-11-05)
@@ -1497,7 +1587,7 @@
 
 ### 콘트레일 `char_4165_ctrail` (T2, 스카이레인저)
 - 티피·안젤리나 더 멜로우 위시와 같은 이륙이다: 플래그 `liftoff` + `blockFly`, 사건 `takeoff`, `render/units.js LIFTOFF_HEIGHT`(0.8, `attack@height_offset`), 클립은 `tools/assets/anim-keys.mjs`의 `_TakeOff`·`_Landing`. 모드 구성은 티피와 같고 `Default_S1`이 더 있다.
-- 다른 점은 클립 시간이다. 프리팹에서 이륙·착륙 모드의 공격 능력은 그 클립이라(`_timeMode` 1, `_allowNoTarget`) 그동안 공격하지 않는다. 그래서 타락사쿰처럼 `FLY_CLIP`(네 클립 모두 1초) 동안 공격을 막고, 착륙 클립이 끝날 때 지상으로 돌아온다. 배치 때의 이륙 클립은 배치 직후 상태(`bornUntil`)가 끝난 뒤에 돈다. 티피·안젤리나 키트에는 이 시간이 없다(`bundles/loose.md`에 적은 차이, 지금 시즌 golden이 움직여 건드리지 않음).
+- 다른 점은 클립 시간이다. 프리팹에서 이륙·착륙 모드의 공격 능력은 그 클립이라(`_timeMode` 1, `_allowNoTarget`) 그동안 공격하지 않는다. 그래서 타락사쿰처럼 `FLY_CLIP`(네 클립 모두 1초) 동안 공격을 막고, 착륙 클립이 끝날 때 지상으로 돌아온다. 배치 때의 이륙 클립은 배치 직후 상태(`bornUntil`)가 끝난 뒤에 돈다. 티피(S1·S2 이륙·착륙 1초)와 안젤리나 더 멜로우 위시(S1·S2·S3 착륙, S3 이륙 1초)도 같다(2026-11-11, `kits/shared/liftoff.js`): 클립 동안 공격하지 않고, 이륙·착륙 모드로 바뀌며 휘두름이 끊기고(모든 모드 공격 능력 `_interruptAbilityOnDetach`), 착륙 클립 동안은 아직 공중이다. 안젤리나 더 멜로우 위시 S2에는 이륙 모드가 없고 시작 클립 `Skill_2_Begin`이 그 자리다(엔진, `sim.md` 「스킬 시작 클립」). 그녀 S1의 배치 때 이륙(`S1_TakeOff`, 클립 `Start_2`)은 배치 직후 상태 뒤에 1초 돈다(2026-11-11, 공식 클라에서 확인): S1의 `_defaultModeIndex` 5 = `S1_TakeOff`라 그 모드로 배치되고, 그 모드는 `Born` 클립을 바꾸지 않으며(`_excludeAnimKeys` Born, 배치 이펙트만 `aglna2_birth_type_02_01`) 이륙 클립은 그 모드의 공격 능력이라 배치 직후 상태가 끝나야 돈다. 공중 저지는 처음부터다(`aglna2_tr`: Default 모드가 아니면 FLY). 콘트레일·타락사쿰의 이륙·착륙도 같은 도우미다: 이륙·착륙 모드로 바뀌며 진행 중 휘두름이 끊긴다(전에는 두 키트가 착륙 때 안 끊었다; 이륙 때는 스킬 공격 모드로 바뀌며 엔진이 끊었다). S3이 끝나 집으로 날아가면 착륙 클립은 도착한 뒤다.
 - 지상에서는 지상 적만, 공중에서는 공중 적만 저지한다. 모든 모드의 공격이 투사체다(`projectile_chr_ctrail`, `_s2`).
 - 재능 저공 난류(`ctrail_t_1`): 지상 모드(`Default`·`Default_S1`)에서 방어력 +`def`, 그 밖의 모드에서 모든 피해의 공격력 ×`atk_scale`(방어 앞).
 - S1 긴급 이륙(패시브, `_castOnLocate`): 배치마다 `duration`초 동안 공격력·물리 회피 `prob`(`ctrail_s_1` Evade). 공식 클라에서 확인: `_defaultModeIndex` 7이고 `_extraRangeIdModeIndices`에 7이 있어, S1을 고르면 착륙 뒤 지상(`Default_S1`)에서도 사거리가 스킬 범위 2-3이다. 키트는 `unit.rangeGrid`로 둔다. 정비 화면 카드는 기록의 기본 범위를 보인다(프로스트리프와 같음).
@@ -1537,7 +1627,7 @@
 ### 오로라 `char_422_aurora` (T3, 듀얼리스트)
 - 특성: 저지 중이 아니면 SP 회복 없음(`SP_RECOVER_STOPPED`). HES-X는 대신 SP 회복 ×(1 + `sp_recover_ratio`)(PRTS).
 - 재능 저온 휴식(Default 모드의 `ToggleablePassiveBuffAbility` + `SpRatioToggleChecker`): 스킬이 꺼져 있고 SP가 최대치의 `sp_ratio` 이하(같아도)이면 공격 불가(`DISARMED`)와 최대 HP의 N% 초당 회복. PRTS 「생명 회복 속도 속성, 치료 보너스·치료 불가와 무관」이라 `hpRegenRatio`.
-- S1 터전 고수 `skchr_aurora_1`(`_switchToState` 1, `_beginAnim` `Skill_Begin` 0.5초): 저지 수 +2, 방어력 +N%, 저항(`one_minus_status_resistance`). 시전이 진행 중인 휘두름을 끊고 시작 클립 동안 공격하지 않으며, 지속 시간은 그 뒤부터(`BasicSkill.PlayBeginAnimation`). 끝나면 자신 `stun`초 기절.
+- S1 터전 고수 `skchr_aurora_1`(`_switchToState` 1, `_beginAnim` `Skill_Begin` 0.5초): 저지 수 +2, 방어력 +N%, 저항(`one_minus_status_resistance`). 시전이 진행 중인 휘두름을 끊고 시작 클립 동안 공격하지 않으며, 스킬(수치·저항)과 지속 시간은 그 뒤부터(`BasicSkill.PlayBeginAnimation`, 엔진 — `sim.md` 「스킬 시작 클립」; 2026-11-11 전에는 수치가 시전 때부터). 클립 동안 기절하면 시전이 사라져 끝의 자기 기절도 없다. 끝나면 자신 `stun`초 기절.
 - S2 인공 강설 `skchr_aurora_2`(`Skill_2_Begin` 0.667초, 9회: `_triggerTimeCount`): 공격력 +N%, 공격 간격 ×(1 + `base_attack_time`). 빙결이 아닌 적에게는 그 타격에 `attack@cold`초 한기(`aurora_s_2[freezeattack]`, 두 번째 한기는 엔진 규칙대로 빙결), 빙결 중인 적에게는 그 공격의 공격력 × `atk_scale`(`aurora_s_2[freezeattack2]`, `AtkScaleUp`: 방어력 앞에서).
 
 ## 새 시즌 사일런스 더 패러디그매틱·외드레르·메커니스트 (2026-11-08, 관리자 결정)

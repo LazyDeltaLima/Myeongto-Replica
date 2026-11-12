@@ -220,7 +220,10 @@ export default {
       const s1On = () => up(owner) && !!owner.skill?.active && owner.skill.id === S1;
       const s2On = () => up(owner) && !!owner.skill?.active && owner.skill.id === S2;
       const common = (battle) => {
-        battle.addBuff(dev, { key: 'ironmn:device', flags: { untargetable: true, noHeal: true, ...(dev.defId === CRAB ? { isolated: true, noDisplace: true } : { invulnerable: true }) }, persist: true, allowDead: true });
+        // 铁钳号 is a unit of the enemy camp (its prefab `_sideType` ENEMY): `enemyCamp` keeps every enemy selection off it
+        // (targeting.js canTargetAlly / auraSelectable) while our enemy selections take it (queries.js _pushAllyTargets);
+        // the 平台 are untargetable and invulnerable ("不会受到攻击", PRTS 持有无敌)
+        battle.addBuff(dev, { key: 'ironmn:device', flags: { noHeal: true, ...(dev.defId === CRAB ? { enemyCamp: true, isolated: true, noDisplace: true } : { untargetable: true, invulnerable: true }) }, persist: true, allowDead: true });
         if (aspd) {
           // CRA-Y: "自身装置天赋生效的干员攻击速度+6（此效果不受技能影响）" — on the operators the device's talent reaches
           const reach = dev.defId === CRAB
@@ -306,7 +309,9 @@ export default {
                 const cx = t ? t.x : x, cy = t ? t.y : y;
                 if (atkScale2 > 0) {
                   for (const e of battle.foesInRadius(cx, cy, CRAB_SPLASH, true)) {
-                    if (e === target || !e.alive) continue;
+                    // its own selector keeps to the enemies (an enemy-camp unit: foesInRadius's ally targets — itself, the
+                    // other 铁钳号 — are not its foes)
+                    if (e === target || !e.alive || battle.isAllyTarget(e)) continue;
                     battle.dealDamage(unit, e, { amount: atk * atkScale2, type: 'phys', isSkill: true, tags: ['summon', 'skill'] });
                   }
                 }

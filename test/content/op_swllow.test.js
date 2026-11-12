@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
+import { ACT3, field, done, cast, begun, realMatch } from '../helpers/seasonPieces.js';
 
 const A = 'chess_char_1_07_a', B = 'chess_char_1_07_b';
 const FORMS = [A, B];
@@ -73,6 +73,7 @@ test('S2: ATK +atk, every attack 3 arrows, for its duration', () => {
     const r = rec(id, S2), before = u.s.atk;
     const e = h.spawn('enemy_dummy', { pos: FRONT, def: 0 });
     cast(u);
+    begun(h, u);   // (the skill starts after its begin clip: skills.js _beginCast)
     near(u.s.atk, before * (1 + r.bb.atk), `${id}: ATK`);
     assert.ok(h.runUntil(() => hits(h, u, e).filter((c) => c.dmg.isSkill).length > 0, 5), `${id}: it shot`);
     const last = hits(h, u, e).at(-1).dmg.attackId;

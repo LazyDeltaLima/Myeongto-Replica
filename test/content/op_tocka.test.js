@@ -221,6 +221,7 @@ test('S3: when the holder starts its skill — it and she get ATK +70 % / +90 % 
     assert.ok(fxOf(ins, 'tocka:s3', u));
     ins.skill.setSpTotal(ins.skill.spCost);
     ins.skill.activate('test');
+    h.runUntil(() => ins.skill.active, 2);   // (隐现's skill starts after its begin clip: skills.js _beginCast)
     const bi = ins.buffs.find((x) => x.key === `tocka:bonus:${u.id}`), bu = u.buffs.find((x) => x.key === `tocka:bonus:${u.id}`);
     assert.ok(bi && bu, 'the bonus on both');
     assert.deepEqual([bi.mods.atkPct, bu.mods.atkPct, bi.timeLeft], [b3.bonus_init_atk, b3.bonus_init_atk, b3.bonus_duration]);

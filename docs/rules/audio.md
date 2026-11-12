@@ -196,7 +196,7 @@
       `ON_BUFF_START.cello_s_3[audio]` p_skill_shphrtcltrillmelody(20.4 초, `ON_SKILL_FINISH.skchr_cello_3` ctrlStop 0.2 초). 塑心은 재생 조건이 아니라 이 두 뱅크가 없었다.
     - `tools/assets/skill-mode-sfx.mjs skillExtras` → `sfx.units[id].extras[i] = [{ url, grp?, vol?, stop? }]`: ① 스킬 자신의 `ON_ABILITY_START.<skillId>`
       (Skill_Important·UI_Boost·P_Field 그룹, 시작음과 다르고 공용 `battle/b_char/*` 아님), ② `ON_SKILL_FINISH|ON_ABILITY_END.<skillId>` ctrlStop이 끊는 뱅크(`stop` =
-      그 페이드). [추정·엔진: ①은 스킬 시작 순간 — 대상 15명 모두 「立即…」·시전형이고 시작 클립 길이는 sim의 스킬 시작에 넣지 않음]. `audio.mjs indexAudio`에 `ctrlStops`·`isLoop`. `skillLoops`는 `ON_ABILITY_END`도 본다
+      그 페이드). [추정·엔진: ①은 'skill' 켜짐 사건(시전) 순간에 낸다 — 시작 클립이 있는 스킬은 공식으로 클립 뒤일 수 있다. sim은 2026-11-11부터 스킬을 시작 클립 뒤에 시작한다(`sim.md` 「스킬 시작 클립」), 사건은 그대로 시전 때]. `audio.mjs indexAudio`에 `ctrlStops`·`isLoop`. `skillLoops`는 `ON_ABILITY_END`도 본다
       (烛煌 S3 장판 루프 p_skill_hcnsrfrfld — 빠진 루프는 이것 하나). 새로 생긴 extras: nearl2 S2/S3, cello S3, blaze2 S3, mostma S2(stop 0.7)/S3, gnosis S3,
       mudrok S3, archet S2, surtr S3, bubble S2, sunbr S2, cetsyr S3, rmixer S2, blemsh S3, pasngr S3.
     - `audioOfficial.js startSkillLoop(…, { loop: false, fade })`(끊을 수 있는 한 번 재생), `stopUnitLoops`, `skillExtrasOf`; `audio.js`가 'skill' 켜짐에 extras를
@@ -877,8 +877,9 @@
     붙을 때 그 패시브가 시작해 ON_BUFF_START 소리(모드 능력은 그 모드 동안만 붙음 — 등장 때 첫 모드도, fx.md 「기본 모드 attach」). sim은 은신 여부를
     0.3초마다 보고 바뀌면(등장 때 Horror도) 소리 전용 kitHit `acbunn:horror`/`acbunn:cute`(`content/enemies/invisible.js kitBoneSpike`; 공격 대상
     수 같은 sim 규칙은 그대로 은신 여부를 바로 봄).
-  - 원핵의 악생자: 첫 피해에(`dslntf_tr_1` ON_TAKE_DAMAGE → 모드 1, PlayAudio `Awake`) kitHit `dslntf:awake`(`kitNucleus`). 원핵 껍데기
-    (`trap_156_dsshell`)에 저지될 때의 같은 길은 이 모드에 그 장치가 없어 없음.
+  - 원핵의 악생자: 첫 피해에(`dslntf_tr_1` ON_TAKE_DAMAGE → 모드 1, PlayAudio `Awake`) kitHit `dslntf:awake`(`kitNucleus`). 증식 갑각
+    (`trap_156_dsshell`)에 저지될 때(같은 템플릿의 ON_OWNER_BLOCKEE_CHANGED, 같은 PlayAudio)도 같은 kitHit(2026-11-12, rules/sim.md 「규정 적·보스」
+    재생 나머지). 갑각을 부술 때(`dslntf_s_1[block]`)는 PlayAudio가 없어 kitHit `dslntf:break`는 소리 없음.
   - 불타는 덩굴: 첫 공격의 폭발(`enemy_ftsjc[aoe]` — 근원에 `[first_attack]`이 있을 때 AOE 뒤 PlayAudio `enemy_ftsjc.aoe`) → fx `explode` `flameVine`.
   - '산크타의 눈': 탄을 빼앗을 때(`hlegle_a[steal]` — 대상 탄약 스킬 남은 수가 0이 아니면 빼앗고 PlayAudio `hlegle_steal_bullet_audio`) → fx `steal`
     (`from` = 그 적). 공식은 탄약 스킬의 탄만 본다(sim은 특성 탄도 빼앗음 — sim 규칙, 소리는 sim 사건을 따름).
@@ -1096,3 +1097,21 @@
 - **지느러미(숨은 핵심) 뇌우**: 재능 버프 `aceel[thurder-trigger]`의 `audioSignal` `Aceel_ThurderEnv` → `battle.ON_BUFF_START.Aceel_ThurderEnv`(`a_bat_lthndrstm`, 한 번에 하나·popOldest, `Battle_UI_Important`). 버프는 그 적이 나올 때 붙어 사라질 때까지 남으므로(fx.md 「규정 보스 고치·지느러미의 이펙트」 뇌우 화면), 숨은 핵심 지느러미(`enemy_9037_aceel_2`)의 `spawn`마다 한 번(`audio.js` `aceel:thunder`). 보통 지느러미에는 이 재능이 없다.
 - **고치(숨은 핵심) 비참한 비의 끝**: 칸 리스너 `Left`·`Right`의 `_effectSettings` `endAudioSignal` `acid_rain` → `battle.ON_CUSTOM_TRIGGER.acid_rain`(`e_atk_bvspdrspt_h_u`, 한 번에 하나·popOldest 아님). 칸 장판이 끝날 때 나는 소리라 비 하나에 한 번: 시뮬 `zone` `acspiderRain`의 `dur` 뒤, 고치가 죽거나 같은 필드에 새 비가 오면 그때 바로(렌더가 장판을 끝내는 때와 같음 — `audio.js _acidRain`·`_acidRainCut`). 비를 거는 순간의 소리는 능력 뱅크 `ON_ABILITY_START.enemy_9035_acspider_2.AcidRain`으로 다른 적 능력처럼. [추정·엔진: 늦춤을 게임 초로 잼 — 클레멘티아 S3 낙하음과 같음]
 - 확인: `test/audio-enemy-buff-sounds.test.js` 「규정 隐秘核心 sounds」(뱅크·숨은 핵심만 뇌우·비 끝: 때가 되면·새 비·고치 죽음·이미 끝난 비는 한 번만·걷는 거인의 모드·형태 전환·유인·강타). `audio.js`를 되돌리면 셋 실패. [화면 미확인: 실제 판에서 들어 보지 않음 — `checks/arena.md`]
+
+### 규정 새 적 소리 — 둘째 (2026-11-12, EN·CN 적 프리팹 + 버프 템플릿)
+
+- **소리 사실이 빠진 적 76종**: 규정에서 새로 나오는 지난 시즌 적(정예·재생 무리의 호위, 적 효과가 부르는 적 등 — 잔당 악단 드러머 `enemy_1376_ltndru`, 용맹한 팔라둘리스 `enemy_10163_mnctur_2`, 영혼의 유해 `enemy_1431_lrmzrd`, 살카즈 후예 무리 등)과 기본 시즌 적 몇(「사미의 의지」 `enemy_2054_smdeer` 등)이 `local-char-audio.json`에 없어, 능력 뱅크가 표에 있어도 매니페스트의 `cues`·`em`·`sk`가 비어 있었다. `char_audio.py --id …`로 그 76종만 더함(EN 74, EN에 없는 둘 `enemy_10229_agactr_2`·`enemy_2135_shkrbt`은 CN). 매니페스트는 더해지기만 함(바뀌거나 빠진 항목 0, 파일 28개 새로 받음).
+  - 드러머 `aoeAttack`의 폭발 소리: 능력 ON 뱅크 `ON_ABILITY_ON.enemy_1376_ltndru.aoeAttack`(`e_atk_drmsndwv`)이 위 「적 소리」의 스킬 규칙대로 시전 때 난다. `enemy_ltndru[AOE]`를 거는 `BuffToOwner`의 신호 `enemy_ltndru_AOE`는 zh_CN 소리 표에 뱅크가 없어 공식도 안 남. 악단 셋의 장식 버프(`enthu_fx_deco_only`·`depressed_fx_deco_only`)도 소리 없음.
+  - 팔라둘리스 `Skills/rush` 시전: `sk.rush` START(`e_atk_lghtnhrshk`).
+- **살카즈 후예의 재생 소환**: 쓰러질 때(sim `die` 이유 `killed`) 한 번 — 소환물이 `delay` 초 뒤 나올 때가 아니다. 전사·기술자·체인 캐스터·원한자(`enemy_1222`·`1223`·`1225`·`1226`, `_2` 포함)는 `enemy_vampires[bloodsucker_summon]`(ON_OWNER_KILLED, 추락(FALLDOWN)이 아닐 때 `audioSignal` `bloodsucker_summon[audio]`를 단 버프), 폭격자·처벌자(`enemy_1361`·`1362`)는 `enemy_dthrow_summon[dzoms]`(`PlayAudio` `enemy_summon_dzoms`) — 둘 다 `e_skill_reborn`. `audio.js knockOutSound`.
+- **영혼의 유해·영혼의 잔해가 소용돌이를 잡을 때**: `…[captureSoul]`이 영혼 3개 미만일 때 거는 `soulBuff`의 `audioSignal` `enemy_lrmzrd_capture_soul`·`enemy_lrwzrd_capture_soul`(`e_atk_rhtakeoff`) — sim fx `capture`마다.
+- **팔라둘리스의 돌진**: 출발 = `Skills/rush`의 `ActionToOwner`(모드 Run 전환 + `PlayAudio` `enemy_mnctur_run`, `e_atk_lghtnhrsrn`) — sim fx `phase` `form: 'Run'`. 충돌 = `enemy_mnctur_collide_char`의 `PlayAudio` `enemy_mnctur_rush_hit`(`e_imp_berxplvbrl`) — sim은 충돌 피해 바로 뒤 같은 틱에 `enemySkill` `rushEndNormal`을 내므로, 그 사건과 같은 묶음에 그 적이 준 `dmg`(6번째 칸)가 있으면 충돌(Run 모드엔 공격이 없어 그 피해는 충돌뿐), 없으면 아무도 못 만나고 끝난 것(`audio.js mncturHitSound`). 벽에 박는 `enemy_mnctur_stun`은 이 모드에 장치가 없어 안 남.
+- **와일드 트리케라비스트 충돌**: `enemy_mhboar_crash`가 거는 `mhboar_crash[audio]`는 소리 표에 뱅크가 없다 — 공식도 안 남. 본가드 리더 `bmbcar_unmovable`은 장치가 없어 안 남.
+- **가상적: 경안(假想敌：镜眼, 공식 한국어 이름 없음 — 묶음에서 쓰는 이름; `enemy_9039_acrefm`)의 공속 감소**: `acrefm[refracting]`이 마법 피해를 준 쪽에 거는 `acrefm[atk-spd-down]`의 `audioSignal` `enemy_9039_acrefm.refracting` → `ON_BUFF_SHOW_EFFECT` 뱅크(`e_imp_slwdnbf`) — sim 상태 `ab:acrefmSlow`가 처음 붙을 때(`statusSoundKey`). 붙어 있는 동안 다시 맞으면 EXTEND(시간만 늘어남)라 새 시작이 아니어서 소리 없음 — sim의 `status` 켜짐도 처음 한 번뿐.
+- 확인: `test/audio-season-enemy-sounds.test.js`(뱅크와 매니페스트·순수 함수·관리자: 하나씩 몇 번 나는지와 안 나야 할 것, 실제 전투로 팔라둘리스의 돌진 셋이 한 번씩·후예 전사의 소환음 한 번). `audio.js`를 되돌리면 다섯, 매니페스트를 되돌리면 다섯 실패. [화면 미확인: 실제 판에서 들어 보지 않음 — `checks/arena.md`]
+
+## 원소 폭발 소리 (2026-11-12, 버프 표·템플릿)
+
+- 원소 폭발이 시작될 때(sim fx `burst` { id, element }) 그 원소의 소리. 적: 폭발 버프 자체의 `audioSignal`(EN 버프 표 `ep_break_fire_enemy`·`ep_break_water_enemy`·`ep_break_sanity_enemy`, CN 표 `ep_break_anger_enemy`), 쇠약은 `ep_break_dark_enemy` 템플릿이 신호를 단 버프를 만듦. 오퍼레이터: 템플릿 `ep_break_fire_char`·`water_char`·`sanity_char`·`dark_char`가 `ON_BUFF_START`에 신호를 단 버프를 만듦, `ep_break_anger_char`는 없음(오퍼레이터 광조는 소리 없음 — 엔진에 아직 오퍼레이터 광조도 없음).
+- 뱅크(`ON_BUFF_START.<신호>`): 소각 `ep_break_fire_audio`(`b_char_fireharm`) + `ON_BUFF_SHOW_EFFECT.ep_break_fire_audio`(`e_imp_dmfttrb_d` — `SHOW_EFFECT`도 `Entity.OnBuffStart` → `AddBuffEffect`가 버프 시작에 냄, 공식 클라에서 확인), 침식 `ep_break_water_audio`, 신경 `ep_break_sanity_audio`, 쇠약 `ep_break_dark_audio`, 광조 `ep_break_anger_audio`(`Battle_Skill_Important`). sim 원소 이름 → 공식: burn = FIRE, erosion = WATER, neural = SANITY, apoptosis = DARK, rampage = ANGER(`audio.js elementBurstSounds`).
+- 이 전에는 원소 폭발에 소리가 하나도 없었다(기본 시즌도). 확인: 같은 시험 파일 「element bursts」·관리자(소각 둘, 오퍼레이터 광조 없음).

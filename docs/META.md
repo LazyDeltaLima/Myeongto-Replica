@@ -377,6 +377,8 @@ Every handler method is `(ctx, ev)`; `ev` is shared by all handlers of one dispa
 | `onEquip` | `g.equip` (item handler only) | `{ item, target, golden, consumed, keep, error }` — see §2.5 |
 | `onArt` | `g.art` (item handler only) | `{ item, row, col, targets:[pieces], error, used }` |
 | `onDestroy` | an item was destroyed (player / replaced) | `{ item, holder, reason }` |
+| `onBandSkill` | `g.bandSkill` (the band handler only, its current stage — server/match/match/bandSkill.js) | `{ round, bandId, stageIndex, stage, effectId, target, cost, handled, error, cooldown }` — refuse with `ev.error` (a fail result) before changing anything; set `ev.handled` once the use is done; `ev.cooldown` overrides a COOLDOWN stage's rounds |
+| `onBandSkillUsed` | after a handled `g.bandSkill` was paid and counted (band handler only) | the same `ev` (copied), `cost` = funds paid — the cost keys (`skill_cost_*`) move the counter `band:skill:cost` here |
 | `onLayers` | bond layers were added (prep or battle gains) | `{ bondId, from, to, reason }` (milestones: 维多利亚 25, 远见 10, 奇迹 100 …); `to` ≤ 999 (`BOND_LAYER_CAP`) — a gain at the cap dispatches nothing, so the milestones stop with the count |
 | `onActiveBonds` | the set of active bonds changed: `PlayerState.recompute` (`player/round.js _reportActiveBonds`) compares the bonds it computed with the previous computed state — every path that changes what the bonds count ends there: placing / moving / swapping / withdrawing a piece in prep, buys, sells, merges, transformations, temp → hand moves, equipment (变形同构体), effects (`setBondCountBonus`, grants), evictions — any phase; never for an eliminated player | `{ activated: string[], deactivated: string[] }` (bond ids, data order; read only). A handler's own recompute (a grant's) reports only what changed after it. The layer milestones owed while a bond was off subscribe it and pay as soon as it lights up — 维多利亚's 维式重锤 (`bonds/templates.js payHammers`: placing the third member in prep grants it at once, the upstream maintainer's report of the official game, 2026-10-15), 远见 / 奇迹's funds and 远见's discount latch (`bonds/templates.js`) — each milestone once (their counters), however often the bond goes off and on; an AI rehearsal works on a detached copy (`preview.js`) and reports nothing |
 
@@ -425,7 +427,7 @@ Reads: `playerId seat name round phase modeId difficulty isSolo isCoop data (fro
 (`rng()`, `rng.int(n)`, `rng.pick(a)`, `rng.chance(p)`, `rng.shuffle(a)` — the match's meta stream, never
 `Math.random`), `funds() lp() alive() bandId() shopLevel() bond(id) bonds() bondActive(id) bondCount(id) layers(id)
 board() hand() temp() piece(uid) pieceAt(row, col) pieceBonds(uid) garrisonsOf(uid) chessRecord(id) stats() roundStats()
-shopSlots() effect(id)` (`piece(uid)` adds `area`, `holderUid`, `idx`; "身前一格" of (r, c) is (r, c + 1)),
+shopSlots() shopKinds() lpShared() effect(id)` (`shopKinds()`: each shop position's kind, empty ones included; `lpShared()`: the alliance holds one 目标生命值 now — a player's LP is only its share) (`piece(uid)` adds `area`, `holderUid`, `idx`; "身前一格" of (r, c) is (r, c + 1)),
 counters `counter(k) setCounter(k, v) incCounter(k, n)` (player scope, persistent; prefix keys with your module) and
 `pieceCounter(uid, k) incPieceCounter(uid, k, n)` (per piece, current round only: 0 in a new round and for a new piece —
 bought, granted, transformed, or an elite merged this round (GitHub #169, the owner's decision of 2026-10-06) —; a move
@@ -443,9 +445,12 @@ Writes (all validated, never throw on bad input, never make funds / pools negati
 | `grantItem(id, { toTemp })` | acquire an item (merges with an identical normal item); `toTemp` as for grantChess |
 | `rollChess({ maxTier, tier, bond, filter })` / `rollItem({ pool, tier, maxTier, exclude })` | copy-weighted chess id from the shared pool / item id (choices.json pools); `exclude` (also `rollPool(poolId, { exclude })`) drops ids before the draw — 凯瑟琳's spent 突变细胞 allowance, choices already drawn |
 | `grantFreeRefresh(n)` | free refreshes (stack) |
+| `refreshShop(adjust?)` / `rollShopItem(exclude)` | 规程's 指令 「刷新调度中心」: the manual refresh at no price (`PlayerState.effectRefresh`: the freeze ends, every slot rerolled, `adjust()` rewrites slots before onRefresh, counted as a refresh) / a new item card of the shop's own draw for `setShopSlot` |
+| `addLp(n)` | change the player's 目标生命值 (never below 1; nothing while the alliance shares one LP) — 献身护卫 |
 | `modifyPrice(delta)` / `setPrice(v)` | onPrice only: edit `ev.price` |
 | `promote(uid)` / `transform(uid, chessId)` / `upgradeItem(uid)` | elite in place / 突变细胞's transformation: destroy the chess wherever it stands (a board tile is freed; its equipment returns to the hand first, overflow temp), then gain `chessId` like `grantChess` (hand, overflow into the expandable temp queue; a merge it completes as usual — the carrier's tile is no copy's) and return the gained piece (the elite after a merge) / item → golden |
 | `destroyPiece(uid)` / `equipDirect(itemUid, chessUid)` | remove a piece (chess copies return, items go back) / attach without equip effects |
+| `sell(uid)` | sell an owned chess as the sell intent does (its price, onSold, the funds; PREP and not ready only); true when sold — 东之极道 |
 | `offerChess(ids, { tier, label })` | queue a pick-one offer (shown as `shop.rewardOffer`, free) — 寻呼模块 / 信标 style; `label` (default `effectsMeta.offerLabel(source)`: the strategy's effect name, the item's name or the 特质's operator) is the shop bar's header instead of 晋升奖励 (`rewardOffer.source` `'special'`; the promotion reward is `'merge'`) |
 | `offerItems(ids, { tier, label })` | the same for items (slots of kind `'item'`, drawn as item cards) — 凯瑟琳 定向投放 style (player report #6 after 0.1.0) |
 | `triggerGarrisons(uid, eventType, { asUid })` | run another owned chess's 特质 of that eventType now (铃兰 "触发…的获得时效果"); 投资人 still multiplies SERVER_GAIN; SERVER_PRICE cannot be triggered; depth-capped |
@@ -456,6 +461,7 @@ Writes (all validated, never throw on bad input, never make funds / pools negati
 | `addEffect(ref)` / `removeEffect(id)` / `setEffectCounter(id, v)` | EffectRefs `{ id, key?, name, desc, iconKind, iconId, counter?, battle=true, params?, data?, hidden? }` — shown in `m.private.effects`, passed to battles as `playerEffects` when `battle` |
 | `addBounty(card)` | a bounty (choices.json cards.bounty shape) on the next battles |
 | `offerBountyChoice(cards, sourceItemId)` | 教鞭 only: open a PERSONAL choice of up to three of `cards` (cards.bounty entries) for this player — shuffled once with the meta rng, kept in `m.private.personalChoice` until the owner confirms one (`g.choice { idx, choiceId }`) or the prep's deadline / an AI seat picks (§2.5); returns the intent result (`{ ok }`, or `{ error, detail }` for a phase that is not PREP, a Ready player, a choice already open or no card — before any rng draw or id, so the Art stays in the hand) |
+| `offerBandSkillChoice({ choiceEvent, desc, sourceItemId?, sourceBandId? })` | 规程's 更换指令 (“追随者们” 好多委托, 投机骰子): open a personal choice of N active 指令 of other strategies (N from the text's 「从N个」, at most 3) — the same slot, gates and result as `offerBountyChoice`; the pick becomes the player's 指令 (match/bandSkill.js, docs/rules/sim.md 「지령 바꾸기」) |
 | `toast(text, kind)` / `ticker(text)` / `giftTicker(fromName, chessId)` | messages |
 | `teammates()` / `player(playerId)` | ctx objects of other alive players (team effects) |
 
@@ -531,6 +537,13 @@ it fits in the existing parts:
   seat with the random pick instead — no seat is ever left un-ready by an offer.
 * The chosen bounty is a bounty like any other: next battles (a multi-round card lasts two, §1.2), 联防 payouts, the Final
   Assault / Hidden Core spawns — and in the boss rounds its perfect-battle coins (§3 Waves).
+* **规程's 更换指令** uses the same slot: `ctx.offerBandSkillChoice({ choiceEvent, desc, sourceItemId?, sourceBandId? })`
+  (`Match.offerBandSkillChoice`, match/bandSkill.js — “追随者们” 好多委托 at every prep start, 投机骰子 on equip) opens
+  `ps.personalChoice` with `kind: 'bandSkill'` and cards `{ bandId, effectId }`: the active 指令 of other strategies
+  (the server's pool, [ASSUMED·서버]). The same gates, privacy, deadline and Ready rule; `g.choice` makes the pick the
+  player's 指令 (`setBandCommand`, `ps.bandCommand`) instead of adding a bounty; the bots take the first card whose 指令
+  their rules use (`botPickBandCommand`). `m.private.personalChoice.kind` tells the two apart. docs/rules/sim.md
+  「규정 전략」 「지령 바꾸기」 has the rules.
 
 “神秘顾客” (granted by nothing in act2, no PRTS list of its cards) remains random: three cards are drawn from the band-bounty
 family `enemyeffect_b_*` [ASSUMED], limited to enemies the mode can field, and one is added with `ctx.addBounty` (the
@@ -629,6 +642,10 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   Ready, during onPrepEnd, or outside PREP (COMBAT, 联防, SETTLE, ROUND_START, 机变) → the end of the NEXT prep, so it
   is shown and usable first; `setReady(false)` makes what arrived while ready due at the current prep. The round
   start never wipes temp (DESIGN §6.2).
+  规程 (`equipHandSize` 5, docs/rules/sim.md 「규정 장비 구역」): equipment and 秘术 wait in the 装备区 — the five visible temp
+  slots, kept like the hand (no deadline) — and the hand holds operators and summon stacks only; a buy / pick into a full
+  zone is refused (`HAND_FULL`, `BAG_FULL` for an item); what overflows its zone waits in the hidden queue behind the five
+  (not drawn), is pulled into a freed slot of its own zone, and is resolved at the same deadline [ASSUMED].
 * **Merge**: 3 normal copies (风丸 2) anywhere (board/hand/temp) → 1 elite (the incoming copy, then temp, hand, board
   copies are consumed). Where it goes (PRTS 卫戍协议/帮助 "发送1名【精锐】状态的该干员至手牌区（若消耗已部署至作战区的干员，
   则发送至作战区对应位置）", the user's playtest #6 follow-up): when a consumed copy stood on the board, onto that copy's

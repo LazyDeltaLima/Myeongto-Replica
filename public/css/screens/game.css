@@ -281,6 +281,10 @@
 .bslot__count.is-max { border-color: var(--mint-700); color: var(--mint-400); }
 .bslot.is-active .bslot__count { border-color: var(--mint-700); }
 .bslot.is-open .bond__core { box-shadow: 0 0 0 2px var(--mint-400), 0 0 .2rem rgba(23, 249, 183, .6); }
+/* 临时层数 in the shown count (a battle's live layers): the count in the official HUD's yellow, and + the temporary part
+   after the popup's 层数 (CN capture 2026-11-11, sampled #f2c510; docs/rules/ui.md 「임시 중첩 표시」) */
+.bslot.has-temp .bond__count { color: #f2c510; }
+.bpop__temp { margin-left: .04rem; color: #f2c510; font-weight: 700; }
 /* a bond the mode never activates, with members (the server's `off` entry): the briefing's grey ✕ disc, the chips'
    struck name, 本局禁用 under it instead of the count */
 .bslot.is-off .bond__name { color: var(--text-dim); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
@@ -360,24 +364,56 @@
 .pavatar__x .icon, .pavatar__door .icon { width: 60%; height: 60%; filter: drop-shadow(0 0 4px #000); }
 
 /* ---- effects ---------------------------------------------------------------------------------------------- */
+/* .gm__effects holds the 伤害 chip of the round damage panel (game-panels.css .rdmg) under the ready button */
 .gm__effects { position: absolute; right: .3rem; top: 2.4rem; }
 /* 准备就绪 refused (the temp row holds pieces): its reason shows under the button and pushes the ready count down —
-   the effects column follows, or the count runs into it on phones */
+   the chip follows, or the count runs into it on phones */
 .gm.has-readywhy .gm__effects { top: calc(2.4rem + max(.3rem, 16px)); }
-.effects { display: flex; flex-direction: column; align-items: flex-end; gap: .08rem; }
-.effect {
-  position: relative; width: .5rem; height: .5rem; display: grid; place-items: center;
-  background: rgba(8, 11, 10, .85); border: 1px solid var(--line-2);
+/* 强化效果 (ui/effectsList.js BuffButton; the official 规程 HUD's btn_check_buff and autochess_hud_buff_dialog, maintainer
+   decision 2026-11-12 for both seasons): the 90-unit button box right against the 🔍 (90 left of its centre), the theme's
+   59×37 sprite inside 6 units up with the count 12 right of its centre (19, #03FBB9; opened #02140F); the window 417 wide
+   and at most 410 tall, its left edge 102.5 left of the button's, under the bar — `--u` is one unit of the 1920 × 1080 HUD */
+.gm .gtop .gtop__center > .buffs:not(.tip-wrap):not(.tooltip-anchor) {
+  --bu: var(--u, .015rem); position: absolute; z-index: 3; right: 100%; top: 50%; width: calc(var(--bu) * 90); height: calc(var(--bu) * 55);
+  transform: translateY(-50%);
 }
-.effect img { width: 86%; height: 86%; object-fit: contain; }
-.effect .icon { width: .28rem; height: .28rem; color: var(--mint-500); }
-.effect--band { border-color: var(--mint-800); }
-.effect--team { border-color: rgba(78, 216, 175, .6); }
-.effect__n { position: absolute; right: -.05rem; bottom: -.05rem; min-width: .2rem; font-size: .12rem; line-height: 1.4; text-align: center; background: var(--gold); color: #1d1400; padding: 0 .03rem; }
-.efftip { display: flex; flex-direction: column; gap: .04rem; max-width: 3.6rem; }
-.efftip b { font-size: .17rem; color: var(--mint-400); }
-.efftip__kind { font-size: .12rem; color: var(--text-dim); }
-.efftip p { font-size: .15rem; line-height: 1.55; color: var(--text-md); }
+.buffs__btn {
+  position: absolute; left: 50%; top: 50%; width: calc(var(--bu) * 59); height: calc(var(--bu) * 37); padding: 0;
+  transform: translate(-50%, calc(-50% - var(--bu) * 6)); display: flex; align-items: center; justify-content: flex-end; gap: calc(var(--bu) * 3);
+  padding-right: calc(var(--bu) * 9); border: 1px solid rgba(3, 251, 185, .55); border-radius: calc(var(--bu) * 4);
+  background: rgba(6, 22, 18, .85); color: #03fbb9; cursor: pointer;
+}
+.buffs__btn.has-sprite { border: 0; border-radius: 0; background: var(--buff-sprite) center / 100% 100% no-repeat; padding-right: calc(var(--bu) * 6); }
+.buffs__ic { width: calc(var(--bu) * 20); height: calc(var(--bu) * 20); color: #03fbb9; }
+.buffs__n { min-width: calc(var(--bu) * 24); text-align: center; font-size: calc(var(--bu) * 19); line-height: 1; color: #03fbb9; }
+.buffs.is-open .buffs__btn:not(.has-sprite) { background: #03fbb9; }
+.buffs.is-open .buffs__n, .buffs.is-open .buffs__ic { color: #02140f; }
+.buffs__btn:hover { filter: brightness(1.15); }
+.buffs__dlg {
+  position: absolute; left: calc(var(--bu) * -102.5); top: calc(100% + var(--bu) * 2); width: calc(var(--bu) * 417); max-height: calc(var(--bu) * 410);
+  overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(var(--bu) * 18);
+  background: var(--buff-bg, linear-gradient(180deg, rgba(14, 20, 18, .94), rgba(9, 13, 12, .9))) top / 100% 100% no-repeat;
+  box-shadow: 0 calc(var(--bu) * 8) calc(var(--bu) * 30) rgba(0, 0, 0, .5); scrollbar-width: thin; scrollbar-color: rgba(141, 141, 141, .4) transparent;
+}
+.buffs__list { margin: 0; padding: 0; list-style: none; }
+/* one autochess_hud_buff_item: 417 wide, the 76×75 icon plate centred 150 left of the middle, the text from 108 */
+.buffs__row { display: grid; grid-template-columns: calc(var(--bu) * 108) 1fr; padding: calc(var(--bu) * 16) calc(var(--bu) * 18) calc(var(--bu) * 12) 0; min-height: calc(var(--bu) * 100); box-sizing: border-box; }
+.buffs__row + .buffs__row { border-top: 1px solid rgba(255, 255, 255, .07); }
+.buffs__icon {
+  width: calc(var(--bu) * 66); height: calc(var(--bu) * 66); margin-left: calc(var(--bu) * 24); display: grid; place-items: center;
+  background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .12);
+}
+.buffs__icon img { width: 92%; height: 92%; object-fit: contain; }
+.buffs__icon .icon { width: 50%; height: 50%; color: var(--mint-500); }
+.buffs__text { min-width: 0; }
+.buffs__head { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 calc(var(--bu) * 8); }
+.buffs__name { color: #fff; font-size: calc(var(--bu) * 20); line-height: 1.2; }
+.buffs__kind { color: var(--mint-500, #4ed8af); font-size: calc(var(--bu) * 13); }
+.buffs__desc { margin: calc(var(--bu) * 6) 0 0; color: rgba(255, 255, 255, .6); font-size: calc(var(--bu) * 16); line-height: 1.45; white-space: pre-line; }
+/* a phone: the HUD's unit is small there — the window keeps a readable size and stays on the screen */
+@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
+  .buffs__dlg { --bu: max(var(--u, .015rem), .78px); max-height: calc(100vh - 3.4rem); max-height: calc(100dvh - 3.4rem); }
+}
 
 /* ---- corner: emote + settings --------------------------------------------------------------------------------- */
 .gm__corner { position: absolute; left: .24rem; bottom: .24rem; display: flex; align-items: flex-end; gap: .1rem; }

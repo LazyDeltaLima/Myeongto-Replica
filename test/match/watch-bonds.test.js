@@ -243,6 +243,30 @@ test('runner: state().bondLayers = the absolute live counts of the bonds that gr
   r.runner.dispose();
 });
 
+test('runner: state().bondTemp = the 临时层数 part of the live counts (Battle.tempLayerGainsOf), per player and bond', async () => {
+  const start = realStart();
+  const sp = start.spec.players.find((p) => p.playerId === 'p_0');
+  const [b1, b2] = Object.keys(sp.bonds);
+  sp.bonds[b1].layers = 49;
+  sp.bonds[b2].layers = 3;
+  const r = rig();
+  r.net.emit('b.start', start);
+  await r.settle();
+  const e = r.runner._entries.get(start.battleId);
+  e.battle.addLayers('p_0', b1, 100, 'kill', { temp: true });
+  e.battle.addLayers('p_0', b1, 44, 'kill', { temp: true });
+  e.battle.addLayers('p_0', b2, 2, 'test');
+  r.advance(40);
+  const st = r.store.get().match.battle;
+  assert.deepEqual(st.bondLayers, { p_0: { [b1]: 193, [b2]: 5 } }, 'the live counts hold fixed + temporary');
+  assert.deepEqual(st.bondTemp, { p_0: { [b1]: 144 } }, 'only the temporary part, only for the bond that has one');
+  assert.deepEqual(e.battle.tempLayerGainsOf('p_0'), { [b1]: 144 });
+  assert.deepEqual(e.battle.tempLayerGainsOf('nobody'), {});
+  r.store.patch('match', { public: { phase: 'PREP' } });
+  assert.deepEqual(r.store.get().match.battle?.bondTemp ?? {}, {}, 'a new prep drops it with the battle');
+  r.runner.dispose();
+});
+
 test('runner: ownerOps(ownerId) = that player\'s operators in the battle on screen (a teammate\'s popup members), [] elsewhere', async () => {
   const start = realStart(7304);
   const r = rig();

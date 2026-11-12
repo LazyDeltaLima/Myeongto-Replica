@@ -83,10 +83,15 @@ export default {
         burstSpUp(battle, unit, 'nymph:module', num(tm.sp_recovery_per_sec));
         if (sid === 'skchr_nymph_1') { // S1: extra elemental damage on burst targets (the 凋亡 rider is T1's `ep`)
           const extra = num(bb['attack@extra_ep_damage_scale']);
+          // the S1 attack's `_activeBuffs` nymph_s_1[ep_damage] (ON_BUFF_START: skill on, target in an apoptosis burst) come before
+          // its damage and its 凋亡 gauge (Projectile.ActionController.OnHitTarget: _AttachBuffs, then _RunActions), as 折光's 镭射穿凿
+          // (op-kaitou.js): the burst is read before the hit, so the hit that sets a burst off has no extra damage
+          const hitOf = (c) => c.source === unit && !!unit.skill?.active && !!c.dmg?.isAttack && c.target?.side === 'enemy';
+          battle.on('hit', (c) => { if (hitOf(c)) c.dmg.nymphBurst = !!c.target.findBuff('apoptosisBurst'); }, { owner: unit, priority: 20 });
           battle.on('damaged', (c) => {
-            if (c.source !== unit || !unit.skill?.active || !c.dmg?.isAttack || c.type === 'element' || c.type === 'elemental') return;
+            if (!hitOf(c) || c.type === 'element' || c.type === 'elemental' || !c.dmg.nymphBurst) return;
             const e = c.target;
-            if (e.side !== 'enemy' || !e.alive || !e.findBuff('apoptosisBurst') || !(extra > 0)) return;
+            if (!e.alive || !(extra > 0)) return;
             elementHit(battle, unit, e, unit.s.atk * extra, 'nymphLash', 'apoptosis');
           }, { owner: unit });
         }

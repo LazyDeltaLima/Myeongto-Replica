@@ -13,13 +13,16 @@
 // - Module ARC-Y “打字机色带” trait "攻击正前方的敌人时攻击力提升至105%且无视其物理闪避" (trait bb atk_scale): her damage on
 //   an enemy whose body is on her straight line ahead ×atk_scale, not dodgeable — 点题's two 持续伤害 hits included
 //   (bgsnow_e_trait: ON_CALCULATE_DAMAGE scales every damage of hers on a target carrying her bgsnow_focus[mark] — confirmed
-//   in the official client); 正前方 = local row 0, column ≥ 0 (her own tile included, as the 3-2 "前方3格"
-//   lines count it) [ASSUMED·not checked: the tiles of bgsnow_focus[mark]]. Stage 2+ "属性更强的打字机": the typewriter's stats of the data (token module attributes).
+//   in the official client); 正前方 = the tiles of that mark: her Focus aura (common ability, ConstBoxRange 5-1) — her own
+//   tile and the 5 ahead, local row 0, columns 0..5 (confirmed in the official client; her ranges 3-6 / 3-1 reach 3 ahead,
+//   so the cap never cuts one of her targets). Stage 2+ "属性更强的打字机": the typewriter's stats of the data (token module attributes).
 // - Module ARC-X “仪式感”: "再部署时间减少" (attribute respawn_time −25, in the stats); stage 2+ upgrades 弱点速记 (below).
 // - T1 自动打字机 "可使用一个持续25秒的“打字机”，“打字机”拥有和自己一样的技能，拥有独立的再部署时间": the typewriter is a
 //   hand piece the player places (the mode's talent summons, content/tokens.js header): it deploys with the board, leaves
 //   after 25 s (the token's hidden talent `interval`), and comes back on its tile after its own redeploy time (data 40 s; ×
-//   respawn_time while she carries S2), paying its cost (5 DP), while she is on the field [ASSUMED·not checked: as the 海嗣]. Its skill
+//   respawn_time while she carries S2), paying its cost (5 DP), while she is on the field (her leaving the field recycles her
+//   card, and a token card whose host is recycled is hidden until she is spawned again — TokenCard m_hostIsAlive; confirmed
+//   in the official client). Its skill
 //   is the copy of hers the data gives (bySkill: sktok_bgsnow_1 / 2 / 3 — the 卫戍 strategy force-opens a summon's manual
 //   skill, PRTS 卫戍协议/帮助): free (spCost 0), once per deployment, by the data's DEFAULT. It is untargetable ("不会受到
 //   攻击"), blocks nothing, hits air units. content/tokens.js has no kit for it: her install gives her pieces this one.
@@ -38,8 +41,9 @@
 //   ones too; the cast then waits (pending) for an attackable target — reported as an open question (the 备注 reading
 //   of the strategy would be the basic one on her own range).
 // - S3 锐笔速写 (MANUAL, data ACTIVE_RANGE on its 3-1): range 3-1 while it runs, attack interval base_attack_time s (−0.6 on
-//   1.6 s), every attack atk_scale × ATK, bgsnow_s_3[atk_up].atk_scale × ATK on the 正前方3格 (the 3-2 line, her tile
-//   included [ASSUMED·not checked: the tiles of bgsnow_focus[mark], as the trait]).
+//   1.6 s), every attack atk_scale × ATK, bgsnow_s_3[atk_up].atk_scale × ATK on the 正前方3格 (bgsnow_s_3[atk_up] keys on her
+//   bgsnow_focus[mark], the 5-1 line with her tile, cut by the 3-1 to the 3-2 line: her tile and the three ahead).
+//   Confirmed in the official client.
 
 import { num, up, traitBb, skillRec, batMod } from '../shared/tier1.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
@@ -56,7 +60,7 @@ export const TYPEWRITER = 'token_10026_bgsnow_subbow';
 const TS1 = 'sktok_bgsnow_1';
 const TS2 = 'sktok_bgsnow_2';
 const TS3 = 'sktok_bgsnow_3';
-/** 锐笔速写's 正前方3格: the 3-2 line (range_table) — her tile and the three ahead. */
+/** 锐笔速写's 正前方3格: the 3-2 line (range_table) — her tile and the three ahead (her mark's 5-1 within the 3-1). */
 const FRONT_3 = Object.freeze([[0, 0], [0, 1], [0, 2], [0, 3]]);
 /** 点题's two 持续伤害 hits (PRTS 伤害分类 attackType BUFF). */
 const TAG_PRECIS = 'bgsnow:precis';
@@ -67,11 +71,13 @@ const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 /** First talent of a normalised token def holding `key` (token talents keep no index). */
 const tokTalent = (def, key) => (def?.talents ?? []).find((t) => t && t.bb && t.bb[key] != null) ?? null;
 
-/** ARC-Y 正前方: the enemy's body touches the unit's straight line ahead (local row 0, local column ≥ 0). */
+/** bgsnow_focus[mark]'s tiles (her Focus aura's ConstBoxRange 5-1): her own tile and the 5 ahead. */
+const MARK_AHEAD = 5;
+/** ARC-Y 正前方: the enemy's body touches her mark's line (local row 0, local columns 0..MARK_AHEAD). */
 function inFrontLine(unit, e) {
   for (const k of bodyKeys(e)) {
     const [lr, lc] = toLocal(Math.floor(k / COLS) - unit.tileR, (k % COLS) - unit.tileC, unit.dir);
-    if (lr === 0 && lc >= 0) return true;
+    if (lr === 0 && lc >= 0 && lc <= MARK_AHEAD) return true;
   }
   return false;
 }
@@ -150,8 +156,9 @@ function typewriterKit(t, owner, chess) {
     } }],
     install(battle, unit) {
       if (sk?.id === TS1) installIamb(battle, unit, num(tb.prob), num(tb.atk_scale, 1), skillOn);
-      // 持续25秒: leaves `life` s after each deployment — a countdown summon (content/tokens.js startCountdown): 无敌,
-      // 禁疗 [ASSUMED·not checked: the token prefab], its bar = the life left
+      // 持续25秒: leaves `life` s after each deployment (its talent bgsnow_subbow_t_1[withdraw]). No 禁疗 / 无敌: the token
+      // prefab gives it no abnormal flag (confirmed in the official client) — it is untargetable, so its HP never moves;
+      // startCountdown leaves it alone (not one of content/tokens.js COUNTDOWN_SUMMONS)
       battle.on('deploy', (ctx) => {
         if (ctx.unit !== unit || !(life > 0)) return;
         startCountdown(battle, unit, life);

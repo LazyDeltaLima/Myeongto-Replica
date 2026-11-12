@@ -48,15 +48,19 @@
 //   an enemy on the tile ahead is its main target (her order; usually none), atk_scale × ATK physical; every other ground enemy
 //   within HAMMER_SPLASH ("主攻击拥有1.5的溅射半径") takes the trait's splash share (the ability headb2_s3: `_splashAtkScaleKey` atk_scale_2,
 //   `_splashAtkScale` 1, `_attackType` 1 — × atk_scale as well, the kits' 撼地者 convention, 佩佩 S1 — ×汹涌怒火) — skill damage,
-//   not a normal attack [ASSUMED·not checked: whether the splash share is also × atk_scale, and whether its hits count as
-//   normal attacks, is the ability class's code, not its fields; not read]. Each hammer
+//   not a normal attack. The share is × atk_scale (official client: MultiMeleeAttackWithSplashDmg.DoSetData merges the
+//   blackboard's atk_scale_2 — default `_splashAtkScale` 1 — with the ability's atk_scale by product) [ASSUMED·not checked:
+//   whether the trait's attack@atk_scale_2 reaches the S3 ability's blackboard (the skill's own blackboard plus the talents'
+//   skill@ keys; the same ability's 高台 AoE reads the talent's attack@splash_atk_scale from it, so a route exists, not
+//   read — without it the share is 1), and whether its hits count as normal attacks (`useDynamicAttackType`, `_attackType`
+//   NORMAL; not read)]. Each hammer
 //   runs 汹涌怒火's 高台 round at its centre with the skill's change "伤害效果提升至3.5倍，控制效果变为1秒束缚" (the skill's AoE:
 //   splash_atk_scale_base × splash_atk_scale_bonus, headb2_s_3[unmovable] for `unmovable` s instead of 停顿, `_firstIntervalTime`
 //   0.1 then `_intervalTime` 0.125 per step) and the spread (备注 "第二次锤击起，所有本次锤击触发第一天赋的高台生效时将令相邻的未受
 //   影响的高台触发第一天赋（即扩散），最大扩散次数等同于当前已完成锤击次数；不论如何，一轮锤击中每个高台只会触发一次天赋效果" / "离场时，
-//   未完成的天赋效果扩散将立刻终止"): hammer k spreads up to k − 1 steps to the four tiles next to each affected 高台 [ASSUMED·not
-//   checked: "相邻" = the 4 neighbours — the spread is the highland AoE class's code (skchr_headb2_3 `_aoeSelector`), not
-//   read]. A stun, freeze or sleep ends it, the hammers not yet come with it (official client: headb2_s3 is one ability, no sequence
+//   未完成的天赋效果扩散将立刻终止"): hammer k spreads up to k − 1 steps to the four tiles next to each affected 高台 ("相邻" = up,
+//   down, left, right: Headb2AttackHighlandAOEBase._GetNeighborTiles, used by Headb2S3HighlandAOE's propagation — official
+//   client). A stun, freeze or sleep ends it, the hammers not yet come with it (official client: headb2_s3 is one ability, no sequence
 //   group, `_additionalTimes` 4: SkillState.OnTick interrupts it, and BasicSkill.OnTick ends a skill whose ability stopped casting).
 
 import { num, talentBb, traitBb, skillRec, up, giveSp } from '../shared/tier1.js';

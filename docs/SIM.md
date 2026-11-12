@@ -197,6 +197,19 @@ effects such as 深海 / 不屈 revives or 崇高牺牲 layers fired in its own 
 its timer is re-read (`deathAt + respawnTime × persist.redeployMul × s.redeployMul`), so a redeploy-time effect switched on
 by a `battleStart` handler covers it like a later knock-out (机变 征召 −50 %; 征召's row check does not count it [ASSUMED]).
 
+`reserve: [{ kind:'chess', chessId, slot, items, skillIndex?, moduleId?, standIn?, diy?, potential?, cultivate? }]` = the
+operators of the player's 整备区 a bond or 特质 rule may field (`slot` 0–9, 0 the leftmost; `PlayerState.battleInput` sends only
+those a template's `hand` rule asks for — bonds/dispatch.js `handRules` — or a board chess's switch 特质 —
+garrisons/effects/switch.js `handRules` —, as the spec reaches every watcher of the field
+and the rest of the hand stays private; the hand does not change during a battle). The battle deploys none of them: a content rule that brings a hand piece in creates it as a **reserve
+operator** before any content installs (a module's `reserve(battle)`, `battle.createReserveAlly`) — a full operator
+with its bonds, items and kit, off the field (`reserve`, `deferDeploy`, `removed` until fielded: no tile, no redeploy,
+not in the result; one unit per hand slot, whichever rules may field it) — and fields it with
+`battle.fieldReserve(u, tile, dir)` (a deployment like a redeploy). 规程's 卡西米尔 6 does (content/bonds/nation/kazimierz.js:
+a ground member knocked out leaves, the rightmost 卡西米尔 ground operator of the hand takes its tile; docs/rules/sim.md
+「규정 맹약」), and so do its switch 特质 of 耀骑士临光 and 历阵锐枪芬 (content/garrisons/effects/switch.js; docs/rules/sim.md
+「규정 특질 — 전투 쪽」).
+
 ### 1.2 Enemies, routes, ownership
 
 `SpawnSpec = { time, enemyKey, routeIndex, count=1, interval=0, mods:{hpMul,atkMul,defMul,resMul,speedMul}, sourcePlayerId?,
@@ -783,6 +796,7 @@ dodge); 元素伤害 has no dodge:
 | `neural` 神经 | stun 10 s, then 1000 true (10 s lock) | 3 `palsy` (none with 麻痹免疫), then 6000 元素伤害, 10 s lock |
 | `apoptosis` 凋亡 | 15 s: 阻回 (`noSp`: no SP gain of any kind, skills.js) + 静默 (no skill activation), −1 技力/s — of `spTotal`, stored charges included (PRTS 技能 可充能 "当持有者的技力流失时，充能次数也会实时降低"; `setSpTotal`, a running timed skill untouched; PR #262), 100 arts/s | 15 s: 50 % weaken recovering over the burst, 800 元素伤害/s |
 | `erosion` 侵蚀 | permanent DEF −100 (stacking `erosionDown`) then 800 phys, 10 s lock | permanent DEF −120 then 5000 元素伤害, 8 s lock |
+| `rampage` 狂躁 (CN ANGER) | not built: operators have no 狂躁 gauge yet (the client's ep_break_anger_char: 15 s ASPD +50 and 100 true/s, +50 per attack up to 600) | 15 s: ASPD +20, 160 + 130·n 元素伤害 in its n-th second (290 … 2110; the client's ep_break_anger_enemy) |
 
 The lock (`<el>Burst` buff, flag `burstLock`) is the official **爆发冷却**: while it runs NO element of the unit fills or
 can be recovered (`battle.reduceElement(unit, amount, el?)` removes nothing) and the bursting gauge shows full; when it
@@ -1492,11 +1506,14 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   sound of her T.1 shot rides on its 'swing' / 'atk' `signal`, not on this mark); `copy` `{ id, src, mode, by }`: 缪尔赛思's 流形 `id` copies operator `src` — `mode` its
   prefab mode from then on (`'Melee'` / `'Range'`; the client's `_S3` / `_S2` variants while her S3 / S2 runs follow from `by`'s 'skill');
   `enemySkill` `{ id, ability, n }`: an enemy's content skill is cast (`content/enemies.js onTick`, before its effects) — `ability` = the official
-  ability name, the data skill's `prefabKey` (the client prefab's `Skills/<name>` — compare case-insensitively: `boomb` ↔ `Boomb`), `n` the cast count;
+  ability name, the data skill's `prefabKey` (the client prefab's `Skills/<name>` — compare case-insensitively: `boomb` ↔ `Boomb`), `n` the cast count,
+  `dur` (when given) the cast's length in s and `tgt` its target's id (“喷射罐”'s Flame channel, `content/enemies/critic.js kitJetCanister`);
   nothing procedural is drawn; every fx the cast makes in the same call carries `extra.ability` (the same name) and `extra.caster` (the enemy's id)
   unless it names an ability itself — fx scheduled for later (`battle.after`) carry none; the client binds the enemy's official cast / hit effects and
   `ON_ABILITY_*` sounds by it; `hold: 1` marks a cast that lasts until its `enemySkillEnd` `{ id, ability }` (子代's 摄食, `bosses.js kitBrood`: the
-  client's ON_CAST_START … ON_CAST_END — the effects held to the cast's end end then); `enemyShot` `{ id, from?, tgt, key, move, speed, t }`: an enemy content ability's official projectile leaves
+  client's ON_CAST_START … ON_CAST_END — the effects held to the cast's end end then); `enemySkillReady` `{ id, ability, on }`: an enemy skill's
+  ready hint on (1, its SP full) / off (0, its cast finished or cut — the client's OnCastFinish) — the prefab's `ReadyEnemySkillEffect` (萨卡兹子裔责罚者's StunAttack, `content/enemies/reborn.js
+  kitPunisher`); none is sent when the enemy falls; `enemyShot` `{ id, from?, tgt, key, move, speed, t }`: an enemy content ability's official projectile leaves
   (`content/enemies/helpers.js shoot` — `id` the shooter, `from` the unit it leaves when that is not the shooter (a chain / bounce hop), `key` the
   projectile prefab, `t` its flight in game seconds; its effect lands then; `zone` 1 when it lands as an area whose fx `zone` { id, ability }
   carries its reach effects — 假想敌：蚀裂's 毒雾, 2026-10-31) — nothing procedural is drawn; a fx `zone` or `explode` that names `id` and
@@ -1546,7 +1563,7 @@ test('隐现 S2: 14 shots then the skill ends', => {
     hooks: ['ammoUsed', 'skillEnd'],
   });
   const u = h.unit('chess_char_1_01_a');
-  assert.ok(h.runUntil(() => u.skill.activations === 1, 60));
+  assert.ok(h.runUntil(() => u.skill.activations === 1 && u.skill.active, 60));   // (started: after its begin clip)
   h.runUntil(() => !u.skill.active, 60);
   assert.equal(h.hooksOf('ammoUsed').length, 14);
   checkInvariants(h.b);

@@ -25,7 +25,12 @@ import { battleRunner } from '/js/battle/runner.js';
 const params = new URLSearchParams(location.search);
 const SHOT = params.get('shot') === '1';
 const VARIANTS = new Set((params.get('variant') || '').split(',').filter(Boolean));
-const STAGE_ID = params.get('stage') || 'act2autochess_m01'; // local patch: ?stage= (e.g. a desert stage)
+// ?season=act3autochess reads that season's data (its stages: ?stage=act3autochess_m01); ?bandSkill=<bandId> gives the own
+// player that strategy and its active 指令 (ui/bandSkill.js), answered by the g.bandSkill mock below — or, for a strategy
+// without one, its passive portrait with a sample progress (?bandStage=<i> shows that stage)
+const SEASON = params.get('season') || null;
+const BAND_SKILL = params.get('bandSkill') || null;
+const STAGE_ID = params.get('stage') || (SEASON === 'act3autochess' ? 'act3autochess_m01' : 'act2autochess_m01'); // local patch: ?stage= (e.g. a desert stage)
 
 // ---- deterministic rng ----------------------------------------------------------------------------------
 let seed = 20260927;
@@ -119,6 +124,47 @@ function pushPublic() {
   store.patch('match', { public: JSON.parse(JSON.stringify(S.pub)) });
 }
 
+/** m.private.bandSkill as server/match/match/bandSkill.js bandSkillView builds it, from the strategy's first ACTIVE stage. */
+function mockBandSkill(bandId, st) {
+  const rec = data.lookupRaw('bands', bandId);
+  const stages = Array.isArray(rec?.skills) ? rec.skills : [];
+  // the strategy's bond direction switches (server _bandBondSwaps; the mock takes every one the table names)
+  const bondSwaps = {};
+  for (const sk of stages) for (const b of sk?.buffs || []) {
+    if (b?.key !== 'auto_chess_effect_replace') continue;
+    for (const [from, to] of Object.entries(b.bbStr || {})) { const bond = data.list('bonds').find((x) => x.effectId === from); if (bond) bondSwaps[bond.bondId] ??= to; }
+  }
+  // the progress a stage shows (server content/bands/progress.js): a fixed sample — ?bandStage=<i> picks the stage
+  const sample = (p) => (p ? { value: Math.max(0, Math.min(p, 2)), target: p } : null);
+  const pick = Number.parseInt(params.get('bandStage') ?? '', 10);
+  if (!stages.some((x) => x && x.type === 'ACTIVE') || Number.isInteger(pick)) {
+    const j = Number.isInteger(pick) ? Math.max(0, Math.min(stages.length - 1, pick)) : 0;
+    const sg = stages[j];
+    if (!sg) return null;
+    const bb = (sg.buffs || []).map((b) => b?.bb || {}).find((x) => x.count || x.max_count || x.refresh_count || x.n) || {};
+    const target = Number(bb.max_count || bb.refresh_count || bb.count || bb.n) || null;
+    const u = sg.next?.unlockParams || [];
+    const unlockTarget = Number(sg.next?.unlockType === 'band_skill_load_by_bond_act_count' ? u[1] : u[0]) || null;
+    if (sg.type !== 'ACTIVE') {
+      return { stage: j, stageCount: stages.length, effectId: sg.effectId, type: sg.type || 'PASSIVE', target: null, cost: 0, avail: { type: 'DEFAULT', count: 0 },
+        usesLeft: null, cooldown: 0, usable: false, blocked: sg.type === 'PASSIVE' ? 'passive' : 'mock', showTag: sg.showTag ?? null,
+        tag: sg.showTag === 'value_target' ? sample(target) : null, unlock: unlockTarget ? { value: Math.round(unlockTarget * 0.4), target: unlockTarget } : null,
+        bondSwaps, marks: [], chests: [] };
+    }
+  }
+  const i = Number.isInteger(pick) ? Math.max(0, Math.min(stages.length - 1, pick)) : Math.max(0, stages.findIndex((x) => x && x.type === 'ACTIVE'));
+  const stage = stages[i];
+  if (!stage) return null;
+  const avail = stage.avail || { type: 'DEFAULT', count: 0 };
+  const usesLeft = avail.type === 'ROUND_RESET' || avail.type === 'ALL_LIMIT' ? Math.max(0, avail.count - st.used) : null;
+  const cooldown = avail.type === 'COOLDOWN' ? Math.max(0, st.round) : 0;
+  const cost = Number(stage.cost) || 0;
+  const usable = usesLeft !== 0 && cooldown === 0 && cost <= (S?.priv?.funds ?? 13) && !(S?.priv?.ready);
+  return { stage: i, stageCount: stages.length, effectId: stage.effectId, type: stage.type, target: { type: stage.target?.type || 'NO_TARGET', filter: stage.target?.filter ?? null },
+    cost, avail: { type: avail.type, count: avail.count }, usesLeft, cooldown, usable, blocked: usable ? null : 'mock',
+    showTag: stage.showTag ?? null, tag: null, unlock: stage.next ? { value: 0, target: Number(stage.next.unlockParams?.[0]) || 1 } : null, bondSwaps, marks: [], chests: [] };
+}
+
 function buildState() {
   uidSeq = 100;
   seed = 20260927;
@@ -193,6 +239,7 @@ function buildState() {
     stats: { dmgDealt: 184230, kills: 96, leaks: 3, gold: 58, refreshes: 11, merges: 3 },
   };
   if (VARIANTS.has('loadout')) priv.loadout = mockLoadout(board, slots);
+  if (BAND_SKILL) { priv.bandId = BAND_SKILL; priv.bandSkill = mockBandSkill(BAND_SKILL, { used: 0, round: 0 }); }
   if (VARIANTS.has('reward')) {
     priv.shop.rewardOffer = { tier: 5, slots: shuffle(visibleChess(5)).slice(0, 3).map((c) => ({ kind: 'chess', id: c.chessId, price: 0, sold: false })) };
   }
@@ -206,6 +253,8 @@ function buildState() {
   // I am the second of the first pair → the mirrored right half (no bossPairs here: the client pairs by seat, camera.js bossPairOf)
   if (VARIANTS.has('bossR')) { players[0].seat = 1; players[1].seat = 0; }
   if (VARIANTS.has('dead')) { players[0].alive = false; players[0].status = 'dead'; players[0].lp = 0; priv.lp = 0; }
+  // 规程's 完美连胜 badges (server views.js _badgeView winStreak; shown when the season's config has the thresholds)
+  [5, 4, 2, 0].forEach((n, i) => { if (n) players[i].winStreak = n; });
 
   const pub = {
     phase: PHASE.PREP, round: 6, lastRound: 14, bossRound: 14, hiddenRound: 15, deadline: Date.now() + 74000, serverNow: Date.now(), modeId: 'mode_multi_hard', difficulty: 'HARD',
@@ -425,6 +474,8 @@ function startCombat(phase) {
   // solo pause (g.pause → m.public.paused)
   if (VARIANTS.has('paused')) pub.paused = true;
   pub.players.forEach((p, i) => { p.status = phase === PHASE.SETTLE ? 'done' : i === 1 ? 'done' : 'combat'; });
+  // 规程's boss-damage glow and list (views.js _badgeView bossPct / bossTop): shares and each player's top operator
+  if (boss) pub.players.forEach((p, i) => { p.bossPct = [52, 24, 82, 3][i]; p.bossTop = (S.priv.board || [])[i]?.id || null; });
   if (phase === PHASE.UNITE) { pub.players[1].status = 'helping'; pub.players[0].status = 'helping'; }
   // 联防 live counter (user playtest #6 item 7; server m.public unite / players[].uniteLeft / pendingLp): ?variant=leaker
   // — you and 灰烬 let enemies through, the AI and Doctor·B help; otherwise Doctor·B leaked. The first leaker's count of
@@ -508,7 +559,8 @@ function startCombat(phase) {
     enemies.push({ id: id++, kind: 'enemy', side: 'enemy', ownerId: ME, defId: key, name: e?.name, spine: key, avatar: key, x: startX + rnd() * 0.3, y, facing: -1, maxHp: e?.stats?.maxHp || 3000, hp: e?.stats?.maxHp || 3000, spawnAt: i * 0.9, dir: boss ? (i % 2 ? -1 : 1) : -1, dead: false });
   }
   if (boss) {
-    const bossRec = data.lookup('bosses', phase === PHASE.HIDDEN_CORE ? 'boss_8' : 'boss_5');
+    // (规程's boss table has no boss_5: its first leader)
+    const bossRec = data.lookup('bosses', phase === PHASE.HIDDEN_CORE ? 'boss_8' : 'boss_5') || data.lookup('bosses', Object.keys(data.get('bosses') || {})[0]);
     const e = data.lookup('enemies', bossRec.enemyKey);
     enemies.push({ id: id++, kind: 'enemy', side: 'enemy', ownerId: ME, defId: bossRec.enemyKey, name: bossRec.name, spine: bossRec.enemyKey, avatar: bossRec.enemyKey, x: 10, y: 3, facing: -1, maxHp: e?.stats?.maxHp || 1e5, hp: (e?.stats?.maxHp || 1e5) * 0.62, spawnAt: 0, dir: 0, boss: true, dead: false });
   }
@@ -609,6 +661,18 @@ async function mockRequest(t, f = {}) {
     case 'g.band': {
       p.bandId = f.bandId; const me = pub.players.find((x) => x.playerId === ME); me.bandId = f.bandId;
       if (pub.draft) { pub.draft.picks[ME] = f.bandId; pub.draft.turn = 'ai_2'; pub.draft.turnDeadline = Date.now() + 12000; }
+      refreshPrivate(); return {};
+    }
+    case 'g.bandSkill': {
+      prepOnly();
+      const bs = p.bandSkill;
+      if (!bs || !bs.usable) fail('WRONG_PHASE');
+      const want = bs.target.type === 'COMMON_CHESS' ? ['uid'] : bs.target.type === 'SHOP_SLOT' ? ['slot'] : bs.target.type === 'MAP_TILE' ? ['row', 'col'] : [];
+      const given = ['uid', 'slot', 'row', 'col'].filter((k) => f[k] != null);
+      if (given.join() !== want.join()) fail('BAD_TARGET');
+      p.funds -= bs.cost;
+      S.bandSkillUses = (S.bandSkillUses || 0) + 1;
+      p.bandSkill = mockBandSkill(p.bandId, { used: S.bandSkillUses, round: bs.avail.type === 'COOLDOWN' ? bs.avail.count : 0 });
       refreshPrivate(); return {};
     }
     case 'g.bandSkip': {
@@ -882,10 +946,12 @@ async function boot() {
     me: { playerId: ME, name: '凯尔希', token: null },
     connection: { status: 'online', ping: 42, attempt: 0, retryAt: 0, lastError: null, everOnline: true },
     clock: { offset: 0, rtt: 20, synced: true },
-    room: { code: 'MOCK', hostId: ME, mode: 'coop', difficulty: 'HARD', inMatch: true, seats: PLAYERS.map((p) => ({ seat: p.seat, playerId: p.playerId, name: p.name, isBot: p.isBot, ready: true, connected: true })) },
+    room: { code: 'MOCK', hostId: ME, mode: 'coop', difficulty: 'HARD', inMatch: true, seats: PLAYERS.map((p) => ({ seat: p.seat, playerId: p.playerId, name: p.name, isBot: p.isBot, ready: true, connected: true })),
+      ...(SEASON ? { season: SEASON } : {}) },
   });
   // the language as the app picks it (?lang=ko|en|ja|zh-TW, else the stored choice): before the data, so the game texts follow
   await initLang().catch((err) => console.warn('[mock] language setup failed', err));
+  if (SEASON) await data.setSeason(SEASON);
   await data.loadAll(GAME_FILES);
   installDeviceSupport();
   installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, settings: settingsStore.get() });

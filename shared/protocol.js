@@ -67,6 +67,8 @@ const isPerPlayer = (p) => isPlain(p) && isInt(p.killed, 0, 1e5) && isInt(p.tota
   && (p.tempLayerGains === undefined || isMap(p.tempLayerGains, RESULT_LIMITS.layerGains, isId, (v) => isNum(v, 0, 1e4)))
   && isStat(p.coins) && isStat(p.damageDealt) && isStat(p.bossDamage) && isStat(p.healingDone) && isStat(p.deaths)
   && isList(p.unitsEnd, RESULT_LIMITS.unitsEnd, isUnitEnd)
+  // 宝藏探机's chests touched in the battle (卫戍协议：规程, server/sim/content/bands/battle.js): absent when none fell
+  && (p.bandChestsGone === undefined || isList(p.bandChestsGone, RESULT_LIMITS.unitsEnd, (x) => isStr(x, 64)))
   && (p.unitStats === undefined || isList(p.unitStats, RESULT_LIMITS.unitStats, isUnitStat));
 const isUnspawned = (u) => isPlain(u) && isId(u.enemyKey) && nullable(isId)(u.sourcePlayerId) && nullable((v) => isStr(v, 16))(u.tag)
   && optional((v) => isNum(v, 0, 1e6))(u.time);
@@ -404,6 +406,8 @@ const target = (v) => {
   if (!v || typeof v !== 'object') return false;
   if (v.area === 'board') return isInt(v.row, 0, GEO.ROWS - 1) && isInt(v.col, 0, GEO.COLS - 1);
   if (v.area === 'hand') return isInt(v.idx, 0, GEO.HAND_SIZE - 1);
+  // 规程's 装备区 (the five visible temp slots; the server refuses it outside that season)
+  if (v.area === 'temp') return isInt(v.idx, 0, GEO.TEMP_SIZE - 1);
   return false;
 };
 
@@ -505,6 +509,13 @@ export const C2S = {
   'g.equip': { itemUid: isUid, targetUid: isUid, replaceUid: nullable(isUid), $optional: ['replaceUid'] },
   'g.art': { itemUid: isUid, row: (v) => isInt(v, 0, GEO.ROWS - 1), col: (v) => isInt(v, 0, GEO.COLS - 1), dir: isDir, $optional: ['dir'] },
   'g.destroy': { uid: isUid },
+  // 规程's active 指令 (server/match/match/bandSkill.js): the strategy's current stage names its target — none (点击使用),
+  // an own operator `uid`, a 调度中心 `slot`, or a tile of the own field `row` + `col` (board coordinates); a field the
+  // stage does not ask for is BAD_TARGET
+  'g.bandSkill': {
+    uid: isUid, slot: (v) => isInt(v, 0, 15), row: (v) => isInt(v, 0, GEO.ROWS - 1), col: (v) => isInt(v, 0, GEO.COLS - 1),
+    $optional: ['uid', 'slot', 'row', 'col'],
+  },
   'g.reward': { idx: (v) => isInt(v, 0, 5) },
   // idx up to 11: an 8-player 机变 draft holds 12 cards (GameData.spDraftCards); the server checks it against the draft
   'g.choice': { idx: (v) => isInt(v, 0, 11), choiceId: isId, $optional: ['choiceId'] },
@@ -537,7 +548,10 @@ export const C2S = {
     by: (v) => isMap(v, RESULT_LIMITS.players, isId, (x) => isNum(x, 0, BIG)), done: isBool,
     left: (v) => isMap(v, RESULT_LIMITS.players, isId, (x) => isInt(x, 0, 1e5)),
     leaksBy: (v) => isMap(v, RESULT_LIMITS.players, isId, (x) => isNum(x, 0, 1e6)),
-    $optional: ['resolved', 'leaks', 'bossDmg', 'by', 'done', 'left', 'leaksBy'],
+    // a boss / hidden field: each player's operator that dealt the leader the most (its chess id; spec.js bossTopUnits) —
+    // sent only when it changed since the authority's previous report (the server keeps the last one: f.bossTop)
+    top: (v) => isMap(v, RESULT_LIMITS.players, isId, isId),
+    $optional: ['resolved', 'leaks', 'bossDmg', 'by', 'done', 'left', 'leaksBy', 'top'],
   },
   'b.result': { battleId: isId, result: isBattleResult },
 };
