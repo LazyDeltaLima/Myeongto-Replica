@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRecordOverlay, applyRecordOverlay, applyFileOverlay, walkOverlay, getPath, textHash2 } from '../shared/i18nData.js';
@@ -16,6 +16,17 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (rel) => JSON.parse(readFileSync(path.join(ROOT, rel), 'utf8'));
 const OVERLAY = readJson('data/i18n/en.json');
 const HAN = /[一-鿿]/;
+/** data/<file>.json with the season's own records (data/seasons/<id>/<file>.json, ids the default file lacks) added, as
+ * build-i18n localizes it: the overlay carries both, applyFileOverlay skips an id the file being localized lacks. */
+const withSeasonRecords = (file) => {
+  const data = { ...readJson(`data/${file}.json`) };
+  for (const season of readdirSync(path.join(ROOT, 'data', 'seasons')).sort()) {
+    const rel = `data/seasons/${season}/${file}.json`;
+    if (!existsSync(path.join(ROOT, rel))) continue;
+    for (const [id, rec] of Object.entries(readJson(rel))) if (!Object.hasOwn(data, id)) data[id] = rec;
+  }
+  return data;
+};
 
 test('overlay records: build → apply round trip, copy-on-write, array and string records', () => {
   const base = { name: '炎', n: 3, skills: [{ name: '甲', desc: '一' }, { name: '乙', desc: '二' }], keep: { x: '中' } };
@@ -95,14 +106,23 @@ test('data/i18n/en.json: shape, the 盟约 season of the EN build, coverage and 
   assert.equal(OVERLAY.version, 1);
   assert.equal(OVERLAY.lang, 'en');
   assert.equal(OVERLAY.meta.source.season, 'act2autochess', 'built from an EN client that has 卫戍协议：盟约 下半');
-  // the 自选 data (0.2.0) brings 71 owned 6★, some of them (and some newer modules) not in the EN client yet: their
-  // names, skills, talents and modules stay Chinese — measured 97.6 % in all, skills 95.9 / talents 95.1 % (2026-10-05)
-  assert.ok(OVERLAY.meta.totals.pct >= 97, `coverage ${OVERLAY.meta.totals.pct} %`);
+  // the coverage and totals are the default season's records. The 自选 data brings owned 6★ and CN-only 自选 picks,
+  // some of them (and some newer modules) not in the EN client yet: their names, skills, talents and modules stay
+  // Chinese — measured 96.4 % in all, skills 93.6 / talents 92.4 % (2026-11-12; 97.6 / 95.9 / 95.1 % on 2026-10-05,
+  // before the CN-only picks)
+  assert.ok(OVERLAY.meta.totals.pct >= 95, `coverage ${OVERLAY.meta.totals.pct} %`);
   for (const kind of ['operators', 'skills', 'talents', 'modules', 'traits', 'enemies', 'bonds', 'items', 'effects', 'bands', 'garrisons', 'stages', 'tokens', 'choices', 'config']) {
     const c = OVERLAY.meta.coverage[kind];
     assert.ok(c && c.texts > 0, `coverage of ${kind}`);
-    assert.ok(c.pct >= (['operators', 'skills', 'talents', 'modules'].includes(kind) ? 95 : 98), `${kind}: ${c.pct} %`);
+    assert.ok(c.pct >= (['operators', 'skills', 'talents', 'modules'].includes(kind) ? 90 : 98), `${kind}: ${c.pct} %`);
   }
+  // 规程 (act3autochess) is CN-only, the EN client has none of it: its own records (ids the default files lack, in this
+  // overlay) and its records under the default's ids (data/i18n/en.act3autochess.json) are counted apart, from the
+  // official texts they share with 盟约
+  const act3 = OVERLAY.meta.seasons?.act3autochess;
+  assert.ok(act3?.own?.texts > 0 && act3?.rewritten?.texts > 0, 'the 规程 records are counted apart');
+  assert.equal(OVERLAY.meta.totals.texts, Object.values(OVERLAY.meta.coverage).reduce((n, c) => n + c.texts, 0), 'the totals are the per-kind coverage of the default season');
+  assert.ok(Object.keys(OVERLAY.files.chess).some((id) => !Object.hasOwn(readJson('data/chess.json'), id)), 'the overlay carries 规程\'s own chess records');
   assert.deepEqual(Object.keys(OVERLAY.files).filter((f) => !DATA_FILES.includes(f)), []);
   assert.equal(OVERLAY.names['琳琅诗怀雅'], 'Swire the Elegant Wit');
   assert.equal(OVERLAY.names['维式重锤'], 'Victorian Hammer');
@@ -131,7 +151,7 @@ test('data/i18n/ko.json is built with our dictionaries (tools/i18n/build-ko-pack
 test('data/i18n/en.json matches the current data/*.json: every leaf replaces a Chinese string that still hashes the same', () => {
   // A failure here means data/*.json was rebuilt after the overlay: run `node tools/build-i18n.mjs` (docs/I18N.md).
   for (const [file, fov] of Object.entries(OVERLAY.files)) {
-    const data = readJson(`data/${file}.json`);
+    const data = withSeasonRecords(file);
     let leaves = 0;
     for (const [id, rov] of Object.entries(fov)) {
       if (typeof rov._s === 'string') { assert.equal(typeof data[id], 'string', `${file}.${id}`); leaves++; continue; }
@@ -165,8 +185,9 @@ test('official EN skill texts keep the rich-text markup and the remake\'s number
   }
   // every translated skill: it parses, no placeholder is left, plain = stripped raw (a few official EN texts leave a
   // tag unclosed, e.g. skchr_excu2_1's <@ba.rem>; the parser takes that as running to the end, as the game does)
+  const chessAll = withSeasonRecords('chess');
   for (const [id, rov] of Object.entries(OVERLAY.files.chess)) {
-    const rec = applyRecordOverlay(chess[id], rov).value;
+    const rec = applyRecordOverlay(chessAll[id], rov).value;
     for (const s of rec.skills || []) {
       if (HAN.test(s.descRaw)) continue;
       assert.ok(parseRichText(s.descRaw).length > 0, `${id} ${s.skillId}`);

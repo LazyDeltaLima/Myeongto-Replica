@@ -645,16 +645,31 @@ class Stats {
   note(kind) { this.row(kind).notes++; }
 }
 
+/** Per kind and in all: texts, how each was translated, the share translated. @param {Stats} stats */
+function coverageOf(stats) {
+  const coverage = {};
+  let total = 0, translated = 0, official = 0;
+  for (const [kind, r] of Object.entries(stats.kinds).sort()) {
+    const ok = r.exact + r.template + r.composite + r.remake + r.pr70 + r.ui + r.dict + r.fix;
+    coverage[kind] = { ...r, translated: ok, pct: r.texts ? Math.round((ok / r.texts) * 1000) / 10 : 100 };
+    total += r.texts; translated += ok; official += r.exact + r.template + r.composite;
+  }
+  return { coverage, totals: { texts: total, translated, official, pct: total ? Math.round((translated / total) * 1000) / 10 : 100 } };
+}
+
 // ===== main ==========================================================================================================
 
 const dictMap = (d, untranslated = (zh, t) => hasCjk(t)) => new Map(Object.entries(d || {}).filter(([k, v]) => !k.startsWith('_') && typeof v === 'string' && v && !untranslated(k, v)));
 
 /**
  * Build the overlay. Exported for tests (they pass in-memory tables).
- * @param {{ zh: object[], en: object[], data: Record<string, any>, fallback?: { remake?: object, pr70?: object, ui?: object, dict?: object, fix?: object }, source?: object }} input
+ * @param {{ zh: object[], en: object[], data: Record<string, any>, fallback?: { remake?: object, pr70?: object, ui?: object, dict?: object, fix?: object }, source?: object, owner?: (file: string, id: string) => string | null }} input
  *   zh / en: the picked sub-trees of TABLES, in order
+ *   owner: the season whose own record (file, id) is (null: the default season's). Its texts are counted apart, in
+ *   `meta.seasons[season]`, so the coverage and totals stay the default season's: a season the official client of
+ *   the language lacks (规程 is CN-only) would otherwise pull them down.
  */
-export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang = 'en' }) {
+export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang = 'en', owner = null }) {
   const untranslated = untranslatedTest(lang, LANG_SOURCES[lang]?.untranslated === 'native' ? nativeCharset(zh, en) : null);
   const index = new PairIndex(untranslated);
   for (let i = 0; i < zh.length; i++) index.walk(zh[i], en[i], []);
@@ -665,6 +680,8 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
     { name: 'ui', map: dictMap(fallback.ui, untranslated) },
   ], { composites: LANG_SOURCES[lang]?.composite ?? false, fixes: fallback.fix ? dictMap(fallback.fix, untranslated) : null });
   const stats = new Stats();
+  /** season → the Stats of its own records */
+  const ownStats = {};
   const samples = {};
   const files = {};
   const nameVotes = new Map(); // zh → [{ en, prio }]
@@ -674,7 +691,9 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
     const out = {};
     for (const [id, record] of Object.entries(json)) {
       if (!record || (typeof record !== 'object' && typeof record !== 'string')) continue;
-      const leaves = typeof record === 'string' ? translateScalar(file, id, record, tr, stats, samples) : translateRecord(file, id, record, tr, stats, samples);
+      const season = owner ? owner(file, id) : null;
+      const st = season ? (ownStats[season] ||= new Stats()) : stats;
+      const leaves = typeof record === 'string' ? translateScalar(file, id, record, tr, st, samples) : translateRecord(file, id, record, tr, st, samples);
       const ov = buildRecordOverlay(leaves.map(({ path, zh: z, en: e }) => ({ path, zh: z, en: e })));
       if (ov) out[id] = ov;
       for (const l of leaves) {
@@ -698,13 +717,8 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
     const distinct = [...new Set(votes.map((v) => v.en))];
     if (distinct.length > 1) nameConflicts.push(`${zhName} → ${distinct.join(' | ')}`);
   }
-  const coverage = {};
-  let total = 0, translated = 0, official = 0;
-  for (const [kind, r] of Object.entries(stats.kinds).sort()) {
-    const ok = r.exact + r.template + r.composite + r.remake + r.pr70 + r.ui + r.dict + r.fix;
-    coverage[kind] = { ...r, translated: ok, pct: r.texts ? Math.round((ok / r.texts) * 1000) / 10 : 100 };
-    total += r.texts; translated += ok; official += r.exact + r.template + r.composite;
-  }
+  const { coverage, totals } = coverageOf(stats);
+  const seasons = Object.fromEntries(Object.keys(ownStats).sort().map((season) => [season, coverageOf(ownStats[season])]));
   const overlay = {
     version: OVERLAY_VERSION,
     lang,
@@ -715,14 +729,15 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
         ? 'tools/i18n/fallback-remake.json (the remake), tools/i18n/fallback-pr70.json (PR #70 by @YuriRestia), public/i18n/en.json'
         : `public/i18n/${lang}.json (the pack's UI strings)`,
       coverage: Object.fromEntries(Object.entries(coverage).map(([k, v]) => [k, { texts: v.texts, translated: v.translated, official: v.exact + v.template + v.composite, pct: v.pct }])),
-      totals: { texts: total, translated, official, pct: total ? Math.round((translated / total) * 1000) / 10 : 100 },
+      totals,
+      ...(Object.keys(seasons).length ? { seasons: Object.fromEntries(Object.entries(seasons).map(([season, c]) => [season, { own: c.totals }])) } : {}),
     },
     names,
     files,
   };
-  const missing = [...stats.missing].sort((a, b) => (a[1].kind < b[1].kind ? -1 : a[1].kind > b[1].kind ? 1 : a[0] < b[0] ? -1 : 1))
+  const missing = [...stats.missing, ...Object.values(ownStats).flatMap((st) => [...st.missing])].sort((a, b) => (a[1].kind < b[1].kind ? -1 : a[1].kind > b[1].kind ? 1 : a[0] < b[0] ? -1 : 1))
     .map(([text, m]) => ({ kind: m.kind, n: m.n, text }));
-  return { overlay, report: { coverage, totals: overlay.meta.totals, pairs: index.pairs, nameConflicts, untranslated: samples, missing } };
+  return { overlay, report: { coverage, totals: overlay.meta.totals, seasons, pairs: index.pairs, nameConflicts, untranslated: samples, missing } };
 }
 
 async function main() {
@@ -764,6 +779,8 @@ async function main() {
   // default season's players do not download it): the default's leaves stop at their hash check there.
   const base = Object.fromEntries(Object.entries(data).map(([f, j]) => [f, j]));
   const seasonData = {};
+  /** file → id → the season whose own record it is */
+  const ownBy = {};
   const seasonsDir = join(opts.data, 'seasons');
   for (const season of existsSync(seasonsDir) ? (await readdir(seasonsDir)).sort() : []) {
     for (const f of DATA_FILES) {
@@ -773,6 +790,7 @@ async function main() {
       if (!file || typeof file !== 'object' || Array.isArray(file)) continue;
       const own = Object.entries(file).filter(([id]) => !Object.hasOwn(data[f], id));
       if (own.length) data[f] = { ...data[f], ...Object.fromEntries(own) };
+      for (const [id] of own) (ownBy[f] ||= {})[id] ||= season;
       const other = Object.entries(file).filter(([id, rec]) => Object.hasOwn(base[f], id) && JSON.stringify(rec) !== JSON.stringify(base[f][id]));
       if (other.length) (seasonData[season] ||= {})[f] = Object.fromEntries(other);
     }
@@ -786,14 +804,14 @@ async function main() {
   } : { ui: await readDict(join(ROOT, 'public', 'i18n', `${opts.lang}.json`)) };
   if (opts.dict) fallback.dict = JSON.parse(await readFile(opts.dict, 'utf8'));
   if (opts.fix) fallback.fix = JSON.parse(await readFile(opts.fix, 'utf8'));
-  const { overlay, report } = buildOverlay({ zh, en, data, fallback, lang: opts.lang, source: client ? { id: opts.source, label: src.label, home: src.home, season: seasonEn } : { id: 'dict', label: src.label } });
-  const seasonTotals = {};
+  const owner = (file, id) => ownBy[file]?.[id] ?? null;
+  const { overlay, report } = buildOverlay({ zh, en, data, fallback, lang: opts.lang, owner, source: client ? { id: opts.source, label: src.label, home: src.home, season: seasonEn } : { id: 'dict', label: src.label } });
   /** season id → its overlay's `files` (written beside the overlay: data/i18n/<lang>.<season>.json, seasonOverlayPath) */
   const seasonFiles = {};
   for (const [season, sdata] of Object.entries(seasonData)) {
     const { overlay: so, report: sr } = buildOverlay({ zh, en, data: sdata, fallback, lang: opts.lang });
     if (Object.keys(so.files).length) seasonFiles[season] = so.files;
-    seasonTotals[season] = sr.totals;
+    ((overlay.meta.seasons ||= {})[season] ||= {}).rewritten = sr.totals;
     // names: the default's form wins; a name only the season's records carry joins (sorted, as buildOverlay writes them)
     const extra = Object.entries(so.names).filter(([zhName]) => !Object.hasOwn(overlay.names, zhName));
     if (extra.length) overlay.names = Object.fromEntries([...Object.entries(overlay.names), ...extra].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
@@ -826,7 +844,9 @@ async function main() {
     log(`    ${kind.padEnd(10)} ${String(c.translated).padStart(5)} / ${String(c.texts).padEnd(5)} ${String(c.pct).padStart(5)} %   official ${c.exact + c.template + c.composite} (exact ${c.exact} · template ${c.template} · composite ${c.composite})${fb ? ` · ${fb}` : ''}${c.notes ? ` · notes skipped ${c.notes}` : ''}`);
   }
   log(`  total ${report.totals.translated} / ${report.totals.texts} (${report.totals.pct} %), official ${report.totals.official}; ${Object.keys(overlay.names).length} names (${report.nameConflicts.length} with several ${opts.lang} forms)`);
-  for (const [season, t] of Object.entries(seasonTotals)) log(`  ${season}'s records under the default's ids: ${t.translated} / ${t.texts} (${t.pct} %), official ${t.official}`);
+  for (const [season, s] of Object.entries(overlay.meta.seasons || {})) {
+    for (const [what, t] of [['own records', s.own], ['records under the default\'s ids', s.rewritten]]) if (t) log(`  ${season}'s ${what}: ${t.translated} / ${t.texts} (${t.pct} %), official ${t.official}`);
+  }
   if (opts.check) {
     for (const [file, t] of [[opts.out, text], ...seasonTexts]) {
       const cur = existsSync(file) ? await readFile(file, 'utf8') : '';
