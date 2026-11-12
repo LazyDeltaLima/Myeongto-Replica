@@ -579,6 +579,48 @@ const dollRoles = (idle, die, attack = null) => Object.freeze({
   idle, deploy: idle, die, attack: attack ? Object.freeze({ begin: null, loop: attack, end: null }) : null, attackDown: null, skill: null,
 });
 /**
+ * 2026-11-12: 结城理 (char_4217_makoto, 自选; his kit server/sim/content/kits/ops/op-makoto.js) — his <替身> is a persona per
+ * picked skill, each a charpack mode whose SimpleUnitAnimatorHooker `_replaceAnimPairs` swap his clips (CN client):
+ * Stand_S1 俄耳甫斯 Idle / Attack / Die / Stun / SwitchOut → Doll_Skill_1_*, Stand_S2 塔纳托斯 Idle → Doll_Skill_2_Loop (its
+ * MeleeAttack has no `_animKey`: it strikes after `_preDelay` 0.8 s on its idle — no attack clip), Stand_S3_1 塔纳托斯
+ * Doll_Skill_3_P1_* (its attack's UberAnimationEffectEmitter `_replaceGroup` takes Attack_A and Attack_B in turns, as his
+ * Default attack does), Stand_S3_2 俄耳甫斯 Doll_Skill_3_P2_* (no attack). makoto[switch2stand_s<n>]: Die2Stand
+ * `_animKey` SwitchOut in his Default mode, SwitchEnd Doll_Skill_<n>_SwitchIn (S3: Doll_Skill_3_P1_SwitchIn) — 1 s each,
+ * the sim's 2 s switch (professions.js DOLL_SWITCH). The way back is makoto[switch2normal_allout] (every 自选 form of his
+ * has S.E.E.S.队长, and a <替身> knocked out is a death, not a switch): StandBorn SwitchOut in the persona's mode
+ * (Doll_Skill_<n>_SwitchOut, 1 s), then mode Switch2Normal (Idle → Skill_AllOutAttack_Loop) closing on its Allout_LoopEnd
+ * Skill_AllOutAttack_End [ASSUMED·CN: how long the mode holds — makoto_on_enter_normal's `enter_normal_duration` has no
+ * value; the loop clip once, so the closing clip runs over the 总攻击's strike 1.6 s in]. makoto[switch2stand_s3_2] (a lethal
+ * hit on the S3 塔纳托斯: the kit's form 'orpheus', fx 'persona') is Doll_Skill_3_P1toP2_ChangeBegin 0.5 s, then
+ * Doll_Skill_3_P1toP2_ChangeEnd 1 s, the kit's S3_CHANGE. His Back skeleton has only the idle and attack clips: the others
+ * are skipped there (SpineActor._changeClips).
+ */
+const MAKOTO_LEAVE = (out) => Object.freeze([out, 'Skill_AllOutAttack_Loop', 'Skill_AllOutAttack_End']);
+const makotoPersona = (into, out, idle, o = {}) => Object.freeze({
+  change: Object.freeze(['SwitchOut', into].filter(Boolean)),
+  leave: MAKOTO_LEAVE(out),
+  roles: Object.freeze({ idle, deploy: idle, attack: null, attackDown: null, skill: null, ...o }),
+});
+const MAKOTO = Object.freeze({
+  // form 'doll' (the shared 傀儡师 switch) is the persona of the picked skill (UnitInfo skillIndex 0 / 1 / 2)
+  doll: Object.freeze({
+    bySkill: Object.freeze([
+      makotoPersona('Doll_Skill_1_SwitchIn', 'Doll_Skill_1_SwitchOut', 'Doll_Skill_1_Idle', {
+        die: 'Doll_Skill_1_Die', stun: loop('Doll_Skill_1_Stun'), attack: loop('Doll_Skill_1_Attack', 'attackAny') }),
+      makotoPersona('Doll_Skill_2_SwitchIn', 'Doll_Skill_2_SwitchOut', 'Doll_Skill_2_Loop', {
+        die: 'Doll_Skill_2_Die', stun: loop('Doll_Skill_2_Stun') }),
+      makotoPersona('Doll_Skill_3_P1_SwitchIn', 'Doll_Skill_3_P1_SwitchOut', 'Doll_Skill_3_P1_Idle', {
+        stun: loop('Doll_Skill_3_P1_Stun'),
+        attack: Object.freeze({ begin: null, loop: 'Doll_Skill_3_P1_Attack_A', end: null, via: 'attackAny',
+          alts: Object.freeze(['Doll_Skill_3_P1_Attack_A', 'Doll_Skill_3_P1_Attack_B']), pick: 'loop' }) }),
+    ]),
+  }),
+  orpheus: Object.freeze({
+    ...makotoPersona(null, 'Doll_Skill_3_P2_SwitchOut', 'Doll_Skill_3_P2_Loop', { die: 'Doll_Skill_3_P2_Die', stun: loop('Doll_Skill_3_P2_Stun') }),
+    change: Object.freeze(['Doll_Skill_3_P1toP2_ChangeBegin', 'Doll_Skill_3_P1toP2_ChangeEnd']),
+  }),
+});
+/**
  * 子代 (trap_039_dstnta, 盐风主教昆图斯's 断裂生殖 — server/sim/content/bosses.js kitBrood): its token prefab's Graphic
  * table (Born → Start_01, Idle → Idle_01, Die → Die_01; GrowUp mode replaces Idle / Die with Idle_02 / Die_02; its Grow
  * ability plays Start_02, 摄食 Attack_Begin → Attack_Loop → Attack_End). 'larva' as it appears, 'grown' as 隐匿 ends,
@@ -676,6 +718,7 @@ export const FORMS = Object.freeze({
   char_311_mudrok: Object.freeze({
     dormant: Object.freeze({ change: 'Skill_2_Begin', leave: 'Skill_2_Awake', endsOnDeath: true, roles: Object.freeze({ idle: Object.freeze(['Skill_2_Sleep', 'Skill_2_Idle']), deploy: 'Skill_2_Sleep', stun: loop('Skill_2_Sleep'), attack: null, skill: null }) }),
   }),
+  char_4217_makoto: MAKOTO,
   char_4016_kazema: Object.freeze({
     doll: Object.freeze({ change: Object.freeze(['Die_2', 'Start_B']), leave: Object.freeze(['Die_B', 'Start']), roles: dollRoles('Idle_B', 'Die_B', 'Attack_B') }),
   }),
@@ -1117,7 +1160,9 @@ export class UnitView {
   }
 
   _formSpec() {
-    return this.form ? FORMS[this.info.spine || this.info.defId]?.[this.form] || null : null;
+    const f = this.form ? FORMS[this.info.spine || this.info.defId]?.[this.form] || null : null;
+    // a form drawn per picked skill (结城理's personas): the equipped skill's, else the first
+    return f?.bySkill ? f.bySkill[this.info.skillIndex | 0] || f.bySkill[0] : f;
   }
 
   /**

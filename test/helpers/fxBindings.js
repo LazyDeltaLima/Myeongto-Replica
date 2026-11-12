@@ -13,7 +13,7 @@ import { KIT_OFFICIAL, tplPlays } from '../../public/js/render/fx/kitofficial.js
 import { rowsFor, buildPlays, isGuard } from '../../tools/build-fx-plays.mjs';
 import { JUDGED, whenPlays } from '../../public/js/render/fx/conds.js';
 import { KEY_FX, HINT_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX, STATUS_FX } from '../../public/js/render/fxstatus.js';
-import { TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, CAST_END, NOTE_FX, DEPLOY_FX, noteEffects, effectsFor, isVariant, isDirectional, fxBundleOf } from '../../public/js/render/fxmap.js';
+import { TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, CAST_END, NOTE_FX, DEPLOY_FX, noteEffects, effectsFor, isVariant, isDirectional, fxBundleOf, DOLL_SWITCH_FX } from '../../public/js/render/fxmap.js';
 import { PLAYS as FIXED } from './fxPlays.js';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -45,6 +45,8 @@ export const HIT_KEYS = Object.freeze(['bubble_t_1[atk_down]', 'skadi2_s_1[prote
   'yu_s_1[inverse_damage]', 'yu_t_1[enemy]', 'yu_s_3[ally]', 'gvial2_s_1',
   // 酒神 (2026-10-26)
   'phatm2_s_2[damage]',
+  // 结城理 (2026-11-12, op-makoto.js)
+  'makoto_s2_fear_damage', 'makoto_s2_fear_aura_inst_kill', 'makoto_s3_1_standin[phys]', 'makoto_s3_1_standin[arts]',
   // 冻河 (2026-11-01)
   'tocka_t1[heal_core]',
   // 真言 (2026-11-03)
@@ -179,6 +181,8 @@ export function handEntries() {
   for (const [k, v] of Object.entries(LAYER_FX)) put('LAYER_FX', k, v, specPlays(v));
   for (const [k, v] of Object.entries(STACK_FX)) put('STACK_FX', k, v, v.tpl ? stackedPlays(v) : v.flatMap((x) => specPlays(x[1])));
   for (const [k, v] of Object.entries(END_FX)) put('END_FX', k, v, specPlays(v).map(({ n }) => ({ n, life: 'once' })));
+  // 2026-11-12: a 傀儡师 switch's own one-shots (fxmap.js DOLL_SWITCH_FX, fxgame.js personaFx)
+  for (const [k, v] of Object.entries(DOLL_SWITCH_FX)) put('DOLL_SWITCH_FX', k, v, Object.values(v).flatMap((x) => x.fx || []).map(({ n }) => ({ n, life: 'once' })));
   // a talent's `born` prefabs are created once (ON_OWNER_BORN) and kept by their prefab
   // a `bySkill` talent: its held rows behind CheckSkillIndex too (one skill each)
   const bySkill = (v) => (v.bySkill ? (keyPlays().keys[v.tpl]?.when || []).filter((r) => r.role === 'held').map((r) => r.n) : []);

@@ -1375,3 +1375,20 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
 - 높이·움직임: 모델은 칸 바닥에 서고(프리팹의 그림이 바닥 높이 0) 위아래로 흔들리지 않는다 — 공식 CN 정비 화면 캡처에서 손 칸 장비가 바닥에 섬, 정지는 관리자 확인 2026-11-11.
 - 끌 때(2026-11-11, 공식 CN 정비 화면 캡처 둘): 원래 장비는 제자리에 남아 청록 윤곽선(`COLORS.heldOutline` = 102,240,212, 캡처 ≈ 100,225,200)이 둘리고, 윤곽선 없는 사본이 포인터를 따라간다 — 포인터 끝이 사본 모델 상자의 오른쪽 아래(오른쪽 끝·바닥)에 오고, 사본 밑 바닥 점에 그림자, 사본은 다른 유닛 위에 그린다(`ItemView.holdAt`·`endHold`, `render/app.js moveDragVisual`). 놓을 칸에 놓으면 장비가 사본 자리에서 그 칸으로 날아가고, 아니면 사본만 사라진다. 윤곽선은 모델마다 처음 끌 때 한 번 그리는 작은 텍스처(`item-models.js outline`: 스냅숏을 원 둘레 12곳에 2 px 밀어 그린 뒤 색을 SRC_IN으로 채움 — 필터·매 프레임 다시 그리기 없음). 아이콘 판(마법 아이템 셋)은 윤곽선 없이 사본만. 장비를 끄는 동안 필드는 오퍼레이터가 선 칸만 초록이고 손 칸 줄은 청록 — 원래 그렇게 그리고 있었다(실제 판 화면에서 확인). 공식 끌기 설정 `AutoChessDragState._touchOffset` (0, 0.03)·`_overlapOffset` (0, 0, −0.45)가 있지만 어디에 쓰이는지는 확인하지 않았다 — 사본 자리는 캡처에 맞춤 [추정·화면: 캡처 두 장의 포인터 자리로 맞춤, 공식 클라에서 사본을 놓는 곳은 미확인].
 - 확인: `test/item-models.test.js`(두 시즌 장비 전부 모델 또는 마법 아이템 셋, 0초 클립, 공유 스켈레톤, `itemSpines` = 커밋된 메타데이터, 스냅숏 칸 공유·가득 찬 칸 넘겨주기·컨텍스트 복구, `ItemView` 모델·판, EN 다음 CN 찾기). 렌더 데모(손·임시 칸에 15개씩)에서 지금 시즌 56개·규정 27개(황금 아닌 것)가 모두 모델로 그려짐을 봄. 끌기는 `test/item-models.test.js`(윤곽선 텍스처, 제자리·사본·포인터 오른쪽 아래), `test/render/unitview.test.js`(아이콘 판)와 Windows Chrome 실제 판(1920×1080, 규정·맹약: 손 칸에 윤곽선, 사본이 포인터 왼쪽 위, 오퍼레이터 위에서 장착 칸 팝업).
+
+## 유키 마코토 페르소나 클립 (2026-11-12, 공식 클라에서 확인)
+
+선발 유키 마코토(`char_4217_makoto`)의 <대역>은 스펙터 디 언체인드·카제마루의 `*_B` 클립이 아니라 고른 스킬의 페르소나 모드 클립이다(CN charpack 각
+모드의 `SimpleUnitAnimatorHooker` `_replaceAnimPairs`, `makoto[switch*]` 순서의 `_animKey`). `units.js FORMS` `char_4217_makoto`: form 'doll'은 스킬
+번호(`UnitInfo skillIndex`)로 고르는 `bySkill`, S3 치명상 뒤의 form 'orpheus'(키트 fx `persona`).
+
+- 들어갈 때: 본체 `SwitchOut`(1초) → `Doll_Skill_<n>_SwitchIn`(S3은 `Doll_Skill_3_P1_SwitchIn`, 1초) — 공용 교체 2초와 같다.
+- 페르소나: S1 오르페우스 `Doll_Skill_1_Idle`·`_Attack`(치료·공격 같은 클립)·`_Die`·`_Stun`; S2 타나토스 `Doll_Skill_2_Loop`(그 `MeleeAttack`에는
+  `_animKey`가 없어 대기 클립 위에서 `_preDelay` 0.8초 뒤 침 — 공격 클립 없음)·`_Die`·`_Stun`; S3 타나토스 `Doll_Skill_3_P1_Idle`·`_Stun`, 공격은
+  `Doll_Skill_3_P1_Attack_A`/`_B` 차례(본체 공격처럼 `_replaceGroup`); S3 오르페우스 `ChangeBegin`(0.5초) → `ChangeEnd`(1초) → `Doll_Skill_3_P2_Loop`
+  (공격 없음)·`_Die`·`_Stun`.
+- 돌아올 때: `makoto[switch2normal_allout]` — 그 페르소나의 `SwitchOut`(모드의 짝 `Doll_Skill_<n>_SwitchOut`, 1초) → `Switch2Normal` 모드(Idle →
+  `Skill_AllOutAttack_Loop`) → `Allout_LoopEnd` `Skill_AllOutAttack_End`(1.433초) → 본체. [추정·CN: 그 모드를 잡는 길이(`enter_normal_duration`)에
+  값이 없어 루프는 한 번 — 마무리 클립이 1.6초째 총공격에 걸침; 시뮬의 돌아오는 교체는 공용 2초라 그 뒤 공격하면 마무리가 끊김]
+- 뒤쪽 스켈레톤에는 대기·공격 클립뿐이라 나머지는 건너뛴다(앞 모델의 쓰러짐은 스펙터와 같은 길).
+- 확인: `test/render/makoto-persona.test.js`(스킬별 교체·공격·복귀·쓰러짐, 실제 S3 키트 → 뷰), `clip-coverage`(todo 26줄 지움). [화면 미확인]

@@ -185,6 +185,15 @@ export const KIT_OFFICIAL = {
   // fxField) — `k` the moment's key, `src` its owner (the operator), `id` the unit hit / healed, `by` the attacker / healer,
   // `life` the sim's seconds. Each rule answers only its own keys.
   hit: {
+    // (2026-11-12) 结城理's personas (kits/ops/op-makoto.js moments): S2 塔纳托斯's damage makoto_s2_fear_damage (ON_BUFF_START
+    // AdvancedApplyDamage, CreateEffect makoto_skill_02_hit_01 on the enemy), its execute makoto_s2_fear_aura_inst_kill
+    // (_hit_01_finish); S3 塔纳托斯's makoto_s3_1_attack_weak_effect (makoto_skill_03_p1_weak_01) with makoto_s3_1_standin's
+    // ON_CALCULATE_DAMAGE CheckDamageType — PHYSICAL makoto_skill_03_p1_hit_02, MAGICAL _hit_01 (the moment names the type)
+    makoto: cite(['makoto_s2_fear_damage', 'makoto_s2_fear_aura_inst_kill', 'makoto_s3_1_attack_weak_effect', 'makoto_s3_1_standin'], (o) => (
+      o.k === 'makoto_s2_fear_damage' ? { play: [once('makoto_skill_02_hit_01', 'id')] }
+        : o.k === 'makoto_s2_fear_aura_inst_kill' ? { play: [once('makoto_skill_02_hit_01_finish', 'id')] }
+          : o.k === 'makoto_s3_1_standin[phys]' ? { play: [once('makoto_skill_03_p1_weak_01', 'id'), once('makoto_skill_03_p1_hit_02', 'id')] }
+            : o.k === 'makoto_s3_1_standin[arts]' ? { play: [once('makoto_skill_03_p1_weak_01', 'id'), once('makoto_skill_03_p1_hit_01', 'id')] } : null)),
     // (2026-11-10) 테리토리야 T1 实质坍缩: dminon_t_1[dmg] ON_BUFF_START, its AdvancedApplyDamage and CreateEffect dminon_talent_hit_01
     // on the enemy (`_constDirection` UP: the prefab turns with nothing). Its GatherEffect ability's `_hitEffects` only lists it
     dminon: cite(['dminon_t_1[dmg]', 'char_4246_dminon/Others/Direction/CommonAbilities/GatherEffect'], (o) => (o.k === 'dminon_t_1[dmg]' ? { play: [once('dminon_talent_hit_01', 'id')] } : null)),
@@ -639,6 +648,9 @@ export const KIT_OFFICIAL = {
     }),
   },
   kitHit: {
+    // (2026-11-12) 结城理 S3 俄耳甫斯: makoto[s3_heal_others] puts makoto_s3_2_be_healed (0.5 s, its heal ON_BUFF_FINISH) on each
+    // ally it picks — ON_BUFF_START CreateEffect makoto_skill_03_p2_heal_01 on the ally (op-makoto.js 'makoto:heal')
+    makoto: cite('makoto_s3_2_be_healed', (o) => (o.k === 'makoto:heal' ? { play: [once('makoto_skill_03_p2_heal_01', 'tgt')] } : null)),
     // (2026-11-10) 메테오라이트 S2: its shell projectile_meteo_s2 (`_speed` 8, `_raiseHeight` 0.3; its `_effectsWhenHit` once, on the
     // enemy it traces: `_onlyPlayHitEffectOnTraceTarget`) — the kit's projectile, fired at the skill clip's strike (op-meteo.js)
     meteo: cite('projectile_meteo_s2', (o) => (o.k === 'meteo:shell' ? { play: [{ n: 'meteo_skill_02_trail', fly: 8, to: 'target', arc: 0.3, hit: ['meteo_skill_02_hit'] }] } : null)),

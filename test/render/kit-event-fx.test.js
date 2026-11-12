@@ -145,7 +145,7 @@ test("a 'skill' verdict names a skill whose activation draws something", () => {
 });
 
 /** The 'kitHit' moment keys the rules answer (`k`; undefined: 灵知's, which reads none). */
-const KIT_HIT_KEYS = [undefined, 'mantra:s1', 'mantra:s2', 'mantra:s1el', 'mantra:s3', 'mantra:s2jump', 'mantra:s3jump', 'robrta:end', 'closur:plane', 'christ:aura', 'brigid:cut', 'pianst:echo', 'pianst:final', 'pianst:finalHit', 'cqbw:grenade', 'heyak:wind', 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot', 'shu:mark', 'lmlee:s3push', 'ebnhlz:yiyin', 'ebnhlz:yiyinAoe', 'amiya3:s1', 'meteo:shell'];
+const KIT_HIT_KEYS = [undefined, 'mantra:s1', 'mantra:s2', 'mantra:s1el', 'mantra:s3', 'mantra:s2jump', 'mantra:s3jump', 'robrta:end', 'closur:plane', 'christ:aura', 'brigid:cut', 'pianst:echo', 'pianst:final', 'pianst:finalHit', 'cqbw:grenade', 'heyak:wind', 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot', 'shu:mark', 'lmlee:s3push', 'ebnhlz:yiyin', 'ebnhlz:yiyinAoe', 'amiya3:s1', 'meteo:shell', 'makoto:heal'];
 test('the rules name prefabs the client binds for that operator', () => {
   // each rule's prefab belongs to its operator's bundle (a typo plays nothing); the names come from the buff templates
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {

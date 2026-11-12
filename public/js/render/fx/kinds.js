@@ -48,6 +48,9 @@ export const FX_KINDS = Object.freeze({
   // a dollkeeper knocked out as its <替身> (sim professions.js): only its model form goes back to the 本体 for the
   // redeploy — the 替身's death clip already shows the knock-out, nothing is drawn
   dollEnd: { a: 'none', c: 0xd8b0ff },
+  // 2026-11-12: 结城理's persona change inside the <替身> (op-makoto.js: S3 塔纳托斯 → 俄耳甫斯): its model form and the mode's
+  // own effects (render/fxgame.js dollFx); nothing procedural
+  persona: { a: 'none', c: 0xd8b0ff },
   // 假想敌：铳 back to its Default mode as 【最终之罚】 ends (sim kitGun; achunt_s_1[reached] / [speed] switch the mode
   // with no effect): only its model form changes
   chargeEnd: { a: 'none', c: 0xff9c33 },

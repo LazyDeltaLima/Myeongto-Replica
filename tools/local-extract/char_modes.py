@@ -849,14 +849,30 @@ def mode_parts(tree, mode_paths, projectiles=None):
       side[mode] = { ally: { cast, trail, hit }, foe: { … } } — the children of the mode's attack (`Body/Attack/<child>`) whose
         own Trigger picks one side (`_targetSide` 1 allies / 2 enemies), when both sides are there: 凯尔希·思衡托 S2 HealAlly /
         AttackEnemy (projectile_chr_kalts2_s2_heal / _dmg, start_heal / start_damage) — the attack takes the one of its target.
+        2026-11-12: or whose `_abilityConfigs` trigger (the attack group's config pairing it) searches one side — 结城理 Stand_S1
+        HealAlly_Lt50Per / MagicAttack, 遥's heal / attack (config_triggers).
       gos = the GameObject paths of those abilities (and below), projs[mode] = their projectile keys, timing[mode] = their
       cast effects' castOpt."""
     n = len(mode_paths)
     talent, side, projs, timing = [None] * n, [None] * n, [set() for _ in range(n)], [{} for _ in range(n)]
     gos = set()
     by_go = {}
-    for gp, d, _ in tree:
+    by_pid = {}
+    for gp, d, pid in tree:
         by_go.setdefault(gp, []).append(d)
+        by_pid[pid] = gp
+
+    def config_triggers(mp, gp):
+        """The GameObjects of the `_trigger`s the mode's attack group (`_abilityConfigs`) pairs with an ability at `gp`."""
+        out = []
+        for x in by_go.get(mp + '/Body/Attack', []):
+            for cfg in x.get('_abilityConfigs') or []:
+                if not isinstance(cfg, dict):
+                    continue
+                ab, tr = (by_pid.get((cfg.get(k) or {}).get('m_PathID')) for k in ('_ability', '_trigger'))
+                if ab and tr and (ab == gp or ab.startswith(gp + '/')):
+                    out.append(tr)
+        return out
 
     def collect(i, ap):
         cast, hit, trail = [], [], []
@@ -895,6 +911,11 @@ def mode_parts(tree, mode_paths, projectiles=None):
                 tal[f'T.{parts[2]}'] = gp
             if len(parts) == 3 and parts[:2] == ['Body', 'Attack']:
                 ts = [x.get('_targetSide') for x in by_go.get(gp + '/Trigger', []) if x.get('_targetSide') in (1, 2)]
+                # 2026-11-12: or, in an `_abilityConfigs` group, the side its config's `_trigger` searches — the selectors on
+                # that trigger's GameObject (结城理 Stand_S1: HealAlly_Lt50Per's AdvancedSelectorWithinHpRatio `_targetSide` 1,
+                # MagicAttack's AdvancedSelector 2, each beside its SelectorTrigger under the child's own Selector)
+                if not ts:
+                    ts = [x.get('_targetSide') for tg in config_triggers(mp, gp) for x in by_go.get(tg, []) if x.get('_targetSide') in (1, 2)]
                 if ts:
                     sides.setdefault('ally' if ts[0] == 1 else 'foe', gp)
                 # (the validator's fields are FilterBuffTargetValidator's too: a group's child whose own Selector requires

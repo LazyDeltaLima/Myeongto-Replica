@@ -67,7 +67,7 @@ import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
 import { castEnd, commonEffects, skillEdge, skillHeld } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities (2026-10-24: a skill's own held buffs, its start / end effects)
 import { altGroup, combatEffects } from './fxmap.js'; // 2026-10-21: ability group children, the COMBAT state's effects
-import { heldMode, heldModes, modePart } from './fxmap.js'; // 2026-10-21: a mode talent's attack, a per-side child of the attack
+import { heldMode, heldModes, modePart, DOLL_SWITCH_FX } from './fxmap.js'; // 2026-10-21: a mode talent's attack, a per-side child of the attack (2026-11-12: a 傀儡师 switch's own effects)
 import { defaultModeEffects } from './fxmap.js'; // 2026-10-21: the Default mode's own effects
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
 import { bodyZ, bodyPoint, liftX } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
@@ -1997,6 +1997,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function dollFx(e, views) {
     const id = e[4].id, v = views.get(id);
     for (const l of live) if (l.tag === 'doll' && l.owner === id) l.inst.stop(e[1] === 'dollEnd');
+    if (v && personaFx(v, e)) return;
     if (e[1] === 'swap' && v && q() !== 'low') {
       const back = (bindOf(v)?.dollBack || []).filter((x) => bundleOf(v)?.prefabs.includes(x));
       if (back.length) play(v, 'skillStart', 0, { names: back });
@@ -2009,6 +2010,30 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const foe = new Set(n > 0 ? b?.attachFoe?.[n] || [] : []);
     const names = n > 0 ? bound(v, n, 'attach').filter((x) => !foe.has(x)) : [];
     if (names.length) play(v, 'skillBuff', 0, { names, buff: true, tag: 'doll' });
+  }
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「유키 마코토 페르소나」): a 傀儡师 whose <替身> is a mode its form holds (fxmap.js
+   * FORM_HELD_MODES: 结城理's personas) — the mode's own attach effects are drawn as the Default mode's are (defaultModeFx), from
+   * the moment the client switches the mode (DOLL_SWITCH_FX `mode` s after the switch fx: makoto_delayed_switchend, 0.99 s into
+   * the switch's SwitchEnd), and end as the switch back starts or he is knocked out; the switch's own one-shots
+   * (DOLL_SWITCH_FX `fx`) play `at` s after its fx. true = handled (the shared 'Stand' mode reading is not his).
+   */
+  function personaFx(v, e) {
+    const id = v.info?.spine || v.info?.defId;
+    if (!DOLL_SWITCH_FX[id] || !heldModes(bindOf(v), id, skillIdx(v)).length) return false;
+    const sw = DOLL_SWITCH_FX[id]?.[e[1]], b = bundleOf(v);
+    if (sw && b && q() !== 'low' && e[1] !== 'dollEnd') {
+      for (const p of sw.fx || []) {
+        const run = () => { if (v.alive !== false && !v.remove) { const names = extracted(v, [p.n]); if (names.length) play(v, 'skillStart', 0, { names }); } };
+        if (p.at > 0) castsDelayed.push({ t: clockS + p.at, run }); else run();
+      }
+    }
+    const form = e[1] === 'swap' || e[1] === 'dollEnd' ? null : e[4].form ?? null;
+    const wait = Number(sw?.mode) > 0 ? Number(sw.mode) : 0;
+    v._fxHeldWait = clockS + wait;
+    if (wait > 0) castsDelayed.push({ t: clockS + wait, run: () => { if (v.form === form && v.alive !== false) defaultModeFx(v, false, form); } });
+    else defaultModeFx(v, false, form);
+    return true;
   }
   function standInOff(e, views) {
     const o = e[4];
@@ -4731,7 +4756,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (sg) { a.n = strike ?? (again ? a.n + 1 : 0); a.hitT = clockS; } else map.delete(tid);
     // (2026-10-21) a talent's own attack (`sig`): that ability's hits instead of the mode's (modePart `replace`)
     const tp = a.sig ? modePart(bindOf(a.src), bundleOf(a.src)?.prefabs, a.mode, a.sig, null) : null;
-    let { names: hitList, split } = tp?.replace ? { names: tp.hit, split: true }
+    // (2026-11-12) the attack's per-side child for this target (sideFx: 结城理 S1 俄耳甫斯's HealAlly_Lt50Per on an ally, its
+    // MagicAttack on an enemy; 遥's heal / attack): that child's hits only — none is none (no name-mapped stand-in)
+    const sp = !tp?.replace && tgt?.info?.side ? modePart(bindOf(a.src), bundleOf(a.src)?.prefabs, a.mode, null, tgt.info.side !== 'enemy') : null;
+    let { names: hitList, split } = tp?.replace ? { names: tp.hit, split: true } : sp ? { names: sp.hit, split: true }
       : sg?.base ? { names: extracted(a.src, sg.base), split: false }   // strikes with shots of their own
       : a.shot ? { names: extracted(a.src, skillBind(a.src)?.shotHit), split: false } : boundFor(a.src, a.mode, 'hit', a.kind, !!a.combat);
     if (sg) hitList = [...new Set([...hitList, ...extracted(a.src, sg.g[strikeIndex(sg, a.n)])])];
@@ -4741,6 +4769,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (hits.length) { hitFx(a.src, tgt, hits, c); return; }
     if (all.some((n) => shotHit(a.src, a.mode, n))) return;   // its hits started at the shot (shotHitFx)
     if (split || bound(a.src, a.mode, 'input').length) return; // its hits are its input-target effects (inputFx), not a name-mapped one
+    // (2026-11-12) a mode the form holds is the client's own reading (FORM_HELD_MODES): its hits are its bindings' and its kit's
+    // moments (结城理's personas: render/fx/kitofficial.js hit), never the name rule's (his 本体's makoto_attack_a_hit_01)
+    if (a.mode > 0 && heldOf(a.src) === a.mode) return;
     play(a.src, a.src._fxSkillOn ? 'skillHit' : 'attackHit', skillIdx(a.src), { at: tgt });
   }
   /**
@@ -6076,7 +6107,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function defaultModeFx(v, force = false, form = v?.form) {
     const id = ownerOf(v), b = bundleOf(v);
-    const h = heldOf(v, form);
+    // (2026-11-12) a <替身> mode (personaFx) only once the client has switched to it
+    const h0 = heldOf(v, form), h = h0 > 0 && (v._fxHeldWait ?? 0) > clockS + 1e-6 ? -1 : h0;
     const m = h > 0 ? h : v._fxSkillOn ? modeNow(v) ?? -1 : 0;
     const on = b && !failed && q() !== 'low' && v.alive !== false;
     const foe = h > 0 ? new Set(bindOf(v)?.attachFoe?.[h] || []) : null;
@@ -6916,7 +6948,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'mysticStore' && e[4] && chargeStore(e, views)) { ownFx.add(e); return; } // 2026-10-21: a 秘术师's stored energy
           if (skillShotFx(e, views)) return; // 2026-10-21: 流星 S2's arrows, 崖心 S2's harpoon (a skill's own projectile)
           if (kitFx(e, views)) return; // local patch: 余 S3 wall, 蕾缪安 S3 lock / shells, 戴菲恩 S3 slashes / finisher
-          if ((e[1] === 'substitute' || e[1] === 'swap' || e[1] === 'dollEnd') && e[4]) dollFx(e, views); // local patch: the 替身's own effects
+          if ((e[1] === 'substitute' || e[1] === 'swap' || e[1] === 'dollEnd' || e[1] === 'persona') && e[4]) dollFx(e, views); // local patch: the 替身's own effects (2026-11-12: 结城理's persona change)
           if (standInOff(e, views)) ownFx.add(e); // local patch: no old procedural stand-in for an operator with official effects
           if (e[1] === 'drone' && e[4] && lockDroneFx(e, views)) return;   // 2026-10-21: 耶拉 / 洛洛 S2's locked drones
           if ((e[1] === 'drone' || e[1] === 'drones') && e[4] && wolvesOn() && wolves.has(e[4].id)) {   // her wolves: no generic puff

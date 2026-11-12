@@ -197,7 +197,7 @@ export default {
             for (const e of battle.enemiesInKeys(unit.rangeKeys, unit, ANY)) {
               if (!e.alive || !hasHp(e) || !e.s?.flags?.fear || !(e.hp < thr)) continue;
               battle.dealDamage(unit, e, { amount: num(b2['attack@kill_damage'], 9999999), type: 'true', canDodge: false,
-                sourceless: true, isSkill: true, tags: ['skill', 'execute', 'makoto:s2'], moment: 'makoto_skill_02_hit_01_finish' });
+                sourceless: true, isSkill: true, tags: ['skill', 'execute', 'makoto:s2'], moment: 'makoto_s2_fear_aura_inst_kill' });
               if (!up(unit)) return;
             }
           } else if (st.mode === 's3_2') {
@@ -212,7 +212,11 @@ export default {
             st.next = battle.time + Math.max(0.1, num(b3['attack@interval'], 1));
             const n = Math.max(1, num(b3['attack@max_target_heal'], 1));
             const picked = battle.injuredAlliesInKeys(unit.rangeKeys, unit, false).filter(operator).slice(0, n);
-            for (const a of picked) st.heals.push({ target: a, at: battle.time + HEAL_DELAY });
+            for (const a of picked) {
+              st.heals.push({ target: a, at: battle.time + HEAL_DELAY });
+              // makoto_s3_2_be_healed ON_BUFF_START: makoto_skill_03_p2_heal_01 on the ally (render/fx/kitofficial.js kitHit)
+              battle.fx('kitHit', { x: a.x, y: a.y, id: unit.id, tgt: a.id, k: 'makoto:heal' });
+            }
           }
         }, { owner: unit });
 
@@ -220,8 +224,12 @@ export default {
         if (sid === S1) {
           battle.on('swing', (c) => { if (c.unit === unit && st.mode === 's1' && unit.profile.dmgType === 'heal') c.signal = 'HealAlly_Lt50Per'; }, { owner: unit });
         }
-        // S2: each target is feared `fear` s with chance `prob` (makoto_s2_fear_possibility, Dice)
+        // S2: each target is feared `fear` s with chance `prob` (makoto_s2_fear_possibility, Dice); the attack's damage is
+        // makoto_s2_fear_damage, whose CreateEffect makoto_skill_02_hit_01 is the hit's effect moment
         if (sid === S2) {
+          battle.on('hit', ({ source, dmg }) => {
+            if (source === unit && st.mode === 's2' && dmg?.isAttack) dmg.moment = 'makoto_s2_fear_damage';
+          }, { owner: unit });
           battle.on('damaged', ({ source, target, dmg }) => {
             if (source !== unit || st.mode !== 's2' || !dmg?.isAttack || !target?.alive || target.side !== 'enemy') return;
             if (battle.rng.chance(num(b2['attack@prob']))) battle.applyStatus(target, 'fear', { duration: num(b2['attack@fear']), source: unit });
@@ -230,7 +238,11 @@ export default {
         // S3 塔纳托斯: 弱点伤害 (common_weak_damage) on its attacks
         if (sid === S3) {
           battle.on('hit', ({ source, target, dmg }) => {
-            if (source === unit && st.mode === 's3_1' && dmg?.isAttack) weaknessRetype(dmg, unit, target);
+            if (source !== unit || st.mode !== 's3_1' || !dmg?.isAttack) return;
+            weaknessRetype(dmg, unit, target);
+            // makoto_s3_1_attack_weak_effect on the target and makoto_s3_1_standin's ON_CALCULATE_DAMAGE CheckDamageType: the
+            // hit's effect moment names the type it was dealt as (render/fx/kitofficial.js hit)
+            dmg.moment = `makoto_s3_1_standin[${dmg.type}]`;
           }, { owner: unit, priority: 10 });
           // S3 俄耳甫斯: `prob` physical and arts 闪避 for the operators of the range, himself included (makoto_s3_2_aura →
           // the evade template); refreshed every tick, gone when he leaves the mode or they leave the range
@@ -268,8 +280,10 @@ export default {
       unit.markDirty();
       unit.hp = unit.s.maxHp;
       // (no 'dollSwap': a persona change inside the <替身>, not a <替身> / <本体> switch — 不羁之力's 停顿 and 不屈 skip it; and
-      // no 'swap' event, whose view is the switch back to the <本体>: the persona's own clips and makoto_change_01 are the
-      // renderer's to wire — the view reads the mode from the unit's buffs, `makoto_s3_2`)
+      // no 'swap' event, whose view is the switch back to the <本体>.) The model form 'orpheus' (fx 'persona', a form fx:
+      // render/units.js FORMS, the Stand_S3_2 effects of render/fxgame.js dollFx); the switch back still sends form null
+      unit.form = 'orpheus';
+      battle.fx('persona', { x: unit.x, y: unit.y, id: unit.id, form: 'orpheus' });
     }
 
     /** S.E.E.S.队长's 总攻击: every 结城理 of the field strikes the enemies around it with this one's ATK. */
@@ -281,7 +295,7 @@ export default {
         for (const e of battle.enemiesInKeys(keysOf(m, talentGrid), m, ANY)) {
           if (!e.alive || !hasHp(e)) continue;
           battle.dealDamage(unit, e, { amount, type: 'true', canDodge: false, isAttack: false, isSkill: false,
-            ...(m === unit ? {} : { sourceless: true }), tags: ['talent', 'makoto:t2'], moment: 'makoto_talent_hit_01' });
+            ...(m === unit ? {} : { sourceless: true }), tags: ['talent', 'makoto:t2'] });
         }
       }
     }

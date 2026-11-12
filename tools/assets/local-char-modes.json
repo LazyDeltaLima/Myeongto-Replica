@@ -21362,9 +21362,7 @@
    ]
   ],
   "cast": [
-   [
-    "haruka_attack_start_01"
-   ],
+   [],
    [
     "haruka_skill_01_start"
    ],
@@ -21374,9 +21372,7 @@
    []
   ],
   "hit": [
-   [
-    "haruka_attack_hit_01"
-   ],
+   [],
    [
     "haruka_attack_hit_01"
    ],
@@ -21388,9 +21384,7 @@
    ]
   ],
   "trail": [
-   [
-    "haruka_attack_trail_01"
-   ],
+   [],
    [
     "haruka_attack_trail_01"
    ],
@@ -21461,6 +21455,29 @@
      }
     ]
    }
+  ],
+  "sideFx": [
+   {
+    "ally": {
+     "cast": [],
+     "trail": [],
+     "hit": []
+    },
+    "foe": {
+     "cast": [
+      "haruka_attack_start_01"
+     ],
+     "trail": [
+      "haruka_attack_trail_01"
+     ],
+     "hit": [
+      "haruka_attack_hit_01"
+     ]
+    }
+   },
+   null,
+   null,
+   null
   ],
   "skillMode": [
    1,
@@ -22224,10 +22241,7 @@
   ],
   "cast": [
    [],
-   [
-    "makoto_skill_01_start_01",
-    "makoto_skill_01_start_02"
-   ],
+   [],
    [
     "makoto_skill_02_start_01"
    ],
@@ -22237,10 +22251,7 @@
   ],
   "hit": [
    [],
-   [
-    "makoto_skill_01_heal_01",
-    "makoto_skill_01_hit_01"
-   ],
+   [],
    [],
    [],
    [],
@@ -22248,9 +22259,7 @@
   ],
   "trail": [
    [],
-   [
-    "makoto_skill_01_trail_01"
-   ],
+   [],
    [],
    [],
    [],
@@ -22374,6 +22383,35 @@
      }
     ]
    },
+   null,
+   null
+  ],
+  "sideFx": [
+   null,
+   {
+    "ally": {
+     "cast": [
+      "makoto_skill_01_start_01"
+     ],
+     "trail": [],
+     "hit": [
+      "makoto_skill_01_heal_01"
+     ]
+    },
+    "foe": {
+     "cast": [
+      "makoto_skill_01_start_02"
+     ],
+     "trail": [
+      "makoto_skill_01_trail_01"
+     ],
+     "hit": [
+      "makoto_skill_01_hit_01"
+     ]
+    }
+   },
+   null,
+   null,
    null,
    null
   ],

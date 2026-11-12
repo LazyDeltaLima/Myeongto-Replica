@@ -127,15 +127,6 @@ const KNOWN = {
 
 /** The template rows whose prefab nothing in render/ plays: 'key|prefab' → reason (test/helpers/fxBindings.js unplayed). */
 const UNPLAYED = {
-  // 结城理 (自选), 2026-11-12: the persona switch, S2's execute, S3's 弱点 hit / heal and the 总攻击 — kit events not wired to their rows yet (bundle fx-V)
-  'makoto_change_01_effect|makoto_change_01': 'unconditional',
-  'makoto_switchend2normal_talent_2_effect|makoto_change_01': 'unconditional',
-  'makoto_s2_fear_aura_inst_kill|makoto_skill_02_hit_01_finish': 'condOther',
-  'makoto_s3_1_standin|makoto_skill_03_p1_hit_02': 'condOther',
-  'makoto_s3_1_attack_weak_effect|makoto_skill_03_p1_weak_01': 'unconditional',
-  'makoto_s3_2_be_healed|makoto_skill_03_p2_heal_01': 'unconditional',
-  'makoto_switchend2normal_talent_2_effect|makoto_talent_chance_01': 'unconditional',
-  'makoto_allout_attack_effect|makoto_talent_finish_01': 'condOther',
   // 国度 (自选), 赫德雷 and 机械师 (规程 pieces), 2026-11-08: kit events not wired to their template rows yet (bundle fx-V)
   // 奥尔佳 and 阿米娅's 医疗 form (规程 pieces), 2026-11-08: S2's debuff on her target, the trait heal's hit — kit events not wired yet (bundle fx-V)
   // 铸铁 (a 规程 piece), 2026-11-10: 佣兵之韧's ASPD buff once her kill count is done — the kit's buff not wired to its row yet (bundle fx-V)

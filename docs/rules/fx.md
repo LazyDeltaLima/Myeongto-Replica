@@ -2866,6 +2866,11 @@
   `ally`)가 착지 이펙트 + 뒤따르는 투사체의 두 이펙트를 그 자리에.
 - [추정] 시뮬은 두 반을 한순간에 내는데 클라는 둘째 반이 0.4 s 뒤(뒤따르는 투사체가 멈출 때). 시뮬 시간은 그대로.
 - 확인: `test/render/talent-side-fx.test.js`(추출값, 적 → `start_damage_01`, 아군 → `start_heal_01`, 착지 세 이펙트). [화면 미확인: 실제 판]
+- 2026-11-12: 자식의 트리거가 `<자식>/Trigger`가 아니라 묶음의 `_abilityConfigs` 항목(`_ability`·`_trigger`)에 있으면, 그 `_trigger`가 있는
+  GameObject의 선택자 `_targetSide`로 쪽을 정한다(`char_modes.py mode_parts config_triggers`). 유키 마코토 S1 오르페우스 `HealAlly_Lt50Per`
+  (`AdvancedSelectorWithinHpRatio` `_targetSide` 1)·`MagicAttack`(`AdvancedSelector` 2), 하루카 기본 공격의 치료·공격 — 옛·새 도구를 오퍼레이터
+  398개(EN·CN)에 돌려 바뀐 것은 이 둘뿐. 명중도 쪽을 따른다: `attackHit`이 대상 쪽 자식의 명중만(없으면 없음 — 이름 규칙 대체 없음), 치료는
+  `healHit`으로 같은 길. 그래서 하루카의 치료에는 공격 명중이 더는 안 나온다(공식에는 그 자식 이펙트가 없음).
 
 ### 버프 스택 수로 바뀌는 이펙트 — 스택 단계·최대 스택·회피 준비 (2026-10-21)
 
@@ -4159,3 +4164,33 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
 ## 레이지 아이언하이드의 이펙트 (2026-11-10, 공식 클라에서 확인)
 
 규정 숨김 기물 레이지 아이언하이드(`char_618_acrbot`)의 이펙트는 자기 이름의 번들이 아니라 CN의 공용 `battle/prefabs/effects/char.ab`에 `char_acrbot_*`로 있다(EN에는 그 번들에 없음). `add_operator.py`의 공용 묶음 단계가 `common_*`처럼 그 오퍼레이터의 `char_<코드명>_*`도 그 charpack이 있는 클라의 `char.ab`에서 그 묶음(`acrbot`)으로 뽑는다(일곱 개). 재능 1 야만의 심장의 쓰러짐 폭발 `projectile_chr_acrbot_t2`는 `_effectsWhenStart` `char_acrbot_ability_02_die_01`을 그 칸에 — 키트의 `aoe` `acrbot_t2` 때(`kitofficial.js`). 확인: `test/render/season-pieces-fx.test.js`, `kit-event-fx`, `node tools/fx-wiring-report.mjs --id char_618_acrbot`(못 튼 것 0). [화면 미확인]
+
+## 유키 마코토 페르소나 (2026-11-12, 공식 클라에서 확인)
+
+선발 유키 마코토(`char_4217_makoto`)의 <대역>은 고른 스킬의 페르소나 모드(`Stand_S1` 오르페우스, `Stand_S2` 타나토스, `Stand_S3_1` 타나토스 →
+`Stand_S3_2` 오르페우스)다. CN charpack의 프리팹 필드와 버프 템플릿으로 이었다. 클립은 render.md 같은 이름 절.
+
+- 모드: 공용 인형사 form 'doll' + 스킬 번호 → 그 페르소나 모드(`fxmap.js FORM_HELD_MODES`), S3 치명상 뒤의 form 'orpheus'(키트가 fx `persona`로
+  보냄 — form fx라 숨은 탭·나중 뷰도 앎) → `Stand_S3_2`. 그 모드의 공격 이펙트(`modes.json` 시전·명중·`clipFx` — S3 타나토스는 `Attack_A`/`_B`
+  차례)와 부착 이펙트(각 모드 Talents 버프의 `overrideEffectKey`·범위)가 그 모드의 것. 부착 이펙트는 기본 모드 이펙트처럼(`defaultModeFx`) 클라가
+  모드를 바꾸는 순간부터 그린다: `makoto_delayed_switchend` 0.99초 뒤 `makoto_switchend`의 SwitchMode — SwitchEnd 시작 0.99초 뒤(들어갈 때
+  1.99초째, S3 교체 1.49초째, `DOLL_SWITCH_FX` `mode`). 돌아가는 교체가 시작되거나 쓰러지면 끝.
+- 교체의 일회 이펙트(`DOLL_SWITCH_FX`, `fxgame.js personaFx`): 들어갈 때 SwitchEnd의 `BuffToOwner`(`_runActionOnEvent` 2 ON_CAST_START, 본체
+  `SwitchOut` 1초 뒤)가 `makoto_change_01_effect` → `makoto_change_01`(BUFF_SOURCE = 그). S3 교체도 같은 것을 `ChangeBegin` 0.5초 뒤. 돌아올 때는
+  언제나 총공격 교체(모든 선발 폼에 재능 2가 있고, <대역>으로 쓰러지면 교체가 아님): 그 순간 `makoto_on_enter_normal` →
+  `makoto_allout_attack_effect` ON_BUFF_START `makoto_talent_finish_01`(그 자신 — 같은 그룹의 다른 유키 마코토는 FinishBuff), 0.3초 뒤
+  `makoto_switchend2normal_talent_2_effect`(lifeTime 0.3) ON_BUFF_FINISH `makoto_change_01`·`makoto_talent_chance_01`.
+- 키트 순간(`kitofficial.js` hit·kitHit, `op-makoto.js`): S2 공격 피해 `makoto_s2_fear_damage` → 대상에 `makoto_skill_02_hit_01`, 처형
+  `makoto_s2_fear_aura_inst_kill` → `_hit_01_finish`; S3 타나토스 공격마다 `makoto_s3_1_attack_weak_effect` → `makoto_skill_03_p1_weak_01`, 그리고
+  `makoto_s3_1_standin` ON_CALCULATE_DAMAGE `CheckDamageType` — 물리 `_hit_02`, 마법 `_hit_01`(키트가 약점 대미지의 결과 종류를 순간 이름에 담음);
+  S3 오르페우스 `makoto_s3_2_be_healed` ON_BUFF_START → 고른 아군에 `makoto_skill_03_p2_heal_01`(치료 0.5초 전, 키트 `kitHit` `makoto:heal`). 총공격
+  피해(`SplitDamageByMultiAttack`)에는 이펙트가 없다 — 키트의 옛 순간 이름(없는 프리팹)은 뺐다.
+- S1 오르페우스: 치료와 마법 공격은 대상 쪽별 자식(위 「대상 쪽별 능력」 2026-11-12 줄) — 치료 휘두름은 `start_01`, 아군에 `heal_01`; 공격은
+  `start_02`·`trail_01`·`hit_01`.
+- 그 모드에 묶인 명중이 없을 때 이름 규칙으로 넘어가지 않는다(`attackHit`: form이 붙잡는 모드의 명중은 그 바인딩과 키트 순간뿐) — 전에는 페르소나 명중마다 본체의
+  `makoto_attack_a_hit_01`이 나왔다.
+- [추정·CN] S3 타나토스 모드의 `Talents` 버프 `overrideEffectKey`는 `makoto_skill_03_p1_buff_01_L` 하나이고 번들에 `_R`도 있다 — 좌우 고르기는
+  다른 `_L`/`_R` 쌍처럼 `fxgame.js play`의 짝 규칙에 맡김.
+- 확인: `test/render/makoto-fx.test.js`(추출값·모드·표·계획, 실제 키트의 순간·`persona`·`kitHit`), `makoto-persona.test.js`(클립),
+  `fx-bindings`·`cond-cast-fx`(목록에서 지움). [화면 미확인: 아레나 2배속]
+

@@ -597,7 +597,7 @@ test('every clip FORMS names exists in its model’s manifest', () => {
   const clipsOf = (v, out = new Set()) => {
     if (typeof v === 'string') { if (v) out.add(v); return out; }
     if (Array.isArray(v)) { for (const x of v) clipsOf(x, out); return out; }
-    if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) if (k !== 'via' && k !== 'next') clipsOf(x, out);
+    if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) if (k !== 'via' && k !== 'next' && k !== 'pick') clipsOf(x, out);   // (`pick`: how `alts` take turns, not a clip)
     return out;
   };
   const entries = (id) => {

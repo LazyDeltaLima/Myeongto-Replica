@@ -1164,6 +1164,7 @@
   - [추정·CN] 돌아오는 교체와 총공격 자세(`Switch2Normal` 모드, `enter_normal_duration`) 길이는 표에 값이 없어 공용 2초 교체 안에 넣음. <대역>으로 들어가는 교체는 클립(`SwitchOut` 1초 + `Doll_Skill_<n>_SwitchIn` 1초)으로 공용 2초와 같다.
   - 규정 S3 목록 행은 위.
 - 테스트: `test/content/op_makoto.test.js`(10) — 모든 폼·잠재, 세 스킬, 두 재능, 특성, PUM-Y 모듈, 실제 매치 경로(세 스킬). 선발 수 38 → 39명.
+- 그림(2026-11-12): 페르소나 클립은 render.md, 이펙트는 fx.md 「유키 마코토 페르소나」. 그 때문에 키트가 S3 오르페우스 교체에 form 'orpheus'(fx `persona`)와 치료마다 `kitHit`을 보내고, 페르소나 공격 피해에 이펙트 순간(`moment`)을 단다.
 
 ## 선발 추가 사일런스 더 패러디그매틱·외드레르·메커니스트 (2026-11-12, 관리자 결정)
 - 관리자 결정 2026-11-12: 규정 기물 셋(사일런스 더 패러디그매틱 `char_1031_slent2`·외드레르 `char_4088_hodrer`·메커니스트 `char_4230_mcnist`)을 선발에도 넣는다(`LOCAL_DIY_PICKS` 끝). 빌드는 시즌마다 그 시즌의 기물 명단을 선발에서 빼므로(`tools/build-data.mjs buildBackups` `roster`) **맹약 시즌 선발에만** 나오고, 규정에서는 지금처럼 기물이다. 키트는 하나: upstream 선발 키트(아래 「새 시즌 사일런스 더 패러디그매틱·외드레르·메커니스트」)를 `SEASON_KIT_FILES`에서 `OPERATOR_KIT_FILES`로 옮겼고, 규정 기물도 `kitKeyOfChar`로 같은 키트를 쓴다.

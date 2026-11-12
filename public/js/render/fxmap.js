@@ -136,6 +136,34 @@ export function attackMode(bind, skillOn, skillIndex, sub = null) {
  */
 export const FORM_HELD_MODES = Object.freeze({
   char_4182_oblvns: Object.freeze({ 1: Object.freeze({ forms: Object.freeze({ '': 'S2_Atk', organ: 'S2_AttackSpeed' }), also: Object.freeze(['S2_Fever', 'S2_Fever_Mag']) }) }),
+  // 2026-11-12: 结城理's <替身> (sim form 'doll', the shared 傀儡师 switch) fights in the persona mode of the picked skill —
+  // makoto_switchend SwitchMode by the skill (Stand_S1 / Stand_S2 / Stand_S3_1), S3's lethal hit then Stand_S3_2 (the kit's
+  // form 'orpheus'); his <本体> is mode Default (index 0: no held mode)
+  char_4217_makoto: Object.freeze({
+    0: Object.freeze({ forms: Object.freeze({ '': 'Default', doll: 'Stand_S1' }), also: Object.freeze([]) }),
+    1: Object.freeze({ forms: Object.freeze({ '': 'Default', doll: 'Stand_S2' }), also: Object.freeze([]) }),
+    2: Object.freeze({ forms: Object.freeze({ '': 'Default', doll: 'Stand_S3_1', orpheus: 'Stand_S3_2' }), also: Object.freeze([]) }),
+  }),
+});
+/**
+ * 2026-11-12 (docs/rules/fx.md 「유키 마코토 페르소나」): a 傀儡师 switch whose <替身> is a mode its form holds
+ * (FORM_HELD_MODES; fxgame.js personaFx): charId → the sim's switch fx kind → { fx: one-shots its sequence ability's own buffs
+ * create on it, [{ n, at }] `at` s after the fx; mode: s after the fx the client switches the mode }. 结城理, CN client:
+ * makoto_delayed_switchend (0.99 s) puts on makoto_switchend, whose SwitchMode switches, 0.99 s into SwitchEnd — 1.99 s into
+ * the switch to the <替身>, 1.49 s into S3's change;
+ * makoto[switch2stand_s<n>]'s SwitchEnd BuffToOwner (`_runActionOnEvent` 2 ON_CAST_START, after the 1 s SwitchOut)
+ * makoto_change_01_effect → makoto_change_01 (BUFF_SOURCE: him); makoto[switch2stand_s3_2]'s the same after the 0.5 s
+ * ChangeBegin; makoto[switch2normal_allout] (every way back of his — fxgame dollFx 'swap'): its AlloutAttack
+ * makoto_on_enter_normal at once → makoto_allout_attack_effect ON_BUFF_START makoto_talent_finish_01 on him (the 总攻击's
+ * own owner; another 结城理 of the group's FinishBuff), and Die2Normal's makoto_switchend2normal_talent_2_effect (lifeTime
+ * 0.3 s) ON_BUFF_FINISH makoto_change_01 and makoto_talent_chance_01.
+ */
+export const DOLL_SWITCH_FX = Object.freeze({
+  char_4217_makoto: Object.freeze(cite(['makoto_change_01_effect', 'makoto_allout_attack_effect', 'makoto_switchend2normal_talent_2_effect'], {
+    substitute: Object.freeze({ fx: Object.freeze([{ n: 'makoto_change_01', at: 1 }]), mode: 1.99 }),
+    persona: Object.freeze({ fx: Object.freeze([{ n: 'makoto_change_01', at: 0.5 }]), mode: 1.49 }),
+    swap: Object.freeze({ fx: Object.freeze([{ n: 'makoto_talent_finish_01', at: 0 }, { n: 'makoto_change_01', at: 0.3 }, { n: 'makoto_talent_chance_01', at: 0.3 }]) }),
+  })),
 });
 /** The mode index FORM_HELD_MODES holds `charId` in for skill `skillIndex` (0-based) and sim form `form`, else −1. */
 export function heldMode(bind, charId, skillIndex, form) {
