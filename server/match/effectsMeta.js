@@ -58,6 +58,12 @@ import { traitEventFx } from '../../shared/traitFx.js';
  * The state of every player of the match as one string (EffectDispatcher._call: did a 特质's run change anything?). The
  * players' own fields — funds, layers, shop, hand, board, counters, effects … — without the engine links (`m`, `gd`), the
  * caches (`_`-prefixed) and the connection flags; Maps and Sets as arrays, an object met twice written once.
+ * Cost (measured 2026-11-12 on a desktop x86 machine): ~0.1 ms and ~12 KB for a 4-player room, growing with the players; two per
+ * 特质 run, only in 规程 and only for a connected human seat (_traitFx), never on onPrice. Estimated: a human's round
+ * (≲ 60 runs, not measured) ≈ 30 ms at a 2–3× slower server CPU, ≈ 0.05 % of one core per player — a tenth of the core
+ * takes ~200 humans preparing at once, and m.private serialises a string of the same size on every change anyway, so
+ * that goes first. If it ever shows in a profile: let the handlers report an effect (ctx) instead of comparing — every
+ * prep 特质 handler of content/garrisons/prep/*.js would change.
  */
 const STATE_SKIP = new Set(['m', 'gd', 'connected', 'left', 'ready', 'infoReady', 'infoReroll', 'lastEmoteAt', 'autoplay']);
 export function traitState(m) {
