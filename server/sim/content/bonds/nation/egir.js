@@ -5,7 +5,11 @@
 //                                 +%); 5: max_free_respawn_cnt free redeploys, one per member on its first knock-out — the
 //                                 devour's knock-outs by board position once every devour is over (egirReviveScan), later
 //                                 ones at once
-// Hook priority: death 11 (5-tier revive, before 不屈's death 10; every `fatal` saver runs before any death hook).
+//   act3autochess_bond_eff_egir   (卫戍协议：规程, bondeffect_egir_2 — 歌蕾蒂娅's strategy switches the bond to it) the same
+//                                 HP and devour; 6: a member's first knock-out calls the 整备区's rightmost 阿戈尔 of its
+//                                 deploy class onto its tile (≤ switch_cnt_max), with its devour gains (installEgirAct3)
+// Hook priority: death 11 (5-tier revive, before 不屈's death 10; every `fatal` saver runs before any death hook); 规程's 6
+// summon −1000 (after every other death handler, as 卡西米尔's switch).
 
 import * as S from '../../support/index.js';
 import { mitigate } from '../../../damage.js';
@@ -37,6 +41,11 @@ const egirReviveScan = (a, b) => boardCol(a) - boardCol(b) || a.tileR - b.tileR 
  */
 function egirStart(battle) {
   return S.battleStore(battle, 'bonds:egir:start', () => ({ passes: 0, depth: 0, flush: [] }));
+}
+
+/** What each marker gained by the devour (unit → its 'bond:egir:devour' mods), for 规程's 6 summon to pass on. */
+function devourGains(battle) {
+  return S.battleStore(battle, 'bonds:egir:gains', () => new Map());
 }
 
 /**
@@ -122,7 +131,10 @@ function devour(battle, pid, bb, members) {
     const mods = {};
     if (atk > 0) mods.atkFinal = atk; // 最终加算 (units.js _recalc)
     if (block > 0) mods.blockCnt = block;
-    if (Object.keys(mods).length) S.passiveBuff(battle, m, 'bond:egir:devour', mods);
+    if (Object.keys(mods).length) {
+      S.passiveBuff(battle, m, 'bond:egir:devour', mods);
+      devourGains(battle).set(m, mods);
+    }
   }
   const amount = num(bb.damage_value, 0);
   const layered = new Set();
@@ -150,7 +162,11 @@ function devour(battle, pid, bb, members) {
   }
 }
 
-function installEgir(battle, pid, bb, members) {
+/**
+ * Every tier of both directions: the members' max HP and the battle-start devour pass. Returns the devour window
+ * (egirStart) for the 6-tier part.
+ */
+function installHpAndDevour(battle, pid, bb, members) {
   // HP (every tier): a match-long buff put on the members when the battle is built, so each one is deployed with it
   // (Battle._deploy: full HP of the raised max HP) and the battle-start devour finds it — the community report's step 1,
   // 「第一步给所有鱼加盟约的血量」 (DESIGN §25.22.5: an elite 深巡, 2904 HP and DEF 655, loses 5000 − 655 = 4345 to a mark and
@@ -162,6 +178,21 @@ function installEgir(battle, pid, bb, members) {
   };
   apply();
   onLayers(battle, pid, 'egirShip', apply);
+  const start = egirStart(battle);
+  start.passes++;
+  battle.on('battleStart', () => {
+    start.depth++;
+    try {
+      devour(battle, pid, bb, members);
+    } finally {
+      start.depth--;
+      if (--start.passes <= 0) for (const flush of start.flush.splice(0)) flush();
+    }
+  }, { once: true });
+  return start;
+}
+
+function installEgir(battle, pid, bb, members) {
   // 5: "前3名【阿戈尔】干员首次被击倒时立刻复活" — 3 slots (bonds.json max_free_respawn_cnt), one per member at most, on its first
   // knock-out ('killed') of the battle; a member never knocked out takes none (GitHub #105, #140 "没被吃的阿戈尔干员也会占用
   // 复活名额"; the owner's decision of 2026-10-05). Which knock-outs take them — a community report the owner relayed on
@@ -190,17 +221,7 @@ function installEgir(battle, pid, bb, members) {
   // first 3 members by position (§23.20); until 0.1.2 the first 3 knocked out took them but a revived member's pending
   // marks could knock it out again (GitHub #33, fixed in devour since).
   const max = reached(battle, pid, 'egirShip', bb.power_bond_char_cnt) ? Math.max(0, Math.floor(num(bb.max_free_respawn_cnt, 0))) : 0;
-  const start = egirStart(battle);
-  start.passes++;
-  battle.on('battleStart', () => {
-    start.depth++;
-    try {
-      devour(battle, pid, bb, members);
-    } finally {
-      start.depth--;
-      if (--start.passes <= 0) for (const flush of start.flush.splice(0)) flush();
-    }
-  }, { once: true });
+  const start = installHpAndDevour(battle, pid, bb, members);
   if (!(max > 0)) return;
   const memberOps = new Set(members.filter(S.isOp));
   const knockedOut = new Set(); // members whose first knock-out of this battle has happened
@@ -228,6 +249,91 @@ function installEgir(battle, pid, bb, members) {
   }, { priority: 11 });
 }
 
+// =====================================================================================================================
+// 规程: 歌蕾蒂娅's other direction (bondeffect_egir_2, act3autochess_bond_eff_egir)
+//
+// The template is act 1's (the same [max_hp], the same devour: ON_AUTO_CHESS_MODE_CHANGED marks range 1-1 — the tile in
+// front — then x-5 through marked members, [eat_mark] unchanged); only its ON_OWNER_FINISH differs. On a member's
+// knock-out (HP_ZERO, HP_ZERO_WITH_NO_SOURCE or FALLDOWN — our 'killed') at power_bond_char_cnt members: its first one
+// only (egir_first_finish_flag, spent whether or not anyone comes), while the player's switches are under
+// switch_cnt_max (the AUTOCHESS global `bond_eff_egir_switch_cnt_<side>`, raised only when one comes), the rightmost 阿戈尔
+// of the 整备区 that may stand on its tile (AutoChessCheckSwitchWithHand / AutoChessMarkSwitchWithHand: `_selectType`
+// RIGHT, `_putType` ORIGINAL, `_checkBond` egirShip, `_buildableType` NONE) comes in there facing its way and the member
+// leaves the field without a body, as 卡西米尔's 6 switch (kazimierz.js). The newcomer gets [attr_extend]: the fallen
+// member's devour gains (egir_bond_atk / egir_bond_block_cnt [extend] — ATK 最终加算, block count; the HP part only with
+// a strategy item's egir_band_equip_extra, none in this mode) are added to its own. The bond states stay the battle's
+// input (「不改变场上的盟约激活状态」).
+// [ASSUMED·CN: the switch nodes are CN-only — "may stand on its tile" is the member's deploy class (as the switch 特质,
+// garrisons/effects/switch.js `_checkOriginBuildable`); the counter is per player (act 1's revives the same way); the
+// devour's own knock-outs wait for the end of every pass and go by the board scan (egirReviveScan), as act 1's
+// revives (the community report of 2026-10-07); the switch runs after every other `death` handler (priority −1000, as
+// 卡西米尔's), so a saver or 不屈 answers first]
+
+const benchKey = (pid) => `bond:egir:bench:${pid}`;
+
+/**
+ * The 6 summon's candidates: the player's 整备区 阿戈尔 members (调和 counted), any deploy class, rightmost slot first, as
+ * reserve operators (battle/players.js createReserveAlly; one unit per hand slot, shared with the other hand rules).
+ */
+function reserveEgir(battle, pid, bb) {
+  if (!reached(battle, pid, 'egirShip', bb.power_bond_char_cnt)) return;
+  const ps = S.player(battle, pid);
+  const hand = Array.isArray(ps?.input?.reserve) ? ps.input.reserve : [];
+  const bench = S.battleStore(battle, benchKey(pid), () => []);
+  for (const inp of [...hand].filter((h) => h && Number.isInteger(h.slot)).sort((a, b) => b.slot - a.slot)) {
+    const def = battle._allyDefFromInput(inp);
+    if (!def) continue;
+    const probe = { kind: 'op', side: 'ally', ownerId: pid, def, items: Array.isArray(inp.items) ? inp.items : [] };
+    if (!S.isMember(battle, probe, 'egirShip')) continue;
+    const u = battle.createReserveAlly(ps, inp);
+    if (u && !bench.includes(u)) bench.push(u);
+  }
+}
+
+function installEgirAct3(battle, pid, bb, members) {
+  const start = installHpAndDevour(battle, pid, bb, members);
+  if (!reached(battle, pid, 'egirShip', bb.power_bond_char_cnt)) return;
+  const max = Math.max(0, Math.floor(num(bb.switch_cnt_max, 0)));
+  const bench = S.battleStore(battle, benchKey(pid), () => []);
+  if (!(max > 0) || !bench.length) return;
+  const memberOps = new Set(members.filter(S.isOp));
+  const knockedOut = new Set(); // members whose first knock-out of this battle has happened (egir_first_finish_flag)
+  const batch = []; // knocked out by a battle-start devour, handled once every pass is over
+  const gains = devourGains(battle);
+  let used = 0;
+  const summon = (u) => {
+    if (used >= max || u.alive || u.removed) return;
+    const next = bench.find((x) => !(x.deploySeq > 0) && !x.alive && x.def?.position === u.def?.position);
+    if (!next) return;
+    const tile = battle.restTile(u);
+    u.removed = true;
+    if (!battle.fieldReserve(next, tile, u.dir)) { u.removed = false; return; }
+    used++;
+    memberOps.add(next);
+    // [attr_extend]: the fallen member's gains, passed on again by the newcomer's own first knock-out
+    const g = gains.get(u);
+    if (g && Object.keys(g).length) {
+      S.passiveBuff(battle, next, 'bond:egir:devour', { ...g });
+      gains.set(next, g);
+    }
+    // (the view sees the knock-out's 'die' and the newcomer's 'deploy', as 卡西米尔's switch: no effect of its own yet)
+  };
+  start.flush.push(() => {
+    for (const u of batch.splice(0).filter((x) => !x.alive && !x.removed).sort(egirReviveScan)) summon(u);
+  });
+  battle.on('death', (c) => {
+    const u = c.unit;
+    if (c.reason !== 'killed' || c.revivedBy || !memberOps.has(u) || knockedOut.has(u)) return;
+    knockedOut.add(u);
+    if (start.depth > 0) { batch.push(u); return; }
+    summon(u);
+  }, { priority: -1000 });
+}
+
 export const TEMPLATES = Object.freeze({
   act1autochess_bond_eff_egir: { bond: 'egirShip', battle: installEgir },
+  act3autochess_bond_eff_egir: {
+    bond: 'egirShip', battle: installEgirAct3, reserve: reserveEgir,
+    hand: (bb) => ({ position: null, need: num(bb.power_bond_char_cnt) }),
+  },
 });

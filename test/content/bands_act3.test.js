@@ -61,14 +61,11 @@ test('规程 bands.json: bandType, relateBondIds, the 指令 stages from the eff
   for (const b of Object.values(DATA.bands)) assert.ok(!('skills' in b) && !('bandType' in b), b.bandId);
 });
 
-test('coverage: every strategy key of the default season is handled; 规程 lacks only the actives and two bond directions', () => {
+test('coverage: every strategy key of the default season is handled; 规程 lacks only the actives', () => {
   assert.deepEqual(coverageOf().totals.bands, { ok: 42, partial: 0, none: 0, wrong: 0 });
   const rows = coverageOf('act3autochess').bands;
   const notOk = rows.filter((r) => r.status !== 'ok' && !r.key.startsWith('skill_'));
-  assert.deepEqual(notOk.map((r) => `${r.status} ${r.id} ${r.key}`).sort(), [
-    'partial band_egir auto_chess_effect_replace',
-    'partial band_victoria auto_chess_effect_replace',
-  ]);
+  assert.deepEqual(notOk.map((r) => `${r.status} ${r.id} ${r.key}`).sort(), [], 'every bond direction a strategy switches to is written');
 });
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -257,7 +254,7 @@ test('陈 以己之长 (规程): elite operators ATK +16 % and ASPD +16, normal 
 // ---------------------------------------------------------------------------------------------------------------
 // bond direction switch
 
-test('a strategy switches a bond to its other direction for its holder\'s battle; an unwritten direction stays', () => {
+test('a strategy switches a bond to its other direction for its holder\'s battle; the season\'s record otherwise', () => {
   const sargon = ACT3.bonds.sargonShip;
   const swapped = swapBondRecord(sargon, ACT3.bands.band_sargon, effectOf);
   assert.equal(swapped.effectId, 'bondeffect_sargon');
@@ -267,10 +264,14 @@ test('a strategy switches a bond to its other direction for its holder\'s battle
   const kj = swapBondRecord(ACT3.bonds.kjeragShip, ACT3.bands.band_kjerag2, effectOf);
   assert.deepEqual(kj.buffs.map((b) => b.bbStr.key ?? b.key), ['act1autochess_bond_eff_kjerag', 'bond_layer_added_reward_equip']);
   assert.equal(kj.buffs[1].bbStr.pool, 'pool_equip_kjeragbond2');
-  // 洛洛's 维多利亚 _2 and 歌蕾蒂娅's 阿戈尔 _2 are not written: no switch
+  // 洛洛's 维多利亚 → _2 (规程's own template), the prep reward kept; 歌蕾蒂娅's 阿戈尔 → _2
   assert.equal(bondEffectReplacements(ACT3.bands.band_victoria).get('bondeffect_victoria'), 'bondeffect_victoria_2');
-  assert.ok(swapBondRecord(ACT3.bonds.victoriaShip, ACT3.bands.band_victoria, effectOf) === ACT3.bonds.victoriaShip);
-  assert.ok(swapBondRecord(ACT3.bonds.egirShip, ACT3.bands.band_egir, effectOf) === ACT3.bonds.egirShip);
+  const vic = swapBondRecord(ACT3.bonds.victoriaShip, ACT3.bands.band_victoria, effectOf);
+  assert.deepEqual(vic.buffs.map((b) => b.bbStr.key ?? b.key), ['act3autochess_bond_eff_victoria', 'bond_layer_added_reward_equip']);
+  assert.equal(swapBondRecord(ACT3.bonds.egirShip, ACT3.bands.band_egir, effectOf).effectId, 'bondeffect_egir_2');
+  // and 歌蕾蒂娅's 阿戈尔 asks for the 整备区's 阿戈尔 of any class
+  assert.deepEqual(handRules((id) => swapBondRecord(ACT3.bonds[id], ACT3.bands.band_egir, effectOf)).filter((r) => r.bond === 'egirShip'), [{ bond: 'egirShip', position: null, need: 6 }]);
+  assert.deepEqual(handRules((id) => ACT3.bonds[id]).filter((r) => r.bond === 'egirShip'), []);
   // 焰尾's 卡西米尔 (the default season's direction) asks for no 整备区 operators
   const rules = (band) => handRules((id) => swapBondRecord(ACT3.bonds[id], band, effectOf)).filter((r) => r.bond === 'kazimierzShip');
   assert.equal(rules(null).length, 1);

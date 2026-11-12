@@ -241,7 +241,7 @@ export class PlayerRound {
         if (!piece || piece.kind !== 'chess') return;
         const pos = this.gd.chess(piece.id)?.position, bonds = pieceBonds(this.gd, piece);
         // 消解空间 calls the rightmost hand operator of any class (content/bands/battle.js reserve)
-        if (wantsHand || rules.some((x) => pos === x.position && (bonds.includes('maniShip') || x.bonds.some((b) => bonds.includes(b))))) reserve.push(this.chessBattleEntry(piece, { slot }));
+        if (wantsHand || rules.some((x) => (x.position == null || pos === x.position) && (bonds.includes('maniShip') || x.bonds.some((b) => bonds.includes(b))))) reserve.push(this.chessBattleEntry(piece, { slot }));
       });
     }
     return {

@@ -64,10 +64,10 @@ export const ORDER = Object.freeze([
   Object.freeze([
     'act1autochess_bond_eff_yan',
     'act1autochess_bond_eff_sargon', 'act3autochess_bond_eff_sargon',
-    'act1autochess_bond_eff_victoria',
+    'act1autochess_bond_eff_victoria', 'act3autochess_bond_eff_victoria',
     'act1autochess_bond_eff_kjerag', 'act3autochess_bond_eff_kjerag',
     'act1autochess_bond_eff_laterano',
-    'act1autochess_bond_eff_egir',
+    'act1autochess_bond_eff_egir', 'act3autochess_bond_eff_egir',
     'act2autochess_bond_eff_siracusa',
     'act2autochess_bond_eff_kazimierz',
   ]),
@@ -93,7 +93,8 @@ export const ORDER = Object.freeze([
 // stage: 娜仁图亚 萨尔贡 _2 → the default season's, 耶拉 谢拉格 _2 → the default season's, 裁度 叙拉古, 焰尾 卡西米尔, 望 炎 the
 // same way, 洛洛 维多利亚 → _2, 歌蕾蒂娅 阿戈尔 → _2. No text names it (the client's bond card would show the other effect):
 // a rider of holding the strategy, from the first round. The holder's battle runs the other effect's battle templates
-// (its env buffs: the record's own numbers, the default season's code); the bond's prep templates stay the season
+// (its env buffs with the record's own numbers: the default season's code, 规程's own for 维多利亚 / 阿戈尔 _2 —
+// nation/victoria.js, nation/egir.js); the bond's prep templates stay the season
 // record's — the layer rewards are server-side, and the other direction's own text still promises them (谢拉格's
 // 「每叠加100层获得1件谢拉格不融冰」, its effect record without the reward buff) [ASSUMED·서버: 다른 방향의 층 보상은 서버 쪽 규칙].
 // A target direction whose battle templates are not all written here is not switched (the player keeps the season's
@@ -165,7 +166,8 @@ export function templateNumbers(bondId, key, scope = null, pid = null) {
 /**
  * The 整备区 pieces a battle may field (PlayerBattleInput `reserve`, server/match/player/round.js battleInput): per
  * template with a `hand(bb)` rule whose bond record (`bondOf(bondId)`, the season's) carries it, `{ bond, position, need }`
- * — a hand operator of that deploy class carrying the bond (or 调和) once the player has `need` members. A superset: the
+ * — a hand operator of that deploy class (`position` null: any — 规程's 阿戈尔 6) carrying the bond (or 调和) once the
+ * player has `need` members. A superset: the
  * template's `reserve` picks the exact candidates. Only these travel, so the spec shows no more of a player's hand.
  */
 export function handRules(bondOf) {

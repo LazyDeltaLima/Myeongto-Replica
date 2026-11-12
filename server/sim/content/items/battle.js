@@ -613,9 +613,23 @@ export function lendItemEffects(battle, fromUnit, toUnit, { maxTier = 5, duratio
     if (g.timer) g.timer.cancel();
     g.until = battle.time + dur;
     g.timer = battle.after(dur, () => g.dispose());
+    g.lender = fromUnit;
     n++;
   }
   if (n) fxOn(battle, 'buff', toUnit, 'item:lend', 'lend', { from: fromUnit.id, n, duration: dur });
+  return n;
+}
+
+/**
+ * End now the item effects `fromUnit` lent `toUnit` (lendItemEffects) — 规程's 维多利亚 6 when the lending buff ends
+ * before its time (its ON_BUFF_DISABLE AutoChessRemoveEquipEffectByAlias). An effect another unit lent again since is
+ * that unit's and stays. Returns the number ended.
+ */
+export function endLentItems(battle, fromUnit, toUnit) {
+  const gm = battle ? runtime(battle).grants.get(toUnit) : null;
+  if (!gm) return 0;
+  let n = 0;
+  for (const g of [...gm.values()]) if (g.lent && g.lender === fromUnit) { g.dispose(); n++; }
   return n;
 }
 

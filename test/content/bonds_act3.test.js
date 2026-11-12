@@ -11,6 +11,7 @@ import { bondBb as coreBb } from '../../server/sim/content/bonds/core.js';
 import { makeMatch, legalTileFor } from '../match/harness.js';
 import { PHASE } from '../../shared/constants.js';
 import { COLS } from '../../server/sim/constants.js';
+import { itemGrants } from '../../server/sim/content/items/battle.js';
 
 const close = (a, b, eps = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} expected ${b}, got ${a}`);
 const op = (id, bonds, extra = {}) => chessRec({
@@ -403,6 +404,168 @@ test('规程 卡西米尔 6 (real match): the 整备区\'s 卡西米尔 ground o
   assert.ok(b.result().perPlayer.p_0.unitsEnd.some((u) => u.uid === reserve[0].uid), 'and is a unit of the result');
   assert.equal(b.errorCount, 0);
   assert.equal(m.errorCount, 0);
+  m.dispose?.();
+});
+
+// ---- 洛洛's 维多利亚 _2 / 歌蕾蒂娅's 阿戈尔 _2 (the strategies switch the bond to its other direction)
+
+const HAMMER = 'chess_item_1_01_e_a'; // 维式重锤: ATK +15 %
+
+test('洛洛\'s 维多利亚 6 (_2): a member\'s skill lends its equipment to the 3×3 for 30 + 0.1L s; a cast while it runs only refills the time; its knock-out ends it', () => {
+  const vic = ids('v', 6);
+  const list = [...vic.map((id) => [id, ['victoriaShip']]), ['t0_a', ['sargonShip']], ['t1_a', ['sargonShip']], ['t2_a', ['sargonShip']]];
+  const units = [
+    ...vic.map((id, i) => ({ chessId: id, row: 10, col: 3 + 2 * i, ...(i < 2 ? { items: [HAMMER] } : {}) })),
+    { chessId: 't0_a', row: 11, col: 4 }, // beside v0 (10, 3) diagonally
+    { chessId: 't1_a', row: 12, col: 3 }, // two rows away: outside the 3×3
+  ];
+  const h = fight(list, { victoriaShip: bondOn(6, 50) }, { bandId: 'band_victoria', units });
+  const b = h.b;
+  const [v0, v1, t0, t1] = [h.unit('v0_a'), h.unit('v1_a'), h.unit('t0_a'), h.unit('t1_a')];
+  close(t0.s.atk, 1000, 1e-6, 'before the cast:');
+  b.emit('skillStart', { unit: v0 });
+  close(t0.s.atk, 1150, 1e-6, 'the hammer lent:');
+  close(t1.s.atk, 1000, 1e-6, 'outside the 3×3:');
+  assert.deepEqual(itemGrants(b, t0).map((g) => [g.id, g.lent]), [[HAMMER, true]]);
+  assert.ok(!itemGrants(b, h.unit('v1_a')).some((g) => g.lent), 'v1 (two tiles away) gets nothing');
+  // EXTEND: 20 s on, a second cast refills 35 s; an operator that came near meanwhile is not reached
+  h.run(20);
+  b.emit('skillStart', { unit: v0 });
+  h.run(34);
+  close(t0.s.atk, 1150, 1e-6, 'refilled at 20 s, still lent at 54 s:');
+  h.run(1.2);
+  close(t0.s.atk, 1000, 1e-6, 'over 35 s after the second cast:');
+  // the lender's knock-out takes the loan back at once; a member without equipment lends nothing
+  b.emit('skillStart', { unit: v0 });
+  close(t0.s.atk, 1150);
+  b.kill(v0);
+  close(t0.s.atk, 1000, 1e-6, 'its knock-out ends the loan:');
+  b.emit('skillStart', { unit: h.unit('v2_a') });
+  assert.ok(!b.allyUnits.some((u) => itemGrants(b, u).some((g) => g.lent)), 'no equipment, no loan');
+  // the damage scale of both directions: equipped members only
+  assert.ok(v1.buffs.some((x) => x.key === 'bond:victoria'));
+  assert.ok(!h.unit('v2_a').buffs.some((x) => x.key === 'bond:victoria'));
+  assert.ok(!v1.buffs.some((x) => x.key === 'bond:victoria:atk'), 'no equipment ATK: that is the season\'s 6');
+  assert.deepEqual(b.errors, []);
+});
+
+test('维多利亚 6: without 洛洛 the season\'s equipment ATK and no loan; 洛洛 at 5 members lends nothing', () => {
+  const vic = ids('v', 6);
+  const list = [...vic.map((id) => [id, ['victoriaShip']]), ['t0_a', ['sargonShip']]];
+  const units = [...vic.map((id, i) => ({ chessId: id, row: 10, col: 3 + 2 * i, items: [HAMMER] })), { chessId: 't0_a', row: 11, col: 4 }];
+  const own = fight(list, { victoriaShip: bondOn(6, 50) }, { units });
+  own.b.emit('skillStart', { unit: own.unit('v0_a') });
+  close(own.unit('t0_a').s.atk, 1000, 1e-6, 'the season\'s direction lends nothing:');
+  assert.ok(own.unit('v0_a').buffs.some((x) => x.key === 'bond:victoria:atk'), 'its equipment ATK');
+  const five = fight(list, { victoriaShip: bondOn(5, 50) }, { bandId: 'band_victoria', units });
+  five.b.emit('skillStart', { unit: five.unit('v0_a') });
+  close(five.unit('t0_a').s.atk, 1000, 1e-6, '5 members:');
+});
+
+/** Six 阿戈尔 members (e0 a ranged one) spaced so only e1 devours (f0 in front of it), and a 整备区 of `hand`. */
+function egirFight(hand, { count = 6, bandId = 'band_egir' } = {}) {
+  const board = ids('e', 6).map((id, i) => [id, ['egirShip'], i === 0 ? { profession: 'SNIPER' } : undefined]);
+  const benched = hand.map(([id, , bonds, extra]) => [id, bonds, extra]);
+  const tiles = [[10, 3], [10, 5], [10, 8], [12, 3], [12, 5], [12, 8]];
+  return fight([...board, ['f0_a', ['sargonShip']], ...benched], { egirShip: bondOn(count, 0) }, {
+    bandId,
+    units: [...board.map(([id], i) => ({ chessId: id, row: tiles[i][0], col: tiles[i][1], dir: 'RIGHT' })), { chessId: 'f0_a', row: 10, col: 6, dir: 'RIGHT' }],
+    reserve: hand.map(([id, slot]) => ({ chessId: id, slot })),
+  });
+}
+
+test('歌蕾蒂娅\'s 阿戈尔 6 (_2): a member\'s first knock-out calls the 整备区\'s rightmost 阿戈尔 of its deploy class onto its tile, with its devour gains; at most 3', () => {
+  const h = egirFight([
+    ['h1_a', 1, ['egirShip']],
+    ['h7_a', 7, ['egirShip']],
+    ['h8_a', 8, ['egirShip'], { profession: 'CASTER' }],
+    ['h9_a', 9, ['sargonShip']], // no 阿戈尔
+  ]);
+  const b = h.b;
+  const reserve = b.allyUnits.filter((u) => u.reserve);
+  assert.deepEqual(reserve.map((u) => u.defId), ['h8_a', 'h7_a', 'h1_a'], 'every 阿戈尔 of the 整备区, any class, rightmost first');
+  const e1 = h.unit('e1_a');
+  close(e1.s.atk, 2000, 1e-6, 'e1 devoured f0 (base ATK 1000, 最终加算):');
+  assert.equal(e1.s.blockCnt, 4);
+  const [r, c] = [e1.tileR, e1.tileC];
+  b.kill(e1);
+  const h7 = h.unit('h7_a');
+  assert.ok(e1.removed && !b.isDown(e1), 'the member leaves: no body');
+  assert.ok(h7.alive && h7.deployed && h7.tileR === r && h7.tileC === c && h7.dir === e1.dir, 'h7 (melee, as e1) on its tile; h8 is ranged');
+  close(h7.s.atk, 2000, 1e-6, 'with e1\'s devour gains:');
+  assert.equal(h7.s.blockCnt, 4);
+  b.kill(h.unit('e0_a'));
+  const h8 = h.unit('h8_a');
+  assert.ok(h8.alive && h8.deployed, 'the ranged member calls the ranged one');
+  b.kill(h7);
+  const h1 = h.unit('h1_a');
+  assert.ok(h1.alive && h1.deployed && h1.tileR === r && h1.tileC === c, 'a newcomer\'s own first knock-out calls again');
+  close(h1.s.atk, 2000, 1e-6, 'the gains passed on again:');
+  const e2 = h.unit('e2_a');
+  b.kill(e2);
+  assert.ok(!e2.removed && b.isDown(e2), 'at most 3: knocked out as usual');
+  assert.equal(b.players[0].bonds.egirShip.count, 6, 'the bond state is the battle\'s input');
+  assert.deepEqual(b.errors, []);
+});
+
+test('阿戈尔 6 (_2): no candidate of the class or a retreat calls nobody; no candidates at 5 members or without 歌蕾蒂娅 (the season\'s revive)', () => {
+  {
+    const h = egirFight([['h1_a', 1, ['egirShip']], ['h2_a', 2, ['egirShip']]]);
+    const e3 = h.unit('e3_a');
+    // a first knock-out with no fitting candidate spends it: the ranged e0 finds none
+    h.b.kill(h.unit('e0_a'));
+    assert.ok(h.b.isDown(h.unit('e0_a')), 'no ranged candidate: lies down');
+    h.b.retreat(e3);
+    assert.ok(!e3.removed && !h.unit('h2_a').deployed, 'a retreat is no knock-out');
+    assert.deepEqual(h.b.errors, []);
+  }
+  {
+    const h = egirFight([['h7_a', 7, ['egirShip']]], { count: 5 });
+    assert.equal(h.b.allyUnits.filter((u) => u.reserve).length, 0, 'no candidates below 6');
+  }
+  {
+    const h = egirFight([['h7_a', 7, ['egirShip']]], { bandId: null });
+    assert.equal(h.b.allyUnits.filter((u) => u.reserve).length, 0, 'the season\'s direction calls nobody');
+    const e1 = h.unit('e1_a');
+    h.b.kill(e1);
+    assert.ok(e1.alive && !e1.removed, 'its 6: the free revive in place');
+    assert.deepEqual(h.b.errors, []);
+  }
+});
+
+test('歌蕾蒂娅\'s 阿戈尔 6 (real match): the 整备区\'s 阿戈尔 of any class travel in the battle input, not without her', () => {
+  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 5, data: ACT3_ON_BASE_FIELD, season: 'act3autochess' }).start();
+  h.toPrep(3, { band: 'band_egir' });
+  const m = h.m, ps = h.ps('p_0');
+  assert.equal(ps.bandId, 'band_egir');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  ps.level = Math.max(ps.level, 6);
+  const pool = Object.values(ACT3.chess).filter((c) => c.visible && !c.isGolden && c.bonds.includes('egirShip'));
+  const onBoard = pool.slice(0, 6);
+  const melee = pool.filter((c) => !onBoard.includes(c) && c.position === 'MELEE');
+  const ranged = pool.filter((c) => !onBoard.includes(c) && c.position !== 'MELEE');
+  assert.ok(melee.length && ranged.length, '阿戈尔 of both classes for the 整备区');
+  const used = new Set();
+  for (const c of onBoard) {
+    const piece = ps.acquireChess(c.chessId, { source: 'buy' });
+    const [row, col] = legalTileFor(m, ps, c.chessId, used);
+    used.add(`${row},${col}`);
+    assert.equal(m.handle('p_0', { t: 'g.move', uid: piece.uid, to: { area: 'board', row, col }, dir: 'RIGHT' }).ok, true, c.chessId);
+  }
+  const slots = [];
+  for (const c of [melee[0], ranged[0]]) {
+    const piece = ps.acquireChess(c.chessId, { source: 'buy' });
+    slots.push([ps.hand.indexOf(piece), c.chessId]);
+  }
+  const other = Object.values(ACT3.chess).find((c) => c.visible && !c.isGolden && !c.bonds.includes('egirShip') && !c.bonds.includes('maniShip'));
+  ps.acquireChess(other.chessId, { source: 'buy' });
+  ps.recompute();
+  assert.ok(ps.bonds.egirShip.count >= 6, `阿戈尔 ${ps.bonds.egirShip.count}`);
+  assert.deepEqual(ps.battleInput().reserve.map((u) => [u.slot, u.chessId]), [...slots].sort((a, x) => a[0] - x[0]), 'both 阿戈尔, not the other piece');
+  ps.bandId = 'band_amiya';
+  assert.deepEqual(ps.battleInput().reserve ?? [], [], 'another strategy: the season\'s 阿戈尔 asks for no 整备区 operators');
   m.dispose?.();
 });
 
