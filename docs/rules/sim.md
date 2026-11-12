@@ -281,14 +281,18 @@
   켜져 있는데 변신 버프(`mlyssWtrmanTransformBuff`)가 없으면 복사 — `_TryUsingMlyssWtrmanSkill`이 대상 카드의 더미를 유동체 칸에 짓는다
   (`Tile.OnEntityWillBuild`; 공식에서 대기 중인 오퍼레이터를 켜진 유동체 위로 끌어다 놓는 것과 같은 길). 복사도 시전으로 세므로 복사는 시전보다 블록
   (10패스 = 2 s) 뒤에 온다(전에는 스킬이 켜지는 순간 복사). 복사 대상 = `_GetMlyssCopiedTargetInstId`: 정비 말(`battleChessInsts`의 캐릭터 — 필드에
-  있든 쓰러졌든, 뮤엘시스 자신도) 중 정비 칸(`ChessInst.pos`, 엔진 `homeR`/`homeC`)이 `_GetMlyssTokenToGridPosPriority` 최소인 것, 같으면 목록 앞:
+  있든 쓰러졌든, 뮤엘시스 자신도, 공용 필드면 모든 플레이어의 말 — 클라는 플레이어를 거르지 않는다) 중 정비 칸(`ChessInst.pos`, 엔진 `homeR`/`homeC`)이
+  `_GetMlyssTokenToGridPosPriority` 최소인 것, 같으면 `battleChessInsts`의 앞(아래 순서):
   우선순위 = |x| + |y|, x = 유동체 행 − 대상 행이 0 이하면 그 값, 아니면 대상 행 + 맵 높이; y = (열도 같은 식, 맵 너비) × 맵 높이 — 유동체의 위·오른쪽
   칸이 먼저, 아래·왼쪽은 가장자리부터 센다. 고른 대상은 유동체 칸마다 전투 내내 고정(`mlyssCopiedChessUid2CopiedChessInstId`: 그 칸에 다시 선 유동체도
   같은 대상). 전에는 필드에 서 있는 가장 가까운 아군(뮤엘시스 제외)이었고 없으면 기다렸다. 클라는 시전 뒤 다음 패스의 자동 배치를 건너뛰지만
   (`m_disableDeployNextFrame`) 이 엔진에서 패스 안 배치는 왕의 바둑돌뿐이라 막지 않는다. 더미를 받는 유동체 스킬 버프(`buff_template_data`
   `mlyss_wtrman_s_begin`의 ON_ENTITY_WILL_OVERLAP)는 그 카드의 스냅숏(`_useCardSnapshot`)에서 생명·공격·방어·마법 저항(비율)과 저지 수·공격 간격을 옮기고
-  누구도 거르지 않는다 — 뮤엘시스 자신도 복사된다(공식 테이블에서 확인). [추정·엔진: 같은 우선순위일 때 목록 순서 — `battleChessInsts`를 채우는 곳은 안
-  읽음, 엔진은 `allyUnits` 순서; 연합 방어 공용 필드는 유동체 주인의 말만]
+  누구도 거르지 않는다 — 뮤엘시스 자신도 복사된다(공식 테이블에서 확인). `battleChessInsts`의 순서(공식 클라에서 확인 2026-11-12,
+  `AutoChessBattleDataModel._LoadBattleChessInsts`: 맵 위 말을 모아 `ChessInst.CompareTo`로 정렬): 캐릭터가 소환물 앞, 그다음 열이 낮은 쪽, 같은 열은
+  행이 높은(위) 쪽 — 보스전(`inBossBattleState`)은 좌우 경계 열(레벨 `player_map_lr_boundary_col`, 규정 전 맵 10)에서 먼 쪽이 먼저, 같으면 열이 낮은 쪽.
+  곧 이 엔진의 배치 차례(「작전 시작 차례 배치」)와 같다. 맵 너비·높이는 그 전투 맵의 것(8인 넓은 연합 방어 필드는 넓힌 열 수 — 전에는 여기서 계산이
+  깨져 유동체 왼쪽의 말이 후보에서 빠졌다). 전에는 같은 우선순위에서 `allyUnits`(만든 차례), 공용 필드는 유동체 주인의 말만이었다.
 - 스테인리스 S3 게(글룸핀서호 - 프로토타입, `token_10027_ironmn_pile3`, 2026-11-03 공식 클라에서 확인): 우리 편 소환물이지만 토큰 프리팹이 `_sideType` 2(ENEMY)·
   `_category` 1(DEFAULT)이라 위 상자의 적 옵션(쪽 2·카테고리 1)에 그대로 걸린다 → rangeId 상자에 게가 있으면 적처럼 시전, **치유 스킬도**(같은 옵션);
   rangeId 없는 갈래는 공격 상태 — 우리 공격은 게를 고르므로(적이 다 빠진 뒤, 도발 −2) 게를 치는 유닛은 시전, 치유 공격만 하는 유닛은 아님(禁疗라 환자가
@@ -2627,7 +2631,9 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   소모자가 자기 범위를 가진 스킬을 켜고 있으면 그 스킬의 격자(`targeting.rangeGrid`; 대상만 고르는 `showOwnRange` 스킬은 제외). 사거리 증감은 0 — 일시 증감도,
   모듈의 영구 「공격 거리 +N」(`s.baseRangeExtend`)도 넣지 않는다. 성공마다 폭격이 하나씩 늘고, 폭격은 0.1초 간격으로 **나가** 쏜 순간 대상이 선 자리에 고정되고
   (대상을 따라가지 않음), 그 자리에서 **0.3초 뒤** 반경 1.3(중점 판정)으로 터진다. 이미 쏜 폭격은 대상이나 그녀가 그 사이 죽어도 터지고, 대상이 죽은 뒤에는 그
-  라운드의 남은 폭격이 나가지 않는다. 피해는 라운드를 만들 때의 공격력으로 정한다.
+  라운드의 남은 폭격이 나가지 않는다. 그녀가 라운드 도중 쓰러지면 그 뒤 차례의 폭격도 나가지 않는다(공식 클라에서 확인 2026-11-12: 폭격 차례마다 `AbilityStandard.OnSpellStart`가
+  주인이 살아 있지 않으면 시전을 끝내고(`TalentBomb`에 `_ignoreIfOwnerDead` 없음), 쓰러짐(`Entity.OnFinish` → `ClearAbilities`)이 `TalentBomb`을 떼며 시전 코루틴을 멈춘다 —
+  `_interruptAbilityOnDetach` 1·`Ability.CleanupForNextCast`). 피해는 라운드를 만들 때의 공격력으로 정한다.
   전에는 성공마다 소모자의 정렬로 소모자의 현재 범위(사거리 증감 포함)에서 대상을 다시 골랐고, 반경 1로 한꺼번에, 즉시 떨어졌다.
 - 근거: PRTS 엑시아 더 뉴 커버넌트 재능 비고(2026-10-29 원문 확인, upstream 인용과 같음) — 「每轮轰炸仅选取一次目标，每次成功的概率判定都会增加一次本轮的轰炸」,
   「轰炸半径1.3，单轮多次轰炸之间间隔0.1s，造成预计算的物理普通伤害」, 「借用消耗者的攻击范围…始终使用默认索敌逻辑；这一行为不受对方的攻击距离增减」(예: 공격 범위 +1 스킬을 켠

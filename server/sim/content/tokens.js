@@ -95,7 +95,7 @@ import { genericKit } from './generic.js';
 import { bardRegen } from '../professions.js';
 import { normDir, localOrder } from '../dir.js';
 import { SKILL_SUMMON_START_DEPLOY } from '../../../shared/constants.js';
-import { wideSpan, wideCols } from '../wideStage.js';
+import { wideSpan, wideShift } from '../wideStage.js';
 import { hypot } from '../detmath.js';
 import { atPotential } from '../../../shared/potential.js';
 import { hasPower } from './kits/shared/powers.js';
@@ -858,6 +858,26 @@ function wolfPack(bb, raw, def) {
  * its row and column distance, the column weighted by the row count; one down / left of it counts from the field's edge
  * (row + rows, column + columns) — formula as the client computes it.
  */
+/**
+ * `AutoChessBattleDataModel._LoadBattleChessInsts` sorts `battleChessInsts` with `ChessInst.CompareTo` (official client):
+ * characters before tokens, then by column — in a boss battle (`inBossBattleState`) the one farther from the field's
+ * left / right boundary column first, then — and otherwise — the lower column first, then the higher row (the top) first:
+ * our deployment order (battle/lifecycle.js). The boundary column (`AutoChessMapAreaManager.mapLRBoundaryCol`, the
+ * level's `player_map_lr_boundary_col`: 10 on every act2autochess map) is the mirror axis of our boss field
+ * (battle/players.js: column c ↔ STAGE_COLS − 1 − c). < 0: `a` comes first.
+ */
+const LR_BOUNDARY_COL = 10;
+function chessInstOrder(a, b, boss) {
+  if (a.homeC !== b.homeC) {
+    if (boss) {
+      const da = Math.abs(a.homeC - LR_BOUNDARY_COL), db = Math.abs(b.homeC - LR_BOUNDARY_COL);
+      if (da !== db) return db - da;
+    }
+    return a.homeC - b.homeC;
+  }
+  return b.homeR - a.homeR;
+}
+
 function manifoldPriority(tr, tc, r, c, rows, cols) {
   const x = tr - r > 0 ? r + rows : tr - r;
   const y = (tc - c > 0 ? c + cols : tc - c) * rows;
@@ -866,24 +886,25 @@ function manifoldPriority(tr, tc, r, c, rows, cols) {
 
 /**
  * The operator a 流形 copies ("可复制待部署区一名干员"; the automatic operations, `AutoChessBattleTrigger.
- * _GetMlyssCopiedTargetInstId`): among its player's operators of the board (`battleChessInsts` characters — on the field
- * or not, knocked out, 缪尔赛思 herself too), the one whose board tile (`ChessInst.pos`: homeR / homeC) has the lowest
- * manifoldPriority from the 流形's tile, the first in board order on a tie; kept for that tile for the whole battle
- * (`mlyssCopiedChessUid2CopiedChessInstId`: a 流形 on that tile again copies the same one). Null with no operator. The
- * token's skill buff (`mlyss_wtrman_s_begin`, ON_ENTITY_WILL_OVERLAP) copies whatever card is built on it, from the card's
- * snapshot, with no filter — 缪尔赛思 too. [ASSUMED·미조사: the board order on a tie is `allyUnits`' order (where
- * `battleChessInsts` is filled is not read); on a shared 联防 field only the 流形 owner's pieces]
+ * _GetMlyssCopiedTargetInstId`): among the operators of the battle map (`battleChessInsts` characters — on the field
+ * or not, knocked out, 缪尔赛思 herself too, and on a shared field every player's: the client filters no player), the one
+ * whose board tile (`ChessInst.pos`: homeR / homeC) has the lowest manifoldPriority from the 流形's tile (the map's
+ * width and height: a wide field's widened columns), the first in `battleChessInsts`' order on a tie; kept for that tile
+ * for the whole battle (`mlyssCopiedChessUid2CopiedChessInstId`: a 流形 on that tile again copies the same one). Null
+ * with no operator. The token's skill buff (`mlyss_wtrman_s_begin`, ON_ENTITY_WILL_OVERLAP) copies whatever card is
+ * built on it, from the card's snapshot, with no filter — 缪尔赛思 too.
  */
 export function manifoldCopyTarget(battle, unit) {
   const memo = (stateOf(battle).manifoldCopied ??= new Map());
   const key = unit.tileR * COLS + unit.tileC;
   if (memo.has(key)) return memo.get(key);
-  const cols = battle.wide ? wideCols(battle.wide) : STAGE_COLS;
+  const cols = battle.wide ? STAGE_COLS + wideShift(battle.wide) : STAGE_COLS;
+  const boss = battle.kind === 'boss' || battle.kind === 'hidden';
   let best = null, bp = Infinity;
   for (const a of battle.allyUnits) {
-    if (a.kind !== 'op' || a.ownerId !== unit.ownerId) continue;
+    if (a.kind !== 'op') continue;
     const p = manifoldPriority(unit.tileR, unit.tileC, a.homeR, a.homeC, ROWS, cols);
-    if (p < bp) { best = a; bp = p; }
+    if (p < bp || (p === bp && chessInstOrder(a, best, boss) < 0)) { best = a; bp = p; }
   }
   if (best) memo.set(key, best);
   return best;

@@ -186,6 +186,49 @@ test('#5 流形: never attacks before copying; the automatic operations copy the
   noErrors(h);
 });
 
+test('#5 流形: on a tie the client\'s battleChessInsts order decides (lower column, then higher row), not the list order', REAL, () => {
+  // (17,7): 8 + 1 column × 19 = 27; (8,6): row 8 below the 流形's 9 counts from the edge, 8 + 19 = 27
+  const h = makeBattle({
+    defs: { chess: { test_guard: guard(), test_guard2: guard({ id: 'test_guard2' }) }, enemies: { enemy_dummy: dummy() } }, timeLimit: 30, autoFinish: false,
+    units: [{ chessId: 'chess_char_6_11_a', row: 12, col: 2, uid: 1 }, { chessId: 'test_guard', row: 17, col: 7, uid: 2 }, { chessId: 'test_guard2', row: 8, col: 6, uid: 4 },
+      { kind: 'token', tokenId: MF, row: 9, col: 6, uid: 3, ownerUid: 1 }],
+  });
+  h.step();
+  const m = standing(h)[0];
+  assert.ok(m);
+  assert.equal(manifoldCopyTarget(h.b, m), h.unit('test_guard2'), 'column 6 before column 7');
+  noErrors(h);
+});
+
+test('#5 流形: on a shared field it copies another player\'s operator too (the client filters no player)', REAL, () => {
+  const h = makeBattle({
+    kind: 'unite', defs: { chess: { test_guard: guard() }, enemies: { enemy_dummy: dummy() } }, timeLimit: 30, autoFinish: false,
+    players: [
+      { playerId: 'p1', seat: 0, side: 'L', colOffset: 0, units: [{ chessId: 'chess_char_6_11_a', row: 12, col: 2, uid: 1 }, { kind: 'token', tokenId: MF, row: 9, col: 6, uid: 3, ownerUid: 1 }] },
+      { playerId: 'p2', seat: 1, side: 'R', colOffset: 8, units: [{ chessId: 'test_guard', row: 9, col: 0, uid: 11 }] },
+    ],
+  });
+  h.step();
+  const m = standing(h)[0], g = h.unit('test_guard');
+  assert.ok(m && g);
+  assert.notEqual(g.ownerId, m.ownerId);
+  assert.equal(manifoldCopyTarget(h.b, m), g, 'the nearer piece, whoever owns it');
+  noErrors(h);
+});
+
+test('#5 流形: on a wide 联防 field the priority counts the widened columns (an operator left of it is still a candidate)', REAL, () => {
+  const h = makeBattle({
+    kind: 'unite', defs: { enemies: { enemy_dummy: dummy() } }, timeLimit: 30, autoFinish: false,
+    units: [{ chessId: 'chess_char_6_11_a', row: 12, col: 2, uid: 1 }, { kind: 'token', tokenId: MF, row: 9, col: 6, uid: 3, ownerUid: 1 }],
+    setup: (b) => { b.wide = 3; },   // manifoldCopyTarget reads only the halves
+  });
+  h.step();
+  const m = standing(h)[0];
+  assert.ok(m);
+  assert.equal(manifoldCopyTarget(h.b, m), h.unit('chess_char_6_11_a'));
+  noErrors(h);
+});
+
 test('#5 流形: with no other operator on the board it copies 缪尔赛思 herself (the client trigger leaves nobody out)', REAL, () => {
   const h = makeBattle({
     defs: { enemies: { enemy_dummy: dummy() } }, timeLimit: 60, autoFinish: false,
