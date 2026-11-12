@@ -1,7 +1,8 @@
 // server/sim/content/kits/ops/op-hodrer.js — 赫德雷 (char_4088_hodrer) kit: 6★ 重剑手 (近卫), a tier-4 piece of 规程 (act3autochess,
-// chess_char_4_21); every skill, both talents, the trait and both modules. Written by upstream as a 自选 kit; here it is a season
-// kit (index.js SEASON_KIT_FILES), not a 自选 pick (maintainer decision 2026-11-08: his pick may come later).
-// Kit contract: ../README.md ("How to add an operator (自选)").
+// chess_char_4_21); every skill, both talents, the trait and both modules. Written by upstream as a 自选 kit; a 盟约 自选 pick since
+// 2026-11-12 (maintainer decision; index.js OPERATOR_KIT_FILES — 规程's build leaves its own chess out of its picks) and the kit
+// of that 规程 chess (kitKeyOfChar). Kit contract: ../README.md ("How to add an operator (自选)"). As a pick: the 自选 forms (tier
+// 5 elite = the modules at stage 1, tier 6 elite = stage 3, where the stage-3 parts below do come; test op_hodrer_pick.test.js).
 //
 // Forms (data/seasons/act3autochess/chess.json chess_char_4_21_a / _b): normal = E2 Lv1, skills at rank 4, no module; elite = E2
 // Lv60, rank 7, CRU-X (the default), CRU-Y or no module, at stage 1 — 规程 has no stage 3, so the stage-3 parts below (余火之氅

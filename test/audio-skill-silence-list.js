@@ -21,4 +21,5 @@ export const SILENT_SKILLS = {
   'char_4182_oblvns S2': 'other none: 丰川祥子 S2 — its one hit in the window is the _r shot; the _p bank is the slow shot, not reached here',
   'char_4065_judge S2': 'other none: 斥罪 S2 — it makes no attack, so its mode\'s p_imp_gavel_n is not cast; each pulse sounds judge_s_2[audio] (p_imp_gavel_h)',
   'char_4037_demetr S3': 'other none: 贝洛内 S3 — the attacks run its teleport sub-mode\'s s1 / s2 banks; the base mode\'s _n is not reached here',
+  'char_4230_mcnist S3': 'silent todo: 机械师 S3 — the cross landing sounds ON_CUSTOM_TRIGGER.mcnist_skill_attack_hit, not wired yet (test/audio-bank-coverage-list.js)',
 };

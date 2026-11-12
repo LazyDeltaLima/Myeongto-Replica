@@ -1,5 +1,5 @@
 // test/content/op_slent2.test.js — 淬羽赫默 (char_1031_slent2, a tier-4 piece of 规程 (act3autochess), 6★ 护佑者; kit
-// server/sim/content/kits/ops/op-slent2.js, from the upstream 自选 kit, kept as a season kit — not a 自选 pick here) and her
+// server/sim/content/kits/ops/op-slent2.js, from the upstream 自选 kit; a 盟约 自选 pick too since 2026-11-12 — op_slent2_pick.test.js) and her
 // summon 夜灯 (token_10029_slent2_protrb; the placed hand piece of her player): both forms of chess_char_4_20 — normal A (E2 Lv1,
 // skill rank 4, no module) and elite B (E2 Lv60, rank 7) with no module, BLS-X “难得清醒” (its default) or BLS-Y “可控动量”, at
 // stage 1 (规程 has no stage 3: the stage-2+ talent changes never come). Numbers from data/seasons/act3autochess/chess.json;
@@ -53,9 +53,9 @@ function done(h) {
 const ally = (uid, row, col, id = 'test_plain_a') => ({ uid, chessId: id, row, col });
 const protectOf = (a) => a.findBuff('protect')?.data?.value ?? 0;
 
-test('淬羽赫默 in both 规程 forms: her season kit (all three skills authored), the form\'s stats + module attributes, y-6, 护佑者 (ranged arts, hits air, blocks 1; BLS-Y 2 targets), the data DEFAULT triggers, ground-targetable, 空构 bond; not a 自选 pick', () => {
-  assert.equal(SEASON_KITS[ID], KITS[ID]);
-  assert.ok(!OPERATOR_KITS[ID] && !KITTED_CHARS.includes(ID) && !LOCAL_DIY_PICKS.includes(ID), 'not offered as a 自选 pick');
+test('淬羽赫默 in both 规程 forms: her kit (all three skills authored), the form\'s stats + module attributes, y-6, 护佑者 (ranged arts, hits air, blocks 1; BLS-Y 2 targets), the data DEFAULT triggers, ground-targetable, 空构 bond; the pick kit serves the chess', () => {
+  assert.equal(OPERATOR_KITS[ID], KITS[ID]);
+  assert.ok(KITTED_CHARS.includes(ID) && LOCAL_DIY_PICKS.includes(ID) && !SEASON_KITS[ID], 'her 自选 kit (a 盟约 pick) is the one 规程\'s chess plays');
   for (const f of FORMS_ALL) {
     const [tier, elite, mod] = f;
     for (const skill of [0, 1, 2]) {

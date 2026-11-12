@@ -85,6 +85,9 @@ test('the derived bonds of the data: each pick its core bonds or 协防 — 望 
     char_4228_closur: ['emptyShip'],      // 可露希尔 协防 (罗德岛)
     char_4246_dminon: ['emptyShip'],      // 国度 协防 (乌萨斯)
     char_4217_makoto: ['lateranoShip'],   // 结城理 拉特兰 (subPower laterano; 规程 has no 拉特兰: 协防 there)
+    char_1031_slent2: ['emptyShip'],      // 淬羽赫默 协防 (哥伦比亚 / 莱茵生命 in no core bond)
+    char_4088_hodrer: ['emptyShip'],      // 赫德雷 协防 (巴别塔)
+    char_4230_mcnist: ['emptyShip'],      // 机械师 协防 (罗德岛 / 精英干员 / 哥伦比亚)
   });
   assert.deepEqual(DATA.backups.diy.prototypes, { 5: [], 6: [] });
 });

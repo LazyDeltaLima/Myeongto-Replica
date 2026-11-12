@@ -228,11 +228,11 @@ test('DIY: no prototype picks on this server — prototypes / locked empty at bo
   assert.equal(diyRecordOf(chess.chess_char_5_01_a, { charId: 'char_2027_wang', skillIndex: 0 }, data), null, 'not a DIY slot');
 });
 
-test('DIY: the 39 owned 6★ picks (shared/local-diy.js) — a form at every slot status with all three skills, every module at stage 1 and 3, their summons', () => {
+test('DIY: the 42 owned 6★ picks (shared/local-diy.js) — a form at every slot status with all three skills, every module at stage 1 and 3, their summons', () => {
   const { ownedPool } = backups.diy;
-  assert.deepEqual(ownedPool, [...LOCAL_DIY_PICKS], 'exactly our thirty-nine, in the picker\'s order');
+  assert.deepEqual(ownedPool, [...LOCAL_DIY_PICKS], 'exactly our forty-two, in the picker\'s order');
   assert.deepEqual(Object.keys(backups.units), [...ELITES.concat(RESERVES).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), ...LOCAL_DIY_PICKS],
-    'the 17 stand-ins, then our thirty-nine — no unit for anyone else');
+    'the 17 stand-ins, then our forty-two — no unit for anyone else');
   let summoners = 0;
   for (const id of ownedPool) {
     const u = backups.units[id];
@@ -264,10 +264,10 @@ test('DIY: the 39 owned 6★ picks (shared/local-diy.js) — a form at every slo
     }
     if (summons) summoners++;
   }
-  assert.equal(summoners, 15, 'owned picks with summons: 望 (棋子), 维什戴尔 (魂灵之影), 凯尔希·思衡托 (战术锚点), 予愿安洁莉娜 (“一会儿见！”), 酒神 (本能的召唤, 迷狂牢笼), 夜莺 (幻影), 白铁 (his three <支援装置>), 贝洛内 (牵绊), Mon3tr (重构体), 黑键 (旧日残影), 涤火杰西卡 (机动盾牌), 鸿雪 (“打字机”), 温蒂 (工程蓄水炮)');
-  assert.deepEqual(Object.keys(backups.tokens).sort(), ['token_10003_cgbird_bird', 'token_10008_cqbw_box', 'token_10009_weedy_cannon', 'token_10024_ebnhlz_rcube', 'token_10026_bgsnow_subbow', 'token_10027_ironmn_pile1', 'token_10027_ironmn_pile2', 'token_10027_ironmn_pile3',
+  assert.equal(summoners, 17, 'owned picks with summons: 望 (棋子), 维什戴尔 (魂灵之影), 凯尔希·思衡托 (战术锚点), 予愿安洁莉娜 (“一会儿见！”), 酒神 (本能的召唤, 迷狂牢笼), 夜莺 (幻影), 白铁 (his three <支援装置>), 贝洛内 (牵绊), Mon3tr (重构体), 黑键 (旧日残影), 涤火杰西卡 (机动盾牌), 鸿雪 (“打字机”), 温蒂 (工程蓄水炮), 淬羽赫默 (夜灯), 机械师 (结构性原理)');
+  assert.deepEqual(Object.keys(backups.tokens).sort(), ['token_10003_cgbird_bird', 'token_10008_cqbw_box', 'token_10009_weedy_cannon', 'token_10024_ebnhlz_rcube', 'token_10026_bgsnow_subbow', 'token_10027_ironmn_pile1', 'token_10027_ironmn_pile2', 'token_10027_ironmn_pile3', 'token_10029_slent2_protrb',
     'token_10032_jesca2_jckshd', 'token_10035_wisdel_wward', 'token_10050_monstr_prosts', 'token_10054_phatm2_encdool', 'token_10055_phatm2_mndclv', 'token_10064_wang_stone1', 'token_10065_demetr_dmtpos',
-    'token_10066_closur_ourbase', 'token_10068_kalts2_mtship', 'token_10071_aglna2_agairp']);
+    'token_10066_closur_ourbase', 'token_10068_kalts2_mtship', 'token_10069_mcnist_mcgraf', 'token_10071_aglna2_agairp']);
   for (const [id, rec] of Object.entries(backups.tokens)) {
     assert.deepEqual(Object.keys(rec.variants), rec.owners, `${id}: owners = variant keys`);
     for (const o of rec.owners) assert.ok(/^char_\w+@\d+\/\d+\/\d+\/\d+$/.test(o) && ownedPool.includes(o.split('@')[0]), `${id}: owner ${o}`);
@@ -290,13 +290,13 @@ test('DIY: the 39 owned 6★ picks (shared/local-diy.js) — a form at every slo
 test('DIY: the owned-6★ pool and the faction → bond rule (mainPower + every subPower vs powerIdList, else 协防干员)', () => {
   const { ownedPool, operators } = backups.diy;
   const roster = new Set(base.map((c) => c.charId).filter(Boolean));
-  assert.equal(ownedPool.length, 39);
+  assert.equal(ownedPool.length, 42);
   for (const id of ownedPool) {
     assert.ok(!roster.has(id), `${id}: a roster operator is never a pick`);
     assert.deepEqual([operators[id].rarity, operators[id].obtainable], [6, true], id);
   }
   assert.deepEqual(Object.keys(operators), ownedPool, 'an operators entry for every pick and no one else');
-  assert.equal(backups.diy.excluded, undefined, 'no collab exclusion list: the pool is our thirty-nine');
+  assert.equal(backups.diy.excluded, undefined, 'no collab exclusion list: the pool is our forty-two');
   const core = Object.values(bonds).filter((b) => b.isCore && b.powerIdList.length);
   assert.equal(core.length, 8);
   for (const [id, o] of Object.entries(operators)) {
@@ -315,7 +315,8 @@ test('DIY: the owned-6★ pool and the faction → bond rule (mainPower + every 
     char_293_thorns: ['emptyShip'], char_4009_irene: ['emptyShip'], char_400_weedy: ['emptyShip'],
     char_113_cqbw: ['emptyShip'], char_4027_heyak: ['emptyShip'], char_4228_closur: ['emptyShip'], char_4246_dminon: ['emptyShip'],
     char_4217_makoto: ['lateranoShip'],   // 结城理: subPower 拉特兰
-  }, '望 / 赤刃明霄陈 炎, 克莱门莎 阿戈尔, 予愿安洁莉娜 叙拉古, 酒神 维多利亚, the others 协防干员 (冻河, 塔露拉: 乌萨斯 has no core bond; 帕拉斯: 米诺斯 is in no core bond; 赫拉格: 乌萨斯; 真言 萨尔贡; 白铁 维多利亚; 遥: 东国 and 夜莺 are in no core bond; 斥罪 叙拉古; 逻各斯: 罗德岛 / 精英干员 / 巴别塔 are in no core bond; 薇薇安娜 卡西米尔; 贝洛内 叙拉古; 维伊, 怒潮凛冬: 乌萨斯; Mon3tr: 罗德岛 is in no core bond; 黍 炎; 老鲤 炎 (龙门); 森蚺 萨尔贡; 黑键: 莱塔尼亚 is in no core bond; 涤火杰西卡 维多利亚 (哥伦比亚 / 黑钢 / 维多利亚); 鸿雪 萨尔贡 (罗德岛 / 萨尔贡); 艾雅法拉: 莱塔尼亚; 棘刺, 艾丽妮: 伊比利亚 has no core bond yet; 温蒂: 罗德岛 / 伊比利亚; 国度: 乌萨斯 has no core bond)');
+    char_1031_slent2: ['emptyShip'], char_4088_hodrer: ['emptyShip'], char_4230_mcnist: ['emptyShip'],
+  }, '望 / 赤刃明霄陈 炎, 克莱门莎 阿戈尔, 予愿安洁莉娜 叙拉古, 酒神 维多利亚, the others 协防干员 (冻河, 塔露拉: 乌萨斯 has no core bond; 帕拉斯: 米诺斯 is in no core bond; 赫拉格: 乌萨斯; 真言 萨尔贡; 白铁 维多利亚; 遥: 东国 and 夜莺 are in no core bond; 斥罪 叙拉古; 逻各斯: 罗德岛 / 精英干员 / 巴别塔 are in no core bond; 薇薇安娜 卡西米尔; 贝洛内 叙拉古; 维伊, 怒潮凛冬: 乌萨斯; Mon3tr: 罗德岛 is in no core bond; 黍 炎; 老鲤 炎 (龙门); 森蚺 萨尔贡; 黑键: 莱塔尼亚 is in no core bond; 涤火杰西卡 维多利亚 (哥伦比亚 / 黑钢 / 维多利亚); 鸿雪 萨尔贡 (罗德岛 / 萨尔贡); 艾雅法拉: 莱塔尼亚; 棘刺, 艾丽妮: 伊比利亚 has no core bond yet; 温蒂: 罗德岛 / 伊比利亚; 国度: 乌萨斯 has no core bond; 淬羽赫默: 哥伦比亚 / 莱茵生命, 赫德雷: 巴别塔, 机械师: 罗德岛 / 精英干员 / 哥伦比亚 are in no core bond of 盟约)');
 });
 
 test('DIY: powers and the owned pool re-derived from character_table', { skip: !HAS_CACHE && 'no .cache/gamedata' }, () => {

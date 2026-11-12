@@ -121,7 +121,7 @@ def mode_paths(tree):
 
 def under(tree, base):
     """{path relative to `base`: ability fields} of the animated abilities below GameObject `base`."""
-    out, three = {}, {}
+    out, three, turns = {}, {}, {}
     for gp, d, _ in tree:
         if not gp.startswith(base + '/'):
             continue
@@ -133,8 +133,19 @@ def under(tree, base):
         # a ThreePartOneshotAnimation / CycleThreePartAnimation beside it plays the clips and sets their speed
         if isinstance(d.get('_oneshotAnim'), str) and d['_oneshotAnim']:
             three.setdefault(rel, d)
+        # an UberAnimationEffectEmitter beside it whose `_sourceAnimKey` is the ability's key plays, on each cast, one
+        # `_replaceGroup` entry's `anim` instead (OnCastStart: 赫德雷 S2 Attack → Skill_2_Loop_A / _B)
+        rg = d.get('_replaceGroup')
+        if isinstance(rg, list) and rg and isinstance(d.get('_sourceAnimKey'), str) and d['_sourceAnimKey']:
+            first = next((g.get('anim') for g in rg if isinstance(g, dict) and isinstance(g.get('anim'), str) and g['anim']), None)
+            if first:
+                turns.setdefault(rel, (d['_sourceAnimKey'], first))
     for rel, a in out.items():
         esc = a.pop('_esc', None)
+        turn = turns.get(rel)
+        if turn and a.get('anim') == turn[0]:
+            # the group's first clip stands for all (as the view's anim-keys.mjs reads it)
+            a['turn'] = turn[1]
         t = three.get(rel)
         if t is None or a.get('anim'):
             continue
@@ -420,8 +431,11 @@ def main():
     for cid, row in ops.items():
         for ab in row.get('attack') or []:
             for a in (ab, (ab or {}).get('ranged'), (ab or {}).get('combat')):
-                if a and a.get('anim') and table.get(cid, {}).get(a['anim'], a['anim']) != a['anim']:
-                    a['clip'] = table[cid][a['anim']]
+                if not a or not a.get('anim'):
+                    continue
+                key = a.pop('turn', None) or a['anim']
+                if table.get(cid, {}).get(key, key) != a['anim']:
+                    a['clip'] = table.get(cid, {}).get(key, key)
     enemies.update(old_enemies)
     tokens.update(old_tokens)
     out = {'ops': dict(sorted(ops.items())), 'enemies': dict(sorted(enemies.items())), 'tokens': dict(sorted(tokens.items()))}

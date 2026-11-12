@@ -1,8 +1,9 @@
 // server/sim/content/kits/ops/op-slent2.js — 淬羽赫默 (char_1031_slent2) kit: 6★ 护佑者 (辅助), a tier-4 piece of 规程
 // (act3autochess, chess_char_4_20); every skill, both talents, the trait, both modules (BLS-X 难得清醒, BLS-Y 可控动量) and the kit
-// of her summon 夜灯 (token_10029_slent2_protrb). Written by upstream as a 自选 kit; here it is a season kit (index.js
-// SEASON_KIT_FILES), not a 自选 pick (maintainer decision 2026-11-08: her pick may come later). Kit contract: ../README.md
-// ("How to add an operator (自选)").
+// of her summon 夜灯 (token_10029_slent2_protrb). Written by upstream as a 自选 kit; a 盟约 自选 pick since 2026-11-12 (maintainer
+// decision; index.js OPERATOR_KIT_FILES — 规程's build leaves its own chess out of its picks) and the kit of that 规程 chess
+// (kitKeyOfChar). Kit contract: ../README.md ("How to add an operator (自选)"). As a pick: the 自选 forms (tier 5 elite = the
+// modules at stage 1, tier 6 elite = stage 3, where the BLS-X max HP and the BLS-Y 屏障 below do come; test op_slent2_pick.test.js).
 //
 // Forms (data/seasons/act3autochess/chess.json chess_char_4_20_a / _b): normal = E2 Lv1, skills at rank 4, no module; elite = E2
 // Lv60, rank 7, BLS-X (the default), BLS-Y or no module, at stage 1 — 规程 has no stage 2 / 3, so the BLS-X max HP and the BLS-Y

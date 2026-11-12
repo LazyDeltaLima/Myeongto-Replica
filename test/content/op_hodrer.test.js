@@ -1,5 +1,5 @@
 // test/content/op_hodrer.test.js — 外德雷尔 / 赫德雷 (char_4088_hodrer, a tier-4 piece of 规程 (act3autochess), 6★ 重剑手; kit
-// server/sim/content/kits/ops/op-hodrer.js, from the upstream 自选 kit, kept as a season kit — not a 自选 pick here): both forms of
+// server/sim/content/kits/ops/op-hodrer.js, from the upstream 自选 kit; a 盟约 自选 pick too since 2026-11-12 — op_hodrer_pick.test.js): both forms of
 // chess_char_4_21 — normal A (E2 Lv1, skill rank 4, no module) and elite B (E2 Lv60, rank 7) with its module choices CRU-X 新的生活
 // (the default) / CRU-Y 笔迹 / none, at stage 1. Every number is read back from data/seasons/act3autochess/chess.json; the
 // fidelity checklist of kits/README.md item by item.
@@ -58,9 +58,9 @@ const t1Of = (u) => u.def.raw.talents.find((t) => t.index === 1).bb;
 /** 余火之氅 on his own tile: CRU-X stage 3 "造成的物理伤害提升10%" (damage_scale) — 1 otherwise (no stage-3 form in 规程). */
 const ownPhys = (u) => t1Of(u).damage_scale ?? 1;
 
-test('赫德雷 in both 规程 forms: his season kit (all three skills authored), the form\'s stats (+ the chosen module\'s), 1-1, blocks 2, melee physical ground-only hitting all he blocks; not a 自选 pick', () => {
-  assert.equal(SEASON_KITS[HOD], KITS[HOD]);
-  assert.ok(!OPERATOR_KITS[HOD] && !KITTED_CHARS.includes(HOD) && !LOCAL_DIY_PICKS.includes(HOD), 'not offered as a 自选 pick');
+test('赫德雷 in both 规程 forms: his kit (all three skills authored), the form\'s stats (+ the chosen module\'s), 1-1, blocks 2, melee physical ground-only hitting all he blocks; the pick kit serves the chess', () => {
+  assert.equal(OPERATOR_KITS[HOD], KITS[HOD]);
+  assert.ok(KITTED_CHARS.includes(HOD) && LOCAL_DIY_PICKS.includes(HOD) && !SEASON_KITS[HOD], 'his 自选 kit (a 盟约 pick) is the one 规程\'s chess plays');
   for (const f of FORMS_ALL) {
     const [id, mod] = f;
     const rec = recOf(id), m = modIdOf(id, mod) ? modOf(modIdOf(id, mod)) : null;

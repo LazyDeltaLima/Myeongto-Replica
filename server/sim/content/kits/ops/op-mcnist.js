@@ -1,8 +1,10 @@
 // server/sim/content/kits/ops/op-mcnist.js — 机械师 (char_4230_mcnist) kit: 6★ 哨戒铁卫 (重装), a tier-6 piece of 规程
 // (act3autochess, chess_char_6_15) — not the 补位 stand-in Mechanist (char_610_acfend, standin-acfend.js); every skill, both
 // talents, the trait, her module SO-A 机械师特勤证章 and the kit of her summon 结构性原理 (token_10069_mcnist_mcgraf). Written by
-// upstream as a 自选 kit; here it is a season kit (index.js SEASON_KIT_FILES), not a 自选 pick (maintainer decision 2026-11-08:
-// her pick may come later). Kit contract: ../README.md ("How to add an operator (自选)").
+// upstream as a 自选 kit; a 盟约 自选 pick since 2026-11-12 (maintainer decision; index.js OPERATOR_KIT_FILES — 规程's build
+// leaves its own chess out of its picks) and the kit of that 规程 chess (kitKeyOfChar). Kit contract: ../README.md ("How to add
+// an operator (自选)"). As a pick: the 自选 forms with no module — SO-A is a
+// 集成战略 module, refused on a roster (shared/diy.js isDiyModule; the kit still reads it at stage 1 / 3); test op_mcnist_pick.test.js.
 //
 // Forms (data/seasons/act3autochess/chess.json chess_char_6_15_a / _b): normal = E2 Lv1, skills at rank 4, no module; elite = E2
 // Lv60, rank 7, SO-A at stage 3 (the default) or no module. Full potential. S2 / S3 follow the 重装 row TAKE_DAMAGE of 规程's

@@ -1,5 +1,5 @@
 // test/content/op_mcnist.test.js — 机械师 (char_4230_mcnist, a tier-6 piece of 规程 (act3autochess), 6★ 哨戒铁卫; kit
-// server/sim/content/kits/ops/op-mcnist.js, from the upstream 自选 kit, kept as a season kit — not a 自选 pick here) and her
+// server/sim/content/kits/ops/op-mcnist.js, from the upstream 自选 kit; a 盟约 自选 pick too since 2026-11-12 — op_mcnist_pick.test.js) and her
 // summon 结构性原理 (token_10069_mcnist_mcgraf; a token piece of hers): both forms of chess_char_6_15 — normal A (E2 Lv1, skill
 // rank 4, no module) and elite B (E2 Lv60, rank 7) with SO-A 机械师特勤证章 at stage 3 (its default) or no module. Every number
 // is read back from data/seasons/act3autochess/chess.json / tokens.json (the token's variant of that piece); the fidelity
@@ -56,9 +56,9 @@ function done(h) {
   assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0]));
 }
 
-test('机械师 in both 规程 forms: her season kit (all three skills authored), stats + SO-A attributes, 2-2, blocks 3, ranged physical, hits air; her 结构性原理: the form\'s token stats, 禁疗, blocks 3, melee ground-only physical; not a 自选 pick', () => {
-  assert.equal(SEASON_KITS[MCN], KITS[MCN]);
-  assert.ok(!OPERATOR_KITS[MCN] && !KITTED_CHARS.includes(MCN) && !LOCAL_DIY_PICKS.includes(MCN), 'not offered as a 自选 pick');
+test('机械师 in both 规程 forms: her kit (all three skills authored), stats + SO-A attributes, 2-2, blocks 3, ranged physical, hits air; her 结构性原理: the form\'s token stats, 禁疗, blocks 3, melee ground-only physical; the pick kit serves the chess', () => {
+  assert.equal(OPERATOR_KITS[MCN], KITS[MCN]);
+  assert.ok(KITTED_CHARS.includes(MCN) && LOCAL_DIY_PICKS.includes(MCN) && !SEASON_KITS[MCN], 'her 自选 kit (a 盟约 pick) is the one 规程\'s chess plays');
   for (const f of FORMS_ALL) {
     const [tier, elite, mod] = f;
     for (const skill of [0, 1, 2]) {

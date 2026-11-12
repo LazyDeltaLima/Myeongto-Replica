@@ -48,7 +48,7 @@ test('every 自选 summoner: the hand count of each placeable summon in every fo
       owners.get(cid).add(tid);
     }
   }
-  assert.deepEqual([...owners.keys()].sort(), ['char_1034_jesca2', 'char_1042_phatm2', 'char_1052_kalts2', 'char_179_cgbird', 'char_2027_wang', 'char_400_weedy', 'char_4055_bgsnow', 'char_4072_ironmn', 'char_4179_monstr', 'char_4228_closur']);
+  assert.deepEqual([...owners.keys()].sort(), ['char_1031_slent2', 'char_1034_jesca2', 'char_1042_phatm2', 'char_1052_kalts2', 'char_179_cgbird', 'char_2027_wang', 'char_400_weedy', 'char_4055_bgsnow', 'char_4072_ironmn', 'char_4179_monstr', 'char_4228_closur', 'char_4230_mcnist']);
   let checked = 0;
   for (const [charId] of owners) {
     if (!BACKUPS.diy.ownedPool.includes(charId)) continue;
@@ -72,7 +72,7 @@ test('every 自选 summoner: the hand count of each placeable summon in every fo
       }
     }
   }
-  assert.equal(checked, 184, "望: 2 tiers × (3 normal + 3 skills × (no module, TRP-X) elite); 凯尔希·思衡托: 2 tiers × S3 (normal, elite); 酒神: 2 tiers × S2 (normal + elite × (no module, RIT-X)); 夜莺, 白铁, 涤火杰西卡 (机动盾牌), 鸿雪 (“打字机”) and 温蒂 (工程蓄水炮): 2 tiers × 3 skills × (normal + elite × (no module, X, Y)) each; Mon3tr: 2 tiers × 3 skills × (normal + elite × (no module, XAH-X))");
+  assert.equal(checked, 210, "望: 2 tiers × (3 normal + 3 skills × (no module, TRP-X) elite); 凯尔希·思衡托: 2 tiers × S3 (normal, elite); 酒神: 2 tiers × S2 (normal + elite × (no module, RIT-X)); 夜莺, 白铁, 涤火杰西卡 (机动盾牌), 鸿雪 (“打字机”) and 温蒂 (工程蓄水炮): 2 tiers × 3 skills × (normal + elite × (no module, X, Y)) each; Mon3tr: 2 tiers × 3 skills × (normal + elite × (no module, XAH-X)); 淬羽赫默 (夜灯): 2 tiers × S2 (normal + elite × (no module, X, Y)); 机械师 (结构性原理): 2 tiers × 3 skills × (normal + elite × (no module, SO-A))");
 });
 
 test('the data: deploy limit / holding = the attribute frame + the token talents\' max_deploy_count / max_deck_stack_cnt (a module token part of the same talent replaces it)', () => {
