@@ -152,7 +152,7 @@ import { layoutPen, penSignature } from './pen.js';
 import { IDENTITY, bossPrepField, tilesToDisp, leaderStand } from './prepfield.js';
 import { pickOnTile, pickBattle, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
-import { createFxLayer } from './fxgame.js'; // local patch: official battle effects
+import { createFxLayer, stageTileFx } from './fxgame.js'; // local patch: official battle effects
 import { syncStatusFx, statusSource } from './fxstatus.js'; // local patch: official status effects
 import { ensurePixi } from './app/pixi.js';
 import { pieceDirOf, pickUnitOf } from './app/pick.js';
@@ -869,6 +869,7 @@ export async function createFieldView(host, options = {}) {
     if (wh != null && st.waterPlatformHeight !== wh) st = { ...st, waterPlatformHeight: wh };
     stageRec = st;
     tiles.setStage(st);
+    fxGame.setStageTiles(stageTileFx(st)); // 2026-11-12: the tiles' map effects (规程's 草地, the 泥沼 — fxgame.js TILE_FX)
     tiles.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
     if (board3d) {
       board3d.setStage(st); board3d.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);

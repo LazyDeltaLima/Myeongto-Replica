@@ -464,6 +464,35 @@ export function trailNames(binding) {
   return [...out];
 }
 
+/**
+ * 2026-11-12 (official client: a tile prefab's `_effect`, played by the Tile on its tile for as long as the map stands — the
+ * EN and CN `[uc]tiles.ab` agree): the map effects of a stage's tiles, by tileKey. Of the tiles our stages use, 规程's 草地
+ * (m09) and the 泥沼 of 规程 m06 and act2autochess_m02 have one drawn here; tile_start / tile_end are the 3D board's gates and
+ * tile_infection its InfectionFx (board3d/scene.js); tile_smog's `tile_smog` is not extracted (the 3D board's smog
+ * material stands in). The mud's prefab is not extracted yet either (not found in the client bundles searched so far).
+ */
+export const TILE_FX = Object.freeze({
+  tile_duel_grassland: Object.freeze(['mapeff', 'mapeff_079_dikuai_01']),
+  tile_mire: Object.freeze(['mapeff', 'mapeff_mud_ground_01']),
+});
+
+/** The tile effects of a stage record (data/stages.json: `rows` of glyphs, `tiles` their legend): [{ bundle, name, x, y }]. */
+export function stageTileFx(stage) {
+  const legend = stage && typeof stage.tiles === 'object' && stage.tiles ? stage.tiles : {};
+  const fx = new Map();
+  for (const [g, d] of Object.entries(legend)) if (TILE_FX[d?.tileKey]) fx.set(g, TILE_FX[d.tileKey]);
+  const out = [];
+  if (!fx.size || !Array.isArray(stage.rows)) return out;
+  stage.rows.forEach((line, r) => {
+    if (typeof line !== 'string') return;
+    for (let c = 0; c < line.length; c++) {
+      const e = fx.get(line[c]);
+      if (e) out.push({ bundle: e[0], name: e[1], x: c, y: r });
+    }
+  });
+  return out;
+}
+
 export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {}, trace = null, dry = false }) {
   let index = null, modes = null, emodes = null, plays = null;
   if (typeof fetch === 'function') {
@@ -514,7 +543,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (dry) { dryFollow(bundle, name, null, null); return; }
     const def = await lib.load(bundle, name);
     if (!mod || !def || gen !== stormGen) return;
-    const inst = new mod.fxp.FxInstance(def, { quality: q() });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), pinned: !!extra?.pinned });
     inst.object.position.set(at.x, at.y, at.z || 0);
     if (turn) inst.nodes[0]?.quaternion.set(turn[0], turn[1], turn[2], turn[3]);
     addLive(inst, { view: extra?.camera ? null : at, owner: null, tag: 'storm', ...extra }, layers.over);
@@ -723,6 +752,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function teardown() {
     api.clear();
     flightBatch?.dispose(); flightBatch = null;
+    tileBatch?.dispose(); tileBatch = null;
     gen++;
     loading = null; variants = null; warmNext = 2;
     clearTimeout(warmTimer); warmTimer = 0;
@@ -1986,6 +2016,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const trails = [];               // { inst, tgt view, x0, y0, tx, ty, k, dur, arc }
   const heldFlights = [];          // this frame's held trails' effects (FlightBatch), reused
   let flightBatch = null;
+  const tileInsts = [];            // 2026-11-12: this frame's effects laid on tiles (`tiled`, TileBatch), reused
+  let tileBatch = null;
   /** MAX_TRAILS in flight: the shot stays procedural (counted for the perf HUD, perfSkips). */
   // (2026-11-04) a shot 逻各斯 S3 holds stays in the air many times longer: those have their own allowance (MAX_SLOWED)
   const trailFull = () => {
@@ -2566,7 +2598,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (aim && !official) facing = aimFacing(null, def, aim, at);
     const d = aim ? { x: Number(at.x) - Number(aim.x), y: Number(at.y) - Number(aim.y) } : dir;
     const sp = playSpeed(def.face, entry.speed ?? 1, gameRate());
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir: d, body: unit ? facingDir(unit) : null, speed: sp, split, floor: drop ? null : at.z < 0 || !over ? at.z || 0 : 0, tilt: drop ? null : tiltOn(unit, def) });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir: d, body: unit ? facingDir(unit) : null, speed: sp, split, floor: drop ? null : at.z < 0 || !over ? at.z || 0 : 0, tilt: drop ? null : tiltOn(unit, def), pinned: !!entry.pinned });
     if (aim && !official) aimAlong(inst, aim, at);
     if (!drop) at = lifted(at, def, !!entry.buff); // local patch: its _spawnLocation
     if (!drop && Number.isFinite(def.height)) at = overHeight(at, def.height); // 2026-10-10: `_overwriteHeight`
@@ -5418,7 +5450,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (Array.isArray(g) && !cell?.drawn) continue;   // off the drawn board
         const at = { x: c, y: r, z: cell ? (cell.h || 0) + (cell.devH || 0) : 0 };
         for (const n of names) {
-          spawn(n[0], n[1], at, { owner: null, buff: false, until, tag: 'acRain' }, { over: false }).then((l) => {
+          spawn(n[0], n[1], at, { owner: null, buff: false, until, tag: 'acRain', pinned: true, tiled: true }, { over: false }).then((l) => {
             if (!l) return;
             if (acRains.get(key) !== rec) { zoneEnd(l, clockS, true); return; }   // its rain ended while it loaded
             zoneEnd(l, until, true);
@@ -6157,6 +6189,30 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * again. Found by name in the extracted effects (tplPrefab).
    */
   const stageCams = new Set();
+  /**
+   * 2026-11-12: the stage's tile effects (setStageTiles: TILE_FX by tileKey) — one per tile, on the floor layer, in prep and
+   * battle alike, pinned (never ended by the caps) and laid on tiles (`tiled`: fxplayer.js TileBatch draws each of their
+   * renderers once, 64 draws → 4 for m09's 16 草地). A clear() drops them with the rest; the next frame lays them again, at once
+   * (one effect time, so they still merge). A tile off the drawn board has none.
+   */
+  const stageTiles = new Map();   // `${bundle}/${name}@${x},${y}` → { t: { bundle, name, x, y }, l: its live entry once loaded, off, loading, none: its spawn gave nothing (tried again after a clear()) }
+  function stepStageTiles() {
+    if (!stageTiles.size || failed || q() === 'low') return;
+    if (!index) { if (!dry) ensure(); return; }   // the layer is made for them (a stage with tile effects and no effect yet)
+    let g = null;
+    try { g = grid(); } catch { /* every tile */ }
+    for (const rec of stageTiles.values()) {
+      if (rec.loading || rec.none || (rec.l && live.includes(rec.l))) continue;
+      rec.l = null;
+      const t = rec.t, cell = Array.isArray(g) ? g[t.y]?.[t.x] : null;
+      if (Array.isArray(g) && !cell?.drawn) continue;
+      if (!index.bundles?.[t.bundle]?.includes(t.name)) continue;
+      rec.loading = true;
+      const at = { x: t.x, y: t.y, z: cell ? (cell.h || 0) + (cell.devH || 0) : 0 };
+      spawn(t.bundle, t.name, at, { owner: null, buff: true, keep: true, pinned: true, tiled: true, until: Infinity, tag: 'stageTile' }, { over: false })
+        .then((l) => { rec.loading = false; if (!l) { rec.none = true; return; } if (rec.off) { l.keep = false; l.inst.stop(true); } else rec.l = l; }, () => { rec.loading = false; });
+    }
+  }
   function syncCameraFx() {
     for (const [n, c] of camFx) {
       if (camWant.has(n)) continue;
@@ -6178,7 +6234,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const gen = stormGen;
     const def = await lib.load(r[0], r[1]);
     if (c.off || gen !== stormGen || !mod || !def) return;
-    const inst = new mod.fxp.FxInstance(def, { quality: q() });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), pinned: true });
     c.l = addLive(inst, { view: null, owner: null, tag: 'camera', camera: true, buff: true, keep: true, pinned: true }, layers.over);
   }
   /**
@@ -6500,6 +6556,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           .then((l) => { if (!l) { if (bandTiles.get(k) === rec) bandTiles.delete(k); return; } if (rec.off) { l.keep = false; l.inst.stop(true); } else rec.l = l; });
       }
       return true;
+    },
+    /**
+     * 2026-11-12: the stage's tile effects ([{ bundle, name, x, y }] — stageTileFx of the stage on the board; [] none), held
+     * until a list without them, laid again after a clear() — see stageTiles.
+     */
+    setStageTiles(list) {
+      const want = new Map();
+      for (const t of Array.isArray(list) ? list : []) {
+        const x = Number(t?.x), y = Number(t?.y);
+        if (!t || typeof t.bundle !== 'string' || typeof t.name !== 'string' || !Number.isInteger(x) || !Number.isInteger(y)) continue;
+        want.set(`${t.bundle}/${t.name}@${x},${y}`, { bundle: t.bundle, name: t.name, x, y });
+      }
+      for (const [k, rec] of stageTiles) {
+        if (want.has(k)) continue;
+        rec.off = true;
+        if (rec.l) { rec.l.keep = false; rec.l.inst.stop(true); }
+        stageTiles.delete(k);
+      }
+      for (const [k, t] of want) if (!stageTiles.has(k)) stageTiles.set(k, { t, l: null, off: false, loading: false, none: false });
     },
     /** 2026-11-11: the camera effects of the level on the board (names; [] none) — see stageCams. */
     setStageCamera(names) {
@@ -6895,6 +6970,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       stepWolves(dt);
       flushStoneBirths(lastViews); // local patch
       flushEnemyBirths(lastViews); stepEnemies(lastViews); // 2026-10-10: the enemies' born effects, modes, skill clips
+      stepStageTiles(); // 2026-11-12: the stage's tile effects (setStageTiles)
       if (lastViews && (soulBalls.size || soulLines.size)) stepSouls(lastViews, dt * gameRate()); // 2026-11-12: 魂灵法骸's fireballs
       if (index) flushDeploys(lastViews); // 2026-10-11: the operators' / tokens' deploy effects
       if (index) stepTokenAuras(lastViews); // 2026-10-22: the summons' skill auras
@@ -6985,6 +7061,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       heldFlights.length = 0;
       for (const r of trails) if (r.rate < 1 && r.inst) heldFlights.push(r.inst);
       if (heldFlights.length || flightBatch) perf.merged = (flightBatch ||= new mod.fxp.FlightBatch(layers.over.scene)).sync(heldFlights, camera);
+      // 2026-11-12: a prefab laid on many tiles at once (规程's 悲惨之雨 floors, the battlefield's tile effects) is drawn once per
+      // renderer (fxplayer.js TileBatch) — its copies' own meshes are back after the draws (restore)
+      tileInsts.length = 0;
+      for (const l of live) if (l.tiled && !l.hidden) tileInsts.push(l.inst);
+      if (tileInsts.length || tileBatch) perf.tiled = (tileBatch ||= new mod.fxp.TileBatch()).sync(tileInsts, camera);
       // local patch: the split scene's back renderers after the lower canvas's own, its front ones before the upper's
       const S = layers.split, { FX_BACK, FX_FRONT } = mod.fxp;
       const draw = (L, scene, mask, clear) => {
@@ -6998,6 +7079,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (S.n) { S.scene.matrixWorldAutoUpdate = false; try { draw(layers.over, S.scene, FX_FRONT, true); } finally { S.scene.matrixWorldAutoUpdate = true; } }
         draw(layers.over, layers.over.scene, 0, !S.n);
       }
+      tileBatch?.restore();
       camera.layers.set(0);
       perf.updateMs = perf.updateMs * 0.9 + (t1 - t0) * 0.1;
       perf.renderMs = perf.renderMs * 0.9 + (performance.now() - t1) * 0.1;
@@ -7047,6 +7129,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       soulBalls.clear(); soulLines.clear();   // 2026-11-12: 魂灵法骸's fireballs, 魂灵残迹's laser (dropped with `live`)
       for (const rec of bandTiles.values()) rec.off = true;   // 2026-11-12: the prep's tile 指令 floors (dropped with `live`)
       bandTiles.clear();
+      for (const rec of stageTiles.values()) { rec.l = null; rec.none = false; }   // 2026-11-12: the stage's tile effects (dropped with `live`; laid again next frame)
       if (mod) showLayers();
     },
 
@@ -7123,7 +7206,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         gl: mod ? [layers.under, layers.over].reduce((a, L) => [a[0] + (L.renderer.info.memory?.textures ?? 0), a[1] + (L.renderer.info.memory?.geometries ?? 0)], [0, 0]) : null,
         lib: lib ? { tex: lib.textures.size, mesh: lib.meshes.size, defs: lib.defs.size } : null,
         updateMs: Math.round(perf.updateMs * 100) / 100, renderMs: Math.round(perf.renderMs * 100) / 100,
-        calls: perf.calls, merged: perf.merged ?? 0, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
+        calls: perf.calls, merged: perf.merged ?? 0, tiled: perf.tiled ?? 0, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
         recent: recent.slice(), trails: trails.length, preload: preQueue.length, // local patch; 2026-10-30: effect files still queued (preload)
         buffs: live.filter((l) => l.buff && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // local patch: the looping effects on now
         paused: live.filter((l) => l.paused && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // 2026-10-21: held by a pause behaviour (stepPauses)
