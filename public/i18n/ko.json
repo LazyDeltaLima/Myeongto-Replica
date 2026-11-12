@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1579 of 1798 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1588 of 1807 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1817,5 +1817,14 @@
   "战场或整备区": "전장 또는 정비 구역",
   "展开效果": "효과 펼치기",
   "策略「{band}」：此盟约改为另一方向的效果": "전략 「{band}」: 이 맹약은 다른 방향 효과로 적용",
-  "收起效果": "효과 접기"
+  "收起效果": "효과 접기",
+  "更换指令": "지령 변경",
+  "请选择一项指令": "지령을 하나 선택하세요",
+  "被动效果保留": "패시브 효과는 그대로",
+  "从候选中选择一项指令": "후보 중에서 지령을 하나 선택하세요",
+  "当前指令": "지금 지령",
+  "→ 将被替换": "→ 바뀜",
+  "当前没有指令": "지금 지령 없음",
+  "{n}/{total}阶段": "{n}/{total}단계",
+  "指令消耗资金 {cost}": "지령 비용 {cost}"
 }

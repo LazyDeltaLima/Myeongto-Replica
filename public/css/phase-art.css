@@ -172,6 +172,15 @@
   margin: calc(var(--pu) * -23.35) 0 0 calc(var(--pu) * -23.35); background: var(--pc-head-ring) center / 100% 100% no-repeat; pointer-events: none; }
 .spov.has-phase-art .spcard__taker .pavatar { border: 0; }
 .spov.has-phase-art .spcard.is-taken .spcard__head { padding-right: calc(var(--pu) * 50); }
+/* 规程's 更换指令 (maintainer decision 2026-11-12, option A): card_small_item's cost slot group_cost (centred, 21 under the top;
+   cost_bg_1 44 × 35 drawn as a gold-ringed pill [추정·화면], the number 22 #ffc600), the strategy's portrait in the 86 icon
+   frame with a teal ring, the 指令 it replaces in a line under the title */
+.spov.has-phase-art .spcard--command .spcard__icon { background: #2f2f2f; box-shadow: 0 0 0 calc(var(--pu) * 2) #2ef0b4; overflow: hidden; }
+.spov.has-phase-art .spcard__band { font-size: calc(var(--pu) * 13); }
+.spov.has-phase-art .spcard__cost { left: 50%; right: auto; top: calc(var(--pu) * -21); transform: translateX(-50%); min-width: calc(var(--pu) * 44); height: calc(var(--pu) * 35);
+  padding: 0 calc(var(--pu) * 8); border-width: calc(var(--pu) * 2.5); border-color: #ffc600; color: #ffc600; font-size: calc(var(--pu) * 22); box-shadow: 0 calc(var(--pu) * 2) calc(var(--pu) * 6) rgba(0, 0, 0, .65); }
+.spov.has-phase-art .spov__now { margin-top: calc(var(--pu) * 8); gap: calc(var(--pu) * 10); padding: calc(var(--pu) * 4) calc(var(--pu) * 16) calc(var(--pu) * 4) calc(var(--pu) * 4); font-size: calc(var(--pu) * 15); }
+.spov.has-phase-art .spov__nowicon { width: calc(var(--pu) * 32); height: calc(var(--pu) * 32); }
 
 /* "轮到你了" (panel_player_select): bg_circle, three rings ([추정] their ext sprite: thin teal circles), the four plus marks
    (#18e6b8), the cube square_1 and its spark square_2, 轮到你了 (49, #00ffc4) over the bottom bar */

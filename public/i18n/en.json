@@ -1801,5 +1801,14 @@
   "战场或整备区": "battlefield or standby area",
   "展开效果": "Show effects",
   "策略「{band}」：此盟约改为另一方向的效果": "Strategy “{band}”: this bond takes its other direction’s effect",
-  "收起效果": "Hide effects"
+  "收起效果": "Hide effects",
+  "更换指令": "Swap Command",
+  "请选择一项指令": "Choose a command",
+  "被动效果保留": "the passive effect stays",
+  "从候选中选择一项指令": "Choose one of the commands",
+  "当前指令": "Current command",
+  "→ 将被替换": "→ replaced",
+  "当前没有指令": "No command yet",
+  "{n}/{total}阶段": "stage {n}/{total}",
+  "指令消耗资金 {cost}": "Command cost {cost}"
 }

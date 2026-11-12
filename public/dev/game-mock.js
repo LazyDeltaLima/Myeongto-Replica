@@ -30,6 +30,7 @@ const VARIANTS = new Set((params.get('variant') || '').split(',').filter(Boolean
 // without one, its passive portrait with a sample progress (?bandStage=<i> shows that stage)
 const SEASON = params.get('season') || null;
 const BAND_SKILL = params.get('bandSkill') || null;
+const COMMAND = Number.parseInt(params.get('command') ?? '', 10) || 0; // ?command=<n>: a 更换指令 choice of n 指令 open at the start
 const STAGE_ID = params.get('stage') || (SEASON === 'act3autochess' ? 'act3autochess_m01' : 'act2autochess_m01'); // local patch: ?stage= (e.g. a desert stage)
 
 // ---- deterministic rng ----------------------------------------------------------------------------------
@@ -165,6 +166,28 @@ function mockBandSkill(bandId, st) {
     showTag: stage.showTag ?? null, tag: null, unlock: stage.next ? { value: 0, target: Number(stage.next.unlockParams?.[0]) || 1 } : null, bondSwaps, marks: [], chests: [] };
 }
 
+/** m.private.bandSkill of the 指令 in use: the taken strategy's (更换指令) carries commandBandId (server bandSkillView). */
+function mockCommandView(bandId, st) {
+  const v = mockBandSkill(bandId, st);
+  return v && S?.commandBandId ? { ...v, commandBandId: S.commandBandId } : v;
+}
+
+/**
+ * A 更换指令 choice as server/match/match/bandSkill.js offerBandSkillChoice + bandCommandCard show it: n strategies with
+ * an ACTIVE stage (not the current 指令's), each card the strategy's first ACTIVE stage.
+ */
+function mockCommandChoice(priv, n, round) {
+  const current = S?.commandBandId || priv.bandId;
+  const pool = data.list('bands').filter((b) => b.bandId !== current && Array.isArray(b.skills) && b.skills.some((x) => x && x.type === 'ACTIVE'));
+  const cards = shuffle(pool).slice(0, Math.max(1, Math.min(3, n))).map((b) => {
+    const i = Math.max(0, b.skills.findIndex((x) => x && x.type === 'ACTIVE'));
+    const sg = b.skills[i];
+    return { kind: 'bandSkill', id: sg.effectId ?? b.bandId, bandId: b.bandId, bandName: b.name ?? null, iconId: b.iconId ?? null, name: sg.name ?? '', desc: sg.desc ?? '',
+      descRaw: sg.descRaw ?? null, stage: i, stageCount: b.skills.length, type: sg.type, cost: Number(sg.cost) || 0 };
+  });
+  return { id: `mock.choice.${nextUid()}`, round, kind: 'bandSkill', choiceEvent: 'skill_change_1', sourceItemId: 'chess_item_5_06_e_a', sourceBandId: null, cards };
+}
+
 function buildState() {
   uidSeq = 100;
   seed = 20260927;
@@ -262,6 +285,7 @@ function buildState() {
     hiddenBossId: 'boss_8', teamLp: null, bossHp: null, draft: null, sp: null, players, fields: [],
   };
   if (VARIANTS.has('boss') || VARIANTS.has('bossR')) pub.round = pub.bossRound;
+  if (COMMAND) { priv.personalChoice = mockCommandChoice(priv, COMMAND, pub.round); priv.canReady = false; }
   S = { stage, pub, priv, layers: {}, battle: null, pool, requests: [] };
 }
 
@@ -672,7 +696,7 @@ async function mockRequest(t, f = {}) {
       if (given.join() !== want.join()) fail('BAD_TARGET');
       p.funds -= bs.cost;
       S.bandSkillUses = (S.bandSkillUses || 0) + 1;
-      p.bandSkill = mockBandSkill(p.bandId, { used: S.bandSkillUses, round: bs.avail.type === 'COOLDOWN' ? bs.avail.count : 0 });
+      p.bandSkill = mockCommandView(S.commandBandId || p.bandId, { used: S.bandSkillUses, round: bs.avail.type === 'COOLDOWN' ? bs.avail.count : 0 });
       refreshPrivate(); return {};
     }
     case 'g.bandSkip': {
@@ -814,6 +838,14 @@ async function mockRequest(t, f = {}) {
         const choice = p.personalChoice;
         if (!choice || choice.id !== f.choiceId || choice.round !== pub.round || !choice.cards[f.idx]) fail('BAD_TARGET');
         const card = choice.cards[f.idx];
+        if (choice.kind === 'bandSkill') {
+          // 更换指令: the 指令 becomes the card's strategy's (server setBandCommand), its uses afresh
+          S.commandBandId = card.bandId === p.bandId ? null : card.bandId;
+          S.bandSkillUses = 0;
+          p.bandSkill = mockCommandView(S.commandBandId || p.bandId, { used: 0, round: 0 });
+          p.personalChoice = null;
+          refreshPrivate(); return {};
+        }
         p.effects.push({ id: choice.id, name: card.name, desc: card.descRaw || card.desc, iconKind: 'choice', iconId: card.id });
         p.personalChoice = null;
         refreshPrivate(); return {};

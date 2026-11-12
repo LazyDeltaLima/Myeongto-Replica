@@ -189,8 +189,10 @@ export function BandSkill({ view, priv, phase, combat }) {
   }, [!!drag]);
   if (!bs) return null;
 
-  const rec = data.lookup('bands', priv.bandId);
-  const raw = data.lookupRaw('bands', priv.bandId);
+  // a taken 指令 (更换指令: bs.commandBandId) shows that strategy's portrait, name and stage text
+  const bandId = bs.commandBandId || priv.bandId;
+  const rec = data.lookup('bands', bandId);
+  const raw = data.lookupRaw('bands', bandId);
   const stage = rec?.skills?.[bs.stage] || raw?.skills?.[bs.stage] || null;
   const desc = bandSkillText(stage?.descRaw || stage?.desc || '', bs);
   const counter = bandSkillCounter(bs);
@@ -246,7 +248,7 @@ export function BandSkill({ view, priv, phase, combat }) {
         aria-label=${`${name}${canUse && target === 'NO_TARGET' ? ` · ${t('点击使用')}` : canUse ? ` · ${t('拖拽使用')}` : ''}`}
         onPointerDown=${onDown} onPointerMove=${onMove} onPointerUp=${onUp} onPointerCancel=${stop} onLostPointerCapture=${() => { if (press.current?.moved) stop(); }}
         onKeyDown=${(e) => { if ((e.key === 'Enter' || e.key === ' ') && canUse && target === 'NO_TARGET') { e.preventDefault(); e.stopPropagation(); actions.bandSkill({}); } }}>
-        <span class="bskill__ring"><${Img} src=${bandIconUrl(data.get('assets'), priv.bandId)} class="bskill__icon"
+        <span class="bskill__ring"><${Img} src=${bandIconUrl(data.get('assets'), bandId)} class="bskill__icon"
           fallback=${html`<span class="bskill__glyph">${[...(name || '?')][0]}</span>`} /></span>
         ${cost > 0 ? html`<b class=${cx('bskill__cost', 'num', short && 'is-short')}>${cost}</b>` : null}
         ${counter ? html`<span class=${cx('bskill__count', 'num', counter.text === '0' && 'is-zero')}>${counter.icon === 'clock' ? CLOCK : counter.icon === 'lock' ? LOCK : null}${counter.target != null ? html`<span class="bskill__cv">${counter.value}</span>/${counter.target}` : counter.text}</span>` : null}

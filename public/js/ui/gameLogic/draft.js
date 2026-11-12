@@ -82,6 +82,22 @@ export function normalizePersonalChoice(pub, priv, myId) {
   const choice = priv?.personalChoice;
   if (pub?.phase !== PHASE.PREP || !priv || priv.playerId !== myId || priv.alive === false
     || !choice || choice.round !== pub.round) return null;
+  if (choice.kind === 'bandSkill') {
+    // 规程's 更换指令 (server/match/match/bandSkill.js offerBandSkillChoice): cards of 指令, the source (投机骰子 — an item —
+    // or the own strategy's 好多委托) and the 指令 it replaces (the taken one, else the own strategy's)
+    const bs = isObj(priv.bandSkill) ? priv.bandSkill : null;
+    return {
+      ...normalizeSp({ family: 'command', name: t('更换指令'), desc: t('请选择一项指令'),
+        cards: choice.cards, turn: myId, order: [myId], picks: {} }),
+      id: choice.id,
+      command: {
+        sourceItemId: typeof choice.sourceItemId === 'string' ? choice.sourceItemId : null,
+        ownBandId: typeof priv.bandId === 'string' ? priv.bandId : null,
+        currentBandId: (typeof bs?.commandBandId === 'string' && bs.commandBandId) || (typeof priv.bandId === 'string' ? priv.bandId : null),
+        currentStage: Number.isInteger(bs?.stage) ? bs.stage : null,
+      },
+    };
+  }
   return {
     ...normalizeSp({ family: 'bounty', name: t('教鞭 · 战术特训'), desc: t('请选择一项战术特训'),
       cards: choice.cards, turn: myId, order: [myId], picks: {} }),

@@ -21,7 +21,8 @@
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, Countdown, MicroLabel, Button, useScrollEdges } from './components.js';
 import { Img, RichText, PlayerAvatar, GIcon } from './gameComponents.js';
-import { itemIconUrl, enemyIconUrl, uiUrl } from './assetUrls.js';
+import { itemIconUrl, enemyIconUrl, uiUrl, bandIconUrl } from './assetUrls.js';
+import { bandSkillText } from './bandSkill.js';
 import { richTextPlain } from './richText.js';
 import { sortedPlayers } from './gameLogic.js';
 import { data } from '../data.js';
@@ -54,6 +55,7 @@ export function cardText(card, rich, rawRich = rich) {
  * @param {string|null} family 'bounty'|'supply'|'shop'|'tactic'
  */
 export function resolveSpCard(card, family) {
+  if (card.kind === 'bandSkill' || family === 'command') return resolveCommandCard(card);
   const choices = data.get('choices');
   const byEffect = (list, id) => (Array.isArray(list) && id ? list.find((x) => x && x.effectId === id) : null);
   const effectId = card.effectId || (!card.itemId && typeof card.id === 'string' && data.lookup('effects', card.id) ? card.id : null);
@@ -82,6 +84,47 @@ export function resolveSpCard(card, family) {
     team: !!team,
     coin: card.coin ?? bounty?.coin ?? eff?.enemyPrice ?? null,
   };
+}
+
+/**
+ * A 更换指令 card (server bandCommandCard: bandId, stage, stageCount, cost, name, desc): the official card_small_item
+ * with the strategy's portrait in its icon frame, the strategy's name and the stage under the 指令's name and the 指令's
+ * cost in the card's cost slot (group_cost) — maintainer decision 2026-11-12 (option A); the official game's screen of
+ * this choice is not known [추정·화면]. The name and text are the strategy record's (the language pack's), the stage's
+ * leading 「【name】」 line dropped (the card shows the name above it).
+ * @param {any} card
+ */
+export function resolveCommandCard(card) {
+  const rec = card.bandId ? data.lookup('bands', card.bandId) || data.lookupRaw('bands', card.bandId) : null;
+  const stage = Number.isInteger(card.stage) ? rec?.skills?.[card.stage] : null;
+  const text = bandSkillText(stage?.descRaw || stage?.desc || card.descRaw || card.desc || '', null);
+  const stageCount = Number(card.stageCount) || 0;
+  return {
+    kind: 'command',
+    name: stage?.name || tName(card.name) || rec?.name || t('更换指令'),
+    desc: text.replace(/^【[^】\n]*】\s*\n/, ''),
+    tier: null,
+    icon: bandIconUrl(data.get('assets'), card.bandId),
+    team: false,
+    coin: null,
+    bandName: rec?.name || tName(card.bandName) || '',
+    stage: stageCount > 1 && Number.isInteger(card.stage) ? { n: card.stage + 1, of: stageCount } : null,
+    cost: Number.isFinite(card.cost) ? Math.max(0, card.cost) : null,
+  };
+}
+
+/**
+ * The 指令 a 更换指令 choice replaces, for the line over the cards: { name, bandName, bandId } of the current 指令 (the
+ * taken one, else the own strategy's active stage), null when the player has none (a passive strategy).
+ * @param {{ currentBandId?: string|null, currentStage?: number|null } | null | undefined} command normalizePersonalChoice(...).command
+ */
+export function currentCommand(command) {
+  const id = command?.currentBandId;
+  const rec = id ? data.lookup('bands', id) || data.lookupRaw('bands', id) : null;
+  const skills = Array.isArray(rec?.skills) ? rec.skills : [];
+  if (!rec || !skills.some((s) => s && s.type === 'ACTIVE')) return null;
+  const stage = skills[Number.isInteger(command.currentStage) ? command.currentStage : 0] || skills.find((s) => s && s.type === 'ACTIVE');
+  return { bandId: id, bandName: rec.name || '', name: stage?.name || rec.effectName || '' };
 }
 
 /**
@@ -195,6 +238,9 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
   const mine = sp.pickOf.get(myId);
   const turnName = playerName(players.get(sp.turnPid)?.name) || t('队友');
   const special = /_s$/.test(String(sp.family || ''));
+  const command = sp.family === 'command' ? sp.command || {} : null;
+  const now = command ? currentCommand(command) : null;
+  const source = command ? (command.sourceItemId ? data.lookup('items', command.sourceItemId)?.name : data.lookup('bands', command.ownBandId)?.name) || '' : '';
   const order = personal || solo ? [] : sp.order;
   const timed = personal ? pub?.deadline > 0 : !solo && !sp.untimed;
   const armedCardRec = armed != null ? sp.cards.find((c) => c && c.idx === armed) : null;
@@ -206,18 +252,18 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
     if (t && typeof t.closest === 'function' && t.closest('.spcard, .spov__confirm')) return;
     onDisarm();
   };
-  return html`<div class=${cx('spov', armed != null && 'has-armed', art.cls)} style=${art.style || undefined} role="dialog" aria-label=${personal ? t('教鞭选择') : t('机变阶段')} onPointerDown=${onDown}>
+  return html`<div class=${cx('spov', armed != null && 'has-armed', art.cls)} style=${art.style || undefined} role="dialog" aria-label=${command ? t('更换指令') : personal ? t('教鞭选择') : t('机变阶段')} onPointerDown=${onDown}>
     <div class="spov__veil" aria-hidden="true"></div>
     <div class="spov__inner">
       <header class="spov__head">
         <div class="spov__titles">
-          <${MicroLabel} tone="mint">${personal ? t('教鞭选择') : t('CONTINGENCY // 机变阶段')}</${MicroLabel}>
+          <${MicroLabel} tone="mint">${command ? t('更换指令') : personal ? t('教鞭选择') : t('CONTINGENCY // 机变阶段')}</${MicroLabel}>
           <h2 class=${cx('spov__title', special && 'is-special')}><span class="spov__name">${sentText(sp.name, rawFam?.name, fam?.name) || fam?.name || t('机变')}</span><span class="spov__bar">|</span><span class="spov__desc"><${RichText} text=${sentText(sp.desc, rawFam?.desc, fam?.desc) || fam?.desc || t('选择一项')} /></span></h2>
-          <p class="spov__notice">${t('选择后不可更改')}</p>${/* local patch: the official notice (css/phase-art.css; hidden without the art) */ ''}
+          <p class="spov__notice">${command ? [source, t('被动效果保留')].filter(Boolean).join(' · ') : t('选择后不可更改')}</p>${/* local patch: the official notice (css/phase-art.css; hidden without the art) */ ''}
           <p class="spov__sub">${timed ? (personal ? t('休整期结束时未选择将自动选定') : t('倒计时结束后仍未选定将自动分配')) : t('选择一项（无时间限制）')}${mine == null && myTurn ? t(' · 点击卡牌选中，再次点击确认') : ''}</p>
         </div>
         <div class="spov__turn">
-          ${personal ? html`<span class="spov__turntxt is-personal">${t('从候选中选择一项战术特训')}</span>`
+          ${personal ? html`<span class="spov__turntxt is-personal">${command ? t('从候选中选择一项指令') : t('从候选中选择一项战术特训')}</span>`
             : mine != null ? html`<span class="spov__turntxt is-done"><${Icon} name="check" />${t('已完成选择')}</span>`
             : myTurn ? html`<span class="spov__turntxt is-mine">${t('当前轮到你决策')}</span>`
             : html`<span class="spov__turntxt">${t('{turnName} 正在决策…', { turnName })}<${Icon} name="hourglass" /></span>`}
@@ -240,6 +286,9 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
           </div>`;
         })}
       </div>` : null}
+      ${command ? html`<div class="spov__now">${now ? html`<${Img} src=${bandIconUrl(data.get('assets'), now.bandId)} class="spov__nowicon" fallback=${html`<span class="spov__nowicon is-glyph">${[...(now.bandName || '?')][0]}</span>`} />
+          <span>${t('当前指令')} <b>${now.name}</b> · ${now.bandName}</span><em>${t('→ 将被替换')}</em>`
+        : html`<span>${t('当前没有指令')}</span>`}</div>` : null}
       ${turnFlash && art.cls ? html`<${YourTurn} />` : null}
       <div class=${cx('spov__grid', sp.cards.length <= 3 && 'spov__grid--3', sp.cards.length > 6 && 'spov__grid--12')}>
         ${sp.cards.map((card) => {
@@ -255,9 +304,10 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
             <span class="spcard__glow" aria-hidden="true"></span>
             <${CardScroll}>
             <span class="spcard__head">
-              <span class="spcard__icon"><${Img} src=${r.icon} fallback=${html`<${GIcon} name=${r.kind === 'bounty' ? 'target' : 'bolt'} />`} /></span>
+              <span class="spcard__icon"><${Img} src=${r.icon} fallback=${r.kind === 'command' ? html`<span class="spcard__glyph">${[...(r.bandName || r.name || '?')][0]}</span>` : html`<${GIcon} name=${r.kind === 'bounty' ? 'target' : 'bolt'} />`} /></span>
               <span class="spcard__title">
                 <b class="spcard__name">${r.name}</b>
+                ${r.kind === 'command' && (r.bandName || r.stage) ? html`<span class="spcard__band">${r.bandName}${r.stage ? html`${r.bandName ? ' · ' : ''}<b>${t('{n}/{total}阶段', { n: r.stage.n, total: r.stage.of })}</b>` : null}</span>` : null}
                 ${r.team || (r.kind === 'bounty' && r.coin) ? html`<span class="spcard__tags">
                   ${r.team ? html`<span class="spcard__tag spcard__tag--team">${t('全队获得')}</span>` : null}
                   ${r.kind === 'bounty' && r.coin ? html`<span class="spcard__tag spcard__tag--coin">${t('赏金 {coin}', { coin: r.coin })}</span>` : null}
@@ -267,6 +317,7 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
             <${RichText} text=${r.desc} class="spcard__desc" />
             </${CardScroll}>
             ${card.soldOut && !taker ? html`<span class="spcard__busy spcard__busy--soldout" role="status">${t('库存不足')}</span>` : null}
+            ${r.kind === 'command' && r.cost != null ? html`<span class="spcard__cost num" aria-label=${t('指令消耗资金 {cost}', { cost: r.cost })}>${r.cost}</span>` : null}
             ${r.tier ? html`<${TierChip} tier=${r.tier} size="md" class="spcard__tier" />` : null}
             ${taker ? html`<span class="spcard__taker" title=${t('{name} 已选择', { name: playerName(taker.name) })}><${PlayerAvatar} player=${taker} size="sm" /></span>` : null}
             ${isArmed ? html`<span class="spcard__confirm" role="status"><b>${t('确认选择')}</b><small>${t('再次点击')}</small></span>` : null}
