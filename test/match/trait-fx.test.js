@@ -1,11 +1,13 @@
 // m.trait (docs/rules/fx.md 「규정 특질 발동 이펙트」): 规程's prep 特质 effect — the owner's live { uid, fx } when a piece's
-// 特质 runs: 雪猎 (「获得时」 谢拉格·精准 layers, a bond 特质 → map_v079_buff01) on a real g.buy and when its 「获得时」 runs
-// again (铃兰's 指令: the dispatcher's triggerGarrisons); 投资人's repeat is one; a shop price (onPrice) sends nothing; the
-// default season (no eventEffect in its table) sends nothing.
+// 特质 runs and changes something: 雪猎 (「获得时」 谢拉格·精准 layers, a bond 特质 → map_v079_buff01) on a real g.buy and when
+// its 「获得时」 runs again (铃兰's 指令: the dispatcher's triggerGarrisons); 投资人's repeat is one; a 特质 whose condition
+// fails (「若同一行有3名干员」 short of three) sends nothing (a maintainer decision, provisional); a shop price (onPrice)
+// sends nothing; the default season (no eventEffect in its table) sends nothing.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ACT3_ON_BASE_FIELD } from '../helpers/seasonPieces.js';
 import { makeMatch, give } from './harness.js';
+import { tileKey } from '../../server/match/board.js';
 import { registryFor } from '../../server/match/effectsMeta.js';
 import { S2C } from '../../shared/protocol.js';
 
@@ -56,6 +58,30 @@ test('规程: running 雪猎\'s 「获得时」 again (铃兰\'s 指令) sends i
   m.dispatcher.triggerGarrisons(ps, p, 'SERVER_GAIN');
   assert.equal((ps.layers.kjeragShip ?? 0) - before, 8, 'ran twice');
   assert.equal(traits(h).length, 1);
+});
+
+test('规程: a 特质 whose condition fails sends nothing; the same 特质 that takes effect sends it (garrison_61)', (t) => {
+  const { h, m, ps } = act3(t);
+  // garrison_61_a: <进入休整期时>若同一行有3名干员，获得1个… (SERVER_POOL_CHAR, conditionkey character_same_row)
+  const id = 'chess_char_5_09_a';
+  assert.equal(m.gd.garrison('garrison_61_a').bbStr.conditionkey, 'character_same_row');
+  for (const p of [...ps.board.values()]) ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  const [r, c] = [10, 4];
+  const me = give(m, ps, id, 'board', [r, c]);
+  const mine = () => traits(h).filter(([, msg]) => msg.uid === me.uid);
+  h.sent.length = 0;
+  const hand0 = JSON.stringify(ps.hand.map((p) => p && p.id));
+  m.dispatch(ps, 'onPrepStart', {});
+  assert.equal(JSON.stringify(ps.hand.map((p) => p && p.id)), hand0, 'alone in its row: nothing gained');
+  assert.deepEqual(mine(), []);
+  give(m, ps, 'chess_char_1_01_a', 'board', [r, c + 1]);
+  give(m, ps, 'chess_char_1_02_a', 'board', [r, c + 2]);
+  assert.ok(ps.board.has(tileKey(r, c + 2)));
+  h.sent.length = 0;
+  m.dispatch(ps, 'onPrepStart', {});
+  assert.notEqual(JSON.stringify(ps.hand.map((p) => p && p.id)), hand0, 'three in its row: an operator gained');
+  assert.deepEqual(mine(), [['p_0', { t: 'm.trait', uid: me.uid, fx: m.gd.garrison('garrison_61_a').eventEffect }]]);
 });
 
 test('the default season: a 获得时 特质 sends no m.trait', (t) => {

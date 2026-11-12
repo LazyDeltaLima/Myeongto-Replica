@@ -54,6 +54,27 @@ import { previewContext } from './preview.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
 import { traitEventFx } from '../../shared/traitFx.js';
 
+/**
+ * The state of every player of the match as one string (EffectDispatcher._call: did a 特质's run change anything?). The
+ * players' own fields — funds, layers, shop, hand, board, counters, effects … — without the engine links (`m`, `gd`), the
+ * caches (`_`-prefixed) and the connection flags; Maps and Sets as arrays, an object met twice written once.
+ */
+const STATE_SKIP = new Set(['m', 'gd', 'connected', 'left', 'ready', 'infoReady', 'infoReroll', 'lastEmoteAt', 'autoplay']);
+export function traitState(m) {
+  const seen = new WeakSet();
+  return JSON.stringify([...(m?.players?.values?.() ?? [])], function (k, v) {
+    if (this && this.constructor && this.constructor.name === 'PlayerState' && (STATE_SKIP.has(k) || k.startsWith('_'))) return undefined;
+    if (typeof v === 'function') return undefined;
+    if (v && typeof v === 'object') {
+      if (seen.has(v)) return '~';
+      seen.add(v);
+      if (v instanceof Map) return [...v];
+      if (v instanceof Set) return [...v];
+    }
+    return v;
+  });
+}
+
 export const HOOKS = Object.freeze([
   'onRoundStart', 'onIncome', 'onPrepStart', 'onPrepEnd', 'onGain', 'onSold', 'onRefresh', 'onPrice', 'onBuy',
   'onSpend', 'onMerge', 'onLevelUp', 'onBattleStart', 'onBattleResult', 'onChoicePick', 'onEquip', 'onArt',
@@ -203,23 +224,27 @@ export class EffectDispatcher {
       try { ctx = makeCtx(this.m, ps, source, hook, ev, this.preview); }
       catch (e) { this._report(key, hook, e); return; }
     } else ctx = makeCtx(this.m, ps, source, hook, ev);
+    const fx = source.kind === 'garrison' && !this.preview ? this._traitFx(ps, hook, source) : null;
+    const before = fx ? traitState(this.m) : null;
     for (let i = 0; i < repeat; i++) {
       try { fn.call(handler, ctx, ev); } catch (e) { this._report(key, hook, e); }
     }
-    if (source.kind === 'garrison' && !this.preview) this._traitFx(ps, hook, source);
+    if (fx && traitState(this.m) !== before) this.m.sendTo(ps.playerId, { t: 'm.trait', uid: source.piece.uid, fx });
   }
 
   /**
-   * 规程's 特质 effect over the piece whose 特质 just ran (shared/traitFx.js; docs/rules/fx.md 「규정 특질 발동 이펙트」): the
-   * owner's live m.trait { uid, fx } — 雪猎's chain link when bought (「获得时」) and when 铃兰's 指令 runs it again (official
-   * screens). A price (onPrice: 「购买价格为N」, read for every shop slot) is no event and sends nothing; 投资人's repeats are one
-   * effect. Never replayed on a resync. [추정·화면: a run whose condition fails (a row short of three) shows it too — the
-   * handler's outcome is not known here.]
+   * 规程's 特质 effect over the piece whose 特质 runs (shared/traitFx.js; docs/rules/fx.md 「규정 특질 발동 이펙트」): the
+   * prefab of the owner's live m.trait { uid, fx }, or null when none is sent — 雪猎's chain link when bought (「获得时」) and
+   * when 铃兰's 指令 runs it again (official screens). A price (onPrice: 「购买价格为N」, read for every shop slot) is no event;
+   * an AI seat or an absent player gets no frame (the state is not compared for them); 投资人's repeats are one effect. Sent
+   * only when the run changed something (traitState): a 特质 whose condition fails (a row short of three, no active bond)
+   * shows nothing — a maintainer decision 2026-11-12, provisional [추정·화면: not seen on an official screen]. Never replayed on a
+   * resync.
    */
   _traitFx(ps, hook, source) {
-    if (hook === 'onPrice' || !Number.isInteger(source.piece?.uid)) return;
-    const fx = traitEventFx(source.garrison);
-    if (fx && typeof this.m.sendTo === 'function') this.m.sendTo(ps.playerId, { t: 'm.trait', uid: source.piece.uid, fx });
+    if (hook === 'onPrice' || !Number.isInteger(source.piece?.uid) || typeof this.m.sendTo !== 'function') return null;
+    if (!ps || ps.isBot || ps.left || !ps.connected) return null;
+    return traitEventFx(source.garrison);
   }
 
   /** 获得时 multiplier from 投资人 (investShip): ×2 while active, ×3 at ≥ 100 layers (research 02 §3.17). */
