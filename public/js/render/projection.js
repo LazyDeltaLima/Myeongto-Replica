@@ -67,18 +67,24 @@ export const OFFICIAL = Object.freeze({
  * as the 盟约 levels'). 规程's battle cameras (docs/rules/render.md 「규정 전투 카메라」): controller positions fitted to
  * official CN battle screenshots with the official rotation and FOV — the left normal battle on m03 and the boss field's
  * 全景 on m02, both 1920 × 1080 (300–400 board feature matches against our view of the same stage, 1 px rms; pitch and
- * FOV left free come out 30° / 40°): the bench row in view, as the official battle shows it; the 联防 right half too (m05). The 联防 left half and
- * 全景 follow by symmetry (below); 隐秘核心 is the boss field (its 全景 key). [ASSUMED·화면: one screenshot each; the boss halves
- * keep the level values; the CN camera plugin's own settings could not be read]
+ * FOV left free come out 30° / 40°): the bench row in view, as the official battle shows it; the boss halves (m02) and the 联防 right half (m05) too.
+ * The 联防 left half and 全景 follow by the pairs (below); 隐秘核心 is the boss field (its 全景 key). [ASSUMED·화면: one screenshot each; the CN camera plugin's own
+ * settings could not be read]
  */
 export const SEASON_CAMERA_PARAMS = Object.freeze({
   act3autochess: Object.freeze({
     left_battle_camera_param: '(-5.4,0.8,-1.52,1)',
     mid_boss_battle_camera_param: '(0,-7.49,-4.01,1)',
+    // the boss halves (‹ ›): each fitted to an official screenshot (m02; 240 / 170 matches, 1 px rms, pitch and FOV
+    // free 30° / 40°) — not mirrors: the same row and height, x −5.4 / 5.6 (the 联防 right half is at 5.6 too); the left
+    // one has the normal battle's x and height
+    left_boss_battle_camera_param: '(-5.4,-6.2,-1.52,1)',
+    right_boss_battle_camera_param: '(5.6,-6.2,-1.52,1)',
     // the 联防 right half: fitted to an official screenshot (m05, watching that half; 751 matches, 1 px rms) — not the left
-    // battle's mirror (98 px off), so the 联防 halves have keys of their own. [ASSUMED·화면: the left half mirrors it (no screenshot)]
+    // battle's mirror (98 px off), so the 联防 halves have keys of their own. [ASSUMED·화면: the left half (no screenshot)
+    // pairs with it as the boss halves pair: the same row and height, x −5.4 (the fitted left halves') for 5.6]
     right_unite_camera_param: '(5.6,1.8,-1.02,1)',
-    left_unite_camera_param: '(-5.6,1.8,-1.02,1)',
+    left_unite_camera_param: '(-5.4,1.8,-1.02,1)',
     // [ASSUMED·화면: no screenshot — the 联防 全景 is the boss 全景 moved up the field (the levels: mid_battle = mid_boss +
     // (0, 7.95, 0)), the boss fit's correction (0, +0.46, +0.21) on it (maintainer 2026-11-12: 「보스와 같을 것」)]
     mid_battle_camera_param: '(0,0.46,-4.01,1)',

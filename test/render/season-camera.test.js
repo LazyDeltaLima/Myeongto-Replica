@@ -52,13 +52,14 @@ test('规程 boss 全景: the fitted camera puts a left bench slot where the off
   assert.ok(Math.hypot(was.x - 830, was.y - 915) > 40, `the level value puts it at ${was.x.toFixed(0)}, ${was.y.toFixed(0)}`);
 });
 
-test('规程 联防: halves of their own (the right one fitted, the left its mirror), the 全景 carries the boss 全景 correction', () => {
+test('规程 联防: halves of their own (the right one fitted, the left paired like the boss halves), the 全景 carries the boss 全景 correction', () => {
   const s = stageOf(ACT3, 'act3autochess_m05');
   const c = stageCameraConfig(s);
   const P = (k) => c[k].slice(1, -1).split(',').map(Number);
   const L = (k) => s.config[k].slice(1, -1).split(',').map(Number);
   const [rx, ry, rz] = P('right_unite_camera_param'), [lx, ly, lz] = P('left_unite_camera_param');
-  assert.deepEqual([lx, ly, lz], [-rx, ry, rz], 'the left half mirrors the right');
+  const [bl] = P('left_boss_battle_camera_param');
+  assert.deepEqual([lx, ly, lz], [bl, ry, rz], 'the left half pairs with the right as the boss halves do (row, height; the left halves\' x)');
   assert.notDeepEqual(P('left_unite_camera_param'), P('left_battle_camera_param'), 'not the normal battle camera');
   const d = (a, b) => a.map((v, i) => Math.round((v - b[i]) * 100) / 100);
   assert.deepEqual(d(P('mid_battle_camera_param'), L('mid_battle_camera_param')), d(P('mid_boss_battle_camera_param'), L('mid_boss_battle_camera_param')),
@@ -78,4 +79,19 @@ test('a 盟约 联防 half falls back to the level battle camera', () => {
   const battle = presetCamera('normal', VIEW, { rect: { r0: 9, r1: 12, c0: 0, c1: 10 }, side: 'R', config: base.config });
   const p = half.project(15, 10, 0), q = battle.project(15, 10, 0);
   assert.ok(Math.hypot(p.x - q.x, p.y - q.y) < 1e-6, 'same camera as right_battle_camera_param');
+});
+
+test('规程 boss halves: fitted, the same row and height, x −5.4 / 5.6, both off the level values', () => {
+  const s = stageOf(ACT3, 'act3autochess_m02');
+  const c = stageCameraConfig(s);
+  const P = (k) => c[k].slice(1, -1).split(',').map(Number);
+  const [lx, ly, lz] = P('left_boss_battle_camera_param'), [rx, ry, rz] = P('right_boss_battle_camera_param');
+  assert.deepEqual([ly, lz], [ry, rz]);
+  assert.deepEqual([lx, rx], [-5.4, 5.6]);
+  const rect = { r0: 0, r1: 5, c0: 0, c1: 20 };
+  for (const side of ['L', 'R']) {
+    const a = presetCamera('boss', VIEW, { rect, side, half: true, config: c }).project(side === 'L' ? 5 : 15, 0, 0);
+    const b = presetCamera('boss', VIEW, { rect, side, half: true, config: s.config }).project(side === 'L' ? 5 : 15, 0, 0);
+    assert.ok(Math.hypot(a.x - b.x, a.y - b.y) > 30, `${side}: the fitted half differs from the level one`);
+  }
 });
