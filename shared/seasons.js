@@ -20,6 +20,18 @@ export const DEFAULT_SEASON = 'act2autochess';
 export const SEASON_FEATURES = Object.freeze({
   /** Watch another player's field while the own battle still runs (today: only once the own battle is over). */
   watchWhileFighting: false,
+  /** No side camera (Placeholders/SideBy) while a piece is held or selected: the season's official client has none
+   * (docs/rules/ui.md 「기물을 고르고 집을 때의 측면 카메라」); settings → 画面 can still turn it on or off. */
+  noSideCamera: false,
+  /** The bond strip's phase mark Ⅰ·Ⅱ·Ⅲ over an active bond's disc (the HUD bond item's img_level, bond_level_N): the
+   * thresholds reached, on bonds with two or more (docs/rules/ui.md 「규정 HUD 새 요소」). */
+  bondPhase: false,
+  /** The solo room plays a 规程等级 1–20 or 极速模拟 (room `grade`, shared/constants.js MAX_GRADE) instead of the four
+   * difficulties. */
+  soloGrades: false,
+  /** No custom 规则 模式 and no 8-player room in this season yet (maintainer decision 2026-11-11: both later, refused until
+   * then — server/lobby.js, server/matchmaking.js). */
+  noCustomOrLarge: false,
 });
 
 /**
@@ -31,7 +43,8 @@ export const SEASONS = {
   act2autochess: Object.freeze({ id: 'act2autochess', public: true, name: N_('盟约'), mark: 'ALLIANCE', features: SEASON_FEATURES }),
   // 卫戍协议：规程 (CN from 2026-11-08): built from its own tables (tools/build-data.mjs --season act3autochess), not public
   // until every part of it is (SP_SEASONS=act3autochess)
-  act3autochess: Object.freeze({ id: 'act3autochess', public: false, name: N_('规程'), mark: 'REGULATION', features: SEASON_FEATURES }),
+  act3autochess: Object.freeze({ id: 'act3autochess', public: false, name: N_('规程'), mark: 'REGULATION',
+    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true }) }),
 };
 
 /**

@@ -91,7 +91,7 @@
 import { ERR, LARGE_MIN_PLAYERS, LARGE_SEATS, MAX_SEATS, DIFFICULTIES, seatsOf } from '../shared/constants.js';
 import { QUEUE_PRESETS, resolveRuleset, rulesetKey, rulesetWire } from '../shared/ruleset.js';
 import { sendSession } from './net.js';
-import { DEFAULT_SEASON } from '../shared/seasons.js';
+import { DEFAULT_SEASON, seasonFeature } from '../shared/seasons.js';
 
 export const QUEUE_DEFAULTS = Object.freeze({
   queueConfirmMs: 15_000,  // a formed group's room.queueAccept window
@@ -181,6 +181,8 @@ export class Matchmaker {
   queue(session, { difficulty, ruleset: preset, size, quick = false, season = DEFAULT_SEASON }) {
     const lobby = this.lobby;
     if (!lobby.seasons.has(season)) return fail(ERR.BAD_MSG, 'season not offered');
+    // no 8-player queue in such a season yet (server/lobby.js header 「规程等级」)
+    if (!quick && size === LARGE_SEATS && seasonFeature(season, 'noCustomOrLarge')) return fail(ERR.BAD_MSG, 'no 8-player queue in this season yet');
     const ruleset = quick ? null : rulesetKey(preset);
     const cap = quick ? 0 : seatsOf(size);
     const pool = poolKey(difficulty, season);

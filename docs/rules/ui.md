@@ -2164,3 +2164,14 @@ upstream 0.3.3(`dev` eff7d93ab)의 공식 느낌 화면을 손으로 이식한�
 - **그림**: 규정 클라의 추출물(`tools/local-extract/season_ui.py`의 `prefabs` — 위 프리팹들이 보여 주는 그림을 그 프리팹의 참조대로: 보통 이미지, 그리고 공식 클라의 아틀라스 이미지(`_initAtlas`·`_initSpriteId`)는 아틀라스 텍스처에서 잘라 냄)이 `diyChooseArt/…`로 들어온다. 추출이 없으면 CSS 색으로 그린다.
 - 이 단계 동안 「오퍼레이터 설정」은 없다(편성은 전략 선택까지 바꿀 수 있고, 이 단계부터는 다음 판에 적용).
 - 확인: `test/ui/gameLogic.test.js` 「规程's 确定自选编队」(찬 등급에서 가장 먼저 고른 것이 빠짐, 등급 줄·금지, 단계 수). Windows Chrome(로컬 서버, 2026-11-11): 1600×900·휴대폰 터치 844×390, 규정 연합 4인(AI 셋) — 들어가기, 셋 고르기(서버의 `chosen`과 같음), 찬 Ⅴ에서 넷째를 누르면 가장 먼저 고른 칸이 빠짐(2/2·1/2), 준비 화면, 준비하면 다음 단계로.
+
+## 규정 모드 — 규정 등급 1~20·고속 시뮬레이션, 해금 없음, 커스텀·8인 막기 (2026-11-12, 관리자 결정 2026-11-08·2026-11-11)
+
+- **모드**(관리자 결정 2026-11-08): 규정의 다인 모드는 지난 시즌처럼 난이도 넷(`mode_multi_funny`~`abyss`, 혼자·팀). 1인은 공식 규정의 단계식 모드 — 규정 등급 1~20(`mode_single_1`~`20`; 표의 `modeDifficulty`로 1~4 표준·5~8 험지·9~14 극한·15~20 초월)과 고속 시뮬레이션(极速模拟 `mode_single_funny`, 9라운드). 훈련 모드(入门协议)·시즌 상점·주기 보상·칭호는 넣지 않는다. 지금 시즌(맹약)은 난이도 넷 그대로.
+- 서버: 시즌 스위치 `soloGrades`(`shared/seasons.js`)가 켜진 시즌의 1인 방은 `grade`(0 = 고속, 1~20)를 갖는다(`room.create`·`room.setDifficulty { grade }`, `room.state`·인계 스냅숏에 실림; 없으면 고른 난이도의 첫 등급). 방의 난이도는 등급의 것, 경기는 `modeIdFor(mode, difficulty, grade)` → `mode_single_<grade>`. 다른 방에 `grade`가 오면 BAD_MSG. 경기의 난이도 규칙(밴·보스 체력·히든 코어)은 모드 기록(`gd.difficulty` = 모드의 `difficulty`)을 따른다 — 고속은 표에서 FAST라 밴 표에 칸이 없다(기본값 0·0) [추정·자료 없음: 공식 고속의 맹약 밴 수는 표에 없음 — 모드의 `inactiveBondIds` 8개는 적용됨].
+- **해금 없음**(관리자 결정 2026-11-08): 모든 등급·난이도를 처음부터 연다. 모드 설명의 해금 문구(「解锁时可开放至【…】」)는 데이터를 만들 때 뺀다(`tools/build-data.mjs modeDescNoUnlock`; 그 문구뿐인 설명은 null). `unlockText`는 화면에 쓰지 않는다.
+- **전략 목록**: 규정 전략의 모드별 제외(`bands.json inactiveModeIds`)를 화면 목록도 본다(`bandDraft.js allowedBands`, 서버 `GameData.bandAllowed`와 같게).
+- **커스텀·8인 막기**(관리자 결정 2026-11-11: 둘 다 나중에): 시즌 스위치 `noCustomOrLarge`가 켜진 시즌(규정)은 커스텀 규칙과 8인 방을 서버가 거부한다 — `room.create`(custom·`size` 8)·`room.setRuleset`(custom)·`room.setSize`(8)·`room.queue`(`size` 8) 모두 BAD_MSG. 빠른 매칭은 4인 묶음만 만든다(8인 큐가 없으므로).
+- 한국어 임시 이름(관리자 결정 2026-11-12, KR 서버 출시 때 교체): 「规程等级N」 = 「규정 등급 N」, 「极速模拟」 = 「고속 시뮬레이션」.
+- 아직 아님: 로비의 등급 고르기 화면과 커스텀·8인 단추 숨기기(새 로비 화면 위에서), 공식 새 프리팹 `auto_chess_mode_choice_view` 그림·규정 모드 아이콘(후순위).
+- 시험: `test/season-grades.test.js`(모드 ID, 프로토콜, 실제 경기 경로의 등급 모드, 로비의 등급·거부·인계, 전략 목록, 설명 문구).

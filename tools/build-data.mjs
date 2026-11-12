@@ -4210,6 +4210,18 @@ function enemyScaleFor(table, type, difficulty, round, isHidden, steps = enemySt
 }
 
 /**
+ * A mode's description without its unlock clause: 规程 opens a difficulty with a grade (「解锁时可开放至【规程等级7】」),
+ * and this server opens every mode (maintainer decision 2026-11-08: no unlocks), so the clause would promise what
+ * nothing does. A description that is only the clause becomes null. 盟约's descriptions have none.
+ * @param {string|null|undefined} desc
+ */
+function modeDescNoUnlock(desc) {
+  if (typeof desc !== 'string') return desc ?? null;
+  const out = desc.replace(/[，,]?\s*解锁时可开放至【[^】]*】/g, '').trim();
+  return out || null;
+}
+
+/**
  * Build data/config.json: modes (rounds, timers, shop, enemy scaling), economy, bans, timers,
  * titles, tips, broadcasts, trophies and other global tunables.
  */
@@ -4291,7 +4303,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       color: `#${String(m.modeColor || '').replace(/^#/, '')}`, iconId: m.modeIconId, backgroundId: m.backgroundId || null,
       // the battle loading screen's picture (UIBattleLoading: AC-1 yellow … AC-4 red), the web manifest's ui `loading/<id>`
       loadingPic: m.loadingPicId ? String(m.loadingPicId).toLowerCase() : null,
-      desc: m.desc, effectDescList: m.effectDescList || [], unlockText: m.unlockText || null,
+      desc: modeDescNoUnlock(m.desc), effectDescList: m.effectDescList || [], unlockText: m.unlockText || null,
       specialPhaseTime: m.specialPhaseTime,
       activeBondIds: m.activeBondIdList || [], inactiveBondIds: m.inactiveBondIdList || [], inactiveEnemyKeys: m.inactiveEnemyKey || [],
       lastRound, bossRound, hiddenRound,

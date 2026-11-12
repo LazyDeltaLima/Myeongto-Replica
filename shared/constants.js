@@ -44,9 +44,29 @@ export const DIFFICULTIES = ['FUNNY', 'NORMAL', 'HARD', 'ABYSS'];
 export const DIFFICULTY_NAMES = { FUNNY: N_('标准模拟'), NORMAL: N_('险境模拟'), HARD: N_('绝境模拟'), ABYSS: N_('终极模拟') };
 export const DIFFICULTY_COLORS = { FUNNY: '#f6a329', NORMAL: '#e85a1a', HARD: '#e73118', ABYSS: '#ff0024' };
 
-// modeId in data/config.json = `mode_${type}_${difficulty.toLowerCase()}` with type single|multi
-export const modeIdFor = (roomMode, difficulty) =>
-  `mode_${roomMode === 'solo' ? 'single' : 'multi'}_${difficulty.toLowerCase()}`;
+/**
+ * 规程等级 (the 规程 season's solo modes, shared/seasons.js `soloGrades`; maintainer decision 2026-11-08: its solo room
+ * offers 规程等级 1–20 and 极速模拟, every one open): a solo room of such a season carries a `grade`, 1–20 =
+ * `mode_single_<grade>`, FAST_GRADE = 极速模拟 `mode_single_funny`. The grade's difficulty is its mode record's
+ * (`modeDifficulty`: 1–4 标准, 5–8 险境, 9–14 绝境, 15–20 终极); 极速模拟's is FAST in the tables, the room says FUNNY
+ * (its mode id is the FUNNY one).
+ */
+export const MAX_GRADE = 20;
+export const FAST_GRADE = 0;
+/** A 规程等级 value of a room (FAST_GRADE or 1–MAX_GRADE). @param {unknown} v */
+export const isGrade = (v) => Number.isInteger(v) && /** @type {number} */ (v) >= FAST_GRADE && /** @type {number} */ (v) <= MAX_GRADE;
+const GRADE_FIRST = Object.freeze({ FUNNY: 1, NORMAL: 5, HARD: 9, ABYSS: 15 });
+/** The difficulty of a 规程等级 (FAST_GRADE: FUNNY). @param {number} grade */
+export const gradeDifficulty = (grade) => (grade >= GRADE_FIRST.ABYSS ? 'ABYSS' : grade >= GRADE_FIRST.HARD ? 'HARD' : grade >= GRADE_FIRST.NORMAL ? 'NORMAL' : 'FUNNY');
+/** The first 规程等级 of a difficulty: a graded room asked for a difficulty alone. @param {string} difficulty */
+export const firstGrade = (difficulty) => GRADE_FIRST[difficulty] ?? 1;
+
+// modeId in data/config.json = `mode_${type}_${difficulty.toLowerCase()}` with type single|multi; a solo room with a
+// 规程等级 (above): `mode_single_<grade>`, 极速模拟 `mode_single_funny`
+export const modeIdFor = (roomMode, difficulty, grade = null) =>
+  roomMode === 'solo' && isGrade(grade)
+    ? `mode_single_${grade === FAST_GRADE ? 'funny' : grade}`
+    : `mode_${roomMode === 'solo' ? 'single' : 'multi'}_${difficulty.toLowerCase()}`;
 
 export const PHASE = Object.freeze({
   LOBBY: 'LOBBY',

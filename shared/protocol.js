@@ -1,7 +1,7 @@
 // Normative message catalogue (DESIGN §8). Used by server (validation) and client (building requests).
 // Every client→server message is `{ t, rid?, ...fields }`. Unknown `t` or invalid fields ⇒ ERR.BAD_MSG.
 
-import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, LARGE_SEATS, ROOM_SIZES, SPECTATOR_SEATS, EMOTES, GEO } from './constants.js';
+import { DIFFICULTIES, isGrade, NAME_MAX_LEN, ROOM_CODE_LEN, LARGE_SEATS, ROOM_SIZES, SPECTATOR_SEATS, EMOTES, GEO } from './constants.js';
 import { isDroppableChess } from './standIn.js';
 import { diySlotIds, validateDiyPicks } from './diy.js';
 import { extendProtocol } from './local.js'; // local patch: room chat, chat factions, emote sets
@@ -417,13 +417,15 @@ export const C2S = {
   // `ruleset`: the room's 규칙 모드 preset (shared/ruleset.js; absent = the default, classic); `custom`: the settings of
   // the custom preset (sanitizeCustom; ignored by the other presets); `size`: a co-op room's seat count (ROOM_SIZES; absent
   // = 4, 8 = the 8-player mode — server/lobby.js); `season`: the 卫戍协议 season (shared/seasons.js; absent = the default;
-  // the server refuses one it does not offer)
+  // the server refuses one it does not offer); `grade`: a solo room's 规程等级 in a season with them (shared/constants.js
+  // MAX_GRADE; absent = the first grade of `difficulty`; refused in any other room)
   'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isRulePreset,
-    custom: isCustomWire, size: isRoomSize, season: isSeasonId, $optional: ['ruleset', 'custom', 'size', 'season'] },
+    custom: isCustomWire, size: isRoomSize, season: isSeasonId, grade: isGrade, $optional: ['ruleset', 'custom', 'size', 'season', 'grade'] },
   'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.leave': {},
   'room.ready': { ready: isBool },
-  'room.setDifficulty': { difficulty: (v) => DIFFICULTIES.includes(v) },
+  // `grade` as in room.create (a graded room: absent = the first grade of `difficulty`)
+  'room.setDifficulty': { difficulty: (v) => DIFFICULTIES.includes(v), grade: isGrade, $optional: ['grade'] },
   // 규칙 모드 (host, before the match; server/lobby.js setRuleset): room.state.ruleset; `custom` as in room.create
   'room.setRuleset': { preset: isRulePreset, custom: isCustomWire, $optional: ['custom'] },
   // the co-op room option 「AI 队友最后选择」 (GitHub #338; host, before the match): the strategy and 机变 drafts order every
