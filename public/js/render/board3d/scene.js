@@ -773,10 +773,16 @@ export class BoardScene {
   _createOfficialDevice() {
     const self = this;
     let grp = null, ref = null, dead = false, fallback = null, owner = null;
+    let lastKey = null;
     const h = {
       mesh: null,
       board: this,
       get destroyed() { return dead; },
+      /** Seconds of the official model's clip `name` (Born / Die) for the device last updated, 0 without one. */
+      clipDur(name) {
+        const c = lastKey && grp ? self._officialDevices?.clip?.(lastKey, name) : null;
+        return c && c.dur > 0 ? c.dur : 0;
+      },
       update(cam, b) {
         if (!b || dead) return;
         if (!ref) ref = { size: b.size || 1, height: b.height || 1 };  // the first update: the box at full size
@@ -784,6 +790,7 @@ export class BoardScene {
         // 2026-11-12: a battle device with a model of its own (b.key: 赘生甲壳), else a crate's (its crateTop box)
         const key = b.key === OFFICIAL_DEVICE.shell ? b.key : OFFICIAL_DEVICE.crate;
         const official = !!OD && OD.has(key) && (key !== OFFICIAL_DEVICE.crate || !b.top || b.top === 'crateTop');
+        lastKey = official ? key : null;
         if (grp && owner !== OD) {  // the official scene was rebuilt / dropped: its models are gone
           self.dynamic.remove(grp); for (const m of grp.userData.materials) m.dispose(); grp = null;
         }
@@ -808,7 +815,15 @@ export class BoardScene {
         grp.position.set(b.x, b.y, b.z);
         const s = (b.size || ref.size) / ref.size;
         grp.scale.set(s, s, Math.max(0.001, (b.height ?? ref.height) / ref.height));
-        for (const m of grp.userData.materials) { m.uniforms.uOpacity.value = a; m.depthWrite = a > 0.98; }
+        const tint = Math.max(0, Math.min(1, b.tint ?? 1));
+        for (const m of grp.userData.materials) {
+          m.uniforms.uOpacity.value = a; m.depthWrite = a > 0.98;
+          if (m.uniforms.uTint) m.uniforms.uTint.value = tint;
+        }
+        // 2026-11-12: its legacy clip (b.clip { name, t }: 赘生甲壳's Born / Die), else the standing model
+        const posed = OD.pose?.(grp, b.clip?.name || null, b.clip?.t || 0);
+        if (posed !== grp.userData.posed) { grp.userData.posed = posed; self.renderer.shadowMap.needsUpdate = true; }
+        if (b.clip) self.renderer.shadowMap.needsUpdate = true;
       },
       destroy() {
         if (dead) return;

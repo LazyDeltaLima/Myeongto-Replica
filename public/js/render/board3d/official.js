@@ -8,6 +8,7 @@
 //   built.setArea(rects)                                    // show the hidden sets of the field(s) in play
 //   built.update(t)                                         // animated materials (water)
 //   built.devices?.mesh(key, x, y, z) → Mesh | null          // a runtime device model (scene/devices), e.g. 射击台, 特制水上平台
+//   built.devices?.clip(key, name) / pose(group, name, t)    // its legacy clips (赘生甲壳's Born / Die), played on its parts
 //
 // Devices: the client instantiates the mode's traps from the level data on top of the scene (the scene only holds their
 // sockets: the 射击台 tile is an empty frame or a zigzag mark without its platform). scene_extract.py --devices exports
@@ -287,6 +288,7 @@ uniform float uLmGain;
 uniform float uDirectGain;
 uniform float uEmissionGain;
 uniform float uOpacity;
+uniform float uTint;         // a fading device copy's colour multiplier (Character DeadState's dead colour tween)
 uniform vec2 uTrap;          // Torappu/Scene/Trap/Shadow: _Ambient, _Diffuse
 uniform vec4 uFocus;
 uniform float uFocusDim;
@@ -393,6 +395,7 @@ void main() {
   // data, not coverage (act3autochess's ice maps, Torappu/Scene/Standard-Ice), and would punch holes into a canvas with alpha
   // (tools/map-previews.mjs) — uOpacity stays for the fading device copies. OPAQUE is three.js's own define, set for a
   // material that is not transparent (WebGLProgram parameters.opaque)
+  outgoing *= uTint;
   #ifdef OPAQUE
     gl_FragColor = vec4(outgoing, uOpacity);
   #else
@@ -580,7 +583,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
           uLightDir: { value: lightDir }, uLightColor: { value: lightColor }, uAmbient: { value: ambient },
           uCutoff: { value: F._Cutoff ?? 0.5 }, uBumpScale: { value: F._BumpScale ?? 1 },
           uLmGain: { value: OFFICIAL_LIGHTING.lmGain }, uDirectGain: { value: OFFICIAL_LIGHTING.directGain },
-          uEmissionGain: { value: OFFICIAL_LIGHTING.emissionGain }, uOpacity: { value: 1 },
+          uEmissionGain: { value: OFFICIAL_LIGHTING.emissionGain }, uOpacity: { value: 1 }, uTint: { value: 1 },
           uTrap: { value: new T.Vector2(F._Ambient ?? 0.85, F._Diffuse ?? 0.2) },
           uClipX: matSrc === doc.materials ? clipStage : { value: new T.Vector2(-OPEN, OPEN) }, uKeyShift: { value: 0 },
           ...focus,
@@ -660,17 +663,20 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
   if (DV && isObj(DV.doc) && Array.isArray(DV.doc.groups) && DV.buffer) {
     texSrc = DV.textures || {};
     matSrc = DV.doc.materials || {};
-    const parts = new Map();  // device key → [{ geo, mat, qpos }]
+    const parts = new Map();  // device key → [{ geo, mat, qpos, material }]
+    const moving = new Map();  // device key → [{ geo, mat, qpos, material, part }]: the clips' renderers (a group's `part`)
     for (const g of DV.doc.groups) {
       if (!g || !g.vertices || !g.indices || !g.device) continue;
       const { geo, q, qpos } = geometryOf(DV.doc, DV.buffer, g);
       devGeos.push(geo);
-      if (!parts.has(g.device)) parts.set(g.device, []);
-      parts.get(g.device).push({ geo, mat: materialFor(g.material, -1, q), qpos: q ? qpos : null });
+      const to = typeof g.part === 'string' ? moving : parts;
+      if (!to.has(g.device)) to.set(g.device, []);
+      to.get(g.device).push({ geo, mat: materialFor(g.material, -1, q), qpos: q ? qpos : null, material: g.material, part: g.part });
     }
     texSrc = data.textures;
     matSrc = doc.materials;
     const info = isObj(DV.doc.devices) ? DV.doc.devices : {};
+    const clipsOf = (key) => (isObj(info[key]?.clips) ? info[key].clips : null);
     devices = {
       has: (key) => parts.has(key),
       /** [[x0, y0, z0], [x1, y1, z1]] of the model around its tile centre (z from the ground). */
@@ -686,22 +692,70 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
         if (!list) return null;
         const grp = new T.Group();
         grp.userData.materials = [];
-        for (const p of list) {
-          let mat = p.mat;
-          if (fade) {
+        const mats = new Map();   // one material per source material: the whole model and its parts share it
+        const matOf = (p) => {
+          if (!fade) return p.mat;
+          let mat = mats.get(p.material);
+          if (!mat) {
             mat = new T.ShaderMaterial({
               vertexShader: p.mat.vertexShader, fragmentShader: p.mat.fragmentShader, defines: { ...p.mat.defines },
-              uniforms: { ...p.mat.uniforms, uOpacity: { value: 1 } }, transparent: true,
+              uniforms: { ...p.mat.uniforms, uOpacity: { value: 1 }, uTint: { value: 1 } }, transparent: true,
             });
             mat.extensions = { derivatives: true };
             grp.userData.materials.push(mat);
+            mats.set(p.material, mat);
           }
-          const m = new T.Mesh(p.geo, mat);
+          return mat;
+        };
+        const meshOf = (p) => {
+          const m = new T.Mesh(p.geo, matOf(p));
           if (p.qpos) { m.position.set(p.qpos[0], p.qpos[1], p.qpos[2]); m.scale.setScalar(p.qpos[3]); }
           m.name = `official-device:${key}`;
-          grp.add(m);
+          return m;
+        };
+        const whole = list.map(meshOf);
+        for (const m of whole) grp.add(m);
+        grp.userData.whole = whole;
+        // the clips' renderers, one Group each (its matrix = the frame's delta from the rest pose), shown only while a
+        // clip plays (pose) — the standing model stays one mesh per material
+        const mv = moving.get(key);
+        if (mv && clipsOf(key)) {
+          const partsGrp = new T.Group();
+          partsGrp.visible = false;
+          const byPart = new Map();
+          for (const p of mv) {
+            let pg = byPart.get(p.part);
+            if (!pg) { pg = new T.Group(); pg.matrixAutoUpdate = false; pg.name = p.part; byPart.set(p.part, pg); partsGrp.add(pg); }
+            pg.add(meshOf(p));
+          }
+          grp.add(partsGrp);
+          grp.userData.parts = { group: partsGrp, byPart, key };
         }
         return grp;
+      },
+      /** The device's clip `name` (Born / Die: its MeshAnimator's legacy clips) { clip, dur, fps, frames }, else null. */
+      clip: (key, name) => clipsOf(key)?.[name] || null,
+      /**
+       * Pose a mesh() group at `t` s into clip `name` (null: the standing model). Renderers the clip does not move keep
+       * their rest pose. False when the group has no such clip (the caller draws its own fallback).
+       */
+      pose(grp, name, t = 0) {
+        const P = grp?.userData?.parts, whole = grp?.userData?.whole;
+        if (!whole) return false;
+        const c = name && P ? clipsOf(P.key)?.[name] : null;
+        if (!c) { for (const m of whole) m.visible = true; if (P) P.group.visible = false; return !name; }
+        for (const m of whole) m.visible = false;
+        P.group.visible = true;
+        const f = Math.max(0, Math.min(c.dur, t)) * c.fps;
+        const i = Math.floor(f), u = f - i;
+        for (const [part, pg] of P.byPart) {
+          const seq = c.frames[part];
+          if (!Array.isArray(seq) || seq.length < 12) { pg.matrix.identity(); continue; }
+          const n = seq.length / 12, a = Math.min(i, n - 1) * 12, b = Math.min(i + 1, n - 1) * 12;
+          const v = (k) => seq[a + k] + (seq[b + k] - seq[a + k]) * u;
+          pg.matrix.set(v(0), v(1), v(2), v(9), v(3), v(4), v(5), v(10), v(6), v(7), v(8), v(11), 0, 0, 0, 1);
+        }
+        return true;
       },
     };
   }

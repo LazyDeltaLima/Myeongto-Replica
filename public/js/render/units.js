@@ -2877,6 +2877,22 @@ export class ItemView {
  * that turns to its target and flashes on attack, HP bar once damaged, and a break-apart on death.
  */
 const GENERIC_DEVICE = Object.freeze({ size: 0.7, height: 0.36, top: 'platformTop', side: 'forbidSide' });
+/**
+ * A device's death with an official Die clip (赘生甲壳; 2026-11-12, 공식 클라에서 확인): Character.States.DeadState.OnEnter
+ * plays the animator's Die at speed clip / delayToRecycle (`_useSpecificDeadAnim` off: m_delayToRecycle stays 1 s, the
+ * object is recycled then), and `_showDeadTweenColor` runs a DOTween sequence over that delay in thirds — a wait, the
+ * colour × 1→0 (to black), then the alpha 1→0. [ASSUMED·엔진: the thirds' ease — DOTween's default OutQuad]
+ */
+export const DEVICE_RECYCLE_DELAY = 1;
+const outQuad = (u) => 1 - (1 - u) * (1 - u);
+/** At `e` s after death, for a Die clip of `clip` s: { t: the clip's time, tint: the colour factor, alpha }. */
+export function deviceDeath(e, clip) {
+  const D = DEVICE_RECYCLE_DELAY, third = D / 3;
+  const x = Math.max(0, Math.min(D, e));
+  const seg = (i) => outQuad(Math.max(0, Math.min(1, (x - i * third) / third)));
+  return { t: x * (clip / D), tint: 1 - seg(1), alpha: 1 - seg(2) };
+}
+
 export class DeviceView {
   constructor(ctx, info) {
     const P = ctx.P;
@@ -2889,6 +2905,9 @@ export class DeviceView {
     this.x = Number(info.x) || 0; this.y = Number(info.y) || 0; this.z = 0;
     this.hp = Number(info.maxHp) || 100; this.maxHp = this.hp;
     this.alive = true; this.remove = false; this.dying = 0; this.flags = 0;
+    // an official model's legacy clips (the 3D board's box.clipDur: 赘生甲壳's MeshAnimator Born = Appear, Die = Break):
+    // seconds since it appeared, and the Die clip's length while it plays (0: the generic break below)
+    this.bornT = 0; this.dieClip = 0;
     this.facing = info.facing === -1 ? -1 : 1;
     this.aim = this.facing > 0 ? 0 : Math.PI; this.aimTo = this.aim; this.fire = 0;
     this.screen = { x: 0, y: 0, s: 1, top: 0 };
@@ -2921,18 +2940,34 @@ export class DeviceView {
   onStatus() {}
   setSkill() {}
   setFacing() {}
-  die() { if (!this.alive) return; this.alive = false; this.dying = 0.45; this.ctx.fx?.crateBreak?.(this.x, this.y, this.z, this.turret ? 0x6c777d : null); }
-  revive() { this.alive = true; this.dying = 0; this.remove = false; }
+  die() {
+    if (!this.alive) return;
+    this.alive = false;
+    // a model with a Die clip: the client's Character DeadState — the clip fitted into the recycle delay, the dead colour
+    // tween over it (deviceDeath); no debris of its own
+    const clip = this.box?.clipDur?.('Die') || 0;
+    if (clip > 0) { this.dieClip = clip; this.dying = DEVICE_RECYCLE_DELAY; return; }
+    this.dying = 0.45;
+    this.ctx.fx?.crateBreak?.(this.x, this.y, this.z, this.turret ? 0x6c777d : null);
+  }
+  revive() { this.alive = true; this.dying = 0; this.dieClip = 0; this.remove = false; }
   update(dt, cam, t) {
     const shake = this.shake > 0 ? Math.sin(t * 80) * this.shake * 0.05 : 0;
     this.shake = Math.max(0, (this.shake || 0) - dt);
-    const k = this.dying > 0 ? Math.max(0, this.dying / 0.45) : 1;
+    const clipped = this.dieClip > 0;
+    const dead = clipped ? deviceDeath(DEVICE_RECYCLE_DELAY - this.dying, this.dieClip) : null;
+    const k = this.dying > 0 ? (dead ? dead.alpha : Math.max(0, this.dying / 0.45)) : 1;
+    let clip = null;
+    if (dead) clip = { name: 'Die', t: dead.t };
+    else if (this.alive && this.bornT < (this.box?.clipDur?.('Born') || 0)) clip = { name: 'Born', t: this.bornT };
+    this.bornT += dt;
     if (this.dying > 0) { this.dying -= dt; if (this.dying <= 0) this.remove = true; }
     const zKey = rowDepthKey(cam, Math.round(this.y)) + ROW_KEY.devices;
-    const size = this.spec.size * (0.6 + 0.4 * k), height = this.spec.height * k;
+    const kk = clipped ? 1 : k;   // a clip keeps the model's size
+    const size = this.spec.size * (0.6 + 0.4 * kk), height = this.spec.height * kk;
     const g = this.gfx;
     if (this.box) {
-      this.box.update(cam, { x: this.x + shake, y: this.y, z: this.z, size, height, top: this.spec.top, side: this.spec.side, alpha: k, key: this.info.defId });
+      this.box.update(cam, { x: this.x + shake, y: this.y, z: this.z, size, height, top: this.spec.top, side: this.spec.side, alpha: k, key: this.info.defId, clip, tint: dead ? dead.tint : 1 });
       if (this.box.mesh) {
         if (!this.box.mesh.parent) this.ctx.layers.units.addChild(this.box.mesh);
         this.box.mesh.zIndex = zKey;

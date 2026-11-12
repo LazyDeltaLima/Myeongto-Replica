@@ -27,10 +27,10 @@ const ACT3 = getData({ log: quiet, season: 'act3autochess' });
 const DSPRED = 'enemy_1438_dspred', DSLNTF = 'enemy_1439_dslntf', DSSHEL = 'enemy_1434_dsshel', SHELL = 'trap_156_dsshell';
 const WALL = chessRec({ id: 't_wall', profession: 'TANK', stats: { atk: 0, maxHp: 1e7, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
 
-let fake, UnitView, DeviceView;
+let fake, UnitView, DeviceView, deviceDeath, DEVICE_RECYCLE_DELAY;
 before(async () => {
   fake = installFakePixi();
-  ({ UnitView, DeviceView } = await import('../../public/js/render/units.js'));
+  ({ UnitView, DeviceView, deviceDeath, DEVICE_RECYCLE_DELAY } = await import('../../public/js/render/units.js'));
 });
 after(() => fake.restore());
 
@@ -169,6 +169,59 @@ test('赘生甲壳: its battle device names its key to the 3D board, which draws
   d.update(1 / 60, cam(), 0);
   assert.equal(seen.at(-1)?.key, SHELL);
   d.destroy();
+});
+
+test('deviceDeath: the client\'s DeadState over its 1 s recycle delay — the Die clip at clip / delay speed, wait / colour to black / alpha to 0 in thirds', () => {
+  const m = deviceDeath(0, 1.25), e = deviceDeath(1, 1.25);
+  assert.deepEqual([m.t, m.tint, m.alpha], [0, 1, 1]);
+  assert.deepEqual([e.t, e.tint, e.alpha], [1.25, 0, 0]);
+  assert.deepEqual([deviceDeath(1 / 3, 1.25).tint, deviceDeath(2 / 3, 1.25).alpha], [1, 1]);
+  assert.ok(Math.abs(deviceDeath(0.5, 1.25).tint - 0.25) < 1e-9, 'OutQuad halfway: 0.75 done');
+  assert.equal(DEVICE_RECYCLE_DELAY, 1);
+});
+
+test('赘生甲壳 with its official clips: Born as it appears, Die over the recycle delay at full size with the dead colour tween, no generic debris; a model without them breaks as before', () => {
+  const run = (clips) => {
+    const seen = [], fx = [];
+    const ctx = fakeViewCtx(fake.P, { cam, createBox: () => ({ mesh: null, clipDur: (n) => clips[n] || 0, update: (_c, b) => seen.push(b), destroy() {} }) });
+    ctx.fx = { crateBreak: (...a) => fx.push(a) };
+    const d = new DeviceView(ctx, { id: 9, side: 'ally', kind: 'device', defId: SHELL, x: 6, y: 10, maxHp: 3000 });
+    d.sync({ x: 6, y: 10, hp: 3000, maxHp: 3000, flags: 0 });
+    return { d, seen, fx };
+  };
+  const step = (d, s) => { for (let t = 0; t < s - 1e-9; t += 0.05) d.update(0.05, cam(), t); };
+  const { d, seen, fx } = run({ Born: 1.25, Die: 1.25 });
+  step(d, 0.5);
+  assert.equal(seen.at(-1).clip?.name, 'Born', 'appearing');
+  assert.ok(Math.abs(seen.at(-1).clip.t - 0.45) < 1e-6, `its clock (${seen.at(-1).clip.t})`);
+  step(d, 1);
+  assert.equal(seen.at(-1).clip, null, 'standing once Born is over');
+  const full = seen.at(-1);
+  d.die();
+  assert.deepEqual(fx, [], 'no generic debris');
+  const at = (e) => { step(d, e - (at.e || 0)); at.e = e; return seen.at(-1); };
+  let b = at(0.3);
+  assert.equal(b.clip?.name, 'Die');
+  assert.ok(Math.abs(b.clip.t - 0.25 * 1.25) < 1e-6, `the 1.25 s clip fitted into the 1 s recycle delay (${b.clip.t})`);
+  assert.ok(b.tint === 1 && b.alpha === 1 && b.size === full.size && b.height === full.height, 'first third: as it stood');
+  b = at(0.55);
+  assert.ok(b.tint < 1 && b.tint > 0 && b.alpha === 1, `second third: darkening (${b.tint})`);
+  b = at(0.85);
+  assert.ok(b.tint === 0 && b.alpha < 1 && b.alpha > 0 && b.size === full.size, `last third: black, fading (${b.alpha})`);
+  assert.ok(!d.remove);
+  at(1.05);
+  assert.ok(d.remove, 'recycled after the 1 s delay');
+  d.destroy();
+  const o = run({});
+  step(o.d, 0.2);
+  assert.equal(o.seen.at(-1).clip, null, 'no Born clip');
+  o.d.die();
+  assert.equal(o.fx.length, 1, 'the generic debris');
+  step(o.d, 0.3);
+  assert.ok(o.seen.at(-1).size < o.seen[0].size && !o.seen.at(-1).clip, 'and the generic shrink');
+  step(o.d, 0.3);
+  assert.ok(o.d.remove);
+  o.d.destroy();
 });
 
 test('the extracted binding: the parts these cases read', { skip: !existsSync(MODES) && 'no extracted enemy effects' }, () => {

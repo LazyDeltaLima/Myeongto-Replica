@@ -842,6 +842,141 @@ DEVICE_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'
 # its 0.01 scale. The bundle's dependencies come from the effect extractor's CAB index (.cache/fx-cab-index.json).
 DEVICE_EFFECT_MESHES = {'trap_032_mound': (('battle/prefabs/effects/s.ab', 'S_desert_wall_02_start_Mesh', 'SpecialPoint0'),)}
 FX_CAB_INDEX = ROOT / '.cache' / 'fx-cab-index.json'
+# Device models whose MeshAnimator plays legacy clips (the prefab's `_animations`: animKey → clip of its Animation):
+# 赘生甲壳's Born = Appear (the shell drops in, grows from 0.001 and settles), Die = Break (eight of its ten parts fly
+# apart and fall, 1.25 s). Exported as clips of the parts (export_devices: `clips` of the device, one group per moving
+# renderer with `part`), sampled at DEVICE_CLIP_FPS from the clips' Hermite curves.
+DEVICE_CLIPS = {'trap_156_dsshell': {'Born': 'Appear', 'Die': 'Break'}}
+DEVICE_CLIP_FPS = 30
+
+
+def _curve_at(keys, t, comps):
+    """A Unity AnimationCurve (non-weighted Hermite keys, as the shell's) at time t, clamped to its ends; `comps` the
+    value's fields ('x', 'y', 'z'[, 'w']) or None for a float curve."""
+    get = (lambda v: [getattr(v, c) for c in comps]) if comps else (lambda v: [float(v)])
+    if t <= keys[0].time:
+        return get(keys[0].value)
+    if t >= keys[-1].time:
+        return get(keys[-1].value)
+    for k0, k1 in zip(keys, keys[1:]):
+        if k0.time <= t <= k1.time:
+            break
+    dt = k1.time - k0.time
+    u = (t - k0.time) / dt if dt > 0 else 0.0
+    v0, v1, m0, m1 = get(k0.value), get(k1.value), get(k0.outSlope), get(k1.inSlope)
+    h00, h10, h01, h11 = 2 * u ** 3 - 3 * u ** 2 + 1, u ** 3 - 2 * u ** 2 + u, -2 * u ** 3 + 3 * u ** 2, u ** 3 - u ** 2
+    out = []
+    for a, b, sa, sb in zip(v0, v1, m0, m1):
+        if not (math.isfinite(sa) and math.isfinite(sb)):  # a stepped key (an infinite tangent) holds its value
+            out.append(a)
+        else:
+            out.append(h00 * a + h10 * dt * sa + h01 * b + h11 * dt * sb)
+    return out
+
+
+def _inverse_affine(m):
+    a = [r[:3] for r in m[:3]]
+    det = (a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1]) - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0])
+           + a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0]))
+    inv = [[(a[(j + 1) % 3][(i + 1) % 3] * a[(j + 2) % 3][(i + 2) % 3] - a[(j + 1) % 3][(i + 2) % 3] * a[(j + 2) % 3][(i + 1) % 3]) / det
+            for j in range(3)] for i in range(3)]
+    t = [-sum(inv[i][k] * m[k][3] for k in range(3)) for i in range(3)]
+    return [inv[0] + [t[0]], inv[1] + [t[1]], inv[2] + [t[2]], [0, 0, 0, 1]]
+
+
+def _device_clips(key, tf, go, nodes, local):
+    """{animKey: {clip, dur, fps, frames: {renderer path: [12 × n]}}} for DEVICE_CLIPS[key]: per frame each moving renderer's
+    delta from its rest pose in board space (row-major 3×4: board = F · D · F with F the z flip), and the set of
+    renderers ({node pid: its path}). Empty when the prefab has no such Animation."""
+    want = DEVICE_CLIPS.get(key)
+    if not want:
+        return {}, {}
+    anim = owner = None
+    for g, _m, pid in nodes:  # this prefab's nodes (the pack holds other prefabs' Animations too)
+        a = component(g, 'Animation') if pid is not None else None
+        if a is not None:
+            anim, owner = a, pid
+            break
+    if anim is None:
+        log(f'  device {key}: no Animation for its clips')
+        return {}, {}
+    clips = {}
+    for c in anim.m_Animations:
+        if c.m_PathID:
+            clip = c.read()
+            clips[clip.m_Name] = clip
+    parent = {}
+    for pid, t in tf.items():
+        for ch in t.m_Children:
+            parent[ch.m_PathID] = pid
+    name = lambda pid: go[tf[pid].m_GameObject.m_PathID].m_Name
+
+    def path_of(pid):  # the clip path of a node under the Animation's GameObject (None outside it)
+        names = []
+        while pid != owner:
+            if pid not in parent:
+                return None
+            names.append(name(pid))
+            pid = parent[pid]
+        return '/'.join(reversed(names))
+    out, moving = {}, {}
+    for anim_key, clip_name in want.items():
+        clip = clips.get(clip_name)
+        if clip is None:
+            log(f'  device {key}: clip {clip_name} missing')
+            continue
+        curves = {}
+        for kind, comps, attr in (('m_PositionCurves', 'xyz', 'pos'), ('m_RotationCurves', 'xyzw', 'rot'), ('m_ScaleCurves', 'xyz', 'scl')):
+            for cv in getattr(clip, kind, None) or []:
+                if any(k.weightedMode for k in cv.curve.m_Curve):
+                    log(f'  device {key} {clip_name}: weighted keys on {cv.path} read as plain Hermite')
+                curves[(cv.path, attr)] = (cv.curve.m_Curve, tuple(comps))
+        dur = max((ks[-1].time for ks, _ in curves.values()), default=0.0)
+        n = max(1, int(round(dur * DEVICE_CLIP_FPS))) + 1
+        frames = {}
+        for g, m0, pid in nodes:
+            if pid is None or component(g, 'MeshRenderer') is None:
+                continue
+            chain, q = [], pid  # the nodes from the Animation's GameObject down to this renderer
+            while q is not None and q != owner:
+                chain.append(q)
+                q = parent.get(q)
+            if q != owner or not any((path_of(c), at) in curves for c in chain for at in ('pos', 'rot', 'scl')):
+                continue
+            rp = path_of(pid)
+            chain.reverse()
+            inv0 = _inverse_affine(m0)
+            above = m0
+            for c in reversed(chain):
+                above = mul(above, _inverse_affine(local(tf[c])))   # the owner's matrix (relative to the prefab root)
+            seq = []
+            for i in range(n):
+                tt = min(dur, i / DEVICE_CLIP_FPS)
+                m = above
+                for c in chain:
+                    t = tf[c]
+                    cp = path_of(c)
+                    pos = [t.m_LocalPosition.x, t.m_LocalPosition.y, t.m_LocalPosition.z]
+                    rot = [t.m_LocalRotation.x, t.m_LocalRotation.y, t.m_LocalRotation.z, t.m_LocalRotation.w]
+                    scl = [t.m_LocalScale.x, t.m_LocalScale.y, t.m_LocalScale.z]
+                    if (cp, 'pos') in curves:
+                        pos = _curve_at(*curves[(cp, 'pos')][:1], tt, 'xyz')
+                    if (cp, 'rot') in curves:
+                        rot = _curve_at(curves[(cp, 'rot')][0], tt, 'xyzw')
+                        ln = math.sqrt(sum(v * v for v in rot)) or 1.0
+                        rot = [v / ln for v in rot]
+                    if (cp, 'scl') in curves:
+                        scl = _curve_at(curves[(cp, 'scl')][0], tt, 'xyz')
+                    m = mul(m, trs(pos, rot, scl))
+                d = mul(m, inv0)
+                # Unity battle space → board (z flipped on both sides)
+                fz = [1, 1, -1]
+                seq += [_num(d[r][c] * fz[r] * fz[c], 5) for r in range(3) for c in range(3)] + [_num(d[r][3] * fz[r], 5) for r in range(3)]
+            frames[rp] = seq
+            moving[pid] = rp
+        out[anim_key] = {'clip': clip_name, 'dur': _num(dur, 4), 'fps': DEVICE_CLIP_FPS, 'frames': frames}
+        log(f'  device {key}: {anim_key} = {clip_name}, {dur:.3f} s, {len(frames)} moving parts')
+    return out, moving
 
 
 def _load_with_deps(index, first):
@@ -898,6 +1033,33 @@ def _effect_nodes(roots, index, bundle, prefab, local):
         out.append((g, m))
         stack += [(c.m_PathID, mul(m, local(tf[c.m_PathID]))) for c in t.m_Children if c.m_PathID in tf]
     return out
+
+
+def _add_tris(grp, h, tris, m, nm, det):
+    """Append one renderer's triangles (submesh `tris` of MeshHandler h) to group grp, baked with matrix m."""
+    remap = {}
+    V, N, U0 = h.m_Vertices, h.m_Normals, h.m_UV0
+    for tri in tris:
+        o3 = []
+        for vi in tri:
+            if vi not in remap:
+                remap[vi] = len(grp['pos']) // 3
+                p = V[vi]
+                wp = [m[i][0] * p[0] + m[i][1] * p[1] + m[i][2] * p[2] + m[i][3] for i in range(3)]
+                grp['pos'] += (wp[0], wp[1], -wp[2])  # Unity battle space → board offset (z = up)
+                if N:
+                    n = N[vi]
+                    wn = [nm[i][0] * n[0] + nm[i][1] * n[1] + nm[i][2] * n[2] for i in range(3)]
+                    ln = math.sqrt(sum(c * c for c in wn)) or 1.0
+                    grp['nrm'] += (wn[0] / ln, wn[1] / ln, -wn[2] / ln)
+                else:
+                    grp['nrm'] += (0.0, 0.0, 1.0)
+                u0 = U0[vi] if U0 else (0.0, 0.0)
+                grp['uv0'] += (u0[0], u0[1])
+                grp['uv1'] += (u0[0], u0[1])
+                grp['col'] += (255, 255, 255, 255)
+            o3.append(remap[vi])
+        grp['idx'] += o3 if det < 0 else (o3[0], o3[2], o3[1])
 
 
 def export_devices(roots, index, out_root, manifest, written, keys=DEVICE_KEYS):
@@ -974,18 +1136,20 @@ def export_devices(roots, index, out_root, manifest, written, keys=DEVICE_KEYS):
             if not g or not g.m_IsActive:
                 continue
             m = mul(parent, local(t))
-            nodes.append((g, m))
+            nodes.append((g, m, pid))
             stack += [(c.m_PathID, m) for c in t.m_Children if c.m_PathID in tf]
         for bundle, prefab, point in DEVICE_EFFECT_MESHES.get(key, ()):
-            at = next((m for g, m in nodes if g.m_Name == point), None)
+            at = next((m for g, m, _p in nodes if g.m_Name == point), None)
             fx_nodes = _effect_nodes(roots, index, bundle, prefab, local) if at is not None else None
             if not fx_nodes:
                 log(f'  device {key}: effect {prefab} at {point} not found')
                 continue
             place = trs([at[0][3], at[1][3], at[2][3]], [0, 0, 0, 1], [1, 1, 1])
-            nodes += [(g, mul(place, m)) for g, m in fx_nodes]
+            nodes += [(g, mul(place, m), None) for g, m in fx_nodes]
+        clips, moving = _device_clips(key, tf, go, nodes, local)
+        paths = moving
         grp_keys = []
-        for g, m in nodes:
+        for g, m, pid in nodes:
             r = component(g, 'MeshRenderer')
             mf = component(g, 'MeshFilter')
             if not r or not mf or not mf.m_Mesh.m_PathID or not r.m_Enabled:
@@ -1009,52 +1173,36 @@ def export_devices(roots, index, out_root, manifest, written, keys=DEVICE_KEYS):
                         except Exception as ex:
                             log(f'  warn texture {mname}.{k}: {ex}')
                     materials[mname] = info
-                gk = (key, mname)
-                grp = groups.get(gk)
-                if grp is None:
-                    grp = groups[gk] = {'device': key, 'material': mname, 'pos': [], 'nrm': [], 'uv0': [], 'uv1': [], 'col': [], 'idx': []}
-                    grp_keys.append(gk)
-                remap = {}
-                V, N, U0 = h.m_Vertices, h.m_Normals, h.m_UV0
-                for tri in tris[si]:
-                    o3 = []
-                    for vi in tri:
-                        if vi not in remap:
-                            remap[vi] = len(grp['pos']) // 3
-                            p = V[vi]
-                            wp = [m[i][0] * p[0] + m[i][1] * p[1] + m[i][2] * p[2] + m[i][3] for i in range(3)]
-                            grp['pos'] += (wp[0], wp[1], -wp[2])  # Unity battle space → board offset (z = up)
-                            if N:
-                                n = N[vi]
-                                wn = [nm[i][0] * n[0] + nm[i][1] * n[1] + nm[i][2] * n[2] for i in range(3)]
-                                ln = math.sqrt(sum(c * c for c in wn)) or 1.0
-                                grp['nrm'] += (wn[0] / ln, wn[1] / ln, -wn[2] / ln)
-                            else:
-                                grp['nrm'] += (0.0, 0.0, 1.0)
-                            u0 = U0[vi] if U0 else (0.0, 0.0)
-                            grp['uv0'] += (u0[0], u0[1])
-                            grp['uv1'] += (u0[0], u0[1])
-                            grp['col'] += (255, 255, 255, 255)
-                        o3.append(remap[vi])
-                    grp['idx'] += o3 if det < 0 else (o3[0], o3[2], o3[1])
-        pos = [v for gk in grp_keys for v in groups[gk]['pos']]
+                part = paths.get(pid)
+                # a moving renderer goes into the merged group (the standing model) and into its own (the clips)
+                for gk in [(key, mname, None)] + ([(key, mname, part)] if part else []):
+                    grp = groups.get(gk)
+                    if grp is None:
+                        grp = groups[gk] = {'device': key, 'material': mname, 'part': gk[2], 'pos': [], 'nrm': [], 'uv0': [], 'uv1': [], 'col': [], 'idx': []}
+                        grp_keys.append(gk)
+                    _add_tris(grp, h, tris[si], m, nm, det)
+        pos = [v for gk in grp_keys if gk[2] is None for v in groups[gk]['pos']]
         if pos:
             # the standing surface: the highest up-facing level under the model's top rim (a 射击台's plate sits below its
             # 0.47 rim at 0.39; a model without a raised rim: its top)
-            levels = sorted({round(gp[i + 2], 3) for gk in grp_keys for gp, gn in [(groups[gk]['pos'], groups[gk]['nrm'])]
+            levels = sorted({round(gp[i + 2], 3) for gk in grp_keys if gk[2] is None for gp, gn in [(groups[gk]['pos'], groups[gk]['nrm'])]
                              for i in range(0, len(gp), 3) if gn[i + 2] > 0.9}, reverse=True)
             zmax = max(pos[2::3])
             top = levels[1] if len(levels) > 1 and levels[0] >= zmax - 0.01 and zmax - levels[1] < 0.15 else (levels[0] if levels else None)
             devices[key] = {'bounds': [[_num(min(pos[i::3]), 4) for i in range(3)], [_num(max(pos[i::3]), 4) for i in range(3)]],
                             'top': _num(top, 4) if top is not None else None,
                             'source': os.path.relpath(pack, roots['pd'].parent.parent)}
+            if clips:
+                devices[key]['clips'] = clips
             log(f'  device {key}: {len(grp_keys)} groups, bounds {devices[key]["bounds"]}')
     out_groups = []
-    for (key, mname), grp in groups.items():
+    for (key, mname, part), grp in groups.items():
         nv, ni = len(grp['pos']) // 3, len(grp['idx'])
         if not nv or not ni:
             continue
         rec = {'device': key, 'material': mname, 'lightmap': -1, 'hidden': None, 'renderers': 1, 'vertices': nv, 'indices': ni}
+        if part:
+            rec['part'] = part  # one moving renderer of the device's clips (official.js: drawn only while a clip plays)
         out_groups.append(rec)
         packed.append((rec, grp))
     if not packed:
