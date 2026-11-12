@@ -226,7 +226,8 @@ export class MatchWatch {
     if (f) {
       let meta;
       try { meta = f.battle.fieldMeta(); } catch (e) { this.reportError('fieldMeta', e); return; }
-      this.sendTo(playerId, { t: 'm.field', ...meta, fieldId: f.fieldId, kind: f.kind, live: !!f.live });
+      const bench = this.battleBench(f); // 规程's 整备区 standing still (views.js battleBench)
+      this.sendTo(playerId, { t: 'm.field', ...meta, fieldId: f.fieldId, kind: f.kind, live: !!f.live, ...(bench.length ? { bench } : null) });
       try { this.sendTo(playerId, snapFrame(f.fieldId, f.battle.snapshot())); } catch (e) { this.reportError('snapshot', e); }
       return;
     }

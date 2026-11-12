@@ -82,6 +82,7 @@ export function createFallbackView(host, opts = {}) {
     field: null, units: new Map(), snapUnits: new Map(), highlight: new Map(), hlGroups: new Map(), held: new Map(), dirs: new Map(),
     drag: null, hoverTarget: null, floats: [], settings: { damageNumbers: true, ...(opts.settings || {}) },
     size: { w: 0, h: 0 }, destroyed: false, pen: [],
+    bench: [], // 规程's battle bench (m.field `bench`): the 整备区 standing still under the field, render/app.js setBattleBench
   };
 
   const emit = (type, payload) => {
@@ -105,7 +106,8 @@ export function createFallbackView(host, opts = {}) {
     const cols = r.c1 - r.c0 + 1;
     const prep = st.mode === 'prep';
     const hasTemp = prep && Array.isArray(st.priv?.temp) && st.priv.temp.some(Boolean);
-    const rows = r.r1 - r.r0 + 1 + (prep ? 2.6 + (hasTemp ? 1.2 : 0) : 0); // + gap + hand (+ temp) rows
+    const benched = st.mode === 'battle' && st.bench.length > 0;
+    const rows = r.r1 - r.r0 + 1 + (prep ? 2.6 + (hasTemp ? 1.2 : 0) : benched ? 1.6 : 0); // + gap + hand (+ temp) rows
     // keep clear of the HUD: top bar + bond strip above, shop bar (prep) / switcher (combat) below
     const top0 = rem * 2.0;
     const bottom0 = h - rem * (prep ? 3.3 : 1.1);
@@ -378,6 +380,17 @@ export function createFallbackView(host, opts = {}) {
       }
     }
     const units = st.mode === 'battle' ? [...st.snapUnits.keys()].map((id) => html`<${BattleUnit} key=${id} id=${id} L=${L} />`) : null;
+    // 规程's battle bench: the 整备区 pieces standing still on the hand row, as the official battle shows them
+    const bench = st.mode === 'battle' ? st.bench.map((u) => {
+      const pos = handPos(L, u.x);
+      const src = unitArt(m(), u);
+      const click = (e, button) => emit('pieceClick', { unitId: 'b:' + u.uid, uid: u.uid, unit: u, button, clientX: e.clientX, clientY: e.clientY });
+      return html`<div key=${`b:${u.uid}`} class=${cx('ff-unit', 'is-ally', 'is-bench', u.golden && 'is-golden')}
+          style=${`transform:translate(${pos.x + L.tile * 0.07}px,${pos.y + L.tile * 0.07}px);width:${L.tile * 0.86}px;height:${L.tile * 0.86}px`}
+          onPointerDown=${(e) => { if (e.button === 0) click(e, 0); }} onContextMenu=${(e) => { e.preventDefault(); click(e, 2); }}>
+        <div class="ff-unit__art">${src ? html`<img src=${src} alt="" draggable=${false} />` : html`<span>${[...(u.name || '?')][0]}</span>`}</div>
+      </div>`;
+    }) : null;
     st.floats = st.floats.filter((f) => now - f.at < DMG_TTL);
     const floats = st.mode === 'battle' && st.settings.damageNumbers ? st.floats.map((f) => {
       const s = st.snapUnits.get(f.id);
@@ -396,7 +409,7 @@ export function createFallbackView(host, opts = {}) {
     if (st.camera === 'pen') { render(html`${penView()}<div class="ff-badge">SIMPLIFIED VIEW</div>`, root); return; }
     render(html`<div class=${cx('ff-board', `ff-board--${st.mode}`, `ff-cam--${st.camera}`)} style=${`left:${L.left}px;top:${L.top}px;width:${L.bw}px;height:${L.bh}px;--tile:${L.tile}px`}>
       ${st.mode === 'prep' ? html`<div class="ff-hand-label" style=${`top:${(L.rows + 0.18) * L.tile}px`}><span>${t('整备区')}</span><i></i></div>` : null}
-      ${tiles}${hand}${units}${pieces}${floats}
+      ${tiles}${hand}${bench}${units}${pieces}${floats}
     </div>${ghost}
     <div class="ff-badge">SIMPLIFIED VIEW</div>`, root);
     if (st.floats.length) schedule();
@@ -444,6 +457,10 @@ export function createFallbackView(host, opts = {}) {
         st.units.set(u.id, u);
         st.snapUnits.set(u.id, [u.id, u.x, u.y, u.maxHp, u.maxHp, 0, 0, 0, 0]);
       }
+      // 规程's bench under a normal field (a boss field's halves have no hand row here); a piece already fielded is left out
+      const fielded = new Set([...st.units.values()].map((u) => u.uid).filter((x) => x != null));
+      st.bench = !field?.prep && (field?.kind || 'normal') === 'normal' && Array.isArray(field?.bench)
+        ? field.bench.filter((u) => u && u.uid != null && u.y === GEO.HAND_ROW && Number.isInteger(u.x) && !fielded.has(u.uid)) : [];
       schedule();
     },
     pushSnapshot(snap) {
@@ -467,6 +484,7 @@ export function createFallbackView(host, opts = {}) {
         if (!Array.isArray(e)) continue;
         if (e[0] === 'spawn' && e[1] && e[1].id != null) {
           st.units.set(e[1].id, e[1]);
+          if (e[1].uid != null && e[1].side === 'ally') st.bench = st.bench.filter((u) => u.uid !== e[1].uid); // fielded by a switch
           if (!st.snapUnits.has(e[1].id)) st.snapUnits.set(e[1].id, [e[1].id, e[1].x, e[1].y, e[1].maxHp, e[1].maxHp, 0, 0, 0, 6]);
         } else if ((e[0] === 'dmg' || e[0] === 'heal') && st.settings.damageNumbers && st.floats.length < 60) {
           const amount = Math.round(Number(e[2]) || 0);

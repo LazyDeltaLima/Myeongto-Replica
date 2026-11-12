@@ -857,7 +857,7 @@ export class UnitView {
   /**
    * @param {ViewCtx} ctx
    * @param {object} info UnitInfo-like: { id, uid?, kind, side, defId, spine, avatar, tier, golden, facing, maxHp, boss?, motion?, name? }
-   * @param {{ prep?: boolean }} [opts]
+   * @param {{ prep?: boolean, lod?: 'idle', chip?: boolean }} [opts]
    */
   constructor(ctx, info, opts = {}) {
     const P = ctx.P;
@@ -868,6 +868,7 @@ export class UnitView {
     this.uid = info.uid ?? null;
     this.prep = !!opts.prep;
     this.lodIdle = opts.lod === 'idle';
+    this._noChip = opts.chip === false; // no tier chip at all (规程's battle bench, app.js setBattleBench)
     this.culled = false;          // outside the viewport this frame (not animated, not drawn)
     this._offDt = 0;              // animation time skipped while culled
     this._far = false;            // small on screen (adaptive LOD, with hysteresis)
@@ -1247,7 +1248,9 @@ export class UnitView {
     this.chip = null;
     // operators only: summon tokens have no tier (hand and field alike) — local patch (maintainer request 2026-10-08): a prep
     // summon wears its owner's chip (app.js pieceInfo `chip`; official: same level chip as the operator)
-    if (!this.isEnemy && (!this.isToken || this.info.chip) && this.info.kind !== 'device') {
+    // (`opts.chip: false`: none at all — 规程's battle bench, app.js setBattleBench: the official battle shows the waiting
+    // pieces bare)
+    if (!this.isEnemy && (!this.isToken || this.info.chip) && this.info.kind !== 'device' && !this._noChip) {
       this.chip = new P.Sprite(tierChip(this.tier, this.golden));
       this._chipTex = this.chip.texture; // local patch: the drawn chip, when the official one is not installed (hud-bars.js)
       this.chip.anchor.set(0.5);

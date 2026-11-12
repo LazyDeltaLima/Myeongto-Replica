@@ -648,6 +648,7 @@ export function createBattleRunner(deps) {
       sides: Object.fromEntries((e.spec.players || []).filter((p) => p && p.playerId).map((p) => [p.playerId, halfSide(p, e.spec.kind === 'unite' ? e.spec.wide : 0)])),
       // the route preview cursors [{ t, motion, pts }] (render/fxroute.js createBattleCursors)
       routeCursors: Array.isArray(e.cursors) ? e.cursors : [],
+      ...(e.bench && e.bench.length ? { bench: e.bench } : null),
     };
     emit('field', field);
     try { store.patch('match', { field }); } catch { /* ignore */ }
@@ -679,6 +680,7 @@ export function createBattleRunner(deps) {
       const was = existing.authoritative;
       existing.authoritative = !!msg.authoritative && !existing.resultSent;
       existing.watch = !!msg.watch;
+      existing.bench = Array.isArray(msg.bench) ? msg.bench : existing.bench;
       // the server still waits for this finished battle's result (lost with the socket, or its answer was): again
       if (msg.authoritative && existing.resultSent) deliver(existing);
       if (!existing.battle) {
@@ -708,6 +710,8 @@ export function createBattleRunner(deps) {
       // forced / timeout b.end (applied once the Battle exists), `ready` = the preparation (a promise)
       sim: null, battle: null, meter: null, cursors: null, seq, elapsed: Number(msg.elapsed) || 0, endReason: null, ready: null,
       authoritative: !!msg.authoritative, watch: !!msg.watch, own: !msg.watch, speed,
+      // the players' 整备区 standing still on the bench row (规程: b.start `bench`, server views.js battleBench)
+      bench: Array.isArray(msg.bench) ? msg.bench : null,
       members: (msg.spec.players || []).map((p) => p && p.playerId).filter(Boolean),
       t0: null, lastProgressAt: -Infinity, topSent: null, done: false, resultSent: false,
       result: null, delivery: null,

@@ -13,6 +13,7 @@ import { timelineAt } from '../fields.js';
 import { bossFieldPlacement } from '../finalAssault.js';
 import { bossFieldPaths } from '../bossPath.js';
 import { battleProgress, bossTopUnits } from '../../sim/spec.js';
+import { seasonFeature } from '../../../shared/seasons.js';
 import { DRAFT_CONFIRM_SECONDS, INFO_CHECK_SECONDS } from './common.js';
 
 /**
@@ -394,7 +395,6 @@ export class MatchViews {
    *   hand row (row 7) — the scout renders like the own prep bench. */
   prepFieldMeta(ps) {
     const units = this._prepBoardUnits(ps);
-    const gd = ps.gd || this.gd;
     // the hand (整备区) and the 临时整备区 scout exactly like the own prep bench renders them: pieces as units on
     // their rows (hand row 7, col = hand slot; temp row 8, cols 4..8 = temp slots; no dir — bench pieces face right),
     // items included (the client draws their floating plates). PRTS 帮助 counts the temp area with the hand (review of
@@ -406,26 +406,7 @@ export class MatchViews {
     // counts it like the player's own (ui/watchBonds.js ownerBoard — a hand operator is owned and counts for 投资人 远见
     // 奇迹, a temp one counts for nothing; GitHub #385, PR #387). The tag survives the boss-half remap (_onBossHalf), the
     // row does not.
-    const benchUnit = (piece, i, y, area) => {
-      const rec = piece.kind === 'item' ? gd.item(piece.id) : piece.kind === 'token' ? gd.token(piece.id) : gd.chess(piece.id);
-      const standIn = piece.kind === 'chess' && rec && ps.fieldsStandIn(rec) ? this.gd.standIn(rec.chessId) : null;
-      const body = standIn || rec;
-      const assets = (body && body.assets) || {};
-      const lo = piece.kind === 'chess' && rec ? ps.loadoutFor(rec) : null;
-      units.push({
-        id: piece.uid, uid: piece.uid, kind: piece.kind === 'token' ? 'token' : piece.kind === 'item' ? 'item' : 'op',
-        side: 'ally', ownerId: ps.playerId, defId: piece.id, area,
-        name: body ? body.name : piece.id, tier: rec && Number.isInteger(rec.tier) ? rec.tier : 1, golden: !!(rec && rec.isGolden),
-        spine: assets.spine || (body && body.charId) || piece.id, avatar: assets.avatar || (body && body.charId) || piece.id,
-        x: i, y, maxHp: body && body.stats && Number.isFinite(body.stats.maxHp) ? body.stats.maxHp : 1,
-        skillIndex: lo && Number.isInteger(lo.skillIndex) ? lo.skillIndex : undefined,
-        moduleId: lo && typeof lo.moduleId === 'string' ? lo.moduleId : undefined,
-        items: piece.kind === 'chess' && Array.isArray(piece.items) && piece.items.length ? piece.items.map((it) => it.id) : undefined,
-        standInFor: standIn && standIn.standInFor ? standIn.standInFor : undefined,
-        diy: this._diyInfo(ps, piece),
-        ...cultivationInfo(lo),
-      });
-    };
+    const benchUnit = (piece, i, y, area) => units.push(this._benchUnit(ps, piece, i, y, area));
     for (let i = 0; i < ps.hand.length; i++) {
       if (ps.hand[i]) benchUnit(ps.hand[i], i, GEO.HAND_ROW, 'hand');
     }
@@ -450,6 +431,58 @@ export class MatchViews {
     const mate = this.bossMateView(ps);
     const own = units.map((u) => this._onBossHalf(u, g.side));
     return { ...meta, kind: 'boss', rect: { ...GEO.BOSS_RECT }, side: g.side, units: mate ? [...own, ...mate.units] : own, ...(mate ? { mate: { playerId: mate.playerId, side: mate.side } } : {}) };
+  }
+
+  /** UnitInfo of a held piece (a hand or temp slot): the prep scout's bench (prepFieldMeta) and a battle's (battleBench). */
+  _benchUnit(ps, piece, i, y, area) {
+    const gd = ps.gd || this.gd;
+    const rec = piece.kind === 'item' ? gd.item(piece.id) : piece.kind === 'token' ? gd.token(piece.id) : gd.chess(piece.id);
+    const standIn = piece.kind === 'chess' && rec && ps.fieldsStandIn(rec) ? this.gd.standIn(rec.chessId) : null;
+    const body = standIn || rec;
+    const assets = (body && body.assets) || {};
+    const lo = piece.kind === 'chess' && rec ? ps.loadoutFor(rec) : null;
+    return {
+      id: piece.uid, uid: piece.uid, kind: piece.kind === 'token' ? 'token' : piece.kind === 'item' ? 'item' : 'op',
+      side: 'ally', ownerId: ps.playerId, defId: piece.id, area,
+      name: body ? body.name : piece.id, tier: rec && Number.isInteger(rec.tier) ? rec.tier : 1, golden: !!(rec && rec.isGolden),
+      spine: assets.spine || (body && body.charId) || piece.id, avatar: assets.avatar || (body && body.charId) || piece.id,
+      x: i, y, maxHp: body && body.stats && Number.isFinite(body.stats.maxHp) ? body.stats.maxHp : 1,
+      skillIndex: lo && Number.isInteger(lo.skillIndex) ? lo.skillIndex : undefined,
+      moduleId: lo && typeof lo.moduleId === 'string' ? lo.moduleId : undefined,
+      items: piece.kind === 'chess' && Array.isArray(piece.items) && piece.items.length ? piece.items.map((it) => it.id) : undefined,
+      standInFor: standIn && standIn.standInFor ? standIn.standInFor : undefined,
+      diy: this._diyInfo(ps, piece),
+      ...cultivationInfo(lo),
+    };
+  }
+
+  /**
+   * b.start / m.field `bench` (seasons.js `benchInBattle`, 规程): the 整备区 of every player of field `f` as it stood when
+   * the battle began — operators and summon packs on the hand row (row 7, col = hand slot), on a boss field on the
+   * player's half like the boss prep's scout (_onBossHalf). The official 规程 battle draws them standing still, on the
+   * own field and on a watched one (maintainer's official screenshots 2026-11-12; docs/rules/render.md 「규정 전투 중
+   * 정비 구역」). Public like the prep scout's bench (every watcher, spectator seats included). A piece a switch fields
+   * leaves it on the client (its battle unit carries the same `uid`). The hand does not change during a battle, so the
+   * list is taken once per field. Empty in a season without the switch, on a 联防 field and for items (the 装备区 is
+   * the temp row). [ASSUMED·화면: the boss / 隐秘核心 field's bench and summon packs — the screenshots show a normal
+   * field's operators only]
+   */
+  battleBench(f) {
+    if (!f || !seasonFeature(this.season, 'benchInBattle') || f.kind === 'unite') return [];
+    if (Array.isArray(f.bench)) return f.bench;
+    const boss = f.kind === 'boss' || f.kind === 'hidden';
+    const out = [];
+    for (const p of (f.spec && Array.isArray(f.spec.players) ? f.spec.players : [])) {
+      const ps = p && this.players.get(p.playerId);
+      if (!ps || !Array.isArray(ps.hand)) continue;
+      ps.hand.forEach((piece, i) => {
+        if (!piece || piece.kind === 'item') return;
+        const u = this._benchUnit(ps, piece, i, GEO.HAND_ROW, 'hand');
+        out.push(boss ? this._onBossHalf(u, p.side === 'R' ? 'R' : 'L') : u);
+      });
+    }
+    f.bench = out;
+    return out;
   }
 
   /** A prep UnitInfo (board, bench or temp row) placed on side 'L' | 'R' of the boss field (bossFieldPlacement). */

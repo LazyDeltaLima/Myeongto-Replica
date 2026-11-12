@@ -1721,6 +1721,7 @@ export async function createFieldView(host, options = {}) {
     tiles.setBattleRect(rect);
     board3d?.setBattleRect(rect);
     for (const u of Array.isArray(meta.units) ? meta.units : []) addInfo(u);
+    if (!battleMeta.prep) setBattleBench(meta.bench, meta.units);
     // 2026-10-18: 战场#06's 沙尘暴 (the camera's sand, the 土石结构's marks — fxgame.js setStorm): the meta's storm spans and
     // the stage's active mounds; 2026-11-04: those whose 风沙掩体 starts with full SP (level 2) strengthen as the battle
     // starts (fxgame.js strengthenMounds)
@@ -1735,6 +1736,35 @@ export async function createFieldView(host, options = {}) {
     const info = renderInfo(u);
     if (info) infos.set(info.id, info);
     return info;
+  }
+
+  /**
+   * 规程's battle bench (m.field `bench`, server views.js battleBench): the players' 整备区 pieces stand still on the bench
+   * row through the battle, like the official battle draws them on the own field and on a watched one
+   * (docs/rules/render.md 「규정 전투 중 정비 구역」). Views keyed `b:<uid>` beside the battle's, idle LOD, never in a
+   * snapshot (syncBattle leaves them be); a piece already on the field (a switch fielded it before this entry: a
+   * battle unit with its uid) is left out, and one fielded later goes at its 'spawn' (dropBenchOf).
+   */
+  function setBattleBench(list, units) {
+    if (!Array.isArray(list) || !list.length) return;
+    const fielded = new Set((Array.isArray(units) ? units : []).map((u) => u && u.uid).filter((x) => x != null));
+    for (const u of list) {
+      if (!u || u.uid == null || fielded.has(u.uid)) continue;
+      const info = renderInfo({ ...u, id: 'b:' + u.uid, facing: 1 });
+      if (!info) continue;
+      const row = Number(u.y) || 0, col = Number(u.x) || 0;
+      const v = new UnitView(ctx, info, { prep: true, lod: 'idle', chip: false });
+      v.setWorld(col, row, heightAt(row, col));
+      v._bench = true;
+      v._seen = true;
+      v.fadeIn = 0;
+      infos.set(info.id, info);
+      views.set(info.id, v);
+    }
+  }
+  /** A bench piece fielded by a switch (卡西米尔 6, the switch 特质, 消解空间) leaves the bench row. */
+  function dropBenchOf(uid) {
+    if (uid != null && views.has('b:' + uid)) { dropView('b:' + uid); infos.delete('b:' + uid); }
   }
 
   // a hand item on a scouted prep board (UnitInfo kind 'item'): the plate's icon and colour resolve client-side,
@@ -1885,6 +1915,7 @@ export async function createFieldView(host, options = {}) {
         const info = addInfo(e[1]);
         if (!info) break;
         gone.delete(info.id);
+        if (info.side === 'ally' && info.uid != null) dropBenchOf(info.uid);
         const v = battleView(info.id);
         if (v && info.side === 'enemy' && renderT0Battle != null && now - renderT0Battle > 0.2) fx.ring(info.x, info.y, 0, 0.1, 0.7, 0xff5a4a, 0.4);
         break;
@@ -2119,7 +2150,7 @@ export async function createFieldView(host, options = {}) {
     const now = performance.now();
     for (const [id, v] of views) {
       if (v.down && v._downSeq !== downSeq) v.setDown(null, renderT);
-      if (sample.has(id) || v.down) continue;
+      if (sample.has(id) || v.down || v._bench) continue;
       if (v._seen) {
         // left the snapshot: removed (leaked / hidden / died and its DIE window passed)
         if (v.alive) { v.alive = false; v.dying = 0.25; v.dieDur = 0.25; }

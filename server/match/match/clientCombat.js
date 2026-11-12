@@ -88,12 +88,15 @@ export class MatchClientCombat {
 
   /** b.start of a field for one recipient (`watch`: not a player of the field). */
   _startMsg(f, pid, { watch = false } = {}) {
+    // `bench`: the field's players' 整备区 drawn standing still (规程; views.js battleBench), only when there is one
+    const bench = this.battleBench(f);
     return {
       t: 'b.start', battleId: f.battleId, fieldId: f.fieldId, kind: f.kind,
       spec: this.spectators.has(pid) ? this._spectatorSpec(f) : f.spec,
       authoritative: !!(!f.done && !f.verifyJob && f.mode === 'client' && f.authority === pid && !watch),
       startAt: f.startAt, serverNow: this.sched.now(), elapsed: Math.round(this._fieldElapsed(f) * 1000) / 1000,
       speed: this.gameSpeed, watch: !!watch, done: !!f.done,
+      ...(bench.length ? { bench } : null),
     };
   }
 

@@ -32,6 +32,10 @@ export const SEASON_FEATURES = Object.freeze({
   /** No custom 规则 模式 and no 8-player room in this season yet (maintainer decision 2026-11-11: both later, refused until
    * then — server/lobby.js, server/matchmaking.js). */
   noCustomOrLarge: false,
+  /** A battle shows each player's 整备区 operators standing still on the bench row (b.start / m.field `bench`, server
+   * Match.battleBench): the season's official battle — the own field and a watched one — draws them; the 盟约 one shows
+   * an empty bench (docs/rules/render.md 「규정 전투 중 정비 구역」). */
+  benchInBattle: false,
 });
 
 /**
@@ -44,7 +48,7 @@ export const SEASONS = {
   // 卫戍协议：规程 (CN from 2026-11-08): built from its own tables (tools/build-data.mjs --season act3autochess), not public
   // until every part of it is (SP_SEASONS=act3autochess)
   act3autochess: Object.freeze({ id: 'act3autochess', public: false, name: N_('规程'), mark: 'REGULATION',
-    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true }) }),
+    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true, benchInBattle: true }) }),
 };
 
 /**
