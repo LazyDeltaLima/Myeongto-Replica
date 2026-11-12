@@ -52,14 +52,30 @@ test('规程 boss 全景: the fitted camera puts a left bench slot where the off
   assert.ok(Math.hypot(was.x - 830, was.y - 915) > 40, `the level value puts it at ${was.x.toFixed(0)}, ${was.y.toFixed(0)}`);
 });
 
-test('规程 联防: the right half mirrors the fitted left battle, the 全景 carries the boss 全景 correction', () => {
-  const s = stageOf(ACT3, 'act3autochess_m02');
+test('规程 联防: halves of their own (the right one fitted, the left its mirror), the 全景 carries the boss 全景 correction', () => {
+  const s = stageOf(ACT3, 'act3autochess_m05');
   const c = stageCameraConfig(s);
   const P = (k) => c[k].slice(1, -1).split(',').map(Number);
   const L = (k) => s.config[k].slice(1, -1).split(',').map(Number);
-  const [lx, ly, lz] = P('left_battle_camera_param'), [rx, ry, rz] = P('right_battle_camera_param');
-  assert.deepEqual([rx, ry, rz], [-lx, ly, lz], 'mirror of the left');
+  const [rx, ry, rz] = P('right_unite_camera_param'), [lx, ly, lz] = P('left_unite_camera_param');
+  assert.deepEqual([lx, ly, lz], [-rx, ry, rz], 'the left half mirrors the right');
+  assert.notDeepEqual(P('left_unite_camera_param'), P('left_battle_camera_param'), 'not the normal battle camera');
   const d = (a, b) => a.map((v, i) => Math.round((v - b[i]) * 100) / 100);
   assert.deepEqual(d(P('mid_battle_camera_param'), L('mid_battle_camera_param')), d(P('mid_boss_battle_camera_param'), L('mid_boss_battle_camera_param')),
     'the 联防 全景 moved like the boss 全景');
+  // the right half's camera: the official screenshot (m05, 1920 × 1080) — the far-right enemy gate box's base corner
+  const rect = { r0: 9, r1: 12, c0: 0, c1: 20 };
+  const act3 = presetCamera('unite', VIEW, { rect, side: 'R', half: true, config: c });
+  const old = presetCamera('unite', VIEW, { rect, side: 'R', half: true, config: s.config });
+  const a = act3.project(15, 9, 0), b = old.project(15, 9, 0);
+  assert.ok(Math.hypot(a.x - b.x, a.y - b.y) > 30, 'the fitted half differs from the level one');
+});
+
+test('a 盟约 联防 half falls back to the level battle camera', () => {
+  const base = Array.isArray(BASE.stages) ? BASE.stages[0] : Object.values(BASE.stages)[0];
+  const rect = { r0: 9, r1: 12, c0: 0, c1: 20 };
+  const half = presetCamera('unite', VIEW, { rect, side: 'R', half: true, config: base.config });
+  const battle = presetCamera('normal', VIEW, { rect: { r0: 9, r1: 12, c0: 0, c1: 10 }, side: 'R', config: base.config });
+  const p = half.project(15, 10, 0), q = battle.project(15, 10, 0);
+  assert.ok(Math.hypot(p.x - q.x, p.y - q.y) < 1e-6, 'same camera as right_battle_camera_param');
 });

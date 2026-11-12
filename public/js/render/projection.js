@@ -67,20 +67,28 @@ export const OFFICIAL = Object.freeze({
  * as the 盟约 levels'). 规程's battle cameras (docs/rules/render.md 「규정 전투 카메라」): controller positions fitted to
  * official CN battle screenshots with the official rotation and FOV — the left normal battle on m03 and the boss field's
  * 全景 on m02, both 1920 × 1080 (300–400 board feature matches against our view of the same stage, 1 px rms; pitch and
- * FOV left free come out 30° / 40°): the bench row in view, as the official battle shows it. The 联防 halves and 全景 follow by the level
- * values' symmetry (below); 隐秘核心 is the boss field (its 全景 key). [ASSUMED·화면: one screenshot each; the boss halves
+ * FOV left free come out 30° / 40°): the bench row in view, as the official battle shows it; the 联防 right half too (m05). The 联防 left half and
+ * 全景 follow by symmetry (below); 隐秘核心 is the boss field (its 全景 key). [ASSUMED·화면: one screenshot each; the boss halves
  * keep the level values; the CN camera plugin's own settings could not be read]
  */
 export const SEASON_CAMERA_PARAMS = Object.freeze({
   act3autochess: Object.freeze({
     left_battle_camera_param: '(-5.4,0.8,-1.52,1)',
     mid_boss_battle_camera_param: '(0,-7.49,-4.01,1)',
-    // [ASSUMED·화면: no screenshot — carried over by the level values' symmetry (maintainer 2026-11-12): the 联防 right
-    // half mirrors the left battle's (the levels: (−4, …) / (4, …)), and the 联防 全景 is the boss 全景 moved up the field
-    // (the levels: mid_battle = mid_boss + (0, 7.95, 0)) — the boss fit's correction (0, +0.46, +0.21) on it]
-    right_battle_camera_param: '(5.4,0.8,-1.52,1)',
+    // the 联防 right half: fitted to an official screenshot (m05, watching that half; 751 matches, 1 px rms) — not the left
+    // battle's mirror (98 px off), so the 联防 halves have keys of their own. [ASSUMED·화면: the left half mirrors it (no screenshot)]
+    right_unite_camera_param: '(5.6,1.8,-1.02,1)',
+    left_unite_camera_param: '(-5.6,1.8,-1.02,1)',
+    // [ASSUMED·화면: no screenshot — the 联防 全景 is the boss 全景 moved up the field (the levels: mid_battle = mid_boss +
+    // (0, 7.95, 0)), the boss fit's correction (0, +0.46, +0.21) on it (maintainer 2026-11-12: 「보스와 같을 것」)]
     mid_battle_camera_param: '(0,0.46,-4.01,1)',
   }),
+});
+
+/** Keys no level has, and the level key they stand for there (CAMERA_PRESETS unite `half`). */
+export const CAMERA_KEY_FALLBACK = Object.freeze({
+  left_unite_camera_param: 'left_battle_camera_param',
+  right_unite_camera_param: 'right_battle_camera_param',
 });
 
 /** A stage's camera config: its `config` with its season's SEASON_CAMERA_PARAMS on top (the season = the id's prefix). */
@@ -141,7 +149,9 @@ export const CAMERA_PRESETS = Object.freeze({
   unite: Object.freeze({
     rect: Object.freeze({ r0: 9, r1: 12, c0: 0, c1: 20 }), margin: 0.25, headroom: 1.35, tilt: 30, dist: 18,
     official: Object.freeze({ L: 'mid_battle_camera_param', R: 'mid_battle_camera_param' }),
-    half: Object.freeze({ L: 'left_battle_camera_param', R: 'right_battle_camera_param' }),
+    // the halves have keys of their own (a season may frame them apart from the normal battle: SEASON_CAMERA_PARAMS);
+    // a level has none, so they fall back to its battle cameras (CAMERA_KEY_FALLBACK)
+    half: Object.freeze({ L: 'left_unite_camera_param', R: 'right_unite_camera_param' }),
   }),
   boss: Object.freeze({
     rect: Object.freeze({ r0: 0, r1: 5, c0: 0, c1: 20 }), margin: 0.2, headroom: 1.5, tilt: 30, dist: 18,
@@ -560,7 +570,9 @@ export function presetCamera(kind, viewport, options) {
     const table = opts.half && preset.half ? preset.half : opts.shop === false && preset.officialNoShop ? preset.officialNoShop : preset.official;
     const key = table[halfAt != null ? 'L' : side];
     const cfg = opts.config && typeof opts.config === 'object' ? opts.config : null;
-    let param = (cfg && parseCameraParam(cfg[key])) || parseCameraParam(OFFICIAL_PARAMS[key]);
+    const alt = CAMERA_KEY_FALLBACK[key];
+    let param = (cfg && parseCameraParam(cfg[key])) || parseCameraParam(OFFICIAL_PARAMS[key])
+      || (alt ? (cfg && parseCameraParam(cfg[alt])) || parseCameraParam(OFFICIAL_PARAMS[alt]) : null);
     if (halfAt != null && param) param = [param[0] + halfAt, ...param.slice(1)];
     const at = opts.at && Number.isFinite(opts.at.row) && Number.isFinite(opts.at.col) ? opts.at : null;
     if (at && param) param = [at.col - OFFICIAL.center[0], at.row - OFFICIAL.center[1], param[2], param[3]];
