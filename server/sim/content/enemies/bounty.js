@@ -74,14 +74,17 @@ function kitNscola(ab) {
  * on the spot under it (RangedAttack, SelfSelector, `_projectileDestination` INPUT_VEC3_WITH_TILE_HEIGHT): NSBOMB_FALL s
  * later the bomb hits every ground ally within `Passive.range_radius` (1) of that spot (HitBehaviour: the other side,
  * ground, `_ignoreCamouflage`) for ATK × `Passive.atk_scale` (2) physical. It needs no target — it bombs empty ground as
- * well. [추정·미조사: whether a stunned bomber's TriggerAbility still casts — read as not, as an enemy skill]
+ * well. Stunned (frozen, 失衡 …) it still drops them (공식 클라에서 확인): the node's `_checkCanUseAblityFlag` is off, so
+ * nothing asks `canUseAtkOrCbt`; AbilityStandard.CastDirectly and its `_DoCast` test no stun, and Entity.OnTick ticks the
+ * buff and the ability whatever the abnormal state — an enemy skill's stun check (EnemySkill.CheckAvailable) is not on this
+ * path. Until 2026-11-12: none while stunned.
  */
 function kitNsbomb(ab) {
   const every = T(ab, 'Passive.interval') ?? 2.5, r = T(ab, 'Passive.range_radius') ?? 1, scale = T(ab, 'Passive.atk_scale') ?? 0;
   return [{
     iv: every,
     tick(b, e) {
-      if (e.blockedBy || !canCast(e, false, b)) return;
+      if (e.blockedBy || !e.alive || e.hidden) return;
       const x = e.x, y = e.y, atk = e.s.atk * scale;
       b.fx('telegraph', { x, y, r, dur: NSBOMB_FALL, kind: 'nsbomb', id: e.id, ability: 'Bomb' });
       b.after(NSBOMB_FALL, () => {
@@ -135,8 +138,10 @@ function kitMpbarr(ab) {
  *   cast (AdvancedSelectorWithExCludeWhenSucceeded: the ones a shot succeeded on are filtered out, cleared at the cast's
  *   start). Each missile lands UAREAP_MISSILE_DELAY s later on its target (AttachToTarget) and hits every ground ally
  *   within UAREAP_MISSILE_RADIUS for ATK × `atk_scale` (0.7) physical, camouflage ignored. With fewer allies in range
- *   than shots, the later shots find nobody. [추정·미조사: that a shot with no target left fires nothing — MultiRangedAttack
- *   with `_allowNoTarget` was not read]
+ *   than shots, the later shots find nobody and fire nothing, the volley playing on (공식 클라에서 확인: with
+ *   `_allowNoTarget` AbilityStandard.UpdateTargets succeeds on no target, so the shot's spell runs and counts, and
+ *   RangedAttack.DoCastOnTargets would emit to the input position only with `_emitToInputPosWhenTargetIsInvalid` or
+ *   `_emitToInputRootTileWhenTargetIsInvalid`, both off here).
  * Its 指挥官 order (enemy_uacomd_extra_power: 6 missiles, F_Attack_B) never comes: no 规程 enemy gives it.
  */
 function kitUareap(ab) {
@@ -194,8 +199,11 @@ function blinkTile(b, u) {
  * (TriggerEnemySkill, `_interruptCurAbility`): enemy_shkrbt_blink puts the `cooldown` (30 s) on it and blinks it onto
  * blinkTile of that ally (BlinkNode); `_resetMainAbilityCdWhenCastEnd` (no wait-first): its attack is ready at once.
  * Its attack hits a ground ally within its range (1.1) blocked or not — the engine's ranged attack, its data's.
- * [추정·미조사: the reachable-tile search's tie order and whether it asks for a path to the tile; that a stunned hunter
- * does not blink — TriggerEnemySkill → EnemySkill.Cast was not read]
+ * Stunned, it does not blink (공식 클라에서 확인): Enemy.TriggerEnemySkill casts in the attack or combat state, else only
+ * when the current state's CheckSwitchOut lets it go to ATTACK (2) — StunState allows only states 5, 8, 9, 10 and 14
+ * while the enemy is stunned.
+ * [추정·CN: the reachable-tile search's tie order and whether it asks for a path to the tile — AssignNearestReachableTileToBB
+ * is not in the EN client and the CN code cannot be read]
  */
 function kitShkrbt(ab) {
   const s = ab.sk.Blink, cool = (s && (s.bb.cooldown ?? s.cd)) ?? 30;

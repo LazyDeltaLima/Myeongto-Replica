@@ -345,9 +345,18 @@ function kitTumor(ab) {
 // ---------------------------------------------------------------------------------------------------------------
 // 海怪 of the 饲育者 (enm_pfb_17)
 
-/** 赘生甲壳 (character_table trap_156_dsshell, phase 0 — a TRAP token our data does not carry): HP, DEF, RES, block count. */
-const SHELL = 'trap_156_dsshell';
-const SHELL_STATS = Object.freeze({ hp: 3000, def: 320, res: 0, blockCnt: 20, name: '赘生甲壳' });
+/**
+ * 赘生甲壳 (character_table trap_156_dsshell, phase 0 — a TRAP token our data does not carry): HP, DEF, RES, block count;
+ * its prefab (공식 클라에서 확인): the TrapMode's `_tileOptions.overrideObstacleLikeMoveCost` makes its tile obstacle-like as
+ * a 阻隔工事 crate's (enemies route around it at cost 1000 and walk into it only when it is the only way — the `crate`
+ * obstacle; 「甲壳可以影响敌人移动」), and its `_blockRadiusSquare` 0.5 is the ground block reach, not the crates' 0.2.
+ */
+export const SHELL = 'trap_156_dsshell';
+/** dspred_tr_1[switch_mode_2]'s MAX_HP MULTIPLIER `value` (the blackboard has no `max_hp`: kitShellEater). */
+const DSPRED_HP = 0.6;
+/** 复核洋流使者 `Skills/0/Selector`'s CircleRange collider radius: `_scaleble`, so its reach is this × `range_radius`. */
+const DSPRED_RANGE = 1.5;
+const SHELL_STATS = Object.freeze({ hp: 3000, def: 320, res: 0, blockCnt: 20, name: '赘生甲壳', obstacle: true, obstacleKind: 'crate', blockRadiusSq: 0.5 });
 
 /**
  * A tile the shell may take (dsshel_t_1 SpawnTokenOnTargetTileWithCondition: buildable MELEE, LOWLAND, move cost 1 — not an
@@ -371,6 +380,57 @@ const kitShellBearer = () => [{
     if (shellTile(b, r, col)) b.spawnDevice(SHELL, r, col, SHELL_STATS);
   },
 }];
+
+/** The 赘生甲壳 within `r` of (x, y) — its 0.25 collider met (ALLY_COLLIDER_RADIUS) —, the nearest (null when none). */
+function shellNear(b, x, y, r) {
+  let best = null, bd = Infinity;
+  for (const u of b.allyUnits) {   // (devices: not in b.allies())
+    if (!u.alive || u.defId !== SHELL) continue;
+    const d = hypot(u.x - x, u.y - y);
+    if (d <= r + ALLY_COLLIDER_RADIUS + 1e-9 && d < bd) { best = u; bd = d; }
+  }
+  return best;
+}
+
+/**
+ * 复核洋流使者: devours a 赘生甲壳 (prefab enm_pfb_17 `Skills/0` · `1`, 공식 클라에서 확인). Skill `0` (an EnemySkill of both
+ * families with a SelectorTrigger — the enemy side's 赘生甲壳 (`trap_156_dsshell_passive`) whose collider meets its circle,
+ * one: a `_scaleble` CircleRange, 1.5 × `range_radius` 0.35 (`CircleRange.InitCollidersIfNot`), so 0.775 from its centre —
+ * a blocked eater (0.7071) is in reach; cooldown 1000000 from 0: once) is cast at an attack slot; its buff (dspred_tr_1, unless the devour mark is on)
+ * casts skill `1` on that shell at once (dspred_tr_1[blockee] TriggerEnemySkill, `_interruptCurAbility`). Skill `1`: the
+ * `Skill` clip (`_timeMode` 1, 2.6 s), standing; its `_waitForAttackEvent` finds no OnAttack in the clip, so its spell
+ * comes at the clip's end (`WaitForNextEvent` bounded by the cast's duration): dspred_tr_1[kill] — the shell, if still
+ * there, dies at once and the eater takes the devour mark —, then (BuffAfterAffecting dspred_tr_1[switch_mode_2]) with
+ * the mark: mode `1` (its B_ clips, a plain melee attack, no skills) and dspred_tr_1[attribute] for good — MAX_HP and ATK
+ * MULTIPLIER loaded from the blackboard by the attribute's name (`Buff._LoadAttributesModifier`: `HGString.Enum2Str`, the
+ * enum's name, matched case aside — `Blackboard._TryGetNumber`): `ATK` finds the skill's `atk` 0.4, `MAX_HP` finds no
+ * key (the table writes `maxhp`) and keeps the template's 0.6. A cast cut before its end eats nothing; skill `1` casts
+ * once (`_maxTriggerTime` 1). The HP ratio stays as the maximum grows (units.js).
+ */
+function kitShellEater(ab) {
+  const s0 = ab.sk['0'], s1 = ab.sk['1'];
+  if (!s0 || !s1) return [];
+  const reach = DSPRED_RANGE * (s0.bb.range_radius ?? 0), atk = s1.bb.atk ?? 0, len = s1.cast && s1.cast.dur > 0 ? s1.cast.dur : 0;   // `_timeMode` 1: the clip as it is
+  return [{
+    // its handbook line is SILENCE-flagged: silenced, no cast (EnemySkill.CheckAvailable)
+    sil: true, name: s0.name, cd: s0.cd, icd: s0.icd,
+    cond: (b, e, a) => !a.ate && !!shellNear(b, e.x, e.y, reach),
+    fire(b, e, a) {
+      const sh = shellNear(b, e.x, e.y, reach);
+      if (a.ate || !sh || !(len > 0)) return;
+      a.next = { dur: len };
+      e.skillAnimUntil = b.time + len;
+      b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: s1.name, n: 1 });
+      atCastEvent(b, e, s1, () => {
+        if (!sh.alive || a.ate) return;
+        b.kill(sh, e);
+        a.ate = true;
+        mode(b, e, '1');
+        b.addBuff(e, { key: 'ab:dspredEat', persist: true, visible: true, fxTag: 'buff:dspred_tr_1[attribute]', mods: { hpPct: DSPRED_HP, atkPct: atk } });
+      });
+    },
+  }];
+}
 
 /**
  * 蕴核饲育者 / 异光体饲育者: as it comes in (dsfull_tr_1 ON_BUFF_START, a nested RandomAction) it draws the sea monster it
@@ -516,6 +576,7 @@ export const REBORN_KITS = {
   enemy_1133_harchn_2: kitHugeSpider,                      // 变异巨岩蛛α · same, 畸变恶性瘤
   enemy_1138_tumor: kitTumor,                              // 畸变恶性瘤 · its blocker's ASPD −80 %
   enemy_1434_dsshel: kitShellBearer,                       // 微核沉积者 · knocked out: a 赘生甲壳 on its tile
+  enemy_1438_dspred: kitShellEater,                        // 复核洋流使者 · a 赘生甲壳 at hand: eats it (mode 1, HP +60 %, ATK +40 %)
   enemy_1436_dsdivi: kitDivider,                           // 诡核集养者 · below half HP once: a copy of itself
   enemy_1436_dsdivi_2: kitDivider,                         // 异光体集养者 · same
   enemy_1437_dsfull: kitBreeder,                           // 蕴核饲育者 · knocked out: a fast sea monster (20 / 40 / 40 %)

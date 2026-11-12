@@ -422,7 +422,7 @@ export function shoot(b, from, t, shot, onHit, opts = {}) {
 /**
  * Fire an official FIXED_DIRECTION projectile (`shot`: data/enemies.json `skills[i].proj`, move FIXED_DIRECTION — 重弩突袭者
  * 直击's projectile_enemy_msnip) from `from` the way of `aim` (a unit or point): it flies straight along the nearest of the
- * four map axes and ends on the first ally it touches — `onHit(target)` then — or, touching none, after `shot.life` s
+ * four map axes and ends on the first ally it touches — `onHit(target, { x, y })` then, with where it stopped — or, touching none, after `shot.life` s
  * (`onExpire()`). Official client (EN, docs/rules/sim.md 「FIXED_DIRECTION 투사체」): FarthestPointMovement._SetTargetPosAndDirection
  * (`_useDirToTarget` → MapUtil.NormalizeDirectionToFourWays) and AdvancedMovement.OnInit (no reach point for FIXED_DIRECTION:
  * it never "arrives"); its SelectorHitBehaviour (`_hitPasserby`, every `_interval` 0.03 s) takes the allies whose collider
@@ -467,7 +467,7 @@ export function lineShot(b, unit, aim, shot, onHit, opts = {}) {
       t: Math.round((at / speed) * 1000) / 1000, dir, range: Math.round(at * 1000) / 1000 });
   }
   return b.addProjectile({ from: { x: from.x, y: from.y }, dir: { x: dir[0], y: dir[1] }, speed, maxAge: life, visual: opts.visual ?? 'enemy', source: src, fixed: shot?.adjust === 0, noWipe: shot?.elim === 0,
-    sweep: (p) => touching(p.x, p.y), onHit: (c) => onHit(c.target), onExpire: () => opts.onExpire?.() });
+    sweep: (p) => touching(p.x, p.y), onHit: (c) => onHit(c.target, { x: c.x, y: c.y }), onExpire: () => opts.onExpire?.() });
 }
 
 /**

@@ -1041,6 +1041,104 @@ test('微核沉积者: knocked out, a 赘生甲壳 (3000 HP, DEF 320, blocks 20)
   assert.equal(h.b.allyUnits.filter((u) => u.alive && u.defId === 'trap_156_dsshell').length, 1, 'no shell on the wall\'s tile');
 });
 
+/** A 赘生甲壳 at (10, 6) (a 微核沉积者 knocked out there) and enemy `key` walking at it from (10, 7.4), nothing else in the way. */
+function shellAndWalker(key) {
+  const { h } = waveField(['enemy_1434_dsshel', key], [{ chessId: 't_wall', row: 12, col: 2 }]);
+  const d = put(h, 'enemy_1434_dsshel', [10, 6], { tag: null });
+  h.step();
+  h.b.kill(d, h.unit('t_wall'));
+  const sh = h.b.allyUnits.find((u) => u.alive && u.defId === 'trap_156_dsshell');
+  const e = put(h, key, [10, 7.4], { move: true, tag: null });
+  e.route.pts = null;
+  return { h, sh, e };
+}
+
+test('赘生甲壳: an obstacle-like tile (enemies go round it at cost 1000), the ground block reach 0.7071, gone with it', () => {
+  const { h, sh, e } = shellAndWalker(PLASM);
+  assert.ok(h.b.grid.isCrate(10, 6) && !h.b.grid.isBlocked(10, 6), 'obstacle-like, not impassable');
+  h.runUntil(() => e.blockedBy === sh, 5);
+  assert.ok(e.blockedBy === sh);
+  // contact at the ground radius (a crate's 0.4472 would let it come nearer first)
+  assert.ok(Math.hypot(e.x - sh.x, e.y - sh.y) > 0.45, `blocked from ${Math.hypot(e.x - sh.x, e.y - sh.y).toFixed(3)}`);
+  h.b.kill(sh, null);
+  h.step();
+  assert.ok(!h.b.grid.isCrate(10, 6), 'its tile is plain again');
+});
+
+test('复核洋流使者: at a 赘生甲壳 casts 0 → 1, eats it at the Skill clip\'s end (2.6 s): mode 1, HP +60 % (no max_hp key) and ATK +40 %, once', () => {
+  const key = 'enemy_1438_dspred';
+  assert.deepEqual(E3[key].skills.map((s) => [s.prefabKey, s.cooldown, s.bb]), [['0', 1000000, { range_radius: 0.35 }], ['1', 0, { maxhp: 0.7, atk: 0.4 }]]);
+  assert.equal(E3[key].skillCast['1'].dur, 2.6);
+  const { h, sh, e } = shellAndWalker(key);
+  const hp0 = e.s.maxHp, atk0 = e.s.atk;
+  h.runUntil(() => h.eventsOf('fx').some((x) => x[1] === 'enemySkill' && x[4]?.id === e.id && x[4].ability === '1'), 10);
+  const t0 = h.b.time;
+  const casts = h.eventsOf('fx').filter((x) => x[1] === 'enemySkill' && x[4]?.id === e.id).map((x) => x[4].ability);
+  assert.deepEqual(casts, ['0', '1'], 'skill 0, then skill 1 at once');
+  assert.ok(sh.alive && Math.hypot(e.x - sh.x, e.y - sh.y) <= 1.5 * 0.35 + 0.25 + 1e-6, 'in reach (1.5 × 0.35 + its collider: before the block), the shell still there');
+  e.hp = e.s.maxHp / 2;
+  h.runUntil(() => !sh.alive, 4);
+  assert.ok(!sh.alive, 'the shell is gone');
+  assert.ok(Math.abs(h.b.time - t0 - 2.6) < 0.06, `at the clip's end (${(h.b.time - t0).toFixed(3)} s)`);
+  assert.equal(e.mode, '1');
+  assert.ok(Math.abs(e.s.maxHp - hp0 * 1.6) < 1e-6 && Math.abs(e.s.atk - atk0 * 1.4) < 1e-6, `HP ${e.s.maxHp} ATK ${e.s.atk}`);
+  assert.ok(Math.abs(e.hp / e.s.maxHp - 0.5) < 1e-6, 'its HP ratio kept');
+  assert.ok(h.eventsOf('status').some((x) => x[1] === e.id && x[2] === 'ab:dspredEat' && x[3] === 1), 'shown (dspred_tr_1[attribute])');
+
+  // a second shell later: never eaten (skill 1 casts once, skill 0's cooldown 1000000)
+  const d2 = put(h, 'enemy_1434_dsshel', [10, 5], { tag: null });
+  h.step();
+  h.b.kill(d2, h.unit('t_wall'));
+  runFor(h, 6);
+  assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'enemySkill' && x[4]?.id === e.id).length, 2, 'no second cast');
+});
+
+test('复核洋流使者: a cast cut before its end (stunned) eats nothing — and it does not try again', () => {
+  const { h, sh, e } = shellAndWalker('enemy_1438_dspred');
+  h.runUntil(() => h.eventsOf('fx').some((x) => x[1] === 'enemySkill' && x[4]?.id === e.id && x[4].ability === '1'), 10);
+  runFor(h, 1);
+  h.b.applyStatus(e, 'stun', { duration: 1, source: null });
+  runFor(h, 6);
+  assert.ok(sh.alive || sh.hp < sh.s.maxHp, 'not eaten (at most chopped)');
+  assert.ok(e.mode !== '1' && !e.findBuff('ab:dspredEat'), 'no mode 1, no buff');
+  assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'enemySkill' && x[4]?.id === e.id).length, 2, 'one try');
+});
+
+test('元核孽生者: blocked by a 赘生甲壳 it wakes unhurt, breaks the shell at a fifth of its max HP (真实) and walks on', () => {
+  const key = 'enemy_1439_dslntf', bb = E3[key].talents.bb;
+  assert.deepEqual([bb['3.hp_ratio'], bb['3.range_radius']], [0.2, 0.5]);
+  const { h, sh, e } = shellAndWalker(key);
+  const taken = [];
+  h.b.on('damaged', (c) => { if (c.target === e) taken.push(c); });
+  h.runUntil(() => !sh.alive, 20);
+  assert.ok(!sh.alive, 'the shell breaks');
+  assert.equal(e.mode, '1', 'awake (mode 1)');
+  assert.ok(e.findBuff('ab:combat'), '临战');
+  assert.equal(taken.length, 1, 'hurt once: the break');
+  assert.equal(taken[0].dmg.type, 'true');
+  assert.ok(Math.abs(e.hp - e.s.maxHp * 0.8) < 1e-6, `HP ${e.hp} of ${e.s.maxHp}`);
+  assert.ok(h.eventsOf('fx').some((x) => x[1] === 'kitHit' && x[4]?.k === 'dslntf:break' && x[4].id === e.id), 'its effect');
+  const p0 = [e.x, e.y];
+  runFor(h, 3);
+  assert.ok(!e.blockedBy && Math.hypot(e.x - p0[0], e.y - p0[1]) > 0.5, 'walks on (once its swing is out)');
+});
+
+test('元核孽生者: asleep (mode 0) a shell within reach stays; hurt, it wakes and breaks it at once', () => {
+  const key = 'enemy_1439_dslntf';
+  const { h } = waveField(['enemy_1434_dsshel', key], [{ chessId: 't_wall', row: 12, col: 2 }]);
+  const d = put(h, 'enemy_1434_dsshel', [10, 6], { tag: null });
+  h.step();
+  h.b.kill(d, h.unit('t_wall'));
+  const sh = h.b.allyUnits.find((u) => u.alive && u.defId === 'trap_156_dsshell');
+  const e = put(h, key, [10, 6.73], { tag: null });   // held still, 0.73 from it: within 0.5 + its collider, past the block reach 0.7071
+  runFor(h, 2);
+  assert.ok(sh.alive && e.mode == null && !e.blockedBy, 'asleep: talent 3 is mode 1\'s');
+  h.b.dealDamage(null, e, { amount: 1, type: 'true' });
+  h.step();
+  assert.ok(!sh.alive && e.mode === '1', 'awake: broken');
+  assert.ok(Math.abs(e.hp - (e.s.maxHp * 0.8 - 1)) < 1e-6, 'a fifth of its max HP');
+});
+
 test('蕴核饲育者: drawn as it comes in (its derived buff shows which), knocked out: 微核沉积者 (20 %) / 诡核集养者 (else 50 %) / 单核掠食者, its move speed × 3', () => {
   const key = 'enemy_1437_dsfull', bb = E3[key].talents.bb, bs = E3[key].talents.bbStr;
   assert.deepEqual([bb['0.prob1'], bb['0.prob2'], bb['0.move_speed']], [0.2, 0.5, 2]);
@@ -1252,10 +1350,14 @@ test('速射轻弩手: 直击 on its row / column at any distance — 3 bolts 0.
   // the wall 9 tiles away on its row (beyond 重弩突袭者's old 6), another off its row and column
   const { h, hits } = waveField([GUNSHO], [{ chessId: 't_wall', row: 10, col: 1 }, { chessId: 't_wall2', row: 12, col: 4 }]);
   const e = put(h, GUNSHO, [10, 10], { tag: null });
-  const casts = [];
+  const casts = [], shots = [];
   onSkill(h, e, (ab) => { if (ab === 'CrossAttack') casts.push(h.b.time); });
+  const fx0 = h.b.fx.bind(h.b);
+  h.b.fx = (kind, p) => { if (kind === 'enemyShot' && p?.id === e.id) shots.push({ x: p.x, y: p.y, dir: p.dir.join(',') }); return fx0(kind, p); };
   h.runUntil(() => hits.length >= 3, 10);
   assert.equal(casts.length, 1);
+  // from its Muzzle in the Skill clip (facing left): 0.603 forward, 0.404 up
+  assert.ok(shots.length === 3 && shots.every((p) => Math.abs(p.x - (10 - 0.603)) < 1e-6 && Math.abs(p.y - 10.404) < 1e-6 && p.dir === '-1,0'), JSON.stringify(shots[0]));
   assert.deepEqual(hits.map((x) => x.t), [h.unit('t_wall'), h.unit('t_wall'), h.unit('t_wall')], 'three bolts, the aligned wall');
   assert.ok(hits.every((x) => Math.abs(x.n - E3[GUNSHO].stats.atk) < 1e-6), 'physical ATK × 1');
   assert.ok(Math.abs(hits[1].at - hits[0].at - 0.1) < 0.04 && Math.abs(hits[2].at - hits[1].at - 0.1) < 0.04, 'spaced 0.1 s');
@@ -1265,25 +1367,57 @@ test('速射轻弩手: 直击 on its row / column at any distance — 3 bolts 0.
   assert.equal(hits.length, 3, 'one cast');
 });
 
-test('马特奥的近卫: 直击 — 2 bombs at its clip\'s events bursting on the first ally touched, ATK × 0.5 within 1.1; damage taken × 0.6 while unblocked', () => {
+test('速射轻弩手: a bolt up its column leaves from the Skill_Up clip\'s Muzzle (0.236 to its facing side, 0.745 up)', () => {
+  const { h } = waveField([GUNSHO], [{ chessId: 't_wall', row: 12, col: 4 }]);
+  const e = put(h, GUNSHO, [9, 4], { tag: null });
+  const shots = [];
+  const fx0 = h.b.fx.bind(h.b);
+  h.b.fx = (kind, p) => { if (kind === 'enemyShot' && p?.id === e.id) shots.push({ x: p.x, y: p.y, dir: p.dir.join(',') }); return fx0(kind, p); };
+  h.runUntil(() => shots.length >= 1, 10);
+  assert.ok(Math.abs(shots[0].x - (4 + 0.236)) < 1e-6 && Math.abs(shots[0].y - (9 + 0.745)) < 1e-6 && shots[0].dir === '0,1', JSON.stringify(shots[0]));
+});
+
+test('马特奥的近卫: 直击 — 2 bombs at its clip\'s events bursting on the first ally touched, ATK × 0.5 within 1.1 of where each stopped; damage taken × 0.6 while unblocked', () => {
   const s = E3[BDGUAD].skills[0];
   assert.deepEqual([s.prefabKey, s.bb.times, s.bb.atk_scale, s.bb.projectile_range, E3[BDGUAD].talents.bb['DmgResist.damage_resistance']], ['CrossBomb', 2, 0.5, 1.1, 0.4]);
   const { h, hits } = waveField([BDGUAD], [{ chessId: 't_wall', row: 10, col: 3 }, { chessId: 't_wall2', row: 11, col: 3 }]);
   const e = put(h, BDGUAD, [10, 8], { tag: null });
-  const casts = [];
+  const casts = [], shots = [];
   onSkill(h, e, (ab) => { if (ab === 'CrossBomb') casts.push(h.b.time); });
-  h.runUntil(() => hits.length >= 4, 10);
+  const fx0 = h.b.fx.bind(h.b);
+  h.b.fx = (kind, p) => { if (kind === 'enemyShot' && p?.id === e.id) shots.push({ at: h.b.time, x: p.x, y: p.y }); return fx0(kind, p); };
+  h.runUntil(() => hits.length >= 2, 10);
+  runFor(h, 1);
   const w = h.unit('t_wall'), w2 = h.unit('t_wall2');
   const atk = E3[BDGUAD].stats.atk;
   assert.equal(hits.filter((x) => x.t === w).length, 2, 'two bombs on the aligned wall');
-  assert.equal(hits.filter((x) => x.t === w2).length, 2, 'and their bursts on the wall beside it (DEF 900)');
+  // each bomb flies from its muzzle, 0.051 / 0.062 above row 10 (Muzzle_1 / Muzzle_2, facing left), and stops 0.5 short of
+  // the wall (its 0.3 circle + the wall's collider): the wall on row 11 is ≈ 1.07 from there — in (from row 10 itself, 1.118: out)
+  assert.equal(hits.filter((x) => x.t === w2).length, 2, 'the wall beside it: within 1.1 of each stop point');
   assert.ok(hits.filter((x) => x.t === w).every((x) => Math.abs(x.n - atk * 0.5) < 1e-6), 'ATK × 0.5');
-  const at = hits.filter((x) => x.t === w).map((x) => x.at);
-  assert.ok(Math.abs(at[1] - at[0] - (2.033 - 1.867)) < 0.04, `the clip's next event (${(at[1] - at[0]).toFixed(3)})`);
+  assert.equal(shots.length, 2);
+  assert.ok(Math.abs(shots[1].at - shots[0].at - (2.033 - 1.867)) < 0.04, `the clip's next event (${(shots[1].at - shots[0].at).toFixed(3)})`);
+  // facing left (the wall is on its left): Muzzle_1, then Muzzle_2 (`_mountPointGroup` MUZZLE, SPECIAL_0)
+  assert.ok(Math.abs(shots[0].x - (8 - 0.224)) < 1e-6 && Math.abs(shots[0].y - (10 + 0.051)) < 1e-6, `bomb 1 from Muzzle_1 (${shots[0].x}, ${shots[0].y})`);
+  assert.ok(Math.abs(shots[1].x - (8 - 0.564)) < 1e-6 && Math.abs(shots[1].y - (10 + 0.062)) < 1e-6, `bomb 2 from Muzzle_2 (${shots[1].x}, ${shots[1].y})`);
   // unblocked: arts × 0.6 after RES 30
   const before = e.hp;
   h.b.dealDamage(null, e, { amount: 1000, type: 'arts' });
   assert.ok(Math.abs(before - e.hp - 1000 * 0.7 * 0.6) < 1e-6, `unblocked: × 0.6 (${before - e.hp})`);
+});
+
+test('马特奥的近卫: the blast is centred where the bomb stopped (its 0.3 circle met the ally), not on the ally — a unit a tile behind is out', () => {
+  const { h, hits } = waveField([BDGUAD], [{ chessId: 't_wall', row: 10, col: 3 }, { chessId: 't_wall2', row: 10, col: 2 }]);
+  const e = put(h, BDGUAD, [10, 8], { tag: null });
+  const booms = [];
+  const fx = h.b.fx.bind(h.b);
+  h.b.fx = (kind, p) => { if (kind === 'explode' && p?.kind === 'bomb' && p.id === e.id) booms.push(p); return fx(kind, p); };
+  h.runUntil(() => booms.length >= 2, 10);
+  const w = h.unit('t_wall'), w2 = h.unit('t_wall2');
+  assert.equal(booms.length, 2);
+  for (const p of booms) assert.ok(Math.abs(p.y - 10) < 0.1 && p.x > w.x + 0.3 && p.x <= w.x + 0.55 + 1e-6, `stopped short of the wall (x ${p.x.toFixed(3)})`);
+  assert.equal(hits.filter((x) => x.t === w).length, 2, 'the wall it touched');
+  assert.equal(hits.filter((x) => x.t === w2).length, 0, 'the unit behind it: beyond 1.1 of the stop point');
 });
 
 test('无畏掷弹兵: its first damage unblocked throws 4 bombs (ATK × 2 within 1.1 of each ally touched), then the mode Light — move +0.7, weight −2; silenced, none', () => {
@@ -1549,6 +1683,8 @@ test('“喷射罐”: a 4 s arts channel of 3 hits (0.6, 1.6, 2.6 s), then 3 s 
     const at = hits.map((x) => x.at - hits[0].at);
     for (const [i, want] of [[1, 1], [2, 2], [3, 7], [4, 8], [5, 9]]) assert.ok(Math.abs(at[i] - want) < 0.05, `hit ${i} at ${at[i].toFixed(3)} (${want})`);
     assert.ok(e.stats.attacks === 2, 'two attacks: one for each channel');
+    const sig = h.eventsOf('fx').filter((x) => x[1] === 'enemySkill' && x[4]?.id === e.id).map((x) => [x[4].ability, x[4].n, x[4].dur]);
+    assert.deepEqual(sig, [['Flame', 1, 4], ['Flame', 2, 4]], 'the view hears each channel and its length');
   }
   // the 缴械 after the channel
   {
@@ -2048,6 +2184,19 @@ test('遮天面包机: every 2.5 s (the first 2.5 s in) a bomb on the spot under
   assert.ok(hits[0].t === h.unit(1) && Math.abs(hits[0].n - e.s.atk * 2) < 1e-6, 'ATK × 2 on the near one');
   h.runUntil(() => booms.length >= 2, 10);
   assert.ok(Math.abs(booms[1].at - booms[0].at - 2.5) < 0.05, 'every 2.5 s');
+});
+
+test('遮天面包机: stunned it still drops its bombs (TriggerAbility `_checkCanUseAblityFlag` off, no stun test on the cast)', () => {
+  const key = 'enemy_10147_nsbomb';
+  const { h, hits } = waveField([key], [{ chessId: 't_wall', row: 10, col: 6 }]);
+  const booms = fxLog(h, 'explode', 'nsbomb');
+  const e = put(h, key, [10, 6], { tag: null });
+  h.b.applyStatus(e, 'stun', { duration: 20, source: null });
+  assert.ok(e.s.flags.stun);
+  runFor(h, 5.6);
+  assert.ok(e.s.flags.stun, 'still stunned');
+  assert.equal(booms.length, 2, 'two bombs in 5.6 s');
+  assert.equal(hits.length, 2);
 });
 
 test('炫目刀技厨师: the ground enemies within 2.5 — itself too — ASPD +50, RES +25; a flyer or one farther, not', () => {

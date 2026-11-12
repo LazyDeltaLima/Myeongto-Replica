@@ -1506,7 +1506,8 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   sound of her T.1 shot rides on its 'swing' / 'atk' `signal`, not on this mark); `copy` `{ id, src, mode, by }`: 缪尔赛思's 流形 `id` copies operator `src` — `mode` its
   prefab mode from then on (`'Melee'` / `'Range'`; the client's `_S3` / `_S2` variants while her S3 / S2 runs follow from `by`'s 'skill');
   `enemySkill` `{ id, ability, n }`: an enemy's content skill is cast (`content/enemies.js onTick`, before its effects) — `ability` = the official
-  ability name, the data skill's `prefabKey` (the client prefab's `Skills/<name>` — compare case-insensitively: `boomb` ↔ `Boomb`), `n` the cast count;
+  ability name, the data skill's `prefabKey` (the client prefab's `Skills/<name>` — compare case-insensitively: `boomb` ↔ `Boomb`), `n` the cast count,
+  `dur` (when given) the cast's length in s (“喷射罐”'s Flame channel, `content/enemies/critic.js kitJetCanister`);
   nothing procedural is drawn; every fx the cast makes in the same call carries `extra.ability` (the same name) and `extra.caster` (the enemy's id)
   unless it names an ability itself — fx scheduled for later (`battle.after`) carry none; the client binds the enemy's official cast / hit effects and
   `ON_ABILITY_*` sounds by it; `hold: 1` marks a cast that lasts until its `enemySkillEnd` `{ id, ability }` (子代's 摄食, `bosses.js kitBrood`: the

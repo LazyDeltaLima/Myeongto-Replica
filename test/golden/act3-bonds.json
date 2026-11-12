@@ -2323,9 +2323,9 @@
       ],
       "enemies": {"enemy_1403_gunsho":[5,5,0,6188,55985],"enemy_1404_msnip":[4,4,0,5123,59720],"enemy_1406_chghmr":[3,3,0,0,111974]},
       "hooks": [1,25,2086,37,37,256,276,121,13,14,9,5,0,4996,11,2,12,0,1,21,0,1,0],
-      "events": {"atk":37,"castHit":2,"deploy":10,"die":14,"dmg":276,"engage":5,"face":25,"fx":91,"heal":16,"skill":14,"spawn":24,"status":42,"swing":46},
+      "events": {"atk":37,"castHit":2,"deploy":10,"die":14,"dmg":276,"engage":5,"face":25,"fx":91,"heal":16,"skill":14,"spawn":24,"status":42,"swing":45},
       "fx": {"burst":1,"displace":6,"enemyShot":36,"enemySkill":19,"firewall":1,"frostNova":4,"juExtra":5,"kitHit":10,"mysticStore":4,"taraxaFly":3,"taraxaSplash":1,"veenVolley":1},
-      "snaps": "875ca02b e7e2b062 1e7dec04 1c181ff8 d911c5bf 376b9982 567de8cd"
+      "snaps": "4af3ca8f 8ec545b1 831fa77a 2140705a 5f97cec5 bfdf4312 7e65cda2"
     }
   }
 }

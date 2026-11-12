@@ -394,6 +394,14 @@ function onSkillSlot(b, c) {
   c.cast = { dur, atkCd: cast.resetMain && !open ? dur + (cast.waitFirst ? e.s.interval : 0) : e.s.interval };
   ab.casting = dur > 0 ? { a, cast, until: b.time + dur, open } : null;
   castSkill(b, e, a);
+  // a skill whose spell casts another one at once (TriggerEnemySkill with `_interruptCurAbility`, e.g. 复核洋流使者's
+  // `0` → `1`): its fire hands that cast back (`a.next` = { dur }) and the slot plays it instead, cut like any skill cast
+  const nx = a.next;
+  if (nx) {
+    a.next = null;
+    c.cast = { dur: nx.dur, atkCd: e.s.interval };
+    ab.casting = nx.dur > 0 ? { a: nx.a ?? a, cast: nx.cast ?? cast, until: b.time + nx.dur, open: false } : null;
+  }
 }
 
 /** Does cast record `cast` wait for a projectile — itself, or a child of its sequence (死亡之眼's LineAttack)? */
@@ -467,7 +475,7 @@ export const STATS_ONLY = Object.freeze({
   enemy_1251_lysyta: 'R-series armour interaction absent', enemy_1251_lysyta_2: 'same',
   enemy_1252_lysytb_2: 'same', enemy_1254_lypa_2: 'no listed ability', enemy_1325_cbgpro: 'plain', enemy_1325_cbgpro_2: 'plain',
   enemy_1381_winman: 'plain', enemy_1381_winman_2: 'plain', enemy_1387_winshd: '封冻/供暖器 zones absent', enemy_1415_mmkabi_2: 'chains absent',
-  enemy_1137_plasm: 'plain', enemy_1433_dsbasi: 'plain', enemy_1433_dsbasi_2: 'plain', enemy_1438_dspred: '赘生甲壳 absent',
+  enemy_1137_plasm: 'plain', enemy_1433_dsbasi: 'plain', enemy_1433_dsbasi_2: 'plain',
   enemy_2002_bearmi: 'plain', enemy_2002_bearmi_2: 'plain',
   enemy_9012_acloon: '炎佑 is a bond summon (bonds.js)', enemy_9024_acsgnt: '“不眠雪山” is a bond summon (bonds/giant.js)',
   enemy_10040_cnvbln: '狂欢时刻 absent', enemy_10043_sailor: 'bridges/cannons absent',

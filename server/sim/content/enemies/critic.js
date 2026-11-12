@@ -30,6 +30,21 @@ const KRGRG_BLAST_RADIUS = 1.65, KRGRG_BLAST_DELAY = 1.2;
  * clip's first event (`skillCast.hit`), the second at this one.
  */
 const BDGUAD_SECOND_BOMB = 2.033;
+/**
+ * 速射轻弩手 / 速射劲弩手's `Muzzle` and 马特奥的近卫's `Muzzle_1` / `Muzzle_2` at their shots (muzzleAt): the bone in Skill /
+ * Skill_Down / Skill_Up at 1.033 s (the same through its three bolts) and in Skill_1 / _Down / _Up at 1.867 · 2.033 s (EN
+ * client enemy_1403_gunsho.skel — _2's the same — and enemy_1409_bdguad_2.skel, skeleton units: Muzzle (223.41, 258.32),
+ * (167.56, 31.78), (87.54, 404.12); Muzzle_1 (83.14, 107.33), (−78.65, 41.98), (33.43, 331.74); Muzzle_2 (208.91, 112.24),
+ * (116.41, 21.96), (147.74, 302.85)); × 0.01 × the Graphic's 0.27, turned with it (X −30°: a row = cos 30° of the model's
+ * height) and moved by its local (0, −0.2, −0.06) — the three prefabs share 重弩突袭者's Graphic. 马特奥的近卫's CrossBomb
+ * (`_enableMountPointGroup`, `_mountPointGroup` [MUZZLE, SPECIAL_0]): bomb n leaves from group n — Muzzle_1, then
+ * Muzzle_2 (MultiRangedAttack.CreateProjectile by its spell count; past the group, the ability's MUZZLE).
+ */
+const GUNSHO_MUZZLE = { side: { f: 0.603, up: 0.404 }, DOWN: { f: 0.452, up: -0.126 }, UP: { f: 0.236, up: 0.745 } };
+const BDGUAD_MUZZLES = [
+  { side: { f: 0.224, up: 0.051 }, DOWN: { f: -0.212, up: -0.102 }, UP: { f: 0.090, up: 0.576 } },
+  { side: { f: 0.564, up: 0.062 }, DOWN: { f: 0.314, up: -0.149 }, UP: { f: 0.399, up: 0.508 } },
+];
 /** A bomb's touch radius: projectile_enemy_bdguad / projectile_enemy_boomer, BoomerHitBehaviour's selectors (CircleRange 0.3). */
 const BOMB_TOUCH = 0.3;
 
@@ -39,8 +54,12 @@ const BOMB_TOUCH = 0.3;
 /**
  * Units of both sides within `r` of (x, y) a projectile of `src` with HitBehaviour `targetSide` 3 (SideType
  * BOTH_ALLY_AND_ENEMY) and `targetMotion` 1 (ground) strikes: the allies an area effect of `src` selects (areaAllies,
- * ground ones), and the other enemies on the ground there — no untargetable one (a 重生 in progress).
- * [추정·미조사: whether a same-side selection skips a 隐匿 or 无敌 enemy; here only 无法选中 does]
+ * ground ones), and the other enemies on the ground there — no untargetable one (a 重生 in progress). The client's
+ * HitBehaviour.OnProjectileReached finds them with its TargetOptions (`ignoreTargetFree` off), whose `_VerifyAdvanced` drops
+ * only `isAllyTargetFree` (ALLY_TARGET_FREE) on the shooter's own side: a 隐匿 or 无敌 enemy is in (무적 takes no damage
+ * by itself) — 공식 클라에서 확인.
+ * [추정·엔진: our `untargetable` enemies (重生 in progress, a hovering leader) are left out as ALLY_TARGET_FREE — the
+ * abnormal flags of those client states were not read]
  */
 function bothSidesAt(b, src, x, y, r) {
   const allies = areaAllies(b, src, x, y, r).filter((u) => !u.isFlying);
@@ -67,14 +86,33 @@ function crossTargets(b, e) {
  * `_emitToInputPosWhenTargetIsInvalid`), along the nearest map axis (helpers.js lineShot); `onHit(u)` on the first ally it
  * touches.
  */
-function crossShot(b, e, t, aim, proj, onHit, radius = undefined) {
+function crossShot(b, e, t, aim, proj, onHit, radius = undefined, from = undefined) {
   const at = t && t.alive && t.deployed ? { x: t.x, y: t.y } : aim;
-  return lineShot(b, e, at, proj, (u) => { if (u && u.alive) onHit(u); }, { source: e, ...(radius != null ? { radius } : {}) });
+  return lineShot(b, e, at, proj, (u, spot) => { if (u && u.alive) onHit(u, spot); }, { source: e, ...(radius != null ? { radius } : {}), ...(from ? { at: from } : {}) });
 }
 
-/** A bomb's blast where it touched `u`: physical ATK × `scale` on the allies within `r` of it (BoomerHitBehaviour). */
-function bombBlast(b, e, u, r, scale, atk = e.s.atk) {
-  const x = u.x, y = u.y;
+/**
+ * Where a 直击 shot leaves (the projectile's `_mountPointType` MUZZLE, or a `_mountPointGroup` entry): the bone at the shot's
+ * frame in the clip its direction picks — `_animKey` / `_downAnimKey` / `_upAnimKey` by the FOUR_WAYS axis nearest to the
+ * aimed spot (UP, RIGHT, DOWN, LEFT; a tie takes the first), the model facing the spot's side — as 重弩突袭者's
+ * (content/enemies/invisible.js CROSS_MUZZLE). `m`: { side, DOWN, UP } in map tiles from its position (forward along its
+ * facing, up a row).
+ */
+function muzzleAt(e, aim, m) {
+  const dx = aim.x - e.x, dy = aim.y - e.y;
+  const ways = [dy, dx, -dy, -dx];
+  const p = m[['UP', 'side', 'DOWN', 'side'][ways.indexOf(Math.max(...ways))]], face = dx < 0 ? -1 : 1;
+  return { x: e.x + face * p.f, y: e.y + p.up };
+}
+
+/**
+ * A bomb's blast where it stopped (`at`, { x, y }): physical ATK × `scale` on the allies within `r` of that spot. The client's
+ * BoomerHitBehaviour.DoSelectTargetToHit: the first time its 0.3 circle finds a unit it calls `Reached` and `Stop` where
+ * the bomb is, and HitBehaviour.OnProjectileReached (`_onlyCheckHitWhenReachTarget`) takes the units its own collider
+ * (`projectile_range`) meets there — around the bomb, not the unit it touched (공식 클라에서 확인).
+ */
+function bombBlast(b, e, at, r, scale, atk = e.s.atk) {
+  const x = at.x, y = at.y;
   b.fx('explode', { x, y, r, kind: 'bomb', id: e.id });
   for (const o of areaAllies(b, e, x, y, r)) hurt(b, e, o, atk * scale, 'phys', { tags: ['splash'] });
 }
@@ -155,7 +193,7 @@ function kitLinePusher(ab) {
  * nearest ally in its 直击 cross (crossTargets) a MultiRangedAttack of 1 + `_additionalTimes` 2 = 3 bolts (no blackboard
  * `times`), the first at its clip's event (`skillCast.hit`), the others `_triggerDelta` 0.1 s apart; each its official
  * projectile_enemy_gunsho (FIXED_DIRECTION, as 重弩突袭者's: the first ally it touches) for physical ATK × `atk_scale`.
- * [추정·미조사: the bolts leave from its centre, not its MUZZLE point]
+ * They leave from its MUZZLE at the shot's frame (muzzleAt, GUNSHO_MUZZLE; until 2026-11-12 from its centre).
  */
 function kitRapidCrossbow(ab) {
   const s = ab.sk.CrossAttack, n = 3, step = 0.1;
@@ -166,7 +204,7 @@ function kitRapidCrossbow(ab) {
     const aim = { x: t.x, y: t.y };
     const hit = s.cast && Number.isFinite(s.cast.hit) ? s.cast.hit : 0;
     for (let i = 0; i < n; i++) {
-      atCastEvent(b, e, s, () => crossShot(b, e, t, aim, s.proj, (u) => hurt(b, e, u, e.s.atk * (s.bb.atk_scale ?? 1), 'phys')), hit + i * step);
+      atCastEvent(b, e, s, () => crossShot(b, e, t, aim, s.proj, (u) => hurt(b, e, u, e.s.atk * (s.bb.atk_scale ?? 1), 'phys'), undefined, muzzleAt(e, aim, GUNSHO_MUZZLE)), hit + i * step);
     }
   }, { sil: true, cond: (b, e) => crossTargets(b, e).length > 0 })];
 }
@@ -177,7 +215,7 @@ function kitRapidCrossbow(ab) {
  * BoomerHitBehaviour: it bursts on the first ally it touches) for physical ATK × `atk_scale` on the allies within
  * `projectile_range` of that spot. Talents/DmgResist: while unblocked (BlockedToggleChecker) physical and arts damage taken
  * × (1 − `DmgResist.damage_resistance`) (damage_resistance[inf]).
- * [추정·미조사: the bombs leave from its centre, not its MUZZLE points; the blast is centred on the ally touched]
+ * Bomb n leaves from `_mountPointGroup` n at its frame (muzzleAt, BDGUAD_MUZZLES; until 2026-11-12 from its centre).
  */
 function kitMatteoGuard(ab) {
   const s = ab.sk.CrossBomb, cut = 1 - (T(ab, 'DmgResist.damage_resistance') ?? 0);
@@ -198,7 +236,8 @@ function kitMatteoGuard(ab) {
       const t = crossTargets(b, e)[0];
       if (!t) return;
       const aim = { x: t.x, y: t.y };
-      for (const at of times) atCastEvent(b, e, s, () => crossShot(b, e, t, aim, s.proj, (u) => bombBlast(b, e, u, r, scale), BOMB_TOUCH), at);
+      times.forEach((at, i) => atCastEvent(b, e, s, () => crossShot(b, e, t, aim, s.proj, (u, spot) => bombBlast(b, e, spot ?? u, r, scale), BOMB_TOUCH,
+        muzzleAt(e, aim, BDGUAD_MUZZLES[i] ?? BDGUAD_MUZZLES[0])), at));
     }, { sil: true, cond: (b, e) => crossTargets(b, e).length > 0 }));
   }
   return out;
@@ -211,7 +250,6 @@ function kitMatteoGuard(ab) {
  * `_projectileNum` 4 over 270°) —, each bursting on the first ally it touches for physical ATK × `atk_scale` within
  * `projectile_range`; the cast over (enemy_boomer_switch2light), the mode Light: move speed + `Light.move_speed` and weight
  * + `Light.mass_level` (both ADDITION), its own melee attack.
- * [추정·미조사: the blast is centred on the ally touched]
  */
 function kitGrenadier(ab) {
   const s = ab.sk.Bomb;
@@ -237,7 +275,7 @@ function kitGrenadier(ab) {
       a.fired = true;
       atCastEvent(b, e, s, () => {
         for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
-          lineShot(b, e, { x: e.x + dx, y: e.y + dy }, s.proj, (u) => { if (u && u.alive) bombBlast(b, e, u, r, scale); }, { source: e, radius: BOMB_TOUCH });
+          lineShot(b, e, { x: e.x + dx, y: e.y + dy }, s.proj, (u, spot) => { if (u && u.alive) bombBlast(b, e, spot ?? u, r, scale); }, { source: e, radius: BOMB_TOUCH });
         }
       });
       const c = s.cast, end = c && c.dur > 0 ? c.dur : 0;
@@ -654,6 +692,10 @@ function kitJetCanister(ab) {
       const t = c.targets[0];
       if (!t || !(chan > 0)) return;
       a.chan = true;
+      // the view: its Flame ability's channel (Attack_Begin → Attack_Loop → Attack_End over `dur` s) — fx 'enemySkill'
+      // { id, ability: 'Flame', n, dur } as it starts (no skill sound: the binding has no `sk` cues for it)
+      a.n = (a.n ?? 0) + 1;
+      b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: 'Flame', n: a.n, dur: chan });
       // the ability's cooldown, its attack time, runs from the cast's start; one frame more, so the frame the channel ends
       // (ai.js counts castLeft and atkCd down before it looks for a swing, the content's tick after) starts no swing
       // before enemy_winbom_attack_cd is on
