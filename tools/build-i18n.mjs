@@ -757,14 +757,24 @@ async function main() {
     if (existsSync(abs)) data[f] = JSON.parse(await readFile(abs, 'utf8'));
   }
   // a season's own records (data/seasons/<id>/<file>.json, ids the default file lacks: shared/seasons.js) go in the same
-  // overlay; applyFileOverlay skips an id the file being localized does not have, so the default season never reads them
+  // overlay; applyFileOverlay skips an id the file being localized does not have, so the default season never reads them.
+  // A season's record under an id the default file has too, with other contents (规程 reuses chess, item, 特质 and effect
+  // ids for other operators and things), gets an overlay of its own (public/js/data.js applies it
+  // over the default's while that season's files are read; a file of its own, data/i18n/<lang>.<season>.json, so the
+  // default season's players do not download it): the default's leaves stop at their hash check there.
+  const base = Object.fromEntries(Object.entries(data).map(([f, j]) => [f, j]));
+  const seasonData = {};
   const seasonsDir = join(opts.data, 'seasons');
   for (const season of existsSync(seasonsDir) ? (await readdir(seasonsDir)).sort() : []) {
     for (const f of DATA_FILES) {
       const abs = join(seasonsDir, season, `${f}.json`);
       if (!data[f] || !existsSync(abs)) continue;
-      const own = Object.entries(JSON.parse(await readFile(abs, 'utf8'))).filter(([id]) => !Object.hasOwn(data[f], id));
+      const file = JSON.parse(await readFile(abs, 'utf8'));
+      if (!file || typeof file !== 'object' || Array.isArray(file)) continue;
+      const own = Object.entries(file).filter(([id]) => !Object.hasOwn(data[f], id));
       if (own.length) data[f] = { ...data[f], ...Object.fromEntries(own) };
+      const other = Object.entries(file).filter(([id, rec]) => Object.hasOwn(base[f], id) && JSON.stringify(rec) !== JSON.stringify(base[f][id]));
+      if (other.length) (seasonData[season] ||= {})[f] = Object.fromEntries(other);
     }
   }
   const readDict = async (abs) => (existsSync(abs) ? JSON.parse(await readFile(abs, 'utf8')) : {});
@@ -777,6 +787,17 @@ async function main() {
   if (opts.dict) fallback.dict = JSON.parse(await readFile(opts.dict, 'utf8'));
   if (opts.fix) fallback.fix = JSON.parse(await readFile(opts.fix, 'utf8'));
   const { overlay, report } = buildOverlay({ zh, en, data, fallback, lang: opts.lang, source: client ? { id: opts.source, label: src.label, home: src.home, season: seasonEn } : { id: 'dict', label: src.label } });
+  const seasonTotals = {};
+  /** season id → its overlay's `files` (written beside the overlay: data/i18n/<lang>.<season>.json, seasonOverlayPath) */
+  const seasonFiles = {};
+  for (const [season, sdata] of Object.entries(seasonData)) {
+    const { overlay: so, report: sr } = buildOverlay({ zh, en, data: sdata, fallback, lang: opts.lang });
+    if (Object.keys(so.files).length) seasonFiles[season] = so.files;
+    seasonTotals[season] = sr.totals;
+    // names: the default's form wins; a name only the season's records carry joins (sorted, as buildOverlay writes them)
+    const extra = Object.entries(so.names).filter(([zhName]) => !Object.hasOwn(overlay.names, zhName));
+    if (extra.length) overlay.names = Object.fromEntries([...Object.entries(overlay.names), ...extra].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  }
 
   // self-check: applying the overlay keeps every record's shape (strings replace strings only)
   let applied = 0;
@@ -785,7 +806,16 @@ async function main() {
     applied += r.applied;
     if (r.stale) throw new Error(`overlay of ${file} does not apply cleanly (${r.stale} stale leaves)`);
   }
+  for (const [season, sfiles] of Object.entries(seasonFiles)) {
+    for (const [file, fov] of Object.entries(sfiles)) {
+      const r = applyFileOverlay(seasonData[season][file], fov);
+      applied += r.applied;
+      if (r.stale) throw new Error(`overlay of ${season}/${file} does not apply cleanly (${r.stale} stale leaves)`);
+    }
+  }
   const text = `${JSON.stringify(overlay)}\n`;
+  const seasonTexts = Object.entries(seasonFiles).map(([season, files]) => [seasonOverlayPath(opts.out, season),
+    `${JSON.stringify({ version: OVERLAY_VERSION, lang: opts.lang, season, files })}\n`]);
   const rep = { ...report, source: overlay.meta.source, enDataVersion: version, applied, bytes: Buffer.byteLength(text) };
   await mkdir(dirname(opts.report), { recursive: true });
   await writeFile(opts.report, `${JSON.stringify(rep, null, 1)}\n`);
@@ -796,17 +826,32 @@ async function main() {
     log(`    ${kind.padEnd(10)} ${String(c.translated).padStart(5)} / ${String(c.texts).padEnd(5)} ${String(c.pct).padStart(5)} %   official ${c.exact + c.template + c.composite} (exact ${c.exact} · template ${c.template} · composite ${c.composite})${fb ? ` · ${fb}` : ''}${c.notes ? ` · notes skipped ${c.notes}` : ''}`);
   }
   log(`  total ${report.totals.translated} / ${report.totals.texts} (${report.totals.pct} %), official ${report.totals.official}; ${Object.keys(overlay.names).length} names (${report.nameConflicts.length} with several ${opts.lang} forms)`);
+  for (const [season, t] of Object.entries(seasonTotals)) log(`  ${season}'s records under the default's ids: ${t.translated} / ${t.texts} (${t.pct} %), official ${t.official}`);
   if (opts.check) {
-    const cur = existsSync(opts.out) ? await readFile(opts.out, 'utf8') : '';
-    if (cur !== text) { console.error(`build-i18n --check: ${relative(ROOT, opts.out)} is out of date (run node tools/build-i18n.mjs)`); process.exit(1); }
-    log(`  ${relative(ROOT, opts.out)} is up to date`);
+    for (const [file, t] of [[opts.out, text], ...seasonTexts]) {
+      const cur = existsSync(file) ? await readFile(file, 'utf8') : '';
+      if (cur !== t) { console.error(`build-i18n --check: ${relative(ROOT, file)} is out of date (run node tools/build-i18n.mjs)`); process.exit(1); }
+      log(`  ${relative(ROOT, file)} is up to date`);
+    }
     return;
   }
   await mkdir(dirname(opts.out), { recursive: true });
-  const tmp = `${opts.out}.tmp-${process.pid}`;
-  await writeFile(tmp, text);
-  await rename(tmp, opts.out);
-  log(`  wrote ${relative(ROOT, opts.out)} (${(rep.bytes / 1024).toFixed(0)} KB); report ${relative(ROOT, opts.report)}`);
+  for (const [file, t] of [[opts.out, text], ...seasonTexts]) {
+    const tmp = `${file}.tmp-${process.pid}`;
+    await writeFile(tmp, t);
+    await rename(tmp, file);
+    log(`  wrote ${relative(ROOT, file)} (${(Buffer.byteLength(t) / 1024).toFixed(0)} KB)`);
+  }
+  log(`  report ${relative(ROOT, opts.report)}`);
+}
+
+/**
+ * Where a season's own overlay goes beside a language's (public/js/data.js loads it while that season's files are read):
+ * data/i18n/ko.json → data/i18n/ko.act3autochess.json.
+ * @param {string} out @param {string} season
+ */
+export function seasonOverlayPath(out, season) {
+  return out.replace(/\.json$/, '') + `.${season}.json`;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

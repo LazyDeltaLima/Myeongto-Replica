@@ -5,6 +5,10 @@
 //     names: { <Chinese name>: <name> },                       // every translated game-data name (ticker / toast args)
 //     files: { <data file>: { <record id>: RecordOverlay } } }
 //
+// A season's records under ids the default files have too, with other contents, have an overlay of their own beside it,
+// data/i18n/<lang>.<season>.json = { version, lang, season, files } (tools/build-i18n.mjs seasonOverlayPath), which
+// public/js/data.js downloads and applies over `files` only while that season's files are read.
+//
 // A RecordOverlay mirrors the record of data/<file>.json: a string leaf replaces the Chinese string at the same path,
 // an object recurses, an array is index-aligned (null = keep the Chinese entry). `_h` (on every record overlay) holds
 // the 2-character hash (textHash2) of each Chinese string a leaf replaces, in walk order (object keys in their order,

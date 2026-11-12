@@ -146,6 +146,12 @@ export function createDataStore(opts = {}) {
   const overlayLoads = new Map();
   /** @type {Map<string, any>} */
   const overlays = new Map();
+  /** `<lang>@<season>` → that season's own overlay (null: none), loaded only while the season's files are read */
+  const seasonOverlays = new Map();
+  /** @type {Map<string, Promise<any>>} */
+  const seasonOverlayLoads = new Map();
+  /** The URL of each language's overlay as the last setLocale got it (its season files sit beside it). */
+  const overlayUrls = new Map();
   /** name → { lang, value, index } localized copy of a ready file (dropped on every switch / reload of the file) */
   const localized = new Map();
   /** The 卫戍协议 season whose files are read (shared/seasons.js; setSeason): the default's are /data/<file>. */
@@ -257,7 +263,12 @@ export function createDataStore(opts = {}) {
     if (locale === 'zh' || !chain.length) return null;
     const e = entries.get(name);
     if (!e || e.status !== 'ready') return null;
-    const fileOverlays = chain.map((c) => overlays.get(c)?.files?.[name]).filter(Boolean);
+    // per language, best first: the season's own overlay of its records under the default's ids (data/i18n/<lang>.<season>.json,
+    // tools/build-i18n.mjs seasonOverlayPath), then the language's — applied in reverse, so the season's wins
+    const fileOverlays = chain.flatMap((c) => [
+      season !== DEFAULT_SEASON ? seasonOverlays.get(`${c}@${season}`)?.files?.[name] : null,
+      overlays.get(c)?.files?.[name],
+    ]).filter(Boolean);
     if (!fileOverlays.length) return null;
     let l = localized.get(name);
     if (!l || l.lang !== locale || l.base !== e.value) {
@@ -309,6 +320,39 @@ export function createDataStore(opts = {}) {
     overlayLoads.set(lang, p);
     return p;
   }
+
+  /**
+   * Download (once per language and season) the season's own overlay beside the language's — data/i18n/ko.json →
+   * data/i18n/ko.<season>.json (tools/build-i18n.mjs seasonOverlayPath); null when there is none (a pack without one).
+   * @param {string} lang @param {string} id
+   */
+  function loadSeasonOverlay(lang, id) {
+    const key = `${lang}@${id}`;
+    if (seasonOverlayLoads.has(key)) return seasonOverlayLoads.get(key);
+    const url = (overlayUrls.get(lang) || `${base}i18n/${lang}.json`).replace(/\.json(?=$|\?)/, `.${id}.json`);
+    const p = (async () => {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          const res = await doFetch(url, { cache: 'no-cache' });
+          if (!res || !res.ok) throw Object.assign(new Error(`HTTP ${res ? res.status : '???'}`), { status: res ? res.status : null });
+          const json = await res.json();
+          if (!json || typeof json !== 'object' || !json.files) throw Object.assign(new Error('not an overlay'), { badJson: true });
+          seasonOverlays.set(key, json);
+          return json;
+        } catch (err) {
+          if (transientFailure(err) && attempt < retryDelays.length) { await wait(retryDelays[attempt]); continue; }
+          // a 404 is the usual case for a language without season texts: keep it, ask again only after a transient failure
+          if (transientFailure(err)) { console.warn(`[data] ${url} unavailable (${err?.message || err})`); seasonOverlayLoads.delete(key); }
+          seasonOverlays.set(key, null);
+          return null;
+        }
+      }
+    })();
+    seasonOverlayLoads.set(key, p);
+    return p;
+  }
+  /** The season overlays of the current chain for the current season (none in the default season). */
+  const loadSeasonOverlays = (codes = chain) => (season === DEFAULT_SEASON ? Promise.resolve([]) : Promise.all(codes.map((c) => loadSeasonOverlay(c, season))));
 
   function invalidate(name) {
     if (!entries.has(name)) return Promise.resolve(null);
@@ -363,7 +407,8 @@ export function createDataStore(opts = {}) {
       const next = seasonOf(id);
       if (next === season) return Promise.resolve();
       season = next;
-      return Promise.all([...entries.keys()].filter((n) => !ART_MANIFESTS.has(n)).map(invalidate)).then(() => {});
+      // the season's game texts first (a file each language), so the files read again come localized with them
+      return loadSeasonOverlays().catch(() => {}).then(() => Promise.all([...entries.keys()].filter((n) => !ART_MANIFESTS.has(n)).map(invalidate))).then(() => {});
     },
     /** Called with the file name whenever a file finishes loading (or is invalidated, or the locale changes). */
     subscribe(fn) {
@@ -392,9 +437,12 @@ export function createDataStore(opts = {}) {
       const asked = want === 'zh' ? [] : items.filter((c) => c && canonicalLang(c.code) === c.code && c.code !== 'zh' && !seen.has(c.code) && seen.add(c.code));
       const ask = asked.map((c) => c.code);
       const seq = ++switches;
+      for (const c of asked) overlayUrls.set(c.code, typeof c.url === 'string' && c.url ? c.url : `${base}i18n/${c.code}.json`);
       const got = await Promise.all(asked.map((c) => loadOverlay(c.code, typeof c.url === 'string' && c.url ? c.url : undefined)));
       if (seq !== switches) return locale; // a later switch is under way
       const next = ask.filter((_, i) => got[i]);
+      await loadSeasonOverlays(next).catch(() => {});
+      if (seq !== switches) return locale;
       if (ask.length && !next.length) return locale;
       if (want === locale && next.join('|') === chain.join('|')) return locale;
       locale = want;

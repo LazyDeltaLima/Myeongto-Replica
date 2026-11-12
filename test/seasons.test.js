@@ -21,6 +21,7 @@ import { StubMatch } from '../server/match/StubMatch.js';
 import { validateC2S } from '../shared/protocol.js';
 import { ERR } from '../shared/constants.js';
 import { createDataStore } from '../public/js/data.js';
+import { buildRecordOverlay } from '../shared/i18nData.js';
 import { createBattleRunner } from '../public/js/battle/runner.js';
 import { createStore, initialState } from '../public/js/store.js';
 import { TestClient } from './helpers/wsClient.js';
@@ -141,6 +142,36 @@ test('browser data store: setSeason reads every loaded file but the art manifest
     await store.setSeason(undefined); // back to the default
     assert.equal(store.season(), DEFAULT_SEASON);
     assert.deepEqual(urls.slice(4).sort(), ['/data/bonds.json', '/data/chess.json']);
+  } finally { undo(); }
+});
+
+test('browser data store: a season\'s own game-text overlay (data/i18n/<lang>.<season>.json) applies over the default\'s in that season only', async () => {
+  const ov = (zh, ko) => buildRecordOverlay([{ path: ['name'], zh, en: ko }]);
+  const files = { '/data/chess.json': { x: { name: '甲' }, y: { name: '丙' } }, [`/data/s/${NEXT}/chess.json`]: { x: { name: '乙' }, y: { name: '丙' } } };
+  const overlay = { version: 1, lang: 'ko', names: {}, files: { chess: { x: ov('甲', '갑'), y: ov('丙', '병') } } };
+  const seasonOverlay = { version: 1, lang: 'ko', season: NEXT, files: { chess: { x: ov('乙', '을') } } };
+  const urls = [];
+  const store = createDataStore({
+    retryDelays: [], timeoutMs: 0,
+    fetch: async (u) => {
+      urls.push(u);
+      if (u === `/data/i18n/ko.${NEXT}.json`) return { ok: true, json: async () => seasonOverlay };
+      if (u === '/data/i18n/ko.json') return { ok: true, json: async () => overlay };
+      return files[u] ? { ok: true, json: async () => files[u] } : { ok: false, status: 404 };
+    },
+  });
+  await store.load('chess');
+  assert.equal(await store.setLocale('ko'), 'ko');
+  assert.deepEqual([store.lookup('chess', 'x').name, store.lookup('chess', 'y').name], ['갑', '병'], 'the default season: the default overlay');
+  assert.ok(!urls.some((u) => u.includes(`.${NEXT}.`)), 'the default season downloads no season overlay');
+  const undo = defineSeason(NEXT);
+  try {
+    await store.setSeason(NEXT);
+    // x is another record under the same id: the default's leaf stops at its hash, the season's applies; y is the same
+    assert.deepEqual([store.lookup('chess', 'x').name, store.lookup('chess', 'y').name], ['을', '병'], 'the season: its own overlay over the default\'s');
+    assert.equal(store.getRaw('chess').x.name, '乙');
+    await store.setSeason(undefined);
+    assert.equal(store.lookup('chess', 'x').name, '갑', 'back to the default');
   } finally { undo(); }
 });
 
