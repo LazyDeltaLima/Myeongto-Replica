@@ -62,6 +62,24 @@ export const OFFICIAL = Object.freeze({
   aspectAdjust: Object.freeze([0, -1.4, -2.8]), // camera offset at 3:4 (H/W), interpolated from 9:16
 });
 
+/**
+ * Camera params a season's official client frames with instead of its levels' `configBlackBoard` ones (which are the same
+ * as the 盟约 levels'). 规程's battle camera (docs/rules/render.md 「규정 전투 카메라」): the controller position fitted to an
+ * official CN battle screenshot of 规程 m03 (1920 × 1080, 101 board feature matches, 5 px rms with the official rotation
+ * and FOV) — the bench row in full view, as the official battle shows it. [ASSUMED·화면: one screenshot, the left
+ * normal battle only; the CN camera plugin's own settings could not be read]
+ */
+export const SEASON_CAMERA_PARAMS = Object.freeze({
+  act3autochess: Object.freeze({ left_battle_camera_param: '(-5.43,0.76,-1.56,1)' }),
+});
+
+/** A stage's camera config: its `config` with its season's SEASON_CAMERA_PARAMS on top (the season = the id's prefix). */
+export function stageCameraConfig(stage) {
+  const cfg = stage && stage.config && typeof stage.config === 'object' ? stage.config : null;
+  const over = typeof stage?.id === 'string' ? SEASON_CAMERA_PARAMS[stage.id.split('_')[0]] : null;
+  return over ? { ...(cfg || {}), ...over } : cfg;
+}
+
 /** configBlackBoard camera params (identical in all 11 autochess stages; stage.config overrides). */
 export const OFFICIAL_PARAMS = Object.freeze({
   left_prepare_camera_param: '(-4.67,0.3,-2.46,1)',

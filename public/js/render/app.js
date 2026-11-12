@@ -129,7 +129,7 @@
 import { GEO, ANIM } from '../../../shared/constants.js';
 import { wideHalves, widenStageData } from '../../../shared/wideField.js';
 import { fxDir, fxForm } from '../../../shared/protocol.js';
-import { Camera, presetCamera, lerpCamera, flyRig, easeInOutCubic, easeOutQuart, pickTile, normRect, SIDE_BY } from './projection.js';
+import { Camera, presetCamera, lerpCamera, flyRig, easeInOutCubic, easeOutQuart, pickTile, normRect, SIDE_BY, stageCameraConfig } from './projection.js';
 import { SnapshotBuffer, frameTime } from './interp.js';
 import { TileField } from './tiles.js';
 import { UnitView, ItemView, DeviceView, FORMS, SKIN_FORMS, syncView } from './units.js';
@@ -694,7 +694,7 @@ export async function createFieldView(host, options = {}) {
     const vk = viewKind(kind, o); // (a 'prep' camera on the boss rows = the Final Assault prep)
     // `sideBy` / `at`: the official side camera of a held or selected piece; `at` is a board tile, the camera's a shown one
     return presetCamera(k, { width: sz.width, height: sz.height, padding: o.padding || defaultPadding(k, sz) }, {
-      rect, side: o.side, half: !!o.half, halfOffset: o.halfOffset, shop: o.shop, fit: !!o.fit, config: stageRec?.config || null,
+      rect, side: o.side, half: !!o.half, halfOffset: o.halfOffset, shop: o.shop, fit: !!o.fit, config: stageCameraConfig(stageRec),
       sideBy: !!o.sideBy, at: o.at ? prepXf.toDisp(o.at.row, o.at.col) : null,
       hud: hudBands(vk, sz, { shop: o.shop !== false && !o.at }), // a selected piece folds the bar, not the camera's height
     });
