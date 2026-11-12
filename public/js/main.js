@@ -75,6 +75,7 @@ import { PHASE } from '../../shared/constants.js';
 import { mergePublic } from '../../shared/protocol.js';
 import { battleArt } from './ui/battleArt.js';
 import { recordError, installPageRecord } from './diag.js';
+import { pushTraitFx } from './render/fxtrait.js'; // 2026-11-12: 规程's m.trait (the 特质 effect over a prep piece)
 
 const RESTORE_GRACE_MS = 1500;
 const JOIN_DELAY_MS = 350;
@@ -324,6 +325,8 @@ function wireNet() {
     const s = store.get();
     if (selectRoute(s) === 'game' && msg.playerId === s.me?.playerId) audio.layerGain(msg.bondId, msg.add);
   });
+  // 规程: a 特质 of the own piece ran in the preparation — its effect over the piece (render/fxtrait.js; live only)
+  net.on('m.trait', (msg) => { if (selectRoute(store.get()) === 'game') pushTraitFx(msg); });
   net.on('m.field', (msg) => store.patch('match', { field: payload(msg) }));
   net.on('m.result', (msg) => {
     const res = payload(msg);

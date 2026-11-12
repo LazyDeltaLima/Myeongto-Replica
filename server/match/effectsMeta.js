@@ -52,6 +52,7 @@ import { msg, dn } from '../../shared/i18n.js';
 import { onGiftTicker } from './botEmotes.js';
 import { previewContext } from './preview.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
+import { traitEventFx } from '../../shared/traitFx.js';
 
 export const HOOKS = Object.freeze([
   'onRoundStart', 'onIncome', 'onPrepStart', 'onPrepEnd', 'onGain', 'onSold', 'onRefresh', 'onPrice', 'onBuy',
@@ -205,6 +206,20 @@ export class EffectDispatcher {
     for (let i = 0; i < repeat; i++) {
       try { fn.call(handler, ctx, ev); } catch (e) { this._report(key, hook, e); }
     }
+    if (source.kind === 'garrison' && !this.preview) this._traitFx(ps, hook, source);
+  }
+
+  /**
+   * 规程's 特质 effect over the piece whose 特质 just ran (shared/traitFx.js; docs/rules/fx.md 「규정 특질 발동 이펙트」): the
+   * owner's live m.trait { uid, fx } — 雪猎's chain link when bought (「获得时」) and when 铃兰's 指令 runs it again (official
+   * screens). A price (onPrice: 「购买价格为N」, read for every shop slot) is no event and sends nothing; 投资人's repeats are one
+   * effect. Never replayed on a resync. [추정·화면: a run whose condition fails (a row short of three) shows it too — the
+   * handler's outcome is not known here.]
+   */
+  _traitFx(ps, hook, source) {
+    if (hook === 'onPrice' || !Number.isInteger(source.piece?.uid)) return;
+    const fx = traitEventFx(source.garrison);
+    if (fx && typeof this.m.sendTo === 'function') this.m.sendTo(ps.playerId, { t: 'm.trait', uid: source.piece.uid, fx });
   }
 
   /** 获得时 multiplier from 投资人 (investShip): ×2 while active, ×3 at ≥ 100 layers (research 02 §3.17). */

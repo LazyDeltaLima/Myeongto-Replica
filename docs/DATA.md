@@ -335,6 +335,7 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `effectType` | `"SERVER_ADD_BOND_METHOD"` | |
 | `effectKey` | `"SERVER_ADD_BOND_METHOD"` / `"act1autochess_gar_eff_attrByBond"` | handler key: `bbStr.key` (battle runes) else `effectType` |
 | `battleRuneKey`, `charLevel` | `null`, `0` | |
+| `eventEffect` | `"map_v079_buff03"` / `null` | 规程 only (absent from the default season's table): the effect over the operator when the 特质 takes effect — `shared/traitFx.js` (`null` with `icon_bond`: `map_v079_buff01`) |
 | `bb`, `bbStr` | `{"multi":1}`, `{"add_method":"shoplv","bond":"yanShip"}` | |
 | `owners[]` | `["chess_char_1_03_a"]` | chess carrying it (includes garrisons referenced by other garrisons, which may have no owner) |
 

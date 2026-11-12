@@ -570,6 +570,9 @@ export const S2C = [
   // m.layer { playerId, bondId, add } — the player's own bond layer gain in ROUND_START / SP_DRAFT / PREP (upstream #482:
   // the layer-up sound); live only, never replayed on a resync
   'm.layer',
+  // m.trait { uid, fx } — 规程: the player's own piece `uid` ran a 特质 in the preparation (获得时, 进入休整期时 …): its effect
+  // prefab `fx` (map_v079_buff0N, shared/traitFx.js) over it; live only, never replayed on a resync
+  'm.trait',
   // m.unitStats { seq, round, units: [unitStatsEntry] } — the answer to g.unitStats (the requester only)
   'm.unitStats',
   // client-side combat (DESIGN §14): b.start { battleId, fieldId, kind, spec, authoritative, startAt, serverNow, elapsed,

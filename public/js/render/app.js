@@ -166,6 +166,7 @@ import { frameScale, loadLevelStepper } from './load-level.js'; // 2026-10-30: t
 import { t } from '../../../shared/i18n.js';
 import { syncGoldenFx } from './fxgolden.js'; // local patch: the prep elite glow
 import { bandMarksOf, bandMarkFxByUid, bandTileFx, syncBandMarks } from './fxband.js'; // 2026-11-12: 规程's 指令 marks in the prep
+import { drainTraitFx, traitFxPending } from './fxtrait.js'; // 2026-11-12: 规程's 特质 effect over a prep piece (m.trait)
 import { createRouteCursors, createBattleCursors } from './fxroute.js'; // the boss route preview (LOCAL-PATCH.md 「보스 경로 미리보기」); the battle start's official one (render.md 「적 경로 미리보기」)
 
 export { ensurePixi } from './app/pixi.js';
@@ -2322,6 +2323,7 @@ export async function createFieldView(host, options = {}) {
       lap('hud');
       syncStatusFx(views, fxGame, mode === 'battle'); // local patch: official status effects (fxstatus.js)
       syncGoldenFx(views, fxGame, mode === 'prep'); // local patch: the official elite glow in the prep (fxgolden.js)
+      if (traitFxPending()) drainTraitFx(views, fxGame, mode === 'prep'); // 2026-11-12: m.trait, once its piece's view is up
       // 2026-11-12: 规程's 指令 marks (fxband.js) in the prep — the operators' every frame while there are some (their views
       // are rebuilt, the layer loads late), the tiles' when they changed or until the effect index is up; a battle or
       // enterPrepMode's clear() takes both with the views and the layer's effects

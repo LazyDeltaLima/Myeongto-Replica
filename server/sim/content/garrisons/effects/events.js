@@ -6,6 +6,7 @@ import * as S from '../../support/index.js';
 import { frontOf } from '../../../dir.js';
 import { ids, EMPTY, byUnit, inRangeOf } from '../shared.js';
 import { runTriggered, capOf } from './triggered.js';
+import { traitEventFx } from '../../../../../shared/traitFx.js';
 
 /** Status keys for check_ab_flag values used by the data (16 = 冻结). */
 const AB_FLAG_STATUS = Object.freeze({ 16: 'freeze' });
@@ -75,11 +76,23 @@ function conditionMet(battle, it) {
 }
 
 /**
+ * 规程's 特质 effect over its operator (shared/traitFx.js: the record's eventEffect, map_v079_buff01 for a bond one) as a
+ * template effect ['tplfx', holder, prefab] — when an event 特质 takes effect: a layer gain that added layers, an effect
+ * garrison run (莎草 「每次开启技能时…」: crossed swords over her at each skill, official recording). The fixed
+ * stat 特质 (attrByBond 「每叠加N层…」, effects/stats.js) have no event and play nothing. [추정·화면: a gain stopped by its
+ * per-battle cap plays nothing; an effect garrison plays even when its effect finds nobody.]
+ */
+function traitFx(battle, it) {
+  const name = traitEventFx(it.g);
+  if (name) S.tplFx(battle, it.unit, name);
+}
+
+/**
  * Fire a 特质 instance on its event: a garrison_trigger_buff one runs its effect garrison (effects/triggered.js), any
  * other gains layers (fireGain).
  */
 export function fire(battle, it) {
-  if (it.bbStr.garrison_type === 'garrison_trigger_buff') { runTriggered(battle, it); return 0; }
+  if (it.bbStr.garrison_type === 'garrison_trigger_buff') { if (runTriggered(battle, it)) traitFx(battle, it); return 0; }
   return fireGain(battle, it);
 }
 
@@ -104,7 +117,7 @@ export function fireGain(battle, it) {
     temp: S.num(it.bb.bond_add_as_tmp, 0) > 0, // 规程 "临时层数+N" (garrison_13)
   });
   if (whole && added > 0) it.wholeUsed = (it.wholeUsed ?? 0) + n;
-  if (added > 0) S.fxOn(battle, 'garrison', it.unit, `gar:${it.gid}`, it.key, { n: added });
+  if (added > 0) { S.fxOn(battle, 'garrison', it.unit, `gar:${it.gid}`, it.key, { n: added }); traitFx(battle, it); }
   return added;
 }
 

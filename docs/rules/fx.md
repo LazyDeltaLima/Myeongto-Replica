@@ -4132,8 +4132,25 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 새 시즌 표의 전략 효과(`effectBuffInfoDataDict`) 블랙보드가 이펙트를 이름으로 준다: 드래그 대상 오퍼레이터 위 `skill_target_effect`(`skill_target_chess` 1) — `aceffect_band_87` `skill_layer_limit_grow_round`·`aceffect_band_90` `skill_garr_event_extra_exec` → `map_v079_squad_01`, `eff_band12` → `_02`, `eff_band14` → `_03`, `eff_band22` → `_04`, `eff_band17`·`eff_band18` → `_05`; 지형 칸 `eff_band19`(`skill_target_tile` 1)의 `effect` → `map_v079_dikuai02`. 프리팹은 CN `battle/prefabs/effects/map.ab`(일곱 개, `dikuai01`은 어느 표도 안 부르고 `MapEffect` 스크립트가 있음)에서 `map` 묶음으로 뽑았다. 표식 다섯은 발밑(`_spawnLocation` 1)에서 도는 루프, `dikuai02`는 정적 바닥 메시다.
 - **연결**(2026-11-12, `render/fxband.js`): 서버 보기 `m.private.bandSkill.marks`(sim.md 「규정 전략」 — 그 라운드의 표식 `{ effectId, uid }`·`{ effectId, row, col }`·`{ effectId, itemId }`)를 정비 화면(`render/app.js setPrep`)이 읽는다. 표식이 있는 정비 기물마다 그 효과의 프리팹을 프리팹 자리에 루프로 붙이고(`fxgame.js statusOn`, 상태 키 `band:<프리팹>` — 같은 모양 둘이면 하나), 표식이 사라지면 끈다(매 프레임 `syncBandMarks`, 정예 금빛과 같은 길). 칸 표식은 그 칸 위 바닥에 하나(`fxgame.js setBandTiles`, 바닥 층·상한에 안 밀림, `clear()`까지). 브라우저는 `effects.json`을 받지 않아서 이름은 `fxband.js`의 표이고, 시험이 그 표를 자료의 블랙보드 전부와 맞춘다. 아이템 카드 표식(「电气化！」 `eff_band24`)은 이펙트가 없다. [추정·CN: 클라에서 이 블랙보드를 읽는 코드는 CN 전용이라 붙는 자리·보이는 동안을 못 읽음 — 정비 동안(표식이 생긴 뒤 그 라운드 전투까지) 기물 발밑·칸 위로 둠, 전투 안에서는 안 그림(전투 안 칸 신호는 sim에 없음)]
 - **「모의 보물」**(`enemy_9038_achest`, 「宝藏探机」의 상자): 공식에서 적 기록의 아군 단위다(적 기록 능력 줄 「友方单位」). 정비 보기 `m.private.bandSkill.chests`(`{ row, col, enemyId }`)는 그 칸에 읽기 전용 뷰(`c:<칸>`, 집거나 끌 수 없음)로, 전투의 장치(`kind 'device'`, 정의 id가 그 적)는 장치 상자(`DeviceView`) 대신 — 둘 다 그 적 기록의 모델로 그린다: 걷는 아군 길(`walks`, `render/app/info.js deviceAsEnemy` — 적 기록이 있는 장치만; 다른 장치는 상자 그대로). 모델은 CN `enemy_9038_achest` Spine(클립 `Default`·`Idle`), 사망 이펙트는 바인딩 `dead`(`common_enemy_die_01`). 전투 화면에서 집어도 상세 카드는 안 연다(장치처럼). [추정·CN: 체력 막대 — 아군 막대 그대로, 공식 상자가 막대를 보이는지 안 봄]
-- 특질의 `eventEffect`(새 필드)도 같은 묶음의 `map_v079_buff02`·`03`·`04`를 준다(특질 161개) — 특질 사건이 생기면(sim-N).
+- 특질의 `eventEffect`(새 필드)도 같은 묶음의 프리팹을 준다 → 「규정 특질 발동 이펙트」.
 - 확인: `test/render/band-mark-fx.test.js` — 표와 `effects.json` 대조, 실제 판의 표식 보기(오퍼레이터 표식 `eff_band12`, 溃心领域 칸)·보물 보기와 전투 장치의 유닛 정보 → 그림 정보, `syncBandMarks` 켜기·끄기·정비 밖, `setBandTiles` 칸마다 하나·`clear()` 뒤 다시, `setPrep` 연결. 연결을 하나씩 되돌리면 모두 실패. [화면 미확인: 아레나·실제 판에서 표식·칸·상자를 안 봄 — `checks/arena.md`]
+
+## 규정 특질 발동 이펙트 (2026-11-12, 공식 클라·공식 녹화에서 확인)
+
+규정 특질 표(`garrisonDataDict`)의 새 필드 `eventEffect`는 특질이 발동할 때 그 오퍼레이터 머리 위에 뜨는 이펙트다. CN `battle/prefabs/effects/map.ab`의 `map_v079_buff01`–`04`는 모두 같은 꼴(아이콘 두 장 + 빛, 0.6초 떠오름, `_spawnLocation` 4 머리)이고, 아이콘만 특질 종류 아이콘(`eventTypeIcon`)과 하나씩 맞는다.
+
+| 프리팹 | 아이콘 | 특질 종류 | 특질 수 | 표의 `eventEffect` |
+|---|---|---|---|---|
+| `map_v079_buff01` | 사슬 고리(∞) | 맹약 층수 `icon_bond` | 204 | null |
+| `map_v079_buff02` | Y자 화살 | 지원 `icon_support` | 4 | `buff02` |
+| `map_v079_buff03` | 교차한 칼 | 전투 `icon_battle` | 80 | `buff03` |
+| `map_v079_buff04` | 마름모 셋 | 자금 `icon_gold` | 47 | `buff04` |
+
+- **맹약 특질의 ∞**: 표는 null인데, 공식 화면은 스노우헌터(`chess_char_2_05`, 「획득 시」 쉐라그·정밀 층수)를 살 때와 스즈란 지령이 그 「획득 시」를 다시 돌릴 때 머리 위에 `buff01`을 띄운다. 전투 중 층수 특질에도 뜬다(관리자 확인 2026-11-12, 공식 녹화). 그래서 `shared/traitFx.js traitEventFx`는 표의 값, 없으면 `icon_bond`일 때 `buff01`을 준다. 지난 시즌 표에는 이 필드가 없어 아무것도 안 튼다. 데이터는 `tools/build-data.mjs`가 표에 필드가 있을 때만 `eventEffect`를 적는다.
+- **전투**: 사건 특질이 효과를 낼 때(`content/garrisons/effects/events.js` traitFx) 시뮬이 `['tplfx', 보유자, 프리팹]`을 내고 렌더는 템플릿 이펙트 길(`fxgame.js tplFx`)로 그 유닛 머리 위에 튼다. 층수 특질은 층이 실제로 오른 때, 효과 특질(`garrison_trigger_buff`)은 효과 특질이 돌 때다. 파피루스(`chess_char_2_04`) 「스킬을 켤 때마다 앞 칸 기력」은 스킬마다 교차한 칼이 그녀 머리 위에 뜬다(공식 녹화, 관리자 확인 2026-11-12). 비이(`chess_char_4_04`) 「우르수스 2층마다 공격 속도」처럼 사건이 없는 고정 능력치 특질은 안 튼다 [추정·화면: 표는 `buff03`을 주지만 공식 녹화에서 비이 위의 칼을 아직 못 봄 — 배치 때 한 번 뜨는지]. 층수 특질이 판당 상한에 막혀 층이 안 오르면 안 튼다 [추정·화면].
+- **정비**: 서버 디스패처가 특질 처리기를 돌린 뒤(`server/match/effectsMeta.js _traitFx`) 그 기물의 주인에게만 실시간 `m.trait { uid, fx }`를 보낸다(재접속 때 다시 보내지 않음, `m.layer`와 같음). 가격(`onPrice`, 「구매 가격 N」)은 사건이 아니라 안 보낸다. 투자자의 반복은 한 번으로 보낸다. 브라우저는 `render/fxtrait.js` 대기열에 넣고, 정비 화면이 그 기물의 보기(`p:<uid>`)가 생기면 한 번 튼다(`fxgame statusOnce`, 2초 안에 안 생기면 버림 — 산 기물의 `m.private`보다 먼저 옴). [추정·화면: 처리기가 조건이 안 맞아 아무것도 안 해도(같은 줄 3명 미만 등) 이펙트는 보냄 — 디스패처가 결과를 모름]
+- 추출: `fx_extract.py --client cn --bundle map --match '^map_v079_buff0[1-4]$'`(색인 `sources`에 `client: 'cn'`).
+- 확인: `test/content/garrisons_act3_fx.test.js`(표의 아이콘 ↔ 프리팹, 파피루스 스킬마다 교차한 칼, 층수 특질의 ∞, 비이·꺼진 맹약은 없음), `test/match/trait-fx.test.js`(실제 `g.buy`로 산 스노우헌터, 「획득 시」 다시 돌리기, 투자자 반복, 지난 시즌은 없음), `test/render/trait-event-fx.test.js`(대기열·보기 기다림·전투 중 안 틂, 이펙트 층의 `statusOnce`·`tplfx`, 추출물 넷의 아이콘·머리 자리). 시뮬·서버 연결을 되돌리면 각 둘이 실패한다. [화면 미확인: 우리 화면에서 아직 안 봄 — `checks/arena.md`]
 
 ## 규정 특수 적 항목·호위 (2026-11-12, 공식 클라에서 확인)
 

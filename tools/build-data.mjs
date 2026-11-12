@@ -1984,6 +1984,9 @@ function buildGarrisons(ctx, chess) {
       eventType: g.eventType, eventTypeDesc: g.eventTypeDesc || null, eventTypeIcon: g.eventTypeIcon || null,
       effectType: g.effectType, effectKey: bbStr.key || g.effectType, battleRuneKey: g.battleRuneKey || null,
       charLevel: g.charLevel || 0, bb, bbStr,
+      // 规程's effect over the operator when the 特质 takes effect (a map_v079_buff0N prefab, null for the bond ones — the
+      // client plays map_v079_buff01 for those, shared/traitFx.js); the default season's table has no such field
+      ...('eventEffect' in g ? { eventEffect: g.eventEffect || null } : null),
       owners: Object.values(chess).filter((c) => c.garrisonIds.includes(id)).map((c) => c.chessId).sort(naturalCmp),
     };
   }
