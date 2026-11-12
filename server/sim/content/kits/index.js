@@ -125,6 +125,7 @@ export const OPERATOR_KIT_FILES = Object.freeze([
   'op-heyak.js',
   'op-closur.js',
   'op-dminon.js',
+  'op-makoto.js',
 ]);
 
 /**

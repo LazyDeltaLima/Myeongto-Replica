@@ -2528,6 +2528,24 @@
    "reset": 0,
    "state": 1
   },
+  "skchr_makoto_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_makoto_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_makoto_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_malist_2": {
    "ability": {
     "anim": "Skill_2",

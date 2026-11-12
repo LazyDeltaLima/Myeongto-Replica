@@ -1147,6 +1147,24 @@
 - 테스트: `test/content/op_dminon.test.js`(12) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 실제 매치 경로 하나(upstream 테스트에 없어 더함). 선발 수 37 → 38명(폼 154 → 157). golden `diy-066`·`diy-067`(새 시나리오), 다른 가족 변화 없음.
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD·그림: CN 클라에서 뽑음(`add_operator.py`). 연결이 남은 이펙트(`fx-wiring-report.mjs`)는 fx 묶음 몫이다. 화면 확인 전이다.
 
+## 유키 마코토 (2026-11-12, 관리자 결정)
+- 관리자 결정 2026-11-12: 结城理(`char_4217_makoto`, 6성 스페셜리스트 인형사, 페르소나 3 리로드 콜라보, CN에만 있음)를 선발에 넣는다(`LOCAL_DIY_PICKS` 끝). upstream은 콜라보 6성을 선발에서 빼고 키트도 없다. 공개 키트가 하나 있으나 출처·라이선스가 밝혀지지 않아 쓰지 않고, 키트 `op-makoto.js`는 공식 CN 표·CN 클라의 프리팹(`char_4217_makoto`·`skchr_makoto_1~3`)과 버프 템플릿 34개(`makoto_*`)로 새로 썼다.
+- 공식 규정 표(`act3autochess skillTriggerDataList`)에 그의 S3 행(`INVALID_IN_SKILL + ATTACK_RANGE_ENEMY + SKILL_RANGE_ENEMY`)이 있다 — 규정에서도 공식으로 고를 수 있는 오퍼레이터로 보인다. 이 행은 다른 새 목록 행처럼 읽지 않고 기본 전략(스킬 범위 x-1 상자)으로 둔다 [추정·CN: 목록 조건을 어떻게 합치는지는 CN 클라만 읽음]. 맹약 표에는 행이 없어 세 스킬 모두 `DEFAULT` + x-1 상자.
+- 맹약: 맹약은 세력으로 받는다 — 맹약에서는 라테라노(`laterano` 부세력), 규정에서는 라테라노가 없어 협방(`fallbackBondId`). 이를 위해 빌드의 선발 맹약 계산을 그 시즌의 맹약만 보게 고쳤다(`tools/build-data.mjs buildBackups`: 규정의 전역 `bondInfoDict`에는 맹약 시즌의 라테라노가 남아 있어 규정 데이터 검사가 실패했음).
+- 특성은 공용 인형사(`professions.js installDollkeeper`, 2초 교체·<대역> 20초·저지 0·교체 때 상태 이상과 기력 비움). 그만의 것:
+  - 모든 스킬이 「패시브: <대역> 상태에서 페르소나 소환 / 액티브: 즉시 <대역>으로 교체」 — 발동하면 곧바로 교체(`makoto_s<n>_trigger`), 치명상으로 들어가도 같은 페르소나가 싸운다. 페르소나 범위는 모든 스킬의 x-1(반지름 2 마름모).
+  - 재능 1 얽매이지 않는 힘: <대역>에서 공격력 +atk, 공격 딜레이 +0.4초, HP +max_hp_t1(PUM-Y 특성의 +max_hp가 더해짐 — 두 MULTIPLIER의 합). 본체에서 <대역>으로 바뀔 때(`makoto_switchbegin`의 모드 0 검사) x-1 안 적(지상·공중) 정지 sluggish초.
+  - S1 오르페우스: 범위에 HP 50% 미만 아군(지상·공중)이 있으면 가장 낮은 비율을 heal_scale×공격력 치료, 없으면 지상 적 1명에 atk_scale×공격력 마법(`AbilitySelectableGroup`의 차례).
+  - S2 타나토스: 지상 적 최대 max_target명에 atk_scale×공격력 마법, 맞은 적마다 prob 확률로 공포 fear초. 0.1초마다 범위(지상·공중)의 공포 상태 적 중 HP < kill_atk_scale×공격력이면 kill_damage 무출처 트루 대미지(로고스 S1과 같은 처형).
+  - S3 타나토스: 지상·공중 적 최대 max_target명에 약점 대미지(`common_weak_damage` — 물리·마법 중 덜 막는 쪽), 공격 속도 +talent@attack_speed. 타나토스로 치명상을 입으면(`makoto_tr`의 모드 3 분기) 남은 <대역> 시간 동안 오르페우스: 공격 없음, 저지 block_cnt, 범위 안 오퍼레이터(소환물·장치 제외, `professionMask` 639; 자신 포함) 물리·마법 회피 prob, interval초마다 가장 다친 아군 최대 max_target_heal명을 0.5초 뒤 heal_scale×공격력 치료. 이 교체는 1.5초(`Doll_Skill_3_P1toP2_ChangeBegin` 0.5초 + `ChangeEnd` 1초 — 모델 클립 길이, 공용 교체와 같은 순서)이고 남은 시간을 쓰지 않는다(`makoto_assign_standing_time`).
+  - S1·S2 페르소나나 오르페우스로 치명상을 입으면 쓰러진다(`makoto_tr`에 갈래 없음).
+  - 재능 2 S.E.E.S. 리더: <대역> 시간이 끝나 돌아올 때(쓰러질 때는 아님) 교체 시작 1.6초 뒤(`makoto_allout_attack_damage` triggerInterval) 필드의 모든 유키 마코토(협동의 다른 플레이어 것 포함, 「중첩 가능」) 주변 x-1의 모든 적(지상·공중)에 그의 공격력 × atk_scale 트루 대미지.
+- 키트 주석에 남은 추정:
+  - [추정·CN: `SetCastSkillManualTriggerOnly`는 CN에만 있는 노드] S3 타나토스에서 스킬로 오르페우스로 바꾸는 길은 수동 발동 전용이라 자동 조작은 쓰지 않는다고 봄 — 치명상으로만 바뀐다(공용 특성의 기력 정지로 어차피 준비되지 않음).
+  - [추정·CN] 돌아오는 교체와 총공격 자세(`Switch2Normal` 모드, `enter_normal_duration`) 길이는 표에 값이 없어 공용 2초 교체 안에 넣음. <대역>으로 들어가는 교체는 클립(`SwitchOut` 1초 + `Doll_Skill_<n>_SwitchIn` 1초)으로 공용 2초와 같다.
+  - 규정 S3 목록 행은 위.
+- 테스트: `test/content/op_makoto.test.js`(10) — 모든 폼·잠재, 세 스킬, 두 재능, 특성, PUM-Y 모듈, 실제 매치 경로(세 스킬). 선발 수 38 → 39명.
+
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에
   **배치**(낙하)됨.

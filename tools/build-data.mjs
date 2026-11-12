@@ -1396,7 +1396,10 @@ function buildBackups(ctx, chess) {
   for (const id of need.keys()) if (!units[id]) warn(`unit ${id}: needed but neither a stand-in nor an owned pick`);
   const tokens = buildDiyTokens(ctx, units, ownedPool);
 
-  const coreBonds = Object.values(ac.bondInfoDict || {}).filter((b) => b.isPower && (b.powerIdList || []).length);
+  // the season's own bonds only: 规程's global bondInfoDict still lists 盟约's 拉特兰 (lateranoShip), which that season
+  // fields no longer — a pick of its power falls back like any pick without a core bond of the season
+  const coreBonds = Object.values(ac.bondInfoDict || {})
+    .filter((b) => b.isPower && (b.powerIdList || []).length && act.bondInfoDict?.[b.bondId]);
   const fallback = act.constData.fallbackBondId;
   const operators = {};
   for (const id of ownedPool) {

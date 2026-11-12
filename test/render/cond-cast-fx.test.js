@@ -20,7 +20,11 @@ const NO_DATA = !existsSync(path.join(LOCAL, 'bindings.json')) && 'no extracted 
  * Cast effects of a conditional child that fxmap.js KIT_CAST does not take off the attacks: 'ok: …' why that is right, or
  * 'todo: …' (STRONGHOLD-side open list). A new operator's entry settles it: KIT_CAST plus a kit moment, or the reason.
  */
-const COND_CASTS = Object.freeze({});
+const COND_CASTS = Object.freeze({
+  // 结城理 S1 俄耳甫斯 (2026-11-12): the HealAlly_Lt50Per child's start effect belongs to its heal swings only (the kit names
+  // them with the swing signal); a kit event + KIT_CAST plan is fx-V's, until then it may show on his MagicAttack swings too
+  'char_4217_makoto|Stand_S1|makoto_skill_01_start_01': 'todo: fx-V — a kit moment for the S1 heal swing (op-makoto.js swing signal HealAlly_Lt50Per) and KIT_CAST',
+});
 
 test('a cast effect bound only to a conditional child of an attack group is the kit\'s or is listed', { skip: NO_DATA }, () => {
   const rows = JSON.parse(readFileSync(path.join(LOCAL, 'bindings.json'), 'utf8')).rows;

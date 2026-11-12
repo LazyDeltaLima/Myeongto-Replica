@@ -24,7 +24,7 @@ const CHESS = load('chess');
 // every unit is planned
 const PLANNED = Object.keys(BACKUPS.units);
 /** Operators no 自选 slot offers here, spot checks: upstream's collab exclusions (焰狐龙梓兰 MH05 among them) and owned picks it offers. */
-const LEFT_OUT = ['char_456_ash', 'char_1029_yato2', 'char_1048_orchd2', 'char_4123_ela', 'char_4141_marcil', 'char_4217_makoto',
+const LEFT_OUT = ['char_456_ash', 'char_1029_yato2', 'char_1048_orchd2', 'char_4123_ela', 'char_4141_marcil',
   'char_112_siege', 'char_2023_ling', 'char_017_huang', 'char_4195_radian', 'char_2024_chyue', 'char_003_kalts'];
 const YUAN = 'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/main/';
 const FEXLI = 'https://raw.githubusercontent.com/fexli/ArknightsResource/main/';
