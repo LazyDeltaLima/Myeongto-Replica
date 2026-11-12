@@ -9,7 +9,7 @@
 // enemy_bloodsucker_mark, which the auras of the 补给车 and the 集恨者 look for.
 
 import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
-import { T, elem, hurt, areaAllies, allTargets, remainingRoute, spawnChildren, auraBuff, watchDeaths, silenced, mode, atCastEvent } from './helpers.js';
+import { T, elem, hurt, areaAllies, allTargets, remainingRoute, spawnChildren, auraBuff, watchDeaths, silenced, mode, setForm, atCastEvent } from './helpers.js';
 import { interruptEnemyCast } from '../../ai.js';
 import { ep, reborn, skill } from './archetypes.js';
 import { hypot, powi } from '../../detmath.js';
@@ -426,6 +426,7 @@ function kitShellEater(ab) {
         b.kill(sh, e);
         a.ate = true;
         mode(b, e, '1');
+        setForm(b, e, '1');   // the view's B_* clips (fx 'phase')
         b.addBuff(e, { key: 'ab:dspredEat', persist: true, visible: true, fxTag: 'buff:dspred_tr_1[attribute]', mods: { hpPct: DSPRED_HP, atkPct: atk } });
       });
     },

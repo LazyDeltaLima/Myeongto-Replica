@@ -278,8 +278,10 @@ function kitNucleus(ab) {
   const wake = (b, e) => {
     if (st.on) return;
     st.on = true;
-    b.addBuff(e, { key: 'ab:combat', persist: true, visible: true, mods: { moveMul: T(ab, '0.move_speed') ?? 1 } });
+    // dslntf_tr_1[aura_effect] comes with it (overrideEffectKey enemy_dslntf_buff_03 on it: the buff's `fxTag`)
+    b.addBuff(e, { key: 'ab:combat', persist: true, visible: true, mods: { moveMul: T(ab, '0.move_speed') ?? 1 }, fxTag: 'buff:dslntf_tr_1[aura_effect]' });
     mode(b, e, '1');
+    setForm(b, e, '1');   // the view's mode-1 clips (fx 'phase': Skill_Idle / Skill_Move / Skill_Attack)
     // dslntf_tr_1's PlayAudio `Awake` as it switches to mode 1 (sound only)
     b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'dslntf:awake' });
   };

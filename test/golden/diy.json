@@ -1452,8 +1452,8 @@
       ],
       "enemies": {"enemy_1148_dssbr":[63,5,58,7642,313401],"enemy_1148_dssbr_2":[60,1,59,7499,280470],"enemy_1439_dslntf":[12,0,12,11316,28514]},
       "hooks": [1,158,6072,413,413,2001,2513,0,24,153,13,13,3,18238,12,17,135,129,1,24,0,12,0],
-      "events": {"atk":413,"deploy":20,"die":24,"dmg":2513,"engage":12,"face":7,"fx":135,"leak":129,"skill":26,"spawn":150,"status":679,"swing":422},
-      "fx": {"burst":12,"kitHit":39,"mysticStore":65,"veenBounce":3,"veenVolley":16},
+      "events": {"atk":413,"deploy":20,"die":24,"dmg":2513,"engage":12,"face":7,"fx":147,"leak":129,"skill":26,"spawn":150,"status":679,"swing":422},
+      "fx": {"burst":12,"kitHit":39,"mysticStore":65,"phase":12,"veenBounce":3,"veenVolley":16},
       "snaps": "e50c7b3b eafdd65e df78625f 39140a49 1c663bc6 54005dcb d29e6048 0d6c263a 33a75014 9bd3f2a5 9948ac8d 397fa7cf 6756e9c6 3a57e056 519e1f5d 94c83362 dda5e99a 75d5f390 2f278fc2 a8e0225a d56f24e5"
     },
     "diy-035": {
@@ -3164,8 +3164,8 @@
       ],
       "enemies": {"enemy_1148_dssbr":[34,13,21,2327,159060],"enemy_1148_dssbr_2":[40,12,28,3758,229727],"enemy_1439_dslntf":[8,0,8,6570,171696]},
       "hooks": [1,97,6050,327,327,431,2630,284,25,85,8,7,0,3441,6,21,82,57,1,25,0,6,5],
-      "events": {"atk":579,"deploy":12,"die":28,"dmg":657,"engage":2,"face":3,"fx":32,"heal":171,"leak":57,"skill":15,"spawn":88,"status":58,"swing":344},
-      "fx": {"burst":6,"dodge":5,"evadeReady":7,"kitHit":8,"teleport":6},
+      "events": {"atk":579,"deploy":12,"die":28,"dmg":657,"engage":2,"face":3,"fx":40,"heal":171,"leak":57,"skill":15,"spawn":88,"status":58,"swing":344},
+      "fx": {"burst":6,"dodge":5,"evadeReady":7,"kitHit":8,"phase":8,"teleport":6},
       "snaps": "3dea8cdb 80fac6d0 b4051e5d f608785a e0b6988b 7984b450 cd71b6db 1fec47c6 b3988d27 65f0c172 52cbb666 c3748ddb e8c92bea ef67cc5f 9ce08813 2a8fa2fd 9851e551 4a1f9222 f308bffe be2b212b ff0b4e9b"
     },
     "diy-summon-jesca2": {

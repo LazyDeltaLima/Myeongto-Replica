@@ -257,12 +257,21 @@ const AREA_SHOT_BLASTS = new Set(['uareap']);
  */
 const DFAT_STUN = Object.freeze({ StunAttack: 'dfatStun' });
 const SPELL_BLASTS = Object.freeze({ enemy_1362_dfat: DFAT_STUN, enemy_1362_dfat_2: DFAT_STUN });
+/**
+ * 2026-11-12 (docs/rules/fx.md 「규정 재생 무리」): an enemy kit's moment (the sim's fx 'kitHit' { id, k }) whose client buff
+ * creates an effect once on that enemy — k → the buff key in the enemy's binding `buffFx` (ekitHitFx): 元核孽生者 / 异形孽生者
+ * breaking a 赘生甲壳 (element.js kitNucleus 'dslntf:break': dslntf_s_1[block]'s CreateEffect enemy_dslntf_buff_02, BUFF_SOURCE
+ * — the 孽生者).
+ */
+const EKIT_HIT_FX = Object.freeze({ 'dslntf:break': 'dslntf_s_1[block]' });
 const FORM_MODES = Object.freeze({
   enemy_1116_liprr: PRISONER_MODES, enemy_1116_liprr_2: PRISONER_MODES, enemy_1118_lidbox_2: PRISONER_MODES,
   enemy_1119_vofsd: PRISONER_MODES, enemy_1121_lifbos: PRISONER_MODES, enemy_1121_lifbos_2: PRISONER_MODES,
   enemy_1172_dugago: STATUE_MODES, enemy_1172_dugago_2: STATUE_MODES,
   enemy_1288_duskls: EMBER_MODES, enemy_1288_duskls_2: EMBER_MODES, enemy_1292_duskld: EMBER_MODES, enemy_9010_acpupp: EMBER_MODES,
   enemy_2025_syufo: Object.freeze({ crawl: 'Normal' }),
+  enemy_1438_dspred: Object.freeze({ 1: '1' }),   // 2026-11-12: its B_Attack is the binding's mode-1 Attack (the hooker's pair)
+  enemy_1439_dslntf: Object.freeze({ 1: '1' }), enemy_1439_dslntf_2: Object.freeze({ 1: '1' }),
   enemy_1509_mousek: Object.freeze({ noShield: 'NoShield' }),   // its last barrier layer's end (archetypes.js artsBarrier brokeForm)
   enemy_1516_jakill: Object.freeze({ form2: 'R' }),
   enemy_1535_wlfmster: Object.freeze({ form2: 'M2' }),
@@ -5886,6 +5895,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const m = ebindOf(v)?.modes?.[emodeOf(v) ?? -1];
     return Array.isArray(m?.anim) && m.anim.includes(part.anim);
   }
+  /** An enemy kit's moment (EKIT_HIT_FX): its client buff's effects once on that enemy. true = drawn here. */
+  function ekitHitFx(o, views) {
+    const v = o.id != null ? views.get(o.id) : null;
+    if (!v || !eOn(v) || level() >= 3) return false;
+    const names = ebindOf(v)?.buffFx?.[EKIT_HIT_FX[o.k]];
+    if (!Array.isArray(names) || !names.some(efx)) return false;
+    eplay(v, names, { tag: 'cast' });
+    return true;
+  }
   /** A 'dmg' on `tid` by enemy `by` (the sim's attacker field) within 3 s of its ability: that ability's hit effects. */
   function eskillHit(tid, by, views) {
     const v = by != null ? views.get(by) : null;
@@ -6880,6 +6898,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'spGain' && e[4] && 'form' in e[4]) { const v = views.get(e[4].id); if (v && heldOf(v, e[4].form) > 0) defaultModeFx(v, false, e[4].form); }
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
           if (e[1] === 'kitHit' && e[4]?.k === 'judge:barrier') judgeShield(e[4], views);
+          if (e[1] === 'kitHit' && EKIT_HIT_FX[e[4]?.k]) { if (ekitHitFx(e[4], views)) ownFx.add(e); return; }   // 2026-11-12
           if (e[1] === 'shieldBreak' && e[4] && brokeOwn.delete(e[4].id)) { ownFx.add(e); return; } // 2026-10-23: its official break drew it (parryFx)
           if (e[1] === 'explode' && e[4]?.kind === 'expose' && exposeFx(e, views)) { ownFx.add(e); return; }
           // 2026-10-31: 巨大的丑东西's self-destruct — its rebirth ability bomb[reborning] draws the official range and blast

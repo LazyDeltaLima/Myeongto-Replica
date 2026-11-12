@@ -484,13 +484,33 @@ export const SKIN_FORMS = Object.freeze({ enemy_10159_mntrjn: Object.freeze({ ha
  * Spine id: ability (the sim's fx 'enemySkill' { id, ability }) → clip (the prefab's Skills/<ability> clip, the effect binding's
  * `anim` in enemy-modes.json). The clip plays once from the cast (UnitView.onEnemySkill → SpineActor.chant: the attacks
  * meanwhile play no attack clip; a stun or death cuts it): 破城者's SkyProjectile fires its three missiles inside its one
- * F_Skill, not an attack clip each; 萨卡兹子裔责罚者 / 惩戒者 strike their StunAttack in Skill.
+ * F_Skill, not an attack clip each; 萨卡兹子裔责罚者 / 惩戒者 strike their StunAttack in Skill. An object is a three-part channel
+ * over the fx's `dur` (ThreePartChannelingAnimation: its `_default` begin / loop / end, `_down` / `_up` when the enemy faces
+ * DOWN / UP as it casts — `_GetAnimBundle`; begin and end at their own speed and the loop for the rest, as UpdatePlaybackSpeed
+ * does while `dur` ≥ begin + end): “喷射罐” / “喷爆罐”'s Flame (4 s ≥ 0.6 + 0.267).
  */
+const WINBOM_FLAME = Object.freeze({
+  begin: 'Attack_Begin', loop: 'Attack_Loop', end: 'Attack_End',
+  down: Object.freeze({ begin: 'Skill_Down_Begin', loop: 'Skill_Down_Loop', end: 'Skill_Down_End' }),
+  up: Object.freeze({ begin: 'Skill_Up_Begin', loop: 'Skill_Up_Loop', end: 'Skill_Up_End' }),
+});
 export const ESKILL_CLIPS = Object.freeze({
   enemy_10123_uareap: Object.freeze({ SkyProjectile: 'F_Skill' }),
   enemy_1362_dfat: Object.freeze({ StunAttack: 'Skill' }),
   enemy_1362_dfat_2: Object.freeze({ StunAttack: 'Skill' }),
+  enemy_1385_winbom: Object.freeze({ Flame: WINBOM_FLAME }),
+  // 复核洋流使者's skill 1 (eating a 赘生甲壳): AnimatedActionToTargetAbility `_animKey` Skill, `_timeMode` 1 (the clip, 2.6 s)
+  enemy_1438_dspred: Object.freeze({ 1: 'Skill' }),
+  enemy_1385_winbom_2: Object.freeze({ Flame: WINBOM_FLAME }),
 });
+/**
+ * The way an enemy faces a spot (dx, dy from it, map tiles): the FOUR_WAYS axis nearest to it, UP / DOWN or 'side' (a tie
+ * takes UP, then the sides, then DOWN) — as the sim aims 直击 shots (content/enemies/critic.js muzzleAt).
+ */
+export function faceWay(dx, dy) {
+  const ways = [dy, dx, -dy, -dx];
+  return ['UP', 'side', 'DOWN', 'side'][ways.indexOf(Math.max(...ways))];
+}
 
 /**
  * 要塞 (fortress) operators whose blocked and unblocked attacks are two clips of one role, per Spine id: [melee, ranged]
@@ -593,6 +613,7 @@ const MACH = Object.freeze({
   running: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Idle', die: 'End', ...OFF_ATTACK }) }),
 });
 const WINGNT_NORMAL = Object.freeze({ Normal: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }) });
+const DSLNTF_AWAKE = Object.freeze({ 1: Object.freeze({ change: null, roles: clipSet('Skill_Idle', 'Skill_Move', 'Die', 'Skill_Attack') }) });
 export const FORMS = Object.freeze({
   trap_039_dstnta: BROOD,
   // 2026-11-11: 规程's 谢拉格 6 giant 「不眠雪山」 (enemy_9024_acsgnt, a walking ally — server content/bonds/giant.js, forms
@@ -687,6 +708,13 @@ export const FORMS = Object.freeze({
   // B_* clip set (SwitchMode, no change clip; the sim times its melee from B_Attack, enemies.json attackAnim.modes.Normal)
   enemy_1388_wingnt: WINGNT_NORMAL,
   enemy_1388_wingnt_2: WINGNT_NORMAL,
+  // 2026-11-12: 复核洋流使者 after it eats a 赘生甲壳 (reborn.js kitShellEater → form '1'): the prefab mode 1's
+  // SimpleUnitAnimatorHooker (Idle / Default / Move / Die / Attack → B_*); SwitchMode, no change clip
+  enemy_1438_dspred: Object.freeze({ 1: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }) }),
+  // 2026-11-12: 元核孽生者 / 异形孽生者 in their 临战 state (element.js kitNucleus → form '1'): the prefab mode 1's hooker
+  // (Move → Skill_Move, Idle → Skill_Idle; Die stays) and its Combat's Skill_Attack; SwitchMode, no change clip
+  enemy_1439_dslntf: DSLNTF_AWAKE,
+  enemy_1439_dslntf_2: DSLNTF_AWAKE,
   // 2026-11-12: 神勇的帕拉杜利斯's charge (critic.js kitParadulis → form 'Run', null as Skill_End ends): the prefab mode Run,
   // whose SimpleUnitAnimatorHooker plays Skill for Idle and Move (its run); no change clip (SwitchMode — Skill_Begin and
   // Skill_End are the rush / rushEndNormal skills' own clips)
@@ -1557,15 +1585,25 @@ export class UnitView {
   }
 
   /**
-   * 2026-11-12: an enemy ability cast now (the sim's fx 'enemySkill' { id, ability }; `late` = game s the fx is shown late): its
-   * own clip once (ESKILL_CLIPS), unless that clip would have ended already. True when it plays.
+   * 2026-11-12: an enemy ability cast now (the sim's fx 'enemySkill' { id, ability, dur? }; `late` = game s the fx is shown
+   * late; `o`: { dur: its channel's game s, aim: { x, y } of its target }): its own clip once, or its three-part channel over
+   * `dur` in the way it faces `aim` (ESKILL_CLIPS), unless that would have ended already. True when it plays.
    */
-  onEnemySkill(ability, late = 0) {
-    const clip = this.isEnemy && this.alive && this.actor ? ESKILL_CLIPS[this.info.spine || this.info.defId]?.[ability] : null;
-    if (!clip || !this.actor.has(clip)) return false;
-    const dur = this.actor.dur(clip);
-    if (!(dur > 0) || late >= dur) return false;
-    return this.actor.chant({ loop: clip, total: dur });
+  onEnemySkill(ability, late = 0, o = null) {
+    const spec = this.isEnemy && this.alive && this.actor ? ESKILL_CLIPS[this.info.spine || this.info.defId]?.[ability] : null;
+    if (!spec) return false;
+    if (typeof spec === 'string') {
+      if (!this.actor.has(spec)) return false;
+      const dur = this.actor.dur(spec);
+      if (!(dur > 0) || late >= dur) return false;
+      return this.actor.chant({ loop: spec, total: dur });
+    }
+    const total = Number(o?.dur) - late;
+    if (!(total > 0)) return false;
+    const way = o?.aim && Number.isFinite(o.aim.x) && Number.isFinite(o.aim.y) ? faceWay(o.aim.x - this.x, o.aim.y - this.y) : 'side';
+    const set = (way === 'DOWN' ? spec.down : way === 'UP' ? spec.up : null) || spec;
+    const a = this.actor;
+    return a.chant({ begin: set.begin, loop: set.loop, end: set.end, total });
   }
 
   /** One attack hit now (b.ev 'atk'); `signal` = its 5th field: the client ability it is (a talent's own attack 'T.1'). */
