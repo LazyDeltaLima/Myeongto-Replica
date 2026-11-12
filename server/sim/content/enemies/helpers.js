@@ -296,15 +296,52 @@ function modsWithoutBounty(mods) {
   return copy;
 }
 
-/** Spawn `n` enemies at the parent's position that continue its route. Returns the spawned units. */
+/**
+ * The tile a summon node spawns on (LitePhysicsUtil.FindNearestPassableTile): the nearest tile to (x, y) that `walk`
+ * (the node's `_passableMask` WALK_ONLY) lets a ground unit through — any tile with NONE —, the first in row order on a
+ * tie (a strict less-than); null when there is none. (Its `_trySummonOutsideWhenInObstacle` weight is not modelled: no
+ * 规程 summoner stands on an obstacle.)
+ */
+function summonTile(b, x, y, walk) {
+  const g = b.grid, R = g.rect;
+  let best = null, bd = Infinity;
+  for (let r = R.r0; r <= R.r1; r++) {
+    for (let c = R.c0; c <= R.c1; c++) {
+      if (walk && !g.groundPassable(r, c)) continue;
+      const d = (c - x) * (c - x) + (r - y) * (r - y);
+      if (d < bd - 1e-12) { bd = d; best = [r, c]; }
+    }
+  }
+  return best;
+}
+
+/**
+ * Spawn `n` enemies at the parent's position that continue its route. Returns the spawned units.
+ * `opts.spot` { bound, walk }: the official summon nodes' spot (SummonEnemiesFollowMyRoute / …WithBuff with `_useMapPosition`
+ * off, Scheduler.SpawnSummonedEnemyTrackedInGameMode): the centre of summonTile(the source spot), then — `_ignoreOffset`
+ * off — each one at that centre + (Range(−bound, bound), Range(−bound, bound)) (x drawn first; `bound` = the blackboard
+ * `offset_bound` over the node's `_randomOffsetBound`), kept only where its route can reach (Route.CheckReachable: a tile
+ * a ground unit walks), else the centre. Without it: the source spot, several 0.2 apart.
+ */
 export function spawnChildren(b, parent, key, n, opts = {}) {
   const out = [];
   const route = opts.route ?? remainingRoute(parent);
   const cnt = Math.max(0, Math.min(20, Math.floor(n)));
   const mods = modsWithoutBounty(opts.mods ?? parent.mods ?? null);
+  const sp = opts.spot ? (opts.pos ?? [parent.y, parent.x]) : null;
+  const tile = sp ? summonTile(b, sp[1], sp[0], opts.spot.walk !== false) : null;
+  const bound = opts.spot ? Math.max(0, Number(opts.spot.bound) || 0) : 0;
   for (let i = 0; i < cnt; i++) {
     const off = cnt > 1 ? (i - (cnt - 1) / 2) * 0.2 : 0;
-    const pos = opts.pos ?? [parent.y, parent.x + off];
+    let pos = opts.pos ?? [parent.y, parent.x + off];
+    if (sp) {
+      pos = tile ? [tile[0], tile[1]] : sp;
+      if (bound > 0) {
+        const dx = b.rng.range(-bound, bound), dy = b.rng.range(-bound, bound);
+        const y = pos[0] + dy, x = pos[1] + dx;
+        if (b.grid.groundPassable(Math.round(y), Math.round(x))) pos = [y, x];
+      }
+    }
     const c = b.spawnEnemy(key, {
       pos, route, mods, tag: opts.tag ?? null, countInTotal: opts.countInTotal,
       ownerPlayerId: parent.ownerId ?? null, sourcePlayerId: parent.sourcePlayerId ?? null,

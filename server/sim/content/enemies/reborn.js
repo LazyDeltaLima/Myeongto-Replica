@@ -30,6 +30,11 @@ const CONSTRUCTS = new Set(['enemy_1220_dzoms', 'enemy_1220_dzoms_2', 'enemy_122
 /** 萨卡兹子裔寄生者's aura validator (SingleIdTargetValidator `_targetId`, `_reverse`, not from the blackboard): this one id is left out. */
 const PARASITE_SKIPS = 'enemy_1220_dzoms';
 
+/** The summon nodes' `_randomOffsetBound` where the blackboard has no `offset_bound` (spawnChildren `spot`): 子裔 / 掷骨者
+ *  (enemy_vampires[bloodsucker_summon], enemy_dthrow_summon[dzoms]), 血珀 (enemy_dfello_summon[dseed]) and the 变异 beasts'
+ *  split (deathrattle_sum[walk_only]) 0.1; 集养者's copy (dsdivi_tr_1, …WithBuff) 1.2; the others 0. */
+const SUMMON_JITTER = 0.1, DSDIVI_JITTER = 1.2;
+
 const isConstruct = (u) => !!u && u.alive && !u.hidden && CONSTRUCTS.has(u.defId);
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -39,18 +44,19 @@ const isConstruct = (u) => !!u && u.alive && !u.hidden && CONSTRUCTS.has(u.defId
  * The 子裔's summon on its first knock-out: `key` (the talent's `enemy_key`), `delay` s later (the blackboard `delay`,
  * SummonEnemiesFollowMyRoute reads it over its `_delayTime`), at the spot it fell, on the rest of its route. Only a
  * knock-out (`killed` — not a leak, not a FALLDOWN), silenced or not (neither template checks 沉默). The battle waits for
- * it (`holdsBattle`). [추정·미조사: the summoned unit's own `_delayToBorn` (1 s, its born effect) is not modelled, as for
- * every enemy (server/sim/routePreview.js); nor the template's `_randomOffsetBound` 0.1 jitter of the spot]
+ * it (`holdsBattle`). The spot: the centre of the tile it fell on ± `offset_bound` (SUMMON_JITTER) on each axis
+ * (spawnChildren `spot`). [추정·엔진: the summoned unit's own `_delayToBorn` (1 s, Enemy.States.BornState: it waits that
+ * long before it moves) is not modelled, as for every enemy (server/sim/routePreview.js) — an engine rule for all seasons]
  */
-const rebornSummon = (key, delay) => ({
+const rebornSummon = (key, delay, bound = SUMMON_JITTER) => ({
   death(c, b, e) {
     if (c.reason !== 'killed' || !key) return;
     const route = remainingRoute(e), pos = [e.y, e.x];
-    const go = () => spawnChildren(b, e, key, 1, { route, pos });
+    const go = () => spawnChildren(b, e, key, 1, { route, pos, spot: { bound } });
     if (delay > 0) b.after(delay, go, { holdsBattle: true }); else go();
   },
 });
-const kitReborn = (prefix) => (ab) => [rebornSummon(ab.tS[`${prefix}.enemy_key`], T(ab, `${prefix}.delay`) ?? 0)];
+const kitReborn = (prefix) => (ab) => [rebornSummon(ab.tS[`${prefix}.enemy_key`], T(ab, `${prefix}.delay`) ?? 0, T(ab, `${prefix}.offset_bound`) ?? SUMMON_JITTER)];
 
 /**
  * A 重生造物: physical and arts damage taken × (1 − `dmg_res.damage_resistance`) (enemy_dzoms_t[damage_resistance], the
@@ -135,8 +141,9 @@ function kitLord(ab) {
  * 萨卡兹子裔链术师: an arts attack with 凋亡 of ATK × `epdamage.attack@ep_damage_ratio` that jumps on to
  * `epdamage.attack@max_target` units in all, each jump from the last one hit to the nearest unit within
  * `epdamage.attack@projectile_range` its area selection takes, its damage × `epdamage.attack@chain.atk_scale` once more per
- * jump. [추정·미조사: the jumps' 凋亡 falls off with the damage (one atk scale for both), and the nearest unit is the next —
- * projectile_enemy_dkmage's bounce behaviour was not read]
+ * jump — the official client's projectile_enemy_dkmage (ChainLightningHitBehaviour + ChainedSelector: the nearest to the
+ * spot hit first, then the nearest not hit yet from the last one, all at once; from the second on the scale goes through
+ * Projectile.ApplyAtkScaleToDamageNode with `alsoApplyToElementDamage`, so the 凋亡 falls off with the damage).
  */
 function kitChainMage(ab) {
   const ratio = T(ab, 'epdamage.attack@ep_damage_ratio') ?? 0, n = T(ab, 'epdamage.attack@max_target') ?? 1;
@@ -190,7 +197,8 @@ function kitThrower(ab) {
  * StunAttack) and `skillAnimUntil` to the cast's end; its readiness as fx 'enemySkillReady': on 1 as the SP fills, on 0 as
  * the cast finishes or is cut (ReadyEnemySkillEffect clears its effect in OnCastFinish — `_stopBeforeCast` 0 — and
  * OnDetach, as the official client does).
- * [추정·미조사: SP comes on silenced attacks too, as the 乐团's counters]
+ * SP comes on silenced attacks too (Entity.SpController._RecoverMp stops only for SP_RECOVER_STOPPED, not SILENCED — as the
+ * 乐团's counters).
  */
 function kitPunisher(ab) {
   const s = ab.sk.StunAttack, cost = s && s.sp > 0 ? s.sp : 0, dur = (s && s.bb.stun) || 0;
@@ -237,7 +245,7 @@ function kitFello(ab) {
       c.dmg.amount *= Math.abs(k * n + add);
     },
     dealt(c, b, e) { if (heal > 0 && c.amount > 0) b.heal(e, e, c.amount * heal, { self: true }); },
-    death(c, b, e) { if (c.reason === 'killed' && key && cnt > 0) spawnChildren(b, e, key, cnt, { route: remainingRoute(e) }); },
+    death(c, b, e) { if (c.reason === 'killed' && key && cnt > 0) spawnChildren(b, e, key, cnt, { route: remainingRoute(e), spot: { bound: T(ab, 'Summon.offset_bound') ?? SUMMON_JITTER } }); },
   }];
 }
 
@@ -259,7 +267,7 @@ function kitBoneGuard(ab) {
       // (`source`: the 领袖 — the status's applier, whose binding draws the buff's enemy_spnshd_debuff on the operator; display only)
       b.addBuff(s, { key: 'ab:spnshdSlow', duration: dur, refresh: 'keep', visible: true, mods: { aspd }, source: c.target, fxTag: 'buff:enemy_spnshd_atkspeed[d]' });
     },
-    death(c, b, e) { if (c.reason === 'killed' && key && cnt > 0) spawnChildren(b, e, key, cnt, { route: remainingRoute(e) }); },
+    death(c, b, e) { if (c.reason === 'killed' && key && cnt > 0) spawnChildren(b, e, key, cnt, { route: remainingRoute(e), spot: { bound: T(ab, 'Summon.offset_bound') ?? SUMMON_JITTER } }); },
   }];
 }
 
@@ -278,7 +286,7 @@ function kitParasite(ab) {
       const u = c.unit;
       if (!key || c.reason !== 'killed' || !u || u === e || u.side !== 'enemy' || u.defId === PARASITE_SKIPS || u.defId === key) return;
       if (hypot(u.x - e.x, u.y - e.y) > r + 1e-9) return;
-      spawnChildren(b, u, key, 1, { route: remainingRoute(u), pos: [u.y, u.x] });
+      spawnChildren(b, u, key, 1, { route: remainingRoute(u), pos: [u.y, u.x], spot: { bound: T(ab, 'Aura.offset_bound') ?? 0 } });
     },
   }];
 }
@@ -289,18 +297,20 @@ function kitParasite(ab) {
 /**
  * 变异沙地兽 / 变异岩蛛 / 变异巨岩蛛 (and their α): knocked out — not a FALLDOWN, not while silenced (deathrattle_sum[walk_only]:
  * ON_OWNER_KILLED, CheckAbnormalFlag SILENCED unset, IfNot FilterDeathReason FALLDOWN, SummonEnemiesFollowMyRoute) — they
- * split into `deathrattle.cnt` `deathrattle.enemy_key` `deathrattle.delay` s later where they fell, on the rest of the route.
- * [추정·미조사: the `deathrattle.offset_bound` jitter of each spot is spawnChildren's fixed spread here — see the 子裔's
- * `_randomOffsetBound` note; the projectile that flies to each spot is the view's]
+ * split into `deathrattle.cnt` `deathrattle.enemy_key` `deathrattle.delay` s later where they fell, on the rest of the route:
+ * each at the centre of that tile ± `deathrattle.offset_bound` (0.2) on each axis (spawnChildren `spot`). The projectile
+ * that flies to each spot is the view's.
  */
 function splitOnDeath(ab) {
   const key = ab.tS['deathrattle.enemy_key'], n = T(ab, 'deathrattle.cnt') ?? 0, delay = T(ab, 'deathrattle.delay') ?? 0;
+  const bound = T(ab, 'deathrattle.offset_bound') ?? SUMMON_JITTER;
   return {
     sil: true,
     death(c, b, e) {
       if (c.reason !== 'killed' || !key || !(n > 0)) return;
       const route = remainingRoute(e);
-      const go = () => spawnChildren(b, e, key, n, { route });
+      const pos = [e.y, e.x];
+      const go = () => spawnChildren(b, e, key, n, { route, pos, spot: { bound } });
       if (delay > 0) b.after(delay, go, { holdsBattle: true }); else go();
     },
   };
@@ -315,7 +325,7 @@ const kitSplitBeast = (ab) => [splitOnDeath(ab)];
 function kitHugeSpider(ab) {
   const s = ab.sk.SummonToken, key = s && s.bs.enemy_key, n = (s && s.bb.cnt) ?? 1;
   return [splitOnDeath(ab), skill(s, (b, e) => atCastEvent(b, e, s, () => {
-    if (key) spawnChildren(b, e, key, n, { route: remainingRoute(e), pos: [e.y, e.x] });
+    if (key) spawnChildren(b, e, key, n, { route: remainingRoute(e), pos: [e.y, e.x], spot: { bound: (s && s.bb.offset_bound) ?? 0 } });
   }), { sil: true })];
 }
 
@@ -363,19 +373,26 @@ const kitShellBearer = () => [{
 }];
 
 /**
- * 蕴核饲育者 / 异光体饲育者: knocked out (dsfull_tr_1, no death-reason check), one sea monster where it fell, on its route —
- * `0.enemy_1` with `0.prob1`, else `0.enemy_2` with `0.prob2`, else `0.enemy_3` (nested RandomAction) — whose move speed
- * × (1 + `0.move_speed`) for good (dsfull_tr_1[speed_up], MOVE_SPEED MULTIPLIER).
+ * 蕴核饲育者 / 异光体饲育者: as it comes in (dsfull_tr_1 ON_BUFF_START, a nested RandomAction) it draws the sea monster it
+ * will breed — `0.enemy_1` with `0.prob1`, else `0.enemy_2` with `0.prob2`, else `0.enemy_3` — and puts on the matching
+ * dsfull_tr_1[derived][1] / [2] / [3] (their overrideEffectKey enemy_dsfull_buff_01 / _04 / none show which: the buff's
+ * `fxTag`); knocked out (that buff's ON_OWNER_KILLED, no death-reason check), that monster where it fell, on its route,
+ * whose move speed × (1 + `0.move_speed`) for good (dsfull_tr_1[speed_up], MOVE_SPEED MULTIPLIER).
  */
 function kitBreeder(ab) {
   const p1 = T(ab, '0.prob1') ?? 0, p2 = T(ab, '0.prob2') ?? 0, spd = T(ab, '0.move_speed') ?? 0, n = T(ab, '0.cnt') ?? 1;
   const keys = [ab.tS['0.enemy_1'], ab.tS['0.enemy_2'], ab.tS['0.enemy_3']];
   return [{
-    death(c, b, e) {
-      if (c.reason !== 'killed') return;
-      const key = b.rng.chance(p1) ? keys[0] : b.rng.chance(p2) ? keys[1] : keys[2];
+    spawn(b, e, a) {
+      a.pick = b.rng.chance(p1) ? 1 : b.rng.chance(p2) ? 2 : 3;
+      b.addBuff(e, { key: 'ab:dsfullDerived', persist: true, visible: true, fxTag: `buff:dsfull_tr_1[derived][${a.pick}]` });
+    },
+    death(c, b, e, a) {
+      if (c.reason !== 'killed' || !a.pick) return;
+      const key = keys[a.pick - 1];
       if (!key) return;
-      for (const o of spawnChildren(b, e, key, n, { route: remainingRoute(e), pos: [e.y, e.x] })) {
+      // dsfull_tr_1[derived]: `_passableMask` NONE (any tile), `_randomOffsetBound` 0
+      for (const o of spawnChildren(b, e, key, n, { route: remainingRoute(e), pos: [e.y, e.x], spot: { bound: 0, walk: false } })) {
         b.addBuff(o, { key: 'ab:dsfullSpeed', persist: true, visible: true, mods: { moveMul: 1 + spd } });
       }
     },
@@ -387,8 +404,8 @@ function kitBreeder(ab) {
  * while silenced, the listener waits) it casts skill `0` (TriggerEnemySkill, interrupting what it casts): the `Skill` clip,
  * unmovable (BuffDuringCastingFixed UNMOVABLE_PRIVATE), then a copy of itself (dsdivi_tr_1: the skill's `enemy_key`) on its
  * route with its HP ratio (CopyHealth by ratio) and the split mark, so the copy never splits; the listener is gone.
- * [추정·미조사: the clip has no attack event in the data — the copy comes at the clip's end; the copy's spot offset
- * (`offset_bound`) is spawnChildren's]
+ * The copy's spot: the centre of its tile ± the skill's `offset_bound` (0.3) on each axis (spawnChildren `spot`).
+ * [추정·미조사: the clip has no attack event in the data — the copy comes at the clip's end]
  */
 function kitDivider(ab) {
   const ratio = T(ab, '0.hp_ratio') ?? 0.5, s = ab.sk['0'], key = s && s.bs.enemy_key, len = (s && s.cast && s.cast.dur) || 0;
@@ -405,7 +422,7 @@ function kitDivider(ab) {
       b.after(len, () => {
         if (!e.alive || !key) return;
         const hp = e.hpRatio;
-        for (const o of spawnChildren(b, e, key, 1, { route: remainingRoute(e) })) {
+        for (const o of spawnChildren(b, e, key, 1, { route: remainingRoute(e), spot: { bound: (s && s.bb.offset_bound) ?? DSDIVI_JITTER } })) {
           o.mem.splitMark = true;
           if (o.mem.ab) for (const x of o.mem.ab.list) if ('armed' in x) x.armed = false;
           o.hp = Math.max(1, o.s.maxHp * hp);
@@ -423,7 +440,9 @@ function kitDivider(ab) {
  * knocked out (enemy_wdkght_t, ON_OWNER_KILLED) gives it a stack of ATK × (1 + `enhance.atk`) (MULTIPLIER) and ASPD
  * + `enhance.attack_speed` (ADDITION), at most `enhance.max_stack_cnt`; full, its next attack switches it to the mode Rage
  * (enemy_wdkght_t[switch_mode] ON_BEFORE_ATTACK, no FSM restart: the same attack, its Skill clip). The stacks are the client
- * buff wdkght_t[enhance] (`fxTag`: its overrideEffectKey enemy_wdkght_skill_01_buff on it, render/fxstatus.js).
+ * buff wdkght_t[enhance] (`fxTag`: its overrideEffectKey enemy_wdkght_skill_01_buff on it, render/fxstatus.js). The knock-out
+ * that brings the stacks to the cap also puts on wdkght_t[effect] for good (enemy_wdkght_t: FilterByBuffStackCount EQUALS
+ * `max_stack_cnt`, then CreateBuff — its overrideEffectKey enemy_wdkght_skill_01_start_03: the buff's `fxTag`).
  */
 function kitBloodKnight(ab) {
   const atk = T(ab, 'enhance.atk') ?? 0, as = T(ab, 'enhance.attack_speed') ?? 0, cap = T(ab, 'enhance.max_stack_cnt') ?? Infinity;
@@ -434,6 +453,7 @@ function kitBloodKnight(ab) {
       if (c.reason !== 'killed' || !u || u === e || u.side !== 'enemy' || !(a.n < cap)) return;
       a.n++;
       b.addBuff(e, { key: 'ab:wdkght', persist: true, visible: true, refresh: 'replace', mods: { atkPct: atk * a.n, aspd: as * a.n }, fxTag: 'buff:wdkght_t[enhance]' });
+      if (a.n >= cap) b.addBuff(e, { key: 'ab:wdkghtFull', persist: true, visible: true, fxTag: 'buff:wdkght_t[effect]' });
     },
     before(_c, b, e, a) { if (a.n >= cap && !a.rage) { a.rage = true; mode(b, e, 'Rage', false); } },
   }];

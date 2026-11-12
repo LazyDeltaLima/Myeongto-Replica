@@ -747,7 +747,7 @@ const elemHits = (h, keys) => { const out = []; h.b.on('damaged', (c) => { if (c
 /** Put enemy `key` on a wall's tile, walking, and run until that wall blocks it. */
 const blockedOn = (h, key, w) => { const e = put(h, key, [w.tileR, w.tileC + 0.3], { move: true, tag: null }); h.runUntil(() => e.blockedBy === w, 5); assert.ok(e.blockedBy === w, `${key} blocked`); return e; };
 
-test('萨卡兹子裔战士: knocked out, one 大君之触 `deathrattle.delay` (1) s later where it fell — silenced too; the battle waits for it', () => {
+test('萨卡兹子裔战士: knocked out, one 大君之触 `deathrattle.delay` (1) s later on the centre of the tile it fell on ± 0.1 — silenced too; the battle waits for it', () => {
   assert.equal(E3[DPVT].talents.bb['deathrattle.delay'], 1);
   assert.equal(E3[DPVT].talents.bbStr['deathrattle.enemy_key'], DZOMS);
   for (const silence of [false, true]) {
@@ -755,6 +755,7 @@ test('萨卡兹子裔战士: knocked out, one 大君之触 `deathrattle.delay` (
     const e = put(h, DPVT, [10, 6], { tag: null });
     if (silence) h.b.applyStatus(e, 'silence', { duration: 10, source: null });
     h.step();
+    e.x = 6.4; e.y = 9.7;   // off the centre of tile (10, 6)
     h.b.kill(e, h.unit('t_wall'));
     assert.ok(h.b._hasPendingEnemySchedules(), 'the battle waits for the summon');
     runFor(h, 0.9);
@@ -762,7 +763,9 @@ test('萨卡兹子裔战士: knocked out, one 大君之触 `deathrattle.delay` (
     runFor(h, 0.2);
     const c = alive(h, DZOMS);
     assert.equal(c.length, 1, `one 大君之触 (silenced ${silence})`);
-    assert.ok(Math.abs(c[0].x - 6) < 1e-6 && Math.abs(c[0].y - 10) < 1e-6, 'where it fell');
+    // SummonEnemiesFollowMyRoute: the nearest walkable tile's centre, then ± `_randomOffsetBound` 0.1 on each axis
+    const dx = c[0].x - 6, dy = c[0].y - 10;
+    assert.ok(Math.abs(dx) <= 0.1 + 1e-9 && Math.abs(dy) <= 0.1 + 1e-9 && (dx !== 0 || dy !== 0), `the tile centre ± 0.1 (${dx}, ${dy})`);
   }
 });
 
@@ -957,7 +960,7 @@ test('萨卡兹子裔寄生者: an enemy knocked out within 1.5 summons a 大君
 
 const SBEAST = 'enemy_1131_sbeast', HARCHN = 'enemy_1133_harchn', PLASM = 'enemy_1137_plasm', TUMOR = 'enemy_1138_tumor';
 
-test('变异沙地兽: knocked out, 2 畸变赘生物 `deathrattle.delay` (0.2) s later where it fell; silenced, none', () => {
+test('变异沙地兽: knocked out, 2 畸变赘生物 `deathrattle.delay` (0.2) s later on the centre of the tile it fell on ± `offset_bound` 0.2 each; silenced, none', () => {
   const bb = E3[SBEAST].talents.bb;
   assert.deepEqual([bb['deathrattle.cnt'], bb['deathrattle.delay'], E3[SBEAST].talents.bbStr['deathrattle.enemy_key']], [2, 0.2, PLASM]);
   for (const silence of [false, true]) {
@@ -965,13 +968,16 @@ test('变异沙地兽: knocked out, 2 畸变赘生物 `deathrattle.delay` (0.2) 
     const e = put(h, SBEAST, [10, 6], { tag: null });
     if (silence) h.b.applyStatus(e, 'silence', { duration: 10, source: null });
     h.step();
+    e.x = 5.6;   // off the centre of tile (10, 6)
     h.b.kill(e, h.unit('t_wall'));
     runFor(h, 0.15);
     assert.equal(alive(h, PLASM).length, 0, 'not before the delay');
     runFor(h, 0.1);
     const c = alive(h, PLASM);
     assert.equal(c.length, silence ? 0 : 2, `silenced ${silence}`);
-    for (const o of c) assert.ok(Math.abs(o.x - 6) < 0.3 && Math.abs(o.y - 10) < 1e-6, 'where it fell');
+    assert.equal(E3[SBEAST].talents.bb['deathrattle.offset_bound'], 0.2);
+    for (const o of c) assert.ok(Math.abs(o.x - 6) <= 0.2 + 1e-9 && Math.abs(o.y - 10) <= 0.2 + 1e-9, `the tile centre ± 0.2 (${o.x}, ${o.y})`);
+    if (c.length === 2) assert.ok(c[0].x !== c[1].x && c[0].y !== c[1].y, 'each its own draw on both axes');
   }
 });
 
@@ -1035,25 +1041,32 @@ test('微核沉积者: knocked out, a 赘生甲壳 (3000 HP, DEF 320, blocks 20)
   assert.equal(h.b.allyUnits.filter((u) => u.alive && u.defId === 'trap_156_dsshell').length, 1, 'no shell on the wall\'s tile');
 });
 
-test('蕴核饲育者: knocked out, 微核沉积者 (20 %) / 诡核集养者 (else 50 %) / 单核掠食者, its move speed × 3', () => {
+test('蕴核饲育者: drawn as it comes in (its derived buff shows which), knocked out: 微核沉积者 (20 %) / 诡核集养者 (else 50 %) / 单核掠食者, its move speed × 3', () => {
   const key = 'enemy_1437_dsfull', bb = E3[key].talents.bb, bs = E3[key].talents.bbStr;
   assert.deepEqual([bb['0.prob1'], bb['0.prob2'], bb['0.move_speed']], [0.2, 0.5, 2]);
   const kids = [bs['0.enemy_1'], bs['0.enemy_2'], bs['0.enemy_3']];
   assert.deepEqual(kids, ['enemy_1434_dsshel', 'enemy_1436_dsdivi', 'enemy_1433_dsbasi']);
   for (const [rolls, want] of [[[true], 0], [[false, true], 1], [[false, false], 2]]) {
     const { h } = waveField([key, ...kids], [{ chessId: 't_wall', row: 12, col: 2 }]);
-    const e = put(h, key, [10, 6], { move: true, tag: null });
-    h.step();
-    const seen = [];
+    const seen = [], chance = h.b.rng.chance;
     h.b.rng.chance = (p) => { seen.push(p); return rolls.shift(); };
+    const e = put(h, key, [10, 6], { move: true, tag: null });
+    h.b.rng.chance = chance;
+    assert.deepEqual(seen, [0.2, 0.5].slice(0, seen.length), 'prob1 first, then prob2 — as it comes in');
+    assert.equal(seen.length, want === 0 ? 1 : 2);
+    h.step();
+    const st = h.eventsOf('status').filter((x) => x[1] === e.id && x[2] === 'ab:dsfullDerived' && x[3] === 1);
+    assert.deepEqual(st.map((x) => x[5] && x[5].fx), [`buff:dsfull_tr_1[derived][${want + 1}]`], 'the derived buff it drew, on it');
+    runFor(h, 0.5);
+    h.b.rng.chance = () => assert.fail('no roll at the knock-out');
     const x0 = e.x, y0 = e.y;
     h.b.kill(e, h.unit('t_wall'));
-    assert.deepEqual(seen, [0.2, 0.5].slice(0, seen.length), 'prob1 first, then prob2');
+    h.b.rng.chance = chance;
     const out = kids.map((k) => alive(h, k));
     assert.deepEqual(out.map((l) => l.length), [0, 1, 2].map((i) => (i === want ? 1 : 0)), `roll ${want}`);
     const o = out[want][0];
     assert.ok(Math.abs(o.s.moveSpeed - E3[kids[want]].stats.moveSpeed * 3) < 1e-9, `× 3 (${o.s.moveSpeed})`);
-    assert.ok(Math.abs(o.x - x0) < 1e-6 && Math.abs(o.y - y0) < 1e-6, 'where it fell');
+    assert.ok(o.x === Math.round(x0) && o.y === Math.round(y0) && o.x !== x0, `the centre of the tile it fell on, no jitter (${o.x}, ${o.y} / ${x0}, ${y0})`);
   }
 });
 
@@ -1102,10 +1115,14 @@ test('沸血骑士团精锐: ATK +10 % and ASPD +5 per enemy knocked out, 10 at 
   const e = put(h, key, [12, 9], { tag: null });
   h.step();
   const atk0 = e.s.atk, as0 = e.s.aspd;
+  const full = () => h.eventsOf('status').filter((x) => x[1] === e.id && x[2] === 'ab:wdkghtFull' && x[3] === 1);
   for (let i = 1; i <= 12; i++) {
     h.b.kill(put(h, PLASM, [12, 3], { tag: null }), w);
     const n = Math.min(10, i);
     assert.ok(Math.abs(e.s.atk - atk0 * (1 + 0.1 * n)) < 1e-6 && e.s.aspd === as0 + 5 * n, `${i} knocked out: ${n} stacks`);
+    // wdkght_t[effect] (enemy_wdkght_skill_01_start_03) comes with the knock-out that fills the stacks, once
+    const f = full();
+    assert.deepEqual(f.map((x) => x[5] && x[5].fx), i >= 10 ? ['buff:wdkght_t[effect]'] : [], `${i}: the full-stack effect ${i >= 10 ? 'once, from the 10th' : 'not yet'}`);
   }
   assert.equal(e.mode ?? null, null, 'no attack yet: the default mode');
   e.x = w.tileC + 0.3; e.y = w.tileR;
@@ -1462,6 +1479,24 @@ test('残党乐团鼓手: range 1.5 (the prefab\'s, the table −1); 2 attacks, 
       assert.ok(near.some((x) => Math.abs(x.at - blast[0].at) < 1e-6), 'the blast takes the wall in range too');
     }
   }
+});
+
+test('残党乐团鼓手: knocked out within the 0.2 s of enemy_ltndru[AOE], the blast comes at once where it fell (the buff finishes with it)', () => {
+  const { h, hits } = waveField([LTNDRU], walls([[10, 5], [12, 6]]));
+  const e = put(h, LTNDRU, [10, 6], { tag: null });
+  const casts = [];
+  onSkill(h, e, (ab) => { if (ab === 'aoeAttack') casts.push(h.b.time); });
+  h.runUntil(() => casts.length >= 1, 30);
+  runFor(h, 0.667 + 0.1);   // past the clip's event: the buff is on, 0.1 s left of it
+  const before = hits.filter((x) => x.t === h.unit(2)).length;
+  assert.equal(before, 0, 'not yet');
+  const t = h.b.time;
+  h.b.kill(e, h.unit(1));
+  const blast = hits.filter((x) => x.t === h.unit(2));
+  assert.equal(blast.length, 1, 'the blast as it falls');
+  assert.ok(Math.abs(blast[0].at - t) < 1e-9 && Math.abs(blast[0].n - E3[LTNDRU].stats.atk) < 1e-6, 'arts ATK, at once');
+  runFor(h, 0.5);
+  assert.equal(hits.filter((x) => x.t === h.unit(2)).length, 1, 'once');
 });
 
 const WINGNT = 'enemy_1388_wingnt', WINBOM = 'enemy_1385_winbom';
@@ -2049,15 +2084,19 @@ test('破城者: weight 3; SkyProjectile (10 s, the first 5 s in) — up to 3 mi
   assert.equal(E3[key].skills[0].bb.atk_scale, 0.7);
   const run = (cols) => {
     const { h, hits } = waveField([key], cols.map((c, i) => ({ chessId: 't_wall', row: 10, col: c, uid: i + 1 })));
-    const booms = fxLog(h, 'explode', 'uareap');
+    const booms = fxLog(h, 'explode', 'uareap'), casts = fxLog(h, 'enemySkill');
     const e = put(h, key, [10, 7], { tag: null });
     assert.equal(e.blockWeight, 3);
     h.runUntil(() => booms.length >= 1, 10);
+    const anim = e.skillAnimUntil;
     runFor(h, 1);
-    return { h, hits: hits.filter((x) => x.at >= booms[0].at - 1e-9 && x.at <= booms[0].at + 0.5), booms, e };
+    return { h, hits: hits.filter((x) => x.at >= booms[0].at - 1e-9 && x.at <= booms[0].at + 0.5), booms, e, casts, anim };
   };
   {
-    const { booms, h, hits, e } = run([6, 8]);
+    const { booms, h, hits, e, casts, anim } = run([6, 8]);
+    assert.equal(casts.length, 1);
+    // one F_Skill clip over the whole sequence: the buff's two fixed updates + the clip (2.233 s), not castSkill's 0.5 s
+    assert.ok(Math.abs(anim - casts[0].at - (2 * TICK + 2.233)) < 1e-6, `skill clip to the cast's end (${anim - casts[0].at})`);
     assert.equal(booms.length, 2, 'two units in range: two missiles');
     assert.ok(Math.abs(booms[1].at - booms[0].at - 0.2) < 0.02, '0.2 s apart');
     assert.notEqual(booms[0].x, booms[1].x, 'each on another unit');

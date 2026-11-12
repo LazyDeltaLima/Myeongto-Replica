@@ -153,6 +153,9 @@ function kitUareap(ab) {
     }, { holdsBattle: true });
   };
   return [blockWeight(3), skill(s, (b, e) => {
+    // the F_Skill clip plays once over the whole sequence (the buff's two ticks + the clip): the cast's end, not castSkill's 0.5 s
+    const k = e.mem.ab && e.mem.ab.casting;
+    if (k) e.skillAnimUntil = k.until;
     const hit = new Set();
     const atk = e.s.atk * scale;
     for (let i = 0; i < UAREAP_SHOTS; i++) {

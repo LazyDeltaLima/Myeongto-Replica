@@ -507,21 +507,29 @@ function kitBandClarinet(ab) {
 /**
  * 残党乐团鼓手 / 巫王乐团鼓手 (ranged arts, LTNDRU_RANGE): after 2 attacks (bandSp) Skills/aoeAttack (SILENCE line;
  * AlwaysTrigger, `_allowNoTarget`) — its Attack clip, and LTNDRU_AOE_DELAY s after the clip's event arts ATK on every
- * ally within LTNDRU_AOE_RADIUS of it (AOEDamage MAGICAL, every motion). bandDeco: enthu.
- * [추정·미조사: whether the blast still comes when it falls within those 0.2 s — here not]
+ * ally within LTNDRU_AOE_RADIUS of it (AOEDamage MAGICAL, every motion). bandDeco: enthu. Gone from the field within
+ * those 0.2 s (knocked out, through the exit), the blast comes at once where it was: the client finishes a leaving
+ * enemy's buffs (Enemy.FinishMe → Entity.OnFinish → BuffContainer.Clear → Buff.OnFinish), which runs their
+ * ON_BUFF_FINISH whether the owner lives or not (Buff._RunActions checks `alive` only to fill the context's tile).
  */
 function kitBandDrummer(ab) {
   const s = ab.sk.aoeAttack;
   const sp = bandSp(s);
+  const P = { aoe: null };   // the enemy_ltndru[AOE] buff on it, until it finishes
+  const blast = (b, e) => {
+    P.aoe = null;
+    b.fx('explode', { x: e.x, y: e.y, r: LTNDRU_AOE_RADIUS, kind: 'ltndruAoe', id: e.id, ability: 'aoeAttack' });
+    for (const u of areaAllies(b, e, e.x, e.y, LTNDRU_AOE_RADIUS)) hurt(b, e, u, e.s.atk * (s.bb.atk_scale ?? 1), 'arts', { tags: ['splash'] });
+  };
   return [bandDeco('enthu_fx_deco_only'), {
     spawn(b, e) { e.base.rangeRadius = Math.max(e.base.rangeRadius || 0, LTNDRU_RANGE); },
+    death(_c, b, e) { if (P.aoe) blast(b, e); },
   }, sp.counter, skill(s, (b, e) => {
     sp.spend();
-    atCastEvent(b, e, s, () => b.after(LTNDRU_AOE_DELAY, () => {
-      if (!e.alive) return;
-      b.fx('explode', { x: e.x, y: e.y, r: LTNDRU_AOE_RADIUS, kind: 'ltndruAoe', id: e.id, ability: 'aoeAttack' });
-      for (const u of areaAllies(b, e, e.x, e.y, LTNDRU_AOE_RADIUS)) hurt(b, e, u, e.s.atk * (s.bb.atk_scale ?? 1), 'arts', { tags: ['splash'] });
-    }, { owner: e }));
+    atCastEvent(b, e, s, () => {
+      const t = (P.aoe = {});
+      b.after(LTNDRU_AOE_DELAY, () => { if (P.aoe === t && e.alive) blast(b, e); }, { owner: e });
+    });
   }, { sil: true, cond: () => sp.ready() })];
 }
 
@@ -622,8 +630,9 @@ const WINBOM_BLAST_RADIUS = 1.55, WINBOM_BLAST_DELAY = 1;
  * the ground allies within WINBOM_BLAST_RADIUS (HitBehaviour `targetSide` 2: the operators' side only). Its
  * enemy_winbom_t[extinguish] puts out 紧急供暖器 (trap_winfire) in its 3 × 3, which no 规程 field has. The battle waits
  * for the blast.
- * [추정·미조사: each hit strikes the target the channel began on, none once it has fallen — whether MultiMeleeAttack picks
- * again for its later hits was not read]
+ * Each hit strikes the target the channel began on, none once it has fallen (the official client: Flame's
+ * `_selectTargetTiming` 0 AT_BEGINING, so AbilityStandard._DoCast picks no new target for the later hits, and with
+ * `_refreshInputTargetOnCheckSpell` off MultiMeleeAttack.CheckAnotherSpell keeps the input target).
  */
 function kitJetCanister(ab) {
   const times = Math.max(1, T(ab, 'Boom.attack@times') ?? 1), chan = T(ab, 'Boom.attack@cooldown') ?? 0;
@@ -912,8 +921,9 @@ const MHBOAR_LISTEN = 0.1;
  * Crash (AuraAbility, radius MHBOAR_CRASH_RADIUS + the operator's collider, TargetRootTileValidator: units on low tiles,
  * ground or air — PRTS 「可以命中空中…只能命中低地」): a unit entering it while the boar walks on its own
  * (IfEnemyIsMovingBySelf) takes MOVE_SPEED × `Crash.atk_scale` (800) physical — once until it leaves (`_removeBuffWhenTargetLeave`);
- * its `Crash.stun` is 0. Whom it reaches: an area selection (areaAllies) [추정·미조사: TargetRootTileValidator's
- * `enableAdvancedOptions` was not read].
+ * its `Crash.stun` is 0. Whom it reaches: an area selection (areaAllies) on low tiles — the official client's
+ * TargetRootTileValidator.Validate: the base TargetValidator (its advanced options on but all at their defaults) and
+ * TileSelector.Options.Verify with only `checkHeightType` LOWLAND set.
  */
 function kitRagingBoar(ab) {
   const mul = T(ab, 'Rush.mhboar_t[trigger].move_speed') ?? 0, iv = T(ab, 'Rush.mhboar_t[trigger].interval') ?? 0;
