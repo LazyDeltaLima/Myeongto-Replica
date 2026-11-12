@@ -249,6 +249,14 @@ const ABILITY_SHOT_ATKS = new Set(['uareapMissile']);
  * no hit effect).
  */
 const AREA_SHOT_BLASTS = new Set(['uareap']);
+/**
+ * 2026-11-12 (docs/rules/fx.md 「규정 살카즈 후예 무리」): an enemy skill whose strike (its clip's attack event) the sim sends
+ * as 'explode' of a kind: its cast effects of ON_SPELL_ON (enemy-modes.json opt `s` 4) play there, not at its 'enemySkill',
+ * and the blast draws no stand-in (its hits are the skill's, eskillHit) — defId → { ability: kind }. 萨卡兹子裔责罚者 /
+ * 惩戒者's StunAttack (reborn.js kitDfat: its Skill clip, the strike 0.567 s in): enemy_dfat_skill_start_01.
+ */
+const DFAT_STUN = Object.freeze({ StunAttack: 'dfatStun' });
+const SPELL_BLASTS = Object.freeze({ enemy_1362_dfat: DFAT_STUN, enemy_1362_dfat_2: DFAT_STUN });
 const FORM_MODES = Object.freeze({
   enemy_1116_liprr: PRISONER_MODES, enemy_1116_liprr_2: PRISONER_MODES, enemy_1118_lidbox_2: PRISONER_MODES,
   enemy_1119_vofsd: PRISONER_MODES, enemy_1121_lifbos: PRISONER_MODES, enemy_1121_lifbos_2: PRISONER_MODES,
@@ -5801,6 +5809,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const k = `${id}:${key.toLowerCase()}`;
     // 2026-10-15: a talent buff's effect held until this ability starts (enemy-modes.json `auraEnd`: 子代's tentac_grow → Grow)
     for (const l of live) if (l.owner === id && l.tag === `aura:${key.toLowerCase()}`) l.inst.stop();
+    // 2026-11-12: its ready mark, when it goes as the cast starts (ReadyEnemySkillEffect `_stopBeforeCast`, ereadyFx)
+    if (part.readyEarly) for (const l of live) if (l.owner === id && l.tag === `ready:${key.toLowerCase()}`) l.inst.stop();
     v._fxESkill = { part, t: clockS, hold, held: hold ? new Set() : null, inPlace: inPlaceOfAttack(v, part) };
     if (clockS - (eskillSeen.get(k) ?? -9) < 1) return true;
     eskillSeen.set(k, clockS);
@@ -5810,7 +5820,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const names = edirs(v, part, part.cast), loops = names.filter((n) => part.opt?.[n]?.o === 0);
       eplay(v, names.filter((n) => !loops.includes(n)), { tag: 'cast' });
       if (loops.length) eplay(v, loops, { buff: true, tag: 'eskill', until: clockS + ESKILL_HOLD_CAP });
-    } else eplay(v, edirs(v, part, part.cast), { tag: 'cast' });
+    } else {
+      // (2026-11-12) the strike's own cast effects wait for the strike when the sim signals it (SPELL_BLASTS)
+      const atBlast = !!SPELL_BLASTS[v.info?.defId]?.[key];
+      const names = atBlast ? (part.cast || []).filter((n) => part.opt?.[n]?.s !== CAST_EVENT.SPELL_ON) : part.cast;
+      eplay(v, edirs(v, part, names), { tag: 'cast' });
+    }
     const own = [...(part.buff || []), ...(part.attach || [])];
     if (own.length) eplay(v, own, loop ? { buff: true, tag: 'eskill', until: clockS + cap } : { tag: 'cast' });
     const pr = part.proj;
@@ -6255,6 +6270,33 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * creates `from` on it before its BlinkNode — where it leaves (enemy_shkrbt_skill_01_start: no FollowMountPoint, it stays
    * there) — and `to` after it, on it where it lands (enemy_shkrbt_skill_01_end). true = drawn (no stand-in blink).
    */
+  /**
+   * 2026-11-12 (docs/rules/fx.md 「규정 살카즈 후예 무리」): an enemy skill's ready mark — sim fx 'enemySkillReady' { id, ability,
+   * on } (reborn.js kitDfat: on 1 as the SP fills, on 0 as the mark goes). ReadyEnemySkillEffect: `_effect` (enemy-modes.json
+   * skills[ability].ready: enemy_dfat_skill_hint) on its owner while the skill is ready, cleared at the cast's finish (at its
+   * start when `_stopBeforeCast`: `readyEarly`, eskillFx) and at the detach — a knock-out stops it with the owner's held
+   * effects (stopOwned). true = drawn here.
+   */
+  function ereadyFx(o, views) {
+    const v = views.get(o.id);
+    if (!eOn(v) || typeof o.ability !== 'string') return false;
+    const part = eskillPart(v, o.ability);
+    if (!part?.ready?.some(efx)) return false;
+    const tag = `ready:${o.ability.toLowerCase()}`, id = ownerOf(v);
+    for (const l of live) if (l.owner === id && l.tag === tag) l.inst.stop();
+    if (Number(o.on)) eplay(v, part.ready, { buff: true, tag });
+    else if (trace) trace({ kind: 'readyEnd', names: part.ready, by: id, at: null });   // tests: its mark stopped
+    return true;
+  }
+  /** The 'explode' of a skill's strike (SPELL_BLASTS): its ON_SPELL_ON cast effects on the caster now. */
+  function espellBlast(e, views) {
+    const o = e[4], v = views.get(o.id);
+    const part = eOn(v) ? eskillPart(v, o.ability) : null;
+    if (!part) return false;
+    const names = (part.cast || []).filter((n) => part.opt?.[n]?.s === CAST_EVENT.SPELL_ON && efx(n));
+    if (level() < 3) eplay(v, edirs(v, part, names), { tag: 'cast' });
+    return names.length > 0 || (part.hit || []).some(efx);
+  }
   function eblinkFx(e, views) {
     const o = e[4], v = views.get(o.id);
     if (!eOn(v) || level() >= 3) return false;
@@ -6717,6 +6759,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'explode' && e[4]?.id != null && SHOT_BLASTS.has(e[4].kind)) { if (eshotBlast(e, views)) ownFx.add(e); return; }
           // 2026-11-11: 残党乐团鼓手's aoeAttack — its buff enemy_ltndru[AOE]'s AOEDamage creates no effect (`_createEffect`
           // false, no `_hitEffectKey`): the ability's cast effects (its wave, enemy_ltndru_attack_ap_start_02) are the blast
+          // 2026-11-12: a skill's strike the sim sends as its blast (SPELL_BLASTS) — the strike's cast effects now, no stand-in
+          if (e[1] === 'explode' && e[4]?.id != null && typeof e[4].ability === 'string' && SPELL_BLASTS[views.get(e[4].id)?.info?.defId]?.[e[4].ability] === e[4].kind) {
+            if (espellBlast(e, views)) ownFx.add(e);
+            return;
+          }
           if (e[1] === 'explode' && e[4]?.id != null && CAST_BLASTS.has(e[4].kind) && typeof e[4].ability === 'string') {
             const v = views.get(e[4].id), part = eOn(v) ? eskillPart(v, e[4].ability) : null;
             if (part && (part.cast || []).some(efx)) ownFx.add(e);
@@ -6731,6 +6778,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             if (pr && !pr.link && efx(Array.isArray(pr.trail) ? pr.trail[0] : null)) { ownFx.add(e); return; } // its trail flies instead
           }
           if (e[1] === 'teleport' && e[4]?.id != null && typeof e[4].ability === 'string' && eblinkFx(e, views)) { ownFx.add(e); return; }   // 2026-11-12: 聆风猎手
+          if (e[1] === 'enemySkillReady' && e[4]?.id != null) { if (ereadyFx(e[4], views)) ownFx.add(e); return; }   // 2026-11-12: a skill's ready mark
           // 2026-10-10: an enemy's skill / special action naming its ability (fx 'enemySkill' and the fx of its cast) — that ability's official
           // effects, and no procedural stand-in for it (standInOff's kinds) when the enemy binds it
           if (e[4] && typeof e[4] === 'object') {

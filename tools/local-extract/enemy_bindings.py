@@ -83,6 +83,10 @@ BUFF_CLASSES = {
     9073738633337710967: 'aura',               # Torappu.Battle.Abilities.AuraAbility (onto the units in its range)
     -5793748974791823428: 'globalAura',        # Torappu.Battle.Abilities.GlobalAuraAbility
     7085803614365642631: 'afterAffecting',     # Torappu.Battle.Abilities.BuffAfterAffecting
+    # (2026-11-12) not a buff holder: an enemy skill's behaviour that shows `_effect` on its owner while the skill is ready
+    # (ReadyEnemySkillEffect.OnTick creates it when none is alive and the skill can cast; cleared at the cast's finish, at the
+    # cast's start when `_stopBeforeCast`, and at the detach)
+    4462941303057647761: 'ready',              # Torappu.Battle.ReadyEnemySkillEffect
 }
 # statuses render/fxstatus.js already draws from the sim's status events (STATUS_FX): not an enemy's own aura
 STATUS_DRAWN = {'common_invisible', 'common_buff_micai_01', 'common_levitate_01'}
@@ -485,6 +489,10 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
         if BUFF_CLASSES.get((d.get('m_Script') or {}).get('m_PathID')) == 'reborn' and d.get('_useAbilityToHandle') and d.get('_abilityName'):
             a['rebornHandle'] = {'name': d['_abilityName'], 'finish': 1 if d.get('_finishHandleAbilityAfterReborn') else 0,
                                  'to': d.get('_modeIndex') or 0}
+        # (2026-11-12) the skill's ready effect (ReadyEnemySkillEffect `_effect`; `_stopBeforeCast`: gone at the cast's start,
+        # else at its finish) — 萨卡兹子裔责罚者's enemy_dfat_skill_hint
+        if BUFF_CLASSES.get((d.get('m_Script') or {}).get('m_PathID')) == 'ready' and isinstance(d.get('_effect'), str) and d['_effect']:
+            a['readyFx'] = {'fx': d['_effect'], 'early': 1 if d.get('_stopBeforeCast') else 0}
         if d.get('_projectileKey'):
             p = {'key': d['_projectileKey'], 'mount': enum(MOUNTS, d.get('_mountPointType'))}
             ex = strs([x.get('_projectileKey') if isinstance(x, dict) else x for x in d.get('_extraProjectileKeys') or []])
@@ -812,7 +820,7 @@ def names_of_part(p):
     pr = p.get('proj') or {}
     for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart', 'stop'):
         out += pr.get(f, [])
-    out += p.get('summon', []) + p.get('dying', [])
+    out += p.get('summon', []) + p.get('dying', []) + p.get('ready', [])
     out += [x for side in ('from', 'to') for x in (p.get('blink') or {}).get(side, [])]
     for sp in pr.get('sub', []):
         for f in ('trail', 'hit', 'reached', 'targetStart', 'start'):
@@ -903,7 +911,13 @@ def render_entry(r, projs):
         dying = uniq(x for a in lst for b in a.get('buffs') or [] for x in ((b.get('template') or {}).get('onEvent') or {}).get('27', []))
         if dying:
             part['dying'] = dying
-        if any(part.get(f) for f in ('cast', 'hit', 'attach', 'hitBuff', 'buff', 'proj', 'line', 'tile', 'summon', 'blink')):
+        # (2026-11-12) its ready effect (ReadyEnemySkillEffect): `ready`, `readyEarly` 1 when it goes at the cast's start
+        rd = next((a['readyFx'] for a in lst if a.get('readyFx')), None)
+        if rd:
+            part['ready'] = [rd['fx']]
+            if rd['early']:
+                part['readyEarly'] = 1
+        if any(part.get(f) for f in ('cast', 'hit', 'attach', 'hitBuff', 'buff', 'proj', 'line', 'tile', 'summon', 'blink', 'ready')):
             part['anim'] = next((a['anim'] for a in lst if a.get('anim')), None)
             if part['anim'] is None:
                 del part['anim']
