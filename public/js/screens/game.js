@@ -166,6 +166,17 @@ export function GameScreen() {
   // ending plays over the field before the result screen (a result already there when this screen mounted does not)
   const [, setEndTick] = useState(0);
   const endRef = useRef({ seen: hasResult, ending: null, onField: false });
+  // 规程's 确定自选编队 until its own screen exists: this client brings the first two of each tier of its 自选编队 (or what it
+  // chose) into the match and readies (ui/gameLogic/draft.js autoDiyChoice). Here in the router, which stays mounted: the
+  // step shows the strategy draft's screen (phaseMode 'draft'), so MatchScreen is not there, and a single human's step
+  // has no deadline (server/match/match/diyChoose.js) — the match would wait on it for ever
+  const diyAutoKey = useStore((s) => (s.match.public?.phase === PHASE.DIY_CHOOSE && !isSpectating(s.room, s.me.playerId)
+    ? JSON.stringify(autoDiyChoice(s.match.private?.diyChoose)) : 'null'));
+  useEffect(() => {
+    const slots = JSON.parse(diyAutoKey);
+    if (!slots) return;
+    actions.diyChoose(slots).then(() => actions.diyReady());
+  }, [diyAutoKey]);
   if (hasResult && !endRef.current.seen) {
     endRef.current.seen = true;
     const status = endingOf(store.get().match.result);
@@ -830,15 +841,6 @@ function MatchScreen() {
     if (asked === 'fallback' || globalThis.__SP_RENDER__ === 'fallback') return;
     toast(t('渲染器暂时未能加载，已切换为简化视图（功能不受影响，可刷新重试）'), 'info', { ttl: 5000 });
   }, [viewKind, viewUpgrading]);
-
-  // 规程's 确定自选编队 until its own screen exists: this client brings the first two of each tier of its 自选编队 (or what it
-  // chose) into the match and readies (ui/gameLogic/draft.js autoDiyChoice)
-  const diyAutoKey = phase === PHASE.DIY_CHOOSE && !spectator ? JSON.stringify(autoDiyChoice(priv?.diyChoose)) : 'null';
-  useEffect(() => {
-    const slots = JSON.parse(diyAutoKey);
-    if (!slots) return;
-    actions.diyChoose(slots).then(() => actions.diyReady());
-  }, [diyAutoKey]);
 
   // phase changes: banners, sounds, resets
   const phaseKey = `${phase}:${pub?.round}`;
