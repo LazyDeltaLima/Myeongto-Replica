@@ -26,6 +26,12 @@ export const SEASON_FEATURES = Object.freeze({
   /** The bond strip's phase mark Ⅰ·Ⅱ·Ⅲ over an active bond's disc (the HUD bond item's img_level, bond_level_N): the
    * thresholds reached, on bonds with two or more (docs/rules/ui.md 「규정 HUD 새 요소」). */
   bondPhase: false,
+  /** The solo room plays a 规程等级 1–20 or 极速模拟 (room `grade`, shared/constants.js MAX_GRADE) instead of the four
+   * difficulties. */
+  soloGrades: false,
+  /** No custom 规则 模式 and no 8-player room in this season yet (maintainer decision 2026-11-11: both later, refused until
+   * then — server/lobby.js, server/matchmaking.js). */
+  noCustomOrLarge: false,
 });
 
 /**
@@ -38,7 +44,7 @@ export const SEASONS = {
   // 卫戍协议：规程 (CN from 2026-11-08): built from its own tables (tools/build-data.mjs --season act3autochess), not public
   // until every part of it is (SP_SEASONS=act3autochess)
   act3autochess: Object.freeze({ id: 'act3autochess', public: false, name: N_('规程'), mark: 'REGULATION',
-    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true }) }),
+    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true }) }),
 };
 
 /**

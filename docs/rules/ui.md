@@ -2080,3 +2080,14 @@ CN 11-01부터 들어온 전투 HUD 요소 넷(EN 10-14 클라에는 없음). �
 - 테마 그림은 시즌 그림(`seasonSkin/*`, `bondPhaseIcon/*`)에서 찾고, 없으면 CSS 모양(삼각·별·빛 테두리·글자 Ⅱ).
 - 네트워크: `bossPct`·`bossTop`은 `m.public` 행 델타로(보스 라운드 ~1 Hz, 바뀐 필드만), `top`은 바뀔 때만 — 경기 동안 몇 번. 따로 줄일 것 없음(관리자 요청으로 검토 2026-11-12).
 - 시험: `test/match/avatar-badges.test.js`(표 상수, 실제 경기 경로로 연승 세기·초기화, 보스 몫 내림·1위 기물, 소환물 귀속, `b.progress top` 검사, 화면 단계·맹약 단계).
+
+## 규정 모드 — 규정 등급 1~20·고속 시뮬레이션, 해금 없음, 커스텀·8인 막기 (2026-11-12, 관리자 결정 2026-11-08·2026-11-11)
+
+- **모드**(관리자 결정 2026-11-08): 규정의 다인 모드는 지난 시즌처럼 난이도 넷(`mode_multi_funny`~`abyss`, 혼자·팀). 1인은 공식 규정의 단계식 모드 — 규정 등급 1~20(`mode_single_1`~`20`; 표의 `modeDifficulty`로 1~4 표준·5~8 험지·9~14 극한·15~20 초월)과 고속 시뮬레이션(极速模拟 `mode_single_funny`, 9라운드). 훈련 모드(入门协议)·시즌 상점·주기 보상·칭호는 넣지 않는다. 지금 시즌(맹약)은 난이도 넷 그대로.
+- 서버: 시즌 스위치 `soloGrades`(`shared/seasons.js`)가 켜진 시즌의 1인 방은 `grade`(0 = 고속, 1~20)를 갖는다(`room.create`·`room.setDifficulty { grade }`, `room.state`·인계 스냅숏에 실림; 없으면 고른 난이도의 첫 등급). 방의 난이도는 등급의 것, 경기는 `modeIdFor(mode, difficulty, grade)` → `mode_single_<grade>`. 다른 방에 `grade`가 오면 BAD_MSG. 경기의 난이도 규칙(밴·보스 체력·히든 코어)은 모드 기록(`gd.difficulty` = 모드의 `difficulty`)을 따른다 — 고속은 표에서 FAST라 밴 표에 칸이 없다(기본값 0·0) [추정·자료 없음: 공식 고속의 맹약 밴 수는 표에 없음 — 모드의 `inactiveBondIds` 8개는 적용됨].
+- **해금 없음**(관리자 결정 2026-11-08): 모든 등급·난이도를 처음부터 연다. 모드 설명의 해금 문구(「解锁时可开放至【…】」)는 데이터를 만들 때 뺀다(`tools/build-data.mjs modeDescNoUnlock`; 그 문구뿐인 설명은 null). `unlockText`는 화면에 쓰지 않는다.
+- **전략 목록**: 규정 전략의 모드별 제외(`bands.json inactiveModeIds`)를 화면 목록도 본다(`bandDraft.js allowedBands`, 서버 `GameData.bandAllowed`와 같게).
+- **커스텀·8인 막기**(관리자 결정 2026-11-11: 둘 다 나중에): 시즌 스위치 `noCustomOrLarge`가 켜진 시즌(규정)은 커스텀 규칙과 8인 방을 서버가 거부한다 — `room.create`(custom·`size` 8)·`room.setRuleset`(custom)·`room.setSize`(8)·`room.queue`(`size` 8) 모두 BAD_MSG. 빠른 매칭은 4인 묶음만 만든다(8인 큐가 없으므로).
+- 한국어 임시 이름(관리자 결정 2026-11-12, KR 서버 출시 때 교체): 「规程等级N」 = 「규정 등급 N」, 「极速模拟」 = 「고속 시뮬레이션」.
+- 아직 아님: 로비의 등급 고르기 화면과 커스텀·8인 단추 숨기기(새 로비 화면 위에서), 공식 새 프리팹 `auto_chess_mode_choice_view` 그림·규정 모드 아이콘(후순위).
+- 시험: `test/season-grades.test.js`(모드 ID, 프로토콜, 실제 경기 경로의 등급 모드, 로비의 등급·거부·인계, 전략 목록, 설명 문구).
