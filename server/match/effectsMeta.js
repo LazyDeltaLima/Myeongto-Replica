@@ -46,6 +46,7 @@ import { itemKey } from './gamedata.js';
 import { boardOrder, parseKey, tileKey } from './board.js';
 import { pieceBonds as bondsOfPiece } from './bondsMeta.js';
 import { registerAllMeta } from '../sim/content/index.js';
+import { bandCommandKey, bandPassiveKey } from '../sim/content/bands/meta.js';
 import { registerBuiltins } from './builtinMeta.js';
 import { msg, dn } from '../../shared/i18n.js';
 import { onGiftTicker } from './botEmotes.js';
@@ -256,9 +257,17 @@ export class EffectDispatcher {
       for (const [key, h] of reg.globals()) this._call(ps, key, h, hook, { kind: 'global', key }, ev);
       // 2. band
       if (ps.bandId) {
-        const key = `band:${ps.bandId}`;
+        // a 指令 taken from another strategy (PlayerState.bandCommand, match/bandSkill.js setBandCommand): the own
+        // strategy runs without its own 指令 (its passive part only), then the taken 指令 as the other strategy's
+        const cmd = ps.bandCommand;
+        const key = cmd && reg.has(bandCommandKey(ps.bandId)) ? bandPassiveKey(ps.bandId) : `band:${ps.bandId}`;
         const h = reg.get(key);
         if (h) this._call(ps, key, h, hook, { kind: 'band', key, bandId: ps.bandId, band: this.m.gd.band(ps.bandId) }, ev);
+        if (cmd) {
+          const ck = bandCommandKey(cmd);
+          const ch = reg.get(ck);
+          if (ch) this._call(ps, ck, ch, hook, { kind: 'band', key: ck, bandId: cmd, band: this.m.gd.band(cmd) }, ev);
+        }
       }
       // 3. bonds
       for (const bondId of this.m.gd.bondIds) {
@@ -768,6 +777,8 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     // ---- bounties / choices
     addBounty: (card) => m.addBounty(ps, card),
     offerBountyChoice: (cards, sourceItemId) => m.offerBountyChoice(ps, cards, sourceItemId),
+    // 规程's 更换指令 (choiceType SKILL_CHANGE): { choiceEvent, desc, sourceItemId? | sourceBandId? } — match/bandSkill.js
+    offerBandSkillChoice: (opts) => m.offerBandSkillChoice(ps, opts),
 
     // ---- messaging
     // a string or a shared/i18n.js msg(msgid, params)

@@ -461,6 +461,7 @@ Writes (all validated, never throw on bad input, never make funds / pools negati
 | `addEffect(ref)` / `removeEffect(id)` / `setEffectCounter(id, v)` | EffectRefs `{ id, key?, name, desc, iconKind, iconId, counter?, battle=true, params?, data?, hidden? }` — shown in `m.private.effects`, passed to battles as `playerEffects` when `battle` |
 | `addBounty(card)` | a bounty (choices.json cards.bounty shape) on the next battles |
 | `offerBountyChoice(cards, sourceItemId)` | 教鞭 only: open a PERSONAL choice of up to three of `cards` (cards.bounty entries) for this player — shuffled once with the meta rng, kept in `m.private.personalChoice` until the owner confirms one (`g.choice { idx, choiceId }`) or the prep's deadline / an AI seat picks (§2.5); returns the intent result (`{ ok }`, or `{ error, detail }` for a phase that is not PREP, a Ready player, a choice already open or no card — before any rng draw or id, so the Art stays in the hand) |
+| `offerBandSkillChoice({ choiceEvent, desc, sourceItemId?, sourceBandId? })` | 规程's 更换指令 (“追随者们” 好多委托, 投机骰子): open a personal choice of N active 指令 of other strategies (N from the text's 「从N个」, at most 3) — the same slot, gates and result as `offerBountyChoice`; the pick becomes the player's 指令 (match/bandSkill.js, docs/rules/sim.md 「지령 바꾸기」) |
 | `toast(text, kind)` / `ticker(text)` / `giftTicker(fromName, chessId)` | messages |
 | `teammates()` / `player(playerId)` | ctx objects of other alive players (team effects) |
 
@@ -536,6 +537,13 @@ it fits in the existing parts:
   seat with the random pick instead — no seat is ever left un-ready by an offer.
 * The chosen bounty is a bounty like any other: next battles (a multi-round card lasts two, §1.2), 联防 payouts, the Final
   Assault / Hidden Core spawns — and in the boss rounds its perfect-battle coins (§3 Waves).
+* **规程's 更换指令** uses the same slot: `ctx.offerBandSkillChoice({ choiceEvent, desc, sourceItemId?, sourceBandId? })`
+  (`Match.offerBandSkillChoice`, match/bandSkill.js — “追随者们” 好多委托 at every prep start, 投机骰子 on equip) opens
+  `ps.personalChoice` with `kind: 'bandSkill'` and cards `{ bandId, effectId }`: the active 指令 of other strategies
+  (the server's pool, [ASSUMED·서버]). The same gates, privacy, deadline and Ready rule; `g.choice` makes the pick the
+  player's 指令 (`setBandCommand`, `ps.bandCommand`) instead of adding a bounty; the bots take the first card whose 指令
+  their rules use (`botPickBandCommand`). `m.private.personalChoice.kind` tells the two apart. docs/rules/sim.md
+  「규정 전략」 「지령 바꾸기」 has the rules.
 
 “神秘顾客” (granted by nothing in act2, no PRTS list of its cards) remains random: three cards are drawn from the band-bounty
 family `enemyeffect_b_*` [ASSUMED], limited to enemies the mode can field, and one is added with `ctx.addBounty` (the

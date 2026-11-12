@@ -86,7 +86,12 @@ export class PlayerViews {
         id: this.personalChoice.id,
         round: this.personalChoice.round,
         sourceItemId: this.personalChoice.sourceItemId,
-        cards: this.personalChoice.cards.map((c) => bountyCard(this.gd, c)),
+        // 'bounty' (教鞭) or 'bandSkill' (规程's 更换指令: cards of 指令, server/match/match/bandSkill.js bandCommandCard)
+        kind: this.personalChoice.kind === 'bandSkill' ? 'bandSkill' : 'bounty',
+        choiceEvent: this.personalChoice.choiceEvent ?? null,
+        cards: this.personalChoice.kind === 'bandSkill'
+          ? this.personalChoice.cards.map((c) => this.m.bandCommandCard(this, c))
+          : this.personalChoice.cards.map((c) => bountyCard(this.gd, c)),
       } : null,
       shop: {
         level: this.shop.level,

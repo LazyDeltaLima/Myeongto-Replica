@@ -37,9 +37,9 @@ const done = (h) => { checkInvariants(h.b); assert.equal(h.b.errors.length, 0, J
 /** HP removed from `t` by one arts / phys hit of `amount` from `src`. */
 const hit = (h, src, t, amount, type = 'phys') => { const was = t.hp; h.b.dealDamage(src, t, { amount, type, canDodge: false }); return was - t.hp; };
 
-test('规程 coverage: every battle buff key of the season\'s equipment runs (投机骰子 is prep-side, bundle sim-L)', () => {
+test('规程 coverage: every buff key of the season\'s equipment runs, prep and battle', () => {
   const rows = coverageOf('act3autochess').items.filter((r) => r.status !== 'ok');
-  assert.deepEqual(rows.map((r) => `${r.side} ${r.key}`), ['prep equip_destory_skill_pool']);
+  assert.deepEqual(rows.map((r) => `${r.side} ${r.key}`), []);
   for (const id of [I('1_06'), I('2_10'), I('6_11'), I('6_05'), I('6_08')]) assert.ok(hasBattleEffect(ACT3.items[id], { data: ACT3 }) || hasBattleEffect(ACT3.items[id]), id);
 });
 

@@ -503,6 +503,16 @@ K.n_round_refresh_cnt_gain_coin = (ps) => ({
   },
 });
 
+// “追随者们” 好多委托 「被动效果：每次进入休整期时，从2个随机指令中选择1个并替换当前指令」: gain_band_skill_from_pool_in_prep
+// { choice_event: skill_change_2 } — at every prep start a personal choice (the table's choice event, choiceType
+// SKILL_CHANGE) between that many 指令 of the pool; the pick becomes the player's 指令 (server/match/match/bandSkill.js
+// offerBandSkillChoice — the pool, the swap and what the strategy keeps). The count is the text's (no blackboard field).
+K.gain_band_skill_from_pool_in_prep = (ps, bandId, stage) => ({
+  onPrepStart(ctx) {
+    ctx.offerBandSkillChoice({ choiceEvent: ps[0].choice_event, desc: stage?.desc ?? '', sourceBandId: bandId });
+  },
+});
+
 // 规程's active 指令 (g.bandSkill, server/match/match/bandSkill.js: the gate, the target, the cost and the use limits are
 // the server's; these hooks are only the effect).
 // 小贾斯汀 私募基金 「点击使用：随机获得1-6资金（冷却回合数等同于获得资金）」: mingold..maxgold funds at once, and the stage's
@@ -1199,6 +1209,23 @@ function merge(parts) {
 // server/match/player/round.js; bands/battle.js bandBattleBuffs).
 
 export const STAGE_COUNTER = 'band:stage';
+/**
+ * The stage counter of a 指令 taken from another strategy (PlayerState.bandCommand: “追随者们” 好多委托, 投机骰子 — server/
+ * match/match/bandSkill.js setBandCommand): its own, so a staged strategy of the player (华法琳) keeps its stage.
+ */
+export const COMMAND_STAGE_COUNTER = 'band:cmd:stage';
+/**
+ * The registry keys of a strategy with an ACTIVE stage, beside its whole handler `band:<id>`: `band:<id>#command` — the
+ * hooks of the buffs that are its 指令 (a handler with onBandSkill / onBandSkillUsed: the effect and its cost keys),
+ * staged on COMMAND_STAGE_COUNTER, run when another player's 指令 is this one —, `band:<id>#passive` — the rest
+ * (Mechanist's 精巧设计 passive), run for the strategy's owner while its 指令 is another's.
+ */
+export const bandCommandKey = (bandId) => `band:${bandId}#command`;
+export const bandPassiveKey = (bandId) => `band:${bandId}#passive`;
+/** Does the strategy record have an ACTIVE stage (an active 指令)? */
+export const hasActiveStage = (rec) => bandStages(rec).some((s) => s && s.type === 'ACTIVE');
+const COMMAND_HOOKS = ['onBandSkill', 'onBandSkillUsed'];
+const isCommandPart = (h) => !!h && COMMAND_HOOKS.some((n) => typeof h[n] === 'function');
 /** The hooks a staged strategy listens on to move its stage (besides those its stages use). */
 const STAGE_HOOKS = ['onRoundStart', 'onPrepStart', 'onLevelUp', 'onSpend', 'onGain', 'onBuy', 'onSold', 'onMerge', 'onActiveBonds', 'onPrepEnd'];
 
@@ -1221,16 +1248,22 @@ export function stageUnlocked(ctx, next) {
   }
 }
 
-/** The player's current stage index of `stages`, moved on as far as the conditions hold (writes STAGE_COUNTER). */
-export function bandStageIndex(ctx, stages) {
-  let i = Math.max(0, Math.min(stages.length - 1, int(ctx.counter(STAGE_COUNTER), 0)));
+/**
+ * The player's current stage index of `stages`, moved on as far as the conditions hold (writes the counter `key`:
+ * STAGE_COUNTER, or COMMAND_STAGE_COUNTER for a 指令 taken from another strategy).
+ */
+export function bandStageIndex(ctx, stages, key = STAGE_COUNTER) {
+  let i = Math.max(0, Math.min(stages.length - 1, int(ctx.counter(key), 0)));
   while (i < stages.length - 1 && stages[i].next && stageUnlocked(ctx, stages[i].next)) i++;
-  if (i !== ctx.counter(STAGE_COUNTER)) ctx.setCounter(STAGE_COUNTER, i);
+  if (i !== ctx.counter(key)) ctx.setCounter(key, i);
   return i;
 }
 
-/** Hooks of one stage's buffs (null when none has a prep effect). */
-function stageHooks(stage, bandId) {
+/**
+ * Hooks of one stage's buffs (null when none has a prep effect). `part`: 'all', or only the buffs that are the 指令
+ * ('command': a handler with onBandSkill / onBandSkillUsed) or only the others ('passive').
+ */
+function stageHooks(stage, bandId, part = 'all') {
   const groups = new Map();
   for (const b of buffsOf(stage)) {
     if (!b.key || !K[b.key]) continue;
@@ -1238,21 +1271,27 @@ function stageHooks(stage, bandId) {
     groups.get(b.key).push(b.p);
   }
   if (!groups.size) return null;
-  return merge([...groups].map(([k, ps]) => K[k](ps, bandId, stage)));
+  const parts = [...groups].map(([k, ps]) => K[k](ps, bandId, stage))
+    .filter((h) => part === 'all' || (part === 'command') === isCommandPart(h));
+  return parts.length ? merge(parts) : null;
 }
 
-/** Hooks of one band (null when it has no prep effect), from its record in `data` (default: the default season's). */
-export function bandMetaHandler(bandId, data = null) {
+/**
+ * Hooks of one band (null when it has no prep effect), from its record in `data` (default: the default season's).
+ * `part` / `counter`: the 指令 or the passive part only (stageHooks), staged on that counter (bandCommandKey).
+ */
+export function bandMetaHandler(bandId, data = null, { part = 'all', counter = STAGE_COUNTER } = {}) {
   const stages = bandStages(bandRecord(bandId, data));
   if (!stages.length) return null;
-  const hooks = stages.map((st) => stageHooks(st, bandId));
+  const hooks = stages.map((st) => stageHooks(st, bandId, part));
   if (stages.length === 1) return hooks[0];
+  if (part !== 'all' && hooks.every((h) => !h)) return null;
   const names = new Set(STAGE_HOOKS);
   for (const h of hooks) for (const n of Object.keys(h || {})) names.add(n);
   const out = {};
   for (const name of names) {
     out[name] = function staged(ctx, ev) {
-      const f = hooks[bandStageIndex(ctx, stages)]?.[name];
+      const f = hooks[bandStageIndex(ctx, stages, counter)]?.[name];
       if (f) f(ctx, ev);
     };
   }
@@ -1267,6 +1306,11 @@ export function registerMeta(registry, data = gameData()) {
   for (const id of Object.keys((data && data.bands) || {})) {
     const h = bandMetaHandler(id, data);
     if (h) registry.band(id, h);
+    if (!hasActiveStage(bandRecord(id, data))) continue;
+    const cmd = bandMetaHandler(id, data, { part: 'command', counter: COMMAND_STAGE_COUNTER });
+    if (cmd) registry.register(bandCommandKey(id), cmd);
+    const passive = bandMetaHandler(id, data, { part: 'passive' });
+    if (passive) registry.register(bandPassiveKey(id), passive);
   }
   registry.global('bands_ducklord', duckGlobal);
   registry.effect(BAND_MARK.slice('effect:'.length), BAND_MARK_EFFECT);

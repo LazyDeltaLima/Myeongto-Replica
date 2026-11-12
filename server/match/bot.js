@@ -85,6 +85,7 @@ import { computeBonds } from './bondsMeta.js';
 import { isFlyKey } from './waves.js';
 import { mitigate } from '../sim/damage.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
+import { bandStages } from '../sim/content/bands/meta.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
 
 /**
@@ -1463,6 +1464,25 @@ function bandSkillTargets(m, ps, key, stage) {
     default:
       return BAND_SKILL_SHOP.has(key) ? [{}] : [];
   }
+}
+
+/** The 指令 keys bandSkillTargets has a rule for (the others are never used by an AI seat). */
+const BAND_SKILL_RULES = new Set([
+  ...BAND_SKILL_SHOP, 'skill_mark_char_inst_tag', 'skill_layer_limit_grow_round', 'skill_act_bond_grow_garr_cnt',
+  'skill_copy_char_with_equip', 'skill_garr_event_extra_exec', 'skill_trigger_garr_event', 'skill_upgrade_char',
+  'skill_sell_char_bond_layer', 'skill_transform_char_up_tier', 'skill_remove_gain_bond_char', 'skill_mark_pos_grow_use_cnt',
+  'skill_add_pos_effect_enemy',
+]);
+
+/**
+ * 更换指令 (match/bandSkill.js offerBandSkillChoice) for an AI seat: the first card whose 指令 a rule above uses (a 指令 it
+ * would never use is worth nothing to it), else the first card — the cards come shuffled from the meta rng
+ * [ASSUMED·자료 없음: no official bot to copy]. Returns the card index.
+ */
+export function botPickBandCommand(m, ps, cards) {
+  const keysOf = (bandId) => bandStages(m.gd.band(bandId)).flatMap((s) => (s && s.type === 'ACTIVE' ? (s.buffs || []).map((b) => b && b.key) : []));
+  const i = cards.findIndex((c) => keysOf(c && c.bandId).some((k) => BAND_SKILL_RULES.has(k)));
+  return i >= 0 ? i : 0;
 }
 
 /** Use the seat's active 指令 in prep step `step` ('shop' | 'board') while the rule has a target and the match accepts. */

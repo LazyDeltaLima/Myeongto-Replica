@@ -66,9 +66,9 @@ test('规程 items.json: the five 组合 pairs both ways, 机械\'s 4 / 6 slots,
   for (const c of Object.values(DATA.chess)) assert.equal(c.equipSlots, null, c.chessId);
 });
 
-test('coverage: 规程\'s prep item keys are handled but 投机骰子\'s 指令 swap (sim-L)', () => {
+test('coverage: every prep item key of 规程 is handled (投机骰子\'s 指令 swap: band_skill_change_act3.test.js)', () => {
   const rows = coverageOf('act3autochess').items.filter((r) => r.side === 'prep' && r.status !== 'ok');
-  assert.deepEqual(rows.map((r) => r.key), ['equip_destory_skill_pool']);
+  assert.deepEqual(rows.map((r) => r.key), []);
 });
 
 // ---------------------------------------------------------------------------------------------------------------

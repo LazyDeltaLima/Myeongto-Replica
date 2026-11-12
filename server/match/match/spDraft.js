@@ -8,7 +8,7 @@ import { PHASE, ERR } from '../../../shared/constants.js';
 import { generateDraft, applyCard, bountyBattles, isMultiRoundBounty, bountyCard } from '../choices.js';
 import { onPickCard } from '../botEmotes.js';
 import { weightedPick } from '../waves.js';
-import { botPickCard } from '../bot.js';
+import { botPickCard, botPickBandCommand } from '../bot.js';
 import { OK, fail, DELAYS } from './common.js';
 
 /** Cards of the personal choice (PRTS 卫戍协议：盟约 下半 §法术 教鞭: "于3个战术特训的悬赏任务中选择一项"). */
@@ -146,7 +146,9 @@ export class MatchSpDraft {
     const pending = ps.personalChoice;
     if (!pending || pending.id !== choiceId || pending.round !== this.round) return fail(ERR.BAD_TARGET);
     if (!Number.isInteger(idx) || idx < 0 || idx >= pending.cards.length) return fail(ERR.BAD_TARGET);
-    if (!this.addBounty(ps, pending.cards[idx])) return fail(ERR.BAD_TARGET);
+    // 规程's 更换指令 (match/bandSkill.js offerBandSkillChoice): the card is a 指令, not a bounty
+    const card = pending.cards[idx];
+    if (pending.kind === 'bandSkill' ? !this.setBandCommand(ps, card.bandId) : !this.addBounty(ps, card)) return fail(ERR.BAD_TARGET);
     ps.personalChoice = null;
     ps.dirty();
     return OK;
@@ -162,9 +164,10 @@ export class MatchSpDraft {
     const pending = ps.personalChoice;
     if (!pending) return undefined;
     const indices = pending.cards.map((c, i) => i);
-    const idx = mode === 'bot'
-      ? botPickCard(this, ps, pending.cards.map((c) => bountyCard(this.gd, c)), indices)
-      : this.rngMeta.pick(indices);
+    let idx;
+    if (mode !== 'bot') idx = this.rngMeta.pick(indices);
+    else if (pending.kind === 'bandSkill') idx = botPickBandCommand(this, ps, pending.cards);
+    else idx = botPickCard(this, ps, pending.cards.map((c) => bountyCard(this.gd, c)), indices);
     return this.pickPersonalChoice(ps, idx, pending.id);
   }
 

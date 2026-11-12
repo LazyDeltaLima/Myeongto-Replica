@@ -72,7 +72,7 @@ test('内部货源 (ROUND_RESET 1, 点击使用): once a round, the handler gets
   assert.deepEqual(view(), {
     stage: 0, stageCount: 1, effectId: 'aceffect_band_73', type: 'ACTIVE', target: { type: 'NO_TARGET', filter: null },
     cost: 0, avail: { type: 'ROUND_RESET', count: 1 }, usesLeft: 1, cooldown: 0, usable: true, blocked: null,
-    showTag: null, tag: null, unlock: null, bondSwaps: {}, marks: [], chests: [],
+    showTag: null, tag: null, unlock: null, commandBandId: null, bondSwaps: {}, marks: [], chests: [],
   });
   assert.deepEqual(use({ uid: 1 }), { error: 'BAD_TARGET', detail: 'no target' });
   assert.equal(calls.length, 0, 'a refused target never reaches the handler');

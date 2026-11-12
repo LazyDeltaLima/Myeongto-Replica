@@ -152,6 +152,12 @@ export class PlayerState {
     this.alive = true;
     this.lp = 0;
     this.bandId = null;
+    /**
+     * 规程's 指令 taken from another strategy (更换指令: “追随者们” 好多委托, 投机骰子 — server/match/match/bandSkill.js
+     * setBandCommand): the strategy whose active 指令 the player now has instead of its own, or null (its own)
+     * @type {string | null}
+     */
+    this.bandCommand = null;
     this.funds = 0;
     this.pendingFunds = 0;
     this.ready = false;
@@ -221,7 +227,8 @@ export class PlayerState {
      * The open personal choice of the Art 教鞭 (Match.offerBountyChoice): up to three cards.bounty entries the owner picks one
      * of with `g.choice { idx, choiceId }` — m.private only; Ready is refused while it is open, the prep's deadline (or the
      * bot) resolves it
-     * @type {null | { id: string, round: number, sourceItemId: string, cards: any[] }}
+     * — or 规程's 更换指令 (`kind` 'bandSkill', Match.offerBandSkillChoice: cards { bandId, effectId } of the 指令 pool)
+     * @type {null | { id: string, round: number, sourceItemId: string | null, cards: any[], kind?: 'bandSkill', choiceEvent?: string | null, sourceBandId?: string | null }}
      */
     this.personalChoice = null;
     /** free-form match-long counters for content (ctx.counter / setCounter), 凯瑟琳's band:cathy:cellTaken among them */

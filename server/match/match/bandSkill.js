@@ -34,7 +34,9 @@
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { OK, fail } from './common.js';
 import { inField, fieldTile, tileKey } from '../board.js';
-import { bandStages, bandStageIndex, SKILL_COST_COUNTER } from '../../sim/content/bands/meta.js';
+import {
+  bandStages, bandStageIndex, SKILL_COST_COUNTER, STAGE_COUNTER, COMMAND_STAGE_COUNTER, bandCommandKey, hasActiveStage,
+} from '../../sim/content/bands/meta.js';
 import { stageTag, stageUnlock } from '../../sim/content/bands/progress.js';
 import { bondEffectReplacements, unwrittenTemplates } from '../../sim/content/bonds/dispatch.js';
 
@@ -76,11 +78,13 @@ export class MatchBandSkill {
    */
   _bandSkillState(ps, write = false) {
     const gd = ps.gd || this.gd;
-    const rec = ps.bandId ? gd.band(ps.bandId) : null;
+    // a 指令 taken from another strategy (setBandCommand) is that strategy's, staged on its own counter
+    const src = ps.bandCommand || ps.bandId;
+    const rec = src ? gd.band(src) : null;
     const stages = bandStages(rec);
     if (!stages.some((s) => s && s.type === 'ACTIVE')) return null;
     const ctx = this._bandSkillCtx(ps, write);
-    const stageIndex = bandStageIndex(ctx, stages);
+    const stageIndex = bandStageIndex(ctx, stages, ps.bandCommand ? COMMAND_STAGE_COUNTER : STAGE_COUNTER);
     const stage = stages[stageIndex];
     const avail = stage.avail && typeof stage.avail === 'object' ? stage.avail : { type: 'DEFAULT', count: 0 };
     const count = Math.max(0, int(avail.count));
@@ -179,10 +183,11 @@ export class MatchBandSkill {
     if (blocked) return blocked;
     const tr = this._bandSkillTarget(ps, st.stage, msg);
     if (tr.error) return tr;
-    const key = `band:${ps.bandId}`;
-    const source = { kind: 'band', bandId: ps.bandId, band: st.rec };
+    const src = ps.bandCommand || ps.bandId;
+    const key = ps.bandCommand ? bandCommandKey(src) : `band:${src}`;
+    const source = { kind: 'band', bandId: src, band: st.rec };
     const ev = {
-      round: this.round, bandId: ps.bandId, stageIndex: st.stageIndex, stage: st.stage, effectId: st.stage.effectId ?? null,
+      round: this.round, bandId: src, stageIndex: st.stageIndex, stage: st.stage, effectId: st.stage.effectId ?? null,
       target: tr.target, cost: st.cost, handled: false, error: null, cooldown: null,
     };
     this.dispatcher.runKey(ps, key, 'onBandSkill', source, ev);
@@ -237,7 +242,10 @@ export class MatchBandSkill {
       showTag: st.stage.showTag ?? null,
       tag: stageTag(ctx, st.stage),
       unlock: stageUnlock(ctx, st.stage),
-      bondSwaps: this._bandBondSwaps(ps, st.rec),
+      // the strategy whose 指令 this is when it is not the player's own (setBandCommand); the bond directions stay the
+      // own strategy's (its passive part)
+      commandBandId: ps.bandCommand ?? null,
+      bondSwaps: this._bandBondSwaps(ps, ps.bandId ? (ps.gd || this.gd).band(ps.bandId) : null),
       marks: ps.bandMarksNow().map((mk) => ({
         effectId: mk.effectId, ...(mk.uid != null ? { uid: mk.uid } : null), ...(mk.itemId ? { itemId: mk.itemId } : null),
         ...(mk.row != null ? { row: mk.row, col: mk.col } : null),
@@ -275,6 +283,7 @@ export class MatchBandSkill {
       showTag: stage.showTag ?? null,
       tag: stageTag(ctx, stage),
       unlock: stageUnlock(ctx, stage),
+      commandBandId: null,
       bondSwaps: this._bandBondSwaps(ps, rec),
       marks: [],
       chests: [],
@@ -297,4 +306,87 @@ export class MatchBandSkill {
     }
     return out;
   }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // 更换指令 — the table's choice events skill_change_1 / skill_change_2 (choiceType SKILL_CHANGE, effectType BAND_SKILL,
+  // name 「更换指令」): “追随者们” 好多委托 「每次进入休整期时，从2个随机指令中选择1个并替换当前指令」 (content/bands/meta.js
+  // gain_band_skill_from_pool_in_prep) and 投机骰子 「装备时销毁，从3个指令中选择1个替换当前指令」 (content/items/meta.js
+  // equip_destory_skill_pool). The offer is a personal choice of the owner (ps.personalChoice `kind` 'bandSkill', the
+  // Art 教鞭's slot: m.private only, picked with g.choice { idx, choiceId }, Ready refused while it is open, the prep's
+  // deadline or the bot resolves it — match/spDraft.js). No table lists the pool: the server draws it.
+  // [ASSUMED·서버, maintainer decision 2026-11-12 on all three] the pool is the active 指令 of the strategies this mode
+  // offers (gd.bandIds: inactiveModeIds left out) that have an ACTIVE stage — the 31 of 规程, no passive strategy —, the
+  // current 指令 left out; the pick replaces only the 指令: the own strategy keeps its passive part (好多委托 itself,
+  // Mechanist's 精巧设计 passive, a strategy's bond directions — bandPassiveKey); the taken 指令's stage is the one the
+  // match's progress gives (the round, the funds spent, the 调度中心 level, the bond counts — bandStageIndex from 0 on its
+  // own counter), and its uses, cooldown and cost changes start afresh. Taking the own strategy's 指令 back makes it the
+  // own one again. The cards are drawn without repeats from the meta rng.
+
+  /** The strategies whose 指令 the player may be offered now (ids in the mode's strategy order). */
+  _bandCommandPool(ps) {
+    const gd = ps.gd || this.gd;
+    const current = ps.bandCommand || (ps.bandId && hasActiveStage(gd.band(ps.bandId)) ? ps.bandId : null);
+    return gd.bandIds().filter((id) => id !== current && hasActiveStage(gd.band(id)));
+  }
+
+  /**
+   * Open the player's 更换指令 choice: { choiceEvent, desc (the text that says how many: 「从N个…指令」), sourceItemId?,
+   * sourceBandId? }. Refused — before an rng draw — outside the player's PREP, after Ready, while another personal choice
+   * is open or when the pool is empty.
+   */
+  offerBandSkillChoice(ps, { choiceEvent = null, desc = '', sourceItemId = null, sourceBandId = null } = {}) {
+    if (this.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE);
+    if (!ps.alive) return fail(ERR.ELIMINATED);
+    if (ps.ready) return fail(ERR.WRONG_PHASE, 'ready');
+    if (ps.personalChoice) return fail(ERR.BAD_TARGET, 'a personal choice is open');
+    const pool = this._bandCommandPool(ps);
+    if (!pool.length) return fail(ERR.BAD_TARGET, 'no band skill to offer');
+    const gd = ps.gd || this.gd;
+    const cards = this.rngMeta.shuffle(pool.slice()).slice(0, offerCount(desc))
+      .map((bandId) => ({ bandId, effectId: gd.band(bandId).effectId ?? bandId }));
+    ps.personalChoice = {
+      id: `${this.battlePrefix}.choice.${this.nextUid()}`, round: this.round, kind: 'bandSkill',
+      choiceEvent: typeof choiceEvent === 'string' ? choiceEvent : null, sourceItemId, sourceBandId, cards,
+    };
+    ps.dirty();
+    return OK;
+  }
+
+  /** The player's 指令 becomes strategy `bandId`'s (the header's rules); false when it has no active 指令. */
+  setBandCommand(ps, bandId) {
+    const gd = ps.gd || this.gd;
+    if (typeof bandId !== 'string' || !hasActiveStage(gd.band(bandId))) return false;
+    ps.bandCommand = bandId === ps.bandId ? null : bandId;
+    for (const k of [USED, USED_ROUND, TOTAL, READY_ROUND, COST_DELTA, COMMAND_STAGE_COUNTER]) delete ps.counters[k];
+    if (ps.bandCommand) bandStageIndex(this._bandSkillCtx(ps, true), bandStages(gd.band(bandId)), COMMAND_STAGE_COUNTER);
+    ps.dirty();
+    return true;
+  }
+
+  /**
+   * One card of the 更换指令 choice as m.private shows it: the 指令's strategy and the stage it would have if taken now
+   * (read, never stored) — the fields the 机变 cards carry (`name`, `desc`, `descRaw`) plus the 指令's own.
+   */
+  bandCommandCard(ps, c) {
+    const gd = ps.gd || this.gd;
+    const rec = c && gd.band(c.bandId);
+    const stages = bandStages(rec);
+    if (!stages.length) return { kind: 'bandSkill', id: c?.effectId ?? null, bandId: c?.bandId ?? null, name: '', desc: '' };
+    const base = this._bandSkillCtx(ps, false);
+    const ctx = Object.create(base);
+    ctx.counter = (k) => (k === COMMAND_STAGE_COUNTER ? 0 : base.counter(k));
+    const i = c.bandId === ps.bandId ? bandStageIndex(base, stages, STAGE_COUNTER) : bandStageIndex(ctx, stages, COMMAND_STAGE_COUNTER);
+    const st = stages[i];
+    return {
+      kind: 'bandSkill', id: c.effectId, bandId: c.bandId, bandName: rec.name ?? null, iconId: rec.iconId ?? null,
+      name: st.name ?? rec.effectName ?? '', desc: st.desc ?? '', descRaw: st.descRaw ?? null,
+      stage: i, stageCount: stages.length, type: st.type ?? null, cost: Math.max(0, int(st.cost)),
+    };
+  }
+}
+
+/** How many 指令 an offer shows: the N of its text's 「从N个…指令」 (no blackboard field holds it), 1–3. */
+function offerCount(desc) {
+  const m = /从\s*(\d+)\s*个/.exec(String(desc ?? ''));
+  return Math.max(1, Math.min(3, m ? Number(m[1]) : 3));
 }

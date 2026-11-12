@@ -222,6 +222,18 @@ PREP.push(
     },
   })],
 
+  // 投机骰子 — equip_destory_skill_pool {choice_event: skill_change_1}: "装备时销毁，从3个指令中选择1个替换当前指令" — the
+  // 更换指令 personal choice of the item's text count (server/match/match/bandSkill.js offerBandSkillChoice: the pool and
+  // the swap). Refused — the dice stays where it was — when the choice cannot open (another personal choice is open,
+  // nothing to offer).
+  ['equip_destory_skill_pool', null, () => ({
+    onEquip(ctx, ev) {
+      const p = buffP(ctx, ev.item && ev.item.id, 'equip_destory_skill_pool') || {};
+      const r = ctx.offerBandSkillChoice({ choiceEvent: p.choice_event, desc: ctx.gd.item(ev.item?.id)?.desc ?? '', sourceItemId: ev.item?.id ?? null });
+      if (!r.ok) { ev.error = r.error; ev.detail = r.detail; }
+    },
+  })],
+
   // 寻呼模块 — use_equip_spe_goods_first_bond {option_count, select_count}: "在调度中心出现至多3名拥有该干员第一盟约的干员，
   // 免费获取其中1名（不高于当前调度中心等级）" — 盟约's 寻呼模块 (above) on the first bond; `select_count` pick-one offers
   ['use_equip_spe_goods_first_bond', null, () => ({
