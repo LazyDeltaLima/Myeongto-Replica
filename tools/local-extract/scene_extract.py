@@ -831,7 +831,9 @@ def export_stage_pieces(roots, index, stage, out_root, manifest, written, loaded
 # the legacy Animation `Wall06` breaks them apart on Die, which the m06 mounds never reach).
 # 盐坨子炮 (trap_196_cnnon, 规程 m10; EN btl_pfb_tokens_2.ab): Graphic/Mesh/trap_196_cnnon, one mesh, its barrel toward −row
 # (the prefab's FixedMuzzle at y −0.14) — the way the four m10 cannons face (DOWN).
-DEVICE_KEYS = ('trap_1105_accrate', 'trap_1106_achplat', 'trap_040_canoe', 'trap_032_mound', 'trap_196_cnnon')
+# 赘生甲壳 (trap_156_dsshell, 规程's 微核沉积者 leaves it where it falls — a runtime device; EN btl_pfb_tokens_1.ab):
+# Graphic/Mesh/trap_156_dsshell/group1/Part1..10 (MultiMeshTileGraphic), its MeshAnimator's Die = the legacy clip Break.
+DEVICE_KEYS = ('trap_1105_accrate', 'trap_1106_achplat', 'trap_040_canoe', 'trap_032_mound', 'trap_196_cnnon', 'trap_156_dsshell')
 DEVICE_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'
 # Effect meshes a device always wears, extracted into its model: (effect bundle, prefab, the device's point it is created
 # at). The m06 mounds start strengthened (level file `mainSkillLvl` 2: 风沙掩体 SP 10/10), and sktok_mound's permanent buff
@@ -1258,7 +1260,7 @@ def main():
     ap.add_argument('--reflections', action='store_true',
                     help='only add the reflection probe (scene.json reflection) to the scenes already under --out (needs the client)')
     ap.add_argument('--devices', action='store_true',
-                    help='only export the device models (scene/devices: 阻隔工事, 射击台, 特制水上平台, 土石结构, 盐坨子炮) and their textures (needs the client)')
+                    help='only export the device models (scene/devices: 阻隔工事, 射击台, 特制水上平台, 土石结构, 盐坨子炮, 赘生甲壳) and their textures (needs the client)')
     ap.add_argument('--requantize', action='store_true',
                     help='only rewrite the version-1 geometry already under --out in the quantized version 2 (no client)')
     args = ap.parse_args()

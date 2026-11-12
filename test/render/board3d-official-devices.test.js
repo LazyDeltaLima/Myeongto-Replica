@@ -117,4 +117,38 @@ describe('official scene devices: 射击台 and 特制水上平台 models, nothi
     assert.ok(built.devices.mesh(OFFICIAL_DEVICE.waterPlatform).children.length >= 2);
     built.dispose();
   });
+
+  // 2026-11-12: 赘生甲壳 (trap_156_dsshell, 规程's 微核沉积者 leaves it where it falls) — a battle device drawn by its own
+  // model (scene.js _createOfficialDevice by the device's key, units.js DeviceView `key`), the other battle devices as before
+  test('a battle device: 赘生甲壳 by its own model, any other by the crate\'s (crateTop) or the procedural box', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    const models = (keys) => {
+      const d = fakeDevices(keys, {});
+      const mesh = d.mesh;
+      d.mesh = (k) => { const g = mesh(k); g.userData.materials = [{ uniforms: { uOpacity: { value: 1 } }, dispose() {} }]; return g; };
+      return d;
+    };
+    const drawn = () => board.dynamic.children.filter((o) => o.name?.startsWith('dev:')).map((o) => o.name).sort();
+    board.officialBuilt = { devices: models([OFFICIAL_DEVICE.crate, OFFICIAL_DEVICE.shell]), update() {}, dispose() {} };
+    const box = { x: 5, y: 10, z: 0, size: 0.7, height: 0.36, alpha: 1 };
+    const shell = board.createDevice(), crate = board.createDevice(), other = board.createDevice();
+    shell.update(null, { ...box, top: 'platformTop', key: 'trap_156_dsshell' });
+    crate.update(null, { ...box, top: 'crateTop', key: 'trap_1105_accrate' });
+    other.update(null, { ...box, top: 'platformTop', key: 'trap_4_xxx' });
+    assert.deepEqual(drawn(), ['dev:trap_1105_accrate', 'dev:trap_156_dsshell'], 'the shell\'s model, the crate\'s; the third a box');
+    for (const h of [shell, crate, other]) h.destroy();
+    assert.deepEqual(drawn(), []);
+    board.officialBuilt = { devices: models([OFFICIAL_DEVICE.crate]), update() {}, dispose() {} };   // an older extract: no shell model
+    const old = board.createDevice();
+    old.update(null, { ...box, top: 'platformTop', key: 'trap_156_dsshell' });
+    assert.deepEqual(drawn(), [], 'no model of it: the procedural box');
+    old.destroy();
+    board.officialBuilt = null;
+    board.destroy();
+  });
+
+  test('the extracted 赘生甲壳: one ground model about a tile wide (scene_extract.py DEVICE_KEYS)', { skip: !devDoc?.devices?.trap_156_dsshell && '赘生甲壳 not extracted (scene_extract.py --devices)' }, () => {
+    const [lo, hi] = devDoc.devices.trap_156_dsshell.bounds;
+    assert.ok(lo[2] > -0.05 && hi[2] < 0.6 && hi[0] - lo[0] > 0.8 && hi[0] - lo[0] < 1.4, JSON.stringify(devDoc.devices.trap_156_dsshell));
+  });
 });

@@ -781,7 +781,9 @@ export class BoardScene {
         if (!b || dead) return;
         if (!ref) ref = { size: b.size || 1, height: b.height || 1 };  // the first update: the box at full size
         const OD = self._officialDevices;
-        const official = !!OD && OD.has(OFFICIAL_DEVICE.crate) && (!b.top || b.top === 'crateTop');
+        // 2026-11-12: a battle device with a model of its own (b.key: 赘生甲壳), else a crate's (its crateTop box)
+        const key = b.key === OFFICIAL_DEVICE.shell ? b.key : OFFICIAL_DEVICE.crate;
+        const official = !!OD && OD.has(key) && (key !== OFFICIAL_DEVICE.crate || !b.top || b.top === 'crateTop');
         if (grp && owner !== OD) {  // the official scene was rebuilt / dropped: its models are gone
           self.dynamic.remove(grp); for (const m of grp.userData.materials) m.dispose(); grp = null;
         }
@@ -794,7 +796,7 @@ export class BoardScene {
         if (official && !grp) {
           {
             owner = OD;
-            grp = OD.mesh(OFFICIAL_DEVICE.crate, { fade: true });
+            grp = OD.mesh(key, { fade: true });
             grp.userData.officialDevice = true;
             grp.traverse((o) => { if (o.isMesh) o.castShadow = true; });
             self.dynamic.add(grp);

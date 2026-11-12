@@ -53,7 +53,8 @@ export const DEVICES_ID = 'devices';
 // (特制水上平台 — 战场#05's water platforms — upstream 205f3bb7 found them missing on the official scene; 封印的地面
 // trap_1107_acblock has no model in the client: nothing to draw)
 // (盐坨子炮 — 规程 m10's enemy-side cannons, trap_196_cnnon: no sim role, found by its key, layout.js DEVICE_KEY_KINDS)
-export const OFFICIAL_DEVICE = Object.freeze({ crate: 'trap_1105_accrate', platform: 'trap_1106_achplat', waterPlatform: 'trap_040_canoe', mound: 'trap_032_mound', cannon: 'trap_196_cnnon' });
+// (赘生甲壳 — 规程's 微核沉积者 leaves it where it falls, trap_156_dsshell: a battle device, scene.js _createOfficialDevice by its key)
+export const OFFICIAL_DEVICE = Object.freeze({ crate: 'trap_1105_accrate', platform: 'trap_1106_achplat', waterPlatform: 'trap_040_canoe', mound: 'trap_032_mound', cannon: 'trap_196_cnnon', shell: 'trap_156_dsshell' });
 
 /** Is an official scene listed for `stageId`? (manifest only) */
 export function officialSceneListed(assets, stageId) {

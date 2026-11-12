@@ -27,10 +27,10 @@ const ACT3 = getData({ log: quiet, season: 'act3autochess' });
 const DSPRED = 'enemy_1438_dspred', DSLNTF = 'enemy_1439_dslntf', DSSHEL = 'enemy_1434_dsshel', SHELL = 'trap_156_dsshell';
 const WALL = chessRec({ id: 't_wall', profession: 'TANK', stats: { atk: 0, maxHp: 1e7, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
 
-let fake, UnitView;
+let fake, UnitView, DeviceView;
 before(async () => {
   fake = installFakePixi();
-  ({ UnitView } = await import('../../public/js/render/units.js'));
+  ({ UnitView, DeviceView } = await import('../../public/js/render/units.js'));
 });
 after(() => fake.restore());
 
@@ -159,6 +159,16 @@ test('元核孽生者 (real kit): blocked by a shell it wakes into mode 1 (Skill
     assert.deepEqual(sp.filter((s) => s.startsWith('enemy_dslntf_buff_02')), [`enemy_dslntf_buff_02>${e.id}`], 'the break effect once, on the 孽生者');
     assert.ok(L.ownsFx(brk[0]), 'drawn by its official effect');
   } finally { globalThis.fetch = fetch0; }
+});
+
+test('赘生甲壳: its battle device names its key to the 3D board, which draws its own model by it (board3d-official-devices.test.js)', () => {
+  const seen = [];
+  const ctx = fakeViewCtx(fake.P, { cam, createBox: () => ({ mesh: null, update: (_c, b) => seen.push(b), destroy() {} }) });
+  const d = new DeviceView(ctx, { id: 9, side: 'ally', kind: 'device', defId: SHELL, x: 6, y: 10, maxHp: 3000 });
+  d.sync({ x: 6, y: 10, hp: 3000, maxHp: 3000, flags: 0 });
+  d.update(1 / 60, cam(), 0);
+  assert.equal(seen.at(-1)?.key, SHELL);
+  d.destroy();
 });
 
 test('the extracted binding: the parts these cases read', { skip: !existsSync(MODES) && 'no extracted enemy effects' }, () => {
