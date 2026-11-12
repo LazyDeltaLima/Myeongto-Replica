@@ -55,7 +55,7 @@
 import { PHASE, PREBUILT_INTERVAL, UF } from '../../shared/constants.js';
 import { enemyRecordMode } from '../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
 import { mediaUrl } from './media.js';
-import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, castCuesOf, dollSwitchSfx, bankPlayOf, playPitch, skillEndOf, modeOn, roleGroup, cueSetOf, cueAbility, pickVariant, cuesAt, cueFile } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras + bank play values
+import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, castCuesOf, skillBeginOf, dollSwitchSfx, bankPlayOf, playPitch, skillEndOf, modeOn, roleGroup, cueSetOf, cueAbility, pickVariant, cuesAt, cueFile } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras + bank play values
 import { holdSnapshot, sfxOut, snapshotHookOf } from './audioSnapshot.js'; // local patch: mixer snapshots (归溟幽灵鲨's 替身 switch)
 
 /**
@@ -225,6 +225,60 @@ export function enemyBuffSounds(fx, ex, unitOf) {
     default: return [];
   }
 }
+/** 2026-11-12: 暴走食人花 (and the main story's 食人花, whose banks are the same) — its digesting (AudioManager._seasonState). */
+const TRWLPL = /^enemy_10003_trwlpl/;
+/** 2026-11-12: 赘生甲壳 (the ally-side TRAP a 微核沉积者 leaves): its own ON_UNIT_BORN / ON_UNIT_DEAD banks. */
+const DSSHELL = 'trap_156_dsshell';
+/** 2026-11-12: 机械师 (char_4230_mcnist) and 淬羽赫默 (char_1031_slent2), the 规程 chess picks whose kit events sound sfx.kit keys. */
+const MCNIST = 'char_4230_mcnist';
+const SLENT2 = 'char_1031_slent2';
+/** 机械师 S3's cross lands this long after its throw (op-mcnist.js X6_DELAY, game seconds). */
+const MCNIST_CROSS_AFTER = 0.8;
+/**
+ * 2026-11-12, docs/rules/audio.md 「규정 새 적 소리 — 셋째」·diy.md 「선발 추가 …」 소리: the `sfx.kit` keys (with a delay in game
+ * seconds, or null) a sim fx event of the 悬赏 enemies, 赘生甲壳's makers and the 规程 chess picks plays —
+ * 遮天面包机's bomb dropped (`telegraph` nsbomb: enemy_nsbomb[passive] → TriggerAbility Bomb, ON of T.Passive) and landed
+ * (`explode` nsbomb: projectile_enemy_nsbomb REACH, target or none); 聆风猎手's Blink (`teleport` shkrbt: Skills/Blink START,
+ * then shkrbt_blink_end [추정·CN: the end's moment — no EN node carries the signal, BlinkState / BlinkNode sound nothing; the
+ * sim's blink is instant, so both at once]); 淬羽赫默 S3's 不死 (`undying` from her: slent2_s_3's buff with
+ * audioSignal slent2_shallow_grave_audio); 机械师 S2's 屏障 breaking while S2 runs (`shieldBreak` on: mcnist_s_2_shield's burst
+ * branch, PlayAudio mcnist_s_2_shield — its other branch has none), S3's charge (`charge`: the projectile's BORN — and its
+ * REACH on the landing 'aoe', AudioManager) and cross (`aoe` mcnist:cross → mcnist_skill_attack_hit as it lands
+ * [추정·CN: no client node found carrying the signal — sounded once, as the cross lands]); 염괴포 taking an enemy aboard (`cannon`
+ * carry 1: cnnon_carry_enemy's audioSignal — the 规程 shot EnemyCannon00D and its _small_death shell have no banks).
+ * @returns {[string, number|null][]}
+ */
+export function seasonSounds(fx, ex, unitOf) {
+  if (!ex || typeof ex !== 'object') return [];
+  const def = (id) => unitOf(id)?.def || '';
+  switch (fx) {
+    case 'telegraph': return ex.kind === 'nsbomb' ? [['nsbomb:drop', null]] : [];
+    case 'explode': return ex.kind === 'nsbomb' ? [['nsbomb:reach', null]] : [];
+    case 'teleport': return ex.kind === 'shkrbt' ? [['shkrbt:blink', null], ['shkrbt:blinkend', null]] : [];
+    case 'undying': return def(ex.src) === SLENT2 ? [['slent2:grave', null]] : [];
+    case 'shieldBreak': return ex.on && def(ex.src) === MCNIST ? [['mcnist:s2shield', null]] : [];
+    case 'cannon': return ex.carry === 1 ? [['cnnon:carry', null]] : [];   // 염괴포 takes an enemy aboard (its shot / landing: no banks)
+    case 'charge': return def(ex.src) === MCNIST && mcnistChargeSounds(ex) ? [['mcnist:s3born', null]] : [];
+    case 'aoe': return ex.skill === 'mcnist:cross' && def(ex.id) === MCNIST ? [['mcnist:s3hit', MCNIST_CROSS_AFTER]] : [];
+    default: return [];
+  }
+}
+/**
+ * 2026-11-12: whether 机械师 S3's charge (sim fx 'charge' { dir, left }) flies a projectile with banks. mcnist_s_3_projectile_real
+ * picks it by the 结构性原理's deploy direction and its left / right facing (CheckFaceLOrR): UP → _up facing left, else
+ * _up_right; DOWN → _down / _down_right; sideways → the plain one / _right. _up_right and _down_right have no banks (zh_CN
+ * audio_data), so an up / down charge facing right is silent.
+ */
+export function mcnistChargeSounds(ex) {
+  return !((ex.dir === 'UP' || ex.dir === 'DOWN') && !ex.left);
+}
+/**
+ * 2026-11-12: an enemy skill whose ON sounds once per shot, not as it is cast — the 'atk' kind each shot sends (sim) → the
+ * skill (sfx.units[def].sk key). 破城者's SkyProjectile: a sequence whose MultiRangedAttack (child 2, ON SkyProjectile.2)
+ * fires each missile; its START (child 1) as it is cast.
+ */
+const ENEMY_SHOT_SKILLS = Object.freeze({ uareapMissile: 'skyprojectile' });
+const ENEMY_SHOT_OF = Object.freeze(Object.fromEntries(Object.entries(ENEMY_SHOT_SKILLS).map(([k, v]) => [v, k])));
 /**
  * 2026-11-01: the `sfx.kit` key of a kit buff (sim 'status' key, `<base>:<source id>` for one per applier) whose client buff
  * carries an `audioSignal` — Entity.OnBuffStart / OnBuffShowEffect sound it on the holder as it starts. 冻河 (CN buff
@@ -835,6 +889,11 @@ export function combatTrackFor(round) {
 export function unitSoundClass(info) {
   if (!info) return 'char';
   if (info.side === 'enemy') return 'enemy';
+  // 2026-11-12, docs/rules/audio.md 「규정 새 적 소리」: a walking ally (UnitInfo `walks`: 莱塔尼亚's summons, 谢拉格's giant) is
+  // an enemy unit on the player's side — the client's Enemy.PlayAudioSignal keys its born / dead banks by the class ('enemy',
+  // its own id only when its prefab has a start / dead effect, which theirs have not), whatever its side: no born bank,
+  // ON_UNIT_DEAD.enemy as it falls
+  if (info.walks) return 'enemy';
   const id = String(info.defId ?? info.def ?? '');
   if (info.kind === 'device') return 'device';
   if (info.kind === 'token') return /^char_/.test(id) ? 'char' : 'token';
@@ -896,7 +955,7 @@ export function deploySfxUrl(manifest, info) {
   if (typeof own === 'string') return own;
   const b = manifest?.audio?.sfx?.battle ?? {};
   const cls = unitSoundClass(info);
-  if (cls === 'device') return null;
+  if (cls === 'device' || cls === 'enemy') return null;   // (an enemy unit has no ON_UNIT_BORN.enemy bank: a walking ally)
   const url = cls === 'token' ? (b.tokenDeploy ?? b.deploy) : b.deploy;
   return typeof url === 'string' ? url : null;
 }
@@ -1739,7 +1798,7 @@ export class AudioManager {
    * Play one cue of unit model `def` (audioOfficial.js cueFile: one file of the bank, drawn by weight): its chance, its mixer
    * group × bank volume, its bank's cap (`def:at:url`). Returns whether a cue was there.
    */
-  _playCue(def, c, mode, after = 0) {
+  _playCue(def, c, mode, after = 0, held = null) {
     if (!c) return false;
     // one draw per play, like SoundFXBank._GenerateWeightedRandomSound: the empty assets' share is silence (`p`), the rest
     // picks the file by weight
@@ -1751,7 +1810,8 @@ export class AudioManager {
     const role = c.at === 'd' ? 'hit' : 'attack';
     const volume = groupGain(typeof c.g === 'string' ? c.g : roleGroup(def, role, mode)) * (f.vol > 0 ? f.vol : 1);
     const delay = (Number(f.delay) > 0 ? Number(f.delay) : 0) + (after > 0 ? after : 0); // `after`: castCuesOf
-    this._play(f.url, { volume, limited: true, bank: `${def}:${c.at}:${f.url}`, delay: delay > 0 ? delay : f.delay });
+    const cancel = this._play(f.url, { volume, limited: true, bank: `${def}:${c.at}:${f.url}`, delay: delay > 0 ? delay : f.delay });
+    if (held && cancel) held.push(cancel);   // (`held`: the caller may cancel it before it starts — a cast lost in its begin clip)
     return true;
   }
 
@@ -2215,6 +2275,27 @@ export class AudioManager {
     (this._acidRains ||= new Map()).set(field, { by: o.id ?? null, held, until: (this.ctx?.currentTime ?? 0) + dur });
   }
 
+  /**
+   * 2026-11-12, docs/rules/audio.md 「규정 새 적 소리 — 셋째」: the sounds that need what a unit did before — 机械师 S3's charge
+   * landing (the 'aoe' mcnist:charge: its projectile's REACH, when the 'charge' before it flew one with banks,
+   * mcnistChargeSounds) and 暴走食人花 back from digesting (its 'phase' with no form after its `eat` one: enemy_trwlpl_s
+   * ON_BUFF_FINISH → enemy_trwlpl_eat_complete; `su.digesting` also says whether a kill is the vomit — 'die').
+   */
+  _seasonState(fx, ex, unitOf) {
+    if (!ex || typeof ex !== 'object') return;
+    if (fx === 'charge' && unitOf(ex.src)?.def === MCNIST) (this._mcnistCharge ||= new Map()).set(ex.src, mcnistChargeSounds(ex));
+    if (fx === 'aoe' && ex.skill === 'mcnist:charge' && unitOf(ex.id)?.def === MCNIST) {
+      if (this._mcnistCharge?.get(ex.id) !== false) this._kitSound('mcnist:s3reach');
+      this._mcnistCharge?.delete(ex.id);
+    }
+    if (fx === 'phase' && ex.id != null) {
+      const u = unitOf(ex.id);
+      if (!u || !TRWLPL.test(u.def || '')) return;
+      if (ex.form === 'eat') u.digesting = true;
+      else if (ex.form == null && u.digesting) { u.digesting = false; this._kitSound('trwlpl:digested'); }
+    }
+  }
+
   /** The rains `pick` chooses that have not ended yet end now: their end sound at once instead of when due. */
   _acidRainCut(pick) {
     if (!this._acidRains) return;
@@ -2262,6 +2343,7 @@ export class AudioManager {
           if (started) this.units.get(e[1].id).skillOn = true;
           // 2026-11-11: 假想敌：鳍 (隐秘核心)'s storm talent starts as it comes (aceel[thurder-trigger] audioSignal Aceel_ThurderEnv)
           if (e[1]?.defId === ACEEL_STORM) this._kitSound('aceel:thunder');
+          if (e[1]?.defId === DSSHELL) this._kitSound('dsshell:born');   // 2026-11-12: ON_UNIT_BORN.trap_156_dsshell
           // local patch (maintainer report): a skill that starts on deployment (缄默德克萨斯 S1–S3, Skill.reset activateOnDeploy)
           // sends its 'skill' before the unit's 'spawn' — held until then; with a 'deploy' in this batch, until that sounds
           const id = e[1]?.id;
@@ -2291,17 +2373,27 @@ export class AudioManager {
             const loop = skillLoopOf(ue, su.skillIndex); // its looping bank (music, field)
             if (loop && e[2]) startSkillLoop(this, e[1], loop.url, loopGain(loop));
             else if (!e[2]) stopSkillLoop(this, e[1]);
+            // 2026-11-12, docs/rules/audio.md 「스킬 효과음」: a cast with a begin clip casts its skill ability once the clip has
+            // played (`begin`, skill-mode-sfx.mjs skillBeginLeads) — the ability's START waits it, and a cast lost meanwhile
+            // (the sim's 'skill' off before the start) never sounds it
+            for (const cancel of su.beginHeld ?? []) cancel();
+            su.beginHeld = null;
+            const lead = e[2] ? skillBeginOf(ue, su.skillIndex) : 0;
+            const held = lead > 0 ? (su.beginHeld = []) : null;
             // local patch (maintainer report): its extra one-shots (耀骑士临光 S3, 塑心 S3's melody — held ones cut at its end)
             if (e[2]) {
               skillExtrasOf(ue, su.skillIndex).forEach((x, k) => {
                 const gain = loopGain(x);
                 if (Number.isFinite(x.stop)) startSkillLoop(this, `${e[1]}:x${k}`, x.url, gain, { loop: false, fade: x.stop });
-                else this._play(x.url, { volume: gain, limited: true, bank: `${su.def}:x${su.skillIndex}:${k}` });
+                else {
+                  const cancel = this._play(x.url, { volume: gain, limited: true, bank: `${su.def}:x${su.skillIndex}:${k}`, delay: lead > 0 ? lead : null });
+                  if (held && cancel) held.push(cancel);
+                }
               });
             } else skillExtrasOf(ue, su.skillIndex).forEach((x, k) => stopSkillLoop(this, `${e[1]}:x${k}`));
             // 2026-10-29, docs/rules/audio.md 「스킬 시전 능력 소리」: its skill ability's own START / ON / HIT (the sim's
-            // [strike, end] in e[4])
-            if (e[2]) for (const { cue, after } of castCuesOf(ue, su.skillIndex, e[4])) this._playCue(su.def, cue, true, after);
+            // [strike, end] in e[4], which counts the begin clip; its START waits the clip too — `lead`)
+            if (e[2]) for (const { cue, after } of castCuesOf(ue, su.skillIndex, e[4], lead)) this._playCue(su.def, cue, true, after, cue.at === 's' ? held : null);
             if (e[2] && mlyssS3Range(su, e[1], this.units)) this._kitSound('mlyss:s3range');
             // modes[i].deferStart: a fallback start sound — it plays only for a skill that ended without an attack (its
             // attacks sound the skill's own attack sound, as the official ability signals do)
@@ -2335,6 +2427,15 @@ export class AudioManager {
           if (CHAIN_KINDS.has(e[3])) { this.lastAttacker.delete(e[2]); this.chainStruck.set(e[2], now); continue; }
           const src = this.units.get(e[1]);
           if (!src) continue;
+          // 2026-11-12: a shot of an enemy skill (ENEMY_SHOT_SKILLS — 破城者's missiles): that skill's ON, not the normal attack's
+          // cues; its impact is the skill's (_skillImpact, the cast's eskill)
+          const shot = ENEMY_SHOT_SKILLS[e[3]];
+          if (shot) {
+            const cues = this.getManifest()?.audio?.sfx?.units?.[src.def]?.sk?.[shot];
+            if (Array.isArray(cues)) for (const c of cues) if (c.at === 'a') this._playCue(src.def, c, true);
+            if (src.eskill?.name === shot) src.eskill.at = now;
+            continue;
+          }
           // only a hostile attack authors the target's next impact (a heal — an ally aiming at an ally — never does)
           const tgt = this.units.get(e[2]);
           const mode = src.skillOn ? src.skillIndex : null; // local patch: the running skill's mode sounds (audioOfficial.js)
@@ -2471,6 +2572,7 @@ export class AudioManager {
           if (u && unitSoundClass(u) === 'char' && !this.voicePolicy) this.voice(u.def, 'faceEnemy', { unitKey: e[1] });
         } else if (kind === 'die') {
           stopUnitLoops(this, e[1]); // local patch: its loop and held one-shots
+          for (const cancel of this.units.get(e[1])?.beginHeld ?? []) cancel(); // 2026-11-12: a skill START still waiting its begin clip
           for (const cancel of this._shellFalls?.get(e[1]) ?? []) cancel(); // 2026-10-29: 克莱门莎 S3's falls still due
           this._shellFalls?.delete(e[1]);
           this._acidRainCut((r) => r.by === e[1]); // 2026-11-11: its rain ends with the 茧
@@ -2479,6 +2581,10 @@ export class AudioManager {
           u.gone = true; // 2026-11-03 (mlyssS3Range)
           if (u.side === 'enemy') this._enemyOut(e[1], now);
           this._kitSound(knockOutSound(u.def, typeof e[2] === 'string' ? e[2] : null)); // 2026-11-12: a 萨卡兹子裔's summon sound
+          // 2026-11-12: 暴走食人花 killed while digesting (enemy_trwlpl_s ON_BEFORE_TRY_SET_HP_ZERO out of mode 0 → eat_failed)
+          if (u.digesting && e[2] === 'killed') this._kitSound('trwlpl:vomit');
+          // 2026-11-12: 赘生甲壳 broken or eaten — its own ON_UNIT_DEAD bank, not a summon's (a death reason only: Entity.IfReasonIsDeath)
+          if (u.defId === DSSHELL) { if (e[2] === 'killed') this._kitSound('dsshell:dead'); continue; }
           const consumed = this.consumed.delete(e[1]);
           const m = this.getManifest();
           const url = deathSfxUrl(m, u, { consumed, reason: typeof e[2] === 'string' ? e[2] : null });
@@ -2555,7 +2661,9 @@ export class AudioManager {
             const eu = this.units.get(e[4].id);
             const cues = eu ? this.getManifest()?.audio?.sfx?.units?.[eu.def]?.sk?.[e[4].ability.toLowerCase()] : null;
             if (eu && Array.isArray(cues)) {
-              for (const c of cues) if (c.at !== 'd') this._playCue(eu.def, c, true);
+              // (2026-11-12: a skill whose ON sounds per shot — ENEMY_SHOT_SKILLS — sounds it on each shot's 'atk')
+              const perShot = !!ENEMY_SHOT_OF[e[4].ability.toLowerCase()];
+              for (const c of cues) if (c.at !== 'd' && !(perShot && c.at === 'a')) this._playCue(eu.def, c, true);
               eu.eskill = { name: e[4].ability.toLowerCase(), at: now };
             }
           }
@@ -2614,6 +2722,8 @@ export class AudioManager {
           }
           if (e[1] === 'link' && e[4]?.id != null) for (let i = haloLinkCount(unitOf(e[4].id), e[4].ids); i > 0; i--) this._kitSound('halo2:s3link');
           for (const [k, d, n] of enemyBuffSounds(e[1], e[4], unitOf)) if (n) this._kitSounds(k, n); else this._kitSound(k, d);
+          for (const [k, d] of seasonSounds(e[1], e[4], unitOf)) this._kitSound(k, d);   // 2026-11-12
+          this._seasonState(e[1], e[4], unitOf);
           if (e[1] === 'burst') for (const k of elementBurstSounds(e[4], unitOf)) this._kitSound(k);   // 2026-11-12
           if (e[1] === 'enemySkill') this._kitSound(mncturHitSound(e[4], unitOf, ev));                  // 2026-11-12
           if (e[1] === 'zone' && e[4]?.kind === 'acspiderRain') this._acidRain(e[4]);

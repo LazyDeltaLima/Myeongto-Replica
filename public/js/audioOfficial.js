@@ -197,12 +197,22 @@ export const skillExtrasOf = (entry, skillIndex) => {
  * skill-mode-sfx.mjs castCues), each with its wait in game seconds from the 'skill' event's `[strike, end]` (`at` 's' 0,
  * 'a' the strike, 'e' the end; without timing 0). [{ cue, after }]
  */
-export const castCuesOf = (entry, skillIndex, timing) => {
+export const castCuesOf = (entry, skillIndex, timing, lead = 0) => {
   const l = Number.isInteger(skillIndex) ? entry?.castCues?.[skillIndex] : null;
   if (!Array.isArray(l)) return [];
   const t = Array.isArray(timing) ? timing : [];
-  const after = (at) => { const v = at === 'a' ? t[0] : at === 'e' ? t[1] : 0; return Number.isFinite(v) && v > 0 ? v : 0; };
+  // (`lead`: the begin clip before the ability is cast — skillBeginOf; the sim's [strike, end] already count it)
+  const after = (at) => { const v = at === 'a' ? t[0] : at === 'e' ? t[1] : lead; return Number.isFinite(v) && v > 0 ? v : 0; };
   return l.filter((c) => c && typeof c.u !== 'undefined').map((c) => ({ cue: c, after: after(c.at) }));
+};
+
+/**
+ * 2026-11-12, docs/rules/audio.md 「스킬 효과음」: the begin clip (game seconds) a cast of skill `skillIndex` plays before its skill
+ * ability is cast (sfx.units[def].begin, skill-mode-sfx.mjs skillBeginLeads; 0 without one) — the ability's START waits it.
+ */
+export const skillBeginOf = (entry, skillIndex) => {
+  const v = Number.isInteger(skillIndex) ? Number(entry?.begin?.[skillIndex]) : 0;
+  return Number.isFinite(v) && v > 0 ? v : 0;
 };
 
 /** Stop every skill loop (a new field). */

@@ -493,6 +493,34 @@ export const KIT_HIT_BANKS = Object.freeze({
   'mnctur:run': 'battle.ON_CUSTOM_TRIGGER.enemy_mnctur_run',
   'mnctur:hit': 'battle.ON_CUSTOM_TRIGGER.enemy_mnctur_rush_hit',
   'acrefm:slow': 'battle.ON_BUFF_SHOW_EFFECT.enemy_9039_acrefm.refracting',
+  // 2026-11-12 (docs/rules/audio.md 「규정 새 적 소리 — 셋째」): the 悬赏 enemies — 遮天面包机's bomb dropped (enemy_nsbomb[passive]
+  // TriggerAbility Bomb: the Talents/Passive ability's ON, signal T.Passive) and landed (its projectile's REACH: it needs no
+  // target); 聆风猎手's Blink (Skills/Blink START) and its end (shkrbt_blink_end); 暴走食人花 digesting to the end
+  // (enemy_trwlpl_s ON_BUFF_FINISH, alive: PlayAudio enemy_trwlpl_eat_complete) or killed while digesting (its
+  // ON_BEFORE_TRY_SET_HP_ZERO out of mode 0: PlayAudio enemy_trwlpl_eat_failed); 赘生甲壳 made and destroyed (its own
+  // ON_UNIT_BORN / ON_UNIT_DEAD banks)
+  'nsbomb:drop': 'battle.ON_ABILITY_ON.enemy_10147_nsbomb.T.Passive',
+  'nsbomb:reach': 'battle.ON_PROJECTILE_REACH.projectile_enemy_nsbomb',
+  'shkrbt:blink': 'battle.ON_ABILITY_START.enemy_2135_shkrbt.Blink',
+  'shkrbt:blinkend': 'battle.ON_CUSTOM_TRIGGER.shkrbt_blink_end',
+  'trwlpl:digested': 'battle.ON_CUSTOM_TRIGGER.enemy_trwlpl_eat_complete',
+  'trwlpl:vomit': 'battle.ON_CUSTOM_TRIGGER.enemy_trwlpl_eat_failed',
+  'dsshell:born': 'battle.ON_UNIT_BORN.trap_156_dsshell',
+  'dsshell:dead': 'battle.ON_UNIT_DEAD.trap_156_dsshell',
+  // 염괴포 (trap_196_cnnon, the 规程 stage cannon) taking an enemy aboard: its DurbusAbility's `_buffsWhenCarryPassenger`
+  // cnnon_carry_enemy, audioSignal cnnon_carry_enemy_audio. Its shot here is the talent EnemyCannon00D and the shell
+  // projectile_trap_cnnon_small_death — neither sets a signal of its own, and zh_CN audio_data has banks only for the main
+  // story boss's EnemyCannon00 / 10 and projectile_trap_cnnon_small / large: the shot and the landing sound nothing
+  'cnnon:carry': 'battle.ON_BUFF_START.cnnon_carry_enemy_audio',
+  // 2026-11-12 (docs/rules/diy.md 「선발 추가 사일런스 더 패러디그매틱·외드레르·메커니스트」 소리): 淬羽赫默 S3's 不死 (slent2_s_3
+  // ON_BEFORE_TRY_SET_HP_ZERO: CreateBuff with audioSignal slent2_shallow_grave_audio); 机械师 S2's 屏障 breaking while S2 runs
+  // (mcnist_s_2_shield ON_TAKE_DAMAGE, the burst branch: PlayAudio mcnist_s_2_shield), S3's 结构性原理 charge (its
+  // projectile's BORN and REACH — the four projectiles with banks share these files) and the cross landing
+  'slent2:grave': 'battle.ON_BUFF_START.slent2_shallow_grave_audio',
+  'mcnist:s2shield': 'battle.ON_CUSTOM_TRIGGER.mcnist_s_2_shield',
+  'mcnist:s3born': 'battle.ON_PROJECTILE_BORN.projectile_chr_mcnist_s3_token',
+  'mcnist:s3reach': 'battle.ON_PROJECTILE_REACH.projectile_chr_mcnist_s3_token',
+  'mcnist:s3hit': 'battle.ON_CUSTOM_TRIGGER.mcnist_skill_attack_hit',
 });
 
 /**

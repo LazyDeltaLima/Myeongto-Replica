@@ -205,8 +205,13 @@ function chargeGraf(battle, mcn, t, b3) {
   const { stop, land } = chargeEnd(battle, t);
   const dist = hypot(stop[0] - t.tileR, stop[1] - t.tileC);
   t.mem.charging = true;
-  // (`src`: her plan draws it — mcnist_s_3_projectile_real picks the projectile by the token's deploy direction and side)
-  battle.fx('charge', { x: t.x, y: t.y, id: t.id, src: mcn.id, dir: t.dir, tx: stop[1], ty: stop[0] });
+  // (`src`: her plan draws it — mcnist_s_3_projectile_real picks the projectile by the token's deploy direction and side;
+  // `left`: its left / right facing (CheckFaceLOrR) — turned to the target its swing took, else its deploy facing, as the
+  // view turns it (ai.js swing / castFace → render turnToward). A display field: up / down facing right flies a projectile
+  // with no sound banks (public/js/audio.js mcnistChargeSounds))
+  const ft = t.faced && t.faceTgt && t.faceTgt.alive ? t.faceTgt : null;
+  const left = ft && ft.x !== t.x ? ft.x < t.x : t.dir === 'LEFT';
+  battle.fx('charge', { x: t.x, y: t.y, id: t.id, src: mcn.id, dir: t.dir, tx: stop[1], ty: stop[0], left: left ? 1 : 0 });
   battle.retreat(t, { reason: 'expired', permanent: true });
   t.mem.charging = false;
   const atk = mcn.s.atk, scale = num(b3.atk_scale, 3), radius = num(b3.projectile_range, 1.5);

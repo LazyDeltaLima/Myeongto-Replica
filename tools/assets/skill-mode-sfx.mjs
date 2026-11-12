@@ -17,7 +17,7 @@
 //   deferStart: the skill's start sound is only a fallback (skill-sfx.mjs, no ON_SKILL_START) and the skill has attack /
 //   impact sounds of its own — the client plays that start sound only for a skill that ends without an attack.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const LOCAL_CHAR_MODES_FILE = 'tools/assets/local-char-modes.json';
@@ -321,6 +321,54 @@ export function loadSkillCast(root = process.cwd()) {
   const p = join(root, LOCAL_SKILL_CAST_FILE);
   if (!existsSync(p)) return {};
   try { return JSON.parse(readFileSync(p, 'utf8')).skills || {}; } catch { return {}; }
+}
+
+/** The game data files whose skill records carry `cast` (tools/build-data.mjs): every season's backups and chess. */
+const SKILL_DATA_FILES = Object.freeze(['data/backups.json', 'data/chess.json']);
+const SIM_TICK = 1 / 30;   // server/sim/constants.js TICK
+
+/**
+ * 2026-11-12, docs/rules/audio.md 「스킬 효과음」: skill id → the begin clip a 'state' cast plays before the skill starts, in
+ * game seconds as the sim waits it (server/sim/skills.js beginTime: whole ticks, at least one) — from the skill records of
+ * data/ (`cast.begin`). The client casts the skill ability once that clip has played (BasicSkill.OnBeforeSkillStart →
+ * PlayBeginAnimation → DoStartSkill), so its ON_ABILITY_START sounds that long after the 'skill' event.
+ * @returns {Record<string, number>}
+ */
+export function loadSkillBegin(root = process.cwd()) {
+  const files = [...SKILL_DATA_FILES];
+  const seasons = join(root, 'data', 'seasons');
+  if (existsSync(seasons)) for (const s of readdirSync(seasons)) for (const f of ['backups.json', 'chess.json']) files.push(join('data', 'seasons', s, f));
+  const out = {};
+  const walk = (o) => {
+    if (!o || typeof o !== 'object') return;
+    if (Array.isArray(o)) { for (const x of o) walk(x); return; }
+    const c = o.cast;
+    const id = o.skillId ?? o.prefabId;
+    if (c && typeof c === 'object' && c.mode === 'state' && c.begin > 0 && typeof id === 'string') out[id] = Math.round(Math.max(1, Math.round(c.begin / SIM_TICK)) * SIM_TICK * 1000) / 1000;
+    for (const v of Object.values(o)) walk(v);
+  };
+  for (const f of files) {
+    const p = join(root, f);
+    if (!existsSync(p)) continue;
+    try { walk(JSON.parse(readFileSync(p, 'utf8'))); } catch { /* a broken data file leaves its skills out */ }
+  }
+  return out;
+}
+
+/**
+ * sfx.units[id].begin — skill index → its begin lead (loadSkillBegin), for the skills whose skill-ability START the
+ * manifest sounds at the skill's start (`extras`, castCues 's'); null when none.
+ * @param {{ index: number, skillId?: string }[]} skills
+ * @param {Record<string, number>} begin loadSkillBegin
+ * @param {(index: number) => boolean} used
+ */
+export function skillBeginLeads(skills, begin, used) {
+  const out = {};
+  for (const s of Array.isArray(skills) ? skills : []) {
+    const v = s?.skillId ? begin?.[s.skillId] : null;
+    if (Number.isInteger(s?.index) && v > 0 && used(s.index)) out[String(s.index)] = v;
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 /**
