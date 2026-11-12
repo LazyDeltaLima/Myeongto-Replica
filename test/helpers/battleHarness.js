@@ -32,7 +32,8 @@
 //   kits          { [baseChessId | standInCharId]: (bb, chess, def) => Kit } injected kits (take precedence over
 //                 kits/index.js; a stand-in's kit is keyed by its charId only)
 //   extraContent  [{ install(battle) }] extra content modules installed after the domain modules (content tests)
-//   defs          { chess: {id: record}, enemies: {key: record}, tokens: {id: record} } extra/override data records
+//   defs          { chess: {id: record}, enemies: {key: record}, tokens: {id: record} } extra/override data records;
+//                 `effects` (a season's data/effects.json) replaces the default season's effect records
 //   flags, sharedBoss, modeId, round, setup(battle), recordEvents (default true). The harness sets
 //                 flags.bornTime = 0 unless given: the born state after every deployment (Battle default
 //                 BORN_TIME), when no MANUAL skill is cast, would hold back every test that fills a skill's SP at
@@ -184,7 +185,8 @@ export function standInRec(chessId, sel = {}, data = getDefaultSource()) {
 
 function buildData(defs) {
   if (!defs) return getDefaultSource();
-  return new DataSource({ chess: defs.chess ?? {}, enemies: defs.enemies ?? {}, tokens: defs.tokens ?? {}, stages: defs.stages ?? {}, waves: defs.waves ?? {} }, getDefaultSource());
+  // `effects`: a season's data/effects.json (the content modules read it through dataFile; absent = the default season's)
+  return new DataSource({ chess: defs.chess ?? {}, enemies: defs.enemies ?? {}, tokens: defs.tokens ?? {}, stages: defs.stages ?? {}, waves: defs.waves ?? {}, ...(defs.effects ? { effects: defs.effects } : {}) }, getDefaultSource());
 }
 
 /**

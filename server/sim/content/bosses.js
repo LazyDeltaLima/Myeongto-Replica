@@ -90,6 +90,7 @@ import {
   remainingRoute, stayRoute, stepToward, setHits, hitCount, setForm, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, shoot,
 } from './enemies.js';
 import { hypot, powi } from '../detmath.js';
+import { effectRecord } from './support/index.js';
 import { isNormalDamage } from '../damage.js';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -332,15 +333,41 @@ function branchSpawn(b, tpl, name, phaseIdx, { fallback = null, mods = null, at 
  * (死亡集群 `summon.hp_ratio`), multiplied in. No flags (tests, tools): the ratio alone. Until 0.2.1 the summons took no
  * round effect at all (PR #272). 王权号令's equipment is left out: invulnerable, untargetable, it never fights. So are the
  * tokens 子代 and 黄金回响 (`Trap`, not `Enemy`: the client's enemy runes skip them — spawnBrood, goldenDef).
+ * `key` = the summon's enemy key: when the battle's season lists it in its 补给线 effects' `enemy_exclude` (supplyExcluded —
+ * 规程 leaves out 刺胄之弹 and “裂管之音”/“断弦之音”, 盟约 does not), the 补给线 share (`supplyHpMul`) comes out of its HP.
  */
-function summonMods(b, hpRatio = null) {
+function summonMods(b, hpRatio = null, key = null) {
   const s = b.flags && b.flags.enemyScale;
   if (!s || typeof s !== 'object') return hpRatio ? { hpMul: hpRatio } : null;
-  const m = { hpMul: (Number.isFinite(s.hpMul) && s.hpMul > 0 ? s.hpMul : 1) * (hpRatio || 1), atkMul: s.atkMul, speedMul: s.speedMul };
-  if (s.supplyHpMul != null) m.supplyHpMul = s.supplyHpMul;
+  const supply = Number.isFinite(s.supplyHpMul) && s.supplyHpMul > 0 ? s.supplyHpMul : null;
+  const out = supply != null && key != null && supplyExcluded(b, key);
+  const m = { hpMul: (Number.isFinite(s.hpMul) && s.hpMul > 0 ? s.hpMul : 1) * (hpRatio || 1) / (out ? supply : 1), atkMul: s.atkMul, speedMul: s.speedMul };
+  if (s.supplyHpMul != null && !out) m.supplyHpMul = s.supplyHpMul;
   if (s.defMul != null) m.defMul = s.defMul;
   if (s.resMul != null) m.resMul = s.resMul;
   return m;
+}
+
+/** The 补给线 effects (data/effects.json): their HP-only `enemy_attribute_mul` is the round scale's `supplyHpMul` share. */
+const SUPPLY_EFFECTS = Object.freeze(['aceffect_enemy_2', 'aceffect_enemy_2_2']);
+/** @type {WeakMap<object, Set<string>>} */
+const SUPPLY_EXCLUDED = new WeakMap();
+/** Whether the battle's season leaves enemy `key` out of its 补给线 effects (`enemy_exclude`, any of their buffs). */
+function supplyExcluded(b, key) {
+  const scope = effectRecord(SUPPLY_EFFECTS[0], b) ?? effectRecord(SUPPLY_EFFECTS[1], b);
+  if (!scope) return false;
+  let set = SUPPLY_EXCLUDED.get(scope);
+  if (!set) {
+    set = new Set();
+    for (const id of SUPPLY_EFFECTS) {
+      for (const bf of effectRecord(id, b)?.buffs ?? []) {
+        const ex = bf && bf.bbStr && bf.bbStr.enemy_exclude;
+        if (typeof ex === 'string') for (const k of ex.split('|')) if (k) set.add(k);
+      }
+    }
+    SUPPLY_EXCLUDED.set(scope, set);
+  }
+  return set.has(key);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -520,8 +547,8 @@ function kitHelm(ab, e, b, tpl) {
         const hpMul = s2.bb['summon.hp_ratio'] > 0 ? s2.bb['summon.hp_ratio'] : null;
         const key = s2.bs.enemy_key ?? 'enemy_1005_yokai';
         const drones = branchSpawn(b2, tpl, s2.bs.branch_id ?? 'boss_summon_enemy', 0, {
-          mods: summonMods(b2, hpMul), at: { x: e2.x, y: e2.y },
-          fallback: () => [b2.spawnEnemy(key, { pos: [e2.y, e2.x], route: toGoal(b2, e2.x, e2.y, 'FLY'), mods: summonMods(b2, hpMul) })].filter(Boolean),
+          mods: summonMods(b2, hpMul, key), at: { x: e2.x, y: e2.y },
+          fallback: () => [b2.spawnEnemy(key, { pos: [e2.y, e2.x], route: toGoal(b2, e2.x, e2.y, 'FLY'), mods: summonMods(b2, hpMul, key) })].filter(Boolean),
         });
         b2.fx('summon', { x: e2.x, y: e2.y, id: e2.id, key, n: drones.length });
         const ratio = s2.bb.hp_ratio ?? 0;
@@ -558,7 +585,7 @@ export function droneLinkBase(boss, base = DRONE_LINK_BASE) {
  */
 function fireShell(b, boss, target, skill, speed) {
   const tr = target.tileR, tc = target.tileC;
-  const sh = b.spawnEnemy(SHELL_KEY, { pos: [boss.y, boss.x], route: { motion: 'FLY', start: [boss.y, boss.x], end: [tr, tc], steps: [{ t: 'wait', s: 99999 }] }, tag: 'part', countInTotal: false, ownerPlayerId: boss.ownerId, mods: summonMods(b) });
+  const sh = b.spawnEnemy(SHELL_KEY, { pos: [boss.y, boss.x], route: { motion: 'FLY', start: [boss.y, boss.x], end: [tr, tc], steps: [{ t: 'wait', s: 99999 }] }, tag: 'part', countInTotal: false, ownerPlayerId: boss.ownerId, mods: summonMods(b, null, SHELL_KEY) });
   if (!sh) return null;
   sh.mem.ab.shell = { tr, tc, boss, skill, speed: speed > 0 ? speed : 0 };
   b.fx('shell', { x: boss.x, y: boss.y, id: sh.id, aim: target.id, tx: tc, ty: tr, r: 1.5, kind: 'helmShell' });
@@ -1206,7 +1233,7 @@ function pipeCore(ab, e, b, tpl, { form, prefix }) {
   const P = { acc: 0, atk: Infinity, castEnd: -Infinity };   // first strike as soon as an echo of its form exists (engine attack rule)
   ab.ownAttack = true;   // its skill takes the turn of this loop's attack (ownAttackTurn)
   const summon = (b2, e2) => {
-    const got = branchSpawn(b2, tpl, 'summon_enemy', 0, { mods: summonMods(b2), at: { x: e2.x, y: e2.y }, fallback: () => [b2.spawnEnemy(key, { pos: [e2.y, e2.x], route: toGoal(b2, e2.x, e2.y), mods: summonMods(b2) })].filter(Boolean) });
+    const got = branchSpawn(b2, tpl, 'summon_enemy', 0, { mods: summonMods(b2, null, key), at: { x: e2.x, y: e2.y }, fallback: () => [b2.spawnEnemy(key, { pos: [e2.y, e2.x], route: toGoal(b2, e2.x, e2.y), mods: summonMods(b2, null, key) })].filter(Boolean) });
     for (const u of got) if (u.defId === ECHO_KEY && form === 'gold') setEchoForm(b2, u, 'gold');
     b2.fx('summon', { x: e2.x, y: e2.y, id: e2.id, key, n: got.length });
   };
@@ -1583,7 +1610,7 @@ function kitLucien(ab, e) {
       const route = remainingRoute(e2);
       const from = blinkForward(b, e2, s.bb.dist ?? 1.5);
       if (!from) return;
-      const ph = b.spawnEnemy(PHANTOM_KEY, { pos: [from.y, from.x], route, ownerPlayerId: e2.ownerId, sourcePlayerId: e2.sourcePlayerId, mods: summonMods(b) });
+      const ph = b.spawnEnemy(PHANTOM_KEY, { pos: [from.y, from.x], route, ownerPlayerId: e2.ownerId, sourcePlayerId: e2.sourcePlayerId, mods: summonMods(b, null, PHANTOM_KEY) });
       if (ph) b.fx('summon', { x: from.x, y: from.y, id: e2.id, key: PHANTOM_KEY, n: 1 });
     },
   }];
@@ -1987,7 +2014,7 @@ function kitMachine(ab, e, b, tpl) {
     const br = branchRoute(tpl, FNC_BRANCH[side]);
     const end = br && Array.isArray(br.end) ? br.end : toGoal(b2, tile[1], tile[0]).end;
     const cp = t && b2.grid.walkable(t.tileR, t.tileC) ? [[t.tileR, t.tileC]] : [];
-    return b2.spawnEnemy(FNC_PART, { route: { motion: 'WALK', start: tile, end, checkpoints: cp }, pos: tile, countInTotal: false, mods: summonMods(b2) });
+    return b2.spawnEnemy(FNC_PART, { route: { motion: 'WALK', start: tile, end, checkpoints: cp }, pos: tile, countInTotal: false, mods: summonMods(b2, null, FNC_PART) });
   };
   const partNear = (b2, t) => { // `_summonOnNearestPassableTile` within x-4 (the 3×3) of the target
     let best = null, bd = Infinity;
@@ -2008,7 +2035,7 @@ function kitMachine(ab, e, b, tpl) {
     const list = phase.length ? phase.map((s) => tpl.extraRoutes && tpl.extraRoutes[s.routeIndex]).filter(Boolean)
       : [{ start: [r0, c0 - 2], end: [r0, b2.rect.c0 + 1] }, { start: [r0, c0 + 2], end: [r0, b2.rect.c1 - 1] }];
     for (const rt of list) {
-      const o = b2.spawnEnemy(FNC_ARMOR, { route: { motion: 'FLY', start: rt.start, end: rt.start, checkpoints: [] }, pos: rt.start, countInTotal: false, mods: summonMods(b2) });
+      const o = b2.spawnEnemy(FNC_ARMOR, { route: { motion: 'FLY', start: rt.start, end: rt.start, checkpoints: [] }, pos: rt.start, countInTotal: false, mods: summonMods(b2, null, FNC_ARMOR) });
       if (!o) continue;
       // acfnca[init]: on the boss's column it kills itself; else is-left / is-right
       if (Math.round(o.x) === c0) { b2.kill(o, null); continue; }
@@ -2336,7 +2363,7 @@ function kitSpider(ab, e) {
           shoot(b2, e2, t, WEB_SHOT, (t2) => {
             if (!t2 || !t2.alive || !t2.deployed) return;
             const tile = [t2.tileR, t2.tileC];
-            const w = b2.spawnEnemy(WEB_KEY, { route: { motion: 'WALK', start: tile, end: tile, checkpoints: [] }, pos: tile, countInTotal: false, mods: summonMods(b2) });
+            const w = b2.spawnEnemy(WEB_KEY, { route: { motion: 'WALK', start: tile, end: tile, checkpoints: [] }, pos: tile, countInTotal: false, mods: summonMods(b2, null, WEB_KEY) });
             if (w) { w.mem.web = { host: e2, hidden }; b2.fx('summon', { x: w.x, y: w.y, id: e2.id, key: WEB_KEY, tgt: t2.id }); }
           }, { source: e2 });
         }

@@ -4225,6 +4225,10 @@ const DEFAULT_ENEMY_MULTIPLIERS = {
  * The steps of the enemy effects (activity_table effectInfoDataDict / effectBuffInfoDataDict, data/effects.json): 攻坚装备
  * (aceffect_enemy_3) ATK and HP, 补给线II (aceffect_enemy_2_2) HP, 补给线 (aceffect_enemy_2) HP, 急行军 (aceffect_enemy_1)
  * speed. 盟约: 1.1 / 1.2 / 1.2 / 1.08 / +0.15; 规程 gives 1.11 / 1.2 / 1.3 / 1.08 / +0.3 under the same ids.
+ * [ASSUMED·서버] 规程's rounds take the 盟约 per-round step counts (research 01 A3, by modeType × modeDifficulty) with
+ * these steps: which enemy effects a round carries is the server's, and 规程's 34 new ENEMY effects (攻坚装备XIII–LVII,
+ * 补给线VI–VIII, some with attack speed +5 / +10) are named by no client table (modeDataDict has eventIds and the
+ * 模拟强度 text only), so they stay unused (docs/rules/sim.md 「규정 적·보스」 라운드 적 효과).
  */
 function enemySteps(effects) {
   const bb = (id, k, d) => {

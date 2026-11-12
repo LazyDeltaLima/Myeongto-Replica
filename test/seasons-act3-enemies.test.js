@@ -2090,3 +2090,44 @@ test('赏金猎人“骑士”: as 萨卡兹穿刺手 — accelerating while fre
   assert.deepEqual(rush, ['arts']);
   assert.ok(!e.findBuff('ab:rush'), 'the rush ends');
 });
+
+test('规程 补给线 leaves the leaders\' summons 刺胄之弹 and “裂管之音”/“断弦之音” out (enemy_exclude): their HP takes the round without its 补给线 share; 盟约 and the other summons keep it', () => {
+  const SHELL = 'enemy_9016_acstmr', ECHO = 'enemy_9023_acdums', YOKAI = 'enemy_1005_yokai';
+  // the data: 规程's 补给线 / 补给线II add the two summons to enemy_exclude, 盟约's do not
+  const ex = (D, id) => D.effects[id].buffs.flatMap((b) => String(b.bbStr?.enemy_exclude ?? '').split('|'));
+  for (const id of ['aceffect_enemy_2', 'aceffect_enemy_2_2']) {
+    assert.ok(ex(ACT3, id).includes(SHELL) && ex(ACT3, id).includes(ECHO), `规程 ${id}`);
+    assert.ok(!ex(BASE, id).includes(SHELL) && !ex(BASE, id).includes(ECHO), `盟约 ${id}`);
+  }
+  // co-op 终极's boss round carries a 补给线 share (config enemyScale supplyHp)
+  assert.ok(ACT3.config.modes.mode_multi_abyss.enemyScale['14'].supplyHp > 1);
+  const enemyScale = { hpMul: 2.6, atkMul: 1.5, speedMul: 1.3, supplyHpMul: 1.3 };
+  // the season's level (its branches: 死亡集群's boss_summon_enemy, 管's summon_enemy — the spawns go through branchSpawn)
+  const field = (season, keys, tpl) => {
+    const id = `${season === ACT3 ? 'act3autochess' : 'act1autochess'}_${tpl}`;
+    assert.ok(season.waves[id], id);
+    const h = bossArena(season, keys, {
+      flags: { enemyScale }, units: [{ chessId: 't_wall', row: 10, col: 6 }], setup: (b) => { b.opts.templateId = id; },
+      defs: { chess: { t_wall: WALL('t_wall'), t_wall2: WALL('t_wall2', { def: 900 }) }, enemies: Object.fromEntries(keys.map((k) => [k, season.enemies[k]])), waves: { [id]: season.waves[id] }, effects: season.effects },
+    });
+    h.step();
+    return h;
+  };
+  const near = (a, b, msg) => assert.ok(Math.abs(a - b) <= 1e-9 * Math.max(1, b), `${msg}: ${a} ≈ ${b}`);
+  for (const [season, name, cut] of [[ACT3, '规程', true], [BASE, '盟约', false]]) {
+    const E = season.enemies;
+    const h = field(season, ['enemy_9013_acstmk', SHELL, YOKAI], 'h07_01');
+    put(h, 'enemy_9013_acstmk', [3, 10], { tag: 'boss' }).profile.noAttack = true;
+    assert.ok(h.runUntil(() => alive(h, SHELL).length > 0 && alive(h, YOKAI).length > 0, 120), `${name}: 刺胄之弹 and 死亡集群`);
+    const shell = alive(h, SHELL)[0], yokai = alive(h, YOKAI)[0];
+    assert.equal(shell.s.maxHp, Math.ceil(E[SHELL].stats.maxHp * (cut ? 2.6 / 1.3 : 2.6) - 1e-9), `${name} 刺胄之弹 hits`);   // 频次: whole hits (setHits)
+    assert.equal(shell.mods.supplyHpMul, cut ? undefined : 1.3, `${name} 刺胄之弹 share`);
+    near(shell.base.atk, E[SHELL].stats.atk * 1.5, `${name} 刺胄之弹 ATK (攻坚装备 kept)`);
+    const ratio = E.enemy_9013_acstmk.skills.find((s) => s.prefabKey === '2').bb['summon.hp_ratio'] ?? 1;
+    near(yokai.s.maxHp, E[YOKAI].stats.maxHp * 2.6 * ratio, `${name} 妖怪 HP: the whole round (not excluded)`);
+    const p = field(season, ['enemy_9021_acduml', ECHO], 'h07_03');
+    put(p, 'enemy_9021_acduml', [3, 10], { tag: 'boss' });
+    assert.ok(p.runUntil(() => alive(p, ECHO).length > 0, 120), `${name}: 假想敌：管 summons`);
+    assert.equal(alive(p, ECHO)[0].s.maxHp, Math.ceil(E[ECHO].stats.maxHp * (cut ? 2.6 / 1.3 : 2.6) - 1e-9), `${name} 余音 hits`);
+  }
+});
