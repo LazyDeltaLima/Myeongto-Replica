@@ -12,6 +12,7 @@
 // Imported by the server and the browser: no Node APIs.
 
 import { N_ } from './i18n.js';
+import { FAST_GRADE, MAX_GRADE } from './constants.js';
 
 /** The season of data/*.json and of every room that names none. */
 export const DEFAULT_SEASON = 'act2autochess';
@@ -57,6 +58,20 @@ export function defineSeason(id, { public: open = false, name = id, mark = Strin
   if (typeof id !== 'string' || !/^[a-z0-9]+$/.test(id) || Object.hasOwn(SEASONS, id)) throw new Error(`bad or taken season id ${id}`);
   SEASONS[id] = Object.freeze({ id, public: open, name, mark, features: Object.freeze({ ...SEASON_FEATURES, ...features }) });
   return () => { delete SEASONS[id]; };
+}
+
+/**
+ * The 规程等级 a match's mode plays in a season with `soloGrades` (shared/constants.js MAX_GRADE): `mode_single_<n>` → n,
+ * `mode_single_funny` → FAST_GRADE (极速模拟); null for any other mode or season.
+ * @param {unknown} modeId @param {unknown} season
+ * @returns {number | null}
+ */
+export function modeGrade(modeId, season) {
+  if (!seasonFeature(season, 'soloGrades') || typeof modeId !== 'string') return null;
+  if (modeId === 'mode_single_funny') return FAST_GRADE;
+  const m = /^mode_single_(\d+)$/.exec(modeId);
+  const n = m ? Number(m[1]) : NaN;
+  return n >= 1 && n <= MAX_GRADE ? n : null;
 }
 
 /** A season id of the registry. @param {unknown} v */

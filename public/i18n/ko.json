@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1691 of 1909 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1694 of 1912 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1116,6 +1116,9 @@
   "帧率上限": "프레임 제한",
   "拿起棋子时收起商店": "기물을 집을 때 상점 접기",
   "元素": "원소",
+  "极速模拟": "고속 시뮬레이션",
+  "规程等级": "규정 등급",
+  "规程等级 {n}": "규정 등급 {n}",
   "空": "비어있음",
   "确定自选编队": "선발 편성 확정",
   "尚不存在{tier}阶自选编队": "{tier}티어 선발 편성이 없습니다",

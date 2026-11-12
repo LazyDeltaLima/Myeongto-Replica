@@ -30,6 +30,9 @@
 // many settings differ from the official ones. The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): 人数 picks a 4- or an 8-seat alliance
 // (room.create / room.queue `size`, remembered in `lobby.size`).
 //
+// 规程 (docs/rules/ui.md 「규정 모드」): 独立模拟 picks 极速模拟 or a 规程等级 1–20 from one row each instead of the cards
+// (GRADES, GradeRow; room.create `grade`), and 规则 / 人数 have no 自定义 and no 8 seats there yet (limitedSeason).
+//
 // Difficulty descriptions come from data/config.json `modes[modeId]` when present, else from the
 // official act2autochess `modeDataDict` texts embedded below (desc + effectDescList), so the
 // screen is complete before data is generated. Rounds: solo 标准 = 9, everything else 14 (+R15
@@ -39,8 +42,8 @@
 // config.json mode texts come localized from data.js.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, LARGE_SEATS, LARGE_MIN_PLAYERS, ROOM_SIZES, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
-import { html, Button, Icon, MicroLabel, Modal, TextField, PingPill, OnlinePill, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, LARGE_SEATS, LARGE_MIN_PLAYERS, ROOM_SIZES, MAX_SPECTATORS, modeIdFor, ERR, FAST_GRADE, MAX_GRADE, gradeDifficulty, isGrade } from '../../../shared/constants.js';
+import { html, Button, Icon, MicroLabel, Modal, TextField, PingPill, OnlinePill, Tooltip, Spinner, DifficultyIcon, doctorNo, gradeName } from '../ui/components.js';
 import { Sprite, Img } from '../ui/gameComponents.js';
 import { uiUrl } from '../ui/assetUrls.js';
 import { toast, toastError } from '../ui/toasts.js';
@@ -56,7 +59,7 @@ import { LoadoutButton } from './loadout.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { MatchQueueDialog, joinQueue, joinQuickQueue } from '../ui/matchQueue.js';
 import { SeasonChip, SeasonPick, hasSeasonPicker, pickedSeason, seasonFields, seasonQueueCounts, seasonQuickCounts, seasonName } from '../ui/season.js';
-import { seasonInfo, DEFAULT_SEASON } from '../../../shared/seasons.js';
+import { seasonInfo, seasonFeature, DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { RulesetSwitch, lobbyRuleset, lobbyQueueRuleset, saveLobbyRuleset, queueCountOf } from '../ui/ruleset.js';
 import { QUEUE_PRESETS, PRESET_LABELS, isQueuePreset, customDiffs, officialBans } from '../../../shared/ruleset.js';
 import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
@@ -175,6 +178,43 @@ export function difficultyInfo(roomMode, difficulty) {
     rounds,
     hidden: difficulty !== 'FUNNY',
     stageNote: stageNote(Array.isArray(m?.stages) && m.stages.length ? m.stages : STAGE_POOL[difficulty]),
+  };
+}
+
+/**
+ * 规程等级 (docs/rules/ui.md 「규정 모드」; maintainer decisions 2026-11-08, 2026-11-12): a season with `soloGrades` offers
+ * 独立模拟 at 极速模拟 (FAST_GRADE) or 规程等级 1–20 instead of the four difficulties, every one open, picked from one row
+ * each (GradeRow) on 选择模拟协议. A season with `noCustomOrLarge` has no 自定义 and no 8-seat alliance yet: its 规则 row
+ * offers 经典 / 休闲 only and its 人数 row is left out (the server refuses both, server/lobby.js).
+ */
+export const GRADES = Object.freeze([FAST_GRADE, ...Array.from({ length: MAX_GRADE }, (_, i) => i + 1)]);
+/** Whether a room of this mode and season picks a 规程等级. @param {string} roomMode @param {unknown} season */
+export const gradedRoom = (roomMode, season) => roomMode === 'solo' && seasonFeature(season, 'soloGrades');
+/** Whether the season has no 自定义 / 8-seat alliance yet. @param {unknown} season */
+export const limitedSeason = (season) => seasonFeature(season, 'noCustomOrLarge');
+/** The lobby's remembered 规程等级 (1 the first time). */
+export const lobbyGrade = () => { const g = loadPref('lobby.grade', 1); return isGrade(g) ? g : 1; };
+export { gradeName };
+
+/**
+ * Text for a 规程等级, from the season's mode record (`mode_single_<grade>` / 极速模拟's `mode_single_funny`), as
+ * difficultyInfo; `color` is the record's own (极速模拟 has one of its own).
+ * @param {number} grade
+ * @returns {{ code: string, desc: string, effects: string[], rounds: number, hidden: boolean, stageNote: string, color: string, difficulty: string }}
+ */
+export function gradeInfo(grade) {
+  const difficulty = gradeDifficulty(grade);
+  const m = getMode(modeIdFor('solo', difficulty, grade));
+  const effects = Array.isArray(m?.effectDescList) ? m.effectDescList.map((e) => String(e).replace(/^[·•・･\s]+/, '')).filter(Boolean) : [];
+  return {
+    code: typeof m?.code === 'string' ? m.code : '',
+    desc: typeof m?.desc === 'string' ? m.desc : '',
+    effects,
+    rounds: Number.isFinite(m?.lastRound) ? m.lastRound : grade === FAST_GRADE ? 9 : 14,
+    hidden: Number.isInteger(m?.hiddenRound),
+    stageNote: Array.isArray(m?.stages) && m.stages.length ? stageNote(m.stages) : '',
+    color: typeof m?.color === 'string' && /^#[0-9a-f]{6}$/i.test(m.color) ? m.color : DIFFICULTY_COLORS[difficulty],
+    difficulty,
   };
 }
 
@@ -390,6 +430,32 @@ function DifficultyCard({ roomMode, difficulty, selected, onSelect, disabled = f
     </span>
     <span class="pcard__stamp" aria-hidden="true"><${StampRing} /><span class="pcard__tick"><${Icon} name="check" /></span><span class="pcard__ok">${t('已选定')}</span></span>
   </button>`;
+}
+
+/**
+ * One 规程等级 of 选择模拟协议 (maintainer decision 2026-11-12, 시안 B: a row each, closer to the official list than the
+ * cards): the difficulty's glyph, the grade's name with its difficulty (极速模拟: its description), code, rounds; the
+ * selected one slides out in its colour with a tick. The brief at the left carries the rest.
+ */
+function GradeRow({ grade, selected, onSelect, disabled = false }) {
+  const info = gradeInfo(grade);
+  return html`<button type="button" class=${`grow${selected ? ' is-on' : ''}`} style=${`--d-color:${info.color}`} data-grade=${grade}
+      disabled=${disabled} onClick=${() => onSelect(grade)} aria-pressed=${selected ? 'true' : 'false'}>
+    <${DifficultyIcon} difficulty=${info.difficulty} class="grow__glyph" />
+    <span class="grow__name"><b>${gradeName(grade)}</b><small>${grade === FAST_GRADE ? info.desc : t(DIFFICULTY_NAMES[info.difficulty])}</small></span>
+    <span class="grow__code num">${info.code}</span>
+    <span class="grow__rounds"><b class="num">${info.rounds}</b> ${tc('rounds', '回合')}${info.hidden ? ` ${t('+ 隐秘核心')}` : ''}</span>
+    <span class="grow__tick" aria-hidden="true">${selected ? html`<${Icon} name="check" />` : null}</span>
+  </button>`;
+}
+
+/** 选择模拟协议's 规程等级 rows (GradeRow): the picked one scrolled into view when the list opens. */
+function GradeList({ grade, onGrade, disabled }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => { ref.current?.querySelector('.grow.is-on')?.scrollIntoView?.({ block: 'center' }); }, []);
+  return html`<div ref=${ref} class="proto-list proto-list--grades" role="group" aria-label=${t('规程等级')}>
+    ${GRADES.map((g) => html`<${GradeRow} key=${g} grade=${g} selected=${grade === g} onSelect=${onGrade} disabled=${disabled} />`)}
+  </div>`;
 }
 
 /**
@@ -648,9 +714,10 @@ function RowKey({ text }) {
  * season is fixed when it is made, maintainer decision 2026-11-08). A picked 自定义's summary is CustomBrief, in the
  * brief at the left.
  */
-export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize, quick = false, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false, season = false }) {
-  const matching = roomMode === 'match';
-  const roomSize = roomMode === 'coop' && !!onSize;
+export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize, quick = false, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false, season = false, limited = false }) {
+  // `limited`: a season with no 自定义 and no 8-seat alliance yet (limitedSeason) — 经典 / 休闲 only, no 人数 row
+  const matching = roomMode === 'match' && !limited;
+  const roomSize = roomMode === 'coop' && !!onSize && !limited;
   const seasons = useStore(hasSeasonPicker);
   const big = matching && size === LARGE_SEATS;
   const counts = big ? counts8 : counts4;
@@ -663,8 +730,9 @@ export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize,
       <${RowKey} text=${t('规则')} />
       <span class="proto-rules__cell">
         <${RulesetSwitch} value=${ruleset} onPick=${onRuleset} onGear=${onGear} editable=${!quick && !readOnly} class="proto-rules__seg rtrack"
+          presets=${limited ? QUEUE_PRESETS : undefined}
           customLock=${matching ? t('自定义规则不能用于公开匹配，可在独立模拟或用同盟密钥创建的同盟中选择。') : null}
-          counts=${matching ? Object.fromEntries(QUEUE_PRESETS.map((p) => [p, queueCountOf(counts, p)])) : null} />
+          counts=${roomMode === 'match' ? Object.fromEntries(QUEUE_PRESETS.map((p) => [p, queueCountOf(counts, p)])) : null} />
       </span>
     </span>
     ${matching ? html`<span class="proto-rules__row">
@@ -730,13 +798,17 @@ export function QuickRange({ quick, onQuick }) {
  * `readOnly` — the cards shown, not chosen, and no button.
  */
 export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, onStart, busy, online, rules = null, waiting = null,
-  action = null, hint = null, readOnly = false, range = null, brief = null }) {
+  action = null, hint = null, readOnly = false, range = null, brief = null, grade = null, onGrade = null }) {
   const card = MODE_CARDS.find((c) => c.id === roomMode) || MODE_CARDS[0];
-  const info = difficultyInfo(roomMode === 'solo' ? 'solo' : 'coop', difficulty);
+  // a 规程 solo room (`grade` set): the 规程等级 rows instead of the difficulty cards, the brief and picture the grade's
+  const graded = isGrade(grade);
+  const ginfo = graded ? gradeInfo(/** @type {number} */ (grade)) : null;
+  if (ginfo) difficulty = ginfo.difficulty;
+  const info = ginfo || difficultyInfo(roomMode === 'solo' ? 'solo' : 'coop', difficulty);
   const label = action || (roomMode === 'solo' ? t('开始独立模拟') : roomMode === 'match' ? t('开始匹配') : t('创建同盟'));
   const defaultHint = roomMode === 'solo' ? t('创建后即可开始模拟') : roomMode === 'match' ? t('与选择同一难度、规则和人数的博士组成同盟') : t('创建后可邀请好友或添加 AI 队友');
   return html`<${Modal} open=${true} onClose=${onClose} class="proto" veilClass="proto-veil">
-    <div class="proto__body" style=${`--d-color:${DIFFICULTY_COLORS[difficulty]}`} data-difficulty=${difficulty} data-mode=${roomMode}>
+    <div class="proto__body" style=${`--d-color:${ginfo ? ginfo.color : DIFFICULTY_COLORS[difficulty]}`} data-difficulty=${difficulty} data-mode=${roomMode}>
       <div class="proto__bg" aria-hidden="true"></div>
       <${ProtoFit} />
       <header class="proto-top">
@@ -751,7 +823,7 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
           <div key=${difficulty} class="proto__pic"><${ProtocolArt} difficulty=${difficulty} /></div>
           <div class="proto-brief">
             <span class="proto-brief__code num">${info.code}</span>
-            <b class="proto-brief__name">${t(DIFFICULTY_NAMES[difficulty])}</b>
+            <b class="proto-brief__name">${graded ? gradeName(/** @type {number} */ (grade)) : t(DIFFICULTY_NAMES[difficulty])}</b>
             <p>${info.desc}</p>
             <div class="proto-brief__more" data-testid="proto-brief-more">
               <span class="proto-brief__effects">${info.effects.map((e) => html`<span key=${e}>${e}</span>`)}</span>
@@ -762,10 +834,11 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
         </section>
         <section class="proto-side">
           ${rules}
-          <div class="proto-list" role="group" aria-label=${t('模拟难度')}>
+          ${graded ? html`<${GradeList} grade=${grade} onGrade=${onGrade || (() => {})} disabled=${readOnly} />`
+            : html`<div class="proto-list" role="group" aria-label=${t('模拟难度')}>
             ${DIFFICULTIES.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode === 'solo' ? 'solo' : 'coop'} difficulty=${d} selected=${difficulty === d}
               onSelect=${onDifficulty} disabled=${readOnly} waiting=${waiting ? waiting(d) : null} />`)}
-          </div>
+          </div>`}
           ${readOnly ? html`<div class="proto-foot proto-foot--ro">
             <p class="proto-hint proto-hint--ro"><${Icon} name="info" />${hint || t('由创建者选择')}</p>
           </div>` : html`<div class=${`proto-foot create-box${range ? ' proto-foot--range' : ''}`}>
@@ -868,6 +941,7 @@ export function LobbyScreen() {
   const customRules = useStore((s) => s, Object.is, customRulesStore);
   const [size, setSize] = useState(lobbySize);
   const [quick, setQuick] = useState(() => loadPref('lobby.quick', false) === true);
+  const [grade, setGrade] = useState(lobbyGrade);
   // the open dialog: 'solo' | 'match' (选择模拟协议) | 'coop' (选择模拟协议 → 创建同盟) | 'join' (加入同盟 · 观战, AllianceSelect)
   const [open, setOpen] = useState(null);
   const [sweepOpen, setSweepOpen] = useState(false);
@@ -896,14 +970,19 @@ export function LobbyScreen() {
   // the dialog's mode: 'solo' (选择模拟协议 of 独立模拟), 'match' (of 同盟匹配), 'coop' (同盟模拟's screen)
   const roomMode = open === 'solo' ? 'solo' : open === 'match' ? 'match' : 'coop';
   const matching = roomMode === 'match';
-  const big = roomMode !== 'solo' && size === LARGE_SEATS;
+  // 规程 (header of GRADES): a solo room picks a 规程等级; no 自定义 and no 8-seat alliance — the remembered ones stand aside
+  const graded = gradedRoom(roomMode, season);
+  const limited = limitedSeason(season);
+  const big = roomMode !== 'solo' && !limited && size === LARGE_SEATS;
+  const roomRuleset = limited && ruleset === 'custom' ? 'classic' : ruleset;
 
+  const pickGrade = (g) => { setGrade(g); savePref('lobby.grade', g); };
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
   const pickSize = (n) => { setSize(n); savePref('lobby.size', n); };
   const pickQuick = (on) => { setQuick(on); savePref('lobby.quick', on); };
   const pickRuleset = (p) => { setRuleset(p); if (isQueuePreset(p)) setQueueRuleset(p); saveLobbyRuleset(p); };
   // 同盟匹配 has no 自定义 (QUEUE_PRESETS): it queues with the last of 经典 / 休闲 picked
-  const shownRuleset = matching ? queueRuleset : ruleset;
+  const shownRuleset = matching ? queueRuleset : roomRuleset;
   const editCustom = () => openCustomRules({ rules: customDraft(), roomMode: roomMode === 'solo' ? 'solo' : 'coop', difficulty,
     size: big ? LARGE_SEATS : MAX_SEATS, onApply: () => pickRuleset('custom') });
 
@@ -918,9 +997,10 @@ export function LobbyScreen() {
     }
   };
   // 独立模拟 at the difficulty and ruleset picked on 选择模拟协议; 创建同盟 at the remembered ones, changed in the room
-  const create = () => run('create', () => net.request('room.create', ruleset === 'custom'
-    ? { mode: roomMode, difficulty, ruleset, custom: customDraft(), ...sizeFields(roomMode, size), ...seasonFields(season) }
-    : { mode: roomMode, difficulty, ruleset, ...sizeFields(roomMode, size), ...seasonFields(season) }));
+  const gradeFields = graded ? { difficulty: gradeDifficulty(grade), grade } : { difficulty };
+  const create = () => run('create', () => net.request('room.create', roomRuleset === 'custom'
+    ? { mode: roomMode, ...gradeFields, ruleset: roomRuleset, custom: customDraft(), ...sizeFields(roomMode, big ? LARGE_SEATS : MAX_SEATS), ...seasonFields(season) }
+    : { mode: roomMode, ...gradeFields, ruleset: roomRuleset, ...sizeFields(roomMode, big ? LARGE_SEATS : MAX_SEATS), ...seasonFields(season) }));
   const queue = () => run('create', () => (quick ? joinQuickQueue(difficulty, season)
     : joinQueue(difficulty, queueRuleset, big ? LARGE_SEATS : MAX_SEATS, season)));
   const join = (c = code) => {
@@ -999,14 +1079,15 @@ export function LobbyScreen() {
       code=${code} onCode=${onCode} codeOk=${codeOk} online=${online} busy=${busy}
       onJoin=${join} onSpectate=${spectate} recent=${recent} focusKey=${!coarse} short=${shortScreen} />` : null}
     ${open === 'solo' || open === 'match' || open === 'coop' ? html`<${ProtocolSelect} roomMode=${roomMode} difficulty=${difficulty} onDifficulty=${pickDifficulty}
+      grade=${graded ? grade : null} onGrade=${pickGrade}
       onClose=${() => setOpen(null)} onStart=${matching ? queue : create} busy=${busy} online=${online} waiting=${waiting}
       action=${matching && quick ? t('开始快速匹配') : null}
       hint=${matching && quick ? t('规则与人数随匹配到的队列而定') : null}
       range=${matching ? html`<${QuickRange} quick=${quick} onQuick=${pickQuick} />` : null}
       brief=${html`<${CustomBrief} roomMode=${roomMode} ruleset=${shownRuleset} customRules=${customRules} difficulty=${difficulty} />`}
       rules=${html`<${ProtoRules} roomMode=${roomMode} ruleset=${shownRuleset} onRuleset=${pickRuleset} onGear=${editCustom}
-        size=${size} onSize=${roomMode === 'solo' ? null : pickSize} quick=${matching && quick} counts4=${queueCounts4} counts8=${queueCounts8}
-        season=${roomMode === 'coop'} />`} />` : null}
+        size=${big ? LARGE_SEATS : MAX_SEATS} onSize=${roomMode === 'solo' ? null : pickSize} quick=${matching && quick} counts4=${queueCounts4} counts8=${queueCounts8}
+        season=${roomMode === 'coop'} limited=${limited} />`} />` : null}
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${achOpen ? html`<${AchievementDialog} onClose=${closeAch} />` : null}
     <${PatchNotesModal} open=${notesFresh !== null} onClose=${() => setNotesFresh(null)} entries=${notes} fresh=${!!notesFresh} />

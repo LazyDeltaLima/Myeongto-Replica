@@ -14,7 +14,8 @@
 import { h, Fragment } from '../../vendor/preact.module.js';
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from '../../vendor/hooks.module.js';
 import htm from '../../vendor/htm.module.js';
-import { DIFFICULTY_NAMES, DIFFICULTY_COLORS } from '../../../shared/constants.js';
+import { DIFFICULTY_NAMES, DIFFICULTY_COLORS, FAST_GRADE, gradeDifficulty } from '../../../shared/constants.js';
+import { modeGrade } from '../../../shared/seasons.js';
 import { t } from '../../../shared/i18n.js';
 import { serverNow } from '../store.js';
 import { data, useData, localAsset } from '../data.js';
@@ -923,12 +924,18 @@ export function DifficultyIcon({ difficulty, class: cls }) {
   return html`<${Icon} name="rook" class=${cls} />`;
 }
 
+/** A 规程等级's name (docs/rules/ui.md 「규정 모드」): 极速模拟 or 规程等级 N. @param {number} grade */
+export const gradeName = (grade) => (grade === FAST_GRADE ? t('极速模拟') : t('规程等级 {n}', { n: grade }));
+
 /**
- * Difficulty tag: coloured glyph + name (标准/险境/绝境/终极模拟).
- * @param {{ difficulty: string, size?: 'sm'|'md'|'lg', class?: string, code?: string }} props
+ * Difficulty tag: coloured glyph + name (标准/险境/绝境/终极模拟). With the match's `modeId` (and `season`, else the
+ * loaded data's): a 规程等级 mode names its grade (shared/seasons.js modeGrade).
+ * @param {{ difficulty: string, size?: 'sm'|'md'|'lg', class?: string, code?: string, modeId?: string, season?: string }} props
  */
-export function DifficultyTag({ difficulty, size = 'md', class: cls, code }) {
-  const name = DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : difficulty || '—';
+export function DifficultyTag({ difficulty, size = 'md', class: cls, code, modeId, season }) {
+  const grade = modeId ? modeGrade(modeId, season || data.season()) : null;
+  if (grade !== null) difficulty = gradeDifficulty(grade);
+  const name = grade !== null ? gradeName(grade) : DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : difficulty || '—';
   const color = DIFFICULTY_COLORS[difficulty] || 'var(--text-lo)';
   return html`<span class=${cx('dtag', `dtag--${size}`, cls)} style=${`--d-color:${color}`}>
     <${DifficultyIcon} difficulty=${difficulty} class="dtag__icon" />

@@ -118,7 +118,9 @@ test('the switch: 自定义 with its ⚙ after it; 同盟匹配 locks it with th
 
 test('the lobby and the room: room.create / room.setRuleset carry the settings; a custom room matchmakes for 快速匹配; the bar line-up', () => {
   const lobby = read('public/js/screens/lobby.js');
-  assert.match(lobby, /ruleset === 'custom'\s*\? \{ mode: roomMode, difficulty, ruleset, custom: customDraft\(\), \.\.\.sizeFields\(roomMode, size\), \.\.\.seasonFields\(season\) \}/);
+  // (规程: the remembered 自定义 / 8 seats stand aside — roomRuleset, `big`; a solo room's grade in gradeFields)
+  assert.match(lobby, /roomRuleset === 'custom'\s*\? \{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, custom: customDraft\(\), \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\) \}/);
+  assert.match(lobby, /const roomRuleset = limited && ruleset === 'custom' \? 'classic' : ruleset;/);
   assert.match(lobby, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS, season\)/);
   assert.match(lobby, /<\$\{CustomRulesDialog\} \/>/);
   const room = read('public/js/screens/room.js');

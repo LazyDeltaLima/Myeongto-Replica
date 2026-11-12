@@ -424,7 +424,7 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
       <${Button} variant="danger" size="lg" square=${true} icon="exit" onClick=${onExit} aria-label=${t('离开')} title=${t('离开 / 暂离')} class="gtop__exit tapx" />
       <div class="gtop__meta">
         <${LivePing} />
-        ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} size="sm" />` : null}
+        ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} modeId=${pub.modeId} size="sm" />` : null}
       </div>
     </div>
 

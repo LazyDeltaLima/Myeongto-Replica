@@ -59,9 +59,9 @@ test('同盟模拟 opens 选择模拟协议 (赛季 row, 规则, 人数, cards, 
   assert.match(ally, /ally-card--join/);
   assert.doesNotMatch(ally, /ally-create__go|SizeSwitch|SeasonPick|onCreate/);
   assert.match(src, /\$\{open === 'solo' \|\| open === 'match' \|\| open === 'coop' \? html`<\$\{ProtocolSelect\} roomMode=\$\{roomMode\}/);
-  assert.match(src, /onSize=\$\{roomMode === 'solo' \? null : pickSize\}[^>]*\n\s*season=\$\{roomMode === 'coop'\} \/>/);
+  assert.match(src, /onSize=\$\{roomMode === 'solo' \? null : pickSize\}[^>]*\n\s*season=\$\{roomMode === 'coop'\} limited=\$\{limited\} \/>/);
   // room.create carries what the dialog picked
-  assert.match(src, /\{ mode: roomMode, difficulty, ruleset, \.\.\.sizeFields\(roomMode, size\), \.\.\.seasonFields\(season\) \}/);
+  assert.match(src, /\{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\) \}/);
   // the 赛季 row first, only with season and several seasons offered
   const rules = src.slice(src.indexOf('export function ProtoRules('), src.lastIndexOf('/**', src.indexOf('export function CustomBrief(')));
   assert.match(rules, /data-testid="proto-rules">\s*\$\{season && seasons \? html`<span class="proto-rules__row" data-testid="proto-season">/);
@@ -69,7 +69,7 @@ test('同盟模拟 opens 选择模拟协议 (赛季 row, 规则, 人数, cards, 
   // the browser suites click '.ally-create__go' to create a room: 创建同盟's start button keeps it, the room's 确认 not
   const select = src.slice(src.indexOf('export function ProtocolSelect('), src.indexOf('export function AllianceSelect('));
   assert.match(select, /class=\$\{`proto-start\$\{roomMode === 'coop' && !action \? ' ally-create__go' : ''\}`\}/);
-  assert.match(read('public/js/screens/room.js'), /<\$\{ProtocolSelect\} roomMode=\$\{protoMode\}[\s\S]{0,300}?action=\$\{t\('确认'\)\}/);
+  assert.match(read('public/js/screens/room.js'), /<\$\{ProtocolSelect\} roomMode=\$\{protoMode\}[\s\S]{0,400}?action=\$\{t\('确认'\)\}/);
   const season = read('public/js/ui/season.js');
   assert.match(season, /export function SeasonPick\(\{ class: cls = '' \}\) \{[^]*?if \(st\.offered\.length < 2\) return null;/);
   assert.doesNotMatch(season, /SeasonSwitch/);

@@ -638,6 +638,46 @@
 .pcard__meta { display: flex; flex-wrap: wrap; align-items: center; gap: .04rem .14rem; margin-top: .04rem; font-size: calc(.13 * var(--t)); color: #7f8583; }
 .pcard__meta b { color: #cfd3d1; }
 .pcard__stage { display: inline-flex; align-items: center; gap: .04rem; }
+/* 规程等级 rows (screens/lobby.js GradeRow, maintainer decision 2026-11-12, 시안 B): one compact row a mode in the cards'
+   look — the difficulty's colour as a left band, the picked row slid out with its glow and a tick. The list always
+   scrolls (21 rows); the picked row is scrolled into view when it opens. [ASSUMED·화면: the official 规程 mode list
+   (auto_chess_mode_choice_view) is not drawn yet — a later bundle] */
+.proto-list--grades { gap: .04rem; }
+.grow {
+  position: relative;
+  flex: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto 1em;
+  align-items: center;
+  gap: .12rem;
+  min-height: max(.44rem, 30px);
+  padding: .02rem .2rem;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  color: #e9eceb;
+  background: linear-gradient(180deg, #252627, #1a1b1c);
+  border: 1px solid #45484a;
+  border-left: max(.08rem, 4px) solid var(--d-color);
+  border-radius: .12rem;
+  transition: transform 220ms var(--ease-out), border-color 220ms;
+}
+.grow:hover:not(.is-on), .grow:focus-visible:not(.is-on) { border-color: #7b7f81; border-left-color: var(--d-color); }
+.grow:disabled { cursor: default; }
+.grow.is-on {
+  transform: translateX(-.3rem);
+  border-color: var(--d-color);
+  background: linear-gradient(90deg, #3a2a22, #1a1b1c 75%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--d-color) 55%, #151617), #1a1b1c 75%);
+}
+.grow__glyph { width: max(.26rem, 18px); height: max(.26rem, 18px); color: var(--d-color); }
+.grow__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.grow__name b { font-size: min(calc(.2 * var(--t)), .3rem); font-weight: 900; letter-spacing: .03em; }
+.grow__name small { margin-left: .08rem; font-size: calc(.13 * var(--t)); color: #9a9f9d; }
+.grow.is-on .grow__name small { color: #d8dcda; }
+.grow__code, .grow__rounds { font-size: calc(.13 * var(--t)); color: #8b908e; }
+.grow__rounds b { color: #cfd3d1; }
+.grow__tick { display: grid; place-items: center; color: #fff; }
 .pcard__stage .icon { width: 1.1em; height: 1.1em; }
 .pcard__stamp {
   position: absolute;
@@ -983,6 +1023,9 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   .pcard { padding: 6px 10px; gap: 2px; border-radius: 10px; }
   .pcard.is-on { transform: translateX(-16px); }
   .pcard__desc, .pcard__effects, .pcard__meta { display: none; }
+  .grow { grid-template-columns: auto minmax(0, 1fr) auto 1em; padding: 2px 10px; min-height: 30px; }
+  .grow__code { display: none; }
+  .grow.is-on { transform: translateX(-12px); }
   .pcard__head { min-width: 0; }
   .pcard__glyph { flex: none; }
   .pcard__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }

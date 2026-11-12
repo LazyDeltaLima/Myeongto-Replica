@@ -164,7 +164,7 @@ export function ResultView({ res, pub = null, myId = null, backLabel, onBack, qu
     <main class="result__main">
       <section class="result__hero">
         <div class="result__logo">${settleLogo ? html`<${Img} src=${settleLogo} class="result__logoimg" fallback=${defaultLogo} />` : defaultLogo}</div>
-        ${r.difficulty ? html`<${DifficultyTag} difficulty=${r.difficulty} size="lg" />` : null}
+        ${r.difficulty ? html`<${DifficultyTag} difficulty=${r.difficulty} modeId=${r.modeId} season=${res?.season} size="lg" />` : null}
         <h1 class="result__headline">${r.victory ? t('模拟完成') : t('模拟失败')}</h1>
         <p class="result__sub">${r.victory ? t('成功卫戍 · 敌方领袖已被击败') : t('防线已被突破')}</p>
         <div class="result__rounds">

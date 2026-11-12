@@ -43,7 +43,7 @@
 // Texts go through t() (docs/I18N.md).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, LARGE_MIN_PLAYERS, MAX_SEATS, MIN_SPECTATORS, SPECTATOR_SEATS, seatsOf, modeIdFor } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, LARGE_MIN_PLAYERS, MAX_SEATS, MIN_SPECTATORS, SPECTATOR_SEATS, seatsOf, modeIdFor, gradeDifficulty, isGrade } from '../../../shared/constants.js';
 import { SeatMark } from '../ui/faction.js'; // local patch
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyIcon, Tooltip, Spinner, Modal, TextField, confirmDialog, doctorNo, useTicker,
@@ -57,7 +57,7 @@ import { LoadoutButton } from './loadout.js';
 import { net } from '../net.js';
 import { useDocClass, useMediaQuery, SHORT_SCREEN_QUERY } from '../ui/device.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating, reservedRank, savePref } from '../store.js';
-import { difficultyInfo, ProtocolSelect, ProtoRules, CustomBrief } from './lobby.js';
+import { difficultyInfo, gradeInfo, gradeName, limitedSeason, ProtocolSelect, ProtoRules, CustomBrief } from './lobby.js';
 import { RoomChat } from '../ui/chat.js';
 import { MatchQueueDialog, mmss, canProposeStart, proposeStart } from '../ui/matchQueue.js';
 import { audio } from '../audio.js';
@@ -573,7 +573,7 @@ function ModeBar({ room, rules, sizeOpt, info, editable, busy, matching, onOpen 
   const bg = art('bg_mode'), light = art('light_mode'), icon = art(root.icon), knob = art('btn_switch_mode');
   const url = (u) => (u ? `url("${u}")` : 'none');
   const style = `--rm-bg:${url(bg)}; --rm-light:${url(light)}; --rm-ico:${url(icon)}; --rm-knob:${url(knob)}; --rm-c:${root.color}`;
-  const name = DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : '';
+  const name = isGrade(room.grade) ? gradeName(room.grade) : DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : '';
   const title = editable ? t('选择模拟协议') : matching ? t('匹配中无法更改') : t('由创建者设置');
   return html`<button type="button" class=${`rs-mode${editable ? ' is-edit' : ' is-ro'}${bg ? '' : ' no-art'}`} style=${style}
       disabled=${editable && !!busy} onClick=${onOpen} data-testid="room-difficulty" title=${title}>
@@ -641,14 +641,18 @@ export function RoomScreen() {
   const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
   const [picking, setPicking] = useState(false);
   // 选择模拟协议 over the room (open, and the host's picks before 确认)
-  const [proto, setProto] = useState(/** @type {null | { difficulty: string, ruleset: string, size: number }} */ (null));
+  const [proto, setProto] = useState(/** @type {null | { difficulty: string, ruleset: string, size: number, grade: number | null }} */ (null));
 
   if (!room) return null;
   const online = conn.status === 'online';
   const coop = room.mode !== 'solo';
   const facts = roomFacts(room, me.playerId);
   const myReady = !!facts.mine?.ready;
-  const info = difficultyInfo(room.mode, room.difficulty);
+  // a 规程 solo room plays a 规程等级 (room.state `grade`, docs/rules/ui.md 「규정 모드」): its name and mode record
+  const graded = isGrade(room.grade);
+  const info = graded ? gradeInfo(room.grade) : difficultyInfo(room.mode, room.difficulty);
+  // a season with no 自定义 / 8-seat alliance yet: the dialog's 规则 row without 自定义, no 人数 row
+  const limited = limitedSeason(room.season);
 
   /** Runs one request at a time; resolves true once the server took it (false: not sent, or refused — toasted). */
   const run = async (kind, fn) => {
@@ -740,15 +744,20 @@ export function RoomScreen() {
   // took them, and an accepted difficulty becomes the remembered one (`lobby.difficulty`). Everybody else opens it
   // read-only.
   const protoEditable = facts.isHost && !matching;
-  const openProto = () => setProto({ difficulty: room.difficulty, ruleset: roomRules.preset, size: seatsOf(room.size) });
+  const openProto = () => setProto({ difficulty: room.difficulty, ruleset: roomRules.preset, size: seatsOf(room.size), grade: graded ? room.grade : null });
   const closeProto = () => setProto(null);
   const confirmProto = async () => {
     if (!proto) return;
-    const { difficulty, ruleset, size } = proto;
+    const { difficulty, ruleset, size, grade } = proto;
     if (ruleset !== roomRules.preset
       && !(await run('rules', () => net.request('room.setRuleset', ruleset === 'custom' ? { preset: ruleset, custom: customDraft() } : { preset: ruleset })))) return;
     if (sizeOpt && size !== sizeOpt.size && !(await setSize(size))) return;
-    if (difficulty !== room.difficulty) {
+    if (isGrade(grade)) {
+      if (grade !== room.grade) {
+        if (!(await run('diff', () => net.request('room.setDifficulty', { difficulty: gradeDifficulty(grade), grade })))) return;
+        savePref('lobby.grade', grade);
+      }
+    } else if (difficulty !== room.difficulty) {
       if (!(await run('diff', () => net.request('room.setDifficulty', { difficulty })))) return;
       savePref('lobby.difficulty', difficulty);
     }
@@ -852,7 +861,7 @@ export function RoomScreen() {
       })}
       ${coop ? null : html`<aside class="solo-brief rs-brief brackets">
         <${MicroLabel} tone="mint">BRIEFING<//>
-        <h2>${DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : ''} <span class="num t-dim">${info.code}</span></h2>
+        <h2>${graded ? gradeName(room.grade) : DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : ''} <span class="num t-dim">${info.code}</span></h2>
         <p>${info.desc}</p>
         <ul>
           ${info.effects.map((e) => html`<li key=${e}>${e}</li>`)}
@@ -886,17 +895,18 @@ export function RoomScreen() {
     ${picking ? html`<${CardPicker} current=${myCard} list=${cardList} m=${m} onPick=${(id) => { setCard(id); setPicking(false); }} onClose=${() => setPicking(false)} />` : null}
     ${proto ? protoEditable
       ? html`<${ProtocolSelect} roomMode=${protoMode} difficulty=${proto.difficulty} onDifficulty=${(d) => setProto({ ...proto, difficulty: d })}
+          grade=${proto.grade} onGrade=${(g) => setProto({ ...proto, grade: g })}
           onClose=${closeProto} onStart=${confirmProto} busy=${busy === 'diff' || busy === 'rules' || busy === 'size' ? 'create' : null} online=${online} action=${t('确认')} hint=${protoHint}
           brief=${html`<${CustomBrief} roomMode=${protoMode} ruleset=${proto.ruleset} customRules=${protoCustom} difficulty=${proto.difficulty} />`}
           rules=${html`<${ProtoRules} roomMode=${protoMode} ruleset=${proto.ruleset} onRuleset=${(r) => setProto({ ...proto, ruleset: r })}
-            onGear=${editCustom} size=${proto.size}
+            onGear=${editCustom} size=${proto.size} limited=${limited}
             onSize=${sizeOpt ? (n) => setProto({ ...proto, size: n }) : null} sizeLocked=${!!sizeOpt && proto.size > MAX_SEATS && !sizeOpt.shrinkable} />`} />`
-      : html`<${ProtocolSelect} roomMode=${protoMode} difficulty=${room.difficulty} onDifficulty=${() => {}} onClose=${closeProto}
+      : html`<${ProtocolSelect} roomMode=${protoMode} difficulty=${room.difficulty} onDifficulty=${() => {}} onClose=${closeProto} grade=${graded ? room.grade : null}
           online=${online} readOnly=${true} hint=${matching ? t('匹配中无法更改') : null}
           brief=${html`<${CustomBrief} roomMode=${protoMode} ruleset=${roomRules.preset} difficulty=${room.difficulty}
             customRules=${isCustom ? { ...customRules, draft: roomRules.custom } : customRules} />`}
           rules=${html`<${ProtoRules} roomMode=${protoMode} ruleset=${roomRules.preset} onRuleset=${() => {}} onGear=${customGear} readOnly=${true}
-            size=${seatsOf(room.size)}
+            size=${seatsOf(room.size)} limited=${limited}
             onSize=${sizeOpt ? () => {} : null} />`} />` : null}
     <${MatchQueueDialog} />
     <${CustomRulesDialog} />

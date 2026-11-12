@@ -27,7 +27,8 @@ test('lobby: room.create / room.queue carry size 8 only for an 8-seat alliance (
   assert.deepEqual(sizeFields('solo', 8), {}, 'a solo room is never an 8-seat one');
   assert.deepEqual(sizeFields('coop', 4), {});
   const src = read('public/js/screens/lobby.js');
-  assert.match(src, /\.\.\.sizeFields\(roomMode, size\)/);
+  assert.match(src, /\.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\)/);
+  assert.match(src, /const big = roomMode !== 'solo' && !limited && size === LARGE_SEATS;/); // 规程: no 8 seats yet
   assert.match(src, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS, season\)/);
   assert.match(src, /savePref\('lobby\.size', n\)/);
   // 人数 (maintainer decisions 2026-11-07): a row of 选择模拟协议's rules in 同盟匹配 only, and in 创建同盟's bar on 选择同盟方式;
