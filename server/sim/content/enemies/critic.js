@@ -692,10 +692,11 @@ function kitJetCanister(ab) {
       const t = c.targets[0];
       if (!t || !(chan > 0)) return;
       a.chan = true;
-      // the view: its Flame ability's channel (Attack_Begin → Attack_Loop → Attack_End over `dur` s) — fx 'enemySkill'
-      // { id, ability: 'Flame', n, dur } as it starts (no skill sound: the binding has no `sk` cues for it)
+      // the view: its Flame ability's channel (Attack_Begin → Attack_Loop → Attack_End over `dur` s; the clip set by its
+      // direction to `tgt` — ThreePartChannelingAnimation._GetAnimBundle) — fx 'enemySkill' { id, ability: 'Flame', n, dur,
+      // tgt } as it starts (no skill sound: the binding has no `sk` cues for it)
       a.n = (a.n ?? 0) + 1;
-      b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: 'Flame', n: a.n, dur: chan });
+      b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: 'Flame', n: a.n, dur: chan, tgt: t.id });
       // the ability's cooldown, its attack time, runs from the cast's start; one frame more, so the frame the channel ends
       // (ai.js counts castLeft and atkCd down before it looks for a swing, the content's tick after) starts no swing
       // before enemy_winbom_attack_cd is on

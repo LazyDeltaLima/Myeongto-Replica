@@ -1683,8 +1683,9 @@ test('“喷射罐”: a 4 s arts channel of 3 hits (0.6, 1.6, 2.6 s), then 3 s 
     const at = hits.map((x) => x.at - hits[0].at);
     for (const [i, want] of [[1, 1], [2, 2], [3, 7], [4, 8], [5, 9]]) assert.ok(Math.abs(at[i] - want) < 0.05, `hit ${i} at ${at[i].toFixed(3)} (${want})`);
     assert.ok(e.stats.attacks === 2, 'two attacks: one for each channel');
-    const sig = h.eventsOf('fx').filter((x) => x[1] === 'enemySkill' && x[4]?.id === e.id).map((x) => [x[4].ability, x[4].n, x[4].dur]);
-    assert.deepEqual(sig, [['Flame', 1, 4], ['Flame', 2, 4]], 'the view hears each channel and its length');
+    const sig = h.eventsOf('fx').filter((x) => x[1] === 'enemySkill' && x[4]?.id === e.id).map((x) => [x[4].ability, x[4].n, x[4].dur, x[4].tgt]);
+    const wid = h.b.allies()[0].id;
+    assert.deepEqual(sig, [['Flame', 1, 4, wid], ['Flame', 2, 4, wid]], 'the view hears each channel, its length and its target');
   }
   // the 缴械 after the channel
   {
