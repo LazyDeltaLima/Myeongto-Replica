@@ -8,8 +8,13 @@ import { ids, EMPTY, byUnit, inRangeOf } from '../shared.js';
 import { runTriggered, capOf } from './triggered.js';
 import { traitEventFx } from '../../../../../shared/traitFx.js';
 
-/** Status keys for check_ab_flag values used by the data (16 = 冻结). */
-const AB_FLAG_STATUS = Object.freeze({ 16: 'freeze' });
+/**
+ * Status keys for the check_ab_flag values the data uses: the client's `AbnormalFlag` (16 FROZEN = 冻结, 33 FEARED = 恐惧 —
+ * 规程 妮芙 garrison_99). A value missing here watches nothing (never a fallback to 冻结: 33 read as 冻结 once left 妮芙's
+ * 特质 dead); the data test checks every value the tables use is listed.
+ */
+export const AB_FLAG_STATUS = Object.freeze({ 16: 'freeze', 33: 'fear' });
+const abFlagStatus = (it) => AB_FLAG_STATUS[S.num(it.bb.check_ab_flag, 16)] ?? null;
 
 /**
  * The option values of a garrison's bbStr this file reads (content/coverage.js marks any other value 'partial': it falls
@@ -239,12 +244,12 @@ export const EVENTS = {
   },
 
   act1autochess_gar_event_enemy_abflag_inrange(battle, list) {
-    const watched = new Set(list.map((it) => AB_FLAG_STATUS[S.num(it.bb.check_ab_flag, 16)] ?? 'freeze'));
-    // "进入冻结时": only a new entry (engine ctx.entered — a refresh of a running freeze is not one)
+    const watched = new Set(list.map(abFlagStatus));
+    // "进入冻结时" / "陷入恐惧": only a new entry (engine ctx.entered — a refresh of a running status is not one)
     battle.on('statusApplied', ({ target, status, entered }) => {
       if (!target || !watched.has(status) || !entered || target.side !== 'enemy') return;
       for (const it of list) {
-        if (status !== (AB_FLAG_STATUS[S.num(it.bb.check_ab_flag, 16)] ?? 'freeze')) continue;
+        if (status !== abFlagStatus(it)) continue;
         if (!S.onField(it.unit) || !S.inRange(it.unit, target)) continue;
         if (battle.rng() < S.num(it.bb.prob, 1)) fire(battle, it);
       }

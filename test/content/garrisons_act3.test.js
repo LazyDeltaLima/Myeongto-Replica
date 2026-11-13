@@ -4,10 +4,12 @@
 // the old keys (x-4, bond_allinrange). Synthetic operators carrying the season's garrison ids, on the season's data.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { ACT3 } from '../helpers/seasonPieces.js';
 import { DataSource, getDefaultSource } from '../../server/sim/simdata.js';
 import { coverageOf } from '../../tools/season-coverage.mjs';
+import { AB_FLAG_STATUS } from '../../server/sim/content/garrisons/effects/events.js';
 
 const close = (a, b, msg, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${msg}: ${a} ≠ ${b}`);
 const GB = (gid) => ACT3.garrisons[gid].bb;
@@ -297,4 +299,50 @@ test('아미야 garrison_114 → 235: the operator in front gets +1 / +2 on each
     assert.equal(gains(h).egirShip, 7 + extra, '아미야\'s own gain: no extra');
     done(h);
   }
+});
+
+test('妮芙 garrison_99 (check_ab_flag 33 = 恐惧): an enemy in range entering 恐惧 → 迅捷 +4 / +8 (≤ 20 / 40); 冻结 does not count', () => {
+  for (const [q, n, cap] of [['a', 4, 20], ['b', 8, 40]]) {
+    assert.equal(GB(`garrison_99_${q}`).check_ab_flag, 33);
+    const h = fight({ ops: { y: [10, 4, { g: [`garrison_99_${q}`] }] }, foes: [[10, 6], [12, 9]], bonds: { swiftShip: B(0), yanShip: B(0) } });
+    const [near, far] = foes(h);
+    h.b.applyStatus(far, 'fear', { duration: 1 });
+    assert.deepEqual(gains(h), {}, `${q}: out of range`);
+    h.b.applyStatus(near, 'freeze', { duration: 1 });
+    assert.deepEqual(gains(h), {}, `${q}: 冻结 is not 恐惧`);
+    h.b.applyStatus(near, 'fear', { duration: 1 });
+    assert.deepEqual(gains(h), { swiftShip: n }, q);
+    h.b.applyStatus(near, 'fear', { duration: 2 });
+    assert.deepEqual(gains(h), { swiftShip: n }, `${q}: already afraid`);
+    for (let i = 0; i < 10; i++) { h.b.removeStatus(near, 'fear'); h.b.applyStatus(near, 'fear', { duration: 1 }); }
+    assert.deepEqual(gains(h), { swiftShip: cap }, `${q}: the per-battle cap`);
+    done(h);
+  }
+});
+
+test('妮芙 garrison_99 on the real piece: her S2 怵然震爆 fears the target and stacks 迅捷', () => {
+  const data = new DataSource({ ...ACT3, enemies: { ...ACT3.enemies, e_d: DUMMY } }, getDefaultSource());
+  const h = makeBattle({
+    data, bonds: { swiftShip: B(0) }, timeLimit: 999, autoFinish: false,
+    units: [{ chessId: 'chess_char_6_10_a', row: 10, col: 4 }], enemies: [{ key: 'e_d', pos: [10, 6] }],
+  });
+  const feared = [];
+  h.b.on('statusApplied', (c) => { if (c.status === 'fear') feared.push(c.target); });
+  h.runUntil(() => feared.length > 0, 60);
+  assert.ok(feared.length > 0, 'S2 fears its target');
+  assert.equal(gains(h).swiftShip, ACT3.garrisons.garrison_99_a.bb.bond_add_count);
+  done(h);
+});
+
+test('every check_ab_flag of the data names a status the layer-event 特质 watches', () => {
+  // every season's table, the hidden ones too (a new season's 特质 must not fall silent)
+  const files = ['data/garrisons.json', ...readdirSync('data/seasons').map((s) => `data/seasons/${s}/garrisons.json`).filter((f) => existsSync(f))];
+  const seen = new Set();
+  for (const f of files) {
+    for (const g of Object.values(JSON.parse(readFileSync(f, 'utf8')))) {
+      if (g && g.effectKey === 'act1autochess_gar_event_enemy_abflag_inrange') seen.add(Number(g.bb.check_ab_flag));
+    }
+  }
+  assert.ok(seen.has(16) && seen.has(33), [...seen].join());
+  for (const f of seen) assert.ok(AB_FLAG_STATUS[f], `check_ab_flag ${f} has no status`);
 });
