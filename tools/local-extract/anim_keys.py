@@ -23,6 +23,9 @@ The client plays a Spine clip by key only. Abilities, modes and skill prefabs na
             group: { of: [child paths], method?, diff?, seq? } (AbilityRandomGroup `_abilities` / `_selectMethod` /
             `_diffFromLastOneIfNotFirst`, AbilitySelectableGroup `_abilityConfigs[]._ability` / `_selectAbilitySequentially`) }
 
+Summons (`tokens`): the same `modes` and `skin` from their token prefabs (pkgrps/btl_pfb_tokens_*.ab), for the summons of
+data/assets.json whose prefab has modes.
+
 The output is client-only data and is never tracked (maintainer decision 2026-10-22): .cache/anim-keys.json.
 
 Usage (from the repo root; ~2 min): .venv-extract/bin/python tools/local-extract/anim_keys.py [--client <EN Arknights_Data>]
@@ -193,11 +196,13 @@ def abilities_under(tree, base):
     return {k: v for k, v in sorted(out.items()) if v}
 
 
-def skin_of(path):
-    """The skin key table of a chararts bundle: { keys, mix } of its DefaultSkin, or None."""
-    tree, _ = load_tree(str(path))
+def skin_of(path, tree=None, at='DefaultSkin'):
+    """The skin key table of a chararts bundle (or of `tree` at GameObject path `at`: a token prefab's
+    `<id>/Graphic/DefaultSkin`): { keys, mix } of its DefaultSkin, or None."""
+    if tree is None:
+        tree, _ = load_tree(str(path))
     for gp, d, _ in tree:
-        if gp == 'DefaultSkin' and isinstance(d.get('_animations'), list):
+        if gp == at and isinstance(d.get('_animations'), list):
             keys = {a['animKey']: a['animName'] for a in d['_animations']
                     if isinstance(a, dict) and s(a.get('animKey')) and s(a.get('animName')) and a['animKey'] != a['animName']}
             mix = [[m.get('sourceAnimName'), m.get('targetAnimName'), m.get('mixAnimName')] for m in d.get('_mixSettings') or []
@@ -206,9 +211,10 @@ def skin_of(path):
     return None
 
 
-def pack_of(path):
-    """{ modes, dead? } of a charpack bundle, or None (no `_modes`)."""
-    tree, _ = load_tree(str(path))
+def pack_of(path, tree=None):
+    """{ modes, dead? } of a charpack bundle (or of `tree`, a token prefab's components), or None (no `_modes`)."""
+    if tree is None:
+        tree, _ = load_tree(str(path))
     root = next((d for _, d, _ in tree if isinstance(d.get('_modes'), list) and d['_modes']), None)
     if root is None:
         return None
@@ -237,6 +243,12 @@ def pack_of(path):
             cb = gp_of.get((d.get('_combat') or {}).get('m_PathID'))
             if cb and cb.startswith(mp + '/'):
                 m['combat'] = cb[len(mp) + 1:]
+            # the keys of the mode's own attack and combat abilities, by reference: two of a mode's GameObjects can share a
+            # name (缪尔赛思's 流形 Melee: both `Body/wtrman_melee_Attack`), so their paths do not tell them apart
+            for f, o in (('_attack', 'attackKey'), ('_combat', 'combatKey')):
+                ab = by_pid.get((d.get(f) or {}).get('m_PathID'))
+                if isinstance(ab, dict) and s(ab.get('_animKey')):
+                    m[o] = ab['_animKey']
         m['abilities'] = abilities_under(tree, mp) if mp else {}
         if not m['exclude']:
             del m['exclude']
@@ -271,6 +283,88 @@ def target_ids():
     piece enters it only once its kit is listed and fetch-assets ran, so a run before that left its row out and its clips kept the
     roles of the name rule, with nothing to say so."""
     return sorted(set(json.loads((ROOT / 'data/assets.json').read_text(encoding='utf-8'))['chars']) | set(pool_char_ids()))
+
+
+def switch_modes(tpl):
+    """The mode indices a buff template's SwitchMode nodes name (both branches of an IfElse: 流形's mlyss_wtrman_switch_melee
+    → 5 Melee_S3 while her S3 runs, else 2 Melee), in order; a mode read from the blackboard is left out."""
+    found = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            if str(o.get('$type', '')).split(',')[0].endswith('+SwitchMode') and not o.get('_loadModeFromBlackboard') \
+                    and isinstance(o.get('_modeIndex'), int) and o['_modeIndex'] not in found:
+                found.append(o['_modeIndex'])
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    walk(tpl)
+    return found
+
+
+def token_switches(sub, tid, n, templates):
+    """[{ key, to: [mode indices], from? }] of a token prefab's abilities that play a clip (`_animKey`) and switch the token's
+    mode through their `_activeBuffs`' templates (switch_modes); `from`: the mode the ability sits under (`Modes/<name>/…`),
+    absent for one outside the modes (CommonAbilities: from any). 流形: SwitchToMelee Change_A → Melee / Melee_S3 (the
+    copy in battle), Recharge's mlyss_wtrman_switch_melee A_Start → the same modes (its reborn); its plain reborn's mode
+    comes from the blackboard (`mode` 1) and is read from the buff's blackboard instead."""
+    out = []
+    for gp, d, _ in sub:
+        if not s(d.get('_animKey')) or not isinstance(d.get('_activeBuffs'), list):
+            continue
+        to = []
+        for b in d['_activeBuffs']:
+            if not isinstance(b, dict):
+                continue
+            for i in switch_modes(templates.get(b.get('templateKey')) or {}):
+                if i < n and i not in to:
+                    to.append(i)
+            bb = {x.get('key'): x.get('value') for x in b.get('blackboard') or [] if isinstance(x, dict)}
+            tpl = json.dumps(templates.get(b.get('templateKey')) or {})
+            if isinstance(bb.get('mode'), (int, float)) and '"_loadModeFromBlackboard": true' in tpl and 0 <= int(bb['mode']) < n:
+                if int(bb['mode']) not in to:
+                    to.append(int(bb['mode']))
+        if not to:
+            continue
+        e = {'key': d['_animKey'], 'to': to}
+        rel = gp[len(tid) + 1:]
+        if rel.startswith('Modes/'):
+            e['from'] = rel.split('/')[1]
+        out.append(e)
+    return out
+
+
+def tokens_of(games, templates):
+    """{ token id: { modes, skin, cn? } } of the summons in data/assets.json with a Spine model, read from their token prefabs
+    (pkgrps/btl_pfb_tokens_*.ab) as an operator's from its charpack and chararts: the prefab root's `_modes` with each
+    mode's animator hooker pairs (pack_of) and `<id>/Graphic/DefaultSkin`'s key table (skin_of) — 缪尔赛思's 流形 rests in
+    Idle_1 (Default), A_Idle (Melee), B_Idle (Range). Summons without modes are left out (their roles stay the name rule's)."""
+    from char_points import token_files
+    assets = json.loads((ROOT / 'data/assets.json').read_text(encoding='utf-8')).get('tokens') or {}
+    want = sorted(tid for tid, a in assets.items() if isinstance(a, dict) and a.get('spine'))
+    out, trees = {}, {}
+    for game, cn in games:
+        left = [tid for tid in want if tid not in out]
+        if not left:
+            break
+        for tid, f in sorted(token_files(game, left).items()):
+            if f not in trees:
+                trees[f] = load_tree(str(f))[0]
+            sub = [x for x in trees[f] if x[0] == tid or x[0].startswith(tid + '/')]
+            rec = pack_of(None, sub)
+            if not rec:
+                continue
+            rec['skin'] = skin_of(None, sub, f'{tid}/Graphic/DefaultSkin') or {'keys': {}, 'mix': []}
+            sw = token_switches(sub, tid, len(rec['modes']), templates)
+            if sw:
+                rec['switches'] = sw
+            if cn:
+                rec['cn'] = True
+            out[tid] = rec
+    return out
 
 
 def main():
@@ -322,12 +416,14 @@ def main():
                     e['downMode'], e['downBy'] = dm
                 out.append(e)
             ops[cid]['skills'] = out
-    doc = {'$comment': 'Clip keys of the operators (abilities, modes, skill prefabs, the skin key table), written by '
-                       'tools/local-extract/anim_keys.py from the local client. Client-only, never tracked.',
-           'ops': ops}
+    toks = tokens_of(games, templates)
+    doc = {'$comment': 'Clip keys of the operators (abilities, modes, skill prefabs, the skin key table) and of the summons '
+                       '(their prefab modes and skin key table), written by tools/local-extract/anim_keys.py from the local '
+                       'client. Client-only, never tracked.',
+           'ops': ops, 'tokens': toks}
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(doc, ensure_ascii=False, indent=1, sort_keys=True) + '\n', encoding='utf-8')
-    print(f'{len(ops)} operators -> {a.out}' + (f'; no charpack: {", ".join(missing)}' if missing else ''))
+    print(f'{len(ops)} operators, {len(toks)} summons -> {a.out}' + (f'; no charpack: {", ".join(missing)}' if missing else ''))
 
 
 if __name__ == '__main__':

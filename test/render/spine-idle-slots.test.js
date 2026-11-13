@@ -2,7 +2,8 @@
 // render.md 「Spine 클립 커버리지」). 森蚺 rested on Skill_2_Idle, which shows only her robot's `S_*` slots: the extracted keys
 // had taken a hooker component that sits unreferenced on her Default mode for the mode's pairs. Every operator and summon
 // in data/assets.json is posed (Spine 3.8 runtime, the parser the client ships) at the start and middle of its resting
-// clips — `idle` and each held mode's `equip[i].idle` — and of its deployment and attack clips; the slots that show an
+// clips — `idle`, each held mode's `equip[i].idle` and a summon's prefab modes' `tmodes[name].roles.idle` — and of its
+// deployment and attack clips; the slots that show an
 // attachment are compared. A resting clip that shares under half of its slots with both is another form of the model.
 // Skips when the models are not downloaded (npm run setup).
 import { test } from 'node:test';
@@ -17,12 +18,9 @@ const ASSETS = JSON.parse(readFileSync(ROOT + 'data/assets.json', 'utf8'));
 let R = null, CORE = null;
 try { R = require('@pixi-spine/runtime-3.8'); CORE = require('@pixi-spine/base'); } catch { /* pixi-spine missing: skip */ }
 
-// resting clips that are another form on purpose, or not yet checked — each with its reason
-const KNOWN = {
-  // [미조사] 뮤엘시스's 流形 rests in A_Idle while its deployment / attack are the plain clips: its modes (Recharge, Default,
-  // Melee, Range…) are not read for summons yet (the token prefab's mode hookers) — bundle test-A
-  'token_10030_mlyss_wtrman idle': 'unchecked: summon mode hookers not extracted',
-};
+// resting clips that are another form on purpose, or not yet checked — each with its reason (none now: 뮤엘시스's 流形
+// rested on its Melee mode's A_Idle until its prefab modes were read, tools/assets/anim-keys.mjs tokenKeyRoles)
+const KNOWN = {};
 
 const SKIP_TYPES = R ? [R.BoundingBoxAttachment, R.PointAttachment, R.ClippingAttachment, R.PathAttachment] : [];
 const loader = R && {
@@ -71,9 +69,11 @@ test('a resting clip shows the body its deployment or attack shows (not another 
     const data = new R.SkeletonBinary(loader).readSkeletonData(new Uint8Array(readFileSync(p)));
     const rests = [['idle', s.anims.idle, s.anims.deploy]];
     for (const [i, e] of Object.entries(s.anims.equip || {})) if (e && e.idle) rests.push([`equip${i}.idle`, e.idle, e.deploy ?? s.anims.deploy]);
-    for (const [role, idle, deploy] of rests) {
+    // a summon's prefab modes (anims `tmodes`): each mode's resting clip against its own birth and attack clips
+    for (const [m, e] of Object.entries(s.anims.tmodes || {})) if (e?.roles?.idle) rests.push([`tmodes.${m}.idle`, e.roles.idle, e.roles.deploy ?? s.anims.deploy, e.roles.attack?.loop]);
+    for (const [role, idle, deploy, attack = s.anims.attack?.loop] of rests) {
       if (!idle || !data.findAnimation(idle)) continue;
-      const refs = [...new Set([deploy, s.anims.attack?.loop].filter((x) => x && x !== idle && data.findAnimation(x)))];
+      const refs = [...new Set([deploy, attack].filter((x) => x && x !== idle && data.findAnimation(x)))];
       if (!refs.length) continue;
       n++;
       const A = visible(data, idle);

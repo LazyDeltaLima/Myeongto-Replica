@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { keyRoles, attackAbility, overlayKeyRoles } from '../../tools/assets/anim-keys.mjs';
+import { keyRoles, attackAbility, overlayKeyRoles, tokenKeyRoles } from '../../tools/assets/anim-keys.mjs';
 import { putCombat } from '../../tools/assets/anim-overrides.mjs';
 import { namesAll } from '../../tools/assets/spine.mjs';
 
@@ -280,4 +280,37 @@ test('a respawn mode named `<mode>_Reborn` (Mon3tr S3): the skill attacks, rests
   const r = keyRoles(op, clips('Idle', 'Die', 'Start', 'Attack', 'Skill_3_Begin', 'Skill_3_Loop', 'Skill_3_Idle', 'Skill_3_End', 'Skill_3_ReStart'));
   assert.deepEqual([r.skills[2].begin, r.skills[2].loop, r.skills[2].idle], ['Skill_3_Begin', 'Skill_3_Loop', 'Skill_3_Idle'], r.why[2]);
   assert.deepEqual(r.tables.states[2], { die: 'Skill_3_End', deploy: 'Skill_3_ReStart' }, 'the respawn mode\'s Born / Die pairs; Stun→Die not drawn');
+});
+
+test('a summon\'s prefab modes: the Default mode rests on its pair, the others are forms with their switch and birth clips', () => {
+  // the shape of 缪尔赛思's 流形 (token prefab: Recharge first — the puddle a knock-out falls into —, Default, Melee, Range)
+  const tok = {
+    modes: [
+      { name: 'Recharge', pairs: { Idle: 'Idle_2' } },
+      { name: 'Default', pairs: { Die: 'Stun', Idle: 'Idle_1' }, attackKey: 'Attack' },
+      { name: 'Melee', pairs: { Attack: 'A_Attack', Combat: 'A_Combat', Idle: 'A_Idle', Stun: 'A_Stun' }, attackKey: 'Attack', combatKey: 'Combat' },
+      { name: 'Melee_S3', pairs: { Attack: 'A_Attack', Combat: 'A_Combat', Idle: 'A_Idle', Stun: 'A_Stun' }, attackKey: 'Attack', combatKey: 'Combat' },
+    ],
+    skin: { keys: { ReBorn: 'Start' }, mix: [['Idle_1', 'Idle_2', 'Die'], ['A_Idle', 'Idle_2', 'A_Die']] },
+    switches: [{ key: 'Change_A', to: [3, 2] }, { key: 'A_Start', to: [3, 2], from: 'Recharge' }, { key: 'ReBorn', to: [1], from: 'Recharge' }],
+  };
+  const r = tokenKeyRoles(tok, clips('Idle_1', 'Idle_2', 'Start', 'Attack', 'Die', 'Stun', 'A_Idle', 'A_Attack', 'A_Combat', 'A_Stun', 'A_Die', 'A_Start', 'Change_A'));
+  assert.equal(r.idle, 'Idle_1');
+  assert.deepEqual(Object.keys(r.tmodes), ['Melee', 'Melee_S3'], 'not the puddle (Recharge), not the Default mode');
+  assert.deepEqual(r.tmodes.Melee, {
+    change: 'Change_A',
+    roles: { idle: 'A_Idle', attack: { begin: null, loop: 'A_Attack', end: null, combat: { loop: 'A_Combat' } }, stun: { begin: null, loop: 'A_Stun', end: null }, die: 'A_Die', deploy: 'A_Start' },
+  });
+  // a summon whose modes all draw the same has none
+  assert.equal(tokenKeyRoles({ modes: [{ name: 'Default', pairs: {} }, { name: 'S1', pairs: {} }], skin: { keys: {}, mix: [] } }, clips('Idle')).tmodes, null);
+});
+
+test('without the key table a summon\'s committed prefab modes are kept: each name is a clip of its model', () => {
+  const { tokens } = JSON.parse(readFileSync(new URL('../../data/assets.json', import.meta.url), 'utf8'));
+  const withModes = Object.entries(tokens).filter(([, t]) => t.spine?.anims?.tmodes);
+  assert.ok(withModes.length >= 1, '缪尔赛思\'s 流形 has them');
+  for (const [id, t] of withModes) {
+    const miss = namesAll(t.spine.anims).filter((n) => !Object.hasOwn(t.spine.animations || {}, n));
+    assert.deepEqual(miss, [], id);
+  }
 });

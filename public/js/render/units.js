@@ -656,6 +656,8 @@ const MACH = Object.freeze({
 });
 const WINGNT_NORMAL = Object.freeze({ Normal: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }) });
 const DSLNTF_AWAKE = Object.freeze({ 1: Object.freeze({ change: null, roles: clipSet('Skill_Idle', 'Skill_Move', 'Die', 'Skill_Attack') }) });
+/** A manifest token mode (anims `tmodes[name]`) → its FORMS-shaped specs (UnitView._tmodeSpec). */
+const TMODE_SPECS = new WeakMap();
 export const FORMS = Object.freeze({
   trap_039_dstnta: BROOD,
   // 2026-11-11: 规程's 谢拉格 6 giant 「不眠雪山」 (enemy_9024_acsgnt, a walking ally — server content/bonds/giant.js, forms
@@ -1167,7 +1169,7 @@ export class UnitView {
   }
 
   _formSpec() {
-    const f = this.form ? FORMS[this.info.spine || this.info.defId]?.[this.form] || null : null;
+    const f = this.form ? FORMS[this.info.spine || this.info.defId]?.[this.form] || this._tmodeSpec(this.form) : null;
     // a form drawn per picked skill (结城理's personas): the equipped skill's, else the first
     return f?.bySkill ? f.bySkill[this.info.skillIndex | 0] || f.bySkill[0] : f;
   }
@@ -1193,7 +1195,7 @@ export class UnitView {
     const k = typeof kind === 'string' ? kind : null;
     if (k === this.form) return;
     const id = this.info.spine || this.info.defId;
-    if (k && !FORMS[id]?.[k] && !SKIN_FORMS[id]?.[k]) return;
+    if (k && !FORMS[id]?.[k] && !SKIN_FORMS[id]?.[k] && !this._tmodeSet?.[k]) return;
     const prev = this._formSpec();
     this.form = k;
     this.info.form = k;
@@ -1221,6 +1223,59 @@ export class UnitView {
     if (f) this.actor.setForm(f.roles, change, f.end && dur > 0 ? { clip: f.end, in: dur, roles: next } : null, !!f.hold);
     // (`cut`: the form ended by something that plays its own clip — 雪猎's reload cut by an attack: no `leave` clip)
     else if (prev) this.actor.setForm(null, prev.leave && !fx?.cut ? unlate(prev.leave) : null);
+  }
+
+  /**
+   * 2026-11-14 (official client: the token prefab's modes, docs/rules/render.md 「Spine 클립 커버리지」): a summon's prefab mode
+   * drawn as a form — the manifest's `tmodes` (data/assets.json, tools/assets/anim-keys.mjs tokenKeyRoles). 缪尔赛思's 流形
+   * rests in its Default mode (Idle_1) until it copies (sim fx 'copy' `mode` Melee / Range, `by` her: SwitchToMelee /
+   * SwitchToRange play Change_A / Change_B, then the A_* / B_* set); a split copy (fx 'split', `quiet`) is born in its
+   * origin's mode on that mode's own birth clip (B_Start); while her S2 / S3 runs the mode is `<mode>_S<n>` where the
+   * prefab has one (Range_S2 attacks on B_Attack_2: mlyss_wtrman_switch_range / _melee switch to it while she holds the
+   * skill's buff, at once — no clip). Returns whether this model has that mode.
+   * @param {string} mode @param {{ quiet?: boolean, by?: UnitView|null }} [o]
+   */
+  setTokenMode(mode, { quiet = false, by = null } = {}) {
+    if (this._tmodeSet === undefined) {
+      const id = this.info.spine || this.info.defId;
+      const tm = id ? this.ctx.assets?.spineEntry?.(id, { back: false })?.anims?.tmodes : null;
+      this._tmodeSet = tm && typeof tm === 'object' ? tm : null;
+    }
+    if (!this._tmodeSet?.[mode]) return false;
+    this._tmode = mode;
+    this._tby = by;
+    this._tmodeSwitch(this._tmodeKind(), !quiet);
+    return true;
+  }
+
+  /** The mode the summon draws now: its copy's, or `<mode>_S<n>` while its owner's skill n runs and the prefab has it. */
+  _tmodeKind() {
+    const o = this._tby;
+    const n = o && !o.destroyed && o.alive && (o.flags & UF.SKILL) ? (Number.isInteger(o.info?.skillIndex) ? o.info.skillIndex : 0) + 1 : 0;
+    if (n !== this._tmodeN || this._tmodeAt !== this._tmode) {   // (a name built only when the owner's skill changes)
+      this._tmodeN = n;
+      this._tmodeAt = this._tmode;
+      const sk = n ? `${this._tmode}_S${n}` : null;
+      this._tmodeNow = sk && this._tmodeSet?.[sk] ? sk : this._tmode;
+    }
+    return this._tmodeNow;
+  }
+
+  /** Into token mode `k`: through its change clip (`loud`), else at once — a deploy still playing restarts on its birth clip. */
+  _tmodeSwitch(k, loud) {
+    if (k === this.form) return;
+    this._tmodeQuiet = !loud;
+    try { this.setForm(k); } finally { this._tmodeQuiet = false; }
+    if (!loud && this.alive && this.actor?.mode === 'deploy') this.actor.deploy(this._deployKey);
+  }
+
+  /** The FORMS-shaped spec of token mode `k` (setTokenMode), or null. */
+  _tmodeSpec(k) {
+    const t = this._tmodeSet?.[k];
+    if (!t) return null;
+    let s = TMODE_SPECS.get(t);
+    if (!s) TMODE_SPECS.set(t, s = { loud: Object.freeze({ change: t.change || null, roles: t.roles }), quiet: Object.freeze({ change: null, roles: t.roles }) });
+    return this._tmodeQuiet ? s.quiet : s.loud;
   }
 
   // ---- HUD -------------------------------------------------------------------------------------------------
@@ -1914,6 +1969,7 @@ export class UnitView {
   update(dt, cam, t) {
     if (this.destroyed) return;
     if (this._placeV !== placesVersion) this._applyPlace();
+    if (this._tmode && this.alive) this._tmodeSwitch(this._tmodeKind(), false);   // its owner's skill began / ended
     // a displacement's slide (slideTo): held where it stood until the snapshot with the destination is shown, then
     // eased into the sampled position (sync keeps `lx, ly` current) under a constant deceleration
     if (this.slide) {

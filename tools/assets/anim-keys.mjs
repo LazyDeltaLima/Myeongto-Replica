@@ -486,3 +486,58 @@ export function overlayKeyRoles(anims, kr, charId = '') {
   putStates(anims, tb.states || {});
   return anims;
 }
+
+/**
+ * Roles from a summon's prefab keys (tools/local-extract/anim_keys.py `tokens[id]`: its modes' hooker pairs, attack / combat
+ * keys, the abilities that switch its mode, its skin key table) for one skeleton: { idle, tmodes } — `idle` the Default
+ * mode's Idle (the mode a rally-point summon is reborn into; 缪尔赛思's 流形 rests in Idle_1 there, the name guess took the
+ * Melee mode's A_Idle — docs/rules/render.md 「Spine 클립 커버리지」), `tmodes` per other mode name the clip set that mode
+ * draws as a units.js form: { change?, roles: { idle, deploy?, attack?, stun?, die? } } — `change` the clip of the ability
+ * that switches into it from outside the modes (流形's copy: SwitchToMelee Change_A), `deploy` the clip of the one under
+ * the first mode (its reborn / a split copy's birth: A_Start / B_Start), `die` the skin's mix clip from the mode's Idle into
+ * the first mode's (a knock-out falls into the puddle: A_Idle → Idle_2 = A_Die), else its Die pair. Modes drawing the
+ * same as the Default mode and the first mode of a rally point (its puddle) are left out. null without keys.
+ * @param {any} tok @param {Record<string, number>} durations
+ */
+export function tokenKeyRoles(tok, durations) {
+  const modes = tok?.modes || [];
+  if (!modes.length) return null;
+  const has = (n) => typeof n === 'string' && Object.hasOwn(durations || {}, n);
+  const skin = tok?.skin?.keys || {};
+  const J = (key, m) => {
+    if (typeof key !== 'string' || !key) return null;
+    const k = modes[m]?.pairs?.[key] ?? key;
+    const name = skin[k] ?? k;
+    return has(name) ? name : null;
+  };
+  const mix = (from, to) => (tok?.skin?.mix || []).find((x) => x[0] === from && x[1] === to && has(x[2]))?.[2] ?? null;
+  const d = modes.findIndex((m) => m.name === 'Default');
+  const base = d >= 0 ? d : 0;
+  const rest = base > 0 ? J('Idle', 0) : null;
+  const switches = tok?.switches || [];
+  const rolesOf = (m) => {
+    const idle = J('Idle', m);
+    const ak = modes[m].attackKey, ck = modes[m].combatKey;
+    const loop = J(ak, m), combat = ck && ck !== ak ? J(ck, m) : null;
+    const stun = J('Stun', m);
+    const r = { idle };
+    if (loop) r.attack = { begin: null, loop, end: null, ...(combat && combat !== loop ? { combat: { loop: combat } } : null) };
+    if (stun) r.stun = { begin: null, loop: stun, end: null };
+    const die = (rest && idle ? mix(idle, rest) : null) ?? J('Die', m);
+    if (die) r.die = die;
+    return r;
+  };
+  const baseRoles = rolesOf(base);
+  const tmodes = {};
+  for (let m = 0; m < modes.length; m++) {
+    if (m === base || (base > 0 && m === 0)) continue;
+    const roles = rolesOf(m);
+    const sw = (from) => switches.find((s) => s.to.includes(m) && (from ? s.from === from : !s.from));
+    const born = base > 0 ? sw(modes[0].name) : null;
+    if (born && J(born.key, 0)) roles.deploy = J(born.key, 0);
+    if (JSON.stringify(roles) === JSON.stringify(baseRoles)) continue;
+    const ch = sw(null);
+    tmodes[modes[m].name] = { ...(ch && J(ch.key, base) ? { change: J(ch.key, base) } : null), roles };
+  }
+  return { idle: baseRoles.idle, tmodes: Object.keys(tmodes).length ? tmodes : null };
+}

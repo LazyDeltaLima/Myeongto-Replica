@@ -1797,6 +1797,8 @@ export async function createFieldView(host, options = {}) {
     v._seen = false;
     v._born = performance.now();
     views.set(id, v);
+    // a summon's prefab mode it is already in (a 'copy' / 'split' fx before this view): its clip set, no change clip
+    if (info.tmode && v.setTokenMode) v.setTokenMode(info.tmode.mode, { quiet: true, by: info.tmode.by != null ? views.get(info.tmode.by) ?? null : null });
     // local patch: a scouted prep board's piece drops in when first shown there or moved (scoutSeen); a board piece (not
     // the bench) with its deploy sound only under SCOUT_DEPLOY_SFX (off: maintainer decision 2026-10-11, the client's
     // camera switch makes no SetCharacter)
@@ -2056,6 +2058,14 @@ export async function createFieldView(host, options = {}) {
           if (inf && (form === null || FORMS[inf.spine || inf.defId]?.[form] || SKIN_FORMS[inf.spine || inf.defId]?.[form])) inf.form = form;
           const x = late > 0 ? { ...e[4], late, ...(Number(e[4].dur) > 0 ? { dur: Math.max(0, Number(e[4].dur) - late) } : {}) } : e[4];
           views.get(e[4].id)?.setForm?.(form, x);
+        }
+        // 2026-11-14: a summon's prefab mode (UnitView.setTokenMode) — 缪尔赛思's 流形 copying an operator ('copy' `mode`, `by`
+        // her) and its split copies born in their origin's mode ('split' `src`); the info keeps it for a view built later
+        if ((e[1] === 'copy' || e[1] === 'split') && e[4]?.id != null) {
+          const inf = infos.get(e[4].id), from = e[1] === 'split' ? infos.get(e[4].src)?.tmode : null;
+          const tm = e[1] === 'copy' ? (typeof e[4].mode === 'string' ? { mode: e[4].mode, by: e[4].by ?? null } : null) : from || null;
+          if (inf && tm) inf.tmode = tm;
+          if (tm) views.get(e[4].id)?.setTokenMode?.(tm.mode, { quiet: e[1] === 'split', by: tm.by != null ? views.get(tm.by) ?? null : null });
         }
         if (fxGame.ownsFx(e)) break; // local patch: drawn with its official effect (render/fxgame.js)
         if (late > 0 && e[1] === 'shotSlow' && e[4]) fx.shotSlow(e[4]);   // late, it still changes the shots in the air

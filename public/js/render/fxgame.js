@@ -7020,6 +7020,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             if (palsyFx(e, views)) { ownFx.add(e); return; }
           }
           if (e[1] === 'copy' && e[4]?.id != null) copyMode(views.get(e[4].id), e[4], views);   // 2026-11-07: 缪尔赛思's 流形
+          // 2026-11-14: its split copy is born in its origin's mode (mlyss_wtrman_range[mark] → mlyss_wtrman_switch_range)
+          if (e[1] === 'split' && e[4]?.id != null && views.get(e[4].src)?._fxTmode) copyMode(views.get(e[4].id), { mode: views.get(e[4].src)._fxTmode, by: e[4].by }, views);
           if (stoneFx(e, views)) return;
           if (e[1] === 'caperBoomerang2' && e[4]) { caperSecond(e, views); return; } // 2026-10-10: 跃跃 S2's second boomerang
           // 2026-10-10: an enemy content skill's official projectile (eshotFx), and no stand-in beam for a shot drawn so

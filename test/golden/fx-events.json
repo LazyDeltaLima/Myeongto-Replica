@@ -4459,7 +4459,6 @@
    "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
    "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
    "token_10019_nearl2_sword spawn:born token_nearl2_birth_01_start → self",
-   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c1c2c3_combat_hit_01 → foe",
    "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01 → foe",
    "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_attack_start_01",
    "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self"
@@ -5084,7 +5083,6 @@
    "enemy_9033_acdeer spawn:cast enemy_smdeer_skill_01_start_04 → self",
    "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
    "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
-   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c1c2c3_combat_hit_01 → foe",
    "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01 → foe",
    "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_attack_start_01",
    "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self"
@@ -9425,7 +9423,6 @@
    "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
    "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
    "token_10019_nearl2_sword spawn:born token_nearl2_birth_01_start → self",
-   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c1c2c3_combat_hit_01 → foe",
    "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01 → foe",
    "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_attack_start_01",
    "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self",

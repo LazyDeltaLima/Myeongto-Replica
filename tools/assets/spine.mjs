@@ -20,7 +20,7 @@ import { atlasInfo, normalizeAtlas } from './atlas.mjs';
 import { parseSkel } from './skel.mjs';
 import { resolveRoles } from './anim-roles.mjs';
 import { applyAnimOverrides, applyModeAttacks } from './anim-overrides.mjs'; // local patch
-import { keyRoles, overlayKeyRoles } from './anim-keys.mjs';
+import { keyRoles, overlayKeyRoles, tokenKeyRoles } from './anim-keys.mjs';
 import { loadCharModes } from './skill-mode-sfx.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -31,15 +31,18 @@ function loadAttackTiming(repo) {
 }
 
 /**
- * The operators' clip keys (.cache/anim-keys.json, tools/local-extract/anim_keys.py — client-only, never tracked), or null
- * when this machine has not extracted them.
+ * The clip keys of the operators and the summons (.cache/anim-keys.json `ops` / `tokens`, tools/local-extract/anim_keys.py —
+ * client-only, never tracked), or null when this machine has not extracted them.
  */
 function loadAnimKeys(repo) {
-  try { return JSON.parse(readFileSync(join(repo, '.cache/anim-keys.json'), 'utf8')).ops || null; } catch { return null; }
+  try {
+    const j = JSON.parse(readFileSync(join(repo, '.cache/anim-keys.json'), 'utf8'));
+    return j.ops ? { ops: j.ops, tokens: j.tokens || {} } : null;
+  } catch { return null; }
 }
-/** The operators of the committed data/assets.json (charId → its entry), {} when unreadable. */
-function loadCommittedChars(repo) {
-  try { return JSON.parse(readFileSync(join(repo, 'data/assets.json'), 'utf8')).chars || {}; } catch { return {}; }
+/** The operators and summons of the committed data/assets.json ({ chars, tokens }: id → its entry), empty when unreadable. */
+function loadCommitted(repo) {
+  try { const j = JSON.parse(readFileSync(join(repo, 'data/assets.json'), 'utf8')); return { chars: j.chars || {}, tokens: j.tokens || {} }; } catch { return { chars: {}, tokens: {} }; }
 }
 
 async function fileStat(p) { try { const s = await stat(p); return s.isFile() ? s : null; } catch { return null; } }
@@ -307,7 +310,7 @@ export async function processModels(models, { root, dl, cachePath, download = tr
   // roles of the committed manifest stay as they are, so the rebuilt data/assets.json is the same bytes (maintainer
   // decision 2026-10-23, docs/rules/render.md 「Spine 클립 커버리지」 J)
   const animKeys = loadAnimKeys(repo);
-  const committed = animKeys ? {} : loadCommittedChars(repo);
+  const committed = animKeys ? { chars: {}, tokens: {} } : loadCommitted(repo);
   let kept = 0;
   if (!animKeys) log('[spine] no .cache/anim-keys.json: operator roles kept from the committed data/assets.json');
   if (download) {
@@ -395,7 +398,10 @@ export async function processModels(models, { root, dl, cachePath, download = tr
     const key = String(m.key);
     const id = key.startsWith('enemy:') ? key.slice('enemy:'.length) : key.startsWith('op:') ? key.split(':')[1] : null; // op:<char>:front|back
     const op = key.startsWith('op:') ? id : null;
-    const prev = op && !animKeys ? committed[op]?.spine?.[key.split(':')[2]]?.anims : null;
+    // a summon whose roles came from its prefab keys (`tmodes`): kept the same way without the keys
+    const tok = key.startsWith('token:') ? key.slice('token:'.length) : null;
+    const prevTok = tok && !animKeys ? committed.tokens[tok]?.spine?.anims : null;
+    const prev = op && !animKeys ? committed.chars[op]?.spine?.[key.split(':')[2]]?.anims : prevTok?.tmodes ? prevTok : null;
     let anims;
     if (prev && namesAll(prev).every((n) => Object.hasOwn(sk.durations || {}, n))) {
       anims = structuredClone(prev);
@@ -404,7 +410,11 @@ export async function processModels(models, { root, dl, cachePath, download = tr
       const fixed = applyRoleFix(resolveRoles(sk.animations, { skillIndices: m.skillIndices, durations: sk.durations }), id ? PREFAB_SPINE_ROLES[id] : undefined, sk.durations);
       if (fixed.missing.length) problems.push(`${m.key}: role fix not applied (clip missing) for ${fixed.missing.join(', ')}`);
       anims = fixed.roles;
-      if (op && animKeys?.[op]) overlayKeyRoles(anims, keyRoles(animKeys[op], sk.durations), op);
+      if (op && animKeys?.ops[op]) overlayKeyRoles(anims, keyRoles(animKeys.ops[op], sk.durations), op);
+      // a summon's modes (缪尔赛思's 流形: its Default mode rests in Idle_1, its copies draw the Melee / Range clip sets —
+      // render/units.js tokenForm)
+      const tk = tok && animKeys?.tokens[tok] ? tokenKeyRoles(animKeys.tokens[tok], sk.durations) : null;
+      if (tk?.tmodes) { if (tk.idle) anims.idle = tk.idle; anims.tmodes = tk.tmodes; }
       applyAnimOverrides(m.key, anims, sk.animations); // local patch: skill clip fixes (tools/assets/anim-overrides.mjs); clips the skeleton lacks are dropped
       applyModeAttacks(m.key, anims, timing, charModes); // how each skill's mode attacks (stance / plain attack clip)
     }
