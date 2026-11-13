@@ -49,6 +49,7 @@ import { audio } from '../audio.js';
 import { ChessDetailArt, DeviceDetailArt, EnemyDetailArt, ItemDetailArt, TokenDetailArt } from './detailArt.js'; // local patch: the official card look (css/hud-art.css)
 import { hudArt } from './hudArt.js'; // local patch
 import { tokenVariantFor } from './gameLogic/loadout.js';
+import { hasShowTag, fillShowTag, garrisonShowValue, itemShowValue } from '../../../shared/showTag.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -230,7 +231,7 @@ function ItemRow({ itemId, carried = null, off = null }) {
   const it = data.lookup('items', itemId);
   return html`<div class="ditem">
     <${UnitThumb} kind="item" id=${itemId} size="sm" />
-    <div class="ditem__text"><b>${it?.name || itemId}</b><${RichText} text=${it?.descRaw || it?.desc || ''} class="ditem__desc" />
+    <div class="ditem__text"><b>${it?.name || itemId}</b><${RichText} text=${itemText(it)} class="ditem__desc" />
       ${it?.canGiveBond ? html`<${MorphPairings} off=${off} carried=${carried || []} />` : it?.giveBondId ? html`<${MorphGrantLine} item=${it} off=${off} carried=${carried} />` : null}</div>
   </div>`;
 }
@@ -317,8 +318,34 @@ export function garrisonTypeIconKey(garrison) {
   return EVENT_ICON[garrison?.eventType] || 's_icon_bond';
 }
 
-/** The operator's own effect (特质, garrisons.json): trigger chip + description, compact. */
-export function GarrisonBlock({ garrison, m }) {
+/**
+ * A 特质's text with its 「{showtag_value_1}」 filled (shared/showTag.js): the player's number (m.private `showTags`) on the
+ * player's own operators and cards; elsewhere (another player's, the loadout screen) the counter clause is left out and a
+ * growing 特质 shows its first value.
+ * @param {any} garrison garrisons.json record (localised)
+ * @param {Record<string, number>|null} [showTags] m.private showTags
+ */
+export function garrisonText(garrison, showTags = null) {
+  const raw = garrison?.descRaw || garrison?.desc || '';
+  if (!hasShowTag(raw)) return raw;
+  const v = showTags && Number.isFinite(showTags[garrison.garrisonId]) ? showTags[garrison.garrisonId] : null;
+  return fillShowTag(raw, v, garrisonShowValue(garrison, null));
+}
+
+/**
+ * An item's text with its 「{showtag_value_1}」 filled (定期存折's funds): the piece's own number (player/views.js pieceView
+ * `showTag`), else the funds it gives in the round it comes (a shop or reward card).
+ * @param {any} item items.json record (localised)
+ * @param {any} [piece] the item's piece
+ */
+export function itemText(item, piece = null) {
+  const raw = item?.descRaw || item?.desc || '';
+  if (!hasShowTag(raw)) return raw;
+  return fillShowTag(raw, Number.isFinite(piece?.showTag) ? piece.showTag : null, itemShowValue(item, 0));
+}
+
+/** The operator's own effect (特质, garrisons.json): trigger chip + description, compact. `showTags`: garrisonText's. */
+export function GarrisonBlock({ garrison, m, showTags = null }) {
   return html`<section class="dgarrison" aria-label=${t('特质')} data-garrison=${garrison.garrisonId || ''}>
     <div class="dgarrison__head">
       <span class="dgarrison__k">${t('特质')}</span>
@@ -327,7 +354,7 @@ export function GarrisonBlock({ garrison, m }) {
         ${garrison.eventTypeDesc || ''}
       </span>
     </div>
-    <${RichText} as="p" text=${garrison.descRaw || garrison.desc} class="dgarrison__text" />
+    <${RichText} as="p" text=${garrisonText(garrison, showTags)} class="dgarrison__text" />
   </section>`;
 }
 
@@ -391,7 +418,7 @@ export function skillTextNote(sk) {
   return note ? html`<p class="dhint dhint--rule" data-skill-note=${sk.skillId}><${Icon} name="info" />${t(note)}</p>` : null;
 }
 
-export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bonds, offBonds = null, loadout, onBond, live = null, hint = null, unitItems = null, standIn = null, diy = null, cultOpts = null }) {
+export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bonds, offBonds = null, loadout, onBond, live = null, hint = null, unitItems = null, standIn = null, diy = null, cultOpts = null, showTags = null }) {
   const m = data.get('assets');
   const hp = hpOf(live, snapHp);
   // 0.2.0 自选编队: `chess` is then the composed 自选 record (the operator, the slot's tier / price); its skill and module are
@@ -453,7 +480,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
         <${BondChips} bondIds=${bondIds} bonds=${bonds} off=${offBonds} onBond=${onBond} granted=${grantedIds} />
       </div>
     </div>`;
-  blocks.garrison = garrison ? html`<${GarrisonBlock} key="garrison" garrison=${garrison} m=${m} />` : null;
+  blocks.garrison = garrison ? html`<${GarrisonBlock} key="garrison" garrison=${garrison} m=${m} showTags=${showTags} />` : null;
   blocks.trait = body.trait?.desc ? html`<p key="trait" class="dtrait"><${Icon} name="info" /><${RichText} text=${traitText(body, golden, lo)} /></p>` : null;
   // (`fr` is the body the unit fights with — a stand-in's record for a 补位 chess; `chess` is only the range's fallback)
   blocks.stats = chessStatsBlock({ rec: fr, chess: c, live });
@@ -517,7 +544,7 @@ export function ItemDetail({ item, piece, editable, onDestroy, offBonds = null }
         ${item.flavor ? html`<span class="dhead__flavor">${item.flavor}</span>` : null}
       </div>
     </div>
-    <${Section} title=${t('效果')} micro="EFFECT"><${RichText} as="p" text=${item.descRaw || item.desc} class="dtext" /><//>
+    <${Section} title=${t('效果')} micro="EFFECT"><${RichText} as="p" text=${itemText(item, piece)} class="dtext" /><//>
     ${item.canGiveBond ? html`<${Section} title=${t('天赋')} micro="TALENT" class="dsec--morph"><${MorphPairings} off=${offBonds} /><//>` : null}
     ${!item.canGiveBond && item.giveBondId ? html`<${MorphGrantLine} item=${item} off=${offBonds} />` : null}
     ${item.note ? html`<p class="dhint dhint--rule"><${Icon} name="info" />${item.note}</p>` : null}
@@ -742,7 +769,19 @@ function DeviceDetail({ device, snapHp = null, live = null }) {
  *   unit carrying `diy`, and a teammate's bond popup 自选 row that hands its unit's pick on (`target.diy`, 0.2.1) —
  *   resolve to the composed 自选 record (`chess`, the operator) with `diy` = the pick
  */
-export function resolveDetail(target, pieces, { priv = null, backups = data.get('backups') } = {}) {
+export function resolveDetail(target, pieces, opts = {}) {
+  const d = resolveDetailOf(target, pieces, opts);
+  // the player's own operator or card (a piece of the own m.private, or a chess card that is not another player's): its
+  // 特质 text reads the player's numbers (m.private showTags — GarrisonBlock)
+  const priv = opts?.priv;
+  if (d && d.type === 'chess' && priv && priv.showTags && typeof priv.showTags === 'object') {
+    const foreign = target.kind === 'chess' && (!!target.foreign || (target.owner != null && target.owner !== priv.playerId));
+    if (d.piece || (target.kind === 'chess' && !foreign)) d.showTags = priv.showTags;
+  }
+  return d;
+}
+
+function resolveDetailOf(target, pieces, { priv = null, backups = data.get('backups') } = {}) {
   if (!target) return null;
   // a stage device (#228): the screen resolved the device's stage entry (gameLogic.deviceInfo / deviceTipAt); in a battle
   // `unitId` is the crate / turret unit whose snapshot tuple gives the live HP
@@ -880,7 +919,7 @@ export function DetailPanel({ detail, editable, snapHp, onSell, onDestroy, bonds
     <div class="dpanel__scroll">
       ${detail.type === 'chess' ? html`<${hudArt().cls ? ChessDetailArt : ChessDetail /* local patch */} chess=${detail.chess} piece=${detail.piece} snapHp=${snapHp} editable=${editable} onSell=${sellIt}
         bonds=${bonds} offBonds=${offBonds} loadout=${loadout} onBond=${onBond} live=${liveNow} hint=${detail.hint || null} unitItems=${detail.unitItems || null}
-        standIn=${detail.standIn || null} diy=${detail.diy || null} cultOpts=${detail.cultOpts || { ops }} />` : null}
+        standIn=${detail.standIn || null} diy=${detail.diy || null} cultOpts=${detail.cultOpts || { ops }} showTags=${detail.showTags || null} />` : null}
       ${detail.type === 'item' ? html`<${artItem ? ItemDetailArt : ItemDetail} item=${detail.item} piece=${detail.piece} editable=${editable} onDestroy=${destroyIt} offBonds=${offBonds} />` : null}
       ${detail.type === 'enemy' ? html`<${artEnemy ? EnemyDetailArt : EnemyDetail} enemy=${detail.enemy} snapHp=${snapHp} count=${detail.count} live=${liveNow} />` : null}
       ${detail.type === 'token' ? html`<${artToken ? TokenDetailArt : TokenDetail} token=${detail.token} piece=${detail.piece} ownerId=${detail.ownerId ?? null} snapHp=${snapHp} live=${liveNow} />` : null}

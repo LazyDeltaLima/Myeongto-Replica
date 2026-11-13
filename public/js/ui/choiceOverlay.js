@@ -30,6 +30,7 @@ import { phaseArt, useTurnFlash, YourTurn } from './phaseArt.js'; // local patch
 import { t, tName } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 import { sentText } from './lang.js';
+import { fillShowTag, itemShowValue } from '../../../shared/showTag.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -78,7 +79,8 @@ export function resolveSpCard(card, family) {
   return {
     kind,
     name: tName(card.name) || item?.name || eff?.name || bounty?.name || tactic?.name || t('机变'),
-    desc: cardText(card, item?.descRaw || eff?.descRaw || '', rawRich) || item?.desc || eff?.desc || bounty?.desc || tactic?.desc || '',
+    // (定期存折's 「{showtag_value_1}」: the funds it gives in the round it comes — shared/showTag.js)
+    desc: fillShowTag(cardText(card, item?.descRaw || eff?.descRaw || '', rawRich) || item?.desc || eff?.desc || bounty?.desc || tactic?.desc || '', null, itemShowValue(item, 0)),
     tier: Number.isFinite(card.tier) ? card.tier : item?.tier ?? bounty?.tier ?? null,
     icon,
     team: !!team,

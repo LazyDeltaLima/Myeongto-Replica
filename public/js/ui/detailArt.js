@@ -31,7 +31,7 @@
 import { useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, Button, useScrollEdges } from './components.js';
 import { Img, RichText, GIcon } from './gameComponents.js';
-import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail, hpOf, enemyImmunities, RANK, DMG, MorphPairings, MorphGrantLine, PROF_NAME, chessTalents, skillTags, skillTextNote, summonDeployHint } from './detailPanel.js';
+import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail, hpOf, enemyImmunities, RANK, DMG, MorphPairings, MorphGrantLine, PROF_NAME, chessTalents, skillTags, skillTextNote, summonDeployHint, itemText } from './detailPanel.js';
 import { abilityRows } from './abilityLines.js';
 import { attackInterval, fmtNum, chessLoadout, pickGetter, standInLoadout, standInLabel, standInTip, standInForText } from './gameLogic.js';
 import { chessPortraitUrl, profIconUrl, uiUrl, enemyIconUrl, factionIconUrl, itemIconUrl, tokenAvatarUrl, skillRecordIconUrl } from './assetUrls.js';
@@ -359,7 +359,7 @@ export function ItemDetailArt({ item, piece = null, editable = false, onDestroy 
           <div class="dskill__tags"><span class="dsp dsp--trig">${t('被动')}</span></div>
         </div>
       </div>`,
-      html`<${RichText} key="d" as="p" text=${item?.descRaw || item?.desc || ''} class="dtext" />`,
+      html`<${RichText} key="d" as="p" text=${itemText(item, piece)} class="dtext" />`,
       !item?.canGiveBond && item?.giveBondId ? html`<${MorphGrantLine} key="g" item=${item} off=${offBonds} />` : null,
       item?.note ? html`<p key="n" class="dhint dhint--rule"><${Icon} name="info" />${item.note}</p>` : null,
     ].filter(Boolean) },

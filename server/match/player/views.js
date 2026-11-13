@@ -7,6 +7,18 @@ import { PHASE } from '../../../shared/constants.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
 import { bountyText, bountyCard } from '../choices.js';
+import { hasShowTag, garrisonShowValue, itemShowValue } from '../../../shared/showTag.js';
+
+/** The 特质 records whose text carries 「{showtag_value_1}」 (规程: ten 特质, normal and elite), per game data. */
+const SHOW_TAG_GARRISONS = new WeakMap();
+function showTagGarrisons(gd) {
+  let list = SHOW_TAG_GARRISONS.get(gd);
+  if (!list) {
+    list = Object.values(gd.raw?.garrisons || {}).filter((g) => g && (hasShowTag(g.desc) || hasShowTag(g.descRaw)));
+    SHOW_TAG_GARRISONS.set(gd, list);
+  }
+  return list;
+}
 
 export class PlayerViews {
   pieceView(p, rc = null) {
@@ -24,6 +36,11 @@ export class PlayerViews {
     // the sell price when it is not the record's (规程's 海沫 / 温蒂: economy.js sellPriceOf) — the detail panel shows it
     if (p.kind === 'chess') { const sp = this.sellPriceOf(p); if (sp !== (rec?.sellPrice ?? 1)) v.sellPrice = sp; }
     if (rc) { v.row = rc[0]; v.col = rc[1]; v.dir = pieceDir(p); }
+    // 定期存折's funds now — its card's 「{showtag_value_1}」 (shared/showTag.js; items/meta.js pays the same number)
+    if (p.kind === 'item' && hasShowTag(rec?.desc)) {
+      const n = itemShowValue(rec, Number.isInteger(p.boughtRound) ? this.m.round - p.boughtRound : 0);
+      if (Number.isFinite(n)) v.showTag = n;
+    }
     return v;
   }
 
@@ -58,6 +75,20 @@ export class PlayerViews {
         id: b.id, name: b.card.name || '悬赏', desc: bountyText((eff && eff.descRaw) || b.card.desc || '', b.card), iconKind: 'choice', iconId: b.card.effectId || 'bounty', // i18n-ignore: a data-less card's fallback name
         counter: left, counterText: left == null ? '之后的每场作战' : `还剩 ${left} 场作战`, // i18n-ignore: older clients (ui/effectsList.js builds it from counter)
       });
+    }
+    return out;
+  }
+
+  /**
+   * m.private `showTags`: { [garrisonId]: number } — the player's number of every 特质 whose text carries
+   * 「{showtag_value_1}」 (this round's spent funds / refreshes / operators gained, a growing 特质's next value).
+   */
+  showTagsView() {
+    const st = { round: this.round, counter: (k) => (Number.isFinite(this.counters?.[k]) ? this.counters[k] : 0) };
+    const out = {};
+    for (const g of showTagGarrisons(this.gd)) {
+      const v = garrisonShowValue(g, st);
+      if (Number.isFinite(v)) out[g.garrisonId] = v;
     }
     return out;
   }
@@ -125,6 +156,8 @@ export class PlayerViews {
       // + the mode-off bonds it has members of (`off: true`, the strip's grey 本局禁用 discs — bondsMeta.offBondCounts)
       bonds: bondList(this.gd, this.bondsView(), { full: true, off: offBondCounts(this.gd, this) }),
       effects: this.effectsView(),
+      // the numbers of the 特质 texts' 「{showtag_value_1}」 (showTagsView; ui/detailPanel.js GarrisonBlock)
+      showTags: this.showTagsView(),
       nextEnemies: this.m.nextEnemiesFor(this),
       // DESIGN §16: the effective operator loadout ({ [baseChessId]: { skill, module } }; chess not listed use defaults)
       loadout: this.loadout,

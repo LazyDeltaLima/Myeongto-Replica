@@ -37,6 +37,7 @@ import { itemKeyOf, isCoreBond, gameData } from '../support/index.js';
 import { metaBonds } from '../support/meta.js';
 import { canonicalBuffKey } from './aliases.js';
 import { msg, dn } from '../../../../shared/i18n.js';
+import { bankbookShowValue } from '../../../../shared/showTag.js';
 
 const int = (v, d = 0) => (Number.isFinite(v) ? Math.trunc(v) : d);
 
@@ -272,7 +273,8 @@ PREP.push(
     onEquip(ctx, ev) {
       const p = buffP(ctx, ev.item && ev.item.id, 'equip_destory_gain_coin') || {};
       const since = Number.isInteger(ev.item?.boughtRound) ? Math.max(0, ctx.round - ev.item.boughtRound) : 0;
-      const v = int(p.value, 0) + int(p.delta, 1) * Math.floor(since / Math.max(1, int(p.n, 1)));
+      // the same number the card shows (shared/showTag.js; the item piece's `showTag`, player/views.js pieceView)
+      const v = bankbookShowValue({ value: int(p.value, 0), delta: int(p.delta, 1), n: int(p.n, 1) }, since);
       if (v > 0) ctx.addFunds(v, 'item');
     },
   })],

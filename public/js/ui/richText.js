@@ -47,6 +47,8 @@ export function rtClassName(cls, term = false) {
 }
 
 const TAG_OPEN = /^<([@$])([A-Za-z0-9_.\-]{1,48})>/;
+import { fillShowTag } from '../../../shared/showTag.js';
+
 const TAG_CLOSE = '</>';
 
 /**
@@ -56,7 +58,9 @@ const TAG_CLOSE = '</>';
  */
 export function parseRichText(src) {
   if (src == null) return [];
-  const s = String(src).replace(/\\n/g, '\n').replace(/\r\n?/g, '\n');
+  // a 「{showtag_value_1}」 no caller filled (shared/showTag.js) is never shown as the variable's name: its counter clause
+  // is left out (ui/detailPanel.js garrisonText / itemText fill the numbers they know)
+  const s = fillShowTag(String(src), null).replace(/\\n/g, '\n').replace(/\r\n?/g, '\n');
   /** @type {Array<{ cls: string, term: boolean }>} */
   const stack = [];
   const out = [];

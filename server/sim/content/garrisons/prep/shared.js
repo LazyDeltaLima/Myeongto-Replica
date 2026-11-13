@@ -1,5 +1,7 @@
 // server/sim/content/garrisons/prep/shared.js — what the prep-side 特质 families of garrisons/prep/*.js share.
 
+import { growingCounterKey, growingShowValue } from '../../../../../shared/showTag.js';
+
 export const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
 export const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d);
 
@@ -66,9 +68,8 @@ export function rowCondition(ctx, me) {
  */
 export function growingValue(ctx) {
   const { bb, garrisonId } = ctx.source;
-  const key = `gar:grow:${String(garrisonId).replace(/_[ab]$/, '')}`;
+  const key = growingCounterKey(garrisonId);
   const k = ctx.counter(key);
   ctx.incCounter(key, 1);
-  const base = num(bb.count, 1);
-  return Math.min(base + num(bb.delta_count, 0) * Math.floor(k / Math.max(1, num(bb.n, 1))), base + num(bb.max_count, 0));
+  return growingShowValue(bb, k); // the card's {showtag_value_1} reads the next run's (shared/showTag.js)
 }
