@@ -2114,7 +2114,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /** Whether this attack flies its mode's official trail (decided now, synchronously, for arrowKind); loads it otherwise. */
   function trailShot(e, src, tgt, mode, shot = false) {
-    if (!tgt || mode == null || level() >= 3 || failed) return false;
+    if (!tgt || mode == null || (level() >= 3 && !src._fxSkillOn) || failed) return false;   // load level 3: a skill's attacks keep theirs
     const spec = PROJ[e[3]];
     let name = null;
     const sg = spec && e[3] !== 'boomerang' ? strikeGroups(src, mode, shot) : null; // 跃跃's second boomerang: caperSecond
@@ -2184,7 +2184,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * the unit `from` it reached. The flight time (s), or -1 with nothing to fly.
    */
   function skillShotOut(src, to, land = null, via = null) {
-    if (!isOp(src) || !bundleOf(src) || failed || level() >= 3 || !to) return -1;
+    if (!isOp(src) || !bundleOf(src) || failed || !to) return -1;   // a skill's: at load level 3 too
     const b = bundleOf(src), i = skillIdx(src);
     const { name: own, shot } = modelessTrail(bindOf(src), b.prefabs, i, true);
     const name = via ? via.name : own;
@@ -2339,7 +2339,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function caperSecond(e, views) {
     const o = e[4];
     const src = views.get(o.id), tgt = views.get(o.tgt);
-    if (!src || !tgt || !isOp(src) || !bundleOf(src) || level() >= 3 || failed || trailFull()) return false;
+    if (!src || !tgt || !isOp(src) || !bundleOf(src) || failed || trailFull()) return false;   // S2 only: at load level 3 too
     const mode = modeNow(src);
     const name = bound(src, mode, 'trail')[0];
     const b = bundleOf(src);
@@ -3324,7 +3324,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     let longest = 0;
     tos.forEach((u, k) => {
       const go = () => {
-        if (level() >= 3 || trailFull() || (!back && (u.alive === false || u.remove))) return;
+        if (trailFull() || (!back && (u.alive === false || u.remove))) return;   // a kit's: at load level 3 too (no stand-in)
         const from = back || fromPt ? { x, y, z: shotTo(op).z } : fromU ? shotTo(fromU) : shotFrom(op, null, p.mount);
         const ox = back || fromPt ? x : fromU ? fromU.x : op.x, oy = back || fromPt ? y : fromU ? fromU.y : op.y;
         const tx = mx(u), ty = u.y, dur = Math.max(0.04, Math.hypot(tx - ox, ty - oy) / speed);
@@ -3438,7 +3438,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function svashBird(src, tgt) {
     const b = tgt && src?._fxSkillOn && skillIdx(src) === 2 ? pickOf(src, SVASH_BIRD.bundle) : null;
     const n = pickName(b, SVASH_BIRD.name);
-    if (!n || level() >= 3) return;
+    if (!n) return;   // the skill's: at load level 3 too
     const dx = mx(tgt) - mx(src), dy = tgt.y - src.y, d = Math.hypot(dx, dy);
     if (!(d > 1e-6)) return;
     const t0 = clockS;
@@ -3609,7 +3609,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * 'drone' event), 'free' — the others (her attack, when lockByFx).
    */
   function droneShot(src, tgt, mode, only = null) {
-    if (!tgt || level() >= 3 || failed) return;
+    if (!tgt || (level() >= 3 && !src._fxSkillOn) || failed) return;
     const b = bundleOf(src), id = ownerOf(src), tid = ownerOf(tgt);
     const n = Number.isInteger(mode) && mode >= 0 ? mode : funnelMode(src), list = funnelsOf(src, n);
     const shots = list.map((x, j) => [x, j]).filter(([x]) => x.proj && (!only || (only === 'lock') === !!x.lock));
@@ -4297,7 +4297,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const w = Math.max(0, Number(windup) || 0);
     const span = castSpan(v, w);
     const sid = ownerOf(v);
-    const skip = clockS - (lastAttackFx.get(sid) ?? -9) < ATTACK_GAP_S || level() >= 3;
+    const skip = clockS - (lastAttackFx.get(sid) ?? -9) < ATTACK_GAP_S || (level() >= 3 && !v._fxSkillOn);
     if (!skip) lastAttackFx.set(sid, clockS);
     const c = { t: clockS, hitAt: clockS + w, end: span ? clockS + span.len : null, speed: span?.speed || 1, mode, fired: new Set(), struckAt: null, skip, first: firstAttack(v, mode) };
     v._fxCast = c;
@@ -4704,7 +4704,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const strikes = new Map();   // operator id → its storm strikes so far (one line each)
   function chainFx(e, views) {
     const o = e[4];
-    if (!o || typeof o !== 'object' || failed || level() >= 3) return false;
+    if (!o || typeof o !== 'object' || failed) return false;   // the skill's: at load level 3 too
     const src = views.get(o.src), tgt = views.get(o.id);
     if (!tgt || !isOp(src) || !bundleOf(src)) return false;
     const sk = skillBind(src), c = sk?.chain;
@@ -4770,7 +4770,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (e[3] === 'chain') lastAtk.set(next, { src, t: clockS, mode, kind: e[3], shot: false });
     else healAtk.set(next, { src, t: clockS, mode, kind: e[3], shot: false }); // a chain heal's next ally (healHit)
     const from = views.get(prev), tgt = views.get(next);
-    if (!from || !tgt || !bundleOf(src) || failed || level() >= 3) return;
+    if (!from || !tgt || !bundleOf(src) || failed || (level() >= 3 && !src._fxSkillOn)) return;
     // a skill that switches no attack mode (−1) keeps the Default mode's shot (modelessTrail)
     const m = mode != null && mode >= 0 ? mode : 0;
     const line = bound(src, m, 'chain')[0];
@@ -6950,7 +6950,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (src._fxSkillOn) foeFx(src, tgt, mode); // 2026-10-10: a mode buff held by the enemy
           // local patch: the mode's own cast effects (a skill's on each of its attacks) — since 2026-10-10 on the attack's own
           // clock: those of ON_CAST_START already started at its 'swing', the strike's (ON_SPELL_ON) now (strikeFx); the
-          // throttle (ATTACK_GAP_S) and load level 3 skip them as before (beginCast)
+          // throttle (ATTACK_GAP_S) and load level 3 — a normal attack's, not a skill's (2026-11-14) — skip them (beginCast)
           strikeFx(src, mode, e[3], tgt, sig);
           shotHitFx(src, mode, e[3], tgt);   // 2026-10-31: the hits that start at the shot
           reachFx(src, tgt, e[3], tgt && lastAtk.get(tgt.id ?? tgt.info?.id));   // 2026-11-01: a 要塞 shell's blast where it lands
