@@ -50,14 +50,41 @@ export function sanitizeVoice(raw) {
 export const voiceStore = createStore(sanitizeVoice(loadPref(PREF, null)));
 voiceStore.subscribe((s) => savePref(PREF, sanitizeVoice(s)));
 
+/** @param {any} lines @returns {boolean} */
+const hasLines = (lines) => !!lines && typeof lines === 'object' && Object.keys(lines).length > 0;
+/** @type {WeakMap<object, { jp: any, table: object }>} the Korean table with its fallbacks, per manifest table */
+const KR_TABLES = new WeakMap();
+
 /**
- * The voice table of a language in the manifest (null when off).
+ * The Korean table with the Japanese lines of every operator the Korean dub lacks altogether (not on the KR server yet:
+ * the voice source has no Korean file of it), maintainer decision 2026-11-13 — per operator, never per line, so an
+ * operator never mixes two dubs. Built once per manifest table.
+ * @param {any} manifest data/assets.json
+ * @returns {{ table: object }|null}
+ */
+function koreanWithFallback(manifest) {
+  const kr = manifest?.audio?.voice || null, jp = manifest?.audio?.voiceJp || null;
+  if (!kr && !jp) return null;
+  const key = kr || jp;
+  const hit = KR_TABLES.get(key);
+  if (hit && hit.jp === jp) return hit;
+  const table = { ...(kr || {}) };
+  for (const [charId, lines] of Object.entries(jp || {})) if (!hasLines(table[charId]) && hasLines(lines)) table[charId] = lines;
+  const out = { jp, table };
+  KR_TABLES.set(key, out);
+  return out;
+}
+
+/**
+ * The voice table of a language in the manifest (null when off). Korean takes the Japanese lines of an operator it
+ * lacks (koreanWithFallback).
  * @param {any} manifest data/assets.json
  * @param {string} [lang]
  */
 export function voiceTableOf(manifest, lang = voiceStore.get().lang) {
   if (lang === 'off') return null;
-  return (lang === 'jp' ? manifest?.audio?.voiceJp : manifest?.audio?.voice) || null;
+  if (lang === 'jp') return manifest?.audio?.voiceJp || null;
+  return koreanWithFallback(manifest)?.table || null;
 }
 audio.voiceTable = () => voiceTableOf(audio.getManifest());
 // the dub a character's dubbed sounds follow (audio.js unitDub; docs/rules/audio.md 「더빙 효과음」)
@@ -97,12 +124,36 @@ export function unitSkillOf(rec, def, skillIndex, backups) {
 }
 
 /**
- * Whether the background download keeps a browser-resources.json entry: a voice file only in the chosen language.
+ * Whether the background download keeps a browser-resources.json entry: a voice file only in the chosen language —
+ * with Korean, also the Japanese files of the operators Korean takes from Japanese (koreanWithFallback; wantedFiles).
  * @param {{ p: string }} f
+ * @param {Set<string>|null} [jpOnly] the operators with Japanese files and no Korean ones
  */
-export function voiceWanted(f) {
-  const m = /^\/assets\/audio\/voice\/([^/]+)\//.exec(f?.p || '');
-  return !m || m[1] === voiceStore.get().lang;
+export function voiceWanted(f, jpOnly = null) {
+  const m = VOICE_FILE.exec(f?.p || '');
+  if (!m) return true;
+  const lang = voiceStore.get().lang;
+  if (m[1] === lang) return true;
+  return lang === 'kr' && m[1] === 'jp' && !!(jpOnly instanceof Set && jpOnly.has(m[2]));
+}
+const VOICE_FILE = /^\/assets\/audio\/voice\/([^/]+)\/([^/]+)\//;
+
+/**
+ * The browser-resources.json entries the background download keeps (resources.js): voiceWanted, with the operators that
+ * have Japanese voice files and no Korean ones read off the list itself — the same operators koreanWithFallback gives
+ * Japanese lines, without waiting for data/assets.json.
+ * @template {{ p: string }} F
+ * @param {F[]} listed
+ * @returns {F[]}
+ */
+export function wantedFiles(listed) {
+  const kr = new Set(), jp = new Set();
+  for (const f of listed) {
+    const m = VOICE_FILE.exec(f?.p || '');
+    if (m?.[1] === 'kr') kr.add(m[2]); else if (m?.[1] === 'jp') jp.add(m[2]);
+  }
+  const jpOnly = new Set([...jp].filter((c) => !kr.has(c)));
+  return listed.filter((f) => voiceWanted(f, jpOnly));
 }
 
 /** Voice key (charId, the model id like audio.js units) of a chess id; null for an item / token / DIY slot. */

@@ -534,7 +534,7 @@ describe('operator voice: Korean / Japanese / off and the 休整期 lines on ups
   });
 
   test('client: preference, the chosen dub feeds audio.voice, download filter', async () => {
-    const { sanitizeVoice, voiceTableOf, voiceWanted, voiceStore } = await mod('voice.js');
+    const { sanitizeVoice, voiceTableOf, voiceWanted, wantedFiles, voiceStore } = await mod('voice.js');
     const { audio } = await mod('audio.js');
     assert.deepEqual(sanitizeVoice(null), { lang: 'kr' });
     assert.deepEqual(sanitizeVoice({ lang: 'jp', vol: 2 }), { lang: 'jp' });
@@ -543,6 +543,12 @@ describe('operator voice: Korean / Japanese / off and the 休整期 lines on ups
     assert.deepEqual(voiceTableOf(m, 'kr'), m.audio.voice);
     assert.deepEqual(voiceTableOf(m, 'jp'), m.audio.voiceJp);
     assert.equal(voiceTableOf(m, 'off'), null);
+    // an operator the Korean dub lacks speaks Japanese with Korean picked — the whole operator, never line by line
+    // (maintainer decision 2026-11-13)
+    const m2 = { audio: { voice: { c: { select: '/k1' }, e: {} }, voiceJp: { c: { select: '/j1', place: '/j2' }, d: { select: '/jd' }, e: { select: '/je' } } } };
+    assert.deepEqual(voiceTableOf(m2, 'kr'), { c: { select: '/k1' }, d: { select: '/jd' }, e: { select: '/je' } });
+    assert.ok(voiceTableOf(m2, 'kr') === voiceTableOf(m2, 'kr'), 'built once per manifest');
+    assert.deepEqual(voiceTableOf(m2, 'jp'), m2.audio.voiceJp);
     assert.equal(typeof audio.voiceTable, 'function', 'voice.js hands audio.voice() the chosen table');
     const prev = voiceStore.get();
     try {
@@ -552,6 +558,12 @@ describe('operator voice: Korean / Japanese / off and the 休整期 lines on ups
       assert.equal(voiceWanted({ p: '/assets/audio/sfx/x.mp3' }), true, 'other files untouched');
       voiceStore.set({ lang: 'off' });
       assert.equal(voiceWanted({ p: '/assets/audio/voice/jp/c/cn_021.mp3' }), false);
+      // Korean: the Japanese files of an operator without Korean ones come along
+      const listed = ['/assets/audio/voice/kr/c/cn_021.mp3', '/assets/audio/voice/jp/c/cn_021.mp3', '/assets/audio/voice/jp/d/cn_021.mp3', '/assets/audio/sfx/x.mp3'].map((p) => ({ p }));
+      voiceStore.set({ lang: 'kr' });
+      assert.deepEqual(wantedFiles(listed).map((f) => f.p), ['/assets/audio/voice/kr/c/cn_021.mp3', '/assets/audio/voice/jp/d/cn_021.mp3', '/assets/audio/sfx/x.mp3']);
+      voiceStore.set({ lang: 'jp' });
+      assert.deepEqual(wantedFiles(listed).map((f) => f.p), ['/assets/audio/voice/jp/c/cn_021.mp3', '/assets/audio/voice/jp/d/cn_021.mp3', '/assets/audio/sfx/x.mp3']);
     } finally { voiceStore.set(prev); }
   });
 

@@ -28,7 +28,7 @@
 
 import { html, MicroLabel } from './ui/components.js';
 import { createStore, useStore, store, loadPref, savePref, selectRoute } from './store.js';
-import { voiceWanted, onVoiceLangChange, voiceStore, setVoiceLang, VOICE_LANGS, voiceLangLabel } from './voice.js';
+import { wantedFiles, onVoiceLangChange, voiceStore, setVoiceLang, VOICE_LANGS, voiceLangLabel } from './voice.js';
 import { setResourceSource, fieldLoading } from './diag.js';
 import { t } from '../../shared/i18n.js';
 
@@ -286,7 +286,7 @@ export async function installResources() {
     index = await res.json();
     if (!index || !Array.isArray(index.files)) return;
     listed = index.files.filter(validEntry);
-    index.files = listed.filter(voiceWanted);
+    index.files = wantedFiles(listed);
     pending = await reconcile();
     setPending();
     if (!pending.length) { resStore.set({ phase: 'done', total: 0 }); return; }
@@ -304,7 +304,7 @@ export async function installResources() {
 async function resync() {
   if (!index || running) return; // a running download finishes first; the next visit picks the change up
   try {
-    index.files = listed.filter(voiceWanted);
+    index.files = wantedFiles(listed);
     pending = await reconcile();
     setPending();
     if (!pending.length) resStore.set({ phase: 'done', total: 0 });
