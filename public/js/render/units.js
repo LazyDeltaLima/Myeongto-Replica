@@ -2729,6 +2729,8 @@ function defaultInterval(ctx, info) {
  * The model's size is the prefab's (the standard 0.27 character scale = UNIT.modelScale), standing still on the ground
  * like the prefab's single 0 s Default clip — on the floor and not bobbing, as on the official prep screen (maintainer
  * check 2026-11-11).
+ * An elite (golden) item wears the elite glow in the prep like an elite operator (render/fxgolden.js — the client's
+ * CreateDummy runs _CreateGoldEffectIfNeed for every chess type), else the gold ground ring while the glow cannot play.
  */
 export class ItemView {
   constructor(ctx, info) {
@@ -2738,6 +2740,11 @@ export class ItemView {
     this.id = info.id; this.uid = info.uid ?? null;
     this.x = info.x || 0; this.y = info.y || 0; this.z = 0;
     this.alive = true; this.remove = false; this.lift = 0; this.dimmed = false;
+    // the elite glow (fxgolden.js syncGoldenFx): a hand item is a prep piece
+    this.isItem = true; this.prep = true; this.isEnemy = false; this.isToken = false;
+    this.golden = !!info.golden;
+    this.goldenFallback = false;
+    this._eliteRing = null;
     this.bob = Math.random() * 6;
     this.screen = { x: 0, y: 0, s: 1, top: 0 };
     this.placed = false;
@@ -2888,6 +2895,14 @@ export class ItemView {
       this.screen.top = p.y - size;
     }
     if (this.held) this._placeCopy(cam, sn);
+    // elite ground ring: the prep stand-in for the official glow while it cannot play (render/elite-mark.js)
+    const ring = this.golden && this.goldenFallback && this.alive;
+    if (ring) {
+      if (!this._eliteRing) this._eliteRing = new EliteRing(this.P);
+      placeOnGround(this.ctx, this._eliteRing.mesh, this.ctx.layers.groundFx, this.y, this.z);
+      this._eliteRing.update(cam, this.x, this.y, this.z, this.root.alpha, t);
+    }
+    if (this._eliteRing) this._eliteRing.mesh.visible = ring;
     placeOnGround(this.ctx, this.shadow, this.ctx.layers.shadow, this.y, this.z);
     const sh = cam.project(this.x, this.y, this.z, SH_P);
     this.shadow.position.set(sh.x, sh.y);
@@ -2906,6 +2921,7 @@ export class ItemView {
     if (this.destroyed) return;
     this.destroyed = true;
     if (this._modelRef) { this.ctx.itemModels?.release(this._modelRef); this._modelRef = null; }
+    if (this._eliteRing) { this._eliteRing.destroy(); this._eliteRing = null; }
     if (this.copy) {
       this.copy.shadow.destroy();
       this.copy.root.destroy({ children: true, texture: false });

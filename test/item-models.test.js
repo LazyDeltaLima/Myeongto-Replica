@@ -300,6 +300,30 @@ describe('render/units.js ItemView: the model on its slot, else the plate', () =
     assert.equal(ringTex.destroyed, false, 'the shared outline stays');
   });
 
+  // the client's CreateDummy runs _CreateGoldEffectIfNeed for every chess type (ChessBasicInfo.isGolden, no type test);
+  // an elite item shares its base item's trapId, so the glow is what tells it apart
+  test('an elite item wears the prep elite glow (or the ring flag while it cannot play); a normal one none', async () => {
+    const { syncGoldenFx, GOLDEN_FX } = await import('../public/js/render/fxgolden.js');
+    const ctx = () => fakeViewCtx(fake.P, { assets: store(), cam, itemModels: snapModels(null).models });
+    const gold = new ItemView(ctx(), { id: 'p:1', uid: 1, kind: 'item', defId: 'chess_item_1_01_e_b', trapId: 'trap_1', golden: true, x: 1, y: 7 });
+    const plain = new ItemView(ctx(), { id: 'p:2', uid: 2, kind: 'item', defId: 'chess_item_1_01_e_a', trapId: 'trap_1', x: 2, y: 7 });
+    const views = new Map([['p:1', gold], ['p:2', plain]]);
+    const calls = [];
+    const fx = (ready) => ({
+      statusReady: (b, n) => ready && b === GOLDEN_FX[0] && n === GOLDEN_FX[1],
+      statusOn(v, b, n, key, frac, hold, under) { (v._fxStatusOn ||= new Set()).add(key); calls.push(['on', v.id, key, under]); },
+      statusOff(v, key) { v._fxStatusOn?.delete(key); calls.push(['off', v.id, key]); },
+    });
+    syncGoldenFx(views, fx(true), true);
+    assert.deepEqual(calls, [['on', 'p:1', 'golden', true]]);
+    gold.update(1 / 60, cam(), 0);
+    syncGoldenFx(views, fx(true), false);
+    assert.deepEqual(calls.at(-1), ['off', 'p:1', 'golden'], 'out of the prep: off');
+    syncGoldenFx(views, fx(false), true);
+    assert.deepEqual([gold.goldenFallback, plain.goldenFallback], [true, false], 'cannot play: the ring on the elite only');
+    gold.destroy(); plain.destroy();
+  });
+
   test('no model (unknown trap, no snapshot): the plate stays and the reference is given back', async () => {
     const s = snapModels(null);
     const it = new ItemView(fakeViewCtx(fake.P, { assets: store(), cam, itemModels: s.models }), { id: 'p:9', uid: 9, kind: 'item', defId: 'x', trapId: 'trap_1', x: 3, y: 7 });

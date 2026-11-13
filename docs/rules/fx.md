@@ -587,6 +587,12 @@
   원본의 절차 금빛 오라(`units.js aura`)는 2026-10-17에 없앴다(아래 「낮음 고리·정예 표시」).
 - 보이는 모습: 몸 뒤 은은한 금빛 + 머리 위로 오르는 금색 불티. 몸이 glow를 대부분 가린다(데이터대로) — 공식 캡처와 비교 [추정].
   보드와 벤치 모두 [추정](벤치 기물도 더미 `placeToHand`). 소환물·적·장치 제외.
+- **정예 장비** (2026-11-13, 관리자 요청 「정예화된 장비가 구분 안 됨」, 공식 클라에서 확인): 정비 기물을 만드는 `AutoChessDummyManager.CreateDummy`는
+  기물 종류와 상관없이 `_CreateGoldEffectIfNeed`를 부르고, 그 함수는 그 기물의 `ChessBasicInfo.isGolden`만 보고 같은 `goldenEffectId`를 기물 발에 튼다
+  (종류 검사 없음) → 정예 장비도 손 칸·임시 칸에서 같은 금빛. 정예 장비 56개는 모두 기본 장비와 `trapId`가 같아(같은 모델) 금빛이 유일한 구분이다.
+  지금 CN 표의 `goldenEffectId`도 하나(`trap_acgarm_buff_loop_01`)라 두 시즌 같다. 구현: `render/units.js ItemView`가 `golden`(아이템 `isGolden`)·`prep`·
+  `isItem`을 갖고 `syncGoldenFx`가 장비 뷰도 본다. 품질 낮음 등으로 못 틀면 발밑 금빛 고리(아래). 시험: `test/item-models.test.js` 「an elite item wears…」
+  (`syncGoldenFx`가 장비 뷰를 건너뛰면 실패 확인). 화면: 렌더 데모 손 칸에 기본·정예 장비 셋씩 — 정예 셋만 금빛 루프 3개, 품질 낮음이면 정예 셋만 고리.
 - **위치 수정** (2026-10-08 관리자 제보, 공식 녹화 — 비공개 녹화):
   보이는 빛은 `bao`(Additive, 1초 × speedMul 0.8 = 1.25초 주기)의 금빛 띠 — 로컬 정렬(align 2) 쿼드가 바닥면에 누워 pivot x 0.95·회전 −90°로
   발 앞에서 유닛 뒤로 뻗는다. 우리는 ① 렌더러 `m_Pivot`을 무시해 띠가 노드 자리(발 앞 0.4칸)에 놓였고 ② 프리팹 루트 위치(z −0.25)를 더해 전체가 떴다.

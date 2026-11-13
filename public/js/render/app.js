@@ -920,7 +920,7 @@ export async function createFieldView(host, options = {}) {
       const rec = data.item(piece.id);
       const tier = rec?.tier || piece.tier || 1;
       const url = assets.itemIcon ? assets.itemIcon(rec ? { trapId: rec.trapId, iconId: rec.iconId } : piece.id) : null;
-      return { kind: 'item', defId: piece.id, trapId: rec?.trapId || null, icon: url, color: (piece.golden || rec?.isGolden) ? 0xffc600 : TIER_COLORS[tier] || TIER_COLORS[1] };
+      return { kind: 'item', defId: piece.id, trapId: rec?.trapId || null, icon: url, golden: !!(piece.golden || rec?.isGolden), color: (piece.golden || rec?.isGolden) ? 0xffc600 : TIER_COLORS[tier] || TIER_COLORS[1] };
     }
     if (kind === 'token') {
       const rec = data.token(piece.id);
@@ -1774,7 +1774,7 @@ export async function createFieldView(host, options = {}) {
   function scoutItemInfo(info) {
     const rec = data.item(info.defId);
     const tier = rec?.tier || info.tier || 1;
-    return { ...info, trapId: rec?.trapId || null,
+    return { ...info, trapId: rec?.trapId || null, golden: !!(info.golden || rec?.isGolden),
       icon: assets.itemIcon ? assets.itemIcon(rec ? { trapId: rec.trapId, iconId: rec.iconId } : info.defId) : null,
       color: (info.golden || rec?.isGolden) ? 0xffc600 : TIER_COLORS[tier] || TIER_COLORS[1] };
   }
