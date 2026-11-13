@@ -105,6 +105,21 @@ test('installSeasons: the first pong offers the seasons; a room of another seaso
   assert.equal(told.length, 1);
 }));
 
+test('the browser tab names the season on screen (maintainer decision 2026-11-13)', () => withStorage(() => {
+  globalThis.document = { title: '卫戍协议：盟约 · STRONGHOLD PROTOCOL' };
+  try {
+    const net = { on: () => () => {} };
+    const target = createStore(initialState);
+    const off = installSeasons({ net, target, notify: () => {} });
+    assert.equal(document.title, '卫戍协议：盟约 · STRONGHOLD PROTOCOL');
+    target.patch('ui', { seasons: [DEFAULT_SEASON, NEXT], season: NEXT });
+    assert.equal(document.title, '卫戍协议：规程 · STRONGHOLD PROTOCOL');
+    target.set({ room: { code: 'ABCD' } }); // a 盟约 room: the room's season
+    assert.equal(document.title, '卫戍协议：盟约 · STRONGHOLD PROTOCOL');
+    off();
+  } finally { delete globalThis.document; }
+}));
+
 test('pickSeason remembers a registry season only', () => withStorage((ls) => {
   pickSeason('bogus');
   assert.equal(ls.has('sp.pref.season'), false);

@@ -16,6 +16,7 @@ import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { html } from './components.js';
 import { toast } from './toasts.js';
 import { t } from '../../../shared/i18n.js';
+import { setDocTitle } from './lang.js';
 
 /** The remembered pick (store.js loadPref). */
 export const SEASON_PREF = 'season';
@@ -84,6 +85,14 @@ export function seasonQuickCounts(s, season) {
 /** The season's word of the title (卫戍协议：<name>), translated. @param {unknown} id */
 export const seasonName = (id) => t(seasonInfo(id).name);
 
+/**
+ * The browser tab's title for a season (maintainer decision 2026-11-13: it follows the season on screen; index.html's
+ * static one is 盟约's). @param {string} id
+ */
+export const seasonTitle = (id) => (seasonOf(id) === DEFAULT_SEASON
+  ? t('卫戍协议：盟约 · STRONGHOLD PROTOCOL')
+  : t('卫戍协议：{season} · STRONGHOLD PROTOCOL', { season: seasonName(id) }));
+
 /** The remembered pick (boot). @returns {string|null} */
 export function loadPickedSeason() {
   const v = loadPref(SEASON_PREF, null);
@@ -135,6 +144,11 @@ export function installSeasons({ net, target = store, notify = (text) => toast(t
     const list = m.seasons.filter(isSeasonId);
     if (!shallowEqual(list, target.get().ui.seasons || [])) target.patch('ui', { seasons: list.length ? list : [DEFAULT_SEASON] });
   });
+  // the tab's title names the season on screen, in the current language (ui/lang.js applies it on a switch too)
+  setDocTitle(() => seasonTitle(activeSeason(target.get())));
+  const offTitle = target.subscribe((s, prev) => {
+    if (activeSeason(s) !== activeSeason(prev) && globalThis.document) globalThis.document.title = seasonTitle(activeSeason(s));
+  });
   const offStore = target.subscribe((s, prev) => {
     const code = s.room?.code;
     if (!code || code === prev.room?.code) return;
@@ -144,7 +158,7 @@ export function installSeasons({ net, target = store, notify = (text) => toast(t
     target.patch('ui', { season });
     notify(t('该同盟属于「{season}」赛季，已切换到该赛季', { season: seasonName(season) }));
   });
-  return () => { offPong?.(); offStore?.(); };
+  return () => { offPong?.(); offStore?.(); offTitle?.(); };
 }
 
 /** The NEW mark of a season other than the default. @param {{ id: string }} p */

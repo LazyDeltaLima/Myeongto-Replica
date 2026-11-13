@@ -166,13 +166,25 @@ export const htmlLang = (code) => (code === DEFAULT_LANG ? 'zh-CN' : code);
  * <html lang>, data-lang, data-script (the title screen's layout: CJK or alphabetic, from the pack's title) and the tab
  * title follow the language.
  */
+/** The browser tab's title in the current language: the default season's until ui/season.js names the one on screen. */
+let docTitle = () => t('卫戍协议：盟约 · STRONGHOLD PROTOCOL');
+
+/**
+ * Who names the tab (ui/season.js installSeasons: the season on screen); applied now and on every language switch.
+ * @param {() => string} fn
+ */
+export function setDocTitle(fn) {
+  docTitle = fn;
+  if (globalThis.document) globalThis.document.title = docTitle();
+}
+
 function applyDocument(lang) {
   const doc = globalThis.document;
   if (!doc) return;
   doc.documentElement.lang = htmlLang(lang);
   doc.documentElement.dataset.lang = lang;
   doc.documentElement.dataset.script = scriptOf(t('卫戍协议'));
-  doc.title = t('卫戍协议：盟约 · STRONGHOLD PROTOCOL');
+  doc.title = docTitle();
   // local patch: index.html's static rotate hint (a phone held upright) follows the language too — our old DOM
   // translator did that
   const set = (sel, text) => { const el = doc.querySelector?.(sel); if (el) el.textContent = text; };
