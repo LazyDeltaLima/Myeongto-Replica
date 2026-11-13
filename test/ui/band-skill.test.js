@@ -107,6 +107,24 @@ test('a tile target: a field tile, its tile lit; PASSABLE_AND_BUILDABLE never ta
   assert.equal(bandSkillTarget(pass, priv, null, null), null);
 });
 
+test('a tile 指令\'s drag tints its usable tiles like a placement drag (\'legal\') and takes no tile outside them', () => {
+  const pass = view({ target: { type: 'MAP_TILE', filter: 'PASSABLE' } });
+  const usable = new Set(['9,4', '10,6']);
+  assert.deepEqual(bandSkillTarget(pass, priv, { tile: { row: 10, col: 6 } }, null, usable)?.fields, { row: 10, col: 6 });
+  assert.equal(bandSkillTarget(pass, priv, { tile: { row: 9, col: 6 } }, null, usable), null, 'not a usable tile');
+  assert.deepEqual(bandSkillTarget(pass, priv, { tile: { row: 9, col: 6 } }, null)?.fields, { row: 9, col: 6 }, 'no set: the server judges');
+  const src = read('public/js/ui/bandSkill.js');
+  // the tint starts with the drag, only for MAP_TILE, from the placement context the game screen hands over
+  assert.match(src, /if \(target === 'MAP_TILE' && place\?\.stage\) showArea\(bandSkillTiles\(place, bs\.target\.filter, bs\.chests\)\)/);
+  assert.match(src, /view\?\.highlightTiles\?\.\(tiles \|\| \[\], 'legal'\)/);
+  assert.match(read('public/js/screens/game.js'), /<\$\{BandSkill\} [^>]*place=\$\{placeCtx\}/);
+});
+
+test('the DOM fallback view replaces a style\'s tiles as a whole ([] clears it), as the 3D view does', () => {
+  const src = read('public/js/ui/fallbackField.js');
+  assert.match(src, /for \(const \[k, s\] of \[\.\.\.st\.highlight\]\) if \(s === style\) st\.highlight\.delete\(k\);/);
+});
+
 test('the lit tile has a group of its own (the placement highlights stay)', () => {
   assert.equal(BAND_SKILL_HL.group, 'bandSkill');
 });

@@ -233,7 +233,49 @@ export function placementContext({ priv, stage, editable, field = 'normal', getC
     : deploySets(effectiveStage(stage, ov));
   // 规程's 装备区 (m.private bag > 0): the five visible temp slots hold equipment and 秘术, the hand no items
   const bag = Number(priv?.bag) > 0;
-  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, editable: !!editable, getChess, getToken, getItem, backups, bag };
+  return { priv, pieces, boardAt, handAt, deploy, cap, count, field, editable: !!editable, getChess, getToken, getItem, backups, bag, stage, overrides: ov };
+}
+
+/**
+ * Board tiles ([r, c]) of the own field a 规程 MAP_TILE 指令 of `filter` may target — mirror of server/match/match/
+ * bandSkill.js _bandSkillTile: the stage tile under it (deploy field `ctx.field`) is ground passable and carries no active
+ * obstacle device (crate / mound, under the device overrides); PASSABLE_AND_BUILDABLE also wants a buildable tile with no
+ * own piece and no 宝藏探机 chest (m.private.bandSkill.chests). The drag lights them all (maintainer decision 2026-11-13).
+ * @param {ReturnType<typeof placementContext>} ctx
+ * @param {'PASSABLE'|'PASSABLE_AND_BUILDABLE'|string} filter
+ * @param {{ row:number, col:number }[]} [chests]
+ * @returns {[number, number][]}
+ */
+export function bandSkillTiles(ctx, filter, chests = []) {
+  const out = [];
+  const stage = ctx?.stage;
+  if (!stage || !Array.isArray(stage.rows)) return out;
+  const legend = isObj(stage.tiles) ? stage.tiles : {};
+  const dov = isObj(ctx.overrides?.deviceOverrides) ? ctx.overrides.deviceOverrides : {};
+  const blocked = new Set(); // stage tiles 'r,c'
+  for (const d of Array.isArray(stage.devices) ? stage.devices : []) {
+    if (!d || !Array.isArray(d.pos) || !OBSTACLE_ROLES.has(d.role)) continue;
+    const over = d.alias != null && Object.hasOwn(dov, d.alias) ? !!dov[d.alias] : null;
+    if (over ?? (typeof d.active === 'boolean' ? d.active : !d.hidden)) blocked.add(tileKey(d.pos[0], d.pos[1]));
+  }
+  const chestAt = new Set();
+  for (const x of Array.isArray(chests) ? chests : []) if (x && Number.isInteger(x.row) && Number.isInteger(x.col)) chestAt.add(tileKey(x.row, x.col));
+  const F = GEO.FIELD;
+  for (let r = F.r0; r <= F.r1; r++) {
+    for (let c = F.c0; c <= F.c1; c++) {
+      const [sr, sc] = fieldTile(ctx.field, r, c);
+      const line = typeof stage.rows[sr] === 'string' ? stage.rows[sr] : null;
+      const g = line ? line[sc] : null;
+      const tile = g != null && Object.hasOwn(legend, g) ? legend[g] : null;
+      if (!tile || tile.groundPassable !== true || blocked.has(tileKey(sr, sc))) continue;
+      if (filter === 'PASSABLE_AND_BUILDABLE') {
+        const k = tileKey(r, c);
+        if (!tile.buildable || tile.buildable === 'NONE' || ctx.boardAt?.has(k) || chestAt.has(k)) continue;
+      }
+      out.push([r, c]);
+    }
+  }
+  return out;
 }
 
 /**

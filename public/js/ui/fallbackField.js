@@ -509,6 +509,9 @@ export function createFallbackView(host, opts = {}) {
         schedule();
         return;
       }
+      // a style's tiles are replaced as a whole, as render/app.js keeps one group per style ([] clears that style: the
+      // tile 指令 drag's 'legal' tint, ui/bandSkill.js)
+      for (const [k, s] of [...st.highlight]) if (s === style) st.highlight.delete(k);
       for (const t of Array.isArray(tiles) ? tiles : []) {
         const row = Array.isArray(t) ? t[0] : t?.row;
         const col = Array.isArray(t) ? t[1] : t?.col;

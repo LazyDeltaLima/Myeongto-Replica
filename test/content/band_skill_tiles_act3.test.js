@@ -6,7 +6,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ACT3_ON_BASE_FIELD } from '../helpers/seasonPieces.js';
-import { makeMatch } from '../match/harness.js';
+import { makeMatch, give } from '../match/harness.js';
+import { placementContext, bandSkillTiles } from '../../public/js/ui/gameLogic.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { buildBattleSpec, createBattleFromSpec } from '../../server/sim/spec.js';
 import { BAND_MARK, BAND_CHEST } from '../../server/sim/content/bands/meta.js';
@@ -112,6 +113,40 @@ test('溃心领域 (妮芙): a passable tile, once a round at stage 1 — twice 
   assert.deepEqual(four.use({ row: t4[0][0], col: t4[0][1] }), OK);
   assert.deepEqual(four.use({ row: t4[1][0], col: t4[1][1] }), OK, 'stage 2: two uses a round');
   assert.equal(four.ps.effects.filter((e) => e.key === BAND_MARK).length, 2);
+});
+
+test('the drag tints what the server takes: the browser\'s bandSkillTiles = _bandSkillTile on every stage, both filters, both boss halves, with a piece, a chest and device overrides', () => {
+  const { h, m, ps, use, view } = setup({ band: 'band_treasure' });
+  const [cr, cc] = tilesOf(m, ps, 'PASSABLE_AND_BUILDABLE')[0];
+  assert.deepEqual(use({ row: cr, col: cc }), OK, 'a chest on the board');
+  const anyChess = Object.keys(ACT3_ON_BASE_FIELD.chess).find((id) => m.gd.chess(id) && !m.gd.chess(id).isGolden);
+  let checked = 0;
+  let overridden = 0;
+  for (const stageId of Object.keys(ACT3_ON_BASE_FIELD.stages)) {
+    h.setStage(stageId);
+    // flip every obstacle device the stage has: an active one closed, a hidden one raised (模拟战场演变's overrides)
+    ps.deviceOverrides = {};
+    for (const d of m.stage.devices || []) if (d && d.alias && (d.role === 'crate' || d.role === 'mound')) ps.deviceOverrides[d.alias] = !(d.active ?? !d.hidden);
+    overridden += Object.keys(ps.deviceOverrides).length;
+    for (const l of [...ps.board.keys()]) ps.board.delete(l);
+    const free = tilesOf(m, ps, 'PASSABLE_AND_BUILDABLE').find(([r, c]) => r !== cr || c !== cc);
+    if (free) give(m, ps, anyChess, 'board', free);
+    for (const field of ['normal', 'bossL', 'bossR']) {
+      m.deployFieldOf = () => field;
+      ps.invalidateDeployMap();
+      // the browser's inputs: the private view (its board), the stage record, the overrides (priv.deviceOverrides is a
+      // stageOverrides input), the view's chests
+      const priv = { ...JSON.parse(JSON.stringify(ps.privateView())), deviceOverrides: { ...ps.deviceOverrides } };
+      const ctx = placementContext({ priv, stage: JSON.parse(JSON.stringify(m.stage)), editable: true, field });
+      for (const filter of ['PASSABLE', 'PASSABLE_AND_BUILDABLE']) {
+        assert.deepEqual(bandSkillTiles(ctx, filter, view().chests), tilesOf(m, ps, filter), `${stageId} ${field} ${filter}`);
+        checked += 1;
+      }
+    }
+    delete m.deployFieldOf;
+  }
+  assert.ok(checked >= 6 && overridden > 0, `stages compared (${checked}) with overrides (${overridden})`);
+  assert.deepEqual(bandSkillTiles(null, 'PASSABLE'), [], 'no context, no tile');
 });
 
 test('溃心领域 in battle: each enemy whose tile first becomes the marked tile is feared 3 s, sourceless, once; none without the mark', () => {

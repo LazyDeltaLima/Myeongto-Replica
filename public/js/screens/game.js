@@ -1903,7 +1903,7 @@ function MatchScreen() {
         </div>
       </div>
 
-      ${showBandSkill ? html`<${BandSkill} view=${view} priv=${priv} phase=${phase} combat=${combat} />` : null}
+      ${showBandSkill ? html`<${BandSkill} view=${view} priv=${priv} phase=${phase} combat=${combat} place=${placeCtx} />` : null}
       <${BossDamagePanel} pub=${pub} myId=${myId} />
       <div class="gm__effects"><${RoundDamage} pub=${pub} priv=${priv} myId=${myId} place="desktop" spectator=${spectator} /></div>
       ${priv?.debug && !spectator ? html`<${DebugPanel} debug=${priv.debug} prep=${phase === PHASE.PREP} diy=${priv.diy} />` : null /* local patch: local debug mode */}

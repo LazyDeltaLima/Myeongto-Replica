@@ -10,8 +10,10 @@
 //     cooldown's rounds (a clock) or a lock (a stage not unlocked yet);
 //   - a 点击使用 stage (target NO_TARGET) is used by a press on the portrait; any other is dragged from it: an arrow from
 //     the portrait to the pointer, the stage's target tip at the top, and only the pointed target's tile lit (a white
-//     tile under it; a 调度中心 card is outlined) — the official screens light nothing else; a release on a target
-//     sends g.bandSkill with it, anywhere else cancels;
+//     tile under it; a 调度中心 card is outlined) — the official screens light nothing else for an operator; a tile
+//     指令 (MAP_TILE) also tints every tile it may take like a placement drag ('legal', gameLogic bandSkillTiles —
+//     maintainer decision 2026-11-13, no official screen yet); a release on a target sends g.bandSkill with it,
+//     anywhere else cancels;
 //   - on a phone the target is the one under the finger and no name label shows (maintainer decision 2026-11-12).
 // A press on the portrait while the 指令 cannot be used, and the 「查看」 bar, open the detail; the mouse shows it on hover.
 // A strategy without an active stage shows the same portrait with the passive ring (variant_passive) and opens only its
@@ -27,6 +29,7 @@ import { actions } from './gameActions.js';
 import { data } from '../data.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 import { GEO, PHASE } from '../../../shared/constants.js';
+import { bandSkillTiles, tileKey } from './gameLogic.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -97,9 +100,10 @@ export function bandSkillText(text, bs) {
  * @param {any} priv m.private
  * @param {{ piece?: { uid:number }|null, tile?: { row:number, col:number }|null }|null} hit view.pickAt
  * @param {Element|null} el the DOM element under the point (a 调度中心 card: `.shopbar__cards [data-slot]`)
+ * @param {Set<string>|null} [usable] a MAP_TILE stage's usable board tiles 'r,c' (bandSkillTiles); a tile outside is none
  * @returns {null | { fields: object, tile?: [number, number], card?: Element }}
  */
-export function bandSkillTarget(bs, priv, hit, el) {
+export function bandSkillTarget(bs, priv, hit, el, usable = null) {
   const tg = bs?.target;
   if (!tg || !priv) return null;
   if (tg.type === 'COMMON_CHESS') {
@@ -126,6 +130,7 @@ export function bandSkillTarget(bs, priv, hit, el) {
     if (!tile || tile.row < F.r0 || tile.row > F.r1 || tile.col < F.c0 || tile.col > F.c1) return null;
     // the server judges the ground (the stage's groundPassable / buildable); an occupied tile is never PASSABLE_AND_BUILDABLE
     if (tg.filter === 'PASSABLE_AND_BUILDABLE' && (priv.board || []).some((p) => p && p.row === tile.row && p.col === tile.col)) return null;
+    if (usable && !usable.has(tileKey(tile.row, tile.col))) return null;
     return { fields: { row: tile.row, col: tile.col }, tile: [tile.row, tile.col] };
   }
   return null;
@@ -157,10 +162,11 @@ function Arrow({ x0, y0, x1, y1 }) {
 }
 
 /**
- * @param {{ view: any, priv: any, phase: string, combat: boolean }} props
- *   view: the field view (render/app.js or ui/fallbackField.js: pickAt, highlightTiles); combat: a battle phase on screen
+ * @param {{ view: any, priv: any, phase: string, combat: boolean, place?: any }} props
+ *   view: the field view (render/app.js or ui/fallbackField.js: pickAt, highlightTiles); combat: a battle phase on screen;
+ *   place: the own placement context (gameLogic placementContext — the stage, deploy field and overrides a tile 指令 reads)
  */
-export function BandSkill({ view, priv, phase, combat }) {
+export function BandSkill({ view, priv, phase, combat, place = null }) {
   const bs = priv?.bandSkill || null;
   const [open, setOpen] = useState(false);
   const [drag, setDrag] = useState(null); // { x0, y0, x, y, ok }
@@ -177,10 +183,16 @@ export function BandSkill({ view, priv, phase, combat }) {
     if (card.current) card.current.classList.add('is-skill-target');
     try { view?.highlightTiles?.(res?.tile ? [res.tile] : [], BAND_SKILL_HL); } catch { /* cosmetic */ }
   };
-  const stop = () => { press.current = null; setDrag(null); mark(null); };
+  // a tile 指令's usable tiles, tinted for the whole drag (the placement drag's own look: 'legal')
+  const area = useRef(null);
+  const showArea = (tiles) => {
+    area.current = tiles ? new Set(tiles.map(([r, c]) => tileKey(r, c))) : null;
+    try { view?.highlightTiles?.(tiles || [], 'legal'); } catch { /* cosmetic */ }
+  };
+  const stop = () => { press.current = null; setDrag(null); mark(null); if (area.current) showArea(null); };
   // a phase change, the 指令 going unusable or the view going away ends a drag
   useEffect(() => { if (!canUse && press.current) stop(); }, [canUse]);
-  useEffect(() => () => mark(null), [view]);
+  useEffect(() => () => { mark(null); if (area.current) showArea(null); }, [view]);
   useEffect(() => {
     if (!drag) return undefined;
     const onKey = (e) => { if (e.key === 'Escape') stop(); };
@@ -206,7 +218,7 @@ export function BandSkill({ view, priv, phase, combat }) {
     let el = null;
     try { el = document.elementFromPoint(x, y); } catch { /* none */ }
     const hit = target === 'SHOP_SLOT' ? null : view?.pickAt?.(x, y) ?? null;
-    return bandSkillTarget(bs, priv, hit, el);
+    return bandSkillTarget(bs, priv, hit, el, area.current);
   };
   const onDown = (e) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
@@ -221,6 +233,8 @@ export function BandSkill({ view, priv, phase, combat }) {
       if (!canUse || target === 'NO_TARGET' || Math.hypot(e.clientX - p.sx, e.clientY - p.sy) < DRAG_START) return;
       p.moved = true;
       setOpen(false);
+      // without the stage (no placement context) nothing is tinted and the server alone judges the tile
+      if (target === 'MAP_TILE' && place?.stage) showArea(bandSkillTiles(place, bs.target.filter, bs.chests));
     }
     p.res = resolve(e.clientX, e.clientY);
     mark(p.res);
