@@ -99,6 +99,7 @@ test('module type icons: one lower-case file per type, so the official \'dec-X\'
   };
   walk(m);
   assert.deepEqual(orphanFiles(['module/WAH-Y.png', 'module/old.png', 'local/x.png', 'char/a.png'], new Set(['module/wah-y.png', 'char/a.png'])), ['module/old.png']);
+  assert.deepEqual(orphanFiles(['browser-resources.json', 'ui/old.woff2'], new Set()), ['ui/old.woff2'], 'the resource worker\'s list is never an orphan');
 });
 
 test('--add-only: parsed, refused with --prune / --force; its downloader keeps every existing file and records what it wrote', async () => {

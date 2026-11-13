@@ -303,7 +303,8 @@ export function runExitCode({ requiredMisses = 0, droppedLeaves = 0, strict = fa
 
 /**
  * Files under public/assets the manifest does not reference (`--prune` deletes them). public/assets/local/** belongs to
- * tools/local-extract (data/local-assets.json) and is never an orphan: --prune used to delete all of it. Compared without
+ * tools/local-extract (data/local-assets.json) and is never an orphan: --prune used to delete all of it; nor is
+ * browser-resources.json, the resource worker's list that tools/build-browser-resources.mjs writes there. Compared without
  * case: on Windows / macOS a listed path and a file whose name differs only in case are one file (module/WAH-Y.png on
  * disk serves the listed module/wah-y.png), which --prune must not delete.
  * @param {string[]} onDisk forward-slash paths relative to public/assets
@@ -311,7 +312,7 @@ export function runExitCode({ requiredMisses = 0, droppedLeaves = 0, strict = fa
  */
 export function orphanFiles(onDisk, referenced) {
   const listed = new Set([...referenced].map((r) => r.toLowerCase()));
-  return onDisk.filter((r) => !listed.has(r.toLowerCase()) && !r.startsWith('local/'));
+  return onDisk.filter((r) => !listed.has(r.toLowerCase()) && !r.startsWith('local/') && r !== 'browser-resources.json');
 }
 
 const mb = (n) => `${(n / 1048576).toFixed(1)} MB`;
