@@ -1,9 +1,10 @@
 /* ==========================================================================================
    screens/achievements.css — the lobby hub's 成就统计 window (js/screens/achievements.js), after upstream 0.3.3
    (css/screens/stats.css there): the event banner, the doctor's line and the title hexagon, 卫戍成就, the single-match
-   records, 盟约记录 and 策略记录, drawn over the official statistics template's artwork (`ui/statistics/*`) and its two
-   fonts ('Official Stats Numerals' / 'Official Stats Labels', declared by the template's fonts.css). Font sizes scale
-   with `--t` (1rem here, as the lobby hub).
+   records, 盟约记录 and 策略记录, drawn over the official statistics template's artwork (`ui/statistics/*`) and its label
+   font ('Official Stats Labels', declared by the template's fonts.css). Its numerals are the template's Novecento Wide
+   Medium, which no free licence lets a page embed: Lexend Exa (SIL OFL) stands in at 500, -.06 em, as on the HUD
+   (maintainer decisions 2026-11-11, 2026-11-13). Font sizes scale with `--t` (1rem here, as the lobby hub).
    ========================================================================================== */
 .modal__box.achv, .modal.achv-veil { --t: 1rem; }
 /* Single-match records follow the official statistics template. */
@@ -25,7 +26,7 @@
 .st-record--kills .st-record__icon { width: min(36%, .9875rem); }
 .st-record__decoration { display: block; width: max(.6625rem, 32px, calc(42px * var(--sp-ui, 1))); height: max(.0875rem, 5px); object-fit: contain; object-position: left; }
 .st-record__label { margin-top: max(.08125rem, calc(6px * var(--sp-ui, 1))); font-family: 'Official Stats Labels', var(--font-ui, sans-serif); font-size: max(.1875rem, 11px); line-height: 1.3; color: #898989; overflow-wrap: anywhere; }
-.st-record__value { display: flex; align-items: baseline; gap: .045rem; margin-top: max(.0375rem, calc(3px * var(--sp-ui, 1))); font-family: 'Official Stats Numerals', var(--font-num); line-height: 1; }
+.st-record__value { display: flex; align-items: baseline; gap: .045rem; margin-top: max(.0375rem, calc(3px * var(--sp-ui, 1))); font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 500; letter-spacing: -.06em; line-height: 1; }
 .st-record__value > span { color: #fff; font-size: max(.28125rem, 16px); }
 .st-record__value > b { min-width: 0; color: var(--st-record-color); font-size: max(.41875rem, 24px); font-weight: 400; overflow-wrap: anywhere; }
 /* Mode summary follows the official statistics template's two-row table. */
@@ -67,7 +68,7 @@
 .st-achievement__caption { position: absolute; top: 0; padding: .04rem .15rem; background: rgba(104,106,106,.3); border-radius: .1375rem; font-weight: 700; }
 .st-achievement__bond { display: flex; align-items: center; justify-content: center; width: 1.31875rem; aspect-ratio: 1; margin: .38rem 0 .175rem; background-position: center; background-size: contain; }
 .st-achievement__bond .bglyph { width: 83.4%; height: 83.4%; }
-.st-achievement__peak > b { margin-top: .0875rem; color: #4ed7b8; font-family: 'Official Stats Numerals', var(--font-num); font-size: max(.525rem, 28px); font-weight: 400; line-height: 1; }
+.st-achievement__peak > b { margin-top: .0875rem; color: #4ed7b8; font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-size: max(.525rem, 28px); font-weight: 500; letter-spacing: -.06em; line-height: 1; }
 .st-achievement__detail { display: grid; grid-template-columns: minmax(0, 1fr) 1.775rem; padding: .16875rem .1rem .16875rem .325rem; border: max(.01875rem, calc(1px * var(--sp-ui, 1))) solid rgba(222,238,243,.2); border-left-width: .06rem; background-position: left center; background-size: contain; background-repeat: no-repeat; }
 .st-achievement__lineup { display: grid; grid-template-columns: repeat(5, minmax(0, .73125rem)); justify-content: space-between; gap: .14375rem .23125rem; margin: 0; padding: 0; list-style: none; }
 .st-achievement-unit { box-sizing: border-box; position: relative; min-width: 0; aspect-ratio: .73125 / 1.40625; border: .01875rem solid; border-image: linear-gradient(#fff, #7c7c7c) 1; background: linear-gradient(#fff 0%, #fff 50%, #272727 80%); }
@@ -76,12 +77,12 @@
 .st-achievement-unit.is-empty::before { top: 0; border-bottom: none; }
 .st-achievement-unit.is-empty::after { bottom: 0; border-top: none; }
 .st-achievement-unit.is-empty > i { display: block; width: .01875rem; height: .76875rem; background: rgba(255,255,255,.2); transform: rotate(45deg); }
-.st-achievement-unit.is-empty > span { color: rgba(135,135,135,.5); font-family: 'Official Stats Numerals', var(--font-num); font-size: .1125rem; line-height: 1; }
+.st-achievement-unit.is-empty > span { color: rgba(135,135,135,.5); font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 500; letter-spacing: -.06em; font-size: .1125rem; line-height: 1; }
 .st-achievement-unit__portrait { width: 100%; height: 100%; object-fit: contain; -webkit-mask: linear-gradient(#fff 50%, rgba(255,255,255,.01) 90%); mask: linear-gradient(#fff 50%, rgba(255,255,255,.01) 90%); }
 .st-achievement-unit__tier { position: absolute; width: 34.2%; aspect-ratio: 1; top: -4.4%; left: -18%; object-fit: contain; }
 .st-achievement-unit__level { box-sizing: border-box; position: absolute; top: 16%; left: -18%; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 35.9%; height: 36.4%; border: .01875rem solid #414141; border-radius: .125rem; background: #141414; }
 .st-achievement-unit__level img { width: 71.4%; aspect-ratio: 1; object-fit: contain; }
-.st-achievement-unit__level span { color: #fff; font-family: 'Official Stats Numerals', var(--font-num); font-size: .15625rem; line-height: 1; }
+.st-achievement-unit__level span { color: #fff; font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 500; letter-spacing: -.06em; font-size: .15625rem; line-height: 1; }
 .st-achievement-unit__items { position: absolute; bottom: 0; left: 50%; display: flex; justify-content: space-between; width: 96.6%; transform: translateX(-50%); }
 .st-achievement-unit__slot { position: relative; display: flex; align-items: center; justify-content: center; width: 48.7%; aspect-ratio: 1; background-color: rgba(60,60,60,.7); background-position: center; background-size: cover; }
 .st-achievement-unit__slot::before, .st-achievement-unit__slot::after { content: ''; box-sizing: border-box; position: absolute; left: 0; width: 100%; height: .04375rem; border: .01875rem solid rgba(255,255,255,.47); }
@@ -100,7 +101,7 @@
 .st-achievement__bonds .bglyph { position: absolute; top: 50%; left: 50%; width: 48%; height: 48%; transform: translate(-50%, -50%); }
 .st-achievement__bonds .bglyph img { filter: brightness(0); }
 .st-achievement__bonds .bglyph__txt { color: #000; }
-.st-achievement__bonds b { position: absolute; top: 85.7%; left: 50%; color: #f4f4f4; text-shadow: 0 0 .1rem #000, 0 0 .15rem rgba(0,0,0,.5), 0 0 .2rem rgba(0,0,0,.25); font-family: 'Official Stats Numerals', var(--font-num); font-size: .225rem; font-weight: 400; line-height: 1; transform: translate(-50%, -50%); }
+.st-achievement__bonds b { position: absolute; top: 85.7%; left: 50%; color: #f4f4f4; text-shadow: 0 0 .1rem #000, 0 0 .15rem rgba(0,0,0,.5), 0 0 .2rem rgba(0,0,0,.25); font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-size: .225rem; font-weight: 500; letter-spacing: -.06em; line-height: 1; transform: translate(-50%, -50%); }
 @media (max-width: 680px) {
   .st-achievement { grid-template-columns: minmax(0, 1fr); gap: .15rem; }
   .st-achievement__peak { min-height: 1.8rem; padding-left: 1.5rem; }
@@ -137,7 +138,7 @@
 .st-top-strategy__rank { position: absolute; z-index: 1; top: 7.8%; left: 7.8%; font-family: var(--font-num); font-size: max(.225rem, 9px); line-height: 1; color: rgba(233, 233, 233, .3); }
 .st-top-strategy__text { min-width: 0; }
 .st-top-strategy__name { display: block; font-family: 'Official Stats Labels', var(--font-ui, sans-serif); font-size: max(.20625rem, 11px); line-height: 1.3; color: #e9e9e9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.st-top-strategy__count { display: flex; align-items: baseline; gap: .04rem; margin-top: max(.125rem, calc(5px * var(--sp-ui, 1))); font-family: 'Official Stats Numerals', var(--font-num); line-height: 1; }
+.st-top-strategy__count { display: flex; align-items: baseline; gap: .04rem; margin-top: max(.125rem, calc(5px * var(--sp-ui, 1))); font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 500; letter-spacing: -.06em; line-height: 1; }
 .st-top-strategy__count > span { color: #fff; font-size: max(.1625rem, 10px); }
 .st-top-strategy__count > b { color: #4ed7b8; font-size: max(.31875rem, 16px); font-weight: 400; }
 .st-strategy-badges { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: max(.3rem, calc(18px * var(--sp-ui, 1))) max(.28125rem, calc(12px * var(--sp-ui, 1))); max-width: 9rem; margin: .3rem auto; padding: 0; list-style: none; }
@@ -174,7 +175,7 @@
 .st-titlehex__label--3 { left: 50%; top: 90%; }
 .st-titlehex__label--4 { left: 15%; top: 72%; }
 .st-titlehex__label--5 { left: 15%; top: 28%; }
-.st-titlehex__count { position: relative; isolation: isolate; font-family: 'Official Stats Numerals', 'Novecento Wide', var(--font-num); font-size: max(.2rem, 16px); font-weight: 400; line-height: 1; letter-spacing: 0; color: #40eec9; }
+.st-titlehex__count { position: relative; isolation: isolate; font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-size: max(.2rem, 16px); font-weight: 500; line-height: 1; letter-spacing: -.06em; color: #40eec9; }
 .st-titlehex__count.is-bright { color: #fff; text-shadow: 0 0 max(.045rem, calc(2px * var(--sp-ui, 1))) rgba(88, 255, 227, .73), 0 0 max(.045rem, calc(2px * var(--sp-ui, 1))) rgba(88, 255, 227, .73); }
 .st-titlehex__count.is-bright::before {
   content: ''; position: absolute; z-index: -1; width: 3.9444em; height: 1.75em; top: 50%; left: 50%; transform: translate(-50%, -50%);

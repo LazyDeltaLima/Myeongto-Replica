@@ -101,6 +101,17 @@ export const seasonDataDir = (id) => (seasonOf(id) === DEFAULT_SEASON ? '' : `se
 export const seasonFeature = (id, name) => SEASONS[seasonOf(id)].features[name] === true;
 
 /**
+ * The season a page opens in for a player who never picked one (maintainer decision 2026-11-13: the newest season): the
+ * last public entry of SEASONS (registry order is release order). Static, so the title draws it before the server
+ * answers with its list.
+ * @returns {string}
+ */
+export function newestPublicSeason() {
+  const open = Object.values(SEASONS).filter((s) => s.public);
+  return open.length ? open[open.length - 1].id : DEFAULT_SEASON;
+}
+
+/**
  * The seasons a server offers: the public ones plus those its `SP_SEASONS` list (comma-separated ids) names.
  * @param {string | null | undefined} [extra] the SP_SEASONS value
  * @returns {string[]}

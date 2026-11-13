@@ -159,6 +159,8 @@ export function createDataStore(opts = {}) {
   const localized = new Map();
   /** The 卫戍协议 season whose files are read (shared/seasons.js; setSeason): the default's are /data/<file>. */
   let season = DEFAULT_SEASON;
+  /** The last setSeason's work (resolves once its files have settled; seasonSettled). */
+  let seasonWork = Promise.resolve();
 
   const tell = (name) => {
     for (const fn of [...listeners]) {
@@ -431,6 +433,8 @@ export function createDataStore(opts = {}) {
     invalidate,
     /** The 卫戍协议 season whose files are read (shared/seasons.js). */
     season: () => season,
+    /** Resolves once the last season switch's files have settled (ui/seasonFade.js lights the screen up after it). */
+    seasonSettled: () => seasonWork,
     /**
      * Read another season's files (a room of that season, room.state `season`; absent = the default): every loaded
      * file but the art manifests is fetched again from that season (subscribers are notified as for invalidate).
@@ -443,7 +447,8 @@ export function createDataStore(opts = {}) {
       season = next;
       if (entries.has('assets')) tell('assets'); // its season view changes now (seasonAssets)
       // the season's game texts first (a file each language), so the files read again come localized with them
-      return loadSeasonOverlays().catch(() => {}).then(() => Promise.all([...entries.keys()].filter((n) => !ART_MANIFESTS.has(n)).map(invalidate))).then(() => {});
+      seasonWork = loadSeasonOverlays().catch(() => {}).then(() => Promise.all([...entries.keys()].filter((n) => !ART_MANIFESTS.has(n)).map(invalidate))).then(() => {});
+      return seasonWork;
     },
     /** Called with the file name whenever a file finishes loading (or is invalidated, or the locale changes). */
     subscribe(fn) {

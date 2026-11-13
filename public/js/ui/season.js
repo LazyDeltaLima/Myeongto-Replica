@@ -1,21 +1,20 @@
-// The 卫戍协议 season picker (maintainer decisions 2026-11-01; shared/seasons.js). A socket's first pong names the seasons
-// rooms may name (`seasons`, only when the server offers several: Lobby.connectInfo) → store ui.seasons; the season the
-// player picked is remembered (pref `season` → ui.season; a first visit has the default season, the previous one).
-// While several are offered the page shows the picker: the season tabs at the top of the title's login box (the
-// title's season word follows the pick) and the season chip of the lobby's top bar; with one season nothing shows.
-// A room has its season (room.state `season`): an invitation link carries it (`&season=`, ui.pendingSeason — the title
-// then names the room's season instead of the tabs), and joining a room of another season — a link, a typed key,
-// spectating — switches the pick to it with a toast. The season on screen (activeSeason: the room's, else the picked
-// one) is the one whose data, loadout and statistics the page uses (main.js); rooms are created and 랜덤 매칭 queued in
-// the picked one. The update news and 作战提示 are the same in every season.
+// The 卫戍协议 season picker (maintainer decisions 2026-11-01, 2026-11-13; shared/seasons.js). A socket's first pong
+// names the seasons rooms may name (`seasons`, only when the server offers several: Lobby.connectInfo) → store
+// ui.seasons; the season the player picked is remembered (pref `season` → ui.season; a player who never picked one opens
+// in the newest public season, newestPublicSeason). While several are offered the lobby's top bar has the season chip —
+// the one place a season is picked (maintainer decision 2026-11-13: the title's season tabs are gone; the title draws
+// the picked season's art, music and words). A room has its season (room.state `season`): an invitation link carries it
+// (`&season=`, ui.pendingSeason; a room link without it is a 盟约 room, as every link was before), and joining a room of
+// another season — a link, a typed key, spectating — switches the pick to it with a toast. The season on screen
+// (activeSeason: the room's, else the picked one) is the one whose data, loadout and statistics the page uses
+// (main.js); rooms are created and 랜덤 매칭 queued in the picked one. The update news and 作战提示 are the same in
+// every season.
 
 import { useState, useEffect, useRef } from '../../vendor/hooks.module.js';
-import { DEFAULT_SEASON, isSeasonId, seasonInfo, seasonOf } from '../../../shared/seasons.js';
+import { DEFAULT_SEASON, isSeasonId, seasonInfo, seasonOf, newestPublicSeason } from '../../../shared/seasons.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { html } from './components.js';
 import { toast } from './toasts.js';
-import { useData } from '../data.js';
-import { seasonTabArt } from './seasonArt.js';
 import { t } from '../../../shared/i18n.js';
 
 /** The remembered pick (store.js loadPref). */
@@ -30,10 +29,16 @@ export function offeredSeasonsOf(s) {
 /** Whether the page shows the season picker: the server offers several. @param {any} s */
 export const hasSeasonPicker = (s) => offeredSeasonsOf(s).length > 1;
 
-/** The picked season, when the server offers it; else the default. @param {any} s @returns {string} */
+/**
+ * The picked season, when the server offers it; else the newest public season (a player who never picked one), else
+ * the default. @param {any} s @returns {string}
+ */
 export function pickedSeason(s) {
   const id = s?.ui?.season;
-  return offeredSeasonsOf(s).includes(id) ? id : DEFAULT_SEASON;
+  const offered = offeredSeasonsOf(s);
+  if (offered.includes(id)) return id;
+  const newest = newestPublicSeason();
+  return offered.includes(newest) ? newest : DEFAULT_SEASON;
 }
 
 /**
@@ -95,6 +100,16 @@ export function parseSeasonParam(search) {
 }
 
 /**
+ * The season an invitation waits in (ui.pendingSeason): the link's `&season=`, else 盟约 — inviteLink leaves the
+ * parameter out for a 盟约 room, so a link without one must not show the newest season a new visitor opens in.
+ * @param {string} search @param {boolean} invited a room link (`?room=`)
+ * @returns {string | null}
+ */
+export function inviteSeasonOf(search, invited) {
+  return invited ? (parseSeasonParam(search) ?? DEFAULT_SEASON) : null;
+}
+
+/**
  * Wire the picker once (main.js): the first pong's `seasons`, and the pick following a room of another season.
  * @param {{ net: any, target?: typeof store, notify?: (text: string) => void }} deps
  */
@@ -121,29 +136,6 @@ function NewMark({ id }) {
   return id === DEFAULT_SEASON ? null : html`<span class="season-new">NEW</span>`;
 }
 
-/**
- * The title's season tabs (top of the login box; mockup C). Nothing while one season is offered or an invitation waits.
- * Each tab shows its season's picture and emblem (ui/seasonArt.js seasonTabArt; maintainer decision 2026-11-10) when
- * every offered season has them; else the names alone.
- */
-export function SeasonTabs() {
-  const st = useStore((s) => ({ offered: offeredSeasonsOf(s), picked: pickedSeason(s), invite: !!s.ui.pendingJoin }), shallowEqualDeep);
-  useData('assets', 'local');
-  if (st.offered.length < 2 || st.invite) return null;
-  const arts = st.offered.map(seasonTabArt);
-  const art = arts.every(Boolean);
-  return html`<div class="season-tabs">
-    <span class="season-tabs__k">${t('赛季')}<small>SEASON</small></span>
-    <span class=${`season-tabs__opts${art ? ' has-art' : ''}`} role="radiogroup" aria-label=${t('赛季')}>
-      ${st.offered.map((id, i) => html`<button key=${id} type="button" role="radio" aria-checked=${id === st.picked ? 'true' : 'false'}
-        class=${`season-tabs__opt tapx${id === st.picked ? ' is-on' : ''}`} onClick=${() => pickSeason(id)}
-        style=${art ? `--tab-art: url("${arts[i].bg}")` : null}>${art
-          ? html`<img class="season-tabs__emb" src=${arts[i].emblem} alt="" draggable="false" /><span class="season-tabs__name">${seasonName(id)}<${NewMark} id=${id} /></span>`
-          : html`${seasonName(id)}<${NewMark} id=${id} />`}</button>`)}
-    </span>
-  </div>`;
-}
-
 /** The line of the title's invitation card naming the room's season, when the link names another than the picked one. */
 export function InviteSeason() {
   const st = useStore((s) => ({ offered: hasSeasonPicker(s), invite: activeSeason(s), picked: pickedSeason(s) }), shallowEqual);
@@ -151,8 +143,12 @@ export function InviteSeason() {
   return html`<span class="title-invite__season">${t('该同盟属于「{season}」赛季，将以该赛季加入', { season: seasonName(st.invite) })}</span>`;
 }
 
-/** The lobby top bar's season chip and its menu (the waiting Doctors of each season come from lobby.queueCounts). */
-export function SeasonChip() {
+/**
+ * The lobby top bar's season chip and its menu (the waiting Doctors of each season come from lobby.queueCounts): the one
+ * place a season is picked. `onPick` makes the pick (the lobby passes ui/seasonFade.js pickSeasonThroughDark).
+ * @param {{ onPick?: (id: string) => unknown }} props
+ */
+export function SeasonChip({ onPick = pickSeason }) {
   const st = useStore((s) => ({ offered: offeredSeasonsOf(s), picked: pickedSeason(s) }), shallowEqualDeep);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -165,7 +161,7 @@ export function SeasonChip() {
     return () => { document.removeEventListener('pointerdown', close, true); document.removeEventListener('keydown', esc, true); };
   }, [open]);
   if (st.offered.length < 2) return null;
-  const choose = (id) => { pickSeason(id); setOpen(false); };
+  const choose = (id) => { setOpen(false); if (id !== st.picked) onPick(id); };
   return html`<span class="season-chip-wrap" ref=${ref}>
     <button type="button" class=${`season-chip tapx${open ? ' is-open' : ''}`} aria-haspopup="true" aria-expanded=${open ? 'true' : 'false'}
       onClick=${() => setOpen(!open)}>

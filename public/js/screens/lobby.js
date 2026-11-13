@@ -69,6 +69,7 @@ import { RadarScene, JoinArt } from '../ui/allyArt.js';
 import { ProtocolScene } from '../ui/protocolScene.js';
 import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
 import { seasonBackdrop, seasonLogo } from '../ui/seasonArt.js';
+import { pickSeasonThroughDark } from '../ui/seasonFade.js';
 import { useLang } from '../ui/lang.js';
 import { net, identity } from '../net.js';
 import { useDocClass, detectFeatures, useMediaQuery, SHORT_SCREEN_QUERY } from '../ui/device.js';
@@ -1052,7 +1053,7 @@ export function LobbyScreen() {
         </div>
       </div>
       <div class="topbar__right">
-        <${SeasonChip} />
+        <${SeasonChip} onPick=${pickSeasonThroughDark} />
         <${ResumeMatchButton} />
       </div>
     </header>

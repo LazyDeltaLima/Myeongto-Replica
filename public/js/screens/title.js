@@ -6,9 +6,9 @@
 // marks this tab as "entered" (so reloads skip the title) and hands the name to net.js, which
 // sends `hello` (now, or as soon as the socket is open). The router then shows the lobby.
 //
-// While the server offers several 卫戍协议 seasons, the login box starts with the season tabs (ui/season.js SeasonTabs;
-// maintainer decision 2026-11-01) and the title's season word and wordmark are the picked season's — an invitation's
-// room's when the link names it.
+// The title draws the season picked on the lobby's season chip (ui/season.js; maintainer decision 2026-11-13: the one
+// place a season is picked — the title's season tabs are gone; a player who never picked opens in the newest public
+// season): its art, words and wordmark — an invitation's room's when the link names it.
 //
 // Backdrop art: if data/assets.json lists a UI backdrop (`ui.titleBackdrop`, or one of the
 // entry/loading illustration names) it is layered under the CSS art; otherwise the screen is
@@ -17,11 +17,10 @@
 // the entry film, ui/entryFilm.js, ends on), and in the 盟约 season the event's logo (`entry/season_logo`) in the
 // emblem's brackets at the size the film leaves it; another season keeps the dot emblem. Ported from upstream 0.3.3.
 // A later season with its own art extracted (ui/seasonArt.js) draws its hub backdrop instead and its logo as the title
-// (the words stay for screen readers; maintainer decision 2026-11-08); a pick on the season tabs goes through the dark
-// (useSeasonFade). The parts marked `data-reveal` are where a season's entry clip brings its hub in while its film fades
+// (the words stay for screen readers; maintainer decision 2026-11-08). The parts marked `data-reveal` are where a season's entry clip brings its hub in while its film fades
 // (ui/clipFilm.js titleReveal: back, logo, bottom, top, side).
 
-import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
+import { useMemo, useState } from '../../vendor/hooks.module.js';
 import { NAME_MAX_LEN, APP_VERSION, DEV_BUILD } from '../../../shared/constants.js';
 import { html, Button, Icon, MicroLabel, TextField, PingPill } from '../ui/components.js';
 import { GuideButton } from '../ui/guide.js';
@@ -30,7 +29,7 @@ import { toast } from '../ui/toasts.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { data, useData } from '../data.js';
-import { FullscreenButton, detectFeatures, isIosSafari, reducedMotion } from '../ui/device.js';
+import { FullscreenButton, detectFeatures, isIosSafari } from '../ui/device.js';
 import { LangToggle, useLang } from '../ui/lang.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
@@ -38,7 +37,7 @@ import { GIcon } from '../ui/gameComponents.js';
 import { SettingsModal } from '../ui/settings.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { AboutModal } from '../ui/about.js';
-import { SeasonTabs, InviteSeason, activeSeason, seasonName } from '../ui/season.js';
+import { InviteSeason, activeSeason, seasonName } from '../ui/season.js';
 import { seasonInfo, DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
 import { seasonBackdrop, seasonLogo } from '../ui/seasonArt.js';
@@ -219,42 +218,6 @@ const STATUS_TEXT = {
   online: N_('已连接服务器'), reconnecting: N_('连接中断，正在重连'), closed: N_('连接已关闭'),
 };
 
-/** The title's season change through the dark, in ms (maintainer decision 2026-11-02). */
-export const SEASON_FADE = Object.freeze({ out: 350, in: 450 });
-
-/**
- * The season the title draws: the picked one, reached through the dark. A pick fades the backdrop to black
- * (SEASON_FADE.out); while it is black the screen's season art and words switch (the new backdrop decoded first), then it
- * lights up (SEASON_FADE.in, the CSS of .title-bg__veil). The latest pick wins; reduced motion switches at once. Only the
- * title's season tabs come this way: the lobby's season chip switches at once.
- * @param {string} season the picked season
- * @returns {{ shown: string, dark: boolean }}
- */
-function useSeasonFade(season) {
-  const [shown, setShown] = useState(season);
-  const [dark, setDark] = useState(false);
-  const token = useRef(0);
-  useEffect(() => {
-    const my = ++token.current;
-    if (season === shown && !dark) return undefined;
-    if (reducedMotion()) { setShown(season); setDark(false); return undefined; }
-    setDark(true);
-    const timer = setTimeout(async () => {
-      const url = seasonBackdrop(season);
-      if (url) {
-        const im = new Image();
-        im.src = url;
-        await im.decode().catch(() => {});
-      }
-      if (my !== token.current) return;
-      setShown(season);
-      setDark(false);
-    }, SEASON_FADE.out);
-    return () => clearTimeout(timer);
-  }, [season]);
-  return { shown, dark };
-}
-
 /** Title screen component. */
 export function TitleScreen() {
   const conn = useStore((s) => s.connection, shallowEqual);
@@ -267,8 +230,8 @@ export function TitleScreen() {
   const assetsSettled = useData('assets');
   useData('local'); // a later season's own art (ui/seasonArt.js)
   const assets = data.get('assets');
-  // the season on screen: the picked one, reached through the dark
-  const { shown: season, dark } = useSeasonFade(picked);
+  // the season on screen: the picked one (the lobby's chip changes it through the dark, ui/seasonFade.js)
+  const season = picked;
   const seasonBg = seasonBackdrop(season);
   const seasonMark = seasonLogo(season, lang);
   const [markBad, setMarkBad] = useState(null); // a listed logo that fails to load gives the words back
@@ -332,7 +295,6 @@ export function TitleScreen() {
       <span class="cross" style="left:14%;top:70%"></span>
       <span class="cross" style="left:88%;top:62%"></span>
       <span class="cross" style="left:60%;top:12%"></span>
-      <div class=${`title-bg__veil${dark ? ' is-dark' : ''}`}></div>
     </div>
 
     <div class="title-corner title-corner--tl" data-reveal="top">
@@ -360,7 +322,6 @@ export function TitleScreen() {
       <p class="title-tag" data-reveal="side">${t('调配资金与干员，与同伴协同布防，抵御多波次进攻，直至击败敌方领袖。')}</p>
 
       <div class="title-login" data-reveal="bottom">
-        <${SeasonTabs} />
         ${pendingJoin ? html`<div class="title-invite">
           <span class="title-invite__head"><${Icon} name="key" /><span>${t('收到同盟邀请')}</span><b class="num">${pendingJoin}</b></span>
           <span class="title-invite__hint t-lo">${t('· 输入代号后将自动加入')}</span>

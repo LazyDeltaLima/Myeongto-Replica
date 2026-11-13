@@ -61,4 +61,11 @@ test('the jobs: one per file under ui/statistics/, PNGs checked as png, fonts / 
   assert.ok(jobs.every((j) => j.rel.startsWith('ui/statistics/')));
   for (const j of jobs) assert.equal(j.kind, j.rel.endsWith('.png') ? 'png' : 'bin', j.rel);
   assert.ok(jobs.find((j) => j.name === 'fontStyles').urls[0].startsWith('data:text/css'));
+  // the template's Novecento Wide Medium numerals: not downloaded nor declared (no free licence lets a page embed it;
+  // the window draws Lexend Exa — maintainer decision 2026-11-13)
+  assert.equal(jobs.find((j) => j.name === 'numberFont'), undefined);
+  assert.doesNotMatch(decodeURIComponent(jobs.find((j) => j.name === 'fontStyles').urls[0]), /Numerals|number-font/);
+  const achv = await readFile(new URL('../public/css/screens/achievements.css', import.meta.url), 'utf8');
+  assert.doesNotMatch(achv, /font-family: 'Official Stats Numerals'/);
+  assert.equal(achv.match(/font-family: 'Lexend Exa', 'Novecento Wide', var\(--font-num\); [^}]*?font-weight: 500;[^}]*?letter-spacing: -\.06em;/g)?.length, 7, 'the seven numeral rules, as the HUD draws Lexend Exa');
 });

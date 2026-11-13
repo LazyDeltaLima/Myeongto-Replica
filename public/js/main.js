@@ -58,7 +58,7 @@ import { StatsHost } from './screens/stats.js';
 import { recordResult, recordQuit, installStatsRecorder } from './ui/stats.js';
 import { installLoadoutSync, installOwnershipSync, installDiySync, setLoadoutSeason } from './ui/loadoutSync.js';
 import { installCardSync } from './ui/cardSync.js';
-import { installSeasons, activeSeason, loadPickedSeason, parseSeasonParam } from './ui/season.js';
+import { installSeasons, activeSeason, loadPickedSeason, inviteSeasonOf } from './ui/season.js';
 import { installDiyPresets } from './ui/diyPresets.js'; // 맹약별 선발 프리셋
 import { startBuildGuard } from './ui/buildGuard.js';
 import { installChat } from './ui/chat.js';
@@ -464,7 +464,7 @@ async function boot() {
   const identityReady = identity.init();
 
   const pendingJoin = parseRoomParam(location.search);
-  const pendingSeason = pendingJoin ? parseSeasonParam(location.search) : null;
+  const pendingSeason = inviteSeasonOf(location.search, !!pendingJoin);
   const savedName = sanitizeName(identity.loadName());
   const entered = identity.wasEntered() && !!savedName;
   store.set((s) => ({

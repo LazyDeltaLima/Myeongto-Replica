@@ -1,5 +1,5 @@
-// The official statistics template (the event's public 战绩 webview, after upstream 0.3.3): the artwork and the two
-// fonts the 成就统计 window and 统计数据 draw with (screens/stats.js), as `ui/statistics/*` of data/assets.json. Some
+// The official statistics template (the event's public 战绩 webview, after upstream 0.3.3): the artwork and the label
+// font the 成就统计 window and 统计数据 draw with (screens/stats.js), as `ui/statistics/*` of data/assets.json. Some
 // pictures are files on the webview's CDN, the others are embedded in its stylesheet as data URLs; the stylesheet is
 // cached in .cache/ and its embedded pictures checked (PNG / SVG) before they become download jobs. Nothing of it is
 // kept in git. A failed fetch keeps the files already on disk (the plan then lists only those).
@@ -9,8 +9,9 @@ import { isCompletePng } from './formats.mjs';
 
 export const STATS_TEMPLATE_CSS = 'https://web.hycdn.cn/arknights/webview/act1autochess.41668e.css';
 const CDN = 'https://web.hycdn.cn/arknights/webview/assets';
-const FONT_CSS = `@font-face { font-family: 'Official Stats Numerals'; font-display: swap; src: url('number-font.woff2') format('woff2'); }
-@font-face { font-family: 'Official Stats Labels'; font-display: swap; src: url('label-font.woff2') format('woff2'); }
+// The template's numerals are Novecento Wide Medium, which no free licence lets a page embed: not downloaded, the window
+// draws its numbers in Lexend Exa (css/screens/achievements.css; maintainer decision 2026-11-13).
+const FONT_CSS = `@font-face { font-family: 'Official Stats Labels'; font-display: swap; src: url('label-font.woff2') format('woff2'); }
 `;
 
 /** Extract embedded images, checking their types before exposing download jobs. */
@@ -74,7 +75,6 @@ export async function statsTemplateJobs(root, { offline = false, fetchImpl = glo
     ['titleMask', 'title-mask.svg', embedded.titleMask],
     ['countGlow', 'count-glow.png', embedded.countGlow],
     ['decoration', 'dash.png', `${CDN}/img/dash.99f37d.png`],
-    ['numberFont', 'number-font.woff2', `${CDN}/fonts/NovecentoWide-Medium.fb69ff.woff2`],
     ['labelFont', 'label-font.woff2', `${CDN}/fonts/SourceHanSans-Medium.678769.woff2`],
     ['fontStyles', 'fonts.css', `data:text/css;charset=utf-8,${encodeURIComponent(FONT_CSS)}`],
     ['recordLabel', 'record-label.png', embedded.recordLabel],

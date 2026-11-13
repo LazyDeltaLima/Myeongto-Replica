@@ -74,16 +74,6 @@ describe('season art', () => {
   });
 });
 
-describe('the title season change through the dark', () => {
-  test('down in 0.35 s, up in 0.45 s, as the CSS draws it', async () => {
-    const { SEASON_FADE } = await import('../../public/js/screens/title.js');
-    assert.deepEqual({ ...SEASON_FADE }, { out: 350, in: 450 });
-    const css = readFileSync(path.join(ROOT, 'public/css/screens/title.css'), 'utf8');
-    assert.match(css, /\.title-bg__veil \{[^}]*transition: opacity 450ms/);
-    assert.match(css, /\.title-bg__veil\.is-dark \{[^}]*transition-duration: 350ms/);
-  });
-});
-
 describe('the full local extract keeps the season groups', () => {
   test('extract.py keeps season/* of the previous manifest on a run without --only', () => {
     const src = readFileSync(path.join(ROOT, 'tools/local-extract/extract.py'), 'utf8');
@@ -177,28 +167,6 @@ describe("阿米娅's 医疗 form: a body with its E2 art alone", () => {
     local = { version: 1, groups: { chararts: { char_1037_amiya3: { path: '/c/amiya3.webp', w: 1, h: 1, kind: 'Illust', frame: { x: 0, y: 0, w: 1, h: 1 } } } } };
     await data.invalidate('local'); await data.load('local');
     assert.equal(cardArt(m, rec(false)).src, '/c/amiya3.webp', "the card's 立绘 is the body's");
-  });
-});
-
-describe("the title's season tabs show each season's picture (maintainer decision 2026-11-10)", () => {
-  test("盟约 its desert and emblem, 规程 its activity card and emblem; none when one season lacks them", async () => {
-    const { data } = await import('../../public/js/data.js');
-    const { seasonTabArt } = await import('../../public/js/ui/seasonArt.js');
-    assets.ui['entry/bkg_02'] = '/assets/ui/entry/bkg_02.png';
-    assets.ui['entry/season_logo'] = '/assets/ui/entry/season_logo.png';
-    await data.invalidate('assets'); await data.load('assets');
-    local = { version: 1, groups: {
-      [`season/${S}/banner`]: { tab: entry(`/assets/local/season/${S}/banner/tab.jpg`) },
-      [`season/${S}/logo`]: { season_logo: entry(`/assets/local/season/${S}/logo/season_logo.png`) },
-    } };
-    await data.invalidate('local'); await data.load('local');
-    assert.deepEqual(seasonTabArt('act2autochess'), { bg: '/assets/ui/entry/bkg_02.png', emblem: '/assets/ui/entry/season_logo.png' });
-    assert.deepEqual(seasonTabArt(S), { bg: `/assets/local/season/${S}/banner/tab.jpg`, emblem: `/assets/local/season/${S}/logo/season_logo.png` });
-    local = { version: 1, groups: {} };
-    await data.invalidate('local'); await data.load('local');
-    assert.equal(seasonTabArt(S), null, 'no extract: the tabs stay words');
-    const src = readFileSync(path.join(ROOT, 'public/js/ui/season.js'), 'utf8');
-    assert.match(src, /const art = arts\.every\(Boolean\);/, 'all tabs or none');
   });
 });
 

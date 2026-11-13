@@ -6,11 +6,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { DEFAULT_SEASON, SEASONS } from '../../shared/seasons.js';
+import { DEFAULT_SEASON, SEASONS, defineSeason, newestPublicSeason } from '../../shared/seasons.js';
 import { createStore, initialState } from '../../public/js/store.js';
 import {
   offeredSeasonsOf, hasSeasonPicker, pickedSeason, activeSeason, seasonFields, seasonQueueCounts, parseSeasonParam,
-  installSeasons, pickSeason, loadPickedSeason,
+  installSeasons, pickSeason, loadPickedSeason, inviteSeasonOf,
 } from '../../public/js/ui/season.js';
 import { inviteLink } from '../../public/js/screens/room.js';
 import { seasonPref, setLoadoutSeason, installOwnershipSync } from '../../public/js/ui/loadoutSync.js';
@@ -141,4 +141,24 @@ test('statistics records carry a season other than the default; older records ar
   assert.equal(next.season, NEXT);
   assert.equal(recordSeason(next), NEXT);
   assert.equal(recordSeason(normalizeRecord({ players: [{ playerId: 'p1' }] })), DEFAULT_SEASON);
+});
+
+test('a player who never picked opens in the newest public season; a room link without &season is a 盟约 room (maintainer decision 2026-11-13)', () => {
+  // today 规程 is not public: the newest public season is the default one
+  assert.equal(newestPublicSeason(), DEFAULT_SEASON);
+  const undo = defineSeason('zzznewseason', { public: true, name: 'NEW' });
+  try {
+    assert.equal(newestPublicSeason(), 'zzznewseason', 'the last public entry of the registry');
+    const offered = { seasons: [DEFAULT_SEASON, NEXT, 'zzznewseason'] };
+    assert.equal(pickedSeason(state(offered)), 'zzznewseason', 'never picked: the newest');
+    assert.equal(pickedSeason(state({ ...offered, season: DEFAULT_SEASON })), DEFAULT_SEASON, 'a remembered pick stays');
+    assert.equal(pickedSeason(state({ ...offered, season: 'bogus' })), 'zzznewseason');
+    assert.equal(pickedSeason(state({ seasons: [DEFAULT_SEASON, NEXT] })), DEFAULT_SEASON, 'the newest not offered: the default');
+    // the link of a 盟约 room has no &season (inviteLink): it waits in 盟约, not in the newest season
+    const pendingSeason = inviteSeasonOf('?room=ABCD', true);
+    assert.equal(pendingSeason, DEFAULT_SEASON);
+    assert.equal(activeSeason(state({ ...offered, pendingJoin: 'ABCD', pendingSeason })), DEFAULT_SEASON);
+    assert.equal(inviteSeasonOf('?room=ABCD&season=act3autochess', true), NEXT);
+    assert.equal(inviteSeasonOf('?season=act3autochess', false), null, 'no room link: no invitation');
+  } finally { undo(); }
 });
