@@ -167,6 +167,41 @@ describe('UnitView: a held pose is neither re-posed nor redrawn', () => {
     assert.ok(counts().updates >= c.updates + 3, 'standing up: animated again');
   });
 
+  // 规程's battle bench (render/app.js setBattleBench, maintainer report 2026-11-13: the waiting pieces looped their idle in
+  // full colour): greyed like a knocked-out operator, on the idle clip's first frame, never re-posed
+  test('a still bench view: the knocked-out grey, Idle\'s first frame held, no re-pose; a snapshot base never restarts it', async () => {
+    const { DOWN_LOOK } = await import('../../public/js/render/units.js');
+    let frame = 0, updates = 0;
+    const ctx = fakeViewCtx(fake.P, {
+      cam, frameNo: () => frame, impostorInterval: () => 0, renderer: { resolution: 1, render() {} },
+      assets: { picture: () => null, image: async () => null, spineEntry: () => ENTRY, spine: { acquire: async () => DATA, release() {} } },
+    });
+    const v = new UnitView(ctx, { id: 'b:7', uid: 7, side: 'ally', kind: 'chess', defId: 'char_x', tier: 3, x: 5, y: 10, maxHp: 1000, dir: 'RIGHT' }, { prep: true, lod: 'idle', chip: false, still: true });
+    await tick(); await tick();
+    assert.ok(v.spineReady, 'spine ready');
+    const upd = v.actor.update.bind(v.actor);
+    v.actor.update = (dt) => { updates++; return upd(dt); };
+    const step = (n = 1) => { for (let i = 0; i < n; i++) { v.update(1 / 60, cam(), frame / 60); frame++; } };
+    const e = v.actor.spine.state.tracks[0];
+    assert.equal(v.actor.current, 'Idle');
+    assert.equal(e.timeScale, 0, 'held on its first frame');
+    assert.equal(e.loop, false);
+    step(3);
+    const drawn = (u) => (u.imp ? u.imp.sprite.tint : u.actor.spine.tint);   // the idle LOD draws through an impostor when it can
+    assert.equal(drawn(v), DOWN_LOOK.tint, 'greyed like a knocked-out operator');
+    const u0 = updates;
+    step(30);
+    assert.equal(updates, u0, 'no re-pose');
+    v.actor.setBase('idle');
+    v.actor.setBase('move');
+    assert.equal(v.actor.spine.state.tracks[0], e, 'a base change does not restart the loop');
+    const plain = new UnitView(ctx, { id: 8, side: 'ally', kind: 'chess', defId: 'char_x', tier: 3, x: 6, y: 10, maxHp: 1000, dir: 'RIGHT' }, { prep: true, lod: 'idle' });
+    await tick(); await tick();
+    plain.update(1 / 60, cam(), 0);
+    assert.notEqual(drawn(plain), DOWN_LOOK.tint, 'a prep bench piece keeps its colours');
+    assert.equal(plain.actor.spine.state.tracks[0].loop, true, '… and its idle loop');
+  });
+
   test('direct mode (no impostor): no re-pose while held, the clock still runs', async () => {
     const { v, step, counts } = await operator(0);
     step(2);

@@ -319,6 +319,7 @@ export class SpineActor {
     this.clock = 0;
     this.current = '';
     this.frozen = false;
+    this.still = false;           // standStill: the idle clip's first frame for good (规程's battle bench)
     this.stunFall = false;        // the stun is an operator's (setBase `fall`): no Stun clip → the Die clip (_enterStun)
     this.stunHow = null;          // mode 'stun': 'clip' | 'fall' | 'freeze'
     this.dead = false;
@@ -575,7 +576,7 @@ export class SpineActor {
    * it falls on its Die clip (_enterStun).
    */
   setBase(base, fall = false) {
-    if (this.dead) return;
+    if (this.dead || this.still) return;
     const b = base === 'move' || base === 'stun' ? base : 'idle';
     this.stunFall = b === 'stun' && !!fall;
     // a mode change clip plays out first; the resting state it lands in is remembered
@@ -1230,6 +1231,15 @@ export class SpineActor {
     return 0;
   }
 
+  /**
+   * Stand still: the idle clip's first frame, held and never re-posed (poseHeld) — 规程's battle bench (render/units.js
+   * `still`, app.js setBattleBench).
+   */
+  standStill() {
+    this.still = true;
+    this._holdIdle(0);
+  }
+
   /** The pose of a dead skeleton without a death clip: its idle clip's first frame (frozen when it has none either). */
   _holdIdle(mix) {
     const idle = this.has(this.roles.idle) ? this.roles.idle : this.has('Idle') ? 'Idle' : null;
@@ -1269,7 +1279,7 @@ export class SpineActor {
    */
   poseHeld() {
     if (!this._applied || this.spine.tint !== this._appliedTint || this.endClip || this.windUntil != null) return false;
-    if (this.frozen) return true;
+    if (this.frozen || this.still) return true;
     if (this.mode !== 'die') return false;
     const tracks = this.spine.state.tracks;
     for (let i = 1; i < tracks.length; i++) if (tracks[i]) return false;

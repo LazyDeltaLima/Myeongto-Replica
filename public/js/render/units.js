@@ -857,7 +857,7 @@ export class UnitView {
   /**
    * @param {ViewCtx} ctx
    * @param {object} info UnitInfo-like: { id, uid?, kind, side, defId, spine, avatar, tier, golden, facing, maxHp, boss?, motion?, name? }
-   * @param {{ prep?: boolean, lod?: 'idle', chip?: boolean }} [opts]
+   * @param {{ prep?: boolean, lod?: 'idle', chip?: boolean, still?: boolean }} [opts]
    */
   constructor(ctx, info, opts = {}) {
     const P = ctx.P;
@@ -869,6 +869,9 @@ export class UnitView {
     this.prep = !!opts.prep;
     this.lodIdle = opts.lod === 'idle';
     this._noChip = opts.chip === false; // no tier chip at all (规程's battle bench, app.js setBattleBench)
+    // 规程's battle bench (app.js setBattleBench): greyed like a knocked-out operator (DOWN_LOOK.tint) and standing still on
+    // its idle clip's first frame — the official battle draws the waiting pieces so (maintainer report 2026-11-13)
+    this._still = !!opts.still;
     this.culled = false;          // outside the viewport this frame (not animated, not drawn)
     this._offDt = 0;              // animation time skipped while culled
     this._far = false;            // small on screen (adaptive LOD, with hysteresis)
@@ -1150,6 +1153,8 @@ export class UnitView {
         }
         // a stealth-driven form (STEALTH_FORMS): the pose of the clip set in force now, even under a frozen stun
         if (STEALTH_FORMS[id]) this.actor.syncFormPose();
+        // 规程's battle bench (opts.still): its idle clip's first frame, held
+        if (this._still) this.actor.standStill();
       }
     }, () => {
       if (req === this._spineReq) { this._spineBusy = false; this._stuckAt = 0; }
@@ -2071,7 +2076,7 @@ export class UnitView {
       this.modelSX = sc * flip; this.modelSY = sc * this.modelKY;
       const flashK = this.flash > 0 ? this.flash : 0;
       let tint = this.baseTint;
-      if (this.down) tint = DOWN_LOOK.tint;
+      if (this.down || this._still) tint = DOWN_LOOK.tint;
       else if (this.flags & UF.FROZEN && !this._fxStatusOn?.has('freeze')) tint = 0x9fd4ff; // local patch: not under the official ice block
       else if (this.flags & UF.COLD && !this._fxStatusOn?.has('cold')) tint = 0xcfe6ff;
       else if (lpInvis) tint = 0x808080; // local patch: common_invisible's ColorModifier (.5, .5, .5)
@@ -2124,7 +2129,7 @@ export class UnitView {
       const bob = this.alive ? Math.sin(t * 2.4 + this.bob) * s * 0.03 : 0;
       this.fallback.scale.set(size / 160);
       this.fallback.position.set(0, -s * 0.08 + bob);
-      this.fallback.tint = this.down ? DOWN_LOOK.tint : this.flash > 0 ? mixTint(0xffffff, 0xff8a80, this.flash) : (this.flags & UF.FROZEN ? 0x9fd4ff : 0xffffff);
+      this.fallback.tint = this.down || this._still ? DOWN_LOOK.tint : this.flash > 0 ? mixTint(0xffffff, 0xff8a80, this.flash) : (this.flags & UF.FROZEN ? 0x9fd4ff : 0xffffff);
       if (!this.alive) this.fallback.alpha = Math.max(0, this.fallback.alpha);
     }
     this.flash = Math.max(0, this.flash - dt * 6);

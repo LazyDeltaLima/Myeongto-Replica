@@ -1742,7 +1742,7 @@ export async function createFieldView(host, options = {}) {
 
   /**
    * 规程's battle bench (m.field `bench`, server views.js battleBench): the players' 整备区 pieces stand still on the bench
-   * row through the battle, like the official battle draws them on the own field and on a watched one
+   * row through the battle, greyed and on their idle clip's first frame (`still`), like the official battle draws them on the own field and on a watched one
    * (docs/rules/render.md 「규정 전투 중 정비 구역」). Views keyed `b:<uid>` beside the battle's, idle LOD, never in a
    * snapshot (syncBattle leaves them be); a piece already on the field (a switch fielded it before this entry: a
    * battle unit with its uid) is left out, and one fielded later goes at its 'spawn' (dropBenchOf).
@@ -1755,7 +1755,7 @@ export async function createFieldView(host, options = {}) {
       const info = renderInfo({ ...u, id: 'b:' + u.uid, facing: 1 });
       if (!info) continue;
       const row = Number(u.y) || 0, col = Number(u.x) || 0;
-      const v = new UnitView(ctx, info, { prep: true, lod: 'idle', chip: false });
+      const v = new UnitView(ctx, info, { prep: true, lod: 'idle', chip: false, still: true });
       v.setWorld(col, row, heightAt(row, col));
       v._bench = true;
       v._seen = true;
