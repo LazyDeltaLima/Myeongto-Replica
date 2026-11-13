@@ -1,4 +1,4 @@
-// test/helpers/seasonPieces.js — fielding a piece of 卫戍协议：规程 (shared/seasons.js `act3autochess`, not public) in the kit tests:
+// test/helpers/seasonPieces.js — fielding a piece of 卫戍协议：规程 (shared/seasons.js `act3autochess`) in the kit tests:
 // its record of data/seasons/act3autochess/chess.json with the skill asked for selected, and the real match path
 // (test/seasons-act3.test.js).
 

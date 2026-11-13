@@ -1,4 +1,4 @@
-// test/seasons-act3-stages.test.js — the battlefields of 卫戍协议：规程 (shared/seasons.js `act3autochess`, not public) in the
+// test/seasons-act3-stages.test.js — the battlefields of 卫戍协议：规程 (shared/seasons.js `act3autochess`) in the
 // 19×21 frame the sim reads (tools/level-fields.mjs): a stage level of that season is a 36×55 scene whose battle fields are
 // three sub-levels, a wave level's routes are on its field's placeholder. Built into the frame, a 规程 stage is the default
 // season's layout (its 战场 m01 is season one's m01 tile for tile but three rows of the official pieces), the routes of the

@@ -1,4 +1,4 @@
-// test/seasons-act3.test.js — 卫戍协议：规程 (shared/seasons.js `act3autochess`, not public) on its own tables
+// test/seasons-act3.test.js — 卫戍协议：规程 (shared/seasons.js `act3autochess`, public from 2.0.0) on its own tables
 // (tools/build-data.mjs --season act3autochess): the season reuses the default season's ids for other things — 125 of the
 // 128 operator chess ids both seasons have name another operator, item ids other items, 特质 ids other 特质 — and these tests hold
 // the code to the real ids: a chess takes its own operator's kit, an item its own item's handler, a 特质 check its own
@@ -20,9 +20,9 @@ const BASE = getData({ log: quiet });
 const code = (charId) => String(charId).replace(/^char_\d+_/, '');
 const pieces = Object.values(ACT3.chess).filter((c) => c.charId && !c.isDiy);
 
-test('the season stays hidden: only a server that names it offers it', () => {
-  assert.equal(seasonInfo('act3autochess').public, false);
-  assert.deepEqual(offeredSeasons(''), ['act2autochess']);
+test('the season is public: every server offers it, SP_SEASONS or not', () => {
+  assert.equal(seasonInfo('act3autochess').public, true);
+  assert.deepEqual(offeredSeasons(''), ['act2autochess', 'act3autochess']);
   assert.deepEqual(offeredSeasons('act3autochess'), ['act2autochess', 'act3autochess']);
   assert.equal(ACT3.config.season, 'act3autochess');
   assert.equal(ACT3.config.seasonName, '卫戍协议:规程');

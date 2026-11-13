@@ -55,9 +55,9 @@ export const SEASON_FEATURES = Object.freeze({
 export const SEASONS = {
   // 卫戍协议：盟约 下半 (the tables name both halves 盟约; this server runs the second only, so the page says 盟约)
   act2autochess: Object.freeze({ id: 'act2autochess', public: true, name: N_('盟约'), mark: 'ALLIANCE', features: SEASON_FEATURES }),
-  // 卫戍协议：规程 (CN from 2026-11-08): built from its own tables (tools/build-data.mjs --season act3autochess), not public
-  // until every part of it is (SP_SEASONS=act3autochess)
-  act3autochess: Object.freeze({ id: 'act3autochess', public: false, name: N_('规程'), mark: 'REGULATION',
+  // 卫戍协议：规程 (CN from 2026-11-08): built from its own tables (tools/build-data.mjs --season act3autochess); public
+  // from 2.0.0
+  act3autochess: Object.freeze({ id: 'act3autochess', public: true, name: N_('规程'), mark: 'REGULATION',
     features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true, benchInBattle: true, stagePreview: true, bossLayerGains: true }) }),
 };
 

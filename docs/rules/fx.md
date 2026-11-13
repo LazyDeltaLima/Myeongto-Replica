@@ -4025,7 +4025,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 
 ## 규정 기물의 이펙트 연결 (2026-11-10, 공식 클라에서 확인)
 
-새 시즌 「규정」 기물(숨은 시즌). 근거는 각 오퍼레이터의 캐릭터·스킬·투사체·소환물 프리팹과 버프 템플릿(EN·CN, 새 시즌 표 캐시).
+새 시즌 「규정」 기물. 근거는 각 오퍼레이터의 캐릭터·스킬·투사체·소환물 프리팹과 버프 템플릿(EN·CN, 새 시즌 표 캐시).
 
 - **사일런스 더 패러디그매틱 재능 1**: `Others/Direction/Talents/1`의 `PassiveBuffAbility`가 그녀 자신에게 `slent2_t_1[eff]`(INFINITY, `overrideEffectKey` `slent2_buff_01`: 바닥의 정지 빛)를 건다 — 범위 아군 쪽이 아니다. 배치된 동안 그녀에게 든다(`fxmap.js TALENT_ALWAYS`).
 - **사일런스 더 패러디그매틱 S3**: `slent2_s_3` `ON_BEFORE_TRY_SET_HP_ZERO`가 구한 아군에게 `slent2_shallow_grave`(`overrideEffectKey` `slent2_skill_03_buff_02`, `grave_duration`초)를 건다. 키트의 `undying`이 시전자 `src`를 싣고(그 사건의 묶음을 찾는 데), 렌더가 그 아군 위에 그 시간만큼. 이름 규칙이 시전 때 그녀에게도 틀던 것은 막음(`KIT_OWNED`).

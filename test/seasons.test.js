@@ -53,7 +53,7 @@ test('registry: the current season is the public default with every rule switch 
   assert.equal(seasonOf('nope'), DEFAULT_SEASON);
   assert.equal(seasonDataDir(DEFAULT_SEASON), '');
   assert.equal(seasonFeature(DEFAULT_SEASON, 'watchWhileFighting'), false);
-  assert.deepEqual(offeredSeasons(''), [DEFAULT_SEASON]);
+  assert.deepEqual(offeredSeasons(''), [DEFAULT_SEASON, 'act3autochess']); // 规程 public from 2.0.0
 });
 
 test('registry: a non-public season is offered only when SP_SEASONS names it; its switches; removal', () => {
@@ -62,8 +62,8 @@ test('registry: a non-public season is offered only when SP_SEASONS names it; it
     assert.ok(isSeasonId(NEXT));
     assert.equal(seasonDataDir(NEXT), `seasons/${NEXT}`);
     assert.equal(seasonFeature(NEXT, 'watchWhileFighting'), true);
-    assert.deepEqual(offeredSeasons(undefined), [DEFAULT_SEASON]);
-    assert.deepEqual(offeredSeasons(` ${NEXT} , bogus`), [DEFAULT_SEASON, NEXT]);
+    assert.deepEqual(offeredSeasons(undefined), [DEFAULT_SEASON, 'act3autochess']);
+    assert.deepEqual(offeredSeasons(` ${NEXT} , bogus`), [DEFAULT_SEASON, 'act3autochess', NEXT]);
     assert.throws(() => defineSeason(NEXT), /taken/);
   } finally { undo(); }
   assert.equal(isSeasonId(NEXT), false);
@@ -296,7 +296,7 @@ test('a season the server does not offer is refused', async () => {
     const o = await c.request({ t: 'room.ownership', notOwned: [], season: NEXT });
     assert.deepEqual([o.t, o.code], ['error', ERR.BAD_MSG]);
     c.send({ t: 'ping', c: 7 });
-    assert.equal('seasons' in (await c.waitFor('pong', (m) => m.c === 7)), false); // one season: no picker
+    assert.equal((await c.waitFor('pong', (m) => m.c === 7)).seasons.includes(NEXT), false); // the public ones only
   } finally { await c.terminate().catch(() => {}); await srv.close(); undo(); }
 });
 

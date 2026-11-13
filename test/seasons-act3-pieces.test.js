@@ -1,4 +1,4 @@
-// 卫戍协议：规程 (shared/seasons.js `act3autochess`, not public): every piece of its shop, both forms, at the skill that
+// 卫戍协议：规程 (shared/seasons.js `act3autochess`): every piece of its shop, both forms, at the skill that
 // season gives it, plays a kit written for that skill and fights — the skill starts and its hits land (or heal), with no
 // handler error. The operators without a kit yet are listed with the work that writes theirs, so a new kit joins the
 // battles below by leaving the list.

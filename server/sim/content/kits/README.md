@@ -229,7 +229,7 @@ left: rows nothing plays, prefabs nothing reaches, and a prefab drawn twice by a
 
 ## An operator only another season fields
 
-规程 (`act3autochess` of `shared/seasons.js`, not public yet) is built from its own tables: `node tools/build-data.mjs --offline
+规程 (`act3autochess` of `shared/seasons.js`) is built from its own tables: `node tools/build-data.mjs --offline
 --season act3autochess` writes `data/seasons/act3autochess/` (the tables come from the dump `tools/gamedata-url.mjs`
 SEASON_GAMEDATA names, read through `tools/gamedata-flat.mjs`). It reuses the current season's chess ids for other operators,
 so a chess kit file is taken only for the operator it was written for (`kitOf` with `chessKitCode`); a 规程 piece whose operator

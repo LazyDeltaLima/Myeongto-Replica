@@ -27,25 +27,27 @@ function withStorage(fn, init = {}) {
 
 const state = (ui = {}, room = null) => ({ ...initialState, room, ui: { ...initialState.ui, ...ui } });
 
-test('规程 (act3autochess) is in the registry, never public', () => {
-  assert.equal(SEASONS[NEXT].public, false);
+test('规程 (act3autochess) is in the registry, public from 2.0.0', () => {
+  assert.equal(SEASONS[NEXT].public, true);
   assert.equal(SEASONS[DEFAULT_SEASON].name, '盟约');
 });
 
 test('offered / picked / on screen: one season = the default and no picker; the pick only when offered', () => {
-  assert.deepEqual(offeredSeasonsOf(state()), [DEFAULT_SEASON]);
-  assert.equal(hasSeasonPicker(state()), false);
-  assert.equal(pickedSeason(state({ seasons: [DEFAULT_SEASON], season: NEXT })), DEFAULT_SEASON); // not offered: the default
+  const one = { seasons: [DEFAULT_SEASON] };
+  assert.deepEqual(offeredSeasonsOf(state(one)), [DEFAULT_SEASON]);
+  assert.equal(hasSeasonPicker(state(one)), false);
+  assert.equal(pickedSeason(state({ ...one, season: NEXT })), DEFAULT_SEASON); // not offered: the default
   const two = { seasons: [DEFAULT_SEASON, NEXT] };
   assert.equal(hasSeasonPicker(state(two)), true);
   assert.equal(pickedSeason(state({ ...two, season: NEXT })), NEXT);
-  assert.equal(pickedSeason(state({ ...two, season: 'bogus' })), DEFAULT_SEASON);
+  assert.equal(pickedSeason(state({ ...two, season: DEFAULT_SEASON })), DEFAULT_SEASON);
+  assert.equal(pickedSeason(state({ ...two, season: 'bogus' })), NEXT, 'never picked (or unknown): the newest public season');
   // the room's season wins; absent = the default
   assert.equal(activeSeason(state({ ...two, season: NEXT }, { code: 'ABCD' })), DEFAULT_SEASON);
   assert.equal(activeSeason(state({ ...two }, { code: 'ABCD', season: NEXT })), NEXT);
   // an invitation that names its season, while it waits
   assert.equal(activeSeason(state({ ...two, pendingJoin: 'ABCD', pendingSeason: NEXT })), NEXT);
-  assert.equal(activeSeason(state({ ...two, pendingSeason: NEXT })), DEFAULT_SEASON);
+  assert.equal(activeSeason(state({ ...two, season: DEFAULT_SEASON, pendingSeason: NEXT })), DEFAULT_SEASON);
 });
 
 test('before the first pong the remembered pick is the season on screen, so the entry film main.js picks at boot plays', () => {
@@ -57,9 +59,9 @@ test('before the first pong the remembered pick is the season on screen, so the 
   assert.equal(activeSeason(state({ ...boot.ui, seasons: [DEFAULT_SEASON, NEXT] })), NEXT, 'the pong confirms it: no change');
   assert.equal(activeSeason(state({ ...boot.ui, seasons: [DEFAULT_SEASON] })), DEFAULT_SEASON, 'a server without it corrects it');
   // never picked: the public seasons, the newest of them
-  assert.deepEqual(offeredSeasonsOf(state()), [DEFAULT_SEASON]);
+  assert.deepEqual(offeredSeasonsOf(state()), [DEFAULT_SEASON, NEXT]);
   assert.equal(activeSeason(state()), newestPublicSeason());
-  assert.equal(pickedSeason(state({ season: 'bogus' })), DEFAULT_SEASON);
+  assert.equal(pickedSeason(state({ season: 'bogus' })), NEXT);
 });
 
 test('followActiveSeason applies the season the page booted in at once, then each change (main.js: data, loadout)', () => {
@@ -103,7 +105,7 @@ test('the invitation link names a room season other than the default; the title 
 test('installSeasons: the first pong offers the seasons; a room of another season switches the pick with a notice', () => withStorage((ls) => {
   const handlers = {};
   const net = { on: (t, fn) => { handlers[t] = fn; return () => {}; } };
-  const target = createStore(initialState);
+  const target = createStore(state({ season: DEFAULT_SEASON })); // 盟约 picked (never picked = the newest, 规程)
   const told = [];
   installSeasons({ net, target, notify: (text) => told.push(text) });
   assert.equal(target.get().ui.seasons, null, 'not known before the first pong');
@@ -129,8 +131,10 @@ test('the browser tab names the season on screen (maintainer decision 2026-11-13
     const net = { on: () => () => {} };
     const target = createStore(initialState);
     const off = installSeasons({ net, target, notify: () => {} });
+    assert.equal(document.title, '卫戍协议：规程 · STRONGHOLD PROTOCOL', 'never picked: the newest public season');
+    target.patch('ui', { seasons: [DEFAULT_SEASON, NEXT], season: DEFAULT_SEASON });
     assert.equal(document.title, '卫戍协议：盟约 · STRONGHOLD PROTOCOL');
-    target.patch('ui', { seasons: [DEFAULT_SEASON, NEXT], season: NEXT });
+    target.patch('ui', { season: NEXT });
     assert.equal(document.title, '卫戍协议：规程 · STRONGHOLD PROTOCOL');
     target.set({ room: { code: 'ABCD' } }); // a 盟约 room: the room's season
     assert.equal(document.title, '卫戍协议：盟约 · STRONGHOLD PROTOCOL');
@@ -194,8 +198,8 @@ test('statistics records carry a season other than the default; older records ar
 });
 
 test('a player who never picked opens in the newest public season; a room link without &season is a 盟约 room (maintainer decision 2026-11-13)', () => {
-  // today 规程 is not public: the newest public season is the default one
-  assert.equal(newestPublicSeason(), DEFAULT_SEASON);
+  // 规程 is public from 2.0.0: the newest public season
+  assert.equal(newestPublicSeason(), NEXT);
   const undo = defineSeason('zzznewseason', { public: true, name: 'NEW' });
   try {
     assert.equal(newestPublicSeason(), 'zzznewseason', 'the last public entry of the registry');
