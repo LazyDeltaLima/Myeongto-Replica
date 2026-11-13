@@ -4,7 +4,7 @@
 // 规程 萨尔贡 6's 流沙 floor (2026-11-14 report) was drawn as its stand-in circle in every real match because its handler
 // read the tile from the extra, and the test that covered it built its event by hand with x / y in the extra, so it
 // passed. Two guards for that kind of bug:
-//   1. no client code reads `x` / `y` from an fx event's extra (test/helpers/fxExtraReads.js follows the extra through
+//   1. no browser code (public/js) reads `x` / `y` from an fx event's extra (test/helpers/fxExtraReads.js follows the extra through
 //      variables, assignments and the parameters of the functions it is handed to);
 //   2. no test builds an fx tuple by hand with x / y in its extra — tests use test/helpers/fxEvent.js, which calls
 //      Battle.fx itself.
@@ -32,7 +32,7 @@ function jsFiles(dir, skip = new Set()) {
 // `file:function:key` → why that read is not an fx extra (a hit on another event's 5th slot). Empty: keep it so.
 const ALLOWED = {};
 
-test('client code never reads x / y from a sim fx event\'s extra (Battle.fx puts them in the tuple)', () => {
+test('browser code never reads x / y from a sim fx event\'s extra (Battle.fx puts them in the tuple)', () => {
   const hits = scanFxExtraReads(jsFiles(path.join(ROOT, 'public/js'), new Set(['vendor'])))
     .map((h) => ({ ...h, file: path.relative(ROOT, h.file) }))
     .filter((h) => !ALLOWED[`${h.file}:${h.fn}:${h.key}`]);

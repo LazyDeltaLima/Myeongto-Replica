@@ -427,6 +427,9 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
     """The bindings of one prefab `tree` (root `root`); `skills` {skill prefab: tree} adds a token's skill prefabs as its
     abilities `Skills/<prefab>[/…]` (their emitters sit on the prefab's root)."""
     by_pid = {pid: gp for gp, _, pid in tree}
+    mb_of = {pid: d for gp, d, pid in tree}
+    for st in (skills or {}).values():
+        mb_of.update({pid: d for gp, d, pid in st})
     rootmb = next((d for gp, d, _ in tree if isinstance(d.get('_modes'), list)), None)
     rec = {'modes': [], 'abilities': []}
     if rootmb:
@@ -518,6 +521,17 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
                 a.setdefault('signalFlags', []).append(k[1:])
         if d.get('_animKey') and 'anim' not in a:
             a['anim'] = d['_animKey']
+        # (2026-11-14) what the ability's `_selector` picks: a tile (TileSelector and its subclasses — the ones with
+        # `_options`, TileSelector.Options; `_filterType` FilterType: 12 DIST_DES_IN_FRONT_LINE …) or units (the other
+        # selectors). 规程's 盐坨子炮 (EnemyCannon00D, a TileSelector) was written as a unit target; test/content/tile-selectors.test.js
+        # checks every tile-target ability of an enemy / token the game fields against the sim
+        sel = mb_of.get((d.get('_selector') or {}).get('m_PathID')) if isinstance(d.get('_selector'), dict) else None
+        if isinstance(sel, dict) and 'sel' not in a:
+            opts = sel.get('_options')
+            tile = isinstance(opts, dict) and 'tileTypesMask' in opts
+            keys = strs(sel.get('_tileOrTokenIdListPreferred')) if tile else []   # ONLY_CERTAIN_TILE_KEY's tiles / tokens
+            a['sel'] = {'tile': 1 if tile else 0, **({'filter': sel.get('_filterType') or 0} if tile else {}),
+                        'side': sel.get('_targetSide') or 0, **({'keys': keys} if keys else {})}
         found = []
         walk_strings(d, (), found)
         handled = set()
@@ -534,7 +548,8 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
             elif v in proj_keys and not k.startswith('_extraProjectileKeys'):
                 a.setdefault('otherProjectiles', []).append({'field': k, 'key': v})
     for _rel, a in abil.items():
-        if len(a) > 1 and not (set(a) <= {'path', 'mode', 'anim', 'common'}):
+        # (an ability with nothing to draw but a tile selector stays: the sim check reads it)
+        if len(a) > 1 and (not (set(a) <= {'path', 'mode', 'anim', 'common', 'sel'}) or (a.get('sel') or {}).get('tile')):
             rec['abilities'].append(a)
     return rec
 
