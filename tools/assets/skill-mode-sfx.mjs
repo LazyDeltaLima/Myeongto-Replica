@@ -37,7 +37,7 @@ export function loadCharModes(root = process.cwd()) {
 }
 
 export { skillModeIndex } from '../../shared/skill-modes.js'; // the same rule as the effect layer (render/fxgame.js)
-import { isOwnSubMode, skillModeIndex, SKILL_SUB_MODES, SKILL_CAST_KIDS } from '../../shared/skill-modes.js';
+import { isOwnSubMode, skillModeIndex, SKILL_SUB_MODES, SKILL_CAST_KIDS, FORM_HELD_MODES } from '../../shared/skill-modes.js';
 
 /** Sub-ability order: the plain key first, then deeper keys with numeric parts ascending (audio.mjs abilityOrder). */
 const order = (a, b) => (a.split('.').length - b.split('.').length) || a.localeCompare(b, 'en', { numeric: true });
@@ -970,6 +970,33 @@ export function tokenSkillModes(audio, owner, entry, soundLeaf) {
  * as for an operator's skill mode), null when none differs. The client switches modes in `Unit.SwitchMode` (:
  * InactiveMode → ActivateMode, no sound of its own); the mode's abilities then signal `<ability>.<n>` (UnitMode.GenerateSignalId).
  */
+/**
+ * 2026-11-13, docs/rules/audio.md 「유키 마코토 페르소나 소리」: the attack signals of the modes a 傀儡师's <替身> form holds
+ * (shared/skill-modes.js FORM_HELD_MODES — 结城理's personas: form 'doll' → the picked skill's Stand_S<n>, S3's form 'orpheus' →
+ * Stand_S3_2): { [skill index]: { [form]: { cues, sel? } } } — public/js/audio.js sounds an attack of that form with them, not
+ * the Default's (the skill that switched him has ended at once). Only the entries with a 'doll' form: the sim's 傀儡师
+ * switches are what the sounds follow (丰川祥子 S2's held mode is a toggle her kit sounds through sfx.kit).
+ * @param {string} charId @param {any} entry tools/assets/local-char-audio.json entry
+ * @param {string[]|null|undefined} modes the charpack's `_modes` names (local-char-modes.json)
+ */
+export function heldModeSets(audio, charId, entry, modes, soundLeaf) {
+  const t = FORM_HELD_MODES[charId];
+  if (!t || !entry || !Array.isArray(modes)) return null;
+  const out = {};
+  for (const [i, h] of Object.entries(t)) {
+    if (!h?.forms?.doll) continue;
+    const per = {};
+    for (const [form, name] of Object.entries(h.forms)) {
+      const n = form ? modes.indexOf(name) : -1;
+      if (n <= 0) continue;
+      const set = soundSet(audio, charId, entry, n, soundLeaf);
+      per[form] = set.sel ? { cues: set.cues, sel: set.sel } : { cues: set.cues };
+    }
+    if (Object.keys(per).length) out[i] = per;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 export function enemyModeSets(audio, owner, entry, soundLeaf, base = null) {
   const n = Array.isArray(entry?.modes) ? entry.modes.length : 0;
   if (n < 2) return null;

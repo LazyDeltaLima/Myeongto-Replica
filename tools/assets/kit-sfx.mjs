@@ -521,6 +521,26 @@ export const KIT_HIT_BANKS = Object.freeze({
   'mcnist:s3born': 'battle.ON_PROJECTILE_BORN.projectile_chr_mcnist_s3_token',
   'mcnist:s3reach': 'battle.ON_PROJECTILE_REACH.projectile_chr_mcnist_s3_token',
   'mcnist:s3hit': 'battle.ON_CUSTOM_TRIGGER.mcnist_skill_attack_hit',
+  // 2026-11-13 (docs/rules/audio.md 「유키 마코토 페르소나 소리」, CN client): 结城理's switches — the SwitchEnd step's
+  // AudioOnEventBehaviour (ON_CAST_START) of makoto[switch2stand_s1 / _s2 / _s3_1 / _s3_2], the AlloutAttack one of
+  // makoto[switch2normal_allout] —, the OnPlayAudioPlayer of his effect prefabs (the modes' range `_start` attach effects,
+  // makoto_talent_finish_01's flash and damage, makoto_skill_01_heal_01, makoto_skill_02_hit_01_finish) and the PlayAudio of
+  // his buff templates (makoto_s3_1_standin ON_CALCULATE_DAMAGE by the damage type, makoto_s3_2_be_healed ON_BUFF_FINISH)
+  'makoto:s1gun': 'battle.ON_CUSTOM_TRIGGER.makoto_skill_01_orpheus_gun',
+  'makoto:s2gun': 'battle.ON_CUSTOM_TRIGGER.makoto_skill_02_thanatos_gun',
+  'makoto:s3gun': 'battle.ON_CUSTOM_TRIGGER.makoto_skill_03_thanatos_gun',
+  'makoto:s3orpheus': 'battle.ON_CUSTOM_TRIGGER.makoto_skill_03_orpheus_gun',
+  'makoto:s2range': 'battle.ON_CUSTOM_TRIGGER.makoto_skill_02_range_appear',
+  'makoto:s3range1': 'battle.ON_CUSTOM_TRIGGER.makoto_skill_03_1_range_appear',
+  'makoto:s3range2': 'battle.ON_CUSTOM_TRIGGER.makoto_skill_03_2_range_appear',
+  'makoto:allout': 'battle.ON_CUSTOM_TRIGGER.makoto_allout_start',
+  'makoto:alloutFlash': 'battle.ON_CUSTOM_TRIGGER.makoto_allout_flash',
+  'makoto:alloutHit': 'battle.ON_CUSTOM_TRIGGER.makoto_allout_damage',
+  'makoto:s1heal': 'battle.ON_CUSTOM_TRIGGER.makoto_skill_01_heal_hit',
+  'makoto:execute': 'battle.ON_CUSTOM_TRIGGER.makoto_skill_02_execute',
+  'makoto:s3phys': 'battle.ON_CUSTOM_TRIGGER.makoto_skill_03_1_physical',
+  'makoto:s3arts': 'battle.ON_CUSTOM_TRIGGER.makoto_skill_03_1_magical',
+  'makoto:s3heal': 'battle.ON_CUSTOM_TRIGGER.makoto_skill_03_heal_hit',
 });
 
 /**

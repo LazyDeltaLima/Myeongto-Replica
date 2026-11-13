@@ -9,7 +9,7 @@
 //   'todo: <where>' — the client sounds it and we do not yet (where it fires, as far as known).
 // The first listing (2026-11-01) had 25; all its `todo` entries were wired the same day. The 白铁 / 遥 / 真言 ones
 // (2026-11-03) too, the 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr ones the same day, and the 黍 / 老鲤 / 黑键 ones (2026-11-04) the day
-// after they joined; the 涤火杰西卡 / 鸿雪 and 棘刺 ones (2026-11-04) the same day.
+// after they joined; the 涤火杰西卡 / 鸿雪 and 棘刺 ones (2026-11-04) the same day; the 结城理 ones (2026-11-12) the day after.
 
 export const UNSOUNDED = {
   // 클로저: closur_ourbase_signal picks the 指挥中心's range by CheckSkillIndex and plays nothing — no buff template or prefab node of the EN or CN
@@ -58,30 +58,6 @@ export const UNSOUNDED = {
     'ON_PROJECTILE_REACH.projectile_chr_dminon_withdraw': 'todo: 此身为界 on a retreat, its landing (op-dminon.js boundary)',
     'ON_CUSTOM_TRIGGER.dminon_talent_hit': 'todo: 实质坍缩\'s 1 s tick (op-dminon.js COLLAPSE)',
     'ON_CUSTOM_TRIGGER.dminon_s3_expand': 'todo: S3\'s spread (op-dminon.js spread)',
-  },
-  char_4217_makoto: {
-    // 结城理 (2026-11-12): the persona attacks, switches and the 总攻击 carry no sound moment yet (audio bundle)
-    'ON_CUSTOM_TRIGGER.makoto_skill_01_orpheus_gun': 'todo: switch to S1 俄耳甫斯 (makoto[switch2stand_s1]/SwitchEnd AudioOnEventBehaviour; op-makoto.js dollSwap)',
-    'ON_ABILITY_START.char_4217_makoto.attack.1.1': 'todo: S1 HealAlly_Lt50Per swing (op-makoto.js persona s1heal)',
-    'ON_CUSTOM_TRIGGER.makoto_skill_01_heal_hit': 'todo: S1 heal landing (op-makoto.js persona s1heal)',
-    'ON_ABILITY_ON.char_4217_makoto.attack.1.2': 'todo: S1 MagicAttack swing (op-makoto.js persona s1)',
-    'ON_PROJECTILE_HIT.projectile_chr_makoto_s1': 'todo: S1 MagicAttack projectile hit (op-makoto.js persona s1)',
-    'ON_CUSTOM_TRIGGER.makoto_allout_start': 'todo: S.E.E.S.队长 总攻击 start (makoto[switch2normal_allout]/AlloutAttack; op-makoto.js allout)',
-    'ON_CUSTOM_TRIGGER.makoto_allout_flash': 'todo: S.E.E.S.队长 总攻击 (op-makoto.js allout)',
-    'ON_CUSTOM_TRIGGER.makoto_allout_damage': 'todo: S.E.E.S.队长 总攻击 damage (op-makoto.js allout)',
-    'ON_CUSTOM_TRIGGER.makoto_skill_02_thanatos_gun': 'todo: switch to S2 塔纳托斯 (makoto[switch2stand_s2]/SwitchEnd; op-makoto.js dollSwap)',
-    'ON_CUSTOM_TRIGGER.makoto_skill_02_range_appear': 'todo: S2 range appearing (op-makoto.js dollSwap)',
-    'ON_ABILITY_START.char_4217_makoto.attack.2': 'todo: S2 塔纳托斯 attack (op-makoto.js persona s2)',
-    'ON_ABILITY_HIT.char_4217_makoto.attack.2': 'todo: S2 塔纳托斯 hit (op-makoto.js persona s2)',
-    'ON_CUSTOM_TRIGGER.makoto_skill_02_execute': 'todo: S2 execute (op-makoto.js kill aura, tag execute)',
-    'ON_CUSTOM_TRIGGER.makoto_skill_03_thanatos_gun': 'todo: switch to S3 塔纳托斯 (makoto[switch2stand_s3_1]/SwitchEnd; op-makoto.js dollSwap)',
-    'ON_CUSTOM_TRIGGER.makoto_skill_03_1_range_appear': 'todo: S3 塔纳托斯 range appearing (op-makoto.js dollSwap)',
-    'ON_ABILITY_ON.char_4217_makoto.attack.3': 'todo: S3 塔纳托斯 swing (op-makoto.js persona s3_1)',
-    'ON_CUSTOM_TRIGGER.makoto_skill_03_1_magical': 'todo: S3 塔纳托斯 arts 弱点 hit (makoto_s3_1_standin ON_CALCULATE_DAMAGE PlayAudio)',
-    'ON_CUSTOM_TRIGGER.makoto_skill_03_1_physical': 'todo: S3 塔纳托斯 physical 弱点 hit (makoto_s3_1_standin ON_CALCULATE_DAMAGE PlayAudio)',
-    'ON_CUSTOM_TRIGGER.makoto_skill_03_orpheus_gun': 'todo: S3 switch to 俄耳甫斯 (makoto[switch2stand_s3_2]/SwitchEnd; op-makoto.js toOrpheus)',
-    'ON_CUSTOM_TRIGGER.makoto_skill_03_2_range_appear': 'todo: S3 俄耳甫斯 range appearing (op-makoto.js toOrpheus)',
-    'ON_CUSTOM_TRIGGER.makoto_skill_03_heal_hit': 'todo: S3 俄耳甫斯 heal landing (makoto_s3_2_be_healed PlayAudio; op-makoto.js heals)',
   },
   char_4230_mcnist: {
     // 机械师 (a 规程 chess, a 盟约 pick since 2026-11-12): her code is also the event enemy enemy_8010_mcnist's

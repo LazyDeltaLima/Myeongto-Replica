@@ -130,6 +130,9 @@ const VTSK_RANGE_AFTER = 0.8;
 const MOMENT_SOUNDS = Object.freeze({
   'clemnt_t1[dice_damage]': 'clemnt:t1', 'phatm2_s_2[damage]': 'phatm2:s2dmg', thorn2_s2_damage: 'thorn2:s2hit',
   'hbound_s_1[dot]': 'hbound:s1dot', 'hbound_s_2[heavy_damage]': 'hbound:s2dot',
+  // 2026-11-13: 结城理 S2's execute (makoto_skill_02_hit_01_finish's OnPlayAudioPlayer), S3 塔纳托斯's 弱点 hit by the type it was
+  // dealt as (makoto_s3_1_standin ON_CALCULATE_DAMAGE CheckDamageType → PlayAudio)
+  makoto_s2_fear_aura_inst_kill: 'makoto:execute', 'makoto_s3_1_standin[phys]': 'makoto:s3phys', 'makoto_s3_1_standin[arts]': 'makoto:s3arts',
 });
 /** Skill abilities with `_fireAttackFinishEvent`: their ON_ABILITY_ATTACK_FINISH as the end clip starts (docs/rules/audio.md 「스킬 시전 능력 소리」). */
 const ATTACK_FINISH_SOUNDS = Object.freeze({ char_388_mint: Object.freeze({ 1: 'mint:s2end' }), char_484_robrta: Object.freeze({ 1: 'robrta:s2end' }) });
@@ -263,6 +266,41 @@ export function seasonSounds(fx, ex, unitOf) {
     default: return [];
   }
 }
+/** 2026-11-13: 结城理 (char_4217_makoto), the 自选 傀儡师 whose <替身> fights as the picked skill's persona. */
+const MAKOTO = 'char_4217_makoto';
+/** His switch to the <替身>, per skill index: the SwitchEnd gun and the persona's range appearing (S1 俄耳甫斯 has no range sound). */
+const MAKOTO_GUN = Object.freeze(['makoto:s1gun', 'makoto:s2gun', 'makoto:s3gun']);
+const MAKOTO_RANGE = Object.freeze([null, 'makoto:s2range', 'makoto:s3range1']);
+/**
+ * Game seconds after the sim's fx (CN client): makoto[switch2stand_s<n>]'s SwitchEnd starts after the 1 s SwitchOut step
+ * (S3's change to 俄耳甫斯: after the 0.5 s ChangeBegin) — its AudioOnEventBehaviour on ON_CAST_START; the mode switches 0.99 s
+ * into SwitchEnd (makoto_delayed_switchend), which shows the mode's range attach effect — its `_start` prefab's OnPlayAudioPlayer
+ * (no `_delayToEmit`) — as render/fxmap.js DOLL_SWITCH_FX draws it; makoto_talent_finish_01's damage sound waits its
+ * `_delayToEmit` 0.45 s, makoto_skill_01_heal_01's 0.5 s; S3's heal sounds as makoto_s3_2_be_healed (0.5 s) finishes.
+ */
+const MAKOTO_AT = Object.freeze({ gun: 1, range: 1.99, s3gun: 0.5, s3range: 1.49, alloutHit: 0.45, s1heal: 0.5, s3heal: 0.5 });
+/**
+ * 2026-11-13, docs/rules/audio.md 「유키 마코토 페르소나 소리」: the `sfx.kit` keys (with a delay in game seconds, or null) a sim fx
+ * event of 结城理 `su` (the tracked unit of the fx's `id`) plays — to the <替身> (`substitute`: the gun of the picked skill's
+ * persona, makoto[switch2stand_s<n>]/SwitchEnd, then its range — S2 / S3), S3's change to 俄耳甫斯 (`persona` orpheus:
+ * makoto[switch2stand_s3_2]'s gun and range), the switch back (`swap`: always the 总攻击 — every 自选 form has S.E.E.S.队长 —
+ * makoto[switch2normal_allout]/AlloutAttack's start and makoto_talent_finish_01's flash and damage), S3 俄耳甫斯's heal
+ * landing (`kitHit` makoto:heal: makoto_s3_2_be_healed ON_BUFF_FINISH PlayAudio).
+ * @returns {[string, number|null][]}
+ */
+export function makotoSounds(fx, ex, su) {
+  if (!ex || typeof ex !== 'object' || su?.def !== MAKOTO) return [];
+  const i = Number.isInteger(su.skillIndex) ? su.skillIndex : -1;
+  switch (fx) {
+    case 'substitute': return /** @type {[string, number][]} */ ([[MAKOTO_GUN[i], MAKOTO_AT.gun], [MAKOTO_RANGE[i], MAKOTO_AT.range]].filter(([k]) => typeof k === 'string'));
+    case 'persona': return ex.form === 'orpheus' ? [['makoto:s3orpheus', MAKOTO_AT.s3gun], ['makoto:s3range2', MAKOTO_AT.s3range]] : [];
+    case 'swap': return [['makoto:allout', null], ['makoto:alloutFlash', null], ['makoto:alloutHit', MAKOTO_AT.alloutHit]];
+    case 'kitHit': return ex.k === 'makoto:heal' ? [['makoto:s3heal', MAKOTO_AT.s3heal]] : [];
+    default: return [];
+  }
+}
+/** 2026-11-13: the sim fx that switch a 傀儡师's form (professions.js installDollkeeper; op-makoto.js toOrpheus 'persona'). */
+const DOLL_FORM_FX = new Set(['substitute', 'persona', 'swap', 'dollEnd']);
 /**
  * 2026-11-12: whether 机械师 S3's charge (sim fx 'charge' { dir, left }) flies a projectile with banks. mcnist_s_3_projectile_real
  * picks it by the 结构性原理's deploy direction and its left / right facing (CheckFaceLOrR): UP → _up facing left, else
@@ -1831,12 +1869,16 @@ export class AudioManager {
     // 2026-10-11: a summon in a named prefab mode (tokenModeName: 뮤엘시스's 流形 after its copy)
     const tn = !em && su.tmode ? tokenModeName(su, this.units.get(su.tby)) : null;
     const tm = tn ? ue?.tm?.[tn] : null;
+    // 2026-11-13, docs/rules/audio.md 「유키 마코토 페르소나 소리」: a mode its form holds (a 傀儡师's <替身>: 结城理's personas,
+    // shared/skill-modes.js FORM_HELD_MODES) — its signals, whatever skill runs (the one that switched him ended at once)
+    const hm = !em && !tm && typeof su.hform === 'string' && Number.isInteger(su.skillIndex) ? ue?.hm?.[su.skillIndex]?.[su.hform] : null;
     const set = em && Array.isArray(em.cues) ? { cues: em.cues, sel: em.sel, mode: true }
-      : tm && Array.isArray(tm.cues) ? { cues: tm.cues, sel: tm.sel, mode: false } : cueSetOf(ue, mode, su.skillOn ? su.sub : null);
+      : tm && Array.isArray(tm.cues) ? { cues: tm.cues, sel: tm.sel, mode: false }
+        : hm && Array.isArray(hm.cues) ? { cues: hm.cues, sel: hm.sel, mode: true } : cueSetOf(ue, mode, su.skillOn ? su.sub : null);
     if (!set) return null;
     const melee = kind === 'none' || kind == null;
     const ab = cueAbility(set, melee);
-    const key = `${em ? `e${su.emode}` : tm ? `t${tn}` : set.mode ? `${mode}${su.skillOn && su.sub ? `/${su.sub}` : ''}` : 'd'}:${ab ?? ''}`;
+    const key = `${em ? `e${su.emode}` : tm ? `t${tn}` : hm ? `h${su.hform}` : set.mode ? `${mode}${su.skillOn && su.sub ? `/${su.sub}` : ''}` : 'd'}:${ab ?? ''}`;
     const mem = ((su.vm ||= new Map()).get(key)) || {};
     su.vm.set(key, mem);
     const k = pickVariant(set.sel, ab, { melee, mem, random: this.random, signal });
@@ -2192,6 +2234,8 @@ export class AudioManager {
       // 2026-11-11: a walking ally built from an enemy record (UnitInfo `walks`: 规程's 莱塔尼亚 summons, 谢拉格's giant) sounds
       // as that enemy — its prefab mode (enemyMode), its abilities' banks (_enemyRecordSkill, _skillImpact)
       walks: !!u.walks,
+      // 2026-11-13: a 傀儡师's form (UnitInfo `form`: 'doll' / 结城理's 'orpheus'), whose held mode its attacks sound (sfx.units[id].hm)
+      hform: typeof u.form === 'string' ? u.form : null,
       spineLive: !!prev?.spineLive && prev.def === (u.spine || u.defId) }); // its model still reports its clip events (spineEvent)
     if (u.side === 'enemy') this._enemyIn(u.id); // 2026-10-10: the time without an enemy (noEnemyMs)
   }
@@ -2544,6 +2588,9 @@ export class AudioManager {
           else this.unit(by.def, 'hit', `h${e[1]}`, undefined, by.mode); // local patch: by.mode
         } else if (kind === 'heal') {
           this.battle('heal', { volume: 0.35 });
+          // 2026-11-13: 结城理 S1 俄耳甫斯's heal — its hit effect makoto_skill_01_heal_01 on the ally, whose OnPlayAudioPlayer waits 0.5 s
+          const hu = e[3] != null ? this.units.get(e[3]) : null;
+          if (hu?.def === MAKOTO && hu.hform === 'doll' && hu.skillIndex === 0) this._kitSound('makoto:s1heal', MAKOTO_AT.s1heal, (hu.mkHeld ||= []));
         } else if (kind === 'skill' && e[2]) {
           const u = this.units.get(e[1]);
           if (u) {
@@ -2575,6 +2622,7 @@ export class AudioManager {
         } else if (kind === 'die') {
           stopUnitLoops(this, e[1]); // local patch: its loop and held one-shots
           for (const cancel of this.units.get(e[1])?.beginHeld ?? []) cancel(); // 2026-11-12: a skill START still waiting its begin clip
+          for (const cancel of this.units.get(e[1])?.mkHeld ?? []) cancel(); // 2026-11-13: 结城理's switch / heal sounds still due
           for (const cancel of this._shellFalls?.get(e[1]) ?? []) cancel(); // 2026-10-29: 克莱门莎 S3's falls still due
           this._shellFalls?.delete(e[1]);
           this._acidRainCut((r) => r.by === e[1]); // 2026-11-11: its rain ends with the 茧
@@ -2725,6 +2773,16 @@ export class AudioManager {
           if (e[1] === 'link' && e[4]?.id != null) for (let i = haloLinkCount(unitOf(e[4].id), e[4].ids); i > 0; i--) this._kitSound('halo2:s3link');
           for (const [k, d, n] of enemyBuffSounds(e[1], e[4], unitOf)) if (n) this._kitSounds(k, n); else this._kitSound(k, d);
           for (const [k, d] of seasonSounds(e[1], e[4], unitOf)) this._kitSound(k, d);   // 2026-11-12
+          // 2026-11-13: a 傀儡师's form from now on (its attacks: the held mode's signals, _swingOf) and 结城理's switch / heal sounds
+          if (DOLL_FORM_FX.has(e[1]) && e[4]?.id != null) {
+            const fu = unitOf(e[4].id);
+            if (fu) { fu.hform = typeof e[4].form === 'string' ? e[4].form : null; fu.sw = null; fu.vm = null; }
+            // (what the last form had still due ends with it — S3's heals: the kit drops them on the way back)
+            for (const cancel of fu?.mkHeld ?? []) cancel();
+            if (fu) fu.mkHeld = null;
+          }
+          const mu = e[4]?.id != null ? unitOf(e[4].id) : null;
+          for (const [k, d] of makotoSounds(e[1], e[4], mu)) this._kitSound(k, d, (mu.mkHeld ||= []));
           this._seasonState(e[1], e[4], unitOf);
           if (e[1] === 'burst') for (const k of elementBurstSounds(e[4], unitOf)) this._kitSound(k);   // 2026-11-12
           if (e[1] === 'enemySkill') this._kitSound(mncturHitSound(e[4], unitOf, ev));                  // 2026-11-12

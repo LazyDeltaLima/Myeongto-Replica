@@ -1126,3 +1126,38 @@
 - 원소 폭발이 시작될 때(sim fx `burst` { id, element }) 그 원소의 소리. 적: 폭발 버프 자체의 `audioSignal`(EN 버프 표 `ep_break_fire_enemy`·`ep_break_water_enemy`·`ep_break_sanity_enemy`, CN 표 `ep_break_anger_enemy`), 쇠약은 `ep_break_dark_enemy` 템플릿이 신호를 단 버프를 만듦. 오퍼레이터: 템플릿 `ep_break_fire_char`·`water_char`·`sanity_char`·`dark_char`가 `ON_BUFF_START`에 신호를 단 버프를 만듦, `ep_break_anger_char`는 없음(오퍼레이터 광조는 소리 없음 — 엔진에 아직 오퍼레이터 광조도 없음).
 - 뱅크(`ON_BUFF_START.<신호>`): 소각 `ep_break_fire_audio`(`b_char_fireharm`) + `ON_BUFF_SHOW_EFFECT.ep_break_fire_audio`(`e_imp_dmfttrb_d` — `SHOW_EFFECT`도 `Entity.OnBuffStart` → `AddBuffEffect`가 버프 시작에 냄, 공식 클라에서 확인), 침식 `ep_break_water_audio`, 신경 `ep_break_sanity_audio`, 쇠약 `ep_break_dark_audio`, 광조 `ep_break_anger_audio`(`Battle_Skill_Important`). sim 원소 이름 → 공식: burn = FIRE, erosion = WATER, neural = SANITY, apoptosis = DARK, rampage = ANGER(`audio.js elementBurstSounds`).
 - 이 전에는 원소 폭발에 소리가 하나도 없었다(기본 시즌도). 확인: 같은 시험 파일 「element bursts」·관리자(소각 둘, 오퍼레이터 광조 없음).
+
+## 유키 마코토 페르소나 소리 (2026-11-13, CN 클라 프리팹·이펙트·버프 템플릿)
+
+선발 유키 마코토(`char_4217_makoto`, 인형사)의 뱅크 21개(zh_CN `audio_data.json`, 새 파일 19개). 어느 노드가 내는지는 연결 작업표
+(`link_sheet.py --client <CN>`)와 CN 이펙트 번들 `effects/makoto.ab`에서 찾았다. 키트 순간은 diy.md 「유키 마코토」.
+
+- **페르소나 공격**: <대역>은 고른 스킬의 페르소나 모드에서 싸운다(`shared/skill-modes.js FORM_HELD_MODES`, 렌더와 같은 표 — fx.md
+  「유키 마코토 페르소나」). 그를 바꾼 스킬은 곧바로 끝나므로 「도는 스킬의 모드」 길(`modes[i]`)로는 잡히지 않는다. 그래서 form이 붙잡는 모드의
+  공격 신호를 따로 싣고(`sfx.units[id].hm[스킬 번호][form]`, `tools/assets/skill-mode-sfx.mjs heldModeSets`), form이 있는 동안의 공격은
+  그것을 낸다(`audio.js _swingOf`; form은 sim fx `substitute`·`persona`·`swap`·`dollEnd`와 UnitInfo `form`으로 따라감).
+  - S1 오르페우스(`Stand_S1`, 조건 그룹): 치료 휘두름 = `attack.1.1` START(sim 휘두름 신호 `HealAlly_Lt50Per`), 마법 공격 = `attack.1.2` ON +
+    `projectile_chr_makoto_s1` HIT.
+  - S2 타나토스(`Stand_S2`): `attack.2` START·HIT.
+  - S3 타나토스(`Stand_S3_1`): `attack.3` ON(파일 셋, 가중치 40·30·30), 맞을 때 소리는 없고 아래 약점 타격음.
+  - S3 오르페우스(`Stand_S3_2`): 공격이 없어 무음.
+  - 그동안은 페르소나의 공격마다 <본체>의 기본 공격음(`p_atk_pskptldr_n`·`p_imp_pskptldr_n`)이 났다.
+- **교체**: <대역>으로 들어갈 때 `makoto[switch2stand_s<n>]` SwitchEnd의 `AudioOnEventBehaviour`(`_triggerEvent` 2 = ON_CAST_START)가 총성
+  `makoto_skill_0<n>_*_gun`을 낸다. SwitchOut 1초 뒤이므로 sim `substitute` 1초 뒤. S3 치명상의 오르페우스 교체는 `switch2stand_s3_2`의 것으로
+  ChangeBegin 0.5초 뒤(`persona` 0.5초 뒤). 범위 등장 `makoto_skill_02_range_appear`·`_03_1_`·`_03_2_`는 그 모드 부착 이펙트
+  `*_range_0n_start` 프리팹의 소리 부품이 낸다. 모드가 바뀌는 순간(SwitchEnd 0.99초째 — 들어갈 때 1.99초, S3 교체 1.49초, fxmap.js
+  `DOLL_SWITCH_FX`)이다. S1에는 범위 소리가 없다.
+- **총공격**(재능 2 S.E.E.S. 리더): 돌아오는 교체는 언제나 `makoto[switch2normal_allout]`(모든 선발 폼에 재능 2가 있음). 그 AlloutAttack의
+  `AudioOnEventBehaviour` `makoto_allout_start`가 `swap` 때 나고, 같은 순간 그려지는 `makoto_talent_finish_01`의 소리 부품이
+  `makoto_allout_flash`(바로)와 `makoto_allout_damage`(0.45초 뒤)를 낸다. <대역>으로 쓰러지면(`dollEnd`) 없다.
+- **치료·처형·약점**: S1 치료가 내려앉으면 아군에 그려지는 `makoto_skill_01_heal_01`의 소리 부품이 0.5초 뒤 `makoto_skill_01_heal_hit`.
+  S2 처형 = `makoto_skill_02_hit_01_finish`의 소리 부품(바로, 'dmg' 순간 `makoto_s2_fear_aura_inst_kill`). S3 타나토스 타격마다
+  `makoto_s3_1_standin` ON_CALCULATE_DAMAGE `CheckDamageType` → PlayAudio: 물리 `makoto_skill_03_1_physical`, 마법 `_magical`('dmg' 순간
+  `makoto_s3_1_standin[phys|arts]`). S3 오르페우스 치료 = `makoto_s3_2_be_healed`(0.5초) ON_BUFF_FINISH PlayAudio `makoto_skill_03_heal_hit`(키트
+  `kitHit` `makoto:heal` 0.5초 뒤).
+- 이펙트 소리 부품 = `Effects.OnPlayAudioPlayer`(공식 클라에서 확인): 이펙트가 재생될 때 `_delayToEmit`초 뒤(0이면 바로) 그 자리에서
+  `ON_CUSTOM_TRIGGER.<_audioSignal>`. 이펙트가 먼저 끝나면 취소된다(`OnFinish`가 대기를 멈춤). 여기 이펙트는 4~10초라 지연 전에 끝나는 일이 없다.
+  <대역>이 쓰러지거나 form이 다시 바뀌면 아직 기다리는 소리를 지운다. sim이 S3 치료를 돌아갈 때 버리는 것과 같다.
+- 뱅크 없는 신호: `makoto_skill_03_heal_effect`(S3 치료 이펙트, 0.4초), `makoto_skill_03_1_cast_start`·`_03_2_cast_start`(교체 그룹) — 무음.
+- 키: `tools/assets/kit-sfx.mjs` `makoto:*` 15개, 모드 신호 6개는 `hm`. 확인: `test/audio-makoto-sounds.test.js`(옛 연결로 7 중 5, 옛 매니페스트로 6 실패),
+  `audio-bank-coverage-list.js`의 todo 21줄을 지움. [화면 미확인: 아레나 2배속]

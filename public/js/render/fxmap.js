@@ -6,7 +6,7 @@
 // (_iteration#4, _sale#14, _avemujica#1 …) and are left out: the remake draws the default skin.
 // [ASSUMED] the mapping by name; the client binds effects per ability in its charpack prefabs (`_startEffect` …).
 
-import { skillModeIndex } from '../../../shared/skill-modes.js';
+import { skillModeIndex, FORM_HELD_MODES } from '../../../shared/skill-modes.js';
 import { cite } from './fx/cite.js';
 import { whenPlays } from './fx/conds.js';
 
@@ -127,24 +127,9 @@ export function attackMode(bind, skillOn, skillIndex, sub = null) {
   return k > 0 ? k : skillModeIndex(bind.modes, skillIndex, bind.skillMode);
 }
 
-/**
- * (2026-11-07, official client) A mode an equipped skill holds through the deployment, picked by the unit's sim form rather than by
- * a running skill: charId → { skill index → { forms: { form ('' = none) → mode name }, also: [the other modes of the same
- * effects] } }. 丰川祥子 S2 满月的舞会 (a toggle skill with no duration): oblvns_s_2[switch] keeps her in mode 2 S2_Atk (钢琴,
- * 「初始」 by the skill's text) and its toggle (ON_TOGGLE_SKILL_START) moves her between it and mode 1 S2_AttackSpeed (风琴) —
- * the kit's form 'organ'; in Fever to S2_Fever / S2_Fever_Mag, which bind the same effects as their timbre's mode.
- */
-export const FORM_HELD_MODES = Object.freeze({
-  char_4182_oblvns: Object.freeze({ 1: Object.freeze({ forms: Object.freeze({ '': 'S2_Atk', organ: 'S2_AttackSpeed' }), also: Object.freeze(['S2_Fever', 'S2_Fever_Mag']) }) }),
-  // 2026-11-12: 结城理's <替身> (sim form 'doll', the shared 傀儡师 switch) fights in the persona mode of the picked skill —
-  // makoto_switchend SwitchMode by the skill (Stand_S1 / Stand_S2 / Stand_S3_1), S3's lethal hit then Stand_S3_2 (the kit's
-  // form 'orpheus'); his <本体> is mode Default (index 0: no held mode)
-  char_4217_makoto: Object.freeze({
-    0: Object.freeze({ forms: Object.freeze({ '': 'Default', doll: 'Stand_S1' }), also: Object.freeze([]) }),
-    1: Object.freeze({ forms: Object.freeze({ '': 'Default', doll: 'Stand_S2' }), also: Object.freeze([]) }),
-    2: Object.freeze({ forms: Object.freeze({ '': 'Default', doll: 'Stand_S3_1', orpheus: 'Stand_S3_2' }), also: Object.freeze([]) }),
-  }),
-});
+// (2026-11-07) FORM_HELD_MODES — the modes a form holds — lives in shared/skill-modes.js since 2026-11-13: the sounds read it
+// too (tools/assets/skill-mode-sfx.mjs heldModeSets, public/js/audio.js)
+export { FORM_HELD_MODES };
 /**
  * 2026-11-12 (docs/rules/fx.md 「유키 마코토 페르소나」): a 傀儡师 switch whose <替身> is a mode its form holds
  * (FORM_HELD_MODES; fxgame.js personaFx): charId → the sim's switch fx kind → { fx: one-shots its sequence ability's own buffs

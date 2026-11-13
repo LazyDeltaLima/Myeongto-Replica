@@ -15,6 +15,26 @@ export const ENEMY_RECORD_MODES = Object.freeze({ enemy_9012_acloon: Object.free
 export const enemyRecordMode = (id) => (typeof id === 'string' && Object.hasOwn(ENEMY_RECORD_MODES, id) ? ENEMY_RECORD_MODES[id] : null);
 
 /**
+ * (2026-11-07, official client) A mode an equipped skill holds through the deployment, picked by the unit's sim form rather than by
+ * a running skill: charId → { skill index → { forms: { form ('' = none) → mode name }, also: [the other modes of the same
+ * effects] } }. 丰川祥子 S2 满月的舞会 (a toggle skill with no duration): oblvns_s_2[switch] keeps her in mode 2 S2_Atk (钢琴,
+ * 「初始」 by the skill's text) and its toggle (ON_TOGGLE_SKILL_START) moves her between it and mode 1 S2_AttackSpeed (风琴) —
+ * the kit's form 'organ'; in Fever to S2_Fever / S2_Fever_Mag, which bind the same effects as their timbre's mode.
+ * Shared by the effect layer (public/js/render/fxmap.js heldMode) and the sounds (tools/assets/skill-mode-sfx.mjs heldModeSets →
+ * sfx.units[id].hm, public/js/audio.js).
+ */
+export const FORM_HELD_MODES = Object.freeze({
+  char_4182_oblvns: Object.freeze({ 1: Object.freeze({ forms: Object.freeze({ '': 'S2_Atk', organ: 'S2_AttackSpeed' }), also: Object.freeze(['S2_Fever', 'S2_Fever_Mag']) }) }),
+  // 2026-11-12: 结城理's <替身> (sim form 'doll', the shared 傀儡师 switch) fights in the persona mode of the picked skill —
+  // makoto_switchend SwitchMode by the skill (Stand_S1 / Stand_S2 / Stand_S3_1), S3's lethal hit then Stand_S3_2 (the kit's
+  // form 'orpheus'); his <本体> is mode Default (index 0: no held mode)
+  char_4217_makoto: Object.freeze({
+    0: Object.freeze({ forms: Object.freeze({ '': 'Default', doll: 'Stand_S1' }), also: Object.freeze([]) }),
+    1: Object.freeze({ forms: Object.freeze({ '': 'Default', doll: 'Stand_S2' }), also: Object.freeze([]) }),
+    2: Object.freeze({ forms: Object.freeze({ '': 'Default', doll: 'Stand_S3_1', orpheus: 'Stand_S3_2' }), also: Object.freeze([]) }),
+  }),
+});
+/**
  * 2026-10-29, official client: the modes a running skill switches its owner to on the way (a SwitchMode of its buffs), by
  * the sim fx that marks that moment — 维什戴尔 S2's 过载 (wisdel_s_2[overload_start] → S2_Overload; fx 'wisdelOverload'),
  * 乌尔比安 S3 once the anchor lands (ulpia_s3_switch_mode[born]: his redeploy there, moved or in place, → S3_Respawn_A;

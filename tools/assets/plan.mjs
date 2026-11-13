@@ -28,7 +28,7 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
-import { loadCharModes, loadSkillCast, castCues, skillModeIndex, skillModes, modeNamesFile, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, dubbedSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, enemyModeSets, tokenModeSets, tokenSkillModes, loadTokenSkills, loadSkillBegin, skillBeginLeads } from './skill-mode-sfx.mjs'; // local patch
+import { loadCharModes, loadSkillCast, castCues, skillModeIndex, skillModes, modeNamesFile, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, dubbedSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, heldModeSets, skillHitCues, spineCues, enemySkillCues, enemyModeSets, tokenModeSets, tokenSkillModes, loadTokenSkills, loadSkillBegin, skillBeginLeads } from './skill-mode-sfx.mjs'; // local patch
 import { kitHitSfx, kitHitGroups, kitHitLimits } from './kit-sfx.mjs'; // local patch
 
 /**
@@ -507,6 +507,9 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
         if (c.length) kd[String(k.index)] = c;
       }
       if (Object.keys(kd).length) u.kd = kd;
+      // 2026-11-13: the modes a 傀儡师's <替身> form holds (结城理's personas, skill-mode-sfx.mjs heldModeSets)
+      const hm = heldModeSets(audio, id, charAudio[id], info?.modes, soundLeaf);
+      if (hm) u.hm = hm;
     }
     const spine = spineCues(audio, id, soundLeaf);
     if (spine) u.spine = spine;
