@@ -276,6 +276,18 @@ export const EVENTS = {
     });
   },
 
+  // 规程 아미야 garrison_114 「<战斗中>身前一格干员提升盟约层数时，每次提升的层数额外+1（不受叠层上限影响）」 (精锐 +2): the 特质 it
+  // grants to the operator in front, garrison_235 「通过卫戍能力或装备提升盟约层数时…」 — every layer gain that operator's own
+  // 特质 ('garrison') or equipment ('item') makes gets +extra_cnt per bond. The hook runs after the per-battle cap took its
+  // share (S.gainLayers), so the extra is past the cap, as 魔王's. [ASSUMED·CN: the effect prefab is CN-only] a strategy's,
+  // a bond's own gain (乌萨斯's knock-out 临时层数) and prep-side gains are not raised; each granted copy adds its own extra.
+  act3autochess_gar_effect_ex_bond_cnt(battle, list) {
+    battle.on('layerGain', (ctx) => {
+      if ((ctx.reason !== 'garrison' && ctx.reason !== 'item') || !ctx.source) return;
+      for (const it of list) if (it.unit === ctx.source && it.unit.ownerId === ctx.playerId) ctx.n += S.num(it.bb.extra_cnt, 0);
+    });
+  },
+
   act1autochess_gar_event_addition_cnt(battle, list) {
     battle.on('layerGain', (ctx) => {
       if (ctx.reason !== 'garrison' || !ctx.source) return;

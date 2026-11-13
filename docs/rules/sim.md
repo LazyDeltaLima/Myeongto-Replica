@@ -3297,7 +3297,7 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
   - 니어 더 래디언트 나이트(`chess_char_6_05`) `garrison_58`(`act3autochess_gar_effect_switchhand_triggergar`, `switch_bond_id` 카시미어·기습): `ON_OWNER_FINISH`에서 이동 같은 퇴장(`MOVE_LIKE_RESPAWN_SELF`·`_EXTERNAL` — 우리 엔진의 기습 퇴장 `'raid'`, 바로 다시 배치)만 빼고 교대, 그 뒤(`AlwaysNext` — 후보가 없어도) 자신의 활성 맹약 +`bond_add_count`(6, 정예 12), 불려 온 오퍼레이터는 `act3autochess_gar_effect_common_triggergar`의 `ON_BUFF_START`로 **자기** 활성 맹약에 같은 수. 상한 `max_add_count_per_battle`(12·24)은 오퍼레이터마다.
   - 历阵锐枪芬(`chess_char_3_21`) `garrison_223`(쓰러짐 사건) → `224`(`…switchcharinhand[trigger]`, 카시미어): `AutoChessCheckSwitchWithHand`(후보가 없으면 아무것도 안 함) → 교대 → `InstantKill`(이미 쓰러진 주인). 층은 없음.
   - [추정·CN: 두 노드는 CN 전용] 쉼표로 둔 맹약은 「그중 하나」(이 표들의 다른 맹약 필터와 같게); `switch_buildable_type`·`switch_profession_mask`는 기록에 없어 검사 안 함; 이동 같은 퇴장 말고는 모두(쓰러짐·자기 효과의 강제 퇴장) 교대; 교대는 다른 'death' 처리 뒤(우선순위 −999), 카시미어 6명 교대(−1000)보다 먼저 — 한 번 쓰러지면 한 명만 불려 온다.
-- **남은 것**: `garrison_235`(`…ex_bond_cnt`, 「通过卫戍能力或装备提升盟约层数时…额外+1」)은 가진 기물·장비·전략이 없다.
+- **아미야**(`chess_char_5_26`) `garrison_114`(앞 1칸에게 부여) → `garrison_235`(`act3autochess_gar_effect_ex_bond_cnt`, 「通过卫戍能力或装备提升盟约层数时，每次提升的层数额外+1（不受叠层上限影响）」, 정예 +2, 2026-11-13): 받은 오퍼레이터 자신의 특질(`'garrison'`)·장비(`'item'`) 층 획득마다 맹약마다 +`extra_cnt` — 마왕(`garrison_59`)처럼 `layerGain` 훅이라 한 판 상한이 제 몫을 뗀 뒤에 붙어 상한에 안 셈(상한에 닿아 0이 된 획득에는 안 붙음). 전에는 이 키의 처리기가 없어 아미야 특질이 아무 일도 안 했다(「가진 기물이 없다」고 적었으나 11-09에 들어온 아미야가 부여한다). [추정·CN: 효과 프리팹이 CN에만 있음] 전략·맹약 자체(우르수스 처치 임시 층)·정비 쪽 획득은 안 늘림, 부여 사본마다 따로 더함.
 - 확인: `test/content/garrisons_act3.test.js`(16 — 수정 전 코드에서 모두 실패 확인), `coverage.test.js`(지난 시즌 데이터로 만든 「모르는 값」을 `bond_allinrange`에서 다른 값으로), 교대는 `test/content/garrisons_act3_switch.test.js`(5 — 실제 대전 경로 하나 포함, 수정 전 코드에서 모두 실패 확인). 화면은 안 봄(숨김 시즌).
 
 ## 규정 특질 — 정비 쪽 (2026-11-11)
@@ -3314,9 +3314,10 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
   - 위디(`chess_char_4_05`) `garrison_30`(`SERVER_SELF_SELL_PRICE_FIXED`, 획득 시): 판매가 3(정예 6) — 기물의 값으로 읽는다(`GameData.sellPrice`가 기록의 특질에서): 합성된 정예는 획득 시 특질이 돌지 않아도 6.
   - 旅骨(`chess_char_3_05`, 홈바운드) `garrison_28`(`SERVER_ADD_BOND_POSITION_COUNT_SELL_PRICE`, 휴식 끝): 자신과 앞 1칸 오퍼레이터(`SERVER_ADD_BOND_POSITION`과 같은 두 대상)의 활성 맹약에 각자의 판매가 × `multi`(1, 정예 2) [추정·화면: 「其售出价格」의 「其」를 각 오퍼레이터로 읽음 — 홈바운드 자신의 값이 아님; 규정에서 다른 것은 海沫·위디뿐].
   - 쏜즈(`chess_char_5_04`) `garrison_32`(`SERVER_ADD_BOND_BOARD_SELL_PRICE`, 휴식 끝): 활성 이베리아 + 보드 기물 판매가 합 × `multi`(1, 정예 2), 많아야 `max`(12·24) — 한 라운드에 한 번이라 그대로 상한. 정비 구역·소환물은 안 셈.
+- **「每回合至多叠加N层」**(2026-11-13): 휴식 끝에 한 번 도는 특질의 `max`는 한 번에 맹약마다 주는 층의 상한 — 쏜즈와 같게. 타락사쿰(`chess_char_3_06`) `garrison_36`·클로저(`5_21`) `125`·시(`6_17`) `128`(`SERVER_ADD_BOND_METHOD` `round_gain_char`, 이번 라운드 획득 오퍼레이터 × `multi`: 16·32 / 16·32 / 24·48), 아스트젠 더 라이트체이서(`5_18`) `121`(`SERVER_ADD_BOND_ROUND_COIN_COST`, 소모 자금 ÷ 3 × `layer`: 18·36). 전에는 `max`를 읽지 않아 상한 없이 쌓였다. 안젤리나(`4_25`) `91`·`236`의 `max_layer`는 전부터 지켰다.
   - 휴식 끝 특질끼리의 차례는 보드 차례(`boardOrder`) — 海沫가 쏜즈보다 먼저면 오른 값이 그 라운드에 셈 [추정·화면].
 - **특수 새로 고침**(노시스 `chess_char_4_09` `garrison_55`, `SERVER_GAIN_SPECIAL_REFRESH_BOND_CHAR`, 획득 시): 페페의 특수 새로 고침(`bands/meta.js`, 「규정 전략」)과 같이 플레이어의 **다음 수동 새로 고침**(값은 평소대로 — 문구에 「免费」 없음)이 끝난 뒤 쉐라그 오퍼레이터가 `count`(1, 정예 2) 장 이상이 되게 한다: 쉐라그가 아닌 오퍼레이터 칸을 왼쪽부터 쉐라그(조달 센터 레벨 이하)로 다시 뽑음. 플레이어 쪽 훅(`global:garrison_special_refresh`)이라 노시스를 먼저 팔아도 남는다. 둘이 쌓이지 않고 큰 수가 남는다(페페의 특수 새로 고침이 안 쌓이는 것과 같게) [추정·화면: 어느 칸을 다시 뽑는지, 쌓이는지].
-- **남은 것**: 없음(정비 쪽 `SERVER_*` 키는 모두 처리기가 있다 — `node tools/season-coverage.mjs act3autochess`).
+- **남은 것**: 없음(정비 쪽 `SERVER_*` 키는 모두 처리기가 있다 — `node tools/season-coverage.mjs act3autochess`). 2026-11-13 점검: 정비 쪽 처리기마다 기록의 `bb`·`bbStr` 키를 읽는지, 문구의 숫자가 `bb`(또는 부여·연결 특질의 `bb`)에 있는지 334개 기록 전부 — 어긋난 것은 위 `max` 넷과 전투 쪽 아미야 `garrison_235`뿐이었다(읽지 않는 나머지 키는 같은 값을 다른 곳에서 읽거나 — 위디 `price`는 판매가, `pool1…6`은 `max_pool`과 같은 풀 — 이 문서에 적은 해석: `at_root`·`bond_use_char_range`·`use_to_attackrange`).
 - 확인: `test/content/garrisons_act3_meta.test.js`(6), 판매가·특수 새로 고침은 `test/content/garrisons_act3_sell.test.js`(5) — 둘 다 수정 전 코드에서 모두 실패 확인. 화면은 안 봄(숨김 시즌).
 
 ## 부여된 특질은 받은 만큼 겹친다 (2026-11-11, 플레이 제보, 공식 클라에서 확인)

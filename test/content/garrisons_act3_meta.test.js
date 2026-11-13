@@ -132,3 +132,25 @@ test('酒神 garrison_158 / 159: 进入休整期时 one / two random equipment o
     noViolations(m);
   }
 });
+
+test('「每回合至多叠加N层」: 타락사쿰 36 · 클로저 125 · 시 128 (per operator gained) and 아스트젠 더 라이트체이서 121 (per 3 funds spent) stop at bb.max', () => {
+  const cases = [
+    // [chess, its active bonds, the round stat, a value under the cap → layers, a value past it → the cap]
+    ['chess_char_3_06_a', ['yanShip', 'docShip'], 'gainedChess', [3, 6], [20, 16]],
+    ['chess_char_3_06_b', ['yanShip', 'docShip'], 'gainedChess', [3, 12], [20, 32]],
+    ['chess_char_5_21_a', ['investShip'], 'gainedChess', [5, 10], [9, 16]],
+    ['chess_char_6_17_b', ['yanShip', 'arcaneShip'], 'gainedChess', [4, 16], [30, 48]],
+    ['chess_char_5_18_a', ['arcaneShip'], 'spent', [10, 6], [40, 18]],
+    ['chess_char_5_18_b', ['arcaneShip'], 'spent', [10, 12], [40, 36]],
+  ];
+  for (const [id, bonds, stat, ...runs] of cases) {
+    for (const [v, want] of runs) {
+      const { m, ps } = setup({ active: bonds });
+      place(m, ps, id);
+      ps.round[stat] = v;
+      m.dispatch(ps, 'onPrepEnd', { round: m.round });
+      for (const b of bonds) assert.equal(ps.layers[b] ?? 0, want, `${id} ${stat} ${v}: ${b}`);
+      noViolations(m);
+    }
+  }
+});

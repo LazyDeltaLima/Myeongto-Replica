@@ -29,6 +29,10 @@ H.SERVER_ADD_BOND_CHESS_ALL = {
   },
 };
 
+// 「（每回合至多叠加N层）」 (规程 bb.max: 타락사쿰 garrison_36 16 / 32, 클로저 125, 시 128, 아스트젠 더 라이트체이서 121 18 / 36):
+// the most one run gives each bond — these run once a round (休整期结束时), as 쏜즈's garrison_32 below
+const roundCap = (bb, n) => (num(bb.max, 0) > 0 ? Math.min(n, num(bb.max)) : n);
+
 H.SERVER_ADD_BOND_METHOD = {
   run(ctx) {
     const { bb, bbStr, garrison } = ctx.source;
@@ -38,7 +42,7 @@ H.SERVER_ADD_BOND_METHOD = {
     const me = selfView(ctx);
     switch (bbStr.add_method) {
       case 'shoplv': addAll(ctx, bonds, ctx.shopLevel() * multi, ra); break;
-      case 'round_gain_char': addAll(ctx, bonds, (ctx.roundStats().gainedChess | 0) * multi, ra); break;
+      case 'round_gain_char': addAll(ctx, bonds, roundCap(bb, (ctx.roundStats().gainedChess | 0) * multi), ra); break;
       case 'hand_count': addAll(ctx, bonds, ctx.hand().filter((p) => p && p.kind === 'chess').length * multi, ra); break;
       case 'same_row': addAll(ctx, bonds, sameRowCount(ctx, me) * multi, ra); break;
       case 'same_bond_diff_lv':
@@ -134,7 +138,7 @@ H.SERVER_ADD_BOND_ROUND_COIN_COST = {
   run(ctx) {
     const { bb, bbStr, garrison } = ctx.source;
     const per = Math.max(1, num(bb.count, 1));
-    addAll(ctx, ids(bbStr.bond), Math.floor((ctx.roundStats().spent | 0) / per) * num(bb.layer), requireActiveOf(garrison));
+    addAll(ctx, ids(bbStr.bond), roundCap(bb, Math.floor((ctx.roundStats().spent | 0) / per) * num(bb.layer)), requireActiveOf(garrison));
   },
 };
 

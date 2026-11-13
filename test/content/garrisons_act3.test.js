@@ -45,10 +45,9 @@ const killFoe = (h, e) => { h.b.dealDamage(null, e, { amount: 2e9, type: 'true' 
 const done = (h) => { checkInvariants(h.b); assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0])); };
 const sp = (u) => u.skill.sp;
 
-test('规程 coverage: every IN_BATTLE 特质 runs but the ownerless garrison_235 (the 整备区 switches: garrisons_act3_switch.test.js)', () => {
+test('规程 coverage: every IN_BATTLE 特质 runs (the 整备区 switches: garrisons_act3_switch.test.js; 아미야\'s granted 235 below)', () => {
   const rows = coverageOf('act3autochess').garrisons.filter((r) => r.side === 'battle' && r.status !== 'ok');
-  assert.deepEqual(rows.map((r) => `${r.status} ${r.id}`).sort(), ['none act3autochess_gar_effect_ex_bond_cnt']);
-  assert.deepEqual(ACT3.garrisons.garrison_235_a.owners, []);
+  assert.deepEqual(rows.map((r) => `${r.status} ${r.id}`).sort(), []);
 });
 
 test('莎草 garrison_44 → 233: each skill start gives the operator in front 2 / 4 SP (no one else)', () => {
@@ -272,4 +271,30 @@ test('garrison_237 (bond_allinrange b-4): a stun in 周围八格 → the active 
   h.b.applyStatus(near, 'stun', { duration: 1, source: null, force: true });
   assert.deepEqual(gains(h), { kjeragShip: 1 });
   done(h);
+});
+
+test('아미야 garrison_114 → 235: the operator in front gets +1 / +2 on each of its trait and equipment gains, past its cap; no one else', () => {
+  const skill = (h, u) => h.b.emit('skillStart', { unit: u, skill: u.skill, reason: 'test' });
+  for (const [q, extra] of [['a', 1], ['b', 2]]) {
+    assert.equal(ACT3.garrisons[`garrison_235_${q}`].bb.extra_cnt, extra);
+    // facing RIGHT: 아미야 (10, 4) has (10, 5) in front; (11, 4) is beside her
+    const h = fight({
+      ops: { a: [10, 4, { g: [`garrison_114_${q}`] }], f: [10, 5, { g: ['garrison_143_a'], bonds: ['sargonShip'] }], s: [11, 4, { g: ['garrison_143_a'], bonds: ['egirShip'] }] },
+      bonds: { sargonShip: B(0), egirShip: B(0) },
+    });
+    const [a, f, s] = ['a', 'f', 's'].map((id) => h.unit(id));
+    skill(h, f);
+    assert.equal(gains(h).sargonShip, 1 + extra, 'a 特质 gain of the operator in front');
+    for (let i = 0; i < 10; i++) skill(h, f);
+    assert.equal(gains(h).sargonShip, 7 * (1 + extra), 'its cap (7) counts the base only; a capped gain gets no extra');
+    skill(h, s);
+    assert.equal(gains(h).egirShip, 1, 'beside her: no extra');
+    h.b.addLayers('p1', 'egirShip', 2, 'item', { source: f });
+    assert.equal(gains(h).egirShip, 3 + extra, 'an equipment gain of the operator in front');
+    h.b.addLayers('p1', 'egirShip', 2, 'bond', { source: f });
+    assert.equal(gains(h).egirShip, 5 + extra, 'a bond\'s own gain: no extra');
+    h.b.addLayers('p1', 'egirShip', 2, 'garrison', { source: a });
+    assert.equal(gains(h).egirShip, 7 + extra, '아미야\'s own gain: no extra');
+    done(h);
+  }
 });
