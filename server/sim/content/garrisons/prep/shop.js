@@ -31,9 +31,16 @@ H.SERVER_POOL_CHAR = {
   },
 };
 
+// 余 garrison_37 and 规程's garrison_174 give any tier (their texts give no cap). 规程's 伊桑 garrison_200 「<售出时>…
+// （不高于当前调度中心等级；无法获得自身）」 caps the tier at the shop level and never gives his own operator — read from
+// the text, the records carry no blackboard for either.
 H.SERVER_MOST_BOND = {
   run(ctx) {
     if (!rowCondition(ctx, selfView(ctx))) return;
+    const desc = ctx.source.garrison?.desc || '';
+    const maxTier = desc.includes('不高于当前调度中心等级') ? Math.max(1, ctx.shopLevel()) : 6;
+    const selfChar = desc.includes('无法获得自身') ? ctx.chessRecord(ctx.source.piece?.id)?.charId ?? null : null;
+    const notSelf = selfChar ? (x) => ctx.chessRecord(x)?.charId !== selfChar : undefined;
     let best = [], bc = 0;
     for (const id of bondOrder(ctx)) {
       const c = ctx.bondCount(id);
@@ -41,7 +48,7 @@ H.SERVER_MOST_BOND = {
     }
     const order = best.length > 1 ? ctx.rng.shuffle(best.slice()) : best;
     for (const bond of order) {
-      const id = ctx.rollChess({ bond, maxTier: 6 });
+      const id = ctx.rollChess({ bond, maxTier, filter: notSelf });
       if (id && ctx.grantChess(id)) return;
     }
   },

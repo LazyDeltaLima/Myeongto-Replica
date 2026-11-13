@@ -137,3 +137,39 @@ test('灵知 garrison_55: 获得时, the next manual refresh (paid) shows at lea
     assert.ok(skipped <= 8, `${id}: most seeds keep 谢拉格 (${skipped} of 12 drew it absent)`);
   }
 });
+
+test('伊桑 garrison_200: 售出时 an operator of the most-member bond, of a tier ≤ the 调度中心 level, never 伊桑 himself', () => {
+  // 奥术 (arcaneShip): 卡达 Ⅰ, Miss.Christine Ⅱ, 伊桑 Ⅲ, 维伊 Ⅳ, 溯光星源 Ⅴ — 伊桑 and 维伊 on the board leave 奥术 the
+  // most-member bond after he is sold (CN play report: an elite 6-tier operator came at a low level)
+  const bondOf = (id) => ACT3.chess[id].bonds;
+  assert.deepEqual(bondOf('chess_char_3_18_a'), ['arcaneShip', 'raidShip']);
+  for (const id of ['chess_char_3_18_a', 'chess_char_3_18_b']) {
+    for (const level of [2, 3, 6]) {
+      const tiers = new Set();
+      let seeds = 0;
+      for (let seed = 1; seed <= 60; seed++) {
+        const { m, ps } = setup({ seed });
+        // a match that draws 奥术 or 突袭 absent bans their operators (rules/sim.md 「규정 핵심 맹약 금지」)
+        if (m.disabledBonds.includes('arcaneShip') || m.disabledBonds.includes('raidShip')) continue;
+        seeds++;
+        ps.shop.level = level;
+        const p = place(m, ps, id);
+        place(m, ps, 'chess_char_4_04_a');
+        const got = [];
+        const orig = ps.acquireChess.bind(ps);
+        ps.acquireChess = (cid, o) => { got.push(cid); return orig(cid, o); };
+        assert.equal(ps.sell(p.uid).ok, true);
+        ps.acquireChess = orig;
+        assert.equal(got.length, 1, `${id} L${level} seed ${seed}: one operator (${got})`);
+        const rec = ACT3.chess[got[0]];
+        assert.ok(rec.bonds.includes('arcaneShip'), `${got[0]} is 奥术`);
+        assert.ok(rec.tier <= level, `${id} L${level} seed ${seed}: ${got[0]} tier ${rec.tier}`);
+        assert.notEqual(rec.charId, 'char_355_ethan', `${id} L${level} seed ${seed}: 无法获得自身`);
+        tiers.add(rec.tier);
+        noViolations(m);
+      }
+      assert.ok(seeds >= 10, `${id}: ${seeds} seeds keep both bonds`);
+      assert.ok(tiers.size > 1, `${id} L${level}: a random roll (${[...tiers]})`);
+    }
+  }
+});
