@@ -47,12 +47,16 @@
 .dclv__glyph.is-text { right: .2rem; font-size: 1.1rem; line-height: 1; font-family: var(--font-num); color: var(--tier-5, #ffd23a); }
 .dclv[data-tier="6"] .dclv__glyph.is-text { color: var(--tier-6, #ff8a1e); }
 .dclv.is-empty .dclv__glyph.is-text { color: #555; }
+/* text_phase_now / text_phase_total: Novecentowide-Medium (their DynFontLoader), Lexend Exa in its place as on the HUD
+   (maintainer decision 2026-11-11); the two share a baseline and the line sits in the middle of num_bg (a wrapping flex
+   line centred by align-content: baseline alignment alone puts it at the top) */
 .dclv__num {
-  position: absolute; right: .12rem; top: calc(50% + .12rem); width: 1.38rem; height: .64rem; display: flex; align-items: baseline; justify-content: center; gap: .02rem;
-  padding-top: .1rem; box-sizing: border-box; font-size: .28rem; color: #959595;
+  position: absolute; right: .12rem; top: calc(50% + .12rem); width: 1.38rem; height: .64rem; display: flex; flex-wrap: wrap; align-items: baseline;
+  align-content: center; justify-content: center; gap: .02rem; box-sizing: border-box; font-size: .28rem; line-height: 1; color: #959595;
+  font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 500; letter-spacing: -.06em;
   background: var(--dc-num, none) center / 100% 100% no-repeat; border-radius: .32rem;
 }
-.dclv__num b { font-size: .4rem; font-weight: 400; color: #00ffc4; }
+.dclv__num b { font-size: .4rem; font-weight: 500; color: #00ffc4; }
 .dclv__cards { display: flex; gap: calc(-2 * var(--u)); align-items: center; justify-content: flex-end; min-width: 0; }
 .dclv__none { position: absolute; inset: 0 1.6rem 0 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .12rem; color: rgba(255, 255, 255, .5); font-size: .3rem; pointer-events: none; }
 .dclv__none img { width: 1.42rem; }
@@ -140,7 +144,7 @@
   .dchoose { --u: .0094rem; }
   .dclv { padding-right: 1.3rem; }
   .dclv__glyph { height: 1.1rem; }
-  .dclv__num { right: .04rem; width: 1.1rem; height: .5rem; font-size: .22rem; padding-top: .06rem; }
+  .dclv__num { right: .04rem; width: 1.1rem; height: .5rem; font-size: .22rem; }
   .dclv__num b { font-size: .32rem; }
   .dclv__none { inset: 0 1.3rem 0 0; font-size: .24rem; }
   .dclv__none img { width: 1rem; }

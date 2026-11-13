@@ -57,3 +57,35 @@ test('no local Novecento Medium is left: no extract job, no page registration', 
   for (const f of ['public/js/main.js', 'public/dev/game-mock.js']) assert.doesNotMatch(readFileSync(path.join(ROOT, f), 'utf8'), /installLocalFonts/, f);
   assert.doesNotMatch(readFileSync(path.join(ROOT, 'tools/local-extract/extract.py'), 'utf8'), /FONT_NAMES|Novecentowide-Medium/);
 });
+
+test('more Medium spots: the 3/3 lineup count, the shop prices and funds, the achievement trophies and mode counts', () => {
+  const read = (f) => readFileSync(path.join(ROOT, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (css, sel) => {
+    const m = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find((x) => x[1].trim() === sel);
+    assert.ok(m, sel);
+    return m[2];
+  };
+  const medium = new RegExp(`font-family: ${LX.replace(/[()]/g, '\\$&')};[^}]*font-weight: 500;[^}]*letter-spacing: -\\.06em`);
+  // 3/3 确定自选编队: text_phase_now / text_phase_total (Novecentowide-Medium); the line centred in num_bg, no top padding
+  const dc = read('public/css/screens/diychoose.css');
+  const num = rule(dc, '.dclv__num');
+  assert.match(num, medium);
+  assert.match(num, /align-content: center/);
+  assert.match(num, /flex-wrap: wrap/);
+  assert.doesNotMatch(dc.match(/\.dclv__num \{[^}]*\}/g).join('\n'), /padding-top/, 'no padding pushes the count down (desktop or phone)');
+  // the shop: autochess_shop_cost_item text_num 6 up (EN) / 5 up (规程), coin_num (Novecentowide-Medium)
+  const shop = read('public/css/shop-art.css');
+  const price = rule(shop, '.shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex) .hex__value');
+  assert.match(price, medium);
+  assert.match(price, /transform: translateY\(calc\(var\(--u\) \* -4\.4\)\)/);
+  assert.match(rule(shop, '.shopbar.has-shop-cost.has-shop-theme :is(.scard__price, .lvcard__price, .toolbtn--amber .hex) .hex__value'), /font-size: calc\(var\(--u\) \* 20\);[^}]*translateY\(calc\(var\(--u\) \* -3\.6\)\)/);
+  assert.match(rule(shop, '.shopbar.has-shop-art .funds__num'), medium);
+  assert.match(rule(shop, '.shopbar.has-shop-theme .funds__num'), /translateY\(calc\(var\(--u\) \* -3\)\)/);
+  // the achievement window: the trophies and the per-mode counts, the counts' cells centred
+  const ac = read('public/css/screens/achievements.css');
+  assert.match(rule(ac, '.st-profile__trophies b'), medium);
+  assert.match(rule(ac, '.st-modegrid__value'), medium);
+  assert.match(rule(ac, '.st-modegrid__cell'), /text-align: center/);
+  // its banner mark has a box of its own: 规程's tall mark (138×167) stays inside the banner
+  assert.match(rule(ac, '.achv__mark img'), /height: \.46rem;[^}]*object-fit: contain/);
+});

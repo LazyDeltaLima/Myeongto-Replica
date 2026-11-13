@@ -74,7 +74,13 @@
 .shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex) .hex__fill { background: none; clip-path: none; width: 100%; height: 100%; display: grid; place-items: center; }
 .shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex)::before,
 .shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex)::after { display: none; }
-.shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex) .hex__value { color: #ffc600; font-size: calc(var(--u) * 22); line-height: 1; font-weight: 700; white-space: nowrap; }
+/* text_num: Novecentowide-Medium (DynFontLoader; Lexend Exa in its place, maintainer decision 2026-11-11), 6 units above the
+   hexagon's centre — in the client's font a MiddleCenter line puts the digits ≈ .09 em under its centre, so they show ≈ 4
+   units above the middle; the web line puts them ≈ .02 em under it, hence 4.4 here */
+.shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex) .hex__value {
+  color: #ffc600; font-size: calc(var(--u) * 22); line-height: 1; white-space: nowrap; transform: translateY(calc(var(--u) * -4.4));
+  font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 500; letter-spacing: -.06em;
+}
 /* two digits (a level-up at 10+): the hexagon widens instead of wrapping (maintainer 2026-10-06) */
 .shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex) { min-width: calc(var(--u) * 44); width: auto !important; padding: 0 calc(var(--u) * 9); box-sizing: border-box; }
 .shopbar.has-shop-cost :is(.scard__price.is-poor, .lvcard__price.hex--dark, .toolbtn--amber .hex--dark) { background-image: var(--sa-cost-grey); }
@@ -220,7 +226,7 @@
   flex-direction: row; gap: 0; padding-left: calc(var(--u) * 34); clip-path: none; background: var(--sa-money) center / 100% 100% no-repeat;
 }
 .shopbar.has-shop-art .funds__hex::before, .shopbar.has-shop-art .funds__coin { display: none; }
-.shopbar.has-shop-art .funds__num { font-size: calc(var(--u) * 28); color: #ffba00; }
+.shopbar.has-shop-art .funds__num { font-size: calc(var(--u) * 28); color: #ffba00; font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 500; letter-spacing: -.06em; } /* coin_num: Novecentowide-Medium */
 .shopbar.has-shop-art .funds__label { display: none; }
 .shopbar.has-shop-art .funds__collapse {
   position: relative; flex-direction: row-reverse; margin-bottom: calc(var(--u) * 14); padding: calc(var(--u) * 10) calc(var(--u) * 30);
@@ -286,6 +292,11 @@
 .shopbar.has-shop-theme .funds { width: calc(var(--u) * 184); height: calc(var(--u) * 205); margin-top: calc(var(--u) * -18);
   background: var(--sa-close) center calc(100% + var(--u) * .5) / calc(var(--u) * 192) calc(var(--u) * 213) no-repeat; }
 .shopbar.has-shop-theme .funds__hex { width: calc(var(--u) * 120); height: calc(var(--u) * 47); top: calc(var(--u) * -6.5); padding-left: calc(var(--u) * 40); }
+/* 规程's autochess_main_money_item: coin_num 4 units above bg_money's centre on the prefab's 99×39 plate (drawn 120×47 here, so
+   4.8), less the client font's .09 em drop → the digits ≈ 2.4 above the plate's centre, the middle of its visible top 43 of
+   47 (as the CN captures show); the price text_num 20 px, 5 units above the hexagon's centre (≈ 3.2 shown, 3.6 here as above) */
+.shopbar.has-shop-theme .funds__num { transform: translateY(calc(var(--u) * -3)); }
+.shopbar.has-shop-cost.has-shop-theme :is(.scard__price, .lvcard__price, .toolbtn--amber .hex) .hex__value { font-size: calc(var(--u) * 20); transform: translateY(calc(var(--u) * -3.6)); }
 .shopbar.has-shop-theme .funds__collapse { background-size: calc(var(--u) * 122) calc(var(--u) * 68); }
 .shopbar.has-shop-theme .funds__collapse .icon { width: calc(var(--u) * 18); height: calc(var(--u) * 18); }
 .shopbar.has-shop-theme .shopbar__row, .shopbar.has-shop-theme .shopbar__cards { gap: calc(var(--u) * 7); }

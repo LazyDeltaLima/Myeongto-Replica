@@ -6,7 +6,8 @@ the 1280×720 canvas unit, Image sprites, legacy Text font size / alignment. Two
 
   prefab  <bundle> <GameObject name> [--all]
       the RectTransform tree under that GameObject: anchors, anchoredPosition, sizeDelta, pivot, scale, and per node
-      the Image sprite (+ preserveAspect, type), Text font size / best fit / alignment / line spacing, layout fields.
+      the Image sprite (+ preserveAspect, type), Text font size / best fit / alignment / line spacing, layout fields;
+      a Text whose font is empty (font=?) takes it by name at run time — `dynFont=` prints that name (DynFontLoader).
       --all prints every GameObject of that name (default: the first, usually the prefab root).
   sprites <bundle> [substring ...]
       every Sprite (name containing one of the substrings, case-insensitive; none = all): its rect, the packed
@@ -94,6 +95,8 @@ def mono_fields(b, m):
             out.append('color=#%02x%02x%02x/%.2f' % (round(col['r'] * 255), round(col['g'] * 255), round(col['b'] * 255), col['a']))
         if m.get('m_Text'):
             out.append(f"text={m['m_Text']!r}"[:80])
+    if m.get('_fontName'):  # a Text with an empty m_Font takes its font by name at run time (DynFontLoader)
+        out.append(f"dynFont={m['_fontName']}")
     for k in ('m_fontSize', 'm_text'):  # TextMeshPro
         if k in m and m[k] not in ('', None):
             out.append(f"{k}={m[k]!r}"[:80])
