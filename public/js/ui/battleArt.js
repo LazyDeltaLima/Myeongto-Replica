@@ -311,22 +311,37 @@ export function bottomTipType({ prep, watching, ready, overflow, full, ownDone, 
  * The band (panel_bottom_tips): a 54-tall pill (img_bg tinted per type, padding 30, the icon 32 and the text 18 white
  * 9.27 apart, 410…690 wide) centred 47.7 above the screen's bottom; with the shop open it rides 172 higher
  * (battle_bottom_tips_shop_show). Fades between types.
+ * On phones (css/battle-art.css) it is a chip in the bottom-left corner that folds to its round icon when tapped
+ * (maintainer decision 2026-11-13): a folded type stays folded whenever it shows again while this screen lives (the
+ * match); another type shows unfolded. The desktop band takes no taps (the official one has no fold).
  * @param {{ type: keyof typeof TIPS | null, shopOpen?: boolean }} props
  */
 export function BottomTips({ type, shopOpen = false }) {
   const [shown, setShown] = useState(type);
+  const [folded, setFolded] = useState(() => new Set());
   useEffect(() => { if (type) setShown(type); }, [type]);
   const [mounted, leaving] = useLinger(!!type, 250);
-  const cfg = TIPS[type || shown];
+  const cur = type || shown;
+  const cfg = TIPS[cur];
   if (!mounted || !cfg) return null;
   const icon = localAsset('ui/battle', cfg.icon);
-  return html`<div class=${['btip', shopOpen && 'is-up', leaving && 'is-leaving'].filter(Boolean).join(' ')} role="status" aria-live="polite"
-      data-tip=${type || shown}>
-    <span class="btip__pill" style=${`--tip:${cfg.color}`}>
+  const isFolded = folded.has(cur);
+  const toggle = () => setFolded((f) => foldToggled(f, cur));
+  return html`<div class=${['btip', shopOpen && 'is-up', leaving && 'is-leaving', isFolded && 'is-folded'].filter(Boolean).join(' ')} role="status" aria-live="polite"
+      data-tip=${cur}>
+    <span class="btip__pill" style=${`--tip:${cfg.color}`} onClick=${toggle}>
       ${icon ? html`<i class="btip__icon" style=${`background-image:url("${icon}")`} aria-hidden="true"></i>` : null}
       <span class="btip__text">${t(cfg.text)}</span>
+      ${!isFolded || !icon ? html`<span class="btip__fold" aria-hidden="true">${isFolded ? '›' : '‹'}</span>` : null}
     </span>
   </div>`;
+}
+
+/** The folded tip types after a tap on `type`'s chip: folded ↔ unfolded (a new Set). */
+export function foldToggled(folded, type) {
+  const next = new Set(folded);
+  if (next.has(type)) next.delete(type); else next.add(type);
+  return next;
 }
 
 // ---- waiting for the stage to end (battle_waiting_dialog) ----------------------------------------------------------

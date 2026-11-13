@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
-const { pingTier, soloResumeDue, ReadyTipDialog } = await import('../../public/js/ui/battleArt.js');
+const { pingTier, soloResumeDue, ReadyTipDialog, foldToggled } = await import('../../public/js/ui/battleArt.js');
 
 describe('bond stack number', () => {
   test('the prefab\'s 16 px on matte_num again, in the HUD number face (12.4 stood in while it drew in Bender)', () => {
@@ -165,5 +165,30 @@ describe('an enemy\'s card takes the official card form too (GitHub #3)', () => 
     const css = read('public/css/hud-art.css');
     assert.match(css, /\.dart\.is-enemy\.is-boss \.dart__prof \{/);
     assert.match(css, /\.dart\.is-enemy \.dart__hp > i \{/);
+  });
+});
+
+// maintainer decision 2026-11-13 (docs/rules/ui.md 「공식 위수협약 UI」 아래 안내 띠): on phones the bottom tip chip folds to its
+// round icon on a tap; a folded type stays folded when it comes back, another type shows unfolded; the desktop band takes no taps
+describe('phones fold the bottom tip chip', () => {
+  test('a tap folds that type only, a second tap unfolds it', () => {
+    let f = new Set();
+    f = foldToggled(f, 'HAND_FULL');
+    assert.deepEqual([...f], ['HAND_FULL']);
+    assert.equal(f.has('PREP_READY'), false, 'another type shows unfolded');
+    const g = foldToggled(f, 'HAND_FULL');
+    assert.deepEqual([...g], []);
+    assert.deepEqual([...f], ['HAND_FULL'], 'a new Set: the old state is not changed');
+  });
+  test('the chip takes taps and folds only under the phone query; the desktop band ignores the pointer', () => {
+    const css = read('public/css/battle-art.css');
+    const phone = css.slice(css.indexOf('@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse),\n  (max-width: 767px)'));
+    const block = phone.slice(0, phone.indexOf('\n}\n'));
+    assert.match(block, /\.btip__pill \{[^}]*pointer-events: auto/);
+    assert.match(block, /\.btip\.is-folded \.btip__pill \{[^}]*width: 32px; height: 32px/);
+    assert.match(css, /^\.btip \{[^}]*pointer-events: none/m);
+    assert.match(css, /^\.btip__fold \{ display: none; \}/m, 'no fold handle on the desktop');
+    const src = read('public/js/ui/battleArt.js');
+    assert.match(src, /onClick=\$\{toggle\}/);
   });
 });
