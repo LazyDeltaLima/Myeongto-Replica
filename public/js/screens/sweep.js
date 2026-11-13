@@ -2,8 +2,8 @@
 // the name and the three tab names are the video's, the KR client's are not known), in this fork's dark tone (maintainer
 // decision 2026-11-07), opened from the lobby hub's S.W.E.E.P. plate. Read-only: it shows the data of the season on
 // screen (data.js setSeason) and changes nothing. Three tabs —
-//   盟约报告 — 核心盟约 / 附加盟约 tiles (bonds.json isCore), each glyph on the stage-info view's mint disc (ui/outer
-//              img_bond_bkg, as the briefing draws a bond); the left panel: the disc, the name, 激活所需人数 and the
+//   盟约报告 — 核心盟约 / 附加盟约 tiles (bonds.json isCore), each glyph on the handbook's white disc (ui/handbook
+//              img_bond_item_bkg, the official handbook's bond item); the left panel: the disc, the name, 激活所需人数 and the
 //              thresholds, the description, 对应干员 (visibleMembers by tier; 替补 on an operator marked 未持有 in 干员持有);
 //   策略报告 — the strategies (bands.json) as tiles; the left: icon, name, 初始生命值, the effect, the modes it is offered
 //              in and its bonds;
@@ -106,12 +106,15 @@ function Hero({ src, glyph = false, art = false, name, sub = null, fallback, mar
 }
 
 /**
- * A bond's glyph on the stage-info view's mint disc (ui/outer img_bond_bkg, ui/matchInfo.js InfoBond — the briefing's
- * bond), a dark glyph sized from its 128-unit sprite rect (natSizeVars); without the art a mint circle.
+ * A bond's glyph on the handbook's own disc (the event's 盟约报告, activity act2autochess `act_auto_chess_handbook_state`;
+ * extracted as ui/handbook): a tile draws the white disc `img_bond_item_bkg` (117 of the 148 tile, 12 above its centre)
+ * under a dark glyph in a 72 box (`img_icon_bond` #051b17); the left panel (`hero`) the grey disc
+ * `img_left_bond_icon_bkg` (200 × 184) under a white glyph in a 150 box. The glyph is sized from its 128-unit sprite
+ * rect (natSizeVars). Without the art, a light circle.
  */
-function BondMark({ bond, m }) {
-  const bg = localAsset('ui/outer', 'img_bond_bkg');
-  return html`<span class=${cx('sw-disc', !bg && 'no-art')} style=${bg ? `--disc:url("${bg}")` : null}>
+function BondMark({ bond, m, hero = false }) {
+  const bg = localAsset('ui/handbook', hero ? 'img_left_bond_icon_bkg' : 'img_bond_item_bkg');
+  return html`<span class=${cx('sw-disc', hero && 'sw-disc--hero', !bg && 'no-art')} style=${bg ? `--disc:url("${bg}")` : null}>
     <${Img} src=${bondIconUrl(m, bond?.bondId)} onLoad=${natSizeVars} fallback=${html`<span class="sw-disc__txt">${[...(bond?.name || '?')][0]}</span>`} />
   </span>`;
 }
@@ -154,7 +157,7 @@ function BondPanel({ bond, m, notOwned }) {
   const anyOff = members.some((c) => off.has(c.chessId));
   const steps = Array.isArray(bond.thresholds) ? bond.thresholds.filter((n) => Number.isFinite(n)) : [];
   return html`<div class="sw-detail">
-    <${Hero} glyph=${true} name=${bond.name} mark=${html`<${BondMark} bond=${bond} m=${m} />`} />
+    <${Hero} glyph=${true} name=${bond.name} mark=${html`<${BondMark} bond=${bond} m=${m} hero=${true} />`} />
     <div class="sw-facts">
       <span class="sw-pill">${t('激活所需人数')}<b class="num">${bond.activeCount ?? steps[0] ?? '—'}</b></span>
       ${steps.length > 1 ? html`<span class="sw-pill sw-pill--ghost" title=${t('达到这些人数时效果增强')}>${t('档位')}<b class="num">${steps.join(' / ')}</b></span>` : null}

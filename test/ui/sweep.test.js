@@ -6,7 +6,8 @@
 //     baseAttackTime as it is); no value or no table reads '—'
 //   - the codex lists one enemy per 图鉴 number and no summon-only enemy; a leader's keys are the leader, then its escorts
 //   - the report is read-only and a full-screen Modal (focus trap, Esc, focus restored); the lobby hub's S.W.E.E.P. plate
-//     opens it; the bonds sit on the stage-info view's mint disc (ui/outer img_bond_bkg)
+//     opens it; the bonds sit on the official handbook's discs (ui/handbook: the tiles' white img_bond_item_bkg, the
+//     left panel's grey img_left_bond_icon_bkg — the event recording shows white, not the briefing's mint)
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -95,7 +96,10 @@ test('the report is read-only and a full-screen Modal; the lobby opens it (sourc
   assert.match(lobby, /\$\{sweepOpen \? html`<\$\{SweepReport\} onClose=\$\{\(\) => setSweepOpen\(false\)\} \/>` : null\}/);
   assert.match(read('public/index.html'), /<link rel="stylesheet" href="\/css\/screens\/sweep\.css" \/>/);
   assert.match(lobby, /<\$\{SweepPlate\} onClick=\$\{\(\) => setSweepOpen\(true\)\} \/>/, 'the hub plate opens the report');
-  assert.match(src, /localAsset\('ui\/outer', 'img_bond_bkg'\)/, 'the bond glyphs on the official mint disc');
+  assert.match(src, /localAsset\('ui\/handbook', hero \? 'img_left_bond_icon_bkg' : 'img_bond_item_bkg'\)/, 'the bond glyphs on the handbook\'s own discs');
+  assert.doesNotMatch(src, /'img_bond_bkg'/, 'not the briefing\'s mint disc');
+  const jobs = read('tools/local-extract/extract.py');
+  assert.match(jobs, /\('activity\/\[uc\]act2autochess\.ab', 'ui\/handbook', \{'Sprite'\}, r'\^\(img_bond_item_bkg\|img_left_bond_icon_bkg\)\$'\)/, 'extracted from the event bundle');
 });
 
 test('the attack interval is graded by baseAttackTime as it is (the official handbook), also for an enemy whose attack speed is 0', () => {

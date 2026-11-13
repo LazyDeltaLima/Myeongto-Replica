@@ -28,6 +28,9 @@ import {
 import { RulesetSwitch } from '../ui/ruleset.js';
 import { RULE_PRESETS } from '../../../shared/ruleset.js';
 import { openStats } from './stats.js';
+import { seasonName } from '../ui/season.js';
+import { seasonArt } from '../ui/seasonArt.js';
+import { seasonInfo, DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
 
@@ -277,7 +280,7 @@ export const ACHV_RULESET_PREF = 'achv.ruleset';
  * @param {{ onClose: () => void }} props
  */
 export function AchievementDialog({ onClose }) {
-  const ready = useData('config', 'bands', 'bonds', 'assets', 'chess', 'items', 'backups');
+  const ready = useData('config', 'bands', 'bonds', 'assets', 'chess', 'items', 'backups', 'local');
   const season = data.season();
   const gd = useMemo(() => makeLookups(ready), [ready, data.locale(), season]);
   // the season on screen (data.js setSeason): each season has its own records, levels and achievements
@@ -296,9 +299,9 @@ export function AchievementDialog({ onClose }) {
     <header class="achv__banner">
       <${Img} src=${ready ? uiUrl(gd.m, 'settle/common_logo') : null} class="achv__logo" fallback=${html`<span class="achv__logo-text">STRONGHOLD PROTOCOL</span>`} />
       <div class="achv__title">
-        <span class="achv__mark" aria-hidden="true"><${Img} src=${ready ? uiUrl(gd.m, 'entry/season_logo') : null} /></span>
-        <span class="achv__en" aria-hidden="true">ALLIANCE</span>
-        <h2 class="modal__title achv__name">${t('卫戍协议')}<span>${colon}</span>${t('盟约')}</h2>
+        <span class="achv__mark" aria-hidden="true"><${Img} src=${!ready ? null : season === DEFAULT_SEASON ? uiUrl(gd.m, 'entry/season_logo') : seasonArt(season, 'logo', 'season_logo')} /></span>
+        <span class="achv__en" aria-hidden="true">${seasonInfo(season).mark}</span>
+        <h2 class="modal__title achv__name">${t('卫戍协议')}<span>${colon}</span>${seasonName(season)}</h2>
       </div>
       <button type="button" class="achv__close" onClick=${onClose} aria-label=${t('关闭')} title=${t('关闭')}><${Icon} name="close" /></button>
     </header>

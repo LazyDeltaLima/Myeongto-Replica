@@ -156,18 +156,22 @@ button.sw-eth:hover { border-color: #fff; }
 .sw-tile__cap { position: absolute; left: 0; right: 0; bottom: 0; padding: .02rem .06rem .04rem; font-size: max(calc(.13 * var(--t)), 9px); line-height: 1.2; text-align: center;
   color: rgba(238, 242, 241, .78); background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .5)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sw-tile__hp { position: absolute; right: 3px; top: 3px; padding: 0 .05rem; font-size: max(calc(.13 * var(--t)), 9px); font-weight: 800; line-height: 1.35; color: var(--mint-400); background: rgba(0, 0, 0, .6); }
-/* 盟约: the dark glyph on the stage-info view's mint disc (img_bond_bkg 131 × 130 around a 60-unit glyph box, as
-   css/screens/briefing.css .ibd__disc: the glyph sprites are 128-unit rects with ~100 px tight-packed textures, so the
-   glyph is natural px × 60 / 128 of the box's 131 units) */
-.sw-disc { --dw: 64%; display: grid; place-items: center; width: var(--dw); aspect-ratio: 131 / 130; margin-bottom: 10%;
+/* 盟约: the official handbook's bond item (prefab_act_auto_chess_handbook_bond_item, 148 × 148): the white disc
+   img_bond_item_bkg (117, 12 above the centre) under the dark glyph's 72 box — the glyph sprites are 128-unit rects with
+   ~100 px tight-packed textures, so the glyph is natural px × 72 / 128 of the disc's 117 units */
+.sw-disc { --dw: calc(100% * 117 / 148); display: grid; place-items: center; width: var(--dw); aspect-ratio: 1; margin-bottom: calc(100% * 24 / 148);
   background: var(--disc, none) center / 100% 100% no-repeat; }
-.sw-disc.no-art { aspect-ratio: 1; width: calc(var(--dw) * 92 / 131); border-radius: 50%; background: var(--mint-500); box-shadow: 0 0 .12rem rgba(0, 0, 0, .6); }
-/* the glyph's width as a share of the disc's (its height follows the picture) */
-.sw-disc img { width: calc(100% * 60 / 131 / 128 * var(--nw, 100)); height: auto; max-width: none; max-height: none;
-  object-fit: fill; filter: brightness(0); opacity: .92; }
-.sw-disc.no-art img { width: calc(100% * 60 / 92 / 128 * var(--nw, 100)); }
-.sw-disc__txt { font-size: max(calc(.3 * var(--t)), 15px); font-weight: 900; color: #031712; }
+.sw-disc.no-art { border-radius: 50%; background: radial-gradient(circle, #eef6f6 0 58%, #b9d6dc 70%, transparent 72%); }
+/* the glyph's width as a share of the disc's (its height follows the picture): natural px × 72 / 128 of the 117 disc */
+.sw-disc img { width: calc(100% * 72 / 117 / 128 * var(--nw, 100)); height: auto; max-width: none; max-height: none;
+  object-fit: fill; filter: brightness(0); opacity: .95; }
+.sw-disc__txt { font-size: max(calc(.3 * var(--t)), 15px); font-weight: 900; color: #051b17; }
+/* the left panel: the grey disc (200 × 184) and a white glyph of 150, 3 left and 4 below the disc's centre */
 .sw-hero__box.is-mark .sw-disc { --dw: max(1.75rem, 40px, calc(80px * var(--sp-ui, 1))); margin: 0; }
+.sw-disc--hero { aspect-ratio: 200 / 184; }
+.sw-disc--hero.no-art { background: radial-gradient(circle, #59605f 0 62%, #3c4241 66%, transparent 68%); }
+.sw-disc--hero img { width: calc(100% * 150 / 200 / 128 * var(--nw, 100)); filter: none; opacity: 1; position: relative; left: -1.5%; top: 2.2%; }
+.sw-disc--hero .sw-disc__txt { color: #fff; }
 /* 策略: the portrait (its own ring is part of the icon) */
 .sw-face { display: grid; place-items: center; width: 92%; aspect-ratio: 1; margin-bottom: 4%; overflow: hidden; }
 .sw-face img { width: 100%; height: 100%; object-fit: cover; }
