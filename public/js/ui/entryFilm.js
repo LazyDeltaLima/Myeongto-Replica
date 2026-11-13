@@ -135,8 +135,9 @@ export function filmFor(season) {
  */
 export function holdBgm(a = audio) {
   if (!a.ctx || Object.prototype.hasOwnProperty.call(a, 'playBgm')) return null;
+  // the key and its season (resolveBgm): a key alone played the default season's lobby track after 规程's film
   let asked;
-  const placeholder = (key) => { asked = key; };
+  const placeholder = (key, season = null) => { asked = { key, season }; };
   a.playBgm = placeholder;
   try { ++a.bgmToken; a._fadeOutBgm(); } catch { /* ignore */ }
   let held = true;
@@ -144,7 +145,8 @@ export function holdBgm(a = audio) {
     if (!held) return;
     held = false;
     if (a.playBgm === placeholder) delete a.playBgm;
-    try { a.playBgm(asked !== undefined ? asked : a.lastBgmKey ?? 'lobby'); } catch { /* ignore */ }
+    const { key, season } = asked ?? { key: a.lastBgmKey ?? 'lobby', season: a.bgmSeason ?? null };
+    try { a.playBgm(key, season); } catch { /* ignore */ }
   };
 }
 
