@@ -647,17 +647,20 @@
 .dart__split { width: .02rem; height: .3rem; background: #8a8a8a; }
 .dart__elite { width: .38rem; height: .34rem; object-fit: contain; }
 .dart__lv { display: flex; align-items: flex-start; gap: .04rem; color: #fff; }
-.dart__lv small { font-size: .15rem; margin-top: .06rem; }
-.dart__lv b { font-size: .44rem; font-weight: 400; line-height: .8; }
+/* the operator card's numbers (act3autochess_character_info_subpanel_status: text_lvl 54 / text_lvl_prefix 15, the five stats 21,
+   text_hp / text_sp 22) are Novecentowide-Normal — the free Novecento Wide Normal (maintainer decision 2026-11-11;
+   docs/rules/ui.md 「HUD 숫자 글꼴」) */
+.dart__lv small { font-size: .15rem; margin-top: .06rem; font-family: 'Novecento Wide', var(--font-num); letter-spacing: 0; }
+.dart__lv b { font-size: .44rem; font-weight: 400; line-height: .8; font-family: 'Novecento Wide', var(--font-num); letter-spacing: 0; }
 .dart__mid { display: flex; align-items: flex-end; gap: .1rem; margin-top: .04rem; padding-left: .06rem; }
 .dart__stats { display: flex; flex-direction: column; min-width: 1.2rem; }
 .dart__stat { display: flex; align-items: baseline; gap: .04rem; font-size: .175rem; line-height: .22rem; color: #b2b2b2; text-shadow: 0 1px 2px #000; }
-.dart__stat b { font-weight: 400; color: #b2b2b2; }
+.dart__stat b { font-weight: 400; color: #b2b2b2; font-family: 'Novecento Wide', var(--font-num); letter-spacing: 0; }
 .dart__stat.is-white b { color: #fff; }
 .dart__stat.is-extra { font-size: .14rem; line-height: .18rem; opacity: .8; }
 .dart__stat.is-up b, .dart__stat.is-up small { color: #3fd08f; }
 .dart__stat.is-down b, .dart__stat.is-down small { color: #ff6237; }
-.dart__stat small { font-size: .14rem; }
+.dart__stat small { font-size: .14rem; font-family: 'Novecento Wide', var(--font-num); letter-spacing: 0; }
 .dart__tiles { display: flex; flex-wrap: wrap; gap: .06rem; max-width: 4.6rem; margin-bottom: .04rem; }
 .dart__tiles .dbonds { display: contents; }
 /* tile widths as an official play video (16:10, measured in 1920-wide units): 攻击范围 ≈ 110, a bond tile ≈ 91, both 93 high */
@@ -697,7 +700,8 @@
 .dart__hp > span { position: absolute; right: 0; top: .05rem; display: flex; align-items: center; gap: .1rem; white-space: nowrap; font-size: .2rem; text-shadow: 0 1px 2px #000; }
 .dart__hp em { font-style: normal; color: #fff; }
 .dart__hp em { font-weight: 700; }
-.dart__hp b { position: absolute; left: calc(100% + .1rem); top: 0; min-width: 1.25rem; font-weight: 400; color: #fff; background: #1e8de0; padding: .02rem .08rem; text-align: center; font-size: .22rem; }
+.dart__hp b { position: absolute; left: calc(100% + .1rem); top: 0; min-width: 1.25rem; font-weight: 400; color: #fff; background: #1e8de0; padding: .02rem .08rem; text-align: center; font-size: .22rem;
+  font-family: 'Novecento Wide', var(--font-num); letter-spacing: 0; }
 .dart__hp > span { right: 0; }
 .dart__hp > span > em { margin-right: 0; }
 /* (positioned: .dart's stacking context — the art — would paint over in-flow blocks) */

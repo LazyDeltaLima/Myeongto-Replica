@@ -427,7 +427,8 @@ async function waitForFonts(ms) {
   const loads = [
     fonts.load('900 1em "Noto Sans SC"', '卫戍协议盟约'), // i18n-ignore (font sample)
     fonts.load('700 1em "Noto Sans SC"', '开始'), // i18n-ignore (font sample)
-    fonts.load('700 1em Bender', '0123456789'),
+    fonts.load('500 1em "Lexend Exa 500"', '0123456789'), // --font-num (css/theme.css)
+    fonts.load('700 1em "Lexend Exa"', '0123456789'), // the official Bold spots
     fonts.load('700 1em Rajdhani', '0123456789'),
   ].map((p) => p.catch(() => null));
   await Promise.race([Promise.all(loads), new Promise((r) => setTimeout(r, ms))]);

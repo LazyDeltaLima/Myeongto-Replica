@@ -121,7 +121,8 @@
 .lvcard__frame::before { left: -.06rem; top: -.06rem; border-right: 0; border-bottom: 0; }
 .lvcard__frame::after { right: -.06rem; bottom: -.06rem; border-left: 0; border-top: 0; }
 .lvcard__micro { font-family: var(--font-display); font-size: .12rem; letter-spacing: .24em; font-weight: 700; }
-.lvcard__num { font-size: .66rem; line-height: .9; font-weight: 700; }
+/* text_num: Novecentowide-Bold (Lexend Exa 700 in its place, maintainer decision 2026-11-13; docs/rules/ui.md 「HUD 숫자 글꼴」) */
+.lvcard__num { font-size: .66rem; line-height: .9; font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 700; letter-spacing: -.06em; }
 .lvcard__label { font-size: .2rem; font-weight: 900; letter-spacing: .3em; padding-left: .3em; }
 .lvcard__key { position: absolute; right: .08rem; bottom: .06rem; color: var(--mint-900) !important; border-color: rgba(6, 17, 13, .35) !important; background: transparent !important; }
 .lvcard.is-disabled { background: linear-gradient(180deg, #3a4a44, #2a3531); color: #8fa59c; cursor: not-allowed; }

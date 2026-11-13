@@ -919,7 +919,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   display: grid; place-items: center; pointer-events: none;
   background: #ffd23a; clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
-.abadge b { margin-top: 22%; font-size: .14rem; line-height: 1; color: #000; font-weight: 800; }
+/* text_streak_count: Novecentowide-Bold 12 / 14 (Lexend Exa 700 in its place, maintainer decision 2026-11-13; docs/rules/ui.md 「HUD 숫자 글꼴」) */
+.abadge b { margin-top: 22%; font-size: .14rem; line-height: 1; color: #000; font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 700; letter-spacing: -.06em; }
 .abadge.is-r2 { width: 76%; aspect-ratio: 1; background: #2a1404; clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
 .abadge.is-r2 b { margin-top: 8%; font-size: .17rem; color: #f68a25; }
 .abadge.has-sprite { clip-path: none; background: var(--abadge) center / contain no-repeat; filter: drop-shadow(0 0 .04rem rgba(255, 200, 60, .8)); }

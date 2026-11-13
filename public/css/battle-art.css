@@ -238,7 +238,7 @@
   z-index: 4; display: flex; align-items: center; gap: calc(var(--pu) * 10); padding: 0 calc(var(--pu) * 18) 0 calc(var(--pu) * 12); pointer-events: auto; }
 .obinfo__self::before { content: ''; position: absolute; inset: 0; background: var(--ob-self) center / 100% 100% no-repeat; z-index: -1; }
 .obinfo__self .obinfo__icon { position: static; flex: none; margin: 0; background-image: var(--ob-icon-self); }
-.obinfo__num { font-family: var(--font-num); font-weight: 700; font-size: calc(var(--pu) * 20); line-height: 1; color: var(--gold); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.obinfo__num { font-family: var(--font-num); letter-spacing: -.06em; font-weight: 700; font-size: calc(var(--pu) * 20); line-height: 1; color: var(--gold); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .obinfo__self.is-done .obinfo__num { color: var(--mint-500); }
 .obinfo__lost { position: fixed; left: 50%; top: 50%; width: calc(var(--pu) * 589); height: calc(var(--pu) * 356); transform: translate(-50%, calc(-50% - var(--pu) * 13));
   z-index: 4; background: var(--ob-lost) center / 100% 100% no-repeat; animation: bart-in .3s ease-out both; }

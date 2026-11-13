@@ -95,7 +95,7 @@
 .guide__stage--text { width: min(92vw, 10rem); max-height: calc(100vh - 2rem); overflow: auto; padding: .1rem .06rem; }
 .guide__tips ol { margin: .14rem 0 0; padding-left: .34rem; display: flex; flex-direction: column; gap: .08rem; }
 .guide__tips li { font-size: .18rem; line-height: 1.6; color: var(--text-md); }
-.guide__tips li::marker { color: var(--mint-500); font-family: var(--font-num); }
+.guide__tips li::marker { color: var(--mint-500); font-family: var(--font-num); letter-spacing: -.06em; }
 
 /* standard trigger */
 .guide-btn .btn__icon { color: var(--mint-500); }

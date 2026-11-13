@@ -112,7 +112,7 @@
 .st-table td.st-diff { color: var(--d-color, var(--text-md)); font-weight: 700; white-space: nowrap; }
 .st-band { display: inline-flex; align-items: center; gap: .06rem; color: var(--text-hi); white-space: nowrap; vertical-align: middle; }
 .st-band .bandicon { flex: none; }
-.st-t { font-family: var(--font-num); font-size: max(.15rem, 10px); color: var(--text-lo); white-space: nowrap; }
+.st-t { font-family: var(--font-num); letter-spacing: -.06em; font-size: max(.15rem, 10px); color: var(--text-lo); white-space: nowrap; }
 .st-rate { white-space: nowrap; }
 .st-rate b { color: var(--text-hi); font-weight: 700; }
 .st-bar { display: inline-block; width: max(.8rem, 48px); height: max(.07rem, 4px); margin-right: .1rem; vertical-align: middle; background: var(--line); }

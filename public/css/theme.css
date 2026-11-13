@@ -7,6 +7,21 @@
    40px, which keeps it clear of CJK browsers' minimum-font-size clamping. 1px hairlines stay px.
    ========================================================================================== */
 
+/* The numeral face (--font-num): Lexend Exa drawn at 500 whatever weight a rule asks for — the official UI draws its
+   numbers in Novecento Wide (Medium for most, Lexend Exa 500 in its place, maintainer decision 2026-11-11), and screens
+   the official mode has no counterpart of take the same face (maintainer decision 2026-11-13, docs/rules/ui.md
+   「HUD 숫자 글꼴」). One face over the whole weight range with the axis fixed: a 700 rule neither thickens it nor gets a
+   synthesised bold. The official Bold spots ask for 'Lexend Exa' 700 by name. public/fonts holds the file
+   (tools/assets/fonts.mjs). */
+@font-face {
+  font-family: 'Lexend Exa 500';
+  font-style: normal;
+  font-weight: 100 900;
+  font-variation-settings: "wght" 500;
+  font-display: swap;
+  src: url('/fonts/lexend-exa.woff2') format('woff2'), url('/fonts/lexend-exa.ttf') format('truetype');
+}
+
 :root {
   color-scheme: dark;
 
@@ -81,7 +96,7 @@
   /* the Han / Hangul faces follow <html lang> (ui/lang.js htmlLang; the :lang() rules below): Simplified Chinese by default */
   --cjk-faces: 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans CJK SC';
   --font-cjk: var(--cjk-faces), sans-serif;
-  --font-num: 'Bender', 'Rajdhani', 'Oxanium', var(--cjk-faces), sans-serif;
+  --font-num: 'Lexend Exa 500', 'Bender', 'Rajdhani', 'Oxanium', var(--cjk-faces), sans-serif;
   --font-display: 'Novecento', 'Novecento Wide', 'Oxanium', 'Rajdhani', var(--cjk-faces), sans-serif;
   --font-mono: 'Bender', 'Oxanium', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
@@ -166,7 +181,8 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 
 /* ---- typography helpers ---------------------------------------------------------------------- */
-.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+/* -.06 em: Lexend Exa's digits are .06 em wider than Novecento's at the same height (docs/rules/ui.md 「HUD 숫자 글꼴」) */
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: -.06em; }
 .display { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .12em; }
 .micro {
   font-family: var(--font-display);

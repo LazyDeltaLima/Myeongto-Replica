@@ -248,7 +248,7 @@
   color: var(--hex-fg);
   clip-path: polygon(var(--hex-slope) 0, calc(100% - var(--hex-slope)) 0, 100% 50%, calc(100% - var(--hex-slope)) 100%, var(--hex-slope) 100%, 0 50%);
 }
-.hex__value { font-family: var(--font-num); font-weight: 700; font-size: calc(var(--hex-h) * .62); line-height: 1; font-variant-numeric: tabular-nums; }
+.hex__value { font-family: var(--font-num); letter-spacing: -.06em; font-weight: 700; font-size: calc(var(--hex-h) * .62); line-height: 1; font-variant-numeric: tabular-nums; }
 .hex__icon { width: calc(var(--hex-h) * .5); height: calc(var(--hex-h) * .5); }
 .hex--sm { --hex-h: .26rem; --hex-slope: .075rem; }
 .hex--lg { --hex-h: .46rem; --hex-slope: .13rem; }
@@ -352,7 +352,7 @@
   left: 50%;
   bottom: calc(var(--disc) * -.1);
   transform: translateX(-50%);
-  font-family: var(--font-num);
+  font-family: var(--font-num); letter-spacing: -.06em;
   font-weight: 700;
   font-size: calc(var(--disc) * .32);
   line-height: 1;
@@ -516,7 +516,7 @@
 /* ---- progress bar ----------------------------------------------------------------------------------- */
 .pbar { --pc: var(--mint-500); --ph: .1rem; display: flex; flex-direction: column; gap: .05rem; min-width: .8rem; }
 .pbar__meta { display: flex; justify-content: space-between; align-items: baseline; gap: .1rem; font-size: .14rem; color: var(--text-lo); }
-.pbar__value { font-family: var(--font-num); font-weight: 700; color: var(--text-hi); font-size: .16rem; }
+.pbar__value { font-family: var(--font-num); letter-spacing: -.06em; font-weight: 700; color: var(--text-hi); font-size: .16rem; }
 .pbar__value small { color: var(--text-dim); font-size: .8em; }
 .pbar__track { position: relative; height: var(--ph); background: #080a09; border: 1px solid var(--line); overflow: hidden; }
 .pbar__fill {
@@ -570,7 +570,7 @@
 }
 .tabs__tab.is-active { color: var(--mint-400); }
 .tabs__tab.is-active::after { transform: scaleX(1); }
-.tabs__badge { font-family: var(--font-num); font-size: .13rem; padding: .01rem .06rem; background: var(--bg-3); color: var(--text-md); }
+.tabs__badge { font-family: var(--font-num); letter-spacing: -.06em; font-size: .13rem; padding: .01rem .06rem; background: var(--bg-3); color: var(--text-md); }
 .tabs--sm .tabs__tab { font-size: .15rem; padding: .07rem .16rem .09rem; }
 
 /* ---- spinner -------------------------------------------------------------------------------------- */
@@ -853,7 +853,7 @@
   background: rgba(0, 0, 0, .5);
   border: 1px solid var(--line);
   color: var(--pc);
-  font-family: var(--font-num);
+  font-family: var(--font-num); letter-spacing: -.06em;
   font-size: .18rem;
   font-weight: 700;
   line-height: 1;
@@ -952,7 +952,7 @@
 }
 .toast__icon { width: .2rem; height: .2rem; fill: var(--tc); flex: none; }
 .toast__text { flex: 1; }
-.toast__count { font-family: var(--font-num); font-size: .14rem; color: var(--text-lo); }
+.toast__count { font-family: var(--font-num); letter-spacing: -.06em; font-size: .14rem; color: var(--text-lo); }
 .toast--success { --tc: var(--mint-400); }
 .toast--warn { --tc: var(--amber); }
 .toast--error { --tc: var(--red-premium); }
@@ -1000,12 +1000,12 @@
 .sp-in-match .conn-banner { top: calc(1.34rem + var(--sa-t, 0px)); bottom: auto; }
 .sp-in-match.sp-conn .toast-host { top: calc(2.0rem + var(--sa-t, 0px)); }
 .conn-banner .icon { width: .22rem; height: .22rem; color: var(--orange-hi); }
-.conn-banner__sub { color: var(--text-lo); font-family: var(--font-num); font-size: .15rem; }
+.conn-banner__sub { color: var(--text-lo); font-family: var(--font-num); letter-spacing: -.06em; font-size: .15rem; }
 
 /* ---- misc shared bits ------------------------------------------------------------------------------ */
 .kv { display: flex; align-items: baseline; gap: .08rem; }
 .kv__k { color: var(--text-lo); font-size: .14rem; }
-.kv__v { font-family: var(--font-num); font-weight: 700; }
+.kv__v { font-family: var(--font-num); letter-spacing: -.06em; font-weight: 700; }
 .divider { height: 1px; background: linear-gradient(90deg, transparent, var(--line-2) 15%, var(--line-2) 85%, transparent); }
 .status-dot { width: .09rem; height: .09rem; border-radius: 50%; background: var(--text-dim); flex: none; display: inline-block; }
 .status-dot.is-on { background: var(--mint-400); box-shadow: 0 0 6px var(--mint-glow); }

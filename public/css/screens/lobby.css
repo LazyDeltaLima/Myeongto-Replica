@@ -417,7 +417,7 @@
 .tips__lines li { position: relative; padding-left: .14rem; font-size: calc(.145 * var(--t)); line-height: 1.45; color: #d6dedb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tips__lines li::before { content: ''; position: absolute; left: .02rem; top: .6em; width: .05rem; height: .05rem; background: var(--mint-400); }
 .tips__lines b { color: #fff; }
-.tips__lines code { font-family: var(--font-num); font-size: .9em; }
+.tips__lines code { font-family: var(--font-num); letter-spacing: -.06em; font-size: .9em; }
 .tips__foot { display: flex; justify-content: flex-end; margin-top: .06rem; }
 .tips__more { flex: none; display: inline-flex; align-items: center; gap: .02rem; padding: 0; border: 0; background: none; font: inherit;
   font-size: calc(.13 * var(--t)); font-weight: 700; color: var(--mint-400); white-space: nowrap; cursor: pointer; }
@@ -1182,7 +1182,7 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .pnotes__list { margin: 0; padding-left: .22rem; font-size: .155rem; line-height: 1.65; color: var(--text-lo); }
 .pnotes__list li { margin: .03rem 0; }
 .pnotes b { color: var(--text-hi); }
-.pnotes code { font-family: var(--font-num); font-size: .9em; color: var(--text-md); }
+.pnotes code { font-family: var(--font-num); letter-spacing: -.06em; font-size: .9em; color: var(--text-md); }
 
 /* ---- 规则 (규칙 모드, js/ui/ruleset.js): the 经典 / 休闲 switch at the right end of the difficulty title line (its own row
    overflowed the lobby at every desktop size); in 同盟匹配 each preset shows its waiting Doctors and each card those of its
@@ -1200,7 +1200,7 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 /* 랜덤 매칭 (ui/matchQueue.js): the lobby button and the queue / confirmation dialog */
 .queue-dialog { width: min(6.4rem, 92vw); }
 .queue-dialog__body { display: flex; align-items: center; gap: .3rem; }
-.queue-dialog__clock { font-family: var(--font-num); font-size: .56rem; color: var(--text-hi); min-width: 1.6rem; }
+.queue-dialog__clock { font-family: var(--font-num); letter-spacing: -.06em; font-size: .56rem; color: var(--text-hi); min-width: 1.6rem; }
 .queue-dialog__lines { display: flex; flex-direction: column; gap: .06rem; font-size: .18rem; }
 .queue-dialog__mode { color: var(--text-hi); font-weight: 700; }
 /* a custom room's settings in the confirmation (ui/matchQueue.js FoundCustom) */

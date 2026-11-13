@@ -27,7 +27,8 @@
   font-size: calc(var(--u) * 20); color: #fff; background: rgba(49, 49, 49, .7); border-left: 0; padding: 0 calc(var(--u) * 12);
   line-height: calc(var(--u) * 33); margin-bottom: calc(var(--u) * 26);
 }
-.shopbar.has-shop-art .shopbar__remain b { color: #fff; font-size: calc(var(--u) * 20); }
+/* panel_remaining_available_character text_cnt: Novecentowide-Normal (the free Novecento Wide Normal; docs/rules/ui.md 「HUD 숫자 글꼴」) */
+.shopbar.has-shop-art .shopbar__remain b { color: #fff; font-size: calc(var(--u) * 20); font-family: 'Novecento Wide', var(--font-num); font-weight: 400; letter-spacing: 0; }
 .shopbar.has-shop-art .toolbtn {
   position: relative; width: calc(var(--u) * 128); height: calc(var(--u) * 55); padding: 0; gap: 0; justify-content: center;
   background: transparent; border: 0; box-shadow: none; color: rgba(0, 0, 0, .9); font-size: calc(var(--u) * 19); letter-spacing: .06em; overflow: visible;
@@ -63,7 +64,7 @@
 }
 .shopbar.has-shop-art .toolbtn__free {
   width: calc(var(--u) * 101); height: calc(var(--u) * 35); padding: 0 0 0 calc(var(--u) * 48); display: flex; align-items: center;
-  background: var(--sa-free) center / 100% 100% no-repeat; color: #fff; font-size: calc(var(--u) * 17); font-weight: 700; font-family: var(--font-num);
+  background: var(--sa-free) center / 100% 100% no-repeat; color: #fff; font-size: calc(var(--u) * 17); font-weight: 700; font-family: var(--font-num); letter-spacing: -.06em;
 }
 
 /* ---- price hexagon (autochess_shop_cost_item 44×35: cost_bg_1 + 22 px #ffc600, cost_bg_2 + #c0c5c3 when poor) ---- */
@@ -194,9 +195,13 @@
 .shopbar.has-shop-art .lvcard__micro { /* the prefab's 39×9 'level' text sprite, centred 51.5 under the box's top (root_inner +12, level +24); the web
    manifest's `shopPanel/level` is another sprite of that name, so it is text here */
   position: absolute; z-index: 1; left: 0; right: 0; top: calc(var(--u) * 18.5); transform: translateY(-50%); text-align: center; font-size: calc(var(--u) * 12); line-height: 1; letter-spacing: .2em; padding-left: .2em; color: #57e8cb; opacity: .85; }
-/* the number centred 75.5 under the box's top (root_num +4, text +8; group_disable / group_max text 12.3 up: 75.2) — both
-   inside .lvcard__frame, whose top is 33 under the box's: 18.5 / 42.5 there */
-.shopbar.has-shop-art .lvcard__num { position: absolute; z-index: 1; left: 0; right: 0; top: calc(var(--u) * 42.5); transform: translateY(-50%); margin: 0; text-align: center; line-height: 1; font-size: calc(var(--u) * 56); color: #57e8cb; font-weight: 700; }
+/* text_num: Novecentowide-Bold 50 (DynFontLoader; Lexend Exa 700 in its place, maintainer decision 2026-11-13), its line
+   centred 75.5 under the box's top (root_num +4, text +8; group_disable / group_max text 12.3 up: 75.2). The client's
+   MiddleCenter line puts the digits ≈ .09 em under its centre and the web line ≈ .02 em, so the line sits 3.5 lower:
+   79 under the top, 46 inside .lvcard__frame (whose top is 33 under the box's; the LEVEL caption 18.5 there). The digits
+   then start ≈ 6 under the caption as in the client; at 56 in Bender (until 2026-11-13) they ran into it. */
+.shopbar.has-shop-art .lvcard__num { position: absolute; z-index: 1; left: 0; right: 0; top: calc(var(--u) * 46); transform: translateY(-50%); margin: 0; text-align: center; line-height: 1; font-size: calc(var(--u) * 50); color: #57e8cb;
+  font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 700; letter-spacing: -.06em; }
 /* 升级 (text_tip, 100×30, 70.1 under the centre: centred 157.6 under the top) */
 .shopbar.has-shop-art .lvcard__label { position: absolute; left: 0; right: 0; top: calc(var(--u) * 157.6); bottom: auto; transform: translateY(-50%); line-height: 1; text-align: center; font-size: calc(var(--u) * 20); color: #6eecd2; letter-spacing: .2em; padding-left: .2em; }
 .shopbar.has-shop-art .lvcard__key { left: 50%; right: auto; top: 100%; bottom: auto; transform: translate(-50%, calc(var(--u) * 4));

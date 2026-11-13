@@ -44,7 +44,7 @@
   background: var(--dc-doc, linear-gradient(270deg, rgba(255, 255, 255, .1), transparent)) right top / 100% 100% no-repeat;
 }
 .dclv__glyph { position: absolute; right: .02rem; top: .06rem; height: 1.5rem; width: auto; pointer-events: none; }
-.dclv__glyph.is-text { right: .2rem; font-size: 1.1rem; line-height: 1; font-family: var(--font-num); color: var(--tier-5, #ffd23a); }
+.dclv__glyph.is-text { right: .2rem; font-size: 1.1rem; line-height: 1; font-family: var(--font-num); letter-spacing: -.06em; color: var(--tier-5, #ffd23a); }
 .dclv[data-tier="6"] .dclv__glyph.is-text { color: var(--tier-6, #ff8a1e); }
 .dclv.is-empty .dclv__glyph.is-text { color: #555; }
 /* text_phase_now / text_phase_total: Novecentowide-Medium (their DynFontLoader), Lexend Exa in its place as on the HUD
@@ -60,7 +60,7 @@
 .dclv__cards { display: flex; gap: calc(-2 * var(--u)); align-items: center; justify-content: flex-end; min-width: 0; }
 .dclv__none { position: absolute; inset: 0 1.6rem 0 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .12rem; color: rgba(255, 255, 255, .5); font-size: .3rem; pointer-events: none; }
 .dclv__none img { width: 1.42rem; }
-.dclv__nonetag { position: absolute; right: 1.8rem; top: 50%; transform: translateY(-50%); font-family: var(--font-num); font-size: .34rem; color: #777; }
+.dclv__nonetag { position: absolute; right: 1.8rem; top: 50%; transform: translateY(-50%); font-family: var(--font-num); letter-spacing: -.06em; font-size: .34rem; color: #777; }
 .dclv__nonetag img { width: 1.2rem; display: block; }
 
 /* ---- a card (auto_chess_deploy_char_item_view, 140×266; its level column left out) ---- */

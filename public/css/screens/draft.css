@@ -57,7 +57,7 @@
 .dorder__text { position: relative; display: flex; flex-direction: column; gap: .05rem; min-width: 0; text-shadow: 0 1px 3px #000, 0 0 .1rem #000; }
 .dorder__name { display: flex; align-items: center; gap: .04rem; min-width: 0; font-size: calc(.21 * var(--t)); font-weight: 700; line-height: 1.2; color: #f2f4f4; white-space: nowrap; }
 .dorder__name > span:not(.dorder__ai) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.dorder__ai { flex: none; font-family: var(--font-num); font-size: calc(.11 * var(--t)); padding: 0 .04rem; background: #a9c3d8; color: #0b1520; }
+.dorder__ai { flex: none; font-family: var(--font-num); letter-spacing: -.06em; font-size: calc(.11 * var(--t)); padding: 0 .04rem; background: #a9c3d8; color: #0b1520; }
 .dorder__state { font-size: calc(.15 * var(--t)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dorder__ready { margin-left: .06rem; padding: 0 .04rem; font-size: max(.11rem, 8px); color: var(--text-on-mint); background: var(--mint-500); }
 .dorder__box { position: relative; width: var(--dh); height: var(--dh); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .04rem; padding: 0;

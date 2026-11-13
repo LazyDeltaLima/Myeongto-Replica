@@ -89,3 +89,46 @@ test('more Medium spots: the 3/3 lineup count, the shop prices and funds, the ac
   // its banner mark has a box of its own: 规程's tall mark (138×167) stays inside the banner
   assert.match(rule(ac, '.achv__mark img'), /height: \.46rem;[^}]*object-fit: contain/);
 });
+
+test('the numeral face: --font-num is Lexend Exa pinned at 500, the official Bold spots ask for 700, the Normal spots Novecento Wide', () => {
+  const read = (f) => readFileSync(path.join(ROOT, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (css, sel) => {
+    const m = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find((x) => x[1].trim() === sel);
+    assert.ok(m, sel);
+    return m[2];
+  };
+  // screens the official mode has no counterpart of take the same face as the Medium spots (maintainer decision
+  // 2026-11-13): one face over 100–900 with the weight axis fixed, so a 700 rule neither thickens it nor gets a fake bold
+  const theme = read('public/css/theme.css');
+  const face = theme.match(/@font-face \{[^}]*'Lexend Exa 500'[^}]*\}/);
+  assert.ok(face, "the pinned face 'Lexend Exa 500'");
+  assert.match(face[0], /font-weight: 100 900;/);
+  assert.match(face[0], /font-variation-settings: "wght" 500;/);
+  assert.match(face[0], /url\('\/fonts\/lexend-exa\.woff2'\)/);
+  assert.match(theme, /--font-num: 'Lexend Exa 500', 'Bender'/, 'Bender only as the fallback');
+  assert.match(rule(theme, '.num'), /letter-spacing: -\.06em/);
+  // every rule that draws in --font-num and sets no tracking of its own takes Lexend's -.06 em
+  for (const f of ['public/css/components.css', 'public/css/screens/game.css', 'public/css/screens/stats.css', 'public/css/screens/lobby.css', 'public/css/screens/loadout.css']) {
+    for (const [, sel, body] of read(f).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (/font-family:\s*var\(--font-num\)\s*[;}]/.test(body + '}')) assert.match(body, /letter-spacing/, `${f} ${sel.trim()}`);
+    }
+  }
+  // Novecentowide-Bold: the level-up number (text_num 50), the cleared round (text_round 94), the ready count
+  // (text_confirmed_count 37), the win streak (text_streak_count) — Lexend Exa 700
+  const bold = new RegExp(`font-family: ${LX.replace(/[()]/g, '\\$&')};[^}]*font-weight: 700;[^}]*letter-spacing: -\\.06em`);
+  const shop = read('public/css/shop-art.css');
+  const lv = rule(shop, '.shopbar.has-shop-art .lvcard__num');
+  assert.match(lv, bold);
+  // the prefab's 50, its line 79 under the box's top (46 in the frame): the digits clear the LEVEL caption
+  assert.match(lv, /font-size: calc\(var\(--u\) \* 50\)/);
+  assert.match(lv, /top: calc\(var\(--u\) \* 46\)/);
+  assert.match(rule(read('public/css/screens/game-shop.css'), '.lvcard__num'), bold);
+  assert.match(rule(read('public/css/screens/result.css'), '.result__rnum'), bold);
+  assert.match(rule(read('public/css/screens/briefing.css'), '.brief-ready__txt b'), bold);
+  assert.match(rule(read('public/css/screens/game-panels.css'), '.abadge b'), bold);
+  // Novecentowide-Normal: the operator card (act3autochess_character_info_subpanel_status) and the shop's remaining count
+  const normal = /font-family: 'Novecento Wide', var\(--font-num\);[^}]*letter-spacing: 0/;
+  const hud = read('public/css/hud-art.css');
+  for (const sel of ['.dart__lv small', '.dart__lv b', '.dart__stat b', '.dart__stat small', '.dart__hp b']) assert.match(rule(hud, sel), normal, sel);
+  assert.match(rule(shop, '.shopbar.has-shop-art .shopbar__remain b'), normal);
+});

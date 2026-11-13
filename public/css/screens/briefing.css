@@ -185,7 +185,9 @@
 .brief__foot { position: relative; z-index: 2; flex: none; display: flex; align-items: center; justify-content: flex-end; gap: .4rem; padding: .18rem .5rem .3rem; }
 .brief-ready { display: flex; align-items: center; gap: .16rem; }
 .brief-ready__txt { font-size: .2rem; color: var(--text-lo); }
-.brief-ready__txt b { font-size: .4rem; color: var(--mint-400); margin: 0 .02rem; }
+/* the ready count: text_confirmed_count Novecentowide-Bold 37, 「/4」 text_total_count Medium 27 (Lexend Exa 700 / --font-num;
+   maintainer decision 2026-11-13, docs/rules/ui.md 「HUD 숫자 글꼴」) */
+.brief-ready__txt b { font-size: .4rem; color: var(--mint-400); margin: 0 .02rem; font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 700; letter-spacing: -.06em; }
 .brief-ready__txt span { font-size: .24rem; color: var(--text-dim); }
 .brief-ready__pips { display: flex; gap: .06rem; }
 .brief-ready__pips i { width: .3rem; height: .3rem; display: grid; place-items: center; color: var(--text-dim); }

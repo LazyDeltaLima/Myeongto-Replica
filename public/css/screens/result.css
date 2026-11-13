@@ -17,7 +17,9 @@
 .result__sub { font-size: .2rem; color: var(--text-lo); letter-spacing: .1em; }
 .result__rounds { display: flex; align-items: baseline; gap: .12rem; margin-top: .1rem; }
 .result__rlabel { font-size: .22rem; color: var(--text-md); letter-spacing: .14em; }
-.result__rnum { font-size: 1.5rem; line-height: .9; font-weight: 700; color: #fff; }
+/* the cleared round: text_round Novecentowide-Bold 94 (Lexend Exa 700 in its place, maintainer decision 2026-11-13; docs/rules/ui.md
+   「HUD 숫자 글꼴」); 「/14」 and the rows' rounds are Medium (--font-num) */
+.result__rnum { font-size: 1.5rem; line-height: .9; font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 700; letter-spacing: -.06em; color: #fff; }
 .result__rof { font-size: .4rem; color: var(--text-dim); }
 .result__medals { display: flex; gap: .24rem; margin-top: .12rem; }
 .medal { position: relative; width: 1.1rem; display: flex; flex-direction: column; align-items: center; gap: .08rem; }
