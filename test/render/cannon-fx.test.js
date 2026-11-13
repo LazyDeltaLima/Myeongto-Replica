@@ -94,7 +94,7 @@ test('the sim\'s \'cannon\' events: passenger mark from boarding to landing, cas
   const fetch0 = globalThis.fetch;
   try {
     const { h, evs } = battle();
-    h.run(7.5);
+    h.run(13.5);   // the first shot at 12 s (m10 sub-levels: char_skill_cd_mul ×2), lands 0.8 s later
     const fx = evs.filter((x) => x.e[0] === 'fx' && (x.e[1] === 'cannon' || x.e[4]?.kind === 'cnnonShell'));
     assert.deepEqual(fx.map((x) => (x.e[1] === 'cannon' ? (x.e[4].fire ? 'fire' : `carry${x.e[4].carry}`) : 'land')), ['carry1', 'fire', 'land', 'carry0']);
     const far = h.unit('t_far');

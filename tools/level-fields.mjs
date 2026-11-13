@@ -66,7 +66,7 @@ const moved = (o, dr, dc) => (o && typeof o === 'object' ? { ...o, position: { .
 /**
  * One 19×21 level of a stage from its three sub-levels (and the scene level for what the pieces do not carry: bgm,
  * routes of the scene are not used by build-data). Predefined devices and characters of each piece move with it; the
- * options (characterLimit, moveMultiplier, configBlackBoard) are sub_01's — the three sub-levels carry the same.
+ * options (characterLimit, moveMultiplier, configBlackBoard) and the runes are sub_01's — the three sub-levels carry the same.
  * @param {object} scene the stage's own level (the 36×55 scene)
  * @param {object[]} subs sub_01, sub_02, sub_03
  */
@@ -105,6 +105,9 @@ export function composeStageLevel(scene, subs) {
   return {
     ...scene,
     options: base.options,
+    // the battle fields' runes, not the scene's (m10's 盐坨子炮: the scene ATK −300 / skill cost ×3, the three sub-levels
+    // −400 / ×2 — 2026-11-14, a CN player's report of an overstrong cannon)
+    runes: base.runes ?? scene.runes ?? null,
     mapData: { ...base.mapData, map: grid.slice().reverse(), tiles },
     predefines: { ...(base.predefines || {}), tokenInsts, characterInsts },
   };

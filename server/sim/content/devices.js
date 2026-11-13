@@ -46,7 +46,7 @@
 import { COLS, ROWS, STAGE_COLS } from '../constants.js';
 import { widePlayerAt, wideSpan } from '../wideStage.js';
 import { performAttack, attackCountdown } from '../ai.js';
-import { sortEnemyTargets, canTargetAlly, areaSelectable, aggroCmp } from '../targeting.js';
+import { sortEnemyTargets, areaSelectable } from '../targeting.js';
 import { DIR_VEC, normDir, oppositeDir } from '../dir.js';
 import { hypot } from '../detmath.js';
 
@@ -677,7 +677,8 @@ function tickStorm(battle, st, u) {
 // 盐坨子炮 (规程 m10)
 
 const CANNON_KEY = 'trap_196_cnnon';
-/** sktok_cnnon: SP 6, 1 SP a second (spType 1), from 0 — a shot every 6 s from the battle start. */
+/** sktok_cnnon: SP 6, 1 SP a second (spType 1), from 0 — a shot every 6 s from the battle start, × the level's
+ * char_skill_cd_mul (levelRunes: m10 ×2 → 12 s). */
 const CANNON_EVERY = 6;
 /** EnemyCannon00D's range 4-1 at the device's level 1 (character_table talents): its own tile and four ahead. */
 const CANNON_REACH = 4;
@@ -718,8 +719,30 @@ function buildCannons(battle, st) {
     }
     if (!lane.length) continue;   // a cannon of another field: its lane is not on this battle's
     const stats = d.raw?.stats ?? d.stats ?? {};
-    st.cannons.push({ alias: aliasOf(d), x: d.col, y: d.row, lane: new Set(lane), atk: num(stats.atk, 0), sp: 0, pax: null, shot: false });
+    // the level's runes (m10's sub-levels: char_attribute_add ATK −400, char_skill_cd_mul scale 2 — 800 a shot, one every 12 s)
+    let atk = num(stats.atk, 0), every = CANNON_EVERY;
+    for (const r of levelRunes(battle, CANNON_KEY)) {
+      if (r.key === 'char_attribute_add') atk += num(r.bb?.ATK, 0);
+      else if (r.key === 'char_skill_cd_mul') every = Math.round(every * num(r.bb?.scale, 1));
+    }
+    // `far`: the farthest tile of its lane on this battle's grid, where every shell falls (fireCannon)
+    st.cannons.push({ alias: aliasOf(d), x: d.col, y: d.row, lane: new Set(lane), far: lane.at(-1), atk: Math.max(0, atk), every: Math.max(1, every), sp: 0, pax: null, shot: false });
   }
+}
+
+/**
+ * The stage level's runes (stages.json `runes`) on character key `key`. The client's BasicCharacterRune takes a rune's
+ * `char` string as its selector's charIdFilter (RuneData._PopulateAdditionalFiltersFromBlackboard) and matches it
+ * against Entity.id, the table key (Character._AssignData) — never an alias: m10's rune that lists
+ * trap_196_cnnon#1|…|#4 matches no cannon, its twin naming trap_196_cnnon does (공식 클라에서 확인 2026-11-14).
+ * Each matching rune applies on its own (CSkillCdMul: the SP cost × scale, rounded, per rune).
+ */
+function levelRunes(battle, key) {
+  const runes = battle.stage?.runes ?? battle.stage?.raw?.runes ?? [];   // (simdata.js normalizeStage keeps the record as `raw`)
+  return (Array.isArray(runes) ? runes : []).filter((r) => {
+    const ids = typeof r?.bbStr?.char === 'string' ? r.bbStr.char.split('|') : null;
+    return !ids || ids.includes(key);
+  });
 }
 
 /** Eat: may the cannon take enemy `e` on board (ground, weight ≤ 3, on the field, not just dropped)? */
@@ -747,8 +770,8 @@ function tickCannon(battle, k, dt) {
       cannonCarry(battle, k, o, 1);
     }
   }
-  if ((k.sp += dt) < CANNON_EVERY - 1e-9) return;
-  k.sp -= CANNON_EVERY;
+  if ((k.sp += dt) < k.every - 1e-9) return;
+  k.sp -= k.every;
   fireCannon(battle, k);
 }
 
@@ -762,14 +785,12 @@ function cannonCarry(battle, k, e, on) {
 }
 
 function fireCannon(battle, k) {
-  // EnemyCannon00D's selector (NOT_STUNNED_HATRED_DES, the player's side, ground) on its lane, as an enemy ability selects
-  const probe = { blockedBy: null, profile: null };
-  const cands = battle.allies().filter((a) => k.lane.has(a.tileR * COLS + a.tileC) && !a.isFlying && !a.s.flags.stun
-    && canTargetAlly(probe, a, true)).sort(aggroCmp);
-  // [추정·엔진] no target, no shot (the talent ability finds nobody; the skill's `_allowNoTarget` only lets its cast
-  // go) — the passenger stays on board
-  if (!cands.length) return;
-  const r = cands[0].tileR, c = cands[0].tileC;
+  // EnemyCannon00D is a ProjectileToTileAbility whose TileSelector (`_filterType` 12 DIST_DES_IN_FRONT_LINE, range 4-1)
+  // keeps the tiles of its range in the line it faces and takes the farthest — whoever stands where: no unit is looked
+  // for, so it fires every time, at the same tile (2026-11-14: a CN player's report, 「the shell falls one tile above
+  // the field's bottom, a unit right next to the cannon is never shot」; 공식 클라에서 확인 — TileSelector._DoFilter)
+  if (k.far < 0) return;
+  const r = Math.floor(k.far / COLS), c = k.far % COLS;
   // cnnon_t[mark_passenger] at the cast start: the passenger it carries now. It stays one of the cannon's passengers until
   // the shell lands (DurBusAbilityReleasePassenger on arrival), so Eat (max_target 1: `_SearchPassengers` takes nobody
   // while it holds `m_maxCount`) takes no other meanwhile

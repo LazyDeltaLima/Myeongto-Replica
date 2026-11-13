@@ -219,11 +219,14 @@ test('规程 草地 tile (m09, tile_duel_grassland): ground units on it are 隐�
   assert.ok(!e.s.flags.stealth);
 });
 
-test('规程 盐坨子炮 (m10, trap_196_cnnon): every 6 s a shell at its lane\'s latest-deployed ally, 3×3 physical ATK × 1; it carries a ground enemy of weight ≤ 3 from within 1 and drops it there', () => {
+test('规程 盐坨子炮 (m10, trap_196_cnnon): every 12 s a shell at the farthest tile of its lane (4 ahead), whoever stands near; 3×3 physical 800 (the sub-levels\' runes); it carries a ground enemy of weight ≤ 3 from within 1 and drops it there', () => {
   const id = 'act3autochess_m10';
   const dev = ACT3.stages[id].devices.find((d) => d.key === 'trap_196_cnnon' && d.pos[0] === 13 && d.pos[1] === 6);
   assert.ok(dev && dev.dir === 'DOWN' && dev.stats.atk === 1200);
   assert.equal(dev.skill.skillId, 'sktok_cnnon');
+  // the battle fields' (sub-levels') runes: ATK −400, skill cost ×2 — on the table key only (the alias list matches none)
+  const runes = ACT3.stages[id].runes.filter((r) => r.bbStr.char === 'trap_196_cnnon');
+  assert.deepEqual(runes.map((r) => [r.key, r.bb.ATK ?? r.bb.scale]).sort(), [['char_attribute_add', -400], ['char_skill_cd_mul', 2]]);
   // its lane: (13,6) and four rows down; (12,6) and (10,6) are road
   assert.equal(at(ACT3.stages[id], [12, 6]), 'r');
   assert.equal(at(ACT3.stages[id], [10, 6]), 'r');
@@ -232,31 +235,37 @@ test('规程 盐坨子炮 (m10, trap_196_cnnon): every 6 s a shell at its lane\'
     enemy_heavy: enemyRec({ key: 'enemy_heavy', hp: 1e7, speed: 1, mass: 4 }),
     enemy_fly: enemyRec({ key: 'enemy_fly', hp: 1e7, speed: 1, motion: 'FLY' }),
   };
-  const h = makeBattle({ stageId: id, defs: { ...stageDefs(id), chess: { t_guard: guardRec(), t_far: guardRec('t_far'), t_side: guardRec('t_side') }, enemies },
-    units: [{ chessId: 't_guard', row: 12, col: 4 }, { chessId: 't_side', row: 11, col: 7 }, { chessId: 't_far', row: 10, col: 6 }],
+  const h = makeBattle({ stageId: id, defs: { ...stageDefs(id), chess: { t_guard: guardRec(), t_far: guardRec('t_far'), t_side: guardRec('t_side'), t_near: guardRec('t_near') }, enemies },
+    units: [{ chessId: 't_guard', row: 12, col: 4 }, { chessId: 't_side', row: 10, col: 7 }, { chessId: 't_far', row: 9, col: 6 }, { chessId: 't_near', row: 11, col: 6 }],
     enemies: [{ key: 'enemy_walk', pos: [12.2, 6], route: standStill([12.2, 6]) }, { key: 'enemy_heavy', pos: [12.4, 6.6], route: standStill([12.4, 6.6]) },
       { key: 'enemy_fly', pos: [12.5, 6], route: standStill([12.5, 6], 'FLY') }],
     autoFinish: false, timeLimit: 60 });
   const shells = [];
   h.b.on('damaged', (c) => { if ((c.dmg.tags || []).includes('cnnonShell')) shells.push({ t: c.target, at: h.b.time, n: c.amount }); });
   h.step(1);
-  const g = h.unit('t_guard'), far = h.unit('t_far'), side = h.unit('t_side');
+  const g = h.unit('t_guard'), far = h.unit('t_far'), side = h.unit('t_side'), near = h.unit('t_near');
   const w = h.enemy('enemy_walk'), heavy = h.enemy('enemy_heavy'), fly = h.enemy('enemy_fly');
   assert.ok(w.hidden, 'the walker (weight 3) within 1 is on board');
   assert.ok(!heavy.hidden && !fly.hidden, 'weight 4 and a flyer stay');
-  h.runUntil(() => shells.length > 0, 10);
-  // its lane holds t_far (10,6), the latest deployed; the shell flies 3 tiles at 5/s
-  assert.ok(Math.abs(shells[0].at - (6 + 3 / 5)) < 0.1, `lands at ${shells[0].at}`);
-  assert.deepEqual(new Set(shells.map((s) => s.t)), new Set([far, side]), '3×3 around (10,6): t_side at (11,7) too, not t_guard');
-  assert.equal(Math.round(far.stats.taken), 1200, 'physical 1200 on DEF 0');
-  assert.ok(!w.hidden && Math.abs(w.y - 10) <= 0.2 + 1e-9 && Math.abs(w.x - 6) <= 0.2 + 1e-9, `dropped at (10,6) ± 0.2: (${w.y}, ${w.x})`);
+  h.runUntil(() => shells.length > 0, 16);
+  // the farthest tile of its lane, (9,6): 4 tiles at 5/s after the 12 s charge
+  assert.ok(Math.abs(shells[0].at - (12 + 4 / 5)) < 0.1, `lands at ${shells[0].at}`);
+  assert.deepEqual(new Set(shells.map((s) => s.t)), new Set([far, side]), '3×3 around (9,6): t_side at (10,7) too — not t_near on the lane at (11,6), not t_guard');
+  assert.equal(Math.round(far.stats.taken), 800, 'physical 1200 − 400 on DEF 0');
+  assert.ok(!w.hidden && Math.abs(w.y - 9) <= 0.2 + 1e-9 && Math.abs(w.x - 6) <= 0.2 + 1e-9, `dropped at (9,6) ± 0.2: (${w.y}, ${w.x})`);
   assert.equal(g.stats.taken, 0);
+  assert.equal(near.stats.taken, 0, 'a unit right in front of the cannon is never its target');
   h.step(1);
   assert.ok(!heavy.hidden && !fly.hidden, 'the cannon empty again, weight 4 and the flyer within 1 are still not taken');
-  // the next shot: nobody near the cannon, so no passenger; the same target
-  h.runUntil(() => shells.length > 2, 8);
-  assert.ok(Math.abs(shells[2].at - (12 + 3 / 5)) < 0.1);
-  assert.ok(!w.hidden);
+  // the next shot 12 s later, the same tile — and with nobody there at all it still fires
+  h.b.retreat(far); h.b.retreat(side);
+  const before = shells.length;
+  let fired = 0;
+  const fx = h.b.fx.bind(h.b);
+  h.b.fx = (kind, p) => { if (kind === 'cannon' && p.fire && p.x === 6 && p.y === 13) fired++; return fx(kind, p); };
+  h.run(12);
+  assert.equal(fired, 1, 'a shell at the empty tile');
+  assert.equal(shells.length, before, 'nobody hit');
 });
 
 test('规程 盐坨子炮: a passenger stays the cannon\'s until its shell lands — nobody else boards in flight; the renderer\'s \'cannon\' signals', () => {
@@ -275,8 +284,8 @@ test('规程 盐坨子炮: a passenger stays the cannon\'s until its shell lands
   h.step(1);
   const w = h.enemy('enemy_walk'), nx = h.enemy('enemy_next');
   assert.ok(w.hidden && !nx.hidden, 'the nearer walker boards first');
-  // the shell leaves at 6 s and flies 4 tiles (13,6) → (9,6) at 5/s: lands at 6.8 s
-  h.runUntil(() => sig.some((s) => s.fire), 8);
+  // the shell leaves at 12 s and flies 4 tiles (13,6) → (9,6) at 5/s: lands at 12.8 s
+  h.runUntil(() => sig.some((s) => s.fire), 14);
   const fire = sig.find((s) => s.fire);
   assert.deepEqual([fire.tx, fire.ty, fire.pax], [6, 9, w.id]);
   assert.ok(Math.abs(fire.t - 0.8) < 1e-9);
@@ -286,6 +295,6 @@ test('规程 盐坨子炮: a passenger stays the cannon\'s until its shell lands
   assert.ok(!w.hidden && nx.hidden, 'landed: the first is dropped, the second boards');
   const carry = sig.filter((s) => 'carry' in s).map((s) => [s.carry, s.pax === w.id ? 'w' : 'n', Math.round(s.at * 10) / 10]);
   assert.deepEqual(carry.slice(0, 3).map((c) => c.slice(0, 2)), [[1, 'w'], [0, 'w'], [1, 'n']]);
-  assert.ok(Math.abs(carry[1][2] - 6.8) <= 0.1, `released as the shell lands: ${carry[1][2]}`);
+  assert.ok(Math.abs(carry[1][2] - 12.8) <= 0.1, `released as the shell lands: ${carry[1][2]}`);
 });
 
