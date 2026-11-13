@@ -400,10 +400,12 @@
 .buffs__row { display: grid; grid-template-columns: calc(var(--bu) * 108) 1fr; padding: calc(var(--bu) * 16) calc(var(--bu) * 18) calc(var(--bu) * 12) 0; min-height: calc(var(--bu) * 100); box-sizing: border-box; }
 .buffs__row + .buffs__row { border-top: 1px solid rgba(255, 255, 255, .07); }
 .buffs__icon {
-  width: calc(var(--bu) * 66); height: calc(var(--bu) * 66); margin-left: calc(var(--bu) * 24); display: grid; place-items: center;
+  position: relative; width: calc(var(--bu) * 66); height: calc(var(--bu) * 66); margin-left: calc(var(--bu) * 24); display: grid; place-items: center;
   background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .12);
 }
-.buffs__icon img { width: 92%; height: 92%; object-fit: contain; }
+/* pinned to the box: a grid child's height: 92% does not resolve, so a tall item icon (精打细算玩偶 81 × 143) took its own
+   height and ran out of the box */
+.buffs__icon img { position: absolute; inset: 4%; width: 92%; height: 92%; object-fit: contain; }
 .buffs__icon .icon { width: 50%; height: 50%; color: var(--mint-500); }
 .buffs__text { min-width: 0; }
 .buffs__head { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 calc(var(--bu) * 8); }
