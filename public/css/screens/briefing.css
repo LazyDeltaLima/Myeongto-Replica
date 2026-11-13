@@ -20,8 +20,9 @@
   background: linear-gradient(180deg, rgba(8, 10, 9, .94), rgba(10, 13, 12, .6)); border-bottom: 1px solid var(--line);
 }
 .stephead::after { content: ''; position: absolute; left: .3rem; right: .3rem; bottom: -1px; height: 1px; background: linear-gradient(90deg, var(--mint-700), transparent 26%, transparent 74%, var(--mint-700)); }
-.stephead__left { display: flex; align-items: center; gap: .16rem; }
-.stephead__meta { display: flex; flex-direction: column; gap: .06rem; align-items: flex-start; }
+.stephead__left { display: flex; align-items: center; gap: .1rem; }
+/* the difficulty beside the exit tile, level with its centre (the ping hangs under the tile, ExitTile) */
+.stephead__left > .stephead__tags { align-self: flex-start; margin-top: calc(28 * var(--eu, .0128rem)); transform: translateY(-50%); margin-left: calc(-4.5 * var(--eu, .0128rem)); }
 .stephead__center { display: flex; flex-direction: column; align-items: center; gap: .04rem; }
 .stephead__title { display: flex; align-items: baseline; gap: .02rem; font-size: .34rem; font-weight: 900; letter-spacing: .12em; }
 .stephead__title b { font-size: .56rem; line-height: 1; color: var(--mint-400); text-shadow: 0 0 .2rem rgba(23, 249, 183, .4); }

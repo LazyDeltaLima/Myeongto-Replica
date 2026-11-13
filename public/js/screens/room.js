@@ -46,7 +46,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from '../../vendor/
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, LARGE_MIN_PLAYERS, MAX_SEATS, MIN_SPECTATORS, SPECTATOR_SEATS, seatsOf, modeIdFor, gradeDifficulty, isGrade } from '../../../shared/constants.js';
 import { SeatMark } from '../ui/faction.js'; // local patch
 import {
-  html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyIcon, Tooltip, Spinner, Modal, TextField, confirmDialog, doctorNo, useTicker,
+  html, Button, Icon, MicroLabel, AvatarFrame, DifficultyIcon, Tooltip, Spinner, Modal, TextField, confirmDialog, doctorNo, useTicker,
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { copyText } from '../ui/clipboard.js';
@@ -59,6 +59,7 @@ import { useDocClass, useMediaQuery, SHORT_SCREEN_QUERY } from '../ui/device.js'
 import { store, useStore, shallowEqual, emptyMatch, isSpectating, reservedRank, savePref } from '../store.js';
 import { difficultyInfo, gradeInfo, gradeName, limitedSeason, ProtocolSelect, ProtoRules, CustomBrief } from './lobby.js';
 import { RoomChat } from '../ui/chat.js';
+import { ExitTile } from '../ui/matchChrome.js';
 import { MatchQueueDialog, mmss, canProposeStart, proposeStart } from '../ui/matchQueue.js';
 import { audio } from '../audio.js';
 import { t, tc } from '../../../shared/i18n.js';
@@ -825,13 +826,10 @@ export function RoomScreen() {
     <div class="rs__bg" aria-hidden="true"></div>
     <header class="topbar rs-top">
       <div class="topbar__left rs-top__left">
-        <${Tooltip} text=${t('离开同盟')} placement="bottom">
-          <${Button} variant="danger" size="lg" square=${true} icon="exit" class="rs-exit" disabled=${busy === 'leave'} onClick=${leave}
-            aria-label=${t('离开同盟')} data-testid="room-leave" />
-        <//>
+        <${ExitTile} class="rs-exit" onClick=${leave} disabled=${busy === 'leave'} label=${t('离开同盟')} ping=${conn.ping} online=${online}
+          testid="room-leave" />
         <div class="rs-clock">
           <b>${coop ? t('同盟模拟') : t('独立模拟')}</b>
-          <span class="rs-clock__ping">${t('当前延迟')}<${PingPill} ms=${conn.ping} online=${online} /></span>
         </div>
         <div class="rs-tools">
           <${Button} variant="secondary" size="sm" square=${true} icon="chart" class="stats-entry" onClick=${openStats} title=${t('统计数据')} aria-label=${t('统计数据')} />

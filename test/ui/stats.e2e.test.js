@@ -278,7 +278,7 @@ describe('统计数据: the real flows (a fast real server, headless Chrome)', {
     await sleep(1500);
   }
   async function giveUp(c) {
-    await c.click('.stephead .btn--danger, .gtop__exit', null, { timeout: 8000 });
+    await c.click('.stephead .exit-tile__btn, .gtop__exit', null, { timeout: 8000 });
     await c.click('.modal__actions button', '放弃模拟');
     await c.waitFor((s) => !s.room && !s.phase, 'back in the lobby', 15000);
   }

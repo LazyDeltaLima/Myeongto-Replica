@@ -1,5 +1,5 @@
-// Chrome shared by every in-match screen: the step header of the pre-game screens (exit + ping +
-// difficulty | "1/2 确认本局信息" | countdown) and the exit flow (confirm with 暂离 / 放弃, AI 托管 overlay).
+// Chrome shared by every in-match screen: the step header of the pre-game screens (exit with the ping under it — ExitTile,
+// also the waiting room's — + difficulty | "1/2 确认本局信息" | countdown) and the exit flow (confirm with 暂离 / 放弃, AI 托管 overlay).
 //
 // 暂离 (co-op): turns on AI 托管 (g.autoplay on) so the seat keeps playing; the overlay's 返回模拟 turns it
 // off. 放弃模拟: g.leave then room.leave (the platform treats it as a quit), back to the lobby. 重新开始 (from the first
@@ -7,7 +7,8 @@
 // (发起重新开始投票; ui/restartVote.js, server/match/match/restart.js).
 
 import { useState } from '../../vendor/hooks.module.js';
-import { html, Button, Modal, PingPill, DifficultyTag, Countdown, MicroLabel } from './components.js';
+import { html, Button, Modal, PingPill, DifficultyTag, Countdown, MicroLabel, Icon } from './components.js';
+import { localAsset } from '../data.js';
 import { actions } from './gameActions.js';
 import { toastError } from './toasts.js';
 import { net } from '../net.js';
@@ -175,19 +176,36 @@ const timerCue = () => audio.sfx('timer');
  * @param {{ step: number, of: number, title: string, micro: string, pub: any, total?: number|null, config?: any,
  *   onExit: Function }} props config: data/config.json (the steps' warning times)
  */
+/**
+ * The official exit of the waiting room and the start steps (auto_chess_prepare_page outer_top_menu_view left_top:
+ * leave_btn 54×56 of img_return — the grey tile with the white door and arrow —, and ping_part 63×22 of img_delay_bg,
+ * white 16, 40.4 under the tile's centre; the start steps' official screens draw the same, CN screen 2026-11-13 —
+ * maintainer decision 2026-11-13, the red square of 2026-11-08 undone; the battle HUD keeps its red one): the tile and
+ * the ping under it. Without the local art, a grey CSS tile with the exit icon. Styles: css/components.css .exit-tile.
+ * @param {{ onClick: () => void, label: string, ping: number|null|undefined, online: boolean, disabled?: boolean,
+ *   class?: string, testid?: string|null }} props
+ */
+export function ExitTile({ onClick, label, ping, online, disabled = false, class: cls = '', testid = null }) {
+  const art = localAsset('ui/outer', 'img_return');
+  const pbg = localAsset('ui/outer', 'img_delay_bg');
+  const vars = [art && `--exit-art:url("${art}")`, pbg && `--ping-art:url("${pbg}")`].filter(Boolean).join(';');
+  return html`<div class=${`exit-tile ${cls}`.trim()} style=${vars || null}>
+    <button type="button" class=${`exit-tile__btn${art ? ' has-art' : ''}`} disabled=${disabled} onClick=${onClick}
+      aria-label=${label} title=${label} data-testid=${testid}>${art ? null : html`<${Icon} name="exit" />`}</button>
+    <${PingPill} ms=${ping} online=${online} class="exit-tile__ping" />
+  </div>`;
+}
+
 export function StepHeader({ step, of, title, micro, pub, total, config = null, onExit }) {
   const conn = useStore((s) => s.connection, shallowEqual);
   const rules = resolveRuleset(pub?.ruleset);
   return html`<header class="stephead">
     <div class="stephead__left">
-      <${Button} variant="danger" size="lg" square=${true} icon="exit" onClick=${onExit} aria-label=${t('离开')} title=${t('离开')} />
-      <div class="stephead__meta">
-        <${PingPill} ms=${conn.ping} online=${conn.status === 'online'} />
-        ${pub?.difficulty || rules.preset !== 'classic' ? html`<span class="stephead__tags">
-          ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} modeId=${pub.modeId} />` : null}
-          ${rules.preset !== 'classic' ? html`<span class=${`rtag rtag--${rules.preset}`} data-testid="match-ruleset">${t(PRESET_LABELS[rules.preset])}</span>` : null}
-        </span>` : null}
-      </div>
+      <${ExitTile} onClick=${onExit} label=${t('离开')} ping=${conn.ping} online=${conn.status === 'online'} />
+      ${pub?.difficulty || rules.preset !== 'classic' ? html`<span class="stephead__tags">
+        ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} modeId=${pub.modeId} />` : null}
+        ${rules.preset !== 'classic' ? html`<span class=${`rtag rtag--${rules.preset}`} data-testid="match-ruleset">${t(PRESET_LABELS[rules.preset])}</span>` : null}
+      </span>` : null}
     </div>
     <div class="stephead__center">
       <${MicroLabel} tone="mint">${micro}</${MicroLabel}>
