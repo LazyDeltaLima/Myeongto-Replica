@@ -23,7 +23,8 @@ let toasts;
 before(async () => {
   // the client data store (singleton) reads data/ through fetch: serve it from the repo
   globalThis.fetch = async (url) => {
-    const abs = path.join(ROOT, String(url).replace(/^\//, ''));
+    // a season's files: the server's /data/s/<season>/ is data/seasons/<season>/
+    const abs = path.join(ROOT, String(url).replace(/^\//, '').replace(/^data\/s\//, 'data/seasons/'));
     if (!existsSync(abs)) return { ok: false, status: 404, json: async () => null };
     const text = readFileSync(abs, 'utf8');
     return { ok: true, status: 200, json: async () => JSON.parse(text) };
@@ -157,6 +158,34 @@ test('a real match: 精打细算玩偶\'s effect entry (named by its trap icon) 
   } finally {
     setLang('zh');
     await data.setLocale('zh');
+  }
+});
+
+test('a real 规程 match: the strategy\'s effect entry shows the strategy\'s localized text (its id is the effect, its icon no strategy id)', async () => {
+  const { getData } = await import('../server/data.js');
+  const ACT3 = getData({ log: { warn() {}, error() {}, info() {} }, season: 'act3autochess' });
+  await data.setSeason('act3autochess');
+  await data.loadAll('items', 'effects', 'bands', 'garrisons');
+  const { effectDesc } = await import('../public/js/ui/effectsList.js');
+  // band_survive: its effect's text (「拖拽使用：」) is not the strategy's (「拖拽使用（消耗0）：」), its icon icon_gvial2
+  const band = ACT3.bands.band_survive;
+  assert.ok(band && band.iconId !== band.bandId && ACT3.effects[band.effectId].desc !== band.desc, 'the case this pins');
+  const h = makeMatch({ mode: 'solo', modeId: 'mode_single_1', difficulty: 'NORMAL', seats: [{ playerId: 'p_0', name: 'P0' }], seed: 7, data: ACT3, season: 'act3autochess' }).start();
+  try {
+    const ps = h.ps('p_0');
+    ps.bandId = band.bandId;
+    const entry = JSON.parse(JSON.stringify(ps.effectsView().find((e) => e.iconKind === 'band')));
+    assert.equal(effectDesc(entry), band.desc, 'Chinese: as sent');
+    await data.setLocale('ko');
+    await data.loadAll('items', 'effects', 'bands', 'garrisons');
+    const ko = data.lookup('bands', band.bandId);
+    assert.ok(ko && ko.desc !== band.desc, 'the strategy has a Korean text');
+    assert.equal(effectDesc(entry), ko.desc);
+    assert.ok(!/[一-鿿]/.test(effectDesc(entry)), effectDesc(entry));
+  } finally {
+    h.m.dispose();
+    await data.setLocale('zh');
+    await data.setSeason(null);
   }
 });
 

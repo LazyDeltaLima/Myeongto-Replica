@@ -50,6 +50,15 @@ export function effectDesc(e) {
       if (v !== desc) return v;
     }
   }
+  // the strategy's entry (server/match/player/views.js effectsView): its id is the strategy's effect and its icon an icon
+  // id, neither the strategy's own id, and 规程's effect text differs from the strategy's (「拖拽使用（消耗0）」) — the
+  // strategy whose effect it names
+  const bands = e.iconKind === 'band' && typeof e.id === 'string' ? data.getRaw('bands') : null;
+  for (const rec of bands && typeof bands === 'object' ? Object.values(bands) : []) {
+    if (rec?.effectId !== e.id) continue;
+    const v = from('bands', rec.bandId);
+    if (v !== desc) return v;
+  }
   // an item effect named by its trap icon (精打细算玩偶's round funds, server/match/builtinMeta.js): the item records
   // that show that icon
   const items = e.iconKind === 'item' && typeof e.iconId === 'string' ? data.getRaw('items') : null;
