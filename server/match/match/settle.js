@@ -88,23 +88,8 @@ export class MatchSettle {
       if (coins > 0) { ps.pendingFunds += coins; ps.stats.fundsGained += coins; }
       for (const b of ps.bounties) b.roundsLeft--;
       ps.bounties = ps.bounties.filter((b) => b.roundsLeft > 0);
-      // IN_BATTLE layer gains (normal battles only), at most the room left under the cap (GameData.layerCap: 999, as the
-      // battle's live copy: Battle.addLayers); a bond at the cap gains nothing and dispatches nothing
-      for (const [bondId, n] of Object.entries(r.layerGains || {})) {
-        if (!this.gd.bond(bondId) || !(n > 0)) continue;
-        const before = ps.layers[bondId] || 0;
-        const add = layerGainRoom(before, Math.floor(n), this.gd.layerCap);
-        if (!(add > 0)) continue;
-        ps.layers[bondId] = before + add;
-        this.dispatch(ps, 'onLayers', { bondId, from: before, to: ps.layers[bondId], reason: 'battle' });
-      }
       this._charDamageTickers(ps, r);
-      // 临时层数 (规程) of the own battle: they lapse here, after the onBattleResult garrisons (SERVER_BATTLE_FIN,
-      // 「<进入休整期时>…转化…临时层数为固定层数」) had their turn to convert some (ctx.convertTempLayers)
-      ps.tempLayers = r.tempLayerGains && typeof r.tempLayerGains === 'object' ? { ...r.tempLayerGains } : null;
-      this.dispatch(ps, 'onBattleResult', { result: r, lpLoss: loss, perfect: counted === 0 && r.perfect !== false, unite: uniteResult || null });
-      ps.tempLayers = null;
-      ps.recompute();
+      this._battleResultLayers(ps, r, { result: r, lpLoss: loss, perfect: counted === 0 && r.perfect !== false, unite: uniteResult || null });
     }
     if (shared) {
       // nobody falls alone: the shares are written back (_syncTeamLp); the pool at 0 takes the whole alliance out
@@ -139,6 +124,31 @@ export class MatchSettle {
    * no board uid) count once per unit type (the highest of them) — a result can never announce more units than the
    * lineup has kinds of.
    */
+  /**
+   * A finished battle's layers and its onBattleResult (`ev`): the result's fixed IN_BATTLE gains become persistent, its
+   * 临时层数 are offered to the converting 特质 during the dispatch and lapse after it. The normal round's settle, and
+   * a boss / hidden field where the season stacks layers there (shared/seasons.js bossLayerGains: 规程 — bossRounds.js
+   * _finishFinal), as after a normal battle.
+   */
+  _battleResultLayers(ps, r, ev) {
+    // IN_BATTLE layer gains, at most the room left under the cap (GameData.layerCap: 999, as the battle's live copy:
+    // Battle.addLayers); a bond at the cap gains nothing and dispatches nothing
+    for (const [bondId, n] of Object.entries(r.layerGains || {})) {
+      if (!this.gd.bond(bondId) || !(n > 0)) continue;
+      const before = ps.layers[bondId] || 0;
+      const add = layerGainRoom(before, Math.floor(n), this.gd.layerCap);
+      if (!(add > 0)) continue;
+      ps.layers[bondId] = before + add;
+      this.dispatch(ps, 'onLayers', { bondId, from: before, to: ps.layers[bondId], reason: 'battle' });
+    }
+    // 临时层数 (规程) of the battle: they lapse here, after the onBattleResult garrisons (SERVER_BATTLE_FIN,
+    // 「<进入休整期时>…转化…临时层数为固定层数」) had their turn to convert some (ctx.convertTempLayers)
+    ps.tempLayers = r.tempLayerGains && typeof r.tempLayerGains === 'object' ? { ...r.tempLayerGains } : null;
+    this.dispatch(ps, 'onBattleResult', ev);
+    ps.tempLayers = null;
+    ps.recompute();
+  }
+
   _charDamageTickers(ps, r) {
     const steps = (Array.isArray(this.gd.config.broadcasts) ? this.gd.config.broadcasts : []).filter((b) => b.type === 'CHAR_DAMAGE' && Array.isArray(b.params)).map((b) => Number(b.params[0])).filter((n) => n > 0).sort((a, b) => b - a);
     if (!steps.length) return;

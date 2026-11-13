@@ -274,7 +274,7 @@ test('Final Assault: stats reach m.private at the end; leader "扣除目标生�
   m.dispose();
 });
 
-test('boss field layer gains follow the season (shared/seasons.js bossLayerGains): 规程 stacks IN_BATTLE layers there, 盟约 none', async () => {
+test('boss field layer gains follow the season (shared/seasons.js bossLayerGains): 规程 stacks IN_BATTLE layers there and keeps them after the fight, 盟约 none', async () => {
   const { ACT3_ON_BASE_FIELD } = await import('../helpers/seasonPieces.js');
   for (const [season, on] of [[undefined, false], ['act3autochess', true]]) {
     FakeBattle.instances.length = 0;
@@ -285,6 +285,16 @@ test('boss field layer gains follow the season (shared/seasons.js bossLayerGains
     const fields = bossFields();
     assert.ok(fields.length > 0, `${season ?? 'default'}: a boss field`);
     for (const f of fields) assert.equal(f.opts.flags.layerGainsEnabled, on, `${season ?? 'default'}: layerGainsEnabled`);
+    // the boss battle's result: 规程 keeps its fixed gains after the fight, as a normal battle's; its 临时层数 lapse
+    const bond = m.gd.bondIds[0];
+    const before = new Map([...m.players.values()].map((ps) => [ps.playerId, ps.layers[bond] || 0]));
+    const pp = () => ({ killed: 0, total: 0, leaked: [], perfect: true, layerGains: { [bond]: 7 }, tempLayerGains: { [bond]: 30 }, coins: 0, damageDealt: 0, unitsEnd: [], unitStats: [] });
+    m._finishFinal(false, (f) => ({ perPlayer: Object.fromEntries(f.players.map((pid) => [pid, pp()])) }));
+    for (const f of fields) for (const pid of f.players) {
+      const ps = m.players.get(pid);
+      assert.equal(ps.layers[bond] || 0, before.get(pid) + (on ? 7 : 0), `${season ?? 'default'} ${pid}: ${bond} after the boss battle`);
+      assert.equal(ps.tempLayers, null);
+    }
     assert.equal(m.errorCount ?? 0, 0);
     m.dispose?.();
   }

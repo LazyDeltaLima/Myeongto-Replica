@@ -42,8 +42,9 @@ export const SEASON_FEATURES = Object.freeze({
    * seasonOfficialOptions; docs/rules/ui.md 「규칙 모드 — 클래식·캐주얼」). */
   stagePreview: false,
   /** A Final Assault / Hidden Core field takes the IN_BATTLE layer gains (flags.layerGainsEnabled), fixed and 临时层数,
-   * for that battle: the season's official boss battle stacks them (docs/rules/sim.md 「규정 맹약」); the 盟约 client runs
-   * no layer gain outside the own battle. */
+   * and they stay after it as a normal battle's (server/match/match/settle.js _battleResultLayers): the season's boss
+   * battle stacks them as a normal one does (docs/rules/sim.md 「규정 맹약」); the 盟约 client runs no layer gain outside
+   * the own battle. */
   bossLayerGains: false,
 });
 

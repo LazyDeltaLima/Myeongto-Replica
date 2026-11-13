@@ -112,8 +112,8 @@ export class MatchBoss {
         // the round's enemy effects for the leaders' mid-fight summons (server/sim/content/bosses.js summonMods: the
         // leaders' multipliers, GameData.leaderScale); the ruleset's sim options (shared/ruleset.js simRuleFlags: 休闲 →
         // bossHitClamp, custom → its 限伤 / layer cap; none in classic). IN_BATTLE layer gains where the season stacks
-        // them on a boss field (shared/seasons.js bossLayerGains: 规程), for this battle only — the boss settlement
-        // reads none
+        // them on a boss field (shared/seasons.js bossLayerGains: 规程), kept after it as a normal battle's
+        // (_finishFinal → settle.js _battleResultLayers)
         flags: { layerGainsEnabled: seasonFeature(this.season, 'bossLayerGains'), ...this.gd.dp, enemyScale: this.gd.leaderScale(this.round), ...simRuleFlags(this.ruleset) },
         fieldId,
         enemyOverrides: wave.overrides,
@@ -541,6 +541,7 @@ export class MatchBoss {
     // the end condition the server registered first decides (client-side combat: _endFinal — pool 0 → victory, team LP 0
     // → defeat); a boss field's final result may never turn a defeat into a victory (maintainer playtest #6 item 5)
     const victory = this._finalEnding ? this._finalEnding === 'cleared' : this.bossPool.hp <= 0;
+    const layersOn = seasonFeature(this.season, 'bossLayerGains');
     for (const f of this.fields) {
       const res = resultOf(f);
       this._collectSimErrors(f, res);
@@ -567,7 +568,12 @@ export class MatchBoss {
             && this._bossLeaksAgree(f, res, pid);
           this._settleBossBounties(ps, pp, perfect);
         }
-        if (pp && ps) this.dispatch(ps, 'onBattleResult', { result: pp, lpLoss: 0, perfect: !!pp.perfect, boss: true });
+        if (pp && ps) {
+          const ev = { result: pp, lpLoss: 0, perfect: !!pp.perfect, boss: true };
+          // 规程: the boss battle's layers stay, as a normal battle's (settle.js _battleResultLayers); elsewhere it has none
+          if (layersOn) this._battleResultLayers(ps, pp, ev);
+          else this.dispatch(ps, 'onBattleResult', ev);
+        }
       }
     }
     // the result screen's leader HP line (m.result bossPools): the pool's size and what the alliance took off it
