@@ -10,6 +10,7 @@ import { createFxLayer } from '../../public/js/render/fxgame.js';
 import * as F from '../../public/js/render/fxstatus.js';
 import { getData } from '../../server/data.js';
 import { makeBattle, chessRec } from '../helpers/battleHarness.js';
+import { DataSource, getDefaultSource } from '../../server/sim/simdata.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
 
@@ -197,18 +198,36 @@ test('茧 (隐秘核心) sim: 【悲惨之雨】\'s zone names the tiles of the 
   assert.ok(rains().every((o) => /acidrain/i.test(o.ability)), 'names the ability (its tile effect)');
 });
 
+/** 规程 萨尔贡 6's 流沙 'zone' fx events of a real battle: two members' skill starts on 规程's data. */
+function sandEvents() {
+  const ids = Array.from({ length: 6 }, (_, i) => `s${i}_a`);
+  const chess = Object.fromEntries(ids.map((id) => [id, chessRec({ id, bonds: ['sargonShip'], profession: 'WARRIOR', skill: null, stats: { atk: 100, maxHp: 1000, def: 0, blockCnt: 2 } })]));
+  const data = new DataSource({ ...ACT3, chess: { ...ACT3.chess, ...chess } }, getDefaultSource());
+  const h = makeBattle({ data, seed: 3, bonds: { sargonShip: { count: 6, active: true, tier: 2, layers: 0 } }, enemies: [], autoFinish: false,
+    units: ids.map((id, i) => ({ chessId: id, row: 10, col: 3 + i })) });
+  h.step(2);
+  for (const id of ['s0_a', 's1_a']) h.b.emit('skillStart', { unit: h.unit(id), skill: null, reason: 'test' });
+  h.step();
+  return h.eventsOf('fx').filter((e) => e[1] === 'zone' && e[4]?.kind === 'sargonSand');
+}
+
 test('萨尔贡 6\'s 流沙: its tile listener\'s map_v079_dikuai01 on the tile it is laid on, kept for the battle (no stand-in zone)', async () => {
   const fetch0 = globalThis.fetch;
   try {
     const { layer, views, seen } = await layerWith(true);
-    const e = ['fx', 'zone', 5, 3, { x: 5, y: 3, r: 0.5, dur: 1e4, kind: 'sargonSand', tiles: 'box', id: 3 }];
+    // the events as the sim sends them (Battle.fx: x and y in the tuple, not in its extra — 2026-11-14 report, the
+    // stand-in circle in a real match while a hand-made event with x / y in the extra passed)
+    const zones = sandEvents();
+    assert.ok(zones.length >= 2, `two members' skill starts: ${zones.length}`);
+    assert.equal(zones[0][4].x, undefined, 'the sim\'s extra carries no x');
+    const e = zones[0];
     layer.onEvent(e, views);
     assert.equal(layer.ownsFx(e), true, 'drawn by its official effect');
     await settle();
     const floors = seen.filter((p) => p.kind === 'spawn' && p.tag === 'sargonSand');
     assert.deepEqual(floors.map((p) => p.names[0]), ['map_v079_dikuai01'], 'one floor for the tile');
     // another member's tile: one more
-    layer.onEvent(['fx', 'zone', 6, 3, { x: 6, y: 3, r: 0.5, dur: 1e4, kind: 'sargonSand', tiles: 'box', id: 4 }], views);
+    layer.onEvent(zones[1], views);
     await settle();
     assert.equal(seen.filter((p) => p.kind === 'spawn' && p.tag === 'sargonSand').length, 2);
   } finally { globalThis.fetch = fetch0; }

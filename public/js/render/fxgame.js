@@ -5571,7 +5571,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     if (e[1] === 'summon' && AC_NO_BORN.has(o.key)) return !!(emodes?.[o.key] && !emodes[o.key].start && eOn(views.get(o.id)));
     if (e[1] === 'zone' && o.kind === 'acspiderRain') return acRainFx(o, views);
-    if (e[1] === 'zone' && o.kind === 'sargonSand') return sargonSandFx(o);
+    if (e[1] === 'zone' && o.kind === 'sargonSand') return sargonSandFx(e);
     return false;
   }
   /**
@@ -5584,9 +5584,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * of its own. false (the stand-in zone) without the effect extracted.
    */
   const SARGON_SAND = Object.freeze(['map', 'map_v079_dikuai01']);
-  function sargonSandFx(o) {
+  // (2026-11-14, user report: the stand-in circle in a real match) the tile is the event's x / y (Battle.fx puts them in
+  // the tuple, not in its extra)
+  function sargonSandFx(e) {
+    const o = e[4];
     if (failed || !index?.bundles?.[SARGON_SAND[0]]?.includes(SARGON_SAND[1])) return false;
-    const x = Math.round(Number(o.x)), y = Math.round(Number(o.y));
+    const x = Math.round(Number(e[2])), y = Math.round(Number(e[3]));
     if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
     let g = null;
     try { g = grid(); } catch { /* the board's floor */ }
