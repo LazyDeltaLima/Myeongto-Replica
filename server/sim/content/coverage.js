@@ -1,7 +1,8 @@
 // server/sim/content/coverage.js — how much of a season's bond, equipment and 特质 data the content code acts on.
 //
-// coverage(data, prep) → { bonds, items, garrisons, bands, runes, totals }: one row per (bond, buff template), per (item key,
-// buff key), per (特质 event type, effect key) and per (strategy, buff key), each `ok` / `partial` (`missing` names what is not done) / `none`.
+// coverage(data, prep) → { bonds, items, garrisons, bands, runes, codes, totals }: one row per (bond, buff template), per
+// (item key, buff key), per (特质 event type, effect key), per (strategy, buff key), per stage rune and per table code a
+// handler reads, each `ok` / `partial` (`missing` names what is not done) / `none`.
 // It asks "is the buff key the handler expects in the record", not "is there a handler for the id": a season that
 // reuses an id with other buffs shows up (`wrong` lists the handler keys that run on a record without their buff).
 // Battle side: the tables the handler files export; prep side: the season's registry (server/match/effectsMeta.js
@@ -16,7 +17,8 @@
 //              (items/battle.js HANDLED.byItem lists what each reads); the other buffs (prep) by key, a key
 //              another season renamed read as the default season's (items/aliases.js): a built-in buff-key handler
 //              (server/match/builtinMeta.js) or a content one (items/meta.js PREP_BUFF_KEYS), registered on the item
-//   garrisons  IN_BATTLE: garrisons/battle.js BATTLE_GARRISON_KEYS, and the option values it reads (GARRISON_OPTIONS);
+//   garrisons  IN_BATTLE: garrisons/battle.js BATTLE_GARRISON_KEYS, and the option values it reads (GARRISON_OPTIONS:
+//              bond_type, bond_add_type, conditionkey, range_id, garrison_type);
 //              SERVER_*: a `garrison:<effectKey>` handler in the registry and a hook for the event type
 //   bands      every buff of every 指令 stage (bands.json `skills`, else the band's buffs): battle runes by bbStr.key
 //              (bands/battle.js BATTLE_BUFF_KEYS), the others by key — bands/meta.js PREP_BAND_KEYS (registered as
@@ -27,6 +29,9 @@
 //              its character filter only aliases — the client matches a rune's `char` against the table key, never an
 //              alias) or when devices.js LEVEL_RUNES_READ applies it (each blackboard number read, or `unread` with why);
 //              `partial` names the numbers it does not read, `none` a rune nothing applies
+//   codes      every code a handler reads through a table of its own (codes.js TABLE_CODES: check_ab_flag, ep_type,
+//              add_method, dir, unlockType …): `partial` names each value of the season's records the handler does not
+//              know (it does nothing on it), with the records; `values` lists what the season's records carry
 
 import { buffsOf, itemKeyOf } from './support/index.js';
 import { HANDLED as ITEM_BATTLE } from './items/battle.js';
@@ -39,6 +44,7 @@ import { BATTLE_BUFF_KEYS as BAND_BATTLE } from './bands/battle.js';
 import { PREP_BAND_KEYS as BAND_PREP, bandStages } from './bands/meta.js';
 import { LEVEL_RUNES_READ } from './devices.js';
 import { CUSTOM_FIRST_HALF_STAGES } from '../../../shared/ruleset.js';
+import { TABLE_CODES } from './codes.js';
 
 export { bondTemplate };
 
@@ -149,7 +155,7 @@ function garrisonRows(data, { registry, garrisonHooks }) {
     r.ids.push(gid);
     if (!inBattle || r.status === 'none') continue;
     const s = g.bbStr ?? {};
-    for (const opt of ['bond_type', 'bond_add_type', 'conditionkey', 'range_id']) {
+    for (const opt of ['bond_type', 'bond_add_type', 'conditionkey', 'range_id', 'garrison_type']) {
       const v = s[opt];
       if (v == null || v === '') continue;
       const known = opt === 'range_id' ? GARRISON_OPTIONS.range_id[g.effectKey] ?? [] : GARRISON_OPTIONS[opt];
@@ -212,6 +218,54 @@ function bandRows(data, { registry }) {
   return rows;
 }
 
+/** Every (record id, key, value of field) a code declaration of codes.js reads in the season's data. */
+function codeValues(data, decl) {
+  const out = [];
+  const val = (v) => (v == null || v === '' ? null : v);
+  if (decl.table === 'garrisons') {
+    for (const [gid, g] of Object.entries(data?.garrisons ?? {})) {
+      if (!g || !g.effectKey) continue;
+      if (decl.keys ? !decl.keys.includes(g.effectKey) : decl.event === '!IN_BATTLE' ? g.eventType === 'IN_BATTLE' : g.eventType !== decl.event) continue;
+      const v = val(g.bb?.[decl.field] ?? g.bbStr?.[decl.field]);
+      if (v != null) out.push({ id: gid, key: g.effectKey, v });
+    }
+    return out;
+  }
+  for (const [bandId, rec] of Object.entries(data?.bands ?? {})) {
+    for (const st of bandStages(rec)) {
+      if (decl.table === 'bandNext') {
+        const v = val(st?.next?.[decl.field]);
+        if (v != null) out.push({ id: st.effectId ?? bandId, key: bandId, v });
+      } else for (const b of buffsOf(st)) if (decl.keys.includes(b.key) || decl.keys.includes(b.bbKey)) { const v = val(b.p[decl.field]); if (v != null) out.push({ id: st.effectId ?? bandId, key: b.bbKey ?? b.key, v }); }
+    }
+  }
+  if (decl.table !== 'buffs') return out;
+  for (const name of ['items', 'bonds', 'effects']) {
+    for (const [id, rec] of Object.entries(data?.[name] ?? {})) {
+      for (const b of buffsOf(rec)) if (decl.keys.includes(b.key) || decl.keys.includes(b.bbKey)) { const v = val(b.p[decl.field]); if (v != null) out.push({ id, key: b.bbKey ?? b.key, v }); }
+    }
+  }
+  return out;
+}
+
+function codeRows(data, { garrisonHooks }) {
+  const events = Object.keys(garrisonHooks ?? {});
+  return TABLE_CODES.map((decl) => {
+    const knownOf = (key) => (decl.known === 'garrisonEvents' ? events : typeof decl.known === 'function' ? decl.known(key) : decl.known).map(String);
+    const unknown = new Map();
+    const seen = new Set();
+    for (const { id, key, v } of codeValues(data, decl)) {
+      seen.add(String(v));
+      if (knownOf(key).includes(String(v))) continue;
+      const m = `${decl.field}=${v}`;
+      if (!unknown.has(m)) unknown.set(m, new Set());
+      unknown.get(m).add(id);
+    }
+    const missing = [...unknown].map(([m, list]) => `${m} (${[...list].sort().join(', ')})`);
+    return row('codes', { id: decl.where, key: decl.field, side: decl.side, ids: decl.keys ? [...decl.keys] : [], values: [...seen].sort(), status: missing.length ? 'partial' : 'ok', missing });
+  });
+}
+
 /** Stages a match can be fought on: the pool's (active) and the custom mode's first-half fields. */
 function playedStages(data) {
   return Object.values(data.stages || {}).filter((st) => st && (st.active || CUSTOM_FIRST_HALF_STAGES.includes(st.id)));
@@ -266,6 +320,7 @@ export function coverage(data, prep = {}) {
   const garrisons = garrisonRows(data, p);
   const bands = bandRows(data, p);
   const runes = runeRows(data);
-  return { bonds, items, garrisons, bands, runes, totals: { bonds: tally(bonds), items: tally(items), garrisons: tally(garrisons), bands: tally(bands), runes: tally(runes) } };
+  const codes = codeRows(data, p);
+  return { bonds, items, garrisons, bands, runes, codes, totals: { bonds: tally(bonds), items: tally(items), garrisons: tally(garrisons), bands: tally(bands), runes: tally(runes), codes: tally(codes) } };
 }
 

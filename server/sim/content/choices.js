@@ -388,6 +388,8 @@ export function battlePlanOf(ref, scope = null) {
   return plan.heal > 0 || plan.flawless || plan.opMods || plan.enemy.length ? plan : null;
 }
 
+/** The enemy ranks an enemy_attribute_* buff's enemy_level_type names; any other matches no enemy (content/coverage.js). */
+export const ENEMY_RANKS = Object.freeze(['NORMAL', 'ELITE', 'BOSS']);
 const rankOf = (e) => String(e?.def?.rank ?? e?.def?.raw?.rank ?? 'NORMAL').toUpperCase();
 const isOwnOp = (u, pid) => !!u && u.kind === 'op' && u.side === 'ally' && u.ownerId === pid;
 

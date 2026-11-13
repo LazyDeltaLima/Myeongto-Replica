@@ -34,6 +34,13 @@ export function weaknessType(source, target, dmg) {
 }
 const bound = (t) => !!(t.s && t.s.flags && t.s.flags.bind) || !!t.findBuff('bind');
 
+/**
+ * The target checks of act2autochess_gar_eff_ab_damageScaleByBond's check_ab_flag: the client's `AbnormalFlag` (13
+ * UNMOVABLE = 束缚 here). A value missing here matches no target — never "any value is 束缚" (content/coverage.js
+ * reports it, test/content/coverage.test.js checks every season's values are listed).
+ */
+export const AB_FLAG_CHECK = Object.freeze({ 13: bound });
+
 /** Priority of the 弱点伤害 conversion: after every default-priority hit modifier, so the final amount decides. */
 export const WEAKNESS_PRIORITY = -10;
 
@@ -58,7 +65,8 @@ export function installHitMods(battle, by) {
           const tags = target.def && target.def.tags;
           if (Array.isArray(tags) && tags.includes(it.bbStr.check_tag)) dmg.amount *= S.num(it.bb.atk, 1);
         } else if (it.k > 0) {
-          const hit = (S.num(it.bb.check_ab_flag, 0) && bound(target)) || (S.num(it.bb.check_sluggish, 0) && !!target.findBuff('sluggish'));
+          const flag = it.bb.check_ab_flag != null ? AB_FLAG_CHECK[S.num(it.bb.check_ab_flag)] : null;
+          const hit = (!!flag && flag(target)) || (S.num(it.bb.check_sluggish, 0) && !!target.findBuff('sluggish'));
           if (hit) dmg.mul = S.num(dmg.mul, 1) * (1 + S.num(it.bb.damage_scale_per_stack, 0) * it.k);
         }
       }

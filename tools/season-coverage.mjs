@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // tools/season-coverage.mjs — how much of a season's bond, equipment, 特质 and strategy data the content code acts on
-// (server/sim/content/coverage.js): per bond template, item buff key, 特质 effect key, strategy buff key and stage level rune, `ok` / `partial` / `none`,
+// (server/sim/content/coverage.js): per bond template, item buff key, 特质 effect key, strategy buff key, stage level rune
+// and table code a handler reads (content/codes.js), `ok` / `partial` / `none`,
 // the handlers that run on a record without the buff they ask for (`wrong`), and a renamed item buff key read as the
 // default season's (`= key`, server/sim/content/items/aliases.js).
 //
@@ -19,6 +20,7 @@ import { coverage } from '../server/sim/content/coverage.js';
 import { DEFAULT_SEASON, SEASONS } from '../shared/seasons.js';
 
 const QUIET = { info() {}, warn() {}, error() {} };
+const DOMAINS = ['bonds', 'items', 'garrisons', 'bands', 'runes', 'codes'];
 
 /** The coverage report of a season (default: the default season), its prep side from the registry its matches use. */
 export function coverageOf(season = DEFAULT_SEASON) {
@@ -32,9 +34,9 @@ const fmtTotals = (t) => `ok ${t.ok} · partial ${t.partial} · none ${t.none}${
 function printSeason(season, { all = false } = {}) {
   const rep = coverageOf(season);
   console.log(`${season}${season === DEFAULT_SEASON ? ' (default)' : ''}`);
-  for (const d of ['bonds', 'items', 'garrisons', 'bands', 'runes']) console.log(`  ${d.padEnd(10)} ${fmtTotals(rep.totals[d])}`);
+  for (const d of DOMAINS) console.log(`  ${d.padEnd(10)} ${fmtTotals(rep.totals[d])}`);
   if (all === null) return;
-  for (const d of ['bonds', 'items', 'garrisons', 'bands', 'runes']) {
+  for (const d of DOMAINS) {
     const rows = rep[d].filter((r) => all || r.status !== 'ok' || r.wrong.length);
     if (!rows.length) continue;
     console.log(`\n  ${d}`);

@@ -46,6 +46,21 @@ export function sameRowCount(ctx, me) {
   if (!onBoard(me)) return 0;
   return chessOnBoard(ctx).filter((p) => p.row === me.row).length;
 }
+/**
+ * The bbStr.conditionkey values of the prep-side 特质: character_target_inboard everywhere (the match's dispatcher does
+ * not run it from the hand, effectsMeta.js), character_same_row where rowCondition reads it. A garrison with another
+ * value runs nothing (prepConditionKnown; content/coverage.js reports it).
+ */
+export const PREP_CONDITIONS = Object.freeze({
+  '*': Object.freeze(['character_target_inboard']),
+  SERVER_POOL_CHAR: Object.freeze(['character_target_inboard', 'character_same_row']),
+  SERVER_MOST_BOND: Object.freeze(['character_target_inboard', 'character_same_row']),
+});
+/** Whether a prep 特质 record's conditionkey (none, or one of PREP_CONDITIONS for its effect key) is one the code reads. */
+export function prepConditionKnown(g) {
+  const ck = g?.bbStr?.conditionkey;
+  return ck == null || ck === '' || (PREP_CONDITIONS[g.effectKey] ?? PREP_CONDITIONS['*']).includes(ck);
+}
 export function rowCondition(ctx, me) {
   const { bb, bbStr } = ctx.source;
   // 白面鸮 copying 歌蕾蒂娅's / 余's prep-start gift skips the three-in-a-row gate (GitHub #473, the reporter's official
@@ -55,8 +70,9 @@ export function rowCondition(ctx, me) {
   if (from && ctx.source.garrison?.eventType === 'SERVER_PREP_START'
     && ctx.chessRecord(me?.id)?.charId === 'char_128_plosis'
     && ['char_474_glady', 'char_2026_yu'].includes(ctx.chessRecord(from.id)?.charId)) return true;
-  if (bbStr.conditionkey === 'character_same_row') return sameRowCount(ctx, me) >= num(bb.check_count, 0);
-  return true;
+  const ck = bbStr.conditionkey;
+  if (ck === 'character_same_row') return sameRowCount(ctx, me) >= num(bb.check_count, 0);
+  return ck == null || ck === '' || ck === 'character_target_inboard'; // another value holds never (PREP_CONDITIONS)
 }
 
 /**

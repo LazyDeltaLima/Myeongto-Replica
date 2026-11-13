@@ -6,6 +6,12 @@ import { ids, EMPTY, byUnit } from '../shared.js';
 import { raiseUrsusExtra } from '../../bonds/nation/ursus.js';
 import { bondSteps } from './triggered.js';
 
+/**
+ * The burst of each ep_type of act3autochess_gar_effect_block_eprecoverspeed_inrange (WATER = 侵蚀 …: damage.js
+ * `<el>Burst`). A type missing here watches no burst — never a fallback to 侵蚀 (content/coverage.js reports it).
+ */
+export const EP_BURST = Object.freeze({ WATER: 'erosion', FIRE: 'burn', NEURAL: 'neural', DARK: 'apoptosis' });
+
 /** Installers of the fixed stat 特质 by effect key: (battle, instances of the key). */
 export const STAT_INSTALLERS = {
   GAIN_BUFF(battle, list) {
@@ -32,10 +38,10 @@ export const STAT_INSTALLERS = {
   // / _FINISH / ON_OWNER_BLOCKEE_CHANGED re-check it, the steps read at each check). The burst's 爆发冷却 (damage.js
   // `<el>Burst`) then runs that much faster: its time left drops by dt × the bonus each tick.
   act3autochess_gar_effect_block_eprecoverspeed_inrange(battle, list) {
-    const EP = { WATER: 'erosion', FIRE: 'burn', NEURAL: 'neural', DARK: 'apoptosis' };
-    for (const it of list) { it.el = EP[it.bbStr.ep_type || 'WATER'] || 'erosion'; it.rate = new Map(); }
+    for (const it of list) { it.el = EP_BURST[it.bbStr.ep_type || 'WATER'] ?? null; it.rate = new Map(); }
     const check = (it, e) => {
       const h = it.unit;
+      if (!it.el) return; // an ep_type EP_BURST does not know: no burst is watched (content/coverage.js reports it)
       const on = S.onField(h) && e.alive && e.blockedBy === h && !!e.findBuff(`${it.el}Burst`);
       if (!on) { it.rate.delete(e); return; }
       if (it.rate.has(e)) return;

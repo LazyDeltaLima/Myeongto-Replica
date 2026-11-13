@@ -953,6 +953,8 @@ export const BAND_MARK_EFFECT = {
 // without one [ASSUMED·CN]) · 桑葚 药枚实验 (eff_band17 / eff_band18 by its stage) · Misery 消解空间 (eff_band22):
 // skill_mark_char_inst_tag { tag } marks the operator with the effect `tag`; the battle runs its buff (bands/battle.js
 // MARK_BY_KEY; 全场聚焦's auto_chess_battle_chess_upgrade is the battle input's: the operator fights as its elite).
+/** The bbStr.cond values skill_mark_char_inst_tag reads; a mark under any other is refused (content/coverage.js). */
+export const MARK_CONDS = Object.freeze(['gold']);
 K.skill_mark_char_inst_tag = (ps) => ({
   onBandSkill(ctx, ev) {
     const p = ps[0];
@@ -960,6 +962,7 @@ K.skill_mark_char_inst_tag = (ps) => ({
     if (!v) return nothing(ev, 'no operator');
     const tag = typeof p.tag === 'string' && p.tag ? p.tag : null;
     if (!tag || !ctx.gd.effect(tag)) return nothing(ev, 'no effect');
+    if (p.cond != null && p.cond !== '' && !MARK_CONDS.includes(p.cond)) return nothing(ev, 'unknown condition');
     if (p.cond === 'gold' && (v.golden || !ctx.gd.goldenIdOf(v.id))) return nothing(ev, 'already elite');
     addMark(ctx, ev, { effectId: tag, uid: v.uid });
   },
@@ -1235,6 +1238,12 @@ export function bandStages(rec) {
   if (Array.isArray(rec.skills) && rec.skills.length) return rec.skills;
   return [{ effectId: rec.effectId ?? null, desc: rec.desc ?? '', buffs: rec.buffs ?? [], next: null }];
 }
+
+/**
+ * The `next.unlockType` values stageUnlocked and bands/progress.js stageUnlock read; a stage behind any other type never
+ * unlocks (content/coverage.js reports it).
+ */
+export const UNLOCK_TYPES = Object.freeze(['band_skill_load_by_round', 'band_skill_load_by_shop_lv', 'band_skill_load_by_coin_cost', 'band_skill_load_by_bond_act_count']);
 
 /** Does a stage's `next` condition hold for the player now? */
 export function stageUnlocked(ctx, next) {

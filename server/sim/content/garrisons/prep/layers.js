@@ -33,6 +33,19 @@ H.SERVER_ADD_BOND_CHESS_ALL = {
 // the most one run gives each bond — these run once a round (休整期结束时), as 쏜즈's garrison_32 below
 const roundCap = (bb, n) => (num(bb.max, 0) > 0 ? Math.min(n, num(bb.max)) : n);
 
+/** The bbStr.add_method values SERVER_ADD_BOND_METHOD reads; any other gains nothing (content/coverage.js reports it). */
+export const ADD_METHODS = Object.freeze(['shoplv', 'round_gain_char', 'hand_count', 'same_row', 'same_bond_diff_lv']);
+
+/**
+ * The bbStr.dir values of SERVER_ADD_BOND_POSITION(_COUNT_SELL_PRICE): the other target in front of or behind the
+ * holder (absent: in front). Any other value runs nothing — never a fallback to the front (content/coverage.js).
+ */
+export const POSITION_DIRS = Object.freeze(['front', 'behind']);
+function positionOther(ctx, me, dir) {
+  if (dir === 'behind') return behindPiece(ctx, me);
+  return dir == null || dir === '' || dir === 'front' ? frontPiece(ctx, me) : undefined;
+}
+
 H.SERVER_ADD_BOND_METHOD = {
   run(ctx) {
     const { bb, bbStr, garrison } = ctx.source;
@@ -96,7 +109,8 @@ H.SERVER_ADD_BOND_POSITION = {
     const { bb, bbStr } = ctx.source;
     const me = selfView(ctx);
     if (!onBoard(me)) return;
-    const other = bbStr.dir === 'behind' ? behindPiece(ctx, me) : frontPiece(ctx, me);
+    const other = positionOther(ctx, me, bbStr.dir);
+    if (other === undefined) return;
     const targets = [me];
     if (other && other.kind === 'chess' && other.uid !== me.uid) targets.push(other);
     for (const t of targets) for (const b of metaBonds(ctx, t)) if (ctx.bondActive(b)) ctx.addLayers(b, num(bb.count), { requireActive: true });
@@ -111,7 +125,8 @@ H.SERVER_ADD_BOND_POSITION_COUNT_SELL_PRICE = {
     const { bb, bbStr } = ctx.source;
     const me = selfView(ctx);
     if (!onBoard(me)) return;
-    const other = bbStr.dir === 'behind' ? behindPiece(ctx, me) : frontPiece(ctx, me);
+    const other = positionOther(ctx, me, bbStr.dir);
+    if (other === undefined) return;
     const targets = [me];
     if (other && other.kind === 'chess' && other.uid !== me.uid) targets.push(other);
     for (const t of targets) {

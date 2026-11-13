@@ -36,11 +36,14 @@ export function triggerGainEffects(ctx, piece) {
 // 铃兰 60_a: "<进入休整期时>触发身前一格的其他干员的“获得时”类效果" (scope front)
 // 瑰盐 82: "<售出时>触发场上一名拥有“休整期结束时”的干员的特质（优先触发部署位置更靠上的和更靠右的）" (scope farright).
 // DESIGN §3: row 0 is the bottom, so "更靠上" = the highest row; then the highest column ("更靠右").
+/** The bbStr.scope values SERVER_TRIGGER_ANOTHER reads; any other runs nothing (content/coverage.js reports it). */
+export const TRIGGER_SCOPES = Object.freeze(['front', 'farright']);
 H.SERVER_TRIGGER_ANOTHER = {
   run(ctx) {
     const { bbStr } = ctx.source;
     const event = bbStr.event || 'SERVER_GAIN';
     const self = selfView(ctx);
+    if (!TRIGGER_SCOPES.includes(bbStr.scope)) return;
     if (bbStr.scope === 'front') {
       if (!onBoard(self)) return;
       const f = frontPiece(ctx, self);

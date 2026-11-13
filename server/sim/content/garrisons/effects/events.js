@@ -17,14 +17,17 @@ export const AB_FLAG_STATUS = Object.freeze({ 16: 'freeze', 33: 'fear' });
 const abFlagStatus = (it) => AB_FLAG_STATUS[S.num(it.bb.check_ab_flag, 16)] ?? null;
 
 /**
- * The option values of a garrison's bbStr this file reads (content/coverage.js marks any other value 'partial': it falls
- * to the switch's default). conditionkey character_target_inboard always holds in battle (every carrier is on the
- * board). range_id is read by the effect keys listed only.
+ * The option values of a garrison's bbStr this file reads (content/coverage.js marks any other value 'partial'). A value
+ * missing here does nothing — no layers, no condition met, nobody in range — never the switch's first case (a 33 read as
+ * 冻结 once left 妮芙's 特质 dead); an absent option is the table's plain case (bond_by_id, by_count, no condition,
+ * garrison_add_bond, the holder alone). conditionkey character_target_inboard always holds in battle (every carrier is
+ * on the board). range_id is read by the effect keys listed only.
  */
 export const GARRISON_OPTIONS = Object.freeze({
   bond_type: Object.freeze(['bond_by_id', 'bond_self', 'bond_actived_maxstack', 'bond_allinrange']),
   bond_add_type: Object.freeze(['by_count', 'by_charcount_samerow', 'by_charlevel']),
   conditionkey: Object.freeze(['character_same_row', 'character_same_col', 'character_target_inboard']),
+  garrison_type: Object.freeze(['garrison_add_bond', 'garrison_trigger_buff']),
   range_id: Object.freeze({
     act1autochess_gar_event_consume_ammo: Object.freeze(['0-1', '1-1', 'x-5']),
     act1autochess_gar_event_addition_cnt: Object.freeze(['1-1']),
@@ -55,7 +58,8 @@ function targetBonds(battle, it) {
       }
       return out;
     }
-    default: return ids(it.bbStr.bond_id);
+    case 'bond_by_id': case undefined: case '': return ids(it.bbStr.bond_id);
+    default: return EMPTY; // a value this file does not know gains nothing (content/coverage.js reports it)
   }
 }
 
@@ -64,7 +68,8 @@ function amountOf(battle, it) {
   switch (it.bbStr.bond_add_type) {
     case 'by_charcount_samerow': return S.rowMates(battle, it.unit).length * S.num(bb.bond_add_count_multi, S.num(bb.bond_add_count, 1));
     case 'by_charlevel': return S.tierOf(it.unit) * S.num(bb.bond_add_count, 1);
-    default: return S.num(bb.bond_add_count, 0);
+    case 'by_count': case undefined: case '': return S.num(bb.bond_add_count, 0);
+    default: return 0;
   }
 }
 
@@ -77,7 +82,7 @@ function conditionMet(battle, it) {
     for (const a of battle.allyUnits) if (S.isOp(a) && a.ownerId === it.unit.ownerId && S.onField(a) && a.tileC === it.unit.tileC) n++;
     return n >= need;
   }
-  return true;
+  return ck == null || ck === '' || ck === 'character_target_inboard';
 }
 
 /**
@@ -97,8 +102,9 @@ function traitFx(battle, it) {
  * other gains layers (fireGain).
  */
 export function fire(battle, it) {
-  if (it.bbStr.garrison_type === 'garrison_trigger_buff') { if (runTriggered(battle, it)) traitFx(battle, it); return 0; }
-  return fireGain(battle, it);
+  const type = it.bbStr.garrison_type;
+  if (type === 'garrison_trigger_buff') { if (runTriggered(battle, it)) traitFx(battle, it); return 0; }
+  return type == null || type === '' || type === 'garrison_add_bond' ? fireGain(battle, it) : 0;
 }
 
 /** Fire a layer-gain garrison instance. Returns the layers added. */
@@ -145,7 +151,8 @@ function ammoScope(it, u) {
   switch (it.bbStr.range_id) {
     case '1-1': return S.onField(h) && isFrontOf(h, u);
     case 'x-5': return u === h || (S.onField(h) && S.onField(u) && u.ownerId === h.ownerId && S.isOp(u) && Math.abs(u.tileR - h.tileR) + Math.abs(u.tileC - h.tileC) === 1);
-    default: return u === h;
+    case '0-1': case undefined: case '': return u === h;
+    default: return false;
   }
 }
 

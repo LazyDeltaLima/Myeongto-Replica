@@ -47,6 +47,7 @@ import { boardOrder, parseKey, tileKey } from './board.js';
 import { pieceBonds as bondsOfPiece } from './bondsMeta.js';
 import { registerAllMeta } from '../sim/content/index.js';
 import { bandCommandKey, bandPassiveKey } from '../sim/content/bands/meta.js';
+import { prepConditionKnown } from '../sim/content/garrisons/prep/shared.js';
 import { registerBuiltins } from './builtinMeta.js';
 import { msg, dn } from '../../shared/i18n.js';
 import { onGiftTicker } from './botEmotes.js';
@@ -397,6 +398,7 @@ export class EffectDispatcher {
         const h = this.registry.get(key);
         if (!h || !this._garrisonHooks(h, g).includes(hook)) continue;
         if (where === 'hand' && g.bbStr && g.bbStr.conditionkey === 'character_target_inboard') continue;
+        if (!prepConditionKnown(g)) continue; // a condition the code does not read never holds (content/coverage.js)
         const repeat = hook === 'onGain' ? this.investRepeat(ps) : 1;
         this._call(ps, key, h, hook, { kind: 'garrison', key, piece, garrisonId: gid, garrison: g, bb: g.bb || {}, bbStr: g.bbStr || {}, where }, ev, repeat);
       }

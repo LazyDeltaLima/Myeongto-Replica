@@ -56,6 +56,11 @@ import { addCapMod } from '../garrisons/effects/triggered.js';
 import { spawnMapChar } from '../tokens.js';
 
 export const AMEDIC_BAND = 'band_amedic';
+/** The common_condition values of band_amedic's auto_chess_change_map (amedicCharsFor); any other places nobody. */
+export const AMEDIC_CONDS = Object.freeze(['condition_golden_chess_ge', 'condition_golden_chess_le']);
+/** The bond_add_type values 崇高牺牲 (act1autochess_band13_buff) reads; any other gains nothing. */
+export const BAND13_ADD_TYPES = Object.freeze(['by_charlevel', 'by_count']);
+
 /**
  * 'death' priority of 埃芒加德's revive: a knock-out (so after every `fatal` saver — kits', 坚固维式重锤's 不死), after the
  * operator's own M3茧甲 (PRIO_RESPAWN 13), before 阿戈尔 5's first-knock-out revive (11) and 不屈 (10).
@@ -99,7 +104,9 @@ const BY_KEY = {
   act1autochess_band13_buff(battle, ps, p, bandId) {
     const bond = typeof p.bond_id === 'string' && p.bond_id ? p.bond_id : null;
     if (!bond) return;
-    const byLevel = p.bond_add_type == null || p.bond_add_type === 'by_charlevel';
+    const t = p.bond_add_type;
+    const byLevel = t == null || t === '' || t === 'by_charlevel';
+    if (!byLevel && !BAND13_ADD_TYPES.includes(t)) return; // a type this does not read gains nothing (content/coverage.js)
     battle.on('death', (c) => {
       const u = c.unit;
       if (c.reason !== 'killed' || !isOp(u) || u.ownerId !== ps.playerId || !isMember(battle, u, bond)) return;
@@ -271,7 +278,7 @@ export function amedicVariants(scope = null) {
 /** Map characters for a player with `elites` elite operators on the field. */
 export function amedicCharsFor(elites, variants = amedicVariants()) {
   for (const v of variants) {
-    const ok = /_ge$/.test(v.cond) ? elites >= v.cnt : /_le$/.test(v.cond) ? elites <= v.cnt : false;
+    const ok = v.cond === 'condition_golden_chess_ge' ? elites >= v.cnt : v.cond === 'condition_golden_chess_le' ? elites <= v.cnt : false;
     if (ok) return v.chars;
   }
   return [];
