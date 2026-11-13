@@ -26,6 +26,12 @@ function setup({ band, funds = 30, seed = 7, bots = 0 }) {
   return { h, m, ps, use, view: () => ps.privateView().bandSkill };
 }
 
+/** The first seed from 1 whose match does not draw `bond` absent (规程 draws 5 core and 5 add-on bonds absent a match). */
+function seedKeeping(band, bond) {
+  for (let seed = 1; seed <= 50; seed++) if (!setup({ band, seed }).m.disabledBonds.includes(bond)) return seed;
+  throw new Error(`no seed keeps ${bond}`);
+}
+
 const visible = Object.values(ACT3.chess).filter((c) => c.visible && !c.isGolden && !c.isDiy);
 const ofBond = (bond, maxTier = 6) => visible.filter((c) => (c.bonds || []).includes(bond) && c.tier <= maxTier);
 const owned = (ps) => [...ps.hand, ...ps.temp, ...ps.board.values()].filter((p) => p && p.kind === 'chess');
@@ -83,7 +89,7 @@ test('打包速递 (拜松, DEFAULT 9): every shop operator; the cost −1 at ea
 
 test('骑士团长 / 流动乐章 / 无惧风雪 / 猎人战法: an operator of the bond of tier ≤ the 调度中心 level, and each cost key', () => {
   // 焰尾 骑士团长: cost 6, −2 at each prep end, reset on use
-  const k = setup({ band: 'band_kazimier' });
+  const k = setup({ band: 'band_kazimier', seed: seedKeeping('band_kazimier', 'kazimierzShip') });
   const tierCap = k.ps.shop.level;
   const before = owned(k.ps).length;
   assert.deepEqual(k.use(), OK);

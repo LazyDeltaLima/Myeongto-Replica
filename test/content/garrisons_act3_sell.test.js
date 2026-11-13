@@ -112,6 +112,7 @@ test('灵知 garrison_55: 获得时, the next manual refresh (paid) shows at lea
   for (const [id, need] of [['chess_char_4_09_a', 1], ['chess_char_4_09_b', 2]]) {
     assert.equal(GB(`garrison_55_${id.slice(-1)}`).count, need);
     let fewer = 0;
+    let skipped = 0;
     for (let seed = 1; seed <= 12; seed++) {
       {
         // without 灵知 the same refresh often shows fewer
@@ -120,6 +121,8 @@ test('灵知 garrison_55: 获得时, the next manual refresh (paid) shows at lea
         if (kjerag(m, ps) < need) fewer++;
       }
       const { m, ps } = setup({ seed });
+      // a match that draws 谢拉格 absent (5 core bonds of 规程's 10) offers no operator of it but the ones with another bond
+      if (m.disabledBonds.includes('kjeragShip')) { skipped++; continue; }
       const p = give(m, ps, id, 'hand');
       m.dispatch(ps, 'onGain', { piece: p });
       assert.equal(ps.sell(p.uid).ok, true, 'sold before the refresh');
@@ -131,5 +134,6 @@ test('灵知 garrison_55: 获得时, the next manual refresh (paid) shows at lea
       noViolations(m);
     }
     assert.ok(fewer > 0, `${id}: some seeds roll fewer without it (${fewer})`);
+    assert.ok(skipped <= 8, `${id}: most seeds keep 谢拉格 (${skipped} of 12 drew it absent)`);
   }
 });

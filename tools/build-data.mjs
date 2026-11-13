@@ -4328,6 +4328,16 @@ function modeDescNoUnlock(desc) {
 }
 
 /**
+ * The bond ban counts { core, addon } of NORMAL / HARD / ABYSS in a season (no table field: the official server draws
+ * them). 盟约: 3 / 4; 规程 (act3autochess): 5 / 5 — maintainer decision 2026-11-13, from official play.
+ * @param {string} season
+ */
+function seasonBans(season) {
+  const n = season === 'act3autochess' ? { core: 5, addon: 5 } : { core: 3, addon: 4 };
+  return { NORMAL: { ...n }, HARD: { ...n }, ABYSS: { ...n } };
+}
+
+/**
  * Build data/config.json: modes (rounds, timers, shop, enemy scaling), economy, bans, timers,
  * titles, tips, broadcasts, trophies and other global tunables.
  */
@@ -4539,7 +4549,9 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       chatCd: ac.constData?.chatCD ?? 1, chatBubble: ac.constData?.chatTime ?? 3, broadcastDelay: ac.constData?.broadcastBeginDelay ?? 1,
       enterSteps: (Array.isArray(ac.enterStepList) ? ac.enterStepList : Object.values(ac.enterStepList || {})).map((s) => ({ step: s.stepType, time: s.time, hint: s.hintTime, title: s.title })),
     },
-    bans: { FUNNY: { core: 0, addon: 1 }, NORMAL: { core: 3, addon: 4 }, HARD: { core: 3, addon: 4 }, ABYSS: { core: 3, addon: 4 }, TRAINING: { core: 0, addon: 0 },
+    // the bonds drawn absent per match are no table field (a server rule): 盟约 3 core / 4 add-on from NORMAL up,
+    // 规程 5 / 5 (maintainer decision 2026-11-13, from official play; its FUNNY modes (标准模拟, 规程等级 1–4) keep 0 / 1 [ASSUMED·자료 없음])
+    bans: { FUNNY: { core: 0, addon: 1 }, ...seasonBans(SEASON), TRAINING: { core: 0, addon: 0 },
       rule: 'banned iff every bond of a visible non-DIY chess is in (drawn set D ∪ mode.inactiveBondIds); core = isCore bonds, addon = other bonds with weight > 0; uniform draw' },
     bandDraft: { skipsPerPlayer: 1, order: 'random', duplicatesAllowed: true, timeoutBandId: defaultBand },
     titles: Object.values(act.playerTitleDataDict || {}).map((t) => ({ id: t.id, picId: t.picId, name: t.txt, ...(titleRules[t.id] || {}) })),

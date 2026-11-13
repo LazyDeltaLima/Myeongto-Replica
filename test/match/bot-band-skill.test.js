@@ -12,10 +12,10 @@ import { tileKey } from '../../server/match/board.js';
 const quiet = { error() {}, warn() {}, info() {}, log() {} };
 const TOTAL = 'band:skill:total';
 
-function setup({ band, funds = 30, round = 3, coop = false }) {
+function setup({ band, funds = 30, round = 3, coop = false, seed = 7 }) {
   const reg = createRegistry({ data: ACT3_ON_BASE_FIELD, log: quiet });
   const seats = coop ? { mode: 'coop', humans: 1, bots: 3 } : { mode: 'solo', humans: 1 };
-  const h = makeMatch({ ...seats, seed: 7, registry: reg, fake: !coop, data: ACT3_ON_BASE_FIELD, season: 'act3autochess' }).start();
+  const h = makeMatch({ ...seats, seed, registry: reg, fake: !coop, data: ACT3_ON_BASE_FIELD, season: 'act3autochess' }).start();
   h.toPrep(1, { band: coop ? band : 'band_amiya' }); // coop: a strategy no AI seat drafted
   const m = h.m;
   m.round = round;
@@ -99,7 +99,10 @@ test('a priced 指令 keeps half the funds (打包速递 costs 9); an unlimited 
   const poor = setup({ band: 'band_closeout', funds: 12 });
   useBandSkill(poor.m, poor.ps, 'shop');
   assert.equal(poor.uses(), 0, '9 > 12 / 2');
-  const rich = setup({ band: 'band_kazimier', funds: 60 });
+  // a seed whose match keeps 卡西米尔 (规程 draws 5 core bonds absent a match; seed 7 draws it)
+  let seed = 1;
+  while (setup({ band: 'band_kazimier', seed }).m.disabledBonds.includes('kazimierzShip')) seed++;
+  const rich = setup({ band: 'band_kazimier', funds: 60, seed });
   useBandSkill(rich.m, rich.ps, 'shop');
   assert.equal(rich.uses(), 1, 'DEFAULT (卡西米尔 operators, 6 each): once');
 });
