@@ -35,7 +35,7 @@ test('规程 (act3autochess) is in the registry, never public', () => {
 test('offered / picked / on screen: one season = the default and no picker; the pick only when offered', () => {
   assert.deepEqual(offeredSeasonsOf(state()), [DEFAULT_SEASON]);
   assert.equal(hasSeasonPicker(state()), false);
-  assert.equal(pickedSeason(state({ season: NEXT })), DEFAULT_SEASON); // not offered (yet): the default
+  assert.equal(pickedSeason(state({ seasons: [DEFAULT_SEASON], season: NEXT })), DEFAULT_SEASON); // not offered: the default
   const two = { seasons: [DEFAULT_SEASON, NEXT] };
   assert.equal(hasSeasonPicker(state(two)), true);
   assert.equal(pickedSeason(state({ ...two, season: NEXT })), NEXT);
@@ -46,6 +46,20 @@ test('offered / picked / on screen: one season = the default and no picker; the 
   // an invitation that names its season, while it waits
   assert.equal(activeSeason(state({ ...two, pendingJoin: 'ABCD', pendingSeason: NEXT })), NEXT);
   assert.equal(activeSeason(state({ ...two, pendingSeason: NEXT })), DEFAULT_SEASON);
+});
+
+test('before the first pong the remembered pick is the season on screen, so the entry film main.js picks at boot plays', () => {
+  // main.js reads activeSeason once at boot for playEntryFilm, and the film stops when the season on screen changes:
+  // a 规程 player's page must not start as 盟约 and turn 规程 when the pong lists the seasons
+  const boot = state({ season: NEXT }); // ui.seasons null: not known yet
+  assert.equal(activeSeason(boot), NEXT);
+  assert.deepEqual(offeredSeasonsOf(boot), [DEFAULT_SEASON, NEXT]);
+  assert.equal(activeSeason(state({ ...boot.ui, seasons: [DEFAULT_SEASON, NEXT] })), NEXT, 'the pong confirms it: no change');
+  assert.equal(activeSeason(state({ ...boot.ui, seasons: [DEFAULT_SEASON] })), DEFAULT_SEASON, 'a server without it corrects it');
+  // never picked: the public seasons, the newest of them
+  assert.deepEqual(offeredSeasonsOf(state()), [DEFAULT_SEASON]);
+  assert.equal(activeSeason(state()), newestPublicSeason());
+  assert.equal(pickedSeason(state({ season: 'bogus' })), DEFAULT_SEASON);
 });
 
 test('room.create / room.queue fields and the queue counts of a season', () => {
@@ -74,9 +88,12 @@ test('installSeasons: the first pong offers the seasons; a room of another seaso
   const target = createStore(initialState);
   const told = [];
   installSeasons({ net, target, notify: (text) => told.push(text) });
-  handlers.pong({ t: 'pong', c: 1, n: 3 }); // a later pong: nothing
-  assert.equal(target.get().ui.seasons, null);
-  handlers.pong({ t: 'pong', c: 1, n: 3, seasons: [DEFAULT_SEASON, NEXT, 'bogus'] });
+  assert.equal(target.get().ui.seasons, null, 'not known before the first pong');
+  handlers.pong({ t: 'pong', c: 1, n: 3 }); // a first pong without seasons: the server offers the default alone
+  assert.deepEqual(target.get().ui.seasons, [DEFAULT_SEASON]);
+  handlers.pong({ t: 'pong', c: 1, n: 3, seasons: [DEFAULT_SEASON, NEXT, 'bogus'] }); // a new socket's first pong
+  assert.deepEqual(target.get().ui.seasons, [DEFAULT_SEASON, NEXT]);
+  handlers.pong({ t: 'pong', c: 2, n: 3 }); // a later pong: nothing
   assert.deepEqual(target.get().ui.seasons, [DEFAULT_SEASON, NEXT]);
   target.set({ room: { code: 'ABCD' } }); // the default season's room, the default picked: nothing
   assert.deepEqual(told, []);

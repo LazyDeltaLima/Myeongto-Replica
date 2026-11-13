@@ -18,6 +18,9 @@ function fakeDom() {
       return el;
     },
   };
+  // the opacity each style read saw (the browser computes the veil's style there)
+  body.styleReads = [];
+  globalThis.getComputedStyle = (el) => { body.styleReads.push(el.style.opacity); return { opacity: el.style.opacity }; };
   return body;
 }
 
@@ -34,6 +37,8 @@ test('black first, the pick under the black, lit again after the files; the late
     assert.equal(body.kids.length, 1, 'the veil is up');
     assert.equal(body.kids[0].style.opacity, '1');
     assert.equal(body.kids[0].style.position, 'fixed', 'the whole screen');
+    // its style is computed at 0 before it turns 1, or there is no transition and the screen goes black at once
+    assert.equal(body.styleReads[0], '0', 'the veil\'s style is read at opacity 0 first');
     assert.equal(store.get().ui.season, before, 'no pick before the screen is black');
     let pickedAt = 0;
     const off = store.subscribe((s) => { if (!pickedAt && s.ui.season === 'act3autochess') pickedAt = Date.now() - t0; });
@@ -52,6 +57,7 @@ test('black first, the pick under the black, lit again after the files; the late
   } finally {
     store.patch('ui', { season: before });
     delete globalThis.document;
+    delete globalThis.getComputedStyle;
   }
 });
 

@@ -53,7 +53,11 @@ export async function pickSeasonThroughDark(id) {
   const my = ++token;
   const el = ensureVeil();
   el.style.transition = `opacity ${SEASON_FADE.out}ms ease-in`;
-  await frame(); // the veil's first opacity is on screen before it changes, so the transition runs
+  // the new veil's style is computed at opacity 0 before it changes, or the browser has no start for the transition
+  // and the screen goes black at once: a frame alone did not do it (requestAnimationFrame runs before that frame's
+  // style pass — seen on a phone, every pick black at once)
+  getComputedStyle(el).opacity;
+  await frame();
   el.style.opacity = '1';
   await sleep(SEASON_FADE.out);
   if (my !== token) return;

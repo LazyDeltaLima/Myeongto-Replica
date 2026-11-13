@@ -11,7 +11,7 @@
 // every season.
 
 import { useState, useEffect, useRef } from '../../vendor/hooks.module.js';
-import { DEFAULT_SEASON, isSeasonId, seasonInfo, seasonOf, newestPublicSeason } from '../../../shared/seasons.js';
+import { DEFAULT_SEASON, isSeasonId, seasonInfo, seasonOf, newestPublicSeason, offeredSeasons } from '../../../shared/seasons.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { html } from './components.js';
 import { toast } from './toasts.js';
@@ -20,9 +20,20 @@ import { t } from '../../../shared/i18n.js';
 /** The remembered pick (store.js loadPref). */
 export const SEASON_PREF = 'season';
 
-/** The seasons the server offers (ui.seasons; unknown or one: the default alone). @param {any} s store state @returns {string[]} */
+/**
+ * The seasons the server offers (ui.seasons, from the first pong). Before that pong answers (ui.seasons null) the page
+ * takes the public seasons and the remembered pick as offered: the title, the season's data and main.js's entry film
+ * are decided at boot, before the pong, and a guess of the default alone turned a 规程 player's page into 盟约 for its
+ * first moments — the entry film then saw the season change under it and did not play. A pong that does not name the
+ * pick corrects it. @param {any} s store state @returns {string[]}
+ */
 export function offeredSeasonsOf(s) {
-  const list = Array.isArray(s?.ui?.seasons) ? s.ui.seasons.filter(isSeasonId) : [];
+  const known = s?.ui?.seasons;
+  if (!Array.isArray(known)) {
+    const pick = s?.ui?.season;
+    return offeredSeasons().concat(isSeasonId(pick) && !offeredSeasons().includes(pick) ? [pick] : []);
+  }
+  const list = known.filter(isSeasonId);
   return list.length ? list : [DEFAULT_SEASON];
 }
 
@@ -115,9 +126,14 @@ export function inviteSeasonOf(search, invited) {
  */
 export function installSeasons({ net, target = store, notify = (text) => toast(text, 'info', { ttl: 5000 }) }) {
   const offPong = net.on('pong', (m) => {
-    if (!Array.isArray(m?.seasons)) return;
+    // the first pong names the seasons only when there are several (Lobby.connectInfo): a first pong without them
+    // means the default alone; later pongs never carry them
+    if (!Array.isArray(m?.seasons)) {
+      if (!Array.isArray(target.get().ui.seasons)) target.patch('ui', { seasons: [DEFAULT_SEASON] });
+      return;
+    }
     const list = m.seasons.filter(isSeasonId);
-    if (!shallowEqual(list, target.get().ui.seasons || [])) target.patch('ui', { seasons: list.length > 1 ? list : null });
+    if (!shallowEqual(list, target.get().ui.seasons || [])) target.patch('ui', { seasons: list.length ? list : [DEFAULT_SEASON] });
   });
   const offStore = target.subscribe((s, prev) => {
     const code = s.room?.code;
