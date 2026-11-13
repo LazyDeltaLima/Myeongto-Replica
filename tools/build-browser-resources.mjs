@@ -13,6 +13,7 @@
 //   --verify N  fetch N random upstream entries and compare their hashes (diagnostics; needs network)
 
 import { readFile, writeFile, readdir, rename } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,8 +39,21 @@ async function* walk(dir) {
 let ledger = {};
 try { ledger = JSON.parse(await readFile(join(ROOT, '.cache', 'assets-ledger.json'), 'utf8')).files || {}; } catch { /* no ledger: all from this server */ }
 
+// A local PNG next to its WebP copy is the copy's source (tools/local-extract: scene_extract.py apply_webp, extract.py
+// WEBP), kept on disk for the extractors and tools/crop-board-atlas.mjs; the page loads the copy that
+// data/local-assets.json names, so the PNG is left out of the list unless that manifest names the PNG itself (a failed
+// WebP write points the entry back at it). No readable manifest: every PNG stays listed.
+let localNamed = null;
+try {
+  localNamed = new Set(JSON.stringify(JSON.parse(await readFile(join(ROOT, 'data', 'local-assets.json'), 'utf8')))
+    .match(/"\/assets\/local\/[^"]+"/g)?.map((s) => s.slice(1, -1)) ?? []);
+} catch { /* no local extract */ }
+const isWebpSource = (rel) => localNamed !== null && rel.startsWith('local/') && rel.endsWith('.png')
+  && !localNamed.has('/assets/' + rel) && existsSync(join(ASSETS, rel.slice(0, -4) + '.webp'));
+
 const files = [];
 let upstreamBytes = 0;
+let sourcesLeft = 0;
 // bundled pictures outside the asset mount (in the image): served by this server, cached like the rest
 for await (const abs of walk(join(ROOT, 'public/img/emotes'))) {
   const buf = await readFile(abs);
@@ -48,6 +62,7 @@ for await (const abs of walk(join(ROOT, 'public/img/emotes'))) {
 for await (const abs of walk(ASSETS)) {
   const rel = relative(ASSETS, abs).split(sep).join('/');
   if (SKIP.has(rel)) continue;
+  if (isWebpSource(rel)) { sourcesLeft++; continue; }
   const buf = await readFile(abs);
   const entry = { p: '/assets/' + rel, s: buf.length, h: createHash('sha256').update(buf).digest('hex') };
   const led = ledger[rel];
@@ -71,7 +86,7 @@ if (!same) {
   await rename(tmp, join(ASSETS, OUT));
 }
 const mb = (n) => (n / 1048576).toFixed(1) + ' MB';
-console.log(`[resources] ${files.length} files, ${mb(bytes)} (upstream ${files.filter((f) => f.u).length} files / ${mb(upstreamBytes)}), version ${version}${same ? ' (unchanged, file kept)' : ''}`);
+console.log(`[resources] ${files.length} files, ${mb(bytes)} (upstream ${files.filter((f) => f.u).length} files / ${mb(upstreamBytes)}), version ${version}${same ? ' (unchanged, file kept)' : ''}, ${sourcesLeft} WebP source PNGs left out`);
 
 if (VERIFY > 0) {
   const pool = files.filter((f) => f.u);

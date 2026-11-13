@@ -27,3 +27,14 @@ test('the worker\'s list knows the extracted effects as they are', { skip: !exis
   }
   assert.deepEqual(stale, [], 'run: node tools/build-browser-resources.mjs');
 });
+
+// The PNG a WebP copy was made from stays on disk for the extractors, but the page loads the copy: listed, every browser
+// that agreed to the download fetched it for nothing (the board textures, 5.4 MB, 2026-11-13).
+const LOCAL = path.join(ROOT, 'data/local-assets.json');
+test('the worker\'s list leaves out the PNGs of the WebP copies', { skip: !(existsSync(LIST) && existsSync(LOCAL)) && 'no extract' }, () => {
+  const named = new Set(JSON.stringify(JSON.parse(readFileSync(LOCAL, 'utf8'))).match(/"\/assets\/local\/[^"]+"/g)?.map((s) => s.slice(1, -1)) ?? []);
+  const listed = JSON.parse(readFileSync(LIST, 'utf8')).files.map((f) => f.p);
+  const all = new Set(listed);
+  const sources = listed.filter((p) => p.startsWith('/assets/local/') && p.endsWith('.png') && !named.has(p) && all.has(p.slice(0, -4) + '.webp'));
+  assert.deepEqual(sources, [], 'run: node tools/build-browser-resources.mjs');
+});
