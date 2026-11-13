@@ -58,7 +58,7 @@ import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { MatchQueueDialog, joinQueue, joinQuickQueue } from '../ui/matchQueue.js';
-import { SeasonChip, SeasonPick, hasSeasonPicker, pickedSeason, seasonFields, seasonQueueCounts, seasonQuickCounts, seasonName } from '../ui/season.js';
+import { SeasonChip, pickedSeason, seasonFields, seasonQueueCounts, seasonQuickCounts, seasonName } from '../ui/season.js';
 import { seasonInfo, seasonFeature, DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { RulesetSwitch, lobbyRuleset, lobbyQueueRuleset, saveLobbyRuleset, queueCountOf } from '../ui/ruleset.js';
 import { QUEUE_PRESETS, PRESET_LABELS, isQueuePreset, customDiffs, officialBans } from '../../../shared/ruleset.js';
@@ -716,22 +716,16 @@ function RowKey({ text }) {
  * 规则 and 人数 stay, disabled. `readOnly`: the room's settings shown to a Doctor who is not its host (screens/room.js), the
  * buttons disabled. A room's (roomMode 'coop' with `onSize`) has the 人数 row too, without queue counts (maintainer
  * decision 2026-11-08: the room's mode bar opens this dialog for every setting); `sizeLocked` keeps it at 8 while more
- * than four seats are taken. `season`: 创建同盟's 赛季 row first (SeasonPick, while several seasons are offered: the room's
- * season is fixed when it is made, maintainer decision 2026-11-08). A picked 自定义's summary is CustomBrief, in the
- * brief at the left.
+ * than four seats are taken. No 赛季 row (maintainer decision 2026-11-13): a new room plays the season picked on the
+ * lobby's chip, the one place a season is picked. A picked 自定义's summary is CustomBrief, in the brief at the left.
  */
-export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize, quick = false, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false, season = false, limited = false }) {
+export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize, quick = false, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false, limited = false }) {
   // `limited`: a season with no 自定义 and no 8-seat alliance yet (limitedSeason) — 经典 / 休闲 only, no 人数 row
   const matching = roomMode === 'match' && !limited;
   const roomSize = roomMode === 'coop' && !!onSize && !limited;
-  const seasons = useStore(hasSeasonPicker);
   const big = matching && size === LARGE_SEATS;
   const counts = big ? counts8 : counts4;
   return html`<div class=${`proto-rules${matching || roomSize ? ' is-grid' : ''}`} data-testid="proto-rules">
-    ${season && seasons ? html`<span class="proto-rules__row" data-testid="proto-season">
-      <${RowKey} text=${t('赛季')} />
-      <span class="proto-rules__cell"><${SeasonPick} class="proto-rules__seg rtrack" /></span>
-    </span>` : null}
     <span class="proto-rules__row">
       <${RowKey} text=${t('规则')} />
       <span class="proto-rules__cell">
@@ -1093,7 +1087,7 @@ export function LobbyScreen() {
       brief=${html`<${CustomBrief} roomMode=${roomMode} ruleset=${shownRuleset} customRules=${customRules} difficulty=${difficulty} />`}
       rules=${html`<${ProtoRules} roomMode=${roomMode} ruleset=${shownRuleset} onRuleset=${pickRuleset} onGear=${editCustom}
         size=${big ? LARGE_SEATS : MAX_SEATS} onSize=${roomMode === 'solo' ? null : pickSize} quick=${matching && quick} counts4=${queueCounts4} counts8=${queueCounts8}
-        season=${roomMode === 'coop'} limited=${limited} />`} />` : null}
+        limited=${limited} />`} />` : null}
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${achOpen ? html`<${AchievementDialog} onClose=${closeAch} />` : null}
     <${PatchNotesModal} open=${notesFresh !== null} onClose=${() => setNotesFresh(null)} entries=${notes} fresh=${!!notesFresh} />

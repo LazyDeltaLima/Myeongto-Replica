@@ -208,20 +208,6 @@ export function SeasonChip({ onPick = pickSeason }) {
 }
 
 /**
- * The 赛季 row's switch of 创建同盟's 选择模拟协议 (screens/lobby.js ProtoRules `season`): the season the new room plays,
- * the same pick as the top bar's chip (pickSeason) — a room's season is fixed when it is made (maintainer decisions
- * 2026-11-07, 2026-11-08: its mode bar only shows it). Nothing while one season is offered (hasSeasonPicker).
- */
-export function SeasonPick({ class: cls = '' }) {
-  const st = useStore((s) => ({ offered: offeredSeasonsOf(s), picked: pickedSeason(s) }), shallowEqualDeep);
-  if (st.offered.length < 2) return null;
-  return html`<div class=${`dpick rpick ${cls}`.trim()} role="radiogroup" aria-label=${t('赛季')} data-testid="ally-season">
-    ${st.offered.map((id) => html`<button key=${id} type="button" role="radio" aria-checked=${id === st.picked ? 'true' : 'false'} data-season=${id}
-      class=${`dpick__opt rpick__opt${id === st.picked ? ' is-active' : ''}`} onClick=${() => id !== st.picked && pickSeason(id)}>${seasonName(id)}<${NewMark} id=${id} /></button>`)}
-  </div>`;
-}
-
-/**
  * The room's season, the first part of its mode bar (screens/room.js), read-only (maintainer decision 2026-11-07: a room
  * keeps the season it was created in): while several seasons are offered or the room's is not the default. The room's
  * top bar no longer repeats it (maintainer decision 2026-11-08).

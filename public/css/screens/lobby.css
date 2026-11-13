@@ -1274,8 +1274,6 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .proto-rules.is-grid .proto-rules__k { justify-self: stretch; display: flex; justify-content: space-between; }
 .proto-rules__note { flex-basis: 100%; font-size: calc(.12 * var(--t)); color: #9fd8c8; }
 .proto-rules .rpick__opt:disabled { opacity: .35; }
-/* 创建同盟's 赛季 row (SeasonPick): the new season's NEW mark */
-.proto-rules .season-new { margin-left: .04rem; padding: 0 .04rem; font-size: .7em; color: #111; background: #f5c518; }
 /* a picked 自定义's line at the end of the brief (CustomBrief) */
 .proto-brief__rules { display: block; margin-top: .04rem; font-size: calc(.13 * var(--t)); color: var(--custom-hi); }
 .proto-brief__rules .lobby-rules__sum { max-width: none; font-size: inherit; color: #f5c26b; }
