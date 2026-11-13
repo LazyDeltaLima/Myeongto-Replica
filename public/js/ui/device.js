@@ -13,6 +13,7 @@
 //                           variant (iPadOS / older Safari); iPhone Safari has no element fullscreen → unsupported and the
 //                           button hides. Android: after entering, the orientation is locked to landscape when allowed.
 //   FullscreenButton        HUD / title button (hidden where unsupported), follows fullscreenchange.
+//   useScreenWakeLock(on)   a screen wake lock while `on` and the page is visible (main.js App, settings 「保持屏幕常亮」).
 //   long-press              a still touch of LONG_PRESS_MS on a DOM control → a synthetic `contextmenu` (= detail) when
 //                           the browser sends none (iOS Safari); when a handler took it (preventDefault: detail card,
 //                           tooltip) the click of the release is swallowed — otherwise the slow tap stays a tap.
@@ -95,6 +96,18 @@ export function isIosSafari(win = globalThis) {
   return !/CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|YaBrowser|DuckDuckGo|Whale|SamsungBrowser|KAKAOTALK|NAVER|DaumApps|Line\/|Instagram|FBAN|FBAV|Twitter/i.test(ua);
 }
 
+/**
+ * Any iOS / iPadOS browser or home-screen app (all of them are WebKit): only the settings' screen wake lock hint uses it,
+ * for what WebKit does there (a home-screen app holds the lock from iOS 18.4, Low Power Mode may refuse it). iPadOS
+ * reports a Mac; its touch points tell it apart.
+ * @param {any} [win]
+ */
+export function isIOS(win = globalThis) {
+  const nav = win.navigator;
+  const ua = String(nav?.userAgent || '');
+  return /\b(iPhone|iPad|iPod)\b/.test(ua) || (/\bMacintosh\b/.test(ua) && (nav?.maxTouchPoints || 0) > 1);
+}
+
 /** The classes installDeviceSupport puts on <html> for a feature set (pure; tested). */
 export function featureClasses(f) {
   return {
@@ -151,6 +164,66 @@ export function useDocClass(name, on = true) {
     el.classList.add(name);
     return () => el.classList.remove(name);
   }, [name, !!on]);
+}
+
+// ---- screen wake lock (settings → 通用 「保持屏幕常亮」; upstream PR #574, ported by hand) -----------------------------
+
+/**
+ * Hold a screen wake lock while the page is visible; the disposer releases it. Hiding the page drops the lock (the
+ * browser does too) and showing it again asks anew; a request that fails (no user gesture yet, an iOS home-screen app
+ * before 18.4, Low Power Mode) retries once on the next pointer / touch and then stays silent; a lock granted after the
+ * disposer ran or the page was hidden is released at once.
+ * @param {any} [win]
+ * @returns {() => void}
+ */
+export function installScreenWakeLock(win = globalThis) {
+  const doc = win.document;
+  const wakeLock = win.navigator?.wakeLock;
+  if (!doc || !wakeLock) return () => {};
+  let sentinel = null;
+  let generation = 0;
+  const release = async (lock) => { try { await lock?.release(); } catch { /* best effort */ } };
+  const cancelRetry = () => {
+    doc.removeEventListener('pointerdown', onGesture, true);
+    doc.removeEventListener('touchstart', onGesture, true);
+  };
+  const onGesture = () => {
+    cancelRetry(); // a touch can also send a pointer event
+    if (doc.visibilityState === 'visible') void acquire(generation, false);
+  };
+  const acquire = async (request, retry = true) => {
+    try {
+      const lock = await wakeLock.request('screen');
+      if (request !== generation || doc.visibilityState !== 'visible') void release(lock);
+      else sentinel = lock;
+    } catch {
+      if (retry && request === generation && doc.visibilityState === 'visible') {
+        doc.addEventListener('pointerdown', onGesture, true);
+        doc.addEventListener('touchstart', onGesture, { capture: true, passive: true });
+      }
+    }
+  };
+  const update = () => {
+    const request = ++generation;
+    cancelRetry();
+    void release(sentinel);
+    sentinel = null;
+    if (doc.visibilityState === 'visible') void acquire(request);
+  };
+  doc.addEventListener('visibilitychange', update);
+  update();
+  return () => {
+    ++generation;
+    cancelRetry();
+    doc.removeEventListener('visibilitychange', update);
+    void release(sentinel);
+    sentinel = null;
+  };
+}
+
+/** Hold the screen wake lock while `active` (installScreenWakeLock), released when it turns false or on unmount. */
+export function useScreenWakeLock(active) {
+  useEffect(() => (active ? installScreenWakeLock() : undefined), [!!active]);
 }
 
 // ---- fullscreen ----------------------------------------------------------------------------------------------------

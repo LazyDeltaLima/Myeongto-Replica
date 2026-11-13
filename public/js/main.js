@@ -51,7 +51,8 @@ import { audio, installAudio } from './audio.js';
 import { settingsStore } from './ui/settings.js';
 import { showMatchToast } from './ui/gameLogic/settings.js';
 import { GuideHost } from './ui/guide.js';
-import { installDeviceSupport } from './ui/device.js';
+import { installDeviceSupport, useScreenWakeLock } from './ui/device.js';
+import { isCombatPhase } from './ui/gameLogic/phases.js';
 import { installPerfHud } from './ui/perfHud.js'; // `?perf=1`: frame / sim / render readout + the report's perf: lines
 import { LoadoutHost } from './screens/loadout.js';
 import { StatsHost } from './screens/stats.js';
@@ -402,6 +403,11 @@ function ScreenCrashed({ error, reset }) {
 
 function App() {
   const route = useStore(selectRoute);
+  // settings → 通用 「保持屏幕常亮」 (ui/settings.js WakeLockSetting): one lock for the whole app, so the reasons can overlap;
+  // 'combat' = this match's combat phases for a seat or a spectator, until its result
+  const wakeMode = useStore((s) => s.screenWakeLock, Object.is, settingsStore);
+  const combat = useStore((s) => selectRoute(s) === 'game' && !s.match.result && isCombatPhase(s.match.public?.phase));
+  useScreenWakeLock(wakeMode === 'always' || (wakeMode === 'combat' && combat));
   useLang(); // a language switch re-renders the whole tree in place
   const [error, resetError] = useErrorBoundary((err) => { console.error('[ui] screen crashed', err); recordError('ui', err, 'screen crashed'); });
   const Screen = SCREENS[route] || LobbyScreen;

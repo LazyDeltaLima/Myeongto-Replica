@@ -233,6 +233,8 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 - **upstream PR #668 — 로컬 추출 Spine 페이지 알파** (upstream `78024751` `46b96de7` `1ae6ca3b` `b28c4a9b`, 부분 수용 2026-10-23): 증상(반투명 가장자리가 칙칙함)은 우리 `_USEBLEED_ON`
   페이지 8모델에서도 맞아 판정만 손으로 고침(`extract.py material_straight`); PR의 수정(모든 페이지 straight·`pma` 없앰)은 `[alpha]` 분리 페이지를
   두 번 곱해 받지 않음 — `render.md` 「로컬 추출 Spine 페이지의 알파」.
+- **upstream PR #574 — 화면 켜짐 유지** (`e37af906a`·`b21f11869`·`be6f35dad`·`db1998eba`, 손 이식 2026-11-13): 잠금 함수(`ui/device.js installScreenWakeLock`)는 그대로,
+  설정은 「전투 중 자동 + 전체 화면 토글」 대신 꺼짐 / 전투 중 / 항상 하나로 바꿈(관리자 결정). 자세한 것은 `ui.md` 「화면 켜짐 유지」.
 
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.

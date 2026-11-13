@@ -13,10 +13,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks
 import { html, Modal, Button, Icon, MicroLabel, Tabs } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { createStore, useStore, loadPref, savePref, store } from '../store.js';
-import { sanitizeSettings, setNumberUnitMode, numberUnitMode, CHAT_COOLDOWN, FRAME_LIMITS, SIDE_CAMERA_MODES, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey } from './gameLogic.js';
+import { sanitizeSettings, setNumberUnitMode, numberUnitMode, CHAT_COOLDOWN, FRAME_LIMITS, SIDE_CAMERA_MODES, SCREEN_WAKE_MODES, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey } from './gameLogic.js';
 import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
-import { detectFeatures } from './device.js';
+import { detectFeatures, isIOS } from './device.js';
 import { ResourceSetting } from '../resources.js'; // local patch
 import { VoiceSetting } from '../voice.js'; // local patch
 import { UiScaleSetting } from './hudArt.js'; // local patch: 界面大小 (the PC client's UI_SCALER)
@@ -297,6 +297,27 @@ let lastTab = 'general';
  * 问题反馈 — the last two keep their own heads (each with its button).
  * @param {{ id: string, children?: any }} props
  */
+/**
+ * 通用 「保持屏幕常亮」 (upstream PR #574, ported by hand as one three-way choice, maintainer decision 2026-11-13): never,
+ * during a match's combat (the default), or whenever the page is shown — full screen or not, so an iPhone (no element
+ * fullscreen) gets it too. The lock itself is main.js App's (ui/device.js useScreenWakeLock); on iOS the hint adds what
+ * WebKit does there.
+ * @param {{ s: ReturnType<typeof sanitizeSettings> }} props
+ */
+function WakeLockSetting({ s }) {
+  const [ios] = useState(() => isIOS());
+  const label = (id) => (id === 'off' ? tc('toggle', '关闭') : id === 'combat' ? t('战斗中') : t('始终'));
+  return html`<div class="set-row" data-testid="wake-lock">
+      <span class="set-row__label">${t('保持屏幕常亮')}<${MicroLabel}>SCREEN WAKE LOCK<//></span>
+      <div class="set-seg" role="radiogroup">
+        ${SCREEN_WAKE_MODES.map((id) => html`<button key=${id} type="button" role="radio" aria-checked=${s.screenWakeLock === id ? 'true' : 'false'}
+          class=${s.screenWakeLock === id ? 'is-on' : ''} onClick=${() => updateSettings({ screenWakeLock: id })}>${label(id)}</button>`)}
+      </div>
+    </div>
+    <p class="set-hint">${t('防止屏幕自动熄灭。战斗中：仅在作战阶段 · 始终：浏览游戏期间一直保持（无需全屏）。需要 HTTPS 和浏览器支持。')}${ios
+      ? ` ${t('添加到主屏幕的应用需要 iOS 18.4 或更高版本，低电量模式下可能不生效。')}` : ''}</p>`;
+}
+
 function SetPanel({ id, children }) {
   return html`<section class=${`set-sec set-sec--${id}`} role="tabpanel" aria-label=${t(SETTINGS_TABS.find(([k]) => k === id)[1])}
     data-testid=${`set-sec-${id}`}>${children}</section>`;
@@ -325,6 +346,7 @@ export function SettingsModal({ open, onClose }) {
         </div>
         ${mtNote ? html`<p class="set-hint set-lang-note" data-testid="lang-mt-note">${mtNote}</p>` : null}
         <${ResourceSetting} />${/* local patch */ ''}
+        <${WakeLockSetting} s=${s} />
       <//>` : null}
       ${tab === 'sound' ? html`<${SetPanel} id="sound">
         <${Slider} label=${t('背景音乐')} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />

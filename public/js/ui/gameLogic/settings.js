@@ -21,12 +21,13 @@ export const CHAT_COOLDOWN = Object.freeze({ def: 2, min: 1, max: 5 });
  * frameLimit: the field view's frame rate cap (FRAME_LIMITS; 0 = none). deployFold: the old choice of a held piece's
  * fold; its toggle is commented out and nothing reads it (ui/settings.js, maintainer decision 2026-11-07). sideCamera: a
  * held or selected piece's side camera — SIDE_CAMERA_MODES; 'auto' = the season's official camera (gameLogic/camera.js
- * sideCameraOn).
+ * sideCameraOn). screenWakeLock: when the screen is kept on — SCREEN_WAKE_MODES ('combat' = a match's combat phases;
+ * main.js App, ui/device.js useScreenWakeLock).
  */
 export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, muted: false, damageNumbers: true, quality: 'high', keys: DEFAULT_HOTKEYS,
   chatSound: true, chatVolume: 0.5, chatCooldown: CHAT_COOLDOWN.def, chatFactionAlerts: false, chatPinRecent: false,
   eliteBadge: false, matchNotices: true, numberUnits: null, roundDamage: true, roundDamageStyle: 'auto', frameLimit: 0, deployFold: true,
-  sideCamera: 'auto' });
+  sideCamera: 'auto', screenWakeLock: 'combat' });
 /** 画面质量: 'auto' steps between high and medium by the load (render/auto-quality.js); a touch-only device starts there (ui/settings.js). */
 const QUALITIES = ['auto', 'high', 'medium', 'low'];
 /** The round damage panel's looks (settings → 画面 「伤害统计样式」): automatic, every row's name and share, avatars and bars only. */
@@ -35,6 +36,8 @@ export const ROUND_DAMAGE_STYLES = Object.freeze(['auto', 'full', 'compact']);
 export const FRAME_LIMITS = Object.freeze([0, 30, 60, 120]);
 /** Settings → 画面 「拿起棋子时侧面镜头」: as the season, on, off. */
 export const SIDE_CAMERA_MODES = Object.freeze(['auto', 'on', 'off']);
+/** Settings → 通用 「保持屏幕常亮」: never, during a match's combat, whenever the page is shown. */
+export const SCREEN_WAKE_MODES = Object.freeze(['off', 'combat', 'always']);
 
 /**
  * Sanitize persisted settings.
@@ -43,7 +46,7 @@ export const SIDE_CAMERA_MODES = Object.freeze(['auto', 'on', 'off']);
  *   keys: Record<'refresh'|'freeze'|'levelUp'|'shop'|'ready'|'sell'|'viewEnemy'|'retreat'|'pause', string>, chatSound: boolean, chatVolume: number,
  *   chatCooldown: number, chatFactionAlerts: boolean, chatPinRecent: boolean, eliteBadge: boolean, matchNotices: boolean,
  *   numberUnits: 'myriad'|'thousand'|'full'|null, roundDamage: boolean, roundDamageStyle: 'auto'|'full'|'compact', frameLimit: number, deployFold: boolean,
- *   sideCamera: 'auto'|'on'|'off' }}
+ *   sideCamera: 'auto'|'on'|'off', screenWakeLock: 'off'|'combat'|'always' }}
  */
 export function sanitizeSettings(raw) {
   const r = isObj(raw) ? raw : {};
@@ -69,6 +72,7 @@ export function sanitizeSettings(raw) {
     frameLimit: FRAME_LIMITS.includes(r.frameLimit) ? r.frameLimit : DEFAULT_SETTINGS.frameLimit,
     deployFold: typeof r.deployFold === 'boolean' ? r.deployFold : DEFAULT_SETTINGS.deployFold,
     sideCamera: SIDE_CAMERA_MODES.includes(r.sideCamera) ? r.sideCamera : DEFAULT_SETTINGS.sideCamera,
+    screenWakeLock: SCREEN_WAKE_MODES.includes(r.screenWakeLock) ? r.screenWakeLock : DEFAULT_SETTINGS.screenWakeLock,
   };
 }
 
