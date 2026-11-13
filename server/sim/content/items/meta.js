@@ -209,14 +209,18 @@ const nothingToast = (ctx, ev) => ctx.toast(msg('{who}：没有可获得的同�
 
 PREP.push(
   // 简易通讯机 — equip_destory_first_bond_char {count}: "装备时销毁，随机获得1名拥有该干员第一盟约的干员" — 盟约's same-bond
-  // grant (any bond of the target) narrowed to the first bond, the tier ≤ the shop level as there
+  // grant (any bond of the target) narrowed to the first bond, the tier ≤ the shop level as there. With no such operator
+  // in the pool, the target operator itself (2026-11-14, a CN player's report: on “暴躁铁皮”, whose 协防干员 are all tier ≥ 5,
+  // it always gives “暴躁铁皮” at shop level ≤ 2; maintainer decision 2026-11-14) [추정·서버: the draw is the server's — the
+  // fallback rule is read from that one case; 盟约's 简易通讯机 (aliases.js) keeps giving nothing, maintainer decision 2026-10-07]
   ['equip_destory_first_bond_char', null, () => ({
     onEquip(ctx, ev) {
       const p = buffP(ctx, ev.item && ev.item.id, 'equip_destory_first_bond_char') || {};
       const bond = firstBond(ctx, ev.target);
+      const self = ev.target && ev.target.kind === 'chess' ? ctx.gd.baseIdOf(ev.target.id) : null;
       let got = 0;
       for (let k = 0; k < Math.max(1, int(p.count, 1)); k++) {
-        const id = bond ? ctx.rollChess({ maxTier: Math.max(1, ctx.shopLevel()), filter: (x) => hasBondOf(ctx, x, bond) }) : null;
+        const id = (bond ? ctx.rollChess({ maxTier: Math.max(1, ctx.shopLevel()), filter: (x) => hasBondOf(ctx, x, bond) }) : null) ?? self;
         if (id && ctx.grantChess(id)) got++;
       }
       if (!got) nothingToast(ctx, ev);

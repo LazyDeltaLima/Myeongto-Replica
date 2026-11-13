@@ -170,6 +170,31 @@ test('简易通讯机 / 寻呼模块: an operator of the target\'s FIRST bond, n
   }
 });
 
+test('简易通讯机 (规程) with no operator of the first bond at tier ≤ the shop level: the target operator itself — “暴躁铁皮” (协防干员 all tier ≥ 5) below level 5', () => {
+  for (const seed of [1, 2, 3]) {
+    const { m, ps } = setup({ seed });
+    ps.shop.level = 2;
+    const bot = place(m, ps, ACRBOT);
+    const radio = giveItem(m, ps, 'chess_item_2_06_e_a');
+    const before = new Set([...ps.hand, ...ps.temp].filter(Boolean).map((p) => p.uid));
+    assert.deepEqual(m.handle('p_0', { t: 'g.equip', itemUid: radio.uid, targetUid: bot.uid }), OK);
+    const got = [...ps.hand, ...ps.temp].filter((p) => p && p.kind === 'chess' && !before.has(p.uid)).map((p) => p.id);
+    assert.deepEqual(got, [ACRBOT], `seed ${seed}: one more “暴躁铁皮”`);
+    assert.equal(ps.find(radio.uid), null, 'consumed');
+    noViolations(m);
+  }
+  // a candidate there: the draw, never the fallback (a tier ≤ 2 operator of a first bond that has one)
+  const low = visibleChess((c) => c.tier === 1 && c.bonds.length >= 1)[0];
+  const { m, ps } = setup({ seed: 4 });
+  ps.shop.level = 2;
+  const op = place(m, ps, low);
+  const radio = giveItem(m, ps, 'chess_item_2_06_e_a');
+  assert.deepEqual(m.handle('p_0', { t: 'g.equip', itemUid: radio.uid, targetUid: op.uid }), OK);
+  const got = [...ps.hand, ...ps.temp].filter((p) => p && p.kind === 'chess' && p.uid !== op.uid);
+  assert.equal(got.length, 1);
+  assert.ok(ACT3.chess[got[0].id].bonds.includes(ACT3.chess[low].bonds[0]) && ACT3.chess[got[0].id].tier <= 2);
+});
+
 test('拟态物质 (规程): with fewer than 2 copies owned, an operator of the target\'s tier', () => {
   for (const seed of [1, 2, 3]) {
     const { m, ps } = setup({ seed });
