@@ -221,14 +221,17 @@ def pack_of(path):
         for gp, d, _ in tree:
             if gp != mp:
                 continue
+            # only the hooker the UnitMode names (`_animatorHooker`; Unit.get_animatorHooker reads that field of the current
+            # mode, nothing else): a hooker component that merely sits on the mode's GameObject is not used (森蚺's
+            # Default mode carries an unreferenced Idle→Skill_2_Idle hooker — the robot-only clip)
+            if '_animatorHooker' not in d:
+                continue
             hook = by_pid.get((d.get('_animatorHooker') or {}).get('m_PathID'))
-            for src in (d, hook):
-                if not isinstance(src, dict):
-                    continue
-                for p in src.get('_replaceAnimPairs') or []:
+            if isinstance(hook, dict):
+                for p in hook.get('_replaceAnimPairs') or []:
                     if isinstance(p, dict) and s(p.get('fromAnimKey')) and s(p.get('toAnimKey')):
                         m['pairs'][p['fromAnimKey']] = p['toAnimKey']
-                for k in src.get('_excludeAnimKeys') or []:
+                for k in hook.get('_excludeAnimKeys') or []:
                     if s(k) and k not in m['exclude']:
                         m['exclude'].append(k)
             cb = gp_of.get((d.get('_combat') or {}).get('m_PathID'))

@@ -163,6 +163,7 @@ test('a 要塞 in a battle: its strike is the ranged clip\'s out of a block, the
 
 test('森蚺: S3 casts Skill_2_Begin once and attacks with Skill_2_Loop; S2 rests on the plain Idle', () => {
   const s3 = actor('char_416_zumama', 2);
+  assert.equal(s3.current, 'Idle', 'herself until 变身: the Default mode names no animator hooker');
   s3.setSkill(true);
   assert.equal(s3.current, 'Skill_2_Begin', 'Hensin');
   run(s3, 3);
@@ -172,11 +173,13 @@ test('森蚺: S3 casts Skill_2_Begin once and attacks with Skill_2_Loop; S2 rest
   s3.swing(0.5);
   assert.equal(s3.current, 'Skill_2_Loop', 'every attack the attack clip, never the cast again');
 
+  // (the Default mode's GameObject carries an Idle→Skill_2_Idle hooker its UnitMode does not name: unused — CN play report
+  // 2026-11-14, she stood on the field as the robot)
   const s2 = actor('char_416_zumama', 1);
-  assert.equal(s2.current, 'Skill_2_Idle', 'the Default mode pairs Idle→Skill_2_Idle');
+  assert.equal(s2.current, 'Idle');
   s2.setSkill(true);
-  assert.equal(s2.current, 'Skill_2_End', 'the skin\'s mix Skill_2_Idle→Idle');
-  assert.equal(s2._skillIdle(), 'Idle', 'mode S2 has no Idle pair');
+  assert.equal(s2.current, 'Idle', 'no clip at the cast: the mode attacks with its own');
+  assert.equal(s2._skillIdle(), null, 'mode S2 has no Idle pair: no idle of its own');
   run(s2, 3);
   assert.ok(s2.swing(0.5));
   assert.equal(s2.current, 'Skill');
