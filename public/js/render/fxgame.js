@@ -3001,10 +3001,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // (2026-11-01) 塔露拉 S3 日冕重烈: each wave's 簇火 (EmitDirectionalMapEdgeProjectileVolley, one projectile a lane:
       // projectile_chr_oxi_s_3_heatwave, `_mainEffect` oxi_skill_03_trail_01) along lanes a..z from `s` to `to` at the sim's
       // wave_speed `v`, turned to its way; the trail ends where its 簇火 explodes ('blast' with its wave and lane: the
-      // projectile's ON_HIT action oxi_skill_03_hit_01 there) or runs out past the far edge [추정·화면: on the ground]
+      // projectile's ON_HIT action oxi_skill_03_hit_01 there) or runs out past the far edge [추정·화면: on the ground].
+      // At load level 3 too: that level leaves out the normal attacks' effects, never a skill's (#13: a long boss round
+      // rose to 3 and her casts from the second on showed no 簇火)
       case 'oxiWave': {
         const b = pickOf(views.get(o.id), 'oxi'), n = pickName(b, 'oxi_skill_03_trail_01');
-        if (!n || level() >= 3) return false;
+        if (!n) return false;
         ownFx.add(e);
         const s0 = Number(o.s), s1 = Number(o.to), dur = Math.abs(s1 - s0) / Math.max(0.1, Number(o.v) || 2.3);
         for (let lane = Number(o.a); lane <= Number(o.z); lane++) {

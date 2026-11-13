@@ -1577,6 +1577,11 @@
   - 탈룰라 S3 簇火(`'oxiWave'` 물결 하나에 줄 a..z, `fxgame.js pickFx`): 줄마다 `projectile_chr_oxi_s_3_heatwave`의 `_mainEffect` `oxi_skill_03_trail_01`이
     시뮬의 출발 `s`에서 끝 `to`까지 `wave_speed`로, 가는 쪽으로 돌려; 그 줄이 터지면(`'blast'`에 물결·줄 번호) 꼬리는 그 자리에서 끝나고(`finishShot`)
     `oxi_skill_03_hit_01`. 대체 `blast`는 안 그림. [추정·화면: 땅 높이 — 출발점·방향의 추정 표시는 `diy.md`]
+    적응 부하 단계 3에서도 그린다(2026-11-14, [#13](https://github.com/LazyDeltaLima/Myeongto-Replica/issues/13)): 단계 3이 빼는 것은 일반 공격의
+    공식 이펙트뿐인데(`render.md` 「적응 부하 단계」) 簇火 꼬리는 단계 3이면 통째로 건너뛰었다. 길고 붐비는 보스 라운드는 뒤로 갈수록 단계 3에 머물러,
+    7초쯤의 첫 시전은 보이고 80초 뒤 두 번째 시전부터 簇火가 안 보였다(폭발만 나옴 — 플레이 제보 「보스방에서 S3 두 번째부터 이펙트가 안 보임」).
+    확인: `test/render/oxi-wave-fx.test.js`(단계 0·2·3, 단계 3 줄은 고치기 전 코드에서 실패 확인). 아레나는 보기가 9개를 넘지 않아 단계가 안 올라
+    단계 3은 화면으로 재현 못 함 [화면 미확인: 실제 보스 라운드 두 번째 시전].
   - 이름 규칙이 틀던 것을 `KIT_OWNED`로 막음: 위 프리팹 전부, 바인딩 없는 `tocka_skill_03_buff_start_01`·`_03`·`oxi_skill_02_buff_02`.
   - 확인: `fx-bindings.test.js`(UNPLAYED에서 다섯 줄 빠짐 — 이제 틂), `kit-event-fx.test.js`, 이펙트 이벤트 골든 diy-013~015만 이동(위 줄들이 아군·적·땅에
     생김, 그녀에게 틀던 skillBuff·skillStart 줄 빠짐).
