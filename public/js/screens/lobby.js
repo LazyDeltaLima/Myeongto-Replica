@@ -68,7 +68,7 @@ import { PatchNotesModal, usePatchNotes, isUnseen, markSeen, Inline } from '../u
 import { RadarScene, JoinArt } from '../ui/allyArt.js';
 import { ProtocolScene } from '../ui/protocolScene.js';
 import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
-import { seasonBackdrop, seasonLogo } from '../ui/seasonArt.js';
+import { seasonBackdrop, seasonLogoSet, logoSizes } from '../ui/seasonArt.js';
 import { pickSeasonThroughDark } from '../ui/seasonFade.js';
 import { useLang } from '../ui/lang.js';
 import { net, identity } from '../net.js';
@@ -644,6 +644,9 @@ function HubRadar() {
   </div>`;
 }
 
+/** The CSS heights of `.hub-center__season` (css/screens/lobby.css), for its srcset's `sizes`. */
+const HUB_LOGO_HEIGHTS = [['(max-height: 520px)', '34vh'], ['', 'min(42vh, 26vw)']];
+
 /**
  * The emblem in its radar and the season's title (卫戍协议：<season>, its Latin mark): the 盟约 season shows the official
  * `entry/season_logo`, another season (and a page without the art pack) the title's dot emblem. A later season with its
@@ -655,12 +658,14 @@ function HubTitle() {
   const season = useStore(pickedSeason);
   const lang = useLang();
   useData('local');
-  const own = seasonLogo(season, lang);
+  const ownSet = seasonLogoSet(season, lang);
+  const own = ownSet?.src ?? null;
   const [bad, setBad] = useState(null); // a listed logo that fails to load gives the words back
   const ownOk = !!own && bad !== own;
   const mark = html`<${Emblem} />`;
   return html`<div class=${`hub-center${ownOk ? ' has-season' : ''}`}>
-    <div class="hub-center__mark"><${HubRadar} />${ownOk ? html`<img key=${own} class="hub-center__season" src=${own} alt="" draggable=${false} onError=${() => setBad(own)} />`
+    <div class="hub-center__mark"><${HubRadar} />${ownOk ? html`<img key=${own} class="hub-center__season" src=${own} srcset=${ownSet.srcset ?? undefined}
+      sizes=${ownSet.srcset ? logoSizes(ownSet.aspect, HUB_LOGO_HEIGHTS) : undefined} alt="" draggable=${false} onError=${() => setBad(own)} />`
       : season === DEFAULT_SEASON ? html`<${Sprite} k="entry/season_logo" class="hub-center__logo" fallback=${mark} />` : mark}</div>
     ${alphabetic || ownOk ? null : html`<div class="hub-center__en">STRONGHOLD PROTOCOL <b>${seasonInfo(season).mark}</b></div>`}
     <h1 class=${`hub-center__title${alphabetic ? ' hub-center__title--latin' : ''}${ownOk ? ' sr-only' : ''}`}>${t('卫戍协议')}<span>${alphabetic ? ': ' : '：'}</span><em>${seasonName(season)}</em></h1>

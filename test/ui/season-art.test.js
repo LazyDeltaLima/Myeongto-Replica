@@ -57,6 +57,28 @@ describe('season art', () => {
     assert.equal(seasonLogo(S, 'ko'), null);
   });
 
+  test('the logo offers its sharper copies by width, the Korean page its Korean ones; none when only the official size', async () => {
+    const { data } = await import('../../public/js/data.js');
+    const { seasonLogoSet, seasonLogo, logoSizes } = await import('../../public/js/ui/seasonArt.js');
+    const sized = (p, w, h) => ({ path: p, w, h, kind: 'Sprite' });
+    local = { version: 1, groups: { [`season/${S}/logo`]: {
+      title_season: sized('/l/t.png', 395, 282), title_season_2x: sized('/l/t2.png', 790, 564), title_season_3x: sized('/l/t3.png', 1185, 846),
+      title_season_ko: sized('/l/k.png', 395, 282), title_season_ko_3x: sized('/l/k3.png', 1185, 846),
+    } } };
+    await data.invalidate('local'); await data.load('local');
+    const ko = seasonLogoSet(S, 'ko');
+    assert.equal(ko?.src, '/l/k.png');
+    assert.equal(ko?.srcset, '/l/k.png 395w, /l/k3.png 1185w', 'only the Korean copies, never the Chinese 2x');
+    assert.equal(seasonLogoSet(S, 'en')?.srcset, '/l/t.png 395w, /l/t2.png 790w, /l/t3.png 1185w');
+    assert.equal(seasonLogo(S, 'ko'), '/l/k.png');
+    assert.equal(seasonLogoSet('act2autochess', 'ko'), null);
+    assert.equal(logoSizes(ko.aspect, [['(max-height: 520px)', '34vh'], ['', 'min(42vh, 26vw)']]),
+      '(max-height: 520px) calc(34vh * 1.401), calc(min(42vh, 26vw) * 1.401)');
+    local = { version: 1, groups: { [`season/${S}/logo`]: { title_season: sized('/l/t.png', 395, 282) } } };
+    await data.invalidate('local'); await data.load('local');
+    assert.equal(seasonLogoSet(S, 'ko')?.srcset, null);
+  });
+
   test("规程's renamed loading pictures show the 盟约 file they copy; a name kept is looked up as it is", async () => {
     const { data } = await import('../../public/js/data.js');
     await data.load('assets');

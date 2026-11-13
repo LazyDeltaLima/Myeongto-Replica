@@ -15,6 +15,9 @@ id of shared/seasons.js:
                                   Chinese lines are filled with their own row's plate colour and the Korean of the same
                                   msgids (public/i18n/ko.json) is set in the official UI face — the one Font asset of the
                                   game that has Hangul, read from the EN client (SP_CLIENT); maintainer decision 2026-11-08
+  season/<id>/logo/<sprite>_<k>x  the logo at k times its size (SEASONS[id]['logo_scales']), and <sprite>_ko_<k>x its
+                                  Korean copy with the words set at that size: resampled up, or cut from
+                                  --logo-upscaled (a larger copy made elsewhere)
   season/<id>/<dir>/<sprite>      every sprite of the icon folders the season's tables point at (SEASONS[id]['icons']),
                                   by folder: one name can be in two folders with two pictures (modeicon / modeselecticon)
   season/<id>/skin/<sprite>       the sprites of the season's default UI theme bundle (SEASONS[id]['skin']), each at its
@@ -69,6 +72,9 @@ SEASONS = {
         # 卫戍协议 in 136–217 × 192–215 and 规程 in 236–308 × 192–232 of title_season (its own pixels); x 222 is plate only
         'logo_ko': {'sprite': 'title_season', 'plate_x': 222, 'colour': (211, 195, 141),
                     'lines': [('卫戍协议', (136, 192, 217, 215)), ('规程', (236, 192, 308, 232))]},
+        # the official title_season is 395×282, drawn up to ~475 px high on a 1080p title: sharper copies for large and
+        # dense screens, the Korean one with its words set at that size (the page picks one by srcset)
+        'logo_scales': {'sprite': 'title_season', 'scales': (2, 3)},
         'icons': [
             ('ui/autochess/[uc]autochesscommon.ab', ['bandicon', 'bondicon', 'shopitemicon', 'modeicon', 'modeselecticon', 'garrisontypeicon']),
             ('ui/autochess/[uc]autochessouter.ab', ['medalicon', 'enemytypeicon', 'diychooselevelsprite', 'shoplevelsprite', 'chesslevelsprite']),
@@ -444,22 +450,39 @@ def official_font(font_client):
     raise SystemExit(f'{FONT_NAME}: no such Font in {p}')
 
 
-def korean_logo(image, spec, font_bytes, ko):
+def scaled_logo(image, k, upscaled=None):
+    """`image` at k times its size: from `upscaled` (a larger copy of the same picture, e.g. made by an AI upscaler, at
+    least k times as large) brought down to it, else resampled up (Lanczos; Pillow premultiplies the alpha)."""
+    from PIL import Image
+    size = (image.width * k, image.height * k)
+    src = image
+    if upscaled is not None:
+        if abs(upscaled.width / image.width - upscaled.height / image.height) > 0.02 or upscaled.width < size[0]:
+            raise SystemExit(f'--logo-upscaled is {upscaled.width}×{upscaled.height}: not a ≥{k}× copy of {image.width}×{image.height}')
+        src = upscaled
+    return src if src.size == size else src.resize(size, Image.LANCZOS)
+
+
+def korean_logo(image, spec, font_bytes, ko, k=1):
+    """The logo with its Chinese lines written over in Korean; `image` is the sprite at k times its size, the boxes and
+    the plate column of `spec` are the sprite's own pixels (scaled here), so the Korean is set at the picture's size."""
     from PIL import ImageDraw, ImageFont
     im = image.copy()
     px = im.load()
-    for _, (x0, y0, x1, y1) in spec['lines']:
+    boxes = [(msgid, tuple(v * k for v in box)) for msgid, box in spec['lines']]
+    plate_x = spec['plate_x'] * k + k // 2
+    for _, (x0, y0, x1, y1) in boxes:
         for y in range(y0, y1):
-            plate = px[spec['plate_x'], y]
+            plate = px[plate_x, y]
             for x in range(x0, x1):
                 px[x, y] = plate
     draw = ImageDraw.Draw(im)
-    for msgid, (x0, y0, x1, y1) in spec['lines']:
+    for msgid, (x0, y0, x1, y1) in boxes:
         text = ko.get(msgid)
         if not isinstance(text, str) or not text:
             raise SystemExit(f'public/i18n/ko.json has no Korean for {msgid}')
         w, h = x1 - x0, y1 - y0
-        for size in range(90, 6, -1):  # the largest size that fits the Chinese line's box, centred in it
+        for size in range(90 * k, 6, -1):  # the largest size that fits the Chinese line's box, centred in it
             font = ImageFont.truetype(BytesIO(font_bytes), size)
             l, t, r, b = draw.textbbox((0, 0), text, font=font)
             if r - l <= w and b - t <= h:
@@ -478,6 +501,9 @@ def main(argv=None):
     ap.add_argument('--font-client', help='the Arknights_Data folder holding the Hangul UI face (default SP_CLIENT)')
     ap.add_argument('--out', default=str(ROOT / 'public/assets/local'))
     ap.add_argument('--manifest', default=str(ROOT / 'data/local-assets.json'))
+    ap.add_argument('--logo-upscaled', help="a larger copy of the season's logo (SEASONS[id]['logo_scales'] sprite, as "
+                    'written to logo/<sprite>.png), e.g. from an AI upscaler: its sharper copies are cut from it '
+                    'instead of resampled')
     args = ap.parse_args(argv)
     game = args.game or client_data_cn()
     if not game:
@@ -515,7 +541,17 @@ def main(argv=None):
     lk = spec.get('logo_ko')
     if lk:
         ko = json.loads((ROOT / 'public/i18n/ko.json').read_text(encoding='utf-8'))
-        save('logo', f"{lk['sprite']}_ko", korean_logo(art[lk['sprite']], lk, official_font(font_client), ko))
+        font = official_font(font_client)
+        save('logo', f"{lk['sprite']}_ko", korean_logo(art[lk['sprite']], lk, font, ko))
+    ls = spec.get('logo_scales')
+    if ls:
+        from PIL import Image
+        upscaled = Image.open(args.logo_upscaled).convert('RGBA') if args.logo_upscaled else None
+        for k in ls['scales']:
+            im = scaled_logo(art[ls['sprite']], k, upscaled)
+            save('logo', f"{ls['sprite']}_{k}x", im)
+            if lk and lk['sprite'] == ls['sprite']:
+                save('logo', f"{lk['sprite']}_ko_{k}x", korean_logo(im, lk, font, ko, k))
     for rel, folders in spec['icons']:
         found = sprites_by_folder(load(game, rel), set(folders))
         for folder in folders:

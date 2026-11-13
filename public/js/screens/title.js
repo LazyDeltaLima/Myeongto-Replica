@@ -40,7 +40,7 @@ import { AboutModal } from '../ui/about.js';
 import { InviteSeason, activeSeason, seasonName } from '../ui/season.js';
 import { seasonInfo, DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
-import { seasonBackdrop, seasonLogo } from '../ui/seasonArt.js';
+import { seasonBackdrop, seasonLogoSet, logoSizes } from '../ui/seasonArt.js';
 import { uiUrl } from '../ui/assetUrls.js';
 import { Img } from '../ui/gameComponents.js';
 
@@ -218,6 +218,9 @@ const STATUS_TEXT = {
   online: N_('已连接服务器'), reconnecting: N_('连接中断，正在重连'), closed: N_('连接已关闭'),
 };
 
+/** The CSS heights of `.title-logo` (css/screens/title.css, a phone's in css/devices.css), for its srcset's `sizes`. */
+const TITLE_LOGO_HEIGHTS = [['(max-height: 600px) and (any-pointer: coarse)', '30vh'], ['', 'min(44vh, 28vw)']];
+
 /** Title screen component. */
 export function TitleScreen() {
   const conn = useStore((s) => s.connection, shallowEqual);
@@ -233,7 +236,8 @@ export function TitleScreen() {
   // the season on screen: the picked one (the lobby's chip changes it through the dark, ui/seasonFade.js)
   const season = picked;
   const seasonBg = seasonBackdrop(season);
-  const seasonMark = seasonLogo(season, lang);
+  const markSet = seasonLogoSet(season, lang);
+  const seasonMark = markSet?.src ?? null;
   const [markBad, setMarkBad] = useState(null); // a listed logo that fails to load gives the words back
   const markOk = !!seasonMark && markBad !== seasonMark;
   const backdrop = seasonBg ? null : findUiAsset(assets, BACKDROP_KEYS);
@@ -312,7 +316,8 @@ export function TitleScreen() {
     </div>
 
     <main class="title-main">
-      ${markOk ? html`<img key=${seasonMark} class="title-logo" data-reveal="logo" src=${seasonMark} alt="" draggable=${false} onError=${() => setMarkBad(seasonMark)} />`
+      ${markOk ? html`<img key=${seasonMark} class="title-logo" data-reveal="logo" src=${seasonMark} srcset=${markSet.srcset ?? undefined}
+          sizes=${markSet.srcset ? logoSizes(markSet.aspect, TITLE_LOGO_HEIGHTS) : undefined} alt="" draggable=${false} onError=${() => setMarkBad(seasonMark)} />`
         : logo ? html`<${FilmLogo} src=${logo} />` : html`<${Emblem} />`}
       ${alphabetic || markOk ? null : html`<div class="title-en">
         <span class="title-en__a">STRONGHOLD PROTOCOL</span>
