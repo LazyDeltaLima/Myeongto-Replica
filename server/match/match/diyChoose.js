@@ -39,15 +39,18 @@ export class MatchDiyChoose {
   }
 
   /**
-   * A new 自选编队 for this match (platform.js setDiy, during the briefing and the strategy draft): re-checked like the
-   * seat's picks (PlayerState.setDiy), kept as the lineup; a chosen slot it no longer holds is dropped.
+   * A new 自选编队 for this match (platform.js setDiy, during the briefing, the strategy draft and — until the seat readies
+   * — this step: the preset box of the screen, maintainer decision 2026-11-13): re-checked like the seat's picks
+   * (PlayerState.setDiy), kept as the lineup; a chosen slot stays chosen only while it holds the same operator.
    * @returns {boolean} false when the picks do not match the game data
    */
   setDiyLineup(ps, picks) {
+    const was = ps.diyLineup || EMPTY;
     if (!ps.setDiy(picks)) return false;
     ps.diyLineup = ps.diy;
     ps.setDiy({});
-    ps.diyChosen = (ps.diyChosen || []).filter((id) => Object.hasOwn(ps.diyLineup, id));
+    const lineup = ps.diyLineup;
+    ps.diyChosen = (ps.diyChosen || []).filter((id) => Object.hasOwn(lineup, id) && lineup[id].charId === was[id]?.charId);
     return true;
   }
 

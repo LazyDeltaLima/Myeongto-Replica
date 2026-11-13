@@ -125,10 +125,40 @@ test('规程: the step times out with what each seat chose; a lineup change in t
   assert.equal(Object.keys(p0.diyLineup).length, 5);
   toChoose(h);
   m.handle('p_0', { t: 'g.diyChoose', slots: ['chess_char_5_diy2_a'] });
-  assert.equal(m.setDiy('p_0', LINEUP).error, ERR.WRONG_PHASE, 'the lineup is fixed once the step runs');
   h.sched.advance(30_000 + 10);
   assert.equal(m.phase, PHASE.BATTLE_CHECK, 'the 30 s ran out');
   assert.deepEqual(Object.keys(p0.diy), ['chess_char_5_diy2_a']);
+  m.dispose();
+});
+
+test('规程: a preset picked on the step replaces the lineup until the seat readies; a chosen card stays only where the same operator does', REAL, () => {
+  const h = toChoose(coop(7).start());
+  const { m } = h;
+  const p0 = h.ps('p_0');
+  m.handle('p_0', { t: 'g.diyChoose', slots: ['chess_char_5_diy1_a', 'chess_char_5_diy2_a', 'chess_char_6_diy3_a'] });
+  // another roster: 望 stays in its slot, 赤刃明霄陈's slot now holds someone else, 阿斯卡纶 is gone
+  const other = {
+    chess_char_5_diy1_a: pick('char_2027_wang', 2),
+    chess_char_5_diy2_a: pick('char_1052_kalts2'),
+    chess_char_6_diy2_a: pick('char_4246_dminon'),
+  };
+  assert.deepEqual(m.setDiy('p_0', other), { ok: true }, '确定自选编队 takes a new lineup');
+  assert.deepEqual(Object.keys(p0.diyLineup), Object.keys(other));
+  assert.deepEqual(p0.diyChosen, ['chess_char_5_diy1_a'], 'only the card whose operator stayed in its slot is still chosen');
+  assert.deepEqual(p0.diy, {}, 'nothing fielded yet');
+  h.sched.advance(1);
+  assert.deepEqual(Object.keys(privOf(h, 'p_0').diyChoose.lineup), Object.keys(other), 'm.private carries the new lineup');
+  assert.deepEqual(privOf(h, 'p_0').diyChoose.chosen, ['chess_char_5_diy1_a']);
+  m.handle('p_0', { t: 'g.diyReady' });
+  assert.equal(m.setDiy('p_0', LINEUP).error, ERR.WRONG_PHASE, 'ready: the lineup is locked (取消准备 unlocks it)');
+  m.handle('p_0', { t: 'g.diyReady', cancel: true });
+  assert.deepEqual(m.setDiy('p_0', LINEUP), { ok: true });
+  m.handle('p_0', { t: 'g.diyReady' });
+  m.handle('p_1', { t: 'g.diyReady' });
+  h.sched.advance(1);
+  assert.equal(m.phase, PHASE.BATTLE_CHECK);
+  assert.deepEqual(Object.keys(p0.diy), ['chess_char_5_diy1_a'], 'the fielded pick is the kept choice');
+  assert.equal(m.setDiy('p_0', other).error, ERR.WRONG_PHASE, 'after the step the lobby keeps a change for the next match');
   m.dispose();
 });
 

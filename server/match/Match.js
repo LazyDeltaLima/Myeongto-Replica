@@ -85,7 +85,8 @@
 // setDiy(playerId, picks) → { ok } | { error, detail? }   (local, optional for the platform) new checked 自选 picks from
 //                           room.diy: accepted during INFO_CHECK / BAND_DRAFT while the player's 自选 stock is untouched
 //                           (맹약별 선발 프리셋, maintainer decision 2026-10-09); else WRONG_PHASE and the lobby keeps them for the
-//                           next match. 规程: the new lineup of the 确定自选编队 step (match/diyChoose.js setDiyLineup).
+//                           next match. 规程: the new lineup of the 确定自选编队 step (match/diyChoose.js setDiyLineup), also
+//                           during that step until the seat readies.
 // onLeave(playerId)         The human quit permanently (g.leave, room.leave, or the 10-minute reconnect
 //                           window expired). They will never return under this playerId in this match;
 //                           treat as quit (AI takes over / eliminated per DESIGN). No onDisconnect follows.
