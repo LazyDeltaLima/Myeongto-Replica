@@ -56,7 +56,8 @@ import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfoDialog, matchInfoModel, ChessIcon } from '../ui/matchInfo.js';
 import { actions, act } from '../ui/gameActions.js';
 import { normalizeDraft, sortedPlayers, diyPickOff, startStepCount, hasDiyChooseStep } from '../ui/gameLogic.js';
-import { useStore } from '../store.js';
+import { store, useStore } from '../store.js';
+import { seasonFeature } from '../../../shared/seasons.js';
 import { FactionIcon } from '../ui/faction.js';
 import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand, selectPreset, clearRosterSlot, choiceRoster, KEEP_LINK, BASE_LINK, presetSeasonOf } from '../ui/diyPresets.js';
 import { loadoutStore, flushDiySync, flushLoadoutSync, openLoadout } from '../ui/loadoutSync.js';
@@ -471,6 +472,7 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
   const offSet = new Set(Array.isArray(off) ? off : []);
   const diyData = { chess: data.get('chess'), backups: data.get('backups') };
   const getChess = (id) => data.lookup('chess', id);
+  const rule = { coreBan: seasonFeature(store.get().room?.season, 'coreBondBan'), isCore: (b) => !!data.lookup('bonds', b)?.isCore };
   return html`<div class="draft-preset" data-testid="draft-preset">
     <div class="draft-preset__head" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><${MicroLabel} tone="mint">DIY PRESET</${MicroLabel}><label for="draft-preset-sel">${t('自选预设')}</label>
       ${tags.map((k) => html`<span key=${k} class=${`draft-preset__tag is-${TAG[k][0]}`}>${TAG[k][1]}</span>`)}</div>
@@ -482,7 +484,7 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
       ${g.slots.map(({ id, tier }) => {
         const u = pickUnit(picks[id]);
         const name = u ? u.name || u.charId : '';
-        const gone = !!u && diyPickOff(id, picks[id], offSet, getChess, diyData);
+        const gone = !!u && diyPickOff(id, picks[id], offSet, getChess, diyData, rule);
         // an empty slot opens its picker in the 自选编队 tab, a filled one too (as its 更换); not on a locked row
         if (!u && onEdit && !locked) {
           const add = t('{slot}：选择干员', { slot: t('{tier}阶 自选', { tier: tier || '?' }) });

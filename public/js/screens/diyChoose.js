@@ -39,6 +39,7 @@ import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand } from '
 import { applyPresetChoice } from '../ui/factionPick.js';
 import { flushDiySync } from '../ui/loadoutSync.js';
 import { t } from '../../../shared/i18n.js';
+import { seasonFeature } from '../../../shared/seasons.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const ROMAN = { 1: 'Ⅰ', 2: 'Ⅱ', 3: 'Ⅲ', 4: 'Ⅳ', 5: 'Ⅴ', 6: 'Ⅵ' };
@@ -169,6 +170,7 @@ export function DiyChooseScreen() {
   const priv = useStore((s) => s.match.private);
   const myId = useStore((s) => s.me.playerId);
   const roomSolo = useStore((s) => s.room?.mode === 'solo');
+  const roomSeason = useStore((s) => s.room?.season);
   const gd = useGameData();
   const m = gd.m;
   const view = priv?.diyChoose || null;
@@ -186,7 +188,8 @@ export function DiyChooseScreen() {
   const off = new Set(Array.isArray(pub?.disabledBonds) ? pub.disabledBonds : []);
   const D = { chess: data.get('chess'), backups: data.get('backups') };
   const getChess = (id) => data.lookup('chess', id);
-  const rows = diyChooseRows(view, order, (slotId, pick) => diyPickOff(slotId, pick, off, getChess, D));
+  const rule = { coreBan: seasonFeature(roomSeason, 'coreBondBan'), isCore: (b) => !!data.lookup('bonds', b)?.isCore };
+  const rows = diyChooseRows(view, order, (slotId, pick) => diyPickOff(slotId, pick, off, getChess, D, rule));
   const tap = (slotId) => {
     if (!view || ready || busy) return;
     const slot = rows.flatMap((r) => r.slots).find((s) => s.slotId === slotId);

@@ -229,7 +229,7 @@ import { MatchSettle } from './match/settle.js';
 import { MatchRestart } from './match/restart.js';
 import { MatchBandSkill } from './match/bandSkill.js';
 import { resolveRuleset } from '../../shared/ruleset.js';
-import { DEFAULT_SEASON, seasonOf } from '../../shared/seasons.js';
+import { DEFAULT_SEASON, seasonFeature, seasonOf } from '../../shared/seasons.js';
 
 export { FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS } from './match/common.js';
 
@@ -368,7 +368,7 @@ export class Match {
     this.factions = setup.factions;
     this.bossId = setup.bossId;
     this.hiddenBossId = setup.hiddenBossId;
-    const bans = drawDisabledBonds(this.gd, this.rngSetup);
+    const bans = drawDisabledBonds(this.gd, this.rngSetup, { coreBan: seasonFeature(this.season, 'coreBondBan') });
     this.disabledBonds = bans.drawn;
     this.staticInactiveBonds = bans.staticOff;
     this.bannedChess = bans.banned;

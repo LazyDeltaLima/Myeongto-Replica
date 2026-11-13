@@ -25,6 +25,8 @@
 // (`extra`, after its own): one player's 自选 stock (0.2.0, player/diy.js diyRollEntries) — weighted by its copies like
 // any chess, drawn by that player's shop only.
 
+import { bondsOff } from '../../shared/seasons.js';
+
 /**
  * Per-match disabled bond set D and banned chess (research 01 A2): D = uniform sample of `core` core bonds and `addon`
  * add-on bonds among weight > 0 bonds that are active in the mode. A visible chess is banned iff every one of its
@@ -33,11 +35,14 @@
  * absence, so its operators that have another bond still come and the bond still counts through them —, an 'allow' bond
  * is never drawn; the counts are drawn from the bonds left to the draw. The draw shuffles the same lists as the official
  * one and takes the first eligible ones, so the rng stream (and every later setup draw) is the official one.
+ * 规程 (shared/seasons.js coreBondBan, `opts.coreBan`): an operator with a core bond is banned once every core bond of it is
+ * in D ∪ inactive, its add-on bonds or not (shared/seasons.js bondsOff).
  * @param {import('./gamedata.js').GameData} gd
  * @param {Function} rng seeded rng (createRng)
+ * @param {{ coreBan?: boolean }} [opts]
  * @returns {{ drawn: string[], staticOff: string[], banned: string[] }}
  */
-export function drawDisabledBonds(gd, rng) {
+export function drawDisabledBonds(gd, rng, { coreBan = false } = {}) {
   const { core: nCore, addon: nAddon } = gd.bans(gd.difficulty);
   const staticOff = [...gd.modeInactiveBonds].filter((b) => gd.bond(b)).sort();
   const eligible = gd.bondIds.filter((b) => {
@@ -51,10 +56,9 @@ export function drawDisabledBonds(gd, rng) {
   const drawn = [...new Set([...forced, ...sample(core, nCore, rng, random), ...sample(addon, nAddon, rng, random)])].sort();
   const off = new Set([...drawn, ...staticOff]);
   const banned = [];
+  const isCore = (b) => !!gd.bond(b)?.isCore;
   for (const id of gd.visibleChess) {
-    const c = gd.chess(id);
-    const bonds = Array.isArray(c.bonds) ? c.bonds : [];
-    if (bonds.length > 0 && bonds.every((b) => off.has(b))) banned.push(id);
+    if (bondsOff(gd.chess(id)?.bonds, off, { coreBan, isCore })) banned.push(id);
   }
   return { drawn, staticOff, banned };
 }

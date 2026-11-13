@@ -12,6 +12,7 @@
 // `potential` for another player's unit): the record is composed at it (an owned pick; a prototype has none).
 
 import { diyRecordOf } from '../../../../shared/diy.js';
+import { bondsOff } from '../../../../shared/seasons.js';
 import { isObj } from './shared.js';
 
 /** The player's 自选 picks in this match (m.private.diy; {} when absent). */
@@ -130,10 +131,11 @@ export function diyBannedPieces(priv, getChess, data) {
  * of the composed record is off) — for picks the server has not judged yet, e.g. a preset the strategy draft previews.
  * @param {string} slotId @param {any} pick `{ charId, … }` @param {Set<string>} off the bonds off this match (public
  *   disabledBonds: drawn + the mode's) @param {(id: string) => any} getChess @param {{ chess?: any, backups?: any }} data
+ * @param {{ coreBan?: boolean, isCore?: ((bondId: string) => boolean) | null }} [rule] the season's ban rule
+ *   (shared/seasons.js bondsOff: 规程 coreBondBan — every core bond off)
  */
-export function diyPickOff(slotId, pick, off, getChess, data) {
+export function diyPickOff(slotId, pick, off, getChess, data, rule = {}) {
   if (!off?.size || !isObj(pick) || typeof pick.charId !== 'string') return false;
   const chess = getChess(slotId);
-  const bonds = (chess ? diyRecordFor(chess, pick, data) : null)?.bonds;
-  return Array.isArray(bonds) && bonds.length > 0 && bonds.every((b) => off.has(b));
+  return bondsOff((chess ? diyRecordFor(chess, pick, data) : null)?.bonds, off, rule);
 }

@@ -246,6 +246,36 @@ test('per-match disabled bonds: 3 core + 4 add-on (NORMAL+), FUNNY static + 0 + 
   assert.ok(f.banned.length >= 20);
 });
 
+test('规程 (coreBondBan): a drawn-off core bond bans every operator of it, add-on bonds or not; several core bonds — once all are off; 盟约 keeps the every-bond rule', async () => {
+  const { ACT3, ACT3_ON_BASE_FIELD } = await import('../helpers/seasonPieces.js');
+  const isCore = (b) => !!ACT3.bonds[b]?.isCore;
+  let savedByAddon = 0, multiKept = 0;
+  for (let seed = 1; seed <= 12; seed++) {
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed, data: ACT3_ON_BASE_FIELD, season: 'act3autochess' }).start();
+    const m = h.m, pub = h.lastBc('m.public');
+    const off = new Set(pub.disabledBonds);
+    const banned = new Set(pub.bannedChess);
+    for (const id of m.gd.visibleChess) {
+      const bonds = m.gd.chess(id).bonds || [];
+      const cores = bonds.filter(isCore);
+      const want = cores.length ? cores.every((b) => off.has(b)) : bonds.length > 0 && bonds.every((b) => off.has(b));
+      assert.equal(banned.has(id), want, `seed ${seed} ${id} ${bonds.join('+')}`);
+      if (want && !bonds.every((b) => off.has(b))) savedByAddon++;
+      if (cores.length > 1 && cores.some((b) => off.has(b)) && !want) multiKept++;
+      if (want) assert.ok(!m.pool.has(id), `${id} not in the pool`);
+    }
+    checkInvariants(m);
+    m.dispose();
+  }
+  assert.ok(savedByAddon > 0, 'some operators an add-on bond kept under the 盟约 rule are banned now');
+  assert.ok(multiKept > 0, 'an operator of two core bonds with one off stays (薇薇安娜)');
+  // the default season: the every-bond rule as it was
+  const gd = new GameData(DATA, 'mode_single_normal');
+  const a = drawDisabledBonds(gd, createRng(5)), b = drawDisabledBonds(gd, createRng(5), { coreBan: false });
+  assert.deepEqual(a, b);
+});
+
 test('the match pool excludes banned chess; m.public lists disabled bonds and banned chess', () => {
   const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 1, bots: 1, seed: 3 }).start();
   const pub = h.lastBc('m.public');

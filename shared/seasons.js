@@ -46,7 +46,26 @@ export const SEASON_FEATURES = Object.freeze({
    * battle stacks them as a normal one does (docs/rules/sim.md 「규정 맹약」); the 盟约 client runs no layer gain outside
    * the own battle. */
   bossLayerGains: false,
+  /** A drawn-off core bond takes every operator of it out of the match, whatever add-on bonds it has; an operator of
+   * several core bonds goes once all of them are off (a CN player's report of 2026-11-14, maintainer decision the same
+   * day; docs/rules/sim.md 「규정 핵심 맹약 금지」). The 盟约 rule: out only once every bond of it is off. */
+  coreBondBan: false,
 });
+
+/**
+ * Whether a piece of `bonds` is left out of the match when `off` are the bonds off (drawn + the mode's): every bond off,
+ * or — with `coreBan` (the season switch coreBondBan) and at least one core bond (`isCore`) — every core bond off.
+ * @param {unknown} bonds @param {Set<string>} off
+ * @param {{ coreBan?: boolean, isCore?: ((bondId: string) => boolean) | null }} [opts]
+ */
+export function bondsOff(bonds, off, { coreBan = false, isCore = null } = {}) {
+  if (!Array.isArray(bonds) || !bonds.length || !off?.size) return false;
+  if (coreBan && typeof isCore === 'function') {
+    const cores = bonds.filter((b) => isCore(b));
+    if (cores.length) return cores.every((b) => off.has(b));
+  }
+  return bonds.every((b) => off.has(b));
+}
 
 /**
  * @typedef {Readonly<{ id: string, public: boolean, name: string, mark: string, features: Readonly<Record<string, boolean>> }>} Season
@@ -58,7 +77,7 @@ export const SEASONS = {
   // 卫戍协议：规程 (CN from 2026-11-08): built from its own tables (tools/build-data.mjs --season act3autochess); public
   // from 2.0.0
   act3autochess: Object.freeze({ id: 'act3autochess', public: true, name: N_('规程'), mark: 'REGULATION',
-    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true, benchInBattle: true, stagePreview: true, bossLayerGains: true }) }),
+    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true, benchInBattle: true, stagePreview: true, bossLayerGains: true, coreBondBan: true }) }),
 };
 
 /**

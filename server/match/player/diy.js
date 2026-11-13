@@ -37,6 +37,7 @@ import { KITTED_CHARS } from '../../sim/content/kits/index.js';
 import { checkDiyPicks } from '../../../shared/protocol.js';
 import { diyRecord, diySlot, diyTokenOwner } from '../../../shared/diy.js';
 import { atPotential } from '../../../shared/potential.js';
+import { bondsOff, seasonFeature } from '../../../shared/seasons.js';
 
 const posIntOr = (v, d) => (Number.isInteger(v) && v > 0 ? v : d);
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -184,8 +185,7 @@ export class PlayerDiy {
       const rec = this._diyRecords.get(slotId);
       const slot = diySlot(slotId, gd.raw);
       if (!rec || !slot) continue;
-      const bonds = Array.isArray(rec.bonds) ? rec.bonds : [];
-      if (bonds.length > 0 && bonds.every((b) => off.has(b))) { banned.push(slotId); continue; }
+      if (bondsOff(rec.bonds, off, { coreBan: seasonFeature(this.m.season, 'coreBondBan'), isCore: (b) => !!gd.bond(b)?.isCore })) { banned.push(slotId); continue; }
       const cap = gd.poolCopies(slotId);
       if (!(cap > 0)) continue;
       this.diyStock.entries.set(slotId, { cap, left: cap, tier: gd.tierOf(slotId), shopLevel: slot.shopLevel });
