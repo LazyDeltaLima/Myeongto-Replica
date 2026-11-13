@@ -10,7 +10,7 @@
 // issue #1, DESIGN §21.26). Opened from the detail panel's bond chips it docks beside that panel (`beside`: the panel's
 // side).
 // Research 06 §11.1: round mint discs, stack count over the disc, name below, sorted by stacks; grey =
-// present but inactive; in 联防 / boss rounds the strip is dimmed ("层数叠加已禁用"). A bond the mode never activates
+// present but inactive; in 联防 / boss rounds outside 规程 the strip is dimmed ("层数叠加已禁用"; gameLogic bondLayersPaused). A bond the mode never activates
 // that the player has members of (the server's `off` entry — server/match/bondsMeta.js offBondCounts: 标准's 投资人 奇迹
 // 突袭 独行 …) comes last as a grey disc with ✕ and 本局禁用 under it instead of its count (community reports
 // 「投资人等在休整区就能生效的盟约不生效」 / 「…不会触发斯卡蒂与异德的突袭」: the bond just vanished, 0.1.3). The popup's 成员

@@ -803,7 +803,7 @@
 .gm.has-hud-art .shopbar.has-shop-art .scard__confirm.is-no { background: var(--ha-dc2, none) center / 100% 100% no-repeat, rgba(90, 90, 90, .85); color: #e4e4e4; }
 .gm.has-hud-art .shopbar.has-shop-art .scard__confirm.is-no small { color: #f0c8c2; }
 
-/* (2026-10-10) 联防 / boss rounds: the bond list's pause tip (bond_list_info_view root_pause: matte_pause 157 × 47, 暂停叠层
+/* (2026-10-10) 联防 / boss rounds outside 规程 (gameLogic bondLayersPaused): the bond list's pause tip (bond_list_info_view root_pause: matte_pause 157 × 47, 暂停叠层
    15 #d7fff3 — KR 「중첩수 사용제한」, the maintainer's capture), centred on the list 17 above its middle */
 .bpause { display: none; }
 .gm.has-hud-art .gm__bond-list { position: relative; }

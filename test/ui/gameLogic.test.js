@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   diySlotTier, startStepCount, diyChooseRows, toggleDiyChoice,
-  phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold, bondRequireCount,
+  phaseMode, phaseBanner, isCombatPhase, isBossPhase, bondLayersPaused, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold, bondRequireCount,
   holdsBattleEnd, settleBattleEnd, ownRoundLoss, roundResultBox, RESULT_BOX_MS,
   bondMembers, memberHeadCount, memberLit, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, normalizeSp, normalizePersonalChoice, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum, setNumberUnitMode, numberUnitMode,
@@ -68,6 +68,15 @@ describe('phases', () => {
   test('combat / boss predicates and banners', () => {
     assert.ok(isCombatPhase(PHASE.UNITE) && !isCombatPhase(PHASE.PREP));
     assert.ok(isBossPhase(PHASE.HIDDEN_CORE) && !isBossPhase(PHASE.COMBAT));
+    // 暂停叠层 on the bond strip: 联防 always, boss rounds only outside 规程 (shared/seasons.js bossLayerGains)
+    for (const season of [undefined, 'act2autochess', 'act3autochess']) {
+      assert.equal(bondLayersPaused(PHASE.UNITE, season), true, `联防 ${season}`);
+      assert.equal(bondLayersPaused(PHASE.COMBAT, season), false, `combat ${season}`);
+      assert.equal(bondLayersPaused(PHASE.PREP, season), false, `prep ${season}`);
+      for (const p of [PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]) {
+        assert.equal(bondLayersPaused(p, season), season !== 'act3autochess', `${p} ${season}`);
+      }
+    }
     assert.equal(phaseBanner(PHASE.UNITE, {}).title, '联防阶段');
     assert.equal(phaseBanner(PHASE.FINAL_ASSAULT, {}).title, '最终攻势');
     assert.equal(phaseBanner(PHASE.HIDDEN_CORE, {}).title, '隐秘核心');

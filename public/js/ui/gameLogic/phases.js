@@ -8,6 +8,7 @@ import { normalizeSp } from './draft.js';
 import { t } from '../../../../shared/i18n.js';
 import { playerName } from '../../../../shared/botNames.js';
 import { battleOverOf } from '../../audioOfficial.js';
+import { seasonFeature } from '../../../../shared/seasons.js';
 
 
 // ---- phases ----------------------------------------------------------------------------------------
@@ -44,6 +45,14 @@ export const isCombatPhase = (phase) => COMBAT_PHASES.has(phase);
  */
 export const showDeadPill = (alive, phase) => !alive && !COMBAT_PHASES.has(phase) && phase !== PHASE.SETTLE;
 export const isBossPhase = (phase) => phase === PHASE.FINAL_ASSAULT || phase === PHASE.HIDDEN_CORE;
+/**
+ * Whether the bond strip shows its 暂停叠层 / 层数叠加已禁用 state: the phases whose battle gains no bond layers — 联防
+ * always, the boss rounds outside 规程 (shared/seasons.js bossLayerGains: there the boss battle stacks like a normal one).
+ * @param {string|null|undefined} phase
+ * @param {string|null|undefined} season the room's season id
+ */
+export const bondLayersPaused = (phase, season) =>
+  phase === PHASE.UNITE || (isBossPhase(phase) && !seasonFeature(season, 'bossLayerGains'));
 
 /**
  * Banner shown when a phase starts: { title, sub?, tone } or null.

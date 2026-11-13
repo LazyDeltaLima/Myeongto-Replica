@@ -111,7 +111,7 @@ import { pauseAvailable, isPaused, frozenNow } from '../ui/matchStatus.js';
 import { pieceTile } from '../render/drag.js';
 import { SIDE_BY } from '../render/projection.js';
 import {
-  phaseMode, phaseBanner, isCombatPhase, showDeadPill, isBossPhase, placementContext, placementRecords, canPlace, boardTargets, dropIntent,
+  phaseMode, phaseBanner, isCombatPhase, showDeadPill, isBossPhase, bondLayersPaused, placementContext, placementRecords, canPlace, boardTargets, dropIntent,
   holdsBattleEnd, settleBattleEnd, roundResultBox,
   snapHud, activeBubbles, shortcutFor, shortcutBlocked, closesOnFieldPress, closesOnOutsidePress, drawerClosesOnPress, openedFromWindow, windowCardGone, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, normalizePersonalChoice, sortedPlayers,
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
@@ -370,7 +370,8 @@ function MatchScreen() {
   const hasPersonalChoice = !!personalChoice;
   const editable = phase === PHASE.PREP && !!priv && alive && !priv.ready && !watchingOther && !hasPersonalChoice;
   const showShop = !!priv && alive && (phase === PHASE.PREP || phase === PHASE.SP_DRAFT || phase === PHASE.ROUND_START) && !watchingOther;
-  const layersDisabled = phase === PHASE.UNITE || isBossPhase(phase);
+  const roomSeason = useStore((s) => s.room?.season);
+  const layersDisabled = bondLayersPaused(phase, roomSeason);
   const sp = phase === PHASE.SP_DRAFT ? normalizeSp(pub?.sp, players) : null;
   const total = phaseTotalSeconds(pub, gd.config, myId);
   // solo pause: offered in the own battle; while m.public.paused every HUD clock stops at the pause moment

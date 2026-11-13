@@ -1227,7 +1227,8 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   글이 주황 받침 위로 오른쪽으로: 「开始作战」 KR 「전투 시작」, 「联防开始」 KR 「연합 방어」 — 관리자 KR 캡처) → 위로 빠지고 띠 원래 내용이 아래에서 올라옴. 키 시각은
   클립 값, 움직임 곡선은 [추정]. 보스 띠의 넓어지는 HP 바 부분(`group_normal`)은 우리 보스 띠가 공식 모양이 아니라 넣지 않았다.
 - 맹약 줄 「暂停叠层」(`bond_list_info_view root_pause`: `matte_pause` 157×47, 15 #d7fff3) — KR 「중첩수 사용제한」(관리자 KR 캡처): 联防·보스 라운드(맹약 층이 쌓이지 않는
-  때)에 맹약 줄 가운데. upstream의 툴팁 「层数叠加已禁用」은 그대로.
+  때)에 맹약 줄 가운데. upstream의 툴팁 「层数叠加已禁用」은 그대로. 규정의 보스 라운드는 층이 쌓이므로(sim.md 「규정 맹약」) 표시도 툴팁도
+  없다 — 공식 규정 보스 영상의 맹약 줄에 이 표시가 없다(관리자 확인 2026-11-13; `gameLogic` `bondLayersPaused`, 연합 방어는 그대로).
 - 왼쪽 플레이어 카드 상태(`player_status_item`, `has-hud-card`): 탈락 = `mask_dead`(#565656 80 % + `icon_dead`), 나감(`status` 'left') = `mask_quit`(#303030 80 % +
   `icon_lost_connect`), 연결 끊김(`connected` false) = `mask_reconnect`(#303030 80 % + `icon_reconnect` — 예전에는 끊김에 `icon_lost_connect`를 잘못 씀), 내가 보고 있는 팀원
   카드 오른쪽 위 `icon_observing`(upstream 눈 표시 대신), 카드 오른쪽 아래 밖 `icon_complete`(준비·완료 — 준비도 공식처럼 체크) 또는 `icon_doing` 점 셋(깜빡임
