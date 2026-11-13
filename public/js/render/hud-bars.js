@@ -471,9 +471,9 @@ export function equipTextures(P, assets) {
 
 /**
  * The prep equipment bar of one piece (see header), drawn into `parent`. An operator with more than two equipment
- * slots (规程's “暴躁铁皮”: 4, elite 6 — the record's `equipSlots`) gets one official pill per two slots, stacked upwards
- * (maintainer decision 2026-11-12) [추정·화면: the official bar of such an operator is not seen yet; the HUD prefab has one
- * pill of two].
+ * slots (规程's “暴躁铁皮”: 4, elite 6 — the record's `equipSlots`) gets one official pill per two slots, stacked upwards.
+ * The field no longer asks for that: such an operator shows no pill at all in the official game (CN player report, maintainer
+ * decision 2026-11-14 — UnitView skips the bar).
  * Pills and dashes are made the first time a piece needs them and kept (no allocation in a frame that needs no more).
  */
 export class EquipBar {

@@ -147,6 +147,23 @@ describe('prep: official chip and equip bar (shop_hud)', () => {
     assert.equal(v._equipSlots, 4);
   });
 
+  test('on the field an operator with more than two slots (规程 “暴躁铁皮” 4 / 6) shows no pill and no item pips (CN player report)', () => {
+    const from = fake.P.Texture.from;
+    fake.P.Texture.from = (url) => ({ url, width: 74, height: 30, baseTexture: { valid: true } });
+    try {
+      const ctx = fakeViewCtx(fake.P, { assets: { localUrl: (g, n) => `/eqfield/${g}/${n}.png` }, cam, viewport: () => VP });
+      const v = new UnitView(ctx, { id: 1, side: 'ally', kind: 'chess', defId: 'char_x', tier: 5, x: 5, y: 12, maxHp: 1000 }, { prep: true });
+      v.setItems?.([{ id: 'a' }, { id: 'b' }]);
+      v.setEquip([false, true], 2); v.update(1 / 60, cam(), 0);
+      assert.ok(v._equipBar && v._equipBar.root.visible, 'two slots: the official pill');
+      for (const n of [4, 6]) {
+        v.setEquip([false, true, false], n); v.update(1 / 60, cam(), 0);
+        assert.ok(!v._equipBar.root.visible, `${n} slots: no pill`);
+        assert.ok(v.itemPips.every((p) => !p.visible), `${n} slots: no item pips either`);
+      }
+    } finally { fake.P.Texture.from = from; }
+  });
+
   test('the redeploy countdown: the clock disc with its ring draining, cost_lack while DP is short, nothing once ready', async () => {
     const { DOWN_STATE } = await import('../public/js/render/units.js');
     class SimpleMesh extends fake.P.Container {

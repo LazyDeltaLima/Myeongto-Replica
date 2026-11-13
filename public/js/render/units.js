@@ -2373,8 +2373,11 @@ export class UnitView {
     }
     // local patch (LOCAL-PATCH.md 「전투 화면 UI」): in prep the official equip bar stands for the item pips when installed
     const eqTex = prep && this._equip?.length && this.alive ? equipTextures(this.P, this.ctx.assets) : null;
-    if (eqTex && !this._equipBar) { this._equipBar = new EquipBar(this.P, this.hud); this._equipBar.anchor = this.hudAnchor; }
-    if (eqTex) this._equipBar.update(this.screen.x, this.screen.y, hudU(this.ctx), this._equip, eqTex, this._equipSlots);
+    // an operator with more than two equipment slots (规程's “暴躁铁皮” 4 / 6) shows no pill at all in the official game (CN player
+    // report 2026-11-14; maintainer decision 2026-11-14) — nor the old item pips in its place
+    const bar = eqTex && !(this._equipSlots > 2);
+    if (bar && !this._equipBar) { this._equipBar = new EquipBar(this.P, this.hud); this._equipBar.anchor = this.hudAnchor; }
+    if (bar) this._equipBar.update(this.screen.x, this.screen.y, hudU(this.ctx), this._equip, eqTex, this._equipSlots);
     else if (this._equipBar) this._equipBar.hide();
     for (let i = 0; i < this.itemPips.length; i++) {
       const pip = this.itemPips[i];
