@@ -357,6 +357,8 @@ export const UI_SFX = Object.freeze({
   settlementBossSign: { bank: 'ui.ON_ACT1AUTOCHESS_SETTLEMENT_BOSSSIGN' },
   goodEvaluation: { bank: 'ui.ON_ACT1AUTOCHESS_GOODEVALUATION' },
   load: { bank: 'ui.ON_ACT1AUTOCHESS_LOAD' },
+  // 规程's hub entry clip autochess_entry_season_on plays this one (EventPlayUI at 0 s; public/js/ui/clipFilm.js)
+  load3: { bank: 'ui.ON_AUTOCHESS_LOAD3' },
   start: { bank: 'ui.ON_ACT1AUTOCHESS_START' },
   matchSucceed: { bank: 'ui.ON_ACT1AUTOCHESS_MATCH_SUCCEED' },
   matchFail: { bank: 'ui.ON_ACT1AUTOCHESS_MATCH_FAIL' },

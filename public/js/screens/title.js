@@ -18,7 +18,8 @@
 // emblem's brackets at the size the film leaves it; another season keeps the dot emblem. Ported from upstream 0.3.3.
 // A later season with its own art extracted (ui/seasonArt.js) draws its hub backdrop instead and its logo as the title
 // (the words stay for screen readers; maintainer decision 2026-11-08); a pick on the season tabs goes through the dark
-// (useSeasonFade).
+// (useSeasonFade). The parts marked `data-reveal` are where a season's entry clip brings its hub in while its film fades
+// (ui/clipFilm.js titleReveal: back, logo, bottom, top, side).
 
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { NAME_MAX_LEN, APP_VERSION, DEV_BUILD } from '../../../shared/constants.js';
@@ -315,7 +316,7 @@ export function TitleScreen() {
   return html`<div class="screen title-screen">
     <div class=${`title-bg${bgLoaded || alliance ? ' has-art' : ''}${alliance ? ' has-alliance' : ''}${seasonBg ? ' has-season' : ''}${ridgesLoaded ? ' has-ridges' : ''}`} aria-hidden="true">
       ${alliance ? html`<${AllianceBackdrop} />` : null}
-      ${seasonBg ? html`<img key=${seasonBg} class="title-bg__season" src=${seasonBg} alt="" draggable=${false} />` : null}
+      ${seasonBg ? html`<img key=${seasonBg} class="title-bg__season" data-reveal="back" src=${seasonBg} alt="" draggable=${false} />` : null}
       ${backdrop && !alliance ? html`<img class="title-bg__art" src=${backdrop} alt="" draggable=${false}
         onLoad=${() => setBgLoadedUrl(backdrop)} />` : null}
       <div class="title-bg__glow"></div>
@@ -334,11 +335,11 @@ export function TitleScreen() {
       <div class=${`title-bg__veil${dark ? ' is-dark' : ''}`}></div>
     </div>
 
-    <div class="title-corner title-corner--tl">
+    <div class="title-corner title-corner--tl" data-reveal="top">
       <span class="title-corner__mark"></span>
       <div><${MicroLabel} tone="mint">RHODES ISLAND // SIMULATION SERVICE<//><br /><${MicroLabel}>TACTICAL CO-OP NODE · 02<//></div>
     </div>
-    <div class="title-corner title-corner--tr">
+    <div class="title-corner title-corner--tr" data-reveal="top">
       <div>
         <div class="title-corner__tools">
           <${Button} variant="ghost" size="sm" icon="chart" class="title-stats" onClick=${openStats} title=${t('统计数据')}>${t('统计')}<//>
@@ -349,16 +350,16 @@ export function TitleScreen() {
     </div>
 
     <main class="title-main">
-      ${markOk ? html`<img key=${seasonMark} class="title-logo" src=${seasonMark} alt="" draggable=${false} onError=${() => setMarkBad(seasonMark)} />`
+      ${markOk ? html`<img key=${seasonMark} class="title-logo" data-reveal="logo" src=${seasonMark} alt="" draggable=${false} onError=${() => setMarkBad(seasonMark)} />`
         : logo ? html`<${FilmLogo} src=${logo} />` : html`<${Emblem} />`}
       ${alphabetic || markOk ? null : html`<div class="title-en">
         <span class="title-en__a">STRONGHOLD PROTOCOL</span>
         <span class="title-en__b">${seasonInfo(season).mark}</span>
       </div>`}
       <h1 class=${`title-cn${alphabetic ? ' title-cn--latin' : ''}${markOk ? ' sr-only' : ''}`}>${t('卫戍协议')}<span class="title-cn__colon">${alphabetic ? ': ' : '：'}</span><em>${seasonName(season)}</em></h1>
-      <p class="title-tag">${t('调配资金与干员，与同伴协同布防，抵御多波次进攻，直至击败敌方领袖。')}</p>
+      <p class="title-tag" data-reveal="side">${t('调配资金与干员，与同伴协同布防，抵御多波次进攻，直至击败敌方领袖。')}</p>
 
-      <div class="title-login">
+      <div class="title-login" data-reveal="bottom">
         <${SeasonTabs} />
         ${pendingJoin ? html`<div class="title-invite">
           <span class="title-invite__head"><${Icon} name="key" /><span>${t('收到同盟邀请')}</span><b class="num">${pendingJoin}</b></span>
@@ -383,7 +384,7 @@ export function TitleScreen() {
           </span>
         </div>
       </div>
-      <div class="title-links">
+      <div class="title-links" data-reveal="side">
         <button type="button" class="title-link tapx" onClick=${() => setAboutOpen(true)}>${t('服务器信息')}</button>
       </div>
     </main>
@@ -397,7 +398,7 @@ export function TitleScreen() {
       <button type="button" class="title-fsnote__close tapx" aria-label=${t('关闭')} title=${t('关闭')} onClick=${closeFsNote}><${Icon} name="close" /></button>
     </div>` : null}
 
-    <footer class="title-foot">
+    <footer class="title-foot" data-reveal="side">
       <${ResumeMatchButton} />
       <span>${t('非官方同人复刻 · 与上海鹰角网络 / Yostar 无关 · 仅限非商业用途 · 游戏素材版权归原权利人所有')}</span>
       <${MicroLabel}>v${APP_VERSION} · WEB SIMULATION<//>

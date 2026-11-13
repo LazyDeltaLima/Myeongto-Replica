@@ -27,6 +27,13 @@ id of shared/seasons.js:
                                   ['bondboard']): bg_active (all lit) or bg_inactive, the ring of every segment in grey
                                   (bg_total) and the n lit segments in the theme's colour (bg_actual), from the white
                                   ring pieces bondboardicon/<max>_<n> — one picture per state, n = 0…max
+  season/<id>/entry/film          the event's entry animation (SEASONS[id]['entry']) as data for public/js/ui/clipFilm.js:
+                                  the RectTransform tree of the film (and the black cover over it), each node's Image
+                                  (sprite, type, colour, material), the CanvasGroup alphas, what each material draws
+                                  (read from its shader properties) and every keyframe of the panel's entry clip
+                                  (tangents kept: Unity's Hermite curves), the hub's own nodes included — one JSON
+  season/<id>/entry/<sprite>      the sprites the film's images show, at their rect, and the textures its flipbook
+                                  materials sample (`tex_<texture>`)
 
 into <out>/season/<id>/… and the groups `season/<id>/…` of data/local-assets.json (the other groups are kept; a full
 tools/local-extract/extract.py run keeps these). The page looks them up with localAsset('season/<id>/<group>', name).
@@ -81,6 +88,11 @@ SEASONS = {
         # official CN screen (2026-11-10) shows the lit segments in that field for two themes at once (the default
         # #00FFC4, the purchased ac_s_closur #2E38FF, not its skinLightColor #00D2FF)
         'bondboard': {'pieces': ('ui/autochess/[uc]autochessbattle.ab', 'bondboardicon'), 'total': (161, 161, 161, 0.8), 'actual': (0, 255, 196, 1.0)},
+        # the hub panel plays its legacy Animation clip autochess_entry_season_on (3.17 s) as it opens: the film
+        # canvas_front/entry_anim_season_on (off at 2.57 s) under the black cover cover_black_in, then the hub's own
+        # nodes come in (canvas_back, title_effect/root_title, bottom_view, top_menu, the side panels)
+        'entry': {'panel': 'panel_act3autochess_on_entry', 'film': 'canvas_front/entry_anim_season_on', 'cover': 'cover_black_in',
+                  'clip': 'autochess_entry_season_on'},
     },
 }
 # the official UI face with Hangul: a Font asset of the EN client's resources.assets
@@ -252,6 +264,163 @@ def prefab_sprites(env, roots):
     return out
 
 
+def _r(v, n=4):
+    return round(float(v), n)
+
+
+def _slope(v):
+    """A tangent; an infinite one (a stepped key: m_IsActive) is null."""
+    v = float(v)
+    return None if v != v or abs(v) == float('inf') else round(v, 5)
+
+
+def material_draw(m):
+    """What a UI material of the film draws, from its shader properties (no shader is read): a flipbook sheet
+    (_Column × _Row frames of _ParticleTex, the frame picked by the image colour's r, tinted _Color1), a circle
+    (_InStep / _OutStep of the UV radius, _AdditionMap = scan lines), a dissolve sweep (_Dissolve1_Tex, with
+    _Mask_Tex = masked by scan lines) or a plain image; `add` when it blends One + One."""
+    f = dict(m['m_SavedProperties']['m_Floats'])
+    tex = dict(m['m_SavedProperties']['m_TexEnvs'])
+    col = dict(m['m_SavedProperties']['m_Colors'])
+    add = f.get('_DstBlend') == 1 or f.get('_Dst') == 1
+    out = {'add': True} if add else {}
+    if '_Column' in f and '_Row' in f and '_ParticleTex' in tex:
+        c = col.get('_Color1') or {'r': 1, 'g': 1, 'b': 1, 'a': 1}
+        out.update(kind='sheet', cols=int(f['_Column']), rows=int(f['_Row']), tint=[_r(c['r']), _r(c['g']), _r(c['b'])])
+    elif '_InStep' in f and '_OutStep' in f:
+        out.update(kind='ring', inStep=_r(f['_InStep']), inSmooth=_r(f.get('_InSmooth', 0)), outStep=_r(f['_OutStep']),
+                   outSmooth=_r(f.get('_OutSmooth', 0)), lines=bool(tex.get('_AdditionMap', {}).get('m_Texture', {}).get('m_PathID')))
+    elif '_Dissolve1_Tex' in tex:
+        out.update(kind='dissolve', masked=bool(tex.get('_Mask_Tex', {}).get('m_Texture', {}).get('m_PathID')))
+    return out
+
+
+def entry_film(env, spec):
+    """The entry animation of the season's hub panel: (pictures, film JSON). See the module doc, season/<id>/entry/film."""
+    objs = {o.path_id: o for o in env.objects}
+    cache = {}
+
+    def tt(pid):
+        if pid not in cache:
+            o = objs.get(pid)
+            try:
+                cache[pid] = o.read_typetree() if o is not None else None
+            except Exception:
+                cache[pid] = None
+        return cache[pid]
+
+    def local(ref):
+        return ref.get('m_PathID') if isinstance(ref, dict) and ref.get('m_PathID') and ref.get('m_FileID', 0) == 0 else None
+
+    root = next((o for o in env.objects if o.type.name == 'GameObject' and (tt(o.path_id) or {}).get('m_Name') == spec['panel']), None)
+    if root is None:
+        raise SystemExit(f"entry: no {spec['panel']} in the bundle")
+    sprite_ids, mats, nodes = {}, {}, []
+
+    def node(go_pid, path):
+        go = tt(go_pid)
+        n = {'p': path, 'active': bool(go.get('m_IsActive', 1))}
+        rt = None
+        for c in go.get('m_Component', []):
+            pid = c['component']['m_PathID']
+            o = objs.get(pid)
+            if o is None:
+                continue
+            t = o.type.name
+            if t == 'RectTransform':
+                rt = tt(pid)
+                n.update(amin=[_r(rt['m_AnchorMin'][a]) for a in 'xy'], amax=[_r(rt['m_AnchorMax'][a]) for a in 'xy'],
+                         pos=[_r(rt['m_AnchoredPosition'][a], 3) for a in 'xy'], size=[_r(rt['m_SizeDelta'][a], 3) for a in 'xy'],
+                         piv=[_r(rt['m_Pivot'][a]) for a in 'xy'], scale=[_r(rt['m_LocalScale'][a]) for a in 'xy'])
+            elif t == 'CanvasGroup':
+                n['alpha'] = _r(tt(pid)['m_Alpha'])
+            elif t == 'ParticleSystem':
+                n['particles'] = True
+            elif t == 'MonoBehaviour':
+                m = tt(pid)
+                if not m or 'm_Sprite' not in m or 'm_Color' not in m:
+                    if m and 'm_ShowMaskGraphic' in m or m and 'm_Softness' in m:
+                        n['mask'] = True
+                    continue
+                c = m['m_Color']
+                img = {'type': int(m.get('m_Type', 0)), 'color': [_r(c[a]) for a in 'rgba']}
+                sp = m['m_Sprite']
+                if local(sp):
+                    name = tt(sp['m_PathID'])['m_Name']
+                    sprite_ids[sp['m_PathID']] = name
+                    img['sprite'] = name
+                elif isinstance(sp, dict) and sp.get('m_PathID'):
+                    img['sprite'] = None  # a sprite of another bundle (the loading bar's flare): not carried
+                mp = local(m.get('m_Material', {}))
+                if mp:
+                    md = tt(mp)
+                    if md['m_Name'] not in mats:
+                        mats[md['m_Name']] = dict(material_draw(md), _tex=md['m_SavedProperties']['m_TexEnvs'])
+                    img['mat'] = md['m_Name']
+                n['img'] = img
+        nodes.append(n)
+        if rt:
+            for ch in rt['m_Children']:
+                ct = tt(ch['m_PathID'])
+                if ct:
+                    g = tt(ct['m_GameObject']['m_PathID'])
+                    node(ct['m_GameObject']['m_PathID'], f"{path}/{g['m_Name']}" if path else g['m_Name'])
+
+    # walk only the film and the cover (by their paths under the panel)
+    def find(go_pid, parts):
+        if not parts:
+            return go_pid
+        go = tt(go_pid)
+        for c in go.get('m_Component', []):
+            o = objs.get(c['component']['m_PathID'])
+            if o is not None and o.type.name == 'RectTransform':
+                for ch in tt(o.path_id)['m_Children']:
+                    ct = tt(ch['m_PathID'])
+                    if ct and tt(ct['m_GameObject']['m_PathID'])['m_Name'] == parts[0]:
+                        return find(ct['m_GameObject']['m_PathID'], parts[1:])
+        raise SystemExit(f'entry: no {parts[0]} under {go["m_Name"]}')
+
+    for path in (spec['film'], spec['cover']):
+        node(find(root.path_id, path.split('/')), path)
+
+    # the flipbook textures, saved beside the sprites
+    pictures = {}
+    for name, md in mats.items():
+        if md.get('kind') == 'sheet':
+            ref = dict(md['_tex']).get('_ParticleTex', {}).get('m_Texture', {})
+            tp = local(ref)
+            if tp:
+                tex = objs[tp].read()
+                md['tex'] = f'tex_{tex.m_Name}'
+                pictures[md['tex']] = tex.image.convert('RGBA')
+        del md['_tex']
+    sprites = {}
+    for pid, name in sprite_ids.items():
+        d = objs[pid].read()
+        pictures[name] = full_rect(d)
+        b = d.m_Border
+        sprites[name] = {'w': round(d.m_Rect.width), 'h': round(d.m_Rect.height), 'border': [_r(b.x), _r(b.y), _r(b.z), _r(b.w)]}
+
+    clip = next((o for o in env.objects if o.type.name == 'AnimationClip' and (tt(o.path_id) or {}).get('m_Name') == spec['clip']), None)
+    if clip is None:
+        raise SystemExit(f"entry: no clip {spec['clip']}")
+    c = tt(clip.path_id)
+    curves = []
+    for cv in c.get('m_FloatCurves', []):
+        curves.append({'p': cv['path'], 'a': cv['attribute'],
+                       'k': [[_r(k['time'], 5), _r(k['value'], 5), _slope(k['inSlope']), _slope(k['outSlope'])] for k in cv['curve']['m_Curve']]})
+    for cv in c.get('m_ScaleCurves', []):
+        curves.append({'p': cv['path'], 'a': 'scale',
+                       'k': [[_r(k['time'], 5), [_r(k['value'][a], 5) for a in 'xy'], [_slope(k['inSlope'][a]) for a in 'xy'],
+                              [_slope(k['outSlope'][a]) for a in 'xy']] for k in cv['curve']['m_Curve']]})
+    length = max((k[0] for cv in curves for k in cv['k']), default=0)
+    events = [[_r(e['time'], 5), e['functionName'], e.get('data') or ''] for e in c.get('m_Events', [])]
+    film = {'version': 1, 'panel': spec['panel'], 'clip': spec['clip'], 'canvas': [1280, 720], 'length': _r(length, 5),
+            'film': spec['film'], 'cover': spec['cover'], 'events': events, 'nodes': nodes, 'materials': mats,
+            'sprites': sprites, 'curves': curves}
+    return pictures, film
+
+
 def compose_backdrop(images, spec):
     from PIL import Image
     w, h = spec['size']
@@ -371,6 +540,15 @@ def main(argv=None):
             pieces = sprites_by_folder(load(game, rel), {folder}, full=True).get(folder, {})
             for name, im in sorted(bond_boards(pieces, skin['bg_active'], skin['bg_inactive'], spec['bondboard']).items()):
                 save('bondboard', name, im)
+
+    if spec.get('entry'):
+        pictures, film = entry_film(env, spec['entry'])
+        for name, im in sorted(pictures.items()):
+            save('entry', name, im)
+        sub = f'{base}/entry'
+        (out_root / sub).mkdir(parents=True, exist_ok=True)
+        (out_root / sub / 'film.json').write_text(json.dumps(film, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+        groups.setdefault(sub, {})['film'] = {'path': f'/assets/local/{sub}/film.json', 'kind': 'Data'}
 
     man = Path(args.manifest)
     doc = {'version': 1, 'source': 'local-client', 'count': 0, 'groups': {}}
