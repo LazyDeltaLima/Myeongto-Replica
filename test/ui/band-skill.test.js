@@ -61,6 +61,10 @@ test('a switched bond direction: the effect\'s id, name and text, the placeholde
   assert.equal(r.effectDescRaw, '<@ba.vup>c{0:0}</>');
   assert.deepEqual(r.effectDescParams, [{ index: 0, format: '0', base: 'b0', perStack: 'p0' }]);
   assert.equal(bond.effectId, 'e2', 'the record itself is untouched');
+  // 规程: the effect's own keys (effects.json descParams) and blackboard win over the bond's
+  const r2 = swappedBond({ ...bond, bb: { b0: 1, p0: 1 } }, 'e1', { name: 'X', descRaw: 'c{0:0}d{1:0}', descParams: [{ base: 'k0', perStack: 'q0' }, { base: 'k1', perStack: 'q1', max: 9 }], params: { k0: 2, q0: 0, k1: 3, q1: 1 } });
+  assert.deepEqual(r2.effectDescParams, [{ index: 0, format: '0', base: 'k0', perStack: 'q0' }, { index: 1, format: '0', base: 'k1', perStack: 'q1', max: 9 }]);
+  assert.equal(r2.bb.k1, 3);
 });
 
 test('the drag tip follows the table\'s targetTip, else the target kind', () => {

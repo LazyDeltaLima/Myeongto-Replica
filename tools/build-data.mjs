@@ -1829,6 +1829,15 @@ function effectBuffs(ctx, effectId) {
     return { key: b.key, countType: b.countType || 'NONE', bb, bbStr };
   });
 }
+/**
+ * 规程's placeholder keys of an effect's text (effectDescParamDataDict[effectId].descParamInfos: descParamBase,
+ * descParamPerStack, descParamMax — 0 for no cap); [] for 盟约, whose bond records list them.
+ * @returns {Array<{ base: string|null, perStack: string|null, max: number }>}
+ */
+function effectDescParams(ctx, effectId) {
+  const list = ctx.act.effectDescParamDataDict?.[effectId]?.descParamInfos;
+  return Array.isArray(list) ? list.map((x) => ({ base: x.descParamBase || null, perStack: x.descParamPerStack || null, max: Number(x.descParamMax) || 0 })) : [];
+}
 /** Flattened params of all buffs of an effect (first occurrence wins; string values included). */
 function effectParams(buffs) {
   const params = {};
@@ -1854,6 +1863,9 @@ function buildEffects(ctx) {
       decoIconId: e.effectDecoIconId || null, enemyPrice: e.enemyPrice || 0,
       buffs, params: effectParams(buffs),
     };
+    const dpi = effectDescParams(ctx, effectId);
+    // 规程: the {i:fmt} keys of the text (a direction switch shows another effect's text: ui/bondStrip.js swappedBond)
+    if (dpi.length) out[effectId].descParams = dpi.map((x) => (x.max > 0 ? x : { base: x.base, perStack: x.perStack }));
   }
   for (const id of Object.keys(ctx.act.effectBuffInfoDataDict)) {
     if (!out[id]) warn(`effectBuffInfoDataDict has ${id} without effectInfoDataDict entry`);
@@ -1924,6 +1936,12 @@ function buildBonds(ctx, chess, effects) {
     for (const id of b.chessIdList || []) if (!chess[id]) warn(`bond ${bondId}: member ${id} missing from chess`);
     const rb = researchBonds.get(bondId);
     const dp = textPair(b.desc);
+    // the placeholders' blackboard keys: 盟约 lists them on the bond (descParamBaseList / descParamPerStackList), 规程 on its
+    // effect (effectDescParamDataDict[effectId].descParamInfos, with a cap descParamMax — 0 for none)
+    const dpi = effectDescParams(ctx, b.effectId);
+    const baseList = b.descParamBaseList || dpi.map((x) => x.base);
+    const perList = b.descParamPerStackList || dpi.map((x) => x.perStack);
+    const maxList = b.descParamBaseList ? [] : dpi.map((x) => x.max);
     out[bondId] = {
       bondId, name: b.name, identifier: b.identifier,
       isCore: !!g.isPower, bondType: g.bondType || null, bondOrder: g.bondOrder ?? null,
@@ -1936,13 +1954,14 @@ function buildBonds(ctx, chess, effects) {
       layerMilestones,
       desc: dp.desc, descRaw: dp.descRaw,
       effectId: b.effectId, effectName: eff?.name || null, effectDesc: eff?.desc || null, effectDescRaw: eff?.descRaw || null,
-      // Positional {i:fmt} placeholders of effectDesc = bb[baseParams[i]] + bb[perStackParams[i]] * layers.
+      // Positional {i:fmt} placeholders of effectDesc = bb[baseParams[i]] + bb[perStackParams[i]] * layers (at most `max`).
       effectDescParams: [...String(eff?.descRaw || '').matchAll(/\{(\d+)(?::([^{}]+))?\}/g)].map((m) => ({
         index: Number(m[1]), format: m[2] || null,
-        base: (b.descParamBaseList || [])[Number(m[1])] || null, perStack: (b.descParamPerStackList || [])[Number(m[1])] || null,
+        base: baseList[Number(m[1])] || null, perStack: perList[Number(m[1])] || null,
+        ...(maxList[Number(m[1])] > 0 ? { max: maxList[Number(m[1])] } : {}),
       })),
       bb, bbStr, buffs: buffs.map((x) => ({ key: x.key, bb: x.bb, bbStr: x.bbStr })),
-      baseParams: b.descParamBaseList || [], perStackParams: b.descParamPerStackList || [],
+      baseParams: baseList, perStackParams: perList,
       members, visibleMembers: members.filter((id) => chess[id].visible),
       spec: rb?.spec || null,
     };

@@ -95,6 +95,27 @@ describe('placeholders', () => {
       assert.ok(pct && Number(pct[1]) === 100, `${id} at 500 layers: ${pct && pct[0]}`);
     }
     assert.equal(formatBondEffect(null, 3), '');
+    // a capped placeholder (规程 descParamMax) stops at its max
+    assert.equal(formatBondEffect({ effectDesc: 'x{0:0}', effectDescParams: [{ index: 0, format: '0', base: 'a', perStack: 'b', max: 5 }], bb: { a: 1, b: 2 } }, 10), 'x5');
     assert.equal(formatBondEffect({ effectDesc: 'x{0:0}', effectDescParams: [{ index: 0, format: '0', base: 'a', perStack: 'b' }], bb: { a: 1, b: 2 } }, 'bad'), 'x1');
   });
+});
+
+// 规程 keeps the placeholder keys on the effect (effectDescParamDataDict), not on the bond: before the build read them every
+// layer-scaled number of the new season's bond popups read 0 (炎 攻击力+0%).
+test('规程 bond effects resolve every placeholder from a blackboard key, and move with the layers', () => {
+  const bonds = load('seasons/act3autochess/bonds.json');
+  const effects = load('seasons/act3autochess/effects.json');
+  for (const b of Object.values(bonds)) {
+    for (const p of b.effectDescParams) {
+      assert.ok(p.base && p.base in b.bb, `${b.bondId} {${p.index}}: base ${p.base} not in its blackboard`);
+      assert.ok(p.perStack && p.perStack in b.bb, `${b.bondId} {${p.index}}: perStack ${p.perStack} not in its blackboard`);
+    }
+  }
+  const yan = bonds.yanShip;
+  assert.equal(richTextPlain(formatBondEffect(yan, 0)).match(/\+(\d+)%/)?.[1], String(Math.round(yan.bb.atk_base * 100)));
+  assert.equal(richTextPlain(formatBondEffect(yan, 100)).match(/\+(\d+)%/)?.[1], String(Math.round((yan.bb.atk_base + yan.bb.atk_per_stack * 100) * 100)));
+  // a direction's own text keys travel on effects.json (维多利亚 _2: share_equip_duration_*, none of the bond's own effect)
+  const v2 = effects.bondeffect_victoria_2;
+  assert.deepEqual(v2.descParams.map((x) => x.base), ['base_damage_scale', 'share_equip_duration_base']);
 });

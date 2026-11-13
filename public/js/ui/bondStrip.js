@@ -173,7 +173,8 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
 
 /**
  * The bond record with another direction's effect (规程's direction switch): the effect's id, name and text; the
- * placeholders keep the bond's base / per-stack names by index (formatBondEffect).
+ * placeholders take the effect's own base / per-stack names (effects.json `descParams`, 规程's effectDescParamDataDict)
+ * and blackboard, else keep the bond's by index (formatBondEffect).
  * @param {any} b bonds.json record
  * @param {string} effectId
  * @param {any} eff effects.json record
@@ -183,9 +184,14 @@ export function swappedBond(b, effectId, eff) {
   const byIndex = new Map((Array.isArray(b.effectDescParams) ? b.effectDescParams : []).map((p) => [p.index, p]));
   const params = [...String(src).matchAll(/\{(\d+)(?::([^{}]+))?\}/g)].map((m) => {
     const i = Number(m[1]);
-    return { index: i, format: m[2] || null, base: byIndex.get(i)?.base ?? null, perStack: byIndex.get(i)?.perStack ?? null };
+    // 规程: the effect's own keys (effects.json descParams); 盟约's effects have none and keep the bond's by index
+    const own = Array.isArray(eff.descParams) ? eff.descParams[i] : null;
+    const p = own || byIndex.get(i);
+    return { index: i, format: m[2] || null, base: p?.base ?? null, perStack: p?.perStack ?? null, ...(Number(p?.max) > 0 ? { max: p.max } : {}) };
   });
-  return { ...b, effectId, effectName: eff.name ?? b.effectName, effectDesc: eff.desc ?? b.effectDesc, effectDescRaw: eff.descRaw ?? b.effectDescRaw, effectDescParams: params, swappedFrom: b.effectId };
+  // the swapped effect's blackboard first (its keys may be none of the bond's own effect: 维多利亚 _2 share_equip_duration_*)
+  const bb = eff.params && typeof eff.params === 'object' ? { ...b.bb, ...eff.params } : b.bb;
+  return { ...b, bb, effectId, effectName: eff.name ?? b.effectName, effectDesc: eff.desc ?? b.effectDesc, effectDescRaw: eff.descRaw ?? b.effectDescRaw, effectDescParams: params, swappedFrom: b.effectId };
 }
 
 /**
