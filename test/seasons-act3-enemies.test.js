@@ -10,7 +10,8 @@ import { getData } from '../server/data.js';
 import { makeBattle, chessRec } from './helpers/battleHarness.js';
 import * as enemiesMod from '../server/sim/content/enemies.js';
 import * as bossesMod from '../server/sim/content/bosses.js';
-import { TICK } from '../server/sim/constants.js';
+import { TICK, COLS } from '../server/sim/constants.js';
+import { bodyKeys, bodyOnTile } from '../server/sim/body.js';
 
 const quiet = { warn() {}, error() {}, info() {} };
 const ACT3 = getData({ log: quiet, season: 'act3autochess' });
@@ -331,6 +332,19 @@ function spiderField(key, { left = [], right = [], hp = 1e7 } = {}) {
   const boss = h.spawn(key, { pos: [3, 10], routeIndex: 0, tag: 'boss' });
   return { h, boss, L, R };
 }
+
+test('假想敌：械 / 假想敌：茧 (both copies) are 巨型单位: the prefab box 4.95 × 2.95 one row up — a 5 × 3 block, as 胄 / 管', () => {
+  for (const key of [FNC, FNC2, SPIDER, SPIDER2]) {
+    assert.deepEqual(E3[key].hitArea, { w: 4.95, h: 2.95, dx: 0, dy: 1 }, key);
+    const { boss } = key.includes('acfnc') ? machineField(key) : spiderField(key, { left: [[2, 3]] });
+    const tiles = bodyKeys(boss).map((k) => [Math.floor(k / COLS), k % COLS]);
+    assert.equal(tiles.length, 15, `${key}: ${JSON.stringify(tiles)}`);
+    const r = Math.round(boss.y), c = Math.round(boss.x);
+    for (const [dr, dc, on] of [[0, 0, true], [2, -2, true], [2, 2, true], [0, 2, true], [-1, 0, false], [3, 0, false], [0, 3, false]]) {
+      assert.equal(bodyOnTile(boss, r + dr, c + dc), on, `${key}: tile (${r + dr}, ${c + dc})`);
+    }
+  }
+});
 
 test('假想敌：茧: never walks; each shot volley takes the max_target highest-HP units of every field; 伪装 evade at each 25 % of HP lost', () => {
   const bb = E3[SPIDER].talents.bb;

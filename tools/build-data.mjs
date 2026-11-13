@@ -2432,6 +2432,9 @@ function enemyAttrPower(ctx, key, level) {
  *   区域（为长4.95宽2.95的长方形，向上偏移1）".
  * [ASSUMED] 胄's hidden-core copy (enemy_9013_acstmk_2, prefab enemy_9013_acstmk) keeps the upward offset although its
  * PRTS section lists none — one prefab, one collider. 假想敌：铳 and 卢西恩 are regular units (no such talent).
+ * 规程's 假想敌：械 and 假想敌：茧 (enemy_9029_acfnc / enemy_9035_acspider and their own `_2` prefabs): the root
+ * BoxCollider2D of each official CN prefab is size 4.95 × 2.95, offset (0, 1) — the same box as 胄's and 管's prefabs
+ * (checked in the official CN client's prefabs, 2026-11-13). Both stand still and are unblockable through their own abilities (content/bosses.js).
  */
 const HIT_AREAS = Object.freeze({
   enemy_9013_acstmk: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
@@ -2440,6 +2443,10 @@ const HIT_AREAS = Object.freeze({
   enemy_1521_dslily: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
   enemy_9032_aclionk: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
   enemy_9033_acdeer: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_9029_acfnc: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_9029_acfnc_2: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_9035_acspider: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
+  enemy_9035_acspider_2: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
 });
 
 /**

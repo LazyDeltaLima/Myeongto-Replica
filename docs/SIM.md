@@ -598,7 +598,7 @@ burning or snowy ground, tile selectors, "所在格"; a trap or mark the client 
 琳琅诗怀雅's bomb, 克莱门莎 S3, 望's stones — takes the collider) take the tile of its position
 (`roundHalfEven(y)`, `roundHalfEven(x)` — PRTS 作战机制 "四舍六入五成双"; `Math.round` would take 2.5 to 3); a radius takes
 its position, except the radii PRTS marks 碰撞判定 (`foesInColliderRadius`: 蕾缪安's shells, 克莱门莎 S2's splash) (DESIGN §3). A huge enemy (巨型单位:
-`enemy.hitArea` from data/enemies.json `hitArea` — 假想敌：胄 / 管 / 盐风主教昆图斯 / 阿利斯泰尔 / “萨米的意志”, PRTS
+`enemy.hitArea` from data/enemies.json `hitArea` — 假想敌：胄 / 管 / 盐风主教昆图斯 / 阿利斯泰尔 / “萨米的意志”; 规程 adds 假想敌：械 / 茧 — PRTS
 "受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0") is hit anywhere on a rectangle `w` × `h` tiles centred on its position
 moved `dx` columns right / `dy` rows up: it occupies every tile the rectangle overlaps (`bodyKeys` — 5 × 3 tiles; PRTS
 作战机制 "巨型BOSS单位的每一个占据的格子都可以让其本身通过格子判定"), and radius rules measure to the rectangle (`bodyDist`, 0
