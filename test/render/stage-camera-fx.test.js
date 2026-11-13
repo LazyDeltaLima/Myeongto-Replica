@@ -39,6 +39,26 @@ test('the level\'s camera effect is held with no enemy and no battle views, agai
   } finally { globalThis.fetch = fetch0; }
 });
 
+test('a camera effect as the page\'s first effect makes the layer first (spectating from the strategy pick: "lib is null")', async () => {
+  // (the index cached by the test above) a real layer, no effect played before it: the library is made by ensure(), which
+  // here (no Image: no WebP) fails — the camera effect starts nothing and is not tried again, with no rejection
+  const rejections = [];
+  const onRej = (err) => rejections.push(err);
+  process.on('unhandledRejection', onRej);
+  try {
+    const seen = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (p) => seen.push(p) });
+    await new Promise((r) => setTimeout(r, 10));
+    layer.setStageCamera([FROST]);
+    for (let i = 0; i < 3; i++) {
+      layer.update(1 / 60, { dist: 20 }, { width: 100, height: 100 });
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    assert.deepEqual(rejections.map(String), []);
+    assert.deepEqual(seen.filter((p) => /^camera/.test(p.kind)), [], 'no layer: nothing started');
+  } finally { process.off('unhandledRejection', onRej); }
+});
+
 test('the official scene hands its map\'s cameraEffect to the app, which sets it on the effect layer', () => {
   assert.match(read('public/js/render/board3d/official.js'), /camera: typeof doc\.map\?\.cameraEffect === 'string' && doc\.map\.cameraEffect \? doc\.map\.cameraEffect : null,/);
   assert.match(read('public/js/render/board3d/scene.js'), /camera: built\.camera \?\? null \}\);/);

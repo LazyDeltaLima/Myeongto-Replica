@@ -6415,6 +6415,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (trace && c.on) trace({ kind: 'cameraOff', names: [n], by: null, at: null });
       if (c.l && !c.l.inst.done) c.l.inst.stop(true);
     }
+    if (!dry && (destroyed || failed || q() === 'low')) return;   // (no layer to play them on: the procedural view)
     for (const n of camWant) if (!camFx.has(n)) startCameraFx(n);
   }
   async function startCameraFx(name) {
@@ -6422,10 +6423,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     camFx.set(name, c);
     const r = efx(name) || (stageCams.has(name) ? tplPrefab(name) : null);
     if (!r) { if (!index) camFx.delete(name); return; }   // (the list not loaded yet: tried again next frame)
+    const gen = stormGen;
+    // 2026-11-14 (user report: "lib is null" spectating from the strategy pick into the game): the layer made first, as every
+    // other loader does — a camera effect can be the first effect a page plays: a spectator's seat has no enterPrepMode
+    // prewarm, and the stage scene's frost (规程's ice stages, setStageCamera) starts as the scene loads
+    if (!dry && (!(await ensure()) || !lib)) { if (camFx.get(name) === c) camFx.delete(name); return; }
+    if (c.off || gen !== stormGen) return;
     c.on = true;   // (started: its end is traced)
     if (trace) trace({ kind: 'camera', names: [name], by: null, at: null });
     if (dry) { dryFollow(r[0], r[1], null, null); return; }
-    const gen = stormGen;
     const def = await lib.load(r[0], r[1]);
     if (c.off || gen !== stormGen || !mod || !def) return;
     const inst = new mod.fxp.FxInstance(def, { quality: q(), pinned: true });
