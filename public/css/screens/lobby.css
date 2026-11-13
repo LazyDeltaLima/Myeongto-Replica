@@ -69,9 +69,11 @@
 /* the hub's top bar: no title in the middle — the left group and the right one (season chip, resume) */
 .lobby-hub > .topbar { grid-template-columns: minmax(0, 1fr) auto; }
 /* on a desktop the top bar's left group is the left column's width, its last button at the column's end (maintainer
-   decision 2026-11-08: the two were sized apart, and the ping's digits moved the group's end) */
+   decision 2026-11-08: the two were sized apart, and the ping's digits moved the group's end); wider only when its content
+   needs it — the touch layout's bigger tool buttons overflowed 4.84rem and squeezed the ping pills (1024×600: 291px of
+   content in 258px) */
 @media (min-height: 521px) {
-  .lobby-hub > .topbar .topbar__left { width: var(--hub-side-w); max-width: 100%; }
+  .lobby-hub > .topbar .topbar__left { width: var(--hub-side-w); min-width: max-content; max-width: 100%; }
   .lobby-hub > .topbar .topbar__sep { margin-left: auto; }
 }
 .topbar__sep { width: 1px; height: .28rem; background: var(--line-2); }

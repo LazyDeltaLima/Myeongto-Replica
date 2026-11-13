@@ -78,7 +78,12 @@ test('同盟模拟 opens 选择模拟协议 (规则, 人数, cards, 创建同盟
 test('lobby.css: the left column = the top bar group, one row of keys, the menu to the left, the protocol group', () => {
   const css = read('public/css/screens/lobby.css');
   assert.match(css, /\.lobby-hub \{[^}]*--hub-side-w: 4\.84rem/);
-  assert.match(css, /\.lobby-hub > \.topbar \.topbar__left \{ width: var\(--hub-side-w\)/);
+  assert.match(css, /\.lobby-hub > \.topbar \.topbar__left \{ width: var\(--hub-side-w\); min-width: max-content;/);
+  // the ping / online pills stay one line: the Korean pack's overflow-wrap: anywhere broke 「ms」 / 「접속」 a letter per
+  // line when the touch layout's tool buttons overflowed the group
+  const ping = read('public/css/components.css').match(/\n\.ping \{[^}]*\}/)?.[0] ?? '';
+  assert.match(ping, /white-space: nowrap;/);
+  assert.match(ping, /flex-shrink: 0;/);
   assert.match(css, /grid-template-columns: minmax\(0, var\(--hub-side-w\)\) minmax\(0, 1fr\)/);
   assert.match(css, /\.hub-join \.join-foot \{[^}]*height: var\(--chip-h\);[^}]*overflow: hidden/);
   assert.match(css, /\.topbar__right \.season-menu \{ left: auto; right: 0; \}/);

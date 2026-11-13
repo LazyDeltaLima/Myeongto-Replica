@@ -858,6 +858,10 @@
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  /* one line, never squeezed: the Korean pack's `overflow-wrap: anywhere` (i18n/ko/ko.css) let a crowded top bar break
+     「ms」 / 「접속」 a letter per line */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .ping__icon { width: .15rem; height: .15rem; margin-right: .03rem; }
 .ping__unit { font-size: .13rem; color: var(--text-lo); font-weight: 500; }
