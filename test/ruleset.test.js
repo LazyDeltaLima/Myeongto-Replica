@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   RULE_OPTIONS, RULE_PRESETS, QUEUE_PRESETS, DEFAULT_PRESET, PRESET_LABELS, isRulePreset, isQueuePreset, resolveRuleset, rulesetKey,
   simRuleFlags, sanitizeCustom, optionsOfCustom, customDiffs, sameRuleset, rulesetWire, customRoundPlan, curveScale, CUSTOM_CURVE_POWER,
-  customPrepSeconds, keepUnbanned, customPoolCount,
+  customPrepSeconds, keepUnbanned, customPoolCount, seasonOfficialOptions,
   CUSTOM_OFFICIAL, CUSTOM_CASUAL, CUSTOM_LIMITS, CUSTOM_VERSION,
 } from '../shared/ruleset.js';
 
@@ -83,6 +83,20 @@ test('the switch tooltip: one line per preset without a colon inside, then the �
   for (const l of lines) assert.ok(!/[:：]/.test(l), `no colon in ${l}`);
   assert.ok(lines[3].startsWith('※ 领袖限伤放宽 — ') && lines[3].includes(BOSS_HIT_LIMIT.toLocaleString('en-US')), lines[3]);
   assert.equal(rulesetTips(QUEUE_PRESETS).split('\n').length, QUEUE_PRESETS.length + 1, 'the stats / queue lists name their presets only');
+});
+
+test("规程's briefing shows the battlefield in every mode (its official stage-info view has the map preview); 盟约 keeps it 休闲", async () => {
+  assert.deepEqual({ ...seasonOfficialOptions('act3autochess') }, { battlefieldInfo: true });
+  assert.deepEqual({ ...seasonOfficialOptions('act2autochess') }, {});
+  assert.deepEqual({ ...seasonOfficialOptions(null) }, {}, 'no season = the default');
+  const { rulesetTips } = await import('../public/js/ui/ruleset.js');
+  const lines = rulesetTips(QUEUE_PRESETS, 'act3autochess').split('\n');
+  assert.equal(lines[0], '【经典】与官方规则相同');
+  assert.equal(lines[1], '【休闲】使用重新抽取、移动型领袖路线预览、领袖限伤放宽', 'the battlefield is no 休闲 extra in 规程');
+  assert.equal(rulesetTips(QUEUE_PRESETS, 'act2autochess').split('\n')[1], '【休闲】使用战场信息、重新抽取、移动型领袖路线预览、领袖限伤放宽');
+  const brief = readFileSync(new URL('../public/js/screens/briefing.js', import.meta.url), 'utf8');
+  assert.match(brief, /const rules = \{ \.\.\.resolveRuleset\(pub\.ruleset\)\.options, \.\.\.seasonOfficialOptions\(season\) \};/);
+  assert.match(brief, /const season = useStore\(\(s\) => s\.room\?\.season \?\? null\);/);
 });
 
 test("the room's 匹配补位 button shows its own queue's waiting count (difficulty × ruleset × size; a custom room: 快速匹配)", async () => {

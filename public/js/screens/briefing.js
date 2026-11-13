@@ -13,9 +13,10 @@
 // avatars, with the player's own 自选 pieces out of the shop (m.private.diyBanned) — is ui/matchInfo.js MatchInfo, the same
 // blocks the strategy draft's 本局信息 dialog shows (screens/bandDraft.js).
 // 규칙 모드 (m.public.ruleset, shared/ruleset.js; maintainer decision 2026-10-15): the battlefield card's name, pool and
-// preview are a 休闲 convenience (battlefieldInfo) — the official stage-info view has no battlefield, so 经典 keeps the card
-// in its place as 「未知战场」 (a dark box with the boss block's 「?」, revealed when the battle starts) and the column
-// keeps its shape; 重新抽取 (infoReroll) is 休闲 only too.
+// preview are a 休闲 convenience (battlefieldInfo) — 盟约's official stage-info view has no battlefield, so 经典 keeps the
+// card in its place as 「未知战场」 (a dark box with the boss block's 「?」, revealed when the battle starts) and the column
+// keeps its shape; 规程's official view shows the map preview, so that season shows the card in every mode
+// (seasonOfficialOptions, maintainer decision 2026-11-13); 重新抽取 (infoReroll) is 休闲 only.
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, MicroLabel } from '../ui/components.js';
@@ -30,7 +31,7 @@ import { useStore } from '../store.js';
 import { data, localAsset } from '../data.js';
 import { t, tParts } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
-import { resolveRuleset, keepUnbanned, customStagePool } from '../../../shared/ruleset.js';
+import { resolveRuleset, keepUnbanned, customStagePool, seasonOfficialOptions } from '../../../shared/ruleset.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -42,6 +43,7 @@ export function BriefingScreen() {
   const solo = useStore((s) => s.room?.mode === 'solo') || String(pub?.modeId || '').includes('single');
   const gd = useGameData();
   const matchNo = useStore((s) => s.room?.matchNo ?? 0);
+  const season = useStore((s) => s.room?.season ?? null);
   const [exit, setExit] = useState(false);
   const [busy, setBusy] = useState(null);
   // the server refuses 重新抽取 in the briefing's first second (phases.js INFO_REROLL_MIN_MS): the button waits as long
@@ -80,7 +82,8 @@ export function BriefingScreen() {
   // the battlefield's preview picture under its name (tools/map-previews.mjs: our 3D board drawn like the client's
   // stage_mappreview shots, which the autochess stages lack) — the local-client art; without it the plain row
   const mapUrl = pub.stageId ? localAsset('stage/preview', pub.stageId) : null;
-  const rules = resolveRuleset(pub.ruleset).options;
+  // 规程 shows the battlefield in every mode (seasonOfficialOptions: its official stage-info view has the map preview)
+  const rules = { ...resolveRuleset(pub.ruleset).options, ...seasonOfficialOptions(season) };
   // the enemy block as the client's stage-info view draws it (prefab_auto_chess_stage_info_enemy_group): the boss in
   // img_boss_bkg with the img_boss_name_bkg tag under it, then its name and abilities; the 特训敌人 types one under the
   // other on img_normal_enemy_bkg — icon in the same frame, name, description (maintainer 2026-10-11: the client's

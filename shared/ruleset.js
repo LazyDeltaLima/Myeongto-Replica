@@ -23,6 +23,7 @@
 
 import { N_ } from './i18n.js';
 import { BOSS_HIT_LIMIT, LARGE_SEATS } from './constants.js';
+import { seasonFeature } from './seasons.js';
 
 /**
  * `note` = one line for players who do not know the rule (the switch's tooltip; `{n}` = the option's `noteN`).
@@ -425,6 +426,18 @@ export function resolveRuleset(v) {
   if (preset === 'custom') return customRuleset(v && typeof v === 'object' ? /** @type {any} */ (v).custom : null);
   return PRESET_RULESETS[isQueuePreset(preset) ? preset : DEFAULT_PRESET];
 }
+
+/**
+ * The options a season's official mode has on although RULE_OPTIONS gives them as conveniences: every preset of that
+ * season has them on. 规程 (shared/seasons.js stagePreview): its official stage-info view shows the map preview
+ * (auto_chess_stage_info_state), so the briefing's battlefield card is no 休闲 convenience there.
+ * @param {unknown} season @returns {Readonly<Partial<Record<keyof typeof RULE_OPTIONS, boolean>>>}
+ */
+export function seasonOfficialOptions(season) {
+  return seasonFeature(season, 'stagePreview') ? SEASON_STAGE_PREVIEW : NO_SEASON_OPTIONS;
+}
+const SEASON_STAGE_PREVIEW = Object.freeze({ battlefieldInfo: true });
+const NO_SEASON_OPTIONS = Object.freeze({});
 
 /** Whether two rulesets are the same (preset and, for custom, every setting). @param {unknown} a @param {unknown} b */
 export function sameRuleset(a, b) {

@@ -1617,7 +1617,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 
 | 옵션 | 클래식(공식) | 캐주얼 | 어디서 | 근거 |
 |---|---|---|---|---|
-| `battlefieldInfo` 브리핑 전장 카드(이름·전장 수·미리보기 그림) | 「미확인 전장」 카드 | 보임 | `public/js/screens/briefing.js` | 공식 정보 화면 입력 `AutoChessStageInfoGroupViewModel.Input`에 전장 값이 없다(actId·bossId·enemyTypes·bannedBondList·trainingBondList·modeId — 공식 클라) |
+| `battlefieldInfo` 브리핑 전장 카드(이름·전장 수·미리보기 그림) | 「미확인 전장」 카드(규정은 보임) | 보임 | `public/js/screens/briefing.js` | 맹약: 공식 정보 화면 입력 `AutoChessStageInfoGroupViewModel.Input`에 전장 값이 없다(actId·bossId·enemyTypes·bannedBondList·trainingBondList·modeId — 공식 클라). 규정: 공식 정보 화면(`auto_chess_stage_info_state`)에 맵 미리보기가 새로 들어가 공식 화면도 늘 보여 준다 → 규정은 모든 규칙 모드에서 카드를 보인다(시즌 기능 `stagePreview` → `shared/ruleset.js seasonOfficialOptions`, 관리자 결정 2026-11-13; 툴팁의 캐주얼 줄에서도 빠짐) |
 | `infoReroll` 브리핑 「다시 뽑기」 투표 | 없음(서버가 거부, 버튼 없음) | 있음 | `server/match/match/phases.js voteReroll` | 공식 브리핑에는 准备就绪뿐(이 파일 「본판 정보 다시 뽑기」) |
 | `bossRoutePreview` 보스 경로 미리보기 | 없음(서버가 경로를 보내지 않음) | 있음 | `server/match/match/views.js nextEnemiesFor` | 공식에 없는 편의 기능(`render.md` 「보스 경로 미리보기」) |
 | `bossHitClamp` 리더 피해 상한 완화(限伤放宽) | 없음(30만 이상 한 방은 통째로 무효) | 있음(30만 이상 한 방은 300,000으로 들어감) | `server/sim/damage.js leaderHitLimit` ← 전투 spec `flags.bossHitClamp` | 공식 限伤(`sim.md` 「캐주얼 규칙 모드의 리더 피해 상한 완화」, `docs/research/11-limits-official.md` §2); 절삭은 공식에 없음 |

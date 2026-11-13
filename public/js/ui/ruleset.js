@@ -7,23 +7,26 @@
 
 import { html, Icon, Tooltip } from './components.js';
 import { GIcon } from './gameComponents.js';
-import { RULE_OPTIONS, RULE_PRESETS, QUEUE_PRESETS, PRESET_LABELS, DEFAULT_PRESET, resolveRuleset, isRulePreset, isQueuePreset } from '../../../shared/ruleset.js';
-import { loadPref, savePref } from '../store.js';
+import { RULE_OPTIONS, RULE_PRESETS, QUEUE_PRESETS, PRESET_LABELS, DEFAULT_PRESET, resolveRuleset, isRulePreset, isQueuePreset, seasonOfficialOptions } from '../../../shared/ruleset.js';
+import { loadPref, savePref, useStore } from '../store.js';
+import { activeSeason } from './season.js';
 import { t } from '../../../shared/i18n.js';
 
 /**
  * What a preset changes against the official rules: the options it turns on, then those it turns off (none for 经典).
- * No colon inside a line: the switch's tooltip already pairs each preset with its line.
- * @param {string} preset
+ * No colon inside a line: the switch's tooltip already pairs each preset with its line. An option the season's official
+ * mode has on (seasonOfficialOptions: 规程's battlefield card) is official there and not listed.
+ * @param {string} preset @param {unknown} [season]
  * @returns {string}
  */
-export function rulesetTip(preset) {
+export function rulesetTip(preset, season = null) {
   if (preset === 'custom') return t('由创建者逐项设置 · 不能用于同盟匹配');
-  const { options } = resolveRuleset(preset);
+  const always = seasonOfficialOptions(season);
+  const options = { ...resolveRuleset(preset).options, ...always };
   const on = [];
   const off = [];
   for (const [k, o] of Object.entries(RULE_OPTIONS)) {
-    if (options[k] === o.official) continue;
+    if (options[k] === (always[k] ?? o.official)) continue;
     (options[k] ? on : off).push(t(o.label));
   }
   if (!on.length && !off.length) return t('与官方规则相同');
@@ -34,10 +37,10 @@ export function rulesetTip(preset) {
 /**
  * The switch's tooltip: one line per preset of the switch, then a footnote for each option a fixed preset changes that
  * has a `note` (what the official rule does, for players who never met it — 限伤).
- * @param {readonly string[]} [presets]
+ * @param {readonly string[]} [presets] @param {unknown} [season] the season on screen (rulesetTip)
  */
-export function rulesetTips(presets = RULE_PRESETS) {
-  const lines = presets.map((p) => t('【{name}】{tip}', { name: t(PRESET_LABELS[p]), tip: rulesetTip(p) }));
+export function rulesetTips(presets = RULE_PRESETS, season = null) {
+  const lines = presets.map((p) => t('【{name}】{tip}', { name: t(PRESET_LABELS[p]), tip: rulesetTip(p, season) }));
   for (const [k, o] of Object.entries(RULE_OPTIONS)) {
     if (!o.note || !QUEUE_PRESETS.some((p) => resolveRuleset(p).options[k] !== o.official)) continue;
     lines.push(t('※ {label} — {note}', { label: t(o.label), note: t(o.note, { n: (o.noteN ?? 0).toLocaleString('en-US') }) }));
@@ -92,7 +95,7 @@ export function queueCountOf(counts, preset, difficulty = null) {
  */
 export function RulesetSwitch({ value, editable = true, busy = false, onPick, counts = null, class: cls = '', presets = RULE_PRESETS, onGear = null, customLock = null }) {
   const cur = resolveRuleset(value).preset;
-  const tips = rulesetTips(presets);
+  const tips = rulesetTips(presets, useStore(activeSeason));
   return html`<${Tooltip} text=${customLock ? `${customLock}\n${tips}` : tips}>
     <div class=${`dpick rpick ${cls}`.trim()} role="radiogroup" aria-label=${t('规则')}>
       ${presets.map((p) => {
