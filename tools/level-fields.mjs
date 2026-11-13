@@ -113,6 +113,50 @@ export function composeStageLevel(scene, subs) {
   };
 }
 
+/** A level list or object as compared (null / missing / empty are the same: nothing). */
+const sameJson = (a, b) => JSON.stringify(nothing(a) ? null : a) === JSON.stringify(nothing(b) ? null : b);
+const nothing = (v) => v == null || (Array.isArray(v) && !v.length) || (typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length);
+const runeText = (list) => (nothing(list) ? 'none' : list.map((r) => `${r.key}(${(r.blackboard || []).map((b) => `${b.key}=${b.valueStr ?? b.value}`).join(' ')})`).join(', '));
+/** What a device instance carries besides where it stands (its level, skill, blackboard and talent overrides). */
+const deviceValues = (t) => JSON.stringify([t.inst?.level, t.inst?.phase, t.skillIndex, t.mainSkillLvl, t.overrideSkillBlackboard, t.overrideTalents, t.uniEquipIds]);
+
+/**
+ * Where a stage's scene level and its three battle sub-levels disagree on what the battle reads (composeStageLevel takes
+ * the runes and options from sub_01, the global buffs from the scene, the devices from the sub-levels): build-data warns
+ * each line. A difference the frame does not settle is one the generator may have taken from the wrong level — 规程 m10's
+ * runes (盐坨子炮: the scene ATK −300 / ×3, the battle fields −400 / ×2) were the scene's until a CN player's report
+ * (2026-11-14).
+ * @param {object} scene the stage's own level
+ * @param {object[]} subs sub_01, sub_02, sub_03
+ * @returns {string[]}
+ */
+export function levelDrift(scene, subs) {
+  const out = [];
+  for (const k of ['runes', 'globalBuffs', 'options']) {
+    if (!subs.every((s) => sameJson(s?.[k], subs[0]?.[k]))) out.push(`${k}: the three sub-levels differ (sub_01's is used)`);
+  }
+  if (!sameJson(scene?.runes, subs[0]?.runes)) out.push(`runes: the scene's (${runeText(scene?.runes)}) are not the battle fields' (${runeText(subs[0]?.runes)}) — the battle fields' are used`);
+  if (!sameJson(scene?.globalBuffs, subs[0]?.globalBuffs)) out.push(`globalBuffs: the scene's (${runeText(scene?.globalBuffs)}) are not the battle fields' (${runeText(subs[0]?.globalBuffs)}) — the scene's are used`);
+  const values = (levels) => {
+    const m = new Map();
+    for (const lv of levels) {
+      for (const t of [...(lv?.predefines?.tokenInsts || []), ...(lv?.predefines?.characterInsts || [])]) {
+        const key = t.inst?.characterKey;
+        if (!key) continue;
+        if (!m.has(key)) m.set(key, new Set());
+        m.get(key).add(deviceValues(t));
+      }
+    }
+    return m;
+  };
+  const inScene = values([scene]), inSubs = values(subs);
+  for (const [key, vs] of inSubs) {
+    const sv = inScene.get(key);
+    if (sv && [...vs].some((v) => !sv.has(v))) out.push(`device ${key}: the battle fields' level / skill / overrides are not the scene's — the battle fields' are used`);
+  }
+  return out;
+}
+
 /**
  * Frame origin of a field's placeholder: the boss field's (it has the teleport entries tile_telin) is (1, 2), one field's
  * and 联防's two fields' (9, 2) — the default season's routes of every wave level both seasons have are the 规程 ones

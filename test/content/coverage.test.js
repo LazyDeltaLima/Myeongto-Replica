@@ -13,6 +13,7 @@ import { registryFor, GARRISON_HOOK } from '../../server/match/effectsMeta.js';
 import { BUILTIN_ITEM_BUFF_KEYS } from '../../server/match/builtinMeta.js';
 import { coverage, bondTemplate, BOND_TEMPLATES } from '../../server/sim/content/coverage.js';
 import { coverageOf } from '../../tools/season-coverage.mjs';
+import { SEASONS } from '../../shared/seasons.js';
 
 const CONTENT = join(dirname(fileURLToPath(import.meta.url)), '../../server/sim/content');
 const QUIET = { info() {}, warn() {}, error() {} };
@@ -114,4 +115,47 @@ test('the hidden season 规程: the report runs and finds its content still bein
   const rep = coverageOf('act3autochess');
   for (const d of ['bonds', 'items', 'garrisons']) assert.ok(rep[d].length > 20, `${d}: ${rep[d].length} rows`);
   assert.ok(rep.bonds.some((r) => r.id === 'ursusShip' && r.status === 'ok'), '乌萨斯 (its own template) is acted on');
+});
+
+// 2026-11-14 (规程's 盐坨子炮): the generator took the scene level's runes, not the battle fields', and the sim read no rune
+// at all — nothing reported either. Every rune and global buff of a played stage's battle level is applied by the sim, or
+// changes nothing on that field, or is a number listed with why it is not read (devices.js LEVEL_RUNES_READ).
+test('every season: each level rune of a played stage is applied or inert (runes none and partial 0)', () => {
+  const seen = [];
+  for (const season of Object.keys(SEASONS)) {
+    const rep = coverageOf(season);
+    assert.deepEqual(rep.runes.filter((r) => r.status !== 'ok').map((r) => `${season}: ${r.status} ${r.id} ${r.key} → ${r.target}: ${r.missing.join('; ')}`), [],
+      'apply it in the sim and list it in devices.js LEVEL_RUNES_READ (a number it does not read: `unread` with why)');
+    seen.push(...rep.runes.map((r) => `${r.id} ${r.key} ${r.target} ${r.inert ? 'inert' : r.where}`));
+  }
+  assert.ok(seen.includes('act3autochess_m10 char_skill_cd_mul trap_196_cnnon devices.js buildCannons'), seen.join('\n'));
+  assert.ok(seen.includes('act2autochess_m03 map_tile_blackb_assign tile_reed|tile_reedf|tile_reedw inert'), 'no reed tile on that field');
+  assert.ok(!seen.some((s) => s.startsWith('act1autochess_m07 ')), 'a stage no match plays is not read');
+});
+
+test('the rune rows: unread, partly read, aliases only, a tile not on the field, a stage not played', () => {
+  const tiles = { '.': { tileKey: 'tile_road' }, r: { tileKey: 'tile_reed' } };
+  const stage = (id, runes, extra = {}) => ({ id, active: true, tiles, runes, globalBuffs: [], ...extra });
+  const data = {
+    ...BASE,
+    stages: {
+      a: stage('a', [
+        { key: 'char_attribute_add', bb: { ATK: -1 }, bbStr: { char: 'trap_999_x' } },
+        { key: 'char_attribute_add', bb: { ATK: -400, MAX_HP: 1, DEF: 5 }, bbStr: { char: 'trap_196_cnnon' } },
+        { key: 'char_skill_cd_mul', bb: { scale: 2 }, bbStr: { char: 'trap_196_cnnon#1|trap_196_cnnon#2' } },
+        { key: 'map_tile_blackb_assign', bb: { damage: 40 }, bbStr: { tile: 'tile_reedw' } },
+        { key: 'map_tile_blackb_assign', bb: { damage: 40 }, bbStr: { tile: 'tile_reed' } },
+      ], { globalBuffs: [{ key: 'env_gbuff_x', bb: { v: 1 }, bbStr: {} }] }),
+      b: stage('b', [{ key: 'char_attribute_add', bb: { ATK: -1 }, bbStr: { char: 'trap_999_x' } }], { active: false }),
+    },
+  };
+  const rows = coverage(data, {}).runes.map((r) => `${r.status} ${r.kind} ${r.key} ${r.target} ${r.inert ? 'inert' : ''}${r.missing.join('; ')}`);
+  assert.deepEqual(rows, [
+    'none rune char_attribute_add trap_999_x char_attribute_add is applied nowhere (ATK)',
+    'partial rune char_attribute_add trap_196_cnnon DEF',
+    'ok rune char_skill_cd_mul trap_196_cnnon#1|trap_196_cnnon#2 inert',
+    'ok rune map_tile_blackb_assign tile_reedw inert',
+    'none rune map_tile_blackb_assign tile_reed map_tile_blackb_assign is applied nowhere (damage)',
+    'none globalBuff env_gbuff_x null env_gbuff_x is applied nowhere (v)',
+  ]);
 });

@@ -737,6 +737,16 @@ function buildCannons(battle, st) {
  * trap_196_cnnon#1|…|#4 matches no cannon, its twin naming trap_196_cnnon does (공식 클라에서 확인 2026-11-14).
  * Each matching rune applies on its own (CSkillCdMul: the SP cost × scale, rounded, per rune).
  */
+/**
+ * The level runes the sim applies: `<rune key>@<character key>` → { reads: blackboard keys it applies, unread: key →
+ * why it does not }. server/sim/content/coverage.js runeRows checks every played stage's runes against it.
+ */
+export const LEVEL_RUNES_READ = Object.freeze({
+  [`char_attribute_add@${CANNON_KEY}`]: Object.freeze({ where: 'devices.js buildCannons', reads: ['ATK'],
+    unread: { MAX_HP: 'the cannon is no unit: it has no HP and takes no hits (docs/rules/sim.md, 염괴포 [추정·엔진])' } }),
+  [`char_skill_cd_mul@${CANNON_KEY}`]: Object.freeze({ where: 'devices.js buildCannons', reads: ['scale'], unread: {} }),
+});
+
 function levelRunes(battle, key) {
   const runes = battle.stage?.runes ?? battle.stage?.raw?.runes ?? [];   // (simdata.js normalizeStage keeps the record as `raw`)
   return (Array.isArray(runes) ? runes : []).filter((r) => {

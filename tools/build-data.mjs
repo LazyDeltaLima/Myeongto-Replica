@@ -48,7 +48,7 @@ import { isOwnSubMode, skillModeIndex, SKILL_SUB_MODES } from '../shared/skill-m
 import { DEFAULT_SEASON, SEASONS, isSeasonId, seasonDataDir } from '../shared/seasons.js';
 import { gamedataBase, SEASON_GAMEDATA } from './gamedata-url.mjs';
 import { normalizeFlat } from './gamedata-flat.mjs';
-import { composeStageLevel, isFrameLevel, placeWaveLevel, subLevelPath, waveOrigin } from './level-fields.mjs';
+import { composeStageLevel, isFrameLevel, levelDrift, placeWaveLevel, subLevelPath, waveOrigin } from './level-fields.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -423,6 +423,8 @@ async function loadContext() {
     if (isFrameLevel(levels[id])) continue;
     const subs = [];
     for (const n of [1, 2, 3]) subs.push(await loadGamedata(subLevelPath(id, n)));
+    // what the scene and its battle fields disagree on (the generator took the scene's runes once — 盐坨子炮, 2026-11-14)
+    for (const d of levelDrift(levels[id], subs)) warn(`level ${id}: ${d}`);
     levels[id] = composeStageLevel(levels[id], subs);
   }
   for (const id of levelSrc.keys()) {

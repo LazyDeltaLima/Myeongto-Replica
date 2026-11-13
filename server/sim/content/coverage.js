@@ -1,6 +1,6 @@
 // server/sim/content/coverage.js — how much of a season's bond, equipment and 特质 data the content code acts on.
 //
-// coverage(data, prep) → { bonds, items, garrisons, bands, totals }: one row per (bond, buff template), per (item key,
+// coverage(data, prep) → { bonds, items, garrisons, bands, runes, totals }: one row per (bond, buff template), per (item key,
 // buff key), per (特质 event type, effect key) and per (strategy, buff key), each `ok` / `partial` (`missing` names what is not done) / `none`.
 // It asks "is the buff key the handler expects in the record", not "is there a handler for the id": a season that
 // reuses an id with other buffs shows up (`wrong` lists the handler keys that run on a record without their buff).
@@ -22,6 +22,11 @@
 //              (bands/battle.js BATTLE_BUFF_KEYS), the others by key — bands/meta.js PREP_BAND_KEYS (registered as
 //              `band:<bandId>`), BAND_KEYS_ELSEWHERE below (a global, the bond code); `stages` names the stages a row's
 //              key is in, `skill` their skill types (PASSIVE / ACTIVE / NONE)
+//   runes      every rune and global buff of the battle level of a stage a match plays (active, or a custom-mode first-half
+//              field): `ok` when it changes nothing on that field (`inert`: its tile filter names no tile of the field, or
+//              its character filter only aliases — the client matches a rune's `char` against the table key, never an
+//              alias) or when devices.js LEVEL_RUNES_READ applies it (each blackboard number read, or `unread` with why);
+//              `partial` names the numbers it does not read, `none` a rune nothing applies
 
 import { buffsOf, itemKeyOf } from './support/index.js';
 import { HANDLED as ITEM_BATTLE } from './items/battle.js';
@@ -32,6 +37,8 @@ import { bondTemplate } from './bonds/shared.js';
 import { handledTemplates, bondEffectReplacements, unwrittenTemplates } from './bonds/dispatch.js';
 import { BATTLE_BUFF_KEYS as BAND_BATTLE } from './bands/battle.js';
 import { PREP_BAND_KEYS as BAND_PREP, bandStages } from './bands/meta.js';
+import { LEVEL_RUNES_READ } from './devices.js';
+import { CUSTOM_FIRST_HALF_STAGES } from '../../../shared/ruleset.js';
 
 export { bondTemplate };
 
@@ -205,6 +212,38 @@ function bandRows(data, { registry }) {
   return rows;
 }
 
+/** Stages a match can be fought on: the pool's (active) and the custom mode's first-half fields. */
+function playedStages(data) {
+  return Object.values(data.stages || {}).filter((st) => st && (st.active || CUSTOM_FIRST_HALF_STAGES.includes(st.id)));
+}
+
+function runeRows(data) {
+  const rows = [];
+  for (const st of playedStages(data)) {
+    const tileKeys = new Set(Object.values(st.tiles || {}).map((t) => t?.tileKey).filter(Boolean));
+    for (const [kind, list] of [['rune', st.runes], ['globalBuff', st.globalBuffs]]) {
+      for (const rune of Array.isArray(list) ? list : []) {
+        const bbStr = rune.bbStr || {};
+        const chars = typeof bbStr.char === 'string' ? bbStr.char.split('|') : null;
+        const tiles = typeof bbStr.tile === 'string' ? bbStr.tile.split('|') : null;
+        const target = chars ? bbStr.char : tiles ? bbStr.tile : null;
+        const r = row('runes', { id: st.id, side: 'battle', kind, key: rune.key, target, status: 'none', inert: null, where: null });
+        if (tiles && !tiles.some((t) => tileKeys.has(t))) r.inert = 'no tile of its filter on the field';
+        else if (chars && chars.every((c) => c.includes('#'))) r.inert = 'its character filter is aliases only (the client matches table keys)';
+        if (r.inert) { r.status = 'ok'; rows.push(r); continue; }
+        const read = chars?.map((c) => LEVEL_RUNES_READ[`${rune.key}@${c}`]).find(Boolean) ?? LEVEL_RUNES_READ[rune.key] ?? null;
+        if (read) {
+          r.where = read.where;
+          r.missing = Object.keys(rune.bb || {}).filter((k) => !read.reads.includes(k) && !(k in (read.unread || {})));
+          r.status = r.missing.length ? 'partial' : 'ok';
+        } else r.missing = [`${rune.key} is applied nowhere (${Object.keys(rune.bb || {}).join(', ') || 'no numbers'})`];
+        rows.push(r);
+      }
+    }
+  }
+  return rows;
+}
+
 function tally(rows) {
   const t = { ok: 0, partial: 0, none: 0, wrong: 0 };
   for (const r of rows) { t[r.status]++; if (r.wrong.length) t.wrong++; }
@@ -226,6 +265,7 @@ export function coverage(data, prep = {}) {
   const items = itemRows(data, p);
   const garrisons = garrisonRows(data, p);
   const bands = bandRows(data, p);
-  return { bonds, items, garrisons, bands, totals: { bonds: tally(bonds), items: tally(items), garrisons: tally(garrisons), bands: tally(bands) } };
+  const runes = runeRows(data);
+  return { bonds, items, garrisons, bands, runes, totals: { bonds: tally(bonds), items: tally(items), garrisons: tally(garrisons), bands: tally(bands), runes: tally(runes) } };
 }
 
