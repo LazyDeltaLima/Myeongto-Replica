@@ -105,7 +105,7 @@ test('骑士团长 / 流动乐章 / 无惧风雪 / 猎人战法: an operator of 
   assert.equal(k.view().cost, 6);
 
   // 车尔尼 流动乐章: cost 1, +1 for good after every use
-  const l = setup({ band: 'band_lethania' });
+  const l = setup({ band: 'band_lethania', seed: seedKeeping('band_lethania', 'lethaniaShip') });
   assert.deepEqual(l.use(), OK);
   assert.equal(l.view().cost, 2);
   l.m.round += 1;
@@ -115,7 +115,7 @@ test('骑士团长 / 流动乐章 / 无惧风雪 / 猎人战法: an operator of 
   assert.ok(owned(l.ps).every((p) => l.m.gd.chess(p.id).bonds.includes('lethaniaShip')));
 
   // 怒潮凛冬 无惧风雪: cost 5, −1 for each 乌萨斯 operator bought (not for others), reset on use
-  const u = setup({ band: 'band_ursus' });
+  const u = setup({ band: 'band_ursus', seed: seedKeeping('band_ursus', 'ursusShip') });
   const ursus = ofBond('ursusShip', 1)[0].chessId;
   const other = visible.find((c) => c.tier === 1 && !(c.bonds || []).includes('ursusShip')).chessId;
   const [a, b, c] = chessCards(u.ps);
@@ -127,17 +127,21 @@ test('骑士团长 / 流动乐章 / 无惧风雪 / 猎人战法: an operator of 
   assert.equal(u.view().cost, 4, 'only the 乌萨斯 purchase cut it');
   assert.deepEqual(u.m.handle('p_0', { t: 'g.buy', slot: b }), OK);
   assert.equal(u.view().cost, 3);
-  // this match's pool holds no 乌萨斯 operator below tier 3: refused at 调度中心 level 1, nothing paid
+  // below the lowest tier of 乌萨斯 this match's pool holds: refused, nothing paid; at that tier: one
   const funds = u.ps.funds;
-  assert.deepEqual(u.use(), { error: 'BAD_TARGET', detail: 'no operator of the bond left' });
-  assert.equal(u.ps.funds, funds);
-  u.ps.shop.level = 3;
+  const low = Math.min(...ofBond('ursusShip').filter((x) => u.m.pool.has(x.chessId) && u.m.pool.left(x.chessId) > 0).map((x) => x.tier));
+  if (low > 1) {
+    u.ps.shop.level = low - 1;
+    assert.deepEqual(u.use(), { error: 'BAD_TARGET', detail: 'no operator of the bond left' });
+    assert.equal(u.ps.funds, funds);
+  }
+  u.ps.shop.level = low;
   assert.deepEqual(u.use(), OK);
   assert.equal(u.ps.funds, funds - 3);
   assert.equal(u.view().cost, 5, 'reset after the use');
 
   // 歌蕾蒂娅 猎人战法: locked until the 调度中心 reaches 4, then an 阿戈尔 operator for 1
-  const e = setup({ band: 'band_egir' });
+  const e = setup({ band: 'band_egir', seed: seedKeeping('band_egir', 'egirShip') });
   assert.deepEqual(e.use(), { error: 'WRONG_PHASE', detail: 'locked' });
   e.ps.shop.level = 4;
   const n = owned(e.ps).length;
@@ -191,8 +195,11 @@ test('人才锁定 (雅拉, 1 funds, 3 a round): a refresh with an operator one 
 });
 
 test('广交豪杰 (杜遥夜, 1 funds, 2 a round): a refresh with at least one 炎 operator', () => {
+  let tried = 0;
   for (let seed = 1; seed <= 12; seed++) {
     const { m, ps, use } = setup({ band: 'band_yan', seed });
+    if (m.disabledBonds.includes('yanShip')) continue;   // (规程: a drawn-off core bond takes every operator of it out)
+    tried++;
     // the lowest tier of 炎 this match's pool holds (each match bans some operators)
     const low = Math.min(...ofBond('yanShip').filter((c) => m.pool.has(c.chessId) && m.pool.left(c.chessId) > 0).map((c) => c.tier));
     ps.shop.level = Math.max(low, 1 + (seed % 3));
@@ -201,6 +208,7 @@ test('广交豪杰 (杜遥夜, 1 funds, 2 a round): a refresh with at least one 
     assert.ok(yan.length >= 1, `seed ${seed}`);
     assert.ok(yan.every((i) => m.gd.tierOf(ps.shop.slots[i].id) <= ps.shop.level));
   }
+  assert.ok(tried >= 6, `seeds that keep 炎: ${tried}`);
 });
 
 test('专享情报 (渡桥, 3 funds, once a match): a refresh whose operator cards are the operators on the board', () => {

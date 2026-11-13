@@ -148,10 +148,13 @@ test('the client asks which item to replace only once the carrier\'s own slots a
 test('简易通讯机 / 寻呼模块: an operator of the target\'s FIRST bond, not of its other ones', () => {
   const two = visibleChess((c) => c.bonds.length >= 2 && c.tier <= 2);
   assert.ok(two.length, 'an operator with two bonds');
-  const target = two[0];
-  const [first, second] = ACT3.chess[target].bonds;
   for (const seed of [1, 2, 3, 4, 5]) {
     const { m, ps } = setup({ seed });
+    // (规程's core-bond ban takes every operator of a drawn-off core bond out: a target whose first bond this match keeps)
+    const off = new Set([...m.disabledBonds, ...m.staticInactiveBonds]);
+    const target = two.find((id) => !off.has(ACT3.chess[id].bonds[0]) && !m.bannedChess.includes(id));
+    assert.ok(target, `seed ${seed}: an operator with two bonds whose first bond is not off`);
+    const [first, second] = ACT3.chess[target].bonds;
     ps.shop.level = 6;
     const op = place(m, ps, target);
     const radio = giveItem(m, ps, 'chess_item_2_06_e_a');
