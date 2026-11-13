@@ -182,6 +182,46 @@ export function stripRich(s) {
     .replace(/<\/?color[^<>]*>/gi, '')
     .replace(/<\/?[bi]>/gi, '');
 }
+/**
+ * A raw (marked-up) text from its plain translation: each simple span `<@tag>inner</>` (no markup inside) of the
+ * Chinese raw text wraps the same inner text in the translation — a number or a Latin word as it is, a Chinese one
+ * through `translate` — at its first free place, from the previous span on (a translation may reorder: then from the
+ * start). A span whose text is not found stays plain. Only markup is added: stripRich(result) === plain.
+ * Used where a language has only the plain text (a hand dictionary keyed by the plain Chinese).
+ * @param {string} zhRaw @param {string} plain @param {(zh: string) => string | null} [translate]
+ */
+export function retagPlain(zhRaw, plain, translate = () => null) {
+  const spans = [];
+  for (const m of unescapeNewlines(zhRaw).matchAll(/(<[@$#][^<>]*>)([^<]+)<\/>/g)) {
+    const inner = m[2].trim();
+    if (!inner) continue;
+    const needle = hasCjk(inner) ? translate(inner) : inner;
+    if (needle && !hasCjk(needle)) spans.push({ open: m[1], needle });
+  }
+  const taken = []; // [start, end) of the wrapped places
+  const free = (s, e) => taken.every(([a, b]) => e <= a || s >= b);
+  const digitEdge = (s, e) => (/\d/.test(plain[s]) && /\d/.test(plain[s - 1] || '')) || (/\d/.test(plain[e - 1]) && /\d/.test(plain[e] || ''));
+  const find = (needle, from) => {
+    for (let i = plain.indexOf(needle, from); i >= 0; i = plain.indexOf(needle, i + 1)) {
+      if (free(i, i + needle.length) && !digitEdge(i, i + needle.length)) return i;
+    }
+    return -1;
+  };
+  let cursor = 0;
+  const wraps = [];
+  for (const { open, needle } of spans) {
+    let at = find(needle, cursor);
+    if (at < 0) at = find(needle, 0);
+    if (at < 0) continue;
+    taken.push([at, at + needle.length]);
+    wraps.push({ at, end: at + needle.length, open });
+    cursor = at + needle.length;
+  }
+  wraps.sort((a, b) => a.at - b.at);
+  let out = '', pos = 0;
+  for (const w of wraps) { out += plain.slice(pos, w.at) + w.open + plain.slice(w.at, w.end) + '</>'; pos = w.end; }
+  return out + plain.slice(pos);
+}
 function cleanNum(v) {
   if (typeof v !== 'number' || !Number.isFinite(v)) return v;
   if (Number.isInteger(v) || Math.abs(v) >= 1e6) return v;
@@ -582,6 +622,13 @@ function translateRecord(file, id, record, tr, stats, samples) {
     const arr = Array.isArray(node);
     const near = arr ? nearIds : new Set([...nearIds, ...idsOf(node, 0)]);
     const done = new Map();
+    /** raw key → its untranslated raw text, kept until its plain twin is tried (a dictionary has only the plain one) */
+    const pendingRaw = new Map();
+    const miss = (kind, v, p) => {
+      stats.miss(kind, v);
+      const list = samples[kind] || (samples[kind] = []);
+      if (list.length < 25) list.push(`${file}.${id}.${p.join('.')}: ${v.slice(0, 80).replace(/\n/g, '⏎')}`);
+    };
     const keys = arr ? node.map((_, i) => i) : Object.keys(node);
     const ordered = arr ? keys : [...keys.filter((k) => k.endsWith('Raw')), ...keys.filter((k) => !k.endsWith('Raw'))];
     for (const k of ordered) {
@@ -597,20 +644,28 @@ function translateRecord(file, id, record, tr, stats, samples) {
         const r = done.get(rawKey);
         res = { en: stripRich(r.en), how: r.how };
       }
+      const ctx = { near, record: recordIds, bb: null, bbStr: arr ? null : node.bbStr || null };
       if (!res) {
-        const bb = arr ? null : node.bb && typeof node.bb === 'object' ? { duration: node.duration, ...node.bb } : (Number.isFinite(node.duration) ? { duration: node.duration } : null);
-        res = tr.translate(v, { near, record: recordIds, bb, bbStr: arr ? null : node.bbStr || null });
+        ctx.bb = arr ? null : node.bb && typeof node.bb === 'object' ? { duration: node.duration, ...node.bb } : (Number.isFinite(node.duration) ? { duration: node.duration } : null);
+        res = tr.translate(v, ctx);
       }
       if (res) {
         done.set(k, res);
         leaves.push({ path: p, zh: v, en: res.en, kind, key: arr ? path[path.length - 1] : k });
         stats.hit(kind, res.how);
-      } else {
-        stats.miss(kind, v);
-        const list = samples[kind] || (samples[kind] = []);
-        if (list.length < 25) list.push(`${file}.${id}.${p.join('.')}: ${v.slice(0, 80).replace(/\n/g, '⏎')}`);
-      }
+        // the raw twin no source translated: the plain translation with the Chinese raw text's markup put back
+        const raw = pendingRaw.get(rawKey);
+        if (raw) {
+          pendingRaw.delete(rawKey);
+          const en = retagPlain(raw.zh, res.en, (s) => tr.translate(s, { ...ctx, bb: null })?.en ?? null);
+          leaves.push({ path: raw.path, zh: raw.zh, en, kind: raw.kind, key: rawKey });
+          stats.hit(raw.kind, res.how);
+        }
+      } else if (!arr && k.endsWith('Raw') && typeof node[k.slice(0, -3)] === 'string' && stripRich(v) === node[k.slice(0, -3)]) {
+        pendingRaw.set(k, { path: p, zh: v, kind });
+      } else miss(kind, v, p);
     }
+    for (const raw of pendingRaw.values()) miss(raw.kind, raw.zh, raw.path);
   };
   visit(record, [], new Set([id]));
   return leaves;

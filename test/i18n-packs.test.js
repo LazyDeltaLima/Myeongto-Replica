@@ -23,7 +23,7 @@ import {
 import { canonicalLang, computeChain, scriptOf, langFields, packMeta } from '../shared/i18nPacks.js';
 import { normalizeManifest, appVersionMatches, isVersionRange, readPackIndex, langMetaOf, PACK_TYPES, isPackPath, packIndexEntry } from '../shared/packs.js';
 import { buildRecordOverlay, applyFileOverlay, applyRecordOverlay } from '../shared/i18nData.js';
-import { buildOverlay, LANG_SOURCES } from '../tools/build-i18n.mjs';
+import { buildOverlay, LANG_SOURCES, retagPlain, stripRich } from '../tools/build-i18n.mjs';
 import { scanPacks, createPackRegistry, packIndexOf } from '../server/packs.js';
 import { createDataStore } from '../public/js/data.js';
 import { checkPack, packTemplate } from '../tools/i18n.mjs';
@@ -472,4 +472,25 @@ test('build-i18n --lang: another official client (a text equal to the Chinese is
   const f = applyRecordOverlay(data.chess.chess_x_a, fr.overlay.files.chess.chess_x_a).value;
   assert.deepEqual([fr.overlay.lang, f.name, f.trait.desc, fr.overlay.names['测试员']], ['fr', 'Testeur', 'Inflige des dégâts magiques', 'Testeur']);
   assert.deepEqual([fr.report.coverage.operators.dict, fr.report.coverage.traits.dict], [1, 1], 'counted as the dictionary\'s');
+});
+
+test('build-i18n: a raw text no source has takes its plain twin\'s translation with the Chinese markup put back', () => {
+  // a hand dictionary (the Korean of 规程) is keyed by the plain Chinese; the HUD strategy tooltip, the 特质 rows of the
+  // loadout and the S.W.E.E.P. report draw descRaw, which used to stay Chinese
+  const zhRaw = '【众志合一】\n<@autochess.dgreen>被动效果</>：场上存在3种以上激活盟约时，所有干员攻击力分别<@ba.vup>+20%</>/<@ba.vup>30%</>';
+  const zhPlain = stripRich(zhRaw);
+  const ko = '[일치단결]\n패시브 효과: 맹약이 3종 이상 활성화 시 모든 오퍼레이터의 공격력 +20%/30%';
+  const data = { bands: { band_x: { name: '阿米娅', desc: zhPlain, descRaw: zhRaw } } };
+  const { overlay, report } = buildOverlay({ zh: [], en: [], data, lang: 'ko', fallback: { dict: { 阿米娅: '아미야', [zhPlain]: ko, 被动效果: '패시브 효과' } } });
+  const b = applyRecordOverlay(data.bands.band_x, overlay.files.bands.band_x).value;
+  assert.equal(b.desc, ko);
+  assert.equal(b.descRaw, '[일치단결]\n<@autochess.dgreen>패시브 효과</>: 맹약이 3종 이상 활성화 시 모든 오퍼레이터의 공격력 <@ba.vup>+20%</>/<@ba.vup>30%</>');
+  assert.equal(report.totals.texts, report.totals.translated, 'the raw text counts as translated, not missing');
+  // only markup is added; a number inside a longer one is not taken, a span not found stays plain
+  assert.equal(retagPlain('<@a>6</>名<@b>不存在</>', '16명 중 6명'), '16명 중 <@a>6</>명');
+  for (const [raw, plain] of [['x<@a>1</>y<@a>2</>', '2 그리고 1'], ['<@a>+3</>', '+3 +3']]) assert.equal(stripRich(retagPlain(raw, plain)), plain);
+  // with no plain twin translated, the raw text is still counted missing
+  const none = buildOverlay({ zh: [], en: [], data, lang: 'ko', fallback: { dict: {} } });
+  assert.equal(none.overlay.files.bands, undefined);
+  assert.ok(none.report.totals.texts > none.report.totals.translated);
 });
