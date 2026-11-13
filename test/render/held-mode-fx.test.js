@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { NO_DATA, withLayer } from '../helpers/fxDryLayer.js';
 import { FORM_HELD_MODES, heldMode, heldModes } from '../../public/js/render/fxmap.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const has = (list, n) => list.some((x) => x.split('@')[0] === n);
 
@@ -44,7 +45,7 @@ test('丰川祥子 S2: the piano\'s buff from the deployment and its swing cast;
   assert.ok(has(a, 'oblvns_skill_02_start_A') && !has(a, 'oblvns_attack_01_start') && !has(a, 'oblvns_skill_02_start_B'), `piano swing: ${a}`);
   // the toggle: 'skill' on, the kit's spGain with the new form (the layer gets it before app.js sets the view's form), 'skill' off
   layer.onEvent(['skill', 1, 1], views);
-  const toggle = ['fx', 'spGain', 0, 0, { x: 0, y: 0, id: 1, form: 'organ' }];
+  const toggle = fxEvent('spGain', { x: 0, y: 0, id: 1, form: 'organ' });
   layer.onEvent(toggle, views);
   v.form = 'organ';
   layer.onEvent(['skill', 1, 0], views);

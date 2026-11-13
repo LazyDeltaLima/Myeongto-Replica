@@ -14,6 +14,7 @@ import { getData } from '../../server/data.js';
 import { makeBattle, chessRec } from '../helpers/battleHarness.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const MODES = new URL('../../public/assets/local/fx/enemy-modes.json', import.meta.url);
 const quiet = { warn() {}, error() {}, info() {} };
@@ -132,7 +133,7 @@ test('冰原卫法者 knocked out: its projectile\'s target-start effects where 
     assert.equal(L.ownsFx(boom), true, 'no stand-in blast');
     for (const d of strike) L.onEvent(d, views);
     assert.deepEqual(spawned(seen), strike.map((d) => `enemy_krgrg_die_hit>${d[1]}`));
-    const other = ['fx', 'explode', 1, 1, { x: 1, y: 1, r: 1.65, kind: 'deathBoom', id: 999, ability: 'Boom' }];
+    const other = fxEvent('explode', { x: 1, y: 1, r: 1.65, kind: 'deathBoom', id: 999, ability: 'Boom' });
     L.onEvent(other, views);
     assert.equal(L.ownsFx(other), false, 'a strike with nothing shown where it fell: the stand-in');
   } finally { globalThis.fetch = fetch0; }

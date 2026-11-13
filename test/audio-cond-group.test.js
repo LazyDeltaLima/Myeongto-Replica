@@ -13,6 +13,7 @@ import { pickVariant } from '../public/js/audioOfficial.js';
 import { makeBattle, enemyRec } from './helpers/battleHarness.js';
 import { KIT_HIT_BANKS } from '../tools/assets/kit-sfx.mjs';
 import { COND_GROUPS } from './audio-cond-group-list.js';
+import { fxEvent } from './helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MANIFEST = path.join(ROOT, 'data', 'assets.json');
@@ -96,7 +97,7 @@ describe('attack groups with a condition per child', () => {
     const heard = (ev) => { a.played.length = 0; a.handleBattleEvents(ev); return [...a.played]; };
     heard([['skill', 1, 1], ['skill', 4, 1]]);
     assert.deepEqual(heard([swing(1)]), ['p_atk_pistolcarbin_s'], '涤火杰西卡 S3: the plain shot');
-    assert.ok(heard([['fx', 'bombardShell', 0, 0, { id: 1, x: 0, y: 0, t: 1 }]]).includes('p_atk_navalgun_n'), 'its ExtraBomb child sounds at the shell');
+    assert.ok(heard([fxEvent('bombardShell', { id: 1, x: 0, y: 0, t: 1 })]).includes('p_atk_navalgun_n'), 'its ExtraBomb child sounds at the shell');
     const u4 = { def: 'char_1033_swire2' };
     assert.equal(signalFxKey('swire2Heal', { id: 4 }, () => u4), 'swire2:heal');
     assert.equal(signalFxKey('coin', { id: 4, heal: 2, skill: 'swire2_1' }, () => u4), 'swire2:healhit');

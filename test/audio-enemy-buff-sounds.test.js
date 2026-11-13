@@ -15,6 +15,7 @@ import { AudioManager, enemyBuffSounds, enemyStatusOffSound } from '../public/js
 import { KIT_HIT_BANKS, kitHitSfx } from '../tools/assets/kit-sfx.mjs';
 import { indexAudio } from '../tools/assets/audio.mjs';
 import { makeBattle } from './helpers/battleHarness.js';
+import { fxEvent } from './helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OFFICIAL = path.join(ROOT, '.cache', 'gamedata', 'excel', 'audio_data.json');
@@ -222,7 +223,7 @@ describe('规程 隐秘核心 sounds (2026-11-11, CN prefabs)', () => {
     return a;
   }
   const live = (a, f) => a.due.filter((r) => r.f === f && !r.cancelled).map((r) => r.delay);
-  const rain = (field, id, dur = 10) => ['fx', 'zone', 0, 0, { x: 0, y: 0, r: 0, dur, kind: 'acspiderRain', field, id, ability: 'AcidRain' }];
+  const rain = (field, id, dur = 10) => fxEvent('zone', { x: 0, y: 0, r: 0, dur, kind: 'acspiderRain', field, id, ability: 'AcidRain' });
 
   test('the banks', { skip: NO_DATA }, () => {
     const out = kitHitSfx(indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8'))), (p) => p);
@@ -272,10 +273,10 @@ describe('规程 隐秘核心 sounds (2026-11-11, CN prefabs)', () => {
     assert.equal(a.enemyMode(9, G, 1, 0), true, 'the renderer\'s mode change takes (its SnowyMountain attack set)');
     assert.equal(a.units.get(9).emode, 1);
     assert.equal(a.enemyMode(10, G, 1, 0), false, 'a summon of the record without `walks`: no enemy mode');
-    assert.deepEqual(heard([['fx', 'phase', 0, 0, { x: 0, y: 0, id: 9, kind: 'SnowyMountain', form: 'SnowyMountain' }]]), ['e_atk_stchnwtn.mp3'], 'Switch2Snowy');
-    assert.deepEqual(heard([['fx', 'phase', 0, 0, { x: 0, y: 0, id: 9, kind: 'Giant', form: 'Giant' }]]), ['e_atk_stchnwgt.mp3'], 'Switch2Giant');
+    assert.deepEqual(heard([fxEvent('phase', { x: 0, y: 0, id: 9, kind: 'SnowyMountain', form: 'SnowyMountain' })]), ['e_atk_stchnwtn.mp3'], 'Switch2Snowy');
+    assert.deepEqual(heard([fxEvent('phase', { x: 0, y: 0, id: 9, kind: 'Giant', form: 'Giant' })]), ['e_atk_stchnwgt.mp3'], 'Switch2Giant');
     assert.deepEqual(heard([['skill', 9, true, 'Skills/Attract']]).filter((f) => f.startsWith('e_')), ['e_atk_snwtntrct.mp3'], 'Attract\'s START');
     heard([['skill', 9, false]]);
-    assert.ok(heard([['fx', 'enemySkill', 0, 0, { x: 0, y: 0, id: 9, ability: 'PowerAttack', n: 1 }]]).includes('e_atk_snwtnpch.mp3'), 'PowerAttack\'s START');
+    assert.ok(heard([fxEvent('enemySkill', { x: 0, y: 0, id: 9, ability: 'PowerAttack', n: 1 })]).includes('e_atk_snwtnpch.mp3'), 'PowerAttack\'s START');
   });
 });

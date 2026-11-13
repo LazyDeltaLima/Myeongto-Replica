@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
@@ -46,8 +47,8 @@ test('a target locked again keeps its one mark until the shell of its last lock 
     const foe = (id, x) => ({ id, x, y: 3, alive: true, info: { id, side: 'enemy', defId: 'enemy_1007_slime' } });
     const views = new Map([[1, lem], [21, foe(21, 4)], [22, foe(22, 5)]]);
     const marks = () => seen.splice(0).filter((p) => p.kind === 'spawn' && p.names[0] === 'lemuen_skill_03_crosshair_02').map((p) => p.on);
-    const lock = (id) => layer.onEvent(['fx', 'lock', views.get(id).x, 3, { x: views.get(id).x, y: 3, id, src: 1, hold: 1 }], views);
-    const land = () => layer.onEvent(['fx', 'bombard', 4, 3, { x: 4, y: 3, id: 1 }], views);   // her shells land in lock order
+    const lock = (id) => layer.onEvent(fxEvent('lock', { x: views.get(id).x, y: 3, id, src: 1, hold: 1 }), views);
+    const land = () => layer.onEvent(fxEvent('bombard', { x: 4, y: 3, id: 1 }), views);   // her shells land in lock order
 
     lock(21); lock(22); lock(21);
     await new Promise((r) => setTimeout(r, 10));
@@ -59,7 +60,7 @@ test('a target locked again keeps its one mark until the shell of its last lock 
     lock(21); lock(22);
     assert.deepEqual(marks(), [21, 22], 'every lock of both has landed: new marks');
     // her lock phase ends with her first shell: the marks' buff ends then, though their beams wait for their shells
-    layer.onEvent(['fx', 'bombardShell', 4, 3, { x: 4, y: 3, id: 1, r: 1, t: 0.3, i: 0 }], views);
+    layer.onEvent(fxEvent('bombardShell', { x: 4, y: 3, id: 1, r: 1, t: 0.3, i: 0 }), views);
     lock(21);
     assert.deepEqual(marks(), [21], 'the ended mark of 21 is not held on by a later lock');
   } finally { globalThis.fetch = fetch0; }

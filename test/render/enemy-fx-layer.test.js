@@ -5,6 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const SHOT = 'projectile_enemy_acfort_skill';
 // 2026-11-11: 谢拉格's giant (a walking ally from an enemy record, UnitInfo `walks`): its prefab's two modes by its form
@@ -79,10 +80,10 @@ test('enemy layer: mode change → audio.enemyMode(unitId, defId, mode, previous
   // a `Trap` token bound with no dead effect: nothing official, and no puff either
   assert.equal(layer.ownsDeath(tr), true);
   // a FireWeapon stand-in beam is not drawn when its projectile's trail can be; another beam kind is
-  const beam = ['fx', 'beam', 0, 0, { x: 0, y: 0, from: 1, to: 2, kind: 'fireWeapon' }];
+  const beam = fxEvent('beam', { x: 0, y: 0, from: 1, to: 2, kind: 'fireWeapon' });
   layer.onEvent(beam, views);
   assert.equal(layer.ownsFx(beam), true);
-  const other = ['fx', 'beam', 0, 0, { x: 0, y: 0, from: 1, to: 2, kind: 'chainLightning' }];
+  const other = fxEvent('beam', { x: 0, y: 0, from: 1, to: 2, kind: 'chainLightning' });
   layer.onEvent(other, views);
   assert.equal(layer.ownsFx(other), false);
   // the shot itself is handled (its kind draws nothing procedural) without breaking on a missing target
@@ -110,7 +111,7 @@ test('enemy layer: 萨米的意志 冰凌 (fx column) tile by tile — official 
   layer.update(0.016, cam, { width: 10, height: 10 });
   // boss_7's swing (kind 'none', no 'atk' follows) takes the enemy branch without breaking
   assert.doesNotThrow(() => layer.onEvent(['swing', 7, 1, 'none'], views));
-  const col = (id, key, sub) => ['fx', 'column', 4, 3, { x: 4, y: 3, c: 4, id, key, sub, r0: 18, dir: [0, -1], speed: 5, dist: 1, life: 1 }];
+  const col = (id, key, sub) => fxEvent('column', { x: 4, y: 3, c: 4, id, key, sub, r0: 18, dir: [0, -1], speed: 5, dist: 1, life: 1 });
   const official = col(7, 'p_ice', 'p_ice_2');
   layer.onEvent(official, views);
   assert.equal(layer.ownsFx(official), true);
@@ -127,7 +128,7 @@ test('enemy layer: 萨米的意志 冰凌 (fx column) tile by tile — official 
   assert.ok(pillars.every((p) => p.k === 'column' && p.x === 4));
   at.forEach((t, i) => assert.ok(Math.abs(t - ((18 - pillars[i].y) / 5 + 1)) < 0.03, `row ${pillars[i].y} at ${t}`));
   // an old-shape column (no r0) is left to render/fx.js as before
-  const old = ['fx', 'column', 4, 3, { x: 4, y: 3, id: 7 }];
+  const old = fxEvent('column', { x: 4, y: 3, id: 7 });
   layer.onEvent(old, views);
   assert.equal(layer.ownsFx(old), false);
 });
@@ -149,17 +150,17 @@ test('enemy layer: a held skill (fx enemySkill `hold`) lasts until its enemySkil
   const views = new Map([[11, b], [2, a]]);
   const cam = { liftFor: () => 0, scaleAt: () => 64, dist: 10 };
   layer.update(0.016, cam, { width: 10, height: 10 });
-  layer.onEvent(['fx', 'enemySkill', 0, 0, { x: 0, y: 0, id: 11, ability: 'sktok_dstnta', n: 1, hold: 1 }], views);
+  layer.onEvent(fxEvent('enemySkill', { x: 0, y: 0, id: 11, ability: 'sktok_dstnta', n: 1, hold: 1 }), views);
   assert.equal(b._fxESkill?.hold, true);
   for (let i = 0; i < 250; i++) layer.update(0.02, cam, { width: 10, height: 10 });   // 5 s: past the 3 s window of a plain cast
   assert.doesNotThrow(() => layer.onEvent(['dmg', 2, 150, 0, 'phys', 11], views));
   assert.equal(b._fxESkill.hold, true);
   assert.ok(b._fxESkill.held.has('2:t_hit'), 'the `_onlyOnce` hit is held on the unit it hit');
-  layer.onEvent(['fx', 'enemySkillEnd', 0, 0, { x: 0, y: 0, id: 11, ability: 'sktok_dstnta' }], views);
+  layer.onEvent(fxEvent('enemySkillEnd', { x: 0, y: 0, id: 11, ability: 'sktok_dstnta' }), views);
   assert.equal(b._fxESkill.hold, false);
   assert.ok(b._fxESkill.t < 0, 'its later damage is no hit of it');
   // a plain cast (no `hold`) is not held
-  layer.onEvent(['fx', 'enemySkill', 0, 0, { x: 0, y: 0, id: 11, ability: 'sktok_dstnta', n: 2 }], views);
+  layer.onEvent(fxEvent('enemySkill', { x: 0, y: 0, id: 11, ability: 'sktok_dstnta', n: 2 }), views);
   assert.equal(b._fxESkill.hold, false);
 });
 
@@ -214,17 +215,17 @@ test('enemy layer: 炎佑\'s 祛恶之焰 tick draws its Skill_2 line and target
   foe.x = 1;
   const views = new Map([[5, acl], [2, foe]]);
   layer.onEvent(['tick'], views);
-  const tick = ['fx', 'yanyouFlame', 1, 0, { x: 1, y: 0, id: 5, target: 2, r: 1, n: 1, dur: 1 }];
+  const tick = fxEvent('yanyouFlame', { x: 1, y: 0, id: 5, target: 2, r: 1, n: 1, dur: 1 });
   layer.onEvent(tick, views);
   assert.equal(layer.ownsFx(tick), true, 'render/fx/beams.js skips its jet');
   const spawned = () => plays.filter((p) => p.kind === 'spawn').map((p) => p.names[0]);
   assert.deepEqual(spawned().filter((n) => n.startsWith('acl_')).sort(), ['acl_line', 'acl_ring']);
-  const tick2 = ['fx', 'yanyouFlame', 1, 0, { x: 1, y: 0, id: 5, target: 2, r: 1, n: 1, dur: 1 }];
+  const tick2 = fxEvent('yanyouFlame', { x: 1, y: 0, id: 5, target: 2, r: 1, n: 1, dur: 1 });
   layer.onEvent(tick2, views);
   assert.equal(spawned().filter((n) => n.startsWith('acl_')).length, 2, 'the next tick on the same target holds them');
   assert.doesNotThrow(() => layer.onEvent(['skill', 5, false], views));
   // another summon's tick keeps the procedural jet
-  const other = ['fx', 'yanyouFlame', 1, 0, { x: 1, y: 0, id: 6, target: 2 }];
+  const other = fxEvent('yanyouFlame', { x: 1, y: 0, id: 6, target: 2 });
   layer.onEvent(other, new Map([...views, [6, { ...acl, id: 6, info: { ...acl.info, id: 6, defId: 'token_x' } }]]));
   assert.equal(layer.ownsFx(other), false);
 });
@@ -254,7 +255,7 @@ test('enemy layer: a walking ally from an enemy record (`walks`: 谢拉格\'s gi
   // its skill naming the ability goes the enemy way (eskillFx), as an enemy's
   layer.onEvent(['skill', 5, true, 'Skills/Attract'], views);
   assert.ok(names().includes('g_lure'), 'its 【神迹之声】 ability (Skills/Attract)');
-  const lure = ['fx', 'lure', 0, 0, { x: 0, y: 0, id: 5, n: 2 }];
+  const lure = fxEvent('lure', { x: 0, y: 0, id: 5, n: 2 });
   layer.onEvent(lure, views);
   assert.equal(layer.ownsFx(lure), true, 'no stand-in puff over its range effect');
   // its PowerAttack on a frozen enemy (fx 'enemySkill', then the attack the sim strikes with): the ability's cast and hit, not the attack's
@@ -262,7 +263,7 @@ test('enemy layer: a walking ally from an enemy record (`walks`: 谢拉格\'s gi
   giant.form = 'SnowyMountain';
   for (let i = 0; i < 120; i++) layer.update(0.016, cam, { width: 10, height: 10 });
   plays.length = 0;
-  layer.onEvent(['fx', 'enemySkill', 0, 0, { x: 0, y: 0, id: 5, ability: 'PowerAttack', n: 1 }], views);
+  layer.onEvent(fxEvent('enemySkill', { x: 0, y: 0, id: 5, ability: 'PowerAttack', n: 1 }), views);
   strike();
   got = names();
   assert.deepEqual(got.filter((n) => n.startsWith('g_')).sort(), ['g_phit', 'g_pstart'], `PowerAttack in place of the attack: ${got}`);

@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { installFakePixi, fakeViewCtx } from './fakepixi.js';
 import { presetCamera } from '../../public/js/render/projection.js';
 import { fxSpec } from '../../public/js/render/fx/kinds.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 let fake, UnitView, createFxLayer;
 before(async () => {
@@ -28,7 +29,7 @@ async function layer() {
   globalThis.fetch = fetch0;
   return L;
 }
-const phase = (form, kind = form, extra = {}) => ['fx', 'phase', 5, 5, { x: 5, y: 5, id: 1, kind, form, ...extra }];
+const phase = (form, kind = form, extra = {}) => fxEvent('phase', { x: 5, y: 5, id: 1, kind, form, ...extra });
 
 // the sim's setForm 'phase' switches into a form the model draws (server content: element.js 掠海漂移体 'crawl', critic.js
 // 寻路者 'HeadShot' / null and 无畏掷弹兵 'Light', leaders.js 转译基底·α translator_*, bonds/giant.js 「不眠雪山」 Giant /

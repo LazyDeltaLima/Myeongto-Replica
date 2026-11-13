@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const files = {
   '/assets/local/fx/index.json': { bundles: {
@@ -67,7 +68,7 @@ test('drones: idle by mode, a shot per attack (trail, then its hit), the S2 dron
     layer.onEvent(['skill', 1, 1], views);
     assert.deepEqual(got().filter((n) => n.startsWith('kjera_token_F') || n === 'kjera_token_default'), ['kjera_token_F_01', 'kjera_token_F_02']);
     tick(0.02);
-    const droneHit = (at) => layer.onEvent(['fx', 'drone', at.x, at.y, { x: at.x, y: at.y, id: 1 }], views);
+    const droneHit = (at) => layer.onEvent(fxEvent('drone', { x: at.x, y: at.y, id: 1 }), views);
     droneHit(foe); droneHit(foe);
     assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')),
       ['kjera_token_hide_01', 'kjera_token_hide_02', 'kjera_token_skill_02_hit_F_L_01', 'kjera_token_skill_02_hit_F_R_01']);
@@ -92,7 +93,7 @@ test('drones: idle by mode, a shot per attack (trail, then its hit), the S2 dron
     assert.deepEqual(got().filter((n) => n.startsWith('whitw2')), []);
     tick(0.3);
     assert.deepEqual(got().filter((n) => n.startsWith('whitw2')), ['whitw2_token_end_01', 'whitw2_token_end_02']);
-    layer.onEvent(['fx', 'talent', 0, 0, { x: 0, y: 0, id: 2, name: 'alpha', stage: 3 }], views);
+    layer.onEvent(fxEvent('talent', { x: 0, y: 0, id: 2, name: 'alpha', stage: 3 }), views);
     assert.deepEqual(got().filter((n) => /^whitw2_token_0\d$/.test(n)), ['whitw2_token_01', 'whitw2_token_02', 'whitw2_token_03']);
   } finally { globalThis.fetch = fetch0; }
 });
@@ -113,12 +114,12 @@ test("洛洛 S2: her locked drone's hits alternate its groups, the overload ones
     ro._fxSkillOn = true;
     layer.onEvent(['skill', 4, 1], views);
     layer.update(0.02, null, null);
-    const droneHit = () => layer.onEvent(['fx', 'drone', foe.x, foe.y, { x: foe.x, y: foe.y, id: 4 }], views);   // her kit's locked-drone hit
+    const droneHit = () => layer.onEvent(fxEvent('drone', { x: foe.x, y: foe.y, id: 4 }), views);   // her kit's locked-drone hit
     droneHit();
     layer.update(0.2, null, null);
     droneHit();
     assert.deepEqual(got(), ['rockr_token_skill_02_hit_L_01', 'rockr_token_skill_02_hit_R_01']);
-    layer.onEvent(['fx', 'overload', 0, 0, { x: 0, y: 0, id: 4 }], views);
+    layer.onEvent(fxEvent('overload', { x: 0, y: 0, id: 4 }), views);
     layer.update(0.2, null, null);
     droneHit();
     assert.deepEqual(got(), ['rockr_token_skill_02_hit_L_overload_01']);
@@ -136,7 +137,7 @@ test("伺夜's pack: extra wolves by the count, a lost one's sub_die, its bite b
     const foe = { id: 9, x: 2, y: 0, alive: true, info: { id: 9, side: 'enemy', defId: 'enemy_1001_bigbo' } };
     const views = new Map([[3, wolf], [9, foe]]);
     const got = () => plays.splice(0).filter((p) => p.kind === 'spawn').map((p) => p.names[0]).filter((n) => n.startsWith('vigil')).sort();
-    const fx = (name, o) => layer.onEvent(['fx', name, 1, 0, { x: 1, y: 0, id: 3, ...o }], views);
+    const fx = (name, o) => layer.onEvent(fxEvent(name, { x: 1, y: 0, id: 3, ...o }), views);
     fx('summon', { src: 7, token: 'token_10028_vigil_wolf', wolves: 2 });
     layer.onEvent(['deploy', 3], views);
     layer.update(0.02, null, null);
@@ -174,7 +175,7 @@ test("伺夜's pack (2026-10-21): a board piece's first count ('wolfCount'), its
     const wolf = { id: 3, x: 1, y: 0, alive: true, info: { id: 3, side: 'ally', kind: 'token', defId: 'token_10028_vigil_wolf' } };
     const views = new Map([[3, wolf]]);
     const got = () => plays.splice(0).filter((p) => p.kind === 'spawn').map((p) => p.names[0]).filter((n) => n.startsWith('vigil')).sort();
-    const fx = (name, o) => layer.onEvent(['fx', name, 1, 0, { x: 1, y: 0, id: 3, ...o }], views);
+    const fx = (name, o) => layer.onEvent(fxEvent(name, { x: 1, y: 0, id: 3, ...o }), views);
     // a board piece: its deploy, then the sim's count (3 here — not the old assumed 2)
     layer.onEvent(['deploy', 3], views);
     layer.update(0.02, null, null);

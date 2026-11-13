@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NO_DATA, withLayer } from '../helpers/fxDryLayer.js';
 import { KIT_NO_STAND_IN } from '../../public/js/render/fx/kitofficial.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -58,7 +59,7 @@ test('折桠 S2: the first swing casts FirstAttack\'s and not the attack\'s, its
   const b = take();
   assert.ok(has(b, 'branch_skill_02_range_01') && has(b, 'branch_skill_02_start_01'), `${b}`);
   assert.ok(!has(b, 'branch_skill_02_attack_01'), `${b}`);
-  layer.onEvent(['fx', 'aoe', 0, 0, { x: 0, y: 0, radius: 1.5, id: 1, skill: 'resolve', targets: [9] }], views);
+  layer.onEvent(fxEvent('aoe', { x: 0, y: 0, radius: 1.5, id: 1, skill: 'resolve', targets: [9] }), views);
   assert.deepEqual(take(), ['branch_skill_02_hit_01'], 'the strike: SpAttack\'s hit on what it makes 战栗, no second cast');
   layer.update(2);
   take();
@@ -117,13 +118,13 @@ test('a kit event the client draws with its own prefabs elsewhere draws no gener
   for (const pair of KIT_NO_STAND_IN) {
     const [b, n] = pair.split('|');
     const views = new Map([[1, unit(1, 'ally', Object.keys(modes).find((k) => k.endsWith(`_${b}`)))], [9, unit(9, 'enemy', 'enemy_x', 2)]]);
-    const e = ['fx', n, 0, 0, { x: 0, y: 0, id: 1 }];
+    const e = fxEvent(n, { x: 0, y: 0, id: 1 });
     layer.onEvent(e, views);
     assert.ok(layer.ownsFx(e), `${pair} still draws its stand-in`);
   }
   // an operator not on the list keeps the mark every other operator shows
   const views = new Map([[1, unit(1, 'ally', 'char_4132_ascln')]]);
-  const e = ['fx', 'dodge', 0, 0, { x: 0, y: 0, id: 1 }];
+  const e = fxEvent('dodge', { x: 0, y: 0, id: 1 });
   layer.onEvent(e, views);
   assert.ok(!layer.ownsFx(e), 'the miss mark stays');
 }));

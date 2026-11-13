@@ -15,6 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
 import { activationEffects, altGroup, combatEffects } from '../../public/js/render/fxmap.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (p) => JSON.parse(readFileSync(path.join(ROOT, p), 'utf8'));
@@ -135,7 +136,7 @@ test('锡人 S2 \'zone\': the alchemy unit flies first, its reach effects play a
   const views = new Map([[3, op(3, 'char_4151_tinman', 1)]]);
   layer.onEvent(['skill', 3, 1], views);
   take();
-  layer.onEvent(['fx', 'zone', 1.5, 0, { x: 1.5, y: 0, radius: 1.5, dur: 10, id: 3, skill: 'tinman' }], views);
+  layer.onEvent(fxEvent('zone', { x: 1.5, y: 0, radius: 1.5, dur: 10, id: 3, skill: 'tinman' }), views);
   assert.deepEqual(take('spawn'), ['spawn:tinman_skill_02_trail_02'], 'at projectile_chr_tinman_s2\'s 3 tiles / s');
   layer.update(0.6);
   assert.deepEqual(take('spawn').sort(), ['spawn:tinman_skill_02_range_01', 'spawn:tinman_skill_02_start_01']);

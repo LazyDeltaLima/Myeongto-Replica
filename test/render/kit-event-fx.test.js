@@ -16,6 +16,7 @@ import { activationEffects, KIT_CAST } from '../../public/js/render/fxmap.js';
 // the fixed plays of the client keys the cases assert (they run without the client-only rows)
 import { PLAYS as FIXED } from '../helpers/fxPlays.js';
 import { PICK_EVENTS, UNJUDGED, UNJUDGED_MAX } from './pick-event-list.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const GAME = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
@@ -500,10 +501,10 @@ test("fxgame.js: 위셔델's overload shots fly no shell, and her shade arrives 
     await settle();
     const unit = (id, defId, kind) => ({ id, x: 1, y: 1, alive: true, info: { id, side: 'ally', defId, kind, skillIndex: 1 } });
     const views = new Map([[1, unit(1, 'char_1035_wisdel')], [2, unit(2, 'token_10035_wisdel_wward', 'token')]]);
-    const shell = ['fx', 'bombardShell', 4, 3, { x: 4, y: 3, id: 1, r: 1, t: 0.25 }];
+    const shell = fxEvent('bombardShell', { x: 4, y: 3, id: 1, r: 1, t: 0.25 });
     layer.onEvent(shell, views);
     assert.equal(layer.ownsFx(shell), true, 'hers draws nothing of the shell: fx.js does not fly it');
-    const summon = ['fx', 'summon', 2, 2, { x: 2, y: 2, id: 2, src: 1 }];
+    const summon = fxEvent('summon', { x: 2, y: 2, id: 2, src: 1 });
     layer.onEvent(summon, views);
     assert.equal(layer.ownsFx(summon), true, 'no generic ring as the shade arrives');
   } finally { globalThis.fetch = fetch0; }
@@ -518,22 +519,22 @@ test('fxgame.js: a planned event is taken from its stand-in only when one of its
     const horn = { id: 1, x: 0, y: 0, alive: true, info: { id: 1, side: 'ally', defId: 'char_4039_horn', skillIndex: 1 } };
     const ines = { id: 2, x: 3, y: 0, alive: true, info: { id: 2, side: 'ally', defId: 'char_4087_ines' } };
     const views = new Map([[1, horn], [2, ines]]);
-    const bb = ['fx', 'bloodBattle', 0, 0, { x: 0, y: 0, id: 1 }];
+    const bb = fxEvent('bloodBattle', { x: 0, y: 0, id: 1 });
     layer.onEvent(bb, views);
     assert.equal(layer.ownsFx(bb), true);
-    const ov = ['fx', 'overload', 0, 0, { x: 0, y: 0, id: 1 }];
+    const ov = fxEvent('overload', { x: 0, y: 0, id: 1 });
     layer.onEvent(ov, views);
     assert.equal(layer.ownsFx(ov), true);
     // facing UP: the _back variant, not extracted here → nothing of it plays; the event stays silenced (standInOff)
     horn.dir = 'UP';
-    const ov2 = ['fx', 'overload', 0, 0, { x: 0, y: 0, id: 1 }];
+    const ov2 = fxEvent('overload', { x: 0, y: 0, id: 1 });
     layer.onEvent(ov2, views);
     assert.equal(layer.ownsFx(ov2), true, 'standInOff still drops the stand-in');
-    const st = ['fx', 'sentry', 3, 0, { x: 3, y: 0, id: 2 }];
+    const st = fxEvent('sentry', { x: 3, y: 0, id: 2 });
     layer.onEvent(st, views);
     assert.equal(layer.ownsFx(st), true);
     // her recall ends it and keeps its own (informational) beam
-    const beam = ['fx', 'beam', 3, 0, { x: 3, y: 0, tx: 3, ty: 0, id: 2 }];
+    const beam = fxEvent('beam', { x: 3, y: 0, tx: 3, ty: 0, id: 2 });
     layer.onEvent(beam, views);
     assert.equal(layer.ownsFx(beam), false);
   } finally { globalThis.fetch = fetch0; }
@@ -548,7 +549,7 @@ test('fxgame.js: slots on and around a unit, 泥岩\'s and “自在”\'s block
     await settle();
     const op = (id, defId) => ({ id, x: id, y: 0, alive: true, info: { id, side: 'ally', defId, skillIndex: 0 } });
     const views = new Map([[1, op(1, 'char_4134_cetsyr')], [2, op(2, 'char_426_billro')], [3, op(3, 'char_311_mudrok')], [4, op(4, 'char_1014_nearl2')]]);
-    const ev = (name, o) => layer.onEvent(['fx', name, 0, 0, { x: 0, y: 0, ...o }], views);
+    const ev = (name, o) => layer.onEvent(fxEvent(name, { x: 0, y: 0, ...o }), views);
     const got = () => plays.splice(0).filter((p) => p.kind === 'spawn').map((p) => p.names[0]).sort();
     // (sent without awaiting: node has no WebP, the first spawn's check fails the layer for later events)
     ev('motes', { id: 1, n: 3, cap: 3, sk: 0 });
@@ -584,15 +585,15 @@ test('fxgame.js: slots on and around a unit, 泥岩\'s and “自在”\'s block
     views.set(6, { id: 6, x: 6, y: 0, alive: true, info: { id: 6, side: 'enemy', defId: 'enemy_1511_mdrock' } });
     ev('parry', { id: 6, buff: 'ab:rockPower[3]', whole: 0, broke: 1 });
     assert.deepEqual(got(), ['enemy_mdrock_skill_buff_05']);
-    const br = ['fx', 'shieldBreak', 0, 0, { x: 0, y: 0, id: 6 }];
+    const br = fxEvent('shieldBreak', { x: 0, y: 0, id: 6 });
     layer.onEvent(br, views);
     assert.equal(layer.ownsFx(br), true);
-    const br2 = ['fx', 'shieldBreak', 0, 0, { x: 0, y: 0, id: 6 }];
+    const br2 = fxEvent('shieldBreak', { x: 0, y: 0, id: 6 });
     layer.onEvent(br2, views);
     assert.equal(layer.ownsFx(br2), false, 'once: a later break without its official effect keeps the stand-in');
     // 远眺 killed (not silenced): enemy_hummbd_t's death effect instead of the 2D ring
     views.set(7, { id: 7, x: 7, y: 0, alive: false, info: { id: 7, side: 'enemy', defId: 'enemy_1407_hummbd' } });
-    const ex = ['fx', 'explode', 7, 0, { x: 7, y: 0, r: 1, kind: 'expose', id: 7 }];
+    const ex = fxEvent('explode', { x: 7, y: 0, r: 1, kind: 'expose', id: 7 });
     layer.onEvent(ex, views);
     assert.deepEqual(got(), ['enemy_hummbd_die_02']);
     assert.equal(layer.ownsFx(ex), true);
@@ -627,7 +628,7 @@ test('fxgame.js (2026-10-24, 묶음 S3): the moments a \'dmg\' / \'heal\' names 
     layer.onEvent(['dmg', 9, 300, 'phys', 0, 1, 0, 0, [['excu2_s_3[mark]', 1]]], views);
     assert.deepEqual(got(), ['excu2_skill_03_aim_01@9']);
     // 流明 T2: the emergency flash on the ally she heals (lumen_t_2[listener]'s BUFF_OWNER)
-    layer.onEvent(['fx', 'emergency', 6, 0, { x: 6, y: 0, id: 6, src: 5 }], views);
+    layer.onEvent(fxEvent('emergency', { x: 6, y: 0, id: 6, src: 5 }), views);
     assert.deepEqual(got(), ['lumen_buff_01_hit@6']);
   } finally { globalThis.fetch = fetch0; }
 });
@@ -685,10 +686,10 @@ test('fxgame.js (2026-10-24, 묶음 S8): 菲莱 S2 by her rage, 至简 T1, 深�
     layer.onEvent(['dmg', 9, 999, 'phys', 0, 4, 0, null, [['haini:full', 4]]], views);
     assert.deepEqual(got(), ['haini_skill_02_buff_01@4', 'haini_skill_02_weapon_01@4']);
     // 焰影苇草 S2: a strike from the fireball around her ally 6 — its hit flash and cooldown look ride it
-    layer.onEvent(['fx', 'strike', 9, 0, { x: 9, y: 0, id: 9, src: 6, by: 5, cd: 1.5 }], views);
+    layer.onEvent(fxEvent('strike', { x: 9, y: 0, id: 9, src: 6, by: 5, cd: 1.5 }), views);
     assert.deepEqual(got(), ['reed2_skill_02_fireball_02@null', 'reed2_skill_02_fireball_hit@null'], 'on its orbit (a moving point, no unit)');
     // 荒芜拉普兰德 S3: a held target's mark over a chased one's; each enemy once
-    layer.onEvent(['fx', 'whitw2Drones', 7, 0, { x: 7, y: 0, id: 7, d: [8, 0, 9, 0, 9, 0], t: [[8, 0], [9, 0], [9, 1]] }], views);
+    layer.onEvent(fxEvent('whitw2Drones', { x: 7, y: 0, id: 7, d: [8, 0, 9, 0, 9, 0], t: [[8, 0], [9, 0], [9, 1]] }), views);
     assert.deepEqual(got(), ['whitw2_skill_03_mark_01@8', 'whitw2_skill_03_mark_02@9']);
   } finally { globalThis.fetch = fetch0; }
 });
@@ -771,7 +772,7 @@ test('fxgame.js (2026-10-31): 赤刃明霄陈 S2 counts her slashes from _hit_01
     await settle();
     const op = (id, defId) => ({ id, x: id, y: 0, alive: true, info: { id, side: 'ally', defId, skillIndex: 1 } });
     const views = new Map([[1, op(1, 'char_1050_chen3')], [2, op(2, 'char_4182_oblvns')]]);
-    const ev = (name, o) => { const e = ['fx', name, 0, 0, { x: 0, y: 0, ...o }]; layer.onEvent(e, views); return e; };
+    const ev = (name, o) => { const e = fxEvent(name, { x: 0, y: 0, ...o }); layer.onEvent(e, views); return e; };
     const got = () => plays.splice(0).filter((p) => p.kind === 'spawn').map((p) => p.names[0]);
     // (sent without awaiting: node has no WebP, the first spawn's check fails the layer for later events)
     ev('chen3Vanish', { id: 1, form: 'vanish' });
@@ -828,7 +829,7 @@ test('fxgame.js (2026-11-03): a module\'s deploy effects (_PlayUniEquipEffect) o
     layer.onEvent(['deploy', 1], views);
     layer.update(0.016, cam, { width: 10, height: 10 });
     assert.deepEqual(mod(), ['equipment_system_musha_buff_y'], 'a new deployment after a retreat');
-    const ev = (name, o) => layer.onEvent(['fx', name, 0, 0, { x: 0, y: 0, ...o }], views);
+    const ev = (name, o) => layer.onEvent(fxEvent(name, { x: 0, y: 0, ...o }), views);
     ev('undying', { id: 1 });
     ev('kitHit', { id: 8, src: 2, k: 'haruka:break', heal: 1 });
     ev('kitHit', { id: 3, src: 3, from: 7, k: 'ironmn_t_2' });
@@ -890,7 +891,7 @@ test('fxgame.js (2026-11-03): 斥罪\'s and 逻各斯\'s kit moments play on the
     const foe = (id, alive = true) => ({ id, x: id, y: 0, alive, info: { id, side: 'enemy', defId: 'enemy_1007_slime' } });
     const views = new Map([[1, op(1, 'char_4065_judge')], [2, op(2, 'char_4133_logos')], [8, foe(8, false)], [9, foe(9)]]);
     const got = () => plays.splice(0).filter((q) => q.kind === 'spawn').map((q) => `${q.names[0]}@${q.on}`).sort();
-    const ev = (name, o) => layer.onEvent(['fx', name, 0, 0, { x: 0, y: 0, ...o }], views);
+    const ev = (name, o) => layer.onEvent(fxEvent(name, { x: 0, y: 0, ...o }), views);
     ev('kitHit', { id: 1, src: 1, k: 'judge:barrier', on: 1 });
     ev('kitHit', { id: 1, src: 1, k: 'judge:barrier', on: 0 });
     ev('thorns', { id: 1, target: 9 });

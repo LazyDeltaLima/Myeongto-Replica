@@ -17,6 +17,7 @@ import { getData } from '../server/data.js';
 import { makeBattle, chessRec } from './helpers/battleHarness.js';
 import * as enemiesMod from '../server/sim/content/enemies.js';
 import * as bossesMod from '../server/sim/content/bosses.js';
+import { fxEvent } from './helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OFFICIAL = path.join(ROOT, '.cache', 'gamedata', 'excel', 'audio_data.json');
@@ -93,7 +94,7 @@ describe('规程 enemy sounds (2026-11-12)', () => {
       { id: 8, kind: 'enemy', side: 'enemy', spine: 'enemy_1220_dzoms' },
     ]);
     const heard = (ev) => { a.played.length = 0; a.handleBattleEvents(ev); return [...a.played]; };
-    const burst = (id, element) => ['fx', 'burst', 0, 0, { x: 0, y: 0, id, element }];
+    const burst = (id, element) => fxEvent('burst', { x: 0, y: 0, id, element });
     let p = heard([burst(1, 'burn')]);
     assert.deepEqual([count(p, 'b_char_fireharm.mp3'), count(p, 'e_imp_dmfttrb_d.mp3'), p.length], [1, 1, 2]);
     assert.deepEqual(heard([burst(1, 'rampage')]), ['b_char_angerharm.mp3']);
@@ -107,11 +108,11 @@ describe('规程 enemy sounds (2026-11-12)', () => {
     assert.equal(count(heard([['die', 9, 'expired']]), 'e_skill_reborn.mp3'), 0, 'gone without a knock-out');
     a.setFieldUnits([{ id: 5, kind: 'enemy', side: 'enemy', spine: 'enemy_1431_lrmzrd' }, { id: 6, kind: 'enemy', side: 'enemy', spine: 'enemy_10163_mnctur_2' },
       { id: 8, kind: 'enemy', side: 'enemy', spine: 'enemy_1220_dzoms' }, { id: 7, kind: 'char', side: 'ally', spine: 'char_102_texas' }]);
-    p = heard([['fx', 'capture', 0, 0, { x: 0, y: 0, id: 5, from: 8, n: 1 }]]);
+    p = heard([fxEvent('capture', { x: 0, y: 0, id: 5, from: 8, n: 1 })]);
     assert.equal(count(p, 'e_atk_rhtakeoff.mp3'), 1, 'a soul taken');
-    p = heard([['fx', 'phase', 0, 0, { x: 0, y: 0, id: 6, kind: 'Run', form: 'Run' }]]);
+    p = heard([fxEvent('phase', { x: 0, y: 0, id: 6, kind: 'Run', form: 'Run' })]);
     assert.deepEqual(p, ['e_atk_lghtnhrsrn.mp3'], 'it sets off');
-    const end = ['fx', 'enemySkill', 0, 0, { x: 0, y: 0, id: 6, ability: 'rushEndNormal', n: 1 }];
+    const end = fxEvent('enemySkill', { x: 0, y: 0, id: 6, ability: 'rushEndNormal', n: 1 });
     p = heard([['dmg', 7, 600, 'phys', 0, 6, 0, null], end]);
     assert.equal(count(p, 'e_imp_berxplvbrl.mp3'), 1, 'its collision');
     p = heard([end]);
@@ -126,7 +127,7 @@ describe('规程 enemy sounds (2026-11-12)', () => {
     assert.ok(u.enemy_10163_mnctur_2.sk?.rush?.some((c) => file(c.u) === 'e_atk_lghtnhrshk.mp3'), 'rush START');
     const a = manager();
     a.setFieldUnits([{ id: 1, kind: 'enemy', side: 'enemy', spine: 'enemy_1376_ltndru' }]);
-    a.handleBattleEvents([['fx', 'enemySkill', 0, 0, { x: 0, y: 0, id: 1, ability: 'aoeAttack', n: 1 }]]);
+    a.handleBattleEvents([fxEvent('enemySkill', { x: 0, y: 0, id: 1, ability: 'aoeAttack', n: 1 })]);
     assert.deepEqual(a.played, ['e_atk_drmsndwv.mp3'], 'once, nothing else');
   });
 });

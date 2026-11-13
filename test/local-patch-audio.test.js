@@ -13,6 +13,7 @@ import { AudioManager } from '../public/js/audio.js';
 import { GROUP_GAIN, VOICE_GAIN, officialGain, battleGain, roleGroup, modeEntry } from '../public/js/audioOfficial.js';
 import { skillModeIndex, modeSounds, abilitySounds, loadCharModes } from '../tools/assets/skill-mode-sfx.mjs';
 import { indexAudio } from '../tools/assets/audio.mjs';
+import { fxEvent } from './helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const manifest = JSON.parse(readFileSync(path.join(ROOT, 'data', 'assets.json'), 'utf8'));
@@ -295,20 +296,20 @@ describe('every bank plays like the official SoundFXBank.Play: popOldest / maxSo
     a.setFieldUnits([{ id: 5, kind: 'enemy', side: 'enemy', spine: 'enemy_1112_emppnt', defId: 'enemy_1112_emppnt' },
       { id: 2, kind: 'op', side: 'ally', spine: 'char_4193_lemuen', defId: 'chess_x' }]);
     const k = manifest.audio.sfx.kit;
-    a.handleBattleEvents([['atk', 5, 2, 'mortar'], ['fx', 'bombardShell', 3, 1, { x: 3, y: 1, id: 5, r: 1.2, t: 3 }]]);
+    a.handleBattleEvents([['atk', 5, 2, 'mortar'], fxEvent('bombardShell', { x: 3, y: 1, id: 5, r: 1.2, t: 3 })]);
     await tick();
     assert.deepEqual(started.map((s) => s.buffer?.u).filter(Boolean), [k['emppnt:aim']]);
     started.length = 0;
-    a.handleBattleEvents([['fx', 'bombard', 3, 1, { x: 3, y: 1, r: 1.2, kind: 'emppnt' }], ['dmg', 2, 900, 'phys', 0, null, 0, null]]);
+    a.handleBattleEvents([fxEvent('bombard', { x: 3, y: 1, r: 1.2, kind: 'emppnt' }), ['dmg', 2, 900, 'phys', 0, null, 0, null]]);
     await tick();
     assert.deepEqual(started.map((s) => s.buffer?.u).filter(Boolean).sort(), [k['emppnt:hit'], k['emppnt:shell']].sort(), 'one unit hit');
     started.length = 0;
-    a.handleBattleEvents([['fx', 'bombard', 3, 1, { x: 3, y: 1, r: 1.2, kind: 'emppnt' }], ['dmg', 2, 900, 'phys', 0, null, 0, null],
+    a.handleBattleEvents([fxEvent('bombard', { x: 3, y: 1, r: 1.2, kind: 'emppnt' }), ['dmg', 2, 900, 'phys', 0, null, 0, null],
       ['dmg', 3, 900, 'phys', 0, null, 0, null]]);
     await tick();
     assert.equal(started.filter((s) => s.buffer?.u === k['emppnt:shell']).length, 2, 'two units hit: two landing sounds (the client\'s HIT is per unit)');
     started.length = 0;
-    a.handleBattleEvents([['fx', 'bombard', 3, 1, { x: 3, y: 1, r: 1.2, kind: 'emppnt' }]]);
+    a.handleBattleEvents([fxEvent('bombard', { x: 3, y: 1, r: 1.2, kind: 'emppnt' })]);
     await tick();
     assert.equal(started.length, 0, 'nobody hit: silent (no REACH bank)');
   });

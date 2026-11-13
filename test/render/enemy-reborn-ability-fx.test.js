@@ -5,6 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const FX = ['rv2', 'rv3', 'm2', 'loop', 'loop_end', 'flash', 'burst', 'bomb_range'];
 const EMODES = {
@@ -75,9 +76,9 @@ test('rebirth ability: 巨大的丑东西\'s official bomb replaces the stand-in
   const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (p) => plays.push(p) });
   await settle();
   layer.onEvent(['tick'], views);
-  const tel = ['fx', 'telegraph', 0, 0, { x: 0, y: 0, r: 3, dur: 2.17, kind: 'mechBomb', id: 4 }];
-  const boom = ['fx', 'explode', 0, 0, { x: 0, y: 0, r: 3, kind: 'mechBomb', id: 4 }];
-  const other = ['fx', 'telegraph', 0, 0, { x: 0, y: 0, r: 3, dur: 2.17, kind: 'mechBomb', id: 1 }];
+  const tel = fxEvent('telegraph', { x: 0, y: 0, r: 3, dur: 2.17, kind: 'mechBomb', id: 4 });
+  const boom = fxEvent('explode', { x: 0, y: 0, r: 3, kind: 'mechBomb', id: 4 });
+  const other = fxEvent('telegraph', { x: 0, y: 0, r: 3, dur: 2.17, kind: 'mechBomb', id: 1 });
   for (const e of [tel, boom, other]) layer.onEvent(e, views);
   assert.equal(layer.ownsFx(tel), true);
   assert.equal(layer.ownsFx(boom), true);

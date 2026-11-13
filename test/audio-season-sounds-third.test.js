@@ -19,6 +19,7 @@ import { getData } from '../server/data.js';
 import { makeBattle, chessRec } from './helpers/battleHarness.js';
 import * as enemiesMod from '../server/sim/content/enemies.js';
 import * as bossesMod from '../server/sim/content/bosses.js';
+import { fxEvent } from './helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OFFICIAL = path.join(ROOT, '.cache', 'gamedata', 'excel', 'audio_data.json');
@@ -101,14 +102,14 @@ describe('规程 sounds, third part (2026-11-12)', () => {
       { id: 7, kind: 'enemy', side: 'enemy', spine: 'enemy_10003_trwlpl_2' },
     ]);
     const heard = (ev) => { a.played.length = 0; a.waits.length = 0; a.handleBattleEvents(ev); return [...a.played]; };
-    const fx = (kind, o) => ['fx', kind, 0, 0, { x: 0, y: 0, ...o }];
+    const fx = (kind, o) => fxEvent(kind, { x: 0, y: 0, ...o });
     assert.deepEqual(heard([fx('telegraph', { kind: 'nsbomb', id: 1, r: 1, dur: 0.5, ability: 'Bomb' })]), ['e_atk_brdmbfr.mp3'], 'the bomb dropped');
     assert.deepEqual(heard([fx('explode', { kind: 'nsbomb', id: 1, r: 1, ability: 'Bomb' })]), ['e_imp_brdmbfr.mp3'], 'it lands');
     let p = heard([fx('teleport', { kind: 'shkrbt', id: 2, ability: 'Blink' })]);
     assert.deepEqual([count(p, 'e_atk_rnspflsh.mp3'), count(p, 'e_imp_rnspflsh.mp3'), p.length], [1, 1, 2], 'Blink START and its end');
     assert.deepEqual(heard([fx('undying', { id: 5, src: 3, duration: 3 })]), ['p_imp_slblessbuff.mp3'], '淬羽赫默 S3 不死');
-    assert.deepEqual(heard([['fx', 'cannon', 3, 4, { x: 3, y: 4, carry: 1, pax: 6 }]]), ['e_atk_longmecha.mp3'], '염괴포 takes an enemy aboard');
-    assert.deepEqual(heard([['fx', 'cannon', 3, 4, { x: 3, y: 4, fire: 1, tx: 5, ty: 4, t: 1, pax: 6 }], ['fx', 'explode', 5, 4, { x: 5, y: 4, kind: 'cnnonShell', hit: [] }]]), [], 'its shot and landing');
+    assert.deepEqual(heard([fxEvent('cannon', { x: 3, y: 4, carry: 1, pax: 6 })]), ['e_atk_longmecha.mp3'], '염괴포 takes an enemy aboard');
+    assert.deepEqual(heard([fxEvent('cannon', { x: 3, y: 4, fire: 1, tx: 5, ty: 4, t: 1, pax: 6 }), fxEvent('explode', { x: 5, y: 4, kind: 'cnnonShell', hit: [] })]), [], 'its shot and landing');
     assert.deepEqual(heard([fx('shieldBreak', { id: 5, src: 4, on: 1 })]), ['p_imp_megnrshd.mp3'], 'S2\'s 屏障 broken while S2 runs');
     assert.deepEqual(heard([fx('shieldBreak', { id: 5, src: 4, on: 0 })]), [], 'after S2');
     // 机械师 S3: the charge flies (BORN) and lands (REACH on the landing 'aoe'), unless it flies a projectile with no banks
@@ -137,7 +138,7 @@ describe('规程 sounds, third part (2026-11-12)', () => {
     const a = manager();
     a.setFieldUnits([{ id: 1, kind: 'enemy', side: 'enemy', spine: 'enemy_10123_uareap' }, { id: 2, kind: 'char', side: 'ally', spine: 'char_102_texas' },
       { id: 3, kind: 'char', side: 'ally', spine: 'char_102_texas' }]);
-    a.handleBattleEvents([['fx', 'enemySkill', 0, 0, { x: 0, y: 0, id: 1, ability: 'SkyProjectile', n: 1 }]]);
+    a.handleBattleEvents([fxEvent('enemySkill', { x: 0, y: 0, id: 1, ability: 'SkyProjectile', n: 1 })]);
     assert.deepEqual(a.played, ['e_atk_mchmsl.mp3'], 'the cast: START only');
     a.played.length = 0;
     a.handleBattleEvents([['atk', 1, 2, 'uareapMissile']]);

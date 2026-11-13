@@ -17,6 +17,7 @@ import { loadCharAudio, soundSet } from '../tools/assets/skill-mode-sfx.mjs';
 import { KIT_HIT_BANKS } from '../tools/assets/kit-sfx.mjs';
 import { indexAudio } from '../tools/assets/audio.mjs';
 import { makeBattle, enemyRec } from './helpers/battleHarness.js';
+import { fxEvent } from './helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OFFICIAL = path.join(ROOT, '.cache', 'gamedata', 'excel', 'audio_data.json');
@@ -86,9 +87,9 @@ describe('playing them (audio.js)', () => {
     field(a, LEMUEN, 1);
     a.handleBattleEvents([['skill', 1, 1]]);
     for (let i = 0; i < 2; i++) assert.deepEqual(heard(a, [['swing', 1, 0.3, 'arrow']]), ['p_atk_lmwlcrstr_h.mp3'], `Normal ${i + 1}`);
-    assert.deepEqual(heard(a, [['fx', 'lemuenAim', 0, 0, { x: 0, y: 0, id: 1, signal: 'aim', on: 1 }]]), ['p_atk_lmwlcrstrcg_h.mp3']);
-    assert.deepEqual(heard(a, [['fx', 'lemuenAim', 0, 0, { x: 0, y: 0, id: 1, signal: 'aim', on: 0 }]]), [], 'the aim ending');
-    assert.deepEqual(heard(a, [['fx', 'crit', 0, 0, { x: 0, y: 0, id: 2, src: 1 }]]).sort(), ['p_atk_lmwlcrstrcgst_h.mp3', 'p_imp_lmwlcrstr_d.mp3']);
+    assert.deepEqual(heard(a, [fxEvent('lemuenAim', { x: 0, y: 0, id: 1, signal: 'aim', on: 1 })]), ['p_atk_lmwlcrstrcg_h.mp3']);
+    assert.deepEqual(heard(a, [fxEvent('lemuenAim', { x: 0, y: 0, id: 1, signal: 'aim', on: 0 })]), [], 'the aim ending');
+    assert.deepEqual(heard(a, [fxEvent('crit', { x: 0, y: 0, id: 2, src: 1 })]).sort(), ['p_atk_lmwlcrstrcgst_h.mp3', 'p_imp_lmwlcrstr_d.mp3']);
     const unitOf = (id) => (id === 1 ? { def: 'char_1_05_vigna', skillIndex: 1 } : { side: 'enemy' });
     assert.equal(kitHitKey('crit', { id: 2, src: 1 }, unitOf), null, 'another operator\'s crit');
     assert.equal(signalFxKey('crit', { id: 2, src: 1 }, unitOf), null);

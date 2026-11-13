@@ -11,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
 import { attackMode, boundEffects } from '../../public/js/render/fxmap.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const MLY = 'token_10030_mlyss_wtrman', TW = 'token_10026_bgsnow_subbow', CANNON = 'token_10009_weedy_cannon', WOLF = 'token_10028_vigil_wolf', SHADOW = 'token_10022_kazema_shadow';
@@ -138,7 +139,7 @@ test('缪尔赛思\'s 流形: Default before its copy; the copy\'s Melee / Range
   attack(layer, views, 1, 9);
   assert.deepEqual(shown(), ['attackHit:token_10030_mlyss_wtrman_c1c2c3_combat_hit_01'], 'Default (c1): its hit only');
   layer.update(1);
-  layer.onEvent(['fx', 'copy', 0, 0, { x: 0, y: 0, id: 1, src: 7, mode: 'Range', by: 5 }], views);
+  layer.onEvent(fxEvent('copy', { x: 0, y: 0, id: 1, src: 7, mode: 'Range', by: 5 }), views);
   take();
   attack(layer, views, 1, 9);
   assert.deepEqual(shown(), ['attackStart:token_10030_mlyss_wtrman_c3_attack_start_01', 'attackHit:token_10030_mlyss_wtrman_c2c3_attack_hit_01'], 'Range, a ranged swing');
@@ -148,7 +149,7 @@ test('缪尔赛思\'s 流形: Default before its copy; the copy\'s Melee / Range
   attack(layer, views, 1, 9);
   assert.deepEqual(shown(), ['attackStart:token_10030_mlyss_wtrman_c3_attack_start_01', 'attackHit:token_10030_mlyss_wtrman_c2c3_attack_hit_01'], 'Range_S2');
   layer.update(1);
-  layer.onEvent(['fx', 'copy', 0, 0, { x: 0, y: 0, id: 1, src: 8, mode: 'Melee', by: 5 }], views);
+  layer.onEvent(fxEvent('copy', { x: 0, y: 0, id: 1, src: 8, mode: 'Melee', by: 5 }), views);
   layer.onEvent(['skill', 5, 0], views);
   layer.update(1);
   take();

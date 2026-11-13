@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { rangeEdges } from '../../public/js/render/fx/edges.js';
 import { NO_DATA, withLayer } from '../helpers/fxDryLayer.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const count = (list, n) => list.filter((x) => x.split('@')[0] === n).length;
 
@@ -29,14 +30,14 @@ test('rangeEdges: one closed loop per outline, corners at the tiles\' edges, the
 test('테리토리야\'s 国度: dminon_talent_range_01 on each tile of his range, dminon_range_line_01 once per outline loop; the spread and 此身为界 play dminon_talent_range_hit_01 on each tile; 实质坍缩 dminon_talent_hit_01 on the enemy', { skip: NO_DATA }, () => withLayer(async ({ layer, unit, take }) => {
   const views = new Map([[1, unit(1, 'ally', 'char_4246_dminon', 3, 0)], [9, unit(9, 'enemy', 'enemy_x', 4)]]);
   const cells = [[3, 9], [4, 9], [3, 10], [4, 10], [6, 10]];   // a square and a tile apart: two loops
-  layer.onEvent(['fx', 'field', 3, 10, { x: 3, y: 10, id: 1, cells, gone: [] }], views);
+  layer.onEvent(fxEvent('field', { x: 3, y: 10, id: 1, cells, gone: [] }), views);
   const a = take();
   assert.deepEqual([count(a, 'dminon_talent_range_01'), count(a, 'dminon_range_line_01')], [5, 2], `${a}`);
-  layer.onEvent(['fx', 'aoe', 8, 10, { x: 8, y: 10, radius: 1, id: 1, skill: 'dminon:spread', cells: [[8, 9], [7, 10], [8, 10], [9, 10], [8, 11]] }], views);
+  layer.onEvent(fxEvent('aoe', { x: 8, y: 10, radius: 1, id: 1, skill: 'dminon:spread', cells: [[8, 9], [7, 10], [8, 10], [9, 10], [8, 11]] }), views);
   const b = take();
   assert.equal(count(b, 'dminon_talent_range_hit_01'), 5, `${b}`);
   assert.equal(count(b, 'dminon_talent_range_01'), 0, 'the area mark is not drawn either');
-  layer.onEvent(['fx', 'aoe', 3, 10, { x: 3, y: 10, id: 1, skill: 'dminon:boundary', cells }], views);
+  layer.onEvent(fxEvent('aoe', { x: 3, y: 10, id: 1, skill: 'dminon:boundary', cells }), views);
   assert.equal(count(take(), 'dminon_talent_range_hit_01'), 5);
   layer.onEvent(['dmg', 9, 10, 'arts', 0, 1, 0, 1, [['dminon_t_1[dmg]', 1]]], views);
   const d = take();

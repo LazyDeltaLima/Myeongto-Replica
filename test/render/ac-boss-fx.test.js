@@ -13,6 +13,7 @@ import { makeBattle, chessRec } from '../helpers/battleHarness.js';
 import { DataSource, getDefaultSource } from '../../server/sim/simdata.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const EEL = 'enemy_9037_aceel_2', SPIDER = 'enemy_9035_acspider', SPIDER2 = 'enemy_9035_acspider_2', WEB = 'enemy_9036_acweb';
 const NAMES = ['sh_loop', 'sh_buff', 'sh_end', 'line', 'hit', 'mask', 'web1', 'weather', 'ground'];
@@ -99,7 +100,7 @@ test('茧 (隐秘核心) 【悲惨之雨】: its tile listeners\' floor (enemy-m
     // rows 2–5 drawn, row 4 col 3 not (a hole in the drawn board)
     const g = Array.from({ length: 6 }, (_, r) => Array.from({ length: 21 }, (_, c) => ({ drawn: r >= 2 && !(r === 4 && c === 3), h: c === 5 ? 1 : 0 })));
     const { layer, views, seen } = await layerWith(true, { grid: () => g });
-    const rain = (o) => { const e = ['fx', 'zone', 10, 3, { x: 10, y: 3, r: 0, dur: 25, kind: 'acspiderRain', id: 7, ability: 'AcidRain', field: 'p1', ...o }]; layer.onEvent(e, views); return e; };
+    const rain = (o) => { const e = fxEvent('zone', { x: 10, y: 3, r: 0, dur: 25, kind: 'acspiderRain', id: 7, ability: 'AcidRain', field: 'p1', ...o }); layer.onEvent(e, views); return e; };
     const spawns = () => seen.splice(0).filter((p) => p.kind === 'spawn');
     assert.equal(layer.ownsFx(rain({ tiles: [2, 5, 0, 10] })), true, 'drawn here, not the stand-in zone');
     const got = spawns();

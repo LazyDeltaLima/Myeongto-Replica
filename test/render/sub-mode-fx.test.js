@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
 import { fxBundleOf, SKILL_END_CAST } from '../../public/js/render/fxmap.js';
 import { isOwnSubMode, skillModeIndex, SKILL_SUB_MODES } from '../../shared/skill-modes.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const MODES = JSON.parse(readFileSync(path.join(ROOT, 'tools/assets/local-char-modes.json'), 'utf8'));
@@ -79,7 +80,7 @@ for (const [id, fx, name, i, own] of ENTRIES) {
       layer.onEvent(['skill', 1, 1], views);
       await settle();
       take();
-      layer.onEvent(['fx', fx, 2, 2, { id: 1, x: 2, y: 2 }], views);
+      layer.onEvent(fxEvent(fx, { id: 1, x: 2, y: 2 }), views);
       layer.update(0.05);
       await settle();
       take();
@@ -105,7 +106,7 @@ test('乌尔比安 S1\'s anchor is no switch: S3_Respawn_A is S3\'s (the same fx
     layer.onEvent(['skill', 1, 1], views);
     await settle();
     take();
-    layer.onEvent(['fx', 'anchor', 2, 2, { id: 1, x: 2, y: 2 }], views);
+    layer.onEvent(fxEvent('anchor', { id: 1, x: 2, y: 2 }), views);
     layer.update(0.05);
     await settle();
     take();
@@ -121,7 +122,7 @@ test('another unit\'s anchor (src: the caster, id: its target) switches nothing 
     layer.onEvent(['skill', 1, 1], views);
     await settle();
     take();
-    layer.onEvent(['fx', 'anchor', 2, 2, { id: 1, src: 5, x: 2, y: 2 }], views);
+    layer.onEvent(fxEvent('anchor', { id: 1, src: 5, x: 2, y: 2 }), views);
     layer.update(0.05);
     await settle();
     take();

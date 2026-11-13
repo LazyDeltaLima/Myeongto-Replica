@@ -17,6 +17,7 @@ import { createFxLayer } from '../../public/js/render/fxgame.js';
 import { kitOfficialPlan } from '../../public/js/render/fx/kitofficial.js';
 // the plays of the kit plans' client keys (tools/build-fx-plays.mjs plays.json) these cases use
 import { PLAYS } from '../helpers/fxPlays.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const MODES = JSON.parse(readFileSync(path.join(ROOT, 'tools/assets/local-char-modes.json'), 'utf8'));
@@ -71,7 +72,7 @@ async function withLayer(run) {
 
 test('圣聆初雪 S2: the frozen point thaws where it stood', () => withLayer(async ({ layer, unit, take }) => {
   const views = new Map([[1, unit(1, 'ally', 'char_1046_sbell2')], [7, unit(7, 'ally', 'token_10058_sbell2_icetgt', 3, 0, 'token')]]);
-  layer.onEvent(['fx', 'summon', 3, 0, { x: 3, y: 0, id: 7, src: 1, token: 'token_10058_sbell2_icetgt' }], views);
+  layer.onEvent(fxEvent('summon', { x: 3, y: 0, id: 7, src: 1, token: 'token_10058_sbell2_icetgt' }), views);
   assert.deepEqual(take(), ['spawn:sbell2_tile_frozen@7']);
   layer.onEvent(['die', 7, 'killed'], views);
   assert.deepEqual(take().filter((p) => p.includes('sbell2')), ['spawn:sbell2_tile_defrost']);
@@ -113,13 +114,13 @@ test('凯尔希·思衡托 S3: teleport_02 on each 待投放 operator; the head 
 
 test('克莱门莎 S2: _mark_01 with the carriage, _mark_02 once full', () => withLayer(async ({ layer, unit, take }) => {
   const views = new Map([[1, unit(1, 'ally', 'char_4231_clemnt')]]);
-  layer.onEvent(['fx', 'anchor', 3, 0, { x: 3, y: 0, fromX: 0, fromY: 0, id: 1, dur: 1 }], views);
+  layer.onEvent(fxEvent('anchor', { x: 3, y: 0, fromX: 0, fromY: 0, id: 1, dur: 1 }), views);
   assert.deepEqual(take(), ['spawn:clemnt_skill_02_bullet_01', 'spawn:clemnt_skill_02_mark_01@1']);
   layer.update(0.3);
-  layer.onEvent(['fx', 'cabinFull', 1, 0, { x: 1, y: 0, id: 1 }], views);
+  layer.onEvent(fxEvent('cabinFull', { x: 1, y: 0, id: 1 }), views);
   assert.deepEqual(take(), ['spawn:clemnt_skill_02_mark_02@1']);
   layer.update(0.8);
-  layer.onEvent(['fx', 'tide', 3, 0, { x: 3, y: 0, r: 1.5, dur: 5, id: 1 }], views);
+  layer.onEvent(fxEvent('tide', { x: 3, y: 0, r: 1.5, dur: 5, id: 1 }), views);
   assert.deepEqual(take(), ['spawn:clemnt_skill_02_bullet_range_01']);
 }));
 

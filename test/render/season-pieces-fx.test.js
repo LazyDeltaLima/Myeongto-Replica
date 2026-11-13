@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { NO_DATA, withLayer } from '../helpers/fxDryLayer.js';
 import { kitOfficialPlan } from '../../public/js/render/fx/kitofficial.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const count = (list, n) => list.filter((x) => x.split('@')[0] === n).length;
 
@@ -12,7 +13,7 @@ test('사일런스 더 패러디그매틱 S3: 不死 shows slent2_skill_03_buff_
   const views = new Map([[1, unit(1, 'ally', 'char_1031_slent2', 0, 2)], [5, unit(5, 'ally', 'char_002_amiya', 1)]]);
   layer.onEvent(['skill', 1, 2], views);
   assert.equal(count(take(), 'slent2_skill_03_buff_02'), 0, 'not at the cast');
-  layer.onEvent(['fx', 'undying', 1, 0, { x: 1, y: 0, id: 5, src: 1, duration: 5 }], views);
+  layer.onEvent(fxEvent('undying', { x: 1, y: 0, id: 5, src: 1, duration: 5 }), views);
   assert.equal(count(take(), 'slent2_skill_03_buff_02'), 1);
 }));
 
@@ -26,10 +27,10 @@ test('외드레르 S1 / S3: hodrer_s[heal]\'s hodrer_skill_01_buff_01 on him as 
 
 test('메커니스트 S2: its 屏障 breaking plays _end on the holder while the skill runs, _end_02 after it', { skip: NO_DATA }, () => withLayer(async ({ layer, unit, take }) => {
   const views = new Map([[1, unit(1, 'ally', 'char_4230_mcnist', 0, 1)], [5, unit(5, 'ally', 'char_002_amiya', 1)]]);
-  layer.onEvent(['fx', 'shieldBreak', 1, 0, { x: 1, y: 0, id: 5, src: 1, on: 1 }], views);
+  layer.onEvent(fxEvent('shieldBreak', { x: 1, y: 0, id: 5, src: 1, on: 1 }), views);
   const a = take();
   assert.deepEqual([count(a, 'mcnist_skill_02_buff_01_end'), count(a, 'mcnist_skill_02_buff_01_end_02')], [1, 0], `${a}`);
-  layer.onEvent(['fx', 'shieldBreak', 1, 0, { x: 1, y: 0, id: 5, src: 1, on: 0 }], views);
+  layer.onEvent(fxEvent('shieldBreak', { x: 1, y: 0, id: 5, src: 1, on: 0 }), views);
   const b = take();
   assert.deepEqual([count(b, 'mcnist_skill_02_buff_01_end'), count(b, 'mcnist_skill_02_buff_01_end_02')], [0, 1], `${b}`);
 }));
@@ -40,7 +41,7 @@ test('아미야 의료 형태: her trait heal plays amiya3_characteristic_01_hit
   assert.equal(count(take(), 'amiya3_characteristic_01_hit'), 1);
   layer.onEvent(['skill', 1, 1], views);
   assert.equal(count(take(), 'amiya3_skill_01_range'), 0, 'not at the cast');
-  layer.onEvent(['fx', 'kitHit', 0, 0, { x: 0, y: 0, id: 1, k: 'amiya3:s1' }], views);
+  layer.onEvent(fxEvent('kitHit', { x: 0, y: 0, id: 1, k: 'amiya3:s1' }), views);
   assert.equal(count(take(), 'amiya3_skill_01_range'), 1);
 }));
 
@@ -62,7 +63,7 @@ test('메테오라이트 S2: the kit\'s shell flies meteo_skill_02_trail and pla
   const views = new Map([[1, unit(1, 'ally', 'char_219_meteo', 0, 1)], [2, unit(2, 'enemy', 'enemy_1007_slime', 2)], [3, unit(3, 'enemy', 'enemy_1007_slime', 2.5)]]);
   layer.onEvent(['skill', 1, 1], views);
   take();
-  layer.onEvent(['fx', 'kitHit', 0, 0, { x: 0, y: 0, id: 1, src: 1, target: 2, k: 'meteo:shell' }], views);
+  layer.onEvent(fxEvent('kitHit', { x: 0, y: 0, id: 1, src: 1, target: 2, k: 'meteo:shell' }), views);
   for (let i = 0; i < 10; i++) layer.update(0.1);
   layer.onEvent(['dmg', 2, 900, 'phys', 0, 1, 0, null], views);
   layer.onEvent(['dmg', 3, 900, 'phys', 0, 1, 0, null], views);
@@ -74,7 +75,7 @@ test('메커니스트 S3: the 结构性原理\'s charge flies the trail of its d
   const tok = (dir, facing) => ({ ...unit(7, 'ally', 'token_10069_mcnist_mcgraf', 3), dir, visFacing: facing });
   const run = (dir, facing) => {
     const views = new Map([[1, unit(1, 'ally', 'char_4230_mcnist', 0, 2)], [7, tok(dir, facing)]]);
-    layer.onEvent(['fx', 'charge', 3, 0, { x: 3, y: 0, id: 7, src: 1, dir, tx: 3, ty: 4 }], views);
+    layer.onEvent(fxEvent('charge', { x: 3, y: 0, id: 7, src: 1, dir, tx: 3, ty: 4 }), views);
     for (let i = 0; i < 6; i++) layer.update(0.1);
     return take().filter((n) => n.includes('_trail_'));
   };
@@ -85,8 +86,8 @@ test('메커니스트 S3: the 结构性原理\'s charge flies the trail of its d
   assert.deepEqual(run('LEFT', -1), ['token_mcnist_mcgraf_skill_03_trail_01_left']);
   assert.deepEqual(run('RIGHT', 1), ['token_mcnist_mcgraf_skill_03_trail_01_right']);
   const views = new Map([[1, unit(1, 'ally', 'char_4230_mcnist', 0, 2)]]);
-  layer.onEvent(['fx', 'aoe', 3, 4, { x: 3, y: 4, radius: 1.5, id: 1, skill: 'mcnist:charge' }], views);
-  layer.onEvent(['fx', 'aoe', 5, 2, { x: 5, y: 2, radius: 2, id: 1, skill: 'mcnist:cross', tiles: [] }], views);
+  layer.onEvent(fxEvent('aoe', { x: 3, y: 4, radius: 1.5, id: 1, skill: 'mcnist:charge' }), views);
+  layer.onEvent(fxEvent('aoe', { x: 5, y: 2, radius: 2, id: 1, skill: 'mcnist:cross', tiles: [] }), views);
   const a = take();
   assert.deepEqual([count(a, 'token_mcnist_mcgraf_skill_03_hit_01'), count(a, 'mcnist_skill_03_hit_01')], [1, 1], `${a}`);
 }));

@@ -12,6 +12,7 @@ import { getData } from '../../server/data.js';
 import { makeBattle, chessRec } from '../helpers/battleHarness.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const MODES = new URL('../../public/assets/local/fx/enemy-modes.json', import.meta.url);
 const quiet = { warn() {}, error() {}, info() {} };
@@ -91,7 +92,7 @@ test('萨卡兹子裔轰击者\'s shell: its reach effect where it lies, then it
     seen.length = 0;
     L.onEvent(blastDmg[0], views);
     assert.ok(!names().includes(`enemy_dthrow_attack_hit>${blastDmg[0][1]}`), 'a later hit by it is no blast');
-    const other = ['fx', 'explode', 1, 1, { x: 1, y: 1, r: 1.1, kind: 'dthrowShell' }];
+    const other = fxEvent('explode', { x: 1, y: 1, r: 1.1, kind: 'dthrowShell' });
     L.onEvent(other, views);
     assert.equal(L.ownsFx(other), false, 'a blast with no shell drawn: the stand-in');
   } finally { globalThis.fetch = fetch0; }

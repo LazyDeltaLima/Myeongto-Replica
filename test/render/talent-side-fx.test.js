@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
 import { modePart } from '../../public/js/render/fxmap.js';
 import { PLAYS } from '../helpers/fxPlays.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (p) => JSON.parse(readFileSync(path.join(ROOT, p), 'utf8'));
@@ -118,10 +119,10 @@ test('凯尔希·思衡托 S2: the cast of the target\'s side; landing, its half
   layer.onEvent(['atk', 1, 2, 'orb'], views);   // a heal shot (Battle.forceAttack: no swing)
   const ally = take();
   assert.ok(ally.some((p) => p.includes('kalts2_skill_02_start_heal_01')) && !ally.some((p) => p.includes('start_damage')), `${ally}`);
-  layer.onEvent(['fx', 'aoe', 2, 0, { x: 2, y: 0, radius: 1.5, id: 1, skill: 'kalts2:s2', ally: false }], views);
+  layer.onEvent(fxEvent('aoe', { x: 2, y: 0, radius: 1.5, id: 1, skill: 'kalts2:s2', ally: false }), views);
   assert.deepEqual(take('spawn').map((p) => p.slice(6)).sort(),
     ['kalts2_skill_02_indicator_damage_01', 'kalts2_skill_02_range_damage_01', 'kalts2_skill_02_range_heal_01_delay']);
-  layer.onEvent(['fx', 'aoe', 1, 0, { x: 1, y: 0, radius: 1.5, id: 1, skill: 'kalts2:s2', ally: true }], views);
+  layer.onEvent(fxEvent('aoe', { x: 1, y: 0, radius: 1.5, id: 1, skill: 'kalts2:s2', ally: true }), views);
   assert.deepEqual(take('spawn').map((p) => p.slice(6)).sort(),
     ['kalts2_skill_02_indicator_heal_01', 'kalts2_skill_02_range_damage_01_delay', 'kalts2_skill_02_range_heal_01']);
 }));
@@ -138,7 +139,7 @@ test('琳琅诗怀雅 S3: a coin at each paid enemy, 0.07 s apart, its hit as it
 
 test('伊内丝 S3: the sentry flies back to her, hitting the enemies it passes, its reach effects on her', () => withLayer(async ({ layer, unit, take }) => {
   const views = new Map([[1, unit(1, 'ally', 'char_4087_ines')], [8, unit(8, 'enemy', 'enemy_x', 2)]]);
-  layer.onEvent(['fx', 'beam', 4, 0, { x: 4, y: 0, tx: 0, ty: 0, id: 1, hits: [8] }], views);
+  layer.onEvent(fxEvent('beam', { x: 4, y: 0, tx: 0, ty: 0, id: 1, hits: [8] }), views);
   assert.deepEqual(take('spawn'), ['spawn:ines_skill_03_label_trail_01']);
   layer.update(0.25);   // 2 tiles at 10 tiles / s: the enemy halfway
   assert.deepEqual(take('attackHit'), ['attackHit:ines_skill_03_label_hit_01@8']);

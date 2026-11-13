@@ -14,6 +14,7 @@ import { AudioManager, signalFxKey } from '../public/js/audio.js';
 import { KIT_HIT_BANKS, kitHitSfx } from '../tools/assets/kit-sfx.mjs';
 import { indexAudio } from '../tools/assets/audio.mjs';
 import { skelParserAvailable } from '../tools/assets/skel.mjs';
+import { fxEvent } from './helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OFFICIAL = path.join(ROOT, '.cache', 'gamedata', 'excel', 'audio_data.json');
@@ -145,18 +146,18 @@ describe('buff / custom-trigger hit sounds wired 2026-10-22 (刺玫, 洛洛, 协
   test('刺玫 S2 counter, 协律 S2 sonic boom, 洛洛 S2 drone (overloaded or not): their kit fx', () => {
     const a = manager();
     field(a, [[1, 'char_494_vendla'], [2, 'char_4051_akkord'], [3, 'char_4040_rockr'], [4, 'char_4040_rockr'], [9, 'enemy_1007_slime_2', 'enemy']]);
-    assert.deepEqual(heard(a, [['fx', 'counter', 0, 0, { x: 0, y: 0, id: 1 }]]), ['p_imp_brmblhldmg.mp3']);
-    assert.deepEqual(heard(a, [['fx', 'sonic', 0, 0, { x: 0, y: 0, radius: 0.9, id: 2 }]]), ['p_imp_mlysndvbm.mp3']);
-    assert.deepEqual(heard(a, [['fx', 'drone', 0, 0, { x: 0, y: 0, id: 3 }]]), ['p_atk_elecwandfunnel_n.mp3']);
-    heard(a, [['fx', 'overload', 0, 0, { x: 0, y: 0, id: 4 }]]);
-    assert.deepEqual(heard(a, [['fx', 'drone', 0, 0, { x: 0, y: 0, id: 4 }]]), ['p_atk_elecwandfunnel_h.mp3']);
+    assert.deepEqual(heard(a, [fxEvent('counter', { x: 0, y: 0, id: 1 })]), ['p_imp_brmblhldmg.mp3']);
+    assert.deepEqual(heard(a, [fxEvent('sonic', { x: 0, y: 0, radius: 0.9, id: 2 })]), ['p_imp_mlysndvbm.mp3']);
+    assert.deepEqual(heard(a, [fxEvent('drone', { x: 0, y: 0, id: 3 })]), ['p_atk_elecwandfunnel_n.mp3']);
+    heard(a, [fxEvent('overload', { x: 0, y: 0, id: 4 })]);
+    assert.deepEqual(heard(a, [fxEvent('drone', { x: 0, y: 0, id: 4 })]), ['p_atk_elecwandfunnel_h.mp3']);
     assert.equal(signalFxKey('counter', { id: 5 }, () => ({ def: 'char_4013_rmixer' })), null, 'another kit\'s counter');
   });
 
   test('蕾缪安 S3: the first lock on an enemy sounds, a second lock on it does not; S2\'s aim lock (no hold) does not', () => {
     const a = manager();
     field(a, [[1, 'char_4193_lemuen'], [8, 'enemy_1007_slime_2', 'enemy'], [9, 'enemy_1007_slime_2', 'enemy']]);
-    const lock = (id, hold = 1) => ['fx', 'lock', 0, 0, { x: 0, y: 0, id, src: 1, ...(hold ? { hold } : {}) }];
+    const lock = (id, hold = 1) => fxEvent('lock', { x: 0, y: 0, id, src: 1, ...(hold ? { hold } : {}) });
     assert.ok(heard(a, [lock(8)]).includes('p_atk_lmwlcrstr_s.mp3'));
     assert.ok(!heard(a, [lock(8)]).includes('p_atk_lmwlcrstr_s.mp3'));
     assert.ok(heard(a, [lock(9)]).includes('p_atk_lmwlcrstr_s.mp3'));
@@ -312,8 +313,8 @@ describe('灵知 / 流明 S2 charge stages and 圣聆初雪\'s snow damage (sim 
     const a = manager();
     a.setFieldUnits([{ id: 1, kind: 'op', side: 'ally', spine: 'char_1046_sbell2', defId: 'chess_x', skillIndex: 1 }, { id: 9, kind: 'enemy', side: 'enemy', spine: 'enemy_1007_slime_2', defId: 'e' }]);
     const heard = (ev) => { a.played.length = 0; a.handleBattleEvents(ev); return a.played.map((p) => p.f); };
-    assert.deepEqual(heard([['fx', 'kitHit', 0, 0, { x: 0, y: 0, id: 1, k: 'sbell2:enter' }]]), ['p_imp_swlprdbl_n.mp3']);
-    assert.deepEqual(heard([['fx', 'kitHit', 0, 0, { x: 0, y: 0, id: 1, k: 'sbell2:s2dot', n: 5 }]]), ['p_imp_swcvr_h.mp3', 'p_imp_swcvr_h.mp3']);
+    assert.deepEqual(heard([fxEvent('kitHit', { x: 0, y: 0, id: 1, k: 'sbell2:enter' })]), ['p_imp_swlprdbl_n.mp3']);
+    assert.deepEqual(heard([fxEvent('kitHit', { x: 0, y: 0, id: 1, k: 'sbell2:s2dot', n: 5 })]), ['p_imp_swcvr_h.mp3', 'p_imp_swcvr_h.mp3']);
     a.handleBattleEvents([['skill', 1, 1]]);
     assert.deepEqual(heard([['dmg', 9, 100, 'arts', 0, 1, 0, null]]), []);
   });

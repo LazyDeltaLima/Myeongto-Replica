@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const MODES = JSON.parse(readFileSync(path.join(ROOT, 'tools/assets/local-char-modes.json'), 'utf8'));
@@ -38,7 +39,7 @@ test('Mon3tr S3: lands in S3_Reborn (its start effect, buff and strike), comes b
     await settle();
     const start = names();
     layer.onEvent(['deploy', 1, 0, 'reborn'], views);   // (the sim: moveRedeploy, then the 'teleport' fx)
-    layer.onEvent(['fx', 'teleport', 2, 2, { id: 1, x: 2, y: 2, fromX: 4, fromY: 2 }], views);
+    layer.onEvent(fxEvent('teleport', { id: 1, x: 2, y: 2, fromX: 4, fromY: 2 }), views);
     layer.update(0.05);
     await settle();
     const buff = [...start, ...names()];
@@ -50,7 +51,7 @@ test('Mon3tr S3: lands in S3_Reborn (its start effect, buff and strike), comes b
     assert.ok(s3.includes('monstr_skill_03_start_01'), `the S3_Reborn cast (${s3})`);
     assert.ok(!s3.includes('monstr_skill_03_heal'), `not the S3 mode's heal (${s3})`);
     layer.onEvent(['deploy', 1, 0, 'back'], views);   // the 【返回】 in the skill's onEnd, then its off event
-    layer.onEvent(['fx', 'teleport', 4, 2, { id: 1, x: 4, y: 2, fromX: 2, fromY: 2, back: 1 }], views);
+    layer.onEvent(fxEvent('teleport', { id: 1, x: 4, y: 2, fromX: 2, fromY: 2, back: 1 }), views);
     layer.onEvent(['skill', 1, 0], views);
     layer.update(0.05);
     await settle();

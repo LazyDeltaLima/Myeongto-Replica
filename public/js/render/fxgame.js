@@ -2809,7 +2809,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function exposeFx(e, views) {
     if (failed || !index?.bundles?.[EXPOSE_FX[0]]?.includes(EXPOSE_FX[1])) return false;
     const v = views?.get?.(e[4].id);
-    const at = v && !v.remove ? v : { x: Number(e[4].x), y: Number(e[4].y), z: 0 };
+    const at = v && !v.remove ? v : { x: Number(e[2]), y: Number(e[3]), z: 0 };   // where it fell: the tuple's x / y (Battle.fx)
     spawn(EXPOSE_FX[0], EXPOSE_FX[1], at, { owner: null, buff: false, tag: 'expose', ...(v ? { on: v.id } : {}) }, { over: true, facing: v ? efacing(v) : 1 });
     return true;
   }

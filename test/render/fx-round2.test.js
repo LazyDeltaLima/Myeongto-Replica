@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
 import { activationEffects, attackMode, VARIANT_MODES, variantModes, castPhase, castTiming, clipGroup, deadEffect, DEPLOY_FX, deployEffect, hitLoopEnd } from '../../public/js/render/fxmap.js';
+import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
@@ -144,7 +145,7 @@ test('fx layer: an operator\'s knock-out dead effect replaces the death puff (no
       layer.onEvent(['atk', 1, 9, 'none'], views);
       layer.onEvent(['dmg', 9, 100, 'phys', 0, 1], views);
       layer.onEvent(['swing', 9, 0.4, 'none'], views);
-      layer.onEvent(['fx', 'palsy', 3, 1, { x: 3, y: 1, id: 9 }], views);
+      layer.onEvent(fxEvent('palsy', { x: 3, y: 1, id: 9 }), views);
       layer.onEvent(['atk', 9, 1, 'none'], views);
       layer.onEvent(['dmg', 1, 50, 'phys', 0, 9], views);
       layer.update(0.016, cam, { width: 10, height: 10 });
