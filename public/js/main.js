@@ -58,7 +58,7 @@ import { StatsHost } from './screens/stats.js';
 import { recordResult, recordQuit, installStatsRecorder } from './ui/stats.js';
 import { installLoadoutSync, installOwnershipSync, installDiySync, setLoadoutSeason } from './ui/loadoutSync.js';
 import { installCardSync } from './ui/cardSync.js';
-import { installSeasons, activeSeason, loadPickedSeason, inviteSeasonOf } from './ui/season.js';
+import { installSeasons, activeSeason, followActiveSeason, loadPickedSeason, inviteSeasonOf } from './ui/season.js';
 import { installDiyPresets } from './ui/diyPresets.js'; // 맹약별 선발 프리셋
 import { startBuildGuard } from './ui/buildGuard.js';
 import { installChat } from './ui/chat.js';
@@ -300,11 +300,10 @@ function wireNet() {
   net.on('room.state', onRoomState);
   // the page reads the data, the loadout and the statistics of the 卫戍协议 season on screen (ui/season.js activeSeason:
   // the room's — room.state `season`, absent = the default — else the picked one): shared/seasons.js, data.js setSeason
-  // (the battle runner then loads the sim again with it), loadoutSync.js setLoadoutSeason
+  // (the battle runner then loads the sim again with it), loadoutSync.js setLoadoutSeason — at once with the boot's
+  // season (followActiveSeason), then on every change
   installSeasons({ net });
-  store.subscribe((s, prev) => {
-    const season = activeSeason(s);
-    if (season === activeSeason(prev)) return;
+  followActiveSeason((season) => {
     data.setSeason(season);
     setLoadoutSeason(season);
   });

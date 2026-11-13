@@ -10,7 +10,7 @@ import { DEFAULT_SEASON, SEASONS, defineSeason, newestPublicSeason } from '../..
 import { createStore, initialState } from '../../public/js/store.js';
 import {
   offeredSeasonsOf, hasSeasonPicker, pickedSeason, activeSeason, seasonFields, seasonQueueCounts, parseSeasonParam,
-  installSeasons, pickSeason, loadPickedSeason, inviteSeasonOf,
+  installSeasons, pickSeason, loadPickedSeason, inviteSeasonOf, followActiveSeason,
 } from '../../public/js/ui/season.js';
 import { inviteLink } from '../../public/js/screens/room.js';
 import { seasonPref, setLoadoutSeason, installOwnershipSync } from '../../public/js/ui/loadoutSync.js';
@@ -60,6 +60,24 @@ test('before the first pong the remembered pick is the season on screen, so the 
   assert.deepEqual(offeredSeasonsOf(state()), [DEFAULT_SEASON]);
   assert.equal(activeSeason(state()), newestPublicSeason());
   assert.equal(pickedSeason(state({ season: 'bogus' })), DEFAULT_SEASON);
+});
+
+test('followActiveSeason applies the season the page booted in at once, then each change (main.js: data, loadout)', () => {
+  // a reloaded 规程 page: the remembered pick is on screen before main.js follows it, and no store change announces it —
+  // S.W.E.E.P.报告, 干员调配 and 成就统计 read 盟约's data, loadout and records until one did
+  const target = createStore(state({ season: NEXT }));
+  const seen = [];
+  const off = followActiveSeason((s) => seen.push(s), target);
+  assert.deepEqual(seen, [NEXT], 'the boot season, at once');
+  target.patch('ui', { seasons: [DEFAULT_SEASON, NEXT] }); // the pong confirms it
+  target.set((s) => ({ ...s, room: { code: 'ABCD', season: NEXT } })); // a 规程 room created from the lobby
+  assert.deepEqual(seen, [NEXT], 'the same season: not applied again');
+  target.set((s) => ({ ...s, room: null }));
+  target.patch('ui', { season: DEFAULT_SEASON });
+  assert.deepEqual(seen, [NEXT, DEFAULT_SEASON]);
+  off();
+  target.patch('ui', { season: NEXT });
+  assert.deepEqual(seen, [NEXT, DEFAULT_SEASON], 'stops when disposed');
 });
 
 test('room.create / room.queue fields and the queue counts of a season', () => {

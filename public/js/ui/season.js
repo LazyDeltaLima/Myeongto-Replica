@@ -63,6 +63,26 @@ export function activeSeason(s) {
   return pickedSeason(s);
 }
 
+/**
+ * Follow the season on screen (main.js: data.js setSeason, loadoutSync.js setLoadoutSeason): `apply` runs at once with
+ * the season the page booted in, then on every change. The boot's season is set before this is installed (the remembered
+ * pick or the newest public season, offeredSeasonsOf), so no store change announces it: following changes alone left a
+ * reloaded 规程 page reading 盟约's data, loadout and records (S.W.E.E.P.报告, 干员调配, 成就统计) and creating a
+ * 规程 room with them, since that room's season is the one already on screen.
+ * @param {(season: string) => unknown} apply @param {typeof store} [target]
+ * @returns {() => void}
+ */
+export function followActiveSeason(apply, target = store) {
+  let last = activeSeason(target.get());
+  apply(last);
+  return target.subscribe((s) => {
+    const next = activeSeason(s);
+    if (next === last) return;
+    last = next;
+    apply(next);
+  });
+}
+
 /** The room.create / room.queue field of a season: none for the default one. @param {string} season */
 export const seasonFields = (season) => (season !== DEFAULT_SEASON && isSeasonId(season) ? { season } : {});
 
