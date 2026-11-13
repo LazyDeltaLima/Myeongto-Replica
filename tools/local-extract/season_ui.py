@@ -16,8 +16,12 @@ id of shared/seasons.js:
                                   msgids (public/i18n/ko.json) is set in the official UI face — the one Font asset of the
                                   game that has Hangul, read from the EN client (SP_CLIENT); maintainer decision 2026-11-08
   season/<id>/logo/<sprite>_<k>x  the logo at k times its size (SEASONS[id]['logo_scales']), and <sprite>_ko_<k>x its
-                                  Korean copy with the words set at that size: resampled up, or cut from
-                                  --logo-upscaled (a larger copy made elsewhere)
+                                  Korean copy with the words set at that size: from an AI upscale with the official
+                                  grain put back (grain_kept), else resampled up. The upscale is made outside this tool
+                                  from logo/<sprite>.png — Real-ESRGAN's ncnn build, model realesrgan-x4plus:
+                                  `realesrgan-ncnn-vulkan -i title_season.png -o x4.png -n realesrgan-x4plus` — and
+                                  given once as --logo-upscaled; it is kept in .cache/season-ui-upscaled/ under the
+                                  sprite's pixel hash, so later runs (and a changed sprite: none) find it
   season/<id>/<dir>/<sprite>      every sprite of the icon folders the season's tables point at (SEASONS[id]['icons']),
                                   by folder: one name can be in two folders with two pictures (modeicon / modeselecticon)
   season/<id>/skin/<sprite>       the sprites of the season's default UI theme bundle (SEASONS[id]['skin']), each at its
@@ -74,7 +78,9 @@ SEASONS = {
                     'lines': [('卫戍协议', (136, 192, 217, 215)), ('规程', (236, 192, 308, 232))]},
         # the official title_season is 395×282, drawn up to ~475 px high on a 1080p title: sharper copies for large and
         # dense screens, the Korean one with its words set at that size (the page picks one by srcset)
-        'logo_scales': {'sprite': 'title_season', 'scales': (2, 3)},
+        # an AI upscale (UPSCALED_DIR) gives the outlines; `keep` (the pyramid and the small STRONGHOLD PROTOCOL /
+        # REGULATION lines, which an AI redraws wrong) stays resampled (maintainer decision 2026-11-13)
+        'logo_scales': {'sprite': 'title_season', 'scales': (2, 3), 'keep': [(98, 188, 222, 238)]},
         'icons': [
             ('ui/autochess/[uc]autochesscommon.ab', ['bandicon', 'bondicon', 'shopitemicon', 'modeicon', 'modeselecticon', 'garrisontypeicon']),
             ('ui/autochess/[uc]autochessouter.ab', ['medalicon', 'enemytypeicon', 'diychooselevelsprite', 'shoplevelsprite', 'chesslevelsprite']),
@@ -101,6 +107,8 @@ SEASONS = {
                   'clip': 'autochess_entry_season_on'},
     },
 }
+# AI upscales of the logos (--logo-upscaled), kept between runs: <pixel_key of the sprite>.png (git-ignored)
+UPSCALED_DIR = ROOT / '.cache' / 'season-ui-upscaled'
 # the official UI face with Hangul: a Font asset of the EN client's resources.assets
 FONT_ASSETS = 'resources.assets'
 FONT_NAME = 'SourceHanSansSC-Bold'
@@ -450,6 +458,36 @@ def official_font(font_client):
     raise SystemExit(f'{FONT_NAME}: no such Font in {p}')
 
 
+def pixel_key(image):
+    """The name an upscale of `image` is kept under in UPSCALED_DIR: a hash of its pixels, so a changed sprite (a hot
+    update) never takes the upscale of the old one."""
+    import hashlib
+    return hashlib.sha256(f'{image.mode}{image.size}'.encode() + image.tobytes()).hexdigest()[:16]
+
+
+def grain_kept(image, upscaled, keep):
+    """An AI upscale of `image` with the official picture's texture back: the AI draws clean outlines but smooths the
+    film grain of the flat areas away, so the fine detail of `image` resampled to the same size (its high-pass) is added
+    everywhere but on the AI's outlines; the boxes `keep` (the sprite's own pixels) are the resampled picture as it is."""
+    import cv2
+    import numpy as np
+    from PIL import Image
+    f = upscaled.width / image.width
+    ai = np.asarray(upscaled.convert('RGBA')).astype(np.float32)
+    lz = np.asarray(image.resize(upscaled.size, Image.LANCZOS)).astype(np.float32)
+    lum = cv2.cvtColor(ai[..., :3].astype(np.uint8), cv2.COLOR_RGB2GRAY)
+    edges = cv2.dilate(cv2.Canny(lum, 60, 160), np.ones((5, 5), np.uint8)).astype(np.float32) / 255
+    edges = np.clip(cv2.GaussianBlur(edges, (0, 0), 0.6 * f) * 1.6, 0, 1)[..., None]
+    out = ai.copy()
+    out[..., :3] += (lz[..., :3] - cv2.GaussianBlur(lz[..., :3], (0, 0), f)) * (1 - edges)
+    mask = np.zeros(ai.shape[:2], np.float32)
+    for x0, y0, x1, y1 in keep:
+        mask[round(y0 * f):round(y1 * f), round(x0 * f):round(x1 * f)] = 1
+    mask = cv2.GaussianBlur(mask, (0, 0), 1.5 * f)[..., None]
+    out = out * (1 - mask) + lz * mask
+    return Image.fromarray(np.clip(out + 0.5, 0, 255).astype(np.uint8), 'RGBA')
+
+
 def scaled_logo(image, k, upscaled=None):
     """`image` at k times its size: from `upscaled` (a larger copy of the same picture, e.g. made by an AI upscaler, at
     least k times as large) brought down to it, else resampled up (Lanczos; Pillow premultiplies the alpha)."""
@@ -545,8 +583,18 @@ def main(argv=None):
         save('logo', f"{lk['sprite']}_ko", korean_logo(art[lk['sprite']], lk, font, ko))
     ls = spec.get('logo_scales')
     if ls:
+        import shutil
         from PIL import Image
-        upscaled = Image.open(args.logo_upscaled).convert('RGBA') if args.logo_upscaled else None
+        kept = UPSCALED_DIR / f"{pixel_key(art[ls['sprite']])}.png"
+        if args.logo_upscaled:
+            kept.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(args.logo_upscaled, kept)
+        upscaled = None
+        if kept.exists():
+            upscaled = grain_kept(art[ls['sprite']], Image.open(kept).convert('RGBA'), ls.get('keep', []))
+        else:
+            print(f"note: no AI upscale of {ls['sprite']} at {kept}: its sharper copies are only resampled "
+                  '(--logo-upscaled, see the top of this file)', file=sys.stderr)
         for k in ls['scales']:
             im = scaled_logo(art[ls['sprite']], k, upscaled)
             save('logo', f"{ls['sprite']}_{k}x", im)
