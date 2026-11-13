@@ -41,6 +41,10 @@ export const SEASON_FEATURES = Object.freeze({
    * has a map preview (auto_chess_stage_info_state), so it is no 休闲 convenience there (shared/ruleset.js
    * seasonOfficialOptions; docs/rules/ui.md 「규칙 모드 — 클래식·캐주얼」). */
   stagePreview: false,
+  /** A Final Assault / Hidden Core field takes the IN_BATTLE layer gains (flags.layerGainsEnabled), fixed and 临时层数,
+   * for that battle: the season's official boss battle stacks them (docs/rules/sim.md 「규정 맹약」); the 盟约 client runs
+   * no layer gain outside the own battle. */
+  bossLayerGains: false,
 });
 
 /**
@@ -53,7 +57,7 @@ export const SEASONS = {
   // 卫戍协议：规程 (CN from 2026-11-08): built from its own tables (tools/build-data.mjs --season act3autochess), not public
   // until every part of it is (SP_SEASONS=act3autochess)
   act3autochess: Object.freeze({ id: 'act3autochess', public: false, name: N_('规程'), mark: 'REGULATION',
-    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true, benchInBattle: true, stagePreview: true }) }),
+    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true, benchInBattle: true, stagePreview: true, bossLayerGains: true }) }),
 };
 
 /**

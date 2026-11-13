@@ -11,6 +11,7 @@ import { OK, fail } from './common.js';
 import { onHumanEmote } from '../botEmotes.js';
 import { emoteSet } from '../../../shared/emote-art.js'; // local patch: user emote pictures
 import { simRuleFlags } from '../../../shared/ruleset.js';
+import { seasonFeature } from '../../../shared/seasons.js';
 
 export class MatchIntents {
   _handle(ps, msg) {
@@ -128,12 +129,13 @@ export class MatchIntents {
     if (key && cached && cached.key === key) return cached.units;
     const units = [];
     // the flags of the battle it previews: a normal round gains IN_BATTLE layers from its start (a <战斗开始时> layer gain
-    // raises bond stats at t = 0 there too); the Final Assault / Hidden Core fight without (previewed as a normal field)
+    // raises bond stats at t = 0 there too); the Final Assault / Hidden Core only where the season stacks them there
+    // (shared/seasons.js bossLayerGains; previewed as a normal field)
     const bossRound = this.round === this.gd.bossRound || this.round === this.gd.hiddenRound;
     const b = this.newBattle({
       seed: deriveSeed(this.seed, `preview:${this.round}:${ps.seat}`), kind: 'normal', modeId: this.modeId, round: this.round,
       stageId: this.stageId, rect: { ...GEO.NORMAL_RECT }, timeLimit: 60, players, spawns: [], routes: this.wave ? this.wave.routes : [],
-      sharedBoss: null, flags: { layerGainsEnabled: !bossRound, ...this.gd.dp, ...simRuleFlags(this.ruleset) }, fieldId: `n:${ps.playerId}`, recordEvents: false,
+      sharedBoss: null, flags: { layerGainsEnabled: !bossRound || seasonFeature(this.season, 'bossLayerGains'), ...this.gd.dp, ...simRuleFlags(this.ruleset) }, fieldId: `n:${ps.playerId}`, recordEvents: false,
     });
     try {
       if (typeof b.start === 'function') b.start();

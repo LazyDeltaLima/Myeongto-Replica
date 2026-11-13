@@ -273,3 +273,19 @@ test('Final Assault: stats reach m.private at the end; leader "扣除目标生�
   }
   m.dispose();
 });
+
+test('boss field layer gains follow the season (shared/seasons.js bossLayerGains): 规程 stacks IN_BATTLE layers there, 盟约 none', async () => {
+  const { ACT3_ON_BASE_FIELD } = await import('../helpers/seasonPieces.js');
+  for (const [season, on] of [[undefined, false], ['act3autochess', true]]) {
+    FakeBattle.instances.length = 0;
+    const extra = season ? { season, data: ACT3_ON_BASE_FIELD } : {};
+    const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 2, seed: 61, fake: true, script: (b) => (b.kind === 'boss' ? { bossDps: 1e9 } : {}), ...extra }).start();
+    const m = h.m;
+    h.drive(() => m.phase === PHASE.FINAL_ASSAULT);
+    const fields = bossFields();
+    assert.ok(fields.length > 0, `${season ?? 'default'}: a boss field`);
+    for (const f of fields) assert.equal(f.opts.flags.layerGainsEnabled, on, `${season ?? 'default'}: layerGainsEnabled`);
+    assert.equal(m.errorCount ?? 0, 0);
+    m.dispose?.();
+  }
+});

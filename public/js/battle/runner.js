@@ -41,7 +41,7 @@
 // enemies still standing (/sim/spec.js uniteLeft; user playtest #6 item 7) as state().uniteLeft { [playerId]: n },
 // published whenever it changes (it falls as the helpers kill them), and its authority reports it as b.progress `left`.
 // Live bond layers (DESIGN §20.15): every battle simulated here keeps the bonds whose layers grew in it (IN_BATTLE gains,
-// Battle.addLayers — normal battles only) as absolute counts per player, published as state().bondLayers
+// Battle.addLayers — normal battles, and 规程's boss fields) as absolute counts per player, published as state().bondLayers
 // { [playerId]: { [bondId]: n } } (every battle of the round: the own one, the teammates' replicas) whenever one grows;
 // the bond strip of the player on screen — the own one, or a watched teammate's — shows them live (ui/watchBonds.js).
 // The 临时层数 part of those counts (卫戍协议：规程, Battle.tempLayerGainsOf) is published beside them as
@@ -344,7 +344,7 @@ export function createBattleRunner(deps) {
    * Re-read an entry's live bond layers (DESIGN §20.15): per player of its spec, the bonds whose layers in the battle's
    * live copy (Battle.addLayers, clamped at BOND_LAYER_CAP like the client's AddBondCount) exceed the spec's start
    * count, and the 临时层数 part of each such count (`e.temp`, same shape: Battle.tempLayerGainsOf). Nothing to do when
-   * the battle disables gains (联防, boss rounds).
+   * the battle disables gains (联防; boss rounds outside 规程: shared/seasons.js bossLayerGains).
    */
   function noteLayers(e) {
     const b = e.battle;

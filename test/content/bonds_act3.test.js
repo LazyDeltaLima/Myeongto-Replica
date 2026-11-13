@@ -108,6 +108,26 @@ test('狂躁 burst on an enemy (CN ep_break_anger_enemy): 15 s, ASPD +20, 元素
   assert.deepEqual(h.b.errors, []);
 });
 
+test('规程 boss fields stack IN_BATTLE layers (bossRounds.js flags: seasons.js bossLayerGains): 乌萨斯 临时层数 and a fixed gain, live; off where gains are off', () => {
+  const bb = bbOf('ursusShip');
+  const list = ids('u', 3).map((id) => [id, ['ursusShip']]);
+  for (const [kind, on] of [['boss', true], ['hidden', true], ['boss', false], ['unite', false]]) {
+    const h = fight(list, { ursusShip: bondOn(3, 10) }, { kind, flags: { layerGainsEnabled: on } });
+    const u0 = h.unit('u0_a');
+    const e = h.enemies()[0];
+    h.b.dealDamage(u0, e, { amount: 2e9, type: 'true' });
+    assert.ok(!e.alive, kind);
+    const add = on ? bb.temp_bond_stack_cnt : 0;
+    assert.equal(h.b.tempLayerGainsOf('p1').ursusShip, add || undefined, `${kind} ${on}: 临时层数`);
+    assert.equal(h.b.addLayers('p1', 'ursusShip', 3, 'garrison'), on ? 3 : 0, `${kind} ${on}: a fixed gain`);
+    const total = add + (on ? 3 : 0);
+    assert.equal(h.b.getPlayer('p1').bonds.ursusShip.layers, 10 + total, `${kind} ${on}: live layers`);
+    h.step(2);
+    close(u0.s.atk, 1000 * (1 + bb.atk_base + bb.atk_per_stack * (10 + total)), 1e-6, `${kind} ${on}: the bonus follows them`);
+    assert.deepEqual(h.b.errors, []);
+  }
+});
+
 test('规程 乌萨斯: ATK / HP +(base + per·L); a member\'s knock-out → 临时层数 +2 (6: +4), live, and kept apart in the result', () => {
   const bb = bbOf('ursusShip');
   const list = ids('u', 6).map((id) => [id, ['ursusShip']]);

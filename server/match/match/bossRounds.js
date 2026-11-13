@@ -14,6 +14,7 @@ import { FLOW_TICKER_PRIORITY, BOSS_CLOCK_MS, DELAYS } from './common.js';
 import { tallyBattle } from '../unitTally.js';
 import { simRuleFlags } from '../../../shared/ruleset.js';
 import { msg } from '../../../shared/i18n.js';
+import { seasonFeature } from '../../../shared/seasons.js';
 import { nameParam } from '../../../shared/botNames.js';
 
 /** b.pool broadcasts at most this often (ms). */
@@ -110,8 +111,10 @@ export class MatchBoss {
         sharedBoss: this.bossPool,
         // the round's enemy effects for the leaders' mid-fight summons (server/sim/content/bosses.js summonMods: the
         // leaders' multipliers, GameData.leaderScale); the ruleset's sim options (shared/ruleset.js simRuleFlags: 休闲 →
-        // bossHitClamp, custom → its 限伤 / layer cap; none in classic)
-        flags: { layerGainsEnabled: false, ...this.gd.dp, enemyScale: this.gd.leaderScale(this.round), ...simRuleFlags(this.ruleset) },
+        // bossHitClamp, custom → its 限伤 / layer cap; none in classic). IN_BATTLE layer gains where the season stacks
+        // them on a boss field (shared/seasons.js bossLayerGains: 规程), for this battle only — the boss settlement
+        // reads none
+        flags: { layerGainsEnabled: seasonFeature(this.season, 'bossLayerGains'), ...this.gd.dp, enemyScale: this.gd.leaderScale(this.round), ...simRuleFlags(this.ruleset) },
         fieldId,
         enemyOverrides: wave.overrides,
         waveId: wave.templateId,
