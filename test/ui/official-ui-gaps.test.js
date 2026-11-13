@@ -63,7 +63,7 @@ describe('official connection pieces', () => {
 
   test('solo resume: only on a solo run under way, never at its start or its result', () => {
     for (const phase of ['PREP', 'COMBAT', 'SP_DRAFT', 'ROUND_START', 'FINAL_ASSAULT', 'HIDDEN_CORE', 'SETTLE']) assert.equal(soloResumeDue({ phase }, true), true, phase);
-    for (const phase of ['LOBBY', 'INFO_CHECK', 'BAND_DRAFT', 'BATTLE_CHECK', 'RESULT']) assert.equal(soloResumeDue({ phase }, true), false, phase);
+    for (const phase of ['LOBBY', 'INFO_CHECK', 'BAND_DRAFT', 'DIY_CHOOSE', 'BATTLE_CHECK', 'RESULT']) assert.equal(soloResumeDue({ phase }, true), false, phase);
     assert.equal(soloResumeDue({ phase: 'COMBAT' }, false), false, 'co-op: no resume dialog');
     assert.equal(soloResumeDue(null, true), false);
   });

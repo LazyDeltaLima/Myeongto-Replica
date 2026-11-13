@@ -28,6 +28,7 @@ describe('bgm selection', () => {
     assert.equal(bgmKeyFor('room', null), 'lobby');
     assert.equal(bgmKeyFor('game', null), 'lobby');
     assert.equal(bgmKeyFor('game', { phase: PHASE.INFO_CHECK }), 'lobby');
+    assert.equal(bgmKeyFor('game', { phase: PHASE.DIY_CHOOSE }), 'lobby', "规程's 3/3 确定自选编队 is a start step, not the prep");
     assert.equal(bgmKeyFor('game', { phase: PHASE.PREP }), 'prep');
     assert.equal(bgmKeyFor('game', { phase: PHASE.SP_DRAFT }), 'prep');
     assert.equal(bgmKeyFor('game', { phase: PHASE.COMBAT }), 'combat');

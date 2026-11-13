@@ -913,7 +913,7 @@ export function OnlyConfirmDialog({ text, onOk }) {
  */
 export function soloResumeDue(pub, solo) {
   if (!solo || !pub || typeof pub.phase !== 'string') return false;
-  return !['LOBBY', 'INFO_CHECK', 'BAND_DRAFT', 'BATTLE_CHECK', 'RESULT'].includes(pub.phase);
+  return !['LOBBY', 'INFO_CHECK', 'BAND_DRAFT', 'DIY_CHOOSE', 'BATTLE_CHECK', 'RESULT'].includes(pub.phase);
 }
 
 // ---- the latency panel (panel_ping) ---------------------------------------------------------------------------------
