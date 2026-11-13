@@ -88,6 +88,14 @@ function lendAround(battle, from, share, L) {
 
 const SAND = 'act3autochess_bond_eff_sargon_power';
 const CHECK_IV = 0.3; // [tile_buff][checker] triggerInterval
+/**
+ * The client buffs that carry the 流沙 effects, sent as the statuses' `fxTag` (render/fxstatus.js HINT_FX): [tile_buff][slow]
+ * gives [tile_buff][slow_down] (the shared template slow_down), which creates `{0}[internal]` with overrideEffectKey
+ * common_slow_01 (over the head); [mag_damage]'s 束缚 [tile_buff][unmovable] carries common_unmovable_01 (at the feet).
+ * Display only.
+ */
+export const SAND_SLOW_FX = `${SAND}[tile_buff][slow_down][internal]`;
+export const SAND_BIND_FX = `${SAND}[tile_buff][unmovable]`;
 /** A [tile_buff] part's number of the record's blackboard (`act3autochess_bond_eff_sargon_power[tile_buff][part].key`). */
 const part = (bb, p, key, d = 0) => num(bb[`${SAND}[tile_buff][${p}].${key}`], d);
 /** 迟钝 v: move speed ×(1 − v), attack interval ×1 / (1 − v) (the slow_down template, as the kits' 迟钝). */
@@ -160,13 +168,13 @@ function installSand(battle, pid, bb, members) {
       if (v !== s.slow) {
         s.slow = v;
         const cur = e.findBuff(key);
-        if (cur) { cur.mods = slowMods(v); e.markDirty(); } else battle.addBuff(e, { key, mods: slowMods(v), status: 'slow' });
+        if (cur) { cur.mods = slowMods(v); e.markDirty(); } else battle.addBuff(e, { key, mods: slowMods(v), status: 'slow', fxTag: SAND_SLOW_FX });
       }
       if (t >= s.nextMag - 1e-9) {
         s.nextMag += Math.max(TICK, part(bb, 'mag_damage', 'interval', 5));
         // [mag_damage]: the 束缚 first, then the damage (ON_BUFF_TRIGGER CreateBuff unmovable → FixedValueDamage)
         const bind = part(bb, 'mag_damage', 'unmovable_duration', 1);
-        if (bind > 0) battle.applyStatus(e, 'bind', { duration: bind });
+        if (bind > 0) battle.applyStatus(e, 'bind', { duration: bind, fxTag: SAND_BIND_FX });
         const amount = Math.min(part(bb, 'mag_damage', 'magic_damage_max', Infinity), part(bb, 'mag_damage', 'magic_damage_base') + part(bb, 'mag_damage', 'magic_damage_per_stack') * L());
         if (amount > 0 && e.alive) battle.dealDamage(null, e, { amount, type: 'arts', canDodge: false, sourceless: true, tags: ['bond:sargon:sand', 'dot', 'periodic', 'terrain'] });
       }

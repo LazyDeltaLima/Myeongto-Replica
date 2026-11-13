@@ -12,6 +12,7 @@ import { UF } from '../../shared/constants.js';
 import { UF_CAMOU } from '../../shared/local.js';
 import { PLAYS } from '../helpers/fxPlays.js';
 import { keyPlays } from '../helpers/fxBindings.js';
+import { SAND_SLOW_FX, SAND_BIND_FX } from '../../server/sim/content/bonds/nation/sargon.js';
 
 const DUMMY = enemyRec({ key: 'enemy_dummy', hp: 1e9, speed: 0, atk: 0 });
 const MEDIC = 'chess_char_2_02_a';   // 赫默
@@ -219,6 +220,16 @@ describe('client: status → the official buff effect', () => {
     assert.deepEqual(names(enemy(['artsFragile', 'talent:weak_fragile'], [])), []);
     assert.deepEqual(names(unit('char_002_amiya', { statuses: new Set(['ab:exposed']) })), ['buff_weak[limit]']);
     for (const s of F.wantedStatusFx(fragile('weak[limit]'), undefined, null, PLAYS).values()) assert.equal(s[2], F.OWN, 'its own spawn point (4: head)');
+  });
+
+  test('萨尔贡 6\'s 流沙 (2026-11-14): its 迟钝 wears common_slow_01 over the head, its 束缚 common_unmovable_01 at the feet; other 减速 / 束缚 as before', () => {
+    const sand = (k, fx) => enemy([k], [[k, { src: null, fx, n: 0 }]]);
+    assert.deepEqual(names(sand('slow', SAND_SLOW_FX)), ['common_slow_01'], 'the slow_down template\'s [internal], not buff_slowdown');
+    assert.deepEqual(names(sand('bind', SAND_BIND_FX)), ['common_unmovable_01'], 'before SOURCE_FX, whose sourceless 束缚 draws nothing');
+    assert.deepEqual(names(sand('slow', null)), ['buff_slowdown'], 'another 减速: the common one');
+    assert.deepEqual(names(sand('bind', null)), [], 'another sourceless 束缚: none');
+    for (const s of F.wantedStatusFx(sand('slow', SAND_SLOW_FX), undefined, null, PLAYS).values()) assert.equal(s[2], F.OWN, 'its own spawn point (4: head)');
+    for (const s of F.wantedStatusFx(sand('bind', SAND_BIND_FX), undefined, null, PLAYS).values()) assert.equal(s[2], F.OWN, 'its own spawn point (1: feet)');
   });
 
   test('冻结 (2026-10-31) by its client buff: an operator buff_frozen, an enemy buff_frozen_to_enemy\'s walk / fly effect', () => {

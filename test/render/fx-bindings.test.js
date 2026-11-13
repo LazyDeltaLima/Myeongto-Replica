@@ -94,6 +94,8 @@ const KNOWN = {
   'KEY_FX item:reaperScythe|*': ['untabled', 'as item:turboGlove — 汲取者之镰\'s act3autochess_equip_acarm154_global_buff'],
   'KEY_FX ab:exposed|*': ['untabled', 'weak[limit] is a BuffDB buff (loadFromDB): its overrideEffectKey buff_weak[limit] is in the client buff table (gamedata buff_table), not a template row'],
   'HINT_FX weak[limit]|*': ['untabled', 'as KEY_FX ab:exposed'],
+  'HINT_FX act3autochess_bond_eff_sargon_power[tile_buff][slow_down][internal]|*': ['untabled', '规程 萨尔贡 6\'s 流沙 迟钝: the shared template slow_down creates `{0}[internal]` (overrideEffectKey common_slow_01) — a 规程 bond template: the binding table holds the charpacks\' rows only (2026-11-14)'],
+  'HINT_FX act3autochess_bond_eff_sargon_power[tile_buff][unmovable]|*': ['untabled', 'as the 流沙 迟钝 — [mag_damage]\'s CreateBuff (overrideEffectKey common_unmovable_01)'],
   'STACK_FX palsy|*': ['untabled', 'as KEY_FX ab:exposed — palsy[stack] (overrideEffectKey common_061_numb_01, its prefab switching to _02 / _03 by the stacks)'],
   'KEY_FX ab:dsfullSpeed|*': ['untabled', '蕴核饲育者\'s dsfull_tr_1[derived][n] (an enemy buff template, ON_OWNER_KILLED) gives the child it summons dsfull_tr_1[speed_up] (enemy_dsfull_buff_03): the binding table holds the charpacks\' rows only'],
   'KEY_FX ab:aweAura|*': ['untabled', '扎罗\'s FearAura AuraAbility `_effects` (its prefab, enemy-modes.json `auraNested`): the binding table holds the charpacks\' rows only'],

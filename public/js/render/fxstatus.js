@@ -345,6 +345,11 @@ export const KEY_FX = Object.freeze({
 export const HINT_FX = Object.freeze({
   // 坚守's thorn: the 脆弱 is weak[limit] (content/bonds/addon/battle.js) — any other 脆弱 draws none
   'weak[limit]': WEAK_LIMIT,
+  // (2026-11-14) 萨尔贡 6's 流沙 on an enemy (content/bonds/nation/sargon.js SAND_SLOW_FX / SAND_BIND_FX): its 迟钝 is the shared
+  // slow_down template, whose `{0}[internal]` names common_slow_01 (CN common.ab, spawn 4 head — the maintainer's official
+  // capture: the »⌛« over the enemy), not the 减速 buff_slowdown; its 束缚 [tile_buff][unmovable] common_unmovable_01 (spawn 1)
+  'act3autochess_bond_eff_sargon_power[tile_buff][slow_down][internal]': Object.freeze(cite('act3autochess_bond_eff_sargon_power[tile_buff][slow_down][internal]', ['common', 'common_slow_01', OWN])),
+  'act3autochess_bond_eff_sargon_power[tile_buff][unmovable]': Object.freeze(cite('act3autochess_bond_eff_sargon_power[tile_buff][unmovable]', ['common', 'common_unmovable_01', OWN])),
 });
 /**
  * 2026-10-25 (묶음 U): KEY_FX buffs the client finishes and makes again on each stack (FinishDerivedBuff + CreateBuff): the
@@ -673,6 +678,10 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
         if (r) byOwn(r);
         continue;
       }
+      // a buff named by its `fxTag` (HINT_FX) draws its own effect before the status's applier table: 萨尔贡's 流沙 束缚 is a
+      // sourceless 'bind', which SOURCE_FX would draw as nothing
+      const hinted = typeof from?.fx === 'string' ? HINT_FX[from.fx] : null;
+      if (hinted) { byName(out, hinted); continue; }
       const per = SOURCE_FX[k];
       const e = per ? per[from?.src || fxCode(v)] : null;
       if (per && (e || !STATUS_FALLBACK.has(k))) {
@@ -695,8 +704,6 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
         else for (const [min, spec, below] of stacks) if (n >= bound(min, from) && (below == null || n < bound(below, from))) byName(out, spec);
         continue;
       }
-      const hinted = typeof from?.fx === 'string' ? HINT_FX[from.fx] : null;
-      if (hinted) { byName(out, hinted); continue; }
       const named = namedSpec(k, plays);
       if (named) { byName(out, named); continue; }
       const s = statusFxKey(k);

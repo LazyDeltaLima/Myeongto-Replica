@@ -12,6 +12,7 @@ import { makeMatch, legalTileFor } from '../match/harness.js';
 import { PHASE } from '../../shared/constants.js';
 import { COLS } from '../../server/sim/constants.js';
 import { itemGrants } from '../../server/sim/content/items/battle.js';
+import { SAND_SLOW_FX, SAND_BIND_FX } from '../../server/sim/content/bonds/nation/sargon.js';
 
 const close = (a, b, eps = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} expected ${b}, got ${a}`);
 const op = (id, bonds, extra = {}) => chessRec({
@@ -818,6 +819,11 @@ test('规程 萨尔贡 6: a member\'s skill start lays 流沙 on the nearest gro
   close(hits[0].amount, bb[`${pre}[mag_damage].magic_damage_base`] + bb[`${pre}[mag_damage].magic_damage_per_stack`] * L, 1e-6, '5 s arts');
   assert.equal(hits[0].dmg.type, 'arts');
   assert.ok(e.s.flags.bind, '束缚');
+  // (2026-11-14) the client buffs that carry the effects ride the statuses (render/fxstatus.js HINT_FX): 迟钝 → common_slow_01
+  // over the head, 束缚 → common_unmovable_01 at the feet
+  const st = h.eventsOf('status').filter((x) => x[1] === e.id && x[3] === 1);
+  assert.deepEqual(st.find((x) => x[2] === 'slow')?.[5], { fx: SAND_SLOW_FX }, '迟钝 names [tile_buff][slow_down][internal]');
+  assert.deepEqual(st.find((x) => x[2] === 'bind')?.[5], { fx: SAND_BIND_FX }, '束缚 names [tile_buff][unmovable]');
   e.x += 3;
   h.run(0.4);
   assert.equal(buff(), null, 'off the 流沙: ends');
