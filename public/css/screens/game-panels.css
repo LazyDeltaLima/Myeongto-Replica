@@ -836,8 +836,10 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   top: max(2.4rem, calc(1.31rem + var(--u) * 114)); color: #fff; user-select: none; -webkit-user-select: none;
 }
 .gm.has-readywhy .bskill.is-prep { top: calc(max(2.4rem, calc(1.31rem + var(--u) * 114)) + max(.3rem, 16px)); }
-.gm--prep.has-bskill .gm__effects { top: calc(max(2.4rem, calc(1.31rem + var(--ui-u, .015rem) * 114)) + var(--ui-u, .015rem) * 108); }
-.gm--prep.has-bskill.has-readywhy .gm__effects { top: calc(max(2.4rem, calc(1.31rem + var(--ui-u, .015rem) * 114)) + var(--ui-u, .015rem) * 108 + max(.3rem, 16px)); }
+/* the portrait leaves the battle's place as the battle ends (.bskill.is-prep from the settle banner on): the effects column
+   steps down under it then too, or the 伤害 chip sat on the portrait through the banner (2026-11-13) */
+.gm--prep.has-bskill .gm__effects, .gm--settle.has-bskill .gm__effects { top: calc(max(2.4rem, calc(1.31rem + var(--ui-u, .015rem) * 114)) + var(--ui-u, .015rem) * 108); }
+.gm--prep.has-bskill.has-readywhy .gm__effects, .gm--settle.has-bskill.has-readywhy .gm__effects { top: calc(max(2.4rem, calc(1.31rem + var(--ui-u, .015rem) * 114)) + var(--ui-u, .015rem) * 108 + max(.3rem, 16px)); }
 .bskill.is-battle { top: auto; bottom: calc(var(--u) * 130); }
 /* the official HUD's battle cost counter sits at the right edge 2.3rem up (css/hud-art.css .dpbox): the portrait right
    above it, as the official battle screen shows it (2026-11-12) */

@@ -149,5 +149,7 @@ test('css: a touch drag is not handed to the pan — touch-action none beats dev
   // (0,2,0) over the attribute selector's (0,1,0) in the stylesheet loaded last
   assert.match(css, /\n\.bskill \.bskill__band \{ touch-action: none; \}/);
   assert.match(css, /\.bskill\.is-battle \{ top: auto; bottom:/, 'in a battle the portrait sits low (skill_layout_battle)');
-  assert.match(css, /\.gm--prep\.has-bskill \.gm__effects \{ top:/, 'the effects column steps down under it in the prep');
+  // … and through the settle banner, where the portrait is back in its prep place (maintainer report 2026-11-13: the 伤害
+  // chip sat on it while 「完美胜利」 showed)
+  assert.match(css, /\.gm--prep\.has-bskill \.gm__effects, \.gm--settle\.has-bskill \.gm__effects \{ top:/, 'the effects column steps down under it in the prep and the settle');
 });
