@@ -19,6 +19,7 @@
 import { EMOTE_SETS } from './emote-art.js';
 import { APP_VERSION } from './constants.js';
 import { N_ } from './i18n.js';
+import { DEFAULT_SEASON, seasonOf } from './seasons.js';
 
 // local version (docs/rules/README.md 「버전 표기」): since 1.2.0 it is APP_VERSION (shared/constants.js) itself — the hard
 // fork has no upstream base to show beside it. Kept for /healthz `local` and the feedback records, which the operator's deploy and
@@ -54,7 +55,9 @@ export const UF_CAMOU = 1024;
 export const UF_LIFTOFF = 2048;
 
 // chat faction: a colored tag a player may pick for their chat lines and avatar, cleared when the match ends;
-// `bond` is the nation bond whose icon (data/assets.json bonds) shows it
+// `bond` is the nation bond whose icon (data/assets.json bonds) shows it. Every season's (the colors are ours, not the
+// official game's — 乌萨斯 / 伊比利亚 / 莱塔尼亚 maintainer decision 2026-11-13); a season offers its own nation bonds
+// (chatFactionsOf: 盟约 the first eight, 规程 has no 拉特兰 and adds the last three — maintainer decision 2026-11-13).
 export const CHAT_FACTIONS = Object.freeze([
   { id: 'yan', name: N_('炎国'), color: '#ff3b42', bond: 'yanShip' },
   { id: 'sargon', name: N_('萨尔贡'), color: '#b87850', bond: 'sargonShip' },
@@ -64,9 +67,22 @@ export const CHAT_FACTIONS = Object.freeze([
   { id: 'aegir', name: N_('阿戈尔'), color: '#009fb2', bond: 'egirShip' },
   { id: 'siracusa', name: N_('叙拉古'), color: '#4776df', bond: 'siracusaShip' },
   { id: 'kazimierz', name: N_('卡西米尔'), color: '#d8b400', bond: 'kazimierzShip' },
+  { id: 'ursus', name: N_('乌萨斯'), color: '#c8ccd2', bond: 'ursusShip' },
+  { id: 'iberia', name: N_('伊比利亚'), color: '#2fb67a', bond: 'iberiaShip' },
+  { id: 'lethania', name: N_('莱塔尼亚'), color: '#9a6ae0', bond: 'lethaniaShip' },
 ].map((f) => Object.freeze(f)));
-/** Chat faction record of an id, or null (safe for any input). */
+/** Chat faction record of an id (any season's), or null (safe for any input). */
 export const chatFaction = (id) => (typeof id === 'string' && CHAT_FACTIONS.find((f) => f.id === id)) || null;
+
+/** The chat factions of each season: its nation bonds (bonds.json `bondType` SEASON — test/chat-factions.test.js). */
+const SEASON_CHAT_FACTIONS = Object.freeze({
+  act2autochess: Object.freeze(['yan', 'sargon', 'victoria', 'kjerag', 'laterano', 'aegir', 'siracusa', 'kazimierz'].map(chatFaction)),
+  act3autochess: Object.freeze(['yan', 'sargon', 'victoria', 'kjerag', 'aegir', 'siracusa', 'kazimierz', 'ursus', 'iberia', 'lethania'].map(chatFaction)),
+});
+/** The chat factions a season offers (the default season's for an unknown one). @param {unknown} season */
+export const chatFactionsOf = (season) => SEASON_CHAT_FACTIONS[seasonOf(season)] || SEASON_CHAT_FACTIONS[DEFAULT_SEASON];
+/** A chat faction of that season, or null. @param {unknown} id @param {unknown} season */
+export const seasonChatFaction = (id, season) => (typeof id === 'string' && chatFactionsOf(season).find((f) => f.id === id)) || null;
 
 const isStr = (v, max) => typeof v === 'string' && v.length <= max;
 const optional = (check) => (v) => v === undefined || check(v);

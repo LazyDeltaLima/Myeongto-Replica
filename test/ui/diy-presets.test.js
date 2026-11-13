@@ -126,6 +126,11 @@ test('a faction pick applies its preset out of a match and in its briefing / str
   assert.equal(presetPickLive({ room: null }), true);
   for (const phase of ['INFO_CHECK', 'BAND_DRAFT']) assert.equal(presetPickLive({ room: { inMatch: true }, match: { public: { phase } } }), true, phase);
   for (const phase of ['PREP', 'COMBAT', 'SP_DRAFT', 'FINAL_ASSAULT']) assert.equal(presetPickLive({ room: { inMatch: true }, match: { public: { phase } } }), false, phase);
+  // 规程's 确定自选编队: until the seat readies (maintainer decision 2026-11-13); a season without the step never has it
+  const choose = (diyChoose) => presetPickLive({ room: { inMatch: true }, match: { public: { phase: 'DIY_CHOOSE' }, private: { diyChoose } } });
+  assert.equal(choose({ lineup: {}, chosen: [], ready: false }), true);
+  assert.equal(choose({ lineup: {}, chosen: [], ready: true }), false);
+  assert.equal(choose(null), false);
 });
 
 test('전략별 선발 프리셋 (maintainer 2026-10-12): links persist, a strategy without one falls back to its nation bond, else keeps the picks', () => {
@@ -336,4 +341,42 @@ test('a strategy\'s faction preset applies even when the server refuses the chat
   } finally {
     net.request = request;
   }
+});
+
+test('one set of presets per season (maintainer decision 2026-11-13): 规程 has its own rosters, links and nation factions', async () => {
+  const { setLoadoutSeason } = await import('../../public/js/ui/loadoutSync.js');
+  const ACT3 = 'act3autochess';
+  setDiyPicks({ [T6A]: WIS });
+  P.selectPreset('laterano');
+  setDiyPicks({ [T6A]: WANG });
+  P.linkBand('band_amiya', 'laterano');
+  const act2 = stored();
+  assert.deepEqual(act2.presets.laterano, { [T6A]: WANG });
+  // the season on screen changes: presets first, then the picks (main.js) — the follower never crosses them
+  mem.set(`sp.pref.diy@${ACT3}`, JSON.stringify({ v: 1, picks: { [T6B]: CHEN } }));
+  P.setPresetSeason(ACT3);
+  setLoadoutSeason(ACT3);
+  assert.equal(P.presetSeasonOf(), ACT3);
+  assert.deepEqual(P.diyPresetStore.get().presets, {}, '规程 starts with no presets');
+  assert.deepEqual(P.diyPresetStore.get().links, {});
+  assert.equal(P.diyPresetStore.get().active, null);
+  assert.deepEqual(P.diyPresetStore.get().base, loadoutStore.get().diy, "its 不使用预设 is the season's own picks");
+  assert.deepEqual(stored(), act2, "盟约's presets untouched by the switch");
+  // 规程's factions: no 拉特兰, 乌萨斯 is one
+  P.selectPreset('laterano');
+  assert.equal(P.diyPresetStore.get().active, null, '拉特兰 is no 规程 faction');
+  P.selectPreset('ursus');
+  setDiyPicks({ [T6A]: CHEN });
+  const act3 = JSON.parse(mem.get(`sp.pref.${P.DIY_PRESETS_PREF}@${ACT3}`));
+  assert.deepEqual(act3.presets, { ursus: { [T6A]: CHEN } });
+  assert.equal(P.bandRecommendation({ bondIds: ['ursusShip'] }), 'ursus');
+  assert.equal(P.bandRecommendation({ bondIds: ['lateranoShip'] }), null);
+  assert.deepEqual(P.parseStoredPresets({ presets: { laterano: { [T6A]: WANG }, iberia: { [T6A]: WANG } }, links: { band_x: 'laterano', band_y: 'iberia' } }, {}, ACT3),
+    { presets: { iberia: { [T6A]: WANG } }, base: {}, active: null, links: { band_y: 'iberia' } });
+  // and back: 盟约's rosters as they were
+  P.setPresetSeason('act2autochess');
+  setLoadoutSeason('act2autochess');
+  assert.deepEqual(P.diyPresetStore.get().presets.laterano, { [T6A]: WANG });
+  assert.equal(P.diyPresetStore.get().links.band_amiya, 'laterano');
+  assert.deepEqual(stored(), act2);
 });

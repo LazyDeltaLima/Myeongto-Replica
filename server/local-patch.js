@@ -29,7 +29,7 @@
 import { logMatchStats } from './local-stats.js';
 import { FeedbackInbox } from './local-feedback.js';
 import { ERR, MAX_SEATS, PHASE } from '../shared/constants.js';
-import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY, chatFaction } from '../shared/local.js';
+import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY, seasonChatFaction } from '../shared/local.js';
 import { sendSession } from './net.js';
 import { PlayerState } from './match/PlayerState.js';
 import { Match } from './match/Match.js';
@@ -178,7 +178,7 @@ function pickFaction(lobby, session, { faction }) {
   if (room.mode === 'solo') return fail(ERR.BAD_MSG, 'co-op rooms only');
   const seat = room.seatOf(session.playerId);
   if (!seat || seat.isBot) return fail(ERR.NOT_IN_ROOM);
-  if (!chatFaction(faction)) return fail(ERR.BAD_MSG, 'unknown chat faction');
+  if (!seasonChatFaction(faction, room.season)) return fail(ERR.BAD_MSG, 'not a chat faction of this season'); // shared/local.js chatFactionsOf
   const c = chatOf(room);
   if (c.factions.get(seat.playerId) === faction) return OK;
   const now = lobby.now();

@@ -1,6 +1,6 @@
 // 맹약별 선발 프리셋 (local feature, maintainer decisions 2026-10-09; docs/rules/diy.md 「맹약별 선발 프리셋」): per-browser
-// 自选编队 rosters — one for 不使用预设 (`base`) and one per chat faction (shared/local.js CHAT_FACTIONS — the eight nation
-// bonds), each its own; a faction's is empty until the player fills it (an empty one is no preset). Picking a faction
+// 自选编队 rosters — one for 不使用预设 (`base`) and one per chat faction of the season (shared/local.js chatFactionsOf — its
+// nation bonds), each its own; a faction's is empty until the player fills it (an empty one is no preset). Picking a faction
 // (ui/factionPick.js chooseFaction: the chat, the strategy draft's row) applies that faction's preset to the 自选 picks,
 // with a 撤销; a faction without a preset changes nothing.
 //
@@ -25,12 +25,16 @@
 // The picks themselves stay ui/loadoutSync.js's (setDiyPicks → localStorage + room.diy); a running match takes them while
 // its briefing or strategy draft runs (server platform.js setDiy) — from the prep on a faction pick applies no preset.
 // Storage: localStorage `sp.pref.diyPresets` = { v: 3, presets, base, active, links } (each roster cleaned like the picks;
-// a v1 envelope without `base` takes the current picks as base when it showed none; v2 has no links).
+// a v1 envelope without `base` takes the current picks as base when it showed none; v2 has no links) — one per 卫戍协议
+// season (maintainer decision 2026-11-13): the default season's under that key, another's under `diyPresets@<season>`
+// (loadoutSync.js seasonPref, as the picks), with that season's chat factions (shared/local.js chatFactionsOf: 规程 has no
+// 拉特兰 and has 乌萨斯 / 伊比利亚 / 莱塔尼亚). setPresetSeason (main.js, before loadoutSync.js setLoadoutSeason) loads them.
 
 import { createStore, loadPref, savePref } from '../store.js';
-import { loadoutStore, setDiyPicks } from './loadoutSync.js';
-import { cleanPicks, setPick } from './diyModel.js';
-import { chatFaction, CHAT_FACTIONS } from '../../../shared/local.js';
+import { loadoutStore, setDiyPicks, seasonPref } from './loadoutSync.js';
+import { cleanPicks, setPick, DIY_PREF, parseStoredDiy } from './diyModel.js';
+import { chatFactionsOf, seasonChatFaction } from '../../../shared/local.js';
+import { DEFAULT_SEASON, seasonOf } from '../../../shared/seasons.js';
 
 export const DIY_PRESETS_PREF = 'diyPresets';
 export const DIY_PRESETS_VERSION = 3;
@@ -43,37 +47,45 @@ export const PRESET_NOTICE_MS = 6000;
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
+/** The season whose presets diyPresetStore holds (setPresetSeason). */
+let presetSeason = DEFAULT_SEASON;
+/** The season diyPresetStore holds. */
+export const presetSeasonOf = () => presetSeason;
+/** A chat faction of the presets' season, or null. @param {unknown} id */
+const inSeason = (id, season = presetSeason) => seasonChatFaction(id, season);
+
 const isEmpty = (p) => !p || Object.keys(p).length === 0;
 
 /**
  * The valid rosters of a stored envelope (unknown factions, empty presets and junk dropped).
  * @param {any} raw
  * @param {Record<string, any>} [current] the live picks: a v1 envelope's base when it showed 不使用预设
+ * @param {unknown} [season] whose chat factions are kept (another season's are dropped)
  */
-export function parseStoredPresets(raw, current = {}) {
+export function parseStoredPresets(raw, current = {}, season = presetSeason) {
   const out = {};
   const src = isObj(raw) && isObj(raw.presets) ? raw.presets : {};
   for (const [id, picks] of Object.entries(src)) {
-    if (!chatFaction(id) || !isObj(picks)) continue;
+    if (!inSeason(id, season) || !isObj(picks)) continue;
     const clean = cleanPicks(picks);
     if (!isEmpty(clean)) out[id] = clean;
   }
-  const active = isObj(raw) && chatFaction(raw.active) ? raw.active : null;
+  const active = isObj(raw) && inSeason(raw.active, season) ? raw.active : null;
   const base = isObj(raw) && isObj(raw.base) ? cleanPicks(raw.base) : active ? {} : cleanPicks(current);
-  return { presets: out, base, active, links: cleanLinks(isObj(raw) ? raw.links : null) };
+  return { presets: out, base, active, links: cleanLinks(isObj(raw) ? raw.links : null, season) };
 }
 
-/** A link target: a chat faction or BASE_LINK. */
-const isLinkTarget = (v) => v === BASE_LINK || !!chatFaction(v);
+/** A link target: a chat faction of the season or BASE_LINK. */
+const isLinkTarget = (v, season = presetSeason) => v === BASE_LINK || !!inSeason(v, season);
 /** A stored link: a target, or KEEP_LINK (a turned-off recommendation). */
-const isStoredLink = (v) => v === KEEP_LINK || isLinkTarget(v);
+const isStoredLink = (v, season = presetSeason) => v === KEEP_LINK || isLinkTarget(v, season);
 const isBandId = (v) => typeof v === 'string' && /^band_[A-Za-z0-9_-]{1,48}$/.test(v);
 
 /** The valid strategy links of a stored object (unknown targets and junk keys dropped). */
-export function cleanLinks(raw) {
+export function cleanLinks(raw, season = presetSeason) {
   const out = {};
   if (!isObj(raw)) return out;
-  for (const [b, f] of Object.entries(raw)) if (isBandId(b) && isStoredLink(f)) out[b] = f;
+  for (const [b, f] of Object.entries(raw)) if (isBandId(b) && isStoredLink(f, season)) out[b] = f;
   return out;
 }
 
@@ -83,13 +95,13 @@ export function toStoredPresets(presets, base, active, links = {}) {
 }
 
 /**
- * The chat faction a strategy is built around (bands.json bondIds: one nation bond for 9 of the 40 — 「파가니니」 →
- * 拉特兰), else null: the draft's recommended roster when the strategy has no link.
- * @param {{ bondIds?: string[] } | null | undefined} band
+ * The chat faction a strategy is built around (bands.json bondIds: one nation bond for 9 of 盟约's 40 — 「파가니니」 →
+ * 拉特兰), else null: the draft's recommended roster when the strategy has no link. Among the season's chat factions.
+ * @param {{ bondIds?: string[] } | null | undefined} band @param {unknown} [season]
  */
-export function bandRecommendation(band) {
+export function bandRecommendation(band, season = presetSeason) {
   const ids = Array.isArray(band?.bondIds) ? band.bondIds : [];
-  return CHAT_FACTIONS.find((f) => ids.includes(f.bond))?.id ?? null;
+  return chatFactionsOf(season).find((f) => ids.includes(f.bond))?.id ?? null;
 }
 
 /**
@@ -108,11 +120,26 @@ export function bandPresetChoice(bandId, band, links = diyPresetStore.get().link
 
 const samePicks = (a, b) => JSON.stringify(cleanPicks(a)) === JSON.stringify(cleanPicks(b));
 
-function readStored() {
-  try { return parseStoredPresets(loadPref(DIY_PRESETS_PREF, null), loadoutStore.get().diy); } catch { return { presets: {}, base: {}, active: null, links: {} }; }
+/** The stored presets of the season held (`current`: that season's picks, a v1 envelope's base). */
+function readStored(current = loadoutStore.get().diy) {
+  try { return parseStoredPresets(loadPref(seasonPref(DIY_PRESETS_PREF, presetSeason), null), current); } catch { return { presets: {}, base: {}, active: null, links: {} }; }
 }
 
 export const diyPresetStore = createStore({ links: {}, ...readStored(), notice: null });
+
+/**
+ * Hold another season's presets (main.js, on every change of the season on screen — before loadoutSync.js
+ * setLoadoutSeason swaps the picks, so the picks follower never saves one season's picks into the other's roster).
+ * The same season: nothing happens. @param {unknown} season @param {ReturnType<typeof createStore>} [target]
+ */
+export function setPresetSeason(season, target = diyPresetStore) {
+  const next = seasonOf(season);
+  if (next === presetSeason) return;
+  presetSeason = next;
+  let picks = {};
+  try { picks = parseStoredDiy(loadPref(seasonPref(DIY_PREF, next), null)); } catch { /* none stored */ }
+  target.set({ links: {}, ...readStored(picks), notice: null });
+}
 
 /** The roster `id` holds (null = base; a faction without a preset: empty). */
 function rosterOf(s, id) {
@@ -121,7 +148,7 @@ function rosterOf(s, id) {
 
 function save(patch, extra = {}) {
   const next = { ...diyPresetStore.get(), ...patch };
-  try { savePref(DIY_PRESETS_PREF, toStoredPresets(next.presets, next.base, next.active, next.links)); } catch { /* private mode: the session keeps it */ }
+  try { savePref(seasonPref(DIY_PRESETS_PREF, presetSeason), toStoredPresets(next.presets, next.base, next.active, next.links)); } catch { /* private mode: the session keeps it */ }
   diyPresetStore.set({ presets: next.presets, base: next.base, active: next.active, links: next.links || {}, ...extra });
 }
 
@@ -137,7 +164,7 @@ function withRoster(s, id, picks) {
 
 /** The tab's preset bar: show roster `id` (a faction or null = 不使用预设); the roster left keeps its picks. */
 export function selectPreset(id) {
-  const target = id != null && chatFaction(id) ? id : null;
+  const target = id != null && inSeason(id) ? id : null;
   const s = diyPresetStore.get();
   if (target === s.active) return;
   // the shown roster already follows every edit (installDiyPresets); store it once more in case the follower is off
@@ -167,7 +194,7 @@ export function deletePreset(id) {
  */
 export function applyFactionPreset(id, { inMatch = false, now = Date.now(), orEmpty = false } = {}) {
   const s = diyPresetStore.get();
-  const preset = chatFaction(id) ? s.presets[id] || (orEmpty ? {} : null) : null;
+  const preset = inSeason(id) ? s.presets[id] || (orEmpty ? {} : null) : null;
   if (!preset) { clearPresetNotice(); return null; }
   if (s.active === id && samePicks(loadoutStore.get().diy, preset)) { clearPresetNotice(); return null; }
   const prev = { picks: loadoutStore.get().diy, active: s.active };
@@ -222,7 +249,7 @@ export function linkBand(bandId, target) {
 export function choiceRoster(choice, s = diyPresetStore.get()) {
   if (choice === BASE_LINK) return null;
   if (choice === KEEP_LINK) return s.active ?? null;
-  return chatFaction(choice) ? choice : undefined;
+  return inSeason(choice) ? choice : undefined;
 }
 
 /**

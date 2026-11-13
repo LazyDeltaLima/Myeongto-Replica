@@ -15,7 +15,7 @@ import { TestClient } from './helpers/wsClient.js';
 import { makeMatch } from './match/harness.js';
 import { ERR, EMOTES } from '../shared/constants.js';
 import { botCap, liveBots } from '../server/local-patch.js';
-import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_FACTIONS, chatFaction } from '../shared/local.js';
+import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_FACTIONS, chatFaction, chatFactionsOf, seasonChatFaction } from '../shared/local.js';
 import { validateC2S, C2S, S2C } from '../shared/protocol.js';
 import { USER_EMOTE_PAGES, userEmoteArt, emoteSet } from '../shared/emote-art.js';
 import { bossPoolHp } from '../server/match/finalAssault.js';
@@ -44,10 +44,23 @@ describe('protocol extension (shared/local.js)', () => {
     assert.equal(validateC2S({ t: 'g.emote', id: 'happy', set: 'user' }), 'bad field id', 'upstream id check kept');
   });
 
-  test('chat factions: 8 nations with a color and a bond icon; lookups are safe', () => {
-    assert.equal(CHAT_FACTIONS.length, 8);
+  test('chat factions: every season\'s nations with a color and a bond icon; lookups are safe', () => {
+    assert.equal(CHAT_FACTIONS.length, 11);
     for (const f of CHAT_FACTIONS) assert.match(`${f.id} ${f.color} ${f.bond}`, /^[a-z]+ #[0-9a-f]{6} [a-zA-Z]+Ship$/);
+    assert.equal(new Set(CHAT_FACTIONS.map((f) => f.color)).size, CHAT_FACTIONS.length, 'one color each');
     for (const id of ['__proto__', 'constructor', null, 1]) assert.equal(chatFaction(id), null);
+    for (const id of ['__proto__', 'constructor', null, 1]) assert.equal(seasonChatFaction(id, 'act3autochess'), null);
+  });
+
+  test('chat factions per season = the season\'s nation bonds (bondType SEASON); 规程 has no 拉特兰 (maintainer decision 2026-11-13)', () => {
+    const nations = (file) => Object.values(JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf8')))
+      .filter((b) => b.bondType === 'SEASON').map((b) => b.bondId).sort();
+    assert.deepEqual(chatFactionsOf('act2autochess').map((f) => f.bond).sort(), nations('../data/bonds.json'));
+    assert.deepEqual(chatFactionsOf('act3autochess').map((f) => f.bond).sort(), nations('../data/seasons/act3autochess/bonds.json'));
+    assert.equal(chatFactionsOf(undefined), chatFactionsOf('act2autochess'), 'no season = the default');
+    assert.equal(seasonChatFaction('laterano', 'act3autochess'), null);
+    assert.equal(seasonChatFaction('ursus', 'act2autochess'), null);
+    assert.equal(seasonChatFaction('ursus', 'act3autochess')?.bond, 'ursusShip');
   });
 });
 
@@ -129,6 +142,7 @@ describe('room chat, chat factions and SP_MAX_BOTS (server/local-patch.js)', () 
     assert.deepEqual((await guest.waitFor('room.factions')).factions, { [host.id]: 'siracusa' });
     await expectError(host, { t: 'room.chatFaction', faction: 'yan' }, ERR.RATE); // shares the chat cooldown
     await expectError(host, { t: 'room.chatFaction', faction: 'rhodes' }, ERR.BAD_MSG);
+    await expectError(host, { t: 'room.chatFaction', faction: 'ursus' }, ERR.BAD_MSG); // 规程's, not this 盟约 room's
     const late = await player('Late');
     await joinRoom(late, st.code);
     assert.deepEqual((await late.waitFor('room.factions')).factions, { [host.id]: 'siracusa' }, 'a joiner gets the factions');

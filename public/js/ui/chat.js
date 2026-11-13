@@ -24,7 +24,7 @@
 // Styles: public/css/chat.css.
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_FACTIONS, chatFaction } from '../../../shared/local.js';
+import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, chatFactionsOf, chatFaction } from '../../../shared/local.js';
 import { html } from './components.js';
 import { net } from '../net.js';
 import { store, useStore, loadPref, savePref } from '../store.js';
@@ -195,10 +195,12 @@ function ChatLog({ lines, myId }) {
 }
 
 /** The player's chat faction (room.state seat) and the picker: a chip left of the input (the faction's icon once
- *  picked, so the input keeps its width), the 8 factions with icon and name above it. */
+ *  picked, so the input keeps its width), the room season's factions (shared/local.js chatFactionsOf) with icon and
+ *  name above it. */
 function FactionPicker({ disabled }) {
   const seated = useStore((s) => (s.room?.seats || []).some((x) => x && x.playerId === s.me.playerId));
   const mine = useStore((s) => s.chatFactions?.[s.me.playerId] ?? null);
+  const season = useStore((s) => s.room?.season ?? null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   // the bonds off this match (m.public.disabledBonds): their factions are dimmed and say so
@@ -217,7 +219,7 @@ function FactionPicker({ disabled }) {
     <button type="button" class=${cx('chat__facbtn', f && 'is-set')} style=${f ? `--fac:${f.color}` : ''} disabled=${disabled || busy}
       aria-expanded=${open ? 'true' : 'false'} title=${t('选择阵营')} onClick=${() => setOpen(!open)}>${f ? (factionIconUrl(f) ? html`<${FactionIcon} f=${f} />` : t(f.name)) : t('阵营')}</button>
     ${open ? html`<div class="chat__facs" role="group" aria-label=${t('选择阵营')}>
-      ${CHAT_FACTIONS.map((x) => html`<button key=${x.id} type="button" class=${cx(x.id === mine && 'is-on', isOff(x) && 'is-off')} style=${`--fac:${x.color}`}
+      ${chatFactionsOf(season).map((x) => html`<button key=${x.id} type="button" class=${cx(x.id === mine && 'is-on', isOff(x) && 'is-off')} style=${`--fac:${x.color}`}
         aria-pressed=${x.id === mine ? 'true' : 'false'} title=${isOff(x) ? `${t(x.name)}${t('（本局禁用）')}` : t(x.name)}
         onClick=${() => pick(x.id)}><${FactionIcon} f=${x} /><span>${t(x.name)}</span>${isOff(x) ? html`<small>${t('禁用')}</small>` : null}</button>`)}
     </div>` : null}

@@ -13,11 +13,17 @@
 // toggleDiyChoice). 准备就绪 locks the choice: the centre turns into panel_team_selected (the 已选择自选编队 mark) and the
 // rows keep only the chosen cards (⌀NONE for a tier without one); 取消准备 unlocks it. Under it: the bond tip, the
 // ready seats as the stage-info player figures (img_player_bg → img_player_confirmed) and the button.
+// 自选预设 (DiyPresetBox, our feature — maintainer decision 2026-11-13: the strategy draft's row moved here, where the cards
+// are): a band over the tier rows with the roster dropdown of the draft (bandDraft.js PresetPicker, without 保持当前编队),
+// its tags and 记住此策略的预设. On entry it shows what my strategy applied when my pick landed (bandPresetChoice: its link,
+// else its nation bond's preset, else 不使用预设); a change applies that roster (ui/factionPick.js applyPresetChoice, the chat
+// faction follows) and sends it at once — the server takes the lineup until I ready, keeping a chosen card only where the
+// same operator stays (match/diyChoose.js setDiyLineup). Locked while ready.
 // The art is the season's extract (`diyChooseArt/…`, tools/local-extract/season_ui.py 'prefabs'); without it the CSS
 // draws plain fills. Styles: css/screens/diychoose.css on the strategy draft's frame (css/screens/draft.css).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Button, TierChip } from '../ui/components.js';
+import { html, Button, TierChip, MicroLabel } from '../ui/components.js';
 import { useGameData } from '../ui/gameComponents.js';
 import { chessPortraitUrl, profIconUrl, bondIconUrl, skillRecordIconUrl, moduleTypeIconUrl, uiUrl } from '../ui/assetUrls.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
@@ -28,7 +34,10 @@ import { slotRecord } from '../ui/diyModel.js';
 import { useStore } from '../store.js';
 import { data, localAsset } from '../data.js';
 import { audio } from '../audio.js';
-import { OrderRow, useOrderArt, draftArt } from './bandDraft.js';
+import { OrderRow, useOrderArt, draftArt, PresetPicker, presetChoiceTags } from './bandDraft.js';
+import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand } from '../ui/diyPresets.js';
+import { applyPresetChoice } from '../ui/factionPick.js';
+import { flushDiySync } from '../ui/loadoutSync.js';
 import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -119,6 +128,42 @@ function DoneMark({ m }) {
   </div>`;
 }
 
+/**
+ * 自选预设 on 确定自选编队 (see the header): `bandId` = my strategy; `locked` while ready (or a request runs).
+ * @param {{ bandId: string, band: any, off: string[]|null, locked: boolean }} props
+ */
+export function DiyPresetBox({ bandId, band, off, locked }) {
+  const links = useStore((s) => s.links, Object.is, diyPresetStore);
+  const presets = useStore((s) => s.presets, Object.is, diyPresetStore);
+  const [picked, setPicked] = useState(null);
+  const [remember, setRemember] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const choice = picked ?? bandPresetChoice(bandId, band, links, presets);
+  const link = links?.[bandId] ?? null;
+  const tags = presetChoiceTags(choice, { link, rec: bandRecommendation(band), off });
+  const TAG = { linked: ['link', t('已关联')], rec: ['rec', t('推荐')], off: ['off', t('本局禁用')] };
+  const pick = async (v) => {
+    setPicked(v);
+    if (remember) linkBand(bandId, v);
+    setBusy(true);
+    await applyPresetChoice(v);
+    await flushDiySync();
+    setBusy(false);
+  };
+  const keep = (v) => {
+    setRemember(v);
+    if (v && picked != null) linkBand(bandId, picked);
+  };
+  return html`<div class=${cx('dcpreset', locked && 'is-locked')} data-testid="diy-choose-preset">
+    <span class="dcpreset__k"><${MicroLabel} tone="mint">DIY PRESET</${MicroLabel}><b>${t('自选预设')}</b></span>
+    <${PresetPicker} choice=${choice} presets=${presets} off=${off} locked=${locked || busy} onChoice=${pick} keep=${false} />
+    ${tags.map((k) => html`<span key=${k} class=${`draft-preset__tag is-${TAG[k][0]}`}>${TAG[k][1]}</span>`)}
+    <label class="dcpreset__keep" title=${t('选择阵营预设时聊天阵营一并切换')}><input type="checkbox" checked=${remember} disabled=${locked}
+      onChange=${(e) => keep(e.currentTarget.checked)} />${t('记住此策略的预设')}</label>
+    <span class="dcpreset__hint">${t('切换预设后，下方卡片换成该预设的编队；已选择的卡片只保留干员未变的位置')}</span>
+  </div>`;
+}
+
 export function DiyChooseScreen() {
   const pub = useStore((s) => s.match.public);
   const priv = useStore((s) => s.match.private);
@@ -171,6 +216,8 @@ export function DiyChooseScreen() {
   const total = Number(pub?.diyChoose?.seconds) > 0 ? Number(pub.diyChoose.seconds) : null;
   const info = infoOpen ? matchInfoModel(pub, { bonds: gd.list('bonds'), chess: gd.chess, mode, priv, diyData: D }) : null;
   const pon = localAsset('ui/outer', 'img_player_confirmed');
+  // 自选预设: my strategy's roster, for a seat with a lineup view (a spectator has none)
+  const presetBand = view ? (priv?.bandId || players.find((p) => p.playerId === myId)?.bandId || null) : null;
 
   return html`<div class="screen draft dchoose" style=${artVars(m)} data-testid="diy-choose">
     <div class="brief__bg" aria-hidden="true"></div>
@@ -189,9 +236,10 @@ export function DiyChooseScreen() {
             aria-haspopup="dialog" onClick=${() => setInfoOpen(true)}>${t('本局信息')}<//>
         </div>
       </aside>
-      <div class=${cx('dchoose__body', ready && 'is-ready')}>
+      <div class=${cx('dchoose__body', ready && 'is-ready', presetBand && 'has-preset')}>
         ${ready ? html`<${DoneMark} m=${m} />` : null}
         <div class="dchoose__levels">
+          ${presetBand ? html`<${DiyPresetBox} key=${presetBand} bandId=${presetBand} band=${gd.band(presetBand)} off=${pub?.disabledBonds ?? null} locked=${ready || busy} />` : null}
           ${view ? rows.map((row) => html`<${TierRow} key=${row.tier} m=${m} row=${row} ready=${ready} onTap=${tap} />`)
             : html`<p class="dchoose__spec t-dim">${t('观战中')}</p>`}
         </div>

@@ -59,7 +59,7 @@ import { recordResult, recordQuit, installStatsRecorder } from './ui/stats.js';
 import { installLoadoutSync, installOwnershipSync, installDiySync, setLoadoutSeason } from './ui/loadoutSync.js';
 import { installCardSync } from './ui/cardSync.js';
 import { installSeasons, activeSeason, followActiveSeason, loadPickedSeason, inviteSeasonOf } from './ui/season.js';
-import { installDiyPresets } from './ui/diyPresets.js'; // 맹약별 선발 프리셋
+import { installDiyPresets, setPresetSeason } from './ui/diyPresets.js'; // 맹약별 선발 프리셋 (per season)
 import { startBuildGuard } from './ui/buildGuard.js';
 import { installChat } from './ui/chat.js';
 import { installRestartNotice } from './ui/restartNotice.js'; // the deploy's restart countdown
@@ -305,6 +305,7 @@ function wireNet() {
   installSeasons({ net });
   followActiveSeason((season) => {
     data.setSeason(season);
+    setPresetSeason(season); // first: the picks follower must not save one season's picks into the other's roster
     setLoadoutSeason(season);
   });
   net.on('room.closed', (msg) => {

@@ -28,10 +28,15 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
 /** The match phases in which a faction pick still sets the running match's 自选 (server platform.js setDiy). */
 export const PRESET_LIVE_PHASES = Object.freeze([PHASE.INFO_CHECK, PHASE.BAND_DRAFT]);
 
-/** Whether a faction pick applies its 自选 preset now: out of a match, or while the briefing / strategy draft runs. */
+/**
+ * Whether a faction pick applies its 自选 preset now: out of a match, while the briefing / strategy draft runs, or in
+ * 规程's 确定自选编队 before the seat readies (m.private.diyChoose; server platform.js setDiy takes the lineup then too).
+ */
 export function presetPickLive(s) {
   if (!s?.room?.inMatch) return true;
-  return PRESET_LIVE_PHASES.includes(s.match?.public?.phase);
+  const phase = s.match?.public?.phase;
+  if (phase === PHASE.DIY_CHOOSE) return !!s.match?.private?.diyChoose && !s.match.private.diyChoose.ready;
+  return PRESET_LIVE_PHASES.includes(phase);
 }
 
 /**

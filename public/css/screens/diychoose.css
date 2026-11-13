@@ -21,6 +21,24 @@
 .dchoose__body.is-ready .dchoose__levels::before { display: none; }
 .dchoose__spec { margin: auto; font-size: .3rem; }
 
+/* ---- 自选预设 (diyChoose.js DiyPresetBox, our feature): a band over the tier rows ---- */
+.dchoose__body.has-preset .dchoose__levels { padding-top: max(.62rem, 34px); }
+.dchoose__body.has-preset .dchoose__levels::before { top: max(.66rem, 38px); }
+.dcpreset {
+  position: absolute; z-index: 3; left: .36rem; right: 0; top: 0; display: flex; align-items: center; gap: .12rem; min-width: 0; min-height: max(.5rem, 30px);
+  padding: .04rem .16rem; font-size: max(.15rem, 12px); color: #d9dedc;
+  background: linear-gradient(90deg, rgba(0, 0, 0, .55), rgba(0, 0, 0, .25) 70%, transparent); border-left: 2px solid rgba(43, 224, 182, .7);
+}
+.dchoose__body.is-ready .dcpreset { left: 0; }
+.dcpreset__k { display: flex; flex-direction: column; flex: none; line-height: 1.15; }
+.dcpreset__k b { font-weight: 700; color: #f2f2f2; white-space: nowrap; }
+.dcpreset .draft-preset__pick { flex: none; width: max(2.3rem, 140px); }
+.dcpreset .draft-preset__lbl { display: none; }
+.dcpreset__keep { display: inline-flex; align-items: center; gap: .05rem; flex: none; white-space: nowrap; font-size: max(.13rem, 10px); color: #c3cac7; cursor: pointer; }
+.dcpreset__hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: max(.12rem, 10px); color: #9aa3a0; }
+.dcpreset.is-locked { opacity: .55; }
+.dcpreset.is-locked .dcpreset__keep { cursor: default; }
+
 .dclv {
   position: relative; flex: 1 1 0; max-height: 3.85rem; min-height: 0; display: flex; align-items: center; justify-content: flex-end; padding-right: 1.62rem;
   background: var(--dc-doc, linear-gradient(270deg, rgba(255, 255, 255, .1), transparent)) right top / 100% 100% no-repeat;
@@ -132,4 +150,6 @@
   .dchoose__body.is-ready { grid-template-columns: minmax(0, 1fr) calc(300 * var(--u) + 1.3rem); }
   .dcdone__mark { width: 2rem; height: 2rem; }
   .dcdone__text { font-size: .44rem; }
+  .dcpreset { gap: 6px; padding: 2px 8px; font-size: 11px; }
+  .dcpreset__hint { display: none; }
 }

@@ -114,6 +114,15 @@ export function diySlotTier(id) {
 }
 
 /**
+ * Whether the season's start has 确定自选编队 (config.timers.enterSteps CUSTOM_CHECK: 规程): its 自选预设 is picked
+ * there, not in the strategy draft (maintainer decision 2026-11-13). @param {any} config the season's config.json
+ */
+export function hasDiyChooseStep(config) {
+  const steps = Array.isArray(config?.timers?.enterSteps) ? config.timers.enterSteps : [];
+  return steps.some((s) => isObj(s) && s.step === 'CUSTOM_CHECK');
+}
+
+/**
  * How many start steps a match of the season has before 协议启动: config.timers.enterSteps without BATTLE_CHECK — 盟约 2
  * (确认本局信息, 选择策略), 规程 3 (and CUSTOM_CHECK, 确定自选编队). 2 when the list is absent. The step headers' 「n/…」.
  * @param {any} config the season's config.json

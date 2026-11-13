@@ -31,8 +31,8 @@ import { SkillIcon, ModuleGlyph, SkillSection, ModuleSection, ProfFilter, rowCon
 import { useStore } from '../store.js';
 import { loadoutStore, closeLoadout } from '../ui/loadoutSync.js';
 import { FactionIcon } from '../ui/faction.js';
-import { diyPresetStore, selectPreset, deletePreset, toggleBandLink, bandLinkTarget, BASE_LINK } from '../ui/diyPresets.js';
-import { CHAT_FACTIONS, chatFaction } from '../../../shared/local.js';
+import { diyPresetStore, selectPreset, deletePreset, toggleBandLink, bandLinkTarget, BASE_LINK, presetSeasonOf } from '../ui/diyPresets.js';
+import { chatFactionsOf, chatFaction } from '../../../shared/local.js';
 import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -416,7 +416,7 @@ export function DiyPresetBar({ presets, active, onSelect, onDelete, links = null
     <span class="diy-presets__k">${t('阵营预设')}</span>
     <button type="button" class=${cx('diy-preset', 'diy-preset--none', !on && 'is-on')} aria-pressed=${on ? 'false' : 'true'}
       data-preset="" onClick=${() => onSelect(null)}>${t('不使用预设')}</button>
-    ${CHAT_FACTIONS.map((f) => {
+    ${chatFactionsOf(presetSeasonOf()).map((f) => {
       const has = !!presets?.[f.id];
       return html`<button key=${f.id} type="button" class=${cx('diy-preset', has && 'has-preset', active === f.id && 'is-on')} style=${`--fac:${f.color}`}
         aria-pressed=${active === f.id ? 'true' : 'false'} data-preset=${f.id} title=${`${t(f.name)} · ${has ? t('已保存预设') : t('尚未设置预设')}`}

@@ -39,6 +39,8 @@
 // choiceRoster, maintainer decision 2026-10-29: the dropdown is the roster shown and edited — selectPreset: the live
 // picks follow it, as the tab's own preset bar does); the order
 // list carries the overlay's entry (LoadoutButton, from 'draft' — it closes when the draft ends; maintainer request 2026-10-13).
+// 规程 (hasDiyChooseStep): no row in the detail pane — the strategy's roster still applies when my pick lands, and the
+// 确定自选编队 screen after the draft carries the dropdown (screens/diyChoose.js DiyPresetBox; maintainer decision 2026-11-13).
 // 本局信息 (GitHub issue #8 item 1, "选策略时没法返回查看禁用的干员和盟约"): 本局信息 under the order list (named so: maintainer decision 2026-11-07) opens the
 // briefing's bond rows, legend and 本局禁用干员 again, read-only (ui/matchInfo.js MatchInfoDialog — the very blocks of the
 // briefing). The draft runs on underneath: its status line repeats the current turn and the countdown (draftInfoStatus),
@@ -53,14 +55,14 @@ import { CARD_KEY, cardStore, cardOperators, cardContext, seatOperator, seatArtS
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfoDialog, matchInfoModel, ChessIcon } from '../ui/matchInfo.js';
 import { actions, act } from '../ui/gameActions.js';
-import { normalizeDraft, sortedPlayers, diyPickOff, startStepCount } from '../ui/gameLogic.js';
+import { normalizeDraft, sortedPlayers, diyPickOff, startStepCount, hasDiyChooseStep } from '../ui/gameLogic.js';
 import { useStore } from '../store.js';
 import { FactionIcon } from '../ui/faction.js';
-import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand, selectPreset, clearRosterSlot, choiceRoster, KEEP_LINK, BASE_LINK } from '../ui/diyPresets.js';
+import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand, selectPreset, clearRosterSlot, choiceRoster, KEEP_LINK, BASE_LINK, presetSeasonOf } from '../ui/diyPresets.js';
 import { loadoutStore, flushDiySync, flushLoadoutSync, openLoadout } from '../ui/loadoutSync.js';
 import { LoadoutButton } from './loadout.js';
 import { diySlotList } from '../ui/diyModel.js';
-import { CHAT_FACTIONS, chatFaction } from '../../../shared/local.js';
+import { chatFactionsOf, chatFaction } from '../../../shared/local.js';
 import { PHASE } from '../../../shared/constants.js';
 import { data, localAsset } from '../data.js';
 import { audio } from '../audio.js';
@@ -353,17 +355,18 @@ const pickAvatar = (m, u) => (u ? chessAvatarUrl(m, { charId: u.charId, assets: 
 const slotTier = (id) => Number(/^chess_char_(\d)_/.exec(id)?.[1]) || null;
 
 /**
- * The roster choices of the 自选预设 row: 保持当前编队, 不使用预设, then the eight chat factions (their icon, 未设置 when the
- * faction has no preset, 本局禁用 when this match disables its bond).
- * @param {Record<string, any>} presets @param {string[]|null} off
+ * The roster choices of the 自选预设 row: 保持当前编队 (`keep`; not on 规程's 确定自选编队, whose cards are the roster in
+ * use), 不使用预设, then the season's chat factions (their icon, 未设置 when the faction has no preset, 本局禁用 when this
+ * match disables its bond).
+ * @param {Record<string, any>} presets @param {string[]|null} off @param {{ keep?: boolean }} [o]
  * @returns {Array<{ v: string, label: string, f?: any, empty?: boolean, off?: boolean }>}
  */
-export function presetOptions(presets, off) {
+export function presetOptions(presets, off, { keep = true } = {}) {
   const offIds = Array.isArray(off) ? off : [];
   return [
-    { v: KEEP_LINK, label: t('保持当前编队') },
+    ...(keep ? [{ v: KEEP_LINK, label: t('保持当前编队') }] : []),
     { v: BASE_LINK, label: t('不使用预设') },
-    ...CHAT_FACTIONS.map((f) => ({ v: f.id, label: t(f.name), f, empty: !presets?.[f.id], off: offIds.includes(f.bond) })),
+    ...chatFactionsOf(presetSeasonOf()).map((f) => ({ v: f.id, label: t(f.name), f, empty: !presets?.[f.id], off: offIds.includes(f.bond) })),
   ];
 }
 
@@ -374,9 +377,10 @@ export function presetOptions(presets, off) {
  * preset has its icon left uncoloured (grey), a faction this match disables carries the
  * briefing's own img_bond_banned mark top-right of its icon (as the briefing draws it; without that local art the dimmed
  * name); both say so in the tooltip.
- * @param {{ choice: string, presets: Record<string, any>, off: string[]|null, locked: boolean, onChoice: (v: string) => void }} props
+ * @param {{ choice: string, presets: Record<string, any>, off: string[]|null, locked: boolean, onChoice: (v: string) => void,
+ *   keep?: boolean }} props keep: offer 保持当前编队 (presetOptions)
  */
-export function PresetPicker({ choice, presets, off, locked, onChoice }) {
+export function PresetPicker({ choice, presets, off, locked, onChoice, keep = true }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => { if (locked) setOpen(false); }, [locked]);
@@ -413,7 +417,7 @@ export function PresetPicker({ choice, presets, off, locked, onChoice }) {
       document.removeEventListener('scroll', moved, true); window.removeEventListener('resize', resized);
     };
   }, [open]);
-  const opts = presetOptions(presets, off);
+  const opts = presetOptions(presets, off, { keep });
   const cur = opts.find((o) => o.v === choice) || opts[0];
   const ban = localAsset('ui/outer', 'img_bond_banned');
   const tip = (o) => [o.label, o.empty && t('尚未设置预设'), o.off && t('本局禁用')].filter(Boolean).join(' · ');
@@ -644,6 +648,8 @@ export function BandDraftScreen() {
   const selTaken = !!band && taken.has(band.bandId);
   // 전략별 선발 프리셋: the roster a strategy applies when my pick of it lands (see the header)
   const inDraft = draft.order.includes(myId);
+  // 规程: the 自选预设 is picked on 确定自选编队 (screens/diyChoose.js), the draft's detail pane has no row (maintainer decision 2026-11-13)
+  const diyStep = hasDiyChooseStep(gd.config);
   const choiceFor = (bid) => presetSel[bid] ?? bandPresetChoice(bid, gd.band(bid), links, presets);
   const applyBandPreset = async (bid) => {
     presetAppliedFor = `${roomKey}|${bid}`;
@@ -776,7 +782,7 @@ export function BandDraftScreen() {
           <${BandOffNote} names=${bandOffBonds(band, offBonds).map((id) => gd.bond(id)?.name || id)} />
           <span class="draft-tag draft-tag--intro" aria-hidden="true">INTRO</span>
           <div class="draft-detail__eff"><${BandText} band=${band} class="draft-detail__desc" /></div>
-          ${inDraft ? html`<${DraftPresetRow} band=${band} choice=${choiceFor(band.bandId)} link=${links?.[band.bandId] ?? null}
+          ${inDraft && !diyStep ? html`<${DraftPresetRow} band=${band} choice=${choiceFor(band.bandId)} link=${links?.[band.bandId] ?? null}
             presets=${presets} base=${baseRoster} live=${livePicks} off=${pub?.disabledBonds ?? null} m=${gd.m}
             locked=${(!!myPick && myPick !== band.bandId) || busy === 'pick'}
             remember=${remember[band.bandId] ?? true} onChoice=${(v) => changeChoice(band.bandId, v)}
