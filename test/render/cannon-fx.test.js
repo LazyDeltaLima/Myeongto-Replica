@@ -29,12 +29,12 @@ const ROW = {
 };
 const NAMES = ['trap_cnnon_idle', 'trap_cnnon_start', 'trap_cnnon_buff', 'trap_cnnon_attack_start', 'trap_cnnon_trail_1', 'trap_cnnon_explode_1', 'trap_cnnon_explode_hit'];
 
-async function layer(row = ROW) {
+async function layer(row = ROW, load = () => 0) {
   const m = { [CANNON_KEY]: row, $fx: Object.fromEntries(NAMES.map((n) => [n, ['trap', n]])) };
   const files = { '/assets/local/fx/index.json': { bundles: { trap: NAMES } }, '/assets/local/fx/enemy-modes.json': m };
   globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
   const seen = [];
-  const L = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, trace: (p) => seen.push(p) });
+  const L = createFxLayer({ host: null, above: null, quality: () => 'high', load, dry: true, trace: (p) => seen.push(p) });
   await new Promise((r) => setTimeout(r, 10));
   const frame = () => L.update(1 / 60, { dist: 20 }, { width: 100, height: 100 });
   return { L, seen, frame };
@@ -121,6 +121,30 @@ test('the sim\'s \'cannon\' events: passenger mark from boarding to landing, cas
     const other = { ...fx[1], e: ['fx', 'cannon', 14, 13, fx[1].e[4]] };
     assert.deepEqual(tags(other.e), []);
     assert.ok(!L.ownsFx(other.e));
+  } finally { globalThis.fetch = fetch0; }
+});
+
+// 2026-11-14 (docs/rules/render.md 「적응 부하 단계」): the view's load level 3 leaves no official effect out — the
+// cannon's shell and blast, an enemy-side device's, used to stay procedural there
+test('at load level 3 the cannon\'s cast, shell, blast and hit are the same as at level 0', async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    const { h, evs } = battle();
+    h.run(13.5);
+    const fx = evs.filter((x) => x.e[0] === 'fx' && (x.e[1] === 'cannon' || x.e[4]?.kind === 'cnnonShell'));
+    const drawn = async (lod) => {
+      const { L, seen, frame } = await layer(ROW, () => lod);
+      const views = new Map([...h.b.allies(), ...h.b.enemies].map((u) => [u.id, viewOf(u)]));
+      L.setCannons(stageCannons(ACT3.stages[M10], h.b.grid.rect).map((k) => ({ ...k, z: 0 })));
+      frame();
+      seen.length = 0;
+      const out = [];
+      for (const x of fx.slice(0, 3)) { L.onEvent(x.e, views); out.push(...spawns(seen).map((p) => `${p.tag}:${p.names[0]}`), `owns ${L.ownsFx(x.e)}`); }
+      return out;
+    };
+    const at0 = await drawn(0), at3 = await drawn(3);
+    assert.ok(at0.includes('cannonShell:trap_cnnon_trail_1') && at0.includes('cannonBlast:trap_cnnon_explode_1'), at0.join(', '));
+    assert.deepEqual(at3, at0);
   } finally { globalThis.fetch = fetch0; }
 });
 
