@@ -2799,6 +2799,10 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 - 테스트: `test/content/enemies_bosses.test.js` 「W: the charge hits its target alone…」·「W: below half HP…」·「陷落雪祀: 【反自然馈赠】 a freeze…」·「“萨米的意志” 自然涌动: casts while
   its lasso holds…」, `test/content/playtest4_summons.test.js` 「#12 祛恶之焰: a stun (or a freeze) ends it…」(모두 수정 전 코드에서 실패 확인). golden: `roster` 004·021(W)·030(함락의
   제사장), `act3-roster` 032(W), `fields` boss-boss_7-pair·solo('사미의 의지'), `matches` coop3-ABYSS-5(W·함락의 제사장 쪽 `leaders.js`).
+- 빠짐 방지: `test/content/enemy-proj-wait-coverage.test.js`가 데이터(`skillCast.*.proj`, 묶음의 자식 포함, 모든 시즌)의 투사체 기다림 스킬마다 키트 능력에
+  `projAlive`와 `onCut`이 있거나 `test/content/enemy-proj-wait-list.js`에 이유와 함께 있는지(시전 안 함 · 다른 키트가 돌림), `projAlive`가 기다림 없는 스킬에 붙지 않았는지 보고,
+  이어진 스킬을 막힌 자리에서 실제로 시전시켜 열린 시전이 30초 안에 끝나는지(`PROJ_WAIT_MAX` 60초까지 서 있지 않는지) 본다. 2026-11-14 기준 9개 중 이은 것 5, 목록 4
+  ('염의 가호' 둘 — 아군 소환물 키트, 살카즈 후예 기술자 둘 — 시전 안 함). 확인: W의 `projAlive`를 빼거나 재즈 연주가의 것을 늘 참으로 바꾸면 실패.
 
 ### 티티 S2 「밀봉 보호」의 HP 비율 동률은 위협도 순 (upstream `8668a9cd` `47c22d39`, upstream #906)
 
