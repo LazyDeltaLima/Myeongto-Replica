@@ -174,7 +174,7 @@
 .draft-detail__art::after { content: '+   +'; position: absolute; inset: -.18rem -.1rem auto; text-align: justify; text-align-last: justify; font-size: calc(.3 * var(--t)); line-height: 1; color: rgba(220, 240, 236, .25); pointer-events: none; }
 .draft-detail__art .bandicon { --bi: 2.1rem; background: transparent; border: 0; }
 .draft-detail__art img { filter: saturate(.8) drop-shadow(0 0 .14rem rgba(63, 230, 180, .35)); }
-.draft-detail__hp { align-self: center; display: flex; align-items: center; gap: .1rem; font-size: calc(.24 * var(--t)); color: #e8ecec; }
+.draft-detail__hp { align-self: center; display: flex; align-items: center; gap: .1rem; font-size: calc(.24 * var(--t)); color: #e8ecec; white-space: nowrap; }
 .draft-detail__hp b { padding: 0 .08rem; font-size: calc(.22 * var(--t)); line-height: 1.35; color: #062019; background: var(--mint-500); }
 .draft-detail__name { margin: 0 0 .04rem; font-size: calc(.36 * var(--t)); font-weight: 900; letter-spacing: .04em; color: #f4f6f6; }
 .draft-detail__eff { flex: 1 1 auto; min-height: .6rem; overflow-y: auto; overscroll-behavior: contain; padding: 0 .08rem .2rem 0; margin-right: -.08rem;
@@ -198,6 +198,10 @@
 .draft-skip__ico { flex: none; width: 1.3em; height: .9em; background: currentColor;
   -webkit-mask: var(--skip-ico) center / contain no-repeat; mask: var(--skip-ico) center / contain no-repeat; }
 .draft-pick.btn { min-width: 0; }
+/* 队友已选 is longer than 确认选择 (「팀원 선택 완료」, "Taken by a Teammate"): no ✓, a smaller face, and the label may wrap
+   between words — nowrap ran it past the box over 跳过 */
+.draft-pick--taken.btn { padding: 0 .12rem; font-size: calc(.22 * var(--t)); letter-spacing: .02em; }
+.draft-pick--taken .btn__label { white-space: normal; overflow-wrap: normal; text-align: center; line-height: 1.15; min-width: 0; }
 .draft-pick.btn--primary { --btn-bg: #d8dbdb; --btn-bg-hover: #f2f4f4; --btn-fg: #111415; --btn-bd: #fff; --btn-bd-hover: #fff; --btn-glow: rgba(255, 255, 255, .35); --bk-c: #fff;
   background-image: none; box-shadow: 0 0 0 .03rem rgba(255, 255, 255, .85), 0 .06rem .2rem rgba(0, 0, 0, .5); letter-spacing: .08em; }
 .draft-pick .btn__icon { width: .4rem; height: .4rem; padding: .03rem; border: .03rem solid currentColor; border-radius: .04rem; }

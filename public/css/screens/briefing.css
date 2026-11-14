@@ -24,7 +24,9 @@
 /* the difficulty beside the exit tile, level with its centre (the ping hangs under the tile, ExitTile) */
 .stephead__left > .stephead__tags { align-self: flex-start; margin-top: calc(28 * var(--eu, .0128rem)); transform: translateY(-50%); }
 .stephead__center { display: flex; flex-direction: column; align-items: center; gap: .04rem; }
-.stephead__title { display: flex; align-items: baseline; gap: .02rem; font-size: .34rem; font-weight: 900; letter-spacing: .12em; }
+/* nowrap: the title's three parts are flex items, and under the Korean pack's `overflow-wrap: anywhere` (i18n/ko/ko.css)
+   a centre column a fraction short broke every one of them — 「2 / 2」 and 「전략 / 선택」 on two lines */
+.stephead__title { display: flex; align-items: baseline; gap: .02rem; font-size: .34rem; font-weight: 900; letter-spacing: .12em; white-space: nowrap; }
 .stephead__title b { font-size: .56rem; line-height: 1; color: var(--mint-400); text-shadow: 0 0 .2rem rgba(23, 249, 183, .4); }
 .stephead__of { font-size: .26rem; color: var(--text-dim); margin-right: .18rem; }
 .stephead__right { justify-self: end; display: flex; align-items: center; gap: .24rem; }

@@ -806,7 +806,7 @@ export function BandDraftScreen() {
             ${!solo ? html`<${Button} variant="secondary" size="lg" icon=${skipIco ? null : 'chevrons'} class="draft-skip" disabled=${!canSkip} loading=${busy === 'skip'} onClick=${skip}
               style=${skipIco ? `--skip-ico:url("${skipIco}")` : null}
               title=${skipsLeft > 0 ? t('跳过本轮，稍后再选') : t('跳过次数已用完')}>${skipIco ? html`<i class="draft-skip__ico" aria-hidden="true"></i>` : null}${t('跳过')}${skipsLeft > 0 ? '' : html`<span class="draft-skip__used">${t('（已用）')}</span>`}<//>` : null}
-            <${Button} variant="primary" size="lg" icon="check" class="draft-pick" disabled=${!myTurn || !band || selTaken} loading=${busy === 'pick'} onClick=${confirm}>${selTaken ? t('队友已选') : t('确认选择')}<//>
+            <${Button} variant="primary" size="lg" icon=${selTaken ? null : 'check'} class=${selTaken ? 'draft-pick draft-pick--taken' : 'draft-pick'} disabled=${!myTurn || !band || selTaken} loading=${busy === 'pick'} onClick=${confirm}>${selTaken ? t('队友已选') : t('确认选择')}<//>
           </div>`}
         </div>
       </aside>

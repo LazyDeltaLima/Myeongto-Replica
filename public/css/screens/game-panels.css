@@ -152,7 +152,9 @@
 .dsp--atk { background: #ff8a3d; color: #1f0c00; }
 .dsp--def { background: #f2bd3e; color: #1f1400; }
 .dsp--trig { border: 1px solid var(--line-3); color: var(--text-lo); font-weight: 500; }
-.dsp__num { display: inline-flex; align-items: center; gap: .03rem; font-size: .13rem; color: var(--text-lo); }
+/* nowrap: the label and numbers are flex items; under the Korean pack's `overflow-wrap: anywhere` (i18n/ko/ko.css) a
+   squeezed row broke 「초기」 / 「소모」 and the numbers a letter per line. The tags wrap as wholes (.dskill__tags) */
+.dsp__num { display: inline-flex; align-items: center; gap: .03rem; font-size: .13rem; color: var(--text-lo); white-space: nowrap; }
 .dsp__num b { color: #fff; }
 .dsp__num .icon { width: .14rem; height: .14rem; color: var(--gold); }
 .dtalent { display: flex; flex-direction: column; gap: .02rem; }

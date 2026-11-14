@@ -214,7 +214,7 @@
 .funds__coin { width: .34rem; height: .34rem; fill: var(--gold); filter: drop-shadow(0 0 .06rem rgba(255, 198, 0, .6)); }
 .funds__num { font-size: .36rem; line-height: 1; font-weight: 700; color: #fff; }
 .funds__label { font-size: .14rem; color: var(--text-lo); letter-spacing: .1em; }
-.funds__collapse { display: flex; align-items: center; gap: .04rem; font-size: .15rem; background: none; border: 1px solid var(--line-2); color: var(--text-lo); padding: .02rem .1rem; }
+.funds__collapse { display: flex; align-items: center; gap: .04rem; font-size: .15rem; background: none; border: 1px solid var(--line-2); color: var(--text-lo); padding: .02rem .1rem; white-space: nowrap; }
 .funds__collapse .icon { width: .14rem; height: .14rem; }
 .funds__collapse:hover { color: var(--text-hi); border-color: var(--line-3); }
 .coin-glyph { fill: var(--gold); }
