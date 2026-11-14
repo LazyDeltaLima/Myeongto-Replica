@@ -14,13 +14,15 @@ import { unitForm, composeUnitRecord } from '../shared/standIn.js';
 import { composeStats, composeTalents } from '../shared/loadoutRecord.js';
 import { normalizeChess, resolveLoadout, loadoutRecord } from '../server/sim/simdata.js';
 import { KITTED_CHARS, OPERATOR_KITS } from '../server/sim/content/kits/index.js';
-import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
+import { seasonPicks, allSeasonData } from './helpers/seasonPicks.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../data/${f}.json`, import.meta.url), 'utf8'));
 const chess = load('chess');
 const backups = load('backups');
 const DATA = { chess, backups };
 const { ownedPool, prototypes } = backups.diy;
+/** The picks 盟约 offers (shared/local-diy.js less its own chess: test/helpers/seasonPicks.js). */
+const PICKS = seasonPicks(chess);
 const ELITES = ['char_608_acpion', 'char_609_acguad', 'char_610_acfend', 'char_611_acnipe', 'char_612_accast', 'char_613_acmedc', 'char_614_acsupo', 'char_615_acspec', 'char_617_sharp2'];
 const RESERVES = ['char_600_cpione', 'char_601_cguard', 'char_602_cdfend', 'char_603_csnipe', 'char_604_ccast', 'char_605_cmedic', 'char_606_csuppo', 'char_607_cspec'];
 const WANG = 'char_2027_wang';
@@ -40,17 +42,18 @@ test('slots: two per tier (5, 6), each with its elite twin', () => {
 test('diyPool: both tiers = our owned 6★ picks (shared/local-diy.js), no prototype, no preset; with the kit registry only kitted operators', () => {
   assert.deepEqual(prototypes, { 5: [], 6: [] });
   const p5 = diyPool(5, { data: DATA }), p6 = diyPool(6, { data: DATA });
-  assert.deepEqual(p5, [...LOCAL_DIY_PICKS]);
-  assert.deepEqual(p6, [...LOCAL_DIY_PICKS]);
+  assert.deepEqual(p5, PICKS);
+  assert.deepEqual(p6, PICKS);
   const roster = new Set(Object.values(chess).map((c) => c.charId).filter(Boolean));
   for (const id of p5) assert.ok(!roster.has(id), id);
   assert.deepEqual(diyPool(4, { data: DATA }), [], 'no 自选 slot at tier 4');
   // the kit registry holds the stand-ins too (KITTED_CHARS), but only a pick of the data is offered; every operator kit
-  // is one of the five
-  assert.deepEqual([...ownedPool].sort(), Object.keys(OPERATOR_KITS).sort(), 'an operator kit for every pick and no other');
+  // is a pick of some season (盟约's own chess are 规程 picks: test/helpers/seasonPicks.js)
+  const everyPool = new Set(Object.values(allSeasonData()).flatMap((d) => d.backups.diy.ownedPool));
+  assert.deepEqual([...everyPool].sort(), Object.keys(OPERATOR_KITS).sort(), 'an operator kit for every pick of every season and no other');
   for (const id of [...ELITES, ...RESERVES]) assert.ok(!p5.includes(id) && !p6.includes(id), `${id}: a stand-in, not a pick`);
-  assert.deepEqual(diyPool(5, { data: DATA, kitted: KITTED_CHARS }), [...LOCAL_DIY_PICKS]);
-  assert.deepEqual(diyPool(6, { data: DATA, kitted: KITTED_CHARS }), [...LOCAL_DIY_PICKS]);
+  assert.deepEqual(diyPool(5, { data: DATA, kitted: KITTED_CHARS }), PICKS);
+  assert.deepEqual(diyPool(6, { data: DATA, kitted: KITTED_CHARS }), PICKS);
   assert.deepEqual(diyPool(6, { data: DATA, kitted: (id) => id === WANG }), [WANG], 'a predicate works too');
   assert.deepEqual(diyPool(5, { data: DATA, kitted: [] }), [], 'nothing kitted, nothing offered');
 });

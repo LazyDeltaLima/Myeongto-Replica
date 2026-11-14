@@ -11,7 +11,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { LOCAL_DIY_PICKS } from '../../shared/local-diy.js';
+import { seasonPicks } from '../helpers/seasonPicks.js';
 import { skillModeIndex, SKILL_SUB_MODES } from '../../shared/skill-modes.js';
 import { attackTiming } from '../../server/sim/ai.js';
 import { startLead, playSpeed } from '../../public/js/render/fx/face.js';
@@ -43,7 +43,9 @@ const NEEDS = Object.freeze({ char_4179_monstr: { kind: 'token', tokenId: 'token
 
 function cases() {
   const out = [];
-  for (const c of LOCAL_DIY_PICKS) for (const skill of [0, 1, 2]) {
+  // the picks 盟约 offers: the harness runs 盟约's data, where a 规程-only pick (盟约's own chess) has no 自选 form
+  const chess = JSON.parse(readFileSync(path.join(ROOT, 'data/chess.json'), 'utf8'));
+  for (const c of seasonPicks(chess)) for (const skill of [0, 1, 2]) {
     out.push({ label: `${c} S${skill + 1}`, charId: c, skill, extra: NEEDS[c] ? [{ uid: 2, ...NEEDS[c] }] : [], unit: { uid: 1, diy: { slot: 'chess_char_5_diy1_a', charId: c, skillIndex: skill, uniEquipId: null }, row: 10, col: 5 } });
   }
   return out;

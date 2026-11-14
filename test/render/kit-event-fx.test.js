@@ -120,6 +120,8 @@ test('every event a 自选 kit sends with a visual has a plan or says what draws
   const missing = [];
   for (const [n, b] of kitEvents()) {
     if (!readdirSync(path.join(KITS, 'ops')).includes(`op-${b}.js`)) continue;
+    // a chess kit fielded as a pick (kits/shared/chessPick.js): its events are that chess kit's, judged as the chess's above
+    if (/shared\/chessPick\.js/.test(readFileSync(path.join(KITS, 'ops', `op-${b}.js`), 'utf8'))) continue;
     if (fxSpec(n, {}).a === 'none' || KIT_OFFICIAL[n]?.[b]) continue;
     seen.add(`${b}|${n}`);
     if (!PICK_EVENTS[`${b}|${n}`]) missing.push(`${b}|${n}`);

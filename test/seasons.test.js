@@ -514,7 +514,8 @@ test('kits: an operator with only a 自选 kit, fielded as another season\'s che
     };
     return { h, play, errors: h.battle.errors };
   };
-  for (const charId of Object.keys(OPERATOR_KITS)) {
+  // (the 盟约 picks: a 规程-only pick — 盟约's own chess, test/helpers/seasonPicks.js — is no 盟约 自选 piece to compare with)
+  for (const charId of Object.keys(OPERATOR_KITS).filter((id) => BASE.backups.diy.ownedPool.includes(id))) {
     const unit = BASE.backups.units[charId];
     const xModule = Object.keys(unit.moduleNames ?? {}).find((id) => id.startsWith('uniequip_002_')) ?? null;
     for (let skillIndex = 0; skillIndex < 3; skillIndex++) {

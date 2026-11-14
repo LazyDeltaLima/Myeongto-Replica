@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { KIT_FILES, TIER_KITS, KITS, STANDIN_KIT_FILES, STANDIN_KITS, OPERATOR_KIT_FILES, OPERATOR_KITS, SEASON_KIT_FILES, SEASON_KITS, GENERIC_KIT_CHARS, KITTED_CHARS } from '../../server/sim/content/kits/index.js';
 import { KITS as CONTENT_KITS } from '../../server/sim/content/index.js';
 import { diyRecord } from '../../shared/diy.js';
+import { allSeasonData } from '../helpers/seasonPicks.js';
 import { normalizeChess } from '../../server/sim/simdata.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -45,8 +46,11 @@ test('a stand-in kit file standin-<codename>.js registers the kit of that stand-
 });
 
 test('a 自选 kit file op-<codename>.js registers the kit of that owned-6★ pick (data/backups.json diy.ownedPool), every skill under `skills`', async () => {
-  const pool = BACKUPS.diy.ownedPool;
-  assert.equal(OPERATOR_KIT_FILES.length, pool.length, 'one kit file per owned pick (our five: shared/local-diy.js)');
+  // every season's picks (盟约's own chess are 规程 picks: test/helpers/seasonPicks.js), each with that season's data
+  const seasons = Object.values(allSeasonData());
+  const pool = [...new Set(seasons.flatMap((d) => d.backups.diy.ownedPool))];
+  const dataOf = (charId) => seasons.find((d) => d.backups.diy.ownedPool.includes(charId));
+  assert.equal(OPERATOR_KIT_FILES.length, pool.length, 'one kit file per owned pick of any season (shared/local-diy.js)');
   for (const file of OPERATOR_KIT_FILES) {
     const m = /^op-([a-z0-9]+)\.js$/.exec(file);
     assert.ok(m, `${file}: name`);
@@ -61,7 +65,7 @@ test('a 自选 kit file op-<codename>.js registers the kit of that owned-6★ pi
     // composed record and its def as the sim does (shared/diy.js diyRecord, simdata normalizeChess)
     for (const slot of ['chess_char_5_diy1_a', 'chess_char_6_diy1_a']) {
       for (const elite of [false, true]) {
-        const rec = diyRecord(slot, { charId, skillIndex: 0 }, { elite, data: { chess: CHESS, backups: BACKUPS } });
+        const rec = diyRecord(slot, { charId, skillIndex: 0 }, { elite, data: dataOf(charId) });
         assert.ok(rec, `${file}: a legal pick of ${slot}`);
         const kit = mod.default[charId](rec.skill.bb, rec, normalizeChess(rec));
         assert.deepEqual(Object.keys(kit.skills || {}).sort(), rec.skills.map((s) => s.skillId).sort(), `${file}@${slot}${elite ? ' elite' : ''}: skills`);

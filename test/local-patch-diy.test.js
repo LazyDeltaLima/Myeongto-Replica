@@ -19,6 +19,7 @@ import { makeBattle, flatStage, enemyRec } from './helpers/battleHarness.js';
 import { COLS } from '../server/sim/constants.js';
 import { diyPool, diyRecord, validateDiyPicks, isPrototypePick } from '../shared/diy.js';
 import { LOCAL_DIY_PICKS, isLocalDiyPick } from '../shared/local-diy.js';
+import { seasonPicks } from './helpers/seasonPicks.js';
 import { checkDiyPicks } from '../shared/protocol.js';
 import { DEFAULT_SEASON } from '../shared/seasons.js';
 import { KITTED_CHARS, OPERATOR_KITS } from '../server/sim/content/kits/index.js';
@@ -38,7 +39,11 @@ const PICKS = [...Object.values(CHAR), 'char_1052_kalts2', 'char_4231_clemnt', '
   'char_1034_jesca2', 'char_4055_bgsnow', 'char_180_amgoat',
   'char_293_thorns', 'char_4009_irene', 'char_400_weedy',
   'char_113_cqbw', 'char_4027_heyak', 'char_4228_closur', 'char_4246_dminon', 'char_4217_makoto',
-  'char_1031_slent2', 'char_4088_hodrer', 'char_4230_mcnist'];
+  'char_1031_slent2', 'char_4088_hodrer', 'char_4230_mcnist',
+  // 焰影苇草, 新约能天使 and 缇缇 (2026-11-14): 盟约 chess, 规程 picks only (test/content/diy_act2_chess_picks.test.js)
+  'char_1020_reed2', 'char_1041_angel2', 'char_4056_titi'];
+/** The picks 盟约 offers: PICKS less its own chess (test/helpers/seasonPicks.js). */
+const HERE = seasonPicks(CHESS);
 const STONE = 'token_10064_wang_stone1';
 const SHADE = 'token_10035_wisdel_wward';
 const MOD = (key) => `uniequip_002_${key}`;
@@ -66,12 +71,12 @@ describe('선발 picks on upstream 自选 (shared/local-diy.js, server/lobby.js 
     assert.deepEqual([...LOCAL_DIY_PICKS], PICKS);
     const kitted = Lobby.prototype.welcomeInfo.call({}).diyKitted;
     assert.deepEqual([...kitted].sort(), [...PICKS].sort());
-    for (const tier of [5, 6]) assert.deepEqual(diyPool(tier, { data: DATA, kitted }).sort(), [...PICKS].sort(), `tier ${tier}`);
-    // the data is our forty-two (hard fork 2026-10-07, tools/build-data.mjs): upstream's other owned picks and the prototypes are gone
-    assert.deepEqual(BACKUPS.diy.ownedPool, [...LOCAL_DIY_PICKS]);
+    for (const tier of [5, 6]) assert.deepEqual(diyPool(tier, { data: DATA, kitted }).sort(), [...HERE].sort(), `tier ${tier}`);
+    // the data is our picks (hard fork 2026-10-07, tools/build-data.mjs): upstream's other owned picks and the prototypes are gone
+    assert.deepEqual(BACKUPS.diy.ownedPool, HERE);
     assert.deepEqual(BACKUPS.diy.prototypes, { 5: [], 6: [] });
     assert.equal(isPrototypePick(DATA, 6, 'char_609_acguad'), false, 'a stand-in is no 自选 prototype here');
-    assert.deepEqual(diyPool(6, { data: DATA, kitted: KITTED_CHARS }), [...LOCAL_DIY_PICKS], 'diyPool with the whole kit list: still the forty-two');
+    assert.deepEqual(diyPool(6, { data: DATA, kitted: KITTED_CHARS }), HERE, 'diyPool with the whole kit list: still our picks');
     assert.equal(isLocalDiyPick('char_112_siege'), false);
     assert.deepEqual(Object.keys(OPERATOR_KITS).sort(), [...PICKS].sort(), 'a kit (ops/op-<codename>.js) for each of the forty-two, no other');
   });

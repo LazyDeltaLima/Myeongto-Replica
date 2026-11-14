@@ -443,7 +443,9 @@ print(json.dumps([c.kept_all(old, {'char_a'}), sorted(c.skills_of(['char_a', 'ch
     const shots = read('op-projectiles').ops;
     const cast = read('skill-cast').skills;
     const hud = read('skill-hud').skills;
-    const units = JSON.parse(readFileSync(path.join(ROOT, 'data/backups.json'), 'utf8')).units;
+    // every season's 自选 units (盟约's own chess are 规程 picks: test/helpers/seasonPicks.js)
+    const { allSeasonData } = await import('./helpers/seasonPicks.js');
+    const units = Object.assign({}, ...Object.values(allSeasonData()).map((d) => d.backups.units));
     /** The skill ids of every form record under `o` (`forms` nests them by phase, level, potential). */
     const passive = new Set();
     const skillIds = (o, out = new Set()) => {

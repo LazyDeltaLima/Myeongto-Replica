@@ -12,6 +12,13 @@
 // after they joined; the 涤火杰西卡 / 鸿雪 and 棘刺 ones (2026-11-04) the same day; the 结城理 ones (2026-11-12) the day after.
 
 export const UNSOUNDED = {
+  // 焰影苇草 / 新约能天使 (2026-11-14, 规程 picks of 盟约's chess kits): banks their 盟约 chess does not sound either
+  char_1020_reed2: {
+    'ON_PROJECTILE_REACH.projectile_chr_reed2_aoe_effect': 'todo: not wired for her 盟约 chess either; where the client fires it not looked up yet',
+  },
+  char_1041_angel2: {
+    'ON_ABILITY_START.char_1041_angel2.attack.5.Burst': 'todo: not wired for her 盟约 chess either; where the client fires it not looked up yet',
+  },
   // 클로저: closur_ourbase_signal picks the 指挥中心's range by CheckSkillIndex and plays nothing — no buff template or prefab node of the EN or CN
   // client carries closur_ourbase_s1 … _s3 (_s2's and _s3's files are the range loops' own, so only _s1 shows here)
   char_4228_closur: {

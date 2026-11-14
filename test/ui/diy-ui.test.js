@@ -35,7 +35,9 @@ const { DiyPanelView, DiyPickerView } = await import('../../public/js/screens/di
 const { data } = await import('../../public/js/data.js');
 const { DATA } = await import('../match/harness.js');
 const { KITTED_CHARS } = await import('../../server/sim/content/kits/index.js');
-const { LOCAL_DIY_PICKS } = await import('../../shared/local-diy.js');
+const { seasonPicks } = await import('../helpers/seasonPicks.js');
+/** The picks 盟约 offers (the picker runs on 盟约's data; 规程 offers 盟约's own chess too: test/helpers/seasonPicks.js). */
+const LOCAL_DIY_PICKS = seasonPicks(DATA.chess);
 
 await data.loadAll('chess', 'bonds', 'assets', 'garrisons', 'items', 'backups');
 

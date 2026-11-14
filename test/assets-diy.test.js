@@ -14,7 +14,7 @@ import { dataExtras, orphanFiles, parseArgs } from '../tools/fetch-assets.mjs';
 import { patternOperator, buildPlan } from '../tools/assets/plan.mjs';
 import { indexAudio } from '../tools/assets/audio.mjs';
 import { Downloader } from '../tools/assets/downloader.mjs';
-import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
+import { seasonPicks } from './helpers/seasonPicks.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const load = (f) => JSON.parse(readFileSync(join(ROOT, 'data', `${f}.json`), 'utf8'));
@@ -41,7 +41,7 @@ test('dataExtras: a hidden season\'s piece plans its operator and its summons, t
 test('dataExtras: every backups.json unit (skills by index, once), the 自选 summons, the type icon of every module of chess.json and backups.json', () => {
   const x = dataExtras(BACKUPS, CHESS);
   assert.deepEqual(Object.keys(x.extraOperators), PLANNED, 'the stand-ins and the offered picks');
-  assert.deepEqual(PLANNED.filter((id) => !BACKUPS.units[id].standsIn.length), [...LOCAL_DIY_PICKS], 'the picks: our nine');
+  assert.deepEqual(PLANNED.filter((id) => !BACKUPS.units[id].standsIn.length), seasonPicks(CHESS), 'the picks: those 盟约 offers');
   assert.equal(x.extraOperators.char_112_siege, undefined, '推进之王 is not offered here');
   assert.deepEqual(x.extraOperators.char_2027_wang.skills.map((s) => s.skillId), ['skchr_wang_1', 'skchr_wang_2', 'skchr_wang_3']);
   assert.deepEqual(x.tokenIds, ['token_10003_cgbird_bird', 'token_10008_cqbw_box', 'token_10009_weedy_cannon', 'token_10024_ebnhlz_rcube', 'token_10026_bgsnow_subbow', 'token_10027_ironmn_pile1', 'token_10027_ironmn_pile2', 'token_10027_ironmn_pile3', 'token_10029_slent2_protrb',

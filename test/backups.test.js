@@ -14,7 +14,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { standInRecord, composeUnitRecord, unitForm, statusKey, IDENTITY_FIELDS } from '../shared/standIn.js';
 import { diyRecordOf, lockedSelection } from '../shared/diy.js';
-import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
+import { seasonPicks } from './helpers/seasonPicks.js';
 import { composeStats, composeTalents, resolveLoadout, loadoutRecord, normalizeChess } from '../server/sim/simdata.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -230,9 +230,10 @@ test('DIY: no prototype picks on this server — prototypes / locked empty at bo
 
 test('DIY: the 42 owned 6★ picks (shared/local-diy.js) — a form at every slot status with all three skills, every module at stage 1 and 3, their summons', () => {
   const { ownedPool } = backups.diy;
-  assert.deepEqual(ownedPool, [...LOCAL_DIY_PICKS], 'exactly our forty-two, in the picker\'s order');
-  assert.deepEqual(Object.keys(backups.units), [...ELITES.concat(RESERVES).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), ...LOCAL_DIY_PICKS],
-    'the 17 stand-ins, then our forty-two — no unit for anyone else');
+  const picks = seasonPicks(chess);   // shared/local-diy.js less 盟约's own chess (test/helpers/seasonPicks.js)
+  assert.deepEqual(ownedPool, picks, 'exactly our picks, in the picker\'s order');
+  assert.deepEqual(Object.keys(backups.units), [...ELITES.concat(RESERVES).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), ...picks],
+    'the 17 stand-ins, then our picks — no unit for anyone else');
   let summoners = 0;
   for (const id of ownedPool) {
     const u = backups.units[id];

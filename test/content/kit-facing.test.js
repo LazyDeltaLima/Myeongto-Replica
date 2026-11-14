@@ -11,6 +11,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LOCAL_DIY_PICKS } from '../../shared/local-diy.js';
+import { allSeasonData } from '../helpers/seasonPicks.js';
 import { fxDir, stateFx } from '../../shared/protocol.js';
 import { tellDir } from '../../server/sim/content/kits/shared/tier1.js';
 import { fxPathScenarios } from '../../tools/golden.mjs';
@@ -59,13 +60,17 @@ const TURN_TEXT_NOT_HERS = Object.freeze({ char_1050_chen3: 'S3: her 剑气 turn
 
 test('a pick whose text says it turns (转向) has a kit that tells the view', () => {
   const missing = [];
+  // every season's picks with that season's forms (盟约's own chess are 规程 picks: test/helpers/seasonPicks.js)
+  const units = Object.assign({}, ...Object.values(allSeasonData()).map((d) => d.backups.units));
   for (const id of LOCAL_DIY_PICKS) {
     if (TURN_TEXT_NOT_HERS[id]) continue;
-    const forms = Object.values(BACKUPS.units[id].forms);
+    const forms = Object.values(units[id].forms);
     const texts = forms.flatMap((f) => [...(f.talents || []), ...(f.skills || [])].map((t) => strip(t.desc)));
     if (!texts.some((d) => /转向/.test(d))) continue;
     const code = id.replace(/^char_\d+_/, '');
-    const src = readFileSync(path.join(OPS, `op-${code}.js`), 'utf8');
+    let src = readFileSync(path.join(OPS, `op-${code}.js`), 'utf8');
+    // a chess kit fielded as a pick (kits/shared/chessPick.js): the chess kit file it wraps
+    for (const [, f] of src.matchAll(/from '\.\/(chess_char_[^']+\.js)'/g)) src += readFileSync(path.join(OPS, f), 'utf8');
     if (!/\btellDir\(/.test(src)) missing.push(id);
   }
   assert.deepEqual(missing, []);

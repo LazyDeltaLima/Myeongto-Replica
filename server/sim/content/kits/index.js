@@ -129,6 +129,9 @@ export const OPERATOR_KIT_FILES = Object.freeze([
   'op-slent2.js', // 淬羽赫默, 赫德雷, 机械师: 规程 chess too (their kits serve both, kitKeyOfChar)
   'op-hodrer.js',
   'op-mcnist.js',
+  'op-reed2.js', // 焰影苇草, 新约能天使, 缇缇: 盟约 chess, 规程 picks only (their chess kits, the same builders)
+  'op-angel2.js',
+  'op-titi.js',
 ]);
 
 /**
