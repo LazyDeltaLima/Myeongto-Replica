@@ -68,6 +68,7 @@ import { buildPlan } from './assets/plan.mjs';
 import {
   processModels, findLocalEnemyModels, findLocalTokenModels, findLocalItemModels, localSpineMeta, loadLocalSpines, LOCAL_ENEMY_SPINES_FILE,
   LOCAL_TOKEN_SPINES_FILE, LOCAL_ITEM_SPINES_FILE, LOCAL_ENEMY_SPINE_DIR, LOCAL_TOKEN_SPINE_DIR, LOCAL_ITEM_SPINE_DIR,
+  loadEnemyAttackClips, overlayEnemyAttackKeys,
 } from './assets/spine.mjs';
 import { collectLeaves, downloadLeaves, resolveTemplate, totalBytes, contentHash, droppedEntries, MANIFEST_VERSION } from './assets/manifest.mjs';
 import { fontJobs, buildFonts } from './assets/fonts.mjs';
@@ -516,6 +517,10 @@ async function main() {
   // Manifest
   const resolved = resolveTemplate(plan.template, { root: ASSETS, spine: spine.entries, sourceOf: (rel) => dl.ledger.files[rel]?.url });
   const body = resolved.value;
+  // the enemies' attack clips by their prefab animator's key table (data/enemies.json attackAnim, the sim's; docs/rules/render.md
+  // 「적 공격 클립은 키 표로」) — after the build of the data, as the sim's own clip names come from it
+  const keyed = overlayEnemyAttackKeys(body.enemies, loadEnemyAttackClips(ROOT));
+  if (keyed.length) log(`[spine] enemy attack clips by key table: ${keyed.length} (${keyed.join('; ')})`);
   tidyManifest(body);
   const voice = tidyVoice(body, resolved); // local patch: operator voice lines
   const fontFaces = {};

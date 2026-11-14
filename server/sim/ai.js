@@ -1461,7 +1461,9 @@ function enemyAttack(b, e, dt) {
   e.atkCd = e.s.interval;
   e.castLeft = t.action;
   e.castSwing = true;   // (the recovery is the attack ability's: enemyMode)
-  b._ev(['swing', e.id, roundMs(t.strike), shotKind(e, radius, targets)]);
+  // its `_combat` ability swings (atkCombat: enemies.json `attackAnim.combat`, blocked): the 7th field 1, as an operator's —
+  // the renderer plays that ability's clip (the model's `attack.combat`, tools/assets/anim-overrides.mjs putEnemyAttackKeys)
+  b._ev(e.atkCombat ? ['swing', e.id, roundMs(t.strike), shotKind(e, radius, targets), 0, null, 1] : ['swing', e.id, roundMs(t.strike), shotKind(e, radius, targets)]);
   e.swing = { left: t.strike, targets, sel: t.sel };
   if (t.strike > 1e-9) return !moves;
   enemyStrike(b, e, radius, reach, own);

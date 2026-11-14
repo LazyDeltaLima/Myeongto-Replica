@@ -1125,7 +1125,10 @@ export function setEchoForm(b, echo, form, hit = false) {
   // Modes/Depression Talents/2: MOVE_SPEED, MULTIPLIER +0.2 — until 2026-10-14 it was −20 %)
   const mods = form === 'gold' ? { aspd: T(ab, '1.attack_speed') ?? 0 } : { atkPct: T(ab, '2.atk') ?? 0, moveMul: 1 + (T(ab, '2.move_speed') ?? 0) };
   b.addBuff(echo, { key: 'boss:echoForm', persist: true, visible: true, mods });
-  b.fx('phase', hit ? { x: echo.x, y: echo.y, id: echo.id, kind: `echo_${form}`, hit: 1 } : { x: echo.x, y: echo.y, id: echo.id, kind: `echo_${form}` });
+  // the model's form: the prefab mode Depression draws its own clip set (render/units.js FORMS), Passion the first one
+  echo.form = form === 'dark' ? 'Depression' : null;
+  const at = { x: echo.x, y: echo.y, id: echo.id, kind: `echo_${form}`, form: echo.form };
+  b.fx('phase', hit ? { ...at, hit: 1 } : at);
 }
 
 /** An echo takes a strike/hit: pulse around it (PRTS “余音” "受到伤害时对半径1.6范围内的我方单位造成…": an area selection of the

@@ -19,15 +19,62 @@ import { decodePng, kindOf, pngSize } from './formats.mjs';
 import { atlasInfo, normalizeAtlas } from './atlas.mjs';
 import { parseSkel } from './skel.mjs';
 import { resolveRoles } from './anim-roles.mjs';
-import { applyAnimOverrides, applyModeAttacks } from './anim-overrides.mjs'; // local patch
+import { applyAnimOverrides, applyModeAttacks, putEnemyAttackKeys } from './anim-overrides.mjs'; // local patch
 import { keyRoles, overlayKeyRoles, tokenKeyRoles } from './anim-keys.mjs';
 import { loadCharModes } from './skill-mode-sfx.mjs';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /** tools/assets/local-attack-timing.json ({} when absent or unreadable): the client's attack abilities per operator mode. */
 function loadAttackTiming(repo) {
   try { return JSON.parse(readFileSync(join(repo, 'tools/assets/local-attack-timing.json'), 'utf8')); } catch { return {}; }
+}
+
+/**
+ * The enemies' attack clips by their prefab animator's key table (anim-overrides.mjs putEnemyAttackKeys): enemy id →
+ * data/enemies.json `attackAnim` { clip, combat }, the seasons' data/seasons/<id>/enemies.json after it for the enemies the
+ * base data lacks ({} when none is readable).
+ * @param {string} repo the repository root
+ * @returns {Record<string, { clip?: string, combat?: { clip?: string } | null }>}
+ */
+export function loadEnemyAttackClips(repo) {
+  const out = {};
+  const files = [join(repo, 'data/enemies.json')];
+  try {
+    for (const s of readdirSync(join(repo, 'data/seasons')).sort()) files.push(join(repo, 'data/seasons', s, 'enemies.json'));
+  } catch { /* no seasons */ }
+  for (const f of files) {
+    let j;
+    try { j = JSON.parse(readFileSync(f, 'utf8')); } catch { continue; }
+    for (const [id, e] of Object.entries(j?.enemies ?? j ?? {})) {
+      const a = e?.attackAnim;
+      if (!Object.hasOwn(out, id) && a && typeof a.clip === 'string') out[id] = { clip: a.clip, combat: a.combat ?? null };
+    }
+  }
+  return out;
+}
+
+/**
+ * putEnemyAttackKeys over a manifest's `enemies` (mutates it): each enemy's own models — the web one unless it is another
+ * enemy's stand-in (`spineAliasOf`), and the local client's (`spineLocal`) — get its key table's attack clips. A model entry
+ * is cloned before it changes (the manifest may share one between enemies). Returns the changes as "<id> <model>: …" lines.
+ * @param {Record<string, any>} enemies data/assets.json `enemies`
+ * @param {Record<string, any>} clips loadEnemyAttackClips
+ * @returns {string[]}
+ */
+export function overlayEnemyAttackKeys(enemies, clips) {
+  const log = [];
+  for (const [id, e] of Object.entries(enemies || {})) {
+    const rec = clips[id];
+    if (!rec || !e) continue;
+    for (const which of ['spine', 'spineLocal']) {
+      if (!e[which]?.anims || (which === 'spine' && e.spineAliasOf)) continue;
+      const copy = { ...e[which], anims: structuredClone(e[which].anims) };
+      const done = putEnemyAttackKeys(copy, rec);
+      if (done.length) { e[which] = copy; log.push(`${id} ${which}: ${done.join(', ')}`); }
+    }
+  }
+  return log;
 }
 
 /**

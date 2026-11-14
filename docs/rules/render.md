@@ -1443,6 +1443,16 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
 - 근거: 모드별 능력·클립(적 바인딩 추출 `tools/assets/local-enemy-bindings.json`), 모드의 `_replaceAnimPairs`·능력 `_animKey`(공격 시간 조사의 프리팹 필드), 모델 클립은 `data/assets.json`. 첫 내려찍기 시간도 공식대로 `BlockedBoom`의 `Attack`(1.467초 중 0.7초 타격, 공격 시간에 맞춰 늘고 줆; 2026-11-14 — 이전: 시뮬이 M2 `B_Attack` 1.2초 중 0.467초로 재고 화면이 `Attack`의 타격 프레임을 그 시각에 맞춤): 키트가 그 휘두름의 클립을 `profile.swingClip`으로 엔진에 넘긴다(`ai.js attackClipOf`, sim.md 「적 스킬 = 일반 공격 차례」). 수둔 닌자의 다음 회전은 돌아온 뒤 쿨 60초 전체(sim.md 같은 절 「모드가 꺼진 스킬의 쿨」).
 - 시험 `test/render/enemy-mode-forms.test.js`(실제 키트의 사건을 실제 `UnitView`에: 막힘·첫 내려찍기·맨손, 침묵, 회전 시작·회전·失衡으로 끝) — `units.js`·`special.js`를 각각 되돌리면 셋 다 실패. 같은 꼴 아홉과 정체 시전 12건도 같은 파일(수정 전 코드에서 모두 실패). [화면 미확인]
 
+## 적 공격 클립은 키 표로 (2026-11-14, 공식 클라에서 확인)
+
+적 능력의 `_animKey`는 키이고, 적 프리팹 뿌리 유닛 `_animator`의 `_animations` 표가 그것을 모델 클립 이름으로 바꾼다(sim.md 「일반 공격 타이밍」 「적 클립의 키 표」 — 시뮬은 이 클립으로 휘두름을 잰다). 화면의 적 모델 역할은 클립 이름으로 짐작했다(`tools/assets/anim-roles.mjs`). 그래서 두 시즌의 적 모델 302개 중 14종이 시뮬과 다른 클립을 틀었고, 막힘 공격(`_combat`)의 클립은 어느 적도 따로 틀지 않았다.
+- 이제 `tools/fetch-assets.mjs`가 매니페스트를 만들 때 `data/enemies.json`(두 시즌)의 `attackAnim.clip`·`attackAnim.combat.clip`을 그 적의 자기 모델(대역이 아닌 웹 모델, 로컬 공식 모델)에 얹는다(`tools/assets/spine.mjs overlayEnemyAttackKeys` → `anim-overrides.mjs putEnemyAttackKeys`). 주 클립이 다르면 공격 역할의 루프를 바꾸고 짐작의 시작·끝·대체 표시(`via`)는 버린다. 막힘 클립이 다르면 역할의 `combat`에 넣는다. 골격에 없는 클립은 얹지 않는다. 데이터의 클립 이름은 이 역할에 기대지 않으므로(골격에 그 클립이 없을 때만 렌더 역할로 대신함) 순서를 바꿔 다시 만들어도 같다.
+- 막힘 공격: 시뮬의 적 `swing`이 막힘 능력(`atkCombat`)으로 휘두를 때 아군처럼 7번째 칸에 1을 싣고(`ai.js enemyAttack`), 화면은 역할의 `combat` 클립을 튼다(`render/spine.js _swingClip`). 적이 나온 틱에 시작한 첫 휘두름은 막힘이 잡히기 전이라 공격 능력 것이다(시뮬도 그렇게 잰다).
+- 바뀐 것: 빅 밥 `Attack` → `Attack2`(1.9초 휘두름에 1초 클립을 틀었다), 신생 혈족(근접) `Attack` → `Combat`, 폭주 식인꽃 `Attack_Begin`(짐작은 `Attack_Begin`+`Attack_Die`+`Attack_End`로 휘두를 때마다 쓰러지는 클립을 틀었다), 원거리·막힘이 다른 셋 — 살카즈 본가드 고문관 `Attack_2`/막힘 `Attack`, '거대하고 못생긴 것' `Attack_2`/`Attack_1`, '제국의 갑옷' `Attack_B`/`Attack_A` —, 막힘 클립만 다른 여덟 — 살카즈 부패의 전차 둘 `Attack2`, 스컬슈레더 `Combat_NoPre`, '버림받은 자' `Attack_2`, '툼스톤' `Attack_3`, '데몬의 칼날' `Combat`, 패스파인더 스나이퍼 `Attack_2`, 포트브레이커 `F_Combat`.
+- **'단현지음'/'열관지음'**(`enemy_9023_acdums`)의 어두운 형태: 프리팹 모드 `Depression`의 훅이 `Idle`·`Move`·`Die` → `Idle_2`·`Move_2`·`Die_2`, `Combat`의 `_animKey` `Attack_2`, 키 표가 이것을 `Idle_B`·`Move_B`·`Die_B`·`Attack_B`로 튼다. 키트 `bosses.js setEchoForm`이 이미 내던 `phase` fx에 형태 `Depression`(금빛이면 `null`)을 실어 `render/units.js FORMS`의 그 세트로 바뀐다. 이전에는 어두운 형태에서도 `*_A`를 틀었다. 표의 `A-B`(0.033초)를 트는 노드는 읽지 않았고 틀지 않는다. 시뮬의 모드 전환(`enemyMode`)은 아직 안 하지만 두 모드의 공격 클립은 길이·타격(1초·0.2초)이 같다(묶음 sim-D 「모드 클립 ②」 줄).
+- 대조 밖: 이름이 프리팹 모드와 다른 형태(죄수의 `warning`·`liberty` 등)의 공격 클립은 시험이 모드와 짝을 모른다 — 모드 이름 형태만 본다. '즈자이' `ShieldBurst`의 시작 키 `Skill_02`가 표에 없는 것은 채널 클립 줄(sim.md 같은 절)에 그대로 둔다.
+- 재발 방지: `test/render/enemy-attack-clip-keys.test.js`(두 시즌 모든 적 × 자기 모델의 공격·막힘 클립, 모드 이름 형태, 막힌 스컬슈레더의 `swing`, '단현지음' 형태) — 옛 `data/assets.json`·`ai.js`·`units.js`로 되돌리면 각각 실패. [화면 미확인]
+
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 
 유닛·HUD·보드를 그리는 코드(`public/js/render/`)를 고치기 전에 읽는 목록. 쓰는 법은 `fx.md` 「함정」과 같다.
@@ -1452,5 +1462,5 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   - 여러 유닛이 한꺼번에 띄울 수 있는 것은 유닛마다 스텐실 마스크·필터·`Graphics` 다시 그리기·`Text`를 쓰지 않는다: 같이 쓰는 텍스처의 스프라이트, 아틀라스(`hudRings`), 작은 메시(정점 100개 미만, 스프라이트와 같이 배치됨)로 그린다.
   - 새로 쓰기 전에 있는 부품부터 찾는다: `hud-bars.js`의 `RadialFill`·`texOf`, `textures.js`의 `hudRings`·`ringArc`·`downLabel`.
   - 매 프레임 그리는 길을 바꾸면 화면에 여러 개를 띄워 앞뒤를 잰다(GPU에서 프레임당 그리기 호출 수와 ms). 그림을 그대로 두려는 수정은 앞 판과 픽셀 단위로 견준다. 수치는 커밋 메시지에 적는다(재배치 카운트다운을 스텐실 마스크로 그렸을 때 오퍼레이터 12명에 그리기 호출 36번, 배치되는 메시로는 1번).
-- 시뮬이 공격 시점을 재는 클립과 화면이 트는 클립은 두 곳에서 읽는다. 둘이 다른 클립이면 휘두름·타격·시전 이펙트가 서로 다른 시계로 돈다 → `sim.md` 「일반 공격 타이밍」. 재발 방지: `test/sim/attack-clip-view.test.js`(전 오퍼레이터 × 모드).
+- 시뮬이 공격 시점을 재는 클립과 화면이 트는 클립은 두 곳에서 읽는다. 둘이 다른 클립이면 휘두름·타격·시전 이펙트가 서로 다른 시계로 돈다 → `sim.md` 「일반 공격 타이밍」. 재발 방지: `test/sim/attack-clip-view.test.js`(전 오퍼레이터 × 모드), 적은 `test/render/enemy-attack-clip-keys.test.js`(「적 공격 클립은 키 표로」 — 적 역할을 손으로 고치지 말고 `data/assets.json`을 다시 만든다).
 - 오퍼레이터의 Spine 클립 누락 → 「Spine 클립 커버리지」. 재발 방지: `test/render/clip-coverage.test.js`.

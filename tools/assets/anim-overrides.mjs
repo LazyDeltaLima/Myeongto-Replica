@@ -344,6 +344,39 @@ export function putCombat(anims, map, names = null) {
   return anims;
 }
 
+/**
+ * An enemy's attack clips by its prefab animator's key table (docs/rules/render.md 「적 공격 클립은 키 표로」, 2026-11-14): the
+ * attack ability's key turned into the model's clip name by the prefab root unit's `_animator` `_animations` table —
+ * data/enemies.json `attackAnim.clip`, its blocked (`_combat`) ability's `attackAnim.combat.clip` (tools/build-data.mjs
+ * enemyClipName, the clips the sim times its swings by). The resolver (anim-roles.mjs) guesses them by name; this puts the
+ * table's on the model's roles: the attack role's loop where it differs (the guess's begin / end and fallback mark `via`
+ * dropped — the table names one clip), and the
+ * blocked clip as the role's `combat` (render/spine.js _swingClip: the sim's enemy 'swing' 7th field) where it differs.
+ * `entry` = one model of the enemy (data/assets.json `enemies[id].spine` / `.spineLocal`, its `anims` / `animations`);
+ * `rec` = { clip, combat? }. Returns the roles it changed ([] when none); a clip the skeleton lacks is left out.
+ * @param {{ anims?: any, animations?: Record<string, number> }} entry
+ * @param {{ clip?: string, combat?: { clip?: string } | null } | null | undefined} rec
+ * @returns {string[]}
+ */
+export function putEnemyAttackKeys(entry, rec) {
+  const a = entry?.anims;
+  if (!a || !rec) return [];
+  const has = (n) => typeof n === 'string' && n !== '' && Object.hasOwn(entry.animations || {}, n);
+  const done = [];
+  const main = has(rec.clip) ? rec.clip : null;
+  if (main && a.attack?.loop !== main) {
+    const { combat } = a.attack || {};
+    a.attack = { begin: null, loop: main, end: null, ...(combat ? { combat } : {}) };
+    done.push(`attack ${main}`);
+  }
+  const c = rec.combat?.clip;
+  if (a.attack && has(c)) {
+    if (c === a.attack.loop) { if (a.attack.combat) { delete a.attack.combat; done.push('combat (the attack clip)'); } }
+    else if (a.attack.combat?.loop !== c) { a.attack.combat = { loop: c }; done.push(`combat ${c}`); }
+  }
+  return done;
+}
+
 /** An EQUIP_ROLES row: anims.equip[i]. */
 export function putEquip(anims, map, names = null) {
   const has = hasIn(names);

@@ -66,8 +66,10 @@ test('data: every enemy with a real attack clip carries it as attackAnim (the cl
     assert.equal(e.attackMoves, undefined, `${k}: no enemy of the mode attacks on the move`);
   }
   assert.ok(n > 200, `${n} enemies`);
-  // (萨卡兹骸骨拷打者's Attack is Attack_2; 大鲍勃's key Attack is the clip Attack2 where the model's attack role is Attack)
-  assert.ok(own >= 4, `${own} enemies on their ability's own clip`);
+  // the model's attack role is the key table's clip too since 2026-11-14 (tools/assets/spine.mjs overlayEnemyAttackKeys,
+  // docs/rules/render.md 「적 공격 클립은 키 표로」; until then 萨卡兹骸骨拷打者's role was Attack for its Attack_2, 大鲍勃's
+  // Attack for its key's clip Attack2 …): no enemy's data names another clip than the one its model draws
+  assert.equal(own, 0, `${own} enemies whose model draws another attack clip than the sim times — rebuild data/assets.json (node tools/fetch-assets.mjs --offline)`);
   assert.equal(enemies.enemy_1001_bigbo.attackAnim.clip, 'Attack2');
   assert.equal(enemies.enemy_1364_spnaxe_2.attackAnim.clip, 'Attack_2');
   // the ranged attackers of the report; `max` = their attack ability's _maxAnimScale (tools/assets/local-attack-timing.json)

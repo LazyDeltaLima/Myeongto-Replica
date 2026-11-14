@@ -768,6 +768,11 @@ export const FORMS = Object.freeze({
   // 2026-11-12: 复核洋流使者 after it eats a 赘生甲壳 (reborn.js kitShellEater → form '1'): the prefab mode 1's
   // SimpleUnitAnimatorHooker (Idle / Default / Move / Die / Attack → B_*); SwitchMode, no change clip
   enemy_1438_dspred: Object.freeze({ 1: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }) }),
+  // 2026-11-14: “裂管之音” / “断弦之音” in its dark form (bosses.js setEchoForm → form 'Depression', null back as it turns
+  // gold): the prefab mode Depression — its SimpleUnitAnimatorHooker Idle / Move / Die → Idle_2 / Move_2 / Die_2 and its
+  // Combat `_animKey` Attack_2, which the animator's key table plays as Idle_B / Move_B / Die_B / Attack_B (the sim's
+  // enemies.json attackAnim.modes.Depression). The table's A-B (0.033 s) is not played here
+  enemy_9023_acdums: Object.freeze({ Depression: Object.freeze({ change: null, roles: clipSet('Idle_B', 'Move_B', 'Die_B', 'Attack_B') }) }),
   // 2026-11-14 (GitHub #14): 咸鳞汁推荐者 blocked (special.js → form 'M2boom', then 'M2'): the prefab mode M2's hooker
   // (Idle / Move / Die / Default → B_*; SwitchMode, no change clip) — its first swing is the barrel smash, Skills/BlockedBoom's
   // Attack, every later one (and one while silenced) the Combat's B_Attack
