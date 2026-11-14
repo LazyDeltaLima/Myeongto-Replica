@@ -729,7 +729,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!loading && !destroyed) {
       const g = gen;
       tries++;
-      loading = Promise.all([import('../../vendor/three.module.js'), import('./fxplayer.js')]).then(([THREE, fxp]) => {
+      loading = Promise.all([import('../../vendor/three.module.js'), import('./fxplayer.js'), import('./fxsubmit.js')]).then(([THREE, fxp, fxs]) => {
         if (g !== gen) return;   // 2026-10-28: taken down (destroy, quality low) while the modules loaded — it leaked two contexts
         const make = (before, z) => {
           const canvas = document.createElement('canvas');
@@ -775,6 +775,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           variants = fxp.programVariants();
           for (const L of [layers.under, layers.over]) { L.renderer.compile(variants[0], camera); keepPrograms(L); }
         } catch (err) { variants = null; console.warn('[fx] shader precompile failed', err); }
+        // load study C (docs/rules/render.md 「이펙트 그리기 전용 경로」): the canvases' draws without three.js's per-draw
+        // path, three.js's own programs with the material values in one uniform block. Without the probes, three.js draws
+        if (variants) for (const L of [layers.under, layers.over]) L.sub = new fxs.FxSubmit(THREE, L.renderer, { probes: variants, occMaterial: occ.meshes[0].material });
         mod = { THREE, fxp };
       }).catch((err) => {
         if (g !== gen) return;
@@ -868,6 +871,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     try { lib?.dispose(); } catch { /* ignore */ }
     try { occ?.geo.dispose(); occ?.meshes[0]?.material.dispose(); } catch { /* ignore */ }
     for (const L of [layers.under, layers.over]) {
+      try { L?.sub?.dispose(); } catch { /* ignore */ }
       try { L?.renderer.dispose(); } catch { /* ignore */ }
       try { L?.renderer.forceContextLoss(); } catch { /* ignore */ }
       L?.canvas.remove();
@@ -7543,8 +7547,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (tileInsts.length || tileBatch) perf.tiled = (tileBatch ||= new mod.fxp.TileBatch()).sync(tileInsts, camera);
       // local patch: the split scene's back renderers after the lower canvas's own, its front ones before the upper's
       const S = layers.split, { FX_BACK, FX_FRONT } = mod.fxp;
+      // the dev switch globalThis.__SP_FX_SUBMIT__: false draws through three.js as before, 'check' each pass both ways (FxSubmit.check)
+      const sw = globalThis.__SP_FX_SUBMIT__;
       const draw = (L, scene, mask, clear) => {
-        camera.layers.set(mask); L.renderer.autoClear = clear; L.renderer.render(scene, camera); calls += L.renderer.info.render.calls;
+        camera.layers.set(mask);
+        if (L.sub && sw !== false) calls += sw === 'check' ? L.sub.check(scene, camera) : L.sub.render(scene, camera, clear);
+        else { L.sub?.yieldToThree(); L.renderer.autoClear = clear; L.renderer.render(scene, camera); calls += L.renderer.info.render.calls; }
         keepPrograms(L);
       };
       if (layers.under.n || S.n) { draw(layers.under, layers.under.scene, 0, true); if (S.n) draw(layers.under, S.scene, FX_BACK, false); }
@@ -7577,6 +7585,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const L = warmNext % 2 ? layers.over : layers.under;
         // 2026-10-28: then the occluders' depth-only material (makeOccluders): the first effect on the 3D board linked it in battle
         try {
+          L.sub?.yieldToThree();
           if (warmNext < n) L.renderer.compile(variants[warmNext >> 1], camera);
           else if (occ) L.renderer.compile(occ.meshes[0], camera, L.scene);
           L.renderer.getContext().flush(); keepPrograms(L);
@@ -7684,6 +7693,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         lib: lib ? { tex: lib.textures.size, mesh: lib.meshes.size, defs: lib.defs.size } : null,
         updateMs: Math.round(perf.updateMs * 100) / 100, renderMs: Math.round(perf.renderMs * 100) / 100,
         calls: perf.calls, merged: perf.merged ?? 0, tiled: perf.tiled ?? 0, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
+        // load study C: the passes each canvas drew itself / through three.js (and why the last went there), the dev check's counts
+        submit: mod && layers.under.sub ? [layers.under, layers.over].map((L) => ({ ...L.sub.stats, checks: L.sub.checks })) : null,
         recent: recent.slice(), trails: trails.length, preload: preQueue.length, // local patch; 2026-10-30: effect files still queued (preload)
         buffs: live.filter((l) => l.buff && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // local patch: the looping effects on now
         paused: live.filter((l) => l.paused && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // 2026-10-21: held by a pause behaviour (stepPauses)
