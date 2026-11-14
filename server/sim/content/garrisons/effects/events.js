@@ -156,6 +156,14 @@ function ammoScope(it, u) {
   }
 }
 
+/**
+ * Does a `_selfdead` 特质 also fire on the 傀儡师's switches (替身 → 本体 and back)? Its text says so, in either wording:
+ * 归溟幽灵鲨 "替身与本体进行切换" / "与替身发生替换", 规程's 风丸 garrison_124 "与傀儡发生替换" (until 2026-11-14 only 替身 was
+ * read, so 风丸's swaps added no 不屈 layers). The sweep in test/content/garrisons_battle.test.js holds it to every
+ * 傀儡师 owner of every season.
+ */
+export const countsSwaps = (g) => /替身|傀儡/.test((g && g.desc) || '');
+
 /** Installers by effect key: (battle, instances of the key). */
 export const EVENTS = {
   act1autochess_gar_event_useskill(battle, list) {
@@ -193,18 +201,14 @@ export const EVENTS = {
       const arr = m.get(unit);
       if (arr) for (const it of arr) fire(battle, it);
     });
-    const swaps = list.filter((it) => /替身/.test(it.g.desc || ''));
-    if (!swaps.length) return;
-    for (const it of swaps) it.doll = false;
-    battle.on('tick', () => {
-      for (let i = 0; i < swaps.length; i++) {
-        const it = swaps[i];
-        const u = it.unit;
-        const doll = !!(u.trait && u.trait.doll);
-        if (doll === it.doll) continue;
-        it.doll = doll;
-        if (u.alive && u.deployed) fire(battle, it);
-      }
+    // the switches: the engine's `dollSwap` (a switch started, either way, on the field; never the 替身's knock-out). Until
+    // 2026-11-14 a per-tick watch of unit.trait.doll stood here: a 替身 knocked out and redeployed at once (不屈) read as
+    // one more switch, so that knock-out gained twice
+    const swaps = byUnit(list.filter((it) => countsSwaps(it.g)));
+    if (!swaps.size) return;
+    battle.on('dollSwap', ({ unit }) => {
+      const arr = swaps.get(unit);
+      if (arr) for (const it of arr) fire(battle, it);
     });
   },
 

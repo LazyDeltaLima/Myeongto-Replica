@@ -1858,7 +1858,9 @@
       "bossHpLeft": null,
       "rngDraws": 92,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":17,"total":19,"perfect":false,"leaks":2,"leaksUncounted":0,"coins":0,"dmg":277556,"bossDmg":0,"heal":3331,"deaths":9,"layerGains":{}}},
+      "players": {
+        "p1": {"killed":17,"total":19,"perfect":false,"leaks":2,"leaksUncounted":0,"coins":0,"dmg":277556,"bossDmg":0,"heal":3331,"deaths":9,"layerGains":{"indomShip":8}}
+      },
       "units": [
         ["p1",1,"op","chess_char_1_01_b",1,"uniequip_002_branch",0,0,6,2,25626,4949,743,12,1],
         ["p1",2,"op","chess_char_1_02_b",0,"uniequip_002_estell",0,0,76,6,122487,11027,1914,39,2],
@@ -1874,9 +1876,9 @@
         ["p1","~1","token","token_10022_kazema_shadow",null,null,613,0,26,0,10606,1260,0,18,null]
       ],
       "enemies": {"enemy_1229_darmy":[10,10,0,10449,104509],"enemy_1229_darmy_2":[7,7,0,16560,95800],"enemy_9007_acelem":[2,0,2,7093,95166]},
-      "hooks": [1,35,3081,291,290,784,823,290,26,29,24,24,0,7238,3,42,19,2,1,28,0,6,0],
-      "events": {"atk":350,"deploy":13,"die":27,"dmg":823,"engage":9,"face":16,"fx":52,"heal":4,"leak":2,"skill":48,"spawn":31,"status":56,"swing":305,"tplfx":2},
-      "fx": {"aoe":4,"beam":4,"burst":6,"displace":18,"phase":8,"revive":3,"substitute":2,"summon":1,"swap":2,"teleport":4},
+      "hooks": [1,35,3081,291,290,784,823,290,26,29,24,24,0,7238,3,42,19,2,1,28,4,6,0],
+      "events": {"atk":350,"deploy":13,"die":27,"dmg":823,"engage":9,"face":16,"fx":56,"heal":4,"layer":4,"leak":2,"skill":48,"spawn":31,"status":56,"swing":305,"tplfx":6},
+      "fx": {"aoe":4,"beam":4,"burst":6,"displace":18,"garrison":4,"phase":8,"revive":3,"substitute":2,"summon":1,"swap":2,"teleport":4},
       "snaps": "5a04ea9a 86e15431 37464154 ad95aea3 09ed4f6e d79e8981 9ee5e4a8 ec0623f6 c1eef224 c6da14f4 baa0c341"
     },
     "bond-swiftShip-low": {

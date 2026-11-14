@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { getData } from '../../server/data.js';
 import { DOLL_SWITCH } from '../../server/sim/professions.js';
+import { countsSwaps } from '../../server/sim/content/garrisons/effects/events.js';
+import { ACT3 } from '../helpers/seasonPieces.js';
 
 const D = getData({ log: { warn() {}, error() {}, info() {} } });
 const GR = (gid) => D.garrisons[gid];
@@ -183,6 +185,22 @@ test('selfdead (幽灵鲨 46 / 砾 75 / 归溟幽灵鲨 40): per knock-out; 归�
   assert.ok(g.alive && !g.trait.doll, 'swapped back');
   assert.deepEqual(gains(h), { egirShip: 20, indomShip: 20 }, 'substitute → body');
   checkInvariants(h.b);
+});
+
+test('selfdead sweep: a 傀儡师\'s knock-out 特质 counts her 替身 ⇄ 本体 switches in every season, nobody else\'s does', () => {
+  // the swap trigger is read from the 特质 text (effects/events.js countsSwaps); 规程's 风丸 garrison_124 words it
+  // "与傀儡发生替换" and was missed until 2026-11-14 (her switches added no 不屈 layers)
+  const EXCEPT = new Map(); // garrison id → why its text and its owners' class disagree (none yet)
+  const seen = new Set();
+  for (const [season, data] of [['default', D], ['act3autochess', ACT3]]) {
+    for (const g of Object.values(data.garrisons)) {
+      if (g.effectKey !== 'act1autochess_gar_event_selfdead' || EXCEPT.has(g.garrisonId)) continue;
+      const doll = (g.owners || []).some((o) => data.chess[o]?.subProfessionId === 'dollkeeper');
+      assert.equal(countsSwaps(g), doll, `${season} ${g.garrisonId} (${g.owners}): a 傀儡师 owner's knock-out 特质 must also fire on her 替身 ⇄ 本体 switches, and only hers — widen countsSwaps in server/sim/content/garrisons/effects/events.js for the text "${g.desc}"`);
+      if (doll) seen.add(`${season} ${g.garrisonId}`);
+    }
+  }
+  for (const k of ['default garrison_40_a', 'act3autochess garrison_62_a', 'act3autochess garrison_124_a', 'act3autochess garrison_124_b']) assert.ok(seen.has(k), `sweep ran on ${k}`);
 });
 
 // shots 0.2 s apart (past a consumer's 0.1 s [cnt] lock), then 0.3 s for the [self] tick that passes the threshold

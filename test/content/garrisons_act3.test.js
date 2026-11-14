@@ -10,6 +10,7 @@ import { ACT3 } from '../helpers/seasonPieces.js';
 import { DataSource, getDefaultSource } from '../../server/sim/simdata.js';
 import { coverageOf } from '../../tools/season-coverage.mjs';
 import { AB_FLAG_STATUS } from '../../server/sim/content/garrisons/effects/events.js';
+import { DOLL_SWITCH } from '../../server/sim/professions.js';
 
 const close = (a, b, msg, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${msg}: ${a} ≠ ${b}`);
 const GB = (gid) => ACT3.garrisons[gid].bb;
@@ -226,6 +227,41 @@ test('归溟幽灵鲨 garrison_62 → 146: knocked out → the 阿戈尔 operato
     const was = [sp(e), sp(x)];
     h.b.kill(g);
     assert.deepEqual([sp(e) - was[0], sp(x) - was[1]], [n, 0], q);
+    done(h);
+  }
+});
+
+test('风丸 garrison_124: knocked out, and every 替身 ⇄ 本体 switch ("与傀儡发生替换") → 已激活的不屈 +2 / +4, ≤ 10 / 20 per battle', () => {
+  // the real piece (傀儡师 trait, kit) on 规程's data; until 2026-11-14 only the knock-out of the 替身 added layers
+  for (const [q, n, cap] of [['a', 2, 10], ['b', 4, 20]]) {
+    const id = `chess_char_3_24_${q}`;
+    const data = new DataSource({ ...ACT3, enemies: { ...ACT3.enemies, e_d: DUMMY } }, getDefaultSource());
+    const h = makeBattle({ data, bonds: { indomShip: B(0) }, timeLimit: 999, autoFinish: false, units: [{ chessId: id, row: 10, col: 4 }] });
+    h.run(2);
+    const k = h.unit(id);
+    const indom = () => gains(h).indomShip ?? 0;
+    // past the switch's own 不死 window (DOLL_SWITCH) before the next lethal hit
+    const fatal = () => { h.b.dealDamage(null, k, { amount: 1e9, type: 'true' }); h.step(1); h.run(DOLL_SWITCH + 0.5); };
+    fatal();
+    assert.ok(k.alive && k.trait.doll, `${q}: 替身`);
+    assert.equal(indom(), n, `${q}: 本体 → 替身`);
+    h.run(20);
+    assert.ok(k.alive && !k.trait.doll, `${q}: back`);
+    assert.equal(indom(), 2 * n, `${q}: 替身 → 本体`);
+    h.run(DOLL_SWITCH + 0.5);
+    fatal();
+    assert.equal(indom(), 3 * n, `${q}: second switch`);
+    // knocked out as the 替身, and 不屈 redeploys her at once (its roll forced): one knock-out, not one more switch
+    const rng = h.b.rng;
+    h.b.rng = Object.assign(() => 0, rng);
+    fatal();
+    h.b.rng = rng;
+    assert.ok(k.alive && !k.trait.doll, `${q}: the 替身 knocked out, 不屈 redeployed the 本体`);
+    assert.equal(indom(), 4 * n, `${q}: knocked out as the 替身 (+${n} once)`);
+    h.run(2);
+    fatal();
+    h.run(20);
+    assert.equal(indom(), cap, `${q}: the per-battle cap`);
     done(h);
   }
 });

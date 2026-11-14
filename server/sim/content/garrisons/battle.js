@@ -14,8 +14,8 @@
 //                       GitHub #175, PR #192 by @kukiC).
 //   layer events        act1autochess_gar_event_useskill (skillStart) · _selfkillenemy (kill, every check_cnt
 //                       kills since its last deployment) ·
-//                       _selfdead (death 'killed'; texts with 替身 also on every substitute ⇄ body swap, read from the
-//                       dollkeeper flag unit.trait.doll) · _consume_ammo (ammoUsed; range_id 0-1 self, 1-1 front tile,
+//                       _selfdead (death 'killed'; texts with 替身 / 傀儡 also on every substitute ⇄ body swap: the
+//                       engine's dollSwap, never the 替身's knock-out — effects/events.js countsSwaps) · _consume_ammo (ammoUsed; range_id 0-1 self, 1-1 front tile,
 //                       x-5 self + 4 adjacent, pooled counter) · _enemy_abflag_inrange (an enemy in range ENTERS
 //                       'freeze', × prob) · act2autochess_gar_event_onstart (every deploy) ·
 //                       act2autochess_gar_event_allyenemy_sleepstun_inrange (an enemy or operator in range ENTERS

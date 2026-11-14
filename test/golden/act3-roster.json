@@ -2732,10 +2732,10 @@
         "enemy_1427_lrnazg": [1,1,0,2708,20736],
         "enemy_2005_axetro": [1,0,1,39997,26445]
       },
-      "hooks": [1,68,5100,631,631,1339,1646,15734,48,62,64,66,0,19570,663,53,36,10,1,50,13,9,1],
-      "events": {"atk":655,"bounty":4,"castHit":1,"deploy":30,"die":52,"dmg":1358,"engage":12,"face":9,"fx":221,"heal":49,"layer":13,"leak":10,"skill":132,"spawn":52,"status":267,"swing":654,"tplfx":32},
-      "fx": {"buff":1,"burst":9,"crit":2,"dodge":1,"dollEnd":2,"garrison":15,"hpShare":1,"kitHit":7,"parry":77,"revive":4,"shield":4,"sp":4,"stacks":70,"substitute":4,"summon":5,"swap":2,"thorns":13},
-      "snaps": "13215b38 a84e0217 2052ec83 a8966cee f22e49b4 6f34dbad 0ab7fa27 664deee1 7144f05d 5976c32f f23e6060 02ad57be 19b99bae dbd32845 fa78f1bb 7b22a9db f9356898"
+      "hooks": [1,68,5100,631,631,1339,1646,15734,48,62,64,66,0,19569,663,53,36,10,1,50,13,9,1],
+      "events": {"atk":655,"bounty":4,"castHit":1,"deploy":30,"die":52,"dmg":1358,"engage":12,"face":9,"fx":220,"heal":49,"layer":13,"leak":10,"skill":132,"spawn":52,"status":267,"swing":654,"tplfx":31},
+      "fx": {"buff":1,"burst":9,"crit":2,"dodge":1,"dollEnd":2,"garrison":14,"hpShare":1,"kitHit":7,"parry":77,"revive":4,"shield":4,"sp":4,"stacks":70,"substitute":4,"summon":5,"swap":2,"thorns":13},
+      "snaps": "13215b38 a84e0217 2052ec83 a8966cee f22e49b4 6f34dbad 0ab7fa27 664deee1 7144f05d 5976c32f f23e6060 679426f1 73614251 7d703faa bf1e69d8 8316637c f206ece7"
     },
     "roster-038": {
       "about": "pass 1 band 5: chess_char_4_21_a chess_char_4_23_a chess_char_4_19_a chess_char_4_03_b chess_char_4_20_a chess_char_4_22_a chess_char_4_24_a chess_char_4_25_a chess_char_4_26_a chess_char_4_27_a chess_char_4_01_b chess_char_4_02_b token_10003_cgbird_bird token_10003_cgbird_bird",
