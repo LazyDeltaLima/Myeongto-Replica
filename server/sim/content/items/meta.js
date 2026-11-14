@@ -210,9 +210,12 @@ const nothingToast = (ctx, ev) => ctx.toast(msg('{who}：没有可获得的同�
 PREP.push(
   // 简易通讯机 — equip_destory_first_bond_char {count}: "装备时销毁，随机获得1名拥有该干员第一盟约的干员" — 盟约's same-bond
   // grant (any bond of the target) narrowed to the first bond, the tier ≤ the shop level as there. With no such operator
-  // in the pool, the target operator itself (2026-11-14, a CN player's report: on “暴躁铁皮”, whose 协防干员 are all tier ≥ 5,
-  // it always gives “暴躁铁皮” at shop level ≤ 2; maintainer decision 2026-11-14) [추정·서버: the draw is the server's — the
-  // fallback rule is read from that one case; 盟约's 简易通讯机 (aliases.js) keeps giving nothing, maintainer decision 2026-10-07]
+  // in the pool, the target operator itself, the 进阶 copy's two as two copies (maintainer decision 2026-11-14, from a CN
+  // player's report and a CN play video, https://www.bilibili.com/video/BV1GiWr6AEkS: at shop level 2 “暴躁铁皮” and
+  // 盟约·辅助干员 (协防干员 lowest tier 3, 调和), 昆图斯's Mon3tr (two from the 进阶 copy), and 伊桑 and 霍尔海雅 in a match whose
+  // bans left no 奥术 operator of tier ≤ 2 each gave themselves) [추정·서버: the draw is the server's — every case seen has no
+  // operator of the first bond at tier ≤ the level in the match at all; one that is there but out of copies is unseen;
+  // 盟约's 简易通讯机 (aliases.js) keeps giving nothing, maintainer decision 2026-10-07]
   ['equip_destory_first_bond_char', null, () => ({
     onEquip(ctx, ev) {
       const p = buffP(ctx, ev.item && ev.item.id, 'equip_destory_first_bond_char') || {};
