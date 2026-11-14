@@ -2285,3 +2285,16 @@ CN 11-01부터 들어온 전투 HUD 요소 넷(EN 10-14 클라에는 없음). �
 - 잡는 곳은 앱 하나(`main.js App` → `ui/device.js useScreenWakeLock`): 「전투 중」 = 판 화면이고 결과가 없고 `isCombatPhase`(작전·연합 방어·최후 공세·숨은 핵)인 동안, 자리든 관전이든. `installScreenWakeLock`은 upstream 그대로 — 보일 때 요청, 숨으면 놓고 다시 보이면 새로 요청, 실패하면 다음 터치·포인터에서 한 번 더, 그래도 안 되면 조용히 넘어감, 늦게 온 잠금은 바로 놓음.
 - iOS(`ui/device.js isIOS`: iPhone·iPad·iPod, 터치 Mac 모습의 iPadOS)에서는 안내 끝에 「홈 화면에 추가한 앱은 iOS 18.4 이상에서 작동하며, 저전력 모드에서는 작동하지 않을 수 있습니다」. WebKit 버그 254545: 홈 화면 앱에서 Wake Lock이 요청은 받지만 화면이 꺼짐 — iOS 18.4에서 고쳐짐. 저전력 모드는 시스템이 무시한다. [화면 미확인] 실제 iPhone·Android에서 꺼지지 않는지.
 - 시험: `test/ui/wake-lock.test.js`(값과 기본, 문구, 일반 탭 자리와 App 연결, 잠금의 생애, `isIOS`), `test/ui/gameLogic.test.js` 「sanitizeSettings」. Windows Chrome(2026-11-13, 1920×1080): 기본 「전투 중」은 판 밖에서 요청하지 않음, 「항상」이 요청, 「꺼짐」이 놓음, 선택이 저장됨.
+
+## 한국어 줄바꿈 (2026-11-14, 관리자 제보)
+- 한국어 팩은 `word-break: keep-all; overflow-wrap: anywhere`로 줄을 바꾼다(`public/i18n/ko/ko.css`). `anywhere`에서는 상자의 최소 폭(min-content)이
+  글자 하나라, 글이 직접 들어 있는 가로 flex 줄이 1–2 px만 모자라도 항목들이 줄어들며 짧은 낱말을 글자마다 끊는다. 제보 셋: 단계 헤더(브리핑·전략 선택)
+  「2 / 2 · 전략 / 선택」(`.stephead__title`), 오퍼레이터 상세 카드 스킬 탭의 「초 / 기」와 SP 숫자(`.dsp__num`), 줄일 수 없는 라벨은 반대로 단추 밖으로
+  나감 — 전략 선택에서 팀원이 고른 전략의 「팀원 선택 완료」(队友已选)가 「건너뛰기」 위로. 관리자 화면에서 왜 모자랐는지(글꼴·브라우저)는 재현하지 못함:
+  Windows Chrome 목업에서는 1600×900–380 px 폭 모두 헤더가 한 줄이었고, 줄을 1–2 px 좁히면 제보와 똑같이 깨졌다.
+- 고침: 짧은 낱말을 담는 flex 줄에 `white-space: nowrap` — `.stephead__title`, `.dsp__num`, 같은 검사가 더 찾은 `.draft-detail__hp`(「초기 HP 45」의
+  숫자)와 `.funds__collapse`(「접기」). 「팀원 선택 완료」는 ✓ 없이 작은 글씨로, 낱말 사이에서만 줄을 바꾼다(`.draft-pick--taken`). 목업
+  (`public/dev/game-mock.html`)도 `index.html`처럼 `ko.css`를 불러 `?lang=ko`가 한국어 화면 그대로 보인다.
+- 함정: 글이 직접 들어 있는 가로 flex 줄(단추·꼬리표·숫자 칸)에 짧은 낱말을 넣을 때는 `white-space: nowrap`을 준다. 화면 폭에서 재현되지 않아도 줄이
+  1 px 모자라면 깨진다. 긴 단추 라벨은 nowrap 대신 낱말 사이 줄바꿈을 허락한다.
+- 재발 방지: `test/ui/ko-linebreak.e2e.test.js`(SP_E2E; 목업 화면 넷 × 1920·1280·960 폭 — 끊긴 짧은 낱말, 2 px 좁히면 끊기는 flex 줄, 단추 밖 라벨).
