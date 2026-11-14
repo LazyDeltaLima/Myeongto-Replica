@@ -4300,32 +4300,40 @@ const DEFAULT_ENEMY_MULTIPLIERS = {
 };
 
 /**
- * Per-season replacements of single rows of the round table (`{ single|multi: { DIFFICULTY: row } }`).
- * 规程 single 绝境 (grades 9–14), provisional: fitted to the enemy HP bars of one official CN match at grade 13
- * (maintainer decision 2026-11-14), where R1 ≈ 0.79, R7 ≈ 1.20, R12 ≈ 1.39–1.52 and R13 ≈ 1.21 of the base HP
- * (each from a known hit on an enemy not hit before; the 奥术 extra arts damage counted as not landing, since no number
- * for it showed). The 盟约 row gave R7 0.96 and R13 1.66: the climb comes two rounds earlier (k 2 at R7), R12–R13 carry
- * a 补给线 step, and R13 drops below R12 — 规程's enemy effects include 攻坚装备 variants with HP −10…−25 %
- * (data/seasons/act3autochess/effects.json), so the official rounds need not only rise. The other rounds are
- * interpolated, ATK follows the same counts unmeasured, and the other grades of the band take the same row.
- * [ASSUMED·서버: which enemy effects a round carries is the server's; one match measured]
+ * Per-season changes of the round table (research 01 A3, by modeType × modeDifficulty).
+ * 规程 single, provisional (maintainer decision 2026-11-14), from the enemy HP bars of one official CN match at grade 13
+ * (绝境): R1 ≈ 0.79, R7 ≈ 1.20, R12 ≈ 1.39–1.52 and R13 ≈ 1.21 of the base HP (each from a known hit on an enemy not
+ * hit before; the 奥术 extra arts damage counted as not landing, since no number for it showed). The 盟约 绝境 row gave
+ * R7 0.96: its mid-game climb comes two rounds earlier. `pulled` moves it in every single row that has one — R5–R8
+ * take the 攻坚装备 count of two rounds later, and no later round falls below — which turns the 盟约 绝境 row into
+ * exactly the fitted one (k 2 at R7); 标准 (all 0) stays. 绝境 R12 adds the measured 补给线 step. R13 keeps the 盟约
+ * row's k 4 (1.66) although the match read less than R12: that dip may be one match's HP −10…−25 % 攻坚装备 variant
+ * (data/seasons/act3autochess/effects.json), and no row is made to fall (maintainer decision 2026-11-14).
+ * [ASSUMED·서버: which enemy effects a round carries is the server's; one match of one grade measured — the other
+ * rounds, ATK (it follows the same counts) and the 险境 / 终极 rows are the 盟约 rows with the same pull]
  */
 const SEASON_ENEMY_MULTIPLIERS = {
   act3autochess: {
-    single: {
-      HARD: {
-        atkBase: 0.8, hpBase: 0.8, k: [0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 2, 4], hidden: 4,
-        hpExtra: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.08, 1.08, 1], hiddenHpExtra: 1,
-      },
-    },
+    pullSingle: true,
+    single: { HARD: { hpExtra: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.08, 1, 1], hiddenHpExtra: 1 } },
   },
 };
 
-/** The round table of this season: the research table (or the built-in fallback) with the season's rows replaced. */
+/** A single row with its mid-game climb two rounds earlier: R5–R8 take the count of R7–R10, then never fall. */
+function pulled(row) {
+  if (!Array.isArray(row?.k)) return row;
+  let top = 0;
+  const k = row.k.map((v, i) => (top = Math.max(top, i >= 4 && i <= 7 ? row.k[Math.min(i + 2, row.k.length - 1)] : v)));
+  return { ...row, k };
+}
+
+/** The round table of this season: the research table (or the built-in fallback) with the season's changes. */
 function seasonEnemyMultipliers(base, season) {
   const over = SEASON_ENEMY_MULTIPLIERS[season];
   if (!over) return base;
-  return { ...base, single: { ...base.single, ...over.single }, multi: { ...base.multi, ...over.multi } };
+  const single = {};
+  for (const [d, row] of Object.entries(base.single || {})) single[d] = { ...(over.pullSingle ? pulled(row) : row), ...over.single?.[d] };
+  return { ...base, single };
 }
 
 /**
@@ -4339,8 +4347,9 @@ function seasonEnemyMultipliers(base, season) {
  * The steps of the enemy effects (activity_table effectInfoDataDict / effectBuffInfoDataDict, data/effects.json): 攻坚装备
  * (aceffect_enemy_3) ATK and HP, 补给线II (aceffect_enemy_2_2) HP, 补给线 (aceffect_enemy_2) HP, 急行军 (aceffect_enemy_1)
  * speed. 盟约: 1.1 / 1.2 / 1.2 / 1.08 / +0.15; 规程 gives 1.11 / 1.2 / 1.3 / 1.08 / +0.3 under the same ids.
- * [ASSUMED·서버] 规程's rounds take the 盟约 per-round step counts (research 01 A3, by modeType × modeDifficulty; single
- * 绝境 replaced by a row fitted to official play, SEASON_ENEMY_MULTIPLIERS) with these steps: which enemy effects a round carries is the server's, and 规程's 34 new ENEMY effects (攻坚装备XIII–LVII,
+ * [ASSUMED·서버] 规程's rounds take the 盟约 per-round step counts (research 01 A3, by modeType × modeDifficulty; the
+ * single rows moved to official play, SEASON_ENEMY_MULTIPLIERS) with these steps: which enemy effects a round carries
+ * is the server's, and 规程's 34 new ENEMY effects (攻坚装备XIII–LVII,
  * 补给线VI–VIII, some with attack speed +5 / +10) are named by no client table (modeDataDict has eventIds and the
  * 模拟强度 text only), so they stay unused (docs/rules/sim.md 「규정 적·보스」 라운드 적 효과).
  */
