@@ -68,6 +68,20 @@ render cases fail there) with WSL's mirrored networking, one file at a time:
 intended gameplay change runs `npm run golden:update` and commits the digests with the change, naming in the message
 which scenarios moved and why.
 
+**Regression guards** (maintainer decision 2026-11-14): a fix for a cause that could come back ships with the thing that
+catches it, the first of these that fits:
+
+1. a sweep over the whole class the cause can hit (every operator × skill, every enemy, every prefab) with an exception
+   list whose entries say why (`test/audio-skill-silence-list.js` is the pattern); it asserts that a known case really ran,
+   so it cannot pass empty;
+2. one test on the real match path (section 6), when the cause lives in one place;
+3. a lint or static rule (`eslint.config.js`, `tools/check-imports.mjs`), when the cause is a way of writing code;
+4. a line in the 「함정」 list of `docs/rules/<domain>.md`, only for what no machine can check.
+
+The guard's failure message names the cause and the `docs/rules/` section, so whoever trips it needs no other document,
+and that section ends with `재발 방지: <the test file>`. See the guard fail on the regression (undo the fix, run, restore)
+before it counts. A cause that a guard catches gets no line in section 6.
+
 **Rebuild steps** after certain changes:
 
 ```bash
@@ -159,28 +173,14 @@ This is a remake of the official mode; the official game decides.
   of milliseconds: a full `node --test` run on a loaded machine lags the event loop that much.
 - A new client message is a validator in `shared/protocol.js` (`C2S`) plus a handler in `server/match/match/intents.js`
   (or `server/lobby.js` for `room.*`).
-- Effects (`public/js/render/fxgame.js`): prefab loads are async, so guard units that died meanwhile (`gone`); a looping
-  prefab is bound to an owner or cut by `until`; a world-space trail must not follow a moving root (`followWorld`).
 - Per-frame rendering (`render/units.js` updates, the HUD, the effect players) is written for the worst case — an
   8-player field, many units showing the same thing, a phone — from the first version (maintainer decision 2026-10-31):
-  - nothing is rebuilt, allocated or rasterised in a frame whose inputs did not change: keep the last value and skip
-    (`RadialFill`, `downLabel`);
-  - what many units can show at once is drawn without per-unit stencil masks, filters, `Graphics` redraws or `Text`:
-    sprites of shared textures, atlases (`hudRings`) or small meshes (under 100 vertices, batched with the sprites);
-  - look for the existing primitive first (`hud-bars.js` `RadialFill`, `texOf`; `textures.js` `hudRings`, `ringArc`,
-    `downLabel`) before writing another;
-  - a change to the per-frame drawing path is measured with many copies on screen, before and after (draw calls per
-    frame and ms, on a GPU), and a change meant to keep the picture is compared pixel by pixel with the previous
-    version; the numbers go in the commit message (a redeploy countdown drawn with a stencil mask cost 36 draw calls
-    for 12 operators, the batched mesh 1).
-- A sound test asks how many and which ones didn't play, not only whether one played (`assert.ok(played.includes(…))` passed while
-  an operator's impact sounded ten times a second, or her attack played a child ability it should not). The client sounds an impact
-  from an ability's or a projectile's HIT, not from damage: damage that is no hit carries it in the 'dmg' 7th field
-  (`test/audio-impact-sweep.test.js` runs every operator × skill). The opposite fault is caught by `test/audio-skill-silence.test.js`: a skill whose hits land and sound no impact fails until it is wired or `test/audio-skill-silence-list.js` says why. A bank `played` in `test/audio-bank-coverage.test.js` only means its file is in the manifest: a skill with no normal attack never runs its mode's cues. An attack group whose children have conditions
-  (`_abilityConfigs`) is read from the client, never picked by name (`test/audio-cond-group-list.js`, worksheet `link_sheet.py`).
+  the four rules and the primitives to reuse are in `docs/rules/render.md` 「함정」, read before writing such code.
 - The official client's engine is not stock Unity 2021.3 everywhere: a mesh particle's pivot differs (`docs/rules/fx.md` 「메시 입자 pivot」). A formula from Unity's manual or the stock player is checked against an official screen before it is called official, and code alone never says what the official game shows.
-- A periodic HP loss with no effect of its own is `silent` (`Battle.loseHp`): each 'dmg' event draws the white glow and sparks of 真实 damage, ten times a second for Mon3tr's 重构体 (`test/render/op-sweep-fx.test.js`). The sim's attack clip and the view's are read from two places and must be the same clip, or the swing, the strike and the cast effects run on different clocks (`test/sim/attack-clip-view.test.js`).
-- After extracting effects run `node tools/build-browser-resources.mjs`: a resource worker answers a listed file from its cache as long as the list's hash is the cached copy's, so a browser that had the page keeps the old file through server restarts and hard reloads while a fresh one shows the change (`test/render/browser-resources-current.test.js`).
+- Each domain keeps its own pitfalls where its rules are: `docs/rules/fx.md` 「함정」 (effects, `fxgame.js`),
+  `docs/rules/render.md` 「함정」 (per-frame drawing, clips), `docs/rules/audio.md` 「함정」 (sound tests). Read the list
+  before editing that domain's files (search the heading: the files are long); most entries name the test that fails
+  when the pitfall comes back.
 - Before adding or editing a 自选 operator kit, walk the checklist in `docs/rules/diy.md`
   (「새 선발 오퍼레이터 키트 체크리스트」): targetable-only AoE through `canTargetEnemy`, the `dealDamage` options, no invented
   stop conditions.

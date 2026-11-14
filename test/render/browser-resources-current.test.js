@@ -25,7 +25,7 @@ test('the worker\'s list knows the extracted effects as they are', { skip: !exis
     const same = top ? createHash('sha256').update(readFileSync(abs)).digest('hex') === f.h : statSync(abs).size === f.s;
     if (!same) stale.push(f.p);
   }
-  assert.deepEqual(stale, [], 'run: node tools/build-browser-resources.mjs');
+  assert.deepEqual(stale, [], 'the worker\'s list is older than the extracted effects, so a browser that had the page keeps the old files: run node tools/build-browser-resources.mjs (docs/rules/fx.md 「함정」)');
 });
 
 // The PNG a WebP copy was made from stays on disk for the extractors, but the page loads the copy: listed, every browser

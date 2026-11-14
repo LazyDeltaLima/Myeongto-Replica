@@ -1165,3 +1165,13 @@
 - 뱅크 없는 신호: `makoto_skill_03_heal_effect`(S3 치료 이펙트, 0.4초), `makoto_skill_03_1_cast_start`·`_03_2_cast_start`(교체 그룹) — 무음.
 - 키: `tools/assets/kit-sfx.mjs` `makoto:*` 15개, 모드 신호 6개는 `hm`. 확인: `test/audio-makoto-sounds.test.js`(옛 연결로 7 중 5, 옛 매니페스트로 6 실패),
   `audio-bank-coverage-list.js`의 todo 21줄을 지움. [화면 미확인: 아레나 2배속]
+
+## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
+
+소리 코드(`public/js/audio.js`·`audioOfficial.js`, `tools/assets/kit-sfx.mjs`)와 소리 시험을 고치기 전에 읽는 목록. 쓰는 법은 `fx.md` 「함정」과 같다.
+
+- 소리 시험은 「났는가」로 끝내지 않는다: 몇 번 났는지와 나면 안 되는 소리를 함께 본다. `assert.ok(played.includes(…))`는 타격음이 초당 열 번 나거나 공격이 엉뚱한 자식 능력의 소리를 낼 때도 통과했다. 수동 스킬은 `activate`까지 해서 실제로 켜졌는지 본다.
+- 공식 클라는 타격음을 피해가 아니라 능력·투사체의 HIT에서 낸다. 타격이 아닌 피해는 `'dmg'`의 7번째 칸으로 알린다. 재발 방지: `test/audio-impact-sweep.test.js`(전 오퍼레이터 × 스킬, 너무 많이 나는 쪽).
+- 타격은 들어가는데 타격음이 없는 스킬 → 「스킬 타격음 전수」. 재발 방지: `test/audio-skill-silence.test.js`(연결하거나 `test/audio-skill-silence-list.js`에 근거를 적을 때까지 실패).
+- `test/audio-bank-coverage.test.js`의 `played`는 그 뱅크의 파일이 매니페스트에 있다는 뜻일 뿐이다. 일반 공격이 없는 스킬은 그 모드의 소리를 한 번도 내지 않는다 → 「선발 소리 뱅크 커버리지」.
+- 자식에 조건이 있는 공격 묶음(`_abilityConfigs`)은 공식 클라의 조건을 읽어 정한다. 이름이나 기본값으로 고르지 않는다. 재발 방지: `test/audio-cond-group.test.js`(새 묶음은 `test/audio-cond-group-list.js`에 적을 때까지 실패; 작업표 `link_sheet.py`).

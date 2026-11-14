@@ -113,7 +113,7 @@ describe('every 自选 operator × skill', () => {
 
   test('no HP loss draws a hit: a tick of 流失 is silent', () => {
     const bad = all.filter((r) => r.lossMax > LOSS_PER_S_MAX).map((r) => `${r.c.label}: ${r.lossMax} a second`);
-    assert.deepEqual(bad, []);
+    assert.deepEqual(bad, [], 'a periodic HP loss with no effect of its own sends \'dmg\' each tick, which the view draws as a hit of 真实 damage: pass `silent` to Battle.loseHp (docs/rules/fx.md 「효과 없는 주기적 유실」)');
   });
 
   test('every cast effect that ends with the swing starts before it ends, at battle speed', { skip: NO_FX }, () => {

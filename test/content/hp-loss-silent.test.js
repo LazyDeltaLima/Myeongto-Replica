@@ -22,7 +22,7 @@ test('华法琳 S2: the plasma takes her HP and draws no hit', () => {
   const before = u.hp;
   h.run(5);
   assert.ok(u.hp < before, `${u.hp} < ${before}`);
-  assert.equal(hitsOn(h, u), 0);
+  assert.equal(hitsOn(h, u), 0, 'the loss sent \'dmg\': pass `silent` to Battle.loseHp (docs/rules/fx.md 「효과 없는 주기적 유실」)');
 });
 
 test('가비알 디 인빈서블 S3: the debt comes off after the skill and draws no hit', () => {
@@ -39,5 +39,5 @@ test('가비알 디 인빈서블 S3: the debt comes off after the skill and draw
   const before = u.hp;
   h.run(4);
   assert.ok(u.hp < before, `${u.hp} < ${before}`);
-  assert.equal(hitsOn(h, u), 0);
+  assert.equal(hitsOn(h, u), 0, 'the loss sent \'dmg\': pass `silent` to Battle.loseHp (docs/rules/fx.md 「효과 없는 주기적 유실」)');
 });

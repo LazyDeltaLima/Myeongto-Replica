@@ -4270,3 +4270,16 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
   지금 `TODO`: 완구 외발자전거(`enemy_10018_sgrobh`) 일반 공격의 작살 줄 `enemy_sgrobh_attack_01`/`_02`(`etrailShot`이 연결 투사체를 건너뜀)·가상적: 총
   (`enemy_9017_achunt`) 스킬 3의 사슬 `enemy_achunt_chain`(시뮬 대체 `link` `faithLink`).
 - 확인: `test/render/eskill-lasso.test.js`(실제 키트 두 적: 줄이 놓이는 곳·대체 빔 안 그림·끝까지 타격 이펙트·일찍 끝남·추출 안 된 줄). [화면 미확인: 아레나 2배속]
+
+## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
+
+이펙트 코드(`public/js/render/fxgame.js`·`fxplayer.js`·`fx/`)를 고치기 전에 읽는 목록. 한 번 값을 치른 원인만 적고, 시험이 지키는 것은 그 시험을 적는다(시험이 실패하면 메시지가 원인을 말한다). 새 줄은 시험·린트로 못 잡는 것만 더한다(`CONTRIBUTING.md` 2절 「Regression guards」).
+
+- 프리팹 로드는 비동기다. 로드가 끝나기 전에 주인 유닛이 죽으면 이펙트가 끝까지 남는다 → 떠난 유닛을 기억하고 붙이지 않는다(`gone`).
+- 반복 입자가 있는 프리팹을 한 번짜리로 틀면 영원히 남는다 → 주인이 있으면 버프로 붙여 죽을 때 멈추고, 없으면 프리팹 길이로 끊는다(`until`).
+- 이펙트 루트가 움직여도 월드 공간 꼬리·입자는 따라오지 않아야 한다(`fxplayer.js` `followWorld`; 위 「공식 전투 이펙트」의 `worldSpace` 줄).
+- 캐릭터 앞·뒤는 공식에서 렌더러 `sortingOrder`로 갈린다(Spine은 깊이를 안 쓴다) → 품질 높음 + 3D 보드에서 유닛에 붙는 이펙트는 `FxInstance` `split`으로 렌더러마다 위·아래 캔버스에 나눠 그린다. 중간 이하·2D 보드는 시전자 것 아래, 나머지 위.
+- 공격 이벤트 없이 피해를 주는 스킬(텍사스 S2의 검 두 발 등)의 대상 이펙트는 그 틱의 `'dmg'`로 고른다(`fxgame.js` `expect`·`pendingHit`). `'dmg'`에는 공격자가 없으므로 거리와 다른 공격자로 거른다.
+- 이펙트가 없는 주기적 체력 유실은 `Battle.loseHp`에 `silent`를 준다. 안 주면 틱마다 `'dmg'`가 나가 트루 대미지의 흰 발광·입자를 초당 열 번 그린다 → 위 「효과 없는 주기적 유실」. 재발 방지: `test/render/op-sweep-fx.test.js`(전 선발 × 스킬), `test/content/hp-loss-silent.test.js`.
+- 이펙트를 추출한 뒤 `node tools/build-browser-resources.mjs`를 돌린다. 리소스 워커는 목록의 해시가 캐시와 같으면 캐시의 파일을 주므로, 그 페이지를 열어 본 브라우저는 서버를 다시 띄우고 강력 새로고침을 해도 옛 파일을 본다(처음 여는 브라우저는 멀쩡하다). 재발 방지: `test/render/browser-resources-current.test.js`.
+- Unity 문서나 기본 플레이어의 식을 공식 동작이라고 적기 전에 공식 화면으로 확인한다 → 「메시 입자 pivot」.

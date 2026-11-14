@@ -68,7 +68,7 @@ test('a skill\'s attack is timed from the clip the view plays', () => {
     });
   }
   assert.ok(seen.size > 40, `only ${seen.size} skills read`);
-  assert.deepEqual(found, [], 'the sim\'s clip is not the view\'s (build-data opAttackAnim, tools/assets/anim-keys.mjs keyRoles)');
+  assert.deepEqual(found, [], 'the sim times one clip and the view plays another, so the swing, the strike and the cast effects run on different clocks (build-data opAttackAnim, tools/assets/anim-keys.mjs keyRoles; docs/rules/render.md 「함정」)');
   // the four the first version of this test listed as not judged, by what the official prefabs name
   assert.equal(seen.get('char_2027_wang S2'), 'Attack_2_A', '望 S2: mode S2 Attack_A→Attack_2_A, held from the deployment');
   assert.equal(seen.get('char_4182_oblvns S2'), 'Skill_2_Loop_A', '丰川祥子 S2: the piano mode; its cast clip Trans_A is no attack');
@@ -124,7 +124,7 @@ test('every operator\'s attack, shop chess and reserves too: the sim times the c
   // the picks and the reserves (预备干员 …, which a diy slot can't place: their skills count as timed), at every skill they have
   for (const [id, c] of Object.entries(units)) check(id, id, c.attackAnim, null, (i) => (LOCAL_DIY_PICKS.includes(id) ? attacksInSkill(id, i) : true));
   assert.ok(read_ > 500, `only ${read_} attacks read`);
-  assert.deepEqual(found, [], 'the sim\'s clip is not the view\'s (build-data opAttackAnim, tools/local-extract/attack_timing.py pick)');
+  assert.deepEqual(found, [], 'the sim times one clip and the view plays another, so the swing, the strike and the cast effects run on different clocks (build-data opAttackAnim, tools/local-extract/attack_timing.py pick; docs/rules/render.md 「함정」)');
 });
 
 test('three attacks the sweep found timed from another child or mode, by what their prefabs name', () => {
