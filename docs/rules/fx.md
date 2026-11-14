@@ -4245,3 +4245,23 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
 - 확인: `test/render/makoto-fx.test.js`(추출값·모드·표·계획, 실제 키트의 순간·`persona`·`kitHit`), `makoto-persona.test.js`(클립),
   `fx-bindings`·`cond-cast-fx`(목록에서 지움). [화면 미확인: 아레나 2배속]
 
+
+## 적 채널 스킬의 줄 투사체 (2026-11-14, 공식 클라에서 확인, 관리자 제보 「축제 재즈 연주가의 불꽃 줄기가 대체 빔」)
+
+- 대상: 채널 동안 투사체가 대상에 이어진 줄로 남는 적 스킬 — 투사체가 `LassoProjectile`·`HarpoonMovement`·`HarpoonRenderer`(`enemy-modes.json`
+  `proj.link`). 축제 재즈 연주가(`enemy_10034_cnvsax`) 「광란의 연주」(`fire`, `projectile_enemy_cnvsax`: `_linkDuration` 3600, 속도 10)와
+  살카즈 왕정군 정예 캐스터(`enemy_1275_dwlock_2`) 죽음의 눈(`DeathEye`, `projectile_enemy_dwlock_line`: `_linkDuration` 8, 속도 8).
+- 공식 동작: `HarpoonRenderer`가 `_mainEffect`(`proj.trail`: `enemy_cnvsax_skill_line_01`·`enemy_dwlock_skill_line_01`)를 만든다 — `_spawnOnSource`면
+  쏜 적 위(그 이펙트의 붙는 자리대로), 아니면 투사체 몸 밑(줄 머리를 따라감). 매 틱 그 이펙트의 LineRenderer 전부에 두 점을 넣는다: 첫 점 = 쏜 자리
+  (`_mountPointType`, `proj.mount`), 둘째 점 = 뻗는 동안은 투사체 몸, 닿은 뒤엔 대상의 점. 투사체가 멈추면(시전이 끝날 때 — `_waitForProjectileInvalid`인
+  `RangedAttack.OnCastEnd`가 투사체를 지움) 이펙트를 `FinishMe`로 끝낸다(서서히 사라짐). 재즈 연주가는 `_spawnOnSource` 1, 정예 캐스터는 0.
+- 우리: 시뮬의 채널 시작 fx `enemySkill` { `tgt`, `dur` }(키트 `castFx`)에서 `fxgame.js elassoStart`가 그 줄을 `dur` 동안 그리고(`startLine`: 첫 점
+  = 적의 `proj.mount` 점, 둘째 점 = `proj.speed`로 뻗는 머리 → 대상의 HIT 점), 일찍 끝나면(`enemySkillEnd`, 끊긴 `deathEyeEnd`) 그때 사라지게 한다. 추출기
+  `enemy_bindings.py`가 `_spawnOnSource`를 `proj.onSrc`로 읽는다. 줄이 그려지는 동안 시뮬의 대체 빔(`beam` `jazzFire`·`deathEye`·`deathEyeEnd`)은 안
+  그린다 — 줄 이펙트가 추출 안 됐으면 대체 빔이 그대로 남는다.
+- 같은 길로 길이를 아는 채널(`enemySkill`의 `dur`)은 그 길이 동안 붙잡힌 스킬이다(`eskillFx` `hold`·`holdFor`): 시전 끝(ON_CAST_END)까지 가는 시전
+  이펙트(정예 캐스터 `enemy_dwlock_skill_start_01`)와 `_onlyOnce` 타격 이펙트(`enemy_dwlock_skill_hit_01`)가 채널 끝까지, 채널의 타격마다 그 스킬의
+  타격 이펙트(재즈 연주가 `enemy_cnvsax_hit_02`)가 처음 3초만이 아니라 끝까지 난다.
+- 재즈 연주가 이펙트 루트의 불꽃 입자(원뿔 방출)의 방향: `HarpoonRenderer`는 만든 이펙트를 돌리지 않는다(대상 쪽으로 도는 것은 `_rotateToTarget`인
+  투사체 몸뿐) — 그 이펙트 자신의 회전 설정(`_rotateType` 1, 다른 이펙트와 같은 `play` 규칙)대로.
+- 확인: `test/render/eskill-lasso.test.js`(실제 키트 두 적: 줄이 놓이는 곳·대체 빔 안 그림·끝까지 타격 이펙트·일찍 끝남·추출 안 된 줄). [화면 미확인: 아레나 2배속]

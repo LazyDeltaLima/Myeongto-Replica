@@ -686,6 +686,10 @@ def proj_record(key, roots):
                 r['raise'] = round(d['_raiseHeight'], 3)
         if d.get('_linkDuration'):
             r['link'] = round(d['_linkDuration'], 3)
+        # (2026-11-14) a HarpoonRenderer's `_spawnOnSource`: its `_mainEffect` is made on the shooter (BattleController
+        # .CreateEffect on the source entity), not under the projectile's body — 节日爵士乐手's 狂欢式演奏 flame
+        if '_mainEffect' in d and d.get('_spawnOnSource'):
+            r['onSrc'] = 1
         if '_lifeTime' in d:
             r['lifeTime'] = round(d['_lifeTime'], 3)
         for k in ('_projectileKey', '_subProjectileKey', '_childProjectileKey'):
@@ -802,7 +806,7 @@ def emit_part(abilities, projs):
                 for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart', 'stop'):
                     if pr.get(f):
                         proj[f] = pr[f]
-                for f in ('move', 'speed', 'raise', 'link', 'fallingTime'):
+                for f in ('move', 'speed', 'raise', 'link', 'fallingTime', 'onSrc'):
                     if f in pr:
                         proj[f] = pr[f]
                 # 2026-10-10: the sub-projectiles it places (`_subProjectileKey` …: 萨米的意志's 冰凌 projectile_enemy_smdeer leaves a

@@ -630,6 +630,7 @@
   ],
   "bond-investShip-high": [
    "- spawn enemy_dwlock_attack_hit_01 → ally",
+   "- spawn enemy_dwlock_skill_line_01",
    "- spawn etlchi_skill_03_ghosting_01 → enemy",
    "- spawn etlchi_skill_03_line_01 → enemy",
    "- spawn ulpia_skill_03_range_01 → enemy",
@@ -682,7 +683,7 @@
    "char_4151_tinman spawn:born common_char_birth_01 → self",
    "char_4151_tinman spawn:born equipment_system_alchemist_buff_x → self",
    "enemy_1275_dwlock_2 spawn:cast enemy_dwlock_attack_start_01 → self",
-   "enemy_1275_dwlock_2 spawn:cast enemy_dwlock_skill_start_01 → self"
+   "enemy_1275_dwlock_2 spawn:eskill enemy_dwlock_skill_start_01 → self"
   ],
   "bond-investShip-low": [
    "- spawn enemy_divman_2_attack_01_hit → ally",
@@ -6458,7 +6459,7 @@
   "diy-038": [
    "- spawn enemy_darmy_attack_hit_01 → ally",
    "- spawn enemy_dwlock_attack_hit_01 → ally",
-   "- spawn enemy_dwlock_skill_hit_01 → ally",
+   "- spawn enemy_dwlock_skill_line_01",
    "- spawn monstr_attack_hit_02 → enemy",
    "- spawn shu_skill_01_hit → enemy",
    "- spawn shu_teleport_hit → enemy",
@@ -6497,8 +6498,10 @@
    "char_4179_monstr spawn:born equipment_system_chainhealer_buff_x → self",
    "char_4179_monstr spawn:emit monstr_skill_02_buff_03 → self",
    "enemy_1275_dwlock_2 eskillEnd DeathEye",
+   "enemy_1275_dwlock_2 lassoEnd enemy_dwlock_skill_line_01",
    "enemy_1275_dwlock_2 spawn:cast enemy_dwlock_attack_start_01 → self",
-   "enemy_1275_dwlock_2 spawn:cast enemy_dwlock_skill_start_01 → self"
+   "enemy_1275_dwlock_2 spawn:eskill enemy_dwlock_skill_hit_01 → foe",
+   "enemy_1275_dwlock_2 spawn:eskill enemy_dwlock_skill_start_01 → self"
   ],
   "diy-039": [
    "- spawn common_enemy_hit_01 → ally",
@@ -7633,7 +7636,7 @@
   "diy-074": [
    "- spawn enemy_darmy_attack_hit_01 → ally",
    "- spawn enemy_dwlock_attack_hit_01 → ally",
-   "- spawn enemy_dwlock_skill_hit_01 → ally",
+   "- spawn enemy_dwlock_skill_line_01",
    "- spawn mcnist_skill_02_buff_01_end → ally",
    "- spawn mcnist_skill_02_buff_01_end_02 → ally",
    "- spawn mcnist_skill_03_hit_01",
@@ -7653,8 +7656,10 @@
    "char_4230_mcnist spawn:born common_char_birth_01 → self",
    "char_4230_mcnist status mcnist_skill_02_buff_01",
    "enemy_1275_dwlock_2 eskillEnd DeathEye",
+   "enemy_1275_dwlock_2 lassoEnd enemy_dwlock_skill_line_01",
    "enemy_1275_dwlock_2 spawn:cast enemy_dwlock_attack_start_01 → self",
-   "enemy_1275_dwlock_2 spawn:cast enemy_dwlock_skill_start_01 → self"
+   "enemy_1275_dwlock_2 spawn:eskill enemy_dwlock_skill_hit_01 → foe",
+   "enemy_1275_dwlock_2 spawn:eskill enemy_dwlock_skill_start_01 → self"
   ],
   "diy-summon-bgsnow": [
    "- spawn chen3_Shield_buff_02 → ally",
@@ -11836,7 +11841,7 @@
    "- spawn common_magic_hit_01_m → ally",
    "- spawn enemy_acbunn_attack_1_hit → ally",
    "- spawn enemy_dwlock_attack_hit_01 → ally",
-   "- spawn enemy_dwlock_skill_hit_01 → ally",
+   "- spawn enemy_dwlock_skill_line_01",
    "- spawn enemy_mdgint_attack_01_hit → ally",
    "- spawn enemy_sgkill_attack_01_hit → ally",
    "- spawn enemy_spnaxe_attack_hit → ally",
@@ -11996,12 +12001,14 @@
    "enemy_1229_darmy_2 spawn lemuen_skill_03_crosshair_range",
    "enemy_1229_darmy_2 spawn lemuen_skill_03_trail_01 → self",
    "enemy_1275_dwlock_2 eskillEnd DeathEye",
+   "enemy_1275_dwlock_2 lassoEnd enemy_dwlock_skill_line_01",
    "enemy_1275_dwlock_2 spawn lemuen_skill_03_crosshair_01 → self",
    "enemy_1275_dwlock_2 spawn lemuen_skill_03_crosshair_02 → self",
    "enemy_1275_dwlock_2 spawn lemuen_skill_03_crosshair_range",
    "enemy_1275_dwlock_2 spawn lemuen_skill_03_trail_01 → self",
    "enemy_1275_dwlock_2 spawn:cast enemy_dwlock_attack_start_01 → self",
-   "enemy_1275_dwlock_2 spawn:cast enemy_dwlock_skill_start_01 → self",
+   "enemy_1275_dwlock_2 spawn:eskill enemy_dwlock_skill_hit_01 → foe",
+   "enemy_1275_dwlock_2 spawn:eskill enemy_dwlock_skill_start_01 → self",
    "enemy_1283_sgkill spawn:aura enemy_sgkill_eye_01 → self",
    "enemy_1283_sgkill spawn:castLoop enemy_sgkill_attack_01_start → self",
    "enemy_1364_spnaxe_2 spawn:cast enemy_spnaxe_attack_start_01 → self",
@@ -12428,6 +12435,7 @@
    "- spawn branch_talent_01 → ally",
    "- spawn common_enemy_hit_01 → ally",
    "- spawn enemy_cnvsax_hit_02 → ally",
+   "- spawn enemy_cnvsax_skill_line_01 → enemy",
    "- spawn enemy_mhslim_attack_hit → ally",
    "- spawn enemy_sfden_attack_hit_01 → ally",
    "- spawn enemy_smgrd_attack_02_hit → ally",
@@ -14752,7 +14760,7 @@
    "- spawn enemy_actoxi_idle",
    "- spawn enemy_balloon_attack_01_hit → ally",
    "- spawn enemy_dwlock_attack_hit_01 → ally",
-   "- spawn enemy_dwlock_skill_hit_01 → ally",
+   "- spawn enemy_dwlock_skill_line_01",
    "- spawn enemy_hlegle_attack_01_hit → ally",
    "- spawn enemy_nhpbr_attack_hit → ally",
    "- spawn enemy_nhpbr_attack_range",
@@ -14879,7 +14887,8 @@
    "enemy_1267_nhpbr_2 spawn:cast enemy_nhpbr_attack_start → self",
    "enemy_1270_nhstlk_2 spawn:cast enemy_nhstlk_attack_start → self",
    "enemy_1275_dwlock_2 spawn:cast enemy_dwlock_attack_start_01 → self",
-   "enemy_1275_dwlock_2 spawn:cast enemy_dwlock_skill_start_01 → self",
+   "enemy_1275_dwlock_2 spawn:eskill enemy_dwlock_skill_hit_01 → foe",
+   "enemy_1275_dwlock_2 spawn:eskill enemy_dwlock_skill_start_01 → self",
    "enemy_2004_balloon spawn:cast enemy_balloon_attack_01_start → self",
    "token_10015_dusk_drgn attackHit token_dusk_attack_01_hit → foe",
    "token_10015_dusk_drgn attackStart token_dusk_attack_01_start",

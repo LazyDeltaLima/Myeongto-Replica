@@ -5903,7 +5903,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (rec && rec.fade == null) { rec.until = Math.max(rec.until, clockS + Math.max(0, life)); return; }   // the buff refreshed
     const nrec = { src, tgt, until: clockS + Math.max(0, life), l: null, sp: null, dyn: null, ended: false, tag: meta?.tag ?? null, owner: meta?.owner ?? null, skill: !!meta?.skill };
     elines.set(key, nrec);
-    spawn(bundle, name, tgt, { owner: null, buff: true, until: null, on: ownerOf(tgt) }).then((l) => {
+    // (2026-11-14) `meta.onSrc`: made on the shooter, not on the line's end (HarpoonRenderer `_spawnOnSource`, elassoStart)
+    const host = meta?.onSrc ? src : tgt;
+    spawn(bundle, name, host, { owner: null, buff: true, until: null, on: ownerOf(host) }).then((l) => {
       if (!l) { elines.delete(key); return; }
       if (nrec.ended) { l.inst.stop(); return; }
       nrec.l = l;
@@ -5996,6 +5998,56 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
 
+  /**
+   * 2026-11-14 (docs/rules/fx.md 「적 채널 스킬의 줄 투사체」): an enemy channel skill whose projectile is a link
+   * (LassoProjectile + HarpoonMovement + HarpoonRenderer, enemy-modes.json `proj.link`: 节日爵士乐手's 狂欢式演奏
+   * projectile_enemy_cnvsax, 萨卡兹王庭军精锐术师's 死亡之眼 projectile_enemy_dwlock_line) — from the sim's fx 'enemySkill'
+   * { id, ability, tgt, dur } (the kit's castFx) for the channel's `dur`, or to its 'enemySkillEnd'. The client's
+   * HarpoonRenderer makes the `_mainEffect` (`proj.trail`) under the projectile's body, or on the shooter with
+   * `_spawnOnSource` (`proj.onSrc`), and each tick sets both points of every LineRenderer of it: the first where the shot
+   * left (its `_mountPointType`, `proj.mount`), the second the projectile's body while it extends (`_speed` tiles a second,
+   * `proj.speed`) and the target's point once it reached; the projectile's stop (the cast's end — RangedAttack.OnCastEnd
+   * with `_waitForProjectileInvalid`) finishes it (Effect.FinishMe: it fades out). The sim's stand-in beams of the channel
+   * (LASSO_BEAMS) are not drawn while it shows. true = drawn.
+   */
+  const LASSO_BEAMS = new Set(['jazzFire', 'deathEye', 'deathEyeEnd']);
+  const elassos = new Map();   // caster id → { rec: its elines record, tgt, name: its prefab }
+  function elassoStart(v, part, tgt, dur) {
+    const pr = part?.proj;
+    if (!pr?.link || !tgt || tgt === v || !(dur > 0) || !camRef || level() >= 3) return false;
+    const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
+    if (!r) return false;
+    elassoEnd(v);
+    let from;
+    try { from = eshotFrom(v, pr.mount); } catch { from = null; }
+    if (!from || ![from.x, from.y, from.z].every(Number.isFinite)) from = { x: mx(v), y: v.y, z: (v.z || 0) + (v.hover || 0) };
+    from = { x: from.x, y: from.y, z: from.z };
+    const speed = Number(pr.speed) > 0 ? Number(pr.speed) : 0, t0 = clockS, p = { x: 0, y: 0, z: 0 };
+    const at = () => {
+      const q = shotTo(tgt);
+      const d = Math.hypot(q.x - from.x, q.y - from.y), k = speed > 0 && d > 0 ? Math.min(1, ((clockS - t0) * speed) / d) : 1;
+      p.x = from.x + (q.x - from.x) * k; p.y = from.y + (q.y - from.y) * k; p.z = from.z + (q.z - from.z) * k;
+      return p;
+    };
+    const head = { id: `lasso:${++ropeSeq}`, get alive() { return tgt.alive !== false && !tgt.remove && !gone.has(ownerOf(tgt)); }, get x() { return at().x; }, get y() { return p.y; }, get z() { return p.z; } };
+    startLine(r[0], r[1], v, head, dur, { sMount: Number.isInteger(pr.mount) ? pr.mount : 2, eMount: 7 }, { onSrc: !!pr.onSrc });
+    const rec = elines.get(`${ownerOf(v)}:${head.id}:${r[1]}`);
+    if (!rec) return false;
+    elassos.set(ownerOf(v), { rec, tgt, name: r[1] });
+    return true;
+  }
+  /** The channel of enemy `v` ended before its length (its 'enemySkillEnd', a cut 'deathEyeEnd'): its line fades now. */
+  function elassoEnd(v) {
+    const id = ownerOf(v), l = elassos.get(id);
+    if (!l) return;
+    elassos.delete(id);
+    if (l.rec.until <= clockS) return;   // it already ended at its length
+    l.rec.until = clockS;
+    if (trace) trace({ kind: 'lassoEnd', names: [l.name], by: id, at: null });   // tests
+  }
+  /** Whether enemy `v`'s channel drew its link line (its stand-in beams are not drawn then — nor after its target fell). */
+  const elassoOn = (v) => { const l = v ? elassos.get(ownerOf(v)) : null; return !!l && clockS <= l.rec.until + 0.5; };
+
   // the enemies' abilities by name (the sim's fx 'enemySkill' { id, ability, n } at a content skill's cast, and `ability` +
   // `caster` on every fx of that cast — docs/SIM.md; the ability = data/enemies.json skills[].prefabKey = the prefab's
   // Skills/<name> without case)
@@ -6011,7 +6063,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * `loop`, cut at 20 s [추정: an end the sim does not announce]; once otherwise), its projectile's trail to `target` with its
    * start effects there; the units its damage hits next get its hit effects (eskillHit). true when the enemy binds it.
    */
-  function eskillFx(v, key, { on = true, loop = false, target = null, hold = false, cap = 20 } = {}) {
+  function eskillFx(v, key, { on = true, loop = false, target = null, hold = false, holdFor = ESKILL_HOLD_CAP, cap = 20 } = {}) {
     const part = eskillPart(v, key);
     if (!part || !eOn(v)) return false;
     const pr0 = part.proj || {};
@@ -6029,15 +6081,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const l of live) if (l.owner === id && l.tag === `aura:${key.toLowerCase()}`) l.inst.stop();
     // 2026-11-12: its ready mark, when it goes as the cast starts (ReadyEnemySkillEffect `_stopBeforeCast`, ereadyFx)
     if (part.readyEarly) for (const l of live) if (l.owner === id && l.tag === `ready:${key.toLowerCase()}`) l.inst.stop();
-    v._fxESkill = { part, t: clockS, hold, held: hold ? new Set() : null, inPlace: inPlaceOfAttack(v, part) };
+    v._fxESkill = { part, t: clockS, hold, until: hold ? clockS + holdFor : null, held: hold ? new Set() : null, inPlace: inPlaceOfAttack(v, part) };
     if (clockS - (eskillSeen.get(k) ?? -9) < 1) return true;
     eskillSeen.set(k, clockS);
     if (hold) {
       // 2026-10-15: a held skill (the sim's fx 'enemySkill' `hold` until its 'enemySkillEnd' — 子代's 摄食): its loop cast
-      // effects (opt `o` 0, to ON_CAST_END) last until that end, cut at ESKILL_HOLD_CAP s [추정: a lost end]
+      // effects (opt `o` 0, to ON_CAST_END) last until that end, cut at ESKILL_HOLD_CAP s [추정: a lost end]; (2026-11-14) a
+      // channel of known length (`holdFor`: the kit's castFx `dur`) to that length
       const names = edirs(v, part, part.cast), loops = names.filter((n) => part.opt?.[n]?.o === 0);
       eplay(v, names.filter((n) => !loops.includes(n)), { tag: 'cast' });
-      if (loops.length) eplay(v, loops, { buff: true, tag: 'eskill', until: clockS + ESKILL_HOLD_CAP });
+      if (loops.length) eplay(v, loops, { buff: true, tag: 'eskill', until: clockS + holdFor });
     } else {
       // (2026-11-12) the strike's own cast effects wait for the strike when the sim signals it (SPELL_BLASTS)
       const atBlast = !!SPELL_BLASTS[v.info?.defId]?.[key];
@@ -6085,7 +6138,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function eskillHit(tid, by, views) {
     const v = by != null ? views.get(by) : null;
     const s = v && v._fxESkill;
-    const tgt = s && (s.hold || clockS - s.t <= 3) && eOn(v) ? views.get(tid) : null;
+    const tgt = s && (s.hold ? clockS <= (s.until ?? Infinity) : clockS - s.t <= 3) && eOn(v) ? views.get(tid) : null;
     if (!tgt || level() >= 3) return false;
     const key = `${by}:${tid}`;
     if (clockS - (lastHit.get(key) ?? -9) < HIT_GAP_S) return true;
@@ -6096,7 +6149,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const n of once) {
       if (s.held.has(`${tid}:${n}`)) continue;
       s.held.add(`${tid}:${n}`);
-      eplay(v, [n], { at: tgt, owner: ownerOf(v), on: tid, buff: true, tag: 'eskill', until: clockS + ESKILL_HOLD_CAP });
+      eplay(v, [n], { at: tgt, owner: ownerOf(v), on: tid, buff: true, tag: 'eskill', until: s.until ?? clockS + ESKILL_HOLD_CAP });
     }
     ehitFx(v, once.length ? { ...s.part, hit: s.part.hit.filter((n) => !once.includes(n)) } : s.part, tgt, eshotHitDone(by, tid));
     return true;
@@ -7086,6 +7139,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-10-31: an enemy ability's area (【污染秽蚀】, 毒雾, 刺胄之弹's landing) or death burst — its projectile's
           // effects, else the stand-in zone / ring (not the ability's cast below)
           if ((e[1] === 'zone' || e[1] === 'explode') && e[4]?.id != null && e[4].caster == null && typeof e[4].ability === 'string') { if (eprojAreaFx(e, views)) ownFx.add(e); return; }
+          // 2026-11-14: an enemy channel's stand-in beams while its link line shows (elassoStart); a cut ends that line
+          if (e[1] === 'beam' && LASSO_BEAMS.has(e[4]?.kind)) {
+            const v = views.get(e[4].from ?? e[4].id);
+            if (elassoOn(v)) { if (e[4].kind === 'deathEyeEnd') elassoEnd(v); ownFx.add(e); return; }
+          }
           if (e[1] === 'beam' && e[4] && SHOT_BEAMS[e[4].kind] && level() < 3) {
             const o = e[4], from = views.get(o.from ?? o.id);
             const pr = from && views.get(o.to) ? eshotDrawable(views.get(o.caster) || from, SHOT_BEAMS[o.kind]) : null;
@@ -7100,11 +7158,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             const v = k ? views.get(o.caster ?? o.id ?? o.src ?? o.by) : null;
             if (v?.info?.side === 'enemy' || v?.info?.walks) {   // (2026-11-11: a walking ally's ability too)
               // 2026-10-15: a held skill's end ('enemySkillEnd' { id, ability } after an 'enemySkill' with `hold`)
-              if (e[1] === 'enemySkillEnd') { eskillFx(v, k, { on: false }); return; }
+              if (e[1] === 'enemySkillEnd') { eskillFx(v, k, { on: false }); elassoEnd(v); return; }
               // 2026-11-12: a skill whose buff effect lasts with its form (FORM_HELD_SKILLS) — held to that form's end
               if (e[1] === 'enemySkill' && FORM_HELD_SKILLS[v.info?.defId]?.[k]) { eskillFx(v, k, { loop: true, cap: ESKILL_HOLD_CAP }); return; }
-              const tgt = o.target ?? o.tgt ?? o.to;
-              if (eskillFx(v, k, { target: tgt != null ? views.get(tgt) || null : null, hold: e[1] === 'enemySkill' && !!o.hold }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
+              const tgt = o.target ?? o.tgt ?? o.to, tv = tgt != null ? views.get(tgt) || null : null;
+              // 2026-11-14: a channel the kit gives a length (castFx `dur`: render/units.js ESKILL_CLIPS) is held that long or
+              // to its 'enemySkillEnd' (its ON_CAST_END effects, its hits' effects), and its link projectile's line shows
+              const chan = e[1] === 'enemySkill' && Number(o.dur) > 0 ? Number(o.dur) : 0;
+              if (chan) elassoStart(v, eskillPart(v, k), tv, chan);
+              if (eskillFx(v, k, { target: tv, hold: e[1] === 'enemySkill' && (!!o.hold || chan > 0), holdFor: chan || ESKILL_HOLD_CAP }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
               return;
             }
           }
