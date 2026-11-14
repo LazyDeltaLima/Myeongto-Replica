@@ -1423,6 +1423,16 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   공격, 【崩坍】(시전 3 s)·【断裂生殖】(2 s)는 차례 하나를 차지한다. 이전에는 3.5 s마다 일반 공격(2명 × ATK 100 % 물리 + 20 % 신경) **과** 【大潮】(전원 ×
   20 % 법술 + 20 % 신경)가 함께 나가 셋째 형태 출력이 공식의 두 배 가까이였다(첫째·둘째 형태는 스킬 쿨 35~40 s라 차이가 작음). upstream PR #799(열림)는
   퀸투스 스킬만 공격 쿨을 소모시키는 부분 수정이다.
+- **휘두름 대신 시전하는 스킬의 클립** (2026-11-14, 공식 클라에서 확인): 키트가 일반 공격의 휘두름으로 스킬 효과를 내는 적은 그 휘두름을 스킬 능력의 클립으로 잰다 —
+  키트가 `profile.swingClip`(그 스킬의 `skillCast` 기록)을 넘기면 `ai.js attackClipOf`가 그 휘두름의 타격·길이를 그것으로(`attackTiming`, 공격 시간에 맞춰 늘고 줆).
+  액젓 추천자(`enemy_10044_wintun`)의 통 내려찍기: `Skills/BlockedBoom`(ATTACK·COMBAT 가족, `_timeMode` 1)의 `Attack` 1.467초 중 0.7초(이전: M2 `Combat`의
+  `B_Attack` 1.2초 중 0.467초), 그 뒤 휘두름은 `B_Attack`. 시험 `test/content/enemies_bosses.test.js` 「the barrel smash swings…」.
+- **모드가 꺼진 스킬의 쿨** (2026-11-14, 공식 클라에서 확인): `Enemy.OnSwitchMode`는 떠나는 모드의 스킬(루트가 아닌 `EnemySkill`)을 `Detach`(꺼짐), 들어가는
+  모드의 것을 `Attach`하고, `Enemy.OnTick`은 켜진 스킬의 쿨만 센다 — 모드가 꺼진 동안 그 스킬의 쿨은 멈추고, 돌아와도 다시 세지 않는다(`EnemySkill.Init`은 등장·
+  재생·`ReInitEnemySkillCoolDown` 노드에서만). 시전 중에 모드가 바뀌면 능력이 끊기고(`_interruptAbilityOnDetach`) 시전 끝(`_OnCastFinish`)의 `Reset(true)`로
+  쿨이 한 주기 전체가 된다. 키트는 그 스킬에 `pause(b, e)`를 둔다(`content/enemies.js onTick`). 수둔 닌자(`enemy_10116_ymgtop`)의 `SwitchModeTrigger`(Default
+  모드, 쿨 60·처음 10): 회전(M1, `rotate_duration` 60초)이 끝나거나 失衡으로 끊긴 뒤 60초 더 기다려 다시 돈다(이전: 쿨이 회전 중에도 흘러 회전이 끝나자마자 다시 돎).
+  시험 같은 파일 「the next spin comes a full cooldown after…」.
 - **옛 동작**: 스킬은 쿨이 차면 바로, 일반 공격과 따로(즉시) 나갔다. 테스트 `test/content/enemy-skill-attack-slot.test.js`, 고친 것:
   `hidden-gun-pursuit.test.js`(【末日布道】 = 준비 뒤 다음 공격 차례), `boss-patterns-real.test.js`(铳 휘두름 간격은 스킬이 끼지 않은 쌍),
   `feedback5-cb4-pins.test.js` item 52(공격 + 스킬 시전 = 공격 차례 수), `enemies_bosses.test.js`의 발동 시각.

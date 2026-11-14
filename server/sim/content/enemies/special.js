@@ -587,6 +587,8 @@ export const SPECIAL_KITS = Object.freeze({
   },
   enemy_10044_wintun: (ab) => {                                      // 咸鳞汁推荐者 · fast with the barrel; first attack (SILENCE): big hit + buff zone for enemies
     const s = ab.sk.BlockedBoom ? ab.sk.BlockedBoom.bb : {};
+    const bc = ab.sk.BlockedBoom?.cast;
+    const boomClip = bc && bc.dur > 0 ? { clip: bc.clip, dur: bc.dur, hit: bc.hit, max: bc.max ?? 1 } : null;
     const boom = {
       sil: true,                                                     // silenced: the barrel is kept (and its speed) until an unsilenced attack
       spawn(b, e) { b.addBuff(e, { key: 'ab:barrel', persist: true, mods: { moveMul: T(ab, '1.move_speed') ?? 1 } }); },
@@ -611,10 +613,14 @@ export const SPECIAL_KITS = Object.freeze({
       // GitHub #14: the view's clips follow (render/units.js FORMS) — M2's hooker plays B_Idle / B_Move / B_Die from the
       // switch; its swing is BlockedBoom's Attack (the barrel smash) until that strike, then the Combat's B_Attack — and
       // B_Attack while silenced, which casts no BlockedBoom (form 'M2boom' / 'M2'; a swing running keeps its clip)
+      // 2026-11-14 (공식 클라에서 확인 — data skillCast.blockedboom: Skills/BlockedBoom, ATTACK | COMBAT family, `_timeMode` 1,
+      // clip `Attack` 1.467 s with its OnAttack at 0.7 s): the swing that smashes the barrel is that skill's cast at the attack
+      // slot, timed by its clip — not by the Combat's B_Attack (1.2 s, 0.467 s); ai.js attackClipOf `swingClip`
       tick(b, e) {
         if (e.blockedBy) mode(b, e, 'M2');
-        if (e.mode !== 'M2') return;
+        if (e.mode !== 'M2') { if (e.profile.swingClip) e.profile.swingClip = null; return; }
         const f = boom.done || e.s.flags.silence ? 'M2' : 'M2boom';
+        e.profile.swingClip = f === 'M2boom' ? boomClip : null;
         if (e.form !== f) setForm(b, e, f);
       },
     }];
@@ -640,6 +646,12 @@ export const SPECIAL_KITS = Object.freeze({
   enemy_10116_ymgtop: (ab) => {                                     // 水遁忍者 · spinning phase (SILENCE): phys AoE every s; 失衡 stops it
     const spin = {
       sil: true, cd: ab.sk.SwitchModeTrigger ? ab.sk.SwitchModeTrigger.cd : 60, icd: ab.sk.SwitchModeTrigger ? ab.sk.SwitchModeTrigger.icd : 10,
+      // 2026-11-14 (공식 클라에서 확인 — the prefab's Modes/Default/Body/Skills/SwitchModeTrigger, an EnemySkill of the Default
+      // mode; Enemy.OnSwitchMode, EnemySkill.Detach / Attach): the cast is cut as the mode switches (`_interruptAbilityOnDetach`)
+      // and its cooldown restarts in full then; the skill is detached for the whole spin, its cooldown standing still, so it
+      // spins again `cd` s after it comes back (from a 失衡 too). Until 2026-11-14 the cooldown ran on through the spin —
+      // `cd` 60 = `rotate_duration` 60: it spun again the moment it stopped
+      pause: (b, e) => e.mode === 'M1',
       fire(b, e, a) { a.until = b.time + (T(ab, 'EndRotate.rotate_duration') ?? 0); b.fx('telegraph', { x: e.x, y: e.y, r: 1, kind: 'spin', id: e.id }); },
       iv: T(ab, 'RotateDamage.interval') ?? 1,
       // "每秒对半径1.0范围内的所有我方单位造成…（无视迷彩，不可对空），自身受阻止攻击类异常效果影响期间无法造成此伤害": an area

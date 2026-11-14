@@ -89,42 +89,42 @@
       "total": 68,
       "unspawned": 0,
       "bossHpLeft": null,
-      "rngDraws": 97,
+      "rngDraws": 99,
       "errors": {"count":0,"kinds":[]},
       "players": {
-        "p1": {"killed":8,"total":68,"perfect":false,"leaks":60,"leaksUncounted":0,"coins":0,"dmg":92191,"bossDmg":0,"heal":0,"deaths":22,"layerGains":{"preciShip":12}}
+        "p1": {"killed":8,"total":68,"perfect":false,"leaks":60,"leaksUncounted":0,"coins":0,"dmg":91936,"bossDmg":0,"heal":0,"deaths":22,"layerGains":{"preciShip":12}}
       },
       "units": [
         ["p1",1,"op","chess_char_4_17_a",1,null,0,0,3,0,365,2604,0,5,1],
-        ["p1",2,"op","chess_char_4_18_a",1,null,0,0,151,0,969,6810,0,5,2],
-        ["p1",3,"op","chess_char_5_05_a",2,null,0,0,145,0,14,4256,0,1,1],
-        ["p1",4,"op","chess_char_4_19_a",1,null,0,0,138,0,158,3058,0,10,1],
-        ["p1",5,"op","chess_char_5_01_a",2,null,154.94,1,164,0,35,3520,0,2,0],
-        ["p1",6,"op","chess_char_4_22_a",1,null,0,0,146,0,6886,5276,0,10,0],
+        ["p1",2,"op","chess_char_4_18_a",1,null,0,0,151,0,1208,6810,0,5,2],
+        ["p1",3,"op","chess_char_5_05_a",2,null,0,0,146,0,226,4256,0,1,1],
+        ["p1",4,"op","chess_char_4_19_a",1,null,0,0,138,0,474,3058,0,10,1],
+        ["p1",5,"op","chess_char_5_01_a",2,null,72.63,1,164,0,35,3602,0,2,0],
+        ["p1",6,"op","chess_char_4_22_a",1,null,0,0,143,0,6026,5276,0,9,0],
         ["p1",7,"op","chess_char_4_23_a",1,null,0,0,139,0,4886,5276,0,8,0],
         ["p1",8,"op","chess_char_5_06_a",2,null,0,0,1,0,0,2638,0,0,0],
         ["p1",9,"op","chess_char_4_20_a",1,null,1271,1,165,1,11097,2542,0,24,0],
         ["p1",10,"op","chess_char_4_24_a",1,null,0,0,163,0,3736,3399,0,8,0],
-        ["p1",11,"op","chess_char_5_02_a",2,null,0,0,157,2,11278,2266,0,21,1],
-        ["p1",12,"op","chess_char_5_03_a",2,null,0,0,4,5,52767,1372,0,11,1]
+        ["p1",11,"op","chess_char_5_02_a",2,null,0,0,157,2,11049,2266,0,21,1],
+        ["p1",12,"op","chess_char_5_03_a",2,null,0,0,4,5,52834,1372,0,11,1]
       ],
       "enemies": {
-        "enemy_10042_prtrop_2": [1,0,1,4471,12219],
-        "enemy_10043_sailor": [1,0,1,1901,20801],
-        "enemy_10044_wintun": [1,0,1,3812,13343],
+        "enemy_10042_prtrop_2": [1,0,1,4471,14100],
+        "enemy_10043_sailor": [1,0,1,1403,21078],
+        "enemy_10044_wintun": [1,0,1,3812,11009],
         "enemy_10045_parrot": [1,0,1,0,4396],
         "enemy_10054_cjhot": [1,0,1,2648,1917],
         "enemy_1005_yokai": [27,8,19,0,30014],
-        "enemy_1005_yokai_2": [27,0,24,9850,1118],
-        "enemy_1005_yokai_3": [6,0,6,20335,13064],
+        "enemy_1005_yokai_2": [27,0,23,10526,1118],
+        "enemy_1005_yokai_3": [6,0,6,20239,13064],
         "enemy_10065_ftzlc": [1,0,1,0,560],
         "enemy_10067_ftsjc": [1,0,1,0,680],
         "enemy_1006_shield": [1,0,1,0,760]
       },
-      "hooks": [1,92,5700,322,322,561,531,0,30,87,7,7,0,12871,0,12,68,57,1,30,3,0,41],
-      "events": {"atk":331,"deploy":24,"die":30,"dmg":531,"engage":11,"face":2,"fx":82,"layer":3,"leak":57,"skill":14,"spawn":80,"swing":335},
-      "fx": {"aoe":2,"dodge":41,"dp":3,"explode":29,"garrison":3,"garrisonGrant":1,"phase":2,"zone":1},
-      "snaps": "4ec72cb7 82c0fce2 5e0a3762 1962693a 6043b5db 765a3da3 ece26c3f e224b48b 72aa56ee 1dcf4b03 e7642923 d009c48a b077fce6 37150441 ffd88a2b 510f4951 dde747b6 4784aea6 3cc5cfa7"
+      "hooks": [1,92,5700,327,327,568,541,0,30,86,7,7,0,12967,0,13,68,56,1,30,3,0,38],
+      "events": {"atk":336,"deploy":24,"die":30,"dmg":541,"engage":11,"face":2,"fx":79,"layer":3,"leak":56,"skill":14,"spawn":80,"swing":343},
+      "fx": {"aoe":2,"dodge":38,"dp":3,"explode":29,"garrison":3,"garrisonGrant":1,"phase":2,"zone":1},
+      "snaps": "4ec72cb7 82c0fce2 f771f562 234828b7 f45d90a5 af7f4d69 182841a2 3de41a3f bf1b2f72 ebe01e8f 91dd5555 fe0f1710 c7c2ab4d 1156b3b3 c2d48d99 78e76fd9 31feb11c a755b7f0 13950a73"
     },
     "standin-03": {
       "about": "normal band 5 as stand-ins: chess_char_5_08_a→char_610_acfend chess_char_5_14_a→char_608_acpion chess_char_5_19_a→char_617_sharp2 chess_char_5_07_a→char_601_cguard chess_char_5_13_a→char_609_acguad chess_char_5_17_a→char_615_acspec chess_char_5_10_a→char_606_csuppo chess_char_5_11_a→char_613_acmedc chess_char_5_12_a→char_614_acsupo chess_char_5_15_a→char_603_csnipe chess_char_5_18_a→char_611_acnipe chess_char_5_20_a→char_614_acsupo",

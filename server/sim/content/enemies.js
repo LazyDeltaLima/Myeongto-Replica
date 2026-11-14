@@ -277,7 +277,10 @@ function onTick(b, dt) {
         }
       }
       if (a.fire && a.cd != null) {
-        a.left -= dt;
+        // `pause(b, e)`: the skill's prefab mode is not the current one — `Enemy.OnSwitchMode` detaches the skills of the mode
+        // it leaves (EnemySkill.Detach: disabled) and `Enemy.OnTick` ticks the enabled ones only, so its cooldown stands
+        // still until the mode comes back (EnemySkill.Attach keeps the timer; 공식 클라에서 확인 2026-11-14)
+        if (!(a.pause && a.pause(b, e))) a.left -= dt;
         // an attack-slot skill waits for its enemy's attack slot (skillSlot); the others fire on their own cooldown
         if (slotSkill(e, ab, a)) continue;
         if (a.left <= 1e-9 && canCast(e, a.sil, b) && (!a.cond || safe(b, e, () => a.cond(b, e, a)))) {

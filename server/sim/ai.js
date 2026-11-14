@@ -423,6 +423,9 @@ const TIMING = { strike: 0, action: 0, sel: 0, begun: false };
  * none does now — 赤刃明霄陈 S3 did until its mode switch moved before her first attack).
  */
 function attackClipOf(u) {
+  // an enemy whose kit casts a skill in place of its next swing at the swing's own slot (profile `swingClip`: that skill's
+  // clip record, data/enemies.json `skillCast[name]` — 咸鳞汁推荐者's BlockedBoom `Attack`) times that swing by it
+  if (u.side === 'enemy' && u.profile?.swingClip) return u.profile.swingClip;
   const r = attackRecordOf(u);
   return u.atkCombat && r?.combat ? r.combat : r;
 }

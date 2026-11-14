@@ -2030,6 +2030,23 @@ test(`${nm('enemy_10044_wintun')}: fast with its barrel; first hit ×${skb('enem
   approx(e.s.dodgePhys, skb('enemy_10044_wintun', 'BlockedBoom').bb.prob);
 });
 
+// official client (data skillCast.blockedboom — Skills/BlockedBoom `_timeMode` 1, clip Attack 1.467 s, OnAttack 0.7 s): the
+// barrel smash is that skill's cast at the attack slot and swings on its clip; the swings after it are M2's B_Attack (1.2 s,
+// 0.467 s). Until 2026-11-14 the smash swung on B_Attack too.
+test(`${nm('enemy_10044_wintun')}: the barrel smash swings on BlockedBoom's Attack clip (strike at 0.7 s), the next on B_Attack`, () => {
+  const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
+  h.step();
+  const e = put(h, 'enemy_10044_wintun', [9, 5]);
+  h.runUntil(() => e.stats.attacks >= 2, 20);
+  const sw = h.eventsOf('swing').filter((x) => x[1] === e.id).map((x) => x[2]);   // the strike, s into the swing
+  const cast = E.enemy_10044_wintun.skillCast.blockedboom, m2 = E.enemy_10044_wintun.attackAnim.modes.M2;
+  const iv = e.s.interval, at = (c) => c.hit * Math.min(c.max ?? 1, iv / c.dur);
+  assert.deepEqual([cast.clip, cast.dur, cast.hit, m2.clip], ['Attack', 1.467, 0.7, 'B_Attack']);
+  assert.ok(sw.length >= 2, JSON.stringify(sw));
+  approx(sw[0], at(cast), 0.002);
+  approx(sw[1], at(m2), 0.002);
+});
+
 test(`${nm('enemy_10045_parrot')}: 近地悬浮; sprints when first hit (final ×M0SpeedUp.move_speed — PRTS "最终提升至300%")`, () => {
   const h = arena();
   h.step();
@@ -2072,6 +2089,32 @@ test(`${nm('enemy_10116_ymgtop')}: spinning phase deals ATK×${tb('enemy_10116_y
   const t0 = w.stats.taken;
   h.run(3);
   assert.equal(w.stats.taken, t0, 'no more spin damage');
+});
+
+// official client (Enemy.OnSwitchMode detaches the Default mode's SwitchModeTrigger for the spin; a detached EnemySkill is not
+// ticked): its cooldown stands still through the spin — the next spin `cooldown` s after the one before ends (from its 失衡
+// too). Until 2026-11-14 it spun again the moment it stopped (cooldown 60 = rotate_duration 60).
+test(`${nm('enemy_10116_ymgtop')}: the next spin comes a full cooldown after the last one ends — also after a 失衡 cut it`, () => {
+  const sk = skb('enemy_10116_ymgtop', 'SwitchModeTrigger'), dur = tb('enemy_10116_ymgtop', 'EndRotate.rotate_duration');
+  assert.deepEqual([sk.initCooldown, sk.cooldown, dur], [10, 60, 60]);
+  const spins = (cut) => {
+    const h = arena({ units: [] });
+    h.step();
+    const e = put(h, 'enemy_10116_ymgtop', [10, 7]);
+    e.hp = e.s.maxHp = 1e9;
+    const at = () => h.eventsOf('fx').filter((x) => x[1] === 'telegraph' && x[4]?.kind === 'spin' && x[4].id === e.id).length;
+    const t0 = h.b.time, times = [];
+    let n = 0;
+    while (h.b.time - t0 < 200 && times.length < 2) {
+      h.step();
+      if (at() > n) { n = at(); times.push(h.b.time - t0); if (cut && times.length === 1) { h.run(5); h.b.displace(e, { x: 0, y: 0.3 }, 0.2, { force: 3 }); } }
+    }
+    return times;
+  };
+  const [a, b] = spins(false);
+  assert.ok(Math.abs(a - sk.initCooldown) < 0.2 && Math.abs(b - (a + dur + sk.cooldown)) < 0.3, `spins at ${a}, ${b}`);
+  const [c, d] = spins(true);   // 失衡 5 s in: back at once, then the full cooldown
+  assert.ok(Math.abs(c - sk.initCooldown) < 0.2 && d - c > 5 + sk.cooldown - 0.5 && d - c < 5 + sk.cooldown + 1.5, `spins at ${c}, ${d}`);
 });
 
 test(`${nm('enemy_10116_ymgtop')}: 漩涡形态 — no normal attack on its blocker while it spins; no spin damage while stunned (阻止攻击)`, () => {
