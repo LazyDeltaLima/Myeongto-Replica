@@ -1199,6 +1199,10 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   데이터: `tools/local-extract/attack_timing.py`가 프리팹의 둘째 모드부터 공격·저지 능력을 모드의 `_replaceAnimPairs`로 이름을 바꿔 읽는다(`enemies[…].modes`, `mode0`). `tools/build-data.mjs enemyModeAnims`가 첫 모드와 다른 것만 `data/enemies.json` `attackAnim.modes`(`null` = 공격 능력 없음; 첫 모드에 없고 뒤 모드에 있으면 첫 모드도 `null`)에 싣는다. 모드가 둘 이상인 적은 73종이고, 그중 41종이 첫 모드와 다르다. 첫 모드의 클립도 능력이 이름 붙인 것을 쓴다. 모델에 그 클립이 없을 때만 렌더용 공격 클립을 쓴다. 이 때문에 5종이 바뀌었다: 평범한·노련한 죄수 `Attack3` → `Attack`(길이 같음), 살카즈 본가드 고문관 원거리 `Attack` 2.167초 → `Attack_2` 1.667초, '거대하고 못생긴 것'·'제국의 갑옷' 원거리 `Attack_1`/`Attack_A` → `Attack_2`/`Attack_B`(길이 같음, 타격 프레임만).
   시뮬: `ai.js enemyMode(b, e, mode, restartFsm)`(키트는 `content/enemies/helpers.js mode`)는 공식이 전환하는 자리에서 부른다. 이어 둔 적: 부유의 표류체 `Normal`·양배추 씨앗 `OnFire`·원핵/이형의 악생자 `1`·간이 사육 원석충 `Run`·액젓 추천자 `M2`(첫 모드 M1에는 공격이 없음, 저지되면)·길조의 비린 `Stun`·살카즈 부패의 선봉/개척 선봉·'영장'·죄악/모독의 키메라 `Originium`·수둔 닌자 `M1`·죄수 여섯 `R`/`L`·축제 재즈 연주가 `Attack`(드러났을 때)·가상적: 골극 `Cute`·더블린 불꽃 전사 셋과 가상적: 재생 `Prop`(1초 재생 뒤)·무덤지기 석상 둘 `Stone`→`Fly`·폭탄새 `S1`·잠수부 `Swim`·래트킹 `NoShield`·머드락 `Tier 1~5`·제트맨 `Fly`·눈의 아이 `Unbalanced`·서리를 품은 파울비스트 `Speed`·변형의 베이스 α `ModeB`/`MoveC`/`ModeD`·'어벤져' `Default_Rush`/`Reborn`/`Reborn_Rush`·'거대하고 못생긴 것' `Bird`·제셀톤 윌리엄스 `R`·'즈자이'·데겐블레허 `Reborn`·자로 `M2`·가상적: 총 `S1`·'총을 부수는 리드' 셋 `MoveToHunter`. 잇지 않은 적: 전환 계기가 이 모드에 없음 — '완구 외발자전거'(보석 칸)·주인공/악역 진영 캐릭터(촬영 구역)·복핵의 해류사자·방문단 방패병·온순한 무장 대형 버든비스트·모험을 찾는 선원(장치)·'월장진'(계단 칸)·불안해하는 디자이너·동글이(얼굴 방향, 공격 없음). 공격이 같고 계기를 안 읽은 적: 스컬슈레더·'툼스톤' `Ignite`, W `T1`, 첸사·신싱, 검은 뿔의 루울 `Fail`, 살비엔토 주교 퀸투스 `G1`/`G2`, 알리스테어 `S1`, '염의 가호', '단현지음'/'열관지음', '갑주를 꿰뚫는 탄환' `Boom`. '갑주를 베는 검'·'갑주를 부수는 해머' `Skill`은 출격 중 이미 缴械라 잇지 않았다. 가상적: 정체는 공격 기록이 없어 잇지 않았다. 잠수부의 `Swim`은 전환을 무엇이 거는지(버프 템플릿에 없음) 읽지 않았다 [추정·미조사: 깊은 물에서 `Swim` 재능이 켜지는 자리로 봄]. 원핵의 악생자는 첫 모드에 공격이 없어, 피해를 받기 전에는 저지돼도 치지 않는다(다른 계기인 심해 껍질 장치는 이 모드에 없음).
   확인: `test/sim/enemy-mode.test.js`. 이전: 적은 모드를 몰랐고 첫 모드의 공격 하나로 쟀다. 재생·되살아남 일부만 키트가 쿨다운을 비웠다.
+  **스킬 시전도 끊긴다**(2026-11-14, 공식 클라에서 확인): `AttackWrapper.Cast`는 시전한 능력(스킬을 골랐으면 그 스킬의 능력)을 돌려주고 공격 상태가 그것을
+  `attackAbilityCasted`로 둔다(`AttackState.OnEnter`). 그래서 상태 기계를 다시 시작하는 전환(`_restartFSM`)은 시전 중인 적 스킬도 끊는다 — 끊긴 시전(`interruptEnemyCast`)이라 서 있던 것이
+  풀리고 스킬 쿨이 그때 다시 돈다(`ai.js enemyMode`). 재시작이 없는 전환은 떼어지는 스킬 능력의 `_interruptAbilityOnDetach`가 정한다. 스킬이 어느 모드의 것인지는 데이터에 없어 키트가
+  끊는다(축제 재즈 연주가, 아래 「투사체 채널 스킬」). 지금 golden의 키트 중 스킬 시전 중에 재시작 전환을 부르는 것은 없다(이 규칙으로 움직인 시나리오 없음).
 - 아직 공식과 다른 것: 르무엔 S2의 `_interuptIfTargetDead` 1 — 모델 안 함. `_timeMode` 1·2(오퍼 9개, 적 7개)도 공격 간격으로 계산. `_escapeTime` = 대상이 없어진 뒤 공격 자세(Attack 상태)에 머무는 시간 — `AttackState.<_StartAttack>b__5_0`이 `fixedPlayTime + escapeTime`을
   적고 `_NextAttackOrExit`는 대상이 없으면 그 뒤에야 IDLE로; 다음 공격 조건(대상·쿨다운)은 같고, 시뮬은 아래 「첫 공격 begin」의 첫 공격 판정에만 쓴다(그 능력만 `esc`), 스킬 쪽
   `BasicSkill.get_escapeTime`은 `_useEscapeTime`이 1인 스킬만 — 우리 풀 296개에 없음. 소환물(token)은 데이터가
@@ -2746,6 +2750,14 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   순차 묶음 `LineAttack`(같은 투사체 기다림) → `ChargeAttack`(`_timeMode` 2, `_cooldown` 0)이고 두 능력이 시전 동안 `dwlock_skill_anti_flag[silence]`(침묵 반제)를 건다 — PRTS 「※技能期间，
   持有沉默反制」. 쿨은 `EnemySkill._OnCastFinish`가 시전 끝에 다시 시작한다. upstream은 제보로 같은 결론을 냈다.
 - 테스트 `test/content/enemy-skill-proj-wait.test.js`, `test/content/enemies_bosses.test.js` 「节日爵士乐手: revealed (反隐) and not blocked…」(이제 첫 시전부터 서 있음).
+- **은신으로 돌아가면 끊긴다**(2026-11-14, 사용자 제보: 여럿 나온 판에서 한 마리가 막던 오퍼레이터 칸에 반투명으로 겹쳐 멈춤): 재능 버프 `enemy_act38side[mode]`는 은신이면 모드 0(`Default`),
+  아니면 1(`Attack`)로 바꾸고(`_restartFSM` 없음), `fire`는 `Attack` 모드의 스킬이라 은신이 돌아오면 떼어진다(`Enemy.OnSwitchMode` → `EnemySkill.Detach`). 그 `RangedAttack`은
+  `_interruptAbilityOnDetach` 1이라 그 자리에서 끊기고, `RangedAttack.OnCastEnd`가 투사체를 기다리는 시전(`_waitForProjectileInvalid`, `_notClearProjectileWhenCastEnd` 0)의 투사체를 지워
+  채널도 끝나며, 쿨은 시전 끝(`_OnCastFinish`)에 다시 돌고 떼어진 동안은 멈춘다(위 「모드가 꺼진 스킬의 쿨」; 모두 공식 클라에서 확인). 키트(`content/enemies/invisible.js kitJazz`)가 모드를
+  되돌릴 때 시전을 끊고 `pause`를 둔다. 엔진도 고쳤다: 「일반 공격 안 함」(`profile.noAttack`, 공격 능력 없는 모드)은 일반 휘두름만 끊고 스킬 시전은 제 길(클립·투사체·끊김)로 끝나게 둔다
+  (`ai.js enemyAttack` `cutNormalSwing`). 전에는 그 검사가 시전의 `castLeft`만 조용히 0으로 만들어, 열린 시전(`PROJ_WAIT_MAX` 60 s)의 선 채 버티기와 스킬 쿨(60 s 더)이 채널보다 오래
+  남았다 — 막던 오퍼레이터가 철수하거나 은신이 돌아오면 최대 1분 동안 그 자리에 섰다. 확인: 같은 시험 파일 「its blocker retreats mid-channel…」·「its 隐匿 returns mid-channel…」(수정 전 코드에서
+  실패 확인). golden: `roster` 010·023, `matches` solo-FUNNY-1, `act3-roster` 011·057, fx-events roster-010(`eskillEnd` 하나 적음 — 은신 동안 쿨이 멈춰 시전이 하나 줆; 모두 재즈 연주가가 나오는 시나리오).
 - 화면(2026-11-14): 재즈 연주가의 `Skills/fire`에는 `ThreePartChannelingAnimation` `_default`(`Skill_Begin` → `Skill_Loop` → `Skill_End`, 아래·위 덮어쓰기 없음)가 함께 붙어 있다(공식 클라에서
   확인). 시뮬이 시전 신호 fx `enemySkill`에 채널 전체 길이 `dur`(21틱 × 0.5 s = 10.5 s)와 대상 `tgt`를 싣고(키트 `castFx`), 렌더가 `units.js ESKILL_CLIPS`로 그 길이에 세 클립을
   맞춘다 — 시작·끝은 제 속도, `Skill_Loop`가 나머지 내내 돈다. 채널이 일찍 끝나면(대상이 사라짐·침묵·끊긴 시전) 시뮬이 fx `enemySkillEnd`를 내고 렌더가 그때 `Skill_End`로 닫는다

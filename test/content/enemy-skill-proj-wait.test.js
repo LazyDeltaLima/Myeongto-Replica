@@ -101,3 +101,52 @@ test('萨卡兹王庭军精锐术师 死亡之眼: casts the 8 s channel standin
   stepUntil(h, () => casts.length >= 2, s.cooldown + 10);
   assert.ok(casts[1] >= tEnd + s.cooldown - 1e-6, `next cast ${(casts[1] - tEnd).toFixed(2)} s after the channel's end (cooldown ${s.cooldown})`);
 });
+
+// 2026-11-14 (play report: one of several 节日爵士乐手 stood half-transparent on its blocker's tile and never moved). Its
+// talent's buff `enemy_act38side[mode]` switches back to the Default mode as its 隐匿 returns, and `fire` — a skill of the
+// Attack mode whose RangedAttack has `_interruptAbilityOnDetach` — is interrupted as it is detached (공식 클라에서 확인): the
+// channel ends with the cast, the enemy walks on and the cooldown restarts, standing still while the skill is detached.
+// Until then the engine's no-normal-attack check zeroed the cast's `castLeft` without ending it, so the open cast's stand
+// (PROJ_WAIT_MAX, 60 s) outlived the channel and the skill's cooldown kept the 60 s too.
+const fireOf = (e) => e.mem.ab.list.find((a) => a.name === 'fire');
+
+test('节日爵士乐手: its blocker retreats mid-channel — the cast ends and it walks on at once, the cooldown restarts then', () => {
+  const h = arena([{ chessId: 't_wall', row: 10, col: 5 }]);
+  h.step();
+  const e = h.spawn('enemy_10034_cnvsax', { pos: [10, 5], routeIndex: 0 });
+  const s = skb('enemy_10034_cnvsax', 'fire');
+  const casts = castLog(h, e, 'fire');
+  stepUntil(h, () => casts.length >= 1, 30);
+  h.run(1);
+  assert.ok(e.castLeft > 0 && e.mem.jazzChannel, 'channelling');
+  h.b.retreat(h.unit('t_wall'));
+  h.run(3 * TICK);
+  assert.ok(!(e.castLeft > 0) && !(e.atkStandUntil > h.b.time), 'no cast and no stand left');
+  assert.equal(e.mem.jazzChannel, null, 'the channel is over');
+  const x0 = e.x;
+  h.run(1);
+  assert.ok(Math.abs(e.x - x0) > 0.05, `it walks on (moved ${(e.x - x0).toFixed(3)})`);
+  assert.ok(fireOf(e).left <= s.cooldown + 1e-6, `the cooldown restarted at the cut (${fireOf(e).left.toFixed(2)} s left, not the open cast's minute)`);
+});
+
+test('节日爵士乐手: its 隐匿 returns mid-channel — the mode switch cuts the cast and channel; the cooldown waits while hidden', () => {
+  const h = arena([{ chessId: 't_wall', row: 10, col: 5 }]);
+  h.step();
+  const e = h.spawn('enemy_10034_cnvsax', { pos: [10, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const s = skb('enemy_10034_cnvsax', 'fire');
+  const casts = castLog(h, e, 'fire');
+  stepUntil(h, () => casts.length >= 1, 30);
+  h.run(1);
+  const w = h.unit('t_wall');
+  h.b._unblock(e);
+  w.s.flags.noBlock = true;   // it cannot be blocked again: its 隐匿 returns (0 s after a block)
+  h.run(3 * TICK);
+  assert.notEqual(e.mode, 'Attack', 'back in the Default mode');
+  assert.ok(!(e.castLeft > 0) && !(e.atkStandUntil > h.b.time), 'the cast and its stand are cut');
+  assert.equal(e.mem.jazzChannel, null, 'the channel ends with the cast');
+  const burn = w.elem.burn, left = fireOf(e).left;
+  assert.ok(Math.abs(left - s.cooldown) <= 4 * TICK, `the cooldown restarted in full (${left.toFixed(2)})`);
+  h.run(2);
+  assert.ok(w.elem.burn <= burn + 1e-9, 'no channel hits under 隐匿');
+  assert.ok(Math.abs(fireOf(e).left - left) <= 1e-9, 'the detached skill\'s cooldown stands still');
+});

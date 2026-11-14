@@ -6,6 +6,7 @@ import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import { T, elem, hurt, targetsNear, byPriority, auraBuff, auraAllies, lineShot, crossTargets, mode } from './helpers.js';
 import { stealth, onHitStatus, skill, kitStealth } from './archetypes.js';
 import { hypot } from '../../detmath.js';
+import { interruptEnemyCast } from '../../ai.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -107,7 +108,17 @@ function kitJazz(ab, e) {
     spawn(b, e2) { e2.profile.noAttack = true; e2.profile.melee = true; },
     // 平时不攻击，失去隐匿时反击: its first mode has no attack ability, the counter is the mode Attack's (attached ready as it
     // is revealed, ai.js enemyMode)
-    tick(b, e2) { e2.profile.noAttack = !revealed(e2); mode(b, e2, e2.profile.noAttack ? null : 'Attack'); },
+    // 2026-11-14 (공식 클라에서 확인): the talent's buff `enemy_act38side[mode]` switches to mode 0 (Default) while 隐匿 holds
+    // and to 1 (Attack) otherwise, without `_restartFSM`; `fire` is a skill of the Attack mode, so going back to 隐匿 detaches
+    // it (Enemy.OnSwitchMode → EnemySkill.Detach) and its RangedAttack, `_interruptAbilityOnDetach`, is interrupted there —
+    // the cast ends with its channel (RangedAttack.OnCastEnd clears the projectile of a `_waitForProjectileInvalid` cast,
+    // whatever ended it) and its cooldown restarts
+    // (EnemySkill._OnCastFinish). Until 2026-11-14 the channel ran on under 隐匿 and the enemy then stood up to a minute
+    // (an open cast's stand, content/enemies.js PROJ_WAIT_MAX) where its blocker had been
+    tick(b, e2) {
+      e2.profile.noAttack = !revealed(e2);
+      if (mode(b, e2, e2.profile.noAttack ? null : 'Attack', false) && e2.profile.noAttack && e2.castLeft > 0 && !e2.castSwing) interruptEnemyCast(b, e2);
+    },
   }, s ? {
     // 狂欢式演奏 (PRTS 节日爵士乐手, 反击模式): "仅攻击范围内存在我方单位时可触发：锁定目标持续施法，最多持续10.6s，每0.5s对目标
     // 造成攻击力20%的法术伤害和攻击力10%的灼燃损伤 ※施法期间受到沉默影响后，立即结束技能" — ONE locked target (its own
@@ -119,6 +130,9 @@ function kitJazz(ab, e) {
     // `enemy_cnvsax[cd]` is stunnable, freezable and levitatable as well as silenceable: a cut cast (`onCut`) ends it too.
     sil: true, name: s.name, cd: s.cd, icd: s.icd, cond: (b, e2) => revealed(e2) && targetsNear(b, e2, r).length > 0,
     projAlive: (b, e2) => !!e2.mem.jazzChannel,
+    // detached while 隐匿 holds (mode Default, above): its cooldown stands still until the Attack mode comes back
+    // (Enemy.OnTick ticks the enabled skills only; content/enemies.js onTick `pause`)
+    pause: (b, e2) => e2.mode !== 'Attack',
     onCut: (b, e2) => { if (e2.mem.jazzChannel) e2.mem.jazzChannel.end(); },
     // the view: the same ability's ThreePartChannelingAnimation `_default` (Skill_Begin → Skill_Loop → Skill_End, 공식 클라에서
     // 확인) over the channel — fx 'enemySkill' with its full length `dur` (n ticks) and target `tgt`; a channel that ends

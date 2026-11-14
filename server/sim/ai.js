@@ -322,6 +322,11 @@ function cutSwing(u) {
   u.castLeft = 0;
 }
 
+/** An enemy's normal swing or its recovery is cut (cutSwing); a skill cast (`castLeft` without `castSwing`) plays on. */
+function cutNormalSwing(e) {
+  if (e.swing || e.castSwing) cutSwing(e);
+}
+
 /**
  * An enemy's swing or skill cast is cut (cutSwing). A skill cast cut short is an interrupted cast: content hears it
  * (`enemySkillCut` { enemy }, content/enemies.js — the client's `AttackState.OnExit` → `InterruptIfNot` →
@@ -1399,10 +1404,14 @@ function attackTargets(b, e, radius, reach, own) {
  */
 function enemyAttack(b, e, dt) {
   const def = e.def;
-  if (e.profile && e.profile.noAttack) return cutSwing(e), false;
+  // no normal attack (a kit's 「不进行普通攻击」, or the mode's): the normal swing running is cut; a skill cast running is not
+  // — it ends its own way (its clip, its projectile: projCastOver, a cut: cutEnemySwing / interruptEnemyCast), which also
+  // ends its stand and restarts its cooldown. Until 2026-11-14 this dropped the cast silently: an open cast's stand
+  // (PROJ_WAIT_MAX) then outlived its channel — 节日爵士乐手 stood up to a minute where its blocker had been
+  if (e.profile && e.profile.noAttack) return cutNormalSwing(e), false;
   // a mode with no attack ability (enemies.json `attackAnim.modes[<mode>]` null): no normal attack, no attack slot either
   // (the client's `AttackWrapper.SearchTarget` asks `Unit.hasAttack`)
-  if (def.attackAnim?.modes && def.attackAnim.modes[e.mode ?? def.attackAnim.mode0] === null) return cutSwing(e), false;
+  if (def.attackAnim?.modes && def.attackAnim.modes[e.mode ?? def.attackAnim.mode0] === null) return cutNormalSwing(e), false;
   // an enemy with both a `_attack` and a `_combat` ability (enemies.json `attackAnim.combat`): each has its own cooldown and
   // clip. Unlike an operator's, its attack is not cut by a block: the attack state plays its cast out
   // (`Enemy.States.AttackState.OnTick`), and `MoveState` goes to COMBAT only then
@@ -1469,8 +1478,11 @@ function enemyAttack(b, e, dt) {
  * as it exits (`OnExit` → `InterruptIfNot`). So the swing running — before or after its strike — is cut when the switch
  * restarts the state machine (`restartFsm`: the SwitchMode node's `_restartFSM`, most of them) or its ability is cut on
  * detach (`det`: `_interruptAbilityOnDetach`); otherwise it plays out, and the next swing (the new mode's) follows as it
- * ends. A skill cast running goes on [추정·미조사: whether a restart cuts an enemy skill's cast was not read]. Returns
- * whether the mode changed.
+ * ends. A skill cast running is cut by a restart too (공식 클라에서 확인 2026-11-14): `AttackWrapper.Cast` hands back the
+ * ability it cast — the skill's when a skill was picked — and the attack state keeps it as `attackAbilityCasted`, which
+ * `OnExit` interrupts (the combat state likewise), so the cast finishes INTERRUPTED (interruptEnemyCast: its stand ends,
+ * its cooldown restarts). Without a restart the skill's own detach decides (`_interruptAbilityOnDetach` of the skill's
+ * ability, its mode unknown to the data): the kit cuts it (节日爵士乐手). Returns whether the mode changed.
  */
 export function enemyMode(b, e, mode = null, restartFsm = true) {
   const m = mode == null || mode === e.def?.attackAnim?.mode0 ? null : mode;
@@ -1480,6 +1492,7 @@ export function enemyMode(b, e, mode = null, restartFsm = true) {
   e.atkCd = 0;
   e.atkCdAlt = 0;
   e.atkCombat = false;
+  if (restartFsm && e.castLeft > 0 && !e.castSwing) interruptEnemyCast(b, e);
   if (restartFsm || old?.det) {
     if (e.swing) cutSwing(e);
     if (e.castSwing) { e.castLeft = 0; b._cutAttackStand(e); }
