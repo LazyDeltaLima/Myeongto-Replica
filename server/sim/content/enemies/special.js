@@ -64,6 +64,7 @@ function kitChimera(ab) {
     a.on = true;
     e.mem.ab.atkType = 'arts';
     mode(b, e, 'Originium');   // enemy_lrcmra[switchMode] SwitchMode 1: its attack Attack_2
+    setForm(b, e, 'Originium');   // Skills/triggerAnim's Skill, then the *_2 clips (render/units.js FORMS)
     b.fx('telegraph', { x: e.x, y: e.y, r: CHIMERA_AURA_RADIUS, kind: 'chimera', id: e.id });
   };
   return [{
@@ -552,6 +553,7 @@ export const SPECIAL_KITS = Object.freeze({
   enemy_10001_trslim: (ab) => [skill(ab.sk.StartRun, (b, e) => {    // 简饲源石虫 · below half: runs (faster, unblockable 3 s)
     const s = ab.sk.StartRun.bb;
     mode(b, e, 'Run');   // the skill's mode Run for good: its attack Attack_B
+    setForm(b, e, 'Run');   // the skill's Skill_Begin, then its B_* clips (render/units.js FORMS)
     b.addBuff(e, { key: 'ab:run', duration: s.block_free_time ?? 0, mods: { moveMul: 1 + (s.move_speed ?? 0) }, flags: { unblockable: true }, visible: true });
   }, { sil: true, cond: (b, e) => e.hpRatio < 0.5 })],
   enemy_10027_vtsk: (ab) => {                                        // “帝国的甲胄” · entrance barrage on the highest-HP unit; ranged ×0.8; 3-hit charge attack

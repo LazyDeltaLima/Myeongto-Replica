@@ -65,8 +65,8 @@
         "enemy_9034_acblk": [1,0,0,568,0]
       },
       "hooks": [1,67,2700,478,477,805,857,895,37,37,14,10,0,15248,44,51,50,0,1,39,0,0,0],
-      "events": {"atk":532,"bounty":5,"deploy":14,"die":37,"dmg":836,"engage":11,"face":8,"fx":72,"heal":412,"skill":24,"spawn":66,"status":55,"swing":522},
-      "fx": {"aoe":1,"displace":4,"drone":20,"ember":2,"enemySkill":1,"explode":18,"mysticStore":3,"parry":18,"revive":2,"summon":3},
+      "events": {"atk":532,"bounty":5,"deploy":14,"die":37,"dmg":836,"engage":11,"face":8,"fx":73,"heal":412,"skill":24,"spawn":66,"status":55,"swing":522},
+      "fx": {"aoe":1,"displace":4,"drone":20,"ember":2,"enemySkill":1,"explode":18,"mysticStore":3,"parry":18,"phase":1,"revive":2,"summon":3},
       "snaps": "a40e71cc f20f02de 000b0b57 ad9d58bf 066a110b 0a4b7d2e 00d41647 d061cd8e 21f09742"
     },
     "roster-002": {

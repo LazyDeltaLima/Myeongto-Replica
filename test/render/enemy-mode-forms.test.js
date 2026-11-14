@@ -57,7 +57,7 @@ const frames = (v, s, dt = 1 / 60) => { for (let t = 0; t < s - 1e-9; t += dt) {
  * the view running alongside. Returns what the view played: [clip at each swing's start], [form, clip after it] per switch.
  */
 function play(h, e, v, s) {
-  const out = { swings: [], forms: [] };
+  const out = { swings: [], forms: [], skills: [] };
   const end = h.b.time + s;
   while (h.b.time < end - 1e-9) {
     const n = h.events.length;
@@ -66,6 +66,9 @@ function play(h, e, v, s) {
       if (x[0] === 'fx' && x[4]?.id === e.id && typeof x[4] === 'object' && 'form' in x[4]) {
         v.setForm(x[4].form, x[4]);
         out.forms.push([x[4].form, v.actor.current]);
+      } else if (x[0] === 'fx' && x[1] === 'enemySkill' && x[4]?.id === e.id) {
+        v.onEnemySkill(x[4].ability, 0, x[4]);
+        out.skills.push(v.actor.current);
       } else if (x[0] === 'swing' && x[1] === e.id) {
         v.onSwing(Number(x[2]), x[3]);
         out.swings.push(v.actor.current);
@@ -264,3 +267,32 @@ test('假想敌：淤困: a cast cut by a stun takes its form back', { skip: !ha
   assert.deepEqual(r.forms.map((f) => f[0]), [null], 'the cut cast leaves the cast form');
   assert.ok(!e.findBuff('ab:parasiteAttached'), 'nothing attached');
 });
+
+modelTest('简饲源石虫 below half HP: StartRun\'s Skill_Begin, then mode Run\'s Idle_B / Move_B / Die_B / Attack_B', 'enemy_10001_trslim', async () => {
+  const ID = 'enemy_10001_trslim';
+  const h = arena(null);
+  h.step();
+  const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  play(h, e, v, 0.1);
+  h.b.dealDamage(null, e, { amount: e.s.maxHp * 0.6, type: 'true' });
+  const r = play(h, e, v, 0.2);
+  assert.deepEqual(r.forms, [['Run', 'Skill_Begin']], 'the switch (StartRun itself) plays Skill_Begin');
+  assert.deepEqual([v.actor.roles.idle, v.actor.roles.move.loop, v.actor.roles.die, v.actor.roles.attack.loop], ['Idle_B', 'Move_B', 'Die_B', 'Attack_B']);
+  frames(v, clipLen(ID, 'Skill_Begin') + 0.1);
+  assert.equal(v.actor.current, 'Idle_B', 'then the running set');
+});
+
+for (const ID of ['enemy_1425_lrcmra', 'enemy_1425_lrcmra_2']) {
+  modelTest(`${ID} activated on 源石污染区: Skills/triggerAnim's Skill, then mode Originium's *_2 clips`, ID, async () => {
+    const h = arena([11, 6], { flat: { rows: { 11: '##hrrriirrfrrrrrrrf##' } } });
+    h.step();
+    const e = h.spawn(ID, { pos: [11, 6], routeIndex: 0, mods: { speedMul: 0 } });
+    const v = await view(ID, e.x, e.y);
+    const r = play(h, e, v, 1);
+    assert.deepEqual(r.forms, [['Originium', 'Skill']], 'once, on Skill');
+    frames(v, clipLen(ID, 'Skill') + 0.1);
+    assert.equal(v.actor.current, 'Idle_2');
+    assert.deepEqual([v.actor.roles.move.loop, v.actor.roles.die, v.actor.roles.attack.loop], ['Move_2', 'Die_2', 'Attack_2']);
+  });
+}

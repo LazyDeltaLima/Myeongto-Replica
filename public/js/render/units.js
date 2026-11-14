@@ -662,6 +662,7 @@ const MACH = Object.freeze({
   running: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Idle', die: 'End', ...OFF_ATTACK }) }),
 });
 const WINGNT_NORMAL = Object.freeze({ Normal: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }) });
+const CHIMERA_ORIGINIUM = Object.freeze({ Originium: Object.freeze({ change: 'Skill', roles: clipSet('Idle_2', 'Move_2', 'Die_2', 'Attack_2') }) });
 const DSLNTF_AWAKE = Object.freeze({ 1: Object.freeze({ change: null, roles: clipSet('Skill_Idle', 'Skill_Move', 'Die', 'Skill_Attack') }) });
 /** A manifest token mode (anims `tmodes[name]`) → its FORMS-shaped specs (UnitView._tmodeSpec). */
 const TMODE_SPECS = new WeakMap();
@@ -805,6 +806,13 @@ export const FORMS = Object.freeze({
   enemy_2004_balloon: Object.freeze({ Fly: Object.freeze({ change: null, roles: Object.freeze({ move: loop('Move_02'), die: 'Die_02' }) }) }),
   // 雪孩子 while 失衡 holds (leaders.js → form 'Unbalanced'): mode Unbalanced Die → Die_2
   enemy_10138_xdsnow: Object.freeze({ Unbalanced: Object.freeze({ change: null, roles: Object.freeze({ die: 'Die_2' }) }) }),
+  // 简饲源石虫 below half HP (special.js → form 'Run' for good): its Skills/StartRun (the switch itself) plays Skill_Begin,
+  // then mode Run Idle_B / Move_B / Die_B / Attack_B
+  enemy_10001_trslim: Object.freeze({ Run: Object.freeze({ change: 'Skill_Begin', roles: clipSet('Idle_B', 'Move_B', 'Die_B', 'Attack_B') }) }),
+  // 孽罪奇美拉 / 渎罪奇美拉 activated on 源石污染区 (special.js kitChimera → form 'Originium'): Skills/triggerAnim's Skill, then
+  // mode Originium Idle_2 / Move_2 / Die_2 / Attack_2
+  enemy_1425_lrcmra: CHIMERA_ORIGINIUM,
+  enemy_1425_lrcmra_2: CHIMERA_ORIGINIUM,
   // 2026-11-12: 元核孽生者 / 异形孽生者 in their 临战 state (element.js kitNucleus → form '1'): the prefab mode 1's hooker
   // (Move → Skill_Move, Idle → Skill_Idle; Die stays) and its Combat's Skill_Attack; SwitchMode, no change clip
   enemy_1439_dslntf: DSLNTF_AWAKE,
