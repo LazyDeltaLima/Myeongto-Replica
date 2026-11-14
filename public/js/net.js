@@ -73,14 +73,18 @@ export function errorText(code, msg) {
 
 /** Error thrown/rejected by requests. `code` is an ERR code or a CLIENT_ERR_TEXT key. */
 export class NetError extends Error {
-  /** @param {string} code @param {string} [msg] server text @param {string} [detail] server developer detail */
-  constructor(code, msg, detail) {
+  /**
+   * @param {string} code @param {string} [msg] server text @param {string} [detail] server developer detail
+   * @param {object} [room] a refused room.join's room summary (server/lobby.js joinRefusalInfo; ui/inviteSpectate.js)
+   */
+  constructor(code, msg, detail, room) {
     const versionMismatch = typeof detail === 'string' && /version/i.test(detail);
     super(versionMismatch ? CLIENT_ERR_TEXT.VERSION : errorText(code, msg));
     this.name = 'NetError';
     this.code = String(code || 'INTERNAL');
     this.serverMsg = msg ?? null;
     this.detail = typeof detail === 'string' ? detail : null;
+    this.room = room && typeof room === 'object' ? room : null;
   }
 }
 
@@ -590,7 +594,7 @@ export class Net {
       this._clearEntryTimer(entry);
       handled = true;
       try {
-        if (t === 'error') entry.reject(new NetError(msg.code, msg.msg, msg.detail));
+        if (t === 'error') entry.reject(new NetError(msg.code, msg.msg, msg.detail, msg.room));
         else entry.resolve(msg);
       } catch (err) { console.error('[net] request callback failed', err); }
     }

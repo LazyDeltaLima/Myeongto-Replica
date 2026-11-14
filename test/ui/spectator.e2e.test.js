@@ -5,7 +5,10 @@
 // itself and the first field in battle, never holds an m.private, sends nothing but g.watch (plus its own room.spectate /
 // room.loadout), gets its seat back after a reload, and 离开观战 returns it to the lobby.
 // A spectator's seat reservation: asked in the room or the match, taken on a restart vote or a match's end.
-// Server side: test/lobby.test.js, test/match/spectator.test.js, test/match/lobby-integration.test.js.
+// An invitation link to a full room (maintainer decision 2026-11-14): the refused auto-join opens the 观战 offer
+// (ui/inviteSpectate.js) with the room line, and taking it seats the page as a spectator with a reservation.
+// Server side: test/lobby.test.js, test/match/spectator.test.js, test/match/lobby-integration.test.js,
+// test/lobby-invite-spectate.test.js.
 //
 //   SP_E2E=1 node --test test/ui/spectator.e2e.test.js
 //
@@ -409,6 +412,54 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
     } finally {
       await guest?.terminate().catch(() => {});
       for (const c of [host, spec]) await c.close();
+      await srv.stop();
+    }
+  });
+  test('invitation link to a full room: the offer, its room line, a spectator seat with a reservation', { timeout: 3 * 60 * 1000 }, async () => {
+    const srv = await startRealServer({ fast: { timerScale: 1 } });
+    const P = (await import('puppeteer-core')).default;
+    const host = new Client(P, srv.base, 'host', { prefix: 'invite-spectate' });
+    const inv = new Client(P, srv.base, 'invited', { prefix: 'invite-spectate', w: 1280, h: 720 });
+    let guest = null;
+    try {
+      await host.open('?lang=zh');
+      await enter(host, '凯尔希');
+      await host.click('.mode-card', '同盟模拟');
+      await host.click('.ally-create__go', '创建同盟');
+      const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
+      await host.click('.seat--empty button', '添加 AI 队友');
+      await host.click('.seat--empty button', '添加 AI 队友');
+      guest = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
+      await guest.hello('华法琳');
+      assert.equal((await guest.request({ t: 'room.join', code: room.code })).t, 'ok');
+
+      await inv.open(`?lang=zh&room=${room.code}`);
+      await inv.hookRequests();
+      await enter(inv, '阿米娅');
+      await inv.page.waitForSelector('[data-testid="invite-spectate"]', { timeout: 15000 });
+      const shown = await inv.page.evaluate(() => ({
+        title: document.querySelector('.invite-spec')?.closest('.modal__box')?.textContent || document.querySelector('.modal__box')?.textContent || '',
+        line: document.querySelector('.invite-spec__room')?.textContent || '',
+        keep: document.querySelector('.invite-spec__keep input')?.checked ?? null,
+      }));
+      assert.match(shown.title, /房间已满/);
+      assert.equal(shown.line, `${room.code}博士 4/4 · 等待室 · 观战席 0/2`);
+      assert.equal(shown.keep, true, '自动入座 on by default');
+      assert.deepEqual((await inv.toasts()).filter((x) => /房间已满/.test(x)), [], 'no error toast instead');
+      await inv.shot('offer');
+      // the heavy bucket emptied first (the invitation's season switch spends most of it): the RATE reply is sent again
+      await inv.page.evaluate(() => Promise.all(Array.from({ length: 8 }, () => globalThis.__SP__.net.request('room.card', { charId: '' }).catch(() => {}))));
+      await inv.click('[data-testid="invite-spectate"]');
+      await inv.page.waitForSelector('.room-screen [data-testid="spectator-roster"]', { timeout: 10000 });
+      await inv.page.waitForFunction(() => /已预约座位/.test(document.querySelector('.room-bar__status')?.textContent || ''), { timeout: 8000 });
+      assert.equal(await reservedOf(inv), 1);
+      assert.deepEqual((await inv.requests()).map((r) => r[0]).filter((t) => /^room\.(join|spectate|reserveSeat)$/.test(t)), ['room.join', 'room.spectate', 'room.spectate', 'room.reserveSeat'], 'refused once (RATE), then seated');
+      assert.equal(await inv.exists('[data-testid="invite-spectate"]'), false, 'the offer is gone');
+      await inv.shot('seated');
+      assert.deepEqual(problemsOf([host, inv]), []);
+    } finally {
+      await guest?.terminate().catch(() => {});
+      for (const c of [host, inv]) await c.close();
       await srv.stop();
     }
   });

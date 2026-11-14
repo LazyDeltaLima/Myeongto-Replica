@@ -140,7 +140,9 @@
 //     addSpectator) and shows it fields like an eliminated player (b.start watch / m.field), never an m.private. It may
 //     only g.watch (the heavy bucket, like every watcher), g.leave / room.leave, and room.loadout / room.ownership /
 //     room.diy (stored for its session, never handed to the match); anything else → SPECTATOR (▸ emotes too). Host: room.removeSpectator { playerId } any
-//     time → room.closed {kicked} to it. A spectator in a LOBBY room may take a free player seat with room.join of the same
+//     time → room.closed {kicked} to it. A room.join a co-op room refuses for want of a player seat (ROOM_FULL, ROOM_STARTED,
+//     MATCHING) carries `room` { players, seats, round, spectators, spectatorSeats } in its error frame, so an invited page
+//     can offer a spectator seat instead (maintainer decision 2026-11-14). A spectator in a LOBBY room may take a free player seat with room.join of the same
 //     code; a player never switches to spectating in place (ALREADY). Disconnect / grace / reconnect / expiry work as for
 //     a player seat (the seat is kept and given back on resume).
 //   * room.setSpectatorSeats { seats } (maintainer decision 2026-11-05): the host of a co-op room picks SPECTATOR_SEATS (2–6,
@@ -339,6 +341,21 @@ export class Room {
 
   /** Lowest free seat index, or -1. */
   freeSeat() { return this.seats.indexOf(null); }
+
+  /**
+   * What a refused room.join of a co-op room carries (`room` of the error frame, header 「Spectator seats」): the seats
+   * taken / the seat count, the running match's round (0 in LOBBY), the spectator seats taken / offered — so the
+   * invited page can offer a spectator seat instead (ui/inviteSpectate.js).
+   */
+  joinRefusalInfo() {
+    return {
+      players: this.seats.filter((s) => s && !s.left).length,
+      seats: this.seats.length,
+      round: this.match ? (this.match.round ?? 0) : 0,
+      spectators: this.spectators.length,
+      spectatorSeats: this.spectatorSeats,
+    };
+  }
 
   /** Humans that have not departed, in seat order. @returns {Seat[]} */
   activeHumans() { return this.seats.filter((s) => s && !s.isBot && !s.left); }
@@ -630,11 +647,13 @@ export class Lobby {
     // idempotent for members; a spectator of this room goes on below: it may take a free player seat (header)
     if (cur === room && !room.spectatorOf(session.playerId)) { this.sendState(room, session); return OK; }
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
-    if (room.match) return fail(ERR.ROOM_STARTED);
+    // a co-op room that has no player seat for this one says how full it is: the page may offer a spectator seat
+    const refused = (code, detail) => (room.mode === 'solo' ? fail(code, detail) : { ...fail(code, detail), room: room.joinRefusalInfo() });
+    if (room.match) return refused(ERR.ROOM_STARTED);
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo room');
-    if (room.matching) return fail(ERR.MATCHING, 'the room is matchmaking');
+    if (room.matching) return refused(ERR.MATCHING, 'the room is matchmaking');
     const idx = room.freeSeat();
-    if (idx < 0) return fail(ERR.ROOM_FULL);
+    if (idx < 0) return refused(ERR.ROOM_FULL);
     if (cur) this.removeMember(cur, session.playerId);
     room.seats[idx] = this.humanSeat(idx, session, room.season);
     session.roomCode = room.code;

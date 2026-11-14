@@ -373,12 +373,15 @@ export const isErrCode = (code) => typeof code === 'string' && Object.hasOwn(ERR
  * @param {string} code ERR code
  * @param {unknown} [rid]
  * @param {string} [detail] developer-facing reason
+ * @param {object} [room] a refused room.join's room summary (server/lobby.js joinRefusalInfo)
  */
-export function errorMsg(code, rid, detail) {
+export function errorMsg(code, rid, detail, room) {
   const known = isErrCode(code);
   const m = { t: 'error', code: known ? code : ERR.INTERNAL, msg: known ? ERR_TEXT[code] || ERR_TEXT.INTERNAL : ERR_TEXT.INTERNAL };
   if (validRid(rid)) m.rid = rid;
   if (detail) m.detail = String(detail).slice(0, 120);
+  // a refused room.join's room summary (server/lobby.js joinRefusalInfo): the invited page offers a spectator seat
+  if (known && room && typeof room === 'object') m.room = room;
   return m;
 }
 
@@ -682,7 +685,7 @@ export class Network {
       // back to the lobby — is stale, not a client mistake: never answered (DESIGN §14; a rid-less error frame would
       // surface as an error toast in the browser)
       if (msg.t === 'b.progress' && !validRid(rid)) return;
-      this.reply(conn, errorMsg(isErrCode(res.error) ? res.error : ERR.INTERNAL, rid, res.detail));
+      this.reply(conn, errorMsg(isErrCode(res.error) ? res.error : ERR.INTERNAL, rid, res.detail, res.room));
     } else if (validRid(rid)) this.reply(conn, { t: 'ok', rid });
   }
 

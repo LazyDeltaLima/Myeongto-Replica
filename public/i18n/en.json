@@ -1957,5 +1957,17 @@
   "→ 将被替换": "→ replaced",
   "当前没有指令": "No command yet",
   "{n}/{total}阶段": "stage {n}/{total}",
-  "指令消耗资金 {cost}": "Command cost {cost}"
+  "指令消耗资金 {cost}": "Command cost {cost}",
+  "同盟正在匹配中": "The alliance is matchmaking",
+  "受邀同盟的博士席位已满。可以进入观战席观看。": "The invited alliance has no free Doctor seat. You can watch from a spectator seat.",
+  "受邀同盟的模拟已经开始，无法以博士身份加入。可以进入观战席观看作战。": "The invited alliance's simulation has already started, so you cannot join as a Doctor. You can watch the operation from a spectator seat.",
+  "受邀同盟正在匹配中，无法以博士身份加入。可以进入观战席观看。": "The invited alliance is matchmaking, so you cannot join as a Doctor. You can watch from a spectator seat.",
+  "受邀同盟的博士席位和观战席都已满": "The invited alliance's Doctor seats and spectator seats are all taken",
+  "等待室": "Waiting room",
+  "博士 {n}/{max}": "Doctors {n}/{max}",
+  "观战席 {n}/{max}": "Spectator seats {n}/{max}",
+  "以观战身份进入": "Enter as Spectator",
+  "有空位时自动入座": "Take a seat when one comes free",
+  "（预约座位）": "(seat reservation)",
+  "模拟结束后有空位时自动入座": "Take a seat when the simulation ends and one comes free"
 }

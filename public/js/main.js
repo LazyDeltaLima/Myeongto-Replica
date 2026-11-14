@@ -37,6 +37,7 @@ import { useErrorBoundary } from '../vendor/hooks.module.js';
 import { html, UiHosts, Button, MicroLabel, closeAllDialogs } from './ui/components.js';
 import { ConnectionBanner } from './ui/connBanner.js';
 import { ToastHost, toast, toastError, describeError } from './ui/toasts.js';
+import { InviteSpectateHost, offerSpectate } from './ui/inviteSpectate.js';
 import { net, identity, NetError, defaultWsUrl } from './net.js';
 import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating, reservedRank } from './store.js';
 import { data } from './data.js';
@@ -135,7 +136,8 @@ function schedulePendingJoin() {
     try {
       await net.request('room.join', { code });
     } catch (err) {
-      toastError(err);
+      // no player seat in the invited co-op room: offer a spectator seat instead (ui/inviteSpectate.js)
+      if (!offerSpectate(err, code)) toastError(err);
     } finally {
       joinInFlight = false;
       clearPendingJoin();
@@ -418,6 +420,7 @@ function App() {
     <${UpdateNotice} />
     <${ToastHost} />
     <${UiHosts} />
+    <${InviteSpectateHost} />
     <${ResourceHost} />
     <${GuideHost} />
     <${LoadoutHost} />

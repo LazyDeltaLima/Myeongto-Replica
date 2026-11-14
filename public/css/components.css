@@ -1108,3 +1108,15 @@
   .exit-tile .exit-tile__ping { width: 38px; height: 13px; margin-top: 1px; }
   .exit-tile .exit-tile__ping .ping__value, .exit-tile .exit-tile__ping .ping__unit { font-size: 10px; }
 }
+
+/* An invitation's room with no player seat: the spectator-seat offer (js/ui/inviteSpectate.js) */
+.invite-spec p { margin: 0 0 .1rem; }
+.invite-spec__room {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .04rem .1rem; margin: .04rem 0 .12rem; padding: .08rem .12rem;
+  background: rgba(255, 255, 255, .04); border-left: 2px solid var(--mint-400);
+}
+.invite-spec__room b { letter-spacing: .12em; color: var(--text-hi); }
+.invite-spec__room span { color: var(--text-lo); font-size: .9em; }
+.invite-spec__keep { display: flex; align-items: center; gap: .08rem; cursor: pointer; }
+.invite-spec__keep input { flex: none; width: max(.18rem, 14px); height: max(.18rem, 14px); margin: 0; accent-color: var(--mint-400); }
+.invite-spec__keep small { color: var(--text-lo); }
