@@ -505,6 +505,10 @@ export const ESKILL_CLIPS = Object.freeze({
   // 2026-11-14: 节日爵士乐手's 狂欢式演奏 — Skills/fire's ThreePartChannelingAnimation `_default`, Skill_Loop held for the whole
   // channel (its RangedAttack waits for the channel's projectile); one that ends sooner closes on 'enemySkillEnd'
   enemy_10034_cnvsax: Object.freeze({ fire: Object.freeze({ begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End' }) }),
+  // 2026-11-14: 萨卡兹王庭军精锐术师's 死亡之眼 — its LineAttack's ThreePartChannelingAnimation `_default` over the channel
+  // (ChargeAttack after it plays no clip); a cut channel closes on 'enemySkillEnd'. Every channel skill of the data is
+  // wired here or listed with why: test/render/eskill-clip-coverage.test.js
+  enemy_1275_dwlock_2: Object.freeze({ DeathEye: Object.freeze({ begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End' }) }),
 });
 /**
  * The way an enemy faces a spot (dx, dy from it, map tiles): the FOUR_WAYS axis nearest to it, UP / DOWN or 'side' (a tie

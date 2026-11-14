@@ -39,10 +39,14 @@ test('skillCast records the class of each skill\'s ability (attack_timing.py cas
   assert.deepEqual(c('enemy_1502_crowns', 'blink'), { family: 2, kind: 'buff' });
   assert.deepEqual(c('enemy_9009_acfort', 'fireweapon').subs.map((s) => s.kind ?? s.clip), ['buff', 'Skill_2']);
   assert.equal(c('enemy_1275_dwlock_2', 'deatheye').kind, 'seq');
-  assert.deepEqual(c('enemy_1275_dwlock_2', 'deatheye').subs[0], { time: 0, proj: 1 });
+  assert.deepEqual(c('enemy_1275_dwlock_2', 'deatheye').subs[0], { time: 0, proj: 1, chan: { begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End' } });   // + its ThreePartChannelingAnimation
   assert.equal(c('enemy_1272_nhtank', 'pollutedrangedatk').kind, 'par');
   assert.equal(c('enemy_9014_acstma', '2').miss, 1);
-  assert.deepEqual(c('enemy_1404_msnip', 'crossattack'), { family: 1, time: 2, cd: 2.5 });
+  assert.deepEqual(c('enemy_1404_msnip', 'crossattack'), {
+    family: 1, time: 2, cd: 2.5,
+    chan: { begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End',
+      down: { begin: 'Skill_Begin_Down', loop: 'Skill_Loop_Down', end: 'Skill_End_Down' }, up: { begin: 'Skill_Begin_Up', loop: 'Skill_Loop_Up', end: 'Skill_End_Up' } },
+  });
 });
 
 test('castLength by class: the attack time of a clipless ability, two ticks of an ActiveBuffAbility, the sum of a sequence', () => {

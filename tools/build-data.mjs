@@ -2703,7 +2703,7 @@ function withSkillProjectiles(skills, P) {
 
 /**
  * How an enemy's skills are cast (tools/assets/local-attack-timing.json `enemies[…].skills`, tools/local-extract/
- * attack_timing.py) → enemies.json `skillCast` {skill name in lower case: { family, dur?, clip?, max?, time?, cd?, cdKey?,
+ * attack_timing.py) → enemies.json `skillCast` {skill name in lower case: { family, dur?, clip?, max?, time?, cd?, cdKey?, chan?,
  * resetMain?, waitFirst? }}.
  * The client casts an enemy skill in place of a normal attack — at an attack slot, the skills first (the client's
  * `Enemy.AttackWrapper.SearchTarget` / `Cast`; `family` = its `_familyMask`, every skill of the mode has ATTACK and / or
@@ -2736,6 +2736,9 @@ function enemySkillCast(ctx, manifest, spineId, key) {
       ...(Number.isFinite(s.time) ? { time: s.time } : {}),
       ...(s.time === 2 ? { cd: s.cd || 0 } : s.time === 3 ? { cdKey: s.cdKey || 'duration' } : {}),
       ...(s.proj ? { proj: 1 } : {}),
+      // its ThreePartChannelingAnimation clips ({ begin, loop, end, down?, up? } — the view's channel, render/units.js
+      // ESKILL_CLIPS; test/render/eskill-clip-coverage.test.js)
+      ...(s.chan && typeof s.chan === 'object' ? { chan: s.chan } : {}),
     };
   };
   const out = {};

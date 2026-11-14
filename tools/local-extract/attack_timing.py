@@ -292,7 +292,25 @@ def is_buff_ability(d):
     return '_waitForCasting' in d and '_buffs' in d and '_timeMode' not in d
 
 
-def cast_fields(d, by_pid, depth=0):
+def chan_fields(ds):
+    """The clips of a ThreePartChannelingAnimation among MonoBehaviours `ds` (the ability's GameObject): {begin, loop, end}
+    of its `_default`, with `down` / `up` the same when `_overrideDownAnimation` / `_overrideUpAnimation` (the set
+    `_GetAnimBundle` picks by the body direction); None without one. Empty names are left out."""
+    def part(b):
+        if not isinstance(b, dict):
+            return {}
+        return {k: b[f] for k, f in (('begin', 'beginAnim'), ('loop', 'loopAnim'), ('end', 'endAnim')) if b.get(f)}
+    for d in ds:
+        if isinstance(d, dict) and isinstance(d.get('_default'), dict) and 'loopAnim' in d['_default']:
+            rec = part(d['_default'])
+            for k, flag in (('down', '_overrideDownAnimation'), ('up', '_overrideUpAnimation')):
+                if d.get(flag) and part(d.get('_' + k)):
+                    rec[k] = part(d.get('_' + k))
+            return rec or None
+    return None
+
+
+def cast_fields(d, by_pid, depth=0, by_go=None):
     """How long ability MonoBehaviour `d` casts, as data/enemies.json `skillCast` reads it (docs/rules/sim.md 「적 스킬 =
     일반 공격 차례」 시전 길이):
       an animated ability — its clip (`anim`, `max`, `wait`, `pre`), `time` = `_timeMode` (the attack time it plays to, the
@@ -307,7 +325,7 @@ def cast_fields(d, by_pid, depth=0):
     if kind:
         rec = {'kind': kind}
         if kind != 'sel' and depth < 4:
-            rec['subs'] = [cast_fields(by_pid[r['m_PathID']], by_pid, depth + 1) for r in d['_abilities']
+            rec['subs'] = [cast_fields(by_pid[r['m_PathID']], by_pid, depth + 1, by_go) for r in d['_abilities']
                            if isinstance(r, dict) and r.get('m_PathID') in by_pid]
         return rec
     if is_buff_ability(d):
@@ -324,6 +342,10 @@ def cast_fields(d, by_pid, depth=0):
             rec['cdKey'] = d.get('_cooldownKey') or 'duration'
     if d.get('_waitForProjectileInvalid'):
         rec['proj'] = 1
+    # its three-part channel clips (a ThreePartChannelingAnimation on the same GameObject: 节日爵士乐手 fire, 死亡之眼 LineAttack)
+    ch = chan_fields(by_go.get((d.get('m_GameObject') or {}).get('m_PathID'), [])) if by_go is not None else None
+    if ch:
+        rec['chan'] = ch
     return rec
 
 
@@ -341,6 +363,9 @@ def enemy_skills(sub, modes):
     for gp, d, _ in sub:
         by_gp.setdefault(gp, []).append(d)
     by_pid = {pid: d for _, d, pid in sub}
+    by_go = {}
+    for _, d, _ in sub:
+        by_go.setdefault((d.get('m_GameObject') or {}).get('m_PathID'), []).append(d)
     out = {}
     for gp in sorted((gp for gp, ds in by_gp.items() if any('_familyMask' in d for d in ds)), key=lambda g: (rank(g), g)):
         ds = by_gp[gp]
@@ -350,7 +375,7 @@ def enemy_skills(sub, modes):
         raw = next((d for d in ds if isinstance(d, dict) and (group_kind(d) or is_buff_ability(d))), None) \
             or next((d for d in ds if isinstance(d, dict) and '_timeMode' in d), None)
         if raw is not None:
-            rec.update(cast_fields(raw, by_pid))
+            rec.update(cast_fields(raw, by_pid, 0, by_go))
         name = gp.rsplit('/', 1)[-1]
         if name not in out:
             out[name] = rec

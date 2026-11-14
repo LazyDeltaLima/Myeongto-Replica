@@ -270,6 +270,48 @@ test('节日爵士乐手 (real kit): 狂欢式演奏 holds Skill_Loop over its w
   }
 });
 
+test('萨卡兹王庭军精锐术师 (real kit): 死亡之眼 holds Skill_Loop over its 8 s channel — Skill_Begin → Skill_Loop → Skill_End; its target falling closes it on Skill_End', async () => {
+  const DW = 'enemy_1275_dwlock_2';
+  const A = assets.enemies[DW].spine.animations;
+  const isCast = ([, x]) => x[0] === 'fx' && x[1] === 'enemySkill' && x[4]?.ability === 'DeathEye';
+  {
+    const { h, e, rec } = field2(DW, [[10, 5]], [10, 5]);
+    h.runUntil(() => rec.some(isCast), 40);
+    const [t0, cast] = rec.find(isCast);
+    assert.equal(cast[4].dur, 8, 'the sim sends the channel\'s 8 ticks × 1 s');
+    assert.equal(cast[4].tgt, h.allies()[0].id, 'and its target');
+    h.run(8.5);
+    assert.ok(!rec.some(([, x]) => x[0] === 'fx' && x[1] === 'enemySkillEnd'), 'a channel played out sends no early end');
+    const v = await view(DW, e.id, e.x, e.y);
+    assert.equal(v.onEnemySkill('DeathEye', 0, { dur: cast[4].dur, aim: null }), true);
+    assert.equal(v.actor.current, 'Skill_Begin');
+    frames(v, 8 - A.Skill_End - 0.05);
+    assert.deepEqual(v.log.slice(-2), ['Skill_Begin', 'queue Skill_Loop'], `the loop until ${(8 - A.Skill_End).toFixed(3)} s`);
+    frames(v, 0.1);
+    assert.equal(v.actor.current, 'Skill_End', 'its end closes the 8 s');
+    frames(v, A.Skill_End);
+    assert.equal(v.actor.mode, 'base', 'back at rest');
+    void t0;
+  }
+  {
+    const { h, e, rec } = field2(DW, [[10, 5]], [10, 5]);
+    h.runUntil(() => rec.some(isCast), 40);
+    const [t0, cast] = rec.find(isCast);
+    h.run(2.5);
+    h.battle.kill(h.allies().find((u) => u.id === cast[4].tgt), null);
+    h.run(1.2);
+    const cut = rec.find(([, x]) => x[0] === 'fx' && x[1] === 'enemySkillEnd' && x[4]?.id === e.id);
+    assert.ok(cut && cut[1][4].ability === 'DeathEye' && cut[0] - t0 < 4, 'the sim sends the early end');
+    const v = await view(DW, e.id + 100, e.x, e.y);
+    v.onEnemySkill('DeathEye', 0, { dur: cast[4].dur, aim: null });
+    frames(v, cut[0] - t0);
+    assert.equal(v.onEnemySkillEnd('DeathEye'), true);
+    assert.equal(v.actor.current, 'Skill_End', 'closes on its end clip');
+    frames(v, A.Skill_End + 0.05);
+    assert.equal(v.actor.mode, 'base', 'then rests, not looping to 8 s');
+  }
+});
+
 test('render/app.js hands each fx \'enemySkillEnd\' to its view', () => {
   const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
   assert.match(app, /if \(e\[1\] === 'enemySkillEnd' && e\[4\] && typeof e\[4\]\.ability === 'string' && e\[4\]\.id != null\) views\.get\(e\[4\]\.id\)\?\.onEnemySkillEnd\?\.\(e\[4\]\.ability\);/);

@@ -1305,8 +1305,8 @@
         "enemy_9008_acbunn": [1,1,0,6194,19907]
       },
       "hooks": [1,147,5938,574,574,1286,1429,3588,126,132,43,38,31,30435,370,8,122,0,1,126,11,3,0],
-      "events": {"atk":675,"bounty":6,"castHit":7,"deploy":23,"die":132,"dmg":1349,"engage":15,"face":149,"fx":403,"heal":156,"layer":11,"skill":81,"spawn":147,"status":549,"swing":658},
-      "fx": {"beam":2,"bombard":31,"bombardShell":31,"burst":3,"camouflage":2,"copy":1,"dp":5,"enemySkill":1,"firewall":1,"garrison":8,"kitHit":23,"lightning":93,"link":1,"lock":31,"lure":3,"phase":1,"refresh":8,"scorchBurst":14,"snow":16,"spGain":3,"split":6,"stacks":103,"storm":7,"summon":2,"talent":1,"tide":4,"wanted":2},
+      "events": {"atk":675,"bounty":6,"castHit":7,"deploy":23,"die":132,"dmg":1349,"engage":15,"face":149,"fx":404,"heal":156,"layer":11,"skill":81,"spawn":147,"status":549,"swing":658},
+      "fx": {"beam":2,"bombard":31,"bombardShell":31,"burst":3,"camouflage":2,"copy":1,"dp":5,"enemySkill":1,"enemySkillEnd":1,"firewall":1,"garrison":8,"kitHit":23,"lightning":93,"link":1,"lock":31,"lure":3,"phase":1,"refresh":8,"scorchBurst":14,"snow":16,"spGain":3,"split":6,"stacks":103,"storm":7,"summon":2,"talent":1,"tide":4,"wanted":2},
       "snaps": "d9586198 7e9b536b bed29a1f 38c18fc5 49790cdf 0f1936e2 044a1e22 dcc3c291 0c7bd6b2 b37736ae a9f666fe 9bbf8aec 4800ff44 5f596dd3 787228df 1474f143 a21124b9 9cac6927 83beab81 792195d8"
     },
     "roster-019": {

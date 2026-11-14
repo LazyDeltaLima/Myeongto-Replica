@@ -2739,6 +2739,11 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   맞춘다 — 시작·끝은 제 속도, `Skill_Loop`가 나머지 내내 돈다. 채널이 일찍 끝나면(대상이 사라짐·침묵·끊긴 시전) 시뮬이 fx `enemySkillEnd`를 내고 렌더가 그때 `Skill_End`로 닫는다
   (`SpineActor.chantCut`); 기절·쓰러짐은 전처럼 클립을 끊는다. 전에는 이 능력이 표에 없어 채널 동안 루프 클립을 틀지 않았다(관리자 제보 2026-11-14: 한 번만 재생). 확인:
   `test/render/eskill-clip.test.js` 「节日爵士乐手 (real kit)…」(수정 전 코드에서 실패 확인). [화면 미확인 — `checks/arena.md`]
+  정예 캐스터도 같다: `DeathEye`의 `LineAttack`에 같은 3단 채널이 붙어 있고(공식 클라에서 확인, 뒤의 `ChargeAttack`은 클립 없음), 시뮬이 `dur` 8(`hit_duration`, 1초 간격)과 `tgt`를
+  싣고 끊긴 채널(대상이 쓰러짐·기절·빙결 등)에 `enemySkillEnd`를 낸다. 확인: 같은 시험 파일 「萨卡兹王庭军精锐术师 (real kit)…」. [화면 미확인 — `checks/arena.md`]
+  빠짐 방지: 적 스킬 능력의 3단 채널 클립은 클라 프리팹에서 추출해 `data/enemies.json`·시즌 `enemies.json`의 `skillCast.*.chan`에 두고(`tools/local-extract/attack_timing.py`),
+  `test/render/eskill-clip-coverage.test.js`가 그런 스킬이 모두 `ESKILL_CLIPS`에 같은 클립으로 있거나 `test/render/eskill-clip-list.js`에 이유와 함께(시뮬이 시전 안 함 · 다른 길로
+  그림 · 아직 안 이음) 있는지 본다. 2026-11-14 기준 채널 스킬 24개 중 이은 것 2, 안 시전 7, 다른 길 1, 아직 안 이음 12(그동안 모델이 서 있거나 걸음).
 
 ### 티티 S2 「밀봉 보호」의 HP 비율 동률은 위협도 순 (upstream `8668a9cd` `47c22d39`, upstream #906)
 

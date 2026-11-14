@@ -11981,6 +11981,7 @@
    "enemy_1229_darmy_2 spawn lemuen_skill_03_crosshair_02 → self",
    "enemy_1229_darmy_2 spawn lemuen_skill_03_crosshair_range",
    "enemy_1229_darmy_2 spawn lemuen_skill_03_trail_01 → self",
+   "enemy_1275_dwlock_2 eskillEnd DeathEye",
    "enemy_1275_dwlock_2 spawn lemuen_skill_03_crosshair_01 → self",
    "enemy_1275_dwlock_2 spawn lemuen_skill_03_crosshair_02 → self",
    "enemy_1275_dwlock_2 spawn lemuen_skill_03_crosshair_range",
