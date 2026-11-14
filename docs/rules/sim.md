@@ -2734,6 +2734,11 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   순차 묶음 `LineAttack`(같은 투사체 기다림) → `ChargeAttack`(`_timeMode` 2, `_cooldown` 0)이고 두 능력이 시전 동안 `dwlock_skill_anti_flag[silence]`(침묵 반제)를 건다 — PRTS 「※技能期间，
   持有沉默反制」. 쿨은 `EnemySkill._OnCastFinish`가 시전 끝에 다시 시작한다. upstream은 제보로 같은 결론을 냈다.
 - 테스트 `test/content/enemy-skill-proj-wait.test.js`, `test/content/enemies_bosses.test.js` 「节日爵士乐手: revealed (反隐) and not blocked…」(이제 첫 시전부터 서 있음).
+- 화면(2026-11-14): 재즈 연주가의 `Skills/fire`에는 `ThreePartChannelingAnimation` `_default`(`Skill_Begin` → `Skill_Loop` → `Skill_End`, 아래·위 덮어쓰기 없음)가 함께 붙어 있다(공식 클라에서
+  확인). 시뮬이 시전 신호 fx `enemySkill`에 채널 전체 길이 `dur`(21틱 × 0.5 s = 10.5 s)와 대상 `tgt`를 싣고(키트 `castFx`), 렌더가 `units.js ESKILL_CLIPS`로 그 길이에 세 클립을
+  맞춘다 — 시작·끝은 제 속도, `Skill_Loop`가 나머지 내내 돈다. 채널이 일찍 끝나면(대상이 사라짐·침묵·끊긴 시전) 시뮬이 fx `enemySkillEnd`를 내고 렌더가 그때 `Skill_End`로 닫는다
+  (`SpineActor.chantCut`); 기절·쓰러짐은 전처럼 클립을 끊는다. 전에는 이 능력이 표에 없어 채널 동안 루프 클립을 틀지 않았다(관리자 제보 2026-11-14: 한 번만 재생). 확인:
+  `test/render/eskill-clip.test.js` 「节日爵士乐手 (real kit)…」(수정 전 코드에서 실패 확인). [화면 미확인 — `checks/arena.md`]
 
 ### 티티 S2 「밀봉 보호」의 HP 비율 동률은 위협도 순 (upstream `8668a9cd` `47c22d39`, upstream #906)
 

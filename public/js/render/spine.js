@@ -1150,6 +1150,17 @@ export class SpineActor {
     return true;
   }
 
+  /** The 吟唱 ends early (an enemy channel cut short, UnitView.onEnemySkillEnd): its end clip now, unless it already plays. */
+  chantCut() {
+    if (this.dead || this.mode !== 'chant') return false;
+    if (this.chantEnd) {
+      this._play(this.chantEnd, false, { mix: 0.08 });
+      this.chantUntil = Math.min(this.chantUntil, this.clock + this.dur(this.chantEnd));
+      this.chantEnd = null;
+    } else if (!(this.clock >= this.chantEndAt)) this.chantUntil = this.clock;   // no end clip: rest now
+    return true;
+  }
+
   /** The 吟唱 is over: its after clip as the skill's begin (setSkill), or the resting state. */
   _chantDone() {
     const sk = this.roles.skill;

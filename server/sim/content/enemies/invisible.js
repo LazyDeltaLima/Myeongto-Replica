@@ -98,6 +98,11 @@ function kitJazz(ab, e) {
   const s = ab.sk.fire;
   const r = (e.def.raw && e.def.raw.stats && e.def.raw.stats.rawRangeRadius) || 2.5;
   const revealed = (u) => !enemyStealthed(u);                  // blocked, 反隐 (its 隐匿 returns 0 s after a block)
+  // the channel's ticks (狂欢式演奏 below): floor(duration / hit_interval), 0 = none
+  const jazzTicks = () => {
+    const dur = s?.bb['enemy_cnvsax[cd].duration'] ?? 0, iv = s?.bb.hit_interval ?? 0.5;
+    return dur > 0 && iv > 0 ? Math.max(1, Math.floor(dur / iv + 1e-9)) : 0;
+  };
   return [stealth(), {
     // PRTS 天赋 "隐匿期间不进行普通攻击；未受隐匿影响时进入反击模式：仅进行阻挡攻击，造成100%物理伤害": its normal attack only ever
     // hits its blocker (`melee`), so a revealed (反隐) unblocked one neither shoots nor stands for its attack clip (until
@@ -118,14 +123,27 @@ function kitJazz(ab, e) {
     sil: true, name: s.name, cd: s.cd, icd: s.icd, cond: (b, e2) => revealed(e2) && targetsNear(b, e2, r).length > 0,
     projAlive: (b, e2) => !!e2.mem.jazzChannel,
     onCut: (b, e2) => { if (e2.mem.jazzChannel) e2.mem.jazzChannel.end(); },
-    fire(b, e2) {
+    // the view: the same ability's ThreePartChannelingAnimation `_default` (Skill_Begin → Skill_Loop → Skill_End, 공식 클라에서
+    // 확인) over the channel — fx 'enemySkill' with its full length `dur` (n ticks) and target `tgt`; a channel that ends
+    // sooner (its target gone, a silence, a cut cast) sends 'enemySkillEnd' and the view closes on Skill_End then
+    castFx(b, e2, a) {
+      const t = byPriority(e2, targetsNear(b, e2, r))[0] || null, n = jazzTicks();
+      a.tgt = t;
+      return t && n ? { dur: n * (s.bb.hit_interval ?? 0.5), tgt: t.id } : null;
+    },
+    fire(b, e2, a) {
       const dur = s.bb['enemy_cnvsax[cd].duration'] ?? 0, iv = s.bb.hit_interval ?? 0.5;
-      const t = byPriority(e2, targetsNear(b, e2, r))[0];
-      if (!t || !(dur > 0) || !(iv > 0)) return;
-      const n = Math.max(1, Math.floor(dur / iv + 1e-9));
+      const t = a.tgt !== undefined ? a.tgt : byPriority(e2, targetsNear(b, e2, r))[0];
+      a.tgt = undefined;
+      const n = jazzTicks();
+      if (!t || !n) return;
       const buff = b.addBuff(e2, { key: 'ab:channel', duration: dur, flags: { disarm: true } });
       let k = 0;
-      const end = () => { if (e2.mem.jazzChannel !== ch) return; h.cancel(); e2.mem.jazzChannel = null; if (buff) b.removeBuff(e2, buff); };
+      const end = () => {
+        if (e2.mem.jazzChannel !== ch) return;
+        h.cancel(); e2.mem.jazzChannel = null; if (buff) b.removeBuff(e2, buff);
+        if (k < n && e2.alive) b.fx('enemySkillEnd', { x: e2.x, y: e2.y, id: e2.id, ability: s.name });
+      };
       const ch = { end };
       const h = b.every(iv, () => {
         if (!e2.alive || e2.s.flags.silence || !t.alive || !t.deployed) { end(); return; }

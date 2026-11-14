@@ -296,8 +296,9 @@ function castSkill(b, e, a) {
   e.skillAnimUntil = b.time + 0.5;
   // the cast's events name the official ability (docs/SIM.md events; the client binds the enemy's effects and
   // sounds by it — the prefab's `Skills/<name>`, research of the client's UnitMode.GenerateSignalId): fx
-  // 'enemySkill' { id, ability, n } as it starts, and `ability` / `caster` on every fx the cast makes now
-  if (a.name) b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: a.name, n: a.casts });
+  // 'enemySkill' { id, ability, n } as it starts, and `ability` / `caster` on every fx the cast makes now; a kit's
+  // `castFx(b, e, a)` adds what the view's clip needs (a channel's `dur` and target `tgt`: render/units.js ESKILL_CLIPS)
+  if (a.name) b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: a.name, n: a.casts, ...(a.castFx ? safe(b, e, () => a.castFx(b, e, a)) : null) });
   const prev = b._castAbility;
   b._castAbility = a.name ? { id: e.id, ability: a.name } : null;
   try { safe(b, e, () => a.fire(b, e, a)); } finally { b._castAbility = prev; }

@@ -760,8 +760,8 @@
         "enemy_9006_actoxi": [1,0,1,0,3778]
       },
       "hooks": [1,175,5024,882,882,2154,2164,785,88,166,29,26,0,9393,536,67,135,65,1,78,6,3,19],
-      "events": {"atk":1322,"deploy":37,"die":101,"dmg":2152,"engage":12,"face":39,"fx":376,"heal":340,"layer":6,"leak":65,"skill":55,"spawn":153,"status":777,"swing":942,"tplfx":8},
-      "fx": {"beam":10,"blink":7,"burst":3,"camouflage":2,"dodge":19,"dp":6,"enemySkill":22,"explode":1,"garrison":6,"kitHit":259,"machRun":2,"parry":13,"reveal":1,"revive":2,"shield":2,"shieldBreak":1,"summon":14,"telegraph":3,"undying":3},
+      "events": {"atk":1322,"deploy":37,"die":101,"dmg":2152,"engage":12,"face":39,"fx":378,"heal":340,"layer":6,"leak":65,"skill":55,"spawn":153,"status":777,"swing":942,"tplfx":8},
+      "fx": {"beam":10,"blink":7,"burst":3,"camouflage":2,"dodge":19,"dp":6,"enemySkill":22,"enemySkillEnd":2,"explode":1,"garrison":6,"kitHit":259,"machRun":2,"parry":13,"reveal":1,"revive":2,"shield":2,"shieldBreak":1,"summon":14,"telegraph":3,"undying":3},
       "snaps": "010911a1 5e445ba2 309e97b2 afe8a296 b652cac3 d946b94a 045b3d28 dccfe6f5 dcdf069c 4cce8c3b fb1e5765 2a7eaa58 646b8445 aa7e6bf6 27fc57a3 ff18db2c 92797be5"
     },
     "roster-012": {
@@ -3962,8 +3962,8 @@
         "enemy_9038_achest": [1,0,0,0,0]
       },
       "hooks": [1,163,6900,488,488,1471,1864,5574,47,154,42,40,0,22962,143,40,124,97,1,52,18,11,12],
-      "events": {"atk":585,"bounty":1,"castHit":29,"deploy":37,"die":57,"dmg":1849,"engage":11,"face":32,"fx":385,"heal":35,"layer":18,"leak":97,"skill":82,"spawn":143,"status":452,"swing":540,"tplfx":32},
-      "fx": {"aoe":6,"beam":9,"burnTiles":5,"burst":11,"disappear":3,"dodge":12,"downed":1,"enemyShot":6,"enemySkill":6,"explode":5,"garrison":18,"kitHit":149,"logosLexicon":19,"lure":6,"mantraGate":2,"meltdown":2,"palsy":24,"parry":6,"revive":4,"riposte":9,"roadTiles":3,"sp":8,"stacks":32,"stone":4,"summon":3,"talent":2,"tockaFx":24,"zone":6},
+      "events": {"atk":585,"bounty":1,"castHit":29,"deploy":37,"die":57,"dmg":1849,"engage":11,"face":32,"fx":386,"heal":35,"layer":18,"leak":97,"skill":82,"spawn":143,"status":452,"swing":540,"tplfx":32},
+      "fx": {"aoe":6,"beam":9,"burnTiles":5,"burst":11,"disappear":3,"dodge":12,"downed":1,"enemyShot":6,"enemySkill":6,"enemySkillEnd":1,"explode":5,"garrison":18,"kitHit":149,"logosLexicon":19,"lure":6,"mantraGate":2,"meltdown":2,"palsy":24,"parry":6,"revive":4,"riposte":9,"roadTiles":3,"sp":8,"stacks":32,"stone":4,"summon":3,"talent":2,"tockaFx":24,"zone":6},
       "snaps": "c865f2e4 b5f92e25 aefb2785 2910687d 3ffc74b6 f9554239 5f5cb714 084d3a8d 68f71ede 2bee4dc1 718ab389 4205aff6 b0f41e6e e7e0aa1e f69babd0 45825e7d 6c92f1a3 f8873a6b c9c63a92 9ebbd4ad fddab09f de931235 2432be43"
     },
     "roster-058": {

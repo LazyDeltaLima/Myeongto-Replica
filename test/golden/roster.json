@@ -635,7 +635,7 @@
         "enemy_2034_sythef_2": [1,0,1,0,0]
       },
       "hooks": [1,131,5100,501,501,1177,1156,552,75,118,26,26,0,8503,421,12,102,43,1,200,2,0,9],
-      "events": {"atk":588,"bounty":2,"castHit":6,"deploy":26,"die":75,"dmg":1079,"engage":11,"face":12,"fx":190,"heal":9,"layer":2,"leak":43,"skill":53,"spawn":119,"status":353,"swing":529},
+      "events": {"atk":588,"bounty":2,"castHit":6,"deploy":26,"die":75,"dmg":1079,"engage":11,"face":12,"fx":191,"heal":9,"layer":2,"leak":43,"skill":53,"spawn":119,"status":353,"swing":529},
       "fx": {
         "block": 12,
         "catShield": 2,
@@ -645,6 +645,7 @@
         "displace": 2,
         "dodge": 9,
         "enemySkill": 14,
+        "enemySkillEnd": 1,
         "explode": 3,
         "explosion": 2,
         "featherArrow": 1,

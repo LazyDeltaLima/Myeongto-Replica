@@ -502,6 +502,9 @@ export const ESKILL_CLIPS = Object.freeze({
   // 复核洋流使者's skill 1 (eating a 赘生甲壳): AnimatedActionToTargetAbility `_animKey` Skill, `_timeMode` 1 (the clip, 2.6 s)
   enemy_1438_dspred: Object.freeze({ 1: 'Skill' }),
   enemy_1385_winbom_2: Object.freeze({ Flame: WINBOM_FLAME }),
+  // 2026-11-14: 节日爵士乐手's 狂欢式演奏 — Skills/fire's ThreePartChannelingAnimation `_default`, Skill_Loop held for the whole
+  // channel (its RangedAttack waits for the channel's projectile); one that ends sooner closes on 'enemySkillEnd'
+  enemy_10034_cnvsax: Object.freeze({ fire: Object.freeze({ begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End' }) }),
 });
 /**
  * The way an enemy faces a spot (dx, dy from it, map tiles): the FOUR_WAYS axis nearest to it, UP / DOWN or 'side' (a tie
@@ -1738,7 +1741,19 @@ export class UnitView {
     const way = this.moveWay;
     const set = (way === 'DOWN' ? spec.down : way === 'UP' ? spec.up : null) || spec;
     const a = this.actor;
-    return a.chant({ begin: set.begin, loop: set.loop, end: set.end, total });
+    const ok = a.chant({ begin: set.begin, loop: set.loop, end: set.end, total });
+    this._eskill = ok ? ability : null;
+    return ok;
+  }
+
+  /**
+   * 2026-11-14: the channel of enemy ability `ability` ended before its `dur` (the sim's fx 'enemySkillEnd': 节日爵士乐手's
+   * target gone or a silence): the channel's end clip now (SpineActor.chantCut). True when it closed one.
+   */
+  onEnemySkillEnd(ability) {
+    if (!this.actor || this._eskill !== ability) return false;
+    this._eskill = null;
+    return this.actor.chantCut();
   }
 
   /** One attack hit now (b.ev 'atk'); `signal` = its 5th field: the client ability it is (a talent's own attack 'T.1'). */

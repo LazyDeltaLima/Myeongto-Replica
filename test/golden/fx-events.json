@@ -10774,6 +10774,7 @@
    "char_474_glady spawn glady_skill_03_buff → foe",
    "char_474_glady spawn:born common_char_birth_01 → self",
    "char_474_glady spawn:emit glady_skill_03_buff_02 → foe",
+   "enemy_10034_cnvsax eskillEnd fire",
    "enemy_10144_xdelk_2 spawn:cast enemy_xdelk_buff_01 → self",
    "enemy_10144_xdelk_2 spawn:cast enemy_xdelk_buff_02 → self",
    "enemy_10144_xdelk_2 spawn:cast enemy_xdelk_skill_start_01 → self",

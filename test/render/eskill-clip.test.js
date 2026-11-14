@@ -200,3 +200,77 @@ test('“喷射罐”: the set follows its body direction — the target\'s FOUR
   v.onEnemySkill('Flame', 0, { dur: 4, aim: { x: 8.05, y: 9 } });
   assert.equal(v.actor.current, 'Skill_Down_Begin', 'its next channel at a target within 0.2: the way its last cast faced');
 });
+
+/** The default season's field: still walls at (row, col) and enemy `key` at `pos`, every event logged with its battle time. */
+function field2(key, walls, pos) {
+  const D = getData({ log: quiet });
+  const WALL = chessRec({ id: 't_wall', profession: 'TANK', stats: { atk: 0, maxHp: 1e9, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
+  const h = makeBattle({
+    content: 'generic', extraContent: [enemiesMod, bossesMod], seed: 7, autoFinish: false, timeLimit: 600,
+    kind: 'normal', sharedBoss: null, enemies: [], defs: { chess: { t_wall: WALL }, enemies: { [key]: D.enemies[key] } },
+    kits: { t_wall: () => ({ trait: { noAttack: true } }) },
+    units: walls.map(([row, col], i) => ({ chessId: 't_wall', row, col, uid: i + 1 })),
+  });
+  h.step();
+  const b = h.battle, ev0 = b._ev.bind(b), rec = [];
+  b._ev = (e) => { rec.push([b.time, e]); return ev0(e); };
+  const e = h.spawn(key, { pos, routeIndex: 0, mods: { speedMul: 0 }, tag: null });
+  return { h, e, rec };
+}
+
+test('节日爵士乐手 (real kit): 狂欢式演奏 holds Skill_Loop over its whole 10.5 s channel — Skill_Begin → Skill_Loop → Skill_End; a silence closes it on Skill_End', async () => {
+  const JAZZ = 'enemy_10034_cnvsax';
+  const A = assets.enemies[JAZZ].spine.animations;
+  const isCast = ([, x]) => x[0] === 'fx' && x[1] === 'enemySkill' && x[4]?.ability === 'fire';
+  // the full channel (blocked: revealed, it casts on its blocker)
+  {
+    const { h, e, rec } = field2(JAZZ, [[10, 5]], [10, 5]);
+    h.runUntil(() => rec.some(isCast), 30);
+    const [t0, cast] = rec.find(isCast);
+    assert.ok(Math.abs(cast[4].dur - 10.5) < 1e-9, `the sim sends the channel's 21 ticks × 0.5 s (${cast[4].dur})`);
+    assert.equal(cast[4].tgt, h.allies()[0].id, 'and its target');
+    h.run(11);
+    assert.ok(!rec.some(([, x]) => x[0] === 'fx' && x[1] === 'enemySkillEnd'), 'a channel played out sends no early end');
+    const v = await view(JAZZ, e.id, e.x, e.y);
+    assert.equal(v.onEnemySkill('fire', 0, { dur: cast[4].dur, aim: null }), true);
+    assert.equal(v.actor.current, 'Skill_Begin');
+    let at = t0;
+    for (const [t, x] of rec.filter(([tt, x]) => tt >= t0 && tt < t0 + 10.5 && x[0] === 'atk' && x[1] === e.id)) {
+      frames(v, t - at); at = t;
+      v.onAttack(null, clock, x[3]);
+    }
+    frames(v, t0 + 10.5 - A.Skill_End - 0.05 - at);
+    assert.deepEqual(v.log.slice(-2), ['Skill_Begin', 'queue Skill_Loop'], `the loop until ${(10.5 - A.Skill_End).toFixed(3)} s (${v.log.join(' ')})`);
+    assert.equal(v.actor.mode, 'chant', 'still channelling near its end');
+    frames(v, 0.1);
+    assert.equal(v.actor.current, 'Skill_End', 'its end closes the 10.5 s');
+    frames(v, A.Skill_End);
+    assert.equal(v.actor.mode, 'base', 'back at rest');
+    assert.ok(!v.log.includes('Attack'), 'no attack clip during the channel');
+  }
+  // a channel a silence ends 3 s in: 'enemySkillEnd', and the view plays Skill_End then
+  {
+    const { h, e, rec } = field2(JAZZ, [[10, 5]], [10, 5]);
+    h.runUntil(() => rec.some(isCast), 30);
+    const [t0, cast] = rec.find(isCast);
+    h.run(3);
+    h.battle.applyStatus(e, 'silence', { duration: 1 });
+    h.run(1);
+    const cut = rec.find(([, x]) => x[0] === 'fx' && x[1] === 'enemySkillEnd' && x[4]?.id === e.id);
+    assert.ok(cut && cut[1][4].ability === 'fire' && cut[0] - t0 < 4.5, 'the sim sends the early end');
+    const v = await view(JAZZ, e.id + 100, e.x, e.y);
+    v.onEnemySkill('fire', 0, { dur: cast[4].dur, aim: null });
+    frames(v, cut[0] - t0);
+    assert.equal(v.actor.mode, 'chant');
+    assert.equal(v.onEnemySkillEnd('fire'), true);
+    assert.equal(v.actor.current, 'Skill_End', 'closes on its end clip');
+    frames(v, A.Skill_End + 0.05);
+    assert.equal(v.actor.mode, 'base', 'then rests, not looping to 10.5 s');
+    assert.equal(v.onEnemySkillEnd('fire'), false, 'a second end does nothing');
+  }
+});
+
+test('render/app.js hands each fx \'enemySkillEnd\' to its view', () => {
+  const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
+  assert.match(app, /if \(e\[1\] === 'enemySkillEnd' && e\[4\] && typeof e\[4\]\.ability === 'string' && e\[4\]\.id != null\) views\.get\(e\[4\]\.id\)\?\.onEnemySkillEnd\?\.\(e\[4\]\.ability\);/);
+});
