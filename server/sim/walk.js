@@ -20,6 +20,18 @@ export const tileKey = (b, e) => {
   return b.grid.inBounds(r, c) ? r * COLS + c : -1;
 };
 
+/**
+ * A walker standing on a tile it cannot walk on (a wall's edge it grazed, a push's leftover speed): the client's route node
+ * there has no distance (`Route.Node.isValid` false), so `MoveCheckpoint.GetNextDirection` gives no direction — the steering
+ * only brakes and the wall's force (obstacleAvoidForce: toward the nearest neighbour it can walk) takes it out. Until
+ * 2026-11-15 it headed straight for the leg's target, through the wall (docs/rules/sim.md 「적이 걷는 법」 벽 칸).
+ */
+export function inWallTile(b, e) {
+  if (e.motion === 'FLY') return false;
+  const r = Math.round(e.y), c = Math.round(e.x);
+  return b.grid.inBounds(r, c) && b.grid.tiles[r * COLS + c].pass !== 'ALL';
+}
+
 // MoveController (the client's enemy movement). Most enemies of this mode: `_steeringFactor` 8, `_maxSteeringForce` 10;
 // STEER_BY_ENEMY the others of their prefabs. Every one has `_halfBodyWidth` 0.2. Every level of the mode sets
 // `steeringEnabled` (BattleOptions.STEERING_ENABLED, MoveController._CalculateSteeringForce).
@@ -149,7 +161,8 @@ export function walkCursor(b, e, r, c, x, y, speed, dt) {
   const gx = x - e.x, gy = y - e.y;
   if (gx * gx + gy * gy <= step * step) { e.x = x; e.y = y; return; }
   let ax = x, ay = y;
-  if (e.motion !== 'FLY') {
+  if (inWallTile(b, e)) { ax = e.x; ay = e.y; }
+  else if (e.motion !== 'FLY') {
     const k = tileKey(b, e), dest = r * COLS + c;
     if (k !== dest) {
       const f = legField(b, r, c, k);

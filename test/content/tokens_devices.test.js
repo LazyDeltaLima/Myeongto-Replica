@@ -631,6 +631,23 @@ test('气流 (act2 m01 blowers): enemies moving with the flow ×(1+equal), again
   assert.ok(up.has(Math.round((1 + bb['blower_s_enemy[opposite].move_speed']) * 100) / 100), `against the flow ${[...up]}`);
 });
 
+test('气流 on the operators: DOWN (with the flow) ATK +equal, UP (against) +opposite — a shown status tagged 2 / 1 (wind_buff_02 / _01)', REAL, () => {
+  const stage = ds.getStage('act2autochess_m01');
+  const bb = stage.devices.find((d) => d.role === 'blower').raw.skill.bb;
+  for (const [dir, rel, tag] of [['DOWN', 'equal', 2], ['UP', 'opposite', 1]]) {
+    // (11,5): in the lane of the blower #001 (13,5), which blows DOWN over rows 12–10
+    const h = makeBattle({ stageId: 'act2autochess_m01', defs: { chess: { test_guard: guard() } }, units: [{ chessId: 'test_guard', row: 11, col: 5, dir }], autoFinish: false, timeLimit: 10 });
+    h.run(1);
+    const u = h.unit('test_guard');
+    const b = u.findBuff('terrain:airflow');
+    assert.ok(b, `${dir}: the airflow buff`);
+    assert.equal(b.mods.atkPct, bb[`blower_s_character[${rel}].atk`], `${dir}: ATK ${rel}`);
+    const ev = h.eventsOf('status').filter((e) => e[1] === u.id && e[2] === 'terrain:airflow');
+    assert.equal(ev.length, 1, `${dir}: one status event (the client draws blower_s[atk]'s effect)`);
+    assert.equal(ev[0][5]?.fx, tag, `${dir}: tagged ${tag} (render/fxstatus.js KEY_FX)`);
+  }
+});
+
 test('沼泽 (act2 m02): a trigger on entering and every second — 1 layer (an enemy of 重量 ≥ 3: 2) of ASPD −5 / move −5 %, at most 10; operators ASPD only; cleared on leaving', REAL, () => {
   const mire = ds.getStage('act2autochess_m02').special.mire;
   // PRTS 沼泽控制: "每秒将会触发一次" (sktok_mire spData maxChargeTime 1); "若其重量大于等于3，改为获得2层" (the skill's value 3)

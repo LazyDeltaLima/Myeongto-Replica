@@ -316,12 +316,34 @@ function summonTile(b, x, y, walk) {
 }
 
 /**
+ * Where a child of the side-by-side spread stands: its spot when a ground unit walks there, else the parent's — the
+ * official dead-spawn node (enemy_dead_spawn: `_passableMask` WALK_ONLY, a spot kept only where Route.CheckReachable,
+ * else the centre) —, else (a parent that died with its centre just over a wall's edge: the walk's bounce lets a body
+ * graze it) that position pulled into the nearest tile a ground unit walks, 0.45 at most from its centre
+ * [추정·엔진: the official host never stands in a wall]. A child left inside a wall tile walks straight through it to
+ * the goal (歌蕾蒂娅 S3's 捕网 pressing 磨砻 against 战场 #05's wall: its 木制瑞印 crossed to her side;
+ * docs/rules/sim.md 「사망 소환물의 자리」).
+ */
+function groundSpot(b, pos, parent) {
+  const g = b.grid;
+  const ok = (p) => g.groundPassable(Math.round(p[0]), Math.round(p[1]), true);
+  if (ok(pos)) return pos;
+  const home = [parent.y, parent.x];
+  if (ok(home)) return home;
+  const t = summonTile(b, parent.x, parent.y, true);
+  if (!t) return home;
+  const clamp = (v, c) => Math.max(c - 0.45, Math.min(c + 0.45, v));
+  return [clamp(parent.y, t[0]), clamp(parent.x, t[1])];
+}
+
+/**
  * Spawn `n` enemies at the parent's position that continue its route. Returns the spawned units.
  * `opts.spot` { bound, walk }: the official summon nodes' spot (SummonEnemiesFollowMyRoute / …WithBuff with `_useMapPosition`
  * off, Scheduler.SpawnSummonedEnemyTrackedInGameMode): the centre of summonTile(the source spot), then — `_ignoreOffset`
  * off — each one at that centre + (Range(−bound, bound), Range(−bound, bound)) (x drawn first; `bound` = the blackboard
  * `offset_bound` over the node's `_randomOffsetBound`), kept only where its route can reach (Route.CheckReachable: a tile
- * a ground unit walks), else the centre. Without it: the source spot, several 0.2 apart.
+ * a ground unit walks), else the centre. Without it: the source spot, several 0.2 apart — a ground parent's children each
+ * where a ground unit walks (groundSpot).
  */
 export function spawnChildren(b, parent, key, n, opts = {}) {
   const out = [];
@@ -334,6 +356,7 @@ export function spawnChildren(b, parent, key, n, opts = {}) {
   for (let i = 0; i < cnt; i++) {
     const off = cnt > 1 ? (i - (cnt - 1) / 2) * 0.2 : 0;
     let pos = opts.pos ?? [parent.y, parent.x + off];
+    if (!sp && !opts.pos && parent.motion !== 'FLY') pos = groundSpot(b, pos, parent);
     if (sp) {
       pos = tile ? [tile[0], tile[1]] : sp;
       if (bound > 0) {

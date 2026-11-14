@@ -47,8 +47,8 @@ const SOURCES = {
 const EXCEL = join(ROOT, '.cache/gamedata/excel');
 const OUT_DEFAULT = join(ROOT, 'tools/assets/fx-templates.json');
 
-/** Mode-wide templates the battle draws (element bursts, the battlefields' terrain, the boss pieces an operator holds). */
-const MODE_PREFIXES = ['ep_break_', 'ep_fire_', 'ep_water_', 'sand_storm', 'storm[', 'enemy_vtmstr_equip_'];
+/** Mode-wide templates the battle draws (element bursts, the battlefields' terrain — 战场#05's 气流 on the operators —, the boss pieces an operator holds). */
+const MODE_PREFIXES = ['ep_break_', 'ep_fire_', 'ep_water_', 'sand_storm', 'storm[', 'enemy_vtmstr_equip_', 'blower_s_'];
 
 function args(argv) {
   const o = { refresh: false, offline: false, out: OUT_DEFAULT };

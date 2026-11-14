@@ -133,6 +133,12 @@ describe('client: status → the official buff effect', () => {
     assert.notEqual(accel(3)[0][0], accel(4)[0][0], 'the next stack ends the effect and starts it again');
   });
 
+  test('2026-11-15: 战场#05\'s 气流 on an operator — blower_s[atk]\'s wind_buff_02 (ATK up, tag 2) / wind_buff_01 (down, tag 1)', () => {
+    const tpl = (fx) => [...F.wantedStatusFx(unit('char_1_02_yak', { statuses: new Set(['terrain:airflow']), statusFrom: new Map([['terrain:airflow', { src: null, fx, n: 0 }]]) }), undefined, null, keyPlays()).values()].map((s) => `${s[0]}/${s[1]}`);
+    assert.deepEqual(tpl(2), ['wind/wind_buff_02'], '[equal]: with the flow');
+    assert.deepEqual(tpl(1), ['wind/wind_buff_01'], '[opposite]: against it');
+  });
+
   test('2026-11-03: Mon3tr T2 on an ally by its tag (2: given under her S2) and the side it faces; 贝洛内\'s 【手段】, 维伊\'s mark and S2 cap', () => {
     const tpl = (v) => [...F.wantedStatusFx(v, undefined, null, keyPlays()).values()].map((s) => `${s[0]}/${s[1]}`).sort();
     const aspd = (fx, visFacing) => tpl(unit('char_1_02_yak', { visFacing, statuses: new Set(['talent:monstr:aspd']), statusFrom: new Map([['talent:monstr:aspd', { src: null, fx, n: 0 }]]) }));

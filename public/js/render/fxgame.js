@@ -498,12 +498,37 @@ export const TILE_FX = Object.freeze({
   tile_mire: Object.freeze(['mapeff', 'mapeff_mud_ground_01']),
 });
 
-/** The tile effects of a stage record (data/stages.json: `rows` of glyphs, `tiles` their legend): [{ bundle, name, x, y }]. */
+/**
+ * 2026-11-15 (official client: skill prefab sktok_blower of [uc]skills.ab — its ally AuraAbility `_effects` tile_wind_01 with
+ * `_createEffectOnDummy`; the blower's default skin skin_blower_default keeps that name, skin_blower_blackforest swaps it for
+ * tile_wind_02 through its CharacterSkinHooker): 战场#05's 源石流发生装置 (trap_013_blower) blows tile_wind_01 from its tile
+ * for as long as it stands. The prefab blows along its own −x over four tiles (its floor quad `di` from 0.35 behind the
+ * device to 3.65 ahead, the particles' velocity −x) — the device's tile and the three of its range (rangeGrid [0,0]…[0,3]) —
+ * so it is turned onto the device's direction: a turn about the map's z (Unity frame; LEFT none, DOWN +90°)
+ * [추정·화면: the dummy's turn read from the effect's own reach, not yet set beside an official screen].
+ */
+export const BLOWER_KEY = 'trap_013_blower';
+const S45 = Math.SQRT1_2;
+export const BLOWER_TURN = Object.freeze({
+  LEFT: null, RIGHT: Object.freeze([0, 0, 1, 0]), DOWN: Object.freeze([0, 0, S45, S45]), UP: Object.freeze([0, 0, -S45, S45]),
+});
+
+/**
+ * The tile effects of a stage record (data/stages.json: `rows` of glyphs, `tiles` their legend): [{ bundle, name, x, y,
+ * turn?, device? }] — TILE_FX by tileKey, then the active blowers' wind (`device`: on the device's tile surface, `turn`).
+ */
 export function stageTileFx(stage) {
+  const out = [];
+  for (const d of Array.isArray(stage?.devices) ? stage.devices : []) {
+    if (d?.key !== BLOWER_KEY || !Array.isArray(d.pos) || !(typeof d.active === 'boolean' ? d.active : !d.hidden)) continue;
+    const [r, c] = d.pos;
+    if (!Number.isInteger(r) || !Number.isInteger(c)) continue;
+    const dir = d.dir in BLOWER_TURN ? d.dir : 'UP';
+    out.push({ bundle: 'tile', name: 'tile_wind_01', x: c, y: r, turn: BLOWER_TURN[dir], device: true });
+  }
   const legend = stage && typeof stage.tiles === 'object' && stage.tiles ? stage.tiles : {};
   const fx = new Map();
   for (const [g, d] of Object.entries(legend)) if (TILE_FX[d?.tileKey]) fx.set(g, TILE_FX[d.tileKey]);
-  const out = [];
   if (!fx.size || !Array.isArray(stage.rows)) return out;
   stage.rows.forEach((line, r) => {
     if (typeof line !== 'string') return;
@@ -6575,7 +6600,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * renderers once, 64 draws → 4 for m09's 16 草地). A clear() drops them with the rest; the next frame lays them again, at once
    * (one effect time, so they still merge). A tile off the drawn board has none.
    */
-  const stageTiles = new Map();   // `${bundle}/${name}@${x},${y}` → { t: { bundle, name, x, y }, l: its live entry once loaded, off, loading, none: its spawn gave nothing (tried again after a clear()) }
+  const stageTiles = new Map();   // `${bundle}/${name}@${x},${y}` → { t: { bundle, name, x, y, turn, device }, l: its live entry once loaded, off, loading, none: its spawn gave nothing (tried again after a clear()) }
   function stepStageTiles() {
     if (!stageTiles.size || failed || q() === 'low') return;
     if (!index) { if (!dry) ensure(); return; }   // the layer is made for them (a stage with tile effects and no effect yet)
@@ -6588,9 +6613,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (Array.isArray(g) && !cell?.drawn) continue;
       if (!index.bundles?.[t.bundle]?.includes(t.name)) continue;
       rec.loading = true;
-      const at = { x: t.x, y: t.y, z: cell ? (cell.h || 0) + (cell.devH || 0) : 0 };
-      spawn(t.bundle, t.name, at, { owner: null, buff: true, keep: true, pinned: true, tiled: true, until: Infinity, tag: 'stageTile' }, { over: false })
-        .then((l) => { rec.loading = false; if (!l) { rec.none = true; return; } if (rec.off) { l.keep = false; l.inst.stop(true); } else rec.l = l; }, () => { rec.loading = false; });
+      // a device's effect (the blowers' wind) starts on its tile's surface, the device's own map position, and is turned
+      // (TileBatch merges only unturned copies, so it is not `tiled`)
+      const at = { x: t.x, y: t.y, z: cell ? (cell.h || 0) + (t.device ? 0 : cell.devH || 0) : 0 };
+      spawn(t.bundle, t.name, at, { owner: null, buff: true, keep: true, pinned: true, tiled: !t.turn, until: Infinity, tag: 'stageTile' }, { over: false })
+        .then((l) => {
+          rec.loading = false;
+          if (!l) { rec.none = true; return; }
+          if (t.turn) l.inst.nodes[0]?.quaternion.set(t.turn[0], t.turn[1], t.turn[2], t.turn[3]);
+          if (rec.off) { l.keep = false; l.inst.stop(true); } else rec.l = l;
+        }, () => { rec.loading = false; });
     }
   }
   function syncCameraFx() {
@@ -6952,7 +6984,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       for (const t of Array.isArray(list) ? list : []) {
         const x = Number(t?.x), y = Number(t?.y);
         if (!t || typeof t.bundle !== 'string' || typeof t.name !== 'string' || !Number.isInteger(x) || !Number.isInteger(y)) continue;
-        want.set(`${t.bundle}/${t.name}@${x},${y}`, { bundle: t.bundle, name: t.name, x, y });
+        const turn = Array.isArray(t.turn) && t.turn.length === 4 ? t.turn : null;
+        want.set(`${t.bundle}/${t.name}@${x},${y}`, { bundle: t.bundle, name: t.name, x, y, turn, device: !!t.device });
       }
       for (const [k, rec] of stageTiles) {
         if (want.has(k)) continue;

@@ -483,8 +483,10 @@ function tickAirflowAlly(battle, st, u) {
   if (f && u.motion !== 'FLY') atk = num(f.bb[`blower_s_character[${airflowRelationOf(u.dir, f.dir)}].atk`], 0);
   if (atk === (u.mem.airAtk ?? 0)) return;
   u.mem.airAtk = atk;
-  if (atk) battle.addBuff(u, { key: AIRFLOW, refresh: 'replace', mods: { atkPct: atk } });
-  else battle.removeBuff(u, AIRFLOW);
+  // shown (`visible`): the client's buff blower_s[atk] wears wind_buff_02 when it raises ATK ([equal]) and wind_buff_01
+  // when it lowers it ([opposite], [vertical] below 0) — `fxTag` 2 / 1 (render/fxstatus.js KEY_FX); a new sign is a new buff
+  battle.removeBuff(u, AIRFLOW);
+  if (atk) battle.addBuff(u, { key: AIRFLOW, mods: { atkPct: atk }, visible: true, fxTag: atk > 0 ? 2 : 1 });
 }
 
 function tickAirflowEnemy(battle, st, e) {

@@ -151,7 +151,8 @@ test('the effect layer: the floors and the stage\'s tile effects are laid on til
   const fx = SRC('public/js/render/fxgame.js');
   assert.match(fx, /tag: 'acRain', pinned: true, tiled: true \}/);
   assert.match(fx, /tag: 'stageTile' \}/);
-  assert.match(fx, /\{ owner: null, buff: true, keep: true, pinned: true, tiled: true, until: Infinity, tag: 'stageTile' \}/);
+  // (2026-11-15) a turned one — a blower's wind (stageTileFx `turn`) — is not merged: TileBatch copies only unturned instances
+  assert.match(fx, /\{ owner: null, buff: true, keep: true, pinned: true, tiled: !t\.turn, until: Infinity, tag: 'stageTile' \}/);
   assert.match(fx, /for \(const l of live\) if \(l\.tiled && !l\.hidden\) tileInsts\.push\(l\.inst\);/);
   assert.match(fx, /\(tileBatch \|\|= new mod\.fxp\.TileBatch\(\)\)\.sync\(tileInsts, camera\);/);
   assert.match(fx, /\n {6}tileBatch\?\.restore\(\);\n {6}camera\.layers\.set\(0\);/);

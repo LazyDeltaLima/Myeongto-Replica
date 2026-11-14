@@ -155,6 +155,8 @@ const HUMUS_PEAK = Object.freeze([Object.freeze(['humus', 'humus_buff_01', OWN])
  */
 const MONSTR_T2 = Object.freeze([['token_monstr_prosts_buff_01', 'token_monstr_prosts_buff_01_2'], ['token_monstr_prosts_buff_02', 'token_monstr_prosts_buff_02_2']]
   .map((p) => Object.freeze(p.map((n) => Object.freeze(['monstr_token', n, OWN])))));
+/** blower_s[atk]'s two effects: [ATK up, ATK down] (spawn at the prefab's own point). */
+const WIND_BUFF = Object.freeze([Object.freeze(['wind', 'wind_buff_02', OWN]), Object.freeze(['wind', 'wind_buff_01', OWN])]);
 /**
  * A kit buff → the official buff's effect: by its key; a list of specs when the buff stands for several; a function picks by
  * the holder (`view`) and its statusSource() (`from`) or returns null for none.
@@ -195,6 +197,9 @@ export const KEY_FX = Object.freeze({
   // alga_buff), her too; the S2 mode's copy is the same buff (`disableOverride`: outside the override group, not the effect off) —
   // the sim's aura buff 'alga[check_enemy]:<her id>'
   'alga[check_enemy]': keyedAll('alga[check_enemy]', 'alga', OWN),
+  // (2026-11-15) 战场#05's 气流 (sktok_blower's aura, content/devices.js tickAirflowAlly): blower_s[atk] on the operator —
+  // wind_buff_02 from blower_s_character[equal] (ATK up, `fxTag` 2), wind_buff_01 from [opposite] / [vertical] (down, 1)
+  'terrain:airflow': cite(['blower_s_character[equal]', 'blower_s_character[opposite]'], (v, from) => WIND_BUFF[Number(from?.fx) === 2 ? 0 : 1]),
   // (2026-11-03) Mon3tr T2 战术协同 on an ally neither a Mon3tr nor a 重构体 (the sim's 'talent:monstr:aspd', `fxTag` 2 = given
   // under her S2), by the side the ally faces
   'talent:monstr:aspd': cite(['monstr_t_2[eff_1]', 'monstr_t_2[eff_1][r]', 'monstr_t_2[eff_2]', 'monstr_t_2[eff_2][r]'],

@@ -3230,7 +3230,7 @@
       "hooks": [1,156,6654,1245,1245,2725,3460,2148,66,151,108,107,17,13620,312,71,127,79,1,98,8,55,0],
       "events": {"atk":1257,"bounty":3,"deploy":29,"die":72,"dmg":3357,"engage":12,"face":15,"fx":818,"heal":73,"layer":8,"leak":79,"skill":216,"spawn":140,"status":996,"swing":1372,"tplfx":6},
       "fx": {"blink":2,"burst":55,"ember":2,"enemySkill":1,"explode":7,"garrison":6,"heal":56,"kitHit":220,"logosExecute":8,"logosLexicon":130,"mantraGate":2,"motes":2,"palsy":78,"revive":10,"shield":65,"stacks":157,"stone":10,"summon":2,"sunBurst":2,"talent":2,"zone":1},
-      "snaps": "e189205d 9de35b58 142c6bc2 a0019310 9c42cb6d b5f1fb1a dc51ad88 12b87919 06bdf926 88642d39 24603ce7 e369baaf fc4b9edb 75147e82 871b17b5 a712041f bab6610e 1afb9849 0feac73f d67ac5b9 1599c3da 1b443bdf 6226eeb5"
+      "snaps": "e189205d 9de35b58 142c6bc2 a0019310 9c42cb6d b5f1fb1a dc51ad88 12b87919 06bdf926 88642d39 24603ce7 e369baaf fc4b9edb 75147e82 871b17b5 a712041f bab6610e 1afb9849 0feac73f d67ac5b9 4ffc90ee 70ddcceb b63332b9"
     },
     "roster-046": {
       "about": "pass 1 band 7: chess_char_6_20_a chess_char_6_04_b chess_char_6_05_b chess_char_6_17_a chess_char_6_18_a chess_char_6_19_a chess_char_6_01_b chess_char_6_02_b chess_char_6_03_b chess_char_6_06_b chess_char_6_07_b chess_char_6_08_b token_10017_skadi2_dedant",

@@ -40,7 +40,7 @@ import { ATTACK_PAUSE, PALSY_STOP, MIN_ANIM_SCALE, ALLY_COLLIDER_RADIUS, MOVE_SC
 import { sortEnemyTargets, sortAllyTargets, canTargetEnemy, canTargetAlly, tileKeyOf } from './targeting.js';
 import { reduceElement } from './damage.js';
 import { moveFeared, endFear } from './fear.js';
-import { legField, legX, legY, tileKey, steerStep, walkCursor, REACH_SQ } from './walk.js';
+import { legField, legX, legY, tileKey, steerStep, walkCursor, inWallTile, REACH_SQ } from './walk.js';
 import { hypot, powi } from './detmath.js';
 import { bodyInRange } from './body.js';
 
@@ -1232,7 +1232,8 @@ function walkRoute(b, e, R, leg, speed, dt) {
   const tx = lx - e.x, ty = ly - e.y;
   if (tx * tx + ty * ty <= step * step) { e.x = lx; e.y = ly; return; }
   const p = R.pts[0];
-  steerStep(b, e, p.x, p.y, speed, dt);
+  if (inWallTile(b, e)) steerStep(b, e, e.x, e.y, speed, dt);   // no direction from a wall tile (walk.js inWallTile)
+  else steerStep(b, e, p.x, p.y, speed, dt);
 }
 
 /**
