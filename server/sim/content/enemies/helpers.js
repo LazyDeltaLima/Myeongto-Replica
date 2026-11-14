@@ -420,6 +420,21 @@ export function shoot(b, from, t, shot, onHit, opts = {}) {
 }
 
 /**
+ * The allies a 直击 of enemy `e` can aim at: the client's CrossTileRange (every tile of the enemy's own row and column, no
+ * distance — CrossTileRange.CheckTargetIn: the selector's grid row or column) through AdvancedSelectorWithTrapSheltr
+ * `_checkOnTheSameLine` with the prefab's offsets X −0.5…0.5 / Y −0.5…0.1 (the candidate's position minus the target's,
+ * within either), every motion; nearest first. 重弩突袭者 (invisible.js kitCrossbow, prefab Skills/CrossAttack/Selector), 速射轻弩手 /
+ * 速射劲弩手 and 马特奥的近卫 (critic.js) all have it.
+ */
+export function crossTargets(b, e) {
+  const r = Math.round(e.y), c = Math.round(e.x);
+  const between = (v, lo, hi) => v > lo - 1e-9 && v < hi + 1e-9;
+  return b.allies().filter((u) => canTargetAlly(e, u, true) && (u.tileR === r || u.tileC === c)
+    && (between(e.x - u.x, -0.5, 0.5) || between(e.y - u.y, -0.5, 0.1)))
+    .sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || p.id - q.id);
+}
+
+/**
  * Fire an official FIXED_DIRECTION projectile (`shot`: data/enemies.json `skills[i].proj`, move FIXED_DIRECTION — 重弩突袭者
  * 直击's projectile_enemy_msnip) from `from` the way of `aim` (a unit or point): it flies straight along the nearest of the
  * four map axes and ends on the first ally it touches — `onHit(target, { x, y })` then, with where it stopped — or, touching none, after `shot.life` s

@@ -198,20 +198,28 @@ function real(key, o = {}) {
   return { h, e };
 }
 
-test('弧光锋卫 bleeds 400 true damage every 0.066 s for as long as the state lasts (PRTS 天赋) — a push, a 急停 pull, a wall-shortened slide', REAL, () => {
-  const bleed = (act) => {
+// 2026-11-14 (official client: the talent's buff enemy_cbjedi_bleed triggers every 1 s from the spawn, `waitFirstTriggerInterval`):
+// the state is looked at once a second — unbalanced, the bleed begins (400 every 0.066 s, the first 0.066 s in); not, it ends
+test('弧光锋卫 bleeds 400 true damage every 0.066 s from the once-a-second check that finds it unbalanced to the one that does not', REAL, () => {
+  const bleed = (phase, act) => {
     const { h, e } = real('enemy_1328_cbjedi');
-    const hp0 = e.hp;
+    const a = e.mem.ab.list.find((x) => typeof x.clk === 'number' || (x.tick && String(x.tick).includes('BLEED_CHECK')));
+    assert.ok(a, 'its bleed ability');
+    h.runUntil(() => typeof a.clk === 'number' && (phase === 'before' ? a.clk >= 0.95 : a.clk > 0 && a.clk < 0.05), 3);
+    const hp0 = e.hp, t0 = h.b.time;
     act(h, e);
-    h.run(2);
+    h.run(2.5);
     const hits = h.hooksOf('damaged').filter((c) => c.target === e && c.dmg.tags?.includes('unbalanced'));
-    return { lost: hp0 - e.hp, hits: hits.length };
+    return { lost: hp0 - e.hp, hits: hits.length, first: hits.length ? +(hits[0].t ?? hits[0].time ?? NaN) - t0 : null };
   };
-  // weight 1: 力度 1 → 受力等级 0, 0.8 s → 12 × 400; a 急停 pull (no movement) 1 s → 15 × 400; the wall ends the state
-  // when it stops the slide (0.8 × (1 − √(1 − moved / 1.7)) s ≈ 0.27 s → 4 × 400)
-  assert.deepEqual(bleed((h, e) => h.b.push(e, 1, { from: { x: e.x + 1, y: e.y } })), { lost: 4800, hits: 12 });
-  assert.deepEqual(bleed((h, e) => h.b.pull(e, 2, { to: { x: e.x - 0.3, y: e.y }, center: { x: e.x - 0.3, y: e.y } })), { lost: 6000, hits: 15 });
-  assert.deepEqual(bleed((h, e) => { e.x = 9.6; h.b.push(e, 1, { from: { x: e.x - 1, y: e.y } }); }), { lost: 1600, hits: 4 });
+  const push = (h, e) => h.b.push(e, 1, { from: { x: e.x + 1, y: e.y } });                                  // 0.8 s
+  const pull = (h, e) => h.b.pull(e, 2, { to: { x: e.x - 0.3, y: e.y }, center: { x: e.x - 0.3, y: e.y } });   // 急停: 1 s
+  // a 0.8 s push begun just after a check is over by the next one: no bleed (until 2026-11-14 12 × 400)
+  assert.deepEqual((({ lost, hits }) => ({ lost, hits }))(bleed('after', push)), { lost: 0, hits: 0 });
+  // begun just before one: that check finds it, the next ends it — 1 s of bleeding, 15 × 400
+  assert.deepEqual((({ lost, hits }) => ({ lost, hits }))(bleed('before', push)), { lost: 6000, hits: 15 });
+  // a 1 s 急停 pull begun just after a check still holds at the next one: 15 × 400, a second later
+  assert.deepEqual((({ lost, hits }) => ({ lost, hits }))(bleed('after', pull)), { lost: 6000, hits: 15 });
 });
 
 test('no skill, blink or scripted move while it lasts (失衡免疫 「失衡期间无法自主移动、发动攻击、使用技能」)', REAL, () => {

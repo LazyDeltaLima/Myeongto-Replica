@@ -39,7 +39,7 @@ for (const [name, key, prep] of [
     h.step();
     const hp0 = dragon.hp;
     h.b.dealDamage(null, e, { amount: e.hp + 10, type: 'true', tags: ['test'] });
-    h.run(0.3);
+    h.run(1.2);                                             // the projectile strikes as its life ends (1 s; 卷心籽 0.4 s)
     assert.equal(e.alive, false);
     assert.ok(taken(h, op, e) > 0, 'the ground operator is hit');
     assert.equal(taken(h, dragon, e), 0, 'the flyer is not');

@@ -5,7 +5,7 @@ import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import { canTargetAlly, areaSelectable } from '../../targeting.js';
 import { periodicDamage } from '../../damage.js';
 import {
-  BOOM_RADIUS, nthOf, stOf, T, elem, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, byPriority,
+  nthOf, stOf, T, elem, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, byPriority,
   stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, mode, setForm,
 } from './helpers.js';
 import {
@@ -369,8 +369,16 @@ function catapultVolley(ab, b, e, aim) {
   }
 }
 
-/** 冰爆源石虫 / ·α: knocked out, `boom.atk_scale` physical within its range radius + `boom.freeze` s cold (deathBoom). */
-const kitIceSlime = (ab, e) => [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, r: (e.def.raw.stats && e.def.raw.stats.rawRangeRadius) || BOOM_RADIUS, status: { key: 'cold', dur: T(ab, 'boom.freeze') ?? 0 }, ability: 'boom' })];
+/**
+ * A death blast's projectile life (data/enemies.json talentProj[name].life — its prefab's `_lifeTime`; deathBoom `delay`), or
+ * `dflt` when the data has none.
+ */
+const boomLife = (e, name, dflt) => { const l = e?.def?.raw?.talentProj?.[name]?.life; return Number.isFinite(l) && l > 0 ? l : dflt; };
+/** The death blasts' projectiles (EN client battle/prefabs/[uc]projectiles): CircleCollider2D radius and `_lifeTime`. */
+const BSLIME_BOOM = { r: 1.25, life: 1 }, SNSLIME_BOOM = { r: 1.65, life: 1 }, LRBOOM_LIFE = 1;
+/** 冰爆源石虫 / ·α: knocked out, `boom.atk_scale` physical within projectile_snslime's radius + `boom.freeze` s cold, as the
+ *  projectile's life ends (deathBoom; until 2026-11-14 at once, within its attack range 1.75). */
+const kitIceSlime = (ab, e) => [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, r: SNSLIME_BOOM.r, delay: boomLife(e, 'Boom', SNSLIME_BOOM.life), status: { key: 'cold', dur: T(ab, 'boom.freeze') ?? 0 }, ability: 'boom' })];
 
 /** 雪怪小队 / 雪怪小队破冰者: its attack on a 冻结 target × `atkup.atk_scale` (template e2c_frozen_atkscale: ON_CALCULATE_DAMAGE,
  *  CheckAbnormalFlag FROZEN on the target, AtkScaleUp). */
@@ -454,7 +462,7 @@ export const SPECIAL_KITS = Object.freeze({
   // 恶尘源石虫 (规程's leader wave h07_09) · death: phys blast (Boom: projectile_on_killed → projectile_lrboom, radius 1.3, ground
   // only); its 源石污染区 is a switch of the dynamic REED_TILE under it (enemy_lrboom[triggerTile]) and 活性源石风暴 a stage
   // device — no 规程 stage has either
-  enemy_1424_lrboom: (ab) => [deathBoom({ scale: T(ab, 'Boom.atk_scale') ?? 0, r: LRBOOM_RADIUS, ability: 'Boom' })],
+  enemy_1424_lrboom: (ab, e) => [deathBoom({ scale: T(ab, 'Boom.atk_scale') ?? 0, r: LRBOOM_RADIUS, delay: boomLife(e, 'Boom', LRBOOM_LIFE), ability: 'Boom' })],
   enemy_10196_ubba_2: kitUbba,                                       // 搏命享受者 (规程) · damage taken ×0.75 for the enemies around it (itself too)
   enemy_10196_ubba: kitUbba,                                         // 搏命养家者 (规程 悬赏 / leader waves) · same
   enemy_1413_mmstck: (ab) => kitRush(ab, { prefix: 'Rush.enemy_mmstck_t[trigger]', scaleKey: 'FirstAttack.atk_scale', type: 'arts' }), // 赏金猎人“骑士” (规程 悬赏) · as 穿刺手, arts bonus
@@ -466,7 +474,7 @@ export const SPECIAL_KITS = Object.freeze({
     death(c, b) { stOf(b).chalices = Math.max(0, (stOf(b).chalices ?? 1) - 1); },
   }],
   enemy_1025_reveng: (ab) => [lowHpBuff(0.5, { atkPct: T(ab, 'atkup.atk') ?? 0 }, 'ab:lowhp', 'buff:reveng_t_atkup')],     // 寻仇者 · ATK up below half HP
-  enemy_1021_bslime: (ab) => [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, ability: 'boom' })],       // 高能源石虫 · death: phys blast
+  enemy_1021_bslime: (ab, e) => [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, r: BSLIME_BOOM.r, delay: boomLife(e, 'Boom', BSLIME_BOOM.life), ability: 'boom' })],   // 高能源石虫 · death: phys blast 1 s after
   enemy_1067_snslime: kitIceSlime,                                   // 冰爆源石虫 · death: phys blast + cold
   enemy_1067_snslime_2: kitIceSlime,                                 // 冰爆源石虫·α (规程) · same (EN prefab: the same Boom talent)
   enemy_1069_icebrk_2: kitFrozenAtk,                                 // 雪怪小队破冰者 · ×3 vs frozen

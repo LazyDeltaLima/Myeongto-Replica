@@ -1,9 +1,9 @@
 // server/sim/content/enemies/invisible.js — INVISIBLE 隐匿 kits (stealthy enemies) and their part of KITS (split from
 // content/enemies.js).
 
-import { canTargetAlly, enemyStealthed } from '../../targeting.js';
+import { enemyStealthed } from '../../targeting.js';
 import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
-import { T, elem, hurt, targetsNear, byPriority, auraBuff, auraAllies, lineShot, mode } from './helpers.js';
+import { T, elem, hurt, targetsNear, byPriority, auraBuff, auraAllies, lineShot, crossTargets, mode } from './helpers.js';
 import { stealth, onHitStatus, skill, kitStealth } from './archetypes.js';
 import { hypot } from '../../detmath.js';
 
@@ -18,9 +18,9 @@ const ACBUNN_TARGETS = 3;
  *  when the INVISIBLE flag says so; entering a mode starts its passive, whose audioSignal sounds (ON_BUFF_START). */
 const ACBUNN_SWITCH_IV = 0.3;
 
-/** 重弩突袭者 直击 reach along a row/column [ASSUMED]; the skill's length and its charge before the bolt (PRTS 直击 "蓄力1.4s后
- *  向目标方向发射1支弩箭…※技能持续2.5s"). */
-const CROSS_REACH = 6, CROSS_SKILL = 2.5, CROSS_CHARGE = 1.4;
+/** 重弩突袭者 直击: the skill's length and its charge before the bolt (PRTS 直击 "蓄力1.4s后向目标方向发射1支弩箭…※技能持续2.5s"). Its
+ *  reach is no number: helpers.js crossTargets (until 2026-11-14 an assumed 6 tiles). */
+const CROSS_SKILL = 2.5, CROSS_CHARGE = 1.4;
 const CROSS_BOLT_SPEED = 5;   // projectile_enemy_msnip `_speed` (the data's skills CrossAttack.proj when present)
 /** 重弩突袭者 直击's MUZZLE (map tiles from its position: forward along its facing, up a row) as the bolt leaves — the
  *  `Muzzle` bone at the OnAttack event (0.067 s) of the clip its ThreePartChannelingAnimation ends on, by its direction:
@@ -34,13 +34,10 @@ const CROSS_MUZZLE = { side: { f: 0.574, up: 0.188 }, DOWN: { f: 0.409, up: -0.1
 
 function kitCrossbow(ab) {
   const s = ab.sk.CrossAttack;
-  // 2026-10-21 (the client's AdvancedSelectorWithTrapSheltr.OnPostFilter, `_checkOnTheSameLine`; the prefab's
-  // Skills/CrossAttack/Selector at its root: _offsetMinX/MaxX −0.5/0.5, _offsetMinY/MaxY −0.5/0.1): a candidate stays when its
-  // own position minus the target's is within the X offsets OR within the Y offsets — MathUtil.Between is
-  // min − ε < v < max + ε. The rows are uneven: a unit up to 0.5 above it, 0.1 below (until 2026-10-21 ±0.5 both ways)
-  const between = (v, lo, hi) => v > lo - 1e-9 && v < hi + 1e-9;
-  const aligned = (b, e) => b.allies().filter((u) => canTargetAlly(e, u, true) && (between(e.x - u.x, -0.5, 0.5) || between(e.y - u.y, -0.5, 0.1)) && hypot(u.x - e.x, u.y - e.y) <= CROSS_REACH);
-  const nearest = (b, e, l) => l.sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y))[0];
+  // its prefab's Skills/CrossAttack/Selector (공식 클라에서 확인, 2026-11-14): a CrossTileRange — every tile of its own row and
+  // column, no distance (until 2026-11-14 an assumed 6 tiles of it) — through AdvancedSelectorWithTrapSheltr
+  // `_checkOnTheSameLine` with the uneven offsets X −0.5/0.5, Y −0.5/0.1 (2026-10-21; until then ±0.5 both ways):
+  // helpers.js crossTargets, as 速射轻弩手's
   // PRTS 重弩突袭者: 天赋 "隐匿（被阻挡，主动攻击期间均可解除）"; 直击 "蓄力1.4s后向目标方向发射1支弩箭，对击中的首个目标造成攻击力100%
   // 的法术伤害与5s晕眩 ※技能持续2.5s": revealed for the whole skill, the bolt leaves CROSS_CHARGE s in the way of the unit it
   // aimed at, and a stun / silence or its death before the release cancels the shot [ASSUMED]. The skill's length is its
@@ -51,7 +48,7 @@ function kitCrossbow(ab) {
   // Never begun while blocked: its `_familyMask` is ATTACK only (content/enemies.js onSkillSlot; until 2026-10-22 it shot
   // its blocker too); a shot begun before the block still leaves.
   return [stealth(), skill(s, (b, e) => {
-    const t = nearest(b, e, aligned(b, e));
+    const t = crossTargets(b, e)[0];
     if (!t) return;
     const bb = s.bb;
     const aim = { x: t.x, y: t.y };
@@ -74,7 +71,7 @@ function kitCrossbow(ab) {
         if (bb.stun > 0 && u.alive) b.applyStatus(u, 'stun', { duration: bb.stun, source: e });
       }, { source: e, at: { x: e.x + face * m.f, y: e.y + m.up } });
     }, { owner: e });
-  }, { sil: true, cond: (b, e) => aligned(b, e).length > 0 })];
+  }, { sil: true, cond: (b, e) => crossTargets(b, e).length > 0 })];
 }
 
 /**

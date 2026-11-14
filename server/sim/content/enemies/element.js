@@ -238,8 +238,11 @@ function kitParasite(ab) {
   }];
 }
 
+/** 卷心籽 (ignited): its boom is projectile_enemy_ftzlc — CircleCollider2D 1.25, `_lifeTime` 0.4 s (deathBoom `delay`;
+ *  until 2026-11-14 at the knock-out). */
+const FTZLC_BOOM = { r: 1.25, life: 0.4 };
 function kitIgnitable(ab) {
-  return [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, type: 'arts', cond: (e) => !!e.mem.ab.ignited, sil: true, ability: 'boom' })];
+  return [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, type: 'arts', r: FTZLC_BOOM.r, delay: FTZLC_BOOM.life, cond: (e) => !!e.mem.ab.ignited, sil: true, ability: 'boom' })];
 }
 
 function kitFlameVine(ab) {

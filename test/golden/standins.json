@@ -341,8 +341,8 @@
         "enemy_1329_cbshld_2": [12,1,10,10493,35135]
       },
       "hooks": [1,148,5700,331,331,575,584,12,53,145,40,39,0,5484,14,33,98,75,1,57,3,0,3],
-      "events": {"atk":385,"bounty":1,"deploy":50,"die":70,"dmg":584,"engage":10,"face":9,"fx":45,"heal":34,"layer":3,"leak":75,"skill":79,"spawn":110,"status":320,"swing":364},
-      "fx": {"blink":17,"camouflage":2,"dodge":5,"dp":3,"explode":1,"garrison":3,"slash":14},
+      "events": {"atk":385,"bounty":1,"deploy":50,"die":70,"dmg":584,"engage":10,"face":9,"fx":46,"heal":34,"layer":3,"leak":75,"skill":79,"spawn":110,"status":320,"swing":364},
+      "fx": {"blink":17,"camouflage":2,"dodge":5,"dp":3,"explode":1,"garrison":3,"slash":14,"telegraph":1},
       "snaps": "3120be3a 21e1abc4 bc5d4a61 1ccf20ae 13625070 a3b5dc28 187bc863 7111b5a0 f8203d1c 50344a84 684abed0 907c30c5 e6bf4d7d da80d096 8c4aab68 794b0fad d5315622 89a77e7b 13bc66a4"
     },
     "standin-07": {

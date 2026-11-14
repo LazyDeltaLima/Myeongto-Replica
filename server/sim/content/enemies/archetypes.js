@@ -198,20 +198,30 @@ const deathSpawn = (key, cnt, extra = {}) => ({
  * Death explosion on the allies within r it can select (areaAllies — PRTS 高能源石虫 / 冰爆源石虫 / 卷心籽 死亡爆炸 "…无视迷彩，
  * 不可对空", no 无视无法选择: a 隐匿 ally is spared; the dead enemy blocks nobody). `noAir` (default — all three say so):
  * a flying ally (the 炎佑 dragon) is skipped; until 0.2.1 it took the blast (community report: 炎祐吃到了不该吃到的地面伤害).
- * `ability`: the official talent that fires it (all three: `boom`, its buff's projectile_on_killed) — the fx 'explode'
- * names it, so the render draws that projectile's effects (render/fxgame.js eprojAreaFx).
+ * `ability`: the official talent that fires it (all three: `boom`, its buff's projectile_on_killed) — the fx names it, so the
+ * render draws that projectile's effects (render/fxgame.js eprojAreaFx / eprojTelegraph).
+ * `delay` (s): that projectile's life. 2026-11-14 (공식 클라에서 확인 — projectile_bslime / _snslime / _lrboom 1 s,
+ * projectile_enemy_ftzlc 0.4 s): the projectile stays where it fell (no movement), `_alwaysReachInTheEnd` with
+ * `_onlyCheckHitWhenReachTarget` and `_hitNumType` INFINITY — it strikes every unit in its circle as its life ends, as
+ * 冰原卫法者's (critic.js kitIceGuard): fx 'telegraph' { …, dur } as it appears, 'explode' then; the battle waits for it.
+ * The ATK is the one it had as it fell (the action's `_cachedAtkKey` atk). Until 2026-11-14 it struck at the knock-out.
  */
-const deathBoom = ({ scale, type = 'phys', r = BOOM_RADIUS, status = null, sil = true, cond = null, noAir = true, ability = null }) => ({
+const deathBoom = ({ scale, type = 'phys', r = BOOM_RADIUS, status = null, sil = true, cond = null, noAir = true, ability = null, delay = 0 }) => ({
   sil,
   death(c, b, e, a) {
     if (c.reason !== 'killed' || (cond && !cond(e, a))) return;
-    const atk = e.s.atk;
-    b.fx('explode', { x: e.x, y: e.y, r, kind: 'deathBoom', id: e.id, ...(ability ? { ability } : {}) });
-    for (const u of areaAllies(b, e, e.x, e.y, r)) {
-      if (noAir && u.isFlying) continue;
-      if (scale > 0) hurt(b, e, u, atk * scale, type);
-      if (status && u.alive) b.applyStatus(u, status.key, { duration: status.dur, source: e, value: status.value });
-    }
+    const atk = e.s.atk, x = e.x, y = e.y, tag = { kind: 'deathBoom', id: e.id, ...(ability ? { ability } : {}) };
+    const strike = () => {
+      b.fx('explode', { x, y, r, ...tag });
+      for (const u of areaAllies(b, e, x, y, r)) {
+        if (noAir && u.isFlying) continue;
+        if (scale > 0) hurt(b, e, u, atk * scale, type, { tags: ['splash'] });   // its projectile action: `_attackType` SPLASH
+        if (status && u.alive) b.applyStatus(u, status.key, { duration: status.dur, source: e, value: status.value });
+      }
+    };
+    if (!(delay > 0)) { strike(); return; }
+    b.fx('telegraph', { x, y, r, dur: delay, ...tag });
+    b.after(delay, strike, { holdsBattle: true });
   },
 });
 
@@ -221,18 +231,35 @@ const deathBoom = ({ scale, type = 'phys', r = BOOM_RADIUS, status = null, sil =
  * 每0.066s受到400点无来源真实持续伤害" (data unbalanced_bleed.damage / .interval; 伤害分类: 弧光锋卫失衡状态下的自残伤害 is BUFF
  * damage): damage, not a 流失 (player report D1 audit) — every `interval` s for as long as the state lasts
  * (battle/displacement.js _unbalance: a push's 位移时间, a pull's force window even after the 急停 or with no movement).
- * Until 0.2.2 one hit in proportion to the tiles moved [ASSUMED], from the position jump.
+ * 2026-11-14 (공식 클라에서 확인 — the talent's PassiveBuffAbility buff, enemy_cbjedi_bleed / krgrg_t_1[bleed]: `triggerInterval`
+ * 1, `waitFirstTriggerInterval`; the templates enemy_cbjedi_bleed / enemy_krgrg_bleed): the state is looked at once a second
+ * from the spawn, not every tick — unbalanced then, the bleed buff (periodic_damage_without_modify, NoSourceDamage PURE every
+ * `interval` s, the first one `interval` after it starts) begins unless it runs already; not unbalanced, it is finished.
+ * So it starts up to 1 s after the state does and runs on up to 1 s after it ends. Until 2026-11-14 it ran exactly while
+ * the state held. Until 0.2.2 one hit in proportion to the tiles moved (an assumption), from the position jump.
  */
+const BLEED_CHECK = 1;
 const unbalancedBleed = (ab) => {
   const v = T(ab, 'unbalanced_bleed.damage') ?? 0, iv = T(ab, 'unbalanced_bleed.interval') ?? 0;
   return [{
     tick(b, e, a, dt) {
-      if (!(v > 0 && iv > 0) || !unbalancedNow(b, e)) { a.bleed = 0; return; }
-      a.bleed = (a.bleed ?? 0) + dt;
-      while (a.bleed >= iv - 1e-9 && e.alive) {
-        a.bleed -= iv;
-        b.dealDamage(null, e, { ...periodicDamage(v), tags: ['dot', 'periodic', 'unbalanced'] });
-      }
+      if (!(v > 0 && iv > 0)) return;
+      a.clk = (a.clk ?? 0) + dt;
+      const due = () => {
+        while (a.on && a.bleed >= iv - 1e-9 && e.alive) {
+          a.bleed -= iv;
+          b.dealDamage(null, e, { ...periodicDamage(v), tags: ['dot', 'periodic', 'unbalanced'] });
+        }
+      };
+      // the hits due before this tick's check land first (a check `a.clk` s ago)
+      const over = a.clk >= BLEED_CHECK - 1e-9 ? a.clk - BLEED_CHECK : -1;
+      if (a.on) { a.bleed += dt - Math.max(0, over); due(); }
+      if (over < 0) return;
+      a.clk = over;
+      const now = unbalancedNow(b, e);
+      if (now && !a.on) { a.on = true; a.bleed = 0; }          // begun at the check
+      else if (!now) a.on = false;
+      if (a.on) { a.bleed += over; due(); }
     },
   }];
 };

@@ -698,7 +698,7 @@ test('纤核漂游者: a unit on a high tile first (HATRED_DES_HIGHLAND_FIRST), 
   assert.ok(h.unit(1).elem.neural > 0 && !(h.unit(2).elem.neural > 0), 'neural with each hit');
 });
 
-test('恶尘源石虫: knocked out, ATK × 3.5 physical on the ground units within 1.3 (projectile_lrboom); silenced, none', () => {
+test('恶尘源石虫: knocked out, ATK × 3.5 physical on the ground units within 1.3 as projectile_lrboom\'s 1 s life ends; silenced, none', () => {
   const key = 'enemy_1424_lrboom';
   assert.equal(E3[key].talents.bb['Boom.atk_scale'], 3.5);
   const run = (silence) => {
@@ -709,11 +709,15 @@ test('恶尘源石虫: knocked out, ATK × 3.5 physical on the ground units with
     const t0 = [h.unit(1).stats.taken, h.unit(2).stats.taken];
     h.b.kill(e, h.unit(1));
     h.step();
-    return [h.unit(1).stats.taken - t0[0], h.unit(2).stats.taken - t0[1]];
+    const early = h.unit(1).stats.taken - t0[0];
+    runFor(h, 1);
+    return [h.unit(1).stats.taken - t0[0], h.unit(2).stats.taken - t0[1], early];
   };
-  const [near, far] = run(false);
+  const [near, far, early] = run(false);
+  // the projectile stays 1 s where it fell (`_lifeTime`, `_alwaysReachInTheEnd`) and strikes as its life ends
+  assert.equal(early, 0, 'nothing at the knock-out');
   assert.ok(Math.abs(near - E3[key].stats.atk * 3.5) < 1e-6 && far === 0, `1.2 away hit (${near}), 3.2 away not (${far})`);
-  assert.deepEqual(run(true), [0, 0], 'the SILENCE line');
+  assert.deepEqual(run(true), [0, 0, 0], 'the SILENCE line');
 });
 
 test('搏命享受者: the enemies within 1.7 — itself too (`_selfOption` DEFAULT) — take physical and arts damage × 0.75, one buff per 搏命享受者 (two multiply)', () => {
@@ -1320,10 +1324,12 @@ test('冰原御法者: in its 失衡 state it loses 50 every 0.066 s (unbalanced
   h.step();
   runFor(h, 1);
   assert.equal(e.hp, e.s.maxHp, 'no loss outside 失衡');
-  e.unbalanceUntil = h.b.time + 0.66;
-  runFor(h, 1);
+  // 1.5 s of the state from ~1.03 s after the spawn: the check at 2 s finds it, the one at 3 s ends it (its talent's buff
+  // krgrg_t_1[bleed] triggers every 1 s) — 1 s of bleeding
+  e.unbalanceUntil = h.b.time + 1.5;
+  runFor(h, 2.2);
   const lost = e.s.maxHp - e.hp;
-  assert.ok(lost >= 50 * 9 && lost <= 50 * 11, `about 10 × 50 in 0.66 s (${lost})`);
+  assert.equal(lost, 50 * 15, `15 × 50 between the two checks (${lost})`);
 });
 
 const CHGHMR = 'enemy_1406_chghmr', GUNSHO = 'enemy_1403_gunsho', BDGUAD = 'enemy_1409_bdguad_2', BOOMER = 'enemy_1405_boomer_2';
@@ -2008,7 +2014,7 @@ test('假想敌：影役: stealthed; the operators within 1.8 (+ their collider)
   assert.equal(far.s.blockCnt, cap, 'the last 影役 gone: back');
 });
 
-test('雪怪小队: its attack on a 冻结 target × 1.5 (e2c_frozen_atkscale); 冰爆源石虫·α: knocked out, ATK × 2 physical within 1.9 + 10 s cold', () => {
+test('雪怪小队: its attack on a 冻结 target × 1.5 (e2c_frozen_atkscale); 冰爆源石虫·α: knocked out, ATK × 2 physical within 1.65 + 10 s cold, 1 s later', () => {
   assert.equal(E3[SNSBR].talents.bb['atkup.atk_scale'], 1.5);
   {
     const { h, hits } = waveField([SNSBR], walls([[10, 5]]));
@@ -2020,13 +2026,16 @@ test('雪怪小队: its attack on a 冻结 target × 1.5 (e2c_frozen_atkscale); 
     assert.ok(Math.abs(hits[1].n - E3[SNSBR].stats.atk * 1.5) < 1e-6, 'frozen: × 1.5');
   }
   const bb = E3[SNSLIME2].talents.bb;
-  assert.deepEqual([bb['boom.atk_scale'], bb['boom.freeze'], E3[SNSLIME2].stats.rawRangeRadius], [2, 10, 1.9]);
-  const { h, hits } = waveField([SNSLIME2], walls([[10, 4], [10, 2]]));
-  const e = put(h, SNSLIME2, [10, 5.5], { tag: null });
+  assert.deepEqual([bb['boom.atk_scale'], bb['boom.freeze']], [2, 10]);
+  // the blast is projectile_snslime's circle (1.65, not its attack range 1.9), as its 1 s life ends
+  const { h, hits } = waveField([SNSLIME2], walls([[10, 4], [10, 2], [10, 7]]));
+  const e = put(h, SNSLIME2, [10, 5.3], { tag: null });
   h.step();
   killNow(h, e);
-  runFor(h, 0.1);
-  assert.equal(hits.length, 1, 'the unit 1.5 away only');
+  runFor(h, 0.9);
+  assert.equal(hits.length, 0, 'nothing before the projectile\'s life ends');
+  runFor(h, 0.2);
+  assert.equal(hits.length, 1, 'the unit 1.3 away only (1.7 and 3.3 away: outside)');
   assert.equal(hits[0].t, h.unit(1));
   assert.ok(Math.abs(hits[0].n - E3[SNSLIME2].stats.atk * 2) < 1e-6);
   assert.ok(h.unit(1).s.flags.cold && !h.unit(2).s.flags.cold, 'cold on the unit hit');

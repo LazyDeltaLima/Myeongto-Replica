@@ -1176,9 +1176,10 @@
   - 사망 탄 (2026-10-31) [화면 미확인]: 다섯 적의 사망 투사체도 같은 길로 그린다 — 렌더 표 `skills.<특성>.proj`(위 추출).
     고에너지 원석충(`enemy_1021_bslime`)·빙폭 원석충(`enemy_1067_snslime`)·양배추 씨앗(`enemy_10065_ftzlc`, 불붙었을 때): 특성 `boom`
     (`projectile_bslime` / `projectile_snslime` → `_effectsToTargetWhenStart` `bslime_die_01_start` / `snslime_die_01_start`,
-    `projectile_enemy_ftzlc` → `_effectsWhenReached` `enemy_ftzlc_boom_01`). sim 사망 폭발 fx 'explode'(`archetypes.js deathBoom`)가
-    `id`·`ability: 'boom'`을 싣고 `eprojAreaFx`가 그 자리에 한 번 튼다(절차 원 안 그림). 원석충 투사체는 `move` NONE·속도 0·수명 1 s라
-    죽은 자리에서만 난다. 가상적: 침식(`enemy_9006_actoxi`) 특성 `1`의 독안개: sim이 `shoot`으로 쏘아(`content/enemies/dot.js`, 비행 시간·
+    `projectile_enemy_ftzlc` → `_effectsWhenReached` `enemy_ftzlc_boom_01`). 투사체는 `move` NONE·속도 0이라 죽은 자리에 머물다 수명
+    (원석충 1 s, 양배추 씨앗 0.4 s) 끝에 친다(2026-11-14, sim.md 「규정 적·보스」 정예의 사망 폭발 줄): sim은 쓰러질 때 fx 'telegraph' { `dur`,
+    `id`, `ability` }, 수명 끝에 'explode'(`archetypes.js deathBoom` `delay`) — 빙원 가드와 같은 길로 `eprojTelegraph`가 시작 이펙트를 그 자리에,
+    `dshellBlast`가 도착 이펙트를 칠 때 튼다(절차 원 안 그림; 이전: 쓰러질 때 'explode' 하나를 `eprojAreaFx`가 한 번). 가상적: 침식(`enemy_9006_actoxi`) 특성 `1`의 독안개: sim이 `shoot`으로 쏘아(`content/enemies/dot.js`, 비행 시간·
     착탄점 그대로) `enemyShot` { key `projectile_enemy_actoxi`, `zone: 1` }이 나가고, `eshotFx`가 `_effectsWhenStart`
     `enemy_actoxi_die_2_start`(이 모드에서 투사체 start가 있는 건 이것뿐)를 죽은 적에, 꼬리 `enemy_actoxi_die_2_trail`을 PARACURVE로,
     맞음 `enemy_actoxi_die_2_hit`을 죽인 오퍼에 튼다 — `zone`인 사격은 reach 이펙트를 착탄 대상에 안 붙인다. 착탄의 fx 'zone'

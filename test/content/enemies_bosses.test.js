@@ -168,6 +168,18 @@ test(`${nm('enemy_1404_msnip')}: 直击 — 1.4 s after the cast a unit in line 
   assert.equal(h2.unit('t_wall').stats.taken, 0, 'a stun during the charge cancels the shot');
 });
 
+// official client (docs/rules/sim.md 「FIXED_DIRECTION 투사체」 스킬 대상 고르기): its Skills/CrossAttack/Selector is a CrossTileRange —
+// its row and column at any distance (until 2026-11-14 an assumed 6 tiles)
+test(`${nm('enemy_1404_msnip')}: 直击 aims along its whole row — a unit 7 tiles away is shot`, () => {
+  const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 1 }], hooks: ['statusApplied'] });
+  h.step();
+  put(h, 'enemy_1404_msnip', [9, 8]);
+  const s = skb('enemy_1404_msnip', 'CrossAttack');
+  const w = h.unit('t_wall');
+  h.run(s.initCooldown + 1.4 + 7 / 5 + 0.5);
+  assert.equal(statuses(h, w.id, 'stun').length, 1, 'shot and stunned 7 tiles away');
+});
+
 // official client (docs/rules/sim.md 「FIXED_DIRECTION 투사체」): projectile_enemy_msnip flies straight along the axis towards the
 // aimed unit (FarthestPointMovement `_useDirToTarget` → four ways) and stops on the first ally its 0.3 circle touches
 // (SelectorHitBehaviour `_hitPasserby`, `_maxHitNum` 1, `_stopAfterMaxHit`) — no homing
@@ -909,6 +921,7 @@ test(`${nm('enemy_10067_ftsjc')} + ${nm('enemy_10065_ftzlc')}: ATK ramps until t
   h.step();
   const cab0 = put(h, 'enemy_10065_ftzlc', [11, 8]);
   killed(h, cab0, null);                                       // not ignited: no blast
+  h.run(0.5);
   assert.equal(h.unit('t_wall2').stats.taken, 0);
   const v = put(h, 'enemy_10067_ftsjc', [10, 8]);
   const base = v.s.atk;
@@ -923,6 +936,10 @@ test(`${nm('enemy_10067_ftsjc')} + ${nm('enemy_10065_ftzlc')}: ATK ramps until t
   assert.ok(cab.mem.ab.ignited);
   const t0 = h.unit('t_wall').stats.taken;
   killed(h, cab, null);
+  // its projectile_enemy_ftzlc strikes as its 0.4 s life ends
+  h.run(0.3);
+  assert.equal(h.unit('t_wall').stats.taken, t0, 'not before 0.4 s');
+  h.run(0.2);
   assert.ok(h.unit('t_wall').stats.taken > t0, 'ignited cabbage explodes');
 });
 
@@ -1738,6 +1755,9 @@ test(`${nm('enemy_1021_bslime')}: death blast deals ATK×${tb('enemy_1021_bslime
   h.step();
   const e = put(h, 'enemy_1021_bslime', [10, 7]);
   killed(h, e, null);
+  h.run(0.9);
+  assert.equal(h.unit('t_wall').stats.taken, 0, 'projectile_bslime strikes as its 1 s life ends');
+  h.run(0.2);
   approx(h.unit('t_wall').stats.taken, E.enemy_1021_bslime.stats.atk * tb('enemy_1021_bslime', 'boom.atk_scale'));
 });
 
@@ -1746,6 +1766,7 @@ test(`${nm('enemy_1067_snslime')}: death blast deals ATK×${tb('enemy_1067_snsli
   h.step();
   const e = put(h, 'enemy_1067_snslime', [10, 7]);
   killed(h, e, null);
+  h.run(1.1);                                                  // projectile_snslime: 1 s life
   const w = h.unit('t_wall');
   approx(w.stats.taken, E.enemy_1067_snslime.stats.atk * tb('enemy_1067_snslime', 'boom.atk_scale'));
   assert.equal(statuses(h, w.id, 'cold').length, 1);
@@ -2594,7 +2615,9 @@ test('失衡: 弧光锋卫 bleeds every 0.066 s while unbalanced; 冒失的小�
   h.step(2);
   const hp0 = j.hp;
   // 弧光锋卫: its 失衡 state — a 受力等级 0 push holds 0.8 s (24 frames) — bleeds unbalanced_bleed.damage every .interval s
-  // (PRTS "处于失衡状态时，每0.066s受到400点无来源真实持续伤害"): 12 hits; until 0.2.2 one hit per tile moved [ASSUMED]
+  // (PRTS "处于失衡状态时，每0.066s受到400点无来源真实持续伤害") from the once-a-second check (spawn + 1 s, + 2 s …) that finds it
+  // unbalanced: this push, 2 frames after the spawn, is over by the first one — no bleed (test/sim/unbalance.test.js has the
+  // phases; until 2026-11-14 12 hits, until 0.2.2 one hit per tile moved, an assumption)
   h.b.push(j, j.s.massLevel, { from: { x: j.x - 1, y: j.y } });
   h.b.displace(g, { x: 1, y: 0 }, 1, { force: 3 });
   h.b.displace(p, { x: 1, y: 0 }, 1, { force: 3 });
@@ -2606,7 +2629,9 @@ test('失衡: 弧光锋卫 bleeds every 0.066 s while unbalanced; 冒失的小�
   assert.ok(p.profile.noAttack, '拥霜羽兽 失去蛋的模式: 不进行普通攻击 (no attack, so no stand for its clip)');
   assert.equal(typeof p.profile.canTarget === 'function' && p.profile.canTarget({ isFlying: true }), false, '拥霜羽兽: 不会攻击飞行单位');
   h.run(0.8);
-  approx(hp0 - j.hp, 12 * tb('enemy_1328_cbjedi', 'unbalanced_bleed.damage'), 1e-6);
+  assert.ok(j.unbalanceUntil <= h.b.time + 1e-9, 'the state is over');
+  h.run(0.3);
+  approx(hp0 - j.hp, 0, 1e-6);
   // 雪孩子: pushed into high ground (row 12 col 2 is 'h' on the flat stage) ⇒ hitWall.value
   const sn = put(h, 'enemy_10138_xdsnow', [10, 3]);
   const sn2 = put(h, 'enemy_10138_xdsnow', [11, 6]);

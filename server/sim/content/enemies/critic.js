@@ -7,7 +7,7 @@
 
 import { canTargetAlly, areaSelectable } from '../../targeting.js';
 import { ALLY_COLLIDER_RADIUS, TICK } from '../../constants.js';
-import { T, hurt, areaAllies, lineShot, shoot, atCastEvent, mode, setForm, targetsNear, byPriority } from './helpers.js';
+import { T, hurt, areaAllies, lineShot, crossTargets, shoot, atCastEvent, mode, setForm, targetsNear, byPriority } from './helpers.js';
 import { unbalancedBleed, skill } from './archetypes.js';
 import { hypot, sin, cos } from '../../detmath.js';
 import { hitFx } from '../../damage.js';
@@ -65,20 +65,6 @@ function bothSidesAt(b, src, x, y, r) {
   const allies = areaAllies(b, src, x, y, r).filter((u) => !u.isFlying);
   const foes = b.enemiesInRadius(x, y, r).filter((o) => o !== src && !o.isFlying && !o.s.flags.untargetable);
   return [...allies, ...foes];
-}
-
-/**
- * The allies a 直击 of enemy `e` can aim at: the client's CrossTileRange (every tile of the enemy's own row and column, no
- * distance — CrossTileRange.CheckTargetIn: the selector's grid row or column) through AdvancedSelectorWithTrapSheltr
- * `_checkOnTheSameLine` with the prefab's offsets X −0.5…0.5 / Y −0.5…0.1 (the candidate's position minus the target's,
- * within either — as 重弩突袭者's, content/enemies/invisible.js kitCrossbow), every motion; nearest first.
- */
-function crossTargets(b, e) {
-  const r = Math.round(e.y), c = Math.round(e.x);
-  const between = (v, lo, hi) => v > lo - 1e-9 && v < hi + 1e-9;
-  return b.allies().filter((u) => canTargetAlly(e, u, true) && (u.tileR === r || u.tileC === c)
-    && (between(e.x - u.x, -0.5, 0.5) || between(e.y - u.y, -0.5, 0.1)))
-    .sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || p.id - q.id);
 }
 
 /**

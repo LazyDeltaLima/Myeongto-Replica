@@ -12,7 +12,7 @@ const REAL = { skip: !hasGeneratedData() };
 const JF = 'chess_char_1_02_a';   // 角峰
 const fxOf = (h, kind) => h.eventsOf('fx').filter((e) => e[1] === kind);
 
-test('高能源石虫 / 冰爆源石虫 / 卷心籽: the death blast names its talent boom', REAL, () => {
+test('高能源石虫 / 冰爆源石虫 / 卷心籽: the death blast names its talent boom, as its projectile appears and as it strikes', REAL, () => {
   for (const key of ['enemy_1021_bslime', 'enemy_1067_snslime', 'enemy_10065_ftzlc']) {
     const h = makeBattle({
       seed: 3, timeLimit: 30, autoFinish: false,
@@ -25,6 +25,11 @@ test('高能源石虫 / 冰爆源石虫 / 卷心籽: the death blast names its t
     if (key === 'enemy_10065_ftzlc') e.mem.ab.ignited = true;   // 灼藤's ignition (content/enemies/element.js)
     h.b.kill(e, h.unit(JF));
     h.run(0.1);
+    // the projectile appears where it fell ('telegraph', its life as `dur`) and strikes as that life ends ('explode')
+    const tg = fxOf(h, 'telegraph').filter((x) => x[4]?.kind === 'deathBoom');
+    assert.ok(tg.length === 1 && tg[0][4].id === e.id && tg[0][4].ability === 'boom' && tg[0][4].dur === (key === 'enemy_10065_ftzlc' ? 0.4 : 1), key);
+    assert.equal(fxOf(h, 'explode').filter((x) => x[4]?.kind === 'deathBoom').length, 0, `${key}: not yet`);
+    h.run(1);
     const ex = fxOf(h, 'explode').filter((x) => x[4]?.kind === 'deathBoom');
     assert.equal(ex.length, 1, key);
     assert.equal(ex[0][4].id, e.id, key);
