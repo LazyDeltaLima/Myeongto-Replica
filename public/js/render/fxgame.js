@@ -292,6 +292,9 @@ const FORM_MODES = Object.freeze({
   enemy_9007_acelem: Object.freeze({ parasitic: 'Parasitic' }),
   enemy_9011_acrefr: Object.freeze({ stopped: 'NoRef' }),
   enemy_9017_achunt: Object.freeze({ charge: 'S1' }),
+  // 2026-11-14: the blades' copy (server kitBlade → form 'backEnd'): mode Back_End — its own BornAnim (enemy-modes.json
+  // modes[2].skills['2']: enemy_acstma_back_end on its Back_End clip)
+  enemy_9014_acstma: Object.freeze({ backEnd: 'Back_End' }), enemy_9015_acstmb: Object.freeze({ backEnd: 'Back_End' }),
   enemy_1040_bombd: Object.freeze({ bombed: 'S1' }),
   enemy_9024_acsgnt: Object.freeze({ Giant: 'Giant', SnowyMountain: 'SnowyMountain' }),   // 谢拉格's giant (a walking ally)
   // 2026-11-11: 规程's 寻路者 trio (ammo mode) and 无畏掷弹兵 after its bombs (render/units.js FORMS)
@@ -6053,10 +6056,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * (LASSO_BEAMS) are not drawn while it shows. true = drawn.
    */
   const elassos = new Map();   // caster id → { rec: its elines record, tgt, name: its prefab }
+  /** A link projectile's line prefab: its HarpoonRenderer's `_mainEffect` (`proj.rope`), else its first trail. */
+  const ropeOf = (pr) => efx(typeof pr?.rope === 'string' ? pr.rope : Array.isArray(pr?.trail) ? pr.trail[0] : null);
   function elassoStart(v, part, tgt, dur) {
     const pr = part?.proj;
     if (!pr?.link || !tgt || tgt === v || !(dur > 0) || !camRef || level() >= 3) return false;
-    const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
+    const r = ropeOf(pr);
     if (!r) return false;
     elassoEnd(v);
     const rec = linkLine(v, pr, r, tgt, dur);
@@ -6066,7 +6071,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * A link projectile's line (HarpoonRenderer, elassoStart) of `v`'s projectile `pr` (its line prefab `r`) to `tgt` for
-   * `dur` s, then its fade: its elines record, or null.
+   * `dur` s, then its fade: its elines record (`head`: the line's moving end), or null. Its start is the shooter's point
+   * the renderer hooks every tick (`proj.hook`: HarpoonRenderer `_hookStartPoint` → `_hookedStartPointType`), else the
+   * shot's `_mountPointType`.
    */
   function linkLine(v, pr, r, tgt, dur) {
     let from;
@@ -6081,8 +6088,43 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return p;
     };
     const head = { id: `lasso:${++ropeSeq}`, get alive() { return tgt.alive !== false && !tgt.remove && !gone.has(ownerOf(tgt)); }, get x() { return at().x; }, get y() { return p.y; }, get z() { return p.z; } };
-    startLine(r[0], r[1], v, head, dur, { sMount: Number.isInteger(pr.mount) ? pr.mount : 2, eMount: 7 }, { onSrc: !!pr.onSrc });
-    return elines.get(`${ownerOf(v)}:${head.id}:${r[1]}`) || null;
+    startLine(r[0], r[1], v, head, dur, { sMount: Number.isInteger(pr.hook) ? pr.hook : Number.isInteger(pr.mount) ? pr.mount : 2, eMount: 7 }, { onSrc: !!pr.onSrc });
+    const key = `${ownerOf(v)}:${head.id}:${r[1]}`, rec = elines.get(key) || null;
+    if (rec) { rec.head = head; rec.key = key; }
+    return rec;
+  }
+  /**
+   * 2026-11-14 (docs/rules/fx.md 「적 채널 스킬의 줄 투사체」): 假想敌：铳's 【盲信之誓】 (Skills/3, projectile_enemy_achunt_ray:
+   * LaserProjectile `_linkDuration` 100000 + HarpoonMovement `_speed` 10, `_stayWhenReached` + HarpoonRenderer
+   * `_hookStartPoint`) — the sim's 'link' { from: the gun, to: a “碎铳之簧”, kind 'faithLink', dur } every `interval` s while
+   * that spring lives (content/bosses.js). The renderer's line (`proj.rope` enemy_achunt_chain) runs from the gun's HIT point
+   * (`proj.hook` 1), extends to the spring and stays; the projectile's body (its own `_mainEffect`, the `proj.trail` that is
+   * not the rope: enemy_achunt_chain_end) rides the line's head. Each 'link' holds both `dur` + FAITH_SLACK s more (the
+   * spring's or the gun's fall ends the line at once). true = drawn (no stand-in link).
+   */
+  const FAITH_SLACK = 0.25;
+  const faith = new Map();   // `${gun}:${spring}` → { rec, body: live entry | null }
+  function efaithFx(e, views) {
+    const o = e[4], v = views.get(o.from), sp = views.get(o.to);
+    if (!v || !sp || v === sp || !eOn(v) || !camRef || level() >= 3 || failed) return false;
+    const pr = eskillPart(v, '3')?.proj;
+    const r = pr?.link ? ropeOf(pr) : null;
+    if (!r) return false;
+    const k = `${o.from}:${o.to}`, until = clockS + (Number(o.dur) > 0 ? Number(o.dur) : 1) + FAITH_SLACK;
+    const f = faith.get(k);
+    if (f && !f.rec.ended && f.rec.fade == null && f.rec.until >= clockS && elines.get(f.rec.key) === f.rec) {
+      f.rec.until = Math.max(f.rec.until, until);
+      if (f.body) f.body.until = f.rec.until;
+      return true;
+    }
+    const rec = linkLine(v, pr, r, sp, until - clockS);
+    if (!rec) return false;
+    const nf = { rec, body: null };
+    faith.set(k, nf);
+    if (faith.size > 32) faith.delete(faith.keys().next().value);
+    const bn = (pr.trail || []).find((n) => n !== pr.rope), br = bn ? efx(bn) : null;
+    if (br) spawn(br[0], br[1], rec.head, { owner: null, buff: true, until: rec.until, tag: 'faith' }).then((l) => { if (l) { nf.body = l; l.until = rec.until; } }, () => {});
+    return true;
   }
   /**
    * 2026-11-14 (docs/rules/fx.md 「적 채널 스킬의 줄 투사체」): an enemy's plain attack whose projectile is a link — 玩具独轮车's
@@ -6092,7 +6134,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function elinkShot(e, src, tgt, pr) {
     if (!camRef || level() >= 3 || failed || tgt === src) return false;
-    const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
+    const r = ropeOf(pr);
     if (!r) return false;
     const speed = Number(pr.speed) > 0 ? Number(pr.speed) : 0;
     const fly = speed > 0 ? Math.hypot(tgt.x - src.x, tgt.y - src.y) / speed : 0;
@@ -6117,10 +6159,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // Skills/<name> without case)
   const eskillSeen = new Map();   // `${id}:${key}` → battle clock: one play per ability and moment
   function eskillPart(v, key) {
-    const s = ebindOf(v)?.skills;
-    if (!s || typeof key !== 'string' || !key) return null;
-    const k = key.toLowerCase();
-    return s[k] || s[k.split('/').pop()] || null;
+    const b = ebindOf(v), s = b?.skills;
+    if (typeof key !== 'string' || !key || !b) return null;
+    const k = key.toLowerCase(), k2 = k.split('/').pop();
+    // (2026-11-14) the mode now's own ability of that name first (enemy-modes.json modes[i].skills: one that differs from
+    // the first mode's — '斩胄之剑''s BornAnim Skills/2 in Back_End: clip Back_End, enemy_acstma_back_end)
+    const ms = b.modes?.[emodeOf(v) ?? -1]?.skills;
+    return ms?.[k] || ms?.[k2] || s?.[k] || s?.[k2] || null;
   }
   /**
    * An enemy's ability `key` used now: its cast effects on it, its own buff / attach effects (looping while a 'skill' lasts —
@@ -6229,9 +6274,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (b._animSkill) return b._animSkill;
     const atk = new Set(b.modes.flatMap((m) => (m?.anim || []).map((a) => String(a).toLowerCase())));
     const map = new Map();
-    for (const [k, p] of Object.entries(b.skills || {})) {
-      const a = typeof p?.anim === 'string' ? p.anim.toLowerCase() : null;
-      if (a && !atk.has(a) && !map.has(a)) map.set(a, k);
+    // (2026-11-14) a mode's own abilities too ('斩胄之剑''s Back_End clip → its BornAnim '2': eskillPart picks the mode's)
+    for (const sk of [b.skills, ...b.modes.map((m) => m?.skills)]) {
+      for (const [k, p] of Object.entries(sk || {})) {
+        const a = typeof p?.anim === 'string' ? p.anim.toLowerCase() : null;
+        if (a && !atk.has(a) && !map.has(a)) map.set(a, k);
+      }
     }
     Object.defineProperty(b, '_animSkill', { value: map, enumerable: false });
     return map;
@@ -7186,6 +7234,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             && (e[1] === 'telegraph' ? eprojTelegraph(e, views) : e[1] === 'explode' && dshellBlast(e))) { ownFx.add(e); return; }
           if (e[1] === 'explode' && e[4]?.id != null && SHOT_BLASTS.has(e[4].kind)) { if (eshotBlast(e, views)) ownFx.add(e); return; }
           if ((e[1] === 'telegraph' || e[1] === 'explode') && e[4]?.caster != null && STUCK_SHOTS[e[4].kind]) { if (estuckFx(e, views)) ownFx.add(e); return; }   // 2026-11-14: W's C4
+          if (e[1] === 'link' && e[4]?.kind === 'faithLink') { if (efaithFx(e, views)) ownFx.add(e); return; }   // 2026-11-14: 假想敌：铳's chains
           // 2026-11-12: 规程 m10's 盐坨子炮 (cannonFx, cannonBlast)
           if (e[1] === 'cannon') { if (cannonFx(e)) ownFx.add(e); return; }
           if (e[1] === 'explode' && e[4]?.kind === 'cnnonShell') { if (cannonBlast(e, views)) ownFx.add(e); return; }

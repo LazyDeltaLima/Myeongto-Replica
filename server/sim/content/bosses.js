@@ -690,8 +690,10 @@ function kitBlade(ab, e, b, tpl) {
     if (n) {
       n.hp = Math.min(n.s.maxHp, e2.hp);
       b2.fx('blink', { x: n.x, y: n.y, id: n.id, fx: e2.x, fy: e2.y });
-      // its [copy_health] switches it to Back_End (mode 2), whose passive [unmovable] sounds as it attaches (sound only)
-      b2.fx('kitHit', { x: n.x, y: n.y, id: n.id, k: n.defId === 'enemy_9015_acstmb' ? 'acstmb:back' : 'acstma:back' });
+      // its [copy_health] switches it to Back_End (mode 2), whose passive [unmovable] sounds as it attaches; (2026-11-14) the
+      // view draws that mode (form 'backEnd': its entrance clip Back_End and BornAnim effect, render/units.js FORMS) — the
+      // same moves and timing as the first mode (e.form only names the clip set)
+      setForm(b2, n, 'backEnd', 'kitHit', { k: n.defId === 'enemy_9015_acstmb' ? 'acstmb:back' : 'acstma:back' });
     }
     b2.kill(e2, null);
   };

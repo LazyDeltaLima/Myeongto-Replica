@@ -20,7 +20,7 @@ import * as bossesMod from '../../server/sim/content/bosses.js';
 const MODES = new URL('../../public/assets/local/fx/enemy-modes.json', import.meta.url);
 const quiet = { warn() {}, error() {}, info() {} };
 const D = getData({ log: quiet });
-const JAZZ = 'enemy_10034_cnvsax', DW = 'enemy_1275_dwlock_2', ROBH = 'enemy_10018_sgrobh';
+const JAZZ = 'enemy_10034_cnvsax', DW = 'enemy_1275_dwlock_2', ROBH = 'enemy_10018_sgrobh', GUN2 = 'enemy_9017_achunt_2', SPRING = 'enemy_9020_actrpc';
 const WALL = chessRec({ id: 't_wall', profession: 'TANK', stats: { atk: 0, maxHp: 1e9, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
 
 /** Still walls at (row, col) and enemy `key` at `pos`, every event logged with its battle time. */
@@ -42,16 +42,20 @@ function field(key, walls, pos) {
 const emodes = () => ({
   [JAZZ]: { modes: [{ name: 'Default', anim: [] }, { name: 'Attack', anim: ['Attack'], ranged: { cast: [], opt: {}, hit: ['enemy_cnvsax_hit_01'] } }],
     skills: { fire: { cast: [], opt: {}, hit: [], proj: { key: 'projectile_enemy_cnvsax', mount: 2, trail: ['enemy_cnvsax_skill_line_01'], hit: ['enemy_cnvsax_hit_02'],
-      move: 'OTHER', speed: 10.0, link: 3600.0, onSrc: 1 } } } },
+      move: 'OTHER', speed: 10.0, link: 3600.0, onSrc: 1, rope: 'enemy_cnvsax_skill_line_01' } } } },
   [DW]: { modes: [{ name: 'Default', anim: [] }],
     skills: { deatheye: { cast: ['enemy_dwlock_skill_start_01'], opt: { enemy_dwlock_skill_start_01: { s: 2, e: 3, o: 0 } }, hit: ['enemy_dwlock_skill_hit_01'],
       hopt: { enemy_dwlock_skill_hit_01: { e: 3, once: 1 } },
-      proj: { key: 'projectile_enemy_dwlock_line', mount: 2, trail: ['enemy_dwlock_skill_line_01'], move: 'OTHER', speed: 8.0, link: 8.0 } } } },
+      proj: { key: 'projectile_enemy_dwlock_line', mount: 2, trail: ['enemy_dwlock_skill_line_01'], move: 'OTHER', speed: 8.0, link: 8.0, rope: 'enemy_dwlock_skill_line_01' } } } },
   [ROBH]: { modes: ['Default', 'Global'].map((name, i) => {
     const part = { cast: ['enemy_sgrobh_attack_start_01'], opt: { enemy_sgrobh_attack_start_01: { s: 2, e: 3, o: 0 } }, hit: [],
-      proj: { key: `projectile_enemy_sgrobh_${i + 1}`, mount: 2, trail: [`enemy_sgrobh_attack_0${i + 1}`], hit: ['enemy_sgrobh_attack_hit_01'], move: 'OTHER', speed: 30.0, link: 0.2 } };
+      proj: { key: `projectile_enemy_sgrobh_${i + 1}`, mount: 2, trail: [`enemy_sgrobh_attack_0${i + 1}`], hit: ['enemy_sgrobh_attack_hit_01'], move: 'OTHER', speed: 30.0, link: 0.2, rope: `enemy_sgrobh_attack_0${i + 1}` } };
     return { name, anim: [i ? 'Attack2' : 'Attack'], melee: part, ranged: part };
   }) },
+  [GUN2]: { modes: [{ name: 'Default', anim: ['Attack'] }, { name: 'S1', anim: [] }],
+    skills: { 3: { cast: [], opt: {}, hit: [], buff: ['enemy_achunt_skill_1', 'enemy_achunt_shield'],
+      proj: { key: 'projectile_enemy_achunt_ray', mount: 2, trail: ['enemy_achunt_chain_end', 'enemy_achunt_chain'], move: 'OTHER', speed: 10.0, link: 100000.0,
+        rope: 'enemy_achunt_chain', hook: 1 } } } },
 });
 const NAMES = [...new Set(JSON.stringify(emodes()).match(/"enemy_[A-Za-z0-9_-]+"/g).map((s) => JSON.parse(s)).filter((n) => !/^enemy_\d/.test(n)))];
 
@@ -176,6 +180,33 @@ test('玩具独轮车 (real kit): each plain attack draws its harpoon\'s line (a
   } finally { globalThis.fetch = fetch0; }
 });
 
+test('假想敌：铳 (real kit): 【盲信之誓】 draws its chain (HarpoonRenderer enemy_achunt_chain, the body enemy_achunt_chain_end on its head) to each “碎铳之簧” once and holds it every tick — not the stand-in link', async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    const pool = (hp) => ({ hp, maxHp: hp, damage(pid, a) { this.hp = Math.max(0, this.hp - a); } });
+    const h = makeBattle({
+      kind: 'boss', sharedBoss: pool(1e7), seed: 3, autoFinish: false, timeLimit: 400, content: 'generic', extraContent: [enemiesMod, bossesMod],
+      enemies: [], defs: { chess: { t_wall: WALL }, enemies: { [GUN2]: D.enemies[GUN2], [SPRING]: D.enemies[SPRING] } },
+      kits: { t_wall: () => ({ trait: { noAttack: true } }) }, units: [{ chessId: 't_wall', row: 10, col: 7, uid: 1 }],
+    });
+    h.step();
+    const b = h.battle, ev0 = b._ev.bind(b), rec = [];
+    b._ev = (e) => { rec.push([b.time, e]); return ev0(e); };
+    const put = (key, pos, tag) => { const u = h.spawn(key, { pos, routeIndex: 0, mods: { speedMul: 0 }, tag }); u.profile.noAttack = true; return u; };
+    const gun = put(GUN2, [3, 10], 'boss'), sp = put(SPRING, [3, 4], 'part');
+    h.run(4.5);
+    const links = rec.filter(([, x]) => fxIs(x, 'link', 'faithLink'));
+    assert.ok(links.length >= 3 && links.every(([, x]) => x[4].from === gun.id && x[4].to === sp.id), 'the sim links 铳 to its spring every second');
+    const { L, seen } = await layer();
+    const views = new Map([[gun.id, viewOf(gun)], [sp.id, viewOf(sp)]]);
+    play(L, views, rec, links[0][0], links[links.length - 1][0], (x) => {
+      if (fxIs(x, 'link', 'faithLink')) assert.equal(L.ownsFx(x), true, 'no stand-in link');
+    });
+    const names = seen.filter((p) => p.kind === 'spawn').map((p) => p.names[0]);
+    assert.deepEqual(names.filter((n) => /achunt_chain/.test(n)), ['enemy_achunt_chain', 'enemy_achunt_chain_end'], 'one chain and one body, held across the ticks');
+  } finally { globalThis.fetch = fetch0; }
+});
+
 test('a link line that is not extracted leaves the stand-in beams drawn', async () => {
   const fetch0 = globalThis.fetch;
   try {
@@ -198,5 +229,6 @@ test('the extracted binding: the parts these cases read', { skip: !existsSync(MO
   assert.deepEqual(m[JAZZ].modes, w[JAZZ].modes);
   assert.deepEqual(m[DW].skills.deatheye, w[DW].skills.deatheye);
   assert.deepEqual(m[ROBH].modes, w[ROBH].modes);
+  assert.deepEqual(m[GUN2].skills['3'], w[GUN2].skills['3']);
   for (const n of NAMES) assert.ok(m.$fx[n.toLowerCase()], `${n} extracted`);
 });

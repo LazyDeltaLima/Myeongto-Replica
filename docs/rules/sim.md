@@ -1819,7 +1819,9 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   「假想敌：胄 + 刺胄之弹…」.
 - 【瘫痪】 뒤 '갑주를 베는 검'·'갑주를 부수는 해머' 복제는 공식에서 모드 2 `Back_End`(2026-11-03 프리팹 `enemy_9014_acstma`·`enemy_9015_acstmb`로 확인):
   첫 모드와 판정이 같다 — 패시브 `[unmovable]`(같은 이상 상태 플래그)·공격·掷剑(쿨다운 포함) 모두 같고, 등장 클립(`Back_End`, 대상 아닌 기본 방향)·시전 이펙트
-  (`enemy_acstma_back_end`/`enemy_acstmb_back_end`)·소리만 다르다 → 시뮬은 복제를 첫 모드로 그대로 둔다(`bosses.js kitBlade`).
+  (`enemy_acstma_back_end`/`enemy_acstmb_back_end`)·소리만 다르다 → 시뮬은 복제를 첫 모드로 그대로 둔다(`bosses.js kitBlade`). 화면에는 복제가 이미 내던
+  `kitHit`(`acstma:back`)에 형태 `backEnd`를 실어 알린다(2026-11-14, `setForm` — `e.form`은 그림 이름뿐이고 공격 시간은 `e.mode`라 판정·golden 그대로) →
+  `fx.md` 「적 프리팹 모드별 능력 — 갑주 복제 Back_End」.
 
 ### 阿利斯泰尔 防护背心 방향 (`kitLion` 【莫非王土】)
 - **규칙**: 조끼를 활성화할 때마다 막는 면이 번갈아 바뀐다(클라 버프 템플릿 `enemy_vtlionk_shld`의 `front` 토글) — 알리스테어 유닛마다 첫 조끼는 **앞면**(보스가

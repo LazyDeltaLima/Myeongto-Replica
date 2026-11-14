@@ -664,6 +664,7 @@ const MACH = Object.freeze({
 const WINGNT_NORMAL = Object.freeze({ Normal: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }) });
 const CHIMERA_ORIGINIUM = Object.freeze({ Originium: Object.freeze({ change: 'Skill', roles: clipSet('Idle_2', 'Move_2', 'Die_2', 'Attack_2') }) });
 const DSLNTF_AWAKE = Object.freeze({ 1: Object.freeze({ change: null, roles: clipSet('Skill_Idle', 'Skill_Move', 'Die', 'Skill_Attack') }) });
+const BLADE_BACK = Object.freeze({ backEnd: Object.freeze({ change: 'Back_End', roles: Object.freeze({ idle: 'Idle_B', deploy: 'Idle_B', move: loop('Idle_B') }) }) });
 /** A manifest token mode (anims `tmodes[name]`) → its FORMS-shaped specs (UnitView._tmodeSpec). */
 const TMODE_SPECS = new WeakMap();
 export const FORMS = Object.freeze({
@@ -863,6 +864,10 @@ export const FORMS = Object.freeze({
     reborn: Object.freeze({ change: 'C1_Die', roles: JAKILL2 }),
     form2: Object.freeze({ change: null, roles: JAKILL2 }),
   }),
+  // 2026-11-14: '斩胄之剑' / '破胄之锤''s copy after its 【瘫痪】 or dive (server kitBlade → form 'backEnd'): the prefab's mode
+  // Back_End — its BornAnim Skills/2 plays Back_End (not the first mode's Born), `_replaceAnimPairs` Idle / Move → Idle_B
+  enemy_9014_acstma: BLADE_BACK,
+  enemy_9015_acstmb: BLADE_BACK,
   enemy_1172_dugago: STATUE,
   enemy_1172_dugago_2: STATUE,
   enemy_1116_liprr: PRISONER,

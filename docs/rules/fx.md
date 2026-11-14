@@ -4268,12 +4268,35 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
 - 회귀 방지: `test/render/eskill-lasso-coverage.test.js` — 바인딩(`tools/assets/local-enemy-bindings.json`)에서 줄 이펙트가 있는 연결 투사체를 쏘는 적
   능력 전부가 `test/render/eskill-lasso-list.js`에 있어야 한다(`LASSO` 이 길로 그림·`OTHER` 다른 길·`NOT_CAST` 안 씀·`TODO` 아직 대체 그림). `LASSO`는
   실제 키트로 채널 fx에 `dur`·`tgt`가 실리고 그동안의 대체 빔이 모두 `LASSO_BEAMS`인지 본다. 새 적·시즌·재추출이 이런 능력을 더하면 넣을 때까지 실패한다.
-  지금 `TODO`: 가상적: 총(`enemy_9017_achunt`) 스킬 3의 사슬 `enemy_achunt_chain`(시뮬 대체 `link` `faithLink`).
+  지금 `TODO` 없음.
+- 가상적: 총(`enemy_9017_achunt`·`_2`) 스킬 3 【盲信之誓】의 사슬(2026-11-14): 투사체 `projectile_enemy_achunt_ray`는 `LaserProjectile`(몸 `_mainEffect`
+  `enemy_achunt_chain_end`, `_linkDuration` 100000)·`HarpoonMovement`(속도 10, `_stayWhenReached`)·`HarpoonRenderer`(`_mainEffect` `enemy_achunt_chain`,
+  `_hookStartPoint` 1·`_hookedStartPointType` 1 = HIT)다. 그래서 줄은 총의 HIT 점에서 「碎铳之簧」으로 뻗어 붙은 채 남고, 몸 이펙트는 줄 머리에 탄다.
+  시뮬은 용수철마다 1초마다 `link` { `from` 총, `to` 용수철, `kind` 'faithLink', `dur` }를 낸다(`bosses.js`). 화면은 그 줄과 몸을 한 번 만들고
+  `link`마다 `dur` + 0.25초씩 늘리며(`fxgame.js efaithFx`, `linkLine`), 대체 선은 안 그린다. 용수철이나 총이 쓰러지면 줄도 바로 끝난다.
+  추출기 `enemy_bindings.py`는 `HarpoonRenderer`의 줄을 `proj.rope`, 걸린 시작점을 `proj.hook`으로 읽는다. 전에는 두 `_mainEffect`가 `proj.trail` 하나로
+  섞여, 첫 칸이 몸 이펙트였다. 줄 투사체는 이제 `rope`을 먼저 쓴다. 확인: `eskill-lasso.test.js` 「假想敌：铳」(실제 키트, 고치기 전 실패). 이펙트 golden:
+  hidden-boss_9-pair·solo. [화면 미확인: 아레나 2배속]
 - 일반 공격의 연결 투사체(2026-11-14): 완구 외발자전거(`enemy_10018_sgrobh`)의 작살 `projectile_enemy_sgrobh_1`/`_2`(`HarpoonMovement` 속도 30,
   `_linkDuration` 0.2, 줄 `enemy_sgrobh_attack_01`/`_02`)는 데이터에 `shot`이 없어 시뮬이 바로 맞힌다. 화면은 그 `atk`에서 줄을 대상까지 뻗어(속도 30)
   닿은 뒤 0.2초 두고 사라지게 한다(`fxgame.js elinkShot`, 채널과 같은 `linkLine`). 대체 화살은 안 그린다. 두 대상을 치면 줄도 둘이다. 전에는
   `etrailShot`이 연결 투사체를 건너뛰어 줄이 없었다. 확인: `eskill-lasso.test.js` 「玩具独轮车」(실제 키트, 고치기 전 실패). [화면 미확인: 아레나 2배속]
 - 확인: `test/render/eskill-lasso.test.js`(실제 키트 두 적: 줄이 놓이는 곳·대체 빔 안 그림·끝까지 타격 이펙트·일찍 끝남·추출 안 된 줄). [화면 미확인: 아레나 2배속]
+
+## 적 프리팹 모드별 능력 — 갑주 복제 Back_End (2026-11-14, 공식 클라에서 확인)
+
+- 대상: 이름이 같은 능력이 여러 모드에 있는 적(`Modes/<모드>/Body/Skills/<이름>`). '갑주를 베는 검'·'갑주를 부수는 해머'(`enemy_9014_acstma`·`enemy_9015_acstmb`)의
+  등장 능력 `Skills/2`(별칭 `BornAnim`)가 그렇다. 첫 모드는 클립 `Born`/`Revive`와 `enemy_acstma_revive`·`enemy_acstmb_revive`를 쓰고, 복제의 모드
+  `Back_End`는 클립 `Back_End`와 `enemy_acstma_back_end`·`enemy_acstmb_back_end`를 쓴다. `Back_End`는 `Idle`·`Move`를 `Idle_B`로 바꾼다.
+- 전에는 추출기가 모드별 능력을 한 덩어리(`skills["2"]`)로 섞었고, 시뮬이 복제를 첫 모드로 두어 화면도 첫 모드처럼 그렸다.
+- 우리: `enemy_bindings.py render_entry`가 첫 모드(모드 없는 것 포함)의 능력을 `skills`에 두고, 다른 모드의 것이 그와 다르면 그 모드의
+  `modes[i].skills`에 둔다. `fxgame.js eskillPart`는 지금 모드(`emodeOf`)의 것을 먼저 본다. 복제는 시뮬이 형태 `backEnd`로 알리고(`sim.md`
+  「刺胄之弹 도착 장판」 끝 줄), `units.js FORMS`가 `Back_End`를 튼 뒤 `Idle_B`에 두며, `FORM_MODES`가 그 형태를 모드 `Back_End`로 잇는다. 그래서 그 클립에서
+  그 모드의 이펙트가 난다.
+- 같이 갈라진 적: '즈자이'(`enemy_1517_xi`) `CrossAttack`의 `enemy_xi_skill_01_start_02`는 모드 `Reborn`(2형태)만의 것이 되었다. 이펙트 golden roster-011·040에서
+  첫 형태 줄이 빠졌다. 제셀톤 윌리엄스(`enemy_1516_jakill`) `Enhance`, 동글이(`enemy_2085_skzjxd`) `StateListener`도 갈라졌다. 앞의 둘은 `FORM_MODES`로 2형태가 이어져
+  있고, 동글이의 그 능력은 이름으로 불리지 않는다.
+- 재발 방지: `test/render/blade-back-end-fx.test.js`(실제 키트의 형태 신호, `FORMS`, 모드별 이펙트, 추출본 대조). [화면 미확인: 아레나 2배속]
 
 ## W의 폭탄 C4 (2026-11-14, 공식 클라에서 확인)
 

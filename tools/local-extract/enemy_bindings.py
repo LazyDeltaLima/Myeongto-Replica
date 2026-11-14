@@ -690,6 +690,15 @@ def proj_record(key, roots):
         # .CreateEffect on the source entity), not under the projectile's body — 节日爵士乐手's 狂欢式演奏 flame
         if '_mainEffect' in d and d.get('_spawnOnSource'):
             r['onSrc'] = 1
+        # (2026-11-14) a HarpoonRenderer (its fields `_hookedStartPointType` …) beside another `_mainEffect` (a LaserProjectile's
+        # body: 假想敌：铳's projectile_enemy_achunt_ray — body enemy_achunt_chain_end, line enemy_achunt_chain): `rope` = the
+        # line it draws; `hook` = the shooter's MountPointType its line starts at every tick when `_hookStartPoint`
+        # (HarpoonRenderer._TryHookStartPoint: the source's GetMountPoint(_hookedStartPointType))
+        if '_hookedStartPointType' in d:
+            if isinstance(d.get('_mainEffect'), str) and d['_mainEffect']:
+                r['rope'] = d['_mainEffect']
+            if d.get('_hookStartPoint'):
+                r['hook'] = int(d['_hookedStartPointType'])
         if '_lifeTime' in d:
             r['lifeTime'] = round(d['_lifeTime'], 3)
         for k in ('_projectileKey', '_subProjectileKey', '_childProjectileKey'):
@@ -806,7 +815,7 @@ def emit_part(abilities, projs):
                 for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart', 'stop'):
                     if pr.get(f):
                         proj[f] = pr[f]
-                for f in ('move', 'speed', 'raise', 'link', 'fallingTime', 'onSrc'):
+                for f in ('move', 'speed', 'raise', 'link', 'fallingTime', 'onSrc', 'rope', 'hook'):
                     if f in pr:
                         proj[f] = pr[f]
                 # 2026-10-10: the sub-projectiles it places (`_subProjectileKey` …: 萨米的意志's 冰凌 projectile_enemy_smdeer leaves a
@@ -917,7 +926,21 @@ def render_entry(r, projs):
     for a in r['abilities']:
         for k in skill_keys(a['path']):
             groups[k].append(a)
-    for k, lst in groups.items():
+    # (2026-11-14) an ability of the same name in several modes (Modes/<m>/Body/Skills/<k>: '斩胄之剑' / '破胄之锤''s BornAnim
+    # Skills/2 — Default: clip Born + enemy_acstma_revive, Back_End: clip Back_End + enemy_acstma_back_end): the first mode's
+    # (with the mode-less ones) stays `skills[k]`, another mode's goes to that mode's own `skills[k]` when it differs from it
+    # (render/fxgame.js eskillPart reads the mode now first). Until then the modes' effects were merged into one part.
+    split = []
+    for k, lst in list(groups.items()):
+        ms = sorted({a['mode'] for a in lst if a.get('mode') is not None})
+        if len(ms) < 2:
+            continue
+        groups[k] = [a for a in lst if a.get('mode') in (None, ms[0])]
+        split += [(m, k, [a for a in lst if a.get('mode') == m]) for m in ms[1:]]
+    for m, k, lst in split:
+        groups[(m, k)] = lst
+    for gk, lst in groups.items():
+        m, k = gk if isinstance(gk, tuple) else (None, gk)
         part = emit_part(lst, projs)
         buffs = uniq(x for a in lst for b in (a.get('buffs') or []) + (a.get('passiveBuffs') or [])
                      for x in (strs(b.get('fx')) or ((b.get('template') or {}).get('key') or [])))
@@ -954,7 +977,10 @@ def render_entry(r, projs):
             part['anim'] = next((a['anim'] for a in lst if a.get('anim')), None)
             if part['anim'] is None:
                 del part['anim']
-            skills[k] = part
+            if m is None:
+                skills[k] = part
+            elif part != skills.get(k):   # (the main parts come first: groups keeps insertion order)
+                modes[m].setdefault('skills', {})[k] = part
     if skills:
         out['skills'] = skills
     # (2026-11-11) a passive buff of template born_effect (CreateEffect on its owner as it starts, the key its blackboard
@@ -1182,6 +1208,8 @@ def entry_names(e):
         for k in ('melee', 'ranged'):
             if m.get(k):
                 out += names_of_part(m[k])
+        for p in (m.get('skills') or {}).values():   # (2026-11-14) a mode's own abilities (render_entry)
+            out += names_of_part(p) + list(p.get('buff', []))
     for p in (e.get('skills') or {}).values():
         out += names_of_part(p) + list(p.get('buff', []))
     return [x for x in out if x]
