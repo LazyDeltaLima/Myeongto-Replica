@@ -391,12 +391,13 @@ function onSkillSlot(b, c) {
   const a = best.length > 1 ? b.rng.pick(best) : best[0];
   const cast = ab.sk[a.name].cast;
   // a cast that waits for its projectile (`proj`) and whose kit tells when that projectile is gone (`a.projAlive`): open,
-  // until onTick sees it gone (projCastOver), at most PROJ_WAIT_MAX
+  // until onTick sees it gone (projCastOver) and the ability's own time has run (`min`), at most PROJ_WAIT_MAX
   const open = !!(a.projAlive && waitsProj(cast));
-  const dur = open ? PROJ_WAIT_MAX : castLength(e, cast, ab.sk[a.name].bb);
+  const own = castLength(e, cast, ab.sk[a.name].bb);
+  const dur = open ? PROJ_WAIT_MAX : own;
   a.left = Math.max(TICK, a.cd + dur);
   c.cast = { dur, atkCd: cast.resetMain && !open ? dur + (cast.waitFirst ? e.s.interval : 0) : e.s.interval };
-  ab.casting = dur > 0 ? { a, cast, until: b.time + dur, open } : null;
+  ab.casting = dur > 0 ? { a, cast, until: b.time + dur, open, min: open ? b.time + own : 0 } : null;
   castSkill(b, e, a);
   // a skill whose spell casts another one at once (TriggerEnemySkill with `_interruptCurAbility`, e.g. 复核洋流使者's
   // `0` → `1`): its fire hands that cast back (`a.next` = { dur }) and the slot plays it instead, cut like any skill cast
@@ -419,14 +420,17 @@ const PROJ_WAIT_MAX = 60;
 
 /**
  * The open cast of enemy `e` (onSkillSlot: a ranged ability with `_waitForProjectileInvalid` whose kit gives
- * `projAlive(b, e, a)`) ends as soon as its projectile is gone — the client's `RangedAttack.<OnWaitForPostDelay>` waits
- * while `_CheckProjectileValid` (`AsyncUtil.WaitWhileForFixedSeconds`), then, without `_waitForAnimEndWhenProjectileInvalid`
- * (none of the kits that open one), finishes: the enemy walks and attacks again and the skill's cooldown restarts then
- * (`EnemySkill._OnCastFinish`; the finish runs through the same path as a cut, interruptEnemyCast → onSkillCut).
+ * `projAlive(b, e, a)`) ends as soon as its projectile is gone and the ability's own time is over — the client's
+ * `RangedAttack.<OnWaitForPostDelay>` waits while `_CheckProjectileValid` (`AsyncUtil.WaitWhileForFixedSeconds`), then,
+ * without `_waitForAnimEndWhenProjectileInvalid` (none of the kits that open one; `_minPostDelayWhenProjectileInvalid` is
+ * read only with it), waits what is left of the ability's duration (`m_cachedDuration` − the time since the cast began,
+ * when positive — our castLength: W `C4`'s clip 4.8 s outlasts its 3.2 s charge, a channel without a clip has none) and
+ * finishes: the enemy walks and attacks again and the skill's cooldown restarts then (`EnemySkill._OnCastFinish`; the
+ * finish runs through the same path as a cut, interruptEnemyCast → onSkillCut). 공식 클라에서 확인 2026-11-14.
  */
 function projCastOver(b, e, ab) {
   const k = ab.casting;
-  if (!k || !k.open || safe(b, e, () => k.a.projAlive(b, e, k.a))) return;
+  if (!k || !k.open || b.time < k.min - 1e-9 || safe(b, e, () => k.a.projAlive(b, e, k.a))) return;
   interruptEnemyCast(b, e);
   if (ab.casting === k) ab.casting = null;   // the cast was no longer playing (castLeft cut elsewhere)
 }

@@ -43,8 +43,8 @@ const MCM_RANGE = 2.5, MCM_BOMB_DELAY = 2.17;
  *  one used. Until 0.1.3: any unit within 1.5, 隐匿 / 迷彩 ones included. */
 const RUSH_RADIUS = 3;
 
-/** W's C4 fuse and blast radius [ASSUMED]. */
-const C4_FUSE = 1, C4_RADIUS = 1;
+/** W's C4 targets below half HP: its mode T1's skill selector `_maxNum` (공식 클라에서 확인 2026-11-14). */
+const C4_LOW_TARGETS = 3;
 
 /** 鼠王 【唱沙】 cross reach and 【沙狱】 "及其周围" radius [ASSUMED]. */
 const DRIFT_REACH = 1, SANDSTORM_RADIUS = 1;
@@ -123,17 +123,43 @@ function kitLeaderMisc(key, ab, e) {
       return [skill(s, (b, e2) => blinkForward(b, e2, s.bb.dist ?? 1.5), { sil: true, cond: (b, e2) => !!e2.blockedBy })];
     }
     case 'enemy_1504_cqbw': {
+      // 2026-11-14 (공식 클라에서 확인): `Skills/C4` is a RangedAttack with `_waitForProjectileInvalid` whose projectile
+      // projectile_enemy_cqbw_s1 (a SimpleProjectile, AttachToTarget) sits on its target for its `_lifeTime` 3.2 s
+      // (data skills C4.proj.life) and, as it stops, hits that target alone (`_alwaysHitTraceTargetInTheEnd`, one hit, no hit
+      // behaviour or collider: no area) if it is still alive on the field — ATK × atk_scale physical. The cast lasts while a
+      // charge waits (content/enemies.js projCastOver) and at least the ability's clip `Skill` (4.8 s), which outlasts it. A
+      // cast cut short clears its projectiles (RangedAttack.OnCastEnd → ClearProjectile → Projectile.Interrupt → StopMe), and a
+      // stopped one still hits its target (Projectile.OnProjectileStop): the charges blow at once. Its death does not cut
+      // the cast here (ai.js cuts on stun / hide / 失衡 only), so its charges blow on time. Targets: in mode Default the
+      // attack's own target, ground only (the mode's trigger `_targetMotion` WALK_ONLY); below half HP (talent AtkUp →
+      // mode T1, 「生命值降至一半以下时炸药包的使用数量增加」) T1's selector takes up to 3 (`_maxNum`, no `max_target` in the
+      // blackboard), ground and air (MotionMask ALL). Until 2026-11-14 a 1 s fuse, a 1-tile blast and 2 targets below half
+      // [ASSUMED]; a cut cast left its charges. Its switch to mode T1 itself (`switch_mode_restart_fsm`) is not simulated.
       const s = ab.sk.C4;
-      return [skill(s, (b, e2) => {
-        const l = byPriority(e2, targetsNear(b, e2, s.bb.range_radius ?? e2.base.rangeRadius));
-        const n = e2.hpRatio < 0.5 ? 2 : 1; // 生命值降至一半以下时炸药包的使用数量增加
-        for (const t of l.slice(0, n)) {
-          const x = t.x, y = t.y;
-          b.fx('telegraph', { x, y, r: C4_RADIUS, dur: C4_FUSE, kind: 'c4' });
-          // the C4 sits on its target (PRTS "在…1个非飞行的我方单位身上安装C4"): it is hit; the blast around it is an area
-          b.after(C4_FUSE, () => { b.fx('explode', { x, y, r: C4_RADIUS, kind: 'c4' }); for (const u of targetAndArea(t, areaAllies(b, e2, x, y, C4_RADIUS))) hurt(b, e2, u, e2.s.atk * (s.bb.atk_scale ?? 1), 'phys'); });
+      const fuse = s?.proj?.life > 0 ? s.proj.life : 0;
+      const r = s?.bb.range_radius ?? e.base.rangeRadius;
+      const picks = (b, e2) => e2.hpRatio < 0.5 ? byPriority(e2, targetsNear(b, e2, r)).slice(0, C4_LOW_TARGETS)
+        : byPriority(e2, targetsNear(b, e2, r).filter((u) => !u.isFlying)).slice(0, 1);
+      const live = new Set();
+      const c4 = skill(s, (b, e2) => {
+        for (const t of picks(b, e2)) {
+          const ch = {};
+          ch.blow = () => {
+            if (!live.delete(ch)) return;
+            ch.h.cancel();
+            b.fx('explode', { x: t.x, y: t.y, r: 0, kind: 'c4' });
+            if (t.alive && t.deployed) hurt(b, e2, t, e2.s.atk * (s.bb.atk_scale ?? 1), 'phys');
+          };
+          b.fx('telegraph', { x: t.x, y: t.y, r: 0, dur: fuse, kind: 'c4' });
+          ch.h = b.after(fuse, ch.blow);
+          live.add(ch);
         }
-      }, { cond: (b, e2) => targetsNear(b, e2, s.bb.range_radius ?? e2.base.rangeRadius).length > 0 })];
+      }, { cond: (b, e2) => picks(b, e2).length > 0 });
+      if (c4) {
+        c4.projAlive = () => live.size > 0;
+        c4.onCut = () => { for (const ch of [...live]) ch.blow(); };
+      }
+      return [c4];
     }
     case 'enemy_1509_mousek': {
       // 出场时拥有能够吸收大量法术伤害的屏障，屏障存在时防御力大幅增加 (arts-only barrier + DEF while it holds)
@@ -356,6 +382,39 @@ function kitLeaderMisc(key, ab, e) {
       const cold = T(ab, 'Attack.attack@freeze') ?? 0, n = T(ab, 'Attack.attack@chain.max_target') ?? 1, fall = T(ab, 'Attack.attack@chain.atk_scale') ?? 1;
       const jr = T(ab, 'Attack.attack@projectile_range') ?? 1.6;
       const cb = ab.sk.ChainBuff;
+      // 【反自然馈赠】 (SILENCE): "attacks" another enemy in range and jumps between up to chain.max_target enemies
+      // (projectile_range per jump), raising their move speed and ASPD for `duration` s
+      const ch = { end: -Infinity, cut: false };
+      const chainBuff = skill(cb, (b, e2) => {
+        const bb = cb.bb, jump = bb.projectile_range ?? jr, max = bb['chain.max_target'] ?? 3;
+        const near = (x, y, r, seen) => b.enemiesInRadius(x, y, r).filter((o) => o !== e2 && !seen.has(o))
+          .sort((p, q) => hypot(p.x - x, p.y - y) - hypot(q.x - x, q.y - y) || p.spawnSeq - q.spawnSeq)[0];
+        // the chain flies as the skill's official projectile (skills ChainBuff.proj — projectile_enemy_smsha_s, TRACE 15
+        // tiles/s; enemies/helpers.js shoot): each enemy gets the buff as it arrives and the next jump leaves from there,
+        // chosen then (until 2026-10-10 the whole chain at the cast) [추정: the jumps fly the same projectile at its speed]
+        const seen = new Set();
+        ch.cut = false;
+        const hop = (prev, cur) => {
+          if (!cur || seen.size >= max) return;
+          seen.add(cur);
+          b.fx('beam', { x: prev.x, y: prev.y, from: prev.id, to: cur.id, kind: 'chainBuff' });
+          const flight = shoot(b, prev, cur, cb.proj, (o) => {
+            if (ch.cut || !o || !o.alive) return;
+            b.addBuff(o, { key: 'ab:chainBuff', duration: bb.duration ?? 0, refresh: 'replace', visible: true, mods: { moveMul: 1 + (bb.move_speed ?? 0), aspd: bb.attack_speed ?? 0 } });
+            hop(o, near(o.x, o.y, jump, seen));
+          }, { source: e2 });
+          ch.end = Math.max(ch.end, b.time + flight);
+        };
+        hop(e2, near(e2.x, e2.y, e2.base.rangeRadius || 3.5, seen));
+      }, { sil: true, cond: (b, e2) => b.enemiesInRadius(e2.x, e2.y, e2.base.rangeRadius || 3.5).some((o) => o !== e2) });
+      if (chainBuff) {
+        // 2026-11-14 (공식 클라에서 확인): the ability is a RangedAttack with `_waitForProjectileInvalid` — the cast lasts while the
+        // chain projectile (ChainLightningHitBehaviour) still jumps, at least its clip `Skill` (content/enemies.js
+        // projCastOver; the jumps take a few tenths of a second, within the clip). A cut cast clears the projectile
+        // (RangedAttack.OnCastEnd; projectile_enemy_smsha_s does not hit as it stops): no further jump lands.
+        chainBuff.projAlive = (b) => !ch.cut && b.time < ch.end + 1e-9;
+        chainBuff.onCut = () => { ch.cut = true; };
+      }
       return [onHitStatus('cold', cold), {
         dealt(c, b, e2) {
           let prev = c.target;
@@ -373,26 +432,7 @@ function kitLeaderMisc(key, ab, e) {
       },
       // 【反自然馈赠】 (SILENCE): "attacks" another enemy in range and jumps between up to chain.max_target enemies
       // (projectile_range per jump), raising their move speed and ASPD for `duration` s
-      skill(cb, (b, e2) => {
-        const bb = cb.bb, jump = bb.projectile_range ?? jr, max = bb['chain.max_target'] ?? 3;
-        const near = (x, y, r, seen) => b.enemiesInRadius(x, y, r).filter((o) => o !== e2 && !seen.has(o))
-          .sort((p, q) => hypot(p.x - x, p.y - y) - hypot(q.x - x, q.y - y) || p.spawnSeq - q.spawnSeq)[0];
-        // the chain flies as the skill's official projectile (skills ChainBuff.proj — projectile_enemy_smsha_s, TRACE 15
-        // tiles/s; enemies/helpers.js shoot): each enemy gets the buff as it arrives and the next jump leaves from there,
-        // chosen then (until 2026-10-10 the whole chain at the cast) [추정: the jumps fly the same projectile at its speed]
-        const seen = new Set();
-        const hop = (prev, cur) => {
-          if (!cur || seen.size >= max) return;
-          seen.add(cur);
-          b.fx('beam', { x: prev.x, y: prev.y, from: prev.id, to: cur.id, kind: 'chainBuff' });
-          shoot(b, prev, cur, cb.proj, (o) => {
-            if (!o || !o.alive) return;
-            b.addBuff(o, { key: 'ab:chainBuff', duration: bb.duration ?? 0, refresh: 'replace', visible: true, mods: { moveMul: 1 + (bb.move_speed ?? 0), aspd: bb.attack_speed ?? 0 } });
-            hop(o, near(o.x, o.y, jump, seen));
-          }, { source: e2 });
-        };
-        hop(e2, near(e2.x, e2.y, e2.base.rangeRadius || 3.5, seen));
-      }, { sil: true, cond: (b, e2) => b.enemiesInRadius(e2.x, e2.y, e2.base.rangeRadius || 3.5).some((o) => o !== e2) })];
+      chainBuff];
     }
     case 'enemy_2052_smgia': {
       // 数次攻击后晕眩; 受到来自自然环境的伤害时 (terrain damage), 自身在短时间内获得高额脆弱 (damage taken ×damage_scale)

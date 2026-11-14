@@ -2279,13 +2279,81 @@ test(`${nm('enemy_1502_crowns')}: blinks past its blocker`, () => {
   assert.ok(e.x < 5 - 0.5, `x ${e.x}`);
 });
 
-test(`${nm('enemy_1504_cqbw')}: C4 blasts (ATK×${skb('enemy_1504_cqbw', 'C4').bb.atk_scale}) after a fuse`, () => {
+test(`${nm('enemy_1504_cqbw')}: C4 blasts (ATK×${skb('enemy_1504_cqbw', 'C4').bb.atk_scale}) as its charge's ${skb('enemy_1504_cqbw', 'C4').proj.life} s life ends`, () => {
   const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 6 }] });
   h.step();
   const e = put(h, 'enemy_1504_cqbw', [10, 7]);
   e.profile.noAttack = true;
-  h.run(skb('enemy_1504_cqbw', 'C4').initCooldown + 1.2);
-  approx(h.unit('t_wall').stats.taken, e.s.atk * skb('enemy_1504_cqbw', 'C4').bb.atk_scale);
+  const s = skb('enemy_1504_cqbw', 'C4');
+  h.run(s.initCooldown + s.proj.life - 0.3);
+  assert.equal(h.unit('t_wall').stats.taken, 0, 'not before the charge ends');
+  h.run(0.6);
+  approx(h.unit('t_wall').stats.taken, e.s.atk * s.bb.atk_scale);
+});
+
+// 2026-11-14 (공식 클라에서 확인, docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 시전 길이): projectile_enemy_cqbw_s1 hits its target
+// alone as it stops (no hit behaviour, no collider); the cast waits for it and at least its 4.8 s clip; a cut cast clears it
+// — and a stopped charge still hits (Projectile.OnProjectileStop → _DealHitTraceTarget). Until then a 1 s fuse and a 1-tile blast.
+/** The C4 blasts of W `e` (damage of ATK × atk_scale from it), recorded from now on: { t, id }. */
+function c4Log(h, e) {
+  const k = skb('enemy_1504_cqbw', 'C4').bb.atk_scale, out = [];
+  h.b.on('damaged', (c) => { if (c.source === e && Math.abs(c.amount - e.s.atk * k) < 1e-6) out.push({ t: h.b.time, id: c.target.id }); });
+  return out;
+}
+const skillCasts = (h, e, name) => {
+  const at = [];
+  const fx = h.b.fx.bind(h.b);
+  h.b.fx = (kind, o) => { if (kind === 'enemySkill' && o.id === e.id && o.ability === name) at.push(h.b.time); return fx(kind, o); };
+  return at;
+};
+
+test(`${nm('enemy_1504_cqbw')}: the charge hits its target alone; the cast lasts the 4.8 s clip; a stun mid-charge blows it at once`, () => {
+  const s = skb('enemy_1504_cqbw', 'C4');
+  const go = (stunAt) => {
+    const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 6 }, { chessId: 't_wall2', row: 10, col: 5 }] });
+    h.step();
+    const e = put(h, 'enemy_1504_cqbw', [10, 7]);
+    const casts = skillCasts(h, e, s.prefabKey), blasts = c4Log(h, e);
+    h.runUntil(() => casts.length > 0, s.initCooldown + 5);
+    const t0 = casts[0];
+    if (stunAt != null) { h.run(stunAt); h.b.applyStatus(e, 'stun', { duration: 0.5 }); h.step(); return { h, e, t0, blasts }; }
+    h.run(s.proj.life + 0.2);
+    assert.ok(e.castLeft > 0, 'still casting after the charge: the clip is longer');
+    h.runUntil(() => !(e.castLeft > 0), 3);
+    approx(h.b.time - t0, E.enemy_1504_cqbw.skillCast.c4.dur, 2 * h.TICK, 'the cast ends with its clip');
+    return { h, e, t0, blasts };
+  };
+  const a = go(null);
+  assert.deepEqual(a.blasts.map((x) => x.id), [a.h.unit('t_wall').id], 'one blast, on the target only — its neighbour is not hit');
+  approx(a.blasts[0].t - a.t0, s.proj.life, 2 * a.h.TICK, 'the charge blows as its life ends');
+  const c = go(1);
+  assert.deepEqual(c.blasts.map((x) => x.id), [c.h.unit('t_wall').id], 'the cut cast\'s charge blows');
+  assert.ok(c.blasts[0].t - c.t0 < 1.2, `at the cut, not after its life (${(c.blasts[0].t - c.t0).toFixed(2)} s)`);
+  assert.ok(!(c.e.castLeft > 0), 'the cast is cut');
+  c.h.run(s.proj.life);
+  assert.equal(c.blasts.length, 1, 'no second blast later');
+});
+
+test(`${nm('enemy_1504_cqbw')}: below half HP the C4 goes on up to 3 targets (mode T1's selector)`, () => {
+  const h = arena({ units: [[9, 6], [10, 6], [11, 6], [10, 5]].map(([row, col], i) => ({ chessId: ['t_wall', 't_wall2', 't_wall3', 't_wall4'][i], row, col })) });
+  h.step();
+  const e = put(h, 'enemy_1504_cqbw', [10, 7]);
+  h.b.loseHp(e, e.s.maxHp * 0.6);
+  const blasts = c4Log(h, e);
+  h.run(skb('enemy_1504_cqbw', 'C4').initCooldown + skb('enemy_1504_cqbw', 'C4').proj.life + e.s.interval + 0.5);
+  assert.equal(new Set(blasts.map((x) => x.id)).size, 3);
+});
+
+test(`${nm('enemy_2050_smsha')}: 【反自然馈赠】 a freeze as the chain leaves cuts the cast — no jump lands (it is stun-immune)`, () => {
+  const h = arena();
+  h.step();
+  const e = put(h, 'enemy_2050_smsha', [10, 8]);
+  const others = [[10, 6], [10, 5], [11, 4]].map((p) => put(h, 'enemy_1007_slime', p));
+  const casts = skillCasts(h, e, 'ChainBuff');
+  h.runUntil(() => casts.length > 0, skb('enemy_2050_smsha', 'ChainBuff').initCooldown + 3);
+  assert.ok(h.b.applyStatus(e, 'freeze', { duration: 0.5 }), 'frozen');
+  h.run(1);
+  assert.deepEqual(others.map((o) => !!o.findBuff('ab:chainBuff')), [false, false, false]);
 });
 
 test(`${nm('enemy_1509_mousek')}: opening arts-only barrier (${tb('enemy_1509_mousek', 'shield.dynamic')}) with DEF +${tb('enemy_1509_mousek', 'defup.def')} while it holds; ×${tb('enemy_1509_mousek', 'enrage.damage_scale')} damage below half`, () => {
@@ -4497,6 +4565,44 @@ test('“萨米的意志”: 冰凌 hits a whole column; 自然涌动 stun + art
   h.runUntil(() => h.hooksOf('lpLoss').length > 0, 50 - h.b.time + e.s.interval + 0.5);
   assert.ok(h.b.time >= 50, 'Doom not before it is ready');
   assert.equal(h.hooksOf('lpLoss')[0].amount, Math.abs(skb('enemy_9033_acdeer', 'Doom').bb.value));
+});
+
+// 2026-11-14 (공식 클라에서 확인): 自然涌动 is a RangedAttack waiting for its lassos (projectile_enemy_smdeer_s): the boss casts — no
+// 冰凌 — while one holds, the 60 s cooldown runs from the last one's end, and a lasso that stops early (its target off the field,
+// the boss's cast cut) takes its stun and damage off with it (`_detachAllBuffsWhenStopped`). Until then the cast lasted 0.
+test('“萨米的意志” 自然涌动: casts while its lasso holds (no 冰凌), cooldown from its end; a retreat or a cut ends the lasso and its stun', () => {
+  const s = skb('enemy_9033_acdeer', 'Lasso'), life = s.bb.projectile_life_time;
+  const ov = { enemy_9033_acdeer: { skills: E.enemy_9033_acdeer.skills.map((k) => (k.prefabKey === 'Doom' ? { ...k, initCooldown: 500 } : k)) } };
+  const go = () => {
+    const h = bossArena({ units: [{ chessId: 't_wall', row: 9, col: 6 }], setup(b) { b.enemyOverrides = ov; } });
+    h.step();
+    const e = put(h, 'enemy_9033_acdeer', [3, 10], { tag: 'boss' });
+    const casts = skillCasts(h, e, s.prefabKey);
+    h.runUntil(() => casts.length > 0, s.initCooldown + e.s.interval + 1);
+    return { h, e, casts, w: h.unit('t_wall') };
+  };
+  const a = go();
+  const atk0 = a.e.stats.attacks;
+  a.h.run(life - 0.5);
+  assert.ok(a.e.castLeft > 0 && a.w.s.flags.stun, 'still casting, the target still stunned');
+  assert.equal(a.e.stats.attacks, atk0, 'no 冰凌 while the lasso holds');
+  a.h.runUntil(() => !(a.e.castLeft > 0), 2);
+  approx(a.h.b.time - a.casts[0], life, 3 * a.h.TICK, 'the cast ends with the lasso');
+  a.h.runUntil(() => a.casts.length > 1, s.cooldown + 2 * a.e.s.interval + 1);
+  assert.ok(a.casts[1] >= a.casts[0] + life + s.cooldown - 1e-6, `next cast ${(a.casts[1] - a.casts[0]).toFixed(2)} s after the first (cooldown from the end)`);
+
+  const r = go();
+  r.h.run(2);
+  r.h.b.retreat(r.w);
+  r.h.run(3 * r.h.TICK);
+  assert.ok(!(r.e.castLeft > 0), 'its target left: the cast is over');
+
+  const c = go();
+  c.h.run(2);
+  c.h.b.applyStatus(c.e, 'stun', { duration: 0.5, force: true });   // (immune to stun, freeze and 浮空: only forced here)
+  c.h.run(3 * c.h.TICK);
+  assert.ok(!(c.e.castLeft > 0), 'a stun on the boss cuts the cast');
+  assert.ok(!c.w.s.flags.stun && !c.w.findBuff('boss:surge'), 'the lasso\'s stun and damage come off with it');
 });
 
 // official client (docs/rules/sim.md 「萨米的意志 冰凌」): SmdeerTileSelector puts the 冰凌 on the stage's top tile of the column,

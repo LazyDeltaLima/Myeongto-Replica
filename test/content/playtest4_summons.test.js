@@ -187,6 +187,27 @@ test('#12 祛恶之焰 lasts at most hit_duration on a surviving target, and sil
   assert.equal(y.skill.active, false, 'silenced: the channel ends');
 });
 
+// 2026-11-14 (공식 클라에서 확인): the line projectile (LassoProjectile, `_isSilenceable`) breaks while its source is silenced OR
+// stunned (Entity.isSilencedOrStunned — a freeze too), and the link holds a target that turns 隐匿 / untargetable: only its
+// death, leaving the field or OUT_OF_GROUND frees it. Until then a stun kept the lock, pausing the damage.
+test('#12 祛恶之焰: a stun (or a freeze) ends it at once; the lock holds a target that becomes untargetable', REAL, () => {
+  const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [], enemies: [{ key: 'enemy_dummy', pos: [10, 6] }], autoFinish: false, timeLimit: 120 });
+  h.step();
+  const [y] = spawnYanyou(h.b, 'p1', { atk: 100, hp: 50000 });
+  assert.ok(h.runUntil(() => y.skill.active, 25));
+  const t = y.mem.flame.target;
+  h.b.addBuff(t, { key: 'test:untargetable', duration: 3, flags: { untargetable: true } });
+  h.run(1);
+  assert.ok(y.skill.active && y.mem.flame?.target === t, 'the link holds an untargetable target');
+  h.b.applyStatus(y, 'stun', { duration: 1, source: null });
+  h.step();
+  assert.equal(y.skill.active, false, 'stunned: the channel ends');
+  assert.ok(h.runUntil(() => y.skill.active, 20), 'next flame');
+  h.b.applyStatus(y, 'freeze', { duration: 1, source: null });
+  h.step();
+  assert.equal(y.skill.active, false, 'frozen: the channel ends');
+});
+
 test('#12 炎佑: 元素脆弱 aura within 1.5 of itself, immune to element damage, burn = 20 % ATK on normal hits', REAL, () => {
   const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [], enemies: [{ key: 'enemy_dummy', pos: [10, 6] }, { key: 'enemy_dummy', pos: [10, 8] }], autoFinish: false, timeLimit: 60 });
   h.step();

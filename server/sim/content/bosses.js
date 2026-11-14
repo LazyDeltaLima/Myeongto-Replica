@@ -452,15 +452,23 @@ function aspdFloor(b, e, extra = 0) {
  * ai.js enemySkillSlot → enemies.js onSkillSlot; docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 — the client's
  * `Enemy.AttackWrapper.SearchTarget` looks at the skills before the normal attack). A skill cast in its place puts the
  * loop's next attack `atkCd` later (its accumulator `P[acc]` counts up to the attack interval) and not before the cast
- * has played out (`P.castEnd`). True = a skill took the turn.
+ * has played out (`P.castEnd`). True = a skill took the turn. `engineCast`: the cast is the engine's (`castLeft`, as
+ * ai.js enemySkillSlot sets it) — it stands, a stun / freeze / 浮空 cuts it (ai.js cutEnemySwing → enemySkillCut) and an
+ * open cast ends with its projectile (content/enemies.js projCastOver); the loop then waits on `castLeft`, not `castEnd`.
  */
-function ownAttackTurn(b, e, P, acc) {
+function ownAttackTurn(b, e, P, acc, { engineCast = false } = {}) {
   if (!b._hooks.enemySkillSlot) return false;
   const c = { enemy: e, cast: null };
   b.emit('enemySkillSlot', c);
   if (!c.cast) return false;
   P[acc] = e.s.interval - (c.cast.atkCd ?? e.s.interval);
-  P.castEnd = b.time + (c.cast.dur > 0 ? c.cast.dur : 0);
+  const dur = c.cast.dur > 0 ? c.cast.dur : 0;
+  if (engineCast) {
+    e.castLeft = dur;
+    e.castSwing = false;
+    if (dur > 0 && !(e.profile?.attackMoves ?? e.def.attackMoves)) e.atkStandUntil = Math.max(e.atkStandUntil, b.time + dur);
+    P.castEnd = -Infinity;
+  } else P.castEnd = b.time + dur;
   return true;
 }
 
@@ -1862,7 +1870,7 @@ function kitDeer(ab, e) {
   const shot = e.def?.proj || null;                    // projectile_enemy_smdeer (data/enemies.json proj)
   const ATK2 = T(ab, 'atk_scale_2') ?? 1;
   const speed = shot && shot.speed > 0 ? shot.speed : 5;
-  const P = { low: false, acc: Infinity, swing: null, castEnd: -Infinity };   // like engine attacks, the first 冰凌 comes as soon as it has a target
+  const P = { low: false, acc: Infinity, swing: null, castEnd: -Infinity, lassos: new Set() };   // like engine attacks, the first 冰凌 comes as soon as it has a target
   ab.ownAttack = true;   // 自然涌动 / Doom take the turn of its 冰凌 (ownAttackTurn)
   // the ice of one column: tile k (k tiles below the top row) gets its 冰凌 k·DEER_DIST / speed s after the strike, which
   // hits DEER_SUB_LIFE s after that
@@ -1910,8 +1918,8 @@ function kitDeer(ab, e) {
         }
         if (!canCast(e2, false, b)) return;
         P.acc += dt;
-        if (P.acc < e2.s.interval || b.time < P.castEnd - 1e-9) return;
-        if (ownAttackTurn(b, e2, P, 'acc')) return;
+        if (P.acc < e2.s.interval || b.time < P.castEnd - 1e-9 || e2.castLeft > 0) return;
+        if (ownAttackTurn(b, e2, P, 'acc', { engineCast: true })) return;   // 自然涌动 casts while its lassos hold
         if (!allTargets(b, e2).length) return;
         P.acc = 0;   // the cooldown restarts as the swing starts (AbilityStandard.CastToTarget)
         const w = attackWindup(e2);
@@ -1921,15 +1929,43 @@ function kitDeer(ab, e) {
       },
     },
     lasso && {
+      // 【自然涌动】 stun + arts per second. 2026-11-14 (공식 클라에서 확인): `Skills/Lasso` is a RangedAttack with
+      // `_waitForProjectileInvalid` — one projectile_enemy_smdeer_s per target (a SimpleProjectile attached to it, its life
+      // from the blackboard `projectile_life_time`), carrying the ability's buff `enemy_smdeer_lasso_damage` (STUNNED, a hit
+      // every 1 s, first after 1 s) for as long as it lives: `_detachAllBuffsWhenStopped` takes the stun and the damage off
+      // when it stops — its life over, its target dead or off the field (`_stopIfTargetDead`, `_stopIfTargetDisappeared`),
+      // the boss dead (`_stopWhenSourceInvalid`), or the cast cut short (RangedAttack.OnCastEnd clears its projectiles: a
+      // stun, freeze or 浮空 on the boss). The cast lasts while a lasso holds (content/enemies.js projCastOver): no 冰凌 and
+      // no other skill meanwhile, and the 60 s cooldown restarts as the last lasso ends. Until 2026-11-14 the cast lasted 0
+      // (the 冰凌 went on, the cooldown ran from its start) and the stun held its 10 s whatever happened.
       name: lasso.name, cd: lasso.cd, icd: lasso.icd, cond: (b) => allTargets(b, e).length > 0,
-      fire(b, e2) { // 【自然涌动】 stun + arts per second
+      projAlive: () => P.lassos.size > 0,
+      onCut: () => { for (const l of [...P.lassos]) l.end(); },
+      fire(b, e2) {
         const n = P.low ? skN : (lasso.bb.max_target ?? 1);
         const dur = lasso.bb.projectile_life_time ?? 0;
+        if (!(dur > 0)) return;
         for (const t of fairOrder(b, e2, allTargets(b, e2), P).slice(0, n)) {
           b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'naturalSurge', dur });
           b.applyStatus(t, 'stun', { duration: dur, source: e2 });
-          b.addBuff(t, { key: 'boss:surge', duration: dur, interval: 1, visible: true,
+          const stun = t.buffs.find((u) => u.key === 'stun' && u.source === e2) ?? null;
+          const surge = b.addBuff(t, { key: 'boss:surge', duration: dur, interval: 1, visible: true,
             onTick: ({ battle, unit }) => battle.dealDamage(e2, unit, { amount: e2.s.atk * (lasso.bb.atk_scale ?? 0), type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility'] }) });
+          const l = {};
+          l.end = () => {
+            if (!P.lassos.delete(l)) return;
+            watch.cancel(); life.cancel();
+            if (b.time < l.until - 1e-9) {   // stopped early: the projectile's buffs come off with it
+              if (stun && t.buffs.includes(stun)) b.removeBuff(t, stun);
+              if (surge && t.buffs.includes(surge)) b.removeBuff(t, surge);
+              // the last lasso gone before its time: the view's channel ends now (as 节日爵士乐手's)
+              if (!P.lassos.size && e2.alive) b.fx('enemySkillEnd', { x: e2.x, y: e2.y, id: e2.id, ability: lasso.name });
+            }
+          };
+          l.until = b.time + dur;
+          const life = b.after(dur, l.end);
+          const watch = b.every(TICK, () => { if (!t.alive || !t.deployed || !e2.alive) l.end(); });
+          P.lassos.add(l);
         }
       },
     },

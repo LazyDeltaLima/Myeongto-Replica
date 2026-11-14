@@ -1268,8 +1268,9 @@ function yanyouFallbackDef(battle) {
  *     target is gone (dead, left, untargetable — "锁定1个目标…最多持续") or when silenced; the cooldown then runs again
  *     from the end of the channel (official client: Skill_2 is an `EnemySkill` whose ability, a `RangedAttack` with
  *     `_waitForProjectileInvalid`, keeps casting while its line projectile lives; `EnemySkill.OnTick` runs the cooldown
- *     only when not casting and `_OnCastFinish` restarts it). While stunned /
- *     frozen the channel keeps its lock but deals nothing.
+ *     only when not casting and `_OnCastFinish` restarts it). The line, projectile_enemy_acloon_line (a LassoProjectile),
+ *     lasts the blackboard `hit_duration` (`_linkDuration` 7 when absent) and breaks when 炎佑 is silenced or stunned
+ *     (a freeze too) or its target dies or leaves the field (2026-11-14, 공식 클라에서 확인; below).
  */
 const YANYOU_STOP = 0.25;             // [ASSUMED] how close it hovers to the tracked enemy (tiles)
 const YANYOU_FRAGILE_RADIUS = 1.5;    // PRTS "在场期间自身<!--固定半径-->半径1.5范围内的敌方单位受到20%的元素脆弱"
@@ -1303,10 +1304,15 @@ function yanyouKit(bb, raw) {
   const flameScale = num(sk.bb?.atk_scale, 0);
   const flameDur = num(sk.bb?.hit_duration, 0);
   const flameR = num(sk.bb?.range_radius, 0);
-  /** The channel's locked target while it is still valid (alive, on the field, targetable), else null. */
+  /**
+   * The channel's locked target while the link holds, else null: LassoProjectile.DoLink holds while the target is alive
+   * and valid and, an enemy, not OUT_OF_GROUND (`_ValidForLassoProjectile`) — our alive, deployed and not off the field
+   * (`hidden`, a DISAPPEAR leg); it does not look at its targetability (a 隐匿, sleep or 无法选中 it gains does not free it;
+   * 공식 클라에서 확인 2026-11-14, until then canTargetEnemy).
+   */
   const lockOf = (u) => {
     const t = u.mem.flame?.target;
-    return t && t.alive && canTargetEnemy(u, t, YANYOU_PROFILE) ? t : null;
+    return t && t.alive && t.deployed && !t.hidden ? t : null;
   };
   const refreshKeys = (u) => {
     // cached while it hovers in place — unless the engine rebuilt the range from the (dummy) grid meanwhile
@@ -1337,10 +1343,15 @@ function yanyouKit(bb, raw) {
       onTick({ battle, unit, dt }) {
         const f = unit.mem.flame;
         if (!f) return;
+        // the link projectile is silenceable (`_isSilenceable`): LinkProjectile.OnTick interrupts it while its source
+        // `isSilencedOrStunned` (SILENCED, STUNNED — our stun flag, a freeze's and a 浮空's included), and the cast ends
+        // with it (RangedAttack waits while its projectile lives; 공식 클라에서 확인 2026-11-14 — until then a stun or a
+        // freeze kept the lock and only paused the damage)
         if (unit.s.flags.silence) { unit.skill.end('silence'); return; }
+        if (unit.s.flags.stun) { unit.skill.end('stun'); return; }
         const t = lockOf(unit);
         if (!t) { unit.skill.end('targetLost'); return; }
-        if (!unit.canAct) return;                                  // stunned / frozen: the lock holds, no damage
+        if (!unit.canAct) return;
         f.acc += dt ?? battle.dt;
         if (f.acc < 1 - 1e-9) return;
         f.acc -= 1;

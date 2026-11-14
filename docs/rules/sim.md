@@ -1385,10 +1385,14 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   - 투사체가 사라질 때까지 기다리는 원거리 능력(`_waitForProjectileInvalid`, `skillCast` `proj` — 순차 묶음의 자식이어도)은 그 투사체가 살아 있는 동안 시전이다(2026-11-07,
     `RangedAttack.<OnWaitForPostDelay>`가 `_CheckProjectileValid` 동안 기다림, `_waitForAnimEndWhenProjectileInvalid`면 그 뒤 클립 나머지·`_minPostDelayWhenProjectileInvalid`도).
     키트가 투사체(채널)의 끝을 알려 주는 것만(`projAlive`, `content/enemies.js projCastOver`): 축제 재즈 연주가 `fire`·살카즈 왕정군 정예 캐스터 `DeathEye`(둘 다 끝 클립 기다림 없음) —
-    「upstream 0.3.4 개발분 대조 이식 — 전투」.
+    「upstream 0.3.4 개발분 대조 이식 — 전투」, W `C4`·함락의 제사장 `ChainBuff`·'사미의 의지' `Lasso` — 아래 「투사체를 기다리는 적 스킬 넷」.
+    투사체가 끝난 뒤에도 **능력 시간이 남았으면 그만큼 더 시전한다**: `_waitForAnimEndWhenProjectileInvalid`가 꺼져 있으면 `m_cachedDuration` − 시전 시작부터 지난 시간이
+    양수일 때 그만큼 기다린 뒤 끝난다(`_minPostDelayWhenProjectileInvalid`는 그 플래그가 켜졌을 때만 읽힘; 2026-11-14 공식 클라에서 확인). 우리 값은 `castLength`
+    (W `C4`는 클립 4.8초가 투사체 3.2초보다 길어 4.8초, 클립 없는 채널은 0 **[추정·미조사: 클립 없는 능력의 `m_cachedDuration`(`EasyToStartAbility.GetDuration`)을
+    안 읽음 — 채널이 그보다 일찍 끊길 때만 차이]**).
   - **[ASSUMED·미조사]** 0으로 남긴 것: 병렬·선택 묶음(`AbilityParallelGroup`·`AbilitySelectableGroup` — 끝나는 조건을 안 읽음; 공격 차례로 시전하는 키트 없음:
-    살카즈 부패의 전차 `PollutedRangedAtk`·'제국의 갑옷' `Appear`·래트킹 `Mark`·'즈자이' `CrossAttackMarkReborn`·알리스테어, 제국의 여광 `store`), 그리고 키트가 투사체 끝을 아직
-    모르는 투사체 기다림('사미의 의지' `Lasso`·'염의 가호' `Skill` — 클립이 없어 0, W `C4`·함락의 제사장 `ChainBuff` — 클립대로; 각 투사체의 수명과 끝 클립 필드를 함께 읽어야 함).
+    살카즈 부패의 전차 `PollutedRangedAtk`·'제국의 갑옷' `Appear`·래트킹 `Mark`·'즈자이' `CrossAttackMarkReborn`·알리스테어, 제국의 여광 `store`). 투사체 기다림은
+    모두 키트가 끝을 안다(2026-11-14 — 데이터의 `proj` 일곱 가운데 '염의 가호'는 아군 소환물 키트, 살카즈 후예 기술자 `charge_gunctrl`은 이 모드에 충전할 부포가 없어 시전 안 함).
   - **끊긴 시전**: 기절·빙결·수면·공중 띄우기·강제 이동(失衡)·공포·필드 이탈이 시전을 끊으면(`ai.js cutEnemySwing` → 훅 `enemySkillCut`) 그 스킬의 쿨이 그때 다시 돈다 — 클라의
     `AttackState.OnExit` → `InterruptIfNot` → `FinishIfNot(1)`이고 `EnemySkill._OnCastFinish`는 이유와 상관없이 `m_cooldownTimer.Reset`·(`resetMain`이면) 주 공격
     `ResetCooldown`을 한다(이전: 끊겨도 쿨 + 시전 길이 그대로). '즈자이' `ShieldBurst`는 방벽 마지막 층이 깨지면(`InterruptEnemyAbility`) 시전이 끝나고, 시전이 끊기면
@@ -2746,7 +2750,7 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   공격 차례」 시전 길이). 기절·빙결·공중 띄우기·필드 이탈 등으로 시전이 끊기면 채널도 끝나고 쿨이 그때 돈다. 정예 캐스터의 채널은 **침묵에 끊기지 않는다**. 전에는 두 시전이 길이 0이라
   채널 중에도 걸었고(반은폐가 풀린 채 막히지 않은 재즈 연주가), 쿨이 시전 시작부터 돌아 재즈 연주가는 채널(10.5 s)이 끝나자마자 다시 시전했고, 침묵이 정예 캐스터의 채널을 끊었다.
 - 근거(공식 클라에서 확인): 재즈 연주가 프리팹 `Modes/Attack/Body/Skills/fire`는 `RangedAttack`(`_waitForProjectileInvalid` 1, `_waitForAnimEndWhenProjectileInvalid` 0) — 시전은
-  투사체가 유효한 동안 이어지고 끝나면 바로 끝난다(`RangedAttack.<OnWaitForPostDelay>`), 채널 버프 `enemy_cnvsax[cd]`는 기절·빙결·공중 띄우기·침묵에 끊긴다. 정예 캐스터 `Skills/DeathEye`는
+  투사체가 유효한 동안 이어지고 끝나면 능력 시간의 남은 만큼 뒤에 끝난다(`RangedAttack.<OnWaitForPostDelay>`; 위 「시전 길이」), 채널 버프 `enemy_cnvsax[cd]`는 기절·빙결·공중 띄우기·침묵에 끊긴다. 정예 캐스터 `Skills/DeathEye`는
   순차 묶음 `LineAttack`(같은 투사체 기다림) → `ChargeAttack`(`_timeMode` 2, `_cooldown` 0)이고 두 능력이 시전 동안 `dwlock_skill_anti_flag[silence]`(침묵 반제)를 건다 — PRTS 「※技能期间，
   持有沉默反制」. 쿨은 `EnemySkill._OnCastFinish`가 시전 끝에 다시 시작한다. upstream은 제보로 같은 결론을 냈다.
 - 테스트 `test/content/enemy-skill-proj-wait.test.js`, `test/content/enemies_bosses.test.js` 「节日爵士乐手: revealed (反隐) and not blocked…」(이제 첫 시전부터 서 있음).
@@ -2768,6 +2772,33 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   빠짐 방지: 적 스킬 능력의 3단 채널 클립은 클라 프리팹에서 추출해 `data/enemies.json`·시즌 `enemies.json`의 `skillCast.*.chan`에 두고(`tools/local-extract/attack_timing.py`),
   `test/render/eskill-clip-coverage.test.js`가 그런 스킬이 모두 `ESKILL_CLIPS`에 같은 클립으로 있거나 `test/render/eskill-clip-list.js`에 이유와 함께(시뮬이 시전 안 함 · 다른 길로
   그림 · 아직 안 이음) 있는지 본다. 2026-11-14 기준 채널 스킬 24개 중 이은 것 2, 안 시전 7, 다른 길 1, 아직 안 이음 12(그동안 모델이 서 있거나 걸음).
+
+### 투사체를 기다리는 적 스킬 넷 — W·함락의 제사장·'사미의 의지'·'염의 가호' (2026-11-14)
+
+위 두 채널과 같은 길(`_waitForProjectileInvalid`): 시전은 스킬 투사체가 살아 있는 동안(그리고 능력 시간 동안) 이어지고, 쿨은 끝에서 다시 돌며, 시전이 끊기면
+`RangedAttack.OnCastEnd`가 투사체를 지운다(`ClearProjectile` → `Projectile.Interrupt` → `StopMe`). 모두 공식 클라에서 확인(프리팹·`[uc]projectiles.ab`·능력과 투사체 코드).
+
+- **W(`enemy_1504_cqbw`) `C4`**: 투사체 `projectile_enemy_cqbw_s1`(대상에 붙음, 수명 3.2초 = 데이터 `skills.C4.proj.life`)가 멈출 때 **그 대상만** 친다
+  (`_alwaysHitTraceTargetInTheEnd`, 맞춤 1번, 범위 판정·충돌체 없음) — 그때 살아서 필드에 있으면 공격력 × `atk_scale` 물리. 시전은 클립 `Skill` 4.8초(투사체보다 김).
+  **시전이 끊기면 폭탄이 그 자리에서 터진다**: 지워진 투사체도 멈출 때 대상을 친다(`Projectile.OnProjectileStop` → `_DealHitTraceTarget`). 대상: 모드 Default는 공격의
+  대상 하나·지상만(모드 트리거 `_targetMotion` WALK_ONLY), HP 반 아래(재능 AtkUp → 모드 T1)는 T1 선택기의 최대 3(`_maxNum`, 블랙보드에 `max_target` 없음)·공중 포함
+  (MotionMask ALL). 전에는 추정값으로 신관 1초·반경 1칸 폭발·반 HP 아래 2개였고, 끊겨도 폭탄이 남았다. T1으로의 전환 자체(`switch_mode_restart_fsm`)는 아직 안 돌린다(위 「적의
+  모드 전환」 남은 것). W가 쓰러져도 우리 엔진은 시전을 끊지 않아(기절·필드 이탈·失衡만) 폭탄은 제때 터진다.
+- **함락의 제사장(`enemy_2050_smsha`) `ChainBuff` 「반자연의 선물」**: 사슬 투사체(`ChainLightningHitBehaviour`)가 도약하는 동안 시전 — 도약은 0.1초대라 클립 안에서 끝나 시전 길이는
+  그대로다. 끊긴 시전은 남은 도약을 지운다(이 투사체는 멈출 때 치지 않음). 기절 면역이라 실제로는 빙결·필드 이탈 등이 끊는다.
+- **'사미의 의지'(`enemy_9033_acdeer`) `Lasso` 「자연의 요동」**: 대상마다 올가미 투사체 `projectile_enemy_smdeer_s`(수명 = 블랙보드 `projectile_life_time` 10초)가
+  능력 버프 `enemy_smdeer_lasso_damage`(기절, 1초마다 법술 피해)를 살아 있는 동안만 싣는다 — 멈추면 `_detachAllBuffsWhenStopped`로 기절·피해가 같이 떨어진다. 멈추는 때:
+  수명 끝, 대상이 쓰러지거나 필드를 떠남(`_stopIfTargetDead`·`_stopIfTargetDisappeared`), 보스가 쓰러짐(`_stopWhenSourceInvalid`), 시전이 끊김. **올가미가 있는 동안 보스는
+  시전 중**이라 고드름(冰凌)도 다른 스킬도 없고, 60초 쿨은 마지막 올가미가 끝날 때 다시 돈다. 전에는 시전 길이 0이라 올가미 중에도 고드름을 쐈고 쿨이 시전 시작부터 돌았으며, 기절은
+  대상이 철수해도 10초를 채웠다. 보스는 기절·빙결·공중 띄우기 면역이라 끊김은 실제로 드물다. 자기 공격 루프를 쓰는 보스라 `bosses.js ownAttackTurn`의 `engineCast`로 엔진의
+  시전 기록(`castLeft`·선 채 버티기·끊김)을 쓴다. 화면의 3단 채널 클립(`Skill_01_Begin`/`_Loop`/`_End`)은 아직 안 이음(`test/render/eskill-clip-list.js` TODO, fx-F).
+- **'염의 가호'(아군 소환물 `enemy_9012_acloon`) 「祛恶之焰」**: 선 투사체 `projectile_enemy_acloon_line`(`LassoProjectile`)의 길이는 블랙보드 `hit_duration`(없으면
+  `_linkDuration` 7) — 지금 20초와 같다. 선은 시전자가 **침묵 또는 기절**이면 끊긴다(`_isSilenceable` → `LinkProjectile.OnTick`의 `isSilencedOrStunned`; 우리 기절 깃발 =
+  빙결·공중 띄우기 포함). 고정은 대상이 살아 있고 필드에 있으며 OUT_OF_GROUND가 아닌 동안 이어진다(`_ValidForLassoProjectile`) — 대상이 은신·선택 불가가 되어도 안 풀린다.
+  전에는 기절·빙결 중 고정을 쥔 채 피해만 멈췄고, 선택 불가가 되면 풀렸다. 구현 `content/tokens.js yanyouKit`.
+- 테스트: `test/content/enemies_bosses.test.js` 「W: the charge hits its target alone…」·「W: below half HP…」·「陷落雪祀: 【反自然馈赠】 a freeze…」·「“萨米的意志” 自然涌动: casts while
+  its lasso holds…」, `test/content/playtest4_summons.test.js` 「#12 祛恶之焰: a stun (or a freeze) ends it…」(모두 수정 전 코드에서 실패 확인). golden: `roster` 004·021(W)·030(함락의
+  제사장), `act3-roster` 032(W), `fields` boss-boss_7-pair·solo('사미의 의지'), `matches` coop3-ABYSS-5(W·함락의 제사장 쪽 `leaders.js`).
 
 ### 티티 S2 「밀봉 보호」의 HP 비율 동률은 위협도 순 (upstream `8668a9cd` `47c22d39`, upstream #906)
 
