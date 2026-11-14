@@ -244,8 +244,8 @@
       ],
       "enemies": {"enemy_1229_darmy":[10,10,0,9262,104509],"enemy_1229_darmy_2":[7,7,0,17076,95800],"enemy_9007_acelem":[2,2,0,3203,179159]},
       "hooks": [1,30,2331,157,157,296,323,181,21,23,13,12,0,3410,223,18,19,0,1,21,5,3,0],
-      "events": {"atk":176,"castHit":6,"deploy":11,"die":23,"dmg":323,"engage":5,"face":12,"fx":53,"layer":5,"skill":25,"spawn":27,"status":118,"swing":167,"tplfx":4},
-      "fx": {"beam":2,"blink":2,"burst":3,"charges":18,"devour":4,"dilemma":2,"frostNova":6,"garrison":5,"kitHit":1,"phase":1,"swordRain":4,"swordStorm":3,"teleport":2},
+      "events": {"atk":176,"castHit":6,"deploy":11,"die":23,"dmg":323,"engage":5,"face":12,"fx":55,"layer":5,"skill":25,"spawn":27,"status":118,"swing":167,"tplfx":4},
+      "fx": {"beam":2,"blink":2,"burst":3,"charges":18,"devour":4,"dilemma":2,"frostNova":6,"garrison":5,"kitHit":1,"phase":3,"swordRain":4,"swordStorm":3,"teleport":2},
       "snaps": "d46a2139 700cde60 d8a53c22 de808b08 287e50c7 03ae169c e38245cf 55915640"
     },
     "bond-emptyShip-low": {
@@ -1194,8 +1194,8 @@
       ],
       "enemies": {"enemy_1158_divman":[20,20,0,5914,164229],"enemy_1160_hvyslr_2":[3,3,0,0,104509],"enemy_1161_tidmag_2":[3,3,0,754,59720]},
       "hooks": [1,40,2302,295,295,400,402,3,29,29,7,5,0,3797,40,2,26,0,1,31,3,0,0],
-      "events": {"atk":295,"castHit":2,"deploy":12,"die":29,"dmg":402,"engage":5,"face":63,"fx":24,"heal":3,"layer":3,"skill":13,"spawn":37,"status":60,"swing":324,"tplfx":7},
-      "fx": {"aoe":2,"bondProc":7,"crit":3,"dp":3,"garrison":3,"wolfCount":1,"wolfShadow":2,"wolfShadowLost":3},
+      "events": {"atk":295,"castHit":2,"deploy":12,"die":29,"dmg":402,"engage":5,"face":63,"fx":62,"heal":3,"layer":3,"skill":13,"spawn":37,"status":60,"swing":324,"tplfx":7},
+      "fx": {"aoe":2,"bondProc":7,"crit":3,"dp":3,"garrison":3,"phase":38,"wolfCount":1,"wolfShadow":2,"wolfShadowLost":3},
       "snaps": "4db79e1c d1972cd0 fd9312af e45bbfb9 f14c04da d7c406b0 0dcb8ece d7025270"
     },
     "bond-skillfulShip-low": {

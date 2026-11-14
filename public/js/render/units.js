@@ -686,7 +686,10 @@ export const FORMS = Object.freeze({
   enemy_9017_achunt: Object.freeze({
     charge: Object.freeze({ change: null, roles: Object.freeze({ move: loop('Skill_1') }) }),
   }),
+  // 2026-11-14: the Combat cast before it (server kitParasite → form 'cast', null if it is cut): mode Default's Combat
+  // `_animKey` Parasitic — the clip plays twice, once casting, once more as mode Parasitic's Anim on the attachment
   enemy_9007_acelem: Object.freeze({
+    cast: Object.freeze({ change: 'Parasitic', roles: Object.freeze({}) }),
     parasitic: Object.freeze({ change: 'Parasitic', roles: Object.freeze({ idle: 'Idle_2', deploy: 'Idle_2' }) }),
   }),
   // 假想敌：镜膜: the first silence stops its fan for good (server refraction → form 'stopped'): the B_* clip set
@@ -779,6 +782,29 @@ export const FORMS = Object.freeze({
       roles: Object.freeze({ idle: 'Skill_Loop', deploy: 'Skill_Loop', move: loop('Skill_Loop'), attack: null, skill: null }),
     }),
   }),
+  // 2026-11-14 (official client: each prefab mode's SimpleUnitAnimatorHooker `_replaceAnimPairs` and the Graphic's animKey →
+  // clip table, docs/rules/render.md 「적 프리팹 모드의 클립 — 액젓 추천자·수둔 닌자」):
+  // 卷心籽 ignited (element.js kitFlameVine → form 'OnFire'): Skills/onfire plays Skill = 1to2, mode OnFire 2_Idle / 2_Move /
+  // 2_Die / 2_Attack
+  enemy_10065_ftzlc: Object.freeze({ OnFire: Object.freeze({ change: '1to2', roles: clipSet('2_Idle', '2_Move', '2_Die', '2_Attack') }) }),
+  // 拥霜羽兽 losing its egg (leaders.js → form 'Speed'): Skills/switch plays Skill = Die_3, mode Speed Idle_2 / Move_2 / Die_2
+  // (Default → Default_2 = Idle_2; no attack ability there)
+  enemy_10141_xdpeng_2: Object.freeze({ Speed: Object.freeze({ change: 'Die_3', roles: clipSet('Idle_2', 'Move_2', 'Die_2') }) }),
+  // 沸血骑士团精锐 at its stack cap (reborn.js kitBloodKnight → form 'Rage'): mode Rage's Combat MeleeAttack `_animKey` Skill
+  enemy_1103_wdkght_2: Object.freeze({ Rage: Object.freeze({ change: null, roles: Object.freeze({ attack: loop('Skill', 'attackAny') }) }) }),
+  // 潜水员 in deep water (element.js kitDeepsea → form 'Swim'): mode Swim Attack_2 / Idle_2 / Move_2 = Attack02 / Idle02 / Move02
+  enemy_1158_divman: Object.freeze({ Swim: Object.freeze({ change: null, roles: clipSet('Idle02', 'Move02', 'Die', 'Attack02') }) }),
+  // 泥岩 from 5 / 6 charge stacks (leaders.js → form 'Tier 4' / 'Tier 5'): those modes' Combat `_animKey` Attack_2 (Tier 1–3
+  // keep Attack_1); its Skills (Occupy Skill_1, RefreshShield Skill_2) are outside the modes
+  enemy_1511_mdrock: Object.freeze({
+    'Tier 4': Object.freeze({ change: null, roles: Object.freeze({ attack: loop('Attack_2', 'attackAny') }) }),
+    'Tier 5': Object.freeze({ change: null, roles: Object.freeze({ attack: loop('Attack_2', 'attackAny') }) }),
+  }),
+  // 喷气人 flying (leaders.js → form 'Fly'): mode Fly Move → Fly = Move_02, Die → Die_02 (Idle stays). The skeleton's
+  // `Take off` / `Land` are played by nothing: enemy_balloon_s[trigger] / [fly] switch the mode and create effects only
+  enemy_2004_balloon: Object.freeze({ Fly: Object.freeze({ change: null, roles: Object.freeze({ move: loop('Move_02'), die: 'Die_02' }) }) }),
+  // 雪孩子 while 失衡 holds (leaders.js → form 'Unbalanced'): mode Unbalanced Die → Die_2
+  enemy_10138_xdsnow: Object.freeze({ Unbalanced: Object.freeze({ change: null, roles: Object.freeze({ die: 'Die_2' }) }) }),
   // 2026-11-12: 元核孽生者 / 异形孽生者 in their 临战 state (element.js kitNucleus → form '1'): the prefab mode 1's hooker
   // (Move → Skill_Move, Idle → Skill_Idle; Die stays) and its Combat's Skill_Attack; SwitchMode, no change clip
   enemy_1439_dslntf: DSLNTF_AWAKE,

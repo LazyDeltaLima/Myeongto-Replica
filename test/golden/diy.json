@@ -1410,8 +1410,8 @@
       ],
       "enemies": {"enemy_1229_darmy":[27,21,6,3593,182794],"enemy_1229_darmy_2":[57,44,13,10064,477480],"enemy_9007_acelem":[12,8,4,40660,671565]},
       "hooks": [1,139,6728,1037,1037,1952,1942,0,93,116,61,61,0,16439,0,108,96,23,1,97,0,0,47],
-      "events": {"atk":1335,"deploy":41,"die":93,"dmg":1942,"engage":12,"face":42,"fx":137,"leak":23,"skill":122,"spawn":110,"status":201,"swing":1075},
-      "fx": {"beam":26,"dodge":47,"phase":19,"teleport":41,"undying":4},
+      "events": {"atk":1335,"deploy":41,"die":93,"dmg":1942,"engage":12,"face":42,"fx":163,"leak":23,"skill":122,"spawn":110,"status":201,"swing":1075},
+      "fx": {"beam":26,"dodge":47,"phase":45,"teleport":41,"undying":4},
       "snaps": "0e236ba4 b9e4f78f 11fbbaf1 8702eb6b 79a29961 8f2c04e5 41964ace ee4754ee 2cd48cc9 fba05e27 726a9386 6ea5e5b5 ed750a54 4c5ba899 c640b3ce 3142f767 0250cb86 e1252709 1808cb4d 04ff2047 2376c028 c67e6f48 4975a485"
     },
     "diy-034": {
@@ -2383,8 +2383,8 @@
       ],
       "enemies": {"enemy_1158_divman":[51,7,44,6782,109552],"enemy_1160_hvyslr_2":[24,0,24,13472,291362],"enemy_1161_tidmag_2":[30,0,30,45607,37671]},
       "hooks": [1,131,6655,349,349,1872,2072,469,30,128,6,6,0,3556,2,41,105,98,1,30,0,18,0],
-      "events": {"atk":349,"deploy":24,"die":30,"dmg":2072,"engage":12,"face":3,"fx":50,"leak":98,"skill":12,"spawn":119,"status":174,"swing":394},
-      "fx": {"burst":18,"kitHit":17,"thorns":15},
+      "events": {"atk":349,"deploy":24,"die":30,"dmg":2072,"engage":12,"face":3,"fx":148,"leak":98,"skill":12,"spawn":119,"status":174,"swing":394},
+      "fx": {"burst":18,"kitHit":17,"phase":98,"thorns":15},
       "snaps": "fa735dc0 e4057426 c8cba3ef aaf09d78 e7d73cc0 c5026587 7c389715 5576a8c9 4f150d43 6f366ae9 cb86cf88 7e82bfd5 d392016e 09e2e840 b83a8d6b 33d3c2c6 c07d5771 48706d71 dd5248b7 76eaee06 34717a61 fbb0e2f2 cdeb43af"
     },
     "diy-056": {
@@ -2548,8 +2548,8 @@
       ],
       "enemies": {"enemy_1229_darmy":[27,12,15,5250,89546],"enemy_1229_darmy_2":[57,20,37,20852,201167],"enemy_9007_acelem":[12,2,10,14999,179137]},
       "hooks": [1,122,6466,410,410,2339,2416,0,53,115,33,32,0,21041,34,102,96,62,1,53,0,0,0],
-      "events": {"atk":542,"castHit":3,"deploy":23,"die":53,"dmg":2416,"engage":12,"face":44,"fx":194,"leak":62,"skill":65,"spawn":111,"status":109,"swing":442},
-      "fx": {"beam":22,"displace":126,"frostNova":3,"phase":21,"teleport":22},
+      "events": {"atk":542,"castHit":3,"deploy":23,"die":53,"dmg":2416,"engage":12,"face":44,"fx":221,"leak":62,"skill":65,"spawn":111,"status":109,"swing":442},
+      "fx": {"beam":22,"displace":126,"frostNova":3,"phase":48,"teleport":22},
       "snaps": "74a899f5 49dac9c7 c84bf41b f24a97e5 10c4ed47 0ccdb9d9 a9ea7967 c851ac7b f4f2077d 6b5a7e04 6b9e466b ad1264e2 f23466e8 fac717f2 8896e4a7 6ee08b85 4f15834e 091f3f47 b1be20f8 0bea0d05 d2e8c414 94e41ddf"
     },
     "diy-060": {

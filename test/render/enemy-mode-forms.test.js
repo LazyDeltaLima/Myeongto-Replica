@@ -2,7 +2,8 @@
 // render/units.js FORMS plays the mode's clips. 咸鳞汁推荐者 (GitHub #14): blocked it is in M2, whose hooker plays
 // B_Idle / B_Move / B_Die — its first swing the barrel smash (Skills/BlockedBoom, Attack), every later one the Combat's
 // B_Attack (and B_Attack while silenced: no BlockedBoom). 水遁忍者: its spin (M1) opens on Skill_Begin, stands and walks in
-// Skill_Loop and closes on Skill_End.
+// Skill_Loop and closes on Skill_End. 2026-11-14: the other enemies whose kits switch a prefab mode with a clip set of
+// its own (each mode's SimpleUnitAnimatorHooker `_replaceAnimPairs`, its Combat `_animKey`), and 假想敌：淤困's cast.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -28,11 +29,11 @@ before(async () => {
 });
 after(() => fake.restore());
 
-function arena(wall) {
+function arena(wall, o = {}) {
   return makeBattle({
     content: 'generic', extraContent: [enemiesMod, bossesMod], seed: 7, autoFinish: false, timeLimit: 600,
-    defs: { chess: { t_wall: WALL } }, kits: { t_wall: () => ({ trait: { noAttack: true } }) },
-    units: [{ chessId: 't_wall', row: wall[0], col: wall[1] }],
+    defs: { chess: { t_wall: WALL }, enemies: o.enemies || {} }, kits: { t_wall: () => ({ trait: { noAttack: true } }) },
+    units: wall ? [{ chessId: 't_wall', row: wall[0], col: wall[1] }] : [], ...(o.flat ? { flat: o.flat } : {}),
   });
 }
 const cam = () => presetCamera('normal', { width: 1280, height: 720 });
@@ -62,7 +63,7 @@ function play(h, e, v, s) {
     const n = h.events.length;
     h.step();
     for (const x of h.events.slice(n)) {
-      if (x[0] === 'fx' && x[1] === 'phase' && x[4]?.id === e.id && 'form' in x[4]) {
+      if (x[0] === 'fx' && x[4]?.id === e.id && typeof x[4] === 'object' && 'form' in x[4]) {
         v.setForm(x[4].form, x[4]);
         out.forms.push([x[4].form, v.actor.current]);
       } else if (x[0] === 'swing' && x[1] === e.id) {
@@ -124,4 +125,142 @@ test('水遁忍者: its spin opens on Skill_Begin, stands and walks in Skill_Loo
   assert.deepEqual(r2.forms, [[null, 'Skill_End']], 'the spin ends: back to its first mode on EndAnim\'s Skill_End');
   frames(v, assets.enemies[YMGTOP].spine.animations.Skill_End + 0.1);
   assert.equal(v.actor.current, 'Idle', 'then its own idle');
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// 2026-11-14: the other mode switches of the sweep (docs/rules/render.md 「적 프리팹 모드의 클립 — 액젓 추천자·수둔 닌자」)
+const E3 = JSON.parse(readFileSync(path.join(ROOT, 'data/seasons/act3autochess/enemies.json'), 'utf8'));
+const clipLen = (id, c) => assets.enemies[id].spine.animations[c];
+const modelTest = (name, id, fn) => test(name, { skip: !haveModel(id) && 'no model' }, fn);
+
+modelTest('卷心籽 ignited by 灼藤\'s first attack: Skills/onfire\'s 1to2, then mode OnFire\'s 2_* clips', 'enemy_10065_ftzlc', async () => {
+  const ID = 'enemy_10065_ftzlc';
+  const h = arena([9, 5]);
+  h.step();
+  h.spawn('enemy_10067_ftsjc', { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const e = h.spawn(ID, { pos: [9, 6], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  const r = play(h, e, v, 8);
+  assert.deepEqual(r.forms, [['OnFire', '1to2']], 'ignited once: the change clip 1to2');
+  frames(v, clipLen(ID, '1to2') + 0.05);
+  assert.equal(v.actor.current, '2_Idle', 'then the burning idle');
+  assert.deepEqual([v.actor.roles.move.loop, v.actor.roles.die, v.actor.roles.attack.loop], ['2_Move', '2_Die', '2_Attack']);
+});
+
+modelTest('拥霜羽兽 unbalanced once: Skills/switch\'s Die_3 (the egg), then mode Speed\'s Idle_2 / Move_2 / Die_2', 'enemy_10141_xdpeng_2', async () => {
+  const ID = 'enemy_10141_xdpeng_2';
+  const h = arena(null);
+  h.step();
+  const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  play(h, e, v, 0.1);
+  h.b.displace(e, { x: 1, y: 0 }, 0.5, { force: 3 });
+  const r = play(h, e, v, 1);
+  assert.deepEqual(r.forms, [['Speed', 'Die_3']], 'one switch, on Die_3');
+  frames(v, clipLen(ID, 'Die_3') + 0.05);
+  assert.deepEqual([v.actor.roles.idle, v.actor.roles.move.loop, v.actor.roles.die], ['Idle_2', 'Move_2', 'Die_2']);
+  h.b.displace(e, { x: -1, y: 0 }, 0.2, { force: 3 });
+  assert.deepEqual(play(h, e, v, 1).forms, [], 'a second 失衡 switches nothing');
+});
+
+modelTest('沸血骑士团精锐 at 10 knock-outs: mode Rage\'s Combat swings Skill', 'enemy_1103_wdkght_2', async () => {
+  const ID = 'enemy_1103_wdkght_2';
+  const h = arena([9, 5], { enemies: { [ID]: E3[ID] } });
+  h.step();
+  const w = h.unit('t_wall');
+  const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  const before = play(h, e, v, 6);
+  assert.ok(before.swings.length >= 1 && before.swings.every((c) => c === 'Attack'), `its plain Attack first (${before.swings})`);
+  for (let i = 0; i < 10; i++) h.b.kill(h.spawn('enemy_10065_ftzlc', { pos: [3, 12], routeIndex: 0, mods: { speedMul: 0 } }), w);
+  const r = play(h, e, v, 12);
+  assert.deepEqual(r.forms.map((f) => f[0]), ['Rage'], 'Rage once, at its next attack');
+  assert.ok(r.swings.length >= 3, `swings seen (${r.swings.length})`);
+  assert.deepEqual([...new Set(r.swings.slice(1))], ['Skill'], `every swing after the switch: Skill (${r.swings})`);
+});
+
+modelTest('潜水员 in deep water: mode Swim\'s Idle02 / Move02 / Attack02, its first clips out of it', 'enemy_1158_divman', async () => {
+  const ID = 'enemy_1158_divman';
+  const h = arena(null, { flat: { rows: { 10: '##hddddrrrfrrrrrrrf##' } } });
+  h.step();
+  const e = h.spawn(ID, { pos: [10, 4], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  const r = play(h, e, v, 0.5);
+  assert.deepEqual(r.forms, [['Swim', 'Idle02']], 'in the water: Idle02');
+  assert.deepEqual([v.actor.roles.move.loop, v.actor.roles.attack.loop], ['Move02', 'Attack02']);
+  e.x = 8;
+  const r2 = play(h, e, v, 0.5);
+  assert.deepEqual(r2.forms, [[null, 'Idle01']], 'out of it: Idle01 again');
+});
+
+modelTest('泥岩: Attack_1 until 5 charge stacks, mode Tier 4 / 5\'s Attack_2 from the next swing', 'enemy_1511_mdrock', async () => {
+  const ID = 'enemy_1511_mdrock';
+  const h = arena([9, 5]);
+  h.step();
+  const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  const r = { swings: [], forms: [] };
+  for (let i = 0; i < 80 && e.stats.attacks < 8; i++) { const x = play(h, e, v, 1); r.swings.push(...x.swings); r.forms.push(...x.forms); }
+  const atk = r.swings.filter((c) => /^Attack_/.test(c));
+  assert.deepEqual(r.forms.map((f) => f[0]), ['Tier 4', 'Tier 5'], 'Tier 4 at 5 stacks, Tier 5 at 6');
+  // ON_BEFORE_ATTACK switches the mode while the old mode's Combat swings on: the 6th swing is still Attack_1
+  assert.deepEqual(atk.slice(0, 8), ['Attack_1', 'Attack_1', 'Attack_1', 'Attack_1', 'Attack_1', 'Attack_1', 'Attack_2', 'Attack_2'], `${atk}`);
+});
+
+modelTest('喷气人 taking off: mode Fly\'s Move_02 / Die_02 for its flight, its first clips after it', 'enemy_2004_balloon', async () => {
+  const ID = 'enemy_2004_balloon';
+  const h = arena([9, 5]);
+  h.step();
+  const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  const sk = E[ID].skills.find((s) => s.prefabKey === 'TakeOff');
+  const r = play(h, e, v, (sk.initCooldown || 0) + e.s.interval + 0.2);   // at its first attack slot once ready
+  assert.deepEqual(r.forms.map((f) => f[0]), ['Fly'], 'it takes off once blocked');
+  assert.deepEqual([v.actor.roles.move.loop, v.actor.roles.die, v.actor.roles.idle], ['Move_02', 'Die_02', 'Idle']);
+  const r2 = play(h, e, v, sk.bb.duration + 0.5);
+  assert.deepEqual(r2.forms.map((f) => f[0]), [null], 'it lands: its first clips');
+  assert.equal(v.actor.roles.move.loop, 'Move_01');
+});
+
+modelTest('雪孩子 while 失衡 holds: mode Unbalanced\'s Die_2', 'enemy_10138_xdsnow', async () => {
+  const ID = 'enemy_10138_xdsnow';
+  const h = arena(null);
+  h.step();
+  const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  play(h, e, v, 0.1);
+  h.b.push(e, e.s.massLevel, { from: { x: e.x - 1, y: e.y } });   // a real push: its 失衡 state
+  const r = play(h, e, v, 2);
+  assert.deepEqual(r.forms.map((f) => f[0]), ['Unbalanced', null], 'Unbalanced while pushed, back after');
+  // pushed again and knocked out meanwhile: the death clip of the mode
+  h.b.push(e, e.s.massLevel, { from: { x: e.x + 1, y: e.y } });
+  play(h, e, v, 0.1);
+  assert.equal(v.actor.roles.die, 'Die_2', 'unbalanced: it dies on Die_2');
+});
+
+modelTest('假想敌：淤困: Parasitic while its Combat casts on its blocker, Parasitic again as it attaches, then Idle_2', 'enemy_9007_acelem', async () => {
+  const ID = 'enemy_9007_acelem';
+  const h = arena([9, 5]);
+  h.step();
+  const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  const r = play(h, e, v, 0.6);
+  assert.deepEqual(r.forms, [['cast', 'Parasitic']], 'blocked: the cast plays Parasitic');
+  const r2 = play(h, e, v, 1);
+  assert.deepEqual(r2.forms, [['parasitic', 'Parasitic']], 'attached 1.2 s in: mode Parasitic\'s Anim plays it again');
+  frames(v, clipLen(ID, 'Parasitic') + 0.05);
+  assert.equal(v.actor.current, 'Idle_2');
+});
+
+test('假想敌：淤困: a cast cut by a stun takes its form back', { skip: !haveModel('enemy_9007_acelem') && 'no model' }, async () => {
+  const ID = 'enemy_9007_acelem';
+  const h = arena([9, 5]);
+  h.step();
+  const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  play(h, e, v, 0.4);
+  h.b.applyStatus(e, 'stun', { duration: 3 });
+  const r = play(h, e, v, 0.5);
+  assert.deepEqual(r.forms.map((f) => f[0]), [null], 'the cut cast leaves the cast form');
+  assert.ok(!e.findBuff('ab:parasiteAttached'), 'nothing attached');
 });

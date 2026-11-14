@@ -516,7 +516,8 @@ function kitBloodKnight(ab) {
       b.addBuff(e, { key: 'ab:wdkght', persist: true, visible: true, refresh: 'replace', mods: { atkPct: atk * a.n, aspd: as * a.n }, fxTag: 'buff:wdkght_t[enhance]' });
       if (a.n >= cap) b.addBuff(e, { key: 'ab:wdkghtFull', persist: true, visible: true, fxTag: 'buff:wdkght_t[effect]' });
     },
-    before(_c, b, e, a) { if (a.n >= cap && !a.rage) { a.rage = true; mode(b, e, 'Rage', false); } },
+    // mode Rage's Combat swings Skill: the view's attack clip follows (render/units.js FORMS 'Rage')
+    before(_c, b, e, a) { if (a.n >= cap && !a.rage) { a.rage = true; mode(b, e, 'Rage', false); setForm(b, e, 'Rage'); } },
   }];
 }
 

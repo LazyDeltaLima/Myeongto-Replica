@@ -288,8 +288,8 @@
         "enemy_1387_winshd": [30,2,28,11816,111096]
       },
       "hooks": [1,134,6492,544,544,909,909,0,25,126,5,20,0,13005,1678,25,104,99,1,25,0,0,0],
-      "events": {"atk":574,"deploy":27,"die":27,"dmg":829,"engage":6,"face":14,"fx":219,"leak":99,"skill":42,"spawn":114,"status":450,"swing":557},
-      "fx": {"aoe":3,"blink":2,"displace":23,"dp":1,"explode":6,"garrisonGrant":2,"kitHit":5,"phase":3,"slash":8,"stacks":160,"zone":6},
+      "events": {"atk":574,"deploy":27,"die":27,"dmg":829,"engage":6,"face":14,"fx":222,"leak":99,"skill":42,"spawn":114,"status":450,"swing":557},
+      "fx": {"aoe":3,"blink":2,"displace":23,"dp":1,"explode":6,"garrisonGrant":2,"kitHit":5,"phase":6,"slash":8,"stacks":160,"zone":6},
       "snaps": "fa876e27 058dfd3d 4f5e2ce1 c23cb3e0 88106efe fdd16533 f8220e5d fa0fbe0f fb8f0f4f c8ab4360 d3cf7d9b 12774586 b28e4576 d3cbb75d f75e1fb2 4a3901b9 680ff368 03d3ef76 ff99189a 5711294a 8252fe02 bfd58f80"
     },
     "standin-06": {

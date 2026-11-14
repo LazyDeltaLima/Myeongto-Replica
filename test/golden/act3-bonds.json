@@ -1875,8 +1875,8 @@
       ],
       "enemies": {"enemy_1229_darmy":[10,10,0,10449,104509],"enemy_1229_darmy_2":[7,7,0,16560,95800],"enemy_9007_acelem":[2,0,2,7093,95166]},
       "hooks": [1,35,3081,291,290,784,823,290,26,29,24,24,0,7238,3,42,19,2,1,28,0,6,0],
-      "events": {"atk":350,"deploy":13,"die":27,"dmg":823,"engage":9,"face":16,"fx":48,"heal":4,"leak":2,"skill":48,"spawn":31,"status":56,"swing":305,"tplfx":2},
-      "fx": {"aoe":4,"beam":4,"burst":6,"displace":18,"phase":4,"revive":3,"substitute":2,"summon":1,"swap":2,"teleport":4},
+      "events": {"atk":350,"deploy":13,"die":27,"dmg":823,"engage":9,"face":16,"fx":52,"heal":4,"leak":2,"skill":48,"spawn":31,"status":56,"swing":305,"tplfx":2},
+      "fx": {"aoe":4,"beam":4,"burst":6,"displace":18,"phase":8,"revive":3,"substitute":2,"summon":1,"swap":2,"teleport":4},
       "snaps": "5a04ea9a 86e15431 37464154 ad95aea3 09ed4f6e d79e8981 9ee5e4a8 ec0623f6 c1eef224 c6da14f4 baa0c341"
     },
     "bond-swiftShip-low": {

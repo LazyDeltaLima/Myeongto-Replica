@@ -186,7 +186,8 @@ function kitLeaderMisc(key, ab, e) {
           // to the mode Tier 1 / 2 / 3 / 4 / 5 (no fsm restart) — the Combat swinging plays on (`det` 0), the new mode's is
           // ready at once; Tier 4 and 5 swing Attack_2
           const tier = MDROCK_TIERS[e2.findBuff('ab:rockCharge')?.stacks ?? 0];
-          if (tier) mode(b, e2, tier, false);
+          // the view's attack clip follows from Tier 4 (render/units.js FORMS: Attack_2; the swing running keeps its clip)
+          if (tier && mode(b, e2, tier, false) && (tier === 'Tier 4' || tier === 'Tier 5')) setForm(b, e2, tier);
           b.addBuff(e2, { key: 'ab:rockCharge', refresh: 'stack', stacks: 1, maxStacks: 6, persist: true, mods: { atkPct: T(ab, 'charge.attack@enemy_mdrock_s_1[charge].atk') ?? 0 } });
         },
       }, skill(s, (b, e2) => bar.refresh(b, e2, bar))];
@@ -292,9 +293,10 @@ function kitLeaderMisc(key, ab, e) {
       const BRAKE = { moveMul: 0.1 }, BRAKE_UP = 1.5, LANDING = 1.333;
       return [skill(s, (b, e2) => {
         mode(b, e2, 'Fly');   // enemy_balloon_s[fly] SwitchMode 1 for its flight (no attack ability), the first again as it ends
+        setForm(b, e2, 'Fly');   // its clips Move_02 / Die_02 (render/units.js FORMS)
         b.addBuff(e2, {
           key: 'ab:takeoff', duration: s.bb.duration ?? 0, flags: { unblockable: true, float: true, noDisplace: true }, mods: { moveMul: 1 + (s.bb['balloon_s[fly].move_speed'] ?? 0) }, visible: true,
-          onExpire: ({ battle }) => { if (e2.alive) { mode(battle, e2, null); battle.addBuff(e2, { key: 'ab:landing', duration: LANDING, flags: { unblockable: true }, mods: BRAKE }); } },
+          onExpire: ({ battle }) => { if (e2.alive) { mode(battle, e2, null); setForm(battle, e2, null); battle.addBuff(e2, { key: 'ab:landing', duration: LANDING, flags: { unblockable: true }, mods: BRAKE }); } },
         });
         b.addBuff(e2, { key: 'ab:takeoffBrake', duration: BRAKE_UP, mods: BRAKE });
         b.fx('telegraph', { x: e2.x, y: e2.y, r: 0.5, kind: 'takeoff', id: e2.id });
@@ -886,7 +888,8 @@ export const LEADER_KITS = Object.freeze({
   enemy_10138_xdsnow: (ab) => [{
     // enemy_xdsnow_t[wall]: the mode Unbalanced (no attack ability) while 失衡 holds, the first one back as it ends —
     // its attack attaches ready
-    tick(b, e) { const on = unbalancedNow(b, e); mode(b, e, on ? 'Unbalanced' : null, on); },   // (the way back restarts nothing)
+    // (the way back restarts nothing); the view's death clip follows (render/units.js FORMS 'Unbalanced': Die_2)
+    tick(b, e) { const on = unbalancedNow(b, e); if (mode(b, e, on ? 'Unbalanced' : null, on)) setForm(b, e, on ? 'Unbalanced' : null); },
   }, unbalanced((b, e, a) => {             // 雪孩子 · pushed / pulled into high ground ⇒ hitWall.value damage
     const dx = e.x - a.lx, dy = e.y - a.ly, d = hypot(dx, dy);
     if (!(d > 0)) return;
@@ -902,6 +905,7 @@ export const LEADER_KITS = Object.freeze({
     a.done = true;
     e.profile.noAttack = true;
     mode(b, e, 'Speed');   // enemy_xdpeng_t[switch] SwitchMode 1: no attack ability
+    setForm(b, e, 'Speed');   // Skills/switch's Die_3 (the egg breaks), then Idle_2 / Move_2 / Die_2 (render/units.js FORMS)
     b.addBuff(e, { key: 'ab:noEgg', persist: true, visible: true, flags: { unblockable: true }, mods: { moveMul: 1 + (T(ab, 'speed.move_speed') ?? 0) } });
   })],
 });

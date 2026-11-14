@@ -1291,7 +1291,7 @@
         "enemy_9020_actrpc": [1,0,0,29108,537741]
       },
       "hooks": [1,68,6000,1357,1357,4963,6322,3904,38,47,81,75,209,34930,1550,3,13,0,1,38,0,23,0],
-      "events": {"atk":1844,"castHit":12,"deploy":49,"die":47,"dmg":6031,"engage":20,"face":68,"fx":2647,"heal":725,"skill":156,"spawn":51,"status":1009,"swing":1383,"tplfx":4},
+      "events": {"atk":1844,"castHit":12,"deploy":49,"die":47,"dmg":6031,"engage":20,"face":68,"fx":2648,"heal":725,"skill":156,"spawn":51,"status":1009,"swing":1383,"tplfx":4},
       "fx": {
         "airstrike": 59,
         "beam": 13,
@@ -1317,7 +1317,7 @@
         "link": 1128,
         "lock": 74,
         "lure": 2,
-        "phase": 11,
+        "phase": 12,
         "radiantSword": 2,
         "refresh": 1,
         "revive": 3,
@@ -1383,8 +1383,8 @@
         "enemy_9020_actrpc": [1,0,0,9149,509769]
       },
       "hooks": [1,36,6000,814,814,3565,5685,4466,11,15,91,87,100,27110,1873,3,15,0,1,113,0,9,0],
-      "events": {"atk":1357,"castHit":31,"deploy":21,"die":15,"dmg":5043,"engage":10,"face":41,"fx":1009,"heal":492,"skill":178,"spawn":27,"status":291,"swing":852},
-      "fx": {"anchor":4,"aoe":3,"beam":39,"burst":9,"candle":8,"charge":6,"chargeEnd":6,"dash":12,"downed":2,"ember":2,"enemyShot":38,"enemySkill":18,"explode":1,"healAoe":27,"kitHit":89,"link":591,"overload":4,"palsy":4,"phase":12,"reborn":1,"revive":3,"shieldBreak":10,"sleepGuard":1,"splash":99,"stacks":9,"substitute":3,"swap":3,"teleport":5},
+      "events": {"atk":1357,"castHit":31,"deploy":21,"die":15,"dmg":5043,"engage":10,"face":41,"fx":1010,"heal":492,"skill":178,"spawn":27,"status":291,"swing":852},
+      "fx": {"anchor":4,"aoe":3,"beam":39,"burst":9,"candle":8,"charge":6,"chargeEnd":6,"dash":12,"downed":2,"ember":2,"enemyShot":38,"enemySkill":18,"explode":1,"healAoe":27,"kitHit":89,"link":591,"overload":4,"palsy":4,"phase":13,"reborn":1,"revive":3,"shieldBreak":10,"sleepGuard":1,"splash":99,"stacks":9,"substitute":3,"swap":3,"teleport":5},
       "snaps": "9dec4256 ad9114c8 a666280e 75b728c1 9aa9002f 51426378 59225e04 84e803b9 05251bee 0c1d87e9 171ddfd4 a9931d1a b798ce9a 4cfa88dd 81b3500f 647e92c1 962deae6 d589f096 9711a033 78a5d82c"
     },
     "hidden-boss_10-pair": {

@@ -37,7 +37,8 @@ function kitDeepsea(ab, { swim = false, drown = false }) {
         if (!wet && a.wet) b.removeBuff(e, 'ab:swim');
         // the prefab's mode Swim in deep water (its attack Attack_2, the same timing), the first one out of it [추정·미조사:
         // what switches it — no buff template does — was not read; deep water is where its Swim talent holds]
-        if (wet !== !!a.wet) mode(b, e, wet ? 'Swim' : null);
+        // the view's clips follow (render/units.js FORMS 'Swim': Attack02 / Idle02 / Move02)
+        if (wet !== !!a.wet && mode(b, e, wet ? 'Swim' : null)) setForm(b, e, wet ? 'Swim' : null);
         if (wet) b.removeBuff(e, 'terrain:deepsea');   // 免疫水蚀: drop devices.js' deep-water debuff
       }
       // PRTS 码头水手 "水蚀状态下或处于清澈水域时，每秒受到1000点无来源真实伤害" (伤害分类: 深水区/涨潮水蚀 is BUFF damage):
@@ -225,14 +226,15 @@ function kitParasite(ab) {
       if (a.castOn) {
         const t = a.castOn;
         // (stun covers freeze and levitate — their statuses set it —; the palsy halt is the other state that interrupts)
-        if (!canCast(e, false, b) || b.time < e.palsyUntil - 1e-9 || !t.alive || !t.deployed) a.castOn = null;
+        if (!canCast(e, false, b) || b.time < e.palsyUntil - 1e-9 || !t.alive || !t.deployed) { a.castOn = null; setForm(b, e, null); }
         else {
           if (b.time >= a.castEnd - 1e-9) { a.castOn = null; attach(b, e, a, t); }
           return;
         }
       }
       const bl = e.blockedBy && e.blockedBy.alive && canCast(e, false, b) ? e.blockedBy : null;
-      if (bl) { a.castOn = bl; a.castEnd = b.time + PARASITIC_CLIP; }
+      // the view plays the Combat's clip Parasitic while it casts (render/units.js FORMS 'cast'; null if the cast is cut)
+      if (bl) { a.castOn = bl; a.castEnd = b.time + PARASITIC_CLIP; setForm(b, e, 'cast'); }
     },
     death(c, b, e, a) { if (a.host) b.removeBuff(a.host, 'ab:parasite'); b.removeBuff(e, 'ab:parasiteAttached'); },
   }];
@@ -271,7 +273,7 @@ function kitFlameVine(ab) {
     attack(c, b, e) {
       // ignites nearby 卷心籽
       // (enemy_ftzlc[on_fire] SwitchMode 1: the mode OnFire, its attack 2_Attack)
-      for (const o of b.enemiesInRadius(e.x, e.y, 1.5)) if (o.defId === 'enemy_10065_ftzlc' && o.mem.ab && !o.mem.ab.ignited) { o.mem.ab.ignited = true; mode(b, o, 'OnFire', false); b.fx('ignite', { x: o.x, y: o.y, id: o.id }); }
+      for (const o of b.enemiesInRadius(e.x, e.y, 1.5)) if (o.defId === 'enemy_10065_ftzlc' && o.mem.ab && !o.mem.ab.ignited) { o.mem.ab.ignited = true; mode(b, o, 'OnFire', false); setForm(b, o, 'OnFire', 'ignite'); }
     },
   }];
 }
