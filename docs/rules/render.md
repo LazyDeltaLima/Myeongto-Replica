@@ -1355,6 +1355,38 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   단계 3은 둘에 하나를 합친 시간으로·잃는 시간 없음, 카메라·크기 변화는 바로, 단계가 내려가도 건너뛴 시간 유지, 시계는 판정 전에 매 프레임).
   [화면 미확인] 탄 궤적·빠른 타격이 끊겨 보이는지 — 끊겨 보이면 갱신만 격프레임(그리기는 매 프레임)이나 단계 3이 20초 이어질 때만으로 좁힐 수 있다.
 
+## 이펙트 그리기 전용 경로 (2026-11-15, 관리자 요청 「그림을 빼지 않고 부하 줄이기」의 부하 연구 C, 공식에 없는 우리 장치)
+이펙트 캔버스 둘(`fxgame.js`의 아래·위 층)의 그리기를 three.js의 범용 경로(`renderer.render`) 대신 `render/fxsubmit.js FxSubmit`이 제출한다. 그림은 같다
+(아래 확인 — 픽셀 0 차이가 조건). 붐비는 보스전에서 이펙트 층은 한 프레임에 약 300번 그리고 그리기마다 재질이 따로라, three.js가 그리기마다 재질의 uniform
+약 55개를 훑고(`WebGLUniforms.upload`, `setProgram` 시간의 75 %) 프로그램 키·정점 묶음을 다시 확인했다 — 이펙트 층 시간의 약 70 %, 그중 WebGL 호출 자체는 13 %.
+- **프로그램**: three.js가 이 렌더러에 컴파일한 이펙트 프로그램(`PROGRAM_VARIANTS`)의 원문을 컨텍스트에서 읽어(`getShaderSource`) 재질의 일반 uniform
+  (행렬 빼고)만 std140 블록 `FxDraw` 하나로 옮겨 다시 링크(`blockSource`). 한 패스가 모든 그리기의 블록을 버퍼 하나에 채워 올리고, 그리기는 제 범위만 묶는다.
+  샘플러는 고정 단위의 uniform, **행렬(`modelMatrix`·`modelViewMatrix`·`normalMatrix`·재질 `uSys`)은 일반 uniform**으로 그리기마다(값이 바뀔 때만) —
+  블록에 넣으면 셰이더 계산이 달라졌다(Windows Chrome ANGLE/D3D11: 프레임마다 몇 픽셀 1–4/255; 블록 없이 같은 원문이면 0, 행렬만 빼면 0, 물체 mat4 둘을
+  다시 넣으면 다시 1/255). 면(`FLIP_SIDED`·`DOUBLE_SIDED`)은 셰이더가 읽지 않아(원문으로 확인, 읽게 되면 three.js로) 프로그램 둘(노멀 없음·있음) + 가림 메시용 하나.
+- **그리기 목록은 three.js의 것 그대로**: 같은 순회(visible·layers·frustum), 같은 정렬(`WebGLRenderList`의 `painterSortStable`·`reversePainterSortStable`,
+  깊이 `z`는 물체 자신의 경계구가 있으면 그것(스킨 메시) 아니면 지오메트리의 것), 불투명(가림 메시) 다음 투명, 양면 투명 재질은 뒷면 패스 → 앞면 패스
+  (`renderObject`), `onBeforeRender`도 같은 때. 정점 버퍼·VAO는 이 모듈 것(three.js는 제 것을 감춤)이고 올리는 규칙은 `WebGLAttributes`대로(통째, 또는 합친
+  `updateRanges`), 텍스처는 three.js 것(`properties`·`initTexture`), GL 상태는 three.js의 상태 캐시(`state.setMaterial`·`useProgram`·`bindTexture`)로.
+- **스킨 메시**는 three.js가 그 자리에서 혼자 그린다(`drawThree`: 자식을 잠시 떼고 `renderer.render(object)`), 앞뒤로 상태 캐시를 맞춤. 이 모듈이 못 그리는
+  것(다른 재질·선·인스턴스 메시·아직 링크 안 된 프로그램)이 있는 패스는 그 프레임만 통째로 three.js. 이 모듈이 그린 뒤 three.js를 부를 때는 먼저
+  `resetState`(three.js는 여기서 묶은 VAO를 모름).
+- **미리 링크**: `prewarm`이 three.js 변형·가림 메시 다음에 이 모듈의 프로그램을 렌더러마다 한 단계에 하나씩(Firefox는 링크 하나 = 화면 한 번 멈춤, 위 「이펙트
+  셰이더 유지」). 준비 단계 없이 들어온 판은 첫 그리기 때 링크하고 그동안 three.js로 그린다(Chrome은 병렬 링크라 안 멈춤; Firefox는 three.js 자신의 첫 사용과 같음).
+- **개발 스위치** `globalThis.__SP_FX_SUBMIT__`: `false` = three.js로(예전 그대로, 비교용), `'check'` = 패스마다 three.js와 이 모듈로 각각 지운 캔버스에 그려
+  픽셀 비교(`view.stats().fxGame.submit[].checks`). `stats().fxGame.submit`에 캔버스별 직접 그린 패스·three.js로 간 패스와 까닭.
+- **재발 방지**: `test/render/fx-submit.browser.test.js`(RENDER_E2E, Windows Chrome) — 추출 기본 스킨 이펙트 전부를 세 프레임씩 three.js와 이 모듈로 그려 픽셀
+  0 차이, 실제로 이 모듈이 그렸는지·스킨 메시가 제자리 경로로 갔는지도 확인. 2026-11-15 이펙트 3,866개·포착 11,598번 0 차이(스킨 메시의 깊이를 지오메트리
+  경계구로 잡았을 때는 호시구마 S3·미즈키 S2·에단 공격 버프의 포착 11번이 달랐다 — 이 시험이 잡음). `test/render/fx-submit.test.js`(원문 고쳐 쓰기).
+  게임 경로: 렌더 데모 보스전(`boss-m02` 게임 시각 20–28 s, 휴대폰 화면 @3x 「높음」) `'check'`로 캔버스마다 약 350–550 패스 0 차이.
+- **절약**(같은 장면, Windows Chrome, 데스크톱 CPU, 스위치로 번갈아 3바퀴 평균): CPU에 묶인 조건(CPU 스로틀 ×3)에서 이펙트 층 단계 0 −24 %, 단계 3 −26 %
+  (13.0 → 9.7 ms, 프레임 JS −18 %, fps +21 %); 스로틀 없이 −15 ~ −17 %. 연구의 어림(−40 ~ −48 %)에 못 미친다 — 남은 몫은 그리기마다 블록 채우기·행렬
+  uniform·VAO 확인·버퍼 올리기와 장면 행렬 갱신(three.js도 하던 것), 그리고 입자 갱신(그리기 밖, 이펙트 층의 약 30 %).
+  위 「단계 3 = 이펙트 층 격프레임」과 함께(같은 측정): 단계 3 이펙트 층 13.0(둘 다 없음) → 7.3(격프레임만) → 5.3 ms(둘 다, −59 %; 격프레임만보다 −27 %),
+  프레임 JS 20.9 → 14.2 → 11.8 ms, fps 42.7 → 61.5 → 72.7; 스로틀 없이 2.42 → 1.37 → 1.15 ms.
+- [화면 미확인] 휴대폰(iOS Metal·안드로이드 GL 드라이버)에서도 0 차이인지 — 확인은 D3D11뿐. 행렬처럼 다른 백엔드에서 블록이 계산을 바꾸면 그림이 몇 픽셀
+  1–4/255 다를 수 있다(폰에서 원격 개발자 도구로 `__SP_FX_SUBMIT__ = 'check'`).
+
 ## 프레임 상한 (관리자 결정 2026-11-06, 공식에 없는 설정)
 
 - 설정 → 화면 「帧率上限」(없음·30·60·120, 기본 없음; `FRAME_LIMITS`, `frameLimit`). 필드 보기의 `app.ticker.maxFPS`만 바꾼다(`render/app.js setFrameLimit`). 전투는 자기 시계로 돌므로(`battle/runner.js`) 그려지는 횟수만 달라지고 결과는 같다.
