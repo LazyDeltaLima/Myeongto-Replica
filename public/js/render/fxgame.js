@@ -237,6 +237,13 @@ const STATUE_MODES = Object.freeze({ stone: 'Stone', fly: 'Fly' });
 const HEADSHOT_MODES = Object.freeze({ HeadShot: 'HeadShot' });
 /** 2026-11-11: the sim's 'explode' kinds that are an enemy's official shot bursting where it touched (fxgame eshotBlast). */
 const SHOT_BLASTS = new Set(['bomb', 'cansld', 'wingnt']);
+/**
+ * 2026-11-14 (docs/rules/fx.md 「W의 폭탄 C4」): 'telegraph' / 'explode' kinds of an enemy skill's projectile that sits on its
+ * target for its life and stops there (fxgame estuckFx) → the ability. W's C4: projectile_enemy_cqbw_s1 (AttachToTarget,
+ * `_lifeTime` 3.2 s) — the sim's 'telegraph' { x, y, dur, kind, tgt } as it is put on, 'explode' { x, y, kind, caster, tgt }
+ * as it stops (on time, or at once when the cast is cut), its damage right after.
+ */
+const STUCK_SHOTS = Object.freeze({ c4: 'C4' });
 /** 2026-11-11: 'explode' kinds whose official blast has no effect of its own — the ability's cast effects draw it. */
 const CAST_BLASTS = new Set(['ltndruAoe']);
 /**
@@ -5009,6 +5016,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function etrailShot(e, src, tgt, part) {
     let shot;
     try { shot = enemyShot(enemyDef(src.info?.defId), src.info?.form); } catch { shot = undefined; }
+    // 2026-11-14: a link shot (玩具独轮车's harpoon — the sim strikes it at once) draws its line (elinkShot)
+    if (part?.proj?.link > 0 && tgt && (shot == null || shot.link) && (e[3] === 'enemy' || erec(src))) return elinkShot(e, src, tgt, part.proj);
     if (shot === null || (shot && (shot.link || shot.instant || shot.move === 'ATTACH'))) return false; // no flight (the sim: instant)
     const pr = (shot?.key && eprojByKey(src, shot.key)) || (part && part.proj);
     if (!pr || !tgt || (e[3] !== 'enemy' && !erec(src)) || pr.link || level() >= 3 || failed) return false;
@@ -5294,6 +5303,36 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     dblasts.set(o.id, { t: clockS, rec: { src, pr: { hit: pr.hit || [] } } });
     if (dblasts.size > 64) dblasts.delete(dblasts.keys().next().value);
+    return true;
+  }
+  /**
+   * A projectile stuck on its target (STUCK_SHOTS): as it is put on ('telegraph'), its `_effectsToTargetWhenStart` on the
+   * target, held to its stop — `Projectile.OnProjectileStop` finishes them (`EffectBehaviour.m_effects`, `Effect.FinishMe`;
+   * and 1 s after its life whatever comes: a guard, the sim always sends the stop); as it stops ('explode'), its `_effectsWhenReached` where
+   * it is — on the target, or on the spot when the target fell or left meanwhile (it still stops there, and the damage
+   * that would have drawn them has no target). The damage after it draws no reach effect again (eshotLand). The held effect
+   * has no owner (the caster's death does not stop the charge — docs/rules/sim.md 「투사체를 기다리는 적 스킬 넷」; its stop
+   * comes even when the target falls), and a stop ends every such effect on that target (two charges on one unit at
+   * once: one stop). true = drawn.
+   */
+  const stuckBy = new Map();   // caster id → its view as it put a charge on (it may fall before the charge stops)
+  function estuckFx(e, views) {
+    const o = e[4], v = views.get(o.caster) || (e[1] === 'explode' ? stuckBy.get(o.caster) : null);
+    if (!v || !eOn(v) || level() >= 3) return false;
+    if (e[1] === 'telegraph') { stuckBy.set(o.caster, v); if (stuckBy.size > 64) stuckBy.delete(stuckBy.keys().next().value); }
+    const pr = eskillPart(v, STUCK_SHOTS[o.kind])?.proj;
+    if (!pr || ![...(pr.targetStart || []), ...(pr.reached || [])].some(efx)) return false;
+    const tv = o.tgt != null ? views.get(o.tgt) : null;
+    const on = tv && tv.alive !== false && !tv.remove ? tv : null;
+    if (e[1] === 'telegraph') {
+      const life = Number(o.dur) > 0 ? Number(o.dur) : 0;
+      if (on && pr.targetStart?.length) eplay(v, pr.targetStart, { at: on, owner: null, on: o.tgt, buff: true, tag: 'stuck', until: clockS + life + 1 });
+      return true;
+    }
+    for (const l of live) if (l.tag === 'stuck' && l.on === o.tgt) l.inst.stop();
+    const names = (pr.reached || []).filter((n) => efx(n)).slice(0, MAX_HIT_FX);
+    if (names.length) eplay(v, names, on ? { at: on } : { at: { x: Number(e[2]), y: Number(e[3]), z: 0 }, owner: null });
+    if (o.tgt != null) eshotLand.set(`${o.caster}:${o.tgt}`, clockS);
     return true;
   }
   /**
@@ -6020,6 +6059,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
     if (!r) return false;
     elassoEnd(v);
+    const rec = linkLine(v, pr, r, tgt, dur);
+    if (!rec) return false;
+    elassos.set(ownerOf(v), { rec, tgt, name: r[1] });
+    return true;
+  }
+  /**
+   * A link projectile's line (HarpoonRenderer, elassoStart) of `v`'s projectile `pr` (its line prefab `r`) to `tgt` for
+   * `dur` s, then its fade: its elines record, or null.
+   */
+  function linkLine(v, pr, r, tgt, dur) {
     let from;
     try { from = eshotFrom(v, pr.mount); } catch { from = null; }
     if (!from || ![from.x, from.y, from.z].every(Number.isFinite)) from = { x: mx(v), y: v.y, z: (v.z || 0) + (v.hover || 0) };
@@ -6033,9 +6082,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     };
     const head = { id: `lasso:${++ropeSeq}`, get alive() { return tgt.alive !== false && !tgt.remove && !gone.has(ownerOf(tgt)); }, get x() { return at().x; }, get y() { return p.y; }, get z() { return p.z; } };
     startLine(r[0], r[1], v, head, dur, { sMount: Number.isInteger(pr.mount) ? pr.mount : 2, eMount: 7 }, { onSrc: !!pr.onSrc });
-    const rec = elines.get(`${ownerOf(v)}:${head.id}:${r[1]}`);
-    if (!rec) return false;
-    elassos.set(ownerOf(v), { rec, tgt, name: r[1] });
+    return elines.get(`${ownerOf(v)}:${head.id}:${r[1]}`) || null;
+  }
+  /**
+   * 2026-11-14 (docs/rules/fx.md 「적 채널 스킬의 줄 투사체」): an enemy's plain attack whose projectile is a link — 玩具独轮车's
+   * harpoon (projectile_enemy_sgrobh_1 / _2: HarpoonMovement `_speed` 30, `_linkDuration` 0.2, `proj.link`): its line
+   * extends to the target and stays `_linkDuration` s after it reached, then fades (the sim strikes at once: its flight is
+   * a few hundredths of a second). true = drawn.
+   */
+  function elinkShot(e, src, tgt, pr) {
+    if (!camRef || level() >= 3 || failed || tgt === src) return false;
+    const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
+    if (!r) return false;
+    const speed = Number(pr.speed) > 0 ? Number(pr.speed) : 0;
+    const fly = speed > 0 ? Math.hypot(tgt.x - src.x, tgt.y - src.y) / speed : 0;
+    if (!linkLine(src, pr, r, tgt, fly + (Number(pr.link) > 0 ? Number(pr.link) : 0))) return false;
+    trailAtks.add(e);
     return true;
   }
   /** The channel of enemy `v` ended before its length (its 'enemySkillEnd', a cut 'deathEyeEnd'): its line fades now. */
@@ -7123,6 +7185,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[4]?.id != null && typeof e[4].ability === 'string' && e[4].caster == null
             && (e[1] === 'telegraph' ? eprojTelegraph(e, views) : e[1] === 'explode' && dshellBlast(e))) { ownFx.add(e); return; }
           if (e[1] === 'explode' && e[4]?.id != null && SHOT_BLASTS.has(e[4].kind)) { if (eshotBlast(e, views)) ownFx.add(e); return; }
+          if ((e[1] === 'telegraph' || e[1] === 'explode') && e[4]?.caster != null && STUCK_SHOTS[e[4].kind]) { if (estuckFx(e, views)) ownFx.add(e); return; }   // 2026-11-14: W's C4
           // 2026-11-12: 规程 m10's 盐坨子炮 (cannonFx, cannonBlast)
           if (e[1] === 'cannon') { if (cannonFx(e)) ownFx.add(e); return; }
           if (e[1] === 'explode' && e[4]?.kind === 'cnnonShell') { if (cannonBlast(e, views)) ownFx.add(e); return; }

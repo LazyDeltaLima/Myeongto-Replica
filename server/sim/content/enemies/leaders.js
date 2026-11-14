@@ -147,10 +147,11 @@ function kitLeaderMisc(key, ab, e) {
           ch.blow = () => {
             if (!live.delete(ch)) return;
             ch.h.cancel();
-            b.fx('explode', { x: t.x, y: t.y, r: 0, kind: 'c4' });
+            // (2026-11-14) where the charge stopped, its caster and target: the view's `_effectsWhenReached` there (fxgame.js estuckFx)
+            b.fx('explode', { x: t.x, y: t.y, r: 0, kind: 'c4', ability: 'C4', caster: e2.id, tgt: t.id });
             if (t.alive && t.deployed) hurt(b, e2, t, e2.s.atk * (s.bb.atk_scale ?? 1), 'phys');
           };
-          b.fx('telegraph', { x: t.x, y: t.y, r: 0, dur: fuse, kind: 'c4' });
+          b.fx('telegraph', { x: t.x, y: t.y, r: 0, dur: fuse, kind: 'c4', tgt: t.id });
           ch.h = b.after(fuse, ch.blow);
           live.add(ch);
         }

@@ -4268,9 +4268,26 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
 - 회귀 방지: `test/render/eskill-lasso-coverage.test.js` — 바인딩(`tools/assets/local-enemy-bindings.json`)에서 줄 이펙트가 있는 연결 투사체를 쏘는 적
   능력 전부가 `test/render/eskill-lasso-list.js`에 있어야 한다(`LASSO` 이 길로 그림·`OTHER` 다른 길·`NOT_CAST` 안 씀·`TODO` 아직 대체 그림). `LASSO`는
   실제 키트로 채널 fx에 `dur`·`tgt`가 실리고 그동안의 대체 빔이 모두 `LASSO_BEAMS`인지 본다. 새 적·시즌·재추출이 이런 능력을 더하면 넣을 때까지 실패한다.
-  지금 `TODO`: 완구 외발자전거(`enemy_10018_sgrobh`) 일반 공격의 작살 줄 `enemy_sgrobh_attack_01`/`_02`(`etrailShot`이 연결 투사체를 건너뜀)·가상적: 총
-  (`enemy_9017_achunt`) 스킬 3의 사슬 `enemy_achunt_chain`(시뮬 대체 `link` `faithLink`).
+  지금 `TODO`: 가상적: 총(`enemy_9017_achunt`) 스킬 3의 사슬 `enemy_achunt_chain`(시뮬 대체 `link` `faithLink`).
+- 일반 공격의 연결 투사체(2026-11-14): 완구 외발자전거(`enemy_10018_sgrobh`)의 작살 `projectile_enemy_sgrobh_1`/`_2`(`HarpoonMovement` 속도 30,
+  `_linkDuration` 0.2, 줄 `enemy_sgrobh_attack_01`/`_02`)는 데이터에 `shot`이 없어 시뮬이 바로 맞힌다. 화면은 그 `atk`에서 줄을 대상까지 뻗어(속도 30)
+  닿은 뒤 0.2초 두고 사라지게 한다(`fxgame.js elinkShot`, 채널과 같은 `linkLine`). 대체 화살은 안 그린다. 두 대상을 치면 줄도 둘이다. 전에는
+  `etrailShot`이 연결 투사체를 건너뛰어 줄이 없었다. 확인: `eskill-lasso.test.js` 「玩具独轮车」(실제 키트, 고치기 전 실패). [화면 미확인: 아레나 2배속]
 - 확인: `test/render/eskill-lasso.test.js`(실제 키트 두 적: 줄이 놓이는 곳·대체 빔 안 그림·끝까지 타격 이펙트·일찍 끝남·추출 안 된 줄). [화면 미확인: 아레나 2배속]
+
+## W의 폭탄 C4 (2026-11-14, 공식 클라에서 확인)
+
+- 대상: W(적, `enemy_1504_cqbw`)의 스킬 `C4` — 투사체 `projectile_enemy_cqbw_s1`이 대상에 붙어 수명(3.2초) 동안 있다가 멈춘다(시뮬 쪽 규칙은
+  `sim.md` 「투사체를 기다리는 적 스킬 넷」).
+- 공식 동작: 붙을 때 `_effectsToTargetWhenStart` `enemy_cqbw_skill_01_buff`(프리팹 6초)를 대상에 틀고, 멈출 때 `Projectile.OnProjectileStop`이 그것을
+  `Effect.FinishMe`로 끝낸 뒤 그 자리에 `_effectsWhenReached` `enemy_cqbw_skill_02_hit`을 튼다. 대상이 그새 쓰러지거나 떠나도 멈춤은 온다.
+- 전에는 둘 다 안 났다: 대상 표식은 시뮬 fx에 대상이 없어 안 났고, 폭발 이펙트는 피해(`eskillHit`)에 묶여 있었다. 그런데 그 피해가 시전 3.2초 뒤라 3초 창을
+  넘겼고, 대상이 없으면 피해도 없었다. 그 자리에는 시뮬의 대체 폭발이 그려졌다(이펙트 golden roster-004·021에 C4 줄이 없었음).
+- 우리: 키트(`content/enemies/leaders.js`)가 붙일 때 `telegraph` { `kind` 'c4', `tgt`, `dur` }, 멈출 때 `explode` { `kind` 'c4', `caster`, `tgt` }를 보낸다.
+  `fxgame.js estuckFx`(`STUCK_SHOTS`)가 표식을 멈출 때까지(늦어도 수명 + 1초) 대상 위에 붙잡아 두고, 멈출 때 폭발을 대상 위에 튼다. 대상이 없으면
+  `explode`의 자리에 튼다. 뒤따르는 피해에서는 다시 틀지 않는다(`eshotLand`). W가 먼저 쓰러져도 붙일 때 본 W의 바인딩으로 그린다. 대체 고리·폭발은
+  그리지 않는다.
+- 재발 방지: `test/render/stuck-shot-fx.test.js`(실제 키트 이벤트: 대상 위 표식·폭발 한 번·대상과 W가 없을 때 그 자리). [화면 미확인: 아레나 2배속]
 
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 

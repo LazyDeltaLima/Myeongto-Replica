@@ -15,6 +15,10 @@ export const LASSO = Object.freeze({
 
 export const OTHER = Object.freeze({
   'enemy_9012_acloon Modes/2/Body/Skills/Skill_2': '炎佑\'s 祛恶之焰: render/fxgame.js ebreathFx on the kit\'s fx \'yanyouFlame\'',
+  'enemy_10018_sgrobh Modes/Default/Body/Attack': '玩具独轮车\'s plain attack: its harpoon line enemy_sgrobh_attack_01 (render/fxgame.js elinkShot on the \'atk\')',
+  'enemy_10018_sgrobh Modes/Default/Body/Combat': 'the same line, its blocked attack',
+  'enemy_10018_sgrobh Modes/Global/Body/Attack': 'the same, mode Global\'s enemy_sgrobh_attack_02',
+  'enemy_10018_sgrobh Modes/Global/Body/Combat': 'the same, mode Global\'s blocked attack',
 });
 
 export const NOT_CAST = Object.freeze({
@@ -22,10 +26,6 @@ export const NOT_CAST = Object.freeze({
 });
 
 export const TODO = Object.freeze({
-  'enemy_10018_sgrobh Modes/Default/Body/Attack': 'its normal attack\'s HARPOON line enemy_sgrobh_attack_01 is not drawn (fxgame.js etrailShot skips a link shot)',
-  'enemy_10018_sgrobh Modes/Default/Body/Combat': 'the same line, its blocked attack',
-  'enemy_10018_sgrobh Modes/Global/Body/Attack': 'the same, mode Global\'s enemy_sgrobh_attack_02',
-  'enemy_10018_sgrobh Modes/Global/Body/Combat': 'the same, mode Global\'s blocked attack',
   'enemy_9017_achunt Skills/3': 'its chain (projectile_enemy_achunt_ray: enemy_achunt_chain / _end) is the sim\'s stand-in fx \'link\' faithLink (content/bosses.js)',
   'enemy_9017_achunt_2 Skills/3': 'the same chain',
 });

@@ -20,7 +20,7 @@ import * as bossesMod from '../../server/sim/content/bosses.js';
 const MODES = new URL('../../public/assets/local/fx/enemy-modes.json', import.meta.url);
 const quiet = { warn() {}, error() {}, info() {} };
 const D = getData({ log: quiet });
-const JAZZ = 'enemy_10034_cnvsax', DW = 'enemy_1275_dwlock_2';
+const JAZZ = 'enemy_10034_cnvsax', DW = 'enemy_1275_dwlock_2', ROBH = 'enemy_10018_sgrobh';
 const WALL = chessRec({ id: 't_wall', profession: 'TANK', stats: { atk: 0, maxHp: 1e9, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
 
 /** Still walls at (row, col) and enemy `key` at `pos`, every event logged with its battle time. */
@@ -47,6 +47,11 @@ const emodes = () => ({
     skills: { deatheye: { cast: ['enemy_dwlock_skill_start_01'], opt: { enemy_dwlock_skill_start_01: { s: 2, e: 3, o: 0 } }, hit: ['enemy_dwlock_skill_hit_01'],
       hopt: { enemy_dwlock_skill_hit_01: { e: 3, once: 1 } },
       proj: { key: 'projectile_enemy_dwlock_line', mount: 2, trail: ['enemy_dwlock_skill_line_01'], move: 'OTHER', speed: 8.0, link: 8.0 } } } },
+  [ROBH]: { modes: ['Default', 'Global'].map((name, i) => {
+    const part = { cast: ['enemy_sgrobh_attack_start_01'], opt: { enemy_sgrobh_attack_start_01: { s: 2, e: 3, o: 0 } }, hit: [],
+      proj: { key: `projectile_enemy_sgrobh_${i + 1}`, mount: 2, trail: [`enemy_sgrobh_attack_0${i + 1}`], hit: ['enemy_sgrobh_attack_hit_01'], move: 'OTHER', speed: 30.0, link: 0.2 } };
+    return { name, anim: [i ? 'Attack2' : 'Attack'], melee: part, ranged: part };
+  }) },
 });
 const NAMES = [...new Set(JSON.stringify(emodes()).match(/"enemy_[A-Za-z0-9_-]+"/g).map((s) => JSON.parse(s)).filter((n) => !/^enemy_\d/.test(n)))];
 
@@ -153,6 +158,24 @@ test('萨卡兹王庭军精锐术师 (real kit): 死亡之眼 draws its line on 
   } finally { globalThis.fetch = fetch0; }
 });
 
+test('玩具独轮车 (real kit): each plain attack draws its harpoon\'s line (a link shot: HARPOON `_speed` 30, `_linkDuration` 0.2) to each of its two targets — not the stand-in shot', async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    const { h, e, rec } = field(ROBH, [[10, 5], [10, 6]], [10, 6.4]);
+    h.runUntil(() => rec.filter(([, x]) => x[0] === 'atk' && x[1] === e.id).length >= 4, 30);
+    const atks = rec.filter(([, x]) => x[0] === 'atk' && x[1] === e.id);
+    assert.ok(new Set(atks.map(([, x]) => x[2])).size === 2, 'the sim strikes both walls');
+    const { L, seen } = await layer();
+    const views = new Map([[e.id, viewOf(e)], ...h.allies().map((u) => [u.id, viewOf(u)])]);
+    play(L, views, rec, atks[0][0], atks[atks.length - 1][0], (x) => {
+      if (x[0] === 'atk' && x[1] === e.id) assert.equal(L.arrowKind(x), 'officialTrail', 'its line, not the stand-in shot');
+    });
+    const lines = seen.filter((p) => p.kind === 'spawn' && p.names[0] === 'enemy_sgrobh_attack_01');
+    assert.equal(lines.length, atks.length, 'one line per strike');
+    assert.ok(lines.every((p) => p.on == null), 'made on the line\'s head (no `_spawnOnSource`)');
+  } finally { globalThis.fetch = fetch0; }
+});
+
 test('a link line that is not extracted leaves the stand-in beams drawn', async () => {
   const fetch0 = globalThis.fetch;
   try {
@@ -174,5 +197,6 @@ test('the extracted binding: the parts these cases read', { skip: !existsSync(MO
   assert.deepEqual(m[JAZZ].skills.fire, w[JAZZ].skills.fire);
   assert.deepEqual(m[JAZZ].modes, w[JAZZ].modes);
   assert.deepEqual(m[DW].skills.deatheye, w[DW].skills.deatheye);
+  assert.deepEqual(m[ROBH].modes, w[ROBH].modes);
   for (const n of NAMES) assert.ok(m.$fx[n.toLowerCase()], `${n} extracted`);
 });
