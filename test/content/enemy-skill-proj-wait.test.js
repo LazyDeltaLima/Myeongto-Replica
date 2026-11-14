@@ -102,6 +102,28 @@ test('萨卡兹王庭军精锐术师 死亡之眼: casts the 8 s channel standin
   assert.ok(casts[1] >= tEnd + s.cooldown - 1e-6, `next cast ${(casts[1] - tEnd).toFixed(2)} s after the channel's end (cooldown ${s.cooldown})`);
 });
 
+// 2026-11-14: a projectile-waiting ability with no clip of its own still casts its `m_cachedDuration` — the attack time
+// (`GetDuration` = `m_attackTime`, set to the attack time when no clip plays; `RangedAttack.<OnWaitForPostDelay>` waits
+// what is left of it once the projectile is gone). 死亡之眼's LineAttack (`_timeMode` 0) lasts at least the enemy's attack
+// interval: its target retreating 0.5 s in (the channel ends on its next 1 s beat), it stands until then (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 시전 길이).
+test('萨卡兹王庭军精锐术师 死亡之眼: its target gone early, the cast still lasts its attack time (m_cachedDuration)', () => {
+  const h = arena([{ chessId: 't_wall', row: 9, col: 5 }]);
+  h.step();
+  const e = put(h, 'enemy_1275_dwlock_2', [9, 7]);
+  const casts = castLog(h, e, 'DeathEye');
+  stepUntil(h, () => casts.length >= 1, 30);
+  const t0 = casts[0], at = e.s.interval;
+  assert.ok(at > 2, `its attack interval ${at} s`);
+  h.run(0.5);
+  h.b.retreat(h.unit('t_wall'));
+  // (the channel looks at its target on its 1 s beat)
+  h.run(1);
+  assert.equal(e.mem.deathEye, null, 'the channel (its projectile) is over');
+  assert.ok(e.castLeft > 0 && e.atkStandUntil > h.b.time, 'still casting and standing');
+  const tEnd = stepUntil(h, () => !(e.castLeft > 0), at + 1);
+  assert.ok(Math.abs(tEnd - t0 - at) <= 3 * TICK, `the cast ends at its attack time (${(tEnd - t0).toFixed(3)} s, interval ${at})`);
+});
+
 // 2026-11-14 (play report: one of several 节日爵士乐手 stood half-transparent on its blocker's tile and never moved). Its
 // talent's buff `enemy_act38side[mode]` switches back to the Default mode as its 隐匿 returns, and `fire` — a skill of the
 // Attack mode whose RangedAttack has `_interruptAbilityOnDetach` — is interrupted as it is detached (공식 클라에서 확인): the

@@ -339,8 +339,10 @@ function slotSkill(e, ab, a) {
  *   (`<OnWaitForPreDelay>` / `<OnWaitForPostDelay>` yield `sharedWaitForFixedUpdate`) — two ticks;
  * - `seq` (AbilitySequenceGroup): its children one after another (`_MoveToNextActiveAbility` as each finishes), the sum;
  * - 0 [ASSUMED·미조사] for a parallel / selectable group (`par`, `sel`: their finish was not read — no kit casts one at the
- *   slot), for a clip the data lacks (`miss`), and the projectile wait of a RangedAttack with `_waitForProjectileInvalid`
- *   (`proj`: the cast lasts until its projectile is gone — not counted, a clip of its own is cast as above).
+ *   slot) and for a clip the data lacks (`miss`, none since 2026-11-14).
+ * A RangedAttack with `_waitForProjectileInvalid` (`proj`) casts until its projectile is gone (onSkillSlot's open cast) and
+ * at least this: its `m_cachedDuration` is the same `GetDuration` — with no clip the attack time too (`RangedAttack.
+ * OnCastStart` → … → `EasyToStartAbility.OnCastStart` after `AbilityStandard.OnCastStart` updated the playback speed).
  */
 export function castLength(e, cast, bb) {
   if (!cast) return 0;
@@ -351,7 +353,7 @@ export function castLength(e, cast, bb) {
   const time = cast.time ?? 0;
   const at = time === 1 ? dur : time === 2 ? (cast.cd > 0 ? cast.cd : 0)
     : time === 3 ? Math.max(0, Number((bb && bb[cast.cdKey || 'duration']) ?? 0) || 0) : e.s.interval;
-  if (!dur) return cast.proj ? 0 : at;
+  if (!dur) return at;
   const hi = cast.max > 0 ? cast.max : cast.max < 0 ? Infinity : 1;
   const k = Math.min(hi, Math.max(0.1, at / dur));
   return dur * k;
@@ -424,9 +426,10 @@ const PROJ_WAIT_MAX = 60;
  * `RangedAttack.<OnWaitForPostDelay>` waits while `_CheckProjectileValid` (`AsyncUtil.WaitWhileForFixedSeconds`), then,
  * without `_waitForAnimEndWhenProjectileInvalid` (none of the kits that open one; `_minPostDelayWhenProjectileInvalid` is
  * read only with it), waits what is left of the ability's duration (`m_cachedDuration` − the time since the cast began,
- * when positive — our castLength: W `C4`'s clip 4.8 s outlasts its 3.2 s charge, a channel without a clip has none) and
- * finishes: the enemy walks and attacks again and the skill's cooldown restarts then (`EnemySkill._OnCastFinish`; the
- * finish runs through the same path as a cut, interruptEnemyCast → onSkillCut). 공식 클라에서 확인 2026-11-14.
+ * when positive — our castLength: W `C4`'s clip 4.8 s outlasts its 3.2 s charge, a channel without a clip has its attack
+ * time, the enemy's attack interval for `_timeMode` 0) and finishes: the enemy walks and attacks again and the skill's
+ * cooldown restarts then (`EnemySkill._OnCastFinish`; the finish runs through the same path as a cut, interruptEnemyCast →
+ * onSkillCut). 공식 클라에서 확인 2026-11-14.
  */
 function projCastOver(b, e, ab) {
   const k = ab.casting;

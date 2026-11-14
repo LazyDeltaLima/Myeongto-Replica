@@ -59,7 +59,9 @@ test('castLength by class: the attack time of a clipless ability, two ticks of a
   assert.ok(near(L('enemy_1502_crowns', 'blink'), 2 * TICK), 'ActiveBuffAbility: a fixed update before and after');
   // 假想敌：黑云 FireWeapon: ResetAmmoCount (2 ticks) then Fire (Skill_2 2 s, `_timeMode` 0, max 1: the 3 s interval keeps 2 s)
   assert.ok(near(L('enemy_9009_acfort', 'fireweapon'), 2 * TICK + 2), 'a sequence: its children one after another');
-  assert.equal(L('enemy_9012_acloon', 'skill'), 0, 'the projectile wait is not counted [ASSUMED·미조사]');
+  // a projectile-waiting channel without a clip: at least its attack time (`m_cachedDuration`; the open cast waits for the
+  // projectile on top, content/enemies.js projCastOver) — `_timeMode` 0, the 3 s interval
+  assert.ok(near(L('enemy_9012_acloon', 'skill'), 3), 'a clipless projectile wait: its attack time');
   assert.equal(L('enemy_1272_nhtank', 'pollutedrangedatk'), 0, 'a parallel group [ASSUMED·미조사]');
   assert.ok(near(L('enemy_9014_acstma', '2'), 4.433), 'its key through the key table: `Revive` as it is (`_timeMode` 1)');
   // a clip of its own is unchanged: 【末日】 4.467 s as it is (`_timeMode` 1)

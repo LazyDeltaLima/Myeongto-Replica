@@ -4570,7 +4570,7 @@ test('“萨米的意志”: 冰凌 hits a whole column; 自然涌动 stun + art
 // 2026-11-14 (공식 클라에서 확인): 自然涌动 is a RangedAttack waiting for its lassos (projectile_enemy_smdeer_s): the boss casts — no
 // 冰凌 — while one holds, the 60 s cooldown runs from the last one's end, and a lasso that stops early (its target off the field,
 // the boss's cast cut) takes its stun and damage off with it (`_detachAllBuffsWhenStopped`). Until then the cast lasted 0.
-test('“萨米的意志” 自然涌动: casts while its lasso holds (no 冰凌), cooldown from its end; a retreat or a cut ends the lasso and its stun', () => {
+test('“萨米的意志” 自然涌动: casts while its lasso holds (no 冰凌), cooldown from its end; a retreat ends the lasso (the cast waits out its attack time), a cut ends both', () => {
   const s = skb('enemy_9033_acdeer', 'Lasso'), life = s.bb.projectile_life_time;
   const ov = { enemy_9033_acdeer: { skills: E.enemy_9033_acdeer.skills.map((k) => (k.prefabKey === 'Doom' ? { ...k, initCooldown: 500 } : k)) } };
   const go = () => {
@@ -4591,11 +4591,15 @@ test('“萨米的意志” 自然涌动: casts while its lasso holds (no 冰凌
   a.h.runUntil(() => a.casts.length > 1, s.cooldown + 2 * a.e.s.interval + 1);
   assert.ok(a.casts[1] >= a.casts[0] + life + s.cooldown - 1e-6, `next cast ${(a.casts[1] - a.casts[0]).toFixed(2)} s after the first (cooldown from the end)`);
 
+  // its target retreating ends the lasso; the cast still waits out its `m_cachedDuration` — the attack time, `_timeMode` 0
+  // (no clip): the attack interval from the cast's start (「적 스킬 = 일반 공격 차례」 시전 길이)
   const r = go();
   r.h.run(2);
   r.h.b.retreat(r.w);
   r.h.run(3 * r.h.TICK);
-  assert.ok(!(r.e.castLeft > 0), 'its target left: the cast is over');
+  assert.ok(r.e.castLeft > 0 && r.e.s.interval > 2.5, `its target left at 2 s: still casting (attack time ${r.e.s.interval} s)`);
+  r.h.runUntil(() => !(r.e.castLeft > 0), r.e.s.interval);
+  approx(r.h.b.time - r.casts[0], r.e.s.interval, 3 * r.h.TICK, 'the cast is over at its attack time');
 
   const c = go();
   c.h.run(2);

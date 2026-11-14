@@ -1399,8 +1399,11 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     「upstream 0.3.4 개발분 대조 이식 — 전투」, W `C4`·함락의 제사장 `ChainBuff`·'사미의 의지' `Lasso` — 아래 「투사체를 기다리는 적 스킬 넷」.
     투사체가 끝난 뒤에도 **능력 시간이 남았으면 그만큼 더 시전한다**: `_waitForAnimEndWhenProjectileInvalid`가 꺼져 있으면 `m_cachedDuration` − 시전 시작부터 지난 시간이
     양수일 때 그만큼 기다린 뒤 끝난다(`_minPostDelayWhenProjectileInvalid`는 그 플래그가 켜졌을 때만 읽힘; 2026-11-14 공식 클라에서 확인). 우리 값은 `castLength`
-    (W `C4`는 클립 4.8초가 투사체 3.2초보다 길어 4.8초, 클립 없는 채널은 0 **[추정·미조사: 클립 없는 능력의 `m_cachedDuration`(`EasyToStartAbility.GetDuration`)을
-    안 읽음 — 채널이 그보다 일찍 끊길 때만 차이]**).
+    (W `C4`는 클립 4.8초가 투사체 3.2초보다 길어 4.8초). 클립 없는 채널도 공격 시간만큼은 시전한다(2026-11-14, 공식 클라에서 확인: `RangedAttack.OnCastStart` →
+    `AbstractBasicAttack` → `AbstractAnimatedAbility` → `EasyToStartAbility.OnCastStart`가 `AbilityStandard.OnCastStart`의 재생 속도 갱신 — 클립이 없으면 `m_attackTime` =
+    공격 시간 — 뒤에 `m_cachedDuration` = `GetDuration` = `m_attackTime`; 이전 우리 값 0 [가정이었음]): 넷 다 `_timeMode` 0이라 적의 공격 간격 — 살카즈 왕정군 정예 캐스터
+    `DeathEye` 4초·'사미의 의지' `Lasso` 6초·'염의 가호' 2.5초·축제 재즈 연주가 `fire` 1초. 채널(투사체)이 그보다 일찍 끝날 때만 차이 난다: 정예 캐스터의 대상이 죽거나
+    철수하면 시전 시작 4초까지 서 있다. 시험 `test/content/enemy-skill-proj-wait.test.js` 「its target gone early」.
   - **[ASSUMED·미조사]** 0으로 남긴 것: 병렬·선택 묶음(`AbilityParallelGroup`·`AbilitySelectableGroup` — 끝나는 조건을 안 읽음; 공격 차례로 시전하는 키트 없음:
     살카즈 부패의 전차 `PollutedRangedAtk`·'제국의 갑옷' `Appear`·래트킹 `Mark`·'즈자이' `CrossAttackMarkReborn`·알리스테어, 제국의 여광 `store`). 투사체 기다림은
     모두 키트가 끝을 안다(2026-11-14 — 데이터의 `proj` 일곱 가운데 '염의 가호'는 아군 소환물 키트, 살카즈 후예 기술자 `charge_gunctrl`은 이 모드에 충전할 부포가 없어 시전 안 함).
@@ -2802,7 +2805,7 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 - **'사미의 의지'(`enemy_9033_acdeer`) `Lasso` 「자연의 요동」**: 대상마다 올가미 투사체 `projectile_enemy_smdeer_s`(수명 = 블랙보드 `projectile_life_time` 10초)가
   능력 버프 `enemy_smdeer_lasso_damage`(기절, 1초마다 법술 피해)를 살아 있는 동안만 싣는다 — 멈추면 `_detachAllBuffsWhenStopped`로 기절·피해가 같이 떨어진다. 멈추는 때:
   수명 끝, 대상이 쓰러지거나 필드를 떠남(`_stopIfTargetDead`·`_stopIfTargetDisappeared`), 보스가 쓰러짐(`_stopWhenSourceInvalid`), 시전이 끊김. **올가미가 있는 동안 보스는
-  시전 중**이라 고드름(冰凌)도 다른 스킬도 없고, 60초 쿨은 마지막 올가미가 끝날 때 다시 돈다. 전에는 시전 길이 0이라 올가미 중에도 고드름을 쐈고 쿨이 시전 시작부터 돌았으며, 기절은
+  시전 중**이라 고드름(冰凌)도 다른 스킬도 없고, 60초 쿨은 마지막 올가미가 끝날 때 다시 돈다 — 올가미가 공격 간격(6초)보다 일찍 끝나면(대상 철수) 시전은 시전 시작 6초까지 이어진다(「적 스킬 = 일반 공격 차례」 시전 길이, 2026-11-14). 전에는 시전 길이 0이라 올가미 중에도 고드름을 쐈고 쿨이 시전 시작부터 돌았으며, 기절은
   대상이 철수해도 10초를 채웠다. 보스는 기절·빙결·공중 띄우기 면역이라 끊김은 실제로 드물다. 자기 공격 루프를 쓰는 보스라 `bosses.js ownAttackTurn`의 `engineCast`로 엔진의
   시전 기록(`castLeft`·선 채 버티기·끊김)을 쓴다. 화면의 3단 채널 클립(`Skill_01_Begin`/`_Loop`/`_End`)은 아직 안 이음(`test/render/eskill-clip-list.js` TODO, fx-F).
 - **'염의 가호'(아군 소환물 `enemy_9012_acloon`) 「祛恶之焰」**: 선 투사체 `projectile_enemy_acloon_line`(`LassoProjectile`)의 길이는 블랙보드 `hit_duration`(없으면
