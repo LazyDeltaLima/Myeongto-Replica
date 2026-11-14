@@ -27,7 +27,8 @@ tools/assets/local-attack-timing.json, which tools/build-data.mjs folds into dat
 `_replaceAnimPairs`; a summon's the same, from its prefab in pkgrps/btl_pfb_tokens_*.ab (data/tokens.json and the summons of
 data/backups.json); an enemy's `combat` / `attack` = the abilities of
 its first mode used while blocked / unblocked (either may be missing); `modes` = the same of each later mode of a prefab
-with several (`mode0` = the first one's name).
+with several (`mode0` = the first one's name). An enemy ability's `anim` is a key: `clip` beside it is the clip the prefab
+animator's key table plays for it when that is another name ('' = the table lacks the key: no clip — anim_table).
 
 Usage (from the repo root; --client = an Arknights_Data folder, repeatable: the first client that has an operator's pack
 or an enemy decides it — by default the EN client, then the CN one for what the EN one lacks (client_path.py); an
@@ -243,6 +244,56 @@ def enemy_mode_abilities(cands, renamed=lambda ab: ab):
     return e
 
 
+def anim_table(sub, root):
+    """{animKey: animName} of an enemy prefab's animator (the root unit's `_animator`, a SpineAnimator: `_animations`), or
+    None when it has none. The client plays a clip by key only: the table turns the key into the model's clip name, and a
+    key the table lacks plays nothing and has no length (`SpineAnimator.GetAnimationData` → null,
+    `Unit.GetAnimationTime` false — docs/rules/sim.md 「일반 공격 타이밍」)."""
+    by_pid = {pid: d for _, d, pid in sub}
+    unit = next((d for gp, d, _ in sub if gp == root and isinstance(d.get('_animator'), dict)), None)
+    an = by_pid.get(((unit or {}).get('_animator') or {}).get('m_PathID'))
+    rows = (an or {}).get('_animations')
+    if not isinstance(rows, list) or not rows:
+        return None
+    return {r['animKey']: r.get('animName') or '' for r in rows if isinstance(r, dict) and r.get('animKey')}
+
+
+def with_clips(o, table):
+    """`o` (an enemy row or a part of it) with `clip` beside every ability's `anim` key: the clip the animator's key table
+    plays for it when that is another name, '' when the table lacks the key (no clip). A channel's clips (`chan`: keys of
+    its ThreePartChannelingAnimation) become the clip names themselves (a key the table lacks is kept as it is). Nothing
+    changes without a table."""
+    if table is None:
+        return o
+    if isinstance(o, list):
+        return [with_clips(v, table) for v in o]
+    if not isinstance(o, dict):
+        return o
+    out = {k: chan_clips(v, table) if k == 'chan' else with_clips(v, table) if isinstance(v, (dict, list)) else v
+           for k, v in o.items()}
+    a = o.get('anim')
+    if isinstance(a, str) and a and table.get(a) != a:
+        out['clip'] = table.get(a, '')
+    return out
+
+
+def chan_clips(ch, table):
+    """A `chan` record ({begin, loop, end, down?, up?}: keys) with each key turned into its clip name by the key table."""
+    if not isinstance(ch, dict):
+        return ch
+    out = {}
+    for k, v in ch.items():
+        if isinstance(v, dict):
+            sub = chan_clips(v, table)
+            if sub:
+                out[k] = sub
+        elif isinstance(v, str) and v:
+            # (a key the table lacks stays as it is: the view binds effects to the channel's parts — “自在”'s ShieldBurst
+            # begin `Skill_02`, not in its table, is the fx-F line)
+            out[k] = table.get(v) or v
+    return out
+
+
 def enemy_entries(path, wanted):
     tree, _ = load_tree(path)
     roots = {gp.split('/')[0] for gp, _, _ in tree}
@@ -266,7 +317,7 @@ def enemy_entries(path, wanted):
         if sk:
             e['skills'] = sk
         if e:
-            out[root] = e
+            out[root] = with_clips(e, anim_table(sub, root))
     return out
 
 

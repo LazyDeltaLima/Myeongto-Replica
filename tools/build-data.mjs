@@ -2587,8 +2587,10 @@ function enemyAttackAnim(manifest, spineId, timing = null, own = false) {
   const sp = enemySpine(manifest, spineId);
   const a = sp?.anims?.attack;
   if (!a || typeof a.loop !== 'string' || a.via === 'idle') return null;
-  // `own`: the clip its ability names, when the model has it
-  const clip = own && typeof sp.animations?.[timing?.anim] === 'number' ? timing.anim : a.loop;
+  // `own`: the clip its ability names, when the model has it — its key turned into the clip name by the prefab
+  // animator's key table (`clip`, attack_timing.py anim_table: 가상적: 기계 `Attack` → `A_Attack`)
+  const named = enemyClipName(timing);
+  const clip = own && typeof sp.animations?.[named] === 'number' ? named : a.loop;
   const dur = sp.animations?.[clip];
   if (!(typeof dur === 'number' && dur > 0)) return null;
   const h = sp.hits?.[clip];
@@ -2723,16 +2725,19 @@ function enemySkillCast(ctx, manifest, spineId, key) {
   // one ability's cast (attack_timing.py cast_fields): its clip and the attack time it plays to, or its class (`kind`: an
   // ActiveBuffAbility, a group with its children's casts); `miss` = it names a clip data/assets.json lacks; `hit` = the
   // clip's first OnAttack frame when the ability waits for it (`_waitForAttackEvent`), as attackAnim's
+  // (the clip = the ability's key through the prefab animator's key table, enemyClipName; '' = the table lacks the key:
+  // the client plays nothing and the ability keeps its attack time, as one without a clip)
   const castOf = (name, s) => {
-    const dur = s.anim ? anims[s.anim] : null;
-    if (s.anim && !(dur > 0)) warn(`enemy ${key} skill ${name}: clip ${s.anim} not in data/assets.json`);
-    const h = dur > 0 && s.wait === 1 ? sp?.hits?.[s.anim] : null;
+    const clip = enemyClipName(s);
+    const dur = clip ? anims[clip] : null;
+    if (clip && !(dur > 0)) warn(`enemy ${key} skill ${name}: clip ${clip} not in data/assets.json`);
+    const h = dur > 0 && s.wait === 1 ? sp?.hits?.[clip] : null;
     const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
     return {
       ...(s.kind ? { kind: s.kind } : {}),
       ...(s.kind === 'buff' && s.wfc ? { wfc: 1 } : {}),
       ...(Array.isArray(s.subs) ? { subs: s.subs.map((c) => castOf(name, c)) } : {}),
-      ...(dur > 0 ? { clip: s.anim, dur, ...(hit != null ? { hit } : {}), ...(Number.isFinite(s.max) ? { max: s.max } : {}) } : s.anim ? { miss: 1 } : {}),
+      ...(dur > 0 ? { clip, dur, ...(hit != null ? { hit } : {}), ...(Number.isFinite(s.max) ? { max: s.max } : {}) } : clip ? { miss: 1 } : {}),
       ...(Number.isFinite(s.time) ? { time: s.time } : {}),
       ...(s.time === 2 ? { cd: s.cd || 0 } : s.time === 3 ? { cdKey: s.cdKey || 'duration' } : {}),
       ...(s.proj ? { proj: 1 } : {}),
@@ -2750,6 +2755,16 @@ function enemySkillCast(ctx, manifest, spineId, key) {
     };
   }
   return Object.keys(out).length ? out : null;
+}
+
+/**
+ * The clip an enemy ability plays (local-attack-timing.json, attack_timing.py): its key (`anim`, after its mode's
+ * `_replaceAnimPairs`) turned into the model's clip name by the prefab animator's key table (`clip` when that is another
+ * name; '' when the table lacks the key — the client plays nothing, `SpineAnimator.GetAnimationData`), else the key.
+ */
+function enemyClipName(t) {
+  if (!t || typeof t.anim !== 'string' || !t.anim) return '';
+  return typeof t.clip === 'string' ? t.clip : t.anim;
 }
 
 /** An enemy's row of local-attack-timing.json `enemies` (by its prefab, else its key), or undefined. */

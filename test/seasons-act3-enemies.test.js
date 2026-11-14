@@ -144,10 +144,11 @@ test('规程 new enemies: the client\'s shots and skill casts (EN, the CN client
   // model —, “模拟宝藏”)
   assert.deepEqual(fresh.filter((k) => !E3[k].attackAnim).sort(), ['enemy_9027_acfnca', 'enemy_9036_acweb', 'enemy_9038_achest']);
   for (const k of fresh.filter((k) => !E3[k].attackAnim)) assert.equal(E3[k].applyWay, 'NONE', k);
-  // a clip still named but missing: 假想敌：械's SommonSquad names `Skill_1`, which its animator's `_animations` table maps to
-  // A_Skill_1 / B_Skill_1 (not read yet)
+  // no clip named but missing: 假想敌：械's SommonSquad names the key `Skill_1`, which its animator's `_animations` table
+  // turns into A_Skill_1 (3.467 s, strike 2 s; docs/rules/sim.md 「적 클립의 키 표」 — a 0 s cast until 2026-11-14)
   const miss = fresh.filter((k) => Object.values(E3[k].skillCast || {}).some((c) => c.miss)).sort();
-  assert.deepEqual(miss, ['enemy_9029_acfnc', 'enemy_9029_acfnc_2']);
+  assert.deepEqual(miss, []);
+  assert.deepEqual((({ clip, dur, hit }) => ({ clip, dur, hit }))(E3.enemy_9029_acfnc.skillCast.sommonsquad), { clip: 'A_Skill_1', dur: 3.467, hit: 2 });
 });
 
 test('规程 enemies with a kit: their silenceable abilities are exactly their SILENCE lines', () => {
@@ -257,10 +258,11 @@ test('假想敌：械 隐秘核心: bouncing shot, 冲击之械 at once, launche
   onSkill(h, boss, (ability) => casts.push([ability, Math.round(h.b.time)]));
   h.b.on('hit', ({ source, target }) => { if (source === boss) shots.push(target); });
   // LaunchArmor (cooldown 10, WithArmor mode only): both fly outward along row 4
-  runFor(h, 10.5 - h.b.time);
+  runFor(h, 14.5 - h.b.time);
   // the skills take the attack slots (skillCast, 「적 스킬 = 일반 공격 차례」): 【洪流攻势】 (cooldown 45, ready at once) at
-  // the first one, LaunchArmor at the one at 10 s, each restarting the attack's cooldown (resetMain) — no shot yet
-  assert.deepEqual(casts, [['SommonSquad', 0], ['LaunchArmor', 10]]);
+  // the first one — its A_Skill_1 casts 3.467 s (「적 클립의 키 표」) and the attack's cooldown restarts at its end
+  // (resetMain, waitFirst) —, LaunchArmor (ready at 10 s) at the next slot, 14 s — no shot yet
+  assert.deepEqual(casts, [['SommonSquad', 0], ['LaunchArmor', 14]]);
   assert.equal(boss.stats.attacks, 0);
   const [L, R] = alive(h, ARMOR).sort((p, q) => p.x - q.x);
   assert.equal(L.mem.fnc.state, 'fly'); assert.equal(R.mem.fnc.state, 'fly');

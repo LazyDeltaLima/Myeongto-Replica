@@ -41,7 +41,8 @@ test('skillCast records the class of each skill\'s ability (attack_timing.py cas
   assert.equal(c('enemy_1275_dwlock_2', 'deatheye').kind, 'seq');
   assert.deepEqual(c('enemy_1275_dwlock_2', 'deatheye').subs[0], { time: 0, proj: 1, chan: { begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End' } });   // + its ThreePartChannelingAnimation
   assert.equal(c('enemy_1272_nhtank', 'pollutedrangedatk').kind, 'par');
-  assert.equal(c('enemy_9014_acstma', '2').miss, 1);
+  // (its key `Born` is the clip `Revive` through the prefab animator's key table — docs/rules/sim.md 「적 클립의 키 표」)
+  assert.deepEqual(c('enemy_9014_acstma', '2'), { family: 3, clip: 'Revive', dur: 4.433, max: 1, time: 1 });
   assert.deepEqual(c('enemy_1404_msnip', 'crossattack'), {
     family: 1, time: 2, cd: 2.5,
     chan: { begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End',
@@ -60,7 +61,7 @@ test('castLength by class: the attack time of a clipless ability, two ticks of a
   assert.ok(near(L('enemy_9009_acfort', 'fireweapon'), 2 * TICK + 2), 'a sequence: its children one after another');
   assert.equal(L('enemy_9012_acloon', 'skill'), 0, 'the projectile wait is not counted [ASSUMED·미조사]');
   assert.equal(L('enemy_1272_nhtank', 'pollutedrangedatk'), 0, 'a parallel group [ASSUMED·미조사]');
-  assert.equal(L('enemy_9014_acstma', '2'), 0, 'a clip the data lacks [ASSUMED·자료 없음]');
+  assert.ok(near(L('enemy_9014_acstma', '2'), 4.433), 'its key through the key table: `Revive` as it is (`_timeMode` 1)');
   // a clip of its own is unchanged: 【末日】 4.467 s as it is (`_timeMode` 1)
   assert.ok(near(enemiesMod.castLength(e, E.enemy_1521_dslily.skillCast.doom, {}), 4.467));
 });

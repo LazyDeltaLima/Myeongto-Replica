@@ -52,11 +52,12 @@ test('data: every enemy with a real attack clip carries it as attackAnim (the cl
     assert.equal(!!e.attackAnim, real, `${k} ${e.name}`);
     if (!real) continue;
     n++;
-    // the clip its attack ability names (after its first mode's _replaceAnimPairs) when the model has it, else the
-    // model's attack clip
+    // the clip its attack ability names (its key after its first mode's _replaceAnimPairs, through the prefab animator's
+    // key table: `clip` — docs/rules/sim.md 「적 클립의 키 표」) when the model has it, else the model's attack clip
     const t = timing0[e.spine || k] ?? timing0[k];
     const ab = t && (e.applyWay === 'MELEE' ? (t.combat ?? t.attack) : (t.attack ?? t.combat));
-    const clip = ab && sp.animations[ab.anim] > 0 ? ab.anim : a.loop;
+    const named = ab && (typeof ab.clip === 'string' ? ab.clip : ab.anim);
+    const clip = named && sp.animations[named] > 0 ? named : a.loop;
     if (clip !== a.loop) own++;
     assert.equal(e.attackAnim.clip, clip, k);
     assert.equal(e.attackAnim.dur, sp.animations[clip], k);
@@ -65,8 +66,9 @@ test('data: every enemy with a real attack clip carries it as attackAnim (the cl
     assert.equal(e.attackMoves, undefined, `${k}: no enemy of the mode attacks on the move`);
   }
   assert.ok(n > 200, `${n} enemies`);
-  // (普通囚犯's first mode names Attack where the model's attack role is Attack3; 萨卡兹骸骨拷打者's Attack is Attack_2)
-  assert.ok(own >= 5, `${own} enemies on their ability's own clip`);
+  // (萨卡兹骸骨拷打者's Attack is Attack_2; 大鲍勃's key Attack is the clip Attack2 where the model's attack role is Attack)
+  assert.ok(own >= 4, `${own} enemies on their ability's own clip`);
+  assert.equal(enemies.enemy_1001_bigbo.attackAnim.clip, 'Attack2');
   assert.equal(enemies.enemy_1364_spnaxe_2.attackAnim.clip, 'Attack_2');
   // the ranged attackers of the report; `max` = their attack ability's _maxAnimScale (tools/assets/local-attack-timing.json)
   assert.deepEqual(enemies.enemy_1019_jshoot.attackAnim, { clip: 'Attack', dur: 1, hit: 0.533, max: 1, combat: { clip: 'Attack', dur: 1, hit: 0.533, max: 1.1 } });
