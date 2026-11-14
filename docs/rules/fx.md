@@ -3898,6 +3898,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 가비알 디 인빈서블 S3 끝의 나눠 깎기: `gvial2_s_3[bleed]`의 `FixedValueDamage`. 끝날 때의 `gvial2_skill_3_bleed`(`gvial2_s_3[final_bleed]`)는 별개다.
 - 스테인리스(선발) 장치 1초마다 `ironmn_pile_bleed`, 게 장치(`token_10027_ironmn_pile3`) 스킬 시작 `ironmn_pile3_bleed`: `DamageViaMaxHpRatio`.
 - 확인: `test/content/hp-loss-silent.test.js`, `op_ironmn.test.js`(고치기 전 키트로 실패 확인). 전투 golden은 `.events.dmg` 수만 움직인다. [화면 미확인]
+- 재발 방지: `test/content/hp-loss-sites.test.js`(2026-11-14) — 콘텐츠의 `loseHp` 호출을 전부 세어, `silent`가 없는 새 호출은 `test/content/hp-loss-sites-list.js`에 이유와 함께 적을 때까지 실패한다. `test/render/op-sweep-fx.test.js`의 전수는 선발 오퍼레이터가 초당 3번 넘게 잃을 때만 잡아서, 1초 간격 유실(나이팅게일 환영)에서 `silent`를 빼도 통과했다. 목록의 `unchecked` 14개 파일(호출 18개)은 이 목록 전에 쓴 것으로, 공식 노드가 타격을 그리는지 아직 읽지 않았다 [추정·미조사].
 
 ## 선발 슈·리·에벤홀츠 키트 순간 이펙트 (2026-11-06)
 
@@ -4280,6 +4281,6 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
 - 이펙트 루트가 움직여도 월드 공간 꼬리·입자는 따라오지 않아야 한다(`fxplayer.js` `followWorld`; 위 「공식 전투 이펙트」의 `worldSpace` 줄).
 - 캐릭터 앞·뒤는 공식에서 렌더러 `sortingOrder`로 갈린다(Spine은 깊이를 안 쓴다) → 품질 높음 + 3D 보드에서 유닛에 붙는 이펙트는 `FxInstance` `split`으로 렌더러마다 위·아래 캔버스에 나눠 그린다. 중간 이하·2D 보드는 시전자 것 아래, 나머지 위.
 - 공격 이벤트 없이 피해를 주는 스킬(텍사스 S2의 검 두 발 등)의 대상 이펙트는 그 틱의 `'dmg'`로 고른다(`fxgame.js` `expect`·`pendingHit`). `'dmg'`에는 공격자가 없으므로 거리와 다른 공격자로 거른다.
-- 이펙트가 없는 주기적 체력 유실은 `Battle.loseHp`에 `silent`를 준다. 안 주면 틱마다 `'dmg'`가 나가 트루 대미지의 흰 발광·입자를 초당 열 번 그린다 → 위 「효과 없는 주기적 유실」. 재발 방지: `test/render/op-sweep-fx.test.js`(전 선발 × 스킬), `test/content/hp-loss-silent.test.js`.
+- 이펙트가 없는 주기적 체력 유실은 `Battle.loseHp`에 `silent`를 준다. 안 주면 틱마다 `'dmg'`가 나가 트루 대미지의 흰 발광·입자를 초당 열 번 그린다 → 위 「효과 없는 주기적 유실」. 재발 방지: `test/content/hp-loss-sites.test.js`(모든 `loseHp` 호출), `test/render/op-sweep-fx.test.js`(전 선발 × 스킬, 초당 3번 넘는 유실), `test/content/hp-loss-silent.test.js`.
 - 이펙트를 추출한 뒤 `node tools/build-browser-resources.mjs`를 돌린다. 리소스 워커는 목록의 해시가 캐시와 같으면 캐시의 파일을 주므로, 그 페이지를 열어 본 브라우저는 서버를 다시 띄우고 강력 새로고침을 해도 옛 파일을 본다(처음 여는 브라우저는 멀쩡하다). 재발 방지: `test/render/browser-resources-current.test.js`.
 - Unity 문서나 기본 플레이어의 식을 공식 동작이라고 적기 전에 공식 화면으로 확인한다 → 「메시 입자 pivot」.
