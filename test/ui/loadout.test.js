@@ -4,11 +4,11 @@
 // auto-close rule.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { checkLoadout, loadoutOptions, MODULE_NONE } from '../../shared/protocol.js';
+import { checkLoadout, loadoutOptions, loadoutDeviation, LOADOUT_DEFAULT_DEVIATIONS, MODULE_NONE } from '../../shared/protocol.js';
 import { PHASE } from '../../shared/constants.js';
 import {
   parseStored, toStored, chessOptions, effectiveChoice, setChoice, resetChoice, sanitizeEntries, rosterOf, filterRoster,
@@ -193,6 +193,41 @@ test('LOADOUT_DEFAULT_DEVIATIONS: 砾 S1 without a module, 琳琅诗怀雅 S1; t
   assert.deepEqual(checkLoadout({ chess_char_2_12_a: { skill: 1, module: 'uniequip_002_gravel' } }, get).loadout,
     { chess_char_2_12_a: { skill: 1, module: 'uniequip_002_gravel' } });
   assert.deepEqual(checkLoadout({ chess_char_2_12_a: { skill: 0, module: MODULE_NONE } }, get).loadout, {});
+});
+
+test('LOADOUT_DEFAULT_DEVIATIONS across seasons: an entry moves only the operator it names, and every entry is used', () => {
+  // A season reuses the chess ids for other operators (规程's chess_char_2_12_a is 蛇屠箱): the table is keyed by chess id
+  // AND charId (docs/rules/ui.md 「오퍼레이터 구성 기본 스킬·모듈」), so another season's operator keeps its official default.
+  /** @type {Record<string, any>} */
+  const seasons = { act2autochess: CHESS };
+  const dir = path.join(ROOT, 'data/seasons');
+  for (const s of readdirSync(dir)) {
+    const f = path.join(dir, s, 'chess.json');
+    if (existsSync(f)) seasons[s] = JSON.parse(readFileSync(f, 'utf8'));
+  }
+  assert.ok(seasons.act3autochess, 'the 规程 season data is there');
+  const used = new Set();
+  for (const [season, C] of Object.entries(seasons)) {
+    for (const c of Object.values(C)) {
+      if (c.isGolden || !c.visible) continue;
+      const dev = loadoutDeviation(c);
+      const entry = Object.hasOwn(LOADOUT_DEFAULT_DEVIATIONS, c.chessId) ? LOADOUT_DEFAULT_DEVIATIONS[c.chessId] : null;
+      if (entry && !dev) assert.notEqual(entry.charId, c.charId);
+      if (dev) used.add(c.chessId);
+      const o = loadoutOptions(c, C[c.goldenId] || null);
+      assert.equal(o.defaultSkill, dev?.skill ?? c.skill.index,
+        `${season} ${c.chessId} (${c.charId}): 干员调配 default skill — a deviation applies only to its own charId (docs/rules/ui.md)`);
+      if (dev?.skill != null) assert.ok(o.skills.includes(dev.skill), `${season} ${c.chessId}: the deviation's skill is selectable`);
+    }
+  }
+  assert.deepEqual(Object.keys(LOADOUT_DEFAULT_DEVIATIONS).filter((id) => !used.has(id)), [], 'every deviation names a real chess + operator');
+  // the 规程 ones (maintainer decision 2026-11-14)
+  const R = seasons.act3autochess;
+  const def = (id) => loadoutOptions(R[id], R[R[id].goldenId]).defaultSkill;
+  assert.deepEqual(['chess_char_2_14_a', 'chess_char_4_18_a', 'chess_char_5_02_a', 'chess_char_3_27_a', 'chess_char_6_09_a'].map(def), [0, 0, 2, 1, 0]);
+  // 规程's chess_char_2_12_a (蛇屠箱) keeps its official S2 + module, not 砾's S1 without one
+  const k = loadoutOptions(R.chess_char_2_12_a, R[R.chess_char_2_12_a.goldenId]);
+  assert.deepEqual([k.defaultSkill, k.defaultModule], [1, 'uniequip_002_snakek']);
 });
 
 test('roster and filters: 112 visible chess in shop order; tier / class / bond / search / changed-only', () => {

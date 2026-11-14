@@ -115,14 +115,33 @@ function skillIndexesOf(c) {
 }
 
 /**
- * The 干员调配 default of a few chess in place of the official one (maintainer decision 2026-10-22), keyed by the normal
- * chess id: `skill` = skill index, `module` = the elite's module ('none' = no module). Only the player's starting choice:
- * the data record (its `skill` / `module`, the kits' default spec) stays official, the official default a choice.
+ * The 干员调配 default of a few chess in place of the official one (maintainer decisions 2026-10-22 for 盟约,
+ * 2026-11-14 for 规程), keyed by the normal chess id AND its `charId`: a season reuses the chess ids for other operators
+ * (规程's chess_char_2_12_a is 蛇屠箱, not 砾), so an entry applies only to the record of the operator it names.
+ * `skill` = skill index, `module` = the elite's module ('none' = no module). Only the player's starting choice: the data
+ * record (its `skill` / `module`, the kits' default spec) stays official, the official default a choice.
  */
 export const LOADOUT_DEFAULT_DEVIATIONS = Object.freeze({
-  chess_char_2_12_a: { skill: 0, module: MODULE_NONE }, // 砾: S1, no module
-  chess_char_3_04_a: { skill: 0 },                       // 琳琅诗怀雅: S1
+  // 盟约 (act2autochess)
+  chess_char_2_12_a: { charId: 'char_237_gravel', skill: 0, module: MODULE_NONE }, // 砾: S1, no module
+  chess_char_3_04_a: { charId: 'char_1033_swire2', skill: 0 },                     // 琳琅诗怀雅: S1
+  // 规程 (act3autochess)
+  chess_char_2_14_a: { charId: 'char_1027_greyy2', skill: 0 },  // 承曦格雷伊: S1
+  chess_char_3_27_a: { charId: 'char_488_buildr', skill: 1 },   // 青枳: S2
+  chess_char_4_18_a: { charId: 'char_4027_heyak', skill: 0 },   // 霍尔海雅: S1
+  chess_char_5_02_a: { charId: 'char_1051_headb2', skill: 2 },  // 怒潮凛冬: S3
+  chess_char_6_09_a: { charId: 'char_4204_mantra', skill: 0 },  // 真言: S1
 });
+
+/**
+ * The LOADOUT_DEFAULT_DEVIATIONS entry of a normal chess record, or null (also for another operator under the same id).
+ * @param {any} base normal chess record
+ * @returns {{ charId: string, skill?: number, module?: string } | null}
+ */
+export function loadoutDeviation(base) {
+  const dev = base && Object.hasOwn(LOADOUT_DEFAULT_DEVIATIONS, base.chessId) ? LOADOUT_DEFAULT_DEVIATIONS[base.chessId] : null;
+  return dev && dev.charId === base.charId ? dev : null;
+}
 
 /**
  * What the 干员调配 screen may choose for one chess (DESIGN §16).
@@ -142,7 +161,7 @@ export function loadoutOptions(base, golden = null) {
   const skills = g && g.length ? n.filter((i) => g.includes(i)) : n;
   const flagged = Array.isArray(base?.skills) ? base.skills.find((s) => s && s.isDefault && isInt(s.index, 0, LOADOUT_LIMITS.skillIndex)) : null;
   let defaultSkill = flagged ? flagged.index : isInt(base?.skill?.index, 0, LOADOUT_LIMITS.skillIndex) ? base.skill.index : null;
-  const dev = Object.hasOwn(LOADOUT_DEFAULT_DEVIATIONS, base?.chessId) ? LOADOUT_DEFAULT_DEVIATIONS[base.chessId] : null;
+  const dev = loadoutDeviation(base);
   if (dev && dev.skill != null && skills.includes(dev.skill)) defaultSkill = dev.skill;
   if (defaultSkill == null || !skills.includes(defaultSkill)) defaultSkill = skills.length ? skills[0] : defaultSkill;
   let modules = [];

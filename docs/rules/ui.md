@@ -1866,13 +1866,17 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
 ## 오퍼레이터 구성 기본 스킬·모듈 (2026-10-22, 관리자 결정)
 - 오퍼레이터 구성(干员调配)의 기본 선택을 공식 기본값(`defaultSkillIndex`·`defaultUniEquipId`) 대신 이렇게 둔다: **그라벨(砾) S1·모듈 없음**,
   **스와이어 디 엘리건트 위트(琳琅诗怀雅) S1**(모듈은 공식 기본 그대로). 이격 이그제큐터(圣约送葬人)는 공식 기본이 이미 S2라 그대로.
-  표는 `shared/protocol.js LOADOUT_DEFAULT_DEVIATIONS`(일반 chess id 기준), `loadoutOptions`가 읽는다 — 구성 화면의 「기본」 표시, 저장 때 기본과 같은
+- 규정(act3autochess, 2026-11-14 관리자 결정): **그레이 더 라이트닝베어러(承曦格雷伊) S1**, **오올헤약(霍尔海雅) S1**, **지마 더 레이징 타이드(怒潮凛冬) S3**,
+  **폰사이러스(青枳) S2**, **만트라(真言) S1**(모듈은 모두 공식 기본 그대로).
+  표는 `shared/protocol.js LOADOUT_DEFAULT_DEVIATIONS`(일반 chess id **와 charId** 기준: 시즌마다 같은 chess id에 다른 오퍼레이터가 오므로 — 규정의
+  `chess_char_2_12_a`는 그라벨이 아니라 쿠오라(蛇屠箱) — 항목은 자기가 적은 오퍼레이터의 기록에만 붙는다, `loadoutDeviation`), `loadoutOptions`가 읽는다 — 구성 화면의 「기본」 표시, 저장 때 기본과 같은
   항목 버리기(`checkLoadout`), 경기의 전투 입력(`resolveLoadout`: 따로 고르지 않은 플레이어와 AI 팀원)이 모두 이 기본을 따른다.
 - `data/chess.json`(`skill`·`module`·`stats`)과 키트의 기본 스펙은 공식 그대로다: sim은 고른 스킬·모듈을 명시적으로 받고, 공식 기본(그라벨 S2·모듈,
   스와이어 디 엘리건트 위트 S2)은 고를 수 있는 선택으로 남는다. 데이터의 기본을 바꾸지 않은 까닭: 키트는 데이터 기본 스킬을 `skill`, 나머지를
   `skills` 맵으로 쓰고, 소환물 표(`tokens.json`)도 기본 스킬이 만드는 소환물에서 시작한다(스와이어 디 엘리건트 위트 S2의 香槟炸弹).
 - 이미 저장된 구성 중 그라벨 S2+모듈·스와이어 디 엘리건트 위트 S2는 예전엔 기본이라 저장되지 않았으므로, 이제 새 기본(S1)으로 열린다.
 - 테스트 `test/ui/loadout.test.js` 「LOADOUT_DEFAULT_DEVIATIONS」, `test/match/loadout.test.js`, `test/sim/loadout.test.js`(로비 기본 = 기록 기본, 이 표만 예외).
+  재발 방지: `test/ui/loadout.test.js` 「LOADOUT_DEFAULT_DEVIATIONS across seasons」(모든 시즌의 기물을 훑어 항목이 제 오퍼레이터에만 붙는지, 쓰이지 않는 항목이 없는지).
 
 ## 채팅 최근 3줄 고정 표시 (2026-10-22, 관리자 결정)
 

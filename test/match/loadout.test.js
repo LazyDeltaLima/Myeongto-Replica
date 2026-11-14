@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ERR, PHASE } from '../../shared/constants.js';
-import { validateC2S, checkLoadout, loadoutOptions, resolveLoadout, isLoadoutEntries, MODULE_NONE, LOADOUT_LIMITS, LOADOUT_DEFAULT_DEVIATIONS } from '../../shared/protocol.js';
+import { validateC2S, checkLoadout, loadoutOptions, loadoutDeviation, resolveLoadout, isLoadoutEntries, MODULE_NONE, LOADOUT_LIMITS } from '../../shared/protocol.js';
 import { buildBattleSpec } from '../../server/sim/spec.js';
 import { DATA, makeMatch } from './harness.js';
 
@@ -39,7 +39,7 @@ test('data carries the §16 choices every visible chess needs (skills at both st
     const o = loadoutOptions(c, g);
     assert.ok(o.skills.length >= 2, `${c.name}: selectable skills`);
     assert.ok(o.skills.includes(o.defaultSkill), `${c.name}: default skill is selectable`);
-    assert.equal(o.defaultSkill, LOADOUT_DEFAULT_DEVIATIONS[c.chessId]?.skill ?? c.skill.index, `${c.name}: default = defaultSkillIndex`);
+    assert.equal(o.defaultSkill, loadoutDeviation(c)?.skill ?? c.skill.index, `${c.name}: default = defaultSkillIndex`);
     assert.ok(o.modules.includes(MODULE_NONE) && o.modules.includes(o.defaultModule), `${c.name}: modules`);
   }
   const o = loadoutOptions(chess(INSIDE), chess(chess(INSIDE).goldenId));
