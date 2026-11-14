@@ -174,6 +174,9 @@ const MAX_HIT_FX = 2;
 const MAX_TRAILS = 12;      // official projectile trails in flight at once (then fx.js's procedural shots)
 const HIT_GAP_S = 0.12;        // one hit effect per attacker → target pair within this time (multi-hit skills)
 const ESKILL_HOLD_CAP = 40;    // 2026-10-15: a held enemy skill's effects without its end event (子代 lives 35 s) [추정]
+// 2026-11-14: the sim's stand-in beams of the enemy channels whose link projectile's line the view draws (elassoStart) —
+// not drawn while that line shows; test/render/eskill-lasso-coverage.test.js checks each such kit's beams are here
+export const LASSO_BEAMS = new Set(['jazzFire', 'deathEye', 'deathEyeEnd']);
 const REBORN_HOLD_CAP = 60;    // 2026-10-31: a rebirth ability's held effects without the rebirth's end (扎罗's lasts 40 s) [추정·자료 없음: a lost end]
 const ATTACK_GAP_S = 0.2;
 let webpPromise = null;
@@ -6010,7 +6013,6 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * with `_waitForProjectileInvalid`) finishes it (Effect.FinishMe: it fades out). The sim's stand-in beams of the channel
    * (LASSO_BEAMS) are not drawn while it shows. true = drawn.
    */
-  const LASSO_BEAMS = new Set(['jazzFire', 'deathEye', 'deathEyeEnd']);
   const elassos = new Map();   // caster id → { rec: its elines record, tgt, name: its prefab }
   function elassoStart(v, part, tgt, dur) {
     const pr = part?.proj;

@@ -4264,4 +4264,9 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
   타격 이펙트(재즈 연주가 `enemy_cnvsax_hit_02`)가 처음 3초만이 아니라 끝까지 난다.
 - 재즈 연주가 이펙트 루트의 불꽃 입자(원뿔 방출)의 방향: `HarpoonRenderer`는 만든 이펙트를 돌리지 않는다(대상 쪽으로 도는 것은 `_rotateToTarget`인
   투사체 몸뿐) — 그 이펙트 자신의 회전 설정(`_rotateType` 1, 다른 이펙트와 같은 `play` 규칙)대로.
+- 회귀 방지: `test/render/eskill-lasso-coverage.test.js` — 바인딩(`tools/assets/local-enemy-bindings.json`)에서 줄 이펙트가 있는 연결 투사체를 쏘는 적
+  능력 전부가 `test/render/eskill-lasso-list.js`에 있어야 한다(`LASSO` 이 길로 그림·`OTHER` 다른 길·`NOT_CAST` 안 씀·`TODO` 아직 대체 그림). `LASSO`는
+  실제 키트로 채널 fx에 `dur`·`tgt`가 실리고 그동안의 대체 빔이 모두 `LASSO_BEAMS`인지 본다. 새 적·시즌·재추출이 이런 능력을 더하면 넣을 때까지 실패한다.
+  지금 `TODO`: 완구 외발자전거(`enemy_10018_sgrobh`) 일반 공격의 작살 줄 `enemy_sgrobh_attack_01`/`_02`(`etrailShot`이 연결 투사체를 건너뜀)·가상적: 총
+  (`enemy_9017_achunt`) 스킬 3의 사슬 `enemy_achunt_chain`(시뮬 대체 `link` `faithLink`).
 - 확인: `test/render/eskill-lasso.test.js`(실제 키트 두 적: 줄이 놓이는 곳·대체 빔 안 그림·끝까지 타격 이펙트·일찍 끝남·추출 안 된 줄). [화면 미확인: 아레나 2배속]
