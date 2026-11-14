@@ -50,6 +50,10 @@ export const SEASON_FEATURES = Object.freeze({
    * several core bonds goes once all of them are off (a CN player's report of 2026-11-14, maintainer decision the same
    * day; docs/rules/sim.md 「규정 핵심 맹약 금지」). The 盟约 rule: out only once every bond of it is off. */
   coreBondBan: false,
+  /** A 悬赏 card's enemy wears the 悬赏 mark over its head while it lives (server snapshot.js unitInfo `bounty` → render
+   * fxgame.js bountyMark: map_067_reward_01, a CN-only prefab — the 盟约 client has none; docs/rules/fx.md 「규정 수배 적
+   * 머리 위 표식」). */
+  bountyMark: false,
 });
 
 /**
@@ -77,7 +81,7 @@ export const SEASONS = {
   // 卫戍协议：规程 (CN from 2026-11-08): built from its own tables (tools/build-data.mjs --season act3autochess); public
   // from 2.0.0
   act3autochess: Object.freeze({ id: 'act3autochess', public: true, name: N_('规程'), mark: 'REGULATION',
-    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true, benchInBattle: true, stagePreview: true, bossLayerGains: true, coreBondBan: true }) }),
+    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true, benchInBattle: true, stagePreview: true, bossLayerGains: true, coreBondBan: true, bountyMark: true }) }),
 };
 
 /**

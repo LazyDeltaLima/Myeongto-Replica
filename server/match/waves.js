@@ -44,6 +44,7 @@ import { createRng, deriveSeed } from '../sim/rng.js';
 import { gateOf } from '../../shared/constants.js';
 import { widenRoute, wideHalves } from '../sim/wideStage.js';
 import { keepUnbanned, customStagePool, CUSTOM_FIRST_HALF_STAGES, CUSTOM_FIRST_HALF_WEIGHT_OF } from '../../shared/ruleset.js';
+import { seasonFeature } from '../../shared/seasons.js';
 
 const ACLOON = 'enemy_9012_acloon';
 const DEFAULT_PLACEHOLDERS = Object.freeze({
@@ -561,6 +562,17 @@ function bountyPlan(gd, round, wave, bounties, playerId, side) {
     }
   }
   return { specs, retime };
+}
+
+/**
+ * Spawn specs `specs` with each 悬赏 card's unit (mods.bountyId) marked to wear the season's 悬赏 mark (shared/seasons.js
+ * bountyMark: 规程 — sim snapshot.js unitInfo `bounty`); unchanged in a season without it. A split or summoned child loses
+ * bountyId (content/enemies/helpers.js modsWithoutBounty), so it wears none.
+ * @param {string|null|undefined} season @param {Array<object>} specs
+ */
+export function markBounties(season, specs) {
+  if (!seasonFeature(season, 'bountyMark')) return specs;
+  return specs.map((s) => (s?.mods?.bountyId != null ? { ...s, mods: { ...s.mods, bountyMark: true } } : s));
 }
 
 /**

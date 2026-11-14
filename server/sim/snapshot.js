@@ -47,6 +47,9 @@ export function unitInfo(u) {
     // a walking ally built from an enemy record (content/bonds/walker.js): the view draws it as that enemy (render/units.js
     // enemyModel) and its attacks with the enemy's effects (render/fxgame.js erec); defId is the record's key
     walks: u.walks ? true : undefined,
+    // a 悬赏 card's enemy in a season that marks it (match/waves.js markBounties): the view keeps the 悬赏 mark over its head
+    // while it lives (render/fxgame.js bountyMark)
+    bounty: u.side === 'enemy' && u.mods?.bountyMark && u.mods.bountyId != null ? true : undefined,
     // the unit's current model form (an enemy's content/enemies/helpers.js setForm, a 傀儡师's 替身 — render/units.js FORMS): a
     // view built mid-battle (fieldMeta — a watched teammate's field, 联防 observers, a reconnect) starts on that clip set
     form: typeof u.form === 'string' ? u.form : undefined,

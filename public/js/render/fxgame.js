@@ -6182,6 +6182,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!views) return;
     for (const v of views.values()) if (v?.info?.kind === 'token' && (v._fxAura || bindOf(v)?.aura)) tokenAura(v);
   }
+  /**
+   * 2026-11-14 (docs/rules/fx.md 「규정 수배 적 머리 위 표식」): a 悬赏 card's enemy (UnitInfo `bounty` — 规程, shared/seasons.js
+   * bountyMark) wears map_067_reward_01 (CN map.ab: looping, on the HEAD mount — its FollowMountPoint) while it lives. No
+   * table starts it, so the frame keeps it (a view built mid-battle too, one more try a second after a failed load); its
+   * 'die' ends it (stopOwned).
+   */
+  const BOUNTY_MARK = Object.freeze(['map', 'map_067_reward_01']);
+  function stepBountyMarks(views) {
+    if (!views || failed || !index?.bundles?.[BOUNTY_MARK[0]]?.includes(BOUNTY_MARK[1])) return;
+    for (const v of views.values()) {
+      if (!v?.info?.bounty || v.alive === false || v.remove) continue;
+      const rec = v._fxBounty;
+      if (rec && (rec.pending || rec.live?.inst && !rec.live.inst.done || clockS - rec.t < 1)) continue;
+      const id = ownerOf(v), mark = { pending: true, live: null, t: clockS };
+      v._fxBounty = mark;
+      spawn(BOUNTY_MARK[0], BOUNTY_MARK[1], v, { owner: id, buff: true, onCaster: true, until: null, tag: 'bountyMark', pinned: true }, { over: true, facing: efacing(v) })
+        .then((l) => { mark.pending = false; mark.t = clockS; if (!l) return; if (v._fxBounty !== mark || v.alive === false) l.inst.stop(true); else mark.live = l; });
+    }
+  }
   function flushDeploys(views) {
     if (!deployed.size || !views) return;
     for (const [id, t] of deployed) {
@@ -7196,6 +7215,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (lastViews && (soulBalls.size || soulLines.size)) stepSouls(lastViews, dt * gameRate()); // 2026-11-12: 魂灵法骸's fireballs
       if (index) flushDeploys(lastViews); // 2026-10-11: the operators' / tokens' deploy effects
       if (index) stepTokenAuras(lastViews); // 2026-10-22: the summons' skill auras
+      if (index) stepBountyMarks(lastViews); // 2026-11-14: 规程's 悬赏 mark over a bounty enemy's head
       stepLines(); // 2026-10-10: buff line effects follow their units
       // a frame without effects costs them nothing: the means decay (they used to stand at the last effect frame's cost)
       if (!mod || !live.length) { perf.updateMs *= 0.9; perf.renderMs *= 0.9; perf.calls = 0; }

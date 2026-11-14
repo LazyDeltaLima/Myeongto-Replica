@@ -4189,6 +4189,14 @@ sim.md 「규정 적·보스」 「수배 카드가 부르는 본편 적」 아�
 - **스카이브레이크 탄산음료**(`enemy_10146_nscola`)·**炫目刀技厨师**(공식 한국어 이름 없음, 「현란한 칼솜씨 요리사」, `enemy_10229_agactr_2`): `enemy_nscola_buff_01`·`enemy_agactr_range_02`는 전부터 등장부터 붙는 오라(바인딩 `aura`). 탄산음료의 가속·생명 유실 버프(`enemy_nscola[speed]`·`[passive]`)에는 이펙트 노드가 없다(규정 표 템플릿).
 - 확인: `test/render/bounty-fx.test.js` — 실제 규정 키트(`content/enemies/bounty.js`)의 사건 → 견본 바인딩 렌더 층 + 추출 바인딩 대조. 연결을 하나씩 되돌리면(`eprojDrop`, `ABILITY_SHOT_ATKS`, `AREA_SHOT_BLASTS`, `SWITCH_ONLY`, `FORM_HELD_SKILLS` 둘, `FORMS`, `eblinkFx`, `dying`) 모두 실패. 추출 변경으로 렌더 표가 바뀐 적은 둘(聆风猎手 `skills.blink`, 식인꽃 `dying`)뿐. [화면 미확인 — `checks/arena.md`]
 
+## 규정 수배 적 머리 위 표식 (2026-11-14, 공식 녹화·CN 프리팹, 관리자 확인 2026-11-14)
+
+규정에서 수배 카드로 나온 적은 살아 있는 동안 머리 위에 노란 마름모 셋이 깜박인다(관리자 공식 녹화 2026-11-14). 이 그림은 CN 전용 프리팹 `map_067_reward_01`(`battle/prefabs/effects/map.ab`)이다 — 자체 텍스처 복사본, 루트 `_isLoop` 1·`_spawnLocation` 4, `FollowMountPoint` HEAD, 입자 둘(`reward_01` 수명 2초 알파 0.235 → 1 → 0.235, `reward_glow_01` 1.5초), 프리팹 주기 2초 = 이 모드의 고정 2배속에서 화면 1초(관리자 2026-11-14). 표·버프 템플릿에는 트는 곳이 없어(효과 기록 `add_enemy_kill_gain_coin`은 템플릿을 안 부름) 수배 적이 살아 있는 동안 붙인다(관리자 확인).
+- 시즌: 규정만(`shared/seasons.js` `bountyMark`). 맹약 시즌의 공식 클라(EN)에는 이 프리팹이 없다(EN `map.ab`의 `map_067_*`는 다른 그림뿐).
+- 길: 매치가 수배 카드의 소환 명세(`mods.bountyId`)에 `bountyMark`를 단다(`server/match/waves.js markBounties`, 일반 전투·최종 공세 둘 다). 시뮬의 `UnitInfo` `bounty`가 그 적을 화면에 알리고(분열·소환된 자식은 카드를 잃어 없음 — `modsWithoutBounty`), `fxgame.js stepBountyMarks`가 프레임마다 그 화면에 표식을 붙여 둔다(전투 중에 만든 화면도, 불러오기 실패면 1초 뒤 다시). 쓰러지면 `die`가 끈다(`stopOwned`). 추출이 없으면 아무것도 안 그린다(대체 그림 없음).
+- 추출: CN 클라에서 `fx_extract.py --client cn --bundle map --match '^map_067_reward_01$'`(git 밖 소재 — 배포 때 로컬 추출 비교로 올라감).
+- 시험 `test/render/bounty-mark.test.js`(시즌 구분, 실제 매치 경로의 소환 사건, 렌더 층) — `fxgame.js`·`snapshot.js`를 각각 되돌리면 실패. [화면 미확인]
+
 ## 규정 대포 「염괴포」 (2026-11-12, 공식 클라에서 확인)
 
 규정 m10의 염괴포(盐坨子炮, `trap_196_cnnon`)는 시뮬이 키로 돌리는 적 편 장치다(sim.md 「규정 전장을 19×21 틀로」 대포). 유닛이 아니어서 이펙트는 판의 것으로 그린다. 근거는 EN 토큰 프리팹(`pkgrps/btl_pfb_tokens_2.ab`의 `trap_196_cnnon`)과 이펙트 번들 `battle/prefabs/effects/trap.ab`(EN·CN 같음). 바인딩은 `enemy_bindings.py`가 스테이지 장치인 이 대포를 보스 토큰처럼 읽는다(`STAGE_DEVICE_KEYS`).
