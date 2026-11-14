@@ -62,9 +62,10 @@ const WRITER = {
   [GL.MAT3]: W_M3, [GL.MAT4]: W_M4,
 };
 
-// three.js's render-list order (WebGLRenderList painterSortStable / reversePainterSortStable, r186)
+// three.js's render-list order (WebGLRenderList painterSortStable / reversePainterSortStable, r186): the opaque list also
+// orders one material's skinned / instanced draws apart (materialVariant)
 function opaqueSort(a, b) {
-  return a.groupOrder - b.groupOrder || a.renderOrder - b.renderOrder || a.material.id - b.material.id || a.z - b.z || a.id - b.id;
+  return a.groupOrder - b.groupOrder || a.renderOrder - b.renderOrder || a.material.id - b.material.id || a.variant - b.variant || a.z - b.z || a.id - b.id;
 }
 function transparentSort(a, b) {
   return a.groupOrder - b.groupOrder || a.renderOrder - b.renderOrder || b.z - a.z || a.id - b.id;
@@ -224,6 +225,7 @@ export class FxSubmit {
             const it = this.pool[this.nPool] ||= {};
             this.nPool++;
             it.object = o; it.material = m; it.groupOrder = groupOrder; it.renderOrder = o.renderOrder; it.z = this.v4.z; it.id = o.id; it.key = key; it.prog = null;
+            it.variant = (o.isInstancedMesh ? 2 : 0) + (o.isSkinnedMesh ? 1 : 0);   // WebGLRenderList materialVariant
             this.items.push(it);
           }
         }
