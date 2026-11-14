@@ -333,6 +333,26 @@ export function areaAway(e, v) {
   return Math.hypot(Number(e[2]) - Number(v.x), Number(e[3]) - Number(v.y)) > 0.5;
 }
 
+/**
+ * 2026-11-14 (docs/rules/render.md 「적응 부하 단계」): which frames the layer steps and draws. At load level ≥ 3 every
+ * `n`-th one, on the time of the frames it held (summed, so its clock and the effects keep the battle's pace); a frame
+ * held in between leaves the canvases' last picture up. The camera (`version`) or the viewport changing draws at once —
+ * a held picture would slide against the board while the player pans or zooms. Returns the seconds to step, or null to
+ * hold the frame. Our measure, not the official game's (most of the layer's time is its draw submission, which no
+ * cheaper path removes: half the frames is about half the layer).
+ */
+export function fxFrameGate(n = 2) {
+  let held = 0, frames = 0, camV, w = -1, h = -1;
+  return (dt, level, cam, vp) => {
+    held += dt;
+    const vw = vp?.width | 0, vh = vp?.height | 0;
+    if (level >= 3 && ++frames < n && cam?.version === camV && vw === w && vh === h) return null;
+    const out = held;
+    held = 0; frames = 0; camV = cam?.version; w = vw; h = vh;
+    return out;
+  };
+}
+
 /** Seconds left that make an effect lasting (liveOverCap) — longer than any hit / cast prefab plays. */
 export const LASTING_S = 5;
 /** Whether live entry `l` is a lasting effect at battle time `now`: a buff loop, one with no end, or one with > LASTING_S left. */
@@ -645,6 +665,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   let recentSeq = 0;
 
   const level = () => { try { return load() || 0; } catch { return 0; } };
+  // 2026-11-14: load level 3 steps and draws the layer every second frame (fxFrameGate); a dry layer (tests) draws nothing
+  // and keeps every step
+  let frameGate = fxFrameGate();
   const q = () => {
     const v = quality();
     if (v === 'low') return 'low';
@@ -7397,10 +7420,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     },
 
     update(dt, cam, vp) {
+      camRef = cam; // local patch: status effects' heights (playStatus)
+      // local patch: the battle clock (gaps, ends) — the official effects use scaled time. Every frame, a held one too: the
+      // events between two drawn frames keep their own tick (the 'dmg' of a blast's tick, the births of one tick)
+      clockS += dt * gameRate();
+      if (!dry) {
+        const t = frameGate(dt, level(), cam, vp);
+        // a held frame costs nothing: the means decay as on a frame without effects, so the perf HUD reads per frame
+        if (t == null) { perf.updateMs *= 0.9; perf.renderMs *= 0.9; return; }
+        dt = t;
+      }
       perfFrames++;
       if (mod && q() === 'low') teardown();   // 2026-10-28: quality 'low' now, not only after a reload
-      camRef = cam; // local patch: status effects' heights (playStatus)
-      clockS += dt * gameRate(); // local patch: the battle clock (gaps, ends) — the official effects use scaled time
       // before the returns below: a channel's start waits on the clock with no effect live yet
       if (channels.size) stepChannels();
       if (stackInts.size) stepStackInts();
@@ -7558,6 +7589,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
     clear() {
       stormGen++;
+      frameGate = fxFrameGate();   // the time a held frame kept was the last battle's
       for (const l of live) dropLive(l);
       live.length = 0;
       lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); packs.clear(); lemMarks.clear(); lemMarkFx.clear();
