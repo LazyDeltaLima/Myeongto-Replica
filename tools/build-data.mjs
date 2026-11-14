@@ -4300,6 +4300,35 @@ const DEFAULT_ENEMY_MULTIPLIERS = {
 };
 
 /**
+ * Per-season replacements of single rows of the round table (`{ single|multi: { DIFFICULTY: row } }`).
+ * 规程 single 绝境 (grades 9–14), provisional: fitted to the enemy HP bars of one official CN match at grade 13
+ * (maintainer decision 2026-11-14), where R1 ≈ 0.79, R7 ≈ 1.20, R12 ≈ 1.39–1.52 and R13 ≈ 1.21 of the base HP
+ * (each from a known hit on an enemy not hit before; the 奥术 extra arts damage counted as not landing, since no number
+ * for it showed). The 盟约 row gave R7 0.96 and R13 1.66: the climb comes two rounds earlier (k 2 at R7), R12–R13 carry
+ * a 补给线 step, and R13 drops below R12 — 规程's enemy effects include 攻坚装备 variants with HP −10…−25 %
+ * (data/seasons/act3autochess/effects.json), so the official rounds need not only rise. The other rounds are
+ * interpolated, ATK follows the same counts unmeasured, and the other grades of the band take the same row.
+ * [ASSUMED·서버: which enemy effects a round carries is the server's; one match measured]
+ */
+const SEASON_ENEMY_MULTIPLIERS = {
+  act3autochess: {
+    single: {
+      HARD: {
+        atkBase: 0.8, hpBase: 0.8, k: [0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 2, 4], hidden: 4,
+        hpExtra: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.08, 1.08, 1], hiddenHpExtra: 1,
+      },
+    },
+  },
+};
+
+/** The round table of this season: the research table (or the built-in fallback) with the season's rows replaced. */
+function seasonEnemyMultipliers(base, season) {
+  const over = SEASON_ENEMY_MULTIPLIERS[season];
+  if (!over) return base;
+  return { ...base, single: { ...base.single, ...over.single }, multi: { ...base.multi, ...over.multi } };
+}
+
+/**
  * Enemy stat multipliers {atk, hp, speed} of one round (research 01 A3; leader HP pools excluded). `supplyHp` (only
  * when ≠ 1) = the share of `hp` that comes from 补给线 / 补给线II: the HP-only steps — 1.2^(kHp − kAtk), 补给线II "最大生命值
  * +20%" with no ATK (攻坚装备 always brings ATK ×1.1, so kAtk counts its stacks) — times `extra` 1.08 (补给线). Those two
@@ -4310,8 +4339,8 @@ const DEFAULT_ENEMY_MULTIPLIERS = {
  * The steps of the enemy effects (activity_table effectInfoDataDict / effectBuffInfoDataDict, data/effects.json): 攻坚装备
  * (aceffect_enemy_3) ATK and HP, 补给线II (aceffect_enemy_2_2) HP, 补给线 (aceffect_enemy_2) HP, 急行军 (aceffect_enemy_1)
  * speed. 盟约: 1.1 / 1.2 / 1.2 / 1.08 / +0.15; 规程 gives 1.11 / 1.2 / 1.3 / 1.08 / +0.3 under the same ids.
- * [ASSUMED·서버] 规程's rounds take the 盟约 per-round step counts (research 01 A3, by modeType × modeDifficulty) with
- * these steps: which enemy effects a round carries is the server's, and 规程's 34 new ENEMY effects (攻坚装备XIII–LVII,
+ * [ASSUMED·서버] 规程's rounds take the 盟约 per-round step counts (research 01 A3, by modeType × modeDifficulty; single
+ * 绝境 replaced by a row fitted to official play, SEASON_ENEMY_MULTIPLIERS) with these steps: which enemy effects a round carries is the server's, and 规程's 34 new ENEMY effects (攻坚装备XIII–LVII,
  * 补给线VI–VIII, some with attack speed +5 / +10) are named by no client table (modeDataDict has eventIds and the
  * 模拟强度 text only), so they stay unused (docs/rules/sim.md 「규정 적·보스」 라운드 적 효과).
  */
@@ -4401,7 +4430,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
   const defaultBand = SEASON === DEFAULT_SEASON ? 'band_bldsk'
     : Object.values(bands).sort((a, b) => (a.sortId ?? 99) - (b.sortId ?? 99) || naturalCmp(a.bandId, b.bandId))[0]?.bandId ?? null;
   const addendum = ctx.research.core?._criticAddendum || {};
-  const multipliers = addendum.enemyStatMultipliers || DEFAULT_ENEMY_MULTIPLIERS;
+  const multipliers = seasonEnemyMultipliers(addendum.enemyStatMultipliers || DEFAULT_ENEMY_MULTIPLIERS, SEASON);
   if (!addendum.enemyStatMultipliers) warn('config: using built-in enemy multiplier table (research 01 _criticAddendum missing)');
   const incomeCap = addendum.incomePerRound?.CAP ?? 12;
   const DIFF_KEYS = { FUNNY: 'bloodPoint', NORMAL: 'bloodPointNormal', HARD: 'bloodPointHard', ABYSS: 'bloodPointAbyss' };
