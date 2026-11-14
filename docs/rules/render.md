@@ -1448,3 +1448,11 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
 - 보스 필드 정비 줄: 공식 「전경」 화면의 정비 구역 오퍼레이터 한 명(발 ≈ (830, 915))이 우리 보스 필드의 왼쪽 정비 줄 9번 칸 자리(`bossFieldPlacement` 7행 → 0행, 투영 (835, 920))에 선다 — 보스 필드에서도 정비 구역을 그 플레이어의 반쪽 정비 줄에 세우는 것이 맞다.
 - [추정·화면: 일반·보스 「전경」·보스 반쪽 좌우·연합 방어 오른쪽 반쪽은 화면 하나씩(보스 오른쪽은 조금 흐린 프레임); 연합 방어 왼쪽 반쪽·「전경」은 화면 없이 짝으로 옮김; 레벨의 `battle_pos_x/y`·`battle_size` 키와 이 값들의 관계는 모름]
 - 시험: `test/render/season-camera.test.js`(규정 전장만 바뀜, 일반 전투 정비 줄 발 ≈ 공식 화면의 1020 px, 보스 「전경」 정비 줄 9번 칸 ≈ (830, 915), 맹약 값으로는 둘 다 어긋남 — 덮어쓰기를 빼면 실패 확인). 맞춤 도구·화면 → 관리자 노트. 화면: Windows Chrome 실제 규정 판 1920×1080.
+
+## 적 프리팹 모드의 클립 — 액젓 추천자·수둔 닌자 (2026-11-14, GitHub #14, 공식 클라에서 확인)
+
+적의 프리팹 모드가 바뀌면(`Unit.SwitchMode`) 그 모드의 `SimpleUnitAnimatorHooker` `_replaceAnimPairs`가 대기·이동·사망 클립을 바꾸고, 공격 클립은 그 모드의 능력이 정한다. 시뮬은 모드를 바꾸지만(`content/enemies/*` `mode`) 화면은 키트가 형태를 알릴 때(`setForm` → fx `phase` `form`)만 `render/units.js FORMS`의 클립 세트로 바뀐다. 둘 중 하나가 빠지면 모델은 첫 모드 클립을 계속 튼다.
+- **액젓 추천자**(`enemy_10044_wintun`): 막히면 M2로 영구 전환(시뮬은 전부터 맞음). M2의 훅은 `Idle`·`Move`·`Die`·`Default` → `B_*`, 첫 공격은 스킬 `Skills/BlockedBoom`(클립 `Attack`, 통 내려찍기), 그 뒤는 `Combat`(`B_Attack`, 맨손). 이전에는 형태를 안 알려 통을 든 `Idle`·`Move`와 매 공격 `Attack`을 틀었다(제보 「내려찍은 뒤 공격할 때마다 통이 리필됨」). 이제 형태 `M2boom`(`B_*` 대기·이동·사망 + 공격 `Attack`)으로 막힌 순간부터, 내려찍기의 타격(통이 사라짐) 뒤 `M2`(공격 `B_Attack`). 침묵이면 `BlockedBoom`을 못 써서 `Combat`의 `B_Attack`(형태 `M2`, 통은 남음), 침묵이 끝나면 다시 `M2boom`. 휘두르던 클립은 형태가 바뀌어도 끝까지 간다(전환 클립 없음).
+- **수둔 닌자**(`enemy_10116_ymgtop`): 회전(M1)은 `Skills/BeginAnim`의 `Skill_Begin`(→ 끝 `Skill_Loop`)으로 시작하고, M1의 훅이 `Idle`·`Move`·`Default` → `Skill_Loop`(공격 능력 없음), 첫 모드로 돌아올 때 `Default`의 `Skills/EndAnim` `Skill_End`. 형태 `M1`(전환 `Skill_Begin`, 나갈 때 `Skill_End`). 이전에는 회전 중에도 평소 `Idle`·`Move`로 걸었다.
+- 근거: 모드별 능력·클립(적 바인딩 추출 `tools/assets/local-enemy-bindings.json`), 모드의 `_replaceAnimPairs`·능력 `_animKey`(공격 시간 조사의 프리팹 필드), 모델 클립은 `data/assets.json`. 첫 내려찍기 시간은 시뮬이 M2 `B_Attack`(1.2초 중 0.467초 타격)으로 재고 화면은 `Attack`의 타격 프레임을 그 시각에 맞춘다(`render/spine.js swing`) — 공식 `BlockedBoom`은 `Attack`(1.467초 중 0.7초) [추정·미조사: 시뮬 시간 보정은 전투 golden을 움직여 따로].
+- 시험 `test/render/enemy-mode-forms.test.js`(실제 키트의 사건을 실제 `UnitView`에: 막힘·첫 내려찍기·맨손, 침묵, 회전 시작·회전·失衡으로 끝) — `units.js`·`special.js`를 각각 되돌리면 셋 다 실패. [화면 미확인]

@@ -756,6 +756,22 @@ export const FORMS = Object.freeze({
   // 2026-11-12: 复核洋流使者 after it eats a 赘生甲壳 (reborn.js kitShellEater → form '1'): the prefab mode 1's
   // SimpleUnitAnimatorHooker (Idle / Default / Move / Die / Attack → B_*); SwitchMode, no change clip
   enemy_1438_dspred: Object.freeze({ 1: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }) }),
+  // 2026-11-14 (GitHub #14): 咸鳞汁推荐者 blocked (special.js → form 'M2boom', then 'M2'): the prefab mode M2's hooker
+  // (Idle / Move / Die / Default → B_*; SwitchMode, no change clip) — its first swing is the barrel smash, Skills/BlockedBoom's
+  // Attack, every later one (and one while silenced) the Combat's B_Attack
+  enemy_10044_wintun: Object.freeze({
+    M2boom: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'Attack') }),
+    M2: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }),
+  }),
+  // 2026-11-14: 水遁忍者 spinning (special.js → form 'M1', null back): Skills/BeginAnim plays Skill_Begin into Skill_Loop,
+  // the mode's hooker turns Idle / Move / Default into Skill_Loop (no attack ability there), and coming back Default's
+  // Skills/EndAnim plays Skill_End
+  enemy_10116_ymgtop: Object.freeze({
+    M1: Object.freeze({
+      change: 'Skill_Begin', leave: 'Skill_End',
+      roles: Object.freeze({ idle: 'Skill_Loop', deploy: 'Skill_Loop', move: loop('Skill_Loop'), attack: null, skill: null }),
+    }),
+  }),
   // 2026-11-12: 元核孽生者 / 异形孽生者 in their 临战 state (element.js kitNucleus → form '1'): the prefab mode 1's hooker
   // (Move → Skill_Move, Idle → Skill_Idle; Die stays) and its Combat's Skill_Attack; SwitchMode, no change clip
   enemy_1439_dslntf: DSLNTF_AWAKE,

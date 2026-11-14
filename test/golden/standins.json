@@ -122,8 +122,8 @@
         "enemy_1006_shield": [1,0,1,0,760]
       },
       "hooks": [1,92,5700,322,322,561,531,0,30,87,7,7,0,12871,0,12,68,57,1,30,3,0,41],
-      "events": {"atk":331,"deploy":24,"die":30,"dmg":531,"engage":11,"face":2,"fx":80,"layer":3,"leak":57,"skill":14,"spawn":80,"swing":335},
-      "fx": {"aoe":2,"dodge":41,"dp":3,"explode":29,"garrison":3,"garrisonGrant":1,"zone":1},
+      "events": {"atk":331,"deploy":24,"die":30,"dmg":531,"engage":11,"face":2,"fx":82,"layer":3,"leak":57,"skill":14,"spawn":80,"swing":335},
+      "fx": {"aoe":2,"dodge":41,"dp":3,"explode":29,"garrison":3,"garrisonGrant":1,"phase":2,"zone":1},
       "snaps": "4ec72cb7 82c0fce2 5e0a3762 1962693a 6043b5db 765a3da3 ece26c3f e224b48b 72aa56ee 1dcf4b03 e7642923 d009c48a b077fce6 37150441 ffd88a2b 510f4951 dde747b6 4784aea6 3cc5cfa7"
     },
     "standin-03": {
@@ -239,8 +239,8 @@
         "enemy_1072_dlancer": [60,47,13,28688,429273]
       },
       "hooks": [1,177,6029,1078,1078,1973,1964,86,149,167,30,29,0,37413,3818,78,158,18,1,151,2,0,19],
-      "events": {"atk":1220,"bounty":4,"deploy":17,"die":149,"dmg":1964,"engage":11,"face":78,"fx":119,"heal":72,"layer":2,"leak":18,"skill":59,"spawn":172,"status":435,"swing":1154,"tplfx":10},
-      "fx": {"aoe":12,"dodge":25,"dp":18,"garrison":2,"kitHit":5,"revive":1,"slash":43,"sp":9,"spGain":2,"telegraph":2},
+      "events": {"atk":1220,"bounty":4,"deploy":17,"die":149,"dmg":1964,"engage":11,"face":78,"fx":120,"heal":72,"layer":2,"leak":18,"skill":59,"spawn":172,"status":435,"swing":1154,"tplfx":10},
+      "fx": {"aoe":12,"dodge":25,"dp":18,"garrison":2,"kitHit":5,"phase":1,"revive":1,"slash":43,"sp":9,"spGain":2,"telegraph":2},
       "snaps": "70861053 95796297 ee6d10d7 210940cd 9ac67a16 49a42e0f 93daa369 7275be88 58e9b232 f4ab6151 139d8951 34c14c3a e9badebd bf73a947 8031695e 0753f415 a247a1cf e95f9084 d0f49bde ea2a9e9a"
     },
     "standin-05": {

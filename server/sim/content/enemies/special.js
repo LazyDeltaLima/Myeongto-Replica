@@ -6,7 +6,7 @@ import { canTargetAlly, areaSelectable } from '../../targeting.js';
 import { periodicDamage } from '../../damage.js';
 import {
   BOOM_RADIUS, nthOf, stOf, T, elem, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, byPriority,
-  stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, mode,
+  stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, mode, setForm,
 } from './helpers.js';
 import {
   unblockable, runWhenHit, blockWeight, taunt, maxTargets, ep, nthAttackPower, lowHpBuff, deathBoom, setFloat, float,
@@ -579,7 +579,7 @@ export const SPECIAL_KITS = Object.freeze({
   },
   enemy_10044_wintun: (ab) => {                                      // 咸鳞汁推荐者 · fast with the barrel; first attack (SILENCE): big hit + buff zone for enemies
     const s = ab.sk.BlockedBoom ? ab.sk.BlockedBoom.bb : {};
-    return [{
+    const boom = {
       sil: true,                                                     // silenced: the barrel is kept (and its speed) until an unsilenced attack
       spawn(b, e) { b.addBuff(e, { key: 'ab:barrel', persist: true, mods: { moveMul: T(ab, '1.move_speed') ?? 1 } }); },
       hitOut(c, b, e, a) { if (!a.done && c.dmg.isAttack) c.dmg.amount *= s.blockee_atk_scale ?? 1; },
@@ -596,10 +596,19 @@ export const SPECIAL_KITS = Object.freeze({
           if (left <= 0) h.cancel();
         });
       },
-    }, {
+    };
+    return [boom, {
       // its first mode M1 has no attack ability: blocked, it switches to M2 for good (wintun_m0_t[switch_mode]
-      // ON_OWNER_BLOCKEE_CHANGED → CheckBlocked → SwitchMode 1), whose Combat is B_Attack — silenced too
-      tick(b, e) { if (e.blockedBy) mode(b, e, 'M2'); },
+      // ON_OWNER_BLOCKEE_CHANGED → CheckBlocked → SwitchMode 1), whose Combat is B_Attack — silenced too.
+      // GitHub #14: the view's clips follow (render/units.js FORMS) — M2's hooker plays B_Idle / B_Move / B_Die from the
+      // switch; its swing is BlockedBoom's Attack (the barrel smash) until that strike, then the Combat's B_Attack — and
+      // B_Attack while silenced, which casts no BlockedBoom (form 'M2boom' / 'M2'; a swing running keeps its clip)
+      tick(b, e) {
+        if (e.blockedBy) mode(b, e, 'M2');
+        if (e.mode !== 'M2') return;
+        const f = boom.done || e.s.flags.silence ? 'M2' : 'M2boom';
+        if (e.form !== f) setForm(b, e, f);
+      },
     }];
   },
   enemy_10045_parrot: kitParrot,                                     // 吉兆飞鳞 · 近地悬浮 (grounded 8 s when stunned); sprints when first hit
@@ -639,7 +648,14 @@ export const SPECIAL_KITS = Object.freeze({
     // 漩涡形态 "不进行普通攻击" (PRTS 天赋): no blocked attack while it spins (until 0.1.3 its blocker took both)
     // (the mode M1 while it spins — ymgtop_m0_s[switch_mode] SwitchMode 1, back to the first at ymgtop_m1_t[end_rotate] or
     // as 失衡 ends it: its Default attack attaches ready again)
-    const noAtk = { tick(b, e) { e.profile.noAttack = spin.until > b.time; mode(b, e, e.profile.noAttack ? 'M1' : null); } };
+    // the view's clips follow the mode (render/units.js FORMS 'M1'): BeginAnim's Skill_Begin into the hooker's Skill_Loop
+    // (Idle / Move / Default), Skill_End (Default's EndAnim) as it comes back
+    const noAtk = {
+      tick(b, e) {
+        e.profile.noAttack = spin.until > b.time;
+        if (mode(b, e, e.profile.noAttack ? 'M1' : null)) setForm(b, e, e.profile.noAttack ? 'M1' : null);
+      },
+    };
     return [spin, noAtk, unbalanced((b, e) => { if (spin.until > b.time) { spin.until = 0; b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'spinStop' }); } })];
   },
   enemy_10118_ymgprc: (ab) => {                                      // 澪 · double hits; 寒晖: every 4th attack (spCost 3) is a ×1.5 double hit
