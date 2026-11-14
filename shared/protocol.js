@@ -131,6 +131,8 @@ export const LOADOUT_DEFAULT_DEVIATIONS = Object.freeze({
   chess_char_4_18_a: { charId: 'char_4027_heyak', skill: 0 },   // 霍尔海雅: S1
   chess_char_5_02_a: { charId: 'char_1051_headb2', skill: 2 },  // 怒潮凛冬: S3
   chess_char_6_09_a: { charId: 'char_4204_mantra', skill: 0 },  // 真言: S1
+  chess_char_1_13_a: { charId: 'char_193_frostl', skill: 0 },   // 霜叶: S1
+  chess_char_5_08_a: { charId: 'char_1045_svash2', skill: 1 },  // 凛御银灰: S2
 });
 
 /**

@@ -224,7 +224,15 @@ test('LOADOUT_DEFAULT_DEVIATIONS across seasons: an entry moves only the operato
   // the 规程 ones (maintainer decision 2026-11-14)
   const R = seasons.act3autochess;
   const def = (id) => loadoutOptions(R[id], R[R[id].goldenId]).defaultSkill;
-  assert.deepEqual(['chess_char_2_14_a', 'chess_char_4_18_a', 'chess_char_5_02_a', 'chess_char_3_27_a', 'chess_char_6_09_a'].map(def), [0, 0, 2, 1, 0]);
+  assert.deepEqual(['chess_char_2_14_a', 'chess_char_4_18_a', 'chess_char_5_02_a', 'chess_char_3_27_a', 'chess_char_6_09_a', 'chess_char_1_13_a', 'chess_char_5_08_a'].map(def), [0, 0, 2, 1, 0, 0, 1]);
+  // 凛御银灰 is 盟约's chess too, under another id (chess_char_5_14_a): it keeps its official default there; 盟约's
+  // chess_char_5_08_a is 号角, which the 规程 entry does not touch either
+  const A = seasons.act2autochess;
+  const sv = A.chess_char_5_14_a;
+  assert.equal(sv.charId, 'char_1045_svash2');
+  assert.equal(loadoutOptions(sv, A[sv.goldenId]).defaultSkill, sv.skill.index, '盟约 凛御银灰: official default');
+  assert.equal(A.chess_char_5_08_a.charId, 'char_4039_horn');
+  assert.equal(loadoutOptions(A.chess_char_5_08_a, A[A.chess_char_5_08_a.goldenId]).defaultSkill, A.chess_char_5_08_a.skill.index, '盟约 号角: official default');
   // 规程's chess_char_2_12_a (蛇屠箱) keeps its official S2 + module, not 砾's S1 without one
   const k = loadoutOptions(R.chess_char_2_12_a, R[R.chess_char_2_12_a.goldenId]);
   assert.deepEqual([k.defaultSkill, k.defaultModule], [1, 'uniequip_002_snakek']);
