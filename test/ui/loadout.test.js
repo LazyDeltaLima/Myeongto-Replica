@@ -218,6 +218,7 @@ test('LOADOUT_DEFAULT_DEVIATIONS across seasons: an entry moves only the operato
       assert.equal(o.defaultSkill, dev?.skill ?? c.skill.index,
         `${season} ${c.chessId} (${c.charId}): 干员调配 default skill — a deviation applies only to its own charId (docs/rules/ui.md)`);
       if (dev?.skill != null) assert.ok(o.skills.includes(dev.skill), `${season} ${c.chessId}: the deviation's skill is selectable`);
+      if (dev?.module != null) assert.equal(o.defaultModule, dev.module, `${season} ${c.chessId}: 干员调配 default module (docs/rules/ui.md)`);
     }
   }
   assert.deepEqual(Object.keys(LOADOUT_DEFAULT_DEVIATIONS).filter((id) => !used.has(id)), [], 'every deviation names a real chess + operator');
@@ -233,6 +234,10 @@ test('LOADOUT_DEFAULT_DEVIATIONS across seasons: an entry moves only the operato
   assert.equal(loadoutOptions(sv, A[sv.goldenId]).defaultSkill, sv.skill.index, '盟约 凛御银灰: official default');
   assert.equal(A.chess_char_5_08_a.charId, 'char_4039_horn');
   assert.equal(loadoutOptions(A.chess_char_5_08_a, A[A.chess_char_5_08_a.goldenId]).defaultSkill, A.chess_char_5_08_a.skill.index, '盟约 号角: official default');
+  // 规程's 砾 is chess_char_2_06_a: S1 (its official default) without a module, as in 盟约
+  const gr = loadoutOptions(R.chess_char_2_06_a, R[R.chess_char_2_06_a.goldenId]);
+  assert.equal(R.chess_char_2_06_a.charId, 'char_237_gravel');
+  assert.deepEqual([gr.defaultSkill, gr.defaultModule], [0, MODULE_NONE]);
   // 规程's chess_char_2_12_a (蛇屠箱) keeps its official S2 + module, not 砾's S1 without one
   const k = loadoutOptions(R.chess_char_2_12_a, R[R.chess_char_2_12_a.goldenId]);
   assert.deepEqual([k.defaultSkill, k.defaultModule], [1, 'uniequip_002_snakek']);

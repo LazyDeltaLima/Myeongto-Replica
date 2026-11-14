@@ -133,6 +133,7 @@ export const LOADOUT_DEFAULT_DEVIATIONS = Object.freeze({
   chess_char_6_09_a: { charId: 'char_4204_mantra', skill: 0 },  // 真言: S1
   chess_char_1_13_a: { charId: 'char_193_frostl', skill: 0 },   // 霜叶: S1
   chess_char_5_08_a: { charId: 'char_1045_svash2', skill: 1 },  // 凛御银灰: S2
+  chess_char_2_06_a: { charId: 'char_237_gravel', module: MODULE_NONE }, // 砾: no module (S1 is its official default here)
 });
 
 /**
