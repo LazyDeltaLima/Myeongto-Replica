@@ -2,8 +2,9 @@
 // table stays corrected (tools/i18n/build-ko-pack.mjs DATA_FIXES).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { applyFileOverlay } from '../shared/i18nData.js';
+import { allSeasonData, seasonPicks } from './helpers/seasonPicks.js';
 
 const json = (rel) => JSON.parse(readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8'));
 const ko = json('data/i18n/ko.json');
@@ -68,4 +69,35 @@ test('시라쿠사 맹약 keeps its own description (the KR table has 에기르\
     assert.ok(t.includes('시라쿠사'), t);
     assert.ok(!t.includes('에기르'), t);
   }
+});
+
+test('every season\'s 自选 picks read in Korean: name, skills, talents, trait (a pick a season adds needs its overlay rebuilt)', () => {
+  // A season's backups.json is the whole file that season reads; the Korean it shows is the default overlay with the
+  // season's own (data/i18n/ko.<season>.json) applied over it, as public/js/data.js does. A pick added to
+  // LOCAL_DIY_PICKS without `node tools/i18n/build-ko-pack.mjs` (docs/rules/diy.md 「규정 선발 추가 …」) stays Chinese.
+  const CJK = /[一-鿿]/;
+  const checked = new Set();
+  for (const [season, { chess, backups }] of Object.entries(allSeasonData())) {
+    let value = applyFileOverlay(backups, ko.files.backups).value;
+    if (season !== 'act2autochess') {
+      const own = existsSync(new URL(`../data/i18n/ko.${season}.json`, import.meta.url)) ? json(`data/i18n/ko.${season}.json`) : null;
+      if (own?.files?.backups) value = applyFileOverlay(backups, own.files.backups, value).value;
+    }
+    for (const charId of seasonPicks(chess)) {
+      const where = `${season} ${charId} — the season's Korean overlay lacks this pick: run node tools/i18n/build-ko-pack.mjs --offline (docs/rules/diy.md 「규정 선발 추가 …」)`;
+      const zhName = backups.diy?.operators?.[charId]?.name;
+      assert.ok(zhName, `${where}: not in the season's backups.diy`);
+      // (a name with no Chinese in it — Mon3tr — has nothing to translate)
+      assert.ok(!CJK.test(value.diy.operators[charId].name), `${where}: name ${value.diy.operators[charId].name}`);
+      const unit = value.units[charId];
+      assert.ok(!CJK.test(unit.name), `${where}: unit name ${unit.name}`);
+      for (const [form, f] of Object.entries(unit.forms)) {
+        for (const s of f.skills ?? []) for (const k of ['name', 'desc']) assert.ok(!CJK.test(s[k] ?? ''), `${where} ${form} ${s.skillId}.${k}: ${s[k]}`);
+        for (const t of f.talents ?? []) for (const k of ['name', 'desc']) assert.ok(!CJK.test(t[k] ?? ''), `${where} ${form} talent ${t.index}.${k}: ${t[k]}`);
+        assert.ok(!CJK.test(f.trait?.desc ?? ''), `${where} ${form} trait: ${f.trait?.desc}`);
+      }
+      checked.add(`${season} ${charId}`);
+    }
+  }
+  assert.ok(checked.has('act3autochess char_1020_reed2') && checked.has('act2autochess char_1031_slent2'), `${checked.size} picks checked`);
 });
