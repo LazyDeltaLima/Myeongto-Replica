@@ -777,7 +777,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         } catch (err) { variants = null; console.warn('[fx] shader precompile failed', err); }
         // load study C (docs/rules/render.md 「이펙트 그리기 전용 경로」): the canvases' draws without three.js's per-draw
         // path, three.js's own programs with the material values in one uniform block. Without the probes, three.js draws
-        if (variants) for (const L of [layers.under, layers.over]) L.sub = new fxs.FxSubmit(THREE, L.renderer, { probes: variants, occMaterial: occ.meshes[0].material });
+        if (variants) for (const L of [layers.under, layers.over]) { L.sub = new fxs.FxSubmit(THREE, L.renderer, { probes: variants, occMaterial: occ.meshes[0].material }); }
         mod = { THREE, fxp };
       }).catch((err) => {
         if (g !== gen) return;
@@ -7581,7 +7581,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const step = () => {
         warmTimer = 0;
         const n = variants ? variants.length * 2 : 0;
-        if (!mod || !variants || !layers.under || warmNext >= n + 2) return;
+        if (!mod || !variants || !layers.under) return;
+        if (warmNext >= n + 2) {
+          // load study C: then FxSubmit's own programs (fxsubmit.js warm), one link a step too — from the sources just linked
+          for (const L of [layers.under, layers.over]) {
+            if (!L.sub?.warm()) continue;
+            L.renderer.getContext().flush();
+            warmTimer = setTimeout(step, WARM_GAP_MS);
+            return;
+          }
+          return;
+        }
         const L = warmNext % 2 ? layers.over : layers.under;
         // 2026-10-28: then the occluders' depth-only material (makeOccluders): the first effect on the 3D board linked it in battle
         try {

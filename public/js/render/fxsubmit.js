@@ -25,6 +25,7 @@ const OBJECT = ['modelMatrix', 'modelViewMatrix', 'normalMatrix'];
 const DECL = /\buniform\s+(?:(?:highp|mediump|lowp)\s+)?(\w+)\s+(\w+)\s*;/g;
 const MARK = '/*@FxDraw@*/';
 const BLOCK = 'FxDraw';
+const NO_CHILDREN = Object.freeze([]);
 
 /**
  * A program's two stages with the plain uniforms `take(name, type)` accepts moved into one std140 block, declared where
@@ -117,6 +118,23 @@ export class FxSubmit {
     /** @type {any} */ this.checks = null; /** @type {Uint8Array|null} */ this.pa = null; /** @type {Uint8Array|null} */ this.pb = null;   // passes drawn here / by three.js this frame, the last fallback's reason
   }
 
+  /**
+   * Start linking one program not linked yet whose three.js source is there (fxgame.js prewarm, after three.js linked the
+   * PROGRAM_VARIANTS probes and the occluders' material): its first draw in a battle does not wait for a link. One a call —
+   * Firefox links on its WebGL thread, one link one frozen frame (docs/rules/render.md 「이펙트 셰이더 유지」).
+   * @returns {boolean} whether it started one
+   */
+  warm() {
+    const quad = this.probes[0]?.children[0]?.material, rim = this.probes[4]?.children[0]?.material;
+    for (const [key, mat] of [['n0', quad], ['occ', this.occMaterial], ['n1', rim]]) {
+      if (!mat || this.progs.has(key) || this.failed.has(key)) continue;
+      if (key !== 'occ' && !this.props.get(mat).currentProgram) continue;
+      this.program(key, mat);
+      return true;
+    }
+    return false;
+  }
+
   /** Before three.js draws or compiles on this renderer. */
   yieldToThree() {
     if (this.dirty) { this.r.resetState(); this.dirty = false; }
@@ -125,7 +143,7 @@ export class FxSubmit {
   /** The pass through three.js itself. */
   three(scene, camera, clear, why) {
     this.yieldToThree();
-    this.stats.three++; this.stats.why = why;
+    this.stats.three++; this.stats.why = why; (this.stats.whys ||= {})[why] = (this.stats.whys[why] || 0) + 1;
     this.r.autoClear = clear;
     this.r.render(scene, camera);
     return this.r.info.render.calls;
@@ -147,6 +165,7 @@ export class FxSubmit {
     // programs: every one this pass needs linked, or three.js draws it
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
+      if (it.key === 'three') continue;
       const p = this.progs.get(it.key)?.ready ? this.progs.get(it.key) : this.program(it.key, it.material);
       if (!p) return this.three(scene, camera, clear, `program ${it.key}`);
       it.prog = p;
@@ -161,7 +180,7 @@ export class FxSubmit {
     const gl = this.gl, state = this.state;
     // uploads first, no vertex array bound (an index upload would land in the one bound)
     gl.bindVertexArray(null); this.vao = null;
-    for (const it of items) this.upload(it.object.geometry, it.prog);
+    for (const it of items) if (it.prog) this.upload(it.object.geometry, it.prog);
     if (clear) {
       this.r.setClearColor(this.r.getClearColor(this.clearColor), this.r.getClearAlpha());
       state.buffers.depth.setTest(true); state.buffers.depth.setMask(true); state.buffers.color.setMask(true);
@@ -193,12 +212,15 @@ export class FxSubmit {
           if (m.visible) {
             let key;
             if (m === this.occMaterial) key = 'occ';
-            else if (o.isSkinnedMesh) { this.why = 'skinned'; return false; }
+            else if (o.isSkinnedMesh) key = 'three';   // three.js draws it at its place in the order (drawList)
             else if (m.isShaderMaterial && m.fragmentShader === this.frag && !m.uniformsGroups?.length && !(m.transmission > 0)) key = o.geometry.attributes.normal ? 'n1' : 'n0';
             else { this.why = `material ${m.type}`; return false; }
-            const g = o.geometry;
-            if (g.boundingSphere === null) g.computeBoundingSphere();
-            this.v4.copy(g.boundingSphere.center).applyMatrix4(o.matrixWorld).applyMatrix4(this.proj);
+            // the sort depth as three.js takes it: an object's own bounding sphere when it has one (a SkinnedMesh's, from
+            // its skinned vertices), else its geometry's
+            let sphere;
+            if (o.boundingSphere !== undefined) { if (o.boundingSphere === null) o.computeBoundingSphere(); sphere = o.boundingSphere; }
+            else { const g = o.geometry; if (g.boundingSphere === null) g.computeBoundingSphere(); sphere = g.boundingSphere; }
+            this.v4.copy(sphere.center).applyMatrix4(o.matrixWorld).applyMatrix4(this.proj);
             const it = this.pool[this.nPool] ||= {};
             this.nPool++;
             it.object = o; it.material = m; it.groupOrder = groupOrder; it.renderOrder = o.renderOrder; it.z = this.v4.z; it.id = o.id; it.key = key; it.prog = null;
@@ -240,7 +262,11 @@ export class FxSubmit {
         const names = new Set();
         for (const m of (vs + fs).matchAll(DECL)) if (!m[1].startsWith('sampler') && take(m[2])) names.add(m[2]);
         src = { vs, fs, members: [...names], plain: true };
-      } else try { src = blockSource(vs, fs, (name, type) => !type.startsWith('mat') && take(name)); }
+      } else try {
+        // (test switch globalThis.__SP_FX_SUBMIT_MATS__: the mat4s named there go into the block too)
+        const inMat = String(globalThis.__SP_FX_SUBMIT_MATS__ || '').split(',');
+        src = blockSource(vs, fs, (name, type) => (!type.startsWith('mat') || inMat.includes(name)) && take(name));
+      }
       catch (err) { console.warn('[fx] submit: no block source', err); this.failed.add(key); return null; }
     }
     p = this.link(key, src);
@@ -318,8 +344,10 @@ export class FxSubmit {
         const info = gl.getActiveUniform(p.prog, i);
         if (info.type !== gl.FLOAT_MAT4 && info.type !== gl.FLOAT_MAT3) continue;
         const n = info.name, k = OBJECT.indexOf(n);
-        if (k < 0 && !this.matNames.has(n)) continue;
-        p.mats.push({ loc: gl.getUniformLocation(p.prog, n), m3: info.type === gl.FLOAT_MAT3, obj: k, name: n });
+        if ((k < 0 && !this.matNames.has(n)) || p.members.includes(n)) continue;
+        const m3 = info.type === gl.FLOAT_MAT3;
+        // last: the values the program holds (a WebGL call costs more than comparing 16 numbers)
+        p.mats.push({ loc: gl.getUniformLocation(p.prog, n), m3, obj: k, name: n, last: new Float64Array(m3 ? 9 : 16).fill(NaN) });
       }
     }
     // attributes
@@ -458,6 +486,7 @@ export class FxSubmit {
     let bytes = 0;
     for (const it of list) {
       const o = it.object;
+      if (!it.prog) continue;   // three.js's own (drawThree)
       if (Object.hasOwn(o, 'onBeforeRender')) o.onBeforeRender(this.r, this.scene, camera, o.geometry, it.material, null);
       o.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse, o.matrixWorld);
       o.normalMatrix.getNormalMatrix(o.modelViewMatrix);
@@ -465,12 +494,13 @@ export class FxSubmit {
     }
     if (bytes) {
       this.ensureUbo(bytes);
-      for (const it of list) if (it.prog.members) this.pack(it);
+      for (const it of list) if (it.prog?.members) this.pack(it);
       gl.bindBuffer(gl.UNIFORM_BUFFER, this.ubo);
       gl.bufferData(gl.UNIFORM_BUFFER, this.f32, gl.DYNAMIC_DRAW, 0, bytes >> 2);   // new storage: the last pass's draws may still read the old
     }
     for (const it of list) {
       const o = it.object, m = it.material, g = o.geometry, p = it.prog;
+      if (!p) { this.drawThree(o, camera); continue; }
       const cw = o.matrixWorld.determinantAffine() < 0;
       if (state.useProgram(p.prog) || this.progCam !== p) {
         this.progCam = p;
@@ -496,7 +526,13 @@ export class FxSubmit {
         gl.bindBufferRange(gl.UNIFORM_BUFFER, this.bindPoint, this.ubo, it.off, p.size);
         for (const q of p.mats) {
           const v = q.obj === 0 ? o.matrixWorld : q.obj === 1 ? o.modelViewMatrix : q.obj === 2 ? o.normalMatrix : m.uniforms[q.name]?.value;
-          if (v) (q.m3 ? gl.uniformMatrix3fv : gl.uniformMatrix4fv).call(gl, q.loc, false, v.elements);
+          if (!v) continue;
+          const e = v.elements, last = q.last;
+          let same = true;
+          for (let k = 0; k < last.length; k++) if (last[k] !== e[k]) { same = false; break; }
+          if (same) continue;
+          last.set(e);
+          if (q.m3) gl.uniformMatrix3fv(q.loc, false, e); else gl.uniformMatrix4fv(q.loc, false, e);
         }
         this.textures(it, p);
       } else if (p.mv) gl.uniformMatrix4fv(p.mv, false, o.modelViewMatrix.elements);
@@ -534,6 +570,21 @@ export class FxSubmit {
         default: break;
       }
     }
+  }
+
+  /**
+   * One object through three.js at its place in the order (a skinned mesh: its bones, its program): renderer.render(object)
+   * draws it alone, its children taken off for the moment (they are this pass's own items). three.js's state cache is reset
+   * before (it does not know what was bound here), this module's after.
+   */
+  drawThree(o, camera) {
+    this.r.resetState();
+    const ch = o.children;
+    o.children = NO_CHILDREN;
+    try { this.r.autoClear = false; this.r.render(o, camera); } finally { o.children = ch; }
+    this.calls += this.r.info.render.calls;
+    this.vao = null; this.units.fill(undefined); this.progCam = null;
+    this.stats.objects = (this.stats.objects || 0) + 1;
   }
 
   ensureUbo(bytes) {
