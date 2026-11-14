@@ -4,7 +4,10 @@
 //     points — every result the same double;
 //   - the shader's scalar uniforms packed (PACKED_GLSL): every name the shader reads through a define still holds exactly
 //     what code and clips write through `uniforms.<name>.value`, and nothing else moved with it;
-//   - a ribbon's particle order from a keyed native sort (ParticleSystem.ageOrder): the comparator sort's order.
+//   - a ribbon's particle order from a keyed native sort (ParticleSystem.ageOrder): the comparator sort's order;
+//   - (load study F, 2026-11-15) the MinMaxCurves in one object shape (prepareCurves / curveOf): evalMM gives the doubles it
+//     gave on the extracted objects; setTime's clock written into the vector the shader's uTime reads; a system without a
+//     size module draws its rows' sizes without asking sizeOf — the sizes sizeOf would give.
 // The pixels themselves (old and new player on the same seeded scene, read back) were compared in a browser; that tool is in
 // the maintainer's notes.
 
@@ -164,5 +167,71 @@ test('a ribbon\'s order from the keyed sort is the comparator sort\'s: oldest fi
     const o = { max: 4, age: Float32Array.from([0.1, bad, 0.2, 0]) };
     assert.equal(sys.ageOrder.call(o, [], 4), false, String(bad));
   }
+  inst.dispose();
+});
+
+// ---- load study F (2026-11-15) ----
+
+/** Random curve keys [[t, v, in, out]…] over [0, 1], some stepped (a non-finite tangent). */
+function keysOf(r, n) {
+  const ks = [];
+  for (let i = 0; i < n; i++) ks.push([i / Math.max(1, n - 1), (r() - 0.5) * 4, r() < 0.1 ? Infinity : (r() - 0.5) * 6, r() < 0.1 ? null : (r() - 0.5) * 6]);
+  return ks;
+}
+
+test('prepareCurves gives every MinMaxCurve one shape, and evalMM the same doubles as on the extracted objects', () => {
+  const r = seeded(20261115);
+  const curves = [];
+  for (let k = 0; k < 400; k++) {
+    const m = k % 4, s = (r() - 0.5) * 8;
+    curves.push(m === 0 ? { m, s } : m === 3 ? { m, s, n: (r() - 0.5) * 8 } : m === 1 ? { m, s, c: keysOf(r, 1 + (k % 5)) } : { m, s, c: keysOf(r, 2 + (k % 4)), d: keysOf(r, 1 + (k % 3)) });
+  }
+  const tree = { mods: { sizeOL: { x: curves[1], y: curves[2] }, list: curves.slice(3) }, life: curves[0] };
+  const raw = JSON.parse(JSON.stringify(tree));
+  const out = fxp.prepareCurves(tree);
+  assert.ok(out === tree, 'a tree is prepared in place');
+  const prepared = [tree.life, tree.mods.sizeOL.x, tree.mods.sizeOL.y, ...tree.mods.list];
+  const before = [raw.life, raw.mods.sizeOL.x, raw.mods.sizeOL.y, ...raw.mods.list];
+  const shape = Object.keys(prepared[0]).join();
+  assert.equal(shape, 'm,s,n,c,d,cf,df');
+  let bad = 0;
+  for (let i = 0; i < prepared.length; i++) {
+    assert.equal(Object.keys(prepared[i]).join(), shape, `curve ${i} has the one shape`);
+    for (let j = 0; j < 40; j++) {
+      const t = j < 3 ? [-0.5, 0, 1.5][j] : r(), rr = r();
+      if (!Object.is(fxp.evalMM(prepared[i], t, rr), fxp.evalMM(before[i], t, rr))) bad++;
+    }
+  }
+  assert.equal(bad, 0, `${bad} evaluations differ`);
+});
+
+test('setTime writes the clock into the vector the shader\'s uTime reads', () => {
+  const inst = new fxp.FxInstance(def(), { quality: 'high' });
+  const mats = [...inst.systems.map((s) => s.material), ...inst.meshMatList];
+  const at = packedDefines(mats[0].vertexShader).get('uTime');
+  for (const m of mats) assert.ok(m.fxTime === m.uniforms[at[0]].value && at[1] === 'x', 'fxTime is uTime\'s packed vector');
+  for (let f = 0; f < 5; f++) inst.update(1 / 30);
+  for (const m of mats) assert.equal(shaderValue(m.uniforms, at), m.uniforms.uTime.value);
+  assert.ok(mats.some((m) => m.uniforms.uTime.value > 0.1), 'the clock moved');
+  inst.dispose();
+});
+
+test('a system without a size module draws the sizes sizeOf gives; one with a module still asks it', () => {
+  const sizeOL = { x: { m: 1, s: 2, c: [[0, 0.25, 0, 1], [1, 1, 1, 0]] } };
+  const d = def();
+  d.nodes = [node('t', -1), node('plain', 0, { ps: ps(0) }), node('sized', 0, { ps: { ...ps(0), mods: { sizeOL } } })];
+  fxp.prepareCurves(d.nodes[2].ps);
+  const inst = new fxp.FxInstance(d, { quality: 'high' });
+  for (let f = 0; f < 12; f++) inst.update(1 / 30);
+  let rows = 0;
+  for (const s of inst.systems) {
+    const D = s.ib.array, IV = s.ib.stride;
+    for (let i = 0; i < s.n; i++) {
+      const sk = s.sizeOf(i, s.age[i] / s.life[i], s.rnd[i * 4 + 2], [1, 1, 1]);
+      for (let k = 0; k < 3; k++) assert.ok(Object.is(D[i * IV + 3 + k], Math.fround(s.size0[i * 3 + k] * sk[k])), `row ${i} size ${k}`);
+      rows++;
+    }
+  }
+  assert.ok(rows >= 4 && inst.systems[1].n > 0 && inst.systems[0].n > 0, `rows of both systems compared (${rows})`);
   inst.dispose();
 });

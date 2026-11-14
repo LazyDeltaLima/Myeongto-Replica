@@ -124,17 +124,30 @@ function flatGradKeys(keys, w) {
 
 const isKeyList = (a) => Array.isArray(a) && Array.isArray(a[0]);
 
-/** Attach the flat forms to every MinMaxCurve ({m, s, c?, d?}: cf / df) and Gradient ({c, a, mode}: cf / af) below o. */
-function prepareCurves(o) {
-  if (!o || typeof o !== 'object') return;
-  if (Array.isArray(o)) { for (const x of o) prepareCurves(x); return; }
-  if (typeof o.m === 'number' && 's' in o) {
-    if (Array.isArray(o.c)) o.cf = flatKeys(o.c);
-    if (Array.isArray(o.d)) o.df = flatKeys(o.d);
-  } else if (isKeyList(o.c) && isKeyList(o.a) && 'mode' in o) {
-    o.cf = flatGradKeys(o.c, 4); o.af = flatGradKeys(o.a, 2);
+/**
+ * A MinMaxCurve in one object shape ({m, s, n, c, d, cf, df}, absent fields undefined, the flat forms attached): the
+ * extracted ones come in four ({m, s}, {m, s, n}, {m, s, c}, {m, s, c, d}), and evalMM, read per particle and module,
+ * looked their fields up through all of them (load study F, 2026-11-15). Same fields, same values.
+ */
+function curveOf(o) {
+  return { m: o.m, s: o.s, n: o.n, c: o.c, d: o.d, cf: Array.isArray(o.c) ? flatKeys(o.c) : undefined, df: Array.isArray(o.d) ? flatKeys(o.d) : undefined };
+}
+
+/**
+ * Attach the flat forms to every MinMaxCurve ({m, s, c?, d?}: cf / df — each replaced by its curveOf copy) and Gradient
+ * ({c, a, mode}: cf / af) below o. @returns o, or its copy when o is a MinMaxCurve itself.
+ */
+export function prepareCurves(o) {
+  if (!o || typeof o !== 'object' || ArrayBuffer.isView(o)) return o;
+  if (Array.isArray(o)) { for (let i = 0; i < o.length; i++) o[i] = prepareCurves(o[i]); return o; }
+  if (typeof o.m === 'number' && 's' in o) return curveOf(o);
+  if (isKeyList(o.c) && isKeyList(o.a) && 'mode' in o) { o.cf = flatGradKeys(o.c, 4); o.af = flatGradKeys(o.a, 2); }
+  for (const k in o) {
+    if (k === 'cf' || k === 'df' || k === 'af') continue;
+    const v = o[k];
+    if (v && typeof v === 'object') o[k] = prepareCurves(v);
   }
-  for (const k in o) if (k !== 'cf' && k !== 'df' && k !== 'af') prepareCurves(o[k]);
+  return o;
 }
 
 /** MinMaxCurve {m, s, n?, c?, d?} at normalized time t with the particle's random r. */
@@ -817,6 +830,7 @@ function makeMaterial(m, lib) {
       uSysOn: { value: false }, uSys: { value: new THREE.Matrix4().setPosition(1, 1, 1) },   // S = 1 until sysScale
     }),
   });
+  mat.fxTime = mat.uniforms[TIME_VEC].value;   // setTime
   mat.userData.order = m?.queue ?? 3000;
   mat.userData.uvRot = /Disturb\(CustomData/.test(shader);   // the shaders with the _HG_UV_ROTATION branch (uvRotation)
   mat.userData.rim = /\/Rim\//.test(shader);
@@ -924,9 +938,18 @@ function uvRotation(mat, uvr) {
   });
 }
 
-/** The renderer's time (seconds since its branch started) into its material: the shader clock and the uvTween offsets. */
+// uTime's place in the packed floats (PACKED_FLOATS): setTime writes it there directly
+const TIME_K = PACKED_FLOATS.indexOf('uTime'), TIME_VEC = `uPF${TIME_K >> 2}`;
+if (AXES[TIME_K & 3] !== 'x') throw new Error('[fx] uTime must be its packed vector\'s x (setTime)');
+
+/**
+ * The renderer's time (seconds since its branch started) into its material: the shader clock and the uvTween offsets.
+ * (load study F, 2026-11-15) The clock goes straight into its packed vector (`fxTime`, which the material keeps from its making — the accessors write the same vector), not
+ * through the `uTime` accessor — one call per system a frame, the same value.
+ */
 function setTime(mat, t) {
-  mat.uniforms.uTime.value = t;
+  const tv = mat.fxTime;
+  if (tv) tv.x = t; else mat.uniforms.uTime.value = t;
   const uvt = mat.userData.uvt;
   if (!uvt) return;
   for (const e of uvt) {
@@ -1564,7 +1587,7 @@ const velAx = new THREE.Vector3();   // (2026-10-27) ParticleSystem.velFrame
 const tmpC = [0, 0, 0, 0], tmpC2 = [0, 0, 0, 0], tmpC3 = [0, 0, 0, 0], tmpCD = new Float32Array(8);
 const D2R = Math.PI / 180;
 // (2026-10-22) a particle's size multipliers (sizeOf), the emitter velocity's frame change (emitterVelocity)
-const sizeK = [1, 1, 1], tmpM3 = new THREE.Matrix3();
+const sizeK = [1, 1, 1], SIZE_ONE = Object.freeze([1, 1, 1]), tmpM3 = new THREE.Matrix3();
 
 class ParticleSystem {
   constructor(ps, node, root, def, opts) {
@@ -2317,12 +2340,14 @@ class ParticleSystem {
     if ((this.scalePath || this.rootTurn || this.sysLocal) && this.n) this.sysScale();
     // instance data, uploaded by the used range in one call
     const n = this.n, D = this.ib.array, rotSign = this.meshRotSign;
+    // (load study F) no size module: sizeOf's multipliers are 1, 1, 1 — not asked per particle
+    const sized = !!(m.sizeOL || m.sizeBySpeed || this.nz);
     for (let i = 0; i < n; i++) {
       const a = this.age[i] / this.life[i], r = this.rnd[i * 4 + 2], o = i * IV;
       D[o + IV_POS] = this.pos[i * 3]; D[o + IV_POS + 1] = this.pos[i * 3 + 1]; D[o + IV_POS + 2] = this.pos[i * 3 + 2];
       D[o + IV_VEL] = this.vel[i * 3] + this.avel[i * 3]; D[o + IV_VEL + 1] = this.vel[i * 3 + 1] + this.avel[i * 3 + 1];
       D[o + IV_VEL + 2] = this.vel[i * 3 + 2] + this.avel[i * 3 + 2];
-      const sk = this.sizeOf(i, a, r, sizeK);
+      const sk = sized ? this.sizeOf(i, a, r, sizeK) : SIZE_ONE;
       D[o + IV_SIZE] = this.size0[i * 3] * sk[0]; D[o + IV_SIZE + 1] = this.size0[i * 3 + 1] * sk[1]; D[o + IV_SIZE + 2] = this.size0[i * 3 + 2] * sk[2];
       D[o + IV_ROT] = this.rot[i * 3] * rotSign; D[o + IV_ROT + 1] = this.rot[i * 3 + 1] * rotSign; D[o + IV_ROT + 2] = this.rot[i * 3 + 2] * rotSign;
       for (let k = 0; k < 4; k++) D[o + IV_COL + k] = this.col0[i * 4 + k];
