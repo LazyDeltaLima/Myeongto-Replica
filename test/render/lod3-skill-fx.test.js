@@ -87,9 +87,10 @@ test('load level 3: a skill mode\'s attack and a normal attack keep their casts 
   assert.ok(!('lod3' in n3.skips), 'perfSkips has no `lod3` count left');
 });
 
-// every gate at once: the layer reads the load level only for the 'medium' path from level 2 (fxQuality)
-test('fxgame.js reads the load level only for the \'medium\' path', () => {
+// every gate at once: the layer reads the load level only for the 'medium' path from level 2 and for its frame rate at
+// level 3 (fxFrameGate, fx-frame-gate.test.js) — no effect is left out at any level
+test('fxgame.js reads the load level only for the \'medium\' path and the frame gate', () => {
   const src = readFileSync(new URL('../../public/js/render/fxgame.js', import.meta.url), 'utf8');
   const uses = src.split('\n').filter((l) => /\blevel\(\)/.test(l));
-  assert.deepEqual(uses.map((l) => l.trim()), ["return v === 'medium' || level() >= 2 ? 'medium' : 'high';"]);
+  assert.deepEqual(uses.map((l) => l.trim()), ["return v === 'medium' || level() >= 2 ? 'medium' : 'high';", 'const t = frameGate(dt, level(), cam, vp);']);
 });
