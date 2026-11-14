@@ -27,7 +27,7 @@
 // board (and the share of its frames drawn) and of the effect layers, the effect library, the spine LRU. The browser's
 // own style, layout and paint for the UI stay in `other`. From the
 // same census (2026-10-30): the seconds at each load level (`lod a–b (s …)`) and its steps with the frame times that
-// raised them (`lod steps`), and why official effects did not play (`fx skip`: normal attacks while the
+// raised them (`lod steps`), and why official effects did not play (`fx skip`: normal attacks at load level 3 / while the
 // effect layer was not up, trails over the cap, effect files fetched during the line and their waits, lost contexts).
 //
 // `other` includes the wait for the display's next refresh (a frame of 2 ms of work still takes 16.7 ms at 60 Hz), so
@@ -276,8 +276,8 @@ function lodStepsText(list) {
 }
 
 /**
- * The line's official effects not played (census fxSkip, summed): normal attacks left procedural while the layer was
- * not up, trails refused by the cap, effect files fetched (summed and longest wait), lost
+ * The line's official effects not played (census fxSkip, summed): normal attacks left procedural by load level 3 /
+ * while the layer was not up, trails refused by the cap, effect files fetched (summed and longest wait), lost
  * contexts, shots left procedural while their trail loaded (`first`, 2026-10-31), and the layer at the line's end with
  * the loads tried this page.
  */
@@ -286,7 +286,7 @@ function fxSkipText(list) {
   if (!xs.length) return null;
   const sum = (k) => xs.reduce((n, x) => n + (x[k] || 0), 0);
   const z = xs[xs.length - 1];
-  return `fx skip off ${sum('off')}, trail ${sum('trail')}`
+  return `fx skip lod3 ${sum('lod3')}, off ${sum('off')}, trail ${sum('trail')}`
     + ` · files ${sum('files')} (wait ${sum('waitMs')} ms, max ${Math.max(...xs.map((x) => x.waitMax || 0))})`
     + `${sum('lost') ? ` · lost ${sum('lost')}` : ''}${sum('first') ? ` · first ${sum('first')}` : ''}`
     + ` · layer ${z.layer ?? '-'}${z.tries ? ` (${z.tries} tries)` : ''}`;
