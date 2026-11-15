@@ -113,13 +113,9 @@ export function wiringReport({ tables, modes, plays = null, status = {}, owned =
   return out;
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (isMain) {
-  const ids = process.argv.flatMap((a, i) => (process.argv[i - 1] === '--id' ? [a.replace(/^char_\d+_/, '')] : []));
-  if (!existsSync(join(LOCAL, 'index.json'))) {
-    console.error('needs the extracted effects (public/assets/local/fx/index.json)');
-    process.exit(1);
-  }
+/** The report over the local extract and the render's own tables (null without the extracted effects). */
+export function localWiringReport() {
+  if (!existsSync(join(LOCAL, 'index.json'))) return null;
   const { names, patterns } = renderNames();
   const tablesIndex = readJson(join(LOCAL, 'index.json'));
   const linked = new Set();
@@ -129,7 +125,17 @@ if (isMain) {
       if (existsSync(f)) for (const l of prefabLinks(readJson(f))) linked.add(l);
     }
   }
-  const report = wiringReport({ linked, tables: loadTables(), modes: readJson(join(LOCAL, 'modes.json')), plays: existsSync(join(LOCAL, 'plays.json')) ? readJson(join(LOCAL, 'plays.json')) : null, status: UNPLAYED_LOCAL, owned: kitOwned(), hand: handEntries(), names, patterns });
+  return wiringReport({ linked, tables: loadTables(), modes: readJson(join(LOCAL, 'modes.json')), plays: existsSync(join(LOCAL, 'plays.json')) ? readJson(join(LOCAL, 'plays.json')) : null, status: UNPLAYED_LOCAL, owned: kitOwned(), hand: handEntries(), names, patterns });
+}
+
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  const ids = process.argv.flatMap((a, i) => (process.argv[i - 1] === '--id' ? [a.replace(/^char_\d+_/, '')] : []));
+  const report = localWiringReport();
+  if (!report) {
+    console.error('needs the extracted effects (public/assets/local/fx/index.json)');
+    process.exit(1);
+  }
   const quiet = (r) => !r.unplayed.length && !r.nameless.length && !r.overlap.length && !r.foreign.length;
   const wanted = ids.length ? ids : Object.keys(report).filter((b) => !quiet(report[b])).sort();
   if (process.argv.includes('--json')) console.log(JSON.stringify(Object.fromEntries(wanted.map((b) => [b, report[b] ?? null])), null, 1));

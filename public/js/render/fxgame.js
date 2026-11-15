@@ -4226,7 +4226,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     'mantra_skill_01_hit_01', 'mantra_skill_02_hit_01',
     // … and 折桠 S2's first attack: FirstAttack's cast on its swing (modes.json talentAtk), SpAttack's hit on what it makes 战栗
     // (kitofficial.js 'aoe' `resolve`), none of them at the cast or on her later hits
-    'branch_skill_02_range_01', 'branch_skill_02_start_01', 'branch_skill_02_hit_01']);
+    'branch_skill_02_range_01', 'branch_skill_02_start_01', 'branch_skill_02_hit_01',
+    // 2026-11-15 (the wiring report's overlap, test/render/fx-overlap.test.js): prefabs a hand table draws on someone else or at
+    // another moment, which the `_buff` / `_range` / `_start` / `_hit` name rules also played on the caster at the cast —
+    // 新约能天使 S2's 屏障 (fxstatus.js KEY_FX angel2:barrier: _01 on her while it holds, _02 on the ally she steals from); 魔王
+    // S2's mote back in place (kitofficial.js motes `ready`, at each mote); 霜叶 S2's / 水月 S2's / 仇白 S1's 束缚 on the enemy
+    // (SOURCE_FX bind); 伊内丝 S3's arrival on her once the sentry is back (kitofficial.js beam, after its flight); 流明 S1's
+    // heal rain on the shot's target (kitofficial.js healField); 耀骑士临光 S2's first shield layer (LAYER_FX nearl2:shield);
+    // 帕拉斯 S3's blessing on its holder (KEY_FX pallas:blessing); 佩佩 S3's range by stacks on the main target (kitofficial.js
+    // stacks); 雷柯普 S2's guard on the healed operator (KEY_FX reckpr:guard) — no quoted event names here: test/render/
+    // kit-event-fx.test.js reads a quoted one in this file as a handler of that kit event
+    'angel2_skill_2_buff_01', 'angel2_skill_2_buff_02', 'cetsyr_skill_02_trail_start', 'frostl_skill_02_buff_02', 'mizuki_skill_02_buff_02',
+    'qiubai_skill_01_buff', 'ines_skill_03_getLabel_range_01', 'lumen_skill_01_range', 'nearl2_skill_02_buff_02', 'pallas_skill_03_buff_02',
+    'pepe_skill_03_hit_range_01', 'reckpr_skill2_hit_buff']);
   // 2026-11-06: with the buffs a kit wears as statuses (fxstatus.js wornPrefabs), which those draw on whoever wears them
   let ownedOf = null, ownedSet = KIT_OWNED;
   const ownedNow = () => {
