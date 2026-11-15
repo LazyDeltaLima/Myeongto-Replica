@@ -13,7 +13,7 @@
 //
 // A custom 规则 match (shared/ruleset.js) hands its settings to the constructor: the round plan (customRoundPlan — every
 // round-keyed table is read at the round's source round, srcRound), the bond ban counts, the leader and stage bans, the
-// co-op prep, the 目标生命值 rules, the layer cap, the enemy / leader stat multipliers (the curve and the percents:
+// co-op prep, the 目标生命值 rules, the layer cap, the enemy / leader stat multipliers (the steps and the percents:
 // enemyScale, leaderScale, bossHpMul) and the shop pool sizes (poolCopies, itemPoolCopies) come out of the accessors below; without settings every accessor is the official
 // one (and returns the same object shapes, so a classic battle spec is unchanged).
 //
@@ -27,7 +27,7 @@
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
-import { customRoundPlan, customPrepSeconds, keepUnbanned, curveScale, customPoolCount, customBanLimits, officialStep, stepScale } from '../../shared/ruleset.js';
+import { customRoundPlan, customPrepSeconds, keepUnbanned, customPoolCount, customBanLimits, officialStep, stepScale } from '../../shared/ruleset.js';
 import { BOND_LAYER_CAP, LARGE_SEATS, MAX_SEATS } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
@@ -576,7 +576,7 @@ export class GameData {
 
   /**
    * Enemy multipliers of round r for every enemy but the leaders (their parts, escorts and the 特训 enemies included):
-   * the official table (baseEnemyScale) — under a custom 规则 match shaped by its curve and times its 敌人 percents
+   * the official table (baseEnemyScale) — under a custom 规则 match on its enemy steps and times its 敌人 percents
    * (customScale). The leaders take leaderScale.
    */
   enemyScale(r) {
@@ -588,13 +588,13 @@ export class GameData {
   /**
    * Multipliers of the leaders of round r (the 最终攻势 / 隐秘核心 leaders: their ATK / speed / DEF / RES — HP is the shared
    * pool, bossHpMul — and their mid-fight summons, content/bosses.js summonMods, which take the HP too): the round's
-   * official ones (baseEnemyScale), under a custom 规则 match shaped by its curve and times its 敌方领袖 percents (the
+   * official ones (baseEnemyScale), under a custom 规则 match on its enemy steps and times its 敌方领袖 percents (the
    * 敌人 percents never reach them; their speed keeps the round's).
    */
   leaderScale(r) {
     const base = this.baseEnemyScale(r);
     const c = this.custom;
-    return c ? this._customScale(r, base, { ...c.leaders, speed: 100, curve: c.enemies?.curve, stepHp: c.enemies?.stepHp, stepAtk: c.enemies?.stepAtk }) : base;
+    return c ? this._customScale(r, base, { ...c.leaders, speed: 100, stepHp: c.enemies?.stepHp, stepAtk: c.enemies?.stepAtk }) : base;
   }
 
   /** The official stat steps round r takes (config enemyScale kHp / kAtk; a custom round plan's own). */
@@ -605,26 +605,21 @@ export class GameData {
   }
 
   /**
-   * The custom form of a round's multipliers `base`: HP / ATK on the curve (shared/ruleset.js curveScale, around round
-   * 1's; the 'step' curve: stepScale, each official step after round 1's at the setting's multiplier), then × the
+   * The custom form of a round's multipliers `base`: HP / ATK with each official step after round 1's at the setting's
+   * multiplier (shared/ruleset.js stepScale; null = the official one), then × the
    * percents; `defMul` / `resMul` only when not 100 % (a spawn reads a missing one as 1; RES stays ≤ 100 in the unit's
    * stats, units.js). `supplyHpMul` (the 补给线 share of hpMul) is kept as the official ratio.
    * @param {number} r @param {ReturnType<GameData['baseEnemyScale']>} base
-   * @param {{ hp?: number, atk?: number, def?: number, res?: number, speed?: number, curve?: string, stepHp?: number|null, stepAtk?: number|null }} pct
+   * @param {{ hp?: number, atk?: number, def?: number, res?: number, speed?: number, stepHp?: number|null, stepAtk?: number|null }} pct
    */
   _customScale(r, base, pct) {
     const p = (v) => (Number.isFinite(v) ? v / 100 : 1);
-    const curve = pct.curve ?? 'official';
     let { hpMul, atkMul } = base;
-    if (curve === 'step' && r !== 1) {
+    if ((Number.isFinite(pct.stepHp) || Number.isFinite(pct.stepAtk)) && r !== 1) {
       const k = this._steps(r), k1 = this._steps(1);
       const oHp = officialStep(this.mode, 'hp'), oAtk = officialStep(this.mode, 'atk');
       hpMul = stepScale(hpMul, k.kHp, k1.kHp, Number.isFinite(pct.stepHp) ? pct.stepHp / 100 : oHp, oHp);
       atkMul = stepScale(atkMul, k.kAtk, k1.kAtk, Number.isFinite(pct.stepAtk) ? pct.stepAtk / 100 : oAtk, oAtk);
-    } else if (curve !== 'official' && curve !== 'step' && r !== 1) {
-      const b1 = this.baseEnemyScale(1);
-      hpMul = curveScale(hpMul, b1.hpMul, curve);
-      atkMul = curveScale(atkMul, b1.atkMul, curve);
     }
     const out = { ...base, hpMul: hpMul * p(pct.hp), atkMul: atkMul * p(pct.atk), speedMul: base.speedMul * p(pct.speed) };
     if (p(pct.def) !== 1) out.defMul = p(pct.def);

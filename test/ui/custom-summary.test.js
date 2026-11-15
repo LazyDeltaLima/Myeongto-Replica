@@ -45,7 +45,7 @@ test('the official settings give no line; the difficulty\'s own ban counts and r
 test('one line per group, in the dialog\'s tab order, with the values (not the official ones) and the names', () => {
   const c = {
     bonds: { noLayerCap: true, pick: { yanShip: 'ban', sargonShip: 'ban', egirShip: 'allow' } },
-    enemies: { hp: 150, atk: 120, speed: 80, curve: 'steep' },
+    enemies: { hp: 150, atk: 120, speed: 80, stepHp: 126, stepAtk: 113 },
     leaders: { res: 200 },
     bosses: { ban: ['boss_1'], hitMode: 'clamp', hitLimit: 500000 },
     stages: { info: true, reroll: true, firstHalf: true, ban: ['s1'] },
@@ -54,7 +54,7 @@ test('one line per group, in the dialog\'s tab order, with the values (not the o
   };
   const name = (kind, id) => `${kind}:${id}`;
   const l = customSummary(c, { name });
-  assert.deepEqual(keys(l), ['bonds.noLayerCap', 'bonds.pick.ban', 'bonds.pick.allow', 'enemies.stats', 'leaders.stats', 'enemies.curve',
+  assert.deepEqual(keys(l), ['bonds.noLayerCap', 'bonds.pick.ban', 'bonds.pick.allow', 'enemies.stats', 'leaders.stats', 'enemies.steps',
     'bosses.ban.final', 'bosses.hit', 'stages.info', 'stages.reroll', 'stages.firstHalf', 'stages.ban', 'flow.prep', 'flow.lpCapOff', 'flow.lpShared', 'pool.chess', 'pool.items',
     'flow.routePreview']);
   const text = Object.fromEntries(l.map((x) => [x.key, x.text]));
@@ -62,7 +62,7 @@ test('one line per group, in the dialog\'s tab order, with the values (not the o
   assert.equal(text['bonds.pick.ban'], '始终禁用盟约：bond:sargonShip、bond:yanShip');
   assert.equal(text['enemies.stats'], '普通敌人：生命值 150% · 攻击力 120% · 移动速度 80%');
   assert.equal(text['leaders.stats'], '敌方领袖：法术抗性 200%');
-  assert.equal(text['enemies.curve'], '敌人能力成长曲线：陡峭');
+  assert.equal(text['enemies.steps'], '敌人能力每级成长倍率：生命值 ×1.26 · 攻击力 ×1.13');
   assert.equal(text['bosses.hit'], '领袖限伤：500,000（按上限计算）');
   assert.equal(text['flow.prep'], '休整期 ×1.5');
   assert.equal(text['pool.chess'], '干员卡池 150%');
@@ -95,15 +95,15 @@ test('敌人类型: the count and the fixed / banned types as lines (the 「特�
   assert.deepEqual(customDiffs({ types: { count: 0, pick: { FLY: 'force' } } }), ['types.count', 'types.pick.FLY']);
 });
 
-test('other seasons and the step curve (maintainer decisions 2026-11-15): borrowed types and stages, the set step multipliers', () => {
+test('other seasons and the step multipliers (maintainer decisions 2026-11-15): borrowed types and stages, the set step multipliers', () => {
   const name = (kind, id) => (kind === 'type' ? `特训敌人·${id}` : `<${id}>`);
   const l = customSummary({ types: { pick: { CRITIC: 'allow', REBORN: 'force' } }, stages: { extra: ['act3autochess_m10'] },
-    enemies: { curve: 'step', stepHp: 130 } }, { name });
+    enemies: { stepHp: 130 } }, { name });
   assert.deepEqual(l.map((x) => [x.key, x.text]), [
-    ['enemies.curve', '敌人能力每级成长倍率：生命值 ×1.30'], ['types.pick.force', '固定特训敌人：REBORN'],
+    ['enemies.steps', '敌人能力每级成长倍率：生命值 ×1.30'], ['types.pick.force', '固定特训敌人：REBORN'],
     ['types.pick.allow', '加入抽取的其他赛季特训敌人：CRITIC'], ['stages.extra', '加入其他赛季战场：<act3autochess_m10>'],
   ]);
-  assert.deepEqual(customSummary({ enemies: { curve: 'step' } }, { name }), [], 'the step curve at the official multipliers: no line');
+  assert.deepEqual(customSummary({ enemies: { stepHp: null } }, { name }), [], 'the official multipliers: no line');
 });
 
 test('a custom match on the real match path: matchInfoModel names the bonds, leaders and stages; other presets have no lines', () => {

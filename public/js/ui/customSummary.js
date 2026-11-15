@@ -10,7 +10,6 @@ import { sanitizeCustom, CUSTOM_OFFICIAL, CUSTOM_FIRST_HALF_STAGES, OFFICIAL_TYP
 import { t, N_ } from '../../../shared/i18n.js';
 
 const STAT_LABELS = { hp: N_('生命值'), atk: N_('攻击力'), def: N_('防御力'), res: N_('法术抗性'), speed: N_('移动速度') };
-const CURVE_LABELS = { official: N_('官方'), gentle: N_('平缓'), steep: N_('陡峭'), flat: N_('持平（固定第 1 回合）') };
 
 const fmt = (n) => Number(n).toLocaleString('en-US');
 
@@ -54,12 +53,10 @@ export function customSummary(raw, { solo = false, bans = null, rounds = null, n
       add(`${sec}.stats`, t('{who}：{list}', { who: t(label), list: stats.map((k) => `${t(STAT_LABELS[k])} ${c[sec][k]}%`).join(' · ') }));
     }
   }
-  if (c.enemies.curve === 'step') {
-    // the 'step' curve: the multipliers set (the official one of a stat left out; both official = no line)
-    const steps = [['stepHp', STAT_LABELS.hp], ['stepAtk', STAT_LABELS.atk]].filter(([k]) => c.enemies[k] != null)
-      .map(([k, label]) => `${t(label)} ×${(c.enemies[k] / 100).toFixed(2)}`);
-    if (steps.length) add('enemies.curve', t('敌人能力每级成长倍率：{list}', { list: steps.join(' · ') }));
-  } else if (c.enemies.curve !== O.enemies.curve) add('enemies.curve', t('敌人能力成长曲线：{name}', { name: t(CURVE_LABELS[c.enemies.curve]) }));
+  // the multipliers per step set (the official one of a stat left out; both official = no line)
+  const steps = [['stepHp', STAT_LABELS.hp], ['stepAtk', STAT_LABELS.atk]].filter(([k]) => c.enemies[k] != null)
+    .map(([k, label]) => `${t(label)} ×${(c.enemies[k] / 100).toFixed(2)}`);
+  if (steps.length) add('enemies.steps', t('敌人能力每级成长倍率：{list}', { list: steps.join(' · ') }));
 
   if (c.types.count !== null && c.types.count !== OFFICIAL_TYPE_COUNT) add('types.count', t('特训敌人类型 {n} 种', { n: c.types.count }));
   const typeNames = (ids) => ids.map((id) => String(name('type', id) ?? id).replace(t('特训敌人·'), '')).join(t('、'));

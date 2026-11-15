@@ -135,14 +135,14 @@ test('sameField: 规程 m01–m04 / m06 play as 盟约 战场#01–#04 / #06(下
   assert.equal(borrowPlan(DATA, [[ACT3_ID, ACT3]], { stages: ['act3autochess_m01', 'act3autochess_m06'], types: [] }), null);
 });
 
-test("the 'step' curve: each official step after round 1 at the set multiplier; null = official; leaders alike", () => {
+test('the step multipliers: each official step after round 1 at the set multiplier; null = official; leaders alike', () => {
   const mode = DATA.config.modes.mode_multi_hard;
   assert.equal(officialStep(mode, 'hp'), 1.2);
   assert.equal(officialStep(mode, 'atk'), 1.1);
   if (ACT3) assert.equal(officialStep(ACT3.config.modes.mode_multi_abyss, 'atk'), 1.11);
   if (ACT3) assert.equal(officialStep(ACT3.config.modes.mode_multi_abyss, 'hp'), 1.2, 'the 补给线 share left out');
   assert.equal(stepScale(2, 3, 1, 1.2, 1.2), 2);
-  const gd = new GameData(DATA, 'mode_multi_hard', sanitizeCustom({ enemies: { curve: 'step', stepHp: 130, stepAtk: 100 } }));
+  const gd = new GameData(DATA, 'mode_multi_hard', sanitizeCustom({ enemies: { stepHp: 130, stepAtk: 100 } }));
   const off = new GameData(DATA, 'mode_multi_hard');
   const e = mode.enemyScale;
   assert.deepEqual(gd.enemyScale(1), off.enemyScale(1), 'round 1 as it is');
@@ -155,8 +155,8 @@ test("the 'step' curve: each official step after round 1 at the set multiplier; 
   }
   const same = new GameData(DATA, 'mode_multi_hard', sanitizeCustom({ enemies: { curve: 'step' } }));
   for (const r of [1, 7, 14]) assert.deepEqual(same.enemyScale(r), off.enemyScale(r), `round ${r}: the official multipliers`);
-  assert.deepEqual(customDiffs({ enemies: { curve: 'step' } }), [], 'the step curve at the official values is no difference');
-  assert.deepEqual(sanitizeCustom({ enemies: { curve: 'gentle', stepHp: 150 } }).enemies.stepHp, null, 'steps only with the step curve');
+  assert.deepEqual(customDiffs({ enemies: { curve: 'step' } }), [], "the former 'step' curve at the official values is no difference");
+  assert.deepEqual(customDiffs({ enemies: { stepHp: 125 } }), ['enemies.stepHp']);
 });
 
 test("browser data store: setBorrow reads the same borrowed records the server's match does", { skip }, async () => {

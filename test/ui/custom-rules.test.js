@@ -165,7 +165,7 @@ test('the stat curve chart leaves out the custom line while it is the official o
   };
   assert.deepEqual(lines({}), ['crx-chart__off'], 'official curve, hp 100 %, official rounds: the official line only');
   assert.deepEqual(lines({ flow: { rounds: 14 } }), ['crx-chart__off'], 'the official round count given explicitly');
-  for (const c of [{ enemies: { curve: 'gentle' } }, { enemies: { hp: 150 } }, { flow: { rounds: 16 } }, { flow: { rounds: 8 } }]) {
+  for (const c of [{ enemies: { stepHp: 115 } }, { enemies: { hp: 150 } }, { flow: { rounds: 16 } }, { flow: { rounds: 8 } }]) {
     assert.deepEqual(lines(c), ['crx-chart__off', 'crx-chart__cus'], JSON.stringify(c));
   }
 });

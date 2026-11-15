@@ -26,8 +26,8 @@ import {
   encodeCustomCode, decodeCustomCode, CUSTOM_NAME_MAX,
 } from './customRulesStore.js';
 import {
-  sanitizeCustom, customDiffs, customRoundPlan, curveScale, customPrepSeconds, customStagePool, customPoolCount, CUSTOM_OFFICIAL, CUSTOM_CASUAL,
-  CUSTOM_LIMITS, CUSTOM_FIRST_HALF_STAGES, OFFICIAL_TYPE_COUNT, officialBans, customBanLimits, seasonOfficialOptions, officialStep, stepScale,
+  sanitizeCustom, customDiffs, customRoundPlan, customPrepSeconds, customStagePool, customPoolCount, CUSTOM_OFFICIAL, CUSTOM_CASUAL,
+  CUSTOM_LIMITS, CUSTOM_FIRST_HALF_STAGES, OFFICIAL_TYPE_COUNT, officialBans, customBanLimits, seasonOfficialOptions, officialStep, stepScale, stepPreset, CUSTOM_STEP_PRESETS,
 } from '../../../shared/ruleset.js';
 import { borrowSeasons, lendableStage, lendableType, sameField } from '../../../shared/seasonBorrow.js';
 import { seasonInfo } from '../../../shared/seasons.js';
@@ -323,16 +323,12 @@ function EnemiesPane({ work, set, readonly, mode }) {
     <${Stepper} value=${work[sec][k]} min=${CUSTOM_LIMITS.pct[0]} max=${CUSTOM_LIMITS.pct[1]} step=${10} suffix="%" disabled=${readonly}
       testid=${`custom-${sec}-${k}`} onChange=${(v) => set(sec, k, v)} />
   <//>`;
-  const curves = [
-    { v: 'official', label: t('官方') }, { v: 'gentle', label: t('平缓') }, { v: 'steep', label: t('陡峭') }, { v: 'flat', label: t('持平（固定第 1 回合）') },
-    { v: 'step', label: t('指定倍率') },
-  ];
-  // the 'step' curve (maintainer decision 2026-11-15): the multiplier per official step, the step rounds kept — null =
-  // the mode's own (officialStep), so picking it alone changes nothing
+  // the multiplier per official step (maintainer decision 2026-11-15), the step rounds kept — null = the mode's own
+  // (officialStep); the quick setups below only fill both (stepPreset)
   const stepRow = (k, stat, label, note) => {
     const off = Math.round(officialStep(mode, stat) * 100);
     return html`<${Row} label=${label} note=${note} official=${t('官方 ×{n}', { n: (off / 100).toFixed(2) })}>
-      <${Stepper} value=${work.enemies[k] ?? off} min=${CUSTOM_LIMITS.step[0]} max=${CUSTOM_LIMITS.step[1]} step=${5} prefix="×" scale=${100}
+      <${Stepper} value=${work.enemies[k] ?? off} min=${CUSTOM_LIMITS.step[0]} max=${CUSTOM_LIMITS.step[1]} step=${1} prefix="×" scale=${100}
         disabled=${readonly} testid=${`custom-enemies-${k}`} onChange=${(v) => set('enemies', k, v === off ? null : v)} />
     <//>`;
   };
@@ -351,30 +347,48 @@ function EnemiesPane({ work, set, readonly, mode }) {
       ${pct('leaders', 'res', t('法术抗性'))}
     <//>
     <${Sec} title=${t('逐回合能力成长')} sub=${t('以难度的官方曲线为基础 — 图表为生命值倍率')}>
-      <${Row} label=${t('成长曲线')}><${Seg} options=${curves} value=${work.enemies.curve} disabled=${readonly} onChange=${(v) => set('enemies', 'curve', v)} /><//>
-      ${work.enemies.curve === 'step' ? html`
-        ${stepRow('stepHp', 'hp', t('生命值成长倍率'), t('官方表格每升一级时乘上的值 · ×{lo} – ×{hi} · ×1.00 则保持第 1 回合',
-          { lo: (CUSTOM_LIMITS.step[0] / 100).toFixed(2), hi: (CUSTOM_LIMITS.step[1] / 100).toFixed(2) }))}
-        ${stepRow('stepAtk', 'atk', t('攻击力成长倍率'), t('同一级时乘在攻击力上的值'))}` : null}
+      ${stepRow('stepHp', 'hp', t('生命值成长倍率'), t('官方表格每升一级时乘上的值 · ×{lo} – ×{hi} · ×1.00 则保持第 1 回合',
+        { lo: (CUSTOM_LIMITS.step[0] / 100).toFixed(2), hi: (CUSTOM_LIMITS.step[1] / 100).toFixed(2) }))}
+      ${stepRow('stepAtk', 'atk', t('攻击力成长倍率'), t('同一级时乘在攻击力上的值'))}
+      <${StepPresets} work=${work} mode=${mode} readonly=${readonly} onPick=${(p) => { set('enemies', 'stepHp', p.stepHp); set('enemies', 'stepAtk', p.stepAtk); }} />
       <${CurveChart} work=${work} mode=${mode} />
     <//>`;
 }
 
+const STEP_PRESET_LABELS = { official: N_('官方'), gentle: N_('平缓'), steep: N_('陡峭'), flat: N_('持平') };
+
+/**
+ * The 快速设置 row under the step multipliers: each button fills both with its values for this difficulty (stepPreset)
+ * and is lit while both are those; values set by hand light none. Its note lists what each fills in.
+ */
+function StepPresets({ work, mode, readonly, onPick }) {
+  const off = (stat) => Math.round(officialStep(mode, stat) * 100);
+  const eff = (p) => [p.stepHp ?? off('hp'), p.stepAtk ?? off('atk')];
+  const now = eff(work.enemies);
+  const opts = ['official', ...Object.keys(CUSTOM_STEP_PRESETS)].map((v) => ({ v, label: t(STEP_PRESET_LABELS[v]), p: stepPreset(mode, v) }));
+  const on = opts.find((o) => { const [h, a] = eff(o.p); return h === now[0] && a === now[1]; })?.v ?? '';
+  const x = (n) => `×${(n / 100).toFixed(2)}`;
+  const note = opts.map((o) => { const [h, a] = eff(o.p); return `${o.label} ${x(h)} · ${x(a)}`; }).join(' · ');
+  return html`<${Row} label=${t('快速配置')} note=${note}>
+    <span class="crx-seg crx-seg--chips" role="group">${opts.map((o) => html`<button key=${o.v} type="button" aria-pressed=${o.v === on ? 'true' : 'false'}
+      class=${o.v === on ? 'is-on' : ''} disabled=${readonly} data-testid=${`custom-steps-${o.v}`}
+      onClick=${() => onPick(o.p)}>${o.label}</button>`)}</span>
+  <//>`;
+}
+
 /**
  * The hp multiplier per round as the match spawns it (config.json enemyScale hp): the official line (dashed) and the
- * custom one (curve × hp%, over the custom rounds) — left out while it is the official line itself (the official curve,
+ * custom one (the steps × hp%, over the custom rounds) — left out while it is the official line itself (the official steps,
  * hp 100 %, the official round count: maintainer request 2026-10-18).
  */
 export function CurveChart({ work, mode }) {
   if (!mode) return null;
   const plan = customRoundPlan(mode, work.flow.rounds);
   const off = customRoundPlan(mode, null).rounds.map((r) => r.hp);
-  const m1 = plan.rounds[0]?.hp ?? 1;
   const k1 = plan.rounds[0]?.kHp ?? 0;
   const oHp = officialStep(mode, 'hp');
   const sHp = work.enemies.stepHp != null ? work.enemies.stepHp / 100 : oHp;
-  const cus = plan.rounds.map((r) => (work.enemies.hp / 100) * (work.enemies.curve === 'step'
-    ? stepScale(r.hp, r.kHp, k1, sHp, oHp) : curveScale(r.hp, m1, work.enemies.curve)));
+  const cus = plan.rounds.map((r) => (work.enemies.hp / 100) * stepScale(r.hp, r.kHp, k1, sHp, oHp));
   const same = cus.length === off.length && cus.every((v, i) => Math.abs(v - off[i]) < 1e-9);
   const W = 1000, H = 220, P = 40;
   const nX = Math.max(off.length, cus.length);

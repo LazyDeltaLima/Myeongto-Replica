@@ -84,17 +84,20 @@ export const CUSTOM_LIMITS = Object.freeze({
   hitLimit: Object.freeze([100000, 5000000]),
   /** 特训敌人 types per match: the 15 round slots hold five types of three (factions.json maxLevelCnt / types[].count) */
   types: Object.freeze([0, 5]),
-  /** the 'step' curve's rise per official step (enemies.stepHp / stepAtk), in hundredths: ×1.00 – ×2.00 */
+  /** the enemies' rise per official stat step (enemies.stepHp / stepAtk), in hundredths: ×1.00 – ×2.00 */
   step: Object.freeze([100, 200]),
   /** list / map sizes: far above the data's 23 bonds, 10 leaders and 11 stages */
   ids: 48,
 });
 
 /**
- * The rise of the enemy stats from round to round: the mode's official curve, one shaped from it, or 'step' — the
- * official steps with another multiplier per step (enemies.stepHp / stepAtk; stepScale).
+ * The quick picks of the enemies' rise per step (the dialog's 快速选择, stepPreset): the power each puts on the mode's
+ * official multiplier per step — gentle ¾, steep 1¼, flat none (round 1's stats the whole match) [ASSUMED·자료 없음: the shapes are
+ * this remake's, maintainer decision 2026-10-18 named them only; the first powers ½ / 1½ were too far apart, maintainer
+ * feedback the same day]. Since maintainer decision 2026-11-15 they only fill enemies.stepHp / stepAtk; settings saved
+ * with the former `curve` field read as these (sanitizeCustom).
  */
-export const CUSTOM_CURVES = Object.freeze(['official', 'gentle', 'steep', 'flat', 'step']);
+export const CUSTOM_STEP_PRESETS = Object.freeze({ gentle: 0.75, steep: 1.25, flat: 0 });
 /** What a hit of the limit or more on a leader does: cancelled (official), lands as the limit, no limit. */
 export const CUSTOM_HIT_MODES = Object.freeze(['void', 'clamp', 'none']);
 /** The prep length (co-op only): official, ×1.5, ×2, or a fixed number of seconds (`prepSec`). */
@@ -112,8 +115,9 @@ export const OFFICIAL_TYPE_COUNT = 3;
 /**
  * Every custom setting at its official value. `null` = the difficulty's own value (the bond ban counts, the round count).
  *   bonds    banCore / banAddon: bonds drawn absent each match · noLayerCap: no 999-layer cap · pick: { bondId: 'ban'|'allow' }
- *   enemies  normal enemies (特训 enemies, escorts, parts too): percent of hp / atk / def / res / speed · curve ·
- *            stepHp / stepAtk: the 'step' curve's multiplier per official step in hundredths (null = the official one)
+ *   enemies  normal enemies (特训 enemies, escorts, parts too): percent of hp / atk / def / res / speed · stepHp /
+ *            stepAtk: the multiplier per official stat step in hundredths, the leaders' too (null = the official one;
+ *            stepScale)
  *   leaders  the leaders of 最终攻势 / 隐秘核心 and their summons: percent of hp (the shared pool) / atk / def / res
  *   types    the 特训敌人 types of the match (factions.json types with involveRandom): count — how many are drawn (null =
  *            the official 3) · pick: { type: 'ban'|'force'|'allow' } — never / always drawn, another season's
@@ -129,7 +133,7 @@ export const OFFICIAL_TYPE_COUNT = 3;
 export const CUSTOM_OFFICIAL = deepFreeze({
   v: CUSTOM_VERSION,
   bonds: { banCore: null, banAddon: null, noLayerCap: false, pick: {} },
-  enemies: { hp: 100, atk: 100, def: 100, res: 100, speed: 100, curve: 'official', stepHp: null, stepAtk: null },
+  enemies: { hp: 100, atk: 100, def: 100, res: 100, speed: 100, stepHp: null, stepAtk: null },
   leaders: { hp: 100, atk: 100, def: 100, res: 100 },
   types: { count: null, pick: {} },
   bosses: { ban: [], hitMode: 'void', hitLimit: BOSS_HIT_LIMIT },
@@ -193,7 +197,10 @@ export function sanitizeCustom(raw) {
     return out;
   };
   const pick = picks(b.pick, CUSTOM_BOND_PICKS);
-  const curve = oneOf(e.curve, CUSTOM_CURVES, O.enemies.curve);
+  // the former `curve` field (settings saved before maintainer decision 2026-11-15): a shaped curve reads as its quick
+  // pick at the 盟约 steps (stepPreset without a mode), 'step' / 'official' as the multipliers given
+  const legacy = Object.hasOwn(CUSTOM_STEP_PRESETS, e.curve) ? stepPreset(null, e.curve) : null;
+  const steps = e.curve === 'official' ? { stepHp: null, stepAtk: null } : legacy ?? e;
   return deepFreeze({
     v: CUSTOM_VERSION,
     bonds: {
@@ -204,9 +211,8 @@ export function sanitizeCustom(raw) {
     },
     enemies: {
       hp: pct(e.hp, 100), atk: pct(e.atk, 100), def: pct(e.def, 100), res: pct(e.res, 100), speed: pct(e.speed, 100),
-      curve,
-      stepHp: curve === 'step' ? intOrNull(e.stepHp, CUSTOM_LIMITS.step) : null,
-      stepAtk: curve === 'step' ? intOrNull(e.stepAtk, CUSTOM_LIMITS.step) : null,
+      stepHp: intOrNull(steps.stepHp, CUSTOM_LIMITS.step),
+      stepAtk: intOrNull(steps.stepAtk, CUSTOM_LIMITS.step),
     },
     leaders: { hp: pct(l.hp, 100), atk: pct(l.atk, 100), def: pct(l.def, 100), res: pct(l.res, 100) },
     types: { count: intOrNull(ty.count, CUSTOM_LIMITS.types), pick: picks(ty.pick, CUSTOM_TYPE_PICKS) },
@@ -346,8 +352,6 @@ export function customDiffs(raw, base = {}) {
   for (const sec of ['enemies', 'leaders']) {
     for (const [k, v] of Object.entries(c[sec])) if (v !== O[sec][k]) out.push(`${sec}.${k}`);
   }
-  // the 'step' curve at the official multipliers is the official curve
-  if (c.enemies.curve === 'step' && c.enemies.stepHp == null && c.enemies.stepAtk == null) out.splice(out.indexOf('enemies.curve'), 1);
   if (!same(c.types.count, OFFICIAL_TYPE_COUNT)) out.push('types.count');
   for (const k of Object.keys(c.types.pick)) out.push(`types.pick.${k}`);
   for (const id of c.bosses.ban) out.push(`bosses.ban.${id}`);
@@ -376,23 +380,7 @@ export function customPoolCount(n, pct) {
   return Math.max(1, Math.round((n * pct) / 100));
 }
 
-// ---- the custom round plan and stat curve -----------------------------------------------------------------------
-
-/** The power each curve puts on the official rise from round 1 (curveScale). */
-export const CUSTOM_CURVE_POWER = Object.freeze({ official: 1, gentle: 0.75, steep: 1.25, flat: 0 });
-
-/**
- * An enemy stat multiplier of a round under a curve: the mode's official multiplier `m` (config.json enemyScale hp /
- * atk — what the match spawns with), or one shaped from it around round 1's `m1`: m1 × (m ÷ m1)^power — gentle ¾ of the
- * official rise (in its exponent), steep 1¼, flat none [ASSUMED: the shapes are this remake's, maintainer decision
- * 2026-10-18 named them only; the first powers ½ / 1½ were too far apart, maintainer feedback the same day].
- * @param {number} m @param {number} m1 @param {string} curve
- */
-export function curveScale(m, m1, curve) {
-  const p = CUSTOM_CURVE_POWER[curve] ?? 1;
-  if (p === 1 || !(m > 0) || !(m1 > 0)) return m;
-  return m1 * (m / m1) ** p;
-}
+// ---- the custom round plan and stat steps ------------------------------------------------------------------------
 
 /**
  * The official multiplier of one stat step of a mode (config.json enemyScale: hp = base × step^kHp, atk = base ×
@@ -414,10 +402,23 @@ export function officialStep(mode, stat) {
 }
 
 /**
- * A stat multiplier of a round under the 'step' curve: the official multiplier `m` with each official step it took
- * after round 1 (`k − k1`) at `step` instead of the official `official` — round 1 stays as it is (maintainer decision
- * 2026-11-15: the multiplier per step, the official step rounds kept). @param {number} m @param {number} k
- * @param {number} k1 @param {number} step @param {number} official
+ * The multipliers a quick pick (CUSTOM_STEP_PRESETS) fills in, in hundredths: the mode's official step to the pick's
+ * power, rounded — 盟约 gentle ×1.15 HP / ×1.07 ATK, steep ×1.26 / ×1.13, flat ×1.00 / ×1.00. Another name (official)
+ * gives nulls, the official steps. @param {any} mode (null: the 盟约 steps, officialStep's own) @param {string} name
+ * @returns {{ stepHp: number | null, stepAtk: number | null }}
+ */
+export function stepPreset(mode, name) {
+  const p = Object.hasOwn(CUSTOM_STEP_PRESETS, name) ? CUSTOM_STEP_PRESETS[name] : null;
+  if (p == null) return { stepHp: null, stepAtk: null };
+  const at = (stat) => intIn(100 * officialStep(mode, stat) ** p, CUSTOM_LIMITS.step, null);
+  return { stepHp: at('hp'), stepAtk: at('atk') };
+}
+
+/**
+ * A stat multiplier of a round under custom steps (enemies.stepHp / stepAtk): the official multiplier `m` with each
+ * official step it took after round 1 (`k − k1`) at `step` instead of the official `official` — round 1 stays as it is
+ * (maintainer decision 2026-11-15: the multiplier per step, the official step rounds kept). @param {number} m
+ * @param {number} k @param {number} k1 @param {number} step @param {number} official
  */
 export function stepScale(m, k, k1, step, official) {
   if (!(official > 0) || !(step > 0) || step === official || !Number.isFinite(k - k1)) return m;

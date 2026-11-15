@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import {
   RULE_OPTIONS, RULE_PRESETS, QUEUE_PRESETS, DEFAULT_PRESET, PRESET_LABELS, isRulePreset, isQueuePreset, resolveRuleset, rulesetKey,
-  simRuleFlags, sanitizeCustom, optionsOfCustom, customDiffs, sameRuleset, rulesetWire, customRoundPlan, curveScale, CUSTOM_CURVE_POWER,
+  simRuleFlags, sanitizeCustom, optionsOfCustom, customDiffs, sameRuleset, rulesetWire, customRoundPlan, stepPreset, CUSTOM_STEP_PRESETS,
   customPrepSeconds, keepUnbanned, customPoolCount, seasonOfficialOptions,
   CUSTOM_OFFICIAL, CUSTOM_CASUAL, CUSTOM_LIMITS, CUSTOM_VERSION,
 } from '../shared/ruleset.js';
@@ -148,7 +148,8 @@ test('custom settings: every field at its official value by default; numbers cla
   assert.equal(c.bonds.noLayerCap, false);
   assert.deepEqual({ ...c.bonds.pick }, { raidShip: 'allow', yanShip: 'ban' });
   assert.deepEqual(Object.keys(c.bonds.pick), ['raidShip', 'yanShip'], 'sorted keys');
-  assert.deepEqual([c.enemies.hp, c.enemies.atk, c.enemies.def, c.enemies.res, c.enemies.curve], [1000, 10, 150, 100, 'official']);
+  assert.deepEqual([c.enemies.hp, c.enemies.atk, c.enemies.def, c.enemies.res, c.enemies.stepHp, c.enemies.stepAtk], [1000, 10, 150, 100, null, null]);
+  assert.equal('curve' in c.enemies, false, 'the former curve field is read, never kept');
   assert.equal(c.leaders.hp, 250);
   assert.deepEqual([...c.bosses.ban], ['boss_1', 'boss_5']);
   assert.equal(c.bosses.hitMode, 'none');
@@ -239,12 +240,20 @@ describe('custom round plan and curves', () => {
     for (let i = 13; i < 18; i++) assert.ok(k[i] > k[i - 1], `rising at ${i + 1}`);
     assert.ok(p.hidden.kHp > mode('mode_multi_hard').enemyScale[15].kHp);
   });
-  test('curveScale: on the official multipliers; gentle ¾ of the rise from round 1 (in its exponent), steep 1¼, flat round 1', () => {
-    assert.deepEqual({ ...CUSTOM_CURVE_POWER }, { official: 1, gentle: 0.75, steep: 1.25, flat: 0 });
-    assert.equal(curveScale(4.3, 1.2, 'official'), 4.3);
-    assert.equal(curveScale(4.3, 1.2, 'flat'), 1.2);
-    assert.ok(Math.abs(curveScale(1.2 * 16, 1.2, 'gentle') - 1.2 * 8) < 1e-9);
-    assert.ok(Math.abs(curveScale(1.2 * 16, 1.2, 'steep') - 1.2 * 32) < 1e-9);
+  test('stepPreset: the quick setups fill the official step to their power (gentle ¾, steep 1¼, flat 0), rounded; the former curves read as them', () => {
+    assert.deepEqual({ ...CUSTOM_STEP_PRESETS }, { gentle: 0.75, steep: 1.25, flat: 0 });
+    assert.deepEqual(stepPreset(null, 'official'), { stepHp: null, stepAtk: null });
+    assert.deepEqual(stepPreset(null, 'gentle'), { stepHp: 115, stepAtk: 107 });
+    assert.deepEqual(stepPreset(null, 'steep'), { stepHp: 126, stepAtk: 113 });
+    assert.deepEqual(stepPreset(null, 'flat'), { stepHp: 100, stepAtk: 100 });
+    // a mode whose ATK steps ×1.11 (规程): its own powers
+    const m = { enemyScale: { 1: { kHp: 0, kAtk: 0, hp: 1, atk: 1 }, 2: { kHp: 2, kAtk: 2, hp: 1.44, atk: 1.2321 } } };
+    assert.deepEqual(stepPreset(m, 'gentle'), { stepHp: 115, stepAtk: 108 });
+    for (const [curve, want] of [['gentle', [115, 107]], ['steep', [126, 113]], ['flat', [100, 100]], ['official', [null, null]]]) {
+      const e = sanitizeCustom({ enemies: { curve, stepHp: 150 } }).enemies;
+      assert.deepEqual([e.stepHp, e.stepAtk], want, `former curve ${curve}`);
+    }
+    assert.equal(sanitizeCustom({ enemies: { curve: 'step', stepHp: 130 } }).enemies.stepHp, 130, "the former 'step' curve keeps its multipliers");
   });
   test('the plan carries the multipliers the match spawns with (config.json enemyScale), the added rounds rising on from them', () => {
     for (const id of Object.keys(config.modes)) {

@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PHASE, GEO, BOND_LAYER_CAP, layerGainRoom, layerCapOf, bossHitLimitOf } from '../../shared/constants.js';
-import { sanitizeCustom, curveScale, simRuleFlags } from '../../shared/ruleset.js';
+import { sanitizeCustom, stepScale, simRuleFlags } from '../../shared/ruleset.js';
 import { GameData } from '../../server/match/gamedata.js';
 import { bossPoolHp, SharedBossPool } from '../../server/match/finalAssault.js';
 import { buildBossWave, setupMatchWaves } from '../../server/match/waves.js';
@@ -38,42 +38,46 @@ test('every official value: the enemy and leader multipliers, the leader pools a
   assert.deepEqual(simRuleFlags(custom({})), {});
 });
 
-test('enemy and leader percents on the curve: normal enemies take the 敌人 ones, the leaders and their summons the 敌方领袖 ones', () => {
+test('enemy and leader percents on the steps: normal enemies take the 敌人 ones, the leaders and their summons the 敌方领袖 ones', () => {
   const c = sanitizeCustom({
-    enemies: { hp: 200, atk: 50, def: 300, res: 400, speed: 80, curve: 'steep' },
+    enemies: { hp: 200, atk: 50, def: 300, res: 400, speed: 80, stepHp: 126, stepAtk: 113 },
     leaders: { hp: 300, atk: 150, def: 50, res: 200 },
   });
   const off = new GameData(DATA, 'mode_multi_hard');
   const gd = new GameData(DATA, 'mode_multi_hard', c);
   const b1 = off.baseEnemyScale(1);
+  const es = DATA.config.modes.mode_multi_hard.enemyScale;
+  const hpAt = (r, m) => stepScale(m, es[r].kHp, es[1].kHp, 1.26, 1.2);
+  const atkAt = (r, m) => stepScale(m, es[r].kAtk, es[1].kAtk, 1.13, 1.1);
   for (const r of [1, 5, 10, 14, 15]) {
     const base = off.baseEnemyScale(r);
     const e = gd.enemyScale(r);
-    close(e.hpMul, curveScale(base.hpMul, b1.hpMul, 'steep') * 2, `R${r} hp`);
-    close(e.atkMul, curveScale(base.atkMul, b1.atkMul, 'steep') * 0.5, `R${r} atk`);
+    close(e.hpMul, hpAt(r, base.hpMul) * 2, `R${r} hp`);
+    close(e.atkMul, atkAt(r, base.atkMul) * 0.5, `R${r} atk`);
     close(e.speedMul, base.speedMul * 0.8, `R${r} speed`);
     assert.equal(e.defMul, 3);
     assert.equal(e.resMul, 4);
     assert.equal(e.supplyHpMul, base.supplyHpMul, 'the 补给线 share stays the official ratio');
     const l = gd.leaderScale(r);
-    close(l.hpMul, curveScale(base.hpMul, b1.hpMul, 'steep') * 3, `R${r} leader summons' hp`);
-    close(l.atkMul, curveScale(base.atkMul, b1.atkMul, 'steep') * 1.5, `R${r} leader atk`);
+    close(l.hpMul, hpAt(r, base.hpMul) * 3, `R${r} leader summons' hp`);
+    close(l.atkMul, atkAt(r, base.atkMul) * 1.5, `R${r} leader atk`);
     assert.equal(l.speedMul, base.speedMul, 'the leaders keep the round speed');
     assert.equal(l.defMul, 0.5);
     assert.equal(l.resMul, 2);
   }
-  assert.ok(gd.enemyScale(14).hpMul / 2 > off.enemyScale(14).hpMul, 'steep rises faster than the official');
+  assert.ok(gd.enemyScale(14).hpMul / 2 > off.enemyScale(14).hpMul, '×1.26 per step rises faster than the official');
   // the shared pool: × the leader HP percent (both pool sizes)
   for (const id of ['boss_1', 'boss_8']) {
     assert.equal(bossPoolHp(gd, id, 4), Math.round(bossPoolHp(off, id, 4) * 3));
     assert.equal(gd.bossPoolHp(id, 4), bossPoolHp(gd, id, 4));
   }
-  // flat: every round at round 1's multipliers; 100 % DEF / RES add no field
+  // ×1.00 per step (the 持平 quick setup; the former 'flat' curve reads as it): every round at round 1's multipliers,
+  // within the table's own rounding; 100 % DEF / RES add no field
   const flat = new GameData(DATA, 'mode_multi_hard', sanitizeCustom({ enemies: { curve: 'flat' } }));
   for (const r of [2, 9, 14]) {
-    assert.equal(flat.enemyScale(r).hpMul, b1.hpMul);
-    assert.equal(flat.enemyScale(r).atkMul, b1.atkMul);
-    assert.equal(flat.enemyScale(r).speedMul, off.baseEnemyScale(r).speedMul, 'the speed is not on the curve');
+    assert.ok(Math.abs(flat.enemyScale(r).hpMul - b1.hpMul) < 1e-4, `R${r} flat hp`);
+    assert.ok(Math.abs(flat.enemyScale(r).atkMul - b1.atkMul) < 1e-4, `R${r} flat atk`);
+    assert.equal(flat.enemyScale(r).speedMul, off.baseEnemyScale(r).speedMul, 'the speed takes no steps');
     assert.ok(!('defMul' in flat.enemyScale(r)) && !('resMul' in flat.enemyScale(r)));
   }
 });

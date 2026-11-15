@@ -833,7 +833,7 @@ const MATCH_CUSTOM_FLOW = Object.freeze({
 });
 const MATCH_CUSTOM_BATTLE = Object.freeze({
   bonds: { noLayerCap: true },
-  enemies: { hp: 130, atk: 120, def: 150, res: 140, speed: 90, curve: 'steep' },
+  enemies: { hp: 130, atk: 120, def: 150, res: 140, speed: 90, stepHp: 126, stepAtk: 113 },
   leaders: { hp: 70, atk: 130, def: 80, res: 200 },
   bosses: { ban: ['boss_8'], hitMode: 'none' },
   flow: { rounds: 16 },
