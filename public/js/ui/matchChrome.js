@@ -50,7 +50,8 @@ export const awayEnds = (s, prev) => (!!prev?.match?.public && !s?.match?.public
 store.subscribe((s, prev) => { if (awayStore.get().away && awayEnds(s, prev)) awayStore.set({ away: false }); });
 
 /**
- * Leave the match for good (g.leave → room.leave), then drop local room/match state. The server sends a leaver no
+ * Leave the match for good (g.leave; room.leave only when no match runs), then drop local room/match state — only
+ * once the server acknowledged it. The server sends a leaver no
  * settlement, so the page records the match itself before it is cleared (本机统计, ui/stats.js recordQuit: a 中途退出
  * entry of the history; it counts only when a round had been cleared) — once the leave went through.
  * @returns {Promise<void>}
@@ -59,11 +60,16 @@ export async function quitMatch() {
   const before = store.get();
   let left = false;
   try {
-    try { await net.request('g.leave', {}); } catch (err) {
-      if (err?.code !== 'NOT_IN_ROOM' && err?.code !== 'WRONG_PHASE' && err?.code !== 'OFFLINE') throw err;
+    try { await net.request('g.leave', {}); left = true; } catch (err) {
+      if (err?.code === 'NOT_IN_ROOM') left = true;
+      else if (err?.code !== 'WRONG_PHASE') throw err;
     }
-    try { await net.request('room.leave', {}); } catch (err) { if (err?.code !== 'NOT_IN_ROOM' && err?.code !== 'OFFLINE') throw err; }
-    left = true;
+    // g.leave already removes the member (server/lobby.js routeGame); only a room without a running match
+    // (WRONG_PHASE) needs room.leave, and a redundant request cannot revoke an acknowledged departure (upstream PR #879)
+    if (!left) {
+      try { await net.request('room.leave', {}); } catch (err) { if (err?.code !== 'NOT_IN_ROOM') throw err; }
+      left = true;
+    }
   } catch (err) {
     toastError(err);
   } finally {
@@ -71,7 +77,9 @@ export async function quitMatch() {
     if (left && !store.get().match.result) {
       try { recordQuit(before); } catch (err) { console.warn('[stats] quit record failed', err); }
     }
-    store.set({ room: null, match: emptyMatch() });
+    // a failed request (OFFLINE, TIMEOUT, …) does not show the server released the seat: keep the latest view for a
+    // retry or a reconnect, including a waiting-room update that arrived after the match ended
+    if (left) store.set({ room: null, match: emptyMatch() });
   }
 }
 
