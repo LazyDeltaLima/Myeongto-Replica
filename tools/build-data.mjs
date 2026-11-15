@@ -1848,12 +1848,24 @@ function effectBuffs(ctx, effectId) {
 }
 /**
  * 规程's placeholder keys of an effect's text (effectDescParamDataDict[effectId].descParamInfos: descParamBase,
- * descParamPerStack, descParamMax — 0 for no cap); [] for 盟约, whose bond records list them.
+ * descParamPerStack, descParamMax — 0 for no cap); [] for 盟约, whose bond records list them. A key the effect's
+ * blackboards lack, or whose value is not a number, stops the build: the text would show 0 for it (upstream PR #929).
  * @returns {Array<{ base: string|null, perStack: string|null, max: number }>}
  */
 function effectDescParams(ctx, effectId) {
   const list = ctx.act.effectDescParamDataDict?.[effectId]?.descParamInfos;
-  return Array.isArray(list) ? list.map((x) => ({ base: x.descParamBase || null, perStack: x.descParamPerStack || null, max: Number(x.descParamMax) || 0 })) : [];
+  if (!Array.isArray(list)) return [];
+  const out = list.map((x) => ({ base: x.descParamBase || null, perStack: x.descParamPerStack || null, max: Number(x.descParamMax) || 0 }));
+  checkDescParamKeys(effectParams(effectBuffs(ctx, effectId)), out.flatMap((x) => [x.base, x.perStack]), `effectDescParamDataDict ${effectId}`);
+  return out;
+}
+/** Stop the build on a text placeholder key that `params` (an effect's flattened blackboards) lacks or holds as a non-number. */
+function checkDescParamKeys(params, keys, where) {
+  for (const k of keys) {
+    if (k == null) continue;
+    if (!Object.hasOwn(params, k)) throw new Error(`${where}: placeholder key ${k} is in no blackboard of the effect`);
+    if (typeof params[k] !== 'number' || !Number.isFinite(params[k])) throw new Error(`${where}: placeholder key ${k} is ${JSON.stringify(params[k])}, not a number`);
+  }
 }
 /** Flattened params of all buffs of an effect (first occurrence wins; string values included). */
 function effectParams(buffs) {
@@ -1958,6 +1970,7 @@ function buildBonds(ctx, chess, effects) {
     const dpi = effectDescParams(ctx, b.effectId);
     const baseList = b.descParamBaseList || dpi.map((x) => x.base);
     const perList = b.descParamPerStackList || dpi.map((x) => x.perStack);
+    if (b.descParamBaseList || b.descParamPerStackList) checkDescParamKeys(eff?.params || {}, [...(b.descParamBaseList || []), ...(b.descParamPerStackList || [])], `bond ${bondId} descParam lists`);
     const maxList = b.descParamBaseList ? [] : dpi.map((x) => x.max);
     out[bondId] = {
       bondId, name: b.name, identifier: b.identifier,
@@ -4027,6 +4040,117 @@ const TACTIC_DRAFT = {
   seen: { 补给: 3, 列装: 3, 升华: 3, 莫斯提马的盟誓: 2, 银灰的盟誓: 2, 阿戈尔驰援: 2, 财富: 2, 谢拉格驰援: 1, 锐利: 1, 整备: 1, 玛恩纳的盟誓: 1, 斯卡蒂的盟誓: 1, 萨尔贡驰援: 1, 叙拉古驰援: 1 },
   matches: [7, 9, 18, 20],
 };
+/**
+ * 规程 (act3autochess) 机变 draft tables, read from 15 official co-op 终极 matches (mode_multi_abyss; bilibili
+ * BV13LWM6BEvY, 2026-11-10/11 — the readings are test/fixtures/official-regulation-drafts.json; upstream 270cb7b1).
+ * Same shapes as the 盟约 constants above, with three differences the screens show: an R3 list of 7 shows 6 (drawWeighted),
+ * an R11 list can hold two tier-III cards (hunterFill adds a giant only to a list with none), and the 机密商店 always has
+ * one VI and one V. Without these the season drew 盟约's lists, so the 规程 cards no 盟约 list names (enemyeffect_17_7,
+ * 18_7, 12_9, 13_9, 20_7, 16_13) never came.
+ */
+const ACT3_DRAFTS = {
+  /**
+   * R3 (enemy_initial_1..10): seven lists seen; series 17 / 18 and the two mixed lists are 7 cards, series 19 is the whole
+   * catalog (19_1..19_6) and came in 4 matches. Matches 1 and 13 are not a 6-subset of any other list.
+   */
+  initialSets: [
+    { cards: ['17_1', '17_2', '17_3', '17_4', '17_5', '17_6', '17_7'].map(EE), seen: [2, 8] },
+    { cards: seriesIds(19), seen: [4, 5, 6, 15] },
+    { cards: ['18_1', '18_2', '18_3', '18_4', '18_5', '18_6', '18_7'].map(EE), seen: [12, 14] },
+    { cards: ['10_5', '11_4', '11_5', '12_5', '13_6', '15_4', '20_3'].map(EE), seen: [3, 9] },
+    { cards: ['12_4', '12_9', '13_4', '14_6', '15_4', '18_7', '20_4'].map(EE), seen: [7, 10, 11] },
+    // the 6 cards on the screen [ASSUMED]: no second draw revealed a 7th
+    { cards: ['12_5', '20_5', '10_4', '20_1', '11_4', '13_9'].map(EE), seen: [1] },
+    { cards: ['15_5', '12_9', '13_4', '17_7', '10_6', '14_5'].map(EE), seen: [13] },
+  ],
+  /**
+   * The 3 unseen R3 events [ASSUMED]: tiers I I I II II III III (the complete lists of 7), at most two of one series (the
+   * mixed lists hold two of series 11, 12 or 20), both III from the tier-III initial cards no screen showed (`prefer`).
+   */
+  initialRule: { series: [10, 11, 12, 13, 14, 15, 20], tiers: [1, 1, 1, 2, 2, 3, 3], perSeries: 2, prefer: ['11_6', '12_6', '15_6', '20_6'].map(EE) },
+  /**
+   * R9 (bossInitial_1..6): one group per event, picked by the matches it came in (`pick: 'seen'`), not by the leader —
+   * matches 4 and 8 are both 假想敌：胄 and different groups. 腐败骑士 b_5, “遗弃者” b_7 and 锏 b_15 never appeared.
+   */
+  bossGroups: [
+    // 鼠王: the three drafts together are exactly these 9 cards
+    { cards: ['5_1', 'b_10', 'b_11', 'b_13', 'b_3', 'b_9', 'b_1', 'b_14', 'b_23'].map(EE), hits: [2, 2, 2, 2, 3, 2, 2, 2, 1], seen: [2, 8, 10] },
+    // 扎罗 + 迷路的巨像: each draft leaves out a different one of the 7
+    { cards: ['5_1', 'b_13', 'b_16', 'b_18', 'b_2', 'b_9', 'b_3'].map(EE), hits: [2, 2, 2, 2, 2, 1, 1], seen: [4, 7] },
+    // “墓碑” + “巨大的丑东西” + 凋零骑士: 8 cards across 4 drafts
+    { cards: ['5_1', 'b_1', 'b_13', 'b_17', 'b_20', 'b_6', 'b_10', 'b_3'].map(EE), hits: [2, 4, 4, 3, 4, 2, 3, 2], seen: [5, 11, 12, 13] },
+    // 喷气人 + 纠缠藤蔓 + 泥岩 + “庞贝” + 澪: matches 3, 14 and 15, union exactly 9
+    { cards: ['5_1', 'b_19', 'b_13', 'b_10', 'b_3', 'b_4', 'b_24', 'b_8', 'b_12'].map(EE), hits: [2, 2, 2, 3, 2, 2, 2, 2, 1], seen: [3, 14, 15] },
+    // “复仇者” + “邪魔的利刃”, one group with match 9 [ASSUMED]: the drafts share 4 of 6 cards, and 6 groups match the 6 events
+    { cards: ['5_1', 'b_19', 'b_2', 'b_21', 'b_22', 'b_3', 'b_1', 'b_10'].map(EE), hits: [2, 2, 2, 1, 1, 2, 1, 1], seen: [1, 9] },
+    // match 6, the 6 cards on the screen [ASSUMED]
+    { cards: ['5_1', 'b_1', 'b_13', 'b_2', 'b_3', 'b_9'].map(EE), hits: [1, 1, 1, 1, 1, 1], seen: [6] },
+  ],
+  /**
+   * R11 悬赏决策: five lists in 9 drafts, `slots` = the 5 lists [ASSUMED, as 盟约], so no list is built from nothing; the
+   * `open` card (a list seen once, or the same 6 cards twice [ASSUMED]) is the only way an unseen hunter card comes. Two
+   * tier-III cards in one list, and two of series 13, are what the screens showed.
+   */
+  hunterGroups: [
+    { cards: ['11_8', '12_7', '14_7', '15_7', '16_1', '16_12', '16_13'].map(EE), hits: [2, 2, 2, 3, 3, 3, 3], seen: [1, 3, 4] },
+    { cards: ['10_8', '11_7', '13_7', '13_8', '14_7', '16_7', '16_9'].map(EE), hits: [2, 2, 1, 2, 2, 1, 2], seen: [2, 11] },
+    { cards: ['10_8', '11_7', '12_7', '14_7', '16_6', '16_12'].map(EE), hits: [2, 2, 2, 2, 2, 2], seen: [5, 7], open: 1 },
+    { cards: ['10_7', '11_8', '13_7', '15_7', '16_2', '16_13'].map(EE), hits: [1, 1, 1, 1, 1, 1], seen: [8], open: 1 },
+    { cards: ['11_7', '12_7', '15_7', '16_4', '16_10', '16_11'].map(EE), hits: [1, 1, 1, 1, 1, 1], seen: [10], open: 1 },
+  ],
+  hunterRule: BOUNTY_HUNTER_RULE,
+  /**
+   * R11 机密商店 (matches 9, 12, 14, 15): six slots with replacement. Every shop has a tier VI and a tier V and no tier I / II
+   * item but 盟约之币; the other four cards over the four shops are VI ×3, V ×3, IV ×4, III ×4, 盟约之币 ×2 — so one slot
+   * VI, one V, four the residual [ASSUMED: the slot split].
+   */
+  shop: {
+    rounds: [11],
+    slots: [{ 6: 1 }, { 5: 1 }, ...Array.from({ length: 4 }, () => ({ 6: 3, 5: 3, 4: 4, 3: 4, coin: 2 }))],
+    coin: '盟约之币',
+    seen: { 驮兽储蓄罐: 4, 变形同构体: 3, 人事部文档: 3, 不退者力场: 2, 瓶装烈性反应: 2, M3茧甲: 2,
+      博士投影: 1, 寻呼模块: 1, 拟态物质: 1, 汲取者之心: 1, 动能单手弩: 1, 人事部记录: 1, 盟约之币: 2 },
+    matches: [9, 12, 14, 15],
+  },
+  /** R11 战术决策 (matches 6 and 13): ally cards only (no 排斥 / 责罚 / 裁决, no terrain card [ASSUMED]), match 13 has 列装 twice. */
+  tactic: {
+    rounds: [11],
+    kinds: ['ally'],
+    seen: { 列装: 2, 卡西米尔驰援: 1, 阿戈尔驰援: 1, 升华: 1, 财富: 1, 整备: 1, 歌蕾蒂娅的盟誓: 1,
+      艾雅法拉的盟誓: 1, 乌萨斯驰援: 1, 赫拉格的盟誓: 1, 伊比利亚驰援: 1 },
+    matches: [6, 13],
+  },
+  /** 盟约's tier checks (I I I II II III, at most one giant) do not hold here. */
+  strict: false,
+  assumed: {
+    initial: ['a uniform pick among the 10 events', 'the 3 unseen events built by `rule` (I I I II II III III, at most two of one series)', 'matches 1 and 13 stored as the 6 cards shown'],
+    boss: ['one group per bossInitial event, picked by the matches it came in, not by the leader', 'card weights 1 + hits', 'matches 1 and 9 are one group', 'match 6 stored as the 6 cards shown', 'boss bounties of no seen group are not offered'],
+    hunter: ['slots = the 5 seen lists, so no list is built from nothing', 'card weights 1 + hits', 'a list seen once, and the list whose same 6 cards came twice, keep open 1'],
+    shop: ['one slot always VI, one always V, four slots the residual tier counts', 'item weights 1 + the cards an item showed on', 'solo shows 3 of the 6', 'other rounds keep tiers I–VI with replacement'],
+    tactic: ['card weights 1 + the cards a card showed on', 'ally cards only', 'independent draws (no slot structure)', 'solo shows 3', 'other rounds keep every card, uniform, with replacement'],
+  },
+};
+/** The measured 机变 draft tables of each season (no table field: official recordings). A season without them stops the build. */
+const DRAFT_TABLES = {
+  [DEFAULT_SEASON]: {
+    initialSets: BOUNTY_INITIAL_SETS, initialRule: BOUNTY_INITIAL_RULE, bossGroups: BOUNTY_BOSS_GROUPS, hunterGroups: BOUNTY_HUNTER_GROUPS,
+    hunterRule: BOUNTY_HUNTER_RULE, shop: SHOP_DRAFT, tactic: TACTIC_DRAFT, strict: true,
+    assumed: {
+      initial: ['a uniform pick among the 10 events', 'the unseen 10th set built by `rule`', '险境 R6 drafts like R3'],
+      boss: ['a group picked by the matches it came in (the per-match cause is open)', 'card weights 1 + hits', 'the single-draft groups completed with their base cards', 'boss bounties of no seen group are not offered'],
+      hunter: ['one of the 7 seen lists, picked uniformly (which of the 15 events R11 fires is open)', 'card weights 1 + hits', 'the `open` cards built by `rule`'],
+      shop: ['the slot split', 'item weights 1 + seen', 'solo shows 3 of the 6', 'other rounds (标准 / 险境) keep the previous draw: tiers I–VI with replacement'],
+      tactic: ['card weights 1 + seen', 'independent draws (no slot structure)', 'no terrain card at R11', 'solo shows 3', 'other rounds (标准 / 险境) keep every card, uniform, with replacement'],
+    },
+  },
+  act3autochess: ACT3_DRAFTS,
+};
+/** This build's season's draft tables. */
+function seasonDrafts() {
+  const d = DRAFT_TABLES[SEASON];
+  if (!d) throw new Error(`DRAFT_TABLES: no 机变 draft tables for season ${SEASON} (add its measured tables, or say it has none)`);
+  return d;
+}
 /** The kind of a round's 悬赏决策: R3 (and 险境 R6, [ASSUMED]) initial, R9 boss, R11 hunter. */
 const bountyDraftOf = (r) => (r < 8 ? 'initial' : r < 11 ? 'boss' : 'hunter');
 
@@ -4054,6 +4178,7 @@ function choiceFamily(ev) {
  */
 function buildChoices(ctx, effects, items, chess) {
   const { act } = ctx;
+  const D = seasonDrafts();
   const events = {};
   for (const id of Object.keys(act.effectChoiceInfoDict).sort(naturalCmp)) {
     const ev = act.effectChoiceInfoDict[id];
@@ -4091,8 +4216,8 @@ function buildChoices(ctx, effects, items, chess) {
     let draftExcluded = bountyDraftExclusion(e, main);
     if (draftExcluded === 'hidden' && !/鸭爵|高普尼克|流泪小子|圆仔/.test(e.name || '')) warn(`bounty ${e.effectId} "${e.name}": expected one of the 鸭爵 set`);
     let draftPool = bountyDraftPool(e, main, draftExcluded);
-    // a boss bounty is offered only through a seen R9 group (BOUNTY_BOSS_GROUPS)
-    if (draftPool === 'boss' && !BOUNTY_BOSS_GROUPS.some((g) => g.cards.includes(e.effectId))) draftPool = null;
+    // a boss bounty is offered only through a seen R9 group of the season (DRAFT_TABLES)
+    if (draftPool === 'boss' && !D.bossGroups.some((g) => g.cards.includes(e.effectId))) draftPool = null;
     if (!draftExcluded && !draftPool) draftExcluded = 'unseen';
     const sm = /^enemyeffect_(\d+)_\d+$/.exec(e.effectId);
     bounty.push({
@@ -4105,17 +4230,21 @@ function buildChoices(ctx, effects, items, chess) {
   // the official draft structures (see BOUNTY_INITIAL_SETS) only name cards of their own kind
   const bountyById = new Map(bounty.map((c) => [c.effectId, c]));
   const checkKind = (ids, kind, what) => { for (const id of ids) if (bountyById.get(id)?.draftPool !== kind) warn(`bounty draft ${what}: ${id} is not a "${kind}" card`); };
-  for (const s of BOUNTY_INITIAL_SETS) checkKind(s.cards, 'initial', 'R3 set');
-  for (const g of BOUNTY_BOSS_GROUPS) checkKind(g.cards, 'boss', 'R9 group');
-  for (const g of BOUNTY_HUNTER_GROUPS) checkKind(g.cards, 'hunter', 'R11 group');
-  for (const g of [...BOUNTY_INITIAL_SETS, ...BOUNTY_BOSS_GROUPS, ...BOUNTY_HUNTER_GROUPS]) {
+  for (const s of D.initialSets) checkKind(s.cards, 'initial', 'R3 set');
+  for (const g of D.bossGroups) checkKind(g.cards, 'boss', 'R9 group');
+  for (const g of D.hunterGroups) checkKind(g.cards, 'hunter', 'R11 group');
+  for (const g of [...D.initialSets, ...D.bossGroups, ...D.hunterGroups]) {
     if (new Set(g.cards).size !== g.cards.length) warn(`bounty draft group ${g.cards.join(' ')}: a card twice`);
     if (g.hits && g.hits.length !== g.cards.length) warn(`bounty draft group ${g.cards.join(' ')}: hits do not match the cards`);
   }
-  for (const s of BOUNTY_INITIAL_SETS) if (s.cards.map((id) => bountyById.get(id)?.tier).sort().join('') !== '111223') warn(`bounty draft R3 set ${s.cards.join(' ')}: not I I I II II III`);
-  for (const g of BOUNTY_HUNTER_GROUPS) {
-    const giants = g.cards.filter((id) => bountyById.get(id)?.tier === 3).length;
-    if (giants > 1 || g.cards.length + (g.open || 0) !== BOUNTY_HUNTER_RULE.size) warn(`bounty draft R11 group ${g.cards.join(' ')}: not ${BOUNTY_HUNTER_RULE.size} cards with at most one giant`);
+  if (D.strict) {
+    for (const s of D.initialSets) if (s.cards.map((id) => bountyById.get(id)?.tier).sort().join('') !== '111223') warn(`bounty draft R3 set ${s.cards.join(' ')}: not I I I II II III`);
+    for (const g of D.hunterGroups) {
+      const giants = g.cards.filter((id) => bountyById.get(id)?.tier === 3).length;
+      if (giants > 1 || g.cards.length + (g.open || 0) !== D.hunterRule.size) warn(`bounty draft R11 group ${g.cards.join(' ')}: not ${D.hunterRule.size} cards with at most one giant`);
+    }
+  } else {
+    for (const g of [...D.initialSets, ...D.hunterGroups]) if (g.cards.length + (g.open || 0) > 7) warn(`bounty draft group ${g.cards.join(' ')}: more than 7 cards`);
   }
   // the R11 rule draws over the R11 cards by tier: III the giants, II / I the rest
   const hunterTier = (t) => bounty.filter((c) => c.draftPool === 'hunter' && c.tier === t).map((c) => c.effectId);
@@ -4137,7 +4266,7 @@ function buildChoices(ctx, effects, items, chess) {
   const tacticByName = (name) => {
     const hits = tactic.filter((c) => c.name === name);
     if (hits.length !== 1) warn(`tactic draft card "${name}": ${hits.length} cards of that name`);
-    if (hits[0] && !TACTIC_DRAFT.kinds.includes(hits[0].kind)) warn(`tactic draft card "${name}" is a ${hits[0].kind} card`);
+    if (hits[0] && !D.tactic.kinds.includes(hits[0].kind)) warn(`tactic draft card "${name}" is a ${hits[0].kind} card`);
     return hits[0]?.effectId ?? null;
   };
 
@@ -4210,38 +4339,38 @@ function buildChoices(ctx, effects, items, chess) {
     bountyDrafts: {
       initial: {
         events: eventsOf('bounty', (e) => bountyEventRe.initial.test(e.id) && !e.solo), slots: eventsOf('bounty', (e) => bountyEventRe.initial.test(e.id) && !e.solo).length,
-        pick: 'slot', groups: BOUNTY_INITIAL_SETS, rule: BOUNTY_INITIAL_RULE, count: 6,
-        assumed: ['a uniform pick among the 10 events', 'the unseen 10th set built by `rule`', '险境 R6 drafts like R3'],
+        pick: 'slot', groups: D.initialSets, rule: D.initialRule, count: 6,
+        assumed: D.assumed.initial,
       },
       boss: {
-        events: eventsOf('bounty', (e) => bountyEventRe.boss.test(e.id) && !e.solo), slots: BOUNTY_BOSS_GROUPS.length,
-        pick: 'seen', groups: BOUNTY_BOSS_GROUPS.map(withWeights), count: 6,
-        assumed: ['a group picked by the matches it came in (the per-match cause is open)', 'card weights 1 + hits', 'the single-draft groups completed with their base cards', 'boss bounties of no seen group are not offered'],
+        events: eventsOf('bounty', (e) => bountyEventRe.boss.test(e.id) && !e.solo), slots: D.bossGroups.length,
+        pick: 'seen', groups: D.bossGroups.map(withWeights), count: 6,
+        assumed: D.assumed.boss,
       },
       hunter: {
-        events: eventsOf('bounty', (e) => bountyEventRe.hunter.test(e.id) && !e.solo), slots: BOUNTY_HUNTER_GROUPS.length,
+        events: eventsOf('bounty', (e) => bountyEventRe.hunter.test(e.id) && !e.solo), slots: D.hunterGroups.length,
         // one of the 7 seen lists, uniform [ASSUMED]: `slots` 7, so no list is built from nothing (which of the 15 events
         // R11 fires is open — by the data's blocks it would be 8..15); `rule` builds the `open` cards only
-        pick: 'slot', groups: BOUNTY_HUNTER_GROUPS.map(withWeights),
-        rule: { ...BOUNTY_HUNTER_RULE, giants: hunterTier(3), cards: [...hunterTier(2), ...hunterTier(1)] }, count: 6,
-        assumed: ['one of the 7 seen lists, picked uniformly (which of the 15 events R11 fires is open)', 'card weights 1 + hits', 'the `open` cards built by `rule`'],
+        pick: 'slot', groups: D.hunterGroups.map(withWeights),
+        rule: { ...D.hunterRule, giants: hunterTier(3), cards: [...hunterTier(2), ...hunterTier(1)] }, count: 6,
+        assumed: D.assumed.hunter,
       },
     },
     // the official 机密商店 (SHOP_DRAFT) at `rounds`: `slots` tier → weight (`coin` = 盟约之币), each drawn on its own;
     // `itemWeights` = 1 + the official cards an item showed on (other shop items 1)
     shopDraft: {
-      rounds: SHOP_DRAFT.rounds, slots: SHOP_DRAFT.slots, coin: itemByName(SHOP_DRAFT.coin),
-      itemWeights: Object.fromEntries(Object.entries(SHOP_DRAFT.seen).filter(([n]) => n !== SHOP_DRAFT.coin).map(([n, k]) => [itemByName(n), 1 + k]).sort((a, b) => naturalCmp(a[0], b[0]))),
-      seen: SHOP_DRAFT.matches, count: 6,
-      assumed: ['the slot split', 'item weights 1 + seen', 'solo shows 3 of the 6', 'other rounds (标准 / 险境) keep the previous draw: tiers I–VI with replacement'],
+      rounds: D.shop.rounds, slots: D.shop.slots, coin: itemByName(D.shop.coin),
+      itemWeights: Object.fromEntries(Object.entries(D.shop.seen).filter(([n]) => n !== D.shop.coin).map(([n, k]) => [itemByName(n), 1 + k]).sort((a, b) => naturalCmp(a[0], b[0]))),
+      seen: D.shop.matches, count: 6,
+      assumed: D.assumed.shop,
     },
     // the official 战术决策 (TACTIC_DRAFT) at `rounds`: each card drawn on its own (with replacement) from the cards.tactic
     // entries of `kinds`, by `weights` (1 + the official cards it showed on; other cards of those kinds 1)
     tacticDraft: {
-      rounds: TACTIC_DRAFT.rounds, kinds: TACTIC_DRAFT.kinds,
-      weights: Object.fromEntries(Object.entries(TACTIC_DRAFT.seen).map(([n, k]) => [tacticByName(n), 1 + k]).filter(([id]) => id).sort((a, b) => naturalCmp(a[0], b[0]))),
-      seen: TACTIC_DRAFT.matches, count: 6,
-      assumed: ['card weights 1 + seen', 'independent draws (no slot structure)', 'no terrain card at R11', 'solo shows 3', 'other rounds (标准 / 险境) keep every card, uniform, with replacement'],
+      rounds: D.tactic.rounds, kinds: D.tactic.kinds,
+      weights: Object.fromEntries(Object.entries(D.tactic.seen).map(([n, k]) => [tacticByName(n), 1 + k]).filter(([id]) => id).sort((a, b) => naturalCmp(a[0], b[0]))),
+      seen: D.tactic.matches, count: 6,
+      assumed: D.assumed.tactic,
     },
     schedule,
     pools: seasonPools({
@@ -4433,13 +4562,22 @@ function modeDescNoUnlock(desc) {
 }
 
 /**
- * The bond ban counts { core, addon } of NORMAL / HARD / ABYSS in a season (no table field: the official server draws
- * them). 盟约: 3 / 4; 规程 (act3autochess): 5 / 5 — maintainer decision 2026-11-13, from official play.
+ * The bond ban counts { core, addon } per difficulty in a season (no table field: the official server draws them).
+ * 盟约: FUNNY 0 / 1, NORMAL up 3 / 4. 规程 (act3autochess): NORMAL up 5 / 5 (maintainer decision 2026-11-13, from official
+ * play; co-op 险境 / 绝境 / 终极 5 of 10 core and 5 of 16 add-ons in official recordings BV11NW869ELq parts 5 and 10 and
+ * all 15 briefings of BV13LWM6BEvY, solo 规程等级20 5 of 16 add-ons in BV12ZWP6pE7m); FUNNY (co-op 标准, 规程等级 1–4)
+ * and FAST (极速模拟) 0 / 2 — co-op 标准 greys 0 of 8 core and 2 of 10 add-ons in two matches of BV11NW869ELq (parts 3, 4),
+ * solo 规程等级1 2 of 10 (BV1fnWn6QEf9), 极速模拟 2 of 10 (BV1MyWn6TEBq). 规程等级 2–4 and 6–19 follow their
+ * difficulty [ASSUMED·자료 없음: no recording of those grades].
  * @param {string} season
  */
 function seasonBans(season) {
-  const n = season === 'act3autochess' ? { core: 5, addon: 5 } : { core: 3, addon: 4 };
-  return { NORMAL: { ...n }, HARD: { ...n }, ABYSS: { ...n } };
+  if (season === 'act3autochess') {
+    const n = { core: 5, addon: 5 };
+    return { FUNNY: { core: 0, addon: 2 }, FAST: { core: 0, addon: 2 }, NORMAL: { ...n }, HARD: { ...n }, ABYSS: { ...n } };
+  }
+  const n = { core: 3, addon: 4 };
+  return { FUNNY: { core: 0, addon: 1 }, NORMAL: { ...n }, HARD: { ...n }, ABYSS: { ...n } };
 }
 
 /**
@@ -4654,9 +4792,8 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       chatCd: ac.constData?.chatCD ?? 1, chatBubble: ac.constData?.chatTime ?? 3, broadcastDelay: ac.constData?.broadcastBeginDelay ?? 1,
       enterSteps: (Array.isArray(ac.enterStepList) ? ac.enterStepList : Object.values(ac.enterStepList || {})).map((s) => ({ step: s.stepType, time: s.time, hint: s.hintTime, title: s.title })),
     },
-    // the bonds drawn absent per match are no table field (a server rule): 盟约 3 core / 4 add-on from NORMAL up,
-    // 规程 5 / 5 (maintainer decision 2026-11-13, from official play; its FUNNY modes (标准模拟, 规程等级 1–4) keep 0 / 1 [ASSUMED·자료 없음])
-    bans: { FUNNY: { core: 0, addon: 1 }, ...seasonBans(SEASON), TRAINING: { core: 0, addon: 0 },
+    // the bonds drawn absent per match are no table field (a server rule): seasonBans
+    bans: { ...seasonBans(SEASON), TRAINING: { core: 0, addon: 0 },
       rule: 'banned iff every bond of a visible non-DIY chess is in (drawn set D ∪ mode.inactiveBondIds); core = isCore bonds, addon = other bonds with weight > 0; uniform draw' },
     bandDraft: { skipsPerPlayer: 1, order: 'random', duplicatesAllowed: true, timeoutBandId: defaultBand },
     titles: Object.values(act.playerTitleDataDict || {}).map((t) => ({ id: t.id, picId: t.picId, name: t.txt, ...(titleRules[t.id] || {}) })),
