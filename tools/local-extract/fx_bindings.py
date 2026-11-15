@@ -7,7 +7,8 @@ public/assets/local/fx/bindings.json — never tracked. Rows, in the same shape 
   { key, src, moment, kind, fx, target, life, conds, char?, tpl?, cn? }
     src 'abilityBuff'  a buff an ability holds (charpack / [uc]skills: `_buffs`, `_passiveBuffs`, `_activeBuffs`,
                        `_additiveActiveBuffs` …): key = its buffKey, fx = its overrideEffectKey (none: its template's
-                       effectKey, `tpl`), moment = the field, target OWNER / TARGET (the fields that hand it to others)
+                       effectKey, `tpl`; a `loadFromDB` buff's both are its client buff-table row's, Rows.resolve), moment =
+                       the field, target OWNER / TARGET (the fields that hand it to others)
         'ability'      an ability's emitters (`_castEffects`, `_hitEffects` … — moment `<field>@<event>`), its other effect
                        fields and the CreateEffect nodes of its serialized actions: key = the GameObject path
         'projectile'   a projectile prefab's effect fields (`_mainEffect`, `_effectsWhenReached` …): key = the projectile
@@ -127,13 +128,21 @@ class Rows:
     def add(self, **r):
         self.rows.append({k: v for k, v in r.items() if v is not None and v != ''})
 
+    def resolve(self, b):
+        """A `loadFromDB` buff as the client builds it: its template and effect are its row's in the client buff table
+        (buff_db.py), not the fields written beside it (weak[limit] `overrideEffectKey` '' → the row's buff_weak[limit]);
+        the blackboard written beside it stays (it overrides the row's defaults). Any other buff as written."""
+        row = self.db.get(b.get('buffKey')) if b.get('loadFromDB') else None   # 1 in a prefab, true in the template data
+        if not row:
+            return b
+        return {**b, **{k: row[k] for k in ('templateKey', 'overrideEffectKey') if k in row}}
+
     def bb_effects(self, b, char, at, cn):
         """A buff's blackboard `effect` / `<template>.effect` strings: the effect of its template's (or that derived
         template's) nodes whose own key is empty (humus_s_2[peak_1] `peak_performance.effect` humus_buff_01). A `loadFromDB` buff's
         template is its row's in the client buff table (buff_db.py, 2026-11-16: 帕拉斯 T1 / S3 peak_performance[inf] → peak_performance)."""
+        b = self.resolve(b)
         tpl = b.get('templateKey') if b.get('templateKey') not in (None, '', 'empty') else None
-        if tpl is None and b.get('loadFromDB') and b.get('buffKey') in self.db:
-            tpl = self.db[b['buffKey']].get('templateKey') if self.db[b['buffKey']].get('templateKey') not in (None, '', 'empty') else None
         for e in b.get('blackboard') or []:
             m = BB_EFFECT.match(str(e.get('key') or '')) if isinstance(e, dict) else None
             if m and isinstance(e.get('valueStr'), str) and e['valueStr'] and (m.group(1) or tpl):
@@ -179,7 +188,7 @@ class Rows:
                 self.add(key=ctx['key'], src=ctx['src'], moment=ctx['moment'], kind='effect', fx=bb, target='TARGET', life='once',
                          conds=list(cur), char=ctx['char'], cn=ctx['cn'] or None, bb=ctx.get('bbTpl'))
             if t.startswith('CreateBuff') and isinstance(o.get('_buff'), dict):
-                b = o['_buff']
+                b = self.resolve(o['_buff'])
                 self.ref(ctx['char'], b.get('buffKey'))
                 self.ref(ctx['char'], b.get('templateKey') if b.get('templateKey') != 'empty' else None)
                 fx = (o.get('_effectKey') if t == 'CreateBuffWithOverrideEffect' else None) or b.get('overrideEffectKey')
@@ -199,6 +208,7 @@ class Rows:
                 # buffs a node hands out other than by CreateBuff (SummonEnemiesOnAttackRange `_buffs` …)
                 for b in sub:
                     if isinstance(b, dict) and not b.get('$type') and isinstance(b.get('buffKey'), str) and 'lifeTimeType' in b:
+                        b = self.resolve(b)
                         self.ref(ctx['char'], b['buffKey'])
                         tpl = b.get('templateKey') if b.get('templateKey') not in (None, '', 'empty') else None
                         self.ref(ctx['char'], tpl)
@@ -212,6 +222,7 @@ class Rows:
     # ---- one MonoBehaviour of a prefab ----
     def mb(self, gp, d, src, char, cn):
         def buff(b, field):
+            b = self.resolve(b)
             key = b.get('buffKey') or b.get('templateKey')
             self.ref(char, key)
             tpl = b.get('templateKey') if b.get('templateKey') not in (None, '', 'empty') else None

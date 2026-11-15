@@ -4368,6 +4368,11 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
 - 바인딩 행: `fx_bindings.py`는 블랙보드 `effect`의 템플릿을 버프의 `templateKey`나 키 접두로만 알아내 `loadFromDB` 버프를 건너뛰었다(이 두 프리팹이
   `nameless`로 남은 원인). 이제 EN 클라 버프 표(`tools/local-extract/buff_db.py`)의 행에서 템플릿을 읽고, 풀이 부르는 템플릿 안의 `loadFromDB` 버프도 훑는다.
   더해진 행은 이 둘뿐이다(5274 → 5276). CN 클라의 버프 표는 클래스 필드가 더 있어 번호가 달라 읽지 않는다.
+  같은 날 `loadFromDB` 버프의 `overrideEffectKey`도 표의 행에서 읽는다(`Rows.resolve` — 옆에 적힌 템플릿·이펙트 칸은 비어 있고 클라는 표의 행을 쓴다,
+  블랙보드는 옆에 적힌 것): 행 수는 그대로 5276, 76행이 `fx`·`tpl`만 얻었다(감속 `buff_sluggish` 34·기절 `buff_stun` 24·침묵 `buff_silence`·공포
+  `common_buff_fear`·`disarmed_combat`의 `common_buff_thrill`, 나머지는 템플릿만). 이 공용 상태 이펙트는 이미 상태 스펙(`STATUS_FX`)이 그리므로 연결 보고
+  (`unplayed`·`nameless`·`overlap`·`foreign`)는 앞뒤가 같고, `plays.json`은 손 계획이 프리팹을 직접 주는 세 키(지마 더 레이징 타이드 공격·글래디아 S3 그물·베토치키 S2
+  `SpAttack`)만 대상 버프 이펙트를 더 얻었다 — 그리는 것은 바뀌지 않는다. prefab의 `loadFromDB`는 `1`로, 템플릿 자료는 `true`로 적힌다(참/거짓으로 볼 것).
 - 확인: 디버그 아레나 2배속 정예 S3 — 시작부터 `pallas_buff_01_start`(발밑 금빛 고리, `fxTag` 1), S3 중 `fxTag` 3에 두 이펙트, 콘솔 오류 0. [화면 미확인: 미노스가 아닌 보유자의 S3 것만, 공식 화면과 나란히]
 - 재발 방지: 원인 제거 — `fx_bindings.py`가 버프 표로 `loadFromDB` 버프의 템플릿을 읽음; `test/content/op_pallas.test.js`(출처별 `fxTag`), `test/render/status-buff-fx.test.js`(비트 → 프리팹), `test/render/fx-bindings.test.js`(인용 키의 행)
 
