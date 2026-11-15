@@ -9,7 +9,7 @@
 // round, the 완성 보드 block con.presetBoard, the leaders con.setBoss, the funds pin, 콘솔 끝내기 → con.end), 맹약
 // (con.setLayers per bond, core and add-on apart, 「↺ 초기화」 con.resetLayers). The head holds 「✎ 제보」 (the settlement
 // screen's feedback window, during the match; the server attaches the console log) in a console match. ` (Backquote)
-// folds / unfolds it (remembered per browser); folded, a 「CONSOLE」 tab stays at the top left. When the match goes back
+// folds / unfolds it, a press outside folds it (remembered per browser); folded, a 「CONSOLE」 tab stays at the top left. When the match goes back
 // to a prep instead of ending (m.private.console.note), a notice shows once. On a phone (short and touch) it is a sheet
 // over the left of the screen with the tabs as a vertical rail (css/console-panel.css). Per-frame cost: none — it renders
 // on m.private changes, the icon grid only for the open tab (docs/rules/render.md 「함정」).
@@ -89,6 +89,18 @@ export function ConsolePanel({ con, pub, priv, phase }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+  // a press outside the open panel folds it (maintainer decision 2026-11-15); the press still reaches what it hit, so a
+  // drag from the hand or a shop tap works in the same move. Not while its feedback / end dialog is open.
+  useEffect(() => {
+    if (!open || fb || ending) return undefined;
+    const onDown = (e) => {
+      const el = e.target;
+      if (!(el instanceof Element) || el.closest('.cxp, .cxp-launch, .cxp-note')) return;
+      toggle(false);
+    };
+    window.addEventListener('pointerdown', onDown, true);
+    return () => window.removeEventListener('pointerdown', onDown, true);
+  }, [open, fb, ending]);
   if (!con) return null;
   const prep = phase === PHASE.PREP;
   const live = con.console === true;
