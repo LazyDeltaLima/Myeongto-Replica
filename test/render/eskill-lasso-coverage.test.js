@@ -14,11 +14,19 @@ import { getData } from '../../server/data.js';
 import { makeBattle, chessRec } from '../helpers/battleHarness.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
-import { LASSO, OTHER, NOT_CAST, TODO } from './eskill-lasso-list.js';
+import { LASSO, OTHER, TODO } from './eskill-lasso-list.js';
+import { NOT_CAST } from '../content/enemy-not-cast-list.js';
 
 const BINDINGS = JSON.parse(readFileSync(new URL('../../tools/assets/local-enemy-bindings.json', import.meta.url), 'utf8'));
 const quiet = { warn() {}, error() {}, info() {} };
-const LISTED = { ...LASSO, ...OTHER, ...NOT_CAST, ...TODO };
+const LISTED = { ...LASSO, ...OTHER, ...TODO };
+
+/** Whether the skill of ability `k` (`<enemy id> <path>`, the part after `Skills/`) is one the sim never casts. */
+const notCast = (k) => {
+  const [id, p] = k.split(' ');
+  const skill = /(?:^|\/)Skills\/([^/]+)/.exec(p)?.[1];
+  return !!skill && !!NOT_CAST[`${id} ${skill.toLowerCase()}`];
+};
 
 /** `<enemy id> <ability path>` → its link projectile, for every bound ability that fires one with a line effect. */
 function linkAbilities() {
@@ -40,15 +48,17 @@ test('the bindings carry the link lines (节日爵士乐手 fire on itself, 死�
 });
 
 test('every link-line ability is drawn by elassoStart or listed with why', () => {
-  const missing = [...linkAbilities().keys()].filter((k) => !LISTED[k]);
-  assert.deepEqual(missing, [], 'send the channel\'s `dur` / `tgt` from its kit (castFx) and list it in LASSO, or list it in test/render/eskill-lasso-list.js with why');
+  const missing = [...linkAbilities().keys()].filter((k) => !LISTED[k] && !notCast(k));
+  assert.deepEqual(missing, [], 'send the channel\'s `dur` / `tgt` from its kit (castFx) and list it in LASSO, or list it in test/render/eskill-lasso-list.js with why (test/content/enemy-not-cast-list.js when the sim never casts it)');
+  assert.ok(notCast('enemy_9012_acloon Modes/1/Body/Skills/Skill') && !notCast('enemy_9012_acloon Modes/2/Body/Skills/Skill_2'), '炎佑\'s mode 1 skill is read from the not-cast list');
 });
 
 test('the list names only link-line abilities, each once', () => {
   const m = linkAbilities();
   for (const k of Object.keys(LISTED)) assert.ok(m.has(k), `${k}: no such link-line ability in the bindings`);
-  const keys = [LASSO, OTHER, NOT_CAST, TODO].flatMap((o) => Object.keys(o));
+  const keys = [LASSO, OTHER, TODO].flatMap((o) => Object.keys(o));
   assert.equal(new Set(keys).size, keys.length, 'one group per ability');
+  assert.deepEqual(keys.filter(notCast), [], 'listed here and in test/content/enemy-not-cast-list.js: the sim never casts it, so only there');
 });
 
 const WALL = chessRec({ id: 't_wall', profession: 'TANK', stats: { atk: 0, maxHp: 1e9, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });

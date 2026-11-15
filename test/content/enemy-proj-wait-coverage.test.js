@@ -16,13 +16,14 @@ import { fileURLToPath } from 'node:url';
 import { makeBattle, chessRec } from '../helpers/battleHarness.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
-import { NOT_CAST, OTHER } from './enemy-proj-wait-list.js';
+import { OTHER } from './enemy-proj-wait-list.js';
+import { NOT_CAST } from './enemy-not-cast-list.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const FILES = ['data/enemies.json', ...readdirSync(path.join(ROOT, 'data/seasons')).map((s) => `data/seasons/${s}/enemies.json`)]
   .filter((f) => existsSync(path.join(ROOT, f)));
 const DATA = FILES.map((f) => [f, JSON.parse(readFileSync(path.join(ROOT, f), 'utf8'))]);
-const LISTED = { ...NOT_CAST, ...OTHER };
+const LISTED = { ...OTHER };
 
 /** Does cast record `c` wait for a projectile — itself, or a child of its group? (content/enemies.js waitsProj) */
 const waits = (c) => !!c && (!!c.proj || (c.kind === 'seq' && (c.subs || []).some(waits)));
@@ -72,20 +73,22 @@ test('every projectile-waiting enemy skill is wired (`projAlive`) or listed with
     const { byName } = arena(w.key, w.rec);
     const a = byName.get(w.skill);
     const wired = !!(a && typeof a.projAlive === 'function');
-    if (!wired && !LISTED[w.id]) missing.push(`${w.id} (${w.file})`);
-    if (wired && LISTED[w.id]) wiredListed.push(w.id);
+    if (!wired && !LISTED[w.id] && !NOT_CAST[w.id]) missing.push(`${w.id} (${w.file})`);
+    if (wired && (LISTED[w.id] || NOT_CAST[w.id])) wiredListed.push(w.id);
     // a cast cut short clears its projectiles (RangedAttack.OnCastEnd → ClearProjectile, 공식 클라에서 확인): the kit ends
     // what its projectile carries there (a channel, a lasso's stun, a chain's next jumps — or W's charge, which blows)
     if (wired && typeof a.onCut !== 'function') noCut.push(w.id);
   }
-  assert.deepEqual(missing, [], 'give the kit ability `projAlive` and `onCut`, or list it in test/content/enemy-proj-wait-list.js');
-  assert.deepEqual(wiredListed, [], 'wired now: take it off the list');
+  assert.deepEqual(missing, [], 'give the kit ability `projAlive` and `onCut`, or list it in test/content/enemy-proj-wait-list.js (test/content/enemy-not-cast-list.js when the sim never casts it)');
+  assert.deepEqual(wiredListed, [], 'wired now: take it off the list (or off test/content/enemy-not-cast-list.js)');
   assert.deepEqual(noCut, [], 'a wired skill needs `onCut`: what its projectile does when the cast is cut');
 });
 
 test('the list names only projectile-waiting skills of the data', () => {
   const ids = new Set(waiting().map((w) => w.id));
   assert.deepEqual(Object.keys(LISTED).filter((k) => !ids.has(k)), []);
+  assert.deepEqual(Object.keys(LISTED).filter((k) => NOT_CAST[k]), [], 'also in test/content/enemy-not-cast-list.js: one place');
+  assert.ok(['enemy_1223_dmech charge_gunctrl', 'enemy_9012_acloon skill'].every((k) => ids.has(k) && NOT_CAST[k]), 'the not-cast list reaches the projectile waits');
 });
 
 test('`projAlive` sits only on skills that wait for their projectile', () => {

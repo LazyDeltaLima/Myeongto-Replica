@@ -5,8 +5,8 @@
 //   LASSO   — drawn by render/fxgame.js elassoStart: the kit sends the channel's fx 'enemySkill' with `dur` and `tgt`
 //             (castFx), and its stand-in beams are in LASSO_BEAMS — the value is the skill's name (the sim's `ability`);
 //   OTHER   — drawn another way (named);
-//   NOT_CAST — the sim never uses it in this mode;
 //   TODO    — the sim uses it and the view draws a stand-in, not the official line.
+// An ability whose skill the sim never casts in this mode is in test/content/enemy-not-cast-list.js, not here.
 
 export const LASSO = Object.freeze({
   'enemy_10034_cnvsax Modes/Attack/Body/Skills/fire': 'fire',
@@ -21,10 +21,6 @@ export const OTHER = Object.freeze({
   'enemy_10018_sgrobh Modes/Default/Body/Combat': 'the same line, its blocked attack',
   'enemy_10018_sgrobh Modes/Global/Body/Attack': 'the same, mode Global\'s enemy_sgrobh_attack_02',
   'enemy_10018_sgrobh Modes/Global/Body/Combat': 'the same, mode Global\'s blocked attack',
-});
-
-export const NOT_CAST = Object.freeze({
-  'enemy_9012_acloon Modes/1/Body/Skills/Skill': '炎佑 runs its mode 2 only (shared/skill-modes.js ENEMY_RECORD_MODES)',
 });
 
 export const TODO = Object.freeze({

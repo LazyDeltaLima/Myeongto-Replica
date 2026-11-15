@@ -11,7 +11,8 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { installFakePixi } from './fakepixi.js';
-import { NOT_CAST, OTHER, TODO } from './eskill-clip-list.js';
+import { OTHER, TODO } from './eskill-clip-list.js';
+import { NOT_CAST } from '../content/enemy-not-cast-list.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (p) => JSON.parse(readFileSync(path.join(ROOT, p), 'utf8'));
@@ -26,6 +27,9 @@ after(() => fake.restore());
 /** The first channel of cast record `c` (itself, else a child of its group), or null. */
 const chanOf = (c) => (!c ? null : c.chan || (c.subs || []).map(chanOf).find(Boolean) || null);
 
+/** `<spine id> <skill>` of the channel skills the sim never casts (test/content/enemy-not-cast-list.js, by enemy key). */
+const notCast = new Set();
+
 /** `<spine id> <skill>` → its channel, over the current season's enemies and every season's. */
 function channels() {
   const files = ['data/enemies.json', ...readdirSync(path.join(ROOT, 'data/seasons')).map((s) => `data/seasons/${s}/enemies.json`)]
@@ -36,6 +40,7 @@ function channels() {
       for (const [name, c] of Object.entries(e.skillCast || {})) {
         const ch = chanOf(c);
         if (ch) out.set(`${e.spine || key} ${name}`, ch);
+        if (ch && NOT_CAST[`${key} ${name}`]) notCast.add(`${e.spine || key} ${name}`);
       }
     }
   }
@@ -49,7 +54,7 @@ function wired() {
   return out;
 }
 
-const LISTED = { ...NOT_CAST, ...OTHER, ...TODO };
+const LISTED = { ...OTHER, ...TODO };
 
 test('the extract carries the channels (节日爵士乐手 fire, 死亡之眼 LineAttack)', () => {
   const ch = channels();
@@ -60,8 +65,9 @@ test('the extract carries the channels (节日爵士乐手 fire, 死亡之眼 Li
 
 test('every channel skill is in ESKILL_CLIPS or listed with why', () => {
   const w = wired();
-  const missing = [...channels().keys()].filter((k) => !w.has(k) && !LISTED[k]);
-  assert.deepEqual(missing, [], 'wire them in render/units.js ESKILL_CLIPS (and the sim\'s `dur`), or list them in test/render/eskill-clip-list.js');
+  const missing = [...channels().keys()].filter((k) => !w.has(k) && !LISTED[k] && !notCast.has(k));
+  assert.deepEqual(missing, [], 'wire them in render/units.js ESKILL_CLIPS (and the sim\'s `dur`), or list them in test/render/eskill-clip-list.js (test/content/enemy-not-cast-list.js when the sim never casts them)');
+  assert.ok(notCast.size >= 6, `the not-cast list reaches the channels (${notCast.size})`);
 });
 
 test('a wired channel plays the prefab\'s clips (its down / up sets too)', () => {
@@ -80,5 +86,7 @@ test('the list names only channel skills the view does not wire', () => {
   for (const k of Object.keys(LISTED)) {
     assert.ok(ch.has(k), `${k} is no channel skill in the data any more: drop it from the list`);
     assert.ok(!w.has(k), `${k} is wired in ESKILL_CLIPS now: drop it from the list`);
+    assert.ok(!notCast.has(k), `${k} is also in test/content/enemy-not-cast-list.js: one place`);
   }
+  for (const k of notCast) assert.ok(!w.has(k), `${k} is wired in ESKILL_CLIPS but test/content/enemy-not-cast-list.js says the sim never casts it`);
 });
