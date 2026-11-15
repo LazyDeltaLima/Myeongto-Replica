@@ -58,11 +58,13 @@ H.SERVER_POOL_EQUIP = {
 };
 
 // 规程 白铁 garrison_84 「<进入休整期时>使自身携带的装备变为精锐版本」: each equipment it carries becomes its elite (ctx.upgradeItem —
-// the shared stock gate of an upgrade applies: a normal piece whose elite has no copy left stays as it is)
+// the shared stock gate of an upgrade applies: a normal piece whose elite has no copy left stays as it is), and each one
+// upgraded comes off into the 装备区 (overflow: the hidden queue) — official footage BV1egWJ66Ejp (upstream 7833db21,
+// PR #937); one already elite stays on
 H.SERVER_UPGRADE_SELF_EQUIP = {
   run(ctx) {
     const p = ctx.source.piece && Number.isInteger(ctx.source.piece.uid) ? ctx.piece(ctx.source.piece.uid) : null;
-    for (const it of (p && Array.isArray(p.items) ? p.items : [])) ctx.upgradeItem(it.uid);
+    for (const it of (p && Array.isArray(p.items) ? [...p.items] : [])) if (ctx.upgradeItem(it.uid)) ctx.unequipDirect(it.uid);
   },
 };
 

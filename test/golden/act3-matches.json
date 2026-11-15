@@ -71,7 +71,7 @@
       "boost": null,
       "setup": {"stageId":"act3autochess_m01","bossId":null,"hiddenBossId":null,"factions":["TIMES","INVISIBLE","CRITIC"]},
       "end": {"victory":false,"roundsPassed":13,"hiddenReached":false,"hiddenCleared":false,"reason":"defeat","teamLp":0,"bossPoolLeft":500000,"virtualMs":107100},
-      "rng": {"setup":26,"shop":206,"waves":0,"draft":0,"bots":9003,"meta":10},
+      "rng": {"setup":26,"shop":208,"waves":0,"draft":0,"bots":9003,"meta":10},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {"round":1,"ai_0":[1,29,4,0,0,1,2,"0379b935",0,"",0,0,0,4]},
@@ -111,8 +111,8 @@
           "title": {"id":"comment_2","name":"坚实盟约","picId":"comment_icon_1_1","text":"激活的盟约层数总和最高"},
           "trophies": 0,
           "reward": 0,
-          "stats": {"activatedLayers":91,"bossDamage":0,"dmgDealt":0,"gold":138,"itemsEquipped":17,"kills":0,"leaks":0,"lpLost":0,"merges":3,"perfectRounds":13,"refreshes":12},
-          "lineup": ["1_16_b@12,4[4_08_e_a+5_08_e_a]","6_13_a@12,5[6_09_e_a]","4_03_a@12,6[4_07_e_a+3_03_e_a]","5_02_a@12,7[1_01_e_a+3_14_e_a]","1_01_b@12,8[4_10_e_a+1_05_e_a]","6_08_a@11,6","5_25_a@11,7[4_13_e_a+3_07_e_a]","4_04_a@10,7"],
+          "stats": {"activatedLayers":91,"bossDamage":0,"dmgDealt":0,"gold":138,"itemsEquipped":16,"kills":0,"leaks":0,"lpLost":0,"merges":3,"perfectRounds":13,"refreshes":12},
+          "lineup": ["1_16_b@12,4[4_08_e_a+5_08_e_a]","6_13_a@12,5","4_03_a@12,6[4_07_e_a+3_16_e_a]","5_02_a@12,7[1_01_e_a+3_14_e_a]","1_01_b@12,8[4_10_e_a+1_05_e_a]","6_08_a@11,6","5_25_a@11,7[4_13_e_a+3_07_e_a]","4_04_a@10,7"],
           "bonds": ["arcaneShip 1/10","deputShip 0/9","indomShip 1/18","miraShip 0/10","raidShip 1/6","steadShip 0/1","suntShip 1/2","ursusShip 2/55","visiShip 0/5","yanShip 0/2"]
         }
       }

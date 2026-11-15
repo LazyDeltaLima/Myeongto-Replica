@@ -746,6 +746,20 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     transform: (uid, chessId) => { const l = ps.find(uid); if (!l || l.piece.kind !== 'chess') return null; const p = ps.transformChess(l.piece, chessId); return p ? view(p) : null; },
     /** Normal item piece → its golden version in place. */
     upgradeItem: (uid) => { const l = ps.find(uid); return l && l.piece.kind === 'item' ? ps.upgradeItem(l.piece) : false; },
+    /**
+     * Take an owned equipped item off its holder and stow the same piece (hand, or 规程's 装备区, overflow into the hidden
+     * queue) — an effect's forced return, no unequip intent; false (and left on) when it is not equipped or cannot be
+     * stowed.
+     */
+    unequipDirect: (uid) => {
+      const l = ps.find(uid);
+      if (!l || l.piece.kind !== 'item' || l.area !== 'equipped') return false;
+      ps._detach(l);
+      if (!ps.stow(l.piece, { allowTemp: true })) { ps._attach(l.holder, l.piece); return false; }
+      ps.checkItemMerges();
+      ps.recompute();
+      return true;
+    },
     /** Attach an owned hand/temp item to an owned chess without equip effects (copies, restores). */
     equipDirect: (itemUid, chessUid) => {
       const il = ps.find(itemUid);

@@ -103,16 +103,36 @@ test('涤火杰西卡 garrison_83: 休整期结束时 each board operator carryi
   }
 });
 
-test('白铁 garrison_84: 进入休整期时 its equipment becomes the elite version', () => {
+test('白铁 garrison_84: 进入休整期时 its equipment becomes the elite version and comes off into the 装备区 (official footage BV1egWJ66Ejp); an elite stays on; a full 装备区 queues it', () => {
   const { m, ps } = setup();
   const w = place(m, ps, 'chess_char_4_15_a');
-  const it = giveItem(m, ps, 'chess_item_1_01_e_a', 'hand');
-  ps._detach(ps.find(it.uid)); // (规程 moved it into the 装备区)
-  w.items.push(it);
+  const equip = (id) => {
+    const it = giveItem(m, ps, id, 'hand');
+    ps._detach(ps.find(it.uid)); // (规程 moved it into the 装备区)
+    w.items.push(it);
+    return it;
+  };
+  const it = equip('chess_item_1_01_e_a');
+  const elite = equip('chess_item_1_02_e_b');
   ps.recompute();
   m.dispatch(ps, 'onPrepStart', { round: m.round });
-  assert.equal(w.items[0].id, 'chess_item_1_01_e_b');
+  assert.equal(it.id, 'chess_item_1_01_e_b');
+  assert.deepEqual(w.items.map((x) => x.uid), [elite.uid], 'the upgraded piece came off, the elite one stayed');
+  assert.equal(ps.find(it.uid)?.area, 'temp', 'the same piece, in the 装备区');
   noViolations(m);
+
+  // a full 装备区: the hidden queue behind the five
+  const { m: m2, ps: ps2 } = setup();
+  const w2 = place(m2, ps2, 'chess_char_4_15_a');
+  const it2 = giveItem(m2, ps2, 'chess_item_1_01_e_a', 'hand');
+  ps2._detach(ps2.find(it2.uid));
+  w2.items.push(it2);
+  for (let i = 0; i < 5; i++) if (!ps2.temp[i]) giveItem(m2, ps2, `chess_item_${['2_01', '2_02', '2_03', '2_04', '2_05'][i]}_e_a`, 'temp', i);
+  ps2.recompute();
+  assert.ok(ps2.temp.slice(0, 5).every(Boolean), 'the 装备区 is full');
+  m2.dispatch(ps2, 'onPrepStart', { round: m2.round });
+  assert.equal(w2.items.length, 0);
+  assert.ok(ps2.temp.indexOf(it2) >= 5, 'queued behind the five');
 });
 
 test('酒神 garrison_158 / 159: 进入休整期时 one / two random equipment of at most the 调度中心 level', () => {
