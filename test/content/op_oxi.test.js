@@ -337,40 +337,6 @@ test('S3 lanes: 5 centred on her, shifted inside the map at an edge, 13 in the �
   done(h);
 });
 
-test('S3 簇火 are drawn over the field only (maintainer request 2026-11-15), in both seasons: no lane over the hand / 装备区 rows, each from the field\'s near edge to its far one, entering when the fire gets there; the fires themselves still run edge to edge', () => {
-  const load = (f) => { const j = JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url))); return j.stages ?? j; };
-  const seasons = { act2: load('stages').act2autochess_m01, act3: load('seasons/act3autochess/stages').act3autochess_m01 };
-  const why = 'op-oxi.js volley sends only the fieldBox part of a wave (docs/rules/diy.md 「그리는 簇火는 필드 안만」)';
-  for (const [season, stage] of Object.entries(seasons)) {
-    // [kind, board row, col, dir, drawn lanes, drawn from → to, sim lanes]
-    for (const [kind, row, col, dir, lanes, span, simLanes] of [
-      ['boss', 9, 5, 'RIGHT', [2, 4], [1.5, 18.5], [0, 4]],     // rows 0–1 = hand / 装备区: not drawn
-      ['boss', 9, 5, 'UP', [3, 7], [1.5, 5.5], [3, 7]],         // from row 0 (the hand) in the sim, drawn from the field's edge
-      ['normal', 10, 4, 'DOWN', [2, 6], [12, 8.5], [2, 6]],     // once drawn on to row 4 over the 装备区 (8) and the hand (7)
-    ]) {
-      const h = makeBattle({ kind, stage, seed: 31, autoFinish: false, timeLimit: 300, defs, flags: { dpPerSec: 0, dpMax: 999 },
-        units: [{ uid: 1, diy: { slot: 6, charId: C, skillIndex: 2 }, elite: true, potential: 6, row, col, dir }] });
-      h.step();
-      const u = h.unit(1), label = `${season} ${kind} ${dir}`;
-      u.skill.gainSp(999, 'init');
-      assert.ok(h.runUntil(() => h.eventsOf('fx').some((x) => x[1] === 'oxiWave'), 2), `${label}: a wave`);
-      const o = h.eventsOf('fx').find((x) => x[1] === 'oxiWave')[4];
-      const fires = u.mem.oxiS3.fires, sim = fires.map((p) => p.lane);
-      assert.deepEqual([Math.min(...sim), Math.max(...sim)], simLanes, `${label}: the sim's lanes are the official ones`);
-      assert.deepEqual([[o.a, o.z], [o.s, o.to]], [lanes, span], `${label}: drawn lanes / span — ${why}`);
-      const from = fires[0].s, delay = Math.abs(o.s - from) / o.v;
-      if (delay > 1e-9) approx(o.d, delay, `${label}: enters when the fire gets there`); else assert.equal(o.d, undefined, label);
-      for (let lane = o.a; lane <= o.z; lane++) {
-        for (const at of [o.s, o.to]) {
-          const [r, c] = o.h ? [lane, Math.round(at)] : [Math.round(at), lane];
-          if (h.b.grid.inBounds(r, c)) assert.ok(!['tile_achand', 'tile_acbag'].includes(h.b.grid.tile(r, c).key), `${label}: drawn over (${r}, ${c}) — ${why}`);
-        }
-      }
-      done(h);
-    }
-  }
-});
-
 test('塔露拉 through the real match path (seats[].diy → Match board → battleInput → BattleSpec → createBattleFromSpec): S2 on m04 is cast by the ranged attacks she takes, its retaliation strikes their sources; no errors', async () => {
   const T6 = 'chess_char_6_diy1_a';
   const { makeMatch } = await import('../match/harness.js');

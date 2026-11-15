@@ -19,28 +19,6 @@ const TRAIL_TIME = 5, TRAIL_STEP = 0.5;
 /** skchr_oxi_3's volley (EmitDirectionalMapEdgeProjectileVolley `_maxBackDistance`): the edge it starts from is at most 11 tiles behind her. */
 const WAVE_MAX_BACK = 11;
 const skillBb = (raw, id) => skillRec(raw, id)?.bb ?? {};
-/**
- * The part of the field an enemy can be on, for drawing her 簇火 only there (maintainer request 2026-11-15: no fires over
- * the hand / 装备区 rows or the scenery around the field): the bounding box of the rect's tiles that are deployable or
- * ground-walkable — not the hand tiles (grid.js HAND_TILES, build NONE) and not a portal entrance (an enemy that reaches
- * one leaves the field: ai.js portalPickup — the boss field's row 1 holds two). Per grid (its tiles never change).
- */
-const boxes = new WeakMap();
-function fieldBox(battle) {
-  const g = battle.grid;
-  let box = boxes.get(g);
-  if (box) return box;
-  const R = g.rect;
-  box = { r0: Infinity, r1: -Infinity, c0: Infinity, c1: -Infinity };
-  for (let r = R.r0; r <= R.r1; r++) for (let c = R.c0; c <= R.c1; c++) {
-    const t = g.tile(r, c);
-    if (t.special === 'telin' || (t.build === 'NONE' && t.pass !== 'ALL')) continue;
-    box.r0 = Math.min(box.r0, r); box.r1 = Math.max(box.r1, r); box.c0 = Math.min(box.c0, c); box.c1 = Math.max(box.c1, c);
-  }
-  if (box.r0 > box.r1) box = { ...R };
-  boxes.set(g, box);
-  return box;
-}
 const tileOf = (u) => [Math.round(u.y), Math.round(u.x)];
 /** 非持续 damage of hers (the templates' FilterDamageModifer `IS_CONTINUOUS` off): a DoT tick carries 'dot'. */
 const direct = (dmg) => !dmg?.tags?.includes('dot');
@@ -168,17 +146,9 @@ export default {
       const wave = { hit: new Set(), id: w.waves = (w.waves ?? 0) + 1 }, atk = unit.s.atk;
       for (let lane = a; lane <= z; lane++) w.fires.push({ wave, atk, s: from, to, sign, horizontal, lane });
       // its 簇火 (projectile_chr_oxi_s_3_heatwave, one a lane) for the renderer: lanes a..z from `s` to `to` along the rows
-      // (h 1) or the columns, at wave_speed, entering `d` s after the cast; an explosion names its wave and lane ('blast'
-      // w / lane). Only what crosses the field is drawn (fieldBox): the lanes over it, from its near edge to its far edge
-      // — the fires themselves run as above, so their hits and timing stay the official edge-to-edge ones
-      const B = fieldBox(battle), v = num(b3.wave_speed, 2.3);
-      const va = Math.max(a, horizontal ? B.r0 : B.c0), vz = Math.min(z, horizontal ? B.r1 : B.c1);
-      const blo = (horizontal ? B.c0 : B.r0) - 0.5, bhi = (horizontal ? B.c1 : B.r1) + 0.5;
-      const vs = sign > 0 ? Math.max(from, blo) : Math.min(from, bhi), ve = sign > 0 ? Math.min(to, bhi) : Math.max(to, blo);
-      if (va <= vz && (ve - vs) * sign > 0) {
-        battle.fx('oxiWave', { x: unit.x, y: unit.y, id: unit.id, w: wave.id, h: horizontal ? 1 : 0, a: va, z: vz, s: vs, to: ve,
-          v, ...(vs !== from ? { d: Math.abs(vs - from) / v } : {}) });
-      }
+      // (h 1) or the columns, at wave_speed; an explosion names its wave and lane ('blast' w / lane)
+      battle.fx('oxiWave', { x: unit.x, y: unit.y, id: unit.id, w: wave.id, h: horizontal ? 1 : 0, a, z, s: from, to,
+        v: num(b3.wave_speed, 2.3) });
     };
     const explode = (battle, unit, p, x, y) => {
       const radius = num(b3.range_radius, 1.5), scale = num(b3.heatwave_atk_scale), repeat = num(b3.same_wave_repeat_damage_scale, 1);
