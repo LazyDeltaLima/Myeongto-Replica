@@ -21,7 +21,7 @@
 //                con.resetLayers, and what the reset puts back (the panel marks the rows that differ)
 //   note         { seq, kind, round } the last time the match went back to a prep instead of ending (kind: 'cleared' |
 //                'hiddenCleared' | 'defeat' | 'eliminated'): the page shows its notice once per seq
-// m.public.console = true in a console match (the CONSOLE mark beside the difficulty).
+// m.public.console = true in a console match (main.js keeps no record of it; the HUD shows no mark — the panel is the sign).
 //
 // Commands (shared/local.js C2S, validated there; prep-only ones say so):
 //   con.funds { on }        the sender's funds pinned to pinValue (SP_DEBUG_FUNDS, else 99) or back to real funds

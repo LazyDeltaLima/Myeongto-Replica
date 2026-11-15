@@ -176,7 +176,7 @@ b.cxp__tier { width: auto; min-width: calc(var(--cpx) * 16); height: calc(var(--
   font: 600 calc(var(--cpx) * 15) var(--font-cjk, system-ui); box-shadow: 0 calc(var(--cpx) * 8) calc(var(--cpx) * 30) rgba(0,0,0,.6); pointer-events: auto; cursor: pointer; max-width: 90%; }
 .cxp-note .cxp__tag { font-size: calc(var(--cpx) * 10); }
 .cxp-note small { display: block; font-size: calc(var(--cpx) * 12); color: var(--text-lo); font-weight: 500; margin-top: 2px; }
-/* the CONSOLE mark beside the difficulty (ui/hud.js) and in the room (screens/room.js) */
+/* the CONSOLE mark in the solo room (screens/room.js); the in-game HUD shows none (the panel is the sign) */
 .cxp-badge { display: inline-block; font: 700 calc(var(--cpx) * 10)/1 var(--font-display, monospace); letter-spacing: .14em; color: #1a0f00; background: var(--amber, #f6a329); padding: calc(var(--cpx) * 3) calc(var(--cpx) * 5); vertical-align: middle; }
 .cxp-end { z-index: 60; }
 /* the console match's feedback window: what goes with the report */

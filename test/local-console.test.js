@@ -127,7 +127,7 @@ describe('who may use the console', () => {
     assert.ok(Array.isArray(v.candidates) && v.candidates.length > 10);
     assert.equal(ps.privateView().console.console, true, 'm.private.console');
     h.flushAll();
-    assert.equal(h.lastBc('m.public').console, true, 'm.public.console: the CONSOLE mark');
+    assert.equal(h.lastBc('m.public').console, true, 'm.public.console (the page keeps no record of it)');
     assert.deepEqual(m.consoleLog.map((x) => x.t), ['funds'], 'the console log');
   });
 });

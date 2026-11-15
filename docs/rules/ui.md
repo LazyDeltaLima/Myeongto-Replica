@@ -14,7 +14,7 @@
   그 밖의 `con.*`는 `BAD_MSG`(서버는 패널을 믿지 않음). **로컬 디버그 모드** = `SP_DEBUG_PAGE=1` 또는 올바른 `SP_DEBUG_FUNDS`(0..999), 그리고
   `NODE_ENV`가 `production`이 아닐 때(`debugMode`; Docker 이미지는 `NODE_ENV=production`이라 배포 서버는 절대 아님). `SP_DEBUG_FUNDS` 재화 고정도 이 조건.
 - **화면에 보내는 것**: 그 자리에만 `m.private.console = { console, fundsPin, pinValue, candidates, enemies, boss, rounds, layers, layersEdited,
-  layersBase, layerCap, note }`, 콘솔 판이면 `m.public.console = true`(HUD 난이도 옆 「CONSOLE」).
+  layersBase, layerCap, note }`, 콘솔 판이면 `m.public.console = true`(기록 제외에 씀; HUD 난이도 아래 「CONSOLE」 표시는 없앰 — 패널이 표시, 관리자 결정 2026-11-15).
 - **명령** (`shared/local.js` C2S, 처리는 `consoleIntent` 한 곳; 정비 단계만인 것은 준비 완료 뒤에도 됨):
   - `con.funds { on }` 재화를 `SP_DEBUG_FUNDS`(없으면 99)로 고정 / 실제 재화로(그 값에서 이어감). 플레이어별 `ps.debugFundsPin`, 봇은 항상 실제 재화.
     기본은 꺼짐(관리자 결정 2026-11-15): `SP_DEBUG_FUNDS`를 주고 서버를 띄울 때만 시작부터 고정된다.
