@@ -489,6 +489,77 @@ describe('client helpers', () => {
     }
   });
 
+  test('resources: an upstream file every source serves with other bytes is not downloaded again until the list changes', async () => {
+    const { installResources, acceptResources, resStore, resourceStatus } = await mod('resources.js');
+    const { store } = await mod('store.js');
+    const { createHash } = await import('node:crypto');
+    const sha = (s) => createHash('sha256').update(s).digest('hex');
+    const origin = 'https://x.test';
+    const raw = (n) => `https://raw.githubusercontent.com/o/r/main/${n}`;
+    const store_ = new Map();
+    const urlOf = (r) => (typeof r === 'string' ? origin + r : r.url);
+    const cache = {
+      keys: async () => [...store_.keys()].map((url) => ({ url })),
+      match: async (r) => { const v = store_.get(urlOf(r)); return v ? new Response(v.body, { headers: v.headers }) : undefined; },
+      delete: async (r) => store_.delete(urlOf(r)),
+      put: async (r, res) => { store_.set(urlOf(r), { body: await res.arrayBuffer(), headers: Object.fromEntries(res.headers) }); },
+    };
+    // drift.png: both sources serve other bytes; down.png: one source fails on the network; local.json: this server's file differs
+    let list = { version: 'v1', files: [
+      { p: '/assets/drift.png', s: 3, h: sha('old'), u: raw('drift.png') },
+      { p: '/assets/down.png', s: 3, h: sha('old'), u: raw('down.png') },
+      { p: '/assets/local.json', s: 3, h: sha('old') },
+    ] };
+    const asked = [];
+    const fakeCaches = { open: async () => cache, delete: async () => true };
+    const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch,
+      navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator'), warn: console.warn };
+    const before = store.get();
+    const run = async () => {
+      await installResources();
+      if (resStore.get().phase === 'done') return;
+      await acceptResources();
+      for (let i = 0; i < 100 && resStore.get().phase !== 'done'; i++) await new Promise((r) => setTimeout(r, 20));
+    };
+    try {
+      globalThis.window = { isSecureContext: true, caches: fakeCaches };
+      globalThis.location = { origin };
+      globalThis.caches = fakeCaches;
+      Object.defineProperty(globalThis, 'navigator', { value: { serviceWorker: { register: async () => {} } }, configurable: true });
+      console.warn = () => {};
+      globalThis.fetch = async (u) => {
+        if (u === '/assets/browser-resources.json') return new Response(JSON.stringify(list));
+        asked.push(u);
+        if (u.includes('down.png') && u.startsWith('https://cdn.jsdelivr.net/')) throw new TypeError('network');
+        return new Response('new');
+      };
+      store.set({ session: { entered: true }, room: null });
+      await run();
+      assert.equal(asked.filter((u) => u.includes('drift.png')).length, 2, 'jsDelivr and GitHub raw were asked');
+      const differ = JSON.parse(new TextDecoder().decode(store_.get(origin + '/__sp_res_differ__').body));
+      assert.deepEqual(Object.keys(differ), ['/assets/drift.png'],
+        'only the upstream file every source answered with other bytes is recorded (a network failure or this server\'s file is tried again)');
+      assert.equal(resourceStatus().download.queued, 2, 'the recorded file leaves the queue');
+      asked.length = 0;
+      await run();
+      assert.equal(asked.some((u) => u.includes('drift.png')), false, 'the next visit does not download it again');
+      assert.ok(asked.some((u) => u.includes('down.png')) && asked.includes('/assets/local.json'), 'the other failures are tried again');
+      assert.equal(resourceStatus().reconcile.differ, 1);
+      // the list names another hash for it (the file was rebuilt): tried again
+      list = { version: 'v2', files: list.files.map((f) => (f.p === '/assets/drift.png' ? { ...f, h: sha('new') } : f)) };
+      asked.length = 0;
+      await run();
+      assert.ok(asked.some((u) => u.includes('drift.png')), 'a changed list entry is downloaded again');
+      assert.equal(new TextDecoder().decode(store_.get(origin + '/assets/drift.png').body), 'new');
+      assert.equal(resourceStatus().reconcile.differ, 0, 'and its record is dropped');
+    } finally {
+      store.set(before);
+      console.warn = saved.warn;
+      for (const k of ['window', 'location', 'caches', 'fetch']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
+      if (saved.navigator) Object.defineProperty(globalThis, 'navigator', saved.navigator); else delete globalThis.navigator;
+    }
+  });
+
   test('room: SP_MAX_BOTS facts (room.state maxBots)', async () => {
     const { roomFacts } = await mod('screens/room.js');
     const room = { code: 'ABCD', hostId: 'h', mode: 'coop', difficulty: 'HARD', seats: [

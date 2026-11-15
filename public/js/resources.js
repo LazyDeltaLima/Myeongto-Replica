@@ -9,7 +9,10 @@
 //   * a file without `u` (assets/local: 3D board, emotes, UI sprites; normalized spine atlases) comes from this server;
 //   * every file is kept only when its size and SHA-256 match the list, so an upstream repo that changed under us can
 //     never put a different file in the cache. A file that fails stays out (the game loads it from the server as now)
-//     and is tried again on the next visit.
+//     and is tried again on the next visit — except an upstream file whose every source served other bytes (the repo
+//     changed the file at that path since the list was built): it is recorded in DIFFER and not tried again until the
+//     list names another hash for it or DIFFER_RETRY_MS has passed, so a drifted file costs one download and one warning,
+//     not one on every visit. The worker still fetches it on demand (its last source is this server).
 // What is cached is recorded in one JSON entry of the same cache (STATE): on load, entries whose hash changed or that
 // left the list are listed as stale, then the rest is downloaded. That scan walks every cache key (a phone took 27.5 s
 // over 15 thousand keys with nothing to delete, 2026-10-28), so a load whose list and voice language are those of a
@@ -35,6 +38,8 @@ import { t } from '../../shared/i18n.js';
 const CACHE = 'sp-res';
 const STATE = '/__sp_res_state__';
 const CLEAN = '/__sp_res_clean__'; // the list version and voice language of the last scan whose stale entries are all gone
+const DIFFER = '/__sp_res_differ__'; // upstream files every source served with other bytes: path → { h: listed hash, at }
+const DIFFER_RETRY_MS = 7 * 86400e3;
 const INDEX = '/assets/browser-resources.json';
 const PREF = 'resources';
 const ASK_AGAIN_MS = 7 * 86400e3;
@@ -103,6 +108,8 @@ let index = null;
 let listed = [];        // every valid entry of the list; index.files = the ones this browser wants (voice language)
 let cache = null;
 let state = {};        // path → hash of what is in the cache
+let differ = {};       // DIFFER's content
+let differChanged = false;
 let want = new Map();  // path → listed hash of the files this browser wants
 let pending = [];
 let stale = [];        // cache requests to delete (cleanup)
@@ -113,7 +120,14 @@ let worker = null;     // the worker's answer counts the report last read: { at,
 
 async function saveState() {
   await cache.put(STATE, new Response(JSON.stringify(state), { headers: { 'Content-Type': 'application/json' } }));
+  if (differChanged) {
+    differChanged = false;
+    await cache.put(DIFFER, new Response(JSON.stringify(differ), { headers: { 'Content-Type': 'application/json' } }));
+  }
 }
+
+/** Still to download: not cached with the listed hash, and not an upstream file recorded as drifted (DIFFER). */
+const todo = () => index.files.filter((f) => state[f.p] !== f.h && differ[f.p]?.h !== f.h).sort((a, b) => priorityOf(a.p) - priorityOf(b.p));
 
 const now = () => globalThis.performance?.now?.() ?? Date.now();
 const keyOf = (req) => {
@@ -128,21 +142,30 @@ async function reconcile() {
   cache = await caches.open(CACHE);
   try { state = (await (await cache.match(STATE))?.json()) || {}; } catch { state = {}; }
   want = new Map(index.files.map((f) => [f.p, f.h]));
+  try { differ = (await (await cache.match(DIFFER))?.json()) || {}; } catch { differ = {}; }
+  if (!differ || typeof differ !== 'object') differ = {};
+  differChanged = false;
+  for (const [p, d] of Object.entries(differ)) {
+    if (want.get(p) !== d?.h || !(Date.now() - d.at < DIFFER_RETRY_MS)) { delete differ[p]; differChanged = true; }
+  }
+  if (differChanged) await saveState();
+  reconciled.differ = Object.keys(differ).length;
   const sig = typeof index.version === 'string' && index.version ? `${index.version}|${voiceStore.get().lang}` : null;
   let clean = null;
   try { clean = sig && (await (await cache.match(CLEAN))?.text()); } catch { /* scan */ }
   if (sig && clean === sig) {
     stale = [];
     reconciled = { ...reconciled, ms: now() - t0, skipped: true };
-    return index.files.filter((f) => state[f.p] !== f.h).sort((a, b) => priorityOf(a.p) - priorityOf(b.p));
+    return todo();
   }
   scanned = sig;
   try { await cache.delete(CLEAN); } catch { /* ignore */ } // until this scan's stale entries are gone
   const stateKey = new URL(STATE, location.origin).href, cleanKey = new URL(CLEAN, location.origin).href;
+  const differKey = new URL(DIFFER, location.origin).href;
   const found = [];
   let changed = false, keys = 0, adopted = 0;
   for (const req of await cache.keys()) {
-    if (req.url === stateKey || req.url === cleanKey) continue;
+    if (req.url === stateKey || req.url === cleanKey || req.url === differKey) continue;
     keys++;
     const key = keyOf(req);
     let h = state[key];
@@ -157,7 +180,7 @@ async function reconcile() {
   stale = found;
   reconciled = { ...reconciled, ms: now() - t0, keys, stale: found.length, adopted };
   cleanup();
-  return index.files.filter((f) => state[f.p] !== f.h).sort((a, b) => priorityOf(a.p) - priorityOf(b.p));
+  return todo();
 }
 
 const inMatch = () => selectRoute(store.get()) === 'game';
@@ -195,22 +218,30 @@ async function fetchOne(f) {
   // the worker may have stored it on demand since the list was made (the game needed it first): adopt, no download
   if ((await cache.match(f.p))?.headers.get('X-SP-Hash') === f.h) { state[f.p] = f.h; return true; }
   let last = 'no source';
-  for (const url of sourcesOf(f)) {
+  const urls = sourcesOf(f);
+  let differs = typeof f.u === 'string' && urls.length > 0; // every source answered, with other bytes
+  for (const url of urls) {
     try {
       const external = !url.startsWith('/');
       const res = await fetch(url, { cache: 'no-store', ...(external ? { mode: 'cors', credentials: 'omit' } : {}), signal: AbortSignal.timeout(TIMEOUT_MS) });
-      if (!res.ok) { last = `HTTP ${res.status}`; continue; }
+      if (!res.ok) { last = `HTTP ${res.status}`; differs = false; continue; }
       const buf = await res.arrayBuffer();
       if (buf.byteLength !== f.s || (await sha256(buf)) !== f.h) { last = 'hash mismatch'; continue; }
+      differs = false;
       await cache.put(f.p, new Response(buf, { headers: { 'Content-Type': typeOf(f.p), 'Content-Length': String(buf.byteLength), 'X-SP-Hash': f.h } }));
       state[f.p] = f.h;
       return true;
     } catch (err) {
       if (err?.name === 'QuotaExceededError') throw err;
       last = err?.name || String(err);
+      differs = false;
     }
   }
-  console.warn('[resources]', f.p, last);
+  if (differs) {
+    differ[f.p] = { h: f.h, at: Date.now() };
+    differChanged = true;
+    console.warn('[resources]', f.p, 'upstream file changed (hash mismatch); not tried again until the list changes');
+  } else console.warn('[resources]', f.p, last);
   return false;
 }
 
@@ -239,7 +270,7 @@ async function download() {
   try {
     await Promise.all([0, 1, 2, 3].map(worker));
     await saveState();
-    pending = pending.filter((f) => state[f.p] !== f.h);
+    pending = pending.filter((f) => state[f.p] !== f.h && differ[f.p]?.h !== f.h);
     setPending();
     resStore.set({ phase: 'done' });
   } catch (err) {
