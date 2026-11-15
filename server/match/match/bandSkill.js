@@ -37,7 +37,7 @@ import { inField, fieldTile, tileKey } from '../board.js';
 import { bandSkillTileOk } from '../../../shared/bandSkillTile.js';
 import {
   bandStages, bandStageIndex, SKILL_COST_COUNTER, STAGE_COUNTER, COMMAND_STAGE_COUNTER, bandCommandKey, hasCommandStages,
-  commandStageActs, COMMAND_CHOICE_KEY,
+  commandStageActs, COMMAND_CHOICE_KEY, TEAM_UNIQUE_KEYS,
 } from '../../sim/content/bands/meta.js';
 import { stageTag, stageUnlock } from '../../sim/content/bands/progress.js';
 import { bondEffectReplacements, unwrittenTemplates } from '../../sim/content/bonds/dispatch.js';
@@ -325,8 +325,9 @@ export class MatchBandSkill {
   // bond counts — bandStageIndex from 0 on its own counter, as if held from the start). [ASSUMED·서버, maintainer decisions
   // 2026-11-12 and 2026-11-15] A passive 指令 that would do nothing more is left out: an empty one (歌利亚 — its effect is
   // the starting target HP) and one whose gifts are all of rounds already played (a missed one-time gift is not given
-  // late — content/bands/meta.js commandStageActs); a team-wide one a teammate already has (Touch 外勤医疗, 鸭爵) stays in
-  // and does not add up. The pick replaces only the 指令: the own strategy keeps its passive part (好多委托 itself,
+  // late — content/bands/meta.js commandStageActs), and a team-wide one a living teammate already holds as its strategy
+  // or its taken 指令 (Touch 外勤医疗, 鸭爵 — TEAM_UNIQUE_KEYS: a second one adds nothing; maintainer decision 2026-11-15,
+  // as upstream PR #952). The pick replaces only the 指令: the own strategy keeps its passive part (好多委托 itself,
   // Mechanist's 精巧设计 passive, a strategy's bond directions — bandPassiveKey; a passive strategy all of it); a taken
   // passive 指令 runs all of its prep hooks and battle buffs but its strategy's bond directions (变约: its owner's only);
   // its uses, cooldown and cost changes start afresh. Taking the own strategy's 指令 back makes it the own one again.
@@ -352,6 +353,7 @@ export class MatchBandSkill {
       const rec = gd.band(id);
       if (id === current || !hasCommandStages(rec) || isCommandChoice(rec)) return false;
       if (id === ps.bandId) return true; // the own 指令 back
+      if (isTeamUnique(rec) && this.alivePlayers().some((p) => p !== ps && (p.bandId === id || p.bandCommand === id))) return false;
       return commandStageActs(bandStages(rec)[this._commandStageNow(ps, id)], this.round);
     });
   }
@@ -414,6 +416,11 @@ export class MatchBandSkill {
 /** Is the strategy “追随者们” (its 指令 opens 更换指令 itself: never in the pool)? */
 function isCommandChoice(rec) {
   return bandStages(rec).some((st) => (st?.buffs || []).some((b) => b && b.key === COMMAND_CHOICE_KEY));
+}
+
+/** Does the strategy act once for the whole team (TEAM_UNIQUE_KEYS: Touch, 鸭爵)? */
+function isTeamUnique(rec) {
+  return bandStages(rec).some((st) => (st?.buffs || []).some((b) => b && TEAM_UNIQUE_KEYS.includes(b.key)));
 }
 
 /** How many 指令 an offer shows: the N of its text's 「从N个…指令」 (no blackboard field holds it), 1–3. */

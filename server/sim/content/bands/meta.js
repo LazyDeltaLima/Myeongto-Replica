@@ -1239,6 +1239,11 @@ export const hasCommandStages = (rec) => !!rec && Array.isArray(rec.skills) && r
 export const COMMAND_CHOICE_KEY = 'gain_band_skill_from_pool_in_prep';
 /** A strategy's bond-direction swap (变约): its owner's only, never part of a 指令 taken from it (bonds/dispatch.js). */
 export const BOND_SWAP_KEY = 'auto_chess_effect_replace';
+/**
+ * Passive keys that act once for the whole team however many hold them (Touch 外勤医疗's map character on every field,
+ * 鸭爵 神秘顾客's swaps): a 指令 of them adds nothing while a teammate holds one.
+ */
+export const TEAM_UNIQUE_KEYS = Object.freeze(['auto_chess_change_map', 'round_start_all_player_change_enemy_2']);
 /** Passive keys that act in one fixed round each (their blackboard `round`) and never after it. */
 const FIXED_ROUND_KEYS = new Set([
   'preparation_start_gain_chess_from_round', 'prep_start_random_equip_in_round', 'give_coin_in_round',

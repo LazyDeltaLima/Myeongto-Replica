@@ -409,3 +409,21 @@ test('a taken 鸭爵 神秘顾客 swaps enemies into the player\'s waves as the 
   assert.ok(ducks(30) > 0, 'the taken 指令 swaps');
   m.round = 1;
 });
+
+test('a team-wide passive (Touch 外勤医疗, 鸭爵) a living teammate already holds — as its strategy or its taken 指令 — is not offered', () => {
+  const { m, ps } = setup({ band: 'band_fund', bots: 1 });
+  const mate = [...m.players.values()].find((p) => p !== ps);
+  mate.bandId = 'band_jesica'; mate.bandCommand = null;
+  const pool = () => m._bandCommandPool(ps);
+  assert.ok(pool().includes('band_amedic') && pool().includes('band_ducklord'), 'nobody holds them');
+  mate.bandId = 'band_amedic';
+  assert.ok(!pool().includes('band_amedic'), 'the teammate\'s strategy');
+  assert.ok(pool().includes('band_ducklord'));
+  mate.bandId = 'band_jesica'; mate.bandCommand = 'band_ducklord';
+  assert.ok(!pool().includes('band_ducklord'), 'the teammate\'s taken 指令');
+  assert.ok(pool().includes('band_amedic'));
+  mate.alive = false;
+  assert.ok(pool().includes('band_ducklord'), 'an eliminated teammate holds nothing');
+  mate.alive = true; mate.bandCommand = null;
+  assert.ok(pool().includes('band_jesica'), 'another passive a teammate holds stays in (not team-wide)');
+});
