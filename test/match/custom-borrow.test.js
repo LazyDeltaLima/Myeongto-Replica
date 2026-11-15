@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { sanitizeCustom, customDiffs, officialStep, stepScale } from '../../shared/ruleset.js';
-import { customBorrowIds, borrowPlan, withBorrowed, borrowSeasons } from '../../shared/seasonBorrow.js';
+import { customBorrowIds, borrowPlan, withBorrowed, borrowSeasons, sameField } from '../../shared/seasonBorrow.js';
 import { GameData } from '../../server/match/gamedata.js';
 import { setupMatchWaves } from '../../server/match/waves.js';
 import { borrowedData } from '../../server/match/borrow.js';
@@ -106,15 +106,33 @@ test('real match path (盟约): a forced 规程 type fields its enemies; one lef
   assert.ok(reborn > 0 && reborn < 40, `REBORN drawn ${reborn} / 40`);
 });
 
-test('real match path (规程): a 盟约 battlefield (战场#04 活性源石) is drawn and fought on', { skip }, () => {
+test('real match path (规程): a 盟约 battlefield (战场#07(下半) 排气格栅) is drawn and fought on', { skip }, () => {
   const registry = createRegistry({ data: ACT3, log: QUIET });
   const h = makeMatch({ mode: 'solo', difficulty: 'HARD', modeId: 'mode_single_12', seed: 2, data: ACT3, season: ACT3_ID, registry, fake: true,
-    ruleset: custom({ stages: { extra: ['act1autochess_m04'], ban: banAllBut(ACT3, 'mode_single_12', null) } }) }).start();
-  assert.equal(h.m.stageId, 'act1autochess_m04');
-  assert.ok(h.m.gd.stage('act1autochess_m04')?.special?.infection, 'the 活性源石 terrain came with it');
+    ruleset: custom({ stages: { extra: ['act2autochess_m03'], ban: banAllBut(ACT3, 'mode_single_12', null) } }) }).start();
+  assert.equal(h.m.stageId, 'act2autochess_m03');
+  assert.ok(h.m.gd.stage('act2autochess_m03')?.special?.smog, 'the 排气格栅 terrain came with it');
   const { b } = fight(h, 1, 'band_amiya');
   assert.ok(b.enemies.length > 0);
   h.m.dispose();
+});
+
+test('sameField: 规程 m01–m04 / m06 play as 盟约 战场#01–#04 / #06(下半) and are never borrowed; m05 differs', { skip }, () => {
+  const own = (data) => Object.values(data.stages).filter((s) => !s.kind);
+  const pairs = own(ACT3).flatMap((b) => own(DATA).filter((a) => sameField(a, b)).map((a) => `${b.id}=${a.id}`));
+  assert.deepEqual(pairs, ['act3autochess_m01=act1autochess_m01', 'act3autochess_m02=act1autochess_m02', 'act3autochess_m03=act1autochess_m03',
+    'act3autochess_m04=act1autochess_m04', 'act3autochess_m06=act2autochess_m02']);
+  assert.ok(!sameField(DATA.stages.act2autochess_m01, ACT3.stages.act3autochess_m05), '规程 m05 has two more fence tiles a field');
+  // sameField leaves the hidden “双眼皮” out because nothing switches them on: 机械援助 (aceffect_band_43) is granted by
+  // no strategy, 机变 card, garrison or item of either season — if one does, the turrets make the fields differ
+  for (const d of [DATA, ACT3]) {
+    const grants = JSON.stringify([d.bands, d.choices, d.garrisons, d.items]);
+    assert.ok(!grants.includes('aceffect_band_43'), 'a record grants 机械援助: sameField must count the hidden 双眼皮 (shared/seasonBorrow.js sameIgnores)');
+  }
+  // a same field is never borrowed, either way; a different one is
+  assert.equal(borrowPlan(ACT3, [['act2autochess', DATA]], { stages: ['act1autochess_m04', 'act2autochess_m02', 'act2autochess_m01'], types: [] })
+    .stages.map(([id]) => id).join(), 'act2autochess_m01');
+  assert.equal(borrowPlan(DATA, [[ACT3_ID, ACT3]], { stages: ['act3autochess_m01', 'act3autochess_m06'], types: [] }), null);
 });
 
 test("the 'step' curve: each official step after round 1 at the set multiplier; null = official; leaders alike", () => {

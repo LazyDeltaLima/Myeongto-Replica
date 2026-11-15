@@ -7,6 +7,7 @@
 //
 //   customBorrowIds(custom)                      what the settings ask for: { stages, types } or null
 //   borrowSeasons(season)                        the public seasons but `season`, the order they are searched in
+//   sameField(a, b)                              two stage records that play the same (the lists leave such a one out)
 //   borrowPlan(own, foreign, ids)                which season each asked id comes from (only the ids `own` lacks)
 //   borrowFile(name, ownFile, foreignFiles, plan)  one file (stages / enemies / factions) with the borrowed records
 //   withBorrowed(own, foreign, ids)              a season's whole data with them (the server's match, the sim)
@@ -55,12 +56,52 @@ export function lendableStage(s, extraIds = []) {
   return isObj(s) && !s.kind && (Number(s.weight) > 0 || extraIds.includes(s.id));
 }
 
+/**
+ * Rows outside the fields: the 整备区 / 临时整备区 (a / A), the separators (X, #) and the teleport entries beside them (I).
+ * The seasons lay these out differently on the same field (规程 adds 临时整备区 slots and lets flyers over its
+ * separators), but no battle tile is among them (server/sim/grid.js HAND_TILES), so sameField skips a row made only of them.
+ */
+const OUTER_ROW = /^[aAX#I]*$/;
+/**
+ * Devices that do not make two fields differ: 盟约寒风 (`trap_1112_acblzd`, the 谢拉格 bond's cold wind — it covers the
+ * whole field from wherever it stands), the 沼泽控制 device (`trap_098_mire`: its numbers; the mire is the m tiles) and
+ * a hidden “双眼皮” (`trap_1104_aclasert`): only 机械援助 (aceffect_band_43) switches those on, which no strategy,
+ * 机变 card, garrison or item of either season grants (test/match/custom-borrow.test.js checks it).
+ * @param {any} d
+ */
+const sameIgnores = (d) => d?.key === 'trap_1112_acblzd' || d?.key === 'trap_098_mire' || (d?.key === 'trap_1104_aclasert' && d.hidden);
+
+/**
+ * Are two stage records the same field to play (maintainer request 2026-11-15: 规程 m01–m04 and m06 are 盟约's 战场#01–#04
+ * and 战场#06(下半) on their play tiles)? Same size, enemy routes, deploy tiles, terrain numbers, runes, global buffs and
+ * options, the same tiles on every row but those outside the fields (OUTER_ROW), the same tile meaning of every glyph
+ * there, and the same devices but those of sameIgnores. A borrowed list leaves such a field out (borrowPlan): it would
+ * play as the own one (the official scene drawn behind it differs).
+ * @param {any} a @param {any} b stages.json records
+ */
+export function sameField(a, b) {
+  if (!isObj(a) || !isObj(b) || !Array.isArray(a.rows) || !Array.isArray(b.rows) || a.rows.length !== b.rows.length) return false;
+  const J = JSON.stringify;
+  for (const k of ['size', 'groundPaths', 'deployTiles', 'special', 'runes', 'globalBuffs', 'options']) if (J(a[k]) !== J(b[k])) return false;
+  const rows = [];
+  for (let i = 0; i < a.rows.length; i++) {
+    if (OUTER_ROW.test(a.rows[i]) && OUTER_ROW.test(b.rows[i])) continue;
+    if (a.rows[i] !== b.rows[i]) return false;
+    rows.push(i);
+  }
+  const glyphs = new Set(rows.flatMap((i) => [...a.rows[i]]));
+  for (const g of glyphs) if (J(a.tiles?.[g]) !== J(b.tiles?.[g])) return false;
+  const devs = (s) => (Array.isArray(s.devices) ? s.devices : []).filter((d) => !sameIgnores(d))
+    .map((d) => J([d.key, d.pos, d.dir, !!d.hidden, d.role ?? null, d.stats ?? null])).sort();
+  return J(devs(a)) === J(devs(b));
+}
+
 /** A 特训敌人 type another season may lend: one of its draw (involveRandom). @param {any} t a factions.json type */
 export const lendableType = (t) => isObj(t) && t.involveRandom === true && !t.borrowed;
 
 /**
  * Which season lends each asked id the own season lacks: { stages: [[id, season]], types: [[type, season]] }, the first
- * season of `foreign` that has it; null when nothing is borrowed.
+ * season of `foreign` that has it — never a stage that plays as one of the own (sameField); null when nothing is borrowed.
  * @param {{ stages?: any, factions?: any }} own the own season's stages.json / factions.json
  * @param {[string, { stages?: any, factions?: any }][]} foreign [season, files] in borrowSeasons order
  * @param {{ stages: string[], types: string[] } | null} ids customBorrowIds
@@ -75,9 +116,11 @@ export function borrowPlan(own, foreign, ids, extraStages = []) {
   const stages = [];
   /** @type {[string, string][]} */
   const types = [];
+  const ownFields = Object.values(ownStages).filter((x) => isObj(x) && !x.kind && !x.borrowed);
   for (const id of ids.stages) {
     if (Object.hasOwn(ownStages, id)) continue;
-    const from = foreign.find(([, f]) => isObj(f?.stages) && Object.hasOwn(f.stages, id) && lendableStage(f.stages[id], extraStages));
+    const from = foreign.find(([, f]) => isObj(f?.stages) && Object.hasOwn(f.stages, id) && lendableStage(f.stages[id], extraStages)
+      && !ownFields.some((o) => sameField(o, f.stages[id])));
     if (from) stages.push([id, from[0]]);
   }
   for (const id of ids.types) {

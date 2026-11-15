@@ -29,7 +29,7 @@ import {
   sanitizeCustom, customDiffs, customRoundPlan, curveScale, customPrepSeconds, customStagePool, customPoolCount, CUSTOM_OFFICIAL, CUSTOM_CASUAL,
   CUSTOM_LIMITS, CUSTOM_FIRST_HALF_STAGES, OFFICIAL_TYPE_COUNT, officialBans, customBanLimits, seasonOfficialOptions, officialStep, stepScale,
 } from '../../../shared/ruleset.js';
-import { borrowSeasons, lendableStage, lendableType } from '../../../shared/seasonBorrow.js';
+import { borrowSeasons, lendableStage, lendableType, sameField } from '../../../shared/seasonBorrow.js';
 import { seasonInfo } from '../../../shared/seasons.js';
 import { modeIdFor, DIFFICULTIES, LARGE_SEATS, isGrade, gradeDifficulty } from '../../../shared/constants.js';
 import { t, N_ } from '../../../shared/i18n.js';
@@ -543,12 +543,17 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
     set('stages', 'ban', [...next]);
   };
   const half = (s) => (/^act1/.test(s.id) ? t('上半') : t('下半'));
-  // other seasons' stages (maintainer decision 2026-11-15, shared/seasonBorrow.js): a click adds one to the pool
-  const ownIds = new Set((data.list('stages') || []).filter((s) => !s.borrowed).map((s) => s.id));
+  // other seasons' stages (maintainer decision 2026-11-15, shared/seasonBorrow.js): a click adds one to the pool; one that
+  // plays as an own field (sameField: 规程 m01–m04 / m06 = 盟约 战场#01–#04 / #06(下半)) is left out (the raw records:
+  // the localized ones differ in their names)
+  const ownRaw = Object.values(data.getRaw('stages') || {}).filter((s) => s && !s.kind && !s.borrowed);
+  const ownIds = new Set(ownRaw.map((s) => s.id));
   const lenders = borrowSeasons(data.season()).map((sid) => {
     const st = data.seasonStore(sid);
     st?.load('stages');
-    return { sid, list: (st?.list('stages') || []).filter((s) => lendableStage(s, CUSTOM_FIRST_HALF_STAGES) && !ownIds.has(s.id)) };
+    const raw = st?.getRaw('stages') || {};
+    return { sid, list: (st?.list('stages') || []).filter((s) => lendableStage(s, CUSTOM_FIRST_HALF_STAGES) && !ownIds.has(s.id)
+      && !ownRaw.some((o) => sameField(o, raw[s.id]))) };
   }).filter((x) => x.list.length);
   const extra = new Set(work.stages.extra);
   const toggleExtra = (s) => {
