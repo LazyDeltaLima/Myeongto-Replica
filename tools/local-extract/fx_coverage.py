@@ -90,6 +90,8 @@ SCRIPTS = {
     -6714358757634045276: 'CameraEffect',   # (2026-10-26) by its fields; screen_com_poison_04 (the time-out screen)
     -459260035723506154: 'PauseEffectIfCharMenuNotOpen',   # (2026-11-01) CN client only: 冻河's buff_02 marks
     -6162048904628412015: 'SetEffectAnimatorParameter',   # (2026-11-10) CN 11-08: 假想敌：茧's rain ground (anim_scripts)
+    -7126797585799428801: 'SpecifyUnitModeEffect',   # (2026-11-16) 유넥티스's dead effect (owner_follow `unitMode`)
+    -6717794388378707786: 'SwitchableMultiEffectByBuffStackCnt',   # (2026-11-16) the 麻痹 mark (CN common.ab)
 }
 # what the extract reads of the scripts above (reader() checks the raw fallbacks)
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
@@ -107,6 +109,7 @@ SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoi
                 'SetEffectAnimatorParameter',   # (2026-11-10) anim_scripts (`animFin`)
                 # (2026-11-01, CN client only) pause_scripts (`pauseMenu`)
                 'PauseEffectIfCharMenuNotOpen',
+                'SpecifyUnitModeEffect',   # (2026-11-16) owner_follow (`unitMode`)
                 # (2026-10-25) owner_follow (`followOwner`, `rootTile`) and pause_scripts (`pauseMove`): field-less
                 'FollowOwner', 'FollowOwnerRootTileHeight', 'PauseEffectIfNotMove'}
 
@@ -620,6 +623,8 @@ COMP_FIELDS = {
                                              '_targetType': _N('[ASSUMED] whose buff: this battle opens no operator menu')},
     'script:FollowOwner': {'m_Enabled': _R('a switched-off one is not read (owner_follow)')},
     'script:FollowOwnerRootTileHeight': {'m_Enabled': _R('a switched-off one is not read (owner_follow)')},
+    'script:SpecifyUnitModeEffect': {'m_Enabled': _R('a switched-off one is not read (owner_follow)'),
+                                     '_unitModeIndex': _K('unitMode.i'), '_pauseOnOtherMode': _K('unitMode.pause')},
     'script:FunnelHitEffect': {'m_Enabled': _A(1, _OFF), **{f'_randomRange.{a}': _K('jitter') for a in 'xyz'}},
     'script:FollowDirection': {
         'm_Enabled': _A(1, _OFF), **{f: _K('follow.src') for f in (
@@ -695,6 +700,7 @@ COMP_READERS = {
         'PauseEffectIf', 'PauseAnotherEffect', 'PauseEffectWithAnimation', 'PauseEffectIfNotIdle', 'PauseEffectIfSpineEvent',
         'FinishEffectIf', 'PauseEffectIfNotMove', 'PauseEffectIfCharMenuNotOpen')},
     'script:FollowOwner': ('owner_follow',), 'script:FollowOwnerRootTileHeight': ('owner_follow',),
+    'script:SpecifyUnitModeEffect': ('owner_follow',),
     'script:FunnelHitEffect': ('funnel_hit',), 'script:FollowDirection': ('follow_direction',),
     'script:SwitchableEffectByFaceDirection': ('switch_face',), 'script:SwitchableThreeFaceEffect': ('three_face',),
     'script:RandomDirection': ('random_direction',), 'script:FollowTileHeight': ('tile_height',), 'script:FxLODSetting': ('lod_setting',),
@@ -806,6 +812,12 @@ SHADERS_CHECKED = {
     # with every channel at its default and the same premultiply switch (`_PremultiplyAlpha`); its vertex stage moves the
     # vertices — the property / texture entries of KNOWN below
     'Torappu/Particles/Ram/VertexDisturb(CustomData)',
+    # 2026-11-16 (제시카 더 리버레이티드's hits and birth): the same properties, tags, colour blend and compiled programs as
+    # Particles/Additive (only the alpha channel's destination factor differs: One for OneMinusSrcAlpha — nothing on screen)
+    'Torappu/Particles-L2D/Additive',
+    # 2026-11-16 (레토 S2 / 사일런스 더 패러디그매틱 S3 buffs): the pixel stage of Dissolve AB / Add Double (the same products,
+    # in another order); its pass reads `_DstBlend` and `_CullMode`, which fxplayer.js already reads for it by name
+    'Torappu/Particles/Dissolve/Dissolve Double',
 }
 
 # known items: 'kind:what' -> (status, note). `todo` = known, not drawn as the client does (the 2026-10-16 baseline; the
@@ -833,9 +845,16 @@ KNOWN = {
     'script:#3354437260492772109 _ignoreOwnerValid,_rotateIfFaceLeft,_rotation': (
         _NONE, 'CN client only: turns 予愿安洁莉娜\'s S2 flight trails by `_rotation` when facing left — (0, 0, 0) on both '
                'prefabs, nothing to turn [ASSUMED]'),
-    'script:#7584231671898059191 _flipYWhenLeft': (_HAND, 'CN client only: flips 克莱门莎\'s S2 bullet upside down when it flies '
-                                                   'left — with the flight turned 180° the same as the left / right mirror '
-                                                   'render/fxgame.js gives it (pickFx \'anchor\') [ASSUMED]'),
+    # (2026-11-16) the CN 11-08 client's class (FlipViaProjectileDirection) has one more field, `_flipBySourceFace`, 0 on the
+    # one prefab (the entry was keyed `_flipYWhenLeft` alone before)
+    'script:#7584231671898059191 _flipBySourceFace,_flipYWhenLeft': (
+        _HAND, 'CN client only (FlipViaProjectileDirection): flips 克莱门莎\'s S2 bullet upside down when it flies left '
+               '(`_flipYWhenLeft` 1; `_flipBySourceFace` 0) — with the flight turned 180° the same as the left / right mirror '
+               'render/fxgame.js gives it (pickFx \'anchor\') [ASSUMED]'),
+    # (2026-11-16) a variant by its owner's buff stack count, one copy at a time (SwitchableMultiEffectByBuffStackCnt
+    # _UpdateEffectWithBuffStackCnt): only the 麻痹 mark common_061_numb_01 on palsy[stack]
+    'script:SwitchableMultiEffectByBuffStackCnt': (_HAND, 'the 麻痹 mark by its stacks (palsy[stack]: 2 EQUALS _02, 3 GE _03): '
+                                                   'render/fxstatus.js STACK_FX palsy'),
     'script:PreviewCursor': (_HAND, 'the route preview cursor\'s mover (`_moveSpeed`, `_height`): render/fxroute.js'),
     'script:SimpleEffect': (_HAND, 'only S_desert_wall_02_start_Mesh (s.ab), which the player never plays (see shader:Unlit/Texture)'),
     # (2026-10-21, official client) EffectData_Projectile (Effects.Data, a SourceData) is two Transform lists and a .ctor: no

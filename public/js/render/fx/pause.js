@@ -143,3 +143,14 @@ export function idlePause(rec, v) {
   const back = facesBack(v);
   return !!((rec?.back && back) || (rec?.front && !back));
 }
+
+/**
+ * 2026-11-16 (official client, SpecifyUnitModeEffect `OnPlay`): whether an effect whose root carries `unitMode` { i, pause? }
+ * (fx_extract.py owner_follow) finishes at once because its owner's unit mode index `mode` is another — null `mode`: not
+ * known, played. The pause variant (`pause`: paused instead, played again in mode `i` — `Update`) is not played: no extracted
+ * prefab with an owner uses it, so it is played as it is.
+ */
+export function unitModeFinishes(def, mode) {
+  const u = def?.unitMode;
+  return !!u && !u.pause && mode != null && mode !== u.i;
+}

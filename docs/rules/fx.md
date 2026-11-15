@@ -4379,6 +4379,30 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
 - 확인: 디버그 아레나 2배속 정예 S3 — 시작부터 `pallas_buff_01_start`(발밑 금빛 고리, `fxTag` 1), S3 중 `fxTag` 3에 두 이펙트, 콘솔 오류 0. [화면 미확인: 미노스가 아닌 보유자의 S3 것만, 공식 화면과 나란히]
 - 재발 방지: 원인 제거 — `fx_bindings.py`가 버프 표로 `loadFromDB` 버프의 템플릿을 읽음; `test/content/op_pallas.test.js`(출처별 `fxTag`), `test/render/status-buff-fx.test.js`(비트 → 프리팹), `test/render/fx-bindings.test.js`(인용 키의 행)
 
+### 유넥티스 쓰러짐 이펙트 — 모드 조건 (2026-11-16)
+
+- 공식 클라에서 확인: 유넥티스(`char_416_zumama`)의 쓰러짐 이펙트(프리팹 루트 `_deadEffect`) `zumama_skill_03_end`에는 `SpecifyUnitModeEffect`(`_unitModeIndex` 2,
+  `_pauseOnOtherMode` 거짓)가 붙어 있다. 이 컴포넌트는 틀 때(`OnPlay`) 주인 유닛의 모드 번호(`Unit.currentModeIndex` — 프리팹 `_modes` 차례: Default 0·S2 1·S3 2)가
+  `_unitModeIndex`가 아니면 그 이펙트를 바로 끝낸다(`_pauseOnOtherMode`면 멈춤, 그 뒤 `Update`가 모드가 돌아오면 다시 튼다). 그래서 공식에서는 S3 「강철의 의지」 모드에서
+  쓰러질 때만 이 이펙트가 보인다 — S3 모드의 `SimpleUnitAnimatorHooker`가 `Die`를 `Skill_2_Die`로 바꾸는 것도 그 모드에서 쓰러지는 경우가 있다는 뜻이다.
+  우리는 쓰러질 때마다 틀었다. 클라 전체에서 이 스크립트를 가진 프리팹은 이것 하나다.
+- 고친 것: `fx_extract.py owner_follow`가 루트의 `SpecifyUnitModeEffect`를 `unitMode` `{ i, pause? }`로 싣고, 재생기(`fxgame.js spawn`)가 주인 모드가 다르면
+  틀지 않는다(`fx/pause.js unitModeFinishes`; 주인 모드는 `unitModeOf` — 스킬·형태가 쥔 모드, 없으면 0). 시뮬은 쓰러지는 유닛의 스킬을 지우기 전에 끝내므로
+  (`deploy.js _remove`) 렌더는 스킬 끝에서 그 순간의 모드를 기억하고(`_fxEndMode`), 같은 순간의 쓰러짐이 그것을 쓴다. `pause` 변형과 그 뒤의 `Update`는 안
+  튼다 — 쓰는 프리팹이 없다.
+- 재발 방지: `test/render/unit-mode-effect.test.js`(S3 중 쓰러짐 = 모드 2, 그 전에 끝난 스킬은 0 — 끝 모드 기억을 빼면 실패). [화면 미확인: S3 중 쓰러짐을 아레나·공식과 나란히 — `checks/arena.md`]
+
+### 이펙트 전수 보고 판정 — 셰이더 두 개 (2026-11-16)
+
+- `Torappu/Particles-L2D/Additive`(제시카 더 리버레이티드의 명중·등장 등 11개): 클라 `[uc]shaders.ab`에서 `Particles/Additive`와 선언 속성·태그·색 혼합(SrcAlpha One)·
+  컴파일된 프로그램이 같다(프로그램 묶음이 바이트까지 같음). 다른 것은 알파 채널의 대상 계수(One, `Particles/Additive`는 OneMinusSrcAlpha)뿐이라 화면에 안 나온다. 이름 규칙(`Additive`)으로 이미
+  가산으로 그리므로 확인 목록(`fx_coverage.py SHADERS_CHECKED`)에 넣음.
+- `Torappu/Particles/Dissolve/Dissolve Double`(레토 S2·사일런스 더 패러디그매틱 S3 버프): 픽셀 단계가 `Dissolve AB Double`·`Add Double`과 같은 식(두 디졸브 곱의 순서만
+  다름)이고, 패스가 `_DstBlend`(혼합)와 `_CullMode`(컬링)를 재질에서 읽는다 — `fxplayer.js`가 이미 이 셰이더 이름으로 둘 다 읽는다(두 재질 모두 `_DstBlend` 10 = 알파 혼합).
+  확인 목록에 넣음.
+- 같은 날 `KNOWN`에 판정만 더한 것: `SwitchableMultiEffectByBuffStackCnt`(마비 층수 표식 `common_061_numb_01` — `fxstatus.js STACK_FX palsy`가 그림, `hand`), 클레멘티아 S2 탄의
+  CN 스크립트(`FlipViaProjectileDirection`)가 11-08 판에서 필드 `_flipBySourceFace`(값 0)를 더해 보고 키가 바뀐 것(판정은 그대로).
+
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 
 이펙트 코드(`public/js/render/fxgame.js`·`fxplayer.js`·`fx/`)를 고치기 전에 읽는 목록. 한 번 값을 치른 원인만 적고, 시험이 지키는 것은 그 시험을 적는다(시험이 실패하면 메시지가 원인을 말한다). 새 줄은 시험·린트로 못 잡는 것만 더한다(`CONTRIBUTING.md` 2절 「Regression guards」).

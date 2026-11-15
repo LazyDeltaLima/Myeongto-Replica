@@ -91,7 +91,7 @@ import { kitOfficialPlan, kitOperator, KIT_NO_STAND_IN } from './fx/kitofficial.
 import { rangeEdges } from './fx/edges.js'; // 2026-11-10: a range's edge lines (RangeLineEffectHandler)
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 import { enemyRecordMode, isOwnSubMode, SKILL_SUB_MODES, skillModeIndex } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
-import { animPause, clipOf, facesBack, idlePause, immuneTo, movePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
+import { animPause, clipOf, facesBack, idlePause, immuneTo, movePause, pauseIfNow, unitModeFinishes } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
 
 /**
  * local patch (maintainer report): `names` with each directional emitter entry of `groups` (char_modes.py `dirs` [{ t, s }])
@@ -2714,13 +2714,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null, dir = null } = {}) {
     if (!index?.bundles?.[bundle]?.includes(name)) return null;
-    if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null, facing, ...(entry.pinned ? { pinned: true } : null) }); // tests (`pinned`: never ended by the caps)
+    if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null, facing, ...(entry.pinned ? { pinned: true } : null), ...(entry.mode != null ? { mode: entry.mode } : null) }); // tests (`pinned`: never ended by the caps)
     if (dry) dryFollow(bundle, name, entry.owner ?? null, at && at.info ? ownerOf(at) ?? null : null);
     if (!(await ensure())) return null;
     let def = await lib.load(bundle, name);
     const pick = await randomPick(def, bundle, entry.owner != null || !!at?.info);   // 2026-10-22: its random group's pick
     if (pick) def = pick.def;
     if (!mod || !def) return null;
+    // 2026-11-16: a prefab for one unit mode finishes at once in another (fx/pause.js unitModeFinishes) — the mode of its owner,
+    // or `entry.mode` when the caller gives it (a dead effect has no owner left; unitModeOf)
+    if (def.unitMode && unitModeFinishes(def, entry.mode ?? (at?.info ? unitModeOf(at) : null))) return null;
     if (entry.until != null && entry.until <= clockS) return null; // 2026-10-10: its end passed while it loaded
     // 2026-10-23: a shot that landed while it loaded is not drawn (launchTrail's rule) — placed at its end, nothing finished
     // it and it sat on the target for 5 s (流星 S2's first volley: the arrows showed up on the sandbag with their hits)
@@ -4103,6 +4106,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // the event just announced (app.js hands the event to this layer before it sets the view's form)
   const heldOf = (v, form = v?.form) => heldMode(bindOf(v), v?.info?.spine || v?.info?.defId, skillIdx(v), form);
   const modeNow = (v) => { const h = heldOf(v); if (h > 0) return h; const t = tmodeOf(v); return t >= 0 ? t : downOf(v, attackMode(bindOf(v), !!v._fxSkillOn, skillIdx(v), subOf(v))); };
+  /**
+   * 2026-11-16 (official client, SpecifyUnitModeEffect): the owner's unit mode index (`Unit.currentModeIndex`, its prefab's
+   * `_modes` — the bind's `modes`) a prefab's `unitMode` asks for: 0 unless a skill or form holds another. The sim ends a dying
+   * unit's skill before it removes it, so its death reads the mode its skill had just then (`_fxEndMode`, set at the skill's end).
+   */
+  const unitModeOf = (v, dying = false) => {
+    if (dying && !v._fxSkillOn && v._fxEndMode && Math.abs(v._fxEndMode.at - clockS) < 1e-6) return v._fxEndMode.m;
+    const m = modeNow(v);
+    return Number.isInteger(m) && m > 0 ? m : 0;
+  };
   /**
    * 2026-11-07, official client: the mode a summon's copy put it in — 缪尔赛思's 流形 after the kit's 'copy' (`mode` Melee /
    * Range: mlyss_wtrman_switch_melee / _range), and `<mode>_S<n>` while its owner's skill n runs (mlyss_wtrman_switch_*: SwitchMode
@@ -6591,7 +6604,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const r = allyFx(v, deadEffect(bindOf(v)));
     if (!r) return;
     opDead.add(ownerOf(v));
-    spawn(r[0], r[1], { x: v.x, y: v.y, z: v.z || 0 }, { owner: null, buff: false, tag: 'dead' }, { over: false, facing: efacing(v) });
+    // 2026-11-16: the mode it died in (a dead effect's SpecifyUnitModeEffect: 유넥티스's zumama_skill_03_end only in S3)
+    spawn(r[0], r[1], { x: v.x, y: v.y, z: v.z || 0 }, { owner: null, buff: false, tag: 'dead', mode: unitModeOf(v, true) }, { over: false, facing: efacing(v) });
   }
 
   const eborn = new Map();   // enemy id → battle clock of its 'spawn' (its view is built right after the event)
@@ -7261,6 +7275,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // (and the marks it left on its targets: 戴菲恩 S3's hit_1)
           else {
             const flags = v._fxSkillFlags?.size ? new Set(v._fxSkillFlags) : null;   // (묶음 S8: SKILL_EDGE `if`)
+            v._fxEndMode = { at: clockS, m: unitModeOf(v) };   // (2026-11-16) a death in the same moment reads it (unitModeOf)
             v._fxSkillOn = false; v._fxSub = null; v._fxChannelAt = null; channels.delete(v); v._fxSkillFlags?.clear(); endWolves(v.id ?? v.info.id); stopBuffs(v.id ?? v.info.id, true); skillEnd(v, flags);
             for (const l of elines.values()) if (l.skill && l.owner === (v.id ?? v.info.id)) l.until = Math.min(l.until, clockS);   // a plan's `life: 'skill'` lines
           }

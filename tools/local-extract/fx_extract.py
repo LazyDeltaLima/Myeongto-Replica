@@ -133,6 +133,8 @@ PAUSE_MOVE_SCRIPT = -1569843327534094582
 # (2026-11-01, CN client only) Torappu.Battle.Effects.PauseEffectIfCharMenuNotOpen (pause_scripts: `pauseMenu`; its fields
 # `_buffKey`, `_targetType` are not read)
 PAUSE_MENU_SCRIPT = -459260035723506154
+# (2026-11-16, official client) the MonoScript PathID of Torappu.Battle.Effects.SpecifyUnitModeEffect (owner_follow: `unitMode`)
+UNIT_MODE_SCRIPT = -7126797585799428801
 # (2026-10-22, official client) the MonoScript PathIDs of the scripts that drive an Animator at the effect's finish / play
 # (anim_scripts, `animFin` / `animSrc`), and of EmitterRandomGroup (random_group, `rgroup`) and SwitchableWhenContainsEquipment
 # (equip_effects, `equipFx`)
@@ -1694,7 +1696,11 @@ class Extractor:
                            4 head, 5 the owner's place with its rotation, 6 muzzle; any other value: left where it is
             `rootTile`     FollowOwnerRootTileHeight (`OnPlay`, `LateUpdate` → `_FollowRootTileHeight`) sets its local height so
                            that it stays at its owner's map-position height (the tile it stands on) however the owner is raised
-        { followOwner?: 1, rootTile?: 1 }."""
+            `unitMode`     (2026-11-16) SpecifyUnitModeEffect: at play (`OnPlay`) an owner whose unit mode index
+                           (`Unit.currentModeIndex`) is not `i` (`_unitModeIndex`) finishes the effect at once — or pauses it,
+                           `pause` (`_pauseOnOtherMode`); afterwards (`Update`) it is paused while the owner is in another mode
+                           and played again when it is back (only 유넥티스's dead effect zumama_skill_03_end: mode 2, S3)
+        { followOwner?: 1, rootTile?: 1, unitMode?: { i, pause? } }."""
         out = {}
         for sid, _raw, t in self.monos(root):
             if isinstance(t, dict) and t.get('m_Enabled') == 0:
@@ -1703,6 +1709,11 @@ class Extractor:
                 out['followOwner'] = 1
             elif sid == ROOT_TILE_SCRIPT:
                 out['rootTile'] = 1
+            elif sid == UNIT_MODE_SCRIPT:
+                if t is None:
+                    self.cov.reader('SpecifyUnitModeEffect', False, 'no type tree: nothing read')
+                    continue
+                out['unitMode'] = {'i': int(t.get('_unitModeIndex') or 0), **({'pause': True} if t.get('_pauseOnOtherMode') else {})}
         return out
 
     def turned_refs(self, root, gos):
