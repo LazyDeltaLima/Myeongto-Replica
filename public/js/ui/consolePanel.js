@@ -104,8 +104,6 @@ export function ConsolePanel({ con, pub, priv, phase }) {
   if (!con) return null;
   const prep = phase === PHASE.PREP;
   const live = con.console === true;
-  const hand = Array.isArray(priv?.hand) ? priv.hand : [];
-  const handUsed = hand.filter(Boolean).length;
   const foldTip = `${t('收起')} · ${t('{key} 键显示 / 隐藏', { key: CONSOLE_KEY })}`;
   const head = html`<div class="cxp__head">
     <span class="cxp__tag">CONSOLE</span><b class="cxp__title">${t('控制台')}</b>
@@ -123,8 +121,7 @@ export function ConsolePanel({ con, pub, priv, phase }) {
     : tab === 'round' ? html`<${RoundTab} con=${con} pub=${pub} prep=${prep} onEnd=${() => setEnding(true)} />`
     : html`<${BondsTab} con=${con} priv=${priv} prep=${prep} />`;
   const foot = tab === 'ops' || tab === 'items'
-    ? html`<div class="cxp__foot"><span>${tab === 'ops' ? t('点击直接加入备战区 · 三个相同棋子自动合成') : t('点击加入备战区 · 拖到干员身上装备')}</span>
-        <span class="cxp__sp"></span><span>${t('备战区')} <b>${handUsed}/${hand.length || 5}</b></span></div>`
+    ? html`<div class="cxp__foot"><span>${tab === 'ops' ? t('点击直接加入备战区 · 三个相同棋子自动合成') : t('点击加入备战区 · 拖到干员身上装备')}</span></div>`
     : tab === 'enemies' ? html`<div class="cxp__foot"><span>${t('点击加入下一场作战 · 也显示在敌情预览和效果列表')}</span></div>`
     : tab === 'round' ? html`<div class="cxp__foot"><span>${live ? t('首领回合胜利、淘汰都不结算，回到该回合整备') : t('本地调试：结算照常记录')}</span></div>`
     : html`<div class="cxp__foot"><span>${t('层数从下一场作战起生效 · 「重置」= 全部归零')}</span></div>`;
