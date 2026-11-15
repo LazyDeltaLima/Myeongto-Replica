@@ -109,3 +109,31 @@ test('the attack interval is graded by baseAttackTime as it is (the official han
   assert.match(src, /return key === 'atk' \? s\.atk \?\? 0 : s\.bat \?\? null;/);
   assert.notEqual(enemyGrade('interval', zero.stats.bat, LEVELS), '—', `${zero.key} bat=${zero.stats.bat}`);
 });
+
+// ---- 装备报告 (规程's fourth tab; docs/rules/ui.md 「upstream v0.4.0 규정 화면 작은 것들」) ------------------------------
+
+test('装备报告: 规程 only (shared/seasons.js equipReport); every base equipment of the season once, tiers 1–6, shopSortId within a tier', async () => {
+  const { reportTabs, equipReportGroups } = await import('../../public/js/screens/sweep.js');
+  assert.deepEqual(reportTabs('act3autochess').map((x) => x.id), ['bonds', 'bands', 'enemies', 'equip']);
+  assert.deepEqual(reportTabs(undefined).map((x) => x.id), ['bonds', 'bands', 'enemies'], '盟约 keeps three tabs');
+  let items;
+  try { items = JSON.parse(read('data/seasons/act3autochess/items.json')); } catch { return; }
+  const list = Object.values(items);
+  const groups = equipReportGroups(items);
+  assert.deepEqual(groups.map((g) => g.tier), [1, 2, 3, 4, 5, 6]);
+  const shown = groups.flatMap((g) => g.items.map((r) => r.item.id));
+  const base = list.filter((it) => it.itemType === 'EQUIP' && !it.isGolden && it.tier >= 1 && it.tier <= 6).map((it) => it.id);
+  assert.deepEqual([...shown].sort(), [...base].sort(), 'every base equipment, once; no golden one, no consumable');
+  for (const g of groups) {
+    const ids = g.items.map((r) => r.item.shopSortId ?? 1e9);
+    assert.deepEqual(ids, [...ids].sort((a, b) => a - b), `tier ${g.tier} in shopSortId order`);
+    for (const r of g.items) {
+      if (r.item.goldenId && r.item.goldenId !== r.item.id && items[r.item.goldenId]) assert.equal(r.golden?.id, r.item.goldenId, `${r.item.id}: its 进阶效果`);
+    }
+  }
+  const css = read('public/css/screens/sweep.css');
+  // the icon fits inside its tile (maintainer's note on the mockup): a definite flex box — in a grid cell the image's
+  // 100 % height fell back to auto and a tall icon overflowed (measured in Windows Chrome, 2026-11-15)
+  assert.match(css, /\.sw-item \{[^}]*position: absolute; inset: [^;]+;[^}]*display: flex/, 'docs/rules/ui.md 「upstream v0.4.0 규정 화면 작은 것들」: the item box is absolute + flex');
+  assert.match(css, /\.sw-item img \{[^}]*height: 100%; object-fit: contain/);
+});

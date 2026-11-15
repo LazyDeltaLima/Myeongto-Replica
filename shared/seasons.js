@@ -54,6 +54,9 @@ export const SEASON_FEATURES = Object.freeze({
    * fxgame.js bountyMark: map_067_reward_01, a CN-only prefab — the 盟约 client has none; docs/rules/fx.md 「규정 수배 적
    * 머리 위 표식」). */
   bountyMark: false,
+  /** The S.W.E.E.P. report's fourth tab 装备报告 (screens/sweep.js EquipTab): the season's official report has it (upstream
+   * 377fb09c, BV11NW869ELq part 1 ≈ 33:20); the 盟约 report has three tabs. */
+  equipReport: false,
 });
 
 /**
@@ -81,7 +84,7 @@ export const SEASONS = {
   // 卫戍协议：规程 (CN from 2026-11-08): built from its own tables (tools/build-data.mjs --season act3autochess); public
   // from 2.0.0
   act3autochess: Object.freeze({ id: 'act3autochess', public: true, name: N_('规程'), mark: 'REGULATION',
-    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true, benchInBattle: true, stagePreview: true, bossLayerGains: true, coreBondBan: true, bountyMark: true }) }),
+    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true, benchInBattle: true, stagePreview: true, bossLayerGains: true, coreBondBan: true, bountyMark: true, equipReport: true }) }),
 };
 
 /**

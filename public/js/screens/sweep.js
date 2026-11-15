@@ -1,7 +1,7 @@
 // S.W.E.E.P.报告: the event's report screen, after upstream 0.3.3 (laid out there after the event video 2:17 – 3:03;
 // the name and the three tab names are the video's, the KR client's are not known), in this fork's dark tone (maintainer
 // decision 2026-11-07), opened from the lobby hub's S.W.E.E.P. plate. Read-only: it shows the data of the season on
-// screen (data.js setSeason) and changes nothing. Three tabs —
+// screen (data.js setSeason) and changes nothing. Three tabs, and a fourth in a season with `equipReport` (规程) —
 //   盟约报告 — 核心盟约 / 附加盟约 tiles (bonds.json isCore), each glyph on the handbook's white disc (ui/handbook
 //              img_bond_item_bkg, the official handbook's bond item); the left panel: the disc, the name, 激活所需人数 and the
 //              thresholds, the description, 对应干员 (visibleMembers by tier; 替补 on an operator marked 未持有 in 干员持有);
@@ -15,12 +15,18 @@
 // codex first, then the report; the focus returns to the lobby's button). The tab is remembered (sp.pref).
 // The upstream drawing is its own: the backdrop, the section heads and the tiles are CSS, no official prefab of the
 // report (ActAutoChessHandbook*) was read for it. Styles: css/screens/sweep.css (sw-*).
+//   装备报告 — 规程 only (shared/seasons.js equipReport; maintainer decision 2026-11-15, after upstream 377fb09c / 2f07ea84 and
+//              the official report, BV11NW869ELq part 1 ≈ 33:20): the base (non-golden) equipment of items.json by tier
+//              1–6, shopSortId within a tier (shop-excluded pieces stay: the official tier-4 row has one the shop never
+//              sells); the left: the icon with its tier chip, the name, 基础效果, 进阶效果 (the goldenId record's text, no
+//              block without one) and the flavor line. The icons fit inside their tiles (contain, maintainer's note on the
+//              mockup).
 
 import { useMemo, useState } from '../../vendor/hooks.module.js';
-import { html, Icon, Modal, roman } from '../ui/components.js';
+import { html, Icon, Modal, TierChip, roman } from '../ui/components.js';
 import { Img, RichText, GIcon } from '../ui/gameComponents.js';
 import { natSizeVars } from '../ui/components.js';
-import { bondIconUrl, bandIconUrl, enemyIconUrl, factionIconUrl, chessAvatarUrl } from '../ui/assetUrls.js';
+import { bondIconUrl, bandIconUrl, enemyIconUrl, factionIconUrl, chessAvatarUrl, itemIconUrl } from '../ui/assetUrls.js';
 import { fmtNum } from '../ui/gameLogic.js';
 import { abilityRows } from '../ui/abilityLines.js';
 import { data, useData, localAsset } from '../data.js';
@@ -28,6 +34,7 @@ import { useStore, loadPref, savePref } from '../store.js';
 import { loadoutStore } from '../ui/loadoutSync.js';
 import { openGuide, guidePages } from '../ui/guide.js';
 import { t, N_ } from '../../../shared/i18n.js';
+import { seasonFeature } from '../../../shared/seasons.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const TAB_PREF = 'sweep.tab';
@@ -36,6 +43,35 @@ const TABS = [
   { id: 'bands', name: N_('策略报告'), icon: () => html`<${Icon} name="rook" />` },
   { id: 'enemies', name: N_('敌方资料'), icon: () => html`<${GIcon} name="target" />` },
 ];
+/** 装备报告, the fourth tab of a season with `equipReport` (规程). */
+const EQUIP_TAB = { id: 'equip', name: N_('装备报告'), icon: () => html`<${Icon} name="shield" />` };
+const EQUIP_TIERS = [1, 2, 3, 4, 5, 6];
+
+/** The tabs the season on screen has (data.js season). */
+export const reportTabs = (season) => (seasonFeature(season, 'equipReport') ? [...TABS, EQUIP_TAB] : TABS);
+
+/**
+ * The 装备报告's rows: the base (non-golden) EQUIP of items.json, tiers 1–6 in order, `shopSortId` within a tier (then
+ * id); shop-excluded pieces stay. `golden` is the `goldenId` record when it exists and is not the item itself (no
+ * 进阶效果 block without it).
+ * @param {Record<string, any> | any[] | null | undefined} items
+ * @returns {{ tier: number, items: { item: any, golden: any | null }[] }[]}
+ */
+export function equipReportGroups(items) {
+  const list = (Array.isArray(items) ? items : items && typeof items === 'object' ? Object.values(items) : []).filter((it) => it && typeof it === 'object');
+  const byId = new Map(list.filter((it) => typeof it.id === 'string').map((it) => [it.id, it]));
+  const sortId = (it) => (Number.isFinite(it.shopSortId) ? it.shopSortId : 1e9);
+  const base = list.filter((it) => it.itemType === 'EQUIP' && it.isGolden !== true && typeof it.id === 'string' && EQUIP_TIERS.includes(it.tier))
+    .sort((a, b) => a.tier - b.tier || sortId(a) - sortId(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return EQUIP_TIERS.map((tier) => ({
+    tier,
+    items: base.filter((it) => it.tier === tier).map((item) => {
+      const gid = item.goldenId;
+      return { item, golden: typeof gid === 'string' && gid && gid !== item.id ? byId.get(gid) || null : null };
+    }),
+  })).filter((g) => g.items.length);
+}
+
 const MODE_NAME = { SINGLE: N_('独立模拟'), MULTI: N_('同盟模拟') };
 const RANK = { NORMAL: N_('普通'), ELITE: N_('精英'), BOSS: N_('领袖') };
 const APPLY = { MELEE: N_('近战'), RANGED: N_('远程'), ALL: N_('近战 / 远程'), NONE: N_('不攻击') };
@@ -94,10 +130,10 @@ export function bossEnemyKeys(boss) {
 // ---- small pieces ------------------------------------------------------------------------------------------------------
 
 /** The big square at the top of the left panel (bracket corners, a ring behind a glyph or the art). */
-function Hero({ src, glyph = false, art = false, name, sub = null, fallback, mark = null }) {
+function Hero({ src, glyph = false, art = false, item = false, name, sub = null, fallback, mark = null, badge = null }) {
   return html`<div class="sw-hero">
-    <span class=${cx('sw-hero__box', glyph && 'is-glyph', art && 'is-art', mark && 'is-mark')}>
-      <i class="sw-hero__c sw-hero__c--tl"></i><i class="sw-hero__c sw-hero__c--br"></i>
+    <span class=${cx('sw-hero__box', glyph && 'is-glyph', art && 'is-art', item && 'is-item', mark && 'is-mark')}>
+      <i class="sw-hero__c sw-hero__c--tl"></i><i class="sw-hero__c sw-hero__c--br"></i>${badge}
       ${mark || html`<span class="sw-hero__img"><${Img} src=${src} fallback=${fallback} /></span>`}
     </span>
     <h3 class="sw-hero__name">${name}</h3>
@@ -223,6 +259,34 @@ function BandsTab({ m, sel, onSel }) {
       <span class="sw-tile__hp num" title=${t('初始生命值')}>${b.totalHp}</span>
     <//>`)}
   <//>`;
+}
+
+// ---- 装备报告 (规程) ---------------------------------------------------------------------------------------------------
+
+function EquipPanel({ row, m }) {
+  const { item, golden } = row;
+  const flavor = typeof item.flavor === 'string' ? item.flavor.trim() : '';
+  return html`<div class="sw-detail">
+    <${Hero} src=${itemIconUrl(m, item)} name=${item.name} item=${true}
+      badge=${html`<${TierChip} tier=${item.tier} size="md" class="sw-hero__tier" />`}
+      fallback=${html`<span class="sw-hero__txt">${[...(item.name || '?')][0]}</span>`} />
+    <div class="sw-text">
+      <h4 class="sw-fx">${t('基础效果')}</h4>
+      <${RichText} as="p" text=${item.descRaw || item.desc || ''} />
+      ${golden ? html`<h4 class="sw-fx sw-fx--gold">${t('进阶效果')}</h4>
+        <${RichText} as="p" text=${golden.descRaw || golden.desc || ''} />` : null}
+      ${flavor ? html`<p class="sw-flavor">${flavor}</p>` : null}
+    </div>
+  </div>`;
+}
+
+function EquipTab({ m, groups, sel, onSel }) {
+  return groups.map((g) => html`<${Section} key=${g.tier} name=${t('{tier}阶', { tier: g.tier })} count=${g.items.length}
+      glyph=${html`<${TierChip} tier=${g.tier} size="sm" />`}>
+    ${g.items.map(({ item }) => html`<${Tile} key=${item.id} kind="item" on=${sel === item.id} onClick=${() => onSel(item.id)} title=${item.name}>
+      <span class="sw-item"><${Img} src=${itemIconUrl(m, item)} fallback=${html`<span class="sw-item__txt">${[...(item.name || '?')][0]}</span>`} /></span>
+    <//>`)}
+  <//>`);
 }
 
 // ---- 敌方资料 ----------------------------------------------------------------------------------------------------------
@@ -416,8 +480,13 @@ export function SweepReport({ onClose }) {
   useData('local');
   const m = data.get('assets');
   const notOwned = useStore((s) => s.notOwned, Object.is, loadoutStore);
-  const [tab, setTabState] = useState(() => { const v = loadPref(TAB_PREF, 'bonds'); return TABS.some((x) => x.id === v) ? v : 'bonds'; });
+  const itemsReady = useData('items');
+  // the season's tabs: a remembered 装备报告 falls back to 盟约报告 in a season without it (and comes back with 规程)
+  const tabs = reportTabs(data.season());
+  const [tabPref, setTabState] = useState(() => { const v = loadPref(TAB_PREF, 'bonds'); return [...TABS, EQUIP_TAB].some((x) => x.id === v) ? v : 'bonds'; });
+  const tab = tabs.some((x) => x.id === tabPref) ? tabPref : 'bonds';
   const setTab = (v) => { setTabState(v); savePref(TAB_PREF, v); };
+  const [itemSel, setItemSel] = useState(null);
   const [bondSel, setBondSel] = useState(null);
   const [bandSel, setBandSel] = useState(null);
   const [enemySel, setEnemySel] = useState(null);
@@ -441,6 +510,12 @@ export function SweepReport({ onClose }) {
   } else if (tab === 'bands') {
     left = band ? html`<${BandPanel} key=${band.bandId} band=${band} m=${m} />` : null;
     right = html`<${BandsTab} m=${m} sel=${band?.bandId} onSel=${setBandSel} />`;
+  } else if (tab === 'equip') {
+    const groups = itemsReady ? equipReportGroups(data.list('items')) : [];
+    const rows = groups.flatMap((g) => g.items);
+    const row = rows.find((r) => r.item.id === itemSel) || rows[0] || null;
+    left = row ? html`<${EquipPanel} key=${row.item.id} row=${row} m=${m} />` : null;
+    right = itemsReady ? html`<${EquipTab} m=${m} groups=${groups} sel=${row?.item.id} onSel=${setItemSel} />` : html`<p class="sw-loading">${t('正在读取报告…')}</p>`;
   } else {
     left = eSel ? html`<${EnemyPanel} key=${`${eSel.kind}:${eSel.id}`} sel=${eSel} m=${m} onCodex=${setCodex} />` : null;
     right = html`<${EnemiesTab} m=${m} sel=${eSel || {}} onSel=${setEnemySel} onCodex=${setCodex} />`;
@@ -458,7 +533,7 @@ export function SweepReport({ onClose }) {
         <button type="button" class="sw-info" onClick=${() => openGuide(handbookPage())} aria-label=${t('进阶图鉴')} title=${t('进阶图鉴：敌人类型、盟约、策略与轮选')}><${Icon} name="info" /></button>
       </div>
       <nav class="sw-tabs" role="tablist" aria-label=${t('S.W.E.E.P.报告')}>
-        ${TABS.map((x) => html`<button key=${x.id} type="button" role="tab" aria-selected=${tab === x.id ? 'true' : 'false'} class=${cx('sw-tab', tab === x.id && 'is-on')}
+        ${tabs.map((x) => html`<button key=${x.id} type="button" role="tab" aria-selected=${tab === x.id ? 'true' : 'false'} class=${cx('sw-tab', tab === x.id && 'is-on')}
           onClick=${() => setTab(x.id)}><span class="sw-tab__icon">${x.icon()}</span><span>${t(x.name)}</span></button>`)}
       </nav>
     </header>

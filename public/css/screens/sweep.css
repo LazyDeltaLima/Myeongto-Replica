@@ -249,6 +249,22 @@ button.sw-eth:hover { border-color: #fff; }
 .sw-cd__types { display: flex; flex-wrap: wrap; gap: .08rem; margin: 0; }
 .sw-cd__h { margin: .04rem 0 0; padding: .06rem .14rem; font-size: max(calc(.2 * var(--t)), 12px); font-weight: 800; background: rgba(255, 255, 255, .08); }
 .sw-cd__abil { margin: 0; padding: 0 .1rem 0 .3rem; display: flex; flex-direction: column; gap: .05rem; font-size: max(calc(.18 * var(--t)), 12px); line-height: 1.5; color: #e4e9e7; }
+/* 装备报告 (规程, sweep.js EquipTab / EquipPanel): the icon contained in a fixed box inside the tile (no part cut off by
+   the tile — maintainer's note on the mockup 2026-11-15), the tier chip at the hero's corner, 基础效果 / 进阶效果 chips */
+/* an absolute box (inset) with a definite height, and a flex (not grid) box, so the image's 100 % height resolves — in a
+   grid cell (an auto row) it fell back to auto and a tall icon overflowed the tile */
+.sw-item { position: absolute; inset: 11%; display: flex; align-items: center; justify-content: center; }
+.sw-item img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.sw-item__txt, .sw-hero__txt { font-size: .3rem; font-weight: 700; color: rgba(255, 255, 255, .7); }
+.sw-hero__box.is-item { width: max(2.1rem, 32px, calc(96px * var(--sp-ui, 1))); }
+.sw-hero__box.is-item .sw-hero__img { display: flex; align-items: center; justify-content: center; width: 80%; height: 80%; border-radius: 0; background: none; box-shadow: none; }
+.sw-hero__box.is-item .sw-hero__img img { width: 100%; height: 100%; object-fit: contain; filter: none; }
+.sw-hero__tier { position: absolute; left: .06rem; top: .06rem; z-index: 2; }
+.sw-sec__glyph .tier { vertical-align: middle; }
+.sw-fx { display: inline-block; margin: .1rem 0 .05rem; padding: .02rem .1rem; font-size: max(calc(.15 * var(--t)), 11px); font-weight: 700; line-height: 1.4; color: #04140f; background: var(--mint-500); }
+.sw-fx:first-child { margin-top: 0; }
+.sw-fx--gold { background: linear-gradient(90deg, #f6d36a, #e2a93a); }
+.sw-flavor { margin-top: .14rem !important; font-style: italic; color: rgba(225, 240, 236, .55); }
 @media (max-height: 520px) {
   .sw-top, .sw-codex__top { height: 44px; }
   .sw-body { gap: .3rem; padding-bottom: .16rem; }
