@@ -81,7 +81,8 @@ new one after a model update, or the old one a rule keeps — with its sha256 an
   name a file that never changes;
 - keeps a pinned file on disk only when the ledger says it came from that commit and its sha256 is the pin's; a pinned
   atlas (rewritten by the pipeline, so its bytes cannot be compared) only while every pinned file of its folder is its
-  pinned version;
+  pinned version; a file it replaces this way is named in the summary (`replaced by the pinned version`), so a version
+  put on disk by hand is not lost without a word;
 - refuses bytes a commit serves with another sha256 (an error, nothing written).
 
 The table is written by `tools/check-asset-sources.mjs`, never by hand. Without arguments it fetches every ledger file

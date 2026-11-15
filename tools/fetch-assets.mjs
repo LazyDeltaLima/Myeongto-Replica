@@ -584,6 +584,13 @@ async function main() {
     const unplanned = pinned.filter((r) => !resolved.files.has(r));
     log(`pinned files        : ${pinned.length} (${PINS_FILE}), ${dl.totals.repinned} downloaded at their commit this run` +
       `${unplanned.length ? `; not in the manifest: ${unplanned.slice(0, 5).join(', ')}${unplanned.length > 5 ? ', …' : ''}` : ''}`);
+    // a file on disk that was another version went back to its pin: say so by name, so a version someone put there on
+    // purpose is not lost without a word
+    const replaced = [...dl.replacedByPin].sort();
+    if (replaced.length) {
+      log(`replaced by the pinned version (${replaced.length}): ${replaced.slice(0, 10).join(', ')}${replaced.length > 10 ? ', …' : ''}`);
+      log(`  to use another version: node tools/check-asset-sources.mjs --take-new <path> (every season), or a season's override folder for one season; never edit ${PINS_FILE} or the file by hand (docs/ASSETS.md "Pinned upstream files")`);
+    }
   }
   if (dl.totals.adopted || dl.totals.unmatched) {
     log(`ledger              : ${dl.totals.adopted} kept files matched their source (now offered from jsDelivr / GitHub), ${dl.totals.unmatched} did not (served by this server)`);

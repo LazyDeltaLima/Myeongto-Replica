@@ -59,6 +59,7 @@ test('a pinned file downloaded from the branch is fetched again at its commit, e
   assert.equal(dl.ledger.files['x/a.json'].url, PIN_URL, 'the ledger (the browser list `u`) names the commit');
   assert.ok(!calls.includes(BRANCH_URL), 'the branch is never asked');
   assert.deepEqual(job.urls, [PIN_URL], 'the plan leaf carries the pinned URL (no false fallback report)');
+  assert.deepEqual(dl.replacedByPin, ['x/a.json'], 'a version on disk that the pin replaced is named (fetch-assets prints it)');
   // the right version is kept
   assert.equal((await dl.run([job])).get(job.rel).status, 'skip');
   // another version under the pinned ledger entry (a copy of an older tree) is replaced
@@ -76,6 +77,7 @@ test('a commit serving other bytes than the pin is an error and writes nothing',
   assert.equal(r.status, 'error');
   assert.match(r.error, /other bytes/);
   await assert.rejects(readFile(join(dir, 'x/a.json')));
+  assert.deepEqual(dl.replacedByPin, [], 'a fresh download replaces nothing');
 });
 
 test('a pinned atlas is kept only while the pinned pages of its folder are their version', async (t) => {

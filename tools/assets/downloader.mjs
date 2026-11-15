@@ -72,6 +72,8 @@ export class Downloader {
     this.adopt = !!adopt && !this.keepExisting;
     /** @type {Set<string>} the files (paths under root) this run wrote */
     this.written = new Set();
+    /** @type {string[]} pinned files that were on disk as another version and were replaced by their pinned one */
+    this.replacedByPin = [];
     this.log = log;
     this.fetch = fetchImpl;
     this.network = mirrorPolicy ?? new MirrorPolicy({ source, proxyPrefix, log });
@@ -199,6 +201,7 @@ export class Downloader {
     const pin = this.pins[job.rel];
     if (pin) job.urls = [pin.url]; // the job object is the plan's leaf alternative: resolveTemplate sees the pinned URL
     const kept = await this.existingSize(job);
+    const had = !!pin && !this.force && await stat(join(this.root, job.rel)).then((st) => st.isFile() && st.size > 0, () => false);
     if (kept >= 0) {
       if (this.adopt && !job.mutable && !this.ledger.files[job.rel]) await this.adoptExisting(job, kept);
       return { status: 'skip', bytes: kept };
@@ -226,6 +229,7 @@ export class Downloader {
         this.dirty++;
         const sizeChanged = !!(job.bytes && job.bytes !== r.buf.length && !job.mutable);
         if (pin) this.totals.repinned++;
+        if (had) this.replacedByPin.push(job.rel);
         return { status: 'ok', bytes: r.buf.length, url: src, sizeChanged };
       }
     }
