@@ -396,3 +396,20 @@ describe('draft art: the official sprites per part', () => {
     assert.equal(await cutSkipArrow('/assets/ui/bandChoose/btn_skip.png'), null);
   });
 });
+
+// ---- 规程's strategy sections (泛用型策略 / 盟约型策略; docs/rules/ui.md 「upstream v0.4.0 규정 화면 작은 것들」) ----------------
+
+test('规程 draft sections: every bandType has a header, each type is one run in sortId order (one header each); 盟约 has none', async () => {
+  const { BAND_SECTIONS } = await import('../../public/js/screens/bandDraft.js');
+  const { readFileSync, existsSync } = await import('node:fs');
+  const file = new URL('../../data/seasons/act3autochess/bands.json', import.meta.url);
+  if (!existsSync(file)) return;
+  const bands = Object.values(JSON.parse(readFileSync(file, 'utf8')));
+  for (const s of ['MULTI', 'SINGLE']) {
+    const shown = allowedBands(bands, s);
+    const runs = shown.map((b) => b.bandType).filter((t, i, a) => t !== a[i - 1]);
+    assert.deepEqual(runs, ['GENERAL', 'BONDRELEVANT'], `${s}: one run per type — a header for each, GENERAL first`);
+    for (const b of shown) assert.ok(BAND_SECTIONS[b.bandType], `${b.bandId}: bandType ${b.bandType} has a header`);
+  }
+  assert.ok(Object.values(DATA.bands).every((b) => b.bandType == null), '盟约 strategies have no bandType, so no header');
+});

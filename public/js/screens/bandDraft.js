@@ -68,7 +68,7 @@ import { PHASE } from '../../../shared/constants.js';
 import { data, localAsset } from '../data.js';
 import { audio } from '../audio.js';
 import { modeOffBonds, bandOffBonds, bandOffLine } from '../ui/gameLogic.js';
-import { t, tParts, tName } from '../../../shared/i18n.js';
+import { t, tParts, tName, N_ } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 import { applyPresetChoice } from '../ui/factionPick.js';
 
@@ -168,6 +168,16 @@ function useSkipArrow() {
   }, [src]);
   return src ? url : null;
 }
+
+/**
+ * 规程's strategy sections (activity_table bandDataListDict `bandType`, bands.json) in the draft grid, with the official
+ * captions: 泛用型策略 (GENERAL) and 盟约型策略 (BONDRELEVANT, sorted after them by sortId) — official draft recordings
+ * (upstream 042f47d3 / 7a52854a: BV11NW869ELq part 4 0:28, BV13LWM6BEvY match 1 1:36). A season without bandType has none.
+ */
+export const BAND_SECTIONS = Object.freeze({
+  GENERAL: Object.freeze({ id: 'general', name: N_('泛用型策略'), icon: 'crown' }),
+  BONDRELEVANT: Object.freeze({ id: 'bond', name: N_('盟约型策略'), icon: 'link' }),
+});
 
 /** 本局禁用 on a strategy card whose bonds `names` the mode switches off (bandOffBonds); nothing otherwise. */
 export function BandOffTag({ names = [] }) {
@@ -753,13 +763,17 @@ export function BandDraftScreen() {
       </aside>
 
       <section class="draft-grid" role="listbox" aria-label=${t('策略')}>
-        ${bands.map((b, i) => {
+        ${bands.flatMap((b, i) => {
+          // a section header where the strategy type changes (BAND_SECTIONS)
+          const sec = BAND_SECTIONS[b.bandType];
+          const head = sec && bands[i - 1]?.bandType !== b.bandType
+            ? [html`<div key=${`sec-${b.bandType}`} class="draft-grid__sec" role="presentation" data-testid=${`band-section-${sec.id}`}><${Icon} name=${sec.icon} /><span>${t(sec.name)}</span></div>`] : [];
           const who = pickers.get(b.bandId) || [];
           const isTaken = taken.has(b.bandId);
           const offNames = bandOffBonds(b, offBonds).map((id) => gd.bond(id)?.name || id); // 本局禁用 (still selectable)
           const on = sel === b.bandId;
           const link = chatFaction(links?.[b.bandId]);
-          return html`<button key=${b.bandId} type="button" role="option" aria-selected=${on ? 'true' : 'false'} data-band=${b.bandId}
+          return [...head, html`<button key=${b.bandId} type="button" role="option" aria-selected=${on ? 'true' : 'false'} data-band=${b.bandId}
               aria-disabled=${isTaken ? 'true' : 'false'} title=${isTaken ? t('队友已选') : offNames.length ? bandOffLine(offNames) : b.name}
               class=${cx('dband', on && 'is-sel', myPick === b.bandId && 'is-mine', isTaken && 'is-taken', offNames.length && 'is-off')} style=${`--n:${Math.min(i, 15)}`}
               onClick=${() => { setSel(b.bandId); audio.sfx('tab', { volume: 0.5 }); }}>
@@ -771,7 +785,7 @@ export function BandDraftScreen() {
             ${who.length ? html`<span class="dband__who">${who.slice(0, 4).map((p) => html`<${PlayerAvatar} key=${p.playerId} player=${p} size="sm" />`)}</span>` : null}
             ${isTaken ? html`<span class="dband__taken">${t('队友已选')}</span>` : null}
             ${on ? html`<span class="dband__selmark" aria-hidden="true">SELECTED</span>` : null}
-          </button>`;
+          </button>`];
         })}
       </section>
 

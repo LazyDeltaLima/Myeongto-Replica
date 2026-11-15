@@ -101,6 +101,19 @@
   padding: .24rem .3rem .4rem; background: linear-gradient(180deg, rgba(18, 22, 22, .6), rgba(10, 12, 12, .3)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
   scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .3) transparent;
 }
+/* 规程's section headers (泛用型策略 / 盟约型策略, bandDraft.js BAND_SECTIONS): the icon in a small box, then the caption in
+   brackets across the four columns, as the official draft (maintainer's pick of the mockups 2026-11-15) */
+.draft-grid__sec { grid-column: 1 / -1; display: flex; align-items: center; gap: .1rem; margin-top: .06rem; padding: .03rem .04rem;
+  font-size: .17rem; font-weight: 700; color: rgba(225, 240, 236, .92); white-space: nowrap;
+  background: linear-gradient(90deg, rgba(255, 255, 255, .07), transparent 75%); }
+.draft-grid__sec:first-child { margin-top: 0; }
+.draft-grid__sec .icon { box-sizing: content-box; width: .15rem; height: .15rem; padding: .04rem; flex: none;
+  color: rgba(225, 240, 236, .92); background: rgba(255, 255, 255, .12); border-radius: .03rem; }
+.draft-grid__sec span { position: relative; padding: 0 .1rem; }
+.draft-grid__sec span::before, .draft-grid__sec span::after { content: ''; position: absolute; top: -.02rem; bottom: -.02rem; width: .05rem;
+  border: .02rem solid rgba(225, 240, 236, .7); }
+.draft-grid__sec span::before { left: 0; border-right: 0; }
+.draft-grid__sec span::after { right: 0; border-left: 0; }
 .dband {
   position: relative; aspect-ratio: 1; padding: 0; border: 0; font: inherit; color: var(--text-md); background: #0e1212;
   box-shadow: 0 0 0 .03rem #30373a, inset 0 0 0 .02rem #000; transition: box-shadow var(--t-fast), transform var(--t-fast), filter var(--t-fast);
