@@ -138,6 +138,42 @@ test('灵知 garrison_55: 获得时, the next manual refresh (paid) shows at lea
   }
 });
 
+test('伊桑 garrison_200: 绝技 (no member operator) is no candidate — elites making it the biggest count still give an operator of a member bond (upstream 7f698e80, PR #931)', () => {
+  assert.equal(ACT3.bonds.suntShip.members.length, 0, '绝技 has no member');
+  let seeds = 0;
+  for (let seed = 1; seed <= 30 && seeds < 6; seed++) {
+    const { m, ps } = setup({ seed });
+    ps.shop.level = 6;
+    const off = new Set(m.disabledBonds);
+    // two elites of bonds disjoint from each other and from 伊桑's: each member bond counts 1, 绝技 counts the elites
+    const used = new Set(ACT3.chess.chess_char_3_18_b.bonds);
+    const elites = [];
+    for (const c of Object.values(ACT3.chess)) {
+      if (elites.length === 2) break;
+      if (!c.isGolden || !c.visible || c.isDiy || !c.bonds.length || c.bonds.some((b) => used.has(b) || off.has(b) || b === 'suntShip')) continue;
+      if (m.pool.left(m.gd.baseIdOf(c.chessId)) <= 0) continue;
+      elites.push(c.chessId);
+      c.bonds.forEach((b) => used.add(b));
+    }
+    if (elites.length < 2 || ACT3.chess.chess_char_3_18_b.bonds.some((b) => off.has(b))) continue;
+    seeds++;
+    const ethan = place(m, ps, 'chess_char_3_18_b');
+    for (const id of elites) place(m, ps, id);
+    ps.recompute();
+    const member = (b) => ACT3.bonds[b]?.members?.length > 0;
+    const got = [];
+    const orig = ps.acquireChess.bind(ps);
+    ps.acquireChess = (cid, o) => { got.push(cid); return orig(cid, o); };
+    assert.equal(ps.sell(ethan.uid).ok, true);
+    ps.acquireChess = orig;
+    assert.equal(got.length, 1, `seed ${seed}: one operator (${got}) — 绝技 must not be the most-member bond`);
+    // the tie of the member bonds at 1 (the placed elites', and 伊桑's own while his sale is handled) picks one
+    assert.ok(ACT3.chess[got[0]].bonds.some(member), `${got[0]} is of a member bond`);
+    noViolations(m);
+  }
+  assert.ok(seeds >= 3, `${seeds} seeds`);
+});
+
 test('伊桑 garrison_200: 售出时 an operator of the most-member bond, of a tier ≤ the 调度中心 level, never 伊桑 himself', () => {
   // 奥术 (arcaneShip): 卡达 Ⅰ, Miss.Christine Ⅱ, 伊桑 Ⅲ, 维伊 Ⅳ, 溯光星源 Ⅴ — 伊桑 and 维伊 on the board leave 奥术 the
   // most-member bond after he is sold (CN play report: an elite 6-tier operator came at a low level)

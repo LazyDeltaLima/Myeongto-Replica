@@ -43,6 +43,10 @@ H.SERVER_MOST_BOND = {
     const notSelf = selfChar ? (x) => ctx.chessRecord(x)?.charId !== selfChar : undefined;
     let best = [], bc = 0;
     for (const id of bondOrder(ctx)) {
+      // a bond with no member operator (绝技 suntShip counts every operator on the board) has no one to give: it is not
+      // a candidate, so a 绝技 count above the others does not leave the trait empty (upstream 7f698e80, PR #931 —
+      // official sale captures with 3 elites and 2 助力 members give a 助力 operator)
+      if (!(ctx.gd.bond(id)?.members?.length > 0)) continue;
       const c = ctx.bondCount(id);
       if (c > bc) { bc = c; best = [id]; } else if (c === bc && c > 0) best.push(id);
     }
