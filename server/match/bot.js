@@ -82,6 +82,7 @@ import { freeSlot, countFree, legalTiles, canPlace, positionClass, placeClass, b
 import { rotateOffset, normDir, mirrorDir, oppositeDir } from '../sim/dir.js';
 import { itemKey } from './gamedata.js';
 import { canonicalBuffKey } from '../sim/content/items/aliases.js';
+import { seasonFeature } from '../../shared/seasons.js';
 import { computeBonds } from './bondsMeta.js';
 import { isFlyKey } from './waves.js';
 import { mitigate } from '../sim/damage.js';
@@ -137,7 +138,8 @@ const DEFAULT_MELEE_RANGE = [[0, 0], [0, 1]];
  * Band pick among the strategies the mode offers (gd.bandIds): weighted by starting LP (sturdier strategies are
  * preferred). Alone, a band that withholds the first rounds' funds (老鲤 "资金暂存": no operator in R1–R2, every enemy
  * leaks) is avoided — only 联防 teammates cover that. A band whose mechanic rides on a bond the mode switches off
- * (gd.bandBondIds ∩ gd.modeInactiveBonds — 标准: 潘格尼尼 <拉特兰>, 克莱门莎 <阿戈尔>, 玛恩纳 <卡西米尔>) weighs 0, never taken
+ * (gd.bandBondIds ∩ gd.modeInactiveBonds — 标准: 潘格尼尼 <拉特兰>, 克莱门莎 <阿戈尔>, 玛恩纳 <卡西米尔>; in 规程 also a core
+ * bond the match drew off — bondOff) weighs 0, never taken
  * (DESIGN §21.26); with every band excluded, the default band. One rng draw per call (deterministic per seed); modes
  * without inactive bonds keep exactly the earlier picks.
  */
@@ -149,7 +151,7 @@ export function botPickBand(m, ps) {
   const reserved = new Set(ps && typeof m.alivePlayers === 'function'
     ? m.alivePlayers().filter((p) => p !== ps).flatMap((p) => gd.bandBondIds(p.bandId))
     : []);
-  const offBond = (id) => gd.bandBondIds(id).some((b) => gd.modeInactiveBonds.has(b) || reserved.has(b));
+  const offBond = (id) => gd.bandBondIds(id).some((b) => bondOff(m, b, gd) || reserved.has(b));
   const pairs = ids.map((id) => [id, offBond(id) ? 0 : Math.max(1, (gd.startLp(id) - 18) ** 2) * (m.isSolo && lateFunds(id) ? 0.02 : 1)]);
   let total = 0;
   for (const [, w] of pairs) total += w;
@@ -288,6 +290,13 @@ function tacticScore(m, ps, card) {
 
 // a player's record of a chess id (its data view: a human's slotted 自选 slots are its operators, 0.2.0 player/diy.js)
 const chessRec = (m, id, ps = null) => (ps?.gd || m.gd).chess(id);
+/**
+ * Is bond `id` off this match for the AI seats' plans: the mode switches it off (gd.modeInactiveBonds), or — in a season
+ * that bans the operators of a drawn core bond (shared/seasons.js coreBondBan: 规程) — the match drew it off
+ * (m.disabledBonds), so no strategy, focus or score builds on a bond whose operators the shop never offers.
+ */
+const bondOff = (m, id, gd = m.gd) => gd.modeInactiveBonds.has(id)
+  || (seasonFeature(m.season, 'coreBondBan') && Array.isArray(m.disabledBonds) && m.disabledBonds.includes(id));
 const isHealer = (c) => !!c && (c.dmgType === 'heal' || c.attackKind === 'heal');
 // the record's own position: a 钩索师 / 推击手 is a MELEE blocker like any other (a 高台 does not block)
 const isBlocker = (c) => !!c && basePositionClass(c) === 'melee' && (c.stats?.blockCnt ?? 1) > 0 && c.attackKind !== 'none';
@@ -372,7 +381,7 @@ export function bondPlan(m, ps, owned = ownedBonds(m, ps)) {
   const pool = bondPoolStats(m, ps, owned);
   for (const id of m.gd.bondIds) {
     const b = m.gd.bond(id);
-    if (!b || !b.isCore || m.gd.modeInactiveBonds.has(id)) continue;
+    if (!b || !b.isCore || bondOff(m, id)) continue;
     const k = owned.counts.get(id) || 0;
     if (!k) continue;
     const s = k * 10 + Math.min(4, pool.reach.get(id) || 0) + Math.min(6, (ps.layers[id] || 0) / 10)
@@ -382,7 +391,7 @@ export function bondPlan(m, ps, owned = ownedBonds(m, ps)) {
   let second = null;
   let bestK = 0;
   for (const id of m.gd.bondIds) {
-    if (id === focus || m.gd.modeInactiveBonds.has(id)) continue;
+    if (id === focus || bondOff(m, id)) continue;
     const b = m.gd.bond(id);
     if (!b || b.thresholdTemplate === 'count_threshold_downward' || !Array.isArray(b.thresholds) || !b.thresholds.length) continue;
     const k = owned.counts.get(id) || 0;
@@ -440,7 +449,7 @@ function bondValue(m, c, owned, focus, second = null) {
   const committed = focus && (owned.counts.get(focus) || 0) >= 3;
   for (const b of (c && c.bonds) || []) {
     const bond = m.gd.bond(b);
-    if (!bond || m.gd.modeInactiveBonds.has(b)) continue;
+    if (!bond || bondOff(m, b)) continue;
     const n = owned.counts.get(b) || 0;
     const th = Array.isArray(bond.thresholds) && bond.thresholds.length ? bond.thresholds : [bond.activeCount || 2];
     const w = bond.isCore ? 1.4 : 1;
@@ -614,7 +623,7 @@ function buyScore(m, ps, id, ctx) {
   // Leave high-tier shared chess to living teammates whose opening strategy needs its faction.
   // Humans and bots count equally; a single soft penalty still allows valuable own merges.
   if (c.tier >= 5 && !c.isGolden && !c.diyFor && m.pool.has(base) && m.alivePlayers().some((mate) =>
-    mate !== ps && gd.bandBondIds(mate.bandId).some((b) => !gd.modeInactiveBonds.has(b) && c.bonds.includes(b)))) s -= 18;
+    mate !== ps && gd.bandBondIds(mate.bandId).some((b) => !bondOff(m, b, gd) && c.bonds.includes(b)))) s -= 18;
   return s;
 }
 
