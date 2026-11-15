@@ -248,8 +248,10 @@
   padding: 0 calc(16 * var(--u)); font: inherit; font-size: max(11px, calc(20 * var(--u))); font-weight: 700; white-space: nowrap; color: #fff;
   background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; }
 .rseat__menu-list { display: grid; gap: calc(14 * var(--u)); }
-/* both as wide as the wider one (the grid stretches them), the content from the left: icons and texts line up */
+/* both as wide as the wider one (the grid stretches them), the icons at the same place on the left, each text centred
+   in the room right of its icon (centred on the whole button the longer text would run into its icon) */
 .rseat__menu-list > .rseat__pick { width: auto; min-width: calc(165 * var(--u)); justify-content: flex-start; }
+.rseat__menu-list > .rseat__pick > span:last-child { flex: 1; text-align: center; }
 .rseat__pick:disabled { opacity: .45; cursor: default; }
 .rseat__pick:not(:disabled):hover, .rseat__pick:not(:disabled):focus-visible { border-color: #5df0c6; }
 .rseat__pick .icon, .rseat__pick .rseat__pick-ico { flex: none; width: 1.15em; height: .9em; object-fit: contain; }
