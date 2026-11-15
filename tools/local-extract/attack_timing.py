@@ -225,9 +225,12 @@ def modes_entry(tree):
 
 
 def mode_renamer(tree, p):
-    """The clip renames of mode GameObject `p`'s `_replaceAnimPairs` (维什戴尔 S2: Attack → Skill_2_Loop): ability fields → the same, `anim` renamed."""
+    """The clip renames of mode GameObject `p`'s `_replaceAnimPairs` (维什戴尔 S2: Attack → Skill_2_Loop): ability fields → the
+    same, `anim` renamed, and its alternate-swing key `turn` too (王 S2: Attack_A → Attack_2_A — left as it was, the skin's
+    key table turned it into the Default mode's Attack_1_A)."""
     rep = next((d.get('_replaceAnimPairs') for gp, d, _ in tree if gp == p and isinstance(d.get('_replaceAnimPairs'), list)), None)
-    return lambda ab: {**ab, 'anim': next((r['toAnimKey'] for r in rep or [] if isinstance(r, dict) and r.get('fromAnimKey') == ab['anim'] and r.get('toAnimKey')), ab['anim'])} if ab and ab.get('anim') else ab
+    ren = lambda k: next((r['toAnimKey'] for r in rep or [] if isinstance(r, dict) and r.get('fromAnimKey') == k and r.get('toAnimKey')), k)
+    return lambda ab: {**ab, 'anim': ren(ab['anim']), **({'turn': ren(ab['turn'])} if isinstance(ab.get('turn'), str) else {})} if ab and ab.get('anim') else ab
 
 
 def enemy_mode_abilities(cands, renamed=lambda ab: ab):
