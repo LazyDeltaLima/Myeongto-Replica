@@ -24,6 +24,7 @@ import { bondBoardOf } from './hudArt.js';
 import { bondIconUrl, chessAvatarUrl, enemyIconUrl, itemIconUrl, uiUrl } from './assetUrls.js';
 import { DIY, consoleItemEntries, debugEnemyEntries, debugEntries, diySlotsFullOf, filterDebugEntries, filterItemEntries, ourSideEnemyKeys, ownedBondSets } from './consoleLists.js';
 import { ownDiyRecord, pieceBondIds } from './gameLogic.js';
+import { useDocClass } from './device.js';
 import { net } from '../net.js';
 import { audio } from '../audio.js';
 import { data } from '../data.js';
@@ -80,6 +81,8 @@ export function ConsolePanel({ con, pub, priv, phase }) {
   const feedbackOn = useStore((s) => s.enabled, Object.is, feedbackStore);
   const toggle = (v) => setOpen((o) => { const n = typeof v === 'boolean' ? v : !o; savePref(OPEN_PREF, n); return n; });
   const pick = (k) => { setTab(k); savePref(TAB_PREF, k); };
+  // the open sheet hides the bottom-left corner (css/console-panel.css); a page class, not :has() (test/client-static.test.js)
+  useDocClass('cxp-open', open);
   useEffect(() => {
     const onKey = (e) => {
       if ((e.key !== CONSOLE_KEY && e.code !== CONSOLE_CODE) || e.repeat || e.ctrlKey || e.altKey || e.metaKey || typing(e)) return;

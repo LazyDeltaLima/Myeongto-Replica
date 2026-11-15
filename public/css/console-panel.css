@@ -229,7 +229,7 @@ b.cxp__tier { width: auto; min-width: calc(var(--cpx) * 16); height: calc(var(--
   .cxp-launch .cxp__tag { font-size: 9px; letter-spacing: .12em; padding: 3px 5px; }
   /* the bottom-left corner (소통, ⋯) is a later layer than the HUD that holds the sheet: it sat over the sheet's foot.
      It is under the sheet while the sheet is open, back when it folds */
-  .gm:has(.cxp) .gm__corner { display: none; }
+  .cxp-open .gm__corner { display: none; }
 }
 
 /* the solo room's 「콘솔 모드」 switch (ui/consoleToggle.js): right of 干员调配, the same button; amber while on */
