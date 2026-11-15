@@ -81,6 +81,7 @@ import { ASPD_MIN } from '../sim/constants.js';
 import { freeSlot, countFree, legalTiles, canPlace, positionClass, placeClass, basePositionClass, parseKey, tileKey, FIELD, pieceDir, boardTileOf, BOSS_MIRROR_COL } from './board.js';
 import { rotateOffset, normDir, mirrorDir, oppositeDir } from '../sim/dir.js';
 import { itemKey } from './gamedata.js';
+import { canonicalBuffKey } from '../sim/content/items/aliases.js';
 import { computeBonds } from './bondsMeta.js';
 import { isFlyKey } from './waves.js';
 import { mitigate } from '../sim/damage.js';
@@ -1903,7 +1904,8 @@ function* placeTokensSteps(m, ps) {
 }
 
 /** What an item does: the key of its first buff (data/items.json `buffs`, e.g. use_equip_reward_char_chess). */
-const itemEffect = (rec) => (rec && Array.isArray(rec.buffs) && rec.buffs[0] && typeof rec.buffs[0].key === 'string' ? rec.buffs[0].key : '');
+// a key another season renamed with the same meaning reads as the default season's (规程 信标 equip_tier_recr_gift …)
+const itemEffect = (rec) => (rec && Array.isArray(rec.buffs) && rec.buffs[0] && typeof rec.buffs[0].key === 'string' ? canonicalBuffKey(rec.buffs[0].key) : '');
 
 /** 突变细胞 (buff char_chess_transformation_equip). */
 const isMutationCell = (gd, itemId) => itemEffect(gd.item(itemId)) === 'char_chess_transformation_equip';
@@ -1955,17 +1957,19 @@ export function itemTarget(m, ps, item, ctx = context(m, ps)) {
   const key = itemEffect(rec);
   const value = new Map();
   const val = (p) => { if (!value.has(p.uid)) value.set(p.uid, pieceValue(m, ps, p, ctx)); return value.get(p.uid); };
-  const deployed = [...ps.board.values()].filter((p) => p.kind === 'chess');
-  const owned = ps.allChess();
+  // an item whose text forbids a 自选 carrier (data `noDiy`, 信标) never targets one (the equip gate refuses it)
+  const carries = (p) => !(rec.noDiy && chessRec(m, p.id, ps)?.isDiy);
+  const deployed = [...ps.board.values()].filter((p) => p.kind === 'chess' && carries(p));
+  const owned = ps.allChess().filter(carries);
   const normal = (p) => !gd.isGolden(p.id);
   const byVal = (list, dir = -1) => list.slice().sort((a, b) => dir * (val(a) - val(b)) || a.uid - b.uid);
   const rel = (p) => { let r = 0; for (const b of chessRec(m, p.id, ps)?.bonds || []) r += b === ctx.focus ? 3 : b === ctx.second ? 2 : ps.bonds[b] && ps.bonds[b].active ? 1 : 0; return r; };
   switch (key) {
     case 'use_equip_recruit_new_char_and_give_char_to_player_most_bond': {
-      // a bench single of the highest tier (a pick of two of its tier), else the weakest deployed normal operator — never
-      // a 自选 piece ("无法装备给自编干员", builtinMeta refuses it)
+      // a bench single of the highest tier (a pick of two of its tier), else the weakest deployed normal operator (never
+      // a 自选 piece: `owned` / `deployed` leave them out for a noDiy item)
       const counts = copyCounts(m, ps);
-      const fits = (p) => normal(p) && !chessRec(m, p.id, ps)?.diyFor;
+      const fits = normal;
       const bench = owned.filter((p) => fits(p) && ps.find(p.uid)?.area !== 'board' && (counts.get(gd.baseIdOf(p.id)) || 0) < 2)
         .sort((a, b) => (chessRec(m, b.id, ps)?.tier || 0) - (chessRec(m, a.id, ps)?.tier || 0) || val(a) - val(b) || a.uid - b.uid);
       return bench[0] || byVal(deployed.filter(fits), 1)[0] || null;

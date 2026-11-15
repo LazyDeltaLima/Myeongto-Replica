@@ -2124,6 +2124,9 @@ function seasonItemId(items, defaultId) {
   return Object.values(items).find((r) => !r.isGolden && byTrap.get(r.trapId) === defaultId)?.id ?? null;
 }
 
+/** An item effect sentence that forbids a 自选 carrier (信标 "无法装备给自编干员"; the older wording 自选). */
+const NO_DIY_TEXT = /无法装备给自[编选]干员/;
+
 function buildItems(ctx, effects) {
   const { act, charTable } = ctx;
   const researchItems = new Map((ctx.research.items?.items || []).map((i) => [i.id, i]));
@@ -2169,6 +2172,9 @@ function buildItems(ctx, effects) {
       requiresBondId: ri?.requiresBond || null,
       effectId: t.effectId, effectName: eff?.name || null,
       desc: eff?.desc || null, descRaw: eff?.descRaw || null,
+      // the effect text 「无法装备给自编干员」 (信标, both seasons): the equip gate refuses a 自选 carrier (player/items.js),
+      // the drag highlight and the AI seats skip one; emitted only when the sentence is there, so other items stay as they were
+      ...(NO_DIY_TEXT.test(`${eff?.desc || ''}\n${eff?.descRaw || ''}`) ? { noDiy: true } : null),
       buffs: (eff?.buffs || []).map((b) => ({ key: b.key, countType: b.countType, bb: b.bb, bbStr: b.bbStr })),
       params: eff?.params || {},
       // an item research 04 has no entry for (规程's new ones) is consumed on equip when the table says so: trapDuration 0

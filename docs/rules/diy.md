@@ -371,11 +371,14 @@
   `tools/local-extract/extract.py TOKEN_SPINES`(→ `public/assets/local/spine/token/<id>/`) + `node tools/fetch-assets.mjs --local-spines`
   (→ `tools/assets/local-token-spines.json`, `data/assets.json tokens[id].spineLocal`). 적 로컬 모델과 같은 방식이라 `assets/local`이 없으면 아바타로 돌아간다.
 - 信标(비콘): 공식 「无法装备给自编干员」(KR 「선발 오퍼레이터는 장착 불가」, 일반·금색 둘 다 설명 마지막 줄). 선발 조각에 장착하면
-  `BAD_TARGET`으로 거절하고 아이템은 손패로 돌아온다(`builtinMeta.js` 信标 `onEquip`, 博士投影의 정예 거절과 같은 방식). 클라이언트
-  `gameLogic/placement.js equipCheck`가 같은 검사로 「无法装备给自编干员」를 띄우고, AI 托管은 선발 조각을 비콘 대상으로 고르지 않는다
-  (`bot.js itemTarget`). 처음 선발 구현(`shared/diy.js diyEquipRefused`)에 있던 거절이 0.2.0 upstream 틀로 옮길 때 빠졌고,
+  `BAD_TARGET`으로 거절하고 아이템은 손패에 남는다. 그 문장을 `tools/build-data.mjs`가 읽어 아이템에 `noDiy`를 쓰고(두 시즌 — 규정은
+  효과 키가 `equip_tier_recr_gift`로 바뀌었다), 장착 관문 `player/items.js equip`, 클라이언트 `gameLogic/placement.js equipCheck`
+  (「无法装备给自编干员」), AI 托管 `bot.js itemTarget`이 모두 키가 아니라 `noDiy`를 읽는다(upstream `ae8ed5eb` 이식 —
+  전에는 서버만 키 별칭으로 거절하고 클라 표시·봇은 기본 시즌 키만 알았다). AI 托管의 아이템 판단은 다른 시즌이 이름만
+  바꾼 키를 기본 시즌 키로 읽는다(`items/aliases.js canonicalBuffKey`, upstream `efee57c7`). 처음 선발 구현(`shared/diy.js diyEquipRefused`)에 있던 거절이 0.2.0 upstream 틀로 옮길 때 빠졌고,
   upstream 0.2.0은 「선발 조각은 팀원에게 보내지 않음 [ASSUMED]」만 있어 선발 오퍼레이터가 파괴되고 2명 중 1명 특수 갱신이 열렸다
   (2026-10-22 수정, 테스트 `feedback3-gift.test.js`·`gameLogic.test.js`·`feedback5-we2-bot-diy.test.js`). [실제 판 이상 없음 2026-10-28]
+  재발 방지: 원인 제거 — build-data가 문장을 읽어 `noDiy`
 - 모듈: 공식 甄选 칸에는 기본 모듈이 없어(게임에서 직접 장착) 처음엔 미장착이었다. 2026-10-05부터 후보의 첫 모듈(`uniequip_002`, X 타입)을
   기본으로 장착한다(상점 `defaultUniEquipId`). 오퍼레이터 구성 화면에서 「없음」을 고를 수 있다.
 - 한국어: `public/i18n/ko/diy.json` — KR 서버에 있는 오퍼레이터는 KR 공식 테이블(ArknightsAssets `kr/`, 2026-11-01부터 수동 사전보다 먼저: 왕·첸 더

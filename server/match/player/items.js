@@ -29,6 +29,9 @@ export class PlayerItems {
     if (!tloc || tloc.piece.kind !== 'chess' || tloc.area === 'equipped') return fail(ERR.BAD_TARGET);
     const item = iloc.piece;
     const target = tloc.piece;
+    // an item whose text forbids a 自选 carrier (data `noDiy`: 信标 "无法装备给自编干员", every season's key) is refused before
+    // anything moves — the item stays in the hand, nothing is destroyed
+    if (rec.noDiy && this.gd.chess(target.id)?.isDiy) return fail(ERR.BAD_TARGET, 'diy');
     if (replaceUid != null && !(Number.isInteger(replaceUid) && (target.items || []).some((x) => x.uid === replaceUid))) return fail(ERR.BAD_TARGET, 'replace: not equipped on the target');
     const consume = typeof rec.kind === 'string' && rec.kind.startsWith('consume_on_equip');
     if (consume) {

@@ -180,12 +180,12 @@ const ITEM_HANDLERS = {
   // is sent as that elite (community report #6 after 0.1.2: it arrived as the normal card — the gift carried baseIdOf).
   // Destroying the carrier returns its pool copies (an elite's 3) at once; the gift takes them again when it is granted
   // (effect:builtin_gift: grantChess → acquireChess, an elite takes up to goldenCopies, as every effect grant).
-  // A 自选 piece is refused (both items' last line "无法装备给自编干员"): the item goes back, nothing is destroyed.
+  // A 自选 piece is refused before this runs (the last line "无法装备给自编干员" → data `noDiy`, the equip gate in
+  // player/items.js): the item stays in the hand, nothing is destroyed.
   use_equip_recruit_new_char_and_give_char_to_player_most_bond: {
     onEquip(ctx, ev) {
       const target = ctx.piece(ev.target.uid);
       if (!target) return;
-      if (ctx.chessRecord(target.id)?.diyFor) { ev.error = 'BAD_TARGET'; ev.detail = 'a 自选 piece'; return; }
       const tier = ctx.gd.tierOf(target.id);
       const n = Math.max(1, int(paramsOf(ctx, ev.item).refresh_cnt, 2));
       const bonds = ctx.pieceBonds(target.uid);
