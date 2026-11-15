@@ -68,8 +68,20 @@ render cases fail there) with WSL's mirrored networking, one file at a time:
 intended gameplay change runs `npm run golden:update` and commits the digests with the change, naming in the message
 which scenarios moved and why.
 
-**Regression guards** (maintainer decision 2026-11-14): a fix for a cause that could come back ships with the thing that
-catches it, the first of these that fits:
+**Regression guards** (maintainer decisions 2026-11-14, 2026-11-15): a fix for a cause that could come back first tries to
+remove the cause; a test is for what cannot be removed. A test only finds the mistake after someone made it again, and
+every test and exception list is kept up from then on.
+
+*Remove the cause*, and no test is owed for it:
+
+- a fact the official data holds (a table or prefab field) is read by the extraction or generation step
+  (`tools/local-extract/`, `tools/build-data.mjs`) and the hand-written table that repeated it is deleted
+  (`enemyClipName`: enemy clip names come from the prefab animator's key table);
+- the generator stops with an error, not a default, on a value it does not know (an unknown code, a key its table lacks);
+- one entry point through which the wrong form cannot be written.
+
+*Guard what stays hand-written* (operator kits, per-unit effect branches: the next one can repeat the mistake) with the
+first of these that fits:
 
 1. a sweep over the whole class the cause can hit (every operator × skill, every enemy, every prefab) with an exception
    list whose entries say why (`test/audio-skill-silence-list.js` is the pattern); it asserts that a known case really ran,
@@ -79,8 +91,10 @@ catches it, the first of these that fits:
 4. a line in the 「함정」 list of `docs/rules/<domain>.md`, only for what no machine can check.
 
 The guard's failure message names the cause and the `docs/rules/` section, so whoever trips it needs no other document,
-and that section ends with `재발 방지: <the test file>`. See the guard fail on the regression (undo the fix, run, restore)
-before it counts. A cause that a guard catches gets no line in section 6.
+and that section ends with `재발 방지: <the test file>` (a removed cause: `재발 방지: 원인 제거 — <what reads it now>`). See
+the guard fail on the regression (undo the fix, run, restore) before it counts; a generator's stop is seen stopping once
+the same way. A cause that a guard catches gets no line in section 6. A sweep run once to find the other cases of a bug
+need not stay as a test, and a guard is deleted with its exception list when a later change removes its cause.
 
 **Rebuild steps** after certain changes:
 
