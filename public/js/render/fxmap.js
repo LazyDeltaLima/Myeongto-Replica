@@ -460,6 +460,9 @@ const talentKey = (key, born, bySkill = false) => Object.freeze(cite(key, {
 }));
 export const TALENT_ALWAYS = Object.freeze({
   char_423_blemsh: talentKey('blemsh_t_2'),   // Talents/2 (仁慈)
+  // (2026-11-15) 能天使 T2 天使的祝福: Talents/2 gives angel_t_2 (INFINITY, overrideEffectKey angle_buff_00_start — looping
+  // feathers) to her (`_selfOption`) and one ally (`_maxNum` 1); the ally's copy is the sim's 'talent:angel_bless_ally' (fxstatus.js)
+  char_103_angel: talentKey('angel_t_2'),
   char_245_cello: talentKey('cello_t_1'),           // Others/Direction/Talents/1 (无词哀歌)
   char_181_flower: talentKey('flower_t_1[eff]'),   // Talents/1 `_passiveBuffs` (熏衣草)
   char_1019_siege2: talentKey('char_1019_siege2/Others/Direction/Talents/1'),   // AuraAbility `_effects` (诸王的叹息)

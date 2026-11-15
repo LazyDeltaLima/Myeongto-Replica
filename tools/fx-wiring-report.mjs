@@ -11,6 +11,7 @@
 //             buff the kit wears needs nothing, fxstatus.js wornPrefabs)
 //   foreign   a row's prefab that is extracted nowhere, of an operator whose own bundle is: it sits in another bundle (矩 S1's totter_skill_01_*,
 //             a ReadySkillEffect) or a shared one. fx_extract.py --bundle <that> --prefab <it> takes that prefab alone
+//             (--pack <its bundle>); with the status test/render/fx-unplayed-local-list.js FOREIGN_LOCAL gives it, or NEW
 //   keyless   a template row's prefab of this bundle whose key no kit names and no hand table draws: if the prefab plays at all it is by
 //             the skill's name rule, on the caster, at the cast, whoever the buff is really on (우쿠시크 S2's camouflage). A kit that means
 //             this effect names the key; one that does not has nothing to do. Shown with --id only: the older operators hold 166 such
@@ -24,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { activationEffects } from '../public/js/render/fxmap.js';
 import { wornPrefabs } from '../public/js/render/fxstatus.js';
 import { handEntries, loadTables, renderNames, unplayed } from '../test/helpers/fxBindings.js';
-import { UNPLAYED_LOCAL } from '../test/render/fx-unplayed-local-list.js';
+import { FOREIGN_LOCAL, UNPLAYED_LOCAL } from '../test/render/fx-unplayed-local-list.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const LOCAL = join(ROOT, 'public/assets/local/fx');
@@ -63,7 +64,7 @@ export function prefabLinks(def) {
  * { bundle: { char, unplayed: [{ key, fx, reason, status }], nameless: [prefab], overlap: [{ fx, skill, tables, rows }] } } —
  * pure over its tables. `status`: 'key|prefab' → the list's word.
  */
-export function wiringReport({ tables, modes, plays = null, status = {}, owned = new Set(), hand = [], names = new Set(), patterns = [], linked = new Set() }) {
+export function wiringReport({ tables, modes, plays = null, status = {}, foreignStatus = {}, owned = new Set(), hand = [], names = new Set(), patterns = [], linked = new Set() }) {
   const bundles = tables.index?.bundles || {};
   const emitted = tables.index?.emitted || {};
   const rows = [...tables.template, ...(tables.local || [])];
@@ -77,7 +78,7 @@ export function wiringReport({ tables, modes, plays = null, status = {}, owned =
   for (const r of tables.local || []) {
     const b = String(r.char).replace(/^char_\d+_/, '');
     if (typeof r.fx !== 'string' || !bundles[b] || extracted.has(r.fx) || r.fx === 'common_empty' || /(Key(_\d+)?|PluginName)$/.test(r.moment || '')) continue;
-    entry(b).foreign.push({ fx: r.fx, key: r.key, moment: r.moment });
+    entry(b).foreign.push({ fx: r.fx, key: r.key, moment: r.moment, status: foreignStatus[`${r.key}|${r.fx}`] ?? 'NEW' });
   }
   for (const u of unplayed(tables) || []) {
     entry(u.bundle).unplayed.push({ key: u.key, fx: u.fx, reason: u.reason, status: status[`${u.key}|${u.fx}`] ?? (u.src === 'template' ? 'listed: fx-bindings.test.js UNPLAYED' : 'NEW') });
@@ -125,7 +126,7 @@ export function localWiringReport() {
       if (existsSync(f)) for (const l of prefabLinks(readJson(f))) linked.add(l);
     }
   }
-  return wiringReport({ linked, tables: loadTables(), modes: readJson(join(LOCAL, 'modes.json')), plays: existsSync(join(LOCAL, 'plays.json')) ? readJson(join(LOCAL, 'plays.json')) : null, status: UNPLAYED_LOCAL, owned: kitOwned(), hand: handEntries(), names, patterns });
+  return wiringReport({ linked, tables: loadTables(), modes: readJson(join(LOCAL, 'modes.json')), plays: existsSync(join(LOCAL, 'plays.json')) ? readJson(join(LOCAL, 'plays.json')) : null, status: UNPLAYED_LOCAL, foreignStatus: FOREIGN_LOCAL, owned: kitOwned(), hand: handEntries(), names, patterns });
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -146,7 +147,7 @@ if (isMain) {
       console.log(`${b}${r.char ? ` (${r.char})` : ''}: unplayed ${r.unplayed.length}, nameless ${r.nameless.length}, overlap ${r.overlap.length}, foreign ${r.foreign.length}${ids.length ? `, keyless ${r.keyless.length}` : ''}`);
       for (const u of r.unplayed) console.log(`  unplayed ${u.fx} ← ${u.key} [${u.reason}] ${u.status}`);
       for (const n of r.nameless) console.log(`  nameless ${n}`);
-      for (const f of r.foreign) console.log(`  foreign  ${f.fx} ← ${f.key} ${f.moment}`);
+      for (const f of r.foreign) console.log(`  foreign  ${f.fx} ← ${f.key} ${f.moment} ${f.status}`);
       if (ids.length) for (const k of r.keyless) console.log(`  keyless  ${k.fx} ← ${k.key} ${k.moment}`);
       for (const o of r.overlap) console.log(`  overlap  S${o.skill} ${o.fx} ← ${o.tables.join(', ')}${o.rows.length ? ` | ${o.rows.join('; ')}` : ''}`);
     }

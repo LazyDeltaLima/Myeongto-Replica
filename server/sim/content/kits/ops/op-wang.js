@@ -604,6 +604,9 @@ function wangStone(bb, raw, def) {
     if (wide) {
       for (const v of blastFoes(battle, unit, DIAMOND2)) {
         battle.dealDamage(src, v, { amount: atk * num(bb.atk_scale, 3.2) * mul, type: 'arts', resIgnoreFlat: resFlat, isSkill: true, canDodge: false, tags: ['summon', 'trap'] });
+        // its effect moment, owned by 望 whoever deals it: wang_stone3_t[damage]'s `_extraActions` doroth_bomb_hit on each enemy
+        // it damages (render/fx/kitofficial.js hit)
+        battle.hitFx(v, 'wang_stone3_t[damage]', owner);
       }
       return;
     }

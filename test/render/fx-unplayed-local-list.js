@@ -59,3 +59,18 @@ export const UNPLAYED_LOCAL = Object.freeze({
   "projectile_chr_svash2_s3_bird|svash2_skill_03_trail_right_01": "todo: 凛御银灰 S3's bird trail by direction (_effectsAlignToProjectileDirection)",
   "thorns_t_1|thorns_buff_01_start": "todo: 棘刺 T1's hit, a LIMITED buff of length 0",
 });
+
+// The client-only rows whose prefab is extracted nowhere (tools/fx-wiring-report.mjs `foreign`: it sits in another bundle or a
+// shared one), each looked at (2026-11-15): 'ok: …' never shown in this mode — say why; 'todo: …' shown but not drawn yet.
+// A row the client draws here is extracted into its operator's bundle (fx_extract.py --bundle <it> --pack <the bundle> --prefab …)
+// and leaves this list. test/render/fx-overlap.test.js checks it both ways. 'key|prefab' → status.
+export const FOREIGN_LOCAL = Object.freeze({
+  'char_325_bison/Modes/S2/Body/Attack|moeshd_attack_01_hit': "ok: 拜松 S2 holds no attack in this mode (the kit's S2 does not swing)",
+  'char_325_bison/Modes/S2/Body/Attack|moeshd_attack_01_start': "ok: 拜松 S2 holds no attack in this mode (the kit's S2 does not swing)",
+  'projectile_chr_qiubai_s1_effect|qiubai_skill_01_buff_boom': 'ok: 仇白 S1 is not offered — her pieces carry S3 in both seasons and she is no 补位',
+  ...Object.fromEntries([['3', 'L_01'], ['4', 'L_02'], ['5', 'R_01'], ['6', 'R_02']].flatMap(([i, side]) => [`gdglow_token_exp_${side}`, 'gdglow_token_explosion_01']
+    .map((n) => [`projectile_chr_gdglow_funnel_s12_${i}|${n}`, "ok: 洛洛 S2Funnel's `_extraProjectileKeys` (澄闪's funnels) are only gathered to preload "
+      + '(RangedAttack.GatherProjectiles is the one reader of the private field, 공식 클라에서 확인): she never fires them']))),
+  'char_4211_snhunt/Others/Direction/Talents/-1|common_hunter_bullet_01': "todo: the 猎手 HUD bullet bar (hunter_bullet_bar_plugin, UIFollowHunterBulletSlider "
+    + '`_effectKey`) plays it as rounds are added — a HUD piece this remake does not draw yet; the row is its preload list',
+});

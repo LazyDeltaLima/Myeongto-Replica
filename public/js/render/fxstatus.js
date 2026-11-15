@@ -177,6 +177,12 @@ export const KEY_FX = Object.freeze({
   // (2026-11-03) 薇薇安娜 T2 散华: her melee-only 护盾 layer vvana_t_2[block_melee] (vvana_buff_01 while she holds one) — the
   // sim's layer buff (its elite-enemy filter and dice held)
   'talent:vvana:shield': keyedAll('vvana_t_2[block_melee]', 'vvana', OWN),
+  // (2026-11-15) 能天使 T2 天使的祝福 on the ally it picks (her own copy: fxmap.js TALENT_ALWAYS) — angel_t_2's angle_buff_00_start
+  'talent:angel_bless_ally': keyed('angel_t_2', 'angel', OWN),
+  // (2026-11-15) 缇缇 T2 勇气的报偿: 精力充沛 on a 萨尔贡 / 米诺斯 ally above the HP ratio — titi_t_2[peak_performance] (template
+  // peak_performance: FilterByTargetHpRatio) gives peak_performance[effect], whose CreateEffect is common_full_of_energy_buff_02
+  // in her charpack (humus's is its own prefab, so the key is cited with the prefab)
+  'titi:vigor': cite('peak_performance[effect]', ['titi', 'common_full_of_energy_buff_02', OWN]),
   // (2026-11-03) 贝洛内 T1 家族手段: the acting 【手段】 on an enemy — demetr_t1[def_dec] creates demetr_t1[def_dec_core]
   // (overrideEffectKey demetr_buff_01), one per enemy whichever 贝洛内 gives it (the sim's 'talent:demetr:means')
   'talent:demetr:means': keyed('demetr_t1[def_dec_core]', 'demetr', OWN),

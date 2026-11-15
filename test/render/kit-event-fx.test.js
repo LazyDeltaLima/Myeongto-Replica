@@ -59,7 +59,7 @@ const VERDICT = {
   meltdown: { blaze2: ['standIn', "sent on the enemy (the burn burst's own effect; blaze2_t_1 creates none)"] },
   overclock: { cathy: ['skill', 2], hsguma: ['skill', 3] },
   overload: { rmixer: ['skill', 2], gvial2: ['skill', 2], oxi: ['none', 'S3 过载: the client only sounds oxi_s_3_overload (an AudioOnEventBehaviour on event 8)'] },
-  reweave: { cetsyr: ['skill', 3, "the name rules' S3 buffs (charpack S3 AuraHeal / skchr_cetsyr_3 Encourage passives); S2: cetsyr_skill_02_trail_start"] },
+  reweave: { cetsyr: ['skill', 3, "the name rules' S3 buffs (charpack S3 AuraHeal / skchr_cetsyr_3 Encourage passives); S2: each refilled mote's cetsyr_skill_02_trail_start (kitofficial.js motes `ready`)"] },
   ripple: { mostma: ['skill', 3], mizuki: ['skill', 3] },
   rockslide: { mudrok: ['skill', 2] },
   saltWard: { rosesa: ['skill', 2] },
@@ -148,6 +148,10 @@ test("a 'skill' verdict names a skill whose activation draws something", () => {
 });
 
 /** The 'kitHit' moment keys the rules answer (`k`; undefined: 灵知's, which reads none). */
+/** 'bundle|prefab' of a rule whose client row names another operator's prefab (extracted into this bundle with --pack): why. */
+const OTHER_OPERATOR_PREFAB = Object.freeze({
+  'wang|doroth_bomb_hit': "wang_stone3_t[damage]'s `_extraActions` create 多萝西's hit (skchr_wang_3/SpawnTokenS3/BuildStone)",
+});
 const KIT_HIT_KEYS = [undefined, 'mantra:s1', 'mantra:s2', 'mantra:s1el', 'mantra:s3', 'mantra:s2jump', 'mantra:s3jump', 'robrta:end', 'closur:plane', 'christ:aura', 'brigid:cut', 'pianst:echo', 'pianst:final', 'pianst:finalHit', 'cqbw:grenade', 'heyak:wind', 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot', 'shu:mark', 'lmlee:s3push', 'ebnhlz:yiyin', 'ebnhlz:yiyinAoe', 'amiya3:s1', 'meteo:shell', 'makoto:heal'];
 test('the rules name prefabs the client binds for that operator', () => {
   // each rule's prefab belongs to its operator's bundle (a typo plays nothing); the names come from the buff templates
@@ -169,7 +173,7 @@ test('the rules name prefabs the client binds for that operator', () => {
       for (const plan of plans) {
         for (const p of plan.play) {
           // (the shared module effects, bundle uniequip, are named by the module's sub-profession or its own number)
-          if (!p.off) assert.ok(p.bundle === 'uniequip' ? p.n.startsWith('uniequip_') : p.bundle ? p.n.includes(`_${b}_`) : p.n.startsWith(`${b}_`), `${n} (${b}): ${p.n}`);
+          if (!p.off && !OTHER_OPERATOR_PREFAB[`${b}|${p.n}`]) assert.ok(p.bundle === 'uniequip' ? p.n.startsWith('uniequip_') : p.bundle ? p.n.includes(`_${b}_`) : p.n.startsWith(`${b}_`), `${n} (${b}): ${p.n}`);
           if (p.ready) assert.ok(p.ready.startsWith(`${b}_`), `${n} (${b}): ${p.ready}`);
           for (const x of [p.rope, p.pass?.n, p.harpoon?.moving, p.end, ...(p.hit || [])].filter(Boolean)) assert.ok(x.startsWith(`${b}_`), `${n} (${b}): ${x}`);
         }

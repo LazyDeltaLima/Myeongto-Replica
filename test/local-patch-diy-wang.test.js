@@ -467,6 +467,29 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
   });
 });
 
+describe('望 S3 跟子 burst effect moment (docs/rules/fx.md 「바인딩 표 — 손 표를 클라 키로 대조」 foreign, 2026-11-15)', () => {
+  test("S3 equipped: each enemy a stone's burst damages carries wang_stone3_t[damage], owned by 望 (render/fx/kitofficial.js hit → doroth_bomb_hit)", () => {
+    const run = (sk) => {
+      const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 60, autoFinish: false, defs: { enemies: { enemy_post: POST } },
+        units: [op(sk, 11, 3), stone(10, 5, 50), stone(10, 6, 51)] });
+      h.step(2);
+      // (holdEnemy's invulnerable enemy takes no 'dmg' event: a stunned 1e9-HP post instead)
+      const e = h.spawn('enemy_post', { pos: [10, 5], route: 0 });
+      h.b.applyStatus(e, 'stun', { duration: 999 });
+      h.events.splice(0);
+      h.run(2);
+      const hits = h.events.filter((x) => x[0] === 'dmg' && x[1] === e.id);
+      return { wang: h.unit(1).id, hits: hits.length, moments: hits.flatMap((x) => (Array.isArray(x[8]) ? x[8] : [])).filter((m) => m[0] === 'wang_stone3_t[damage]').map((m) => m[1]) };
+    };
+    const s3 = run(2);
+    assert.ok(s3.hits > 0 && s3.moments.length > 0, `S3: ${JSON.stringify(s3)}`);
+    assert.ok(s3.moments.every((id) => id === s3.wang), 'owned by 望, not the stone: the render plans by the operator');
+    const s1 = run(0);
+    assert.ok(s1.hits > 0, `S1 burst ran: ${JSON.stringify(s1)}`);
+    assert.equal(s1.moments.length, 0, 'S1 / S2 stones have no such moment');
+  });
+});
+
 describe('望 S3 through the real match path (seats[].diy → Match board → buildBattleSpec → createBattleFromSpec)', () => {
   test('m04 round 4, six prep stones: each deployment during S3 spends one ammo per S3 跟子 built after its stone (≤ 3)', async () => {
     const T6 = 'chess_char_6_diy1_a';

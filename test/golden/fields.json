@@ -156,7 +156,7 @@
         "enemy_9016_acstmr": [7,6,0,0,33]
       },
       "hooks": [1,40,6000,636,636,1206,1295,3815,23,23,54,51,160,20799,2805,2,25,0,1,18,0,0,0],
-      "events": {"atk":636,"castHit":26,"deploy":15,"die":23,"dmg":1235,"engage":5,"face":2,"fx":340,"heal":177,"skill":105,"spawn":35,"status":352,"swing":641},
+      "events": {"atk":636,"castHit":26,"deploy":15,"die":23,"dmg":1235,"engage":5,"face":2,"fx":340,"heal":177,"skill":105,"spawn":35,"status":353,"swing":641},
       "fx": {"anchor":5,"beam":43,"camouflage":1,"enemySkill":11,"explode":6,"healAoe":21,"kitHit":5,"overload":1,"reborn":1,"shell":7,"splash":159,"stacks":66,"substitute":2,"summon":4,"swap":2,"zone":6},
       "snaps": "3e353571 fa9960ad 7ba0ca44 3f6dbd39 c57142d2 99258ab6 7e6c4a69 fc6d6a37 d1e2ff40 45b3cd0e 93ee6941 d19e9846 14d3c616 c2f362c3 b256bb9b 823acb35 b30d6bae 468cc8e5 97fb376d 998eaeeb"
     },
@@ -482,7 +482,7 @@
         "enemy_9023_acdums": [6,6,0,6805,102]
       },
       "hooks": [1,43,6000,407,407,1001,1762,1632,22,24,63,60,44,18129,1135,3,20,0,1,99,0,5,0],
-      "events": {"atk":421,"castHit":27,"deploy":17,"die":24,"dmg":990,"engage":9,"face":18,"fx":329,"heal":72,"skill":123,"spawn":37,"status":192,"swing":415},
+      "events": {"atk":421,"castHit":27,"deploy":17,"die":24,"dmg":990,"engage":9,"face":18,"fx":329,"heal":72,"skill":123,"spawn":37,"status":193,"swing":415},
       "fx": {"anchor":2,"aoe":2,"appear":1,"beam":12,"burst":5,"candle":4,"disappear":1,"ember":2,"enemyShot":42,"enemySkill":7,"explode":142,"healAoe":25,"kitHit":2,"overload":4,"phase":12,"splash":44,"stacks":10,"substitute":2,"summon":6,"swap":1,"telegraph":1,"teleport":2},
       "snaps": "e3d54426 2c05447e 9ff9839d 38d7840e 6340770a 130b48a7 06bdc625 d814b33a 4d32d7ef bde41fd4 3fe661c4 7c17e130 4636231e 4b172ec5 f8e6f07c f62c12da 4ce803a0 3df46125 d09ed6dd 11d04321"
     },
@@ -797,7 +797,7 @@
         "enemy_5601_entlec": [1,1,0,0,1939]
       },
       "hooks": [1,26,6000,422,422,768,1163,5703,10,13,75,73,126,22762,1011,10,11,0,1,56,0,4,72],
-      "events": {"atk":431,"castHit":24,"deploy":15,"die":13,"dmg":818,"engage":9,"face":16,"fx":296,"heal":239,"skill":148,"spawn":23,"status":227,"swing":435},
+      "events": {"atk":431,"castHit":24,"deploy":15,"die":13,"dmg":818,"engage":9,"face":16,"fx":296,"heal":239,"skill":148,"spawn":23,"status":228,"swing":435},
       "fx": {"anchor":1,"aoe":1,"blink":4,"bloodBattle":1,"burst":4,"candle":1,"dodge":72,"ember":1,"enemySkill":22,"explode":18,"healAoe":23,"kitHit":1,"overload":3,"revive":1,"shieldBreak":2,"splash":126,"stacks":5,"substitute":1,"summon":5,"swap":1,"telegraph":1,"teleport":2},
       "snaps": "f06b69f0 6572895a b3afe295 6035b7a1 5f0d4768 d7a9b7bb 691cd24d 666b6ec5 15ed7d24 77da6b76 4836efc2 bf7543d5 6dee54b2 6a089cc0 96b6b324 9039fbe8 aa426ff1 d8c91f03 c07bfc2f 84a5dcc3"
     },
@@ -1060,7 +1060,7 @@
         "enemy_9033_acdeer": [1,0,0,18722,626936]
       },
       "hooks": [1,33,6000,415,415,531,909,951,13,16,86,84,14,21646,1379,4,14,0,1,12,0,0,0],
-      "events": {"atk":426,"castHit":36,"deploy":19,"die":16,"dmg":669,"engage":6,"face":6,"fx":179,"heal":74,"skill":170,"spawn":27,"status":254,"swing":443,"tplfx":1},
+      "events": {"atk":426,"castHit":36,"deploy":19,"die":16,"dmg":669,"engage":6,"face":6,"fx":179,"heal":74,"skill":170,"spawn":27,"status":255,"swing":443,"tplfx":1},
       "fx": {"anchor":3,"beam":3,"candle":2,"column":28,"enemySkill":3,"enemySkillEnd":3,"explode":5,"healAoe":33,"kitHit":3,"overload":4,"splash":14,"stacks":67,"telegraph":5,"teleport":6},
       "snaps": "7b6f4a62 41e5a294 11e93673 2e37a4c1 5cb83cb3 e7135f94 1723d443 2996bcf3 bf722a7f d30a440f 3aad538b 3c33257f da8500c5 686cb283 085143e1 0da6baa7 a35445c6 de07c140 6d57f48a bf1f9caf"
     },
@@ -1384,7 +1384,7 @@
         "enemy_9020_actrpc": [1,0,0,9149,511187]
       },
       "hooks": [1,37,6000,815,815,3568,5689,4468,11,15,92,88,100,27153,1872,3,16,0,1,113,0,9,0],
-      "events": {"atk":1358,"castHit":31,"deploy":21,"die":15,"dmg":5047,"engage":10,"face":41,"fx":1011,"heal":494,"skill":180,"spawn":28,"status":291,"swing":852},
+      "events": {"atk":1358,"castHit":31,"deploy":21,"die":15,"dmg":5047,"engage":10,"face":41,"fx":1011,"heal":494,"skill":180,"spawn":28,"status":292,"swing":852},
       "fx": {"anchor":4,"aoe":3,"beam":39,"burst":9,"candle":9,"charge":6,"chargeEnd":6,"dash":12,"downed":2,"ember":2,"enemyShot":38,"enemySkill":18,"explode":1,"healAoe":27,"kitHit":89,"link":591,"overload":4,"palsy":4,"phase":13,"reborn":1,"revive":3,"shieldBreak":10,"sleepGuard":1,"splash":99,"stacks":9,"substitute":3,"swap":3,"teleport":5},
       "snaps": "9dec4256 ad9114c8 a666280e 75b728c1 9aa9002f 51426378 59225e04 84e803b9 05251bee 0c1d87e9 171ddfd4 a9931d1a b798ce9a 4cfa88dd 81b3500f 647e92c1 962deae6 d589f096 660d8790 54edc2f4"
     },
@@ -1667,7 +1667,7 @@
       ],
       "enemies": {"enemy_10029_vtshld":[1,0,0,0,0],"enemy_1249_lysdb_2":[3,3,0,2488,53748],"enemy_1251_lysyta":[4,4,0,242,32846],"enemy_1329_cbshld":[3,3,0,2253,89580]},
       "hooks": [1,37,6900,201,201,236,461,349,10,15,11,8,0,22485,226,8,11,0,1,10,0,0,0],
-      "events": {"atk":304,"bounty":1,"deploy":22,"die":15,"dmg":233,"engage":5,"face":93,"fx":1037,"heal":193,"skill":19,"spawn":33,"status":88,"swing":244},
+      "events": {"atk":304,"bounty":1,"deploy":22,"die":15,"dmg":233,"engage":5,"face":93,"fx":1037,"heal":193,"skill":19,"spawn":33,"status":89,"swing":244},
       "fx": {"blink":2,"copy":1,"drone":398,"droneLock":3,"drones":4,"garrisonGrant":1,"link":3,"radiantSword":1,"shieldBreak":3,"summon":1,"sunBurst":1,"talent":3,"whitw2Drones":616},
       "snaps": "1aa81f77 78647f0e 85183c8e dc6b14c2 b67a8c90 aa423f09 437e562a 4e3d1fbb 3233ec88 646e80c1 c6b57dbb c5ae9357 6f6e912d 96fb927f 6c93c425 ca206223 3f645587 458868a4 e5061f4b 4ef31e9c eb172b55 34bf112a 473ae18d"
     },

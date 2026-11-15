@@ -3,11 +3,13 @@
 // operator (tools/fx-wiring-report.mjs): 12 such prefabs sat there until 2026-11-15, each drawn at the cast on the caster
 // besides on the ally / enemy / later moment its table draws it at (新约能天使 S2's 屏障 on her twice, 水月 S2's 束缚 on her …),
 // and a newly added operator's bundle can bring more. Each one is looked at: fxgame.js KIT_OWNED silences the name rule, or
-// it goes into OVERLAP_OK with the reason the caster's copy is the official one.
+// it goes into OVERLAP_OK with the reason the caster's copy is the official one. The report's `foreign` (a client row's prefab
+// extracted nowhere) is held to fx-unplayed-local-list.js FOREIGN_LOCAL the same way (2026-11-15).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { localWiringReport } from '../../tools/fx-wiring-report.mjs';
+import { FOREIGN_LOCAL } from './fx-unplayed-local-list.js';
 
 /** 'bundle|S<n>|prefab' → why the name rule's copy on the caster at the cast is right. */
 const OVERLAP_OK = Object.freeze({
@@ -27,4 +29,15 @@ test('no prefab a hand table draws plays again on the caster by the skill name r
     + 'caster\'s copy is official (docs/rules/fx.md 「바인딩 표 — 손 표를 클라 키로 대조」 겹침; node tools/fx-wiring-report.mjs shows the rows)');
   const stale = Object.keys(OVERLAP_OK).filter((k) => !got.has(k));
   assert.deepEqual(stale, [], 'an OVERLAP_OK entry the report no longer shows: delete it');
+});
+
+test('the rows whose prefab is extracted nowhere (the report\'s foreign) are exactly FOREIGN_LOCAL', { skip: !report && 'needs the extracted effects' }, () => {
+  const got = new Set(Object.values(report).flatMap((r) => r.foreign.map((f) => `${f.key}|${f.fx}`)));
+  assert.ok(got.has('projectile_chr_qiubai_s1_effect|qiubai_skill_01_buff_boom'), 'the report ran over the client-only rows (仇白 S1)');
+  const fresh = [...got].filter((k) => !(k in FOREIGN_LOCAL)).sort();
+  assert.deepEqual(fresh, [], 'a client row names a prefab no bundle of ours holds: extract it into its operator\'s bundle (fx_extract.py --bundle <it> '
+    + '--pack <the client bundle> --prefab …) and play it, or list it in fx-unplayed-local-list.js FOREIGN_LOCAL with why this mode never shows it '
+    + '(docs/rules/fx.md 「바인딩 표 — 손 표를 클라 키로 대조」 foreign)');
+  const stale = Object.keys(FOREIGN_LOCAL).filter((k) => !got.has(k));
+  assert.deepEqual(stale, [], 'a FOREIGN_LOCAL row the report no longer shows (extracted now, or the row is gone): delete it');
 });

@@ -484,7 +484,7 @@
       ],
       "enemies": {"enemy_1229_darmy":[10,10,0,0,48384],"enemy_1229_darmy_2":[7,7,0,0,44352],"enemy_1275_dwlock_2":[3,3,0,2484,48384],"enemy_5601_entlec":[2,2,0,0,4775]},
       "hooks": [1,34,2168,101,101,133,332,232,22,23,7,5,42,4265,0,2,22,0,1,68,0,0,0],
-      "events": {"atk":107,"castHit":2,"deploy":9,"die":23,"dmg":171,"engage":4,"face":15,"fx":66,"skill":14,"spawn":33,"status":4,"swing":108},
+      "events": {"atk":107,"castHit":2,"deploy":9,"die":23,"dmg":171,"engage":4,"face":15,"fx":66,"skill":14,"spawn":33,"status":5,"swing":108},
       "fx": {"anchor":2,"aoe":1,"beam":1,"candle":2,"coin":4,"downed":1,"ember":1,"enemySkill":1,"kitHit":2,"splash":42,"stacks":9},
       "snaps": "c0ef3467 4a86b005 c308d9ac 6e6583ed 36106503 c25f506a 39bf0f08 da54de7f"
     },
@@ -1267,7 +1267,7 @@
       ],
       "enemies": {"enemy_1116_liprr_2":[10,10,0,0,86400],"enemy_1119_vofsd":[5,5,0,0,63360],"enemy_1121_lifbos_2":[3,3,0,0,86400]},
       "hooks": [1,28,2494,140,140,233,327,152,19,19,9,7,15,5575,695,0,18,0,1,26,0,0,0],
-      "events": {"atk":140,"castHit":2,"deploy":10,"die":19,"dmg":267,"engage":5,"face":16,"fx":65,"skill":16,"spawn":26,"status":121,"swing":148},
+      "events": {"atk":140,"castHit":2,"deploy":10,"die":19,"dmg":267,"engage":5,"face":16,"fx":65,"skill":16,"spawn":26,"status":122,"swing":148},
       "fx": {"anchor":2,"downed":1,"kitHit":40,"overload":1,"sleep":1,"splash":15,"wake":5},
       "snaps": "8fe8654b f69eba5f 71408b08 3bf57e15 647b6cb0 86123dbb ce66909d a15ad516 45d93aef"
     },

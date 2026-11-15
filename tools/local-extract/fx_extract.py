@@ -3740,18 +3740,32 @@ def coverage_walk(ex, a):
 
 
 def prune(out):
-    """Delete tex/*.png and mesh/*.json that no effect JSON under `out` references."""
+    """Delete tex/*.png|webp and mesh/*.json that no effect JSON under `out` references.
+
+    A reference is any `img` (a texture file) and any `mesh` / `meshes` (a mesh key) anywhere in the effect JSON. (2026-11-15:
+    reading them at fixed places only — material textures, a particle renderer's meshes, a node's mesh — missed a
+    SkinnedMeshRenderer's `skin.mesh` and a particle shape's mesh, and one --prune deleted 44 files 47 effects still drew.)"""
     tex, mesh = set(), set()
+
+    def walk(o):
+        if isinstance(o, dict):
+            for k, v in o.items():
+                if k == 'img' and isinstance(v, str):
+                    tex.add(v)
+                elif k in ('mesh', 'meshes') and isinstance(v, (str, list)):
+                    for m in [v] if isinstance(v, str) else v:
+                        if isinstance(m, str) and m:
+                            mesh.add(m + '.json')
+                    if isinstance(v, list):
+                        walk(v)
+                else:
+                    walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
     for f in out.glob('*/*.json'):
-        d = json.loads(f.read_text())
-        for m in d.get('materials', {}).values():
-            for t in m.get('tex', {}).values():
-                tex.add(t['img'])
-        for n in d.get('nodes', []):
-            r = (n.get('ps') or {}).get('render') or {}
-            for k in r.get('mesh'), *(r.get('meshes') or ()), (n.get('mesh') or {}).get('mesh'):
-                if k:
-                    mesh.add(k + '.json')
+        walk(json.loads(f.read_text()))
     gone = 0
     for f in [*(out / 'tex').glob('*.png'), *(out / 'tex').glob('*.webp')]:
         if f.name not in tex:

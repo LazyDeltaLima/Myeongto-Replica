@@ -233,6 +233,9 @@ export const KIT_OFFICIAL = {
     // 百炼嘉维尔 S1: gvial2_s_1 (template heal_via_damage, ON_AFTER_OUTPUT_DAMAGE) heals her by the damage and creates its
     // blackboard `effect` gvial2_skill_1_heal on her
     gvial2: cite('gvial2_s_1', (o) => (o.k === 'gvial2_s_1' ? { play: [once('gvial2_skill_1_heal', 'id')] } : null)),
+    // (2026-11-15) 望 S3's 跟子 burst (skchr_wang_3/SpawnTokenS3/BuildStone: wang_stone3_t[damage] `_extraActions`, TARGET,
+    // IMMEDIATELY) — doroth_bomb_hit, 多萝西's prefab, on each enemy it damages
+    wang: cite('wang_stone3_t[damage]', (o) => (o.k === 'wang_stone3_t[damage]' ? { play: [once('doroth_bomb_hit', 'id')] } : null)),
     // (2026-10-26) 酒神 S2: each tick of 本能的召唤's exit (phatm2_s_2[damage], ON_BUFF_TRIGGER) creates
     // phatm2_skill_02_debuff_hit_01 on the enemy it damages
     phatm2: cite('phatm2_s_2[damage]', (o) => (o.k === 'phatm2_s_2[damage]' ? { play: [once('phatm2_skill_02_debuff_hit_01', 'id')] } : null)),

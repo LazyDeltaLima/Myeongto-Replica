@@ -135,7 +135,7 @@ export default {
         { install(battle, unit) { // 勇气的报偿: 精力充沛
           whileOn(battle, unit, AURA_IV, () => {
             for (const a of battle.allies()) {
-              if (isOp(a) && isSargonMinos(a) && a.hpRatio > num(t1.hp_ratio, 0.5)) battle.addBuff(a, { key: 'titi:vigor', duration: AURA_DUR, mods: { aspd: num(t1.attack_speed) } });
+              if (isOp(a) && isSargonMinos(a) && a.hpRatio > num(t1.hp_ratio, 0.5)) battle.addBuff(a, { key: 'titi:vigor', duration: AURA_DUR, mods: { aspd: num(t1.attack_speed) }, visible: true });   // its effect: fxstatus.js KEY_FX
             }
           });
         } },

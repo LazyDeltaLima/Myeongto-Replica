@@ -35,6 +35,7 @@ export { rowsFor };
 
 /** The keys the sim's 'dmg' / 'heal' moments send (KIT_OFFICIAL 'hit', server/sim/damage.js fxField). */
 export const HIT_KEYS = Object.freeze(['bubble_t_1[atk_down]', 'skadi2_s_1[protect]', 'ulpia_t_2', 'thorn2_s2_damage', 'thorn2_s3_enemy_buff', 'trait',
+  'wang_stone3_t[damage]',   // (2026-11-15) 望 S3's 跟子 burst
   'reed2_t_2', 'mizuki_s_3[damage]', 'branch_t_1', 'excu2_s_3[mark]', 'horn:s2:overload', 'projectile_weedy_s3',
   // 묶음 S6 (2026-10-24)
   'clemnt_t1[dice_damage]', 'ghost2_s_3[attack]', 'blkkgt_s_2[blocked]', 'blkkgt_s_2[not_blocked]', 'sbell2_t1[enemy_enter]',
