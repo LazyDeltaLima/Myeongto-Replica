@@ -596,7 +596,7 @@
   기물 종류와 상관없이 `_CreateGoldEffectIfNeed`를 부르고, 그 함수는 그 기물의 `ChessBasicInfo.isGolden`만 보고 같은 `goldenEffectId`를 기물 발에 튼다
   (종류 검사 없음) → 정예 장비도 손 칸·임시 칸에서 같은 금빛. 정예 장비 56개는 모두 기본 장비와 `trapId`가 같아(같은 모델) 금빛이 유일한 구분이다.
   지금 CN 표의 `goldenEffectId`도 하나(`trap_acgarm_buff_loop_01`)라 두 시즌 같다. 구현: `render/units.js ItemView`가 `golden`(아이템 `isGolden`)·`prep`·
-  `isItem`을 갖고 `syncGoldenFx`가 장비 뷰도 본다. 품질 낮음 등으로 못 틀면 발밑 금빛 고리(아래). 시험: `test/item-models.test.js` 「an elite item wears…」
+  `isItem`을 갖고 `syncGoldenFx`가 장비 뷰도 본다. 품질 낮음 등으로 못 틀면 발밑 금빛 고리(아래) — 이펙트 색인을 받는 동안은 고리도 금빛도 없음(2026-11-15, `fxgame.js statusStandIn(bundle, name)`, ui.md ⑤ 「상태 아이콘 줄은 대체 표시만」). 시험: `test/item-models.test.js` 「an elite item wears…」
   (`syncGoldenFx`가 장비 뷰를 건너뛰면 실패 확인). 화면: 렌더 데모 손 칸에 기본·정예 장비 셋씩 — 정예 셋만 금빛 루프 3개, 품질 낮음이면 정예 셋만 고리.
 - **위치 수정** (2026-10-08 관리자 제보, 공식 녹화 — 비공개 녹화):
   보이는 빛은 `bao`(Additive, 1초 × speedMul 0.8 = 1.25초 주기)의 금빛 띠 — 로컬 정렬(align 2) 쿼드가 바닥면에 누워 pivot x 0.95·회전 −90°로

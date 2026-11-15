@@ -25,10 +25,12 @@ export function syncGoldenFx(views, fxGame, prep) {
   const fx = fxGame && typeof fxGame.statusOn === 'function' ? fxGame : null;
   const [bundle, name] = GOLDEN_FX;
   const ready = !!fx && fx.statusReady(bundle, name);
+  // 2026-11-15: the ring stands in only where the glow cannot play (fxgame.js statusStandIn) — not while the index loads
+  const standIn = !fx || (typeof fx.statusStandIn === 'function' ? !!fx.statusStandIn(bundle, name) : !ready);
   for (const v of views.values()) {
     if (!v || (typeof v.flags !== 'number' && !v.isItem)) continue;
     const want = prep && v.prep && v.golden && !v.isEnemy && !v.isToken && v.alive && !v.remove && !v.destroyed;
-    v.goldenFallback = want && !ready;
+    v.goldenFallback = want && !ready && standIn;
     if (!fx) continue;
     const on = !!v._fxStatusOn?.has('golden');
     if (want && !on) { if (ready) fx.statusOn(v, bundle, name, 'golden', 0, null, true); }

@@ -6847,6 +6847,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     /** Whether status effects can play at all (index loaded, not 'low', no WebP failure): off, units draw their status icons (fxstatus.js). */
     statusLayer() { return !!(index && !failed && q() !== 'low'); },
     /**
+     * 2026-11-15 (user report: stand-ins flashed before the official art): whether the status stand-ins draw — the units'
+     * status icons (no args, fxstatus.js) or the stand-in of the shared status prefab `bundle`/`name` (the elite ground ring,
+     * fxgolden.js): only where the official effect cannot play — quality 'low', a failed layer, no extracted effects, the
+     * prefab not listed or failed. While the index still loads, false: neither is drawn (statusLayer / statusReady wait too).
+     */
+    statusStandIn(bundle, name) {
+      if (failed || q() === 'low') return true;
+      if (!index) return indexDone;
+      if (bundle == null) return false;
+      return !index.bundles?.[bundle]?.includes(name) || statusFailed.has(`${bundle}/${name}`);
+    },
+    /**
      * 2026-11-15: whether the board draws its own stand-in for the device effect of tile (x, y) (setStageTiles `device`: a
      * blower's tile_wind_01 → tiles.js _drawFlow) — only where the official one cannot play: quality 'low', a failed layer
      * (no WebP, a lost context), no extracted effects, the prefab not extracted, its spawn empty, its tile not drawn, or no

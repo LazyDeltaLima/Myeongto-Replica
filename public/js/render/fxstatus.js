@@ -722,8 +722,13 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
   return out;
 }
 
-/** Whether the effect layer draws status effects now (fxgame.js statusLayer); off: the drawn icons stand in. */
+/** Whether the effect layer draws status effects now (fxgame.js statusLayer). */
 function layerOn(fxGame) { return typeof fxGame.statusLayer === 'function' ? !!fxGame.statusLayer() : true; }
+/**
+ * Whether the drawn icons stand in (fxgame.js statusStandIn: only where the effects cannot play — while the effect index
+ * loads neither shows; 2026-11-15, the icons used to flash first). A layer without the question: while it is off.
+ */
+function iconsOn(fxGame) { return typeof fxGame.statusStandIn === 'function' ? !!fxGame.statusStandIn() : !layerOn(fxGame); }
 
 /**
  * Sync every live unit's status effects with `fxGame` (render/fxgame.js statusOn / statusOff). `views`: the field's
@@ -732,7 +737,7 @@ function layerOn(fxGame) { return typeof fxGame.statusLayer === 'function' ? !!f
  */
 export function syncStatusFx(views, fxGame, battle) {
   if (!fxGame || typeof fxGame.statusOn !== 'function') return;
-  const icons = !layerOn(fxGame);
+  const icons = iconsOn(fxGame);
   const ebuff = typeof fxGame.enemyBuffFx === 'function' ? fxGame.enemyBuffFx : null;
   const plays = typeof fxGame.plays === 'function' ? fxGame.plays() : null;
   const readyOf = typeof fxGame.readyFx === 'function' ? fxGame.readyFx : null;
