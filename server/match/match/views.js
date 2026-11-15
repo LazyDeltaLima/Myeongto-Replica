@@ -12,7 +12,7 @@ import { bountySpawns, previewOf } from '../waves.js';
 import { timelineAt } from '../fields.js';
 import { bossFieldPlacement } from '../finalAssault.js';
 import { bossFieldPaths } from '../bossPath.js';
-import { battleProgress, bossTopUnits } from '../../sim/spec.js';
+import { battleProgress, bossTopUnits, BOSS_TOP_ROWS } from '../../sim/spec.js';
 import { seasonFeature } from '../../../shared/seasons.js';
 import { DRAFT_CONFIRM_SECONDS, INFO_CHECK_SECONDS } from './common.js';
 
@@ -62,10 +62,9 @@ export class MatchViews {
    * 规程's avatar badges, sent only by a season whose table has them (config.constants, tools/build-data.mjs
    * avatarBadgeConstants): `winStreak` — the 完美连胜 count (settle.js), when ≥ 1 — and, an alive player in a boss round,
    * `bossPct`: their share of this leader's pool (SharedBossPool.byPlayer, the BOSS_HIT broadcasts' tally) in whole
-   * percent, floored, so the 20 / 50 / 80 % glow steps light when the share reaches them; `bossTop`: the chess id of their
-   * operator that dealt the leader the most (spec.js bossTopUnits — the field's b.progress `top`, a server-run field's
-   * own battle).
-   * @returns {{ winStreak?: number, bossPct?: number, bossTop?: string }}
+   * percent, floored, so the 20 / 50 / 80 % glow steps light when the share reaches them (the leader ranking's operator
+   * rows are _leaderTopView).
+   * @returns {{ winStreak?: number, bossPct?: number }}
    */
   _badgeView(ps) {
     const c = this.gd.config.constants || {};
@@ -74,11 +73,42 @@ export class MatchViews {
     const pool = this.bossPool;
     if (Array.isArray(c.bossDamageThresholds) && pool && ps.alive && (this.phase === PHASE.FINAL_ASSAULT || this.phase === PHASE.HIDDEN_CORE)) {
       out.bossPct = pool.maxHp > 0 ? Math.max(0, Math.min(100, Math.floor(((pool.byPlayer.get(ps.playerId) || 0) / pool.maxHp) * 100))) : 0;
-      const f = this.fields.find((x) => x.players.includes(ps.playerId));
-      const top = !f ? null : f.battle ? bossTopUnits(f.battle)?.[ps.playerId] : f.bossTop?.[ps.playerId];
-      if (typeof top === 'string') out.bossTop = top;
     }
     return out;
+  }
+
+  /**
+   * 规程's leader ranking (the right-edge list of a boss round, ui/avatarBadges.js BossRank): the match's BOSS_TOP_ROWS (3)
+   * operators that dealt this leader the most, any player — one may hold two rows (the official recording; maintainer
+   * decision 2026-11-15) — as { pid, chess, pct }: `pct` the operator's damage over the pool's max HP in whole percent,
+   * floored, at least 1 (a listed operator dealt something) [ASSUMED·화면: the official rounding]. A player's operator rows
+   * come from their field's battle (spec.js bossTopUnits — the authority's b.progress `top`, a server-run field's own
+   * battle) and are scaled so they never add up past what the pool credited that player (SharedBossPool.byPlayer): the
+   * page's report splits the damage, it does not add any. Ties: the lower seat, then the player's own order.
+   * Alive players only; null outside a boss round or in a season without the badges (config.constants).
+   * @returns {Array<{ pid: string, chess: string, pct: number }>|null}
+   */
+  _leaderTopView() {
+    const c = this.gd.config.constants || {};
+    const pool = this.bossPool;
+    if (!Array.isArray(c.bossDamageThresholds) || !pool || !(pool.maxHp > 0)) return null;
+    if (this.phase !== PHASE.FINAL_ASSAULT && this.phase !== PHASE.HIDDEN_CORE) return null;
+    const rows = [];
+    this.order.forEach((ps, seat) => {
+      if (!ps.alive) return;
+      const f = this.fields.find((x) => x.players.includes(ps.playerId));
+      const top = !f ? null : f.battle ? bossTopUnits(f.battle)?.[ps.playerId] : f.bossTop?.[ps.playerId];
+      if (!top || !Array.isArray(top.r)) return;
+      const cap = Math.max(0, Number(pool.byPlayer.get(ps.playerId)) || 0);
+      const scale = top.s > cap ? cap / top.s : 1;
+      top.r.forEach(([chess, dmg], i) => {
+        const d = (Number(dmg) || 0) * scale;
+        if (d > 0 && typeof chess === 'string') rows.push({ pid: ps.playerId, chess, d, seat, i });
+      });
+    });
+    if (!rows.length) return null;
+    rows.sort((a, b) => b.d - a.d || a.seat - b.seat || a.i - b.i);
+    return rows.slice(0, BOSS_TOP_ROWS).map((r) => ({ pid: r.pid, chess: r.chess, pct: Math.max(1, Math.min(100, Math.floor((r.d * 100) / pool.maxHp + 1e-9))) }));
   }
 
   fieldOf(ps) {
@@ -142,7 +172,7 @@ export class MatchViews {
         autoplay: ps.autoplay,
         // the LP this round's own battle will cost at settlement so far (COMBAT / 联防 only, omitted when 0)
         ...this._pendingLpView(ps),
-        // 规程's avatar badges: 完美连胜, and in a boss round the share of the leader and the top operator (_badgeView)
+        // 规程's avatar badges: 完美连胜, and in a boss round the share of the leader (_badgeView)
         ...this._badgeView(ps),
       })),
       fields: this.fields.map((f) => {
@@ -182,6 +212,9 @@ export class MatchViews {
       if (this.gd.large) v.overtimeDrain = this.gd.bossOvertimeDrainReal;
     }
     if (this.bossPool) v.bossHp = { hp: Math.max(0, Math.round(this.bossPool.hp)), max: Math.round(this.bossPool.maxHp) };
+    // 规程's leader ranking, a boss round only (_leaderTopView)
+    const leaderTop = this._leaderTopView();
+    if (leaderTop) v.leaderTop = leaderTop;
     // 确定自选编队 (规程, diyChoose.js): the step's length (the countdown gauge's total; 0 when untimed); deadline = its end
     if (this.phase === PHASE.DIY_CHOOSE) v.diyChoose = { seconds: this.soloUntimed ? 0 : this.scaled(this.gd.diyChoose.seconds * 1000) / 1000 };
     if (this.phase === PHASE.BAND_DRAFT && this.draft) {

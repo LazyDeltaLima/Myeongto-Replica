@@ -343,13 +343,18 @@ export function battleProgress(battle) {
   return out;
 }
 
+/** Rows each player sends of their operators against the leader (规程's leader ranking keeps the field's top 3). */
+export const BOSS_TOP_ROWS = 3;
+
 /**
- * Each player's operator that dealt the leader the most so far — { [playerId]: the board piece's chess id } (规程's
- * boss-damage list shows its portrait, 공식 클라에서 확인 by the maintainer 2026-11-12). A unit the battle created (no
- * board uid: a summon) counts for the nearest summoner up its chain that has one, as the settlement's charts
- * (lifecycle.js unitStats `ownerUid`). A player who dealt nothing is left out; null when nobody did.
+ * Each player's operators against the leader so far — { [playerId]: { s, r } }: `s` the whole damage their units dealt
+ * the leader, `r` their BOSS_TOP_ROWS best board pieces as [chess id, damage], most first (ties: the lower uid), both
+ * rounded to whole HP. The leader ranking (views.js leaderTop) shows the match's top 3 of these, one player may hold two
+ * rows (the official 规程 recording; maintainer decision 2026-11-15). A unit the battle created (no board uid: a summon)
+ * counts for the nearest summoner up its chain that has one, as the settlement's charts (lifecycle.js unitStats
+ * `ownerUid`). A player who dealt nothing is left out; null when nobody did.
  * @param {any} battle
- * @returns {Record<string, string>|null}
+ * @returns {Record<string, { s: number, r: Array<[string, number]> }>|null}
  */
 export function bossTopUnits(battle) {
   let out = null;
@@ -361,13 +366,19 @@ export function bossTopUnits(battle) {
       let o = u;
       for (let i = 0; o && o.uid == null && i < 8; i++) o = o.ownerUnit;
       if (!o || o.uid == null) continue;
-      const e = byUid.get(o.uid) || { dmg: 0, def: o.defId };
+      const e = byUid.get(o.uid) || { uid: o.uid, dmg: 0, def: o.defId };
       e.dmg += boss;
       byUid.set(o.uid, e);
     }
-    let best = null;
-    for (const e of byUid.values()) if (typeof e.def === 'string' && (!best || e.dmg > best.dmg)) best = e;
-    if (best) (out ||= {})[ps.playerId] = best.def;
+    let sum = 0;
+    const rows = [];
+    for (const e of byUid.values()) {
+      sum += e.dmg;
+      if (typeof e.def === 'string' && Math.round(e.dmg) > 0) rows.push(e);
+    }
+    if (!rows.length) continue;
+    rows.sort((a, b) => b.dmg - a.dmg || (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0));
+    (out ||= {})[ps.playerId] = { s: Math.round(sum), r: rows.slice(0, BOSS_TOP_ROWS).map((e) => [e.def, Math.round(e.dmg)]) };
   }
   return out;
 }

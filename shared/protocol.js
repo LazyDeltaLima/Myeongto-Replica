@@ -28,6 +28,9 @@ const isMap = (v, max, key, val) => {
   return true;
 };
 const isList = (v, max, item) => Array.isArray(v) && v.length <= max && v.every(item);
+/** One player's b.progress `top` (spec.js bossTopUnits): { s: whole leader damage, r: ≤ 3 × [chess id, damage] }. */
+const isBossTopRows = (v) => isPlain(v) && Object.keys(v).length === 2 && isNum(v.s, 0, BIG)
+  && isList(v.r, 3, (row) => Array.isArray(row) && row.length === 2 && isId(row[0]) && isNum(row[1], 0, BIG));
 /** A co-op room size (shared/constants.js ROOM_SIZES). */
 const isRoomSize = (v) => ROOM_SIZES.includes(v);
 /** 규칙 모드 custom settings on the wire: a plain object of bounded size; shared/ruleset.js sanitizeCustom reads the rest. */
@@ -570,9 +573,11 @@ export const C2S = {
     by: (v) => isMap(v, RESULT_LIMITS.players, isId, (x) => isNum(x, 0, BIG)), done: isBool,
     left: (v) => isMap(v, RESULT_LIMITS.players, isId, (x) => isInt(x, 0, 1e5)),
     leaksBy: (v) => isMap(v, RESULT_LIMITS.players, isId, (x) => isNum(x, 0, 1e6)),
-    // a boss / hidden field: each player's operator that dealt the leader the most (its chess id; spec.js bossTopUnits) —
-    // sent only when it changed since the authority's previous report (the server keeps the last one: f.bossTop)
-    top: (v) => isMap(v, RESULT_LIMITS.players, isId, isId),
+    // a boss / hidden field: each player's operators against the leader (spec.js bossTopUnits: `s` their whole leader
+    // damage, `r` their best BOSS_TOP_ROWS pieces as [chess id, damage]) — sent only when it changed since the authority's
+    // previous report (the server keeps the last one: f.bossTop). A bare chess id is what a page from before the leader
+    // ranking's operator rows sent: still accepted, so its b.progress is not refused, and ignored (reports.js)
+    top: (v) => isMap(v, RESULT_LIMITS.players, isId, (x) => isId(x) || isBossTopRows(x)),
     $optional: ['resolved', 'leaks', 'bossDmg', 'by', 'done', 'left', 'leaksBy', 'top'],
   },
   'b.result': { battleId: isId, result: isBattleResult },

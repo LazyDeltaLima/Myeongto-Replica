@@ -1,7 +1,7 @@
 // 规程's avatar badges and the boss-damage list (the official 规程 HUD; docs/rules/ui.md 「규정 HUD 새 요소」).
 // Shown only by a season whose table has them (config.constants winStreakThresholds / bossDamageThresholds — tools/
-// build-data.mjs avatarBadgeConstants); the numbers are the server's (m.public players[] winStreak / bossPct / bossTop,
-// server/match/match/views.js _badgeView).
+// build-data.mjs avatarBadgeConstants); the numbers are the server's (m.public players[] winStreak / bossPct and
+// leaderTop, server/match/match/views.js _badgeView / _leaderTopView).
 //   * 完美连胜 (panel_win_streak, player_win_streak_view): the perfect rounds in a row — from the first threshold the
 //     theme's triangle win_streak_1_base with the count in black, from the second its star win_streak_2_base with the
 //     count in #F68A25 (thresholds [3, 5]), at the avatar's top-right corner.
@@ -9,8 +9,9 @@
 //     the leader — step 1 / 2 / 3 from 20 / 50 / 80 % (the BOSS_HIT broadcasts' steps): scan_light #FFC500 / #FFAE51 /
 //     #FF9A5E, damage_fx_middle_light through it, the third with the damage_fx_frame_cross frame and damage_fx_dec above
 //     and below; the own avatar says its share beside it (✗ n%).
-//   * the list (boss_damage_stats_panel / _item): the other players by share, each row the name (#5AF2C2), ✗ n% and the
-//     portrait of their operator that dealt the leader the most with its tier; a 隐藏 / 显示 switch above; it comes
+//   * the list (boss_damage_stats_panel / _item): the match's top 3 operators against the leader, any player (one may
+//     hold two rows), each row the player's name (#5AF2C2), the operator's ✗ n% and its portrait with its tier; a
+//     隐藏 / 显示 switch above; it comes
 //     `bossDamageStatsDelay` seconds into the fight. The row styles by percent (bossDamageRowThresholds 30 / 60 / 100 →
 //     the item's group_ranks rank_1…3) [ASSUMED·CN: the table pairs the thresholds with style ids bg_1…3; which of the
 //     item's nodes a style lights is the CN client's].
@@ -92,11 +93,13 @@ export function AvatarBadges({ player, self = false, phase = null }) {
 }
 
 /**
- * The boss-damage list at the right edge during a boss round: the players other than the viewer (the viewer's share is
- * beside its own avatar), highest share first.
- * @param {{ pub: any, myId: string|null }} props
+ * The leader ranking at the right edge during a boss round: the match's top 3 operators against the leader
+ * (m.public.leaderTop, views.js _leaderTopView) — any player, the viewer too, one player may hold two rows (the official
+ * 规程 recording; maintainer decision 2026-11-15) — each with its player's name, the operator's share of the leader and
+ * its portrait.
+ * @param {{ pub: any }} props
  */
-export function BossDamagePanel({ pub, myId }) {
+export function BossDamagePanel({ pub }) {
   const c = badgeConstants();
   const phase = pub?.phase;
   const live = !!c && Array.isArray(c.bossDamageThresholds) && isBoss(phase);
@@ -110,22 +113,21 @@ export function BossDamagePanel({ pub, myId }) {
     return () => clearTimeout(id);
   }, [live, key]);
   if (!live || shown !== key) return null;
-  const rows = (pub.players || []).filter((p) => p && p.playerId !== myId && p.alive !== false && Number.isFinite(p.bossPct))
-    .sort((a, b) => b.bossPct - a.bossPct || (a.seat ?? 0) - (b.seat ?? 0));
+  const names = new Map((pub.players || []).map((p) => [p?.playerId, p?.name]));
+  const rows = (Array.isArray(pub.leaderTop) ? pub.leaderTop : []).filter((r) => r && typeof r.chess === 'string' && Number.isFinite(r.pct)).slice(0, 3);
   if (!rows.length) return null;
   return html`<aside class=${hidden ? 'bdmg is-hidden' : 'bdmg'} aria-label=${t('领袖伤害')}>
     <button type="button" class="bdmg__toggle" aria-expanded=${!hidden} onClick=${() => setHidden((h) => !h)}
       onKeyDown=${(e) => { if (e.key === ' ') e.stopPropagation(); }}>
       <i class="bdmg__arrow" aria-hidden="true"></i><span>${hidden ? tc('toggle', '显示') : tc('toggle', '隐藏')}</span>
     </button>
-    ${hidden ? null : html`<ol class="bdmg__list">${rows.map((p) => {
-      const rank = stepOf(p.bossPct, c.bossDamageRowThresholds);
-      const top = typeof p.bossTop === 'string' ? p.bossTop : null;
-      const kind = top && !data.lookup('chess', top) && data.lookup('tokens', top) ? 'token' : 'chess';
-      return html`<li key=${p.playerId} class=${`bdmg__row is-r${rank}`}>
-        <span class="bdmg__name">${playerName(p.name) || t('博士')}</span>
-        <${Pct} pct=${p.bossPct} />
-        <span class="bdmg__op">${top ? html`<${UnitThumb} kind=${kind} id=${top} size="sm" />` : null}</span>
+    ${hidden ? null : html`<ol class="bdmg__list">${rows.map((r, i) => {
+      const rank = stepOf(r.pct, c.bossDamageRowThresholds);
+      const kind = !data.lookup('chess', r.chess) && data.lookup('tokens', r.chess) ? 'token' : 'chess';
+      return html`<li key=${`${i}:${r.pid}:${r.chess}`} class=${`bdmg__row is-r${rank}`}>
+        <span class="bdmg__name">${playerName(names.get(r.pid)) || t('博士')}</span>
+        <${Pct} pct=${r.pct} />
+        <span class="bdmg__op"><${UnitThumb} kind=${kind} id=${r.chess} size="sm" /></span>
       </li>`;
     })}</ol>`}
   </aside>`;

@@ -495,8 +495,8 @@ export function createBattleRunner(deps) {
         for (const pid of Object.keys(pool.byPlayer).slice(0, RESULT_LIMITS.players)) by[pid] = pool.byPlayer[pid];
         msg.by = by;
       }
-      // each player's top operator against the leader (规程's boss-damage list): only when it changed — it moves a few
-      // times a fight, the reports go 4 times a second
+      // each player's operators against the leader (规程's leader ranking, spec.js bossTopUnits: their whole damage and
+      // best 3 pieces, whole HP): only when it changed — a few small numbers per player while they hit the leader
       if (p.top) {
         const top = Object.fromEntries(Object.entries(p.top).slice(0, RESULT_LIMITS.players));
         const json = JSON.stringify(top);

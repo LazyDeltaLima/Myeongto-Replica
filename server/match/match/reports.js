@@ -35,8 +35,11 @@ export class MatchReports {
       this._creditBoss(f, msg.bossDmg, msg.by);
       this._creditLp(f, msg.leaks, true);
       this._noteLeaksBy(f, msg.leaksBy);
-      // each player's top operator against the leader (views.js bossTop): the field's own players only
-      if (msg.top && typeof msg.top === 'object') for (const pid of f.players) if (typeof msg.top[pid] === 'string') (f.bossTop ||= {})[pid] = msg.top[pid];
+      // each player's operators against the leader (views.js leaderTop): the field's own players only; a bare chess id
+      // (a page from before the operator rows, shared/protocol.js b.progress `top`) is ignored
+      if (msg.top && typeof msg.top === 'object') {
+        for (const pid of f.players) if (msg.top[pid] && typeof msg.top[pid] === 'object') (f.bossTop ||= {})[pid] = msg.top[pid];
+      }
       this._checkFinalEnd();
       this._broadcastPool(false);
       // 4 Hz per field: b.pool carries the exact pool / team LP; m.public (boss HP, LP, progress) follows at ~1 Hz

@@ -498,8 +498,15 @@ function startCombat(phase) {
   // solo pause (g.pause → m.public.paused)
   if (VARIANTS.has('paused')) pub.paused = true;
   pub.players.forEach((p, i) => { p.status = phase === PHASE.SETTLE ? 'done' : i === 1 ? 'done' : 'combat'; });
-  // 规程's boss-damage glow and list (views.js _badgeView bossPct / bossTop): shares and each player's top operator
-  if (boss) pub.players.forEach((p, i) => { p.bossPct = [52, 24, 82, 3][i]; p.bossTop = (S.priv.board || [])[i]?.id || null; });
+  // 规程's boss-damage glow and leader ranking (views.js _badgeView bossPct, _leaderTopView leaderTop): shares, and the
+  // match's top 3 operators — one player in two rows, the viewer's too
+  if (boss) {
+    pub.players.forEach((p, i) => { p.bossPct = [52, 24, 82, 3][i]; });
+    const ids = pub.players.map((p) => p.playerId);
+    const op = (i) => (S.priv.board || [])[i]?.id || null;
+    pub.leaderTop = [[ids[3], op(0), 22], [ids[1], op(1), 6], [ids[3], op(2), 4]]
+      .filter(([pid, chess]) => pid && chess).map(([pid, chess, pct]) => ({ pid, chess, pct }));
+  }
   if (phase === PHASE.UNITE) { pub.players[1].status = 'helping'; pub.players[0].status = 'helping'; }
   // 联防 live counter (user playtest #6 item 7; server m.public unite / players[].uniteLeft / pendingLp): ?variant=leaker
   // — you and 灰烬 let enemies through, the AI and Doctor·B help; otherwise Doctor·B leaked. The first leaker's count of
