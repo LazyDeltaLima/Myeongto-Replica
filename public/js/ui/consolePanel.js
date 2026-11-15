@@ -268,16 +268,31 @@ const diyForm = (charId, tier, elite) => data.get('backups')?.units?.[charId]?.f
 
 /**
  * Where the pick window goes in the scrolled list: under the tapped cell, over it when the room below runs out, never
- * outside the visible part of the list (the list scrolls; a fixed top put it above the view).
+ * outside the visible part of the list (the list scrolls; a fixed top put it above the view). `extra` is height the
+ * window may still grow by (the module row of 精锐), reserved now so that toggling it does not move the window.
  */
-function placePop(pop, cell) {
+function placePop(pop, cell, extra = 0) {
   const body = pop?.offsetParent;
   if (!body || !cell) return;
   const b = body.getBoundingClientRect(), c = cell.getBoundingClientRect();
-  const gap = 4, h = pop.offsetHeight, top0 = body.scrollTop, bottom0 = top0 + body.clientHeight;
+  const gap = 4, h = pop.offsetHeight + extra, top0 = body.scrollTop, bottom0 = top0 + body.clientHeight;
   let top = c.bottom - b.top + top0 + gap;
   if (top + h > bottom0 - gap) top = c.top - b.top + top0 - h - gap;
   pop.style.top = `${Math.max(top0 + gap, Math.min(top, bottom0 - h - gap))}px`;
+}
+
+/** Keeps a placed window where it is, moving it up only as far as its bottom would leave the visible list. */
+function keepPopInView(pop) {
+  const body = pop?.offsetParent;
+  if (!body) return;
+  const gap = 4, top0 = body.scrollTop, bottom0 = top0 + body.clientHeight, top = pop.offsetTop;
+  if (top + pop.offsetHeight > bottom0 - gap) pop.style.top = `${Math.max(top0 + gap, bottom0 - pop.offsetHeight - gap)}px`;
+}
+
+/** The height the 模组 row adds to the pick window: one row like the 阶级 row plus the column gap. */
+function moduleRowRoom(pop) {
+  const row = pop?.querySelector('.cxp__row');
+  return row ? row.offsetHeight + (parseFloat(getComputedStyle(pop).rowGap) || 0) : 0;
 }
 
 /** A 自选 pick's small window: tier V / VI, normal / elite, skill, module (elite only) → con.addDiy. */
@@ -292,7 +307,9 @@ function DiyPop({ entry, at, priv, tierF, prep, onClose }) {
   const [busy, setBusy] = useState(false);
   const rec = cand.tiers[tier] || { skills: [], modules: [] };
   const m = data.get('assets');
-  useLayoutEffect(() => placePop(ref.current, at), [at, tier, elite]);
+  // placed on opening and on a tier change with the module row's room reserved; 普通 / 精锐 then leaves it where it is
+  useLayoutEffect(() => placePop(ref.current, at, elite ? 0 : moduleRowRoom(ref.current)), [at, tier]);
+  useLayoutEffect(() => keepPopInView(ref.current), [elite]);
   // the server's candidates carry the Chinese names; the page's backups have them in the player's language
   const skillName = (s) => diyForm(cand.charId, tier, false)?.skills?.[s.index]?.name || tName(s.name);
   const modName = (x) => { const r = (diyForm(cand.charId, tier, true)?.modules || []).find((y) => y.uniEquipId === x.id); return r?.typeName || x.type || r?.name || tName(x.name); };
