@@ -73,7 +73,7 @@ export class BattleTiles {
 
   /**
    * A tile no automatic placement may take (the 突袭 landing tile, tactical points, summon / device tiles): a living
-   * unit stands on it, or it is the rest tile (restTile) of an ally piece that has not deployed yet or waits to
+   * unit stands on it, a unit on the field holds it (holdTile), or it is the rest tile (restTile) of an ally piece that has not deployed yet or waits to
    * redeploy — the tile a knocked-out operator lies on ("倒地干员所在地块…所有我方单位在此处的部署行为将被阻止", PRTS
    * 卫戍协议/帮助 §作战阶段 单位部署), else its home tile (a token parked there would keep that unit off the field).
    * `except(a)` (local patch): a waiting piece it returns true for reserves nothing (望's own used stones, kits/ops/op-wang.js).
@@ -82,6 +82,7 @@ export class BattleTiles {
     if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;
     const u = this._occ[r * COLS + c];
     if (u && u.alive) return true;
+    if (this._heldTiles.size) for (const [o, k] of this._heldTiles) if (k === r * COLS + c && o.alive && o.deployed) return true;
     for (const a of this.allyUnits) {
       if (a.alive || a.removed || (a.kind !== 'op' && a.kind !== 'token') || (except && except(a))) continue; // local patch: except
       const [tr, tc] = this.restTile(a);
@@ -89,6 +90,16 @@ export class BattleTiles {
     }
     return false;
   }
+
+  /**
+   * Hold (r, c) for `owner` while it stands elsewhere: isReservedTile refuses the tile to every automatic placement as
+   * long as `owner` is alive and on the field — the marker a unit leaves on the tile it returns to (Mon3tr S3's 路标形态
+   * 重构体, kits/ops/op-monstr.js). One tile per owner; `releaseTile(owner)` frees it.
+   */
+  holdTile(owner, r, c) { this._heldTiles.set(owner, r * COLS + c); }
+
+  /** Free the tile `owner` holds (holdTile). */
+  releaseTile(owner) { this._heldTiles.delete(owner); }
 
   /**
    * The knocked-out operator (isDown) lying on (r, c), other than `except`, or null. Official (PRTS 卫戍协议/帮助 §作战阶段

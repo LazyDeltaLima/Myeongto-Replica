@@ -63,9 +63,11 @@
 //   of PRTS 分支特性信息) for ATK true damage, and each attack starts a chain heal on herself at attack@heal_scale × ATK
 //   (she is a free link). 不死: a hit or 流失 that would knock her out leaves her at 1 HP, untargetable and blocking nothing, and
 //   the skill ends on the next tick. At the end she 【返回】s to the tile she left (her SP emptied; the max HP drop keeps the ratio,
-//   so after a fatal blow she stands at ≤ 1 HP) with 1 s of 不死. The 路标形态 marker the client leaves on her tile (a 重构体 that
-//   holds it for her) is not modelled: should another unit stand there, she stays where she is — as the client does when the
-//   marker cannot be placed (PRTS S3 备注 "该标志物将无法部署，从而导致技能结束时不能返回").
+//   so after a fatal blow she stands at ≤ 1 HP) with 1 s of 不死. The tile she left keeps the 路标形态 重构体 the move leaves
+//   there (PRTS S3 备注 "完成移动时在原位置部署另一个路标形态的重构体作为【返回】移动的标志物"; PRTS 重构体: 无敌, not selectable by
+//   either side, blocks nothing): modelled by what it does to the field — the tile is held for her (Battle.holdTile), so no
+//   summon, device or redeployment takes it while she is away. A return that still fails knocks her out (备注 "不能返回的场合
+//   （地块已不合法/标志物已不存在）自身将被击倒").
 
 import { num, talentBb, traitBb, skillRec, batMod, installAura, up } from '../shared/tier1.js';
 import { COLS, TICK, AUTO_TRIGGER_INTERVAL } from '../../../constants.js';
@@ -246,6 +248,7 @@ export default {
             // (clip 'reborn': she lands in mode S3_Reborn — render/units.js FACE_FRONT_DEPLOYS)
             if (!battle.moveRedeploy(unit, to[0], to[1], { clip: 'reborn' })) { skill.end('blocked'); skill.addCharge(1); return; }   // 强制结束技能并返还技力
             unit.mem.mHome = home;
+            battle.holdTile(unit, home.r, home.c);   // the 路标形态 重构体 on the tile she left (完成移动时在原位置部署)
             battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
           },
           onTick({ unit, skill }) { if (unit.mem.mFatal) skill.end('fatal'); },   // 受到致命伤害结算后立即结束技能
@@ -254,13 +257,19 @@ export default {
             unit.mem.mHome = null;
             unit.mem.mFatal = false;
             battle.removeBuff(unit, S3_UNDEAD_KEY);
+            battle.releaseTile(unit);
             if (!h || !unit.alive || !unit.deployed) return;
             // 【返回】 to the tile she left: SP emptied (S3_Restore ModifySp −100 %), 1 s 不死
             const fromX = unit.x, fromY = unit.y, dir0 = unit.dir;
             unit.dir = h.dir;
             // (`back`: the return — the 路标形态 marker's mode ends there, render/fx/kitofficial.js)
-            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true, clip: 'back' })) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY, back: 1 });
-            else unit.dir = dir0;
+            if (!battle.moveRedeploy(unit, h.r, h.c, { clearSp: true, clip: 'back' })) {
+              // 不能返回的场合（地块已不合法/标志物已不存在）自身将被击倒 (PRTS S3 备注)
+              unit.dir = dir0;
+              battle.kill(unit, null);
+              return;
+            }
+            battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY, back: 1 });
             unit.mem.mUndeadUntil = battle.time + RETURN_UNDEAD;
           },
         },
@@ -274,6 +283,7 @@ export default {
           }
           battle.on('death', (c) => {
             if (c.unit !== unit) return;
+            battle.releaseTile(unit);
             for (const t of prostsOf(battle, unit)) if (t.alive) battle.retreat(t, { reason: 'retreat', permanent: true });
           }, { owner: unit });
           battle.on('deploy', (c) => {

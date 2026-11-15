@@ -416,6 +416,44 @@ test('S3 不死: a fatal blow leaves her at 1 HP (untargetable, blocking nothing
   done(h);
 });
 
+test('S3 路标形态: the tile she left stays hers while she is away — 黑键 S2 puts no 旧日残影 on it even with an enemy standing there; freed once she is back; a return that fails knocks her out', () => {
+  const EBN = 'char_4046_ebnhlz', REMNANT = 'token_10024_ebnhlz_rcube';
+  // 黑键 at (10, 2) facing right: his range (cols 2–5, rows 9–11) holds her tile (10, 4)
+  const ebnRec = { uid: 5, diy: { slot: SLOT[6], charId: EBN, skillIndex: 1, uniEquipId: null }, elite: false, row: 10, col: 2, dir: 'RIGHT' };
+  const { h, u } = field({ skill: 2, prosts: { row: 10, col: 6 }, others: [ebnRec] });
+  const ebn = h.unit(5);
+  ebn.skill.sp = 0; ebn.skill.charges = 0;
+  u.skill.gainSp(999);
+  const trig = h.spawn('enemy_dummy', { pos: [10, 5] });   // in the x-4 box around her
+  assert.ok(h.runUntil(() => u.skill.active, 0.5));
+  h.run(u.skill.castTiming().action + 0.04);   // Respawn moves her as Skill_3_Begin ends
+  h.b.kill(trig, null);
+  assert.deepEqual([u.tileR, u.tileC], [10, 6], 'moved onto her 重构体\'s tile');
+  assert.ok(h.b.isReservedTile(10, 4), 'the tile she left is held');
+  // an enemy on her old tile: 荒芜回响 places on a tile holding an enemy first — never on hers
+  h.spawn('enemy_dummy', { pos: [10, 4] });
+  ebn.skill.gainSp(999);
+  assert.ok(h.runUntil(() => ebn.skill.activations === 1, 5), '黑键 S2 cast');
+  assert.ok(h.runUntil(() => h.b.allyUnits.some((t) => t.defId === REMNANT), 4), 'a remnant placed');
+  const rem = h.b.allyUnits.filter((t) => t.defId === REMNANT);
+  assert.ok(!rem.some((t) => t.tileR === 10 && t.tileC === 4), `no remnant on her tile: ${JSON.stringify(rem.map((t) => [t.tileR, t.tileC]))}`);
+  h.runUntil(() => !u.skill.active, 30);
+  assert.deepEqual([u.tileR, u.tileC], [10, 4], '【返回】 to her tile');
+  assert.equal(h.b._heldTiles.size, 0, 'the hold is released');
+  done(h);
+  // the return refused (her tile taken all the same — a unit moved onto it): she is knocked out (PRTS S3 备注 "不能返回的场合…自身将被击倒")
+  const f2 = field({ skill: 2, prosts: { row: 10, col: 6 }, others: [{ uid: 3, chessId: YAK, row: 11, col: 4 }] });
+  f2.u.skill.gainSp(999);
+  const trig2 = f2.h.spawn('enemy_dummy', { pos: [10, 5] });
+  assert.ok(f2.h.runUntil(() => f2.u.skill.active, 0.5));
+  f2.h.run(f2.u.skill.castTiming().action + 0.04);
+  f2.h.b.kill(trig2, null);
+  assert.ok(f2.h.b.relocate(f2.h.unit(3), 10, 4), 'a unit moved onto her tile');
+  f2.h.runUntil(() => !f2.u.skill.active, 30);
+  assert.ok(!f2.u.alive, 'knocked out at the end');
+  done(f2.h);
+});
+
 test('her kit moments for the official effects: T2 shown on an ally but not on her or her 重构体 (its tag: given under S2 or not), the S3 move and return as fx teleport (`back` on the return)', () => {
   const shown = (h, id) => h.eventsOf('status').filter((x) => x[1] === id && x[2] === 'talent:monstr:aspd').map((x) => [x[3], x[5]?.fx ?? null]);
   {
