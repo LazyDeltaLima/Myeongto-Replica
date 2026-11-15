@@ -315,7 +315,7 @@ describe('the resource cache (resources: line, a mount\'s res part, fieldLoading
     assert.equal(line({ reconcile: { at, ms: 4, skipped: true }, download: { phase: 'done', queued: 0, failed: 0 }, cleanup: { left: 0, deleted: 0 }, worker: null }),
       'resources: reconcile 04:14:33 0.0 s (list unchanged) | download done', 'a load with an unchanged list skips the key scan');
     assert.equal(line({ reconcile: { at, ms: 4, skipped: true, differ: 9 }, download: { phase: 'done', queued: 0, failed: 0 }, cleanup: { left: 0, deleted: 0 }, worker: null }),
-      'resources: reconcile 04:14:33 0.0 s (list unchanged) | download done | 9 upstream changed (skipped)', 'upstream files whose source changed');
+      'resources: reconcile 04:14:33 0.0 s (list unchanged) | download done | 9 changed in asset repo (skipped)', 'files their asset repo changed');
     setResourceSource({ status: () => status });
     assert.match(buildDiagnostics({ state: {} }), /^resources: reconcile 04:14:33 3\.2 s/m, 'the registered source');
     setResourceSource({ status: () => { throw new Error('x'); } });

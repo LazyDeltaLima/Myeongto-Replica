@@ -1286,7 +1286,7 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   달라진다; 무작위 300개는 모두 같았다). 목록에 `u`가 있는 파일은 미리 받기가 이 서버에서 받지 않는다(그대로). 그 대신 모든 원본이 응답했는데 바이트가 다른
   파일은 캐시 항목 `/__sp_res_differ__`에 목록 해시와 시각을 적고, 목록이 그 파일에 다른 해시를 적거나 7일이 지날 때까지 받을 목록에서 뺀다 — 예전에는 방문마다
   외부에서 받았다 버리고 경고를 다시 찍었다. 한 원본이라도 네트워크로 실패했거나 이 서버 파일(`u` 없음)이 다르면 적지 않고 다음 방문에 다시 시도한다. 게임이 그 파일을
-  쓰면 워커가 jsDelivr → GitHub raw → 이 서버 순으로 받아 캐시에 넣는다(그대로). 보고서 `resources:` 줄에 `N upstream changed (skipped)`.
+  쓰면 워커가 jsDelivr → GitHub raw → 이 서버 순으로 받아 캐시에 넣는다(그대로). 보고서 `resources:` 줄에 `N changed in asset repo (skipped)`.
   확인: `test/local-patch.test.js` 「resources: an upstream file every source serves with other bytes …」.
 - **다시 받기 동시 개수**: 필드를 불러오는 동안 0(`diag.js fieldLoading()`: 가장 최근 필드 마운트가 시작된 지 60 s 안이고, 필드가 아직 안 보였고, 취소되지
   않음 — 간이 보기로 진 경주도 엔진을 계속 받으니 포함), 판 화면의 나머지 1(예전 2), 그 밖 4. 판에 필요한 파일은 어차피 워커가 그때그때 받는다.

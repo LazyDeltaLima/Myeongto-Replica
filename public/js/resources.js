@@ -240,7 +240,7 @@ async function fetchOne(f) {
   if (differs) {
     differ[f.p] = { h: f.h, at: Date.now() };
     differChanged = true;
-    console.warn('[resources]', f.p, 'upstream file changed (hash mismatch); not tried again until the list changes');
+    console.warn('[resources]', f.p, 'changed in its asset repo (hash mismatch); not tried again until the list changes');
   } else console.warn('[resources]', f.p, last);
   return false;
 }
