@@ -19,16 +19,17 @@
 .cxp__sub { font-size: calc(var(--cpx) * 12); color: var(--text-lo); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cxp__kbd { font: 600 calc(var(--cpx) * 11)/1 monospace; color: var(--text-md); border: 1px solid var(--line-3); padding: calc(var(--cpx) * 2) calc(var(--cpx) * 5); border-radius: 2px; }
 .cxp__x { width: calc(var(--cpx) * 28); height: calc(var(--cpx) * 28); display: grid; place-items: center; border: 1px solid var(--line-2); color: var(--text-md); font-size: calc(var(--cpx) * 16); background: rgba(0,0,0,.3); padding: 0; }
-/* the head's three controls (제보, the key, fold) one height; the key a box like the others */
-.cxp__head .cxp__kbd, .cxp__head .cxp__x { box-sizing: border-box; height: calc(var(--cpx) * 26); min-width: calc(var(--cpx) * 26); display: inline-grid; place-items: center; padding: 0 calc(var(--cpx) * 6); }
-.cxp__head .cxp__x { width: calc(var(--cpx) * 26); padding: 0; }
+/* the head's 제보 and fold one height; the fold a square with the panel glyph, the key in its tooltip (maintainer decision
+   2026-11-15, mockup A) */
+.cxp__head .cxp__x { box-sizing: border-box; width: calc(var(--cpx) * 26); height: calc(var(--cpx) * 26); }
+.cxp__fold { width: calc(var(--cpx) * 14); height: calc(var(--cpx) * 14); stroke: currentColor; fill: none; stroke-width: 2; }
 .cxp__fb { box-sizing: border-box; display: inline-flex; align-items: center; gap: calc(var(--cpx) * 4); height: calc(var(--cpx) * 26); padding: 0 calc(var(--cpx) * 8); font-size: calc(var(--cpx) * 12); font-weight: 600;
   color: var(--text-md); border: 1px solid var(--line-2); background: rgba(0,0,0,.3); }
 .cxp__tabs { flex: none; display: flex; border-bottom: 1px solid var(--line); }
-.cxp__tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: calc(var(--cpx) * 2); padding: calc(var(--cpx) * 7) 0 calc(var(--cpx) * 6);
-  color: var(--text-lo); font-size: calc(var(--cpx) * 12.5); font-weight: 600; position: relative; background: none; border: 0; }
+/* text tabs, no icons (maintainer decision 2026-11-15) */
+.cxp__tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: calc(var(--cpx) * 10) 0 calc(var(--cpx) * 9);
+  color: var(--text-lo); font-size: calc(var(--cpx) * 14); font-weight: 600; position: relative; background: none; border: 0; white-space: nowrap; }
 .cxp .cxp__tab { color: var(--text-lo); }
-.cxp__tab svg { width: calc(var(--cpx) * 20); height: calc(var(--cpx) * 20); stroke: currentColor; fill: none; stroke-width: 1.7; }
 .cxp .cxp__tab.on { color: var(--mint-400); background: rgba(78,216,175,.08); }
 .cxp__tab.on::after { content: ''; position: absolute; left: 10%; right: 10%; bottom: -1px; height: 2px; background: var(--mint-400); }
 .cxp__body { flex: 1; min-height: 0; overflow: hidden auto; display: flex; flex-direction: column; gap: calc(var(--cpx) * 8); padding: calc(var(--cpx) * 10) calc(var(--cpx) * 12); position: relative;
@@ -187,10 +188,10 @@ b.cxp__tier { width: auto; min-width: calc(var(--cpx) * 16); height: calc(var(--
   .cxp__rail { flex: none; width: calc(var(--cpx) * 58); display: flex; flex-direction: column; border-right: 1px solid var(--line); background: rgba(0,0,0,.25); }
   .cxp__rail .cxp__tag { margin: calc(var(--cpx) * 8) calc(var(--cpx) * 4) calc(var(--cpx) * 4); text-align: center; font-size: calc(var(--cpx) * 8); letter-spacing: 0; padding: calc(var(--cpx) * 3) 1px; }
   .cxp__rail .cxp__tabs { flex-direction: column; border: 0; }
-  .cxp__rail .cxp__tab { flex: none; padding: calc(var(--cpx) * 7) 0; font-size: calc(var(--cpx) * 10.5); }
+  .cxp__rail .cxp__tab { flex: none; min-height: 48px; padding: 0; font-size: 11.5px; letter-spacing: -.02em; }
   .cxp__rail .cxp__tab.on::after { left: auto; right: -1px; top: 12%; bottom: 12%; width: 2px; height: auto; }
   .cxp__rail .cxp__x { margin: auto auto calc(var(--cpx) * 8); }
-  .cxp__main > .cxp__tabs, .cxp__head .cxp__x, .cxp__head .cxp__kbd { display: none; }
+  .cxp__main > .cxp__tabs, .cxp__head .cxp__x { display: none; }
   .cxp__body { padding: calc(var(--cpx) * 8) calc(var(--cpx) * 10); gap: calc(var(--cpx) * 6); }
   .cxp__step i.w { display: none; }
   .cxp-launch { left: calc(var(--cpx) * 8); top: calc(var(--cpx) * 70); }
@@ -216,6 +217,7 @@ b.cxp__tier { width: auto; min-width: calc(var(--cpx) * 16); height: calc(var(--
   .cxp__btn.sm { height: 34px; }
   .cxp__fb { height: 34px; }
   .cxp__rail .cxp__x { width: 40px; height: 40px; }
+  .cxp__rail .cxp__fold { width: 18px; height: 18px; }
   .cxp__pop .cxp__x { width: 36px; height: 36px; }
   .cxp__sk span { min-height: 36px; }
   .cxp__chk { min-height: 36px; }

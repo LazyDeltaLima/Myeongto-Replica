@@ -340,7 +340,7 @@ describe('the commands (local debug mode in a co-op match, as the old debug pane
     const h = prep(), m = h.m, ps = h.ps('p_0');
     ps.hand.fill(null);
     const items = Object.values(m.gd.raw.items);
-    const it = items.find((x) => !x.isGolden && x.itemType === 'EQUIP' && x.goldenId && x.goldenId !== x.id);
+    const it = items.find((x) => !x.isGolden && x.itemType === 'EQUIP' && x.goldenId && x.goldenId !== x.id && x.upgradeNum < 100);
     const add = (f, env = DEBUG_ENV) => consoleIntent(m, 'p_0', { t: 'con.addItem', ...f }, env);
     assert.equal(add({ itemId: it.id }, OFF).error, ERR.BAD_MSG, 'off outside debug mode / a console match');
     const stock = m.itemPool.left(it.id);
@@ -351,6 +351,23 @@ describe('the commands (local debug mode in a co-op match, as the old debug pane
     assert.equal(m.itemPool.left(it.id), stock, 'no stock copy taken');
     assert.equal(add({ itemId: it.goldenId }).error, ERR.BAD_TARGET, 'a golden id: golden instead');
     assert.equal(add({ itemId: 'chess_item_9_99_x' }).error, ERR.BAD_TARGET);
+    // an item that never merges (upgradeNum 100) has no strengthened form, though 盟约's table lists a golden record
+    const morph = items.find((x) => x.name === '变形同构体' && !x.isGolden);
+    assert.ok(morph && morph.upgradeNum >= 100 && m.gd.item(morph.upgradeChessId || morph.goldenId), '变形同构体 with its unreachable golden record');
+    assert.equal(add({ itemId: morph.id, golden: true }).error, ERR.BAD_TARGET, 'no strengthened 变形同构体');
+  });
+
+  test('the panel\'s item list offers 强化 only for items that merge, and the bonds tab counts 部署中 / 持有中 from the pieces', async () => {
+    const { consoleItemEntries, filterItemEntries, ownedBondSets } = await import('../public/js/ui/consoleLists.js');
+    const h = prep(), m = h.m;
+    const items = Object.values(m.gd.raw.items);
+    const strong = filterItemEntries(consoleItemEntries(items), { golden: true });
+    assert.ok(strong.length > 10 && !strong.some((e) => e.name === '变形同构体' || e.name === '寻呼模块'), 'upgradeNum 100 items are not 强化-able');
+    const recs = { a: { bonds: ['x', 'y'] }, b: { bonds: ['y', 'z'] }, c: { bonds: ['w'] } };
+    const priv = { board: [{ kind: 'chess', id: 'a' }], hand: [{ kind: 'chess', id: 'b' }, { kind: 'item', id: 'i' }, null], temp: [{ kind: 'chess', id: 'c' }] };
+    const { field, held } = ownedBondSets(priv, (p) => recs[p.id] || null, (rec) => rec.bonds);
+    assert.deepEqual([...field].sort(), ['x', 'y'], 'on the board');
+    assert.deepEqual([...held].sort(), ['w', 'x', 'y', 'z'], 'board, hand and temporary zone');
   });
 
   test('con.presetBoard rebuilds every seat\'s board around a bond now (AI too, kept as placed), with the layer level', () => {

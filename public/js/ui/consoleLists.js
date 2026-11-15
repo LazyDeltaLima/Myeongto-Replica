@@ -3,6 +3,7 @@
 // from m.private.console (server/local-console.js consoleView).
 
 import { tName } from '../../../shared/i18n.js';
+import { strengthenedItemId } from '../../../shared/local.js';
 
 export const DIY = 'diy';         // the bond filter's 自选-only choice
 export const DIY_KEY = 'diy:';    // entry key prefix of a 自选 candidate (a chess entry's key is its chessId)
@@ -105,9 +106,8 @@ export function consoleItemEntries(itemList, rawItem = () => null) {
   const out = [];
   for (const x of Array.isArray(itemList) ? itemList : []) {
     if (!x || x.isGolden || typeof x.id !== 'string') continue;
-    const golden = x.upgradeChessId || x.goldenId;
     out.push({ key: x.id, name: x.name || x.id, tier: Number.isInteger(x.tier) ? x.tier : 0, magic: x.itemType === 'MAGIC',
-      golden: golden && golden !== x.id ? golden : null, sort: x.shopSortId ?? 0,
+      golden: strengthenedItemId(x), sort: x.shopSortId ?? 0,
       hay: [x.name, rawItem(x.id)?.name, x.desc, x.id].filter(Boolean).join(' ').toLowerCase() });
   }
   return out.sort((a, b) => a.tier - b.tier || a.sort - b.sort || (a.key < b.key ? -1 : 1));
@@ -117,4 +117,29 @@ export function consoleItemEntries(itemList, rawItem = () => null) {
 export function filterItemEntries(entries, { tier = 0, golden = false, query = '' } = {}) {
   const q = String(query || '').trim().toLowerCase();
   return entries.filter((e) => (!tier || e.tier === tier) && (!golden || e.golden) && (!q || e.hay.includes(q)));
+}
+
+/**
+ * The bonds of the player's own operators for the bonds tab's two filters: `field` = on the board (배치 중), `held` = on
+ * the board, in the hand or in the temporary zone (보유 중). A piece's bonds are its record's (a 自选 slot's: its pick's) and
+ * those its 变形同构体 pairing grants.
+ * @param {{ board?: any[], hand?: any[], temp?: any[] }} priv m.private
+ * @param {(piece: any) => any} recOf the piece's chess record (the 自选 record for a 自选 slot), or null
+ * @param {(piece: any) => string[]} bondsOf the record's bonds plus the granted ones (gameLogic pieceBondIds)
+ * @returns {{ field: Set<string>, held: Set<string> }}
+ */
+export function ownedBondSets(priv, recOf, bondsOf) {
+  const field = new Set(), held = new Set();
+  const add = (list, ...sets) => {
+    for (const p of Array.isArray(list) ? list : []) {
+      if (!p || p.kind !== 'chess') continue;
+      const rec = recOf(p);
+      if (!rec) continue;
+      for (const b of bondsOf(rec, p)) for (const s of sets) s.add(b);
+    }
+  };
+  add(priv?.board, field, held);
+  add(priv?.hand, held);
+  add(priv?.temp, held);
+  return { field, held };
 }

@@ -22,7 +22,8 @@ import { toast, toastError } from './toasts.js';
 import { FeedbackModal, feedbackStore } from './feedback.js';
 import { bondBoardOf } from './hudArt.js';
 import { bondIconUrl, chessAvatarUrl, enemyIconUrl, itemIconUrl, uiUrl } from './assetUrls.js';
-import { DIY, consoleItemEntries, debugEnemyEntries, debugEntries, diySlotsFullOf, filterDebugEntries, filterItemEntries, ourSideEnemyKeys } from './consoleLists.js';
+import { DIY, consoleItemEntries, debugEnemyEntries, debugEntries, diySlotsFullOf, filterDebugEntries, filterItemEntries, ourSideEnemyKeys, ownedBondSets } from './consoleLists.js';
+import { ownDiyRecord, pieceBondIds } from './gameLogic.js';
 import { net } from '../net.js';
 import { audio } from '../audio.js';
 import { data } from '../data.js';
@@ -39,14 +40,9 @@ const NONE = 'none';
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 const TABS = [['ops', N_('干员')], ['items', N_('装备')], ['enemies', N_('敌人')], ['round', N_('回合')], ['bonds', N_('盟约')]];
-// the tab glyphs of the chosen mockup (maintainer decision 2026-11-15: drawn line icons, not the official title icons)
-const ICONS = {
-  ops: html`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.5-6.5 8-6.5s7 2 8 6.5"/></svg>`,
-  items: html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3l7 7-9 9-4 1 1-4z"/><path d="M12 5l7 7"/></svg>`,
-  enemies: html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c4.5 0 7 3 7 7 0 2.5-1 4-2.5 5v3h-9v-3C6 14 5 12.5 5 10c0-4 2.5-7 7-7z"/><circle cx="9.3" cy="10.5" r="1.4"/><circle cx="14.7" cy="10.5" r="1.4"/><path d="M10 21h4"/></svg>`,
-  round: html`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg>`,
-  bonds: html`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6" r="2.6"/><circle cx="5.5" cy="17" r="2.6"/><circle cx="18.5" cy="17" r="2.6"/><path d="M10.7 8.3L6.8 14.7M13.3 8.3l3.9 6.4M8.1 17h7.8"/></svg>`,
-};
+// the fold glyph (a panel with its edge arrow): the head's fold button and the phone rail's (maintainer decision
+// 2026-11-15: no tab icons, the key in the fold button's tooltip)
+const FOLD_ICON = html`<svg class="cxp__fold" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M9 4v16M16 9l-3 3 3 3"/></svg>`;
 /** con.presetBoard `layers` (server/local-debug-board.js DEBUG_LAYER_LEVELS) and their labels */
 const LAYER_LEVELS = [['keep', N_('保持当前')], ['normal', N_('常规')], ['strong', N_('较多')], ['max', N_('上限')]];
 const NOTE_TEXT = {
@@ -98,16 +94,16 @@ export function ConsolePanel({ con, pub, priv, phase }) {
   const live = con.console === true;
   const hand = Array.isArray(priv?.hand) ? priv.hand : [];
   const handUsed = hand.filter(Boolean).length;
+  const foldTip = `${t('收起')} · ${t('{key} 键显示 / 隐藏', { key: CONSOLE_KEY })}`;
   const head = html`<div class="cxp__head">
     <span class="cxp__tag">CONSOLE</span><b class="cxp__title">${t('控制台')}</b>
     <span class="cxp__sub" title=${live ? t('自由更改干员、装备、敌人、回合、首领与盟约层数；不结算，也不计入统计、成就和战绩') : null}>${live ? t('不计入统计、成就和战绩') : t('本地调试')}</span>
     ${live && feedbackOn ? html`<button type="button" class="cxp__fb" onClick=${() => setFb(true)}>✎ ${t('报错')}</button>` : null}
-    <span class="cxp__kbd" title=${t('{key} 键显示 / 隐藏', { key: CONSOLE_KEY })}>${CONSOLE_KEY}</span>
-    <button type="button" class="cxp__x" aria-label=${t('收起')} onClick=${() => toggle(false)}>‹</button>
+    <button type="button" class="cxp__x" aria-label=${t('收起')} title=${foldTip} onClick=${() => toggle(false)}>${FOLD_ICON}</button>
   </div>`;
   const tabs = html`<div class="cxp__tabs" role="tablist">
     ${TABS.map(([k, label]) => html`<button key=${k} type="button" role="tab" aria-selected=${tab === k ? 'true' : 'false'}
-      class=${cx('cxp__tab', tab === k && 'on')} onClick=${() => pick(k)}>${ICONS[k]}<span>${t(label)}</span></button>`)}
+      class=${cx('cxp__tab', tab === k && 'on')} onClick=${() => pick(k)}><span>${t(label)}</span></button>`)}
   </div>`;
   const body = tab === 'ops' ? html`<${OpsTab} con=${con} priv=${priv} prep=${prep} />`
     : tab === 'items' ? html`<${ItemsTab} prep=${prep} />`
@@ -124,7 +120,7 @@ export function ConsolePanel({ con, pub, priv, phase }) {
     <${ConsoleNote} note=${con.note} />
     ${open ? html`<div class="cxp" role="dialog" aria-label=${t('控制台')}>
       <div class="cxp__rail"><span class="cxp__tag">CONSOLE</span>${tabs}
-        <button type="button" class="cxp__x" aria-label=${t('收起')} onClick=${() => toggle(false)}>‹</button></div>
+        <button type="button" class="cxp__x" aria-label=${t('收起')} onClick=${() => toggle(false)}>${FOLD_ICON}</button></div>
       <div class="cxp__main">${head}${tabs}<div class="cxp__body">${body}</div>${foot}</div>
     </div>` : html`<button type="button" class="cxp-launch" onClick=${() => toggle(true)} title=${t('{key} 键显示 / 隐藏', { key: CONSOLE_KEY })}>
       <span class="cxp__tag">CONSOLE</span>${t('控制台')}<span class="cxp__kbd">${CONSOLE_KEY}</span></button>`}
@@ -427,7 +423,7 @@ function RoundTab({ con, pub, prep, onEnd }) {
 // ---- 맹약 ----------------------------------------------------------------------------------------------------------
 
 function BondsTab({ con, priv, prep }) {
-  const [onField, setOnField] = useState(false);
+  const [scope, setScope] = useState('all'); // 'all' | 'field' (배치 중) | 'held' (보유 중)
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState({});
   const list = useMemo(() => data.list('bonds').filter((b) => b && b.bondId).sort((a, b) => (a.identifier ?? 99) - (b.identifier ?? 99)), [data.status('bonds'), data.locale()]);
@@ -435,7 +431,11 @@ function BondsTab({ con, priv, prep }) {
   const layers = con.layers || {};
   const base = con.layersBase || null;
   const cap = con.layerCap || 999;
-  const shown = onField ? list.filter((b) => (mine.get(b.bondId)?.count || 0) > 0) : list;
+  const D = { chess: data.get('chess'), backups: data.get('backups') };
+  const owned = ownedBondSets(priv, (p) => { const c = data.lookup('chess', p.id); return (c && ownDiyRecord(c, priv, D)) || c; },
+    (rec, p) => pieceBondIds(rec, p.items, (id) => data.lookup('items', id)));
+  const inList = (set) => list.filter((b) => set.has(b.bondId));
+  const shown = scope === 'field' ? inList(owned.field) : scope === 'held' ? inList(owned.held) : list;
   const m = data.get('assets');
   const set = async (bondId, v) => {
     const n = Math.max(0, Math.min(cap, Math.trunc(Number(v)) || 0));
@@ -469,7 +469,7 @@ function BondsTab({ con, priv, prep }) {
   };
   const core = shown.filter((b) => b.isCore), add = shown.filter((b) => !b.isCore);
   return html`
-    <div class="cxp__row"><${Seg} value=${onField} options=${[[false, t('全部 {n}', { n: list.length })], [true, t('场上已有')]]} onChange=${setOnField} />
+    <div class="cxp__row"><${Seg} value=${scope} options=${[['all', t('全部')], ['field', `${t('部署中')} ${inList(owned.field).length}`], ['held', `${t('持有中')} ${inList(owned.held).length}`]]} onChange=${setScope} />
       <span class="cxp__sp"></span><button type="button" class="cxp__btn ghost sm" disabled=${busy || !prep || !con.layersEdited} onClick=${reset}>↺ ${t('重置')}</button></div>
     <div class="cxp__bl">
       ${core.length ? html`<div class="cxp__bsec">${t('核心盟约')} <b>${core.length}</b><small>CORE</small></div>${core.map(row)}` : null}

@@ -31,6 +31,21 @@ import { DEFAULT_SEASON, seasonOf } from './seasons.js';
 /** @returns {string} the version */
 export const localVersion = () => APP_VERSION;
 
+/**
+ * The strengthened (进阶) form a normal item really has, or null. An item that never merges (upgradeNum 100: 寻呼模块,
+ * 信标, 拟态物质, 突变细胞, 人事部文档, 变形同构体) has none: 盟约's table still lists a golden record for them with the same
+ * text, 规程's dropped it; the merge never reaches it (PlayerState._itemMergeable's `n < 100`). The console offers only these.
+ * @param {any} rec items.json record
+ * @returns {string|null}
+ */
+export function strengthenedItemId(rec) {
+  if (!rec || rec.isGolden) return null;
+  const n = rec.upgradeNum;
+  if (Number.isInteger(n) && n >= 100) return null;
+  const gid = rec.upgradeChessId || rec.goldenId;
+  return gid && gid !== rec.id ? gid : null;
+}
+
 // the deploy's restart countdown (server/local-restart.js, public/js/ui/restartNotice.js): in its last RESTART_FINAL_MIN
 // minutes no new match starts and the connection banner counts down (maintainer 2026-10-09: 「재시작 직전 5분 전에 판을 막고,
 // 5분부터는 띠도 표시」)

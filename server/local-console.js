@@ -56,6 +56,7 @@ import { Match } from './match/Match.js';
 import { diyRecord, diySlot, diySlotIds, isDiyModule } from '../shared/diy.js';
 import { localDiyPool } from '../shared/local-diy.js';
 import { checkDiyPicks } from '../shared/protocol.js';
+import { strengthenedItemId } from '../shared/local.js';
 import { diyGameData } from './match/player/diy.js';
 import { KITTED_CHARS } from './sim/content/kits/index.js';
 import { DEBUG_LAYER_LEVELS, applyDebugBoard, assignDebugBonds, bondMembers, debugBosses } from './local-debug-board.js';
@@ -334,7 +335,7 @@ function run(m, ps, msg) {
       const rec = gd.item(msg.itemId);
       if (!rec || rec.isGolden) return fail(ERR.BAD_TARGET, 'not a normal item id');
       const g = gate(); if (g) return g;
-      const gid = msg.golden ? rec.upgradeChessId || rec.goldenId : msg.itemId;
+      const gid = msg.golden ? strengthenedItemId(rec) : msg.itemId;
       if (!gid || !gd.item(gid)) return fail(ERR.BAD_TARGET, 'no strengthened form');
       if (ps.freeZoneSlot('item') < 0 && !ps.completesItemMerge(gid)) return fail(ERR.HAND_FULL);
       if (!ps.acquireItem(gid, { source: 'grant', noPool: true })) return fail(ERR.HAND_FULL);
