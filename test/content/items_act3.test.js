@@ -248,21 +248,38 @@ test('一次性促销券: three different items ≤ the 调度中心 level, one 
   assert.equal(new Set(ps.offers.flatMap((o) => o.slots.map((s) => s.id))).size, 6);
 });
 
-test('人事部记录: the shop\'s operator cards drawn again, of the target\'s first bond where the pool has them; items untouched', () => {
+test('人事部记录: a special refresh of every shop position — operators of the target\'s first bond where the pool has them, no operator twice, the equipment positions drawn again too, sold and frozen ones included', () => {
   const { m, ps } = setup({ seed: 4 });
   ps.shop.level = 6;
   const target = visibleChess((c) => c.bonds.length >= 1 && c.tier === 1)[0];
   const bond = ACT3.chess[target].bonds[0];
   const op = place(m, ps, target);
-  const itemsBefore = ps.shop.slots.filter((s) => s && s.kind === 'item').map((s) => s.id);
+  const kinds = ps._shopKinds().slice();
+  const itemAt = kinds.indexOf('item');
+  const chessAt = kinds.indexOf('chess');
+  assert.ok(itemAt >= 0 && chessAt >= 0, 'the shop has both kinds');
+  // one item card bought, the shop frozen: the special refresh still draws every position (upstream 6efc0628)
+  ps.shop.slots[itemAt].sold = true;
+  ps.shop.frozen = true;
+  for (const s of ps.shop.slots) if (s && !s.sold) s.frozen = true;
+  const before = ps.shop.slots.map((s) => s && { ...s });
   const it = giveItem(m, ps, 'chess_item_5_09_e_a');
   const f0 = ps.funds;
+  const refreshes = ps.round.refreshes;
   assert.deepEqual(m.handle('p_0', { t: 'g.equip', itemUid: it.uid, targetUid: op.uid }), OK);
+  assert.deepEqual(ps._shopKinds(), kinds, 'each position keeps its kind');
   const chess = ps.shop.slots.filter((s) => s && s.kind === 'chess');
-  assert.ok(chess.length >= 1);
+  assert.equal(chess.length, kinds.filter((k) => k === 'chess').length);
   for (const s of chess) assert.ok(ACT3.chess[s.id].bonds.includes(bond), `${s.id} has ${bond}`);
-  assert.deepEqual(ps.shop.slots.filter((s) => s && s.kind === 'item').map((s) => s.id), itemsBefore);
+  assert.equal(new Set(chess.map((s) => s.id)).size, chess.length, 'no operator twice');
+  const items = ps.shop.slots.filter((s) => s && s.kind === 'item');
+  assert.equal(items.length, kinds.filter((k) => k === 'item').length, 'every equipment position holds a card');
+  assert.equal(ps.shop.slots[itemAt].sold, false, 'the bought equipment position is drawn again');
+  assert.ok(ps.shop.slots.some((s, i) => s.kind === 'item' && before[i] && s !== before[i] && (s.id !== before[i].id || before[i].sold)), 'an equipment card changed');
+  for (const s of ps.shop.slots) if (s) assert.equal(s.frozen, true, 'the freeze stays');
   assert.equal(ps.funds, f0, 'free');
+  assert.equal(ps.round.refreshes, refreshes, 'not a 主动刷新');
+  noViolations(m);
 });
 
 test('卫戍推荐信: at the prep\'s end +1 layer to each ACTIVE bond of the carrier (+2 for the 进阶 copy)', () => {

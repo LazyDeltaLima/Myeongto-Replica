@@ -304,17 +304,28 @@ PREP.push(
   })],
 
   // 人事部记录 — equip_use_main_bond: "装备时销毁，立刻特殊刷新1次调度中心，优先出现拥有该干员第一盟约的干员（不高于当前调度中心
-  // 等级）" — every operator card of the shop is drawn again, a first-bond operator where the pool has one (佩佩's special
-  // refresh, bands/meta.js), else any; free, the item cards and the freeze as they are [ASSUMED·화면: 장비 칸도 다시 뽑는지]
+  // 等级）" — a special refresh of the whole shop, operator AND equipment positions, empty, bought and frozen ones too
+  // (official footage, upstream 6efc0628): an operator position gets a first-bond operator where the pool has one (佩佩's
+  // special refresh, bands/meta.js), else any, no operator twice while another is left; an equipment position the shop's
+  // own item draw (level, shared stock). Free, not a 主动刷新; a frozen card stays frozen (setShopSlot).
   ['equip_use_main_bond', null, () => ({
     onEquip(ctx, ev) {
       const bond = firstBond(ctx, ev.target);
       const maxTier = Math.max(1, ctx.shopLevel());
-      const slots = ctx.shopSlots();
-      for (let i = 0; i < slots.length; i++) {
-        if (!slots[i] || slots[i].kind !== 'chess') continue;
-        const id = (bond && ctx.rollChess({ maxTier, filter: (x) => hasBondOf(ctx, x, bond) })) || ctx.rollChess({ maxTier });
-        if (id) ctx.setShopSlot(i, { kind: 'chess', id });
+      const kinds = ctx.shopKinds();
+      const used = [];
+      for (let i = 0; i < kinds.length; i++) {
+        if (kinds[i] === 'item') {
+          const id = ctx.rollShopItem();
+          if (id) ctx.setShopSlot(i, { kind: 'item', id });
+          continue;
+        }
+        const fresh = (x) => !used.includes(x);
+        const id = (bond && ctx.rollChess({ maxTier, filter: (x) => fresh(x) && hasBondOf(ctx, x, bond) }))
+          || ctx.rollChess({ maxTier, filter: fresh }) || ctx.rollChess({ maxTier });
+        if (!id) continue;
+        used.push(id);
+        ctx.setShopSlot(i, { kind: 'chess', id });
       }
     },
   })],
