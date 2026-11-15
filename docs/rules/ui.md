@@ -17,6 +17,7 @@
   layersBase, layerCap, note }`, 콘솔 판이면 `m.public.console = true`(HUD 난이도 옆 「CONSOLE」).
 - **명령** (`shared/local.js` C2S, 처리는 `consoleIntent` 한 곳; 정비 단계만인 것은 준비 완료 뒤에도 됨):
   - `con.funds { on }` 재화를 `SP_DEBUG_FUNDS`(없으면 99)로 고정 / 실제 재화로(그 값에서 이어감). 플레이어별 `ps.debugFundsPin`, 봇은 항상 실제 재화.
+    기본은 꺼짐(관리자 결정 2026-11-15): `SP_DEBUG_FUNDS`를 주고 서버를 띄울 때만 시작부터 고정된다.
     `funds` 접근자는 처음 고정할 때(또는 시작 때 `SP_DEBUG_FUNDS`가 있으면) 설치된다 — 그 전 서버 경로는 원본 그대로.
   - `con.addChess { chessId, golden? }` `data/chess.json`의 일반 기물(숨김 포함; 선발 칸·정예 id는 거부)을 `acquireChess(…, { source: 'grant', fromPool: false })`로
     정비 구역에. 정비 구역이 차면 합성이 되는 경우가 아니면 `HAND_FULL`. 풀 복사본을 쓰지 않지만 3장 합성이면 `_mergeChess`가 정예 몫을 풀에서 채운다(모든 합성과 같음).
@@ -40,6 +41,7 @@
     `strong` ×1.4 · `max` 상한 — 라운드와 상관없이 늘 R14 수준. 이렇게 놓인 AI 자리는 진행 중이던 정비를 멈추고(`_botPrepToken`) 이후 준비 완료만 한다(`ps.debugLocked`).
   - `con.setBoss { final?, hidden? }` 최종 공세 / 히든 코어 리더(이 모드의 리더 목록, `gd.bossWeights`). 다음 리더 라운드부터; 그 리더 라운드 정비 중이면 필드를 다시 계획.
   - `con.setLayers { bondId, layers }`(0..상한) 맹약 하나의 층수를 바로(`ps.layers`), `con.resetLayers {}` 첫 `con.setLayers` 전 층수로(`ps.consoleLayersBase`).
+    중첩이 없는 맹약(`bonds.json` `noStack`: 조화·협동방어·독행·궁극기)은 거부하고, 패널도 조절 칸 대신 「중첩 없음」.
   - `con.end { to: 'lobby' | 'result', victory? }` 콘솔 판은 `reason: 'consoleLobby'`(화면은 결산 없이 바로 대기실) / `'console'`(결산 화면만 보여 줌);
     콘솔이 아닌 로컬 디버그 판의 `'result'`는 옛 디버그 결산(`victory`로 승리 / 패배, 기록도 평소대로).
 - **콘솔 판은 규칙으로 끝나지 않는다** (관리자 결정 2026-11-15, `server/local-console.js` 끝의 감싸기들):
@@ -53,11 +55,16 @@
     보내면 서버가 `console` 항목으로 붙인다 — `fb.send`의 「끝난 판 1시간 안」 문을 진행 중인 콘솔 판의 자리에도 연다(`local-patch.js liveConsoleFeedback`).
     끝난 콘솔 판에서 결산 화면 피드백을 보내도 같은 기록이 붙는다.
 - **패널** (`public/js/ui/consolePanel.js` + `css/console-panel.css`, 목록 함수는 `ui/consoleLists.js`): 데스크톱은 왼쪽(단독은 팀 목록이 비어 자리가 있음),
-  탭 5개 가로 — 오퍼레이터(등급 칩 공식 `chessLevelSprite/chess_level_icon_N`, 일반/정예, 맹약 필터 전체·선발 + 핵심/부가 맹약 칩 공식 `bondBoardIcon/1_0`·`1_1`,
-  검색, 칸은 `equipReplace/avatart_bg`·`avatart_frame` 위 초상; 선발은 작은 창: 단계·일반/정예·스킬·모듈) · 장비(희귀도 원판 `itemRarity/rN`, 일반/강화) ·
-  적(일반/정예, 수량, 다음 전투 대기열) · 라운드(1–마지막 네모 칸, 「N라운드 정비로 이동」, 완성 보드 블록, 리더 초상, 자금 고정, 콘솔 끝내기) ·
+  탭 5개 가로 — 오퍼레이터(등급 칩 공식 `chessLevelSprite/chess_level_icon_N`, 일반/정예, 종류 전체·선발 + 핵심/부가 맹약 칩 공식 `bondBoardIcon/1_0`·`1_1`
+  — 켠 칩 `1_1`은 같은 원판에 빛이 더해진 77px 그림이라 캔버스 비율만큼 키워 원 크기를 맞춘다, 검색, 칸은 `equipReplace/avatart_bg`·`avatart_frame` 위 초상;
+  선발은 작은 창: 단계·일반/정예·스킬·모듈, 누른 칸 바로 아래(아래가 모자라면 위)에 뜨고 이름은 페이지의 번역된 `backups`에서) ·
+  장비(희귀도 원판 `itemRarity/rN`, 일반/강화) ·
+  적(일반/정예, 수량, 다음 전투 대기열; 우리 편 유닛 — 모든 적 효과의 `enemy_exclude`가 함께 적는 키: 염의 가호, 규정은 맹약 소환물과 “모의 보물” — 은 빠지고,
+  이름이 같은 공식 레코드 둘(덕로드·고프닉·눈물 흘리는 사내·동글이와 전략 '신비한 고객'이 바꿔 넣는 `_2` 형태)은 HP로 구분) · 라운드(1–마지막 네모 칸, 「N라운드 정비로 이동」, 완성 보드 블록, 리더 초상, 자금 고정, 콘솔 끝내기) ·
   맹약(HUD 맹약 칸 `.bslot`·`bondBoardOf`를 작게, 핵심/부가 나눔, −10/−/값/+/+10/최대, 「↺ 초기화」). 탭 아이콘은 시안의 선 아이콘(관리자 결정 2026-11-15).
-  `` ` `` 키로 접고 펴기(브라우저별 기억), 접으면 왼쪽 위 「CONSOLE」 탭. 휴대폰(짧은 화면 + 터치)은 왼쪽 전체 높이 시트, 탭은 세로 레일, ±10 없음.
+  `` ` `` 키로 접고 펴기(브라우저별 기억), 접으면 왼쪽 위 「CONSOLE」 탭(머리의 태그·글자와 같은 크기·자리). 머리 부제는 「통계·업적·전적에 남지 않음」,
+  제보·단축키·접기는 한 높이. 휴대폰(짧은 화면 + 터치)은 왼쪽 전체 높이 시트, 탭은 세로 레일, ±10 없음; 시안이 CSS px라 `--cpx`는 1px
+  (데스크톱 단위 1rem/83.33을 쓰면 0.48px가 되어 시트가 반 크기였다), 조작 칸은 34px 이상, 시트가 열린 동안 왼쪽 아래 「소통」·⋯은 숨김.
   「콘솔 끝내기…」는 공식 확인 창(`battleArt('confirm')`, `.bcd`) 모양에 취소 / 로비로 / 결산 화면으로. 고른 시안: 관리자 노트 「콘솔 모드 시안」.
   그리기: 매 프레임 비용 없음(`m.private` 바뀔 때만, 아이콘 격자는 열린 탭만).
 - 재발 방지: `test/local-console.test.js`(누가 쓰나·대기실 켜기·명령마다 실제 판 경로·규칙으로 안 끝남·끝내기·기록 제외·판 도중 제보).

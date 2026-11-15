@@ -19,7 +19,10 @@
 .cxp__sub { font-size: calc(var(--cpx) * 12); color: var(--text-lo); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cxp__kbd { font: 600 calc(var(--cpx) * 11)/1 monospace; color: var(--text-md); border: 1px solid var(--line-3); padding: calc(var(--cpx) * 2) calc(var(--cpx) * 5); border-radius: 2px; }
 .cxp__x { width: calc(var(--cpx) * 28); height: calc(var(--cpx) * 28); display: grid; place-items: center; border: 1px solid var(--line-2); color: var(--text-md); font-size: calc(var(--cpx) * 16); background: rgba(0,0,0,.3); padding: 0; }
-.cxp__fb { display: inline-flex; align-items: center; gap: calc(var(--cpx) * 4); height: calc(var(--cpx) * 26); padding: 0 calc(var(--cpx) * 8); font-size: calc(var(--cpx) * 12); font-weight: 600;
+/* the head's three controls (제보, the key, fold) one height; the key a box like the others */
+.cxp__head .cxp__kbd, .cxp__head .cxp__x { box-sizing: border-box; height: calc(var(--cpx) * 26); min-width: calc(var(--cpx) * 26); display: inline-grid; place-items: center; padding: 0 calc(var(--cpx) * 6); }
+.cxp__head .cxp__x { width: calc(var(--cpx) * 26); padding: 0; }
+.cxp__fb { box-sizing: border-box; display: inline-flex; align-items: center; gap: calc(var(--cpx) * 4); height: calc(var(--cpx) * 26); padding: 0 calc(var(--cpx) * 8); font-size: calc(var(--cpx) * 12); font-weight: 600;
   color: var(--text-md); border: 1px solid var(--line-2); background: rgba(0,0,0,.3); }
 .cxp__tabs { flex: none; display: flex; border-bottom: 1px solid var(--line); }
 .cxp__tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: calc(var(--cpx) * 2); padding: calc(var(--cpx) * 7) 0 calc(var(--cpx) * 6);
@@ -51,6 +54,9 @@
   background: var(--chip, radial-gradient(circle, #2c3532 0 60%, #1a201e 62%)) center / 100% 100% no-repeat; }
 .cxp__bchip.ico img { width: calc(var(--cpx) * 17); height: calc(var(--cpx) * 17); filter: brightness(0) invert(.82); }
 .cxp__bchip.ico.on img { filter: brightness(0) opacity(.8); }
+/* the lit disc (bondBoardIcon/1_1, 77 px) draws the same 51 px disc as the unlit one (1_0, 65 × 64) inside a wider glow:
+   scaled by the canvases' ratio, the circle keeps its size when chosen */
+.cxp__bchip.ico.on { background-size: calc(100% * 77 / 65) calc(100% * 77 / 64); }
 .cxp__search { flex: 1; min-width: 0; height: calc(var(--cpx) * 30); padding: 0 calc(var(--cpx) * 10); border: 1px solid var(--line-2); background: rgba(0,0,0,.45);
   color: var(--text-hi); font: inherit; font-size: calc(var(--cpx) * 13); }
 .cxp__select { height: calc(var(--cpx) * 28); background: rgba(0,0,0,.45); color: var(--text-hi); border: 1px solid var(--line-2); font: inherit; font-size: calc(var(--cpx) * 12.5); }
@@ -75,6 +81,7 @@ b.cxp__tier { width: auto; min-width: calc(var(--cpx) * 16); height: calc(var(--
 .cxp__flag.diy { color: #1a0f00; background: var(--amber, #f6a329); }
 .cxp__flag.magic { color: #fff; background: #8a5cf6; }
 .cxp__flag.elite { color: #1a0f00; background: var(--gold, #f2c14e); }
+.cxp__flag.hp { right: auto; bottom: auto; left: 0; top: 0; color: var(--text-hi); font-weight: 600; }
 .cxp__foot { flex: none; display: flex; align-items: center; gap: calc(var(--cpx) * 8); padding: calc(var(--cpx) * 7) calc(var(--cpx) * 12); border-top: 1px solid var(--line);
   font-size: calc(var(--cpx) * 12); color: var(--text-lo); background: rgba(0,0,0,.25); }
 .cxp__foot b { color: var(--mint-400); }
@@ -140,6 +147,7 @@ b.cxp__tier { width: auto; min-width: calc(var(--cpx) * 16); height: calc(var(--
 .cxp__bname small { display: block; font-size: calc(var(--cpx) * 10.5); font-weight: 500; color: var(--text-lo); }
 .cxp__bname small b { color: var(--mint-400); }
 .cxp__brow .cxp__step { height: calc(var(--cpx) * 26); }
+.cxp__nostack { font-size: calc(var(--cpx) * 11.5); color: var(--text-dim, var(--text-lo)); padding-right: calc(var(--cpx) * 4); }
 .cxp .cxp__mx { height: calc(var(--cpx) * 26); padding: 0 calc(var(--cpx) * 7); font-size: calc(var(--cpx) * 11.5); font-weight: 600; color: var(--text-md); border: 1px solid var(--line-2); background: rgba(0,0,0,.3); }
 .cxp__pop { position: absolute; z-index: 3; left: calc(var(--cpx) * 128); top: calc(var(--cpx) * 220); width: calc(var(--cpx) * 268); background: #0b0f0e; border: 1px solid var(--amber, #f6a329);
   box-shadow: 0 calc(var(--cpx) * 8) calc(var(--cpx) * 30) rgba(0,0,0,.75); padding: calc(var(--cpx) * 10); display: flex; flex-direction: column; gap: calc(var(--cpx) * 8); }
@@ -154,10 +162,12 @@ b.cxp__tier { width: auto; min-width: calc(var(--cpx) * 16); height: calc(var(--
 .cxp__sk span.on { border-color: var(--mint-500); color: var(--mint-400); background: rgba(78,216,175,.12); }
 
 /* folded: the 「CONSOLE」 tab at the top left, under the exit and the ping */
-.cxp-launch { position: absolute; z-index: 30; left: calc(var(--cpx) * 22); top: calc(var(--cpx) * 104); display: flex; align-items: center; gap: calc(var(--cpx) * 6);
-  padding: calc(var(--cpx) * 6) calc(var(--cpx) * 10) calc(var(--cpx) * 6) calc(var(--cpx) * 8); background: rgba(10,13,12,.9); border: 1px solid var(--line-2); border-left: 3px solid var(--mint-500);
-  color: var(--text-hi); font: 600 calc(var(--cpx) * 13) var(--font-cjk, system-ui); cursor: pointer; pointer-events: auto; }
-.cxp-launch .cxp__tag { font-size: calc(var(--cpx) * 10); }
+/* the tag and the word the same size and place as in the open panel's head (.cxp__tag, .cxp__title): folding changes
+   the box only */
+.cxp-launch { position: absolute; z-index: 30; left: calc(var(--cpx) * 18); top: calc(var(--cpx) * 98); display: flex; align-items: center; gap: calc(var(--cpx) * 8);
+  padding: calc(var(--cpx) * 8) calc(var(--cpx) * 10) calc(var(--cpx) * 8) calc(var(--cpx) * 12); background: rgba(10,13,12,.9); border: 1px solid var(--line-2); border-left: 3px solid var(--mint-500);
+  color: var(--text-hi); font: 700 calc(var(--cpx) * 16) var(--font-cjk, system-ui); cursor: pointer; pointer-events: auto; }
+.cxp-launch .cxp__kbd { box-sizing: border-box; height: calc(var(--cpx) * 26); min-width: calc(var(--cpx) * 26); display: inline-grid; place-items: center; padding: 0 calc(var(--cpx) * 6); }
 /* the notice of a match that went back to a prep instead of ending */
 .cxp-note { position: absolute; z-index: 40; left: 50%; top: calc(var(--cpx) * 210); transform: translateX(-50%); display: flex; align-items: center; gap: calc(var(--cpx) * 12);
   padding: calc(var(--cpx) * 10) calc(var(--cpx) * 18); background: rgba(8,11,10,.94); border: 1px solid var(--amber, #f6a329); color: var(--text-hi);
@@ -184,6 +194,37 @@ b.cxp__tier { width: auto; min-width: calc(var(--cpx) * 16); height: calc(var(--
   .cxp__step i.w { display: none; }
   .cxp-launch { left: calc(var(--cpx) * 8); top: calc(var(--cpx) * 70); }
   .cxp-launch .cxp__kbd { display: none; }
+  /* the phone mockup is in CSS px: one mockup pixel is 1px here. 1rem / 83.33 (the desktop's unit) made it 0.48px on a
+     phone (1rem = 40px), the whole sheet half the mockup's size and its controls 10–13px tall */
+  .cxp, .cxp-launch, .cxp-note, .cxp-badge, .cxp-end { --cpx: 1px; }
+  .cxp__grid.g7 { grid-template-columns: repeat(6, 1fr); }
+  /* touch: every control at least 34px (the stepper and the bond chips are tapped over and over) */
+  .cxp__seg b { min-height: 34px; display: flex; align-items: center; justify-content: center; }
+  .cxp__seg b.ti { padding: 0 5px; }
+  .cxp__bonds { gap: 4px; }
+  .cxp__bchip.ico { width: 34px; height: 34px; }
+  .cxp__bchip.ico img { width: 21px; height: 21px; }
+  .cxp__bk { padding-top: 10px; }
+  .cxp__search { height: 36px; }
+  .cxp__select { height: 34px; }
+  .cxp__step, .cxp__brow .cxp__step { height: 36px; }
+  .cxp__step i { width: 36px; }
+  .cxp__step b, .cxp__step input { width: 46px; }
+  .cxp .cxp__mx { height: 36px; padding: 0 9px; }
+  .cxp__btn { height: 40px; }
+  .cxp__btn.sm { height: 34px; }
+  .cxp__fb { height: 34px; }
+  .cxp__rail .cxp__x { width: 40px; height: 40px; }
+  .cxp__pop .cxp__x { width: 36px; height: 36px; }
+  .cxp__sk span { min-height: 36px; }
+  .cxp__chk { min-height: 36px; }
+  .cxp__chk i { width: 20px; height: 20px; }
+  .cxp__q { min-height: 32px; }
+  .cxp__q i { padding: 6px 4px; }
+  .cxp-launch { min-height: 44px; box-sizing: border-box; }
+  /* the bottom-left corner (소통, ⋯) is a later layer than the HUD that holds the sheet: it sat over the sheet's foot.
+     It is under the sheet while the sheet is open, back when it folds */
+  .gm:has(.cxp) .gm__corner { display: none; }
 }
 
 /* the solo room's 「콘솔 모드」 switch (ui/consoleToggle.js): right of 干员调配, the same button; amber while on */

@@ -14,7 +14,7 @@
 // over the left of the screen with the tabs as a vertical rail (css/console-panel.css). Per-frame cost: none — it renders
 // on m.private changes, the icon grid only for the open tab (docs/rules/render.md 「함정」).
 
-import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, roman, tierChipUrl } from './components.js';
 import { BondDisc } from './components.js';
 import { act } from './gameActions.js';
@@ -22,7 +22,7 @@ import { toast, toastError } from './toasts.js';
 import { FeedbackModal, feedbackStore } from './feedback.js';
 import { bondBoardOf } from './hudArt.js';
 import { bondIconUrl, chessAvatarUrl, enemyIconUrl, itemIconUrl, uiUrl } from './assetUrls.js';
-import { DIY, consoleItemEntries, debugEnemyEntries, debugEntries, diySlotsFullOf, filterDebugEntries, filterItemEntries } from './consoleLists.js';
+import { DIY, consoleItemEntries, debugEnemyEntries, debugEntries, diySlotsFullOf, filterDebugEntries, filterItemEntries, ourSideEnemyKeys } from './consoleLists.js';
 import { net } from '../net.js';
 import { audio } from '../audio.js';
 import { data } from '../data.js';
@@ -100,7 +100,7 @@ export function ConsolePanel({ con, pub, priv, phase }) {
   const handUsed = hand.filter(Boolean).length;
   const head = html`<div class="cxp__head">
     <span class="cxp__tag">CONSOLE</span><b class="cxp__title">${t('控制台')}</b>
-    <span class="cxp__sub">${live ? t('不计入记录') : t('本地调试')}</span>
+    <span class="cxp__sub" title=${live ? t('自由更改干员、装备、敌人、回合、首领与盟约层数；不结算，也不计入统计、成就和战绩') : null}>${live ? t('不计入统计、成就和战绩') : t('本地调试')}</span>
     ${live && feedbackOn ? html`<button type="button" class="cxp__fb" onClick=${() => setFb(true)}>✎ ${t('报错')}</button>` : null}
     <span class="cxp__kbd" title=${t('{key} 键显示 / 隐藏', { key: CONSOLE_KEY })}>${CONSOLE_KEY}</span>
     <button type="button" class="cxp__x" aria-label=${t('收起')} onClick=${() => toggle(false)}>‹</button>
@@ -214,7 +214,7 @@ function OpsTab({ con, priv, prep }) {
   const [tier, setTier] = useState(0);
   const [query, setQuery] = useState('');
   const [elite, setElite] = useState(false);
-  const [popKey, setPopKey] = useState(null);
+  const [pop, setPop] = useState(null); // { key, at: the tapped cell }
   const [busy, setBusy] = useState(false);
   const entries = useMemo(() => debugEntries(data.list('chess'), con.candidates, (id) => data.lookupRaw('chess', id), (id) => data.lookup('bonds', id)),
     [con.candidates, data.status('chess'), data.status('bonds'), data.locale()]);
@@ -222,9 +222,9 @@ function OpsTab({ con, priv, prep }) {
     .sort((a, b) => (a.identifier ?? 99) - (b.identifier ?? 99)), [entries, data.status('bonds'), data.locale()]);
   const shown = filterDebugEntries(entries, { bond, tier, query });
   const m = data.get('assets');
-  const add = async (e) => {
+  const add = async (e, ev) => {
     if (busy || !prep) return;
-    if (e.kind === 'diy') { setPopKey(e.key); return; }
+    if (e.kind === 'diy') { setPop({ key: e.key, at: ev.currentTarget }); return; }
     setBusy(true);
     await send('con.addChess', { chessId: e.key, golden: elite });
     setBusy(false);
@@ -233,31 +233,49 @@ function OpsTab({ con, priv, prep }) {
   const chip = (b) => html`<button key=${b.bondId} type="button" class=${cx('cxp__bchip', 'ico', bond === b.bondId && 'on')} title=${tName(b.name)}
       style=${chipArt(m, bond === b.bondId)} onClick=${() => setBond(bond === b.bondId ? '' : b.bondId)}>
     ${bondIconUrl(m, b.bondId) ? html`<img src=${bondIconUrl(m, b.bondId)} alt=${tName(b.name)} />` : tName(b.name).slice(0, 1)}</button>`;
-  const pop = popKey ? entries.find((e) => e.key === popKey) : null;
+  const popEntry = pop ? entries.find((e) => e.key === pop.key) : null;
   return html`
     <div class="cxp__row"><span class="cxp__k">${t('阶级')}</span><${TierSeg} value=${tier} onChange=${setTier} /><span class="cxp__sp"></span>
       <${Seg} amber value=${elite} options=${[[false, t('普通')], [true, t('精锐')]]} onChange=${setElite} /></div>
-    <div class="cxp__row"><span class="cxp__k">${t('盟约')}</span>
+    <div class="cxp__row"><span class="cxp__k">${t('类型')}</span>
       <${Seg} value=${bond === DIY ? DIY : bond ? 'x' : ''} options=${[['', t('全部')], [DIY, t('自选')]]} onChange=${setBond} /></div>
     <div class="cxp__row top"><span class="cxp__bk">${t('核心')}</span><span class="cxp__bonds">${bonds.filter((b) => b.isCore).map(chip)}</span></div>
     <div class="cxp__row top"><span class="cxp__bk">${t('附加')}</span><span class="cxp__bonds">${bonds.filter((b) => !b.isCore).map(chip)}</span></div>
     <div class="cxp__row"><input type="search" class="cxp__search" value=${query} placeholder=${t('搜索干员 / 职业 / 盟约')} aria-label=${t('搜索干员 / 职业 / 盟约')}
       onInput=${(e) => setQuery(String(e.currentTarget.value).slice(0, 24))} /><span class="cxp__count">${t('{n} 名', { n: shown.length })}</span></div>
     <div class="cxp__grid g6">
-      ${shown.map((e) => html`<button key=${e.key} type="button" class=${cx('cxp__cell', e.hidden && 'hid')} disabled=${!prep} onClick=${() => add(e)} title=${e.name}>
+      ${shown.map((e) => html`<button key=${e.key} type="button" class=${cx('cxp__cell', e.hidden && 'hid')} disabled=${!prep} onClick=${(ev) => add(e, ev)} title=${e.name}>
         <${Pic} src=${avatar(e)} tier=${e.kind === 'diy' ? 0 : e.tiers[0]}>
           ${e.kind === 'diy' ? html`<span class="cxp__flag diy">${t('自选')}</span>` : e.hidden ? html`<span class="cxp__flag">${t('隐藏')}</span>` : null}
         <//><span class="nm">${e.name}</span></button>`)}
     </div>
-    ${pop ? html`<${DiyPop} entry=${pop} priv=${priv} tierF=${tier} prep=${prep} onClose=${() => setPopKey(null)} />` : null}`;
+    ${popEntry ? html`<${DiyPop} key=${popEntry.key} entry=${popEntry} at=${pop.at} priv=${priv} tierF=${tier} prep=${prep} onClose=${() => setPop(null)} />` : null}`;
 }
 
 /** The bond chip's official disc (bondBoardIcon 1_0 off / 1_1 on), or nothing (the CSS circle). */
 const chipArt = (m, on) => { const u = uiUrl(m, `bondBoardIcon/1_${on ? 1 : 0}`); return u ? `--chip:url("${u}")` : undefined; };
 
+/** The 自选 pick's forms in data/backups.json (con.addDiy's server/local-console.js formKey): the page's own, translated. */
+const diyForm = (charId, tier, elite) => data.get('backups')?.units?.[charId]?.forms?.[elite ? `2/60/7/${tier === 6 ? 3 : 1}` : '2/1/4/0'] || null;
+
+/**
+ * Where the pick window goes in the scrolled list: under the tapped cell, over it when the room below runs out, never
+ * outside the visible part of the list (the list scrolls; a fixed top put it above the view).
+ */
+function placePop(pop, cell) {
+  const body = pop?.offsetParent;
+  if (!body || !cell) return;
+  const b = body.getBoundingClientRect(), c = cell.getBoundingClientRect();
+  const gap = 4, h = pop.offsetHeight, top0 = body.scrollTop, bottom0 = top0 + body.clientHeight;
+  let top = c.bottom - b.top + top0 + gap;
+  if (top + h > bottom0 - gap) top = c.top - b.top + top0 - h - gap;
+  pop.style.top = `${Math.max(top0 + gap, Math.min(top, bottom0 - h - gap))}px`;
+}
+
 /** A 自选 pick's small window: tier V / VI, normal / elite, skill, module (elite only) → con.addDiy. */
-function DiyPop({ entry, priv, tierF, prep, onClose }) {
+function DiyPop({ entry, at, priv, tierF, prep, onClose }) {
   const cand = entry.cand;
+  const ref = useRef(null);
   const [tier, setTier] = useState(() => (tierF && cand.tiers[tierF] ? tierF : cand.tiers[6] ? 6 : 5));
   const [elite, setElite] = useState(false);
   const pickOf = (tr) => Object.entries(priv?.diy || {}).find(([id, p]) => p && p.charId === cand.charId && id.startsWith(`chess_char_${tr}_`))?.[1] || null;
@@ -266,6 +284,10 @@ function DiyPop({ entry, priv, tierF, prep, onClose }) {
   const [busy, setBusy] = useState(false);
   const rec = cand.tiers[tier] || { skills: [], modules: [] };
   const m = data.get('assets');
+  useLayoutEffect(() => placePop(ref.current, at), [at, tier, elite]);
+  // the server's candidates carry the Chinese names; the page's backups have them in the player's language
+  const skillName = (s) => diyForm(cand.charId, tier, false)?.skills?.[s.index]?.name || tName(s.name);
+  const modName = (x) => { const r = (diyForm(cand.charId, tier, true)?.modules || []).find((y) => y.uniEquipId === x.id); return r?.typeName || x.type || r?.name || tName(x.name); };
   const add = async () => {
     setBusy(true);
     const fields = { charId: cand.charId, tier, golden: elite };
@@ -275,16 +297,16 @@ function DiyPop({ entry, priv, tierF, prep, onClose }) {
     setBusy(false);
     if (ok) onClose();
   };
-  return html`<div class="cxp__pop" role="dialog" aria-label=${entry.name}>
+  return html`<div class="cxp__pop" ref=${ref} role="dialog" aria-label=${entry.name}>
     <div class="ttl"><img src=${chessAvatarUrl(m, { charId: cand.charId }) || ''} alt="" /><span><b>${entry.name}</b><small>${t('自选干员')}</small></span>
       <span class="cxp__sp"></span><button type="button" class="cxp__x" aria-label=${t('关闭')} onClick=${onClose}>×</button></div>
     <div class="cxp__row"><span class="cxp__k">${t('阶级')}</span>
       <${Seg} value=${tier} options=${Object.keys(cand.tiers).map(Number).map((n) => [n, roman(n)])} onChange=${setTier} /><span class="cxp__sp"></span>
       <${Seg} amber value=${elite} options=${[[false, t('普通')], [true, t('精锐')]]} onChange=${setElite} /></div>
     <div class="cxp__sk">${rec.skills.map((s) => html`<span key=${s.index} class=${cx(skill === s.index && 'on')} onClick=${() => setSkill(s.index)}>
-      <b>S${s.index + 1}</b>${tName(s.name)}</span>`)}</div>
+      <b>S${s.index + 1}</b>${skillName(s)}</span>`)}</div>
     ${elite ? html`<div class="cxp__row"><span class="cxp__k">${t('模组')}</span>
-      <${Seg} value=${mod} options=${rec.modules.map((x) => [x.id, x.id === NONE ? t('无') : x.type || tName(x.name)])} onChange=${setMod} /></div>` : null}
+      <${Seg} value=${mod} options=${rec.modules.map((x) => [x.id, x.id === NONE ? t('无') : modName(x)])} onChange=${setMod} /></div>` : null}
     <button type="button" class="cxp__btn full" disabled=${busy || !prep} onClick=${add}>${t('加入备战区')}</button>
   </div>`;
 }
@@ -321,7 +343,8 @@ function EnemiesTab({ con, prep }) {
   const [query, setQuery] = useState('');
   const [n, setN] = useState(1);
   const [busy, setBusy] = useState(false);
-  const entries = useMemo(() => debugEnemyEntries(data.list('enemies'), (k) => data.lookupRaw('enemies', k)), [data.status('enemies'), data.locale()]);
+  const entries = useMemo(() => debugEnemyEntries(data.list('enemies'), (k) => data.lookupRaw('enemies', k), ourSideEnemyKeys(data.list('effects'))),
+    [data.status('enemies'), data.status('effects'), data.locale()]);
   const q = query.trim().toLowerCase();
   const shown = entries.filter((e) => (!rank || e.rank === rank) && (!q || e.hay.includes(q)));
   const m = data.get('assets');
@@ -337,8 +360,10 @@ function EnemiesTab({ con, prep }) {
       onInput=${(e) => setQuery(String(e.currentTarget.value).slice(0, 24))} />
       <span class="cxp__k">${t('数量')}</span><span class="cxp__step"><i onClick=${() => setN(Math.max(1, n - 1))}>−</i><b class="num">${n}</b><i onClick=${() => setN(Math.min(20, n + 1))}>+</i></span></div>
     <div class="cxp__grid g7">
-      ${shown.map((e) => html`<button key=${e.key} type="button" class="cxp__cell" disabled=${!prep} onClick=${() => add(e)} title=${e.name}>
-        <${Pic} kind="enemy" src=${enemyIconUrl(m, e.key)}>${e.rank === 'ELITE' ? html`<span class="cxp__flag elite">${t('精英')}</span>` : null}<//>
+      ${shown.map((e) => html`<button key=${e.key} type="button" class="cxp__cell" disabled=${!prep} onClick=${() => add(e)}
+          title=${e.twin ? `${e.name} · HP ${e.hp}` : e.name}>
+        <${Pic} kind="enemy" src=${enemyIconUrl(m, e.key)}>${e.rank === 'ELITE' ? html`<span class="cxp__flag elite">${t('精英')}</span>` : null}
+          ${e.twin ? html`<span class="cxp__flag hp num">HP ${e.hp}</span>` : null}<//>
         <span class="nm">${e.name}</span></button>`)}
     </div>
     ${queued.length ? html`<div class="cxp__queue">
@@ -431,7 +456,7 @@ function BondsTab({ con, priv, prep }) {
           maxTier=${Math.max(1, th.length)} active=${!!st?.active} size="sm" showName=${false} /></div></span>
       <span class="cxp__bname">${tName(b.name)}<small><b>${st?.count ?? 0}</b> / ${th.join('·')}</small></span>
       <span class="cxp__sp"></span>
-      <span class="cxp__step">
+      ${b.noStack ? html`<span class="cxp__nostack">${t('没有层数')}</span>` : html`<span class="cxp__step">
         <i class="w" onClick=${() => !busy && prep && set(b.bondId, cur - 10)}>−10</i><i onClick=${() => !busy && prep && set(b.bondId, cur - 1)}>−</i>
         <input class="num" inputMode="numeric" value=${val} aria-label=${t('层数')} disabled=${!prep}
           onInput=${(e) => setDraft((d) => ({ ...d, [b.bondId]: String(e.currentTarget.value).replace(/[^0-9]/g, '').slice(0, 5) }))}
@@ -439,7 +464,7 @@ function BondsTab({ con, priv, prep }) {
           onBlur=${() => { if (draft[b.bondId] != null && Number(draft[b.bondId]) !== cur) set(b.bondId, draft[b.bondId]); else setDraft((d) => { const x = { ...d }; delete x[b.bondId]; return x; }); }} />
         <i onClick=${() => !busy && prep && set(b.bondId, cur + 1)}>+</i><i class="w" onClick=${() => !busy && prep && set(b.bondId, cur + 10)}>+10</i>
       </span>
-      <button type="button" class="cxp__mx" disabled=${busy || !prep} onClick=${() => set(b.bondId, cap)}>${t('上限')}</button>
+      <button type="button" class="cxp__mx" disabled=${busy || !prep} onClick=${() => set(b.bondId, cap)}>${t('上限')}</button>`}
     </div>`;
   };
   const core = shown.filter((b) => b.isCore), add = shown.filter((b) => !b.isCore);

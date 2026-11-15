@@ -46,18 +46,43 @@ export function diySlotsFullOf(detail) {
 }
 
 /**
- * The enemies con.addEnemy may queue: [{ key, name, rank, hay }], token-only summons and leaders left out (a leader is
- * picked in the round tab), normal → elite, then by key.
- * @param {any[]} enemyList data.list('enemies') @param {(key: string) => any} rawEnemy the Chinese record
+ * Our side's own units that the enemy table holds: the keys every enemy effect's `enemy_exclude` names (activity_table:
+ * 炎佑, and in 规程 also the bond summons and 宝藏探机's “模拟宝藏” — server/sim/content/enemies.js STATS_ONLY). The other
+ * lists add the 14 器物 keys to them, so the keys all of them share are the ones that are no enemy in any effect.
+ * @param {any[]} effects data.list('effects')
+ * @returns {Set<string>}
  */
-export function debugEnemyEntries(enemyList, rawEnemy = () => null) {
+export function ourSideEnemyKeys(effects) {
+  let common = null;
+  for (const e of Array.isArray(effects) ? effects : []) {
+    const raw = e?.params?.enemy_exclude;
+    if (typeof raw !== 'string' || !raw) continue;
+    const keys = new Set(raw.split('|'));
+    common = common ? new Set([...common].filter((k) => keys.has(k))) : keys;
+  }
+  return common || new Set();
+}
+
+/**
+ * The enemies con.addEnemy may queue: [{ key, name, rank, hp, twin, hay }], token-only summons, leaders (picked in the
+ * round tab) and our side's own units (`ourSide`, ourSideEnemyKeys) left out, normal → elite, then by key. `twin`: another
+ * entry has the same name (鸭爵 and its 神秘顾客 form enemy_2001_duckmi_2, say: the official table's own two records) —
+ * the panel tells them apart by `hp`.
+ * @param {any[]} enemyList data.list('enemies') @param {(key: string) => any} rawEnemy the Chinese record
+ * @param {Set<string>} [ourSide]
+ */
+export function debugEnemyEntries(enemyList, rawEnemy = () => null, ourSide = new Set()) {
   const out = [];
   for (const e of Array.isArray(enemyList) ? enemyList : []) {
-    if (!e || typeof e.key !== 'string' || e.tokenOnly) continue;
+    if (!e || typeof e.key !== 'string' || e.tokenOnly || ourSide.has(e.key)) continue;
     const rank = Object.hasOwn(RANK_ORDER, e.rank) ? e.rank : 'NORMAL';
     if (rank === 'BOSS') continue;
-    out.push({ key: e.key, name: e.name || e.key, rank, hay: [e.name, rawEnemy(e.key)?.name, e.key].filter(Boolean).join(' ').toLowerCase() });
+    out.push({ key: e.key, name: e.name || e.key, rank, hp: Number(e.stats?.maxHp) || 0, twin: false,
+      hay: [e.name, rawEnemy(e.key)?.name, e.key].filter(Boolean).join(' ').toLowerCase() });
   }
+  const names = new Map();
+  for (const x of out) names.set(x.name, (names.get(x.name) || 0) + 1);
+  for (const x of out) x.twin = names.get(x.name) > 1;
   return out.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank] || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 }
 

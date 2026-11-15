@@ -319,6 +319,23 @@ describe('the commands (local debug mode in a co-op match, as the old debug pane
     assert.ok(!listed.some((e) => e.key === token) && listed.some((e) => e.key === fly), 'the panel leaves token-only summons out');
   });
 
+  test('the enemies tab leaves out our side\'s own units (every effect\'s enemy_exclude) and tells same-name records apart', async () => {
+    const { debugEnemyEntries, ourSideEnemyKeys } = await import('../public/js/ui/consoleLists.js');
+    const { readFileSync } = await import('node:fs');
+    const read = (f) => JSON.parse(readFileSync(new URL(`../data/${f}`, import.meta.url), 'utf8'));
+    const ours = ourSideEnemyKeys(Object.values(read('seasons/act3autochess/effects.json')));
+    assert.deepEqual([...ours].sort(), ['enemy_9012_acloon', 'enemy_9024_acsgnt', 'enemy_9025_aclts', 'enemy_9026_acltm', 'enemy_9038_achest'],
+      '规程: 炎佑, the bond summons and “模拟宝藏” (the keys all its enemy_exclude lists share)');
+    assert.deepEqual([...ourSideEnemyKeys(Object.values(read('effects.json')))], ['enemy_9012_acloon'], '盟约: 炎佑 only');
+    const enemies = Object.values(read('seasons/act3autochess/enemies.json'));
+    const listed = debugEnemyEntries(enemies, () => null, ours);
+    assert.ok(!listed.some((e) => e.key === 'enemy_9038_achest') && debugEnemyEntries(enemies).some((e) => e.key === 'enemy_9038_achest'), '“模拟宝藏” out');
+    const duck = listed.filter((e) => e.key.startsWith('enemy_2001_duckmi'));
+    assert.deepEqual(duck.map((e) => [e.key, e.twin, e.hp]), [['enemy_2001_duckmi', true, 18000], ['enemy_2001_duckmi_2', true, 6000]],
+      '鸭爵 and its 神秘顾客 form: two official records of one name, told apart by HP');
+    assert.ok(listed.find((e) => e.key === 'enemy_1388_wingnt' && !e.twin), 'a name of its own is no twin');
+  });
+
   test('con.addItem puts an item (or its strengthened form) into the hand outside the equipment stock; refuses a golden id and a full zone', () => {
     const h = prep(), m = h.m, ps = h.ps('p_0');
     ps.hand.fill(null);
@@ -452,6 +469,9 @@ describe('the console match never ends by its rules', () => {
     const before = { ...ps.layers };
     const set = (bondId, layers) => consoleIntent(m, 'p_0', { t: 'con.setLayers', bondId, layers }, OFF);
     assert.equal(set('noSuchShip', 5).error, ERR.BAD_TARGET);
+    const flat = Object.values(m.gd.raw.bonds).find((b) => b.noStack);
+    assert.ok(flat, 'a bond without layers in the data (独行 / 绝技 …)');
+    assert.equal(set(flat.bondId, 5).error, ERR.BAD_TARGET, 'a bond without layers takes none');
     assert.deepEqual(set('yanShip', 60), { ok: true });
     assert.deepEqual(set('yanShip', 5000), { ok: true });
     assert.equal(ps.layers.yanShip, consoleView(ps, OFF).layerCap, 'capped');
