@@ -337,16 +337,16 @@ test('S3 lanes: 5 centred on her, shifted inside the map at an edge, 13 in the �
   done(h);
 });
 
-test('S3 簇火 are drawn along their whole way, off the field too, but never over the boss field\'s hand / 装备区 rows (maintainer decision 2026-11-15), in both seasons; the fires themselves still run edge to edge', () => {
+test('S3 簇火 are drawn along their whole way, off the field and over the 装备区 too, but never over the boss field\'s hand row (maintainer decision 2026-11-15), in both seasons; the fires themselves still run edge to edge', () => {
   const load = (f) => { const j = JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url))); return j.stages ?? j; };
   const seasons = { act2: load('stages').act2autochess_m01, act3: load('seasons/act3autochess/stages').act3autochess_m01 };
-  const why = 'op-oxi.js volley leaves out drawRows\' hand rows (docs/rules/diy.md 「선발 추가 탈룰라」 簇火 그림 줄)';
+  const why = 'op-oxi.js volley leaves out drawRows\' hand row (docs/rules/diy.md 「선발 추가 탈룰라」 簇火 그림 줄)';
   for (const [season, stage] of Object.entries(seasons)) {
     // [kind, board row, col, dir, drawn lanes, drawn from → to, sim lanes, sim from → to]
     for (const [kind, row, col, dir, lanes, span, simLanes, simSpan] of [
-      ['boss', 9, 5, 'RIGHT', [2, 4], [0, 25], [0, 4], [0, 25]],      // rows 0–1 = hand / 装备区: those two lanes are not drawn
-      ['boss', 9, 5, 'UP', [3, 7], [1.5, 10], [3, 7], [0, 10]],       // starts in the hand: drawn from row 1's edge, on past the field
-      ['boss', 12, 5, 'DOWN', [3, 7], [5, 1.5], [3, 7], [5, -5]],     // stops at the 装备区's edge
+      ['boss', 9, 5, 'RIGHT', [1, 4], [0, 25], [0, 4], [0, 25]],      // row 0 = the hand: not drawn; row 1 (装备区 / 临时整备区) is
+      ['boss', 9, 5, 'UP', [3, 7], [0.5, 10], [3, 7], [0, 10]],       // starts in the hand: drawn from its edge, on past the field
+      ['boss', 12, 5, 'DOWN', [3, 7], [5, 0.5], [3, 7], [5, -5]],     // over the 装备区, stops at the hand's edge
       ['normal', 10, 4, 'DOWN', [2, 6], [12, 4], [2, 6], [12, 4]],    // a normal field: drawn all the way, as the official game
     ]) {
       const h = makeBattle({ kind, stage, seed: 31, autoFinish: false, timeLimit: 300, defs, flags: { dpPerSec: 0, dpMax: 999 },

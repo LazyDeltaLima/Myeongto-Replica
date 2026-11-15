@@ -8,7 +8,8 @@
 import { num, talentBb, skillRec, up, holdProtect, PROTECT_TICK_HOLD } from '../shared/tier1.js';
 import { canTargetEnemy } from '../../../targeting.js';
 import { dirVec } from '../../../dir.js';
-import { COLS } from '../../../constants.js';
+import { COLS, BOSS_ROW_OFFSET } from '../../../constants.js';
+import { GEO } from '../../../../../shared/constants.js';
 import { hasHp } from '../../../damage.js';
 import { HAND_TILES } from '../../../grid.js';
 
@@ -22,15 +23,17 @@ const WAVE_MAX_BACK = 11;
 const skillBb = (raw, id) => skillRec(raw, id)?.bb ?? {};
 /**
  * The rows her 簇火 are drawn over (maintainer decision 2026-11-15): every row of their way — off the field too, as the
- * official game draws them — except the hand / 装备区 rows the boss field's rect holds at its edge (rows 0–1, grid.js
- * HAND_TILES). `r0` / `r1` the first / last row drawn (±Infinity where no such row ends the rect). Per grid.
+ * official game draws them, the 装备区 / 临时整备区 row (the boss field's row 1) included — except the hand (整备区) row
+ * the boss field's rect holds at its edge: GEO.HAND_ROW moved by BOSS_ROW_OFFSET (row 0), where it holds hand tiles
+ * (grid.js HAND_TILES). `r0` / `r1` the first / last row drawn (±Infinity where no hand row ends the rect). Per grid.
  */
 const drawn = new WeakMap();
 function drawRows(battle) {
   const g = battle.grid;
   let d = drawn.get(g);
   if (d) return d;
-  const R = g.rect, hand = (r) => { for (let c = R.c0; c <= R.c1; c++) if (HAND_TILES.has(g.tile(r, c).key)) return true; return false; };
+  const R = g.rect, rows = [GEO.HAND_ROW, GEO.HAND_ROW + BOSS_ROW_OFFSET];
+  const hand = (r) => { if (!rows.includes(r)) return false; for (let c = R.c0; c <= R.c1; c++) if (HAND_TILES.has(g.tile(r, c).key)) return true; return false; };
   let lo = R.r0, hi = R.r1;
   while (lo <= hi && hand(lo)) lo++;
   while (hi >= lo && hand(hi)) hi--;
@@ -166,8 +169,8 @@ export default {
       for (let lane = a; lane <= z; lane++) w.fires.push({ wave, atk, s: from, to, sign, horizontal, lane });
       // its 簇火 (projectile_chr_oxi_s_3_heatwave, one a lane) for the renderer: lanes a..z from `s` to `to` along the rows
       // (h 1) or the columns, at wave_speed, entering `d` s after the cast; an explosion names its wave and lane ('blast'
-      // w / lane). Not over the boss field's hand / 装备区 rows (drawRows): no lane on them, a column's fire drawn from
-      // their edge — the fires themselves run as above, so their hits and timing stay the official edge-to-edge ones
+      // w / lane). Not over the boss field's hand row (drawRows): no lane on it, a column's fire drawn from its edge —
+      // the fires themselves run as above, so their hits and timing stay the official edge-to-edge ones
       const D = drawRows(battle), v = num(b3.wave_speed, 2.3);
       const va = horizontal ? Math.max(a, D.r0) : a, vz = horizontal ? Math.min(z, D.r1) : z;
       let vs = from, ve = to;
