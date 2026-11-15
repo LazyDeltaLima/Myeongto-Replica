@@ -3528,16 +3528,21 @@ function deviceRecord(ctx, t) {
 }
 
 /**
- * Player-facing stage name. activity_table carries no stage names, so they come from research 05,
- * whose notes can leave a bracketed English annotation in a name ('战场#01 (upper half #01)'); that
- * text would reach the briefing BATTLEFIELD row. Drop any bracketed segment containing Latin
- * letters, normalize whitespace and report the change. Falls back to the stage id.
+ * Player-facing stage name. Neither activity_table nor the client names a battlefield (the client's stage-info view
+ * shows only the map preview), so the names are PRTS's, kept in research 05 `stages[id].name` — every season's
+ * stages, 规程's included. A note can leave a bracketed English annotation in a name ('战场#01 (upper half #01)'); that
+ * text would reach the briefing BATTLEFIELD row. Drop any bracketed segment containing Latin letters, normalize
+ * whitespace and report the change. A stage research 05 does not name stops the build (a new season's stages showed
+ * their ids on the briefing card until 2026-11-15): add its PRTS name there. --no-research falls back to the id.
  * @param {string} stageId
  * @param {unknown} raw research name
  * @returns {string}
  */
 function stageDisplayName(stageId, raw) {
-  if (typeof raw !== 'string' || !raw.trim()) return stageId;
+  if (typeof raw !== 'string' || !raw.trim()) {
+    if (OPTS.noResearch) return stageId;
+    throw new Error(`stage ${stageId}: no name in docs/research/05-maps.json stages — add the battlefield's PRTS name (卫戍协议 战场一览: number + special terrain or device)`);
+  }
   const name = raw.replace(/\s*[(（][^()（）]*[A-Za-z][^()（）]*[)）]/g, '').replace(/\s+/g, ' ').trim();
   if (!name) { warn(`stage ${stageId}: research name "${raw}" is only an annotation; using the stage id`); return stageId; }
   if (name !== raw.trim()) warn(`stage ${stageId}: dropped research annotation from name "${raw}" -> "${name}"`);

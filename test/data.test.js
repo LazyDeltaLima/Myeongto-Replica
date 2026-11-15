@@ -650,10 +650,13 @@ test('stages: device rangeTiles are the direction-rotated range, inside the grid
   assert.deepEqual(blower.rangeTiles, [[13, 5], [12, 5], [11, 5], [10, 5]]);
 });
 
-test('stages: player-facing names are clean Chinese "战场#NN…" labels (no research annotations)', () => {
+test('stages: player-facing names are clean Chinese "战场#NN…" labels (no research annotations), 规程\'s too', () => {
   // Regression: research 05 named act1 m01 '战场#01 (upper half #01)'; the English note reached the
-  // briefing BATTLEFIELD row. Names come from research only, so the build must strip such notes.
-  for (const s of Object.values(stages)) {
+  // briefing BATTLEFIELD row. Names come from research only, so the build must strip such notes. A stage research 05
+  // does not name stops the build (tools/build-data.mjs stageDisplayName): 规程's are PRTS's 战场一览 numbers.
+  const act3 = join(DATA, 'seasons', 'act3autochess', 'stages.json');
+  const act3Stages = existsSync(act3) ? JSON.parse(readFileSync(act3, 'utf8')) : {};
+  for (const s of [...Object.values(stages), ...Object.values(act3Stages)]) {
     if (s.kind === 'unite') continue; // the escaped levels' two maps: the remake's own label, checked in the test below
     assert.match(s.name, /^战场#\d{2}(?:\((?:上半|下半)\))?(?: \S.*)?$/, `${s.id}: name ${JSON.stringify(s.name)}`);
     assert.doesNotMatch(s.name, /[A-Za-z]/, `${s.id}: Latin text in name ${JSON.stringify(s.name)}`);
@@ -661,6 +664,7 @@ test('stages: player-facing names are clean Chinese "战场#NN…" labels (no re
   }
   assert.equal(stages.act1autochess_m01.name, '战场#01');
   assert.equal(stages.act2autochess_m01.name, '战场#05(下半) 源石流发生装置');
+  if (act3Stages.act3autochess_m10) assert.equal(act3Stages.act3autochess_m10.name, '战场#10 盐坨子炮');
 });
 
 test('stages: the escaped levels\' maps — one per helper count, never a match stage (and since 0.2.1 never the 联防 field)', () => {

@@ -991,6 +991,46 @@
      "5,10->1,17":[[5,10],[5,11],[5,12],[5,13],[5,14],[5,15],[4,16],[3,16],[2,16],[2,17],[1,17]]
     }
    }
+  },
+  "act3autochess_m01":{
+   "name":"战场#01",
+   "source":"PRTS 卫戍协议·规程/战场一览 (#01–#06, #09–#12; edited 2026-11-13): the number and the field's special terrain or environment device, matched to the stage by its devices and tiles"
+  },
+  "act3autochess_m02":{
+   "name":"战场#02",
+   "source":"PRTS 卫戍协议·规程/战场一览 (#01–#06, #09–#12; edited 2026-11-13): the number and the field's special terrain or environment device, matched to the stage by its devices and tiles"
+  },
+  "act3autochess_m03":{
+   "name":"战场#03",
+   "source":"PRTS 卫戍协议·规程/战场一览 (#01–#06, #09–#12; edited 2026-11-13): the number and the field's special terrain or environment device, matched to the stage by its devices and tiles"
+  },
+  "act3autochess_m04":{
+   "name":"战场#04 活性源石",
+   "source":"PRTS 卫戍协议·规程/战场一览 (#01–#06, #09–#12; edited 2026-11-13): the number and the field's special terrain or environment device, matched to the stage by its devices and tiles"
+  },
+  "act3autochess_m05":{
+   "name":"战场#05 源石流发生装置",
+   "source":"PRTS 卫戍协议·规程/战场一览 (#01–#06, #09–#12; edited 2026-11-13): the number and the field's special terrain or environment device, matched to the stage by its devices and tiles"
+  },
+  "act3autochess_m06":{
+   "name":"战场#06 沼泽控制",
+   "source":"PRTS 卫戍协议·规程/战场一览 (#01–#06, #09–#12; edited 2026-11-13): the number and the field's special terrain or environment device, matched to the stage by its devices and tiles"
+  },
+  "act3autochess_m09":{
+   "name":"战场#09 隐匿模块",
+   "source":"PRTS 卫戍协议·规程/战场一览 (#01–#06, #09–#12; edited 2026-11-13): the number and the field's special terrain or environment device, matched to the stage by its devices and tiles"
+  },
+  "act3autochess_m10":{
+   "name":"战场#10 盐坨子炮",
+   "source":"PRTS 卫戍协议·规程/战场一览 (#01–#06, #09–#12; edited 2026-11-13): the number and the field's special terrain or environment device, matched to the stage by its devices and tiles"
+  },
+  "act3autochess_m11":{
+   "name":"战场#11",
+   "source":"PRTS 卫戍协议·规程/战场一览 (#01–#06, #09–#12; edited 2026-11-13): the number and the field's special terrain or environment device, matched to the stage by its devices and tiles"
+  },
+  "act3autochess_m12":{
+   "name":"战场#12 优化模块",
+   "source":"PRTS 卫戍协议·规程/战场一览 (#01–#06, #09–#12; edited 2026-11-13): the number and the field's special terrain or environment device, matched to the stage by its devices and tiles"
   }
  },
  "stageSelection":{

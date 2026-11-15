@@ -1,9 +1,11 @@
 {
-  "_about": "Fallback English for the remake's own data texts (names and notes tools/build-data.mjs writes; no official counterpart). Official EN terms where they exist: 'Active Originium', 'High Tide', 'Mutated Cells', 'Rockrock', 'Stronghold Protocol: Alliance' (the EN activity name). '排气格栅' follows PR #70's wording (no official EN occurrence found).",
+  "_about": "Fallback English for the remake's own data texts (names and notes tools/build-data.mjs writes; no official counterpart). Official EN terms where they exist: 'Active Originium', 'High Tide', 'Mutated Cells', 'Rockrock', 'Stronghold Protocol: Alliance' (the EN activity name). '排气格栅' follows PR #70's wording (no official EN occurrence found). 规程's tile names '隐匿模块' / '优化模块' (PRTS battlefield names; CN-only, no EN client) use the EN term Camouflage for 隐匿.",
   "卫戍协议：盟约": "Stronghold Protocol: Alliance",
   "活性源石": "Active Originium",
   "涨潮": "High Tide",
   "排气格栅": "Exhaust Grille",
+  "隐匿模块": "Camouflage Module",
+  "优化模块": "Optimization Module",
   "联防阵地（1名玩家）": "Unite Field (1 player)",
   "联防阵地（2名玩家）": "Unite Field (2 players)",
   "维多利亚盟约每25层 / 洛洛的定制品": "Victoria Alliance (every 25 stacks) / Rockrock's custom items",
