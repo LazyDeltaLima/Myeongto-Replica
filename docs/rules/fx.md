@@ -2536,6 +2536,16 @@
   모든 모드의 공격 시전 이름을 빼서 S2·S3 모드 시전과 같은 이름이 빠졌다 → 모드를 바꾸지 않는 스킬(−1)은 기본 모드(0)의 이름만 뺌(歌蕾蒂娅 S1
   castLoop `glady_skill_01_buff`도 S2 모드 시전과 같은 이름이라 같이 나오게 됨). [화면 미확인: 安洁莉娜 `Disarmed`(아레나에서
   못 일으킴), 凯尔希·思衡托 모드 2·4, 공식 녹화]
+- 바인딩 이름만 뽑으면 그 프리팹이 부르는 프리팹이 빠진다 (2026-11-16): 엑시아(`char_103_angel`) 묶음은 `--prefab`으로 바인딩 이름만 받아 `angle.ab`의
+  기본 스킨 13개 중 8개만 있었다. S2 버프 `angle_skill_02_buff`의 OnPlayEmitter(`onPlay`)가 부르는 `angle_skill_02_buff_start`(날개 펼침)·`_buff_02`와
+  SwitchableBackEffect(`back`)의 `_buff_back`, S3 버프 `angle_skill_03_buff`의 `_buff_02`(머리 위 후광)·`_buff_back`이 없어 렌더가 이름을 못 찾고
+  넘어갔다(`modes.json` 바인딩은 클라에서 읽으므로 그대로 맞았다). 번들 전체를 다시 뽑아 이었다(기존 8개는 바이트까지 같음). 이벤트 기록 골든은 더해지기만
+  함(엑시아 S3 `angle_skill_03_buff_02` 10줄, S2 `_buff_02`·`_buff_start` 2줄). 확인: 디버그 아레나 2배속, 정예 S2·S3 × 오른쪽·위쪽 방향 —
+  버프 목록에 `_02`·`_start`(S2)와 위쪽에서 `_back`이 켜지고 후광·날개가 그려짐, 콘솔 오류 0. 같은 꼴은 다른 묶음에 없다(추출본 전체에서 프리팹이 부르는
+  이름 중 같은 묶음에 없는 것은 `common_empty` 7개·`buff_stun` 1개 — 위 「넣지 않은 것」). [화면 미확인: 공식 화면과 나란히]
+  재발 방지: 원인 제거 — `fx_extract.py run()`이 `--prefab`·`--match`로 고른 프리팹이 부르는 같은 번들의 프리팹(`prefab_links`: `onPlay`·`onFinish`·`back`·
+  `swFace`·`three`·`rgroup`·`equipFx`, `set_emitted`와 같은 목록)을 따라 뽑는다(「… (created by …)」로 알림). 이름 둘만 주고 다시 돌려 5개를 따라
+  뽑는 것과 결과가 전체 추출과 바이트까지 같음을 봄.
 
 ### RandomEmitter · FlyToPredefinedLocation (2026-10-21, 공식 클라에서 확인)
 

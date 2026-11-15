@@ -27,6 +27,7 @@ Usage:
     python fx_extract.py … --equips --prefab uniequip_002_musha_02   (the modules' deploy effects, bundle uniequip, 2026-11-03)
     python fx_extract.py … --coverage .cache/fx-coverage.json [--bundle chen3]   (what the pipeline leaves out, fx_coverage.py)
                          [--other-game <CN Arknights_Data> --other-cab-index .cache/fx-cab-index-cn.json] [--index enemy-index.json]
+A prefab picked by --prefab / --match brings the prefabs of its bundle it creates by name (OnPlayEmitter, SwitchableBackEffect …).
 Default skin only unless --all-skins; --prune deletes textures / meshes no effect uses any more. Every extraction ends with
 the parts of its prefabs the pipeline leaves out (fx_coverage.py): `NOT HANDLED` lines are new — look before trusting the effect.
 Needs UnityPy + lz4 (requirements.txt); LZ4AK bundles are decoded by aklz4.py.
@@ -754,6 +755,24 @@ def source_of(index, bundle, name):
     return {'pack': e.get('pack') or own_pack(bundle), 'client': e.get('client', 'en')}
 
 
+def prefab_links(d):
+    """The prefab names an extracted effect `d` creates by name (set_emitted's list): its root's SwitchableBackEffect
+    `back`, its face switches' copies `swFace` / `three`, its random group's picks `rgroup`, its module variants `equipFx`
+    and its nodes' OnPlayEmitter `onPlay` / OnFinishEmitter `onFinish`."""
+    names = set()
+    back = (d.get('back') or {}).get('effect')
+    if isinstance(back, str) and back:
+        names.add(back)
+    for k in ('swFace', 'three'):
+        names.update(v for v in (d.get(k) or {}).values() if isinstance(v, str) and v)
+    names.update(v for v in (d.get('rgroup') or {}).get('pick') or [] if isinstance(v, str) and v)
+    names.update(h[2] for h in (d.get('equipFx') or {}).get('hooks') or [] if isinstance(h[2], str) and h[2])
+    for nd in d.get('nodes') or []:
+        for k in ('onPlay', 'onFinish'):
+            names.update(e for e in (nd.get(k) or {}).get('effects') or [] if isinstance(e, str) and e)
+    return names
+
+
 def set_emitted(index, bundle, out=OUT):
     """(2026-10-21) record in `index['emitted'][bundle]` the bundle's prefabs another of its prefabs creates (its nodes'
     OnPlayEmitter `onPlay` / OnFinishEmitter `onFinish`, its root's SwitchableBackEffect `back` — 远牙 S3's
@@ -767,18 +786,7 @@ def set_emitted(index, bundle, out=OUT):
         f = out / bundle / f'{n}.json'
         if not f.exists():
             continue
-        d = json.loads(f.read_text())
-        back = (d.get('back') or {}).get('effect')
-        if back in listed:
-            names.add(back)
-        for k in ('swFace', 'three'):
-            names.update(v for v in (d.get(k) or {}).values() if isinstance(v, str) and v in listed)
-        # (2026-10-22) the random group's picks and the module variants
-        names.update(v for v in (d.get('rgroup') or {}).get('pick') or [] if v in listed)
-        names.update(h[2] for h in (d.get('equipFx') or {}).get('hooks') or [] if h[2] in listed)
-        for nd in d.get('nodes') or []:
-            for k in ('onPlay', 'onFinish'):
-                names.update(e for e in (nd.get(k) or {}).get('effects') or [] if e in listed)
+        names.update(prefab_links(json.loads(f.read_text())) & listed)
     em = index.setdefault('emitted', {})
     if names:
         em[bundle] = sorted(names)
@@ -3485,22 +3493,38 @@ class Extractor:
         written = []
         if not list_only and write:
             (out / bundle).mkdir(parents=True, exist_ok=True)
-        for go in roots:
+        # (2026-11-16) a prefab picked by --prefab / --match brings the prefabs of this pack it creates by name
+        # (prefab_links: onPlay, back …) — 能天使 S2 / S3's buffs had theirs left out, extracted by binding name only
+        by_name = {go.read_typetree()['m_Name'].lower(): go for go in roots}
+        linked, done = set(), set()
+        pending = list(roots)
+        while pending:
+            go = pending.pop(0)
             name = go.read_typetree()['m_Name']
-            if want is not None and name.lower() not in want:
+            if name.lower() in done:
                 continue
+            if name.lower() not in linked:
+                if want is not None and name.lower() not in want:
+                    continue
+                if match and not match.search(name):
+                    continue
             if name in DISCARD:
                 continue
             if not all_skins and VARIANT_RE.search(name):
                 continue
-            if match and not match.search(name):
-                continue
+            done.add(name.lower())
             if list_only:
                 written.append(name)
                 continue
             self.cov.begin(f'{bundle}/{name}')
             data = self.prefab(go, out)
             written.append(name)
+            if write and (want is not None or match):
+                for n in sorted(prefab_links(data)):
+                    if n.lower() in by_name and n.lower() not in done and n.lower() not in linked:
+                        linked.add(n.lower())
+                        pending.append(by_name[n.lower()])
+                        print(f'[fx] {bundle}: {n} (created by {name})')
             self.cov.prefab(data)   # 2026-10-20: its signature, for the unverified kind (fx-verified.json)
             if self.keep is not None:
                 self.keep[f'{bundle}/{name}'] = json.loads(json.dumps(data, ensure_ascii=False))
