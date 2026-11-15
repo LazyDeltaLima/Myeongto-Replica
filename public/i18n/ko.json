@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1815 of 2034 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1829 of 2048 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -2052,6 +2052,20 @@
   "这是从控制台对局发送的反馈：控制台记录（回合跳转、首领变更、加入的棋子 / 装备 / 敌人、盟约层数变更）会和诊断信息一起附上。": "콘솔 판에서 보내는 제보입니다. 콘솔 기록(라운드 이동·리더 변경·추가한 기물·장비·적·맹약 층수 변경)이 진단 정보와 함께 붙습니다.",
   "控制台模式": "콘솔 모드",
   "报错": "제보",
+  "特训敌人类型": "특훈 적 유형",
+  "每局抽取的类型 — 即简报中显示的类型": "판마다 뽑는 유형 — 브리핑에 나오는 유형이 이것이다",
+  "每局抽取的类型数": "판마다 뽑는 유형 수",
+  "{lo} – {hi} · 每种类型占 15 个回合中的 3 个，其余回合为「特异」": "{lo} – {hi} · 유형 하나가 15라운드 중 3라운드를 맡고, 남은 라운드는 「특이」",
+  "禁用：不会出现": "금지: 나오지 않음",
+  "固定：每局出现": "고정: 매 판 나옴",
+  "固定": "고정",
+  "参与抽取的类型 · {n}": "추첨 대상 유형 · {n}",
+  "固定 {f} · 禁用 {b} · 随机 {r} — 每局 {n} 种：先放入固定类型，其余从随机类型中抽取；固定类型多于类型数时，类型数随之增加": "고정 {f} · 금지 {b} · 무작위 {r} — 판마다 {n}개: 고정 유형이 먼저 들어가고 나머지는 무작위에서 뽑는다. 고정이 유형 수보다 많으면 유형 수가 늘어난다",
+  "特训敌人类型 {n} 种": "특훈 적 유형 {n}개",
+  "固定特训敌人：{names}": "고정 특훈 적: {names}",
+  "禁用特训敌人：{names}": "금지 특훈 적: {names}",
   "自由更改干员、装备、敌人、回合、首领与盟约层数；不结算，也不计入统计、成就和战绩": "오퍼레이터·장비·적·라운드·리더·맹약 층수를 자유롭게 바꿈 · 결산 없음 · 통계·업적·전적에 남지 않음",
-  "自由更改干员、装备、敌人、回合、首领与盟约层数；不结算，也不计入统计、成就和战绩；对局中可以反馈": "오퍼레이터·장비·적·라운드·리더·맹약 층수를 자유롭게 바꿈 · 리더를 이기거나 탈락해도 결산 없음 · 통계·업적·전적에 남지 않음 · 판 도중 「제보」 가능"
+  "自由更改干员、装备、敌人、回合、首领与盟约层数；不结算，也不计入统计、成就和战绩；对局中可以反馈": "오퍼레이터·장비·적·라운드·리더·맹약 층수를 자유롭게 바꿈 · 리더를 이기거나 탈락해도 결산 없음 · 통계·업적·전적에 남지 않음 · 판 도중 「제보」 가능",
+  "本赛季的官方简报始终显示战场": "이 시즌의 공식 브리핑은 늘 전장을 보여 준다",
+  "官方：开启": "공식: 켬"
 }

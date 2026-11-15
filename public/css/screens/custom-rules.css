@@ -92,6 +92,8 @@
 .crx-bonds { display: grid; grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr)); gap: .06rem; }
 .crx-bond { display: flex; align-items: center; gap: .08rem; padding: .05rem .06rem .05rem .08rem; border: 1px solid var(--line); background: rgba(255, 255, 255, .02); }
 .crx-bond__i { width: .3rem; height: .3rem; flex: none; }
+/* 敌人类型: the 特训敌人 type glyphs (white, factions.json icon) keep their shape in the bond icon's box */
+.crx-type__i { object-fit: contain; padding: .02rem; }
 .crx-bond__n { flex: 1 1 auto; min-width: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .crx-bond.is-ban { border-color: rgba(231, 49, 24, .5); background: rgba(231, 49, 24, .08); }
 .crx-bond.is-ban .crx-bond__i { opacity: .45; }

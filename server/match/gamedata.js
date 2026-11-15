@@ -27,7 +27,7 @@
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
-import { customRoundPlan, customPrepSeconds, keepUnbanned, curveScale, customPoolCount } from '../../shared/ruleset.js';
+import { customRoundPlan, customPrepSeconds, keepUnbanned, curveScale, customPoolCount, customBanLimits } from '../../shared/ruleset.js';
 import { BOND_LAYER_CAP, LARGE_SEATS, MAX_SEATS } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
@@ -750,7 +750,8 @@ export class GameData {
   }
   /**
    * The bonds drawn absent per match: config bans[difficulty] (an 8-player match: config.eightPlayer.bans[difficulty]
-   * when the config has it — it has none, maintainer decision 2026-10-22), a custom count (not null) in its place.
+   * when the config has it — it has none, maintainer decision 2026-10-22), a custom count (not null) in its place,
+   * within the season's range (shared/ruleset.js customBanLimits).
    */
   bans(difficulty) {
     const lb = this.large?.bans;
@@ -759,8 +760,11 @@ export class GameData {
     const off = !b || typeof b !== 'object' ? { ...d }
       : { core: Number.isInteger(b.core) && b.core >= 0 ? b.core : d.core, addon: Number.isInteger(b.addon) && b.addon >= 0 ? b.addon : d.addon };
     const c = this.custom?.bonds;
-    if (c && Number.isInteger(c.banCore)) off.core = c.banCore;
-    if (c && Number.isInteger(c.banAddon)) off.addon = c.banAddon;
+    if (c && (Number.isInteger(c.banCore) || Number.isInteger(c.banAddon))) {
+      const lim = customBanLimits(this.config);
+      if (Number.isInteger(c.banCore)) off.core = Math.min(lim.core[1], c.banCore);
+      if (Number.isInteger(c.banAddon)) off.addon = Math.min(lim.addon[1], c.banAddon);
+    }
     return off;
   }
   /** A custom bond setting: 'ban' (absent every match), 'allow' (never drawn absent), null (left to the draw). */

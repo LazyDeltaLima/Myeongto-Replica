@@ -71,16 +71,19 @@ export const CUSTOM_VERSION = 1;
 export const CUSTOM_MAX_JSON = 4096;
 
 /**
- * The ranges of the numeric settings (maintainer decisions 2026-10-18). The bond
- * ban counts keep the official range (config.json bans: 0–3 core, 0–4 add-on).
+ * The ranges of the numeric settings (maintainer decisions 2026-10-18). The bond ban counts keep the official range of
+ * the season (customBanLimits: 盟约 0–3 core, 0–4 add-on; 规程 0–5 each); these two are the widest any season has, what
+ * the wire takes.
  */
 export const CUSTOM_LIMITS = Object.freeze({
   pct: Object.freeze([10, 1000]),
-  banCore: Object.freeze([0, 3]),
-  banAddon: Object.freeze([0, 4]),
+  banCore: Object.freeze([0, 5]),
+  banAddon: Object.freeze([0, 5]),
   rounds: Object.freeze([6, 20]),
   prepSec: Object.freeze([30, 600]),
   hitLimit: Object.freeze([100000, 5000000]),
+  /** 特训敌人 types per match: the 15 round slots hold five types of three (factions.json maxLevelCnt / types[].count) */
+  types: Object.freeze([0, 5]),
   /** list / map sizes: far above the data's 23 bonds, 10 leaders and 11 stages */
   ids: 48,
 });
@@ -93,12 +96,18 @@ export const CUSTOM_HIT_MODES = Object.freeze(['void', 'clamp', 'none']);
 export const CUSTOM_PREP_MODES = Object.freeze(['official', 'x1.5', 'x2', 'fixed']);
 /** A bond's setting: random (absent: left to the draw), always banned (official absence), never drawn. */
 export const CUSTOM_BOND_PICKS = Object.freeze(['ban', 'allow']);
+/** A 特训敌人 type's setting: random (absent: left to the draw), never drawn, always drawn. */
+export const CUSTOM_TYPE_PICKS = Object.freeze(['ban', 'force']);
+/** The official number of 特训敌人 types a match draws (factions.json specialEnemyNum, both seasons). */
+export const OFFICIAL_TYPE_COUNT = 3;
 
 /**
  * Every custom setting at its official value. `null` = the difficulty's own value (the bond ban counts, the round count).
  *   bonds    banCore / banAddon: bonds drawn absent each match · noLayerCap: no 999-layer cap · pick: { bondId: 'ban'|'allow' }
  *   enemies  normal enemies (特训 enemies, escorts, parts too): percent of hp / atk / def / res / speed · curve
  *   leaders  the leaders of 最终攻势 / 隐秘核心 and their summons: percent of hp (the shared pool) / atk / def / res
+ *   types    the 特训敌人 types of the match (factions.json types with involveRandom): count — how many are drawn (null =
+ *            the official 3) · pick: { type: 'ban'|'force' } — never / always drawn (customEnemyTypes)
  *   bosses   ban: leader ids never drawn (one of each group stays) · hitMode / hitLimit: 限伤
  *   stages   info: the briefing's battlefield card · reroll: its 重新抽取 vote · firstHalf: the 上半 stages of
  *            CUSTOM_FIRST_HALF_STAGES join the pool · ban: stage ids never drawn (one stays)
@@ -111,6 +120,7 @@ export const CUSTOM_OFFICIAL = deepFreeze({
   bonds: { banCore: null, banAddon: null, noLayerCap: false, pick: {} },
   enemies: { hp: 100, atk: 100, def: 100, res: 100, speed: 100, curve: 'official' },
   leaders: { hp: 100, atk: 100, def: 100, res: 100 },
+  types: { count: null, pick: {} },
   bosses: { ban: [], hitMode: 'void', hitLimit: BOSS_HIT_LIMIT },
   stages: { info: false, reroll: false, firstHalf: false, ban: [] },
   flow: { rounds: null, prep: 'official', prepSec: 90, lpCapOff: false, lpShared: false, routePreview: false },
@@ -164,14 +174,14 @@ export function sanitizeCustom(raw) {
   const r = isObj(raw) ? /** @type {any} */ (raw) : {};
   const sec = (k) => (isObj(r[k]) ? r[k] : {});
   const O = CUSTOM_OFFICIAL;
-  const b = sec('bonds'), e = sec('enemies'), l = sec('leaders'), bo = sec('bosses'), s = sec('stages'), f = sec('flow'), p = sec('pool');
+  const b = sec('bonds'), e = sec('enemies'), l = sec('leaders'), ty = sec('types'), bo = sec('bosses'), s = sec('stages'), f = sec('flow'), p = sec('pool');
   const pct = (v, d) => intIn(v, CUSTOM_LIMITS.pct, d);
-  const pick = {};
-  if (isObj(b.pick)) {
-    for (const k of Object.keys(b.pick).filter(isIdStr).sort().slice(0, CUSTOM_LIMITS.ids)) {
-      if (CUSTOM_BOND_PICKS.includes(b.pick[k])) pick[k] = b.pick[k];
-    }
-  }
+  const picks = (m, list) => {
+    const out = {};
+    if (isObj(m)) for (const k of Object.keys(m).filter(isIdStr).sort().slice(0, CUSTOM_LIMITS.ids)) if (list.includes(m[k])) out[k] = m[k];
+    return out;
+  };
+  const pick = picks(b.pick, CUSTOM_BOND_PICKS);
   return deepFreeze({
     v: CUSTOM_VERSION,
     bonds: {
@@ -185,6 +195,7 @@ export function sanitizeCustom(raw) {
       curve: oneOf(e.curve, CUSTOM_CURVES, O.enemies.curve),
     },
     leaders: { hp: pct(l.hp, 100), atk: pct(l.atk, 100), def: pct(l.def, 100), res: pct(l.res, 100) },
+    types: { count: intOrNull(ty.count, CUSTOM_LIMITS.types), pick: picks(ty.pick, CUSTOM_TYPE_PICKS) },
     bosses: {
       ban: idList(bo.ban),
       hitMode: oneOf(bo.hitMode, CUSTOM_HIT_MODES, O.bosses.hitMode),
@@ -216,6 +227,28 @@ export function keepUnbanned(list, idOf, ban) {
 }
 
 /**
+ * The 特训敌人 types a custom match draws from the season's `random` ones (factions.json types with involveRandom, sorted):
+ * every 'force' type, then the rest of the count from the types left to the draw, shuffled with `shuffle` (the match's
+ * setup rng) — no 'ban' type. The count is the setting's (null: `n`, the official 3), raised to the forced types, at
+ * most CUSTOM_LIMITS.types[1] (the 15 round slots); fewer types than the count leave more rounds to 特训敌人·特异 (the
+ * schedule fills them: server/match/waves.js makeTypeSchedule). Returns null while the settings change nothing, so the
+ * official draw — and its rng stream — stays as it was.
+ * @param {readonly string[]} random @param {number} n @param {any} custom @param {(list: string[]) => void} shuffle
+ * @returns {string[] | null}
+ */
+export function customEnemyTypes(random, n, custom, shuffle) {
+  const ty = custom?.types;
+  const pick = ty && isObj(ty.pick) ? ty.pick : {};
+  const has = (k) => Object.hasOwn(pick, k) && random.includes(k);
+  if (!ty || (ty.count == null && !random.some(has))) return null;
+  const forced = random.filter((k) => has(k) && pick[k] === 'force');
+  const want = Math.min(CUSTOM_LIMITS.types[1], Math.max(forced.length, Number.isInteger(ty.count) ? ty.count : n));
+  const rest = random.filter((k) => !has(k));
+  shuffle(rest);
+  return [...forced, ...rest].slice(0, want);
+}
+
+/**
  * The 上半 (act1) stages a custom ruleset may add to the pool (stages.firstHalf): those whose mechanics the sim has —
  * 战场#06 沙尘暴/土石结构 (server/sim/content/devices.js). 战场#05 涨潮/特制水上平台 and #07 树丛 wait for theirs (maintainer
  * decision 2026-10-18).
@@ -236,6 +269,22 @@ export function customStagePool(stageIds, custom) {
   const ids = Array.isArray(stageIds) ? [...stageIds] : [];
   if (custom?.stages?.firstHalf) for (const id of CUSTOM_FIRST_HALF_STAGES) if (!ids.includes(id)) ids.push(id);
   return ids;
+}
+
+/**
+ * The bond ban count ranges of a season (maintainer decision 2026-10-18 「the official range」): 0 to the most any
+ * difficulty of its config.json bans draws, within CUSTOM_LIMITS — 盟约 3 core / 4 add-on, 规程 5 / 5. The settings
+ * dialog's steppers and the match (GameData.bans) keep to them.
+ * @param {any} config data/config.json of the season
+ * @returns {{ core: [number, number], addon: [number, number] }}
+ */
+export function customBanLimits(config) {
+  const rows = config?.bans && typeof config.bans === 'object' ? Object.values(config.bans).filter((b) => b && typeof b === 'object') : [];
+  const most = (k, lim) => {
+    const v = Math.max(0, ...rows.map((b) => (Number.isInteger(b[k]) ? b[k] : 0)));
+    return /** @type {[number, number]} */ ([lim[0], Math.min(lim[1], v || lim[1])]);
+  };
+  return { core: most('core', CUSTOM_LIMITS.banCore), addon: most('addon', CUSTOM_LIMITS.banAddon) };
 }
 
 /** The boolean options of custom settings. @param {Readonly<typeof CUSTOM_OFFICIAL>} c */
@@ -275,6 +324,8 @@ export function customDiffs(raw, base = {}) {
   for (const sec of ['enemies', 'leaders']) {
     for (const [k, v] of Object.entries(c[sec])) if (v !== O[sec][k]) out.push(`${sec}.${k}`);
   }
+  if (!same(c.types.count, OFFICIAL_TYPE_COUNT)) out.push('types.count');
+  for (const k of Object.keys(c.types.pick)) out.push(`types.pick.${k}`);
   for (const id of c.bosses.ban) out.push(`bosses.ban.${id}`);
   if (c.bosses.hitMode !== O.bosses.hitMode) out.push('bosses.hitMode');
   if (c.bosses.hitMode !== 'none' && c.bosses.hitLimit !== O.bosses.hitLimit) out.push('bosses.hitLimit');

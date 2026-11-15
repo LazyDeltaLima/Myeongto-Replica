@@ -87,7 +87,8 @@ function customLines(pub, bonds, mode, bans) {
   const rs = pub?.ruleset;
   if (rs?.preset !== 'custom') return null;
   const bondNames = new Map(bonds.map((b) => [b.bondId, b.name]));
-  const name = (kind, id) => (kind === 'bond' ? bondNames.get(id) : data.lookup(kind === 'boss' ? 'bosses' : 'stages', id)?.name) || id;
+  const name = (kind, id) => (kind === 'bond' ? bondNames.get(id) : kind === 'type' ? data.get('factions')?.types?.[id]?.name
+    : data.lookup(kind === 'boss' ? 'bosses' : 'stages', id)?.name) || id;
   return customSummary(rs.custom, {
     solo: String(pub.modeId || '').includes('single'),
     bans: bans !== undefined ? bans : officialBans(data.get('config'), pub.difficulty, pub.size),

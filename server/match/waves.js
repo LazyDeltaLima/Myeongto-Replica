@@ -7,7 +7,8 @@
 //     标准 (FUNNY) / 入门 = 战场#01 only, 险境 = 8 stages, 绝境 / 终极 = 7 (no 战场#01), weight 50 each, so the match seed
 //     picks uniformly (test/match/stagepick.test.js)
 //   * factions: `specialEnemyNum` (3) distinct types among the involveRandom ones (FLY/TIMES/ELEMENT/DOT/INVISIBLE/
-//     REFLECTION), uniform (shuffle, take 3)
+//     REFLECTION, 规程 also CRITIC/REBORN), uniform (shuffle, take 3); a custom 规则 match's 特训敌人 settings choose the
+//     count and the types never / always drawn (shared/ruleset.js customEnemyTypes)
 //   * type schedule: each chosen type owns `count` (3) of the `maxLevelCnt` (15) round slots, SPECIAL fills the other 6;
 //     the slots are shuffled — typeSlots[r-1] = the ONE type of round r (the briefing shows the 3 types, the order
 //     stays hidden)
@@ -43,7 +44,7 @@
 import { createRng, deriveSeed } from '../sim/rng.js';
 import { gateOf } from '../../shared/constants.js';
 import { widenRoute, wideHalves } from '../sim/wideStage.js';
-import { keepUnbanned, customStagePool, CUSTOM_FIRST_HALF_STAGES, CUSTOM_FIRST_HALF_WEIGHT_OF } from '../../shared/ruleset.js';
+import { keepUnbanned, customStagePool, customEnemyTypes, CUSTOM_FIRST_HALF_STAGES, CUSTOM_FIRST_HALF_WEIGHT_OF } from '../../shared/ruleset.js';
 import { seasonFeature } from '../../shared/seasons.js';
 
 const ACLOON = 'enemy_9012_acloon';
@@ -206,9 +207,15 @@ export function setupMatchWaves(gd, rng) {
   const types = gd.factions.types && typeof gd.factions.types === 'object' ? gd.factions.types : {};
   const n = Number.isInteger(gen(gd).specialEnemyNum) ? gen(gd).specialEnemyNum : 3;
   const random = Object.values(types).filter((t) => t && t.involveRandom).map((t) => t.type).sort();
-  const shuffled = random.slice();
-  rng.shuffle(shuffled);
-  const chosen = shuffled.slice(0, Math.min(n, shuffled.length));
+  // a custom ruleset's 特训敌人 settings (types.count / types.pick: shared/ruleset.js customEnemyTypes) pick from the
+  // same list with the same rng; without them the official draw below runs as it always did
+  const custom = customEnemyTypes(random, n, gd.custom, (list) => rng.shuffle(list));
+  let chosen = custom;
+  if (!chosen) {
+    const shuffled = random.slice();
+    rng.shuffle(shuffled);
+    chosen = shuffled.slice(0, Math.min(n, shuffled.length));
+  }
   const factions = chosen.slice().sort((a, b) => (types[a]?.sortId ?? 9) - (types[b]?.sortId ?? 9));
   // bosses
   const bw = gd.bossWeights(false);

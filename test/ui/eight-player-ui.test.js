@@ -34,7 +34,9 @@ test('lobby: room.create / room.queue carry size 8 only for an 8-seat alliance (
   // 人数 (maintainer decisions 2026-11-07): a row of 选择模拟协议's rules in 同盟匹配 only, and in 创建同盟's bar on 选择同盟方式;
   // 独立模拟 has none
   const rules = src.slice(src.indexOf('export function ProtoRules('), src.indexOf('export function ProtocolSelect('));
-  assert.match(rules, /\$\{matching \? html`<span class="proto-rules__row">\s*<\$\{RowKey\} text=\$\{t\('人数'\)\} \/>/);
+  // (matchSize = 同盟匹配 of a season with 8 seats: 规程's has no 人数 row, its 自定义 stays locked by `matching`)
+  assert.match(rules, /const matchSize = matching && !limited;/);
+  assert.match(rules, /\$\{matchSize \? html`<span class="proto-rules__row">\s*<\$\{RowKey\} text=\$\{t\('人数'\)\} \/>/);
   assert.match(rules, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{quick\}/);
   // 创建同盟 is 选择模拟协议 (roomMode 'coop'): its 人数 is the rules' room row, fed by the lobby's pick
   assert.match(rules, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{readOnly \|\| sizeLocked\}/);

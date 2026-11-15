@@ -32,8 +32,8 @@
 //     of such a season has a `grade` (room.state, the hand-over) — 1–20 or 极速模拟 (FAST_GRADE) — chosen by room.create /
 //     room.setDifficulty { grade } (absent: the first grade of the difficulty asked), every grade open (no unlocks). Its
 //     difficulty is the grade's, and its matches play `mode_single_<grade>` (modeIdFor). A grade in any other room is
-//     BAD_MSG. A season with `noCustomOrLarge` (规程 until both come, maintainer decision 2026-11-11) refuses the custom
-//     ruleset and 8 seats: room.create / room.setRuleset / room.setSize answer BAD_MSG (room.queue too, server/matchmaking.js).
+//     BAD_MSG. A season with `noLargeRoom` (规程 until it comes, maintainer decision 2026-11-11) refuses 8 seats:
+//     room.create / room.setSize answer BAD_MSG (room.queue too, server/matchmaking.js); its custom ruleset is open.
 //     ▸ room.start requires every other human to be connected and ready; the host's start counts as the host's
 //     ready (the host may still toggle room.ready for display).
 //   * room.kick {seat, playerId} (community report #17, owner approved): before the match only, the host removes another
@@ -604,7 +604,7 @@ export class Lobby {
   create(session, { mode, difficulty, ruleset, custom, size, season = DEFAULT_SEASON, grade }) {
     if (size === LARGE_SEATS && mode !== 'coop') return fail(ERR.BAD_MSG, 'only a co-op room has 8 seats');
     if (!this.seasons.has(season)) return fail(ERR.BAD_MSG, 'season not offered');
-    if (seasonFeature(season, 'noCustomOrLarge') && (size === LARGE_SEATS || ruleset === 'custom')) return fail(ERR.BAD_MSG, 'no custom rules or 8-player room in this season yet');
+    if (seasonFeature(season, 'noLargeRoom') && size === LARGE_SEATS) return fail(ERR.BAD_MSG, 'no 8-player room in this season yet');
     const graded = mode === 'solo' && seasonFeature(season, 'soloGrades');
     if (grade !== undefined && !graded) return fail(ERR.BAD_MSG, 'only a graded solo room has a grade');
     const roomGrade = graded ? (grade ?? firstGrade(difficulty)) : null;
@@ -826,7 +826,6 @@ export class Lobby {
     if (!room) return fail(ERR.NOT_IN_ROOM);
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
-    if (preset === 'custom' && seasonFeature(room.season, 'noCustomOrLarge')) return fail(ERR.BAD_MSG, 'no custom rules in this season yet');
     const next = resolveRuleset({ preset, custom });
     const changed = !sameRuleset(room.ruleset, next);
     if (room.matching && changed) return fail(ERR.MATCHING, 'cancel the matchmaking first');
@@ -862,7 +861,7 @@ export class Lobby {
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
     if (room.mode === 'solo') return fail(ERR.BAD_TARGET, 'a solo room has one seat');
-    if (size === LARGE_SEATS && seasonFeature(room.season, 'noCustomOrLarge')) return fail(ERR.BAD_MSG, 'no 8-player room in this season yet');
+    if (size === LARGE_SEATS && seasonFeature(room.season, 'noLargeRoom')) return fail(ERR.BAD_MSG, 'no 8-player room in this season yet');
     if (room.matching && room.size !== size) return fail(ERR.MATCHING, 'cancel the matchmaking first');
     this.dropReplay(room, session.playerId);
     if (room.size === size) return OK;

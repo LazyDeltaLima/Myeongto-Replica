@@ -30,9 +30,9 @@ export const SEASON_FEATURES = Object.freeze({
   /** The solo room plays a 规程等级 1–20 or 极速模拟 (room `grade`, shared/constants.js MAX_GRADE) instead of the four
    * difficulties. */
   soloGrades: false,
-  /** No custom 规则 模式 and no 8-player room in this season yet (maintainer decision 2026-11-11: both later, refused until
-   * then — server/lobby.js, server/matchmaking.js). */
-  noCustomOrLarge: false,
+  /** No 8-player room in this season yet (maintainer decision 2026-11-11: later, refused until then — server/lobby.js,
+   * server/matchmaking.js). Its custom 规则 模式 came first (maintainer request 2026-11-15). */
+  noLargeRoom: false,
   /** A battle shows each player's 整备区 operators standing still on the bench row (b.start / m.field `bench`, server
    * Match.battleBench): the season's official battle — the own field and a watched one — draws them; the 盟约 one shows
    * an empty bench (docs/rules/render.md 「규정 전투 중 정비 구역」). */
@@ -84,7 +84,7 @@ export const SEASONS = {
   // 卫戍协议：规程 (CN from 2026-11-08): built from its own tables (tools/build-data.mjs --season act3autochess); public
   // from 2.0.0
   act3autochess: Object.freeze({ id: 'act3autochess', public: true, name: N_('规程'), mark: 'REGULATION',
-    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noCustomOrLarge: true, benchInBattle: true, stagePreview: true, bossLayerGains: true, coreBondBan: true, bountyMark: true, equipReport: true }) }),
+    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noLargeRoom: true, benchInBattle: true, stagePreview: true, bossLayerGains: true, coreBondBan: true, bountyMark: true, equipReport: true }) }),
 };
 
 /**

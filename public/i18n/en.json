@@ -2036,6 +2036,20 @@
   "这是从控制台对局发送的反馈：控制台记录（回合跳转、首领变更、加入的棋子 / 装备 / 敌人、盟约层数变更）会和诊断信息一起附上。": "This report comes from a console match: the console log (round moves, leader changes, the pieces / equipment / enemies added, bond stack changes) goes with the diagnostics.",
   "控制台模式": "Console mode",
   "报错": "Report",
+  "特训敌人类型": "Tactical Training enemy types",
+  "每局抽取的类型 — 即简报中显示的类型": "The types each match draws — the ones the briefing shows",
+  "每局抽取的类型数": "Types per match",
+  "{lo} – {hi} · 每种类型占 15 个回合中的 3 个，其余回合为「特异」": "{lo} – {hi} · each type takes 3 of the 15 rounds, the other rounds are 「Special」 ones",
+  "禁用：不会出现": "Ban: never appears",
+  "固定：每局出现": "Fixed: appears every match",
+  "固定": "Fixed",
+  "参与抽取的类型 · {n}": "Types in the draw · {n}",
+  "固定 {f} · 禁用 {b} · 随机 {r} — 每局 {n} 种：先放入固定类型，其余从随机类型中抽取；固定类型多于类型数时，类型数随之增加": "Fixed {f} · banned {b} · random {r} — {n} per match: the fixed types first, the rest drawn from the random ones; more fixed types than the count raise the count",
+  "特训敌人类型 {n} 种": "Tactical Training enemy types: {n}",
+  "固定特训敌人：{names}": "Fixed Tactical Training enemies: {names}",
+  "禁用特训敌人：{names}": "Banned Tactical Training enemies: {names}",
   "自由更改干员、装备、敌人、回合、首领与盟约层数；不结算，也不计入统计、成就和战绩": "Change operators, equipment, enemies, rounds, leaders and bond stacks freely; no settlement, nothing counted in statistics, achievements or history",
-  "自由更改干员、装备、敌人、回合、首领与盟约层数；不结算，也不计入统计、成就和战绩；对局中可以反馈": "change operators, equipment, enemies, rounds, leaders and bond stacks freely · no settlement after a leader or running out of HP · nothing counted in statistics, achievements or history · report during the match"
+  "自由更改干员、装备、敌人、回合、首领与盟约层数；不结算，也不计入统计、成就和战绩；对局中可以反馈": "change operators, equipment, enemies, rounds, leaders and bond stacks freely · no settlement after a leader or running out of HP · nothing counted in statistics, achievements or history · report during the match",
+  "本赛季的官方简报始终显示战场": "This season's official briefing always shows the battlefield",
+  "官方：开启": "Official: on"
 }

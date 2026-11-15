@@ -31,7 +31,7 @@
 // (room.create / room.queue `size`, remembered in `lobby.size`).
 //
 // 规程 (docs/rules/ui.md 「규정 모드」): 独立模拟 picks 极速模拟 or a 规程等级 1–20 from one row each instead of the cards
-// (GRADES, GradeRow; room.create `grade`), and 规则 / 人数 have no 自定义 and no 8 seats there yet (limitedSeason).
+// (GRADES, GradeRow; room.create `grade`), and 人数 has no 8 seats there yet (limitedSeason).
 //
 // Difficulty descriptions come from data/config.json `modes[modeId]` when present, else from the
 // official act2autochess `modeDataDict` texts embedded below (desc + effectDescList), so the
@@ -185,14 +185,14 @@ export function difficultyInfo(roomMode, difficulty) {
 /**
  * 规程等级 (docs/rules/ui.md 「규정 모드」; maintainer decisions 2026-11-08, 2026-11-12): a season with `soloGrades` offers
  * 独立模拟 at 极速模拟 (FAST_GRADE) or 规程等级 1–20 instead of the four difficulties, every one open, picked from one row
- * each (GradeRow) on 选择模拟协议. A season with `noCustomOrLarge` has no 自定义 and no 8-seat alliance yet: its 规则 row
- * offers 经典 / 休闲 only and its 人数 row is left out (the server refuses both, server/lobby.js).
+ * each (GradeRow) on 选择模拟协议. A season with `noLargeRoom` has no 8-seat alliance yet: its 人数 row is left out (the
+ * server refuses 8 seats, server/lobby.js); its 规则 row has 自定义 (maintainer request 2026-11-15).
  */
 export const GRADES = Object.freeze([FAST_GRADE, ...Array.from({ length: MAX_GRADE }, (_, i) => i + 1)]);
 /** Whether a room of this mode and season picks a 规程等级. @param {string} roomMode @param {unknown} season */
 export const gradedRoom = (roomMode, season) => roomMode === 'solo' && seasonFeature(season, 'soloGrades');
-/** Whether the season has no 自定义 / 8-seat alliance yet. @param {unknown} season */
-export const limitedSeason = (season) => seasonFeature(season, 'noCustomOrLarge');
+/** Whether the season has no 8-seat alliance yet. @param {unknown} season */
+export const limitedSeason = (season) => seasonFeature(season, 'noLargeRoom');
 /** The lobby's remembered 规程等级 (1 the first time). */
 export const lobbyGrade = () => { const g = loadPref('lobby.grade', 1); return isGrade(g) ? g : 1; };
 export { gradeName };
@@ -720,22 +720,22 @@ function RowKey({ text }) {
  * lobby's chip, the one place a season is picked. A picked 自定义's summary is CustomBrief, in the brief at the left.
  */
 export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize, quick = false, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false, limited = false }) {
-  // `limited`: a season with no 自定义 and no 8-seat alliance yet (limitedSeason) — 经典 / 休闲 only, no 人数 row
-  const matching = roomMode === 'match' && !limited;
+  // `limited`: a season with no 8-seat alliance yet (limitedSeason) — no 人数 row
+  const matching = roomMode === 'match';
+  const matchSize = matching && !limited;
   const roomSize = roomMode === 'coop' && !!onSize && !limited;
-  const big = matching && size === LARGE_SEATS;
+  const big = matchSize && size === LARGE_SEATS;
   const counts = big ? counts8 : counts4;
-  return html`<div class=${`proto-rules${matching || roomSize ? ' is-grid' : ''}`} data-testid="proto-rules">
+  return html`<div class=${`proto-rules${matchSize || roomSize ? ' is-grid' : ''}`} data-testid="proto-rules">
     <span class="proto-rules__row">
       <${RowKey} text=${t('规则')} />
       <span class="proto-rules__cell">
         <${RulesetSwitch} value=${ruleset} onPick=${onRuleset} onGear=${onGear} editable=${!quick && !readOnly} class="proto-rules__seg rtrack"
-          presets=${limited ? QUEUE_PRESETS : undefined}
           customLock=${matching ? t('自定义规则不能用于公开匹配，可在独立模拟或用同盟密钥创建的同盟中选择。') : null}
           counts=${roomMode === 'match' ? Object.fromEntries(QUEUE_PRESETS.map((p) => [p, queueCountOf(counts, p)])) : null} />
       </span>
     </span>
-    ${matching ? html`<span class="proto-rules__row">
+    ${matchSize ? html`<span class="proto-rules__row">
       <${RowKey} text=${t('人数')} />
       <span class="proto-rules__cell">
         <${SizeSwitch} value=${size} onPick=${onSize} disabled=${quick} class="proto-rules__seg rtrack"
@@ -756,9 +756,9 @@ export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize,
  * right column stands the same for every 规则): 自定义规则 · the preset in use and how many settings differ from the
  * official ones (CustomSummary; 同盟匹配 has no 自定义, and a solo room is never an 8-seat one).
  */
-export function CustomBrief({ roomMode, ruleset, customRules, difficulty }) {
+export function CustomBrief({ roomMode, ruleset, customRules, difficulty, grade = null }) {
   if (roomMode === 'match' || ruleset !== 'custom') return null;
-  return html`<span class="proto-brief__rules" data-testid="proto-custom-brief">${t('自定义规则')} · <${CustomSummary} rules=${customRules.draft} store=${customRules} roomMode=${roomMode} difficulty=${difficulty} size=${MAX_SEATS} /></span>`;
+  return html`<span class="proto-brief__rules" data-testid="proto-custom-brief">${t('自定义规则')} · <${CustomSummary} rules=${customRules.draft} store=${customRules} roomMode=${roomMode} difficulty=${difficulty} grade=${grade} size=${MAX_SEATS} /></span>`;
 }
 
 /**
@@ -931,7 +931,7 @@ function JoinBox({ code, onCode, codeOk, online, busy, onJoin, onSpectate, recen
 export function LobbyScreen() {
   useDocClass('sp-topbar'); // toasts sit under the top bar instead of over its title (components.css)
   const conn = useStore((s) => s.connection, shallowEqual);
-  useData('config', 'assets');
+  useData('config', 'assets', 'factions'); // factions: the 特训敌人 names of a custom room's summary (matchQueue.js customFound)
   const [difficulty, setDifficulty] = useState(() => {
     const d = loadPref('lobby.difficulty', 'FUNNY');
     return DIFFICULTIES.includes(d) ? d : 'FUNNY';
@@ -970,11 +970,11 @@ export function LobbyScreen() {
   // the dialog's mode: 'solo' (选择模拟协议 of 独立模拟), 'match' (of 同盟匹配), 'coop' (同盟模拟's screen)
   const roomMode = open === 'solo' ? 'solo' : open === 'match' ? 'match' : 'coop';
   const matching = roomMode === 'match';
-  // 规程 (header of GRADES): a solo room picks a 规程等级; no 自定义 and no 8-seat alliance — the remembered ones stand aside
+  // 规程 (header of GRADES): a solo room picks a 规程等级; no 8-seat alliance — the remembered size stands aside
   const graded = gradedRoom(roomMode, season);
   const limited = limitedSeason(season);
   const big = roomMode !== 'solo' && !limited && size === LARGE_SEATS;
-  const roomRuleset = limited && ruleset === 'custom' ? 'classic' : ruleset;
+  const roomRuleset = ruleset;
 
   const pickGrade = (g) => { setGrade(g); savePref('lobby.grade', g); };
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
@@ -984,7 +984,7 @@ export function LobbyScreen() {
   // 同盟匹配 has no 自定义 (QUEUE_PRESETS): it queues with the last of 经典 / 休闲 picked
   const shownRuleset = matching ? queueRuleset : roomRuleset;
   const editCustom = () => openCustomRules({ rules: customDraft(), roomMode: roomMode === 'solo' ? 'solo' : 'coop', difficulty,
-    size: big ? LARGE_SEATS : MAX_SEATS, onApply: () => pickRuleset('custom') });
+    grade: graded ? grade : null, size: big ? LARGE_SEATS : MAX_SEATS, onApply: () => pickRuleset('custom') });
 
   const run = async (kind, fn) => {
     if (inFlight.current) return;
@@ -1084,7 +1084,7 @@ export function LobbyScreen() {
       action=${matching && quick ? t('开始快速匹配') : null}
       hint=${matching && quick ? t('规则与人数随匹配到的队列而定') : null}
       range=${matching ? html`<${QuickRange} quick=${quick} onQuick=${pickQuick} />` : null}
-      brief=${html`<${CustomBrief} roomMode=${roomMode} ruleset=${shownRuleset} customRules=${customRules} difficulty=${difficulty} />`}
+      brief=${html`<${CustomBrief} roomMode=${roomMode} ruleset=${shownRuleset} customRules=${customRules} difficulty=${difficulty} grade=${graded ? grade : null} />`}
       rules=${html`<${ProtoRules} roomMode=${roomMode} ruleset=${shownRuleset} onRuleset=${pickRuleset} onGear=${editCustom}
         size=${big ? LARGE_SEATS : MAX_SEATS} onSize=${roomMode === 'solo' ? null : pickSize} quick=${matching && quick} counts4=${queueCounts4} counts8=${queueCounts8}
         limited=${limited} />`} />` : null}
@@ -1100,9 +1100,12 @@ export function LobbyScreen() {
  * Beside a picked 自定义: the preset whose settings are in use (none when they were changed after it) and how many
  * settings differ from the official ones of the chosen difficulty (and room size: an 8-seat room's official bans).
  */
-export function CustomSummary({ rules, store: st, roomMode, difficulty, size }) {
-  const mode = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor(roomMode === 'solo' ? 'solo' : 'coop', difficulty)) : null;
-  const n = customDiffs(rules, { bans: officialBans(getConfig(), difficulty, size), rounds: mode?.lastRound ?? null }).length;
+export function CustomSummary({ rules, store: st, roomMode, difficulty, grade = null, size }) {
+  // a 规程 solo room compares with its 规程等级's mode and difficulty
+  const graded = roomMode === 'solo' && isGrade(grade);
+  const diff = graded ? gradeDifficulty(grade) : difficulty;
+  const mode = DIFFICULTIES.includes(diff) ? getMode(modeIdFor(roomMode === 'solo' ? 'solo' : 'coop', diff, graded ? grade : null)) : null;
+  const n = customDiffs(rules, { bans: officialBans(getConfig(), diff, size), rounds: mode?.lastRound ?? null }).length;
   const p = st.presets.find((x) => x.id === st.active && JSON.stringify(x.rules) === JSON.stringify(rules));
   return html`<span class="lobby-rules__sum" data-testid="custom-summary">${p ? html`<b>${p.name}</b> · ` : null}${t('与官方不同的设置 {n} 项', { n })}</span>`;
 }

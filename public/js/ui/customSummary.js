@@ -6,7 +6,7 @@
 // customSummary is pure (unit-tested); CustomRulesInfo draws it. Styles: css/screens/custom-rules.css (.crs-*).
 
 import { html, MicroLabel } from './components.js';
-import { sanitizeCustom, CUSTOM_OFFICIAL, CUSTOM_FIRST_HALF_STAGES } from '../../../shared/ruleset.js';
+import { sanitizeCustom, CUSTOM_OFFICIAL, CUSTOM_FIRST_HALF_STAGES, OFFICIAL_TYPE_COUNT } from '../../../shared/ruleset.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 const STAT_LABELS = { hp: N_('生命值'), atk: N_('攻击力'), def: N_('防御力'), res: N_('法术抗性'), speed: N_('移动速度') };
@@ -18,9 +18,10 @@ const fmt = (n) => Number(n).toLocaleString('en-US');
  * The lines of a custom ruleset's differences from the official rules.
  * @param {unknown} raw the custom settings (m.public.ruleset.custom)
  * @param {{ solo?: boolean, bans?: { core?: number, addon?: number } | null, rounds?: number | null,
- *   name?: (kind: 'bond'|'boss'|'stage', id: string) => string, hidden?: (bossId: string) => boolean }} [ctx]
+ *   name?: (kind: 'bond'|'boss'|'stage'|'type', id: string) => string, hidden?: (bossId: string) => boolean }} [ctx]
  *   solo: a 独立模拟 match (no co-op-only lines); bans / rounds: the difficulty's official bond ban counts and round
- *   count (config.json bans[difficulty], modes[modeId].lastRound); name: a display name of a bond, leader or stage;
+ *   count (config.json bans[difficulty], modes[modeId].lastRound); name: a display name of a bond, leader, stage or
+ *   特训敌人 type (factions.json types; its 「特训敌人·」 is dropped here);
  *   hidden: whether a leader is a 隐秘核心 one (bosses.json `hidden` — the 假想敌 leaders are in both groups under one name)
  * @returns {Array<{ key: string, tab: string, text: string }>} `key` = the customDiffs path (or its group)
  */
@@ -54,6 +55,14 @@ export function customSummary(raw, { solo = false, bans = null, rounds = null, n
     }
   }
   if (c.enemies.curve !== O.enemies.curve) add('enemies.curve', t('敌人能力成长曲线：{name}', { name: t(CURVE_LABELS[c.enemies.curve]) }));
+
+  if (c.types.count !== null && c.types.count !== OFFICIAL_TYPE_COUNT) add('types.count', t('特训敌人类型 {n} 种', { n: c.types.count }));
+  const typeNames = (ids) => ids.map((id) => String(name('type', id) ?? id).replace(t('特训敌人·'), '')).join(t('、'));
+  const typePicks = Object.entries(c.types.pick);
+  const forced = typePicks.filter(([, v]) => v === 'force').map(([id]) => id);
+  const typeBans = typePicks.filter(([, v]) => v === 'ban').map(([id]) => id);
+  if (forced.length) add('types.pick.force', t('固定特训敌人：{names}', { names: typeNames(forced) }));
+  if (typeBans.length) add('types.pick.ban', t('禁用特训敌人：{names}', { names: typeNames(typeBans) }));
 
   const finals = c.bosses.ban.filter((id) => !hidden(id));
   const hiddens = c.bosses.ban.filter((id) => hidden(id));

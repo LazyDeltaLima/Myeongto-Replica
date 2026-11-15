@@ -182,7 +182,7 @@ export class Matchmaker {
     const lobby = this.lobby;
     if (!lobby.seasons.has(season)) return fail(ERR.BAD_MSG, 'season not offered');
     // no 8-player queue in such a season yet (server/lobby.js header 「规程等级」)
-    if (!quick && size === LARGE_SEATS && seasonFeature(season, 'noCustomOrLarge')) return fail(ERR.BAD_MSG, 'no 8-player queue in this season yet');
+    if (!quick && size === LARGE_SEATS && seasonFeature(season, 'noLargeRoom')) return fail(ERR.BAD_MSG, 'no 8-player queue in this season yet');
     const ruleset = quick ? null : rulesetKey(preset);
     const cap = quick ? 0 : seatsOf(size);
     const pool = poolKey(difficulty, season);

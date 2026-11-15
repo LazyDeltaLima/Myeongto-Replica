@@ -118,9 +118,10 @@ test('the switch: 自定义 with its ⚙ after it; 同盟匹配 locks it with th
 
 test('the lobby and the room: room.create / room.setRuleset carry the settings; a custom room matchmakes for 快速匹配; the bar line-up', () => {
   const lobby = read('public/js/screens/lobby.js');
-  // (规程: the remembered 自定义 / 8 seats stand aside — roomRuleset, `big`; a solo room's grade in gradeFields)
+  // (规程: the remembered 8 seats stand aside — `big`; its 自定义 is open (maintainer request 2026-11-15); a solo room's
+  // grade in gradeFields)
   assert.match(lobby, /roomRuleset === 'custom'\s*\? \{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, custom: customDraft\(\), \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\) \}/);
-  assert.match(lobby, /const roomRuleset = limited && ruleset === 'custom' \? 'classic' : ruleset;/);
+  assert.doesNotMatch(lobby, /limited && ruleset === 'custom'/, '规程 keeps a remembered 自定义');
   assert.match(lobby, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS, season\)/);
   assert.match(lobby, /<\$\{CustomRulesDialog\} \/>/);
   const room = read('public/js/screens/room.js');
@@ -143,9 +144,9 @@ test('the lobby and the room: room.create / room.setRuleset carry the settings; 
   assert.match(read('public/index.html'), /css\/screens\/custom-rules\.css/);
 });
 
-test('the dialog has its five tabs and no 「后续更新生效」 tag (a match reads every setting); every text has its English', async () => {
+test('the dialog has its six tabs and no 「后续更新生效」 tag (a match reads every setting); every text has its English', async () => {
   const { CUSTOM_TABS } = await import('../../public/js/ui/customRules.js');
-  assert.deepEqual([...CUSTOM_TABS], ['bonds', 'enemies', 'bosses', 'stages', 'flow']);
+  assert.deepEqual([...CUSTOM_TABS], ['bonds', 'enemies', 'types', 'bosses', 'stages', 'flow']);
   assert.doesNotMatch(read('public/js/ui/customRules.js'), /后续更新生效|PENDING/);
   const en = JSON.parse(read('public/i18n/en.json'));
   const src = read('public/js/ui/customRules.js');

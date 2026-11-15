@@ -1,6 +1,6 @@
 // 规程's 独立模拟 picks a 规程等级 on 选择模拟协议 (screens/lobby.js GRADES / GradeRow, docs/rules/ui.md 「규정 모드」): one row
 // per mode, 极速模拟 first, each read from the season's mode record; the match screens name the grade (DifficultyTag
-// modeId → shared/seasons.js modeGrade); 规程 has no 自定义 / 8-seat alliance yet (limitedSeason).
+// modeId → shared/seasons.js modeGrade); 规程 has no 8-seat alliance yet (limitedSeason).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

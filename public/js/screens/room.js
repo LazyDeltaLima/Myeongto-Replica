@@ -238,7 +238,7 @@ export function inviteMessage(room, name) {
   ];
   if (rs.custom) {
     const mode = DIFFICULTIES.includes(room.difficulty) ? getMode(modeIdFor('coop', room.difficulty)) : null;
-    const lookup = { bond: getBond, boss: getBoss, stage: getStage };
+    const lookup = { bond: getBond, boss: getBoss, stage: getStage, type: (id) => data.get('factions')?.types?.[id] };
     const lines = customSummary(rs.custom, {
       bans: officialBans(getConfig(), room.difficulty, room.size),
       rounds: Number.isInteger(mode?.lastRound) ? mode.lastRound : null,
@@ -635,7 +635,8 @@ export function RoomScreen() {
   }, [room]);
   // 名片干员: the operators a seat card can show and the default pool (ui/seatArt.js), one's own pick (a pref the sync
   // sends: ui/cardSync.js)
-  useData('chess', 'assets', 'backups');
+  // factions: the 特训敌人 names of a custom room's summary (the invitation text)
+  useData('chess', 'assets', 'backups', 'factions');
   const chess = data.get('chess');
   const backups = data.get('backups');
   const cardList = useMemo(() => cardOperators(data.list('chess'), backups), [chess, backups]);
@@ -653,7 +654,7 @@ export function RoomScreen() {
   // a 规程 solo room plays a 规程等级 (room.state `grade`, docs/rules/ui.md 「규정 모드」): its name and mode record
   const graded = isGrade(room.grade);
   const info = graded ? gradeInfo(room.grade) : difficultyInfo(room.mode, room.difficulty);
-  // a season with no 自定义 / 8-seat alliance yet: the dialog's 规则 row without 自定义, no 人数 row
+  // a season with no 8-seat alliance yet: the dialog has no 人数 row
   const limited = limitedSeason(room.season);
 
   /** Runs one request at a time; resolves true once the server took it (false: not sent, or refused — toasted). */
@@ -698,9 +699,9 @@ export function RoomScreen() {
   // 自定义 rules: the host edits the room's (sent at once), anybody else views them, live
   const customGear = !isCustom ? null
     : rulesEditable
-      ? () => openCustomRules({ rules: roomRules.custom, roomMode: room.mode, difficulty: room.difficulty, size: room.size,
+      ? () => openCustomRules({ rules: roomRules.custom, roomMode: room.mode, difficulty: room.difficulty, grade: graded ? room.grade : null, size: room.size,
         onApply: (custom) => run('rules', () => net.request('room.setRuleset', { preset: 'custom', custom })) })
-      : () => openCustomRules({ rules: roomRules.custom, readonly: true, roomMode: room.mode, difficulty: room.difficulty, size: room.size,
+      : () => openCustomRules({ rules: roomRules.custom, readonly: true, roomMode: room.mode, difficulty: room.difficulty, grade: graded ? room.grade : null, size: room.size,
         live: () => store.get().room?.ruleset?.custom ?? null });
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
@@ -772,7 +773,7 @@ export function RoomScreen() {
   const keepsCustom = proto?.ruleset === 'custom' && isCustom;
   const protoCustom = keepsCustom ? { ...customRules, draft: roomRules.custom } : customRules;
   const editCustom = () => (keepsCustom ? customGear?.()
-    : openCustomRules({ rules: customDraft(), roomMode: room.mode, difficulty: proto?.difficulty || room.difficulty, size: room.size }));
+    : openCustomRules({ rules: customDraft(), roomMode: room.mode, difficulty: proto?.difficulty || room.difficulty, grade: proto ? proto.grade : graded ? room.grade : null, size: room.size }));
 
   const waiting = matching && queue?.party ? queue : null;
   const statusLine = !online
@@ -901,13 +902,13 @@ export function RoomScreen() {
       ? html`<${ProtocolSelect} roomMode=${protoMode} difficulty=${proto.difficulty} onDifficulty=${(d) => setProto({ ...proto, difficulty: d })}
           grade=${proto.grade} onGrade=${(g) => setProto({ ...proto, grade: g })}
           onClose=${closeProto} onStart=${confirmProto} busy=${busy === 'diff' || busy === 'rules' || busy === 'size' ? 'create' : null} online=${online} action=${t('确认')} hint=${protoHint}
-          brief=${html`<${CustomBrief} roomMode=${protoMode} ruleset=${proto.ruleset} customRules=${protoCustom} difficulty=${proto.difficulty} />`}
+          brief=${html`<${CustomBrief} roomMode=${protoMode} ruleset=${proto.ruleset} customRules=${protoCustom} difficulty=${proto.difficulty} grade=${proto.grade} />`}
           rules=${html`<${ProtoRules} roomMode=${protoMode} ruleset=${proto.ruleset} onRuleset=${(r) => setProto({ ...proto, ruleset: r })}
             onGear=${editCustom} size=${proto.size} limited=${limited}
             onSize=${sizeOpt ? (n) => setProto({ ...proto, size: n }) : null} sizeLocked=${!!sizeOpt && proto.size > MAX_SEATS && !sizeOpt.shrinkable} />`} />`
       : html`<${ProtocolSelect} roomMode=${protoMode} difficulty=${room.difficulty} onDifficulty=${() => {}} onClose=${closeProto} grade=${graded ? room.grade : null}
           online=${online} readOnly=${true} hint=${matching ? t('匹配中无法更改') : null}
-          brief=${html`<${CustomBrief} roomMode=${protoMode} ruleset=${roomRules.preset} difficulty=${room.difficulty}
+          brief=${html`<${CustomBrief} roomMode=${protoMode} ruleset=${roomRules.preset} difficulty=${room.difficulty} grade=${graded ? room.grade : null}
             customRules=${isCustom ? { ...customRules, draft: roomRules.custom } : customRules} />`}
           rules=${html`<${ProtoRules} roomMode=${protoMode} ruleset=${roomRules.preset} onRuleset=${() => {}} onGear=${customGear} readOnly=${true}
             size=${seatsOf(room.size)} limited=${limited}

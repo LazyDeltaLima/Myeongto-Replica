@@ -1,6 +1,6 @@
 // 规程 rooms (server/lobby.js header 「规程等级」): a solo room of a season with `soloGrades` plays 规程等级 1–20 or 极速模拟
-// (room `grade`, modeIdFor → mode_single_<grade> / mode_single_funny), every grade open; a season with `noCustomOrLarge`
-// refuses the custom ruleset and 8 seats (room.create, room.setRuleset, room.setSize, room.queue); the strategy list
+// (room `grade`, modeIdFor → mode_single_<grade> / mode_single_funny), every grade open; a season with `noLargeRoom`
+// refuses 8 seats (room.create, room.setSize, room.queue) but takes the custom ruleset; the strategy list
 // leaves out a strategy's inactiveModeIds (bandDraft.js allowedBands, as GameData.bandAllowed); the mode descriptions
 // carry no unlock clause (tools/build-data.mjs modeDescNoUnlock).
 
@@ -21,9 +21,9 @@ const ACT3 = 'act3autochess';
 const quiet = { info() {}, warn() {}, error() {}, debug() {} };
 const DATA3 = getData({ log: quiet, season: ACT3 });
 
-test('the season switches: 规程 has grades and no custom / 8-player room; 盟约 neither', () => {
-  assert.deepEqual([seasonFeature(ACT3, 'soloGrades'), seasonFeature(ACT3, 'noCustomOrLarge')], [true, true]);
-  assert.deepEqual([seasonFeature(DEFAULT_SEASON, 'soloGrades'), seasonFeature(DEFAULT_SEASON, 'noCustomOrLarge')], [false, false]);
+test('the season switches: 规程 has grades and no 8-player room; 盟约 neither', () => {
+  assert.deepEqual([seasonFeature(ACT3, 'soloGrades'), seasonFeature(ACT3, 'noLargeRoom')], [true, true]);
+  assert.deepEqual([seasonFeature(DEFAULT_SEASON, 'soloGrades'), seasonFeature(DEFAULT_SEASON, 'noLargeRoom')], [false, false]);
 });
 
 test('modeIdFor: a graded solo room names its grade\'s mode, 极速模拟 the FUNNY one; every other room as before', () => {
@@ -163,15 +163,17 @@ describe('规程 rooms (lobby)', () => {
     } finally { await next.close(); }
   });
 
-  test('no custom ruleset and no 8 seats in 规程 (create, setRuleset, setSize, queue); 盟约 keeps both', async () => {
+  test('no 8 seats in 规程 (create, setSize, queue) but the custom ruleset (create, setRuleset); 盟约 keeps both', async () => {
     const c = await player('NoBig');
-    await err(c, { t: 'room.create', mode: 'solo', difficulty: 'HARD', season: ACT3, ruleset: 'custom' });
     await err(c, { t: 'room.create', mode: 'coop', difficulty: 'HARD', season: ACT3, size: 8 });
+    await err(c, { t: 'room.create', mode: 'coop', difficulty: 'HARD', season: ACT3, size: 8, ruleset: 'custom' });
     await err(c, { t: 'room.queue', difficulty: 'HARD', season: ACT3, size: 8 });
     assert.equal((await c.request({ t: 'room.create', mode: 'coop', difficulty: 'HARD', season: ACT3 })).t, 'ok');
     await c.waitFor('room.state', (s) => s.hostId === c.id && s.season === ACT3);
-    await err(c, { t: 'room.setRuleset', preset: 'custom' });
     await err(c, { t: 'room.setSize', size: 8 });
+    assert.equal((await c.request({ t: 'room.setRuleset', preset: 'custom', custom: { types: { count: 4 } } })).t, 'ok');
+    const cs = await c.waitFor('room.state', (s) => s.ruleset?.preset === 'custom');
+    assert.equal(cs.ruleset.custom.types.count, 4, 'the room keeps the 特训敌人 setting');
     assert.equal((await c.request({ t: 'room.setRuleset', preset: 'casual' })).t, 'ok');
     // the quick queue of 规程 forms rooms of four
     assert.equal((await c.request({ t: 'room.queue', difficulty: 'HARD', season: ACT3, quick: true })).t, 'ok');

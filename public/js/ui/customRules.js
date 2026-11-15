@@ -1,5 +1,5 @@
-// 커스텀 규칙 설정 창 (maintainer decisions 2026-10-18): the settings of the custom 규칙 모드 — five tabs (盟约 · 敌人能力
-// · 领袖 · 战场 · 进程), the preset row on top (ui/customRulesStore.js: 预设 picker, 保存 · 新建 · 改名 · 删除, the count of
+// 커스텀 규칙 설정 창 (maintainer decisions 2026-10-18): the settings of the custom 규칙 모드 — six tabs (盟约 · 敌人能力
+// · 敌人类型 · 领袖 · 战场 · 进程; 敌人类型 = the 特训敌人 types, maintainer decision 2026-11-15), the preset row on top (ui/customRulesStore.js: 预设 picker, 保存 · 新建 · 改名 · 删除, the count of
 // settings that differ from the official ones and the unsaved mark, 复制代码 · 粘贴代码) and 休闲值 / 官方值 / 取消 / 应用.
 // The ⚙ of the 规则 switch opens it (ui/ruleset.js): in the lobby it edits the lobby's settings, in a room the host's
 // edit the room's (room.setRuleset), anybody else sees them read-only with 保存为我的预设.
@@ -7,12 +7,16 @@
 // sizes) through its GameData, the battle settings (enemy and leader stats, 限伤, the layer cap) through the spawn mods
 // and the spec flags.
 //
-//   openCustomRules({ rules, readonly, roomMode, difficulty, size, onApply })   CustomRulesDialog (mounted by the lobby and the room)
+// The lists come from the season's data (data.js follows the room's season): its bonds, 特训敌人 types, leaders and
+// stages; a 规程等级 room (`grade`) compares with that grade's mode, the bond ban counts keep the season's range
+// (customBanLimits), and 收录上半战场 shows only where this season's data has those stages.
+//
+//   openCustomRules({ rules, readonly, roomMode, difficulty, grade, size, onApply })   CustomRulesDialog (mounted by the lobby and the room)
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, Button, Modal, confirmDialog, roman } from './components.js';
 import { Img } from './gameComponents.js';
-import { bondIconUrl, enemyIconUrl } from './assetUrls.js';
+import { bondIconUrl, enemyIconUrl, factionIconUrl } from './assetUrls.js';
 import { createStore, useStore, loadPref, savePref } from '../store.js';
 import { data, useData, getMode, localAsset } from '../data.js';
 import { copyText } from './clipboard.js';
@@ -23,9 +27,9 @@ import {
 } from './customRulesStore.js';
 import {
   sanitizeCustom, customDiffs, customRoundPlan, curveScale, customPrepSeconds, customStagePool, customPoolCount, CUSTOM_OFFICIAL, CUSTOM_CASUAL,
-  CUSTOM_LIMITS, CUSTOM_FIRST_HALF_STAGES, officialBans,
+  CUSTOM_LIMITS, CUSTOM_FIRST_HALF_STAGES, OFFICIAL_TYPE_COUNT, officialBans, customBanLimits, seasonOfficialOptions,
 } from '../../../shared/ruleset.js';
-import { modeIdFor, DIFFICULTIES, LARGE_SEATS } from '../../../shared/constants.js';
+import { modeIdFor, DIFFICULTIES, LARGE_SEATS, isGrade, gradeDifficulty } from '../../../shared/constants.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -34,23 +38,26 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const TABS = [
   { id: 'bonds', name: N_('盟约'), micro: 'BONDS', keys: ['bonds.'] },
   { id: 'enemies', name: N_('敌人能力'), micro: 'ENEMIES', keys: ['enemies.', 'leaders.'] },
+  { id: 'types', name: N_('敌人类型'), micro: 'ENEMY TYPES', keys: ['types.'] },
   { id: 'bosses', name: N_('敌方领袖'), micro: 'LEADERS', keys: ['bosses.'] },
   { id: 'stages', name: N_('战场'), micro: 'BATTLEFIELD', keys: ['stages.'] },
   { id: 'flow', name: N_('进程'), micro: 'FLOW', keys: ['flow.', 'pool.'] },
 ];
 
-export const customDialogStore = createStore({ open: false, seq: 0, rules: null, readonly: false, live: null, roomMode: 'coop', difficulty: 'FUNNY', onApply: null });
+export const customDialogStore = createStore({ open: false, seq: 0, rules: null, readonly: false, live: null, roomMode: 'coop', difficulty: 'FUNNY', grade: null, onApply: null });
 
 /**
  * Open the settings. `onApply(rules)` runs after 应用 (the lobby picks custom, a room's host sends room.setRuleset).
  * `live` (read-only): a function giving the settings to show now — a room's, which its host may change meanwhile.
  * `size`: the room's seat count (an 8-seat room compares with the 8-player official values — shared/ruleset.js officialBans).
+ * `grade`: a 规程 solo room's 规程等级 (its mode and difficulty are the grade's), null elsewhere.
  * @param {{ rules: unknown, readonly?: boolean, live?: (() => unknown) | null, roomMode?: 'solo'|'coop', difficulty?: string,
- *   size?: number, onApply?: ((rules: any) => void) | null }} opts
+ *   grade?: number | null, size?: number, onApply?: ((rules: any) => void) | null }} opts
  */
-export function openCustomRules({ rules, readonly = false, live = null, roomMode = 'coop', difficulty = 'FUNNY', size = 4, onApply = null }) {
+export function openCustomRules({ rules, readonly = false, live = null, roomMode = 'coop', difficulty = 'FUNNY', grade = null, size = 4, onApply = null }) {
+  const graded = roomMode === 'solo' && isGrade(grade);
   customDialogStore.set((s) => ({ open: true, seq: s.seq + 1, rules: sanitizeCustom(rules), readonly, live: readonly ? live : null, roomMode,
-    difficulty: DIFFICULTIES.includes(difficulty) ? difficulty : 'FUNNY', size, onApply }));
+    difficulty: graded ? gradeDifficulty(grade) : DIFFICULTIES.includes(difficulty) ? difficulty : 'FUNNY', grade: graded ? grade : null, size, onApply }));
 }
 
 export const closeCustomRules = () => customDialogStore.set({ open: false, onApply: null, live: null });
@@ -61,7 +68,7 @@ export function CustomRulesDialog() {
   useEffect(() => closeCustomRules, []);
   if (!st.open) return null;
   return html`<${CustomRulesBody} key=${st.seq} init=${st.rules} readonly=${st.readonly} live=${st.live} roomMode=${st.roomMode}
-    difficulty=${st.difficulty} size=${st.size} onApply=${st.onApply} />`;
+    difficulty=${st.difficulty} grade=${st.grade} size=${st.size} onApply=${st.onApply} />`;
 }
 
 const fmt = (n) => Number(n).toLocaleString('en-US');
@@ -119,8 +126,8 @@ const Sec = ({ title, sub, children }) => html`<section class="crx-sec">
 
 // ---- the dialog --------------------------------------------------------------------------------------------------
 
-function CustomRulesBody({ init, readonly, live, roomMode, difficulty, size, onApply }) {
-  useData('config', 'bonds', 'bosses', 'stages', 'assets', 'local');
+function CustomRulesBody({ init, readonly, live, roomMode, difficulty, grade, size, onApply }) {
+  useData('config', 'bonds', 'bosses', 'stages', 'factions', 'assets', 'local');
   const [own, setWork] = useState(init);
   // read-only: what the room has now (its host may change it while this is open)
   const liveRules = useStore(() => (live ? live() : null));
@@ -133,8 +140,9 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, size, onA
 
   const solo = roomMode === 'solo';
   const config = data.get('config');
-  const mode = getMode(modeIdFor(solo ? 'solo' : 'coop', difficulty));
+  const mode = getMode(modeIdFor(solo ? 'solo' : 'coop', difficulty, solo ? grade : null));
   const bans = officialBans(config, difficulty, size);
+  const banLimits = customBanLimits(config);
   const base = { bans, rounds: Number.isInteger(mode?.lastRound) ? mode.lastRound : null };
   const diffs = customDiffs(work, base);
   const tabCount = (tb) => diffs.filter((d) => tb.keys.some((k) => d.startsWith(k))).length;
@@ -217,7 +225,7 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, size, onA
       <${Button} variant="secondary" size="sm" icon="close" onClick=${() => setPaste(null)}>${t('关闭窗口')}<//>
     </div>` : null;
 
-  const ctx = { work, set, readonly, solo, mode, bans, base, difficulty, size, config, setWork };
+  const ctx = { work, set, readonly, solo, mode, bans, banLimits, base, difficulty, size, config, setWork };
   const Pane = PANES[tab];
 
   const actions = readonly
@@ -247,7 +255,7 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, size, onA
 
 const PICK_LABELS = { random: N_('随机'), ban: N_('禁用'), allow: N_('允许') };
 
-function BondsPane({ work, set, readonly, mode, bans }) {
+function BondsPane({ work, set, readonly, mode, bans, banLimits }) {
   const m = data.get('assets');
   const inactive = new Set(Array.isArray(mode?.inactiveBondIds) ? mode.inactiveBondIds : []);
   const all = data.list('bonds') || [];
@@ -280,11 +288,11 @@ function BondsPane({ work, set, readonly, mode, bans }) {
   return html`
     <${Sec} title=${t('盟约禁用抽取')} sub=${t('每局随机禁用的盟约数 — 只从设为「随机」的盟约中抽取')}>
       <${Row} label=${t('国家盟约（核心）随机禁用')} official=${t('难度默认 {n}', { n: bans?.core ?? 0 })}>
-        <${Stepper} value=${coreN} min=${CUSTOM_LIMITS.banCore[0]} max=${CUSTOM_LIMITS.banCore[1]} disabled=${readonly} testid="custom-ban-core"
+        <${Stepper} value=${coreN} min=${banLimits.core[0]} max=${banLimits.core[1]} disabled=${readonly} testid="custom-ban-core"
           onChange=${(v) => set('bonds', 'banCore', v === (bans?.core ?? null) ? null : v)} />
       <//>
       <${Row} label=${t('职业·特性盟约（附加）随机禁用')} official=${t('难度默认 {n}', { n: bans?.addon ?? 0 })}>
-        <${Stepper} value=${addonN} min=${CUSTOM_LIMITS.banAddon[0]} max=${CUSTOM_LIMITS.banAddon[1]} disabled=${readonly}
+        <${Stepper} value=${addonN} min=${banLimits.addon[0]} max=${banLimits.addon[1]} disabled=${readonly}
           onChange=${(v) => set('bonds', 'banAddon', v === (bans?.addon ?? null) ? null : v)} />
       <//>
       <${Row} label=${t('解除盟约层数上限')} note=${t('官方规则下每个盟约最多 999 层 — 解除后没有上限')} official=${t('官方：{n}', { n: 999 })}>
@@ -363,6 +371,54 @@ export function CurveChart({ work, mode }) {
   </svg>`;
 }
 
+const TYPE_PICK_LABELS = { random: N_('随机'), ban: N_('禁用'), force: N_('固定') };
+/** a type's name without the 「特训敌人·」 every one starts with (as the briefing shows them) */
+const typeName = (ty) => (ty?.name || '').replace(t('特训敌人·'), '');
+
+/**
+ * 敌人类型 (maintainer decision 2026-11-15): how many 特训敌人 types a match draws (types.count, 0–5, official 3) and for
+ * each type of the season's draw (factions.json types with involveRandom) 随机 / 禁用 / 固定 (types.pick) — the match
+ * draws them with shared/ruleset.js customEnemyTypes.
+ */
+function TypesPane({ work, set, readonly }) {
+  const m = data.get('assets');
+  const types = Object.values(data.get('factions')?.types || {}).filter((ty) => ty && ty.involveRandom)
+    .sort((a, b) => (a.sortId ?? 9) - (b.sortId ?? 9) || String(a.type).localeCompare(String(b.type)));
+  const pick = work.types.pick;
+  const setPick = (id, v) => {
+    const next = { ...pick };
+    if (v === 'random') delete next[id]; else next[id] = v;
+    set('types', 'pick', next);
+  };
+  const ids = new Set(types.map((ty) => ty.type));
+  const nForce = Object.entries(pick).filter(([k, v]) => v === 'force' && ids.has(k)).length;
+  const nBan = Object.entries(pick).filter(([k, v]) => v === 'ban' && ids.has(k)).length;
+  const count = work.types.count ?? OFFICIAL_TYPE_COUNT;
+  const drawn = Math.min(CUSTOM_LIMITS.types[1], Math.max(count, nForce));
+  return html`
+    <${Sec} title=${t('特训敌人类型')} sub=${t('每局抽取的类型 — 即简报中显示的类型')}>
+      <${Row} label=${t('每局抽取的类型数')} official=${t('官方 {n}', { n: OFFICIAL_TYPE_COUNT })}
+          note=${t('{lo} – {hi} · 每种类型占 15 个回合中的 3 个，其余回合为「特异」', { lo: CUSTOM_LIMITS.types[0], hi: CUSTOM_LIMITS.types[1] })}>
+        <${Stepper} value=${count} min=${CUSTOM_LIMITS.types[0]} max=${CUSTOM_LIMITS.types[1]} disabled=${readonly} testid="custom-type-count"
+          onChange=${(v) => set('types', 'count', v === OFFICIAL_TYPE_COUNT ? null : v)} />
+      <//>
+      <div class="crx-legend"><span><i class="lg-r"></i>${t('随机：交给抽取')}</span><span><i class="lg-b"></i>${t('禁用：不会出现')}</span><span><i class="lg-a"></i>${t('固定：每局出现')}</span></div>
+      <div class="crx-note">${t('参与抽取的类型 · {n}', { n: types.length })}</div>
+      <div class="crx-bonds crx-types">${types.map((ty) => {
+        const v = pick[ty.type] || 'random';
+        return html`<div key=${ty.type} class=${cx('crx-bond', v === 'ban' && 'is-ban', v === 'force' && 'is-allow')} data-type=${ty.type} title=${ty.desc || ''}>
+          <${Img} src=${factionIconUrl(m, ty.icon)} class="crx-bond__i crx-type__i" />
+          <span class="crx-bond__n">${typeName(ty)}</span>
+          <span class="crx-tri" role="radiogroup">${['random', 'ban', 'force'].map((k) => html`<button key=${k} type="button" role="radio"
+              aria-checked=${v === k ? 'true' : 'false'} class=${v === k ? `on-${k === 'force' ? 'allow' : k}` : ''} disabled=${readonly}
+              onClick=${() => setPick(ty.type, k)}>${t(TYPE_PICK_LABELS[k])}</button>`)}</span>
+        </div>`;
+      })}</div>
+      <div class="crx-note" data-testid="custom-type-note">${t('固定 {f} · 禁用 {b} · 随机 {r} — 每局 {n} 种：先放入固定类型，其余从随机类型中抽取；固定类型多于类型数时，类型数随之增加',
+        { f: nForce, b: nBan, r: types.length - nForce - nBan, n: drawn })}</div>
+    <//>`;
+}
+
 function BossesPane({ work, set, setWork, readonly, mode }) {
   const m = data.get('assets');
   const all = data.list('bosses') || [];
@@ -424,6 +480,10 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
   // switching the 上半 stages off drops their bans with them (a ban of a stage the pool lacks means nothing)
   const setFirstHalf = (v) => setWork((w) => sanitizeCustom({ ...w, stages: { ...w.stages, firstHalf: v, ban: v ? w.stages.ban : w.stages.ban.filter((id) => !CUSTOM_FIRST_HALF_STAGES.includes(id)) } }));
   const firstNames = CUSTOM_FIRST_HALF_STAGES.map((id) => data.get('stages')?.[id]?.name ?? id).join(t('、'));
+  // 收录上半战场 adds the 盟约 上半 stages: a season whose data has none of them (规程) shows neither the switch nor the tags
+  const hasFirstHalf = CUSTOM_FIRST_HALF_STAGES.some((id) => data.get('stages')?.[id]);
+  // 规程's official briefing shows the battlefield anyway (seasonOfficialOptions): the switch stands on, locked
+  const infoAlways = !!seasonOfficialOptions(data.season()).battlefieldInfo;
   const ban = new Set(work.stages.ban);
   const used = [...pool].filter((id) => !ban.has(id)).length;
   const toggle = (s) => {
@@ -435,18 +495,19 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
   const half = (s) => (/^act1/.test(s.id) ? t('上半') : t('下半'));
   return html`
     <${Sec} title=${t('简报')}>
-      <${Row} label=${t('战场信息预览')} note=${t('简报中显示本局战场的名称和预览图（关闭时为「未知战场」）')} official=${t('官方：关闭')}>
-        <${Switch} on=${work.stages.info} disabled=${readonly} testid="custom-stage-info" onChange=${(v) => set('stages', 'info', v)} />
+      <${Row} label=${t('战场信息预览')} note=${infoAlways ? t('本赛季的官方简报始终显示战场') : t('简报中显示本局战场的名称和预览图（关闭时为「未知战场」）')}
+          official=${infoAlways ? t('官方：开启') : t('官方：关闭')} locked=${infoAlways}>
+        <${Switch} on=${infoAlways || work.stages.info} disabled=${readonly || infoAlways} testid="custom-stage-info" onChange=${(v) => set('stages', 'info', v)} />
       <//>
       <${Row} label=${t('简报「重新抽取」')} note=${t('全员同意时重新抽取战场、领袖和缺席盟约')} official=${t('官方：没有')}>
         <${Switch} on=${work.stages.reroll} disabled=${readonly} onChange=${(v) => set('stages', 'reroll', v)} />
       <//>
     <//>
-    <${Sec} title=${t('上半战场')}>
+    ${hasFirstHalf ? html`<${Sec} title=${t('上半战场')}>
       <${Row} label=${t('收录上半战场')} note=${t('{names} 加入战场池（与战场#01 同权重）', { names: firstNames })} official=${t('官方：关闭')}>
         <${Switch} on=${work.stages.firstHalf} disabled=${readonly} testid="custom-stage-first-half" onChange=${setFirstHalf} />
       <//>
-    <//>
+    <//>` : null}
     <${Sec} title=${t('战场池')} sub=${t('使用 {n} / {total} — 点击图片禁用 · 至少保留 1 张', { n: used, total: pool.size })}>
       <div class="crx-stages">${all.map((s) => {
         const off = !pool.has(s.id);
@@ -455,7 +516,7 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
             data-stage=${s.id} aria-pressed=${isBan ? 'true' : 'false'} onClick=${() => toggle(s)}>
           <${Img} src=${localAsset('stage/preview', s.id)} class="crx-stage__i" fallback=${html`<span class="crx-stage__i crx-stage__none"></span>`} />
           ${isBan ? html`<span class="crx-stage__flag is-ban">${t('禁用')}</span>` : off ? html`<span class="crx-stage__flag">${t('本难度没有')}</span>` : null}
-          <span class="crx-stage__n"><span>${s.name}</span><span class="crx-stage__tag">${half(s)}</span></span>
+          <span class="crx-stage__n"><span>${s.name}</span>${hasFirstHalf ? html`<span class="crx-stage__tag">${half(s)}</span>` : null}</span>
         </button>`;
       })}</div>
     <//>`;
@@ -557,7 +618,7 @@ function PoolSec({ work, set, readonly, solo, size, config }) {
   <//>`;
 }
 
-const PANES = { bonds: BondsPane, enemies: EnemiesPane, bosses: BossesPane, stages: StagesPane, flow: FlowPane };
+const PANES = { bonds: BondsPane, enemies: EnemiesPane, types: TypesPane, bosses: BossesPane, stages: StagesPane, flow: FlowPane };
 
 /** The tabs' names, for tests. */
 export const CUSTOM_TABS = Object.freeze(TABS.map((x) => x.id));

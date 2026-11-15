@@ -28,7 +28,7 @@ const { data, getMode } = await import('../../public/js/data.js');
 const { customDiffs, CUSTOM_OFFICIAL, rulesetWire } = await import('../../shared/ruleset.js');
 const { makeMatch } = await import('../match/harness.js');
 
-await data.loadAll('chess', 'bonds', 'bosses', 'stages', 'config');
+await data.loadAll('chess', 'bonds', 'bosses', 'stages', 'config', 'factions');
 
 const keys = (lines) => lines.map((l) => l.key);
 const custom = (c) => ({ preset: 'custom', custom: c });
@@ -85,9 +85,19 @@ test('限伤: none, a cancelled hit at another value, a fixed prep; solo leaves 
   assert.deepEqual(keys(customSummary(coop, { solo: true })), ['flow.routePreview']);
 });
 
+test('敌人类型: the count and the fixed / banned types as lines (the 「特训敌人·」 of the names dropped); the official 3 is no line', () => {
+  const name = (kind, id) => (kind === 'type' ? `特训敌人·${id}` : id);
+  assert.deepEqual(customSummary({ types: { count: 3 } }, { name }), []);
+  const l = customSummary({ types: { count: 0, pick: { FLY: 'force', DOT: 'ban', TIMES: 'ban' } } }, { name });
+  assert.deepEqual(l.map((x) => [x.key, x.text]), [
+    ['types.count', '特训敌人类型 0 种'], ['types.pick.force', '固定特训敌人：FLY'], ['types.pick.ban', '禁用特训敌人：DOT、TIMES'],
+  ]);
+  assert.deepEqual(customDiffs({ types: { count: 0, pick: { FLY: 'force' } } }), ['types.count', 'types.pick.FLY']);
+});
+
 test('a custom match on the real match path: matchInfoModel names the bonds, leaders and stages; other presets have no lines', () => {
   const stages = getMode('mode_multi_hard').stages;
-  const c = { bonds: { pick: { yanShip: 'ban' } }, bosses: { ban: ['boss_1', 'boss_10'] }, stages: { ban: [stages[0]] }, flow: { rounds: 10, lpShared: true } };
+  const c = { bonds: { pick: { yanShip: 'ban' } }, types: { pick: { FLY: 'force' } }, bosses: { ban: ['boss_1', 'boss_10'] }, stages: { ban: [stages[0]] }, flow: { rounds: 10, lpShared: true } };
   const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 1, seed: 3, fake: true, ruleset: custom(c) }).start();
   // the public view as the client gets it (JSON over the wire)
   const pub = JSON.parse(JSON.stringify(h.m.publicView()));
@@ -95,8 +105,10 @@ test('a custom match on the real match path: matchInfoModel names the bonds, lea
   const mode = getMode(pub.modeId);
   const model = matchInfoModel(pub, { bonds: data.list('bonds'), chess: (id) => data.lookup('chess', id), mode });
   const text = Object.fromEntries(model.custom.map((x) => [x.key, x.text]));
-  assert.deepEqual(Object.keys(text), ['bonds.pick.ban', 'bosses.ban.final', 'bosses.ban.hidden', 'stages.ban', 'flow.rounds', 'flow.lpShared']);
+  assert.deepEqual(Object.keys(text), ['bonds.pick.ban', 'types.pick.force', 'bosses.ban.final', 'bosses.ban.hidden', 'stages.ban', 'flow.rounds', 'flow.lpShared']);
   assert.equal(text['bonds.pick.ban'], `始终禁用盟约：${data.lookup('bonds', 'yanShip').name}`);
+  assert.equal(text['types.pick.force'], `固定特训敌人：${data.get('factions').types.FLY.name.replace('特训敌人·', '')}`);
+  assert.ok(h.m.factions.includes('FLY'), 'the fixed type is drawn');
   assert.equal(text['bosses.ban.final'], `禁用最终攻势领袖 「${data.lookup('bosses', 'boss_1').name}」`);
   assert.equal(text['bosses.ban.hidden'], `禁用隐秘核心领袖 「${data.lookup('bosses', 'boss_10').name}」`);
   assert.equal(text['stages.ban'], `禁用战场：${data.lookup('stages', stages[0]).name}`);

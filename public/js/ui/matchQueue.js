@@ -42,7 +42,7 @@ import { t, N_ } from '../../../shared/i18n.js';
 import { presetName } from './ruleset.js';
 import { customSummary } from './customSummary.js';
 import { customDiffs, officialBans } from '../../../shared/ruleset.js';
-import { getBond, getBoss, getStage, getConfig, getMode } from '../data.js';
+import { data, getBond, getBoss, getStage, getConfig, getMode } from '../data.js';
 import { seasonFields } from './season.js';
 
 /**
@@ -204,7 +204,7 @@ export function customFound(custom, difficulty, size) {
   const mode = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor('coop', difficulty)) : null;
   const rounds = Number.isInteger(mode?.lastRound) ? mode.lastRound : null;
   const bans = officialBans(getConfig(), difficulty, size);
-  const lookup = { bond: getBond, boss: getBoss, stage: getStage };
+  const lookup = { bond: getBond, boss: getBoss, stage: getStage, type: (id) => data.get('factions')?.types?.[id] };
   const lines = customSummary(custom, { bans, rounds, name: (kind, id) => lookup[kind](id)?.name || id, hidden: (id) => !!getBoss(id)?.hidden });
   return { n: customDiffs(custom, { bans, rounds }).length, lines: lines.map((l) => l.text) };
 }
