@@ -10,7 +10,7 @@ import { boardOrder, pieceDir } from '../board.js';
 import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains, pieceBonds } from '../bondsMeta.js';
 import { handRules, swapBondRecord } from '../../sim/content/bonds/dispatch.js';
 import { handRules as switchHandRules } from '../../sim/content/garrisons/effects/switch.js';
-import { BAND_MARK, BAND_CHEST, STAGE_COUNTER } from '../../sim/content/bands/meta.js';
+import { BAND_MARK, BAND_CHEST, STAGE_COUNTER, COMMAND_STAGE_COUNTER } from '../../sim/content/bands/meta.js';
 import { markInputNeeds } from '../../sim/content/bands/battle.js';
 
 export class PlayerRound {
@@ -47,7 +47,8 @@ export class PlayerRound {
     for (const uid of [...this._tempDue.keys()]) if (!this.temp.some((p) => p && p.uid === uid)) this._tempDue.delete(uid);
     this.offers = [];
     this.clearUnfrozenShop();
-    if (!this.gd.leftoverKeptBands.includes(this.bandId)) this.funds = 0;
+    // 坎诺特 利滚利 keeps the leftover, also as a 指令 taken from it (更换指令: bandCommand)
+    if (!this.gd.leftoverKeptBands.includes(this.bandId) && !this.gd.leftoverKeptBands.includes(this.bandCommand)) this.funds = 0;
     this.ready = true;
     this.dirty();
   }
@@ -255,6 +256,10 @@ export class PlayerRound {
       bandId: this.bandId,
       // the strategy stage the player reached (content/bands/meta.js bandStageIndex) and the round's marks
       ...(this.counters[STAGE_COUNTER] > 0 ? { bandStage: this.counters[STAGE_COUNTER] } : null),
+      // a 指令 taken from another strategy (更换指令) and its stage: a passive one brings its battle buffs
+      // (content/bands/battle.js install)
+      ...(this.bandCommand ? { bandCommand: this.bandCommand } : null),
+      ...(this.bandCommand && this.counters[COMMAND_STAGE_COUNTER] > 0 ? { bandCommandStage: this.counters[COMMAND_STAGE_COUNTER] } : null),
       ...(bandMarks.length ? { bandMarks } : null),
       ...(bandChests.length ? { bandChests } : null),
       playerEffects: this.effects.filter((e) => e.battle !== false).map((e) => ({

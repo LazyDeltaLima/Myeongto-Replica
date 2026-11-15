@@ -1179,7 +1179,9 @@ const duckGlobal = {
     if (!ev || !DUCK_KINDS.has(ev.kind) || !Array.isArray(ev.spawns)) return;
     const p = duckParams(ctx);
     if (!p || ctx.round < int(p.round, 1)) return;
-    const held = ctx.bandId() === DUCK_BAND || ctx.teammates().some((t) => t.bandId() === DUCK_BAND);
+    // the strategy, or its 指令 taken by a teammate or the player (更换指令: commandBandId) — one team swap either way
+    const holds = (c) => c.bandId() === DUCK_BAND || c.commandBandId?.() === DUCK_BAND;
+    const held = holds(ctx) || ctx.teammates().some(holds);
     if (!held) return;
     const want = duckCount(ctx.sharedRng(`duck:${ctx.round}`), p);
     duckReplace(ctx, ev.spawns, p, ctx.playerId, { routes: ev.routes, side: ev.side, want, leader: ev.kind !== 'normal' });
@@ -1218,15 +1220,42 @@ export const STAGE_COUNTER = 'band:stage';
  */
 export const COMMAND_STAGE_COUNTER = 'band:cmd:stage';
 /**
- * The registry keys of a strategy with an ACTIVE stage, beside its whole handler `band:<id>`: `band:<id>#command` — the
- * hooks of the buffs that are its 指令 (a handler with onBandSkill / onBandSkillUsed: the effect and its cost keys),
- * staged on COMMAND_STAGE_COUNTER, run when another player's 指令 is this one —, `band:<id>#passive` — the rest
+ * The registry keys of a 规程 strategy beside its whole handler `band:<id>`: `band:<id>#command` — staged on
+ * COMMAND_STAGE_COUNTER, run when another player's 指令 is this one: for a strategy with an ACTIVE stage the hooks of the
+ * buffs that are its 指令 (a handler with onBandSkill / onBandSkillUsed: the effect and its cost keys), for a passive
+ * strategy all of it (its passive is its 指令) —, and for a strategy with an ACTIVE stage `band:<id>#passive` — the rest
  * (Mechanist's 精巧设计 passive), run for the strategy's owner while its 指令 is another's.
  */
 export const bandCommandKey = (bandId) => `band:${bandId}#command`;
 export const bandPassiveKey = (bandId) => `band:${bandId}#passive`;
 /** Does the strategy record have an ACTIVE stage (an active 指令)? */
 export const hasActiveStage = (rec) => bandStages(rec).some((s) => s && s.type === 'ACTIVE');
+/**
+ * Is the strategy a 规程 one with a 指令 (bands.json `skills`: active or passive stages) — one 更换指令 may offer? The
+ * default season's strategies have no `skills` and no 指令.
+ */
+export const hasCommandStages = (rec) => !!rec && Array.isArray(rec.skills) && rec.skills.length > 0;
+/** The buff key of “追随者们” 好多委托 (the 指令 that opens 更换指令 itself: never in its pool). */
+export const COMMAND_CHOICE_KEY = 'gain_band_skill_from_pool_in_prep';
+/** A strategy's bond-direction swap (变约): its owner's only, never part of a 指令 taken from it (bonds/dispatch.js). */
+export const BOND_SWAP_KEY = 'auto_chess_effect_replace';
+/** Passive keys that act in one fixed round each (their blackboard `round`) and never after it. */
+const FIXED_ROUND_KEYS = new Set([
+  'preparation_start_gain_chess_from_round', 'prep_start_random_equip_in_round', 'give_coin_in_round',
+  'prep_start_gain_chess_from_pool_in_round', 'round_start_bond_check_gain_layer',
+]);
+/**
+ * Would taking stage `stage` as a 指令 in round `round` still do something? An active stage always (it is used); a
+ * passive one when one of its buffs — the bond-direction swap left out — is not a fixed-round gift, or is one of a
+ * later round (the offer opens in prep, after this round's income, round start and prep start ran). An empty passive
+ * (歌利亚 坚不可摧: its effect is the match's starting target HP) does nothing. [ASSUMED·서버: the pool has no table]
+ */
+export function commandStageActs(stage, round) {
+  if (!stage) return false;
+  if (stage.type === 'ACTIVE' || stage.type === 'NONE') return true;
+  const buffs = buffsOf(stage).filter((b) => b.key !== BOND_SWAP_KEY);
+  return buffs.some((b) => !FIXED_ROUND_KEYS.has(b.key) || int(b.p.round, -1) > round);
+}
 const COMMAND_HOOKS = ['onBandSkill', 'onBandSkillUsed'];
 const isCommandPart = (h) => !!h && COMMAND_HOOKS.some((n) => typeof h[n] === 'function');
 /** The hooks a staged strategy listens on to move its stage (besides those its stages use). */
@@ -1315,7 +1344,15 @@ export function registerMeta(registry, data = gameData()) {
   for (const id of Object.keys((data && data.bands) || {})) {
     const h = bandMetaHandler(id, data);
     if (h) registry.band(id, h);
-    if (!hasActiveStage(bandRecord(id, data))) continue;
+    const rec = bandRecord(id, data);
+    if (!hasCommandStages(rec)) continue;
+    if (!hasActiveStage(rec)) {
+      // a passive strategy's 指令 taken by another player: all of it (好多委托 itself is never taken — no key)
+      const all = bandStages(rec).some((st) => buffsOf(st).some((b) => b.key === COMMAND_CHOICE_KEY)) ? null
+        : bandMetaHandler(id, data, { counter: COMMAND_STAGE_COUNTER });
+      if (all) registry.register(bandCommandKey(id), all);
+      continue;
+    }
     const cmd = bandMetaHandler(id, data, { part: 'command', counter: COMMAND_STAGE_COUNTER });
     if (cmd) registry.register(bandCommandKey(id), cmd);
     const passive = bandMetaHandler(id, data, { part: 'passive' });

@@ -539,8 +539,8 @@ it fits in the existing parts:
   Assault / Hidden Core spawns — and in the boss rounds its perfect-battle coins (§3 Waves).
 * **规程's 更换指令** uses the same slot: `ctx.offerBandSkillChoice({ choiceEvent, desc, sourceItemId?, sourceBandId? })`
   (`Match.offerBandSkillChoice`, match/bandSkill.js — “追随者们” 好多委托 at every prep start, 投机骰子 on equip) opens
-  `ps.personalChoice` with `kind: 'bandSkill'` and cards `{ bandId, effectId }`: the active 指令 of other strategies
-  (the server's pool, [ASSUMED·서버]). The same gates, privacy, deadline and Ready rule; `g.choice` makes the pick the
+  `ps.personalChoice` with `kind: 'bandSkill'` and cards `{ bandId, effectId }`: the active and passive 指令 of other
+  strategies (the server's pool, [ASSUMED·서버]; passive 指令 since maintainer decision 2026-11-15). The same gates, privacy, deadline and Ready rule; `g.choice` makes the pick the
   player's 指令 (`setBandCommand`, `ps.bandCommand`) instead of adding a bounty; the bots take the first card whose 指令
   their rules use (`botPickBandCommand`). `m.private.personalChoice.kind` tells the two apart. docs/rules/sim.md
   「규정 전략」 「지령 바꾸기」 has the rules.

@@ -39,7 +39,7 @@ function force(ps, bandId) {
   pc.cards[0] = { bandId, effectId: ps.gd.band(bandId).effectId };
 }
 
-test('好多委托: every prep start opens a choice of 2 指令 of the pool — active 指令 of the mode\'s strategies, not the current one; Ready waits for it', () => {
+test('好多委托: every prep start opens a choice of 2 指令 of the pool — active and passive 指令 of the mode\'s strategies, not the current one; Ready waits for it', () => {
   const { m, ps, prepStart, view } = setup({ band: 'band_random' });
   assert.ok(m.gd.bandAllowed('band_random'), 'the strategy is offered in this mode');
   const seen = new Set();
@@ -53,7 +53,8 @@ test('好多委托: every prep start opens a choice of 2 指令 of the pool — 
     assert.equal(pc.cards.length, 2, '「从2个随机指令」');
     assert.equal(new Set(pc.cards.map((c) => c.bandId)).size, 2, 'two different 指令');
     for (const c of pc.cards) {
-      assert.ok(hasActive(m, c.bandId), `${c.bandId} has an active 指令`);
+      assert.ok((m.gd.band(c.bandId)?.skills || []).length, `${c.bandId} has a 指令`);
+      assert.notEqual(c.bandId, 'band_random', 'never 好多委托 itself');
       assert.ok(m.gd.bandAllowed(c.bandId), `${c.bandId} is offered in the mode`);
       assert.notEqual(c.bandId, ps.bandCommand, 'not the current one');
       seen.add(c.bandId);
@@ -61,6 +62,7 @@ test('好多委托: every prep start opens a choice of 2 指令 of the pool — 
     if (k === 5) { m.setBandCommand(ps, pc.cards[0].bandId); }
   }
   assert.ok(seen.size > 6, 'the draw varies');
+  assert.ok([...seen].some((id) => !hasActive(m, id)), 'passive 指令 come too (maintainer decision 2026-11-15)');
   const v = view();
   assert.equal(v.personalChoice.kind, 'bandSkill');
   assert.equal(v.canReady, false);
@@ -74,14 +76,22 @@ test('好多委托: every prep start opens a choice of 2 指令 of the pool — 
   checkInvariants(m);
 });
 
-test('the pool never offers a passive-only strategy nor one this mode leaves out; the own active 指令 is left out while it is current', () => {
+test('the pool: every strategy of the mode with a 指令, active or passive, but 追随者们, the current one and a passive one that does nothing more', () => {
   const { m, ps } = setup({ band: 'band_fund' });
   const pool = m._bandCommandPool(ps);
   assert.ok(!pool.includes('band_fund'), 'the current (own) one');
-  assert.ok(pool.every((id) => hasActive(m, id) && m.gd.bandAllowed(id)));
-  const all = m.gd.bandIds().filter((id) => hasActive(m, id));
-  assert.deepEqual(pool, all.filter((id) => id !== 'band_fund'));
-  assert.ok(!pool.includes('band_amiya'), 'a passive strategy has no 指令 to offer');
+  assert.ok(pool.every((id) => (m.gd.band(id)?.skills || []).length && m.gd.bandAllowed(id)));
+  // R1: 歌利亚 (empty: its effect is the starting target HP) and the R1-only gifts (森蚺, Pith) do nothing more
+  const dead = ['band_random', 'band_sarkazb', 'band_mech', 'band_pith'];
+  const all = m.gd.bandIds().filter((id) => (m.gd.band(id)?.skills || []).length);
+  assert.deepEqual(pool, all.filter((id) => id !== 'band_fund' && !dead.includes(id)));
+  for (const id of ['band_amiya', 'band_amedic', 'band_ducklord', 'band_takecare', 'band_cannot', 'band_jesica']) assert.ok(pool.includes(id), `passive ${id}`);
+  // 杰西卡's gifts are of rounds 4, 7, 10 and 13: in R13 none is left (the offer opens after the prep start)
+  m.round = 12;
+  assert.ok(m._bandCommandPool(ps).includes('band_jesica'), 'R12: the R13 gift is still to come');
+  m.round = 13;
+  assert.ok(!m._bandCommandPool(ps).includes('band_jesica'), 'R13: nothing more');
+  m.round = 1;
   m.setBandCommand(ps, 'band_price');
   const pool2 = m._bandCommandPool(ps);
   assert.ok(pool2.includes('band_fund'), 'the own one can come back');
@@ -202,8 +212,10 @@ test('a swap starts the 指令\'s uses afresh; taking the own 指令 back makes 
   m.setBandCommand(ps, 'band_price');
   assert.equal(ps.bandCommand, null, 'its own again');
   assert.equal(view().bandSkill.commandBandId, null);
-  assert.equal(m.setBandCommand(ps, 'band_amiya'), false, 'a passive strategy is no 指令');
-  assert.equal(ps.bandCommand, null);
+  assert.equal(m.setBandCommand(ps, 'band_random'), false, '好多委托 is never taken');
+  assert.equal(m.setBandCommand(ps, 'band_smith'), true, 'a passive 指令 (maintainer decision 2026-11-15)');
+  assert.equal(ps.bandCommand, 'band_smith');
+  assert.equal(m.setBandCommand(ps, 'band_nosuch'), false);
 });
 
 test('投机骰子: equipping destroys it and opens a choice of 3; refused — the dice stays — while another personal choice is open', () => {
@@ -246,4 +258,154 @@ test('the prep\'s deadline picks one at random; an AI seat picks a 指令 its ru
   ];
   b.m.autoPickPersonalChoice(b.ps, 'bot');
   assert.equal(b.ps.bandCommand, 'band_fund');
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// passive 指令 in the pool (maintainer decision 2026-11-15: nine official screenshots of 好多委托's offer, 8 of 13 PASSIVE)
+
+test('a taken passive 指令 runs its prep hooks: 奥达 全力熔铸 gives its R3 item to a 内部货源 player, whose own 指令 is gone', () => {
+  const { m, ps, use, prepStart, view } = setup({ band: 'band_price', funds: 10 });
+  m.offerBandSkillChoice(ps, { choiceEvent: 'skill_change_1', desc: '从3个指令中选择1个' });
+  force(ps, 'band_smith');
+  const card = ps.privateView().personalChoice.cards[0];
+  assert.equal(card.type, 'PASSIVE');
+  assert.equal(card.cost, null, 'a passive 指令 has no cost on its card');
+  assert.deepEqual(m.handle('p_0', { t: 'g.choice', idx: 0, choiceId: ps.personalChoice.id }), OK);
+  assert.equal(ps.bandCommand, 'band_smith');
+  const v = view().bandSkill;
+  assert.equal(v.commandBandId, 'band_smith');
+  assert.equal(v.type, 'PASSIVE');
+  assert.equal(v.usable, false);
+  assert.equal(v.blocked, 'passive');
+  assert.equal(v.effectId, m.gd.band('band_smith').skills[0].effectId, 'the HUD shows the taken passive');
+  assert.ok(use().error, 'no click 指令 any more');
+  const items = () => [...ps.hand, ...ps.temp].filter((p) => p && p.kind === 'item').length;
+  const before = items();
+  m.round = 3;
+  prepStart();
+  assert.equal(items(), before + 1, '「在第3…回合进入休整期时获得1件…随机装备」');
+  m.round = 4;
+  prepStart();
+  assert.equal(items(), before + 1, 'not in R4');
+  m.round = 1;
+  checkInvariants(m);
+});
+
+test('a staged passive 指令 has the stage the progress gives on its own counter (华法琳 at 调度中心 Lv3 → its 2nd stage)', () => {
+  const { m, ps } = setup({ band: 'band_fund' });
+  ps.shop.level = 3;
+  const stages = m.gd.band('band_takecare').skills;
+  const card = m.bandCommandCard(ps, { bandId: 'band_takecare', effectId: m.gd.band('band_takecare').effectId });
+  assert.equal(card.stage, 1);
+  assert.ok(m.setBandCommand(ps, 'band_takecare'));
+  assert.equal(ps.counters[COMMAND_STAGE_COUNTER], 1);
+  assert.equal(ps.privateView().bandSkill.effectId, stages[1].effectId);
+  assert.equal(ps.privateView().bandSkill.stage, 1);
+  // its prep-end layers (「所属的已激活盟约层数」): three 萨尔贡 operators make the bond active
+  const sargon = Object.values(m.gd.raw.chess).filter((c) => c.visible && !c.isGolden && !c.isDiy && c.bonds.includes('sargonShip'))
+    .sort((a, b) => a.tier - b.tier || (a.chessId < b.chessId ? -1 : 1)).slice(0, 3);
+  sargon.forEach((c, i) => give(m, ps, c.chessId, 'board', [10, 3 + i]));
+  assert.ok(ps.bonds.sargonShip.active);
+  const l0 = ps.layers.sargonShip || 0;
+  m.dispatch(ps, 'onPrepEnd', {});
+  const tiers = new Set(sargon.map((c) => c.tier)).size;
+  assert.equal((ps.layers.sargonShip || 0) - l0, 2 * tiers, '华法琳\'s 2nd stage (+2 a tier) reaches the 指令 taker');
+});
+
+test('a taken 坎诺特 利滚利 keeps the leftover funds and pays its interest; a passive owner keeps its own passive beside it', () => {
+  const { m, ps } = setup({ band: 'band_smith', funds: 12 });
+  assert.ok(m.setBandCommand(ps, 'band_cannot'));
+  const ev = m.dispatch(ps, 'onIncome', { income: 5 });
+  assert.ok(ev.income > 5, 'interest on the leftover');
+  ps.endPrep();
+  assert.equal(ps.funds, 12, 'the leftover is kept at the prep end (player/round.js endPrep)');
+  ps.ready = false;
+  // and without it the leftover is lost
+  const other = setup({ band: 'band_smith', funds: 12 });
+  other.ps.endPrep();
+  assert.equal(other.ps.funds, 0);
+  // the own 奥达 still gives its R3 item (a passive strategy keeps all of itself)
+  const items = () => [...ps.hand, ...ps.temp].filter((p) => p && p.kind === 'item').length;
+  const before = items();
+  m.round = 3;
+  m.dispatch(ps, 'onPrepStart', { round: 3 });
+  assert.equal(items(), before + 1);
+  m.round = 1;
+});
+
+test('a taken passive 指令 never brings its strategy\'s bond direction (变约): the view and the battle input keep the own one', () => {
+  const { m, ps } = setup({ band: 'band_fund' });
+  assert.ok(m.setBandCommand(ps, 'band_sargon'));
+  assert.deepEqual(ps.privateView().bandSkill.bondSwaps, {}, '娜仁图亚\'s 萨尔贡 direction stays hers');
+  const own = setup({ band: 'band_sargon' });
+  assert.ok(Object.keys(own.ps.privateView().bandSkill.bondSwaps).length, 'her own holder has it');
+});
+
+test('a taken Touch 外勤医疗 / 鸭爵 reaches the team as the strategy does (prep reserve medic, matchBands)', () => {
+  const { h, m, ps } = setup({ band: 'band_fund', bots: 1 });
+  h.setStage('act2autochess_m01'); // a stage with the reserve medic's slot (test/match/touch-prep.test.js)
+  const mate = [...m.players.values()].find((p) => p !== ps);
+  assert.equal(m.prepMapChars(mate).length, 0, 'nobody holds Touch');
+  assert.ok(m.setBandCommand(ps, 'band_amedic'));
+  assert.equal(m.prepMapChars(mate).length, 1, 'the teammate\'s prep field shows the reserve medic');
+  assert.equal(m.prepMapChars(ps).length, 1);
+  const ev = m.dispatch(mate, 'onBattleStart', { kind: 'normal', input: {} });
+  assert.ok(ev.input.contentInfo.matchBands.includes('band_amedic'), 'the teammate\'s battle sees Touch');
+  assert.ok(m.setBandCommand(ps, 'band_ducklord'));
+  const ev2 = m.dispatch(mate, 'onBattleStart', { kind: 'normal', input: {} });
+  assert.ok(ev2.input.contentInfo.matchBands.includes('band_ducklord'));
+  assert.ok(!ev2.input.contentInfo.matchBands.includes('band_amedic'), 'the swapped-away 指令 is gone');
+});
+
+test('real match path: a taken 陈 以己之长 gives its battle buff (elite ATK / ASPD) through buildBattleSpec → createBattleFromSpec', async () => {
+  const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
+  const { legalTileFor } = await import('../match/harness.js');
+  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 5, data: ACT3_ON_BASE_FIELD, season: 'act3autochess' }).start();
+  h.toPrep(3, { band: 'band_fund' });
+  const m = h.m, ps = h.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  const elite = Object.values(m.gd.raw.chess).find((c) => c.visible && c.isGolden && !c.isDiy && c.tier <= 3);
+  const tile = legalTileFor(m, ps, elite.chessId);
+  const piece = give(m, ps, elite.chessId, 'board', tile);
+  const run = () => {
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: `n${m.nextUid()}`, fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    let started = false;
+    b.on('battleStart', () => { started = true; });
+    while (!started && b.time < 10) b.step();
+    const u = b.allyUnits.find((x) => x.kind === 'op' && x.defId === piece.id);
+    assert.ok(u, 'on the field');
+    assert.deepEqual(b.errors, []);
+    return { spec, u };
+  };
+  const a = run();
+  assert.ok(!a.u.findBuff('band:band_weakness:attr'));
+  assert.ok(m.setBandCommand(ps, 'band_weakness'));
+  const b = run();
+  const input = b.spec.players.find((p) => p.playerId === 'p_0');
+  assert.equal(input.bandCommand, 'band_weakness', 'the battle input carries the taken 指令');
+  assert.ok(b.u.findBuff('band:band_weakness:attr'), '以己之长 on the elite');
+  const p = m.gd.band('band_weakness').skills[0].buffs.find((x) => x.bbStr?.key === 'attr_common_global_buff').bb;
+  assert.ok(Math.abs(b.u.s.atk - a.u.s.atk * (1 + p.atk)) < 1e-6, `${b.u.s.atk} vs ${a.u.s.atk}`);
+  m.dispose?.();
+});
+
+test('a taken 鸭爵 神秘顾客 swaps enemies into the player\'s waves as the strategy does; none without it', () => {
+  const { m, ps } = setup({ band: 'band_fund' });
+  const p = m.gd.band('band_ducklord').skills[0].buffs.find((b) => b.key === 'round_start_all_player_change_enemy_2');
+  m.round = Math.max(2, Number(p.bb?.round ?? 1));
+  const ducks = (tries) => {
+    const seed = m.seed;
+    let n = 0;
+    try {
+      for (let i = 0; i < tries; i++) { m.seed = seed + i; n += m._normalOpts(ps).spawns.filter((s) => s.tag === 'duck').length; }
+    } finally { m.seed = seed; }
+    return n;
+  };
+  assert.equal(ducks(30), 0, 'no 鸭爵 in the team');
+  assert.ok(m.setBandCommand(ps, 'band_ducklord'));
+  assert.ok(ducks(30) > 0, 'the taken 指令 swaps');
+  m.round = 1;
 });

@@ -46,7 +46,7 @@ import { itemKey } from './gamedata.js';
 import { boardOrder, parseKey, tileKey } from './board.js';
 import { pieceBonds as bondsOfPiece } from './bondsMeta.js';
 import { registerAllMeta } from '../sim/content/index.js';
-import { bandCommandKey, bandPassiveKey } from '../sim/content/bands/meta.js';
+import { bandCommandKey, bandPassiveKey, hasActiveStage } from '../sim/content/bands/meta.js';
 import { prepConditionKnown } from '../sim/content/garrisons/prep/shared.js';
 import { registerBuiltins } from './builtinMeta.js';
 import { msg, dn } from '../../shared/i18n.js';
@@ -305,9 +305,10 @@ export class EffectDispatcher {
       // 2. band
       if (ps.bandId) {
         // a 指令 taken from another strategy (PlayerState.bandCommand, match/bandSkill.js setBandCommand): the own
-        // strategy runs without its own 指令 (its passive part only), then the taken 指令 as the other strategy's
+        // strategy runs without its own active 指令 (its passive part only; a passive strategy all of it), then the
+        // taken 指令 — active or passive — as the other strategy's
         const cmd = ps.bandCommand;
-        const key = cmd && reg.has(bandCommandKey(ps.bandId)) ? bandPassiveKey(ps.bandId) : `band:${ps.bandId}`;
+        const key = cmd && hasActiveStage(this.m.gd.band(ps.bandId)) ? bandPassiveKey(ps.bandId) : `band:${ps.bandId}`;
         const h = reg.get(key);
         if (h) this._call(ps, key, h, hook, { kind: 'band', key, bandId: ps.bandId, band: this.m.gd.band(ps.bandId) }, ev);
         if (cmd) {
@@ -585,6 +586,8 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     lp: () => ps.lp,
     alive: () => ps.alive,
     bandId: () => ps.bandId,
+    /** The strategy whose 指令 the player took (更换指令: PlayerState.bandCommand), else null. */
+    commandBandId: () => ps.bandCommand ?? null,
     shopLevel: () => ps.shop.level,
     bond: (id) => (ps.bonds[id] ? { ...ps.bonds[id] } : null),
     bonds: () => Object.fromEntries(Object.entries(ps.bonds).map(([k, v]) => [k, { ...v }])),

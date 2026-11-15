@@ -36,7 +36,8 @@ import { OK, fail } from './common.js';
 import { inField, fieldTile, tileKey } from '../board.js';
 import { bandSkillTileOk } from '../../../shared/bandSkillTile.js';
 import {
-  bandStages, bandStageIndex, SKILL_COST_COUNTER, STAGE_COUNTER, COMMAND_STAGE_COUNTER, bandCommandKey, hasActiveStage,
+  bandStages, bandStageIndex, SKILL_COST_COUNTER, STAGE_COUNTER, COMMAND_STAGE_COUNTER, bandCommandKey, hasCommandStages,
+  commandStageActs, COMMAND_CHOICE_KEY,
 } from '../../sim/content/bands/meta.js';
 import { stageTag, stageUnlock } from '../../sim/content/bands/progress.js';
 import { bondEffectReplacements, unwrittenTemplates } from '../../sim/content/bonds/dispatch.js';
@@ -256,18 +257,19 @@ export class MatchBandSkill {
   }
 
   /**
-   * The view of a 规程 strategy without an active 指令 (its stages are all PASSIVE / NONE): the same shape, never usable
-   * (`blocked` 'passive'), so the HUD shows its portrait, its stage's text and progress — the official panel has a
-   * passive ring (autochess_hud_panel `skill_view` variant_passive). Null for a strategy without a stage table (the
-   * default season's: no panel there).
+   * The view of a 规程 passive 指令 (its stages are all PASSIVE / NONE) — the own strategy's, or a passive 指令 taken
+   * from another strategy (setBandCommand) —: the same shape, never usable (`blocked` 'passive'), so the HUD shows its
+   * portrait, its stage's text and progress — the official panel has a passive ring (autochess_hud_panel `skill_view`
+   * variant_passive). Null for a strategy without a stage table (the default season's: no panel there).
    */
   _bandPassiveView(ps) {
     const gd = ps.gd || this.gd;
-    const rec = ps.bandId ? gd.band(ps.bandId) : null;
-    if (!rec || !Array.isArray(rec.skills) || !rec.skills.length) return null;
+    const src = ps.bandCommand || ps.bandId;
+    const rec = src ? gd.band(src) : null;
+    if (!hasCommandStages(rec)) return null;
     const stages = bandStages(rec);
     const ctx = this._bandSkillCtx(ps, false);
-    const stageIndex = bandStageIndex(ctx, stages);
+    const stageIndex = bandStageIndex(ctx, stages, ps.bandCommand ? COMMAND_STAGE_COUNTER : STAGE_COUNTER);
     const stage = stages[stageIndex];
     return {
       stage: stageIndex,
@@ -284,8 +286,9 @@ export class MatchBandSkill {
       showTag: stage.showTag ?? null,
       tag: stageTag(ctx, stage),
       unlock: stageUnlock(ctx, stage),
-      commandBandId: null,
-      bondSwaps: this._bandBondSwaps(ps, rec),
+      commandBandId: ps.bandCommand ?? null,
+      // the bond directions stay the own strategy's (a taken 指令 never brings its strategy's 变约)
+      bondSwaps: this._bandBondSwaps(ps, ps.bandId ? gd.band(ps.bandId) : null),
       marks: [],
       chests: [],
     };
@@ -315,19 +318,42 @@ export class MatchBandSkill {
   // equip_destory_skill_pool). The offer is a personal choice of the owner (ps.personalChoice `kind` 'bandSkill', the
   // Art 教鞭's slot: m.private only, picked with g.choice { idx, choiceId }, Ready refused while it is open, the prep's
   // deadline or the bot resolves it — match/spDraft.js). No table lists the pool: the server draws it.
-  // [ASSUMED·서버, maintainer decision 2026-11-12 on all three] the pool is the active 指令 of the strategies this mode
-  // offers (gd.bandIds: inactiveModeIds left out) that have an ACTIVE stage — the 31 of 规程, no passive strategy —, the
-  // current 指令 left out; the pick replaces only the 指令: the own strategy keeps its passive part (好多委托 itself,
-  // Mechanist's 精巧设计 passive, a strategy's bond directions — bandPassiveKey); the taken 指令's stage is the one the
-  // match's progress gives (the round, the funds spent, the 调度中心 level, the bond counts — bandStageIndex from 0 on its
-  // own counter), and its uses, cooldown and cost changes start afresh. Taking the own strategy's 指令 back makes it the
-  // own one again. The cards are drawn without repeats from the meta rng.
+  // No table lists the pool: the server draws it. The pool holds passive 指令 too (maintainer decision 2026-11-15, from
+  // nine official screenshots of 好多委托's offer: 13 指令, 8 of them PASSIVE stages), so it is every strategy this mode
+  // offers (gd.bandIds: inactiveModeIds left out) with a 指令 (bands.json `skills`) but “追随者们” itself, the current
+  // 指令 left out, each at the stage the match's progress gives it now (the round, the funds spent, the 调度中心 level, the
+  // bond counts — bandStageIndex from 0 on its own counter, as if held from the start). [ASSUMED·서버, maintainer decisions
+  // 2026-11-12 and 2026-11-15] A passive 指令 that would do nothing more is left out: an empty one (歌利亚 — its effect is
+  // the starting target HP) and one whose gifts are all of rounds already played (a missed one-time gift is not given
+  // late — content/bands/meta.js commandStageActs); a team-wide one a teammate already has (Touch 外勤医疗, 鸭爵) stays in
+  // and does not add up. The pick replaces only the 指令: the own strategy keeps its passive part (好多委托 itself,
+  // Mechanist's 精巧设计 passive, a strategy's bond directions — bandPassiveKey; a passive strategy all of it); a taken
+  // passive 指令 runs all of its prep hooks and battle buffs but its strategy's bond directions (变约: its owner's only);
+  // its uses, cooldown and cost changes start afresh. Taking the own strategy's 指令 back makes it the own one again.
+  // The cards are drawn without repeats from the meta rng.
 
-  /** The strategies whose 指令 the player may be offered now (ids in the mode's strategy order). */
+  /** The stage strategy `bandId`'s 指令 has (would have) for the player now: its own counter's, or from 0 on. */
+  _commandStageNow(ps, bandId) {
+    const gd = ps.gd || this.gd;
+    const stages = bandStages(gd.band(bandId));
+    const base = this._bandSkillCtx(ps, false);
+    if (bandId === ps.bandId) return bandStageIndex(base, stages, STAGE_COUNTER);
+    if (bandId === ps.bandCommand) return bandStageIndex(base, stages, COMMAND_STAGE_COUNTER);
+    const ctx = Object.create(base);
+    ctx.counter = (k) => (k === COMMAND_STAGE_COUNTER ? 0 : base.counter(k));
+    return bandStageIndex(ctx, stages, COMMAND_STAGE_COUNTER);
+  }
+
+  /** The strategies whose 指令 the player may be offered now (ids in the mode's strategy order; the header's pool). */
   _bandCommandPool(ps) {
     const gd = ps.gd || this.gd;
-    const current = ps.bandCommand || (ps.bandId && hasActiveStage(gd.band(ps.bandId)) ? ps.bandId : null);
-    return gd.bandIds().filter((id) => id !== current && hasActiveStage(gd.band(id)));
+    const current = ps.bandCommand || ps.bandId;
+    return gd.bandIds().filter((id) => {
+      const rec = gd.band(id);
+      if (id === current || !hasCommandStages(rec) || isCommandChoice(rec)) return false;
+      if (id === ps.bandId) return true; // the own 指令 back
+      return commandStageActs(bandStages(rec)[this._commandStageNow(ps, id)], this.round);
+    });
   }
 
   /**
@@ -353,10 +379,11 @@ export class MatchBandSkill {
     return OK;
   }
 
-  /** The player's 指令 becomes strategy `bandId`'s (the header's rules); false when it has no active 指令. */
+  /** The player's 指令 becomes strategy `bandId`'s (the header's rules); false when it has no 指令 or is “追随者们”. */
   setBandCommand(ps, bandId) {
     const gd = ps.gd || this.gd;
-    if (typeof bandId !== 'string' || !hasActiveStage(gd.band(bandId))) return false;
+    const rec = typeof bandId === 'string' ? gd.band(bandId) : null;
+    if (!hasCommandStages(rec) || (bandId !== ps.bandId && isCommandChoice(rec))) return false;
     ps.bandCommand = bandId === ps.bandId ? null : bandId;
     for (const k of [USED, USED_ROUND, TOTAL, READY_ROUND, COST_DELTA, COMMAND_STAGE_COUNTER]) delete ps.counters[k];
     if (ps.bandCommand) bandStageIndex(this._bandSkillCtx(ps, true), bandStages(gd.band(bandId)), COMMAND_STAGE_COUNTER);
@@ -373,17 +400,20 @@ export class MatchBandSkill {
     const rec = c && gd.band(c.bandId);
     const stages = bandStages(rec);
     if (!stages.length) return { kind: 'bandSkill', id: c?.effectId ?? null, bandId: c?.bandId ?? null, name: '', desc: '' };
-    const base = this._bandSkillCtx(ps, false);
-    const ctx = Object.create(base);
-    ctx.counter = (k) => (k === COMMAND_STAGE_COUNTER ? 0 : base.counter(k));
-    const i = c.bandId === ps.bandId ? bandStageIndex(base, stages, STAGE_COUNTER) : bandStageIndex(ctx, stages, COMMAND_STAGE_COUNTER);
+    const i = this._commandStageNow(ps, c.bandId);
     const st = stages[i];
     return {
       kind: 'bandSkill', id: c.effectId, bandId: c.bandId, bandName: rec.name ?? null, iconId: rec.iconId ?? null,
       name: st.name ?? rec.effectName ?? '', desc: st.desc ?? '', descRaw: st.descRaw ?? null,
-      stage: i, stageCount: stages.length, type: st.type ?? null, cost: Math.max(0, int(st.cost)),
+      // a passive 指令 has no cost (the card shows none)
+      stage: i, stageCount: stages.length, type: st.type ?? null, cost: st.type === 'PASSIVE' ? null : Math.max(0, int(st.cost)),
     };
   }
+}
+
+/** Is the strategy “追随者们” (its 指令 opens 更换指令 itself: never in the pool)? */
+function isCommandChoice(rec) {
+  return bandStages(rec).some((st) => (st?.buffs || []).some((b) => b && b.key === COMMAND_CHOICE_KEY));
 }
 
 /** How many 指令 an offer shows: the N of its text's 「从N个…指令」 (no blackboard field holds it), 1–3. */

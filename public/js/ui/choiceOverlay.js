@@ -121,14 +121,16 @@ export function resolveCommandCard(card) {
 
 /**
  * The 指令 a 更换指令 choice replaces, for the line over the cards: { name, bandName, bandId } of the current 指令 (the
- * taken one, else the own strategy's active stage), null when the player has none (a passive strategy).
- * @param {{ currentBandId?: string|null, currentStage?: number|null } | null | undefined} command normalizePersonalChoice(...).command
+ * taken one — active or passive —, else the own strategy's active stage), null when the player has none (the own
+ * strategy is passive and no 指令 was taken: the pick replaces nothing of it).
+ * @param {{ currentBandId?: string|null, currentStage?: number|null, ownBandId?: string|null } | null | undefined} command normalizePersonalChoice(...).command
  */
 export function currentCommand(command) {
   const id = command?.currentBandId;
   const rec = id ? data.lookup('bands', id) || data.lookupRaw('bands', id) : null;
   const skills = Array.isArray(rec?.skills) ? rec.skills : [];
-  if (!rec || !skills.some((s) => s && s.type === 'ACTIVE')) return null;
+  const taken = id !== (command?.ownBandId ?? null);
+  if (!rec || !skills.length || (!taken && !skills.some((s) => s && s.type === 'ACTIVE'))) return null;
   const stage = skills[Number.isInteger(command.currentStage) ? command.currentStage : 0] || skills.find((s) => s && s.type === 'ACTIVE');
   return { bandId: id, bandName: rec.name || '', name: stage?.name || rec.effectName || '' };
 }

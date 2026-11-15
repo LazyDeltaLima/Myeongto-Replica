@@ -1645,8 +1645,10 @@ export function levelUp(m, ps, { spare = false } = {}) {
  * leftover is lost at the prep end, so spending it all is free value).
  */
 function fundsReserve(m, ps) {
-  if (!m.gd.leftoverKeptBands.includes(ps.bandId)) return 0;
-  const band = m.gd.band(ps.bandId);
+  // the own strategy's, or a 指令 taken from 坎诺特 (更换指令: bandCommand)
+  const kept = [ps.bandId, ps.bandCommand].find((id) => id && m.gd.leftoverKeptBands.includes(id));
+  if (!kept) return 0;
+  const band = m.gd.band(kept);
   const buff = band && Array.isArray(band.buffs) ? band.buffs.find((b) => b && b.key === 'coin_carry_over') : null;
   const cap = Number(buff && buff.bb && buff.bb.capital);
   return Number.isFinite(cap) && cap > 0 ? cap : 5;

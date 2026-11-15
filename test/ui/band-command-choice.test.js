@@ -108,7 +108,10 @@ test('the card fields come from the strategy record; a strategy without an activ
   assert.deepEqual(resolveSpCard(card('band_jenga', 1), 'command').stage, { n: 2, of: 2 });
   const passive = data.list('bands').find((b) => Array.isArray(b.skills) && b.skills.length && !b.skills.some((s) => s?.type === 'ACTIVE'));
   assert.ok(passive, 'a passive 规程 strategy');
-  assert.equal(currentCommand({ currentBandId: passive.bandId, currentStage: 0 }), null);
+  assert.equal(currentCommand({ currentBandId: passive.bandId, currentStage: 0, ownBandId: passive.bandId }), null);
+  // a passive 指令 taken from another strategy (maintainer decision 2026-11-15) is the one the pick replaces
+  assert.deepEqual(currentCommand({ currentBandId: passive.bandId, currentStage: 0, ownBandId: 'band_jenga' }),
+    { bandId: passive.bandId, bandName: passive.name, name: passive.skills[0].name });
   const sp = normalizePersonalChoice(pub, priv({ bandId: passive.bandId, bandSkill: { stage: 0, type: 'PASSIVE', commandBandId: null } }), 'a');
   assert.equal(text(find(ChoiceView({ pub, sp, myId: 'a', solo: true, personal: true }), 'spov__now')[0]), '当前没有指令');
 });

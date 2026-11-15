@@ -6,7 +6,8 @@
 //       handUnits  pieces in the 整备区 (hand, 10 slots; operators, items and summon stacks),
 //       handChess  operators in the hand,
 //       roundStats { refreshes, buys, sells, spent, gainedChess, arts }   (this round's prep, ps.round),
-//       matchBands band ids of every alive player (this player first),
+//       matchBands band ids of every alive player (this player first), each followed by the strategy whose 指令 it took
+//                  (更换指令: PlayerState.bandCommand),
 //       teammates  [{ playerId, bandId }] of the other alive players }
 // Global handlers run first in every dispatch, so band / bond / garrison / item handlers of the same onBattleStart can
 // read or extend `ev.input.contentInfo`.
@@ -37,7 +38,8 @@ export function registerSupportMeta(registry) {
           refreshes: rs.refreshes | 0, buys: rs.buys | 0, sells: rs.sells | 0, spent: rs.spent | 0,
           gainedChess: rs.gainedChess | 0, arts: rs.arts | 0,
         },
-        matchBands: [ctx.bandId(), ...mates.map((t) => t.bandId())].filter(Boolean),
+        // with the 指令 taken from another strategy (更换指令 — Touch 外勤医疗 reaches the team from it too)
+        matchBands: [ctx.bandId(), ctx.commandBandId?.(), ...mates.flatMap((t) => [t.bandId(), t.commandBandId?.()])].filter(Boolean),
         teammates: mates.map((t) => ({ playerId: t.playerId, bandId: t.bandId() })),
       };
     },

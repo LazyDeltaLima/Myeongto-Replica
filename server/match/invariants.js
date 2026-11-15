@@ -88,8 +88,8 @@ export function collectViolations(m, { limit = 25 } = {}) {
       if (ps.funds || ps.pendingFunds) fail(`${id}: eliminated with funds ${ps.funds}+${ps.pendingFunds}`);
     }
     // 教鞭's personal choice (Match.offerBountyChoice): resolved before the prep ends — by its owner, the deadline or the bot
-    // 规程's 更换指令 (match/bandSkill.js setBandCommand): another strategy's, with an active 指令
-    if (ps.bandCommand != null && (ps.bandCommand === ps.bandId || !(m.gd.band(ps.bandCommand)?.skills || []).some((s) => s && s.type === 'ACTIVE'))) fail(`${id}: band command ${ps.bandCommand} (own ${ps.bandId})`);
+    // 规程's 更换指令 (match/bandSkill.js setBandCommand): another strategy's, with a 指令 (an active or passive stage)
+    if (ps.bandCommand != null && (ps.bandCommand === ps.bandId || !(m.gd.band(ps.bandCommand)?.skills || []).length)) fail(`${id}: band command ${ps.bandCommand} (own ${ps.bandId})`);
     const pc = ps.personalChoice;
     if (pc) {
       if (!ps.alive || ps.ready || m.phase !== PHASE.PREP || pc.round !== m.round) fail(`${id}: a personal choice outside its own prep (${m.phase} R${m.round}, offered in R${pc.round})`);

@@ -327,12 +327,18 @@ export function bandBattleBuffs(band, stage) {
 
 export function install(battle) {
   for (const ps of battle.players) {
-    const band = ps.bandId ? bandRecord(ps.bandId, battle) : null;
-    if (!band) continue;
-    for (const b of bandBattleBuffs(band, ps.input?.bandStage)) {
-      const f = b.bbKey ? BY_KEY[b.bbKey] : null;
-      if (!f) continue;
-      try { f(battle, ps, b.p, ps.bandId); } catch (e) { battle._handlerError?.(`band:${ps.bandId}`, null, e); }
+    // the own strategy, then a 指令 taken from another one (更换指令: PlayerBattleInput `bandCommand` / `bandCommandStage`,
+    // server/match/player/round.js) — a passive 指令 brings its battle buffs (阿米娅, 陈…); the taken 指令 is never the
+    // own strategy (match/bandSkill.js setBandCommand)
+    const held = [[ps.bandId, ps.input?.bandStage], [ps.input?.bandCommand, ps.input?.bandCommandStage]];
+    for (const [bandId, stage] of held) {
+      const band = typeof bandId === 'string' && bandId ? bandRecord(bandId, battle) : null;
+      if (!band) continue;
+      for (const b of bandBattleBuffs(band, stage)) {
+        const f = b.bbKey ? BY_KEY[b.bbKey] : null;
+        if (!f) continue;
+        try { f(battle, ps, b.p, bandId); } catch (e) { battle._handlerError?.(`band:${bandId}`, null, e); }
+      }
     }
   }
   installMapChars(battle);

@@ -195,11 +195,14 @@ export function contentInfo(battle, pid) {
   const ci = player(battle, pid)?.input?.contentInfo;
   return ci && typeof ci === 'object' ? ci : {};
 }
-/** Band ids of every alive player of the match (own first); falls back to this battle's players. */
+/**
+ * Band ids of every alive player of the match (own first), with the strategies whose 指令 they took (更换指令); falls
+ * back to this battle's players.
+ */
 export function matchBands(battle, pid) {
   const mb = contentInfo(battle, pid).matchBands;
   if (Array.isArray(mb) && mb.length) return mb;
-  return (battle.players || []).map((p) => p.bandId).filter(Boolean);
+  return (battle.players || []).flatMap((p) => [p.bandId, p.input?.bandCommand]).filter(Boolean);
 }
 
 // =====================================================================================================================
