@@ -315,10 +315,56 @@ describe('element ring (char_ep_slider / enemy_ep_slider)', () => {
   }
   const P = () => ({ ...fake.P, SimpleMesh, Texture: { ...fake.P.Texture, from: (url) => ({ url, width: 14, height: 14, baseTexture: { valid: true } }) } });
   const assets = { localUrl: (g, n) => `/local/${g}/${n}.png` };
-  test('no SimpleMesh or no art: not ready (the drawn row stays)', () => {
-    assert.equal(HB.epRingReady(fake.P, assets, 'ally'), false);
-    assert.equal(HB.epRingReady(P(), {}, 'ally'), false);
-    assert.equal(HB.epRingReady(P(), assets, 'enemy'), true);
+  test('no SimpleMesh or no art: \'none\' (the drawn row stands in); the art there: \'ready\'', () => {
+    assert.equal(HB.epRingState(fake.P, assets, 'ally'), 'none');
+    assert.equal(HB.epRingState(P(), {}, 'ally'), 'none');
+    assert.equal(HB.epRingState(P(), assets, 'enemy'), 'ready');
+  });
+  // 2026-11-15 (user report: the drawn row flashed before the official ring at an element's first hit)
+  test('the art still loading: \'loading\' (neither drawn), loaded: \'ready\', failed or past EP_WAIT_MS: \'none\'; prewarm asks ahead', () => {
+    const made = new Map();
+    const loadingP = () => ({ ...fake.P, SimpleMesh, Texture: { ...fake.P.Texture, from: (url) => {
+      const err = [];
+      const bt = { valid: false, once: (ev, fn) => { if (ev === 'error') err.push(fn); }, fail: () => err.forEach((f) => f()) };
+      const t = { url, width: 14, height: 14, baseTexture: bt };
+      made.set(url, t);
+      return t;
+    } } });
+    const at = (tag) => ({ localUrl: (g, n) => `/local/${tag}/${g}/${n}.png` });
+    const p1 = loadingP(), a1 = at('load');
+    HB.prewarmEpRings(p1, a1);
+    assert.equal(made.size, 14, 'both sides\' sprites asked for ahead');
+    assert.equal(HB.epRingState(p1, a1, 'enemy'), 'loading');
+    for (const [url, t] of made) if (url.startsWith('/local/load/')) t.baseTexture.valid = true;
+    assert.equal(HB.epRingState(p1, a1, 'enemy'), 'ready', 'loaded: the ring');
+    const p2 = loadingP(), a2 = at('fail');
+    assert.equal(HB.epRingState(p2, a2, 'ally'), 'loading');
+    made.get('/local/fail/ui/battlecommon/sprite_ep_color.png').baseTexture.fail();
+    assert.equal(HB.epRingState(p2, a2, 'ally'), 'none', 'a failed sprite: the row');
+    const p3 = loadingP(), a3 = at('slow');
+    const now0 = performance.now;
+    try {
+      let t = now0.call(performance);
+      performance.now = () => t;
+      assert.equal(HB.epRingState(p3, a3, 'ally'), 'loading');
+      t += HB.EP_WAIT_MS + 1;
+      assert.equal(HB.epRingState(p3, a3, 'ally'), 'none', 'still loading past EP_WAIT_MS: the row (the gauge never goes missing)');
+    } finally { performance.now = now0; }
+  });
+  test('a unit\'s first element hit while the ring art loads draws neither the row nor the ring, then the ring (UnitView)', () => {
+    const made = [];
+    const P2 = { ...fake.P, SimpleMesh, Texture: { ...fake.P.Texture, from: (url) => { const t = { url, width: 14, height: 14, baseTexture: { valid: false, once() {} } }; made.push(t); return t; } } };
+    const ctx = fakeViewCtx(P2, { assets: { localUrl: (g, n) => `/local/unit-first-hit/${g}/${n}.png` }, cam, viewport: () => VP });
+    const v = new UnitView(ctx, { id: 1, side: 'ally', kind: 'chess', defId: 'char_x', tier: 3, x: 5, y: 12, maxHp: 1000 });
+    const sample = (o) => ({ x: 5, y: 12, hp: 1000, maxHp: 1000, sp: 0, spMax: 0, flags: 0, anim: 0, vx: 0, vy: 0, el: null, elFill: 0, elUntil: 0, elDur: 0, ...o });
+    v.sync(sample({ el: 'burn', elFill: 0.3 }), 5);
+    for (let i = 0; i < 3; i++) v.update(1 / 60, cam(), i / 60);
+    assert.ok(!v._elBar?.root?.visible, 'loading: no drawn row (it used to flash before the ring)');
+    assert.ok(!v._elRing, 'loading: no ring yet');
+    for (const t of made) t.baseTexture.valid = true;
+    v.update(1 / 60, cam(), 4 / 60);
+    assert.ok(v._elRing?.root.visible, 'loaded: the official ring');
+    assert.ok(!v._elBar?.root?.visible, 'and still no row');
   });
   test('ally: ×1.2 at 25.9 under hud_unit, the element colour and icon, a radial fill from 12 o\'clock clockwise', () => {
     const r = new HB.ElementRing(P(), new fake.P.Container(), 'ally');

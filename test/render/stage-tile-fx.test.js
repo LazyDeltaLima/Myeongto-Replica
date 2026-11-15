@@ -106,39 +106,46 @@ test('every TILE_FX prefab is in the extracted effect index (the 泥沼 from EN/
   assert.equal(index.sources?.['mapeff/mapeff_mud_ground_01']?.pack, 'pkgrps/btl_pfb_fx_mapeff_4.ab');
 });
 
-// 2026-11-15 (user report: the stand-in airflow streaks showed beside the official wind): the board's own streaks
-// (tiles.js _drawFlow) stand in for tile_wind_01 only where it does not play — quality 'low', not extracted, no layer.
-test('deviceTilePlays: a blower\'s official wind plays at high / medium, not at \'low\', not extracted, nor after an empty spawn', async () => {
+// 2026-11-15 (user reports: the stand-in airflow streaks showed beside the official wind, and flashed before it): the
+// board's own streaks (tiles.js _drawFlow) stand in for tile_wind_01 only where it cannot play — quality 'low', not
+// extracted, no layer — and while the effect index still loads neither is drawn.
+test('deviceTileStandIn: the streaks only where a blower\'s official wind cannot play; while the index loads, neither', async () => {
   const fetch0 = globalThis.fetch;
   try {
     const files = { '/assets/local/fx/index.json': { bundles: { tile: ['tile_wind_01'], mapeff: ['mapeff_079_dikuai_01'] } } };
     globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
     let quality = 'high';
     const layer = createFxLayer({ host: null, above: null, quality: () => quality, dry: true });
-    assert.equal(layer.deviceTilePlays(5, 13), false, 'no index yet: the streaks stand in');
-    await new Promise((r) => setTimeout(r, 10));
-    assert.equal(layer.deviceTilePlays(5, 13), false, 'no stage effects: nothing plays');
     layer.setStageTiles([
       { bundle: 'tile', name: 'tile_wind_01', x: 5, y: 13, turn: BLOWER_TURN.DOWN, device: true },
       { bundle: 'tile', name: 'tile_wind_02', x: 9, y: 13, turn: BLOWER_TURN.DOWN, device: true },   // not extracted
       { bundle: 'mapeff', name: 'mapeff_079_dikuai_01', x: 3, y: 4 },
     ]);
-    assert.equal(layer.deviceTilePlays(5, 13), true, 'extracted, high: the official wind');
-    quality = 'medium';
-    assert.equal(layer.deviceTilePlays(5, 13), true, 'medium too');
+    assert.equal(layer.deviceTileStandIn(5, 13), false, 'the index still loading: neither (the streaks used to flash first)');
     quality = 'low';
-    assert.equal(layer.deviceTilePlays(5, 13), false, '\'low\' turns the official effects off: the streaks');
+    assert.equal(layer.deviceTileStandIn(5, 13), true, '\'low\' needs no index: the streaks');
     quality = 'high';
-    assert.equal(layer.deviceTilePlays(9, 13), false, 'not extracted: the streaks');
-    assert.equal(layer.deviceTilePlays(3, 4), false, 'a tile effect is not a device');
-    assert.equal(layer.deviceTilePlays(6, 13), false, 'no blower there');
+    await new Promise((r) => setTimeout(r, 10));
+    assert.equal(layer.deviceTileStandIn(5, 13), false, 'extracted, high: the official wind alone');
+    quality = 'medium';
+    assert.equal(layer.deviceTileStandIn(5, 13), false, 'medium too');
+    quality = 'low';
+    assert.equal(layer.deviceTileStandIn(5, 13), true, '\'low\' turns the official effects off: the streaks');
+    quality = 'high';
+    assert.equal(layer.deviceTileStandIn(9, 13), true, 'not extracted: the streaks');
+    assert.equal(layer.deviceTileStandIn(3, 4), true, 'no device effect there (a tile effect): the streaks');
+    assert.equal(layer.deviceTileStandIn(6, 13), true, 'no blower effect there: the streaks');
     layer.update(1 / 60, { dist: 20 }, { width: 100, height: 100 });
     await new Promise((r) => setTimeout(r, 5));
-    assert.equal(layer.deviceTilePlays(5, 13), false, 'a spawn that gave nothing (a dry layer): the streaks');
+    assert.equal(layer.deviceTileStandIn(5, 13), true, 'a spawn that gave nothing (a dry layer): the streaks');
+    globalThis.fetch = undefined;
+    const bare = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true });
+    bare.setStageTiles([{ bundle: 'tile', name: 'tile_wind_01', x: 5, y: 13, turn: BLOWER_TURN.DOWN, device: true }]);
+    assert.equal(bare.deviceTileStandIn(5, 13), true, 'no effect index to wait for: the streaks');
   } finally { globalThis.fetch = fetch0; }
 });
 
-test('tiles.js _drawFlow draws a blower\'s streaks only while its official wind does not play; render/app.js asks the layer', async () => {
+test('tiles.js _drawFlow draws a blower\'s streaks only where the layer says it needs them; render/app.js asks the layer', async () => {
   const { installFakePixi } = await import('./fakepixi.js');
   const fake = installFakePixi();
   try {
@@ -158,26 +165,18 @@ test('tiles.js _drawFlow draws a blower\'s streaks only while its official wind 
     f.setView(bandFor('prep'), null, fieldRows('prep'));
     f.setStage(stage(stages('data/stages.json'), 'act2autochess_m01'));
     f.cam = new Camera();
-    const strokes = () => {
-      const by = new Map();
-      let n = 0;
-      f.flowGfx.moveTo = function () { n++; return this; };
-      for (const b of f.blowers) { const n0 = n; f.windPlays = (r, c) => !(r === b.row && c === b.col); f._drawFlow(); by.set(`${b.row},${b.col}`, n - n0); }
-      return by;
-    };
-    assert.ok(f.blowers.length >= 4, `${f.blowers.length} blowers`);
-    const alone = strokes();
-    assert.ok([...alone.values()].some((n) => n > 0), 'a blower whose wind does not play draws its streaks');
-    f.windPlays = () => true;
     let n = 0;
     f.flowGfx.moveTo = function () { n++; return this; };
-    f._drawFlow();
-    assert.equal(n, 0, 'every official wind plays: no streaks (they used to draw beside it)');
-    f.windPlays = null;
-    f._drawFlow();
-    assert.ok(n > 0, 'no layer asked: the streaks');
+    const draw = (standIn) => { f.windStandIn = standIn; n = 0; f._drawFlow(); return n; };
+    assert.ok(f.blowers.length >= 4, `${f.blowers.length} blowers`);
+    const all = draw(() => true);
+    assert.ok(all > 0, 'every blower needs them: streaks');
+    assert.equal(draw(() => false), 0, 'the official wind plays (or is loading): no streaks — they used to draw beside it');
+    const b0 = f.blowers.find((b) => draw((r, c) => r === b.row && c === b.col) > 0);
+    assert.ok(b0 && draw((r, c) => r === b0.row && c === b0.col) < all, 'per blower');
+    assert.equal(draw(null), all, 'no layer asked: the streaks');
     f.destroy();
   } finally { fake.restore(); }
   const app = read('public/js/render/app.js');
-  assert.match(app, /tiles\.windPlays = \(r, c\) => fxGame\.deviceTilePlays\(c, r\);/, 'render/app.js hands the layer\'s answer to the board');
+  assert.match(app, /tiles\.windStandIn = \(r, c\) => fxGame\.deviceTileStandIn\(c, r\);/, 'render/app.js hands the layer\'s answer to the board');
 });

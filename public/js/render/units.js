@@ -83,7 +83,7 @@ import { faceOf, turnFace, turnWidth, dirVector, NEAR_SQ, SWITCH_TIME } from './
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './heldWheel.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
 import { loadPlaces, modelPlace, placesVersion } from './fxpoints.js'; // a model's place and shadow in its battle prefab
-import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, HUD_ANCHOR, prepChip, PREP_CHIP, EquipBar, equipTextures, RespawnHud, respawnTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
+import { ElementRing, epRingState, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, HUD_ANCHOR, prepChip, PREP_CHIP, EquipBar, equipTextures, RespawnHud, respawnTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 loadPlaces(); // the per-unit model places (fxpoints.js); views built before it arrives re-read it
@@ -2498,10 +2498,12 @@ export class UnitView {
     if (lp) { // local patch: the official element ring at the feet (hud-bars.js ElementRing); without its art the row under the bars
       const u = hudU(this.ctx), w = (this.isEnemy ? 105 : 125) * u, side = this.isEnemy ? 'enemy' : 'ally';
       const want = showBars && !!this.el;
-      if (want && !this._elRing && epRingReady(this.P, this.ctx.assets, side)) { this._elRing = new ElementRing(this.P, this.hud, side); this._elRing.anchor = this.hudAnchor; }
+      // 2026-11-15: the row stands in only where the ring's art cannot come ('none'); while it loads, neither
+      const art = want && !this._elRing ? epRingState(this.P, this.ctx.assets, side) : null;
+      if (art === 'ready') { this._elRing = new ElementRing(this.P, this.hud, side); this._elRing.anchor = this.hudAnchor; }
       const ring = want && !!this._elRing && this._elRing.update(this.ctx.assets, this.el, this.elementLeft(), this.elementCooling(), this.screen.x, this.screen.y, u, dt);
       if (!ring && this._elRing) this._elRing.hide();
-      this._updateElementBar(want && !ring, lpBottom ? this.lpBars.box.x0 : this.screen.x - w / 2, lpBottom ? this.lpBars.box.w : w,
+      this._updateElementBar(want && !ring && art !== 'loading', lpBottom ? this.lpBars.box.x0 : this.screen.x - w / 2, lpBottom ? this.lpBars.box.w : w,
         lpBottom || hudAnchorY(this.screen.y, u, this.hudAnchor) + 59 * u, 7 * u, s, t);
     }
     else this._updateElementBar(showBars && !!this.el, x0, bw, cy + bh / 2 + (showSp ? spH + 1.5 : 0) + 1, spH, s, t);

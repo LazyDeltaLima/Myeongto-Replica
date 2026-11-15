@@ -598,10 +598,13 @@ export function stageCannons(stage, rect) {
 
 export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {}, trace = null, dry = false }) {
   let index = null, modes = null, emodes = null, plays = null;
+  // 2026-11-15: whether the index fetch has ended (`index` stays null without extracted effects): until then the stand-ins
+  // that wait for an official effect draw nothing (deviceTileStandIn)
+  let indexDone = typeof fetch !== 'function';
   if (typeof fetch === 'function') {
     // (2026-10-23) the index with the plays: what waits for the index (the status layer, a deploy's always-on effects, the
     // notes) finds the client keys' prefabs already there
-    Promise.all([loadIndex(), loadPlays()]).then(([i, p]) => { plays = p && typeof p === 'object' ? p : null; index = i; });
+    Promise.all([loadIndex(), loadPlays()]).then(([i, p]) => { plays = p && typeof p === 'object' ? p : null; index = i; }).finally(() => { indexDone = true; });
     loadModes().then((m) => { modes = m; });
     loadEnemyModes().then((m) => { emodes = m && typeof m === 'object' ? m : null; });
   }
@@ -6844,21 +6847,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     /** Whether status effects can play at all (index loaded, not 'low', no WebP failure): off, units draw their status icons (fxstatus.js). */
     statusLayer() { return !!(index && !failed && q() !== 'low'); },
     /**
-     * 2026-11-15: whether the device effect laid on tile (x, y) (setStageTiles `device`: a blower's tile_wind_01) plays — the
-     * layer on (index loaded, not 'low', no failure), the prefab extracted, its spawn not empty, its tile drawn. Off, the
-     * board draws its own airflow streaks in its place (tiles.js _drawFlow). Asked per blower per frame: no allocation.
+     * 2026-11-15: whether the board draws its own stand-in for the device effect of tile (x, y) (setStageTiles `device`: a
+     * blower's tile_wind_01 → tiles.js _drawFlow) — only where the official one cannot play: quality 'low', a failed layer
+     * (no WebP, a lost context), no extracted effects, the prefab not extracted, its spawn empty, its tile not drawn, or no
+     * device effect there. While the index is still loading neither draws (the stand-in used to flash before the official
+     * wind). Asked per blower per frame: no allocation.
      */
-    deviceTilePlays(x, y) {
-      if (!index || failed || q() === 'low' || !stageTiles.size) return false;
-      let g = null;
-      try { g = grid(); } catch { /* every tile */ }
+    deviceTileStandIn(x, y) {
+      if (failed || q() === 'low') return true;
+      if (!indexDone && !index) return false;
+      if (!index) return true;
       for (const rec of stageTiles.values()) {
         const t = rec.t;
         if (!t.device || t.x !== x || t.y !== y) continue;
-        if (rec.none || !index.bundles?.[t.bundle]?.includes(t.name)) return false;
-        return !Array.isArray(g) || !!g[y]?.[x]?.drawn;
+        if (rec.none || !index.bundles?.[t.bundle]?.includes(t.name)) return true;
+        let g = null;
+        try { g = grid(); } catch { /* every tile */ }
+        return Array.isArray(g) && !g[y]?.[x]?.drawn;
       }
-      return false;
+      return true;
     },
     /** 2026-11-06: the ReadySkillEffect of `v`'s skill for fxstatus.js (fxmap.js readySpecs), or null. Asked per unit per frame: kept by operator and skill. */
     readyFx(v) {

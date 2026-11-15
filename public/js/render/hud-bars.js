@@ -755,18 +755,65 @@ class RadialFill {
   }
 }
 
+/** The sprites of an element ring per side (`ui/battlecommon`). */
+const EP_NAMES = Object.freeze({
+  ally: Object.freeze(['sprite_ep_hit_spread', 'sprite_ep_color', 'slider_ep_back', 'slider_ep_fill', 'sprite_ep_icon', 'sprite_ep_water_icon', 'sprite_ep_fire_icon', 'sprite_ep_dark_icon']),
+  enemy: Object.freeze(['slider_ep_back_enemy', 'slider_ep_color_enemy', 'slider_ep_fill_back_enemy', 'slider_ep_fill_enemy', 'sprite_ep_break_spread', 'sprite_ep_break_hint']),
+});
+
 /** The textures of an element ring for `side` 'ally' | 'enemy' (all of them, or null while any is missing). */
 function epTextures(P, assets, side) {
-  const names = side === 'ally'
-    ? ['sprite_ep_hit_spread', 'sprite_ep_color', 'slider_ep_back', 'slider_ep_fill', 'sprite_ep_icon', 'sprite_ep_water_icon', 'sprite_ep_fire_icon', 'sprite_ep_dark_icon']
-    : ['slider_ep_back_enemy', 'slider_ep_color_enemy', 'slider_ep_fill_back_enemy', 'slider_ep_fill_enemy', 'sprite_ep_break_spread', 'sprite_ep_break_hint'];
   const out = {};
-  for (const n of names) { const t = texOf(P, localUrl(assets, 'ui/battlecommon', n)); if (!t) return null; out[n] = t; }
+  for (const n of EP_NAMES[side]) { const t = texOf(P, localUrl(assets, 'ui/battlecommon', n)); if (!t) return null; out[n] = t; }
   return out;
 }
 
-/** Whether the ring can be drawn (SimpleMesh and the sprites are there) for `side`. */
-export const epRingReady = (P, assets, side) => !!P.SimpleMesh && !!epTextures(P, assets, side);
+/**
+ * 2026-11-15 (user report: the drawn gauge row flashed before the official ring at an element's first hit): how long an
+ * installed ring sprite may load before the row stands in for it (a slow network still shows the gauge), in ms.
+ */
+export const EP_WAIT_MS = 3000;
+const _texErr = new Set();          // urls whose image failed to load
+const _texAsked = new Map();        // url → when it was first asked for (performance.now)
+const nowMs = () => (globalThis.performance?.now?.() ?? Date.now());
+
+/** One sprite's load state: 'ready' | 'loading' | 'none' (no url, failed, or loading past EP_WAIT_MS). */
+function texState(P, url) {
+  if (!url || _texErr.has(url)) return 'none';
+  if (!_texAsked.has(url)) {
+    _texAsked.set(url, nowMs());
+    const tex = texOf(P, url);
+    if (tex) return 'ready';
+    const bt = _tex.get(url)?.baseTexture;
+    if (!bt) { _texErr.add(url); return 'none'; }
+    bt.once?.('error', () => _texErr.add(url));
+    return 'loading';
+  }
+  if (texOf(P, url)) return 'ready';
+  return nowMs() - _texAsked.get(url) > EP_WAIT_MS ? 'none' : 'loading';
+}
+
+/**
+ * 2026-11-15: the element ring's art for `side`: 'ready' (draw the ring), 'loading' (installed, still loading: draw
+ * neither — the gauge row used to flash before the ring) or 'none' (no SimpleMesh, not installed, a failed load, or
+ * loading past EP_WAIT_MS: the gauge row under the bars stands in). Asked per frame only until a unit has its ring.
+ */
+export function epRingState(P, assets, side) {
+  if (!P.SimpleMesh) return 'none';
+  let loading = false;
+  for (const n of EP_NAMES[side]) {
+    const st = texState(P, localUrl(assets, 'ui/battlecommon', n));
+    if (st === 'none') return 'none';
+    if (st === 'loading') loading = true;
+  }
+  return loading ? 'loading' : 'ready';
+}
+
+/** 2026-11-15: ask for both sides' ring sprites ahead (render/app.js, entering prep and battle): an element's first hit finds them loaded. */
+export function prewarmEpRings(P, assets) {
+  if (!P?.SimpleMesh) return;
+  for (const side of ['ally', 'enemy']) for (const n of EP_NAMES[side]) texState(P, localUrl(assets, 'ui/battlecommon', n));
+}
 
 /** One unit's element ring (see above), in `parent` (the view's HUD container). */
 export class ElementRing {

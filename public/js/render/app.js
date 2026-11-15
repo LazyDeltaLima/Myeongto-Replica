@@ -161,6 +161,7 @@ import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GR
 import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, penShown, leaderShown } from './app/view.js';
 import { renderInfo, FORCED_EXIT, showsDeathFx, deviceAsEnemy } from './app/info.js';
 import { resolveAssets, makeData, withTimeout, capWait, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
+import { prewarmEpRings } from './hud-bars.js'; // 2026-11-15: the element ring's sprites asked for ahead
 import { autoQuality, autoQualityStepper, onAutoQuality } from './auto-quality.js'; // settings 「自动」 (render.md 「자동 화면 품질」)
 import { frameScale, loadLevelStepper } from './load-level.js'; // 2026-10-30: the adaptive load level's judgement (render.md 「적응 부하 단계」)
 import { t } from '../../../shared/i18n.js';
@@ -420,8 +421,8 @@ export async function createFieldView(host, options = {}) {
   };
   const tiles = new TileField({ ground: layers.ground, overlay: layers.overlay, props: layers.units, anim: layers.anim });
   setupCleanup.push(() => tiles.destroy());
-  // 2026-11-15: the blowers' airflow streaks stand in for the official wind only where it does not play (tiles.js _drawFlow)
-  tiles.windPlays = (r, c) => fxGame.deviceTilePlays(c, r);
+  // 2026-11-15: the blowers' airflow streaks stand in for the official wind only where it cannot play (tiles.js _drawFlow)
+  tiles.windStandIn = (r, c) => fxGame.deviceTileStandIn(c, r);
   timing?.part?.('tiles');
   const fx = new FxSystem({
     P, layers, cam: () => cam, settings, assets, heightAt, redVignette: bg.red, surfaceLayer: ctx.surfaceLayer,
@@ -1200,6 +1201,7 @@ export async function createFieldView(host, options = {}) {
     interp.reset();
     fx.clear(); fxGame.clear(); // local patch
     fxGame.prewarm(); // 2026-10-27: the effect layer and its shaders ready before the battle (render/fxgame.js)
+    prewarmEpRings(P, assets); // 2026-11-15: an element's first hit finds the official ring loaded (no stand-in row first)
     battleCursors.clear();
     meleePending.clear();
     swingStrikes.clear();
@@ -1692,6 +1694,7 @@ export async function createFieldView(host, options = {}) {
     gone.clear();
     interp.reset();
     fx.clear(); fxGame.clear(); // local patch
+    prewarmEpRings(P, assets); // 2026-11-15: (a spectator's or reconnecting seat enters a battle without a prep)
     meleePending.clear();
     swingStrikes.clear();
     consumedIds.clear();
