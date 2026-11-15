@@ -128,7 +128,7 @@ export function ConsolePanel({ con, pub, priv, phase }) {
   return html`
     <${ConsoleNote} note=${con.note} />
     ${open ? html`<div class="cxp" role="dialog" aria-label=${t('控制台')}>
-      <div class="cxp__rail"><span class="cxp__tag">CONSOLE</span>${tabs}
+      <div class="cxp__rail">${tabs}
         <button type="button" class="cxp__x" aria-label=${t('收起')} onClick=${() => toggle(false)}>${FOLD_ICON}</button></div>
       <div class="cxp__main">${head}${tabs}<div class="cxp__body">${body}</div>${foot}</div>
     </div>` : html`<button type="button" class="cxp-launch" onClick=${() => toggle(true)} title=${t('{key} 键显示 / 隐藏', { key: CONSOLE_KEY })}>
