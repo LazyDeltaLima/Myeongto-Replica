@@ -78,7 +78,9 @@ export class NetError extends Error {
    * @param {object} [room] a refused room.join's room summary (server/lobby.js joinRefusalInfo; ui/inviteSpectate.js)
    */
   constructor(code, msg, detail, room) {
-    const versionMismatch = typeof detail === 'string' && /version/i.test(detail);
+    // only hello's protocol check (server/net.js: BAD_MSG "version mismatch: server N"); a refusal whose detail merely
+    // names an official version (VERSION_UNSUPPORTED, "not a mode of this version", …) keeps its own text (upstream c3524c1e)
+    const versionMismatch = code === 'BAD_MSG' && typeof detail === 'string' && /^version mismatch\b/i.test(detail);
     super(versionMismatch ? CLIENT_ERR_TEXT.VERSION : errorText(code, msg));
     this.name = 'NetError';
     this.code = String(code || 'INTERNAL');

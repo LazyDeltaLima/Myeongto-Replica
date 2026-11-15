@@ -417,6 +417,9 @@ describe('net.js', () => {
     assert.equal(e.code, 'NO_FUNDS');
     assert.equal(e.message, '资金不足');
     assert.match(new NetError('BAD_MSG', 'x', 'version mismatch: server 2').message, /版本/);
+    // only hello's protocol check says 刷新页面: a refusal whose detail merely names a version keeps its own text (upstream c3524c1e)
+    assert.equal(new NetError('BAD_TARGET', 'x', 'not a mode of this version').message, errorText('BAD_TARGET'));
+    assert.equal(new NetError('BAD_MSG', 'x', 'season act3autochess: unknown version').message, errorText('BAD_MSG'));
   });
 
   test('defaultWsUrl', async () => {
