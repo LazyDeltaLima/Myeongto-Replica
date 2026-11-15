@@ -102,7 +102,10 @@ export const DEPLOY_REFUSED_TILES = Object.freeze(new Set(['tile_deepsea']));
 /**
  * The hand and 临时整备区 tiles of a field (never a battle tile, though HIGH with buildableType ALL): tile_achand, and
  * tile_acbag — 规程 (act3autochess) puts its 临时整备区 slots, the default season's tile_achand without isValidHand, on
- * this tile of its own. Shared with tools/build-data.mjs (deployTiles) and the 联防 field's tile set (bonds/addon).
+ * this tile of its own (规程's 装备区). Shared with tools/build-data.mjs (deployTiles) and the 联防 field's tile set (bonds/addon).
+ * Their effective `build` is NONE here (normalizeLegendEntry), as the 深水区's: the boss field's rect holds them (rows
+ * 0–1), and every automatic placement (canStand: summon tiles, the 突袭 landing) once took them for free ranged tiles —
+ * 黑键's S2 旧日残影 stood in the hand and the 装备区 (AutoChessBattleUtil.IsBattleField: every map tile but the hand).
  */
 export const HAND_TILES = Object.freeze(new Set(['tile_achand', 'tile_acbag']));
 
@@ -127,7 +130,7 @@ export function normalizeLegendEntry(glyph, e) {
   const heightRaw = e.height ?? e.heightType;
   const height = heightRaw == null ? base.height : (/HIGH/i.test(String(heightRaw)) ? 'HIGH' : 'LOW');
   const buildRaw = e.build ?? e.buildable ?? e.buildableType;
-  const build = DEPLOY_REFUSED_TILES.has(key) ? 'NONE'
+  const build = DEPLOY_REFUSED_TILES.has(key) || HAND_TILES.has(key) ? 'NONE'
     : buildRaw == null ? base.build : (buildRaw === true ? 'ALL' : buildRaw === false ? 'NONE' : String(buildRaw).toUpperCase());
   let pass;
   if (e.pass != null) pass = normPass(e.pass);

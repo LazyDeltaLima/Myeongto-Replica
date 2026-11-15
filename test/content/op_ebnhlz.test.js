@@ -529,3 +529,38 @@ test('黑键 through the real match path (seats[].diy → Match board → battle
   assert.ok(hits.length && hits.every((x) => x.type === 'arts'), 'his shots: arts');
   assert.equal(b.errors.length, 0, JSON.stringify(b.errors[0]));
 });
+
+test('旧日残影 never stands in the hand or the 装备区 (tile_achand / tile_acbag): the boss field\'s rect holds them (rows 0–1), and no automatic placement takes them on any map of either season', async () => {
+  const { Grid, HAND_TILES } = await import('../../server/sim/grid.js');
+  const seasons = { act2: load('stages'), act3: load('seasons/act3autochess/stages') };
+  const seen = new Set();
+  for (const [season, file] of Object.entries(seasons)) {
+    for (const [id, st] of Object.entries(file.stages ?? file)) {
+      const g = new Grid({ ...st, legend: st.tiles ?? st.legend }, { r0: 0, r1: 18, c0: 0, c1: 20 });
+      for (let r = 0; r < 19; r++) for (let c = 0; c < 21; c++) {
+        const key = g.tile(r, c).key;
+        if (!HAND_TILES.has(key)) continue;
+        seen.add(`${season}:${key}`);
+        assert.ok(!g.canStand(r, c, { ranged: true }) && !g.canStand(r, c), `${season} ${id} (${r}, ${c}) ${key}: a hand / 装备区 tile is no placement tile — grid.js normalizeLegendEntry reads HAND_TILES as build NONE (docs/rules/diy.md 「선발 추가 슈·리·유넥티스·에벤홀츠」 — 잔상은 정비 구역·장비 구역에 놓이지 않는다)`);
+      }
+    }
+  }
+  assert.deepEqual([...seen].sort(), ['act2:tile_achand', 'act3:tile_acbag', 'act3:tile_achand'], 'the sweep met both tiles');
+  // the report: on 规程's boss field, facing DOWN from row 2 his range reaches the 装备区 (row 1) and the hand (row 0)
+  for (const [season, file] of Object.entries(seasons)) {
+    const stage = Object.values(file.stages ?? file).find((s) => /_m01$/.test(s.id));
+    for (const dir of ['DOWN', 'LEFT']) {
+      const h = makeBattle({ kind: 'boss', stage, timeLimit: 900, autoFinish: false, flags: { dpPerSec: 0, dpMax: 999 },
+        units: [{ uid: 1, diy: { slot: SLOT[6], charId: EBN, skillIndex: 1 }, elite: true, row: 9, col: 6, dir }] });
+      h.step();
+      const u = h.unit(1);
+      assert.equal(u.tileR, 2, 'board row 9 is the boss field\'s row 2');
+      u.skill.gainSp(999, 'init');
+      h.run(5);
+      const tokens = h.b.allyUnits.filter((t) => t.kind === 'token' && t.defId === REMNANT);
+      if (dir === 'LEFT') assert.ok(tokens.length > 0, `${season}: cast on the field tiles of his range`);
+      for (const t of tokens) assert.ok(t.tileR >= 2, `${season} ${dir}: a 旧日残影 at (${t.tileR}, ${t.tileC}) ${h.b.grid.tile(t.tileR, t.tileC).key}`);
+      done(h);
+    }
+  }
+});

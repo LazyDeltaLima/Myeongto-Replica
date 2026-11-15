@@ -989,6 +989,11 @@
     그 칸 적의 가장 높은 위협도(HATRED_DES = 엔진의 기본 오퍼레이터 대상 순서) 순 ② **그의 범위 안** 지상 적을 위협도 순으로, 각 적에게 가장 가까운
     칸(이미 고른 칸이면 건너뜀, 같은 거리는 앞 칸) ③ 남은 칸 무작위. 예전 키트는 ②를 필드 전체 적까지의 거리로 정렬했다. W S2와 같은 선택기
     (`kits/shared/tier1.js betterEnemyTiles`, 위 W 절).
+  - 잔상은 정비 구역·장비 구역(`tile_achand`·`tile_acbag`)에 놓이지 않는다(2026-11-15 고침, 관리자 제보 「에벤홀츠 S2 소환물이 장비 구역에도 설치됨」):
+    보스 필드의 시뮬 영역(0~5행)에는 정비 구역(0행)·장비 구역(1행)이 들어 있고, 그 타일은 레벨 표에 「높은 지형·전부 배치」로 적혀 있어 모든 자동 배치
+    (`grid.canStand` — 소환물 칸·돌격 착지)가 빈 원거리 칸으로 봤다. 공식 `AutoChessBattleUtil.IsBattleField`는 정비 구역 타일을 전장에서 뺀다. 원인 제거:
+    격자가 두 타일을 심해 구역처럼 실효 배치 NONE으로 읽는다(`server/sim/grid.js` `HAND_TILES` → `normalizeLegendEntry`) — 다른 키트의 자동 배치도 같이
+    막힌다. 재발 방지: `test/content/op_ebnhlz.test.js`(두 시즌 모든 맵의 정비·장비 구역 타일 + 보스 필드 잔상).
   - 잔상: 공격의 `_selectTargetTiming` 1 BEFORE_SPELL_START — 0.93초 뒤 닿을 때 대상을 고른다(키트 그대로). 토큰 프리팹 `_category` 2 TRAP_OR_ITEM이라
     적 선택기(`_targetCategory` 1 DEFAULT)에 걸리지 않는다 — **적이 잔상을 노리지 않게** 고침(W 「적 방향」과 같음).
 - 키트 주석에 남은 추정:
