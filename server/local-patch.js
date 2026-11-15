@@ -12,7 +12,10 @@
 //   welcomeInfo(lobby)               Lobby.welcomeInfo: `feedback: true` while the feedback inbox is on (local-feedback.js)
 //   fb.send                          (via onMessage) the settlement screen's feedback, kept in SP_FEEDBACK_DIR (local-feedback.js)
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
-//   dbg.funds / dbg.addDiy / dbg.addChess / dbg.addEnemy / dbg.clearEnemies / dbg.bossJump / dbg.finish  (via onMessage) the in-game debug panel, local debug mode only — see debugMode below
+//   room.setConsole                  (via onMessage) 콘솔 모드 of a solo room, before its match: room.state `console`
+//   onMatchCreate(room, match)       Lobby.startMatch, before match.start(): a console room's match is a console match
+//   con.*                            (via onMessage) the in-game console — server/local-console.js (console matches, and
+//                                    every match in local debug mode)
 //
 // 선발 오퍼레이터: since 0.2.0 upstream's 自选 framework (shared/diy.js, server/match/player/diy.js) with our
 // operators as its only candidates (tools/build-data.mjs local patch); nothing of it is wrapped here.
@@ -28,17 +31,14 @@
 
 import { logMatchStats } from './local-stats.js';
 import { FeedbackInbox } from './local-feedback.js';
-import { ERR, MAX_SEATS, PHASE } from '../shared/constants.js';
+import { ERR, MAX_SEATS } from '../shared/constants.js';
 import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY, seasonChatFaction } from '../shared/local.js';
 import { sendSession } from './net.js';
 import { PlayerState } from './match/PlayerState.js';
 import { Match } from './match/Match.js';
-import { diyRecord, diySlot, diySlotIds, isDiyModule } from '../shared/diy.js';
-import { localDiyPool } from '../shared/local-diy.js';
-import { checkDiyPicks } from '../shared/protocol.js';
-import { diyGameData } from './match/player/diy.js';
-import { KITTED_CHARS } from './sim/content/kits/index.js';
-import { DEBUG_LAYER_LEVELS, applyDebugBoard, applyDebugLayers, assignDebugBonds, bondMembers, debugBosses } from './local-debug-board.js';
+import { consoleMessage, debugMode, fundsPinActive, fundsPinOf, isConsoleMessage } from './local-console.js';
+
+export { debugFunds, debugMode, DEBUG_PIN_DEFAULT } from './local-console.js';
 
 const OK = Object.freeze({ ok: true });
 
@@ -139,9 +139,48 @@ const factionsMsg = (c) => ({ t: 'room.factions', factions: Object.fromEntries(c
 export function onMessage(lobby, session, msg) {
   if (msg.t === 'room.chat') return chat(lobby, session, msg);
   if (msg.t === 'room.chatFaction') return pickFaction(lobby, session, msg);
-  if (DEBUG_MSGS.has(msg.t)) return debugMessage(lobby, session, msg); // local debug mode only
-  if (msg.t === 'fb.send') return feedbackOf(lobby).submit(session, msg);
+  if (msg.t === 'room.setConsole') return setConsole(lobby, session, msg);
+  if (isConsoleMessage(msg.t)) return consoleMessage(lobby, session, msg); // console matches, local debug mode
+  if (msg.t === 'fb.send') return feedbackOf(lobby).submit(session, msg, liveConsoleFeedback(lobby, session));
   return null;
+}
+
+/**
+ * 콘솔 모드 (room.setConsole { on }): a solo room's own player turns the console on or off before the match; kept across
+ * the room's matches, sent as room.state `console` (server/lobby.js toState). The match it starts is a console match
+ * (onMatchCreate). Co-op rooms never have it (maintainer decision 2026-11-15).
+ */
+function setConsole(lobby, session, { on }) {
+  const room = lobby.roomOf(session);
+  if (!room) return fail(ERR.NOT_IN_ROOM);
+  if (room.mode !== 'solo') return fail(ERR.BAD_TARGET, 'solo rooms only');
+  const seat = room.seatOf(session.playerId);
+  if (!seat || seat.isBot) return fail(ERR.NOT_IN_ROOM);
+  if (room.match) return fail(ERR.ROOM_STARTED);
+  lobby.dropReplay?.(room, session.playerId);
+  if (!!room.console !== !!on) {
+    room.console = !!on;
+    lobby.broadcastState(room);
+  }
+  return OK;
+}
+
+/** Lobby.startMatch, before match.start(): the match of a console room is a console match (server/local-console.js). */
+export function onMatchCreate(room, match) {
+  if (room && match && room.mode === 'solo' && room.console === true) match.console = true;
+}
+
+/**
+ * A feedback report sent during a console match (the console's 「✎ 제보」): the match is still running, so local-feedback.js
+ * gets it as the sender's live match — with the console log — instead of a finished one. Null otherwise.
+ */
+function liveConsoleFeedback(lobby, session) {
+  const room = lobby.roomOf?.(session);
+  const m = room?.match;
+  if (!m || m.console !== true || m.ended) return null;
+  const seat = room.seatOf?.(session.playerId);
+  if (!seat || seat.isBot) return null;
+  return { key: `${room.code}#${room.matchCount}`, console: Array.isArray(m.consoleLog) ? m.consoleLog : [] };
 }
 
 /** The lobby's feedback inbox (SP_FEEDBACK_DIR; off when unset) — made on first use, or the one a test put there. */
@@ -215,7 +254,7 @@ export function chatFactionOf(room, playerId) {
 
 /** The match ended: the factions last one match. */
 export function onMatchEnd(lobby, room) {
-  logMatchStats(lobby, room); // one [stats] log line per finished match (server/local-stats.js)
+  if (!room.lastSummary?.console) logMatchStats(lobby, room); // one [stats] log line per finished match (server/local-stats.js); a console match keeps no record
   feedbackOf(lobby).noteMatchEnd(room); // its players may send feedback from the settlement screen
   const c = rooms.get(room);
   if (!c || !c.factions.size) return;
@@ -281,34 +320,6 @@ PlayerState.prototype.privateView = function privateView() {
   return v;
 };
 
-// 디버그용 재화 고정 (local debug only): SP_DEBUG_FUNDS=<0..999> pins every human player's funds to that value — buying,
-// refreshing and levelling never lower it (bots keep real funds). Deployed servers leave it unset.
-export function debugFunds(env = process.env) {
-  const raw = env.SP_DEBUG_FUNDS;
-  if (raw == null || raw === '') return null;
-  const n = Number(raw);
-  return Number.isInteger(n) && n >= 0 && n <= 999 ? n : null;
-}
-const FIXED_FUNDS = debugFunds();
-// The in-game debug panel (below) toggles the pin per player: `ps.debugFundsPin` = the pinned value, null = real funds,
-// undefined = the env default (FIXED_FUNDS). The accessor is installed only in local debug mode — at startup when
-// SP_DEBUG_FUNDS is set, else on the first dbg.funds — so a deployed server keeps upstream's plain `funds` field.
-let fundsPinInstalled = false;
-function installFundsPin() {
-  if (fundsPinInstalled) return;
-  fundsPinInstalled = true;
-  Object.defineProperty(PlayerState.prototype, 'funds', {
-    configurable: true,
-    get() { const pin = fundsPinOf(this); return pin == null ? (this._funds ?? 0) : pin; },
-    set(v) { this._funds = v; },
-  });
-}
-const fundsPinOf = (ps) => (ps.isBot ? null : ps.debugFundsPin === undefined ? FIXED_FUNDS : ps.debugFundsPin);
-if (FIXED_FUNDS != null && debugMode()) {
-  console.warn(`[local-patch] SP_DEBUG_FUNDS: human players' funds fixed at ${FIXED_FUNDS} (debug only)`);
-  installFundsPin();
-}
-
 // The round-start dialog's 获得 (public/js/ui/phaseArt.js useRoundGold): the funds Match.startRound credited each player
 // (income + pending + onRoundStart grants), sent as m.private `roundGold { round, gain }`. The client cannot diff its
 // funds: m.private (new funds) goes out before the throttled m.public (phase ROUND_START), so its baseline was already
@@ -323,7 +334,7 @@ const upstreamAddFunds = PlayerState.prototype.addFunds;
 PlayerState.prototype.addFunds = function addFunds(n, opts) {
   const got = upstreamAddFunds.call(this, n, opts);
   const rg = this._roundGold;
-  if (rg && rg.on) rg.gain += fundsPinOf(this) == null || !fundsPinInstalled ? got : Math.trunc(Number(n) || 0);
+  if (rg && rg.on) rg.gain += fundsPinOf(this) == null || !fundsPinActive() ? got : Math.trunc(Number(n) || 0);
   return got;
 };
 const upstreamRoundGoldView = PlayerState.prototype.privateView;
@@ -356,275 +367,3 @@ export function debugPageHidden(decodedPath, env = process.env) {
  * the container (Dockerfile HEALTHCHECK, the deploy script).
  */
 export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-forwarded-for']);
-
-// ---- local debug mode: the in-game debug panel (public/js/ui/debugPanel.js) --------------------------------------
-//
-// Local debug mode = SP_DEBUG_PAGE=1 or a valid SP_DEBUG_FUNDS, and NODE_ENV is not 'production'.
-// A local debug run sets them; deployed servers set neither and the Docker image sets NODE_ENV=production, so a deployed
-// server is never in it. Only then:
-//   m.private.debug = { fundsPin, pinValue, candidates, enemies, boss }   (privateView wrapper, installed at import) —
-//                     the client renders the panel only when this is present; `enemies` = the extra enemies queued
-//                     below; `boss` = { round: the boss round, at: the match's round, bossId, bosses: the mode's leaders }
-//   dbg.funds { on }        the sender's funds pinned to pinValue (SP_DEBUG_FUNDS, else 99) or back to real funds
-//                           (they keep the pinned value and move normally from there)
-//   dbg.addDiy { charId, tier, golden?, skill?, module? }
-//                           one of the 自选 candidates (data/backups.json diy.ownedPool) into the sender's hand: it takes
-//                           the tier's slot already holding that operator, else a free slot of the tier, else one whose
-//                           operator (the room's 自选编队 pick, say) has no piece in hand / temp / board (otherwise ⇒
-//                           refused), sets the pick there (debugSetPick — skill 0-2, module: a uniEquipId of the elite
-//                           form or 'none'; that one slot checked alone, so the roster rule "an owned operator fills one
-//                           slot" does not apply: the same operator may sit at both tiers — under PlayerState.setDiy that
-//                           rule dropped the new slot and the gain failed as HAND_FULL), then gains the slot's chess (normal, or the elite with
-//                           `golden`) through PlayerState.acquireChess (merges, onGain, m.private), prep only, refused with
-//                           a full hand unless it completes a merge; no stock copies are taken (the shop is unchanged).
-//   dbg.addChess { chessId, golden? }
-//                           any preset / normal chess of data/chess.json (a normal id; hidden ones too, not the 自选 slots)
-//                           into the sender's hand through PlayerState.acquireChess like dbg.addDiy: normal, or its elite
-//                           with `golden`, prep only, refused with a full hand unless it completes a merge, no pool copies
-//                           taken (a merge it completes still tops the elite up, _mergeChess). The panel lists them from the client's own chess table (no list in m.private.debug).
-//   dbg.addEnemy { enemyKey, count? }
-//                           `count` (1–20, default 1) more of any enemy of data/enemies.json (not a token-only summon) in
-//                           the sender's next battle: queued as a 0-coin, one-battle bounty (Match.addBounty, the
-//                           `debugEnemies` flag), so they join the round exactly like the official extra enemies of a
-//                           悬赏 card (waves.js bountyPlan: inserted into the template's first walker / flyer action, the
-//                           normal round's scale, the boss rounds' own half) and show in the 敌情 preview and the effects
-//                           list; the settlement after that battle drops them (roundsLeft 1). Prep only — a bounty added in
-//                           combat would be dropped by that combat's settlement before it spawned.
-//   dbg.clearEnemies {}     the queued debug enemies dropped (prep only)
-//   dbg.bossJump { bossId?, bondId?, layers?, preset? }
-//                           the match goes to the Final Assault now (any prep before it): the leader `bossId` (one of
-//                           the mode's), then in its prep every alive seat's preset board around a bond and its layers
-//                           (server/local-debug-board.js; `preset: false` keeps the boards and only sets the layers).
-//                           The two wrappers it needs (Match.enterPrep puts the boards, Match.scheduleBotPrep only
-//                           Readies a placed AI seat) are installed on its first use.
-//   dbg.finish { victory }  the match ends now as won / lost (Match.finish, reason victory / defeat): the settlement screen,
-//                           its [stats] line and its feedback (local-feedback.js) without playing to the end — any phase
-// Outside debug mode these messages are refused as BAD_MSG (the server never trusts the client's panel).
-
-export const DEBUG_PIN_DEFAULT = 99;
-const DEBUG_MSGS = new Set(['dbg.funds', 'dbg.addDiy', 'dbg.addChess', 'dbg.addEnemy', 'dbg.clearEnemies', 'dbg.bossJump', 'dbg.finish']);
-export const DEBUG_ENEMY_NAME = 'DEBUG'; // the queued bounty's name in the effects list (the same in every language)
-
-/** Whether this server runs in local debug mode (see above). */
-export function debugMode(env = process.env) {
-  if (env.NODE_ENV === 'production') return false;
-  return env.SP_DEBUG_PAGE === '1' || debugFunds(env) != null;
-}
-
-const MODULE_NONE = 'none';
-const formKey = (tier, elite) => (elite ? `2/60/7/${tier === 6 ? 3 : 1}` : '2/1/4/0');
-
-/**
- * The 自选 candidates offered by the panel: [{ charId, name, bonds, tiers: { 5|6: { skills: [{ index, name }], modules: [{ id,
- * name, type }] } } }] — skills of the normal form, modules of the tier's elite form (plus 'none', isDiyModule only);
- * `bonds` = the pick's bond ids (diy.operators, the panel's bond filter).
- */
-export function debugCandidates(gd) {
-  const b = gd?.raw?.backups;
-  const pool = Array.isArray(b?.diy?.ownedPool) ? localDiyPool(b.diy.ownedPool) : []; // the picks offered, in the picker's order (shared/local-diy.js)
-  return pool.map((charId) => {
-    const u = b.units?.[charId];
-    if (!u || !u.forms) return null;
-    const tiers = {};
-    for (const t of [5, 6]) {
-      const nf = u.forms[formKey(t, false)], ef = u.forms[formKey(t, true)];
-      if (!nf) continue;
-      tiers[t] = {
-        skills: (nf.skills || []).map((sk, i) => ({ index: i, name: sk?.name || '' })),
-        modules: [{ id: MODULE_NONE, name: '', type: '' }, ...(ef?.modules || []).filter(isDiyModule).map((m) => ({ id: m.uniEquipId, name: m.name || m.uniEquipId, type: m.typeName || '' }))],
-      };
-    }
-    const bonds = b.diy.operators?.[charId]?.bonds;
-    return { charId, name: u.name || charId, bonds: Array.isArray(bonds) ? bonds : [], tiers };
-  }).filter(Boolean);
-}
-
-/** The slot base id a debug add of `charId` at `tier` uses for player `ps` (see dbg.addDiy above), or null. */
-export function debugDiySlot(ps, charId, tier) {
-  const data = ps.m.gd.raw;
-  const ids = diySlotIds(data).filter((id) => data.backups?.diy?.slots?.[id]?.tier === tier);
-  const cur = ps.diy || {};
-  const unused = (id) => { const s = diySlot(id, data); return !ps._chessLocations().some((l) => l.piece.id === s.baseId || l.piece.id === s.goldenId); };
-  return ids.find((id) => cur[id]?.charId === charId) || ids.find((id) => !cur[id]) || ids.find(unused) || null;
-}
-
-/**
- * Put `pick` into DIY slot `slotId` of player `ps` mid-match (dbg.addDiy): the pick checked on its own (checkDiyPicks of
- * that one slot: kit, skill, module, a prototype's locked selection), the slot's two records composed and the player's
- * data view rebuilt like PlayerState.setDiy does — the other slots keep their picks and records. Returns a restore
- * function, or null when the pick is refused.
- */
-export function debugSetPick(ps, slotId, pick) {
-  const data = ps.m.gd.raw;
-  const res = checkDiyPicks({ [slotId]: pick }, { data, kitted: KITTED_CHARS });
-  const kept = res && 'ok' in res ? res.picks[slotId] : null;
-  const slot = diySlot(slotId, data);
-  if (!kept || !slot) return null;
-  let normal, golden;
-  try { normal = diyRecord(slotId, kept, { elite: false, data }); golden = diyRecord(slotId, kept, { elite: true, data }); } catch { return null; }
-  if (!normal || !golden) return null;
-  const before = { diy: ps.diy, records: ps._diyRecords, gd: ps.gd };
-  const records = new Map(ps._diyRecords || []);
-  records.set(slot.baseId, Object.freeze(normal));
-  records.set(slot.goldenId, Object.freeze(golden));
-  ps.diy = Object.freeze({ ...(ps.diy || {}), [slot.baseId]: Object.freeze({ charId: kept.charId, skillIndex: kept.skillIndex, uniEquipId: kept.uniEquipId ?? null }) });
-  ps._diyRecords = records;
-  ps.gd = diyGameData(ps.m.gd, records);
-  return () => { ps.diy = before.diy; ps._diyRecords = before.records; ps.gd = before.gd; };
-}
-
-/** m.private.debug of a human player (debug mode only). */
-export function debugView(ps) {
-  if (!ps || ps.isBot) return null;
-  if (!ps.m.debugCandidates) ps.m.debugCandidates = debugCandidates(ps.gd);
-  const enemies = ps.bounties.filter((b) => b.debugEnemies).map((b) => ({ enemyKey: b.card.enemyKey, count: b.card.count }));
-  const m = ps.m;
-  const boss = { round: m.gd.bossRound, at: m.round, bossId: m.bossId ?? null, bosses: debugBosses(m.gd) };
-  return { fundsPin: fundsPinOf(ps) != null, pinValue: FIXED_FUNDS ?? DEBUG_PIN_DEFAULT, candidates: ps.m.debugCandidates, enemies, boss };
-}
-
-// dbg.bossJump: the boss round's prep puts the queued preset boards (m.debugBossJump) once the phase is PREP — the deploy
-// map is the boss field then and the layout moves are legal —, and an AI seat placed by it only Readies afterwards
-let bossJumpInstalled = false;
-function installBossJump() {
-  if (bossJumpInstalled) return;
-  bossJumpInstalled = true;
-  const upstreamEnterPrep = Match.prototype.enterPrep;
-  Match.prototype.enterPrep = function enterPrep() {
-    upstreamEnterPrep.call(this);
-    const jump = this.debugBossJump;
-    if (!jump || this.round !== this.gd.bossRound) return;
-    this.debugBossJump = null;
-    for (const ps of this.alivePlayers()) {
-      try {
-        const bondId = jump.bonds ? jump.bonds.get(ps.playerId) : null;
-        if (bondId) applyDebugBoard(this, ps, bondId, jump.layers);
-        else if (!jump.bonds) applyDebugLayers(this, ps, jump.layers);
-      } catch (e) { this.reportError(`debug boss jump ${ps.playerId}`, e); }
-    }
-    this.markPublic();
-  };
-  const upstreamBotPrep = Match.prototype.scheduleBotPrep;
-  Match.prototype.scheduleBotPrep = function scheduleBotPrep(ps, i = 0) {
-    if (!ps.debugLocked) return upstreamBotPrep.call(this, ps, i);
-    const round = this.round;
-    this.later(0, () => {
-      if (this.phase !== PHASE.PREP || this.round !== round || !ps.alive || ps.ready || !ps.botControlled) return;
-      this.autoPickPersonalChoice(ps, 'random');
-      ps.resolveTemp();
-      ps.setReady(true);
-    });
-  };
-}
-
-/**
- * A debug intent of a match player. `env` decides debug mode (tests pass their own).
- * @returns {{ ok: true } | { error: string, detail?: string }}
- */
-export function debugIntent(m, playerId, msg, env = process.env) {
-  if (!debugMode(env)) return fail(ERR.BAD_MSG, 'debug mode is off');
-  const ps = m && m.players && m.players.get(playerId);
-  if (!ps || ps.isBot || ps.left || ps.spectator) return fail(ERR.NOT_IN_ROOM);
-  if (m.disposed || m.ended) return fail(ERR.WRONG_PHASE);
-  if (msg.t === 'dbg.funds') {
-    installFundsPin();
-    if (Object.hasOwn(ps, 'funds')) { const v = ps.funds; delete ps.funds; ps._funds = v; } // created before the accessor
-    if (msg.on) ps.debugFundsPin = FIXED_FUNDS ?? DEBUG_PIN_DEFAULT;
-    else { ps._funds = ps.funds; ps.debugFundsPin = null; }
-    ps.dirty();
-    return OK;
-  }
-  if (msg.t === 'dbg.finish') {
-    m.finish({ victory: msg.victory, reason: msg.victory ? 'victory' : 'defeat' });
-    return OK;
-  }
-  if (msg.t === 'dbg.addDiy') {
-    const tier = msg.tier;
-    const cand = debugCandidates(m.gd).find((c) => c.charId === msg.charId);
-    if (!cand || !cand.tiers[tier]) return fail(ERR.BAD_TARGET, 'not a DIY candidate');
-    const g = ps._gate({ allowWhenReady: true }); if (g) return g;
-    const slotId = debugDiySlot(ps, msg.charId, tier);
-    if (!slotId) {
-      const held = Object.entries(ps.diy || {}).filter(([id]) => m.gd.raw.backups.diy.slots?.[id]?.tier === tier)
-        .map(([, p]) => m.gd.raw.backups.units?.[p.charId]?.name || p.charId);
-      return fail(ERR.BAD_TARGET, `both 自选 slots of tier ${tier} hold operators with pieces (${held.join(', ')}): sell them first`); // i18n-ignore: parsed by debugPanel.js diySlotsFullOf, which toasts the translated sentence
-    }
-    const prev = ps.diy?.[slotId]?.charId === msg.charId ? ps.diy[slotId] : null;
-    const skillIndex = msg.skill ?? prev?.skillIndex ?? 0;
-    if (!cand.tiers[tier].skills.some((x) => x.index === skillIndex)) return fail(ERR.BAD_TARGET, `skill ${skillIndex} not available`);
-    const mod = msg.module ?? (prev?.uniEquipId ?? MODULE_NONE);
-    if (!cand.tiers[tier].modules.some((x) => x.id === mod)) return fail(ERR.BAD_TARGET, `module ${mod} not available`);
-    const slot = m.gd.raw.backups.diy.slots[slotId];
-    const chessId = msg.golden ? slot.goldenId : slotId;
-    if (!ps.hand.includes(null) && !ps.completesChessMerge(chessId)) return fail(ERR.HAND_FULL);
-    const restore = debugSetPick(ps, slotId, { charId: msg.charId, skillIndex, uniEquipId: mod === MODULE_NONE ? null : mod });
-    if (!restore) return fail(ERR.BAD_TARGET, 'pick refused');
-    const piece = ps.acquireChess(chessId, { source: 'grant', fromPool: false });
-    if (!piece) { restore(); return fail(ERR.HAND_FULL); }
-    ps.dirty();
-    return OK;
-  }
-  if (msg.t === 'dbg.addChess') {
-    const rec = ps.gd.chess(msg.chessId);
-    if (!rec || rec.isGolden || rec.isDiy || !Number.isInteger(rec.tier)) return fail(ERR.BAD_TARGET, 'not a normal chess id');
-    const g = ps._gate({ allowWhenReady: true }); if (g) return g;
-    const chessId = msg.golden ? ps.gd.goldenIdOf(msg.chessId) : msg.chessId;
-    if (!chessId || !ps.gd.chess(chessId)) return fail(ERR.BAD_TARGET, 'no elite form');
-    if (!ps.hand.includes(null) && !ps.completesChessMerge(chessId)) return fail(ERR.HAND_FULL);
-    if (!ps.acquireChess(chessId, { source: 'grant', fromPool: false })) return fail(ERR.HAND_FULL);
-    ps.dirty();
-    return OK;
-  }
-  if (msg.t === 'dbg.addEnemy') {
-    const e = m.gd.enemy(msg.enemyKey);
-    if (!e || e.tokenOnly) return fail(ERR.BAD_TARGET, 'not a spawnable enemy');
-    const g = ps._gate({ allowWhenReady: true }); if (g) return g;
-    const count = msg.count ?? 1;
-    const id = m.addBounty(ps, { name: DEBUG_ENEMY_NAME, desc: '', coin: 0, payout: 'kill', rounds: 1, enemyKey: msg.enemyKey, count });
-    const b = id && ps.bounties.find((x) => x.id === id);
-    if (!b) return fail(ERR.BAD_TARGET, 'not a spawnable enemy');
-    b.debugEnemies = true;
-    return OK;
-  }
-  if (msg.t === 'dbg.bossJump') {
-    const g = ps._gate({ allowWhenReady: true }); if (g) return g;
-    if (!(m.round < m.gd.bossRound)) return fail(ERR.WRONG_PHASE, 'already at the Final Assault');
-    if (msg.bossId != null && !debugBosses(m.gd).includes(msg.bossId)) return fail(ERR.BAD_TARGET, 'not a leader of this mode');
-    if (msg.bondId != null && !bondMembers(m.gd, msg.bondId).length) return fail(ERR.BAD_TARGET, 'no chess of that bond');
-    const layers = DEBUG_LAYER_LEVELS.includes(msg.layers) ? msg.layers : 'normal';
-    const bonds = msg.preset === false ? null : assignDebugBonds(m, playerId, msg.bondId ?? null);
-    installBossJump();
-    if (bonds) for (const p of m.alivePlayers()) if (p.isBot && bonds.get(p.playerId)) p.debugLocked = true;
-    m.debugBossJump = { bonds, layers };
-    if (msg.bossId) m.bossId = msg.bossId;
-    m.startRound(m.gd.bossRound);
-    return OK;
-  }
-  if (msg.t === 'dbg.clearEnemies') {
-    const g = ps._gate({ allowWhenReady: true }); if (g) return g;
-    ps.bounties = ps.bounties.filter((b) => !b.debugEnemies);
-    ps.dirty();
-    return OK;
-  }
-  return fail(ERR.BAD_MSG);
-}
-
-function debugMessage(lobby, session, msg) {
-  if (!debugMode()) return fail(ERR.BAD_MSG, 'debug mode is off');
-  const room = lobby.roomOf(session);
-  if (!room) return fail(ERR.NOT_IN_ROOM);
-  if (!room.match) return fail(ERR.WRONG_PHASE, 'no running match');
-  const res = debugIntent(room.match, session.playerId, msg);
-  try { room.match.flush?.(); } catch { /* the next push carries it */ }
-  return res;
-}
-
-if (debugMode()) {
-  console.warn(`[local-patch] local debug mode: in-game debug panel on (${[...DEBUG_MSGS].join(' / ')})`);
-  const upstreamView = PlayerState.prototype.privateView;
-  PlayerState.prototype.privateView = function privateView() {
-    const v = upstreamView.call(this);
-    try { if (v) v.debug = debugView(this); } catch { /* display only */ }
-    return v;
-  };
-}

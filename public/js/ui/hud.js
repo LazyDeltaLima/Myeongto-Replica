@@ -427,6 +427,7 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
       <div class="gtop__meta">
         <${LivePing} />
         ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} modeId=${pub.modeId} size="sm" />` : null}
+        ${pub?.console ? html`<span class="cxp-badge" title=${t('控制台模式')}>CONSOLE</span>` : null /* local patch: 콘솔 모드 */}
       </div>
     </div>
 

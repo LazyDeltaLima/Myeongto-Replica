@@ -7,7 +7,11 @@
 //   chat faction   room.chatFaction { faction } → room.factions { factions: { [playerId]: factionId } } (all members,
 //                  whenever it changes, and to whoever joins); cleared when the match ends
 //   emote sets     g.emote { id, set? } — 'user' pictures (shared/emote-art.js), missing = official
-//   debug panel    dbg.funds { on } · dbg.addDiy { charId, tier, golden?, skill?, module? } · dbg.addChess { chessId, golden? } · dbg.addEnemy { enemyKey, count? } · dbg.clearEnemies {} · dbg.bossJump { bossId?, bondId?, layers?, preset? } · dbg.finish { victory } — local debug mode only (server/local-patch.js debugMode)
+//   console        room.setConsole { on } (a solo room, before its match → room.state `console`) · con.funds { on } ·
+//                  con.addChess { chessId, golden? } · con.addDiy { charId, tier, golden?, skill?, module? } · con.addItem { itemId, golden? } ·
+//                  con.addEnemy { enemyKey, count? } · con.clearEnemies { enemyKey? } · con.jumpRound { round } · con.presetBoard { bondId?, layers } ·
+//                  con.setBoss { final?, hidden? } · con.setLayers { bondId, layers } · con.resetLayers {} · con.end { to, victory? } —
+//                  콘솔 모드: a console match's player, or any player in local debug mode (server/local-console.js)
 //   restart        server.restart { inMs, mark? } (every connected socket; inMs null = called off) + welcome `restart: { inMs }`
 //                  while a countdown runs — the deploy's server-restart notice (server/local-restart.js)
 //   generation     server.gen { id, state } (every connected socket when the server starts draining) + welcome
@@ -100,10 +104,11 @@ export function extendProtocol(C2S, S2C) {
   // the server trims a line to CHAT_MAX_LEN code points (UTF-16 ×2 here, plus room for whitespace it collapses)
   C2S['room.chat'] = { text: (v) => isStr(v, CHAT_MAX_LEN * 4) };
   C2S['room.chatFaction'] = { faction: (v) => !!chatFaction(v) };
-  // local debug mode only (server/local-patch.js debugIntent refuses them otherwise): the in-game debug panel
-  C2S['dbg.funds'] = { on: (v) => typeof v === 'boolean' };
-  C2S['dbg.finish'] = { victory: (v) => typeof v === 'boolean' };
-  C2S['dbg.addDiy'] = {
+  // 콘솔 모드 (server/local-console.js consoleIntent checks who may send them: a console match's player, or local debug mode)
+  C2S['room.setConsole'] = { on: (v) => typeof v === 'boolean' };
+  C2S['con.funds'] = { on: (v) => typeof v === 'boolean' };
+  C2S['con.end'] = { to: (v) => v === 'lobby' || v === 'result', victory: (v) => typeof v === 'boolean', $optional: ['victory'] };
+  C2S['con.addDiy'] = {
     charId: (v) => typeof v === 'string' && /^char_[A-Za-z0-9_]{1,40}$/.test(v),
     tier: (v) => v === 5 || v === 6,
     golden: (v) => typeof v === 'boolean',
@@ -111,24 +116,38 @@ export function extendProtocol(C2S, S2C) {
     module: (v) => typeof v === 'string' && /^[A-Za-z0-9_\-]{1,64}$/.test(v),
     $optional: ['golden', 'skill', 'module'],
   };
-  C2S['dbg.addEnemy'] = {
-    enemyKey: (v) => typeof v === 'string' && /^enemy_[A-Za-z0-9_]{1,60}$/.test(v),
-    count: (v) => Number.isInteger(v) && v >= 1 && v <= 20,
-    $optional: ['count'],
-  };
-  C2S['dbg.clearEnemies'] = {};
-  C2S['dbg.bossJump'] = {
-    bossId: (v) => typeof v === 'string' && /^boss_[A-Za-z0-9_]{1,40}$/.test(v),
-    bondId: (v) => typeof v === 'string' && /^[A-Za-z0-9_]{1,40}$/.test(v),
-    layers: (v) => ['keep', 'normal', 'strong', 'max'].includes(v), // server/local-debug-board.js DEBUG_LAYER_LEVELS
-    preset: (v) => typeof v === 'boolean',
-    $optional: ['bossId', 'bondId', 'layers', 'preset'],
-  };
-  C2S['dbg.addChess'] = {
+  C2S['con.addChess'] = {
     chessId: (v) => typeof v === 'string' && /^chess_[A-Za-z0-9_]{1,60}$/.test(v),
     golden: (v) => typeof v === 'boolean',
     $optional: ['golden'],
   };
+  C2S['con.addItem'] = {
+    itemId: (v) => typeof v === 'string' && /^[A-Za-z0-9_]{1,80}$/.test(v),
+    golden: (v) => typeof v === 'boolean',
+    $optional: ['golden'],
+  };
+  C2S['con.addEnemy'] = {
+    enemyKey: (v) => typeof v === 'string' && /^enemy_[A-Za-z0-9_]{1,60}$/.test(v),
+    count: (v) => Number.isInteger(v) && v >= 1 && v <= 20,
+    $optional: ['count'],
+  };
+  C2S['con.clearEnemies'] = { enemyKey: (v) => typeof v === 'string' && /^enemy_[A-Za-z0-9_]{1,60}$/.test(v), $optional: ['enemyKey'] };
+  C2S['con.jumpRound'] = { round: (v) => Number.isInteger(v) && v >= 1 && v <= 99 };
+  C2S['con.presetBoard'] = {
+    bondId: (v) => typeof v === 'string' && /^[A-Za-z0-9_]{1,40}$/.test(v),
+    layers: (v) => ['keep', 'normal', 'strong', 'max'].includes(v), // server/local-debug-board.js DEBUG_LAYER_LEVELS
+    $optional: ['bondId'],
+  };
+  C2S['con.setBoss'] = {
+    final: (v) => typeof v === 'string' && /^boss_[A-Za-z0-9_]{1,40}$/.test(v),
+    hidden: (v) => typeof v === 'string' && /^boss_[A-Za-z0-9_]{1,40}$/.test(v),
+    $optional: ['final', 'hidden'],
+  };
+  C2S['con.setLayers'] = {
+    bondId: (v) => typeof v === 'string' && /^[A-Za-z0-9_]{1,40}$/.test(v),
+    layers: (v) => Number.isInteger(v) && v >= 0 && v <= 99999,
+  };
+  C2S['con.resetLayers'] = {};
   // the settlement screen's feedback (server/local-feedback.js checks the sender and cleans the text)
   C2S['fb.send'] = {
     id: (v) => typeof v === 'string' && /^[a-z0-9]{8}$/.test(v),

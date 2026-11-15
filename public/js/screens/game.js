@@ -92,7 +92,7 @@ import { EnemyDrawer } from '../ui/enemyDrawer.js';
 import { Ticker } from '../ui/ticker.js';
 import { EmoteWheel } from '../ui/emotes.js';
 import { GameChat } from '../ui/chat.js';
-import { DebugPanel } from '../ui/debugPanel.js'; // local patch: local debug mode only (m.private.debug)
+import { ConsolePanel } from '../ui/consolePanel.js'; // local patch: 콘솔 모드 (m.private.console)
 import { BandSkill } from '../ui/bandSkill.js';
 import { RoundDamage } from '../ui/roundDamage.js';
 import { CombatHud } from '../ui/combatHud.js';
@@ -1907,7 +1907,7 @@ function MatchScreen() {
       ${showBandSkill ? html`<${BandSkill} view=${view} priv=${priv} phase=${phase} combat=${combat} place=${placeCtx} />` : null}
       <${BossDamagePanel} pub=${pub} myId=${myId} />
       <div class="gm__effects"><${RoundDamage} pub=${pub} priv=${priv} myId=${myId} place="desktop" spectator=${spectator} /></div>
-      ${priv?.debug && !spectator ? html`<${DebugPanel} debug=${priv.debug} prep=${phase === PHASE.PREP} diy=${priv.diy} />` : null /* local patch: local debug mode */}
+      ${priv?.console && !spectator ? html`<${ConsolePanel} con=${priv.console} pub=${pub} priv=${priv} phase=${phase} />` : null /* local patch: 콘솔 모드 */}
 
       ${watchingOther && !combat ? html`<div class="gm__watching" role="status">
         <${GIcon} name="eye" /><span>${tParts('正在查看 {name} 的阵地（只读）', { name: html`<b>${watchedName}</b>` })}</span>

@@ -334,7 +334,10 @@ function wireNet() {
   net.on('m.field', (msg) => store.patch('match', { field: payload(msg) }));
   net.on('m.result', (msg) => {
     const res = payload(msg);
+    // 콘솔 모드 (server/local-console.js): 「로비로」 goes straight back to the room; a console match keeps no record
+    if (res?.reason === 'consoleLobby') { store.set({ match: emptyMatch() }); return; }
     store.patch('match', { result: res });
+    if (res?.reason === 'console' || store.get().match.public?.console) return;
     // 本机统计 (PR #323): every arrival, including the lobby's result replay after a reconnect / reload —
     // replays dedupe by content id inside recordResult (spectator seats' copies build no record at all)
     recordResult(res, { myId: store.get().me.playerId, roomMode: store.get().room?.mode ?? null, ruleset: store.get().match.public?.ruleset ?? store.get().room?.ruleset ?? null, season: store.get().room?.season ?? null, now: Date.now() });

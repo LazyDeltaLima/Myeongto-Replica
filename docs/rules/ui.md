@@ -3,76 +3,64 @@
 옛 `docs/LOCAL-PATCH.md`에서 2026-10-09에 나눈 파일이다. 옛 절 이름은 `docs/LOCAL-PATCH.md` 색인에서 찾는다.
 본문의 「캡처 N」·「KR 캡처 N」·「이미지 N」은 관리자가 준 공식 화면 캡처 묶음(비공개)의 번호다.
 
-## 게임 내 디버그 패널 (2026-10-06)
-- **로컬 디버그 모드** = `SP_DEBUG_PAGE=1` 또는 올바른 `SP_DEBUG_FUNDS`(0..999), 그리고 `NODE_ENV`가 `production`이 아닐 때
-  (`server/local-patch.js debugMode`). 로컬 개발 서버는 둘 다 켜고, 배포 서버는 둘 다 설정하지 않고,
-  Docker 이미지는 `NODE_ENV=production`이라 배포 서버는 절대 디버그 모드가 아니다.
-  - 이 조건은 `SP_DEBUG_FUNDS` 재화 고정에도 적용된다(예전에는 `SP_DEBUG_FUNDS`만 보고 고정했다).
-- 서버: `dbg.funds { on }`, `dbg.addDiy { chessId }`는 `Lobby.onMessage` 첫 줄의 기존 훅(`localPatch.onMessage`)으로 들어온다.
-  디버그 모드가 아니면 `BAD_MSG`로 거부(클라이언트를 믿지 않음; `debugMessage`와 `debugIntent`가 각각 확인). 프로토콜 형식(`shared/local.js`)은
-  항상 있지만 서버가 거부한다. `privateView` 감싸기(→ `m.private.debug = { fundsPin, pinValue, candidates }`)와 `funds` 접근자는 디버그 모드에서만
-  설치되므로 배포 서버의 경로는 원본 그대로다.
-  - 재화: 플레이어별 `ps.debugFundsPin`(undefined = 환경 기본값 `SP_DEBUG_FUNDS`, null = 실제 재화, 숫자 = 고정). 켜면 `SP_DEBUG_FUNDS`
-    값(없으면 99)으로 고정, 끄면 그 값에서 실제 재화로 이어진다. 봇은 항상 실제 재화.
-  - 선발 추가: `chess_diy_<key>_<5|6>_<a|b>`(a 일반, b 정예)를 `PlayerState.acquireChess(id, { source: 'grant', fromPool: false })`로
-    정비 구역(hand)에 넣는다 — 상점 구매와 같은 경로라 3장 합성·onGain·`m.private` 갱신이 그대로 된다. 정비 단계만(준비 완료 후에도 허용),
-    정비 구역이 가득 차면 합성이 되는 경우가 아니면 `HAND_FULL`(구매와 같은 규칙, 임시 칸으로 넘기지 않음). 전용 풀 복사본을 쓰지 않으므로
-    `diyOwned`(오퍼레이터 구성에서 고른 픽 = 상점에 나오는 픽)와 풀은 바뀌지 않는다. 판매하면 풀에 돌려줄 복사본이 없다(0).
-  - 스킬·모듈: `dbg.addDiy { chessId, skill?, module? }`. 오퍼레이터 구성(DESIGN §16)과 같은 방식으로, 그 기본 chess id(`_a`)의 loadout 항목
-    `{ skill, module }`을 `ps.loadout`에 직접 쓴다(`debugLoadoutEntry`) → `loadoutFor`/`resolveLoadout`를 읽는 전투 입력(`battleInput`)·
-    소환물·사거리·`m.private.loadout`이 그대로 따른다. 검사는 `room.loadout`과 같은 `loadoutOptions`(스킬 번호가 그 기록에 있는지, 모듈은 정예
-    기록의 `modules` 또는 `none`; 일반 기록에 모듈을 보내면 거부). 생략하면 현재 값. 항목의 `diy`(선발 칸)는 있으면 유지하고 새로 붙이지 않는다
-    → 고르지 않은 오퍼레이터는 픽이 되지 않는다(`diyPicks`는 `diy`만 본다, `setLoadout`/`checkLoadout`을 거치지 않아 `diyOwned`도 그대로).
-    거부되면 아무것도 바뀌지 않고, 정비 구역이 차서 못 넣으면 loadout을 되돌린다. 일반 기물에만 스킬을 고르면 같은 항목의 모듈(합성된 정예가 쓸 것)은 유지된다.
-  - 결산(2026-10-09, 관리자 요청 「디버그용으로 결산화면을 바로 볼 수 있어?」): `dbg.finish { victory }` → `Match.finish({ victory, reason: victory ? 'victory' : 'defeat' })`.
-    어느 단계에서나 판을 바로 끝낸다 — 모든 사람 자리에 `m.result`, `onMatchEnd`(`[stats]` 줄, 결산 화면 피드백 허용)가 그대로 돈다. 패널 맨 아래 「정산 [승리] [패배]」.
-  - 모든 오퍼레이터 추가(2026-10-11, 관리자 요청 「맹약별, 단계별, 이름 검색으로 필터링 가능하게 해서 모든 오퍼가 추가 가능하게」):
-    `dbg.addChess { chessId, golden? }` → `data/chess.json`의 일반 기물 id(숨김 기물 포함, 선발 칸 `isDiy`·정예 id는 거부)를
-    `acquireChess(golden ? 정예 : 일반, { source: 'grant', fromPool: false })`로 정비 구역에 넣는다. 정비 단계만, 정비 구역이 차면 합성이 되는 경우가
-    아니면 `HAND_FULL` — `dbg.addDiy`와 같은 규칙. 넣을 때 풀 복사본을 쓰지 않지만, 3장 합성이 되면 `_mergeChess`가 정예 몫(`goldenCopies`)을
-    풀에서 채운다(모든 합성과 같다). 목록은 서버가 보내지 않고 클라이언트가 자기 `chess.json`으로 만든다(서버는 id만 검사).
-    선발 후보(`debugCandidates`)에는 맹약 필터용 `bonds`(`diy.operators[charId].bonds`)가 붙는다.
-- 클라이언트: `m.private.debug`가 있을 때만 `DebugPanel`을 그린다(관전석 제외). 위치는 왼쪽 팀 패널 오른쪽, 맹약 줄 아래(`left 2.3rem, top 2.05rem`)
-  — 보드·상점·정비 구역과 겹치지 않는다(1920×1080·1280×720 확인, 폭 2.1rem: 그보다 넓으면 보드 왼쪽 날개에 닿는다).
-  선택 상자는 현재 loadout 항목(`m.private.loadout`)이나 기본값에서 시작하고, 스킬 이름(「S3 · 그믐달의 여운」)·모듈 이름은 원문을 DOM 번역기가 바꾼다. 맹약 팝업·상세 카드는 같은 자리에 위로 열린다. 머리줄(DEBUG)을 누르면 접힌다.
-  문구는 중국어 원문 + `public/i18n/ko/ui.json`(「调试用资金固定 {0}」 → 「디버깅용 재화 {0} 고정」 등).
-  오퍼레이터 고르기(2026-10-11): 맹약(전체 / 선발만 / 각 맹약) · 티어(전체 / I–VI) · 검색(표시 이름·중국어 이름·영어 이름·세부 직군·맹약 이름) 필터를 거친
-  한 목록(「VI · 이름」, 숨김 기물은 「(숨김)」, 선발은 「(선발)」, 옆에 개수)에서 고른다(`debugEntries`·`filterDebugEntries`). 일반 기물은 일반/정예만,
-  선발은 지금처럼 티어(V/VI)·스킬·모듈까지 고른다.
-  선발은 티어마다 칸이 2개라, 두 칸의 오퍼레이터가 모두 기물을 갖고 있으면 세 번째 선발은 거부된다(관리자 확인 2026-10-11: 칸 제한은 그대로).
-  이때 토스트는 코드 문구(「잘못된 대상」) 대신 「VI티어 선발 칸 2개를 이미 기물이 있는 오퍼레이터(왕, …)가 쓰고 있습니다. 먼저 판매하세요」
-  (관리자 요청 2026-10-11: 패널이 아니라 토스트에, 한국어로) — 서버 `detail`을 `diySlotsFullOf`가 읽는다(문장은 테스트로 고정).
-- 숨기기·추가 적(2026-10-12, 관리자 요청 「단축키로 패널을 숨기거나 표시」「다음 라운드에 직접 지정한 적들이 추가로 나오게」):
-  - **F2**가 패널 전체를 숨기고 다시 보인다(머리줄 접기와 별개; 숨길 때 「F2 키로 다시 표시」 토스트). 브라우저별로 기억한다(`sp.pref.debugPanelHidden`).
-    F2는 게임 단축키(`DEFAULT_HOTKEYS`, 다시 지정 가능한 키 목록)와 겹치지 않는다. 머리줄에 「DEBUG F2」.
-  - `dbg.addEnemy { enemyKey, count? }`(1–20, 기본 1) → 보낸 플레이어의 **다음 전투**에 그 적을 더 넣는다. 0코인·1전투짜리 현상 수배로
-    (`Match.addBounty`, 표시 `debugEnemies`) 넣기 때문에 공식 추가 적(悬赏 카드의 적)과 같은 길을 탄다: 템플릿의 첫 보행/비행 행동에 끼워 넣기
-    (`waves.js bountyPlan`), 라운드 배율, 보스 라운드는 그 플레이어 쪽 절반, 敌情 미리보기·효과 목록(「DEBUG · 1전투 남음」)에 표시, 그 전투의
-    정산이 지운다. 정비 단계만(전투 중에 넣으면 그 전투의 정산이 나오기 전에 지워 버린다). `dbg.clearEnemies`는 대기 중인 것을 지운다.
-    토큰 전용 적(`tokenOnly`, 소환물)은 거부·목록 제외. 패널은 클라이언트 `enemies.json`으로 목록을 만들고(일반 → 정예 → 보스, 이름·중국어 이름·키
-    검색), `m.private.debug.enemies`로 대기 목록(「다음 전투: 원석충 ×3 [비우기]」)을 보인다.
-  - 확인: `test/local-patch.test.js` 「dbg.addEnemy …」(전투 spec·미리보기·다른 플레이어 제외·1전투 뒤 소멸), Windows Chrome 실제 솔로 판
-    (F2 숨김/표시·기억, 원석충 ×3 추가 → 미리보기·효과 목록, 비우기, 2라운드 정비에서 대기 목록 비어 있음).
-- 최종 공세로 이동(2026-10-30, 관리자 요청 「보스전 이펙트 디버깅을 위해 보스 스테이지로 바로 가는 기능」, 관리자 결정 2026-10-30: 바로 이동 ·
-  히든 코어 직행은 넣지 않음 · AI 배치 고정 · 기존 기물은 교체(체크 해제 시 유지) · 장비 없음 · 선발 오퍼레이터 없음):
-  - `dbg.bossJump { bossId?, bondId?, layers?, preset? }` → 최종 공세보다 앞선 정비 단계 어디서나 `Match.startRound(gd.bossRound)`로 바로 간다.
-    그 사이 라운드(수입·결정·현상 수배·전투)는 건너뛴다. `bossId`는 이 모드의 보스(`gd.bossWeights(false)`, 커스텀 금지 반영)만, 생략하면 이 판에 뽑힌 보스.
-    이미 최종 공세(또는 그 뒤)면 `WRONG_PHASE`, 모드에 없는 보스·기물이 없는 맹약은 `BAD_TARGET`.
-  - 프리셋(`preset`, 기본 켬): 보스 라운드 정비 단계가 열릴 때(`Match.enterPrep` 감싸기 — 배치 맵이 이미 보스 필드이고 배치 이동이 허용되는 때)
-    살아 있는 모든 자리(보낸 사람·다른 사람·AI 팀원)의 기물을 돌려보내고(풀 복사본·선발 재고) 맹약 하나를 중심으로 한 보드를 넣는다
-    (`server/local-debug-board.js`): 그 맹약의 상점 기물을 높은 티어부터, 배치 가능 인원 안에서 가장 높은 발동 단계까지(모자라면 전부), 남는 칸은
-    저지 2·치료 1·대공 1이 모자란 역할 → 맹약을 많이 공유하는 기물 → 높은 티어 순(난수 없음). 모두 정예, 장비 없음, 풀 복사본을 쓰지 않는다(`dbg.addChess`와 같음).
-    배치는 AI 배치 계획(`bot.js arrange`, 리허설 없음), 소환물 카드도 놓는다. 보낸 사람의 맹약은 `bondId`(생략하면 뽑기), 나머지 자리는 이 판에 켜진
-    핵심 맹약 중 서로 다른 것을 뽑는다(판 시드에서 파생한 난수). 이렇게 놓인 AI 자리는 이후 정비 단계에서 사고팔거나 다시 배치하지 않고 준비 완료만 한다
-    (`Match.scheduleBotPrep` 감싸기, `ps.debugLocked`). 두 감싸기는 `dbg.bossJump`를 처음 쓸 때만 설치된다.
-  - 중첩 수(`layers`): `keep` 그대로 · `normal` 보드가 발동시키는 맹약마다 BALANCE.md §1.1의 R14 값(핵심 맹약 150, 나머지 90) · `strong` ×1.4
-    (히든 코어 중첩 조건을 넘길 정도) · `max` 상한 999. 프리셋을 끄면 보드는 그대로 두고, 그 순간 발동 중인 맹약에만 이 값을 넣는다(가장 많이 모인 맹약이 핵심 값).
-    중첩이 바로 들어가므로 발동하면서 밀린 중첩 보상(빅토리아 망치 등)도 공식 규칙대로 지급된다.
-  - 패널: 「보스 [이번 판 · 이름 / 모드의 보스들]」, 「맹약별로 다시 배치 (AI 포함)」 체크, 「맹약 [무작위 / 각 맹약]」, 「중첩 수 [현재 유지 / 보통 / 많이 / 최대]」,
-    「최종 공세로 이동 (14라운드)」 — 정비 단계이고 아직 보스 라운드 전일 때만 누를 수 있다(`m.private.debug.boss = { round, at, bossId, bosses }`).
-  - 확인: `test/local-patch.test.js` 「dbg.bossJump …」(실제 매치 경로: R1 → R14 정비, 선택한 보스·보스 필드 계획, 자리마다 8명·정예·장비 없음·서로 다른 핵심 맹약
-    150 중첩, 불변식, AI 준비 완료·배치 그대로, 최종 공세 시작; 프리셋 끔: 기물 유지·중첩 999), Windows Chrome 실제 협동 판(나 + AI 3명, 기본값으로
-    버튼 → R14 정비에서 카시미어 6명 150·추가 맹약 90 → 준비 완료 → 최종 공세 진행, 페이지 오류 없음).
+## 콘솔 모드 (2026-11-15; 옛 「게임 내 디버그 패널」 2026-10-06을 합침)
+단독 시뮬레이션에서만 켜는 게임 안 콘솔(관리자 요청·결정 2026-11-15). 옛 로컬 디버그 패널을 넓혀 합쳤고(관리자 결정 2026-11-15: 로컬 디버그
+모드에선 협동 방에서도 같은 콘솔 패널), 운영 서버에서도 누구나 단독 방에서 켠다. 공식 게임에 없는 기능이다.
+- **켜기**: 단독 대기실 「오퍼레이터 설정」(`LoadoutButton`) 오른쪽 「콘솔 모드」 버튼(같은 모양, 켜면 주황, `ui/consoleToggle.js`) → `room.setConsole { on }`
+  (`server/local-patch.js setConsole`: 단독 방의 자기 자리만, 판 시작 전만, 협동 방은 `BAD_TARGET`). 방 상태 `room.state.console`(방의 다음 판들에도
+  남음, 서버를 옮기는 대기실 인계 `roomSnapshot`/`adoptRoom`도 들고 감). 켜면 브리핑에 한 줄, 위 「1인 전용」 옆에 「CONSOLE」. 규칙(클래식·캐주얼·
+  사용자 지정)과 따로 켠다. 판 시작 때 `localPatch.onMatchCreate`가 `match.console = true`(판 동안 고정, 판 도중 켜고 끄기 없음).
+- **누가 쓰나** (`server/local-console.js consoleAllowed`·`consoleIntent`, 문 하나): 콘솔 판의 사람 자리, 또는 로컬 디버그 모드의 모든 사람 자리.
+  그 밖의 `con.*`는 `BAD_MSG`(서버는 패널을 믿지 않음). **로컬 디버그 모드** = `SP_DEBUG_PAGE=1` 또는 올바른 `SP_DEBUG_FUNDS`(0..999), 그리고
+  `NODE_ENV`가 `production`이 아닐 때(`debugMode`; Docker 이미지는 `NODE_ENV=production`이라 배포 서버는 절대 아님). `SP_DEBUG_FUNDS` 재화 고정도 이 조건.
+- **화면에 보내는 것**: 그 자리에만 `m.private.console = { console, fundsPin, pinValue, candidates, enemies, boss, rounds, layers, layersEdited,
+  layersBase, layerCap, note }`, 콘솔 판이면 `m.public.console = true`(HUD 난이도 옆 「CONSOLE」).
+- **명령** (`shared/local.js` C2S, 처리는 `consoleIntent` 한 곳; 정비 단계만인 것은 준비 완료 뒤에도 됨):
+  - `con.funds { on }` 재화를 `SP_DEBUG_FUNDS`(없으면 99)로 고정 / 실제 재화로(그 값에서 이어감). 플레이어별 `ps.debugFundsPin`, 봇은 항상 실제 재화.
+    `funds` 접근자는 처음 고정할 때(또는 시작 때 `SP_DEBUG_FUNDS`가 있으면) 설치된다 — 그 전 서버 경로는 원본 그대로.
+  - `con.addChess { chessId, golden? }` `data/chess.json`의 일반 기물(숨김 포함; 선발 칸·정예 id는 거부)을 `acquireChess(…, { source: 'grant', fromPool: false })`로
+    정비 구역에. 정비 구역이 차면 합성이 되는 경우가 아니면 `HAND_FULL`. 풀 복사본을 쓰지 않지만 3장 합성이면 `_mergeChess`가 정예 몫을 풀에서 채운다(모든 합성과 같음).
+  - `con.addDiy { charId, tier, golden?, skill?, module? }` 선발 후보(`debugCandidates`, 맹약 필터용 `bonds` 포함) V·VI. 그 티어에서 같은 오퍼레이터의 칸 →
+    빈 칸 → 기물이 하나도 없는 칸 순으로 고르고(`debugDiySlot`), 그 칸 하나만 `checkDiyPicks`로 검사해 픽을 넣는다(`debugSetPick`; 「소유한 오퍼레이터는 한 칸」
+    규칙을 적용하지 않아 같은 오퍼레이터가 두 티어에 설 수 있다). 두 칸 모두 기물을 가진 오퍼레이터면 거부, 패널은 서버 `detail`을 `diySlotsFullOf`로 읽어
+    이름과 함께 토스트(관리자 요청 2026-10-11). 스킬 0–2, 모듈은 정예 형태의 모듈 또는 `none`.
+  - `con.addItem { itemId, golden? }` 장비(「강화」면 강화형)를 `acquireItem(…, { noPool: true })`로 — 공유 장비 재고를 쓰지 않고(특질 고정 장비와 같은 표시),
+    정비 구역(규정은 장비 구역)이 차면 합성이 되는 경우가 아니면 `HAND_FULL`.
+  - `con.addEnemy { enemyKey, count? }`(1–20) 보낸 사람의 **다음 전투**에 그 적을 더 넣는다: 0코인·1전투 현상 수배(`Match.addBounty`, `debugEnemies`)라
+    공식 추가 적(悬赏)과 같은 길 — 템플릿 첫 보행/비행 행동에 끼움(`waves.js bountyPlan`), 라운드 배율, 敌情 미리보기·효과 목록(「DEBUG」), 그 전투 정산이 지움.
+    토큰 전용 적은 거부. `con.clearEnemies { enemyKey? }` 대기 중인 것 전부 / 그 적만 지움.
+  - `con.jumpRound { round }` 1..마지막 라운드(히든 코어가 있는 판은 히든 코어 라운드, 없으면 최종 공세) 어느 라운드든 앞뒤로 바로 그 라운드 시작으로
+    (`Match.startRound`). 가진 것은 그대로, 리더 라운드 상태(팀 생명·리더 풀·종료 표시·초과 시간)는 지우고, 히든 코어 라운드로 가면 `hiddenReached`.
+    그 사이 라운드의 수입·결정·전투는 건너뛴다. 결정 라운드로 가면 그 결정이 열린다. 뒤로 가도 상점 레벨·업그레이드 가격·쌓인 카운터는 그대로
+    이어간다(공식에 없는 기능; 도착한 라운드의 수입은 받는다).
+  - `con.presetBoard { bondId?, layers }` 완성 보드(관리자 결정 2026-11-15 안 A: 라운드 이동과 따로): 지금 정비 단계에서 살아 있는 모든 자리(AI 포함)의
+    기물을 돌려보내고 맹약 하나 중심 보드를 넣는다(`server/local-debug-board.js`): 그 맹약의 상점 기물을 높은 티어부터 배치 인원 안의 가장 높은 발동
+    단계까지, 남는 칸은 저지 2·치료 1·대공 1 → 맹약 공유 → 티어 순(난수 없음), 전원 정예·장비 없음·풀 복사본 안 씀, AI 배치 계획(`bot.js arrange`)으로 배치.
+    보낸 사람은 `bondId`(없으면 뽑기), 나머지는 이 판의 다른 핵심 맹약. 층수 `keep` 그대로 · `normal` R14 기준(BALANCE.md §1.1: 핵심 150, 그 밖 90) ·
+    `strong` ×1.4 · `max` 상한 — 라운드와 상관없이 늘 R14 수준. 이렇게 놓인 AI 자리는 진행 중이던 정비를 멈추고(`_botPrepToken`) 이후 준비 완료만 한다(`ps.debugLocked`).
+  - `con.setBoss { final?, hidden? }` 최종 공세 / 히든 코어 리더(이 모드의 리더 목록, `gd.bossWeights`). 다음 리더 라운드부터; 그 리더 라운드 정비 중이면 필드를 다시 계획.
+  - `con.setLayers { bondId, layers }`(0..상한) 맹약 하나의 층수를 바로(`ps.layers`), `con.resetLayers {}` 첫 `con.setLayers` 전 층수로(`ps.consoleLayersBase`).
+  - `con.end { to: 'lobby' | 'result', victory? }` 콘솔 판은 `reason: 'consoleLobby'`(화면은 결산 없이 바로 대기실) / `'console'`(결산 화면만 보여 줌);
+    콘솔이 아닌 로컬 디버그 판의 `'result'`는 옛 디버그 결산(`victory`로 승리 / 패배, 기록도 평소대로).
+- **콘솔 판은 규칙으로 끝나지 않는다** (관리자 결정 2026-11-15, `server/local-console.js` 끝의 감싸기들):
+  - 리더 클리어·리더 라운드 패배 → `Match.finish` 대신 같은 라운드 정비(`startRound(round)`, 생명이 0이면 시작 값으로) + 알림(`note`: 「최종 공세 클리어 —
+    결산 없이 14라운드 정비로 돌아왔습니다」). 최종 공세 클리어가 히든 코어 조건을 넘으면 공식대로 히든 코어로 간다(결산이 아니므로).
+  - 일반 라운드에서 생명 0 → 탈락하지 않는다(`PlayerState.eliminate` 감싸기: 생명을 시작 값으로), 그 정산 뒤 같은 라운드를 다시(`afterSettle` 감싸기) + 알림.
+    탈락 토스트·티커(정산의 그 문구)는 콘솔 판에서 보내지 않는다.
+  - 끝나는 길: `con.end`, 나가기(`Match._quit` — 진짜 탈락), 오류. 결과는 기록에 넣지 않는다: 서버 `[stats]` 줄 없음(`onMatchEnd`가 `summary.console`을 봄),
+    화면은 통계·업적·전적(`recordResult`)에 넣지 않음(`main.js`: `reason` 'console*' 또는 `m.public.console`).
+  - 성공한 명령은 `m.consoleLog`(라운드·명령·값, 최근 300개)에 남고, 판 도중 「✎ 제보」(결산 화면의 피드백 창 그대로 + 「콘솔 판에서 보내는 제보」 안내)로
+    보내면 서버가 `console` 항목으로 붙인다 — `fb.send`의 「끝난 판 1시간 안」 문을 진행 중인 콘솔 판의 자리에도 연다(`local-patch.js liveConsoleFeedback`).
+    끝난 콘솔 판에서 결산 화면 피드백을 보내도 같은 기록이 붙는다.
+- **패널** (`public/js/ui/consolePanel.js` + `css/console-panel.css`, 목록 함수는 `ui/consoleLists.js`): 데스크톱은 왼쪽(단독은 팀 목록이 비어 자리가 있음),
+  탭 5개 가로 — 오퍼레이터(등급 칩 공식 `chessLevelSprite/chess_level_icon_N`, 일반/정예, 맹약 필터 전체·선발 + 핵심/부가 맹약 칩 공식 `bondBoardIcon/1_0`·`1_1`,
+  검색, 칸은 `equipReplace/avatart_bg`·`avatart_frame` 위 초상; 선발은 작은 창: 단계·일반/정예·스킬·모듈) · 장비(희귀도 원판 `itemRarity/rN`, 일반/강화) ·
+  적(일반/정예, 수량, 다음 전투 대기열) · 라운드(1–마지막 네모 칸, 「N라운드 정비로 이동」, 완성 보드 블록, 리더 초상, 자금 고정, 콘솔 끝내기) ·
+  맹약(HUD 맹약 칸 `.bslot`·`bondBoardOf`를 작게, 핵심/부가 나눔, −10/−/값/+/+10/최대, 「↺ 초기화」). 탭 아이콘은 시안의 선 아이콘(관리자 결정 2026-11-15).
+  `` ` `` 키로 접고 펴기(브라우저별 기억), 접으면 왼쪽 위 「CONSOLE」 탭. 휴대폰(짧은 화면 + 터치)은 왼쪽 전체 높이 시트, 탭은 세로 레일, ±10 없음.
+  「콘솔 끝내기…」는 공식 확인 창(`battleArt('confirm')`, `.bcd`) 모양에 취소 / 로비로 / 결산 화면으로. 고른 시안: 관리자 노트 「콘솔 모드 시안」.
+  그리기: 매 프레임 비용 없음(`m.private` 바뀔 때만, 아이콘 격자는 열린 탭만).
+- 재발 방지: `test/local-console.test.js`(누가 쓰나·대기실 켜기·명령마다 실제 판 경로·규칙으로 안 끝남·끝내기·기록 제외·판 도중 제보).
 
 ## 정비 화면 HUD (2026-10-06)
 상점과 같은 방식(관리자 요청: 정비 화면 나머지도 실제 게임과 같게). 근거는 EN 클라이언트 `[uc]autochessbattle.ab`의 `autochess_hud_panel`,

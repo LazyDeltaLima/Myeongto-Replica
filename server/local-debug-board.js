@@ -1,19 +1,15 @@
-// The debug panel's jump to the Final Assault (dbg.bossJump, server/local-patch.js debugIntent) — local debug mode
-// only, never on a deployed server. From any prep before the boss round:
-//   bossId       the leader of the jump (one of the mode's, gd.bossWeights), else the match's own draw
-//   preset       every alive seat — the sender, other humans, the AI teammates — gets a board built around one bond:
-//                its members (highest tiers first) up to the bond's highest threshold the deploy cap allows, the rest
+// The console's 완성 보드 (con.presetBoard, server/local-console.js): in a prep, every alive seat — the sender, other
+// humans, the AI teammates — gets a board built around one bond, whatever the round:
+//   board        its members (highest tiers first) up to the bond's highest threshold the deploy cap allows, the rest
 //                by role (blockers, a medic, anti-air) and shared bonds, every operator elite, no equipment, placed by
-//                the AI's layout planner on the boss field (bot.js arrange, no rehearsal). The sender's bond is
-//                `bondId` (else drawn), the others draw distinct core bonds of this match. Every piece held before is
-//                returned (pool copies, 自选 stock); the new ones take no copies, like dbg.addChess. The AI seats then
-//                stay as placed: their later preps only Ready (`debugLocked`).
+//                the AI's layout planner on the field the seat deploys on now (bot.js arrange, no rehearsal). The
+//                sender's bond is `bondId` (else drawn), the others draw distinct core bonds of this match. Every piece
+//                held before is returned (pool copies, 自选 stock); the new ones take no copies, like con.addChess. The
+//                AI seats then stay as placed: their later preps only Ready (`debugLocked`, local-console.js).
 //   layers       'keep' the layers held, or put on every bond the board activates: 'normal' = the competent board of
 //                R14 (docs/BALANCE.md §1.1: core bond 150, every other active bond 90), 'strong' ×1.4 (enough for
 //                the Hidden Core's layer check), 'max' the cap (999)
-// The match goes straight to the boss round (Match.startRound): the rounds between, their incomes, 机变 drafts and
-// battles are skipped. The boards are put in the boss round's prep (Match.enterPrep wrapped in local-patch.js), where
-// the deploy map is already the boss field and the layout moves are legal.
+// The leaders a console may pick (debugBosses) are the mode's boss-round draw.
 
 import { arrange } from './match/bot.js';
 import { basePositionClass } from './match/board.js';
@@ -133,14 +129,4 @@ export function applyDebugBoard(m, ps, bondId, level) {
   arrange(m, ps); // the summon cards granted just now
   ps.recompute();
   return units;
-}
-
-/** Layers of a level on the bonds the player's own board activates now (a jump without the preset). */
-export function applyDebugLayers(m, ps, level) {
-  const active = Object.entries(ps.bonds || {}).filter(([, b]) => b.active);
-  const core = active.sort(([, a], [, b]) => b.count - a.count)[0]?.[0] ?? null;
-  const layers = debugLayers(m.gd, ps.bonds || {}, core, level);
-  if (!layers) return;
-  ps.layers = { ...ps.layers, ...layers };
-  ps.recompute();
 }

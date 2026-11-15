@@ -15,12 +15,15 @@
 //              `feedbackIssues`); stored as `public` only while SP_FEEDBACK_REPO is set — the relay posts nothing else,
 //              so a report sent under the stage-1 notice (「only the developers see it」) never becomes public
 //
-// Who may send: a human seat (or spectator) of a match that ended on this server within RECENT_MS (onMatchEnd marks them), at most
+// Who may send: a human seat (or spectator) of a match that ended on this server within RECENT_MS (onMatchEnd marks them),
+// or the seat of a console match still running (콘솔 모드's 「✎ 제보」, server/local-patch.js liveConsoleFeedback), at most
 // PER_MATCH reports per match, PER_ADDR per address and GLOBAL in all per day (in memory; a restart forgets them).
 // What is stored besides the player's fields: the time, the server's versions, the match's [stats] record without names
 // (server/local-stats.js — room code + match number tie it to the container log) and the sender's address as a keyed
 // hash (HMAC-SHA256 with a random key kept in the inbox directory, first 16 hex): the same sender's reports group
-// together, the address itself is never written (maintainer decision 2026-10-09). Files older than KEEP_DAYS (90) are
+// together; a console match's report also keeps its console log (`console`: the commands with their rounds,
+// server/local-console.js) —
+// the address itself is never written (maintainer decision 2026-10-09). Files older than KEEP_DAYS (90) are
 // deleted (on start and every few hours); the pull removes what it copied.
 //
 // Off (fb.send → BAD_MSG, no `feedback` in welcome, the client shows no button) unless SP_FEEDBACK_DIR is set.
@@ -41,6 +44,8 @@ export const PER_ADDR = 10;
 export const GLOBAL = 200;
 export const DAY_MS = 24 * 60 * 60_000;
 export const KEEP_DAYS = 90;
+/** the console log entries a report keeps (the latest) */
+export const CONSOLE_LOG_KEEP = 300;
 const PRUNE_EVERY_MS = 6 * 60 * 60_000;
 /** The unpacked battles may be at most this large (zlib maxOutputLength: a gzip bomb stops here). */
 export const BATTLES_MAX_BYTES = 4 * 1024 * 1024;
@@ -97,7 +102,7 @@ export class FeedbackInbox {
     this.now = now;
     this.log = log;
     this.limits = { recentMs: RECENT_MS, perMatch: PER_MATCH, perAddr: PER_ADDR, global: GLOBAL, ...limits };
-    /** playerId → { at, key, stats } of the match it just finished */
+    /** playerId → { at, key, stats, console } of the match it just finished */
     this.recent = new Map();
     /** match key → reports taken */
     this.perMatch = new Map();
@@ -171,8 +176,9 @@ export class FeedbackInbox {
       if (rec) stats = { ...rec, players: (rec.players || []).map(({ name, ...p }) => p) };
     } catch { /* the report goes without it */ }
     const key = `${room.code}#${room.matchCount}`;
+    const log = Array.isArray(room.lastSummary?.console?.log) ? room.lastSummary.console.log : null;
     for (const s of [...(room.seats || []), ...(room.spectators || [])]) {
-      if (s && !s.isBot && !s.left && s.playerId) this.recent.set(s.playerId, { at, key, stats });
+      if (s && !s.isBot && !s.left && s.playerId) this.recent.set(s.playerId, { at, key, stats, console: log });
     }
     for (const [id, r] of this.recent) if (at - r.at > this.limits.recentMs) this.recent.delete(id);
   }
@@ -187,13 +193,16 @@ export class FeedbackInbox {
   }
 
   /**
-   * fb.send from `session` (validated by shared/local.js): stored, or refused.
+   * fb.send from `session` (validated by shared/local.js): stored, or refused. `live` = the sender's console match still
+   * running ({ key, console }, server/local-patch.js liveConsoleFeedback), else null: a finished match is needed.
    * @param {{ playerId: string, addr?: string|null }} session @param {any} msg
+   * @param {{ key: string, console: any[] } | null} [live]
    */
-  submit(session, msg) {
+  submit(session, msg, live = null) {
     if (!this.dir) return fail(ERR.BAD_MSG, 'feedback off');
     const now = this.now();
-    const r = this.recent.get(session.playerId);
+    const recent = this.recent.get(session.playerId);
+    const r = live ? { at: now, key: live.key, stats: null, console: live.console } : recent;
     if (!r || now - r.at > this.limits.recentMs) return fail(ERR.WRONG_PHASE, 'no finished match');
     if (!FEEDBACK_KINDS.includes(msg.kind)) return fail(ERR.BAD_MSG, 'kind');
     const text = cleanFeedbackText(msg.text);
@@ -217,6 +226,7 @@ export class FeedbackInbox {
       app: APP_VERSION, local: localVersion(), build: safeBuildTag(),
       sender: this.addrHash(session.addr), match: typeof msg.match === 'string' ? msg.match : null,
       stats: r.stats,
+      ...(Array.isArray(r.console) ? { console: r.console.slice(-CONSOLE_LOG_KEEP) } : {}),
       diag: typeof msg.diag === 'string' && msg.diag ? msg.diag : null,
       battles, ...(battlesError ? { battlesError } : {}),
       public: !!this.repo && msg.public === true,

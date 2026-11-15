@@ -8,7 +8,8 @@
 // frame — the oldest battles without errors are left out first when it does not). Player names and the room code are
 // replaced in both, as in 设置 → 问题反馈 (which only copies). The button shows only while the server says its inbox is
 // on (welcome `feedback`) — off on a local server without SP_FEEDBACK_DIR. Only the text and the diagnostics are posted;
-// the battles stay on the server.
+// the battles stay on the server. The console panel (consolePanel.js 「✎ 제보」) opens the same window during a console
+// match (`console`): it says the console log goes with the report — the server attaches it (server/local-feedback.js).
 
 import { useState } from '../../vendor/hooks.module.js';
 import { html, Modal, Button, MicroLabel } from './components.js';
@@ -90,8 +91,8 @@ const SEND_ERRORS = {
   OFFLINE: N_('未连接到服务器，请稍后再试'),
 };
 
-/** @param {{ onClose: () => void }} props */
-export function FeedbackModal({ onClose }) {
+/** @param {{ onClose: () => void, console?: boolean }} props */
+export function FeedbackModal({ onClose, console: fromConsole = false }) {
   const issues = useStore((s) => s.issues, Object.is, feedbackStore);
   const [kind, setKind] = useState('bug');
   const [text, setText] = useState('');
@@ -157,6 +158,7 @@ export function FeedbackModal({ onClose }) {
       <${Button} variant="primary" iconRight="chevronRight" loading=${sending} disabled=${!length || tooLong} onClick=${send}
         data-testid="feedback-send">${t('发送')}<//>`}>
     <div class="fb">
+      ${fromConsole ? html`<p class="fb__console" data-testid="feedback-console">${t('这是从控制台对局发送的反馈：控制台记录（回合跳转、首领变更、加入的棋子 / 装备 / 敌人、盟约层数变更）会和诊断信息一起附上。')}</p>` : null}
       <div class="set-seg fb__kinds" role="radiogroup" aria-label=${t('反馈类型')}>
         ${FEEDBACK_KINDS.map((k) => html`<button key=${k} type="button" role="radio" aria-checked=${kind === k ? 'true' : 'false'}
           class=${kind === k ? 'is-on' : ''} onClick=${() => setKind(k)}>${kindLabel(k)}</button>`)}

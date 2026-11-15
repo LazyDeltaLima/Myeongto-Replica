@@ -54,6 +54,7 @@ import { GuideButton } from '../ui/guide.js';
 import { openStats } from './stats.js';
 import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
+import { ConsoleToggle } from '../ui/consoleToggle.js'; // local patch: 콘솔 모드
 import { net } from '../net.js';
 import { useDocClass, useMediaQuery, SHORT_SCREEN_QUERY } from '../ui/device.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating, reservedRank, savePref } from '../store.js';
@@ -680,6 +681,8 @@ export function RoomScreen() {
   };
   const setAiLast = (on) => run('ailast', () => net.request('room.setAiPicksLast', { on }));
   const sizeOpt = sizeOption(room, me.playerId);
+  // 콘솔 모드 (local patch: server/local-patch.js setConsole): a solo room only, before its match
+  const setConsole = (on) => run('console', () => net.request('room.setConsole', { on }));
   // 4 → 8 frees the AI seats (the 8-player mode has none): asked first. Resolves true once the server took it.
   const setSize = async (size) => {
     if (inFlight.current) return false;
@@ -821,6 +824,8 @@ export function RoomScreen() {
   // decision 2026-11-08), in the top bar on a short screen
   const loadout = html`<${LoadoutButton} from="room" size="md" class="rs-loadout room-loadout" label=${t('干员调配')} />`;
 
+  // 콘솔 모드 (local patch): right of 干员调配 in a solo room (maintainer decision 2026-11-15)
+  const consoleBtn = coop ? null : html`<${ConsoleToggle} on=${room.console === true} busy=${busy === 'console'} disabled=${!online || !!room.inMatch} onToggle=${setConsole} />`;
   return html`<div class=${`screen room-screen rs${coop ? '' : ' rs--solo'}${coop ? ' has-chat' : ''}${facts.large ? ' rs--8' : ''}`}
       style=${`--d-color:${DIFFICULTY_COLORS[room.difficulty] || 'var(--amber)'}; --n:${facts.large ? MAX_SEATS : facts.seats.length}`}>
     <div class="rs__bg" aria-hidden="true"></div>
@@ -838,13 +843,13 @@ export function RoomScreen() {
         </div>
       </div>
       <div class="rs-top__right">
-        ${short ? loadout : null}
+        ${short ? html`${loadout}${consoleBtn}` : null}
         ${coop ? html`<div class="rs-key">
           <span class="rs-key__k">${t('同盟密钥')}</span>
           <b class="rs-key__code num selectable" aria-label=${t('同盟密钥 {code}', { code: room.code })}>${room.code}</b>
           <button type="button" class="rs-key__copy" onClick=${() => copy('code')} title=${t('复制密钥')}>${t('复制')}</button>
           <button type="button" class="rs-key__link" onClick=${() => copy('link')} title=${t('复制链接')} aria-label=${t('复制链接')}><${Icon} name="link" /></button>
-        </div>` : html`<div class="rs-key rs-key--solo"><${MicroLabel}>SINGLE OPERATOR<//><span>${t('仅限 1 名博士')}</span></div>`}
+        </div>` : html`<div class="rs-key rs-key--solo"><${MicroLabel}>SINGLE OPERATOR<//><span>${t('仅限 1 名博士')}</span>${room.console ? html`<span class="cxp-badge">CONSOLE</span>` : null}</div>`}
       </div>
     </header>
 
@@ -866,6 +871,7 @@ export function RoomScreen() {
           <li>${t('共')} <b class="num">${roomRules.custom?.flow?.rounds ?? info.rounds}</b> ${tc('rounds', '回合')}${info.hidden ? t('，满足条件时进入隐秘核心') : ''}</li>
           <li>${t('独立模拟中休整期与机变阶段不限时')}</li>
         </ul>
+          ${room.console ? html`<li class="rs-brief__console"><b>${t('控制台模式')}</b> — ${t('自由更改干员、装备、敌人、回合、首领与盟约层数；不结算，也不计入统计、成就和战绩；对局中可以反馈')}</li>` : null}
       </aside>`}
     </main>
 
@@ -878,7 +884,7 @@ export function RoomScreen() {
         <${SpectatorBar} facts=${facts} coop=${coop} myId=${me.playerId} busy=${busy} onRemove=${removeSpectator} onSeats=${setSpectatorSeats} />
         <${AiLastToggle} option=${aiLast} busy=${busy} onToggle=${setAiLast} short=${short} />
       </div>
-      ${short ? null : html`<div class="rs-foot__lo">${loadout}</div>`}
+      ${short ? null : html`<div class=${consoleBtn ? 'rs-foot__lo has-console' : 'rs-foot__lo'}>${loadout}${consoleBtn}</div>`}
       <${ModeBar} room=${room} rules=${roomRules} sizeOpt=${sizeOpt} info=${info} editable=${protoEditable} busy=${busy} matching=${matching} onOpen=${openProto} />
       <div class="room-bar__right rs-foot__right">
         ${fillOpt ? html`<${Tooltip} text=${fillTip}>
