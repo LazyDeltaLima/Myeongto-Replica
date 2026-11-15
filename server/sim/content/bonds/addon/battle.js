@@ -646,10 +646,16 @@ export function install(battle) {
         const sp = num(bb.sp);
         if (sp > 0) for (const o of st.ops) if (onField(o) && o.skill) o.skill.gainSp(sp, 'bond');
       }
-      if (u.alive || u.removed || u.mem[ID.indom] === battle.time) return;
+      // every knock-out rolls, a second one in the same tick too: the redeploy is synchronous, so the rest of that
+      // tick's hits (a melee strike, a splash, a multi-hit) land on the new deployment, and a knock-out there skipped its
+      // roll and waited out the normal redeploy timer even at 100 % (community report: 砾 at a 100 % 不屈 lay down). Only
+      // a knock-out during this redeploy itself (its deploy hooks) is not rolled again — no loop.
+      if (u.alive || u.removed || u.mem[ID.indom]) return;
       if (banked || (st && dicePRD(battle, prd, prob(bb, L(battle, st, ID.indom))))) {
-        u.mem[ID.indom] = battle.time;
-        if (battle.redeploy(u, { free: true })) fxOn(battle, 'revive', u, 'bond:indomShip', 'redeploy');
+        u.mem[ID.indom] = true;
+        try {
+          if (battle.redeploy(u, { free: true })) fxOn(battle, 'revive', u, 'bond:indomShip', 'redeploy');
+        } finally { u.mem[ID.indom] = false; }
       }
     }, { priority: 10 });
     battle.on('dollSwap', ({ unit: u }) => {

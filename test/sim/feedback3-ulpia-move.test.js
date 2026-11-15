@@ -130,7 +130,7 @@ test('乌尔比安 S3 with 不屈 at 100 %: the moves roll nothing (a 【移动�
   // the same bond does fire on a real knock-out: back at once, free
   b.dealDamage(null, u, { amount: 1e9, type: 'true' });
   assert.ok(h.hooksOf('death').some((c) => c.unit === u && c.reason === 'killed'));
-  assert.ok(u.alive && u.mem.indomShip === b.time, '不屈 redeployed it');
+  assert.ok(u.alive && h.eventsOf('fx').some((e) => e[1] === 'revive' && JSON.stringify(e).includes('bond:indomShip')), '不屈 redeployed it');
   clean(h);
 });
 
