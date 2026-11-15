@@ -189,7 +189,10 @@ b.cxp__tier { width: auto; min-width: calc(var(--cpx) * 16); height: calc(var(--
 /* the solo room's 「콘솔 모드」 switch (ui/consoleToggle.js): right of 干员调配, the same button; amber while on */
 .rs--solo .rs-foot__lo.has-console { grid-column: 1 / 3; justify-self: start; gap: .1rem; }
 .rs--solo .rs-foot__lo.has-console .rs-loadout { flex: 0 0 var(--chat-w); }
-.cxp-toggle { gap: .08rem; padding: 0 .22rem; }
+/* flex: none — the row is sized from the grid, not from this button: a shrinkable button squeezed below its label (the
+   icon shrank to nothing and the label spilled over the box's edges) */
+.cxp-toggle { flex: none; gap: .08rem; padding: 0 .3rem; }
+.cxp-toggle > * { flex: none; }
 .rs .rs-foot__lo .cxp-toggle { height: auto; min-height: max(.86rem, 40px); font-size: calc(.22 * var(--t, 1)); }
 .cxp-toggle__icon { width: 1.1em; height: 1.1em; fill: none; stroke: currentColor; stroke-width: 2; color: var(--amber, #f6a329); }
 .cxp-toggle__sw { font: 700 .11rem/1 var(--font-display, monospace); letter-spacing: .1em; padding: .03rem .05rem; border: 1px solid currentColor; }
