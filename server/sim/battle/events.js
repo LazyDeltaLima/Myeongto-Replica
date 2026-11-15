@@ -9,6 +9,7 @@ import { hudLists } from '../local-hud.js'; // local patch
 import { stormView } from '../content/devices.js'; // 战场#06's 沙尘暴 for the client (fieldMeta)
 
 export class BattleEvents {
+  /** A client fx event; returns its payload (an enemy skill's cast adds its target to it later in the same tick). */
   fx(kind, params = {}) {
     const { x = 0, y = 0, ...extra } = params || {};
     // inside an enemy skill's cast (content/enemies.js onTick): the fx it makes carry the official ability name and its
@@ -16,6 +17,7 @@ export class BattleEvents {
     const cast = this._castAbility;
     if (cast && extra.ability === undefined) { extra.ability = cast.ability; extra.caster = cast.id; }
     this._ev(['fx', kind, Math.round(x * 100) / 100, Math.round(y * 100) / 100, extra]);
+    return extra;
   }
 
   log(msg) {

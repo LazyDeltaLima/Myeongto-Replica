@@ -1621,8 +1621,8 @@
       ],
       "enemies": {"enemy_1229_darmy":[27,3,22,52943,99284],"enemy_1229_darmy_2":[57,6,47,121030,196422],"enemy_1275_dwlock_2":[21,1,17,287431,130826]},
       "hooks": [1,123,6900,1888,1888,6972,7152,20857,18,104,44,44,0,6654,0,39,105,86,1,18,0,68,0],
-      "events": {"atk":2766,"deploy":18,"die":18,"dmg":7152,"engage":6,"face":59,"fx":237,"heal":1008,"leak":86,"skill":88,"spawn":117,"status":207,"swing":1907},
-      "fx": {"beam":49,"burst":68,"enemySkill":41,"enemySkillEnd":8,"explode":33,"healField":10,"kitHit":25,"teleport":3},
+      "events": {"atk":2766,"deploy":18,"die":18,"dmg":7152,"engage":6,"face":59,"fx":270,"heal":1008,"leak":86,"skill":88,"spawn":117,"status":207,"swing":1907},
+      "fx": {"beam":49,"burst":68,"enemySkill":41,"enemySkillEnd":41,"explode":33,"healField":10,"kitHit":25,"teleport":3},
       "snaps": "107f6d01 2d8996a4 228e3dd9 abdd2d7b f89cfbf5 ddfa3054 ff2232bf 3a9dcca8 9c669138 41e56fef 3ce6bb56 c4fcb643 9a9df56b 4cbe1faa 17761ee2 fcf23807 e9201931 72be4284 d5525f60 857d22f4 cee461eb f8e5dabd 7f17a466"
     },
     "diy-039": {
@@ -1962,8 +1962,8 @@
       ],
       "enemies": {"enemy_1009_lurker":[66,3,63,1766,44135],"enemy_1019_jshoot_2":[57,1,56,26806,34948],"enemy_1404_msnip":[48,0,48,6766,9271]},
       "hooks": [1,196,6479,108,108,189,227,0,25,196,8,9,0,6560,9,12,171,167,1,25,0,1,0],
-      "events": {"atk":108,"deploy":25,"die":29,"dmg":227,"engage":10,"face":16,"fx":196,"leak":167,"skill":17,"spawn":187,"status":17,"swing":115},
-      "fx": {"aoe":4,"burst":1,"displace":3,"enemyShot":30,"enemySkill":30,"kitHit":49,"mysticStore":60,"pull":3,"summon":4,"volley":12},
+      "events": {"atk":108,"deploy":25,"die":29,"dmg":227,"engage":10,"face":16,"fx":198,"leak":167,"skill":17,"spawn":187,"status":17,"swing":115},
+      "fx": {"aoe":4,"burst":1,"displace":3,"enemyShot":30,"enemySkill":30,"enemySkillEnd":2,"kitHit":49,"mysticStore":60,"pull":3,"summon":4,"volley":12},
       "snaps": "70f4325a 0bb2b0ca 7fbb89b4 94431591 910db49c 7da7791b 0a5799b9 1a1a937f bd4d2c5f c53e1b46 90c6bd91 6523f1f3 f6f380c8 6e15a04c ceea34ab 1ceef9f1 4d9038a6 9a1f55cb 3c533b2f 1721c79b ccd2627a 894ca60b"
     },
     "diy-047": {

@@ -480,14 +480,19 @@ export const STEALTH_FORMS = Object.freeze({ enemy_9008_acbunn: 'revealed' });
  */
 export const SKIN_FORMS = Object.freeze({ enemy_10159_mntrjn: Object.freeze({ half: 'Half', full: 'Full' }) });
 /**
- * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」·「규정 살카즈 후예 무리」): enemy abilities cast in a clip of their own, per
- * Spine id: ability (the sim's fx 'enemySkill' { id, ability }) → clip (the prefab's Skills/<ability> clip, the effect binding's
- * `anim` in enemy-modes.json). The clip plays once from the cast (UnitView.onEnemySkill → SpineActor.chant: the attacks
- * meanwhile play no attack clip; a stun or death cuts it): 破城者's SkyProjectile fires its three missiles inside its one
- * F_Skill, not an attack clip each; 萨卡兹子裔责罚者 / 惩戒者 strike their StunAttack in Skill. An object is a three-part channel
- * over the fx's `dur` (ThreePartChannelingAnimation: its `_default` begin / loop / end, `_down` / `_up` when the enemy faces
- * DOWN / UP as it casts — `_GetAnimBundle`; begin and end at their own speed and the loop for the rest, as UpdatePlaybackSpeed
- * does while `dur` ≥ begin + end): “喷射罐” / “喷爆罐”'s Flame (4 s ≥ 0.6 + 0.267).
+ * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」·「규정 살카즈 후예 무리」): the enemy ability clips the data does not give the
+ * view yet, per Spine id: ability (the sim's fx 'enemySkill' { id, ability }) → clip (the prefab's Skills/<ability> clip, the
+ * effect binding's `anim` in enemy-modes.json). A skill's three-part channel is not here: the view plays its data record
+ * (data/enemies.json `skillCast.*.chan`, UnitView.onEnemySkill — 2026-11-15). What stays:
+ * - one clip once from the cast (SpineActor.chant: the attacks meanwhile play no attack clip; a stun or death cuts it):
+ *   破城者's SkyProjectile fires its three missiles inside its one F_Skill, not an attack clip each; 萨卡兹子裔责罚者 / 惩戒者
+ *   strike their StunAttack in Skill. The other one-clip skills of `skillCast.*.clip` play none yet (a sweep of whether the
+ *   sim casts each and whether FORMS or the attack clip already draws it is the open line of 묶음 fx-F, 「한 클립 전수」);
+ * - a channel that is the enemy's normal attack, sent by its kit with its `dur` (“喷射罐” / “喷爆罐”'s Flame, 4 s ≥ 0.6 +
+ *   0.267): the attack ability sits at `Body/Flame`, which tools/local-extract/attack_timing.py does not read (it looks
+ *   for Body/Attack and Body/Combat), so the data has no `chan` for it.
+ * An object is a channel as the data's: `_default` begin / loop / end, `_down` / `_up` when the enemy faces DOWN / UP as it
+ * casts (`_GetAnimBundle`).
  */
 const WINBOM_FLAME = Object.freeze({
   begin: 'Attack_Begin', loop: 'Attack_Loop', end: 'Attack_End',
@@ -502,14 +507,20 @@ export const ESKILL_CLIPS = Object.freeze({
   // 复核洋流使者's skill 1 (eating a 赘生甲壳): AnimatedActionToTargetAbility `_animKey` Skill, `_timeMode` 1 (the clip, 2.6 s)
   enemy_1438_dspred: Object.freeze({ 1: 'Skill' }),
   enemy_1385_winbom_2: Object.freeze({ Flame: WINBOM_FLAME }),
-  // 2026-11-14: 节日爵士乐手's 狂欢式演奏 — Skills/fire's ThreePartChannelingAnimation `_default`, Skill_Loop held for the whole
-  // channel (its RangedAttack waits for the channel's projectile); one that ends sooner closes on 'enemySkillEnd'
-  enemy_10034_cnvsax: Object.freeze({ fire: Object.freeze({ begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End' }) }),
-  // 2026-11-14: 萨卡兹王庭军精锐术师's 死亡之眼 — its LineAttack's ThreePartChannelingAnimation `_default` over the channel
-  // (ChargeAttack after it plays no clip); a cut channel closes on 'enemySkillEnd'. Every channel skill of the data is
-  // wired here or listed with why: test/render/eskill-clip-coverage.test.js
-  enemy_1275_dwlock_2: Object.freeze({ DeathEye: Object.freeze({ begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End' }) }),
 });
+/**
+ * The longest a channel waiting for its ability's attack-finish event loops (ThreePartChannelingAnimation
+ * `_waitForAttachFinishEvent`: `DoPlayAnimation` waits at most 360 s) — the sim's fx 'enemySkill' `hold`, closed by its
+ * 'enemySkillEnd'.
+ */
+const CHAN_WAIT_MAX = 360;
+/** The three-part channel of cast record `c` (data `skillCast.*`: itself, else a child of its sequence), or null. */
+function chanOf(c) {
+  if (!c || typeof c !== 'object') return null;
+  if (c.chan && typeof c.chan.loop === 'string') return c.chan;
+  for (const s of Array.isArray(c.subs) ? c.subs : []) { const r = chanOf(s); if (r) return r; }
+  return null;
+}
 /**
  * The way an enemy faces a spot (dx, dy from it, map tiles): the FOUR_WAYS axis nearest to it, UP / DOWN or 'side' (a tie
  * takes UP, then the sides, then DOWN) — as the sim aims 直击 shots (content/enemies/critic.js muzzleAt).
@@ -1766,13 +1777,16 @@ export class UnitView {
   }
 
   /**
-   * 2026-11-12: an enemy ability cast now (the sim's fx 'enemySkill' { id, ability, dur? }; `late` = game s the fx is shown
-   * late; `o`: { dur: its channel's game s, aim: { x, y } of its target }): its own clip once, or its three-part channel over
-   * `dur` in the way it faces `aim` (ESKILL_CLIPS; within 0.2 tiles of `aim`, the way it last walked), unless that would
-   * have ended already. True when it plays.
+   * 2026-11-12: an enemy ability cast now (the sim's fx 'enemySkill' { id, ability, dur?, hold? }; `late` = game s the fx is
+   * shown late; `o`: { dur: its channel's game s, hold: it lasts until its 'enemySkillEnd', aim: { x, y } of its target }):
+   * its three-part channel — the data's (`skillCast.*.chan` of the enemy's record, 2026-11-15), else ESKILL_CLIPS' — over
+   * `dur` (or held) in the way it faces `aim` (within 0.2 tiles of `aim`, the way it last walked), or its own clip once
+   * (ESKILL_CLIPS), unless that would have ended already. True when it plays.
    */
   onEnemySkill(ability, late = 0, o = null) {
-    const spec = this.isEnemy && this.alive && this.actor ? ESKILL_CLIPS[this.info.spine || this.info.defId]?.[ability] : null;
+    if (!this.isEnemy || !this.alive || !this.actor) return false;
+    const def = this.ctx.lookupDef ? this.ctx.lookupDef(this.info) : null;
+    const spec = chanOf(def?.skillCast?.[String(ability).toLowerCase()]) || ESKILL_CLIPS[this.info.spine || this.info.defId]?.[ability];
     if (!spec) return false;
     if (typeof spec === 'string') {
       if (!this.actor.has(spec)) return false;
@@ -1780,7 +1794,7 @@ export class UnitView {
       if (!(dur > 0) || late >= dur) return false;
       return this.actor.chant({ loop: spec, total: dur });
     }
-    const total = Number(o?.dur) - late;
+    const total = (o?.hold ? CHAN_WAIT_MAX : Number(o?.dur)) - late;
     if (!(total > 0)) return false;
     // the ability's `_faceToTarget` turns it to the target (Entity.FaceToTarget: only beyond 0.2 tiles) and an enemy's face
     // turns its body the FOUR_WAYS way (Enemy.SetBodyDirectionWithPolicy, DEFAULT_FOUR_WAYS); nearer, the walk's way stays

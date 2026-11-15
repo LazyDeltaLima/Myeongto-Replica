@@ -2,8 +2,9 @@
 // (LassoProjectile / HarpoonMovement with a renderer `_mainEffect`: tools/assets/local-enemy-bindings.json `$projectiles`
 // with `link` and `trail`), each with how the view draws it (test/render/eskill-lasso-coverage.test.js). An ability of that
 // kind missing here fails; so does a listed one the bindings no longer have. Keys: `<enemy id> <ability path>`.
-//   LASSO   — drawn by render/fxgame.js elassoStart: the kit sends the channel's fx 'enemySkill' with `dur` and `tgt`
-//             (castFx), and its stand-in beams are in LASSO_BEAMS — the value is the skill's name (the sim's `ability`);
+//   LASSO   — drawn by render/fxgame.js elassoStart: the engine's cast sends the channel's fx 'enemySkill' with `dur` or
+//             `hold` and the `tgt` its fire returns (content/enemies.js castSkill), and its stand-in beams are in
+//             LASSO_BEAMS — the value is the skill's name (the sim's `ability`);
 //   OTHER   — drawn another way (named);
 //   TODO    — the sim uses it and the view draws a stand-in, not the official line.
 // An ability whose skill the sim never casts in this mode is in test/content/enemy-not-cast-list.js, not here.

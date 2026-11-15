@@ -1014,8 +1014,8 @@
         "enemy_9033_acdeer": [1,1,0,30713,4000000]
       },
       "hooks": [1,49,5282,1341,1341,3213,3509,1522,21,27,84,80,289,39200,1394,1,17,0,1,20,0,10,0],
-      "events": {"atk":1515,"deploy":32,"die":27,"dmg":3247,"engage":16,"face":58,"fx":1156,"heal":406,"skill":164,"spawn":47,"status":622,"swing":1388},
-      "fx": {"airstrike":84,"beam":3,"blink":2,"bombard":62,"bombardShell":63,"burst":10,"column":41,"copy":4,"dp":4,"drone":250,"droneLock":11,"drones":3,"enemySkill":2,"explode":6,"garrisonGrant":1,"link":1,"lock":70,"phase":1,"refresh":1,"shieldBreak":4,"snow":5,"split":2,"steal":5,"sunBurst":4,"talent":4,"telegraph":6,"tide":5,"wanted":1,"whitw2Drones":501},
+      "events": {"atk":1515,"deploy":32,"die":27,"dmg":3247,"engage":16,"face":58,"fx":1158,"heal":406,"skill":164,"spawn":47,"status":622,"swing":1388},
+      "fx": {"airstrike":84,"beam":3,"blink":2,"bombard":62,"bombardShell":63,"burst":10,"column":41,"copy":4,"dp":4,"drone":250,"droneLock":11,"drones":3,"enemySkill":2,"enemySkillEnd":2,"explode":6,"garrisonGrant":1,"link":1,"lock":70,"phase":1,"refresh":1,"shieldBreak":4,"snow":5,"split":2,"steal":5,"sunBurst":4,"talent":4,"telegraph":6,"tide":5,"wanted":1,"whitw2Drones":501},
       "snaps": "7b8cf7ad a82eec0e 73ed2ced 2da0ba33 83317aaa a34b69d4 8b354820 a20d4b5a b881c248 a15484cd 865aa2b3 5e2c3044 9afbc513 d3f813f5 2d432d2d cfcd97f7 2c77fc6d 42231cf3"
     },
     "boss-boss_7-solo": {
@@ -1060,8 +1060,8 @@
         "enemy_9033_acdeer": [1,0,0,18722,626936]
       },
       "hooks": [1,33,6000,415,415,531,909,951,13,16,86,84,14,21646,1379,4,14,0,1,12,0,0,0],
-      "events": {"atk":426,"castHit":36,"deploy":19,"die":16,"dmg":669,"engage":6,"face":6,"fx":176,"heal":74,"skill":170,"spawn":27,"status":254,"swing":443,"tplfx":1},
-      "fx": {"anchor":3,"beam":3,"candle":2,"column":28,"enemySkill":3,"explode":5,"healAoe":33,"kitHit":3,"overload":4,"splash":14,"stacks":67,"telegraph":5,"teleport":6},
+      "events": {"atk":426,"castHit":36,"deploy":19,"die":16,"dmg":669,"engage":6,"face":6,"fx":179,"heal":74,"skill":170,"spawn":27,"status":254,"swing":443,"tplfx":1},
+      "fx": {"anchor":3,"beam":3,"candle":2,"column":28,"enemySkill":3,"enemySkillEnd":3,"explode":5,"healAoe":33,"kitHit":3,"overload":4,"splash":14,"stacks":67,"telegraph":5,"teleport":6},
       "snaps": "7b6f4a62 41e5a294 11e93673 2e37a4c1 5cb83cb3 e7135f94 1723d443 2996bcf3 bf722a7f d30a440f 3aad538b 3c33257f da8500c5 686cb283 085143e1 0da6baa7 a35445c6 de07c140 6d57f48a bf1f9caf"
     },
     "hidden-boss_8-pair": {

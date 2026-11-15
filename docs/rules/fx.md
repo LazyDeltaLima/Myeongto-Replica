@@ -4269,11 +4269,14 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
   쏜 적 위(그 이펙트의 붙는 자리대로), 아니면 투사체 몸 밑(줄 머리를 따라감). 매 틱 그 이펙트의 LineRenderer 전부에 두 점을 넣는다: 첫 점 = 쏜 자리
   (`_mountPointType`, `proj.mount`), 둘째 점 = 뻗는 동안은 투사체 몸, 닿은 뒤엔 대상의 점. 투사체가 멈추면(시전이 끝날 때 — `_waitForProjectileInvalid`인
   `RangedAttack.OnCastEnd`가 투사체를 지움) 이펙트를 `FinishMe`로 끝낸다(서서히 사라짐). 재즈 연주가는 `_spawnOnSource` 1, 정예 캐스터는 0.
-- 우리: 시뮬의 채널 시작 fx `enemySkill` { `tgt`, `dur` }(키트 `castFx`)에서 `fxgame.js elassoStart`가 그 줄을 `dur` 동안 그리고(`startLine`: 첫 점
-  = 적의 `proj.mount` 점, 둘째 점 = `proj.speed`로 뻗는 머리 → 대상의 HIT 점), 일찍 끝나면(`enemySkillEnd`, 끊긴 `deathEyeEnd`) 그때 사라지게 한다. 추출기
+- 우리: 시뮬의 채널 시작 fx `enemySkill` { `tgt`, `dur` 또는 `hold` }에서 `fxgame.js elassoStart`가 그 줄을 그리고(`startLine`: 첫 점
+  = 적의 `proj.mount` 점, 둘째 점 = `proj.speed`로 뻗는 머리 → 대상의 HIT 점), 시전이 끝나면(`enemySkillEnd`, 끊긴 `deathEyeEnd`) 그때 사라지게 한다.
+  두 스킬은 엔진의 시전이 알린다(2026-11-15, `content/enemies.js castSkill`: 채널이 `_waitForAttachFinishEvent`라 `hold` 1, 대상은 키트 `fire`가 돌려준 것,
+  끝은 투사체가 사라져 시전이 끝날 때 `chanEnd` — sim.md 「투사체 채널 스킬은 채널 동안 시전이다」; 전에는 키트 `castFx`가 `dur`·`tgt`를 실었다). `hold`인
+  줄의 상한은 `ESKILL_HOLD_CAP`(40초). 추출기
   `enemy_bindings.py`가 `_spawnOnSource`를 `proj.onSrc`로 읽는다. 줄이 그려지는 동안 시뮬의 대체 빔(`beam` `jazzFire`·`deathEye`·`deathEyeEnd`)은 안
   그린다 — 줄 이펙트가 추출 안 됐으면 대체 빔이 그대로 남는다.
-- 같은 길로 길이를 아는 채널(`enemySkill`의 `dur`)은 그 길이 동안 붙잡힌 스킬이다(`eskillFx` `hold`·`holdFor`): 시전 끝(ON_CAST_END)까지 가는 시전
+- 같은 길로 길이를 아는 채널(`enemySkill`의 `dur`)은 그 길이 동안, `hold`인 채널은 `enemySkillEnd`까지 붙잡힌 스킬이다(`eskillFx` `hold`·`holdFor`): 시전 끝(ON_CAST_END)까지 가는 시전
   이펙트(정예 캐스터 `enemy_dwlock_skill_start_01`)와 `_onlyOnce` 타격 이펙트(`enemy_dwlock_skill_hit_01`)가 채널 끝까지, 채널의 타격마다 그 스킬의
   타격 이펙트(재즈 연주가 `enemy_cnvsax_hit_02`)가 처음 3초만이 아니라 끝까지 난다.
 - 재즈 연주가 이펙트 루트의 불꽃 입자(원뿔 방출)의 방향: `HarpoonRenderer`는 만든 이펙트를 돌리지 않는다(대상 쪽으로 도는 것은 `_rotateToTarget`인

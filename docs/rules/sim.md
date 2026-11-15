@@ -2784,16 +2784,24 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   (`ai.js enemyAttack` `cutNormalSwing`). 전에는 그 검사가 시전의 `castLeft`만 조용히 0으로 만들어, 열린 시전(`PROJ_WAIT_MAX` 60 s)의 선 채 버티기와 스킬 쿨(60 s 더)이 채널보다 오래
   남았다 — 막던 오퍼레이터가 철수하거나 은신이 돌아오면 최대 1분 동안 그 자리에 섰다. 확인: 같은 시험 파일 「its blocker retreats mid-channel…」·「its 隐匿 returns mid-channel…」(수정 전 코드에서
   실패 확인). golden: `roster` 010·023, `matches` solo-FUNNY-1, `act3-roster` 011·057, fx-events roster-010(`eskillEnd` 하나 적음 — 은신 동안 쿨이 멈춰 시전이 하나 줆; 모두 재즈 연주가가 나오는 시나리오).
-- 화면(2026-11-14): 재즈 연주가의 `Skills/fire`에는 `ThreePartChannelingAnimation` `_default`(`Skill_Begin` → `Skill_Loop` → `Skill_End`, 아래·위 덮어쓰기 없음)가 함께 붙어 있다(공식 클라에서
-  확인). 시뮬이 시전 신호 fx `enemySkill`에 채널 전체 길이 `dur`(21틱 × 0.5 s = 10.5 s)와 대상 `tgt`를 싣고(키트 `castFx`), 렌더가 `units.js ESKILL_CLIPS`로 그 길이에 세 클립을
-  맞춘다 — 시작·끝은 제 속도, `Skill_Loop`가 나머지 내내 돈다. 채널이 일찍 끝나면(대상이 사라짐·침묵·끊긴 시전) 시뮬이 fx `enemySkillEnd`를 내고 렌더가 그때 `Skill_End`로 닫는다
-  (`SpineActor.chantCut`); 기절·쓰러짐은 전처럼 클립을 끊는다. 전에는 이 능력이 표에 없어 채널 동안 루프 클립을 틀지 않았다(관리자 제보 2026-11-14: 한 번만 재생). 확인:
-  `test/render/eskill-clip.test.js` 「节日爵士乐手 (real kit)…」(수정 전 코드에서 실패 확인). [화면 미확인 — `checks/arena.md`]
-  정예 캐스터도 같다: `DeathEye`의 `LineAttack`에 같은 3단 채널이 붙어 있고(공식 클라에서 확인, 뒤의 `ChargeAttack`은 클립 없음), 시뮬이 `dur` 8(`hit_duration`, 1초 간격)과 `tgt`를
-  싣고 끊긴 채널(대상이 쓰러짐·기절·빙결 등)에 `enemySkillEnd`를 낸다. 확인: 같은 시험 파일 「萨卡兹王庭军精锐术师 (real kit)…」. [화면 미확인 — `checks/arena.md`]
-  빠짐 방지: 적 스킬 능력의 3단 채널 클립은 클라 프리팹에서 추출해 `data/enemies.json`·시즌 `enemies.json`의 `skillCast.*.chan`에 두고(`tools/local-extract/attack_timing.py`),
-  `test/render/eskill-clip-coverage.test.js`가 그런 스킬이 모두 `ESKILL_CLIPS`에 같은 클립으로 있거나 `test/render/eskill-clip-list.js`에 이유와 함께(시뮬이 시전 안 함 · 다른 길로
-  그림 · 아직 안 이음) 있는지 본다. 2026-11-14 기준 채널 스킬 24개 중 이은 것 2, 안 시전 7, 다른 길 1, 아직 안 이음 12(그동안 모델이 서 있거나 걸음). 「이 모드에서 시전 안 함」은 세 시험(채널 클립·줄 투사체·투사체 기다림)이 함께 읽는 `test/content/enemy-not-cast-list.js` 한 곳에만 적고, `test/content/enemy-not-cast.test.js`가 그 스킬이 데이터에 있고 적 키트가 그 이름의 능력을 만들지 않는지 본다(2026-11-15 — 전에는 살카즈 후예 기술자와 '염의 가호'의 줄이 두 목록에 따로 있었다).
+- 화면(2026-11-14, 2026-11-15 엔진으로 옮김): 재즈 연주가의 `Skills/fire`에는 `ThreePartChannelingAnimation` `_default`(`Skill_Begin` → `Skill_Loop` → `Skill_End`, 아래·위 덮어쓰기 없음)가 함께 붙어 있다(공식 클라에서
+  확인). 공식은 이 동작의 세 클립을 능력 시간(`get_cooldown`)에 맞추고(`UpdatePlaybackSpeed`: 시간 ≥ 시작+끝이면 시작·끝은 제 속도, 루프가 나머지), `_waitForAttachFinishEvent`이면 루프가
+  능력의 공격 끝 신호까지(최대 360초) 이어진다(`DoPlayAnimation`; 둘 다 공식 클라에서 확인 — 민트 S2가 같은 동작). 재즈 연주가·정예 캐스터·'사미의 의지'·살카즈 후예 기술자의 채널이 그 표시를 가졌다.
+  엔진이 이것을 그대로 알린다(`content/enemies.js castSkill`): 시전하는 스킬의 시전 기록(`skillCast.*`, 순차 묶음이면 그 자식)에 `chan`이 있으면 fx `enemySkill`에 `dur` = 그 능력의
+  시전 길이(`castLength` — `_timeMode` 2·3이면 정한 값·블랙보드 값) 또는 `wait`이면 `hold` 1을 싣고, 키트의 `fire`가 대상 유닛을 돌려주면 그것을 `tgt`로(줄 투사체, 아래·위 세트 — 재즈 연주가·정예 캐스터만 돌려준다: `tgt`가 있으면 `fxgame.js eskillFx`가 시전 시작에 스킬 투사체의 꼬리도 띄우므로, 볼트를 1.4초 뒤에 쏘는 강화 석궁 기습자는 안 돌려주고 아래·위 세트를 걸어온 쪽으로 고른다 [추정·미조사: 공식은 `_faceToTarget`으로 대상 쪽]).
+  시전이 끝나면 — 끊김, 투사체를 기다리는 시전의 끝(위 `projCastOver`), `hold` 시전의 시간 끝 — fx `enemySkillEnd`를 한 번 낸다(`chanEnd`). 렌더는 적 기록의 `chan`을 읽어 그
+  길이에(`hold`면 끝 신호까지) 세 클립을 틀고(`units.js onEnemySkill` → `SpineActor.chant`/`chantCut`), 기절·쓰러짐은 전처럼 클립을 끊는다. 재즈 연주가는 채널(21틱 × 0.5 s =
+  10.5 s)이 끝나 투사체가 사라질 때, 일찍 끝나면(대상이 사라짐·침묵·끊긴 시전) 그때와 능력 시간(공격 간격) 중 늦은 때에 `Skill_End`로 닫는다. 정예 캐스터도 같다(`dur` 8, 대상이
+  쓰러지면 다음 1초 틱에 채널이 멈추고 능력 시간 4초에 끝). [추정·미조사: 공격 끝 신호를 시전 끝으로 봄 — `_fireAttackFinishWhenProjectileInvalid`가 없는 투사체 기다림 `RangedAttack`(재즈
+  연주가·정예 캐스터)에서 그 신호를 무엇이 내는지 안 읽음] 전에는 키트 `castFx` 둘이 `dur`·`tgt`를 싣고 렌더의 손 표 `ESKILL_CLIPS`가 클립을
+  되적었으며, 처음엔 그 표에 없어 채널 동안 루프 클립을 틀지 않았다(관리자 제보 2026-11-14: 한 번만 재생). 이 길로 손 표 없이 이어진 것(2026-11-15): 강화 석궁 기습자 `CrossAttack`(아래·위
+  세트는 걸어온 쪽, `_timeMode` 2 → 2.5초)·부패한 기사 `ChargeAttack`·'즈자이' `ShieldBurst` 둘(시작 키 `Skill_02`는 모델에 없어 시작 클립 없이 루프부터 [추정·미조사: 공식이 시작을 건너뛰는지 안 읽음
+ ])·'늑대 군주' 자로 `FearCage`·가상적: 흑운 `KillOthers`·가상적: 총 `2`·'사미의 의지' `Lasso`·검은 뿔의 루울 `skill`·응집된/분산된 영혼의 잔해 `Laser`.
+  확인: `test/render/eskill-clip.test.js` 「节日爵士乐手 (real kit)…」·「萨卡兹王庭军精锐术师 (real kit)…」·「重弩突袭者 (real kit)…」. [화면 미확인 — `checks/arena.md`]
+  재발 방지: 원인 제거 — 채널 클립은 추출 `tools/local-extract/attack_timing.py`(`chan`, `wait`)가 데이터 `skillCast.*.chan`에 두고 엔진 시전과 렌더가 그것만 읽는다(채널 손 표·키트 `castFx`·
+  커버리지 시험과 예외 목록을 지움). 남은 손 표 `ESKILL_CLIPS`는 한 클립 스킬 셋(포트브레이커·살카즈 후예 처벌자/징벌자·복핵의 해류사자 — 데이터의 한 클립 `skillCast.*.clip` 전수는 묶음 fx-F)과
+  제트 캐니스터 `Flame`(일반 공격의 채널: 그 능력이 `Body/Flame`에 있어 추출이 안 읽음). 키트가 엔진 시전 밖에서 제 타이머로 내는 채널은 클립이 없다. 「이 모드에서 시전 안 함」은 두 시험(줄 투사체·투사체 기다림)이
+  함께 읽는 `test/content/enemy-not-cast-list.js` 한 곳에만 적고(2026-11-15 '늑대 군주' `WildCalling` 더함: 키트 `leaders.js kitWolfLord`가 그 능력을 만들지 않음 — 키트 머리 주석의 「Not modelled」), `test/content/enemy-not-cast.test.js`가 그 스킬이 데이터에 있고 적 키트가 그 이름의 능력을 만들지 않는지 본다.
 
 ### 투사체를 기다리는 적 스킬 넷 — W·함락의 제사장·'사미의 의지'·'염의 가호' (2026-11-14)
 
@@ -2813,7 +2821,7 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   수명 끝, 대상이 쓰러지거나 필드를 떠남(`_stopIfTargetDead`·`_stopIfTargetDisappeared`), 보스가 쓰러짐(`_stopWhenSourceInvalid`), 시전이 끊김. **올가미가 있는 동안 보스는
   시전 중**이라 고드름(冰凌)도 다른 스킬도 없고, 60초 쿨은 마지막 올가미가 끝날 때 다시 돈다 — 올가미가 공격 간격(6초)보다 일찍 끝나면(대상 철수) 시전은 시전 시작 6초까지 이어진다(「적 스킬 = 일반 공격 차례」 시전 길이, 2026-11-14). 전에는 시전 길이 0이라 올가미 중에도 고드름을 쐈고 쿨이 시전 시작부터 돌았으며, 기절은
   대상이 철수해도 10초를 채웠다. 보스는 기절·빙결·공중 띄우기 면역이라 끊김은 실제로 드물다. 자기 공격 루프를 쓰는 보스라 `bosses.js ownAttackTurn`의 `engineCast`로 엔진의
-  시전 기록(`castLeft`·선 채 버티기·끊김)을 쓴다. 화면의 3단 채널 클립(`Skill_01_Begin`/`_Loop`/`_End`)은 아직 안 이음(`test/render/eskill-clip-list.js` TODO, fx-F).
+  시전 기록(`castLeft`·선 채 버티기·끊김)을 쓴다. 화면의 3단 채널 클립(`Skill_01_Begin`/`_Loop`/`_End`)은 엔진 시전이 `hold`로 알리고 마지막 올가미가 사라져 시전이 끝날 때 닫는다(위 「화면」, 2026-11-15).
 - **'염의 가호'(아군 소환물 `enemy_9012_acloon`) 「祛恶之焰」**: 선 투사체 `projectile_enemy_acloon_line`(`LassoProjectile`)의 길이는 블랙보드 `hit_duration`(없으면
   `_linkDuration` 7) — 지금 20초와 같다. 선은 시전자가 **침묵 또는 기절**이면 끊긴다(`_isSilenceable` → `LinkProjectile.OnTick`의 `isSilencedOrStunned`; 우리 기절 깃발 =
   빙결·공중 띄우기 포함). 고정은 대상이 살아 있고 필드에 있으며 OUT_OF_GROUND가 아닌 동안 이어진다(`_ValidForLassoProjectile`) — 대상이 은신·선택 불가가 되어도 안 풀린다.

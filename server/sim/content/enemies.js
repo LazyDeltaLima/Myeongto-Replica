@@ -290,21 +290,65 @@ function onTick(b, dt) {
       }
     }
     if (ab.casting && ab.casting.open && e.alive) projCastOver(b, e, ab);
+    // a held channel's cast played out (castLength: its `until`) — the cuts and the open casts end through onSkillCut
+    if (ab.casting && ab.casting.hold && !ab.casting.open && ab.casting.chan && b.time >= ab.casting.until - 1e-9) chanEnd(b, e, ab.casting);
   }
 }
 
-/** Cast skill ability `a` of enemy `e` now (its cooldown already set). */
-function castSkill(b, e, a) {
+/**
+ * Cast skill ability `a` of enemy `e` now (its cooldown already set); `k` = the cast record onSkillSlot just opened
+ * (`ab.casting`), null for a skill on its own cooldown (onTick).
+ */
+function castSkill(b, e, a, k = null) {
   a.casts = (a.casts ?? 0) + 1;
   e.skillAnimUntil = b.time + 0.5;
   // the cast's events name the official ability (docs/SIM.md events; the client binds the enemy's effects and
   // sounds by it — the prefab's `Skills/<name>`, research of the client's UnitMode.GenerateSignalId): fx
-  // 'enemySkill' { id, ability, n } as it starts, and `ability` / `caster` on every fx the cast makes now; a kit's
-  // `castFx(b, e, a)` adds what the view's clip needs (a channel's `dur` and target `tgt`: render/units.js ESKILL_CLIPS)
-  if (a.name) b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: a.name, n: a.casts, ...(a.castFx ? safe(b, e, () => a.castFx(b, e, a)) : null) });
+  // 'enemySkill' { id, ability, n } as it starts, and `ability` / `caster` on every fx the cast makes now. A skill whose
+  // ability plays a three-part channel (`skillCast.*.chan`, chanCast) tells the view how long it lasts (chanView) and,
+  // when its fire returns the unit it casts on, that target `tgt` (the channel's set by the way it faces, its link line)
+  const s = a.name ? e.mem.ab.sk[a.name] : null;
+  const ch = chanCast(s && s.cast);
+  const p = a.name ? b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: a.name, n: a.casts, ...(ch ? chanView(e, ch, s.bb) : null) }) : null;
+  if (ch && k) { k.chan = true; k.hold = !!ch.chan.wait; }
   const prev = b._castAbility;
   b._castAbility = a.name ? { id: e.id, ability: a.name } : null;
-  try { safe(b, e, () => a.fire(b, e, a)); } finally { b._castAbility = prev; }
+  let t;
+  try { t = safe(b, e, () => a.fire(b, e, a)); } finally { b._castAbility = prev; }
+  if (ch && p && t && t !== e && t.id != null) p.tgt = t.id;
+}
+
+/** The cast record of `cast` that plays a three-part channel — itself, else a child of its sequence (死亡之眼's LineAttack) — or null. */
+function chanCast(cast) {
+  if (!cast) return null;
+  if (cast.chan && cast.chan.loop) return cast;
+  for (const c of cast.subs || []) { const r = chanCast(c); if (r) return r; }
+  return null;
+}
+
+/**
+ * How long the view plays a skill's three-part channel (ThreePartChannelingAnimation, `skillCast.*.chan`; render/units.js
+ * onEnemySkill reads its clips from the same record): `UpdatePlaybackSpeed` fits begin, loop and end into the ability's
+ * time (`get_cooldown` — castLength of the channel's record) → `dur`; with `_waitForAttachFinishEvent` (`chan.wait`) the
+ * loop lasts until the ability's attack-finish event instead (`DoPlayAnimation`, at most 360 s) → `hold` 1, and the cast's
+ * end sends 'enemySkillEnd' (onSkillCut, onTick) [ASSUMED·미조사: that event is taken to come as the cast ends — what fires
+ * it for a RangedAttack waiting for its projectile without `_fireAttackFinishWhenProjectileInvalid` (节日爵士乐手,
+ * 萨卡兹王庭军精锐术师) was not read]. 공식 클라에서 확인 (both paths of DoPlayAnimation).
+ */
+function chanView(e, ch, bb) {
+  if (ch.chan.wait) return { hold: 1 };
+  const dur = castLength(e, ch, bb);
+  return dur > 0 ? { dur: Math.round(dur * 1000) / 1000 } : null;
+}
+
+/**
+ * The channel of cast record `k` (castSkill marked it `chan`) is over — cut, an open cast's projectile gone, or a held
+ * channel's (`hold`) time run: the view closes it on its end clip ('enemySkillEnd'; once).
+ */
+function chanEnd(b, e, k) {
+  if (!k.chan || !k.a.name) return;
+  k.chan = false;
+  if (e.alive) b.fx('enemySkillEnd', { x: e.x, y: e.y, id: e.id, ability: k.a.name });
 }
 
 /**
@@ -400,7 +444,7 @@ function onSkillSlot(b, c) {
   a.left = Math.max(TICK, a.cd + dur);
   c.cast = { dur, atkCd: cast.resetMain && !open ? dur + (cast.waitFirst ? e.s.interval : 0) : e.s.interval };
   ab.casting = dur > 0 ? { a, cast, until: b.time + dur, open, min: open ? b.time + own : 0 } : null;
-  castSkill(b, e, a);
+  castSkill(b, e, a, ab.casting);
   // a skill whose spell casts another one at once (TriggerEnemySkill with `_interruptCurAbility`, e.g. 复核洋流使者's
   // `0` → `1`): its fire hands that cast back (`a.next` = { dur }) and the slot plays it instead, cut like any skill cast
   const nx = a.next;
@@ -452,6 +496,7 @@ function onSkillCut(b, c) {
   if (!k) return;
   ab.casting = null;
   if (!(b.time < k.until - 1e-9)) return;
+  chanEnd(b, e, k);
   k.a.left = Math.max(TICK, k.a.cd);
   if (k.cast.resetMain) e.atkCd = k.cast.waitFirst ? e.s.interval : 0;
   if (k.a.onCut) safe(b, e, () => k.a.onCut(b, e, k.a));

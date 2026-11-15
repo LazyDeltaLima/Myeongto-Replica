@@ -6093,7 +6093,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * 2026-11-14 (docs/rules/fx.md 「적 채널 스킬의 줄 투사체」): an enemy channel skill whose projectile is a link
    * (LassoProjectile + HarpoonMovement + HarpoonRenderer, enemy-modes.json `proj.link`: 节日爵士乐手's 狂欢式演奏
    * projectile_enemy_cnvsax, 萨卡兹王庭军精锐术师's 死亡之眼 projectile_enemy_dwlock_line) — from the sim's fx 'enemySkill'
-   * { id, ability, tgt, dur } (the kit's castFx) for the channel's `dur`, or to its 'enemySkillEnd'. The client's
+   * { id, ability, tgt, dur | hold } (content/enemies.js castSkill) for the channel's `dur`, or to its 'enemySkillEnd'. The client's
    * HarpoonRenderer makes the `_mainEffect` (`proj.trail`) under the projectile's body, or on the shooter with
    * `_spawnOnSource` (`proj.onSrc`), and each tick sets both points of every LineRenderer of it: the first where the shot
    * left (its `_mountPointType`, `proj.mount`), the second the projectile's body while it extends (`_speed` tiles a second,
@@ -6242,7 +6242,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (hold) {
       // 2026-10-15: a held skill (the sim's fx 'enemySkill' `hold` until its 'enemySkillEnd' — 子代's 摄食): its loop cast
       // effects (opt `o` 0, to ON_CAST_END) last until that end, cut at ESKILL_HOLD_CAP s [추정: a lost end]; (2026-11-14) a
-      // channel of known length (`holdFor`: the kit's castFx `dur`) to that length
+      // channel of known length (`holdFor`: its `dur`, content/enemies.js chanView) to that length
       const names = edirs(v, part, part.cast), loops = names.filter((n) => part.opt?.[n]?.o === 0);
       eplay(v, names.filter((n) => !loops.includes(n)), { tag: 'cast' });
       if (loops.length) eplay(v, loops, { buff: true, tag: 'eskill', until: clockS + holdFor });
@@ -6259,7 +6259,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (Array.isArray(pr.targetStart)) eplay(v, pr.targetStart, { at: target });
       const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
       const speed = Number(pr.speed) > 0 ? Number(pr.speed) : 0;
-      if (r && speed > 0 && !pr.link && !trailFull()) {
+      if (r && speed > 0 && !pr.link && !trailFull() && lib) {
         const dist = Math.hypot(target.x - v.x, target.y - v.y);
         if (dist / speed <= 6) {
           const from = eshotFrom(v, pr.mount);
@@ -7329,11 +7329,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
               // 2026-11-12: a skill whose buff effect lasts with its form (FORM_HELD_SKILLS) — held to that form's end
               if (e[1] === 'enemySkill' && FORM_HELD_SKILLS[v.info?.defId]?.[k]) { eskillFx(v, k, { loop: true, cap: ESKILL_HOLD_CAP }); return; }
               const tgt = o.target ?? o.tgt ?? o.to, tv = tgt != null ? views.get(tgt) || null : null;
-              // 2026-11-14: a channel the kit gives a length (castFx `dur`: render/units.js ESKILL_CLIPS) is held that long or
-              // to its 'enemySkillEnd' (its ON_CAST_END effects, its hits' effects), and its link projectile's line shows
+              // 2026-11-14: a channel the sim gives a length (`dur`: content/enemies.js chanView, a kit's own channel) is held
+              // that long or to its 'enemySkillEnd' (its ON_CAST_END effects, its hits' effects), and its link projectile's
+              // line shows; (2026-11-15) a `hold` one to that end (at most ESKILL_HOLD_CAP)
               const chan = e[1] === 'enemySkill' && Number(o.dur) > 0 ? Number(o.dur) : 0;
-              if (chan) elassoStart(v, eskillPart(v, k), tv, chan);
-              if (eskillFx(v, k, { target: tv, hold: e[1] === 'enemySkill' && (!!o.hold || chan > 0), holdFor: chan || ESKILL_HOLD_CAP }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
+              const held = e[1] === 'enemySkill' && (!!o.hold || chan > 0);
+              if (held) elassoStart(v, eskillPart(v, k), tv, chan || ESKILL_HOLD_CAP);
+              if (eskillFx(v, k, { target: tv, hold: held, holdFor: chan || ESKILL_HOLD_CAP }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
               return;
             }
           }

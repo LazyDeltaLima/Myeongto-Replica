@@ -291,6 +291,8 @@ def chan_clips(ch, table):
             # (a key the table lacks stays as it is: the view binds effects to the channel's parts — “自在”'s ShieldBurst
             # begin `Skill_02`, not in its table, is the fx-F line)
             out[k] = table.get(v) or v
+        elif k == 'wait':
+            out[k] = v
     return out
 
 
@@ -346,7 +348,8 @@ def is_buff_ability(d):
 def chan_fields(ds):
     """The clips of a ThreePartChannelingAnimation among MonoBehaviours `ds` (the ability's GameObject): {begin, loop, end}
     of its `_default`, with `down` / `up` the same when `_overrideDownAnimation` / `_overrideUpAnimation` (the set
-    `_GetAnimBundle` picks by the body direction); None without one. Empty names are left out."""
+    `_GetAnimBundle` picks by the body direction), and `wait` 1 with `_waitForAttachFinishEvent` (its loop lasts until the
+    ability's attack-finish event, not the ability's time — `DoPlayAnimation`); None without one. Empty names are left out."""
     def part(b):
         if not isinstance(b, dict):
             return {}
@@ -357,6 +360,8 @@ def chan_fields(ds):
             for k, flag in (('down', '_overrideDownAnimation'), ('up', '_overrideUpAnimation')):
                 if d.get(flag) and part(d.get('_' + k)):
                     rec[k] = part(d.get('_' + k))
+            if rec and d.get('_waitForAttachFinishEvent'):
+                rec['wait'] = 1
             return rec or None
     return None
 

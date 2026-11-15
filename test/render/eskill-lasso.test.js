@@ -1,9 +1,10 @@
 // test/render/eskill-lasso.test.js — enemy channel skills whose projectile is a link (2026-11-14, docs/rules/fx.md
-// 「적 채널 스킬의 줄 투사체」): the sim's fx 'enemySkill' { id, ability, tgt, dur } of 节日爵士乐手's 狂欢式演奏 ('fire') and
+// 「적 채널 스킬의 줄 투사체」): the sim's fx 'enemySkill' { id, ability, tgt, hold } of 节日爵士乐手's 狂欢式演奏 ('fire') and
 // 萨卡兹王庭军精锐术师's 死亡之眼 ('DeathEye') draws the projectile's HarpoonRenderer effect (`proj.trail`) from the caster to
 // its target for the channel — on the caster when the projectile has `_spawnOnSource` (`proj.onSrc`: the jazz player's flame),
 // else on the line's head (the 死亡之眼's) — and the sim's stand-in beams of the channel ('beam' jazzFire / deathEye /
-// deathEyeEnd) are not drawn meanwhile; an early end ('enemySkillEnd', a cut 'deathEyeEnd') ends the line; the channel's
+// deathEyeEnd) are not drawn meanwhile; the cast's end ('enemySkillEnd' — content/enemies.js chanEnd, as the channel ends or
+// sooner) or a cut 'deathEyeEnd' ends the line; the channel's
 // hits keep its hit effects to its end (eskillHit, not only the first 3 s). Until then the jazz player's flame was the
 // stand-in beam (maintainer report 2026-11-14).
 // The sim's events come from the real kits (content/enemies/invisible.js kitJazz, element.js kitDeathEye); the render runs on
@@ -92,7 +93,7 @@ function play(L, views, rec, t0, t1, on = () => {}) {
 }
 const fxIs = (e, kind, k) => e[0] === 'fx' && e[1] === kind && (k == null || e[4]?.kind === k || e[4]?.ability === k);
 
-test('节日爵士乐手 (real kit): 狂欢式演奏 draws its flame line on itself for the 10.5 s channel; no stand-in beam; its hit effect on every tick to the end', async () => {
+test('节日爵士乐手 (real kit): 狂欢式演奏 draws its flame line on itself for the 10.5 s channel, to the cast\'s end; no stand-in beam; its hit effect on every tick to the end', async () => {
   const fetch0 = globalThis.fetch;
   try {
     const { h, e, rec } = field(JAZZ, [[10, 5]], [10, 5]);
@@ -100,13 +101,15 @@ test('节日爵士乐手 (real kit): 狂欢式演奏 draws its flame line on its
     h.run(11);
     const [t0, cast] = rec.find(([, x]) => fxIs(x, 'enemySkill', 'fire'));
     const wall = h.allies()[0];
-    assert.ok(Math.abs(cast[4].dur - 10.5) < 1e-9 && cast[4].tgt === wall.id, 'the sim casts at its blocker for 10.5 s');
+    assert.ok(cast[4].hold === 1 && cast[4].tgt === wall.id, 'the sim casts at its blocker, held to its end');
+    const [t1] = rec.find(([, x]) => fxIs(x, 'enemySkillEnd', 'fire'));
+    assert.ok(Math.abs(t1 - t0 - 10.5) < 0.1, `the cast ends with the 10.5 s channel (${(t1 - t0).toFixed(3)})`);
     const beams = rec.filter(([t, x]) => t >= t0 && fxIs(x, 'beam', 'jazzFire'));
     assert.equal(beams.length, 21, 'a stand-in beam each 0.5 s tick');
     const { L, seen } = await layer();
     const views = new Map([[e.id, viewOf(e)], [wall.id, viewOf(wall)]]);
     const hits = [];
-    play(L, views, rec, t0, t0 + 10.6, (x, t) => {
+    play(L, views, rec, t0, t1, (x, t) => {
       if (fxIs(x, 'beam', 'jazzFire')) assert.equal(L.ownsFx(x), true, `the beam at ${(t - t0).toFixed(1)} s is not drawn`);
       if (x[0] === 'dmg' && x[5] === e.id) hits.push(t - t0);
     });
@@ -116,7 +119,7 @@ test('节日爵士乐手 (real kit): 狂欢式演奏 draws its flame line on its
     const hitFx = seen.filter((p) => p.kind === 'spawn' && p.names[0] === 'enemy_cnvsax_hit_02');
     assert.ok(hits.some((t) => t > 9), 'the channel hits to its end');
     assert.ok(hitFx.length >= 18 && hitFx.every((p) => p.on === wall.id), `its hit effect on the target at the ticks past 3 s too (${hitFx.length})`);
-    assert.ok(!seen.some((p) => p.kind === 'lassoEnd'), 'played out: no early end');
+    assert.deepEqual(seen.filter((p) => p.kind === 'lassoEnd').map((p) => p.names[0]), ['enemy_cnvsax_skill_line_01'], 'the cast\'s end ends the line');
   } finally { globalThis.fetch = fetch0; }
 });
 

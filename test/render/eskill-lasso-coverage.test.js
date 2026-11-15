@@ -4,8 +4,8 @@
 // in test/render/eskill-lasso-list.js (2026-11-14, docs/rules/fx.md 「적 채널 스킬의 줄 투사체」). 节日爵士乐手's 狂欢式演奏 was
 // such a line the view drew as the sim's stand-in beam (maintainer report 2026-11-14); a new enemy, season or extract that
 // adds one fails here until it is wired or listed. A wired (LASSO) one is checked on its real kit: the channel's fx
-// 'enemySkill' carries `dur` and `tgt` (what render/fxgame.js elassoStart draws the line for) and every stand-in beam the
-// kit sends meanwhile is one LASSO_BEAMS keeps from being drawn over the line.
+// 'enemySkill' carries `dur` or `hold` (to its 'enemySkillEnd') and `tgt` (what render/fxgame.js elassoStart draws the line
+// for) and every stand-in beam the kit sends meanwhile is one LASSO_BEAMS keeps from being drawn over the line.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -49,7 +49,7 @@ test('the bindings carry the link lines (节日爵士乐手 fire on itself, 死�
 
 test('every link-line ability is drawn by elassoStart or listed with why', () => {
   const missing = [...linkAbilities().keys()].filter((k) => !LISTED[k] && !notCast(k));
-  assert.deepEqual(missing, [], 'send the channel\'s `dur` / `tgt` from its kit (castFx) and list it in LASSO, or list it in test/render/eskill-lasso-list.js with why (test/content/enemy-not-cast-list.js when the sim never casts it)');
+  assert.deepEqual(missing, [], 'cast it through the engine (content/enemies.js castSkill: `dur` / `hold`, its fire returns the target `tgt`) and list it in LASSO, or list it in test/render/eskill-lasso-list.js with why (test/content/enemy-not-cast-list.js when the sim never casts it)');
   assert.ok(notCast('enemy_9012_acloon Modes/1/Body/Skills/Skill') && !notCast('enemy_9012_acloon Modes/2/Body/Skills/Skill_2'), '炎佑\'s mode 1 skill is read from the not-cast list');
 });
 
@@ -79,14 +79,17 @@ function field(key) {
 
 for (const [k, ability] of Object.entries(LASSO)) {
   const id = k.split(' ')[0];
-  test(`${k} (real kit): its channel sends \`dur\` and \`tgt\`, and its stand-in beams are LASSO_BEAMS'`, () => {
+  test(`${k} (real kit): its channel sends \`dur\` or \`hold\` and \`tgt\`, and its stand-in beams are LASSO_BEAMS'`, () => {
     const { h, e, rec } = field(id);
     const isCast = ([, x]) => x[0] === 'fx' && x[1] === 'enemySkill' && x[4]?.id === e.id && x[4]?.ability === ability;
+    const isEnd = ([, x]) => x[0] === 'fx' && x[1] === 'enemySkillEnd' && x[4]?.id === e.id && x[4]?.ability === ability;
     h.runUntil(() => rec.some(isCast), 60);
     const [t0, cast] = rec.find(isCast) || [];
     assert.ok(cast, `the sim casts ${ability}`);
-    assert.ok(Number(cast[4].dur) > 0 && cast[4].tgt != null, `its fx 'enemySkill' carries the channel's dur / tgt (${JSON.stringify(cast[4])})`);
-    h.run(Number(cast[4].dur) + 0.5);
+    assert.ok((Number(cast[4].dur) > 0 || cast[4].hold) && cast[4].tgt != null, `its fx 'enemySkill' carries the channel's dur or hold, and tgt (${JSON.stringify(cast[4])})`);
+    if (Number(cast[4].dur) > 0) h.run(Number(cast[4].dur) + 0.5);
+    else h.runUntil(() => rec.some(isEnd), 60);
+    assert.ok(cast[4].dur > 0 || rec.some(isEnd), 'a held channel ends with its \'enemySkillEnd\'');
     const beams = rec.filter(([t, x]) => t >= t0 && x[0] === 'fx' && x[1] === 'beam' && (x[4]?.from ?? x[4]?.id) === e.id).map(([, x]) => x[4].kind);
     assert.ok(beams.length > 0, 'the kit sends its stand-in beams');
     assert.deepEqual([...new Set(beams)].filter((b) => !LASSO_BEAMS.has(b)), [], 'every stand-in beam of the channel is in render/fxgame.js LASSO_BEAMS');

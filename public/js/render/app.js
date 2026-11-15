@@ -2023,13 +2023,14 @@ export async function createFieldView(host, options = {}) {
         // an attack behaviour that strikes nothing (fx `signal`, over `t` game s when given: 秘术师 'mysticStore', 凯尔希·思衡托's
         // S3 take-off; `attackTurn`: over the attack interval, the fx's `t` being something else — 涤火杰西卡's shell flight), a strike just made (`strike`: 焰尾's 前锋剑术) or a channel held while `on` (蕾缪安 S2's aim, `on` 1 / 0)
         // → its role's `signals` clip, UnitView.onSignal
-        // 2026-11-12: an enemy ability cast in a clip of its own (fx 'enemySkill' { id, ability } — render/units.js ESKILL_CLIPS)
-        // (its channel over `dur`, in the way it faces its target `tgt`: “喷射罐”'s Flame)
+        // 2026-11-12: an enemy ability cast in a clip of its own (fx 'enemySkill' { id, ability } — UnitView.onEnemySkill: a
+        // skill's three-part channel from the data, render/units.js ESKILL_CLIPS for the rest) — its channel over `dur` or held
+        // (`hold`) to its 'enemySkillEnd', in the way it faces its target `tgt`
         if (e[1] === 'enemySkill' && e[4] && typeof e[4].ability === 'string' && e[4].id != null) {
           const t = e[4].tgt != null ? views.get(e[4].tgt) : null;
-          views.get(e[4].id)?.onEnemySkill?.(e[4].ability, LATE.get(e) || 0, { dur: Number(e[4].dur) || 0, aim: t ? { x: t.x, y: t.y } : null });
+          views.get(e[4].id)?.onEnemySkill?.(e[4].ability, LATE.get(e) || 0, { dur: Number(e[4].dur) || 0, hold: !!e[4].hold, aim: t ? { x: t.x, y: t.y } : null });
         }
-        // 2026-11-14: a channel that ended before its `dur` (节日爵士乐手's 狂欢式演奏) closes on its end clip
+        // 2026-11-14: a channel's end before its `dur`, or a held one's (节日爵士乐手's 狂欢式演奏) closes on its end clip
         if (e[1] === 'enemySkillEnd' && e[4] && typeof e[4].ability === 'string' && e[4].id != null) views.get(e[4].id)?.onEnemySkillEnd?.(e[4].ability);
         if (e[4] && typeof e[4] === 'object' && typeof e[4].signal === 'string' && e[4].id != null) views.get(e[4].id)?.onSignal?.(e[4].signal, !e[4].attackTurn && Number(e[4].t) > 0 ? Number(e[4].t) : null, !!e[4].strike, e[4].on ?? null);
         // 予愿安洁莉娜 S2's 吟唱: her model glides out along the sweep and back (UnitView.glide; the sim keeps her on her tile)

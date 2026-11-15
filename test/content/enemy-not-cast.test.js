@@ -1,7 +1,7 @@
 // test/content/enemy-not-cast.test.js — the enemy skills that test/content/enemy-not-cast-list.js says the sim never
 // casts are skills of the data, and their enemy's kit builds no ability of that name (the abilities a kit casts are
-// its `mem.ab.list`). The three coverage tests that read the list (channel clips, link lines, projectile waits) take it
-// on trust; this is where the claim is checked.
+// its `mem.ab.list`). The coverage tests that read the list (link lines, projectile waits) take it on trust; this is
+// where the claim is checked.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

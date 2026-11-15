@@ -134,26 +134,18 @@ function kitJazz(ab, e) {
     // (Enemy.OnTick ticks the enabled skills only; content/enemies.js onTick `pause`)
     pause: (b, e2) => e2.mode !== 'Attack',
     onCut: (b, e2) => { if (e2.mem.jazzChannel) e2.mem.jazzChannel.end(); },
-    // the view: the same ability's ThreePartChannelingAnimation `_default` (Skill_Begin → Skill_Loop → Skill_End, 공식 클라에서
-    // 확인) over the channel — fx 'enemySkill' with its full length `dur` (n ticks) and target `tgt`; a channel that ends
-    // sooner (its target gone, a silence, a cut cast) sends 'enemySkillEnd' and the view closes on Skill_End then
-    castFx(b, e2, a) {
-      const t = byPriority(e2, targetsNear(b, e2, r))[0] || null, n = jazzTicks();
-      a.tgt = t;
-      return t && n ? { dur: n * (s.bb.hit_interval ?? 0.5), tgt: t.id } : null;
-    },
-    fire(b, e2, a) {
+    // the view: the ability's ThreePartChannelingAnimation (data skillCast.fire.chan, `_waitForAttachFinishEvent`) loops
+    // until the cast ends — content/enemies.js castSkill / chanEnd; the fire returns its locked target (`tgt`: its link line)
+    fire(b, e2) {
       const dur = s.bb['enemy_cnvsax[cd].duration'] ?? 0, iv = s.bb.hit_interval ?? 0.5;
-      const t = a.tgt !== undefined ? a.tgt : byPriority(e2, targetsNear(b, e2, r))[0];
-      a.tgt = undefined;
+      const t = byPriority(e2, targetsNear(b, e2, r))[0];
       const n = jazzTicks();
-      if (!t || !n) return;
+      if (!t || !n) return null;
       const buff = b.addBuff(e2, { key: 'ab:channel', duration: dur, flags: { disarm: true } });
       let k = 0;
       const end = () => {
         if (e2.mem.jazzChannel !== ch) return;
         h.cancel(); e2.mem.jazzChannel = null; if (buff) b.removeBuff(e2, buff);
-        if (k < n && e2.alive) b.fx('enemySkillEnd', { x: e2.x, y: e2.y, id: e2.id, ability: s.name });
       };
       const ch = { end };
       const h = b.every(iv, () => {
@@ -164,6 +156,7 @@ function kitJazz(ab, e) {
         if (++k >= n) end();
       }, { owner: e2 });
       e2.mem.jazzChannel = ch;
+      return t;
     },
   } : null];
 }

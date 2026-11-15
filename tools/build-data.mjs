@@ -2756,8 +2756,8 @@ function enemySkillCast(ctx, manifest, spineId, key) {
       ...(Number.isFinite(s.time) ? { time: s.time } : {}),
       ...(s.time === 2 ? { cd: s.cd || 0 } : s.time === 3 ? { cdKey: s.cdKey || 'duration' } : {}),
       ...(s.proj ? { proj: 1 } : {}),
-      // its ThreePartChannelingAnimation clips ({ begin, loop, end, down?, up? } — the view's channel, render/units.js
-      // ESKILL_CLIPS; test/render/eskill-clip-coverage.test.js)
+      // its ThreePartChannelingAnimation clips ({ begin, loop, end, down?, up?, wait? } — the view plays them as the engine's
+      // cast tells it: render/units.js onEnemySkill, server/sim/content/enemies.js castSkill)
       ...(s.chan && typeof s.chan === 'object' ? { chan: s.chan } : {}),
     };
   };

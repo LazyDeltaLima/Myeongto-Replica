@@ -39,7 +39,7 @@ test('skillCast records the class of each skill\'s ability (attack_timing.py cas
   assert.deepEqual(c('enemy_1502_crowns', 'blink'), { family: 2, kind: 'buff' });
   assert.deepEqual(c('enemy_9009_acfort', 'fireweapon').subs.map((s) => s.kind ?? s.clip), ['buff', 'Skill_2']);
   assert.equal(c('enemy_1275_dwlock_2', 'deatheye').kind, 'seq');
-  assert.deepEqual(c('enemy_1275_dwlock_2', 'deatheye').subs[0], { time: 0, proj: 1, chan: { begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End' } });   // + its ThreePartChannelingAnimation
+  assert.deepEqual(c('enemy_1275_dwlock_2', 'deatheye').subs[0], { time: 0, proj: 1, chan: { begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End', wait: 1 } });   // + its ThreePartChannelingAnimation (`_waitForAttachFinishEvent`)
   assert.equal(c('enemy_1272_nhtank', 'pollutedrangedatk').kind, 'par');
   // (its key `Born` is the clip `Revive` through the prefab animator's key table — docs/rules/sim.md 「적 클립의 키 표」)
   assert.deepEqual(c('enemy_9014_acstma', '2'), { family: 3, clip: 'Revive', dur: 4.433, max: 1, time: 1 });

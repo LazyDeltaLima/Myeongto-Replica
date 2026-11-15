@@ -1966,8 +1966,6 @@ function kitDeer(ab, e) {
             if (b.time < l.until - 1e-9) {   // stopped early: the projectile's buffs come off with it
               if (stun && t.buffs.includes(stun)) b.removeBuff(t, stun);
               if (surge && t.buffs.includes(surge)) b.removeBuff(t, surge);
-              // the last lasso gone before its time: the view's channel ends now (as 节日爵士乐手's)
-              if (!P.lassos.size && e2.alive) b.fx('enemySkillEnd', { x: e2.x, y: e2.y, id: e2.id, ability: lasso.name });
             }
           };
           l.until = b.time + dur;

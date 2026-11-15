@@ -107,8 +107,6 @@ function kitDeathEye(ab, e) {
       h.cancel();
       e2.mem.deathEye = null;
       if (cut) { b.removeBuff(e2, 'ab:channel'); b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'deathEyeEnd' }); }
-      // the view's channel closes now (render/units.js ESKILL_CLIPS: its Skill_End), not at the full `dur`
-      if (cut && e2.alive) b.fx('enemySkillEnd', { x: e2.x, y: e2.y, id: e2.id, ability: s.name });
     };
     const ch = { stop };
     const h = b.every(1, () => {
@@ -126,6 +124,7 @@ function kitDeathEye(ab, e) {
       }
     }, { owner: e2 });
     e2.mem.deathEye = ch;
+    return t;   // the cast's target (content/enemies.js castSkill: the view's link line)
   }, { sil: true, cond: (b, e2) => targetsNear(b, e2, r).length > 0 });
   if (eye) {
     // the skill is a sequence (공식 클라에서 확인): LineAttack — a RangedAttack with `_waitForProjectileInvalid`, the channel's
@@ -133,13 +132,9 @@ function kitDeathEye(ab, e) {
     // while the channel lives (content/enemies.js projCastOver): the enemy stands without normal attacks, and the 24 s
     // cooldown restarts as it ends (upstream #904). A cut cast (freeze, levitation, leaving the field …) ends the channel.
     eye.projAlive = (b, e2) => !!e2.mem.deathEye;
-    // the view: LineAttack's ThreePartChannelingAnimation `_default` (Skill_Begin → Skill_Loop → Skill_End, 공식 클라에서 확인;
-    // ChargeAttack after it plays no clip) over the channel — fx 'enemySkill' with its length `dur` (hit_duration ticks,
-    // 1 s apart) and target `tgt`; a cut channel closes on 'enemySkillEnd' (stop)
-    eye.castFx = (b, e2) => {
-      const t = byPriority(e2, targetsNear(b, e2, r))[0], dur = s.bb.hit_duration ?? 0;
-      return t && dur > 0 ? { dur, tgt: t.id } : null;
-    };
+    // the view: LineAttack's ThreePartChannelingAnimation (data skillCast.deatheye's LineAttack `chan`,
+    // `_waitForAttachFinishEvent`; ChargeAttack after it plays no clip) loops until the cast ends — content/enemies.js
+    // castSkill / chanEnd
     eye.onCut = (b, e2) => { if (e2.mem.deathEye) e2.mem.deathEye.stop(true); };
   }
   return [ep('apoptosis', T(ab, 'empty.attack@ep_damage_ratio') ?? 0), eye];
