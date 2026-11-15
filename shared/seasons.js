@@ -57,6 +57,14 @@ export const SEASON_FEATURES = Object.freeze({
   /** The S.W.E.E.P. report's fourth tab 装备报告 (screens/sweep.js EquipTab): the season's official report has it (upstream
    * 377fb09c, BV11NW869ELq part 1 ≈ 33:20); the 盟约 report has three tabs. */
   equipReport: false,
+  /** Enemy leaders take 侵蚀 (erosion) damage like any enemy: on the season's official server 克莱门莎's erosion lands on
+   * a leader (a CN player's report of 2026-11-15). The 盟约 rule: "最终攻势中，敌方领袖不会受到侵蚀损伤" (server/sim/content/
+   * bosses.js install; docs/rules/sim.md 「규정 리더 적의 침식」). */
+  leaderTakesErosion: false,
+  /** A 联防 helper's operator knocked out at the end of its own combat keeps the rest of its redeploy timer (PRTS
+   * 卫戍协议/帮助 §联防阶段 "自卫戍协议：规程·序列Ⅰ起，作战结束时为退场状态的干员在联防阶段将继承剩余再部署时间"; server/match/unite.js);
+   * the 盟约 one starts its full redeploy time again (docs/rules/sim.md 「규정 연합 방어 — 남은 재배치 시간」). */
+  uniteKeepsRedeploy: false,
 });
 
 /**
@@ -84,7 +92,8 @@ export const SEASONS = {
   // 卫戍协议：规程 (CN from 2026-11-08): built from its own tables (tools/build-data.mjs --season act3autochess); public
   // from 2.0.0
   act3autochess: Object.freeze({ id: 'act3autochess', public: true, name: N_('规程'), mark: 'REGULATION',
-    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noLargeRoom: true, benchInBattle: true, stagePreview: true, bossLayerGains: true, coreBondBan: true, bountyMark: true, equipReport: true }) }),
+    features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, noLargeRoom: true, benchInBattle: true, stagePreview: true, bossLayerGains: true, coreBondBan: true, bountyMark: true, equipReport: true,
+      leaderTakesErosion: true, uniteKeepsRedeploy: true }) }),
 };
 
 /**

@@ -13,6 +13,7 @@
 //     leakEvents: [{ at: seconds, lpr }]  boss fields: 'enemyLeak' hook calls at those times,
 //     lpLossEvents: [{ at: seconds, amount }] 'lpLoss' hook calls (leader "扣除目标生命" effects) at those times,
 //     deadUids: [uid]                 operators reported dead in unitsEnd (alive false, hpPct 0),
+//     respawnLeft: { [uid]: n }       a dead operator's unitsEnd `respawnLeft` (规程's 联防 inherits it),
 //     throwAt: tick number at which step() throws (error-isolation tests),
 //     throwInCtor: true → the constructor throws,
 //   }
@@ -136,7 +137,9 @@ export class FakeBattle {
         deaths: 0,
         unitsEnd: units.map((u) => {
           const dead = this.plan.deadUids.includes(u.uid);
-          return { uid: u.uid, id: u.uid, defId: u.chessId, hpPct: dead ? 0 : 0.5, sp: dead ? 0 : 3, skillActive: false, alive: !dead };
+          const e = { uid: u.uid, id: u.uid, defId: u.chessId, hpPct: dead ? 0 : 0.5, sp: dead ? 0 : 3, skillActive: false, alive: !dead };
+          if (dead && this.plan.respawnLeft && this.plan.respawnLeft[u.uid] != null) e.respawnLeft = this.plan.respawnLeft[u.uid];
+          return e;
         }),
         unitStats: units.map((u) => ({ id: u.uid, uid: u.uid, defId: u.chessId, name: u.chessId, kind: 'op', dmg: 100, kills: 1, heal: 0, taken: 10, attacks: 5 })),
       };

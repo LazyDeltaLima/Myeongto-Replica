@@ -3226,6 +3226,27 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 - **적 종류 표(`enemyInfoDict`)**(2026-11-12 확인): 종류마다 소속 적 키의 목록일 뿐 규칙이 없다 — 규정에서 새 종류 정예(CRITIC 33)·재생(REBORN 32)이 생기고, 은신(INVISIBLE)·굴절(REFLECTION)은 새 항목 셋(가상적: 영역 `9034_acblk`, 경안 `9039_acrefm`·경파 `9031_acrefd`)이 더해졌을 뿐 종류 설명(`enemyTypeDatas`)은 그대로다. 새 두 종류의 설명(「此类敌人在特定条件下造成高额伤害」·「此类敌人首次被击倒后会重生」)은 소속 적의 키트가 하는 일을 적은 것이고, 종류에 거는 전역 버프는 규정 레벨(`globalBuffs` 없음)·표 어디에도 없다. 그래서 종류는 특수 적 뽑기(`factions.json types[*].pool`·`entries`)와 도감 표시에만 쓰이고, 재생 등 동작은 적마다 자기 프리팹대로(`enemies/critic.js`·`reborn.js`).
 - 시험: 같은 파일 「规程 假想敌：铳 is blockable…」(지난 시즌 판도 같이: 늘 저지 불가·사거리 안 방어력 최고)·「量变之械…」·「规程 enemies with a kit: … SILENCE lines」.
 
+### 규정 리더 적의 침식 (2026-11-15)
+- **규칙**: 규정의 리더 적은 다른 적처럼 침식(侵蚀) 손상을 받는다 — 클레멘티아(`char_4231_clemnt`)의 침식이 보스에게도 쌓이고 폭발한다. 맹약은
+  그대로 「最终攻势中，敌方领袖不会受到侵蚀损伤」(최종 공세에서 리더 적은 침식 손상을 받지 않음, 연구 06 §10.1): 리더 적에게 가는 침식은 취소한다.
+- **근거**: 중국 서버(규정) 플레이 제보(2026-11-15) — 클레멘티아 S3로 보스에게 침식이 걸림. 우리 판(맹약 규칙을 두 시즌에 똑같이 씀)에서는 안 걸렸다.
+  맹약 문구는 지금 PRTS 「卫戍协议：盟约」·「卫戍协议/帮助」에서 다시 찾지 못했고(2026-11-15), 표·프리팹에도 이 면역은 없다 — 맹약 쪽은 옛 인용대로 둔다.
+- **코드**: 시즌 스위치 `shared/seasons.js leaderTakesErosion`(규정 켬) → `server/sim/content/bosses.js install`이 꺼진 시즌에서만 리더의 `elementHit` 침식을 취소.
+- 재발 방지: `test/match/act3-unite-redeploy-erosion.test.js`
+
+### 규정 연합 방어 — 남은 재배치 시간 (2026-11-15)
+- **규칙**: 규정에서 자기 전투가 끝날 때 쓰러져 있던 오퍼레이터는 연합 방어(联防)에 들어가 곧바로 강제 퇴장한 뒤, 자기 전투에서 남은 재배치 시간만
+  기다린다(그 전투에서 받은 재배치 시간 단축도 그대로 이어짐). 다 돌았으면 DP와 칸만 기다린다. 맹약은 그대로 재배치 시간 전체를 처음부터(위 「联防 전장」·
+  docs/META.md §4).
+- **근거**: PRTS 卫戍协议/帮助 §联防阶段 「自卫戍协议：规程·序列Ⅰ起，作战结束时为退场状态的干员在联防阶段将继承剩余再部署时间」(2026-11-15 확인) +
+  중국 서버 플레이 제보(2026-11-15: 지난 시즌처럼 5초 남기고 넘어가면 다시 처음부터 기다리지 않음).
+- **코드**: 시즌 스위치 `shared/seasons.js uniteKeepsRedeploy`(규정 켬). 전투 결과 `unitsEnd`가 쓰러진 오퍼레이터의 `respawnLeft`(남은 초, 켜진 시즌만 —
+  맹약 결과·digest는 그대로)를 내고(`server/sim/battle/lifecycle.js _buildResult`; 클라 보고는 `shared/protocol.js isUnitEnd`·`server/match/fields.js`가
+  0–10000초로 검사), `server/match/unite.js`가 `carryState { down: true, respawnLeft }`로 넘기며, `Battle._beginWave`가 그 값을 타이머로 쓴다.
+  [추정·자료 없음: 연합 방어 전장의 재배치 시간 효과(机变 征召 −50 % 등)가 이어받은 나머지를 다시 줄이는지 — 지금은 줄이지 않음] 재배치 고리는 이어받은
+  시간을 전체로 그린다(`b.snap down`의 전체 = `respawnAt − deathAt`).
+- 재발 방지: `test/match/act3-unite-redeploy-erosion.test.js`
+
 ## 규정 맹약 (2026-11-10)
 
 규정(`act3autochess`)의 맹약은 시즌 전용 `data/seasons/act3autochess/bonds.json`으로 돈다. 맹약 기록의 버프 템플릿 키(`bbStr.key ?? key`, `[…]` 하위 키는 부모 템플릿, `_power`는 따로)가 구현을 고른다(`content/bonds/dispatch.js`): 맹약별 파일 `bonds/nation/<맹약>.js`·`bonds/general/arcane.js`가 자기 템플릿(`TEMPLATES`)을 등록하고, 등록되지 않은 템플릿은 아무것도 안 돈다(`node tools/season-coverage.mjs`가 보여 줌). 지난 시즌 템플릿을 그대로 쓰는 맹약(빅토리아·에기르 — act1 키, 수치만 바뀜)은 그 설치 함수가, 사르곤·쉐라그의 act3 기본 템플릿은 지난 시즌과 같은 설치 함수가 6명 공격력·한풍 없이 돈다(6명 효과는 따로 `_power` 템플릿 — 아래). 근거는 모두 규정 표의 `battle/buff_template_data.json`(캐시 `.cache/gamedata-act3autochess/`)과 맹약 수치(`buffs[].bb`, 한 맹약의 버프들이 블랙보드 하나를 나눠 씀)다. 맹약 효과를 붙이는 CN 전용 노드(`AutoChessAddBondStackCount`, 런타임 능력 프리팹)는 EN 클라에 없어 읽지 못했다 — 아래 [추정·CN] 표시가 그것이다.

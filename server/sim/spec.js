@@ -413,7 +413,12 @@ export function resultDigest(result) {
       // whether the 联防 bills the leak, so a client must not be able to report it differently from the re-simulation
       (Array.isArray(p.leaked) ? p.leaked : []).map((l) => `${l && l.enemyKey}|${l && l.counted === false ? 0 : 1}|${l && l.uniteRuntime ? 'x' : ''}|${(l && l.sourcePlayerId) || ''}|${modsKey(l && l.mods)}`).sort(),
       Math.round(Number(p.damageDealt) || 0), Math.round(Number(p.bossDamage) || 0),
-      (Array.isArray(p.unitsEnd) ? p.unitsEnd : []).map((u) => [u && u.uid, r4(u && u.hpPct), r4(u && u.sp), !!(u && u.alive)]),
+      // `respawnLeft` (a season whose 联防 inherits the redeploy timer) only when present: the 盟约 digest stays as it was
+      (Array.isArray(p.unitsEnd) ? p.unitsEnd : []).map((u) => {
+        const e = [u && u.uid, r4(u && u.hpPct), r4(u && u.sp), !!(u && u.alive)];
+        if (u && u.respawnLeft != null) e.push(r4(u.respawnLeft));
+        return e;
+      }),
     ];
     // 临时层数 (规程) only when there are some: a digest without them is the one every earlier result had
     if (tl.length) row.push(tl);
@@ -484,6 +489,7 @@ export function compactResult(res) {
       unitsEnd: cap(p.unitsEnd, 64).filter(Boolean).map((u) => ({
         uid: uidOr(u.uid), defId: keyOr(u.defId), hpPct: Math.max(0, Math.min(1, fnum(u.hpPct))), sp: Math.max(0, Math.min(1e5, fnum(u.sp))),
         skillActive: !!u.skillActive, alive: !!u.alive,
+        ...(!u.alive && u.respawnLeft != null && Number.isFinite(Number(u.respawnLeft)) ? { respawnLeft: Math.max(0, Math.min(1e4, fnum(u.respawnLeft))) } : {}),
       })),
       unitStats: cap(p.unitStats, 160).filter(Boolean).map((u) => {
         const o = {

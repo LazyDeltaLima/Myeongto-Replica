@@ -19,7 +19,10 @@
 // 上一阶段为退场状态的干员强制退场）" — the sim deploys it with everyone and forces it out at once (constants.js
 // FORCED_EXIT), so it lies on its own tile with the redeploy ring and comes back like after any knock-out (user
 // playtest #5 item 2: it used to be left out and vanished). Its timer is its full redeploy time (the official 联防
-// setup carries only hp / tech per operator, research 09 §3 HelpBattleInfo; the user confirmed it restarts). The board's summon
+// setup carries only hp / tech per operator, research 09 §3 HelpBattleInfo; the user confirmed it restarts) — in the
+// 盟约. From 规程 on it keeps the rest of its own combat's timer (shared/seasons.js uniteKeepsRedeploy: PRTS 卫戍协议/帮助
+// "自卫戍协议：规程·序列Ⅰ起，作战结束时为退场状态的干员在联防阶段将继承剩余再部署时间", a CN player's report of 2026-11-15):
+// BattleResult.unitsEnd `respawnLeft` → carryState `{ down: true, respawnLeft }`, read by Battle._beginWave. The board's summon
 // pieces are fielded as the board has them and keep only their SP ("召唤物仅修改技力": carryState `{ sp }`, unitsEnd lists
 // them beside the operators; one off the field at the end enters fresh [ASSUMED]). Enemies = the union of every leaker's
 // counted leaks (same stats: the SpawnSpec mods travel with the leak), routed on the escaped template (`escaped_single`
@@ -43,6 +46,7 @@
 import { buildUniteWave } from './waves.js';
 import { wideOffsets } from '../sim/wideStage.js';
 import { layerGainRoom } from '../../shared/constants.js';
+import { seasonFeature } from '../../shared/seasons.js';
 
 /**
  * @param {import('./Match.js').Match} m
@@ -133,6 +137,7 @@ export function helperOrder(m, perfects, results) {
 /** Battle options for the unite field (without data/logger, added by the match). */
 export function uniteBattleOpts(m, plan, timeLimit) {
   const wave = buildUniteWave(m.gd, plan.leaked, plan.helpers.length, timeLimit);
+  const keepRedeploy = seasonFeature(m.season, 'uniteKeepsRedeploy');
   const players = plan.helpers.map((ps, i) => {
     const carry = new Map();
     const r = m.lastResults.get(ps.playerId);
@@ -144,7 +149,11 @@ export function uniteBattleOpts(m, plan, timeLimit) {
       // a summon: its SP only ("召唤物仅修改技力"); one off the field at the end enters fresh [ASSUMED]
       if (summonUids.has(u.uid)) { if (u.alive) carry.set(u.uid, { sp }); continue; }
       // knocked out at the end of its own combat: 强制退场 right after the deployment (see header)
-      if (!u.alive) { carry.set(u.uid, { down: true }); continue; }
+      // — with the rest of its redeploy timer in a season that inherits it (see header)
+      if (!u.alive) {
+        carry.set(u.uid, keepRedeploy && Number.isFinite(u.respawnLeft) ? { down: true, respawnLeft: Math.max(0, u.respawnLeft) } : { down: true });
+        continue;
+      }
       // HP ratio and SP only: a skill still running at the end is not carried (unitsEnd `skillActive` stays unused —
       // community report #34, GitHub #82)
       carry.set(u.uid, { hpPct: Number.isFinite(u.hpPct) ? Math.max(0.01, Math.min(1, u.hpPct)) : 1, sp });

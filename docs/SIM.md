@@ -192,7 +192,8 @@ they do not resume the previous skill state.
 `carryState: { down: true }` = an operator knocked out at the end of the helper's own combat (PRTS 卫戍协议/帮助 "上一阶段为
 退场状态的干员强制退场", user playtest #5 item 2): `start()` deploys it with everyone (initial `deploy` fires), then — before
 `battleStart` — withdraws it with reason `FORCED_EXIT` (constants.js `'forcedExit'`) and HP 0 (the end-of-phase HP ratio, as after
-`kill`): it is down on its tile (`isDown`, b.snap `down`) with its full redeploy timer and redeploys by the normal rule; no `kill` hook, no `'killed'` death (knock-out
+`kill`): it is down on its tile (`isDown`, b.snap `down`) with its full redeploy timer (in 规程 `carryState.respawnLeft`, the rest of its own
+combat's timer — `unitsEnd` reports it there, shared/seasons.js `uniteKeepsRedeploy`) and redeploys by the normal rule; no `kill` hook, no `'killed'` death (knock-out
 effects such as 深海 / 不屈 revives or 崇高牺牲 layers fired in its own combat), no `deaths` count — but a 阿戈尔 member takes a
 slot of the 5-tier free respawn left after the battle-start devour and is back at once (upstream #882; docs/rules/sim.md). Right after `battleStart`
 its timer is re-read (`deathAt + respawnTime × persist.redeployMul × s.redeployMul`), so a redeploy-time effect switched on

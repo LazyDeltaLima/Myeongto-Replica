@@ -51,7 +51,7 @@ const isLeak = (l) => isPlain(l) && isId(l.enemyKey)
   && optional((v) => isNum(v, 0, 1000))(l.lpr) && nullable(isId)(l.sourcePlayerId) && nullable((v) => isStr(v, 16))(l.tag)
   && optional(isBool)(l.counted) && optional(isBool)(l.boss) && optional(isBool)(l.spawned) && optional(isBool)(l.uniteRuntime);
 const isUnitEnd = (u) => isPlain(u) && nullable(isUid)(u.uid) && isNum(u.hpPct, 0, 1) && isNum(u.sp, 0, 1e5) && isBool(u.alive)
-  && optional(isBool)(u.skillActive) && nullable(isId)(u.defId);
+  && optional(isBool)(u.skillActive) && nullable(isId)(u.defId) && optional((v) => isNum(v, 0, 1e4))(u.respawnLeft);
 // `boss` (damage to the shared leader pool), `assist` (联防 knock-outs by leaker) and `ownerUid` (the summoner's board uid)
 // feed the settlement's per-operator charts (server/match/unitTally.js)
 const isUnitStat = (u) => isPlain(u) && nullable(isUid)(u.uid) && nullable(isId)(u.defId) && optional((v) => isStr(v, 16))(u.kind)

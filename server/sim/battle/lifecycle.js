@@ -5,6 +5,7 @@
 
 import { BLOCK_SKILL_TICK, FORCED_EXIT, MAX_BATTLE_TIME } from '../constants.js';
 import { updateAlly, updateEnemy } from '../ai.js';
+import { seasonFeature } from '../../../shared/seasons.js';
 
 const byDeploySeq = (a, b) => a.deploySeq - b.deploySeq;
 
@@ -89,9 +90,13 @@ export class BattleLifecycle {
     this.emit('battleStart', {});
     // redeploy-time effects that start with the battle (机变 征召 "所有干员的再部署时间-50%", added by a battleStart
     // handler) cover the operators forced out above too: their timer is re-read with them, as a later knock-out's is
+    // — except in a season where it keeps the rest of its own combat's timer (shared/seasons.js uniteKeepsRedeploy, PRTS
+    // "规程·序列Ⅰ起…继承剩余再部署时间": carryState.respawnLeft, match/unite.js), which this battle's effects leave as it is
+    // [ASSUMED·자료 없음: whether a redeploy-time effect of the 联防 field shortens the inherited rest again]
     for (const u of this.allyUnits) {
       if (u.kind !== 'op' || u.alive || u.removed || u.removeReason !== FORCED_EXIT) continue;
-      u.respawnAt = u.deathAt + Math.max(0, u.base.respawnTime * u.persist.redeployMul * u.s.redeployMul);
+      const left = u.carry && Number.isFinite(u.carry.respawnLeft) ? Math.max(0, u.carry.respawnLeft) : null;
+      u.respawnAt = u.deathAt + (left ?? Math.max(0, u.base.respawnTime * u.persist.redeployMul * u.s.redeployMul));
     }
   }
 
@@ -346,6 +351,7 @@ export class BattleLifecycle {
 
   _buildResult() {
     const perPlayer = {};
+    const keepRedeploy = seasonFeature(this.data?.all?.config?.season, 'uniteKeepsRedeploy');
     for (const ps of this.players) {
       const pp = this._perPlayer[ps.playerId];
       pp.perfect = !pp.leaked.some((l) => l.counted !== false);
@@ -358,14 +364,20 @@ export class BattleLifecycle {
       // 技能技力需求的X倍"); a running skill spent its SP at activation, so it reports what was left (0 for one charge).
       // `skillActive` is reported, never carried.
       // (a reserve operator — a 整备区 piece content may field, players.js createReserveAlly — only once fielded)
+      // A knocked-out operator also reports the rest of its redeploy timer (`respawnLeft`, 0 once only DP or its tile holds
+      // it) in a season whose 联防 inherits it (shared/seasons.js uniteKeepsRedeploy; the 盟约 result has no such field)
       const units = ps.units.filter((u) => !(u.reserve && !(u.deploySeq > 0)));
-      pp.unitsEnd = units.filter((u) => u.kind === 'op' || (u.kind === 'token' && u.uid != null)).map((u) => ({
-        uid: u.uid, id: u.id, defId: u.defId,
-        hpPct: u.alive ? Math.max(0, Math.min(1, u.hp / u.s.maxHp)) : 0,
-        sp: u.skill && !u.skill.noSkill ? Math.round(u.skill.spTotal * 100) / 100 : 0,
-        skillActive: !!(u.skill && u.skill.active && u.skill.kind !== 'passive'),
-        alive: !!u.alive,
-      }));
+      pp.unitsEnd = units.filter((u) => u.kind === 'op' || (u.kind === 'token' && u.uid != null)).map((u) => {
+        const e = {
+          uid: u.uid, id: u.id, defId: u.defId,
+          hpPct: u.alive ? Math.max(0, Math.min(1, u.hp / u.s.maxHp)) : 0,
+          sp: u.skill && !u.skill.noSkill ? Math.round(u.skill.spTotal * 100) / 100 : 0,
+          skillActive: !!(u.skill && u.skill.active && u.skill.kind !== 'passive'),
+          alive: !!u.alive,
+        };
+        if (keepRedeploy && u.kind === 'op' && !u.alive && this.isDown(u)) e.respawnLeft = Math.round(Math.max(0, u.respawnAt - this.time) * 100) / 100;
+        return e;
+      });
       // `boss` / `assist` / `ownerUid` feed the settlement's per-operator charts (server/match/unitTally.js): a unit the
       // battle created (no board uid) names the nearest summoner up its chain that has one, so it counts for that operator
       pp.unitStats = units.map((u) => {

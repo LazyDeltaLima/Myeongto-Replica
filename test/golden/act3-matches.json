@@ -204,7 +204,7 @@
           "title": {"id":"comment_2","name":"坚实盟约","picId":"comment_icon_1_1","text":"激活的盟约层数总和最高"},
           "trophies": 3,
           "reward": 0,
-          "stats": {"activatedLayers":350,"bossDamage":1526798,"dmgDealt":7083261,"gold":140,"itemsEquipped":19,"kills":356,"leaks":14,"lpLost":11,"merges":4,"perfectRounds":8,"refreshes":19},
+          "stats": {"activatedLayers":350,"bossDamage":1526798,"dmgDealt":7083281,"gold":140,"itemsEquipped":19,"kills":356,"leaks":14,"lpLost":11,"merges":4,"perfectRounds":8,"refreshes":19},
           "lineup": ["5_15_a@12,8","4_05_a@11,4[4_10_e_b+2_09_e_b]","3_19_a@11,5","3_05_a@11,6[1_02_e_b+3_07_e_a]","1_08_b@10,4[1_01_e_b+3_14_e_b]","6_01_a@10,8","5_03_a@9,8[3_01_e_a+4_11_e_a]","3_04_b@9,9[2_04_e_a+5_05_e_a]"],
           "bonds": ["deputShip 1/130","docShip 0/11","iberiaShip 2/75","preciShip 1/93","siracusaShip 0/2","skillfulShip 0/8","steadShip 1/48","suntShip 1/4","yanShip 0/2"]
         },

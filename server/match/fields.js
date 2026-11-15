@@ -903,7 +903,13 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         if (!u || !Number.isInteger(u.uid) || !own.all.has(u.uid) || seen.has(u.uid)) continue;
         seen.add(u.uid);
         if (!finiteIn(u.hpPct, 0, 1) || !finiteIn(u.sp, 0, 1e5)) return bad('unit state');
-        unitsEnd.push({ uid: u.uid, defId: own.all.get(u.uid), hpPct: u.hpPct, sp: u.sp, skillActive: !!u.skillActive, alive: !!u.alive && u.hpPct > 0 });
+        const e = { uid: u.uid, defId: own.all.get(u.uid), hpPct: u.hpPct, sp: u.sp, skillActive: !!u.skillActive, alive: !!u.alive && u.hpPct > 0 };
+        // a knocked-out operator's rest of its redeploy timer (规程's 联防 inherits it, unite.js)
+        if (u.respawnLeft !== undefined) {
+          if (!finiteIn(u.respawnLeft, 0, 1e4)) return bad('unit state');
+          if (!e.alive) e.respawnLeft = u.respawnLeft;
+        }
+        unitsEnd.push(e);
       }
       const unitStats = [];
       for (const u of Array.isArray(p.unitStats) ? p.unitStats : []) {
