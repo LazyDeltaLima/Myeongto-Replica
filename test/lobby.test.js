@@ -1255,6 +1255,15 @@ describe('websocket lobby', () => {
       if (reply.t === 'error') assert.ok(Object.hasOwn(ERR, reply.code), reply.code);
       if (i % 50 === 0) await delay(30); // stay well under the rate limit
     }
+    // g.infoReady only lands in a match's INFO_CHECK, a few of the 500 draws; which of them do depends on the rooms the
+    // earlier tests left, so the server that went through the fuzz takes one sure 1-player match start as well
+    const sure = await pool.player('FSure');
+    await createRoom(sure, 'solo', 'FUNNY');
+    await expectOk(sure, { t: 'room.start' });
+    await sure.waitFor('m.public', (m) => m.phase === 'INFO_CHECK');
+    const ready = await sure.request({ t: 'g.infoReady' }, 20000);
+    assert.equal(ready.t, 'ok', 'g.infoReady in a fresh match after the fuzz');
+    okCounts['g.infoReady'] = (okCounts['g.infoReady'] || 0) + 1;
     for (const t of ['room.create', 'room.join', 'room.start', 'room.addBot', 'g.infoReady']) assert.ok(okCounts[t] > 0, `fuzz never succeeded at ${t}`);
     // invariants
     const seen = new Set();
