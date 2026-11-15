@@ -11,7 +11,7 @@ import { placementContext, bandSkillTiles } from '../../public/js/ui/gameLogic.j
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { buildBattleSpec, createBattleFromSpec } from '../../server/sim/spec.js';
 import { BAND_MARK, BAND_CHEST } from '../../server/sim/content/bands/meta.js';
-import { tileKey, FIELD } from '../../server/match/board.js';
+import { tileKey, FIELD, fieldTile } from '../../server/match/board.js';
 import { validateClientResult } from '../../server/match/fields.js';
 import { isBattleResult } from '../../shared/protocol.js';
 import { COLS } from '../../server/sim/constants.js';
@@ -113,6 +113,28 @@ test('溃心领域 (妮芙): a passable tile, once a round at stage 1 — twice 
   assert.deepEqual(four.use({ row: t4[0][0], col: t4[0][1] }), OK);
   assert.deepEqual(four.use({ row: t4[1][0], col: t4[1][1] }), OK, 'stage 2: two uses a round');
   assert.equal(four.ps.effects.filter((e) => e.key === BAND_MARK).length, 2);
+});
+
+test('溃心领域 (妮芙) refuses the enemies\' red and blue doors on every stage: BAD_TILE, no use, no cost, no mark (an official recording, upstream PR #951; docs/rules/sim.md 「규정 전략」 지형 칸)', () => {
+  const { h, m, ps, use, view } = setup({ band: 'band_dance', funds: 30 });
+  const seen = new Set();
+  for (const stageId of Object.keys(ACT3_ON_BASE_FIELD.stages)) {
+    h.setStage(stageId);
+    ps.invalidateDeployMap();
+    for (let r = FIELD.r0; r <= FIELD.r1; r++) for (let c = FIELD.c0; c <= FIELD.c1; c++) {
+      const [sr, sc] = fieldTile('normal', r, c);
+      const key = m.stage.tiles?.[m.stage.rows[sr]?.[sc]]?.tileKey;
+      if (key !== 'tile_start' && key !== 'tile_end') continue;
+      seen.add(key);
+      assert.equal(m._bandSkillTile(ps, r, c, 'PASSABLE'), false, `${stageId} ${key} at ${r},${c}: the door is no 指令 target`);
+      assert.equal(use({ row: r, col: c }).error, 'BAD_TILE', `${stageId} ${key}: refused`);
+    }
+  }
+  assert.deepEqual([...seen].sort(), ['tile_end', 'tile_start'], 'both doors stand on some stage\'s own field');
+  assert.equal(ps.funds, 30, 'nothing paid');
+  assert.deepEqual(view().marks ?? [], [], 'no mark');
+  const [r, c] = tilesOf(m, ps, 'PASSABLE')[0];
+  assert.deepEqual(use({ row: r, col: c }), OK, 'the use was not spent: a road tile still takes it');
 });
 
 test('the drag tints what the server takes: the browser\'s bandSkillTiles = _bandSkillTile on every stage, both filters, both boss halves, with a piece, a chest and device overrides', () => {

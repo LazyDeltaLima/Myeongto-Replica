@@ -9,6 +9,7 @@ import { STAGE_COUNTER } from '../../server/sim/content/bands/meta.js';
 import { validateC2S } from '../../shared/protocol.js';
 import { FIELD, fieldTile, tileKey } from '../../server/match/board.js';
 import { PHASE } from '../../shared/constants.js';
+import { DOOR_TILE_KEYS } from '../../shared/bandSkillTile.js';
 
 const OK = { ok: true };
 const quiet = { error() {}, warn() {}, info() {}, log() {} };
@@ -44,7 +45,8 @@ function tiles(m, ps) {
       const t = m.stage.tiles[m.stage.rows[sr][sc]];
       if (!t) continue;
       if (t.groundPassable && t.buildable !== 'NONE' && !ps.board.has(tileKey(r, c))) out.both ??= { row: r, col: c };
-      else if (t.groundPassable && t.buildable === 'NONE') out.passOnly ??= { row: r, col: c };
+      // (not a red / blue door: no 指令 targets those — shared/bandSkillTile.js)
+      else if (t.groundPassable && t.buildable === 'NONE' && !DOOR_TILE_KEYS.has(t.tileKey)) out.passOnly ??= { row: r, col: c };
       else if (!t.groundPassable) out.closed ??= { row: r, col: c };
     }
   }

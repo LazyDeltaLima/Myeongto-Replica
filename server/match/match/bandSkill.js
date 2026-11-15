@@ -8,8 +8,8 @@
 //   type     ACTIVE (usable) · PASSIVE · NONE (a locked stage: 「…-未解锁」, its `next` names what unlocks the next one)
 //   target   { type, filter } — NO_TARGET (「点击使用」), COMMON_CHESS CHAR (an own operator: on the board or in the 整备区 —
 //            the official drag hint 「请指向战场或整备区的干员」), SHOP_SLOT CHAR | EQUIP (an unsold 调度中心 slot of that kind),
-//            MAP_TILE PASSABLE | PASSABLE_AND_BUILDABLE (a tile of the player's own field that ground enemies walk;
-//            the second also one an operator could stand on: the stage legend's `buildable`, no piece on it; the
+//            MAP_TILE PASSABLE | PASSABLE_AND_BUILDABLE (a tile of the player's own field that ground enemies walk, not
+//            the enemies' red / blue door — shared/bandSkillTile.js; the second also one an operator could stand on: the stage legend's `buildable`, no piece on it; the
 //            maintainer's provisional 「지상 타일」 of 2026-11-08) — 「拖拽使用」 for every target but NO_TARGET
 //   cost     funds (skillCost) + the counter COST_DELTA the cost keys write (skill_cost_*: their own handlers)
 //   avail    ROUND_RESET n (n uses a round) · ALL_LIMIT n (n a match) · COOLDOWN n (n rounds after a use; a handler may
@@ -34,6 +34,7 @@
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { OK, fail } from './common.js';
 import { inField, fieldTile, tileKey } from '../board.js';
+import { bandSkillTileOk } from '../../../shared/bandSkillTile.js';
 import {
   bandStages, bandStageIndex, SKILL_COST_COUNTER, STAGE_COUNTER, COMMAND_STAGE_COUNTER, bandCommandKey, hasActiveStage,
 } from '../../sim/content/bands/meta.js';
@@ -157,7 +158,8 @@ export class MatchBandSkill {
     const line = typeof stage.rows[sr] === 'string' ? stage.rows[sr] : null;
     const g = line ? line[sc] : null;
     const tile = g != null && stage.tiles && Object.hasOwn(stage.tiles, g) ? stage.tiles[g] : null;
-    if (!tile || tile.groundPassable !== true) return false;
+    // the tile itself: ground passable, not a door, buildable for PASSABLE_AND_BUILDABLE (shared with the drag highlight)
+    if (!bandSkillTileOk(tile, filter)) return false;
     // an active obstacle device on the tile (a crate, a mound) closes it as it closes deployment (board.js)
     for (const d of Array.isArray(stage.devices) ? stage.devices : []) {
       if (!d || !Array.isArray(d.pos) || d.pos[0] !== sr || d.pos[1] !== sc || !OBSTACLE_ROLES.has(d.role)) continue;
@@ -165,7 +167,6 @@ export class MatchBandSkill {
       if (over ?? (typeof d.active === 'boolean' ? d.active : !d.hidden)) return false;
     }
     if (filter === 'PASSABLE_AND_BUILDABLE') {
-      if (!tile.buildable || tile.buildable === 'NONE') return false;
       if (ps.board.has(tileKey(row, col))) return false;
       // a 宝藏探机 chest makes its tile undeployable while it stands (content/bands/meta.js BAND_CHEST)
       if (ps.bandChestsNow().some((x) => x.row === row && x.col === col)) return false;

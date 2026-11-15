@@ -9,6 +9,7 @@ import { boardTileOf, fieldTile } from './camera.js';
 import { deployedRecord, fieldsStandIn, standInOf } from './standIn.js';
 import { ownDiyRecord } from './diy.js';
 import { t } from '../../../../shared/i18n.js';
+import { bandSkillTileOk } from '../../../../shared/bandSkillTile.js';
 
 
 // ---- placement (canPlace mirror) ------------------------------------------------------------------------
@@ -238,9 +239,9 @@ export function placementContext({ priv, stage, editable, field = 'normal', getC
 
 /**
  * Board tiles ([r, c]) of the own field a 规程 MAP_TILE 指令 of `filter` may target — mirror of server/match/match/
- * bandSkill.js _bandSkillTile: the stage tile under it (deploy field `ctx.field`) is ground passable and carries no active
- * obstacle device (crate / mound, under the device overrides); PASSABLE_AND_BUILDABLE also wants a buildable tile with no
- * own piece and no 宝藏探机 chest (m.private.bandSkill.chests). The drag lights them all (maintainer decision 2026-11-13).
+ * bandSkill.js _bandSkillTile: the stage tile under it (deploy field `ctx.field`) passes shared/bandSkillTile.js (ground
+ * passable, not a door; buildable for PASSABLE_AND_BUILDABLE) and carries no active obstacle device (crate / mound, under
+ * the device overrides); PASSABLE_AND_BUILDABLE also wants no own piece and no 宝藏探机 chest (m.private.bandSkill.chests). The drag lights them all (maintainer decision 2026-11-13).
  * @param {ReturnType<typeof placementContext>} ctx
  * @param {'PASSABLE'|'PASSABLE_AND_BUILDABLE'|string} filter
  * @param {{ row:number, col:number }[]} [chests]
@@ -267,10 +268,10 @@ export function bandSkillTiles(ctx, filter, chests = []) {
       const line = typeof stage.rows[sr] === 'string' ? stage.rows[sr] : null;
       const g = line ? line[sc] : null;
       const tile = g != null && Object.hasOwn(legend, g) ? legend[g] : null;
-      if (!tile || tile.groundPassable !== true || blocked.has(tileKey(sr, sc))) continue;
+      if (!bandSkillTileOk(tile, filter) || blocked.has(tileKey(sr, sc))) continue;
       if (filter === 'PASSABLE_AND_BUILDABLE') {
         const k = tileKey(r, c);
-        if (!tile.buildable || tile.buildable === 'NONE' || ctx.boardAt?.has(k) || chestAt.has(k)) continue;
+        if (ctx.boardAt?.has(k) || chestAt.has(k)) continue;
       }
       out.push([r, c]);
     }
