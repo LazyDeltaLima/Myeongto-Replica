@@ -48,7 +48,8 @@
 .cxp__seg b.ti { min-width: 0; padding: calc(var(--cpx) * 3) calc(var(--cpx) * 4); display: grid; place-items: center; }
 .cxp__seg b.ti img { width: calc(var(--cpx) * 21); height: calc(var(--cpx) * 21); display: block; }
 .cxp__seg b.ti.on { background: rgba(78,216,175,.28); box-shadow: inset 0 0 0 1px var(--mint-400); }
-.cxp__bk { flex: none; width: calc(var(--cpx) * 34); font-size: calc(var(--cpx) * 11); color: var(--text-dim, var(--text-lo)); padding-top: calc(var(--cpx) * 7); }
+/* as tall as one row of chips and centred in it, so 핵심 / 부가 sit level with the first row's chips */
+.cxp__bk { flex: none; width: calc(var(--cpx) * 34); height: calc(var(--cpx) * 27); display: flex; align-items: center; font-size: calc(var(--cpx) * 11); color: var(--text-dim, var(--text-lo)); }
 .cxp__bonds { display: flex; flex-wrap: wrap; gap: calc(var(--cpx) * 3); flex: 1; min-width: 0; }
 .cxp__bchip.ico { width: calc(var(--cpx) * 27); height: calc(var(--cpx) * 27); padding: 0; display: grid; place-items: center; border-radius: 50%; border: 0;
   background: var(--chip, radial-gradient(circle, #2c3532 0 60%, #1a201e 62%)) center / 100% 100% no-repeat; }
@@ -204,7 +205,7 @@ b.cxp__tier { width: auto; min-width: calc(var(--cpx) * 16); height: calc(var(--
   .cxp__bonds { gap: 4px; }
   .cxp__bchip.ico { width: 34px; height: 34px; }
   .cxp__bchip.ico img { width: 21px; height: 21px; }
-  .cxp__bk { padding-top: 10px; }
+  .cxp__bk { height: 34px; }
   .cxp__search { height: 36px; }
   .cxp__select { height: 34px; }
   .cxp__step, .cxp__brow .cxp__step { height: 36px; }
