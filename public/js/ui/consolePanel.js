@@ -126,7 +126,7 @@ export function ConsolePanel({ con, pub, priv, phase }) {
     ? html`<div class="cxp__foot"><span>${tab === 'ops' ? t('点击直接加入备战区 · 三个相同棋子自动合成') : t('点击加入备战区 · 拖到干员身上装备')}</span>
         <span class="cxp__sp"></span><span>${t('备战区')} <b>${handUsed}/${hand.length || 5}</b></span></div>`
     : tab === 'enemies' ? html`<div class="cxp__foot"><span>${t('点击加入下一场作战 · 也显示在敌情预览和效果列表')}</span></div>`
-    : tab === 'round' ? html`<div class="cxp__foot"><span>${live ? t('首领回合胜利后不结算，回到同一回合的整备') : t('本地调试：结算照常记录')}</span></div>`
+    : tab === 'round' ? html`<div class="cxp__foot"><span>${live ? t('首领回合胜利或生命值耗尽也不结算，回到同一回合的整备') : t('本地调试：结算照常记录')}</span></div>`
     : html`<div class="cxp__foot"><span>${t('层数立即生效，从下一场作战起作用 · 「重置」= 回到在控制台修改之前的层数')}</span></div>`;
   return html`
     <${ConsoleNote} note=${con.note} />
@@ -425,9 +425,7 @@ function RoundTab({ con, pub, prep, onEnd }) {
     ${boss.hiddenBosses?.length ? html`<div class="cxp__sub2">${t('隐秘核心（第{round}回合）', { round: boss.hiddenRound })}</div>
       <div class="cxp__bosses">${boss.hiddenBosses.map((id) => bossCell(id, id === boss.hiddenBossId, { hidden: id }))}</div>` : null}
     <div class="cxp__sec">${t('其他')}</div>
-    ${live ? html`<div class="cxp__chk on"><i>✓</i><span>${t('首领回合胜利也不结算')}</span><em>${t('控制台固定')}</em></div>` : null}
     <button type="button" class=${cx('cxp__chk', con.fundsPin && 'on')} disabled=${busy} onClick=${funds}><i>${con.fundsPin ? '✓' : ''}</i><span>${t('资金固定为 {pinValue}', { pinValue: con.pinValue })}</span></button>
-    ${live ? html`<div class="cxp__chk on"><i>✓</i><span>${t('生命值耗尽也不结算，回到整备（恢复生命值）')}</span><em>${t('控制台固定')}</em></div>` : null}
     <div class="cxp__row"><button type="button" class="cxp__btn warn" onClick=${onEnd}>${live ? t('结束控制台…') : t('结束本局…')}</button>
       <span class="cxp__hint">${live ? t('回到同盟 / 前往结算画面') : t('以胜利 / 失败结算')}</span></div>`;
 }
