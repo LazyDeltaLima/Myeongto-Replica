@@ -32,6 +32,14 @@ function wordsOf(id, tokens) {
   return [code, ...own.filter((c) => c && c !== code)].map(asWord);
 }
 
+/**
+ * Whether a bank (name without `battle.`) belongs to an enemy, whatever words its name shares with a pick: the part after
+ * the event names an enemy id (enemy_8010_mcnist, the 机械之心 of another event, shares the pick 机械师's code) or its
+ * projectile (projectile_enemy_mcnist). Only that part's start counts: an operator's own bank may end in _enemy
+ * (haruka_shield_break_enemy).
+ */
+const enemyBank = (name) => /^(enemy_\d+_|projectile_enemy_)/.test(name.split('.')[1] ?? '');
+
 /** {charId: {bank name without `battle.`: true}} of the picks' banks whose files the manifest never plays. */
 function unsounded() {
   const banks = JSON.parse(readFileSync(OFFICIAL, 'utf8')).soundFXBanks;
@@ -44,6 +52,7 @@ function unsounded() {
     for (const b of banks) {
       if (!b.name.startsWith('battle.') || !words.some((w) => w.test(b.name))) continue;
       const name = b.name.slice('battle.'.length);
+      if (enemyBank(name)) continue;
       all.add(`${id} ${name}`);
       if (!(b.sounds || []).some((s) => played.has(urlOf(s.asset)))) (out[id] ??= {})[name] = true;
     }
@@ -60,6 +69,11 @@ test('every official bank of a 선발 operator is played, or listed with its sta
   const stale = [];
   for (const [id, names] of Object.entries(UNSOUNDED)) for (const n of Object.keys(names)) if (all.has(`${id} ${n}`) && !out[id]?.[n]) stale.push(`${id} ${n}`);
   assert.deepEqual(stale, [], 'entries whose bank is played now');
+});
+
+test('an enemy\'s banks are told apart by their owner part only', () => {
+  assert.ok(enemyBank('ON_ABILITY_START.enemy_8010_mcnist.attack.0') && enemyBank('ON_PROJECTILE_HIT.projectile_enemy_mcnist'));
+  assert.ok(!enemyBank('ON_CUSTOM_TRIGGER.haruka_shield_break_enemy') && !enemyBank('ON_CUSTOM_TRIGGER.mcnist_shield') && !enemyBank('ON_POPUP'));
 });
 
 test('each listed bank has a status of the list\'s grammar', () => {

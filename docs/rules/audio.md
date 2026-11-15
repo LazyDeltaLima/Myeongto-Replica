@@ -473,6 +473,10 @@
   첸 더 던스트릭 1, 위셔델 1. 모두 `todo`(아직 하나도 안 봄). 같은 날 토스카 5개를 이어 20개(아래 「스킬·재능 투사체 소리」 토스카 줄).
 - 뱅크를 모으는 단어(2026-11-01 더함): 코드네임 + 그 오퍼레이터 소환물의 고유 코드(`data/backups.json` `tokens`의 `token_<n>_<코드네임>_<코드>`) —
   트라고디아의 본능의 부름(`token_10054_phatm2_encdool`)이 내는 `token_encdool_boom_start`·`_hit`는 이름에 `phatm2`가 없어 빠져 있었다(이 둘만 늘어남).
+- 적의 뱅크는 모으지 않는다(2026-11-15): 이벤트 뒤 부분이 적 id(`enemy_<숫자>_…`)나 적 투사체(`projectile_enemy_…`)로 시작하는 뱅크. 메커니스트(`char_4230_mcnist`)는
+  다른 이벤트의 적 `enemy_8010_mcnist`와 코드네임이 같아 그 적의 뱅크 24개를 「이 오퍼레이터 것이 아님」으로 목록에 적고 있었다 — 짝짓기가 이름의 낱말만 봐서
+  생긴 줄이라 짝짓기에서 뺐다. 앞부분만 보므로 오퍼레이터 자기 뱅크 `haruka_shield_break_enemy`처럼 `_enemy`로 끝나는 이름은 그대로 모인다. 이름만으로 못 가리는
+  것(메커니스트의 `mcnist_shield*` 넷, 위디의 `sktok_cannon_*` 등)은 목록에 남는다. 재발 방지: 원인 제거 — `test/audio-bank-coverage.test.js` `enemyBank`.
 - **연결 작업표** `tools/local-extract/link_sheet.py --id <charId>`(EN 기본, CN 전용이면 `--client <CN> --cab-index .cache/fx-cab-index-cn.json`; 읽기만):
   오퍼레이터마다 ① 뱅크 표 — 상태(`played` / 목록의 `none`·`todo` / `MISSING`), 연결한 `tools/assets/*.mjs`, 그 신호 id를 값으로 가진 클라 노드
   (`charpack`·`skills`·`projectiles`·소환물 프리팹·버프 템플릿 이벤트, 클래스는 MonoScript·`$type`), 능력 신호 `<유닛|스킬>.<경로>`는 맞는
