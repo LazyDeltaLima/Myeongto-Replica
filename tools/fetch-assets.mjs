@@ -44,6 +44,11 @@
 // (`tokens`), and the module type icons of every module in data/chess.json /
 // data/backups.json (manifest `modules`).
 //
+// Pinned upstream files (tools/assets/upstream-pins.json, docs/ASSETS.md "Pinned upstream files"): a file the asset
+// repository replaced at the same path is downloaded at the commit the table names, on every install, and a file on disk
+// that is another version is downloaded again — the size check alone never notices such a change.
+// tools/check-asset-sources.mjs finds the changed files and writes the table.
+//
 // --add-only: for a checkout whose public/assets / public/fonts are shared with
 // another one (a git worktree): download only the files missing on disk, never
 // re-download, rewrite or delete an existing file (atlases already on disk are
@@ -75,6 +80,7 @@ import { fontJobs, buildFonts } from './assets/fonts.mjs';
 import { skelParserAvailable } from './assets/skel.mjs';
 import { tidyVoice } from './assets/voice.mjs'; // local patch
 import { statsTemplateJobs } from './assets/stats-template.mjs';
+import { loadPins, PINS_FILE } from './assets/pins.mjs';
 import { isLocalDiyPick } from '../shared/local-diy.js'; // local patch: only the offered 自选 picks get art
 import { chessBody } from '../shared/standIn.js';
 
@@ -482,8 +488,9 @@ async function main() {
     return 0;
   }
 
+  const pins = loadPins(join(ROOT, PINS_FILE));
   const dl = new Downloader({
-    root: ASSETS, ledgerPath: join(CACHE, 'assets-ledger.json'),
+    root: ASSETS, ledgerPath: join(CACHE, 'assets-ledger.json'), pins,
     concurrency: opts.concurrency, force: opts.force, keepExisting: opts.addOnly, log, ...network,
     // a kept file without a ledger entry gets one when its source serves the same bytes (browser-resources `u`)
     adopt: true,
@@ -572,6 +579,12 @@ async function main() {
   log('=== fetch-assets summary ===');
   log(`downloaded this run : ${mb(dl.totals.bytesDownloaded)} (ok ${dl.totals.ok}, skipped ${dl.totals.skip}, missing ${dl.totals.miss}, errors ${dl.totals.error}` +
     `${dl.totals.sizeChanged ? `, ${dl.totals.sizeChanged} changed upstream` : ''})`);
+  const pinned = Object.keys(pins);
+  if (pinned.length) {
+    const unplanned = pinned.filter((r) => !resolved.files.has(r));
+    log(`pinned files        : ${pinned.length} (${PINS_FILE}), ${dl.totals.repinned} downloaded at their commit this run` +
+      `${unplanned.length ? `; not in the manifest: ${unplanned.slice(0, 5).join(', ')}${unplanned.length > 5 ? ', …' : ''}` : ''}`);
+  }
   if (dl.totals.adopted || dl.totals.unmatched) {
     log(`ledger              : ${dl.totals.adopted} kept files matched their source (now offered from jsDelivr / GitHub), ${dl.totals.unmatched} did not (served by this server)`);
   }

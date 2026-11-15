@@ -1,0 +1,77 @@
+{
+  "about": "Upstream files pinned to a commit: fetch-assets downloads exactly these versions on every install (docs/ASSETS.md \"Pinned upstream files\"). Written by node tools/check-asset-sources.mjs --pin / --take-new; not edited by hand.",
+  "files": {
+    "spine/op/char_4247_oxi/back/char_4247_oxi.atlas": {
+      "url": "https://raw.githubusercontent.com/fexli/ArknightsResource/62363543c0fa116f9cef83e291ccdeb006a9a1db/spine/char_4247_oxi/char_4247_oxi/Back/char_4247_oxi.atlas",
+      "sha256": "bf12303960fa29463c1e81dd32f6f6d31596ceccb494669bf54dea8b4a1f581c",
+      "bytes": 3983,
+      "note": "CN 26-11-06 model update (new front hair piece), same version as the local-client texture"
+    },
+    "spine/op/char_4247_oxi/back/char_4247_oxi.png": {
+      "url": "https://raw.githubusercontent.com/fexli/ArknightsResource/62363543c0fa116f9cef83e291ccdeb006a9a1db/spine/char_4247_oxi/char_4247_oxi/Back/char_4247_oxi.png",
+      "sha256": "ca0a0edc68edf68876fb059303889e5a9f6e3a9558b43ddcd40ee285db248706",
+      "bytes": 170329,
+      "note": "CN 26-11-06 model update (new front hair piece), same version as the local-client texture"
+    },
+    "spine/op/char_4247_oxi/back/char_4247_oxi.skel": {
+      "url": "https://raw.githubusercontent.com/fexli/ArknightsResource/62363543c0fa116f9cef83e291ccdeb006a9a1db/spine/char_4247_oxi/char_4247_oxi/Back/char_4247_oxi.skel",
+      "sha256": "87356591ed73ca91a6ccdcfd26ab1c14e0e1e039e47dd1099de83b991a3f81e5",
+      "bytes": 409403,
+      "note": "CN 26-11-06 model update (new front hair piece), same version as the local-client texture"
+    },
+    "spine/op/char_4247_oxi/front/char_4247_oxi.atlas": {
+      "url": "https://raw.githubusercontent.com/fexli/ArknightsResource/62363543c0fa116f9cef83e291ccdeb006a9a1db/spine/char_4247_oxi/char_4247_oxi/Front/char_4247_oxi.atlas",
+      "sha256": "0961e174b154509b2275afe875ad117e4b03cae542beb2092581230d10c96c1f",
+      "bytes": 9705,
+      "note": "CN 26-11-06 model update (new front hair piece), same version as the local-client texture"
+    },
+    "spine/op/char_4247_oxi/front/char_4247_oxi.png": {
+      "url": "https://raw.githubusercontent.com/fexli/ArknightsResource/62363543c0fa116f9cef83e291ccdeb006a9a1db/spine/char_4247_oxi/char_4247_oxi/Front/char_4247_oxi.png",
+      "sha256": "4d0cc8048f7c3fb72fd57ca5fe2708e0287b105a69b96507715182dd4f94e627",
+      "bytes": 224770,
+      "note": "CN 26-11-06 model update (new front hair piece), same version as the local-client texture"
+    },
+    "spine/op/char_4247_oxi/front/char_4247_oxi.skel": {
+      "url": "https://raw.githubusercontent.com/fexli/ArknightsResource/62363543c0fa116f9cef83e291ccdeb006a9a1db/spine/char_4247_oxi/char_4247_oxi/Front/char_4247_oxi.skel",
+      "sha256": "f105864cade5676adf4d4c77d39961695a3561115acf20f3e054893941509b81",
+      "bytes": 717870,
+      "note": "CN 26-11-06 model update (new front hair piece), same version as the local-client texture"
+    },
+    "ui/bondBoardIcon/4_1.png": {
+      "url": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/4f7a4e2165539fb4a08aa6ca1c0b6ac622c67698/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/arts/bondboardicon/4_1.png",
+      "sha256": "1ace86eb93e151940a6cb9c71bf1cabf3d2d0a6a94378eea5ec21e59a960a66c",
+      "bytes": 5922,
+      "note": "CN 26-10-29 update put act3autochess art at this path; the act2autochess season keeps this version"
+    },
+    "ui/effectChoose/card_select_glow.png": {
+      "url": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/4f7a4e2165539fb4a08aa6ca1c0b6ac622c67698/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/effectchoose/card_small_item/select_glow.png",
+      "sha256": "5812de20b03ea1a8d1d802b4905fc4fac2d4b24006f5e03495074304886af23b",
+      "bytes": 10395,
+      "note": "CN 26-10-29 update put act3autochess art at this path; the act2autochess season keeps this version"
+    },
+    "ui/garrisonTypeIcon/icon_gold.png": {
+      "url": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/4f7a4e2165539fb4a08aa6ca1c0b6ac622c67698/assets/dyn/ui/autochess/%5Buc%5Dautochesscommon/arts/garrisontypeicon/icon_gold.png",
+      "sha256": "2510e0079d4cfa27637c9f6e035b5f9827272baf1cbffa7f5a9fd208051ae342",
+      "bytes": 5905,
+      "note": "CN 26-10-29 update put act3autochess art at this path; the act2autochess season keeps this version"
+    },
+    "ui/garrisonTypeIcon/s_icon_support.png": {
+      "url": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/4f7a4e2165539fb4a08aa6ca1c0b6ac622c67698/assets/dyn/ui/autochess/%5Buc%5Dautochesscommon/arts/garrisontypeicon/s_icon_support.png",
+      "sha256": "1e817a11906710e1d70c02f4acc6907e5545c297e6c414459b23e5a8f905b757",
+      "bytes": 894,
+      "note": "CN 26-10-29 update put act3autochess art at this path; the act2autochess season keeps this version"
+    },
+    "ui/loading/loading_ac_abyss.png": {
+      "url": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/7bc7f6e3af446ee9e16927a4b64ac70a2a685337/assets/dyn/arts/loadingillusts/loading_ac_abyss.png",
+      "sha256": "521b6abda0d01ef26bffc6c543dfe2387b0e9d326b3d5024bb67e88b0e31c5d8",
+      "bytes": 1009737,
+      "note": "CN 26-10-29 update put act3autochess art at this path; the act2autochess season keeps this version"
+    },
+    "ui/modeIcon/mode_hard_icon.png": {
+      "url": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/4f7a4e2165539fb4a08aa6ca1c0b6ac622c67698/assets/dyn/ui/autochess/%5Buc%5Dautochesscommon/arts/modeicon/mode_hard_icon.png",
+      "sha256": "8c99b4515e5fb1bab17bc71eec30c584df5df9b78ec2716054cbb3629b7826ad",
+      "bytes": 1633,
+      "note": "CN 26-10-29 update put act3autochess art at this path; the act2autochess season keeps this version"
+    }
+  }
+}

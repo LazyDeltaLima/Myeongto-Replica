@@ -69,6 +69,31 @@ export const RAW = Object.freeze({
 });
 
 const RAW_RE = /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
+const JSDELIVR_RE = /^https:\/\/cdn\.jsdelivr\.net\/gh\/([^/]+)\/([^/@]+)@([^/]+)\/(.+)$/;
+
+/**
+ * The repository file behind a download URL: a raw.githubusercontent.com URL, its jsDelivr mirror or either behind a
+ * prefix proxy (githubSourceUrl). `ref` is the branch or commit the URL names; `path` stays percent-encoded.
+ * @param {string} url
+ * @returns {{owner:string, repo:string, ref:string, path:string}|null} null for any other URL (hycdn, data:)
+ */
+export function repoSource(url) {
+  let s = githubSourceUrl(String(url));
+  if (!RAW_RE.test(s) && !JSDELIVR_RE.test(s)) {
+    const i = s.indexOf('/https://', 8);
+    if (i >= 0) s = s.slice(i + 1); // a proxied jsDelivr URL
+  }
+  const m = RAW_RE.exec(s) || JSDELIVR_RE.exec(s);
+  return m ? { owner: m[1], repo: m[2], ref: m[3], path: m[4] } : null;
+}
+
+/** The raw.githubusercontent.com URL of a repository file (repoSource's fields). */
+export function rawUrl({ owner, repo, ref, path }) {
+  return `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${path}`;
+}
+
+/** Whether a ref is a full commit id (a pinned URL names one; a branch head moves). */
+export const isCommitRef = (ref) => /^[0-9a-f]{40}$/.test(String(ref));
 
 /**
  * Map a raw.githubusercontent.com URL to its jsDelivr mirror.

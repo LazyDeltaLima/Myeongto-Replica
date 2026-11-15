@@ -20,11 +20,14 @@
 //   from jsDelivr / GitHub. A file every source answers with other bytes (or not at
 //   all) is recorded without a URL, so it is not checked again; a network failure
 //   records nothing.
+// - `pins` (tools/assets/upstream-pins.json, pins.mjs): a pinned file is downloaded from its commit URL only, kept
+//   only when it is that version, and refused when the commit serves other bytes.
 
 import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { MirrorPolicy } from './network.mjs';
 import { validate } from './formats.mjs';
+import { sameSource, sha256 } from './pins.mjs';
 
 /**
  * @typedef {{ rel: string, urls: string[], kind: string, bytes?: number, mutable?: boolean }} Job
@@ -56,8 +59,9 @@ export class Downloader {
    * @param {'direct'|'mirror'} [o.source] preferred download source
    * @param {string} [o.proxyPrefix] HTTPS prefix for GitHub downloads
    * @param {MirrorPolicy} [o.mirrorPolicy] invocation-wide policy and mirror circuit breaker
+   * @param {Record<string, import('./pins.mjs').Pin>} [o.pins] pinned files by path under root
    */
-  constructor({ root, ledgerPath, concurrency = 16, retries = 3, timeoutMs = 120000, force = false, keepExisting = false, adopt = false, log = console.log, fetchImpl = globalThis.fetch, backoffMs = 400, source = 'direct', proxyPrefix, mirrorPolicy }) {
+  constructor({ root, ledgerPath, concurrency = 16, retries = 3, timeoutMs = 120000, force = false, keepExisting = false, adopt = false, log = console.log, fetchImpl = globalThis.fetch, backoffMs = 400, source = 'direct', proxyPrefix, mirrorPolicy, pins = {} }) {
     this.root = root;
     this.ledgerPath = ledgerPath;
     this.concurrency = Math.max(1, Math.min(64, Number(concurrency) || 16));
@@ -73,7 +77,8 @@ export class Downloader {
     this.network = mirrorPolicy ?? new MirrorPolicy({ source, proxyPrefix, log });
     this.backoffMs = Math.max(0, Number(backoffMs) || 0);
     this.ledger = { files: {} };
-    this.totals = { ok: 0, skip: 0, miss: 0, error: 0, bytesDownloaded: 0, sizeChanged: 0, adopted: 0, unmatched: 0 };
+    this.pins = pins;
+    this.totals = { ok: 0, skip: 0, miss: 0, error: 0, bytesDownloaded: 0, sizeChanged: 0, adopted: 0, unmatched: 0, repinned: 0 };
     this.dirty = 0;
     this.saving = false;
   }
@@ -108,6 +113,16 @@ export class Downloader {
     if (!st.isFile() || st.size <= 0) return -1;
     if (this.keepExisting) return st.size;
     const led = this.ledger.files[job.rel];
+    const pin = this.pins[job.rel];
+    if (pin) {
+      if (!led || !sameSource(led.url, pin.url)) return -1;
+      if (job.mutable) {
+        if (!(await this.pinnedFolderOk(job.rel))) return -1;
+        try { return validate(job.kind, await readFile(abs)) ? st.size : -1; } catch { return -1; }
+      }
+      if (st.size !== pin.bytes) return -1;
+      try { return sha256(await readFile(abs)) === pin.sha256 ? st.size : -1; } catch { return -1; }
+    }
     if (job.mutable) {
       // Post-processed files (atlases) change size; validate content instead.
       try { return validate(job.kind, await readFile(abs)) ? st.size : -1; } catch { return -1; }
@@ -117,6 +132,21 @@ export class Downloader {
     if (led && led.bytes !== st.size) return -1; // changed since we wrote it
     // Unknown provenance (e.g. ledger deleted): keep it only if it validates.
     try { return validate(job.kind, await readFile(abs)) ? st.size : -1; } catch { return -1; }
+  }
+
+  /**
+   * Whether every pinned file of a pinned atlas's folder (its pages and skeleton, rewritten by nothing) is its pinned
+   * version on disk: the atlas is rewritten after download, so its own bytes cannot be compared with the pin, and it
+   * belongs to those files.
+   * @param {string} rel the atlas
+   */
+  async pinnedFolderOk(rel) {
+    const dir = rel.slice(0, rel.lastIndexOf('/') + 1);
+    for (const [r, p] of Object.entries(this.pins)) {
+      if (r === rel || r.endsWith('.atlas') || r.slice(0, r.lastIndexOf('/') + 1) !== dir) continue;
+      try { if (sha256(await readFile(join(this.root, r))) !== p.sha256) return false; } catch { return false; }
+    }
+    return true;
   }
 
   /**
@@ -166,6 +196,8 @@ export class Downloader {
    * @returns {Promise<JobResult>}
    */
   async runJob(job) {
+    const pin = this.pins[job.rel];
+    if (pin) job.urls = [pin.url]; // the job object is the plan's leaf alternative: resolveTemplate sees the pinned URL
     const kept = await this.existingSize(job);
     if (kept >= 0) {
       if (this.adopt && !job.mutable && !this.ledger.files[job.rel]) await this.adoptExisting(job, kept);
@@ -178,6 +210,7 @@ export class Downloader {
         const r = await this.fetchWithRetries(src, job.kind);
         if (r.notFound || r.skipped) continue;
         if (r.error) { lastError = r.error; continue; }
+        if (pin && sha256(r.buf) !== pin.sha256) { lastError = `pinned ${job.rel}: ${src} served other bytes than tools/assets/upstream-pins.json names`; continue; }
         const abs = join(this.root, job.rel);
         await mkdir(dirname(abs), { recursive: true });
         const tmp = `${abs}.part${process.pid}`;
@@ -192,6 +225,7 @@ export class Downloader {
         this.written.add(job.rel);
         this.dirty++;
         const sizeChanged = !!(job.bytes && job.bytes !== r.buf.length && !job.mutable);
+        if (pin) this.totals.repinned++;
         return { status: 'ok', bytes: r.buf.length, url: src, sizeChanged };
       }
     }

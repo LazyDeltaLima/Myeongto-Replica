@@ -70,6 +70,29 @@ checked again (a network failure records nothing). Atlases are never adopted (th
 
 Every download is written to a temp file, then renamed into place. A partial download therefore never reaches its final path.
 
+### Pinned upstream files
+
+The sources are branch heads (ArknightsAssets2 `cn` / `voice`, fexli `main`, …), and a game update can replace the file
+at a path the pipeline already has: the size rule above keeps the old file, so installs drift apart (one machine has
+the new model, another the old one) and the browser resource list, whose `u` names the branch, disagrees with the file
+it lists. `tools/assets/upstream-pins.json` names, per such path, the commit whose version this repository uses — the
+new one after a model update, or the old one a rule keeps — with its sha256 and size. fetch-assets then:
+- downloads a pinned file only from that commit (raw, then jsDelivr `@commit`), so the ledger and the resource list's `u`
+  name a file that never changes;
+- keeps a pinned file on disk only when the ledger says it came from that commit and its sha256 is the pin's; a pinned
+  atlas (rewritten by the pipeline, so its bytes cannot be compared) only while every pinned file of its folder is its
+  pinned version;
+- refuses bytes a commit serves with another sha256 (an error, nothing written).
+
+The table is written by `tools/check-asset-sources.mjs`, never by hand. Without arguments it fetches every ledger file
+with a GitHub source at its branch head (about 12,000 files, 0.65 GB) and lists the ones that differ from the disk;
+run it after a client update. For each changed file decide which version to use: `--pin <path|prefix>…` (or
+`--pin --changed`, every file of the last full check) pins the version on disk, finding the commit that has these bytes
+in the path's history; `--take-new <path|prefix>…` pins the head's version, which the next fetch-assets run downloads.
+A model folder is one version, so naming one of its files pins all of them. An operator model with local-client
+textures (`public/assets/local/spine/op/<id>/`) is reported with the folder to extract again: the web skeleton and
+atlas and the client texture must be the same version. The report is `.cache/asset-sources-report.json`.
+
 How downloads are fetched:
 - 16 connections at a time.
 - Each source gets 3 attempts with exponential backoff.
