@@ -92,6 +92,7 @@ SCRIPTS = {
     -6162048904628412015: 'SetEffectAnimatorParameter',   # (2026-11-10) CN 11-08: 假想敌：茧's rain ground (anim_scripts)
     -7126797585799428801: 'SpecifyUnitModeEffect',   # (2026-11-16) 유넥티스's dead effect (owner_follow `unitMode`)
     -6717794388378707786: 'SwitchableMultiEffectByBuffStackCnt',   # (2026-11-16) the 麻痹 mark (CN common.ab)
+    2822543860449088940: 'MapEffect',   # (2026-11-16) the root of a map tile effect (CN map.ab / mapeff)
 }
 # what the extract reads of the scripts above (reader() checks the raw fallbacks)
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
@@ -323,7 +324,7 @@ PS_FIELDS = {
     'CollisionModule.m_Planes': _K('mods.collide.planes'), 'CollisionModule.m_Dampen': _K('mods.collide.dampen'),
     'CollisionModule.m_Bounce': _K('mods.collide.bounce'), 'CollisionModule.m_EnergyLossOnCollision': _K('mods.collide.lifeLoss'),
     'CollisionModule.minKillSpeed': _K('mods.collide.minKill'), 'CollisionModule.maxKillSpeed': _K('mods.collide.maxKill'),
-    'CollisionModule.radiusScale': _A(1, 'the collision radius scaled (`collide.radius` is carried, not played)'),
+    'CollisionModule.radiusScale': _K('mods.collide.radius'),   # (2026-11-16) played: fxplayer.js collide scales the radius by it
     'CollisionModule.collisionMode': _A(0, '2D collisions'),
     **{f'CollisionModule.{f}': _N('only with type 1 World (collides with the scene\'s colliders)') for f in (
         'quality', 'voxelSize', 'maxCollisionShapes', 'collidesWith.m_Bits', 'collidesWithDynamic', 'interiorCollisions',
@@ -634,7 +635,9 @@ COMP_FIELDS = {
         '_reverseWhenFaceToBack': _A(0, 'turned the other way while its owner faces back [ASSUMED from its name: a newer field of the CN client]')},
     'script:SwitchableEffectByFaceDirection': {
         'm_Enabled': _A(1, _OFF), '_upEffect': _K('swFace.up'), '_downEffect': _K('swFace.down'), '_leftEffect': _K('swFace.left'),
-        '_oneShot': _K('swFace.oneShot'), '_useBehaviourPause': _A(0, _PAUSE + ' (`swFace.beh` is carried, not played)')},
+        '_oneShot': _K('swFace.oneShot'), '_useBehaviourPause': _A(0, _PAUSE + ' (`swFace.beh` is carried, not played)'),
+        # (2026-11-16) the CN 11-08 client's field (홈바운드's hbound_F_Attack_start_01: 0)
+        '_useDeployDirection': _A(0, 'picks by the deploy direction instead of the facing [ASSUMED from its name: only 0 seen]')},
     'script:SwitchableThreeFaceEffect': {
         'm_Enabled': _A(1, _OFF), '_upEffect': _K('three.up'), '_downEffect': _K('three.down'),
         '_forceCheckInUpdate': _A(0, 're-applied every frame (`three.check` is carried, not played)'), '_createEffectOnStart': _K('three.start')},
@@ -853,6 +856,13 @@ KNOWN = {
                'render/fxgame.js gives it (pickFx \'anchor\') [ASSUMED]'),
     # (2026-11-16) a variant by its owner's buff stack count, one copy at a time (SwitchableMultiEffectByBuffStackCnt
     # _UpdateEffectWithBuffStackCnt): only the 麻痹 mark common_061_numb_01 on palsy[stack]
+    # (2026-11-16) the root of a map tile effect (MapEffect : Effect, ITileListener): on the 079 floor pair (사르곤 6's quicksand
+    # map_v079_dikuai01, mapeff_079_dikuai_01) every field at its default (`_spawnMapOffset` 0, `_pauseIfTileIsLocated` /
+    # `_forceZeroHeight` off, `_delayToFinish` 0)
+    'script:MapEffect': (_HAND, 'a tile\'s floor effect: render/fxgame.js sargonSandFx lays it on its tile (docs/rules/fx.md 「규정 사르곤 모래 늪」)'),
+    # (2026-11-16) its clips move no transform (Mon3tr S3's monstr_skill_03_buff_05: colours and emission only)
+    'field:Animator.m_ApplyRootMotion ≠ False': (_NONE, 'its clips animate no transform, so there is no root motion to apply '
+                                                       '(only Mon3tr S3\'s monstr_skill_03_buff_05)'),
     'script:SwitchableMultiEffectByBuffStackCnt': (_HAND, 'the 麻痹 mark by its stacks (palsy[stack]: 2 EQUALS _02, 3 GE _03): '
                                                    'render/fxstatus.js STACK_FX palsy'),
     'script:PreviewCursor': (_HAND, 'the route preview cursor\'s mover (`_moveSpeed`, `_height`): render/fxroute.js'),
