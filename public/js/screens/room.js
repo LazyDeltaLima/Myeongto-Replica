@@ -681,9 +681,9 @@ export function RoomScreen() {
     if (ok) run(`kick${seat}`, () => net.request('room.kick', { seat, playerId }));
   };
   const setAiLast = (on) => run('ailast', () => net.request('room.setAiPicksLast', { on }));
-  const sizeOpt = sizeOption(room, me.playerId);
   // 콘솔 모드 (local patch: server/local-patch.js setConsole): a solo room only, before its match
   const setConsole = (on) => run('console', () => net.request('room.setConsole', { on }));
+  const sizeOpt = sizeOption(room, me.playerId);
   // 4 → 8 frees the AI seats (the 8-player mode has none): asked first. Resolves true once the server took it.
   const setSize = async (size) => {
     if (inFlight.current) return false;
@@ -824,9 +824,9 @@ export function RoomScreen() {
   // 干员调配: under the chat on the bottom row (by the start button, as the briefing has it beside 准备完毕; maintainer
   // decision 2026-11-08), in the top bar on a short screen
   const loadout = html`<${LoadoutButton} from="room" size="md" class="rs-loadout room-loadout" label=${t('干员调配')} />`;
-
   // 콘솔 모드 (local patch): right of 干员调配 in a solo room (maintainer decision 2026-11-15)
   const consoleBtn = coop ? null : html`<${ConsoleToggle} on=${room.console === true} busy=${busy === 'console'} disabled=${!online || !!room.inMatch} onToggle=${setConsole} />`;
+
   return html`<div class=${`screen room-screen rs${coop ? '' : ' rs--solo'}${coop ? ' has-chat' : ''}${facts.large ? ' rs--8' : ''}`}
       style=${`--d-color:${DIFFICULTY_COLORS[room.difficulty] || 'var(--amber)'}; --n:${facts.large ? MAX_SEATS : facts.seats.length}`}>
     <div class="rs__bg" aria-hidden="true"></div>
@@ -871,8 +871,8 @@ export function RoomScreen() {
           ${info.effects.map((e) => html`<li key=${e}>${e}</li>`)}
           <li>${t('共')} <b class="num">${roomRules.custom?.flow?.rounds ?? info.rounds}</b> ${tc('rounds', '回合')}${info.hidden ? t('，满足条件时进入隐秘核心') : ''}</li>
           <li>${t('独立模拟中休整期与机变阶段不限时')}</li>
-        </ul>
           ${room.console ? html`<li class="rs-brief__console"><b>${t('控制台模式')}</b> — ${t('自由更改干员、装备、敌人、回合、首领与盟约层数；不结算，也不计入统计、成就和战绩；对局中可以反馈')}</li>` : null}
+        </ul>
       </aside>`}
     </main>
 

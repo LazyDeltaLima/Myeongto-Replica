@@ -1132,8 +1132,8 @@ export class Lobby {
       room.replay = null;
       room.matchCount++;
       this.log.info(`[lobby] ${room.code} match #${room.matchCount} starting (${room.mode}${room.size > MAX_SEATS ? room.size : ''}/${room.difficulty}/${room.ruleset.preset}, ${seats.length} seats, seed ${seed})`);
-      localPatch.onMatchCreate(room, match); // local patch: a console room's match is a console match (local-console.js)
       this.broadcastState(room);
+      localPatch.onMatchCreate(room, match); // local patch: a console room's match is a console match (local-console.js)
       match.start();
     } catch (e) {
       this.log.error(`[lobby] ${room.code} match failed to start`, e);
@@ -1554,8 +1554,8 @@ export class Lobby {
     return {
       code: room.code, mode: room.mode, size: room.size, difficulty: room.difficulty, ruleset: rulesetWire(room.ruleset), aiPicksLast: room.aiPicksLast,
       ...(room.season !== DEFAULT_SEASON ? { season: room.season } : {}),
-      ...(room.console ? { console: true } : {}), // local patch: 콘솔 모드
       ...(room.grade !== null ? { grade: room.grade } : {}),
+      ...(room.console ? { console: true } : {}), // local patch: 콘솔 모드
       hostId: room.hostId,
       spectatorSeats: room.spectatorSeats,
       seats: room.seats.map((s) => {
@@ -1586,8 +1586,8 @@ export class Lobby {
     const now = this.now();
     const room = new Room(code, mode, snap.difficulty, now, snap.size);
     room.ruleset = resolveRuleset(snap.ruleset);
-    room.console = mode === 'solo' && snap.console === true; // local patch: 콘솔 모드
     room.aiPicksLast = mode === 'coop' && snap.aiPicksLast === true;
+    room.console = mode === 'solo' && snap.console === true; // local patch: 콘솔 모드
     if (SPECTATOR_SEATS.includes(snap.spectatorSeats)) room.spectatorSeats = snap.spectatorSeats;
     // a season this server does not offer: the room goes on in the default one
     room.season = this.seasons.has(seasonOf(snap.season)) ? seasonOf(snap.season) : DEFAULT_SEASON;
