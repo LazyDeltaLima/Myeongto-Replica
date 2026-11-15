@@ -1197,6 +1197,16 @@ function buildChess(ctx) {
  */
 const DIY_OWNED_PICKS = LOCAL_DIY_PICKS;
 
+/**
+ * 自选 picks whose core bonds the official game gives otherwise than their faction tags would, per season: charId → the
+ * bond ids it gets (maintainer decision 2026-11-15, from the official 规程 game: 焰影苇草 (nation victoria) and 新约能天使
+ * (nation lungmen) get 协防干员, not 维多利亚 / 炎). No table field says so; which rule the server applies to them is not
+ * known. buildBackups stops on an entry that is not a pick of the season or names a bond the season lacks.
+ */
+const DIY_BOND_OVERRIDES = Object.freeze({
+  act3autochess: { char_1020_reed2: ['emptyShip'], char_1041_angel2: ['emptyShip'] },
+});
+
 const rarityOf = (char) => Number(String(char?.rarity).replace('TIER_', '')) || null;
 /**
  * The group tags of a character (`powers`): nationId, groupId and teamId of `mainPower` and of every `subPower`, in that
@@ -1403,6 +1413,11 @@ function buildBackups(ctx, chess) {
   const coreBonds = Object.values(ac.bondInfoDict || {})
     .filter((b) => b.isPower && (b.powerIdList || []).length && act.bondInfoDict?.[b.bondId]);
   const fallback = act.constData.fallbackBondId;
+  const overrides = DIY_BOND_OVERRIDES[SEASON] || {};
+  for (const [id, bonds] of Object.entries(overrides)) {
+    if (!ownedPool.includes(id)) throw new Error(`DIY_BOND_OVERRIDES.${SEASON}: ${id} is not a 自选 pick of the season`);
+    for (const b of bonds) if (!act.bondInfoDict?.[b]) throw new Error(`DIY_BOND_OVERRIDES.${SEASON}.${id}: the season has no bond ${b}`);
+  }
   const operators = {};
   for (const id of ownedPool) {
     const ch = charTable[id];
@@ -1410,7 +1425,7 @@ function buildBackups(ctx, chess) {
     const hit = coreBonds.filter((b) => b.powerIdList.some((x) => powers.includes(x))).map((b) => b.bondId);
     operators[id] = {
       name: ch.name, rarity: rarityOf(ch), profession: ch.profession, subProfessionId: ch.subProfessionId,
-      obtainable: !ch.isNotObtainable, powers, bonds: hit.length ? hit : [fallback],
+      obtainable: !ch.isNotObtainable, powers, bonds: overrides[id] ? [...overrides[id]] : hit.length ? hit : [fallback],
     };
   }
   return { units, tokens, diy: { slots, prototypes, locked, ownedPool, operators } };

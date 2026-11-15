@@ -20,10 +20,13 @@ const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, impo
 const BASE = { chess: load('chess'), backups: load('backups') };
 const ACT3 = { chess: load('seasons/act3autochess/chess'), backups: load('seasons/act3autochess/backups') };
 
-/** charId → its 盟约 chess (the kit), its chess's default skill, its modules, its 规程 core bond. */
+/**
+ * charId → its 盟约 chess (the kit), its chess's default skill, its modules, its 规程 core bond (焰影苇草 and 新约能天使:
+ * 协防干员 from the official game, not their faction's bond — tools/build-data.mjs DIY_BOND_OVERRIDES).
+ */
 const PICKS = {
-  char_1020_reed2: { chess: 'chess_char_6_08_a', def: 'skchr_reed2_3', modules: ['uniequip_002_reed2', 'uniequip_003_reed2'], bond: 'victoriaShip' },
-  char_1041_angel2: { chess: 'chess_char_6_13_a', def: 'skchr_angel2_2', modules: ['uniequip_002_angel2'], bond: 'yanShip' },
+  char_1020_reed2: { chess: 'chess_char_6_08_a', def: 'skchr_reed2_3', modules: ['uniequip_002_reed2', 'uniequip_003_reed2'], bond: 'emptyShip' },
+  char_1041_angel2: { chess: 'chess_char_6_13_a', def: 'skchr_angel2_2', modules: ['uniequip_002_angel2'], bond: 'emptyShip' },
   char_4056_titi: { chess: 'chess_char_5_02_a', def: 'skchr_titi_3', modules: ['uniequip_002_titi'], bond: 'sargonShip' },
 };
 const IDS = Object.keys(PICKS);
@@ -39,7 +42,7 @@ test('offered in 规程 at tiers 5 and 6 (kitted, legal), not in 盟约 (its own
       assert.ok(diyPool(t, { data: ACT3, kitted: KITTED_CHARS }).includes(id), `${id}: 规程 tier ${t}`);
       assert.ok(!diyPool(t, { data: BASE, kitted: KITTED_CHARS }).includes(id), `${id}: not 盟约 tier ${t}`);
     }
-    assert.deepEqual(ACT3.backups.diy.operators[id].bonds, [PICKS[id].bond], `${id}: core bond`);
+    assert.deepEqual(ACT3.backups.diy.operators[id].bonds, [PICKS[id].bond], `${id}: core bond (tools/build-data.mjs DIY_BOND_OVERRIDES; docs/rules/diy.md 「규정 선발 추가 리드…」)`);
     const pick = { charId: id, skillIndex: 2, uniEquipId: PICKS[id].modules[0] };
     assert.deepEqual(validateDiyPicks({ chess_char_6_diy1_a: pick }, { data: ACT3, kitted: KITTED_CHARS }), { ok: true, picks: { chess_char_6_diy1_a: pick } });
   }
