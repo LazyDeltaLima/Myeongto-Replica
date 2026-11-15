@@ -199,7 +199,7 @@ test('茧 (隐秘核心) sim: 【悲惨之雨】\'s zone names the tiles of the 
   assert.ok(rains().every((o) => /acidrain/i.test(o.ability)), 'names the ability (its tile effect)');
 });
 
-/** 规程 萨尔贡 6's 流沙 'zone' fx events of a real battle: two members' skill starts on 规程's data. */
+/** 规程 萨尔贡 6's 流沙 'zone' fx events of a real battle: two members' skill starts on 规程's data (`.battle`: the Battle). */
 function sandEvents() {
   const ids = Array.from({ length: 6 }, (_, i) => `s${i}_a`);
   const chess = Object.fromEntries(ids.map((id) => [id, chessRec({ id, bonds: ['sargonShip'], profession: 'WARRIOR', skill: null, stats: { atk: 100, maxHp: 1000, def: 0, blockCnt: 2 } })]));
@@ -209,7 +209,7 @@ function sandEvents() {
   h.step(2);
   for (const id of ['s0_a', 's1_a']) h.b.emit('skillStart', { unit: h.unit(id), skill: null, reason: 'test' });
   h.step();
-  return h.eventsOf('fx').filter((e) => e[1] === 'zone' && e[4]?.kind === 'sargonSand');
+  return Object.assign(h.eventsOf('fx').filter((e) => e[1] === 'zone' && e[4]?.kind === 'sargonSand'), { battle: h.b });
 }
 
 test('萨尔贡 6\'s 流沙: its tile listener\'s map_v079_dikuai01 on the tile it is laid on, kept for the battle (no stand-in zone)', async () => {
@@ -231,5 +231,42 @@ test('萨尔贡 6\'s 流沙: its tile listener\'s map_v079_dikuai01 on the tile 
     layer.onEvent(zones[1], views);
     await settle();
     assert.equal(seen.filter((p) => p.kind === 'spawn' && p.tag === 'sargonSand').length, 2);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+// 2026-11-16 (user report 「맵이 번쩍하더니 사르곤 장판이 다 없어짐」, docs/rules/fx.md 「규정 사르곤 모래 늪」): the floors are
+// battle-long — never ended by the lasting cap, laid again on a re-entry from the field meta, stand-ins while the layer is down
+test('萨尔贡 6\'s 流沙 floors last the battle: pinned, laid again from the field meta after a re-entry, stand-ins at quality low', async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    let quality = 'high';
+    const stood = [];
+    const { layer, views, seen } = await layerWith(true, { quality: () => quality, standIn: (k, x, y, ex) => stood.push([k, x, y, ex.key, ex.dur]) });
+    const zones = sandEvents();
+    const tiles = zones.map((e) => [e[2], e[3]]);
+    const floors = () => seen.filter((p) => p.kind === 'spawn' && p.tag === 'sargonSand');
+    for (const e of zones) { layer.onEvent(e, views); assert.equal(layer.ownsFx(e), true, 'owned: no stand-in from the event'); }
+    await settle();
+    assert.equal(floors().length, zones.length);
+    assert.ok(floors().every((p) => p.pinned), 'the floors are pinned: the lasting cap (liveOverCap) ended the oldest ones in a crowded battle — fx.md 「규정 사르곤 모래 늪」');
+    assert.deepEqual(stood, [], 'no stand-in beside the official floor');
+    // the sim keeps the tiles for a view entering later (Battle.fieldMeta `sand`)
+    assert.deepEqual(zones.battle.fieldMeta().sand, tiles, 'the field meta lists the tiles laid');
+    // a re-entry (render/app.js enterBattle): clear(), then the meta's list
+    layer.clear();
+    seen.length = 0;
+    layer.setSargonSand(zones.battle.fieldMeta().sand);
+    await settle();
+    assert.equal(floors().length, tiles.length, 'every floor laid again after a re-entry — the sim sends the zone fx once (fx.md 「규정 사르곤 모래 늪」)');
+    // quality 'low' (as a lost context): each tile gets its stand-in, keyed, once
+    quality = 'low';
+    for (let i = 0; i < 3; i++) layer.update(1 / 60, { dist: 20 }, { width: 100, height: 100 });
+    assert.deepEqual(stood.map((s) => [s[0], s[1], s[2]]), tiles.map(([x, y]) => ['zone', x, y]), 'one stand-in per tile while the official floor cannot play');
+    assert.equal(new Set(stood.map((s) => s[3])).size, tiles.length, 'keyed per tile (drawn again in place, never stacked)');
+    // back to 'high': the stand-ins fade (their key re-sent with a short dur)
+    stood.length = 0;
+    quality = 'high';
+    layer.update(1 / 60, { dist: 20 }, { width: 100, height: 100 });
+    assert.deepEqual(stood.map((s) => s[4]), tiles.map(() => 0.6), 'the stand-ins fade once the official floors can play');
   } finally { globalThis.fetch = fetch0; }
 });

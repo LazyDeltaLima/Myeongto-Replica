@@ -861,7 +861,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * later ensure() makes a new one.
    */
   function teardown() {
+    const sand = sandFloors.splice(0);   // 2026-11-16: the battle's 流沙 tiles outlive the layer (their stand-ins, a later layer's floors)
     api.clear();
+    for (const rec of sand) { rec.l = null; rec.loading = false; sandFloors.push(rec); }   // (their stand-ins stay: another layer)
+    sandWait = sandFloors.length > 0;
     flightBatch?.dispose(); flightBatch = null;
     tileBatch?.dispose(); tileBatch = null;
     gen++;
@@ -2711,7 +2714,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null, dir = null } = {}) {
     if (!index?.bundles?.[bundle]?.includes(name)) return null;
-    if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null, facing }); // tests
+    if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null, facing, ...(entry.pinned ? { pinned: true } : null) }); // tests (`pinned`: never ended by the caps)
     if (dry) dryFollow(bundle, name, entry.owner ?? null, at && at.info ? ownerOf(at) ?? null : null);
     if (!(await ensure())) return null;
     let def = await lib.load(bundle, name);
@@ -5691,7 +5694,6 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     if (e[1] === 'summon' && AC_NO_BORN.has(o.key)) return !!(emodes?.[o.key] && !emodes[o.key].start && eOn(views.get(o.id)));
     if (e[1] === 'zone' && o.kind === 'acspiderRain') return acRainFx(o, views);
-    if (e[1] === 'zone' && o.kind === 'sargonSand') return sargonSandFx(e);
     return false;
   }
   /**
@@ -5699,25 +5701,82 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * (content/bonds/nation/sargon.js installSand) on the tile a member's skill start lays it on. Its tile listener
    * act3autochess_bond_sargon_tile_listener (CN battle/prefabs/[uc]dynamicabilities) puts its `_effectSettings` effect
    * map_v079_dikuai01 (CN map.ab: static floor meshes, no clip) on that tile once (`castedTimeThreshold` 1,
-   * `_dontCreateNewEffectWhenCastedTimesSame`) and keeps it as long as the listener stays — the battle, the sim's `dur`
-   * (`_fixClearOnEnd`). The range ability act3autochess_bond_sargon_range (the 2× while a member's skill runs) has no effect
-   * of its own. false (the stand-in zone) without the effect extracted.
+   * `_dontCreateNewEffectWhenCastedTimesSame`) and keeps it as long as the listener stays — the battle (`_fixClearOnEnd`).
+   * The range ability act3autochess_bond_sargon_range (the 2× while a member's skill runs) has no effect of its own.
+   * Without the effect extracted (or the layer down) the stand-in zone, drawn from the records below.
    */
   const SARGON_SAND = Object.freeze(['map', 'map_v079_dikuai01']);
+  /**
+   * 2026-11-16 (user report 「맵이 번쩍하더니 사르곤 장판이 다 없어짐」): the battle's 流沙 tiles, one record each
+   * ({ x, y, l: its live floor, loading, none: its spawn gave nothing }), every floor laid from them (stepSand) —
+   * - pinned: the lasting cap (liveOverCap, MAX_LASTING) used to end the oldest floors once a burst of skills filled it;
+   * - a re-entry (render/app.js enterBattle: a watched field and back, a resync) clears the layer: the field meta's `sand`
+   *   (Battle.fieldMeta) gives the list again (setSargonSand) — the sim's 'zone' fx comes once, when a tile is laid;
+   * - a lost context, quality 'low' or no extracted floor: the records stay (teardown keeps them) and each gets the
+   *   procedural stand-in zone (`standIn`, keyed by its record: drawn again in place, never stacked; faded out when the
+   *   official floors come back).
+   * The 'zone' fx is always owned here (onEvent, before its index / quality return): the stand-in comes from the records.
+   */
+  const sandFloors = [];
+  let sandWait = false;   // a record has no floor / stand-in yet (or lost it to a clear / teardown)
+  let sandMode = null;    // sandOfficial() at the last stepSand
+  function addSand(x, y) {
+    x = Math.round(Number(x)); y = Math.round(Number(y));
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    sandFloors.push({ x, y, l: null, loading: false, none: false, stood: false, key: `sargonSand:${sandFloors.length}` });
+    sandWait = true;
+    return true;
+  }
+  /** Whether the floors can be official now (else the stand-ins draw); null while the effect index still loads. */
+  function sandOfficial() {
+    if (failed || q() === 'low') return false;
+    if (!index) return indexDone ? false : null;
+    return !!index.bundles?.[SARGON_SAND[0]]?.includes(SARGON_SAND[1]);
+  }
   // (2026-11-14, user report: the stand-in circle in a real match) the tile is the event's x / y (Battle.fx puts them in
   // the tuple, not in its extra)
   function sargonSandFx(e) {
-    const o = e[4];
-    if (failed || !index?.bundles?.[SARGON_SAND[0]]?.includes(SARGON_SAND[1])) return false;
-    const x = Math.round(Number(e[2])), y = Math.round(Number(e[3]));
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    if (addSand(e[2], e[3])) stepSand();
+  }
+  function stepSand() {
+    if (!sandFloors.length) return;
+    const mode = sandOfficial();
+    if (mode === sandMode && !sandWait) return;
+    sandMode = mode;
+    if (mode === null) return;   // the index still loads: neither yet
+    sandWait = false;
+    if (mode === false) {
+      for (const rec of sandFloors) {
+        if (rec.stood) continue;
+        rec.stood = true;
+        try { standIn('zone', rec.x, rec.y, { r: 0.5, dur: 1e4, kind: 'sargonSand', tiles: 'box', key: rec.key }); } catch { /* never breaks the view */ }
+      }
+      return;
+    }
+    for (const rec of sandFloors) {
+      if (!rec.stood) continue;
+      rec.stood = false;
+      try { standIn('zone', rec.x, rec.y, { r: 0.5, dur: 0.6, kind: 'sargonSand', key: rec.key }); } catch { /* fades out */ }
+    }
     let g = null;
     try { g = grid(); } catch { /* the board's floor */ }
-    const cell = Array.isArray(g) ? g[y]?.[x] : null;
-    const until = clockS + Math.max(0, Number(o.dur) || 0);
-    spawn(SARGON_SAND[0], SARGON_SAND[1], { x, y, z: cell ? (cell.h || 0) + (cell.devH || 0) : 0 }, { owner: null, buff: false, until, tag: 'sargonSand' }, { over: false })
-      .then((l) => { if (l) zoneEnd(l, until, true); });
-    return true;
+    for (const rec of sandFloors) {
+      if (rec.l || rec.loading || rec.none) continue;
+      const cell = Array.isArray(g) ? g[rec.y]?.[rec.x] : null;
+      rec.loading = true;
+      const g0 = gen;   // the layer it is laid on (teardown: the records wait for the next one)
+      spawn(SARGON_SAND[0], SARGON_SAND[1], { x: rec.x, y: rec.y, z: cell ? (cell.h || 0) + (cell.devH || 0) : 0 },
+        { owner: null, buff: true, keep: true, pinned: true, until: Infinity, tag: 'sargonSand' }, { over: false })
+        .then((l) => {
+          if (g0 !== gen) return;   // (teardown reset the record)
+          rec.loading = false;
+          // nothing came: its prefab cannot play (none) — or the layer went down meanwhile (quality 'low' before it was
+          // made), and the next step decides again
+          if (!l) { if (sandOfficial() === true) rec.none = true; else sandWait = true; return; }
+          if (!sandFloors.includes(rec)) { l.keep = false; l.inst.stop(true); return; }   // its battle was cleared while it loaded
+          rec.l = l;
+        }, () => { rec.loading = false; });
+    }
   }
   /**
    * 2026-11-11 (docs/rules/fx.md 「규정 보스 고치·지느러미의 이펙트」): 假想敌：茧 (隐秘核心)'s 【悲惨之雨】 — sim fx 'zone'
@@ -7057,6 +7116,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return true;
     },
     /**
+     * 2026-11-16: the 流沙 tiles a battle already laid when the view entered it (m.field `sand`: [[x, y]] — Battle.fieldMeta),
+     * after enterBattle's clear(); the ones laid later come as 'zone' fx. See sandFloors.
+     */
+    setSargonSand(list) {
+      for (const t of Array.isArray(list) ? list : []) if (Array.isArray(t)) addSand(t[0], t[1]);
+      stepSand();
+    },
+    /**
      * 2026-11-12: the stage's tile effects ([{ bundle, name, x, y }] — stageTileFx of the stage on the board; [] none), held
      * until a list without them, laid again after a clear() — see stageTiles.
      */
@@ -7153,6 +7220,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
       // 2026-10-10: 萨米的意志's 冰凌 tile by tile (official or the staggered stand-in — at quality 'low' too)
       if (Array.isArray(e) && e[0] === 'fx' && e[1] === 'column' && e[4]?.r0 != null) { ecolumnFx(e, views); return; }
+      // 2026-11-16: 萨尔贡 6's 流沙 — recorded at any quality and before the index (its stand-in is drawn from the records)
+      if (Array.isArray(e) && e[0] === 'fx' && e[1] === 'zone' && e[4]?.kind === 'sargonSand') { ownFx.add(e); sargonSandFx(e); return; }
       if (!index || q() === 'low' || !Array.isArray(e)) return;
       if (e[0] === 'atk' && !CHAIN_KINDS.has(e[3])) countSkip(views.get(e[1]));
       switch (e[0]) {
@@ -7510,6 +7579,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       flushStoneBirths(lastViews); // local patch
       flushEnemyBirths(lastViews); stepEnemies(lastViews); // 2026-10-10: the enemies' born effects, modes, skill clips
       stepStageTiles(); // 2026-11-12: the stage's tile effects (setStageTiles)
+      if (sandFloors.length) stepSand(); // 2026-11-16: 萨尔贡 6's 流沙 floors / stand-ins (sandFloors)
       stepCannons(); // 2026-11-12: 规程 m10's 盐坨子炮 (setCannons)
       if (lastViews && (soulBalls.size || soulLines.size)) stepSouls(lastViews, dt * gameRate()); // 2026-11-12: 魂灵法骸's fireballs
       if (index) flushDeploys(lastViews); // 2026-10-11: the operators' / tokens' deploy effects
@@ -7687,6 +7757,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       cannons.clear();   // 2026-11-12: the 盐坨子炮 (dropped with `live`; the next battle's setCannons lays them)
       for (const rec of bandTiles.values()) rec.off = true;   // 2026-11-12: the prep's tile 指令 floors (dropped with `live`)
       bandTiles.clear();
+      sandFloors.length = 0; sandWait = false; sandMode = null;   // 2026-11-16: 流沙's floors (dropped with `live`; a re-entry's setSargonSand lays them again)
       for (const rec of stageTiles.values()) { rec.l = null; rec.none = false; }   // 2026-11-12: the stage's tile effects (dropped with `live`; laid again next frame)
       if (mod) showLayers();
     },

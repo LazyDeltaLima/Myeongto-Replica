@@ -1736,6 +1736,8 @@ export async function createFieldView(host, options = {}) {
     if (!battleMeta.prep && Array.isArray(meta.storm) && meta.storm.length) fxGame.setStorm(meta.storm, mounds.map(moundAt));
     // 2026-11-12: 规程 m10's 盐坨子炮 on this field (fxgame.js setCannons: their idle and born effects, the sim's 'cannon')
     fxGame.setCannons(battleMeta.prep ? [] : stageCannons(stageRec, rect).map((k) => ({ ...k, z: tiles.grid[k.r]?.[k.c]?.h || 0 })));
+    // 2026-11-16: 萨尔贡 6's 流沙 tiles laid before this entry (m.field `sand`; the clear() above dropped their floors)
+    if (!battleMeta.prep) fxGame.setSargonSand(meta.sand);
     return true;
   }
 

@@ -123,10 +123,24 @@ function sandTile(battle, unit, taken) {
   return best;
 }
 
+/** battle → the 流沙 tiles laid so far, every player's, in order: [x, y] (sandView). */
+const LAID = new WeakMap();
+/**
+ * The 流沙 tiles laid in `battle` so far ([[x, y]], one per tile listener's tile: two players' on one tile are two), or
+ * null for none: Battle.fieldMeta's `sand`, so a view entering the battle late (a re-entry, a watched field) lays them
+ * again — the 'zone' fx is sent once, when the tile is laid.
+ */
+export function sandView(battle) {
+  const list = LAID.get(battle);
+  return list && list.length ? list.map((t) => [t[0], t[1]]) : null;
+}
+
 function installSand(battle, pid, bb, members) {
   if (!reached(battle, pid, 'sargonShip', bb.power_bond_char_cnt)) return;
   const memberSet = new Set(members);
   const tiles = new Set();
+  let laid = LAID.get(battle);
+  if (!laid) LAID.set(battle, (laid = []));
   const casting = new Set(); // members whose skill runs (the [aura_buff] range ability)
   /** enemy → { lastOn, nextMag, next2, slow } while its [checker] lasts */
   const on = new Map();
@@ -138,6 +152,7 @@ function installSand(battle, pid, bb, members) {
     const k = sandTile(battle, unit, tiles);
     if (k < 0) return;
     tiles.add(k);
+    laid.push([k % COLS, Math.floor(k / COLS)]);
     battle.fx('zone', { x: k % COLS, y: Math.floor(k / COLS), r: 0.5, dur: 1e4, kind: 'sargonSand', tiles: 'box', id: unit.id });
   });
   battle.on('skillEnd', ({ unit }) => { casting.delete(unit); });

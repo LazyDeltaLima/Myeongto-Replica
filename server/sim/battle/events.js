@@ -7,6 +7,7 @@ import { elementView } from '../damage.js';
 import { unitInfo, snapshotUnits } from '../snapshot.js';
 import { hudLists } from '../local-hud.js'; // local patch
 import { stormView } from '../content/devices.js'; // 战场#06's 沙尘暴 for the client (fieldMeta)
+import { sandView } from '../content/bonds/nation/sargon.js'; // 规程 萨尔贡 6's 流沙 tiles for the client (fieldMeta)
 
 export class BattleEvents {
   /** A client fx event; returns its payload (an enemy skill's cast adds its target to it later in the same tick). */
@@ -111,14 +112,17 @@ export class BattleEvents {
    * Field meta for m.field: { fieldId, kind, rect, stageId, units: UnitInfo[], storm?, wide? } — the units on the field,
    * knocked-out operators waiting to redeploy included (a client joining mid-battle shows them down); `storm`: 战场#06's
    * 沙尘暴 spans (content/devices.js stormView), only on a stage with one; `wide`: the halves (3 | 4) of an 8-player
-   * mode's wide 联防 field (the browser draws the stage widened: wideStage.js widenStageData), only there.
+   * mode's wide 联防 field (the browser draws the stage widened: wideStage.js widenStageData), only there; `sand`: 规程
+   * 萨尔贡 6's 流沙 tiles laid so far ([[x, y]], content/bonds/nation/sargon.js sandView), only once one is.
    */
   fieldMeta() {
     const storm = stormView(this);
+    const sand = sandView(this);
     return {
       fieldId: this.fieldId, kind: this.kind, rect: { ...this.rect }, stageId: this.stageId,
       units: this.units.filter((u) => (u.alive && u.deployed && !u.hidden) || this.isDown(u)).map(unitInfo),
       ...(storm ? { storm } : {}),
+      ...(sand ? { sand } : {}),
       ...(this.wide ? { wide: this.wide } : {}),
     };
   }
