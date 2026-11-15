@@ -209,6 +209,8 @@ test('绝境 Hidden Core vs 假想敌：铳 (隐秘核心): a 碎铳之簧 passe
   const seen = [];
   b.on('damaged', (c) => { if (c.target === gun) seen.push(c); }, { priority: -1e9 });
   const sp = springs.find((x) => x.defId === 'enemy_9019_actrpb') || springs[0];
+  // the bots' lineup can leave the spring under a status (白面鸮's sleep takes no damage): wake it, the rule here is the pass-through
+  for (const bf of sp.buffs.slice()) if (bf.status) b.removeBuff(sp, bf);
   const pool0 = pool.hp;
   const dealt = b.dealDamage(op, sp, { amount: 50000, type: 'true', canDodge: false });
   assert.ok(dealt > 0, 'the spring took damage');
