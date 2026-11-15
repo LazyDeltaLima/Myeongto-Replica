@@ -259,6 +259,8 @@ export class TileField {
     this.devices = [];             // Graphics props { dev, gfx, row, col, role } (mounds, bushes)
     this.devBoxes = [];            // textured box props (in the row meshes) { dev, row, col, role }
     this.blowers = [];             // { dev, row, col, dir } airflow sources
+    /** (row, col) → whether the blower there blows the official wind (render/app.js: fxgame.js deviceTilePlays); its streaks then skip. */
+    this.windPlays = null;
     this.animSprites = [];         // { sprite, r, c, kind, phase }
     this.battleRect = null;
     this.cam = null;
@@ -754,14 +756,20 @@ export class TileField {
     }
   }
 
-  /** Airflow streaks along the blowers' rangeTiles (the machines themselves are textured boxes). */
+  /**
+   * Airflow streaks along the blowers' rangeTiles (the machines themselves are textured boxes): the stand-in of the official
+   * wind tile_wind_01 (docs/rules/fx.md 「전장 #05 오리지늄 기류 발생 장치의 바람·기류 표식」), drawn only for a blower whose
+   * official wind does not play (quality 'low', the effect not extracted, no effect layer: `windPlays`).
+   */
   _drawFlow() {
     const g = this.flowGfx;
     g.clear();
     const cam = this.cam;
     if (!cam || !this.blowers.length) return;
-    const p = this._p, q = { x: 0, y: 0, s: 0, depth: 0 };
+    const p = this._p, q = this._q || (this._q = { x: 0, y: 0, s: 0, depth: 0 });
+    const plays = this.windPlays;
     for (const d of this.blowers) {
+      if (plays && plays(d.row, d.col)) continue;
       const tiles = Array.isArray(d.dev.rangeTiles) ? d.dev.rangeTiles : [];
       const dx = d.dir === 'LEFT' ? -1 : d.dir === 'RIGHT' ? 1 : 0, dy = d.dir === 'UP' ? 1 : d.dir === 'DOWN' ? -1 : 0;
       for (const [r, c] of tiles) {

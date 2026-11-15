@@ -6843,6 +6843,23 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     plays() { return plays; },
     /** Whether status effects can play at all (index loaded, not 'low', no WebP failure): off, units draw their status icons (fxstatus.js). */
     statusLayer() { return !!(index && !failed && q() !== 'low'); },
+    /**
+     * 2026-11-15: whether the device effect laid on tile (x, y) (setStageTiles `device`: a blower's tile_wind_01) plays — the
+     * layer on (index loaded, not 'low', no failure), the prefab extracted, its spawn not empty, its tile drawn. Off, the
+     * board draws its own airflow streaks in its place (tiles.js _drawFlow). Asked per blower per frame: no allocation.
+     */
+    deviceTilePlays(x, y) {
+      if (!index || failed || q() === 'low' || !stageTiles.size) return false;
+      let g = null;
+      try { g = grid(); } catch { /* every tile */ }
+      for (const rec of stageTiles.values()) {
+        const t = rec.t;
+        if (!t.device || t.x !== x || t.y !== y) continue;
+        if (rec.none || !index.bundles?.[t.bundle]?.includes(t.name)) return false;
+        return !Array.isArray(g) || !!g[y]?.[x]?.drawn;
+      }
+      return false;
+    },
     /** 2026-11-06: the ReadySkillEffect of `v`'s skill for fxstatus.js (fxmap.js readySpecs), or null. Asked per unit per frame: kept by operator and skill. */
     readyFx(v) {
       const id = v?.info?.spine || v?.info?.defId;

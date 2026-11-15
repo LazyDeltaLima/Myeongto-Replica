@@ -420,6 +420,8 @@ export async function createFieldView(host, options = {}) {
   };
   const tiles = new TileField({ ground: layers.ground, overlay: layers.overlay, props: layers.units, anim: layers.anim });
   setupCleanup.push(() => tiles.destroy());
+  // 2026-11-15: the blowers' airflow streaks stand in for the official wind only where it does not play (tiles.js _drawFlow)
+  tiles.windPlays = (r, c) => fxGame.deviceTilePlays(c, r);
   timing?.part?.('tiles');
   const fx = new FxSystem({
     P, layers, cam: () => cam, settings, assets, heightAt, redVignette: bg.red, surfaceLayer: ctx.surfaceLayer,
