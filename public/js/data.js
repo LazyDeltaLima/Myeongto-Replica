@@ -31,7 +31,9 @@ import { useEffect, useReducer } from '../vendor/hooks.module.js';
 import { applyFileOverlay } from '../../shared/i18nData.js';
 import { canonicalLang } from '../../shared/i18nPacks.js';
 import { DEFAULT_SEASON, seasonOf } from '../../shared/seasons.js';
-import { withSeasonArt } from './ui/assetUrls.js';
+import { BORROW_FILES, borrowSeasons, borrowPlan, borrowFile, borrowKey } from '../../shared/seasonBorrow.js';
+import { CUSTOM_FIRST_HALF_STAGES } from '../../shared/ruleset.js';
+import { withSeasonArt, withLentTypeIcons } from './ui/assetUrls.js';
 
 /** Known data files (name → URL basename). Unknown names are allowed too (`/data/<name>.json`). */
 export const DATA_FILES = Object.freeze({
@@ -53,6 +55,7 @@ export const DATA_FILES = Object.freeze({
   local: 'local-assets.json',
 });
 
+const BORROW_SET = new Set(BORROW_FILES);
 const ID_KEYS = ['id', 'chessId', 'bondId', 'itemId', 'bandId', 'enemyKey', 'enemyId', 'stageId', 'bossId', 'tokenId', 'choiceId', 'key'];
 const WRAPPER_KEYS = ['list', 'data', 'records', 'entries'];
 
@@ -124,7 +127,8 @@ const transientFailure = (err) => {
  * user playtest #3 item 9); a transient failure is retried (RETRY_DELAYS_MS) while the file stays 'loading', so a
  * network hiccup does not leave the texts of a whole session missing. `local` and `assets` are reported `missing` on
  * the first failure or timeout (the emote glyph) and stay that way through a retry; a later success is `ready`.
- * @param {{ fetch?: typeof fetch, base?: string, retryDelays?: number[], wait?: (ms: number) => Promise<void>, timeoutMs?: number, setTimeout?: typeof setTimeout, clearTimeout?: typeof clearTimeout }} [opts]
+ * @param {{ fetch?: typeof fetch, base?: string, retryDelays?: number[], wait?: (ms: number) => Promise<void>, timeoutMs?: number, setTimeout?: typeof setTimeout, clearTimeout?: typeof clearTimeout, peer?: boolean }} [opts]
+ *   `peer`: another season's store inside one (seasonStore), which has none of its own.
  *   `timeoutMs` 0 turns the art-manifest clock off. `setTimeout` / `clearTimeout` let a test fire that clock.
  */
 export function createDataStore(opts = {}) {
@@ -161,6 +165,18 @@ export function createDataStore(opts = {}) {
   let season = DEFAULT_SEASON;
   /** The last setSeason's work (resolves once its files have settled; seasonSettled). */
   let seasonWork = Promise.resolve();
+  /**
+   * What the room's custom ruleset borrows from other seasons (setBorrow; shared/seasonBorrow.js): its stages /
+   * enemies / factions read with the borrowed records, as the server's match reads them. Null = nothing.
+   * @type {{ stages: string[], types: string[] } | null}
+   */
+  let borrowIds = null;
+  /** The last setBorrow's work (its peers' files settled). */
+  let borrowWork = Promise.resolve();
+  /** season → a store of that season's files (seasonStore: the borrowed records, the custom dialog's lists) */
+  const peers = new Map();
+  /** The last setLocale's arguments, for a peer created later. */
+  let localeArgs = null;
 
   const tell = (name) => {
     for (const fn of [...listeners]) {
@@ -180,7 +196,7 @@ export function createDataStore(opts = {}) {
    * data/assets.json as the season on screen reads it: a later season's own icons over 盟约's (ui/assetUrls.js
    * withSeasonArt), built once per input; the file itself for the default season.
    */
-  function seasonAssets() {
+  function ownSeasonAssets() {
     const m = entries.get('assets')?.value ?? null;
     if (season === DEFAULT_SEASON || !m) return m;
     const local = entries.get('local')?.value ?? null;
@@ -196,6 +212,22 @@ export function createDataStore(opts = {}) {
     };
     const value = withSeasonArt(m, local, season, { bands: recs('bands'), bonds: recs('bonds') });
     seasonArtMemo = { m, local, bands, bonds, season, value };
+    return value;
+  }
+  /** @type {{ m: any, local: any, key: string, value: any } | null} */
+  let lentArtMemo = null;
+  /** ownSeasonAssets with the icons of the 特训敌人 types the room borrows (their season's extract: withLentTypeIcons). */
+  function seasonAssets() {
+    const m = ownSeasonAssets();
+    if (!borrowIds || !m) return m;
+    const types = Object.values(viewOf('factions')?.types || {}).filter((ty) => ty && ty.borrowed).map((ty) => [ty.borrowed, ty.icon]);
+    if (!types.length) return m;
+    const local = entries.get('local')?.value ?? null;
+    const key = types.map((x) => x.join('@')).join(',');
+    const c = lentArtMemo;
+    if (c && c.m === m && c.local === local && c.key === key) return c.value;
+    const value = withLentTypeIcons(m, local, types);
+    lentArtMemo = { m, local, key, value };
     return value;
   }
 
@@ -318,9 +350,70 @@ export function createDataStore(opts = {}) {
     return l;
   }
 
+  /**
+   * Another season's store (the same base, fetch and language; its own season's files and texts), created once; it
+   * tells this store's subscribers when its stages / enemies / factions arrive. Null inside a peer.
+   * @param {string} id
+   */
+  function seasonStore(id) {
+    if (opts.peer) return null;
+    let st = peers.get(id);
+    if (st) return st;
+    st = createDataStore({ ...opts, peer: true });
+    st.setSeason(id);
+    if (localeArgs) st.setLocale(...localeArgs);
+    st.subscribe((name) => { if (BORROW_SET.has(name)) tell(name); });
+    peers.set(id, st);
+    return st;
+  }
+
+  /** Fetch what borrowedView reads (the own files and the lending seasons'): borrowWork. */
+  function loadBorrowed() {
+    borrowWork = borrowIds
+      ? Promise.all([...BORROW_FILES.map(load), ...borrowSeasons(season).map(seasonStore).filter(Boolean).flatMap((st) => BORROW_FILES.map((n) => st.load(n)))]).then(() => {}, () => {})
+      : Promise.resolve();
+  }
+
+  /** name|raw → { inputs, value } — the borrowed view of a file, built again when an input changes */
+  const borrowMemo = new Map();
+  /** a file value → its record index (the borrowed views) */
+  const viewIndex = new WeakMap();
+  /**
+   * A file as read with what the room's custom ruleset borrows (shared/seasonBorrow.js borrowFile; `own` itself when
+   * nothing is, or while a file the plan needs has not arrived). `raw`: the Chinese texts (getRaw), else the locale's.
+   * @param {string} name @param {any} own @param {boolean} raw
+   */
+  function borrowedView(name, own, raw) {
+    if (!borrowIds || !own || !BORROW_SET.has(name)) return own;
+    const seasons = borrowSeasons(season);
+    const stores = seasons.map(seasonStore).filter(Boolean);
+    const rawOf = (n) => entries.get(n)?.value ?? null;
+    const inputs = [own, rawOf('stages'), rawOf('factions'), borrowKey(borrowIds), season,
+      ...stores.flatMap((st) => [st.getRaw('stages'), st.getRaw('factions'), raw ? st.getRaw(name) : st.get(name)])];
+    const key = `${name}|${raw ? 1 : 0}`;
+    const memo = borrowMemo.get(key);
+    if (memo && memo.inputs.length === inputs.length && memo.inputs.every((v, i) => v === inputs[i])) return memo.value;
+    const plan = borrowPlan({ stages: rawOf('stages'), factions: rawOf('factions') },
+      stores.map((st, i) => [seasons[i], { stages: st.getRaw('stages'), factions: st.getRaw('factions') }]), borrowIds, CUSTOM_FIRST_HALF_STAGES);
+    const value = borrowFile(name, own, stores.map((st, i) => [seasons[i], raw ? st.getRaw(name) : st.get(name)]), plan);
+    borrowMemo.set(key, { inputs, value });
+    return value;
+  }
+  /** The file as get() reads it. @param {string} name */
+  const viewOf = (name) => borrowedView(name, localizedEntry(name)?.value ?? entries.get(name)?.value ?? null, false);
+  /** The file as getRaw() reads it. @param {string} name */
+  const rawViewOf = (name) => borrowedView(name, entries.get(name)?.value ?? null, true);
+  /** @param {string} name @param {any} value */
+  const indexOfView = (name, value) => {
+    let ix = viewIndex.get(value);
+    if (!ix) { ix = buildIndex(name, value); viewIndex.set(value, ix); }
+    return ix;
+  };
+
   function index(name) {
     const e = entries.get(name);
     if (!e || e.status !== 'ready') return null;
+    if (borrowIds && BORROW_SET.has(name)) return indexOfView(name, viewOf(name));
     const l = localizedEntry(name);
     if (l) {
       if (!l.index) l.index = buildIndex(name, l.value);
@@ -406,9 +499,9 @@ export function createDataStore(opts = {}) {
     /** Load several files; resolves when all settled. */
     loadAll: (...names) => Promise.all(names.flat().map(load)),
     /** JSON of a loaded file in the current locale (null when missing / not loaded yet). */
-    get: (name) => (name === 'assets' ? seasonAssets() : localizedEntry(name)?.value ?? entries.get(name)?.value ?? null),
-    /** The file exactly as downloaded (Chinese texts), whatever the locale. */
-    getRaw: (name) => entries.get(name)?.value ?? null,
+    get: (name) => (name === 'assets' ? seasonAssets() : viewOf(name)),
+    /** The file exactly as downloaded (Chinese texts), whatever the locale (with what setBorrow borrows). */
+    getRaw: (name) => rawViewOf(name),
     /** 'idle' | 'loading' | 'ready' | 'missing' */
     status: (name) => entries.get(name)?.status ?? 'idle',
     /** Record by id from a loaded file (null when unknown / not loaded). */
@@ -424,6 +517,7 @@ export function createDataStore(opts = {}) {
       if (id == null) return null;
       const e = entries.get(name);
       if (!e || e.status !== 'ready') return null;
+      if (borrowIds && BORROW_SET.has(name)) return indexOfView(name, rawViewOf(name)).get(String(id)) ?? null;
       if (!e.index) e.index = buildIndex(name, e.value);
       return e.index.get(String(id)) ?? null;
     },
@@ -448,7 +542,54 @@ export function createDataStore(opts = {}) {
       if (entries.has('assets')) tell('assets'); // its season view changes now (seasonAssets)
       // the season's game texts first (a file each language), so the files read again come localized with them
       seasonWork = loadSeasonOverlays().catch(() => {}).then(() => Promise.all([...entries.keys()].filter((n) => !ART_MANIFESTS.has(n)).map(invalidate))).then(() => {});
+      if (borrowIds) loadBorrowed(); // the lending seasons are the others now
       return seasonWork;
+    },
+    /**
+     * Read the stages / enemies / factions with what a custom ruleset borrows from other seasons (the room's:
+     * shared/seasonBorrow.js customBorrowIds; null = nothing): the lending seasons' files are fetched, and their
+     * subscribers told as they arrive. Resolves when they have settled.
+     * @param {{ stages: string[], types: string[] } | null} ids
+     */
+    setBorrow(ids) {
+      const next = ids && (ids.stages?.length || ids.types?.length) ? { stages: [...ids.stages].sort(), types: [...ids.types].sort() } : null;
+      if (borrowKey(next) === borrowKey(borrowIds)) return borrowWork;
+      borrowIds = next;
+      loadBorrowed();
+      for (const n of [...BORROW_FILES, 'assets']) if (entries.has(n)) tell(n);
+      return borrowWork;
+    },
+    /** What setBorrow borrows now ('' = nothing; shared/seasonBorrow.js borrowKey). */
+    borrowKey: () => borrowKey(borrowIds),
+    /** Resolves once the last setBorrow's files have settled. */
+    borrowSettled: () => borrowWork,
+    /**
+     * A file as the simulation reads it: `file` (the season's own, as load() gave it) with what setBorrow borrows —
+     * the battle runner's data, the same merge as the server's match (server/match/borrow.js).
+     * @param {string} name @param {any} file
+     */
+    borrowRaw: (name, file) => borrowedView(name, file, true),
+    /** Another season's store (its files and texts in this store's language): the custom dialog's lists. */
+    seasonStore,
+    /**
+     * What a custom ruleset may borrow, in the current locale: a stage record (`'stages'`) or a 特训敌人 type
+     * (`'types'`, factions.json types) of this season, else of the first other public season that has it (its files
+     * are fetched; the subscribers are told when they arrive) — the names of other seasons' battlefields and types
+     * outside a room that borrows them. Null while unknown.
+     * @param {'stages'|'types'} kind @param {string} id
+     */
+    lendable(kind, id) {
+      const pickOf = (st) => (kind === 'types' ? st.get('factions')?.types?.[id] : st.lookup('stages', id)) ?? null;
+      const own = kind === 'types' ? viewOf('factions')?.types?.[id] : index('stages')?.get(String(id));
+      if (own) return own;
+      for (const sid of borrowSeasons(season)) {
+        const st = seasonStore(sid);
+        if (!st) continue;
+        st.load(kind === 'types' ? 'factions' : 'stages');
+        const rec = pickOf(st);
+        if (rec) return rec;
+      }
+      return null;
     },
     /** Called with the file name whenever a file finishes loading (or is invalidated, or the locale changes). */
     subscribe(fn) {
@@ -470,6 +611,8 @@ export function createDataStore(opts = {}) {
      * @returns {Promise<string>}
      */
     async setLocale(lang, chainIn) {
+      localeArgs = [lang, chainIn];
+      for (const st of peers.values()) st.setLocale(lang, chainIn);
       const code = canonicalLang(lang);
       const want = code && code === lang ? code : 'zh';
       const items = (Array.isArray(chainIn) ? chainIn : [want]).map((c) => (typeof c === 'string' ? { code: c, url: undefined } : c));

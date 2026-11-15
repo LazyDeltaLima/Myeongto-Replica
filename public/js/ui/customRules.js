@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, Button, Modal, confirmDialog, roman } from './components.js';
 import { Img } from './gameComponents.js';
-import { bondIconUrl, enemyIconUrl, factionIconUrl } from './assetUrls.js';
+import { bondIconUrl, enemyIconUrl, factionIconUrl, lentTypeIconUrl } from './assetUrls.js';
 import { createStore, useStore, loadPref, savePref } from '../store.js';
 import { data, useData, getMode, localAsset } from '../data.js';
 import { copyText } from './clipboard.js';
@@ -27,8 +27,10 @@ import {
 } from './customRulesStore.js';
 import {
   sanitizeCustom, customDiffs, customRoundPlan, curveScale, customPrepSeconds, customStagePool, customPoolCount, CUSTOM_OFFICIAL, CUSTOM_CASUAL,
-  CUSTOM_LIMITS, CUSTOM_FIRST_HALF_STAGES, OFFICIAL_TYPE_COUNT, officialBans, customBanLimits, seasonOfficialOptions,
+  CUSTOM_LIMITS, CUSTOM_FIRST_HALF_STAGES, OFFICIAL_TYPE_COUNT, officialBans, customBanLimits, seasonOfficialOptions, officialStep, stepScale,
 } from '../../../shared/ruleset.js';
+import { borrowSeasons, lendableStage, lendableType } from '../../../shared/seasonBorrow.js';
+import { seasonInfo } from '../../../shared/seasons.js';
 import { modeIdFor, DIFFICULTIES, LARGE_SEATS, isGrade, gradeDifficulty } from '../../../shared/constants.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
@@ -75,8 +77,11 @@ const fmt = (n) => Number(n).toLocaleString('en-US');
 
 // ---- controls ----------------------------------------------------------------------------------------------------
 
-/** − value + with a typed value; `suffix` after the number (%). */
-function Stepper({ value, min, max, step = 1, onChange, disabled, suffix = '', wide = false, testid }) {
+/**
+ * − value + with a typed value; `suffix` after the number (%), `prefix` before it (×); `scale`: the value is shown and
+ * typed divided by it, with two decimals (the step multipliers: 120 → ×1.20).
+ */
+function Stepper({ value, min, max, step = 1, onChange, disabled, suffix = '', prefix = '', scale = 1, wide = false, testid }) {
   const [text, setText] = useState(null);
   const clamp = (v) => Math.min(max, Math.max(min, Math.round(v)));
   // the value the last click asked for, until the new props arrive: two clicks before a render both count
@@ -85,14 +90,15 @@ function Stepper({ value, min, max, step = 1, onChange, disabled, suffix = '', w
   const bump = (d) => { const v = clamp(last.current.cur + d); last.current.cur = v; onChange(v); };
   const commit = () => {
     if (text == null) return;
-    const v = Number(String(text).replace(/[^\d.-]/g, ''));
+    const v = Number(String(text).replace(/[^\d.-]/g, '')) * scale;
     setText(null);
     if (Number.isFinite(v)) onChange(clamp(v));
   };
   return html`<span class=${cx('crx-step', wide && 'crx-step--wide')} data-testid=${testid}>
     <button type="button" aria-label="−" disabled=${disabled || value <= min} onClick=${() => bump(-step)}><${Icon} name="minus" /></button>
-    <input class="num" type="text" inputmode="numeric" disabled=${disabled} value=${text ?? `${fmt(value)}${suffix}`}
-      onFocus=${(e) => { setText(String(value)); requestAnimationFrame(() => e.target.select?.()); }}
+    <input class="num" type="text" inputmode=${scale === 1 ? 'numeric' : 'decimal'} disabled=${disabled}
+      value=${text ?? `${prefix}${scale === 1 ? fmt(value) : (value / scale).toFixed(2)}${suffix}`}
+      onFocus=${(e) => { setText(scale === 1 ? String(value) : (value / scale).toFixed(2)); requestAnimationFrame(() => e.target.select?.()); }}
       onInput=${(e) => setText(e.target.value)} onBlur=${commit}
       onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }} />
     <button type="button" aria-label="+" disabled=${disabled || value >= max} onClick=${() => bump(step)}><${Icon} name="plus" /></button>
@@ -319,7 +325,17 @@ function EnemiesPane({ work, set, readonly, mode }) {
   <//>`;
   const curves = [
     { v: 'official', label: t('官方') }, { v: 'gentle', label: t('平缓') }, { v: 'steep', label: t('陡峭') }, { v: 'flat', label: t('持平（固定第 1 回合）') },
+    { v: 'step', label: t('指定倍率') },
   ];
+  // the 'step' curve (maintainer decision 2026-11-15): the multiplier per official step, the step rounds kept — null =
+  // the mode's own (officialStep), so picking it alone changes nothing
+  const stepRow = (k, stat, label, note) => {
+    const off = Math.round(officialStep(mode, stat) * 100);
+    return html`<${Row} label=${label} note=${note} official=${t('官方 ×{n}', { n: (off / 100).toFixed(2) })}>
+      <${Stepper} value=${work.enemies[k] ?? off} min=${CUSTOM_LIMITS.step[0]} max=${CUSTOM_LIMITS.step[1]} step=${5} prefix="×" scale=${100}
+        disabled=${readonly} testid=${`custom-enemies-${k}`} onChange=${(v) => set('enemies', k, v === off ? null : v)} />
+    <//>`;
+  };
   return html`
     <${Sec} title=${t('普通敌人')} sub=${t('含特训敌人、护卫、部件 · 各 {lo}% – {hi}%', { lo: CUSTOM_LIMITS.pct[0], hi: CUSTOM_LIMITS.pct[1] })}>
       ${pct('enemies', 'hp', t('生命值'))}
@@ -336,6 +352,10 @@ function EnemiesPane({ work, set, readonly, mode }) {
     <//>
     <${Sec} title=${t('逐回合能力成长')} sub=${t('以难度的官方曲线为基础 — 图表为生命值倍率')}>
       <${Row} label=${t('成长曲线')}><${Seg} options=${curves} value=${work.enemies.curve} disabled=${readonly} onChange=${(v) => set('enemies', 'curve', v)} /><//>
+      ${work.enemies.curve === 'step' ? html`
+        ${stepRow('stepHp', 'hp', t('生命值成长倍率'), t('官方表格每升一级时乘上的值 · ×{lo} – ×{hi} · ×1.00 则保持第 1 回合',
+          { lo: (CUSTOM_LIMITS.step[0] / 100).toFixed(2), hi: (CUSTOM_LIMITS.step[1] / 100).toFixed(2) }))}
+        ${stepRow('stepAtk', 'atk', t('攻击力成长倍率'), t('同一级时乘在攻击力上的值'))}` : null}
       <${CurveChart} work=${work} mode=${mode} />
     <//>`;
 }
@@ -350,7 +370,11 @@ export function CurveChart({ work, mode }) {
   const plan = customRoundPlan(mode, work.flow.rounds);
   const off = customRoundPlan(mode, null).rounds.map((r) => r.hp);
   const m1 = plan.rounds[0]?.hp ?? 1;
-  const cus = plan.rounds.map((r) => (work.enemies.hp / 100) * curveScale(r.hp, m1, work.enemies.curve));
+  const k1 = plan.rounds[0]?.kHp ?? 0;
+  const oHp = officialStep(mode, 'hp');
+  const sHp = work.enemies.stepHp != null ? work.enemies.stepHp / 100 : oHp;
+  const cus = plan.rounds.map((r) => (work.enemies.hp / 100) * (work.enemies.curve === 'step'
+    ? stepScale(r.hp, r.kHp, k1, sHp, oHp) : curveScale(r.hp, m1, work.enemies.curve)));
   const same = cus.length === off.length && cus.every((v, i) => Math.abs(v - off[i]) < 1e-9);
   const W = 1000, H = 220, P = 40;
   const nX = Math.max(off.length, cus.length);
@@ -371,7 +395,9 @@ export function CurveChart({ work, mode }) {
   </svg>`;
 }
 
-const TYPE_PICK_LABELS = { random: N_('随机'), ban: N_('禁用'), force: N_('固定') };
+const TYPE_PICK_LABELS = { random: N_('随机'), ban: N_('禁用'), force: N_('固定'), out: N_('不加入'), allow: N_('随机') };
+/** a type's order on screen: the season's own (sortId), then its id */
+const typeOrder = (a, b) => (a.sortId ?? 9) - (b.sortId ?? 9) || String(a.type).localeCompare(String(b.type));
 /** a type's name without the 「特训敌人·」 every one starts with (as the briefing shows them) */
 const typeName = (ty) => (ty?.name || '').replace(t('特训敌人·'), '');
 
@@ -382,19 +408,38 @@ const typeName = (ty) => (ty?.name || '').replace(t('特训敌人·'), '');
  */
 function TypesPane({ work, set, readonly }) {
   const m = data.get('assets');
-  const types = Object.values(data.get('factions')?.types || {}).filter((ty) => ty && ty.involveRandom)
-    .sort((a, b) => (a.sortId ?? 9) - (b.sortId ?? 9) || String(a.type).localeCompare(String(b.type)));
+  // the season's own draw (a type the room borrows is in the data too: `borrowed`, listed below with its season)
+  const types = Object.values(data.get('factions')?.types || {}).filter((ty) => ty && ty.involveRandom && !ty.borrowed).sort(typeOrder);
   const pick = work.types.pick;
   const setPick = (id, v) => {
     const next = { ...pick };
-    if (v === 'random') delete next[id]; else next[id] = v;
+    if (v === 'random' || v === 'out') delete next[id]; else next[id] = v;
     set('types', 'pick', next);
   };
   const ids = new Set(types.map((ty) => ty.type));
+  // other seasons' types (maintainer decision 2026-11-15, shared/seasonBorrow.js): out by default, 'allow' joins the draw
+  const lenders = borrowSeasons(data.season()).map((sid) => {
+    const st = data.seasonStore(sid);
+    st?.load('factions');
+    return { sid, list: Object.values(st?.get('factions')?.types || {}).filter((ty) => lendableType(ty) && !ids.has(ty.type)).sort(typeOrder) };
+  }).filter((x) => x.list.length);
+  const lentIds = new Set(lenders.flatMap((x) => x.list.map((ty) => ty.type)));
   const nForce = Object.entries(pick).filter(([k, v]) => v === 'force' && ids.has(k)).length;
   const nBan = Object.entries(pick).filter(([k, v]) => v === 'ban' && ids.has(k)).length;
+  const nLentForce = Object.entries(pick).filter(([k, v]) => v === 'force' && lentIds.has(k)).length;
+  const nLentAllow = Object.entries(pick).filter(([k, v]) => v === 'allow' && lentIds.has(k)).length;
   const count = work.types.count ?? OFFICIAL_TYPE_COUNT;
-  const drawn = Math.min(CUSTOM_LIMITS.types[1], Math.max(count, nForce));
+  const drawn = Math.min(CUSTOM_LIMITS.types[1], Math.max(count, nForce + nLentForce));
+  const lentCard = (ty, sid) => {
+    const v = pick[ty.type] === 'force' || pick[ty.type] === 'allow' ? pick[ty.type] : 'out';
+    return html`<div key=${ty.type} class=${cx('crx-bond', v === 'out' && 'is-out', v === 'force' && 'is-allow')} data-type=${ty.type} title=${ty.desc || ''}>
+      <${Img} src=${lentTypeIconUrl(m, data.get('local'), sid, ty.icon)} class="crx-bond__i crx-type__i" />
+      <span class="crx-bond__n">${typeName(ty)}</span>
+      <span class="crx-tri" role="radiogroup">${['out', 'allow', 'force'].map((k) => html`<button key=${k} type="button" role="radio"
+          aria-checked=${v === k ? 'true' : 'false'} class=${v === k ? `on-${k === 'force' ? 'allow' : k === 'out' ? 'ban' : 'random'}` : ''} disabled=${readonly}
+          onClick=${() => setPick(ty.type, k)}>${t(TYPE_PICK_LABELS[k])}</button>`)}</span>
+    </div>`;
+  };
   return html`
     <${Sec} title=${t('特训敌人类型')} sub=${t('每局抽取的类型 — 即简报中显示的类型')}>
       <${Row} label=${t('每局抽取的类型数')} official=${t('官方 {n}', { n: OFFICIAL_TYPE_COUNT })}
@@ -415,8 +460,13 @@ function TypesPane({ work, set, readonly }) {
         </div>`;
       })}</div>
       <div class="crx-note" data-testid="custom-type-note">${t('固定 {f} · 禁用 {b} · 随机 {r} — 每局 {n} 种：先放入固定类型，其余从随机类型中抽取；固定类型多于类型数时，类型数随之增加',
-        { f: nForce, b: nBan, r: types.length - nForce - nBan, n: drawn })}</div>
-    <//>`;
+        { f: nForce + nLentForce, b: nBan, r: types.length - nForce - nBan + nLentAllow, n: drawn })}</div>
+    <//>
+    ${lenders.map(({ sid, list }) => html`<${Sec} key=${sid} title=${t('其他赛季的特训敌人类型 · {season}', { season: t(seasonInfo(sid).name) })}
+        sub=${t('加入本局的抽取 — 本赛季没有的敌人按该赛季的数据出现 · 官方：没有')}>
+      <div class="crx-legend"><span><i class="lg-b"></i>${t('不加入：不会出现（默认）')}</span><span><i class="lg-r"></i>${t('随机：加入抽取')}</span><span><i class="lg-a"></i>${t('固定：每局出现')}</span></div>
+      <div class="crx-bonds crx-types" data-testid=${`custom-lent-types-${sid}`}>${list.map((ty) => lentCard(ty, sid))}</div>
+    <//>`)}`;
 }
 
 function BossesPane({ work, set, setWork, readonly, mode }) {
@@ -472,7 +522,7 @@ function BossesPane({ work, set, setWork, readonly, mode }) {
  * The stages of this season, and the 上半 ones the sim has when 「收录上半战场」 is on (CUSTOM_FIRST_HALF_STAGES: 战场#06;
  * #05 and #07 wait for their mechanics, maintainer decision 2026-10-18).
  */
-const stageShown = (s, firstHalf) => !s.kind && (s.active !== false || Number(s.weight) > 0 || (firstHalf && CUSTOM_FIRST_HALF_STAGES.includes(s.id)));
+const stageShown = (s, firstHalf) => !s.kind && !s.borrowed && (s.active !== false || Number(s.weight) > 0 || (firstHalf && CUSTOM_FIRST_HALF_STAGES.includes(s.id)));
 
 function StagesPane({ work, set, setWork, readonly, mode }) {
   const all = (data.list('stages') || []).filter((s) => stageShown(s, work.stages.firstHalf));
@@ -493,6 +543,22 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
     set('stages', 'ban', [...next]);
   };
   const half = (s) => (/^act1/.test(s.id) ? t('上半') : t('下半'));
+  // other seasons' stages (maintainer decision 2026-11-15, shared/seasonBorrow.js): a click adds one to the pool
+  const ownIds = new Set((data.list('stages') || []).filter((s) => !s.borrowed).map((s) => s.id));
+  const lenders = borrowSeasons(data.season()).map((sid) => {
+    const st = data.seasonStore(sid);
+    st?.load('stages');
+    return { sid, list: (st?.list('stages') || []).filter((s) => lendableStage(s, CUSTOM_FIRST_HALF_STAGES) && !ownIds.has(s.id)) };
+  }).filter((x) => x.list.length);
+  const extra = new Set(work.stages.extra);
+  const toggleExtra = (s) => {
+    if (extra.has(s.id) && !ban.has(s.id) && used <= 1) { toast(t('至少要保留一张战场'), 'warn'); return; }
+    const next = new Set(extra);
+    if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+    setWork((w) => sanitizeCustom({ ...w, stages: { ...w.stages, extra: [...next], ban: w.stages.ban.filter((id) => id !== s.id) } }));
+  };
+  // 盟约's stages keep their 上半 / 下半 tag wherever they are listed
+  const lentHalf = (_sid, s) => (/^act[12]autochess_/.test(s.id) ? half(s) : null);
   return html`
     <${Sec} title=${t('简报')}>
       <${Row} label=${t('战场信息预览')} note=${infoAlways ? t('本赛季的官方简报始终显示战场') : t('简报中显示本局战场的名称和预览图（关闭时为「未知战场」）')}
@@ -519,7 +585,19 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
           <span class="crx-stage__n"><span>${s.name}</span>${hasFirstHalf ? html`<span class="crx-stage__tag">${half(s)}</span>` : null}</span>
         </button>`;
       })}</div>
-    <//>`;
+    <//>
+    ${lenders.map(({ sid, list }) => html`<${Sec} key=${sid} title=${t('其他赛季的战场 · {season}', { season: t(seasonInfo(sid).name) })}
+        sub=${t('点击加入本局的战场池 — 与本赛季的战场同权重抽取 · 官方：没有')}>
+      <div class="crx-stages" data-testid=${`custom-lent-stages-${sid}`}>${list.map((s) => {
+        const on = extra.has(s.id);
+        return html`<button key=${s.id} type="button" class=${cx('crx-stage', !on && 'is-off')} disabled=${readonly}
+            data-stage=${s.id} aria-pressed=${on ? 'true' : 'false'} onClick=${() => toggleExtra(s)}>
+          <${Img} src=${localAsset('stage/preview', s.id)} class="crx-stage__i" fallback=${html`<span class="crx-stage__i crx-stage__none"></span>`} />
+          <span class=${cx('crx-stage__flag', on && 'is-add')}>${on ? t('加入') : t('不加入')}</span>
+          <span class="crx-stage__n"><span>${s.name}</span>${lentHalf(sid, s) ? html`<span class="crx-stage__tag">${lentHalf(sid, s)}</span>` : null}</span>
+        </button>`;
+      })}</div>
+    <//>`)}`;
 }
 
 

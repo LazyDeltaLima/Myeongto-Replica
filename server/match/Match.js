@@ -51,6 +51,8 @@
 //   opts.data        frozen game data (server/data.js getData()); may lack keys while data is generated
 //   opts.season      string (optional)          the 卫戍协议 season (shared/seasons.js; default the current one): `data` is
 //                                              that season's data (server/data.js getData({ season }))
+//   opts.seasonData (season) => data (optional)  another season's data, for what a custom ruleset borrows
+//                                              (server/match/borrow.js; default server/data.js getData)
 //   opts.log         { info, warn, error, debug }
 //   opts.now         () => ms epoch             injectable clock (Date.now in production)
 //   opts.send(playerId, msg) → boolean          unicast; never throws; silently drops for bots, disconnected
@@ -229,6 +231,7 @@ import { MatchSettle } from './match/settle.js';
 import { MatchRestart } from './match/restart.js';
 import { MatchBandSkill } from './match/bandSkill.js';
 import { resolveRuleset } from '../../shared/ruleset.js';
+import { borrowedData } from './borrow.js';
 import { DEFAULT_SEASON, seasonFeature, seasonOf } from '../../shared/seasons.js';
 
 export { FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS } from './match/common.js';
@@ -276,6 +279,11 @@ export class Match {
     this.season = seasonOf(opts.season);
     /** 규칙 모드 (opts.ruleset, shared/ruleset.js): { preset, options, custom? }, fixed for the match */
     this.ruleset = resolveRuleset(opts.ruleset);
+    // a custom ruleset may borrow other seasons' battlefields and 特训敌人 types (shared/seasonBorrow.js): the match's data
+    // is its season's with them (borrow.js; opts.seasonData = another season's data) — the browser merges its own the
+    // same way for its battles; the effect registry stays the season's
+    this.seasonData = this.data;
+    this.data = borrowedData(this.data, this.season, this.ruleset.custom ?? null, typeof opts.seasonData === 'function' ? opts.seasonData : undefined);
     /** the co-op room size (opts.size): 4, or 8 for the 8-player mode; 1 in solo */
     this.size = this.mode === 'solo' ? 1 : seatsOf(opts.size);
     // a custom ruleset's settings shape the match's tables (gamedata.js: rounds, bans, prep, 目标生命值), the size its
@@ -289,7 +297,7 @@ export class Match {
     this.aiPicksLast = !this.isSolo && opts.aiPicksLast === true;
     this.ownsScheduler = !opts.scheduler;
     this.sched = opts.scheduler || new RealScheduler({ now: opts.now || Date.now, onError: (e) => this.reportError('timer', e) });
-    this.registry = opts.registry || (this.season === DEFAULT_SEASON ? getDefaultRegistry() : registryFor(this.data));
+    this.registry = opts.registry || (this.season === DEFAULT_SEASON ? getDefaultRegistry() : registryFor(this.seasonData));
     this.dispatcher = new EffectDispatcher(this, this.registry);
     this.BattleClass = typeof opts.BattleClass === 'function' ? opts.BattleClass : Battle;
     this.battleContent = opts.battleContent || 'full';

@@ -41,6 +41,8 @@ import { InviteSpectateHost, offerSpectate } from './ui/inviteSpectate.js';
 import { net, identity, NetError, defaultWsUrl } from './net.js';
 import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating, reservedRank } from './store.js';
 import { data } from './data.js';
+import { resolveRuleset } from '../../shared/ruleset.js';
+import { customBorrowIds } from '../../shared/seasonBorrow.js';
 import { GAME_FILES } from './ui/gameComponents.js';
 import { SIM_DATA_FILES } from './battle/runner.js';
 import { preloadMatchCode } from './preload.js';
@@ -311,6 +313,14 @@ function wireNet() {
     setPresetSeason(season); // first: the picks follower must not save one season's picks into the other's roster
     setLoadoutSeason(season);
   });
+  // what the room's custom ruleset borrows from other seasons' battlefields / 特训敌人 types (shared/seasonBorrow.js):
+  // the data store — and the battle runner's sim — read those records too, as the server's match does
+  const followBorrow = (st) => {
+    const rs = st.room ? st.match?.public?.ruleset ?? st.room.ruleset ?? null : null;
+    data.setBorrow(rs ? customBorrowIds(resolveRuleset(rs).custom) : null);
+  };
+  store.subscribe((s, prev) => { if (s.room !== prev.room || s.match?.public?.ruleset !== prev.match?.public?.ruleset) followBorrow(s); });
+  followBorrow(store.get());
   net.on('room.closed', (msg) => {
     // a waiting room the draining server closed: it stays on screen under the move dialog, which says whether it comes
     // back on the new server, while the page reloads onto it (ui/generation.js, ui/updateNotice.js) — no toast

@@ -2051,5 +2051,22 @@
   "自由更改干员、装备、敌人、回合、首领与盟约层数；不结算，也不计入统计、成就和战绩": "Change operators, equipment, enemies, rounds, leaders and bond stacks freely; no settlement, nothing counted in statistics, achievements or history",
   "自由更改干员、装备、敌人、回合、首领与盟约层数；不结算，也不计入统计、成就和战绩；对局中可以反馈": "change operators, equipment, enemies, rounds, leaders and bond stacks freely · no settlement after a leader or running out of HP · nothing counted in statistics, achievements or history · report during the match",
   "本赛季的官方简报始终显示战场": "This season's official briefing always shows the battlefield",
-  "官方：开启": "Official: on"
+  "官方：开启": "Official: on",
+  "指定倍率": "Set multiplier",
+  "官方 ×{n}": "Official ×{n}",
+  "生命值成长倍率": "HP rise per step",
+  "官方表格每升一级时乘上的值 · ×{lo} – ×{hi} · ×1.00 则保持第 1 回合": "What each step of the official table multiplies by · ×{lo} – ×{hi} · ×1.00 keeps round 1's value",
+  "攻击力成长倍率": "ATK rise per step",
+  "同一级时乘在攻击力上的值": "What the same steps multiply ATK by",
+  "不加入": "Out",
+  "其他赛季的特训敌人类型 · {season}": "Tactical Training enemy types of another season · {season}",
+  "加入本局的抽取 — 本赛季没有的敌人按该赛季的数据出现 · 官方：没有": "Joins this simulation's draw — enemies this season lacks appear with that season's data · Official: none",
+  "不加入：不会出现（默认）": "Out: never appears (default)",
+  "随机：加入抽取": "Random: joins the draw",
+  "其他赛季的战场 · {season}": "Battlefields of another season · {season}",
+  "点击加入本局的战场池 — 与本赛季的战场同权重抽取 · 官方：没有": "Click to add one to this simulation's pool — drawn at the weight of this season's battlefields · Official: none",
+  "加入": "Added",
+  "敌人能力每级成长倍率：{list}": "Enemy rise per step: {list}",
+  "加入抽取的其他赛季特训敌人：{names}": "Other seasons' Tactical Training enemies in the draw: {names}",
+  "加入其他赛季战场：{names}": "Other seasons' battlefields added: {names}"
 }

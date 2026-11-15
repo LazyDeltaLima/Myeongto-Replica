@@ -5,10 +5,11 @@
 // Per match (setupMatchWaves):
 //   * stage: weighted (stages[id].weight) among mode.stages that are active with weight > 0 — official mode data:
 //     标准 (FUNNY) / 入门 = 战场#01 only, 险境 = 8 stages, 绝境 / 终极 = 7 (no 战场#01), weight 50 each, so the match seed
-//     picks uniformly (test/match/stagepick.test.js)
+//     picks uniformly (test/match/stagepick.test.js); a custom 规则 match may add other seasons' stages (stages.extra)
 //   * factions: `specialEnemyNum` (3) distinct types among the involveRandom ones (FLY/TIMES/ELEMENT/DOT/INVISIBLE/
 //     REFLECTION, 规程 also CRITIC/REBORN), uniform (shuffle, take 3); a custom 规则 match's 特训敌人 settings choose the
-//     count and the types never / always drawn (shared/ruleset.js customEnemyTypes)
+//     count, the types never / always drawn and other seasons' types joining the draw (shared/ruleset.js
+//     customEnemyTypes, shared/seasonBorrow.js)
 //   * type schedule: each chosen type owns `count` (3) of the `maxLevelCnt` (15) round slots, SPECIAL fills the other 6;
 //     the slots are shuffled — typeSlots[r-1] = the ONE type of round r (the briefing shows the 3 types, the order
 //     stays hidden)
@@ -193,9 +194,14 @@ export function setupMatchWaves(gd, rng) {
   // stage
   // a custom ruleset may add the 上半 stages the sim has (customStagePool: 战场#06, inactive this season, at 战场#01's
   // weight) and leaves its banned stages out (one stays: keepUnbanned) — one weighted pick either way
+  // another season's stages it borrows (stages.extra, shared/seasonBorrow.js: in the data as `borrowed`) at the weight
+  // of the heaviest of the mode's own [ASSUMED·자료 없음: the official game never drew two seasons' fields together; both
+  // weigh theirs 50]
   const stageIds = customStagePool(gd.mode.stages, gd.custom);
   const added = new Set(CUSTOM_FIRST_HALF_STAGES);
-  const weightOf = (id, s) => (s.active !== false && Number(s.weight) > 0 ? Number(s.weight)
+  const ownWeight = () => Math.max(0, ...(Array.isArray(gd.mode.stages) ? gd.mode.stages : []).map((id) => Number(gd.stage(id)?.weight) || 0));
+  const weightOf = (id, s) => (s.borrowed ? (gd.custom?.stages?.extra?.includes(id) ? ownWeight() : 0)
+    : s.active !== false && Number(s.weight) > 0 ? Number(s.weight)
     : added.has(id) && gd.custom?.stages?.firstHalf ? Number(gd.stage(CUSTOM_FIRST_HALF_WEIGHT_OF)?.weight) || 0 : 0);
   const stagePairs = keepUnbanned(stageIds.map((id) => [id, gd.stage(id)]).filter(([id, s]) => s && weightOf(id, s) > 0).map(([id, s]) => [id, weightOf(id, s)]), ([id]) => id, gd.custom?.stages?.ban);
   let stageId = stagePairs.length ? weightedPick(rng, stagePairs) : null;
@@ -206,10 +212,12 @@ export function setupMatchWaves(gd, rng) {
   // factions
   const types = gd.factions.types && typeof gd.factions.types === 'object' ? gd.factions.types : {};
   const n = Number.isInteger(gen(gd).specialEnemyNum) ? gen(gd).specialEnemyNum : 3;
-  const random = Object.values(types).filter((t) => t && t.involveRandom).map((t) => t.type).sort();
+  const random = Object.values(types).filter((t) => t && t.involveRandom && !t.borrowed).map((t) => t.type).sort();
   // a custom ruleset's 特训敌人 settings (types.count / types.pick: shared/ruleset.js customEnemyTypes) pick from the
-  // same list with the same rng; without them the official draw below runs as it always did
-  const custom = customEnemyTypes(random, n, gd.custom, (list) => rng.shuffle(list));
+  // same list — and the other seasons' types it borrows ('allow' / 'force': shared/seasonBorrow.js) — with the same
+  // rng; without them the official draw below runs as it always did
+  const borrowed = Object.values(types).filter((t) => t && t.borrowed && t.involveRandom).map((t) => t.type).sort();
+  const custom = customEnemyTypes(random, n, gd.custom, (list) => rng.shuffle(list), borrowed);
   let chosen = custom;
   if (!chosen) {
     const shuffled = random.slice();

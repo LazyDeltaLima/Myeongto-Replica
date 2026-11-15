@@ -1118,6 +1118,8 @@ export class Lobby {
         data: this.safeData(room.season),
         // the 卫戍协议 season (shared/seasons.js): its data above, its rule switches
         season: room.season,
+        // another season's data: a custom ruleset's borrowed battlefields / 特训敌人 types (server/match/borrow.js)
+        seasonData: (s) => this.safeData(s),
         log: this.log,
         now: this.now,
         send: (playerId, msg) => (ctx.live ? this.matchSend(room, ctx, playerId, msg) : false),

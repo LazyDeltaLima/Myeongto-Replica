@@ -259,6 +259,32 @@ export function withSeasonArt(m, local, season, records = {}) {
 }
 
 /**
+ * The icon of a 特训敌人 type another season lends (shared/seasonBorrow.js): the manifest's own (factionIconUrl), else
+ * the lending season's extract (`season/<season>/enemytypeicon`, local-assets.json) — 规程's CRITIC / REBORN icons
+ * exist only there. @param {any} m @param {any} local @param {string} season @param {string} iconId
+ */
+export function lentTypeIconUrl(m, local, season, iconId) {
+  const own = factionIconUrl(m, iconId);
+  if (own || !iconId || !str(season)) return own;
+  return str(obj(obj(obj(obj(local)?.groups)?.[`season/${season}/enemytypeicon`])?.[iconId])?.path);
+}
+
+/**
+ * The manifest with the icons of the 特训敌人 types a match borrows (`types`: [season, iconId]) where it lacks them
+ * (lentTypeIconUrl) — what the briefing and the enemy drawer read in a match that borrows them. `m` itself when none
+ * is missing. @param {any} m @param {any} local @param {[string, string][]} types
+ */
+export function withLentTypeIcons(m, local, types) {
+  if (!obj(m)) return m;
+  const add = types.filter(([, icon]) => icon && !factionIconUrl(m, icon))
+    .map(([season, icon]) => [icon, lentTypeIconUrl(m, local, season, icon)]).filter(([, p]) => p);
+  if (!add.length) return m;
+  const ui = { ...obj(m.ui) };
+  for (const [icon, p] of add) ui[`enemyTypeIcon/${icon}`] = p;
+  return { ...m, ui };
+}
+
+/**
  * Icon for an m.private.effects entry: { iconKind: 'band'|'choice'|'team'|'item'|'garrison', iconId }.
  * @param {any} m
  * @param {{ iconKind?: string, iconId?: string }} eff

@@ -95,6 +95,17 @@ test('敌人类型: the count and the fixed / banned types as lines (the 「特�
   assert.deepEqual(customDiffs({ types: { count: 0, pick: { FLY: 'force' } } }), ['types.count', 'types.pick.FLY']);
 });
 
+test('other seasons and the step curve (maintainer decisions 2026-11-15): borrowed types and stages, the set step multipliers', () => {
+  const name = (kind, id) => (kind === 'type' ? `特训敌人·${id}` : `<${id}>`);
+  const l = customSummary({ types: { pick: { CRITIC: 'allow', REBORN: 'force' } }, stages: { extra: ['act3autochess_m10'] },
+    enemies: { curve: 'step', stepHp: 130 } }, { name });
+  assert.deepEqual(l.map((x) => [x.key, x.text]), [
+    ['enemies.curve', '敌人能力每级成长倍率：生命值 ×1.30'], ['types.pick.force', '固定特训敌人：REBORN'],
+    ['types.pick.allow', '加入抽取的其他赛季特训敌人：CRITIC'], ['stages.extra', '加入其他赛季战场：<act3autochess_m10>'],
+  ]);
+  assert.deepEqual(customSummary({ enemies: { curve: 'step' } }, { name }), [], 'the step curve at the official multipliers: no line');
+});
+
 test('a custom match on the real match path: matchInfoModel names the bonds, leaders and stages; other presets have no lines', () => {
   const stages = getMode('mode_multi_hard').stages;
   const c = { bonds: { pick: { yanShip: 'ban' } }, types: { pick: { FLY: 'force' } }, bosses: { ban: ['boss_1', 'boss_10'] }, stages: { ban: [stages[0]] }, flow: { rounds: 10, lpShared: true } };

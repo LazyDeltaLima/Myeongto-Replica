@@ -159,7 +159,8 @@ function deepFreeze(root) {
  * that fails now fails the loader (the next b.start retries it). The modules resolve beside this one, so a page loaded
  * under a versioned /b/<tag>/ URL (server/http/buildTag.js) imports the sim and its /shared/ modules from the same build
  * as the rest — never a second copy of a shared module under the plain URL.
- * @param {{ base?: string, dataStore?: { load: (n: string) => Promise<any>, status: (n: string) => string, invalidate: (n: string) => Promise<any> } }} [opts]
+ * @param {{ base?: string, dataStore?: { load: (n: string) => Promise<any>, status: (n: string) => string, invalidate: (n: string) => Promise<any>,
+ *   borrowSettled?: () => Promise<void>, borrowRaw?: (n: string, file: any) => any } }} [opts]
  */
 export async function loadBrowserSim({ base = new URL('../../sim/', import.meta.url).href, dataStore = appData } = {}) {
   const [spec, simdata, support] = await Promise.all([
@@ -170,7 +171,10 @@ export async function loadBrowserSim({ base = new URL('../../sim/', import.meta.
       return await (dataStore.status(n) === 'missing' ? dataStore.invalidate(n) : dataStore.load(n));
     } catch { return null; }
   };
-  const files = await Promise.all(SIM_DATA_FILES.map(fileOf));
+  // what the room's custom ruleset borrows from other seasons (data.js setBorrow): the same merge as the server's match
+  if (typeof dataStore.borrowSettled === 'function') await dataStore.borrowSettled();
+  const files = (await Promise.all(SIM_DATA_FILES.map(fileOf)))
+    .map((f, i) => (f && typeof dataStore.borrowRaw === 'function' ? dataStore.borrowRaw(SIM_DATA_FILES[i], f) : f));
   // a battle simulated without part of the data would still produce a plausible result the server accepts: never run
   // one — the loader fails (the next b.start retries it; meanwhile the server's deadline takes the field over)
   const missing = SIM_DATA_FILES.filter((n, i) => !files[i] || typeof files[i] !== 'object');
@@ -208,8 +212,11 @@ export function createBattleRunner(deps) {
   const clearIv = deps.clearInterval || ((h) => globalThis.clearInterval(h));
   const doc = deps.doc !== undefined ? deps.doc : (typeof document !== 'undefined' ? document : null);
   const loadSim = deps.loadSim || (() => loadBrowserSim());
-  /** The season of the data the next sim loads (shared/seasons.js; appData.setSeason). */
-  const seasonNow = deps.season || (() => appData.season());
+  /**
+   * The season of the data the next sim loads (shared/seasons.js; appData.setSeason), with what the room's custom
+   * ruleset borrows from other seasons (appData.setBorrow, shared/seasonBorrow.js).
+   */
+  const seasonNow = deps.season || (() => `${appData.season()}|${appData.borrowKey?.() ?? ''}`);
   /** The season the loaded sim (simP) was built from. */
   let simSeason = null;
   const logger = deps.logger || SIM_LOGGER;
@@ -248,7 +255,7 @@ export function createBattleRunner(deps) {
   const bossLike = (e) => e.kind === 'boss' || e.kind === 'hidden';
 
   function ensureSim() {
-    // a room of another season (data.js setSeason) loads the sim again with that season's data
+    // a room of another season (data.js setSeason) or borrowing other records (setBorrow) loads the sim again
     const season = seasonNow();
     if (simP && simSeason !== season) simP = null;
     if (!simP) {

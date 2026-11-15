@@ -98,6 +98,8 @@
 .crx-bond.is-ban { border-color: rgba(231, 49, 24, .5); background: rgba(231, 49, 24, .08); }
 .crx-bond.is-ban .crx-bond__i { opacity: .45; }
 .crx-bond.is-allow { border-color: rgba(78, 216, 175, .45); background: rgba(78, 216, 175, .07); }
+/* another season's type left out of the draw */
+.crx-bond.is-out .crx-bond__i, .crx-bond.is-out .crx-bond__n { opacity: .5; }
 .crx-bond.is-lock { opacity: .5; }
 .crx-tri { flex: none; display: inline-flex; border: 1px solid var(--line-2); }
 .crx-tri button { padding: .03rem .07rem; border: 0; border-right: 1px solid var(--line-2); background: transparent; font: inherit; font-size: max(.12rem, 9px); color: var(--text-dim); }
@@ -137,6 +139,8 @@
 .crx-stage__tag { flex: none; padding: 0 .06rem; border: 1px solid var(--line-3); color: var(--text-lo); font-size: max(.1rem, 8px); }
 .crx-stage__flag { position: absolute; top: .06rem; right: .06rem; padding: .01rem .08rem; background: var(--bg-4); color: var(--text-lo); font-size: max(.1rem, 8px); }
 .crx-stage__flag.is-ban { background: var(--red); color: #fff; font-weight: 800; font-size: max(.11rem, 9px); }
+/* another season's stage added to the pool */
+.crx-stage__flag.is-add { background: var(--custom); color: #12091f; font-weight: 800; font-size: max(.11rem, 9px); }
 .crx-stage.is-ban .crx-stage__i { filter: grayscale(1) brightness(.35); }
 .crx-stage.is-off { opacity: .45; }
 

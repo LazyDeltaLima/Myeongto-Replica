@@ -84,33 +84,44 @@ export const CUSTOM_LIMITS = Object.freeze({
   hitLimit: Object.freeze([100000, 5000000]),
   /** 特训敌人 types per match: the 15 round slots hold five types of three (factions.json maxLevelCnt / types[].count) */
   types: Object.freeze([0, 5]),
+  /** the 'step' curve's rise per official step (enemies.stepHp / stepAtk), in hundredths: ×1.00 – ×2.00 */
+  step: Object.freeze([100, 200]),
   /** list / map sizes: far above the data's 23 bonds, 10 leaders and 11 stages */
   ids: 48,
 });
 
-/** The rise of the enemy stats from round to round: the mode's official curve, or one shaped from it. */
-export const CUSTOM_CURVES = Object.freeze(['official', 'gentle', 'steep', 'flat']);
+/**
+ * The rise of the enemy stats from round to round: the mode's official curve, one shaped from it, or 'step' — the
+ * official steps with another multiplier per step (enemies.stepHp / stepAtk; stepScale).
+ */
+export const CUSTOM_CURVES = Object.freeze(['official', 'gentle', 'steep', 'flat', 'step']);
 /** What a hit of the limit or more on a leader does: cancelled (official), lands as the limit, no limit. */
 export const CUSTOM_HIT_MODES = Object.freeze(['void', 'clamp', 'none']);
 /** The prep length (co-op only): official, ×1.5, ×2, or a fixed number of seconds (`prepSec`). */
 export const CUSTOM_PREP_MODES = Object.freeze(['official', 'x1.5', 'x2', 'fixed']);
 /** A bond's setting: random (absent: left to the draw), always banned (official absence), never drawn. */
 export const CUSTOM_BOND_PICKS = Object.freeze(['ban', 'allow']);
-/** A 特训敌人 type's setting: random (absent: left to the draw), never drawn, always drawn. */
-export const CUSTOM_TYPE_PICKS = Object.freeze(['ban', 'force']);
+/**
+ * A 特训敌人 type's setting: random (absent: left to the draw), never drawn, always drawn; 'allow' joins another
+ * season's type to the draw (shared/seasonBorrow.js — absent, such a type stays out).
+ */
+export const CUSTOM_TYPE_PICKS = Object.freeze(['ban', 'force', 'allow']);
 /** The official number of 特训敌人 types a match draws (factions.json specialEnemyNum, both seasons). */
 export const OFFICIAL_TYPE_COUNT = 3;
 
 /**
  * Every custom setting at its official value. `null` = the difficulty's own value (the bond ban counts, the round count).
  *   bonds    banCore / banAddon: bonds drawn absent each match · noLayerCap: no 999-layer cap · pick: { bondId: 'ban'|'allow' }
- *   enemies  normal enemies (特训 enemies, escorts, parts too): percent of hp / atk / def / res / speed · curve
+ *   enemies  normal enemies (特训 enemies, escorts, parts too): percent of hp / atk / def / res / speed · curve ·
+ *            stepHp / stepAtk: the 'step' curve's multiplier per official step in hundredths (null = the official one)
  *   leaders  the leaders of 最终攻势 / 隐秘核心 and their summons: percent of hp (the shared pool) / atk / def / res
  *   types    the 特训敌人 types of the match (factions.json types with involveRandom): count — how many are drawn (null =
- *            the official 3) · pick: { type: 'ban'|'force' } — never / always drawn (customEnemyTypes)
+ *            the official 3) · pick: { type: 'ban'|'force'|'allow' } — never / always drawn, another season's
+ *            type joining the draw (customEnemyTypes, shared/seasonBorrow.js)
  *   bosses   ban: leader ids never drawn (one of each group stays) · hitMode / hitLimit: 限伤
  *   stages   info: the briefing's battlefield card · reroll: its 重新抽取 vote · firstHalf: the 上半 stages of
- *            CUSTOM_FIRST_HALF_STAGES join the pool · ban: stage ids never drawn (one stays)
+ *            CUSTOM_FIRST_HALF_STAGES join the pool · ban: stage ids never drawn (one stays) · extra: other
+ *            seasons' stages joining the pool (shared/seasonBorrow.js)
  *   flow     rounds · prep / prepSec · lpCapOff: no 10-per-round cap · lpShared: one 目标生命值 for the
  *            alliance in every round · routePreview: the walking leader's route
  *   pool     chess / items: percent of the shared chess pool's copies and of the shop equipment stock (customPoolCount)
@@ -118,11 +129,11 @@ export const OFFICIAL_TYPE_COUNT = 3;
 export const CUSTOM_OFFICIAL = deepFreeze({
   v: CUSTOM_VERSION,
   bonds: { banCore: null, banAddon: null, noLayerCap: false, pick: {} },
-  enemies: { hp: 100, atk: 100, def: 100, res: 100, speed: 100, curve: 'official' },
+  enemies: { hp: 100, atk: 100, def: 100, res: 100, speed: 100, curve: 'official', stepHp: null, stepAtk: null },
   leaders: { hp: 100, atk: 100, def: 100, res: 100 },
   types: { count: null, pick: {} },
   bosses: { ban: [], hitMode: 'void', hitLimit: BOSS_HIT_LIMIT },
-  stages: { info: false, reroll: false, firstHalf: false, ban: [] },
+  stages: { info: false, reroll: false, firstHalf: false, ban: [], extra: [] },
   flow: { rounds: null, prep: 'official', prepSec: 90, lpCapOff: false, lpShared: false, routePreview: false },
   pool: { chess: 100, items: 100 },
 });
@@ -182,6 +193,7 @@ export function sanitizeCustom(raw) {
     return out;
   };
   const pick = picks(b.pick, CUSTOM_BOND_PICKS);
+  const curve = oneOf(e.curve, CUSTOM_CURVES, O.enemies.curve);
   return deepFreeze({
     v: CUSTOM_VERSION,
     bonds: {
@@ -192,7 +204,9 @@ export function sanitizeCustom(raw) {
     },
     enemies: {
       hp: pct(e.hp, 100), atk: pct(e.atk, 100), def: pct(e.def, 100), res: pct(e.res, 100), speed: pct(e.speed, 100),
-      curve: oneOf(e.curve, CUSTOM_CURVES, O.enemies.curve),
+      curve,
+      stepHp: curve === 'step' ? intOrNull(e.stepHp, CUSTOM_LIMITS.step) : null,
+      stepAtk: curve === 'step' ? intOrNull(e.stepAtk, CUSTOM_LIMITS.step) : null,
     },
     leaders: { hp: pct(l.hp, 100), atk: pct(l.atk, 100), def: pct(l.def, 100), res: pct(l.res, 100) },
     types: { count: intOrNull(ty.count, CUSTOM_LIMITS.types), pick: picks(ty.pick, CUSTOM_TYPE_PICKS) },
@@ -201,7 +215,10 @@ export function sanitizeCustom(raw) {
       hitMode: oneOf(bo.hitMode, CUSTOM_HIT_MODES, O.bosses.hitMode),
       hitLimit: intIn(bo.hitLimit, CUSTOM_LIMITS.hitLimit, O.bosses.hitLimit),
     },
-    stages: { info: bool(s.info, O.stages.info), reroll: bool(s.reroll, O.stages.reroll), firstHalf: bool(s.firstHalf, O.stages.firstHalf), ban: idList(s.ban) },
+    stages: {
+      info: bool(s.info, O.stages.info), reroll: bool(s.reroll, O.stages.reroll), firstHalf: bool(s.firstHalf, O.stages.firstHalf),
+      ban: idList(s.ban), extra: idList(s.extra),
+    },
     flow: {
       rounds: intOrNull(f.rounds, CUSTOM_LIMITS.rounds),
       prep: oneOf(f.prep, CUSTOM_PREP_MODES, O.flow.prep),
@@ -227,23 +244,26 @@ export function keepUnbanned(list, idOf, ban) {
 }
 
 /**
- * The 特训敌人 types a custom match draws from the season's `random` ones (factions.json types with involveRandom, sorted):
+ * The 特训敌人 types a custom match draws from the season's `random` ones (factions.json types with involveRandom, sorted)
+ * and the `borrowed` ones (other seasons' types its settings pick 'allow' / 'force': shared/seasonBorrow.js, sorted):
  * every 'force' type, then the rest of the count from the types left to the draw, shuffled with `shuffle` (the match's
  * setup rng) — no 'ban' type. The count is the setting's (null: `n`, the official 3), raised to the forced types, at
  * most CUSTOM_LIMITS.types[1] (the 15 round slots); fewer types than the count leave more rounds to 特训敌人·特异 (the
  * schedule fills them: server/match/waves.js makeTypeSchedule). Returns null while the settings change nothing, so the
  * official draw — and its rng stream — stays as it was.
  * @param {readonly string[]} random @param {number} n @param {any} custom @param {(list: string[]) => void} shuffle
+ * @param {readonly string[]} [borrowed]
  * @returns {string[] | null}
  */
-export function customEnemyTypes(random, n, custom, shuffle) {
+export function customEnemyTypes(random, n, custom, shuffle, borrowed = []) {
   const ty = custom?.types;
   const pick = ty && isObj(ty.pick) ? ty.pick : {};
-  const has = (k) => Object.hasOwn(pick, k) && random.includes(k);
-  if (!ty || (ty.count == null && !random.some(has))) return null;
-  const forced = random.filter((k) => has(k) && pick[k] === 'force');
+  const set = (k) => pick[k] === 'ban' || pick[k] === 'force';
+  if (!ty || (ty.count == null && !random.some(set) && !borrowed.length)) return null;
+  const all = [...random, ...borrowed.filter((k) => !random.includes(k))];
+  const forced = all.filter((k) => pick[k] === 'force');
   const want = Math.min(CUSTOM_LIMITS.types[1], Math.max(forced.length, Number.isInteger(ty.count) ? ty.count : n));
-  const rest = random.filter((k) => !has(k));
+  const rest = all.filter((k) => !set(k));
   shuffle(rest);
   return [...forced, ...rest].slice(0, want);
 }
@@ -261,13 +281,15 @@ export const CUSTOM_FIRST_HALF_STAGES = Object.freeze(['act1autochess_m06']);
 export const CUSTOM_FIRST_HALF_WEIGHT_OF = 'act1autochess_m01';
 
 /**
- * The stage ids a match draws from: the mode's pool, then the 上半 stages when custom settings add them (before the
- * bans: keepUnbanned). @param {readonly string[] | null | undefined} stageIds @param {any} custom
+ * The stage ids a match draws from: the mode's pool, then the 上半 stages when custom settings add them, then the other
+ * seasons' stages they add (stages.extra: shared/seasonBorrow.js; the match keeps those its data has) — before the
+ * bans: keepUnbanned. @param {readonly string[] | null | undefined} stageIds @param {any} custom
  * @returns {string[]}
  */
 export function customStagePool(stageIds, custom) {
   const ids = Array.isArray(stageIds) ? [...stageIds] : [];
   if (custom?.stages?.firstHalf) for (const id of CUSTOM_FIRST_HALF_STAGES) if (!ids.includes(id)) ids.push(id);
+  for (const id of Array.isArray(custom?.stages?.extra) ? custom.stages.extra : []) if (!ids.includes(id)) ids.push(id);
   return ids;
 }
 
@@ -324,6 +346,8 @@ export function customDiffs(raw, base = {}) {
   for (const sec of ['enemies', 'leaders']) {
     for (const [k, v] of Object.entries(c[sec])) if (v !== O[sec][k]) out.push(`${sec}.${k}`);
   }
+  // the 'step' curve at the official multipliers is the official curve
+  if (c.enemies.curve === 'step' && c.enemies.stepHp == null && c.enemies.stepAtk == null) out.splice(out.indexOf('enemies.curve'), 1);
   if (!same(c.types.count, OFFICIAL_TYPE_COUNT)) out.push('types.count');
   for (const k of Object.keys(c.types.pick)) out.push(`types.pick.${k}`);
   for (const id of c.bosses.ban) out.push(`bosses.ban.${id}`);
@@ -333,6 +357,7 @@ export function customDiffs(raw, base = {}) {
   if (c.stages.reroll !== O.stages.reroll) out.push('stages.reroll');
   if (c.stages.firstHalf !== O.stages.firstHalf) out.push('stages.firstHalf');
   for (const id of c.stages.ban) out.push(`stages.ban.${id}`);
+  for (const id of c.stages.extra) out.push(`stages.extra.${id}`);
   if (!same(c.flow.rounds, base.rounds)) out.push('flow.rounds');
   if (c.flow.prep !== O.flow.prep) out.push('flow.prep');
   for (const k of ['lpCapOff', 'lpShared', 'routePreview']) if (c.flow[k] !== O.flow[k]) out.push(`flow.${k}`);
@@ -370,10 +395,40 @@ export function curveScale(m, m1, curve) {
 }
 
 /**
+ * The official multiplier of one stat step of a mode (config.json enemyScale: hp = base × step^kHp, atk = base ×
+ * step^kAtk) — read off its rows with the fewest and the most steps, HP from the rows without a 补给线 share (supplyHp:
+ * co-op 终极's HP rows carry it on top): 盟约 HP ×1.2, ATK ×1.1, 规程 ATK ×1.11. A mode
+ * whose rows never step: ×1.2 / ×1.1. @param {any} mode @param {'hp'|'atk'} stat
+ */
+export function officialStep(mode, stat) {
+  const kKey = stat === 'hp' ? 'kHp' : 'kAtk';
+  const rows = Object.values(isObj(mode?.enemyScale) ? mode.enemyScale : {})
+    .filter((e) => isObj(e) && Number.isFinite(e[kKey]) && Number(e[stat]) > 0 && (stat !== 'hp' || e.supplyHp == null || e.supplyHp === 1));
+  let lo = null, hi = null;
+  for (const e of rows) {
+    if (!lo || e[kKey] < lo[kKey]) lo = e;
+    if (!hi || e[kKey] > hi[kKey]) hi = e;
+  }
+  if (!lo || !hi || hi[kKey] === lo[kKey]) return stat === 'hp' ? 1.2 : 1.1;
+  return Math.round((hi[stat] / lo[stat]) ** (1 / (hi[kKey] - lo[kKey])) * 1e4) / 1e4;
+}
+
+/**
+ * A stat multiplier of a round under the 'step' curve: the official multiplier `m` with each official step it took
+ * after round 1 (`k − k1`) at `step` instead of the official `official` — round 1 stays as it is (maintainer decision
+ * 2026-11-15: the multiplier per step, the official step rounds kept). @param {number} m @param {number} k
+ * @param {number} k1 @param {number} step @param {number} official
+ */
+export function stepScale(m, k, k1, step, official) {
+  if (!(official > 0) || !(step > 0) || step === official || !Number.isFinite(k - k1)) return m;
+  return m * (step / official) ** (k - k1);
+}
+
+/**
  * The rounds of a custom round count: for each round 1..n its `src` (the official round whose waves, timers and
  * stats it uses) and `kind` — 'normal', 'sp' (a 机变 round), 'ext' (an added round), 'boss' (最终攻势, always the
  * last) —, `kHp` / `kAtk`, the official stat steps it takes, and `hp` / `atk`, its official multipliers (config.json
- * enemyScale: a step is ×1.2 hp, ×1.1 atk on the mode's base); `hidden` = the 隐秘核心 after it (src = the mode's), or
+ * enemyScale: a step is officialStep — 盟约 ×1.2 hp, ×1.1 atk — on the mode's base); `hidden` = the 隐秘核心 after it (src = the mode's), or
  * null. Fewer rounds drop normal rounds from the middle, first those whose stat steps another kept round has (the 机变
  * rounds, round 1 and the final assault stay); more rounds keep 1..last−1 and add rounds that cycle the three late waves
  * before the final assault (last−3..last−1), their steps rising on from the last of them by the slope of those three
@@ -391,7 +446,8 @@ export function customRoundPlan(mode, n = null) {
     return { kHp: num(e?.kHp, 0), kAtk: num(e?.kAtk, 0), hp: num(e?.hp, 1), atk: num(e?.atk, 1) };
   };
   /** steps added on top of a round's own (an added round, or what the added rounds lift the final rounds by) */
-  const lifted = (st, dHp, dAtk) => ({ kHp: st.kHp + dHp, kAtk: st.kAtk + dAtk, hp: st.hp * 1.2 ** dHp, atk: st.atk * 1.1 ** dAtk });
+  const sHp = officialStep(mode, 'hp'), sAtk = officialStep(mode, 'atk');
+  const lifted = (st, dHp, dAtk) => ({ kHp: st.kHp + dHp, kAtk: st.kAtk + dAtk, hp: st.hp * sHp ** dHp, atk: st.atk * sAtk ** dAtk });
   const want = Number.isInteger(n) ? n : last;
   /** @type {(r: number) => 'normal'|'sp'|'boss'} */
   const kindOf = (r) => (r === last ? 'boss' : sp.has(r) ? 'sp' : 'normal');

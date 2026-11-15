@@ -24,7 +24,8 @@ const randomTypes = (data) => Object.values(data.factions.types).filter((t) => t
 test('the setting: official by default, sanitized, one diff per changed field', () => {
   assert.deepEqual(sanitizeCustom({}).types, { count: null, pick: {} });
   const c = sanitizeCustom({ types: { count: 9, pick: { FLY: 'force', DOT: 'ban', TIMES: 'allow', 'bad id!': 'ban' } } });
-  assert.deepEqual(c.types, { count: CUSTOM_LIMITS.types[1], pick: { DOT: 'ban', FLY: 'force' } });
+  // 'allow' is kept: it joins another season's type to the draw (shared/seasonBorrow.js; an own type reads it as 随机)
+  assert.deepEqual(c.types, { count: CUSTOM_LIMITS.types[1], pick: { DOT: 'ban', FLY: 'force', TIMES: 'allow' } });
   assert.deepEqual(customDiffs({ types: { count: OFFICIAL_TYPE_COUNT } }), [], 'the official count is no difference');
   assert.deepEqual(customDiffs({ types: { count: 0, pick: { FLY: 'ban' } } }), ['types.count', 'types.pick.FLY']);
 });

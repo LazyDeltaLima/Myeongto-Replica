@@ -54,7 +54,12 @@ export function customSummary(raw, { solo = false, bans = null, rounds = null, n
       add(`${sec}.stats`, t('{who}：{list}', { who: t(label), list: stats.map((k) => `${t(STAT_LABELS[k])} ${c[sec][k]}%`).join(' · ') }));
     }
   }
-  if (c.enemies.curve !== O.enemies.curve) add('enemies.curve', t('敌人能力成长曲线：{name}', { name: t(CURVE_LABELS[c.enemies.curve]) }));
+  if (c.enemies.curve === 'step') {
+    // the 'step' curve: the multipliers set (the official one of a stat left out; both official = no line)
+    const steps = [['stepHp', STAT_LABELS.hp], ['stepAtk', STAT_LABELS.atk]].filter(([k]) => c.enemies[k] != null)
+      .map(([k, label]) => `${t(label)} ×${(c.enemies[k] / 100).toFixed(2)}`);
+    if (steps.length) add('enemies.curve', t('敌人能力每级成长倍率：{list}', { list: steps.join(' · ') }));
+  } else if (c.enemies.curve !== O.enemies.curve) add('enemies.curve', t('敌人能力成长曲线：{name}', { name: t(CURVE_LABELS[c.enemies.curve]) }));
 
   if (c.types.count !== null && c.types.count !== OFFICIAL_TYPE_COUNT) add('types.count', t('特训敌人类型 {n} 种', { n: c.types.count }));
   const typeNames = (ids) => ids.map((id) => String(name('type', id) ?? id).replace(t('特训敌人·'), '')).join(t('、'));
@@ -63,6 +68,8 @@ export function customSummary(raw, { solo = false, bans = null, rounds = null, n
   const typeBans = typePicks.filter(([, v]) => v === 'ban').map(([id]) => id);
   if (forced.length) add('types.pick.force', t('固定特训敌人：{names}', { names: typeNames(forced) }));
   if (typeBans.length) add('types.pick.ban', t('禁用特训敌人：{names}', { names: typeNames(typeBans) }));
+  const joined = typePicks.filter(([, v]) => v === 'allow').map(([id]) => id);
+  if (joined.length) add('types.pick.allow', t('加入抽取的其他赛季特训敌人：{names}', { names: typeNames(joined) }));
 
   const finals = c.bosses.ban.filter((id) => !hidden(id));
   const hiddens = c.bosses.ban.filter((id) => hidden(id));
@@ -76,6 +83,7 @@ export function customSummary(raw, { solo = false, bans = null, rounds = null, n
   if (c.stages.reroll) add('stages.reroll', t('简报「重新抽取」'));
   if (c.stages.firstHalf) add('stages.firstHalf', t('收录上半战场：{names}', { names: names('stage', CUSTOM_FIRST_HALF_STAGES) }));
   if (c.stages.ban.length) add('stages.ban', t('禁用战场：{names}', { names: names('stage', c.stages.ban) }));
+  if (c.stages.extra.length) add('stages.extra', t('加入其他赛季战场：{names}', { names: names('stage', c.stages.extra) }));
 
   if (c.flow.rounds !== null && c.flow.rounds !== rounds) add('flow.rounds', t('回合数 {n}', { n: c.flow.rounds }));
   if (!solo) {

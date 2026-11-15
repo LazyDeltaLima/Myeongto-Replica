@@ -27,7 +27,7 @@
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
-import { customRoundPlan, customPrepSeconds, keepUnbanned, curveScale, customPoolCount, customBanLimits } from '../../shared/ruleset.js';
+import { customRoundPlan, customPrepSeconds, keepUnbanned, curveScale, customPoolCount, customBanLimits, officialStep, stepScale } from '../../shared/ruleset.js';
 import { BOND_LAYER_CAP, LARGE_SEATS, MAX_SEATS } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
@@ -594,21 +594,34 @@ export class GameData {
   leaderScale(r) {
     const base = this.baseEnemyScale(r);
     const c = this.custom;
-    return c ? this._customScale(r, base, { ...c.leaders, speed: 100, curve: c.enemies?.curve }) : base;
+    return c ? this._customScale(r, base, { ...c.leaders, speed: 100, curve: c.enemies?.curve, stepHp: c.enemies?.stepHp, stepAtk: c.enemies?.stepAtk }) : base;
+  }
+
+  /** The official stat steps round r takes (config enemyScale kHp / kAtk; a custom round plan's own). */
+  _steps(r) {
+    const pr = this._planRound(r);
+    const e = this.mode.enemyScale && this.mode.enemyScale[String(this.srcRound(r))];
+    return { kHp: numOr(pr ? pr.kHp : e?.kHp, 0), kAtk: numOr(pr ? pr.kAtk : e?.kAtk, 0) };
   }
 
   /**
    * The custom form of a round's multipliers `base`: HP / ATK on the curve (shared/ruleset.js curveScale, around round
-   * 1's), then × the percents; `defMul` / `resMul` only when not 100 % (a spawn reads a missing one as 1; RES stays ≤ 100
-   * in the unit's stats, units.js). `supplyHpMul` (the 补给线 share of hpMul) is kept as the official ratio.
+   * 1's; the 'step' curve: stepScale, each official step after round 1's at the setting's multiplier), then × the
+   * percents; `defMul` / `resMul` only when not 100 % (a spawn reads a missing one as 1; RES stays ≤ 100 in the unit's
+   * stats, units.js). `supplyHpMul` (the 补给线 share of hpMul) is kept as the official ratio.
    * @param {number} r @param {ReturnType<GameData['baseEnemyScale']>} base
-   * @param {{ hp?: number, atk?: number, def?: number, res?: number, speed?: number, curve?: string }} pct
+   * @param {{ hp?: number, atk?: number, def?: number, res?: number, speed?: number, curve?: string, stepHp?: number|null, stepAtk?: number|null }} pct
    */
   _customScale(r, base, pct) {
     const p = (v) => (Number.isFinite(v) ? v / 100 : 1);
     const curve = pct.curve ?? 'official';
     let { hpMul, atkMul } = base;
-    if (curve !== 'official' && r !== 1) {
+    if (curve === 'step' && r !== 1) {
+      const k = this._steps(r), k1 = this._steps(1);
+      const oHp = officialStep(this.mode, 'hp'), oAtk = officialStep(this.mode, 'atk');
+      hpMul = stepScale(hpMul, k.kHp, k1.kHp, Number.isFinite(pct.stepHp) ? pct.stepHp / 100 : oHp, oHp);
+      atkMul = stepScale(atkMul, k.kAtk, k1.kAtk, Number.isFinite(pct.stepAtk) ? pct.stepAtk / 100 : oAtk, oAtk);
+    } else if (curve !== 'official' && curve !== 'step' && r !== 1) {
       const b1 = this.baseEnemyScale(1);
       hpMul = curveScale(hpMul, b1.hpMul, curve);
       atkMul = curveScale(atkMul, b1.atkMul, curve);

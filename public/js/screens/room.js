@@ -70,7 +70,7 @@ import { presetName, queueCountOf } from '../ui/ruleset.js';
 import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
 import { customDraft, customRulesStore } from '../ui/customRulesStore.js';
 import { customSummary } from '../ui/customSummary.js';
-import { data, useData, getBond, getBoss, getStage, getConfig, getMode } from '../data.js';
+import { data, useData, getBond, getBoss, getConfig, getMode } from '../data.js';
 import { chessAvatarUrl, chessPortraitUrl, uiUrl } from '../ui/assetUrls.js';
 import { Sprite } from '../ui/gameComponents.js';
 import { CARD_KEY, cardStore, setCard, cardOperators, cardContext, seatOperator, seatArtSrc } from '../ui/seatArt.js';
@@ -238,7 +238,7 @@ export function inviteMessage(room, name) {
   ];
   if (rs.custom) {
     const mode = DIFFICULTIES.includes(room.difficulty) ? getMode(modeIdFor('coop', room.difficulty)) : null;
-    const lookup = { bond: getBond, boss: getBoss, stage: getStage, type: (id) => data.get('factions')?.types?.[id] };
+    const lookup = { bond: getBond, boss: getBoss, stage: (id) => data.lendable('stages', id), type: (id) => data.lendable('types', id) };
     const lines = customSummary(rs.custom, {
       bans: officialBans(getConfig(), room.difficulty, room.size),
       rounds: Number.isInteger(mode?.lastRound) ? mode.lastRound : null,
