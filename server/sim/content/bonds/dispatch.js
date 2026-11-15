@@ -6,7 +6,7 @@
 //   nation/<bond>.js   the 12 nation bonds (炎 萨尔贡 维多利亚 谢拉格 拉特兰 阿戈尔 叙拉古 卡西米尔; 规程: 乌萨斯 伊比利亚
 //                      莱塔尼亚 聚合), each `TEMPLATES = { template: { bond, battle(battle, pid, bb, members), bb?,
 //                      readBy?, partial?, reserve? } }` — `bb: 'record'` hands the installer every buff of the record
-//                      together (shared.js recordBb), else the template's first buff; `readBy`: a part another
+//                      together (shared.js recordBb), else the template's own buffs (its `[…]` sub-keys with it: templateBb); `readBy`: a part another
 //                      template's installer reads; `partial`: what of the template is not written yet; `reserve(battle,
 //                      pid, bb)`: the 整备区 operators it may field, created before any content installs (reserve), and
 //                      `hand(bb)` the rule of the hand pieces the match sends for it (handRules)

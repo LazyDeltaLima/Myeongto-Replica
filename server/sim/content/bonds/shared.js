@@ -36,10 +36,23 @@ export function templatesOf(rec) {
 /** Does the bond record carry template `key`? */
 export const hasTemplate = (rec, key) => templatesOf(rec).includes(key);
 
-/** `{ ...bb, ...bbStr }` of the record's first buff of template `key`, else null. */
+/**
+ * `{ ...bb, ...bbStr }` of the record's buffs of template `key` — the template's own buff and its `[…]` sub-key buffs
+ * together, in record order (later ones win a shared key) — else null. A season may move part of a template's numbers to a
+ * sub-key buff: 规程's copy of the default season's 炎 effect (bondeffect_yan, the direction 望 switches to) keeps the ATK
+ * numbers on act1autochess_bond_eff_yan and the 炎佑 counts and the 9-tier ATK / resistance on its `[spawn]` buff; read
+ * from the first buff alone, the counts were missing and a 望 holder had two 炎佑 from the 3-tier on.
+ */
 export function templateBb(rec, key) {
-  for (const b of S.buffsOf(rec)) if (bondTemplate(b) === key) return b.p;
-  return null;
+  let out = null;
+  for (const b of S.buffsOf(rec)) {
+    if (bondTemplate(b) !== key) continue;
+    if (!out) { out = { ...b.p }; continue; }
+    const own = out.key;   // (bbStr.key: the template buff's own key, not a sub-key's)
+    Object.assign(out, b.p);
+    if (own !== undefined) out.key = own;
+  }
+  return out;
 }
 
 /**
