@@ -5743,7 +5743,9 @@
    "char_485_pallas skillHit pallas_skill_01_hit → foe",
    "char_485_pallas skillStart pallas_skill_01_range",
    "char_485_pallas spawn:born common_char_birth_01 → self",
+   "char_485_pallas status pallas_buff_01_start",
    "char_485_pallas status pallas_skill_03_buff_02",
+   "char_485_pallas status pallas_skill_03_buff_03",
    "enemy_10124_uashld_2 spawn:cast enemy_uashld_attack_start_A_01 → self",
    "enemy_1061_zomshd spawn:castLoop laxe_attack_01_start → self"
   ],
@@ -5767,7 +5769,9 @@
    "char_485_pallas spawn:born common_char_birth_01 → self",
    "char_485_pallas spawn:born equipment_system_04_buff_attack_01 → self",
    "char_485_pallas spawn:born equipment_system_instructor_buff_y → self",
+   "char_485_pallas status pallas_buff_01_start",
    "char_485_pallas status pallas_skill_03_buff_02",
+   "char_485_pallas status pallas_skill_03_buff_03",
    "enemy_1422_lrsldr_2 spawn:castLoop enemy_lrsldr_attack_start_01 → self",
    "enemy_1425_lrcmra_2 spawn:castLoop enemy_ircmra_attack_start_01 → self"
   ],
@@ -5781,6 +5785,7 @@
    "- status buff_stun → enemy",
    "- status map_desert_03_up → ally",
    "- status pallas_skill_03_buff_02 → ally",
+   "- status pallas_skill_03_buff_03 → ally",
    "- storm S_desert_wall_02_start",
    "- storm map_desert_02_down",
    "- storm screen_desert_up_to_down",
@@ -5805,7 +5810,9 @@
    "char_485_pallas spawn:born common_char_birth_01 → self",
    "char_485_pallas spawn:born equipment_system_04_buff_attack_01 → self",
    "char_485_pallas spawn:born equipment_system_instructor_buff_y → self",
+   "char_485_pallas status pallas_buff_01_start",
    "char_485_pallas status pallas_skill_03_buff_02",
+   "char_485_pallas status pallas_skill_03_buff_03",
    "enemy_1119_vofsd spawn:castLoop enemy_vofsd_attack_01_start → self",
    "enemy_1121_lifbos_2 spawn:castLoop enemy_lifbos_attack_01_start → self"
   ],

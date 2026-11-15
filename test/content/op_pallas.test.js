@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, chessRec, checkInvariants, trackCarried } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
-import { PEAK_KEY, holderKey } from '../../server/sim/content/kits/ops/op-pallas.js';
+import { PEAK_KEY, PEAK_T1, PEAK_S3, holderKey } from '../../server/sim/content/kits/ops/op-pallas.js';
 import { diyPool, validateDiyPicks, diyRecord } from '../../shared/diy.js';
 import { positionClass } from '../../server/match/board.js';
 
@@ -140,6 +140,8 @@ test('T1 英雄的诞生: while she is deployed, every 米诺斯 operator (her t
     assert.deepEqual([flower.def.raw.nationId, flower.def.raw.powers], ['rhodes', ['rhodes', 'minos']], '调香师: minos by a subPower');
     for (const a of [u, minos, flower]) {
       assert.deepEqual(a.findBuff(PEAK_KEY)?.mods, { atkPct: v }, `${label(f)}: ${a.name}`);
+      // shown: T1's peak_performance[effect] (render/fxstatus.js KEY_FX 'talent:pallas:peak', docs/rules/fx.md 「팔라스 기운 충만 — 출처별 이펙트」)
+      assert.ok(a.findBuff(PEAK_KEY).visible && a.findBuff(PEAK_KEY).fxTag === PEAK_T1, `${label(f)}: ${a.name} shows T1's effect`);
       approx(a.s.atk, a.base.atk * (1 + v), `${label(f)}: ${a.name} ATK`);
     }
     assert.equal(yak.findBuff(PEAK_KEY), null, `${label(f)}: 角峰 (谢拉格) gets nothing`);
@@ -275,6 +277,7 @@ test('S3 英勇的祝福 (MANUAL, data DEFAULT): 30 s, ATK +55 / 70 %, three tar
       assert.equal(yak.s.blockCnt, yak.base.blockCnt + 1, `T${tier}: 角峰 block +1`);
       approx(yak.s.def, yak.base.def * (1 + b['attack@def']), `T${tier}: 角峰 DEF`);
       assert.deepEqual(yak.findBuff(PEAK_KEY)?.mods, { atkPct: b['attack@peak_performance.atk'] }, `T${tier}: 角峰 精力充沛`);
+      assert.equal(yak.findBuff(PEAK_KEY).fxTag, PEAK_S3, `T${tier}: 角峰 shows S3's effect only (not 米诺斯)`);
       assert.equal(u.findBuff(holderKey(u)), null, `T${tier}: not her`);
       assert.equal(u.s.blockCnt, 2);
       approx(u.s.atk, u.base.atk * (1 + v1(u) + b.atk), `T${tier}: her ATK +${b.atk * 100} % (+ her own T1)`);
@@ -293,6 +296,8 @@ test('S3 英勇的祝福 (MANUAL, data DEFAULT): 30 s, ATK +55 / 70 %, three tar
       assert.deepEqual(u.findBuff(holderKey(u))?.mods, { defPct: b['attack@def'], blockCnt: 1 }, `T${tier}: passed to her`);
       assert.equal(u.s.blockCnt, 3, `T${tier}: her block +1`);
       assert.deepEqual(u.findBuff(PEAK_KEY)?.mods, { atkPct: Math.max(v1(u), b['attack@peak_performance.atk']) }, `T${tier}: one 精力充沛, the highest`);
+      // both sources hold on her: both effects (each its own peak_performance[inf]; S3's pauses T1's, `pauseOther`)
+      assert.equal(u.findBuff(PEAK_KEY).fxTag, PEAK_T1 | PEAK_S3, `T${tier}: her T1 and S3 effects`);
       approx(u.s.atk, u.base.atk * (1 + b.atk + Math.max(v1(u), b['attack@peak_performance.atk'])), `T${tier}: her ATK`);
       h.b.redeploy(yak, { free: true });
       h.step();
@@ -301,6 +306,7 @@ test('S3 英勇的祝福 (MANUAL, data DEFAULT): 30 s, ATK +55 / 70 %, three tar
       h.step();
       assert.ok(!yak.findBuff(holderKey(u)) && !u.findBuff(holderKey(u)) && yak.s.blockCnt === yak.base.blockCnt, `T${tier}: gone at the end`);
       assert.deepEqual(u.findBuff(PEAK_KEY)?.mods, { atkPct: v1(u) }, `T${tier}: her T1 only`);
+      assert.equal(u.findBuff(PEAK_KEY).fxTag, PEAK_T1, `T${tier}: her T1 effect only`);
       done(h);
     }
     // (b) the tile in front is high ground (a ranged operator on it): she holds (the empty tile: (a) after the retreat)

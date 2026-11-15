@@ -716,6 +716,8 @@
     결정 인용을 이 근거로 바꿈. 동작은 같다(근접 칸만).
   - 화면용: S3 효과를 가진 아군의 버프에 상태 키 `pallas:blessing`을 붙여 공식 이펙트(`pallas_s_3[effect]` → `pallas_skill_03_buff_02`)를 그 아군에게 그린다
     (`public/js/render/fxstatus.js`). 시뮬 결과 그대로.
+  - 화면용(2026-11-16): 기운 충만(精力充沛) 버프 `talent:pallas:peak`를 보이는 상태로 내고, `fxTag` 비트에 어느 출처의 조건이 맞는지(1 재능 1, 2 S3)를 싣는다. 공격력은
+    그대로 높은 쪽 하나. 이펙트는 rules/fx.md 「팔라스 기운 충만 — 출처별 이펙트 (2026-11-16)」.
 - 「미노스」 판정: 재능 1·INS-Y 추가 치유의 대상은 맹약이 아니라 소속 태그(국적·그룹·팀·하위 세력, `kits/shared/powers.js` `hasPower`; `sim.md` 「진영 판정은
   소속 태그」) — 팔라스 말고 하위 세력으로 미노스인 퍼퓨머(`char_181_flower`)·티티(`char_4056_titi`)도 받는다.
 - 이펙트·공격 타이밍·투사체·스킬 시전 데이터: EN 클라에서 뽑음(2026-11-02, `tools/local-extract/add_operator.py --id char_485_pallas`). 화면 확인 전.

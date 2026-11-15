@@ -3496,6 +3496,12 @@
     - 안 나오는 넷: 바이슨 S2(공격하지 않음), 치우바이 S1(두 시즌 모두 상점 기물이 S3이고 보충 오퍼레이터가 아님), 락락 S2 `S2Funnel`의 `_extraProjectileKeys`(골든글로우의 `projectile_chr_gdglow_funnel_s12_3`~`_6` — `RangedAttack.GatherProjectiles`가 미리 불러오기 목록에 넣을 뿐이고, private 필드를 읽는 곳이 그것 하나라 쏘지 않음, 공식 클라에서 확인), 스노우헌터 특성 `Talents/-1`의 `_effects` `common_hunter_bullet_01`(미리 불러오기 목록 — 트는 쪽은 HUD 탄 막대 플러그인 `hunter_bullet_bar_plugin`의 `_effectKey`로, 탄이 늘 때 막대에. 우리 HUD에 그 막대가 없어 `todo`).
     - 판정은 `test/render/fx-unplayed-local-list.js FOREIGN_LOCAL`에, 보고 도구는 `foreign` 줄에 그 판정(없으면 `NEW`)을 붙인다. [화면 미확인]
     재발 방지: `test/render/fx-overlap.test.js`(보고의 `foreign` = `FOREIGN_LOCAL`, 양방향), `test/render/client-row-fx.test.js`, `test/local-patch-diy-wang.test.js` 「望 S3 跟子 burst effect moment」
+  - nameless 판정(2026-11-16): 11-07에 「클라가 이름을 부르는데 안 그려진다」고 적은 9개를 다시 대조했다.
+    - 팔라스 `pallas_buff_01_start`·`pallas_skill_03_buff_03`: 잇고 아래 「팔라스 기운 충만 — 출처별 이펙트 (2026-11-16)」에 적음.
+    - 머드락 `mudrok_skill_01_buff`: S1 `skchr_mudrok_1`의 버프 `multi_def`의 `overrideEffectKey`. 상점 기물 머드락(`chess_char_4_18`)은 S2·S3만 써서 이 모드에 안 나온다.
+    - 아이린 `irene_skill_0{1,2,3}_range_equipment_0{1,2}` 6개: EN·CN 두 클라에서 charpack·스킬 번들·모듈 번들·버프 템플릿(표와 클라 번들)·아이린 이펙트 번들(스킨 포함 73개)의 어느 컴포넌트도 이 이름을 부르지 않는다
+      (모스티마의 `_range_equipment`는 범위 프리팹의 모듈 변형 `equipFx`로 이어지는데, 아이린의 범위 프리팹에는 그 컴포넌트가 없고 S1은 범위 프리팹 자체가 없다). 11-07의 「`overrideEffectKey`」는 아이린에는 틀린 기록. 나머지 82개와 같이 그대로 둔다.
+    `nameless`에 남는 줄은 이것으로 모두 「어디서도 안 부름」이나 「이 모드에 안 나옴」이다(보고만 하고 시험 목록은 없음).
   - 추출본 정리(`fx_extract.py --prune`)의 함정(2026-11-15): 참조를 정해진 자리(재질 텍스처·파티클 렌더러 메시·노드 메시)에서만 모아, 스킨 메시(`skin.mesh`)·파티클 모양 메시를 못 보고 47개 이펙트가 쓰는 44개를 지웠다. 그 프리팹들을 원래 출처(EN·CN·`--pack`)에서 다시 뽑아 되살렸다(다시 뽑은 프리팹 JSON·색인은 바이트까지 같음). 이제 이펙트 JSON 어디의 `img`·`mesh`·`meshes`든 참조로 센다. 재발 방지: 원인 제거 — `prune`이 키 이름으로 JSON 전체를 훑음
   - 계획: 투사체 키 `tpl`에 `fly`가 있으면 비행 = 그 투사체의 `_mainEffect` 하나(둘 이상이면 재생 없음), `to`로 유닛에 날면 `_effectsWhenHit`가 `hit`,
     `_effectsWhenReached`는 착지점에 한 번(`after: 'fly'`); `fly`가 없으면 그것들을 `on`에 한 번.
@@ -4348,6 +4354,22 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
   `explode`의 자리에 튼다. 뒤따르는 피해에서는 다시 틀지 않는다(`eshotLand`). W가 먼저 쓰러져도 붙일 때 본 W의 바인딩으로 그린다. 대체 고리·폭발은
   그리지 않는다.
 - 재발 방지: `test/render/stuck-shot-fx.test.js`(실제 키트 이벤트: 대상 위 표식·폭발 한 번·대상과 W가 없을 때 그 자리). [화면 미확인: 아레나 2배속]
+
+### 팔라스 기운 충만 — 출처별 이펙트 (2026-11-16)
+
+- 공식 클라에서 확인: 재능 1 「영웅의 탄생」은 charpack `Talents/1`의 오라가 「미노스」 태그 아군 모두에게 버프 `peak_performance[inf]`(블랙보드 `effect` =
+  `pallas_buff_01_start`)를 준다. S3 「용감의 축복」은 보유자에게 템플릿 `pallas_s_3[peak]`의 ON_BUFF_ENABLE이 같은 키의 버프(블랙보드 `effect` =
+  `pallas_skill_03_buff_03`)를 준다. 둘 다 `loadFromDB`라 모양은 클라 버프 표의 행: 템플릿 `peak_performance`, `disableOverride` 참(같은 키 두 개가 함께
+  남는다). 템플릿의 `CreateBuffWithOverrideEffect`(빈 `_effectKey`)가 체력이 비율을 넘는 동안 `peak_performance[effect]`로 그 블랙보드 이펙트를 쥔다.
+  공격력은 `peak_performance[atk]`의 `priorityBBKeys` `atk`로 높은 쪽 하나(시뮬 그대로).
+- 둘 다 맞는 유닛(S3 중 팔라스 자신, 또는 미노스 보유자)에는 두 이펙트가 함께 걸리고, S3 프리팹 루트의 `pauseOther`가 재능 것을 멈춘다(재생기 `stepPauses`).
+- 고친 것: 키트(`op-pallas.js`)가 기운 충만 버프를 보이는 상태로 내고 `fxTag` 비트(`PEAK_T1` 1·`PEAK_S3` 2)에 조건이 맞는 출처를 싣는다. 비트가 바뀌면 버프를
+  지웠다 다시 붙여 새 `fxTag`를 보낸다(휴머스와 같은 길). `fxstatus.js KEY_FX 'talent:pallas:peak'`가 비트대로 두 프리팹을 그린다. 전투 골든은 `status` 사건 수만 움직임.
+- 바인딩 행: `fx_bindings.py`는 블랙보드 `effect`의 템플릿을 버프의 `templateKey`나 키 접두로만 알아내 `loadFromDB` 버프를 건너뛰었다(이 두 프리팹이
+  `nameless`로 남은 원인). 이제 EN 클라 버프 표(`tools/local-extract/buff_db.py`)의 행에서 템플릿을 읽고, 풀이 부르는 템플릿 안의 `loadFromDB` 버프도 훑는다.
+  더해진 행은 이 둘뿐이다(5274 → 5276). CN 클라의 버프 표는 클래스 필드가 더 있어 번호가 달라 읽지 않는다.
+- 확인: 디버그 아레나 2배속 정예 S3 — 시작부터 `pallas_buff_01_start`(발밑 금빛 고리, `fxTag` 1), S3 중 `fxTag` 3에 두 이펙트, 콘솔 오류 0. [화면 미확인: 미노스가 아닌 보유자의 S3 것만, 공식 화면과 나란히]
+- 재발 방지: 원인 제거 — `fx_bindings.py`가 버프 표로 `loadFromDB` 버프의 템플릿을 읽음; `test/content/op_pallas.test.js`(출처별 `fxTag`), `test/render/status-buff-fx.test.js`(비트 → 프리팹), `test/render/fx-bindings.test.js`(인용 키의 행)
 
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 

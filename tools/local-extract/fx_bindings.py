@@ -35,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from client_path import client_data  # noqa: E402
 from char_modes import load_tree, pool_char_ids, char_skill_prefabs  # noqa: E402
 from enemy_bindings import EVENTS  # noqa: E402
+from buff_db import buff_db  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'public/assets/local/fx/bindings.json'
@@ -119,8 +120,8 @@ def life_of(b):
 
 
 class Rows:
-    def __init__(self, known):
-        self.rows, self.refs, self.known = [], {}, known
+    def __init__(self, known, db=None):
+        self.rows, self.refs, self.known, self.db = [], {}, known, db or {}
         self.bb = []   # (buff key, template, prefab, char, at, cn) of the buffs whose blackboard names their template's `effect`
 
     def add(self, **r):
@@ -128,8 +129,11 @@ class Rows:
 
     def bb_effects(self, b, char, at, cn):
         """A buff's blackboard `effect` / `<template>.effect` strings: the effect of its template's (or that derived
-        template's) nodes whose own key is empty (humus_s_2[peak_1] `peak_performance.effect` humus_buff_01)."""
+        template's) nodes whose own key is empty (humus_s_2[peak_1] `peak_performance.effect` humus_buff_01). A `loadFromDB` buff's
+        template is its row's in the client buff table (buff_db.py, 2026-11-16: 帕拉斯 T1 / S3 peak_performance[inf] → peak_performance)."""
         tpl = b.get('templateKey') if b.get('templateKey') not in (None, '', 'empty') else None
+        if tpl is None and b.get('loadFromDB') and b.get('buffKey') in self.db:
+            tpl = self.db[b['buffKey']].get('templateKey') if self.db[b['buffKey']].get('templateKey') not in (None, '', 'empty') else None
         for e in b.get('blackboard') or []:
             m = BB_EFFECT.match(str(e.get('key') or '')) if isinstance(e, dict) else None
             if m and isinstance(e.get('valueStr'), str) and e['valueStr'] and (m.group(1) or tpl):
@@ -285,7 +289,7 @@ def main():
     if FX_INDEX.exists():
         for names in json.loads(FX_INDEX.read_text(encoding='utf-8')).get('bundles', {}).values():
             known.update(n.lower() for n in names)
-    R = Rows(known)
+    R = Rows(known, buff_db(a.client))   # the EN client's buff table (its field order is the EN class's)
     games = [(a.client, False)] + ([(a.cn, True)] if a.cn else [])
     chars = pool_char_ids()
     skills = char_skill_prefabs()
@@ -387,11 +391,31 @@ def main():
     # the blackboard `effect` of a buff → the rows of its template's empty-key nodes (the public template data has the
     # nodes, the client the blackboard): key = the buff, `bb` = the template that reads it
     tdata = [json.loads(f.read_text(encoding='utf-8')) for f in TEMPLATE_DATA if f.exists()]
+
+    # (2026-11-16) and the `loadFromDB` buffs the templates the pool names create with such a blackboard (帕拉斯 S3
+    # pallas_s_3[peak] → peak_performance[inf] `effect` pallas_skill_03_buff_03): the template table (build-fx-templates.mjs)
+    # cannot tell their template, only the client's buff table can (bb_effects)
+    def db_buffs(o):
+        if isinstance(o, dict):
+            if o.get('loadFromDB') is True and isinstance(o.get('buffKey'), str) and o.get('blackboard'):
+                yield o
+            for v in o.values():
+                yield from db_buffs(v)
+        elif isinstance(o, list):
+            for v in o:
+                yield from db_buffs(v)
+    for char, keys in sorted(R.refs.items()):
+        for k in sorted(keys):
+            t = next((d[k] for d in tdata if k in d), None)
+            for b in db_buffs(t.get('eventToActions') if t else None):
+                R.bb_effects(b, char, k, False)
+    R.bb = list(dict.fromkeys(R.bb))
+
     for key, tk, fx, char, at, cn in R.bb:
         t = next((d[tk] for d in tdata if tk in d), None)
         if not t:
             continue
-        sub = Rows(R.known)
+        sub = Rows(R.known, R.db)
         for ev, lst in (t.get('eventToActions') or {}).items():
             sub.nodes(lst or [], [], {'key': key, 'src': 'abilityBuff', 'moment': ev, 'char': char, 'cn': cn, 'effect': fx, 'bbTpl': tk, 'by': key})
         for r in sub.rows:

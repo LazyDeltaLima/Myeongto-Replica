@@ -69,10 +69,16 @@ export const BLESSING = 'pallas:blessing';
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 const isMinos = (a) => !!a && a.kind === 'op' && hasPower(a, MINOS);
 
+/** The buff's `fxTag` bits: which 精力充沛 holds — T1's (effect pallas_buff_01_start) and / or S3's (pallas_skill_03_buff_03). */
+export const PEAK_T1 = 1;
+export const PEAK_S3 = 2;
+
 /**
- * The 精力充沛 sources of a battle (a Set of `(ally) => ATK bonus`, 0 when one does not apply); the first registration
- * installs the battle-wide tick that keeps, on every deployed ally, one buff with the highest bonus whose HP condition
- * holds (never a sum: "同类属性取最高").
+ * The 精力充沛 sources of a battle (a Set of `(ally) => [ATK bonus, PEAK_T1 | PEAK_S3]`, [0, 0] when one does not apply);
+ * the first registration installs the battle-wide tick that keeps, on every deployed ally, one buff with the highest bonus
+ * whose HP condition holds (never a sum: "同类属性取最高" — peak_performance[atk] `priorityBBKeys` atk). Its `fxTag` holds
+ * every source whose condition holds: each source is its own peak_performance[inf] (BuffDB: `disableOverride`), whose
+ * peak_performance[effect] creates that source's blackboard `effect` — T1 and S3 on one holder show both (render/fxstatus.js).
  */
 const PEAKS = new WeakMap();
 function peakSources(battle) {
@@ -82,12 +88,16 @@ function peakSources(battle) {
   battle.on('tick', () => {
     for (const a of battle.allyUnits) {
       if (!a.alive || !a.deployed || a.kind === 'device') continue;
-      let v = 0;
-      for (const f of set) v = Math.max(v, f(a));
+      let v = 0, tag = 0;
+      for (const f of set) {
+        const [x, t] = f(a);
+        if (x > 0) { v = Math.max(v, x); tag |= t; }
+      }
       const cur = a.findBuff(PEAK_KEY);
-      if ((cur?.data?.v ?? 0) === v) continue;
-      if (v > 0) battle.addBuff(a, { key: PEAK_KEY, mods: { atkPct: v }, data: { v }, tags: ['talent'] });
-      else battle.removeBuff(a, PEAK_KEY);
+      if ((cur?.data?.v ?? 0) === v && (cur?.fxTag ?? 0) === tag) continue;
+      // another tag: off first, so the client hears the new `fxTag` (a replaced buff sends no 'status')
+      if (cur) battle.removeBuff(a, PEAK_KEY);
+      if (v > 0) battle.addBuff(a, { key: PEAK_KEY, mods: { atkPct: v }, data: { v }, tags: ['talent'], visible: true, fxTag: tag });
     }
   });
   return set;
@@ -159,11 +169,11 @@ export default {
         { install(battle, unit) { // 英雄的诞生 (and S3's 精力充沛, same 同类取最高 buff)
           const hp0 = num(t0['peak_performance.hp_ratio'], 0.8), atk0 = num(t0['peak_performance.atk']);
           peakSources(battle).add((a) => {
-            if (!up(unit) || !battle.allySelectable(a, unit)) return 0;
-            let v = 0;
-            if (atk0 > 0 && isMinos(a) && a.hpRatio > hp0) v = atk0;
-            if (blessAtk > 0 && unit.mem.pallasBless?.holder === a && unit.skill?.active && a.hpRatio > blessHp) v = Math.max(v, blessAtk);
-            return v;
+            if (!up(unit) || !battle.allySelectable(a, unit)) return [0, 0];
+            let v = 0, tag = 0;
+            if (atk0 > 0 && isMinos(a) && a.hpRatio > hp0) { v = atk0; tag |= PEAK_T1; }
+            if (blessAtk > 0 && unit.mem.pallasBless?.holder === a && unit.skill?.active && a.hpRatio > blessHp) { v = Math.max(v, blessAtk); tag |= PEAK_S3; }
+            return [v, tag];
           });
         } },
         { install(battle, unit) { // 女神的振奋 (+ INS-Y stage 2+: the minos extra heal)

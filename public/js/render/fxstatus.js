@@ -148,6 +148,8 @@ const ANGEL2_OTHER = Object.freeze(['angel2', 'angel2_skill_2_buff_02', 0]);
 const CETSYR_HEAL = Object.freeze(['cetsyr', 'cetsyr_buff_02', OWN]);
 const TOCKA_VISIT = Object.freeze(['tocka_skill_03_buff_01', 'tocka_skill_03_buff_02', 'tocka_skill_03_buff_03'].map((n) => Object.freeze(['tocka', n, OWN])));
 const HUMUS_PEAK = Object.freeze([Object.freeze(['humus', 'humus_buff_01', OWN]), Object.freeze(['humus', 'humus_buff_02', OWN])]);
+/** 帕拉斯 精力充沛 by the sim buff's `fxTag` bit (op-pallas.js PEAK_T1 1, PEAK_S3 2): T1's effect, S3's. */
+const PALLAS_PEAK = Object.freeze([Object.freeze(['pallas', 'pallas_buff_01_start', OWN]), Object.freeze(['pallas', 'pallas_skill_03_buff_03', OWN])]);
 /**
  * Mon3tr T2 战术协同 on an ally (2026-11-03): monstr_t_2[atk_spd_up][effect] holds [eff_1] token_monstr_prosts_buff_01_2 /
  * [eff_1][r] _01 (the ASPD buff monstr_t_2[atk_spd_up]) or, while her S2 one [m2] holds, [eff_2] _02_2 / [eff_2][r] _02 —
@@ -183,6 +185,15 @@ export const KEY_FX = Object.freeze({
   // peak_performance: FilterByTargetHpRatio) gives peak_performance[effect], whose CreateEffect is common_full_of_energy_buff_02
   // in her charpack (humus's is its own prefab, so the key is cited with the prefab)
   'titi:vigor': cite('peak_performance[effect]', ['titi', 'common_full_of_energy_buff_02', OWN]),
+  // (2026-11-16) 帕拉斯 精力充沛 (the sim's 'talent:pallas:peak', `fxTag` bits: which source's condition holds). Each source is
+  // its own peak_performance[inf] (client buff table: disableOverride), whose peak_performance[effect] creates the source's
+  // blackboard `effect` while the owner's HP is above the ratio: T1 英雄的诞生 (an aura on every 米诺斯 ally) pallas_buff_01_start,
+  // S3 英勇的祝福 (its holder; pallas_s_3[peak] ON_BUFF_ENABLE) pallas_skill_03_buff_03 — whose `pauseOther` holds the T1 one
+  // while both play
+  'talent:pallas:peak': cite('peak_performance[effect]', (v, from) => {
+    const bits = Number(from?.fx) || 0, out = PALLAS_PEAK.filter((_, i) => bits & (1 << i));
+    return out.length ? out : null;
+  }),
   // (2026-11-03) 贝洛内 T1 家族手段: the acting 【手段】 on an enemy — demetr_t1[def_dec] creates demetr_t1[def_dec_core]
   // (overrideEffectKey demetr_buff_01), one per enemy whichever 贝洛内 gives it (the sim's 'talent:demetr:means')
   'talent:demetr:means': keyed('demetr_t1[def_dec_core]', 'demetr', OWN),

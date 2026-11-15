@@ -119,6 +119,11 @@ describe('client: status → the official buff effect', () => {
     const peak = (fx) => names(unit('char_491_humus', { statuses: new Set(['humus:peak']), statusFrom: new Map([['humus:peak', { src: null, fx, n: 0 }]]) }));
     assert.deepEqual(peak(1), ['humus_buff_01']);
     assert.deepEqual(peak(2), ['humus_buff_01', 'humus_buff_02'], 'above peak_2 both derived buffs hold');
+    // (2026-11-16) 帕拉斯 精力充沛 by source (op-pallas.js PEAK_T1 / PEAK_S3 bits; docs/rules/fx.md 「팔라스 기운 충만 — 출처별 이펙트」)
+    const pallas = (fx) => names(unit('char_485_pallas', { statuses: new Set(['talent:pallas:peak']), statusFrom: new Map([['talent:pallas:peak', { src: null, fx, n: 0 }]]) }));
+    assert.deepEqual(pallas(1), ['pallas_buff_01_start'], 'T1 英雄的诞生');
+    assert.deepEqual(pallas(2), ['pallas_skill_03_buff_03'], 'S3 英勇的祝福 on a holder that is not 米诺斯');
+    assert.deepEqual(pallas(3), ['pallas_buff_01_start', 'pallas_skill_03_buff_03'], 'both: S3\'s pauses T1\'s (pauseOther)');
     const camou = (src) => tpl(unit('char_1035_wisdel', { flags: UF.STEALTH | UF_CAMOU, statuses: new Set(['camou']), statusFrom: new Map([['camou', { src, fx: null, n: 0 }]]) }));
     assert.deepEqual(camou('token_10035_wisdel_wward'), ['wisdel_camouflage_buff_01'], 'token_wisdel_host[Camouflage]');
     assert.deepEqual(camou('vulpis'), [], 'her own 迷彩 draws nothing: vulpis:camouShown does');
