@@ -25,7 +25,8 @@
 // Spectator seats (community report #26, a remake feature): the 观战席 in the status line — names, offline marks, the
 // host's ✕ (room.removeSpectator) and the host's pick of the seat count (room.setSpectatorSeats) — and a spectator's own
 // view swaps the ready button for 入座 (room.join of the room) while a player seat is free, else 预约座位 / 取消预约
-// (room.reserveSeat).
+// (room.reserveSeat). The way back (maintainer decision 2026-11-15): 前往观战席 in one's own seat card's ⋯ menu sends
+// room.spectate of the room (toSpectateOption; the host confirms first: the host role passes on).
 // 랜덤 매칭 for the empty seats (server/matchmaking.js, maintainer decision 2026-10-13): a co-op host with fewer Doctors
 // than seats gets 匹配补位 (room.queueRoom, under the start rule: every other Doctor ready; the AI seats are freed). While
 // the room waits (room.state `matching`) the status line shows the waiting time and the queue, every Doctor's main button
@@ -157,6 +158,19 @@ export function joinedDoctors(prev, room, myId) {
 export function aiLastOption(room, myId) {
   if (!room || room.mode === 'solo' || room.size > 4) return null;
   return { on: room.aiPicksLast === true, editable: room.hostId != null && room.hostId === myId };
+}
+
+/**
+ * 前往观战席 (maintainer decision 2026-11-15; server/lobby.js header): a Doctor seated in a co-op room's lobby may move to a
+ * spectator seat. null where the server refuses it outright — a solo room, a running match, a matchmaking room, a
+ * spectator, the room's last Doctor (a spectator keeps no room alive); `enabled` false while every spectator seat is taken.
+ * @param {any} room room.state payload
+ * @param {ReturnType<typeof roomFacts>} facts
+ * @returns {{ enabled: boolean } | null}
+ */
+export function toSpectateOption(room, facts) {
+  if (!room || room.mode === 'solo' || room.inMatch || room.matching || !facts.mine || facts.mine.isBot || facts.humans.length < 2) return null;
+  return { enabled: facts.spectators.length < facts.spectatorSeats };
 }
 
 /**
@@ -385,7 +399,7 @@ function useSeatBox() {
  * empty name card's place — nothing else (maintainer decision 2026-11-08); a spectator or a matching room sees the
  * event's waiting figure. A portrait that fails to load gives way to the avatar frame.
  */
-function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, portrait = null, operator = null, onPickCard = null, firstEmpty = false }) {
+function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, portrait = null, operator = null, onPickCard = null, toSpectate = null, firstEmpty = false }) {
   const [badArt, setBadArt] = useState(/** @type {string[]} */ ([]));
   const menu = useUpMenu();
   const coop = room.mode !== 'solo';
@@ -451,8 +465,13 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
       <button type="button" class="rseat__more" data-testid="seat-card-more" aria-haspopup="menu" aria-expanded=${menu.open ? 'true' : 'false'}
         onClick=${() => menu.setOpen(!menu.open)} title=${t('更多')} aria-label=${t('更多')}><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></button>
       ${menu.open ? html`<div class="rseat__menu" role="menu">
-        <button type="button" role="menuitem" class="rseat__pick" data-testid="seat-card-pick" onClick=${() => { menu.setOpen(false); onPickCard(); }}
-          title=${t('更换名片干员')}><${Sprite} k="room/icon_card" class="rseat__pick-ico" fallback=${html`<${CardGlyph} />`} /><span>${t('更换立绘')}</span></button>
+        <div class="rseat__menu-list">
+          <button type="button" role="menuitem" class="rseat__pick" data-testid="seat-card-pick" onClick=${() => { menu.setOpen(false); onPickCard(); }}
+            title=${t('更换名片干员')}><${Sprite} k="room/icon_card" class="rseat__pick-ico" fallback=${html`<${CardGlyph} />`} /><span>${t('更换立绘')}</span></button>
+          ${toSpectate ? html`<button type="button" role="menuitem" class="rseat__pick" data-testid="seat-card-spectate"
+            disabled=${!toSpectate.enabled || busy === 'tospec'} title=${toSpectate.enabled ? null : t('观战席已满')}
+            onClick=${() => { menu.setOpen(false); toSpectate.onClick(); }}><${Icon} name="eye" /><span>${t('前往观战席')}</span></button>` : null}
+        </div>
       </div>` : null}
     </div>` : null}
   </article>`;
@@ -706,6 +725,16 @@ export function RoomScreen() {
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
   const sit = () => run('sit', () => net.request('room.join', { code: room.code }));
+  // and back: a Doctor of the room's lobby moves to a spectator seat (room.spectate of this room; server/lobby.js header)
+  const specOpt = toSpectateOption(room, facts);
+  const toSpectate = specOpt && {
+    enabled: specOpt.enabled,
+    onClick: async () => {
+      if (inFlight.current) return;
+      if (facts.isHost && !(await confirmDialog({ title: t('前往观战席'), text: t('你是同盟的创建者，前往观战席后创建者身份将移交给其他博士。确定前往吗？'), okText: t('前往') }))) return;
+      run('tospec', () => net.request('room.spectate', { code: room.code }));
+    },
+  };
   const setSpectatorSeats = (seats) => run('specseats', () => net.request('room.setSpectatorSeats', { seats }));
   // the next free seat (server/lobby.js header 「Seat reservation」): the toggle while none is free or one is reserved
   const myReserved = reservedRank(room, me.playerId);
@@ -860,7 +889,7 @@ export function RoomScreen() {
         const op = seatOperator(s, cards, { myId: me.playerId, myCard });
         return html`<${SeatCard} key=${s ? `p${s.playerId}` : `e${i}`} seat=${s} index=${i} room=${room} facts=${facts}
           myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick} onInvite=${() => copy('code')}
-          portrait=${op ? chessPortraitUrl(m, op.chess) : null} operator=${op?.chess} onPickCard=${() => setPicking(true)}
+          portrait=${op ? chessPortraitUrl(m, op.chess) : null} operator=${op?.chess} onPickCard=${() => setPicking(true)} toSpectate=${toSpectate}
           firstEmpty=${!s && i === firstEmpty} />`;
       })}
       ${coop ? null : html`<aside class="solo-brief rs-brief brackets">

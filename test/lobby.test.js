@@ -800,7 +800,6 @@ describe('websocket lobby', () => {
     assert.ok(!v1.seats.some((x) => x && x.playerId === s1.id), 'never in a player seat');
     await host.waitFor('room.state', (s) => s.spectators.length === 1);
     await expectOk(s1, { t: 'room.spectate', code: st.code }); // idempotent
-    await expectError(guest, { t: 'room.spectate', code: st.code }, ERR.ALREADY); // a player never switches in place
     // a spectator may not act
     await expectError(s1, { t: 'room.ready', ready: true }, ERR.SPECTATOR);
     for (const msg of [{ t: 'room.start' }, { t: 'room.addBot' }, { t: 'room.setDifficulty', difficulty: 'HARD' }, { t: 'room.removeSpectator', playerId: s1.id }]) {
@@ -880,6 +879,51 @@ describe('websocket lobby', () => {
     await expectOk(lone, { t: 'room.leave' });
     assert.equal((await s4.waitFor('room.closed')).reason, 'empty');
     await expectError(s4, { t: 'room.spectate', code: loneSt.code }, ERR.ROOM_NOT_FOUND);
+  });
+
+  // maintainer decision 2026-11-15: a player of a LOBBY room moves to a spectator seat with room.spectate of its own room
+  test('a player moves to a spectator seat: host passes on, a reservation takes the seat, refused for the last Doctor / full seats / a match', async () => {
+    const host = await pool.player('Host');
+    const st = await createRoom(host);
+    await expectError(host, { t: 'room.spectate', code: st.code }, ERR.BAD_TARGET); // the last Doctor: the room would close
+    const guest = await pool.player('Guest');
+    await joinRoom(guest, st.code);
+    await expectOk(guest, { t: 'room.ready', ready: true });
+    // the host moves: the seat is freed, the host role passes to the remaining Doctor
+    await expectOk(host, { t: 'room.spectate', code: st.code });
+    const moved = await guest.waitFor('room.state', (s) => s.spectators.some((x) => x.playerId === host.id));
+    assert.ok(!moved.seats.some((x) => x && x.playerId === host.id), 'no player seat left');
+    assert.equal(moved.hostId, guest.id);
+    await expectOk(host, { t: 'room.spectate', code: st.code }); // idempotent as a spectator
+    await expectError(host, { t: 'room.ready', ready: true }, ERR.SPECTATOR);
+    // and back with room.join: a fresh seat, not ready
+    host.clearInbox();
+    const back = await joinRoom(host, st.code);
+    assert.equal(seatOf(back, host.id).ready, false);
+    assert.deepEqual(back.spectators, []);
+    assert.equal(back.hostId, guest.id, 'the host role stays where it went');
+    // a spectator with a reservation takes the seat a mover frees
+    await expectOk(guest, { t: 'room.addBot' });
+    await expectOk(guest, { t: 'room.addBot' });
+    const waiter = await pool.player('Waiter');
+    await expectOk(waiter, { t: 'room.spectate', code: st.code });
+    await expectOk(waiter, { t: 'room.reserveSeat', on: true });
+    guest.clearInbox();
+    await expectOk(host, { t: 'room.spectate', code: st.code });
+    const swapped = await guest.waitFor('room.state', (s) => s.spectators.some((x) => x.playerId === host.id));
+    assert.ok(seatOf(swapped, waiter.id), 'the reserved spectator is seated');
+    assert.deepEqual(swapped.spectators.map((x) => x.playerId), [host.id]);
+    // no spectator seat free
+    const other = await pool.player('Other');
+    await expectOk(other, { t: 'room.spectate', code: st.code });
+    await guest.waitFor('room.state', (s) => s.spectators.length === 2);
+    await expectError(waiter, { t: 'room.spectate', code: st.code }, ERR.ROOM_FULL);
+    // during a match a player stays seated
+    await expectOk(other, { t: 'room.leave' });
+    await expectOk(waiter, { t: 'room.ready', ready: true });
+    await expectOk(guest, { t: 'room.start' });
+    await guest.waitFor('room.state', (s) => s.inMatch);
+    await expectError(waiter, { t: 'room.spectate', code: st.code }, ERR.ROOM_STARTED);
   });
 
   test('spectators during a match: broadcasts but no private view, join mid-match, only watching, reconnect gets the seat back', async () => {

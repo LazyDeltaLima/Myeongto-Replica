@@ -234,7 +234,8 @@
 .rseat__plate .rseat__me { left: calc(-5.7 * var(--u)); top: calc(-6.4 * var(--u)); }
 .rseat__me .sprite { width: 100%; height: 100%; }
 .rseat__me > .icon { width: 100%; height: 100%; padding: 2px; color: #08221b; background: #4fe8c0; border-radius: 3px; }
-/* ⋯ (btn_card_detail, 54 × 33 at the name card's top right) and its menu (group_unfold: unfold_matte, one 更换立绘 button) */
+/* ⋯ (btn_card_detail, 54 × 33 at the name card's top right) and its menu (group_unfold: unfold_matte, the 更换立绘 button;
+   this remake adds 前往观战席 under it, both as wide as the wider one: maintainer decision 2026-11-15) */
 .rseat__menu-root { inset: 0; pointer-events: none; z-index: 5; }
 .rseat__more { position: absolute; left: calc(207.2 * var(--u)); top: calc(385.9 * var(--u)); width: calc(54 * var(--u)); height: calc(33 * var(--u)); min-width: 22px; min-height: 14px;
   display: inline-flex; align-items: center; justify-content: center; gap: calc(4 * var(--u)); padding: 0; pointer-events: auto;
@@ -246,7 +247,11 @@
 .rseat__pick { display: inline-flex; align-items: center; justify-content: center; gap: calc(10 * var(--u)); width: calc(165 * var(--u)); min-width: max-content; height: calc(41 * var(--u)); min-height: 24px;
   padding: 0 calc(16 * var(--u)); font: inherit; font-size: max(11px, calc(20 * var(--u))); font-weight: 700; white-space: nowrap; color: #fff;
   background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; }
-.rseat__pick:hover, .rseat__pick:focus-visible { border-color: #5df0c6; }
+.rseat__menu-list { display: grid; gap: calc(14 * var(--u)); }
+/* both as wide as the wider one (the grid stretches them), the content from the left: icons and texts line up */
+.rseat__menu-list > .rseat__pick { width: auto; min-width: calc(165 * var(--u)); justify-content: flex-start; }
+.rseat__pick:disabled { opacity: .45; cursor: default; }
+.rseat__pick:not(:disabled):hover, .rseat__pick:not(:disabled):focus-visible { border-color: #5df0c6; }
 .rseat__pick .icon, .rseat__pick .rseat__pick-ico { flex: none; width: 1.15em; height: .9em; object-fit: contain; }
 
 /* an empty seat: + 邀请 (bg_plus at (2, 51), the title at (0, −15), the first seat's tip at (0, −45.3)), its lines

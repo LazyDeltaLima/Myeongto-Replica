@@ -143,7 +143,10 @@
 //     time → room.closed {kicked} to it. A room.join a co-op room refuses for want of a player seat (ROOM_FULL, ROOM_STARTED,
 //     MATCHING) carries `room` { players, seats, round, spectators, spectatorSeats } in its error frame, so an invited page
 //     can offer a spectator seat instead (maintainer decision 2026-11-14). A spectator in a LOBBY room may take a free player seat with room.join of the same
-//     code; a player never switches to spectating in place (ALREADY). Disconnect / grace / reconnect / expiry work as for
+//     code, and a player of a LOBBY room may move to a free spectator seat with room.spectate of its own room (maintainer
+//     decision 2026-11-15; the host role passes on, a reserved spectator takes the freed seat; refused during a match —
+//     ROOM_STARTED —, while matchmaking — MATCHING —, with no spectator seat free — ROOM_FULL — and for the room's last
+//     Doctor — BAD_TARGET: a spectator keeps no room alive). Disconnect / grace / reconnect / expiry work as for
 //     a player seat (the seat is kept and given back on resume).
 //   * room.setSpectatorSeats { seats } (maintainer decision 2026-11-05): the host of a co-op room picks SPECTATOR_SEATS (2–6,
 //     default MIN_SPECTATORS) before the match, kept across its matches and the drain hand-over (room.state `spectatorSeats`).
@@ -684,7 +687,7 @@ export class Lobby {
     if (!room) return fail(ERR.ROOM_NOT_FOUND);
     const cur = this.roomOf(session);
     if (cur === room) {
-      if (!room.spectatorOf(session.playerId)) return fail(ERR.ALREADY, 'seated as a player');
+      if (!room.spectatorOf(session.playerId)) return this.seatToSpectator(room, session);
       this.sendState(room, session);
       return OK;
     }
@@ -699,6 +702,29 @@ export class Lobby {
     this.broadcastState(room);
     localPatch.onJoin(this, room, session); // local patch
     if (room.match) this.callMatch(room, 'addSpectator', session.playerId);
+    return OK;
+  }
+
+  /**
+   * room.spectate of one's own room by a player (header): in LOBBY the player seat is freed and a spectator seat taken,
+   * the room's other way round from a spectator's room.join. Not removeMember: the session stays in the room and keeps
+   * its replay (a result screen still owed).
+   */
+  seatToSpectator(room, session) {
+    const seat = room.seatOf(session.playerId);
+    if (!seat || seat.isBot || seat.left) return fail(ERR.ALREADY, 'not a player of this room');
+    if (room.match) return fail(ERR.ROOM_STARTED, 'a player of a running match stays seated');
+    if (room.matching) return fail(ERR.MATCHING, 'the room is matchmaking');
+    if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo room');
+    if (room.spectators.length >= room.spectatorSeats) return fail(ERR.ROOM_FULL, 'no free spectator seat');
+    // a spectator keeps no room alive: the last Doctor stays seated (the room would close under it)
+    if (room.activeHumans().length <= 1) return fail(ERR.BAD_TARGET, 'the last Doctor of the room');
+    room.seats[seat.seat] = null;
+    room.spectators.push({ playerId: session.playerId, name: session.name, connected: session.connected });
+    if (room.hostId === session.playerId) this.migrateHost(room);
+    this.seatLog(room, session, 'moved to a spectator seat');
+    this.fillReservedSeats(room); // a spectator with a reservation takes the freed seat
+    this.broadcastState(room);
     return OK;
   }
 
