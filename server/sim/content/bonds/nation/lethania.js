@@ -14,12 +14,14 @@
 //                                     (bonds/walker.js: a walking ally built from the enemy record)
 //   [summoned]                        on each summon: ATK +(atk_base + atk_per_stack·L) (MULTIPLIER, the field's highest
 //                                     layers, again every 0.3 s — here as the layers change)
-//   “一个乐部”                         its talent Aura (base_attack_speed 20): 莱塔尼亚 operators ASPD +20 while one is on the
-//                                     field (bond text 「在场时使【莱塔尼亚】干员攻速+20」); its Sk1 (SP INCREASE_WHEN_ATTACK,
+//   “一个乐部”                         its talent Aura (base_attack_speed 20): 莱塔尼亚 operators ASPD +20 while it is on the
+//                                     field (bond text 「在场时使【莱塔尼亚】干员攻速+20」), each 乐部 its own +20: the table's
+//                                     acltm[atk-spd] gives every 莱塔尼亚 operator a derived acltm[atk-spd-core]
+//                                     (disableOverride, ended with its 乐部 — FinishDerivedBuff), so two 乐部 give +40; the
+//                                     core's stack term (attack_speed_per_stack) is 0 in the talent; its Sk1 (SP INCREASE_WHEN_ATTACK,
 //                                     3): after 3 attacks the next one strikes twice (「造成3次攻击后下一次攻击进行2连击」)
 // Numbers: the season's bonds.json `buffs[].bb`, every buff of the record together (shared.js recordBb).
-// [추정·CN: the aura is the summoning player's 莱塔尼亚 operators', +20 however many 乐部 stand (the talent's aura
-// node is in the CN-only prefab); Sk1's second hit comes 0.234 s after the first (the two OnAttack frames of its Skill
+// [추정·CN: the aura is the summoning player's 莱塔尼亚 operators' (the node does not say whose); Sk1's second hit comes 0.234 s after the first (the two OnAttack frames of its Skill
 // clip, 0.533 / 0.767 s); a field shared by two 莱塔尼亚 players gives the enemies' summons to the first one installed]
 
 import * as S from '../../support/index.js';
@@ -46,16 +48,16 @@ function summonedAtk(battle, bb, u) {
   S.passiveBuff(battle, u, 'bond:lethania:summoned', S.directMods({ atk: num(bb.atk_base) + num(bb.atk_per_stack) * L }));
 }
 
-/** 一个乐部's aura on `pid`'s members: ASPD +base_attack_speed while one of the player's 乐部 is on the field. */
+/** 一个乐部's aura on `pid`'s members: ASPD +base_attack_speed for each of the player's 乐部 on the field (header). */
 function syncAura(battle, pid) {
   const st = store(battle);
   const members = st.members.get(pid) ?? [];
-  const on = (st.big.get(pid) ?? 0) > 0;
+  const n = st.big.get(pid) ?? 0;
   const rec = battle.data.rawEnemy?.(BIG);
   const tal = rec?.talents && !Array.isArray(rec.talents) ? rec.talents.bb ?? {} : {};
-  const aspd = num(tal['Aura.base_attack_speed'], 0);
+  const aspd = num(tal['Aura.base_attack_speed'], 0) * n;
   for (const m of members) {
-    if (on && aspd) S.passiveBuff(battle, m, 'bond:lethania:aura', { aspd });
+    if (aspd) S.passiveBuff(battle, m, 'bond:lethania:aura', { aspd });
     else battle.removeBuff(m, 'bond:lethania:aura');
   }
 }

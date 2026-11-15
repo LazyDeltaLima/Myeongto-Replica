@@ -876,7 +876,7 @@ test('规程 莱塔尼亚: an enemy knocked down summons a walking “一个小�
   assert.deepEqual(h.b.errors, []);
 });
 
-test('规程 莱塔尼亚 6: “一个乐部” at 0.3 + 0.001L (its aura: members ASPD +20; the 4th attack strikes twice), up to 20 summons, a member knocked down summons too', () => {
+test('规程 莱塔尼亚 6: “一个乐部” at 0.3 + 0.001L (its aura: members ASPD +20 for each 乐部 — acltm[atk-spd] derived buffs; the 4th attack strikes twice), up to 20 summons, a member knocked down summons too', () => {
   const bb = Object.assign({}, ...ACT3.bonds.lethaniaShip.buffs.map((b) => b.bb));
   const L = 200;
   const h = fight(ids('l', 6).map((id) => [id, ['lethaniaShip']]), { lethaniaShip: bondOn(6, L) }, { enemies: [], seed: 7 });
@@ -888,7 +888,9 @@ test('规程 莱塔尼亚 6: “一个乐部” at 0.3 + 0.001L (its aura: membe
   const big = walkers().filter((u) => u.defId === 'enemy_9026_acltm').length;
   const p = Math.min(bb.big_prob_max, bb.big_prob_base + bb.big_prob_per_stack * L);
   assert.ok(big >= 3 && big <= 14, `≈ ${p * 20} of 20 are 乐部: ${big}`);
-  close(l1.s.aspd, aspd0 + 20, 1e-9, 'members ASPD +20 while a 乐部 stands');
+  close(l1.s.aspd, aspd0 + 20 * big, 1e-9, `members ASPD +20 for each of the ${big} 乐部 (docs/rules/sim.md 「규정 맹약」 라이타니엔)`);
+  h.b.kill(walkers().find((u) => u.defId === 'enemy_9026_acltm'), null);
+  close(l1.s.aspd, aspd0 + 20 * (big - 1), 1e-9, 'one 乐部 down: its +20 ends with it');
   // a member knocked down summons one too
   for (const u of walkers()) h.b.kill(u, null);
   close(h.unit('l1_a').s.aspd, aspd0, 1e-9, 'the aura ends with the last 乐部');
