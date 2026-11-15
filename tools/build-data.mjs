@@ -4476,16 +4476,21 @@ const DEFAULT_ENEMY_MULTIPLIERS = {
  * hit before; the 奥术 extra arts damage counted as not landing, since no number for it showed). The 盟约 绝境 row gave
  * R7 0.96: its mid-game climb comes two rounds earlier. `pulled` moves it in every single row that has one — R5–R8
  * take the 攻坚装备 count of two rounds later, and no later round falls below — which turns the 盟约 绝境 row into
- * exactly the fitted one (k 2 at R7); 标准 (all 0) stays. 绝境 R12 adds the measured 补给线 step. R13 keeps the 盟约
- * row's k 4 (1.66) although the match read less than R12: that dip may be one match's HP −10…−25 % 攻坚装备 variant
- * (data/seasons/act3autochess/effects.json), and no row is made to fall (maintainer decision 2026-11-14).
+ * exactly the fitted one (k 2 at R7); 标准 (all 0) stays. 绝境 R12 adds the measured 补给线 step, and R13 takes the
+ * measured dip below R12 — k 2 with the 补给线 step (1.244; maintainer decision 2026-11-15, after
+ * comparing the co-op rooms; 规程's enemy effects include 攻坚装备 variants with HP −10…−25 %, data/seasons/act3autochess/effects.json).
  * [ASSUMED·서버: which enemy effects a round carries is the server's; one match of one grade measured — the other
  * rounds, ATK (it follows the same counts) and the 险境 / 终极 rows are the 盟约 rows with the same pull]
  */
 const SEASON_ENEMY_MULTIPLIERS = {
   act3autochess: {
     pullSingle: true,
-    single: { HARD: { hpExtra: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.08, 1, 1], hiddenHpExtra: 1 } },
+    single: {
+      HARD: {
+        k: [0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 2, 4],
+        hpExtra: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.08, 1.08, 1], hiddenHpExtra: 1,
+      },
+    },
   },
 };
 
