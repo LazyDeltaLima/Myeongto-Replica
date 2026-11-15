@@ -307,7 +307,7 @@ test('卫戍推荐信: at the prep\'s end +1 layer to each ACTIVE bond of the ca
 // ---------------------------------------------------------------------------------------------------------------
 // 精巧设计
 
-test('精巧设计 (规程): the round\'s first 进阶 merge of an item offers 3 items up to one tier above the 调度中心, the second none', () => {
+test('精巧设计 (规程): the round\'s first 进阶 merge or 组合 of an item offers 3 items up to one tier above the 调度中心, the second none', () => {
   const { m, ps } = setup({ band: 'band_equipment', seed: 7 });
   ps.shop.level = 2;
   ps.acquireItem(HAMMER, { source: 'buy' });
@@ -325,9 +325,17 @@ test('精巧设计 (规程): the round\'s first 进阶 merge of an item offers 3
   ps.acquireItem(shield, { source: 'buy' });
   ps.acquireItem(shield, { source: 'buy' });
   assert.equal(ps.offers.length, 2, 'a new round');
-  // a 组合 is no 合并进阶
+  // a 组合 counts too (maintainer decision 2026-11-15, upstream c5bf6c17), on the same once-a-round counter, and stays
+  // out of the 合并进阶 count
   const { ps: ps2 } = setup({ band: 'band_equipment', seed: 7 });
+  const merges = ps2.stats.itemMerges;
   ps2.acquireItem(SPEAR, { source: 'buy' });
   ps2.acquireItem(HELM, { source: 'buy' });
-  assert.equal(ps2.offers.length, 0);
+  assert.ok(owned(ps2).includes(GLORY), 'fused');
+  assert.equal(ps2.offers.length, 1, 'the 组合 offers 精巧设计\'s 3 items');
+  assert.equal(ps2.offers[0].slots.length, 3);
+  assert.equal(ps2.stats.itemMerges, merges, 'no 合并进阶');
+  ps2.acquireItem(HAMMER, { source: 'buy' });
+  ps2.acquireItem(HAMMER, { source: 'buy' });
+  assert.equal(ps2.offers.length, 1, 'the 组合 used the round\'s one');
 });

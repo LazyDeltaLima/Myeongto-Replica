@@ -347,6 +347,9 @@ export class PlayerAcquire {
     const extra = pooled === 0 ? { noPool: true } : pooled < this.m.itemPool.need(f.result) ? { poolHeld: pooled } : {};
     const result = this.newPiece('item', f.result, extra);
     this.stow(result, { allowTemp: true });
+    // a 组合 counts as an item merge for 精巧设计 (maintainer decision 2026-11-15, from the upstream maintainer's official
+    // playtest — upstream c5bf6c17, PR #944); it stays out of stats.itemMerges, the 合并进阶 count
+    this.m.dispatch(this, 'onMerge', { kind: 'item', piece: result, itemId, fusion: true, consumed: consumed.map((l) => l.piece.uid) });
     return result;
   }
 

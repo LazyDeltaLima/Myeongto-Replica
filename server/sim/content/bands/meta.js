@@ -432,7 +432,8 @@ K.promote_char_extra_award = (ps) => ({
 });
 
 // 机械师 精巧设计's passive "每回合首次装备合并进阶时，在调度中心出现3件装备（可能出现更高一阶的装备）免费获取其中1件": the round's
-// first `n` item merges into the 进阶 copy (PlayerState._mergeItem onMerge kind 'item'; a 规程 组合 is no 合并进阶) offer
+// first `n` item merges into the 进阶 copy (PlayerState._mergeItem onMerge kind 'item'; a 规程 组合 too — _fuseItem, maintainer
+// decision 2026-11-15 — on the same round counter) offer
 // `count` different items, `select_count` taken free (one pick-one offer each), as 寻呼模块's 调度中心 offer is played. The
 // items are drawn from the shop's items up to one tier above the shop level (at most 6), the stock gating as everywhere
 // [ASSUMED·화면: "可能出现更高一阶" 의 확률 — 공식 화면 미확인, 티어 상한만 한 단계 위로]. The active part
