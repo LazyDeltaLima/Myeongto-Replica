@@ -3072,16 +3072,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const b = pickOf(views.get(o.id), 'oxi'), n = pickName(b, 'oxi_skill_03_trail_01');
         if (!n) return false;
         ownFx.add(e);
+        // (2026-11-15) the sim sends only what crosses the field (op-oxi.js fieldBox): `s`..`to` from its near edge to its
+        // far one, entering `d` s after the cast — none over the hand / 装备区 rows or the scenery around the field
         const s0 = Number(o.s), s1 = Number(o.to), dur = Math.abs(s1 - s0) / Math.max(0.1, Number(o.v) || 2.3);
+        const wait = Math.max(0, Number(o.d) || 0);
         for (let lane = Number(o.a); lane <= Number(o.z); lane++) {
           const [x0, y0, x1, y1] = o.h ? [s0, lane, s1, lane] : [lane, s0, lane, s1];
-          const k = `${o.id}|${o.w}|${lane}`, g = glider(x0, y0, x1, y1, dur, 0);
-          let stop = null;   // where it exploded: the trail's remains stay there
-          const at = { get x() { return stop ? stop.x : g.x; }, get y() { return stop ? stop.y : g.y; }, z: 0, alive: true };
-          const l = spawn(b.bundle, n, at, { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
-            .then((r) => { if (r) bodyTurn(r.inst, mod.THREE, Math.atan2(y1 - y0, x1 - x0)); return r; });
-          oxiFires.set(k, { l, end: () => { stop = { x: g.x, y: g.y }; } });
-          castsDelayed.push({ t: clockS + dur, run: () => oxiFires.delete(k) });
+          const k = `${o.id}|${o.w}|${lane}`, fire = { l: null, end: null, gone: false };
+          const fly = () => {
+            if (fire.gone) return;   // it exploded before it reached the field
+            const g = glider(x0, y0, x1, y1, dur, 0);
+            let stop = null;   // where it exploded: the trail's remains stay there
+            const at = { get x() { return stop ? stop.x : g.x; }, get y() { return stop ? stop.y : g.y; }, z: 0, alive: true };
+            fire.l = spawn(b.bundle, n, at, { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
+              .then((r) => { if (r) bodyTurn(r.inst, mod.THREE, Math.atan2(y1 - y0, x1 - x0)); return r; });
+            fire.end = () => { stop = { x: g.x, y: g.y }; };
+            castsDelayed.push({ t: clockS + dur, run: () => { if (oxiFires.get(k) === fire) oxiFires.delete(k); } });
+          };
+          oxiFires.set(k, fire);
+          if (wait > 0) castsDelayed.push({ t: clockS + wait, run: fly }); else fly();
         }
         return true;
       }
@@ -3091,7 +3100,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (!b) return false;
           const k = `${o.id}|${o.w}|${o.lane}`, fire = oxiFires.get(k), hit = pickName(b, 'oxi_skill_03_hit_01');
           oxiFires.delete(k);
-          if (fire) { fire.end(); fire.l.then((l) => { if (l) { l.shotEnd = null; finishShot(l.inst, l); } }); }
+          if (fire) {
+            fire.gone = true;
+            if (fire.l) { fire.end(); fire.l.then((l) => { if (l) { l.shotEnd = null; finishShot(l.inst, l); } }); }
+          }
           if (hit) spawn(b.bundle, hit, { x, y, z: 0 }, { owner: null, buff: false }, { over: false });
           ownFx.add(e);
           return true;

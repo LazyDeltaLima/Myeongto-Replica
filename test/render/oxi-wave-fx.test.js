@@ -27,3 +27,15 @@ for (const lod of [0, 2, 3]) {
     assert.equal(count(take(), 'oxi_skill_03_hit_01'), 1, 'its explosion');
   }, { load: () => lod }));
 }
+
+test(`탈룰라 S3: a fire drawn from the field's edge (the sim's \`d\`) appears only when it gets there; one that explodes before never appears`, { skip: NO_DATA }, () => withLayer(async ({ layer, unit, take }) => {
+  const views = new Map([[1, unit(1, 'ally', OXI, 5, 2)]]);
+  layer.onEvent(['skill', 1, 1], views);
+  take();
+  layer.onEvent(fxEvent('oxiWave', { x: 5, y: 2, id: 1, w: 1, h: 0, a: 3, z: 7, s: 1.5, to: 5.5, v: 2.3, d: 0.65 }), views);
+  assert.equal(count(take(), TRAIL), 0, 'not yet over the field (op-oxi.js fieldBox, docs/rules/diy.md 「그리는 簇火는 필드 안만」)');
+  layer.onEvent(fxEvent('blast', { x: 4, y: 1, r: 1.5, id: 1, element: 'burn', w: 1, lane: 4 }), views);
+  assert.equal(count(take(), 'oxi_skill_03_hit_01'), 1, 'its explosion still shows');
+  layer.update(0.7);
+  assert.equal(count(take(), TRAIL), 4, 'the other four lanes enter; the exploded one stays gone');
+}));
