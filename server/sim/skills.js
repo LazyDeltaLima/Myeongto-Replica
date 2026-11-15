@@ -143,6 +143,8 @@ export class SkillRuntime {
     this._trigKeys = null;
     this._trigSet = null;
     this.triggerRanges = [];      // content trigger ranges (addTriggerRange)
+    /** @type {null | (() => number[] | null)} content: the [row, col] the trigger grid is centred on instead of the unit's tile (null: no tile) */
+    this.triggerAt = null;
     this.noSkill = !spec;         // unit without any skill spec
   }
 
@@ -507,14 +509,23 @@ export class SkillRuntime {
   /**
    * Absolute tile keys of the trigger grid at the unit's current tile and direction (cached, with their Set). ACTIVE_RANGE
    * grows it by the unit's permanent rangeExtend (the range the skill would run with — Battle._refreshRange) unless the
-   * skill's range ignores 攻击距离 (targeting.noRangeExtend).
+   * skill's range ignores 攻击距离 (targeting.noRangeExtend). `triggerAt` (content) moves the grid's centre to another tile,
+   * still turned the unit's way (Mon3tr S3: her 重构体's tile); it returning null leaves no tile.
    */
   _triggerKeys() {
     const u = this.unit;
-    const tile = u.tileR * COLS + u.tileC;
+    const at = this.triggerAt ? this.battle._safe(() => this.triggerAt(), 'skill.triggerAt', u) : null;
+    if (this.triggerAt && !Array.isArray(at)) {
+      this._trigKeys = [];
+      this._trigSet = new Set();
+      this._trigTile = -1;
+      return this._trigKeys;
+    }
+    const [r0, c0] = at ?? [u.tileR, u.tileC];
+    const tile = r0 * COLS + c0;
     const ext = this.rule === 'ACTIVE_RANGE' && !this.spec.targeting?.noRangeExtend ? (u.s.baseRangeExtend || 0) : 0;
     if (!this._trigKeys || this._trigTile !== tile || this._trigDir !== u.dir || this._trigExt !== ext) {
-      this._trigKeys = absoluteRangeKeys(this.triggerGrid, u.tileR, u.tileC, u.dir, ext);
+      this._trigKeys = absoluteRangeKeys(this.triggerGrid, r0, c0, u.dir, ext);
       this._trigSet = new Set(this._trigKeys);
       this._trigTile = tile;
       this._trigDir = u.dir;

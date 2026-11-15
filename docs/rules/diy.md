@@ -882,7 +882,11 @@
 - 키트·테스트: upstream 커널 직전 판(`9a3a12ee9^`)의 `op-demetr.js`·`op-veen.js`·`op-headb2.js`·`op-monstr.js`와 테스트 넷. 실패 6개(1·2·0·3)는 모두 우리 자동 발동·
   시전 시점과 다른 테스트 쪽이었다. 바꾼 것:
   - **자동 발동**(`sim.md` 「스킬 범위 발동」): 벨로네 S2는 데이터 `DEFAULT` + rangeId 3-13 상자(upstream 테스트의 `ACTIVE_RANGE`), Mon3tr S2는 `DEFAULT` + y-2
-    상자(upstream `SKILL_RANGE`), S3는 `DEFAULT` + x-4 상자 — 치료 스킬도 상자 안 **적**을 센다 → 적이 그녀 주변 3×3에 들어와야 켬(upstream 테스트는 적 없이 켬).
+    상자(upstream `SKILL_RANGE`), S3는 `DEFAULT` + x-4 상자 — 치료 스킬도 상자 안 **적**을 센다(upstream 테스트는 적 없이 켬). S3의 상자 중심은 2026-11-15부터
+    그녀가 아니라 **재구성체 칸**(그녀가 옮겨 갈 칸): CN 유저가 공식 규정에서 「재구성체 주변 3×3에 적이 오면 켜짐」을 겪었다는 관리자 전달(2026-11-15)을 따라
+    두 시즌 모두, 그녀 주변 상자 대신(관리자 결정 2026-11-15). 기본 전략만이면 공식 클라는 그녀 칸이 중심(`get_gridPosition`)이고, 규정 메딕 줄
+    (`ATTACK_RANGE_ALLY + SKILL_RANGE_ALLY`)은 CN 클라만 읽는다. 엔진 `skills.js` `triggerAt`(키트가 상자 중심을 줌). 재발 방지: `test/content/op_monstr.test.js`
+    「S3 automatic cast」. [화면 미확인: 공식 녹화]
     비이 S2·S3는 rangeId 없는 `DEFAULT` → 공격 상태가 되는 순간(적이 사거리에 들어올 때), 그녀의 공격과 저장 에너지 발사 **앞**이다(테스트의 시점을 그에 맞춤).
     비이 S1·지마 S2는 자기에게 거는 AUTO 스킬이라 SP가 차면 바로(키트 README 체크리스트 5) — 두 스킬 프리팹 모두 `_trigger` 탐색이 없다(공식 클라에서 확인).
   - **벨로네 패밀리의 수법은 벨로네마다 따로 쌓인다**: 버프 템플릿 `demetr_t1[def_dec]`가 층·남은 시간을 출처별로 읽고(`CheckContainsBuff`·

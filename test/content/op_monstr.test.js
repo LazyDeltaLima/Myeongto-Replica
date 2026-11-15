@@ -454,6 +454,21 @@ test('S3 路标形态: the tile she left stays hers while she is away — 黑键
   done(f2.h);
 });
 
+test('S3 automatic cast: an enemy in the x-4 box around her 重构体 (CN players\' report, maintainer decision 2026-11-15) — not one only beside her', () => {
+  for (const f of [[5, false, null], [6, true, XAHX]]) {
+    // her (10, 4), her 重构体 (10, 6): (10, 3) is beside her only, (10, 7) beside the 重构体 only
+    const { h, u } = field({ tier: f[0], elite: f[1], mod: f[2], skill: 2, prosts: { row: 10, col: 6 } });
+    u.skill.gainSp(999);
+    const behind = h.spawn('enemy_dummy', { pos: [10, 3] });
+    h.run(3);
+    assert.equal(u.skill.activations, 0, `${label(f)}: an enemy beside her but outside the 重构体's 3×3: no cast`);
+    h.b.kill(behind, null);
+    h.spawn('enemy_dummy', { pos: [10, 7] });
+    assert.ok(h.runUntil(() => u.skill.active, 0.5), `${label(f)}: an enemy in the 重构体's 3×3`);
+    done(h);
+  }
+});
+
 test('her kit moments for the official effects: T2 shown on an ally but not on her or her 重构体 (its tag: given under S2 or not), the S3 move and return as fx teleport (`back` on the return)', () => {
   const shown = (h, id) => h.eventsOf('status').filter((x) => x[1] === id && x[2] === 'talent:monstr:aspd').map((x) => [x[3], x[5]?.fx ?? null]);
   {

@@ -55,7 +55,11 @@
 // - S2 策略：超负荷 (MANUAL, data DEFAULT: an enemy in its y-2 box; 30 s): her own 重构体 inside her range is her heal
 //   target, even at full HP (with nobody injured she heals it all the same: Battle.forceAttack); 0.6 s after each heal of her
 //   attack on it a second chain heal starts on it (her ATK × 1); T2 ×talent_scale.
-// - S3 策略：熔毁 (MANUAL, data DEFAULT: an enemy in its x-4 box; 25 s; only while her 重构体 stands — the cast is refused otherwise): the 重构体 is withdrawn
+// - S3 策略：熔毁 (MANUAL, data DEFAULT on its x-4 box; 25 s; only while her 重构体 stands — the cast is refused otherwise). The
+//   automatic cast waits for an enemy in the x-4 box around her 重构体 — the tile she moves to — not around her: what CN players
+//   saw in the official 规程 (reported to the maintainer 2026-11-15; the 规程 MEDIC row ATTACK_RANGE_ALLY + SKILL_RANGE_ALLY is
+//   read only by the CN client), taken for both seasons and in place of her own box (maintainer decision 2026-11-15; the
+//   basic strategy alone would centre it on her: docs/rules/sim.md 「스킬 범위 발동」). The 重构体 is withdrawn
 //   (its piece waits: back once its tile is free again) and she 【移动】s onto its tile; meanwhile range x-4, ATK +atk, base attack
 //   time base_attack_time (a flat −1.5 s on 2.85 s), block +block_cnt, max HP +max_hp (the HP ratio kept), 流失 of
 //   damage_per_second HP/s (8 every 0.1 s); "同时攻击阻挡的所有敌人" (her selector's _limitedMaxTargetNumToBlockedCnt): each attack
@@ -339,6 +343,8 @@ export default {
         if (picked !== S3) return;
         // S3 `_onlyAvailableWhenTokenValid`: every activation path is refused while her 重构体 is not on the field
         const sk = unit.skill;
+        // the automatic cast looks at the x-4 box around her 重构体, not around her (see the header)
+        if (sk && sk.id === S3) sk.triggerAt = () => { const r = prostsOf(battle, unit).find(up); return r ? [r.tileR, r.tileC] : null; };
         if (sk && sk.id === S3 && !Object.prototype.hasOwnProperty.call(sk, 'activate')) {
           const activate = sk.activate;
           Object.defineProperty(sk, 'activate', {
