@@ -432,6 +432,24 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .spov__grid--12 { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: .14rem; }
 .spov__grid--12 .spcard__icon { width: .8rem; height: .8rem; }
 .spov__order.is-8 { flex-wrap: wrap; gap: .06rem; }
+/* 收起 (ui/choiceOverlay.js): a grid item in a column after the cards' — its margin box is 0 wide (the negative right
+   margin), so the cards stay where they were and the button sits just right of the last column, centred on the rows;
+   the folded draft's 展开 button (ChoicePill) at the screen's right edge, glowing on the viewer's turn */
+.spov__collapse { grid-column: 4; grid-row: 1 / -1; align-self: center; justify-self: start; position: relative; z-index: 2;
+  box-sizing: border-box; width: .58rem; margin: 0 -.58rem 0 0; display: flex; flex-direction: column; align-items: center; gap: .05rem;
+  padding: .14rem .06rem; border: 1px solid rgba(255, 255, 255, .35); border-radius: .03rem; font: inherit; font-size: .15rem; font-weight: 700;
+  white-space: nowrap; color: #fff; background: rgba(20, 24, 24, .88); cursor: pointer; }
+.spov__grid--12 .spov__collapse { grid-column: 5; }
+.spov__collapse .icon, .spov-pill .icon { width: .26rem; height: .26rem; }
+.spov__collapse:hover { border-color: var(--mint-400); }
+.spov-pill { position: absolute; right: calc(.12rem + var(--sa-r, 0px)); top: 50%; transform: translateY(-50%); z-index: 20; display: flex; flex-direction: column;
+  align-items: center; gap: .05rem; max-width: 1rem; padding: .14rem .12rem; border: 1px solid rgba(255, 255, 255, .35); border-radius: .03rem;
+  font: inherit; font-size: .15rem; color: #fff; background: rgba(20, 24, 24, .9); cursor: pointer; pointer-events: auto; }
+.spov-pill__name { font-size: .12rem; color: var(--text-md); text-align: center; }
+.spov-pill b { font-weight: 700; white-space: nowrap; }
+.spov-pill.is-turn { border-color: var(--mint-400); box-shadow: 0 0 .12rem rgba(23, 249, 183, .45); }
+/* a phone: above the shop's 配置人数 label, which sits at the middle of a 390-high screen */
+@media (max-height: 520px) { .spov-pill { top: 36%; } }
 .spov__order.is-8 .spov__wname { max-width: .8rem; }
 /* The official card (research 06 §11.5; the official 悬赏 / 机密商店 / 战术 screenshots): a framed icon at the top-left
    with the bold name beside it, the effect text under both across the card, left-aligned; the tier chip on the icon's

@@ -35,7 +35,7 @@ globalThis.fetch = async (url) => {
   }
 };
 
-const { ChoiceView, spTap, armedCard, cardPickable } = await import('../../public/js/ui/choiceOverlay.js');
+const { ChoiceView, ChoicePill, spTap, armedCard, cardPickable } = await import('../../public/js/ui/choiceOverlay.js');
 const { ChessDetail, ItemDetail, statTone, liveStat } = await import('../../public/js/ui/detailPanel.js');
 const { Button } = await import('../../public/js/ui/components.js');
 const { data } = await import('../../public/js/data.js');
@@ -164,11 +164,34 @@ describe('2: 机变 cards take two taps (select → confirm), like buying in the
     assert.ok(hasClass(hint, 'is-personal') && !hasClass(hint, 'is-mine'), 'css/phase-art.css hides .is-mine; game-panels.css blinks it');
   });
 
+  test('收起 / 展开 (official 机密商店, maintainer decision 2026-11-15): 收起 only with onCollapse; the pill reopens it and glows while I still pick', () => {
+    const plain = [...walk(ChoiceView({ pub: { players: [] }, sp: sp(), ...me }))];
+    assert.ok(!plain.some((n) => hasClass(n, 'spov__collapse')), 'no handler, no button');
+    let collapsed = 0;
+    const nodes = [...walk(ChoiceView({ pub: { players: [] }, sp: sp(), ...me, onCollapse: () => { collapsed++; } }))];
+    const btn = nodes.find((n) => hasClass(n, 'spov__collapse'));
+    assert.ok(btn, '收起 shown');
+    assert.equal(textOf(btn.props.children), '收起');
+    btn.props.onClick();
+    assert.equal(collapsed, 1);
+    let opened = 0;
+    const pill = ChoicePill({ sp: sp(), ...me, onExpand: () => { opened++; } });
+    assert.ok(hasClass(pill, 'spov-pill') && hasClass(pill, 'is-turn'), 'my turn: it glows');
+    assert.match(textOf(pill.props.children), /悬赏决策展开/);
+    pill.props.onClick();
+    assert.equal(opened, 1);
+    assert.ok(!hasClass(ChoicePill({ sp: sp({ turnPid: 'p2' }), ...me, onExpand() {} }), 'is-turn'), 'not my turn: plain');
+    assert.ok(!hasClass(ChoicePill({ sp: sp({ pickOf: new Map([['me', 0]]) }), ...me, onExpand() {} }), 'is-turn'), 'picked: plain');
+    assert.ok(hasClass(ChoicePill({ sp: sp({ turnPid: 'p2' }), ...me, personal: true, onExpand() {} }), 'is-turn'), 'a personal pick (教鞭) is always mine');
+    const src = read('public/js/ui/choiceOverlay.js');
+    assert.match(src, /useEffect\(\(\) => \{ setCollapsed\(false\); \}, \[draftKey\]\)/, 'a new draft opens unfolded');
+  });
+
   test('the overlay keeps the selection itself and drops it on Esc / a tap elsewhere (source contract)', () => {
     const src = read('public/js/ui/choiceOverlay.js');
     assert.match(src, /export function ChoiceOverlay\(props\) \{[\s\S]*useState\(null\)[\s\S]*armedCard\(sel, sp/);
     assert.match(src, /e\.key === 'Escape'/);
-    assert.match(src, /closest\('\.spcard, \.spov__confirm'\)/);
+    assert.match(src, /closest\('\.spcard, \.spov__confirm, \.spov__collapse'\)/);
     const css = read('public/css/screens/game-panels.css');
     assert.match(css, /\.spcard\.is-armed/);
     assert.match(css, /\.spcard__confirm \{/);

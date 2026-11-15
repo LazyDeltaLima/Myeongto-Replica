@@ -17,6 +17,10 @@
 // no countdown and say so.
 // The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): 12 cards in a 4×3 grid (spov__grid--12, a smaller unit
 // in the official look) and the eight-name pick order wrapping (spov__order is-8) [추정: the official draft has 6 cards].
+// 收起 (maintainer decision 2026-11-15, the official 机密商店 has it — upstream 7a9d225f / d4dd2318; the look is ours, the
+// mockup the maintainer picked): a button just right of the cards folds the overlay away so the board shows; a 展开 button
+// at the screen's right edge (ChoicePill: the family's name, glowing while it is the viewer's turn) opens it again, and
+// a new draft opens unfolded [ASSUMED·화면: the official folded state was not on screen in the recordings].
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, Countdown, MicroLabel, Button, useScrollEdges } from './components.js';
@@ -181,6 +185,10 @@ export function armedCard(armed, sp, o) {
 export function ChoiceOverlay(props) {
   const { sp, myId, solo, busyIdx = null, onPick } = props;
   const [sel, setSel] = useState(null);
+  // 收起: folded until 展开; a new draft (another family, round or card set) opens unfolded
+  const [collapsed, setCollapsed] = useState(false);
+  const draftKey = sp ? `${sp.family}|${pubRound(props.pub)}|${(sp.cards || []).map((c) => c?.idx).join(',')}` : '';
+  useEffect(() => { setCollapsed(false); }, [draftKey]);
   const armed = armedCard(sel, sp, { myId, solo, busyIdx });
   const turnFlash = useTurnFlash(!props.personal && !solo && !!sp && sp.turnPid === myId && sp.pickOf?.get?.(myId) == null); // local patch (a personal pick — 教鞭 — never flashes 「轮到你」: decision 13, 2026-10-09)
   // a selection whose card cannot be picked any more (taken, the turn moved on, a pick in flight) is dropped
@@ -198,8 +206,28 @@ export function ChoiceOverlay(props) {
     setSel(r.armed);
     if (r.pick != null) onPick(r.pick);
   };
+  if (collapsed) return html`<${ChoicePill} sp=${sp} myId=${myId} solo=${solo} personal=${!!props.personal} onExpand=${() => setCollapsed(false)} />`;
   return html`<${ChoiceView} ...${props} armed=${armed} onTap=${tap} turnFlash=${turnFlash}
-    onConfirm=${() => { if (armed != null) tap(armed); }} onDisarm=${() => setSel(null)} />`;
+    onConfirm=${() => { if (armed != null) tap(armed); }} onDisarm=${() => setSel(null)} onCollapse=${() => { setSel(null); setCollapsed(true); }} />`;
+}
+
+const pubRound = (pub) => (pub && Number.isFinite(pub.round) ? pub.round : '');
+
+/**
+ * The folded draft (收起): one button at the screen's right edge that opens it again — the family's name and 展开; it
+ * glows while the viewer still has to pick.
+ * @param {{ sp: any, myId: string, solo: boolean, personal?: boolean, onExpand: () => void }} props
+ */
+export function ChoicePill({ sp, myId, solo, personal = false, onExpand }) {
+  if (!sp) return null;
+  const fam = data.get('choices')?.families?.[sp.family] || null;
+  const rawFam = data.getRaw('choices')?.families?.[sp.family] || null;
+  const name = sentText(sp.name, rawFam?.name, fam?.name) || fam?.name || t('机变');
+  const myTurn = (personal || solo || sp.turnPid === myId) && sp.pickOf?.get?.(myId) == null;
+  return html`<button type="button" class=${cx('spov-pill', myTurn && 'is-turn')} data-testid="sp-expand" onClick=${onExpand}
+      aria-label=${t('展开{name}', { name })}>
+    <${Icon} name="chevronLeft" /><span class="spov-pill__name">${name}</span><b>${t('展开')}</b>
+  </button>`;
 }
 
 /**
@@ -230,7 +258,7 @@ function CardScroll({ children }) {
  * @param {{ pub:any, sp:any, myId:string, solo:boolean, personal?:boolean, busyIdx?:number|null, total?:number|null, armed?:number|null,
  *   onTap?:(idx:number)=>void, onConfirm?:()=>void, onDisarm?:()=>void }} props
  */
-export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = null, total = null, armed = null, onTap = () => {}, onConfirm = () => {}, onDisarm = () => {}, turnFlash = false }) {
+export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = null, total = null, armed = null, onTap = () => {}, onConfirm = () => {}, onDisarm = () => {}, turnFlash = false, onCollapse = null }) {
   if (!sp) return null;
   const art = phaseArt('choose'); // local patch: the official look (ui/phaseArt.js)
   const fam = data.get('choices')?.families?.[sp.family] || null;
@@ -251,7 +279,7 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
   const onDown = (e) => {
     if (armed == null) return;
     const t = e.target;
-    if (t && typeof t.closest === 'function' && t.closest('.spcard, .spov__confirm')) return;
+    if (t && typeof t.closest === 'function' && t.closest('.spcard, .spov__confirm, .spov__collapse')) return;
     onDisarm();
   };
   return html`<div class=${cx('spov', armed != null && 'has-armed', art.cls)} style=${art.style || undefined} role="dialog" aria-label=${command ? t('更换指令') : personal ? t('教鞭选择') : t('机变阶段')} onPointerDown=${onDown}>
@@ -326,6 +354,8 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
             ${busy ? html`<span class="spcard__busy" role="status">${t('选择中')}</span>` : null}
           </button>`;
         })}
+        ${onCollapse ? html`<button type="button" class="spov__collapse" data-testid="sp-collapse" onClick=${onCollapse} title=${t('收起，查看战场')}>
+          <${Icon} name="chevronRight" /><span>${t('收起')}</span></button>` : null}
       </div>
     </div>
   </div>`;
