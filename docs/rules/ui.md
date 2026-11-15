@@ -343,6 +343,7 @@
   모양에서는 숨김(카드 막대와 같은 동작). 6장은 3×2(16:9 한 화면에 맞게 `--pu` ≤ .125vh), 3장(혼자)은 한 줄.
   「轮到你了」(KR 「내 차례」, `panel_player_select`): 멀티에서 내 차례가 되면 1.6초([추정] 길이) — `bg_circle`, 고리 3개([추정] ext 스프라이트 → CSS 원),
   `plus` 4개 #18e6b8, 큐브 `square_1` + `square_2`, 글자 49 #00ffc4, `bottom` 막대. 공식 모양일 때는 机变 진입의 PhaseBanner 띠를 띄우지 않는다(겹침).
+  1인 판에서는 띄우지 않는다(`screens/game.js` `!solo`) — 공식 1인 녹화(3라운드 임기응변에 「轮到你选」 없음, upstream PR #950이 #946에 붙인 것)와 같음.
   웹 소재(`effectChoose/*`, `shopCard/repeat_line`)라 모든 플레이어에게 같다.
 - 전투 종료 배너(`round_result_dialog`): 내 일반 전투(COMBAT)의 결과가 오면. 스크립트의 애니메이션 3개(`_allPrefectAnim` panel_perfect,
   `_perfectAnim`·`_missAnim` panel_miss)를 이렇게 맞춤: 완벽한 작전 → panel_perfect(청록 빛 판 `bg_all` 9-slice 95/95/86/85, X 눈 큐브 + 검 #39d3a5,
@@ -2251,7 +2252,7 @@ upstream 0.3.3(`dev` eff7d93ab)의 공식 느낌 화면을 손으로 이식한�
 CN 11-01부터 들어온 전투 HUD 요소 넷(EN 10-14 클라에는 없음). 공식 클라에서 확인: CN 전투 HUD 번들의 `autochess_hud_panel`·`autochess_hud_buff_dialog`·`autochess_hud_buff_item`·`autochess_hud_bond_item`·`boss_damage_stats_panel`·`boss_damage_stats_item`, 기본 테마(`ac_n_initial`)의 `panel_win_streak`·`panel_boss_damage`, 활동 표 `autoChessData.constData`·`bossDamageStatsStyleList`·`skinEffectPreviewDict`.
 
 - **강화 효과 단추·목록 창**(`ui/effectsList.js BuffButton`, 관리자 결정 2026-11-12: **두 시즌 모두** — 오른쪽 효과 아이콘 열을 없앰): 🔍(시뮬레이션 정보) 바로 왼쪽(`btn_check_buff`, 🔍 중심에서 90 왼쪽, 같은 90×55 칸), 테마 그림 `buff_btn_clickable` 59×37(6 위) + 효과 수(19, #03FBB9), 펼치면 `buff_btn_opened` + 수 #02140F. 누르면 아래에 목록 창(417 폭, 최대 410 높이, 넘치면 스크롤, 바탕 `bg_player_info`) — 줄마다 아이콘 바탕(76×75) + 아이콘 · 이름(20) · 설명(16, 흰 60%). 종류·남은 횟수(현상금의 「남은 작전 N」)는 이름 옆 작은 글씨로 우리가 더함. 목록은 `m.private.effects`(관전 중에는 그 팀원의 것). 테마 그림이 없는 시즌(지금 시즌)·서버는 같은 자리에 우리 모양 단추. [ASSUMED·화면] 효과가 없으면 단추를 숨김(13라운드 공식 화면에 단추가 없음 — 비었을 때만인지는 못 봄). [ASSUMED·CN] 어떤 효과가 목록에 드는지는 CN 코드라, 우리 효과 목록 그대로.
-- **완벽 연승 배지**(`ui/avatarBadges.js`, 규정만): 표 `playerAvatarWinStreakThresholds` [3, 5] — 3·4는 노란 삼각(`win_streak_1_base`, 수 검정), 5 이상은 별(`win_streak_2_base`, 수 #F68A25), 왼쪽 팀 목록 초상의 오른쪽 위. 세는 것은 테마 효과 목록 이름 「完美连胜」대로 **완벽 작전(누수 없음)이 이어진 라운드 수**(공식 화면 두 장의 4 삼각·5 별과 맞음; 관리자 2026-11-11 「배지는 연승」). 서버 `PlayerState.winStreak`(정산 `settle.js`에서 자기 전투가 완벽이면 +1, 센 누수가 있으면 0) → `m.public players[].winStreak`(1 이상일 때만, 표에 문턱이 있는 시즌만).
+- **완벽 연승 배지**(`ui/avatarBadges.js`, 규정만): 표 `playerAvatarWinStreakThresholds` [3, 5] — 3·4는 노란 삼각(`win_streak_1_base`, 수 검정), 5 이상은 별(`win_streak_2_base`, 수 #F68A25), 왼쪽 팀 목록 초상의 오른쪽 위. 세는 것은 테마 효과 목록 이름 「完美连胜」대로 **완벽 작전(누수 없음)이 이어진 라운드 수**(공식 화면 두 장의 4 삼각·5 별과 맞음; 관리자 2026-11-11 「배지는 연승」). 서버 `PlayerState.winStreak`(정산 `settle.js`에서 자기 전투가 완벽이면 +1, 센 누수가 있으면 0) → `m.public players[].winStreak`(1 이상일 때만, 표에 문턱이 있는 시즌만). 보스전(최후 공세·숨은 핵)은 연승을 더하지도 끊지도 않는다 — 정산 `settle.js`를 타지 않음(공식 규정 녹화 BV13LWM6BEvY와 같음, upstream `98c54d37`이 같은 녹화로 확인).
 - **보스 피해**(규정만): 보스 라운드 동안 각 초상이 그 플레이어의 리더 피해 몫으로 빛남 — 표 `playerAvatarBossDamageThresholds` [0.2, 0.5, 0.8](방송 「…超过20%/50%/80%!」와 같은 몫, `SharedBossPool.byPlayer`) 1·2·3단계: `scan_light` #FFC500 / #FFAE51 / #FF9A5E에 `damage_fx_middle_light`, 3단계는 `damage_fx_frame_cross` 틀과 위아래 `damage_fx_dec`. 내 초상 옆에 「✗ n%」. 오른쪽 가운데 순위 창(`boss_damage_stats_panel`): 나 밖의 플레이어를 몫 순으로, 줄마다 이름(#5AF2C2) · ✗ n% · **그 플레이어가 이 보스에 가장 많이 피해를 준 기물**의 초상과 등급(관리자가 공식 확인 2026-11-12), 위 「숨김/표시」 단추, 보스전 시작 `bossDamageStatsShowDelayTime` 5초 뒤에 뜸. 서버 `m.public players[].bossPct`(몫, 정수 % 내림 — 20 %에 닿을 때 빛이 켜짐)·`bossTop`(그 기물의 chess id). 1위 기물은 전투가 셈(`spec.js bossTopUnits`: 소환물 피해는 보드 기물에, 결산 차트와 같은 방식) — 브라우저 전투는 보고 `b.progress`의 `top`(바뀔 때만 보냄, 4 Hz 보고에 덧붙임), 서버 전투는 그 전투에서 바로. [ASSUMED·CN] 표 `bossDamageStatsStyleList`(30 / 60 / 100 → `bg_1~3`)를 순위 줄의 꾸밈 단계로 씀(어느 노드가 켜지는지는 CN 코드).
 - **맹약 단계 Ⅰ·Ⅱ·Ⅲ**(`bondStrip.js bondPhaseOf`, 시즌 스위치 `bondPhase` — 규정만, 관리자 결정 2026-11-12): 켜진 맹약 원판 위(`img_level` 24×24, 그림 `bondphaseicon/bond_level_N`)에 **도달한 문턱 수**, 맹약 창의 인원 알약 뒤에 「단계 Ⅱ」(`bond_phase/phase_text`). 문턱이 둘 이상인 맹약만 — **문턱 하나인 맹약은 표시 없음**(관리자가 공식 화면에서 확인 2026-11-12: 독행). 공식 화면: 우르수스 [3, 6] 6·8명 Ⅱ, 궁극기 [2, 5] Ⅱ·Ⅰ, 아케인 [2, 3] Ⅰ, 견수 Ⅰ, 꺼진 맹약은 없음. [ASSUMED·화면] 문턱 순번으로 읽은 것은 위 화면들과 맞는 읽기(단계 숫자의 정의를 표가 주지 않음).
 - 테마 그림은 시즌 그림(`seasonSkin/*`, `bondPhaseIcon/*`)에서 찾고, 없으면 CSS 모양(삼각·별·빛 테두리·글자 Ⅱ).
@@ -2298,3 +2299,18 @@ CN 11-01부터 들어온 전투 HUD 요소 넷(EN 10-14 클라에는 없음). �
 - 함정: 글이 직접 들어 있는 가로 flex 줄(단추·꼬리표·숫자 칸)에 짧은 낱말을 넣을 때는 `white-space: nowrap`을 준다. 화면 폭에서 재현되지 않아도 줄이
   1 px 모자라면 깨진다. 긴 단추 라벨은 nowrap 대신 낱말 사이 줄바꿈을 허락한다.
 - 재발 방지: `test/ui/ko-linebreak.e2e.test.js`(SP_E2E; 목업 화면 넷 × 1920·1280·960 폭 — 끊긴 짧은 낱말, 2 px 좁히면 끊기는 flex 줄, 단추 밖 라벨).
+
+## upstream v0.4.0 규정 화면 작은 것들 (2026-11-15, 손 이식)
+
+upstream v0.4.0 대조에서 받은 화면 수정(`docs/rules/upstream.md` 「하드 포크 뒤 손 이식한 기능」).
+- **시뮬레이션 포기가 실패하면 판에 남음**(upstream PR #879 `f681850d`·`c6c30652`): `ui/matchChrome.js quitMatch`는 `g.leave`가 받아들여지면(또는 이미 방 밖
+  `NOT_IN_ROOM`) 그것으로 끝 — 서버가 그 요청에서 이미 자리를 뺀다(`server/lobby.js routeGame`). `room.leave`는 돌아가는 판이 없을 때(`WRONG_PHASE`)만 보낸다.
+  요청이 실패하면(`OFFLINE`·`TIMEOUT` 등) 토스트만 띄우고 화면을 그대로 둔다 — 서버가 자리를 놓았다는 근거가 없으므로 다시 누르거나 재접속하면 된다. 전에는 실패해도
+  로비로 보내 자리는 판에 남은 채 화면만 떠났다. 시험: `test/ui/quit-failure.test.js`(upstream 그대로).
+- **「클라이언트 버전이 서버와 다릅니다」 문구는 hello 거절에만**(upstream `c3524c1e`): `net.js NetError`는 서버 hello의 프로토콜 검사(`BAD_MSG`
+  「version mismatch: server N」)일 때만 새로 고침 문구로 바꾸고, 설명에 「version」이 들어 있을 뿐인 다른 거절은 제 문구를 쓴다. 시험: `test/client-static.test.js` 「errorText / NetError」.
+- **적 웨이브 미리보기에서 숨은 맹약 원판이 클릭을 가로챔**(upstream #892 `72caf0888`): 미리보기(`.gm.is-pen`)에서 흐려진 맹약 줄·효과 열은 흐려진 뒤
+  `visibility: hidden`(돌아오면 바로 보임). `pointer-events: none`만으로는 Windows Chrome이 흐려진 원판을 눌러 맹약 창이 열렸다.
+- 함정: 화면에서 흐리게 숨기는 층(opacity 0)은 `pointer-events: none`만 믿지 말고 흐림이 끝난 뒤 `visibility: hidden`을 함께 준다(위 #892).
+- 재발 방지: `test/ui/pen-hidden-hud.e2e.test.js`(CSS 검사는 늘, 두 렌더러의 실제 클릭은 SP_E2E).
+- 받지 않음: 리더 순위 글자의 「文字大小」(upstream `fe5b2228`) — 우리 포크에는 글자 크기 설정이 없다(순위 창도 우리 것 `.bdmg`).
