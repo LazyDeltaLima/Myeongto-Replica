@@ -481,8 +481,10 @@ describe('the console match never ends by its rules', () => {
     h.invariants();
   });
 
-  test('con.setLayers / con.resetLayers: one bond\'s layers now (capped), the reset puts back what was there before', () => {
+  test('con.setLayers / con.resetLayers: one bond\'s layers now (capped), the reset sets every bond to 0', () => {
     const h = consoleMatch(), m = h.m, ps = h.ps('p_0');
+    const other = Object.keys(m.gd.raw.bonds).find((id) => id !== 'yanShip' && !m.gd.raw.bonds[id].noStack);
+    ps.layers = { ...ps.layers, [other]: 30 }; // a bond the console never touches
     const before = { ...ps.layers };
     const set = (bondId, layers) => consoleIntent(m, 'p_0', { t: 'con.setLayers', bondId, layers }, OFF);
     assert.equal(set('noSuchShip', 5).error, ERR.BAD_TARGET);
@@ -497,8 +499,8 @@ describe('the console match never ends by its rules', () => {
     assert.equal(ps.layers.yanShip, undefined);
     assert.deepEqual(set('yanShip', 12), { ok: true });
     assert.deepEqual(consoleIntent(m, 'p_0', { t: 'con.resetLayers' }, OFF), { ok: true });
-    assert.deepEqual(ps.layers, before);
-    assert.equal(consoleView(ps, OFF).layersEdited, false);
+    assert.deepEqual(ps.layers, {}, 'every bond at 0, the ones the console never touched too');
+    assert.deepEqual(consoleView(ps, OFF).layersBase, before, 'the marks still compare with the layers before the first change');
   });
 
   test('con.end: \'lobby\' / \'result\' end it for real, marked and logged — no [stats] line; a feedback report from the running match carries the log', () => {

@@ -17,8 +17,8 @@
 //   enemies      the extra enemies queued for the next battle (con.addEnemy)
 //   boss         { round, hiddenRound, at, bossId, hiddenBossId, bosses, hiddenBosses } — the leader rounds and leaders
 //   rounds       { last, sp: [rounds of a 机变 draft] } — the rounds con.jumpRound may go to are 1..last
-//   layers       the player's bond layers; layersEdited / layersBase: con.setLayers changed them since the last
-//                con.resetLayers, and what the reset puts back (the panel marks the rows that differ)
+//   layers       the player's bond layers; layersEdited / layersBase: the console changed them, and what they were before
+//                its first change (the panel marks the rows that differ)
 //   note         { seq, kind, round } the last time the match went back to a prep instead of ending (kind: 'cleared' |
 //                'hiddenCleared' | 'defeat' | 'eliminated'): the page shows its notice once per seq
 // m.public.console = true in a console match (main.js keeps no record of it; the HUD shows no mark — the panel is the sign).
@@ -35,8 +35,8 @@
 //                           prep only. What the player holds stays; the boss state of a leader round is reset.
 //   con.presetBoard { bondId?, layers }   every alive seat's board rebuilt now around a bond (local-debug-board.js), prep only
 //   con.setBoss { final?, hidden? }       the leader of the Final Assault / the Hidden Core from the next leader prep on
-//   con.setLayers { bondId, layers } / con.resetLayers {}   one bond's layers set (0..the cap); the reset puts back what
-//                           the player had before its first con.setLayers
+//   con.setLayers { bondId, layers } / con.resetLayers {}   one bond's layers set (0..the cap); the reset sets every
+//                           bond to 0
 //   con.end { to: 'lobby' | 'result', victory? }   the match ends now. A console match: reason 'consoleLobby' (the page
 //                           goes back to the room) or 'console' (the settlement screen, shown only); a debug-mode match
 //                           without the console: 'result' is the old debug finish (won / lost by `victory`).
@@ -415,7 +415,10 @@ function run(m, ps, msg) {
     }
     case 'con.resetLayers': {
       const g = gate(); if (g) return g;
-      if (ps.consoleLayersBase) { ps.layers = ps.consoleLayersBase; ps.consoleLayersBase = null; ps.recompute(); }
+      // every bond to 0 (maintainer decision 2026-11-15); the first snapshot stays, so the panel still marks what changed
+      if (!ps.consoleLayersBase) ps.consoleLayersBase = { ...(ps.layers || {}) };
+      ps.layers = {};
+      ps.recompute();
       return OK;
     }
     default: return fail(ERR.BAD_MSG);

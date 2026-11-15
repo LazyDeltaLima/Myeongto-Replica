@@ -7,7 +7,7 @@
 // tier, core / add-on bond and name filters; a tap adds to the hand, a 自选 pick opens its small window: tier, normal /
 // elite, skill, module), 장비 (con.addItem), 적 (con.addEnemy, the next battle's queue), 라운드 (con.jumpRound to any
 // round, the 완성 보드 block con.presetBoard, the leaders con.setBoss, the funds pin, 콘솔 끝내기 → con.end), 맹약
-// (con.setLayers per bond, core and add-on apart, 「↺ 초기화」 con.resetLayers). The head holds 「✎ 제보」 (the settlement
+// (con.setLayers per bond, core and add-on apart, 「↺ 초기화」 con.resetLayers: every bond to 0). The head holds 「✎ 제보」 (the settlement
 // screen's feedback window, during the match; the server attaches the console log) in a console match. ` (Backquote)
 // folds / unfolds it, a press outside folds it (remembered per browser); folded, a 「CONSOLE」 tab stays at the top left. When the match goes back
 // to a prep instead of ending (m.private.console.note), a notice shows once. On a phone (short and touch) it is a sheet
@@ -127,7 +127,7 @@ export function ConsolePanel({ con, pub, priv, phase }) {
         <span class="cxp__sp"></span><span>${t('备战区')} <b>${handUsed}/${hand.length || 5}</b></span></div>`
     : tab === 'enemies' ? html`<div class="cxp__foot"><span>${t('点击加入下一场作战 · 也显示在敌情预览和效果列表')}</span></div>`
     : tab === 'round' ? html`<div class="cxp__foot"><span>${live ? t('首领回合胜利、淘汰都不结算，回到该回合整备') : t('本地调试：结算照常记录')}</span></div>`
-    : html`<div class="cxp__foot"><span>${t('层数立即生效，从下一场作战起作用 · 「重置」= 回到在控制台修改之前的层数')}</span></div>`;
+    : html`<div class="cxp__foot"><span>${t('层数从下一场作战起生效 · 「重置」= 全部归零')}</span></div>`;
   return html`
     <${ConsoleNote} note=${con.note} />
     ${open ? html`<div class="cxp" role="dialog" aria-label=${t('控制台')}>
@@ -480,7 +480,7 @@ function BondsTab({ con, priv, prep }) {
   const core = shown.filter((b) => b.isCore), add = shown.filter((b) => !b.isCore);
   return html`
     <div class="cxp__row"><${Seg} value=${scope} options=${[['all', t('全部')], ['field', `${t('部署中')} ${inList(owned.field).length}`], ['held', `${t('持有中')} ${inList(owned.held).length}`]]} onChange=${setScope} />
-      <span class="cxp__sp"></span><button type="button" class="cxp__btn ghost sm" disabled=${busy || !prep || !con.layersEdited} onClick=${reset}>↺ ${t('重置')}</button></div>
+      <span class="cxp__sp"></span><button type="button" class="cxp__btn ghost sm" disabled=${busy || !prep || !Object.values(layers).some((v) => v > 0)} onClick=${reset}>↺ ${t('重置')}</button></div>
     <div class="cxp__bl">
       ${core.length ? html`<div class="cxp__bsec">${t('核心盟约')} <b>${core.length}</b><small>CORE</small></div>${core.map(row)}` : null}
       ${add.length ? html`<div class="cxp__bsec">${t('附加盟约')} <b>${add.length}</b><small>ADD-ON</small></div>${add.map(row)}` : null}

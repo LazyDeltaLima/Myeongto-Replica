@@ -40,7 +40,7 @@
     보낸 사람은 `bondId`(없으면 뽑기), 나머지는 이 판의 다른 핵심 맹약. 층수 `keep` 그대로 · `normal` R14 기준(BALANCE.md §1.1: 핵심 150, 그 밖 90) ·
     `strong` ×1.4 · `max` 상한 — 라운드와 상관없이 늘 R14 수준. 이렇게 놓인 AI 자리는 진행 중이던 정비를 멈추고(`_botPrepToken`) 이후 준비 완료만 한다(`ps.debugLocked`).
   - `con.setBoss { final?, hidden? }` 최종 공세 / 히든 코어 리더(이 모드의 리더 목록, `gd.bossWeights`). 다음 리더 라운드부터; 그 리더 라운드 정비 중이면 필드를 다시 계획.
-  - `con.setLayers { bondId, layers }`(0..상한) 맹약 하나의 층수를 바로(`ps.layers`), `con.resetLayers {}` 첫 `con.setLayers` 전 층수로(`ps.consoleLayersBase`).
+  - `con.setLayers { bondId, layers }`(0..상한) 맹약 하나의 층수를 바로(`ps.layers`), `con.resetLayers {}` 모든 맹약을 0으로(관리자 결정 2026-11-15; 예전엔 첫 `con.setLayers` 전 층수로). 바뀐 줄 표시는 첫 변경 전 층수(`ps.consoleLayersBase`)와 비교.
     중첩이 없는 맹약(`bonds.json` `noStack`: 조화·협동방어·독행·궁극기)은 거부하고, 패널도 조절 칸 대신 「중첩 없음」.
   - `con.end { to: 'lobby' | 'result', victory? }` 콘솔 판은 `reason: 'consoleLobby'`(화면은 결산 없이 바로 대기실) / `'console'`(결산 화면만 보여 줌);
     콘솔이 아닌 로컬 디버그 판의 `'result'`는 옛 디버그 결산(`victory`로 승리 / 패배, 기록도 평소대로).

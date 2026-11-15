@@ -1993,7 +1993,7 @@
   "点击加入下一场作战 · 也显示在敌情预览和效果列表": "Tap to add to the next battle · shown in the enemy preview and the effects list too",
   "首领回合胜利、淘汰都不结算，回到该回合整备": "Leader win or elimination: no settlement, back to that round’s prep",
   "本地调试：结算照常记录": "Local debug: the settlement is recorded as usual",
-  "层数立即生效，从下一场作战起作用 · 「重置」= 回到在控制台修改之前的层数": "Stacks change at once and apply from the next battle · Reset = the stacks before the console changed them",
+  "层数从下一场作战起生效 · 「重置」= 全部归零": "Stacks apply from the next battle · Reset = all to 0",
   "可以换首领或回合再试 · 要结束请到 控制台 ▸ 回合 ▸ 结束控制台": "Change the leader or the round and try again · to stop: Console ▸ Round ▸ End console",
   "结束控制台吗？结算画面只用于查看，不会计入记录。": "End the console? The settlement screen is only shown; nothing is recorded.",
   "结束本局吗？（本地调试：结算照常记录）": "End this match? (Local debug: the settlement is recorded as usual)",
