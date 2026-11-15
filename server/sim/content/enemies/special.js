@@ -532,7 +532,8 @@ export const SPECIAL_KITS = Object.freeze({
     iv: 1,
     tick(b, e) {
       const r = T(ab, 'Passive.hp_ratio') ?? 0;
-      if (r > 0) b.loseHp(e, e.s.maxHp * r);
+      // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): an enemy's loss by max HP ratio
+      if (r > 0) b.loseHp(e, e.s.maxHp * r, { silent: false });
     },
   }],
   enemy_1501_demonk: () => [maxTargets(2)],                          // 萨卡兹百夫长 · attacks 2 targets

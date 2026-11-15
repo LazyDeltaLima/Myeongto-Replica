@@ -49,7 +49,8 @@ export default {
         battle.on('damaged', (c) => {
           const e = c.target;
           if (c.source !== unit || !unit.alive || !unit.deployed || !e || e.side !== 'enemy' || isHpLoss(c.dmg) || !hasHp(e)) return;
-          battle.loseHp(e, unit.s.atk * magic, { source: unit, tags: ['module', 'sharp2:lorx'] });
+          // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): the module's loss on an enemy
+          battle.loseHp(e, unit.s.atk * magic, { silent: false, source: unit, tags: ['module', 'sharp2:lorx'] });
         }, { owner: unit });
       },
     };

@@ -111,7 +111,8 @@ export default {
             unit.mem.hodrerMarks = new Set();
             unit.mem.hodrerSmoke = battle.every(SMOKE_IV, (b, sc) => {
               if (!skill.active || skill.activations !== n0 || !up(unit)) { sc.cancel(); return; }
-              battle.loseHp(unit, num(b3['attack@value']), { source: unit, tags: ['hodrer:smoke'] });
+              // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): S3's loss per attack
+              battle.loseHp(unit, num(b3['attack@value']), { silent: false, source: unit, tags: ['hodrer:smoke'] });
             }, { owner: unit });
           },
           onAttack({ battle, unit }) { selfHeal(battle, unit, num(b3['attack@hp_ratio'])); },

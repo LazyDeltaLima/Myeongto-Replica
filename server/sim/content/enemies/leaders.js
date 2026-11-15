@@ -734,7 +734,8 @@ function kitWolfLord(ab) {
           const src = buff.data.src;
           if (!src || !src.alive || src.removed) { battle.removeBuff(unit, buff); return; }
           const k = Math.min(1, (battle.time - buff.data.t0) / ramp);
-          battle.loseHp(unit, unit.s.maxHp * peak * k, { source: e });
+          // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): a leader's HP cost by an enemy source
+          battle.loseHp(unit, unit.s.maxHp * peak * k, { silent: false, source: e });
         } });
     }
   }, { cd: fc ? fc.sp || fc.cd : null, icd: fc ? fc.sp || fc.icd : null, cond: (b, e) => !P.form2 && !caught(b) && b.time >= P.waitUntil && allTargets(b, e).some((u) => u.kind === 'op') }),

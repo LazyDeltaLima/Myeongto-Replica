@@ -35,7 +35,8 @@ export default {
         kind: 'duration', mods: { atkPct: num(bb.atk) },
         onStart({ battle, unit }) {
           const loss = unit.hp * num(bb.hp_ratio);
-          if (loss > 0 && unit.hp - loss >= 1) battle.loseHp(unit, loss, { source: unit });
+          // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): the skill start's HP cost
+          if (loss > 0 && unit.hp - loss >= 1) battle.loseHp(unit, loss, { silent: false, source: unit });
           const tile = freeTileAround(battle, unit, (r, c) => battle.grid.canStand(r, c));
           if (!tile) return;
           const doll = battle.spawnToken(unit, tokId, tile[0], tile[1], {});
@@ -55,7 +56,8 @@ export default {
           kind: 'instant', attack: { atkScale: num(bb.atk_scale, 1) },
           onAttack({ battle, unit }) {
             const loss = unit.s.maxHp * num(bb.hp_ratio);
-            if (loss > 0 && unit.alive) battle.loseHp(unit, loss, { source: unit, tags: ['skill'] });
+            // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): the skill's own loss
+            if (loss > 0 && unit.alive) battle.loseHp(unit, loss, { silent: false, source: unit, tags: ['skill'] });
           },
         },
       },

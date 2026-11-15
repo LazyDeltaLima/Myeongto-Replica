@@ -90,7 +90,8 @@ export default {
             },
           },
           onStart({ unit }) { unit.mem.blazeTiles = new Set(); unit.mem.blazeAcc2 = 0; },
-          onAttack({ battle, unit }) { battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio']), { source: unit }); },
+          // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): the loss per attack
+          onAttack({ battle, unit }) { battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio']), { silent: false, source: unit }); },
           onEnd({ battle, unit }) {
             const tiles = unit.mem.blazeTiles;
             unit.mem.blazeTiles = null;
@@ -116,7 +117,8 @@ export default {
           unit.mem.blazeAcc = (unit.mem.blazeAcc ?? 0) + dt;
           while (unit.mem.blazeAcc >= 1 && unit.alive) {
             unit.mem.blazeAcc -= 1;
-            battle.loseHp(unit, unit.s.maxHp * lose, { source: unit });
+            // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): the skill's closing loss
+            battle.loseHp(unit, unit.s.maxHp * lose, { silent: false, source: unit });
           }
         },
       },

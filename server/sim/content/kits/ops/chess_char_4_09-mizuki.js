@@ -24,7 +24,8 @@ export default withDefaults({
           onStart({ battle, unit }) { battle.fx('ripple', { x: unit.x, y: unit.y, id: unit.id }); },
           onAttack({ battle, unit, targets }) {
             if ((targets || []).filter((e) => e.side === 'enemy').length >= 3) return;
-            battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio'], 0.15), { tags: ['skill', 'selfLoss'], moment: 'mizuki_s_3[damage]' }); // (no source: not damage dealt)
+            // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): S3's loss per attack (mizuki_s_3[damage])
+            battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio'], 0.15), { silent: false, tags: ['skill', 'selfLoss'], moment: 'mizuki_s_3[damage]' }); // (no source: not damage dealt)
           },
         }),
       }),

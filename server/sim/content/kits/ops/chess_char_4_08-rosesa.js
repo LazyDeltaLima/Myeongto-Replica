@@ -37,7 +37,8 @@ export default withDefaults({
           const per = total / Math.max(1, Math.round(fin / iv));
           const src = c.source;
           battle.addBuff(c.target, { key: 'rosesa:dot', refresh: 'independent', maxStacks: 1000, duration: fin + 1e-6, interval: iv,
-            onTick: ({ unit: tgt }) => battle.loseHp(tgt, per, { source: src && src.side === 'enemy' ? src : null }) });
+            // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): a loss each tick on the target
+            onTick: ({ unit: tgt }) => battle.loseHp(tgt, per, { silent: false, source: src && src.side === 'enemy' ? src : null }) });
         }, { owner: unit });
         // module (elite) RIN-X: 攻击范围扩大 (module range grid)
         applyModuleRange(battle, unit, def);

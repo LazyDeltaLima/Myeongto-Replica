@@ -94,6 +94,13 @@ export default [
       'no-restricted-syntax': ['error',
         { selector: "BinaryExpression[operator='**']", message: 'implementation-approximated: use powi from server/sim/detmath.js' },
         { selector: "AssignmentExpression[operator='**=']", message: 'implementation-approximated: use powi from server/sim/detmath.js' },
+        // Battle.loseHp sends 'dmg' unless `silent`, and the view draws a hit of 真实 damage for it, once a tick for a
+        // periodic loss; the official node of such a loss often creates no effect. A default that is right only half the
+        // time is chosen at every call instead.
+        {
+          selector: "CallExpression[callee.property.name='loseHp']:not(:has(Property[key.name='silent']))",
+          message: "Battle.loseHp: pass `silent` in the options literal — `silent: true` when the official node creates no effect (no 'dmg', no 真实 hit drawn), `silent: false` with a comment saying why the hit is drawn (docs/rules/fx.md 「효과 없는 주기적 유실」)",
+        },
       ],
     },
   },
