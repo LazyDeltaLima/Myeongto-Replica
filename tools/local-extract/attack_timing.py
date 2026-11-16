@@ -510,7 +510,9 @@ def main():
     old_enemies = kept_all(prev.get('enemies') or {}, enemies) if part else kept(prev.get('enemies') or {}, enemies, wanted)
     old_tokens = kept_all(prev.get('tokens') or {}, tokens) if part else kept(prev.get('tokens') or {}, tokens, token_ids)
     ops.update(old_ops)
-    # `clip`: the clip the key plays when it is not the key itself (the skin's key table; docs/rules/sim.md 「일반 공격 타이밍」)
+    # `clip`: the clip the key plays when it is not the key itself (the skin's key table; docs/rules/sim.md 「일반 공격 타이밍」).
+    # The default model's table only: a skin model is display only and the battle is timed by the default model (the skin
+    # models' own tables are anim_keys.py `skins`, for the view — docs/rules/render.md 「스킨 모델 소재」)
     table = skin_keys()
     for cid, row in ops.items():
         for ab in row.get('attack') or []:

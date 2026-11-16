@@ -1581,12 +1581,28 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   클라 추출에 없던 소환물 둘, 비즈왁스의 사막의 오벨리스크 `summer#11`·카제마루의 종이 인형 `witch#3` 포함)·초상화 265, 570파일·47.5 MB. 없는 7벌(소환물 스킨 아바타)은 `missing` →
   기본 아바타. 일러스트는 그대로 이 서버가 보낸다(webp q85).
 - 표시 전용: 전투 판정은 기본 모델 기준이다. 스킨 모델의 클립 길이는 시뮬레이션에 들어가지 않는다(시뮬레이션은 `data/assets.json`의 기본 모델만 읽음).
-- 아직 없는 것: 스킨 모델 항목의 그리기 필드(페이지 종류 `pma`, 키 표·클립 길이·타격·부착점) — 아래 「스킨 렌더 게이트」가 그것을 기다린다.
+- 스킨마다 따라오는 것(2026-11-16, 공식 클라에서 확인): 스킨 프리팹(`skinpack/<주인>.ab`)은 자기 애니메이터·부착점·이펙트 바꾸기를 가진다. 추출기가
+  `skins.json`의 스킨마다 그 프리팹에서 읽는다(`tools/local-extract/char_points.py skin_prefabs` — 스킨 모델을 뽑은 클라에서, 묶음이나 프리팹이 없으면 멈춤).
+  - 키 표: `anim_keys.py`가 `.cache/anim-keys.json` `skins[스킨 키] = { owner, keys, mix }`(SpineAnimator `_animations`·`_mixSettings`, 기본의
+    `DefaultSkin`과 같은 읽기)에 쓴다. 312벌 중 15벌이 기본과 다른 표다. 스킨 모델의 역할(`anims`)은 `keyRoles({ ...ops[주인], skin: skins[키] }, <그 스킨
+    골격의 클립>)`로 만든다(그리기 필드 줄).
+  - 부착점: `char_points.py`가 `public/assets/local/fx/skin-points.json` `{ 스킨 키: points.json과 같은 기록 }`(git 밖)에 쓴다. 312벌 중 274벌이 기본과
+    다르다(뼈 이름·자리).
+  - 이펙트: 스킨 프리팹의 `CharacterSkinHooker`가 이펙트 키를 스킨 것으로 바꾼다(`_replaceEffectPairs`, `TryHookEffect` — 스카디 더 커럽팅 하트
+    `boc#4`: `skadi2_skill_01_hit` → `skadi2_skill_01_hit_boc#4`, 공통 키 `common_char_birth_01`도). `_useFakeProjectile`이면 투사체 키를 그리는 것·판정하는
+    것·총구 점으로 나눈다(`_fakeProjectileConfigs`, `TryHookProjectile`). `fx_extract.py --skin-pairs`가 `public/assets/local/fx/skin-effects.json`
+    `{ skins: { 스킨 키: { owner, effects?: { 원래 키: 스킨 키 }, projectiles?: [{ from, graphic, logic, muzzle }] } } }`에 쓴다. 246벌이 이펙트 4,009쌍,
+    115벌이 투사체를 바꾸고, 52벌은 훅이 없어 기본 이펙트다. 한 키가 두 이펙트로 짝지어지면 멈춘다. 바꾼 이펙트 프리팹 자체는 아직 안 뽑는다(`fx_extract.py`는
+    기본 스킨만, `VARIANT_RE`·`fxmap.js isVariant`는 이름 규칙으로 기본 목록에서 뺌).
+  - 전투 시간은 기본 모델만: `attack_timing.py`의 `clip`은 `client_path.skin_keys()`(기본 표만)로 푼다. 스킨 표가 거기 섞이면 스킨이 전투를 바꾼다.
+- 아직 없는 것: 스킨 모델 항목의 그리기 필드(페이지 종류 `pma`, 위 키 표로 만든 역할·클립 길이·타격) — 아래 「스킨 렌더 게이트」가 그것을 기다린다.
+  렌더가 스킨 유닛에 `skin-points.json`·`skin-effects.json`을 쓰는 것과 바꾼 이펙트 프리팹 추출도 아직이다.
 - 재발 방지: 원인 제거 — `tools/local-extract/skin_extract.py` `file_name`이 모든 출력 이름을 만들고 모르는 글자에서 멈춤; 저장소 폴더는
   `tools/fetch-skin-models.mjs`가 트리에서 찾고 모르는 경우(후보 둘)에 멈춤(손 별칭 표 없음); 그림 파일은 `tools/fetch-skin-art.mjs`가 스킨 표의 id로 트리에서
   찾고 모르는 스킨·이름 규칙 없는 글자·대소문자만 다른 두 파일에서 멈춤. 목록 생성(추출 모델·아바타·초상화 빼기·`models.json`·`art.json` 싣기·두 번 적힌
   경로에 멈춤·`packs`)과 일러스트 알파(뽑힌 일러스트 전부가 투명 화소를 가짐)는 `test/local-extract-skins.test.js`, 받을 목록·지울 목록 나누기와 폴더·그림 찾기는
-  `test/resource-packs.test.js`.
+  `test/resource-packs.test.js`; 스킨마다 따라오는 키 표·부착점·이펙트 짝(모든 스킨 모델에 줄이 있음, 짝 충돌에 멈춤, 전투 시간은 기본 표만)은
+  `test/local-extract-skin-dims.test.js`.
 
 ## 스킨 렌더 게이트 (2026-11-16 — 스킨은 표시 전용, 받지 않은 사용자에게는 남의 스킨도 기본 모습)
 

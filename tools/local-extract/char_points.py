@@ -22,6 +22,11 @@ Without --id every operator with an extracted effect bundle (public/assets/local
 the 선발 picks of data/backups.json (char_modes.py pool_char_ids), and the tokens of TOKENS. Everything is (c) Hypergryph;
 private fan use only.
 
+Skins (2026-11-16): each skin model of public/assets/local/spine/skin/skins.json (skin_extract.py) has its own animator and
+points in its prefab of skinpack/<owner>.ab (274 of the 312 differ from the default model's: other bones, other spots). They
+go to public/assets/local/fx/skin-points.json { <skin key>: the same record } (git-ignored, client-only like the models;
+--no-skins leaves it, --id the owners' rows only).
+
 Tokens (2026-10-16): a token's battle model is a prefab of pkgrps/btl_pfb_tokens_*.ab — one bundle holds many, each with its
 own animator, picked by the prefab's root name. Only TOKENS are read: their effects name special points (伺夜's wolf pack
 vigil_token_buff_1–4 on MP_SPECIAL_0–3, its head / body / hands); the other tokens keep the render's fallbacks until checked.
@@ -43,6 +48,48 @@ DEFAULT_CLIENT = client_data()  # SP_CLIENT / .env / .client (client_path.py); -
 
 # tokens whose effects need their model's points (see the docstring)
 TOKENS = ('token_10028_vigil_wolf',)
+# the skin models this server lists (skin_extract.py) and where their points go (git-ignored beside points.json)
+SKINS = ROOT / 'public/assets/local/spine/skin/skins.json'
+SKIN_FX_OUT = ROOT / 'public/assets/local/fx/skin-points.json'
+SKIN_BUNDLE_DIRS = ('PersistentData/Bundles', 'StreamingAssets/AB/Windows')   # the hot-update copy first
+
+
+def skin_list(path=SKINS):
+    """{ skin key: its skins.json entry ({ owner, prefab, client 'en' | 'cn', … }) } of the skin models skin_extract.py wrote,
+    or None when it has not run on this machine."""
+    p = Path(path)
+    return json.loads(p.read_text(encoding='utf-8')).get('skins') or {} if p.exists() else None
+
+
+def skin_prefabs(skins, games, owners=None, log=print):
+    """Yield (skin key, entry, env, root, tree) for every skin of `skins` (skin_list), owner by owner: `env` its owner's
+    skinpack loaded from the client the model came from (`games`: { 'en' | 'cn': Arknights_Data }), `root` the name of the
+    skin prefab's root GameObject there (the container path is lower case, the GameObject keeps the table's case), `tree`
+    [(GameObject path, MonoBehaviour, path id)] of that prefab only. A skin whose skinpack or prefab is gone (the client
+    changed since skin_extract.py ran) stops the run: its model would be drawn with the default skin's keys and points."""
+    import aklz4  # noqa: F401
+    import UnityPy
+    from char_modes import load_tree
+    by_owner = {}
+    for key, e in sorted(skins.items()):
+        if owners is None or e['owner'] in owners:
+            by_owner.setdefault((e['owner'], e['client']), []).append((key, e))
+    for (owner, client), rows in sorted(by_owner.items()):
+        game = games.get(client)
+        f = next((Path(game) / d / 'skinpack' / f'{owner}.ab' for d in SKIN_BUNDLE_DIRS
+                  if game and (Path(game) / d / 'skinpack' / f'{owner}.ab').is_file()), None)
+        if f is None:
+            raise SystemExit(f'skin_prefabs: no {client} skinpack/{owner}.ab for {", ".join(k for k, _ in rows)} '
+                             '(re-run skin_extract.py after a client update)')
+        env = UnityPy.load(str(f))
+        tree, _ = load_tree(str(f))
+        tops = {gp.split('/')[0] for gp, _, _ in tree}
+        for key, e in rows:
+            root = [t for t in tops if t.lower() == e['prefab'].lower()]
+            if len(root) != 1:
+                raise SystemExit(f'skin_prefabs: {key}: {len(root)} root(s) named {e["prefab"]} in {f}')
+            root = root[0]
+            yield key, e, env, root, [x for x in tree if x[0] == root or x[0].startswith(root + '/')]
 
 
 def token_files(client, ids):
@@ -82,14 +129,15 @@ def char_ids(client):
     return sorted(ids), files
 
 
-def points_of(path, root=None):
+def points_of(path, root=None, env=None):
     """{ key: { F|B: point } } of one chararts bundle's DefaultSkin, or None without one; `root`: the animator of that
-    prefab (a token bundle holds many)."""
+    prefab (a token bundle and an owner's skinpack hold many); `env`: the bundle already loaded (UnityPy.load)."""
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
     import UnityPy
-    env = UnityPy.load(str(path))
+    if env is None:
+        env = UnityPy.load(str(path))
     objs = {o.path_id: o for o in env.objects}
-    cache = {}
+    cache = env.__dict__.setdefault('_sp_typetrees', {})   # (one skinpack serves every skin of its owner)
 
     def tt(pid):
         if pid not in cache:
@@ -182,10 +230,35 @@ def skeleton_scale(objs, tt, go_mbs, side_tr):
     return None
 
 
+def skin_points(games, owners=None, log=print):
+    """Write SKIN_FX_OUT: { skin key: { muzzle | hit | head | sp<N>: { F?, B? } } } — each skin model's own attach points
+    (its prefab's animator, as points_of reads DefaultSkin), for the skins of skin_list(); `owners`: only theirs, the other
+    rows kept. Returns (rows written, rows whose points differ from the owner's default), or None without skins.json."""
+    skins = skin_list()
+    if skins is None:
+        log(f'no {SKINS.relative_to(ROOT)} (skin_extract.py): skin points skipped')
+        return None
+    old = json.loads(SKIN_FX_OUT.read_text(encoding='utf-8')) if owners and SKIN_FX_OUT.exists() else {}
+    out = {k: v for k, v in old.items() if k in skins and skins[k]['owner'] not in owners} if owners else {}
+    base = json.loads(OUT.read_text(encoding='utf-8')) if OUT.exists() else {}
+    differ = 0
+    for key, e, env, root, _ in skin_prefabs(skins, games, owners, log):
+        pts = points_of(None, root, env)
+        if pts is None:
+            raise SystemExit(f'skin_points: {key}: no animator under {root}')
+        out[key] = {k: pts[k] for k in sorted(pts)}
+        differ += out[key] != base.get(e['owner'])
+    if SKIN_FX_OUT.parent.exists():
+        SKIN_FX_OUT.write_text(json.dumps(dict(sorted(out.items())), ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+    return len(out), differ
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--client', default=DEFAULT_CLIENT)
+    ap.add_argument('--cn', default=None, help='the CN client Arknights_Data (the skins whose model came from it; default: client_path.py)')
     ap.add_argument('--id', action='append', default=[])
+    ap.add_argument('--no-skins', action='store_true', help='leave public/assets/local/fx/skin-points.json as it is')
     a = ap.parse_args()
     ids, files = char_ids(a.client)
     ids = a.id or ids + list(TOKENS)
@@ -217,6 +290,11 @@ def main():
         FX_OUT.write_text(json.dumps({k: out[k] for k in sorted(out)}, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no chararts: {", ".join(missing) or "none"}')
+    if not a.no_skins:
+        from client_path import client_data_cn
+        got = skin_points({'en': a.client, 'cn': a.cn or client_data_cn()}, set(a.id) or None)
+        if got:
+            print(f'{got[0]} skin(s) → {SKIN_FX_OUT.relative_to(ROOT)} ({got[1]} with points other than the default model\'s)')
 
 
 if __name__ == '__main__':

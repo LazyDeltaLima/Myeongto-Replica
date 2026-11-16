@@ -3672,6 +3672,60 @@ class Extractor:
         return written
 
 
+SKIN_HOOKS = 'skin-effects.json'   # under OUT: write_skin_hooks
+
+
+def skin_hook(tree):
+    """{ effects?: { fromEffect: toEffect }, projectiles?: [{ from, graphic, logic, muzzle }] } of one skin prefab's
+    [(GameObject path, MonoBehaviour, path id)] (char_points.skin_prefabs): its CharacterSkinHooker. The client creates an
+    effect by key and the skin's hooker turns the key into its own (`_replaceEffectPairs`, CharacterSkinHooker.TryHookEffect
+    — skadi2_skill_01_hit → skadi2_skill_01_hit_boc#4; a common key too: common_char_birth_01 → the skin's birth effect),
+    and with `_useFakeProjectile` a projectile key into a drawn one and a logic one with its own muzzle point
+    (`_fakeProjectileConfigs`, TryHookProjectile; `muzzle` the Entity.MountPointType). Empty without a hooker (52 of the 312
+    skin models: their effects are the default skin's). A key paired twice with two different effects stops the run (which
+    one the client takes is not read)."""
+    hooks = [d for _, d, _ in tree if isinstance(d.get('_replaceEffectPairs'), list)]
+    if len(hooks) > 1:
+        raise ValueError(f'skin_hook: {len(hooks)} CharacterSkinHooker components in one skin prefab')
+    out = {}
+    for d in hooks:
+        eff = {}
+        for p in d['_replaceEffectPairs']:
+            f, t = (p or {}).get('fromEffect'), (p or {}).get('toEffect')
+            if not (isinstance(f, str) and f and isinstance(t, str) and t):
+                continue
+            if eff.get(f, t) != t:
+                raise ValueError(f'skin_hook: {f} replaced by both {eff[f]} and {t}')
+            eff[f] = t
+        if eff:
+            out['effects'] = dict(sorted(eff.items()))
+        if d.get('_useFakeProjectile'):
+            proj = [{'from': c['originProjectileKey'], 'graphic': c.get('graphicProjectileKey') or None,
+                     'logic': c.get('logicProjecitleKey') or None, 'muzzle': c.get('_fakeMuzzlePoint')}
+                    for c in d.get('_fakeProjectileConfigs') or [] if isinstance(c, dict) and c.get('originProjectileKey')]
+            if proj:
+                out['projectiles'] = proj
+    return out
+
+
+def write_skin_hooks(games, owners=None):
+    """Write OUT/skin-effects.json { skins: { skin key: { owner, effects?, projectiles? } } } for the skin models of
+    public/assets/local/spine/skin/skins.json (skin_extract.py), read from the client each model came from (`games`:
+    { 'en' | 'cn': Arknights_Data }); `owners`: only theirs, the other rows kept. Returns the row count, None without
+    skins.json. The replacing effects' own prefabs are not extracted here yet (the default skin's only, VARIANT_RE)."""
+    from char_points import skin_list, skin_prefabs
+    skins = skin_list()
+    if skins is None:
+        return None
+    path = OUT / SKIN_HOOKS
+    old = (json.loads(path.read_text(encoding='utf-8')).get('skins') or {}) if owners and path.exists() else {}
+    rows = {k: v for k, v in old.items() if k in skins and skins[k]['owner'] not in owners} if owners else {}
+    for key, e, _, _, tree in skin_prefabs(skins, games, owners):
+        rows[key] = {'owner': e['owner'], **skin_hook(tree)}
+    path.write_text(json.dumps({'skins': dict(sorted(rows.items()))}, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+    return len(rows)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--game', required=True, help='Arknights_Data folder (or a merged copy of its bundle folders)')
@@ -3732,7 +3786,16 @@ def main():
     ap.add_argument('--equips', action='store_true', help='the modules\' deploy effects (2026-11-03): extract the prefabs of the '
                     'modules data/chess.json and data/backups.json offer into the bundle `uniequip` (and --prefab ones) and write '
                     'the index\'s `equips` { uniEquipId: [prefab…] } (module_effects)')
+    ap.add_argument('--skin-pairs', action='store_true', help='only write fx/skin-effects.json: each skin model\'s effect and '
+                    'projectile replacements (its prefab\'s CharacterSkinHooker, skin_hooks), --game the EN client, '
+                    '--other-game the CN one (default: client_path.py); --id-owner limits it to some owners')
+    ap.add_argument('--id-owner', action='append', default=[], metavar='OWNER', help='--skin-pairs: only these owners, the other rows kept')
     a = ap.parse_args()
+    if a.skin_pairs:
+        from client_path import client_data_cn
+        n = write_skin_hooks({'en': a.game, 'cn': a.other_game or client_data_cn()}, set(a.id_owner) or None)
+        print(f'[fx] skin pairs: {n} skin(s) in {OUT / SKIN_HOOKS}' if n is not None else '[fx] skin pairs: no skins.json (skin_extract.py)')
+        return
     if a.wrap_only:
         ex = Extractor(a.game, a.cab_index, png=a.png, client=a.client)
         print(f'[fx] wrap: {merge_wraps(wrap_walk(ex, a))} texture(s) listed in {OUT / WRAP_FILE}')

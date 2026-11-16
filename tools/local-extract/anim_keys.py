@@ -29,6 +29,12 @@ The client plays a Spine clip by key only. Abilities, modes and skill prefabs na
 Summons (`tokens`): the same `modes` and `skin` from their token prefabs (pkgrps/btl_pfb_tokens_*.ab), for the summons of
 data/assets.json whose prefab has modes.
 
+Skins (`skins`): { <skin key>: { owner, keys, mix } } — the key table of each skin model public/assets/local/spine/skin/
+skins.json lists (skin_extract.py), from its own prefab in skinpack/<owner>.ab: a skin model plays the owner's ability keys
+through its own table (`keyRoles({ ...ops[owner], skin: skins[key] }, <its skeleton's clips>)`). Display only: the battle
+timing (attack_timing.py through client_path.skin_keys) reads the default `skin` alone (docs/rules/render.md 「스킨 모델
+소재」).
+
 The output is client-only data and is never tracked (maintainer decision 2026-10-22): .cache/anim-keys.json.
 
 Usage (from the repo root; ~2 min): .venv-extract/bin/python tools/local-extract/anim_keys.py [--client <EN Arknights_Data>]
@@ -408,6 +414,25 @@ def tokens_of(games, templates):
     return out
 
 
+def skin_tables(games):
+    """{ skin key: { owner, keys, mix } } — the key table of every skin model of skins.json (skin_extract.py), read from its
+    own prefab in the owner's skinpack as skin_of reads DefaultSkin (the skin's SpineAnimator `_animations` /
+    `_mixSettings`); None when skins.json is missing. A skin plays its own clips by the abilities' keys through this table:
+    15 skins map a key to another clip than the default model does (the render roles of a skin model are built from it)."""
+    from char_points import skin_list, skin_prefabs
+    skins = skin_list()
+    if skins is None:
+        print('no skins.json (skin_extract.py): skin key tables skipped')
+        return None
+    out = {}
+    for key, e, _, root, tree in skin_prefabs(skins, games):
+        t = skin_of(None, tree, root)
+        if t is None:
+            raise SystemExit(f'anim_keys: skin {key}: no SpineAnimator `_animations` at {root}')
+        out[key] = {'owner': e['owner'], **t}
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--client', default=client_data())
@@ -459,13 +484,18 @@ def main():
             ops[cid]['skills'] = out
     put_fin_lives(ops, games)
     toks = tokens_of(games, templates)
+    from client_path import client_data_cn
+    skins = skin_tables({'en': a.client, 'cn': a.cn or client_data_cn()})   # (a CN skin model is read from the CN client)
     doc = {'$comment': 'Clip keys of the operators (abilities, modes, skill prefabs, the skin key table) and of the summons '
-                       '(their prefab modes and skin key table), written by tools/local-extract/anim_keys.py from the local '
-                       'client. Client-only, never tracked.',
+                       '(their prefab modes and skin key table), and the key table of each skin model (`skins`), written by '
+                       'tools/local-extract/anim_keys.py from the local client. Client-only, never tracked.',
            'ops': ops, 'tokens': toks}
+    if skins is not None:
+        doc['skins'] = skins
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(doc, ensure_ascii=False, indent=1, sort_keys=True) + '\n', encoding='utf-8')
-    print(f'{len(ops)} operators, {len(toks)} summons -> {a.out}' + (f'; no charpack: {", ".join(missing)}' if missing else ''))
+    print(f'{len(ops)} operators, {len(toks)} summons' + (f', {len(skins)} skins' if skins is not None else '') + f' -> {a.out}'
+          + (f'; no charpack: {", ".join(missing)}' if missing else ''))
 
 
 if __name__ == '__main__':
