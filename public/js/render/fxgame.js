@@ -1730,6 +1730,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const skinName = (v, name) => { const k = skinOf(v); return k && skinFx ? skinEffect(skinFx, k, name) : name; };
   /** `skinName` after the tables are loaded (an effect of a unit drawn in a skin waits for them; any other plays at once). */
   const skinNameNow = async (v, name) => { if (skinOf(v)) await skinTables(); return skinName(v, name); };
+  /** `run(name)` with the status effect `src` plays for `name`: at once, or once the skin tables are in for a source drawn in a skin. */
+  const statusTrace = (src, name, run) => { if (!trace && !dry) return; if (skinOf(src)) skinNameNow(src, name).then(run); else run(name); };
   /**
    * Where lib.load finds prefab `n` asked of folder `bundle`: [folder, file] in the skin folder when `bundle` lacks it and the
    * skin folder has it (fxskin.js skinFile — a skin's effect, or a prefab a skin prefab creates by name); a prefab a skin
@@ -1964,9 +1966,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     };
   }
   const statusFailed = new Set();   // `${bundle}/${name}` that did not load: their units keep the icon (statusReady false)
-  async function playStatus(view, bundle, name, key, frac, hold = null, under = false, once = false, kept = false) {
+  async function playStatus(view, bundle, name, key, frac, hold = null, under = false, once = false, kept = false, src = view) {
     if (!(await ensure())) return;
-    const def = await lib.load(bundle, skinOf(view) ? await skinNameNow(view, name) : name);   // 2026-11-17: on a unit drawn in a skin, the skin's
+    const def = await lib.load(bundle, skinOf(src) ? await skinNameNow(src, name) : name);   // 2026-11-17: its source drawn in a skin, the skin's
     if (mod && !def) { statusFailed.add(`${bundle}/${name}`); view._fxStatusOn?.delete(key); return; }
     if (!mod || !view._fxStatusOn?.has(key)) return;   // destroyed, or turned off while it loaded
     // local patch (maintainer report 2026-10-08: the stun marks stacked over a re-stunned enemy): one effect per unit and
@@ -1994,15 +1996,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
     // (`once`: finished the frame it lands — FxInstance.finish, then gone def.finish s later — and never started again)
     const fin = once ? Math.max(0, Number(def.finish) || 0) : 0;
-    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: once || kept ? null : () => playStatus(view, bundle, name, key, frac, hold, under), unit: view,
+    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: once || kept ? null : () => playStatus(view, bundle, name, key, frac, hold, under, false, false, src), unit: view,
       ...(once ? { until: clockS, finishAt: clockS + fin } : null) }, split ? layers.split : under ? layers.under : layers.over);
     trimLive();
   }
 
   /** 2026-10-21: a one-shot status prefab on `view` at its own `_spawnLocation` (a buff's end effect: api.statusOnce). */
-  async function playOnce(view, bundle, name) {
+  async function playOnce(view, bundle, name, src = view) {
     if (!(await ensure())) return;
-    const def = await lib.load(bundle, skinOf(view) ? await skinNameNow(view, name) : name);
+    const def = await lib.load(bundle, skinOf(src) ? await skinNameNow(src, name) : name);
     if (!mod || !def || view.remove) return;
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, floor: view.z || 0, tilt: tiltOn(view, def) });
     const anchor = lifted(view, def);
@@ -2351,7 +2353,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const s = opShot(def, true, i);
     if (s && Number(s.speed) === 0 && s.move !== 'OTHER') return -1;   // no flight: the skill's shot lands at once
     const unit = to.info ? to : null;
-    const from = via ? shotTo(via.from) : shotFrom(src, null);
+    // 2026-11-17 (docs/rules/render.md 「스킨 모델 소재」): her skill's projectile is hers — a unit drawn in a skin flies the drawn
+    // projectile its skin puts in its place from that one's muzzle (none drawn when it carries no effect) and its effects through
+    // the skin's pairs (BattleController.CreateProjectile → source TryHookProjectile, Projectile._CreateMainEffect → TryHookEffect)
+    const fake = !via && skinFx && skinOf(src) ? skinShot(skinFx, skinOf(src), name) : null;
+    const from = via ? shotTo(via.from) : shotFrom(src, null, fake?.muzzle ?? null);
     const end = unit ? shotTo(unit) : null;
     const tx = end ? end.x : Number(to.x), ty = Number(to.y), tz = end ? end.z : Number(to.z) || 0;
     // the sim's flight: unit to unit (or point), as trailShot
@@ -2359,10 +2365,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const dur = Math.max(0.04, Math.hypot(tx - ox, ty - oy) / (via ? via.speed : Number(s?.speed) > 0 ? Number(s.speed) : 10));
     const arc = s?.move === 'PARACURVE' && Number(s.height) > 0 ? Number(s.height) : 0;
     const rec = { inst: null, tgt: unit, x0: from.x, y0: from.y, z0: from.z, tx, ty, tz, k: 0, dur, arc };
-    trails.push(rec);
-    spawn(b.bundle, name, { x: from.x, y: from.y, z: from.z }, { owner: null, buff: false, until: clockS + dur + 5 }, { drop: rec })
-      .then((l) => { if (!l) { const k = trails.indexOf(rec); if (k >= 0) trails.splice(k, 1); } });
-    const line = unit && !via ? shotLine(src, name) : null;
+    const drawn = fake ? fake.names[0] : name;
+    if (drawn) {
+      trails.push(rec);
+      spawn(b.bundle, drawn, { x: from.x, y: from.y, z: from.z }, { owner: null, buff: false, until: clockS + dur + 5 }, { drop: rec, hook: src })
+        .then((l) => { if (!l) { const k = trails.indexOf(rec); if (k >= 0) trails.splice(k, 1); } });
+    }
+    const line = unit && !via && drawn ? shotLine(src, name) : null;
     if (line) ropeLine(b.bundle, line, src, rec);
     castsDelayed.push({ t: clockS + dur, run: () => land?.() });
     return dur;
@@ -2801,12 +2810,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * One prefab of `bundle` at `at` (a view or point, followed): entry = addLive's { owner, buff, until, on (the unit it sits
    * on: stopped at its 'die') }; `over` puts it over the units; `floor` the height under which it is cut (default: its own
-   * for one under the units, else 0). Resolves the live entry (null if not played).
+   * for one under the units, else 0). `hook`: the unit that creates it when that is not `entry.owner` (a skill projectile's
+   * flight and reach effects, a kit's marks on its targets) — its skin's effect plays. Resolves the live entry (null if not played).
    */
-  async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null, dir = null, floor = null } = {}) {
-    if (!fxIn(bundle, name)) return null;
-    // 2026-11-17: an effect its owner creates — the owner drawn in a skin — is the skin's (the deploy effect on the unit too)
-    const ov = entry.owner == null ? null : at?.info && ownerOf(at) === entry.owner ? at : lastViews?.get(entry.owner) ?? null;
+  async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null, dir = null, floor = null, hook = null } = {}) {
+    if (!fxIn(bundle, name) && !(hook && skinOf(hook) && skinAt(bundle, name))) return null;
+    // 2026-11-17: an effect its owner creates — the owner drawn in a skin — is the skin's (the deploy effect on the unit too);
+    // one `hook` creates is `hook`'s (the client hooks every effect by its source: BattleController.CreateEffect → TryHookEffect)
+    const ov = hook ?? (entry.owner == null ? null : at?.info && ownerOf(at) === entry.owner ? at : lastViews?.get(entry.owner) ?? null);
     if (skinOf(ov)) name = await skinNameNow(ov, name);
     if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null, facing, ...(entry.pinned ? { pinned: true } : null), ...(entry.mode != null ? { mode: entry.mode } : null), ...(plainPt(at) ? { pt: [at.x, at.y, at.z || 0] } : null) }); // tests (`pinned`: never ended by the caps; `pt`: a plain point's place)
     if (dry) dryFollow(bundle, name, entry.owner ?? null, at && at.info ? ownerOf(at) ?? null : null);
@@ -4141,6 +4152,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const ground = tgt && { get x() { return mx(tgt); }, get y() { return tgt.y; }, get z() { return (tgt.z || 0) + (tgt.hover || 0); },
         get alive() { return tgt.alive; }, get remove() { return tgt.remove; }, id: tgt.id };
       const up = tgt && pointUp(ptsOf(src)?.muzzle, src.actor?.spine?.skeleton, !!src.entryBack, src.visFacing ?? src.facing ?? 1);
+      // 2026-11-17 (docs/rules/render.md 「스킨 모델 소재」): all of them, and her shells, are hers (the aim projectile's and her
+      // buffs' source) — drawn in a skin, the skin's pairs (spawn `hook`; no fake projectile replaces projectile_chr_lemuen_s3_aim)
       for (const n of ['lemuen_skill_03_crosshair_01', 'lemuen_skill_03_trail_01', 'lemuen_skill_03_crosshair_range', 'lemuen_skill_03_crosshair_02']) {
         const aimFx = n.endsWith('crosshair_range');
         // 2026-10-27 (maintainer report, video: a target locked again kept a brighter glow): the mark is the effect of buff
@@ -4152,7 +4165,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (!s || s.ended || s.l?.inst.stopping) {
             const own = s = { n: 0, l: null, src: o.src, ended: false };
             lemMarkFx.set(o.id, own);
-            spawn(bundleOf(src).bundle, n, tgt, { owner: o.id, buff: true, on: o.id, until: clockS + 30 }).then((l) => {
+            spawn(bundleOf(src).bundle, n, tgt, { owner: o.id, buff: true, on: o.id, until: clockS + 30 }, { hook: src }).then((l) => {
               if (!l) return;
               // turned 45° in its own plane: the official recordings show the big wedges as an X and the small ones as a + —
               // the prefab (small wedges' node turned 45°, big ones not), the cone's BurstSpread (k/4 × 360°), the
@@ -4176,7 +4189,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           } } });
           continue;
         }
-        spawn(bundleOf(src).bundle, n, (aimFx ? ground : tgt) || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30, skyward: n.endsWith('trail_01') }).then((l) => {
+        spawn(bundleOf(src).bundle, n, (aimFx ? ground : tgt) || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30, skyward: n.endsWith('trail_01') }, { hook: src }).then((l) => {
           if (!l) return;
           if (aimFx && up) upwardMajor(l.inst.object, mod.THREE, up[0], up[1], 0);
           if (mark.done) l.inst.stop(); else mark.push(l);
@@ -4196,7 +4209,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (e[1] === 'bombard') {
         const mark = lemMarks.get(o.id)?.shift();
         if (mark) { mark.done = true; for (const l of mark) l.inst.stop(true); } // its long-lived glow particles go with the shell
-        spawn(bundleOf(src).bundle, 'lemuen_skill_03_hit_01', { x, y, z: 0 }, { owner: null, buff: false });
+        spawn(bundleOf(src).bundle, 'lemuen_skill_03_hit_01', { x, y, z: 0 }, { owner: null, buff: false }, { hook: src });
         return true;
       }
       // 2026-10-27 (maintainer report, official recording: the wedges stop once the shelling starts, the beams stay): the
@@ -4206,7 +4219,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const dur = Math.max(0.05, Number(o.t) || 0.5);
       const rec = { inst: null, tgt: null, x0: x, y0: y, tx: x, ty: y, k: 0, dur, arc: 0, still: true };
       trails.push(rec);
-      spawn(bundleOf(src).bundle, 'lemuen_skill_03_trail_02', { x, y, z: 0 }, { view: null, owner: null, buff: false, until: clockS + dur + 2 }, { drop: rec })
+      spawn(bundleOf(src).bundle, 'lemuen_skill_03_trail_02', { x, y, z: 0 }, { view: null, owner: null, buff: false, until: clockS + dur + 2 }, { drop: rec, hook: src })
         .then((l) => { if (!l) { const i = trails.indexOf(rec); if (i >= 0) trails.splice(i, 1); } });
       return true;
     }
@@ -5005,7 +5018,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const put = () => {
       if (foe) nrec.at = shellLand(foe);   // as it lands: the orb traced the target there
       for (const n of [...fx, ...aura]) {
-        spawn(bundle, n, nrec.at, { owner: null, buff: false, until: nrec.until }, { over: false, floor }).then((l) => {
+        // (2026-11-17) her shot's reach effects are hers: a unit drawn in a skin plays the skin's (spawn `hook`)
+        spawn(bundle, n, nrec.at, { owner: null, buff: false, until: nrec.until }, { over: false, floor, hook: src }).then((l) => {
           if (!l) return;
           nrec.list.push(l);
           if (aura.includes(n)) nrec.aura.add(l);
@@ -7279,11 +7293,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return memo.get(mk);
     },
     /** 2026-10-21: `bundle`/`name` once on `view` at the prefab's own `_spawnLocation` — a buff's end (fxstatus.js `end`). */
-    statusOnce(view, bundle, name) {
+    statusOnce(view, bundle, name, src = view) {
       if (!index?.bundles?.[bundle]?.includes(name) || q() === 'low' || failed) return;
-      if (trace) trace({ kind: 'statusEnd', names: [name], by: ownerOf(view) ?? null, at: null });
-      if (dry) dryFollow(bundle, name, ownerOf(view) ?? null, ownerOf(view) ?? null);
-      playOnce(view, bundle, name);
+      statusTrace(src, name, (n) => {
+        if (trace) trace({ kind: 'statusEnd', names: [n], by: ownerOf(view) ?? null, at: null });
+        if (dry) dryFollow(bundle, n, ownerOf(view) ?? null, ownerOf(view) ?? null);
+      });
+      playOnce(view, bundle, name, src);
     },
     /**
      * 2026-10-21: a battle unit's Spine clip event (render/app.js ctx.spineEvent): OnDeactivateEffect / OnActivateEffect
@@ -7304,13 +7320,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * 2026-10-23: `once` — an IMMEDIATELY buff's effect (fxstatus.js ONCE_OF): the client's buff ends as it starts and
      * finishes the effect (Effect.FinishMe), so it is finished at once and gone its `_delayToFinish` later, never looped.
      */
-    statusOn(view, bundle, name, key, frac = 0, hold = null, under = false, once = false, kept = false) {
+    statusOn(view, bundle, name, key, frac = 0, hold = null, under = false, once = false, kept = false, src = view) {
       const on = view._fxStatusOn || (view._fxStatusOn = new Set());
       if (on.has(key)) return;
       on.add(key);
-      if (trace) trace({ kind: 'status', names: [name], by: ownerOf(view) ?? null, at: null, ...(once ? { once: true } : null) }); // tests: the status prefab on `view`
-      if (dry) dryFollow(bundle, name, ownerOf(view) ?? null, frac === 'own' ? ownerOf(view) ?? null : null);
-      playStatus(view, bundle, name, key, frac, hold, under, once, kept);   // (`kept`: not started again when it ends by itself, fxmap.js readySpecs)
+      statusTrace(src, name, (n) => {
+        if (trace) trace({ kind: 'status', names: [n], by: ownerOf(view) ?? null, at: null, ...(once ? { once: true } : null) }); // tests: the status prefab on `view`
+        if (dry) dryFollow(bundle, n, ownerOf(view) ?? null, frac === 'own' ? ownerOf(view) ?? null : null);
+      });
+      playStatus(view, bundle, name, key, frac, hold, under, once, kept, src);   // (`kept`: not started again when it ends by itself, fxmap.js readySpecs)
     },
     /**
      * local patch (⑤): end the status effect `key` on `view`; `now` (render/fxstatus.js): as the client finishes a buff's

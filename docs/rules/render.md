@@ -1617,19 +1617,30 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
     다른 어느 구성 요소에도 이펙트 이름이 없다 — 18키는 빈 `Body`뿐이라 아무것도 그리지 않고, `projectile_arrow_graphic`만 `Body`에 SpriteRenderer(화살 그림)가 있다.
     그 행이 바꾸는 투사체(`from`)도 21행 중 19행은 `_mainEffect`가 없어 기본과 스킨이 똑같이 그리지 않는다(화살도 기본 `projectile_arrow`처럼 우리 절차 화살).
     남는 둘 — 혼 `epoque#59`의 `projectile_chr_thorn2_s3_polygon`(기본 `thorn2_skill_03_line` 줄)·르무엔 `ambienceSynesthesia#7`의 `projectile_chr_lemuen_s3`(기본
-    `lemuen_skill_03_crosshair_range`)는 기본이 줄·조준 범위를 그리고 스킨 그래픽은 `Selector` 자식의 구성 요소뿐이다. 그 둘은 `projectile_carriers`가 줄과
-    `_playSpecialEffectOnFirstOne`을 빼므로 렌더가 기본 그대로 그린다 `[추정·미조사: Selector 구성 요소가 그리는 것을 안 읽음]`).
+    `lemuen_skill_03_crosshair_range`)의 그리는 투사체도 아무것도 그리지 않는다(공식 클라에서 확인, 2026-11-17, EN `[uc]projectiles.ab`의 구성 요소 클래스):
+    `Selector` 자식은 판정 범위·대상 거르기뿐이다 — 쏜즈 것은 `Thorn2PolygonRange`·`AdvancedSelector` 둘·`BoxCollider2D`, 르무엔 것은 필드 없는
+    `RootTileSelector` — 렌더러가 없다. 기본의 줄은 루트의 `Thorn2S3Renderer`(`_mainEffect`)로, 기본과 판정 투사체(`_logic`)에는 있고 그리는 투사체에는 없다.
+    둘 다 바뀌는 일이 없다: 혼은 쏜즈 더 로드스타의 투사체를 쏘지 않고, 르무엔 S3이 쏘는 것은 `projectile_chr_lemuen_s3_aim`(`data/chess.json` 스킬 셋째
+    `key`)이라 어느 행도 바꾸지 않는다 — 그 조준 원은 기본 조준 투사체의 `_mainEffect`이고 스킨 짝(`lemuen_skill_03_crosshair_range_ambienceSynesthesia#7`)으로
+    바뀐다(아래 「렌더가 스킨 유닛에 쓰는 것」의 만든 쪽).
   - 전투 시간은 기본 모델만: `attack_timing.py`의 `clip`은 `client_path.skin_keys()`(기본 표만)로 푼다. 스킨 표가 거기 섞이면 스킨이 전투를 바꾼다.
 - 렌더가 스킨 유닛에 쓰는 것(2026-11-17, `public/js/render/fxskin.js`·`fxgame.js`): 렌더 게이트가 스킨으로 그린 유닛(`render/units.js skinKey` — 게이트의
   답 `{ key }`, 소환물은 자기 스킨 키)은 그 스킨의 표를 쓴다. 두 표(`skin-effects.json`·`skin-points.json`)는 스킨 묶음 폴더 `fx/skin/`에 있어(`packs.skin`) 스킨
   데이터를 고른 사람만 받고, 이펙트 층은 스킨으로 그린 유닛이 처음 나올 때 한 번 받는다(그런 유닛이 없으면 요청하지 않음).
   - 부착점: `ptsOf`가 그 스킨 키의 `skin-points.json` 기록을 먼저 쓴다(표가 오기 전에는 기본 모델의 것).
   - 이펙트: 그 유닛이 주인인 이펙트는 스킨 짝(`effects`)의 이름으로 튼다 — `play`(시전·타격·버프, 타격은 공격한 유닛 기준), `spawn`(주인 `owner`가 그 유닛일
-    때, 배치 이펙트 `common_char_birth_01`도), `playStatus`·`playOnce`(그 유닛에 붙는 것), 궤적. 고르기(이름 규칙·바인딩·모드 표)는 기본 이름으로 하고 불러올
+    때, 배치 이펙트 `common_char_birth_01`도), `playStatus`·`playOnce`(그 유닛이 건 것 — 아래 「만든 쪽」), 궤적. 고르기(이름 규칙·바인딩·모드 표)는 기본 이름으로 하고 불러올
     때만 바꾸므로 기록·고르기는 기본과 같다. 기본 묶음에 없는 이름은 `skin-effects.json files`의 `fx/skin/<묶음>/<파일>.json`에서 읽고(`skinAt`, `lib.load` 한 곳),
     스킨 프리팹이 이름으로 만드는 프리팹도 같은 길(스킨 폴더 → 없으면 그 이름이 있는 기본 묶음). 스킨 전용 텍스처·메시는 `FxLibrary.skinFiles`가 `skin/index.json`
-    `tex`·`mesh`로 가려 `fx/skin/tex|mesh/`에서(반복 방식은 `skin/tex/wrap.json`). 주인을 모르는 길(주인 없이 띄우는 스킬 투사체 `skillShotOut`, 다른 유닛에 붙는
-    상태 이펙트 — 적에게 거는 디버프 등)은 기본 이름 그대로다 `[추정·미조사: 클라 TryHookEffect가 남에게 붙는 이펙트에도 걸리는지 안 읽음]`.
+    `tex`·`mesh`로 가려 `fx/skin/tex|mesh/`에서(반복 방식은 `skin/tex/wrap.json`).
+  - 만든 쪽(2026-11-17, 공식 클라에서 확인): 클라는 이펙트를 그것을 만든 쪽으로 바꾼다 — `BattleController.CreateEffect`의 모든 꼴이 출처(`source`)의
+    `TryHookEffect`(캐릭터 → 애니메이터 → `CharacterSkinHooker`)를 부르고, 버프 이펙트의 출처는 버프의 `source`(`Entity.AddBuffEffect`), 투사체는
+    `CreateProjectile`이 출처의 `TryHookProjectile`로 가짜 투사체를 나누고(판정 것은 `_fakeMuzzlePoint`에서, 그리는 것을 그 위에 붙임) 본체 이펙트도 투사체의
+    출처로 바꾼다(`Projectile._CreateMainEffect`). 그래서 스킨 유닛이 적에게 거는 상태 이펙트는 그 스킨의 것이고, 남이 스킨 유닛에게 건 것은 기본이다.
+    렌더: 상태 이펙트는 건 쪽(`render/fxstatus.js` — 상태의 `statusSource` `id`, `syncStatusFx`가 `statusOn`·`statusOnce`의 `src`로 넘김; 건 쪽이 판을 떠났으면
+    기본)의 스킨, 건 쪽이 없는 것(플래그 상태·시뮬레이션이 건 쪽 없이 보내는 상태·발동 준비 이펙트)은 가진 쪽의 것. 공격 없이 쏘는 스킬 투사체(`skillShotOut`:
+    메테오 S2·클리프하트 S2·틴맨 등)는 쏜 오퍼레이터의 스킨 짝·가짜 투사체(그림 없으면 날리지 않고 닿음만), 그 닿음 구역 이펙트(`zoneFx`)도; 르무엔 S3의 조준·표식·포탄도
+    르무엔의 것(`spawn` `hook`). 그 밖에 키트 이벤트가 `owner` 없이 또는 대상을 `owner`로 띄우는 이펙트(`spawn` 호출 가운데 만든 쪽을 넘기지 않는 것)는 아직 기본이다(남은 일). [화면 미확인 — `checks/play.md`: 만든 쪽 훅]
   - 투사체: 궤적 이름이 어떤 행의 `from` 투사체의 `_mainEffect`이면 그 행의 그리는 투사체(`graphic`)의 `_mainEffect`를 그 스킨 짝으로, `_fakeMuzzlePoint`
     (MountPointType, `shotFrom`의 `mount`)에서 쏜다; 그리는 투사체에 `_mainEffect`가 없으면 그 궤적은 그리지 않는다(절차 투사체도 없음). 362행 중 344행이 바꿀
     궤적을 안다(나머지 18행은 바꾸는 투사체에 그림이 없음). [화면 미확인 — `checks/play.md`: 스킨 이펙트·부착점·총구]
@@ -1639,7 +1650,7 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   경로에 멈춤·`packs`)과 일러스트 알파(뽑힌 일러스트 전부가 투명 화소를 가짐)는 `test/local-extract-skins.test.js`, 받을 목록·지울 목록 나누기와 폴더·그림 찾기는
   `test/resource-packs.test.js`; 스킨마다 따라오는 키 표·부착점·이펙트 짝(모든 스킨 모델에 줄이 있음, 짝 충돌에 멈춤, 전투 시간은 기본 표만)과 스킨 이펙트 프리팹(뽑을 것 고르기·
   `skin/` 자리·`place_skin_files`, 뽑힌 것 전수: 모든 짝이 `files`나 `missing`에 있고 그 텍스처·메시가 적힌 쪽 폴더에 있음)은
-  `test/local-extract-skin-dims.test.js`; 렌더가 쓰는 것(짝·파일·그리는 투사체, 스킨 없는 유닛은 표를 안 받음, 배치 이펙트가 스킨 것, 스킨 폴더의 텍스처·메시,
+  `test/local-extract-skin-dims.test.js`; 렌더가 쓰는 것(짝·파일·그리는 투사체, 스킨 없는 유닛은 표를 안 받음, 배치 이펙트가 스킨 것, 만든 쪽 — 공격 없이 쏘는 스킬 투사체·건 쪽의 상태 이펙트, 스킨 폴더의 텍스처·메시,
   추출된 행 전수가 바꿀 궤적을 앎)은 `test/render/fx-skin.test.js`, 스킨 프리팹의 셰이더 변형은 `test/render/fx-program-variants.test.js`(기본 묶음과 같이 훑음).
 
 ## 스킨 렌더 게이트 (2026-11-16 — 스킨은 표시 전용, 받지 않은 사용자에게는 남의 스킨도 기본 모습)

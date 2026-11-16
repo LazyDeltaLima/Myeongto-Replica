@@ -593,7 +593,15 @@ export function wornPrefabs(plays) {
   return set;
 }
 
-function put(out, k, spec) { if (spec && !out.has(k)) out.set(k, spec); }
+function put(out, k, spec) { if (spec && !out.has(k)) { out.set(k, spec); if (byNow != null) WANT_BY.set(k, byNow); } }
+/**
+ * 2026-11-17 (docs/rules/render.md 「스킨 모델 소재」): who applied the status each wanted effect key comes from (its applier's
+ * unit id, statusSource `id`) — the client hooks a buff's effect by the buff's source (Entity.AddBuffEffect →
+ * BattleController.CreateEffect → source TryHookEffect), so an applier drawn in a skin shows its skin's effect on the holder.
+ * A key without one (the flag statuses, a status the sim sends without an applier, the ready effects) is the holder's own.
+ */
+const WANT_BY = new Map();
+let byNow = null;
 let playsNow = null;   // wantedStatusFx's `plays` (byName, keyed specs)
 /**
  * 2026-11-11 (docs/rules/fx.md 「규정 살카즈 후예 무리」): an enemy's own status whose official effect follows a count on the
@@ -654,6 +662,8 @@ export function readyHolds(v, stop, f = v.flags | 0) {
  */
 export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyOf = null, viewOf = null) {
   out.clear();
+  WANT_BY.clear();
+  byNow = null;
   playsNow = plays;
   const f = v.flags | 0;
   // 2026-10-21: an enemy's own buff effects (fxgame.js enemyBuffFx — its prefab's buffs; ebuff(view, kind, tag) → { on, ends })
@@ -692,6 +702,7 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
   if (v.statuses) {
     for (const k of v.statuses) {
       const from = v.statusFrom?.get?.(k) || null;
+      byNow = from?.id ?? null;
       const counted = own ? COUNTED_TAGS[k] : null;
       if (counted) {
         const tag = counted.tag(countedNow.get(k) || 0), r = tag ? own('key', tag) : null;
@@ -740,6 +751,7 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
       if (s && STATUS_FX[s]) put(out, s, typeof STATUS_FX[s][1] === 'string' ? STATUS_FX[s] : specsOf(STATUS_FX[s], plays)[0]);
     }
   }
+  byNow = null;
   const ready = readyOf && !v.isEnemy ? readyOf(v) : null;
   if (ready && readyHolds(v, ready.stop, f)) for (const [k, spec] of ready.specs) put(out, k, spec);
   return out;
@@ -776,7 +788,13 @@ export function syncStatusFx(views, fxGame, battle) {
       if (on && on.has(k)) continue;
       const [bundle, name, frac, hold, kept] = spec;
       // (an IMMEDIATELY buff's effect, ONCE_OF: finished as it starts — kept in `on` till the status ends, so not again)
-      if (fxGame.statusReady(bundle, name)) { MINE.add(k); fxGame.statusOn(v, bundle, name, k, frac, hold, false, ONCE_OF.has(k), !!kept); }
+      // (2026-11-17) `src`: the unit whose skin it shows — its applier (WANT_BY; null once gone from the field), else the holder
+      if (fxGame.statusReady(bundle, name)) {
+        const by = WANT_BY.get(k);
+        if (by != null) (v._fxStatusBy ||= new Map()).set(k, by);
+        MINE.add(k);
+        fxGame.statusOn(v, bundle, name, k, frac, hold, false, ONCE_OF.has(k), !!kept, by == null ? v : views.get(by) ?? null);
+      }
     }
     // local patch: not the prep 'golden' glow (fxgolden.js); local patch (maintainer report 2026-10-08): `now` — an ended
     // status takes its effect's particles with it (buff_stun's mark lives 10 s: it hung on beside the next stun's), after
@@ -785,9 +803,11 @@ export function syncStatusFx(views, fxGame, battle) {
       for (const k of [...on]) {
         if (want.has(k) || !MINE.has(k)) continue;
         fxGame.statusOff(v, k, true);
+        const by = v._fxStatusBy?.get(k);
+        if (by != null) v._fxStatusBy.delete(k);
         // 2026-10-21: a buff's end effect, once, when the buff ends on a living unit (END_FX, an enemy buff's `buffEnd`)
         const end = live ? END_FX[k] || END_OF.get(k) : null;
-        if (end && typeof fxGame.statusOnce === 'function') for (const [b, n] of end) fxGame.statusOnce(v, b, n);
+        if (end && typeof fxGame.statusOnce === 'function') for (const [b, n] of end) fxGame.statusOnce(v, b, n, by == null ? v : views.get(by) ?? null);
       }
     }
   }

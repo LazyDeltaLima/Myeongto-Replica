@@ -9,6 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SKIN_EFFECTS_URL, SKIN_POINTS_URL, skinEffect, skinFile, skinShot } from '../../public/js/render/fxskin.js';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
+import { syncStatusFx } from '../../public/js/render/fxstatus.js';
 
 const RULE = 'docs/rules/render.md 「스킨 모델 소재」 — 「렌더가 스킨 유닛에 쓰는 것」';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -19,9 +20,13 @@ const DOC = {
       projectiles: [{ from: 'projectile_a', graphic: 'projectile_a_graphic', logic: 'projectile_a_logic', muzzle: 5 },
         { from: 'projectile_a_s2', graphic: 'projectile_a_s2_graphic', logic: 'projectile_a_s2_logic', muzzle: 2 }] },
     'char_2_b@sale#3': { owner: 'char_2_b' },
+    // 流星 (shotst): a skin whose pairs turn her S2 arrow and its hit, one whose fake projectile draws nothing in its place
+    'char_126_shotst@x#1': { owner: 'char_126_shotst', effects: { shotst_skill_02_trail: 'shotst_skill_02_trail_x#1', shotst_skill_01_hit: 'shotst_skill_01_hit_x#1' } },
+    'char_126_shotst@y#2': { owner: 'char_126_shotst', projectiles: [{ from: 'projectile_shotst_s2', graphic: 'projectile_shotst_s2_graphic', logic: 'projectile_shotst_s2_logic', muzzle: 2 }] },
   },
-  files: { 'a_birth_boc#1': 'skin/a/a_birth_boc-1.json', 'a_attack_hit_boc#1': 'skin/a/a_attack_hit_boc-1.json', 'a_kid': 'skin/a/a_kid.json' },
-  projectileEffects: { projectile_a: ['A_Trail'], projectile_a_graphic: ['a_trail'], projectile_a_s2: ['a_s2_trail'] },
+  files: { 'a_birth_boc#1': 'skin/a/a_birth_boc-1.json', 'a_attack_hit_boc#1': 'skin/a/a_attack_hit_boc-1.json', 'a_kid': 'skin/a/a_kid.json',
+    'shotst_skill_02_trail_x#1': 'skin/shotst/shotst_skill_02_trail_x-1.json', 'shotst_skill_01_hit_x#1': 'skin/shotst/shotst_skill_01_hit_x-1.json' },
+  projectileEffects: { projectile_a: ['A_Trail'], projectile_a_graphic: ['a_trail'], projectile_a_s2: ['a_s2_trail'], projectile_shotst_s2: ['shotst_skill_02_trail'] },
   missing: { effects: [], projectiles: ['projectile_a_s2_graphic'] },
 };
 
@@ -45,9 +50,14 @@ test('the skin tables are the skin data pack\'s (fx/skin/, in packs.skin): a pla
   assert.match(tool, /'\/assets\/local\/fx\/skin\/'/, 'the skin pack holds fx/skin/');
 });
 
+const read = (p) => JSON.parse(readFileSync(path.join(ROOT, p), 'utf8'));
+const MODES = read('tools/assets/local-char-modes.json');
+const CHESS = read('data/chess.json');
+const chessOf = (charId) => Object.values(CHESS.chess || CHESS).find((c) => c?.charId === charId);
+const BIND = (id) => Object.fromEntries(['modes', 'skillMode', 'cast', 'hit', 'hitGroups', 'tgtStart', 'trail', 'skills'].filter((k) => k in MODES[id]).map((k) => [k, MODES[id][k]]));
 const files = {
-  '/assets/local/fx/index.json': { bundles: { a: ['a_attack_hit', 'a_trail'], common: ['common_char_birth_01'] } },
-  '/assets/local/fx/modes.json': {},
+  '/assets/local/fx/index.json': { bundles: { a: ['a_attack_hit', 'a_trail'], common: ['common_char_birth_01'], shotst: ['shotst_skill_02_trail', 'shotst_skill_01_hit'] } },
+  '/assets/local/fx/modes.json': { char_126_shotst: BIND('char_126_shotst') },
   '/assets/local/fx/enemy-index.json': { bundles: {} },
   '/assets/local/fx/enemy-modes.json': { $fx: {} },
   [SKIN_EFFECTS_URL]: DOC,
@@ -79,6 +89,64 @@ test('a unit drawn in a skin plays its skin\'s deploy effect; one in the default
     assert.deepEqual(born(), ['a_birth_boc#1@2'], `${RULE}: the skin's own deploy effect (common_char_birth_01's pair)`);
     assert.ok(asked.includes(SKIN_EFFECTS_URL) && asked.includes(SKIN_POINTS_URL));
   } finally { globalThis.fetch = fetch0; }
+});
+
+// The client hooks an effect by the unit that creates it, not the one it sits on (BattleController.CreateEffect → source
+// TryHookEffect; a buff's effect by the buff's source, Entity.AddBuffEffect; a projectile by its source, CreateProjectile →
+// TryHookProjectile, and its main effect, Projectile._CreateMainEffect).
+async function withSkinLayer(run) {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const seen = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, unitDef: (info) => chessOf(info.defId) ?? null, trace: (p) => seen.push(p) });
+    await settle();
+    await run({ layer, seen, take: (kind) => seen.splice(0).filter((p) => p.kind === kind).map((p) => `${p.names.join('+')}${p.at != null ? `@${p.at}` : ''}`) });
+  } finally { globalThis.fetch = fetch0; }
+}
+const op = (id, defId, skinKey = null, skillIndex = 0) => ({ id, x: 0, y: 0, alive: true, skinKey, info: { id, side: 'ally', defId, skillIndex, kind: 'op' } });
+const foe = (id, x) => ({ id, x, y: 0, alive: true, info: { id, side: 'enemy', defId: 'enemy_x' } });
+
+test('a skill projectile shot without an attack (skillShotOut) is its shooter\'s: a skin\'s pairs, its fake projectile', () => withSkinLayer(async ({ layer, take }) => {
+  for (const [sk, want, why] of [[null, ['shotst_skill_02_trail'], 'the default model'],
+    ['char_126_shotst@x#1', ['shotst_skill_02_trail_x#1'], `${RULE}: 流星 S2's volley arrow, ownerless, through her skin's pairs`],
+    ['char_126_shotst@y#2', [], `${RULE}: a fake projectile without an effect draws no arrow`]]) {
+    const views = new Map([[1, op(1, 'char_126_shotst', sk, 1)], [8, foe(8, 2)]]);
+    layer.onEvent(['skill', 1, 1], views);
+    await settle();
+    take('spawn');
+    layer.onEvent(['fx', 'volley', 0, 0, { id: 1, targets: [8], skill: 'shotst_2' }], views);
+    await settle();
+    assert.deepEqual(take('spawn'), want, why);
+    layer.update(0.6);
+    await settle();
+    assert.deepEqual(take('attackHit'), [`${sk === 'char_126_shotst@x#1' ? 'shotst_skill_01_hit_x#1' : 'shotst_skill_01_hit'}@8`], `${why}: its hit still lands`);
+    layer.onEvent(['skillEnd', 1, 1], views);
+  }
+}));
+
+test('a status effect is its applier\'s: the applier\'s skin on an enemy, not the holder\'s skin for another\'s buff', () => withSkinLayer(async ({ layer, take }) => {
+  const skinned = op(2, 'char_1_a', SK), plain = op(3, 'char_1_a'), enemy = foe(9, 1);
+  layer.statusOn(enemy, 'a', 'a_attack_hit', 'k1', 0, null, false, false, false, skinned);
+  layer.statusOn(skinned, 'a', 'a_attack_hit', 'k2', 0, null, false, false, false, plain);
+  layer.statusOn(skinned, 'a', 'a_attack_hit', 'k3');
+  await settle();
+  assert.deepEqual(take('status').sort(), ['a_attack_hit', 'a_attack_hit_boc#1', 'a_attack_hit_boc#1'],
+    `${RULE}: on the enemy by the skin unit = the skin's; on the skin unit by another = the default; its own = the skin's`);
+  layer.statusOnce(enemy, 'a', 'a_attack_hit', skinned);
+  await settle();
+  assert.deepEqual(take('statusEnd'), ['a_attack_hit_boc#1'], 'a buff\'s end effect too');
+}));
+
+test('syncStatusFx hands the effect layer each status effect\'s applier (null once it left the field), else the holder', () => {
+  const calls = [];
+  const fx = { statusReady: () => true, statusOn: (v, b, n, k, ...rest) => { calls.push([v.id, k, rest[5] === undefined ? 'none' : rest[5]?.id ?? null]); (v._fxStatusOn ||= new Set()).add(k); },
+    statusOff: (v, k) => v._fxStatusOn.delete(k), statusOnce: () => {} };
+  const holder = { ...foe(9, 1), flags: 0, statuses: new Set(['stun']), statusFrom: new Map([['stun', { src: 'a', id: 2, fx: null, n: 0 }]]) };
+  const other = { ...foe(8, 1), flags: 0, statuses: new Set(['stun']), statusFrom: new Map([['stun', { src: 'a', id: 5, fx: null, n: 0 }]]) };
+  const own = { ...foe(7, 1), flags: 0, statuses: new Set(['stun']) };
+  syncStatusFx(new Map([[2, op(2, 'char_1_a', SK)], [9, holder], [8, other], [7, own]]), fx, true);
+  assert.deepEqual(calls, [[9, 'stun', 2], [8, 'stun', null], [7, 'stun', 7]], `${RULE}: the applier's view (id 5 is gone: null), the holder without one`);
 });
 
 test('FxLibrary: a skin prefab loads from fx/skin/<bundle>/, its own textures and meshes from fx/skin/tex|mesh/', async () => {
