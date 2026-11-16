@@ -70,37 +70,7 @@
   box-shadow: 0 0 calc(var(--pu) * 10) color-mix(in srgb, color-mix(in srgb, var(--tip) 82%, #000) 50%, transparent); }
 .btip__icon { flex: none; width: calc(var(--pu) * 32); height: calc(var(--pu) * 32); background: center / contain no-repeat; }
 .btip__text { font-family: var(--font-cjk); font-weight: 500; font-size: calc(var(--pu) * 18); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1; }
-.btip__fold { display: none; }
-/* Phones (the corner's phone query, devices.css): the band at its official place lay over the bench pieces, the row a
-   piece is dragged from, and over the shop row's top (maintainer report 2026-11-13) — a small two-line chip in the
-   bottom-left corner above 交流 / ⋯, clear of the bench, the board and the shop, open or folded (maintainer decision
-   2026-11-13, mockup B). Same types, tint, icon and text; the desktop keeps the official place. A tap folds it to its round
-   icon and back (ui/battleArt.js BottomTips; maintainer decision 2026-11-13, mockup A).
-   Off for now: the band shrank to the official size, so phones try the official place too (maintainer decision
-   2026-11-16, provisional) — the rules below only apply to `.btip.is-chip`, which BottomTips adds while
-   ui/battleArt.js PHONE_TIP_CHIP is true. */
-@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse),
-  (max-width: 767px) and (pointer: coarse), (max-width: 767px) and (any-pointer: coarse) {
-  .btip.is-chip, .btip.is-chip.is-up { left: calc(.24rem + var(--sa-l, 0px)); right: auto; justify-content: flex-start; transition: none;
-    bottom: calc(.24rem + max(.56rem, 34px) + 10px + var(--sa-b, 0px)); }
-  .is-chip .btip__pill { top: auto; bottom: 0; height: auto; width: 156px; min-width: 0; max-width: none; padding: 6px 8px 6px 10px; gap: 5px;
-    background: var(--tip); border-radius: 12px; justify-content: flex-start; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); pointer-events: auto; cursor: pointer;
-    -webkit-tap-highlight-color: transparent; }
-  .is-chip .btip__pill::after { display: none; }
-  .is-chip .btip__pill::before { content: ''; position: absolute; inset: -6px; }   /* a finger-sized hit area round the folded icon */
-  .is-chip .btip__icon { width: 16px; height: 16px; }
-  .is-chip .btip__text { font-size: 11px; white-space: normal; overflow: visible; line-height: 1.3; }
-  .is-chip .btip__fold { display: grid; place-items: center; flex: none; margin-left: auto; width: 18px; height: 18px; border-radius: 50%;
-    background: rgba(0, 0, 0, .22); color: #fff; font: 700 14px/1 var(--font-cjk); }
-  .btip.is-chip.is-folded .btip__pill { width: 32px; height: 32px; padding: 0; justify-content: center; border-radius: 50%; }
-  .btip.is-chip.is-folded .btip__fold { margin: 0; }
-  /* folded: the text stays for screen readers (the band is a live status) */
-  .btip.is-chip.is-folded .btip__text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-}
-/* narrow phones: ⋯ wraps above 交流 (devices.css .gm__corner wrap-reverse) — the chip goes over both rows */
-@media (max-width: 767px) and (pointer: coarse), (max-width: 767px) and (any-pointer: coarse) {
-  .btip.is-chip, .btip.is-chip.is-up { bottom: calc(.24rem + 2 * max(.56rem, 34px) + .1rem + 10px + var(--sa-b, 0px)); }
-}
+/* Phones keep the official place and size too (maintainer decision 2026-11-16): no phone rules for the band. */
 
 /* ---- waiting for the stage (battle_waiting_dialog) ------------------------------------------------------------------ */
 /* banner_back 355², 9-sliced 169 / 170 (l b r t: 169 170 170 169): the borders are larger than the 284-tall box and shrink to fit */
