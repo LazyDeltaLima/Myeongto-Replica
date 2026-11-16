@@ -280,8 +280,9 @@ export function useRoundGold(phase, funds, rg = null, round = null) {
   return L.base == null ? null : Math.max(0, f - L.base);
 }
 
-/** How long the "轮到你了" flash stays (panel_your_turn_show; [추정] length — the clip is not read). */
-export const TURN_FLASH_MS = 1600;
+/** How long the "轮到你了" flash stays: the client plays its clip panel_your_turn_show (40 frames at 30 fps) once over the
+ *  clip's length, linear, then switches the panel off. */
+export const TURN_FLASH_MS = 1333;
 
 /** True for TURN_FLASH_MS after `on` turns true. */
 export function useTurnFlash(on) {

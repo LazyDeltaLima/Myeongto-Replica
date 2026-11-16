@@ -221,7 +221,11 @@
 - 전투 HUD(2026-10-06, KR 캡처 18): 라운드 띠 가운데는 `bg_battle` + `icon_battle` + 처치 수 「6/9」(이미 공식 모양, 처치 수만 호박색으로). DP 표시는
   기본 게임의 전투 코스트 패널이라 오토체스 번들에 프리팹·그림이 없어 캡처대로 [추정]: 상자 없이 흰 마름모 「C」 + 숫자(Novecento ≈.66rem) + 흰 밑줄,
   오른쪽 끝 아래쪽 4분의 3 높이(밑에서 2.3rem). 원본 「COST」 글자는 숨김.
-- 왼쪽 플레이어 목록: KR 솔로 캡처(정비·전투 모두)에는 목록이 없어 **혼자일 때는 숨긴다** [추정: 멀티는 그대로] — `teamPanel.js` 훅에 `is-solo`.
+- 왼쪽 플레이어 목록: 솔로 모드에서는 **숨긴다** — `teamPanel.js` 훅에 `is-solo`(플레이어 한 명). 공식 클라에서 확인(2026-11-16): 목록 패널
+  (`AutoChessBattlePlayerStatusPanel`)은 `AutoChessBattlePlayerStatusGroupModel.isAvatarListVisible` = `canDisplayAvatar`(로딩 중이 아님 등)이고
+  모드 종류(`ActAutoChessModeData.modeType`)가 `SINGLE`이 아닐 때만 보인다 — 멀티(AI 팀원이 있는 협동 포함)는 그대로 보임, KR 솔로 캡처(정비·전투)와 같음.
+  같은 모델의 관전 패널(`isObPanelVisible`, `_UpdateObPanelVisible`)은 다른 것이다: 연합 방어·보스 전투 상태에서는 그 주 하위 상태일 때, 그 밖에는
+  관전 중 보는 플레이어 색인(`playerViewIndex`)이 0보다 클 때만 켜진다(플레이어 수는 안 봄).
 - 저지 수(阻挡)와 에기르 포식(2026-10-06 확인): 실제 대전 경로(매치 하네스 정비 → `m._normalOpts` → 실제 `Battle`)에서 深巡·幽灵鲨·斯卡蒂 + 앞 칸 오퍼레이터를
   한 줄로 놓으면 深巡 3 → 7(먹은 셋의 기본 저지 2+1+1), 斯卡蒂 1 → 2(관리자 스크린샷의 斯卡蒂 2와 같은 +1). 카드가 읽는 값 — 전투 중 `unitStatsEntry(u, u._s)`,
   정비 중 「开战时」 미리보기 `Match._unitStatsOf`(battleStart 훅까지 실행) — 둘 다 7·2이고 원본 카드도 같은 값(초록 +4)을 보인다. 시뮬레이터 문제 없음.
@@ -341,7 +345,9 @@
   다시 누르면(카드 두 번째 탭) 확정. 막대 위치는 프리팹 −122가 아니라 카드 아래쪽에 맞춤(KR 캡처, `card_small_select` 애니메이션이 올리는 양 [추정]).
   가져간 카드: `card_bg_selected` 회색 판 + 회색 줄무늬, 오른쪽 위 둥근 아바타(`avatar_head_bg` + 청록 고리 `avatar_head_outline`). 헤더의 확인 버튼은 공식
   모양에서는 숨김(카드 막대와 같은 동작). 6장은 3×2(16:9 한 화면에 맞게 `--pu` ≤ .125vh), 3장(혼자)은 한 줄.
-  「轮到你了」(KR 「내 차례」, `panel_player_select`): 멀티에서 내 차례가 되면 1.6초([추정] 길이) — `bg_circle`, 고리 3개([추정] ext 스프라이트 → CSS 원),
+  「轮到你了」(KR 「내 차례」, `panel_player_select`): 멀티에서 내 차례가 되면 1.333초(공식 클라에서 확인 2026-11-16: `_PlayPlayerTurnAnim`이 클립
+  `panel_your_turn_show`(30 fps, 마지막 키 40프레임 = 1.333초 — 뿌리 알파가 1.167초에서 0으로)를 클립 길이 그대로 선형으로 한 번 틀고 끝나면 패널을 끔;
+  전에는 1.6초 [추정]) — `bg_circle`, 고리 3개([추정] ext 스프라이트 → CSS 원),
   `plus` 4개 #18e6b8, 큐브 `square_1` + `square_2`, 글자 49 #00ffc4, `bottom` 막대. 공식 모양일 때는 机变 진입의 PhaseBanner 띠를 띄우지 않는다(겹침).
   1인 판에서는 띄우지 않는다(`screens/game.js` `!solo`) — 공식 1인 녹화(3라운드 임기응변에 「轮到你选」 없음, upstream PR #950이 #946에 붙인 것)와 같음.
   웹 소재(`effectChoose/*`, `shopCard/repeat_line`)라 모든 플레이어에게 같다.
@@ -399,7 +405,9 @@
 - 공격 범위(3D 보드, stripes: 방향 선택 `facing`, 선택한 기물 `selRange` 등): `range_material`(셰이더 `Torappu/Battle/AttackRange`: 알파 블렌드,
   깊이 쓰기 없음, `_Color.a` 0.749, `_AnimationSpeed` 0.5)대로 `sprite_attack_range`(대각선 흰 줄 3개/칸) × 색, 흐르는 방향 [추정·엔진: 셰이더의 흐름 방향은 안 읽음]. 그림이 없으면 같은 모양의 절차 텍스처. 이전의 Pixi 주황 칠·SVG 줄무늬는 3D에서 안 그린다.
   색(2026-11-11, 공식 클라에서 확인): 전투 씬의 `GridRangeDrawer`가 실행 중에 머티리얼 색을 정한다 — 보여 줄 범위(`Unit.rangeToShow` = 지금 모드의 `_rangeToShow`, 없으면 공격 트리거)의 능력이 치료 능력(`BattleUtil.IsAbilityHeal`: `Abilities.Heal` 계열)이면 `_healRangeColor` (0, 200, 255), 아니면 `_attackRangeColor` (255, 128, 0). 두 시즌 모든 전장 씬이 같은 값(전에 쓰던 주황 255,140,0은 캡처로 맞춘 근사였다). 오퍼레이터의 공격 능력은 그 범위의 부모 오브젝트 `Attack`(또는 `Heal`)의 첫 능력 컴포넌트다: 두 시즌 풀의 오퍼레이터·대체 오퍼레이터 전원을 프리팹으로 대조하니 `Heal`/`RangedHeal`인 것은 정확히 직업 메딕 중 주술 의료(incantationmedic: 공격 능력이 피해 공격)를 뺀 것이고, 바드(스카디 더 커럽팅 하트·이디아)는 `AuraAbility`라 주황이다 → `ui/facing.js healRange`. 방향 선택(`FACING_HEAL_STYLE`)과 상세 카드의 범위(`SEL_RANGE_HEAL`, 정비·전투 모두)가 쓰고, 3D 판은 파란 층(`tileOverlay` `healStripes`)을 하나 더 둔다. CN 「규정」 캡처에서 해럴드(메딕, 공격 오브젝트에 능력 셋 — 첫째가 `RangedHeal`)의 방향 선택 범위가 파랗다(≈ 40,170,230, 초록 칸과 섞임). 필드 메뉴의 스킬 범위 토글(`GridRangeDrawer.TurnOnSkill`)은 직업과 상관없이 늘 `_skillRangeColor` (255, 0, 0) 빨강이다(공식 클라에서 확인) → `SEL_RANGE_SKILL`, 빨간 층 `skillStripes`.
-- 배치 중인 기물(드래그 중·방향 선택 중) 반투명 `GHOST_ALPHA` 0.6 [추정](관리자 제보: 배치 중에는 더 투명하다).
+- 배치 중인 기물(드래그 중·방향 선택 중) 반투명 `GHOST_ALPHA` 0.6 [추정·화면: 값은 공식 화면에서 재야 함](관리자 제보: 배치 중에는 더 투명하다).
+  공식 클라에서 확인(2026-11-16): 끌기의 C# 길(`AutoChessDragState.TileDragContext` 시작·갱신·정리, `_CreateDummy` → `AutoChessDummyManager.CreateDummy` →
+  `BattleController.CreateCharacterDummy` → `Character.MakeDummy`)에는 알파·머티리얼·색을 바꾸는 호출이 없다 — 투명하다면 셰이더·머티리얼 쪽이라 값은 화면으로만 정한다.
 - 모듈로 늘어나는 공격 범위(관리자 제보 2026-10-10: 정예 「시」 SPC-X가 방향 선택 줄무늬·배치 중 카드에서 3×3으로 보임): `shared/loadoutRecord.js
   attackRangeGrid`가 중국어 문구(`trait.moduleDesc` 「攻击范围扩大」, 스킬 「被动效果：攻击范围扩大」, `traitRangeExtend`의 「集成战略」)로 판단했는데 클라는
   한국어 등 게임 문구 덮어쓰기(`data/i18n`)를 입힌 기록을 쓰므로 한국어에서 늘 실패. 이제 `tools/build-data.mjs`가 같은 판단을 언어와 상관없는 표시

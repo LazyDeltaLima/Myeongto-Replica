@@ -184,9 +184,10 @@
 
 /* "轮到你了" (panel_player_select): bg_circle, three rings ([추정] their ext sprite: thin teal circles), the four plus marks
    (#18e6b8), the cube square_1 and its spark square_2, 轮到你了 (49, #00ffc4) over the bottom bar */
-.pcturn { position: absolute; inset: 0; z-index: 30; pointer-events: none; animation: pcturn 1.6s ease-out both; }
+.pcturn { position: absolute; inset: 0; z-index: 30; pointer-events: none; animation: pcturn 1.333s ease-out both; }
 .pcturn i, .pcturn b, .pcturn div { position: absolute; display: block; }
-@keyframes pcturn { 0% { opacity: 0; transform: scale(1.12); } 14% { opacity: 1; transform: none; } 78% { opacity: 1; } 100% { opacity: 0; } }
+/* the clip's root alpha holds 1 to 1.167 s and fades to 0 at its end (1.333 s) */
+@keyframes pcturn { 0% { opacity: 0; transform: scale(1.12); } 14% { opacity: 1; transform: none; } 87.5% { opacity: 1; } 100% { opacity: 0; } }
 .pcturn__bg { background: var(--pc-circle) center / 100% 100% no-repeat; }
 .pcturn__ring { border-radius: 50%; border: calc(var(--pu) * 14) solid rgba(0, 233, 255, .1); box-sizing: border-box; }
 .pcturn__ring.is-2 { border-color: rgba(0, 252, 255, .14); border-width: calc(var(--pu) * 10); }
