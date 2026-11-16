@@ -1296,6 +1296,15 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   생기면서 반경 1.5 안 적을 중심으로 한 번 끌어당김(피해 없음 — 피해는 맥동, 맥동 간격은 그때부터), 끝의 捕网은 그대로(반경 1, 글래디아 앞으로).
   [추정·화면: 0.3초 — 관찰 「아주 약간의 지연」에 고른 값; `FinalAttack`의 `OnAttack` 대기를 무엇이 일찍 끝내는지는 안 읽음(스킬 상태 진입은 클립을 틀지 않음,
   `SkillState._StartSkill`)]. 그 전에는 묶기·회오리가 시전 순간. 테스트 `kits_t4.test.js` 「歌蕾蒂娅 S3」. 조사 기록은 관리자 노트.
+- **글래디아 S3는 범위 안에 고를 적이 있어야 켜진다** (2026-11-16, 공식 클라에서 확인 — 관리자 제보: 등 뒤에서 막은 적에게 S3가 켜져 이펙트가 없고, 은신 장판 맵에서 피해가 없음):
+  자동 조작은 발동 규칙(DEFAULT)과 별도로 `CastSkill.get_canCastCheck`를 묻는데, 스킬 프리팹 `skchr_glady_3`의 `_trigger`(`ChantAttack1`의 선택자: `SelectorTrigger`
+  `_minTargetNum` 1, 지금 범위 상자, 적·지상과 공중)가 대상을 못 찾으면 거짓이다. 그래서 범위 밖에서 막은 적만 있으면 켜지지 않고 그 적을 일반 공격한다. 전에는
+  막은 적 조건만으로 켜져 대상 없이 8초 동안 회오리·피해·일반 공격이 모두 없었다. sim: 스킬 사양 `castCheck`(`skills.js autoTrigger`, 키트가 범위 안 대상 유무를 줌).
+  다른 스킬 프리팹의 `_trigger`는 아직 읽지 않음 — 전수는 관리자 노트의 할 일. 재발 방지: `test/sim/glady-s3-cast-check.test.js`.
+- **산크타 믹사파라토 S3 반격 대상** (2026-11-16, 공식 클라에서 확인 — 관리자 제보: 뒤에서 막은 적이 때리면 탄만 줄고 반격 피해가 없음): 반격 `S3Attack`·`S3Attack_Zero`의
+  선택자는 `BlockedOrAdvancedSelector`다. 자신이 막은 적(`Character.blockedEnemies`)을 범위와 상관없이 먼저 `max_target`(3)까지 넣고, 남는 자리만 범위 안 적으로 채운다.
+  그래서 등 뒤에서 막은 공격자도 반격을 맞는다. 전에는 범위(3-13) 안 적만 골라 그런 공격자에게는 「대상 없는 반격」으로 탄만 썼다. sim: 키트 반격이 `blockedTargets`
+  다음에 범위 안 적(때린 적 먼저). 재발 방지: `test/sim/rmixer-s3-counter-blocked.test.js`.
 - **민트(오퍼레이터, `char_388_mint`) S2 「커뮬레이티브 볼텍스」(`skchr_mint_2`)는 `duration` − 4/3초에 끝나고, 끝 폭발은 그 0.6초 뒤 고정 범위 `x-1`** (2026-10-29,
   공식 클라 — 스킬 프리팹·버프 템플릿 + 함수): 스킬 루트의 세 단계 애니(`ThreePartChannelingAnimation`: `Skill_2_Begin` 0.5초 → `Skill_2_Loop` → `Skill_2_End` 4/3초)는
   능력 시간 안에 다 들어가고(`UpdatePlaybackSpeed`: 루프 = 시간 − 시작 − 끝, 시간이 모자랄 때만 배율 < 1 — S2는 늘 1), 끝 클립을 틀자마자 공격 끝 이벤트를

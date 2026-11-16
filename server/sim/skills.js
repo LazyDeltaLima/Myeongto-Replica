@@ -47,6 +47,8 @@
 //   instant (onStart + optional one-shot attack override for the next attack), charges (= instant with charges),
 //   passive (always on from deployment, no SP), toggle (stays on until death once activated).
 // SkillSpec fields (all optional): kind, duration, ammo, spCost, initSp, charges, spType, trigger,
+//   castCheck(ctx) (→ bool: the skill prefab's own target trigger, which the automatic operations search before a cast —
+//   the client's CastSkill.get_canCastCheck, `_trigger.Search`; false: no cast whatever the rule says),
 //   mods, flags, targeting {maxTargets, rangeGrid, priority, allInRange, rangeExtend, noRangeExtend (the range ignores
 //   the unit's 攻击距离), showOwnRange (rangeGrid only selects targets: the detail card keeps the unit's own range)},
 //   attack {dmgType, atkScale, splashRadius, splashScale, hits, projectile, maxTargets, dmgMul, onHit, heal…},
@@ -470,6 +472,9 @@ export class SkillRuntime {
     else if (TICK_RULES.has(this.rule)) ok = this._tickRuleSatisfied();
     else ok = this._autoDefault();
     if (!ok) return false;
+    // the skill's own target trigger (`castCheck`): the client's `_DoDefaultCheck` also asks CastSkill.get_canCastCheck,
+    // which fails when the skill prefab's `_trigger` finds no target — a rule met by a blocked enemy alone does not cast then
+    if (this.spec.castCheck && this._call('castCheck', {}) !== true) return false;
     return this.activate(TICK_RULES.has(this.rule) || this.rule === 'TAKE_DAMAGE' ? this.rule : 'DEFAULT');
   }
 

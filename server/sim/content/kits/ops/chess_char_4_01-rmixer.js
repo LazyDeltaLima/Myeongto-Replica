@@ -131,10 +131,13 @@ export default withDefaults({
           if (c.target !== unit || !unit.canAct || unit.s.flags.disarm || !skillActive(unit) || !d || c.type === 'element') return;
           if (isHpLoss(d)) return;
           if (battle.time < (unit.mem.counterReady ?? -Infinity) - 1e-9) return;
-          const list = targetsInRange(battle, unit);
+          // official client: the counter's selector (S3Attack / S3Attack_Zero) is a BlockedOrAdvancedSelector — the enemies
+          // he blocks first, in range or not (an attacker he blocks from behind is hit), then the free places from his range
+          const blocked = battle.blockedTargets(unit, unit.profile);
+          const list = targetsInRange(battle, unit).filter((e) => !blocked.includes(e));
           const i = c.source ? list.indexOf(c.source) : -1;
           if (i > 0) { list.splice(i, 1); list.unshift(c.source); }
-          const targets = list.slice(0, counterMax);
+          const targets = blocked.concat(list).slice(0, counterMax);
           unit.mem.counterReady = battle.time + unit.s.interval * counterRatio;
           unit.mem.inCounter = true;
           try {

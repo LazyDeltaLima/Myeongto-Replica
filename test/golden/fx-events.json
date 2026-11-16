@@ -2502,6 +2502,8 @@
    "char_222_bpipe skillStart bpipe_skill_02_start+bpipe_skill_02_start_02_right",
    "char_222_bpipe spawn:born common_char_birth_01 → self",
    "char_222_bpipe spawn:born uniequip_002_bpipe_01 → self",
+   "char_4162_cathy attackStart cathy_attack_01_start",
+   "char_4162_cathy skillBuff cathy_skill_02_buff",
    "char_4162_cathy spawn:born common_char_birth_01 → self",
    "char_4162_cathy spawn:born equipment_system_craftsman_buff_x → self",
    "char_437_mizuki attackStart mizuki_attack_01_start",
