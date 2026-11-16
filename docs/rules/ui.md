@@ -173,11 +173,16 @@
   - 원본 해상도판(2026-11-16, 관리자 결정 「휴대폰 기본 1024, 데스크톱 기본 원본, q85 그대로」): 카드는 1024판을 데스크톱 배율 1에서도 1.3~2.4배로 늘려
     그려 흐렸다. 추출기(`save_illust`)가 그림이 1024보다 크면 클라 텍스처 크기 그대로(2정예화는 그 크기의 잘라낸 판)도 `chararts/full/<charId>.webp`(q85)로
     쓰고 항목에 `full: { path, w, h }`를 단다(틀은 틀 단위라 두 판이 같다). 스킨 일러스트도 같은 함수로 쓴다(`render.md` 「스킨 모델 소재」). 어느 판을 그릴지는
-    기기가 정한다(`public/js/illust-res.js`): 휴대폰(주 포인터가 거칠고 화면 짧은 변 600 CSS px 미만 — 창 크기·회전이 아니라 화면으로 재서 방문마다
-    바뀌지 않음)은 1024판, 나머지(데스크톱·태블릿)는 `full`. `cardArt`·`buildSkinCatalog`가 `illustEntry`로 고르고, 미리 받기 목록은 두 판에 `r: 'lo' | 'hi'`
-    (`tools/build-browser-resources.mjs`: `<폴더>/full/<이름>.webp`와 짝 `<폴더>/<이름>.webp`)를 달아 `resources.js`가 그 기기 판만 받고 다른 판은 캐시에서
-    지운다(그 기기 페이지는 다른 판을 요청하지 않으므로 그때그때 받은 것을 잃지 않음). 사용자가 판을 바꾸는 설정은 없다.
-    재발 방지: `test/ui/illust-res.test.js`(고르기·목록 필터), `test/local-extract-skins.test.js`(짝 표시), `test/local-extract.test.js`(이 기기의 추출에 원본판).
+    플레이어가 고른다(2026-11-17 관리자 결정, 시안 A — `public/js/illust-res.js`): 「일러스트 화질 [표준 | 고화질]」(표준 = 1024판, 고화질 = `full`)을
+    미리 받기 동의 카드(음성 언어 줄 아래)와 설정 「리소스」 탭(아래 「설정 리소스 탭」)에서 바꾸고, 누르는 즉시 저장한다(`sp.pref.illustRes` 'lo' | 'hi' —
+    카드에서 고르고 「나중에」를 눌러도 남고, 그때그때 받는 그림도 그 화질). 고르기 전에는 기기가 정한다: 휴대폰(주 포인터가 거칠고 화면 짧은 변 600 CSS px
+    미만 — 창 크기·회전이 아니라 화면으로 재서 방문마다 바뀌지 않음)은 표준, 나머지(데스크톱·태블릿)는 고화질. `cardArt`·`buildSkinCatalog`가 `illustEntry`로
+    고르고, 미리 받기 목록은 두 판에 `r: 'lo' | 'hi'`(`tools/build-browser-resources.mjs`: `<폴더>/full/<이름>.webp`와 짝 `<폴더>/<이름>.webp`)를 달아
+    `resources.js`가 고른 판만 받고 다른 판은 캐시에서 지운다(페이지는 다른 판을 요청하지 않으므로 그때그때 받은 것을 잃지 않음). 바꾸면 음성 언어를 바꿀 때처럼
+    다시 맞춘다(`illustStore` 구독 → `resync`: 동의했으면 새 판을 받고, 동의 카드의 합계가 따라 바뀜). 이미 그린 그림도 곧바로 바뀐다 — 열린 상세 카드
+    (`ChessDetailArt`가 `illustStore`를 구독)와 스킨 고르기 미리보기(`skins.js`가 받아 둔 목록 둘로 카탈로그를 다시 만듦).
+    재발 방지: `test/ui/illust-res.test.js`(기기 기본·저장·바꾸면 다시 맞춤·카탈로그 다시 만들기·목록 필터), `test/local-extract-skins.test.js`(짝 표시),
+    `test/local-extract.test.js`(이 기기의 추출에 원본판).
   - 배치 근거: 같은 번들의 `illust_<charId>_1` RectTransform(`m_SizeDelta` = 그릴 크기, `m_AnchoredPosition` = 프레임 중심에서의 오프셋, y 위)이
     캐릭터마다 얼굴 위치를 맞추는 클라이언트 값이다(古米 953 @ (6, −93) → 눈이 중심 244 위, 波登可 854 @ (0, −81) → 204 위). 카드는 이 값으로 그린다
     (`--fx/--fy/--fw/--fh`): 1단위 = .012rem, 프레임 중심 (3.35rem, 5.53rem) — 얼굴이 능력치 오른쪽 약 2.6rem 아래, 머리 크기 ≈1.7rem.
@@ -2458,6 +2463,11 @@ upstream v0.4.0 대조에서 받은 화면 수정(`docs/rules/upstream.md` 「�
   - 「스킨 데이터」(`SkinPackSetting`, 상태는 `skinPackState`): 꺼짐이면 켜기 스위치와 「약 N MB」(묶음 전체). 켜면 `setResourcePack('skin', true)`로
     받고, 받는 중이면 스위치 대신 「스킨 받는 중 N%」·막대·「받은 / 전체 MB」·「일시정지」 단추, 일시정지면 스위치·막대·「계속 받기」, 다 받았으면 스위치와 크기.
     끄면 `setResourcePack('skin', false)`로 받은 스킨 파일을 지운다.
+  - 「일러스트 화질」(2026-11-17 관리자 결정, 시안 A, `resources.js IllustChoice`, 위 「정비 화면 HUD」의 원본 해상도판): GAME 머리 아래 「리소스 미리 받기」
+    다음 줄, 음성 언어 줄과 같은 두 칸 단추 [표준 | 고화질]. 설명(문구 관리자 확정): 「고화질은 원본 크기로, 표준보다 약 {N} MB를 더 받습니다. 스킨 데이터를
+    받았다면 {M} MB가 더 늘어납니다.」 — N·M은 손 숫자가 아니라 리소스 목록에서 계산한다(`illustDiff`: 묶음마다 `r: 'hi'` 크기 − `r: 'lo'` 크기, `resStore.illust`;
+    목록에 스킨 묶음의 짝이 없으면 둘째 문장 없음, 짝이 하나도 없으면 줄 자체가 없음). 같은 단추가 미리 받기 동의 카드에도 있다(카드에는 스킨 데이터 줄을
+    넣지 않음 — 관리자 결정 2026-11-17, 스킨은 이 탭에서만).
   - 「다른 플레이어 스킨」(설정 `otherSkins`, 기본 켬, upstream 「显示其他玩家的皮肤」과 같은 이름): 스킨 데이터를 고르기 전에는 흐리게 막아 두고 「스킨 데이터를 받으면
     쓸 수 있습니다」. 이 값을 읽어 남의 유닛을 기본 모습으로 그리는 것은 렌더 쪽 일이다(아직 없음 — 묶음 mix-D 렌더 게이트).
 - 크기를 나눠 보임: 미리 받기 동의 카드의 크기(`pendingBytes`)는 고른 묶음의 파일도 센다. 탭은 `resStore.sizes`(묶음 밖 `''`과 묶음마다 `{ total, left }`,
@@ -2467,7 +2477,7 @@ upstream v0.4.0 대조에서 받은 화면 수정(`docs/rules/upstream.md` 「�
   시안에 없던 일시정지 상태에서는 스위치를 함께 보여 받는 도중에도 끌 수 있게 했다. 스킨만 받는 중에 「리소스 미리 받기」를 눌러도 끝난 뒤 이어서 받는다.
 - 문구: 탭 이름 「资源」(리소스)과 줄·설명 열둘을 `en.json`·`ko/ui.json`에(ja·zh-TW는 영어로 떨어짐), 한국어는 시안 문구 그대로.
 - 확인: `test/ui/settings-sections.test.js`(탭 순서·패널 소속·`resOn` 거르기·「资源」 번역), `test/resource-packs.test.js` 「the resource tab…」(크기 나눔·일시정지·
-  계속 받기·동의 뒤 나머지)·「skinPackState」, `test/ui/gameLogic.test.js`(`otherSkins` 기본·정리). 화면은 관리자가 확인(구현 뒤 전후 캡처 반복 없이).
+  계속 받기·동의 뒤 나머지)·「skinPackState」, `test/ui/gameLogic.test.js`(`otherSkins` 기본·정리), `test/ui/illust-res.test.js`(일러스트 화질의 크기 계산·설명 문구). 화면은 관리자가 확인(구현 뒤 전후 캡처 반복 없이).
 - 재발 방지: `test/resource-packs.test.js` 「the resource tab: sizes in no pack and per pack apart…」 — 일시정지를 빼면(`held`가 늘 거짓) 실패함을 봄.
 
 ## 스킨 고르기 (2026-11-16, 관리자 결정 — 리소스 받기 2안의 시안 s4·s5 그대로)

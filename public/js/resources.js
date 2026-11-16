@@ -30,22 +30,25 @@
 // demand on every visit). Without the general consent a chosen pack is still downloaded (it is a choice of its own).
 // The settings' 资源 tab (ResourceSetting, SkinPackSetting) shows the files in no pack and each pack apart (resStore
 // `sizes`: the consent card's size counts a chosen pack's files too), and can pause a pack's download for this page.
-// The 立绘 with two copies (`r`: 'lo' the long side 1024, 'hi' the original resolution — illust-res.js) are a choice by
-// device, not by the player: only this device's copy is downloaded and kept, and the other leaves the cache (the page
-// never asks for it, so nothing fetched on demand is lost; the choice does not change between visits).
+// The 立绘 with two copies (`r`: 'lo' the long side 1024, 'hi' the original resolution — illust-res.js) are the player's
+// choice (立绘画质 on the consent card and the resource tab, IllustSetting; until the player chooses, the device's
+// default): only the chosen copy is downloaded and kept, and the other leaves the cache (the page never asks for it, so
+// nothing fetched on demand is lost). A change resyncs like the voice language (illustStore): the new copies are
+// downloaded when the player agreed before, the consent card's size follows, and the tab's note gives the difference
+// from the list (`illust`: bytes 'hi' minus 'lo' per group).
 // Needs a secure context (https / localhost); on plain http the game simply loads everything from the server.
 //
 //   installResources()   main.js, once
 //   resourceCached(paths) whether a skin model is all in the cache (render/skin-gate.js)
 //   <ResourceHost />     consent card + progress pill (title / lobby / room screens only, never over the match HUD)
-//   <ResourceSetting />  the settings row: start (or retry) the download any time, e.g. after 以后再说
+//   <ResourceSetting />  the settings row: start (or retry) the download any time, e.g. after 以后再说; then 立绘画质
 //   <SkinPackSetting />  the settings rows of the skin data: download / pause / turn off, and 其他玩家的皮肤
 
 import { html, MicroLabel } from './ui/components.js';
 import { createStore, useStore, store, loadPref, savePref, selectRoute } from './store.js';
 import { wantedFiles, onVoiceLangChange, voiceStore, setVoiceLang, VOICE_LANGS, voiceLangLabel } from './voice.js';
 import { setResourceSource, fieldLoading } from './diag.js';
-import { illustFull, illustListed } from './illust-res.js';
+import { illustFull, illustListed, illustStore, setIllustFull } from './illust-res.js';
 import { t, tc } from '../../shared/i18n.js';
 
 const CACHE = 'sp-res';
@@ -69,10 +72,11 @@ const JSDELIVR_RE = /^https:\/\/cdn\.jsdelivr\.net\/gh\//;
  * phase: off | idle | ask | running | done | error. sizes: bytes per group of this browser's list — '' the files in no
  * pack, else a pack's name — `{ total, left }` (left: not cached with the listed hash; sizesOf). chosen: the pack choice
  * (resourcePacks). paused: the packs paused on this page (pauseResourcePack). runGroups: the groups the running download
- * holds files of.
+ * holds files of. illust: what the original-resolution 立绘 cost over the 1024 ones, bytes per group (illustDiff), null when
+ * the list has no pair.
  */
 export const resStore = createStore({ phase: 'off', done: 0, total: 0, bytesDone: 0, bytesTotal: 0, failed: 0, error: null, pendingBytes: 0,
-  sizes: {}, chosen: {}, paused: {}, runGroups: [] });
+  sizes: {}, chosen: {}, paused: {}, runGroups: [], illust: null });
 const setPending = () => resStore.set({ pendingBytes: pending.reduce((n, f) => n + f.s, 0), sizes: sizesOf() });
 
 /**
@@ -122,6 +126,24 @@ export const resourceWanted = (f, packs, chosen) => { const pack = packOf(f.p, p
 /** Whether the cache keeps a list entry it holds with the listed hash: everything but the files of a pack the player
  *  turned off (`chosen[pack] === false`). */
 export const resourceKept = (f, packs, chosen) => { const pack = packOf(f.p, packs); return !pack || chosen?.[pack] !== false; };
+
+/**
+ * What the 立绘's original-resolution copies cost over the 1024 ones, from the list: bytes per group ('' the files in no
+ * pack, else a pack's name) of the files marked 'hi' minus those marked 'lo' — null when the list has no pair (nothing
+ * to choose). The resource tab's note says it (never a hand-written number).
+ * @param {{ p: string, s: number, r?: string }[]} files @param {Record<string, string[]>} packsOf
+ */
+export function illustDiff(files, packsOf) {
+  const out = {};
+  let pairs = false;
+  for (const f of files) {
+    if (f.r !== 'hi' && f.r !== 'lo') continue;
+    pairs = true;
+    const g = packOf(f.p, packsOf) ?? '';
+    out[g] = (out[g] || 0) + (f.r === 'hi' ? f.s : -f.s);
+  }
+  return pairs ? { '': 0, ...out } : null;
+}
 
 const sanitizeChoice = (raw) => Object.fromEntries(Object.entries(raw && typeof raw === 'object' ? raw : {}).filter(([, v]) => typeof v === 'boolean'));
 
@@ -422,6 +444,7 @@ export async function installResources() {
     if (!index || !Array.isArray(index.files)) return;
     listed = index.files.filter(validEntry);
     packs = sanitizePacks(index.packs);
+    resStore.set({ illust: illustDiff(listed, packs) });
     pending = await reconcile();
     setPending();
     if (!pending.length) { resStore.set({ phase: 'done', total: 0 }); return; }
@@ -435,9 +458,9 @@ export async function installResources() {
   }
 }
 
-/** The voice language or the pack choice changed: only that language's files are wanted — the other's leave the cache,
- *  as do the files of a pack turned off —, the new ones are downloaded when the player agreed before (a chosen pack's in
- *  any case). */
+/** The voice language, the 立绘 copy or the pack choice changed: only that language's files and that copy are wanted —
+ *  the others leave the cache, as do the files of a pack turned off —, the new ones are downloaded when the player agreed
+ *  before (a chosen pack's in any case). */
 async function resync() {
   if (!index) return;
   if (running) { again = true; return; } // a running download finishes first (it skips a pack turned off), then this
@@ -451,6 +474,7 @@ async function resync() {
   } catch (err) { console.warn('[resources] resync', err); }
 }
 onVoiceLangChange(resync);
+illustStore.subscribe((s, prev) => { if (s.hi !== prev.hi) resync(); });
 
 /** The player's choice of an optional pack (the settings' resource tab): on downloads its files, off deletes them. */
 export function setResourcePack(name, on) {
@@ -520,6 +544,27 @@ setResourceSource({
 
 const mb = (n) => Math.max(1, Math.round(n / 1048576));
 
+/** 立绘画质 [标准 | 高清] (the consent card, the resource tab): the voice language's two-button control; a choice is saved
+ *  at once (setIllustFull), so the card's 以后再说 keeps it. */
+function IllustChoice() {
+  const hi = useStore((s) => s.hi, Object.is, illustStore);
+  return html`<div class="set-seg" role="radiogroup" data-testid="illust-res">
+    ${[[false, t('标准')], [true, t('高清')]].map(([v, label]) => html`<button key=${v ? 'hi' : 'lo'} type="button" role="radio"
+      aria-checked=${hi === v ? 'true' : 'false'} class=${hi === v ? 'is-on' : ''} onClick=${() => setIllustFull(v)}>${label}</button>`)}
+  </div>`;
+}
+
+/**
+ * The resource tab's note under 立绘画质: how much more the original resolution downloads, from the list (illustDiff) —
+ * the files in no pack, and the skin data's in a second sentence when the list has the skin pack.
+ * @param {Record<string, number>} d
+ */
+export function illustNote(d) {
+  const n = mb(Math.max(0, d[''] || 0));
+  const m = d.skin > 0 ? mb(d.skin) : 0;
+  return m ? t('高清为原始尺寸，比标准多下载约 {n} MB。如已下载皮肤数据，还会再多 {m} MB。', { n, m }) : t('高清为原始尺寸，比标准多下载约 {n} MB。', { n });
+}
+
 /** Consent card (a corner card; a centered dialog on short landscape phones, where every corner holds a button) /
  *  progress pill; hidden during a match (the HUD corners are taken). */
 export function ResourceHost() {
@@ -535,6 +580,7 @@ export function ResourceHost() {
         ${VOICE_LANGS.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${lang === id ? 'true' : 'false'}
           class=${lang === id ? 'is-on' : ''} onClick=${() => setVoiceLang(id)}>${voiceLangLabel(id, label)}</button>`)}
       </div></div>
+      ${r.illust ? html`<div class="res-ask__lang"><span>${t('立绘画质')}</span><${IllustChoice} /></div>` : null}
       <p class="res-ask__size num" data-i18n-skip="">${mb(r.bytesTotal)} MB</p>
       <div class="res-ask__btns">
         <button type="button" class="res-ask__yes" onClick=${acceptResources}>${t('下载')}</button>
@@ -557,8 +603,8 @@ const mbOf = (n) => Math.round(n / 1048576);
 const pctOf = (g) => (g.total ? Math.floor(((g.total - g.left) / g.total) * 100) : 0);
 
 /** Settings → 资源 「预先下载资源」 (ui/settings.js): the files in no pack — their state and size, and a button that starts
- *  or retries the download. A chosen pack's files are the skin rows' (SkinPackSetting). Hidden where the feature is off
- *  (plain http, no list on the server). */
+ *  or retries the download —, then 立绘画质 (IllustChoice, with illustNote) when the list has 立绘 pairs. A chosen pack's
+ *  files are the skin rows' (SkinPackSetting). Hidden where the feature is off (plain http, no list on the server). */
 export function ResourceSetting() {
   const r = useStore((s) => s, Object.is, resStore);
   if (r.phase === 'off') return null;
@@ -577,7 +623,12 @@ export function ResourceSetting() {
       ${r.phase === 'error' ? html`<span class="res-set__err">${r.error === 'quota' ? t('浏览器存储空间不足，无法预先下载资源') : t('资源下载中断，下次进入时继续')}</span>` : null}
     </div>
   </div>
-  <p class="set-hint res-set__hint">${t('下载战场、干员、特效和语音等全部资源。新赛季加入时一并下载。语音语言在「声音」标签中选择。')}</p>`;
+  <p class="set-hint res-set__hint">${t('下载战场、干员、特效和语音等全部资源。新赛季加入时一并下载。语音语言在「声音」标签中选择。')}</p>
+  ${r.illust ? html`<div class="set-row res-set" data-testid="res-illust">
+    <span class="set-row__label">${t('立绘画质')}<${MicroLabel}>ILLUSTRATION<//></span>
+    <div class="res-set__body"><${IllustChoice} /></div>
+  </div>
+  <p class="set-hint res-set__hint">${illustNote(r.illust)}</p>` : null}`;
 }
 
 /**

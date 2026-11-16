@@ -7,19 +7,20 @@
 //
 // The CATALOGUE is not data/*.json: the official skins come with the optional skin data (resources.js pack 'skin'),
 //   * local/spine/skin/skins.json — every skin: its owner (an operator charId, or a summon's id), its summons' skins
-//     (`tokens`) and its 立绘 (`illust`, this server's webp; its `full` copy is the original resolution, which every
-//     device but a phone draws — illust-res.js) — tools/local-extract/skin_extract.py;
+//     (`tokens`) and its 立绘 (`illust`, this server's webp; its `full` copy is the original resolution, drawn when the
+//     player chose 高清 — by default every device but a phone, illust-res.js) — tools/local-extract/skin_extract.py;
 //   * local/spine/skin/art.json — each skin's avatar (1:1) and portrait (1:2), fetched by the resource worker from the
 //     picture repository the list names — tools/fetch-skin-art.mjs.
 // Both lists are small and are fetched (and kept by the worker) when the picker or a seat card first needs them, chosen
-// pack or not: a player without the skin data still sees which skins an operator has, locked.
+// pack or not: a player without the skin data still sees which skins an operator has, locked. A change of the 立绘 copy
+// (illust-res.js illustStore) rebuilds the catalogue from the two lists, so an open picker's preview switches at once.
 //
 // The key is the OPERATOR id, not the chess id: an operator's normal, elite and 自选 pieces are one operator, and the
 // server reads a unit's skin by its charId (server/match/player PlayerState.skinFor).
 
 import { createStore, loadPref, savePref } from '../store.js';
 import { SKIN_LIMITS, isCharId, isSkinId } from '../../../shared/protocol.js';
-import { illustEntry, illustFull } from '../illust-res.js';
+import { illustEntry, illustFull, illustStore } from '../illust-res.js';
 
 /** The pref (`sp.pref.<key>`) of this browser's choice. */
 export const SKINS_PREF = 'skins';
@@ -88,7 +89,7 @@ export function clearSkin(charId) {
  * are not chosen — they follow their owner's), each `{ id, name, illust, avatar, portrait }` (null where a list has no
  * picture: the default one is drawn).
  * @param {any} list skins.json @param {any} art art.json (may be null: no avatars / portraits)
- * @param {boolean} [hi] the 立绘's original-resolution copy (default: this device's choice, illust-res.js)
+ * @param {boolean} [hi] the 立绘's original-resolution copy (default: the page's choice, illust-res.js)
  */
 export function buildSkinCatalog(list, art, hi = illustFull()) {
   const byOwner = new Map();
@@ -107,6 +108,7 @@ export function buildSkinCatalog(list, art, hi = illustFull()) {
 }
 
 let loading = null;
+let lists = null; // the two lists the catalogue was built from: { list, art }
 /**
  * Fetch the two lists once (both are listed files: the resource worker keeps them) and put the catalogue in the store.
  * A server without them ('missing') shows no skin section; a failed fetch is tried again on the next call.
@@ -117,12 +119,17 @@ export function loadSkinCatalog(getJson = fetchJson) {
   if (loading) return loading;
   loading = Promise.all([getJson(SKIN_LIST_URL), getJson(SKIN_ART_URL).catch(() => null)]).then(([list, art]) => {
     const catalog = isObj(list) ? buildSkinCatalog(list, art) : 'missing';
+    if (isObj(list)) lists = { list, art };
     skinsStore.set({ catalog });
     loading = null;
     return catalog;
   }, (err) => { loading = null; console.warn('[skins] catalogue', err); return null; });
   return loading;
 }
+
+illustStore.subscribe((s, prev) => {
+  if (s.hi !== prev.hi && lists && isObj(skinsStore.get().catalog)) skinsStore.set({ catalog: buildSkinCatalog(lists.list, lists.art, s.hi) });
+});
 
 async function fetchJson(url) {
   const r = await fetch(url);

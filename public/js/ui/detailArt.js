@@ -12,8 +12,9 @@
 // The art: the operator's 立绘 when the local client extraction lists it (data/local-assets.json group `chararts`,
 // `<charId>` — tools/local-extract/chararts_extract.py: the default art `<charId>_1` and its `illust_<charId>_1` frame,
 // the client's per-art size and offset that line the faces up), placed by that frame (css/hud-art.css `--fx/--fy/--fw/
-// --fh`), in the copy this device takes (illust-res.js: a phone the 1024 one, other devices the entry's `full`, the
-// original resolution — maintainer decision 2026-11-16); else the web manifest's half-body portrait (180×360); else no art. A chess with a character template is drawn
+// --fh`), in the copy the player chose (illust-res.js: 标准 the 1024 one, 高清 the entry's `full`, the original resolution;
+// by default a phone 标准 and other devices 高清 — maintainer decisions 2026-11-16, 2026-11-17; a change redraws an open
+// card); else the web manifest's half-body portrait (180×360); else no art. A chess with a character template is drawn
 // as its body, its `tmplId` (阿米娅's 医疗 form is char_1037_amiya3's art, not 阿米娅's own).
 //
 // 0.2.0 补位 (docs/LOCAL-PATCH.md 「0.2.0 병합」): a chess the player fields as its stand-in shows the
@@ -38,7 +39,8 @@ import { attackInterval, fmtNum, chessLoadout, pickGetter, standInLoadout, stand
 import { chessPortraitUrl, profIconUrl, uiUrl, enemyIconUrl, factionIconUrl, itemIconUrl, tokenAvatarUrl, skillRecordIconUrl } from './assetUrls.js';
 import { tokenVariantFor } from './gameLogic/loadout.js';
 import { data, localAsset } from '../data.js';
-import { illustEntry } from '../illust-res.js';
+import { illustEntry, illustStore } from '../illust-res.js';
+import { useStore } from '../store.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -62,9 +64,8 @@ export function artParts(blocks) {
 }
 
 /**
- * The card's art: the local 立绘 (`chararts`, with its illust frame; the copy this device takes, illustEntry), else the
- * portrait.
- * @param {boolean} [hi] the original-resolution copy (default: this device's choice, illust-res.js)
+ * The card's art: the local 立绘 (`chararts`, with its illust frame; the chosen copy, illustEntry), else the portrait.
+ * @param {boolean} [hi] the original-resolution copy (default: the page's choice, illust-res.js)
  * @returns {{ src: string|null, full: boolean, frame: { x: number, y: number, w: number, h: number } | null }}
  */
 export function cardArt(m, chess, hi) {
@@ -108,6 +109,7 @@ function Line({ k, v, tone, sub, title, cls }) {
 
 export function ChessDetailArt(props) {
   const [tab, setTab] = useState(null);
+  const hi = useStore((x) => x.hi, Object.is, illustStore); // the 立绘 copy: a change in the settings redraws the card
   const { chess: c, piece, live = null, snapHp = null, loadout = null, standIn = null, diy = null, cultOpts = null } = props;
   const blocks = ChessDetail(props);
   const { by, tabs } = artParts(blocks);
@@ -122,7 +124,7 @@ export function ChessDetailArt(props) {
   const fr = lo?.record || body;
   const s = fr?.stats || {};
   const golden = !!(c.isGolden || piece?.golden);
-  const art = cardArt(m, body);
+  const art = cardArt(m, body, hi);
   const fs = art.frame ? `--fx:${art.frame.x};--fy:${art.frame.y};--fw:${art.frame.w};--fh:${art.frame.h}` : '';
   const token = piece?.kind === 'token' || c.profession === 'TOKEN';
   const st = {
