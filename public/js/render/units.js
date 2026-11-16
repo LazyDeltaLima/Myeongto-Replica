@@ -83,7 +83,7 @@ import { faceOf, turnFace, turnWidth, dirVector, NEAR_SQ, SWITCH_TIME } from './
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './heldWheel.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
 import { loadPlaces, modelPlace, placesVersion } from './fxpoints.js'; // a model's place and shadow in its battle prefab
-import { ElementRing, epRingState, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, HUD_ANCHOR, prepChip, PREP_CHIP, EquipBar, equipTextures, RespawnHud, respawnTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
+import { ElementRing, epRingState, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, HUD_ANCHOR, prepChip, PREP_CHIP, PREP_TOKEN, tokenCountPlate, EquipBar, equipTextures, RespawnHud, respawnTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 loadPlaces(); // the per-unit model places (fxpoints.js); views built before it arrives re-read it
@@ -148,6 +148,17 @@ export function syncView(v, s, t) {
 export const DIR_STEP = Object.freeze({ UP: [0, 1], RIGHT: [1, 0], DOWN: [0, -1], LEFT: [-1, 0] });
 /** CSS px per battle-HUD unit: the view's (hud-bars.js hudUnit) × the wide 联防 field's zoom (render/app.js updateHudZoom). */
 const hudU = (ctx) => hudUnit(ctx.viewport?.()) * (ctx.hudZoom?.() ?? 1);
+/** A hand token stack's count (UnitView.setCount): the official token_cnt's face, size and colour; the outline is only
+ *  for a server without the plate's art. */
+const COUNT_STYLE = Object.freeze({ fontFamily: '"Noto Sans SC", "Noto Sans KR", sans-serif', fontSize: 22, fontWeight: '500', fill: '#ffffff' });
+const COUNT_OUTLINE = Object.freeze({ stroke: '#0b0f0e', strokeThickness: 5 });
+const _countTexts = new Set();
+/** Redraw the stack counts once web fonts finished loading (Noto Sans SC may land after the first count was drawn). */
+export function refreshCountTexts() {
+  for (const t of _countTexts) {
+    try { t.updateText(false); } catch { /* keep the old glyphs */ }
+  }
+}
 const nowMs = () => (globalThis.performance ? globalThis.performance.now() : Date.now());
 /**
  * local patch (official deploy, maintainer's notes 2026-10-07): an allied unit with a Spine model
@@ -1408,19 +1419,35 @@ export class UnitView {
     this.blockIcon.visible = false;
     this.ctx.layers.groundFx.addChild(this.blockIcon);
     this.countText = null;
+    this.countPlate = null; // the official token_cnt_bg under the count (setCount)
     this.itemPips = [];
   }
 
-  /** Show a stack count (token stacks in the hand) — BitmapText-free: a tiny canvas-less chip via Text. */
+  /**
+   * Show a stack count (token stacks in the hand): the official `shop_hud` token_cnt — "X{n}" (a Latin X) in
+   * NotoSansHans-Medium (Noto Sans SC 500), white, on its token_cnt_bg plate (hud-bars.js PREP_TOKEN); without the
+   * plate's art, outlined at the piece's lower right (docs/rules/ui.md 「HUD 숫자 글꼴」). One Text per stack, rasterised
+   * only when the count or the plate changes.
+   */
   setCount(n) {
     const P = this.P;
-    if (!(n > 1)) { if (this.countText) this.countText.visible = false; return; }
-    if (!this.countText) {
-      this.countText = new P.Text('', { fontFamily: 'Bender, Oxanium, sans-serif', fontSize: 22, fontWeight: '700', fill: '#ffffff', stroke: '#0b0f0e', strokeThickness: 5 });
-      this.countText.anchor.set(0.5);
-      this.hud.addChild(this.countText);
+    if (!(n > 1)) {
+      if (this.countText) this.countText.visible = false;
+      if (this.countPlate) this.countPlate.visible = false;
+      return;
     }
-    this.countText.text = `×${n}`;
+    if (!this.countText) {
+      this.countPlate = new P.Sprite(P.Texture.EMPTY);
+      this.countPlate.anchor.set(0.5);
+      this.countPlate.visible = false;
+      this.countText = new P.Text('', { ...COUNT_STYLE, ...COUNT_OUTLINE });
+      this.countText.anchor.set(0.5);
+      this._countOnPlate = false;
+      this.hud.addChild(this.countPlate, this.countText);
+      _countTexts.add(this.countText);
+    }
+    const text = `X${n}`;
+    if (this.countText.text !== text) this.countText.text = text;
     this.countText.visible = true;
   }
 
@@ -2519,9 +2546,26 @@ export class UnitView {
     }
     // count badge & item pips (prep)
     if (this.countText && this.countText.visible) {
-      this.countText.scale.set(clamp(s / 90, 0.5, 1.2));
-      this.countText.position.set(x + s * 0.32, this.screen.y - s * 0.12);
-    }
+      const plate = tokenCountPlate(this.P, this.ctx.assets);
+      if (!!plate !== this._countOnPlate) { // the outline only without the plate (one re-raster when the art lands)
+        this._countOnPlate = !!plate;
+        this.countText.style = plate ? { ...COUNT_STYLE } : { ...COUNT_STYLE, ...COUNT_OUTLINE };
+      }
+      if (plate) {
+        const u = hudU(this.ctx), T = PREP_TOKEN;
+        const cx = this.screen.x + T.x * u, cy = hudAnchorY(this.screen.y, u, this.hudAnchor) - T.y * u;
+        if (this.countPlate.texture !== plate) this.countPlate.texture = plate;
+        this.countPlate.visible = true;
+        this.countPlate.width = T.w * u; this.countPlate.height = T.h * u;
+        this.countPlate.position.set(cx, cy);
+        this.countText.scale.set(T.font * u / COUNT_STYLE.fontSize);
+        this.countText.position.set(cx, cy);
+      } else {
+        this.countPlate.visible = false;
+        this.countText.scale.set(clamp(s / 90, 0.5, 1.2));
+        this.countText.position.set(x + s * 0.32, this.screen.y - s * 0.12);
+      }
+    } else if (this.countPlate) this.countPlate.visible = false;
     // local patch (LOCAL-PATCH.md 「전투 화면 UI」): in prep the official equip bar stands for the item pips when installed
     const eqTex = prep && this._equip?.length && this.alive ? equipTextures(this.P, this.ctx.assets) : null;
     // an operator with more than two equipment slots (规程's “暴躁铁皮” 4 / 6) shows no pill at all in the official game (CN player
@@ -2836,6 +2880,7 @@ export class UnitView {
     if (this.facingArrow) this.facingArrow.destroy();
     if (this._facing) this._facing.destroy(); // local patch
     if (this._eliteRing) this._eliteRing.destroy();
+    if (this.countText) _countTexts.delete(this.countText);
     this.hud.destroy({ children: true });
     this.root.destroy({ children: true });
   }

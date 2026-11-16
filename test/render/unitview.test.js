@@ -87,6 +87,49 @@ describe('tier chips', () => {
   });
 });
 
+// docs/rules/ui.md 「HUD 숫자 글꼴」: the official shop_hud token_cnt — "X{0}" in NotoSansHans-Medium 22, white, on token_cnt_bg
+describe('hand token stack count', () => {
+  const token = (assets) => view({ kind: 'token', defId: 'token_10028_vigil_wolf', avatar: 'token_10028_vigil_wolf' }, { prep: true }, assets);
+  test('on the official plate where an operator\'s equip bar sits: "X{n}" in Noto Sans SC 500, white, no outline', async () => {
+    const { PREP_TOKEN } = await import('../../public/js/render/hud-bars.js');
+    const urls = [];
+    const v = token({ ...store(), localUrl: (g, n) => { urls.push(`${g}/${n}`); return g === 'ui/battlecommon' && n === 'token_cnt_bg' ? '/l/token_cnt_bg.png' : null; } });
+    v.setCount(3);
+    v.update(1 / 60, cam(), 0);
+    const style = v.countText.style;
+    for (let i = 1; i < 4; i++) v.update(1 / 60, cam(), i / 60);
+    assert.ok(urls.includes('ui/battlecommon/token_cnt_bg'));
+    assert.equal(v.countText.text, 'X3', 'a Latin X, as the client formats it');
+    assert.match(v.countText.style.fontFamily, /^"Noto Sans SC"/);
+    assert.equal(v.countText.style.fontWeight, '500');
+    assert.equal(v.countText.style.fill, '#ffffff');
+    assert.ok(!v.countText.style.strokeThickness, 'no outline on the plate');
+    assert.ok(v.countText.style === style, 'the style is set once, not every frame (no re-raster)');
+    const p = v.countPlate;
+    assert.ok(p.visible && p.texture.baseTexture.resource === '/l/token_cnt_bg.png');
+    const u = p.width / PREP_TOKEN.w;
+    assert.ok(u > 0 && Math.abs(p.height - PREP_TOKEN.h * u) < 1e-9);
+    assert.ok(Math.abs(p.position.x - v.screen.x - PREP_TOKEN.x * u) < 1e-6);
+    assert.ok(Math.abs(p.position.y - (v.screen.y - v.hudAnchor * u - PREP_TOKEN.y * u)) < 1e-6, 'the equip bar\'s place over hud_unit');
+    assert.ok(v.countText.position.x === p.position.x && v.countText.position.y === p.position.y, 'centred on the plate');
+    assert.ok(Math.abs(v.countText.scale.x - PREP_TOKEN.font * u / 22) < 1e-9, 'the prefab\'s 22 × 0.75 × 1.25');
+    v.setCount(1);
+    assert.ok(!v.countText.visible && !v.countPlate.visible, 'a single token shows no count');
+    v.destroy();
+  });
+
+  test('without the plate\'s art: the same text, outlined, no plate', () => {
+    const v = token(store());
+    v.setCount(2);
+    for (let i = 0; i < 3; i++) v.update(1 / 60, cam(), i / 60);
+    assert.equal(v.countText.text, 'X2');
+    assert.match(v.countText.style.fontFamily, /^"Noto Sans SC"/);
+    assert.ok(v.countText.style.strokeThickness > 0, 'outlined');
+    assert.ok(!v.countPlate.visible);
+    v.destroy();
+  });
+});
+
 describe('fallback portraits (avatar diamonds)', () => {
   test('an avatar that loads builds one diamond — no image-less placeholder first', async () => {
     const before = diamonds().length;

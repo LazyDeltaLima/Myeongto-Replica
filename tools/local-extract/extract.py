@@ -120,6 +120,8 @@ JOBS = [
      r'^(sprite_direction_arrow|sprite_direction_thumb|sprite_rectangle_frame_triangle|btn_cancel|btn_drag_back'
      # local patch (LOCAL-PATCH.md 「전투 화면 UI」): act1autochess_battle_dummy_hud_plugin's equipment bar (prep)
      r'|equip_bg|equip_gold_icon|equip_normal_icon'
+     # and the plate under a hand token stack's count (shop_hud token_bg / token_cnt)
+     r'|token_cnt_bg'
      # and its battle state: the redeploy countdown over a knocked-out operator (countdown_bg / countdown_fill, cost_lack)
      r'|countdown_background|countdown_fill|cost_lack'
      # the boss HP bars' emblems, hit glow and frame (enemy_boss_hp_slider, panel_enemy_boss_info)

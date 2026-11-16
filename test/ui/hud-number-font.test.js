@@ -90,6 +90,26 @@ test('more Medium spots: the 3/3 lineup count, the shop prices and funds, the ac
   assert.match(rule(ac, '.achv__mark img'), /height: \.46rem;[^}]*object-fit: contain/);
 });
 
+test('the round-start banner: the round and the 获得 count are Medium spots, .07 em lower, the 获得 icons where the prefab puts them', () => {
+  const css = readFileSync(path.join(ROOT, 'public/css/phase-art.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (sel) => {
+    const m = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find((x) => x[1].trim() === sel);
+    assert.ok(m, sel);
+    return m[2];
+  };
+  const medium = new RegExp(`font-family: ${LX.replace(/[()]/g, '\\$&')};[^}]*font-weight: 500;[^}]*letter-spacing: -\\.06em`);
+  // round_start_dialog text_round 40 / group_sources text_num 26 (Novecentowide-Medium): the client's line holds the
+  // digits .09 em under its middle, Lexend's web line .02 em — without the .07 em the count rides above the plus
+  const round = rule('.parb__round');
+  assert.match(round, medium);
+  assert.match(round, /transform: translateY\(\.07em\)/);
+  const num = rule('.parb__num');
+  assert.match(num, medium);
+  assert.match(num, /top: \.07em/);
+  // plus (-9.4, -3.6) and icon (-37.7, -1.5) are placed from the group's middle, which the count's shift must not move
+  for (const sel of ['.parb__gold', '.parb__plus']) assert.match(rule(sel), /top: calc\(50% - \.07em\)/, sel);
+});
+
 test('the numeral face: --font-num is Lexend Exa pinned at 500, the official Bold spots ask for 700, the Normal spots Novecento Wide', () => {
   const read = (f) => readFileSync(path.join(ROOT, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   const rule = (css, sel) => {

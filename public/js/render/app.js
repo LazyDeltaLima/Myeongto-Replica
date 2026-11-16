@@ -132,7 +132,7 @@ import { fxDir, fxForm } from '../../../shared/protocol.js';
 import { Camera, presetCamera, lerpCamera, flyRig, easeInOutCubic, easeOutQuart, pickTile, normRect, SIDE_BY, stageCameraConfig } from './projection.js';
 import { SnapshotBuffer, frameTime } from './interp.js';
 import { TileField } from './tiles.js';
-import { UnitView, ItemView, DeviceView, FORMS, SKIN_FORMS, syncView } from './units.js';
+import { UnitView, ItemView, DeviceView, FORMS, SKIN_FORMS, syncView, refreshCountTexts } from './units.js';
 import { createInfectionMarks, createInfectionTouches } from './infectionMark.js'; // local patch: the red 「!!!」 over units on 活性源石
 import { FxSystem, ensureDamageFonts } from './fx.js';
 import { createDragController, pieceTile, dragStandTile } from './drag.js';
@@ -236,8 +236,8 @@ export async function createFieldView(host, options = {}) {
   await waitStep('manifests', Promise.all([assets.ready ? assets.ready() : null, assets.local ? assets.local() : null]
     .map((p) => Promise.resolve(p).catch(() => {}))), waitCap(4000));
   signal?.throwIfAborted();
-  // web fonts for the bitmap damage numbers / tier chips (never block long)
-  try { if (document.fonts?.load) await waitStep('fonts', Promise.all([document.fonts.load('700 40px Bender'), document.fonts.load('700 40px Oxanium')]), waitCap(1500)); } catch { /* optional fonts */ }
+  // web fonts for the bitmap damage numbers / tier chips, and the token stack counts' Noto Sans SC 500 (its Latin subset; never block long)
+  try { if (document.fonts?.load) await waitStep('fonts', Promise.all([document.fonts.load('700 40px Bender'), document.fonts.load('700 40px Oxanium'), document.fonts.load('500 22px "Noto Sans SC"', 'X0123456789')]), waitCap(1500)); } catch { /* optional fonts */ }
   signal?.throwIfAborted();
 
   const size = () => ({ width: Math.max(1, host.clientWidth || 1), height: Math.max(1, host.clientHeight || 1) });
@@ -652,8 +652,8 @@ export async function createFieldView(host, options = {}) {
   loadShadow();
   ensureDamageFonts();
   timing?.part?.('fonts');
-  // web fonts may land after the first chips / redeploy-ring labels were drawn
-  if (document.fonts?.ready) document.fonts.ready.then(() => { if (!destroyed) { refreshTierChips(); refreshDownLabels(); } }).catch(() => {});
+  // web fonts may land after the first chips / redeploy-ring labels / stack counts were drawn
+  if (document.fonts?.ready) document.fonts.ready.then(() => { if (!destroyed) { refreshTierChips(); refreshDownLabels(); refreshCountTexts(); } }).catch(() => {});
 
   // ---- camera ---------------------------------------------------------------------------------------------
 

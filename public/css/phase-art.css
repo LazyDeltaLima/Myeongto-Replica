@@ -48,15 +48,18 @@
 .parb__title { display: flex !important; align-items: center; justify-content: center; white-space: nowrap; font-family: var(--font-cjk); font-weight: 500;
   font-size: calc(var(--pu) * 22); color: #acacac; line-height: 1; }
 .parb__box.is-gold .parb__title { color: #ffbc09; }
-.parb__round { display: flex !important; align-items: center; justify-content: center; font-family: 'Novecento Wide', var(--font-display);
-  font-size: calc(var(--pu) * 40); color: #dfdfdf; line-height: 1; letter-spacing: .04em; }
+/* text_round 40 / text_num 26: Novecentowide-Medium → Lexend Exa 500 (docs/rules/ui.md 「HUD 숫자 글꼴」). The client's
+   MiddleCenter line holds Novecento's digits .09 em under the line's middle, the web line holds Lexend's .02 em under
+   it: both counts go .07 em down to sit where the prefab puts them (the 获得 icons stay on the group's middle) */
+.parb__round { display: flex !important; align-items: center; justify-content: center; font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num);
+  font-weight: 500; font-size: calc(var(--pu) * 40); color: #dfdfdf; line-height: 1; letter-spacing: -.06em; transform: translateY(.07em); }
 /* 获得: round_sources_icon (32 × 25) and round_plus (14.7 × 14) left of the count (#ffba00, 26) */
 .parb__src { display: flex !important; align-items: center; justify-content: center; }
-.parb__num { position: relative !important; font-family: 'Novecento Wide', var(--font-display); font-size: calc(var(--pu) * 26); color: #ffba00; line-height: 1;
-  text-shadow: 0 0 calc(var(--pu) * 6) rgba(255, 186, 0, .35); }
-.parb__gold { left: calc(var(--pu) * (-37.7 - 16)); top: 50%; width: calc(var(--pu) * 32); height: calc(var(--pu) * 25); margin-top: calc(var(--pu) * (-12.5 + 1.5));
+.parb__num { position: relative !important; top: .07em; font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 500;
+  font-size: calc(var(--pu) * 26); color: #ffba00; line-height: 1; letter-spacing: -.06em; text-shadow: 0 0 calc(var(--pu) * 6) rgba(255, 186, 0, .35); }
+.parb__gold { left: calc(var(--pu) * (-37.7 - 16)); top: calc(50% - .07em); width: calc(var(--pu) * 32); height: calc(var(--pu) * 25); margin-top: calc(var(--pu) * (-12.5 + 1.5));
   background: var(--pa-gold) center / 100% 100% no-repeat; }
-.parb__plus { left: calc(var(--pu) * (-9.4 - 7.35)); top: 50%; width: calc(var(--pu) * 14.7); height: calc(var(--pu) * 14); margin-top: calc(var(--pu) * (-7 + 3.6));
+.parb__plus { left: calc(var(--pu) * (-9.4 - 7.35)); top: calc(50% - .07em); width: calc(var(--pu) * 14.7); height: calc(var(--pu) * 14); margin-top: calc(var(--pu) * (-7 + 3.6));
   background: var(--pa-plus) center / 100% 100% no-repeat; }
 /* the glow under the count ([추정] its ext sprite: a soft ellipse, #f2ff00) and the gold pixels of the ui_particle */
 .parb__glow { background: radial-gradient(closest-side, rgba(242, 255, 0, .16), transparent); animation: parb-glow 1.2s ease-out both; }

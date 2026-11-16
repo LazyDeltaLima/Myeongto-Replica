@@ -126,6 +126,12 @@ export const PREP_CHIP = Object.freeze({ x: -45.5, y: 115, interior: 37.5 });
 /** Prep equipment bar (`shop_hud` equip_bg, root scale 1.25), in HUD units: centre from hud_unit's centre, size, slots. */
 /** rise: the next pill of an operator with more than two slots, this far above the last [추정·화면]. */
 export const PREP_EQUIP = Object.freeze({ x: 14.75, y: 129.5, w: 92.5, h: 37.5, rise: 30, slots: Object.freeze([-16, 16.25]), slotW: 28.75, slotH: 7.5, scale: 1.25 });
+/**
+ * A hand token stack's count (`shop_hud` token_bg: token_cnt_bg 76×31 × 0.75 at (13, 29), where an operator's equip bar
+ * sits; its token_cnt NotoSansHans-Medium 22 white, MiddleCenter, "X{0}"), root scale 1.25, in HUD units: plate centre
+ * from hud_unit's centre, plate size, the text's height.
+ */
+export const PREP_TOKEN = Object.freeze({ x: (13 - 1.2) * 1.25, y: (29 + 74.2) * 1.25, w: 76 * 0.75 * 1.25, h: 31 * 0.75 * 1.25, font: 22 * 0.75 * 1.25 });
 
 /**
  * Redeploy countdown over a knocked-out operator (the dummy HUD's battle_state, root scale 1.25), in HUD units: centre
@@ -468,6 +474,9 @@ export function equipTextures(P, assets) {
   const gold = texOf(P, localUrl(assets, 'ui/battlecommon', 'equip_gold_icon'));
   return bg && normal && gold ? { bg, normal, gold } : null;
 }
+
+/** The plate under a hand token stack's count (PREP_TOKEN), or null while it is not installed / loaded. */
+export const tokenCountPlate = (P, assets) => texOf(P, localUrl(assets, 'ui/battlecommon', 'token_cnt_bg'));
 
 /**
  * The prep equipment bar of one piece (see header), drawn into `parent`. An operator with more than two equipment
