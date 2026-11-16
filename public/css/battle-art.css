@@ -59,11 +59,15 @@
   display: flex; justify-content: center; pointer-events: none; transition: bottom .08s linear; animation: bart-in .25s ease-out both; }
 .btip.is-up { bottom: calc(var(--pu) * (47.7 + 172) + var(--sa-b, 0px)); }
 .btip.is-leaving { animation: bart-out .25s ease-in both; }
-/* img_bg (104 × 54, 9-sliced 26 | 30) tinted per type; the icon 32, the text 18 white, padding 30, gap 9.27, 410…690 wide */
+/* inner_layout 54 tall: the icon 32, the text 18 white, padding 30, gap 9.27, 410…690 wide. Its bkg img_bg (104 × 54,
+   9-sliced 26 | 30) tinted per type is a soft sprite: only a stadium 33 tall shows (rows 10–42, 10 in from either end,
+   white at 70 % alpha) with a fringe 10 wide fading out from 25 % (82 % grey) — ::after draws that, the box stays clear */
 .btip__pill { position: absolute; top: calc(var(--pu) * -27); height: calc(var(--pu) * 54); min-width: calc(var(--pu) * 410); max-width: calc(var(--pu) * 690);
   box-sizing: border-box; padding: 0 calc(var(--pu) * 30); display: flex; align-items: center; justify-content: center; gap: calc(var(--pu) * 9.27);
-  background: var(--tip); border-radius: calc(var(--pu) * 27);
-  box-shadow: 0 calc(var(--pu) * 4) calc(var(--pu) * 14) rgba(0, 0, 0, .35); }
+  isolation: isolate; }
+.btip__pill::after { content: ''; position: absolute; z-index: -1; inset: calc(var(--pu) * 10) calc(var(--pu) * 10) calc(var(--pu) * 11);
+  border-radius: calc(var(--pu) * 16.5); background: var(--tip); background: color-mix(in srgb, var(--tip) 70%, transparent);
+  box-shadow: 0 0 calc(var(--pu) * 10) color-mix(in srgb, color-mix(in srgb, var(--tip) 82%, #000) 50%, transparent); }
 .btip__icon { flex: none; width: calc(var(--pu) * 32); height: calc(var(--pu) * 32); background: center / contain no-repeat; }
 .btip__text { font-family: var(--font-cjk); font-weight: 500; font-size: calc(var(--pu) * 18); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1; }
 .btip__fold { display: none; }
@@ -77,8 +81,9 @@
   .btip, .btip.is-up { left: calc(.24rem + var(--sa-l, 0px)); right: auto; justify-content: flex-start; transition: none;
     bottom: calc(.24rem + max(.56rem, 34px) + 10px + var(--sa-b, 0px)); }
   .btip__pill { top: auto; bottom: 0; height: auto; width: 156px; min-width: 0; max-width: none; padding: 6px 8px 6px 10px; gap: 5px;
-    border-radius: 12px; justify-content: flex-start; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); pointer-events: auto; cursor: pointer;
+    background: var(--tip); border-radius: 12px; justify-content: flex-start; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); pointer-events: auto; cursor: pointer;
     -webkit-tap-highlight-color: transparent; }
+  .btip__pill::after { display: none; }
   .btip__pill::before { content: ''; position: absolute; inset: -6px; }   /* a finger-sized hit area round the folded icon */
   .btip__icon { width: 16px; height: 16px; }
   .btip__text { font-size: 11px; white-space: normal; overflow: visible; line-height: 1.3; }

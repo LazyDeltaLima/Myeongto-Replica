@@ -192,3 +192,23 @@ describe('phones fold the bottom tip chip', () => {
     assert.match(src, /onClick=\$\{toggle\}/);
   });
 });
+
+// docs/rules/ui.md 「공식 위수협약 UI」 아래 안내 띠: img_bg (104 × 54) is a soft-edged sprite whose visible stadium is 33 of
+// its 54 (rows 10–42, 10 in from either end, white at 70 %) — a solid 54-tall pill drew the band about 1.6 × too tall
+describe('the desktop bottom tip band draws img_bg\'s visible part, not its whole rect', () => {
+  test('the 54-tall layout box stays clear; ::after is the 33-tall stadium 10 / 10 / 11 in', () => {
+    const css = read('public/css/battle-art.css');
+    const pill = css.match(/^\.btip__pill \{[^}]*\}/m)?.[0] || '';
+    assert.match(pill, /height: calc\(var\(--pu\) \* 54\)/, 'the layout box keeps the prefab height (icon and text centre in it)');
+    assert.doesNotMatch(pill, /background: var\(--tip\)/,
+      'the desktop pill box must not be filled: img_bg is transparent outside its 33-tall stadium (docs/rules/ui.md 「공식 위수협약 UI」)');
+    const after = css.match(/^\.btip__pill::after \{[^}]*\}/m)?.[0] || '';
+    assert.match(after, /inset: calc\(var\(--pu\) \* 10\) calc\(var\(--pu\) \* 10\) calc\(var\(--pu\) \* 11\)/,
+      'the visible stadium sits 10 / 10 / 11 inside img_bg (docs/rules/ui.md 「공식 위수협약 UI」)');
+    assert.match(after, /color-mix\(in srgb, var\(--tip\) 70%, transparent\)/, 'img_bg\'s stadium is white at 70 % alpha, tinted');
+    const phone = css.slice(css.indexOf('@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse),\n  (max-width: 767px)'));
+    const block = phone.slice(0, phone.indexOf('\n}\n'));
+    assert.match(block, /\.btip__pill \{[^}]*background: var\(--tip\)/, 'the phone chip stays a solid chip (maintainer decision 2026-11-13)');
+    assert.match(block, /\.btip__pill::after \{ display: none; \}/);
+  });
+});
