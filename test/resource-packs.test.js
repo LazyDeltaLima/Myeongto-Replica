@@ -1,7 +1,8 @@
 // The skin data is a pack of the resource list (tools/build-browser-resources.mjs `packs`, public/js/resources.js): its
 // files are downloaded only by a player who chose it, and the cache deletes them only when that player turns it off —
 // a pack filter on the delete side would remove, on every visit, what the game fetched on demand (docs/rules/render.md
-// 「스킨 모델 소재」). The skin models come from fexli/ArknightsResource (tools/fetch-skin-models.mjs matchSkins).
+// 「스킨 모델 소재」). The skin models come from fexli/ArknightsResource (tools/fetch-skin-models.mjs matchSkins), the skins'
+// avatars and portraits from yuanyan3060/ArknightsGameResource (tools/fetch-skin-art.mjs planArt).
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -129,5 +130,42 @@ describe('tools/fetch-skin-models.mjs matchSkins', () => {
     const { matchSkins } = await mod('tools/fetch-skin-models.mjs');
     const tree = blobs([...side('tok_a/tok_a_winter_2', 'tok_a_winter_2', 'Spine', 9), ...side('tok_a/tok_a_winter_3', 'tok_a_winter_3', 'Spine', 9)]);
     assert.throws(() => matchSkins({ 'tok_a_winter#1': { owner: 'tok_a', prefab: 'tok_a_winter#1', front: {} } }, tree, () => [9]), /2 folders/);
+  });
+});
+
+describe('tools/fetch-skin-art.mjs planArt', () => {
+  const skins = {
+    'char_1_a@boc#1': { owner: 'char_1_a', prefab: 'char_1_a_boc#1' },
+    'tok_a_winter#1': { owner: 'tok_a', prefab: 'tok_a_winter#1' },
+    'tok_b_sale#2': { owner: 'tok_b', prefab: 'tok_b_sale#2' },
+  };
+  const table = {
+    'char_1_a@boc#1': { avatarId: 'char_1_a_boc#1', portraitId: 'char_1_a_boc#1' },
+    'tok_a_winter#1': { avatarId: 'tok_a_winter#1', portraitId: null },
+    'tok_b_sale#2': { avatarId: 'tok_b_sale#2' },
+  };
+  const blobs = ['avatar/char_1_a_boc#1.png', 'portrait/char_1_a_boc#1.png', 'avatar/TOK_A_winter#1.png'].map((p) => ({ path: p, size: 1, sha: 'x' }));
+
+  test('the record\'s avatar and portrait ids, any case, under the extractor\'s path without `#`; a picture the repository lacks is missing', async () => {
+    const { planArt, rawUrl } = await mod('tools/fetch-skin-art.mjs');
+    const { validPath } = await mod('public/js/resources.js');
+    const { want, missing } = planArt(skins, table, blobs);
+    assert.deepEqual(want.map((w) => [w.key, w.kind, w.repoPath, w.path]), [
+      ['char_1_a@boc#1', 'avatar', 'avatar/char_1_a_boc#1.png', '/assets/spine/skin/char_1_a/char_1_a_boc-1/avatar/char_1_a_boc-1.png'],
+      ['char_1_a@boc#1', 'portrait', 'portrait/char_1_a_boc#1.png', '/assets/spine/skin/char_1_a/char_1_a_boc-1/portrait/char_1_a_boc-1.png'],
+      ['tok_a_winter#1', 'avatar', 'avatar/TOK_A_winter#1.png', '/assets/spine/skin/tok_a/tok_a_winter-1/avatar/tok_a_winter-1.png'],
+    ], `a summon skin's record has no portrait: nothing to take (${RULE})`);
+    assert.deepEqual(missing, { 'tok_b_sale#2': ['avatar'] }, 'drawn with the default avatar');
+    for (const w of want) assert.ok(validPath(w.path), `${w.path}: a path the resource list keeps`);
+    assert.equal(rawUrl('r'.repeat(40), 'avatar/char_1_a_boc#1.png'),
+      `https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/${'r'.repeat(40)}/avatar/char_1_a_boc%231.png`, 'the `#` of a repository name is escaped in its URL');
+  });
+
+  test('a skin the table lacks, a name the file rule does not know and two files that differ only in case stop the run', async () => {
+    const { planArt } = await mod('tools/fetch-skin-art.mjs');
+    assert.throws(() => planArt({ 'x@y#1': { owner: 'x', prefab: 'x_y#1' } }, {}, blobs), /not in skin_table/);
+    assert.throws(() => planArt({ 'x@y#1': { owner: 'x', prefab: 'x-y#1' } }, { 'x@y#1': { avatarId: 'x_y' } }, [{ path: 'avatar/x_y.png', size: 1, sha: 'x' }]), /no file name rule/);
+    const twins = [{ path: 'avatar/AB.png', size: 1, sha: 'x' }, { path: 'avatar/ab.png', size: 1, sha: 'y' }];
+    assert.throws(() => planArt({ k: { owner: 'o', prefab: 'o_p' } }, { k: { avatarId: 'Ab' } }, twins), /only in case/);
   });
 });

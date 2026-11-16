@@ -1553,12 +1553,12 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   크기가 추출 모델과 같은 폴더로 찾고(주인의 기본 모델 폴더는 빼고), 그런 폴더가 둘이면 멈춘다. 못 찾은 스킨은 `missing`에 적고 기본 모습으로 그린다
   (2026-11-16에 1벌: 메딕 드론 `sweep#1`). 결과 311벌·1,713파일·275 MB.
 - 리소스 목록의 묶음(2026-11-16): 스킨 데이터는 `browser-resources.json`의 `packs.skin`(경로 머리 `/assets/spine/skin/`·`/assets/local/spine/skin/`,
-  시즌 구분 없음)이다. `tools/build-browser-resources.mjs`가 `models.json`의 항목을 싣고 추출 모델(`local/spine/skin/<주인>/<프리팹>/front|back/`)은 빼며,
-  그림·`skins.json`·`models.json`은 이 서버 것으로 싣는다. `resources.js`는 받을 목록과 지울 목록을 나눈다: 묶음 파일은 그 묶음을 고른 사람만 받고
+  시즌 구분 없음)이다. `tools/build-browser-resources.mjs`가 `models.json`·`art.json`의 항목을 싣고 추출본(`local/spine/skin/<주인>/<프리팹>/
+  front|back|avatar|portrait/`)은 빼며, 일러스트·`skins.json`·`models.json`·`art.json`은 이 서버 것으로 싣는다. 두 색인이 같은 경로를 적으면 멈춘다. `resources.js`는 받을 목록과 지울 목록을 나눈다: 묶음 파일은 그 묶음을 고른 사람만 받고
   (`resourceWanted`, 선택은 `sp.pref.resourcePacks`, 미리 받기 동의 없이도 고른 묶음은 받음), 캐시에서 지우는 것은 사용자가 그 묶음을 껐을 때뿐이다
   (`resourceKept`, `setResourcePack(name, false)`). 고른 적 없는 묶음의 파일이 목록 해시대로 캐시에 있으면 그대로 둔다 — 받기 필터를 지우기에도 쓰면 게임이
   그때그때 받아 둔 파일을 매번 지운다. 받는 중에 끄면 남은 차례는 건너뛰고 끝난 뒤 다시 맞춘다. 배포에서도 추출 모델 폴더(`front/`·`back/`)는 서버에
-  올리지 않는다. 워커는 목록에 있으면 무엇이든 받으므로 남의 스킨을 막는 것은 렌더 쪽이다(아직 없음).
+  올리지 않는다(아바타·초상화 폴더도). 워커는 목록에 있으면 무엇이든 받으므로 남의 스킨을 막는 것은 렌더 쪽이다(아직 없음).
 - 그림(2026-11-16): 스킨 고르기 타일·미리 보기용으로 스킨 기록의 `avatarId`(1:1, 180 px)·`portraitId`(1:2, 180×360)·`illustId`(일러스트)를 같은
   추출기가 뽑는다(`--only art`는 그림만). 아바타·초상화는 클라의 이름 → 경로 표(`arts/charavatars/avatar_hub.ab`·`arts/charportraits/portraits_hub.ab`,
   대소문자 무시)가 가리키는 스프라이트 묶음(`spritepack/ui_char_avatar_*`·`char_portrait_*`)에서, 일러스트는 주인 `skinpack`의 `illust_<스킨>` 프리팹에서
@@ -1568,11 +1568,21 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   `illust/`(webp q85, 긴 변 1024)이고 이름도 `file_name`을 거친다. `skins.json`의 각 스킨에 `avatar`·`portrait`(`{ path, w, h }`)·`illust`(+ `frame`)가
   붙고, 클라에 없는 그림은 `artMissing`에 적는다. 모델이 없는 스킨은 그림도 뽑지 않는다(고르기에 안 나옴). 소환물 스킨 기록에는 아바타만 있고, 그것도 클라에
   없는 소환물이 있다(그때는 기본 아바타). 움직이는 일러스트(`dynIllustId`)는 뽑지 않는다. 그림도 스킨 폴더 안이라 스킨 데이터 묶음에 든다.
+- 그림을 받는 곳(2026-11-16, 관리자 결정): 아바타·초상화는 이 서버가 보내지 않고 `yuanyan3060/ArknightsGameResource`에서 받는다(위 추출본은 대조용,
+  배포에 안 감). `tools/fetch-skin-art.mjs`가 `skins.json`의 스킨마다 공식 스킨 표 기록의 `avatarId`·`portraitId`로 그 저장소의 `avatar/<id>.png`·
+  `portrait/<id>.png`(`#` 그대로, 대소문자 무시 — 대소문자만 다른 파일이 둘이면 멈춤)를 찾아 한 번 받아 `.cache/skin-art/`에 두고(트리 git blob id로 확인),
+  `art.json`(같은 폴더: `skins`의 `{ avatar?, portrait? }` = `{ path, w, h }`, 목록 항목 `files`, `missing`)을 쓴다. 목록 경로는 추출기가 같은 그림에
+  주는 경로를 `/assets/spine/skin/` 아래로 옮긴 것이다(`#` → `-`, 서버에 파일 없음). `u`는 커밋에 고정한 GitHub raw 주소이고 이름의 `#`은 `%23`이다(jsDelivr도
+  그 주소로 받음). 스킨 고르기 화면은 그림 경로를 `skins.json`이 아니라 `art.json` `skins`에서 읽는다. 2026-11-16 결과: 아바타 305(오퍼레이터 265·소환물 40 —
+  클라 추출에 없던 소환물 둘, 비즈왁스의 사막의 오벨리스크 `summer#11`·카제마루의 종이 인형 `witch#3` 포함)·초상화 265, 570파일·47.5 MB. 없는 7벌(소환물 스킨 아바타)은 `missing` →
+  기본 아바타. 일러스트는 그대로 이 서버가 보낸다(webp q85).
 - 표시 전용: 전투 판정은 기본 모델 기준이다. 스킨 모델의 클립 길이는 시뮬레이션에 들어가지 않는다(시뮬레이션은 `data/assets.json`의 기본 모델만 읽음).
 - 아직 없는 것: 스킨 모델 항목(클립 길이·키 표·부착점)을 `data/assets.json`에 싣는 일, 렌더 게이트.
 - 재발 방지: 원인 제거 — `tools/local-extract/skin_extract.py` `file_name`이 모든 출력 이름을 만들고 모르는 글자에서 멈춤; 저장소 폴더는
-  `tools/fetch-skin-models.mjs`가 트리에서 찾고 모르는 경우(후보 둘)에 멈춤(손 별칭 표 없음). 목록 생성(추출 모델 빼기·`models.json` 싣기·`packs`)과 일러스트
-  알파(뽑힌 일러스트 전부가 투명 화소를 가짐)는 `test/local-extract-skins.test.js`, 받을 목록·지울 목록 나누기와 폴더 찾기는 `test/resource-packs.test.js`.
+  `tools/fetch-skin-models.mjs`가 트리에서 찾고 모르는 경우(후보 둘)에 멈춤(손 별칭 표 없음); 그림 파일은 `tools/fetch-skin-art.mjs`가 스킨 표의 id로 트리에서
+  찾고 모르는 스킨·이름 규칙 없는 글자·대소문자만 다른 두 파일에서 멈춤. 목록 생성(추출 모델·아바타·초상화 빼기·`models.json`·`art.json` 싣기·두 번 적힌
+  경로에 멈춤·`packs`)과 일러스트 알파(뽑힌 일러스트 전부가 투명 화소를 가짐)는 `test/local-extract-skins.test.js`, 받을 목록·지울 목록 나누기와 폴더·그림 찾기는
+  `test/resource-packs.test.js`.
 
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 

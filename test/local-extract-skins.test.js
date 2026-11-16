@@ -2,8 +2,9 @@
 // The official skin ids carry `#` (`char_202_demkni_boc#1`), which a URL reads as a fragment, so the browser's resource
 // list refuses those paths (public/js/resources.js validPath). The extractor names every output through file_name()
 // (`#` → `-`, any other unknown character stops the run) and rewrites the atlas to the renamed pages; and the extracted
-// models never enter the pre-download list (tools/build-browser-resources.mjs: the skin models come from fexli's
-// repository, tools/fetch-skin-models.mjs, and the skin data is a pack of its own). The Python helpers run without
+// models, avatars and portraits never enter the pre-download list (tools/build-browser-resources.mjs: the skin models
+// come from fexli's repository, tools/fetch-skin-models.mjs, the avatars and portraits from yuanyan's,
+// tools/fetch-skin-art.mjs, and the skin data is a pack of its own). The Python helpers run without
 // UnityPy; the real-output check skips when nothing was extracted on this machine.
 
 import { test, describe } from 'node:test';
@@ -120,20 +121,27 @@ except ValueError as e:
 });
 
 describe('the skin data is a pack of the pre-download list', () => {
-  test('tools/build-browser-resources.mjs lists the skin models from models.json and the pictures, never the extracted models', () => {
+  test('tools/build-browser-resources.mjs lists the skin models and avatars / portraits from their indexes and the 立绘, never the extracted copies', () => {
     const rel = `.cache/test-browser-resources-${process.pid}`;
     const dir = path.join(ROOT, rel);
     const h = 'c'.repeat(64);
     try {
       mkdirSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/front'), { recursive: true });
       mkdirSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/illust'), { recursive: true });
+      mkdirSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/avatar'), { recursive: true });
+      mkdirSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/portrait'), { recursive: true });
       mkdirSync(path.join(dir, 'local/spine/token/t'), { recursive: true });
       writeFileSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/front/char_1_a_boc-1.skel'), 'x');
       writeFileSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/illust/char_1_a_boc-1.webp'), 'w');
+      writeFileSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/avatar/char_1_a_boc-1.png'), 'a');
+      writeFileSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/portrait/char_1_a_boc-1.png'), 'p');
       writeFileSync(path.join(dir, 'local/spine/skin/skins.json'), '{}');
       const model = { p: '/assets/spine/skin/char_1_a/char_1_a_boc_1/front/char_1_a_boc_1.skel', s: 5, h,
         u: `https://raw.githubusercontent.com/fexli/ArknightsResource/${'a'.repeat(40)}/spine/char_1_a/char_1_a_boc_1/Front/char_1_a_boc_1.skel` };
       writeFileSync(path.join(dir, 'local/spine/skin/models.json'), JSON.stringify({ files: [model] }));
+      const avatar = { p: '/assets/spine/skin/char_1_a/char_1_a_boc-1/avatar/char_1_a_boc-1.png', s: 7, h,
+        u: `https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/${'b'.repeat(40)}/avatar/char_1_a_boc%231.png` };
+      writeFileSync(path.join(dir, 'local/spine/skin/art.json'), JSON.stringify({ files: [avatar] }));
       writeFileSync(path.join(dir, 'local/spine/token/t/t.skel'), 'y');
       const run = () => spawnSync(process.execPath, [path.join(ROOT, 'tools/build-browser-resources.mjs'), '--assets', rel], { cwd: ROOT, encoding: 'utf8' });
       const r = run();
@@ -143,10 +151,14 @@ describe('the skin data is a pack of the pre-download list', () => {
       assert.ok(paths.includes('/assets/local/spine/token/t/t.skel'), 'an ordinary local file is listed');
       assert.deepEqual(list.packs, { skin: ['/assets/spine/skin/', '/assets/local/spine/skin/'] });
       assert.deepEqual(paths.filter((p) => p.includes('/spine/skin/')).sort(), [
-        '/assets/local/spine/skin/char_1_a/char_1_a_boc-1/illust/char_1_a_boc-1.webp', '/assets/local/spine/skin/models.json',
-        '/assets/local/spine/skin/skins.json', model.p,
-      ], `the skin models come from their repository, the extracted ones never from this server (${RULE})`);
+        '/assets/local/spine/skin/art.json', '/assets/local/spine/skin/char_1_a/char_1_a_boc-1/illust/char_1_a_boc-1.webp',
+        '/assets/local/spine/skin/models.json', '/assets/local/spine/skin/skins.json', avatar.p, model.p,
+      ], `the skin models, avatars and portraits come from their repositories, the extracted ones never from this server (${RULE})`);
       assert.deepEqual(list.files.find((f) => f.p === model.p), model, 'with the repository\'s URL and hash');
+      assert.deepEqual(list.files.find((f) => f.p === avatar.p), avatar, 'the avatar with yuanyan\'s URL and hash');
+      writeFileSync(path.join(dir, 'local/spine/skin/art.json'), JSON.stringify({ files: [avatar, avatar] }));
+      assert.notEqual(run().status, 0, 'a path listed twice stops the run');
+      writeFileSync(path.join(dir, 'local/spine/skin/art.json'), JSON.stringify({ files: [avatar] }));
       writeFileSync(path.join(dir, 'local/spine/skin/models.json'), JSON.stringify({ files: [{ ...model, u: 'https://evil.host/x' }] }));
       assert.notEqual(run().status, 0, 'a malformed models.json stops the run');
     } finally {

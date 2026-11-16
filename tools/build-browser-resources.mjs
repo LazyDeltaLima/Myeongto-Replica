@@ -3,7 +3,7 @@
 // its Cache Storage in the background (public/js/resources.js, public/resource-worker.js) so pictures never pop in late.
 //
 // Built from the files actually on disk (run it after tools/fetch-assets.mjs / tools/local-extract), one entry per file,
-// and the skin models' entries of local/spine/skin/models.json (below):
+// and the skin models' and pictures' entries of local/spine/skin/models.json and art.json (below):
 //   { version, bytes, packs: { <pack>: [path prefix…] }, files: [{ p: '/assets/…' | '/img/emotes/…', s: bytes, h: sha256 hex, u?: upstream URL }] }
 // `u` is the URL tools/fetch-assets.mjs downloaded the file from (.cache/assets-ledger.json). The browser fetches those
 // from jsDelivr / GitHub raw and keeps them only when size + hash match this file; a file the pipeline rewrote (spine
@@ -30,15 +30,17 @@ const OUT = 'browser-resources.json';
 const SKIP = new Set([OUT, 'local/fx/bindings.json']);
 // The skin data (operator and summon skins, display only) is a pack: the files under PACKS.skin are downloaded only by
 // those who choose it (public/js/resources.js resourceWanted). The list says which prefixes a pack holds, so the page
-// needs no copy of them. The skin models come from fexli/ArknightsResource, never from this server (maintainer decision
-// 2026-11-16): the entries of local/spine/skin/models.json (tools/fetch-skin-models.mjs, paths under /assets/spine/skin/,
-// with the repository's URL and hash) are listed, and the models the local client extraction wrote
-// (tools/local-extract/skin_extract.py, local/spine/skin/<owner>/<prefab>/front|back/: kept for comparison only, and
-// left out of the deploy) are not. The skins' pictures and the two indexes in local/spine/skin/ come from this server.
+// needs no copy of them. The skin models come from fexli/ArknightsResource and the skins' avatars and portraits from
+// yuanyan3060/ArknightsGameResource, never from this server (maintainer decisions 2026-11-16): the entries of
+// local/spine/skin/models.json (tools/fetch-skin-models.mjs) and art.json (tools/fetch-skin-art.mjs), paths under
+// /assets/spine/skin/ with the repository's URL and hash, are listed, and what the local client extraction wrote for them
+// (tools/local-extract/skin_extract.py, local/spine/skin/<owner>/<prefab>/front|back|avatar|portrait/: kept for
+// comparison only, and left out of the deploy) is not. The 立绘 (illust/) and the indexes in local/spine/skin/ come from
+// this server.
 const SKIN_LOCAL = 'local/spine/skin/';
 const PACKS = { skin: ['/assets/spine/skin/', '/assets/' + SKIN_LOCAL] };
-const SKIN_MODELS = SKIN_LOCAL + 'models.json';
-const isLocalSkinModel = (rel) => rel.startsWith(SKIN_LOCAL) && /^[^/]+\/[^/]+\/(front|back)\//.test(rel.slice(SKIN_LOCAL.length));
+const SKIN_REMOTE = [SKIN_LOCAL + 'models.json', SKIN_LOCAL + 'art.json'];
+const isLocalSkinCopy = (rel) => rel.startsWith(SKIN_LOCAL) && /^[^/]+\/[^/]+\/(front|back|avatar|portrait)\//.test(rel.slice(SKIN_LOCAL.length));
 
 async function* walk(dir) {
   for (const e of await readdir(dir, { withFileTypes: true })) {
@@ -73,7 +75,7 @@ for await (const abs of walk(join(ROOT, 'public/img/emotes'))) {
 }
 for await (const abs of walk(ASSETS)) {
   const rel = relative(ASSETS, abs).split(sep).join('/');
-  if (SKIP.has(rel) || isLocalSkinModel(rel)) continue;
+  if (SKIP.has(rel) || isLocalSkinCopy(rel)) continue;
   if (isWebpSource(rel)) { sourcesLeft++; continue; }
   const buf = await readFile(abs);
   const entry = { p: '/assets/' + rel, s: buf.length, h: createHash('sha256').update(buf).digest('hex') };
@@ -84,17 +86,24 @@ for await (const abs of walk(ASSETS)) {
   }
   files.push(entry);
 }
-// the skin models from their repository: a malformed entry stops the run (a list the page would refuse entry by entry)
-let skinModels = 0;
-if (existsSync(join(ASSETS, SKIN_MODELS))) {
-  const doc = JSON.parse(await readFile(join(ASSETS, SKIN_MODELS), 'utf8'));
+// the skin models and pictures from their repositories: a malformed entry stops the run (a list the page would refuse
+// entry by entry), and so does a path two of them name
+const skinRemote = {};
+const listedPaths = new Set(files.map((f) => f.p));
+for (const index of SKIN_REMOTE) {
+  if (!existsSync(join(ASSETS, index))) continue;
+  const doc = JSON.parse(await readFile(join(ASSETS, index), 'utf8'));
+  const tool = index.endsWith('art.json') ? 'tools/fetch-skin-art.mjs' : 'tools/fetch-skin-models.mjs';
+  skinRemote[index] = 0;
   for (const f of doc.files ?? []) {
     const ok = typeof f?.p === 'string' && f.p.startsWith(PACKS.skin[0]) && /^[A-Za-z0-9_./-]+$/.test(f.p) && !f.p.includes('..')
       && Number.isInteger(f.s) && f.s >= 0 && /^[0-9a-f]{64}$/.test(f.h ?? '') && typeof f.u === 'string' && f.u.startsWith('https://raw.githubusercontent.com/');
-    if (!ok) throw new Error(`${SKIN_MODELS}: malformed entry ${JSON.stringify(f)} — run node tools/fetch-skin-models.mjs again`);
+    if (!ok) throw new Error(`${index}: malformed entry ${JSON.stringify(f)} — run node ${tool} again`);
+    if (listedPaths.has(f.p)) throw new Error(`${index}: ${f.p} is listed twice — run node ${tool} again`);
+    listedPaths.add(f.p);
     files.push({ p: f.p, s: f.s, h: f.h, u: f.u });
     upstreamBytes += f.s;
-    skinModels++;
+    skinRemote[index]++;
   }
 }
 files.sort((a, b) => (a.p < b.p ? -1 : a.p > b.p ? 1 : 0));
@@ -111,7 +120,7 @@ if (!same) {
   await rename(tmp, join(ASSETS, OUT));
 }
 const mb = (n) => (n / 1048576).toFixed(1) + ' MB';
-console.log(`[resources] ${files.length} files, ${mb(bytes)} (upstream ${files.filter((f) => f.u).length} files / ${mb(upstreamBytes)}), version ${version}${same ? ' (unchanged, file kept)' : ''}, ${sourcesLeft} WebP source PNGs left out, ${skinModels} skin model files from ${SKIN_MODELS}`);
+console.log(`[resources] ${files.length} files, ${mb(bytes)} (upstream ${files.filter((f) => f.u).length} files / ${mb(upstreamBytes)}), version ${version}${same ? ' (unchanged, file kept)' : ''}, ${sourcesLeft} WebP source PNGs left out, skin files from their repositories: ${Object.entries(skinRemote).map(([k, n]) => `${n} (${k})`).join(', ') || 'none'}`);
 
 if (VERIFY > 0) {
   const pool = files.filter((f) => f.u);
