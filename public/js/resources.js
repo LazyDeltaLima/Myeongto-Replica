@@ -23,6 +23,11 @@
 // the worker answers only the listed hash, so a stale copy waiting for its turn is never served, and after a deploy the
 // thousands of deletions no longer share the Cache Storage with a match's first pictures (a phone's first match after a
 // deploy waited 14.7 s for its art instead of 2.6 s, 2026-10-28).
+// Packs (the skin data): the list names the path prefixes of each optional pack (`packs`). A pack's files are downloaded
+// only when the player chose that pack (resourceWanted, the choice in PACKS_PREF), and deleted only when the player
+// turns it off: a file of a pack never chosen that is in the cache with the listed hash is kept, so the list of what
+// to download and the list of what to delete are two lists (a filter on the one would delete what the game fetched on
+// demand on every visit). Without the general consent a chosen pack is still downloaded (it is a choice of its own).
 // Needs a secure context (https / localhost); on plain http the game simply loads everything from the server.
 //
 //   installResources()   main.js, once
@@ -42,6 +47,7 @@ const DIFFER = '/__sp_res_differ__'; // upstream files every source served with 
 const DIFFER_RETRY_MS = 7 * 86400e3;
 const INDEX = '/assets/browser-resources.json';
 const PREF = 'resources';
+const PACKS_PREF = 'resourcePacks'; // { <pack>: true (chosen) | false (turned off) }; a pack never chosen is absent
 const ASK_AGAIN_MS = 7 * 86400e3;
 const SAVE_EVERY = 20;
 const TIMEOUT_MS = 60000;
@@ -78,6 +84,33 @@ export const validPath = (p) => typeof p === 'string' && PATH_RE.test(p) && !p.s
 export const validEntry = (f) => !!f && validPath(f.p) && Number.isInteger(f.s) && f.s >= 0 && typeof f.h === 'string' && /^[0-9a-f]{64}$/.test(f.h)
   && (f.u === undefined || (typeof f.u === 'string' && sourcesOf(f).length > 0));
 
+/** The packs the list names, `{ <pack>: [path prefix…] }`: a prefix is '/assets/…/' (anything else is ignored). */
+export function sanitizePacks(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const [name, prefixes] of Object.entries(raw)) {
+    const ok = Array.isArray(prefixes) ? prefixes.filter((x) => typeof x === 'string' && x.endsWith('/') && validPath(x + 'x')) : [];
+    if (/^[a-z]+$/.test(name) && ok.length) out[name] = ok;
+  }
+  return out;
+}
+
+/** The pack a listed path belongs to, or null (most files: in no pack). */
+export function packOf(p, packs) {
+  for (const [name, prefixes] of Object.entries(packs || {})) if (prefixes.some((x) => p.startsWith(x))) return name;
+  return null;
+}
+
+/** Whether the background download takes a list entry: a file in no pack always, a pack's file only when the player
+ *  chose that pack (`chosen[pack] === true`). Voice files are filtered before this (voice.js wantedFiles). */
+export const resourceWanted = (f, packs, chosen) => { const pack = packOf(f.p, packs); return !pack || chosen?.[pack] === true; };
+
+/** Whether the cache keeps a list entry it holds with the listed hash: everything but the files of a pack the player
+ *  turned off (`chosen[pack] === false`). */
+export const resourceKept = (f, packs, chosen) => { const pack = packOf(f.p, packs); return !pack || chosen?.[pack] !== false; };
+
+const sanitizeChoice = (raw) => Object.fromEntries(Object.entries(raw && typeof raw === 'object' ? raw : {}).filter(([, v]) => typeof v === 'boolean'));
+
 /** Download order: what the screens show first (UI, portraits, icons, board) before models, then audio. */
 export function priorityOf(p) {
   if (p.startsWith('/img/')) return 0;
@@ -105,12 +138,15 @@ async function sha256(buf) {
 const supported = () => typeof window !== 'undefined' && window.isSecureContext && 'serviceWorker' in navigator && 'caches' in window && !!crypto?.subtle;
 
 let index = null;
-let listed = [];        // every valid entry of the list; index.files = the ones this browser wants (voice language)
+let listed = [];        // every valid entry of the list; index.files = the ones this browser downloads (voice language, packs)
+let packs = {};         // the list's packs (sanitizePacks)
+let chosen = sanitizeChoice(loadPref(PACKS_PREF, null)); // the player's pack choice
+let again = false;      // a choice changed during a download: resync once it ends
 let cache = null;
 let state = {};        // path → hash of what is in the cache
 let differ = {};       // DIFFER's content
 let differChanged = false;
-let want = new Map();  // path → listed hash of the files this browser wants
+let want = new Map();  // path → listed hash of the files the cache keeps (resourceKept): anything else is stale
 let pending = [];
 let stale = [];        // cache requests to delete (cleanup)
 let reconciled = null; // the last reconcile, for the report: { at, ms, keys, stale, adopted, skipped } (running: no ms)
@@ -135,13 +171,28 @@ const keyOf = (req) => {
   try { return decodeURIComponent(p); } catch { return p; }
 };
 
+/** The voice files of this browser's language (voice.js), then the pack choice: index.files is what is downloaded, the
+ *  returned list what the cache keeps. */
+function choose() {
+  const voiced = wantedFiles(listed);
+  index.files = voiced.filter((f) => resourceWanted(f, packs, chosen));
+  return voiced.filter((f) => resourceKept(f, packs, chosen));
+}
+
+/** The CLEAN signature: the list, the voice language and the packs turned off (only they make more entries stale). */
+const cleanSig = () => {
+  if (typeof index.version !== 'string' || !index.version) return null;
+  const off = Object.keys(packs).filter((n) => chosen[n] === false).sort();
+  return `${index.version}|${voiceStore.get().lang}${off.length ? `|off:${off.join(',')}` : ''}`;
+};
+
 /** List the cache entries that are not (or no longer) the listed file for cleanup(); returns the files still to download. */
 async function reconcile() {
   const t0 = now();
   reconciled = { at: Date.now(), ms: null, keys: 0, stale: 0, adopted: 0 };
   cache = await caches.open(CACHE);
   try { state = (await (await cache.match(STATE))?.json()) || {}; } catch { state = {}; }
-  want = new Map(index.files.map((f) => [f.p, f.h]));
+  want = new Map(choose().map((f) => [f.p, f.h]));
   try { differ = (await (await cache.match(DIFFER))?.json()) || {}; } catch { differ = {}; }
   if (!differ || typeof differ !== 'object') differ = {};
   differChanged = false;
@@ -150,7 +201,7 @@ async function reconcile() {
   }
   if (differChanged) await saveState();
   reconciled.differ = Object.keys(differ).length;
-  const sig = typeof index.version === 'string' && index.version ? `${index.version}|${voiceStore.get().lang}` : null;
+  const sig = cleanSig();
   let clean = null;
   try { clean = sig && (await (await cache.match(CLEAN))?.text()); } catch { /* scan */ }
   if (sig && clean === sig) {
@@ -251,10 +302,10 @@ const limit = () => (fieldLoading() ? 0 : inMatch() ? 1 : 4);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let running = false;
-async function download() {
-  if (running || !pending.length) return;
+async function download(files = pending) {
+  if (running || !files.length) return;
   running = true;
-  const queue = pending.slice();
+  const queue = files.slice();
   const bytesTotal = queue.reduce((n, f) => n + f.s, 0);
   resStore.set({ phase: 'running', done: 0, total: queue.length, bytesDone: 0, bytesTotal, failed: 0, error: null });
   let sinceSave = 0;
@@ -262,6 +313,7 @@ async function download() {
     while (queue.length) {
       if (slot >= limit()) { await sleep(HOLD_POLL_MS); continue; }
       const f = queue.shift();
+      if (!resourceWanted(f, packs, chosen)) { resStore.set((s) => ({ done: s.done + 1, bytesDone: s.bytesDone + f.s })); continue; } // turned off meanwhile
       const ok = await fetchOne(f);
       resStore.set((s) => ({ done: s.done + 1, bytesDone: s.bytesDone + f.s, failed: s.failed + (ok ? 0 : 1) }));
       if (ok && ++sinceSave >= SAVE_EVERY) { sinceSave = 0; await saveState(); }
@@ -279,8 +331,12 @@ async function download() {
     resStore.set({ phase: 'error', error: err?.name === 'QuotaExceededError' ? 'quota' : 'failed' });
   } finally {
     running = false;
+    if (again) { again = false; resync(); }
   }
 }
+
+/** What to download now: everything still to download with the general consent, else the files of the chosen packs. */
+const toDownload = () => (loadPref(PREF, null)?.consent === 'yes' ? pending : pending.filter((f) => packOf(f.p, packs)));
 
 /** The player agreed (consent card): remember it, ask the browser to keep the cache, start. */
 export async function acceptResources() {
@@ -317,12 +373,13 @@ export async function installResources() {
     index = await res.json();
     if (!index || !Array.isArray(index.files)) return;
     listed = index.files.filter(validEntry);
-    index.files = wantedFiles(listed);
+    packs = sanitizePacks(index.packs);
     pending = await reconcile();
     setPending();
     if (!pending.length) { resStore.set({ phase: 'done', total: 0 }); return; }
     const pref = loadPref(PREF, null);
     if (pref?.consent === 'yes') download();
+    else if (toDownload().length) download(toDownload());
     else if (pref?.consent === 'later' && Date.now() - pref.at < ASK_AGAIN_MS) resStore.set({ phase: 'idle' });
     else resStore.set({ phase: 'ask', bytesTotal: pending.reduce((n, f) => n + f.s, 0) });
   } catch (err) {
@@ -330,20 +387,32 @@ export async function installResources() {
   }
 }
 
-/** The voice language changed (voice.js): only that language's files are wanted — the other's leave the cache, the
- *  new ones are downloaded when the player agreed before. */
+/** The voice language or the pack choice changed: only that language's files are wanted — the other's leave the cache,
+ *  as do the files of a pack turned off —, the new ones are downloaded when the player agreed before (a chosen pack's in
+ *  any case). */
 async function resync() {
-  if (!index || running) return; // a running download finishes first; the next visit picks the change up
+  if (!index) return;
+  if (running) { again = true; return; } // a running download finishes first (it skips a pack turned off), then this
   try {
-    index.files = wantedFiles(listed);
     pending = await reconcile();
     setPending();
     if (!pending.length) resStore.set({ phase: 'done', total: 0 });
     else if (loadPref(PREF, null)?.consent === 'yes') download();
+    else if (toDownload().length) download(toDownload());
     else if (resStore.get().phase === 'ask') resStore.set({ bytesTotal: pending.reduce((n, f) => n + f.s, 0) }); // card shows the new size
   } catch (err) { console.warn('[resources] resync', err); }
 }
 onVoiceLangChange(resync);
+
+/** The player's choice of an optional pack (the settings' resource tab): on downloads its files, off deletes them. */
+export function setResourcePack(name, on) {
+  chosen = { ...chosen, [name]: !!on };
+  savePref(PACKS_PREF, chosen);
+  return resync();
+}
+
+/** The pack choice: { <pack>: true | false }, a pack never chosen absent. */
+export const resourcePacks = () => ({ ...chosen });
 
 /** The worker's answer counts (resource-worker.js `sp-res-stats`), or null without a worker or an answer in time. */
 function askWorker(timeout = 2000) {

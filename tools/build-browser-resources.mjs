@@ -2,8 +2,9 @@
 // Browser resource index (local patch): public/assets/browser-resources.json, the list the client pre-downloads into
 // its Cache Storage in the background (public/js/resources.js, public/resource-worker.js) so pictures never pop in late.
 //
-// Built from the files actually on disk (run it after tools/fetch-assets.mjs / tools/local-extract), one entry per file:
-//   { p: '/assets/…' | '/img/emotes/…', s: bytes, h: sha256 hex, u?: upstream URL }
+// Built from the files actually on disk (run it after tools/fetch-assets.mjs / tools/local-extract), one entry per file,
+// and the skin models' entries of local/spine/skin/models.json (below):
+//   { version, bytes, packs: { <pack>: [path prefix…] }, files: [{ p: '/assets/…' | '/img/emotes/…', s: bytes, h: sha256 hex, u?: upstream URL }] }
 // `u` is the URL tools/fetch-assets.mjs downloaded the file from (.cache/assets-ledger.json). The browser fetches those
 // from jsDelivr / GitHub raw and keeps them only when size + hash match this file; a file the pipeline rewrote (spine
 // atlases, size changed) or made locally (assets/local: 3D board, emotes, UI sprites) has no `u` and comes from this
@@ -27,9 +28,17 @@ const VERIFY = Number(opt('--verify', 0)) || 0;
 const OUT = 'browser-resources.json';
 // local/fx/bindings.json: the client-only binding rows, read by the tests only (tools/local-extract/fx_bindings.py)
 const SKIP = new Set([OUT, 'local/fx/bindings.json']);
-// local/spine/skin/: the operator and summon skin models and pictures (tools/local-extract/skin_extract.py), taken only by
-// those who choose the skin data — never pre-downloaded by everyone; listed again once the skin data is a pack of its own
-const SKIP_DIRS = ['local/spine/skin/'];
+// The skin data (operator and summon skins, display only) is a pack: the files under PACKS.skin are downloaded only by
+// those who choose it (public/js/resources.js resourceWanted). The list says which prefixes a pack holds, so the page
+// needs no copy of them. The skin models come from fexli/ArknightsResource, never from this server (maintainer decision
+// 2026-11-16): the entries of local/spine/skin/models.json (tools/fetch-skin-models.mjs, paths under /assets/spine/skin/,
+// with the repository's URL and hash) are listed, and the models the local client extraction wrote
+// (tools/local-extract/skin_extract.py, local/spine/skin/<owner>/<prefab>/front|back/: kept for comparison only, and
+// left out of the deploy) are not. The skins' pictures and the two indexes in local/spine/skin/ come from this server.
+const SKIN_LOCAL = 'local/spine/skin/';
+const PACKS = { skin: ['/assets/spine/skin/', '/assets/' + SKIN_LOCAL] };
+const SKIN_MODELS = SKIN_LOCAL + 'models.json';
+const isLocalSkinModel = (rel) => rel.startsWith(SKIN_LOCAL) && /^[^/]+\/[^/]+\/(front|back)\//.test(rel.slice(SKIN_LOCAL.length));
 
 async function* walk(dir) {
   for (const e of await readdir(dir, { withFileTypes: true })) {
@@ -64,7 +73,7 @@ for await (const abs of walk(join(ROOT, 'public/img/emotes'))) {
 }
 for await (const abs of walk(ASSETS)) {
   const rel = relative(ASSETS, abs).split(sep).join('/');
-  if (SKIP.has(rel) || SKIP_DIRS.some((d) => rel.startsWith(d))) continue;
+  if (SKIP.has(rel) || isLocalSkinModel(rel)) continue;
   if (isWebpSource(rel)) { sourcesLeft++; continue; }
   const buf = await readFile(abs);
   const entry = { p: '/assets/' + rel, s: buf.length, h: createHash('sha256').update(buf).digest('hex') };
@@ -75,10 +84,23 @@ for await (const abs of walk(ASSETS)) {
   }
   files.push(entry);
 }
+// the skin models from their repository: a malformed entry stops the run (a list the page would refuse entry by entry)
+let skinModels = 0;
+if (existsSync(join(ASSETS, SKIN_MODELS))) {
+  const doc = JSON.parse(await readFile(join(ASSETS, SKIN_MODELS), 'utf8'));
+  for (const f of doc.files ?? []) {
+    const ok = typeof f?.p === 'string' && f.p.startsWith(PACKS.skin[0]) && /^[A-Za-z0-9_./-]+$/.test(f.p) && !f.p.includes('..')
+      && Number.isInteger(f.s) && f.s >= 0 && /^[0-9a-f]{64}$/.test(f.h ?? '') && typeof f.u === 'string' && f.u.startsWith('https://raw.githubusercontent.com/');
+    if (!ok) throw new Error(`${SKIN_MODELS}: malformed entry ${JSON.stringify(f)} — run node tools/fetch-skin-models.mjs again`);
+    files.push({ p: f.p, s: f.s, h: f.h, u: f.u });
+    upstreamBytes += f.s;
+    skinModels++;
+  }
+}
 files.sort((a, b) => (a.p < b.p ? -1 : a.p > b.p ? 1 : 0));
 const bytes = files.reduce((n, f) => n + f.s, 0);
-const version = createHash('sha256').update(files.map((f) => f.p + ':' + f.h).join('\n')).digest('hex').slice(0, 16);
-const body = JSON.stringify({ version, bytes, files });
+const version = createHash('sha256').update(JSON.stringify(PACKS) + '\n' + files.map((f) => f.p + ':' + f.h).join('\n')).digest('hex').slice(0, 16);
+const body = JSON.stringify({ version, bytes, packs: PACKS, files });
 // an unchanged list keeps its file: the server's ETag is size + mtime (server/http/files.js), so a rewrite made every
 // client download the whole list (≈ 750 KB gzip) again after a deploy that changed none of it
 let same = false;
@@ -89,7 +111,7 @@ if (!same) {
   await rename(tmp, join(ASSETS, OUT));
 }
 const mb = (n) => (n / 1048576).toFixed(1) + ' MB';
-console.log(`[resources] ${files.length} files, ${mb(bytes)} (upstream ${files.filter((f) => f.u).length} files / ${mb(upstreamBytes)}), version ${version}${same ? ' (unchanged, file kept)' : ''}, ${sourcesLeft} WebP source PNGs left out`);
+console.log(`[resources] ${files.length} files, ${mb(bytes)} (upstream ${files.filter((f) => f.u).length} files / ${mb(upstreamBytes)}), version ${version}${same ? ' (unchanged, file kept)' : ''}, ${sourcesLeft} WebP source PNGs left out, ${skinModels} skin model files from ${SKIN_MODELS}`);
 
 if (VERIFY > 0) {
   const pool = files.filter((f) => f.u);

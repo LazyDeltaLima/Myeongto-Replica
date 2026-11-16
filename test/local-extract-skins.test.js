@@ -1,8 +1,9 @@
 // tools/local-extract/skin_extract.py: the operator and summon skin models and pictures (docs/rules/render.md 「스킨 모델 소재」).
 // The official skin ids carry `#` (`char_202_demkni_boc#1`), which a URL reads as a fragment, so the browser's resource
 // list refuses those paths (public/js/resources.js validPath). The extractor names every output through file_name()
-// (`#` → `-`, any other unknown character stops the run) and rewrites the atlas to the renamed pages; and the skin folder
-// stays out of the pre-download list everyone takes (tools/build-browser-resources.mjs). The Python helpers run without
+// (`#` → `-`, any other unknown character stops the run) and rewrites the atlas to the renamed pages; and the extracted
+// models never enter the pre-download list (tools/build-browser-resources.mjs: the skin models come from fexli's
+// repository, tools/fetch-skin-models.mjs, and the skin data is a pack of its own). The Python helpers run without
 // UnityPy; the real-output check skips when nothing was extracted on this machine.
 
 import { test, describe } from 'node:test';
@@ -118,22 +119,36 @@ except ValueError as e:
   });
 });
 
-describe('the skin folder stays out of the pre-download list', () => {
-  test('tools/build-browser-resources.mjs lists an ordinary local file and leaves local/spine/skin/ out', () => {
+describe('the skin data is a pack of the pre-download list', () => {
+  test('tools/build-browser-resources.mjs lists the skin models from models.json and the pictures, never the extracted models', () => {
     const rel = `.cache/test-browser-resources-${process.pid}`;
     const dir = path.join(ROOT, rel);
+    const h = 'c'.repeat(64);
     try {
       mkdirSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/front'), { recursive: true });
+      mkdirSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/illust'), { recursive: true });
       mkdirSync(path.join(dir, 'local/spine/token/t'), { recursive: true });
       writeFileSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/front/char_1_a_boc-1.skel'), 'x');
+      writeFileSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/illust/char_1_a_boc-1.webp'), 'w');
       writeFileSync(path.join(dir, 'local/spine/skin/skins.json'), '{}');
+      const model = { p: '/assets/spine/skin/char_1_a/char_1_a_boc_1/front/char_1_a_boc_1.skel', s: 5, h,
+        u: `https://raw.githubusercontent.com/fexli/ArknightsResource/${'a'.repeat(40)}/spine/char_1_a/char_1_a_boc_1/Front/char_1_a_boc_1.skel` };
+      writeFileSync(path.join(dir, 'local/spine/skin/models.json'), JSON.stringify({ files: [model] }));
       writeFileSync(path.join(dir, 'local/spine/token/t/t.skel'), 'y');
-      const r = spawnSync(process.execPath, [path.join(ROOT, 'tools/build-browser-resources.mjs'), '--assets', rel], { cwd: ROOT, encoding: 'utf8' });
+      const run = () => spawnSync(process.execPath, [path.join(ROOT, 'tools/build-browser-resources.mjs'), '--assets', rel], { cwd: ROOT, encoding: 'utf8' });
+      const r = run();
       assert.equal(r.status, 0, r.stderr);
-      const paths = JSON.parse(readFileSync(path.join(dir, 'browser-resources.json'), 'utf8')).files.map((f) => f.p);
+      const list = JSON.parse(readFileSync(path.join(dir, 'browser-resources.json'), 'utf8'));
+      const paths = list.files.map((f) => f.p);
       assert.ok(paths.includes('/assets/local/spine/token/t/t.skel'), 'an ordinary local file is listed');
-      const skin = paths.filter((p) => p.startsWith('/assets/local/spine/skin/'));
-      assert.deepEqual(skin, [], `skin files are taken only by those who choose the skin data, never by everyone (${RULE})`);
+      assert.deepEqual(list.packs, { skin: ['/assets/spine/skin/', '/assets/local/spine/skin/'] });
+      assert.deepEqual(paths.filter((p) => p.includes('/spine/skin/')).sort(), [
+        '/assets/local/spine/skin/char_1_a/char_1_a_boc-1/illust/char_1_a_boc-1.webp', '/assets/local/spine/skin/models.json',
+        '/assets/local/spine/skin/skins.json', model.p,
+      ], `the skin models come from their repository, the extracted ones never from this server (${RULE})`);
+      assert.deepEqual(list.files.find((f) => f.p === model.p), model, 'with the repository\'s URL and hash');
+      writeFileSync(path.join(dir, 'local/spine/skin/models.json'), JSON.stringify({ files: [{ ...model, u: 'https://evil.host/x' }] }));
+      assert.notEqual(run().status, 0, 'a malformed models.json stops the run');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
