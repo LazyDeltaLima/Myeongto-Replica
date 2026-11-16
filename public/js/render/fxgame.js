@@ -4236,6 +4236,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // [uc]skills.ab: cast / castLoop / buff on the caster, target / targetBuff on its targets, end = a finishing ability's)
   const skillBind = (v) => bindOf(v)?.skills?.[skillIdx(v)] || null;
   const extracted = (v, list) => (Array.isArray(list) ? list.filter((n) => bundleOf(v)?.prefabs.includes(n)) : []);
+  // 2026-11-16 (official client; docs/rules/fx.md 「모드를 바꾸지 않는 스킬의 공격」): a skill whose prefab is a shared one
+  // (`skcom_*` in [uc]skills.ab — 灰毫 S1 skcom_atk_up names only common_ignite_attack) names no effect of its operator's own
+  // bundle, so the name rule's `<char>_skill_0N_*` stand-ins are never its effects
+  const sharedSkill = (v) => {
+    let def;
+    try { def = unitDef(v?.info) || null; } catch { def = null; }
+    const s = Array.isArray(def?.skills) ? def.skills[skillIdx(v)] : def?.skill;
+    return /^skcom_/.test(String(s?.prefabId || ''));
+  };
+  // Such a skill switches no attack mode (attackMode −1) and has no attack ability of its own: its owner stays in the Default
+  // mode, whose abilities cast and hit its attacks (the 要塞 melee / ranged split, castOpt timings, input / tgtStart). Before,
+  // those attacks read mode −1, found no binding and fell to the name rule — 灰毫 S1 hit with ashlok_skill_01_hit on the target
+  // instead of her shell's blast, and swung with no cast. An operator's own mode-less skill keeps −1: its skill ability's hits
+  // are what the `skillHit` name rule stands in for (巴别塔 S2 bpipe_skill_02_hit …).
+  const attackModeOf = (v, n = modeNow(v)) => (n === -1 && Array.isArray(bindOf(v)?.modes) && sharedSkill(v) ? 0 : n);
   const turns = (v) => new Set(bindOf(v)?.turn || []);
   // ---- a hit turned along its attacker → target line (2026-10-10, official client) ----------------------------
   // Client `HitEffectOptions.OnCastOnTarget`: dir = `_useOwnerToTargetDirection` ? target.mapPos − owner.mapPos
@@ -4364,7 +4379,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const activation = (v) => {
     const b = bundleOf(v), em = emittedIn(b.bundle);
     const id = v?.info?.spine || v?.info?.defId;
-    const a = activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...ownedNow(), ...em]) : ownedNow(), subOf(v), variantModes(id, skillIdx(v)), !b.summon);
+    const a = activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...ownedNow(), ...em]) : ownedNow(), subOf(v), variantModes(id, skillIdx(v)), !b.summon && !sharedSkill(v));
     // 2026-10-24 (묶음 S2): the skill's own template buffs on the operator (fxmap.js SKILL_HELD)
     const vf = variantFx(id, skillIdx(v), v._fxCastVariant);   // 2026-11-06: the group child this cast picked (薇薇安娜 S1)
     if (vf) a.start = a.start.filter((n) => !vf.others.includes(n));
@@ -4778,7 +4793,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function swingFx(src, windup, views, kind = null, sig = null, faceId = null) {
     if (!isOp(src) || !bundleOf(src)) return;
     skillByFlag(src, views);
-    const mode = modeNow(src);
+    const mode = attackModeOf(src);   // 2026-11-16: a mode-less skill's attack swings in the Default mode
     const c = beginCast(src, windup, mode);
     const face = faceId != null ? views.get(faceId) || null : null;   // the main target ('D' / 'F': none)
     c.sig = sig;
@@ -4791,7 +4806,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     skillCastTgtFx(src, c, face);
     if (cast.length || split) { playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing')); return; }
     // no mode binding: the name mapping's attack start, at the swing like the client's ON_CAST_START majority [추정]
-    if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
+    if (!src._fxSkillOn || sharedSkill(src)) play(src, 'attackStart', 0, { tag: 'cast' });
   }
   /**
    * The strike ('atk' on `tgt`): the cast effects of ON_SPELL_ON / ON_SPELL_END; the swing's own when no swing was
@@ -5090,7 +5105,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // (2026-11-12) a mode the form holds is the client's own reading (FORM_HELD_MODES): its hits are its bindings' and its kit's
     // moments (结城理's personas: render/fx/kitofficial.js hit), never the name rule's (his 本体's makoto_attack_a_hit_01)
     if (a.mode > 0 && heldOf(a.src) === a.mode) return;
-    play(a.src, a.src._fxSkillOn ? 'skillHit' : 'attackHit', skillIdx(a.src), { at: tgt });
+    play(a.src, a.src._fxSkillOn && !sharedSkill(a.src) ? 'skillHit' : 'attackHit', skillIdx(a.src), { at: tgt });
   }
   /**
    * 2026-10-16, official client: the per-strike hits of an attack in `mode` (modes.json `hitGroups[mode]`; a skill that
@@ -7509,8 +7524,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const tgt = views.get(e[2]);
           // 丰川祥子: her note (the 'oblvnsNote' born event of this attack) replaces render/fx.js's arrow
           if (tgt && fxBundleOf(src.info.spine || src.info.defId) === 'oblvns' && notesOn(src)) noteAtks.add(e);
-          const mode = modeNow(src); // local patch: the mode this attack belongs to (its bound cast / hit effects)
-          const shot = mode === -1 && takeShot(src); // 2026-10-16: a mode-less skill's own shot
+          const now = modeNow(src); // local patch: the mode this attack belongs to (its bound cast / hit effects)
+          const shot = now === -1 && takeShot(src); // 2026-10-16: a mode-less skill's own shot
+          const mode = shot ? now : attackModeOf(src, now); // 2026-11-16: otherwise the Default mode's attack
           if (shot && tgt) src._fxShotAim = { tgt, t: clockS }; // 2026-11-16: where its reach effects stand (zoneFx shotAimOf)
           const sig = typeof e[4] === 'string' && e[4] ? e[4] : null; // 2026-10-21: a talent's own attack ('T.1': modePart)
           if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot, combat: !!src._fxCombat, sig });
