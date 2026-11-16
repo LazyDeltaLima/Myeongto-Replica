@@ -2027,7 +2027,10 @@
   'dmg'에서 `shotHit`을 튼다.
 - 안 한 것: 한 공격의 하위 투사체 명중(`_additionalProjectile(s)`·재능 `_projectileKey` — 伺夜 S3, 至简 S2, 寒芒克洛丝 재능 …). 시뮬은 한 'atk'의
   피해를 같은 틱의 여러 'dmg'로 보내는데 그 순서가 하위 투사체와 1:1이 아니다(寒芒克洛丝의 두 번째 피해는 특성 이중 사격이지 재능 화살이 아님) —
-  오퍼마다 키트와 맞춰야 한다. 号角 S2 `_burstProjectiles`(Full Burst)는 수동 조기 종료 때만 나가 자동 전투에는 없다. 迷迭香 Attack_A/B는
+  오퍼마다 키트와 맞춰야 한다. 혼(号角, char_4039_horn) S2 `_burstProjectiles`(Full Burst)는 수동 조기 종료 때만 나가 자동 전투에는 없다
+  (2026-11-16 공식 클라에서 확인: `BurstRangedAttack.GetProjectileKey`가 `_burstProjectiles`[남은 탄 − 1]을 고르고, 그 공격 묶음은
+  `BurstCastSkill`의 수동 종료가 과부하 중에만(`_burstOnOverload`) 부른다) — 그래서 `projectile_chr_horn_s2_full_02~05`·`_melee_02~05`의
+  명중·꼬리 12줄은 `test/render/fx-unplayed-local-list.js`에 'ok'로 남는다(저장 단계별 탄이 아님). 迷迭香 Attack_A/B는
   `_selectMethod` 0 선택기 아래라 번갈아인지 둘 다인지 공식 클라에서 확인 필요(지금은 A만 「대안 공격」으로 읽음).
 - 확인: 단위 `test/render/skill-shot-trail.test.js`. Windows Chrome 디버그 아레나: 维什戴尔 S1 `wisdel_skill_01_hit` 3·`_hit_02` 3, 일반 공격
   `wisdel_attack_01_hit_02` 3, S3 `wisdel_skill_03_hit_02` 2, 异客 S1 `pasngr_skill_01_hit` 3, 歌蕾蒂娅 S1 `glady_skill_01_hit` 7, 断崖 S1

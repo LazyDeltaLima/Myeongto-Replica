@@ -15,18 +15,10 @@ export const UNPLAYED_LOCAL = Object.freeze({
   "char_206_gnosis/Others/Direction/Talents/1|buff_frozen_to_enemy": "todo: 灵知 T1's hit on a frozen enemy",
   "haruka_t_1|haruka_talent_01_buff": "todo: 遥's bubble (haruka_t_1 _activeBuffs): the kit's 'shield' event draws another",
   "headb2_t_2[fx]|headb2_buff": "todo: 怒潮凛冬's high-ground hit and tile effects (_hitEffectKey / _tileEffectKey)",
-  "projectile_chr_horn_s2_full_02|horn_skill_02_hit_02_02_02": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
-  "projectile_chr_horn_s2_melee_02|horn_skill_02_hit_02_02_02": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
-  "projectile_chr_horn_s2_full_03|horn_skill_02_hit_02_02_03": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
-  "projectile_chr_horn_s2_melee_03|horn_skill_02_hit_02_02_03": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
-  "projectile_chr_horn_s2_full_04|horn_skill_02_hit_02_02_04": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
-  "projectile_chr_horn_s2_melee_04|horn_skill_02_hit_02_02_04": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
-  "projectile_chr_horn_s2_full_05|horn_skill_02_hit_02_02_05": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
-  "projectile_chr_horn_s2_melee_05|horn_skill_02_hit_02_02_05": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
-  "projectile_chr_horn_s2_full_02|horn_skill_02_trail_02_02": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
-  "projectile_chr_horn_s2_full_03|horn_skill_02_trail_02_03": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
-  "projectile_chr_horn_s2_full_04|horn_skill_02_trail_02_04": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
-  "projectile_chr_horn_s2_full_05|horn_skill_02_trail_02_05": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
+  // 号角 S2's Full Burst shots: BurstRangedAttack.GetProjectileKey picks `_burstProjectiles`[bullets left − 1] (공식 클라에서 확인) —
+  // fired only by the manual early close while overloaded (BurstCastSkill `_burstOnOverload`), which the auto battle never does
+  ...Object.fromEntries(['02', '03', '04', '05'].flatMap((i) => [[`full_${i}`, `hit_02_02_${i}`], [`melee_${i}`, `hit_02_02_${i}`], [`full_${i}`, `trail_02_${i}`]]
+    .map(([p, n]) => [`projectile_chr_horn_s2_${p}|horn_skill_02_${n}`, "ok: 号角 S2's Full Burst shot (rules/fx.md 「투사체 정지 이펙트·스킬 투사체 명중」): never in the auto battle"]))),
   "projectile_chr_svash2_s3_bird|svash2_skill_03_trail_left_01": "todo: 凛御银灰 S3's bird trail by direction (_effectsAlignToProjectileDirection)",
   "projectile_chr_svash2_s3_bird|svash2_skill_03_trail_right_01": "todo: 凛御银灰 S3's bird trail by direction (_effectsAlignToProjectileDirection)",
   "thorns_t_1|thorns_buff_01_start": "todo: 棘刺 T1's hit, a LIMITED buff of length 0",
