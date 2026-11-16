@@ -131,6 +131,16 @@
 //     session. Cosmetic: any phase, spectators too (stored on the session), never handed to a match. [ASSUMED·자료 없음:
 //     the event's card shows the account's assistant (名片形象); this remake has no accounts, so the pick is made on
 //     one's own seat card and kept in the browser — ui/seatArt.js]
+//   * Operator skins (upstream 0.3.1 / 0.3.2 by hand; docs/rules/upstream.md 「오퍼레이터 스킨」): room.skins { skins } —
+//     `{ [charId]: skinId }`, the official outfit each operator wears — is a plain map of at most SKIN_LIMITS.entries
+//     pairs; a bad shape is BAD_MSG and keeps the stored map (shared/protocol.js checkSkinSelection). Not per season
+//     (an outfit belongs to the operator): the session keeps the operators of any offered season, a seat those of its
+//     room's season (humanSeat, skins()), a charId neither has is dropped. The skinId is never checked against an
+//     asset list: the server has none to trust, and an unknown one draws the default model on the client. No phase
+//     gate, unlike the settings above: a match receives seats[].skins when it starts AND takes a later change at once
+//     (match.setSkins, any phase) — it is public (a teammate sees your outfit) and changes no rule. The room's members
+//     see a human seat's non-empty map as room.state seats[].skins (the seat cards may wear it); a changed map is
+//     broadcast while the room waits, during a match m.public carries it. Spectators: kept on the session only.
 //   * Spectator seats (community report #26, owner's decision 2026-10-04 — a remake feature, the official room has none):
 //     room.spectate { code } takes one of a co-op room's spectator seats (`spectatorSeats`, below), in its lobby or while its
 //     match runs (▸ solo rooms: ROOM_FULL). A spectator is not a player: never in `seats`, never counted for the 1–4 players
@@ -173,7 +183,7 @@
 
 import { randomBytes, randomInt } from 'node:crypto';
 import { DIFFICULTIES, ERR, LARGE_MIN_PLAYERS, LARGE_SEATS, MAX_SEATS, MIN_SPECTATORS, ROOM_CODE_LEN, SPECTATOR_SEATS, firstGrade, gradeDifficulty, isGrade, modeIdFor, seatsOf } from '../shared/constants.js';
-import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks } from '../shared/protocol.js';
+import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, checkSkinSelection, operatorCharIds } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
@@ -214,7 +224,8 @@ const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
  * @typedef {{ seat: number, playerId: string, name: string, isBot: boolean, ready: boolean,
  *             connected: boolean, left: boolean, awayAt?: number, loadout?: Record<string, { skill: number, module: string|null }> | null,
  *             ops?: Readonly<Record<string, { potential: number, cultivate: number }>> | null,
- *             notOwned?: readonly string[] | null, diy?: Readonly<Record<string, DiyLoadout>> | null }} Seat
+ *             notOwned?: readonly string[] | null, diy?: Readonly<Record<string, DiyLoadout>> | null,
+ *             skins?: Readonly<Record<string, string>> | null }} Seat
  * @typedef {{ charId: string, skillIndex: number, uniEquipId: string|null }} DiyLoadout
  */
 
@@ -263,6 +274,23 @@ function freezeDiy(picks) {
   const out = {};
   for (const [id, p] of Object.entries(picks || {})) out[id] = Object.freeze({ charId: p.charId, skillIndex: p.skillIndex, uniEquipId: p.uniEquipId ?? null });
   return Object.freeze(out);
+}
+
+/**
+ * Frozen copy of a skin selection (header 「Operator skins」) keeping the charIds `hasOperator` accepts, or null when
+ * the map is malformed (the caller answers BAD_MSG and keeps what it stored).
+ * @param {any} skins @param {(charId: string) => boolean} hasOperator
+ * @returns {Readonly<Record<string, string>> | null}
+ */
+function freezeSkins(skins, hasOperator) {
+  const res = checkSkinSelection(skins, hasOperator);
+  return res.ok ? Object.freeze({ ...res.skins }) : null;
+}
+
+/** Do two skin selections hold the same pairs (a resend of the same map is not broadcast again)? */
+function sameSkins(a, b) {
+  const ka = a ? Object.keys(a) : [], kb = b ? Object.keys(b) : [];
+  return ka.length === kb.length && ka.every((k) => a[k] === b[k]);
 }
 
 /**
@@ -400,7 +428,9 @@ export class Room {
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left,
           // 名片干员 (room.card): only a human seat with a card carries the key
-          ...(!s.isBot && s.card ? { card: s.card } : {}) }
+          ...(!s.isBot && s.card ? { card: s.card } : {}),
+          // operator skins (room.skins, PUBLIC like m.public players[].skins): only a human seat with a non-empty map
+          ...(!s.isBot && s.skins && Object.keys(s.skins).length ? { skins: s.skins } : {}) }
         : null)),
       spectatorSeats: this.spectatorSeats,
       spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected,
@@ -540,6 +570,7 @@ export class Lobby {
       case 'room.ownership': return this.ownership(session, msg);
       case 'room.diy': return this.diy(session, msg);
       case 'room.card': return this.card(session, msg);
+      case 'room.skins': return this.skins(session, msg);
       case 'room.spectate': return this.spectate(session, msg);
       case 'room.removeSpectator': return this.removeSpectator(session, msg);
       case 'room.reserveSeat': return this.reserveSeat(session, msg);
@@ -1087,6 +1118,46 @@ export class Lobby {
     return OK;
   }
 
+  /**
+   * room.skins (header 「Operator skins」): store the outfits this player chose on the session (the operators of any
+   * offered season) and the seat (those of the room's season), and hand them to a running match. A waiting room is
+   * shown a changed map (room.state seats[].skins).
+   */
+  skins(session, { skins }) {
+    const kept = freezeSkins(skins, (id) => [...this.seasons].some((s) => operatorCharIds(this.safeData(s)).has(id)));
+    if (!kept) return fail(ERR.BAD_MSG, 'bad skin selection');
+    session.skins = kept;
+    const room = this.roomOf(session);
+    const seat = room ? room.seatOf(session.playerId) : null;
+    if (!room || !seat || seat.isBot) return OK; // a spectator's outfits stay on its session
+    const mine = this.seatSkins(session, room.season);
+    const changed = !sameSkins(seat.skins, mine);
+    seat.skins = mine;
+    if (!room.match) {
+      if (changed) this.broadcastState(room);
+      return OK;
+    }
+    if (typeof room.match.setSkins !== 'function') return fail(ERR.ROOM_STARTED, 'stored for the next match');
+    let r;
+    try {
+      r = room.match.setSkins(session.playerId, mine);
+    } catch (e) {
+      this.log.error(`[lobby] ${room.code} match.setSkins threw`, e);
+      return fail(ERR.INTERNAL);
+    }
+    if (r && typeof r === 'object' && r.error) {
+      return fail(isErrCode(r.error) ? r.error : ERR.INTERNAL, typeof r.detail === 'string' ? r.detail : undefined);
+    }
+    return OK;
+  }
+
+  /** The session's outfits for a seat in a room of `season`: its operators only (header 「Operator skins」), or null. */
+  seatSkins(session, season = DEFAULT_SEASON) {
+    if (!session.skins) return null;
+    const ids = operatorCharIds(this.safeData(season));
+    return freezeSkins(session.skins, (id) => ids.has(id));
+  }
+
   /** Extra fields of every `welcome` (net.js): the operators a 自选 slot may field (shared/diy.js `kitted`). */
   /**
    * The first pong of every socket (net.js connectInfo, before any hello): `seasons` = the 卫戍协议 seasons rooms may name
@@ -1118,6 +1189,8 @@ export class Lobby {
       notOwned: s.isBot ? null : s.notOwned || null,
       // 0.2.0 自选编队: the human's checked DIY picks (bots field no 自选 piece [ASSUMED])
       diy: s.isBot ? null : s.diy || null,
+      // operator skins (header): the outfits the human wears, by operator charId (bots: the default models)
+      skins: s.isBot ? null : s.skins || null,
     }));
     // lastPublic / results: the latest m.public broadcast and the m.result frames (encoded), kept for the replay.
     const ctx = { live: true, ended: false, disposed: false, match: null, lastPublic: null, sharedResult: null, results: new Map() };
@@ -1448,6 +1521,8 @@ export class Lobby {
       diy: kept.diy || null,
       // 名片干员 (room.card, header): the session's card when the room's season has that operator
       card: session.card && cardCharIds(this.safeData(season)).has(session.card) ? session.card : null,
+      // operator skins (header): the session's outfits of the room's season's operators (PUBLIC: room.state, the match)
+      skins: this.seatSkins(session, season),
     };
   }
 

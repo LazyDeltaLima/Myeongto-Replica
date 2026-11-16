@@ -287,6 +287,75 @@ export function checkLoadoutOps(ops, isOperator) {
   return { ok: true, ops: out };
 }
 
+// ---- operator skins (时装, upstream 0.3.1 / 0.3.2 by hand): room.skins { skins } -------------------------------------
+
+/**
+ * `room.skins { skins }`: `skins` = `{ [charId]: skinId }` — the official outfit each operator wears (skin_table
+ * `charSkins` key, `char_002_amiya@winter#1`), one entry per OPERATOR, so it covers the normal chess, its elite and a
+ * 自选 slot fielding the same operator. Display only: no rule reads it (docs/rules/upstream.md 「오퍼레이터 스킨」).
+ * Unlike room.loadout it is PUBLIC (Match.publicView().players[].skins, every unit's UnitInfo.skin): a teammate sees
+ * your outfit when their page has the skin data — whether it draws it is the client's (the skin pack, the 「other
+ * players' skins」 switch); the server never checks a skinId against an asset catalogue, an unknown one draws the
+ * default model there.
+ *
+ * The wire refuses the whole map on a bad shape (a non-plain object, a key that is not an operator charId, a value
+ * that is not a skinId, more than SKIN_LIMITS.entries pairs). Whether the room's content has the operator is
+ * `checkSkinSelection`: that entry is dropped, the rest kept.
+ */
+export const SKIN_LIMITS = Object.freeze({
+  // [ASSUMED·자료 없음: a wire ceiling, no official limit] the practical cap is the room's operator count
+  // (checkSkinSelection drops the rest); 256 is above both seasons' operators together
+  entries: 256, idLen: 64, charIdLen: 64,
+});
+/** A skinId. Not `isId`: a skin key carries `@` and `#` (`char_1012_skadi2@boc#4`). */
+export const isSkinId = (v) => typeof v === 'string' && v.length > 0 && v.length <= SKIN_LIMITS.idLen && /^[A-Za-z0-9_][A-Za-z0-9_@#+.\-]*$/.test(v);
+/** An official operator charId, `char_<digits>_<token>` (a chess id such as `chess_char_1_01_a` is not one). */
+export const CHAR_ID = /^char_[0-9]+_[A-Za-z0-9_]+$/;
+export const isCharId = (v) => typeof v === 'string' && v.length <= SKIN_LIMITS.charIdLen && CHAR_ID.test(v);
+/** Structural check of `room.skins.skins`: a plain object of ≤ SKIN_LIMITS.entries charId → skinId pairs. */
+export const isSkinSelection = (v) => isMap(v, SKIN_LIMITS.entries, isCharId, isSkinId);
+
+const SKIN_OPS = new WeakMap();
+/**
+ * The operators a season's content has, as charIds: every chess record (hidden and golden share the base charId), the
+ * 补位 stand-in bodies (`backups.units`) and the 自选 operators (`diy.ownedPool`, `diy.operators`).
+ * @param {{ chess?: Record<string, any>, backups?: any }|null|undefined} data
+ * @returns {Set<string>}
+ */
+export function operatorCharIds(data) {
+  if (!data || typeof data !== 'object') return new Set();
+  let ids = SKIN_OPS.get(data);
+  if (ids) return ids;
+  ids = new Set();
+  const chess = isPlain(data.chess) ? data.chess : null;
+  if (chess) for (const c of Object.values(chess)) if (c && isCharId(c.charId)) ids.add(c.charId);
+  const backups = data.backups && typeof data.backups === 'object' ? data.backups : null;
+  if (isPlain(backups?.units)) for (const id of Object.keys(backups.units)) if (isCharId(id)) ids.add(id);
+  const diy = backups?.diy && typeof backups.diy === 'object' ? backups.diy : null;
+  if (Array.isArray(diy?.ownedPool)) for (const id of diy.ownedPool) if (isCharId(id)) ids.add(id);
+  if (isPlain(diy?.operators)) for (const id of Object.keys(diy.operators)) if (isCharId(id)) ids.add(id);
+  SKIN_OPS.set(data, ids);
+  return ids;
+}
+
+/**
+ * A skin selection to store: the shape is `isSkinSelection` (a failure refuses the whole map); a charId `hasOperator`
+ * rejects is dropped and the rest kept.
+ * @param {any} skins
+ * @param {(charId: string) => boolean} [hasOperator]
+ * @returns {{ ok: true, skins: Record<string, string>, dropped: number } | { error: 'BAD_MSG', detail: string }}
+ */
+export function checkSkinSelection(skins, hasOperator) {
+  if (!isSkinSelection(skins)) return { error: 'BAD_MSG', detail: 'bad skin selection' };
+  const out = {};
+  let dropped = 0;
+  for (const id of Object.keys(skins)) {
+    if (typeof hasOperator === 'function' && !hasOperator(id)) { dropped++; continue; }
+    out[id] = skins[id];
+  }
+  return { ok: true, skins: out, dropped };
+}
+
 // ---- operator ownership (干员持有, 0.2.0 补位): room.ownership { notOwned } -------------------------------------------
 
 /**
@@ -481,6 +550,9 @@ export const C2S = {
   // 名片干员 (after upstream 0.3.3): the operator on the player's waiting-room seat card, '' for none (server/lobby.js
   // cardCharIds checks it against the data); cosmetic, stored per session / seat, any phase
   'room.card': { charId: (v) => v === '' || isId(v) },
+  // operator skins (docs/rules/upstream.md 「오퍼레이터 스킨」): the outfit each operator wears; PUBLIC and display only,
+  // so — unlike the loadout — accepted in any phase and handed to a running match at once; not per season
+  'room.skins': { skins: isSkinSelection },
   // spectator seats (remake feature, community report #26; MAX_SPECTATORS): take one of a co-op room's spectator seats —
   // in its lobby or while its match runs — never a player seat; the host frees one by playerId (the spectator gets
   // room.closed { reason: 'kicked' }). room.leave / g.leave leave a spectator seat like a player seat.

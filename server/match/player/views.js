@@ -21,6 +21,24 @@ function showTagGarrisons(gd) {
 }
 
 export class PlayerViews {
+  /**
+   * The outfit a piece wears (docs/rules/upstream.md 「오퍼레이터 스킨」), or null: an operator its player's choice for
+   * the operator of its body (skinFor: a 补位 stand-in's body, a 自选 slot's pick); a summon its owner piece's — the
+   * owner's skinId, which the client turns into the summon's own outfit through the skin's `tokenSkinMap`; an item none.
+   * @param {any} p a board / hand / temp piece
+   * @returns {string|null}
+   */
+  pieceSkin(p) {
+    if (!p || !this.skins || !Object.keys(this.skins).length) return null;
+    if (p.kind === 'chess') {
+      const pick = this.diyPickOf(p.id);
+      return this.skinFor(this.gd.chess(p.id), pick ? pick.charId : null);
+    }
+    if (p.kind !== 'token' || p.ownerUid == null) return null;
+    const owner = this.find(p.ownerUid)?.piece;
+    return owner && owner.kind === 'chess' ? this.pieceSkin(owner) : null;
+  }
+
   pieceView(p, rc = null) {
     const rec = p.kind === 'item' ? this.gd.item(p.id) : p.kind === 'token' ? this.gd.token(p.id) : this.gd.chess(p.id);
     const v = {
@@ -33,6 +51,9 @@ export class PlayerViews {
       count: p.kind === 'token' ? (p.count || 1) : 1,
       ownerUid: p.kind === 'token' ? p.ownerUid ?? null : null,
     };
+    // operator skins: the prep board / hand / temp pieces show their outfit before they fight (pieceSkin)
+    const skin = this.pieceSkin(p);
+    if (skin) v.skin = skin;
     // the sell price when it is not the record's (规程's 海沫 / 温蒂: economy.js sellPriceOf) — the detail panel shows it
     if (p.kind === 'chess') { const sp = this.sellPriceOf(p); if (sp !== (rec?.sellPrice ?? 1)) v.sellPrice = sp; }
     if (rc) { v.row = rc[0]; v.col = rc[1]; v.dir = pieceDir(p); }

@@ -174,6 +174,9 @@ export class MatchViews {
         ...this._pendingLpView(ps),
         // 规程's avatar badges: 完美连胜, and in a boss round the share of the leader (_badgeView)
         ...this._badgeView(ps),
+        // operator skins (docs/rules/upstream.md 「오퍼레이터 스킨」): PUBLIC — how teammates see this player's outfits
+        // (a seat card, a unit whose UnitInfo they re-read); omitted when empty
+        ...(ps.skins && Object.keys(ps.skins).length ? { skins: ps.skins } : {}),
       })),
       fields: this.fields.map((f) => {
         const v = { fieldId: f.fieldId, kind: f.kind, players: f.players.slice(), live: !!f.live };
@@ -341,6 +344,12 @@ export class MatchViews {
     return previewOf([...this.wave.spawns, ...bounty]);
   }
 
+  /** The outfit of a scouted piece (like the sim's UnitInfo.skin): its player's for the operator, a summon its owner's. */
+  _skinInfo(ps, piece) {
+    if (typeof ps.pieceSkin !== 'function') return undefined;
+    return ps.pieceSkin(piece) || undefined;
+  }
+
   /** A 自选 piece's pick (like the sim's UnitInfo.diy): a scout's card composes the operator from it (shared/diy.js). */
   _diyInfo(ps, piece) {
     const p = piece.kind === 'chess' && typeof ps.diyPickOf === 'function' ? ps.diyPickOf(piece.id) : null;
@@ -393,6 +402,8 @@ export class MatchViews {
         items: piece.kind === 'chess' && Array.isArray(piece.items) && piece.items.length ? piece.items.map((it) => it.id) : undefined,
         standInFor: rec && rec.standInFor ? rec.standInFor : undefined,
         diy: this._diyInfo(ps, piece),
+        // operator skins: THIS player's outfit for the piece (a summon wears its owner's: tokenSkin), like UnitInfo.skin
+        skin: this._skinInfo(ps, piece),
         ...cultivationInfo(lo),
       });
     }
@@ -485,6 +496,7 @@ export class MatchViews {
       items: piece.kind === 'chess' && Array.isArray(piece.items) && piece.items.length ? piece.items.map((it) => it.id) : undefined,
       standInFor: standIn && standIn.standInFor ? standIn.standInFor : undefined,
       diy: this._diyInfo(ps, piece),
+      skin: this._skinInfo(ps, piece),
       ...cultivationInfo(lo),
     };
   }

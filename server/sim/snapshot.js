@@ -3,7 +3,9 @@
 // b.snap  = { fieldId, t, units: [[id, x, y, hp, maxHp, sp, spMax, flags, anim]], dp, killed, total, resolved }
 //   (hp of a countdown summon — unit.countdown, content/tokens.js startCountdown — is maxHp × the share of its life left)
 // UnitInfo = { id, kind, side, ownerId, defId, name, tier, golden, spine, avatar, x, y, facing, dir, maxHp, motion?, boss?, uid?,
-//   form?, skillIndex?, moduleId?, items?, standInFor?, diy? }  (standInFor = the replaced operator's charId of a 补位
+//   form?, skillIndex?, moduleId?, items?, standInFor?, diy?, skin? }  (skin = the owning player's outfit skinId — a
+//   summon its owner operator's, which the client maps to the summon's own outfit through that skin's tokenSkinMap:
+//   display only, docs/rules/upstream.md 「오퍼레이터 스킨」; standInFor = the replaced operator's charId of a 补位
 //   stand-in; diy = a 自选 piece's pick { charId, skillIndex, uniEquipId } — defId is its slot, spine / avatar the operator's;
 //   form = the unit's current model form — an enemy's, content/enemies/helpers.js setForm:
 //   掠海漂移体 'crawl', 暴鸰 'bombed', 转译基底·α's forms, 伊利昂的木驮兽's riders 'half' / 'full' …; a 傀儡师 fighting as its
@@ -36,6 +38,8 @@ export function unitInfo(u) {
     tier: d.tier ?? (d.rank === 'BOSS' ? 3 : d.rank === 'ELITE' ? 2 : 1),
     golden: !!d.golden,
     spine: d.spine ?? d.charId ?? u.defId,
+    // operator skins: the owner's skinId, absent without one (undefined: a match without skins sends what it sent)
+    skin: u.side === 'ally' && typeof u.skin === 'string' ? u.skin : undefined,
     avatar: d.avatar ?? d.charId ?? u.defId,
     x: r2(u.x),
     y: r2(u.y),

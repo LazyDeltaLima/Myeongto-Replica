@@ -81,10 +81,11 @@ export const PROBE_MIN_MS = 1500;
  * room.loadout (a ≤ 160-entry map and ≤ 256 operator settings validated against the game data; the client debounces its
  * edits), room.ownership
  * (a ≤ 160-id list, the same way), room.diy (≤ 8 自选 picks checked against the data, the same way), room.card (a seat card's operator: a
- * room.state broadcast on every change) and room.spectate
+ * room.state broadcast on every change), room.skins (a ≤ 256-entry operator → outfit map, sent on every edit of the
+ * outfits; a changed map re-broadcasts room.state to a waiting room and m.public to a running match) and room.spectate
  * (taking a spectator seat in a running match resends its state like a watcher's g.watch — server/lobby.js spectate).
  */
-export const HEAVY_TYPES = new Set(['g.watch', 'room.loadout', 'room.ownership', 'room.diy', 'room.card', 'room.spectate']);
+export const HEAVY_TYPES = new Set(['g.watch', 'room.loadout', 'room.ownership', 'room.diy', 'room.card', 'room.skins', 'room.spectate']);
 
 /** Close codes (see header). */
 export const CLOSE = Object.freeze({ REPLACED: 4001, HELLO_TIMEOUT: 4002, POLICY: 1008, SHUTDOWN: 1001 });
@@ -141,6 +142,8 @@ export class Session {
     this.diy = null;
     /** @type {Record<string, { loadout: any, ops: any, notOwned: any, diy: any }> | null} the four above of the other 卫戍协议 seasons, by season (lobby-owned, settingsOf) */
     this.seasonal = null;
+    /** @type {Readonly<Record<string, string>> | null} chosen operator outfits { [charId]: skinId } (lobby-owned, room.skins; PUBLIC, not per season — docs/rules/upstream.md 「오퍼레이터 스킨」) */
+    this.skins = null;
     /** @type {string} client address of the latest connection (logging) */
     this.addr = '?';
     /** @type {string | null} per-network limit key of the latest connection (null = not limited), see clientAddress */

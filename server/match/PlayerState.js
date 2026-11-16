@@ -137,7 +137,7 @@ import { PlayerDiy, DiyStock } from './player/diy.js';
 export class PlayerState {
   /**
    * @param {import('./Match.js').Match} m owning match
-   * @param {{ seat: number, playerId: string, name: string, isBot: boolean, connected: boolean, loadout?: any, notOwned?: any, diy?: any }} seat
+   * @param {{ seat: number, playerId: string, name: string, isBot: boolean, connected: boolean, loadout?: any, notOwned?: any, diy?: any, skins?: any }} seat
    */
   constructor(m, seat) {
     this.m = m;
@@ -190,6 +190,12 @@ export class PlayerState {
     /** slotted slots without stock: every bond of the operator is switched off this match */
     this.diyBanned = Object.freeze([]);
     if (!this.isBot && seat.diy) this.setDiy(seat.diy);
+    /**
+     * operator skins (docs/rules/upstream.md 「오퍼레이터 스킨」): frozen { [charId]: skinId }, {} = every operator on its
+     * default model (bots always). PUBLIC unlike the loadout (m.public players[].skins); display only — no rule reads it.
+     */
+    this.skins = Object.freeze({});
+    if (!this.isBot && seat.skins) this.setSkins(seat.skins);
     this.shop = { level: 1, upgradePrice: this.gd.upgradeBase(1) ?? 0, slots: [], frozen: false, freeRefreshes: 0 };
     /** reward offers queue (merge rewards, special refreshes): { tier, source, label, slots: [{ kind, id, price, sold }] } */
     this.offers = [];

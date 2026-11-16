@@ -42,6 +42,10 @@ export class Unit {
     this.ownerId = init.ownerId ?? null;  // playerId (enemies: field owner)
     this.uid = init.uid ?? null;          // match piece uid (ops/tokens from the board)
     this.ownerUnit = init.ownerUnit ?? null; // summoner (tokens)
+    // the owning player's outfit (skinId, PlayerBattleInput `skin`; a summon its owner's — battle/players.js, summons.js):
+    // display only, carried to UnitInfo.skin — no rule reads it and Battle.result() leaves it out
+    // (docs/rules/upstream.md 「오퍼레이터 스킨」)
+    this.skin = init.skin ?? null;
     this.x = init.x ?? 0;
     this.y = init.y ?? 0;
     this.tileR = init.tileR ?? Math.round(this.y);

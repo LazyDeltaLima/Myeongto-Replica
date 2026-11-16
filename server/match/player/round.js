@@ -149,6 +149,10 @@ export class PlayerRound {
     // 干员调配 settings, 潜能 6 / 精英2 Lv.60 by default and for bots; never a stand-in's nor a prototype pick's)
     const cv = u.standIn ? null : this.cultivationFor(this.gd.chess(piece.id));
     if (cv) { u.potential = cv.potential; u.cultivate = cv.cultivate; }
+    // operator skins (docs/rules/upstream.md 「오퍼레이터 스킨」): the outfit, carried to Unit.skin and UnitInfo — display
+    // only, no rule reads it (a 自选 slot wears its pick's operator's: skinFor)
+    const skin = this.skinFor(this.gd.chess(piece.id), pick ? pick.charId : null);
+    if (skin) u.skin = skin;
     return u;
   }
 

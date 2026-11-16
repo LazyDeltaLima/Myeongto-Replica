@@ -1,7 +1,7 @@
 // server/match/player/basics.js — PlayerState methods: the basics — seat flags and counts (isHumanActive,
 // botControlled, deployCap, deployCount, tempEmpty), the prep that resolves a temp piece (tempDue, _putTemp: every
 // write into a temp slot), the operator loadout (DESIGN §16: setLoadout, loadoutFor; 0.2.2 潜能 / 练度: cultivationFor), the not-owned operators fielded
-// as their stand-ins (0.2.0 补位: setNotOwned, fieldsStandIn, fieldRecord), the deploy map on the field the
+// as their stand-ins (0.2.0 补位: setNotOwned, fieldsStandIn, fieldRecord), the operator skins (setSkins, skinFor), the deploy map on the field the
 // player deploys on (Match.deployFieldOf) and the withdrawal of pieces a terrain / deploy-field change left on tiles
 // they may no longer occupy (_evictIllegal), dirty.
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
@@ -9,7 +9,7 @@
 
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { msg, dn } from '../../../shared/i18n.js';
-import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, resolveLoadout } from '../../../shared/protocol.js';
+import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, resolveLoadout, checkSkinSelection, operatorCharIds } from '../../../shared/protocol.js';
 import { cultivationOf } from '../../../shared/potential.js';
 import { tileKey, boardOrder, freeSlot } from '../board.js';
 import { TEMP_SIZE } from './common.js';
@@ -209,6 +209,43 @@ export class PlayerBasics {
     if (rec && this.fieldsStandIn(rec)) return this.gd.standIn(rec.chessId) || rec;
     if (rec && rec.isDiy && !rec.diyFor && typeof rec.chessId === 'string') return this.gd.chess(rec.chessId) || rec;
     return rec;
+  }
+
+  /**
+   * Operator skins (docs/rules/upstream.md 「오퍼레이터 스킨」): replace this player's outfits `{ [charId]: skinId }`. A
+   * malformed map (shared/protocol.js isSkinSelection) is refused whole and leaves `this.skins` as it was; a charId this
+   * match's content does not have is dropped; an empty map clears. Bots wear the default models. No dirty() here: the
+   * constructor calls it too — Match.setSkins marks the views.
+   * @param {any} skins
+   * @returns {boolean} false when refused (nothing changes)
+   */
+  setSkins(skins) {
+    if (this.isBot) return false;
+    const ids = operatorCharIds(this.m.gd.raw);
+    const res = checkSkinSelection(skins, (id) => ids.has(id));
+    if (!res.ok) return false;
+    this.skins = Object.freeze({ ...res.skins });
+    return true;
+  }
+
+  /**
+   * The outfit this player wears for a chess piece, or null — the one rule the battle input and every view ask, so a
+   * piece's skin cannot differ between the prep board, a teammate's scout and the field. Keyed by the operator of the
+   * piece's body: a 补位 stand-in's body (fieldRecord), a 自选 slot's pick (`charId`, which wins when given — a slot's
+   * own record has none). [ASSUMED·자료 없음: the official mode has no outfit choice to compare; a stand-in wears the
+   * outfit chosen for its body's operator, as upstream]
+   * @param {object|string|null} rec a chess record or id @param {string|null} [charId]
+   * @returns {string|null}
+   */
+  skinFor(rec, charId = null) {
+    const skins = this.skins;
+    if (!skins) return null;
+    let key = typeof charId === 'string' && charId ? charId : null;
+    if (!key) {
+      const r = this.fieldRecord(typeof rec === 'string' ? this.gd.chess(rec) : rec);
+      key = r && typeof r.charId === 'string' && r.charId ? r.charId : null;
+    }
+    return key && Object.hasOwn(skins, key) ? skins[key] : null;
   }
 
   /**

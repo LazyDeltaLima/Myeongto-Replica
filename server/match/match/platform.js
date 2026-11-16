@@ -1,6 +1,6 @@
 // server/match/match/platform.js — Match methods: the platform interface of the server/match/Match.js header
 // (server/lobby.js ⇄ Match) — start, handle (validation, error isolation, flush; the intents themselves: intents.js
-// _handle), setLoadout (INFO_CHECK only), setDiy (INFO_CHECK / BAND_DRAFT; 规程: the 确定自选编队 lineup, also during that step until ready), onDisconnect / onReconnect and the full resync of one human, onLeave and 中途退出
+// _handle), setLoadout (INFO_CHECK only), setSkins (any phase), setDiy (INFO_CHECK / BAND_DRAFT; 规程: the 确定自选编队 lineup, also during that step until ready), onDisconnect / onReconnect and the full resync of one human, onLeave and 中途退出
 // = elimination (_quit), dispose.
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
@@ -77,6 +77,28 @@ export class MatchPlatform {
     this.guard(() => {
       if (!ps.setLoadout(loadout, ops)) { res = fail(ERR.BAD_TARGET, 'loadout does not match the game data'); return; }
       this.markPrivate(ps);
+    });
+    return res;
+  }
+
+  /**
+   * room.skins during the match (docs/rules/upstream.md 「오퍼레이터 스킨」): accepted in ANY phase, unlike the loadout —
+   * an outfit changes only how a piece looks, and it is public. The own view, the prep scouts and the boss partner
+   * (markPrivate) and m.public get it; a running battle keeps the outfits its units started with (Unit.skin) and the
+   * client may re-read the public map. PlayerState.setSkins re-checks the map and refuses a bad one without clearing
+   * the stored choice.
+   * @param {string} playerId
+   * @param {Record<string, string> | null} skins
+   * @returns {{ ok: true } | { error: string, detail?: string }}
+   */
+  setSkins(playerId, skins) {
+    const ps = this.players.get(playerId);
+    if (!ps || ps.isBot || ps.left) return fail(ERR.NOT_IN_ROOM);
+    if (this.disposed) return fail(ERR.WRONG_PHASE, 'match over');
+    let res = OK;
+    this.guard(() => {
+      if (!ps.setSkins(skins ?? {})) { res = fail(ERR.BAD_MSG, 'bad skin selection'); return; }
+      this.markPrivate(ps); // (and m.public)
     });
     return res;
   }

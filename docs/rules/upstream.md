@@ -242,6 +242,26 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   접기·펼치기, 모양은 우리 시안), `377fb09c`·`2f07ea84`(S.W.E.E.P. 장비 보고서). 받지 않음: `fe5b2228`(리더 순위 글자의 「文字大小」 — 우리에 그 설정이 없음). 자세한 것은
   `ui.md` 「upstream v0.4.0 규정 화면 작은 것들」·「규정 HUD 새 요소」.
 
+- **오퍼레이터 스킨 — 선택·공개·전달** (upstream 0.3.1·0.3.2의 스킨 체계 `11aa3faef`·`9cc6c97ef`·`f8c1da7da`·`60f6fd9e0`·`fcaddc922`의
+  서버·sim 부분, 손 이식 2026-11-16; 둘 다 GPL-3.0-or-later): 플레이어가 오퍼레이터마다 고른 공식 스킨(`skin_table` `charSkins` 키,
+  `char_427_vigil@epoque#27`)을 서버가 받아 공개하고 전투 유닛까지 나른다. **표시 전용**이다: 어떤 규칙도 `Unit.skin`을 읽지 않고 `Battle.result()`·golden이
+  그대로다(관리자 결정: 스킨은 표시 전용, 전투 판정은 기본 모델 기준). [ASSUMED·자료 없음: 공식 모드에는 판 안에서 고르는 스킨이 없어 견줄 것이 없음 — 아래 체계는
+  upstream 설계를 따름]
+  - 받기: `room.skins { skins: { [charId]: skinId } }`(`shared/protocol.js` `isSkinSelection`·`checkSkinSelection`·`operatorCharIds`). 모양이 틀리면(평범한
+    객체 아님, 키가 오퍼레이터 charId `char_<숫자>_<이름>` 아님 — 기물 ID 거부, 값이 스킨 ID 아님, 256쌍 넘음) 통째로 `BAD_MSG`이고 저장된 것은 그대로, 내용에
+    없는 오퍼레이터는 그 쌍만 버린다. 스킨 ID를 목록과 대조하지 않는다(서버가 믿을 목록이 없고, 모르는 ID는 브라우저에서 기본 모습이 됨). 시즌별이 아니다(스킨은
+    오퍼레이터 것): 세션은 제공하는 시즌 중 어느 하나에라도 있는 오퍼레이터를, 좌석은 그 방 시즌의 오퍼레이터만 둔다(`server/lobby.js` `skins`·`seatSkins`).
+    upstream의 플러그인 오퍼레이터(`char_x_…`)는 우리에게 없어 뺐다.
+  - 공개: 대기실 `room.state seats[].skins`(사람 좌석, 비어 있지 않을 때만 — 바뀌면 다시 보냄), 판 `m.public players[].skins`(비면 뺌), 정비 화면의 자기
+    기물(`pieceView` `skin`)·정찰·보스 짝 보드·벤치(`views.js _skinInfo`), 전투 `UnitInfo.skin`(없으면 키가 없어 스킨 없는 판은 전과 같은 바이트). 판 중에도 언제든
+    받는다(로드아웃과 달리 단계 제한 없음, `Match.setSkins` → 자기·정찰·보스 짝·`m.public`). 이미 도는 전투의 유닛은 시작 때 스킨 그대로다.
+  - 누구의 스킨인가: `PlayerState.skinFor` 하나가 정한다 — 그 기물이 싸우는 몸의 오퍼레이터(보충 대체는 대체 몸, 선발 칸은 고른 오퍼레이터). 봇은 언제나 기본.
+  - 소환물: 주인 기물(정비)·주인 유닛(전투 — 처음 만들 때, 늦게 주인을 잇을 때, 전투 중 소환)의 스킨 ID를 그대로 단다. 소환물 자기 스킨으로 바꾸는 것은
+    그리는 쪽이 그 스킨의 `tokenSkinMap`(`local/spine/skin/skins.json`의 `tokens`)으로 한다 — 서버는 스킨 목록을 모른다. upstream의 `UnitInfo.ownerCharId`
+    (전투 중 바뀐 공개 선택을 다시 읽는 용도)는 넣지 않았다 — 우리는 판 도중 스킨을 바꾸지 않는다(`render.md` 「스킨 모델 소재」, 렌더 게이트).
+  - 남은 것: 받은 스킨을 그릴지(스킨 데이터를 받았나, 「다른 플레이어 스킨」 끔), 고르는 화면, 브라우저가 보내는 동기화는 렌더·UI 쪽 줄이다.
+  - 재발 방지: `test/skins.test.js`(실제 판 경로에서 유닛·소환물의 스킨, 스킨 유무로 같은 `Battle.result()`), `test/lobby-skins.test.js`.
+
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.
 - 제국의 갑주 폭격·3연타 → `server/sim/content/local-patch.js`의 `patchVtsk`(`sim.md` 「“帝国的甲胄”」).

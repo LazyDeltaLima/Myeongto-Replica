@@ -60,6 +60,7 @@ export class BattlePlayers {
       const owner = ps.units.find((x) => x.kind === 'op' && x.uid === inp.ownerUid);
       if (!owner) continue;
       t.ownerUnit = owner;
+      t.skin = owner.skin ?? null; // the outfit follows the owner too (display only)
       const def = inp.def ? null : this._tokenDef(inp.tokenId ?? inp.chessId, owner, null);
       if (!def || def === t.def) continue;
       const st = def.stats;
@@ -139,7 +140,7 @@ export class BattlePlayers {
       const owner = inp.ownerUid != null ? ps.units.find((x) => x.uid === inp.ownerUid) : null;
       const def = this._tokenDef(inp.tokenId ?? inp.chessId, owner, inp.def);
       if (!def) { this.log(`unknown token ${inp.tokenId}`); return null; }
-      const u = this._makeAlly(ps, def, 'token', r, c, { uid: inp.uid, ownerUnit: owner, dir });
+      const u = this._makeAlly(ps, def, 'token', r, c, { uid: inp.uid, ownerUnit: owner, dir, skin: owner?.skin ?? null });
       u.carry = inp.carryState ?? null;
       return u;
     }
@@ -150,7 +151,7 @@ export class BattlePlayers {
     // `potential` (潜能 1–6, 0.2.2) composes the def at it (never a stand-in's)
     const def = this._allyDefFromInput(inp);
     if (!def) return null;
-    const u = this._makeAlly(ps, def, 'op', r, c, { uid: inp.uid, dir });
+    const u = this._makeAlly(ps, def, 'op', r, c, { uid: inp.uid, dir, skin: typeof inp.skin === 'string' ? inp.skin : null });
     u.items = [...(inp.items ?? [])];
     u.carry = inp.carryState ?? null;
     // 练度 (自持有, 0.2.2): the owned operator's ×ATK / ×DEF / ×max HP (units.js Πmul) — never a 补位 stand-in's nor a
@@ -233,7 +234,7 @@ export class BattlePlayers {
     const st = def.stats;
     const u = new Unit({
       id: ++this._idSeq, side: 'ally', kind, def, defId: def.id, name: def.name, ownerId: ps ? ps.playerId : null,
-      uid: extra.uid ?? null, ownerUnit: extra.ownerUnit ?? null, x: c, y: r, tileR: r, tileC: c,
+      uid: extra.uid ?? null, ownerUnit: extra.ownerUnit ?? null, skin: extra.skin ?? null, x: c, y: r, tileR: r, tileC: c,
       dir: extra.dir != null ? normDir(extra.dir) : extra.facing != null ? normDir(extra.facing) : ps ? ps.dir : 'RIGHT',
       base: {
         maxHp: st.maxHp, atk: st.atk, def: st.def, res: st.res, aspd: st.aspd, bat: st.bat, blockCnt: st.blockCnt,
