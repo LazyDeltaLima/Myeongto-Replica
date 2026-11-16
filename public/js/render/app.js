@@ -166,6 +166,7 @@ import { autoQuality, autoQualityStepper, onAutoQuality } from './auto-quality.j
 import { frameScale, loadLevelStepper } from './load-level.js'; // 2026-10-30: the adaptive load level's judgement (render.md 「적응 부하 단계」)
 import { t } from '../../../shared/i18n.js';
 import { syncGoldenFx } from './fxgolden.js'; // local patch: the prep elite glow
+import { pageSkinGate } from './skin-gate.js';
 import { bandMarksOf, bandMarkFxByUid, bandTileFx, syncBandMarks } from './fxband.js'; // 2026-11-12: 规程's 指令 marks in the prep
 import { drainTraitFx, traitFxPending } from './fxtrait.js'; // 2026-11-12: 规程's 特质 effect over a prep piece (m.trait)
 import { createRouteCursors, createBattleCursors } from './fxroute.js'; // the boss route preview (LOCAL-PATCH.md 「보스 경로 미리보기」); the battle start's official one (render.md 「적 경로 미리보기」)
@@ -222,6 +223,9 @@ export async function createFieldView(host, options = {}) {
    *  gamedata equipSlotsOf, ui/gameLogic/placement.js), else 2. */
   const equipSlotsOf = (chessId) => { const n = data.chess(chessId)?.equipSlots; return Number.isInteger(n) && n > 0 ? n : 2; };
   const settings = { damageNumbers: true, quality: 'high', ...(opts.settings || {}) };
+  // operator skins (render/skin-gate.js, docs/rules/render.md 「스킨 렌더 게이트」): which model an ally's skin draws, judged
+  // per scene (scene() at each prep / battle entry); `otherSkins` false = the other players' units in their default model
+  const skinGate = opts.skinGate || pageSkinGate(() => settings.otherSkins !== false);
   // 「自动」: settings.quality is the preset in effect (what every quality check below reads), stepped by auto-quality.js
   let autoPick = settings.quality === 'auto';
   if (autoPick) settings.quality = autoQuality();
@@ -418,6 +422,8 @@ export async function createFieldView(host, options = {}) {
     // a battle unit's Spine clip event (render/spine.js onEvent; null = its model is up) → its official sound
     // (audio.js spineEvent, docs/rules/audio.md 「공격 소리 신호」); not on a scouted prep board or the pen
     spineEvent: (id, name, value) => { if (mode === 'battle' && !battleMeta?.prep) { opts.audio?.spineEvent?.(id, name, value); fxGame.spineEvent(id, name); } },
+    // an ally's skin model or null (render/units.js UnitView._skinModel)
+    skinModel: (info, base) => skinGate.model(info, base),
   };
   const tiles = new TileField({ ground: layers.ground, overlay: layers.overlay, props: layers.units, anim: layers.anim });
   setupCleanup.push(() => tiles.destroy());
@@ -930,7 +936,9 @@ export async function createFieldView(host, options = {}) {
       // local patch (maintainer request 2026-10-08): a summon wears its owner operator's level chip (units.js `chip`)
       const owner = Number.isInteger(piece.ownerUid) ? byUid?.get(piece.ownerUid) : null;
       const orec = owner?.kind === 'chess' ? data.chess(owner.id) : null;
-      return { kind: 'token', side: 'ally', defId: piece.id, spine: rec?.assets?.spine || piece.id, avatar: rec?.assets?.avatar || piece.id, tier: orec?.tier || piece.tier || 1, golden: false, chip: !!orec, dir };
+      // (`skin`: its owner's skinId, pieceView.skin — `mine`: an own piece, drawn in its skin whatever otherSkins says)
+      return { kind: 'token', side: 'ally', defId: piece.id, spine: rec?.assets?.spine || piece.id, avatar: rec?.assets?.avatar || piece.id, tier: orec?.tier || piece.tier || 1, golden: false, chip: !!orec, dir,
+        ...(typeof piece.skin === 'string' && piece.skin ? { skin: piece.skin, mine: true } : null) };
     }
     const chess = data.chess(piece.id);
     // 0.2.0 补位: a piece of a chess the player does not own (m.private.standIns) is its stand-in's model, in the hand,
@@ -946,6 +954,8 @@ export async function createFieldView(host, options = {}) {
       tier: chess?.tier || piece.tier || 1, golden: !!(piece.golden || chess?.isGolden), dir,
       ...(si ? { standInFor: si.standInFor } : null),
       ...(dr ? { diy: { charId: pick.charId, skillIndex: pick.skillIndex ?? null, uniEquipId: pick.uniEquipId ?? null } } : null),
+      // operator skins: the outfit the player chose for the body drawn (pieceView.skin, server PlayerViews.pieceSkin)
+      ...(typeof piece.skin === 'string' && piece.skin ? { skin: piece.skin, mine: true } : null),
     };
   }
 
@@ -1032,7 +1042,8 @@ export async function createFieldView(host, options = {}) {
       e.key = key;
       const info = pieceInfo(e.piece, e.area, byUid);
       // (the model is part of it: a piece whose body changes — a merge, an own 补位 / 自选 setting arriving — is rebuilt)
-      const sig = `${info.kind}|${info.defId}|${info.golden ? 1 : 0}|${info.spine || ''}${info.chip ? '|' + info.tier : ''}`; // local patch: a summon's owner chip
+      // (and its skin: a skin chosen in the prep rebuilds the piece — the gate then judges it, render/skin-gate.js)
+      const sig = `${info.kind}|${info.defId}|${info.golden ? 1 : 0}|${info.spine || ''}${info.chip ? '|' + info.tier : ''}${info.skin ? '|' + info.skin : ''}`; // local patch: a summon's owner chip
       let v = views.get(key);
       if (v && v._sig !== sig) { dropView(key); v = null; }
       const w = slotWorld(e);
@@ -1194,6 +1205,7 @@ export async function createFieldView(host, options = {}) {
     mode = 'prep';
     held.clear();
     clearViews();
+    skinGate.scene(); // the skins of this prep are judged by the cache and the setting as they are now
     infos.clear();
     gone.clear();
     battleMeta = null;
@@ -1687,6 +1699,7 @@ export async function createFieldView(host, options = {}) {
     drag.reset();
     endDragVisual(false);
     clearViews();
+    skinGate.scene(); // this battle's skins: never changed until the next scene (render/skin-gate.js)
     if (prepPieces.length) promoBase = prepPieces;
     prepPieces = [];
     if (meta.prep !== true) battleSincePrep = true;
@@ -2785,6 +2798,7 @@ export async function createFieldView(host, options = {}) {
       if (!s || typeof s !== 'object') return;
       if (typeof s.damageNumbers === 'boolean') settings.damageNumbers = s.damageNumbers;
       if (typeof s.eliteBadge === 'boolean') settings.eliteBadge = s.eliteBadge; // render/elite-mark.js
+      if (typeof s.otherSkins === 'boolean') settings.otherSkins = s.otherSkins; // the skin gate, from the next scene
       if (Number.isInteger(s.frameLimit)) setFrameLimit(s.frameLimit);
       if (s.quality === 'auto') { autoPick = true; applyQuality(autoQuality()); }
       else if (s.quality === 'high' || s.quality === 'medium' || s.quality === 'low') { autoPick = false; applyQuality(s.quality); }

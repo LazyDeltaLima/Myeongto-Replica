@@ -33,6 +33,7 @@
 // Needs a secure context (https / localhost); on plain http the game simply loads everything from the server.
 //
 //   installResources()   main.js, once
+//   resourceCached(paths) whether a skin model is all in the cache (render/skin-gate.js)
 //   <ResourceHost />     consent card + progress pill (title / lobby / room screens only, never over the match HUD)
 //   <ResourceSetting />  the settings row: start (or retry) the download any time, e.g. after 以后再说
 //   <SkinPackSetting />  the settings rows of the skin data: download / pause / turn off, and 其他玩家的皮肤
@@ -468,6 +469,11 @@ export function pauseResourcePack(name, on) {
 
 /** The pack choice: { <pack>: true | false }, a pack never chosen absent. */
 export const resourcePacks = () => ({ ...chosen });
+
+/** Whether every path is in the cache as the list names it (render/skin-gate.js: a skin model is drawn only once all of
+ *  its files are) — false before the list and the cache record are read, and for a file the cache does not keep. */
+export const resourceCached = (paths) => !!index && Array.isArray(paths) && paths.length > 0
+  && paths.every((p) => typeof p === 'string' && want.has(p) && state[p] === want.get(p));
 
 /** The worker's answer counts (resource-worker.js `sp-res-stats`), or null without a worker or an answer in time. */
 function askWorker(timeout = 2000) {

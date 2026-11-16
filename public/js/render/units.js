@@ -1132,6 +1132,28 @@ export class UnitView {
     pic.shown = want;
   }
 
+  /**
+   * The skin model this view draws (`{ front, back }`), or null for the default model: its player's skin when the skin
+   * gate lets it (render/skin-gate.js through ctx.skinModel; docs/rules/render.md 「스킨 렌더 게이트」). Judged once per
+   * view, so a Front ⇄ Back swap or a reload never changes the outfit mid-scene.
+   */
+  _skinModel() {
+    if (this._skinM === undefined) {
+      const a = this.ctx.assets, id = this.info.spine || this.info.defId;
+      const gate = typeof this.ctx.skinModel === 'function' && this.info.skin && id ? this.ctx.skinModel : null;
+      this._skinM = (gate && gate(this.info, (back) => (typeof a?.spineEntry === 'function' ? a.spineEntry(id, { back }) : null))) || null;
+    }
+    return this._skinM;
+  }
+
+  /** The Spine entry of a side of the model this view draws (its skin's, else the manifest's). */
+  _entryFor(back) {
+    const sk = this._skinModel();
+    if (sk) return back && sk.back ? sk.back : sk.front;
+    const a = this.ctx.assets, id = this.info.spine || this.info.defId;
+    return a && typeof a.spineEntry === 'function' && id ? a.spineEntry(id, { back }) : null;
+  }
+
   /** @param {boolean} [retry] load again even after a remembered failure (assets.js acquire `{ retry }`) */
   _loadSpine(retry = false) {
     const a = this.ctx.assets;
@@ -1140,7 +1162,7 @@ export class UnitView {
     // Front/Back rule (research 07 §5.5 / 09 §1.2): Front facing right/down (mirrored for left), Back facing up — while
     // standing (a knocked-out operator lies with the model that has a fall: _wantsBack).
     const back = this._wantsBack();
-    const entry = id ? a.spineEntry(id, { back }) : null;
+    const entry = id ? this._entryFor(back) : null;
     if (!entry || this.ctx.settings?.quality === 'low' && this.isEnemy && !this.isBoss && this.ctx.crowded?.()) return;
     this.entryBack = back;
     this._acquireSpine(entry, id, retry);
@@ -1327,7 +1349,7 @@ export class UnitView {
   setTokenMode(mode, { quiet = false, by = null } = {}) {
     if (this._tmodeSet === undefined) {
       const id = this.info.spine || this.info.defId;
-      const tm = id ? this.ctx.assets?.spineEntry?.(id, { back: false })?.anims?.tmodes : null;
+      const tm = id ? this._entryFor(false)?.anims?.tmodes : null;
       this._tmodeSet = tm && typeof tm === 'object' ? tm : null;
     }
     if (!this._tmodeSet?.[mode]) return false;
@@ -1682,8 +1704,10 @@ export class UnitView {
   _wantsBack() {
     const a = this.ctx.assets;
     const id = this.info.spine || this.info.defId;
-    if (this.enemyModel || this._faceFront || (this.face ? this.faceUd : this.dir) !== 'UP' || !id || !a || typeof a.hasBack !== 'function' || !a.hasBack(id)) return false;
-    return (this.alive && !this._stunFalls()) || dieClipDur(typeof a.spineEntry === 'function' ? a.spineEntry(id, { back: true }) : null) > 0;
+    if (this.enemyModel || this._faceFront || (this.face ? this.faceUd : this.dir) !== 'UP' || !id || !a) return false;
+    const sk = this._skinModel(); // a skin has a Back model of its own, or none (52 of the 312)
+    if (sk ? !sk.back : (typeof a.hasBack !== 'function' || !a.hasBack(id))) return false;
+    return (this.alive && !this._stunFalls()) || dieClipDur(this._entryFor(true)) > 0;
   }
 
   /**
@@ -2011,9 +2035,7 @@ export class UnitView {
 
   /** Seconds of the fall of the model the unit wants now (its manifest entry's Die clip), 0 without one. */
   _fallDur() {
-    const a = this.ctx.assets;
-    const id = this.info.spine || this.info.defId;
-    return a && typeof a.spineEntry === 'function' && id ? dieClipDur(a.spineEntry(id, { back: this._wantsBack() })) : 0;
+    return dieClipDur(this._entryFor(this._wantsBack()));
   }
 
   /** Standing again (a redeploy, a revive): an operator facing UP gets its Back model back (this frame's update). */

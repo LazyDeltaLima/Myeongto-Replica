@@ -56,6 +56,9 @@ export function renderInfo(u) {
     diy: u.diy && typeof u.diy === 'object' && typeof u.diy.charId === 'string'
       ? { charId: u.diy.charId, skillIndex: Number.isInteger(u.diy.skillIndex) ? u.diy.skillIndex : null, uniEquipId: typeof u.diy.uniEquipId === 'string' ? u.diy.uniEquipId : null }
       : undefined,
+    // operator skins (UnitInfo.skin: the owning player's skinId, a summon its owner operator's): display only — the view
+    // draws it when the skin gate lets it (render/skin-gate.js, docs/rules/render.md 「스킨 렌더 게이트」)
+    skin: u.side === 'ally' && typeof u.skin === 'string' && u.skin ? u.skin : undefined,
   };
 }
 

@@ -1558,7 +1558,7 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   (`resourceWanted`, 선택은 `sp.pref.resourcePacks`, 미리 받기 동의 없이도 고른 묶음은 받음), 캐시에서 지우는 것은 사용자가 그 묶음을 껐을 때뿐이다
   (`resourceKept`, `setResourcePack(name, false)`). 고른 적 없는 묶음의 파일이 목록 해시대로 캐시에 있으면 그대로 둔다 — 받기 필터를 지우기에도 쓰면 게임이
   그때그때 받아 둔 파일을 매번 지운다. 받는 중에 끄면 남은 차례는 건너뛰고 끝난 뒤 다시 맞춘다. 배포에서도 추출 모델 폴더(`front/`·`back/`)는 서버에
-  올리지 않는다(아바타·초상화 폴더도). 워커는 목록에 있으면 무엇이든 받으므로 남의 스킨을 막는 것은 렌더 쪽이다(아직 없음).
+  올리지 않는다(아바타·초상화 폴더도). 워커는 목록에 있으면 무엇이든 받으므로 남의 스킨을 막는 것은 렌더 쪽이다(아래 「스킨 렌더 게이트」).
 - 그림(2026-11-16): 스킨 고르기 타일·미리 보기용으로 스킨 기록의 `avatarId`(1:1, 180 px)·`portraitId`(1:2, 180×360)·`illustId`(일러스트)를 같은
   추출기가 뽑는다(`--only art`는 그림만). 아바타·초상화는 클라의 이름 → 경로 표(`arts/charavatars/avatar_hub.ab`·`arts/charportraits/portraits_hub.ab`,
   대소문자 무시)가 가리키는 스프라이트 묶음(`spritepack/ui_char_avatar_*`·`char_portrait_*`)에서, 일러스트는 주인 `skinpack`의 `illust_<스킨>` 프리팹에서
@@ -1577,12 +1577,35 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   클라 추출에 없던 소환물 둘, 비즈왁스의 사막의 오벨리스크 `summer#11`·카제마루의 종이 인형 `witch#3` 포함)·초상화 265, 570파일·47.5 MB. 없는 7벌(소환물 스킨 아바타)은 `missing` →
   기본 아바타. 일러스트는 그대로 이 서버가 보낸다(webp q85).
 - 표시 전용: 전투 판정은 기본 모델 기준이다. 스킨 모델의 클립 길이는 시뮬레이션에 들어가지 않는다(시뮬레이션은 `data/assets.json`의 기본 모델만 읽음).
-- 아직 없는 것: 스킨 모델 항목(클립 길이·키 표·부착점)을 `data/assets.json`에 싣는 일, 렌더 게이트.
+- 아직 없는 것: 스킨 모델 항목의 그리기 필드(페이지 종류 `pma`, 키 표·클립 길이·타격·부착점) — 아래 「스킨 렌더 게이트」가 그것을 기다린다.
 - 재발 방지: 원인 제거 — `tools/local-extract/skin_extract.py` `file_name`이 모든 출력 이름을 만들고 모르는 글자에서 멈춤; 저장소 폴더는
   `tools/fetch-skin-models.mjs`가 트리에서 찾고 모르는 경우(후보 둘)에 멈춤(손 별칭 표 없음); 그림 파일은 `tools/fetch-skin-art.mjs`가 스킨 표의 id로 트리에서
   찾고 모르는 스킨·이름 규칙 없는 글자·대소문자만 다른 두 파일에서 멈춤. 목록 생성(추출 모델·아바타·초상화 빼기·`models.json`·`art.json` 싣기·두 번 적힌
   경로에 멈춤·`packs`)과 일러스트 알파(뽑힌 일러스트 전부가 투명 화소를 가짐)는 `test/local-extract-skins.test.js`, 받을 목록·지울 목록 나누기와 폴더·그림 찾기는
   `test/resource-packs.test.js`.
+
+## 스킨 렌더 게이트 (2026-11-16 — 스킨은 표시 전용, 받지 않은 사용자에게는 남의 스킨도 기본 모습)
+
+- 무엇: 아군 유닛이 플레이어가 고른 스킨(`UnitInfo.skin`·정비 `pieceView.skin`, 소환물은 주인 오퍼레이터의 스킨 ID)으로 그려질지를 모델을 받기 전에
+  정한다(`public/js/render/skin-gate.js`, `render/units.js UnitView._skinModel`). 리소스 워커는 목록에 있는 파일이면 무엇이든 받으므로, 막는 곳은 워커가
+  아니라 모델 로더 앞이다 — 게이트를 통과하지 못한 스킨의 파일은 아무도 요청하지 않는다.
+- 스킨으로 그리는 조건(모두): ① 이 플레이어가 스킨 데이터를 골랐고(`resources.js resourcePacks().skin`) 두 목록 `local/spine/skin/models.json`·`skins.json`이
+  캐시에 있다. ② 자기 유닛이거나(`ownerId`가 자기 플레이어 ID, 정비 구역 말은 `mine`) 설정 「다른 플레이어 스킨」(`otherSkins`, 기본 켬)이 켜져 있다. 정찰한
+  팀원 보드와 전투의 팀원 유닛은 남의 유닛이다. ③ 그 유닛이 그 스킨을 입는다: 스킨의 `owner`가 그리는 몸(`spine`, 없으면 `defId` — 보충 대체 몸·선발 고른
+  오퍼레이터)이거나, 소환물이면 스킨의 `tokens[소환물 ID]`가 가리키는 소환물 스킨. ④ 모델 기록이 다 있다: 있는 면(Front, Back)마다 페이지, 페이지 종류
+  `pma`, 그 스킨 자기 키 표 `anims`. ⑤ 두 면의 skel·atlas·페이지가 모두 목록 해시대로 캐시에 있다(`resources.js resourceCached`). 하나라도 아니면 기본 모델.
+- 장면 단위: 판단은 장면(정비, 전투, 정찰한 보드 — `render/app.js`가 `enterPrepMode`·`enterBattle`에서 `scene()`)이 시작될 때의 목록·설정·캐시로 하고,
+  한 유닛은 한 번만 판단한다(앞·뒤 모델 바꾸기·다시 받기에도 그대로). 전투 도중 받기가 끝나거나 설정을 바꾸면 다음 장면부터. 정비 구역에서 자기 말의 스킨을
+  바꾸면 그 말을 다시 만든다(prep 서명에 `skin`).
+- 스킨 모델이 받기에 실패하면 그 면의 기본 모델로 그린다(항목의 `fallback`). 스킨에 Back 모델이 없으면(312벌 중 52) 위를 봐도 스킨 Front로 그린다(기본 모델의
+  Back 없는 오퍼레이터와 같은 규칙). 쓰러짐 길이·소환물 모드 표도 그린 모델의 항목에서 읽는다.
+- 모델 기록의 형식: `models.json skins[스킨 키].front|back` = `{ skel, atlas, pages, pma, anims, animations, events, hits, bounds }`, 필드는
+  `data/assets.json` 모델 항목과 같은 뜻. 2026-11-16 지금 `models.json`에는 경로(`skel`·`atlas`·`pages`)만 있어 **어느 스킨도 그려지지 않는다**. 채울 것:
+  `pma` — fexli 페이지는 두 종류가 섞여 있다(311벌 571쪽 중 premultiplied 291·straight 280, `tools/assets/spine.mjs premultipliedPage`로 잼), 그래서 페이지
+  픽셀 판정을 생성 단계가 적어야 한다; `anims`·`animations`·`hits`·`events`·`bounds` — 그 스킨 자기 골격과 키 표(키 표가 기본과 다른 스킨 15벌,
+  관리자 노트의 클립 길이 대조). fexli atlas에 `size:` 줄이 없는 것은 pixi-spine의 atlas 읽기가 페이지 텍스처 크기로 채운다.
+- 재발 방지: `test/render/skin-gate.test.js`(고르지 않음·설정 끔에서 스킨 파일을 묻지 않음, 파일 하나 빠지면 기본, 도중에 받아도 다음 장면부터, 기록이
+  모자라면 기본, 소환물 스킨, 유닛이 게이트의 모델을 받고 실패하면 기본으로, 디스크 목록의 소환물 스킨·파일이 서로 맞음).
 
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 
