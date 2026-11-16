@@ -1300,6 +1300,17 @@ function trailRoom(m) {
 const PTRAIL_CAP = 32000;
 const trailM = new THREE.Matrix4(), trailV = new THREE.Vector3();
 
+/**
+ * Point A[o..o+2] through the affine matrix elements `e` (three's column order) — `lin`: its linear part only (a velocity).
+ * FxInstance.followWorld: what a world-space system keeps in the root's frame, from the root's last frame into this one.
+ */
+function remap(A, o, e, lin = false) {
+  const x = A[o], y = A[o + 1], z = A[o + 2], t = lin ? 0 : 1;
+  A[o] = e[0] * x + e[4] * y + e[8] * z + e[12] * t;
+  A[o + 1] = e[1] * x + e[5] * y + e[9] * z + e[13] * t;
+  A[o + 2] = e[2] * x + e[6] * y + e[10] * z + e[14] * t;
+}
+
 /** A TrailRenderer: a ribbon behind its node's motion (sampled in the effect root's space). */
 class TrailRenderer {
   constructor(tr, node, root, def) {
@@ -1366,10 +1377,10 @@ class TrailRenderer {
 
   get alive() { return this.count > 0; }
 
-  /** Move the recorded points by (x, y, z) in root space (FxInstance.update: the root moved; Unity trails are world space). */
-  shift(x, y, z) {
+  /** The recorded points through `e` (remap; FxInstance.followWorld: the root moved or turned; Unity trails are world space). */
+  shift(e) {
     const R = this.ring;
-    for (let k = 0; k < this.count; k++) { const h = ((this.head + k) % TRAIL_KEEP) * 4; R[h] += x; R[h + 1] += y; R[h + 2] += z; }
+    for (let k = 0; k < this.count; k++) remap(R, ((this.head + k) % TRAIL_KEEP) * 4, e);
   }
 
   dispose() { this.batch.dispose(); }
@@ -2706,14 +2717,14 @@ class ParticleSystem {
     P[o] += (P[o - 3] - P[o]) * f; P[o + 1] += (P[o - 2] - P[o + 1]) * f; P[o + 2] += (P[o - 1] - P[o + 2]) * f;
   }
 
-  /** Move what is kept in the root's frame by (x, y, z): the root moved and a world-space trail stays where it was made (FxInstance.followWorld). */
-  shiftTrails(x, y, z) {
+  /** The trail points kept in the root's frame through `e` (remap): the root moved or turned and a world-space trail stays where it was made (FxInstance.followWorld). */
+  shiftTrails(e) {
     if (!this.tm || this.tm.mode === 1) return;
     const H = this.hist, K = this.histK * 4;
     for (let i = 0; i < this.n; i++) {
-      for (let k = 0, o = i * K; k < this.histN[i]; k++, o += 4) { H[o] += x; H[o + 1] += y; H[o + 2] += z; }
+      for (let k = 0, o = i * K; k < this.histN[i]; k++, o += 4) remap(H, o, e);
     }
-    if (this.ghosts) for (const g of this.ghosts) for (let k = 0; k < g.cnt; k++) { g.pts[k * 4] += x; g.pts[k * 4 + 1] += y; g.pts[k * 4 + 2] += z; }
+    if (this.ghosts) for (const g of this.ghosts) for (let k = 0; k < g.cnt; k++) remap(g.pts, k * 4, e);
   }
 
   /**
@@ -3681,20 +3692,27 @@ export class FxInstance {
    * local patch: Unity's world-space particles and trails stay where they were made when the effect moves (赤刃明霄陈 S3's
    * 剑气 carries its trail across the board: the dragon's body and tail are its trails). They are kept in root space here,
    * so when the root has moved since the last frame they are moved back by that much. A still effect: no change.
+   * 2026-11-16 (maintainer comparison with an official 호른 recording: her shells' smoke rose up to 0.8 tile above the path
+   * the shell flew): also when it has turned or scaled — a projectile's root turns along its flight every frame (bodyTurn),
+   * and points kept in its frame swung with it, those behind a lob's falling nose up; so the whole map from the root's
+   * last frame to this one (its velocities through the linear part). A degenerate last frame (scale 0) keeps the move only.
    */
   followWorld() {
     const root = this.unity;
     root.updateWorldMatrix(true, false);
-    const e = root.matrixWorld.elements;
-    const prev = this.rootAt || (this.rootAt = [e[12], e[13], e[14]]);
-    if (prev[0] === e[12] && prev[1] === e[13] && prev[2] === e[14]) return;
-    const off = tmpV.set(prev[0], prev[1], prev[2]).applyMatrix4(tmpM.copy(root.matrixWorld).invert());
-    prev[0] = e[12]; prev[1] = e[13]; prev[2] = e[14];
+    const cur = root.matrixWorld;
+    const prev = this.rootM || (this.rootM = cur.clone());
+    if (prev.equals(cur)) return;
+    const M = tmpM.copy(cur).invert();
+    if (Math.abs(prev.determinant()) > 1e-12) M.multiply(prev);
+    else { const off = tmpV.setFromMatrixPosition(prev).applyMatrix4(M); M.makeTranslation(off.x, off.y, off.z); }
+    prev.copy(cur);
+    const e = M.elements;
     for (const s of this.systems) {
-      if (s.world) for (let i = 0; i < s.n; i++) { s.pos[i * 3] += off.x; s.pos[i * 3 + 1] += off.y; s.pos[i * 3 + 2] += off.z; }
-      if (s.world || s.trailWorld) s.shiftTrails(off.x, off.y, off.z);
+      if (s.world) for (let i = 0; i < s.n; i++) { remap(s.pos, i * 3, e); remap(s.vel, i * 3, e, true); }
+      if (s.world || s.trailWorld) s.shiftTrails(e);
     }
-    for (const t of this.trails) t.shift(off.x, off.y, off.z);
+    for (const t of this.trails) t.shift(e);
   }
 
   /** Every clip's tracks at effect time t, each held on its own clip's last frame. */

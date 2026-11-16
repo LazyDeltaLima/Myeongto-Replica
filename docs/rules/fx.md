@@ -3701,6 +3701,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   - **첫 점**: 입자 꼬리는 입자 자신, 리본은 가장 오래된 입자.
   - **색**: `colorOverTrail`(t) × `colorOverLifetime`(입자 나이 비율) × (`inheritParticleColor`면 입자 색).
   - **`worldSpace`**: 입자 꼬리에만 닿는다. 로컬 모의의 월드 꼬리(18프리팹)는 점을 기록할 때 root 틀로 옮기고, root가 움직여도 남는다(`followWorld`, 월드 공간 계의 꼬리 점도 같이; 예전엔 노드 틀 좌표를 root에 그대로 붙였음). 리본은 입자가 있는 틀 그대로.
+    root가 **돌거나 커져도** 남는다(2026-11-16, 관리자의 공식 호른 녹화 대조: 호른 포탄의 연기·불똥이 탄 길보다 평타 약 0.6·S3 약 0.8칸 위로 떴고 공식은 지나간 선 위 0.12칸 이하) — 투사체 root는 비행 방향으로 매 프레임 돌고(`bodyTurn`) 예전 `followWorld`는 root의 이동만 되돌려서, 곡사의 머리가 숙을수록 뒤에 남은 점이 머리를 축으로 위로 돌았다. 이제 root의 지난 틀 → 이번 틀 변환 전체로 월드 공간 계의 입자 위치·속도(속도는 선형 부분), 입자 꼬리 점, TrailRenderer 점을 옮긴다(Unity의 월드 공간과 같음; 지난 틀이 크기 0이면 이동만). 같은 규칙이라 유닛·카메라를 따라 도는 이펙트와 크기가 바뀌는 오라(`zoneFx`)의 월드 공간 입자도 이제 돌거나 커지는 것을 따라가지 않는다. [화면 미확인: 호른 평타·S3 꼬리를 아레나 장면 `?scene=horn` 2배속으로 공식 녹화와 — `checks/arena.md`] 재발 방지: `test/render/fx-world-follow.test.js`
   - **리본**: 살아 있는 입자 전부를 지난다(예전엔 오래된 48개). 부모마다 나누는 `splitSubEmitterRibbons`(→ `trail.split`, 13계 — 溯光星源 S3 범위, 至简 평타 꼬리)는 그대로. `ribbonCount` ≠ 1·`attachRibbonsToTransform`·`sizeAffectsLifetime`은 쓰는 계가 없다(`fx_coverage`가 알림).
   - **`dieWithParticles` 꺼짐**(`trail.die`, 49계): 입자가 죽은 뒤 꼬리 점이 수명이 지날 때까지 남는다(`ghost`, 끝 처리 같음). 색은 나이 비율 1로 읽는다(공식 클라에서 확인). 크기는 죽을 때 값 [추정·엔진: 죽은 뒤 크기 배열이 더 바뀌는지 안 읽음].
   - **띠 법선은 옮기지 않음**: 공식은 점마다 앞 마디 방향으로 법선을 구하고 마디가 짧으면 이웃과 섞는다(TrailRenderer·LineRenderer도 같은 함수). 재생기는 양옆 점의 중심 차분이라 폭보다 긴 마디의 꺾인 곳에서만 다르다.
@@ -4564,7 +4565,7 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
 
 - 프리팹 로드는 비동기다. 로드가 끝나기 전에 주인 유닛이 죽으면 이펙트가 끝까지 남는다 → 떠난 유닛을 기억하고 붙이지 않는다(`gone`).
 - 반복 입자가 있는 프리팹을 한 번짜리로 틀면 영원히 남는다 → 주인이 있으면 버프로 붙여 죽을 때 멈추고, 없으면 프리팹 길이로 끊는다(`until`).
-- 이펙트 루트가 움직여도 월드 공간 꼬리·입자는 따라오지 않아야 한다(`fxplayer.js` `followWorld`; 위 「공식 전투 이펙트」의 `worldSpace` 줄).
+- 이펙트 루트가 움직이거나 돌아도 월드 공간 꼬리·입자는 따라오지 않아야 한다(`fxplayer.js` `followWorld`는 root 변환 전체를 되돌림, 이동만 되돌리면 투사체 꼬리가 비행 방향을 따라 돈다; 위 「공식 전투 이펙트」의 `worldSpace` 줄). 재발 방지: `test/render/fx-world-follow.test.js`.
 - 캐릭터 앞·뒤는 공식에서 렌더러 `sortingOrder`로 갈린다(Spine은 깊이를 안 쓴다) → 품질 높음 + 3D 보드에서 유닛에 붙는 이펙트는 `FxInstance` `split`으로 렌더러마다 위·아래 캔버스에 나눠 그린다. 중간 이하·2D 보드는 시전자 것 아래, 나머지 위.
 - 공격 이벤트 없이 피해를 주는 스킬(텍사스 S2의 검 두 발 등)의 대상 이펙트는 그 틱의 `'dmg'`로 고른다(`fxgame.js` `expect`·`pendingHit`). `'dmg'`에는 공격자가 없으므로 거리와 다른 공격자로 거른다.
 - 이펙트가 없는 주기적 체력 유실은 `Battle.loseHp`에 `silent`를 준다. 안 주면 틱마다 `'dmg'`가 나가 트루 대미지의 흰 발광·입자를 초당 열 번 그린다 → 위 「효과 없는 주기적 유실」. 재발 방지: `eslint.config.js`의 `loseHp` 규칙(모든 호출이 `silent`를 적음), `test/render/op-sweep-fx.test.js`(전 선발 × 스킬, 초당 3번 넘는 유실), `test/content/hp-loss-silent.test.js`.
