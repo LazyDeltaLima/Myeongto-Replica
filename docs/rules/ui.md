@@ -2037,6 +2037,14 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   방에 있으면 방의 시즌, 초대 링크를 기다리는 동안은 링크의 시즌, 아니면 고른 시즌 — 그 시즌의 데이터(`data.setSeason`)·오퍼레이터 설정
   (설정·보유·선발 셋, `ui/loadoutSync.js setLoadoutSeason`: 기본 시즌은 원래 키, 다른 시즌은 `<키>@<시즌>`)·통계(기록에 `season`, 기본
   시즌은 없음 = 예전 기록과 같음; 통계 창은 그 시즌 기록만)를 쓴다. 방 만들기와 랜덤 매칭은 고른 시즌으로 보낸다.
+  - 전환 중의 옛 파일(2026-11-16 관리자 제보): `data.setSeason`은 시즌을 바로 바꾸지만 파일은 그 시즌 번역 파일을 받은 뒤 다시 받는다 —
+    그 사이 `load()`·조회는 앞 시즌 파일을 돌려주고, 두 시즌은 같은 기물 ID(공식 표의 `chess_char_<등급>_<번호>_<a|b>` 칸)에 다른
+    오퍼레이터를 둔다. 맹약 브라우저가 규정 방을 관전하거나 초대 링크로 진행 중인 방에 들어가면(거절 → 고른 시즌으로 잠깐 → 관전 →
+    방 시즌) `b.start`가 바로 그 사이에 와서, 브라우저 전투 시뮬레이션이 맹약 파일로 만들어져 규정 것으로 남았고(관전·관전 전투의
+    오퍼레이터 모델과 전투 자체가 다른 오퍼레이터), 준비 화면 기물도 그때 읽은 것을 다음 동기화까지 그렸다. 이제
+    `battle/runner.js loadBrowserSim`은 `seasonSettled`·`borrowSettled`가 바뀌지 않을 때까지 기다린 뒤 파일을 읽고, `render/app.js`는
+    `chess`·`tokens`·`items`·`backups`가 다시 준비되면 준비 화면 기물을 다시 읽으며(`setPrep`), 선발 기록 캐시(`render/app/host.js diy`)는
+    기물 기록·`backups` 파일마다 둔다. 재발 방지: `test/seasons.test.js` 「a sim loaded while a season switch waits」.
   - 타이틀: 시즌 탭 없음(2026-11-13) — 고른 시즌(초대를 기다리는 동안은 링크의 시즌)의 제목·그림.
   - 브라우저 탭 제목: 화면의 시즌을 따른다(관리자 결정 2026-11-13; `season.js seasonTitle` → `lang.js setDocTitle`, 언어를 바꿔도) —
     「위수 협의: 규정 · STRONGHOLD PROTOCOL」. `index.html`의 고정 제목은 맹약 것.

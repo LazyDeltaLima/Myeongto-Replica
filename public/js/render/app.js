@@ -2638,6 +2638,16 @@ export async function createFieldView(host, options = {}) {
   }
   const offAssets = typeof assets.onChange === 'function' ? assets.onChange(onAssets) : null;
   setupCleanup.push(() => offAssets?.());
+  // the files the prep pieces are read from (pieceInfo) arrived again — a season switch (data.js setSeason) fetches them
+  // after the season's game texts, so a prep synced in between read the previous season's chess.json, whose ids are other
+  // operators there: the pieces read them again (a piece whose model changed is rebuilt: setPrep `sig`)
+  const PREP_FILES = new Set(['chess', 'tokens', 'items', 'backups']);
+  const offData = typeof opts.data?.subscribe === 'function' ? opts.data.subscribe((name) => {
+    if (destroyed || !PREP_FILES.has(name) || mode !== 'prep' || !lastPrep) return;
+    if (typeof opts.data.status === 'function' && opts.data.status(name) !== 'ready') return; // not while it is refetched
+    setPrep(lastPrep.ps, lastPrep.o);
+  }) : null;
+  setupCleanup.push(() => offData?.());
   const onVisible = () => {
     if (destroyed || globalThis.document?.visibilityState !== 'visible') return;
     // a 3D board that could not come up (or whose rebuilds were used up) tries again: phones drop the context in the

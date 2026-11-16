@@ -63,8 +63,9 @@ function makeData(src) {
     standIns.set(c, rec);
     return rec;
   };
-  // 0.2.0 自选编队: the composed 自选 record of a DIY slot filled with a pick (shared/diy.js over chess.json + backups.json)
-  const diys = new Map();
+  // 0.2.0 自选编队: the composed 自选 record of a DIY slot filled with a pick (shared/diy.js over chess.json + backups.json),
+  // cached per chess record and backups file: another season's files reuse the chess ids for other records
+  const diys = new WeakMap();
   const chessMap = () => {
     try { return (src && typeof src.get === 'function' ? src.get('chess') : src && src.chess) || null; } catch { return null; }
   };
@@ -72,11 +73,13 @@ function makeData(src) {
     const c = look('chess', id);
     const b = backups();
     if (!c || !c.isDiy || !b || !pick || typeof pick.charId !== 'string') return null;
-    const key = `${id}|${pick.charId}|${pick.skillIndex ?? ''}|${pick.uniEquipId ?? ''}`;
-    if (diys.has(key)) return diys.get(key);
+    const key = `${pick.charId}|${pick.skillIndex ?? ''}|${pick.uniEquipId ?? ''}`;
+    let per = diys.get(c);
+    if (!per || per.b !== b) diys.set(c, per = { b, recs: new Map() });
+    if (per.recs.has(key)) return per.recs.get(key);
     let rec;
     try { rec = diyRecordOf(c, pick, { chess: chessMap(), backups: b }); } catch { rec = null; }
-    diys.set(key, rec);
+    per.recs.set(key, rec);
     return rec;
   };
   return {

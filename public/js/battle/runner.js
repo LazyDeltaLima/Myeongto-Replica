@@ -160,7 +160,7 @@ function deepFreeze(root) {
  * under a versioned /b/<tag>/ URL (server/http/buildTag.js) imports the sim and its /shared/ modules from the same build
  * as the rest — never a second copy of a shared module under the plain URL.
  * @param {{ base?: string, dataStore?: { load: (n: string) => Promise<any>, status: (n: string) => string, invalidate: (n: string) => Promise<any>,
- *   borrowSettled?: () => Promise<void>, borrowRaw?: (n: string, file: any) => any } }} [opts]
+ *   seasonSettled?: () => Promise<void>, borrowSettled?: () => Promise<void>, borrowRaw?: (n: string, file: any) => any } }} [opts]
  */
 export async function loadBrowserSim({ base = new URL('../../sim/', import.meta.url).href, dataStore = appData } = {}) {
   const [spec, simdata, support] = await Promise.all([
@@ -171,8 +171,17 @@ export async function loadBrowserSim({ base = new URL('../../sim/', import.meta.
       return await (dataStore.status(n) === 'missing' ? dataStore.invalidate(n) : dataStore.load(n));
     } catch { return null; }
   };
-  // what the room's custom ruleset borrows from other seasons (data.js setBorrow): the same merge as the server's match
-  if (typeof dataStore.borrowSettled === 'function') await dataStore.borrowSettled();
+  // a season switch (data.js setSeason) and what the room's custom ruleset borrows from other seasons (setBorrow: the
+  // same merge as the server's match) settled first, again until neither changes under the wait: setSeason names the
+  // season at once but fetches its files only after the season's game texts, and until then load() answers the
+  // previous season's — whose chess ids are other operators (a spectator seat or an invitation into a running room
+  // of the other season gets its b.start in that window; the runner then kept that sim as the new season's)
+  for (;;) {
+    const sw = dataStore.seasonSettled?.();
+    const bw = dataStore.borrowSettled?.();
+    await Promise.all([sw, bw]).catch(() => {});
+    if (dataStore.seasonSettled?.() === sw && dataStore.borrowSettled?.() === bw) break;
+  }
   const files = (await Promise.all(SIM_DATA_FILES.map(fileOf)))
     .map((f, i) => (f && typeof dataStore.borrowRaw === 'function' ? dataStore.borrowRaw(SIM_DATA_FILES[i], f) : f));
   // a battle simulated without part of the data would still produce a plausible result the server accepts: never run

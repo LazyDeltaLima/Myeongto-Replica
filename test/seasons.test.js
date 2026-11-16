@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { DEFAULT_SEASON, SEASONS, defineSeason, isSeasonId, seasonOf, seasonDataDir, seasonFeature, offeredSeasons } from '../shared/seasons.js';
 import { seasonData, loadData, getData } from '../server/data.js';
@@ -192,6 +192,40 @@ test('browser runner: the sim is loaded again when the data season changed', asy
   season = NEXT;
   await runner.ensureSim();
   assert.equal(loads, 2);
+});
+
+test('browser runner: a sim loaded while a season switch waits for its game texts reads the new season\'s files', async () => {
+  // data.js setSeason names the season at once but fetches the files again only after the season's game-text overlay; a
+  // b.start in between (a spectator seat or an invitation into a running room of the other season: room.state then the
+  // resent b.start) built the sim from the previous season's chess.json — the same chess ids are other operators there,
+  // so the watched battle drew (and simulated) the wrong operators — and the runner kept it as the new season's sim
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-simstub-'));
+  fs.mkdirSync(path.join(dir, 'content', 'support'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'spec.js'), 'export const stub = true;\n');
+  fs.writeFileSync(path.join(dir, 'simdata.js'), 'export function setSimData() {}\nexport class DataSource { constructor(raw) { this.raw = raw; } }\n');
+  fs.writeFileSync(path.join(dir, 'content', 'support', 'index.js'), 'export function setGameData() {}\n');
+  let openTexts;
+  const textsGate = new Promise((r) => { openTexts = r; });
+  const store = createDataStore({
+    retryDelays: [], timeoutMs: 0,
+    fetch: async (u) => {
+      if (u === `/data/i18n/ko.${NEXT}.json`) { await textsGate; return { ok: false, status: 404 }; }
+      if (u === '/data/i18n/ko.json') return { ok: true, json: async () => ({ version: 1, lang: 'ko', names: {}, files: {} }) };
+      return { ok: true, json: async () => ({ from: u.startsWith(`/data/s/${NEXT}/`) ? NEXT : DEFAULT_SEASON }) };
+    },
+  });
+  const { loadBrowserSim, SIM_DATA_FILES } = await import('../public/js/battle/runner.js');
+  await store.loadAll(SIM_DATA_FILES);
+  assert.equal(await store.setLocale('ko'), 'ko');
+  const undo = defineSeason(NEXT);
+  try {
+    store.setSeason(NEXT); // not awaited: the b.start comes before the season's texts
+    const loading = loadBrowserSim({ base: `${pathToFileURL(dir).href}/`, dataStore: store });
+    await new Promise((r) => setTimeout(r, 20));
+    openTexts();
+    const { ds } = await loading;
+    for (const n of SIM_DATA_FILES) assert.equal(ds.raw[n]?.from, NEXT, `${n}: the sim must read the season it was loaded for`);
+  } finally { undo(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 describe('room.create season (lobby)', () => {
