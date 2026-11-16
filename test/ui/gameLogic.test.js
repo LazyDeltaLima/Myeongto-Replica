@@ -789,13 +789,14 @@ describe('keyboard & settings', () => {
     assert.deepEqual(sanitizeSettings({ bgm: 3, sfx: -1, voice: 2, muted: 'yes', damageNumbers: false, quality: 'ultra' }),
       { bgm: 1, sfx: 0, voice: 1, muted: false, damageNumbers: false, quality: 'high', keys: { ...DEFAULT_SETTINGS.keys },
         chatSound: true, chatVolume: 0.5, chatCooldown: 2, chatFactionAlerts: false, chatPinRecent: false, eliteBadge: false, matchNotices: true, numberUnits: null,
-        roundDamage: true, roundDamageStyle: 'auto', frameLimit: 0, deployFold: true, sideCamera: 'auto', screenWakeLock: 'combat' },
+        roundDamage: true, roundDamageStyle: 'auto', frameLimit: 0, deployFold: true, sideCamera: 'auto', screenWakeLock: 'combat', otherSkins: true },
       'a saved profile without `keys` (before 0.2.0) gets the default key map (test/ui/feedback5-hotkeys.test.js)');
     assert.equal(sanitizeSettings({ bgm: 0.5 }).voice, DEFAULT_SETTINGS.voice, 'a saved profile without `voice` gets the default');
     assert.equal(sanitizeSettings({ bgm: 0.333 }).bgm, 0.33);
     assert.equal(sanitizeSettings({ quality: 'low' }).quality, 'low');
     assert.deepEqual([0, 30, 60, 120, 45, '30', null].map((v) => sanitizeSettings({ frameLimit: v }).frameLimit), [0, 30, 60, 120, 0, 0, 0], 'the listed caps only');
     assert.deepEqual([undefined, true, false, 1].map((v) => sanitizeSettings({ deployFold: v }).deployFold), [true, true, false, true], 'on by default; not a boolean: the default');
+    assert.deepEqual([undefined, true, false, 1].map((v) => sanitizeSettings({ otherSkins: v }).otherSkins), [true, true, false, true], 'other players\' skins: on by default');
     // the chat notification (ui/settings.js 聊天提示音)
     assert.equal(sanitizeSettings({ chatSound: false }).chatSound, false);
     assert.equal(sanitizeSettings({ chatSound: 'emote' }).chatSound, true, 'not a boolean: the default');

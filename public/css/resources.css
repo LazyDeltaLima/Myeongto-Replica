@@ -2,8 +2,21 @@
    pill, bottom-right on the title / lobby / room screens (never shown over the match HUD). On short screens (landscape
    phones) it moves to the top-right corner as a compact card (see the media query at the end). */
 
-/* settings row (ResourceSetting, ui/settings.js), laid out like the other .set-row controls */
+/* settings → 资源 tab (ResourceSetting, SkinPackSetting; ui/settings.js), laid out like the other .set-row controls: a group
+   head per part (GAME, SKIN), each row's note under its control column (the label column is 3.3rem + the .18rem gap) */
 .res-set__body { grid-column: 2 / 4; justify-self: start; display: flex; flex-wrap: wrap; align-items: center; gap: .1rem; }
+.res-group {
+  display: flex; align-items: baseline; gap: .08rem; margin-top: .04rem; padding-top: .1rem; border-top: 1px solid var(--line);
+  font: 600 .12rem var(--font-display); letter-spacing: .14em; color: var(--mint-500);
+}
+.res-group:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+.set-hint.res-set__hint { margin: -.12rem 0 0 3.48rem; line-height: 1.6; }
+.res-set__size { font-family: var(--font-num); font-size: .16rem; color: var(--text-lo); white-space: nowrap; }
+.res-set__bar { flex: 0 0 1.6rem; height: max(.06rem, 4px); background: #0a0d0c; border: 1px solid var(--line-2); overflow: hidden; }
+.res-set__bar i { display: block; height: 100%; background: var(--mint-500); }
+.res-set__mini { height: .34rem; padding: 0 .12rem; background: #0a0d0c; border: 1px solid var(--line-2); color: var(--text-lo); font-size: .15rem; }
+.res-set__mini:hover { color: var(--text-md); border-color: var(--mint-700); }
+.res-set .set-toggle:disabled { opacity: .4; cursor: default; }
 .res-set__btn {
   height: .38rem; padding: 0 .16rem; background: var(--mint-a20); border: 1px solid var(--mint-700); color: var(--mint-400);
   font-size: .16rem; font-weight: 700;
@@ -12,7 +25,7 @@
 .res-set__state { font-size: .16rem; color: var(--text-lo); }
 .res-set__state b, .res-set__state.is-done { color: var(--mint-400); }
 .res-set__err { font-size: .14rem; color: var(--orange); }
-@media (pointer: coarse), (any-pointer: coarse) { .res-set__btn { height: max(.38rem, 30px); } }
+@media (pointer: coarse), (any-pointer: coarse) { .res-set__btn, .res-set__mini { height: max(.38rem, 30px); } }
 
 .res-ask, .res-pill {
   position: fixed; right: .24rem; bottom: .24rem; z-index: 60;

@@ -1,8 +1,9 @@
 // Player settings (BGM/SFX/voice volume, mute, the chat notification, damage numbers, render quality, the match notices, the shortcut keys): a tiny observable
 // store persisted in localStorage (`sp.pref.settings`), applied to the audio manager on every change, plus
-// the settings modal, in tabs by function (SETTINGS_TABS: 通用 / 声音 / 聊天提示 / 画面 / 快捷键 / 问题反馈; the sections of
+// the settings modal, in tabs by function (SETTINGS_TABS: 通用 / 资源 / 声音 / 聊天提示 / 画面 / 快捷键 / 问题反馈; the sections of
 // maintainer decision 2026-10-14, one tab each since 2026-10-24 as the list had grown long) — 通用 holds the language switch (ui/lang.js; kept apart in `sp.pref.lang`; under it a note
-// while the current language's pack is a machine translation, `_meta.machineTranslated`) and the resource download; after
+// while the current language's pack is a machine translation, `_meta.machineTranslated`); 资源 the resource download and
+// the skin data (resources.js; shown where the download works — maintainer decision 2026-11-16, the approved layout); after
 // them come the 快捷键 tab that rebinds the in-match shortcuts (the key map: ui/gameLogic/shortcuts.js; the community request
 // 「快捷键可不可以自己设置」, the owner's decision of 2026-10-07) and 问题反馈, which copies the diagnostics of this page
 // for a bug report (diag.js: the error log, this browser, optionally the battle on screen; nothing is uploaded). The lobby
@@ -17,7 +18,7 @@ import { sanitizeSettings, setNumberUnitMode, numberUnitMode, CHAT_COOLDOWN, FRA
 import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures, isIOS } from './device.js';
-import { ResourceSetting } from '../resources.js'; // local patch
+import { ResourceSetting, SkinPackSetting, resStore } from '../resources.js';
 import { VoiceSetting } from '../voice.js'; // local patch
 import { UiScaleSetting } from './hudArt.js'; // local patch: 界面大小 (the PC client's UI_SCALER)
 import { NumberStyleSetting } from './numberStyleSetting.js'; // local patch
@@ -287,13 +288,13 @@ function DiagSection() {
 }
 
 /** The tabs of the settings modal, by what their rows set (msgids: translated when shown). */
-const SETTINGS_TABS = [['general', N_('通用')], ['sound', N_('声音')], ['chat', N_('聊天提示')], ['display', N_('画面')],
+const SETTINGS_TABS = [['general', N_('通用')], ['resources', N_('资源')], ['sound', N_('声音')], ['chat', N_('聊天提示')], ['display', N_('画面')],
   ['keys', N_('快捷键')], ['diag', N_('问题反馈')]];
 /** The tab the modal opened on last (this page only): the modal reopens where the player left it. */
 let lastTab = 'general';
 
 /**
- * One tab's rows: 通用 (language, the resource download), 声音, 聊天提示, 画面 (maintainer decision 2026-10-14), 快捷键,
+ * One tab's rows: 通用 (language), 资源 (the resource download, the skin data), 声音, 聊天提示, 画面 (maintainer decision 2026-10-14), 快捷键,
  * 问题反馈 — the last two keep their own heads (each with its button).
  * @param {{ id: string, children?: any }} props
  */
@@ -332,21 +333,28 @@ export function SettingsModal({ open, onClose }) {
   const [tested, setTested] = useState(false);
   const [touchUi] = useState(() => detectFeatures().coarse && !detectFeatures().fine);
   const mtNote = machineTranslationNote(); // a pack marked as machine translation says so under the switch
-  const [tab, setTabState] = useState(lastTab);
+  const [picked, setTabState] = useState(lastTab);
   const setTab = (id) => { lastTab = id; setTabState(id); };
+  // 资源: only where the download works (a secure context and a list on the server — resources.js phase 'off' otherwise)
+  const resOn = useStore((r) => r.phase !== 'off', Object.is, resStore);
+  const tabs = SETTINGS_TABS.filter(([id]) => resOn || id !== 'resources');
+  const tab = tabs.some(([id]) => id === picked) ? picked : 'general';
   return html`<${Modal} open=${open} onClose=${onClose} title=${t('设置')} micro="SETTINGS" width="7.4rem"
     actions=${html`<${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${t('玩法说明')}<//>
       <${Button} variant="primary" icon="check" onClick=${onClose}>${t('完成')}<//>`}>
     <div class="set-list">
-      <${Tabs} class="set-tabs" size="sm" value=${tab} onChange=${setTab} items=${SETTINGS_TABS.map(([id, label]) => ({ id, label: t(label) }))} />
+      <${Tabs} class="set-tabs" size="sm" value=${tab} onChange=${setTab} items=${tabs.map(([id, label]) => ({ id, label: t(label) }))} />
       ${tab === 'general' ? html`<${SetPanel} id="general">
         <div class="set-row">
           <span class="set-row__label">${t('语言')}<${MicroLabel}>LANGUAGE<//></span>
           <${LangToggle} class="set-lang" />
         </div>
         ${mtNote ? html`<p class="set-hint set-lang-note" data-testid="lang-mt-note">${mtNote}</p>` : null}
-        <${ResourceSetting} />${/* local patch */ ''}
         <${WakeLockSetting} s=${s} />
+      <//>` : null}
+      ${tab === 'resources' ? html`<${SetPanel} id="resources">
+        <${ResourceSetting} />
+        <${SkinPackSetting} others=${s.otherSkins} onOthers=${(v) => updateSettings({ otherSkins: v })} />
       <//>` : null}
       ${tab === 'sound' ? html`<${SetPanel} id="sound">
         <${Slider} label=${t('背景音乐')} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />

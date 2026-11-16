@@ -103,6 +103,95 @@ describe('resource packs', () => {
       if (saved.navigator) Object.defineProperty(globalThis, 'navigator', saved.navigator); else delete globalThis.navigator;
     }
   });
+
+  test('the resource tab: sizes in no pack and per pack apart, a paused pack waits, the skin row\'s state', async () => {
+    const { store } = await mod('public/js/store.js');
+    const sha = (s) => createHash('sha256').update(s).digest('hex');
+    const origin = 'https://x.test';
+    const SK = '/assets/local/spine/skin/o/o_s_1/illust/';
+    const list = {
+      version: 'v2', packs: { skin: ['/assets/spine/skin/', '/assets/local/spine/skin/'] },
+      files: [
+        { p: '/assets/ui/a.png', s: 1, h: sha('a') }, { p: '/assets/ui/b.png', s: 2, h: sha('bb') },
+        { p: SK + 'one.webp', s: 3, h: sha('one') }, { p: SK + 'two.webp', s: 5, h: sha('twoxx') },
+      ],
+    };
+    const bodies = { '/assets/ui/a.png': 'a', '/assets/ui/b.png': 'bb', [SK + 'one.webp']: 'one', [SK + 'two.webp']: 'twoxx' };
+    const entries = new Map([[origin + '/assets/ui/a.png', sha('a')]]); // one general file the game fetched on demand
+    let stateJson = {};
+    const urlOf = (r) => (typeof r === 'string' ? origin + r : r.url);
+    const cache = {
+      keys: async () => [...entries.keys()].map((url) => ({ url })),
+      match: async (r) => {
+        const u = urlOf(r);
+        if (u === origin + '/__sp_res_state__') return new Response(JSON.stringify(stateJson));
+        return entries.has(u) ? new Response('x', { headers: { 'X-SP-Hash': entries.get(u) } }) : undefined;
+      },
+      delete: async (r) => entries.delete(urlOf(r)),
+      put: async (r, resp) => {
+        const u = urlOf(r);
+        if (u === origin + '/__sp_res_state__') stateJson = await resp.json();
+        else if (u.startsWith(origin + '/assets/')) entries.set(u, resp.headers.get('X-SP-Hash'));
+      },
+    };
+    const fetched = [];
+    const fakeCaches = { open: async () => cache, delete: async () => true };
+    const prefs = new Map([['sp.pref.resourcePacks', JSON.stringify({ skin: true })]]); // chosen on an earlier visit
+    const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch, localStorage: globalThis.localStorage,
+      navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
+    const before = store.get();
+    try {
+      globalThis.window = { isSecureContext: true, caches: fakeCaches };
+      globalThis.location = { origin };
+      globalThis.caches = fakeCaches;
+      globalThis.localStorage = { getItem: (k) => prefs.get(k) ?? null, setItem: (k, v) => prefs.set(k, String(v)) };
+      Object.defineProperty(globalThis, 'navigator', { value: { serviceWorker: { register: async () => {} } }, configurable: true });
+      globalThis.fetch = async (u) => {
+        if (u === '/assets/browser-resources.json') return new Response(JSON.stringify(list));
+        fetched.push(u);
+        return u in bodies ? new Response(bodies[u]) : new Response('', { status: 404 });
+      };
+      store.set({ session: { entered: true }, room: null });
+      // a module instance of its own: the pack choice is read when the module loads
+      const res = await import(pathToFileURL(path.join(ROOT, 'public/js/resources.js')).href + '?tab');
+      const idle = async () => { for (let i = 0; i < 100 && res.resStore.get().phase === 'running'; i++) await new Promise((r) => setTimeout(r, 30)); };
+      assert.deepEqual(res.resStore.get().chosen, { skin: true });
+      res.pauseResourcePack('skin', true);
+      await res.installResources();
+      await idle();
+      const r = res.resStore.get();
+      assert.deepEqual(r.sizes, { '': { total: 3, left: 2 }, skin: { total: 8, left: 8 } },
+        'the tab shows the files in no pack and the skin pack apart (the consent card\'s pendingBytes counts both)');
+      assert.equal(r.pendingBytes, 10);
+      assert.deepEqual(fetched, [], 'paused: the chosen pack waits, and nothing in no pack starts without the consent');
+      assert.equal(res.skinPackState(r), 'paused');
+      res.pauseResourcePack('skin', false);
+      await idle();
+      assert.deepEqual(fetched.sort(), [SK + 'one.webp', SK + 'two.webp'], 'resumed: the pack\'s files, still not the general ones');
+      assert.deepEqual(res.resStore.get().sizes, { '': { total: 3, left: 2 }, skin: { total: 8, left: 0 } });
+      assert.equal(res.skinPackState(res.resStore.get()), 'done');
+      await res.acceptResources();
+      await idle();
+      assert.deepEqual(res.resStore.get().sizes[''], { total: 3, left: 0 }, 'the general consent downloads the rest');
+      assert.ok(fetched.includes('/assets/ui/b.png'));
+    } finally {
+      store.set(before);
+      for (const k of ['window', 'location', 'caches', 'fetch', 'localStorage']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
+      if (saved.navigator) Object.defineProperty(globalThis, 'navigator', saved.navigator); else delete globalThis.navigator;
+    }
+  });
+
+  test('skinPackState: what the skin row shows', async () => {
+    const { skinPackState } = await mod('public/js/resources.js');
+    const r = (o) => ({ sizes: { skin: { total: 8, left: 3 } }, chosen: { skin: true }, paused: {}, phase: 'running', runGroups: ['', 'skin'], ...o });
+    assert.equal(skinPackState(r({ chosen: {} })), 'off');
+    assert.equal(skinPackState(r({ chosen: { skin: false } })), 'off');
+    assert.equal(skinPackState(r()), 'running');
+    assert.equal(skinPackState(r({ runGroups: [''] })), 'left', 'a run of other files only');
+    assert.equal(skinPackState(r({ phase: 'error' })), 'left');
+    assert.equal(skinPackState(r({ paused: { skin: true } })), 'paused');
+    assert.equal(skinPackState(r({ sizes: { skin: { total: 8, left: 0 } }, paused: { skin: true } })), 'done');
+  });
 });
 
 describe('tools/fetch-skin-models.mjs matchSkins', () => {

@@ -28,17 +28,20 @@
 // turns it off: a file of a pack never chosen that is in the cache with the listed hash is kept, so the list of what
 // to download and the list of what to delete are two lists (a filter on the one would delete what the game fetched on
 // demand on every visit). Without the general consent a chosen pack is still downloaded (it is a choice of its own).
+// The settings' 资源 tab (ResourceSetting, SkinPackSetting) shows the files in no pack and each pack apart (resStore
+// `sizes`: the consent card's size counts a chosen pack's files too), and can pause a pack's download for this page.
 // Needs a secure context (https / localhost); on plain http the game simply loads everything from the server.
 //
 //   installResources()   main.js, once
 //   <ResourceHost />     consent card + progress pill (title / lobby / room screens only, never over the match HUD)
 //   <ResourceSetting />  the settings row: start (or retry) the download any time, e.g. after 以后再说
+//   <SkinPackSetting />  the settings rows of the skin data: download / pause / turn off, and 其他玩家的皮肤
 
 import { html, MicroLabel } from './ui/components.js';
 import { createStore, useStore, store, loadPref, savePref, selectRoute } from './store.js';
 import { wantedFiles, onVoiceLangChange, voiceStore, setVoiceLang, VOICE_LANGS, voiceLangLabel } from './voice.js';
 import { setResourceSource, fieldLoading } from './diag.js';
-import { t } from '../../shared/i18n.js';
+import { t, tc } from '../../shared/i18n.js';
 
 const CACHE = 'sp-res';
 const STATE = '/__sp_res_state__';
@@ -57,9 +60,15 @@ const HOLD_POLL_MS = 1000;
 const RAW_RE = /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
 const JSDELIVR_RE = /^https:\/\/cdn\.jsdelivr\.net\/gh\//;
 
-/** phase: off | idle | ask | running | done | error */
-export const resStore = createStore({ phase: 'off', done: 0, total: 0, bytesDone: 0, bytesTotal: 0, failed: 0, error: null, pendingBytes: 0 });
-const setPending = () => resStore.set({ pendingBytes: pending.reduce((n, f) => n + f.s, 0) });
+/**
+ * phase: off | idle | ask | running | done | error. sizes: bytes per group of this browser's list — '' the files in no
+ * pack, else a pack's name — `{ total, left }` (left: not cached with the listed hash; sizesOf). chosen: the pack choice
+ * (resourcePacks). paused: the packs paused on this page (pauseResourcePack). runGroups: the groups the running download
+ * holds files of.
+ */
+export const resStore = createStore({ phase: 'off', done: 0, total: 0, bytesDone: 0, bytesTotal: 0, failed: 0, error: null, pendingBytes: 0,
+  sizes: {}, chosen: {}, paused: {}, runGroups: [] });
+const setPending = () => resStore.set({ pendingBytes: pending.reduce((n, f) => n + f.s, 0), sizes: sizesOf() });
 
 /**
  * Download URLs of one list entry: jsDelivr then GitHub raw for upstream art (jsDelivr has no ArknightsAssets2 voice
@@ -141,6 +150,9 @@ let index = null;
 let listed = [];        // every valid entry of the list; index.files = the ones this browser downloads (voice language, packs)
 let packs = {};         // the list's packs (sanitizePacks)
 let chosen = sanitizeChoice(loadPref(PACKS_PREF, null)); // the player's pack choice
+resStore.set({ chosen: { ...chosen } });
+let paused = {};        // packs paused on this page: { <pack>: true }
+let voiced = [];        // the listed entries of this browser's voice language (choose)
 let again = false;      // a choice changed during a download: resync once it ends
 let cache = null;
 let state = {};        // path → hash of what is in the cache
@@ -163,7 +175,33 @@ async function saveState() {
 }
 
 /** Still to download: not cached with the listed hash, and not an upstream file recorded as drifted (DIFFER). */
-const todo = () => index.files.filter((f) => state[f.p] !== f.h && differ[f.p]?.h !== f.h).sort((a, b) => priorityOf(a.p) - priorityOf(b.p));
+const missing = (f) => state[f.p] !== f.h && differ[f.p]?.h !== f.h;
+const todo = () => index.files.filter(missing).sort((a, b) => priorityOf(a.p) - priorityOf(b.p));
+
+/** The group of a listed file: its pack's name, '' for a file in no pack. */
+const groupOf = (f) => packOf(f.p, packs) ?? '';
+
+/** Bytes per group of this browser's list, chosen or not: `total`, and `left` — what is still missing (a pack never
+ *  chosen counts what the game fetched on demand as cached). The settings' 资源 tab shows them apart. */
+function sizesOf() {
+  const out = { '': { total: 0, left: 0 } };
+  for (const name of Object.keys(packs)) out[name] = { total: 0, left: 0 };
+  for (const f of voiced) {
+    const g = out[groupOf(f)];
+    g.total += f.s;
+    if (missing(f)) g.left += f.s;
+  }
+  return out;
+}
+
+/** `sizes` once a file of its group is cached. */
+const spend = (sizes, f) => {
+  const g = groupOf(f), c = sizes?.[g];
+  return c ? { ...sizes, [g]: { ...c, left: Math.max(0, c.left - f.s) } } : sizes;
+};
+
+/** A file of a pack paused on this page and still wanted: the download leaves it in the queue. */
+const held = (f) => { const p = packOf(f.p, packs); return !!p && paused[p] === true && resourceWanted(f, packs, chosen); };
 
 const now = () => globalThis.performance?.now?.() ?? Date.now();
 const keyOf = (req) => {
@@ -174,7 +212,7 @@ const keyOf = (req) => {
 /** The voice files of this browser's language (voice.js), then the pack choice: index.files is what is downloaded, the
  *  returned list what the cache keeps. */
 function choose() {
-  const voiced = wantedFiles(listed);
+  voiced = wantedFiles(listed);
   index.files = voiced.filter((f) => resourceWanted(f, packs, chosen));
   return voiced.filter((f) => resourceKept(f, packs, chosen));
 }
@@ -307,28 +345,31 @@ async function download(files = pending) {
   running = true;
   const queue = files.slice();
   const bytesTotal = queue.reduce((n, f) => n + f.s, 0);
-  resStore.set({ phase: 'running', done: 0, total: queue.length, bytesDone: 0, bytesTotal, failed: 0, error: null });
+  resStore.set({ phase: 'running', done: 0, total: queue.length, bytesDone: 0, bytesTotal, failed: 0, error: null,
+    runGroups: [...new Set(queue.map(groupOf))] });
   let sinceSave = 0;
   const worker = async (slot) => {
     while (queue.length) {
+      const next = queue.findIndex((f) => !held(f));
+      if (next < 0) break; // only the files of a paused pack are left: the download ends, resuming starts them again
       if (slot >= limit()) { await sleep(HOLD_POLL_MS); continue; }
-      const f = queue.shift();
+      const [f] = queue.splice(next, 1);
       if (!resourceWanted(f, packs, chosen)) { resStore.set((s) => ({ done: s.done + 1, bytesDone: s.bytesDone + f.s })); continue; } // turned off meanwhile
       const ok = await fetchOne(f);
-      resStore.set((s) => ({ done: s.done + 1, bytesDone: s.bytesDone + f.s, failed: s.failed + (ok ? 0 : 1) }));
+      resStore.set((s) => ({ done: s.done + 1, bytesDone: s.bytesDone + f.s, failed: s.failed + (ok ? 0 : 1), sizes: ok ? spend(s.sizes, f) : s.sizes }));
       if (ok && ++sinceSave >= SAVE_EVERY) { sinceSave = 0; await saveState(); }
     }
   };
   try {
     await Promise.all([0, 1, 2, 3].map(worker));
     await saveState();
-    pending = pending.filter((f) => state[f.p] !== f.h && differ[f.p]?.h !== f.h);
+    pending = pending.filter(missing);
     setPending();
-    resStore.set({ phase: 'done' });
+    resStore.set({ phase: 'done', runGroups: [] });
   } catch (err) {
     console.error('[resources] stopped', err);
     try { await saveState(); } catch { /* ignore */ }
-    resStore.set({ phase: 'error', error: err?.name === 'QuotaExceededError' ? 'quota' : 'failed' });
+    resStore.set({ phase: 'error', error: err?.name === 'QuotaExceededError' ? 'quota' : 'failed', runGroups: [] });
   } finally {
     running = false;
     if (again) { again = false; resync(); }
@@ -347,7 +388,8 @@ export async function acceptResources() {
     if (est?.quota && est.quota - (est.usage || 0) < need * 1.1) { resStore.set({ phase: 'error', error: 'quota' }); return; }
     await navigator.storage?.persist?.();
   } catch { /* best effort */ }
-  download();
+  if (running) again = true; // a chosen pack downloading on its own: the rest follows once it ends
+  else download();
 }
 
 /** 以后再说: ask again in a week. */
@@ -408,7 +450,20 @@ onVoiceLangChange(resync);
 export function setResourcePack(name, on) {
   chosen = { ...chosen, [name]: !!on };
   savePref(PACKS_PREF, chosen);
+  if (paused[name]) paused = { ...paused, [name]: false }; // chosen again: it downloads
+  resStore.set({ chosen: { ...chosen }, paused: { ...paused } });
   return resync();
+}
+
+/** Pause (or resume) a chosen pack's download on this page (the resource tab's 暂停 / 继续下载): the download leaves the
+ *  pack's files queued and ends once only they are left; resuming starts them again. Not saved: the next visit
+ *  downloads as before. */
+export function pauseResourcePack(name, on) {
+  paused = { ...paused, [name]: !!on };
+  resStore.set({ paused: { ...paused } });
+  if (on || !index) return;
+  if (running) again = true; // the workers still running take the pack's files up again; the resync then catches the rest
+  else if (toDownload().length) download(toDownload());
 }
 
 /** The pack choice: { <pack>: true | false }, a pack never chosen absent. */
@@ -487,23 +542,87 @@ export function ResourceHost() {
   return null;
 }
 
-/** Settings row (ui/settings.js): status, and a button that starts or retries the download. Hidden where the feature is
- *  off (plain http, no list on the server). */
+const mbOf = (n) => Math.round(n / 1048576);
+const pctOf = (g) => (g.total ? Math.floor(((g.total - g.left) / g.total) * 100) : 0);
+
+/** Settings → 资源 「预先下载资源」 (ui/settings.js): the files in no pack — their state and size, and a button that starts
+ *  or retries the download. A chosen pack's files are the skin rows' (SkinPackSetting). Hidden where the feature is off
+ *  (plain http, no list on the server). */
 export function ResourceSetting() {
   const r = useStore((s) => s, Object.is, resStore);
   if (r.phase === 'off') return null;
-  const pct = r.bytesTotal ? Math.floor((r.bytesDone / r.bytesTotal) * 100) : 0;
-  const left = r.pendingBytes > 0;
-  return html`<div class="set-row res-set">
+  const g = r.sizes[''] || { total: 0, left: 0 };
+  const running = r.phase === 'running' && r.runGroups.includes('');
+  return html`<div class="res-group">GAME</div>
+  <div class="set-row res-set" data-testid="res-general">
     <span class="set-row__label">${t('预先下载资源')}<${MicroLabel}>RESOURCES<//></span>
     <div class="res-set__body">
-      ${r.phase === 'running'
-        ? html`<span class="res-set__state"><span>${t('资源下载中')}</span> <b class="num" data-i18n-skip="">${pct}%</b></span>`
-        : left
+      ${running
+        ? html`<span class="res-set__state"><span>${t('资源下载中')}</span> <b class="num" data-i18n-skip="">${pctOf(g)}%</b></span>`
+        : g.left > 0
           ? html`<button type="button" class="res-set__btn" onClick=${acceptResources}>
-              <span>${r.phase === 'error' || r.failed ? t('重新下载') : t('下载')}</span> <span class="num" data-i18n-skip="">${mb(r.pendingBytes)} MB</span></button>`
-          : html`<span class="res-set__state is-done">${t('已全部下载')}</span>`}
+              <span>${r.phase === 'error' || r.failed ? t('重新下载') : t('下载')}</span> <span class="num" data-i18n-skip="">${mb(g.left)} MB</span></button>`
+          : html`<span class="res-set__state is-done">${t('已全部下载')}</span><span class="res-set__size num" data-i18n-skip="">${mb(g.total)} MB</span>`}
       ${r.phase === 'error' ? html`<span class="res-set__err">${r.error === 'quota' ? t('浏览器存储空间不足，无法预先下载资源') : t('资源下载中断，下次进入时继续')}</span>` : null}
     </div>
-  </div>`;
+  </div>
+  <p class="set-hint res-set__hint">${t('下载战场、干员、特效和语音等全部资源。新赛季加入时一并下载。语音语言在「声音」标签中选择。')}</p>`;
+}
+
+/**
+ * What the skin row shows, from resStore: 'off' (not chosen), 'running' (its files downloading), 'paused' (paused on this
+ * page with files left), 'left' (chosen, files left, no download of them now — a failure is tried on the next visit),
+ * 'done' (every file cached).
+ * @param {{ sizes: Record<string, { total: number, left: number }>, chosen: Record<string, boolean>, paused: Record<string, boolean>, phase: string, runGroups: string[] }} r
+ */
+export function skinPackState(r, name = 'skin') {
+  const g = r.sizes[name];
+  if (r.chosen[name] !== true) return 'off';
+  if (!(g?.left > 0)) return 'done';
+  if (r.paused[name] === true) return 'paused';
+  return r.phase === 'running' && r.runGroups.includes(name) ? 'running' : 'left';
+}
+
+/**
+ * Settings → 资源 「皮肤数据」 and 「其他玩家的皮肤」 (ui/settings.js; the approved layout of the resource packs' plan): the
+ * skin pack turned on (downloads it, resourceWanted) or off (deletes it, resourceKept), its download's progress with a
+ * pause for this page, and the switch that draws the skins other players chose — usable once the pack is chosen. Hidden
+ * when the list has no skin pack.
+ * @param {{ others: boolean, onOthers: (on: boolean) => void }} props
+ */
+export function SkinPackSetting({ others, onOthers }) {
+  const r = useStore((s) => s, Object.is, resStore);
+  const g = r.sizes.skin;
+  if (r.phase === 'off' || !g) return null;
+  const st = skinPackState(r);
+  const on = st !== 'off';
+  const toggle = html`<button type="button" class=${`set-toggle${on ? ' is-on' : ''}`} role="switch" aria-checked=${on ? 'true' : 'false'}
+    data-testid="skin-pack" onClick=${() => setResourcePack('skin', !on)}><i></i><span>${on ? tc('toggle', '开启') : tc('toggle', '关闭')}</span></button>`;
+  const progress = (label) => html`<span class="res-set__state"><span>${label}</span> <b class="num" data-i18n-skip="">${pctOf(g)}%</b></span>
+    <span class="res-set__bar" aria-hidden="true"><i style=${`width:${pctOf(g)}%`}></i></span>
+    <span class="res-set__size num" data-i18n-skip="">${mbOf(g.total - g.left)} / ${mb(g.total)} MB</span>`;
+  const pause = (stop) => html`<button type="button" class="res-set__mini" data-testid="skin-pause"
+    onClick=${() => pauseResourcePack('skin', stop)}>${stop ? t('暂停') : t('继续下载')}</button>`;
+  return html`<div class="res-group">SKIN</div>
+  <div class="set-row res-set" data-testid="res-skin">
+    <span class="set-row__label">${t('皮肤数据')}<${MicroLabel}>SKIN<//></span>
+    <div class="res-set__body">
+      ${st === 'off' ? html`${toggle}<span class="res-set__size">${t('约 {n} MB', { n: mb(g.total) })}</span>`
+        : st === 'running' ? html`${progress(t('皮肤下载中'))}${pause(true)}`
+          : st === 'paused' ? html`${toggle}${progress(t('皮肤下载已暂停'))}${pause(false)}`
+            : st === 'left' ? html`${toggle}<span class="res-set__size num" data-i18n-skip="">${mbOf(g.total - g.left)} / ${mb(g.total)} MB</span>`
+              : html`${toggle}<span class="res-set__size num" data-i18n-skip="">${mb(g.total)} MB</span>`}
+    </div>
+  </div>
+  <p class="set-hint res-set__hint">${st === 'off' ? t('下载后可以选择自己的皮肤，也能看到其他玩家选择的皮肤。不下载时所有人都显示为默认皮肤。')
+    : st !== 'done' ? t('下载完成前显示为默认皮肤，下载完成后从下一场战斗开始显示皮肤。')
+      : t('关闭后删除已下载的皮肤数据，所有人都显示为默认皮肤。')}</p>
+  <div class="set-row res-set" data-testid="res-others">
+    <span class="set-row__label">${t('其他玩家的皮肤')}<${MicroLabel}>OTHERS<//></span>
+    <div class="res-set__body">
+      <button type="button" class=${`set-toggle${others ? ' is-on' : ''}`} role="switch" aria-checked=${others ? 'true' : 'false'} disabled=${!on}
+        onClick=${() => onOthers(!others)}><i></i><span>${others ? tc('toggle', '开启') : tc('toggle', '关闭')}</span></button>
+    </div>
+  </div>
+  <p class="set-hint res-set__hint">${on ? t('关闭后其他玩家显示为默认皮肤，自己的皮肤照常显示。') : t('下载皮肤数据后可用。')}</p>`;
 }
