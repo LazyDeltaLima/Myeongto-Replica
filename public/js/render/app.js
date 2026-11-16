@@ -1391,6 +1391,18 @@ export async function createFieldView(host, options = {}) {
       default: break;
     }
     emit(name, out);
+    // after the UI's own handlers: a drop that opened the direction wheel (holdPiece) keeps the piece's home mark
+    if (name === 'pieceDragEnd' && payload) releaseHome(payload.uid);
+  }
+
+  /**
+   * Take away a prep piece's home mark (UnitView.markHome) once it is neither dragged nor held by the direction wheel:
+   * the official drag state's exit (the drop with no direction to choose, the direction chosen or the step cancelled).
+   */
+  function releaseHome(uid) {
+    if (held.has(uid) || (dragState && dragState.uid === uid)) return;
+    const v = views.get('p:' + uid);
+    if (v && typeof v.clearHome === 'function') v.clearHome();
   }
 
   /** Group key of a highlight request (render/tiles.js setHighlights rule). */
@@ -1475,8 +1487,10 @@ export async function createFieldView(host, options = {}) {
       // units.js ItemView holdAt)
       v.holdAt(p.x ?? v.screen.x, p.y ?? v.screen.y);
     } else {
+      // the official drag keeps the character on its tile, greyed and outlined, while an opaque copy is carried (render/
+      // home-mark.js; docs/rules/ui.md 「배치 UI」): ours moves the view itself and leaves its picture there
+      if (typeof v.markHome === 'function') v.markHome();
       v.lift = 0.3;
-      v.ghost = true; // local patch: see-through while placed (units.js GHOST_ALPHA)
       v._tween = null;
     }
     const t = pieceTile(p.piece);
@@ -1541,7 +1555,6 @@ export async function createFieldView(host, options = {}) {
       v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: h.x, ty: h.y, tz: h.z, t: 0 };
     }
     v.lift = 0;
-    v.ghost = held.has(dragState.uid); // local patch: stays see-through while the direction wheel holds it
     // local patch: like the official client the deploy tiles stay lit while the direction is chosen (holdPiece null clears)
     const keepLegal = !!(board3d?.overlay && t && t.area === 'board' && overlay3d.get('legal'));
     legalKeep = keepLegal ? { uid: dragState.uid, tiles: overlay3d.get('legal') } : null;
@@ -1556,9 +1569,11 @@ export async function createFieldView(host, options = {}) {
       const h = dragState.home;
       if (v instanceof ItemView && !v.destroyed) v.endHold();
       if (cancelled && v && !v.destroyed) v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: h.x, ty: h.y, tz: h.z, t: 0 };
-      if (v) { v.lift = 0; v.ghost = held.has(dragState.uid); } // local patch
+      if (v) v.lift = 0;
     }
+    const uid = dragState?.uid;
     dragState = null;
+    if (uid != null) releaseHome(uid);
     clearHl('dragFrom'); clearHl('dragTarget'); clearHl('legal');
   }
 
@@ -2770,7 +2785,7 @@ export async function createFieldView(host, options = {}) {
       if (destroyed || !Number.isInteger(uid)) return false;
       if (!tile || !Number.isInteger(tile.row) || !Number.isInteger(tile.col)) {
         held.delete(uid);
-        const g = views.get('p:' + uid); if (g && (!dragState || dragState.uid !== uid)) g.ghost = false; // local patch
+        releaseHome(uid);
         if (legalKeep?.uid === uid) { legalKeep = null; if (!dragState) clearHl('legal'); } // local patch: lit through the direction step
         return true;
       }
@@ -2778,7 +2793,6 @@ export async function createFieldView(host, options = {}) {
       held.set(uid, w);
       const key = 'p:' + uid;
       const v = views.get(key);
-      if (v && !v.destroyed) v.ghost = true; // local patch: see-through while its direction is chosen (units.js GHOST_ALPHA)
       if (legalKeep?.uid === uid && board3d?.overlay && !dragState) { overlay3d.set('legal', legalKeep.tiles); syncOverlay3d(); } // local patch
       if (v && !v.destroyed && (!dragState || dragState.key !== key)) {
         v._home = w;

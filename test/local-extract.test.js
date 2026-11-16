@@ -52,10 +52,10 @@ describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }
     assert.equal(enemySpines.sub, 'spine/enemy');
     // every listed id is a token of the game data — a summon, the stage token a leader switches on (a wave template's
     // `devices`: 子代) or a device an enemy's skill puts down (enemies.json `devices`: 黄金回响) — without a web model
-    // (data/assets.json tokens[id].spine), sorted, unique — except 香槟炸弹, whose web model is only a skin variant
-    // (upstream 6bfc0827, 0.2.4): its original model is the overlay
+    // (data/assets.json tokens[id].spine), sorted, unique — except the tokens whose web model is only a skin variant
+    // (`spineVariant`: 香槟炸弹, upstream 6bfc0827, 0.2.4, and eleven more since 2026-11-16): their original model is the overlay
     const ids = tokenSpines.ids;
-    assert.equal(ids.length, 26);
+    assert.equal(ids.length, 37);
     assert.deepEqual([...ids].sort(), ids);
     assert.equal(new Set(ids).size, ids.length);
     const tokens = JSON.parse(readFileSync(path.join(ROOT, 'data/tokens.json'), 'utf8'));
@@ -67,7 +67,7 @@ describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }
     const devices = new Set([...Object.values(waves), ...Object.values(enemies)].flatMap((w) => (w.devices || []).map((d) => d.key)));
     for (const id of ids) {
       assert.ok(tokens[id] || backups.tokens[id] || nextTokens[id] || devices.has(id), `${id}: a token of the game data`);
-      if (id === 'token_10031_swire2_gdtrap') assert.match(web[id]?.spine?.skel || '', /_ambienceSynesthesia_4\.skel$/, `${id}: the web skin`);
+      if (web[id]?.spineVariant) assert.ok(web[id].spine?.skel?.includes(web[id].spineVariant), `${id}: the web skin`);
       else assert.equal(web[id]?.spine, undefined, `${id}: no web model`);
     }
     // the 自选 summons whose prefab draws nothing (an EmptyAnimator: displayType HIDDEN / an effect) are left out

@@ -427,9 +427,26 @@
 - 공격 범위(3D 보드, stripes: 방향 선택 `facing`, 선택한 기물 `selRange` 등): `range_material`(셰이더 `Torappu/Battle/AttackRange`: 알파 블렌드,
   깊이 쓰기 없음, `_Color.a` 0.749, `_AnimationSpeed` 0.5)대로 `sprite_attack_range`(대각선 흰 줄 3개/칸) × 색, 흐르는 방향 [추정·엔진: 셰이더의 흐름 방향은 안 읽음]. 그림이 없으면 같은 모양의 절차 텍스처. 이전의 Pixi 주황 칠·SVG 줄무늬는 3D에서 안 그린다.
   색(2026-11-11, 공식 클라에서 확인): 전투 씬의 `GridRangeDrawer`가 실행 중에 머티리얼 색을 정한다 — 보여 줄 범위(`Unit.rangeToShow` = 지금 모드의 `_rangeToShow`, 없으면 공격 트리거)의 능력이 치료 능력(`BattleUtil.IsAbilityHeal`: `Abilities.Heal` 계열)이면 `_healRangeColor` (0, 200, 255), 아니면 `_attackRangeColor` (255, 128, 0). 두 시즌 모든 전장 씬이 같은 값(전에 쓰던 주황 255,140,0은 캡처로 맞춘 근사였다). 오퍼레이터의 공격 능력은 그 범위의 부모 오브젝트 `Attack`(또는 `Heal`)의 첫 능력 컴포넌트다: 두 시즌 풀의 오퍼레이터·대체 오퍼레이터 전원을 프리팹으로 대조하니 `Heal`/`RangedHeal`인 것은 정확히 직업 메딕 중 주술 의료(incantationmedic: 공격 능력이 피해 공격)를 뺀 것이고, 바드(스카디 더 커럽팅 하트·이디아)는 `AuraAbility`라 주황이다 → `ui/facing.js healRange`. 방향 선택(`FACING_HEAL_STYLE`)과 상세 카드의 범위(`SEL_RANGE_HEAL`, 정비·전투 모두)가 쓰고, 3D 판은 파란 층(`tileOverlay` `healStripes`)을 하나 더 둔다. CN 「규정」 캡처에서 해럴드(메딕, 공격 오브젝트에 능력 셋 — 첫째가 `RangedHeal`)의 방향 선택 범위가 파랗다(≈ 40,170,230, 초록 칸과 섞임). 필드 메뉴의 스킬 범위 토글(`GridRangeDrawer.TurnOnSkill`)은 직업과 상관없이 늘 `_skillRangeColor` (255, 0, 0) 빨강이다(공식 클라에서 확인) → `SEL_RANGE_SKILL`, 빨간 층 `skillStripes`.
-- 배치 중인 기물(드래그 중·방향 선택 중) 반투명 `GHOST_ALPHA` 0.6 [추정·화면: 값은 공식 화면에서 재야 함](관리자 제보: 배치 중에는 더 투명하다).
-  공식 클라에서 확인(2026-11-16): 끌기의 C# 길(`AutoChessDragState.TileDragContext` 시작·갱신·정리, `_CreateDummy` → `AutoChessDummyManager.CreateDummy` →
-  `BattleController.CreateCharacterDummy` → `Character.MakeDummy`)에는 알파·머티리얼·색을 바꾸는 호출이 없다 — 투명하다면 셰이더·머티리얼 쪽이라 값은 화면으로만 정한다.
+- 끄는 기물과 원래 자리(관리자 확인 2026-11-16, 공식 영상 캡처: 「끌 때 투명해지지 않고 원래 모습 그대로, 필드에 있던 기물이면 원래 자리에 외곽선과 음영」):
+  끄는 기물은 불투명 그대로 — 끌 때도 방향을 고를 때도. 전에는 반투명 `GHOST_ALPHA` 0.6(옛 관리자 제보 「배치 중에는 더 투명하다」를 따른 추정)이었는데
+  이번 확인과 어긋나 뺐다. 공식 클라에서 확인(2026-11-16): 공식 끌기(`AutoChessDragState`)는 기물을 옮기지 않는다 — 들어올 때(`OnEnter`) 시작 칸의
+  캐릭터를 `AutoChessDummyManager.MarkLeaving`으로 받아 `_CreateOutline`이 몸 색에 상태의 `_overlapColor`(회색 .667, 프리팹 값)를 곱하고
+  (`Unit.ModifyDefaultColor`) Spine 외곽선(`BattleSpineOutlineManager.ResetMeshByAnimator`)을 켜며, 포인터는 그것으로 만든 더미(`_CreateDummy` →
+  `AutoChessDummyManager.CreateDummy` → `BattleController.CreateCharacterDummy` → `Character.MakeDummy`)가 따라간다. 더미 길과 놓은 뒤의 방향 선택
+  (`_TryMoveToNextState`: 더미를 놓을 칸에 세움 → `UIDirectionSelector.Show` → `BattleController.OnDummyTouchedToTile`, 이 모드는 플러그인·게임 모드 기본
+  구현)에는 알파·머티리얼·색 호출이 없다 — 그래서 방향을 고를 때도 불투명으로 둔다. 상태를 나갈 때(`OnExit`: `MarkReturned` + `_ClearOutline`) 색과
+  외곽선이 돌아온다 — 방향 선택도 같은 상태 안이라 그때까지 원래 자리 표시가 남는다. 시작 칸이 대기석이어도 같은 길이다(`MarkLeaving`이 없으면 끌기가
+  시작되지 않음).
+  우리는 뷰 자체가 움직이므로 끌기 시작 때 그 모습을 한 번 그려 원래 자리에 남긴다(`render/home-mark.js`, `UnitView.markHome`·`clearHome`, `render/app.js
+  startDragVisual`·`releaseHome`): 몸(모델·임포스터·초상 마름모)을 스냅숏으로 그리고, 스냅숏을 원 둘레 12곳에 밀어 그려 외곽선 색으로 채운 위에
+  회색(170, 170, 170)을 곱한 스냅숏을 얹은 텍스처 하나 — 끄는 동안은 스프라이트 하나를 칸 자리에 놓기만 한다. 놓고 방향 선택이 없거나 끌기를 취소하면
+  (`pieceDragEnd` 뒤, 방향 휠이 잡지 않았을 때), 방향을 고르거나 취소하면(`holdPiece(uid, null)`) 지운다.
+  외곽선 값: 이 모드의 설정(`AutoChessGameMode.OUTLINE_CONFIG`)은 크기 0.04·색 `#00928388`·8방향이고 셰이더는 `Spine-Skeleton-BattleOutline`인데,
+  셰이더의 섞기와 크기 단위는 안 읽었다 [추정·화면: 공식 영상 캡처에서 잼] — 색은 손 칸 장비 고리와 같은 `COLORS.heldOutline`(캡처 외곽선 ≈ 70–100,220–245,190–220),
+  두께는 같은 약 1/64칸(캡처 칸 약 170 px에 2–3 px). 원래 자리 표시에는 그림자·티어 칩·막대가 없다. 아직 안 따른 공식 동작: 공식은 티어 칩·막대가 원래 자리에 남고 더미에는 없다(캡처; 우리는 끄는 뷰를
+  따라감), 놓을 전장 칸에 다른 캐릭터가 있으면 그 캐릭터도 `_overlapColor`로 어두워지고(`_DoBattleOverlap`, 외곽선 없음) 더미는 `_overlapOffset`(0, 0, −0.45)만큼
+  비켜 선다, 손 칸 장비도 같은 길이라 회색이 곱해져야 한다(우리 장비는 외곽선만).
+  재발 방지: `test/render/home-mark.test.js`.
 - 모듈로 늘어나는 공격 범위(관리자 제보 2026-10-10: 정예 「시」 SPC-X가 방향 선택 줄무늬·배치 중 카드에서 3×3으로 보임): `shared/loadoutRecord.js
   attackRangeGrid`가 중국어 문구(`trait.moduleDesc` 「攻击范围扩大」, 스킬 「被动效果：攻击范围扩大」, `traitRangeExtend`의 「集成战略」)로 판단했는데 클라는
   한국어 등 게임 문구 덮어쓰기(`data/i18n`)를 입힌 기록을 쓰므로 한국어에서 늘 실패. 이제 `tools/build-data.mjs`가 같은 판단을 언어와 상관없는 표시

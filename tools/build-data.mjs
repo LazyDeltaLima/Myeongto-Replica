@@ -2888,8 +2888,10 @@ const withAttackAnim = (attackAnim) => (attackAnim ? { attackAnim } : null);
 
 /**
  * A summon's attack → tokens.json / backups.json `tokens` `attackAnim` { clip, dur, hit, … } as an enemy's: its prefab's Default
- * mode (tools/assets/local-attack-timing.json `tokens`), the clip's length and first OnAttack frame from its skeleton
- * (data/assets.json `tokens[id].spine`, `.spineLocal` for a model of the local client). An ability that plays no clip of the
+ * mode (tools/assets/local-attack-timing.json `tokens`), the clip's length and first OnAttack frame from the official default
+ * model's skeleton (data/assets.json `tokens[id].spineLocal`, the local client's, else `.spine` when the web model is the
+ * default one — never a skin variant, `spineVariant`: a skin times nothing, docs/rules/sim.md 「일반 공격 타이밍」; such a
+ * summon without its local model stops the build: add it to tools/local-extract/extract.py TOKEN_SPINES). An ability that plays no clip of the
  * skeleton waits for no frame: its strike comes when the wait for it runs out, the ability's time — `noClip: 1`, server/sim/ai.js
  * attackTiming. null when its prefab has no attack ability (it never attacks in the client) or was not read.
  */
@@ -2898,7 +2900,12 @@ function tokenAttackAnim(ctx, tokenId) {
   const ab = t?.attack?.[t.modes.indexOf('Default')];
   if (!ab) return null;
   const m = ctx.manifest?.tokens?.[tokenId];
-  const sp = m?.spine ?? m?.spineLocal;
+  if (m?.spineVariant && !m.spineLocal) {
+    throw new Error(`tokenAttackAnim: ${tokenId} has only the web skin variant ${m.spineVariant} and no official default model `
+      + '(data/assets.json tokens[id].spineLocal) — a skin must not time the summon (docs/rules/sim.md 「일반 공격 타이밍」): add it to '
+      + 'tools/local-extract/extract.py TOKEN_SPINES, extract it and run node tools/fetch-assets.mjs --local-spines --offline');
+  }
+  const sp = m?.spineLocal ?? m?.spine;
   const dur = ab.anim ? sp?.animations?.[ab.anim] : null;
   // `born`: its prefab's `_useRealBornTimeFromAnim` — the born state lasts the Born clip (the skeleton's Start), not 1 s; a model with no
   // Born clip has no born state: `PlayBornAnimationAndEffect` calls its `noBornAnimationFallBack`, the state's `_OnLocate`, at once (server/sim/constants.js BORN_TIME)

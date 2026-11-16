@@ -44,7 +44,8 @@ const TOKEN_SPINES = (() => {
   return r.status === 0 ? JSON.parse(r.stdout).tokenSpines.ids : null;
 })();
 const IDS = Object.keys(COMMITTED).sort();
-const CHAMPAGNE = 'token_10031_swire2_gdtrap';
+/** The tokens whose web model is only a skin variant (香槟炸弹 and eleven more): the local model is their default one. */
+const SKIN_ONLY = new Set(Object.keys(MANIFEST.tokens).filter((id) => MANIFEST.tokens[id].spineVariant));
 
 /** A data/local-assets.json listing the extracted files of `ids` (extract.py's group layout), minus `drop`. */
 function localManifest(ids, drop = null) {
@@ -59,7 +60,7 @@ function localManifest(ids, drop = null) {
 
 describe('the 自选 summon models from the local client are an optional overlay', () => {
   test('the committed metadata: the TOKEN_SPINES of extract.py, each a skeleton + same-stem atlas + pages, its roles on its own clips', () => {
-    assert.equal(IDS.length, 26);   // the 24 summons, 子代 (trap_039_dstnta) and 黄金回响 (trap_185_vtlntw)
+    assert.equal(IDS.length, 37);   // the 35 summons, 子代 (trap_039_dstnta) and 黄金回响 (trap_185_vtlntw)
     if (TOKEN_SPINES) assert.deepEqual(IDS, [...TOKEN_SPINES].sort(), 'one entry per extract.py TOKEN_SPINES id');
     for (const id of IDS) {
       const m = COMMITTED[id];
@@ -115,12 +116,14 @@ describe('the 自选 summon models from the local client are an optional overlay
     for (const id of IDS) {
       assert.deepEqual(MANIFEST.tokens[id].spineLocal, { group: `spine/token/${id}`, ...COMMITTED[id] }, `${id}: the committed metadata`);
       const web = MANIFEST.tokens[id].spine;
-      if (id === CHAMPAGNE) assert.ok(validSpine(web), '香槟炸弹 keeps its web skin as the fallback');
+      if (SKIN_ONLY.has(id)) assert.ok(validSpine(web), `${id} keeps its web skin as the fallback`);
       else assert.equal(web, undefined, `${id}: no web model (it was the avatar diamond)`);
       assert.equal(spineEntry(MANIFEST, id), web || null, `${id}: without the local art the client keeps the web skin / the diamond`);
     }
-    // the tokens that always had a web model keep it, without an overlay (香槟炸弹: its web skin beside the overlay)
-    for (const [id, t] of Object.entries(MANIFEST.tokens)) if (t.spine) { assert.ok(validSpine(t.spine), id); if (id !== CHAMPAGNE) assert.equal(t.spineLocal, undefined, id); }
+    // the tokens that always had a web model keep it, without an overlay (a skin variant: the web skin beside the overlay)
+    for (const [id, t] of Object.entries(MANIFEST.tokens)) if (t.spine) { assert.ok(validSpine(t.spine), id); if (!SKIN_ONLY.has(id)) assert.equal(t.spineLocal, undefined, id); }
+    // a web skin variant is never the default look nor the timing of a summon (tools/build-data.mjs tokenAttackAnim stops on it)
+    for (const id of SKIN_ONLY) assert.ok(IDS.includes(id), `${id}: its web model is only the skin ${MANIFEST.tokens[id].spineVariant} — add it to tools/local-extract/extract.py TOKEN_SPINES (docs/rules/sim.md 「일반 공격 타이밍」)`);
   });
 
   test('the committed metadata is what the extracted models parse to', { skip: !IDS.every((id) => existsSync(path.join(ASSETS, 'local/spine/token', id))) && 'token models not extracted (tools/local-extract)' }, async () => {
@@ -172,7 +175,7 @@ describe('client: the official summon model only when data/local-assets.json lis
       assert.equal(spineEntry(MANIFEST, id, { local: localManifest([]) }), web, 'not extracted → the web skin / no model');
       assert.equal(spineEntry(MANIFEST, id, { local: localManifest([id], m.textures[0]) }), web, 'a page missing → the web skin / no model');
     }
-    assert.equal(spineEntry(MANIFEST, 'token_10028_vigil_wolf', { local }), MANIFEST.tokens.token_10028_vigil_wolf.spine, 'a web token unchanged');
+    assert.equal(spineEntry(MANIFEST, 'token_10000_silent_healrb', { local }), MANIFEST.tokens.token_10000_silent_healrb.spine, 'a web token unchanged');
     const store = createAssets({ manifest: MANIFEST, localManifest: local });
     assert.equal(store.spineEntry('token_10064_wang_stone1').skel, `/assets/local/spine/token/token_10064_wang_stone1/${COMMITTED.token_10064_wang_stone1.skel}`);
     assert.equal(createAssets({ manifest: MANIFEST }).spineEntry('token_10064_wang_stone1'), null, 'before / without local(): the diamond');

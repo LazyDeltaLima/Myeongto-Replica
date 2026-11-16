@@ -83,6 +83,7 @@ import { faceOf, turnFace, turnWidth, dirVector, NEAR_SQ, SWITCH_TIME } from './
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './heldWheel.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
 import { loadPlaces, modelPlace, placesVersion } from './fxpoints.js'; // a model's place and shadow in its battle prefab
+import { HomeMark } from './home-mark.js'; // a dragged piece's greyed, outlined picture left on its tile
 import { ElementRing, epRingState, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, HUD_ANCHOR, prepChip, PREP_CHIP, PREP_TOKEN, tokenCountPlate, EquipBar, equipTextures, RespawnHud, respawnTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -355,11 +356,6 @@ export const DOWN_LOOK = Object.freeze({
   ring: Object.freeze({ [DOWN_STATE.COUNTING]: 0x4ed8af, [DOWN_STATE.WAIT_DP]: 0xffc600, [DOWN_STATE.WAIT_TILE]: 0xff4b3e }),
   size: 0.42, height: 1.02,
 });
-/**
- * local patch (LOCAL-PATCH.md 「배치 UI」): a piece being placed — dragged, or held on its tile while its direction is
- * chosen — is drawn see-through like the official client's deploy preview. [추정] 0.6 (KR client capture).
- */
-export const GHOST_ALPHA = 0.6;
 /**
  * An enemy drawn with another enemy's web model because its own is only in the local client (manifest `spineAliasOf`
  * + `spineLocal`: 灼热 / 炽焰源石虫 → the plain 源石虫's skeleton, feedback D3 after 0.1.0): a multiply tint toward its own
@@ -2220,7 +2216,6 @@ export class UnitView {
     const lpInvis = !!(this._fxStatusOn?.has('stealth') || this._fxStatusOn?.has('stealthAlly'));
     if (this.flags & UF.STEALTH) alpha *= lpInvis ? 0.894 : 0.45;
     if (this.dimmed) alpha *= 0.35;
-    if (this.ghost) alpha *= GHOST_ALPHA; // local patch
     this.alpha = alpha;
 
     // body placement — the 0.12-tile jolt toward the target on an attack stands in for the avatar diamond's missing attack
@@ -2237,6 +2232,7 @@ export class UnitView {
     this.root.alpha = alpha;
     this.body.rotation = cam.lean || 0; // the side camera: the model stands turned with the board, its HUD does not (projection.js)
     this.root.zIndex = unitDepthKey(cam, this.x, this.y, this.lift);
+    if (this._homeMark) this._homeMark.place(cam, unitDepthKey(cam, this._homeMark.at.x, this._homeMark.at.y, 0));
     // off-screen: nothing to animate or draw (bounds / hit-testing still follow `screen`)
     if (this._cull(bx, by, s, dt)) return;
     this._updateWater(cam, bx);
@@ -2893,10 +2889,29 @@ export class UnitView {
 
   setHover(on) { this.hovered = !!on; }
 
+  /**
+   * Leave the view's picture on the tile it stands on, greyed and outlined, while it is dragged away and its direction
+   * chosen (render/home-mark.js; render/app.js keeps it until the piece is let go); again only after clearHome.
+   */
+  markHome() {
+    if (this.destroyed || this._homeMark) return;
+    const cam = this.ctx.cam?.();
+    const s = this.screen.s;
+    if (!this.placed || !cam) return;
+    const at = { x: this.x + this.modelDX + this.faceDX, y: this.y + this.modelDY, z: this.z + this.modelDZ + this.hover };
+    this._homeMark = HomeMark.draw(this.P, this.ctx.renderer, this.body, at, s, this.ctx.layers.units);
+    if (this._homeMark) this._homeMark.place(cam, unitDepthKey(cam, at.x, at.y, 0));
+  }
+
+  clearHome() {
+    if (this._homeMark) { this._homeMark.destroy(); this._homeMark = null; }
+  }
+
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
     this._dropActor();
+    this.clearHome();
     this.shadow.destroy();
     this.blockIcon.destroy();
     if (this.facingArrow) this.facingArrow.destroy();

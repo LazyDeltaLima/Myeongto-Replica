@@ -25,7 +25,7 @@ const assets = read('data/assets.json').tokens;
 const timed = (id, interval) => attackTiming({ def: { attackAnim: normAttackAnim(all[id].attackAnim) }, s: { interval } });
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-6, `${msg}: ${a} vs ${b}`);
 
-test('data: a summon with an attack ability in its prefab carries it, the clip by the skeleton it is drawn with', () => {
+test('data: a summon with an attack ability in its prefab carries it, the clip by its official default skeleton', () => {
   let clips = 0, none = 0;
   for (const [id, r] of Object.entries(all)) {
     if (!id.startsWith('token_')) continue;
@@ -34,7 +34,10 @@ test('data: a summon with an attack ability in its prefab carries it, the clip b
     const ab = row.attack[row.modes.indexOf('Default')];
     if (!ab) { assert.equal(r.attackAnim, undefined, `${id}: no attack ability, no record`); none++; continue; }
     assert.ok(r.attackAnim, `${id}: its record`);
-    const sp = assets[id]?.spine ?? assets[id]?.spineLocal;
+    // the local client's default model, never a web skin variant (`spineVariant`: 유동체's skin Attack is 0.833 s, the default 0.8 —
+    // docs/rules/sim.md 「일반 공격 타이밍」; tools/build-data.mjs tokenAttackAnim stops on a skin variant without one)
+    const sp = assets[id]?.spineLocal ?? assets[id]?.spine;
+    assert.ok(!assets[id]?.spineVariant || assets[id]?.spineLocal, `${id}: timed by a skin variant`);
     if (sp?.animations?.[ab.anim] > 0) {
       assert.equal(r.attackAnim.clip, ab.anim, `${id}: the ability's clip`);
       assert.equal(r.attackAnim.dur, sp.animations[ab.anim], `${id}: its length`);

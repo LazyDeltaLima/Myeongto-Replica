@@ -180,17 +180,22 @@ ENEMY_SPINE_SUB = 'spine/enemy'
 # Not here: the tokens whose prefab draws nothing (an EmptyAnimator in place of the Spine renderer, displayType HIDDEN
 # or an effect only, and no avatar in either install's asset index) — 乌尔比安's 从不混淆的方向, 圣聆初雪's frozen
 # protection point, 酒神's 迷狂牢笼, 贝洛内's 牵绊, 予愿安洁莉娜's “一会儿见！” (token_10039 / 10058 / 10055 / 10065 / 10071).
-# 香槟炸弹 (琳琅诗怀雅's bomb) is the one listed token with a web model, but that is only a skin variant
-# (ambienceSynesthesia_4): the local model is its original skin, and the web skin stays as the fallback (upstream 6bfc0827).
+# The tokens whose web model is only a skin variant (data/assets.json tokens[id].spineVariant: 香槟炸弹, upstream
+# 6bfc0827, and eleven more since 2026-11-16: 10006 / 10011 / 10012 / 10015 / 10017 / 10019 / 10022 / 10028 / 10030 /
+# 10040 / 10056) are here too: the local model is the original skin the
+# battle prefab draws, a viewer without the skin sees it, and tools/build-data.mjs tokenAttackAnim times the summon by
+# it alone (it stops on a skin variant without one); the web skin stays as the fallback of the drawing.
 # trap_039_dstnta (子代) is an enemy-side stage token: 盐风主教昆图斯's 断裂生殖 switches it on (pkgrps/btl_pfb_tokens_0);
 # trap_185_vtlntw (黄金回响) the device 阿利斯泰尔's 莫非王土 puts on a 冲击式施术单元's tile (pkgrps/btl_pfb_tokens_1).
 TOKEN_SPINES = [
-    'token_10003_cgbird_bird', 'token_10008_cqbw_box', 'token_10009_weedy_cannon', 'token_10018_robrta_mach', 'token_10024_ebnhlz_rcube', 'token_10026_bgsnow_subbow', 'token_10027_ironmn_pile1',
-    'token_10027_ironmn_pile2', 'token_10027_ironmn_pile3', 'token_10029_slent2_protrb', 'token_10031_swire2_gdtrap', 'token_10032_jesca2_jckshd',
-    'token_10035_wisdel_wward', 'token_10037_mitm_trshrb', 'token_10041_cathy_catsld',
-    'token_10050_monstr_prosts', 'token_10054_phatm2_encdool', 'token_10057_svash2_eagle1', 'token_10057_svash2_eagle2',
-    'token_10057_svash2_eagle3', 'token_10064_wang_stone1', 'token_10066_closur_ourbase', 'token_10068_kalts2_mtship', 'token_10069_mcnist_mcgraf', 'trap_039_dstnta',
-    'trap_185_vtlntw',
+    'token_10003_cgbird_bird', 'token_10006_vodfox_doll', 'token_10008_cqbw_box', 'token_10009_weedy_cannon', 'token_10011_beewax_oblisk',
+    'token_10012_rosmon_shield', 'token_10015_dusk_drgn', 'token_10017_skadi2_dedant', 'token_10018_robrta_mach', 'token_10019_nearl2_sword',
+    'token_10022_kazema_shadow', 'token_10024_ebnhlz_rcube', 'token_10026_bgsnow_subbow', 'token_10027_ironmn_pile1',
+    'token_10027_ironmn_pile2', 'token_10027_ironmn_pile3', 'token_10028_vigil_wolf', 'token_10029_slent2_protrb', 'token_10030_mlyss_wtrman',
+    'token_10031_swire2_gdtrap', 'token_10032_jesca2_jckshd', 'token_10035_wisdel_wward', 'token_10037_mitm_trshrb', 'token_10040_siege2_vlion',
+    'token_10041_cathy_catsld', 'token_10050_monstr_prosts', 'token_10054_phatm2_encdool', 'token_10056_angel2_target',
+    'token_10057_svash2_eagle1', 'token_10057_svash2_eagle2', 'token_10057_svash2_eagle3', 'token_10064_wang_stone1',
+    'token_10066_closur_ourbase', 'token_10068_kalts2_mtship', 'token_10069_mcnist_mcgraf', 'trap_039_dstnta', 'trap_185_vtlntw',
 ]
 TOKEN_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'
 TOKEN_SPINE_SUB = 'spine/token'
