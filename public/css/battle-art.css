@@ -67,6 +67,7 @@
   isolation: isolate; }
 .btip__pill::after { content: ''; position: absolute; z-index: -1; inset: calc(var(--pu) * 10) calc(var(--pu) * 10) calc(var(--pu) * 11);
   border-radius: calc(var(--pu) * 16.5); background: var(--tip); background: color-mix(in srgb, var(--tip) 70%, transparent);
+  box-shadow: 0 0 calc(var(--pu) * 10) rgba(0, 0, 0, 0.3);
   box-shadow: 0 0 calc(var(--pu) * 10) color-mix(in srgb, color-mix(in srgb, var(--tip) 82%, #000) 50%, transparent); }
 .btip__icon { flex: none; width: calc(var(--pu) * 32); height: calc(var(--pu) * 32); background: center / contain no-repeat; }
 .btip__text { font-family: var(--font-cjk); font-weight: 500; font-size: calc(var(--pu) * 18); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1; }
