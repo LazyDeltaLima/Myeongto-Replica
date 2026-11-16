@@ -2286,7 +2286,7 @@
     오라(`cetsyr_heal` — 吟游者 재생 버프가 보이지 않는 버프) → 맞는·치유 순간 묶음. 남김: 焰影苇草 S2 불덩이 쿨다운 모습(`_coolDownEffect` — `'strike'`의
     `src`가 운반 동료라 계획이 그녀 묶음을 못 찾음), 荒芜拉普兰德 S3 표식 둘(추적 시작 `'droneLock'`만 있고 붙음·놓침 순간이 없음), 伺夜 S3
     `EndAnimEffectEmitter`(시전 시계에 「끝 동작」 단계가 없음). 판정: 引星棘刺 T2 타일 `_tileEffectKey`(공식이 고르는 타일 규칙 미확인),
-    予愿安洁莉娜 S3 `_edgeLineRendererEffectKey`(범위 가장자리 선 — 렌더에 그런 길이 없음).
+    予愿安洁莉娜 S3 `_edgeLineRendererEffectKey`(범위 가장자리 선 — 렌더에 그런 길이 없음; 2026-11-16 이음 → 아래 「안젤리나 더 멜로우 위시 S3 가장자리 선」).
   - 확인: 단위 `skill-aura-fx`(새)·`kit-event-fx`, `fx-bindings` `UNPLAYED` 2줄 지움, 미연결 102 → 93행. 이펙트 이벤트 골든 +53 −35(위 것만), 시뮬
     골든 그대로(시뮬 안 고침). [화면 미확인: 스카디 S3·사리아 S3·인디고 S2 몸 이펙트, 락락 S1·S2, 스펙터 복귀, 켈시 앵커 배치, 아스트젠 S3 선, 이네스 회수]
 - 연결 전수 나머지 다섯째 묶음(2026-10-24, 맞는·치유 순간 — 새 이벤트 대신 이벤트 칸으로, 관리자 결정 2026-10-24):
@@ -4071,10 +4071,19 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 선발 테리토리야(`char_4246_dminon`). 프리팹 `Others/Direction/CommonAbilities/Kingdom`, 투사체 `projectile_chr_dminon_dead`·`_withdraw`, 버프 템플릿 `dminon_t_1[dmg]`·`dminon_s_3[spread]`.
 
 - **국가 칸**: `Kingdom`의 `TileEffectFollowRangeBehaviour`가 그의 공격 범위(자기 것만: `SharedCharacterRangeBehaviour._onlyIncludeSelf`) 칸마다 `_tileEffectKey` `dminon_talent_range_01`을 깐다. 범위가 바뀌면(S2·S3, 확산 칸) 남는 칸은 그대로 두고 빠지는 칸은 바로 거둔다(`_recycleImmediatelyExceptDying`). 키트가 범위 칸이 바뀔 때마다 사건 `field`(`cells`·`gone`)를 보내고, 렌더는 칸마다 슬롯 하나로 든다(`kitofficial.js` `field`). 그가 떠나면 다 끝난다. [추정·CN: 쓰러질 때(`ExceptDying`)는 사라지는 연출이 있을 수 있으나 CN 전용 클래스라 못 읽어, 떠날 때 모두 바로 끝냄]
-- **가장자리 선**: 같은 능력의 `RangeLineEffectEmitter`(`_edgeLineRendererEffectKey` `dminon_range_line_01`, `_heightOffset` 0.4, `_lineOffsetToMapCenter` (−0.5, −0.5, −0.1)). `RangeLineEffectHandler`가 범위 윤곽의 고리마다 이펙트 하나를 월드 원점에 만들고, 그 LineRenderer에 고리의 모서리 점을 넣어 첫 점으로 닫는다(`_RenderLine`: `positionCount` = 모서리 수 + 1). 점은 칸 가장자리(칸 중심 −0.5)이고 높이는 고지대 기본 보정 −0.4(`get_defaultHighlandOffset`: −`highlandHeight`)를 0.4가 지워 땅 위 0.1이다. 고리가 늘면 이펙트를 더 만들고, 줄면 남는 것을 끝낸다. 렌더: `render/fx/edges.js rangeEdges`(꺾이는 점만, 대각으로만 닿은 칸·구멍은 고리 따로), `fxgame.js edgeLines`, 재생기 `FxInstance.setPath`의 점 상한을 16 → 256으로(띠 버퍼는 그리는 만큼만 큼). 같은 꼴의 안젤리나 더 멜로우 위시 S3 선(위 「키트 이벤트의 공식 이펙트」 「판정」)은 아직 안 이음.
+- **가장자리 선**: 같은 능력의 `RangeLineEffectEmitter`(`_edgeLineRendererEffectKey` `dminon_range_line_01`, `_heightOffset` 0.4, `_lineOffsetToMapCenter` (−0.5, −0.5, −0.1)). `RangeLineEffectHandler`가 범위 윤곽의 고리마다 이펙트 하나를 월드 원점에 만들고, 그 LineRenderer에 고리의 모서리 점을 넣어 첫 점으로 닫는다(`_RenderLine`: `positionCount` = 모서리 수 + 1). 점은 칸 가장자리(칸 중심 −0.5)이고 높이는 고지대 기본 보정 −0.4(`get_defaultHighlandOffset`: −`highlandHeight`)를 0.4가 지워 땅 위 0.1이다. 고리가 늘면 이펙트를 더 만들고, 줄면 남는 것을 끝낸다. 렌더: `render/fx/edges.js rangeEdges`(꺾이는 점만, 대각으로만 닿은 칸·구멍은 고리 따로), `fxgame.js edgeLines`, 재생기 `FxInstance.setPath`의 점 상한을 16 → 256으로(띠 버퍼는 그리는 만큼만 큼). 같은 꼴의 안젤리나 더 멜로우 위시 S3 선은 아래 절(2026-11-16).
 - **재능 1 실질 붕괴**: 1초마다의 피해가 효과 순간 `dminon_t_1[dmg]`를 실어 보내고, 그 `CreateEffect` `dminon_talent_hit_01`을 맞은 적 위에(`_constDirection` UP). `GatherEffect`의 `_hitEffects`는 같은 프리팹을 미리 불러 두는 목록이다.
 - **S3 확산·재능 2 이 몸이 경계**: 확산은 `dminon_s_3[spread]`의 `CreateTileEffectInRange` x-5, 이 몸이 경계는 투사체가 멈출 때 `_tileEffectKeyOnStop`을 `_targetRange`(떠날 때 저장한 국가) 칸마다 — 둘 다 `dminon_talent_range_hit_01`을 칸마다 한 번. 키트의 `aoe`가 칸 목록(`cells`)을 싣는다. 대체 범위 표시는 안 그린다.
 - 확인: `test/render/dminon-field-fx.test.js`(윤곽 계산, 건식 층에서 칸·선·타격), `test/content/op_dminon.test.js` 「the 国度's look」. 계획·시뮬 사건·`moment`·`edge` 실행을 하나씩 되돌려 실패를 봄. 전투 골든은 테리토리야 판의 사건 수만 움직임(`field`). [화면 미확인: 선의 굵기·흐름과 칸 바닥 그림, 아레나 2배속]
+
+## 안젤리나 더 멜로우 위시 S3 가장자리 선 (2026-11-16, 공식 클라에서 확인)
+
+선발 안젤리나 더 멜로우 위시(`char_1015_aglna2`) S3 「酸橙的心事」. CN `[uc]skills.ab` `skchr_aglna2_3`.
+
+- **언제**: 스킬의 능력 목록에 든 `Toggle`(`ActiveAbilityWrapper`, `_isInfinity` 1)이 시전되며(`OnSpellStart`) 감싼 능력 `Toggle/BlockToggle`을 붙이고, 시전이 끝날 때(`OnCastEnd`·`StopAffect`) 뗀다. `BlockToggle`의 `RangeLineEffectEmitter`(`_edgeLineRendererEffectKey` `aglna2_skill_03_range_line_01`, `_heightOffset`·`_lineOffsetToMapCenter`는 테리토리야 것과 같음)는 그 능력의 `ON_ATTACHED`에 켜지고 `ON_DETACHED`에 꺼진다 → 선은 S3 내내. 이 능력 자체는 `ToggleablePassiveBuffAbility` + `BlockedToggleChecker`(`_blockMinCnt` 1, `_useBlockAsMin`)로, 토글은 버프 `aglna2_s_3[blocked]`·`[unblocked]`(공격 속도, 키트 `toggleBuff`)만 바꾼다(`OnToggleChanged` → `AddPassiveBuffs`·`ClearPassiveBuffs`) — 선과 상관없다. 두 클래스 모두 EN 클라에 있다(이 줄을 남긴 11-16 기록의 「CN 전용 저지 수 검사」는 틀림).
+- **어디**: `OnCharacterAttackRangeUpdate`의 그녀 공격 범위 윤곽(위 절 「가장자리 선」과 같은 `RangeLineEffectHandler`). 이동 뒤에는 고정된 원래 3-9 + 그녀 주변 8칸.
+- **구현**: 새 사건 없이 그녀가 이미 보내는 사건에 범위 칸을 싣는다 — S3 시작의 `takeoff`(엔진이 스킬 범위를 먼저 바꾼 뒤)와 S3 중 착지마다의 `aglnaFlight` 끄기에 `cells`(`kits/ops/op-aglna2.js edgeCells`). 렌더 `kitofficial.js AGLNA2_EDGE`가 `edge` 재생으로 그리고 `life: 'skill'`이라 스킬 끝에 끝난다(`fxgame.js edgeLines`의 `skill` — `stopBuffs`). 사건 수가 그대로라 전투 골든은 안 움직인다. 한계: 스킬 중 다른 까닭(사거리 증가 버프 등)으로 범위가 바뀌면 다음 착지까지 옛 윤곽이다(공식은 바뀔 때마다 고침) — 바뀔 때마다 보내려면 테리토리야처럼 사건이 따로 있어야 하고 그러면 골든의 사건 수가 움직인다. [추정·CN: 비행 중에도 선을 둠, 착지 때는 새 선 대신 옮김 — 그녀를 실어 나르고 도착 칸에 다시 세우는 이동 클래스 `MoveLikeRespawnByProjectileBehaviour`가 CN 전용이라 그 사이 능력이 떨어지는지 못 읽음]
+- 확인: `test/content/op_aglna2.test.js` 「S3 edge line」(시작·착지 사건의 칸 = 그녀 `rangeKeys`, S1·S2·복귀 착지엔 없음, 새 사건 없음), `test/render/aglna2-s3-edge.test.js`(계획·건식 층의 고리 수). 시작의 칸·착지의 렌더 호출을 하나씩 되돌려 실패를 봄. 전투 골든 그대로, 이펙트 골든 +2(이 선만). [화면 미확인: 선의 굵기·흐름, 아레나 2배속]
 
 ## 규정 기물의 이펙트 연결 (2026-11-10, 공식 클라에서 확인)
 

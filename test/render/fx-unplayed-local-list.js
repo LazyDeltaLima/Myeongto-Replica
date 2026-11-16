@@ -7,7 +7,6 @@
 // list both ways, so a new operator's unplayed rows have to be looked at. 'key|prefab' → status.
 
 export const UNPLAYED_LOCAL = Object.freeze({
-  "skchr_aglna2_3/Toggle/BlockToggle|aglna2_skill_03_range_line_01": "todo: S3 BlockToggle's edge line (_edgeLineRendererEffectKey)",
   "mlyss_wtrman_t_1[trigger]|token_10030_mlyss_wtrman_c0": "todo: 流形's Recharge look (c0) while it waits to stand up again (its mode 0's buff)",
   "mlyss_wtrman_t_1[listener]|token_10030_mlyss_wtrman_c1_to_c0": "todo: 流形 back to c0 as it falls (its form by mode)",
   "mlyss_wtrman_t_1[listener]|token_10030_mlyss_wtrman_c2_to_c0": "todo: 流形 back to c0 as it falls (its form by mode)",

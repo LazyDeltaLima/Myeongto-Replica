@@ -3216,7 +3216,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (!Number(o.on) && typeof o.dir === 'string') src?.setDir?.(o.dir);
         if (!b) return false;
         ownFx.add(e);
-        if (!Number(o.on)) return true;
+        // (2026-11-16) landed with S3 on: its edge line moves to her range there (render/fx/kitofficial.js AGLNA2_EDGE)
+        if (!Number(o.on)) { if (Array.isArray(o.cells)) officialKitFx(e, views); return true; }
         const rec = { off: false, lives: [] };
         aglFlights.set(o.id, rec);
         const side = Number(o.tx) < x ? 'left' : 'right';
@@ -3314,7 +3315,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const name = pickName(pb, p.n);
       if (!name) continue;
       if (p.cast) { casts.push(name); n++; continue; } // (2026-10-21) the operator's own cast effects, below
-      if (p.edge) { if (edgeLines(slot ?? `${opId}|edge`, pb.bundle, name, o[p.edge], opId)) n++; continue; } // (2026-11-10)
+      if (p.edge) { if (edgeLines(slot ?? `${opId}|edge`, pb.bundle, name, o[p.edge], opId, p.life === 'skill')) n++; continue; } // (2026-11-10)
       if (slot) {
         const s = slots.get(slot);
         // (2026-10-24, 묶음 S3) a slot play with seconds as `life` lasts that long from its latest play
@@ -3647,11 +3648,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * (FxInstance.setPath) `EDGE_Z` over the ground — `_lineOffsetToMapCenter` z −0.1 with `_heightOffset` 0.4 against the
    * default highland offset −0.4 (`get_defaultHighlandOffset`: −highlandHeight). A later call moves the loops it keeps, makes
    * the new ones and ends the rest (the client adds effects up to the loop count, finishes the extra ones, then sets every
-   * line). Held as the operator's (`onCaster`): they end as he leaves. false when there is nothing to draw.
+   * line). Held as the operator's (`onCaster`): they end as he leaves — and with `skill` (2026-11-16) as his skill ends
+   * (stopBuffs: 予愿安洁莉娜 S3's, its ability detached). false when there is nothing to draw.
    */
   const EDGE_Z = 0.1;
   const edgeSets = new Map();   // slot → { name, ls: [{ l, pts, done }] }
-  function edgeLines(slot, bundle, name, cells, opId) {
+  function edgeLines(slot, bundle, name, cells, opId, skill = false) {
     let rec = edgeSets.get(slot);
     if (rec && rec.name !== name) { for (const it of rec.ls) it.l?.inst.stop(); rec = null; }
     if (!rec) edgeSets.set(slot, (rec = { name, ls: [] }));
@@ -3665,7 +3667,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (it) { it.pts = pts; it.l?.inst.setPath?.(pts); keep.push(it); return; }
       const one = { l: null, pts, done: false };
       keep.push(one);
-      spawn(bundle, name, { x: pts[0].x, y: pts[0].y, z: 0 }, { owner: opId, buff: false, onCaster: true, until: null, tag: 'slot' }, { over: false }).then((l) => {
+      spawn(bundle, name, { x: pts[0].x, y: pts[0].y, z: 0 }, { owner: opId, buff: skill, onCaster: true, until: null, tag: 'slot' }, { over: false }).then((l) => {
         one.done = true;
         if (!l) return;
         if (edgeSets.get(slot) === rec && rec.ls.includes(one)) { one.l = l; l.inst.setPath?.(one.pts); } else l.inst.stop();

@@ -42,7 +42,8 @@ import { whenPlays } from './conds.js';
  * unit as any play, with `ready` a prefab played there once when the slot was empty.
  * 2026-11-10: `{ slot, off: true, now: true }` ends it at once (no fade). An `edge` play (the event's field naming tiles
  * [[x, y]…]) is its prefab's LineRenderers along each loop of those tiles' outline, one effect per loop, kept in its `slot`
- * and moved to the new outline by a later play (the official RangeLineEffectHandler), until the operator leaves.
+ * and moved to the new outline by a later play (the official RangeLineEffectHandler), until the operator leaves — with
+ * `life: 'skill'` (2026-11-16) also as the operator's skill ends.
  * 2026-10-23: `tpl` (a key the plan cites) in place of `n`: each prefab the key holds (tools/build-fx-plays.mjs `held`) plays
  * as this play for `life` (none given: the key's LIMITED seconds) — with life 'unit' its `end` prefab as `end` —, and each
  * prefab it creates once (`once`) for its own duration. A projectile's key (its `trail` / `reach` / `hit`): with `fly`, the
@@ -71,6 +72,15 @@ const EBNHLZ_MOUNTS = Object.freeze([5, 6, 8, 9]);
  */
 export const KIT_NO_STAND_IN = Object.freeze(new Set(['aglna2|takeoff', 'bgsnow|crit', 'chen3|teleport', 'haruka|heal', 'haruka|levitate', 'irene|slash', 'judge|crit',
   'kalts2|takeoff', 'lmlee|mark', 'mcnist|shield', 'oblvns|spGain', 'thorns|thorns']));
+
+// (2026-11-16, official client) 予愿安洁莉娜's S3 edge line: skchr_aglna2_3/Toggle/BlockToggle's RangeLineEffectEmitter
+// (`_edgeLineRendererEffectKey` aglna2_skill_03_range_line_01, `_heightOffset` 0.4, `_lineOffsetToMapCenter` as 테리토리야's)
+// shows on the ability's ON_ATTACHED and hides on its ON_DETACHED — the Toggle wrapper (ActiveAbilityWrapper `_isInfinity`)
+// attaches it as the skill starts and detaches it as it ends; the block toggle switches only its buffs. The sim sends her
+// range tiles `cells` on S3's 'takeoff' and on each landing while S3 runs ('aglnaFlight' off; kits op-aglna2.js edgeCells)
+// (her S1 / S2 takeoffs and S3's own carry no prefab at that moment, so no lift ring either: KIT_NO_STAND_IN 'aglna2|takeoff')
+const AGLNA2_EDGE = cite('skchr_aglna2_3/Toggle/BlockToggle', (o) => (Array.isArray(o.cells)
+  ? { play: [{ n: 'aglna2_skill_03_range_line_01', edge: 'cells', slot: 'aglna2Edge', life: 'skill' }] } : null));
 
 /**
  * event → operator bundle → (o, ctx) → { stop?: tag[], play: plays[], pass?: the event keeps its stand-in } | null.
@@ -396,9 +406,12 @@ export const KIT_OFFICIAL = {
   // ending with its clip Skill_Begin / Skill_2_Begin (1 s); the landing: fxmap.js SKILL_END_CAST
   // (2026-11-07) 云迹: the same modes and prefab names as 蒂比's
   takeoff: {
+    aglna2: AGLNA2_EDGE,
     tippi: cite(['char_4191_tippi/Modes/S1_TakeOff/Body/Attack', 'char_4191_tippi/Modes/S2_TakeOff/Body/Attack'], () => ({ play: [{ n: 'tippi_takeoff_F', on: 'op', life: 1 }] })),
     ctrail: cite(['char_4165_ctrail/Modes/S1_TakeOff/Body/Attack', 'char_4165_ctrail/Modes/S2_TakeOff/Body/Attack'], () => ({ play: [{ n: 'ctrail_takeoff_F', on: 'op', life: 1 }] })),
   },
+  // (2026-11-16) and 予愿安洁莉娜 S3's landing: her range where she landed (AGLNA2_EDGE)
+  aglnaFlight: { aglna2: AGLNA2_EDGE },
   // (2026-11-05) 风絮: the FlyStart / FlyEnd modes' cast effects (their attack ability's `_castEffects`), the 'skill' / 'atk' bindings
   // draw only the mode that attacks; S2's second heal (taraxa_s2[second_heal], projectile_chr_taraxa_s2_1 at speed 10)
   taraxaFly: { taraxa: cite(['char_4222_taraxa/Modes/S1_FlyStart/Body/Attack', 'char_4222_taraxa/Modes/S1_FlyEnd/Body/Attack'], (o) => ({ play: [{ n: o.up ? 'taraxa_land' : 'taraxa_takeoff', on: 'op', life: 1 }] })) },

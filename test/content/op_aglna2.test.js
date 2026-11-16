@@ -422,6 +422,38 @@ test('S3 move: blocking nothing, she flies (2.4 tiles/s, 无敌, disarmed, her b
   }
 });
 
+test('S3 edge line (skchr_aglna2_3/Toggle/BlockToggle RangeLineEffectEmitter, docs/rules/fx.md 「안젤리나 더 멜로우 위시 S3 가장자리 선」): her range tiles ride on S3\'s takeoff and on each landing while S3 runs — none on S1 / S2 take-offs or the landing home after the skill, and no fx event of their own', () => {
+  const cellsOf = (u) => [...u.rangeKeys].map((k) => `${k % COLS},${Math.floor(k / COLS)}`).sort();
+  const asSet = (cells) => cells.map(([x, y]) => `${x},${y}`).sort();
+  const { h, u } = field({ tier: 6, elite: true, skill: 2 });
+  u.skill.gainSp(999);
+  h.spawn('enemy_fly', { pos: [11, 7] });
+  assert.ok(h.runUntil(() => u.skill.active, 1), 'cast');
+  const off = h.eventsOf('fx').filter((e) => e[1] === 'takeoff' && e[4].id === u.id).pop();
+  assert.ok(Array.isArray(off?.[4].cells), 'S3\'s takeoff carries her range');
+  assert.deepEqual(asSet(off[4].cells), cellsOf(u), 'the 3-9 + the 8 around her');
+  assert.ok(h.runUntil(() => u.tileR === 11 && u.tileC === 7, 6), 'landed on the flyer\'s tile');
+  const land = h.eventsOf('fx').filter((e) => e[1] === 'aglnaFlight' && e[4].on === 0).pop();
+  assert.ok(Array.isArray(land?.[4].cells), 'the landing carries her range there');
+  assert.deepEqual(asSet(land[4].cells), cellsOf(u), 'the anchored 3-9 + the 8 around her new tile');
+  assert.ok(h.eventsOf('fx').filter((e) => e[1] === 'aglnaFlight' && e[4].on === 1).every((e) => !('cells' in e[4])), 'a take-off of the flight carries none');
+  u.skill.end('test');
+  assert.ok(h.runUntil(() => u.tileR === 10 && u.tileC === 4, 6), 'home');
+  const home = h.eventsOf('fx').filter((e) => e[1] === 'aglnaFlight' && e[4].on === 0).pop();
+  assert.ok(home !== land && !('cells' in home[4]), 'the landing home after the skill: the line ended with it');
+  assert.ok(!h.eventsOf('fx').some((e) => e[1] === 'field'), 'no event of its own (테리토리야\'s \'field\')');
+  done(h);
+  for (const skill of [0, 1]) {
+    const r = field({ tier: 6, elite: true, skill });
+    r.h.spawn('enemy_dummy', { pos: [10, 6] });
+    r.u.skill.gainSp(999);
+    r.h.run(3);
+    const t = r.h.eventsOf('fx').filter((e) => e[1] === 'takeoff' && e[4].id === r.u.id);
+    assert.ok(t.length > 0 && t.every((e) => !('cells' in e[4])), `S${skill + 1}'s takeoff carries no range`);
+    done(r.h);
+  }
+});
+
 test('S3 move: the flight follows a moving flyer — its tile is chosen again every 0.1 s — and lands where the flyer is', () => {
   const { h, u } = field({ tier: 6, elite: true, skill: 2 });
   u.skill.gainSp(999);

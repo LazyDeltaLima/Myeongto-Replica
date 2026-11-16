@@ -19,7 +19,6 @@ export const PICK_EVENTS = Object.freeze({
   'mitm|dp': "stand-in: the DP number the sim shows for every DP gain; mitm_s_1[cost]'s own common_charge_cost_start_01 is a skill buff row",
   'cqbw|summon': 'official: flushDeploys draws 此面向敌\'s `_startEffect` cqbw_skill_02_birth',
   'cqbw|buff': 'official: 设伏 is the kit buff cqbw_t_1[evade], the status path holds its cqbw_buff_01_start; no stand-in draws for an operator with official effects',
-  'aglna2|takeoff': "official: no prefab at this moment, so no lift ring either (KIT_NO_STAND_IN); her flight's effects are the skill's",
   'aglna2|dash': "official: fxgame.js 'dash' flies aglna2_skill_02_fly_trail_* over S2's chant and aglna2_skill_02_fly_range_01 / _end_*",
   'aglna2|summon': "official: flushDeploys draws her marker's own deploy; `src` keeps the stand-in off",
   'amgoat|explosion': "official: projectile_amgoat_s2's _effectsWhenReached amgoat_skill_02_range and _effectsWhenHit amgoat_skill_02_hit, on the shot",

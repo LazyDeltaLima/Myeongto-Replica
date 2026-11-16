@@ -67,7 +67,7 @@ import { absoluteRangeKeys, canTargetEnemy, sortEnemyTargets } from '../../../ta
 import { bodyInRange } from '../../../body.js';
 import { hasHp } from '../../../damage.js';
 import { RESIST_STATUSES } from '../../../buffs.js';
-import { TICK } from '../../../constants.js';
+import { TICK, COLS } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
 import { holdTakeOff, landAfter } from '../shared/liftoff.js';
 
@@ -107,10 +107,18 @@ const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 const skillOn = (unit, id) => !!(unit.skill && unit.skill.active && unit.skill.id === id);
 const keyOf = (r, c) => `${r},${c}`;
 
-function takeOff(battle, unit) {
+function takeOff(battle, unit, cells = null) {
   battle.releaseBlocked(unit);   // 起飞 "不阻挡地面敌人": the ground enemies she held walk on
-  battle.fx('takeoff', { x: unit.x, y: unit.y, id: unit.id });
+  battle.fx('takeoff', { x: unit.x, y: unit.y, id: unit.id, ...(cells ? { cells } : null) });
 }
+/**
+ * S3's edge line: skchr_aglna2_3/Toggle/BlockToggle (attached by the Toggle wrapper as the skill starts, detached as it
+ * ends) holds a RangeLineEffectEmitter, aglna2_skill_03_range_line_01 along the outline of her attack range — on from the
+ * ability's attach to its detach, the block toggle itself only switching its [blocked] / [unblocked] buffs (official
+ * client). Her range tiles [x, y] ride on S3's 'takeoff' and on each landing ('aglnaFlight' off), events she sends anyway
+ * (render/fx/kitofficial.js 'takeoff' / 'aglnaFlight'; the render ends the line with the skill).
+ */
+const edgeCells = (unit) => (unit.rangeKeys ?? []).map((k) => [k % COLS, Math.floor(k / COLS)]);
 function land(battle, unit) { battle.releaseBlocked(unit); }   // the flyers she held
 /**
  * Skill_1_End, Skill_2_End, Skill_3_End, Skill_3_Begin and Start_2 are all this long (data/assets.json `animations`; test/content/op_aglna2.test.js):
@@ -256,7 +264,9 @@ export default {
     function stopFlight(battle, unit) {
       flight = null;
       battle.removeBuff(unit, MOVE_KEY);
-      battle.fx('aglnaFlight', { x: unit.x, y: unit.y, id: unit.id, on: 0, dir: unit.dir });
+      // (S3 still on: her range where she landed — the edge line follows it, edgeCells)
+      const cells = skillOn(unit, S3) && unit.alive && unit.deployed ? edgeCells(unit) : null;
+      battle.fx('aglnaFlight', { x: unit.x, y: unit.y, id: unit.id, on: 0, dir: unit.dir, ...(cells ? { cells } : null) });
     }
     /** The deployment direction after a move (备注 "改变部署方向为与最近一次移动方向接近一致，不影响攻击范围"). */
     const travelDir = (f) => (Math.abs(f.vy) > Math.abs(f.vx) ? (f.vy > 0 ? 'UP' : 'DOWN') : (f.vx < 0 ? 'LEFT' : 'RIGHT'));
@@ -346,7 +356,7 @@ export default {
           targeting: s3Targeting,
           attack: { atkScale: num(b3['attack@atk_scale'], 1) },
           onStart({ battle, unit, skill }) {
-            takeOff(battle, unit);
+            takeOff(battle, unit, edgeCells(unit));   // (the skill's range is on: _applyMods came first)
             holdTakeOff(battle, unit, FLY_CLIP);   // S3_TakeOff: Skill_3_Begin
             // (a return flight still under way: she is put down where it was going at once)
             if (flight) { unit.x = flight.c; unit.y = flight.r; if (flight.home) arrive(battle, unit); else { stopFlight(battle, unit); snapBack(unit); } }
