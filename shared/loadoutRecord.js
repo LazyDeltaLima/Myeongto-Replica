@@ -125,7 +125,8 @@ export function loadoutRecord(rec0, lo) {
  * The attack range a (loadout-resolved) chess record fights with from its deployment — the detail card without a live
  * entry, the board's range overlay and the deploy wheel (DESIGN §16), the same tiles the battle unit starts with (prep
  * m.unitStats `range`): the selected skill's grid when it reads "被动效果：攻击范围扩大" (引星棘刺 S3 3-9: her own range
- * while she carries it, her kit); else a talent's own grid when it replaces the default range (`attackRange`, the
+ * while she carries it, her kit) or its prefab deploys the operator in one of its range modes (`passiveRange` either way,
+ * tools/build-data.mjs skillDeployRange: 云迹 S1 2-3, landed too, her kit's unit.rangeGrid); else a talent's own grid when it replaces the default range (`attackRange`, the
  * charpack's `_overrideDefaultRangeId`, tools/build-data.mjs baseTalentList: 霜叶's elite 掩护打击 3-1, her kit's
  * unit.rangeGrid); else an elite whose equipped module reads "攻击范围扩大" uses that module's own grid
  * — its range-only talent change (talentIndex −1), e.g. SPC-X = the 3×3 caster range + the centre tile [0,3] — as the

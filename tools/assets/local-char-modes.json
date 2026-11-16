@@ -533,6 +533,9 @@
     "target": [],
     "targetBuff": []
    }
+  ],
+  "rangeSkills": [
+   "skchr_aglna2_1"
   ]
  },
  "char_1016_agoat2": {
@@ -3691,6 +3694,9 @@
      "onProj": 0
     }
    }
+  ],
+  "rangeSkills": [
+   "skchr_thorn2_3"
   ]
  },
  "char_103_angel": {
@@ -14330,6 +14336,9 @@
     "target": [],
     "targetBuff": []
    }
+  ],
+  "rangeSkills": [
+   "skchr_demetr_3"
   ]
  },
  "char_4039_horn": {
@@ -19752,6 +19761,9 @@
     "target": [],
     "targetBuff": []
    }
+  ],
+  "rangeSkills": [
+   "skchr_ctrail_1"
   ]
  },
  "char_4166_varkis": {

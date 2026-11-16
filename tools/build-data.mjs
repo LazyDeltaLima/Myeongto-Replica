@@ -693,7 +693,8 @@ function buildSkill(ctx, skillId, level, trigger, label) {
     rangeGrid: rangeGrid(ctx, lv.rangeId),
     prefabId: lv.prefabId || skillId,
     trigger: trigger || { rule: 'DEFAULT', rawRule: 'DEFAULT', customRangeGrid: null },
-    // "被动效果：攻击范围扩大" as a flag (shared/loadoutRecord.js attackRangeGrid; the overlays translate `desc`)
+    // "被动效果：攻击范围扩大" as a flag (shared/loadoutRecord.js attackRangeGrid; the overlays translate `desc`); an
+    // operator's skill prefab sets it too (skillDeployRange)
     ...(/被动效果：攻击范围扩大/.test(desc) ? { passiveRange: true } : {}),
   };
 }
@@ -1062,6 +1063,7 @@ function buildChess(ctx) {
       if (skillOverload(ctx, s)) s.overload = 1;
       if (skillSilent(ctx, s)) s.charWord = false;
       if (skillRangeHidden(ctx, s)) s.showRange = false;
+      if (skillDeployRange(ctx, body, s)) s.passiveRange = true;
       s.overrideTokenKey = se.overrideTokenKey || null;
       skillRecs.push(s);
     });
@@ -1292,6 +1294,7 @@ function buildUnitForm(ctx, charId, status, { chessId = null, skillIndex = null 
     if (skillOverload(ctx, s)) s.overload = 1;
     if (skillSilent(ctx, s)) s.charWord = false;
     if (skillRangeHidden(ctx, s)) s.showRange = false;
+    if (skillDeployRange(ctx, charId, s)) s.passiveRange = true;
     s.overrideTokenKey = se.overrideTokenKey || null;
     skills.push(s);
   });
@@ -3062,6 +3065,18 @@ function skillSilent(ctx, s) {
 function skillRangeHidden(ctx, s) {
   const c = ctx.skillCast?.skills?.[s.prefabId] ?? ctx.skillCast?.skills?.[s.skillId];
   return c?.range === 0;
+}
+
+/**
+ * Whether the operator fights with a skill's own range from its deployment: the skill prefab deploys it in a mode of the
+ * skill's range modes (`_defaultModeIndex` is its `_rangeIdModeIndex` or in `_extraRangeIdModeIndices`:
+ * tools/assets/local-char-modes.json `rangeSkills`, tools/local-extract/char_modes.py range_skill_modes) and the skill has
+ * a rangeId → the skill record's `passiveRange` (shared/loadoutRecord.js attackRangeGrid: the prep card and board range).
+ * 云迹 S1 2-3 (her Default_S1 after landing too), 予愿安洁莉娜 S1 3-6 (S1_TakeOff), 引星棘刺 S3 3-9 (its text also says so).
+ */
+function skillDeployRange(ctx, charId, s) {
+  const keys = ctx.charModes?.[charId]?.rangeSkills;
+  return !!(s.rangeId && Array.isArray(keys) && keys.includes(s.prefabId));
 }
 
 /** The handbook's 「不停止移动」 attack (“十字路口”量产型's 四向攻击) → enemies.json `attackMoves`: it never stops to attack. */

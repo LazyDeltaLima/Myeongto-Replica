@@ -306,6 +306,23 @@ def skill_attack_modes(tree):
             if '/' not in gp and isinstance(d.get('_attackBlackboardModeIndex'), int) and d['_attackBlackboardModeIndex'] > 0}
 
 
+def range_skill_modes(tree):
+    """2026-11-16: {skill prefabId: the mode it deploys the operator in} for the skills whose own range is that mode's
+    range — the prefab root's `_defaultModeIndex` (≥ 0) is its `_rangeIdModeIndex` or one of its `_extraRangeIdModeIndices`
+    (Character.GetModeRangeId: a mode of the skill's range modes takes the skill table's rangeId). With such a skill the
+    operator fights with the skill's range from its deployment: 云迹 S1 (`_defaultModeIndex` 7 Default_S1, range modes
+    2 + [1, 3, 7]: 2-3 after she lands), 引星棘刺 S3 (1 in [1]). tools/build-data.mjs marks the skill record
+    `passiveRange` when it has a rangeId (shared/loadoutRecord.js attackRangeGrid, the prep card and board range)."""
+    out = {}
+    for gp, d, _pid in tree:
+        n = d.get('_defaultModeIndex')
+        if '/' in gp or not isinstance(n, int) or n < 0:
+            continue
+        if n == d.get('_rangeIdModeIndex') or n in (d.get('_extraRangeIdModeIndices') or []):
+            out[gp] = n
+    return out
+
+
 def skill_modes_of(modes, prefabs, switch, attack=None):
     """[mode index | None] per skill: its prefab's switch_mode value when that names a skill mode (`S…`); 莫斯提马
     [Default, S2] — S3 switches to mode 1, her S2 none. A mode named plain `Skill` has no skill number for the name rule, so its
@@ -1771,6 +1788,7 @@ def main():
     stree = skills_tree(a.client)
     switch = skill_switch_modes(stree)
     attack_modes = skill_attack_modes(stree)
+    range_modes = range_skill_modes(stree)
     templates = buff_templates(a.client)
     end = skill_end_modes(stree, templates)
     sk_fx = skill_effects(stree, projectiles)
@@ -1792,6 +1810,9 @@ def main():
             se = [end.get(pid) if isinstance(end.get(pid), int) and end[pid] < len(m['modes']) else None for pid in prefabs.get(cid) or []]
             if any(x is not None for x in se):
                 m['skillEnd'] = se
+            rs = [p for p in prefabs.get(cid) or [] if range_modes.get(p, len(m['modes'])) < len(m['modes'])]
+            if rs:
+                m['rangeSkills'] = rs
             # (with the mode the prefab's own switch_mode loads from its blackboard: skill_switch_modes)
             pids = prefabs.get(cid) or []
             sw = [sorted({*x, *([switch[p]] if isinstance(switch.get(p), int) and switch[p] > 0 else [])})

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { FLY_CLIP } from '../../server/sim/content/kits/ops/op-ctrail.js';
+import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
 
 const A = 'chess_char_2_11_a', B = 'chess_char_2_11_b';
 const FORMS = [A, B];
@@ -218,6 +219,24 @@ test('S1: no attack through the born state and the take-off clip; lands after it
     assert.equal(u.rangeKeys.length, r.rangeGrid.length, `${id}: the skill's range stays (Default_S1)`);
     near(u.s.dodgePhys, 0, `${id}: no dodge left`);
     done(h);
+  }
+});
+
+test('S1: the prep card and the board draw the range she fights with (skill passiveRange, attackRangeGrid)', () => {
+  const why = 'the skill prefab deploys her in a mode of its range modes (_defaultModeIndex 7 in _extraRangeIdModeIndices: '
+    + 'tools/assets/local-char-modes.json rangeSkills → build-data passiveRange) — docs/rules/diy.md 「새 시즌 아스테시아·콘트레일·에단」';
+  for (const id of FORMS) {
+    const c = ACT3.chess[id];
+    assert.equal(rec(id, S1).passiveRange, true, `${id}: S1 marked passiveRange: ${why}`);
+    assert.ok(!rec(id, S2).passiveRange, `${id}: S2 not marked (her default mode keeps the default range)`);
+    const card = (sk) => attackRangeGrid(loadoutRecord(c, resolveRecordLoadout(c, { skill: sk })));
+    const a = field(id, { skill: 0 }), b = field(id, { skill: 1 });
+    pastBorn(a.h, a.u); pastBorn(b.h, b.u);
+    assert.deepEqual(card(0), a.u.rangeGrid, `${id}: S1 card = battle range 2-3: ${why}`);
+    assert.deepEqual(card(0), rec(id, S1).rangeGrid, `${id}: S1 card = the skill's grid`);
+    assert.deepEqual(card(1), c.rangeGrid, `${id}: S2 card = the record range`);
+    assert.deepEqual(b.u.rangeGrid, c.rangeGrid, `${id}: S2 battle range = the record range`);
+    done(a.h); done(b.h);
   }
 });
 
