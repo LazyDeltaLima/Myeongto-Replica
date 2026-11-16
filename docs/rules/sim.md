@@ -274,7 +274,10 @@
 - 특수 형(2026-10-29 공식 클라에서 확인): GDGLOW_SKILL_2(9, 荒芜拉普兰德·纯烬艾雅法拉 S3) = `_GdglowSearchEnemy` → `UnitManager.enemyCnt > 0`
   — 필드에 적이 하나라도 있으면(선택 가능 여부·은신·공중 무관), 아군 갈래 없음(전에는 선택 가능한 적, 치유 스킬은 다친 아군). CUSTOM_RANGE_SEARCH_ENEMY(7)
   = `_TrySearchWithCustomRange_FindEnemy` → `act2autochess skillRangeDict`의 스킬 범위를 캐릭터 방향으로 돌린 상자 안 적(지상·공중, 같은 `mapLayer`) —
-  기존 구현 그대로, 사전에 없는 스킬은 효과 중이 아니면 바로 시전(데이터 10개는 모두 사전에 있음). `_FindAlly`(8)는 다치고 치유 가능한 아군 — 쓰는 행 없음.
+  기존 구현 그대로, 사전에 없는 스킬은 효과 중이 아니면 바로 시전(데이터 10개는 모두 사전에 있음). 「캐릭터 방향」은 배치 방향이다(2026-11-17, 공식 클라에서 확인):
+  상자는 `Entity.direction`(`m_direction`)으로 돌리는데, 오퍼레이터가 공격 대상·막은 적 쪽으로 몸을 돌리는 `Entity.FaceTo`는 `m_faceTo`만 바꾸고
+  `Character`는 `OnFaceChanged`로 몸 방향을 바꾸지 않는다(그렇게 하는 것은 `Enemy`). 막은 적을 따로 세는 갈래도 없다. 그래서 등 뒤 칸에서 막힌 적은
+  이 스킬을 켜지 않는다 — 지마 더 레이징 타이드 S3 「거침없는 기세」를 적이 오는 반대쪽으로 세우면 보스를 막고 있어도 안 켜지는 것은 공식과 같다(#16). `_FindAlly`(8)는 다치고 치유 가능한 아군 — 쓰는 행 없음.
   MLYSS_WTRMAN(3, 缪尔赛思 모든 스킬) = 본인은 `_DoDefaultCheck` 뒤 공격·저지 상태(`isInAttackState || isInCombatState`)면 시전 — 스킬 범위도 流形 범위도
   안 본다(전에는 流形 범위 안 적도 조건이던 추정). 유동체(流形, 토큰) 갈래는 다르다(2026-10-29 공식 클라에서 확인, 엔진 `content/tokens.js`
   유동체 스킬의 `autoTrigger` → `skills.js autoTrigger`): 스킬이 아직 안 켜졌으면 `_DoDefaultCheck` 뒤 조건 없이 `UseSkill`(SP가 차고 BORN이 끝난 첫 패스),
