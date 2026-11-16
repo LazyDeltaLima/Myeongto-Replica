@@ -39,9 +39,10 @@ const SKIP = new Set([OUT, 'local/fx/bindings.json']);
 // /assets/spine/skin/ with the repository's URL and hash, are listed, and what the local client extraction wrote for them
 // (tools/local-extract/skin_extract.py, local/spine/skin/<owner>/<prefab>/front|back|avatar|portrait/: kept for
 // comparison only, and left out of the deploy) is not. The 立绘 (illust/) and the indexes in local/spine/skin/ come from
-// this server.
+// this server. The skin effects (tools/local-extract/fx_extract.py --skin-effects, local/fx/skin/: their prefabs and the
+// textures / meshes only they use; maintainer decision 2026-11-17) are in the pack too, from this server.
 const SKIN_LOCAL = 'local/spine/skin/';
-const PACKS = { skin: ['/assets/spine/skin/', '/assets/' + SKIN_LOCAL] };
+const PACKS = { skin: ['/assets/spine/skin/', '/assets/' + SKIN_LOCAL, '/assets/local/fx/skin/'] };
 const SKIN_REMOTE = [SKIN_LOCAL + 'models.json', SKIN_LOCAL + 'art.json'];
 const isLocalSkinCopy = (rel) => rel.startsWith(SKIN_LOCAL) && /^[^/]+\/[^/]+\/(front|back|avatar|portrait)\//.test(rel.slice(SKIN_LOCAL.length));
 

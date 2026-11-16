@@ -25,6 +25,8 @@ Usage:
                          [--match REGEX] [--list] [--all-skins] [--prune]
     python fx_extract.py … --bundle wang_token --pack pkgrps/btl_pfb_fx_token_3.ab --match '^token_wang_'   (望's 棋子)
     python fx_extract.py … --equips --prefab uniequip_002_musha_02   (the modules' deploy effects, bundle uniequip, 2026-11-03)
+    python fx_extract.py --game <EN> --cab-index .cache/fx-cab-index.json --skin-effects [--shard K/N]   (2026-11-17: the
+                         skins' effects of fx/skin-effects.json into fx/skin/ — the skin data pack; after N shards --skin-finish)
     python fx_extract.py … --coverage .cache/fx-coverage.json [--bundle chen3]   (what the pipeline leaves out, fx_coverage.py)
                          [--other-game <CN Arknights_Data> --other-cab-index .cache/fx-cab-index-cn.json] [--index enemy-index.json]
 A prefab picked by --prefab / --match brings the prefabs of its bundle it creates by name (OnPlayEmitter, SwitchableBackEffect …).
@@ -33,6 +35,7 @@ the parts of its prefabs the pipeline leaves out (fx_coverage.py): `NOT HANDLED`
 Needs UnityPy + lz4 (requirements.txt); LZ4AK bundles are decoded by aklz4.py.
 """
 import argparse
+import contextlib
 import json
 import math
 import os
@@ -89,6 +92,43 @@ def file_name(name):
         raise SystemExit(f'fx_extract: no file name rule for {name!r} (`#` becomes `-`; `?` `%` `\\` `/` and control '
                          'characters are refused; docs/rules/fx.md 「텍스처·메시 파일 이름」)')
     return name.replace('#', '-')
+
+
+# 2026-11-17 (maintainer decision: the skin effects' files belong to the skin data pack): the skin effects a skin model's
+# CharacterSkinHooker names (skin-effects.json, --skin-pairs) are written under OUT/skin/ — <bundle>/<file_name>.json, the
+# index.json of those prefabs, and the textures / meshes only they use in tex/ and mesh/ (tex/wrap.json for theirs). A
+# texture or mesh a default effect uses too stays in the shared OUT/tex/ and OUT/mesh/ (shared_file); place_skin_files moves
+# a file between the two when that changes. tools/build-browser-resources.mjs puts OUT/skin/ in the skin pack. The folder is
+# apart from the default bundles' folders: run's clean-up of the variant names (VARIANT_RE) and the index's `bundles`,
+# which render/fxmap.js effectGroups groups by name, never see it (docs/rules/render.md 「스킨 모델 소재」).
+SKIN_DIR = 'skin'
+
+
+def shared_file(out, kind, name):
+    """Whether a skin effect's texture / mesh file (`kind` tex | mesh) is one the shared folder already has: written
+    there by a default effect, it is not written again under the skin folder."""
+    return out != OUT and (OUT / kind / name).exists()
+
+
+def prefab_file(out, bundle, name):
+    """The JSON file of an extracted prefab: <out>/<bundle>/<name>.json; under the skin folder through file_name (a
+    skin effect's name carries `#`: skadi2_skill_01_hit_boc#4)."""
+    return out / bundle / ((name if out == OUT else file_name(name)) + '.json')
+
+
+@contextlib.contextmanager
+def locked(name='fx-extract'):
+    """An exclusive lock (.cache/<name>.lock) around a read-modify-write of a shared index, so --skin-effects --shard
+    processes running at once do not drop each other's rows."""
+    import fcntl
+    p = ROOT / '.cache' / f'{name}.lock'
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, 'w') as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 # local patch: prefabs never extracted — common_stealth (texture common_leaf; only the 生息演算 buildings use it, and the maintainer has
@@ -825,7 +865,7 @@ def set_emitted(index, bundle, out=OUT):
     listed = set(index['bundles'].get(bundle, []))
     names = set()
     for n in listed:
-        f = out / bundle / f'{n}.json'
+        f = prefab_file(out, bundle, n)
         if not f.exists():
             continue
         names.update(prefab_links(json.loads(f.read_text())) & listed)
@@ -1041,7 +1081,8 @@ class Extractor:
         name = self.claim(key, file_name(key) + ('.png' if self.png else '.webp'))
         self.wraps[name] = tex_wrap(obj.read())
         p = out / 'tex' / name
-        if not p.exists() and not self.dry:
+        # (2026-11-17) a skin effect (`out` the skin folder) leaves a texture the default effects have in the shared tex/
+        if not p.exists() and not self.dry and not shared_file(out, 'tex', name):
             p.parent.mkdir(parents=True, exist_ok=True)
             try:
                 img = obj.read().image
@@ -1098,7 +1139,7 @@ class Extractor:
         p = out / 'mesh' / (key + '.json')
         p.parent.mkdir(parents=True, exist_ok=True)
         # 2026-10-10: the same key is the same mesh — a shared file is never rewritten (2026-10-26: but once for its `sub`)
-        if not self.dry and (not p.exists() or ('sub' in data and '"sub"' not in p.read_text())):
+        if not self.dry and not shared_file(out, 'mesh', key + '.json') and (not p.exists() or ('sub' in data and '"sub"' not in p.read_text())):
             p.write_text(json.dumps(data, separators=(',', ':')))
         self.meshes[src] = key
         return key
@@ -3578,17 +3619,22 @@ class Extractor:
             out[go.m_Name] = effects
         return out
 
-    def run(self, bundle, prefabs=None, all_skins=False, match=None, list_only=False, pack=None, index='index.json', write=True):
+    def run(self, bundle, prefabs=None, all_skins=False, match=None, list_only=False, pack=None, index='index.json', write=True,
+            out=None):
         # pack: a shared battle pack instead (e.g. pkgrps/btl_pfb_fx_token_3.ab, the summons' effects), its roots written
         # as `bundle` — pick them with --match / --prefab. `prefabs` match without case (the enemy
         # prefabs name `…_B_hit_01`, the bundles' roots / containers may differ in case). `index`: the index file the bundle's
         # list goes to (enemy_bindings.py: enemy-index.json — the operators' index.json stays as it is), with where each
         # written prefab was read from (`sources`, 2026-10-21). `write` False (--coverage, 2026-10-16): walk the prefabs for
-        # the coverage report only, nothing written. Returns the names walked
+        # the coverage report only, nothing written. `out` (2026-11-17): the folder written to, OUT/skin for the skin
+        # effects (SKIN_DIR: their file names through file_name, the shared textures / meshes left where they are). Returns
+        # the names walked
+        out = out or OUT
+        if out == OUT and bundle == SKIN_DIR:
+            raise SystemExit(f'fx_extract: an effect bundle may not be named {SKIN_DIR!r} (the skin effects\' folder)')
         want = {p.lower() for p in prefabs} if prefabs else None
         rel = pack or f'battle/prefabs/effects/{bundle}.ab'
         env = self.load(rel)
-        out = OUT
         main_file = None
         for f in env.files.values():
             # the first match: a dependency may share the name (battle/[pack]common.ab pulls in another [pack]common.ab)
@@ -3646,32 +3692,35 @@ class Extractor:
             if not write:
                 # (2026-10-16) the file on disk against what this extractor writes now: an extractor fix that only some
                 # bundles were re-extracted with (the built-in Quad, 2026-10-08) leaves the others drawing less
-                f = out / bundle / f'{name}.json'
+                f = prefab_file(out, bundle, name)
                 if f.exists():
                     # every path (2026-10-21): json_diff's default cap of 20, taken before the materials were folded
                     # into `materials.*`, hid the later differences of a prefab with many materials
                     for path in json_diff(json.loads(f.read_text()), json.loads(json.dumps(data, ensure_ascii=False)), limit=10 ** 6):
                         self.cov.stale(re.sub(r'^materials\.[^.]+', 'materials.*', path))
                 continue
-            (out / bundle / f'{name}.json').write_text(json.dumps(data, separators=(',', ':'), ensure_ascii=False))
+            f = prefab_file(out, bundle, name)
+            self.claim(f'{bundle}/{name}', f'{bundle}/{f.name}')   # `a#1` and `a-1` would be one file
+            f.write_text(json.dumps(data, separators=(',', ':'), ensure_ascii=False))
         if not write:
             print(f'[fx] {bundle}: {len(written)} prefab(s) checked')
             return written
-        index_p = out / index
-        index = json.loads(index_p.read_text()) if index_p.exists() else {'bundles': {}}
         if list_only:
             print(f'[fx] {bundle}: ' + ' '.join(sorted(written)))
             return written
-        keep = set(index['bundles'].get(bundle, [])) | set(written)
-        if not all_skins:
-            keep = {n for n in keep if not VARIANT_RE.search(n)}
-            for f in (out / bundle).glob('*.json'):
-                if VARIANT_RE.search(f.stem):
-                    f.unlink()
-        index['bundles'][bundle] = sorted(keep)
-        set_sources(index, bundle, sorted(keep), set(written), {'pack': rel, 'client': self.client})
-        set_emitted(index, bundle, out)
-        index_p.write_text(json.dumps(index, ensure_ascii=False, indent=1))
+        with locked():   # (2026-11-17) --skin-effects --shard processes share the skin index
+            index_p = out / index
+            index = json.loads(index_p.read_text()) if index_p.exists() else {'bundles': {}}
+            keep = set(index['bundles'].get(bundle, [])) | set(written)
+            if not all_skins:
+                keep = {n for n in keep if not VARIANT_RE.search(n)}
+                for f in (out / bundle).glob('*.json'):
+                    if VARIANT_RE.search(f.stem):
+                        f.unlink()
+            index['bundles'][bundle] = sorted(keep)
+            set_sources(index, bundle, sorted(keep), set(written), {'pack': rel, 'client': self.client})
+            set_emitted(index, bundle, out)
+            index_p.write_text(json.dumps(index, ensure_ascii=False, indent=1))
         print(f'[fx] {bundle}: {len(written)} prefab(s), {len(self.textures)} texture(s), {len(self.meshes)} mesh(es) -> {out}')
         return written
 
@@ -3716,18 +3765,205 @@ def write_skin_hooks(games, owners=None):
     """Write OUT/skin-effects.json { skins: { skin key: { owner, effects?, projectiles? } } } for the skin models of
     public/assets/local/spine/skin/skins.json (skin_extract.py), read from the client each model came from (`games`:
     { 'en' | 'cn': Arknights_Data }); `owners`: only theirs, the other rows kept. Returns the row count, None without
-    skins.json. The replacing effects' own prefabs are not extracted here yet (the default skin's only, VARIANT_RE)."""
+    skins.json. The replacing effects' own prefabs are extracted by --skin-effects (extract_skin_effects), which adds the
+    other keys of the file; they are kept here (rerun --skin-effects after the pairs change)."""
     from char_points import skin_list, skin_prefabs
     skins = skin_list()
     if skins is None:
         return None
     path = OUT / SKIN_HOOKS
-    old = (json.loads(path.read_text(encoding='utf-8')).get('skins') or {}) if owners and path.exists() else {}
+    doc = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+    old = doc.get('skins') or {} if owners else {}
     rows = {k: v for k, v in old.items() if k in skins and skins[k]['owner'] not in owners} if owners else {}
     for key, e, _, _, tree in skin_prefabs(skins, games, owners):
         rows[key] = {'owner': e['owner'], **skin_hook(tree)}
-    path.write_text(json.dumps({'skins': dict(sorted(rows.items()))}, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+    doc['skins'] = dict(sorted(rows.items()))
+    write_skin_doc(doc)
     return len(rows)
+
+
+def write_skin_doc(doc):
+    """Write OUT/skin-effects.json: `skins` first, then the keys --skin-effects adds."""
+    doc = {'skins': doc.get('skins') or {}, **{k: v for k, v in doc.items() if k != 'skins'}}
+    (OUT / SKIN_HOOKS).write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+
+
+# ---------------------------------------------------------------- the skin effects' prefabs (2026-11-17)
+
+TOKEN_PACKS = 'pkgrps/btl_pfb_fx_token_*.ab'   # the summons' effect packs, where the skins of summons keep theirs
+
+
+def prefab_names(game, client):
+    """{prefab name in lower case: pack} of a client's effect bundles (battle/prefabs/effects/*.ab, then the summons' packs
+    TOKEN_PACKS), from their containers, a bundle of PersistentData before StreamingAssets'; the first pack that has a name
+    keeps it. A skin effect is in its owner's bundle beside the default ones (skadi2.ab: skadi2_skill_01_hit_boc#4), a
+    summon's in a token pack. Kept per pack with its size and mtime in .cache/fx-prefab-names-<client>.json: a run rereads
+    only the packs that changed (the first reads ~550 bundles over the Windows drive, about 6 minutes per client)."""
+    import UnityPy
+    import aklz4  # noqa: F401
+    cache_p = ROOT / '.cache' / f'fx-prefab-names-{client}.json'
+    cache = json.loads(cache_p.read_text()) if cache_p.exists() else {}
+    fresh, names, seen = {}, {}, set()
+    for pattern in ('battle/prefabs/effects/*.ab', TOKEN_PACKS):
+        for d in BUNDLE_DIRS:
+            for f in sorted((Path(game) / d).glob(pattern)):
+                rel = f.relative_to(Path(game) / d).as_posix()
+                if rel in seen:
+                    continue
+                seen.add(rel)
+                st = f.stat()
+                key = f'{d}/{rel}'
+                c = cache.get(key)
+                if not (c and c[0] == st.st_size and c[1] == st.st_mtime_ns):
+                    try:
+                        env = UnityPy.load(str(f))
+                        found = sorted({k.rsplit('/', 1)[-1][:-7].lower() for k in env.container.keys() if k.endswith('.prefab')})
+                    except Exception as ex:   # a broken bundle: its names are not found (reported as missing)
+                        print(f'[fx] skin effects: {f}: {ex}', file=sys.stderr)
+                        found = []
+                    c = [st.st_size, st.st_mtime_ns, found]
+                fresh[key] = c
+                for n in c[2]:
+                    names.setdefault(n, rel)
+    cache_p.parent.mkdir(parents=True, exist_ok=True)
+    cache_p.write_text(json.dumps(fresh))
+    return names
+
+
+def skin_effect_plan(rows, skins, names, carriers):
+    """What --skin-effects extracts, from skin-effects.json's `rows` (skin key: { effects?, projectiles? }), skins.json's
+    `skins` (the client each model came from), `names` ({client: prefab_names}) and `carriers` ({client:
+    projectile_carriers}). A skin's effect (each `effects` value) and the prefab its drawn projectile carries (each
+    `projectiles[].graphic`'s `_mainEffect`) are read from the client the skin's model came from, else the other one.
+    Returns { jobs: {(client, pack): [names, lower case]}, proj: {graphic key: [prefab names, lower case]}, missing:
+    { effects: [name], projectiles: [graphic key] } } — a missing effect is in no pack of either client, a missing
+    projectile has no `_mainEffect` (a line, or a `_playSpecialEffectOnFirstOne` one)."""
+    order = lambda c: [c] + [o for o in sorted(names) if o != c]   # noqa: E731
+    keyed = {}
+    for c, car in carriers.items():
+        per = keyed.setdefault(c, {})
+        for main, keys in car.items():
+            for k in keys:
+                per.setdefault(k.lower(), set()).add(main.lower())
+    want, proj, miss_p = {}, {}, set()
+    for key in sorted(rows):
+        c = (skins.get(key) or {}).get('client') or 'en'
+        for t in sorted((rows[key].get('effects') or {}).values()):
+            want.setdefault(t.lower(), c)
+        for p in rows[key].get('projectiles') or []:
+            g = p.get('graphic')
+            if not g:
+                continue
+            mains = next((keyed[o][g.lower()] for o in order(c) if g.lower() in keyed.get(o, {})), None)
+            if not mains:
+                miss_p.add(g)
+                continue
+            proj[g] = sorted(mains)
+            for m in mains:
+                want.setdefault(m, c)
+    jobs, miss_e = {}, []
+    for n, c in sorted(want.items()):
+        at = next(((o, names[o][n]) for o in order(c) if n in names.get(o, {})), None)
+        if at is None:
+            miss_e.append(n)
+        else:
+            jobs.setdefault(at, []).append(n)
+    return {'jobs': dict(sorted(jobs.items())), 'proj': dict(sorted(proj.items())),
+            'missing': {'effects': miss_e, 'projectiles': sorted(miss_p)}}
+
+
+def skin_bundle(pack):
+    """The folder under OUT/skin of a pack's skin effects: the bundle's own name (skadi2), a summons' pack by its file
+    (btl_pfb_fx_token_0)."""
+    return Path(pack).stem
+
+
+def load_skin_plan(games):
+    """skin_effect_plan of this machine's files: skin-effects.json, skins.json and both clients' packs (`games`)."""
+    from char_points import skin_list
+    skins = skin_list()
+    hooks = OUT / SKIN_HOOKS
+    if skins is None or not hooks.exists():
+        raise SystemExit('fx_extract --skin-effects: needs spine/skin/skins.json (skin_extract.py) and fx/skin-effects.json (--skin-pairs)')
+    rows = json.loads(hooks.read_text(encoding='utf-8')).get('skins') or {}
+    names = {c: prefab_names(g, c) for c, g in games.items()}
+    carriers = {c: projectile_carriers(g) for c, g in games.items()}
+    return skin_effect_plan(rows, skins, names, carriers)
+
+
+def extract_skin_effects(games, cab_indexes, shard=None, png=False):
+    """--skin-effects: extract every prefab skin_effect_plan names into OUT/skin/<skin_bundle>/ (each with the prefabs it
+    creates by name, as a --prefab run does), then finish_skin_effects. `shard` (k, n): only the k-th of n parts of the
+    packs, without the finish — n processes at once, then one --skin-finish (a single process takes about 70 minutes)."""
+    plan = load_skin_plan(games)
+    jobs = list(plan['jobs'].items())
+    if shard:
+        k, n = shard
+        jobs = [j for i, j in enumerate(sorted(jobs, key=lambda j: (-len(j[1]), j[0]))) if i % n == k]
+    exs = {}
+    for c, g in games.items():
+        if any(cc == c for (cc, _), _ in jobs):
+            exs[c] = Extractor(g, cab_indexes.get(c), png=png, client=c)
+    cov = next(iter(exs.values())).cov if exs else None
+    for e in exs.values():
+        e.cov = cov
+    out = OUT / SKIN_DIR
+    lost = []
+    for i, ((c, pack), ns) in enumerate(jobs):
+        got = exs[c].run(skin_bundle(pack), set(ns), all_skins=True, pack=pack, out=out)
+        found = {g.lower() for g in got}
+        lost += [f'{c} {pack}: {n}' for n in ns if n not in found]
+        print(f'[fx] skin effects: {i + 1}/{len(jobs)} {c} {pack} {len(ns)} -> {len(got)}', flush=True)
+    with locked():
+        for e in exs.values():
+            merge_wraps({n: w for n, w in e.wraps.items() if (out / 'tex' / n).exists()}, out=out)
+    if cov:
+        print('\n'.join(cov.summary()))
+    if lost:   # listed in the container but no root of that name: said, not fatal
+        print(f'[fx] skin effects: {len(lost)} name(s) not found as a root: ' + ', '.join(lost[:20]), file=sys.stderr)
+    if not shard:
+        finish_skin_effects(plan)
+
+
+def finish_skin_effects(plan):
+    """Place the skin effects' textures / meshes (place_skin_files) and write into skin-effects.json, for the renderer:
+    `files` { prefab name: its file under OUT (skin/<bundle>/<file_name>.json) } — every extracted skin effect, and the
+    effects' names as the skin rows write them when the case differs —, `projectileEffects` { graphic key: [prefab
+    names] } (the prefabs a skin's drawn projectile carries) and `missing` (skin_effect_plan). The skin index
+    (OUT/skin/index.json) gets `tex` / `mesh`: the files of OUT/skin/tex/ and mesh/ (a texture or mesh a skin effect
+    names that is not listed there is in the shared OUT/tex/ or OUT/mesh/)."""
+    with locked():
+        moved, gone = place_skin_files()
+        index_p = OUT / SKIN_DIR / 'index.json'
+        index = json.loads(index_p.read_text()) if index_p.exists() else {'bundles': {}}
+        files, lower, official = {}, {}, {}
+        for b, ns in sorted(index['bundles'].items()):
+            for n in ns:
+                path = prefab_file(OUT / SKIN_DIR, b, n).relative_to(OUT).as_posix()
+                if lower.setdefault(n.lower(), path) != path:
+                    raise SystemExit(f'fx_extract --skin-effects: {n} is extracted twice ({lower[n.lower()]}, {path})')
+                files[n] = path
+                official[n.lower()] = n
+        doc = json.loads((OUT / SKIN_HOOKS).read_text(encoding='utf-8'))
+        for row in (doc.get('skins') or {}).values():
+            for t in (row.get('effects') or {}).values():
+                if t not in files and t.lower() in lower:
+                    files[t] = lower[t.lower()]
+        doc['files'] = dict(sorted(files.items()))
+        doc['projectileEffects'] = {g: [official.get(m, m) for m in ms] for g, ms in plan['proj'].items()}
+        doc['missing'] = plan['missing']
+        write_skin_doc(doc)
+        sk = OUT / SKIN_DIR
+        index['tex'] = sorted(f.name for f in (sk / 'tex').glob('*') if f.suffix in ('.webp', '.png'))
+        index['mesh'] = sorted(f.stem for f in (sk / 'mesh').glob('*.json'))
+        index_p.parent.mkdir(parents=True, exist_ok=True)
+        index_p.write_text(json.dumps(index, ensure_ascii=False, indent=1))
+    lack = [n for n in (t.lower() for row in (doc.get('skins') or {}).values() for t in (row.get('effects') or {}).values())
+            if n not in lower and n not in plan['missing']['effects']]
+    print(f"[fx] skin effects: {len(files)} file(s) listed, {len(index['tex'])} texture(s) and {len(index['mesh'])} mesh(es) "
+          f"of their own, {moved} moved / {gone} deleted by place_skin_files; missing {len(plan['missing']['effects'])} "
+          f"effect(s), {len(plan['missing']['projectiles'])} projectile(s); {len(set(lack))} paired effect(s) not extracted")
+    return files
 
 
 def main():
@@ -3794,7 +4030,32 @@ def main():
                     'projectile replacements (its prefab\'s CharacterSkinHooker, skin_hooks), --game the EN client, '
                     '--other-game the CN one (default: client_path.py); --id-owner limits it to some owners')
     ap.add_argument('--id-owner', action='append', default=[], metavar='OWNER', help='--skin-pairs: only these owners, the other rows kept')
+    ap.add_argument('--skin-effects', action='store_true', help='extract the skin effects fx/skin-effects.json names (the '
+                    'skins\' effects and the prefabs their drawn projectiles carry) into fx/skin/ (the skin data pack; '
+                    '2026-11-17): --game the EN client with --cab-index, --other-game / --other-cab-index the CN one '
+                    '(default: client_path.py, .cache/fx-cab-index-cn.json)')
+    ap.add_argument('--shard', metavar='K/N', help='--skin-effects: only the K-th (0-based) of N parts, no finish — run N '
+                    'processes at once, then --skin-finish')
+    ap.add_argument('--skin-finish', action='store_true', help='--skin-effects\' last step only: place the skin textures / '
+                    'meshes and write the `files` / `projectileEffects` / `missing` of fx/skin-effects.json')
     a = ap.parse_args()
+    if a.skin_effects or a.skin_finish:
+        from client_path import client_data_cn
+        games = {'en': a.game}
+        cn = a.other_game or client_data_cn()
+        if cn and Path(cn).exists():
+            games['cn'] = cn
+        cabs = {'en': a.cab_index, 'cn': a.other_cab_index or str(ROOT / '.cache' / 'fx-cab-index-cn.json')}
+        if a.skin_finish:
+            finish_skin_effects(load_skin_plan(games))
+            return
+        shard = tuple(int(x) for x in a.shard.split('/')) if a.shard else None
+        if shard and not (len(shard) == 2 and 0 <= shard[0] < shard[1]):
+            raise SystemExit(f'--shard {a.shard}: K/N with 0 <= K < N')
+        if not a.cab_index:
+            raise SystemExit('--skin-effects needs --cab-index (the EN client\'s)')
+        extract_skin_effects(games, cabs, shard, png=a.png)
+        return
     if a.skin_pairs:
         from client_path import client_data_cn
         n = write_skin_hooks({'en': a.game, 'cn': a.other_game or client_data_cn()}, set(a.id_owner) or None)
@@ -3941,12 +4202,11 @@ def coverage_walk(ex, a):
             ex.cov.unwalked(f'not in {client} {pack}', sorted(f'{b}/{n}' for n in miss if n not in skin))
 
 
-def prune(out):
-    """Delete tex/*.png|webp and mesh/*.json that no effect JSON under `out` references.
-
-    A reference is any `img` (a texture file) and any `mesh` / `meshes` (a mesh key) anywhere in the effect JSON. (2026-11-15:
-    reading them at fixed places only — material textures, a particle renderer's meshes, a node's mesh — missed a
-    SkinnedMeshRenderer's `skin.mesh` and a particle shape's mesh, and one --prune deleted 44 files 47 effects still drew.)"""
+def effect_refs(files):
+    """(tex, mesh): the texture files and mesh files (`<key>.json`) the effect JSON `files` reference — any `img` and any
+    `mesh` / `meshes` anywhere in them. (2026-11-15: reading them at fixed places only — material textures, a particle
+    renderer's meshes, a node's mesh — missed a SkinnedMeshRenderer's `skin.mesh` and a particle shape's mesh, and one
+    --prune deleted 44 files 47 effects still drew.)"""
     tex, mesh = set(), set()
 
     def walk(o):
@@ -3966,17 +4226,59 @@ def prune(out):
             for v in o:
                 walk(v)
 
-    for f in out.glob('*/*.json'):
+    for f in files:
         walk(json.loads(f.read_text()))
-    gone = 0
-    for f in [*(out / 'tex').glob('*.png'), *(out / 'tex').glob('*.webp')]:
-        if f.name not in tex:
-            f.unlink(); gone += 1
-    for f in (out / 'mesh').glob('*.json'):
-        if f.name not in mesh:
-            f.unlink(); gone += 1
-    print(f'[fx] pruned {gone} unreferenced file(s)')
+    return tex, mesh
 
+
+def place_skin_files(out=None, prune_shared=False):
+    """(2026-11-17) Keep the skin folder's rule over the textures and meshes (SKIN_DIR): a file a default effect (OUT/<bundle>/)
+    references is in the shared tex/ or mesh/, a file only skin effects (OUT/skin/<bundle>/) reference is under skin/ —
+    a file is moved when that changed (a default effect now uses a skin texture, or no longer uses one a skin effect
+    does), with its tex/wrap.json entry. A skin file nothing references is deleted, a shared one only with `prune_shared`
+    (--prune). Returns (moved, deleted)."""
+    out = out or OUT
+    sk = out / SKIN_DIR
+    dtex, dmesh = effect_refs(f for f in out.glob('*/*.json') if f.parent.name != SKIN_DIR)
+    stex, smesh = effect_refs(sk.glob('*/*.json'))
+    wraps = {d: json.loads((d / WRAP_FILE).read_text()) if (d / WRAP_FILE).exists() else {} for d in (out, sk)}
+    moved = gone = 0
+    for kind, dref, sref, pats in (('tex', dtex, stex, ('*.png', '*.webp')), ('mesh', dmesh, smesh, ('*.json',))):
+        for here, there in ((out, sk), (sk, out)):
+            for f in [x for pat in pats for x in (here / kind).glob(pat)]:
+                belongs = out if f.name in dref else sk if f.name in sref else None   # a default effect's: shared
+                if belongs == here:
+                    continue
+                if belongs == there:   # moved there (a copy it already has wins)
+                    dest = there / kind / f.name
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    if dest.exists():
+                        f.unlink()
+                    else:
+                        f.rename(dest)
+                    if kind == 'tex' and f.name in wraps[here]:
+                        wraps[there][f.name] = wraps[here].pop(f.name)
+                    moved += 1
+                elif here == sk or prune_shared:
+                    f.unlink()
+                    if kind == 'tex':
+                        wraps[here].pop(f.name, None)
+                    gone += 1
+    for d, w in wraps.items():
+        p = d / WRAP_FILE
+        if p.exists() or w:
+            new = json.dumps(dict(sorted(w.items())), indent=0)
+            if not p.exists() or p.read_text() != new:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(new)
+    return moved, gone
+
+
+def prune(out):
+    """Delete tex/*.png|webp and mesh/*.json that no effect JSON under `out` references, and keep the skin folder's files
+    where they belong (place_skin_files)."""
+    moved, gone = place_skin_files(out, prune_shared=True)
+    print(f'[fx] pruned {gone} unreferenced file(s), moved {moved} between the shared and the skin folder')
 
 if __name__ == '__main__':
     main()

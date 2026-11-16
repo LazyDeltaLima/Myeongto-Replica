@@ -101,3 +101,99 @@ describe('every skin model has its own keys, points and effect pairs (the extrac
     assert.equal(effects['char_1012_skadi2@boc#4']?.effects?.skadi2_skill_01_hit, 'skadi2_skill_01_hit_boc#4');
   });
 });
+
+// The skin effects' own prefabs (fx_extract.py --skin-effects, maintainer decision 2026-11-17: the skin data pack holds
+// them). They live under fx/skin/ — apart from the default bundles' folders, whose clean-up deletes the variant names and
+// whose index render/fxmap.js groups by name — with the textures / meshes only they use; what a default effect uses too
+// stays in the shared fx/tex/ and fx/mesh/.
+const SKIN_FX = 'docs/rules/render.md 「스킨 모델 소재」 — 「스킨 이펙트 프리팹」';
+
+describe('fx_extract.py --skin-effects: where the skin effects go (no UnityPy needed)', { skip: !PY && 'no python3' }, () => {
+  test('skin_effect_plan: each effect from the client of its skin\'s model, else the other; drawn projectiles by their _mainEffect', () => {
+    const got = py(`import fx_extract as f
+rows = {'a@x#1': {'effects': {'a_hit': 'a_hit_x#1', 'common_char_birth_01': 'a_birth_x#1'}, 'projectiles': [{'from': 'p', 'graphic': 'P_x#1'}, {'from': 'q', 'graphic': 'q_line_x#1'}]},
+        'b@y#2': {'effects': {'b_hit': 'b_hit_y#2', 'b_gone': 'b_gone_y#2'}}}
+skins = {'a@x#1': {'client': 'en'}, 'b@y#2': {'client': 'cn'}}
+names = {'en': {'a_hit_x#1': 'battle/prefabs/effects/a.ab', 'a_birth_x#1': 'battle/prefabs/effects/a.ab', 'b_hit_y#2': 'battle/prefabs/effects/b.ab', 'p_fly_x#1': 'pkgrps/btl_pfb_fx_token_1.ab'},
+         'cn': {'b_hit_y#2': 'battle/prefabs/effects/b.ab'}}
+carriers = {'en': {'p_fly_x#1': {'p_x#1': True}}, 'cn': {}}
+p = f.skin_effect_plan(rows, skins, names, carriers)
+print(json.dumps({'jobs': {'|'.join(k): v for k, v in p['jobs'].items()}, 'proj': p['proj'], 'missing': p['missing']}))`);
+    assert.deepEqual(got, {
+      jobs: { 'cn|battle/prefabs/effects/b.ab': ['b_hit_y#2'], 'en|battle/prefabs/effects/a.ab': ['a_birth_x#1', 'a_hit_x#1'], 'en|pkgrps/btl_pfb_fx_token_1.ab': ['p_fly_x#1'] },
+      proj: { 'P_x#1': ['p_fly_x#1'] },
+      missing: { effects: ['b_gone_y#2'], projectiles: ['q_line_x#1'] },
+    }, `${SKIN_FX}: the CN skin's effect comes from the CN client, a summon's from its token pack; what no client has is listed missing`);
+  });
+
+  test('a skin effect\'s file is under fx/skin/ named through file_name; a default bundle may not take the folder\'s name', () => {
+    const got = py(`import fx_extract as f, types
+from pathlib import Path
+f.OUT = Path('/x/fx')
+r = [str(f.prefab_file(f.OUT / f.SKIN_DIR, 'skadi2', 'skadi2_skill_01_hit_boc#4')), str(f.prefab_file(f.OUT, 'skadi2', 'skadi2_skill_01_hit'))]
+try:
+    f.Extractor.run(types.SimpleNamespace(), 'skin'); r.append(None)
+except SystemExit as e:
+    r.append(str(e))
+print(json.dumps(r))`);
+    assert.deepEqual(got.slice(0, 2), ['/x/fx/skin/skadi2/skadi2_skill_01_hit_boc-4.json', '/x/fx/skadi2/skadi2_skill_01_hit.json'], SKIN_FX);
+    assert.match(got[2] || '', /may not be named 'skin'/, `${SKIN_FX}: a default bundle named skin would mix with the skin effects`);
+  });
+
+  test('place_skin_files: shared files stay shared, skin-only ones go under skin/ with their wrap, unreferenced skin files go', () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'skin-fx-'));
+    try {
+      const w = (rel, body) => { mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true }); writeFileSync(path.join(dir, rel), typeof body === 'string' ? body : JSON.stringify(body)); };
+      w('a/a_hit.json', { materials: { m: { img: 'both.webp' } }, nodes: [{ mesh: 'mboth' }] });
+      w('skin/a/a_hit_x-1.json', { materials: { m: { img: 'both.webp' }, n: { img: 'once.webp' }, o: { img: 'mine.webp' } }, nodes: [{ mesh: 'mmine' }, { skin: { mesh: 'monce' } }] });
+      for (const t of ['both', 'once', 'gone']) w(`tex/${t}.webp`, t);
+      for (const t of ['mine', 'both', 'stale']) w(`skin/tex/${t}.webp`, t);
+      w('tex/wrap.json', { 'once.webp': [1, 1], 'gone.webp': [1, 0] });
+      for (const m of ['mboth', 'monce']) w(`mesh/${m}.json`, { pos: [] });
+      w('skin/mesh/mmine.json', { pos: [] });
+      const got = py(`import fx_extract as f, os
+from pathlib import Path
+f.OUT = Path(${JSON.stringify(dir)})
+r = [list(f.place_skin_files())]
+ls = lambda d: sorted(os.listdir(f.OUT / d)) if (f.OUT / d).exists() else []
+r += [ls('tex'), ls('skin/tex'), ls('mesh'), ls('skin/mesh')]
+r.append(list(f.place_skin_files(prune_shared=True)))
+r += [ls('tex'), json.loads((f.OUT / 'skin/tex/wrap.json').read_text())]
+print(json.dumps(r))`);
+      assert.deepEqual(got[0], [3, 1], 'moved: once.webp, monce.json; the skin copy of both.webp; deleted: stale.webp');
+      assert.deepEqual(got[1], ['both.webp', 'gone.webp', 'wrap.json'], `${SKIN_FX}: a texture a default effect uses stays shared; without --prune nothing shared is deleted`);
+      assert.deepEqual(got[2], ['mine.webp', 'once.webp', 'wrap.json'], `${SKIN_FX}: a texture only skin effects use is the skin pack's`);
+      assert.deepEqual([got[3], got[4]], [['mboth.json'], ['mmine.json', 'monce.json']], `${SKIN_FX}: meshes follow the same rule`);
+      assert.deepEqual(got[5], [0, 1], '--prune: the shared texture nothing uses goes');
+      assert.deepEqual(got[6], ['both.webp', 'wrap.json']);
+      assert.deepEqual(got[7], { 'once.webp': [1, 1] }, 'a moved texture keeps its wrap mode, in the skin folder\'s wrap.json');
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+const FXD = path.join(ROOT, 'public/assets/local/fx');
+const skinIndex = read('public/assets/local/fx/skin/index.json');
+describe('the extracted skin effects (fx/skin/)', { skip: (!skinIndex || !outputs[Object.keys(outputs)[2]]) && 'not extracted on this machine' }, () => {
+  test('every paired skin effect has its file or is listed missing; their textures and meshes are in one of the two folders', () => {
+    const doc = read('public/assets/local/fx/skin-effects.json');
+    const files = doc.files || {};
+    const lower = new Map(Object.entries(files).map(([k, v]) => [k.toLowerCase(), v]));
+    const missing = new Set((doc.missing?.effects || []).map((n) => n.toLowerCase()));
+    const lacking = [...new Set(Object.values(doc.skins).flatMap((r) => Object.values(r.effects || {})))].filter((n) => !lower.has(n.toLowerCase()) && !missing.has(n.toLowerCase()));
+    assert.deepEqual(lacking, [], `${SKIN_FX}: run fx_extract.py --skin-effects after --skin-pairs`);
+    assert.equal(files['skadi2_skill_01_hit_boc#4'], 'skin/skadi2/skadi2_skill_01_hit_boc-4.json', 'a known case ran: 스카디 더 커럽팅 하트 boc#4');
+    const own = { tex: new Set(skinIndex.tex), mesh: new Set(skinIndex.mesh) };
+    const absent = [];
+    const both = [...own.tex].filter((t) => existsSync(path.join(FXD, 'tex', t)));
+    for (const rel of new Set(Object.values(files))) {
+      const p = path.join(FXD, rel);
+      if (!existsSync(p)) { absent.push(rel); continue; }
+      const s = readFileSync(p, 'utf8');
+      const at = (kind, file, mine) => existsSync(mine ? path.join(FXD, 'skin', kind, file) : path.join(FXD, kind, file));
+      for (const [, t] of s.matchAll(/"img":"([^"]+)"/g)) if (!at('tex', t, own.tex.has(t))) absent.push(`${rel} → tex ${t}`);
+      for (const [, m] of s.matchAll(/"mesh":"([^"]+)"/g)) if (!at('mesh', `${m}.json`, own.mesh.has(m))) absent.push(`${rel} → mesh ${m}`);
+    }
+    assert.deepEqual(absent.slice(0, 20), [], `${SKIN_FX}: a skin effect's file is missing (rerun --skin-effects, or --skin-finish after a --prune)`);
+    assert.deepEqual(both, [], `${SKIN_FX}: a texture in both folders (fx_extract.py --skin-finish moves it)`);
+  });
+});

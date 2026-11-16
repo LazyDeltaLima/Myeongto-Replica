@@ -218,7 +218,7 @@ describe('the skin data is a pack of the pre-download list', () => {
       const list = JSON.parse(readFileSync(path.join(dir, 'browser-resources.json'), 'utf8'));
       const paths = list.files.map((f) => f.p);
       assert.ok(paths.includes('/assets/local/spine/token/t/t.skel'), 'an ordinary local file is listed');
-      assert.deepEqual(list.packs, { skin: ['/assets/spine/skin/', '/assets/local/spine/skin/'] });
+      assert.deepEqual(list.packs, { skin: ['/assets/spine/skin/', '/assets/local/spine/skin/', '/assets/local/fx/skin/'] });
       assert.deepEqual(paths.filter((p) => p.includes('/spine/skin/')).sort(), [
         '/assets/local/spine/skin/art.json', '/assets/local/spine/skin/char_1_a/char_1_a_boc-1/illust/char_1_a_boc-1.webp',
         '/assets/local/spine/skin/char_1_a/char_1_a_boc-1/illust/full/char_1_a_boc-1.webp', '/assets/local/spine/skin/models.json', '/assets/local/spine/skin/skins.json', avatar.p, model.p,
