@@ -14,6 +14,7 @@ import { parseStoredSkins, buildSkinCatalog, chosenSkin, skinRows, ownerSkin, SK
 import { skinSectionState, skinTiles, SkinTile, SkinPreview, SkinPackBox } from '../../public/js/ui/skinPicker.js';
 import { installSkinsSync, setLoadoutSeason, SYNC_DEBOUNCE_MS } from '../../public/js/ui/loadoutSync.js';
 import { seatCardSkin } from '../../public/js/ui/seatArt.js';
+import { data } from '../../public/js/data.js';
 import { SKIN_LIMITS } from '../../shared/protocol.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -103,11 +104,22 @@ describe('skin section: states and tiles', () => {
     assert.equal(by[SKIN].fallbackArt, false);
     assert.equal(by[NOART].art, '/p/own.png');
     assert.equal(by[NOART].fallbackArt, true);
-    assert.equal(by[SKIN].name, '升华', 'the list\'s name (a data name: tName)');
+    assert.equal(by[SKIN].name, '升华', 'the list\'s name (Chinese: no overlay)');
     assert.equal(by[SKIN2].name, '皮肤 2', 'no name in the list: numbered');
     assert.equal(by[NOART].illust, null);
     assert.deepEqual(skinTiles({ catalog: CAT, charId: 'char_003_kalts', state: 'ready', art: '/p/k.png' }).map((x) => x.id), [''],
       'an operator without a skin: the default tile alone');
+  });
+
+  test('a tile\'s name is looked up by the skin id, never by the Chinese name (升华 is also an effect\'s name)', () => {
+    const was = data.localeSkinName;
+    const asked = [];
+    data.localeSkinName = (id, zh) => { asked.push([id, zh]); return id === SKIN ? '서블리메이션' : zh; };
+    try {
+      const by = Object.fromEntries(skinTiles({ catalog: CAT, charId: OP, state: 'ready' }).map((x) => [x.id, x]));
+      assert.equal(by[SKIN].name, '서블리메이션', 'the overlay\'s skins map by id (data.localeSkinName; docs/rules/ui.md 「스킨 고르기」)');
+      assert.deepEqual(asked, [[SKIN, '升华']]);
+    } finally { data.localeSkinName = was; }
   });
 
   test('a tile: locked does nothing, the worn skin opens the preview, another is chosen', () => {

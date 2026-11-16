@@ -648,6 +648,22 @@ export function createDataStore(opts = {}) {
       }
       return zh;
     },
+    /**
+     * An operator skin's name in the current locale, looked up by its skin id: the first overlay of the chain whose
+     * `skins` map has it, else the Chinese name. Never through `names` — that map is keyed by the Chinese, and a skin
+     * named like a data record (升华, an effect too) would show the record's name (docs/rules/ui.md 「스킨 고르기」).
+     * @param {string} id skin id (char_1012_skadi2@boc#4)
+     * @param {string} zh the skin list's Chinese name
+     * @returns {string}
+     */
+    localeSkinName(id, zh) {
+      if (locale === 'zh' || typeof id !== 'string') return zh;
+      for (const c of chain) {
+        const skins = overlays.get(c)?.skins;
+        if (skins && Object.prototype.hasOwnProperty.call(skins, id) && typeof skins[id] === 'string' && skins[id]) return skins[id];
+      }
+      return zh;
+    },
   };
 }
 

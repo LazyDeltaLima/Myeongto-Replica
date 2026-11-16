@@ -23,7 +23,8 @@ import { html, MicroLabel, Modal, Icon } from './components.js';
 import { useStore } from '../store.js';
 import { resStore, skinPackState, setResourcePack } from '../resources.js';
 import { skinsStore, SKINS_KEY, loadSkinCatalog, skinRows, chosenSkin, setSkin, clearSkin } from './skins.js';
-import { t, tName } from '../../../shared/i18n.js';
+import { t } from '../../../shared/i18n.js';
+import { data } from '../data.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const mb = (n) => Math.max(1, Math.round(n / 1048576));
@@ -43,7 +44,8 @@ export function skinSectionState(r, catalog) {
 /**
  * The tiles of one operator: its 默认 appearance first, then its skins in the list's order. A locked tile draws the
  * operator's own art (the mockup: greyed, a lock over it); an open one its own portrait / avatar, else the operator's
- * (`fallbackArt`). A skin the list names no name for is numbered.
+ * (`fallbackArt`). The name is looked up by the skin id (data.localeSkinName: a skin may share its Chinese name with a
+ * data record); a skin the list names no name for is numbered.
  * @param {{ catalog: any, charId: string, map?: Record<string, string>, state: 'locked'|'loading'|'ready', art?: string|null, face?: string|null }} o
  */
 export function skinTiles({ catalog, charId, map = {}, state, art = null, face = null }) {
@@ -51,7 +53,7 @@ export function skinTiles({ catalog, charId, map = {}, state, art = null, face =
   const chosen = locked ? null : chosenSkin(charId, map, catalog);
   const own = { id: '', own: true, name: t('默认'), art, face, illust: null, fallbackArt: false, locked: false, on: !chosen };
   const rows = skinRows(catalog, charId).map((row, i) => ({
-    id: row.id, own: false, name: row.name ? tName(row.name) : t('皮肤 {n}', { n: i + 1 }), locked,
+    id: row.id, own: false, name: row.name ? data.localeSkinName(row.id, row.name) : t('皮肤 {n}', { n: i + 1 }), locked,
     art: (!locked && row.portrait) || art, face: (!locked && row.avatar) || face, illust: row.illust || row.portrait || null,
     fallbackArt: !locked && !row.portrait, on: chosen === row.id,
   }));

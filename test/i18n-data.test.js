@@ -102,7 +102,7 @@ test('build-i18n matching: exact, blackboard templates, plain from raw, composit
   assert.equal(shapeKey('攻击力<@ba.vup>+{atk:0%}</>'), shapeKey('攻击力+80%'));
 });
 
-test('build-i18n skin names: paired by skin id from the two skin tables, the fallbacks for a skin the target lacks, after every data name', () => {
+test('build-i18n skin names: paired by skin id from the two skin tables, the fallbacks for a skin the target lacks, a map by skin id apart from names', () => {
   const table = (names) => ({ charSkins: Object.fromEntries(Object.entries(names).map(([id, [charId, skinName]]) => [id, { charId, displaySkin: { skinName } }])) });
   const zhT = table({ 'char_1_a#1': ['char_1_a', null], 'char_1_a@x#1': ['char_1_a', '夏卉 FA1'], 'char_1_a@y#2': ['char_1_a', '新皮'],
     'char_1_a@z#3': ['char_1_a', '测试员'], 'char_1_a@w#4': ['char_1_a', 'Sightseer'], 'char_9_other@x#1': ['char_9_other', '别人的'] });
@@ -113,13 +113,16 @@ test('build-i18n skin names: paired by skin id from the two skin tables, the fal
   const data = { chess: { chess_x_a: { charId: 'char_1_a', name: '测试员' } } };
   const { overlay, report } = buildOverlay({ zh: [{ c: { char_1_a: { name: '测试员' } } }], en: [{ c: { char_1_a: { name: '테스터' } } }], data, lang: 'ko',
     fallback: { dict: { 新皮: '새 옷' } }, skins: rows });
-  assert.equal(overlay.names['夏卉 FA1'], '서머 그라스 FA1', 'the KR table\'s name');
-  assert.equal(overlay.names['新皮'], '새 옷', 'a CN-only skin: the dictionary (public/i18n/ko/manual.json)');
-  assert.equal(overlay.names['测试员'], '테스터', 'a data name of the same Chinese wins: the names map is keyed by the Chinese');
+  assert.deepEqual(overlay.skins, { 'char_1_a@x#1': '서머 그라스 FA1', 'char_1_a@y#2': '새 옷', 'char_1_a@z#3': '테스터 스킨' },
+    'by skin id: the KR table\'s name, a CN-only skin\'s from the dictionary (public/i18n/ko/manual.json)');
+  assert.equal(overlay.names['测试员'], '테스터', 'the data name keeps its own translation');
+  assert.ok(!('夏卉 FA1' in overlay.names) && !('新皮' in overlay.names),
+    'skin names never join names: keyed by the Chinese, a skin named like a data record would show the record\'s name (docs/rules/ui.md 「스킨 고르기」)');
   assert.deepEqual(report.skins, { texts: 3, official: 2, fallback: 1, missing: [] });
   const bare = buildOverlay({ zh: [], en: [], data: {}, lang: 'ko', skins: rows });
   assert.deepEqual(bare.report.skins.missing, ['char_1_a@y#2: 新皮'], 'without a dictionary entry it stays Chinese, reported');
-  assert.ok(!('新皮' in bare.overlay.names));
+  assert.ok(!('char_1_a@y#2' in bare.overlay.skins));
+  assert.ok(!('skins' in buildOverlay({ zh: [], en: [], data: {}, lang: 'ko' }).overlay), 'no skins: no map');
 });
 
 test('data/i18n/ko.json names every operator skin the official skin table has (the skin picker: docs/rules/ui.md 「스킨 고르기」)', { skip: !existsSync(path.join(ROOT, '.cache/gamedata/excel/skin_table.json')) && 'no cached skin table' }, () => {
@@ -129,8 +132,11 @@ test('data/i18n/ko.json names every operator skin the official skin table has (t
   const chars = new Set(Object.keys(readJson('data/assets.json').chars));
   const rows = skinNameRows(readJson('.cache/gamedata/excel/skin_table.json'), null, chars);
   assert.ok(rows.length > 200, `named skins: ${rows.length}`);
-  const missing = rows.filter((r) => !KO.names[r.zh] || HAN.test(KO.names[r.zh])).map((r) => `${r.id} ${r.zh}`);
+  const missing = rows.filter((r) => !KO.skins?.[r.id] || HAN.test(KO.skins[r.id])).map((r) => `${r.id} ${r.zh}`);
   assert.deepEqual(missing, [], 'skins without a Korean name: add them to public/i18n/ko/manual.json in KR wording and run node tools/i18n/build-ko-pack.mjs (docs/rules/ui.md 「스킨 고르기」)');
+  // 升华 is a data name too (the effect allybuff_select_6, 「승화」): the skin keeps the KR table's own name
+  assert.equal(KO.skins['char_1012_skadi2@boc#4'], '서블리메이션', 'a skin is named by its id, never through names (docs/rules/ui.md 「스킨 고르기」)');
+  assert.equal(KO.names['升华'], '승화');
 });
 
 test('data/i18n/en.json: shape, the 盟约 season of the EN build, coverage and the names map', () => {
@@ -259,11 +265,16 @@ test('data.js setLocale: getters return English records after the overlay loads,
   assert.equal(d.getRaw('config').modes.mode_multi_hard.name, '绝境模拟', 'getRaw keeps the Chinese file');
   assert.equal(d.localeName('琳琅诗怀雅'), 'Swire the Elegant Wit');
   assert.equal(d.localeName('不存在的名字'), '不存在的名字');
+  // a skin by its id: 升华 is also the effect allybuff_select_6's name (Promotion), the skin is Sublimation
+  assert.equal(d.localeSkinName('char_1012_skadi2@boc#4', '升华'), 'Sublimation');
+  assert.equal(d.localeName('升华'), 'Promotion');
+  assert.equal(d.localeSkinName('char_x@none#1', '无名'), '无名', 'a skin no overlay names: the Chinese');
   await d.load('items'); // loaded after the switch: localized too
   assert.equal(d.lookup('items', 'chess_item_1_01_e_a').name, 'Victorian Hammer');
   assert.equal(await d.setLocale('zh'), 'zh');
   assert.equal(d.lookup('chess', 'chess_char_3_04_a').name, '琳琅诗怀雅');
   assert.equal(d.localeName('琳琅诗怀雅'), '琳琅诗怀雅');
+  assert.equal(d.localeSkinName('char_1012_skadi2@boc#4', '升华'), '升华');
   await d.setLocale('en');
   assert.equal(calls.filter((u) => u === '/data/i18n/en.json').length, 1, 'the overlay downloads once');
 });

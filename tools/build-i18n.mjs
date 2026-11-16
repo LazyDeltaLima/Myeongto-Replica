@@ -21,8 +21,9 @@
 //   Ties between several English sources prefer the one whose path shares the record's ids, then the most frequent.
 //   Rich-text tags and placeholders of the official EN texts are the same as in zh_CN, so the client's rich-text
 //   formatting (ui/richText.js) works unchanged; `desc` / `text` (plain) are the stripped `descRaw` / `textRaw`.
-// The operators' skin names, which no data record carries, join the `names` map straight from the two skin tables
-// (same skin id; a skin the target lacks: the fallbacks above — skinNameRows).
+// The operators' skin names, which no data record carries, go to a `skins` map keyed by the skin id, straight from the
+// two skin tables (same skin id; a skin the target lacks: the fallbacks above — skinNameRows). Not to `names`: that map
+// is keyed by the Chinese, and a skin named like a data record (升华, an effect too) would show the record's name.
 //
 // Usage:  node tools/build-i18n.mjs [--lang <code>] [--refresh | --offline] [--source assets|yostar] [--cache <dir>]
 //                                   [--cache-en <dir>] [--data <dir>] [--out <file>] [--report <file>] [--check] [--quiet]
@@ -144,7 +145,8 @@ const TABLES = [
 /**
  * The official skin table: the names of the operators' skins (the skin picker's tiles, docs/rules/ui.md 「스킨 고르기」).
  * No data/*.json record carries them — the picker reads a skin's Chinese name from the skin list a local extraction
- * writes (tools/local-extract/skin_extract.py) — so they are paired here by skin id and go to the `names` map only.
+ * writes (tools/local-extract/skin_extract.py) — so they are paired here by skin id and go to the overlay's `skins` map
+ * (skin id → name), which the picker reads by the skin's id (public/js/data.js localeSkinName).
  */
 const SKIN_TABLE = 'excel/skin_table.json';
 
@@ -750,8 +752,8 @@ const dictMap = (d, untranslated = (zh, t) => hasCjk(t)) => new Map(Object.entri
  * Build the overlay. Exported for tests (they pass in-memory tables).
  * @param {{ zh: object[], en: object[], data: Record<string, any>, fallback?: { remake?: object, pr70?: object, ui?: object, dict?: object, fix?: object }, source?: object, owner?: (file: string, id: string) => string | null, skins?: { id: string, owner: string, zh: string, target: string | null }[] }} input
  *   zh / en: the picked sub-trees of TABLES, in order
- *   skins: skinNameRows — each skin's name joins `names` (the target table's, else the fallbacks: a CN-only skin's from
- *   the dictionary) after every data name; counted apart, in the report's `skins`
+ *   skins: skinNameRows — each skin's name goes to the overlay's `skins` map under its skin id (the target table's,
+ *   else the fallbacks: a CN-only skin's from the dictionary), never to `names`; counted apart, in the report's `skins`
  *   owner: the season whose own record (file, id) is (null: the default season's). Its texts are counted apart, in
  *   `meta.seasons[season]`, so the coverage and totals stay the default season's: a season the official client of
  *   the language lacks (规程 is CN-only) would otherwise pull them down.
@@ -797,6 +799,8 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
     if (Object.keys(out).length) files[file] = out;
   }
   const skinReport = { texts: 0, official: 0, fallback: 0, missing: [] };
+  /** skin id → name: a map of its own, since a skin's Chinese name may be a data name too (升华 is an effect's) */
+  const skinNames = {};
   for (const s of skins) {
     skinReport.texts++;
     let name = s.target && !untranslated(s.zh, s.target) ? s.target : null;
@@ -807,9 +811,7 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
       if (name) skinReport.fallback++;
     }
     if (!name || untranslated(s.zh, name)) { skinReport.missing.push(`${s.id}: ${s.zh}`); continue; }
-    const list = nameVotes.get(s.zh) || [];
-    list.push({ en: name, prio: NAME_PRIORITY.length });
-    nameVotes.set(s.zh, list);
+    skinNames[s.id] = name;
   }
   const names = {};
   const nameConflicts = [];
@@ -835,6 +837,7 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
       ...(Object.keys(seasons).length ? { seasons: Object.fromEntries(Object.entries(seasons).map(([season, c]) => [season, { own: c.totals }])) } : {}),
     },
     names,
+    ...(Object.keys(skinNames).length ? { skins: skinNames } : {}),
     files,
   };
   const missing = [...stats.missing, ...Object.values(ownStats).flatMap((st) => [...st.missing])].sort((a, b) => (a[1].kind < b[1].kind ? -1 : a[1].kind > b[1].kind ? 1 : a[0] < b[0] ? -1 : 1))

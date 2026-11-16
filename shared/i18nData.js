@@ -3,6 +3,7 @@
 //
 //   { version: 1, lang: 'en', meta: { … sources, coverage … },
 //     names: { <Chinese name>: <name> },                       // every translated game-data name (ticker / toast args)
+//     skins: { <skin id>: <name> },                             // the operators' skin names (the skin picker), by skin id
 //     files: { <data file>: { <record id>: RecordOverlay } } }
 //
 // A season's records under ids the default files have too, with other contents, have an overlay of their own beside it,
