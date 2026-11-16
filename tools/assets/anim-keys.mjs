@@ -159,8 +159,10 @@ export function keyRoles(op, durations) {
     // an ability that closes the others (`EndAttack`) is the skill's end
     const withClip = (p) => (!!clipKeyOf(abs[p]) || !!abs[p]?.emit?.length) && !RESTORE.test(p);
     const endPath = Object.keys(abs).find((p) => p && END.test(p) && typeof abs[p]?.key === 'string' && abs[p].key);
+    // … or a closing channel (歌蕾蒂娅 S3 `FinalAttack`: Skill_3_Begin / _Loop / _End played in a row as the skill ends)
+    const endChanPath = endPath ? null : Object.keys(abs).find((p) => p && END.test(p) && abs[p]?.chan);
     const castPath = Object.hasOwn(abs, '') && withClip('') ? ''
-      : Object.keys(abs).filter((p) => withClip(p) && p !== endPath).sort((x, y) => x.split('/').length - y.split('/').length || (x < y ? -1 : 1))[0];
+      : Object.keys(abs).filter((p) => withClip(p) && p !== endPath && p !== endChanPath).sort((x, y) => x.split('/').length - y.split('/').length || (x < y ? -1 : 1))[0];
     const cast = castPath != null ? abClip(abs[castPath], m > 0 ? m : 0) : null;
     // a respawn mode beside the skill's own (乌尔比安 S3 `S3_Respawn_A`, Mon3tr S3 `S3_Reborn` — monstr_s_3[route] SwitchMode 4
     // as she lands —, which the skill's 【移动】 puts the unit in; no skill names it): the skill attacks and rests in it
@@ -180,6 +182,19 @@ export function keyRoles(op, durations) {
     let why = [];
     let loopAb = null;
     if (endPath) why.push(`end ${endPath}`);
+    if (endChanPath) {
+      const ec = abs[endChanPath];
+      const row = [ec.chan.begin, ec.chan.loop, ec.chan.end].map((k) => J(k, m > 0 ? m : 0)).filter(Boolean);
+      if (row.length) c.end = row.length > 1 ? row : row[0];
+      // its loop waits for the attack-finish event (`chan.wait`), which its RangedAttack sends as its projectile ends (`fin`):
+      // `endProj` s after the begin clip's OnAttack frame (render/spine.js _skillEnd). A wait with nothing known to end it stops
+      // the build: the loop would otherwise play for its clip's length
+      if (ec.chan.wait && row.length === 3) {
+        if (!(ec.fin?.life > 0)) throw new Error(`anim-keys: ${s?.id} ${endChanPath}: its channel waits for an attack-finish event and no projectile life ends it (docs/rules/render.md 「스킬 끝 채널의 루프」)`);
+        c.endProj = ec.fin.life;
+      }
+      why.push(`end chan ${endChanPath}${c.endProj ? ' wait' : ''}`);
+    }
     if (respawn > 0) why.push(`respawn ${names[respawn]}`);
     if (held) why.push(`held ${names[m]}`);
     // another ability of the skill with a clip of its own (望 S3 `SpawnAnim` beside its channel)
@@ -460,10 +475,11 @@ export function overlayKeyRoles(anims, kr, charId = '') {
       c = { ...anims.attack, via: 'attack', index: Number(i), idle: null };
       if (k.begin) c.begin = k.begin;
       if (k.end && !k.clipless) c.end = k.end;
+      if (k.endProj && c.end === k.end) c.endProj = k.endProj;
       if (k.down) c.down = { by: c.down?.by ?? k.down.by, map: { ...k.down.map, ...c.down?.map } };
     } else {
       c = { begin: k.begin, loop: k.loop, end: k.end, idle: k.idle, index: Number(i) };
-      for (const f of ['firstAttackBegin', 'attackBegin', 'attackEnd', 'down', 'signals', 'modeAttack']) if (k[f]) c[f] = k[f];
+      for (const f of ['firstAttackBegin', 'attackBegin', 'attackEnd', 'down', 'signals', 'modeAttack', 'endProj']) if (k[f]) c[f] = k[f];
       // the mode attacks with no clip (anim-overrides.mjs applyModeAttacks reads the same from the attack timing file, which
       // has nothing where the mode's attack is not `Body/Attack`: 信仰搅拌机 Sk3, 小满 S2, 薄绿 S2)
       if (k.stance) c.stance = true;

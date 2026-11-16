@@ -314,3 +314,22 @@ test('without the key table a summon\'s committed prefab modes are kept: each na
     assert.deepEqual(miss, [], id);
   }
 });
+
+test('a closing channel (歌蕾蒂娅 S3 FinalAttack): its three clips in a row, its loop until its projectile ends; a wait with no projectile life stops the build', () => {
+  // docs/rules/render.md 「스킬 끝 채널의 루프」: ThreePartChannelingAnimation `_waitForAttachFinishEvent` loops until the owner's
+  // attack-finish event, which the RangedAttack beside it sends as its projectile ends (anim_keys.py `chan.wait`, `fin`)
+  const fa = { chan: { begin: 'Skill_3_Begin', loop: 'Skill_3_Loop', end: 'Skill_3_End', wait: 1 }, key: '', fin: { proj: 'projectile_x', life: 1.3 } };
+  const op = (ab) => ({
+    modes: [{ name: 'Default', pairs: {}, abilities: { 'Body/Attack': { key: 'Attack' } } }, { name: 'S3', pairs: { Idle: 'Skill_3_Chant' }, abilities: {} }],
+    skills: [{ id: 'sk3', mode: 1, abilities: { Chant: { key: 'Skill_3_Startup' }, FinalAttack: ab } }],
+    skin: { keys: {}, mix: [] },
+  });
+  const names = clips('Idle', 'Attack', 'Skill_3_Startup', 'Skill_3_Chant', 'Skill_3_Begin', 'Skill_3_Loop', 'Skill_3_End');
+  const s = keyRoles(op(fa), names).skills[0];
+  assert.deepEqual(s.end, ['Skill_3_Begin', 'Skill_3_Loop', 'Skill_3_End']);
+  assert.equal(s.endProj, 1.3);
+  assert.equal(s.loop, 'Skill_3_Startup', 'the channel is the end, not the cast');
+  // a channel that does not wait plays its clips as they are
+  assert.equal(keyRoles(op({ ...fa, chan: { ...fa.chan, wait: undefined } }), names).skills[0].endProj, undefined);
+  assert.throws(() => keyRoles(op({ ...fa, fin: undefined }), names), /no projectile life.*스킬 끝 채널의 루프/);
+});

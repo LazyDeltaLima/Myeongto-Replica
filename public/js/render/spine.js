@@ -1106,18 +1106,27 @@ export class SpineActor {
 
   /**
    * Close the skill on its End clip — or its clips one after another (an array: 歌蕾蒂娅 S3's closing FinalAttack
-   * Skill_3_Begin → _Loop → _End) — in mode skillEnd; false when it has none.
+   * Skill_3_Begin → _Loop → _End) — in mode skillEnd; false when it has none. A row whose channel waits for its projectile
+   * (anims skill `endProj`, tools/assets/anim-keys.mjs; docs/rules/render.md 「스킬 끝 채널의 루프」) loops its middle clip
+   * from the begin clip's end until `endProj` s after the begin clip's OnAttack frame — not for the loop clip's length.
    */
   _skillEnd(sk) {
     const down = sk.endDown && this.has(sk.endDown) && this._facesDown(sk.down?.by) ? sk.endDown : null;   // (a mix table row: anim-keys.mjs)
     const clips = this._changeClips((down ? [down] : [this._castOf(sk, 'end')].flat().map((n) => this._dn(sk, n))));
     if (!clips.length) return false;
+    const durs = clips.map((n) => this.dur(n));
+    const loops = clips.map(() => false);
+    if (!down && sk.endProj > 0 && clips.length === 3) {
+      durs[1] = Math.max(0, this._hitTime(clips[0], durs[0]) + sk.endProj - durs[0]);
+      loops[1] = true;
+    }
     this.mode = 'skillEnd';
     this._play(clips[0], false, { mix: 0.08 });
-    this.endNext = clips.slice(1);
+    const rest = clips.map((n, i) => ({ n, d: durs[i], loop: loops[i] })).slice(1).filter((c) => c.d > 0);
+    this.endNext = rest;
     this.endRow = clips.length > 1;
-    this.endNextAt = this.clock + this.dur(clips[0]);
-    this.skillEndUntil = this.clock + this.dur(clips);
+    this.endNextAt = this.clock + durs[0];
+    this.skillEndUntil = this.clock + durs[0] + rest.reduce((t, c) => t + c.d, 0);
     return true;
   }
 
@@ -1362,8 +1371,8 @@ export class SpineActor {
       case 'skillEnd':
         if (this.endNext?.length && this.clock >= this.endNextAt && this.clock < this.skillEndUntil) {
           const next = this.endNext.shift();
-          this._play(next, false, { mix: 0.05 });
-          this.endNextAt += this.dur(next);
+          this._play(next.n, next.loop, { mix: 0.05 });
+          this.endNextAt += next.d;
         }
         if (this.clock >= this.skillEndUntil) { this.mode = 'base'; this._play(this._baseName(), true); }
         break;

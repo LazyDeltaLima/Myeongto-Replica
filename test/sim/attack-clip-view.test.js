@@ -277,9 +277,14 @@ test('歌蕾蒂娅 S3: the closing clips play through the sim\'s hold and the fi
   g.setSkill(false);
   assert.equal(g.current, 'Skill_3_Begin');
   run(g, 1);
+  assert.equal(g.current, 'Skill_3_Loop');
   assert.equal(g.swing(0.5), false, 'no attack clip inside the row');
-  run(g, 1.667);
-  assert.equal(g.current, 'Skill_3_End');
+  // the loop waits for the 捕网 thrown on Skill_3_Begin's OnAttack (0.367 s) to end 1.3 s later — 1.033 s of it, not the
+  // clip's 1.333 s (anims skill `endProj`, docs/rules/render.md 「스킬 끝 채널의 루프」)
+  assert.equal(chars.char_474_glady.spine.front.anims.skills['2'].endProj, 1.3);
+  run(g, 0.7);
+  assert.equal(g.current, 'Skill_3_End', 'the End clip from 1.667 s');
+  run(g, 0.967);
   assert.ok(g.swing(0.5), 'the attack after the hold (2.667 s) shows');
   assert.equal(g.current, 'Attack');
 

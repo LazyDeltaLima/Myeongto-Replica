@@ -806,7 +806,8 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `form`(`'dormant'`/null) → `FORMS.char_311_mudrok`(뒤 모델엔 세 클립이 없어 `Skill_2_Idle`로 잠듦 — 형태 `idle`은 클립 목록 중 그 골격에 있는 첫 것).
     歌蕾蒂娅 S3(`skchr_glady_3` 순차 능력: Chant `Skill_3_Startup` → 모드 S3 Idle→`Skill_3_Chant` → FinalAttack `_default {Skill_3_Begin, _Loop, _End}`):
     역할 begin `Skill_3_Startup`·idle `Skill_3_Chant`·공격은 평소 `Attack`(`via: 'attack'`)·end는 FinalAttack 세 클립을 차례로(`spine.js _skillEnd`, 역할 `end`가
-    배열). 끝의 당김은 시뮬이 스킬 끝 순간에 하고 렌더는 그때 세 클립을 시작한다 [추정]. S3 중엔 일반 공격이 없다(2026-10-14 관리자 결정, `sim.md` 「歌蕾蒂娅 S3」) —
+    배열 — 2026-11-16부터 손 표가 아니라 키에서, 아래 「스킬 끝 채널의 루프」). 끝의 당김은 시뮬이 스킬 끝 순간에 하고 렌더는 그때 세 클립을 시작한다
+    [추정·화면: 끝 묶음이 스킬 끝 순간에 시작하는지 공식 화면과 나란히 안 봄]. S3 중엔 일반 공격이 없다(2026-10-14 관리자 결정, `sim.md` 「歌蕾蒂娅 S3」) —
     `Skill_3_Startup` 뒤 `Skill_3_Chant`가 스킬 끝까지. [화면 미확인]
   - **H** 재능·특성 상태. 风丸 傀儡师: 替身으로 바뀔 때 `Die_2`→`Start_B`, 돌아올 때 `Die_B`→`Start`(charpack `CommonAbilities` `kazema[switch2stand]`·
     `[switch2normal]` 순차 묶음) — `FORMS`의 `change`·`leave`가 클립 배열이면 차례로 튼다(`spine.js _change`). 시뮬 전환(`professions.js DOLL_SWITCH`)도 두 클립 길이인
@@ -1520,6 +1521,9 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
 - **'단현지음'/'열관지음'**(`enemy_9023_acdums`)의 어두운 형태: 프리팹 모드 `Depression`의 훅이 `Idle`·`Move`·`Die` → `Idle_2`·`Move_2`·`Die_2`, `Combat`의 `_animKey` `Attack_2`, 키 표가 이것을 `Idle_B`·`Move_B`·`Die_B`·`Attack_B`로 튼다. 키트 `bosses.js setEchoForm`이 이미 내던 `phase` fx에 형태 `Depression`(금빛이면 `null`)을 실어 `render/units.js FORMS`의 그 세트로 바뀐다. 이전에는 어두운 형태에서도 `*_A`를 틀었다. 표의 `A-B`(0.033초)를 트는 노드는 읽지 않았고 틀지 않는다. 시뮬의 모드 전환(`enemyMode`)은 아직 안 하지만 두 모드의 공격 클립은 길이·타격(1초·0.2초)이 같다(묶음 sim-D 「모드 클립 ②」 줄).
 - 대조 밖: 이름이 프리팹 모드와 다른 형태(죄수의 `warning`·`liberty` 등)의 공격 클립은 시험이 모드와 짝을 모른다 — 모드 이름 형태만 본다. '즈자이' `ShieldBurst`의 시작 키 `Skill_02`가 표에 없는 것은 채널 클립 줄(sim.md 같은 절)에 그대로 둔다.
 - 재발 방지: `test/render/enemy-attack-clip-keys.test.js`(두 시즌 모든 적 × 자기 모델의 공격·막힘 클립, 모드 이름 형태, 막힌 스컬슈레더의 `swing`, '단현지음' 형태) — 옛 `data/assets.json`·`ai.js`·`units.js`로 되돌리면 각각 실패. [화면 미확인]
+- **스킬 끝 채널의 루프**(2026-11-16, 공식 클라에서 확인 — 글래디아 S3 `skchr_glady_3/FinalAttack`): 끝 묶음의 채널(`ThreePartChannelingAnimation`)이 `_waitForAttachFinishEvent`이면 루프 클립을 `m_loopTime`이 아니라 주인의 공격 끝 사건(엔티티 사건 ON_ATTACK_FINISH)까지 튼다(`DoPlayAnimation`: 시작 클립 → 사건까지 최대 360초 → 끝 클립 → `_fireAnimEndEvent`면 애니 끝 사건). 같은 오브젝트의 `RangedAttack`이 `_waitForProjectileInvalid`·`_fireAttackFinishWhenProjectileInvalid`이면 그 사건은 투사체가 끝날 때 난다(`OnWaitForPostDelay`). 글래디아: `Skill_3_Begin`의 `OnAttack`(0.367초)에 捕网 `projectile_chr_glady_s3_3`(LIMITED 수명 1.3초 = `_firstPartTime` 0.3 + `_secondPartTime` 1, `_stopAfterSecondPulledBack`)을 던지므로 `Skill_3_Loop`는 0.633초부터 1.667초까지(1.033초), `Skill_3_End`(1.167초)가 2.833초까지. 전에는 루프를 클립 길이 1.333초 틀어 끝 동작이 0.3초 늦었다.
+  - 추출·생성: `anim_keys.py`가 채널에 `wait`, 그 옆 `RangedAttack`의 투사체를 `fin { proj, life }`(수명은 투사체 프리팹의 `_lifeTime`, `enemy_projectiles.projectiles`)로 적고, `anim-keys.mjs keyRoles`가 이름이 끝 능력(`FinalAttack`·`…End…`)인 채널을 스킬 역할 `end` 세 클립 + `endProj`(초)로 만든다. `spine.js _skillEnd`는 루프를 시작 클립의 `OnAttack`(`hits`) + `endProj`까지 돌린다. 손 표 `SKILL_CLIP_OVERRIDES` 글래디아 줄의 `end`는 지움(`end`를 안 적은 줄은 키의 `end`·`endProj`를 그대로 둠). 기다리는데 투사체 수명을 모르면 추출도 생성도 멈춘다. 채널은 끝 능력만 이렇게 읽는다 — 같은 `wait`인 다른 채널(글래디아 S1·S2, 울피아누스 S1, 클리프하트 S1·S2, Miss.Christine S2, 르무엔 조준)은 스킬·신호 사건이 루프를 끝내므로 그대로.
+  - 공식과 다른 점: 능력은 투사체가 끝난 뒤 애니 끝 사건을 max(남은 시간, `_minPostDelayWhenProjectileInvalid` 1초)만 기다려 2.667초에 끝나고(시뮬 `endHolds`, `sim.md` 「즉발 스킬의 시전」), 끝 클립은 2.833초까지다. 그 0.167초에 공식이 끝 클립을 끊는지는 안 읽었다 — 렌더는 다음 공격이 끊을 때까지 튼다. 공격 속도가 올라 공격 시간이 1.8초(시작 + 끝 클립)보다 짧으면 채널의 `UpdatePlaybackSpeed`가 시작·끝 클립을 그만큼 빨리 트는데(`_timeMode` 0), 시뮬도 화면도 1배로 둔다(공식과 다름, 남은 일은 관리자 노트). 재발 방지: `test/render/anim-keys.test.js` 「a closing channel …」(생성기 멈춤 포함), `test/sim/attack-clip-view.test.js` 「歌蕾蒂娅 S3 …」. [화면 미확인]
 
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 

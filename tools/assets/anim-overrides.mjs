@@ -8,7 +8,7 @@
 // here; 2026-10-23), and the rows left in them are the keys' exceptions or the sim's own keys.
 //
 // A clip object replaces the skill's clips outright (one with `via: 'attack'` keeps the attack role's clip for its attacks;
-// an `end` may be an array of clips played in a row):
+// an `end` may be an array of clips played in a row; a row that names no `end` keeps the keys' end with its `endProj`):
 // 泥岩 (char_311_mudrok): S2 岩崩锤 strikes with `Skill_1` ([uc]skills.ab skchr_mudrok_2 attack ability `_animKey
 // "Skill_1"`, 1.6 s) — `strike: true`: the clip is that empowered attack's, played by the attack, not at the cast
 // (render/spine.js). `Skill_2_*` is S3 秽壤的血脉's (SleepAura `_default {Skill_2_Begin, Skill_2_Sleep, Skill_2_Awake}`,
@@ -39,11 +39,11 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
   // 歌蕾蒂娅 (char_474_glady): S2's cast clip is skchr_glady_2 `_beginAnim "Skill_2_Startup"` (`_playSkillBeginAnim 1`);
   // Skill_2_Begin / _Loop / _End are the S2 mode's attack channel.
   // S3 = an ability sequence: Chant `_animKey "Skill_3_Startup"` for the duration, the S3 mode (Idle→Skill_3_Chant, her
-  // plain Attack), and the closing FinalAttack channel `_default {Skill_3_Begin, Skill_3_Loop, Skill_3_End}` — `via:
-  // 'attack'` keeps the attack clip; `end` is the three clips in a row.
+  // plain Attack), and the closing FinalAttack channel — `via: 'attack'` keeps the attack clip; the row names no `end`, so
+  // the keys' stays: the channel's three clips in a row and its wait (anim-keys.mjs `endProj`).
   'op:char_474_glady:': Object.freeze({
     1: clips({ begin: 'Skill_2_Startup', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
-    2: Object.freeze({ via: 'attack', begin: 'Skill_3_Startup', idle: 'Skill_3_Chant', end: Object.freeze(['Skill_3_Begin', 'Skill_3_Loop', 'Skill_3_End']) }),
+    2: Object.freeze({ via: 'attack', begin: 'Skill_3_Startup', idle: 'Skill_3_Chant' }),
   }),
   // 미틈 S2 (skchr_mitm_2 `_beginAnim`, mode Skill: Attack `_animKey` Skill_2_Loop, Idle → Skill_2_Idle)
   'op:char_4147_mitm:': Object.freeze({ 1: clips({ begin: 'Skill_2_Begin', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }) }),
@@ -450,6 +450,12 @@ export function applyAnimOverrides(key, anims, names = null) {
       if (how === 'attack' && anims.attack) clip = { ...anims.attack, via: 'attack', index: Number(i), idle: null };
       else if (how && typeof how === 'object') {
         clip = how.via === 'attack' && anims.attack ? { ...anims.attack, idle: null, ...how, index: Number(i) } : { ...how, index: Number(i) };
+        // (a row without an `end` of its own: the end the keys gave, with the wait of its channel — 歌蕾蒂娅 S3)
+        const keyed = anims.skills?.[i];
+        if (!Object.hasOwn(how, 'end') && keyed?.end) {
+          clip.end = keyed.end;
+          if (keyed.endProj) clip.endProj = keyed.endProj;
+        }
         for (const f of ['begin', 'loop', 'end', 'idle']) {
           if (Array.isArray(clip[f])) clip[f] = names ? clip[f].filter((n) => names.includes(n)) : [...clip[f]];
           else if (names && clip[f] && !names.includes(clip[f])) clip[f] = null;

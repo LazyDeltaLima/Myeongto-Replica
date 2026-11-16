@@ -16,8 +16,11 @@ The client plays a Spine clip by key only. Abilities, modes and skill prefabs na
   ability { key ('' = no clip), end, down, downEnd, up, upEnd, charge (AbstractAnimatedAbility `_animKey` …, the other
             empty ones left out), dby (when down / downEnd play: down_by),
             three: { begin, oneshot, end, first, down? { begin, oneshot, end, by } } (ThreePartOneshotAnimation, its
-            `_down` bundle under `_overrideDownAnimation`), chan: { begin, loop, end, down? }
-            (a ThreePart channel's `_default`, its `_down` likewise), emit: [keys] (AnimationEmitBehaviour `_settings[].anim`),
+            `_down` bundle under `_overrideDownAnimation`), chan: { begin, loop, end, down?, wait? }
+            (a ThreePart channel's `_default`, its `_down` likewise; wait 1 = `_waitForAttachFinishEvent`: its loop lasts until
+            the owner's attack-finish event, not `m_loopTime`), fin: { proj, life } (beside a waiting channel: the ability's
+            RangedAttack sends that event as its projectile `proj` ends, `_waitForProjectileInvalid` with
+            `_fireAttackFinishWhenProjectileInvalid` — `life` the projectile prefab's LIMITED `_lifeTime`), emit: [keys] (AnimationEmitBehaviour `_settings[].anim`),
             hook: { from: to } (its `_hookSettings`), src (`_sourceAnimKey`),
             turns: { anims: [keys], loop } (UberAnimationEffectEmitter `_replaceGroup[].anim`, `_loopType` 0 LOOP / 1 RANDOM),
             group: { of: [child paths], method?, diff?, seq? } (AbilityRandomGroup `_abilities` / `_selectMethod` /
@@ -151,7 +154,15 @@ def ability_of(d, out):
         if d.get('_overrideDownAnimation') and any(s(dn.get(k)) for k in ('beginAnim', 'loopAnim', 'endAnim')):
             # ThreePartChannelingAnimation._GetAnimBundle: its `_down` bundle when its owner was deployed facing down
             out['chan']['down'] = {'begin': s(dn.get('beginAnim')), 'loop': s(dn.get('loopAnim')), 'end': s(dn.get('endAnim')), 'by': 'deploy'}
+        if d.get('_waitForAttachFinishEvent'):
+            # ThreePartChannelingAnimation.DoPlayAnimation: the loop waits for the owner's entity event ON_ATTACK_FINISH (at
+            # most 360 s) instead of `m_loopTime`
+            out['chan']['wait'] = 1
         got = True
+    if d.get('_waitForProjectileInvalid') and d.get('_fireAttackFinishWhenProjectileInvalid') and s(d.get('_projectileKey')):
+        # RangedAttack.OnWaitForPostDelay: as its projectiles are no longer valid it sends that event (kept below only beside
+        # a waiting channel)
+        out['fin'] = {'proj': d['_projectileKey']}
     if isinstance(d.get('_settings'), list) and any(isinstance(x, dict) and 'anim' in x for x in d['_settings']):
         out['emit'] = [x['anim'] for x in d['_settings'] if isinstance(x, dict) and s(x.get('anim'))]
         hook = {h['fromAnimKey']: h['toAnimKey'] for h in d.get('_hookSettings') or []
@@ -193,7 +204,37 @@ def abilities_under(tree, base):
         g = group_of(d, rel_of)
         if g and any(x is not None for x in g['of']):
             rec['group'] = g
+    for rec in out.values():
+        if 'fin' in rec and not (rec.get('chan') or {}).get('wait'):
+            del rec['fin']
     return {k: v for k, v in sorted(out.items()) if v}
+
+
+def fins(rec):
+    """The `fin` records of an operator record's modes and skills."""
+    for part in (rec.get('modes') or []) + (rec.get('skills') or []):
+        for ab in (part.get('abilities') or {}).values():
+            if 'fin' in ab:
+                yield ab['fin']
+
+
+def put_fin_lives(ops, games):
+    """Give each `fin` its projectile's life (enemy_projectiles.projectiles: the LIMITED `_lifeTime`), from the first client
+    that has the prefab; one no client has, or one without a life, stops the run (its channel would wait for nothing)."""
+    left = [f for rec in ops.values() for f in fins(rec)]
+    if not left:
+        return
+    import enemy_projectiles as ep
+    for game, _ in games:
+        allp = ep.projectiles(Path(game))
+        for f in left:
+            p = allp.get(f['proj'])
+            if 'life' not in f and p and isinstance(p.get('life'), (int, float)) and p['life'] > 0:
+                f['life'] = round(p['life'], 4)
+        if all('life' in f for f in left):
+            return
+    raise SystemExit('anim_keys: no projectile life for ' + ', '.join(sorted({f['proj'] for f in left if 'life' not in f}))
+                     + ' (a waiting channel ends with it: docs/rules/render.md 「스킬 끝 채널의 루프」)')
 
 
 def skin_of(path, tree=None, at='DefaultSkin'):
@@ -416,6 +457,7 @@ def main():
                     e['downMode'], e['downBy'] = dm
                 out.append(e)
             ops[cid]['skills'] = out
+    put_fin_lives(ops, games)
     toks = tokens_of(games, templates)
     doc = {'$comment': 'Clip keys of the operators (abilities, modes, skill prefabs, the skin key table) and of the summons '
                        '(their prefab modes and skin key table), written by tools/local-extract/anim_keys.py from the local '
