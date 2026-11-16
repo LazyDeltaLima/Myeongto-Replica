@@ -4,24 +4,25 @@
 //   * the strategy draft's 本局信息 dialog (screens/bandDraft.js; GitHub issue #8 item 1 "选策略时没法返回查看禁用的干员和盟约":
 //     players choose a strategy partly by the bonds and operators the match leaves them);
 //   * the data of the in-game 本局信息 tab (ui/enemyDrawer.js InfoTab, its own compact chips and avatars).
-// matchInfoModel (pure) derives everything from m.public and the static data: the two kinds of greyed bonds
-// (gameLogic disabledBondSets over config.modes[modeId].inactiveBondIds — the drawn set D "部分盟约所含干员阵容不完整",
-// still activatable through other bonds' operators or items, and the mode's static inactive bonds "本局禁用", e.g.
-// 标准模拟's 10), every bond in the briefing order (bondOrder, then identifier) split into 核心 / 附加, the banned
-// operators (m.public bannedChess, known chess only) sorted by tier, the banned-member count per bond (gameLogic
-// bannedPerBond), the banned operators grouped by greyed bond and — from the viewer's own m.private — its slotted 自选
+// matchInfoModel (pure) derives everything from m.public and the static data: the drawn set D (gameLogic disabledBondSets —
+// "部分盟约所含干员阵容不完整", still activatable through other bonds' operators or items), the bonds the mode keeps
+// (config.modes[modeId].inactiveBondIds, e.g. 标准模拟's 10, are left out of the view altogether, as the client's stage-info
+// view skips every bond outside the mode's activeBondIdList), those bonds split into 核心 / 附加 in the client's order
+// (the ones outside D first, then D, each by the table's identifier, then bondId), the banned operators the view lists
+// (m.public bannedChess, known chess only, under a bond of D) sorted by tier, the banned-member count per bond (gameLogic
+// bannedPerBond), the banned operators grouped by bond of D and — from the viewer's own m.private — its slotted 自选
 // pieces left out of the shop because all their bonds are off (gameLogic diyBannedPieces; 0.2.0).
 // The blocks are hookless (unit-tested by calling them) and drawn as the client's stage-info view
 // (ui/autochess/[uc]autochessouter.ab prefab_auto_chess_stage_info_*; sprites from the local-client extraction
 // ui/outer, with a CSS fallback): the 核心盟约 / 附加盟约 rows of bond items (bond_item: the mint img_bond_bkg disc with a
 // dark glyph, or for a greyed bond the grey img_bond_banned_bkg with the img_bond_banned mark — tooltip briefingBondTip),
 // the legend, and 本局禁用干员 grouped by bond (chess_banned_group: the greyed bond, a divider, its banned operators each
-// under img_chess_banned_mask + the img_chess_banned corner). The client builds one group per banned bond from that
-// bond's members in the banned list (AutoChessStageInfoGroupViewModel._LoadBondDataFromIdRange →
-// AutoChessStageInfoChessGroupModel.LoadData), so an operator whose two bonds are both off is under both, and a drawn
-// bond without banned members still has its (empty) group. The mode's static inactive bonds get a group only when they
-// hold banned operators [ASSUMED: whether the client's bannedBondList includes them is not read; this keeps 标准's 10
-// switched-off bonds from adding empty rows while every banned operator stays listed].
+// under img_chess_banned_mask + the img_chess_banned corner). The client builds one group per banned bond the mode keeps
+// from that bond's members in the banned list (AutoChessStageInfoGroupViewModel._LoadBondDataFromIdRange →
+// AutoChessStageInfoChessGroupModel.LoadData), so an operator whose two bonds are both drawn is under both, a drawn
+// bond without banned members still has its (empty) group, and the groups sort as the bond items (identifier, then
+// bondId). An operator banned only through bonds the mode switches off is under no group, so the view does not list it
+// (the client view skips those bonds; its count here counts the listed operators).
 // MatchInfoDialog shows the same blocks read-only in a components.js Modal (关闭, a tap outside or Esc close it) with a
 // status line from its caller (the draft's turn and countdown, so the running clock stays in view).
 // Styles: css/screens/briefing.css (.brief-*), css/screens/draft.css (.minfo-dlg).
@@ -55,28 +56,33 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
  *   by default from the loaded config) for the custom lines
  * @returns {MatchInfoModel}
  *   stateOf: 'off' = the mode never activates the bond (本局禁用), 'drawn' = in the drawn set D (阵容不完整), null = normal;
- *   banned: the banned chess ids the data knows, by tier (ties keep the server's order); perBond: bondId → banned members;
- *   bannedGroups: per greyed bond (core row, then add-on row) its banned members by tier — every drawn bond, and a
- *   mode-off bond only with members; custom: a 自定义 match's differences from the official rules (ui/customSummary.js),
- *   null for the other presets
+ *   bonds: every bond record; core / addon: the bonds the mode keeps (no 'off' one), those outside D first, then D, each by
+ *   identifier, then bondId (the client's AutoChessStageInfoBondViewModel.CompareTo);
+ *   banned: the banned chess ids the data knows that sit under a group, by tier (ties keep the server's order);
+ *   perBond: bondId → banned members (over every known banned id); bannedGroups: per bond of D (identifier, then bondId)
+ *   its banned members by tier, also when it has none; custom: a 自定义 match's differences from the official rules
+ *   (ui/customSummary.js), null for the other presets
  */
 export function matchInfoModel(pub, { bonds = [], chess = () => null, mode = null, priv = null, diyData = null, bans = undefined } = {}) {
   const sets = disabledBondSets(pub, mode?.inactiveBondIds);
   const stateOf = (id) => (sets.off.has(id) ? 'off' : sets.drawn.has(id) ? 'drawn' : null);
-  const list = (Array.isArray(bonds) ? bonds : []).filter((b) => !!b && typeof b === 'object' && typeof b.bondId === 'string')
-    .sort((a, b) => (a.bondOrder ?? 0) - (b.bondOrder ?? 0) || (a.identifier ?? 0) - (b.identifier ?? 0));
+  const list = (Array.isArray(bonds) ? bonds : []).filter((b) => !!b && typeof b === 'object' && typeof b.bondId === 'string');
+  // the client's sort of the stage-info bond items and groups: not banned first, then identifier, then bondId (ordinal)
+  const shown = list.filter((b) => !sets.off.has(b.bondId)).sort((a, b) => Number(sets.drawn.has(a.bondId)) - Number(sets.drawn.has(b.bondId))
+    || (a.identifier ?? 0) - (b.identifier ?? 0) || (a.bondId < b.bondId ? -1 : a.bondId > b.bondId ? 1 : 0));
   const tierOf = (id) => chess(id)?.tier ?? 0;
-  const banned = (Array.isArray(pub?.bannedChess) ? pub.bannedChess : []).filter((id) => typeof id === 'string' && !!chess(id))
+  const known = (Array.isArray(pub?.bannedChess) ? pub.bannedChess : []).filter((id) => typeof id === 'string' && !!chess(id))
     .sort((a, b) => tierOf(a) - tierOf(b));
-  const core = list.filter((b) => b.isCore);
-  const addon = list.filter((b) => !b.isCore);
-  const bannedGroups = [...core, ...addon].filter((b) => stateOf(b.bondId)).map((bond) => {
+  const core = shown.filter((b) => b.isCore);
+  const addon = shown.filter((b) => !b.isCore);
+  const bannedGroups = shown.filter((b) => sets.drawn.has(b.bondId)).map((bond) => {
     const members = new Set(Array.isArray(bond.visibleMembers) ? bond.visibleMembers : []);
-    return { bond, chess: banned.filter((id) => members.has(id)) };
-  }).filter((g) => g.chess.length > 0 || sets.drawn.has(g.bond.bondId));
+    return { bond, chess: known.filter((id) => members.has(id)) };
+  });
+  const listed = new Set(bannedGroups.flatMap((g) => g.chess));
   return {
     sets, stateOf, bonds: list, core, addon,
-    banned, perBond: bannedPerBond(list, banned), bannedGroups,
+    banned: known.filter((id) => listed.has(id)), perBond: bannedPerBond(list, known), bannedGroups,
     diyBanned: priv && diyData ? diyBannedPieces(priv, chess, diyData) : [],
     custom: customLines(pub, list, mode, bans),
   };
@@ -147,8 +153,9 @@ export function InfoBond({ bond, off, small = false }) {
 }
 
 /**
- * One row of bonds (核心盟约 / 附加盟约): a greyed item (the banned mark) for a bond in the drawn set D or one the mode
- * never activates; the tooltip says which and how many of its operators cannot appear (briefingBondTip).
+ * One row of bonds (核心盟约 / 附加盟约, MatchInfoModel core / addon — the mode's switched-off bonds are not in them): a
+ * greyed item (the banned mark) for a bond in the drawn set D; the tooltip says how many of its operators cannot appear
+ * (briefingBondTip).
  * @param {{ title: string, micro: string, bonds: any[], model: MatchInfoModel, kind?: 'perm'|'temp' }} props
  */
 export function MatchBondRow({ title, micro, bonds, model, kind = 'temp' }) {
@@ -169,11 +176,11 @@ export function MatchBondRow({ title, micro, bonds, model, kind = 'temp' }) {
 }
 
 /**
- * The legend under the bond rows ("或本模式禁用" only when the mode switches bonds off).
- * @param {{ model: MatchInfoModel }} props
+ * The legend under the bond rows (the grey is the drawn set D only: the bonds the mode switches off are not shown).
+ * @param {{ model?: MatchInfoModel }} [_props]
  */
-export function MatchLegend({ model }) {
-  return html`<p class="brief-legend"><span class="brief-legend__off"></span>${t('灰色：部分盟约所含干员阵容不完整（仍可通过其他盟约的干员或装备激活）')}${model.sets.off.size ? t('，或本模式禁用') : ''}</p>`;
+export function MatchLegend(_props) {
+  return html`<p class="brief-legend"><span class="brief-legend__off"></span>${t('灰色：部分盟约所含干员阵容不完整（仍可通过其他盟约的干员或装备激活）')}</p>`;
 }
 
 /**

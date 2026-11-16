@@ -1326,7 +1326,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 (관리자 결정 2026-10-11 「지금 2단 배치 유지」 — 공식은 적 → 결장 → 핵심 → 부가 세로 한 줄).
 
 - 맹약 칸(`prefab_auto_chess_stage_info_bond_item` 110 × 160): 켜진 맹약은 민트 원판 `img_bond_bkg`(131 × 130, 가운데에서 15 위) 위에 어두운 문양
-  (60 칸, 색 #031712), 꺼진 맹약(뽑힌 집합 D·모드가 끄는 맹약)은 회색 `img_bond_banned_bkg` + 회색 문양(#c9c9c9) + 금지 표시 `img_bond_banned`(38, 원판 가운데에서
+  (60 칸, 색 #031712), 꺼진 맹약(뽑힌 집합 D)은 회색 `img_bond_banned_bkg` + 회색 문양(#c9c9c9) + 금지 표시 `img_bond_banned`(38, 원판 가운데에서
   (29, 32)), 이름은 가운데 50 아래 19 크기 #f4f4f4 60 %. 예전 upstream 원판(SVG 단계 고리·✕·빨간 결장 인원 배지)은 뺐다 — 인원은 툴팁(`briefingBondTip`)과
   아래 맹약별 목록에 있다. 그림은 로컬 클라 추출물 `ui/outer`, 없으면 CSS 원.
 - 제목 줄(`perm_bond_title` / `temp_bond_title` / `chess_banned_title`): 바 그림 `img_group_title_perm_bond` / `img_group_title`(가로 반복)과 아이콘
@@ -1338,9 +1338,17 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   빨간 삼각형(34)이 카드 오른쪽 위 모서리에 닿는다(관리자 요청 2026-10-13, 공식 화면 대조). 공식 클라 근거: `AutoChessStageInfoGroupViewModel._LoadBondDataFromIdRange`가
   `bannedBondList`의 맹약마다 `AutoChessStageInfoChessGroupModel`을 만들고, `LoadData`가 그 맹약 멤버 중 `CalculateBannedChessIdList`에 든 것을 넣는다 →
   두 맹약이 다 꺼진 오퍼레이터는 두 묶음에 다 나온다. `_RefreshChess`는 멤버 수가 0이어도 묶음을 넣고, 6명마다 줄을 나눈다(두 번째 줄부터 맹약 칸 없음 — 우리는
-  가로 폭에 맞춰 감싼다). 묶음 순서는 핵심 줄 → 부가 줄 순(클라 `CompareTo`의 정확한 키는 안 읽음 [추정]).
-- 모드가 끄는 맹약(표준의 10개)은 결장 오퍼레이터가 있을 때만 묶음을 만든다 [추정]: 클라 `bannedBondList`에 모드 비활성 맹약이 들어가는지 안 읽었다.
-  뽑힌 맹약(D)은 비어도 묶음을 만든다(위 `_RefreshChess`).
+  가로 폭에 맞춰 감싼다).
+- 모드가 끄는 맹약(표준 시뮬레이션의 10개 — 라테라노·에기르·카시미어 등, 규정 시즌 모드의 8개)은 맹약 줄에도 결장 묶음에도 **아예 없다**(2026-11-16 공식 클라에서 확인:
+  `_LoadBondDataFromIdRange`가 모드 `activeBondIdList`에 없는 맹약을 건너뜀). 그래서 회색은 뽑힌 맹약(D)뿐이고 범례의 「或本模式禁用」도 뺐다. 결장 묶음은 D의 맹약마다
+  하나(비어도, 위 `_RefreshChess`), 모드가 끈 맹약으로만 결장된 오퍼레이터는 어느 묶음에도 없어 목록에 안 나온다. 제목 옆 결장 수(공식 `chess_banned_title`에는 수 칸이
+  없음 — 우리 것)는 목록에 나온 오퍼레이터 수다(`matchInfoModel` `banned`; 판 안 「시뮬레이션 정보」 탭의 수도 같은 값). D 맹약과 모드가 끈 맹약을 함께 가진 결장 오퍼레이터는
+  D 묶음에 나온다 [추정·서버: 공식 서버의 팀 정보 `bannedBond`에 모드 비활성 맹약도 드는지 모름 — 안 들면 `CalculateBannedChessIdList`가 그 오퍼레이터를 결장으로 안 셀 수 있음].
+- 순서(같은 날 공식 클라에서 확인, `AutoChessStageInfoBondViewModel.CompareTo`·`AutoChessStageInfoChessGroupModel.CompareTo`): 맹약 줄(핵심·부가 각각)은 안 꺼진 맹약 먼저,
+  꺼진(D) 맹약 뒤, 그 안은 표 `identifier` → `bondId`(문자열 순). 결장 묶음도 같은 비교(모두 꺼졌으니 `identifier` → `bondId`) — 핵심·부가가 `identifier`로 이어진다.
+  예전엔 `bondOrder` → `identifier`로 꺼진 칸이 제자리였고 조화(`maniShip`, `bondOrder` 1)가 부가 맨 앞이었다. 시즌 갈래 없음 — 읽은 EN 클라는 맹약 시즌 코드이고, 관리자가
+  맹약 시즌 옛 공식 영상에서 꺼진 맹약이 뒤인 것을 확인해 두 시즌 모두 클라대로(관리자 결정 2026-11-16).
+  재발 방지: `test/ui/match-info.test.js`(`assertClientOrder` — 합성·표준·극한 시뮬레이션 판에서 모드가 끈 맹약이 줄에 없는지, 줄·묶음 순서).
 - 판 안 「시뮬레이션 정보」 서랍(`ui/enemyDrawer.js InfoTab`)도 결장 오퍼레이터 묶음을 브리핑과 같은 공식 `chess_banned_group` 모양으로 그린다(`matchInfo.js BannedGroups`:
   꺼진 맹약 원판 → 구분선 → 결장 오퍼레이터, 서랍 폭에 맞춘 작은 단위; 오퍼레이터를 누르면 카드가 열림. 관리자 요청 2026-10-31 — 그날 먼저 넣은 맹약 칩 + 결장 수 배지 모양을 대신함). 서랍은 ✕·왼쪽 돋보기·Esc 말고
   서랍 밖을 눌러도 닫힌다(서랍이 연 카드·맹약 팝업·대화상자 안은 그대로, `gameLogic/shortcuts.js drawerClosesOnPress`; 관리자 요청 2026-10-31).
