@@ -39,6 +39,26 @@ describe('skin_extract.py names (no UnityPy needed)', { skip: !PY && 'no python3
     assert.equal(validPath(`/assets/local/spine/skin/x/${names[0]}`), false);
   });
 
+  test('illust_picture: a skin 立绘 carries the frame the client card draws it by (the stored pair before the RectTransform)', () => {
+    // 史尔特尔's skin 「缤纷奇境 CW03」: the card draws it at the stored 1577.161 @ (−35.0, 195.0), not the RectTransform's
+    // 1656.2 @ (−29.5, 188.1) — measured on the maintainer's official screenshot (docs/rules/ui.md 「스킨 고르기」 상세 카드)
+    const out = py(`
+from types import SimpleNamespace as NS
+class O:
+    def __init__(self, kind, tree): self.type, self._t = NS(name=kind), tree
+    def read_typetree(self): return self._t
+    def read(self): return 'sprite'
+objs = {1: O('RectTransform', {'m_AnchoredPosition': {'x': -29.5, 'y': 188.09}, 'm_SizeDelta': {'x': 1656.2, 'y': 1656.2}}),
+        2: O('MonoBehaviour', {'m_Sprite': {'m_FileID': 0, 'm_PathID': 9}, 'm_Material': None}),
+        3: O('MonoBehaviour', {'_objects': [], '_values': [{'key': 'ILLUST_OFFSET', 'value': '-35.01463,195.0144,0'}, {'key': 'ILLUST_SIZE', 'value': '1577.161,1577.161,0'}]}),
+        9: O('Sprite', None)}
+s.sprite_picture = lambda sp, alpha=None: 'PIC'
+s.material_alpha = lambda ptr, objects: None
+tree = {'m_Component': [{'component': {'m_FileID': 0, 'm_PathID': i}} for i in (1, 2, 3)]}
+print(json.dumps(s.illust_picture(tree, objs)))`);
+    assert.deepEqual(out, ['PIC', { x: -35.01463, y: 195.0144, w: 1577.161, h: 1577.161 }], 'skin_extract.py illust_picture must take its frame from chararts_extract.illust_frame (docs/rules/ui.md 「스킨 고르기」)');
+  });
+
   test('file_name stops on a character it has no rule for (a `-` too: it could make two names one)', () => {
     const bad = ['a-b#1', 'a b', 'a%23', 'a/b', 'a?b', '..', '', 'ä#1'];
     const out = py(`

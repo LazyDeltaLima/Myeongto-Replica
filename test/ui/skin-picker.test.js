@@ -1,7 +1,8 @@
 // test/ui/skin-picker.test.js — 스킨 고르기 (docs/rules/ui.md 「스킨 고르기」): the catalogue from the skin data's two lists
 // (ui/skins.js), the section's states and tiles (ui/skinPicker.js: locked without the skin data, open with it), the
 // enlarged preview, the sync that publishes the choice only with the skin data and never per season
-// (ui/loadoutSync.js installSkinsSync), and the seat card's skin (ui/seatArt.js seatCardSkin). The real lists are swept
+// (ui/loadoutSync.js installSkinsSync), the seat card's skin (ui/seatArt.js seatCardSkin) and the detail card's skin
+// 立绘 (ui/skins.js cardSkinArt, ui/detailArt.js). The real lists are swept
 // when this checkout has them: every picture the picker draws must be a file of the resource list.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,7 +11,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createStore } from '../../public/js/store.js';
-import { parseStoredSkins, buildSkinCatalog, chosenSkin, skinRows, ownerSkin, SKINS_KEY, SKINS_SYNC_KEY } from '../../public/js/ui/skins.js';
+import { parseStoredSkins, buildSkinCatalog, chosenSkin, skinRows, ownerSkin, cardSkinArt, SKINS_KEY, SKINS_SYNC_KEY } from '../../public/js/ui/skins.js';
+import { cardArt } from '../../public/js/ui/detailArt.js';
 import { skinSectionState, skinTiles, SkinTile, SkinPreview, SkinPackBox } from '../../public/js/ui/skinPicker.js';
 import { installSkinsSync, setLoadoutSeason, SYNC_DEBOUNCE_MS } from '../../public/js/ui/loadoutSync.js';
 import { seatCardSkin } from '../../public/js/ui/seatArt.js';
@@ -27,7 +29,7 @@ const NOART = `${OP}@winter#9`;
 const P = (s) => `/assets/spine/skin/${OP}/${s}`;
 const LIST = {
   skins: {
-    [SKIN]: { owner: OP, name: '升华', illust: { path: '/assets/local/spine/skin/x/illust/a.webp', w: 1024, h: 1024 }, tokens: { token_10017_skadi2_dedant: 'token_10017_skadi2_dedant_boc#4' } },
+    [SKIN]: { owner: OP, name: '升华', illust: { path: '/assets/local/spine/skin/x/illust/a.webp', w: 1024, h: 1024, frame: { x: -35, y: 195, w: 1577, h: 1577 } }, tokens: { token_10017_skadi2_dedant: 'token_10017_skadi2_dedant_boc#4' } },
     [SKIN2]: { owner: OP, illust: { path: '/assets/local/spine/skin/x/illust/b.webp', w: 1024, h: 1024 } },
     [NOART]: { owner: OP },
     // a summon's own skin: never chosen, it follows its owner's
@@ -250,6 +252,40 @@ describe('seat card skin', () => {
   });
 });
 
+describe('detail card skin 立绘', () => {
+  const ILL = '/assets/local/spine/skin/x/illust/a.webp';
+  const FULL = '/assets/local/spine/skin/x/illust/full/a.webp';
+  const FRAME = { x: -35, y: 195, w: 1577, h: 1577 };
+  const lo = buildSkinCatalog(LIST, ART, false);
+  const withFull = { skins: { ...LIST.skins, [SKIN]: { ...LIST.skins[SKIN], illust: { ...LIST.skins[SKIN].illust, full: { path: FULL, w: 2100, h: 2100 } } } } };
+  test('the worn skin\'s 立绘 by its own card frame, only once the skin data is downloaded and that copy cached', () => {
+    const cached = (paths) => paths.every((p) => p === ILL || p === FULL);
+    assert.deepEqual(cardSkinArt(SKIN, [OP], { catalog: lo, ready: true, cached }), { src: ILL, frame: FRAME });
+    assert.deepEqual(cardSkinArt(SKIN, [OP], { catalog: buildSkinCatalog(withFull, ART, true), ready: true, cached }), { src: FULL, frame: FRAME }, '高清: the full copy');
+    assert.equal(cardSkinArt(SKIN, [OP], { catalog: lo, ready: false, cached }), null, 'not taken or still downloading: the default art');
+    assert.equal(cardSkinArt(SKIN, [OP], { catalog: lo, ready: true, cached: () => false }), null, 'that 立绘 not cached');
+    assert.equal(cardSkinArt(SKIN, ['char_2_other'], { catalog: lo, ready: true, cached }), null, 'another operator\'s skin');
+    assert.equal(cardSkinArt(SKIN2, [OP], { catalog: lo, ready: true, cached: () => true }), null, 'no card frame: the default art');
+    assert.equal(cardSkinArt(NOART, [OP], { catalog: lo, ready: true, cached: () => true }), null);
+    assert.equal(cardSkinArt(null, [OP], { catalog: lo, ready: true, cached }), null);
+    assert.equal(cardSkinArt(SKIN, [OP], { catalog: 'missing', ready: true, cached }), null);
+  });
+
+  test('cardArt: the skin 立绘 replaces the default art and its frame', () => {
+    const skin = cardSkinArt(SKIN, [OP], { catalog: lo, ready: true, cached: () => true });
+    assert.deepEqual(cardArt({}, { charId: OP }, false, skin), { src: ILL, full: true, frame: FRAME });
+    assert.notEqual(cardArt({}, { charId: OP }, false, null).src, ILL);
+  });
+
+  test('ChessDetailArt asks for the skin of the piece it shows, for the body drawn (a stand-in, a 自选 pick, a template)', () => {
+    const src = read('public/js/ui/detailArt.js');
+    assert.match(src, /const skinId = typeof piece\?\.skin === 'string' && piece\.skin \? piece\.skin : null;/);
+    assert.match(src, /cardSkinArt\(skinId, \[body\.tmplId, body\.charId\], \{ catalog, ready: skinReady, cached: resourceCached \}\)/);
+    assert.match(src, /const art = cardArt\(m, body, hi, skinArt\);/);
+    assert.match(src, /useStore\(\(r\) => skinPackState\(r\) === 'done', Object\.is, resStore\)/);
+  });
+});
+
 test('the real skin lists: every picture the picker draws is a file of the resource list', { skip: !existsSync(path.join(ROOT, 'public/assets/local/spine/skin/skins.json')) && 'no skin lists in this checkout' }, () => {
   const list = JSON.parse(read('public/assets/local/spine/skin/skins.json'));
   const artFile = path.join(ROOT, 'public/assets/local/spine/skin/art.json');
@@ -260,6 +296,9 @@ test('the real skin lists: every picture the picker draws is a file of the resou
   assert.ok(rows.every((r) => r.owner.startsWith('char_')), 'only operators own a chosen skin');
   assert.ok(skinRows(cat, OP).some((r) => r.id === SKIN), `${SKIN} is in the catalogue`);
   const unnamed = rows.filter((r) => !r.name).map((r) => r.id);
+  // the detail card draws a skin 立绘 only by its card frame (skin_extract.py illust_picture → chararts_extract.illust_frame)
+  const noFrame = rows.filter((r) => r.illust && !r.frame).map((r) => r.id);
+  assert.deepEqual(noFrame.slice(0, 5), [], `${noFrame.length} skin 立绘 without a card frame: run tools/local-extract/skin_extract.py --only art (docs/rules/ui.md 「스킨 고르기」)`);
   assert.deepEqual(unnamed.slice(0, 5), [], `${unnamed.length} skins without a name show 「皮肤 N」: tools/local-extract/skin_extract.py writes the skin table's displaySkin.skinName (--only names; docs/rules/ui.md 「스킨 고르기」)`);
   const idx = path.join(ROOT, 'public/assets/browser-resources.json');
   if (!existsSync(idx)) return;

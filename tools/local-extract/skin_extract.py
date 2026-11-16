@@ -18,8 +18,9 @@ chararts art): the record's own `avatarId` (1:1, 180 px), `portraitId` (1:2, 180
 avatar and portrait are found by the client's name → path maps (`arts/charavatars/avatar_hub.ab`,
 `arts/charportraits/portraits_hub.ab`; ids matched without case) in the sprite packs (`spritepack/ui_char_avatar_*.ab`,
 `spritepack/char_portrait_*.ab`); the 立绘 is the `illust_<skin>` prefab of the owner's skinpack: its Image sprite's
-texture (the whole square canvas, with the sprite's alpha texture when it has one) and its RectTransform, the frame
-chararts_extract.py reads for the default art. The summons' skin records carry an avatar only, and not every one of them
+texture (the whole square canvas, with the sprite's alpha texture when it has one) and the frame the battle's unit card
+draws it by, read as chararts_extract.illust_frame reads the default art's (the stored ILLUST_OFFSET / ILLUST_SIZE,
+else the RectTransform). The summons' skin records carry an avatar only, and not every one of them
 is in the client (the summon then keeps its default one).
 
 File names: the official ids carry `#` (`char_202_demkni_boc#1`), which a URL reads as the start of a fragment — the
@@ -43,8 +44,8 @@ Output (under --out, public/assets/local by default):
                           picker shows it through tName, whose Korean / English … come from the official skin tables of
                           those servers (tools/build-i18n.mjs skinNameRows; docs/rules/ui.md 「스킨 고르기」);
                           front / back = { skel, atlas, textures[], pma }; avatar / portrait = { path, w, h };
-                          illust = { path, w, h, frame: { x, y, w, h }, full?: { path, w, h } } (frame = the illust
-                          RectTransform, as chararts, in frame units: the same for both copies)
+                          illust = { path, w, h, frame: { x, y, w, h }, full?: { path, w, h } } (frame = the card's
+                          illust frame, chararts_extract.illust_frame, in frame units: the same for both copies)
 A skin whose model is missing gets no pictures either (the picker does not offer it).
 The index is a file of its own, not a data/local-assets.json group: that manifest goes to every page, the skins only to
 those who take the skin data. tools/build-browser-resources.mjs leaves the whole spine/skin/ folder out of the pre-download
@@ -348,26 +349,20 @@ def material_alpha(ptr, objects):
 
 
 def illust_picture(tree, objects):
-    """(picture, frame) of an `illust_<skin>` prefab's root: its Image sprite and its RectTransform (anchored position
-    and size, y up: the frame chararts_extract.py reads). The alpha of most skin 立绘 is not in the sprite: the Image's
-    material (`illust_<skin>_material`) draws its `_AlphaTex` over the opaque texture; without a material the
-    texture's own alpha counts. None when it has no sprite."""
-    pic = frame = None
-    for c in tree.get('m_Component') or []:
-        co = objects.get(c['component']['m_PathID']) if not c['component'].get('m_FileID') else None
-        if co is None:
-            continue
-        if co.type.name == 'RectTransform':
-            rt = co.read_typetree()
-            p, sz = rt['m_AnchoredPosition'], rt['m_SizeDelta']
-            frame = {'x': p['x'], 'y': p['y'], 'w': sz['x'], 'h': sz['y']}
-        elif co.type.name == 'MonoBehaviour' and pic is None:
-            t = co.read_typetree()
-            ptr = t.get('m_Sprite') or {}
-            sp = objects.get(ptr.get('m_PathID')) if ptr.get('m_PathID') and not ptr.get('m_FileID') else None
-            if sp is not None and sp.type.name == 'Sprite':
-                pic = sprite_picture(sp.read(), material_alpha(t.get('m_Material'), objects))
-    return (pic, frame) if pic is not None else None
+    """(picture, frame) of an `illust_<skin>` prefab's root: its Image sprite and the frame the battle's unit card draws
+    it by (chararts_extract.illust_frame: the stored ILLUST_OFFSET / ILLUST_SIZE, else the RectTransform; y up). The
+    alpha of most skin 立绘 is not in the sprite: the Image's material (`illust_<skin>_material`) draws its `_AlphaTex`
+    over the opaque texture; without a material the texture's own alpha counts. None when it has no sprite."""
+    import chararts_extract
+    pic = None
+    trees = chararts_extract.component_trees(tree, objects)
+    for t in trees:
+        ptr = t.get('m_Sprite') or {}
+        sp = objects.get(ptr.get('m_PathID')) if ptr.get('m_PathID') and not ptr.get('m_FileID') else None
+        if sp is not None and sp.type.name == 'Sprite':
+            pic = sprite_picture(sp.read(), material_alpha(t.get('m_Material'), objects))
+            break
+    return (pic, chararts_extract.illust_frame(trees)) if pic is not None else None
 
 
 def save_picture(img, out_root, rel, kind):

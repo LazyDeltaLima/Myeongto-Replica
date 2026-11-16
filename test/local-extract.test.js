@@ -203,6 +203,25 @@ print(json.dumps([
     assert.equal(off, null);
   });
 
+  // the client's unit card (UICharacterInfoPanel._LoadIllust) sets the illust's anchored position and size from the
+  // prefab's StoreValueComponent ILLUST_OFFSET / ILLUST_SIZE when it has them; the RectTransform only otherwise. Read
+  // the other way round, the card placed 雪猎's E2 art right only because the card unit was fitted to it, and every
+  // other operator and skin wrong (史尔特尔's skin 10 % too small, 哈洛德's 7 % too large)
+  test('illust_frame: the stored ILLUST_OFFSET / ILLUST_SIZE (the card\'s), else the RectTransform', () => {
+    const rt = { m_AnchoredPosition: { x: -118.4, y: 56 }, m_SizeDelta: { x: 2048, y: 2048 } };
+    const store = { _objects: [], _values: [{ key: 'ILLUST_OFFSET', value: '-112.3333,59.3333,0', type: 1 }, { key: 'ILLUST_SIZE', value: '1770.906,1770.906,0', type: 1 }] };
+    const image = { m_Sprite: { m_FileID: 0, m_PathID: 1 } };
+    const offset = { _skinOffset: { enablePos: 1, position: { x: -64.7, y: -36.9 }, enableSize: 1, size: { x: 1414.1, y: 1414.1 } } };
+    const out = cardPy(`print(json.dumps([c.illust_frame(t) for t in ${JSON.stringify([[rt, image, offset, store], [rt, image, offset], [store, rt], [image],
+      [rt, { _values: [{ key: 'ILLUST_OFFSET', value: '1,2,0' }] }]])}]))`);
+    const why = 'chararts_extract.py illust_frame must read the stored pair the client card uses before the RectTransform (docs/rules/ui.md 「정비 화면 HUD」 배치 근거)';
+    assert.deepEqual(out[0], { x: -112.3333, y: 59.3333, w: 1770.906, h: 1770.906 }, why);
+    assert.deepEqual(out[1], { x: -118.4, y: 56, w: 2048, h: 2048 }, 'no stored pair: the RectTransform');
+    assert.deepEqual(out[2], out[0], 'whatever the component order');
+    assert.equal(out[3], null);
+    assert.deepEqual(out[4], { x: -118.4, y: 56, w: 2048, h: 2048 }, 'half a pair: the RectTransform');
+  });
+
   test('prefab_spine_nodes: the SkeletonAnimation renderers of a prefab tree, depth first, inactive branches marked', () => {
     // a directional token prefab: Graphic / DefaultSkin / FaceSwitcher / {Front, Back} (each with its own skeleton), an
     // inactive Spare renderer, a component in another bundle (m_FileID ≠ 0) and a MonoBehaviour without a type tree

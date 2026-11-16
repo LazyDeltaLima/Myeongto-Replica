@@ -4,15 +4,17 @@
 The in-game unit card (public/js/ui/detailArt.js) draws the operator's full art on the left edge; the web mirrors only
 carry the 180×360 half-body portraits. The client keeps the arts in chararts/<charId>.ab: the Sprite / Texture2D
 `<charId>_1` (the default art, a square canvas — 1200 or 2048 px, pivot centred; BC7 with its alpha, or an
-`<charId>_1[alpha]` texture beside it) and a GameObject `illust_<charId>_1` whose RectTransform places the art in the
-client's illustration frame: `m_SizeDelta` (the drawn size) and `m_AnchoredPosition` (its centre's offset from the
-frame's centre, y up) — the per-character framing that lines the faces up. This writes, for every charId the mode uses
+`<charId>_1[alpha]` texture beside it) and a GameObject `illust_<charId>_1` that places the art in the client's
+illustration frame: a size and its centre's offset from the frame's centre, y up — the per-character framing that lines
+the faces up. The battle's unit card (UICharacterInfoPanel._LoadIllust) takes them from the prefab's StoreValueComponent
+`ILLUST_SIZE` / `ILLUST_OFFSET` when it has them, else from its RectTransform (`m_SizeDelta`, `m_AnchoredPosition`):
+illust_frame. This writes, for every charId the mode uses
 (data/chess.json, the 선발 picks of data/backups.json; tokens only when they have an art bundle):
   chararts/<charId>.webp        the default art, the full canvas, long side ≤ 1024, lossy q85 with alpha
   chararts/full/<charId>.webp   the same at the client texture's own size, when that is larger (save_illust)
 and merges a `chararts` group into data/local-assets.json (re-read right before writing; other groups kept):
   chararts → { <charId>: { path, w, h, kind: 'Illust', frame: { x, y, w, h }, full?: { path, w, h } } }
-  frame = the illust RectTransform (in frame units: the same for both copies)
+  frame = the card's illust frame (illust_frame, in frame units: the same for both copies)
 
 Two copies (maintainer decision 2026-11-16): a phone takes the 1024 one, every other device the original resolution
 (public/js/illust-res.js); the card drew the 1024 copy 1.3–2.4 times enlarged on a desktop. tools/build-browser-resources.mjs
@@ -21,9 +23,9 @@ pairs `<dir>/full/<name>` with `<dir>/<name>` so a browser pre-downloads only it
 
 Elite 2 (default, --elite 2): when the bundle has `<charId>_2` (the E2 art) with its `illust_<charId>_2` frame, the
 card draws that art by that frame, as the official card does (measured on the maintainer's 1920×1080 screenshots of the
-official card: one E2 texture pixel = 1.003 px, i.e. the client's E2 frame at its own scale — not resized to the E1
-face). No E2 art or frame: the E1 art by its `illust_<charId>_1` frame. The entry says `elite: 2 | 1`. A body whose
-bundle has the E2 art alone (阿米娅's 医疗 form char_1037_amiya3: the form exists from E2 on) is the same case.
+official card: the E2 texture at the client's own frame, not resized to the E1 face). No E2 art or frame: the E1 art
+by its `illust_<charId>_1` frame. The entry says `elite: 2 | 1`. A body whose bundle has the E2 art alone (阿米娅's
+医疗 form char_1037_amiya3: the form exists from E2 on) is the same case.
 
 Every art is cropped to the card's window (card_crop): the part of the frame the card can show, its `frame` the crop's
 own place in frame units — the card (ui/detailArt.js) draws it the same, and both copies keep only the pixels it shows.
@@ -46,11 +48,15 @@ DEFAULT_GAME = client_data('PersistentData', 'Bundles')  # SP_CLIENT / .env / .c
 SUB = 'chararts'
 FULL = 'full'  # the folder of the original-resolution copies, beside the 1024 ones
 # The card's window onto the client frame, in rem (css/theme.css: 1rem = min(vw / 19.2, vh / 10.8), 100 px at 1920×1080):
-# one frame unit = CARD_K rem and the frame's centre at (CARD_CX, CARD_CY) rem from the panel's top left
+# one frame unit = CARD_K rem and the frame's centre at (CARD_CX, CARD_CY) rem from the panel's top left — measured on
+# the maintainer's 1920×1080 screenshots of the official card (雪猎's E2 art, two skin arts: 1.448 px a unit, the centre
+# at (359.3, 605.7) px, docs/rules/ui.md 「정비 화면 HUD」)
 # (css/hud-art.css `.dart.has-full-art .dart__bg` --k / --cx / --cy), the panel CARD_W rem wide (`.dpanel--chess` width)
 # and CARD_H rem high on a 4:3 screen (19.2 × 3 / 4), the tallest the 1rem rule lays it out for — a wider screen shows
 # less of it. test/local-extract.test.js holds these to the CSS.
-CARD_K, CARD_CX, CARD_CY, CARD_W, CARD_H = .01254, 3.448, 5.895, 8.6, 14.4
+CARD_K, CARD_CX, CARD_CY, CARD_W, CARD_H = .01448, 3.593, 6.057, 8.6, 14.4
+# the StoreValueComponent keys the card reads its illust frame from (illust_frame)
+ILLUST_OFFSET, ILLUST_SIZE = 'ILLUST_OFFSET', 'ILLUST_SIZE'
 
 
 def full_rel(rel):
@@ -109,8 +115,47 @@ def wanted_ids(root):
     return ids
 
 
+def _vec(text):
+    """A StoreValueComponent vector value ('x,y,z') as floats, or None."""
+    try:
+        v = [float(p) for p in str(text).split(',')]
+    except ValueError:
+        return None
+    return v if len(v) >= 2 else None
+
+
+def illust_frame(components):
+    """The frame the battle's unit card draws an `illust_*` prefab by (UICharacterInfoPanel._LoadIllust), from the read
+    typetrees of its root's components: the StoreValueComponent's ILLUST_OFFSET (the centre's offset, y up) and
+    ILLUST_SIZE (the drawn size) when it has both, else the RectTransform (`m_AnchoredPosition`, `m_SizeDelta`); None
+    without either. Most E2 arts and skin arts have the stored pair, which differs from the RectTransform (雪猎's E2:
+    stored 1770.9 @ (−112.3, 59.3), RectTransform 2048 @ (−118.4, 56))."""
+    rect = stored = None
+    for t in components:
+        if 'm_AnchoredPosition' in t and 'm_SizeDelta' in t:
+            p, s = t['m_AnchoredPosition'], t['m_SizeDelta']
+            rect = {'x': p['x'], 'y': p['y'], 'w': s['x'], 'h': s['y']}
+        elif isinstance(t.get('_values'), list):
+            vals = {v.get('key'): _vec(v.get('value')) for v in t['_values'] if isinstance(v, dict)}
+            off, size = vals.get(ILLUST_OFFSET), vals.get(ILLUST_SIZE)
+            if off and size:
+                stored = {'x': off[0], 'y': off[1], 'w': size[0], 'h': size[1]}
+    return stored or rect
+
+
+def component_trees(go, objects):
+    """The read typetrees of a GameObject typetree's own components (RectTransform, MonoBehaviours) in `objects`."""
+    out = []
+    for c in go.get('m_Component') or []:
+        ref = c.get('component') or {}
+        co = objects.get(ref.get('m_PathID')) if not ref.get('m_FileID') else None
+        if co is not None and co.type.name in ('RectTransform', 'MonoBehaviour'):
+            out.append(co.read_typetree())
+    return out
+
+
 def _read(env, stem):
-    """(texture, alpha texture, frame) of `stem` in a chararts bundle."""
+    """(texture, alpha texture, frame) of `stem` in a chararts bundle (frame: illust_frame of `illust_<stem>`)."""
     tex = alpha = frame = None
     objs = {o.path_id: o for o in env.objects}
     for o in env.objects:
@@ -125,12 +170,7 @@ def _read(env, stem):
             g = o.read_typetree()
             if g.get('m_Name') != f'illust_{stem}':
                 continue
-            for c in g.get('m_Component', []):
-                co = objs.get(c['component']['m_PathID'])
-                if co is not None and co.type.name == 'RectTransform':
-                    rt = co.read_typetree()
-                    p, s = rt['m_AnchoredPosition'], rt['m_SizeDelta']
-                    frame = {'x': p['x'], 'y': p['y'], 'w': s['x'], 'h': s['y']}
+            frame = illust_frame(component_trees(g, objs))
     return tex, alpha, frame
 
 

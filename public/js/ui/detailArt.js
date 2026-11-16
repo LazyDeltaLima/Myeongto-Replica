@@ -10,12 +10,15 @@
 // its official look (hudArt `has-hud-art`; css/hud-art.css).
 //
 // The art: the operator's 立绘 when the local client extraction lists it (data/local-assets.json group `chararts`,
-// `<charId>` — tools/local-extract/chararts_extract.py: the default art `<charId>_1` and its `illust_<charId>_1` frame,
-// the client's per-art size and offset that line the faces up), placed by that frame (css/hud-art.css `--fx/--fy/--fw/
-// --fh`), in the copy the player chose (illust-res.js: 标准 the 1024 one, 高清 the entry's `full`, the original resolution;
-// by default a phone 标准 and other devices 高清 — maintainer decisions 2026-11-16, 2026-11-17; a change redraws an open
-// card); else the web manifest's half-body portrait (180×360); else no art. A chess with a character template is drawn
-// as its body, its `tmplId` (阿米娅's 医疗 form is char_1037_amiya3's art, not 阿米娅's own).
+// `<charId>` — tools/local-extract/chararts_extract.py: the E2 art `<charId>_2`, else the default `<charId>_1`, cut to
+// what the card shows, and the frame the client's unit card draws it by — the prefab's stored size and offset, else its
+// RectTransform), placed by that frame (css/hud-art.css `--fx/--fy/--fw/--fh`), in the copy the player chose
+// (illust-res.js: 标准 the 1024 one, 高清 the entry's `full`, the original resolution; by default a phone 标准 and other
+// devices 高清 — maintainer decisions 2026-11-16, 2026-11-17; a change redraws an open card); else the web manifest's
+// half-body portrait (180×360); else no art. A chess with a character template is drawn as its body, its `tmplId`
+// (阿米娅's 医疗 form is char_1037_amiya3's art, not 阿米娅's own). An own piece in a skin draws that skin's 立绘 by its
+// own card frame once the skin data is downloaded and that 立绘 cached (ui/skins.js cardSkinArt; docs/rules/ui.md
+// 「스킨 고르기」), else the default art.
 //
 // 0.2.0 补位 (docs/LOCAL-PATCH.md 「0.2.0 병합」): a chess the player fields as its stand-in shows the
 // stand-in like ChessDetail does — art, class, name, stats, range, skill, talents (its backup selection) — with ChessDetail's
@@ -30,7 +33,7 @@
 //                           player's m.private: a 自选 slot's operator, a 补位 stand-in — maintainer report 2026-10-08: the
 //                           drag showed the bare slot record 「自选干员」); null for an item / token or an unknown piece
 
-import { useRef, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, Button, useScrollEdges } from './components.js';
 import { Img, RichText, GIcon } from './gameComponents.js';
 import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail, hpOf, enemyImmunities, RANK, DMG, MorphPairings, MorphGrantLine, PROF_NAME, chessTalents, skillTags, skillTextNote, summonDeployHint, itemText } from './detailPanel.js';
@@ -41,6 +44,8 @@ import { tokenVariantFor } from './gameLogic/loadout.js';
 import { data, localAsset } from '../data.js';
 import { illustEntry, illustStore } from '../illust-res.js';
 import { useStore } from '../store.js';
+import { resStore, resourceCached, skinPackState } from '../resources.js';
+import { skinsStore, loadSkinCatalog, cardSkinArt } from './skins.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -64,11 +69,14 @@ export function artParts(blocks) {
 }
 
 /**
- * The card's art: the local 立绘 (`chararts`, with its illust frame; the chosen copy, illustEntry), else the portrait.
+ * The card's art: the skin 立绘 the unit wears (`skin`, ui/skins.js cardSkinArt: its path and frame), else the local
+ * 立绘 (`chararts`, with its illust frame; the chosen copy, illustEntry), else the portrait.
  * @param {boolean} [hi] the original-resolution copy (default: the page's choice, illust-res.js)
+ * @param {{ src: string, frame: { x: number, y: number, w: number, h: number } } | null} [skin]
  * @returns {{ src: string|null, full: boolean, frame: { x: number, y: number, w: number, h: number } | null }}
  */
-export function cardArt(m, chess, hi) {
+export function cardArt(m, chess, hi, skin = null) {
+  if (skin && typeof skin.src === 'string' && skin.frame) return { src: skin.src, full: true, frame: skin.frame };
   const id = (typeof chess?.tmplId === 'string' && chess.tmplId) || chess?.charId;
   const e = id ? data.get('local')?.groups?.chararts?.[id] : null;
   const src = illustEntry(e, hi)?.path ?? null;
@@ -124,7 +132,13 @@ export function ChessDetailArt(props) {
   const fr = lo?.record || body;
   const s = fr?.stats || {};
   const golden = !!(c.isGolden || piece?.golden);
-  const art = cardArt(m, body, hi);
+  // the skin the own piece wears (pieceView `skin`): its 立绘 once the skin data is downloaded and that 立绘 cached
+  const skinId = typeof piece?.skin === 'string' && piece.skin ? piece.skin : null;
+  const catalog = useStore((x) => x.catalog, Object.is, skinsStore);
+  const skinReady = useStore((r) => skinPackState(r) === 'done', Object.is, resStore);
+  useEffect(() => { if (skinId && skinReady && !catalog) loadSkinCatalog(); }, [skinId, skinReady, catalog]);
+  const skinArt = skinId ? cardSkinArt(skinId, [body.tmplId, body.charId], { catalog, ready: skinReady, cached: resourceCached }) : null;
+  const art = cardArt(m, body, hi, skinArt);
   const fs = art.frame ? `--fx:${art.frame.x};--fy:${art.frame.y};--fw:${art.frame.w};--fh:${art.frame.h}` : '';
   const token = piece?.kind === 'token' || c.profession === 'TOKEN';
   const st = {

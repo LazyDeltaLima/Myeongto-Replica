@@ -8,7 +8,8 @@
 // The CATALOGUE is not data/*.json: the official skins come with the optional skin data (resources.js pack 'skin'),
 //   * local/spine/skin/skins.json — every skin: its owner (an operator charId, or a summon's id), its summons' skins
 //     (`tokens`) and its 立绘 (`illust`, this server's webp; its `full` copy is the original resolution, drawn when the
-//     player chose 高清 — by default every device but a phone, illust-res.js) — tools/local-extract/skin_extract.py;
+//     player chose 高清 — by default every device but a phone, illust-res.js; its `frame` the one the unit card draws
+//     it by, cardSkinArt) — tools/local-extract/skin_extract.py;
 //   * local/spine/skin/art.json — each skin's avatar (1:1) and portrait (1:2), fetched by the resource worker from the
 //     picture repository the list names — tools/fetch-skin-art.mjs.
 // Both lists are small and are fetched (and kept by the worker) when the picker or a seat card first needs them, chosen
@@ -36,6 +37,11 @@ const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (typeof v === 'string' && v ? v : null);
 /** A picture record of the lists (`{ path, w, h }`) as its URL, or null. */
 const pathOf = (v) => (isObj(v) && typeof v.path === 'string' && v.path.startsWith('/assets/') ? v.path : null);
+/** A 立绘 record's card frame (`{ x, y, w, h }`, frame units), or null. */
+const frameOf = (v) => {
+  const f = isObj(v) ? v.frame : null;
+  return isObj(f) && [f.x, f.y, f.w, f.h].every(Number.isFinite) && f.w > 0 && f.h > 0 ? { x: f.x, y: f.y, w: f.w, h: f.h } : null;
+};
 
 /**
  * A stored choice as the store holds it: at most SKIN_LIMITS.entries pairs of an operator charId and a skinId, in the
@@ -86,8 +92,8 @@ export function clearSkin(charId) {
 
 /**
  * The catalogue from the two lists: the operators' skins grouped by owner in the list's order (the summons' own skins
- * are not chosen — they follow their owner's), each `{ id, name, illust, avatar, portrait }` (null where a list has no
- * picture: the default one is drawn).
+ * are not chosen — they follow their owner's), each `{ id, name, illust, frame, avatar, portrait }` (null where a list has
+ * no picture: the default one is drawn; `frame` the 立绘's card frame).
  * @param {any} list skins.json @param {any} art art.json (may be null: no avatars / portraits)
  * @param {boolean} [hi] the 立绘's original-resolution copy (default: the page's choice, illust-res.js)
  */
@@ -99,7 +105,8 @@ export function buildSkinCatalog(list, art, hi = illustFull()) {
   for (const [id, rec] of Object.entries(skins)) {
     if (!isObj(rec) || !isSkinId(id) || !isCharId(rec.owner)) continue;
     const a = isObj(pics[id]) ? pics[id] : {};
-    const row = { id, owner: rec.owner, name: str(rec.name), illust: pathOf(illustEntry(rec.illust, hi)), avatar: pathOf(a.avatar), portrait: pathOf(a.portrait) };
+    const row = { id, owner: rec.owner, name: str(rec.name), illust: pathOf(illustEntry(rec.illust, hi)), frame: frameOf(rec.illust),
+      avatar: pathOf(a.avatar), portrait: pathOf(a.portrait) };
     if (!byOwner.has(rec.owner)) byOwner.set(rec.owner, []);
     byOwner.get(rec.owner).push(row);
     bySkin.set(id, row);
@@ -166,4 +173,25 @@ export function ownerSkin(charId, { ownerId, myId = null, players = [], localSki
   if (!otherSkins) return null;
   const owner = (Array.isArray(players) ? players : []).find((p) => p && p.playerId === ownerId);
   return owner && isObj(owner.skins) ? str(owner.skins[charId]) : null;
+}
+
+/**
+ * The skin 立绘 an own unit's detail card draws (ui/detailArt.js; docs/rules/ui.md 「스킨 고르기」 상세 카드): the skin
+ * the piece wears (pieceView `skin` — what the server applied to the body drawn, the skin the field draws) when the
+ * catalogue lists it for that body (`ids`: the body's tmplId / charId) with a 立绘 (the chosen copy) and its card frame,
+ * the skin data is downloaded (`ready`: chosen, nothing of it left — before that and while it downloads, the default
+ * art: maintainer decision 2026-11-17) and that copy is in the cache (`cached`, resources.js resourceCached). Else null:
+ * the card draws the default art.
+ * @param {any} skinId @param {Array<any>} ids
+ * @param {{ catalog?: any, ready?: boolean, cached?: (paths: string[]) => boolean }} [ctx]
+ * @returns {{ src: string, frame: { x: number, y: number, w: number, h: number } } | null}
+ */
+export function cardSkinArt(skinId, ids, { catalog = skinsStore.get().catalog, ready = false, cached = () => false } = {}) {
+  const id = str(skinId);
+  if (!id || !ready || !isObj(catalog) || !(catalog.bySkin instanceof Map)) return null;
+  const row = catalog.bySkin.get(id);
+  if (!row || !row.illust || !row.frame || !(Array.isArray(ids) ? ids : []).includes(row.owner)) return null;
+  let ok = false;
+  try { ok = !!cached([row.illust]); } catch { /* no cache record: the default art */ }
+  return ok ? { src: row.illust, frame: row.frame } : null;
 }
