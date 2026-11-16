@@ -465,11 +465,16 @@
       (`screens/game/range.js skillButton`; `showRange: false`는 `tools/local-extract/skill_cast.py`의 `range` 0 → `tools/build-data.mjs`),
       켬 상태는 그 선택에만(다른 기물을 고르거나 다시 고르면 꺼짐). 상세 카드의 범위 칸은 그대로 공격 범위.
     - 그리지 않는 것: AUTO 표시 `text_auto_mark`·정지 `sprite_skill_stop`은 프리팹에서 GameObject가 꺼져 있고 스크립트는 `enabled`만 바꾼다 → 화면에
-      안 나온다. 충전 수 `panel_skill_amount`는 `hasSkill` ∧ 스킬 `IsAvailable` ∧ `maxChargeTime` > 1일 때 켜지고 글자는 「0」 — 정비 중 SP가
-      「0/N」이라 그리지 않는다. `IsAvailable` = 다 안 씀 ∧ 능력 `isReady` ∧ skillType ≠ 0 ∧ `spEnough`(유닛 SP ≥ spCost) ∧
-      `ownerCanUseSkill`(이상 상태·침묵·`SKILL_NOT_ACTIVATABLE` — 위수협의 정비에 이 표시를 거는 버프 없음). 남는 것은 정비 중 유닛 SP: 풀의
-      충전 스킬 기록 100개 중 initSp ≥ spCost는 비르투오사 정예 S1(12/6)뿐 — 정비 중 SP가 initSp라면 그 하나만 「0」 배지가 나온다
-      [추정·미조사: 정비 중 SP를 처음 넣는 곳을 찾지 못함(`Entity.UpdateSpData`·`Character.OnInit`/`OnBorn`에 없음)].
+      안 나온다. 충전 수 `panel_skill_amount`는 `hasSkill` ∧ 스킬 `IsAvailable` ∧ `maxChargeTime` > 1일 때 켜지고 글자는 「0」(SP 글자
+      「0/N」의 「0」도 상수라 유닛 SP와 무관). `IsAvailable` = 다 안 씀 ∧ 능력 `isReady` ∧ skillType ≠ 0 ∧ `spEnough`(유닛 SP ≥ spCost) ∧
+      `ownerCanUseSkill`(이상 상태·침묵·`SKILL_NOT_ACTIVATABLE` — 위수협의 정비에 이 표시를 거는 버프 없음). 정비 중 유닛 SP는 기물을 지을 때
+      들어간다(공식 클라에서 확인, 2026-11-16): `Character._BuildAtInternal`(`BuildAt`·`BuildAsPredefined`·`BuildAsRuntimeInst`가 모두 지나는 곳)이
+      `Entity.Init(…, mainSkill.spData)`를 부르고, 거기서 SP = min(`SpData.maxSp` = spCost × maxChargeTime, initSp)·최대 SP = `maxSp`
+      (`Entity.UpdateSpData`·`SpController.Reset`은 소모·증가량만 바꾸고 SP 값은 안 넣음; 켜진 Lua 핫픽스(en_US·zh_CN)에 이 메서드들 없음).
+      풀의 충전 스킬 기록 중 initSp ≥ spCost는 비르투오사 정예 S1(`chess_char_6_09_b`, initSp 12·spCost 6·충전 2 → SP 12)뿐 — 지은 그때 SP가
+      넉넉한 것은 그 하나다. 그래서 공식은 그 기물의 스킬 버튼에 「0」 배지를 띄우고 다른 충전 스킬은 띄우지 않을 것으로 본다
+      [추정·미조사: 지은 뒤 정비 동안 SP가 바뀌는지(정비 중에 SP 회복 틱이 도는지)와 그 스킬 능력의 `isReady`는 안 봄]. 우리는 어느 기물에도 그리지
+      않는다(배지를 그리는 것은 보이는 UI 변경이라 시안 먼저).
   - 대기석·임시 정비 구역 기물 → 마름모 없이 메뉴 버튼(`btn_panel_root`, `AutoChessCharacterMenuButton`): 검은 깃발 `img_btn_bg_all`
     (325×225 × 0.66) + 같은 판을 0.66배로. 아이템은 빨간 파기 판, 소환물은 아무것도 없다. 두 표시 설정 모두 `needRotate`라 `_RotateIfNeed`가
     `bg_offset`을 90° 돌려(왼쪽을 가리키던 깃발 끝이 아래 = 기물 쪽) `rotatedOffsetPos` (0, 60)에 두고, 판은 돌리지 않고
