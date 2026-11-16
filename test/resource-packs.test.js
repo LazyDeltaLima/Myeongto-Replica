@@ -7,6 +7,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -219,6 +220,51 @@ describe('tools/fetch-skin-models.mjs matchSkins', () => {
     const { matchSkins } = await mod('tools/fetch-skin-models.mjs');
     const tree = blobs([...side('tok_a/tok_a_winter_2', 'tok_a_winter_2', 'Spine', 9), ...side('tok_a/tok_a_winter_3', 'tok_a_winter_3', 'Spine', 9)]);
     assert.throws(() => matchSkins({ 'tok_a_winter#1': { owner: 'tok_a', prefab: 'tok_a_winter#1', front: {} } }, tree, () => [9]), /2 folders/);
+  });
+});
+
+describe('tools/fetch-skin-models.mjs sideFields: what drawing a skin model needs (docs/rules/render.md 「스킨 렌더 게이트」)', () => {
+  const GATE = 'docs/rules/render.md 「스킨 렌더 게이트」';
+  const SKIN = 'char_128_plosis@yun#4'; // 白面鸮's yun#4: its key table plays Attack_* clips for the Skill_* keys
+  const fromDisk = () => {
+    try {
+      const models = JSON.parse(readFileSync(path.join(ROOT, 'public/assets/local/spine/skin/models.json'), 'utf8'));
+      const list = JSON.parse(readFileSync(path.join(ROOT, 'public/assets/local/spine/skin/skins.json'), 'utf8'));
+      const cached = (listed) => {
+        const u = models.files.find((f) => f.p === listed)?.u;
+        return readFileSync(path.join(ROOT, '.cache/skin-models/spine', u.slice(u.indexOf('/spine/') + '/spine/'.length)));
+      };
+      const side = models.skins[SKIN].front;
+      return { s: list.skins[SKIN], files: { skel: cached(side.skel), atlas: cached(side.atlas).toString('utf8'), pages: side.pages.map(cached) }, models, cached };
+    } catch { return null; }
+  };
+  const disk = fromDisk();
+
+  test('a skin without its own key table stops the run: the default model\'s table is never borrowed', async () => {
+    const { sideFields } = await mod('tools/fetch-skin-models.mjs');
+    const s = { owner: 'char_1_a', prefab: 'char_1_a_boc#1' };
+    const files = { skel: new Uint8Array(0), atlas: '', pages: [] };
+    const ctx = { animKeys: { ops: { char_1_a: { modes: [], skin: { keys: {}, mix: [] } } }, tokens: {}, skins: {} }, chars: { char_1_a: { spine: { front: { anims: {} } } } } };
+    assert.throws(() => sideFields('char_1_a@boc#1', s, 'front', files, ctx), /no key table of its own/, GATE);
+    assert.throws(() => sideFields('char_1_a@boc#1', s, 'front', files, { ...ctx, animKeys: { ...ctx.animKeys, skins: { 'char_1_a@boc#1': { owner: 'char_2_b', keys: {} } } } }), /no key table of its own/, 'another owner\'s table');
+    assert.throws(() => sideFields('x@boc#1', { owner: 'trap_1_x', prefab: 'x' }, 'front', files, ctx), /neither an operator nor a summon/);
+  });
+
+  test('a skin\'s roles come from its own key table and skeleton; a side whose pages are of both kinds stops', { skip: !disk && 'no skin models or their fexli files (tools/fetch-skin-models.mjs)' }, async () => {
+    const { sideFields } = await mod('tools/fetch-skin-models.mjs');
+    const { loadAnimKeys, loadAttackTiming } = await mod('tools/assets/spine.mjs');
+    const { loadCharModes } = await mod('tools/assets/skill-mode-sfx.mjs');
+    const animKeys = loadAnimKeys(ROOT);
+    const ctx = { animKeys, timing: loadAttackTiming(ROOT), charModes: loadCharModes(ROOT), chars: JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8')).chars };
+    const own = sideFields(SKIN, disk.s, 'front', disk.files, ctx);
+    assert.deepEqual([own.anims.skills[1].begin, own.anims.skills[1].loop, own.anims.skills[1].end], ['Attack_Start', 'Attack_Loop', 'Attack_End'], `S2 through the skin's own table (${GATE})`);
+    assert.ok(Object.hasOwn(own.animations, 'Attack_Loop') && typeof own.pma === 'boolean' && own.bounds, 'its own skeleton, its pages\' kind');
+    assert.deepEqual(own, disk.models.skins[SKIN].front && (({ skel, atlas, pages, ...f }) => f)(disk.models.skins[SKIN].front), 'models.json holds the same fields');
+    const borrowed = { ...animKeys, skins: { ...animKeys.skins, [SKIN]: { ...animKeys.ops[disk.s.owner].skin, owner: disk.s.owner } } };
+    assert.notDeepEqual(sideFields(SKIN, disk.s, 'front', disk.files, { ...ctx, animKeys: borrowed }).anims.skills[1], own.anims.skills[1], 'the default table plays no S2 clip on this skeleton');
+    // a page of the other kind next to its own
+    const other = Object.values(disk.models.skins).map((r) => r.front).find((f) => f.pma !== own.pma);
+    assert.throws(() => sideFields(SKIN, disk.s, 'front', { ...disk.files, pages: [...disk.files.pages, disk.cached(other.pages[0])] }, ctx), /both kinds/);
   });
 });
 

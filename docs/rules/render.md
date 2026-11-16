@@ -1585,7 +1585,7 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   `skins.json`의 스킨마다 그 프리팹에서 읽는다(`tools/local-extract/char_points.py skin_prefabs` — 스킨 모델을 뽑은 클라에서, 묶음이나 프리팹이 없으면 멈춤).
   - 키 표: `anim_keys.py`가 `.cache/anim-keys.json` `skins[스킨 키] = { owner, keys, mix }`(SpineAnimator `_animations`·`_mixSettings`, 기본의
     `DefaultSkin`과 같은 읽기)에 쓴다. 312벌 중 15벌이 기본과 다른 표다. 스킨 모델의 역할(`anims`)은 `keyRoles({ ...ops[주인], skin: skins[키] }, <그 스킨
-    골격의 클립>)`로 만든다(그리기 필드 줄).
+    골격의 클립>)`로 만든다(아래 「스킨 렌더 게이트」의 「모델 기록의 형식」).
   - 부착점: `char_points.py`가 `public/assets/local/fx/skin-points.json` `{ 스킨 키: points.json과 같은 기록 }`(git 밖)에 쓴다. 312벌 중 274벌이 기본과
     다르다(뼈 이름·자리).
   - 이펙트: 스킨 프리팹의 `CharacterSkinHooker`가 이펙트 키를 스킨 것으로 바꾼다(`_replaceEffectPairs`, `TryHookEffect` — 스카디 더 커럽팅 하트
@@ -1595,8 +1595,7 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
     115벌이 투사체를 바꾸고, 52벌은 훅이 없어 기본 이펙트다. 한 키가 두 이펙트로 짝지어지면 멈춘다. 바꾼 이펙트 프리팹 자체는 아직 안 뽑는다(`fx_extract.py`는
     기본 스킨만, `VARIANT_RE`·`fxmap.js isVariant`는 이름 규칙으로 기본 목록에서 뺌).
   - 전투 시간은 기본 모델만: `attack_timing.py`의 `clip`은 `client_path.skin_keys()`(기본 표만)로 푼다. 스킨 표가 거기 섞이면 스킨이 전투를 바꾼다.
-- 아직 없는 것: 스킨 모델 항목의 그리기 필드(페이지 종류 `pma`, 위 키 표로 만든 역할·클립 길이·타격) — 아래 「스킨 렌더 게이트」가 그것을 기다린다.
-  렌더가 스킨 유닛에 `skin-points.json`·`skin-effects.json`을 쓰는 것과 바꾼 이펙트 프리팹 추출도 아직이다.
+- 아직 없는 것: 렌더가 스킨 유닛에 `skin-points.json`·`skin-effects.json`을 쓰는 것과 바꾼 이펙트 프리팹 추출(스킨 유닛은 지금 기본 모델의 부착점·이펙트를 쓴다).
 - 재발 방지: 원인 제거 — `tools/local-extract/skin_extract.py` `file_name`이 모든 출력 이름을 만들고 모르는 글자에서 멈춤; 저장소 폴더는
   `tools/fetch-skin-models.mjs`가 트리에서 찾고 모르는 경우(후보 둘)에 멈춤(손 별칭 표 없음); 그림 파일은 `tools/fetch-skin-art.mjs`가 스킨 표의 id로 트리에서
   찾고 모르는 스킨·이름 규칙 없는 글자·대소문자만 다른 두 파일에서 멈춤. 목록 생성(추출 모델·아바타·초상화 빼기·`models.json`·`art.json` 싣기·두 번 적힌
@@ -1620,12 +1619,23 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
 - 스킨 모델이 받기에 실패하면 그 면의 기본 모델로 그린다(항목의 `fallback`). 스킨에 Back 모델이 없으면(312벌 중 52) 위를 봐도 스킨 Front로 그린다(기본 모델의
   Back 없는 오퍼레이터와 같은 규칙). 쓰러짐 길이·소환물 모드 표도 그린 모델의 항목에서 읽는다.
 - 모델 기록의 형식: `models.json skins[스킨 키].front|back` = `{ skel, atlas, pages, pma, anims, animations, events, hits, bounds }`, 필드는
-  `data/assets.json` 모델 항목과 같은 뜻. 2026-11-16 지금 `models.json`에는 경로(`skel`·`atlas`·`pages`)만 있어 **어느 스킨도 그려지지 않는다**. 채울 것:
-  `pma` — fexli 페이지는 두 종류가 섞여 있다(311벌 571쪽 중 premultiplied 291·straight 280, `tools/assets/spine.mjs premultipliedPage`로 잼), 그래서 페이지
-  픽셀 판정을 생성 단계가 적어야 한다; `anims`·`animations`·`hits`·`events`·`bounds` — 그 스킨 자기 골격과 키 표(키 표가 기본과 다른 스킨 15벌,
-  관리자 노트의 클립 길이 대조). fexli atlas에 `size:` 줄이 없는 것은 pixi-spine의 atlas 읽기가 페이지 텍스처 크기로 채운다.
+  `data/assets.json` 모델 항목과 같은 뜻. 생성 단계 `tools/fetch-skin-models.mjs sideFields`가 받은 fexli 파일에서 채운다(2026-11-16):
+  - `pma`: 페이지마다 `tools/assets/spine.mjs premultipliedPage`로 잰다. fexli 페이지는 두 종류가 섞여 있고(311벌 571면 중 premultiplied 291·straight 280)
+    atlas에 `pma:` 줄이 없어 이름·손 규칙으로 정할 수 없다. 한 면의 페이지가 서로 다른 종류면 멈춘다(지금은 모든 면이 페이지 하나). 받는 쪽은 기본 모델과 같다:
+    `pma`면 페이지를 그대로 풀고(`assets.js` 「premultiplied 페이지 읽기」), 아니면 PIXI 읽기.
+  - `animations`·`events`·`hits`·`bounds`: 그 스킨 자기 fexli 골격(`tools/assets/skel.mjs parseSkel`, 페이지 영역은 그 atlas).
+  - `anims`: 기본 모델과 같은 한 길(`tools/assets/spine.mjs modelAnims` — 이름 추측 → 클라 키 → 손 표 `anim-overrides.mjs` → 모드 공격)에 그 스킨 자기 키 표
+    (`.cache/anim-keys.json skins[스킨 키]`)를 넣는다. 주인의 기본 키 표는 빌리지 않는다: 키 표가 다른 15벌 중 11면의 역할이 달라진다(프틸롭시스 `yun#4` S2가
+    `Attack_Start/Loop/End`, 토가와 사키코 `avemujica#1` S2 A·B가 바뀜 등). 스킨 키 표가 없거나 주인이 다르면 멈춘다. 스킬 번호는 주인의 `data/assets.json`
+    기본 항목이 푼 번호(소환물은 0). 기본 모델 451개에 같은 함수를 돌리면 커밋된 `anims`와 모두 같다.
+  - fexli atlas에 `size:` 줄이 없는 것은 pixi-spine의 atlas 읽기가 페이지 텍스처 크기로 채운다. [화면 미확인 — `checks/play.md`: fexli atlas 머리, 페이지 두 종류, 「다른 플레이어 스킨」 끄기, 받는 중 기본 모습]
+- 타격 시점: 시뮬레이션은 기본 모델만 잰다. 뷰는 그린 모델 자기 OnAttack에 휘두름을 맞추므로(`render/spine.js swing`) 스킨 클립 길이가 달라도 타격은 같은
+  박자다. 스킨마다 `test/sim/attack-clip-view.test.js`와 같은 대조를 돌린다(오퍼레이터 스킨 265벌의 공격 733개): 뷰가 트는 스킨 클립의 길이·타격이 시뮬레이션
+  기록과 같아야 하고, 다른 것은 그라벨 `winter#2` 일반 공격(0.967 → 1.0초, OnAttack 0.4 같음) 하나뿐이라 예외 목록에 이유와 함께 둔다.
 - 재발 방지: `test/render/skin-gate.test.js`(고르지 않음·설정 끔에서 스킨 파일을 묻지 않음, 파일 하나 빠지면 기본, 도중에 받아도 다음 장면부터, 기록이
-  모자라면 기본, 소환물 스킨, 유닛이 게이트의 모델을 받고 실패하면 기본으로, 디스크 목록의 소환물 스킨·파일이 서로 맞음).
+  모자라면 기본, 소환물 스킨, 유닛이 게이트의 모델을 받고 실패하면 기본으로, 디스크 목록의 소환물 스킨·파일이 서로 맞음); 그리기 필드는 원인 제거 —
+  생성 단계가 페이지·골격·스킨 키 표에서 읽고 스킨 키 표가 없거나 페이지 종류가 섞이면 멈춤(`test/resource-packs.test.js` 「sideFields」); 스킨 공격의
+  타격은 `test/sim/attack-clip-view.test.js` 「every operator skin's attack」(스킨 모델 목록이 없으면 건너뜀).
 
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 

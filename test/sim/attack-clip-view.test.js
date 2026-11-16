@@ -29,9 +29,8 @@ before(async () => {
 });
 after(() => fake.restore());
 
-/** The manifest's front model, skill `i` equipped: the clip names are real, the skeleton is not. */
-function actor(charId, i) {
-  const e = chars[charId].spine.front;
+/** The manifest's front model (or the model entry `e`), skill `i` equipped: the clip names are real, the skeleton is not. */
+function actor(charId, i, e = chars[charId].spine.front) {
   const a = new SpineActor({ animations: Object.keys(e.animations).map((name) => ({ name })) }, e);
   a.setSkillIndex(i);
   return a;
@@ -76,9 +75,8 @@ test('a skill\'s attack is timed from the clip the view plays', () => {
   assert.equal(seen.get('char_416_zumama S3'), 'Skill_2_Loop', '森蚺 S3: mode S3, not the cast Hensin');
 });
 
-/** The clip the view plays for an attack of `a`, and what the sim's record `rec` says of it; a mismatch's line, or null. */
-const compare = (label, charId, a, rec) => {
-  const e = chars[charId].spine.front;
+/** The clip the view plays for an attack of `a` (model entry `e`), and what the sim's record `rec` says of it; a mismatch's line, or null. */
+const compare = (label, e, a, rec) => {
   const role = a._attackClip();
   if (!role) return a._stance() ? null : `${label} attacks with no clip`;
   const clip = a._loopOf(role);
@@ -87,31 +85,45 @@ const compare = (label, charId, a, rec) => {
 };
 
 /** Whether a chess's skill is still on when it attacks (attacksInSkill's question, for a shop chess). */
+const inChessSkill = new Map();
 function attacksInChessSkill(chessId) {
+  if (inChessSkill.has(chessId)) return inChessSkill.get(chessId);
   const h = makeBattle({ timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, units: [{ uid: 1, chessId, row: 9, col: 5 }] });
   h.step();
-  return h.unit(1).skill?.kind !== 'instant';
+  inChessSkill.set(chessId, h.unit(1).skill?.kind !== 'instant');
+  return inChessSkill.get(chessId);
 }
+const inDiySkill = new Map();
+const attacksInSkillOnce = (charId, i) => {
+  const k = `${charId} ${i}`;
+  if (!inDiySkill.has(k)) inDiySkill.set(k, attacksInSkill(charId, i));
+  return inDiySkill.get(k);
+};
 
 /** Default mode with no attack on the field: 무에나's `Idle_2` ability deals nothing and his model stands still (docs/rules/render.md H). */
 const NO_DEFAULT_ATTACK = new Set(['char_4064_mlynar']);
 
-test('every operator\'s attack, shop chess and reserves too: the sim times the clip the view plays, in each mode', () => {
+/**
+ * Every attack the sim times (the shop's chess, the picks and the reserves, at every skill and mode) against the clip the view
+ * plays on the model `entryOf(charId)` gives (undefined: not swept); `rule(label, e, view, rec)` judges one → a line or null.
+ */
+function sweepAttacks(entryOf, rule = compare) {
   const chess = read('data/chess.json');
   const found = [];
   let read_ = 0;
   const check = (label, charId, anim, skills, inSkill) => {
-    const e = chars[charId]?.spine?.front;
+    const e = entryOf(charId);
+    if (e === undefined) return;
     if (!e) { found.push(`${label}: no model`); return; }
     const mode = (rec, i, tag) => {
       if (!rec) return;
       for (const ranged of FORTRESS_CLIPS[charId] ? [false, true] : [null]) {
-        const v = actor(charId, i ?? 0);
+        const v = actor(charId, i ?? 0, e);
         if (ranged != null) { v.fortressClips = FORTRESS_CLIPS[charId]; v.atkRanged = ranged; }
         if (i != null && inSkill(i)) v.setSkill(true);
         run(v, 5);
         read_++;
-        const bad = compare(`${label} ${tag}${ranged == null ? '' : ranged ? ' ranged' : ' melee'}`, charId, v, ranged && rec.ranged ? rec.ranged : rec);
+        const bad = rule(`${label} ${tag}${ranged == null ? '' : ranged ? ' ranged' : ' melee'}`, e, v, ranged && rec.ranged ? rec.ranged : rec);
         if (bad) found.push(bad);
       }
     };
@@ -122,9 +134,52 @@ test('every operator\'s attack, shop chess and reserves too: the sim times the c
     if (c.charId) check(id, c.charId, c.attackAnim, c.skill?.index ?? null, () => attacksInChessSkill(id));
   }
   // the picks and the reserves (预备干员 …, which a diy slot can't place: their skills count as timed), at every skill they have
-  for (const [id, c] of Object.entries(units)) check(id, id, c.attackAnim, null, (i) => (LOCAL_DIY_PICKS.includes(id) ? attacksInSkill(id, i) : true));
+  for (const [id, c] of Object.entries(units)) check(id, id, c.attackAnim, null, (i) => (LOCAL_DIY_PICKS.includes(id) ? attacksInSkillOnce(id, i) : true));
+  return { found, read: read_ };
+}
+
+test('every operator\'s attack, shop chess and reserves too: the sim times the clip the view plays, in each mode', () => {
+  const { found, read: read_ } = sweepAttacks((charId) => chars[charId]?.spine?.front ?? null);
   assert.ok(read_ > 500, `only ${read_} attacks read`);
   assert.deepEqual(found, [], 'the sim times one clip and the view plays another, so the swing, the strike and the cast effects run on different clocks (build-data opAttackAnim, tools/local-extract/attack_timing.py pick; docs/rules/render.md 「함정」)');
+});
+
+// The skin models (tools/fetch-skin-models.mjs; its output is git-ignored, the lists of the skin data) draw their own
+// skeleton through their own key table, while the sim times every attack from the default model only (docs/rules/render.md
+// 「스킨 렌더 게이트」). The view swings to the drawn model's own OnAttack (render/spine.js swing), so a skin clip of another
+// length still strikes on the sim's beat; a skin clip without the strike, or another strike time, would not.
+const SKIN_DIR = path.join(ROOT, 'public/assets/local/spine/skin');
+const readOr = (f) => { try { return JSON.parse(readFileSync(path.join(SKIN_DIR, f), 'utf8')); } catch { return null; } };
+const skinModels = readOr('models.json');
+const skinList = skinModels?.skins ? readOr('skins.json')?.skins : null;
+const drawable = !!skinList && Object.values(skinModels.skins).some((r) => r.front?.anims);
+/** Skin attacks whose clip is of another length than the default's: skin key + the sweep's label → why it is right. */
+const SKIN_CLIP_LENGTH = {
+  'char_237_gravel@winter#2 chess_char_2_12_a Default': 'Attack 0.967 → 1.0 s, OnAttack 0.4 the same: the strike keeps the sim\'s beat, only the swing\'s tail is longer',
+  'char_237_gravel@winter#2 chess_char_2_12_b Default': 'the same clip as chess_char_2_12_a',
+};
+
+test('every operator skin\'s attack: the clip its view plays has the strike the sim times', { skip: !drawable && 'no skin model drawing fields (tools/fetch-skin-models.mjs)' }, () => {
+  const found = [], excused = new Set();
+  let read_ = 0, skins = 0;
+  for (const [key, rec] of Object.entries(skinModels.skins)) {
+    const owner = skinList[key]?.owner;
+    if (!/^char_/.test(owner || '') || !rec.front?.anims) continue;
+    skins++;
+    const r = sweepAttacks((charId) => (charId === owner ? rec.front : undefined), (label, e, v, sim) => {
+      const bad = compare(label, e, v, sim);
+      if (!bad) return null;
+      const role = v._attackClip(), clip = role && v._loopOf(role);
+      const sameStrike = clip && Object.hasOwn(e.animations, clip) && (e.hits?.[clip]?.[0] ?? null) === (sim.hit ?? null);
+      if (sameStrike && SKIN_CLIP_LENGTH[`${key} ${label}`]) { excused.add(`${key} ${label}`); return null; }
+      return `${key} ${bad}`;
+    });
+    found.push(...r.found);
+    read_ += r.read;
+  }
+  assert.ok(skins > 200 && read_ > 600, `only ${skins} skins, ${read_} attacks read`);
+  assert.deepEqual(found, [], 'a skin view plays an attack clip whose strike is not the one the sim times: the skin model\'s roles (tools/fetch-skin-models.mjs sideFields, its own key table through tools/assets/spine.mjs modelAnims) or the sim\'s record (build-data opAttackAnim, the default model only) moved — docs/rules/render.md 「스킨 렌더 게이트」');
+  assert.deepEqual([...excused].sort(), Object.keys(SKIN_CLIP_LENGTH).sort(), 'every listed skin clip length was read (a stale entry goes)');
 });
 
 test('three attacks the sweep found timed from another child or mode, by what their prefabs name', () => {

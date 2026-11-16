@@ -26,7 +26,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /** tools/assets/local-attack-timing.json ({} when absent or unreadable): the client's attack abilities per operator mode. */
-function loadAttackTiming(repo) {
+export function loadAttackTiming(repo) {
   try { return JSON.parse(readFileSync(join(repo, 'tools/assets/local-attack-timing.json'), 'utf8')); } catch { return {}; }
 }
 
@@ -79,12 +79,13 @@ export function overlayEnemyAttackKeys(enemies, clips) {
 
 /**
  * The clip keys of the operators and the summons (.cache/anim-keys.json `ops` / `tokens`, tools/local-extract/anim_keys.py —
- * client-only, never tracked), or null when this machine has not extracted them.
+ * client-only, never tracked) and the skin models' own key tables (`skins`: skin key → { owner, keys, mix }), or null when
+ * this machine has not extracted them.
  */
-function loadAnimKeys(repo) {
+export function loadAnimKeys(repo) {
   try {
     const j = JSON.parse(readFileSync(join(repo, '.cache/anim-keys.json'), 'utf8'));
-    return j.ops ? { ops: j.ops, tokens: j.tokens || {} } : null;
+    return j.ops ? { ops: j.ops, tokens: j.tokens || {}, skins: j.skins || {} } : null;
   } catch { return null; }
 }
 /** The operators and summons of the committed data/assets.json ({ chars, tokens }: id → its entry), empty when unreadable. */
@@ -336,6 +337,36 @@ export function namesAll(o, out = []) {
 }
 
 /**
+ * The render roles (`anims`) of one parsed skeleton: the guess by name (anim-roles.mjs) with PREFAB_SPINE_ROLES, the client's
+ * clip keys over it (an operator: overlayKeyRoles of keyRoles; a summon: tokenKeyRoles' modes), then the hand tables
+ * (anim-overrides.mjs) and the mode attacks. The one path of a default model (processModels) and a skin model
+ * (tools/fetch-skin-models.mjs): a skin passes its own key table (`skin`, .cache/anim-keys.json `skins[key]`), which
+ * replaces the owner's default one — 15 skins key their clips otherwise (docs/rules/render.md 「스킨 렌더 게이트」).
+ * @param {string} key the model key: `op:<charId>:front|back`, `token:<id>`, `enemy:<id>` (a skin: its owner's)
+ * @param {{ animations: string[], durations: Record<string, number> }} sk parseSkel output
+ * @param {{ skillIndices?: number[], animKeys: ReturnType<typeof loadAnimKeys>, timing: any, charModes: any,
+ *   skin?: { keys?: Record<string, string>, mix?: any[] } | null, problems?: string[] }} o
+ */
+export function modelAnims(key, sk, { skillIndices, animKeys, timing, charModes, skin = null, problems = [] }) {
+  key = String(key);
+  const id = key.startsWith('enemy:') ? key.slice('enemy:'.length) : key.startsWith('op:') ? key.split(':')[1] : null; // op:<char>:front|back
+  const op = key.startsWith('op:') ? id : null;
+  const tok = key.startsWith('token:') ? key.slice('token:'.length) : null;
+  const fixed = applyRoleFix(resolveRoles(sk.animations, { skillIndices, durations: sk.durations }), id ? PREFAB_SPINE_ROLES[id] : undefined, sk.durations);
+  if (fixed.missing.length) problems.push(`${key}: role fix not applied (clip missing) for ${fixed.missing.join(', ')}`);
+  const anims = fixed.roles;
+  const withSkin = (rec) => (skin ? { ...rec, skin } : rec);
+  if (op && animKeys?.ops[op]) overlayKeyRoles(anims, keyRoles(withSkin(animKeys.ops[op]), sk.durations), op);
+  // a summon's modes (缪尔赛思's 流形: its Default mode rests in Idle_1, its copies draw the Melee / Range clip sets —
+  // render/units.js tokenForm)
+  const tk = tok && animKeys?.tokens[tok] ? tokenKeyRoles(withSkin(animKeys.tokens[tok]), sk.durations) : null;
+  if (tk?.tmodes) { if (tk.idle) anims.idle = tk.idle; anims.tmodes = tk.tmodes; }
+  applyAnimOverrides(key, anims, sk.animations); // local patch: skill clip fixes (tools/assets/anim-overrides.mjs); clips the skeleton lacks are dropped
+  applyModeAttacks(key, anims, timing, charModes); // how each skill's mode attacks (stance / plain attack clip)
+  return anims;
+}
+
+/**
  * Run the whole Spine pipeline for every planned model.
  * @param {Map<string, any>} models plan.models
  * @param {object} o
@@ -443,8 +474,7 @@ export async function processModels(models, { root, dl, cachePath, download = tr
     if (sk.missingRegions?.length) problems.push(`${m.key}: ${sk.missingRegions.length} attachment(s) not in atlas (e.g. ${sk.missingRegions[0]})`);
     if (!sk.animations.length) { problems.push(`${m.key}: skeleton has no animations`); continue; }
     const key = String(m.key);
-    const id = key.startsWith('enemy:') ? key.slice('enemy:'.length) : key.startsWith('op:') ? key.split(':')[1] : null; // op:<char>:front|back
-    const op = key.startsWith('op:') ? id : null;
+    const op = key.startsWith('op:') ? key.split(':')[1] : null; // op:<char>:front|back
     // a summon whose roles came from its prefab keys (`tmodes`): kept the same way without the keys
     const tok = key.startsWith('token:') ? key.slice('token:'.length) : null;
     const prevTok = tok && !animKeys ? committed.tokens[tok]?.spine?.anims : null;
@@ -454,16 +484,7 @@ export async function processModels(models, { root, dl, cachePath, download = tr
       anims = structuredClone(prev);
       kept++;
     } else {
-      const fixed = applyRoleFix(resolveRoles(sk.animations, { skillIndices: m.skillIndices, durations: sk.durations }), id ? PREFAB_SPINE_ROLES[id] : undefined, sk.durations);
-      if (fixed.missing.length) problems.push(`${m.key}: role fix not applied (clip missing) for ${fixed.missing.join(', ')}`);
-      anims = fixed.roles;
-      if (op && animKeys?.ops[op]) overlayKeyRoles(anims, keyRoles(animKeys.ops[op], sk.durations), op);
-      // a summon's modes (缪尔赛思's 流形: its Default mode rests in Idle_1, its copies draw the Melee / Range clip sets —
-      // render/units.js tokenForm)
-      const tk = tok && animKeys?.tokens[tok] ? tokenKeyRoles(animKeys.tokens[tok], sk.durations) : null;
-      if (tk?.tmodes) { if (tk.idle) anims.idle = tk.idle; anims.tmodes = tk.tmodes; }
-      applyAnimOverrides(m.key, anims, sk.animations); // local patch: skill clip fixes (tools/assets/anim-overrides.mjs); clips the skeleton lacks are dropped
-      applyModeAttacks(m.key, anims, timing, charModes); // how each skill's mode attacks (stance / plain attack clip)
+      anims = modelAnims(m.key, sk, { skillIndices: m.skillIndices, animKeys, timing, charModes, problems });
     }
     entries.set(m.key, {
       skel: assetUrl(m.skel.rel),

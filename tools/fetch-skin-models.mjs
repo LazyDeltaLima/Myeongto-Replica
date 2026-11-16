@@ -5,9 +5,19 @@
 //
 //   { version, repo, ref,                                  the repository commit every URL names (pinned: a file the
 //                                                          repository replaces later never fails the hash check)
-//     skins: { <skin key>: { dir, alias?, front: { skel, atlas, pages: [png…] }, back? } },  list paths, below
+//     skins: { <skin key>: { dir, alias?, front: <side>, back? } },
 //     files: [{ p, s, h, u }],                             entries tools/build-browser-resources.mjs adds to the list
 //     missing: { <skin key>: why } }                       skins the repository lacks: drawn with the default model
+//
+//   <side> = { skel, atlas, pages: [png…],                 list paths, below
+//              pma, anims, animations, events, hits, bounds }   what drawing it needs (render/skin-gate.js), the fields of a
+//                                                          data/assets.json model entry, read from the repository's files:
+//     pma         the pages' kind, each page measured (tools/assets/spine.mjs premultipliedPage): the repository's pages are of
+//                 both kinds and its atlases carry no `pma:` line; a side whose pages disagree stops the run
+//     anims       the skin's own key table (.cache/anim-keys.json `skins[key]`, tools/local-extract/anim_keys.py) through the
+//                 default models' path (spine.mjs modelAnims): 15 skins key their clips otherwise than the default model, so
+//                 the owner's default table is never borrowed; a skin without its table stops the run
+//     animations / events / hits / bounds   its own skeleton's (tools/assets/skel.mjs parseSkel)
 //
 // The skins are those of skins.json (tools/local-extract/skin_extract.py, the official skin table). A skin's folder in
 // the repository is `spine/<owner>/<prefab id, # → _>/` (case-insensitive), with `Front/` + `Back/`, or `Spine/` for a
@@ -28,7 +38,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { parseAtlas } from './assets/atlas.mjs';
+import { parseAtlas, atlasInfo } from './assets/atlas.mjs';
+import { parseSkel } from './assets/skel.mjs';
+import { decodePng } from './assets/formats.mjs';
+import { premultipliedPage, modelAnims, loadAnimKeys, loadAttackTiming } from './assets/spine.mjs';
+import { loadCharModes } from './assets/skill-mode-sfx.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 export const REPO = 'fexli/ArknightsResource';
@@ -85,6 +99,41 @@ export function matchSkins(skins, blobs, skelSizes) {
     else missing[key] = `no folder of ${REPO} (spine/${s.owner}/${s.prefab.replace(/#/g, '_')}, or one with its letters and skeleton sizes)`;
   }
   return { found, missing };
+}
+
+/** The skill indices a default model's roles were resolved for (primary first, as tools/assets/plan.mjs plans them). */
+export const skillIndicesOf = (anims) => {
+  const ks = Object.keys(anims?.skills || {}).map(Number).sort((a, b) => a - b);
+  const p = anims?.skill?.index;
+  return !ks.length ? [0] : ks.includes(p) ? [p, ...ks.filter((i) => i !== p)] : ks;
+};
+
+/**
+ * What drawing one side of a skin model needs: `{ pma, anims, animations, events, hits, bounds }`.
+ * @param {string} key the skin key (skins.json) @param {any} s its skins.json record @param {'front'|'back'} side
+ * @param {{ skel: Uint8Array, atlas: string, pages: Uint8Array[] }} files the repository's files of the side
+ * @param {{ animKeys: any, timing: any, charModes: any, chars: Record<string, any>, problems?: string[] }} ctx
+ *   animKeys: spine.mjs loadAnimKeys; chars: data/assets.json `chars` (the default models' skill indices)
+ */
+export function sideFields(key, s, side, files, { animKeys, timing, charModes, chars, problems = [] }) {
+  const op = /^char_/.test(s.owner), tok = /^token_/.test(s.owner);
+  if (!op && !tok) throw new Error(`${key}: owner ${s.owner} is neither an operator nor a summon`);
+  const skin = animKeys?.skins?.[key];
+  if (!skin || skin.owner !== s.owner) throw new Error(`${key}: no key table of its own in .cache/anim-keys.json skins (run tools/local-extract/anim_keys.py; docs/rules/render.md 「스킨 렌더 게이트」)`);
+  let base = null;
+  if (op) {
+    base = chars?.[s.owner]?.spine?.front?.anims;
+    if (!base) throw new Error(`${key}: ${s.owner} has no default model in data/assets.json`);
+  }
+  const kinds = files.pages.map((buf) => premultipliedPage(decodePng(buf)));
+  if (!kinds.length || kinds.some((k) => k !== kinds[0])) throw new Error(`${key} ${side}: its pages are of both kinds (${kinds.join(', ')}) — one model entry has one \`pma\``);
+  const sk = parseSkel(new Uint8Array(files.skel), atlasInfo(files.atlas).regions);
+  if (!sk.animations.length) throw new Error(`${key} ${side}: the skeleton has no animations`);
+  if (sk.missingRegions?.length) problems.push(`${key} ${side}: ${sk.missingRegions.length} attachment(s) not in its atlas (e.g. ${sk.missingRegions[0]})`);
+  const anims = modelAnims(op ? `op:${s.owner}:${side}` : `token:${s.owner}`, sk, {
+    skillIndices: op ? skillIndicesOf(base) : [0], animKeys, timing, charModes, skin: { keys: skin.keys || {}, mix: skin.mix || [] }, problems,
+  });
+  return { pma: kinds[0], anims, animations: sk.durations, events: sk.events, hits: sk.hits, bounds: sk.bounds };
 }
 
 /** The list path of a repository file 'owner/folder/Side/name.ext'. */
@@ -195,17 +244,23 @@ async function main() {
       if (++done % 100 === 0) console.log(`[skin-models] ${done}/${jobs.length + uniquePages.length} files`);
     }
   }));
-  const out = { version: 1, repo: REPO, ref, skins: {}, files: [], missing };
+  const out = { version: 2, repo: REPO, ref, skins: {}, files: [], missing };
   const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
+  const animKeys = loadAnimKeys(ROOT);
+  if (!animKeys) throw new Error('no .cache/anim-keys.json: run tools/local-extract/anim_keys.py first (each skin model draws its own key table)');
+  const ctx = { animKeys, timing: loadAttackTiming(ROOT), charModes: loadCharModes(ROOT), chars: JSON.parse(await readFile(join(ROOT, 'data/assets.json'), 'utf8')).chars, problems: [] };
   for (const [key, m] of Object.entries(found)) {
     const entry = { dir: m.dir, ...(m.alias ? { alias: true } : {}) };
     for (const side of m.sides) {
       const atlas = jobs.find((j) => j.key === key && j.side === side && j.path.endsWith('.atlas'));
       const skel = atlas.path.replace(/\.atlas$/, '.skel');
-      entry[side === 'Back' ? 'back' : 'front'] = { skel: listPath(skel), atlas: listPath(atlas.path), pages: atlas.pages.map(listPath) };
+      const face = side === 'Back' ? 'back' : 'front';
+      const fields = sideFields(key, skins[key], face, { skel: bufs.get(skel), atlas: bufs.get(atlas.path).toString('utf8'), pages: atlas.pages.map((p) => bufs.get(p)) }, ctx);
+      entry[face] = { skel: listPath(skel), atlas: listPath(atlas.path), pages: atlas.pages.map(listPath), ...fields };
     }
     out.skins[key] = entry;
   }
+  for (const p of ctx.problems) console.warn('[skin-models]', p);
   for (const p of [...new Set([...jobs.map((j) => j.path), ...uniquePages])].sort()) {
     const buf = bufs.get(p);
     out.files.push({ p: listPath(p), s: buf.length, h: sha256(buf), u: rawUrl(ref, p) });
@@ -215,7 +270,8 @@ async function main() {
   await writeFile(target + '.tmp', JSON.stringify(out));
   await rename(target + '.tmp', target);
   const mb = (n) => (n / 1048576).toFixed(1) + ' MB';
-  console.log(`[skin-models] ${REPO}@${ref.slice(0, 12)}: ${Object.keys(out.skins).length} skins (${Object.values(found).filter((m) => m.alias).length} under another folder name), ${out.files.length} files, ${mb(out.files.reduce((n, f) => n + f.s, 0))}; missing ${Object.keys(missing).length}: ${Object.keys(missing).join(', ') || '-'}`);
+  const sides = Object.values(out.skins).flatMap((e) => [e.front, e.back].filter(Boolean));
+  console.log(`[skin-models] ${REPO}@${ref.slice(0, 12)}: ${Object.keys(out.skins).length} skins (${Object.values(found).filter((m) => m.alias).length} under another folder name), ${out.files.length} files, ${mb(out.files.reduce((n, f) => n + f.s, 0))}; missing ${Object.keys(missing).length}: ${Object.keys(missing).join(', ') || '-'}; sides premultiplied ${sides.filter((x) => x.pma).length} / straight ${sides.filter((x) => !x.pma).length}`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
