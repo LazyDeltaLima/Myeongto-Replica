@@ -148,6 +148,7 @@ SWITCH_STATE_WHEN_FINISH_SCRIPT = -1577373638081991986
 TRIGGER_ON_EVENT_SCRIPT = -7693528729676623236
 TRIGGER_BY_CONDITION_SCRIPT = 70527413319701124
 AURA_TRIGGER_SCRIPT = -2505866108626100628
+BUFFS_KEY_TRIGGER_SCRIPT = 9179032795260399697   # (2026-11-16) BuffsKeyAnimatorTrigger, an AnimatorTriggerSource
 SET_FLOAT_SCRIPT = 295235635984623506
 BUFF_PROGRESS_SCRIPT = -5165147848620574582
 RANDOM_GROUP_SCRIPT = -3960942007169782850
@@ -485,6 +486,14 @@ def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None,
         mods['sizeBySpeed'] = {'x': minmax(sbs['curve']), 'range': [r4(rg.get('x', 0)), r4(rg.get('y', 1))]}
         if sbs.get('separateAxes'):
             mods['sizeBySpeed'].update({'y': minmax(sbs['y']), 'z': minmax(sbs['z'])})
+    # (2026-11-16, fx-C) RotationBySpeed: the angular velocity at the speed's place in `range`, added to RotationOverLifetime's
+    # (유키 마코토's S2 / S3 buff glass: two constants, the same at any speed)
+    rbs = ps.get('RotationBySpeedModule') or {}
+    if rbs.get('enabled'):
+        rg = rbs.get('range') or {}
+        mods['rotBySpeed'] = {'z': minmax(rbs['curve']), 'range': [r4(rg.get('x', 0)), r4(rg.get('y', 1))]}
+        if rbs.get('separateAxes'):
+            mods['rotBySpeed'].update({'x': minmax(rbs['x']), 'y': minmax(rbs['y'])})
     co = ps.get('CollisionModule') or {}
     if co.get('enabled') and co.get('type', 0) == 0:
         mods['collide'] = {'planes': [p for p in co.get('m_Planes') or [] if p.get('m_PathID')],
@@ -1582,6 +1591,14 @@ class Extractor:
             for k, f in (('force', '_forceCheckInUpdate'), ('sync', '_syncPlayBackSpeed')):
                 if t.get(f):
                     out[k] = 1
+            # (2026-11-16, fx-C) `_PredictFaceDirection` — skipped while the deploy direction is UP unless
+            # `_predictOnlyWhenDirectionNonBack` is off (`predictAll`); `_preserveBackWhenPredictingDirection` (the CN client's,
+            # `preserve`): render/fx/pause.js backSide
+            if out['predict']:
+                if not t.get('_predictOnlyWhenDirectionNonBack', 1):
+                    out['predictAll'] = 1
+                if t.get('_preserveBackWhenPredictingDirection'):
+                    out['preserve'] = 1
             return out
         return None
 
@@ -3179,7 +3196,9 @@ class Extractor:
           empty) with an AuraProjectileSetAnimatorTrigger source (`GetValue`: `_triggerKey` once `SetTriggerValue`,
           else `_defaultKey`): `aura` — set when the aura projectile stops (ScalableAuraHitBehaviour.OnProjectileStop:
           ThrowEffect — only re-parented — then SetTriggerValue instead of FinishMe), the moment
-          render/fxgame.js zoneFx ends the aura (引星棘刺 S2).
+          render/fxgame.js zoneFx ends the aura (引星棘刺 S2); with a BuffsKeyAnimatorTrigger source (`GetValue`: the
+          `triggerKey` of the first `_triggerKeyPairs` entry whose `buffKey` the owner holds, else `_defaultVal`; 2026-11-16)
+          `animBuff`: [{ sm, pairs: [[trigger, buff]], def }] — set as it plays and on every change (render/fxplayer.js stepSm).
         And `animSrc`: [{ sm, p, int, buff, max, prog, def, fin, curve }] — SetAnimatorFloatByCondition (`OnPlay`:
         the source's GetValueOnPlay; `Update`: GetValue, set when it changed; SetInteger of the truncated value with
         `_isInt`, else SetFloat) with a BuffProgressFloatSource (`GetValueOnPlay` = `_defaultVal`; `GetValue`:
@@ -3199,7 +3218,7 @@ class Extractor:
         child = next((by_node[i] for i in sorted(by_node) if live(i)), None)
         own = by_node.get(0)
         fin, src, sources = [], [], []
-        by_cond = aura = None
+        by_cond = aura = bkey = None
         for sid, _raw, t in self.monos(root):
             if t is None or t.get('m_Enabled') == 0:
                 continue
@@ -3230,11 +3249,16 @@ class Extractor:
                 by_cond = True
             elif sid == AURA_TRIGGER_SCRIPT and t.get('_triggerKey'):
                 aura = t['_triggerKey']
+            elif sid == BUFFS_KEY_TRIGGER_SCRIPT:
+                bkey = t
             elif sid == BUFF_PROGRESS_SCRIPT:
                 sources.append(t)
         if by_cond and aura:   # [추정: its `_source` is that aura source — `_autoFindSource` on the one prefab]
             fin.append({'sm': own, 'p': aura, 'v': True, 'aura': True})
         out = {}
+        if by_cond and bkey is not None and not aura:   # the root's one source (`_autoFindSource`: 유키 마코토's S2 attack)
+            pairs = [[x.get('triggerKey') or '', x.get('buffKey') or ''] for x in bkey.get('_triggerKeyPairs') or []]
+            out['animBuff'] = [{'sm': own, 'pairs': pairs, 'def': bkey.get('_defaultVal') or ''}]
         if fin:
             out['animFin'] = fin
         # a curve key's infinite tangent (a stepped key) as null: JSON has no Infinity

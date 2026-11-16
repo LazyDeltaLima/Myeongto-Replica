@@ -77,7 +77,9 @@ SCRIPTS = {
     -7571717170868447701: 'OnFinishAnime', 4957269727245382446: 'TriggerAnimatorWhenFinish',
     -1577373638081991986: 'SwitchAnimatorStateWhenFinish', 295235635984623506: 'SetAnimatorFloatByCondition',
     -5165147848620574582: 'BuffProgressFloatSource', 70527413319701124: 'SetAnimatorTriggerByCondition',
-    -2505866108626100628: 'AuraProjectileSetAnimatorTrigger', -7693528729676623236: 'SetAnimatorTriggerOnEvent',
+    # (2026-11-16) CN client only, no serialized field: named by its MonoScript in the CN bundle
+    -5389092481091829851: 'TrailEmittingControl',
+    -2505866108626100628: 'AuraProjectileSetAnimatorTrigger', 9179032795260399697: 'BuffsKeyAnimatorTrigger', -7693528729676623236: 'SetAnimatorTriggerOnEvent',
     4106883806711907659: 'Svash2FlyToPredefinedTokenCard', -6677432354943165660: 'ColorModifier',
     -4538866681947353501: 'YuS3EffectBehaviour', 4140733268730780971: 'YuS3EffectWithEdgeBehaviour',
     # (2026-10-21) the route cursors, the 战场#06 wall and the enemies' packs
@@ -106,7 +108,7 @@ SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoi
                 # (2026-10-22, effect bundle J) the Animator drivers, the random group and the module variants
                 'OnFinishAnime', 'TriggerAnimatorWhenFinish', 'SwitchAnimatorStateWhenFinish', 'SetAnimatorTriggerOnEvent',
                 'SetAnimatorFloatByCondition', 'BuffProgressFloatSource', 'SetAnimatorTriggerByCondition',
-                'AuraProjectileSetAnimatorTrigger', 'EmitterRandomGroup', 'SwitchableWhenContainsEquipment',
+                'AuraProjectileSetAnimatorTrigger', 'BuffsKeyAnimatorTrigger', 'EmitterRandomGroup', 'SwitchableWhenContainsEquipment',
                 'SetEffectAnimatorParameter',   # (2026-11-10) anim_scripts (`animFin`)
                 # (2026-11-01, CN client only) pause_scripts (`pauseMenu`)
                 'PauseEffectIfCharMenuNotOpen',
@@ -117,7 +119,8 @@ SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoi
 # ParticleSystem modules the extract carries (fx_extract.particle_system)
 MODULES_READ = {'InitialModule', 'EmissionModule', 'ShapeModule', 'SizeModule', 'ColorModule', 'RotationModule',
                 'VelocityModule', 'ForceModule', 'ClampVelocityModule', 'NoiseModule', 'UVModule', 'CustomDataModule',
-                'TrailModule', 'SubModule', 'InheritVelocityModule', 'SizeBySpeedModule', 'CollisionModule'}
+                'TrailModule', 'SubModule', 'InheritVelocityModule', 'SizeBySpeedModule', 'CollisionModule',
+                'RotationBySpeedModule'}
 # (2026-10-22) the one way each of these is read (fx_extract.particle_system): another setting is reported (`particle`)
 MODULE_MODES = {'InheritVelocityModule': ('m_Mode', 0, 'mode 1 Current (follows the emitter all its life)'),
                 'CollisionModule': ('type', 0, 'type 1 World (collides with the scene\'s colliders)')}
@@ -320,6 +323,12 @@ PS_FIELDS = {
     'SizeBySpeedModule.separateAxes': _K('mods.sizeBySpeed.y'),
     'SizeBySpeedModule.y': _K('mods.sizeBySpeed.y', _flag('SizeBySpeedModule', 'separateAxes')),
     'SizeBySpeedModule.z': _K('mods.sizeBySpeed.z', _flag('SizeBySpeedModule', 'separateAxes')),
+    # (2026-11-16, fx-C) fx_extract.py `rotBySpeed`, render/fxplayer.js simulate
+    'RotationBySpeedModule.enabled': _N('the module switch'), 'RotationBySpeedModule.curve': _K('mods.rotBySpeed.z'),
+    'RotationBySpeedModule.range.x': _K('mods.rotBySpeed.range'), 'RotationBySpeedModule.range.y': _K('mods.rotBySpeed.range'),
+    'RotationBySpeedModule.separateAxes': _K('mods.rotBySpeed.x'),
+    'RotationBySpeedModule.x': _K('mods.rotBySpeed.x', _flag('RotationBySpeedModule', 'separateAxes')),
+    'RotationBySpeedModule.y': _K('mods.rotBySpeed.y', _flag('RotationBySpeedModule', 'separateAxes')),
     'CollisionModule.enabled': _N('the module switch'), 'CollisionModule.type': _N('MODULE_MODES reports type 1 World'),
     'CollisionModule.m_Planes': _K('mods.collide.planes'), 'CollisionModule.m_Dampen': _K('mods.collide.dampen'),
     'CollisionModule.m_Bounce': _K('mods.collide.bounce'), 'CollisionModule.m_EnergyLossOnCollision': _K('mods.collide.lifeLoss'),
@@ -550,12 +559,14 @@ COMP_FIELDS = {
                                                               '_rotateTex1', '_rotateTex2', '_rotateTex3', '_rotateTex4')},
                             '_propertyName': _V('nodes[].uvr', ('_Rotation',))},
     'script:SwitchableBackEffect': {
-        'm_Enabled': _A(1, _OFF), '_backEffect': _K('back.effect'), '_predictFaceDirection': _A(0, 'the side predicted from the coming direction (`back.predict` is carried, not played)'), '_oneShot': _K('back.oneShot'),
-        '_createEffectOnStart': _A(0, 'the back copy made paused when it plays'),
+        'm_Enabled': _A(1, _OFF), '_backEffect': _K('back.effect'), '_predictFaceDirection': _K('back.predict'), '_oneShot': _K('back.oneShot'),
+        # (2026-11-16) OnPlay → _CreateEffectOnStart: the back copy made paused as this one plays; a paused effect does not run,
+        # so it starts where render/fxgame.js startBack starts the copy it makes at the first turn (on the owner, same speed)
+        '_createEffectOnStart': _N('the copy made paused at play starts as the one made at the first turn back'),
         '_forceCheckInUpdate': _K('back.force'),
-        '_predictOnlyWhenDirectionNonBack': _A(1, 'the side predicted also when the direction is back'),
+        '_predictOnlyWhenDirectionNonBack': _K('back.predictAll'),
         '_syncPlayBackSpeed': _K('back.sync'), '_useBehaviourPause': _K('back.beh'),
-        '_preserveBackWhenPredictingDirection': _A(0, 'the back copy kept while the side is predicted [ASSUMED from its name: a newer field of the CN client]')},
+        '_preserveBackWhenPredictingDirection': _K('back.preserve')},
     'script:SwitchableRightEffect': {
         'm_Enabled': _A(1, _OFF), '_rightEffect': _K('right'), '_onlyCheckOnPlay': _K('rightOnce'),
         '_reverseLeftRight': _K('rightRev'),
@@ -681,9 +692,13 @@ COMP_FIELDS = {
         '_curve': _K('animSrc[].curve')},
     'script:SetAnimatorTriggerByCondition': {
         'm_Enabled': _R('a switched-off one is not read (anim_scripts)'),
-        '_source': _N('[ASSUMED] the root\'s AuraProjectileSetAnimatorTrigger'), '_autoFindSource': _N('[ASSUMED] the same'),
+        '_source': _N('[ASSUMED] the root\'s AuraProjectileSetAnimatorTrigger or BuffsKeyAnimatorTrigger'), '_autoFindSource': _N('[ASSUMED] the same'),
         '_checkInterval': _A(-1, 'checked every so many seconds instead of every frame'),
         '_skipWhenIsNullOrEmpty': _A(0, 'an empty value skipped')},
+    # (2026-11-16) fx_extract.py anim_scripts `animBuff`, render/fxplayer.js stepSm; the buffs a view can tell: render/fx/pause.js viewHoldsBuff
+    'script:BuffsKeyAnimatorTrigger': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'),
+                                       '_triggerKeyPairs[].triggerKey': _K('animBuff[].pairs'),
+                                       '_triggerKeyPairs[].buffKey': _K('animBuff[].pairs'), '_defaultVal': _K('animBuff[].def')},
     'script:AuraProjectileSetAnimatorTrigger': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'),
                                                 '_triggerKey': _K('animFin[].p'),
                                                 '_defaultKey': _A('', 'a trigger set before the aura stops')},
@@ -720,7 +735,7 @@ COMP_READERS = {
     **{f'script:{c}': ('anim_scripts',) for c in (
         'TriggerAnimatorWhenFinish', 'OnFinishAnime', 'SwitchAnimatorStateWhenFinish', 'SetAnimatorTriggerOnEvent',
         'SetAnimatorFloatByCondition', 'BuffProgressFloatSource', 'SetAnimatorTriggerByCondition', 'AuraProjectileSetAnimatorTrigger',
-        'SetEffectAnimatorParameter')},
+        'SetEffectAnimatorParameter', 'BuffsKeyAnimatorTrigger')},
     'script:EmitterRandomGroup': ('random_group',), 'script:SwitchableWhenContainsEquipment': ('equip_effects',),
 }
 # a script's fields of the MonoBehaviour base: not the class's own
@@ -831,6 +846,9 @@ SHADERS_CHECKED = {
     # 2026-11-16 (레토 S2 / 사일런스 더 패러디그매틱 S3 buffs): the pixel stage of Dissolve AB / Add Double (the same products,
     # in another order); its pass reads `_DstBlend` and `_CullMode`, which fxplayer.js already reads for it by name
     'Torappu/Particles/Dissolve/Dissolve Double',
+    # 2026-11-16 (유키 마코토's S1 heal): Unity's built-in Standard Unlit in its Fade mode — `_Color` × vertex × texture, blended
+    # by `_SrcBlend` / `_DstBlend`; flipbook, soft particles, distortion, emission and lighting all off on its one material
+    'Particles/Standard Unlit',
 }
 
 # known items: 'kind:what' -> (status, note). `todo` = known, not drawn as the client does (the 2026-10-16 baseline; the
@@ -875,6 +893,17 @@ KNOWN = {
                                                        '(only Mon3tr S3\'s monstr_skill_03_buff_05)'),
     'script:SwitchableMultiEffectByBuffStackCnt': (_HAND, 'the 麻痹 mark by its stacks (palsy[stack]: 2 EQUALS _02, 3 GE _03): '
                                                    'render/fxstatus.js STACK_FX palsy'),
+    # (2026-11-16, fx-C) CN client only (no such class in the EN client; no serialized field): on the roots of 메커니스트's attack
+    # hit / start `_02`, whose child TrailRenderers it controls by its name
+    'script:TrailEmittingControl': (_NONE, 'CN client only, no field: by its name the emitting of its children\'s trails, for a pooled '
+                                    'effect played again elsewhere — every effect here is a new instance, its trails start empty '
+                                    '[ASSUMED·CN: read from the class name only]'),
+    # (2026-11-16) Unity's Particles/Standard Unlit (유키 마코토's S1 heal, one system): the editor's blend mode and what it leaves
+    'property:Particles/Standard Unlit _Mode': (_NONE, 'the editor\'s blend mode (2 Fade): it sets `_SrcBlend` / `_DstBlend` and the '
+                                                '`_ALPHABLEND_ON` keyword, which the player reads (fxplayer.js makeMaterial)'),
+    'field:Material keyword _ALPHABLEND_ON': (_NONE, 'Standard Unlit\'s Fade variant: alpha blended by its `_SrcBlend` / `_DstBlend`'),
+    'field:Material.disabledShaderPasses ≠ ()': (_NONE, 'only Standard Unlit\'s GRABPASS (its distortion is off)'),
+    'field:Material.stringTagMap ≠ ()': (_NONE, 'only Standard Unlit\'s RenderType Transparent (a replacement-shader tag)'),
     'script:PreviewCursor': (_HAND, 'the route preview cursor\'s mover (`_moveSpeed`, `_height`): render/fxroute.js'),
     'script:SimpleEffect': (_HAND, 'only S_desert_wall_02_start_Mesh (s.ab), which the player never plays (see shader:Unlit/Texture)'),
     # (2026-10-21, official client) EffectData_Projectile (Effects.Data, a SourceData) is two Transform lists and a .ctor: no

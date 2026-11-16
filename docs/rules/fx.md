@@ -4435,6 +4435,44 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
   - 아스트젠 S2 버프 `halo_skill_02_buff_02`의 `shandian` 클립 값(상수 0): 이름이 `ShapeModule.boxZ` — 옛 Unity의 상자 크기 이름으로, 이 엔진의 ParticleSystem 애니메이션
     이름에는 없다(상자 크기는 `m_Scale`, 두께는 `boxThickness`). 묶이는 것이 없다 → 추출기가 `OLD_PS_NAMES`로 이름 붙이고 `KNOWN`은 `none`.
 
+### 이펙트 전수 보고 판정 — 새 시즌 선발의 필드 (2026-11-16)
+
+전수 보고 `NOT HANDLED` 중 새 시즌 선발 오퍼레이터(유키 마코토 `char_4217_makoto`, 메커니스트 `char_4230_mcnist`, 테리토리야 `char_4246_dminon`)와
+팽 더 파이어 샤픈드(`char_1036_fang2`)의 16줄. 프리팹은 CN 클라에만 있지만 클래스 넷(`SwitchableBackEffect`·`BuffsKeyAnimatorTrigger`·
+`SetAnimatorTriggerByCondition`, Unity 기본 셰이더)은 EN 클라에도 있어 공식 클라에서 확인했다. 12줄을 끝내고 테리토리야의 셰이더 속성 4줄이 남았다(관리자 메모).
+화면 확인은 아직.
+
+- **뒷면 전환의 방향 예측** — 유키 마코토 S1 시작 `makoto_skill_01_start_01`·`_02`, S3 시작 `makoto_skill_03_p1_start_A_01`·`_B_01`의 `SwitchableBackEffect`
+  `_predictFaceDirection` 1. 공식 클라에서 확인(`_UpdateFace`·`_PredictFaceDirection`): 예측이 켜지면 뒤를 보는지를 애니메이터의 면(`faceToBack` — 돌아서는 중간에
+  바뀌어 한두 프레임 늦음)이 아니라 주인의 얼굴 벡터로 정한다: `MapUtil.ParseDirection(faceTo, 0.25)`가 UP이면 뒤. `_predictOnlyWhenDirectionNonBack`(기본 켬)이면
+  배치 방향이 UP인 동안엔 예측하지 않고 애니메이터의 면을 쓴다(위를 보고 선 오퍼레이터가 오른쪽 위 적을 칠 때 예측은 RIGHT인데 모델은 그대로라서).
+  우리 뒷면 판단은 그린 Back 모델(`entryBack`)이라 돌아서는 반 박자(0.075 s)와 모델 로드만큼 늦었고, `_oneShot`인 이 넷은 처음 한 번만 보므로 위의 적을 쳐도
+  앞면 사본이 끝까지 돌았다 → `fx/pause.js backSide`(`render/face-turn.js`의 `parseDir`·`LR_ADDON`), 추출 `back.predict`·`predictAll`.
+  S3 시작 둘은 `_predictOnlyWhenDirectionNonBack` 0에 CN 클라만의 `_preserveBackWhenPredictingDirection` 1(`back.preserve`): 이름대로 옆 적을 칠 때 뒷면을
+  유지하는 것으로 — 모델이 옆 적에겐 Back 모델을 그대로 두는 것과 같은 `face.ud`(턴 뒤의 앞·뒤) [추정·CN: 필드 이름으로만 읽음].
+  재발 방지: `test/render/fx-cn-pick-fields.test.js`.
+- **`_createEffectOnStart`** — 메커니스트 평타·S1 시작 셋, 팽 더 파이어 샤픈드 S2 `fang2_skill2_attack_01_F`: 공식 클라에서 확인(`OnPlay` →
+  `_CreateEffectOnStart`) — 재생 때 뒷면 사본을 멈춘 채 미리 만들고 `_UpdateFace(true)`. 멈춘 이펙트는 돌지 않으므로, 처음 뒤를 볼 때 사본을 만드는 우리
+  (`fxgame.js startBack`, 주인 위·같은 속도)와 화면이 같다 → `KNOWN` `none`.
+- **속도별 회전** — 유키 마코토 S2 버프·S3 버프 L/R·S3 2단 버프의 유리 조각의 `RotationBySpeedModule`: 두 상수 사이 무작위(0.611~0.785 rad/s), 속도
+  구간 0~1. 추출 `mods.rotBySpeed`, 재생기는 속도별 크기와 같은 속도(속도 + 애니 속도)로 구간 위치를 잡아 수명 회전에 더한다(`fxplayer.js simulate`)
+  [추정·엔진: Unity 설명대로; 이 프리팹들은 상수라 속도와 상관없다]. 재발 방지: 같은 시험.
+- **Unity `Particles/Standard Unlit`** — 유키 마코토 S1 치료 `makoto_skill_01_heal_01`의 시스템 하나(`Default-ParticleSystem` 재질): `_Mode` 2(Fade)·키워드
+  `_ALPHABLEND_ON`·`_SrcBlend` 5·`_DstBlend` 10, 플립북·소프트 입자·왜곡·발광·조명 끔. Unity 기본 셰이더라 색은 `_Color` × 정점색 × 텍스처(×2 없음)인데, 재생기가
+  Torappu 셰이더처럼 2배로 그렸다 → `fxplayer.js makeMaterial`(`stdUnlit`), `SHADERS_CHECKED`. `disabledShaderPasses`(GRABPASS: 왜곡 끔)·`stringTagMap`
+  (RenderType)은 그리는 것 없음. 재발 방지: 같은 시험.
+- **버프로 애니메이터 트리거** — 유키 마코토 대역 S2 공격 `makoto_skill_02_start_01`(Stand_S2 모드의 시전): 루트의 `SetAnimatorTriggerByCondition` +
+  `BuffsKeyAnimatorTrigger`(`_triggerKeyPairs` [`none` ← `makoto_standin`], `_defaultVal` `end`). 공식 클라에서 확인(`GetValue`·`OnPlay`·`Update`): 주인이 쌍의 버프를
+  가지면 그 트리거, 아니면 기본값; 재생 때 한 번, 그 뒤 값이 바뀔 때마다 앞 트리거를 풀고 새 트리거를 건다. 애니메이터 매개변수는 `end` 하나라 대역인 동안은
+  아무 일 없고, 이펙트가 도는 중에 본체로 돌아가면 `end` 상태(사라짐)로 넘어간다. 추출 `animBuff`, 재생기 `stepSm`(`buffTrigger`), 버프는 주인 뷰로
+  (`fx/pause.js viewHoldsBuff`: 키트가 `makoto_standin`을 대역 형태 `doll`·`orpheus`와 함께 붙이고 떼므로 `info.form`). 재발 방지: 같은 시험.
+- **`TrailEmittingControl`** — 메커니스트 평타 `mcnist_attack_01_hit_02`·`_start_02`의 루트: CN 클라에만 있는 클래스(직렬화 필드 없음, CN 번들의 MonoScript 이름).
+  이름대로 자식 꼬리(TrailRenderer 셋)의 방출을 다루는 것 — 풀에서 다시 쓰는 이펙트가 옛 자리에서 꼬리를 끌지 않게 하는 것으로 보고, 매번 새 인스턴스인
+  재생기에선 그리는 것 없음 [추정·CN: 클래스 이름으로만 읽음].
+- **남은 것(테리토리야, CN 셰이더)**: `Torappu/Particles/AlphaBlend(ZWrite)`의 새 림 `_UseRim` 1·`_RimCol`·`_RimPower` 2.5(`dminon_Fresnel_02`, 평타 범위와
+  S2 범위 10개에 실림), `Ram/Disturb(CustomData)`의 `_MainTexChannel` 4(`dminon_bg_ci_01_2`·`dminon_trail_01`)·`_RamTexChannel` 1(`dminon_trail_01`, `_RamTex` 없음)
+  — 값의 뜻은 CN 셰이더 패스를 읽어야 한다 [추정·미조사: 관리자 메모의 이펙트 묶음 남은 줄].
+
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 
 이펙트 코드(`public/js/render/fxgame.js`·`fxplayer.js`·`fx/`)를 고치기 전에 읽는 목록. 한 번 값을 치른 원인만 적고, 시험이 지키는 것은 그 시험을 적는다(시험이 실패하면 메시지가 원인을 말한다). 새 줄은 시험·린트로 못 잡는 것만 더한다(`CONTRIBUTING.md` 2절 「Regression guards」).

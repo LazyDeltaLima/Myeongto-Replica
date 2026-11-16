@@ -91,7 +91,7 @@ import { kitOfficialPlan, kitOperator, KIT_NO_STAND_IN } from './fx/kitofficial.
 import { rangeEdges } from './fx/edges.js'; // 2026-11-10: a range's edge lines (RangeLineEffectHandler)
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 import { enemyRecordMode, isOwnSubMode, SKILL_SUB_MODES, skillModeIndex } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
-import { animPause, clipOf, facesBack, idlePause, immuneTo, movePause, pauseIfNow, unitModeFinishes } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
+import { animPause, backSide, viewHoldsBuff, clipOf, facesBack, idlePause, immuneTo, movePause, pauseIfNow, unitModeFinishes } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
 
 /**
  * local patch (maintainer report): `names` with each directional emitter entry of `groups` (char_modes.py `dirs` [{ t, s }])
@@ -937,6 +937,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     layer.scene.add(inst.object);
     layer.n++;
     const l = { inst, ...entry, layer, posCell: inst.posCell || null };
+    // 2026-11-16 (BuffsKeyAnimatorTrigger, fx_extract.py `animBuff`): the owner's buffs as its view tells them (fx/pause.js viewHoldsBuff)
+    if (inst.def?.animBuff) inst.heldBuff = (key) => viewHoldsBuff(entryOwner(l), key);
     live.push(l);
     return l;
   }
@@ -1115,8 +1117,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const b = def?.back || (def?.three?.up ? { effect: def.three.up } : null);
     if (!b || typeof b.effect !== 'string' || !unit || !unit.info) return null;
     // `beh`: the front's pause is its own (SwitchableBackEffect `_useBehaviourPause`; a three-face's as before)
-    return { name: b.effect, bundle, unit, on: false, entry: null, beh: def?.back ? !!def.back.beh : true,
-      force: !!b.force, sync: !!b.sync, oneShot: !!b.oneShot, test: faceBack };
+    // `test`: the side the client's `_UpdateFace` reads — predicted from the face vector with `_predictFaceDirection`
+    // (fx/pause.js backSide, 2026-11-16), else the Back model drawn
+    const back = def?.back;
+    return { name: b.effect, bundle, unit, on: false, entry: null, beh: back ? !!back.beh : true,
+      force: !!b.force, sync: !!b.sync, oneShot: !!b.oneShot, test: back?.predict ? (u) => backSide(back, u) : faceBack };
   }
   // ---- SwitchableRightEffect (2026-10-27, official client, effect bundle W2d; docs/rules/fx.md 「이펙트 방향」) ---------------
   // The left copy of a left / right pair (fx_extract.py `right`: 赤刃明霄陈 S3, 玛恩纳, 缄默德克萨斯, 蒂比, 凯尔希·思衡托, 寒檀 …)

@@ -729,8 +729,11 @@ function makeMaterial(m, lib) {
   // the Torappu particle shaders' neutral colour is 0.5 (shader property defaults): colour = 2 · tint · vertex · texture
   // 2026-10-22: Unity's Default-Particle (Legacy Particles/Alpha Blended Premultiply) has no tint: vertex colour × texture × vertex alpha
   const premul = /Alpha Blended Premultiply/.test(shader);
-  const tint = premul ? [1, 1, 1, 1] : /CustomData|Disturb|Ram/.test(shader) ? (c._MainColor || [0.5, 0.5, 0.5, 0.5]) : (c._TintColor || c._MainColor || c._Color || [0.5, 0.5, 0.5, 0.5]);
-  const tintMul = /Rim Tint/.test(shader) || premul ? 1 : 2; // local patch (client shader): Rim Tint has no ×2 (Rim Texture, Additive … do)
+  // 2026-11-16: Unity's Particles/Standard Unlit (유키 마코토's S1 heal, its Fade mode: `_Mode` 2, `_ALPHABLEND_ON`) is
+  // `_Color` × vertex colour × texture, no ×2; its pass blends by `_SrcBlend` / `_DstBlend` (the `additive` rule below)
+  const stdUnlit = shader === 'Particles/Standard Unlit';
+  const tint = premul ? [1, 1, 1, 1] : stdUnlit ? (c._Color || [1, 1, 1, 1]) : /CustomData|Disturb|Ram/.test(shader) ? (c._MainColor || [0.5, 0.5, 0.5, 0.5]) : (c._TintColor || c._MainColor || c._Color || [0.5, 0.5, 0.5, 0.5]);
+  const tintMul = /Rim Tint/.test(shader) || premul || stdUnlit ? 1 : 2; // local patch (client shader): Rim Tint has no ×2 (Rim Texture, Additive … do)
   // blend: Additive / Dissolve Add = SrcAlpha One, AlphaBlend / … AB = SrcAlpha OneMinusSrcAlpha, the (CustomData) family
   // reads its `_DstBlend` enum (Add 1 / AlphaBlend 10). Materials also carry _SrcBlend/_DstBlend left over from Unity's
   // Standard shader: never read for the fixed families
@@ -2341,6 +2344,17 @@ class ParticleSystem {
         if (m.rotOL.x) this.rot[i * 3] += evalMM(m.rotOL.x, a, r) * dt;
         if (m.rotOL.y) this.rot[i * 3 + 1] += evalMM(m.rotOL.y, a, r) * dt;
       }
+      // 2026-11-16 (RotationBySpeedModule, fx_extract.py `rotBySpeed`): the angular velocity at the speed's place in its range
+      // (the speed as size by speed reads it), added to the one over lifetime
+      const rb = m.rotBySpeed;
+      if (rb) {
+        const lo = rb.range?.[0] ?? 0, hi = rb.range?.[1] ?? 1;
+        const sp = Math.hypot(vx + ox, vy + oy, vz + oz);
+        const t = hi > lo ? Math.min(1, Math.max(0, (sp - lo) / (hi - lo))) : 0;
+        this.rot[i * 3 + 2] += evalMM(rb.z, t, r) * dt;
+        if (rb.x) this.rot[i * 3] += evalMM(rb.x, t, r) * dt;
+        if (rb.y) this.rot[i * 3 + 1] += evalMM(rb.y, t, r) * dt;
+      }
       // (official client) the noise turns it by noise z × strength × the rotation amount × dt × π / 360
       if (nzOn && m.noise.rotAmt) this.rot[i * 3 + 2] += noiseV.w * evalMM(m.noise.rotAmt, a, r) * (Math.PI / 360) * dt;
       if (this.subs) this.emitSubs(i, age0, this.age[i], dt);
@@ -3308,6 +3322,8 @@ export class FxInstance {
     // 2026-10-22 (effect bundle J): a controller with more states is a state machine (fx_extract.py state_machine, `sms`);
     // its other states' clips play only when it switches to them, so the effect's clip time counts its default state's
     this.sms = (def.sms || []).map((d, k) => this.newSm(d, k));
+    /** @type {((key: string) => boolean|null)|null} the owner's buffs for `animBuff` (render/fxgame.js; unset: taken as held) */
+    this.heldBuff = null;
     const first = new Set(this.sms.map((m) => m.d.states[m.d.def]?.clip));
     this.clipLen = this.clips.reduce((m, c, i) => (c.sm == null || first.has(i) ? Math.max(m, c.len || 0) : m), 0);
     this.meshMatList = [...this.meshMats, ...this.meshMore.flat()].filter(Boolean);
@@ -3718,6 +3734,17 @@ export class FxInstance {
       const v = this.srcValue(s);
       m.p[s.p] = s.int ? Math.trunc(v) : v;
     }
+    // 2026-11-16 (official client SetAnimatorTriggerByCondition + BuffsKeyAnimatorTrigger, fx_extract.py `animBuff`): the
+    // trigger of the first pair whose buff the owner holds, else the default — set as it plays and again when it changes
+    // (the previous one reset); a name the Animator lacks sets nothing
+    for (const s of this.def.animBuff || []) {
+      if (s.sm !== m.k) continue;
+      const v = this.buffTrigger(s);
+      if (v === m.bt) continue;
+      if (m.bt && m.d.params?.[m.bt]?.[0] === 'trigger') m.p[m.bt] = false;
+      m.bt = v;
+      if (v && m.d.params?.[v]?.[0] === 'trigger') m.p[v] = true;
+    }
     const st = m.d.states[m.cur], clip = this.smClip(m, m.cur), len = clip?.len || 0;
     const prev = m.fresh ? -1e-6 : m.t;
     m.fresh = false;
@@ -3854,6 +3881,15 @@ export class FxInstance {
    * such buff. Unset, the buff is taken as full [추정: the buff the effect shows is added with it].
    */
   setBuffProgress(key, r) { (this.buffProg ||= new Map()).set(key, r == null ? null : Math.min(1, Math.max(0, Number(r) || 0))); }
+
+  /**
+   * BuffsKeyAnimatorTrigger.GetValue for `animBuff` entry `s`: `heldBuff(key)` (set by render/fxgame.js from the owner's
+   * view) answers true / false, or null when the view cannot tell — taken as held [추정: the effect plays with its buff].
+   */
+  buffTrigger(s) {
+    for (const [trigger, key] of s.pairs || []) if (this.heldBuff?.(key) ?? true) return trigger;
+    return s.def;
+  }
 
   srcValue(s) {
     if (this.stopping) return s.fin;   // GetValue once finished: `_finishedVal`
