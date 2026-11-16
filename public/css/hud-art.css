@@ -578,11 +578,12 @@
 }
 /* the 180×360 portrait: the whole half body, its head near the top (the 立绘, when extracted, is drawn larger) */
 .dart__bg img { position: absolute; left: 1.6rem; top: .9rem; height: 62%; width: auto; max-width: none; opacity: .82; }
-/* the 立绘 by its client frame (illust_<charId>_1 RectTransform: size --fw × --fh, centre offset --fx / --fy from the frame's
-   centre, y up): k = .012rem a frame unit, the frame's centre at (3.35rem, 5.53rem) — a face (≈ 244 units above the frame's
-   centre: 古米, 波登可 204) then sits right of the stats about 2.6rem down, the head about as large as in the KR captures
-   (≈ 1.7rem; their art is the player's skin, whose own frame places it elsewhere — [추정]) */
-.dart.has-full-art .dart__bg { --k: .012rem; --cx: 3.35rem; --cy: 5.53rem; }
+/* the 立绘 by its client frame (illust_<charId>_2, else _1 RectTransform: size --fw × --fh, centre offset --fx / --fy from
+   the frame's centre, y up; tools/local-extract/chararts_extract.py writes the part the card shows and that part's frame):
+   k = .01254rem a frame unit, the frame's centre at (3.448rem, 5.895rem) — measured on the maintainer's 1920×1080
+   screenshots of the official card (雪猎's E2 art: 1.254 px a frame unit, the centre at (344.8, 589.5) px). The extractor
+   crops by these three values and the panel's width: test/local-extract.test.js holds them equal */
+.dart.has-full-art .dart__bg { --k: .01254rem; --cx: 3.448rem; --cy: 5.895rem; }
 .dart.has-full-art .dart__bg img { left: -1.2rem; top: -.4rem; height: auto; width: 10.8rem; }
 .dart.has-frame .dart__bg img {
   width: calc(var(--fw) * var(--k)); height: calc(var(--fh) * var(--k));

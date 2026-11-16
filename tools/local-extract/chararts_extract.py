@@ -19,14 +19,14 @@ Two copies (maintainer decision 2026-11-16): a phone takes the 1024 one, every o
 pairs `<dir>/full/<name>` with `<dir>/<name>` so a browser pre-downloads only its own copy. The skin 立绘
 (skin_extract.py) are written the same way.
 
-Elite 2 (default, --elite 2): when the bundle has `<charId>_2` (the E2 art: a large scene in which the operator is
-small) and the web mirror's portraits exist, the E2 art is used instead, cropped around the operator: the E2 portrait
-(`/assets/char/portrait/<charId>_2.png`, itself a crop of that art) is found in it by multi-scale template matching
-(OpenCV, score ≥ 0.6), and the E1 portrait in the E1 art the same way; the crop's `frame` is then computed so the E2
-portrait lands exactly where the E1 portrait sits in the E1 frame — the card (ui/detailArt.js) frames it like before,
-no code change. No E2 art, no portrait or a weak match: the E1 art as before. The entry says `elite: 2 | 1`.
-A body whose bundle has the E2 art alone (阿米娅's 医疗 form char_1037_amiya3: the form exists from E2 on) gives that
-art whole, placed by its own `illust_<charId>_2` frame (`elite: 2`).
+Elite 2 (default, --elite 2): when the bundle has `<charId>_2` (the E2 art) with its `illust_<charId>_2` frame, the
+card draws that art by that frame, as the official card does (measured on the maintainer's 1920×1080 screenshots of the
+official card: one E2 texture pixel = 1.003 px, i.e. the client's E2 frame at its own scale — not resized to the E1
+face). No E2 art or frame: the E1 art by its `illust_<charId>_1` frame. The entry says `elite: 2 | 1`. A body whose
+bundle has the E2 art alone (阿米娅's 医疗 form char_1037_amiya3: the form exists from E2 on) is the same case.
+
+Every art is cropped to the card's window (card_crop): the part of the frame the card can show, its `frame` the crop's
+own place in frame units — the card (ui/detailArt.js) draws it the same, and both copies keep only the pixels it shows.
 
 Usage (from the repo root; --game = the folder holding chararts/, e.g. the EN client's PersistentData/Bundles):
   .venv-extract/bin/python tools/local-extract/chararts_extract.py --game <Bundles> [--id char_…]… [--max 1024] [--quality 85]
@@ -45,6 +45,12 @@ from client_path import client_data  # noqa: E402
 DEFAULT_GAME = client_data('PersistentData', 'Bundles')  # SP_CLIENT / .env / .client (client_path.py); --game overrides
 SUB = 'chararts'
 FULL = 'full'  # the folder of the original-resolution copies, beside the 1024 ones
+# The card's window onto the client frame, in rem (css/theme.css: 1rem = min(vw / 19.2, vh / 10.8), 100 px at 1920×1080):
+# one frame unit = CARD_K rem and the frame's centre at (CARD_CX, CARD_CY) rem from the panel's top left
+# (css/hud-art.css `.dart.has-full-art .dart__bg` --k / --cx / --cy), the panel CARD_W rem wide (`.dpanel--chess` width)
+# and CARD_H rem high on a 4:3 screen (19.2 × 3 / 4), the tallest the 1rem rule lays it out for — a wider screen shows
+# less of it. test/local-extract.test.js holds these to the CSS.
+CARD_K, CARD_CX, CARD_CY, CARD_W, CARD_H = .01254, 3.448, 5.895, 8.6, 14.4
 
 
 def full_rel(rel):
@@ -137,86 +143,45 @@ def _image(tex, alpha):
     return img
 
 
-def find_portrait(art, portrait):
-    """The portrait's rect (x, y, w, h, art px) inside `art` and the match score: multi-scale TM_CCOEFF_NORMED on grey
-    (transparent parts over mid grey) — a coarse pass at half size, then a fine one around the best scale."""
-    import cv2
-    import numpy as np
-    from PIL import Image
-
-    def grey(im):
-        bg = Image.new('RGBA', im.size, (128, 128, 128, 255))
-        bg.alpha_composite(im)
-        return cv2.cvtColor(np.array(bg.convert('RGB')), cv2.COLOR_RGB2GRAY)
-
-    W = art.width
-    def best_over(widths, p, f):
-        best = None
-        ph, pw = p.shape
-        for tw in widths:
-            a = grey(art.resize((max(1, round(tw * f)), max(1, round(tw * f * art.height / W))), Image.BILINEAR))
-            if a.shape[0] < ph or a.shape[1] < pw:
-                continue
-            _, mv, _, ml = cv2.minMaxLoc(cv2.matchTemplate(a, p, cv2.TM_CCOEFF_NORMED))
-            if best is None or mv > best[0]:
-                best = (mv, tw, ml)
-        return best
-
-    P = grey(portrait)
-    half = cv2.resize(P, (P.shape[1] // 2, P.shape[0] // 2), interpolation=cv2.INTER_AREA)
-    coarse = best_over(range(300, 5200, 60), half, 0.5)
-    if coarse is None:
-        return None, 0.0
-    fine = best_over(range(max(300, coarse[1] - 60), coarse[1] + 61, 6), P, 1.0)
-    mv, tw, (x, y) = fine
-    s = W / tw
-    return (x * s, y * s, P.shape[1] * s, P.shape[0] * s), mv
+def card_crop(img, frame):
+    """The part of `img` (drawn by `frame`: size w × h, centre offset x / y from the frame's centre, y up) that the card's
+    window (CARD_*) can show, and the crop's own frame; (img, frame) unchanged when the window holds it all."""
+    sx, sy = img.width / frame['w'], img.height / frame['h']  # art px per frame unit
+    left = CARD_CX + (frame['x'] - frame['w'] / 2) * CARD_K  # the art's top left in rem
+    top = CARD_CY - (frame['y'] + frame['h'] / 2) * CARD_K
+    def px(v, s, n):
+        return min(n, max(0, v / CARD_K * s))
+    x0, x1 = int(px(-left, sx, img.width)), -int(-px(CARD_W - left, sx, img.width))  # floor / ceil
+    y0, y1 = int(px(-top, sy, img.height)), -int(-px(CARD_H - top, sy, img.height))
+    if x1 <= x0 or y1 <= y0:
+        return None, None  # the window misses the art
+    if (x0, y0, x1, y1) == (0, 0, img.width, img.height):
+        return img, frame
+    cw, ch = x1 - x0, y1 - y0
+    return img.crop((x0, y0, x1, y1)), {
+        'x': frame['x'] - frame['w'] / 2 + (x0 + cw / 2) / sx, 'y': frame['y'] + frame['h'] / 2 - (y0 + ch / 2) / sy,
+        'w': cw / sx, 'h': ch / sy}
 
 
-def e2_crop(img2, fr2_unused, img1, fr1, por1, por2, log, cid):
-    """The E2 art cropped around the operator + a frame placing its portrait where the E1 portrait sits in the E1 frame."""
-    r1, m1 = find_portrait(img1, por1)
-    r2, m2 = find_portrait(img2, por2)
-    if r1 is None or r2 is None or m1 < 0.6 or m2 < 0.6:
-        log(f'{cid}: E2 match too weak (E1 {m1:.2f}, E2 {m2:.2f}) — E1 art kept')
-        return None
-    # E1: frame units per art px, and the portrait's centre / height in frame units (y up)
-    k1 = fr1['w'] / img1.width
-    U = fr1['x'] + ((r1[0] + r1[2] / 2) / img1.width - 0.5) * fr1['w']
-    V = fr1['y'] - ((r1[1] + r1[3] / 2) / img1.height - 0.5) * fr1['h']
-    k2 = r1[3] * k1 / r2[3]
-    # the crop: about 3.2 portrait heights wide, 4 high, from a portrait height above its centre (head to knees)
-    h2, cx2, cy2 = r2[3], r2[0] + r2[2] / 2, r2[1] + r2[3] / 2
-    x0, y0 = max(0, round(cx2 - 1.6 * h2)), max(0, round(cy2 - 1.0 * h2))
-    x1, y1 = min(img2.width, round(cx2 + 1.6 * h2)), min(img2.height, round(cy2 + 3.0 * h2))
-    crop = img2.crop((x0, y0, x1, y1))
-    cw, ch = crop.size
-    frame = {'x': U - (cx2 - x0 - cw / 2) * k2, 'y': V + (cy2 - y0 - ch / 2) * k2, 'w': cw * k2, 'h': ch * k2}
-    log(f'{cid}: E2 crop {cw}×{ch} at ({x0},{y0}) of {img2.width}², match E1 {m1:.2f} E2 {m2:.2f}')
-    return crop, frame
-
-
-def export_art(ab, cid, out_dir, max_side, quality, log, elite=2, portraits=None):
+def export_art(ab, cid, out_dir, max_side, quality, log, elite=2):
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
     import UnityPy
-    from PIL import Image
     env = UnityPy.load(str(ab))
-    tex1, alpha1, frame = _read(env, f'{cid}_1')
+    tex, alpha, frame = _read(env, f'{cid}_1')
     used = 1
-    if tex1 is None:
-        tex1, alpha1, frame = _read(env, f'{cid}_2')  # a form that only exists from E2 on
-        if tex1 is None:
-            return None
-        used = 2
-    img = _image(tex1, alpha1)
-    if used == 1 and elite >= 2 and portraits and frame:
+    if elite >= 2 or tex is None:  # the E2 art by its own frame; a form that only exists from E2 on has nothing else
         tex2, alpha2, fr2 = _read(env, f'{cid}_2')
-        p1, p2 = Path(portraits) / f'{cid}_1.png', Path(portraits) / f'{cid}_2.png'
-        if tex2 is not None and p1.exists() and p2.exists():
-            got = e2_crop(_image(tex2, alpha2), fr2, img, frame, Image.open(p1).convert('RGBA'), Image.open(p2).convert('RGBA'), log, cid)
-            if got:
-                img, frame = got
-                used = 2
+        if tex2 is not None and (fr2 or tex is None):
+            tex, alpha, frame, used = tex2, alpha2, fr2, 2
+    if tex is None:
+        return None
+    img = _image(tex, alpha)
+    if frame:
+        got, fr = card_crop(img, frame)
+        if got is None:
+            log(f'{cid}: E{used} art outside the card window — written whole')
+        else:
+            img, frame = got, fr
     w, h = img.size
     saved = save_illust(img, out_dir.parent, f'{out_dir.name}/{cid}.webp', max_side, quality)
     kb = sum((out_dir.parent / e['path'][len('/assets/local/'):]).stat().st_size for e in (saved, saved.get('full')) if e) // 1024
@@ -237,8 +202,7 @@ def main():
     ap.add_argument('--id', action='append', default=[], help='charId (default: every charId of chess.json and the 선발 picks of backups.json, tokens with art)')
     ap.add_argument('--max', type=int, default=1024, help='long side, px')
     ap.add_argument('--quality', type=int, default=85)
-    ap.add_argument('--elite', type=int, default=2, choices=(1, 2), help='2: the E2 art cropped around the operator when it can be placed')
-    ap.add_argument('--portraits', default=str(ROOT / 'public/assets/char/portrait'), help='the web mirror portraits (<charId>_1/_2.png)')
+    ap.add_argument('--elite', type=int, default=2, choices=(1, 2), help='2: the E2 art by its own frame when the bundle has both')
     args = ap.parse_args()
     game = Path(args.game) / 'chararts'
     out_dir = Path(args.out) / SUB
@@ -251,7 +215,7 @@ def main():
                 print(f'skip (no bundle) {cid}')
             continue
         try:
-            e = export_art(ab, cid, out_dir, args.max, args.quality, print, args.elite, args.portraits)
+            e = export_art(ab, cid, out_dir, args.max, args.quality, print, args.elite)
         except Exception as ex:  # a broken bundle: report it and go on
             print(f'FAIL {cid}: {ex}')
             continue

@@ -158,6 +158,51 @@ print(json.dumps({
     assert.ok(full > ids.size * 0.8, `only ${full} of ${ids.size} 立绘 have their original-resolution copy: run chararts_extract.py again`);
   });
 
+  // chararts_extract.py crops every 立绘 to what the card shows (card_crop): its window is the card's CSS, written twice
+  const cardPy = (code) => py(`sys.path.insert(0, ${JSON.stringify(TOOL)})\nimport chararts_extract as c\n${code}`);
+  test('chararts card window: CARD_K / CARD_CX / CARD_CY / CARD_W / CARD_H are the card CSS and the 1rem rule', () => {
+    const css = readFileSync(path.join(ROOT, 'public/css/hud-art.css'), 'utf8');
+    const theme = readFileSync(path.join(ROOT, 'public/css/theme.css'), 'utf8');
+    const vars = css.match(/\.dart\.has-full-art \.dart__bg \{ --k: ([\d.]+)rem; --cx: ([\d.]+)rem; --cy: ([\d.]+)rem; \}/);
+    const panel = css.match(/\.gm\.has-hud-art \.dpanel--chess \{[^}]*?\bwidth: ([\d.]+)rem;/);
+    const rem = theme.match(/calc\(100vw \/ ([\d.]+)\), calc\(100s?vh \/ ([\d.]+)\)/);
+    assert.ok(vars && panel && rem, 'hud-art.css / theme.css changed shape: update this test and chararts_extract.py CARD_* together');
+    const [K, CX, CY, W, H] = cardPy('print(json.dumps([c.CARD_K, c.CARD_CX, c.CARD_CY, c.CARD_W, c.CARD_H]))');
+    const why = 'chararts_extract.py crops the 立绘 by the card\'s window; after moving the card art (hud-art.css --k / --cx / --cy, the panel width) '
+      + 'set CARD_* to the same and run chararts_extract.py again, or the card shows cut edges (docs/rules/ui.md 「정비 화면 HUD」 배치 근거)';
+    assert.deepEqual([K, CX, CY, W], [+vars[1], +vars[2], +vars[3], +panel[1]], why);
+    assert.equal(H, Math.round(+rem[1] * 3 / 4 * 1000) / 1000, `${why}: CARD_H = the panel height on a 4:3 screen`);
+  });
+
+  test('card_crop: the part of the art inside the card window, its frame drawing it where it was; whole art kept, a missed art None', () => {
+    const out = cardPy(`
+class Img:
+    def __init__(self, w, h, box=None): self.width, self.height, self.box = w, h, box
+    def crop(self, b): return Img(b[2] - b[0], b[3] - b[1], b)
+def run(w, h, fr):
+    img, f = c.card_crop(Img(w, h), fr)
+    if img is None: return None
+    return {'box': img.box, 'w': img.width, 'h': img.height, 'frame': f}
+print(json.dumps([
+    run(2560, 2560, {'x': 39.3, 'y': 81.7, 'w': 2048, 'h': 2048}),
+    run(100, 100, {'x': 0, 'y': 0, 'w': 80, 'h': 80}),
+    run(100, 100, {'x': 5000, 'y': 0, 'w': 80, 'h': 80}),
+]))`);
+    const { CARD_K: K, CARD_CX: CX, CARD_CY: CY, CARD_W: W, CARD_H: H } = cardPy('print(json.dumps({k: getattr(c, k) for k in ("CARD_K", "CARD_CX", "CARD_CY", "CARD_W", "CARD_H")}))');
+    const [big, small, off] = out;
+    // a frame's art box in rem: [left, top, right, bottom]
+    const box = (f) => [CX + (f.x - f.w / 2) * K, CY - (f.y + f.h / 2) * K, CX + (f.x + f.w / 2) * K, CY - (f.y - f.h / 2) * K];
+    const whole = box({ x: 39.3, y: 81.7, w: 2048, h: 2048 });
+    const cut = box(big.frame);
+    const px = 2048 / 2560 * K; // one art pixel in rem
+    const want = [Math.max(whole[0], 0), Math.max(whole[1], 0), Math.min(whole[2], W), Math.min(whole[3], H)];
+    for (let i = 0; i < 4; i++) assert.ok(Math.abs(cut[i] - want[i]) <= px, `side ${i}: ${cut[i]} vs ${want[i]}`);
+    assert.ok(big.w < 2560 && big.h < 2560 && big.box[0] > 0, JSON.stringify(big));
+    assert.ok(Math.abs(big.frame.w / big.w - 2048 / 2560) < 1e-9 && Math.abs(big.frame.h / big.h - 2048 / 2560) < 1e-9, 'the crop keeps the art scale');
+    assert.deepEqual(small, { box: null, w: 100, h: 100, frame: { x: 0, y: 0, w: 80, h: 80 } }, 'an art inside the window is kept whole');
+    assert.equal(off, null);
+  });
+
   test('prefab_spine_nodes: the SkeletonAnimation renderers of a prefab tree, depth first, inactive branches marked', () => {
     // a directional token prefab: Graphic / DefaultSkin / FaceSwitcher / {Front, Back} (each with its own skeleton), an
     // inactive Spare renderer, a component in another bundle (m_FileID ≠ 0) and a MonoBehaviour without a type tree
