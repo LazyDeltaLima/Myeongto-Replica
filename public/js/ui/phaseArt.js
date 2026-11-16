@@ -64,6 +64,8 @@ const CHOOSE = Object.freeze({
   '--pc-plus': 'effectChoose/plus',
   '--pc-cube': 'effectChoose/square_1',
   '--pc-cube-fx': 'effectChoose/square_2',
+  '--pc-cube-add': 'effectChoose/square_fill_1',
+  '--pc-cube-fx-add': 'effectChoose/square_fill_2',
   '--pc-bottom': 'effectChoose/bottom',
   '--pc-tip-glow': 'effectChoose/tip_glow',
   '--pc-wait': 'effectChoose/tip_wait',
@@ -305,13 +307,13 @@ export function YourTurn() {
         <i class="pcturn__ring is-1" style=${box(0, 0, 300.97, 300.97)}></i><i class="pcturn__ring is-2" style=${box(0, 0, 206.97, 206.97)}></i>
         <i class="pcturn__ring is-3" style=${box(0, 0, 175.47, 175.47)}></i>
       </div>
-      <div class="pcturn__plus" style=${box(2.9, 9.5, 248, 152)}><i class="is-tl"></i><i class="is-tr"></i><i class="is-bl"></i><i class="is-br"></i></div>
+      <div class="pcturn__plus" style="left:calc(50% + var(--pu) * 2.89);top:calc(50% - var(--pu) * 9.53)"><i class="is-tl"></i><i class="is-tr"></i><i class="is-bl"></i><i class="is-br"></i></div>
       ${i('pcturn__glow is-behind', box(2, 13, 655.13, 607.73))}
-      ${i('pcturn__cube', box(2, 6 + (0.5 - 0.1628) * 134, 131, 134))}
-      ${i('pcturn__fx', box(-36.1 + (0.5 - 0.7064) * 80, 77.1 + (0.5 - 0.2889) * 80, 80, 80))}
-      <div class="pcturn__bottom" style=${box(4, -50, 214.2, 100)}>
-        <b class="pcturn__text" style=${box(0, 20, 239.4, 67.1)}>${t('轮到你了')}</b>
-        ${i('pcturn__bar', box(0, -22, 185, 11))}
+      <div class="pcturn__fx" style=${box(-36.09 + (0.5 - 0.7064) * 80, 77.11 + (0.5 - 0.2889) * 80, 80, 80)}><i class="pcturn__img"></i><i class="pcturn__add"></i></div>
+      <div class="pcturn__cube" style=${box(2, 6 + (0.5 - 0.1628) * 134, 131, 134)}><i class="pcturn__img"></i><i class="pcturn__add"></i></div>
+      <div class="pcturn__bottom" style=${box(4, -50, 214.24, 100)}>
+        <div class="pcturn__bar" style=${box(0, -22, 185, 11)}><i class="pcturn__add"></i></div>
+        <b class="pcturn__text" style=${box(0, 20, 239.38, 67.08)}>${t('轮到你了')}</b>
       </div>
       ${i('pcturn__glow is-front', box(2, 13, 333.13, 309.03))}
     </div>

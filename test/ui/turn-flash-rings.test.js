@@ -23,8 +23,8 @@ const rule = (sel) => {
 test('YourTurn: the rings sit in root_circle, glow_behind under the cube, glow_front over everything', () => {
   const c = kids(YourTurn())[0];
   const order = kids(c).map((v) => cls(v).find((k) => k.startsWith('pcturn__')));
-  assert.deepEqual(order, ['pcturn__bg', 'pcturn__circ', 'pcturn__plus', 'pcturn__glow', 'pcturn__cube', 'pcturn__fx', 'pcturn__bottom', 'pcturn__glow'],
-    `the prefab's sibling order (bg, root_circle, root_plus, glow_behind, the squares, root_bottom, glow_front) — ${RULE}`);
+  assert.deepEqual(order, ['pcturn__bg', 'pcturn__circ', 'pcturn__plus', 'pcturn__glow', 'pcturn__fx', 'pcturn__cube', 'pcturn__bottom', 'pcturn__glow'],
+    `the prefab's sibling order (bg, root_circle, root_plus, glow_behind, square2, square1, root_bottom, glow_front) — ${RULE}`);
   const circ = kids(c)[1];
   assert.deepEqual(kids(circ).map((v) => cls(v).join(' ')), ['pcturn__ring is-1', 'pcturn__ring is-2', 'pcturn__ring is-3'],
     'circle1..3 are children of root_circle, which the clip scales 1 → 1.2 at the end');
@@ -57,4 +57,37 @@ test('every part of the flash runs over the clip length, TURN_FLASH_MS', () => {
     .map((m) => Number(m[1]));
   assert.ok(durs.length >= 10, `found the ring and glow animations (${durs.length})`);
   for (const d of durs) assert.equal(Math.round(d * 1000), TURN_FLASH_MS, 'the keyframe percentages are clip time / 1.333 s');
+});
+
+const keyframes = (name) => {
+  const m = css.match(new RegExp(`@keyframes ${name} \\{([\\s\\S]*?\\})\\s*\\}`));
+  assert.ok(m, `phase-art.css has @keyframes ${name}`);
+  return m[1];
+};
+
+test('the rest of the panel follows panel_your_turn_show, not an invented entrance', () => {
+  const root = keyframes('pcturn');
+  assert.doesNotMatch(root, /transform|scale/, `the clip has no scale key on the panel root — ${RULE}`);
+  assert.match(root, /0%, 87\.5% \{ opacity: 1;/, 'the root alpha holds 1 to 1.167 s');
+  const anims = (sel) => rule(sel).match(/animation:([^;]*)/)?.[1] ?? '';
+  assert.match(anims('.pcturn__bg'), /pcturn-bg-a .*pcturn-bg-s/, 'bg: alpha and scale keys');
+  assert.match(anims('.pcturn__plus'), /pcturn-plus-a .*pcturn-plus-w .*pcturn-plus-h/, 'root_plus: alpha and m_SizeDelta keys');
+  assert.match(keyframes('pcturn-plus-w'), /^\s*0%, 7\.5% \{ width: calc\(var\(--pu\) \* 158\)/);
+  assert.match(keyframes('pcturn-plus-c'), /#fff[\s\S]*#18e6b8/, 'the plus marks start white');
+  assert.match(anims('.pcturn__cube'), /pcturn-sq1-y .*pcturn-sq1-sx .*pcturn-sq1-sy/, 'square1: y and the x / y scale keys');
+  assert.match(keyframes('pcturn-sq1-y'), /^\s*0% \{ translate: 0 calc\(var\(--pu\) \* -505\.095\)/, 'square1 starts at y 511 (6 at rest)');
+  assert.match(anims('.pcturn__fx'), /pcturn-sq2-s/, 'square2: scale keys');
+  assert.match(anims('.pcturn__bottom'), /pcturn-bot-a .*pcturn-bot-y/, 'root_bottom: alpha and y keys');
+  assert.match(keyframes('pcturn-text'), /rgb\(171 255 236\)[\s\S]*#00ffc4/, 'the text colour key');
+  assert.match(rule('.pcturn__add'), /opacity: 0; mix-blend-mode: plus-lighter/, 'the adds are m_add (added light), dark at their last key');
+  for (const [sel, kf] of [['.pcturn__cube .pcturn__add', 'pcturn-sq1-add'], ['.pcturn__fx .pcturn__add', 'pcturn-sq2-add'], ['.pcturn__bar .pcturn__add', 'pcturn-bar-add']])
+    assert.match(anims(sel), new RegExp(kf), `${sel} has its own alpha keys`);
+});
+
+test('YourTurn: each square carries its image and its add, the bar its add, the text over the bar', () => {
+  const c = kids(YourTurn())[0];
+  const [fx, cube, bottom] = [4, 5, 6].map((n) => kids(c)[n]);
+  for (const sq of [fx, cube]) assert.deepEqual(kids(sq).map((v) => cls(v).join(' ')), ['pcturn__img', 'pcturn__add'], `the add is a child of its square — ${RULE}`);
+  assert.deepEqual(kids(bottom).map((v) => cls(v)[0]), ['pcturn__bar', 'pcturn__text'], 'root_bottom: bottom, then text');
+  assert.deepEqual(kids(kids(bottom)[0]).map((v) => cls(v)[0]), ['pcturn__add']);
 });

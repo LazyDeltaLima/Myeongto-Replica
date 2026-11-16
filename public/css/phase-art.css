@@ -187,11 +187,17 @@
 
 /* "轮到你了" (panel_player_select): bg_circle, three rings, the four plus marks (#18e6b8), the glow glow_behind, the cube
    square_1 and its spark square_2, 轮到你了 (49, #00ffc4) over the bottom bar, the glow glow_front on top */
-.pcturn { position: absolute; inset: 0; z-index: 30; pointer-events: none; animation: pcturn 1.333s ease-out both; }
+.pcturn { position: absolute; inset: 0; z-index: 30; pointer-events: none; animation: pcturn 1.333s linear both; }
 .pcturn i, .pcturn b, .pcturn div { position: absolute; display: block; }
-/* the clip's root alpha holds 1 to 1.167 s and fades to 0 at its end (1.333 s) */
-@keyframes pcturn { 0% { opacity: 0; transform: scale(1.12); } 14% { opacity: 1; transform: none; } 87.5% { opacity: 1; } 100% { opacity: 0; } }
-.pcturn__bg { background: var(--pc-circle) center / 100% 100% no-repeat; }
+/* every part follows the clip panel_your_turn_show (t / 1.333 s = keyframe %, each key's Hermite tangents as the
+   cubic-bézier of its span; a value before its first key holds that key). The base styles are the last keys, which is
+   what reduced motion shows. The root has no scale key: its alpha holds 1 to 1.167 s and fades to 0 at the end */
+@keyframes pcturn { 0%, 87.5% { opacity: 1; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 100% { opacity: 0; } }
+.pcturn__bg { background: var(--pc-circle) center / 100% 100% no-repeat; animation: pcturn-bg-a 1.333s linear both, pcturn-bg-s 1.333s linear both; }
+@keyframes pcturn-bg-a { 0%, 2.5% { opacity: 0; animation-timing-function: cubic-bezier(.333, 0, .667, .975); }
+  7.5% { opacity: .9; animation-timing-function: cubic-bezier(.333, 1.111, .667, 1); } 32.5%, 100% { opacity: 1; } }
+@keyframes pcturn-bg-s { 0%, 2.5% { scale: 0; animation-timing-function: cubic-bezier(.333, 0, .667, .982); }
+  10% { scale: .917; animation-timing-function: cubic-bezier(.333, 1.133, .667, 1); } 52.5%, 100% { scale: 1; } }
 /* the rings (root_circle/circle1..3) are a white disc under the dissolve material m_wipe_circle: the Image colour's G is a
    threshold on the radial mask img_uifx_basicmask_07, so only an outer band is left, in the material's #18e6b8 (the Image
    RGB is no colour). The clip panel_your_turn_show (its keys, the Hermite tangents as the cubic-béziers; t / 1.333 s):
@@ -231,16 +237,66 @@
   12.5% { opacity: 1; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 62.5%, 100% { opacity: 0; } }
 @keyframes pcturn-glow-f { 0%, 7.5% { opacity: 0; animation-timing-function: cubic-bezier(.333, 0, .667, 1); }
   12.5% { opacity: .3; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 37.5%, 100% { opacity: 0; } }
+/* root_plus: its group alpha and m_SizeDelta (centred, so the corner marks move out), the marks' colour white → #18e6b8 */
+.pcturn__plus { width: calc(var(--pu) * 248); height: calc(var(--pu) * 152); translate: -50% -50%;
+  animation: pcturn-plus-a 1.333s linear both, pcturn-plus-w 1.333s linear both, pcturn-plus-h 1.333s linear both; }
+@keyframes pcturn-plus-a { 0%, 5% { opacity: 0; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 12.5%, 100% { opacity: 1; } }
+@keyframes pcturn-plus-w { 0%, 7.5% { width: calc(var(--pu) * 158); animation-timing-function: cubic-bezier(.333, 0, .667, .89); }
+  15% { width: calc(var(--pu) * 228.56); animation-timing-function: cubic-bezier(.333, .933, .667, 1); } 32.5%, 100% { width: calc(var(--pu) * 248); } }
+@keyframes pcturn-plus-h { 0%, 7.5% { height: calc(var(--pu) * 96); animation-timing-function: cubic-bezier(.333, 0, .667, .89); }
+  15% { height: calc(var(--pu) * 139.904); animation-timing-function: cubic-bezier(.333, .933, .667, 1); } 32.5%, 100% { height: calc(var(--pu) * 152); } }
 .pcturn__plus i { width: calc(var(--pu) * 21); height: calc(var(--pu) * 22); margin: calc(var(--pu) * -11) 0 0 calc(var(--pu) * -10.5); background: #18e6b8;
-  -webkit-mask: var(--pc-plus) center / 100% 100% no-repeat; mask: var(--pc-plus) center / 100% 100% no-repeat; }
+  -webkit-mask: var(--pc-plus) center / 100% 100% no-repeat; mask: var(--pc-plus) center / 100% 100% no-repeat; animation: pcturn-plus-c 1.333s linear both; }
+@keyframes pcturn-plus-c { 0%, 12.5% { background-color: #fff; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 62.5%, 100% { background-color: #18e6b8; } }
 .pcturn__plus .is-tl { left: 0; top: 0; } .pcturn__plus .is-tr { left: 100%; top: 0; }
 .pcturn__plus .is-bl { left: 0; top: 100%; } .pcturn__plus .is-br { left: 100%; top: 100%; }
-.pcturn__cube { background: var(--pc-cube) center / 100% 100% no-repeat; animation: pcturn-cube .5s var(--ease-out) both; }
-@keyframes pcturn-cube { from { transform: translateY(calc(var(--pu) * 20)) scale(.8); } to { transform: none; } }
-.pcturn__fx { background: var(--pc-cube-fx) center / 100% 100% no-repeat; }
+/* square2 (the spark) under square1 (the cube), each with its child add (square_fill_*, m_add = added light): the box
+   carries the transform keys about the prefab pivot, the image and the add their own alpha keys (an Image's alpha is not
+   its children's). square1 drops in from y 511 with its x and y scale keyed apart (scale = y, transform = x) */
+.pcturn__img, .pcturn__add { inset: 0; }
+.pcturn__add { opacity: 0; mix-blend-mode: plus-lighter; }
+.pcturn__fx { transform-origin: 70.64% 71.11%; animation: pcturn-sq2-s 1.333s linear both; }
+.pcturn__fx .pcturn__img { background: var(--pc-cube-fx) center / 100% 100% no-repeat; animation: pcturn-sq2-a 1.333s linear both; }
+.pcturn__fx .pcturn__add { background: var(--pc-cube-fx-add) center / 100% 100% no-repeat; animation: pcturn-sq2-add 1.333s linear both; }
+@keyframes pcturn-sq2-s { 0%, 7.5% { scale: .164; animation-timing-function: cubic-bezier(.333, 0, .667, 1); }
+  12.5% { scale: 1.4061; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 17.5% { scale: .8447; animation-timing-function: cubic-bezier(.333, 0, .667, 1); }
+  22.5%, 100% { scale: 1; } }
+@keyframes pcturn-sq2-a { 0%, 7.5% { opacity: 0; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 10%, 100% { opacity: 1; } }
+@keyframes pcturn-sq2-add { 0%, 7.5% { opacity: 0; animation-timing-function: cubic-bezier(.333, 0, .667, 1); }
+  10% { opacity: .47; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 37.5%, 100% { opacity: 0; } }
+.pcturn__cube { transform-origin: 50% 83.72%; animation: pcturn-sq1-y 1.333s linear both, pcturn-sq1-sx 1.333s linear both, pcturn-sq1-sy 1.333s linear both; }
+.pcturn__cube .pcturn__img { background: var(--pc-cube) center / 100% 100% no-repeat; animation: pcturn-sq1-a 1.333s linear both; }
+.pcturn__cube .pcturn__add { background: var(--pc-cube-add) center / 100% 100% no-repeat; animation: pcturn-sq1-add 1.333s linear both; }
+@keyframes pcturn-sq1-y { 0% { translate: 0 calc(var(--pu) * -505.095); animation-timing-function: cubic-bezier(.333, .382, .667, .743); }
+  2.5% { translate: 0 calc(var(--pu) * -264); animation-timing-function: cubic-bezier(.333, .475, .667, .703); }
+  5% { translate: 0 calc(var(--pu) * -133.1); animation-timing-function: cubic-bezier(.333, .38, .667, .771); }
+  7.5% { translate: 0 calc(var(--pu) * -30.9); animation-timing-function: cubic-bezier(.333, .613, .667, 1); }
+  10% { translate: 0 calc(var(--pu) * 7.2); animation-timing-function: cubic-bezier(.333, 0, .667, 1); }
+  15% { translate: 0 calc(var(--pu) * -11.0123); animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 20%, 100% { translate: 0 0; } }
+@keyframes pcturn-sq1-sx { 0%, 2.5% { transform: scaleX(.8928); animation-timing-function: cubic-bezier(.333, 0, .667, .332); }
+  5% { transform: scaleX(.84); animation-timing-function: cubic-bezier(.333, .121, .667, 1); } 7.5% { transform: scaleX(.55); animation-timing-function: cubic-bezier(.333, 0, .667, 1); }
+  10% { transform: scaleX(1.12); animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 12.5% { transform: scaleX(.96); animation-timing-function: cubic-bezier(.333, 0, .667, 1); }
+  15%, 100% { transform: none; } }
+@keyframes pcturn-sq1-sy { 0%, 2.5% { scale: 1 1.1227; animation-timing-function: cubic-bezier(.333, 0, .667, .704); }
+  5% { scale: 1 2.011; animation-timing-function: cubic-bezier(.333, .383, .667, 1); } 7.5% { scale: 1 2.6948; animation-timing-function: cubic-bezier(.333, 0, .667, 1); }
+  10% { scale: 1 .9184; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 12.5% { scale: 1 1.0562; animation-timing-function: cubic-bezier(.333, 0, .667, 1); }
+  15%, 100% { scale: 1; } }
+@keyframes pcturn-sq1-a { 0% { opacity: 0; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 5%, 100% { opacity: 1; } }
+@keyframes pcturn-sq1-add { 0%, 7.5% { opacity: 0; animation-timing-function: cubic-bezier(.333, 0, .667, 1); }
+  10% { opacity: .5; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 37.5%, 100% { opacity: 0; } }
+/* root_bottom: group alpha and y (rises from −11 past −52 to −50); the text white-green → #00ffc4, the bar's white add */
+.pcturn__bottom { animation: pcturn-bot-a 1.333s linear both, pcturn-bot-y 1.333s linear both; }
+@keyframes pcturn-bot-a { 0%, 5% { opacity: 0; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 12.5%, 100% { opacity: 1; } }
+@keyframes pcturn-bot-y { 0%, 5% { translate: 0 calc(var(--pu) * -38.9843); animation-timing-function: cubic-bezier(.333, 0, .667, .839); }
+  10% { translate: 0 calc(var(--pu) * -6.48); animation-timing-function: cubic-bezier(.333, .445, .667, .762); }
+  12.5% { translate: 0 calc(var(--pu) * -.5984); animation-timing-function: cubic-bezier(.333, .558, .667, 1); }
+  15% { translate: 0 calc(var(--pu) * 1.9057); animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 20%, 100% { translate: 0 0; } }
 .pcturn__text { display: flex !important; align-items: center; justify-content: center; white-space: nowrap; font-size: calc(var(--pu) * 49); font-weight: 900;
-  color: #00ffc4; text-shadow: 0 0 calc(var(--pu) * 10) rgba(0, 255, 196, .4); line-height: 1; }
+  color: #00ffc4; text-shadow: 0 0 calc(var(--pu) * 10) rgba(0, 255, 196, .4); line-height: 1; animation: pcturn-text 1.333s linear both; }
+@keyframes pcturn-text { 0%, 12.5% { color: rgb(171 255 236); animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 37.5%, 100% { color: #00ffc4; } }
 .pcturn__bar { background: var(--pc-bottom) center / 100% 100% no-repeat; }
+.pcturn__bar .pcturn__add { background: #fff; animation: pcturn-bar-add 1.333s linear both; }
+@keyframes pcturn-bar-add { 0%, 12.5% { opacity: .502; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 37.5%, 100% { opacity: 0; } }
 
 /* ---- battle-end banner (round_result_dialog) ------------------------------------------------------------------------ */
 /* plates: bg_all (teal glow, 9-sliced 95 / 95 / 86 / 85) for a perfect battle, round_bg (9-sliced 79 / 82 / 75 / 79) else */
