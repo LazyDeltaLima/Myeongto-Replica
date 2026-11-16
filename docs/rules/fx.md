@@ -906,7 +906,7 @@
   재발 방지: `test/render/fortress-reach-fx.test.js` 「the blast stands behind the feet」. [화면 미확인: 혼·애쉬락 폭발이 적 발밑보다 조금 뒤(위)에]
 - 같은 날 확인: 혼 S1의 'zone'(조명탄)과 S2 과부하의 확산 마법 피해는 주 대상이 날아가는 도중에 죽어도 난다 — S1은 키트 `attack.onHit`이 대상 없이도
   떨어진 자리로 불려 'zone'을 보내고(`ai.js resolveHit`), S2 과부하는 맞은 적마다(`onEachHit`) 확산 피해자에게 난다(공식 `_conditionalActions`도 맞은
-  적마다). 렌더는 'zone'·그 순간대로 튼다.
+  적마다). 렌더는 'zone'·그 순간대로 튼다. (2026-11-16: S2 과부하의 닿음 이펙트는 맞은 적마다가 아니다 → 아래 「혼 S2 과부하의 닿음 이펙트」)
 - **혼 S1 조명탄의 자리**(2026-11-16, 공식 클라에서 확인 — `EffectBehaviour.OnProjectileReached`, `Effect.Play`·`_PlayInternal`·`_InitLocation`,
   `Effect`·`ParticleEffect`·`MapEffect.OnBeforePlay`; 프리팹 원본 값): 스킬 프리팹 `skchr_horn_1`의 `RangedAttackGroup`이 포탄 `projectile_chr_horn_s1`(꼬리)
   옆에 `RangedAttack_Light`로 조명탄 `projectile_chr_horn_s1_light`를 같은 대상에 쏜다 — 같은 ParacurveMovement(속도 5, 올림 0.7)라 같은 명중 마운트
@@ -917,6 +917,18 @@
   틀었다 → `fxgame.js zoneFx`가 공격이 가져간 스킬 샷(`takeShot`)의 대상(`_fxShotAim`, 3초 안·그 자리 1칸 안)이 있으면 `shotTo(대상)`에, 자르는 바닥
   (`spawn` `floor`)은 대상이 선 높이로. 대상이 날아가는 도중에 죽어도 마지막 자리의 명중점. 공격이 가져가지 않은 장판(쏜즈 더 로드스타·틴맨·포덴코)은 그대로.
   재발 방지: `test/render/horn-flare-fx.test.js`. [화면 미확인: 조명탄 빛이 적 몸 높이에]
+- **혼 S2 과부하의 닿음 이펙트**(2026-11-16, 공식 클라에서 확인 — `Projectile.ActionController.OnProjectileReached`·`_RunActions`,
+  `Nodes.CreateEffect.Execute`, `Projectile.Event`; charpack 원본 값): 과부하 중 쏘는 탄은 따로 없다 — 평소 공격 `Modes/S2/Body/Attack`의 `RangedAttack`이
+  `projectile_chr_horn_s2`, `BlockedRangedAttack`·`SelfRangedAttack`이 `projectile_chr_horn_s2_melee`를 그대로 쏘고(`_full`·`_full_02~05`·
+  `_melee_02~05`는 수동 조기 종료 `Full Burst`의 탄, 위 「투사체 정지 이펙트·스킬 투사체 명중」), 과부하는 세 능력의 `_conditionalActions` 두 줄이다
+  (검사기 `OverloadValidator` = 포탄이 만들어질 때 주인이 `horn_s_2[overload_mark]`를 가짐). 0 ON_HIT_OBJECT는 맞은 것마다 마법 확산 피해,
+  1 ON_REACHED_TARGET는 `CreateEffect` `horn_skill_02_hit_02_02`(TARGET) — `OnProjectileReached`가 이벤트 1을 투사체의 추적 대상(`traceTarget`)으로
+  돌리므로 **포탄 하나에 한 번, 쏜 대상에**(`_spawnLocation` 5: 그 대상 엔티티 자리) 난다. `_02_0N` 단계 이펙트(`hit_02_02_02~05`·`trail_02_02~05`)는
+  `Full Burst` 탄의 것이라 자동 전투에는 없다. 우리는 시뮬레이션의 확산 마법 피해 순간(`'horn:s2:overload'`)마다 — 맞은 적마다 — 틀었고, 포탄이 홀로 있던
+  대상을 죽이면 확산 피해가 없어 안 틀었다 → `kitofficial.js`의 'overload' 계획(S2)이 `skillFlag` 'shellReach'를 세우고, `fxgame.js`가 그동안의 공격을
+  'atk' 때 표시해(`reach`) 그 대상에 맞을 때 한 번 'shellReach' 계획(`shellReachFx`)을 튼다. 시뮬레이션의 순간은 이제 렌더가 읽지 않는다(피해는 그대로).
+  날아가는 도중 죽은 대상에는 안 튼다 [추정·엔진: 닿을 때 투사체의 `ObjectPtr`이 죽은 적을 아직 잡는지 — 잡으면 그 자리에 난다].
+  재발 방지: `test/render/horn-overload-fx.test.js`. [화면 미확인: 과부하 포탄마다 쏜 적에 하나]
 
 ### 입력 대상·루프 타격·클립별 이펙트·배치 이펙트 — 공식 클라 확인 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 근거: 공식 클라(아래 메서드는 켜진 Lua 핫픽스 목록에 없음)와 charpack·`[uc]skills.ab`·이펙트 번들 프리팹 값. 조사 기록은 관리자 노트.
@@ -2333,7 +2345,8 @@
     水月 S3 镜花水月 적 3 미만 공격의 생명 유실(`mizuki_s_3[damage]`의 DamageViaMaxHpRatio — 그녀 자신) → `mizuki_skill_03_hit_02`. 折桠 T1 简易包扎
     `branch_t_1` ON_SKILL_FINISH → 치유와 `branch_talent_01`. 圣约送葬人 S3 `[mark][effect]` ON_OUTPUT_DAMAGE → 맞은 적마다 `[mark]`(INFINITY)
     `excu2_skill_03_aim_01` — 시뮬은 적마다 첫 타격에 보내고, 표식은 스킬 끝(끝 피해가 그 적들을 침)까지. 号角 S2 过载 법술 스플래시(`'horn:s2:overload'`)
-    → S2 공격 능력 셋의 `_conditionalActions` `horn_skill_02_hit_02_02`(맞은 적마다).
+    → S2 공격 능력 셋의 `_conditionalActions` `horn_skill_02_hit_02_02`(맞은 적마다; 2026-11-16부터 이 순간은 안 읽고 포탄마다 쏜 대상에 한 번 —
+    「포트리스 포탄의 폭발은 떨어진 자리에」 혼 S2 과부하의 닿음 이펙트).
   - 고친 것: 流明 T2 `lumen_t_2[listener]`의 `lumen_buff_01_hit`는 BUFF_OWNER — 치료받는 동료 — 위다(listener가 동료에게 붙고 AdvancedApplyHeal의 대상도
     BUFF_OWNER). 둘째 묶음은 그녀 몸에 틀었다.
   - 판정: 佩佩 셋째 모듈 `pepe_e_003_t[aoe]`(CN 클라)는 生息演算 카드·보물 타일 위에서만(BuffAoeTargetForPepeEquipSandbox, TresureTileSelector) — 이

@@ -121,11 +121,21 @@ export const KIT_OFFICIAL = {
   overload: {
     horn: cite(['horn_s_2[overload_switch_effect]', 'horn_s_3[overload_switch_effect]'], (o, c) => {
       const tpl = c.skill === 1 ? 'horn_s_2[overload_switch_effect]' : c.skill === 2 ? 'horn_s_3[overload_switch_effect]' : null;
-      return tpl ? { play: [{ tpl, on: 'op', life: 'skill', when: { back: c.back } }] } : null;
+      // (2026-11-16) S2: her shots from now to the skill's end are overloaded — each one's 'shellReach' plan below (skillFlag
+      // 'shellReach': fxgame.js marks the shot at its 'atk' and plays the plan as it reaches its target)
+      return tpl ? { play: [{ tpl, on: 'op', life: 'skill', when: { back: c.back } }], ...(c.skill === 1 ? { skillFlag: 'shellReach' } : {}) } : null;
     }),
     // 洛洛 S2 过载: her drones' S2Funnel `_overloadIdleEffect` rockr_token_overload_01 for the rest of the skill, and their
     // hits take the projectile's `_overloadGroups` (`skillFlag` 'overDrones': fxgame.js droneShot, cleared at the skill's end)
     rockr: cite('char_4040_rockr/Modes/S2/Body/Attack/S2Funnel', () => ({ play: [{ n: 'rockr_token_overload_01', on: 'op', life: 'skill' }], skillFlag: 'overDrones' })),
+  },
+  // (2026-11-16) 号角 S2 过载: an overloaded shot reaching its target (fxgame.js shellReachFx: `src` her, `id` the shot's
+  // target) — her S2 attack abilities' `_conditionalActions` (OverloadValidator: she holds horn_s_2[overload_mark] when the
+  // shell is made) create horn_skill_02_hit_02_02 on the projectile's trace target at ON_REACHED_TARGET: once per shell, on the
+  // enemy it was fired at, not on every enemy its splash hits (the arts splash is the ON_HIT_OBJECT action)
+  shellReach: {
+    horn: cite(['char_4039_horn/Modes/S2/Body/Attack/RangedAttack', 'char_4039_horn/Modes/S2/Body/Attack/BlockedRangedAttack',
+      'char_4039_horn/Modes/S2/Body/Attack/SelfRangedAttack'], (o, c) => (c.skill === 1 ? { play: [once('horn_skill_02_hit_02_02', 'id')] } : null)),
   },
   // 泥岩 T1 沃土予身: the last layer broken (mudrok_t_1[shield_c] BlockDamage → CreateEffect mudrok_buff_01_end) …
   shieldBreak: {
@@ -298,10 +308,6 @@ export const KIT_OFFICIAL = {
     // 刺玫's 咒愈师 trait heal (sim fx 'trait'): vendla_tr[heal] — FixedValueHeal unless the ally is HEAL_FREE (the sim heals none
     // then) and vendla_tr[effect] (vendla_attack_hit_02, 1 s) on it
     vendla: cite('vendla_tr[heal]', (o) => (o.k === 'trait' ? { play: [{ n: 'vendla_attack_hit_02', on: 'id', life: 1 }] } : null)),
-    // 号角 S2 过载 (sim fx 'horn:s2:overload'): the arts splash of each overloaded shot — its S2 attack abilities'
-    // `_conditionalActions` create horn_skill_02_hit_02_02 on each enemy it hits
-    horn: cite(['char_4039_horn/Modes/S2/Body/Attack/RangedAttack', 'char_4039_horn/Modes/S2/Body/Attack/BlockedRangedAttack',
-      'char_4039_horn/Modes/S2/Body/Attack/SelfRangedAttack'], (o) => (o.k === 'horn:s2:overload' ? { play: [once('horn_skill_02_hit_02_02', 'id')] } : null)),
     // (2026-10-24, 묶음 S8) 菲莱 S2: each enemy of the blast holds philae_s_2[ep], whose trigger creates _hit_02 on it while she holds
     // philae_s_2[atk] (her rage — the sim's 'skill:philae_rage'), else _hit_01: the sim's two keys
     philae: cite('philae_s_2[ep]', (o) => (o.k === 'philae:blast:rage' ? { play: [once('philae_skill_02_hit_02', 'id')] }

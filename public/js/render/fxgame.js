@@ -4640,6 +4640,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       attackHit(a, shellLand(tgt), tid, lastAtk);
     } });
   }
+  /**
+   * 2026-11-16, official client (docs/rules/fx.md 「포트리스 포탄의 폭발은 떨어진 자리에」 혼 S2 과부하): the attack `a` (its
+   * lastAtk record, marked `reach` at its 'atk') reaching `tgt`, the unit it was fired at — its operator's kit plan
+   * 'shellReach' (render/fx/kitofficial.js), once: a projectile's ON_REACHED_TARGET actions run on its trace target. A target
+   * that died in flight gets none (reachFx plays the blast alone) [추정·엔진: whether the projectile's ObjectPtr still holds a
+   * killed enemy when it reaches].
+   */
+  function shellReachFx(a, tgt, views) {
+    const by = ownerOf(a.src), id = ownerOf(tgt);
+    if (by == null || id == null) return;
+    officialKitFx(['fx', 'shellReach', tgt.x, tgt.y, { src: by, id }], views);
+  }
   /** The swing-start cast-target effects of cast `c` (mode `mode`, attack kind `kind`) on `tgt`, or at the strike without one. */
   function castTgtFx(v, c, mode, kind, tgt, strike = false) {
     if (c.skip) return;
@@ -7463,6 +7475,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (shot && tgt) src._fxShotAim = { tgt, t: clockS }; // 2026-11-16: where its reach effects stand (zoneFx shotAimOf)
           const sig = typeof e[4] === 'string' && e[4] ? e[4] : null; // 2026-10-21: a talent's own attack ('T.1': modePart)
           if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot, combat: !!src._fxCombat, sig });
+          // 2026-11-16: a kit plan's skillFlag 'shellReach' held as it fires — its 'shellReach' plan at the hit (shellReachFx)
+          if (tgt && src._fxSkillFlags?.has('shellReach')) lastAtk.get(tgt.id ?? tgt.info?.id).reach = true;
           if (tgt) {
             ownAtk.set(`${src.id ?? src.info?.id}:${tgt.id ?? tgt.info?.id}`, lastAtk.get(tgt.id ?? tgt.info?.id));
             if (ownAtk.size > 512) for (const [k, x] of ownAtk) if (clockS - x.t > 2.5) ownAtk.delete(k);
@@ -7526,6 +7540,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             elineFx(a.src, a.epart, tgt); // 2026-10-10: the line of the buff it puts on the target (CreateLineEffect)
             return;
           }
+          if (a.reach) { a.reach = false; shellReachFx(a, tgt, views); }   // 2026-11-16: once per shot, on the unit it was fired at
           if (fxBundleOf(a.src.info?.spine || a.src.info?.defId) === 'oblvns' && notesOn(a.src)) return;   // her notes hit on their own
           attackHit(a, tgt, tid, lastAtk, strike);
           return;
