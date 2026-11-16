@@ -63,6 +63,28 @@ describe('tier chips', () => {
     e.update(1 / 60, cam(), 0);
     assert.equal(e.chip, null);
   });
+
+  // the client gives every prep dummy on a tile or in the hand, items too, the same shop_hud chip with its itemLevel
+  // (docs/rules/ui.md 「전투 화면 UI」 기물 레벨)
+  test('hand items wear the operators\' prep chip at the same place (official sprite, else the drawn one)', async () => {
+    const { ItemView } = await import('../../public/js/render/units.js');
+    const official = { ...store(), ui: (n) => `/web/${n}.png` };
+    const op = view({ kind: 'chess', tier: 3 }, { prep: true }, official);
+    op._applyPlace(); op.modelPlace = { off: null }; op.hudAnchor = 0; // an operator at its prefab place: hud_unit on its point
+    op.update(1 / 60, cam(), 0);
+    const it = new ItemView(fakeViewCtx(fake.P, { assets: official, cam }), { id: 'p:9', uid: 9, kind: 'item', defId: 'chess_item_x', tier: 3, x: 5, y: 12 });
+    it.update(1 / 60, cam(), 0);
+    assert.ok(it.chip.visible, 'the item shows its chip');
+    assert.ok(it.chip.texture === op.chip.texture, 'the same official sprite as an operator of its tier');
+    const rel = (v) => [v.chip.position.x - v.screen.x, v.chip.position.y - v.screen.y];
+    const [ix, iy] = rel(it), [ox, oy] = rel(op);
+    assert.ok(Math.abs(ix - ox) < 1e-6 && Math.abs(iy - oy) < 1e-6 && iy < 0, 'at the same place over its point');
+    assert.ok(Math.abs(it.chip.scale.x - op.chip.scale.x) < 1e-9);
+    const bare = new ItemView(fakeViewCtx(fake.P, { assets: store(), cam }), { id: 'p:8', uid: 8, kind: 'item', defId: 'chess_item_y', tier: 5, x: 5, y: 12 });
+    bare.update(1 / 60, cam(), 0);
+    assert.ok(bare.chip.visible && bare.chip.texture === T.tierChip(5, false), 'no official art: the drawn chip of its tier');
+    it.destroy(); bare.destroy();
+  });
 });
 
 describe('fallback portraits (avatar diamonds)', () => {

@@ -609,6 +609,12 @@
 수정 전·후·공식을 나란히 비교. [추정: 공식 프레임은 공격 동작 중이라 머리 위치 ±2px].
 2026-10-23: 오퍼레이터·소환물의 `hud_unit`이 유닛 점으로 내려가(24.5단위) 칩도 같이 내려간다 — 모델도 프리팹 위치값만큼(공식 카메라 약 26단위)
 내려갔으므로 칩 → 눈 거리는 거의 그대로(약 +1.5단위)라 `PREP_CHIP.y` 115는 두었다. [화면 미확인: 정비 중 칩·장비 바]
+2026-11-16: 정비 구역·보드에 놓인 **장비**도 같은 칩을 단다(관리자 공식 스크린샷 2026-11-14, 두 시즌 공통). 공식 클라에서 확인: 정비 중
+`AutoChessUIPlugin._SetDummyHud`가 타일·정비 구역에 있는 기물의 더미마다 같은 `shop_hud`를 `DEFAULT_SHOPSTATE_BATTLE`(레벨 칩 켬)과
+`GetChessItemLevel`(기물의 `itemLevel`, 장비도)로 채우고, 더미의 변환점에 붙인다(`_SetHandDummy`·`_SetBattleFieldDummy`; 장비 알약만 오퍼레이터일 때). 그래서
+그림·크기·자리는 오퍼레이터 칩과 같다 — 장비 점에서 `PREP_CHIP`만큼(`render/units.js ItemView` `chip`, 단계는 `items.json` `tier` = 상점 `itemLevel`),
+공식 그림이 없으면 그린 칩을 같은 자리에. 장착된 장비는 자기 더미가 없어(정비 구역에도 타일에도 없음) 칩이 없다. 정예(금색) 장비도 칩은 단계 그림 그대로.
+[화면 미확인: 장비 칩 — 장비 모델 위 높이] 재발 방지: `test/render/unitview.test.js` 「hand items wear the operators' prep chip」
 
 **장비 바 (정비 중)**: 관리자 제보(캡처). `shop_hud`의 `equip_bg`(74×30, shop_hud 안 (13, 29.4) —
 칩 오른쪽, × 1.25)와 칸 `equip_0`/`equip_1`(23×6, ±12.8 / 13): 아이템마다 흰 알약(`equip_normal_icon`), [추정] 금색 아이템이면 빛나는 금색 알약(`equip_gold_icon` 31×14,

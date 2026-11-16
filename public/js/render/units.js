@@ -2890,6 +2890,7 @@ function defaultInterval(ctx, info) {
  * check 2026-11-11).
  * An elite (golden) item wears the elite glow in the prep like an elite operator (render/fxgolden.js — the client's
  * CreateDummy runs _CreateGoldEffectIfNeed for every chess type), else the gold ground ring while the glow cannot play.
+ * It wears the operators' prep tier chip (I–VI) at their place over its point (`chip`, update).
  */
 export class ItemView {
   constructor(ctx, info) {
@@ -2922,6 +2923,16 @@ export class ItemView {
     this._modelRef = null;
     this._loadModel();
     this.hud = null;
+    // the prep tier chip (I–VI), the operators' sprite at their place: the client gives every prep dummy on a tile or in
+    // the hand the same shop_hud with displayChessLevel and the piece's itemLevel (AutoChessUIPlugin._SetDummyHud) — an
+    // equipped item has no dummy, so no chip (docs/rules/ui.md 「전투 화면 UI」 기물 레벨)
+    this.tier = clamp(info.tier | 0 || 1, 1, 6);
+    this.chip = new P.Sprite(tierChip(this.tier, this.golden));
+    this._chipTex = this.chip.texture;   // the drawn chip, while the official one is not installed
+    this._chipOff = null;                // the official chip `{ tex, k }` once resolved (hud-bars.js prepChip)
+    this.chip.anchor.set(0.5);
+    this.chip.visible = false;
+    ctx.layers.bars.addChild(this.chip);
     this.held = null;       // { x, y } canvas px of the pointer while dragged (holdAt), else null
     this.copy = null;       // the dragged copy: { root, model, plate, shadow, g } — made on the first drag
     this.ring = null;       // the outline Sprite behind the model while dragged
@@ -3024,7 +3035,7 @@ export class ItemView {
     }, () => {});
   }
   /** The local-art manifest arrived late or the tab is shown again (render/app.js): the model, when it has none. */
-  retryAssets() { this._loadModel(); }
+  retryAssets() { this._loadModel(); this._chipOff = null; }
   setWorld(x, y, z = 0) { this.x = x; this.y = y; this.z = z; }
   /** A battle snapshot sample (syncBattle syncs every unit of the field): a hand item on a scouted prep board rides
    *  the units as kind 'item' (Match.prepFieldMeta) — follow its position, there is nothing else to animate. */
@@ -3054,6 +3065,18 @@ export class ItemView {
       this.screen.top = p.y - size;
     }
     if (this.held) this._placeCopy(cam, sn);
+    // tier chip: PREP_CHIP from the item's point, hud_unit on it as for an operator at its prefab place (the client
+    // mounts the HUD on the dummy's transform); the drawn chip at the same place while the official one is missing
+    {
+      const u = hudU(this.ctx), c = this.chip;
+      const off = this._chipOff || (this._chipOff = prepChip(this.P, this.ctx.assets, this.tier));
+      const tex = off ? off.tex : this._chipTex;
+      if (c.texture !== tex) c.texture = tex;
+      c.scale.set(off ? off.k * u : (PREP_CHIP.interior / 38) * u); // the drawn plate is 38 px high (textures.js tierChip)
+      c.position.set(p.x + PREP_CHIP.x * u, hudAnchorY(p.y, u, 0) - PREP_CHIP.y * u);
+      c.alpha = this.root.alpha;
+      c.visible = this.alive;
+    }
     // elite ground ring: the prep stand-in for the official glow while it cannot play (render/elite-mark.js)
     const ring = this.golden && this.goldenFallback && this.alive;
     if (ring) {
@@ -3081,6 +3104,7 @@ export class ItemView {
     this.destroyed = true;
     if (this._modelRef) { this.ctx.itemModels?.release(this._modelRef); this._modelRef = null; }
     if (this._eliteRing) { this._eliteRing.destroy(); this._eliteRing = null; }
+    this.chip.destroy();   // the chip textures are shared (the drawn atlas, the official sprites): the sprite only
     if (this.copy) {
       this.copy.shadow.destroy();
       this.copy.root.destroy({ children: true, texture: false });
