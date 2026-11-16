@@ -20,7 +20,8 @@
 //   const gate = createSkinGate({ chosen, cached, self, others, load });
 //   await gate.ready();                    the lists are loaded (or cannot be: not chosen, not cached, failed)
 //   gate.scene();                          a new scene: the lists, the setting and the cache are read again
-//   gate.model(info, base) → { front, back|null } | null   base(back) = the default entry of that side (the fallback)
+//   gate.model(info, base) → { key, front, back|null } | null   base(back) = the default entry of that side (the fallback);
+//                                          key = the skin key drawn (the effect layer reads that skin's points and effects by it)
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (typeof v === 'string' && v ? v : null);
@@ -107,7 +108,8 @@ export function createSkinGate(deps) {
      *  fetch): what the field's first scene must wait for (header). Never rejects. */
     ready() { ensure(); return loading ? loading.then(() => undefined) : Promise.resolve(); },
     /**
-     * The skin model `info` draws, `{ front, back }` (back null: the skin has no Back model), or null: the default model.
+     * The skin model `info` draws, `{ key, front, back }` (back null: the skin has no Back model; `key` the skin key — a summon's
+     * own skin key, skinKeyFor), or null: the default model.
      * @param {any} info the view's UnitInfo (`skin`, `side`, `ownerId`, `mine`: an own prep piece)
      * @param {(back: boolean) => any} [base] the default entry of a side (each skin entry's `fallback`)
      */
@@ -132,7 +134,7 @@ export function createSkinGate(deps) {
       }
       if (!m) return null;
       const fb = (back) => { try { return base ? base(back) : null; } catch { return null; } };
-      return { front: skinSideEntry(m.front, fb(false)), back: m.back ? skinSideEntry(m.back, fb(true)) : null };
+      return { key, front: skinSideEntry(m.front, fb(false)), back: m.back ? skinSideEntry(m.back, fb(true)) : null };
     },
   };
 }

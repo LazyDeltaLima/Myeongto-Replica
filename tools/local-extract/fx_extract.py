@@ -26,7 +26,7 @@ Usage:
     python fx_extract.py … --bundle wang_token --pack pkgrps/btl_pfb_fx_token_3.ab --match '^token_wang_'   (望's 棋子)
     python fx_extract.py … --equips --prefab uniequip_002_musha_02   (the modules' deploy effects, bundle uniequip, 2026-11-03)
     python fx_extract.py --game <EN> --cab-index .cache/fx-cab-index.json --skin-effects [--shard K/N]   (2026-11-17: the
-                         skins' effects of fx/skin-effects.json into fx/skin/ — the skin data pack; after N shards --skin-finish)
+                         skins' effects of fx/skin/skin-effects.json into fx/skin/ — the skin data pack; after N shards --skin-finish)
     python fx_extract.py … --coverage .cache/fx-coverage.json [--bundle chen3]   (what the pipeline leaves out, fx_coverage.py)
                          [--other-game <CN Arknights_Data> --other-cab-index .cache/fx-cab-index-cn.json] [--index enemy-index.json]
 A prefab picked by --prefab / --match brings the prefabs of its bundle it creates by name (OnPlayEmitter, SwitchableBackEffect …).
@@ -3725,7 +3725,9 @@ class Extractor:
         return written
 
 
-SKIN_HOOKS = 'skin-effects.json'   # under OUT: write_skin_hooks
+# under OUT: write_skin_hooks. In the skin folder (2026-11-17): only the render of a unit drawn in a skin reads it, so it is
+# the skin data pack's and the players who never chose the skins do not download it
+SKIN_HOOKS = f'{SKIN_DIR}/skin-effects.json'
 
 
 def skin_hook(tree):
@@ -3762,7 +3764,7 @@ def skin_hook(tree):
 
 
 def write_skin_hooks(games, owners=None):
-    """Write OUT/skin-effects.json { skins: { skin key: { owner, effects?, projectiles? } } } for the skin models of
+    """Write OUT/skin/skin-effects.json { skins: { skin key: { owner, effects?, projectiles? } } } for the skin models of
     public/assets/local/spine/skin/skins.json (skin_extract.py), read from the client each model came from (`games`:
     { 'en' | 'cn': Arknights_Data }); `owners`: only theirs, the other rows kept. Returns the row count, None without
     skins.json. The replacing effects' own prefabs are extracted by --skin-effects (extract_skin_effects), which adds the
@@ -3783,8 +3785,9 @@ def write_skin_hooks(games, owners=None):
 
 
 def write_skin_doc(doc):
-    """Write OUT/skin-effects.json: `skins` first, then the keys --skin-effects adds."""
+    """Write OUT/skin/skin-effects.json: `skins` first, then the keys --skin-effects adds."""
     doc = {'skins': doc.get('skins') or {}, **{k: v for k, v in doc.items() if k != 'skins'}}
+    (OUT / SKIN_HOOKS).parent.mkdir(parents=True, exist_ok=True)
     (OUT / SKIN_HOOKS).write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
 
 
@@ -3837,7 +3840,9 @@ def skin_effect_plan(rows, skins, names, carriers):
     `projectiles[].graphic`'s `_mainEffect`) are read from the client the skin's model came from, else the other one.
     Returns { jobs: {(client, pack): [names, lower case]}, proj: {graphic key: [prefab names, lower case]}, missing:
     { effects: [name], projectiles: [graphic key] } } — a missing effect is in no pack of either client, a missing
-    projectile has no `_mainEffect` (a line, or a `_playSpecialEffectOnFirstOne` one)."""
+    projectile has no `_mainEffect` (a line, or a `_playSpecialEffectOnFirstOne` one). `proj` also has each config's
+    `from` key (the projectile it replaces) with its `_mainEffect`: the render finds by it which of the unit's trails a
+    drawn projectile replaces (2026-11-17); those default effects are not extracted again (the default bundles have them)."""
     order = lambda c: [c] + [o for o in sorted(names) if o != c]   # noqa: E731
     keyed = {}
     for c, car in carriers.items():
@@ -3851,6 +3856,10 @@ def skin_effect_plan(rows, skins, names, carriers):
         for t in sorted((rows[key].get('effects') or {}).values()):
             want.setdefault(t.lower(), c)
         for p in rows[key].get('projectiles') or []:
+            f = p.get('from')
+            fm = next((keyed[o][f.lower()] for o in order(c) if f and f.lower() in keyed.get(o, {})), None)
+            if fm:
+                proj.setdefault(f, sorted(fm))
             g = p.get('graphic')
             if not g:
                 continue
@@ -3858,7 +3867,7 @@ def skin_effect_plan(rows, skins, names, carriers):
             if not mains:
                 miss_p.add(g)
                 continue
-            proj[g] = sorted(mains)
+            proj[g] = sorted(mains)   # a graphic that is also another config's `from`: the same prefabs
             for m in mains:
                 want.setdefault(m, c)
     jobs, miss_e = {}, []
@@ -3884,7 +3893,7 @@ def load_skin_plan(games):
     skins = skin_list()
     hooks = OUT / SKIN_HOOKS
     if skins is None or not hooks.exists():
-        raise SystemExit('fx_extract --skin-effects: needs spine/skin/skins.json (skin_extract.py) and fx/skin-effects.json (--skin-pairs)')
+        raise SystemExit('fx_extract --skin-effects: needs spine/skin/skins.json (skin_extract.py) and fx/skin/skin-effects.json (--skin-pairs)')
     rows = json.loads(hooks.read_text(encoding='utf-8')).get('skins') or {}
     names = {c: prefab_names(g, c) for c, g in games.items()}
     carriers = {c: projectile_carriers(g) for c, g in games.items()}
@@ -3929,7 +3938,8 @@ def finish_skin_effects(plan):
     """Place the skin effects' textures / meshes (place_skin_files) and write into skin-effects.json, for the renderer:
     `files` { prefab name: its file under OUT (skin/<bundle>/<file_name>.json) } — every extracted skin effect, and the
     effects' names as the skin rows write them when the case differs —, `projectileEffects` { graphic key: [prefab
-    names] } (the prefabs a skin's drawn projectile carries) and `missing` (skin_effect_plan). The skin index
+    names] } (the prefabs a skin's drawn projectile carries, and the one it replaces: its `from`) and `missing`
+    (skin_effect_plan). The skin index
     (OUT/skin/index.json) gets `tex` / `mesh`: the files of OUT/skin/tex/ and mesh/ (a texture or mesh a skin effect
     names that is not listed there is in the shared OUT/tex/ or OUT/mesh/)."""
     with locked():
@@ -4026,18 +4036,18 @@ def main():
     ap.add_argument('--equips', action='store_true', help='the modules\' deploy effects (2026-11-03): extract the prefabs of the '
                     'modules data/chess.json and data/backups.json offer into the bundle `uniequip` (and --prefab ones) and write '
                     'the index\'s `equips` { uniEquipId: [prefab…] } (module_effects)')
-    ap.add_argument('--skin-pairs', action='store_true', help='only write fx/skin-effects.json: each skin model\'s effect and '
+    ap.add_argument('--skin-pairs', action='store_true', help='only write fx/skin/skin-effects.json: each skin model\'s effect and '
                     'projectile replacements (its prefab\'s CharacterSkinHooker, skin_hooks), --game the EN client, '
                     '--other-game the CN one (default: client_path.py); --id-owner limits it to some owners')
     ap.add_argument('--id-owner', action='append', default=[], metavar='OWNER', help='--skin-pairs: only these owners, the other rows kept')
-    ap.add_argument('--skin-effects', action='store_true', help='extract the skin effects fx/skin-effects.json names (the '
+    ap.add_argument('--skin-effects', action='store_true', help='extract the skin effects fx/skin/skin-effects.json names (the '
                     'skins\' effects and the prefabs their drawn projectiles carry) into fx/skin/ (the skin data pack; '
                     '2026-11-17): --game the EN client with --cab-index, --other-game / --other-cab-index the CN one '
                     '(default: client_path.py, .cache/fx-cab-index-cn.json)')
     ap.add_argument('--shard', metavar='K/N', help='--skin-effects: only the K-th (0-based) of N parts, no finish — run N '
                     'processes at once, then --skin-finish')
     ap.add_argument('--skin-finish', action='store_true', help='--skin-effects\' last step only: place the skin textures / '
-                    'meshes and write the `files` / `projectileEffects` / `missing` of fx/skin-effects.json')
+                    'meshes and write the `files` / `projectileEffects` / `missing` of fx/skin/skin-effects.json')
     a = ap.parse_args()
     if a.skin_effects or a.skin_finish:
         from client_path import client_data_cn

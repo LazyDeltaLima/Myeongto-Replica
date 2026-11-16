@@ -1587,11 +1587,11 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   - 키 표: `anim_keys.py`가 `.cache/anim-keys.json` `skins[스킨 키] = { owner, keys, mix }`(SpineAnimator `_animations`·`_mixSettings`, 기본의
     `DefaultSkin`과 같은 읽기)에 쓴다. 312벌 중 15벌이 기본과 다른 표다. 스킨 모델의 역할(`anims`)은 `keyRoles({ ...ops[주인], skin: skins[키] }, <그 스킨
     골격의 클립>)`로 만든다(아래 「스킨 렌더 게이트」의 「모델 기록의 형식」).
-  - 부착점: `char_points.py`가 `public/assets/local/fx/skin-points.json` `{ 스킨 키: points.json과 같은 기록 }`(git 밖)에 쓴다. 312벌 중 274벌이 기본과
+  - 부착점: `char_points.py`가 `public/assets/local/fx/skin/skin-points.json` `{ 스킨 키: points.json과 같은 기록 }`(git 밖)에 쓴다. 312벌 중 274벌이 기본과
     다르다(뼈 이름·자리).
   - 이펙트: 스킨 프리팹의 `CharacterSkinHooker`가 이펙트 키를 스킨 것으로 바꾼다(`_replaceEffectPairs`, `TryHookEffect` — 스카디 더 커럽팅 하트
     `boc#4`: `skadi2_skill_01_hit` → `skadi2_skill_01_hit_boc#4`, 공통 키 `common_char_birth_01`도). `_useFakeProjectile`이면 투사체 키를 그리는 것·판정하는
-    것·총구 점으로 나눈다(`_fakeProjectileConfigs`, `TryHookProjectile`). `fx_extract.py --skin-pairs`가 `public/assets/local/fx/skin-effects.json`
+    것·총구 점으로 나눈다(`_fakeProjectileConfigs`, `TryHookProjectile`). `fx_extract.py --skin-pairs`가 `public/assets/local/fx/skin/skin-effects.json`
     `{ skins: { 스킨 키: { owner, effects?: { 원래 키: 스킨 키 }, projectiles?: [{ from, graphic, logic, muzzle }] } } }`에 쓴다. 246벌이 이펙트 4,009쌍,
     115벌이 투사체를 바꾸고, 52벌은 훅이 없어 기본 이펙트다. 한 키가 두 이펙트로 짝지어지면 멈춘다. 바꾼 이펙트 프리팹은 아래 「스킨 이펙트 프리팹」.
   - 스킨 이펙트 프리팹(2026-11-17, 관리자 결정 — 스킨 전용 소재는 스킨 데이터 묶음, 기본 이펙트와 같이 쓰는 것은 공통 그대로): `fx_extract.py --skin-effects`가
@@ -1605,7 +1605,7 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
     (`fxmap.js effectGroups`)는 이 폴더를 보지 않는다. 기본 이펙트도 쓰는 텍스처·메시(공통 `fx/tex`·`fx/mesh`에 이미 있는 파일)는 다시 쓰지 않는다 — 스킨
     프리팹의 `img`·`mesh` 이름이 `skin/index.json` `tex`·`mesh`에 있으면 `skin/` 아래, 없으면 공통이다. 리소스 목록은 `fx/skin/`을 `packs.skin`에 넣는다
     (`tools/build-browser-resources.mjs`). `skin-effects.json`에는 `files`(프리팹 이름 → `fx/` 아래 경로 `skin/<묶음>/<파일>.json`; 짝의 이름이 프리팹과
-    대소문자만 다르면 그 이름도), `projectileEffects`(그리는 투사체 키 → 그 프리팹 이름들), `missing`(어느 클라에도 없는 이펙트, `_mainEffect`가 없는 그리는
+    대소문자만 다르면 그 이름도), `projectileEffects`(그리는 투사체 키 → 그 프리팹 이름들, 그리고 행마다 바뀌는 투사체 `from` 키 → 그 `_mainEffect` — 2026-11-17, 렌더가 어느 궤적을 바꾸는지 찾는 데 씀, 기본 이펙트라 다시 뽑지 않음), `missing`(어느 클라에도 없는 이펙트, `_mainEffect`가 없는 그리는
     투사체 키)을 더한다(`--skin-pairs`가 다시 써도 남음 — 짝이 바뀌면 `--skin-effects`를 다시). 어느 쪽에 둘지는 `place_skin_files`가 지킨다: 기본 이펙트 JSON이
     가리키는 파일은 공통, 스킨 이펙트 JSON만 가리키는 파일은 `skin/`, 바뀌면 옮김(반복 방식 줄도), 아무도 안 가리키는 `skin/` 파일은 지움 — `--skin-effects`
     끝과 `--prune`(공통 쪽 지우기도)이 부른다. 2026-11-17 결과: 프리팹 4,307개(이름으로 만드는 것 포함, 그중 기본 이름 263개 2.9 MB — 259개는 기본 목록에도
@@ -1613,18 +1613,34 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
     (`--shard K/4`, 그 뒤 `--skin-finish`)로 약 10분. 어느 클라에도 없는 짝 2개(마운틴 `marthe#13`의 `f12yin_skill_02_buff_B_01_marthe#13`·
     `f12yin_skill_03_buff_02_B_01_marthe#13`), `_mainEffect`가 없는 그리는 투사체 19키, 8벌(위셔델 `sale#14`과 그 소환물, 블레이즈 디 이그나이팅 스파크
     `nlc#1`·`winter#5`, 메테오 `epoque#10`의 `projectile_arrow_graphic`, 혼 `epoque#59` — 쏜즈 더 로드스타의 `projectile_chr_thorn2_s3_polygon_graphic`도 —, 르무엔
-    `ambienceSynesthesia#7`, 레코드키퍼 `yun#12`; 줄 그래픽·`_playSpecialEffectOnFirstOne`이거나 다른 필드라 안 뽑음 `[추정·미조사]`: 그 그림을 어디서 읽는지는
-    「스킨 유닛이 자기 부착점·이펙트·투사체를 씀」 줄에서).
+    `ambienceSynesthesia#7`, 레코드키퍼 `yun#12`. 공식 클라에서 확인(2026-11-17, 두 클라의 `[uc]projectiles.ab`): 19키 모두 `_mainEffect`가 빈 값이고
+    다른 어느 구성 요소에도 이펙트 이름이 없다 — 18키는 빈 `Body`뿐이라 아무것도 그리지 않고, `projectile_arrow_graphic`만 `Body`에 SpriteRenderer(화살 그림)가 있다.
+    그 행이 바꾸는 투사체(`from`)도 21행 중 19행은 `_mainEffect`가 없어 기본과 스킨이 똑같이 그리지 않는다(화살도 기본 `projectile_arrow`처럼 우리 절차 화살).
+    남는 둘 — 혼 `epoque#59`의 `projectile_chr_thorn2_s3_polygon`(기본 `thorn2_skill_03_line` 줄)·르무엔 `ambienceSynesthesia#7`의 `projectile_chr_lemuen_s3`(기본
+    `lemuen_skill_03_crosshair_range`)는 기본이 줄·조준 범위를 그리고 스킨 그래픽은 `Selector` 자식의 구성 요소뿐이다. 그 둘은 `projectile_carriers`가 줄과
+    `_playSpecialEffectOnFirstOne`을 빼므로 렌더가 기본 그대로 그린다 `[추정·미조사: Selector 구성 요소가 그리는 것을 안 읽음]`).
   - 전투 시간은 기본 모델만: `attack_timing.py`의 `clip`은 `client_path.skin_keys()`(기본 표만)로 푼다. 스킨 표가 거기 섞이면 스킨이 전투를 바꾼다.
-- 아직 없는 것: 렌더가 스킨 유닛에 `skin-points.json`·`skin-effects.json`·`fx/skin/`을 쓰는 것(스킨 유닛은 지금 기본 모델의 부착점·이펙트를 쓴다).
-  `skin-effects.json`·`skin-points.json`은 `fx/` 바로 아래라 스킨 묶음이 아니다(모두가 받음, `files`를 더해 316 → 708 KB).
+- 렌더가 스킨 유닛에 쓰는 것(2026-11-17, `public/js/render/fxskin.js`·`fxgame.js`): 렌더 게이트가 스킨으로 그린 유닛(`render/units.js skinKey` — 게이트의
+  답 `{ key }`, 소환물은 자기 스킨 키)은 그 스킨의 표를 쓴다. 두 표(`skin-effects.json`·`skin-points.json`)는 스킨 묶음 폴더 `fx/skin/`에 있어(`packs.skin`) 스킨
+  데이터를 고른 사람만 받고, 이펙트 층은 스킨으로 그린 유닛이 처음 나올 때 한 번 받는다(그런 유닛이 없으면 요청하지 않음).
+  - 부착점: `ptsOf`가 그 스킨 키의 `skin-points.json` 기록을 먼저 쓴다(표가 오기 전에는 기본 모델의 것).
+  - 이펙트: 그 유닛이 주인인 이펙트는 스킨 짝(`effects`)의 이름으로 튼다 — `play`(시전·타격·버프, 타격은 공격한 유닛 기준), `spawn`(주인 `owner`가 그 유닛일
+    때, 배치 이펙트 `common_char_birth_01`도), `playStatus`·`playOnce`(그 유닛에 붙는 것), 궤적. 고르기(이름 규칙·바인딩·모드 표)는 기본 이름으로 하고 불러올
+    때만 바꾸므로 기록·고르기는 기본과 같다. 기본 묶음에 없는 이름은 `skin-effects.json files`의 `fx/skin/<묶음>/<파일>.json`에서 읽고(`skinAt`, `lib.load` 한 곳),
+    스킨 프리팹이 이름으로 만드는 프리팹도 같은 길(스킨 폴더 → 없으면 그 이름이 있는 기본 묶음). 스킨 전용 텍스처·메시는 `FxLibrary.skinFiles`가 `skin/index.json`
+    `tex`·`mesh`로 가려 `fx/skin/tex|mesh/`에서(반복 방식은 `skin/tex/wrap.json`). 주인을 모르는 길(주인 없이 띄우는 스킬 투사체 `skillShotOut`, 다른 유닛에 붙는
+    상태 이펙트 — 적에게 거는 디버프 등)은 기본 이름 그대로다 `[추정·미조사: 클라 TryHookEffect가 남에게 붙는 이펙트에도 걸리는지 안 읽음]`.
+  - 투사체: 궤적 이름이 어떤 행의 `from` 투사체의 `_mainEffect`이면 그 행의 그리는 투사체(`graphic`)의 `_mainEffect`를 그 스킨 짝으로, `_fakeMuzzlePoint`
+    (MountPointType, `shotFrom`의 `mount`)에서 쏜다; 그리는 투사체에 `_mainEffect`가 없으면 그 궤적은 그리지 않는다(절차 투사체도 없음). 362행 중 344행이 바꿀
+    궤적을 안다(나머지 18행은 바꾸는 투사체에 그림이 없음). [화면 미확인 — `checks/play.md`: 스킨 이펙트·부착점·총구]
 - 재발 방지: 원인 제거 — `tools/local-extract/skin_extract.py` `file_name`이 모든 출력 이름을 만들고 모르는 글자에서 멈춤; 저장소 폴더는
   `tools/fetch-skin-models.mjs`가 트리에서 찾고 모르는 경우(후보 둘)에 멈춤(손 별칭 표 없음); 그림 파일은 `tools/fetch-skin-art.mjs`가 스킨 표의 id로 트리에서
   찾고 모르는 스킨·이름 규칙 없는 글자·대소문자만 다른 두 파일에서 멈춤. 목록 생성(추출 모델·아바타·초상화 빼기·`models.json`·`art.json` 싣기·두 번 적힌
   경로에 멈춤·`packs`)과 일러스트 알파(뽑힌 일러스트 전부가 투명 화소를 가짐)는 `test/local-extract-skins.test.js`, 받을 목록·지울 목록 나누기와 폴더·그림 찾기는
   `test/resource-packs.test.js`; 스킨마다 따라오는 키 표·부착점·이펙트 짝(모든 스킨 모델에 줄이 있음, 짝 충돌에 멈춤, 전투 시간은 기본 표만)과 스킨 이펙트 프리팹(뽑을 것 고르기·
   `skin/` 자리·`place_skin_files`, 뽑힌 것 전수: 모든 짝이 `files`나 `missing`에 있고 그 텍스처·메시가 적힌 쪽 폴더에 있음)은
-  `test/local-extract-skin-dims.test.js`.
+  `test/local-extract-skin-dims.test.js`; 렌더가 쓰는 것(짝·파일·그리는 투사체, 스킨 없는 유닛은 표를 안 받음, 배치 이펙트가 스킨 것, 스킨 폴더의 텍스처·메시,
+  추출된 행 전수가 바꿀 궤적을 앎)은 `test/render/fx-skin.test.js`, 스킨 프리팹의 셰이더 변형은 `test/render/fx-program-variants.test.js`(기본 묶음과 같이 훑음).
 
 ## 스킨 렌더 게이트 (2026-11-16 — 스킨은 표시 전용, 받지 않은 사용자에게는 남의 스킨도 기본 모습)
 

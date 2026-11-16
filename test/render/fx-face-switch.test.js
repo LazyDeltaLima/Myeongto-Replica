@@ -38,7 +38,8 @@ test('play() swaps in the copy with the owner\'s faceVector; a _oneShot copy run
   const body = SRC.slice(SRC.indexOf('async function play('), SRC.indexOf('// ---- SwitchableEffectByFaceDirection'));
   assert.match(body, /const copy = faceCopy\(def, ground\.info \? ground : view, b\.bundle\);/);
   assert.match(body, /if \(c\) \{ own = !!def\.swFace\.oneShot; n = copy; def = c; \}/);
-  assert.match(body, /const fourWay = !copy && turns\(view\)\.has\(n\);/);
+  // (2026-11-17) a unit drawn in a skin plays its skin's name (`shown`); the binding sets keep the default name (`names`)
+  assert.match(body, /const fourWay = !copy && turns\(view\)\.has\(n === shown\[i\] \? names\[i\] : n\);/);
   assert.match(body, /const aimed = !copy && /);
   assert.match(body, /const until = own \? clockS \+ \(def\.duration \|\| 3\) \+ 0\.5 \+ inst\.lead \/ sp\n\s+: buff \? null : endAt \?\? clockS \+ \(n === copy \? dur0 : def\.duration \|\| 3\)/);
   assert.match(body, /cast: own \? null : cast/);

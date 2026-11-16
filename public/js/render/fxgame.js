@@ -79,6 +79,7 @@ import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a
 import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, onModelPlane, planePoint, pointKey, pointOn, pointScale, pointTurn, pointUp, screenOffset } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: an effect on a unit takes its Graphic's X −30°
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
+import { SKIN_EFFECTS_URL, SKIN_POINTS_URL, skinEffect, skinFile, skinShot } from './fxskin.js'; // 2026-11-17: a unit drawn in a skin
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
 import { shotOf, MAX_SLOWED } from './fx/shotslow.js';
 import { shotSpeedOf, shotLobOf, lobOf, shotKeyOf, shotGroundOf, lobZ, flightSink } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`); 2026-10-27 its key (bodyTurn)
@@ -780,6 +781,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         lib = new fxp.FxLibrary('/assets/local/fx/');
         const load0 = lib.load.bind(lib);   // 2026-10-30: the files fetched and their waits (perfSkips)
         lib.load = (bundle, n) => {
+          const at = skinAt(bundle, n);   // 2026-11-17: a skin effect's prefab is in the skin folder (skinAt)
+          if (at) [bundle, n] = at;
           const fresh = !lib.defs.has(`${bundle}/${n}`), t = performance.now(), p = load0(bundle, n);
           if (fresh) {
             skips.files++;
@@ -993,9 +996,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // (2026-11-07) a skill's hit a kit's moment plays is not the name rule's as well (KIT_OWNED: attackHit falls back here on a mode with no bound hit)
     const { names: picked, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex).filter((n) => !emittedIn(b.bundle).has(n) && !packedIn(b.bundle).has(n) && !(kind === 'skillHit' && KIT_OWNED.has(n))));
     const names = [...picked];
+    // 2026-11-17: a unit drawn in a skin plays its skin's effects (skinName) — traced as played
+    if (skinOf(view)) await skinTables();
     // tests: what it plays (`pt`: where, when it is a spot and not a unit)
-    if (names.length && trace) trace({ kind, names, by: ownerOf(view), at: at ? ownerOf(at) ?? null : null, ...(at && !at.info ? { pt: [at.x, at.y, at.z || 0] } : null) });
-    if (dry) for (const n of names) dryFollow(b.bundle, n, ownerOf(view) ?? null, (at || view).info ? ownerOf(at || view) ?? null : null);
+    if (names.length && trace) trace({ kind, names: names.map((n) => skinName(view, n)), by: ownerOf(view), at: at ? ownerOf(at) ?? null : null, ...(at && !at.info ? { pt: [at.x, at.y, at.z || 0] } : null) });
+    if (dry) for (const n of names) dryFollow(b.bundle, skinName(view, n), ownerOf(view) ?? null, (at || view).info ? ownerOf(at || view) ?? null : null);
     if (!names.length || !(await ensure())) return;
     // local patch (maintainer report 2026-10-08: 赤刃明霄陈's S3 dragon twice, over her): a left / right pair (fx_extract.py
     // `right`: the client plays the left copy and swaps in its `_rightEffect` while the owner faces right — rightSwitch) is
@@ -1008,10 +1013,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (l === names[i] || names.includes(l) || !index?.bundles?.[b.bundle]?.includes(l)) continue;
       if ((await lib.load(b.bundle, l))?.right === names[i]) names[i] = l;
     }
-    const defs = await Promise.all(names.map((n) => lib.load(b.bundle, n)));
+    const shown = names.map((n) => skinName(view, n));   // the skin's (its own names), the bindings' sets below keep `names`
+    const defs = await Promise.all(shown.map((n) => lib.load(b.bundle, n)));
     const twins = new Set(defs.map((d) => d?.right).filter(Boolean));
     for (let i = 0; i < names.length; i++) {
-      let n = names[i], def = defs[i];
+      let n = shown[i], def = defs[i];
       if (!mod) return;   // destroyed while the file loaded (the view left the battle)
       if (!def || twins.has(n)) continue;
       const sided = typeof def.right === 'string';
@@ -1035,7 +1041,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!mod) return;
       if (variant?.pause) { def = variant.def; }
       const anchor = lifted(ground, def, buff); // local patch: its _spawnLocation
-      const fourWay = !copy && turns(view).has(n); // `_useFourDirectionalFace` (local patch, maintainer report 2026-10-07: 野鬃 S2 stood upright)
+      const fourWay = !copy && turns(view).has(n === shown[i] ? names[i] : n); // `_useFourDirectionalFace` (local patch, maintainer report 2026-10-07: 野鬃 S2 stood upright)
       const aimed = !copy && !!(aim && at && aimSet(view).has(names[i])); // 2026-10-10: attacker → target
       // only the effects that go to the split scene (on the caster) split — a hit on a target goes to the upper canvas,
       // which draws layer 0 only (split, every blast on a target was invisible at 'high' on the 3D board: 烛煌 S3)
@@ -1077,7 +1083,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!g || !Array.isArray(g.pick) || !g.pick.length || (!owned && !g.noOwner && !g.mainPos)) return null;
     if (g.self && Math.random() < 1 / (g.pick.length + 1)) return null;
     const n = g.pick[Math.floor(Math.random() * g.pick.length)];
-    const d = index?.bundles?.[bundle]?.includes(n) ? await lib.load(bundle, n) : null;
+    const d = index?.bundles?.[bundle]?.includes(n) || (skinDef(def) && skinFile(skinFx, n)) ? await lib.load(bundle, n) : null;
     return d ? { n, def: d } : null;
   }
   /** The module variant of `def` for its owner `owner` (a view), loaded: { def, pause } or null. */
@@ -1097,7 +1103,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /** The copy `def`'s face switch plays on `unit` facing as it does now, or null (this one plays). */
   function faceCopy(def, unit, bundle) {
     const name = unit ? faceSwitchCopy(def?.swFace, facingDir(unit)) : null;
-    return name && index?.bundles?.[bundle]?.includes(name) ? name : null;
+    return name && (index?.bundles?.[bundle]?.includes(name) || (skinDef(def) && skinFile(skinFx, name))) ? name : null;
   }
 
   // ---- SwitchableBackEffect (2026-10-10, official client) -----------------------------------------------------
@@ -1346,7 +1352,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   };
   async function emitCopy(l, rec, p) {
     const bundle = l.inst.def?.bundle;
-    if (!bundle || !index?.bundles?.[bundle]?.includes(rec.effect)) return;
+    if (!bundle || !fxIn(bundle, rec.effect)) return;
     if (trace) trace({ kind: 'spawn', names: [rec.effect], by: l.owner ?? null, on: null, tag: 'random', facing: 1 }); // tests
     const def = await lib.load(bundle, rec.effect);
     if (!mod || !def || !layers.under) return;
@@ -1438,7 +1444,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const at = here || !unit || unit.alive === false || unit.remove ? pt() : unit;
     const kids = [];
     for (const n of rec.effects) {
-      if (!index?.bundles?.[bundle]?.includes(n)) continue;
+      if (!fxIn(bundle, n)) continue;
       kids.push(spawn(bundle, n, at, { owner: l.owner ?? null, buff: !!l.buff, on: unit?.id ?? l.on ?? null, tag: 'emit', until: rec.clear ? l.until : undefined },
         { over: l.layer === layers.over, facing: unit ? efacing(unit) : 1 }));
     }
@@ -1709,9 +1715,43 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // B_Weapon_Chord, her cello). The table (tools/local-extract/char_points.py → points.json) covers the operators; a unit
   // without the point (an enemy, a melee model's muzzle, no table) keeps the old place, the ground
   let points = null;
+  // 2026-11-17: the skin data pack's two tables (render/fxskin.js), fetched with the first unit drawn in a skin — never otherwise
+  let skinFx = null, skinPts = null, skinLoad = null;
+  const skinJson = (u) => (typeof fetch !== 'function' ? Promise.resolve(null)
+    : fetch(u).then((r) => (r.ok ? r.json() : null)).then((d) => (d && typeof d === 'object' ? d : null), () => null));
+  const skinTables = () => (skinLoad ||= Promise.all([skinJson(SKIN_EFFECTS_URL), skinJson(SKIN_POINTS_URL)]).then(([e, p]) => { skinFx = e; skinPts = p; }));
+  /** The skin key unit view `v` is drawn in (render/units.js skinKey: the skin gate's answer for its scene), or null. */
+  const skinOf = (v) => {
+    const k = v?.info && typeof v.skinKey === 'string' && v.skinKey ? v.skinKey : null;
+    if (k && !skinLoad) skinTables();
+    return k;
+  };
+  /** The effect `v` plays for `name`: its skin's (CharacterSkinHooker `_replaceEffectPairs`, fxskin.js skinEffect) once loaded. */
+  const skinName = (v, name) => { const k = skinOf(v); return k && skinFx ? skinEffect(skinFx, k, name) : name; };
+  /** `skinName` after the tables are loaded (an effect of a unit drawn in a skin waits for them; any other plays at once). */
+  const skinNameNow = async (v, name) => { if (skinOf(v)) await skinTables(); return skinName(v, name); };
+  /**
+   * Where lib.load finds prefab `n` asked of folder `bundle`: [folder, file] in the skin folder when `bundle` lacks it and the
+   * skin folder has it (fxskin.js skinFile — a skin's effect, or a prefab a skin prefab creates by name); a prefab a skin
+   * prefab names that only a default bundle has comes from there. Null: as asked.
+   */
+  function skinAt(bundle, n) {
+    if (!skinFx || index?.bundles?.[bundle]?.includes(n)) return null;
+    const f = skinFile(skinFx, n);
+    if (f || !String(bundle).startsWith('skin/')) return f;
+    const b = anyBundle(n);
+    return b ? [b, n] : null;
+  }
+  /** Whether the prefab `def` was loaded from the skin folder (its names of other prefabs are the skin's). */
+  const skinDef = (def) => String(def?.bundle || '').startsWith('skin/');
+  /** Whether folder `bundle` has prefab `n` — a skin folder (a skin prefab's `bundle`) through skinAt. */
+  const fxIn = (bundle, n) => !!index?.bundles?.[bundle]?.includes(n) || (String(bundle).startsWith('skin/') && !!skinAt(bundle, n));
   // 2026-10-10: an enemy's points are its enemy-modes.json entry's (enemy_bindings.py, the Graphic animator's
   // _muzzleTransform / _hitTransform / _headTransform / _specialPointN of its battle prefab)
-  const ptsOf = (v) => (!v?.info ? null : efoe(v) ? ebindOf(v)?.points || null : (points && points[v.info.spine || v.info.defId]) || null);
+  // 2026-11-17 (docs/rules/render.md 「스킨 모델 소재」): a unit drawn in an operator skin (units.js skinKey) has that skin model's
+  // points (skin-points.json, char_points.py) — 274 of the 312 skins move or rename them; until the table is loaded, the default's
+  const ptsOf = (v) => (!v?.info ? null : efoe(v) ? ebindOf(v)?.points || null
+    : (skinPts && skinOf(v) && skinPts[skinOf(v)]) || (points && points[v.info.spine || v.info.defId]) || null);
   loadPoints().then((p) => { points = p; });
   const boneAt = { x: 0, y: 0 };
   const SP_P = { x: 0, y: 0, s: 0, depth: 0 };
@@ -1926,7 +1966,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const statusFailed = new Set();   // `${bundle}/${name}` that did not load: their units keep the icon (statusReady false)
   async function playStatus(view, bundle, name, key, frac, hold = null, under = false, once = false, kept = false) {
     if (!(await ensure())) return;
-    const def = await lib.load(bundle, name);
+    const def = await lib.load(bundle, skinOf(view) ? await skinNameNow(view, name) : name);   // 2026-11-17: on a unit drawn in a skin, the skin's
     if (mod && !def) { statusFailed.add(`${bundle}/${name}`); view._fxStatusOn?.delete(key); return; }
     if (!mod || !view._fxStatusOn?.has(key)) return;   // destroyed, or turned off while it loaded
     // local patch (maintainer report 2026-10-08: the stun marks stacked over a re-stunned enemy): one effect per unit and
@@ -1962,7 +2002,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /** 2026-10-21: a one-shot status prefab on `view` at its own `_spawnLocation` (a buff's end effect: api.statusOnce). */
   async function playOnce(view, bundle, name) {
     if (!(await ensure())) return;
-    const def = await lib.load(bundle, name);
+    const def = await lib.load(bundle, skinOf(view) ? await skinNameNow(view, name) : name);
     if (!mod || !def || view.remove) return;
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, floor: view.z || 0, tilt: tiltOn(view, def) });
     const anchor = lifted(view, def);
@@ -2235,9 +2275,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     if (!name) return false;
     const b = bundleOf(src);
-    const key = `${b.bundle}/${name}`;
+    // 2026-11-17 (docs/rules/render.md 「스킨 모델 소재」): a unit drawn in a skin flies the drawn projectile its skin puts in place
+    // of the trail's (CharacterSkinHooker `_fakeProjectileConfigs`: its `_mainEffect`, from its `_fakeMuzzlePoint`) — none
+    // drawn when that projectile carries no effect — and every trail through the skin's effect pairs
+    const sk = skinFx ? skinOf(src) : null;
+    const fake = sk ? skinShot(skinFx, sk, name) : null;
+    if (fake && !fake.names.length) { trailAtks.add(e); return true; }
+    const drawn = sk ? skinName(src, fake ? fake.names[0] : name) : name;
+    const key = `${b.bundle}/${drawn}`;
     if (!trailReady.has(key)) {
-      ensure().then((ok) => (ok ? lib.load(b.bundle, name) : null)).then((def) => { if (def) trailReady.add(key); }, () => {});
+      ensure().then((ok) => (ok ? lib.load(b.bundle, drawn) : null)).then((def) => { if (def) trailReady.add(key); }, () => {});
       skips.first++;
       return false;
     }
@@ -2247,7 +2294,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const v = e[3] === 'boomerang' ? null : shotSpeedOf({ lookupDef: unitDef }, src, tgt, dist);
     if (v === 0) return false;
     trailAtks.add(e);
-    const from = shotFrom(src, mode);
+    const from = shotFrom(src, mode, fake?.muzzle ?? null);
     // (2026-10-23) a PARACURVE shot rises its official height (灰毫's shell), as an enemy's does
     // (2026-11-16) and its own `_noRaiseHeightThreshold` (lobOf `noRaise`, lobZ)
     const lob = e[3] === 'boomerang' ? null : shotLobOf({ lookupDef: unitDef }, src);
@@ -2264,15 +2311,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // none under `_noRaiseHeightThreshold` 1.3 tiles) arc; the second one (caperBoomerang2) the other way (`_inverseParacurve`)
       if (/_skill_02_/.test(name)) rec.arc = caperArc(dist, false);
     }
-    launchTrail(rec, b.bundle, name);
+    launchTrail(rec, b.bundle, drawn);
     // 2026-10-21: a skill shot's rope (its list's `_line`: 歌蕾蒂娅 S1, 崖心 S1, 溯光星源 S2) from her to the flying head
     if (shot && mode === -1) { const line = shotLine(src, name); if (line) ropeLine(b.bundle, line, src, rec); }
     // 2026-10-16: the attack's later strikes shoot projectiles of their own (strikeGroups `shots`: 伺夜 S3's second and third
     // arrows, 新约能天使 S1's eight) — each `dt` (`_triggerDelta`) after the one before, from where the first left
     // [추정: the sim lands every strike with the first; the client shoots strike n at n × _triggerDelta]
     (sg?.shots?.slice(1) || []).forEach((s, k) => {
-      const n = Array.isArray(s) ? s.find((x) => b.prefabs.includes(x)) : null;
-      if (!n) return;
+      const n0 = Array.isArray(s) ? s.find((x) => b.prefabs.includes(x)) : null;
+      if (!n0) return;
+      const n = sk ? skinName(src, n0) : n0;
       if (!trailReady.has(`${b.bundle}/${n}`)) { ensure().then((ok) => (ok ? lib.load(b.bundle, n) : null)).then((def) => { if (def) trailReady.add(`${b.bundle}/${n}`); }, () => {}); skips.first++; return; }
       const go = () => { if (!trailFull() && !gone.has(ownerOf(tgt))) launchTrail({ ...rec, inst: null, k: 0, ...aimOf(tgt) }, b.bundle, n); };
       if (sg.dt > 0) castsDelayed.push({ t: clockS + sg.dt * (k + 1), run: go }); else go();
@@ -2756,7 +2804,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * for one under the units, else 0). Resolves the live entry (null if not played).
    */
   async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null, dir = null, floor = null } = {}) {
-    if (!index?.bundles?.[bundle]?.includes(name)) return null;
+    if (!fxIn(bundle, name)) return null;
+    // 2026-11-17: an effect its owner creates — the owner drawn in a skin — is the skin's (the deploy effect on the unit too)
+    const ov = entry.owner == null ? null : at?.info && ownerOf(at) === entry.owner ? at : lastViews?.get(entry.owner) ?? null;
+    if (skinOf(ov)) name = await skinNameNow(ov, name);
     if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null, facing, ...(entry.pinned ? { pinned: true } : null), ...(entry.mode != null ? { mode: entry.mode } : null), ...(plainPt(at) ? { pt: [at.x, at.y, at.z || 0] } : null) }); // tests (`pinned`: never ended by the caps; `pt`: a plain point's place)
     if (dry) dryFollow(bundle, name, entry.owner ?? null, at && at.info ? ownerOf(at) ?? null : null);
     if (!(await ensure())) return null;

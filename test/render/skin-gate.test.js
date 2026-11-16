@@ -55,6 +55,7 @@ describe('skin gate: what is drawn', () => {
     assert.equal(m.back.skel, side('back').skel);
     assert.equal(m.front.fallback.skel, '/f.skel', 'a failed skin load falls back to the default Front');
     assert.equal(m.back.fallback.skel, '/b.skel');
+    assert.equal(m.key, SK, 'the skin key drawn: the effect layer reads its points and effects by it (render/fxgame.js skinOf)');
   });
 
   test('a summon takes its owner skin to its own skin (skins.json tokens); one without a skin of it stays default', async () => {
@@ -62,6 +63,7 @@ describe('skin gate: what is drawn', () => {
     const m = r.gate.model({ side: 'ally', ownerId: 'p1', defId: 'token_1_a_drone', spine: 'token_1_a_drone', skin: SK }, base);
     assert.equal(m?.front.skel, tside.skel);
     assert.equal(m.back, null, 'no Back model');
+    assert.equal(m.key, LISTS().list.skins[SK].tokens.token_1_a_drone, 'the summon\'s own skin key');
     assert.equal(r.gate.model({ ...own, defId: 'token_9_x', spine: 'token_9_x' }, base), null);
     assert.equal(skinKeyFor(LISTS().list, SK, 'char_2_b'), null, 'another operator never wears it');
   });

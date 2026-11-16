@@ -61,17 +61,23 @@ test('PROGRAM_VARIANTS covers every extracted prefab', { skip: !fs.existsSync(FX
   const listed = new Set(fxp.PROGRAM_VARIANTS.map(key));
   const missing = new Map();
   let n = 0;
-  for (const b of fs.readdirSync(FX, { withFileTypes: true })) {
-    if (!b.isDirectory()) continue;
-    for (const f of fs.readdirSync(path.join(FX, b.name))) {
+  // (2026-11-17) the skin effects' prefabs too (fx/skin/<bundle>/, the skin data pack — docs/rules/render.md 「스킨 모델 소재」):
+  // a unit drawn in a skin plays them in the same battle
+  const SKIN = path.join(FX, 'skin');
+  const folders = (dir) => (fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }).filter((b) => b.isDirectory()).map((b) => path.join(dir, b.name)) : []);
+  let skins = 0;
+  for (const dir of [...folders(FX).filter((d) => d !== SKIN), ...folders(SKIN)]) {
+    for (const f of fs.readdirSync(dir)) {
       if (!f.endsWith('.json')) continue;
       let def;
-      try { def = JSON.parse(fs.readFileSync(path.join(FX, b.name, f), 'utf8')); } catch { continue; }
+      try { def = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); } catch { continue; }
       if (!Array.isArray(def?.nodes)) continue;
       n++;
-      for (const v of variantsOf(def)) if (!listed.has(v)) missing.set(v, `${b.name}/${f}`);
+      if (dir.startsWith(SKIN + path.sep)) skins++;
+      for (const v of variantsOf(def)) if (!listed.has(v)) missing.set(v, path.relative(FX, path.join(dir, f)));
     }
   }
   assert.ok(n > 1000, `only ${n} prefabs read`);
+  assert.ok(!fs.existsSync(path.join(SKIN, 'index.json')) || skins > 1000, `the skin effects' prefabs read too: ${skins}`);
   assert.deepEqual([...missing], [], 'variant (cull, s = skinned, n = normals) → a prefab using it');
 });

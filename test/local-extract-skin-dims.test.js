@@ -1,7 +1,7 @@
 // The extractors' skin dimension (docs/rules/render.md 「스킨 모델 소재」 — 「스킨마다 따라오는 것」). A skin model has its own
 // key table, attach points and effect replacements in its prefab of skinpack/<owner>.ab: tools/local-extract/anim_keys.py
-// `skins` (.cache/anim-keys.json), char_points.py (public/assets/local/fx/skin-points.json) and fx_extract.py --skin-pairs
-// (public/assets/local/fx/skin-effects.json, the prefab's CharacterSkinHooker) read them for every skin model skins.json lists,
+// `skins` (.cache/anim-keys.json), char_points.py (public/assets/local/fx/skin/skin-points.json) and fx_extract.py --skin-pairs
+// (public/assets/local/fx/skin/skin-effects.json, the prefab's CharacterSkinHooker) read them for every skin model skins.json lists,
 // so a drawn skin never borrows the default model's keys or points. The battle stays timed by the default model: the attack
 // timing reads the default table only. The Python helpers run without UnityPy; the real-output sweep skips when nothing was
 // extracted on this machine.
@@ -76,8 +76,8 @@ const read = (rel) => { const p = path.join(ROOT, rel); return existsSync(p) ? J
 const skinList = read('public/assets/local/spine/skin/skins.json');
 const outputs = {
   'anim_keys.py (.cache/anim-keys.json `skins`)': read('.cache/anim-keys.json')?.skins,
-  'char_points.py (public/assets/local/fx/skin-points.json)': read('public/assets/local/fx/skin-points.json'),
-  'fx_extract.py --skin-pairs (public/assets/local/fx/skin-effects.json)': read('public/assets/local/fx/skin-effects.json')?.skins,
+  'char_points.py (public/assets/local/fx/skin/skin-points.json)': read('public/assets/local/fx/skin/skin-points.json'),
+  'fx_extract.py --skin-pairs (public/assets/local/fx/skin/skin-effects.json)': read('public/assets/local/fx/skin/skin-effects.json')?.skins,
 };
 
 describe('every skin model has its own keys, points and effect pairs (the extracted outputs)', () => {
@@ -116,14 +116,14 @@ rows = {'a@x#1': {'effects': {'a_hit': 'a_hit_x#1', 'common_char_birth_01': 'a_b
 skins = {'a@x#1': {'client': 'en'}, 'b@y#2': {'client': 'cn'}}
 names = {'en': {'a_hit_x#1': 'battle/prefabs/effects/a.ab', 'a_birth_x#1': 'battle/prefabs/effects/a.ab', 'b_hit_y#2': 'battle/prefabs/effects/b.ab', 'p_fly_x#1': 'pkgrps/btl_pfb_fx_token_1.ab'},
          'cn': {'b_hit_y#2': 'battle/prefabs/effects/b.ab'}}
-carriers = {'en': {'p_fly_x#1': {'p_x#1': True}}, 'cn': {}}
+carriers = {'en': {'p_fly_x#1': {'p_x#1': True}, 'p_trail': {'p': False}}, 'cn': {}}
 p = f.skin_effect_plan(rows, skins, names, carriers)
 print(json.dumps({'jobs': {'|'.join(k): v for k, v in p['jobs'].items()}, 'proj': p['proj'], 'missing': p['missing']}))`);
     assert.deepEqual(got, {
       jobs: { 'cn|battle/prefabs/effects/b.ab': ['b_hit_y#2'], 'en|battle/prefabs/effects/a.ab': ['a_birth_x#1', 'a_hit_x#1'], 'en|pkgrps/btl_pfb_fx_token_1.ab': ['p_fly_x#1'] },
-      proj: { 'P_x#1': ['p_fly_x#1'] },
+      proj: { 'P_x#1': ['p_fly_x#1'], p: ['p_trail'] },
       missing: { effects: ['b_gone_y#2'], projectiles: ['q_line_x#1'] },
-    }, `${SKIN_FX}: the CN skin's effect comes from the CN client, a summon's from its token pack; what no client has is listed missing`);
+    }, `${SKIN_FX}: the CN skin's effect comes from the CN client, a summon's from its token pack; what no client has is listed missing; the replaced projectile's own trail is named (not extracted again)`);
   });
 
   test('a skin effect\'s file is under fx/skin/ named through file_name; a default bundle may not take the folder\'s name', () => {
@@ -175,7 +175,7 @@ const FXD = path.join(ROOT, 'public/assets/local/fx');
 const skinIndex = read('public/assets/local/fx/skin/index.json');
 describe('the extracted skin effects (fx/skin/)', { skip: (!skinIndex || !outputs[Object.keys(outputs)[2]]) && 'not extracted on this machine' }, () => {
   test('every paired skin effect has its file or is listed missing; their textures and meshes are in one of the two folders', () => {
-    const doc = read('public/assets/local/fx/skin-effects.json');
+    const doc = read('public/assets/local/fx/skin/skin-effects.json');
     const files = doc.files || {};
     const lower = new Map(Object.entries(files).map(([k, v]) => [k.toLowerCase(), v]));
     const missing = new Set((doc.missing?.effects || []).map((n) => n.toLowerCase()));

@@ -1143,6 +1143,13 @@ export class UnitView {
     return this._skinM;
   }
 
+  /**
+   * 2026-11-17: the skin key this view is drawn in (skins.json; a summon's own skin key), or null for the default model —
+   * the effect layer reads that skin's model points and effect / projectile replacements by it (render/fxgame.js skinOf;
+   * docs/rules/render.md 「스킨 모델 소재」).
+   */
+  get skinKey() { return this._skinModel()?.key ?? null; }
+
   /** The Spine entry of a side of the model this view draws (its skin's, else the manifest's). */
   _entryFor(back) {
     const sk = this._skinModel();

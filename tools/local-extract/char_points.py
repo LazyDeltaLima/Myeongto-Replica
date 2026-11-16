@@ -24,8 +24,8 @@ private fan use only.
 
 Skins (2026-11-16): each skin model of public/assets/local/spine/skin/skins.json (skin_extract.py) has its own animator and
 points in its prefab of skinpack/<owner>.ab (274 of the 312 differ from the default model's: other bones, other spots). They
-go to public/assets/local/fx/skin-points.json { <skin key>: the same record } (git-ignored, client-only like the models;
---no-skins leaves it, --id the owners' rows only).
+go to public/assets/local/fx/skin/skin-points.json { <skin key>: the same record } (git-ignored, client-only like the models;
+--no-skins leaves it, --id the owners' rows only) — in the skin data pack's folder: only a unit drawn in a skin reads it.
 
 Tokens (2026-10-16): a token's battle model is a prefab of pkgrps/btl_pfb_tokens_*.ab — one bundle holds many, each with its
 own animator, picked by the prefab's root name. Only TOKENS are read: their effects name special points (伺夜's wolf pack
@@ -50,7 +50,7 @@ DEFAULT_CLIENT = client_data()  # SP_CLIENT / .env / .client (client_path.py); -
 TOKENS = ('token_10028_vigil_wolf',)
 # the skin models this server lists (skin_extract.py) and where their points go (git-ignored beside points.json)
 SKINS = ROOT / 'public/assets/local/spine/skin/skins.json'
-SKIN_FX_OUT = ROOT / 'public/assets/local/fx/skin-points.json'
+SKIN_FX_OUT = ROOT / 'public/assets/local/fx/skin/skin-points.json'
 SKIN_BUNDLE_DIRS = ('PersistentData/Bundles', 'StreamingAssets/AB/Windows')   # the hot-update copy first
 
 
@@ -248,7 +248,8 @@ def skin_points(games, owners=None, log=print):
             raise SystemExit(f'skin_points: {key}: no animator under {root}')
         out[key] = {k: pts[k] for k in sorted(pts)}
         differ += out[key] != base.get(e['owner'])
-    if SKIN_FX_OUT.parent.exists():
+    if SKIN_FX_OUT.parent.parent.exists():   # the extracted effects' folder (fx/); skin/ is made here when it is not yet
+        SKIN_FX_OUT.parent.mkdir(exist_ok=True)
         SKIN_FX_OUT.write_text(json.dumps(dict(sorted(out.items())), ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     return len(out), differ
 
@@ -258,7 +259,7 @@ def main():
     ap.add_argument('--client', default=DEFAULT_CLIENT)
     ap.add_argument('--cn', default=None, help='the CN client Arknights_Data (the skins whose model came from it; default: client_path.py)')
     ap.add_argument('--id', action='append', default=[])
-    ap.add_argument('--no-skins', action='store_true', help='leave public/assets/local/fx/skin-points.json as it is')
+    ap.add_argument('--no-skins', action='store_true', help='leave public/assets/local/fx/skin/skin-points.json as it is')
     a = ap.parse_args()
     ids, files = char_ids(a.client)
     ids = a.id or ids + list(TOKENS)

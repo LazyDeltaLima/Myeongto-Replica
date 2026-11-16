@@ -1023,6 +1023,10 @@ const wrapMode = (m) => (m === 1 ? THREE.ClampToEdgeWrapping : m === 2 || m === 
 
 /** A file name in a URL: names can hold '#' (skin texture names, e.g. `…_sale#10_…`) that would end the path. */
 const seg = (name) => encodeURIComponent(name);
+/** A bundle folder in a URL, each part of it encoded: a skin effect's is `skin/<bundle>` (docs/rules/render.md 「스킨 모델 소재」). */
+const folder = (bundle) => String(bundle).split('/').map(seg).join('/');
+/** The skin effects' folder under the library's base (fx_extract.py SKIN_DIR): `skin/<bundle>/` prefabs, `skin/tex/`, `skin/mesh/`. */
+export const SKIN_FX_DIR = 'skin/';
 
 export class FxLibrary {
   constructor(base = '/assets/local/fx/') {
@@ -1031,6 +1035,28 @@ export class FxLibrary {
     this.textures = new Map();
     this.meshes = new Map();
     this.loader = new THREE.TextureLoader();
+    // 2026-11-17: the textures / meshes only skin effects use (skin/index.json `tex` / `mesh`, their wraps skin/tex/wrap.json) —
+    // read before the first skin prefab is built (skinFiles); any other name is in the shared tex/ and mesh/
+    this.skinTex = null;
+    this.skinMesh = null;
+    this.skinWrap = null;
+  }
+
+  /**
+   * 2026-11-17 (docs/rules/render.md 「스킨 모델 소재」 「스킨 이펙트 프리팹」): which textures and meshes live in the skin folder,
+   * fetched once before the first prefab of a `skin/<bundle>` folder is built. fx_extract.py place_skin_files keeps the two
+   * folders apart (a file a default effect uses is shared), so a name decides its folder whichever prefab names it.
+   */
+  skinFiles() {
+    if (!this._skin) {
+      const json = (u, d) => fetch(u).then((r) => (r.ok ? r.json() : d)).catch(() => d);
+      this._skin = Promise.all([json(this.base + SKIN_FX_DIR + 'index.json', {}), json(this.base + SKIN_FX_DIR + 'tex/wrap.json', {})]).then(([ix, w]) => {
+        this.skinTex = new Set(Array.isArray(ix?.tex) ? ix.tex : []);
+        this.skinMesh = new Set(Array.isArray(ix?.mesh) ? ix.mesh : []);
+        this.skinWrap = w && typeof w === 'object' ? w : {};
+      });
+    }
+    return this._skin;
   }
 
   /**
@@ -1046,8 +1072,9 @@ export class FxLibrary {
 
   texture(name) {
     if (!this.textures.has(name)) {
-      const tx = this.loader.load(this.base + 'tex/' + seg(name));
-      const w = this.wrapOf?.[name];
+      const own = !!this.skinTex?.has(name);   // 2026-11-17: a skin effect's own texture (skinFiles)
+      const tx = this.loader.load(this.base + (own ? SKIN_FX_DIR : '') + 'tex/' + seg(name));
+      const w = own ? this.skinWrap?.[name] : this.wrapOf?.[name];
       tx.wrapS = wrapMode(w?.[0]);
       tx.wrapT = wrapMode(w?.[1]);
       tx.colorSpace = THREE.NoColorSpace;
@@ -1059,7 +1086,7 @@ export class FxLibrary {
 
   async mesh(key) {
     if (!this.meshes.has(key)) {
-      this.meshes.set(key, fetch(this.base + 'mesh/' + seg(key) + '.json').then((r) => (r.ok ? r.json() : null)).then((d) => {
+      this.meshes.set(key, fetch(this.base + (this.skinMesh?.has(key) ? SKIN_FX_DIR : '') + 'mesh/' + seg(key) + '.json').then((r) => (r.ok ? r.json() : null)).then((d) => {
         if (!d) return null;
         const g = new THREE.BufferGeometry();
         g.setAttribute('position', new THREE.Float32BufferAttribute(d.pos, 3));
@@ -1091,7 +1118,8 @@ export class FxLibrary {
     const key = `${bundle}/${prefab}`;
     if (!this.defs.has(key)) {
       this.defs.set(key, (async () => {
-        const r = await fetch(`${this.base}${seg(bundle)}/${seg(prefab)}.json`);
+        if (String(bundle).startsWith(SKIN_FX_DIR)) await this.skinFiles();   // its textures / meshes may be the skin folder's
+        const r = await fetch(`${this.base}${folder(bundle)}/${seg(prefab)}.json`);
         if (!r.ok) return null;
         const def = await r.json();
         this.wrapOf = await this.wraps();   // the textures its materials make (FxInstance) take their wrap from it
