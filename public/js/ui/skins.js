@@ -7,7 +7,8 @@
 //
 // The CATALOGUE is not data/*.json: the official skins come with the optional skin data (resources.js pack 'skin'),
 //   * local/spine/skin/skins.json — every skin: its owner (an operator charId, or a summon's id), its summons' skins
-//     (`tokens`) and its 立绘 (`illust`, this server's webp) — tools/local-extract/skin_extract.py;
+//     (`tokens`) and its 立绘 (`illust`, this server's webp; its `full` copy is the original resolution, which every
+//     device but a phone draws — illust-res.js) — tools/local-extract/skin_extract.py;
 //   * local/spine/skin/art.json — each skin's avatar (1:1) and portrait (1:2), fetched by the resource worker from the
 //     picture repository the list names — tools/fetch-skin-art.mjs.
 // Both lists are small and are fetched (and kept by the worker) when the picker or a seat card first needs them, chosen
@@ -18,6 +19,7 @@
 
 import { createStore, loadPref, savePref } from '../store.js';
 import { SKIN_LIMITS, isCharId, isSkinId } from '../../../shared/protocol.js';
+import { illustEntry, illustFull } from '../illust-res.js';
 
 /** The pref (`sp.pref.<key>`) of this browser's choice. */
 export const SKINS_PREF = 'skins';
@@ -86,8 +88,9 @@ export function clearSkin(charId) {
  * are not chosen — they follow their owner's), each `{ id, name, illust, avatar, portrait }` (null where a list has no
  * picture: the default one is drawn).
  * @param {any} list skins.json @param {any} art art.json (may be null: no avatars / portraits)
+ * @param {boolean} [hi] the 立绘's original-resolution copy (default: this device's choice, illust-res.js)
  */
-export function buildSkinCatalog(list, art) {
+export function buildSkinCatalog(list, art, hi = illustFull()) {
   const byOwner = new Map();
   const bySkin = new Map();
   const skins = isObj(list?.skins) ? list.skins : {};
@@ -95,7 +98,7 @@ export function buildSkinCatalog(list, art) {
   for (const [id, rec] of Object.entries(skins)) {
     if (!isObj(rec) || !isSkinId(id) || !isCharId(rec.owner)) continue;
     const a = isObj(pics[id]) ? pics[id] : {};
-    const row = { id, owner: rec.owner, name: str(rec.name), illust: pathOf(rec.illust), avatar: pathOf(a.avatar), portrait: pathOf(a.portrait) };
+    const row = { id, owner: rec.owner, name: str(rec.name), illust: pathOf(illustEntry(rec.illust, hi)), avatar: pathOf(a.avatar), portrait: pathOf(a.portrait) };
     if (!byOwner.has(rec.owner)) byOwner.set(rec.owner, []);
     byOwner.get(rec.owner).push(row);
     bySkin.set(id, row);

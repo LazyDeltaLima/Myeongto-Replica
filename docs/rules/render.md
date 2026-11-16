@@ -1569,7 +1569,8 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   읽는다 — Image 스프라이트의 텍스처 캔버스 전체와 RectTransform 틀(기본 일러스트 `chararts`와 같은 틀). 알파는 대개 스프라이트에 없고 Image의
   재질(`illust_<스킨>_material`)의 `_AlphaTex`에 있다(불투명 텍스처 위에 그 알파를 씌움). 재질이 없으면 텍스처 자기 알파. 재질을 안 읽으면 흰·검은 네모
   위의 그림이 된다. UnityPy의 `Sprite.image`는 메시 경계로 잘라 틀과 안 맞으므로 쓰지 않는다. 출력은 그 스킨 폴더의 `avatar/`·`portrait/`(PNG, 클라 크기 그대로)·
-  `illust/`(webp q85, 긴 변 1024)이고 이름도 `file_name`을 거친다. `skins.json`의 각 스킨에 `avatar`·`portrait`(`{ path, w, h }`)·`illust`(+ `frame`)가
+  `illust/`(webp q85, 긴 변 1024 — 텍스처가 더 크면 원본 크기 그대로 `illust/full/`도, 항목의 `full`; 기본 일러스트와 같은 `chararts_extract.py save_illust`,
+  어느 판을 그리고 받을지는 `ui.md` 「정비 화면 HUD」의 원본 해상도판)이고 이름도 `file_name`을 거친다. `skins.json`의 각 스킨에 `avatar`·`portrait`(`{ path, w, h }`)·`illust`(+ `frame`)가
   붙고, 클라에 없는 그림은 `artMissing`에 적는다. 모델이 없는 스킨은 그림도 뽑지 않는다(고르기에 안 나옴). 소환물 스킨 기록에는 아바타만 있고, 그것도 클라에
   없는 소환물이 있다(그때는 기본 아바타). 움직이는 일러스트(`dynIllustId`)는 뽑지 않는다. 그림도 스킨 폴더 안이라 스킨 데이터 묶음에 든다.
 - 그림을 받는 곳(2026-11-16, 관리자 결정): 아바타·초상화는 이 서버가 보내지 않고 `yuanyan3060/ArknightsGameResource`에서 받는다(위 추출본은 대조용,

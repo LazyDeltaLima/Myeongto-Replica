@@ -170,6 +170,14 @@
     kind: 'Illust', frame } }`(쓰기 직전에 다시 읽어 병합). 대상: chess.json의 charId와 backups.json의 선발 오퍼레이터(`diy.ownedPool`), 토큰은 아트 번들이
     있을 때만(2026-10-06 실행: 128명, 합계 18.1MB). 0.2.0 병합으로 `data/diy.json`이 없어진 뒤 기본 대상에서 선발 5명이 빠져 있었다 → 2026-10-09
     `backups.json`을 읽게 고침(선발 5명의 立绘는 병합 전 실행분이 남아 있어 화면에는 빠진 적이 없다).
+  - 원본 해상도판(2026-11-16, 관리자 결정 「휴대폰 기본 1024, 데스크톱 기본 원본, q85 그대로」): 카드는 1024판을 데스크톱 배율 1에서도 1.3~2.4배로 늘려
+    그려 흐렸다. 추출기(`save_illust`)가 그림이 1024보다 크면 클라 텍스처 크기 그대로(2정예화는 그 크기의 잘라낸 판)도 `chararts/full/<charId>.webp`(q85)로
+    쓰고 항목에 `full: { path, w, h }`를 단다(틀은 틀 단위라 두 판이 같다). 스킨 일러스트도 같은 함수로 쓴다(`render.md` 「스킨 모델 소재」). 어느 판을 그릴지는
+    기기가 정한다(`public/js/illust-res.js`): 휴대폰(주 포인터가 거칠고 화면 짧은 변 600 CSS px 미만 — 창 크기·회전이 아니라 화면으로 재서 방문마다
+    바뀌지 않음)은 1024판, 나머지(데스크톱·태블릿)는 `full`. `cardArt`·`buildSkinCatalog`가 `illustEntry`로 고르고, 미리 받기 목록은 두 판에 `r: 'lo' | 'hi'`
+    (`tools/build-browser-resources.mjs`: `<폴더>/full/<이름>.webp`와 짝 `<폴더>/<이름>.webp`)를 달아 `resources.js`가 그 기기 판만 받고 다른 판은 캐시에서
+    지운다(그 기기 페이지는 다른 판을 요청하지 않으므로 그때그때 받은 것을 잃지 않음). 사용자가 판을 바꾸는 설정은 없다.
+    재발 방지: `test/ui/illust-res.test.js`(고르기·목록 필터), `test/local-extract-skins.test.js`(짝 표시), `test/local-extract.test.js`(이 기기의 추출에 원본판).
   - 배치 근거: 같은 번들의 `illust_<charId>_1` RectTransform(`m_SizeDelta` = 그릴 크기, `m_AnchoredPosition` = 프레임 중심에서의 오프셋, y 위)이
     캐릭터마다 얼굴 위치를 맞추는 클라이언트 값이다(古米 953 @ (6, −93) → 눈이 중심 244 위, 波登可 854 @ (0, −81) → 204 위). 카드는 이 값으로 그린다
     (`--fx/--fy/--fw/--fh`): 1단위 = .012rem, 프레임 중심 (3.35rem, 5.53rem) — 얼굴이 능력치 오른쪽 약 2.6rem 아래, 머리 크기 ≈1.7rem.

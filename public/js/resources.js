@@ -30,6 +30,9 @@
 // demand on every visit). Without the general consent a chosen pack is still downloaded (it is a choice of its own).
 // The settings' 资源 tab (ResourceSetting, SkinPackSetting) shows the files in no pack and each pack apart (resStore
 // `sizes`: the consent card's size counts a chosen pack's files too), and can pause a pack's download for this page.
+// The 立绘 with two copies (`r`: 'lo' the long side 1024, 'hi' the original resolution — illust-res.js) are a choice by
+// device, not by the player: only this device's copy is downloaded and kept, and the other leaves the cache (the page
+// never asks for it, so nothing fetched on demand is lost; the choice does not change between visits).
 // Needs a secure context (https / localhost); on plain http the game simply loads everything from the server.
 //
 //   installResources()   main.js, once
@@ -42,6 +45,7 @@ import { html, MicroLabel } from './ui/components.js';
 import { createStore, useStore, store, loadPref, savePref, selectRoute } from './store.js';
 import { wantedFiles, onVoiceLangChange, voiceStore, setVoiceLang, VOICE_LANGS, voiceLangLabel } from './voice.js';
 import { setResourceSource, fieldLoading } from './diag.js';
+import { illustFull, illustListed } from './illust-res.js';
 import { t, tc } from '../../shared/i18n.js';
 
 const CACHE = 'sp-res';
@@ -210,19 +214,20 @@ const keyOf = (req) => {
   try { return decodeURIComponent(p); } catch { return p; }
 };
 
-/** The voice files of this browser's language (voice.js), then the pack choice: index.files is what is downloaded, the
- *  returned list what the cache keeps. */
+/** The voice files of this browser's language (voice.js) and the 立绘 copies of this device (illust-res.js), then the
+ *  pack choice: index.files is what is downloaded, the returned list what the cache keeps. */
 function choose() {
-  voiced = wantedFiles(listed);
+  voiced = wantedFiles(listed).filter((f) => illustListed(f));
   index.files = voiced.filter((f) => resourceWanted(f, packs, chosen));
   return voiced.filter((f) => resourceKept(f, packs, chosen));
 }
 
-/** The CLEAN signature: the list, the voice language and the packs turned off (only they make more entries stale). */
+/** The CLEAN signature: the list, the voice language, the 立绘 copy and the packs turned off (only they make more
+ *  entries stale). */
 const cleanSig = () => {
   if (typeof index.version !== 'string' || !index.version) return null;
   const off = Object.keys(packs).filter((n) => chosen[n] === false).sort();
-  return `${index.version}|${voiceStore.get().lang}${off.length ? `|off:${off.join(',')}` : ''}`;
+  return `${index.version}|${voiceStore.get().lang}${illustFull() ? '' : '|lo'}${off.length ? `|off:${off.join(',')}` : ''}`;
 };
 
 /** List the cache entries that are not (or no longer) the listed file for cleanup(); returns the files still to download. */

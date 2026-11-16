@@ -133,6 +133,12 @@ describe('the skin data is a pack of the pre-download list', () => {
       mkdirSync(path.join(dir, 'local/spine/token/t'), { recursive: true });
       writeFileSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/front/char_1_a_boc-1.skel'), 'x');
       writeFileSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/illust/char_1_a_boc-1.webp'), 'w');
+      mkdirSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/illust/full'), { recursive: true });
+      writeFileSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/illust/full/char_1_a_boc-1.webp'), 'W');
+      mkdirSync(path.join(dir, 'local/chararts/full'), { recursive: true });
+      writeFileSync(path.join(dir, 'local/chararts/char_1_a.webp'), 'c');
+      writeFileSync(path.join(dir, 'local/chararts/full/char_1_a.webp'), 'C');
+      writeFileSync(path.join(dir, 'local/chararts/full/lone.webp'), 'L');
       writeFileSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/avatar/char_1_a_boc-1.png'), 'a');
       writeFileSync(path.join(dir, 'local/spine/skin/char_1_a/char_1_a_boc-1/portrait/char_1_a_boc-1.png'), 'p');
       writeFileSync(path.join(dir, 'local/spine/skin/skins.json'), '{}');
@@ -152,10 +158,18 @@ describe('the skin data is a pack of the pre-download list', () => {
       assert.deepEqual(list.packs, { skin: ['/assets/spine/skin/', '/assets/local/spine/skin/'] });
       assert.deepEqual(paths.filter((p) => p.includes('/spine/skin/')).sort(), [
         '/assets/local/spine/skin/art.json', '/assets/local/spine/skin/char_1_a/char_1_a_boc-1/illust/char_1_a_boc-1.webp',
-        '/assets/local/spine/skin/models.json', '/assets/local/spine/skin/skins.json', avatar.p, model.p,
+        '/assets/local/spine/skin/char_1_a/char_1_a_boc-1/illust/full/char_1_a_boc-1.webp', '/assets/local/spine/skin/models.json', '/assets/local/spine/skin/skins.json', avatar.p, model.p,
       ], `the skin models, avatars and portraits come from their repositories, the extracted ones never from this server (${RULE})`);
       assert.deepEqual(list.files.find((f) => f.p === model.p), model, 'with the repository\'s URL and hash');
       assert.deepEqual(list.files.find((f) => f.p === avatar.p), avatar, 'the avatar with yuanyan\'s URL and hash');
+      // the two copies of a 立绘 (maintainer decision 2026-11-16): a browser pre-downloads only its device's
+      const pairOf = (p) => list.files.find((f) => f.p === p)?.r;
+      for (const lo of ['/assets/local/chararts/char_1_a.webp', '/assets/local/spine/skin/char_1_a/char_1_a_boc-1/illust/char_1_a_boc-1.webp']) {
+        const hi = lo.replace(/\/([^/]+)$/, '/full/$1');
+        assert.deepEqual([pairOf(lo), pairOf(hi)], ['lo', 'hi'], `${lo}: the 1024 copy and the original-resolution one are marked a pair (public/js/illust-res.js)`);
+      }
+      assert.equal(pairOf('/assets/local/chararts/full/lone.webp'), undefined, 'a full/ copy without its 1024 twin is no pair');
+      assert.equal(pairOf(model.p), undefined);
       writeFileSync(path.join(dir, 'local/spine/skin/art.json'), JSON.stringify({ files: [avatar, avatar] }));
       assert.notEqual(run().status, 0, 'a path listed twice stops the run');
       writeFileSync(path.join(dir, 'local/spine/skin/art.json'), JSON.stringify({ files: [avatar] }));
@@ -176,6 +190,7 @@ describe('extracted skin models (when a local client was extracted)', { skip: !e
     for (const [key, s] of skins) {
       assert.ok(s.front, `${key}: no front model`);
       const pics = ['avatar', 'portrait', 'illust'].map((k) => s[k]).filter(Boolean).map((e) => e.path);
+      if (s.illust?.full) pics.push(s.illust.full.path);
       for (const p of [s.front, s.back].filter(Boolean).flatMap((side) => [side.skel, side.atlas, ...side.textures]).concat(pics)) {
         assert.ok(validPath(p), `${key}: ${p} is refused by resources.js validPath (${RULE})`);
         assert.ok(existsSync(path.join(ROOT, 'public', p)), `${key}: ${p} missing on disk`);
@@ -185,7 +200,7 @@ describe('extracted skin models (when a local client was extracted)', { skip: !e
 
   test('an operator skin has its avatar, portrait and framed 立绘, or skins.json says which the clients lack', { skip: !('artMissing' in JSON.parse(readFileSync(INDEX, 'utf8'))) && 'pictures not extracted' }, () => {
     const doc = JSON.parse(readFileSync(INDEX, 'utf8'));
-    let checked = 0;
+    let checked = 0, full = 0;
     for (const [key, s] of Object.entries(doc.skins)) {
       if (!s.owner.startsWith('char_')) continue;
       const lack = doc.artMissing[key] || [];
@@ -196,9 +211,17 @@ describe('extracted skin models (when a local client was extracted)', { skip: !e
         const f = s.illust.frame;
         assert.ok(f && f.w > 0 && f.h > 0, `${key}: the 立绘 has no illust frame`);
         checked++;
+        if (s.illust.full) {
+          assert.equal(Math.max(s.illust.w, s.illust.h), 1024, `${key}: the copy beside the original resolution has the long side 1024`);
+          assert.ok(Math.max(s.illust.full.w, s.illust.full.h) > 1024, `${key}: a full copy no larger than 1024`);
+          full++;
+        }
       }
     }
     assert.ok(checked > 0, 'no operator skin 立绘 was checked');
+    // the clients' skin 立绘 are 1024–3000 px squares (2026-11-16: 42 under 2048, none under 1024): nearly every one has
+    // the original-resolution copy (maintainer decision 2026-11-16; skin_extract.py through chararts_extract.save_illust)
+    assert.ok(full > checked * 0.8, `only ${full} of ${checked} skin 立绘 have their original-resolution copy: run skin_extract.py --only art (${RULE})`);
   });
 
   // Most skin 立绘 keep their alpha outside the sprite: the illust Image's material draws its `_AlphaTex` over an opaque
@@ -206,7 +229,8 @@ describe('extracted skin models (when a local client was extracted)', { skip: !e
   const pil = PY && spawnSync(PY, ['-c', 'import PIL.Image, PIL.features; assert PIL.features.check("webp")']).status === 0;
   test('every extracted 立绘 is cut out (its material\'s alpha texture was applied)', { skip: !pil && 'no Pillow with webp' }, () => {
     const doc = JSON.parse(readFileSync(INDEX, 'utf8'));
-    const files = Object.entries(doc.skins).filter(([, s]) => s.illust).map(([key, s]) => [key, path.join(ROOT, 'public', s.illust.path)]);
+    const files = Object.entries(doc.skins).filter(([, s]) => s.illust)
+      .flatMap(([key, s]) => [s.illust, s.illust.full].filter(Boolean).map((e) => [key, path.join(ROOT, 'public', e.path)]));
     const r = spawnSync(PY, ['-c', `
 import json, sys
 from PIL import Image

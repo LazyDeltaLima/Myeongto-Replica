@@ -12,7 +12,8 @@
 // The art: the operator's 立绘 when the local client extraction lists it (data/local-assets.json group `chararts`,
 // `<charId>` — tools/local-extract/chararts_extract.py: the default art `<charId>_1` and its `illust_<charId>_1` frame,
 // the client's per-art size and offset that line the faces up), placed by that frame (css/hud-art.css `--fx/--fy/--fw/
-// --fh`); else the web manifest's half-body portrait (180×360); else no art. A chess with a character template is drawn
+// --fh`), in the copy this device takes (illust-res.js: a phone the 1024 one, other devices the entry's `full`, the
+// original resolution — maintainer decision 2026-11-16); else the web manifest's half-body portrait (180×360); else no art. A chess with a character template is drawn
 // as its body, its `tmplId` (阿米娅's 医疗 form is char_1037_amiya3's art, not 阿米娅's own).
 //
 // 0.2.0 补位 (docs/LOCAL-PATCH.md 「0.2.0 병합」): a chess the player fields as its stand-in shows the
@@ -37,6 +38,7 @@ import { attackInterval, fmtNum, chessLoadout, pickGetter, standInLoadout, stand
 import { chessPortraitUrl, profIconUrl, uiUrl, enemyIconUrl, factionIconUrl, itemIconUrl, tokenAvatarUrl, skillRecordIconUrl } from './assetUrls.js';
 import { tokenVariantFor } from './gameLogic/loadout.js';
 import { data, localAsset } from '../data.js';
+import { illustEntry } from '../illust-res.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -60,13 +62,15 @@ export function artParts(blocks) {
 }
 
 /**
- * The card's art: the local 立绘 (`chararts`, with its illust frame), else the portrait.
+ * The card's art: the local 立绘 (`chararts`, with its illust frame; the copy this device takes, illustEntry), else the
+ * portrait.
+ * @param {boolean} [hi] the original-resolution copy (default: this device's choice, illust-res.js)
  * @returns {{ src: string|null, full: boolean, frame: { x: number, y: number, w: number, h: number } | null }}
  */
-export function cardArt(m, chess) {
+export function cardArt(m, chess, hi) {
   const id = (typeof chess?.tmplId === 'string' && chess.tmplId) || chess?.charId;
   const e = id ? data.get('local')?.groups?.chararts?.[id] : null;
-  const src = id ? localAsset('chararts', id) : null;
+  const src = illustEntry(e, hi)?.path ?? null;
   if (src) {
     const f = e && e.frame && [e.frame.x, e.frame.y, e.frame.w, e.frame.h].every(Number.isFinite) ? e.frame : null;
     return { src, full: true, frame: f };

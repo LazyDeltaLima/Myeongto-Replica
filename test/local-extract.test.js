@@ -144,6 +144,18 @@ print(json.dumps({
     const missing = [...ids].filter((id) => !arts[id]);
     assert.deepEqual(missing, [], 'run tools/local-extract/chararts_extract.py --id <charId> (the CN client for a CN-only operator)');
     for (const id of ids) assert.ok(existsSync(path.join(ROOT, 'public', arts[id].path)), arts[id].path);
+    // the original-resolution copy beside the 1024 one (maintainer decision 2026-11-16, chararts_extract.py save_illust;
+    // docs/rules/ui.md 「정비 화면 HUD」): the client arts are 1200–2560 px, so every crop or canvas over 1024 has one
+    let full = 0;
+    for (const id of ids) {
+      const e = arts[id];
+      if (!e.full) continue;
+      full++;
+      assert.ok(existsSync(path.join(ROOT, 'public', e.full.path)), e.full.path);
+      assert.equal(e.full.path, e.path.replace(/\/([^/]+)$/, '/full/$1'), `${id}: the full copy sits in full/ beside the 1024 one (the resource list pairs them by that)`);
+      assert.ok(Math.max(e.full.w, e.full.h) > 1024 && Math.max(e.w, e.h) === 1024, `${id}: ${e.w}×${e.h} / ${e.full.w}×${e.full.h}`);
+    }
+    assert.ok(full > ids.size * 0.8, `only ${full} of ${ids.size} 立绘 have their original-resolution copy: run chararts_extract.py again`);
   });
 
   test('prefab_spine_nodes: the SkeletonAnimation renderers of a prefab tree, depth first, inactive branches marked', () => {

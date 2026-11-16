@@ -8,9 +8,16 @@ carry the 180×360 half-body portraits. The client keeps the arts in chararts/<c
 client's illustration frame: `m_SizeDelta` (the drawn size) and `m_AnchoredPosition` (its centre's offset from the
 frame's centre, y up) — the per-character framing that lines the faces up. This writes, for every charId the mode uses
 (data/chess.json, the 선발 picks of data/backups.json; tokens only when they have an art bundle):
-  chararts/<charId>.webp   the default art, the full canvas, long side ≤ 1024, lossy q85 with alpha
+  chararts/<charId>.webp        the default art, the full canvas, long side ≤ 1024, lossy q85 with alpha
+  chararts/full/<charId>.webp   the same at the client texture's own size, when that is larger (save_illust)
 and merges a `chararts` group into data/local-assets.json (re-read right before writing; other groups kept):
-  chararts → { <charId>: { path, w, h, kind: 'Illust', frame: { x, y, w, h } } }   frame = the illust RectTransform
+  chararts → { <charId>: { path, w, h, kind: 'Illust', frame: { x, y, w, h }, full?: { path, w, h } } }
+  frame = the illust RectTransform (in frame units: the same for both copies)
+
+Two copies (maintainer decision 2026-11-16): a phone takes the 1024 one, every other device the original resolution
+(public/js/illust-res.js); the card drew the 1024 copy 1.3–2.4 times enlarged on a desktop. tools/build-browser-resources.mjs
+pairs `<dir>/full/<name>` with `<dir>/<name>` so a browser pre-downloads only its own copy. The skin 立绘
+(skin_extract.py) are written the same way.
 
 Elite 2 (default, --elite 2): when the bundle has `<charId>_2` (the E2 art: a large scene in which the operator is
 small) and the web mirror's portraits exist, the E2 art is used instead, cropped around the operator: the E2 portrait
@@ -37,6 +44,34 @@ ROOT = Path(__file__).resolve().parents[2]
 from client_path import client_data  # noqa: E402
 DEFAULT_GAME = client_data('PersistentData', 'Bundles')  # SP_CLIENT / .env / .client (client_path.py); --game overrides
 SUB = 'chararts'
+FULL = 'full'  # the folder of the original-resolution copies, beside the 1024 ones
+
+
+def full_rel(rel):
+    """The original-resolution copy's path of a 立绘 path: `<dir>/full/<name>`."""
+    d, _, n = rel.rpartition('/')
+    return f'{d}/{FULL}/{n}' if d else f'{FULL}/{n}'
+
+
+def save_illust(img, out_root, rel, max_side, quality):
+    """Write a 立绘 as lossy WebP with alpha under out_root: `rel` with the long side ≤ max_side and, when the picture is
+    larger, `full_rel(rel)` at its own size (a stale copy there is removed otherwise, so the files and the entry agree).
+    Returns its entry { path, w, h, full?: { path, w, h } } (paths under /assets/local/)."""
+    from PIL import Image
+    out = Path(out_root) / rel
+    out.parent.mkdir(parents=True, exist_ok=True)
+    full = Path(out_root) / full_rel(rel)
+    big = {}
+    if max(img.size) > max_side:
+        full.parent.mkdir(parents=True, exist_ok=True)
+        img.save(full, 'WEBP', quality=quality, method=6, exact=False)
+        big = {'full': {'path': f'/assets/local/{full_rel(rel)}', 'w': img.width, 'h': img.height}}
+        scale = max_side / max(img.size)
+        img = img.resize((max(1, round(img.width * scale)), max(1, round(img.height * scale))), Image.LANCZOS)
+    else:
+        full.unlink(missing_ok=True)
+    img.save(out, 'WEBP', quality=quality, method=6, exact=False)
+    return {'path': f'/assets/local/{rel}', 'w': img.width, 'h': img.height, **big}
 
 
 def wanted_ids(root):
@@ -183,15 +218,14 @@ def export_art(ab, cid, out_dir, max_side, quality, log, elite=2, portraits=None
                 img, frame = got
                 used = 2
     w, h = img.size
-    scale = min(1.0, max_side / max(w, h))
-    if scale < 1:
-        img = img.resize((max(1, round(w * scale)), max(1, round(h * scale))), Image.LANCZOS)
-    out = out_dir / f'{cid}.webp'
-    img.save(out, 'WEBP', quality=quality, method=6, exact=False)
-    log(f'{cid}: E{used} {w}×{h} → {img.size[0]}×{img.size[1]} {out.stat().st_size // 1024} KB{"" if frame else " (no illust frame)"}')
-    entry = {'path': f'/assets/local/{SUB}/{cid}.webp', 'w': img.size[0], 'h': img.size[1], 'kind': 'Illust', 'elite': used}
+    saved = save_illust(img, out_dir.parent, f'{out_dir.name}/{cid}.webp', max_side, quality)
+    kb = sum((out_dir.parent / e['path'][len('/assets/local/'):]).stat().st_size for e in (saved, saved.get('full')) if e) // 1024
+    log(f'{cid}: E{used} {w}×{h} → {saved["w"]}×{saved["h"]}{" + full" if "full" in saved else ""} {kb} KB{"" if frame else " (no illust frame)"}')
+    entry = {'path': saved['path'], 'w': saved['w'], 'h': saved['h'], 'kind': 'Illust', 'elite': used}
     if frame:
         entry['frame'] = {k: round(v, 2) for k, v in frame.items()}
+    if 'full' in saved:
+        entry['full'] = saved['full']
     return entry
 
 
@@ -223,7 +257,7 @@ def main():
             continue
         if e:
             group[cid] = e
-            total += (out_dir / f'{cid}.webp').stat().st_size
+            total += sum((out_dir.parent / f['path'][len('/assets/local/'):]).stat().st_size for f in (e, e.get('full')) if f)
         else:
             print(f'skip (no {cid}_1 / _2 art) {cid}')
     # re-read right before writing (another extraction may have added groups meanwhile); with --id, keep the other arts

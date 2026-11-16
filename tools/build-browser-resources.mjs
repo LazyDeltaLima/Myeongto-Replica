@@ -4,11 +4,14 @@
 //
 // Built from the files actually on disk (run it after tools/fetch-assets.mjs / tools/local-extract), one entry per file,
 // and the skin models' and pictures' entries of local/spine/skin/models.json and art.json (below):
-//   { version, bytes, packs: { <pack>: [path prefix…] }, files: [{ p: '/assets/…' | '/img/emotes/…', s: bytes, h: sha256 hex, u?: upstream URL }] }
+//   { version, bytes, packs: { <pack>: [path prefix…] }, files: [{ p: '/assets/…' | '/img/emotes/…', s: bytes, h: sha256 hex, u?: upstream URL, r?: 'lo' | 'hi' }] }
 // `u` is the URL tools/fetch-assets.mjs downloaded the file from (.cache/assets-ledger.json). The browser fetches those
 // from jsDelivr / GitHub raw and keeps them only when size + hash match this file; a file the pipeline rewrote (spine
 // atlases, size changed) or made locally (assets/local: 3D board, emotes, UI sprites) has no `u` and comes from this
 // server. Nothing is downloaded here.
+// `r` marks the two copies of a 立绘 (tools/local-extract/chararts_extract.py save_illust, the operator art and the skin
+// art): a WebP `<dir>/full/<name>` (the original resolution) is 'hi' and the listed `<dir>/<name>` (the long side 1024)
+// 'lo'; a browser pre-downloads only its device's copy (public/js/illust-res.js, maintainer decision 2026-11-16).
 //
 //   node tools/build-browser-resources.mjs [--assets public/assets] [--verify N]
 //   --verify N  fetch N random upstream entries and compare their hashes (diagnostics; needs network)
@@ -105,6 +108,13 @@ for (const index of SKIN_REMOTE) {
     upstreamBytes += f.s;
     skinRemote[index]++;
   }
+}
+// the 立绘 pairs (above): only a copy whose 1024 twin is listed is a pair
+const byPath = new Map(files.map((f) => [f.p, f]));
+for (const f of files) {
+  const m = /^(.*)\/full\/([^/]+\.webp)$/.exec(f.p);
+  const lo = m && byPath.get(`${m[1]}/${m[2]}`);
+  if (lo) { f.r = 'hi'; lo.r = 'lo'; }
 }
 files.sort((a, b) => (a.p < b.p ? -1 : a.p > b.p ? 1 : 0));
 const bytes = files.reduce((n, f) => n + f.s, 0);

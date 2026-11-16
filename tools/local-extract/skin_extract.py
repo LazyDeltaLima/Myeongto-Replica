@@ -33,11 +33,15 @@ Output (under --out, public/assets/local by default):
   spine/skin/<owner>/<prefab>/avatar/<avatarId>.png      180×180, as the client has it
   spine/skin/<owner>/<prefab>/portrait/<portraitId>.png  180×360
   spine/skin/<owner>/<prefab>/illust/<illustId>.webp     the whole canvas, long side ≤ 1024, lossy q85 with alpha
+  spine/skin/<owner>/<prefab>/illust/full/<illustId>.webp  the same at the client texture's own size, when larger (a phone
+                                                         takes the first, other devices this one: chararts_extract.py
+                                                         save_illust, maintainer decision 2026-11-16)
   spine/skin/skins.json   { version, source, skins: { <skin key>: { owner, prefab, client, front, back?, tokens?,
                                                                     avatar?, portrait?, illust? } },
                             missing: { <skin key>: { owner, why } }, artMissing: { <skin key>: [kind…] } }
                           front / back = { skel, atlas, textures[], pma }; avatar / portrait = { path, w, h };
-                          illust = { path, w, h, frame: { x, y, w, h } } (frame = the illust RectTransform, as chararts)
+                          illust = { path, w, h, frame: { x, y, w, h }, full?: { path, w, h } } (frame = the illust
+                          RectTransform, as chararts, in frame units: the same for both copies)
 A skin whose model is missing gets no pictures either (the picker does not offer it).
 The index is a file of its own, not a data/local-assets.json group: that manifest goes to every page, the skins only to
 those who take the skin data. tools/build-browser-resources.mjs leaves the whole spine/skin/ folder out of the pre-download
@@ -71,7 +75,7 @@ ART_FIELDS = ('avatar', 'portrait', 'illust')
 # the skin record's picture id → (the client's name → path map, the sprite packs that hold them)
 PIC_KINDS = {'avatar': ('arts/charavatars/avatar_hub.ab', 'ui_char_avatar_*.ab'),
              'portrait': ('arts/charportraits/portraits_hub.ab', 'char_portrait_*.ab')}
-ILLUST_MAX, ILLUST_QUALITY = 1024, 85  # as chararts_extract.py
+ILLUST_MAX, ILLUST_QUALITY = 1024, 85  # as chararts_extract.py (save_illust writes the original-resolution copy too)
 
 
 def file_name(name):
@@ -344,17 +348,13 @@ def illust_picture(tree, objects):
 
 
 def save_picture(img, out_root, rel, kind):
-    """Write one picture under out_root; returns its entry ({path, w, h})."""
-    from PIL import Image
+    """Write one picture under out_root; returns its entry ({path, w, h}; a 立绘 also `full`, chararts_extract.save_illust)."""
+    if kind == 'illust':
+        import chararts_extract
+        return chararts_extract.save_illust(img, out_root, rel, ILLUST_MAX, ILLUST_QUALITY)
     out = Path(out_root) / rel
     out.parent.mkdir(parents=True, exist_ok=True)
-    if kind == 'illust':
-        scale = min(1.0, ILLUST_MAX / max(img.size))
-        if scale < 1:
-            img = img.resize((max(1, round(img.width * scale)), max(1, round(img.height * scale))), Image.LANCZOS)
-        img.save(out, 'WEBP', quality=ILLUST_QUALITY, method=6, exact=False)
-    else:
-        img.save(out, 'PNG', optimize=True)
+    img.save(out, 'PNG', optimize=True)
     return {'path': f'/assets/local/{rel}', 'w': img.width, 'h': img.height}
 
 
