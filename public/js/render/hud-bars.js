@@ -129,9 +129,12 @@ export const PREP_EQUIP = Object.freeze({ x: 14.75, y: 129.5, w: 92.5, h: 37.5, 
 /**
  * A hand token stack's count (`shop_hud` token_bg: token_cnt_bg 76×31 × 0.75 at (13, 29), where an operator's equip bar
  * sits; its token_cnt NotoSansHans-Medium 22 white, MiddleCenter, "X{0}"), root scale 1.25, in HUD units: plate centre
- * from hud_unit's centre, plate size, the text's height.
+ * from hud_unit's centre, plate size, the text's height. y: the prefab puts the plate in the chip's row (token_bg 29,
+ * chess_level_icon 28.2), so it keeps that 0.8 over PREP_CHIP.y, which the maintainer lowered from the prefab's 128 —
+ * at the prefab's (29 + 74.2) × 1.25 it stood 14 units over the chip (maintainer check 2026-11-16 against an official
+ * capture: 「X7」 level with the chip).
  */
-export const PREP_TOKEN = Object.freeze({ x: (13 - 1.2) * 1.25, y: (29 + 74.2) * 1.25, w: 76 * 0.75 * 1.25, h: 31 * 0.75 * 1.25, font: 22 * 0.75 * 1.25 });
+export const PREP_TOKEN = Object.freeze({ x: (13 - 1.2) * 1.25, y: PREP_CHIP.y + (29 - 28.2) * 1.25, w: 76 * 0.75 * 1.25, h: 31 * 0.75 * 1.25, font: 22 * 0.75 * 1.25 });
 
 /**
  * Redeploy countdown over a knocked-out operator (the dummy HUD's battle_state, root scale 1.25), in HUD units: centre

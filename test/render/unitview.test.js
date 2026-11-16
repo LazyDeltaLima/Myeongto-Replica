@@ -91,7 +91,9 @@ describe('tier chips', () => {
 describe('hand token stack count', () => {
   const token = (assets) => view({ kind: 'token', defId: 'token_10028_vigil_wolf', avatar: 'token_10028_vigil_wolf' }, { prep: true }, assets);
   test('on the official plate where an operator\'s equip bar sits: "X{n}" in Noto Sans SC 500, white, no outline', async () => {
-    const { PREP_TOKEN } = await import('../../public/js/render/hud-bars.js');
+    const { PREP_TOKEN, PREP_CHIP } = await import('../../public/js/render/hud-bars.js');
+    assert.ok(Math.abs(PREP_TOKEN.y - (PREP_CHIP.y + (29 - 28.2) * 1.25)) < 1e-9,
+      'the count plate stands in the tier chip\'s row (shop_hud token_bg 29 vs chess_level_icon 28.2), following PREP_CHIP.y — not at the prefab\'s own height, which the chip left (docs/rules/ui.md 「HUD 숫자 글꼴」 2026-11-16 ③)');
     const urls = [];
     const v = token({ ...store(), localUrl: (g, n) => { urls.push(`${g}/${n}`); return g === 'ui/battlecommon' && n === 'token_cnt_bg' ? '/l/token_cnt_bg.png' : null; } });
     v.setCount(3);
@@ -110,7 +112,7 @@ describe('hand token stack count', () => {
     const u = p.width / PREP_TOKEN.w;
     assert.ok(u > 0 && Math.abs(p.height - PREP_TOKEN.h * u) < 1e-9);
     assert.ok(Math.abs(p.position.x - v.screen.x - PREP_TOKEN.x * u) < 1e-6);
-    assert.ok(Math.abs(p.position.y - (v.screen.y - v.hudAnchor * u - PREP_TOKEN.y * u)) < 1e-6, 'the equip bar\'s place over hud_unit');
+    assert.ok(Math.abs(p.position.y - (v.screen.y - v.hudAnchor * u - PREP_TOKEN.y * u)) < 1e-6, 'the chip\'s row over hud_unit');
     assert.ok(v.countText.position.x === p.position.x && v.countText.position.y === p.position.y, 'centred on the plate');
     assert.ok(Math.abs(v.countText.scale.x - PREP_TOKEN.font * u / 22) < 1e-9, 'the prefab\'s 22 × 0.75 × 1.25');
     v.setCount(1);
