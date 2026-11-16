@@ -891,7 +891,7 @@
   폭발(`ashlok_attack_01_hit`·`ashlok_skill_02_hit`·`horn_attack_01_hit_02`·`horn_skill_02_hit_02`·`horn_skill_03_hit_02`)을 `_effectsWhenReached`에만 갖고
   `_effectsWhenHit`은 비어 있다(`_forceReachTargetGround` 1). 닿음 이펙트는 투사체가 닿은 자리에서 대상 생사와 무관하게 난다(`EffectBehaviour.OnProjectileReached`;
   명중 이펙트 `EffectBehaviour.OnHitTarget`만 살아 있는 대상에). 다른 확산 투사체는 다르다 — 그레이(格雷伊) `projectile_greyy`는 `_effectsWhenHit`뿐이라 공식도
-  죽은 대상에는 안 튼다. 그래서 포트리스 분과(`subProfessionId` `fortress`)에만 적용.
+  죽은 대상에는 안 튼다. 그래서 포트리스 분과(`subProfessionId` `fortress`)에만 적용(2026-11-16부터 분과가 아니라 투사체 자료 `ground` — 아래 「어느 투사체가 그런가」).
 - **고친 것**: `fxgame.js reachFx` — 포트리스의 원거리 샷('atk' 종류가 `none`이 아님: 저지 중 근접은 해당 없음)은 sim 비행 시간(거리 ÷ `shot` 속도) 뒤, 대상이 그새
   죽었고 그 대상에 아직 타격이 안 났으면 모드의 원거리 타격 목록을 대상이 있던 지면 자리에 튼다. 살아 있는 대상은 전처럼 'dmg' 때 그 대상에. 테스트
   `test/render/fortress-reach-fx.test.js`(고치기 전 렌더면 도중 사망 두 건 실패 확인). fx 골든은 그대로.
@@ -902,8 +902,21 @@
   높이(쏠 때 `m_targetGroundPosZ`)인 고정 위치로 만들고, 다섯 폭발의 `_spawnLocation` 5 GROUND_CENTER는 그 x·y 밑 칸 높이를 쓴다. 명중점은 모델 면 위라
   뿌리보다 (그려진 높이)·cos 30° 뒤 줄에 있어(`fxpoints.js onModelPlane`), 폭발도 발밑이 아니라 그만큼 뒤 땅에 선다(점 표 없는 적: 그려진 키의 절반
   → 약 0.5칸 뒤). 우리는 살아 있는 대상이면 대상 발밑(GROUND_CENTER를 대상에), 죽은 대상이면 그 뿌리 자리에 틀었다 → `fxgame.js shellLand`(꼬리 끝의 x·y,
-  대상이 선 높이)로 둘 다. 대상을 따라가지도 않는다(고정 위치). 다른 투사체의 `_forceReachTargetGround`는 아직 안 봄 → bundles fx-Y.
-  재발 방지: `test/render/fortress-reach-fx.test.js` 「the blast stands behind the feet」. [화면 미확인: 혼·애쉬락 폭발이 적 발밑보다 조금 뒤(위)에]
+  대상이 선 높이)로 둘 다. 대상을 따라가지도 않는다(고정 위치). [화면 미확인: 혼·애쉬락 폭발이 적 발밑보다 조금 뒤(위)에]
+- **어느 투사체가 그런가는 투사체 자료로**(2026-11-16, 프리팹 원본 값 + 위 공식 클라 확인): 포트리스만이 아니다 — EN `[uc]projectiles.ab`에서
+  EffectBehaviour의 `_forceReachTargetGround` 또는 `_followTargetGround`가 1인 투사체가 71개(포트리스 다섯과 `_logic`·혼 S2 `_full*` 말고도 그레이 더
+  라이트닝베어러·치우바이·리드 더 플레임 섀도우·위셔델, `projectile_chr_palico*`·`projectile_chr_firwhl*`, 적·장치). 렌더는 포트리스 분과(`subProfessionId` `fortress`)로 갈랐었다 →
+  `enemy_projectiles.py reach_ground`(op_projectiles.py가 같이 씀)·`enemy_bindings.py`가 그 플래그가 켜진 EffectBehaviour의 `_effectsWhenReached` 이름을
+  `ground`로 읽고(플래그가 없는 EffectBehaviour면 멈춤; `_effectsWhenHit`이 없는 HarpoonRenderer 따위는 건너뜀), data/chess.json·enemies.json `shot`·`proj`와
+  적 바인딩 투사체(`enemy-modes.json` `proj.ground`)에 실린다. 지금 판에 실리는 것: 애쉬락 Default·S2, 혼 Default·S2·S3, 그레이 더 라이트닝베어러 S2
+  `greyy2_skill_02_range`(규정 시즌), 적 '펑취안'·'치훙' `projectile_enemy_sfhu`, '고정밀 런디니움 방위군 자주포' `projectile_enemy_stmgun_s`, '살카즈 왕정군
+  정예 캐스터' `projectile_enemy_dwlock_charge`. 위셔델·그레이 더 라이트닝베어러 일반 공격은 플래그는 1이나 닿음 이펙트가 비어 있어 없음.
+  렌더: `fxgame.js shellGround`(= `fx/projectiles.js shotGroundOf`, 'atk' 때 그 샷의 `ground`를 공격 기록에)로 — `attackHit`은 타격 이름 가운데 `ground`인
+  것만 `shellLand`에, 나머지(`_effectsWhenHit`)는 대상에; `reachFx`(대상이 날아가는 도중 죽음)는 `ground`인 것만. 적은 `ehitFx`가 나는 투사체(`move`가
+  있음)의 `ground` 이름을 `shellLand`에 — AttachToTarget인 자주포·정예 캐스터 것은 `_attachToMountPoint` 0이라 대상 자리 그대로(대상에). 그레이 더
+  라이트닝베어러 S2의 장판은 `zoneFx` 길이라 아직 시뮬레이션 자리 → bundles fx-Y. 적의 대상이 날아가는 도중 죽은 경우는 이 줄 밖(전과 같음).
+  재발 방지: 원인 제거 — 추출기가 `ground`를 읽고 렌더가 그것만 봄; `test/render/fortress-reach-fx.test.js` 「the blast stands behind the feet」·
+  `test/render/shell-ground-fx.test.js`(분과가 아니라 자료, 적 '펑취안'). [화면 미확인: '펑취안' 포탄 폭발이 오퍼레이터 발밑보다 조금 뒤에]
 - 같은 날 확인: 혼 S1의 'zone'(조명탄)과 S2 과부하의 확산 마법 피해는 주 대상이 날아가는 도중에 죽어도 난다 — S1은 키트 `attack.onHit`이 대상 없이도
   떨어진 자리로 불려 'zone'을 보내고(`ai.js resolveHit`), S2 과부하는 맞은 적마다(`onEachHit`) 확산 피해자에게 난다(공식 `_conditionalActions`도 맞은
   적마다). 렌더는 'zone'·그 순간대로 튼다. (2026-11-16: S2 과부하의 닿음 이펙트는 맞은 적마다가 아니다 → 아래 「혼 S2 과부하의 닿음 이펙트」)

@@ -114,6 +114,19 @@ export function flightSink(rec, prev = 0) {
   return Math.min(prev, rec.z0 ?? 0, rec.tz ?? 0, rec.tgt?.z ?? 0);
 }
 
+/**
+ * 2026-11-16 (official client — EffectBehaviour.OnProjectileReached): the reach effects of the projectile an operator's shot
+ * flies now that are made on the ground under it where it reached (opShot `ground`: an EffectBehaviour with
+ * `_forceReachTargetGround` / `_followTargetGround`, tools/local-extract/enemy_projectiles.py reach_ground — 灰毫's and 号角's
+ * shells), or null.
+ */
+export function shotGroundOf(ctx, src) {
+  let def;
+  try { def = ctx?.lookupDef?.(src.info) ?? null; } catch { def = null; }
+  const p = opShot(def, !!src._fxSkillOn, Number.isInteger(src.info?.skillIndex) ? src.info.skillIndex : 0);
+  return Array.isArray(p?.ground) && p.ground.length ? p.ground : null;
+}
+
 /** 2026-10-24: the key of the projectile an operator's shot flies now (opShot `key`), or null. */
 export function shotKeyOf(ctx, src) {
   let def;

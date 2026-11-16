@@ -81,7 +81,7 @@ import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: a
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
 import { shotOf, MAX_SLOWED } from './fx/shotslow.js';
-import { shotSpeedOf, shotLobOf, lobOf, shotKeyOf, lobZ, flightSink } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`); 2026-10-27 its key (bodyTurn)
+import { shotSpeedOf, shotLobOf, lobOf, shotKeyOf, shotGroundOf, lobZ, flightSink } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`); 2026-10-27 its key (bodyTurn)
 import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot record (skillShotOut)
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
@@ -4606,12 +4606,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // splash there (ai.js `hitDead`). The blast played at the target's 'dmg' (attackHit), so a target that died in flight left
   // the shell to vanish without it. Other splash shots keep that path: their hits are `_effectsWhenHit` (格雷伊 projectile_greyy),
   // which the client plays on a live target only.
-  /** Whether an attack of kind `kind` by `src` on `tgt` is a 要塞's flying shell (not its melee blow at a blocked enemy). */
-  function fortressShell(src, tgt, kind) {
-    if (!src || !tgt || tgt.info?.side !== 'enemy' || !PROJ[kind] || kind === 'boomerang') return false;
-    let def;
-    try { def = unitDef(src.info) ?? null; } catch { def = null; }
-    return def?.subProfessionId === 'fortress';
+  // 2026-11-16: which shells do so is the projectile's own data, not the 要塞 sub-profession — its shot record's `ground`
+  // (shotGroundOf: the `_effectsWhenReached` of an EffectBehaviour with `_forceReachTargetGround` / `_followTargetGround`,
+  // tools/local-extract/enemy_projectiles.py reach_ground), the names among its hits that land on the ground.
+  /** The reach effects of `src`'s flying shot of kind `kind` at `tgt` (not a blow at an enemy it blocks) made on the ground, or null. */
+  function shellGround(src, tgt, kind) {
+    if (!src || !tgt || !PROJ[kind] || kind === 'boomerang') return null;
+    return shotGroundOf({ lookupDef: unitDef }, src);
   }
   // 2026-11-16 (official client — EffectBehaviour.OnProjectileReached with `_forceReachTargetGround`, Effect._InitLocation):
   // the shell flies to its target's hit mount point (BasicMovement.OnInit: the target ILocatable's mapPositionV3 — shotTo
@@ -4619,17 +4620,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // ground (the target's `m_targetGroundPosZ`; GROUND_CENTER, these blasts' `_spawnLocation`, takes the tile's height under
   // it). The hit point stands h cos 30° rows behind the root on the model's plane (fxpoints.js onModelPlane), so the blast
   // sits that far behind the target's feet — not at the feet, where both of these paths put it before.
-  /** Where a 要塞 shell aimed at unit `tgt` lands: under its trail's end, on the ground the target stands on. */
+  /** Where a shell aimed at unit `tgt` makes its ground reach effects: under its trail's end, on the ground the target stands on. */
   function shellLand(tgt) {
     const p = shotTo(tgt);
     return { x: p.x, y: p.y, z: tgt.z || 0 };
   }
   /**
-   * The shot ('atk' of kind `kind` on `tgt`, its record `a` on lastAtk) of a 要塞 `src`: at its flight's end, its hits on the
-   * ground where `tgt` was when `tgt` died in flight and nothing played them on it meanwhile.
+   * The shot ('atk' of kind `kind` on `tgt`, its record `a` on lastAtk — `ground` from its 'atk') of `src`: at its flight's
+   * end, its ground reach effects where `tgt` was when `tgt` died in flight and nothing played them on it meanwhile.
    */
   function reachFx(src, tgt, kind, a) {
-    if (!a || !fortressShell(src, tgt, kind)) return;
+    if (!a?.ground) return;
     const dist = Math.hypot(tgt.x - src.x, tgt.y - src.y);
     const v = shotSpeedOf({ lookupDef: unitDef }, src, tgt, dist);
     if (v === 0) return;
@@ -4637,7 +4638,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     castsDelayed.push({ t: clockS + Math.max(0.04, dist / (v || projSpeed(kind))), run: () => {
       if (tgt.alive !== false && !tgt.remove && !gone.has(tid)) return;   // a live target: its 'dmg' plays them
       if ((lastHit.get(key) ?? -9) >= a.t) return;   // already played on it (the shell that killed it)
-      attackHit(a, shellLand(tgt), tid, lastAtk);
+      attackHit(a, tgt, tid, lastAtk, null, true);
     } });
   }
   /**
@@ -5031,7 +5032,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * boundFor; a skill's shot: its projectile's, takeShot), else the name-mapped hit. One impact per attack: the record leaves
    * `map` (a mark's / DoT's later ticks are no attack's hit; audio.js does the same).
    */
-  function attackHit(a, tgt, tid, map, strike = null) {
+  function attackHit(a, tgt, tid, map, strike = null, landed = false) {
     const key = `${a.src.id ?? a.src.info?.id}:${tid}`;
     const sg = strikeGroups(a.src, a.mode, a.shot);
     const again = !!sg && (a.hitT === clockS || (strike != null && strike > (a.n ?? -1))); // a later strike of the same attack (strikeGroups)
@@ -5050,8 +5051,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const c = a.src._fxCast?.mode === a.mode ? a.src._fxCast : null; // 2026-10-11: its cast (clip group, loop end, speed)
     const all = withGroup(hitList, c?.group?.hit);
     const hits = all.filter((n) => !swingTarget(a.src, a.mode, n) && !shotHit(a.src, a.mode, n)).slice(0, MAX_HIT_FX);
-    // a 要塞 shell's blast where it lands (shellLand), not on the target; reachFx already hands a dead target's spot
-    if (hits.length) { hitFx(a.src, tgt?.info && fortressShell(a.src, tgt, a.kind) ? shellLand(tgt) : tgt, hits, c); return; }
+    // (2026-11-16) the shell's reach effects made on the ground (its 'atk' record's `ground`: shellGround) where it lands
+    // (shellLand), its other hits on the target; at the flight's end of a target that died in flight (reachFx: `landed`)
+    // only the ground ones — the others are `_effectsWhenHit`, which the client plays on a live target only
+    const g = Array.isArray(a.ground) && tgt?.info ? a.ground : null;
+    if (hits.length) {
+      const land = g ? hits.filter((n) => g.includes(n)) : [];
+      const on = landed ? [] : g ? hits.filter((n) => !g.includes(n)) : hits;
+      if (land.length) hitFx(a.src, shellLand(tgt), land, c);
+      if (on.length) hitFx(a.src, tgt, on, c);
+      return;
+    }
+    if (landed) return;
     if (all.some((n) => shotHit(a.src, a.mode, n))) return;   // its hits started at the shot (shotHitFx)
     if (split || bound(a.src, a.mode, 'input').length) return; // its hits are its input-target effects (inputFx), not a name-mapped one
     // (2026-11-12) a mode the form holds is the client's own reading (FORM_HELD_MODES): its hits are its bindings' and its kit's
@@ -6154,7 +6165,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /** An attack's / skill's effects on a unit its damage hit: its hit list + its projectile's hit / reach, ≤ MAX_HIT_FX. */
   function ehitFx(src, part, tgt, noProj = false) {
     const pr = noProj ? {} : part.proj || {};
-    const names = [...new Set([...(part.hit || []), ...(pr.hit || []), ...(pr.reached || [])])].filter((n) => efx(n)).slice(0, MAX_HIT_FX);
+    let names = [...new Set([...(part.hit || []), ...(pr.hit || []), ...(pr.reached || [])])].filter((n) => efx(n)).slice(0, MAX_HIT_FX);
+    // (2026-11-16, official client — EffectBehaviour.OnProjectileReached) a flying projectile's reach effects made on the ground
+    // where it reached (enemy-modes.json proj.ground: `_forceReachTargetGround`, 烹泉's shell) stand under its end (shellLand), not
+    // on the target; an AttachToTarget one (no `move`: 高准度伦蒂尼姆城防自行炮's, 萨卡兹王庭军精锐术师's — `_attachToMountPoint` 0) sits on
+    // its target's spot already
+    const ground = pr.move && Array.isArray(pr.ground) ? names.filter((n) => pr.ground.includes(n)) : [];
+    if (ground.length) { eplay(src, edirs(src, part, ground), { at: shellLand(tgt) }); names = names.filter((n) => !ground.includes(n)); }
     const aim = new Set(part.aim || []);
     const plain = edirs(src, part, names.filter((n) => !aim.has(n)));
     if (plain.length) eplay(src, plain, { at: tgt });
@@ -7477,6 +7494,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot, combat: !!src._fxCombat, sig });
           // 2026-11-16: a kit plan's skillFlag 'shellReach' held as it fires — its 'shellReach' plan at the hit (shellReachFx)
           if (tgt && src._fxSkillFlags?.has('shellReach')) lastAtk.get(tgt.id ?? tgt.info?.id).reach = true;
+          // 2026-11-16: the reach effects the shell it fires now makes on the ground where it lands (shellGround, attackHit)
+          const ground = shellGround(src, tgt, e[3]);
+          if (ground) lastAtk.get(tgt.id ?? tgt.info?.id).ground = ground;
           if (tgt) {
             ownAtk.set(`${src.id ?? src.info?.id}:${tgt.id ?? tgt.info?.id}`, lastAtk.get(tgt.id ?? tgt.info?.id));
             if (ownAtk.size > 512) for (const [k, x] of ownAtk) if (clockS - x.t > 2.5) ownAtk.delete(k);
@@ -7493,7 +7513,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // throttle (ATTACK_GAP_S) skips them (beginCast)
           strikeFx(src, mode, e[3], tgt, sig);
           shotHitFx(src, mode, e[3], tgt);   // 2026-10-31: the hits that start at the shot
-          reachFx(src, tgt, e[3], tgt && lastAtk.get(tgt.id ?? tgt.info?.id));   // 2026-11-01: a 要塞 shell's blast where it lands
+          reachFx(src, tgt, e[3], tgt && lastAtk.get(tgt.id ?? tgt.info?.id));   // 2026-11-01: a shell's ground reach effects where it lands
           svashBird(src, tgt);   // 2026-10-21: 凛御银灰 S3's eagle
           chargeRelease(src);    // 2026-10-21: a 秘术师's stored energies leave with it
           if (part !== 'body') droneShot(src, tgt, mode, lockByFx(src) ? 'free' : null);   // 2026-10-16: its drones (2026-10-21: the locks by 'drone')

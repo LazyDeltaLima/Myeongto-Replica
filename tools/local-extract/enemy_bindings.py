@@ -48,6 +48,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from client_path import client_data  # noqa: E402
 from char_modes import load_tree  # noqa: E402
+from enemy_projectiles import reach_ground  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-enemy-bindings.json'
@@ -708,6 +709,11 @@ def proj_record(key, roots):
         for k in ('_projectileKey', '_subProjectileKey', '_childProjectileKey'):
             if isinstance(d.get(k), str) and d[k]:
                 r.setdefault('sub', []).append(d[k])
+    # (2026-11-16) its reach effects made on the ground under it where it reached (`_forceReachTargetGround` /
+    # `_followTargetGround`: render/fxgame.js shellLand)
+    ground = reach_ground([d for _gp, d in roots[key]])
+    if ground:
+        r['ground'] = ground
     return r
 
 
@@ -819,7 +825,7 @@ def emit_part(abilities, projs):
                 for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart', 'stop'):
                     if pr.get(f):
                         proj[f] = pr[f]
-                for f in ('move', 'speed', 'raise', 'noRaise', 'link', 'fallingTime', 'onSrc', 'rope', 'hook'):
+                for f in ('move', 'speed', 'raise', 'noRaise', 'link', 'fallingTime', 'onSrc', 'rope', 'hook', 'ground'):
                     if f in pr:
                         proj[f] = pr[f]
                 # 2026-10-10: the sub-projectiles it places (`_subProjectileKey` …: 萨米的意志's 冰凌 projectile_enemy_smdeer leaves a

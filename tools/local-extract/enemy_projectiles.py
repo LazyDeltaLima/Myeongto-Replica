@@ -27,6 +27,11 @@ classes, namespace Torappu.Battle.Projectiles):
                      the client's Projectile._DealHitTraceTarget: while it lives) — else only the enemies in its collider
   none               a projectile with no movement behaviour (an area / effect carrier at its target) → move NONE
 
+and its EffectBehaviour's `_effectsWhenReached` made on the ground under it where it reached — `_forceReachTargetGround` or
+`_followTargetGround` (the client's EffectBehaviour.OnProjectileReached: a fixed position at the projectile's own board x, y
+and its target's ground height; without them they are made on the projectile, or on its trace target) → `ground` [names]
+(render/fxgame.js shellLand: 灰毫's and 号角's blasts, 烹泉's and 自制投石机's shells …; reach_ground).
+
 The sim (server/sim/ai.js enemyAttack, content kits) times the hit of an enemy's shot by these numbers; the renderer and
 the sound plan bind the projectile key. Writes tools/assets/local-enemy-projectiles.json, which tools/build-data.mjs
 folds into data/enemies.json (`proj`, `skills[i].proj`, `talentProj`):
@@ -119,6 +124,24 @@ def movement(d):
     return None
 
 
+def reach_ground(ds):
+    """The `_effectsWhenReached` names of the EffectBehaviours among `ds` (a projectile prefab's behaviours) that are made on
+    the ground under the projectile where it reached (`_forceReachTargetGround` or `_followTargetGround`), in order; [] for
+    none. A behaviour with `_effectsWhenReached` but no `_effectsWhenHit` is no EffectBehaviour (a HarpoonRenderer's) and is
+    skipped; an EffectBehaviour without both flags stops the run (a field this reader does not know)."""
+    out = []
+    for d in ds:
+        if '_effectsWhenReached' not in d or '_effectsWhenHit' not in d:
+            continue
+        flags = (d.get('_forceReachTargetGround'), d.get('_followTargetGround'))
+        names = d['_effectsWhenReached']
+        if not all(isinstance(v, int) for v in flags) or not isinstance(names, list):
+            raise SystemExit(f'an EffectBehaviour without `_forceReachTargetGround` / `_followTargetGround` / a `_effectsWhenReached` list: {sorted(d)}')
+        if any(flags):
+            out += [n for n in names if isinstance(n, str) and n and n not in out]
+    return out
+
+
 def projectiles(C):
     """{key: record} of every projectile prefab (PersistentData first)."""
     roots = {}
@@ -173,6 +196,9 @@ def projectiles(C):
         land = attach_land([d for gp, d in lst if gp == key])
         if land is not None:
             r['land'] = land
+        ground = reach_ground([d for gp, d in lst if gp == key])
+        if ground:
+            r['ground'] = ground
         if r['move'] == 'ATTACH' and any(d.get('_alwaysHitTraceTargetInTheEnd') or d.get('_alwaysHitTraceTargetWhenReached')
                                          for gp, d in lst if gp == key):
             r['trace'] = 1
