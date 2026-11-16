@@ -914,7 +914,14 @@
   렌더: `fxgame.js shellGround`(= `fx/projectiles.js shotGroundOf`, 'atk' 때 그 샷의 `ground`를 공격 기록에)로 — `attackHit`은 타격 이름 가운데 `ground`인
   것만 `shellLand`에, 나머지(`_effectsWhenHit`)는 대상에; `reachFx`(대상이 날아가는 도중 죽음)는 `ground`인 것만. 적은 `ehitFx`가 나는 투사체(`move`가
   있음)의 `ground` 이름을 `shellLand`에 — AttachToTarget인 자주포·정예 캐스터 것은 `_attachToMountPoint` 0이라 대상 자리 그대로(대상에). 그레이 더
-  라이트닝베어러 S2의 장판은 `zoneFx` 길이라 아직 시뮬레이션 자리 → bundles fx-Y. 적의 대상이 날아가는 도중 죽은 경우는 이 줄 밖(전과 같음).
+  라이트닝베어러 S2의 장판(2026-11-16, 공식 클라에서 확인 — `RangedAttack.GetTargetLocatable`, `BasicMovement.OnInit`·`GetTraceTargetMapPosition`; 프리팹 원본
+  값): `skchr_greyy2_2`의 능력이 `_projectileDestination` 0으로 `projectile_chr_greyy2_s2`를 대상의 명중 마운트 점에 쏘고, 그 TRACE_TARGET_WITH_SPEED
+  이동(`_moveType` 1)은 닿을 때까지 그 점(`m_targetMountPoint`)을 따라간다. `_forceReachTargetGround`·`_followTargetGround`가 1이라 장판
+  `greyy2_skill_02_range`(`_spawnLocation` 5)는 공 끝의 x·y 밑, 대상이 선 땅에 선다(`_followTargetGround`라 땅 높이도 닿을 때의 것). 우리는 키트의
+  'zone'이 대상이 아니라 친 순간의 대상 뿌리 자리를 보내서 `zoneFx`가 공을 그 땅 점 {x, y, 0}으로 날리고 장판도 거기 두었다 → `fxgame.js
+  groundZoneTarget`: 스킬 샷의 `ground`가 장판 이름을 가지면 그 자리 1칸 안 가장 가까운 지상 적을 대상으로, `skillShotOut`이 그 적을 따라 날고
+  닿을 때 `shellLand(대상)`에 장판. 그 자리에 적이 없으면 전처럼 시뮬레이션 자리. 재발 방지: `test/render/greyy2-orb-fx.test.js`.
+  [화면 미확인: 그레이 더 라이트닝베어러 S2 공이 적 몸으로 날아가고 장판이 적 발밑보다 조금 뒤에] 적의 대상이 날아가는 도중 죽은 경우는 이 줄 밖(전과 같음).
   재발 방지: 원인 제거 — 추출기가 `ground`를 읽고 렌더가 그것만 봄; `test/render/fortress-reach-fx.test.js` 「the blast stands behind the feet」·
   `test/render/shell-ground-fx.test.js`(분과가 아니라 자료, 적 '펑취안'). [화면 미확인: '펑취안' 포탄 폭발이 오퍼레이터 발밑보다 조금 뒤에]
 - 같은 날 확인: 혼 S1의 'zone'(조명탄)과 S2 과부하의 확산 마법 피해는 주 대상이 날아가는 도중에 죽어도 난다 — S1은 키트 `attack.onHit`이 대상 없이도

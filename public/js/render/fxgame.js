@@ -4885,6 +4885,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const t = a.tgt;
     return Number.isFinite(Number(t?.x)) && Math.hypot(Number(t.x) - x, Number(t.y) - y) < 1 ? t : null;
   }
+  // 2026-11-16 (official client — RangedAttack `_projectileDestination` 0, BasicMovement.OnInit / GetTraceTargetMapPosition,
+  // EffectBehaviour.OnProjectileReached with `_followTargetGround`): 그레이 더 라이트닝베어러 S2's orb (projectile_chr_greyy2_s2,
+  // TRACE_TARGET_WITH_SPEED) traces its target's hit mount point, and its reach effect greyy2_skill_02_range (`_spawnLocation`
+  // 5) is made at the orb's board x, y where it reached, on the ground its target stands on — shellLand, as a shell's blast.
+  // The kit's 'zone' names the spot of its strike (the target's root then), not the target: the enemy standing there.
+  /** The ground enemy within 1 tile of (x, y) a zone of `src` is thrown at, when its skill's shot makes the zone's `fx` on the ground (opShot `ground`), else null. */
+  function groundZoneTarget(src, x, y, fx, views) {
+    let def;
+    try { def = unitDef(src.info) ?? null; } catch { def = null; }
+    const g = opShot(def, true, skillIdx(src))?.ground;
+    if (!Array.isArray(g) || !fx.some((n) => g.includes(n))) return null;
+    let best = null, bd = 1;
+    for (const v of views.values()) {
+      if (v?.info?.side !== 'enemy' || v.info.motion === 'FLY' || v.alive === false || v.remove) continue;
+      const d = Math.hypot(Number(v.x) - x, Number(v.y) - y);
+      if (d < bd) { bd = d; best = v; }
+    }
+    return best;
+  }
   function zoneFx(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object' || failed) return false;
@@ -4910,14 +4929,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     // 2026-11-16 (official client): a zone an attack's shot carried (号角 S1's flare) stands where that shot ended (shotAimOf)
     const aim = shotAimOf(src, x, y);
+    // 2026-11-16 (official client): one its skill's shot makes on the ground stands under where the shot reached (groundZoneTarget)
+    const foe = aim ? null : groundZoneTarget(src, x, y, fx, views);
     const at = aim ? shotTo(aim) : { x, y, z: 0 };
     const floor = aim ? Number(aim.z) || 0 : null;
     const nrec = { at, onProj: !!z.onProj, vx: 0, vy: 0, sx: x, sy: y, st: clockS, until, r0: r, list: [], aura: new Set() };
     if (k) zones.set(k, nrec);
     const bundle = bundleOf(src).bundle;
     const put = () => {
+      if (foe) nrec.at = shellLand(foe);   // as it lands: the orb traced the target there
       for (const n of [...fx, ...aura]) {
-        spawn(bundle, n, at, { owner: null, buff: false, until: nrec.until }, { over: false, floor }).then((l) => {
+        spawn(bundle, n, nrec.at, { owner: null, buff: false, until: nrec.until }, { over: false, floor }).then((l) => {
           if (!l) return;
           nrec.list.push(l);
           if (aura.includes(n)) nrec.aura.add(l);
@@ -4928,7 +4950,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // 2026-10-21: a skill without an attack in its window (锡人, 波登可 S2, 引星棘刺) throws its projectile here first — the reach
     // effects play as it lands (OnProjectileReached); one that an attack already carried (号角 S1: takeShot) does not fly again
     const s = src._fxShot;
-    const fly = !aim && s && (s.t == null || s.t === clockS) ? skillShotOut(src, { x, y, z: 0 }) : -1;
+    const fly = !aim && s && (s.t == null || s.t === clockS) ? skillShotOut(src, foe ?? { x, y, z: 0 }) : -1;
     if (fly >= 0) { s.t = clockS; castsDelayed.push({ t: clockS + fly, run: put }); } else put();
     return true;
   }
