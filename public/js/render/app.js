@@ -133,6 +133,7 @@ import { Camera, presetCamera, lerpCamera, flyRig, easeInOutCubic, easeOutQuart,
 import { SnapshotBuffer, frameTime } from './interp.js';
 import { TileField } from './tiles.js';
 import { UnitView, ItemView, DeviceView, FORMS, SKIN_FORMS, syncView, refreshCountTexts } from './units.js';
+import { HOME_MARK } from './home-mark.js';
 import { createInfectionMarks, createInfectionTouches } from './infectionMark.js'; // local patch: the red 「!!!」 over units on 活性源石
 import { FxSystem, ensureDamageFonts } from './fx.js';
 import { createDragController, pieceTile, dragStandTile } from './drag.js';
@@ -373,6 +374,7 @@ export async function createFieldView(host, options = {}) {
   let dragState = null;       // { uid, key, view, from, home: {x,y,z} }
   const pending = new Map();  // key → { t, home } dropped pieces awaiting the server
   const held = new Map();     // uid → world { x, y, z }: prep pieces pinned to a tile by the direction step (holdPiece)
+  const overlaps = new Map(); // uid of a held piece → the view key of the piece it stands over, greyed (holdPiece)
   let hoverUnit = null;
   let frameMs = 16, fps = 60, lastNow = performance.now();
   const layerPops = new Map();
@@ -1204,6 +1206,7 @@ export async function createFieldView(host, options = {}) {
   function enterPrepMode() {
     mode = 'prep';
     held.clear();
+    overlaps.clear();
     clearViews();
     skinGate.scene(); // the skins of this prep are judged by the cache and the setting as they are now
     infos.clear();
@@ -1403,6 +1406,15 @@ export async function createFieldView(host, options = {}) {
     if (held.has(uid) || (dragState && dragState.uid === uid)) return;
     const v = views.get('p:' + uid);
     if (v && typeof v.clearHome === 'function') v.clearHome();
+  }
+
+  /** Give the piece a held one stood over (holdPiece) its colour back: the client's `_RevertBattleOverlap`. */
+  function unOverlap(uid) {
+    const k = overlaps.get(uid);
+    if (k == null) return;
+    overlaps.delete(uid);
+    const v = views.get(k);
+    if (v && typeof v.setOverlap === 'function') v.setOverlap(false);
   }
 
   /** Group key of a highlight request (render/tiles.js setHighlights rule). */
@@ -2783,6 +2795,7 @@ export async function createFieldView(host, options = {}) {
     prepField() { return { kind: prepXf.kind, side: prepXf.side, mirror: prepXf.mirror }; },
     holdPiece(uid, tile) {
       if (destroyed || !Number.isInteger(uid)) return false;
+      unOverlap(uid);
       if (!tile || !Number.isInteger(tile.row) || !Number.isInteger(tile.col)) {
         held.delete(uid);
         releaseHome(uid);
@@ -2790,6 +2803,16 @@ export async function createFieldView(host, options = {}) {
         return true;
       }
       const w = boardWorld(tile.row, tile.col);
+      // another piece on that battle tile (a swap): it is greyed and the held one stands raised over it (the client's
+      // `_TryMoveToNextState` / `_DoBattleOverlap`, docs/rules/ui.md 「배치 UI」); the piece's own tile holds nobody
+      // else (the drag took it off its tile: AutoChessDummyManager.MarkLeaving)
+      const under = prepPieces.find((e) => e.area === 'board' && e.uid !== uid && e.row === tile.row && e.col === tile.col);
+      const uv = under ? views.get(under.key) : null;
+      if (uv && typeof uv.setOverlap === 'function') {
+        w.z += HOME_MARK.overlapLift;
+        uv.setOverlap(true);
+        overlaps.set(uid, under.key);
+      }
       held.set(uid, w);
       const key = 'p:' + uid;
       const v = views.get(key);

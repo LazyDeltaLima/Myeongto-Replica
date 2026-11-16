@@ -443,9 +443,16 @@
   (`pieceDragEnd` 뒤, 방향 휠이 잡지 않았을 때), 방향을 고르거나 취소하면(`holdPiece(uid, null)`) 지운다.
   외곽선 값: 이 모드의 설정(`AutoChessGameMode.OUTLINE_CONFIG`)은 크기 0.04·색 `#00928388`·8방향이고 셰이더는 `Spine-Skeleton-BattleOutline`인데,
   셰이더의 섞기와 크기 단위는 안 읽었다 [추정·화면: 공식 영상 캡처에서 잼] — 색은 손 칸 장비 고리와 같은 `COLORS.heldOutline`(캡처 외곽선 ≈ 70–100,220–245,190–220),
-  두께는 같은 약 1/64칸(캡처 칸 약 170 px에 2–3 px). 원래 자리 표시에는 그림자·티어 칩·막대가 없다. 아직 안 따른 공식 동작: 공식은 티어 칩·막대가 원래 자리에 남고 더미에는 없다(캡처; 우리는 끄는 뷰를
-  따라감), 놓을 전장 칸에 다른 캐릭터가 있으면 그 캐릭터도 `_overlapColor`로 어두워지고(`_DoBattleOverlap`, 외곽선 없음) 더미는 `_overlapOffset`(0, 0, −0.45)만큼
-  비켜 선다, 손 칸 장비도 같은 길이라 회색이 곱해져야 한다(우리 장비는 외곽선만).
+  두께는 같은 약 1/64칸(캡처 칸 약 170 px에 2–3 px). 원래 자리 표시에는 그림자가 없다(`MarkLeaving`이 그림자와 방향 표시를 끈다, 공식 클라에서 확인).
+  - 정비 HUD(티어 칩·장비 막대·소환물 개수·엘리트 표시)는 원래 자리에 남고 끄는 더미에는 없다(2026-11-16 공식 캡처): 표시가 서 있는 동안 `UnitView`가 HUD를
+    원래 자리(`_homeAt`, 끌기 들림 뺀 자리)에 그린다(`update` → `_updateHud`의 `at`). 표시가 지워지면 다시 뷰를 따라간다.
+  - 다른 캐릭터가 선 전장 칸에 놓아 방향을 고를 때(맞바꾸기, 공식 클라에서 확인 — `_TryMoveToNextState`): 놓을 칸의 캐릭터(`AutoChessDummyManager.GetCharacter`)가
+    있고 전장 칸이면 더미를 칸 자리 + `_overlapOffset`(0, 0, −0.45)에 세운다 — 전투 좌표계의 z는 −높이라 0.45칸 **위로** 띄운다. 시작 칸 ≠ 놓을 칸이면
+    그 캐릭터의 몸 색에 `_overlapColor`를 곱한다(`_DoBattleOverlap`, 외곽선 없음), 상태를 나갈 때 `_RevertBattleOverlap`이 되돌린다. `MarkLeaving`이 끄는
+    캐릭터를 더미 목록에서 빼므로 제 칸에 다시 놓을 때(방향만 바꿈)는 칸이 빈 것으로 보여 띄우지도 어둡게 하지도 않는다. 우리: `render/app.js holdPiece`가
+    그 칸의 다른 정비 기물을 찾아 들고 있는 자리(`held`)를 `HOME_MARK.overlapLift`만큼 올리고 그 기물에 `setOverlap(true)`(모델·임포스터·초상 마름모 색 ×
+    회색), `holdPiece(uid, null)`이나 다시 부를 때 되돌린다.
+  - 손 칸 장비도 같은 끌기 상태라(공식 클라에서 확인) 칸에 남는 장비 모델·아이콘 판에 같은 회색을 곱한다(`ItemView` 끄는 동안, 고리와 끄는 사본은 그대로).
   재발 방지: `test/render/home-mark.test.js`.
 - 모듈로 늘어나는 공격 범위(관리자 제보 2026-10-10: 정예 「시」 SPC-X가 방향 선택 줄무늬·배치 중 카드에서 3×3으로 보임): `shared/loadoutRecord.js
   attackRangeGrid`가 중국어 문구(`trait.moduleDesc` 「攻击范围扩大」, 스킬 「被动效果：攻击范围扩大」, `traitRangeExtend`의 「集成战略」)로 판단했는데 클라는

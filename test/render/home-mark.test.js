@@ -104,6 +104,65 @@ describe('UnitView: a dragged piece', () => {
     assert.equal(m2.sprite, null, 'gone with the view');
   });
 
+  test('the prep HUD (tier chip) stays on the tile it left while the dummy is carried, and comes back with clearHome', () => {
+    const { renderer } = rig();
+    const { v } = piece(renderer);
+    v.update(1 / 60, cam(), 0);
+    assert.ok(v.chip && v.chip.visible, 'a prep chip');
+    const rel = () => [v.chip.position.x - v.screen.x, v.chip.position.y - v.screen.y];
+    const [dx, dy] = rel();
+    const home = cam().project(5, 12, 0);
+    v.markHome();
+    assert.ok(v._homeMark);
+    v.lift = 0.3; v.x = 9; v.y = 10;
+    for (let i = 1; i < 4; i++) v.update(1 / 60, cam(), i / 60);
+    assert.ok(Math.abs(v.chip.position.x - (home.x + dx)) < 1e-6 && Math.abs(v.chip.position.y - (home.y + dy)) < 1e-6,
+      'the chip over the home tile, not over the carried dummy (the client\'s HUD stays on the character MarkLeaving keeps; docs/rules/ui.md 「배치 UI」)');
+    v.clearHome();
+    v.lift = 0;
+    v.update(1 / 60, cam(), 4 / 60);
+    const far = v.chip.position.x;
+    assert.ok(far > home.x + dx + 1, 'with the view again once the mark goes');
+    v.x = 5; v.y = 12;
+    v.update(1 / 60, cam(), 5 / 60);
+    const [ax, ay] = rel();
+    assert.ok(Math.abs(ax - dx) < 1e-6 && Math.abs(ay - dy) < 1e-6, 'at its place over the view');
+    v.destroy();
+  });
+
+  test('setOverlap greys the model by the client\'s _overlapColor (a piece held over it for the direction step)', () => {
+    const { renderer } = rig();
+    const { v } = piece(renderer);
+    v.update(1 / 60, cam(), 0);
+    assert.equal(v.fallback.tint, 0xffffff);
+    v.setOverlap(true);
+    v.update(1 / 60, cam(), 1 / 60);
+    assert.equal(v.fallback.tint, HOME_MARK.tint, 'greyed, no outline (docs/rules/ui.md 「배치 UI」 _DoBattleOverlap)');
+    assert.equal(v._homeMark ?? null, null, 'no mark of its own');
+    v.setOverlap(false);
+    v.update(1 / 60, cam(), 2 / 60);
+    assert.equal(v.fallback.tint, 0xffffff, 'its colour back (_RevertBattleOverlap)');
+    assert.equal(HOME_MARK.overlapLift, 0.45, 'the held piece over it stands raised by _overlapOffset (0, 0, −0.45)');
+    v.destroy();
+  });
+
+  test('a dragged hand item stays in its slot greyed under its ring; its copy keeps its colours', async () => {
+    const { ItemView } = await import('../../public/js/render/units.js');
+    const ctx = fakeViewCtx(fake.P, { assets: store(), cam });
+    const it = new ItemView(ctx, { id: 'p:9', uid: 9, kind: 'item', defId: 'item_x', tier: 2, x: 3, y: 18 });
+    it.update(1 / 60, cam(), 0);
+    assert.equal(it.plate.tint, 0xffffff);
+    const p = cam().project(3, 18, 0);
+    it.holdAt(p.x + 200, p.y - 100);
+    it.update(1 / 60, cam(), 1 / 60);
+    assert.equal(it.plate.tint, HOME_MARK.tint, 'the item left in its slot greyed like an operator (the same drag state)');
+    assert.ok(it.copy && it.copy.plate.tint === 0xffffff, 'the carried copy is not greyed');
+    it.endHold();
+    it.update(1 / 60, cam(), 2 / 60);
+    assert.equal(it.plate.tint, 0xffffff, 'its colour back when the drag ends');
+    it.destroy();
+  });
+
   test('a view never drawn yet leaves no mark', () => {
     const { renderer } = rig();
     const { v } = piece(renderer);

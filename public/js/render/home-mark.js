@@ -28,6 +28,13 @@ export const HOME_MARK = Object.freeze({
    */
   outline: COLORS.heldOutline,
   width: 2 / 128,
+  /**
+   * How far a piece held for the direction step on a battle tile another character stands on is raised, tiles: the
+   * drag state's `_overlapOffset` (0, 0, −0.45) added to the drop tile's world position (`_TryMoveToNextState`; the
+   * battle frame's z is −height), while that character is greyed by the same tint (`_DoBattleOverlap`, render/app.js
+   * holdPiece).
+   */
+  overlapLift: 0.45,
 });
 
 /** Largest snapshot side, CSS px (a zoomed phone board's model is far smaller). */

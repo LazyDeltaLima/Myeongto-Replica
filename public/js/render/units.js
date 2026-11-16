@@ -83,7 +83,7 @@ import { faceOf, turnFace, turnWidth, dirVector, NEAR_SQ, SWITCH_TIME } from './
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './heldWheel.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
 import { loadPlaces, modelPlace, placesVersion } from './fxpoints.js'; // a model's place and shadow in its battle prefab
-import { HomeMark } from './home-mark.js'; // a dragged piece's greyed, outlined picture left on its tile
+import { HomeMark, HOME_MARK } from './home-mark.js'; // a dragged piece's greyed, outlined picture left on its tile
 import { ElementRing, epRingState, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, HUD_ANCHOR, prepChip, PREP_CHIP, PREP_TOKEN, tokenCountPlate, EquipBar, equipTextures, RespawnHud, respawnTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -1079,6 +1079,7 @@ export class UnitView {
     this._spineHidden = false;           // the load in flight began while the tab was hidden (SPINE_STUCK_MS)
     this._stuckAt = 0;                   // when that load is started again unless it settled (ms; 0 = none)
     this.baseTint = 0xffffff;            // the drawn model's own tint (ALIAS_TINT), under the status tints
+    this.overlapped = false;             // greyed under a piece dropped on its tile for the direction step (setOverlap)
 
     this.hud = new P.Container();
     ctx.layers.bars.addChild(this.hud);
@@ -2276,6 +2277,7 @@ export class UnitView {
       else if (lpInvis) tint = 0x808080; // local patch: common_invisible's ColorModifier (.5, .5, .5)
       if (flashK > 0) tint = mixTint(tint, 0xff8a80, flashK * 0.8);
       if (this._bornT > 0) tint = mixTint(tint, 0x000000, BORN_TINT_K * (this._bornT / BORN_TINT_S)); // local patch
+      if (this.overlapped) tint = mulTint(tint, HOME_MARK.tint);
       let animDt = dt * (this.ctx.animRate?.() || 1);
       // local patch (maintainer 2026-10-08 「작전 시작할때 배치 효과음은 나오는데 배치 연출이 안나오고 있어」, not reproduced here [추정]):
       // the drop-in (Start, landing at ~0.2 s) is never swallowed — no off-screen catch-up while it plays, and a long
@@ -2323,7 +2325,8 @@ export class UnitView {
       const bob = this.alive ? Math.sin(t * 2.4 + this.bob) * s * 0.03 : 0;
       this.fallback.scale.set(size / 160);
       this.fallback.position.set(0, -s * 0.08 + bob);
-      this.fallback.tint = this.down || this._still ? DOWN_LOOK.tint : this.flash > 0 ? mixTint(0xffffff, 0xff8a80, this.flash) : (this.flags & UF.FROZEN ? 0x9fd4ff : 0xffffff);
+      const ft = this.down || this._still ? DOWN_LOOK.tint : this.flash > 0 ? mixTint(0xffffff, 0xff8a80, this.flash) : (this.flags & UF.FROZEN ? 0x9fd4ff : 0xffffff);
+      this.fallback.tint = this.overlapped ? mulTint(ft, HOME_MARK.tint) : ft;
       if (!this.alive) this.fallback.alpha = Math.max(0, this.fallback.alpha);
     }
     this.flash = Math.max(0, this.flash - dt * 6);
@@ -2384,7 +2387,13 @@ export class UnitView {
       modelK: this.modelK, modelKY: this.modelKY,
     });
     this.screen.top = by - headTiles * s;
-    this._updateHud(dt, s, bx, by - headTiles * s, alpha, t);
+    const hm = this._homeMark;
+    if (hm) {
+      // the official prep HUD (tier chip, equip bar) stays on the character left on its tile and the carried dummy has
+      // none (docs/rules/ui.md 「배치 UI」): while the mark stands the HUD is drawn at its point
+      const a = this._homeAt, at = cam.project(a.x, a.y, a.z, this._hudAt);
+      this._updateHud(dt, hm.p.s, hm.p.x, hm.p.y - headTiles * hm.p.s, alpha, t, at);
+    } else this._updateHud(dt, s, bx, by - headTiles * s, alpha, t, this.screen);
   }
 
   /**
@@ -2431,7 +2440,8 @@ export class UnitView {
     b.visible = true;
   }
 
-  _updateHud(dt, s, x, y, alpha, t) {
+  /** `at` = the screen point of the unit the prep HUD stands on: `screen`, or its home tile's while it is dragged. */
+  _updateHud(dt, s, x, y, alpha, t, at = this.screen) {
     const prep = this.prep;
     const showBars = !prep && this.alive && this.info.kind !== 'item';
     const damaged = this.hp < this.maxHp - 0.5;
@@ -2513,7 +2523,7 @@ export class UnitView {
         if (this.chip.texture !== off.tex) this.chip.texture = off.tex;
         this.chip.scale.set(off.k * u);
         this.chip.visible = this.alive;
-        this.chip.position.set(this.screen.x + PREP_CHIP.x * u, hudAnchorY(this.screen.y, u, this.hudAnchor) - PREP_CHIP.y * u);
+        this.chip.position.set(at.x + PREP_CHIP.x * u, hudAnchorY(at.y, u, this.hudAnchor) - PREP_CHIP.y * u);
       } else {
       if (this.chip.texture !== this._chipTex) this.chip.texture = this._chipTex;
       const cs = clamp(s * (prep ? 0.24 : 0.19), 11, 28) / 44;
@@ -2571,7 +2581,7 @@ export class UnitView {
       }
       if (plate) {
         const u = hudU(this.ctx), T = PREP_TOKEN;
-        const cx = this.screen.x + T.x * u, cy = hudAnchorY(this.screen.y, u, this.hudAnchor) - T.y * u;
+        const cx = at.x + T.x * u, cy = hudAnchorY(at.y, u, this.hudAnchor) - T.y * u;
         if (this.countPlate.texture !== plate) this.countPlate.texture = plate;
         this.countPlate.visible = true;
         this.countPlate.width = T.w * u; this.countPlate.height = T.h * u;
@@ -2581,7 +2591,7 @@ export class UnitView {
       } else {
         this.countPlate.visible = false;
         this.countText.scale.set(clamp(s / 90, 0.5, 1.2));
-        this.countText.position.set(x + s * 0.32, this.screen.y - s * 0.12);
+        this.countText.position.set(x + s * 0.32, at.y - s * 0.12);
       }
     } else if (this.countPlate) this.countPlate.visible = false;
     // local patch (LOCAL-PATCH.md 「전투 화면 UI」): in prep the official equip bar stands for the item pips when installed
@@ -2590,13 +2600,13 @@ export class UnitView {
     // report 2026-11-14; maintainer decision 2026-11-14) — nor the old item pips in its place
     const bar = eqTex && !(this._equipSlots > 2);
     if (bar && !this._equipBar) { this._equipBar = new EquipBar(this.P, this.hud); this._equipBar.anchor = this.hudAnchor; }
-    if (bar) this._equipBar.update(this.screen.x, this.screen.y, hudU(this.ctx), this._equip, eqTex, this._equipSlots);
+    if (bar) this._equipBar.update(at.x, at.y, hudU(this.ctx), this._equip, eqTex, this._equipSlots);
     else if (this._equipBar) this._equipBar.hide();
     for (let i = 0; i < this.itemPips.length; i++) {
       const pip = this.itemPips[i];
       const ps = clamp(s * 0.26, 12, 30);
       pip.width = pip.height = ps;
-      pip.position.set(this.screen.x - s * 0.36 + i * (ps + 1), this.screen.y - s * 0.05);
+      pip.position.set(at.x - s * 0.36 + i * (ps + 1), at.y - s * 0.05);
       pip.visible = this.alive && !eqTex; // local patch: the equip bar instead
     }
   }
@@ -2900,12 +2910,22 @@ export class UnitView {
     if (!this.placed || !cam) return;
     const at = { x: this.x + this.modelDX + this.faceDX, y: this.y + this.modelDY, z: this.z + this.modelDZ + this.hover };
     this._homeMark = HomeMark.draw(this.P, this.ctx.renderer, this.body, at, s, this.ctx.layers.units);
-    if (this._homeMark) this._homeMark.place(cam, unitDepthKey(cam, at.x, at.y, 0));
+    if (!this._homeMark) return;
+    this._homeMark.place(cam, unitDepthKey(cam, at.x, at.y, 0));
+    // the point the HUD stands on (`screen` of the unit at home, without the drag's lift): update → _updateHud
+    this._homeAt = { x: this.x, y: this.y, z: this.z + this.hover };
+    if (!this._hudAt) this._hudAt = { x: 0, y: 0, s: 0 };
   }
 
   clearHome() {
     if (this._homeMark) { this._homeMark.destroy(); this._homeMark = null; }
   }
+
+  /**
+   * Grey the model while another piece is held on its tile for the direction step (the client's `_DoBattleOverlap`:
+   * the body colour times `_overlapColor`, no outline — render/app.js holdPiece); false gives the colour back.
+   */
+  setOverlap(on) { this.overlapped = !!on; }
 
   destroy() {
     if (this.destroyed) return;
@@ -2938,6 +2958,12 @@ export function unitDepthKey(cam, x, y, lift = 0) {
   // +40 (< one row of depth at the official 30° pitch, 100·sin 30° = 50): a lifted piece never ties with the unit one
   // row in front of it (a tie flickers with the column tie-break)
   return -cam.depthOf(x, y, 0) * 100 + (lift > 0 ? 40 : 0) + x * 0.001;
+}
+
+/** Multiply two tints channel by channel (a colour modified by another, as Unit.ModifyDefaultColor does). */
+function mulTint(a, b) {
+  const r = ((a >> 16) & 255) * ((b >> 16) & 255), g = ((a >> 8) & 255) * ((b >> 8) & 255), c = (a & 255) * (b & 255);
+  return (Math.round(r / 255) << 16) | (Math.round(g / 255) << 8) | Math.round(c / 255);
 }
 
 function mixTint(a, b, k) {
@@ -3130,6 +3156,11 @@ export class ItemView {
     this.root.position.set(p.x, p.y);
     this.root.zIndex = unitDepthKey(cam, this.x, this.y, 0);
     this.root.alpha = this.dimmed ? 0.35 : 1;
+    // while dragged the item left in its slot is greyed like an operator's (the drag state's `_overlapColor`: render/
+    // home-mark.js); its copy keeps its own colours
+    const tint = this.held ? HOME_MARK.tint : 0xffffff;
+    if (this.model && this.model.tint !== tint) this.model.tint = tint;
+    if (this.plate.tint !== tint) this.plate.tint = tint;
     if (sn) {
       // the snapshot was drawn at sn.k px per tile
       const k = p.s / sn.k, side = sn.texture.width * k;
