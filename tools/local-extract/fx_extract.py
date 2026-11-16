@@ -73,6 +73,24 @@ ANIMATED_VALUES = {
 }
 ANIMATED_CRC = {(cid, zlib.crc32(p.encode())): prop for cid, m in ANIMATED_VALUES.items() for p, prop in m.items()}
 VARIANT_RE = re.compile(r'#\d+|_sale|_iteration|_avemujica|_cn_topolect', re.I)
+# 2026-11-16: the names of the shared files (tex/, mesh/) are the official object names, and skin textures carry `#`
+# (`mask_28_sale#10`, `ines_##_mask_02`): a URL reads `#` as the start of a fragment, and the browser's resource list
+# refuses such paths (public/js/resources.js validPath), so those textures were never pre-downloaded nor cached.
+# file_name() names every texture and mesh file: `#` → `-`; a character the list refuses (`?` `%` `\`) or a path
+# separator stops the run. Spaces, `:`, brackets and CJK stay (the list keeps them; render/fxplayer.js encodes the URL).
+# Two object names that meet in one file name stop the run as well (Extractor.claim; docs/rules/fx.md 「텍스처·메시 파일 이름」).
+NAME_STOP = re.compile(r'[?%\\/\x00-\x1f\x7f]')
+
+
+def file_name(name):
+    """The file name of an official texture / mesh key (`<m_Name>_<path id>`): `#` → `-`. Raises SystemExit on a
+    character the browser's resource list refuses or a path separator, and on an empty or dots-only name."""
+    if not isinstance(name, str) or NAME_STOP.search(name) or not name.strip('.'):
+        raise SystemExit(f'fx_extract: no file name rule for {name!r} (`#` becomes `-`; `?` `%` `\\` `/` and control '
+                         'characters are refused; docs/rules/fx.md 「텍스처·메시 파일 이름」)')
+    return name.replace('#', '-')
+
+
 # local patch: prefabs never extracted — common_stealth (texture common_leaf; only the 生息演算 buildings use it, and the maintainer has
 # never seen the leaf in the game, 2026-10-08: "그 텍스처는 폐기해")
 DISCARD = {'common_stealth'}
@@ -756,8 +774,12 @@ def wrap_walk(ex, a):
             if o.type.name != 'Texture2D':
                 continue
             t = o.read()
+            try:
+                base = file_name(f'{t.m_Name}_{o.path_id & 0xffffffff:08x}')
+            except SystemExit:   # a name no extraction could have written
+                continue
             for ext in ('.webp', '.png'):
-                name = f'{t.m_Name}_{o.path_id & 0xffffffff:08x}{ext}'
+                name = base + ext
                 if name in have:
                     found[name] = tex_wrap(t)
     print(f'[fx] wrap: {len(found)} of {len(have)} texture file(s) found, '
@@ -918,6 +940,7 @@ class Extractor:
         self.textures = {}   # path_id/name key -> file name
         self.wraps = {}      # 2026-10-22: texture file name -> (wrap u, wrap v) of each texture met (merge_wraps)
         self.meshes = {}
+        self.named = {}      # 2026-11-16: written file name -> the key it was named from (claim)
         self.builtin = None  # the client's unity default resources, loaded on first use (mesh_ref)
         # 2026-10-16: what the run meets and the pipeline leaves out (fx_coverage.py). .cache/class-fields.json, a class →
         # field-name table of the client's scripts kept outside the repository, names the unknown scripts; without it
@@ -1003,11 +1026,19 @@ class Extractor:
                 return o
         return None
 
+    def claim(self, key, name):
+        """`name` (file_name of `key`) for `key`; two keys that meet in one file name stop the run (the rule's `#` → `-`
+        could make `a#1_…` and `a-1_…` one file)."""
+        if self.named.setdefault(name, key) != key:
+            raise SystemExit(f'fx_extract: {key!r} and {self.named[name]!r} are both named {name!r} '
+                             '(docs/rules/fx.md 「텍스처·메시 파일 이름」)')
+        return name
+
     def texture(self, obj, out):
         key = f'{obj.read().m_Name}_{obj.path_id & 0xffffffff:08x}'
         if key in self.textures:
             return self.textures[key]
-        name = key + ('.png' if self.png else '.webp')
+        name = self.claim(key, file_name(key) + ('.png' if self.png else '.webp'))
         self.wraps[name] = tex_wrap(obj.read())
         p = out / 'tex' / name
         if not p.exists() and not self.dry:
@@ -1028,9 +1059,10 @@ class Extractor:
         """A mesh file; `skin` (2026-10-14, a SkinnedMeshRenderer's mesh — its own key `…_skin`) adds per vertex 4 bone
         indices `bi` and weights `bw` (a mesh with an index channel only weighs 1 on its first bone) and per bone its bind
         pose `bind` (16 numbers, column-major)."""
-        key = f'{obj.read().m_Name}_{obj.path_id & 0xffffffff:08x}' + ('_skin' if skin else '')
-        if key in self.meshes:
-            return self.meshes[key]
+        src = f'{obj.read().m_Name}_{obj.path_id & 0xffffffff:08x}' + ('_skin' if skin else '')
+        if src in self.meshes:
+            return self.meshes[src]
+        key = self.claim(src, file_name(src))
         m = obj.read()
         try:
             from UnityPy.helpers.MeshHelper import MeshHandler
@@ -1068,7 +1100,7 @@ class Extractor:
         # 2026-10-10: the same key is the same mesh — a shared file is never rewritten (2026-10-26: but once for its `sub`)
         if not self.dry and (not p.exists() or ('sub' in data and '"sub"' not in p.read_text())):
             p.write_text(json.dumps(data, separators=(',', ':')))
-        self.meshes[key] = key
+        self.meshes[src] = key
         return key
 
     def material(self, obj, out, mats):
