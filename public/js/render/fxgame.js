@@ -2748,13 +2748,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
 
   // ---- local patch (maintainer report 2026-10-07): skills that act through damage or kit events --------
+  /** Whether `at` is a plain { x, y, z } point (data fields: reading them for the trace changes nothing). */
+  const plainPt = (at) => !!at && !at.info && typeof Object.getOwnPropertyDescriptor(at, 'x')?.value === 'number' && typeof Object.getOwnPropertyDescriptor(at, 'y')?.value === 'number';
   /**
    * One prefab of `bundle` at `at` (a view or point, followed): entry = addLive's { owner, buff, until, on (the unit it sits
-   * on: stopped at its 'die') }; `over` puts it over the units. Resolves the live entry (null if not played).
+   * on: stopped at its 'die') }; `over` puts it over the units; `floor` the height under which it is cut (default: its own
+   * for one under the units, else 0). Resolves the live entry (null if not played).
    */
-  async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null, dir = null } = {}) {
+  async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null, dir = null, floor = null } = {}) {
     if (!index?.bundles?.[bundle]?.includes(name)) return null;
-    if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null, facing, ...(entry.pinned ? { pinned: true } : null), ...(entry.mode != null ? { mode: entry.mode } : null) }); // tests (`pinned`: never ended by the caps)
+    if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null, facing, ...(entry.pinned ? { pinned: true } : null), ...(entry.mode != null ? { mode: entry.mode } : null), ...(plainPt(at) ? { pt: [at.x, at.y, at.z || 0] } : null) }); // tests (`pinned`: never ended by the caps; `pt`: a plain point's place)
     if (dry) dryFollow(bundle, name, entry.owner ?? null, at && at.info ? ownerOf(at) ?? null : null);
     if (!(await ensure())) return null;
     let def = await lib.load(bundle, name);
@@ -2780,7 +2783,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (aim && !official) facing = aimFacing(null, def, aim, at);
     const d = aim ? { x: Number(at.x) - Number(aim.x), y: Number(at.y) - Number(aim.y) } : dir;
     const sp = playSpeed(def.face, entry.speed ?? 1, gameRate());
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir: d, body: unit ? facingDir(unit) : null, speed: sp, split, floor: drop ? null : at.z < 0 || !over ? at.z || 0 : 0, tilt: drop ? null : tiltOn(unit, def), pinned: !!entry.pinned });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir: d, body: unit ? facingDir(unit) : null, speed: sp, split, floor: drop ? null : floor ?? (at.z < 0 || !over ? at.z || 0 : 0), tilt: drop ? null : tiltOn(unit, def), pinned: !!entry.pinned });
     if (aim && !official) aimAlong(inst, aim, at);
     if (!drop) at = lifted(at, def, !!entry.buff); // local patch: its _spawnLocation
     if (!drop && Number.isFinite(def.height)) at = overHeight(at, def.height); // 2026-10-10: `_overwriteHeight`
@@ -4855,6 +4858,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // when its time is up. The aura's scale follows the radius from the first event's [추정: the prefab is drawn for the
   // thrown radius]. 引星棘刺, 锡人, 号角 S1, 波登可 S2 have such projectiles.
   const zones = new Map();   // `${caster}:${key}` → { at, vx, vy, st, until, r0, list: [live entries], aura: Set }
+  // 2026-11-16 (official client — EffectBehaviour.OnProjectileReached, Effect.Play(ILocatable), Effect._InitLocation): without
+  // `_forceReachTargetGround` / `_followTargetGround` / `_useTraceTargetWhenReach` the reach effects are created on the
+  // projectile itself, at its mapPositionV3 where it reached, and a `_spawnLocation` 0 NONE prefab without `_overwriteHeight`
+  // stays there. 号角 S1's flare (projectile_chr_horn_s1_light, horn_skill_01_hit_02 / _buff) flies beside the shell
+  // (skchr_horn_1 RangedAttack_Light, the same ParacurveMovement) to the target's hit mount point: it stands at the shell's
+  // end (its trail's end, shotTo), up in the air over the target — not on the ground under the sim's spot.
+  /** The unit the attack's shot of `src` that carried this zone at (x, y) flew to (taken within 3 s, near the spot), once. */
+  function shotAimOf(src, x, y) {
+    const a = src._fxShotAim;
+    if (!a || clockS - a.t > 3) return null;
+    src._fxShotAim = null;
+    const t = a.tgt;
+    return Number.isFinite(Number(t?.x)) && Math.hypot(Number(t.x) - x, Number(t.y) - y) < 1 ? t : null;
+  }
   function zoneFx(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object' || failed) return false;
@@ -4878,13 +4895,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
       return true;
     }
-    const at = { x, y, z: 0 };
+    // 2026-11-16 (official client): a zone an attack's shot carried (号角 S1's flare) stands where that shot ended (shotAimOf)
+    const aim = shotAimOf(src, x, y);
+    const at = aim ? shotTo(aim) : { x, y, z: 0 };
+    const floor = aim ? Number(aim.z) || 0 : null;
     const nrec = { at, onProj: !!z.onProj, vx: 0, vy: 0, sx: x, sy: y, st: clockS, until, r0: r, list: [], aura: new Set() };
     if (k) zones.set(k, nrec);
     const bundle = bundleOf(src).bundle;
     const put = () => {
       for (const n of [...fx, ...aura]) {
-        spawn(bundle, n, at, { owner: null, buff: false, until: nrec.until }, { over: false }).then((l) => {
+        spawn(bundle, n, at, { owner: null, buff: false, until: nrec.until }, { over: false, floor }).then((l) => {
           if (!l) return;
           nrec.list.push(l);
           if (aura.includes(n)) nrec.aura.add(l);
@@ -4895,7 +4915,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // 2026-10-21: a skill without an attack in its window (锡人, 波登可 S2, 引星棘刺) throws its projectile here first — the reach
     // effects play as it lands (OnProjectileReached); one that an attack already carried (号角 S1: takeShot) does not fly again
     const s = src._fxShot;
-    const fly = s && (s.t == null || s.t === clockS) ? skillShotOut(src, { x, y, z: 0 }) : -1;
+    const fly = !aim && s && (s.t == null || s.t === clockS) ? skillShotOut(src, { x, y, z: 0 }) : -1;
     if (fly >= 0) { s.t = clockS; castsDelayed.push({ t: clockS + fly, run: put }); } else put();
     return true;
   }
@@ -7440,6 +7460,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (tgt && fxBundleOf(src.info.spine || src.info.defId) === 'oblvns' && notesOn(src)) noteAtks.add(e);
           const mode = modeNow(src); // local patch: the mode this attack belongs to (its bound cast / hit effects)
           const shot = mode === -1 && takeShot(src); // 2026-10-16: a mode-less skill's own shot
+          if (shot && tgt) src._fxShotAim = { tgt, t: clockS }; // 2026-11-16: where its reach effects stand (zoneFx shotAimOf)
           const sig = typeof e[4] === 'string' && e[4] ? e[4] : null; // 2026-10-21: a talent's own attack ('T.1': modePart)
           if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot, combat: !!src._fxCombat, sig });
           if (tgt) {

@@ -907,6 +907,16 @@
 - 같은 날 확인: 혼 S1의 'zone'(조명탄)과 S2 과부하의 확산 마법 피해는 주 대상이 날아가는 도중에 죽어도 난다 — S1은 키트 `attack.onHit`이 대상 없이도
   떨어진 자리로 불려 'zone'을 보내고(`ai.js resolveHit`), S2 과부하는 맞은 적마다(`onEachHit`) 확산 피해자에게 난다(공식 `_conditionalActions`도 맞은
   적마다). 렌더는 'zone'·그 순간대로 튼다.
+- **혼 S1 조명탄의 자리**(2026-11-16, 공식 클라에서 확인 — `EffectBehaviour.OnProjectileReached`, `Effect.Play`·`_PlayInternal`·`_InitLocation`,
+  `Effect`·`ParticleEffect`·`MapEffect.OnBeforePlay`; 프리팹 원본 값): 스킬 프리팹 `skchr_horn_1`의 `RangedAttackGroup`이 포탄 `projectile_chr_horn_s1`(꼬리)
+  옆에 `RangedAttack_Light`로 조명탄 `projectile_chr_horn_s1_light`를 같은 대상에 쏜다 — 같은 ParacurveMovement(속도 5, 올림 0.7)라 같은 명중 마운트
+  점에 닿는다. 조명탄은 `_forceReachTargetGround`·`_followTargetGround`·`_useTraceTargetWhenReach`·`_setReachEffectOnProjectile`이 모두 0이라 닿음
+  이펙트(`horn_skill_01_hit_02`·`_buff`)를 투사체 자신에 만들고(`Effect.Play`가 그 `mapPositionV3`를 위치로), 두 프리팹은 `_spawnLocation` 0 NONE·
+  `_overwriteHeight` 0이라 그 자리에 남는다(`_InitLocation`은 5·7·12 갈래뿐, NONE은 안 바꿈; 루트가 `ParticleEffect`라 `MapEffect._forceZeroHeight`의
+  땅 내림도 없음). 그래서 조명탄은 **포탄 끝(꼬리 끝, 대상 몸의 명중점) 공중**에 선다. 우리는 시뮬레이션의 떨어진 자리(대상 뿌리) 땅 {x, y, 0}에
+  틀었다 → `fxgame.js zoneFx`가 공격이 가져간 스킬 샷(`takeShot`)의 대상(`_fxShotAim`, 3초 안·그 자리 1칸 안)이 있으면 `shotTo(대상)`에, 자르는 바닥
+  (`spawn` `floor`)은 대상이 선 높이로. 대상이 날아가는 도중에 죽어도 마지막 자리의 명중점. 공격이 가져가지 않은 장판(쏜즈 더 로드스타·틴맨·포덴코)은 그대로.
+  재발 방지: `test/render/horn-flare-fx.test.js`. [화면 미확인: 조명탄 빛이 적 몸 높이에]
 
 ### 입력 대상·루프 타격·클립별 이펙트·배치 이펙트 — 공식 클라 확인 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 근거: 공식 클라(아래 메서드는 켜진 Lua 핫픽스 목록에 없음)와 charpack·`[uc]skills.ab`·이펙트 번들 프리팹 값. 조사 기록은 관리자 노트.
