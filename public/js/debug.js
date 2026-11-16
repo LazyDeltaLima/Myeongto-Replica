@@ -7,6 +7,7 @@
 // files and every extracted official effect (played on the operator, hits on the sandbag).
 // URL: ?op=<charId>&elite=1&skill=<1-based>&module=<uniEquipId|none>&dir=<UP|RIGHT|DOWN|LEFT>&enemy=<key>&terrain=<flat|high>
 // &attack=1 (the sandbags attack the operator) &fx=<bundle>/<prefab> (played on the operator once it stands)
+// &scene=<key> (js/debug/sandbag.js SCENES: an official recording's placement — blockers, sandbag spots, crates)
 // &season=<id> (that season's pieces, shared/seasons.js: one not public yet too; the view and the battle read its files).
 
 import { data } from './data.js';
@@ -19,7 +20,7 @@ import { loadoutOptions } from '../../shared/protocol.js';
 import { diyRecord, diyTokenOwner } from '../../shared/diy.js';
 import { localDiyPool } from '../../shared/local-diy.js';
 import { createArena } from './debug/arena.js';
-import { TERRAINS, SANDBAG_DEFAULT, DEFAULT_OP, SANDBAG_HP, HURT, KEEP_OP, inArena, defaultBags, ownTokens, autoTokens, rangeOf, besideOp } from './debug/sandbag.js';
+import { TERRAINS, SCENES, SANDBAG_DEFAULT, DEFAULT_OP, SANDBAG_HP, HURT, KEEP_OP, inArena, defaultBags, ownTokens, autoTokens, rangeOf, besideOp } from './debug/sandbag.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...kids) => {
@@ -92,10 +93,30 @@ const st = {
   // tokens: the operator's hand-placed pieces on the island ({ tokenId, row, col }); autoTokens = still the default placement
   tokens: [], autoTokens: true,
   spAuto: true, hurt: false, keepOp: true, place: 'op',
+  // scene: a SCENES key — its blockers and crates stand on the island; it set the operator's tile and facing and the sandbags
+  scene: null,
   // ?items=<item id>,…: the operator's equipment (items.json ids, e.g. chess_item_4_03_e_a) — URL only
   items: (params.get('items') || '').split(',').map((x) => x.trim()).filter((x) => /^chess_item_\w+$/.test(x)),
 };
 let pendingFx = params.get('fx');
+if (SCENES[params.get('scene')]) applyScene(params.get('scene'));
+
+/** Set the island up as scene `key` (SCENES), or drop the scene (null): its blockers and crates go with it. */
+function applyScene(key) {
+  const sc = SCENES[key];
+  st.scene = sc ? key : null;
+  if (!sc) return;
+  st.opTile = { ...sc.op };
+  st.dir = sc.dir;
+  st.bags = sc.bags.map((b) => ({ ...b }));
+  st.autoBags = false;
+  st.tokens = st.tokens.filter((t) => !sceneTile(t.row, t.col));
+}
+/** Whether tile (row, col) holds one of the scene's blockers or crates (no operator, sandbag or piece goes there). */
+function sceneTile(row, col) {
+  const sc = SCENES[st.scene];
+  return !!sc && (sc.blockers.some((x) => x.row === row && x.col === col) || sc.crates.some(([r, c]) => r === row && c === col));
+}
 
 /** The loadout choices of the selected operator: base / elite records and loadoutOptions. */
 function loadout() {
@@ -127,6 +148,7 @@ function battleConfig() {
     chessId, skillIndex: Number.isInteger(skill) ? skill : null, moduleId: module, diy,
     dir: st.dir, op: st.opTile, bags: st.bags, enemyKey: st.enemyKey, bag: { ...st.bag, hp: SANDBAG_HP }, terrain: st.terrain,
     tokens: st.tokens, spAuto: () => st.spAuto, hurt: () => st.hurt, keepOp: () => st.bag.attack && st.keepOp, items: st.items,
+    blockers: st.scene ? SCENES[st.scene].blockers : [], crates: st.scene ? SCENES[st.scene].crates : [],
   };
 }
 function syncUrl() {
@@ -141,6 +163,7 @@ function syncUrl() {
   if (st.terrain !== 'flat') q.set('terrain', st.terrain);
   if (st.items.length) q.set('items', st.items.join(','));
   if (st.bag.attack) q.set('attack', '1');
+  if (st.scene) q.set('scene', st.scene);
   history.replaceState(null, '', `?${q}`);
 }
 
@@ -167,7 +190,7 @@ function onRestart(battle) {
   infos.clear(); told.clear();
   dmgTotal = 0; dmgHits = 0; dmgWin = []; t0 = null;
   const c = arena.config();
-  log('other', 'skill', `── 전투 시작: ${ko(st.op?.name)} ${c.chessId}${c.skillIndex != null ? ` S${c.skillIndex + 1}` : ''}${c.moduleId ? ` · ${c.moduleId}` : ''} · ${DIR_LABEL[c.dir]} · 샌드백 ${c.bags.length}× ${c.enemyKey}${c.bag.attack ? ' (아군 공격)' : ''} (${battle.fieldId})`);
+  log('other', 'skill', `── 전투 시작: ${ko(st.op?.name)} ${c.chessId}${c.skillIndex != null ? ` S${c.skillIndex + 1}` : ''}${c.moduleId ? ` · ${c.moduleId}` : ''} · ${DIR_LABEL[c.dir]} · 샌드백 ${c.bags.length}× ${c.enemyKey}${c.bag.attack ? ' (아군 공격)' : ''}${st.scene ? ` · 장면 ${SCENES[st.scene].label}` : ''} (${battle.fieldId})`);
 }
 
 // ---- log ----------------------------------------------------------------------------------------------------------
@@ -416,12 +439,18 @@ function renderDetail() {
   const tr = el('div', { class: 'row' }, el('span', { class: 'muted' }, '지형'));
   for (const [k, label] of Object.entries(TERRAINS)) tr.append(chip(label, st.terrain === k, () => { st.terrain = k; renderDetail(); restart(); }));
   d.append(tr);
+  const sr2 = el('div', { class: 'row' }, el('span', { class: 'muted' }, '장면'));
+  for (const [k, sc] of Object.entries(SCENES)) {
+    sr2.append(chip(sc.label, st.scene === k, () => { applyScene(st.scene === k ? null : k); renderDetail(); restart(); },
+      { title: '공식 녹화와 같은 배치: 오퍼레이터 맨 앞 줄 →, 4칸 앞 저지 오퍼레이터(대역 마터호른)가 샌드백을 4.6칸에 세움, 한 줄 뒤 2칸 앞 상자(그 두 줄 위에 하나 더). 다시 누르면 끔' }));
+  }
+  d.append(sr2);
   const pr = el('div', { class: 'row' }, el('span', { class: 'muted' }, '빈 타일 클릭'));
   pr.append(chip('오퍼레이터 이동', st.place === 'op', () => { st.place = 'op'; renderDetail(); }));
   pr.append(chip('샌드백 추가/제거', st.place === 'bag', () => { st.place = 'bag'; renderDetail(); }));
   const own = cfgTokens(cfg);
   if (own.length) pr.append(chip('기물 놓기/치우기', st.place === 'token', () => { st.place = 'token'; renderDetail(); }));
-  pr.append(chip('배치 초기화', false, () => { st.opTile = { ...DEFAULT_OP }; st.autoBags = true; st.autoTokens = true; restart(); }));
+  pr.append(chip('배치 초기화', false, () => { st.scene = null; st.opTile = { ...DEFAULT_OP }; st.autoBags = true; st.autoTokens = true; renderDetail(); restart(); }));
   d.append(pr);
   d.append(el('div', { class: 'muted' }, '오퍼레이터를 클릭하면 방향이 돌아갑니다. 샌드백 모드에서 샌드백을 클릭하면 제거, 오퍼레이터 칸을 누르면 저지된 샌드백을 둡니다. 직접 고치기 전까지 샌드백은 사거리·방향에 맞춰 자동 배치(사거리가 자기 칸뿐이면 오퍼레이터 칸에 저지).'));
 
@@ -530,7 +559,7 @@ function placeToken(row, col) {
 const blockedBag = () => defaultBags(st.opTile, st.dir, [[0, 0]])[0];
 if (arena) {
   arena.view.on('tileClick', ({ row, col }) => {
-    if (!inArena(row, col)) return;
+    if (!inArena(row, col) || sceneTile(row, col)) return;
     if (st.place === 'token') { placeToken(row, col); return; }
     if (st.place === 'op') {
       st.bags = st.bags.filter((b) => !tileEq(b, row, col));
@@ -550,7 +579,7 @@ if (arena) {
         if (e) placeToken(Math.round(e.tileR ?? e.y), Math.round(e.tileC ?? e.x));
         return;
       }
-      if (unit.kind !== 'op') return;
+      if (unit.kind !== 'op' || unitId !== arena.op()?.id) return;   // (a scene's blocker keeps its facing)
       st.dir = DIRS[(DIRS.indexOf(st.dir) + 1) % DIRS.length];
       renderDetail();
       restart();

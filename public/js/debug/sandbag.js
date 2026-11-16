@@ -2,7 +2,8 @@
 // (js/debug/arena.js) builds its battles with them in the browser and test/local-patch-debug.test.js under Node, both
 // with the shared sim (server/sim, served at /sim/) passed in.
 //
-//   arenaStage(terrain, stages)          a 19×21 stage: a 7×7 island of tiles (ARENA, rows 7–13 × cols 2–8), '#' elsewhere
+//   arenaStage(terrain, stages, crates)  a 19×21 stage: a 7×7 island of tiles (ARENA, rows 7–13 × cols 2–8), '#' elsewhere
+//   SCENES                               placements of official recordings (blockers, sandbag spots, crates)
 //   sandbagRecord(raw, bag)              an enemies.json record turned into a sandbag (HP 1e9, never moves, no abilities;
 //                                        `bag.attack`: it attacks the allies anywhere on the island)
 //   createSandbagBattle(sim, ds, cfg)    a normal-kind Battle: one operator + the sandbags, no time limit, never ends
@@ -21,6 +22,25 @@ export const inArena = (r, c) => r >= ARENA.r0 && r <= ARENA.r1 && c >= ARENA.c0
 /** Terrain presets of the island: every tile a road, or two raised rows (gold-framed 高台, ranged-only) across it. */
 export const TERRAINS = Object.freeze({ flat: '평지', high: '고지대 섞기' });
 const HIGH_ROWS = new Set([8, 12]);
+/**
+ * Scenes that set the island up like an official recording, for a frame-by-frame comparison: the operator's tile and
+ * facing, `blockers` (more operators on the island — `chessId` a stand-in, the recording's blocker is not identified),
+ * the sandbags (a fractional column = held by the blocker it stands next to, as a walking enemy stops there) and
+ * `crates` (阻隔工事 stage devices on [row, col]). The page's chosen operator goes on `op`.
+ *   horn: the official 혼 (号角) recording of 2026-11-16 (maintainer decision 2026-11-16: the arena follows the official
+ *   scene) — the shooter on the front row facing right, a blocker 4 tiles ahead holding the enemy 0.6 tile past its centre
+ *   (4.6 tiles from the shooter's root, same row), a crate one row behind 2 tiles ahead and another 2 rows above that.
+ */
+export const SCENES = Object.freeze({
+  horn: Object.freeze({
+    label: '공식 혼 녹화',
+    op: Object.freeze({ row: ARENA.r0, col: ARENA.c0 }), dir: 'RIGHT',
+    blockers: Object.freeze([Object.freeze({ chessId: 'chess_char_1_02_a', row: ARENA.r0, col: ARENA.c0 + 4, dir: 'RIGHT' })]),
+    bags: Object.freeze([Object.freeze({ row: ARENA.r0, col: ARENA.c0 + 4.6 })]),
+    crates: Object.freeze([Object.freeze([ARENA.r0 + 1, ARENA.c0 + 2]), Object.freeze([ARENA.r0 + 3, ARENA.c0 + 2])]),
+  }),
+});
+const CRATE_KEY = 'trap_1105_accrate';
 /** Default sandbag: 重装防御者 (a plain heavy soldier, no abilities). */
 export const SANDBAG_DEFAULT = 'enemy_1006_shield';
 export const SANDBAG_HP = 1e9;
@@ -48,10 +68,13 @@ const ROWS = 19, COLS = 21;
  * The island stage. `stages` = data/stages.json (any shape with `tiles` legends): the legend entries of the glyphs used
  * are taken from the real stages, so the sim and both boards read the same tile records as in a match. The id names the
  * terrain (an unknown stage id: no official scene, the 3D board builds the procedural tiles — board3d/official.js).
+ * `crates` ([row, col] island tiles, a scene's): 阻隔工事 stage devices there, the record copied from a real stage's crate
+ * (the sim places it as an obstacle, the board draws its model); the id names them too.
  * @param {keyof TERRAINS} terrain
  * @param {any} [stages]
+ * @param {[number, number][]} [crates]
  */
-export function arenaStage(terrain = 'flat', stages = null) {
+export function arenaStage(terrain = 'flat', stages = null, crates = []) {
   // local patch (2026-10-08): `stage:<id>` — that real stage as it is (its scene, tiles and devices: 阻隔工事 crates …); the
   // island rect stays the camera's frame and the operator / sandbag bounds (check scripts set it, no chip)
   const real = typeof terrain === 'string' && terrain.startsWith('stage:') && stages && typeof stages === 'object'
@@ -64,10 +87,15 @@ export function arenaStage(terrain = 'flat', stages = null) {
     rows.push(line);
   }
   const tiles = {};
+  let crate = null;
   for (const st of Object.values(stages && typeof stages === 'object' ? stages : {})) {
     for (const g of ['#', 'r', 'h']) if (!tiles[g] && st && st.tiles && st.tiles[g]) tiles[g] = st.tiles[g];
+    crate ||= (st && Array.isArray(st.devices) && st.devices.find((d) => d && d.key === CRATE_KEY)) || null;
   }
-  return { id: `debug_sandbag_${TERRAINS[terrain] ? terrain : 'flat'}`, name: 'sandbag', size: [ROWS, COLS], rows, tiles, devices: [], special: null };
+  const at = (Array.isArray(crates) ? crates : []).filter((p) => Array.isArray(p) && inArena(p[0], p[1]));
+  const devices = crate ? at.map(([r, c], i) => ({ ...crate, alias: `${CRATE_KEY}#d${i + 1}`, pos: [r, c], rangeTiles: [[r, c]], hidden: false, active: true })) : [];
+  const id = `debug_sandbag_${TERRAINS[terrain] ? terrain : 'flat'}${devices.length ? `_c${at.map((p) => p.join('-')).join('_')}` : ''}`;
+  return { id, name: 'sandbag', size: [ROWS, COLS], rows, tiles, devices, special: null };
 }
 
 /**
@@ -115,6 +143,7 @@ function bagRoute(row, col, motion) {
  * @param {any} baseDs the sim's DataSource (all data files)
  * @param {{ fieldId?: string, stage: any, chessId: string, skillIndex?: number|null, moduleId?: string|null, dir?: string,
  *   op?: { row: number, col: number }, bags?: { row: number, col: number }[], enemyKey?: string, bag?: object,
+ *   blockers?: { chessId: string, row: number, col: number, dir?: string }[],
  *   spAuto?: () => boolean, seed?: number, logger?: object }} cfg `spAuto()` false = the operator gains no SP by itself
  *   (only fillSp / castNow charge it)
  */
@@ -128,15 +157,17 @@ export function createSandbagBattle(sim, baseDs, cfg) {
   if (typeof cfg.moduleId === 'string' && cfg.moduleId) unit.moduleId = cfg.moduleId;
   if (cfg.diy && typeof cfg.diy === 'object') unit.diy = cfg.diy; // a 自选 pick on its slot id (simdata getDiy)
   if (Array.isArray(cfg.items) && cfg.items.length) unit.items = [...cfg.items]; // equipment (items.json ids)
+  // a scene's blockers (SCENES): more operators of the same player, after the operator (arenaOp stays the first)
+  const blockers = (cfg.blockers || []).filter((x) => x && typeof x.chessId === 'string' && inArena(x.row, x.col) && !(x.row === op.row && x.col === op.col));
   // the operator's hand-placed pieces (tokens.json `placeable`): board token pieces owned by it (PlayerState battleInput)
-  const busy = (r, c) => (r === op.row && c === op.col);
+  const busy = (r, c) => (r === op.row && c === op.col) || blockers.some((x) => x.row === r && x.col === c);
   const tokens = (cfg.tokens || []).filter((t) => t && typeof t.tokenId === 'string' && inArena(t.row, t.col) && !busy(t.row, t.col))
     .map((t, i) => ({ uid: 2 + i, kind: 'token', tokenId: t.tokenId, row: t.row, col: t.col, dir: cfg.dir || 'RIGHT', ownerUid: 1 }));
-  const players = [{ playerId: DEBUG_PLAYER, seat: 0, side: 'L', colOffset: 0, coords: 'field', units: [unit, ...tokens], bonds: {}, bandId: null, playerEffects: [] }];
+  const others = blockers.map((x, i) => ({ uid: 2 + tokens.length + i, kind: 'chess', chessId: x.chessId, row: x.row, col: x.col, dir: x.dir || 'RIGHT' }));
+  const players = [{ playerId: DEBUG_PLAYER, seat: 0, side: 'L', colOffset: 0, coords: 'field', units: [unit, ...tokens, ...others], bonds: {}, bandId: null, playerEffects: [] }];
   const motion = String((raw.stats && raw.stats.motion) || raw.motion || 'WALK').toUpperCase();
   // a sandbag on the operator's tile only off-centre (defaultBags' blocked placement); off the island never
-  const spawns = (cfg.bags || DEFAULT_BAGS).filter((b) => inArena(Math.round(b.row), Math.round(b.col))
-    && !(b.row === op.row && b.col === op.col)).map((b) => ({
+  const spawns = (cfg.bags || DEFAULT_BAGS).filter((b) => inArena(Math.round(b.row), Math.round(b.col)) && !busy(b.row, b.col)).map((b) => ({
     time: 0, enemyKey: raw.key, pos: [b.row, b.col], route: bagRoute(Math.round(b.row), Math.round(b.col), motion), tag: SANDBAG_TAG, countInTotal: false,
   }));
   const spAuto = typeof cfg.spAuto === 'function' ? cfg.spAuto : () => true;

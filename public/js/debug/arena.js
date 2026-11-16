@@ -5,7 +5,8 @@
 // the voice lines). Same event path as a match: what plays here is what plays in a battle.
 //
 //   const arena = await createArena(host, { onEvents(ev, gt), onRestart(battle), onKeepOp(gt) })
-//   arena.start(cfg)        a new battle (cfg: js/debug/sandbag.js createSandbagBattle + `terrain`, `hurt()` = the
+//   arena.start(cfg)        a new battle (cfg: js/debug/sandbag.js createSandbagBattle + `terrain`, `crates` (a scene's
+//                           crate tiles, arenaStage), `hurt()` = the
 //                           injured-ally option, hurtOp every HURT.every s; `keepOp()` = the operator-stands option,
 //                           keepOp after every step); the camera frames the island; a new terrain
 //                           rebuilds the board
@@ -122,7 +123,7 @@ export async function createArena(host, hooks = {}) {
 
   function start(next) {
     cfg = { ...next };
-    const stage = arenaStage(cfg.terrain, data.get('stages'));
+    const stage = arenaStage(cfg.terrain, data.get('stages'), cfg.crates);
     if (stage.id !== stageId) { view.setStage(stage); stageId = stage.id; }
     const fieldId = `debug#${++runs}`;
     battle = createSandbagBattle(sim.mods, sim.ds, { ...cfg, stage, fieldId, logger });

@@ -13,7 +13,7 @@ import { SIM_DATA_FILES as RUNNER_FILES } from '../public/js/battle/runner.js';
 import {
   ARENA, inArena, arenaStage, sandbagRecord, createSandbagBattle, arenaOp, arenaBags, keepSandbags, reviveSandbags,
   fillSp, castNow, rangeTiles, defaultBags, hurtOp, ownTokens, autoTokens, rangeOf, SIM_DATA_FILES, SANDBAG_DEFAULT, SANDBAG_HP, DEFAULT_OP,
-  BLOCK_OFFSET, HURT, KEEP_OP, ISLAND_REACH, keepOp,
+  BLOCK_OFFSET, HURT, KEEP_OP, ISLAND_REACH, keepOp, SCENES,
 } from '../public/js/debug/sandbag.js';
 
 const stages = JSON.parse(readFileSync(new URL('../data/stages.json', import.meta.url), 'utf8'));
@@ -222,6 +222,24 @@ describe('debug page sandbag arena (public/js/debug/sandbag.js)', () => {
     const units = b.allyUnits.filter((u) => u.kind === 'token' && !u.mem?.wangFollower);
     assert.equal(units.length, 7);
     assert.ok(units.every((u) => u.deployed && u.ownerUnit === arenaOp(b)), 'deployed, owned by the operator');
+    assert.deepEqual(b.errors, []);
+  });
+
+  test('scene horn (the official 혼 recording): a blocker holds the sandbag 4.6 tiles ahead on the front row; crates behind', () => {
+    const sc = SCENES.horn;
+    const stage = arenaStage('flat', stages, sc.crates);
+    assert.notEqual(stage.id, arenaStage('flat', stages).id, 'its own stage id (the view rebuilds the board with the crates)');
+    assert.deepEqual(stage.devices.map((d) => [d.key, ...d.pos]), [['trap_1105_accrate', ARENA.r0 + 1, ARENA.c0 + 2], ['trap_1105_accrate', ARENA.r0 + 3, ARENA.c0 + 2]]);
+    const b = make({ chessId: 'chess_char_5_08_a', stage, op: sc.op, dir: sc.dir, bags: sc.bags, blockers: sc.blockers });
+    const ev = run(b, 6);
+    const op = arenaOp(b), [bag] = arenaBags(b);
+    const blocker = b.allyUnits.find((u) => u.kind === 'op' && u !== op);
+    assert.ok(op && op.defId === 'chess_char_5_08_a' && op.tileR === ARENA.r0, 'the chosen operator first (arenaOp), on the island\'s front row');
+    assert.ok(blocker && bag.blockedBy === blocker, 'the sandbag is held by the blocker');
+    assert.ok(Math.abs(bag.x - op.x - 4.6) < 1e-9 && bag.y === op.y, `4.6 tiles from the shooter's root, same row (${bag.x - op.x}, ${bag.y - op.y})`);
+    const crates = b.units.filter((u) => u.kind === 'device').map((u) => [u.y, u.x]);
+    assert.deepEqual(crates, sc.crates.map(([r, c]) => [r, c]), 'the crates stand');
+    assert.ok(ev.some((e) => e[0] === 'atk' && e[1] === op.id && e[2] === bag.id), 'the shooter fires at the held sandbag');
     assert.deepEqual(b.errors, []);
   });
 
