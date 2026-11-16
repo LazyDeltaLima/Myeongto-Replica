@@ -27,6 +27,7 @@ import { MODULE_NONE, PROF_NAME, skillLabel, moduleBadge, quickSkillTags, opsOf,
 import { diySlotList, pickChoices, pickOptions, slotRecord, defaultPick } from '../ui/diyModel.js';
 import { LoadoutStats } from '../ui/loadoutStats.js';
 import { CultivationSelects, CultivationSection } from './cultivation.js';
+import { SkinSection } from '../ui/skinPicker.js';
 import { SkillIcon, ModuleGlyph, SkillSection, ModuleSection, ProfFilter, rowControlHit } from './loadoutSections.js';
 import { useStore } from '../store.js';
 import { loadoutStore, closeLoadout } from '../ui/loadoutSync.js';
@@ -350,6 +351,7 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, onClear
               </div>
             </div>
             <div class="diy-pick__detail">
+              <${SkinSection} charId=${draft.charId} art=${chessPortraitUrl(m, golden || base) || avatarOf(m, unit, true)} face=${avatarOf(m, unit, true)} />
               ${onOps ? html`<${CultivationSection} charId=${draft.charId} ops=${ops} onSet=${onOps} />` : null}
               <${SkillSection} m=${m} chess=${base} golden=${golden} skillOptions=${skillOptions} skill=${skillOn} level=${previewLevel}
                 onLevel=${onPreviewLevel} onPick=${pickSkill} />

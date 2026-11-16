@@ -51,6 +51,7 @@ import {
 } from '../ui/loadoutModel.js';
 import { loadoutStore, openLoadout, closeLoadout, setEntries, setOpsMap, applyLoadoutEntries, setNotOwned, applyOwnershipImport, setDiyPicks, applyDiyImport } from '../ui/loadoutSync.js';
 import { CultivationSelects, CultivationSection, cultivationView } from './cultivation.js';
+import { SkinSection } from '../ui/skinPicker.js';
 import { SkillIcon, ModuleGlyph, SkillSection, ModuleSection, ProfFilter } from './loadoutSections.js';
 // the detail's sections moved to loadoutSections.js (the 自选 picker draws them too); the tests still import these two here
 export { ModuleGlyph, ModuleInfo } from './loadoutSections.js';
@@ -231,6 +232,7 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
       <${Button} variant="ghost" size="sm" icon="refresh" class="lo-dhead__reset" disabled=${!changed} onClick=${onReset}>${t('恢复默认')}<//>
     </div>
     <div class="lo-detail__body" ref=${bodyRef}>
+      <${SkinSection} charId=${chess.charId} art=${chessPortraitUrl(m, golden || chess)} face=${chessAvatarUrl(m, golden || chess)} />
       <${CultivationSection} charId=${chess.charId} ops=${ops} onSet=${onOps} standIn=${notOwned} />
       <${LoadoutGarrisons} chess=${level === 'elite' && golden ? golden : chess} m=${m} />
       <${SkillSection} m=${m} chess=${chess} golden=${golden} skillOptions=${opt.skillOptions} skill=${choice.skill} level=${level}

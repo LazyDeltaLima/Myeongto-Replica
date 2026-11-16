@@ -2450,3 +2450,36 @@ upstream v0.4.0 대조에서 받은 화면 수정(`docs/rules/upstream.md` 「�
 - 확인: `test/ui/settings-sections.test.js`(탭 순서·패널 소속·`resOn` 거르기·「资源」 번역), `test/resource-packs.test.js` 「the resource tab…」(크기 나눔·일시정지·
   계속 받기·동의 뒤 나머지)·「skinPackState」, `test/ui/gameLogic.test.js`(`otherSkins` 기본·정리). 화면은 관리자가 확인(구현 뒤 전후 캡처 반복 없이).
 - 재발 방지: `test/resource-packs.test.js` 「the resource tab: sizes in no pack and per pack apart…」 — 일시정지를 빼면(`held`가 늘 거짓) 실패함을 봄.
+
+## 스킨 고르기 (2026-11-16, 관리자 결정 — 리소스 받기 2안의 시안 s4·s5 그대로)
+
+- 공식 위수협약 모드에는 판 밖에서 스킨을 고르는 화면이 없다. upstream `ui/skinPicker.js`의 배치(상세 패널의 「스킨」 칸, 기본 타일 + 세로 초상화 타일)·크게
+  보기 창·폰 얼굴 그림 전환·시험을 옮기고, 목록의 출처와 잠금·받기 상태만 우리 것이다. 고른 스킨은 표시 전용이고 시즌을 나누지 않는다(관리자 결정 2026-11-07,
+  서버 쪽은 `docs/rules/upstream.md` 「오퍼레이터 스킨 — 선택·공개·전달」).
+- 자리: 오퍼레이터 설정(`screens/loadout.js` 상세)과 선발 편성(`screens/diy.js` 상세)의 맨 위, 「잠재능력과 육성도」 앞(`ui/skinPicker.js SkinSection`). 열쇠는
+  기물 ID가 아니라 오퍼레이터 charId — 일반·정예·선발 기물이 한 오퍼레이터다.
+- 목록(`ui/skins.js buildSkinCatalog`): 스킨 데이터의 두 목록 — `local/spine/skin/skins.json`(스킨마다 주인·일러스트 `illust`)과 `art.json`(아바타·초상화,
+  `docs/rules/render.md` 「스킨 모델 소재」 「그림을 받는 곳」). 둘 다 리소스 목록에 있는 작은 파일이라 스킨 데이터를 안 골랐어도 칸을 처음 열 때 받는다(어떤
+  스킨이 있는지는 잠긴 채로도 보여야 함). 주인이 소환물인 스킨은 고르지 않는다 — 주인 오퍼레이터의 스킨을 따라간다. 목록이 없는 서버면 칸이 없다.
+- 상태(`skinSectionState`, `resources.js skinPackState`에서):
+  - 칸 없음: 리소스 받기가 안 되는 곳(`phase: 'off'` — 보안 연결 아님, 목록 없음), 목록에 스킨 묶음이 없음, 스킨 목록 없음.
+  - 잠김(스킨 데이터를 안 고름, 시안 s4): 기본 타일이 「사용」, 스킨 타일은 오퍼레이터 자기 그림을 흐리게(회색) 자물쇠 아래 두고 눌러도 아무것도 안 한다. 머리
+    오른쪽 「지금은 기본 스킨만 쓸 수 있습니다」, 밑 상자 「스킨 데이터를 받으면 다른 플레이어가 고른 스킨도 보입니다.」 + 「받기 약 N MB」(`setResourcePack('skin',
+    true)`, 묶음 전체 크기). 저장된 선택이 있어도 기본으로 보인다.
+  - 받는 중(고름, 남은 파일 있음): 고를 수 있다. 밑 상자는 설정 탭과 같은 「다 받을 때까지는 기본 스킨으로 보이고…」와 받은 %.
+  - 다 받음(시안 s5): 머리 오른쪽 「내가 고른 스킨은 스킨 데이터를 받은 플레이어에게 보입니다」, 상자 없음.
+- 타일: 아트 상자에 그 모습의 1:2 초상화(머리 쪽으로 잘림)와 1:1 아바타를 함께 싣고, 폰 가로(`max-width: 1000px` 그리고 `max-height: 520px`)에서는 아바타를
+  그린다(upstream의 전환 — 그 화면의 상세 패널은 약 200 px). 스킨 그림이 없으면 오퍼레이터 그림을 흐리게. 고른 타일은 민트 테두리와 「사용」. 고른 스킨 타일을 다시
+  누르면 그 일러스트를 창으로 크게 본다(기본 타일은 안 열림). 크기는 시안의 작은 타일(`max(.96rem, 66px)` 폭, 그림 `max(1.28rem, 70px)`), upstream의 5칸 1:2보다 작다.
+- 이름: 스킨 목록 기록의 `name`(데이터 이름이라 `tName`으로 번역)을 쓰고, 없으면 「스킨 N」(목록 순서). **지금 `skins.json`에는 이름이 없어 모두 「스킨 N」이다**
+  — 공식 스킨 표의 이름과 KR 이름을 생성 단계가 싣는 일은 묶음 mix-D 「스킨 이름」 줄.
+- 보내기(`ui/loadoutSync.js installSkinsSync`, `main.js`): `room.skins { skins }`를 welcome·고칠 때마다(같은 동기화 엔진), 시즌을 붙이지 않는다(`seasonless`).
+  스킨 데이터를 고르지 않았으면 빈 맵을 보낸다 — 잠긴 칸이 「지금은 기본 스킨만」이라 말하는 것이 다른 플레이어 화면에서도 맞도록. 선택은 저장해 두었다가 다시
+  고르면 보낸다(`resStore.chosen.skin`을 따라 다시 보냄). 저장 값은 선에 맞는 모양만(`parseStoredSkins`: charId → 스킨 ID, 256쌍).
+- 대기실 좌석 카드(`ui/seatArt.js seatCardSkin`, `screens/room.js`): 카드의 오퍼레이터가 그 좌석이 고른 스킨의 초상화를 입는다 — 내 카드는 이 브라우저 선택을 곧바로,
+  남의 카드는 `room.state seats[].skins`를 「다른 플레이어 스킨」이 켜져 있을 때만, 스킨 데이터를 안 골랐으면 아무도 입지 않는다. 그림은 한 장씩 워커가 받으므로
+  다 받기를 기다리지 않는다(모델은 다 받아야 그림 — `docs/rules/render.md` 「스킨 렌더 게이트」). 스킨 초상화가 안 열리면 기본 초상화(`seatArtSrc`).
+- 문구 아홉(`en.json`·`ko/ui.json`), 한국어는 시안 문구 그대로.
+- 확인: `test/ui/skin-picker.test.js`(목록·선택·상태·타일·상자·크게 보기·두 화면 자리·폰 전환·보내기·좌석 카드, 그리고 이 체크아웃에 목록이 있으면 실제 목록에서
+  고르기 화면이 그리는 그림이 모두 리소스 목록 파일인지). 화면은 관리자가 확인(구현 뒤 전후 캡처 반복 없이).
+- 재발 방지: `test/ui/skin-picker.test.js` 「skins sync (room.skins)」 — 보낼 때 시즌을 붙이거나 스킨 데이터 없이 선택을 보내게 되돌리면 실패함을 봄.

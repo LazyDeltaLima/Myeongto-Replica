@@ -16,7 +16,8 @@
 // 名片干员 (ui/seatArt.js): a Doctor's card shows an operator's portrait — the one the player picked (更换立绘 on one's own
 // seat opens the picker; kept as a pref and sent as room.card by ui/cardSync.js, so the room sees it as seats[].card),
 // else one of the 5★/6★ operators chosen by the player id, the same on every client. Without the art the card keeps its
-// avatar frame; a bot keeps its robot frame.
+// avatar frame; a bot keeps its robot frame. The operator wears its player's skin (seatCardSkin: the skin's portrait,
+// with the skin data; the default portrait when that one fails).
 //
 // Start rule (server/lobby.js): room.start needs every *other* human connected and ready; the
 // host's start counts as the host's ready. So 开始模拟 is enabled exactly then and sends room.start
@@ -53,7 +54,7 @@ import { toast, toastError } from '../ui/toasts.js';
 import { copyText } from '../ui/clipboard.js';
 import { GuideButton } from '../ui/guide.js';
 import { openStats } from './stats.js';
-import { SettingsButton } from '../ui/settings.js';
+import { SettingsButton, settingsStore } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { ConsoleToggle } from '../ui/consoleToggle.js'; // local patch: 콘솔 모드
 import { net } from '../net.js';
@@ -74,7 +75,9 @@ import { customSummary } from '../ui/customSummary.js';
 import { data, useData, getBond, getBoss, getConfig, getMode } from '../data.js';
 import { chessAvatarUrl, chessPortraitUrl, uiUrl } from '../ui/assetUrls.js';
 import { Sprite } from '../ui/gameComponents.js';
-import { CARD_KEY, cardStore, setCard, cardOperators, cardContext, seatOperator, seatArtSrc } from '../ui/seatArt.js';
+import { CARD_KEY, cardStore, setCard, cardOperators, cardContext, seatOperator, seatArtSrc, seatCardSkin } from '../ui/seatArt.js';
+import { skinsStore, SKINS_KEY, loadSkinCatalog } from '../ui/skins.js';
+import { resStore } from '../resources.js';
 import { DEFAULT_SEASON, seasonOf } from '../../../shared/seasons.js';
 import { RoomSeasonSeg, seasonName, seasonQueueCounts, seasonQuickCounts } from '../ui/season.js';
 
@@ -399,7 +402,7 @@ function useSeatBox() {
  * empty name card's place — nothing else (maintainer decision 2026-11-08); a spectator or a matching room sees the
  * event's waiting figure. A portrait that fails to load gives way to the avatar frame.
  */
-function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, portrait = null, operator = null, onPickCard = null, toSpectate = null, firstEmpty = false }) {
+function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, portrait = null, skinArt = null, operator = null, onPickCard = null, toSpectate = null, firstEmpty = false }) {
   const [badArt, setBadArt] = useState(/** @type {string[]} */ ([]));
   const menu = useUpMenu();
   const coop = room.mode !== 'solo';
@@ -430,7 +433,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
   // The host never needs to toggle ready: starting the match readies them (server rule).
   const state = offline ? 'offline' : seat.ready || seat.isBot ? 'ready' : isHostSeat ? 'host' : 'waiting';
   const lit = state === 'ready' || state === 'host';
-  const art = seat.isBot ? null : seatArtSrc([portrait], badArt);
+  const art = seat.isBot ? null : seatArtSrc([skinArt, portrait], badArt);
   const canPick = isMe && !seat.isBot && !!onPickCard;
   const name = playerName(seat.name) || t('博士');
   const mark = seat.isBot ? null : html`<${SeatMark} playerId=${seat.playerId} name=${seat.name} />`;
@@ -661,6 +664,11 @@ export function RoomScreen() {
   const cardList = useMemo(() => cardOperators(data.list('chess'), backups), [chess, backups]);
   const cards = useMemo(() => cardContext(cardList, { pending: !backups }), [cardList, backups]);
   const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
+  // the seat cards' skins (ui/seatArt.js seatCardSkin): one's own choice, the seats' published ones, with the skin data
+  const skins = useStore((s) => s, Object.is, skinsStore);
+  const skinPack = useStore((s) => s.chosen?.skin === true, Object.is, resStore);
+  const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);
+  useEffect(() => { if (skinPack) void loadSkinCatalog(); }, [skinPack]);
   const [picking, setPicking] = useState(false);
   // 选择模拟协议 over the room (open, and the host's picks before 确认)
   const [proto, setProto] = useState(/** @type {null | { difficulty: string, ruleset: string, size: number, grade: number | null }} */ (null));
@@ -887,9 +895,11 @@ export function RoomScreen() {
       style=${[seatVars, seatBox.box].filter(Boolean).join(';')}>
       ${facts.seats.map((s, i) => {
         const op = seatOperator(s, cards, { myId: me.playerId, myCard });
+        const skin = op ? seatCardSkin(s, op.chess.charId, { myId: me.playerId, localSkins: skins[SKINS_KEY], otherSkins, pack: skinPack }) : null;
+        const skinArt = skin && skins.catalog?.bySkin?.get(skin)?.owner === op.chess.charId ? skins.catalog.bySkin.get(skin).portrait : null;
         return html`<${SeatCard} key=${s ? `p${s.playerId}` : `e${i}`} seat=${s} index=${i} room=${room} facts=${facts}
           myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick} onInvite=${() => copy('code')}
-          portrait=${op ? chessPortraitUrl(m, op.chess) : null} operator=${op?.chess} onPickCard=${() => setPicking(true)} toSpectate=${toSpectate}
+          portrait=${op ? chessPortraitUrl(m, op.chess) : null} skinArt=${skinArt} operator=${op?.chess} onPickCard=${() => setPicking(true)} toSpectate=${toSpectate}
           firstEmpty=${!s && i === firstEmpty} />`;
       })}
       ${coop ? null : html`<aside class="solo-brief rs-brief brackets">

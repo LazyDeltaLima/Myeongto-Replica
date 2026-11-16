@@ -10,6 +10,7 @@
 
 import { createStore, loadPref, savePref } from '../store.js';
 import { isLocalDiyPick } from '../../../shared/local-diy.js';
+import { ownerSkin } from './skins.js';
 
 /** 名片干员: the player's own pick (a localStorage pref, sent as room.card). */
 export const CARD_PREF = 'room.card';
@@ -115,4 +116,18 @@ export function seatOperator(seat, { byChar, pool, pending = false }, { myId, my
 export function seatArtSrc(srcs, failed = []) {
   for (const src of Array.isArray(srcs) ? srcs : []) if (src && !failed.includes(src)) return src;
   return null;
+}
+
+/**
+ * The skin a seat card's operator wears (upstream ui/seatArt.js seatCardSkin; docs/rules/ui.md 「스킨 고르기」): one's own
+ * card this browser's choice at once (`localSkins`), another Doctor's the choice the seat published (room.state
+ * seats[].skins) unless 其他玩家的皮肤 is off, and nobody's without the skin data (`pack`). null = the default portrait.
+ * An AI seat and an empty one wear nothing.
+ * @param {any} seat room.state seat @param {string|null|undefined} charId the card's operator
+ * @param {{ myId?: any, localSkins?: Record<string, string>, otherSkins?: boolean, pack?: boolean }} [ctx]
+ * @returns {string|null}
+ */
+export function seatCardSkin(seat, charId, { myId = null, localSkins = {}, otherSkins = true, pack = false } = {}) {
+  if (!seat || seat.isBot || seat.playerId == null || !charId) return null;
+  return ownerSkin(charId, { ownerId: seat.playerId, myId, players: [seat], localSkins, otherSkins, pack });
 }

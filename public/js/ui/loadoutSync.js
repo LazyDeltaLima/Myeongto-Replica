@@ -20,6 +20,7 @@
 // under their old pref keys, another season's under `<key>@<season>` (seasonPref). setLoadoutSeason (main.js: the season
 // on screen — the room's, else the one picked, ui/season.js) loads that season's into `loadoutStore`, and the syncs send
 // them like an edit, naming the season (`season`, absent = the default).
+// The operator skins (ui/skins.js, `room.skins`) ride the same engine through installSkinsSync, not per season.
 
 import { createStore, loadPref, savePref } from '../store.js';
 import { DEFAULT_SEASON, seasonOf } from '../../../shared/seasons.js';
@@ -28,6 +29,7 @@ import { LOADOUT_PREF, parseStored, parseStoredOps, toStored, sanitizeEntries, s
 import { cultivationCharIds } from '../../../shared/protocol.js';
 import { OWNERSHIP_PREF, parseStoredOwnership, toStoredOwnership, cleanIds, sanitizeNotOwned } from './ownershipModel.js';
 import { DIY_PREF, parseStoredDiy, toStoredDiy, cleanPicks, sanitizeDiyPicks } from './diyModel.js';
+import { skinsStore, SKINS_KEY, SKINS_SYNC_KEY, parseStoredSkins } from './skins.js';
 import { toast } from './toasts.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
@@ -193,7 +195,7 @@ export const closeLoadout = () => loadoutStore.set({ open: false });
  * is the message body), `prepare()` → the payload to send (may await data; null = the data is missing: nothing is sent,
  * state 'error'), `lockedText` = what a refused edit tells the player.
  */
-function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, field, prepare, lockedText, tag }) {
+function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, field, prepare, lockedText, tag, seasonless = false }) {
   const T = timers || { setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms), clearTimeout: (id) => globalThis.clearTimeout(id) };
   // (`lockedText` is a msgid: the toast is translated when it shows — docs/I18N.md)
   const tell = notify || ((text) => toast(t(text), 'warn'));
@@ -231,8 +233,9 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
       // never sanitise against missing data: every entry would be dropped and the server's copy cleared
       if (payload == null) { setState('error'); return; }
       // the season these settings belong to (setLoadoutSeason), named unless it is the default: the server checks and
-      // keeps them under it, and only a room of that season takes them (server/lobby.js settingsOf)
-      const body = { ...(field ? { [field]: payload } : payload), ...(prefSeason !== DEFAULT_SEASON ? { season: prefSeason } : {}) };
+      // keeps them under it, and only a room of that season takes them (server/lobby.js settingsOf); a setting that is not
+      // per season (`seasonless`: the skins) names none
+      const body = { ...(field ? { [field]: payload } : payload), ...(!seasonless && prefSeason !== DEFAULT_SEASON ? { season: prefSeason } : {}) };
       const json = JSON.stringify(body);
       if (json === pendingJson) return; // the same content is already on its way
       if (json === lastSent && pendingJson == null) { edited = false; setState('synced'); return; }
@@ -382,6 +385,30 @@ export function installDiySync({ net, timers, target = loadoutStore, notify } = 
 
 /** @type {null | (() => Promise<void>)} the installed 自选编队 sync's flush */
 let diyFlush = null;
+
+/**
+ * Wire the operator skins sync once (docs/rules/ui.md 「스킨 고르기」): `room.skins { skins }` after every welcome and
+ * edit, from `skinsStore` (ui/skins.js — its own store and pref: a skin choice belongs to no screen and to no season).
+ * The map goes as stored (ui/skins.js parseStoredSkins: the wire's shape); the server keeps the operators of the
+ * seasons it offers on the session and the room's season's on the seat (server/lobby.js skins). It is public and
+ * display only, so the server takes it in any phase — a running match at once (Match.setSkins); the one refusal that
+ * can still say 'locked' is a server without that.
+ * Without the skin data (`pack`: resStore, the choice of the pack 'skin') the map goes empty: the page shows the skins
+ * locked and 「지금은 기본 스킨만」, so no other page draws them either; the pref keeps the choice for when it is taken.
+ * @param {{ net: any, timers?: { setTimeout: Function, clearTimeout: Function }, target?: ReturnType<typeof createStore>,
+ *   notify?: (text: string) => void, pack?: ReturnType<typeof createStore> | null }} deps pack: absent = the skins go out
+ */
+export function installSkinsSync({ net, timers, target = skinsStore, notify, pack = null } = /** @type {any} */ ({})) {
+  const on = () => !pack || pack.get()?.chosen?.skin === true;
+  if (target.get().skinsOn !== on()) target.set({ skinsOn: on() });
+  const offPack = pack ? pack.subscribe(() => { if (target.get().skinsOn !== on()) target.set({ skinsOn: on() }); }) : null;
+  const sync = installPrefSync({
+    net, timers, target, notify, key: [SKINS_KEY, 'skinsOn'], stateKey: SKINS_SYNC_KEY, msgType: 'room.skins', field: 'skins', tag: 'skins',
+    seasonless: true, lockedText: N_('这台服务器不接受皮肤选择，只有本机保存'),
+    prepare: async () => (target.get().skinsOn === false ? {} : parseStoredSkins(target.get()[SKINS_KEY])),
+  });
+  return { flush: sync.flush, dispose() { offPack?.(); sync.dispose(); } };
+}
 
 /**
  * Send a pending 自选编队 edit now and wait for the server's reply (the strategy draft applies a strategy's preset right

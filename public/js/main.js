@@ -60,7 +60,7 @@ import { installPerfHud } from './ui/perfHud.js'; // `?perf=1`: frame / sim / re
 import { LoadoutHost } from './screens/loadout.js';
 import { StatsHost } from './screens/stats.js';
 import { recordResult, recordQuit, installStatsRecorder } from './ui/stats.js';
-import { installLoadoutSync, installOwnershipSync, installDiySync, setLoadoutSeason } from './ui/loadoutSync.js';
+import { installLoadoutSync, installOwnershipSync, installDiySync, installSkinsSync, setLoadoutSeason } from './ui/loadoutSync.js';
 import { installCardSync } from './ui/cardSync.js';
 import { installSeasons, activeSeason, followActiveSeason, loadPickedSeason, inviteSeasonOf } from './ui/season.js';
 import { installDiyPresets, setPresetSeason } from './ui/diyPresets.js'; // 맹약별 선발 프리셋 (per season)
@@ -72,7 +72,7 @@ import { UpdateNotice } from './ui/updateNotice.js';
 import { installMatchQueue } from './ui/matchQueue.js'; // 랜덤 매칭 (server/matchmaking.js)
 import { installFeedback } from './ui/feedback.js'; // local patch: whether the server keeps feedback (welcome)
 import { installGpuNotice } from './ui/gpuNotice.js'; // hardware acceleration off: say where to turn it on
-import { installResources, ResourceHost } from './resources.js';
+import { installResources, ResourceHost, resStore } from './resources.js';
 import { emoteSet } from '../../shared/emote-art.js';
 import { initLang, useLang, tickerText } from './ui/lang.js';
 import { t, N_, translateWire } from '../../shared/i18n.js';
@@ -508,6 +508,7 @@ async function boot() {
   installOwnershipSync({ net });
   installDiySync({ net });
   installCardSync({ net }); // 名片干员: the operator on this browser's seat card (room.card, ui/seatArt.js)
+  installSkinsSync({ net, pack: resStore }); // operator skins (room.skins, ui/skins.js), sent while the skin data is chosen
   installDiyPresets();
   net.attachBrowserHooks();
   // Audio: unlock on first gesture, BGM follows the route / match phase (js/audio.js).
