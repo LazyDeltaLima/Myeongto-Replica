@@ -801,6 +801,15 @@
   가리키는 컴포넌트도 없음, 1개는 `_inactiveOnFinish`(끝날 때 끄는 목록)만, 1개는 트랙(위). (2026-10-11 공식 클라 확인: Effect/ParticleEffect가 이름으로 찾는 자식은 상수 `body`·`rotation_y`·`rotation_z`·`static_offset`·`flip_x`뿐 — 이름으로 켜는 코드는 없다. 늦게 켜는 것은 `FxDelay`(2026-10-11 적용 — 그 가지만 늦게 켬), `FxLODSetting._disableObjects`는 저사양에서 끈다. 처음부터 꺼진 노드 가운데 FxDelay가 붙은 것은 대조 안 함 [확인 필요].)
   표본 아르케토 S3: `archet_skill_03_start`의 꺼진 `smoke`가 대상 위에 큰 연기를 그렸다 — 같은 시스템이 `archet_skill_03_start_01`에 켜진 채 뒤쪽(0.65, 0.63)에
   있고 관리자가 본 연기가 그것(그대로 남음). 픽셀 비교 117/1983 변화(일부는 난수 순서만), 아레나 아르케토 S3 전후.
+  - **최상위 노드는 예외 — 늘 켜진 것으로 본다** (2026-11-16, 관리자 제보: 에이야퍄들라 `char_180_amgoat` 기본 공격 착탄 `amgoat_attack_01_hit`이 안 보임):
+    이펙트는 모두 풀에서 꺼내고(`BattleFactory.CreateEffect` → `PoolManager.Allocate` → `GameObjectPool.Allocate`), `GameObjectPool.Allocate`는 꺼낸
+    오브젝트가 꺼져 있으면(`activeSelf` 거짓) `SetActive(true)`로 켠다 — 공식 클라에서 확인. 그래서 프리팹이 최상위를 꺼진 채 저장했어도 공식은 그린다.
+    위 규칙이 최상위까지 꺼서 그런 프리팹 46개(재생 표에 묶인 것 37개)가 통째로 안 그려졌다: 에이야퍄들라 착탄, 체스트넛 `chnut_attack_trail`·미니멀리스트
+    `malist_attack_trail`(기본 공격 꼬리), 유키 마코토·토스카·비질의 공격 시작·스킬, 백파이프·아오스타·벨로네·가비알 디 인빈서블·혼·휴머스·프라마닉스 더 프레리타의
+    스킬 일부, 모듈 버프 5개, 적 현란한 칼솜씨 요리사·변종 맹글러비스트 α·군단 중형 화포·포트브레이커·검은 뿔의 루울의 시작 이펙트. 추출기
+    (`tools/local-extract/fx_extract.py` `prefab`)가 최상위를 늘 `active: true`로 적는다 — 두 꼬리는 그 덕에 `mainPs`(끝낼 때 멈추는 첫 시스템,
+    「투사체 꼬리 끝내기」)도 생겼다. 최상위 아래의 꺼진 노드는 위 규칙 그대로.
+    재발 방지: 원인 제거 — 추출기가 최상위를 켜진 것으로 적음, 추출 JSON 골든(「추출 JSON 골든」)에 `amgoat/amgoat_attack_01_hit`.
 - 알려진 차이(범위 밖):
   공식 첫 검우 0.4초 + 검마다 0~0.3초 랜덤 지연(시뮬레이션 규칙), 매 공격 `texas2_skill_02_start`·`_start_02` 동시 재생, S3 배치 폭발(AppearSwordRain, `_hitEffects []`)
   대상에도 hit_02를 그리는 `expect` 규칙.

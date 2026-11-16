@@ -1195,7 +1195,11 @@ class Extractor:
 
         def walk(go, parent, path):
             d = go.read_typetree()
-            node = {'name': d['m_Name'], 'parent': parent, 'active': bool(d.get('m_IsActive', 1))}
+            # (2026-11-16) the root is written active whatever the prefab saved: every effect comes out of the pool
+            # (BattleFactory.CreateEffect → PoolManager.Allocate → GameObjectPool.Allocate, which SetActive(true)s an
+            # object that is not activeSelf — confirmed in the official client). 46 prefabs saved their root inactive
+            # (艾雅法拉's attack hit, 褐果's / 至简's attack trails …) and drew nothing here
+            node = {'name': d['m_Name'], 'parent': parent, 'active': parent < 0 or bool(d.get('m_IsActive', 1))}
             idx = len(nodes)
             nodes.append(node)
             paths[idx] = path
