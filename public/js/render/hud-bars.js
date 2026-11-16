@@ -123,9 +123,14 @@ export function shieldedBar(hp, maxHp, ghostHp, shield) {
  * 53.7 official vs 45.8 ours → +7.7 → 115.
  */
 export const PREP_CHIP = Object.freeze({ x: -45.5, y: 115, interior: 37.5 });
-/** Prep equipment bar (`shop_hud` equip_bg, root scale 1.25), in HUD units: centre from hud_unit's centre, size, slots. */
-/** rise: the next pill of an operator with more than two slots, this far above the last [추정·화면]. */
-export const PREP_EQUIP = Object.freeze({ x: 14.75, y: 129.5, w: 92.5, h: 37.5, rise: 30, slots: Object.freeze([-16, 16.25]), slotW: 28.75, slotH: 7.5, scale: 1.25 });
+/**
+ * Prep equipment bar (`shop_hud` equip_bg, root scale 1.25), in HUD units: centre from hud_unit's centre, size, slots.
+ * y: the prefab puts the bar in the chip's row (equip_bg 29.4, chess_level_icon 28.2), so it keeps that 1.2 over
+ * PREP_CHIP.y, which the maintainer lowered from the prefab's 128 — at the prefab's (29.4 + 74.2) × 1.25 = 129.5 it
+ * stood 14.5 units over the chip (an official video capture shows the white pill level with the tier chip).
+ * rise: the next pill of an operator with more than two slots, this far above the last [추정·화면].
+ */
+export const PREP_EQUIP = Object.freeze({ x: 14.75, y: PREP_CHIP.y + (29.4 - 28.2) * 1.25, w: 92.5, h: 37.5, rise: 30, slots: Object.freeze([-16, 16.25]), slotW: 28.75, slotH: 7.5, scale: 1.25 });
 /**
  * A hand token stack's count (`shop_hud` token_bg: token_cnt_bg 76×31 × 0.75 at (13, 29), where an operator's equip bar
  * sits; its token_cnt NotoSansHans-Medium 22 white, MiddleCenter, "X{0}"), root scale 1.25, in HUD units: plate centre

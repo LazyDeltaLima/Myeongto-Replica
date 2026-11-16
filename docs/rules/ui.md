@@ -640,7 +640,10 @@
 
 **장비 바 (정비 중)**: 관리자 제보(캡처). `shop_hud`의 `equip_bg`(74×30, shop_hud 안 (13, 29.4) —
 칩 오른쪽, × 1.25)와 칸 `equip_0`/`equip_1`(23×6, ±12.8 / 13): 아이템마다 흰 알약(`equip_normal_icon`), [추정] 금색 아이템이면 빛나는 금색 알약(`equip_gold_icon` 31×14,
-제 크기). 이 바가 그려지면 예전 아이템 아이콘(item pips)은 숨긴다(캡처에 아이콘 없음). 그림은 로컬 추출(`extract.py --only ui/battlecommon`)만 있어서
+제 크기). 높이는 티어 칩과 같은 줄 — 프리팹에서 막대(29.4)와 칩 `chess_level_icon`(28.2)이 한 줄이고, 칩은 위 「기물 레벨」대로 프리팹 128에서 115로
+내려와 있으므로 막대도 칩 높이 + 1.2 × 1.25 = 116.5단위(`render/hud-bars.js PREP_EQUIP.y`; 처음 프리팹 높이 129.5에 두어 칩보다 14.5단위 떠 보였음,
+2026-11-16 관리자가 준 공식 영상 캡처에서 흰 알약 막대가 「V」 칩 바로 오른쪽에 같은 높이 — 소환물 묶음 개수 판과 같은 원인).
+재발 방지: `test/local-patch-hud.test.js` 「the equip bar fills one slot per item」 이 바가 그려지면 예전 아이템 아이콘(item pips)은 숨긴다(캡처에 아이콘 없음). 그림은 로컬 추출(`extract.py --only ui/battlecommon`)만 있어서
 없는 서버는 예전 아이콘 그대로. 금색 여부는 `render/app.js`의 `setItems` 옆 `setEquip` 한 줄씩(2곳)이 넘긴다. 장비 바 그림은 git 밖 로컬 소재(`public/assets/local/ui/battlecommon`)다.
 공식은 오퍼레이터 기물이 장비 칸 0·1 중 하나라도 장비를 가졌을 때만 알약을 켠다(공식 클라에서 확인: `AutoChessDummyHud` `displayEquipPart` = 기물이 오퍼레이터, 칸 아이콘 둘).
 장비 칸이 둘보다 많은 기물(규정 레이지 아이언하이드 `chess_char_5_22`: 일반 4·정예 6, 기록의 `equipSlots`)은 머리 위 알약을 **아예 그리지 않는다**(예전 아이템 아이콘도 없음) —

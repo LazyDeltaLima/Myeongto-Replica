@@ -122,7 +122,9 @@ describe('prep: official chip and equip bar (shop_hud)', () => {
     bar.update(1000, 500, 1, [false], t);
     assert.ok(bar.root.visible && bar.slots[0].visible && !bar.slots[1].visible);
     assert.equal(bar.slots[0].texture, t.normal);
-    assert.ok(Math.abs(bar.bgs[0].position.x - 1014.75) < 1e-9 && Math.abs(bar.bgs[0].position.y - (500 - 24.5 - 129.5)) < 1e-9);
+    assert.ok(Math.abs(HB.PREP_EQUIP.y - (HB.PREP_CHIP.y + (29.4 - 28.2) * 1.25)) < 1e-9,
+      'the equip bar stands in the tier chip\'s row (shop_hud equip_bg 29.4 vs chess_level_icon 28.2), following PREP_CHIP.y — not at the prefab\'s own height, which the chip left (docs/rules/ui.md 「전투 화면 UI (2026-10-07)」 장비 바)');
+    assert.ok(Math.abs(bar.bgs[0].position.x - 1014.75) < 1e-9 && Math.abs(bar.bgs[0].position.y - (500 - 24.5 - 116.5)) < 1e-9);
     bar.update(1000, 500, 1, [false, true], t);
     assert.equal(bar.slots[1].texture, t.gold);
     assert.ok(Math.abs(bar.slots[1].width - 31 * 1.25) < 1e-9);
@@ -137,7 +139,7 @@ describe('prep: official chip and equip bar (shop_hud)', () => {
     bar.update(1000, 500, 1, [false, false, true], t, 6);
     assert.equal(bar.bgs.filter((b) => b.visible).length, 3, 'six slots: three pills');
     assert.deepEqual(bar.slots.map((s) => s.visible), [true, true, true, false, false, false]);
-    const y0 = 500 - 24.5 - 129.5;
+    const y0 = 500 - 24.5 - 116.5;
     assert.ok(Math.abs(bar.bgs[2].position.x - 1014.75) < 1e-9 && Math.abs(bar.bgs[2].position.y - (y0 - 2 * HB.PREP_EQUIP.rise)) < 1e-9);
     assert.ok(Math.abs(bar.slots[2].position.x - (1014.75 + HB.PREP_EQUIP.slots[0])) < 1e-9 && Math.abs(bar.slots[2].position.y - (y0 - HB.PREP_EQUIP.rise)) < 1e-9, 'the third item: the second pill\'s left dash');
     assert.equal(bar.slots[2].texture, t.gold);
