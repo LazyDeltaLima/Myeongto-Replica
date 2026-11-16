@@ -67,7 +67,7 @@ S→C:
   board: [ Piece & { row, col, dir } ],   // dir ∈ UP|RIGHT|DOWN|LEFT (§3; bench pieces carry none)
   deployCap, deployCount,
   bonds: [ { bondId, count, active, tier, layers, harmony? /* 调和's +1 is in count, §21.26 */, thresholds, countsHand } ],   // sorted: active first, then layers desc; an `off` entry (a bond the mode never activates, with members: count only, never active — the strip's grey 本局禁用 disc, bondsMeta.offBondCounts) comes last
-  effects: [ { id, name, desc, iconKind: 'band'|'choice'|'team'|'item'|'garrison', iconId, counter?, counterText? /* a bounty: 还剩 N 场作战, §20.6 */ } ],
+  effects: [ { id, name, desc, iconKind: 'band'|'choice'|'team'|'item'|'garrison', iconId, effectId? /* the record name / desc were copied from (a 机变 card's entry: id `<card>#n`), the client localizes by it */, counter?, counterText? /* a bounty: 还剩 N 场作战, §20.6 */ } ],
   nextEnemies: [ { enemyKey, count, tag, start? } ],   // preview of the upcoming round's wave (after waves.js generation); `start` = a leader's spawn tile [row, col] on the boss field (the boss-field prep shows it standing there, community report #12); `paths` (a walking leader only: 铳, 卢西恩) = its walk on this field per leader copy, [[row, col], …] from the spawn through one patrol lap — the sim's (server/match/bossPath.js), run along by the prep's route preview cursor (render/fxroute.js; LOCAL-PATCH.md 「보스 경로 미리보기」)
   loadout: { [baseChessId]: { skill, module } },   // §16: the effective loadout (chess not listed: defaults)
   standIns: [ baseChessId ],   // 0.2.0 补位: the chess this player fields as their stand-ins in this match (sorted; [] = everything owned)

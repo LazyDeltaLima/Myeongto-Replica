@@ -83,6 +83,9 @@ export class PlayerViews {
         continue;
       }
       const v = { id: e.id, name: e.name || e.id, desc: e.desc || '', iconKind: e.iconKind || 'choice', iconId: e.iconId || e.id };
+      // the record the text was copied from: a 机变 card's entry is `<effectId>#<n>` with the card type's icon
+      // (icon_team_buff …), neither of them a record id — ui/effectsList.js effectDesc localizes the text by it
+      if (e.data && typeof e.data.effectId === 'string' && e.data.effectId) v.effectId = e.data.effectId;
       if (e.counter != null) v.counter = e.counter;
       out.push(v);
     }

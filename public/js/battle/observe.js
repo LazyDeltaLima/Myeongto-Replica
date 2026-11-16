@@ -230,8 +230,12 @@ export function spectateEffects(spec, members) {
         continue;
       }
     }
-    const rec = data.lookup('effects', pe.id);
-    out.push({ id: pe.id, name: rec?.name || pe.id, desc: rec?.desc || rec?.descRaw || '', iconKind: pe.source || 'choice', iconId: pe.id, ...counter });
+    // a 机变 card's ref is `<effectId>#<n>` (or `choice:<effectId>#<n>`): its record is `data.effectId`, and its icon the
+    // record's card-type icon (icon_team_buff …), as the own list shows it (server/match/choices.js addRef)
+    const ref = isObj(pe.data) && typeof pe.data.effectId === 'string' && pe.data.effectId ? pe.data.effectId : null;
+    const rec = data.lookup('effects', ref || pe.id);
+    const iconId = ref ? rec?.decoIconId || ref : pe.id;
+    out.push({ id: pe.id, ...(ref ? { effectId: ref } : null), name: rec?.name || pe.id, desc: rec?.desc || rec?.descRaw || '', iconKind: pe.source || 'choice', iconId, ...counter });
   }
   return out;
 }

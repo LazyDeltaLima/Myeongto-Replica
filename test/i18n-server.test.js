@@ -189,6 +189,44 @@ test('a real 规程 match: the strategy\'s effect entry shows the strategy\'s lo
   }
 });
 
+test('a real match: every 机变 card\'s effect entry (id `<card>#n`, icon the card type\'s icon_team_buff …) shows the card\'s Korean text, in the own list and in a watched battle\'s', async () => {
+  await data.loadAll('choices', 'effects', 'items', 'bands', 'garrisons');
+  const { effectDesc } = await import('../public/js/ui/effectsList.js');
+  const { spectateEffects } = await import('../public/js/battle/observe.js');
+  const { applyCard, tacticCard } = await import('../server/match/choices.js');
+  const HAN = /[一-鿿]/;
+  const h = makeMatch({ mode: 'solo', seed: 5, registry: createRegistry({ log: { warn() {}, error() {}, info() {} } }), fake: true }).start();
+  h.toPrep(1);
+  const m = h.m;
+  const ps = h.ps('p_0');
+  for (const c of DATA.choices.cards.tactic) applyCard(m, ps, { ...tacticCard(c), family: 'tactic' });
+  const own = JSON.parse(JSON.stringify(ps.effectsView())).filter((e) => e.iconKind === 'team' || e.iconKind === 'choice');
+  const spec = JSON.parse(JSON.stringify({ players: [{ ...ps.battleInput(), playerId: 'p_0' }] }));
+  m.dispose();
+  const heal = own.find((e) => e.effectId === 'allybuff_select_11'); // 自愈 → 「치유」, the reported team buff
+  assert.ok(heal && heal.id !== heal.effectId && heal.iconId === 'icon_team_buff', `the case this pins: ${JSON.stringify(heal)}`);
+  assert.ok(own.filter((e) => e.iconKind === 'team').length >= 5, `team entries: ${own.map((e) => e.effectId).join(', ')}`);
+  const KO = JSON.parse(readFileSync(path.join(ROOT, 'public/i18n/ko.json'), 'utf8'));
+  registerLangs([langMetaOf({ ...KO._meta, lang: 'ko' })]);
+  setLang('ko');
+  await data.setLocale('ko');
+  await data.loadAll('choices', 'effects', 'items', 'bands', 'garrisons');
+  try {
+    for (const e of own) {
+      assert.ok(e.effectId, `${e.id}: the entry names its record (server/match/player/views.js effectsView)`);
+      const ko = data.lookup('effects', e.effectId);
+      assert.equal(effectDesc(e), ko.desc, `${e.id}: the record's Korean text (docs/rules/ui.md 강화 효과 단추·목록 창)`);
+      assert.ok(!HAN.test(effectDesc(e)), `${e.id}: ${effectDesc(e)}`);
+    }
+    const watched = spectateEffects(spec, ['p_0']).filter((e) => e.effectId);
+    assert.ok(watched.some((e) => e.effectId === 'allybuff_select_11' && e.iconId === 'icon_team_buff'), JSON.stringify(watched));
+    for (const e of watched) assert.ok(!HAN.test(e.name) && !HAN.test(effectDesc(e)), `${e.id}: ${e.name} / ${effectDesc(e)}`);
+  } finally {
+    setLang('zh');
+    await data.setLocale('zh');
+  }
+});
+
 test('a real match: 歌蕾蒂娅 grants a chess → 「歌蕾蒂娅：获得X」 in Chinese, "Gladiia: obtained …" in English', async () => {
   const h = makeMatch({ mode: 'solo', seed: 11, registry: createRegistry({ log: { warn() {}, error() {}, info() {} } }), fake: true }).start();
   h.toPrep(1);

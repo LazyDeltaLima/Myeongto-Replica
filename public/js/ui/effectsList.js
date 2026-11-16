@@ -28,8 +28,10 @@ const SOURCES = ['effects', 'bands', 'items', 'garrisons'];
 
 /**
  * An effect entry's description in the current language (the server copies a record's Chinese text: an effect's, a
- * strategy's, an item's, a 特质's — sentText; a reworded one, such as a multi-round 悬赏's, stays as sent).
- * @param {{ id?: string, iconId?: string, desc?: string }} e
+ * strategy's, an item's, a 特质's — sentText; a reworded one, such as a multi-round 悬赏's, stays as sent). `effectId` is
+ * the record the server copied it from (server/match/player/views.js effectsView: a 机变 card's entry, whose own id and
+ * icon are no record's).
+ * @param {{ id?: string, effectId?: string, iconId?: string, desc?: string }} e
  */
 export function effectDesc(e) {
   const desc = e.desc || '';
@@ -45,7 +47,7 @@ export function effectDesc(e) {
     return desc;
   };
   for (const file of SOURCES) {
-    for (const id of [e.id, e.iconId]) {
+    for (const id of [e.effectId, e.id, e.iconId]) {
       const v = from(file, id);
       if (v !== desc) return v;
     }
