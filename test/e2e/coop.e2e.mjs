@@ -687,8 +687,8 @@ async function forcedDisconnect(c, srv) {
   await c.page.evaluate(() => globalThis.__SP__.net.reconnectNow());
   await c.page.waitForFunction((id) => { const s = globalThis.__SP_RUNNER__?.state(); return !!s && s.battleId === id && !s.authoritative; }, { timeout: 20000 }, before.battleId);
   const t0 = Date.now();
-  while (Date.now() - t0 < 10000 && !srv.logs.some((l) => l.includes(`server takeover from ${me} (disconnect)`))) await sleep(200);
-  assert.ok(srv.logs.some((l) => l.includes(`server takeover from ${me} (disconnect)`)), 'the server took the field over');
+  while (Date.now() - t0 < 10000 && !srv.logs.some((l) => l.includes(`server takeover from ${me} (disconnect;`))) await sleep(200);
+  assert.ok(srv.logs.some((l) => l.includes(`server takeover from ${me} (disconnect;`)), 'the server took the field over');
   const st = await waitUnits(c, 8000);
   assert.ok(st && st.units > 0, 'the taken-over battle stays on screen');
   await c.shot('combat-takeover');

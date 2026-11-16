@@ -183,7 +183,11 @@ export class MatchClientCombat {
     const prev = f.mode === 'client' ? f.authority : null;
     if (prev) {
       this.verifyStats.takeovers++;
-      this.log.info?.(`[match ${this.roomCode}] ${f.fieldId} R${this.round}: server takeover from ${prev} (${reason})`);
+      // how the authority stood: a page frozen (its last report long ago) and a slow one (recent reports, its battle
+      // time far behind the field clock) both end in a timeout without this
+      const quiet = ((this.sched.now() - f.lastProgressAt) / 1000).toFixed(1);
+      const state = `last report ${quiet} s ago, battle ${f.progress.gt.toFixed(1)} s of ${this._fieldElapsed(f).toFixed(1)} s on the field clock`;
+      this.log.info?.(`[match ${this.roomCode}] ${f.fieldId} R${this.round}: server takeover from ${prev} (${reason}; ${state})`);
     }
     f.mode = 'server';
     f.authority = null;
