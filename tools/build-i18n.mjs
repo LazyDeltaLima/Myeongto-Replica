@@ -21,6 +21,8 @@
 //   Ties between several English sources prefer the one whose path shares the record's ids, then the most frequent.
 //   Rich-text tags and placeholders of the official EN texts are the same as in zh_CN, so the client's rich-text
 //   formatting (ui/richText.js) works unchanged; `desc` / `text` (plain) are the stripped `descRaw` / `textRaw`.
+// The operators' skin names, which no data record carries, join the `names` map straight from the two skin tables
+// (same skin id; a skin the target lacks: the fallbacks above — skinNameRows).
 //
 // Usage:  node tools/build-i18n.mjs [--lang <code>] [--refresh | --offline] [--source assets|yostar] [--cache <dir>]
 //                                   [--cache-en <dir>] [--data <dir>] [--out <file>] [--report <file>] [--check] [--quiet]
@@ -138,6 +140,34 @@ const TABLES = [
   { rel: 'excel/token_table.json' },
   { rel: 'levels/enemydata/enemy_database.json', pick: (j) => (Array.isArray(j?.enemies) ? kvMap(j.enemies) : j) },
 ];
+
+/**
+ * The official skin table: the names of the operators' skins (the skin picker's tiles, docs/rules/ui.md 「스킨 고르기」).
+ * No data/*.json record carries them — the picker reads a skin's Chinese name from the skin list a local extraction
+ * writes (tools/local-extract/skin_extract.py) — so they are paired here by skin id and go to the `names` map only.
+ */
+const SKIN_TABLE = 'excel/skin_table.json';
+
+/**
+ * The skins to name: every record of the Chinese skin table with a Chinese name (`displaySkin.skinName`; the default
+ * outfits and the summons' skins have none) whose operator is in `chars` (data/assets.json: more than the skin list
+ * offers, so the names never wait for an extraction), with the target table's name of the same skin id (null: none).
+ * @param {any} zhTable @param {any} targetTable may be null (a language without a client) @param {Set<string>} chars
+ * @returns {{ id: string, owner: string, zh: string, target: string | null }[]} sorted by id
+ */
+export function skinNameRows(zhTable, targetTable, chars) {
+  const zs = zhTable?.charSkins || {};
+  const ts = targetTable?.charSkins || {};
+  const rows = [];
+  for (const id of Object.keys(zs).sort()) {
+    const rec = zs[id];
+    const zh = rec?.displaySkin?.skinName;
+    if (!chars.has(rec?.charId) || !hasCjk(zh)) continue;
+    const t = ts[id]?.displaySkin?.skinName;
+    rows.push({ id, owner: rec.charId, zh: zh.trim(), target: typeof t === 'string' && t.trim() ? t.trim() : null });
+  }
+  return rows;
+}
 
 /** A Unity-style list of { Key, Value } entries as a plain map (the two dumps serialize some tables either way). */
 function kvMap(list) {
@@ -718,13 +748,15 @@ const dictMap = (d, untranslated = (zh, t) => hasCjk(t)) => new Map(Object.entri
 
 /**
  * Build the overlay. Exported for tests (they pass in-memory tables).
- * @param {{ zh: object[], en: object[], data: Record<string, any>, fallback?: { remake?: object, pr70?: object, ui?: object, dict?: object, fix?: object }, source?: object, owner?: (file: string, id: string) => string | null }} input
+ * @param {{ zh: object[], en: object[], data: Record<string, any>, fallback?: { remake?: object, pr70?: object, ui?: object, dict?: object, fix?: object }, source?: object, owner?: (file: string, id: string) => string | null, skins?: { id: string, owner: string, zh: string, target: string | null }[] }} input
  *   zh / en: the picked sub-trees of TABLES, in order
+ *   skins: skinNameRows — each skin's name joins `names` (the target table's, else the fallbacks: a CN-only skin's from
+ *   the dictionary) after every data name; counted apart, in the report's `skins`
  *   owner: the season whose own record (file, id) is (null: the default season's). Its texts are counted apart, in
  *   `meta.seasons[season]`, so the coverage and totals stay the default season's: a season the official client of
  *   the language lacks (规程 is CN-only) would otherwise pull them down.
  */
-export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang = 'en', owner = null }) {
+export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang = 'en', owner = null, skins = [] }) {
   const untranslated = untranslatedTest(lang, LANG_SOURCES[lang]?.untranslated === 'native' ? nativeCharset(zh, en) : null);
   const index = new PairIndex(untranslated);
   for (let i = 0; i < zh.length; i++) index.walk(zh[i], en[i], []);
@@ -764,6 +796,21 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
     }
     if (Object.keys(out).length) files[file] = out;
   }
+  const skinReport = { texts: 0, official: 0, fallback: 0, missing: [] };
+  for (const s of skins) {
+    skinReport.texts++;
+    let name = s.target && !untranslated(s.zh, s.target) ? s.target : null;
+    if (name) skinReport.official++;
+    else {
+      const ids = new Set([s.id, s.owner]);
+      name = tr.translate(s.zh, { near: ids, record: ids, bb: null, bbStr: null })?.en ?? null;
+      if (name) skinReport.fallback++;
+    }
+    if (!name || untranslated(s.zh, name)) { skinReport.missing.push(`${s.id}: ${s.zh}`); continue; }
+    const list = nameVotes.get(s.zh) || [];
+    list.push({ en: name, prio: NAME_PRIORITY.length });
+    nameVotes.set(s.zh, list);
+  }
   const names = {};
   const nameConflicts = [];
   for (const zhName of [...nameVotes.keys()].sort()) {
@@ -792,7 +839,7 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
   };
   const missing = [...stats.missing, ...Object.values(ownStats).flatMap((st) => [...st.missing])].sort((a, b) => (a[1].kind < b[1].kind ? -1 : a[1].kind > b[1].kind ? 1 : a[0] < b[0] ? -1 : 1))
     .map(([text, m]) => ({ kind: m.kind, n: m.n, text }));
-  return { overlay, report: { coverage, totals: overlay.meta.totals, seasons, pairs: index.pairs, nameConflicts, untranslated: samples, missing } };
+  return { overlay, report: { coverage, totals: overlay.meta.totals, seasons, pairs: index.pairs, nameConflicts, skins: skinReport, untranslated: samples, missing } };
 }
 
 async function main() {
@@ -860,7 +907,13 @@ async function main() {
   if (opts.dict) fallback.dict = JSON.parse(await readFile(opts.dict, 'utf8'));
   if (opts.fix) fallback.fix = JSON.parse(await readFile(opts.fix, 'utf8'));
   const owner = (file, id) => ownBy[file]?.[id] ?? null;
-  const { overlay, report } = buildOverlay({ zh, en, data, fallback, lang: opts.lang, owner, source: client ? { id: opts.source, label: src.label, home: src.home, season: seasonEn } : { id: 'dict', label: src.label } });
+  const assetsAbs = join(opts.data, 'assets.json');
+  const chars = new Set(existsSync(assetsAbs) ? Object.keys(JSON.parse(await readFile(assetsAbs, 'utf8')).chars || {}) : []);
+  const skins = skinNameRows(
+    await loadTable(opts.cache, gamedataBase(SKIN_TABLE), SKIN_TABLE, { refresh: false, offline: opts.offline, log }),
+    client ? await loadTable(opts.cacheEn, src.url, SKIN_TABLE, { refresh: opts.refresh, offline: opts.offline, log }) : null,
+    chars);
+  const { overlay, report } = buildOverlay({ zh, en, data, fallback, lang: opts.lang, owner, skins, source: client ? { id: opts.source, label: src.label, home: src.home, season: seasonEn } : { id: 'dict', label: src.label } });
   /** season id → its overlay's `files` (written beside the overlay: data/i18n/<lang>.<season>.json, seasonOverlayPath) */
   const seasonFiles = {};
   for (const [season, sdata] of Object.entries(seasonData)) {
@@ -899,6 +952,8 @@ async function main() {
     log(`    ${kind.padEnd(10)} ${String(c.translated).padStart(5)} / ${String(c.texts).padEnd(5)} ${String(c.pct).padStart(5)} %   official ${c.exact + c.template + c.composite} (exact ${c.exact} · template ${c.template} · composite ${c.composite})${fb ? ` · ${fb}` : ''}${c.notes ? ` · notes skipped ${c.notes}` : ''}`);
   }
   log(`  total ${report.totals.translated} / ${report.totals.texts} (${report.totals.pct} %), official ${report.totals.official}; ${Object.keys(overlay.names).length} names (${report.nameConflicts.length} with several ${opts.lang} forms)`);
+  const sk = report.skins;
+  log(`  skin names ${sk.official + sk.fallback} / ${sk.texts}: official ${sk.official}, fallback ${sk.fallback}${sk.missing.length ? `; still Chinese: ${sk.missing.slice(0, 8).join(', ')}${sk.missing.length > 8 ? ' …' : ''}` : ''}`);
   for (const [season, s] of Object.entries(overlay.meta.seasons || {})) {
     for (const [what, t] of [['own records', s.own], ['records under the default\'s ids', s.rewritten]]) if (t) log(`  ${season}'s ${what}: ${t.translated} / ${t.texts} (${t.pct} %), official ${t.official}`);
   }

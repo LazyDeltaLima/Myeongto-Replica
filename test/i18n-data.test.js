@@ -8,7 +8,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRecordOverlay, applyRecordOverlay, applyFileOverlay, walkOverlay, getPath, textHash2 } from '../shared/i18nData.js';
-import { buildOverlay, inverseFormat, shapeKey, DATA_FILES, stripRich, untranslatedTest, nativeCharset } from '../tools/build-i18n.mjs';
+import { buildOverlay, inverseFormat, shapeKey, DATA_FILES, stripRich, untranslatedTest, nativeCharset, skinNameRows } from '../tools/build-i18n.mjs';
 import { createDataStore } from '../public/js/data.js';
 import { parseRichText, richTextPlain } from '../public/js/ui/richText.js';
 
@@ -100,6 +100,37 @@ test('build-i18n matching: exact, blackboard templates, plain from raw, composit
   assert.deepEqual(inverseFormat('攻击力+{atk:0%}，{-x}格', '攻击力+80%，-2格'), { bb: { atk: 0.8, x: 2 }, bbStr: {} });
   assert.equal(inverseFormat('攻击力+{atk:0%}', '攻击力+80'), null);
   assert.equal(shapeKey('攻击力<@ba.vup>+{atk:0%}</>'), shapeKey('攻击力+80%'));
+});
+
+test('build-i18n skin names: paired by skin id from the two skin tables, the fallbacks for a skin the target lacks, after every data name', () => {
+  const table = (names) => ({ charSkins: Object.fromEntries(Object.entries(names).map(([id, [charId, skinName]]) => [id, { charId, displaySkin: { skinName } }])) });
+  const zhT = table({ 'char_1_a#1': ['char_1_a', null], 'char_1_a@x#1': ['char_1_a', '夏卉 FA1'], 'char_1_a@y#2': ['char_1_a', '新皮'],
+    'char_1_a@z#3': ['char_1_a', '测试员'], 'char_1_a@w#4': ['char_1_a', 'Sightseer'], 'char_9_other@x#1': ['char_9_other', '别人的'] });
+  const koT = table({ 'char_1_a@x#1': ['char_1_a', '서머 그라스 FA1'], 'char_1_a@z#3': ['char_1_a', '테스터 스킨'] });
+  const rows = skinNameRows(zhT, koT, new Set(['char_1_a']));
+  assert.deepEqual(rows.map((r) => [r.id, r.zh, r.target]), [['char_1_a@x#1', '夏卉 FA1', '서머 그라스 FA1'], ['char_1_a@y#2', '新皮', null], ['char_1_a@z#3', '测试员', '테스터 스킨']],
+    'the default outfit (no name), a name without Chinese and another operator\'s skin are left out');
+  const data = { chess: { chess_x_a: { charId: 'char_1_a', name: '测试员' } } };
+  const { overlay, report } = buildOverlay({ zh: [{ c: { char_1_a: { name: '测试员' } } }], en: [{ c: { char_1_a: { name: '테스터' } } }], data, lang: 'ko',
+    fallback: { dict: { 新皮: '새 옷' } }, skins: rows });
+  assert.equal(overlay.names['夏卉 FA1'], '서머 그라스 FA1', 'the KR table\'s name');
+  assert.equal(overlay.names['新皮'], '새 옷', 'a CN-only skin: the dictionary (public/i18n/ko/manual.json)');
+  assert.equal(overlay.names['测试员'], '테스터', 'a data name of the same Chinese wins: the names map is keyed by the Chinese');
+  assert.deepEqual(report.skins, { texts: 3, official: 2, fallback: 1, missing: [] });
+  const bare = buildOverlay({ zh: [], en: [], data: {}, lang: 'ko', skins: rows });
+  assert.deepEqual(bare.report.skins.missing, ['char_1_a@y#2: 新皮'], 'without a dictionary entry it stays Chinese, reported');
+  assert.ok(!('新皮' in bare.overlay.names));
+});
+
+test('data/i18n/ko.json names every operator skin the official skin table has (the skin picker: docs/rules/ui.md 「스킨 고르기」)', { skip: !existsSync(path.join(ROOT, '.cache/gamedata/excel/skin_table.json')) && 'no cached skin table' }, () => {
+  // the KR skin table gives the released skins; a CN-only one needs its line in public/i18n/ko/manual.json (KR wording,
+  // docs/I18N.md "CN-only texts in Korean"): without it the picker's tile shows the Chinese name
+  const KO = readJson('data/i18n/ko.json');
+  const chars = new Set(Object.keys(readJson('data/assets.json').chars));
+  const rows = skinNameRows(readJson('.cache/gamedata/excel/skin_table.json'), null, chars);
+  assert.ok(rows.length > 200, `named skins: ${rows.length}`);
+  const missing = rows.filter((r) => !KO.names[r.zh] || HAN.test(KO.names[r.zh])).map((r) => `${r.id} ${r.zh}`);
+  assert.deepEqual(missing, [], 'skins without a Korean name: add them to public/i18n/ko/manual.json in KR wording and run node tools/i18n/build-ko-pack.mjs (docs/rules/ui.md 「스킨 고르기」)');
 });
 
 test('data/i18n/en.json: shape, the 盟约 season of the EN build, coverage and the names map', () => {

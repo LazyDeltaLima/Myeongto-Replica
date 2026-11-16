@@ -247,6 +247,8 @@ test('the real skin lists: every picture the picker draws is a file of the resou
   assert.ok(rows.length > 200, `operator skins: ${rows.length}`);
   assert.ok(rows.every((r) => r.owner.startsWith('char_')), 'only operators own a chosen skin');
   assert.ok(skinRows(cat, OP).some((r) => r.id === SKIN), `${SKIN} is in the catalogue`);
+  const unnamed = rows.filter((r) => !r.name).map((r) => r.id);
+  assert.deepEqual(unnamed.slice(0, 5), [], `${unnamed.length} skins without a name show 「皮肤 N」: tools/local-extract/skin_extract.py writes the skin table's displaySkin.skinName (--only names; docs/rules/ui.md 「스킨 고르기」)`);
   const idx = path.join(ROOT, 'public/assets/browser-resources.json');
   if (!existsSync(idx)) return;
   const listed = new Set(JSON.parse(readFileSync(idx, 'utf8')).files.map((f) => f.p));

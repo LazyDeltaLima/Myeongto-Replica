@@ -36,9 +36,12 @@ Output (under --out, public/assets/local by default):
   spine/skin/<owner>/<prefab>/illust/full/<illustId>.webp  the same at the client texture's own size, when larger (a phone
                                                          takes the first, other devices this one: chararts_extract.py
                                                          save_illust, maintainer decision 2026-11-16)
-  spine/skin/skins.json   { version, source, skins: { <skin key>: { owner, prefab, client, front, back?, tokens?,
+  spine/skin/skins.json   { version, source, skins: { <skin key>: { owner, prefab, client, name?, front, back?, tokens?,
                                                                     avatar?, portrait?, illust? } },
                             missing: { <skin key>: { owner, why } }, artMissing: { <skin key>: [kind…] } }
+                          name = the record's `displaySkin.skinName` in Chinese (the summons' skins have none): the
+                          picker shows it through tName, whose Korean / English … come from the official skin tables of
+                          those servers (tools/build-i18n.mjs skinNameRows; docs/rules/ui.md 「스킨 고르기」);
                           front / back = { skel, atlas, textures[], pma }; avatar / portrait = { path, w, h };
                           illust = { path, w, h, frame: { x, y, w, h }, full?: { path, w, h } } (frame = the illust
                           RectTransform, as chararts, in frame units: the same for both copies)
@@ -48,10 +51,11 @@ those who take the skin data. tools/build-browser-resources.mjs leaves the whole
 list until the skin data is a pack of its own.
 
 Usage (from the repo root):
-  .venv-extract/bin/python tools/local-extract/skin_extract.py [--id <ownerId>]… [--only models|art] [--out public/assets/local]
+  .venv-extract/bin/python tools/local-extract/skin_extract.py [--id <ownerId>]… [--only models|art|names] [--out public/assets/local]
   python3 tools/local-extract/skin_extract.py --list     (the skins the table gives, as JSON; no client needed)
 An --id run re-extracts only those owners and keeps the other rows of skins.json; --only runs one part and keeps the
-other part's fields (--only art adds the pictures to the models already listed).
+other part's fields (--only art adds the pictures to the models already listed). Every run writes the names from the
+table; --only names does only that, on the skins already listed (no client, seconds).
 Everything is (c) Hypergryph; for private, non-commercial fan use only.
 """
 import argparse
@@ -100,9 +104,10 @@ def rename_atlas_pages(text, names):
 
 
 def skin_rows(table, chars, tokens):
-    """[{key, owner, prefab, tokens?, pics?}] of the official skins with a battle prefab of their own, for the operators
-    in `chars`, the summons in `tokens` and the summons an operator skin's tokenSkinMap dresses; sorted by key. `pics` =
-    the record's picture ids ({avatar, portrait, illust}, those it has). Raises ValueError on a prefab id that is not its
+    """[{key, owner, prefab, name?, tokens?, pics?}] of the official skins with a battle prefab of their own, for the
+    operators in `chars`, the summons in `tokens` and the summons an operator skin's tokenSkinMap dresses; sorted by key.
+    `name` = the record's displaySkin.skinName (Chinese; the summons' skins have none). `pics` = the record's picture
+    ids ({avatar, portrait, illust}, those it has). Raises ValueError on a prefab id that is not its
     owner's (`<owner>_…`), on two skins whose folders differ only in case and on a name file_name has no rule for."""
     skins = (table or {}).get('charSkins') or {}
     rows, dressed = [], set()
@@ -122,6 +127,9 @@ def skin_rows(table, chars, tokens):
         if not prefab.startswith(owner + '_'):
             raise ValueError(f'skin_extract: skin {key!r} names prefab {prefab!r}, not one of {owner}')
         row = {'key': key, 'owner': owner, 'prefab': prefab}
+        name = (rec.get('displaySkin') or {}).get('skinName')
+        if isinstance(name, str) and name.strip():
+            row['name'] = name.strip()
         tmap = {m['tokenId']: m['tokenSkinId'] for m in rec.get('tokenSkinMap') or []
                 if isinstance(m, dict) and m.get('tokenId') and m.get('tokenSkinId')}
         if tmap:
@@ -140,6 +148,21 @@ def skin_rows(table, chars, tokens):
             raise ValueError(f'skin_extract: skins {seen[d]!r} and {r["key"]!r} would share the folder {d}')
         seen[d] = r['key']
     return rows
+
+
+def with_name(entry, row):
+    """A skins.json entry with the row's name (the table's, so a renamed skin follows it; none when the table has none),
+    every other field as it is, `name` after `client` as the docstring lists it."""
+    out = {}
+    for k, v in entry.items():
+        if k == 'name':
+            continue
+        out[k] = v
+        if k == 'client' and row.get('name'):
+            out['name'] = row['name']
+    if row.get('name') and 'name' not in out:
+        out['name'] = row['name']
+    return out
 
 
 def load_table(path=TABLE, url=TABLE_URL, log=print):
@@ -427,7 +450,8 @@ def main():
     ap.add_argument('--out', default=str(ROOT / 'public/assets/local'))
     ap.add_argument('--table', default=str(TABLE), help='the official skin_table.json (downloaded there when missing)')
     ap.add_argument('--list', action='store_true', help='print the skins the table gives as JSON and exit')
-    ap.add_argument('--only', choices=('models', 'art'), help='run one part and keep the other part\'s fields')
+    ap.add_argument('--only', choices=('models', 'art', 'names'),
+                    help='run one part and keep the other part\'s fields (names: only the names, no client)')
     args = ap.parse_args()
     chars, tokens = roster()
     rows = skin_rows(load_table(args.table), set(chars), set(tokens))
@@ -436,13 +460,18 @@ def main():
     if args.list:
         print(json.dumps(rows, ensure_ascii=False, indent=1))
         return 0
-    from client_path import clients, ensure_extract_env
-    ensure_extract_env()
-    games = [('cn' if i else 'en', g) for i, g in enumerate(clients())]  # EN, then the CN client when set up
     parts = {args.only} if args.only else {'models', 'art'}
+    games = []
+    if parts & {'models', 'art'}:
+        from client_path import clients, ensure_extract_env
+        ensure_extract_env()
+        games = [('cn' if i else 'en', g) for i, g in enumerate(clients())]  # EN, then the CN client when set up
     out_root = Path(args.out)
     index_path = out_root / SKIN_SUB / INDEX
     old = {}
+    if parts == {'names'} and not index_path.exists():
+        print(f'--only names: no {index_path} to name (run the models first)', file=sys.stderr)
+        return 1
     if (args.id or args.only) and index_path.exists():
         old = json.loads(index_path.read_text(encoding='utf-8'))
     skins = dict(old.get('skins') or {})
@@ -472,6 +501,12 @@ def main():
                     skins[r['key']] = {**{f: v for f, v in skins[r['key']].items() if f not in ART_FIELDS}, **got.get(r['key'], {})}
             art_missing.update(lack)
             line += f' pictures {sum(len(v) for v in got.values())}' + (f' (no {lack})' if lack else '')
+        named = 0
+        for r in rs:
+            if r['key'] in skins:
+                skins[r['key']] = with_name(skins[r['key']], r)
+                named += 'name' in skins[r['key']]
+        line += f' names {named}'
         print(line, flush=True)
     index_path.parent.mkdir(parents=True, exist_ok=True)
     doc = {'version': 1, 'source': 'local-client', 'skins': dict(sorted(skins.items())),

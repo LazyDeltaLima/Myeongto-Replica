@@ -2490,8 +2490,15 @@ upstream v0.4.0 대조에서 받은 화면 수정(`docs/rules/upstream.md` 「�
 - 타일: 아트 상자에 그 모습의 1:2 초상화(머리 쪽으로 잘림)와 1:1 아바타를 함께 싣고, 폰 가로(`max-width: 1000px` 그리고 `max-height: 520px`)에서는 아바타를
   그린다(upstream의 전환 — 그 화면의 상세 패널은 약 200 px). 스킨 그림이 없으면 오퍼레이터 그림을 흐리게. 고른 타일은 민트 테두리와 「사용」. 고른 스킨 타일을 다시
   누르면 그 일러스트를 창으로 크게 본다(기본 타일은 안 열림). 크기는 시안의 작은 타일(`max(.96rem, 66px)` 폭, 그림 `max(1.28rem, 70px)`), upstream의 5칸 1:2보다 작다.
-- 이름: 스킨 목록 기록의 `name`(데이터 이름이라 `tName`으로 번역)을 쓰고, 없으면 「스킨 N」(목록 순서). **지금 `skins.json`에는 이름이 없어 모두 「스킨 N」이다**
-  — 공식 스킨 표의 이름과 KR 이름을 생성 단계가 싣는 일은 묶음 mix-D 「스킨 이름」 줄.
+- 이름: 스킨 목록 기록의 `name`(데이터 이름이라 `tName`으로 번역)을 쓰고, 없으면 「스킨 N」(목록 순서). `name`은 공식 스킨 표 `displaySkin.skinName`(중국어)을
+  `skin_extract.py`가 싣는다(모든 실행, 이름만은 `--only names` — 클라 없이 몇 초). 다른 언어 이름은 손 표 없이 `tools/build-i18n.mjs skinNameRows`가 두 언어의
+  `skin_table.json`을 스킨 ID로 짝지어 겹침 자료의 `names`에 넣는다(`data/` 기록이 아니라서 `names`에만; `data/assets.json` `chars`의 모든 이름 있는 스킨이라 추출을
+  기다리지 않음). KR 표에 없는 CN 전용 스킨(2026-11-16: 266벌 중 26벌)은 `public/i18n/ko/manual.json` 「오퍼레이터 스킨 이름」 절에 KR 스킨 이름 말투로 손 번역
+  [비공식](docs/I18N.md "CN-only texts in Korean" — 시리즈 이름은 KR 표 그대로: 서머 그라스 FA…, 한가로운 휴일 HD…), KR 출시 때 KR 표 이름으로 바뀐다.
+  한계: `names`가 중국어로 열쇠를 잡아 같은 중국어의 데이터 이름이 이긴다 — 스카디 더 커럽팅 하트 스킨 「升华」는 KR 표의 「서블리메이션」이 아니라 효과
+  `allybuff_select_6` 이름 「승화」로 보인다(266벌 중 1벌, 묶음 mix-D 「스킨 이름 겹침」 줄).
+  재발 방지: `test/i18n-data.test.js` 「data/i18n/ko.json names every operator skin」(새 CN 전용 스킨이 사전 줄 없이 오면 실패), `test/ui/skin-picker.test.js`
+  「the real skin lists」(이름 없는 목록이면 실패 — 두 시험 다 되돌려 실패를 봄).
 - 보내기(`ui/loadoutSync.js installSkinsSync`, `main.js`): `room.skins { skins }`를 welcome·고칠 때마다(같은 동기화 엔진), 시즌을 붙이지 않는다(`seasonless`).
   스킨 데이터를 고르지 않았으면 빈 맵을 보낸다 — 잠긴 칸이 「지금은 기본 스킨만」이라 말하는 것이 다른 플레이어 화면에서도 맞도록. 선택은 저장해 두었다가 다시
   고르면 보낸다(`resStore.chosen.skin`을 따라 다시 보냄). 저장 값은 선에 맞는 모양만(`parseStoredSkins`: charId → 스킨 ID, 256쌍).

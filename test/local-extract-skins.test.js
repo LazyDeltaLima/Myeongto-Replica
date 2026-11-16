@@ -79,6 +79,49 @@ print(json.dumps(r))`);
     ]);
   });
 
+  test('skin_rows carries the record\'s Chinese name (the picker shows it through tName); a summon skin has none', () => {
+    const table = { charSkins: {
+      'char_1_a@boc#1': { charId: 'char_1_a', battleSkin: { skinOrPrefabId: 'char_1_a_boc#1' }, displaySkin: { skinName: ' 升华 ' } },
+      'token_9_t_boc#1': { charId: 'token_9_t', battleSkin: { skinOrPrefabId: 'token_9_t_boc#1' }, displaySkin: { skinName: null } },
+    } };
+    const rows = py(`print(json.dumps(s.skin_rows(json.loads(${JSON.stringify(JSON.stringify(table))}), {'char_1_a'}, {'token_9_t'})))`);
+    assert.deepEqual(rows.map((r) => r.name), ['升华', undefined]);
+  });
+
+  test('--only names writes the table\'s names into the listed skins without a client, every other field kept', () => {
+    const assets = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
+    const op = Object.keys(assets.chars).find((c) => c.startsWith('char_') && assets.chars[c].spine?.front);
+    const dir = path.join(ROOT, `.cache/test-skin-names-${process.pid}`);
+    try {
+      mkdirSync(path.join(dir, 'spine/skin'), { recursive: true });
+      const table = { charSkins: {
+        [`${op}@x#1`]: { charId: op, battleSkin: { skinOrPrefabId: `${op}_x#1` }, displaySkin: { skinName: '新名字' } },
+        [`${op}@y#2`]: { charId: op, battleSkin: { skinOrPrefabId: `${op}_y#2` }, displaySkin: { skinName: '没有模型' } },
+      } };
+      writeFileSync(path.join(dir, 'table.json'), JSON.stringify(table));
+      const front = { skel: '/a.skel', atlas: '/a.atlas', textures: ['/a.png'], pma: true };
+      const illust = { path: '/i.webp', w: 1024, h: 1024, frame: { x: 0, y: 0, w: 1, h: 1 }, full: { path: '/f.webp', w: 2048, h: 2048 } };
+      const index = { version: 1, source: 'local-client', skins: { [`${op}@x#1`]: { owner: op, prefab: `${op}_x#1`, client: 'en', name: '旧名字', front, illust } },
+        missing: { [`${op}@y#2`]: { owner: op, why: 'no client has its prefab' } }, artMissing: {} };
+      const file = path.join(dir, 'spine/skin/skins.json');
+      writeFileSync(file, JSON.stringify(index));
+      const r = spawnSync(PY, ['-I', path.join(TOOL, 'skin_extract.py'), '--only', 'names', '--id', op, '--table', path.join(dir, 'table.json'), '--out', dir],
+        { encoding: 'utf8', env: { ...ENV, SP_CLIENT: path.join(dir, 'no-client') } });
+      assert.equal(r.status, 0, r.stderr);
+      const out = JSON.parse(readFileSync(file, 'utf8'));
+      assert.deepEqual(out.skins[`${op}@x#1`], { ...index.skins[`${op}@x#1`], name: '新名字' }, 'the name follows the table, the model and both 立绘 copies stay');
+      assert.deepEqual(Object.keys(out.skins[`${op}@x#1`]), ['owner', 'prefab', 'client', 'name', 'front', 'illust']);
+      assert.deepEqual(Object.keys(out.skins), [`${op}@x#1`], 'a skin without a model is not listed for its name');
+      assert.deepEqual(out.missing, index.missing);
+      rmSync(file);
+      assert.notEqual(spawnSync(PY, ['-I', path.join(TOOL, 'skin_extract.py'), '--only', 'names', '--table', path.join(dir, 'table.json'), '--out', dir], { encoding: 'utf8', env: ENV }).status, 0,
+        'no list to name: stops instead of writing an empty one');
+      assert.ok(!existsSync(file));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('skin_rows carries the record\'s own picture ids, and the pictures are named by the same rule', () => {
     const table = {
       charSkins: {
