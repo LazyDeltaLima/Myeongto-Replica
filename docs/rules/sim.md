@@ -1371,6 +1371,19 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   `first` 1.0·`next` 0.4·`interval` 0.1. 그래서 두 번 쌓였으면 선 뒤 1.1초·1.6초에 벤다(그 사이 쓰러지거나 퇴각하면 남은 베기 없음). 전에는 서자마자
   한꺼번에 벴다. 베기 범위는 그대로: `AOEDamage`는 블랙보드 `range_id`가 있으면 `_rangeId`(여기 '0-1') 대신 그것을 쓰고(공식 클라에서 확인), 버프
   블랙보드는 스킬의 것이라 `range_id` 3-7(그 오퍼 칸·방향 기준). 테스트 `kits_t5.test.js` 「凛御银灰 S2: a waiting op left of the eye slashes…」.
+- **뮤엘시스 유동체의 쓰러짐** (2026-11-16, 공식 클라에서 확인 — 토큰 프리팹 `token_10030_mlyss_wtrman`, 버프 템플릿 `mlyss_wtrman_t_1[listener]`·`[trigger]`·`[reborn*]`):
+  유동체는 `RallyPoint`이고 살아 있는 모드(Default·Melee·Range·Range_S2·Melee_S3)마다 `Talents/1`에 `mlyss_wtrman_t_1[listener]`가 있다. 체력이 0이 되려는
+  순간(`ON_BEFORE_TRY_SET_HP_ZERO`) 죽지 않고 전투 밖 분류로 바뀌어(`SwitchRallyPointCategory`) 모드 0 Recharge(물웅덩이)로 가고, 유동체 스킬을 끊고 SP를
+  0으로 한다. 루트의 `_retainedBuffsWhenDead`가 복사 표시(`mlyss_wtrman_melee[mark]`·`range[mark]`), 훔친 공격력·방어력(`steal_attr_self[atk]`·`[def]`),
+  분열 횟수(`mlyss_wtrman_t_2[range_cnt]`)를 남긴다. Recharge의 `mlyss_wtrman_t_1[trigger]`가 재능 `interval`(정예 단계별 30·28·25초) 뒤 `mlyss_wtrman_switch_melee`·
+  `_range`(복사 전이면 `mlyss_wtrman_switch`)를 시전하고, 그 `_preDelay` 1초 뒤 부활 버프(`RallyPointReborn`, `hp_ratio` 1)가 복사한 모드로 되돌린다. 분열
+  복제는 같은 `overrideKey`에 우선순위가 높은 `mlyss_wtrman_summon[override]`가 `[listener]`를 덮어 그대로 쓰러진다. → 키트(`chess_char_6_11-mlyss.js`)는
+  쓰러진 유동체를 지우지 않고(`alive` 거짓·`removed` 거짓, 칸은 `Battle.isReservedTile`이 잡음) `interval` + 1초 뒤 그 칸에 체력 가득으로 다시 세운다 — 복사·
+  훔친 값·분열 횟수 그대로, SP 0. 그녀가 서 있든 아니든 같다(타이머는 토큰 쪽 버프). 그동안 그녀가 다시 배치되면 쓰러진 유동체가 그대로 그녀의 지원군이다
+  (`tokens.js ensureReinforcement`, 엔진의 일반 지원군도 만들지 않음 — `professions.js installTactician`은 `removed`가 아닌 지원군을 그녀의 것으로 본다). 전에는
+  지우고 25초 뒤 새 유동체를 소환해 다시 복사했고(그녀가 서 있을 때만), 그녀가 쓰러져 있으면 되살리지 않았다. 키트 없는 일반 토큰 경로(`tokens.js manifold`,
+  그녀 키트를 일반 키트로 바꾼 시험에서만)는 전처럼 복사 없이 되살린다. 시험 `tokens_summons.test.js` 「a fallen 流形 …」 둘·「a split clone alive …」,
+  `kits_t6.test.js` 「缪尔赛思: a destroyed 流形 waits on its tile …」. 이펙트는 rules/fx.md 「뮤엘시스 유동체의 쓰러짐·모습 바뀜」.
 
 ## 적 스킬 = 일반 공격 차례 (2026-10-21, 관리자 제보 「퀸투스가 HP가 낮아지면 기억보다 너무 셈」, 관리자 결정 2026-10-21 「엔진 전체로」)
 적 스킬(enemy_database `skills`)을 EN 공식 클라대로 일반 공격 **자리에서** 쓴다. 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 클래스 없음.

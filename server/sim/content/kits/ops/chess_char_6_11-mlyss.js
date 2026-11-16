@@ -12,6 +12,11 @@ import { hasPower } from '../shared/powers.js';
 const isRhine = (u) => hasPower(u, 'rhine');
 /** The hidden (index −1) module parts of the selected module, each blackboard on its own (moduleBb merges them). */
 const moduleParts = (chess) => (chess?.talents || []).filter((t) => t && t.index === -1 && t.bb).map((t) => t.bb);
+/**
+ * The 流形's switch casts out of its Recharge mode (token prefab Modes/Recharge/Body/Talents/1 mlyss_wtrman_switch / _melee /
+ * _range, official client): `_preDelay` 1 s before their reborn buff brings it back.
+ */
+const MANIFOLD_REBORN = 1;
 
 // ------------------------------------------------------------------------------------------------------------------
 // 缪尔赛思 chess_char_6_11 (战术家) — S3 浅层非熵适应; 净水即生命 (流形); 开源节流; module 梳妆流形
@@ -216,13 +221,17 @@ function mlyss(bb, chess, def) {
     },
     talents: [
       { install(battle, unit) { // 净水即生命: 流形 copy / respawn / melee steal / ranged split
-        unit.mem.mlyssPending = [];
         const S = bstate(battle);
         S.robbed ??= new WeakMap(); // enemy → { atk, def } stolen by any 流形
         const mine = (t) => isTok(t, tokId, unit);
-        // her 流形 on the field (split clones aside: deployLimit 1 counts the 流形 itself)
-        const standing = () => battle.allyUnits.some((t) => mine(t) && live(t) && !t.mem.mlyssClone);
-        const cancelPending = () => { for (const p of unit.mem.mlyssPending.splice(0)) p.timer?.cancel?.(); };
+        // a fallen 流形 of hers waiting on its tile (below), but `t`: deployLimit 1 — another one standing ends its wait for good
+        const endDown = (t) => {
+          for (const d of battle.allyUnits) {
+            if (d === t || !mine(d) || !d.mem.mlyssDown || d.alive || d.removed) continue;
+            d.mem.mlyssDown = 0;
+            d.removed = true;
+          }
+        };
         battle.on('deploy', ({ unit: t }) => {
           if (!mine(t)) return;
           const clone = unit.mem.mlyssCloneOf;
@@ -233,8 +242,15 @@ function mlyss(bb, chess, def) {
             copyInto(battle, t, clone, 1, true);
             return;
           }
-          cancelPending(); // a 流形 stands again (tactical re-summon, S3 refresh): no second one later
+          endDown(t); // another 流形 of hers stands (a tactical re-summon): the fallen one does not come back
+          if (t.mem.mlyssReborn) { // back from its fall (below): its copy, home and first-deployment SP stay as they were
+            if (unit.skill?.active && unit.skill.isTimed) buffManifold(battle, t, unit.skill.timeLeft);
+            return;
+          }
           t.mem.mlyssHome = [t.tileR, t.tileC];
+          // born in mode Recharge: mlyss_wtrman_born_trigger casts mlyss_wtrman_switch at once (its effect c0 → c1; the
+          // engine's born time stands for the cast)
+          battle.fx('manifoldUp', { x: t.x, y: t.y, id: t.id, by: unit.id, mode: 'Default', born: 1 });
           const sp = num(tokTal(t, 'sp').sp);
           if (sp > 0 && !unit.mem.mlyssFirst && t.skill) t.skill.gainSp(sp, 'talent'); // elite: first deployment +5 SP
           unit.mem.mlyssFirst = true;
@@ -244,26 +260,44 @@ function mlyss(bb, chess, def) {
         unit.mem.manifoldCopy = (b, t, src) => { if (mine(t) && !t.mem.mlyssClone) copyFrom(b, unit, t, src); };
         // trigger rule MLYSS_WTRMAN ("全部技能，受流形影响") for her own skills (`_TryUsingSkillTypeMlyssWtrman`, not a token):
         // the MANUAL check, then her ATTACK / COMBAT state — the engine's DEFAULT without a trigger grid; her 流形 do not count
-        // "其被击败后会在25秒后自动刷新": one pending respawn at a time, on its tile, only while she is on the field and no
-        // 流形 of hers stands (her redeploy summons it again as her 援军, tokens.js); expired / replaced ones do not return
+        // "其被击败后会在25秒后自动刷新" — the token prefab (official client): a RallyPoint whose live modes hold
+        // mlyss_wtrman_t_1[listener]; ON_BEFORE_TRY_SET_HP_ZERO it does not die but switches its category off the fight
+        // (SwitchRallyPointCategory), into mode 0 Recharge (its puddle), its skill interrupted and its SP cleared. The prefab's
+        // `_retainedBuffsWhenDead` keep its copy (mlyss_wtrman_melee / range[mark], steal_attr_self[atk] / [def],
+        // mlyss_wtrman_t_2[range_cnt]). Recharge's mlyss_wtrman_t_1[trigger] fires after the talent `interval` and casts
+        // mlyss_wtrman_switch_melee / _range (or mlyss_wtrman_switch uncopied): after its `_preDelay` its reborn buff
+        // (RallyPointReborn, hp_ratio 1) brings it back in its copied mode. Split copies hold mlyss_wtrman_summon[override]
+        // in the listener's place (same overrideKey, higher priority) and fall for good. So: the fallen 流形 stays on its tile
+        // (alive false, removed false: Battle.isReservedTile keeps the tile), whether she stands or not, and comes back there
+        // at full HP with its copy, its stolen ATK / DEF and its split count; expired / replaced ones do not return
         battle.on('death', ({ unit: t, reason }) => {
-          if (t === unit) { cancelPending(); return; }
-          if (!mine(t) || t.mem.mlyssClone || reason !== 'killed' || !t.mem.mlyssHome || standing()) return;
-          cancelPending();
-          const [r, c] = t.mem.mlyssHome;
-          const entry = { spawn: null, timer: null };
-          let tries = 0;
-          entry.spawn = () => {
-            const i = unit.mem.mlyssPending.indexOf(entry);
-            if (i >= 0) unit.mem.mlyssPending.splice(i, 1);
-            if (battle.finished || !live(unit) || standing() || tries++ > 120) return;
-            if (battle.isReservedTile(r, c) || !battle.spawnToken(unit, tokId, r, c)) { // its tile is taken: retry in 1 s
-              entry.timer = battle.after(1, entry.spawn, { owner: unit });
-              unit.mem.mlyssPending.push(entry);
-            }
+          if (!mine(t) || t.mem.mlyssClone || reason !== 'killed' || !t.mem.mlyssHome || battle.finished) return;
+          t.removed = false;
+          const seq = (t.mem.mlyssDownSeq ?? 0) + 1;
+          t.mem.mlyssDownSeq = seq;
+          t.mem.mlyssDown = seq;
+          t.skill?.setSpTotal?.(0); // ClearCharacterSp (its skill ended with the removal: InterruptCharacterSkill)
+          const mode = t.mem.mlyss ? (t.mem.mlyss.ranged ? 'Range' : 'Melee') : 'Default';
+          const wait = respawnOf(t);
+          // `mode`: the one it fell in (its effect back to c0), `t`: s until it stands again (its Recharge look lasts that long)
+          battle.fx('manifoldDown', { x: t.x, y: t.y, id: t.id, by: unit.id, mode, t: wait + MANIFOLD_REBORN });
+          const back = () => {
+            if (t.mem.mlyssDown !== seq || battle.finished || t.alive || t.removed) return;
+            t.mem.mlyssReborn = true;
+            let ok;
+            try { ok = battle.redeploy(t, { free: true }); } finally { t.mem.mlyssReborn = false; }
+            if (!ok) { battle.after(1, back, { owner: t }); return; } // its tile is taken: retry in 1 s
+            t.mem.mlyssDown = 0;
+            t.skill?.setSpTotal?.(0);
+            const m = t.mem.mlyss;
+            if (m && (m.stolenAtk > 0 || m.stolenDef > 0)) battle.addBuff(t, { key: 'mlyss:stolen', mods: { atkFlat: m.stolenAtk, defFlat: m.stolenDef } });
           };
-          entry.timer = battle.after(respawnOf(t), entry.spawn, { owner: unit });
-          unit.mem.mlyssPending.push(entry);
+          battle.after(wait, () => {
+            if (t.mem.mlyssDown !== seq || battle.finished || t.alive || t.removed) return;
+            // mlyss_wtrman_t_1[trigger] ON_BUFF_TRIGGER: the switch cast and its effect c0 → c1 / c2 / c3, then the reborn
+            battle.fx('manifoldUp', { x: t.x, y: t.y, id: t.id, by: unit.id, mode });
+            battle.after(MANIFOLD_REBORN, back, { owner: t });
+          }, { owner: t });
         }, { owner: unit });
         battle.on('attack', ({ attacker: t, targets }) => {
           if (!mine(t) || !t.mem.mlyss || !live(t)) return;
@@ -336,8 +370,8 @@ function mlyss(bb, chess, def) {
             if (!near) return;
             if (burstScale > 0 && target.alive) battle.dealDamage(unit, target, { amount: unit.s.atk * burstScale, type: 'elemental', element: 'erosion', tags: ['module'] });
             // [ASSUMED·CN: "流形获得80点技力" names no 流形 — every 流形 of hers on the field; the module is CN-only so far]. In this
-            // mode it lands nowhere: a 流形's copy skill runs the whole battle (SP is not gained while a skill runs) and its
-            // split copies have no skill
+            // mode it lands only on a 流形 back from a fall (its SP cleared, its skill not running until it charges again): the
+            // copy skill otherwise runs the whole battle (SP is not gained while a skill runs) and its split copies have no skill
             if (burstSp > 0) for (const t of copies) t.skill?.gainSp(burstSp, 'talent');
           }, { owner: unit });
         }

@@ -168,7 +168,7 @@
       "combat": "client",
       "boost": null,
       "setup": {"stageId":"act1autochess_m02","bossId":"boss_5","hiddenBossId":"boss_10","factions":["ELEMENT","DOT","REFLECTION"]},
-      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":20,"bossPoolLeft":0,"virtualMs":106900},
+      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":17,"bossPoolLeft":0,"virtualMs":106900},
       "rng": {"setup":25,"shop":373,"waves":0,"draft":10,"bots":10163,"meta":99},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
@@ -222,12 +222,12 @@
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 20,
+          "lp": 17,
           "bandId": "band_ducklord",
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 0,
           "reward": 400,
-          "stats": {"activatedLayers":175,"bossDamage":390000,"dmgDealt":2640904,"gold":145,"itemsEquipped":18,"kills":274,"leaks":9,"lpLost":9,"merges":4,"perfectRounds":11,"refreshes":40},
+          "stats": {"activatedLayers":175,"bossDamage":390000,"dmgDealt":2702803,"gold":145,"itemsEquipped":18,"kills":277,"leaks":9,"lpLost":9,"merges":4,"perfectRounds":11,"refreshes":40},
           "lineup": ["4_02_a@12,5[2_01_e_a+6_09_e_a]","6_11_a@12,6","1_17_b@12,7","4_14_a@11,4[1_05_e_b]","1_01_b@11,5[1_01_e_a+1_02_e_b]","2_17_a@11,6[4_11_e_a]","4_01_a@11,7[3_11_e_a+4_11_e_b]","5_12_a@9,6"],
           "bonds": ["arcaneShip 2/40","kjeragShip 0/8","lateranoShip 1/9","maniShip 1/0","miraShip 1/3","preciShip 1/61","sargonShip 0/2","soloShip 1/0","steadShip 1/32","suntShip 1/0","swiftShip 1/30","yanShip 0/7"]
         }

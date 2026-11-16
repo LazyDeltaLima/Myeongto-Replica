@@ -1054,6 +1054,8 @@ function manifold(bb, raw, def) {
       if (unit.profile) for (const k of MANIFOLD_PROFILE) defaults.profile[k] = unit.profile[k];
       onDeploy(battle, unit, () => {
         if (unit.mem.isClone) return;
+        // back from its fall in the 缪尔赛思 kit (kits/ops/chess_char_6_11-mlyss.js): it keeps its copy
+        if (unit.mem.mlyssReborn) { const o = ownerOf(unit); if (o && o.profile?.sub === 'tactician') o.trait.reinforcement = unit; return; }
         if (unit.mem.copy || unit.mem.mlyss) { // redeployed after a copy (this kit's / the 缪尔赛思 kit's)
           Object.assign(unit.base, defaults.base);
           if (unit.profile) Object.assign(unit.profile, defaults.profile);
@@ -1804,8 +1806,8 @@ function ensureReinforcement(battle, owner, tokenId) {
   const live = mine.find((t) => t.alive);
   if (live) { owner.trait.reinforcement = live; return live; }
   // a 狼群 in its 战术点形态 is still the 援军 on the field: it comes back by its own timer (a 【移动】 of the owner fires
-  // `deploy` without ending the form)
-  const tac = mine.find((t) => wolfTacticalPoint(t));
+  // `deploy` without ending the form); so is a fallen 流形 of the 缪尔赛思 kit (`mlyssDown`: its Recharge mode)
+  const tac = mine.find((t) => wolfTacticalPoint(t) || (t.mem.mlyssDown && !t.alive && !t.removed));
   if (tac) { owner.trait.reinforcement = tac; return tac; }
   const waiting = mine.find((t) => !t.alive && !t.removed);
   if (waiting && battle.redeploy(waiting, { free: true })) { owner.trait.reinforcement = waiting; return waiting; }

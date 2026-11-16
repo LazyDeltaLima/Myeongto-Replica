@@ -7,10 +7,6 @@
 // list both ways, so a new operator's unplayed rows have to be looked at. 'key|prefab' → status.
 
 export const UNPLAYED_LOCAL = Object.freeze({
-  "mlyss_wtrman_t_1[trigger]|token_10030_mlyss_wtrman_c0": "todo: 流形's Recharge look (c0) while it waits to stand up again (its mode 0's buff)",
-  "mlyss_wtrman_t_1[listener]|token_10030_mlyss_wtrman_c1_to_c0": "todo: 流形 back to c0 as it falls (its form by mode)",
-  "mlyss_wtrman_t_1[listener]|token_10030_mlyss_wtrman_c2_to_c0": "todo: 流形 back to c0 as it falls (its form by mode)",
-  "mlyss_wtrman_t_1[listener]|token_10030_mlyss_wtrman_c3_to_c0": "todo: 流形 back to c0 as it falls (its form by mode)",
   // 号角 S2's Full Burst shots: BurstRangedAttack.GetProjectileKey picks `_burstProjectiles`[bullets left − 1] (공식 클라에서 확인) —
   // fired only by the manual early close while overloaded (BurstCastSkill `_burstOnOverload`), which the auto battle never does
   ...Object.fromEntries(['02', '03', '04', '05'].flatMap((i) => [[`full_${i}`, `hit_02_02_${i}`], [`melee_${i}`, `hit_02_02_${i}`], [`full_${i}`, `trail_02_${i}`]]

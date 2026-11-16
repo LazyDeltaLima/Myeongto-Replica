@@ -1507,6 +1507,9 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   `echo_dark` carries `hit` 1 when its own hits switched it — its switch sound, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」); `crit` `{ id, by? }`: a crit mark on target `id` — 寒芒克洛丝's 中的 adds `by` (her id; the
   sound of her T.1 shot rides on its 'swing' / 'atk' `signal`, not on this mark); `copy` `{ id, src, mode, by }`: 缪尔赛思's 流形 `id` copies operator `src` — `mode` its
   prefab mode from then on (`'Melee'` / `'Range'`; the client's `_S3` / `_S2` variants while her S3 / S2 runs follow from `by`'s 'skill');
+  `manifoldDown` `{ id, by, mode, t }`: that 流形 falls in `mode` (`'Default'` uncopied) and waits on its tile for `t` s (its
+  Recharge mode: the unit stays, not removed); `manifoldUp` `{ id, by, mode, born? }`: its switch cast out of Recharge — after the
+  wait (it stands again 1 s later with its copy), or at a deployment (`born` 1);
   `enemySkill` `{ id, ability, n }`: an enemy's content skill is cast (`content/enemies.js onTick`, before its effects) — `ability` = the official
   ability name, the data skill's `prefabKey` (the client prefab's `Skills/<name>` — compare case-insensitively: `boomb` ↔ `Boomb`), `n` the cast count,
   `dur` (when given) the cast's length in s and `tgt` its target's id (“喷射罐”'s Flame channel, `content/enemies/critic.js kitJetCanister`; a

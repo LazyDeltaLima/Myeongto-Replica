@@ -4038,6 +4038,24 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 
 - 확인: 실제 대전 경로로 만든 골든 판(뮤엘시스 S3, 원거리로 베낀 유동체)을 렌더 데모에서 2배속으로 재생해 봄. 재능 분열에 분신 이펙트·탄, S3에 시전한 유동체의 체력 채움·시전 이펙트, 이미 선 분신의 체력 채움, 새 분신의 이펙트·탄이 났다. 근거리 유동체의 당김은 이펙트 골든의 사건 재생으로만 봄. 공식 화면은 보지 않음 [화면 미확인].
 
+## 뮤엘시스 유동체의 쓰러짐·모습 바뀜 (2026-11-16, 공식 클라에서 확인)
+
+- **무엇**: 유동체 이펙트 이름의 `c0`~`c3`는 모드의 모습이다 — `c0` Recharge(물웅덩이), `c1` Default(복사 전), `c2` Melee·Melee_S3, `c3` Range·Range_S2.
+  모드 Recharge의 `mlyss_wtrman_t_1[trigger]`(`overrideEffectKey` `token_10030_mlyss_wtrman_c0`)가 그 모드인 동안 웅덩이를 든다.
+  - **쓰러짐**: 살아 있는 모드마다 `Talents/1`의 `mlyss_wtrman_t_1[listener]`가 `ON_BEFORE_TRY_SET_HP_ZERO`에 블랙보드 `effect`(Default `_c1_to_c0`, Melee·Melee_S3
+    `_c2_to_c0`, Range·Range_S2 `_c3_to_c0`)를 그 자리에 한 번 만들고 Recharge로 간다. 그 뒤 웅덩이가 다시 설 때까지(재능 `interval` + 전환 시전 `_preDelay` 1초 —
+    시뮬 규칙은 rules/sim.md 「뮤엘시스 유동체의 쓰러짐」).
+  - **다시 섬**: `[trigger]`의 `ON_BUFF_TRIGGER`가 전환 시전과 함께 `_c0_to_c2`(`mlyss_wtrman_melee[mark]`)·`_c0_to_c3`(`range[mark]`)·`_c0_to_c1`(복사 전)을 만든다.
+  - **배치**: 유동체도 Recharge에서 태어나고 `mlyss_wtrman_born_trigger`가 `ON_BUFF_START`에(분열 복제가 아니면) 곧바로 `mlyss_wtrman_switch`와 `_c0_to_c1`을 낸다 —
+    웅덩이는 그 시전의 1초 동안.
+  - **분열 복제**: `range[mark]`를 받고 Recharge에서 태어나, `born_trigger`의 `triggerInterval` 0.2초 뒤 `mlyss_wtrman_switch_range`와 `_c0_to_c3`(웅덩이는
+    0.2 + 1초), 갈 때 `mlyss_wtrman_summon[override]`의 `ON_BUFF_FINISH`가 `_c3_to_c0`을 그 자리에.
+- 구현: 키트 사건 `manifoldDown`(`id` 유동체, `by` 그녀, `mode` 쓰러진 모드, `t` 다시 설 때까지)·`manifoldUp`(`mode`, 배치면 `born` 1)을 `kitofficial.js`가
+  그린다 — 쓰러짐·다시 섬은 유닛이 쓰러져 있으므로 그 칸(`point`)에, 배치는 유닛 위에. 분열은 `split` 계획에 웅덩이·`_c0_to_c3`(`after` 0.2)·끝 `_c3_to_c0`을 더함.
+  전에는 시뮬이 쓰러진 유동체를 지웠다가 새로 소환해 이 일곱 프리팹이 안 났다(`fx-unplayed-local-list.js` 넷, `fx-bindings.test.js` UNPLAYED 일곱 줄을 지움).
+  Spine 몸(웅덩이 `Idle_2`, `A_Start`·`B_Start`)은 아직 아니다 — rules/render.md 뮤엘시스 유동체 줄.
+- 확인: `test/render/kit-event-fx.test.js`(계획), `test/content/tokens_summons.test.js` 「a fallen 流形 …」(사건의 `by`·`mode`·`t`). 공식 화면과는 대조하지 않음 [화면 미확인].
+
 ## 소환물의 공격 이펙트 (2026-11-07, 공식 클라에서 확인)
 
 - **무엇**: 소환물도 오퍼레이터처럼 토큰 프리팹(`pkgrps/btl_pfb_tokens_*.ab`)의 `_modes`에 공격 능력과 이펙트 방출기를 둔다. 전에는 `modes.json`의 소환물 줄에 배치·사망·오라만 있어 렌더가 소환물 공격을 통째로 건너뛰었다(`bundleOf`가 소환물 id로 묶음을 못 찾음). 이제 `char_modes.py token_modes`가 그 소환물 부분만 `modes_of`로 읽어 줄에 `modes`·`cast`·`castOpt`·`hit`·`trail`·`dirs`·`combatSplit` 등을 넣고, 그 소환물 스킬 프리팹(`sktok_*`)의 효과를 주인 스킬 번호대로 `skills`에 넣는다. 공격 이펙트를 가진 소환물만이다: 파죰카의 '타자기'(`token_10026_bgsnow_subbow`), 위디의 공학용 저수포(`token_10009_weedy_cannon`), 시의 '작은 즈자이'(`token_10015_dusk_drgn`), 카제마루의 종이 인형(`token_10022_kazema_shadow`), 스와이어 디 엘리건트 위트의 샴페인 폭탄(`token_10031_swire2_gdtrap`), 비나 빅토리아의 황금의 맹세(`token_10040_siege2_vlion`), 미틈의 체리 3호(`token_10037_mitm_trshrb`), 뮤엘시스의 유동체, 비질의 늑대 무리. 스카디의 시본·저주인형 같은 나머지의 스킬 효과는 오라(`token_auras`)나 키트 사건이 이미 그린다.

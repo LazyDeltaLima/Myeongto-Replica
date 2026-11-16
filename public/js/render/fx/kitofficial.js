@@ -64,6 +64,12 @@ const ALL = Object.freeze({ all: true });
 const VEEN_MOUNTS = Object.freeze([5, 6, 8, 9, 10]);
 // 黑键's Default / S1 ExChargeAttack `_mountPointForProjectiles`: SPECIAL_0 / 1 / 2 / 3 (2026-11-16)
 const EBNHLZ_MOUNTS = Object.freeze([5, 6, 8, 9]);
+/** 缪尔赛思's 流形: the form of each of its modes in its effects' names (c0 is Recharge's puddle). */
+const MANIFOLD_FORM = Object.freeze({ Default: 'c1', Melee: 'c2', Range: 'c3' });
+/** Its Recharge mode's switch casts (mlyss_wtrman_switch / _melee / _range): `_preDelay` 1 s (kits chess_char_6_11-mlyss.js MANIFOLD_REBORN). */
+const MANIFOLD_SWITCH = 1;
+/** Its mlyss_wtrman_born_trigger's `triggerInterval` (BornTrigger, the token prefab): a split copy's switch then. */
+const MANIFOLD_BORN_TRIGGER = 0.2;
 
 /**
  * `<bundle>|<event>`: a kit event whose kind fxgame.js STAND_IN keeps (a mark every operator shows: a lift ring, a crit flash,
@@ -597,10 +603,14 @@ export const KIT_OFFICIAL = {
   // `id` takes mlyss_wtrman_summon[trigger] (INFINITY, `overrideEffectKey` token_10030_mlyss_wtrman_split_start_01) while it
   // stands, and the 流形's EmitProjectile / EmitProjectileS3 flies projectile_chr_mlyss_wtrman (`_mainEffect` _split_trail_01,
   // `_speed` 4) from it (`src`) to that tile — `_raiseHeight` 0.8 only beyond `_noRaiseHeightThreshold` 1.3, so none to a
-  // neighbouring tile
+  // neighbouring tile. (2026-11-16) The copy is born in mode Recharge (its mlyss_wtrman_t_1[trigger] puddle token_10030_mlyss_wtrman_c0)
+  // with mlyss_wtrman_range[mark]: its mlyss_wtrman_born_trigger (triggerInterval 0.2 s) casts mlyss_wtrman_switch_range with
+  // _c0_to_c3, whose `_preDelay` 1 s ends the mode; its mlyss_wtrman_summon[override] ON_BUFF_FINISH plays _c3_to_c0 as it goes
   split: {
-    mlyss: cite(['mlyss_wtrman_summon[trigger]', 'projectile_chr_mlyss_wtrman'], () => ({ play: [
-      { tpl: 'mlyss_wtrman_summon[trigger]', bundle: 'mlyss_token', on: 'id', life: 'unit' },
+    mlyss: cite(['mlyss_wtrman_summon[trigger]', 'projectile_chr_mlyss_wtrman', 'mlyss_wtrman_t_1[trigger]', 'mlyss_wtrman_born_trigger', 'mlyss_wtrman_summon[override]'], () => ({ play: [
+      { tpl: 'mlyss_wtrman_summon[trigger]', bundle: 'mlyss_token', on: 'id', life: 'unit', end: 'token_10030_mlyss_wtrman_c3_to_c0' },
+      { n: 'token_10030_mlyss_wtrman_c0', bundle: 'mlyss_token', on: 'id', life: MANIFOLD_BORN_TRIGGER + MANIFOLD_SWITCH },
+      { n: 'token_10030_mlyss_wtrman_c0_to_c3', bundle: 'mlyss_token', on: 'id', life: 'once', after: MANIFOLD_BORN_TRIGGER },
       { tpl: 'projectile_chr_mlyss_wtrman', bundle: 'mlyss_token', fly: 4, from: 'src', to: 'id' }] })),
   },
   // … S3 refills a 流形 or copy already on those tiles (`_buffsToExistToken` mlyss_wtrman_[summon_refresh]: ON_BUFF_START
@@ -615,6 +625,24 @@ export const KIT_OFFICIAL = {
   pulse: {
     // (its trigger, not its start: named, as build-fx-plays.mjs keeps ON_BUFF_START rows only)
     mlyss: cite('mlyss_s_3[token_melee_trigger]', () => ({ play: [{ n: 'token_10030_mlyss_wtrman_c2_skill_03_range_01', bundle: 'mlyss_token', on: 'id', life: 'once' }] })),
+  },
+  // (2026-11-16) … a 流形 falls (its mode's mlyss_wtrman_t_1[listener] ON_BEFORE_TRY_SET_HP_ZERO: CreateEffect of its blackboard
+  // `effect` — Default token_10030_mlyss_wtrman_c1_to_c0, Melee / Melee_S3 _c2_to_c0, Range / Range_S2 _c3_to_c0 — where it
+  // stands) into mode Recharge, whose mlyss_wtrman_t_1[trigger] (`overrideEffectKey` token_10030_mlyss_wtrman_c0) holds its
+  // puddle until the reborn buff switches the mode (`t`: the sim's wait + the switch cast's `_preDelay`) …
+  manifoldDown: {
+    mlyss: cite(['mlyss_wtrman_t_1[listener]', 'mlyss_wtrman_t_1[trigger]'], (o) => ({ play: [
+      { n: `token_10030_mlyss_wtrman_${MANIFOLD_FORM[o.mode] ?? 'c1'}_to_c0`, bundle: 'mlyss_token', on: 'point', life: 'once' },
+      { n: 'token_10030_mlyss_wtrman_c0', bundle: 'mlyss_token', on: 'point', life: Math.max(0.05, Number(o.t) || 0) }] })),
+  },
+  // … and as it stands again: that buff's ON_BUFF_TRIGGER plays _c0_to_c2 (mlyss_wtrman_melee[mark]), _c0_to_c3
+  // (mlyss_wtrman_range[mark]) or _c0_to_c1 (uncopied) where it lies with the switch cast. `born`: a 流形's deployment, born in
+  // mode Recharge too — its mlyss_wtrman_born_trigger (ON_BUFF_START: no split copy) casts mlyss_wtrman_switch with _c0_to_c1
+  // at once, the puddle until the cast's `_preDelay` ends
+  manifoldUp: {
+    mlyss: cite(['mlyss_wtrman_t_1[trigger]', 'mlyss_wtrman_born_trigger'], (o) => ({ play: [
+      { n: `token_10030_mlyss_wtrman_c0_to_${MANIFOLD_FORM[o.mode] ?? 'c1'}`, bundle: 'mlyss_token', on: o.born ? 'id' : 'point', life: 'once' },
+      ...(o.born ? [{ n: 'token_10030_mlyss_wtrman_c0', bundle: 'mlyss_token', on: 'id', life: MANIFOLD_SWITCH }] : [])] })),
   },
   // 焰影苇草 S2: each carrier's fireball (projectile_chr_reed2_fire: `_mainEffect` reed2_skill_02_fireball_01 circling it at
   // `_projectileAroundRadius` 1, `_aroundSpeed` 150 °/s) until her skill ends [추정: the sense of the turn]

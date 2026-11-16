@@ -430,7 +430,10 @@ const installLoopshooter = (battle, unit) => {
 const installTactician = (battle, unit) => {
   const spawn = () => {
     if (!unit.alive || !unit.deployed) return;
-    if (unit.trait.reinforcement && unit.trait.reinforcement.alive) return;
+    // a 援军 off the fight but kept on the field (not `removed`: a 狼群's 战术点形态, a fallen 流形's Recharge mode —
+    // content/tokens.js ensureReinforcement) is still the tactician's: it comes back by its own timer
+    const r = unit.trait.reinforcement;
+    if (r && (r.alive || !r.removed)) return;
     const tile = battle.findTacticalPoint(unit);
     if (!tile) return;
     unit.trait.reinforcement = battle.spawnToken(unit, 'token_tactician_reinforce', tile[0], tile[1], {

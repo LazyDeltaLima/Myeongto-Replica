@@ -175,7 +175,7 @@ test('the rules name prefabs the client binds for that operator', () => {
           // (the shared module effects, bundle uniequip, are named by the module's sub-profession or its own number)
           if (!p.off && !OTHER_OPERATOR_PREFAB[`${b}|${p.n}`]) assert.ok(p.bundle === 'uniequip' ? p.n.startsWith('uniequip_') : p.bundle ? p.n.includes(`_${b}_`) : p.n.startsWith(`${b}_`), `${n} (${b}): ${p.n}`);
           if (p.ready) assert.ok(p.ready.startsWith(`${b}_`), `${n} (${b}): ${p.ready}`);
-          for (const x of [p.rope, p.pass?.n, p.harpoon?.moving, p.end, ...(p.hit || [])].filter(Boolean)) assert.ok(x.startsWith(`${b}_`), `${n} (${b}): ${x}`);
+          for (const x of [p.rope, p.pass?.n, p.harpoon?.moving, p.end, ...(p.hit || [])].filter(Boolean)) assert.ok(p.bundle ? x.includes(`_${b}_`) : x.startsWith(`${b}_`), `${n} (${b}): ${x}`);
         }
       }
     }
@@ -347,9 +347,22 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.equal(kitOperator({ id: 4, src: 7, by: 1 }, 'copy'), 1);
   // … its split: the copy holds summon[trigger]'s split_start_01 while it stands, the shot flies from the 流形 (`src`) to it; a
   // refill: refresh_01 on the refilled one, and on the casting 流形 SpawnTokenS3's cast too; a melee 流形's S3 pulse; all hers (`by`)
+  // (2026-11-16: born in mode Recharge, its puddle until its switch to Range — c0 → c3 after born_trigger's 0.2 s —, c3 → c0 as it goes)
   assert.deepEqual(kitOfficialPlan('split', { id: 9, src: 4, by: 1 }, 'mlyss', { plays: FIXED }).play, [
-    { n: 'token_10030_mlyss_wtrman_split_start_01', bundle: 'mlyss_token', on: 'id', life: 'unit' },
+    { n: 'token_10030_mlyss_wtrman_split_start_01', bundle: 'mlyss_token', on: 'id', life: 'unit', end: 'token_10030_mlyss_wtrman_c3_to_c0' },
+    { n: 'token_10030_mlyss_wtrman_c0', bundle: 'mlyss_token', on: 'id', life: 1.2 },
+    { n: 'token_10030_mlyss_wtrman_c0_to_c3', bundle: 'mlyss_token', on: 'id', life: 'once', after: 0.2 },
     { n: 'token_10030_mlyss_wtrman_split_trail_01', bundle: 'mlyss_token', fly: 4, from: 'src', to: 'id' }]);
+  // its fall (docs/rules/fx.md 「뮤엘시스 유동체의 쓰러짐」): back to c0 by the mode it fell in, the puddle until it stands again where
+  // it lay, then c0 → its form; its deployment (`born`) the same switch on it, the puddle for the cast's 1 s
+  const down = (mode) => kitOfficialPlan('manifoldDown', { id: 4, by: 1, mode, t: 26 }, 'mlyss').play.map((p) => [p.n, p.on, p.life]);
+  assert.deepEqual(down('Melee'), [['token_10030_mlyss_wtrman_c2_to_c0', 'point', 'once'], ['token_10030_mlyss_wtrman_c0', 'point', 26]]);
+  assert.equal(down('Range')[0][0], 'token_10030_mlyss_wtrman_c3_to_c0');
+  assert.equal(down('Default')[0][0], 'token_10030_mlyss_wtrman_c1_to_c0');
+  const up = (o) => kitOfficialPlan('manifoldUp', { id: 4, by: 1, ...o }, 'mlyss').play.map((p) => [p.n, p.on, p.life]);
+  assert.deepEqual(up({ mode: 'Range' }), [['token_10030_mlyss_wtrman_c0_to_c3', 'point', 'once']]);
+  assert.deepEqual(up({ mode: 'Default', born: 1 }), [['token_10030_mlyss_wtrman_c0_to_c1', 'id', 'once'], ['token_10030_mlyss_wtrman_c0', 'id', 1]]);
+  for (const ev of ['manifoldDown', 'manifoldUp']) assert.equal(kitOperator({ id: 9, by: 1 }, ev), 1);
   const refill = (id) => kitOfficialPlan('refresh', { id, src: 4, by: 1 }, 'mlyss', { plays: FIXED }).play.map((p) => [p.n, p.on, p.life]);
   assert.deepEqual(refill(9), [['token_10030_mlyss_wtrman_refresh_01', 'id', 'once']]);
   assert.deepEqual(refill(4), [['token_10030_mlyss_wtrman_refresh_01', 'id', 'once'], ['token_10030_mlyss_wtrman_split_start_01', 'id', 'once']]);

@@ -241,34 +241,40 @@ test('#5 流形: with no other operator on the board it copies 缪尔赛思 hers
   noErrors(h);
 });
 
-test('#5 流形: a respawned 流形 comes back uncopied after 25 s and does not attack until its copy (a block after its SP fills)', REAL, () => {
-  const bad = [];
+test('#5 流形: a fallen 流形 waits on its tile and stands again after 25 + 1 s with its copy (its Recharge mode, official client)', REAL, () => {
   const h = makeBattle({
     defs: { chess: { test_guard: guard() }, enemies: { enemy_dummy: dummy() } }, timeLimit: 120, autoFinish: false,
     units: [{ chessId: 'chess_char_6_11_a', row: 12, col: 2, uid: 1 }, { chessId: 'test_guard', row: 12, col: 6, uid: 2 }, { kind: 'token', tokenId: MF, row: 9, col: 6, uid: 3, ownerUid: 1 }],
     enemies: [{ key: 'enemy_dummy', pos: [9, 6] }],
-    setup: (b) => watchUncopied(b, bad),
   });
   h.step();
   const first = standing(h)[0];
   assert.ok(h.runUntil(() => first.mem.mlyss, 9), 'first copy a block after 95 → 100 SP');
+  const copy = first.mem.mlyss, atk = first.base.atk;
   h.b.dealDamage(null, first, { amount: 1e9, type: 'true' });
   const respawn = ds.getToken(MF, 'chess_char_6_11_a').talents.find((t) => t.bb.scale != null).bb.interval;
   const tKill = h.b.time;
-  assert.ok(h.runUntil(() => standing(h).length === 1, respawn + 2));
+  assert.equal(first.alive, false);
+  assert.equal(first.removed, false, 'kept on its tile (mlyss_wtrman_t_1[listener]: SwitchRallyPointCategory, mode Recharge)');
+  assert.ok(h.runUntil(() => standing(h).length === 1, respawn + 3));
   const again = standing(h)[0];
-  assert.ok(Math.abs(h.b.time - tKill - respawn) < 0.1, `back after ${respawn} s (${h.b.time - tKill})`);
+  assert.ok(again === first, 'the same 流形');
+  assert.ok(Math.abs(h.b.time - tKill - respawn - 1) < 0.1, `back after ${respawn} s + the switch's 1 s (${h.b.time - tKill})`);
   assert.deepEqual([again.tileR, again.tileC], [9, 6], 'on its tile');
-  assert.equal(again.mem.mlyss ?? null, null, 'uncopied');
-  assert.equal(again.profile.noAttack, true);
-  const t0 = h.b.time;
-  assert.ok(h.runUntil(() => again.mem.mlyss, 8));
-  assert.ok(h.b.time - t0 > 6.5, 'copies a block after its SP fills (95 → 100)');
-  assert.deepEqual(bad, [], 'the enemy on its tile was never attacked by an uncopied 流形');
+  assert.ok(again.mem.mlyss === copy, 'still copied (its mark buffs are retained)');
+  assert.equal(again.base.atk, atk);
+  assert.equal(again.profile.noAttack, false, 'attacks again without copying');
+  assert.ok(again.skill.sp < 1, `its SP cleared (ClearCharacterSp: ${again.skill.sp})`);
+  // the render's moments (render/fx/kitofficial.js manifoldDown / manifoldUp): her id `by`, the mode it fell in
+  const u = h.unit('chess_char_6_11_a');
+  const fx = (k) => h.eventsOf('fx').filter((e) => e[1] === k && e[4]?.id === first.id).map((e) => e[4]);
+  const mode = copy.ranged ? 'Range' : 'Melee';
+  assert.deepEqual(fx('manifoldDown').map((o) => [o.by, o.mode, o.t]), [[u.id, mode, respawn + 1]]);
+  assert.deepEqual(fx('manifoldUp').map((o) => [o.by, o.mode, !!o.born]), [[u.id, 'Default', true], [u.id, mode, false]], 'born once, then back');
   noErrors(h);
 });
 
-test('#5 流形: no quick second revive — her knock-out cancels the pending respawn, her redeploy brings exactly one back', REAL, () => {
+test('#5 流形: a fallen 流形 stands again by its own timer while she is down, and her redeploy brings no second one', REAL, () => {
   const deploys = [];
   const h = makeBattle({
     defs: { chess: { test_guard: guard() }, enemies: { enemy_dummy: dummy() } }, timeLimit: 200, autoFinish: false, hooks: ['death'],
@@ -278,26 +284,23 @@ test('#5 流形: no quick second revive — her knock-out cancels the pending re
   h.step();
   const u = h.unit('chess_char_6_11_a');
   h.run(1);
-  h.b.dealDamage(null, standing(h)[0], { amount: 1e9, type: 'true' }); // 流形 killed: respawn pending (25 s)
+  const m = standing(h)[0];
+  h.b.dealDamage(null, m, { amount: 1e9, type: 'true' }); // 流形 knocked out: its Recharge mode (25 + 1 s)
   h.run(2);
-  h.b.dealDamage(null, u, { amount: 1e9, type: 'true' });            // then she is knocked out
+  h.b.dealDamage(null, u, { amount: 1e9, type: 'true' });  // then she is knocked out
   assert.equal(u.alive, false);
-  h.run(40);                                                          // past the old respawn time: she is still down
-  assert.equal(standing(h).length, 0, 'no 流形 while she is off the field');
-  assert.ok(h.b.redeploy(u, { free: true }));                          // her redeploy summons it as her 援军
+  assert.ok(h.b.redeploy(u, { free: true }));                // her redeploy: the fallen 流形 is still her 援军
   h.step();
-  assert.equal(standing(h).length, 1);
-  assert.deepEqual([standing(h)[0].tileR, standing(h)[0].tileC], [11, 5], 'back on the tactical point the player chose (its board tile, inside her range)');
+  assert.equal(standing(h).length, 0, 'no second 流形 while the first one waits');
+  assert.ok(u.trait.reinforcement === m, `her 援军 is the fallen one (${u.trait.reinforcement?.id} / ${m.id})`);
   const n = deploys.length;
-  // kill it right away: the next one needs the full 25 s (no stale timer firing within a second)
-  h.b.dealDamage(null, standing(h)[0], { amount: 1e9, type: 'true' });
   h.run(20);
-  assert.equal(standing(h).length, 0, 'not back within 20 s');
-  assert.equal(deploys.length, n);
-  h.run(6);
-  assert.equal(standing(h).length, 1, 'back after 25 s');
+  assert.equal(standing(h).length, 0, 'not back within 23 s');
+  h.run(5);
+  assert.ok(standing(h).length === 1 && standing(h)[0] === m, 'the same one back on its tile');
+  assert.deepEqual([m.tileR, m.tileC], [11, 5]);
   h.run(60);
-  assert.equal(deploys.length, n + 1, 'exactly one respawn');
+  assert.equal(deploys.length, n + 1, 'exactly one return');
   assert.equal(h.hooksOf('death').filter((c) => c.unit.defId === MF && c.reason === 'expired').length, 0, 'never replaced by a second 流形');
   noErrors(h);
 });
@@ -338,7 +341,7 @@ const fastSniper = (o = {}) => chessRec({
   rangeGrid: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1], [1, 2], [-1, 0], [-1, 1], [-1, 2]], ...o,
 });
 
-test('#5 流形: a split clone alive when 缪尔赛思 redeploys is not taken for her 流形 — a real one comes back and stays', REAL, () => {
+test('#5 流形: a split clone alive when 缪尔赛思 redeploys is not taken for her 流形 — the fallen one stays her 援军 and comes back', REAL, () => {
   const h = makeBattle({
     defs: { chess: { test_sniper: fastSniper() }, enemies: { enemy_dummy: dummy({ atk: 0 }) } }, timeLimit: 300, autoFinish: false,
     units: [{ chessId: 'chess_char_6_11_a', row: 12, col: 2, uid: 1 }, { chessId: 'test_sniper', row: 12, col: 6, uid: 2 }, { kind: 'token', tokenId: MF, row: 11, col: 5, uid: 3, ownerUid: 1 }],
@@ -348,16 +351,18 @@ test('#5 流形: a split clone alive when 缪尔赛思 redeploys is not taken fo
   const clones = () => h.b.allyUnits.filter((u) => u.defId === MF && u.alive && u.deployed && (u.mem.mlyssClone || u.mem.isClone));
   assert.ok(h.runUntil(() => clones().length > 0, 60), 'the ranged copy split');
   const m = h.unit('chess_char_6_11_a');
-  h.b.dealDamage(null, standing(h)[0], { amount: 1e9, type: 'true' });
+  const mf = standing(h)[0];
+  h.b.dealDamage(null, mf, { amount: 1e9, type: 'true' });
   h.b.dealDamage(null, m, { amount: 1e9, type: 'true' });
   h.step();
   assert.equal(standing(h).length, 0);
   assert.equal(clones().length, 1, 'the clone outlives them (25 s)');
   assert.ok(h.b.redeploy(m, { free: true }));
   h.step(2);
-  assert.equal(standing(h).length, 1, 'her redeploy brings a real 流形 although a clone stands');
-  assert.equal(m.trait.reinforcement, standing(h)[0], 'her 援军 is the 流形, not the clone');
-  assert.deepEqual([standing(h)[0].tileR, standing(h)[0].tileC], [11, 5], 'on the tactical point the player chose');
+  assert.ok(m.trait.reinforcement === mf, `her 援军 is the fallen 流形, not the clone (${m.trait.reinforcement?.id} / ${mf.id})`);
+  assert.ok(h.runUntil(() => standing(h).length === 1, 30), 'it comes back');
+  assert.ok(standing(h)[0] === mf, 'the same 流形');
+  assert.deepEqual([mf.tileR, mf.tileC], [11, 5], 'on its tile');
   h.run(60); // the clone expired long ago
   assert.equal(standing(h).length, 1, 'still has her 流形');
   noErrors(h);

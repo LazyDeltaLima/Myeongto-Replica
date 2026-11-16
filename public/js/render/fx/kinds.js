@@ -57,7 +57,7 @@ export const FX_KINDS = Object.freeze({
   // 跃跃 S2's later boomerang (sim kit chess_char_1_09-caper.js; the client's projectile_chr_caper_s2_1 on the opposite
   // arc, 0.1 s after the attack's own boomerang) — drawn as a second boomerang (fx/simfx.js; render/fxgame.js its official trail)
   caperBoomerang2: { a: 'none', c: 0x9ff0dc },
-  ulpiaReturn: { a: 'blink', c: 0x9ff0dc }, manifoldSplit: { a: 'blink', c: 0xd8b0ff },
+  ulpiaReturn: { a: 'blink', c: 0x9ff0dc }, manifoldSplit: { a: 'blink', c: 0xd8b0ff }, manifoldDown: { a: 'none', c: 0xd8b0ff }, manifoldUp: { a: 'none', c: 0xd8b0ff },
   // displacement
   pull: { a: 'move', c: 0x9fd4ff }, push: { a: 'move', c: 0xffd9a0 }, displace: { a: 'move', c: 0xd0c0a0 }, lure: { a: 'move', c: 0xffb3ec },
   charge: { a: 'move', c: 0xff9c33 }, dash: { a: 'move', c: 0xffd9a0 }, slippery: { a: 'move', c: 0x9fe6ff },

@@ -656,7 +656,7 @@ test('缪尔赛思: 流形 copies the operator above it (90 %), S3 gives 13 DP a
   checkInvariants(h.b);
 });
 
-test('缪尔赛思: a destroyed 流形 comes back after 25 s; melee copy steals ATK/DEF', () => {
+test('缪尔赛思: a destroyed 流形 waits on its tile and stands again 25 + 1 s later with its copy and its steal; melee copy steals ATK/DEF', () => {
   const h = battle({
     units: [
       { chessId: 'chess_char_6_11_a', row: 12, col: 3 },
@@ -671,13 +671,19 @@ test('缪尔赛思: a destroyed 流形 comes back after 25 s; melee copy steals 
   assert.ok(e.findBuff('mlyss:robbed'), 'enemy robbed');
   assert.ok(tok().mem.mlyss.stolenAtk > 0 && tok().mem.mlyss.stolenDef > 0);
   assert.equal(e.findBuff('mlyss:robbed').mods.atkFlat, -tok().mem.mlyss.stolenAtk, 'the enemy loses what the copy gains');
-  const t = tok();
+  const t = tok(), copied = t.base.atk, stolen = t.mem.mlyss.stolenAtk;
   h.b.dealDamage(null, t, { amount: 1e9, type: 'true' });
   assert.equal(tok(), undefined);
-  h.run(24);
-  assert.equal(tok(), undefined);
-  h.run(2);
-  assert.ok(tok(), 'respawned');
+  assert.ok(!t.removed && t.mem.mlyssDown, 'its Recharge mode: off the fight, kept on its tile (docs/rules/sim.md 「뮤엘시스 유동체의 쓰러짐」)');
+  assert.ok(h.b.isReservedTile(t.tileR, t.tileC), 'its tile stays held');
+  h.run(25.5);
+  assert.equal(tok(), undefined, 'the switch cast still runs (its 1 s `_preDelay`)');
+  assert.ok(h.runUntil(() => tok(), 1));
+  assert.ok(tok() === t, 'the same 流形 stands again on its tile');
+  assert.equal(t.hp, t.s.maxHp);
+  assert.equal(t.mem.mlyss.stolenAtk, stolen, 'its steal kept (steal_attr_self is a retained buff)');
+  assert.equal(t.base.atk, copied, 'its copy kept');
+  assert.equal(t.findBuff('mlyss:stolen')?.mods.atkFlat, stolen, 'its stolen ATK on it again');
 });
 
 test('迷迭香: S2 adds 2 aftershocks per attack, ignores 160 DEF (talent)', () => {

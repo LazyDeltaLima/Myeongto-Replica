@@ -760,8 +760,8 @@
       ],
       "enemies": {"enemy_1195_sfyin":[11,11,0,0,19800],"enemy_1196_msfyin":[22,22,0,0,44],"enemy_1197_sfshu":[5,5,0,0,11250],"enemy_1198_msfshu":[15,15,0,0,45]},
       "hooks": [1,64,1427,99,99,178,178,0,53,53,13,11,0,8126,36,0,53,0,1,53,0,0,0],
-      "events": {"atk":132,"castHit":2,"deploy":9,"die":53,"dmg":178,"engage":8,"face":30,"fx":49,"skill":24,"spawn":64,"status":53,"swing":125},
-      "fx": {"copy":1,"displace":2,"dp":1,"hunterReload":9,"hunterRound":5,"pulse":8,"sleep":3,"strike":2,"summon":16,"volley":2},
+      "events": {"atk":132,"castHit":2,"deploy":9,"die":53,"dmg":178,"engage":8,"face":30,"fx":50,"skill":24,"spawn":64,"status":53,"swing":125},
+      "fx": {"copy":1,"displace":2,"dp":1,"hunterReload":9,"hunterRound":5,"manifoldUp":1,"pulse":8,"sleep":3,"strike":2,"summon":16,"volley":2},
       "snaps": "3aa0fb16 a089808d 1c02f82a fc09f0b1 4f52f274"
     },
     "bond-maniShip-high": {
@@ -803,8 +803,8 @@
       ],
       "enemies": {"enemy_1288_duskls":[11,11,0,210,63415],"enemy_1288_duskls_2":[7,7,0,0,48419],"enemy_1292_duskld":[5,5,0,1224,57650]},
       "hooks": [1,39,2568,280,314,501,501,320,23,27,19,16,0,11989,214,30,23,0,1,47,0,0,0],
-      "events": {"atk":335,"castHit":6,"deploy":13,"die":27,"dmg":501,"engage":13,"face":76,"fx":262,"skill":35,"spawn":39,"status":448,"swing":307},
-      "fx": {"aoe":2,"copy":1,"crit":7,"dp":2,"ember":23,"iceSpike":61,"kitHit":1,"palsy":2,"refresh":3,"roadTiles":1,"sleep":3,"split":4,"stacks":59,"weightless":2,"zone":91},
+      "events": {"atk":335,"castHit":6,"deploy":13,"die":27,"dmg":501,"engage":13,"face":76,"fx":263,"skill":35,"spawn":39,"status":448,"swing":307},
+      "fx": {"aoe":2,"copy":1,"crit":7,"dp":2,"ember":23,"iceSpike":61,"kitHit":1,"manifoldUp":1,"palsy":2,"refresh":3,"roadTiles":1,"sleep":3,"split":4,"stacks":59,"weightless":2,"zone":91},
       "snaps": "dd0f51ff a4e7484b 3fbb00a3 ab7e2b6d 6d6ae259 4e63b136 cfe44830 19cc5af0 ad9fb7d5"
     },
     "bond-miraShip-low": {

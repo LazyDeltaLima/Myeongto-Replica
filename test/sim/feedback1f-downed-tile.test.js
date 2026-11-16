@@ -212,8 +212,9 @@ test('F5 "若干员被击倒的位置为其他干员或召唤物的初始位置�
 // tile) off the field. Every board piece's 初始位置 counts now, on the field or not.
 // Since 0.2.0 the 海嗣 is a countdown summon — 无敌 + 禁疗 (PRTS 海嗣 备注 「持有禁疗、无敌」; DESIGN §25.16): it only expires,
 // no damage kills it. The killed case takes 缪尔赛思's 流形, a board summon that is attacked and killed and also comes back
-// on its tile (「其被击败后会在25秒后自动刷新」).
-test('F5 rule 3: a body on the home of a summon that has expired or been killed goes back to its own; the summon comes back', () => {
+// on its tile (「其被击败后会在25秒后自动刷新」) — since 2026-11-16 it waits on that tile (its Recharge mode, the official
+// client's RallyPoint: docs/rules/sim.md 「뮤엘시스 유동체의 쓰러짐」), so its home stays reserved and no 突袭 lands there.
+test('F5 rule 3: a body on the home of a summon that has expired goes back to its own; a killed 流形 keeps its tile; both come back', () => {
   const CASES = {
     expired: { owner: 'chess_char_6_04_a', tokenId: 'token_10017_skadi2_dedant', name: '海嗣' },
     killed: { owner: 'chess_char_6_11_a', tokenId: 'token_10030_mlyss_wtrman', name: '流形' },
@@ -232,8 +233,16 @@ test('F5 rule 3: a body on the home of a summon that has expired or been killed 
     const sum = b.allyUnits.find((u) => u.kind === 'token' && u.uid === 2);
     const yan = h.unit(3);
     assert.ok(sum.alive && sum.tileR === 10 && sum.tileC === 5, `the ${name} on its placed tile`);
-    if (how === 'killed') kill(b, sum);
-    else h.runUntil(() => !sum.alive, 120);
+    if (how === 'killed') {
+      kill(b, sum);
+      assert.ok(!sum.alive && !sum.removed, 'killed: the 流形 waits off the fight');
+      assert.equal(b.isReservedTile(10, 5), true, 'its tile stays held while it waits');
+      assert.ok(h.runUntil(() => sum.alive, 60), 'killed: the 流形 comes back');
+      assert.deepEqual(tileOf(sum), [10, 5], 'on its own tile');
+      checkInvariants(b);
+      continue;
+    }
+    h.runUntil(() => !sum.alive, 120);
     assert.ok(!sum.alive && sum.removed, `${how}: the ${name} is gone`);
     assert.equal(b.isReservedTile(10, 5), false, 'its home is free for an automatic placement');
     b.retreat(yan, { reason: 'raid' });                 // the 突袭 landing (raidRedeploy: retreat + redeploy on a free tile)
