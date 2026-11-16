@@ -1588,7 +1588,7 @@
 - 모듈 SOL-X: 저지 중 공격력·방어력 ×(1 + 특성 `atk`·`def`)(`buildr_trait[e_002]` ON_OWNER_BLOCKEE_CHANGED).
 
 ### 프로스트리프 `char_193_frostl` (T1, 로드)
-- 특성: 분기 공통(근접 범위 밖이면 ×`atk_scale`). 재능 엄호 공격은 2정예(정예 형태)만: 공격 간격 +`base_attack_time`, 재능 범위가 기본 범위를 대신한다(`_overrideDefaultRangeId`, PRTS 비고). 범위는 전투 유닛에서 바꾸므로 정비 화면의 카드는 기록의 기본 범위를 보인다(`bundles/loose.md`).
+- 특성: 분기 공통(근접 범위 밖이면 ×`atk_scale`). 재능 엄호 공격은 2정예(정예 형태)만: 공격 간격 +`base_attack_time`, 재능 범위가 기본 범위를 대신한다(`_overrideDefaultRangeId`, PRTS 비고). 범위는 전투 유닛에서 바꾸므로 정비 화면의 카드는 기록의 기본 범위를 보인다(관리자 노트의 남은 일).
 - 모듈 LOR-X: 타격마다 공격력 × `atk_scale_m` 법술 추가 피해(`frostl_e_002_tr`, PRTS 「예계산 추가 피해」). 쏜즈·화이트위시와 같은 처리. 한기는 모듈 2단계부터라 이 시즌 기물(1단계)에 없다.
 - S1 서리창 `skchr_frostl_1`: 다음 공격이 사거리와 상관없이 `atk_scale`, 특성의 ×0.8 없음(PRTS 비고), `duration`초 이동 속도 ×(1 + `move_speed`). 공식 클라에서 확인: 스킬 능력이 `RangedAttack`이라 저지 중인 적에게도 투사체로 날아간다.
 - S2 빙결창 `skchr_frostl_2`: 공격 속도 +`attack_speed`, 타격마다 `debuff`초 이동 속도 감소(`frostl_s_2[slow]`), 확률 `prob`로 `debuff`초 속박(`frostl_s_2[frozen]`, `UNMOVABLE`). 근접·원거리 공격 모두(`_targetFamilyMask` 3), ×0.8은 그대로. 모드가 바뀔 때 진행 중이던 휘두름은 끊기지 않아(`sim.md` 「모드가 바뀌면」, 그의 `det` 0) 시전 직후 두 번 치는 일이 있다.
