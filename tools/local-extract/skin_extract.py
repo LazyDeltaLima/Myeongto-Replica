@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Operator and summon skins (时装) from the local clients: the battle Spine model of every official skin of the
-operators and summons the mode draws (maintainer decision 2026-11-16: all of them). Display only: a battle is decided
-on the default model (docs/rules/render.md 「스킨 모델 소재」).
+"""Operator and summon skins (时装) from the local clients: the battle Spine model and the pictures of every official
+skin of the operators and summons the mode draws (maintainer decision 2026-11-16: all of them). Display only: a battle
+is decided on the default model (docs/rules/render.md 「스킨 모델 소재」).
 
 Which skins: the official skin table (Kengxxiao zh_CN `excel/skin_table.json`, cached in .cache/gamedata/excel/ and
 downloaded when missing) — every `charSkins` record of an operator of data/assets.json `chars` or a summon of
@@ -13,6 +13,15 @@ read from the EN client first (its hot-update bundles, then the install), then t
 (client_path.clients). An operator's prefab has Front and Back renderers (one `Spine` renderer: the front only); a
 summon's is drawn by its Front / only renderer (extract.pick_spine_node), as the default summon models are.
 
+Pictures (the skin picker's tiles and its preview, as the default operator's web-mirror avatar / portrait and the
+chararts art): the record's own `avatarId` (1:1, 180 px), `portraitId` (1:2, 180×360) and `illustId` (the 立绘). The
+avatar and portrait are found by the client's name → path maps (`arts/charavatars/avatar_hub.ab`,
+`arts/charportraits/portraits_hub.ab`; ids matched without case) in the sprite packs (`spritepack/ui_char_avatar_*.ab`,
+`spritepack/char_portrait_*.ab`); the 立绘 is the `illust_<skin>` prefab of the owner's skinpack: its Image sprite's
+texture (the whole square canvas, with the sprite's alpha texture when it has one) and its RectTransform, the frame
+chararts_extract.py reads for the default art. The summons' skin records carry an avatar only, and not every one of them
+is in the client (the summon then keeps its default one).
+
 File names: the official ids carry `#` (`char_202_demkni_boc#1`), which a URL reads as the start of a fragment — the
 browser's resource list refuses such paths (public/js/resources.js PATH_RE). Every folder and file name goes through
 file_name(), the one place that names the output: `#` → `-` (no official skin, skeleton or page name has a `-`, so two
@@ -21,16 +30,24 @@ names never meet), anything else outside [A-Za-z0-9_.] stops the run. The atlas 
 Output (under --out, public/assets/local by default):
   spine/skin/<owner>/<prefab>/<front|back>/<prefab>.skel | .atlas | <page>.png      (pages premultiplied, as the
                                                                                   enemy / token models: write_spine)
-  spine/skin/skins.json   { version, source, skins: { <skin key>: { owner, prefab, client, front, back?, tokens? } },
-                            missing: { <skin key>: { owner, why } } }   front / back = { skel, atlas, textures[], pma }
+  spine/skin/<owner>/<prefab>/avatar/<avatarId>.png      180×180, as the client has it
+  spine/skin/<owner>/<prefab>/portrait/<portraitId>.png  180×360
+  spine/skin/<owner>/<prefab>/illust/<illustId>.webp     the whole canvas, long side ≤ 1024, lossy q85 with alpha
+  spine/skin/skins.json   { version, source, skins: { <skin key>: { owner, prefab, client, front, back?, tokens?,
+                                                                    avatar?, portrait?, illust? } },
+                            missing: { <skin key>: { owner, why } }, artMissing: { <skin key>: [kind…] } }
+                          front / back = { skel, atlas, textures[], pma }; avatar / portrait = { path, w, h };
+                          illust = { path, w, h, frame: { x, y, w, h } } (frame = the illust RectTransform, as chararts)
+A skin whose model is missing gets no pictures either (the picker does not offer it).
 The index is a file of its own, not a data/local-assets.json group: that manifest goes to every page, the skins only to
 those who take the skin data. tools/build-browser-resources.mjs leaves the whole spine/skin/ folder out of the pre-download
 list until the skin data is a pack of its own.
 
 Usage (from the repo root):
-  .venv-extract/bin/python tools/local-extract/skin_extract.py [--id <ownerId>]… [--out public/assets/local]
+  .venv-extract/bin/python tools/local-extract/skin_extract.py [--id <ownerId>]… [--only models|art] [--out public/assets/local]
   python3 tools/local-extract/skin_extract.py --list     (the skins the table gives, as JSON; no client needed)
-An --id run re-extracts only those owners and keeps the other rows of skins.json.
+An --id run re-extracts only those owners and keeps the other rows of skins.json; --only runs one part and keeps the
+other part's fields (--only art adds the pictures to the models already listed).
 Everything is (c) Hypergryph; for private, non-commercial fan use only.
 """
 import argparse
@@ -50,6 +67,11 @@ TABLE = ROOT / '.cache/gamedata/excel/skin_table.json'
 TABLE_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/skin_table.json'
 BUNDLE_DIRS = (('PersistentData', 'Bundles'), ('StreamingAssets', 'AB', 'Windows'))
 NAME_OK = re.compile(r'[A-Za-z0-9_.#]+')
+ART_FIELDS = ('avatar', 'portrait', 'illust')
+# the skin record's picture id → (the client's name → path map, the sprite packs that hold them)
+PIC_KINDS = {'avatar': ('arts/charavatars/avatar_hub.ab', 'ui_char_avatar_*.ab'),
+             'portrait': ('arts/charportraits/portraits_hub.ab', 'char_portrait_*.ab')}
+ILLUST_MAX, ILLUST_QUALITY = 1024, 85  # as chararts_extract.py
 
 
 def file_name(name):
@@ -74,9 +96,10 @@ def rename_atlas_pages(text, names):
 
 
 def skin_rows(table, chars, tokens):
-    """[{key, owner, prefab, tokens?}] of the official skins with a battle prefab of their own, for the operators in
-    `chars`, the summons in `tokens` and the summons an operator skin's tokenSkinMap dresses; sorted by key. Raises
-    ValueError on a prefab id that is not its owner's (`<owner>_…`) or two skins whose folders differ only in case."""
+    """[{key, owner, prefab, tokens?, pics?}] of the official skins with a battle prefab of their own, for the operators
+    in `chars`, the summons in `tokens` and the summons an operator skin's tokenSkinMap dresses; sorted by key. `pics` =
+    the record's picture ids ({avatar, portrait, illust}, those it has). Raises ValueError on a prefab id that is not its
+    owner's (`<owner>_…`), on two skins whose folders differ only in case and on a name file_name has no rule for."""
     skins = (table or {}).get('charSkins') or {}
     rows, dressed = [], set()
     for key, rec in skins.items():
@@ -99,6 +122,12 @@ def skin_rows(table, chars, tokens):
                 if isinstance(m, dict) and m.get('tokenId') and m.get('tokenSkinId')}
         if tmap:
             row['tokens'] = dict(sorted(tmap.items()))
+        pics = {kind: rec[f] for kind, f in (('avatar', 'avatarId'), ('portrait', 'portraitId'), ('illust', 'illustId'))
+                if isinstance(rec.get(f), str) and rec[f]}
+        for v in pics.values():
+            file_name(v)
+        if pics:
+            row['pics'] = pics
         rows.append(row)
     seen = {}
     for r in rows:
@@ -220,12 +249,185 @@ def extract_owner(owner, rows, games, out_root, log):
     return done, missing
 
 
+def hub_paths(env):
+    """{id in lower case: asset path} of a client name → path map (`_keys` / `_values` of its MonoBehaviour)."""
+    for o in env.objects:
+        if o.type.name == 'MonoBehaviour':
+            t = o.read_typetree()
+            if '_keys' in t and '_values' in t:
+                return {k.lower(): v for k, v in zip(t['_keys'], t['_values']) if isinstance(k, str) and isinstance(v, str)}
+    return {}
+
+
+def picture_container(path):
+    """The sprite pack container of a name → path map's asset path (`Arts/CharAvatars/Skins/x#1` →
+    `dyn/arts/charavatars/skins/x#1.png`)."""
+    return f'dyn/{path}.png'.lower()
+
+
+class PictureIndex:
+    """Where each client keeps the avatars and portraits: per client (EN first), the name → path maps and which sprite
+    pack holds each container — the install read first, the hot-update bundles over it."""
+
+    def __init__(self, games, log=print):
+        import aklz4  # noqa: F401  (registers the LZ4AK decoder)
+        import UnityPy
+        self.clients = []
+        for gname, game in games:
+            paths, packs = {k: {} for k in PIC_KINDS}, {}
+            for sub_dir in reversed(BUNDLE_DIRS):
+                base = Path(game).joinpath(*sub_dir)
+                for kind, (hub, pattern) in PIC_KINDS.items():
+                    if (base / hub).is_file():
+                        paths[kind].update(hub_paths(UnityPy.load(str(base / hub))))
+                    for b in sorted((base / 'spritepack').glob(pattern)):
+                        for c in UnityPy.load(str(b)).container:
+                            packs[c.lower()] = b
+            log(f'pictures {gname}: {len(paths["avatar"])} avatar / {len(paths["portrait"])} portrait names, {len(packs)} sprites')
+            self.clients.append((gname, paths, packs))
+
+    def find(self, kind, pic_id):
+        """(client, sprite pack, container) of a picture id, or None when no client has it."""
+        for gname, paths, packs in self.clients:
+            path = paths[kind].get(pic_id.lower())
+            if path and picture_container(path) in packs:
+                return gname, packs[picture_container(path)], picture_container(path)
+        return None
+
+
+def sprite_picture(sprite, alpha_tex=None):
+    """The picture a Sprite shows, uncut: its texture inside the sprite rect (the whole canvas for a portrait or 立绘,
+    not the tight mesh UnityPy's Sprite.image crops to), with `alpha_tex` (else the sprite's alpha texture, when it has
+    one) as its alpha."""
+    import chararts_extract
+    if alpha_tex is None and sprite.m_RD.alphaTexture:
+        alpha_tex = sprite.m_RD.alphaTexture.read()
+    img = chararts_extract._image(sprite.m_RD.texture.read(), alpha_tex)
+    r = sprite.m_Rect
+    box = (round(r.x), img.height - round(r.y + r.height), round(r.x + r.width), img.height - round(r.y))
+    return img if box == (0, 0, img.width, img.height) else img.crop(box)
+
+
+def material_alpha(ptr, objects):
+    """The `_AlphaTex` texture of a material pointer (an illust Image's `m_Material`), or None."""
+    mat = objects.get(ptr.get('m_PathID')) if ptr and ptr.get('m_PathID') and not ptr.get('m_FileID') else None
+    if mat is None or mat.type.name != 'Material':
+        return None
+    for name, env in mat.read_typetree()['m_SavedProperties']['m_TexEnvs']:
+        tex = env.get('m_Texture') or {}
+        if name == '_AlphaTex' and tex.get('m_PathID') and not tex.get('m_FileID') and tex['m_PathID'] in objects:
+            return objects[tex['m_PathID']].read()
+    return None
+
+
+def illust_picture(tree, objects):
+    """(picture, frame) of an `illust_<skin>` prefab's root: its Image sprite and its RectTransform (anchored position
+    and size, y up: the frame chararts_extract.py reads). The alpha of most skin 立绘 is not in the sprite: the Image's
+    material (`illust_<skin>_material`) draws its `_AlphaTex` over the opaque texture; without a material the
+    texture's own alpha counts. None when it has no sprite."""
+    pic = frame = None
+    for c in tree.get('m_Component') or []:
+        co = objects.get(c['component']['m_PathID']) if not c['component'].get('m_FileID') else None
+        if co is None:
+            continue
+        if co.type.name == 'RectTransform':
+            rt = co.read_typetree()
+            p, sz = rt['m_AnchoredPosition'], rt['m_SizeDelta']
+            frame = {'x': p['x'], 'y': p['y'], 'w': sz['x'], 'h': sz['y']}
+        elif co.type.name == 'MonoBehaviour' and pic is None:
+            t = co.read_typetree()
+            ptr = t.get('m_Sprite') or {}
+            sp = objects.get(ptr.get('m_PathID')) if ptr.get('m_PathID') and not ptr.get('m_FileID') else None
+            if sp is not None and sp.type.name == 'Sprite':
+                pic = sprite_picture(sp.read(), material_alpha(t.get('m_Material'), objects))
+    return (pic, frame) if pic is not None else None
+
+
+def save_picture(img, out_root, rel, kind):
+    """Write one picture under out_root; returns its entry ({path, w, h})."""
+    from PIL import Image
+    out = Path(out_root) / rel
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if kind == 'illust':
+        scale = min(1.0, ILLUST_MAX / max(img.size))
+        if scale < 1:
+            img = img.resize((max(1, round(img.width * scale)), max(1, round(img.height * scale))), Image.LANCZOS)
+        img.save(out, 'WEBP', quality=ILLUST_QUALITY, method=6, exact=False)
+    else:
+        img.save(out, 'PNG', optimize=True)
+    return {'path': f'/assets/local/{rel}', 'w': img.width, 'h': img.height}
+
+
+def picture_rel(owner, prefab, kind, pic_id):
+    return f'{SKIN_SUB}/{file_name(owner)}/{file_name(prefab)}/{kind}/{file_name(pic_id)}.{"webp" if kind == "illust" else "png"}'
+
+
+def extract_pictures(owner, rows, games, index, out_root, log):
+    """The pictures of one owner's skins `rows`: {key: {avatar?, portrait?, illust?}}, {key: [kinds no client has]}."""
+    import aklz4  # noqa: F401
+    import UnityPy
+    got = {r['key']: {} for r in rows}
+    by_pack = {}
+    for r in rows:
+        for kind in PIC_KINDS:
+            pid = (r.get('pics') or {}).get(kind)
+            hit = pid and index.find(kind, pid)
+            if hit:
+                by_pack.setdefault(hit[1], []).append((r, kind, pid, hit[2]))
+    for pack, items in by_pack.items():
+        env = UnityPy.load(str(pack))
+        refs = {}
+        for c, ref in env.container.items():  # a container may list its Texture2D and its Sprite: the Sprite wins
+            if ref.type.name == 'Sprite' or c.lower() not in refs:
+                refs[c.lower()] = ref
+        for r, kind, pid, cont in items:
+            obj = refs[cont].read()
+            img = sprite_picture(obj) if refs[cont].type.name == 'Sprite' else obj.image.convert('RGBA')
+            got[r['key']][kind] = save_picture(img, out_root, picture_rel(owner, r['prefab'], kind, pid), kind)
+    want = {r['pics']['illust'].lower(): r for r in rows if (r.get('pics') or {}).get('illust')}
+    for gname, game in games:
+        for sub_dir in BUNDLE_DIRS:
+            f = Path(game).joinpath(*sub_dir, 'skinpack', f'{owner}.ab')
+            if not want or not f.is_file():
+                continue
+            try:
+                env = UnityPy.load(str(f))
+            except Exception as e:  # corrupt or unsupported bundle: report and go on
+                log(f'FAIL load {f}: {e}')
+                continue
+            objects = {o.path_id: o for o in env.objects}
+            for cname, ref in env.container.items():
+                m = re.search(rf'/arts/characters/{re.escape(owner.lower())}/([^/]+)\.prefab$', cname.lower())
+                row = want.get(m.group(1)) if m else None
+                if row is None:
+                    continue
+                try:
+                    pf = illust_picture(ref.read_typetree(), objects)
+                except Exception as err:  # an unreadable texture: reported missing
+                    log(f'  warn {row["key"]} illust: {err}')
+                    pf = None
+                if pf is None:
+                    continue
+                e = save_picture(pf[0], out_root, picture_rel(owner, row['prefab'], 'illust', row['pics']['illust']), 'illust')
+                if pf[1]:
+                    e['frame'] = {k: round(v, 2) for k, v in pf[1].items()}
+                got[row['key']]['illust'] = e
+                del want[m.group(1)]
+    missing = {}
+    for r in rows:
+        lack = [k for k in ART_FIELDS if (r.get('pics') or {}).get(k) and k not in got[r['key']]]
+        if lack:
+            missing[r['key']] = lack
+    return got, missing
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--id', action='append', default=[], metavar='OWNER', help='only this operator / summon (repeatable)')
     ap.add_argument('--out', default=str(ROOT / 'public/assets/local'))
     ap.add_argument('--table', default=str(TABLE), help='the official skin_table.json (downloaded there when missing)')
     ap.add_argument('--list', action='store_true', help='print the skins the table gives as JSON and exit')
+    ap.add_argument('--only', choices=('models', 'art'), help='run one part and keep the other part\'s fields')
     args = ap.parse_args()
     chars, tokens = roster()
     rows = skin_rows(load_table(args.table), set(chars), set(tokens))
@@ -237,23 +439,43 @@ def main():
     from client_path import clients, ensure_extract_env
     ensure_extract_env()
     games = [('cn' if i else 'en', g) for i, g in enumerate(clients())]  # EN, then the CN client when set up
+    parts = {args.only} if args.only else {'models', 'art'}
     out_root = Path(args.out)
     index_path = out_root / SKIN_SUB / INDEX
     old = {}
-    if args.id and index_path.exists():
+    if (args.id or args.only) and index_path.exists():
         old = json.loads(index_path.read_text(encoding='utf-8'))
-    skins = {k: v for k, v in (old.get('skins') or {}).items() if v.get('owner') not in args.id}
-    missing = {k: v for k, v in (old.get('missing') or {}).items() if v.get('owner') not in args.id}
+    skins = dict(old.get('skins') or {})
+    missing = dict(old.get('missing') or {})
+    art_missing = dict(old.get('artMissing') or {})
     by_owner = {}
     for r in rows:
         by_owner.setdefault(r['owner'], []).append(r)
+    pictures = PictureIndex(games) if 'art' in parts else None
     for owner, rs in sorted(by_owner.items()):
-        done, miss = extract_owner(owner, rs, games, out_root, print)
-        skins.update(done)
-        missing.update(miss)
-        print(f'{owner}: {len(done)} of {len(rs)} skins' + (f' (missing {sorted(miss)})' if miss else ''), flush=True)
+        line = f'{owner}:'
+        if 'models' in parts:
+            done, miss = extract_owner(owner, rs, games, out_root, print)
+            for r in rs:
+                keep = {f: v for f, v in (skins.pop(r['key'], None) or {}).items() if f in ART_FIELDS}
+                missing.pop(r['key'], None)
+                if r['key'] in done:
+                    skins[r['key']] = {**done[r['key']], **keep}
+            missing.update(miss)
+            line += f' {len(done)} of {len(rs)} models' + (f' (missing {sorted(miss)})' if miss else '')
+        if 'art' in parts:
+            listed = [r for r in rs if r['key'] in skins]  # no model, no pictures: the picker does not offer it
+            got, lack = extract_pictures(owner, listed, games, pictures, out_root, print)
+            for r in rs:
+                art_missing.pop(r['key'], None)
+                if r['key'] in skins:
+                    skins[r['key']] = {**{f: v for f, v in skins[r['key']].items() if f not in ART_FIELDS}, **got.get(r['key'], {})}
+            art_missing.update(lack)
+            line += f' pictures {sum(len(v) for v in got.values())}' + (f' (no {lack})' if lack else '')
+        print(line, flush=True)
     index_path.parent.mkdir(parents=True, exist_ok=True)
-    doc = {'version': 1, 'source': 'local-client', 'skins': dict(sorted(skins.items())), 'missing': dict(sorted(missing.items()))}
+    doc = {'version': 1, 'source': 'local-client', 'skins': dict(sorted(skins.items())),
+           'missing': dict(sorted(missing.items())), 'artMissing': dict(sorted(art_missing.items()))}
     index_path.write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     print(f'done: {len(skins)} skins of {len(skins) + len(missing)} -> {index_path}')
     return 0 if skins else 1

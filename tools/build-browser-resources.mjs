@@ -27,7 +27,7 @@ const VERIFY = Number(opt('--verify', 0)) || 0;
 const OUT = 'browser-resources.json';
 // local/fx/bindings.json: the client-only binding rows, read by the tests only (tools/local-extract/fx_bindings.py)
 const SKIP = new Set([OUT, 'local/fx/bindings.json']);
-// local/spine/skin/: the operator and summon skin models (tools/local-extract/skin_extract.py, ~300 MB), taken only by
+// local/spine/skin/: the operator and summon skin models and pictures (tools/local-extract/skin_extract.py), taken only by
 // those who choose the skin data — never pre-downloaded by everyone; listed again once the skin data is a pack of its own
 const SKIP_DIRS = ['local/spine/skin/'];
 

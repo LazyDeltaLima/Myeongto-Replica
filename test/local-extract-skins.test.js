@@ -1,4 +1,4 @@
-// tools/local-extract/skin_extract.py: the operator and summon skin models (docs/rules/render.md 「스킨 모델 소재」).
+// tools/local-extract/skin_extract.py: the operator and summon skin models and pictures (docs/rules/render.md 「스킨 모델 소재」).
 // The official skin ids carry `#` (`char_202_demkni_boc#1`), which a URL reads as a fragment, so the browser's resource
 // list refuses those paths (public/js/resources.js validPath). The extractor names every output through file_name()
 // (`#` → `-`, any other unknown character stops the run) and rewrites the atlas to the renamed pages; and the skin folder
@@ -77,6 +77,30 @@ print(json.dumps(r))`);
     ]);
   });
 
+  test('skin_rows carries the record\'s own picture ids, and the pictures are named by the same rule', () => {
+    const table = {
+      charSkins: {
+        'char_1_a@boc#1': { charId: 'char_1_a', battleSkin: { skinOrPrefabId: 'char_1_a_boc#1' },
+          avatarId: 'char_1_a_boc#1', portraitId: 'char_1_a_boc#1', illustId: 'illust_char_1_a_boc#1' },
+        'token_9_t_boc#1': { charId: 'token_9_t', battleSkin: { skinOrPrefabId: 'token_9_t_boc#1' }, avatarId: 'token_9_t_boc#1', portraitId: null, illustId: null },
+      },
+    };
+    const out = py(`
+rows = s.skin_rows(json.loads(${JSON.stringify(JSON.stringify(table))}), {'char_1_a'}, {'token_9_t'})
+print(json.dumps([[r.get('pics'), [s.picture_rel(r['owner'], r['prefab'], k, v) for k, v in r.get('pics', {}).items()]] for r in rows]))`);
+    assert.deepEqual(out[0][0], { avatar: 'char_1_a_boc#1', portrait: 'char_1_a_boc#1', illust: 'illust_char_1_a_boc#1' });
+    assert.deepEqual(out[0][1], [
+      'spine/skin/char_1_a/char_1_a_boc-1/avatar/char_1_a_boc-1.png',
+      'spine/skin/char_1_a/char_1_a_boc-1/portrait/char_1_a_boc-1.png',
+      'spine/skin/char_1_a/char_1_a_boc-1/illust/illust_char_1_a_boc-1.webp',
+    ]);
+    assert.deepEqual(out[1][0], { avatar: 'token_9_t_boc#1' }, 'a summon skin carries an avatar only');
+    for (const rel of out.flatMap((r) => r[1])) assert.ok(validPath(`/assets/local/${rel}`), `${rel}: refused by resources.js validPath (${RULE})`);
+    // the client's name → path map gives `Arts/…/Skins/<id>`; the sprite pack lists it lower case with its extension
+    assert.equal(py(`print(json.dumps(s.picture_container('Arts/CharAvatars/Skins/char_1_a_ambienceSynesthesia#7')))`),
+      'dyn/arts/charavatars/skins/char_1_a_ambiencesynesthesia#7.png');
+  });
+
   test('skin_rows stops on a prefab of another owner and on two folders that differ only in case', () => {
     const cases = [
       { charSkins: { 'char_1_a@x#1': { charId: 'char_1_a', battleSkin: { skinOrPrefabId: 'char_2_b_x#1' } } } },
@@ -124,12 +148,50 @@ describe('extracted skin models (when a local client was extracted)', { skip: !e
     assert.ok(skins.length > 0, 'skins.json lists no skin');
     for (const [key, s] of skins) {
       assert.ok(s.front, `${key}: no front model`);
-      for (const side of [s.front, s.back].filter(Boolean)) {
-        for (const p of [side.skel, side.atlas, ...side.textures]) {
-          assert.ok(validPath(p), `${key}: ${p} is refused by resources.js validPath (${RULE})`);
-          assert.ok(existsSync(path.join(ROOT, 'public', p)), `${key}: ${p} missing on disk`);
-        }
+      const pics = ['avatar', 'portrait', 'illust'].map((k) => s[k]).filter(Boolean).map((e) => e.path);
+      for (const p of [s.front, s.back].filter(Boolean).flatMap((side) => [side.skel, side.atlas, ...side.textures]).concat(pics)) {
+        assert.ok(validPath(p), `${key}: ${p} is refused by resources.js validPath (${RULE})`);
+        assert.ok(existsSync(path.join(ROOT, 'public', p)), `${key}: ${p} missing on disk`);
       }
     }
+  });
+
+  test('an operator skin has its avatar, portrait and framed 立绘, or skins.json says which the clients lack', { skip: !('artMissing' in JSON.parse(readFileSync(INDEX, 'utf8'))) && 'pictures not extracted' }, () => {
+    const doc = JSON.parse(readFileSync(INDEX, 'utf8'));
+    let checked = 0;
+    for (const [key, s] of Object.entries(doc.skins)) {
+      if (!s.owner.startsWith('char_')) continue;
+      const lack = doc.artMissing[key] || [];
+      for (const k of ['avatar', 'portrait', 'illust']) {
+        assert.ok(s[k] || lack.includes(k), `${key}: no ${k} and not listed in artMissing (${RULE})`);
+      }
+      if (s.illust) {
+        const f = s.illust.frame;
+        assert.ok(f && f.w > 0 && f.h > 0, `${key}: the 立绘 has no illust frame`);
+        checked++;
+      }
+    }
+    assert.ok(checked > 0, 'no operator skin 立绘 was checked');
+  });
+
+  // Most skin 立绘 keep their alpha outside the sprite: the illust Image's material draws its `_AlphaTex` over an opaque
+  // texture. Read without it, the art comes out on a white or black square (skin_extract.py material_alpha).
+  const pil = PY && spawnSync(PY, ['-c', 'import PIL.Image, PIL.features; assert PIL.features.check("webp")']).status === 0;
+  test('every extracted 立绘 is cut out (its material\'s alpha texture was applied)', { skip: !pil && 'no Pillow with webp' }, () => {
+    const doc = JSON.parse(readFileSync(INDEX, 'utf8'));
+    const files = Object.entries(doc.skins).filter(([, s]) => s.illust).map(([key, s]) => [key, path.join(ROOT, 'public', s.illust.path)]);
+    const r = spawnSync(PY, ['-c', `
+import json, sys
+from PIL import Image
+out = []
+for key, f in json.load(sys.stdin):
+    a = Image.open(f).convert('RGBA').getchannel('A')
+    clear = a.histogram()[0] / (a.width * a.height)
+    if clear < 0.01:
+        out.append([key, round(clear, 4)])
+print(json.dumps(out))`], { input: JSON.stringify(files), encoding: 'utf8', env: ENV, maxBuffer: 1 << 24 });
+    assert.equal(r.status, 0, r.stderr);
+    assert.ok(files.length > 0, 'no 立绘 listed');
+    assert.deepEqual(JSON.parse(r.stdout), [], `立绘 with (almost) no transparent pixel: the illust material's _AlphaTex was not applied (${RULE})`);
   });
 });

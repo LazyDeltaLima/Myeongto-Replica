@@ -1544,10 +1544,19 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   (`{ skins: { <스킨 키>: { owner, prefab, client, front, back?, tokens? } }, missing }`). `data/local-assets.json`에 넣지 않는다 — 그 목록은 모든
   페이지가 받고, 스킨은 스킨 데이터를 고른 사람만 받는다. 같은 이유로 `tools/build-browser-resources.mjs`가 `local/spine/skin/` 전체를 미리 받기 목록에서
   뺀다. 스킨 데이터가 따로 받는 묶음이 되면 그때 다시 넣는다.
+- 그림(2026-11-16): 스킨 고르기 타일·미리 보기용으로 스킨 기록의 `avatarId`(1:1, 180 px)·`portraitId`(1:2, 180×360)·`illustId`(일러스트)를 같은
+  추출기가 뽑는다(`--only art`는 그림만). 아바타·초상화는 클라의 이름 → 경로 표(`arts/charavatars/avatar_hub.ab`·`arts/charportraits/portraits_hub.ab`,
+  대소문자 무시)가 가리키는 스프라이트 묶음(`spritepack/ui_char_avatar_*`·`char_portrait_*`)에서, 일러스트는 주인 `skinpack`의 `illust_<스킨>` 프리팹에서
+  읽는다 — Image 스프라이트의 텍스처 캔버스 전체와 RectTransform 틀(기본 일러스트 `chararts`와 같은 틀). 알파는 대개 스프라이트에 없고 Image의
+  재질(`illust_<스킨>_material`)의 `_AlphaTex`에 있다(불투명 텍스처 위에 그 알파를 씌움). 재질이 없으면 텍스처 자기 알파. 재질을 안 읽으면 흰·검은 네모
+  위의 그림이 된다. UnityPy의 `Sprite.image`는 메시 경계로 잘라 틀과 안 맞으므로 쓰지 않는다. 출력은 그 스킨 폴더의 `avatar/`·`portrait/`(PNG, 클라 크기 그대로)·
+  `illust/`(webp q85, 긴 변 1024)이고 이름도 `file_name`을 거친다. `skins.json`의 각 스킨에 `avatar`·`portrait`(`{ path, w, h }`)·`illust`(+ `frame`)가
+  붙고, 클라에 없는 그림은 `artMissing`에 적는다. 모델이 없는 스킨은 그림도 뽑지 않는다(고르기에 안 나옴). 소환물 스킨 기록에는 아바타만 있고, 그것도 클라에
+  없는 소환물이 있다(그때는 기본 아바타). 움직이는 일러스트(`dynIllustId`)는 뽑지 않는다. 그림도 스킨 폴더 안이라 미리 받기 목록에서 같이 빠진다.
 - 표시 전용: 전투 판정은 기본 모델 기준이다. 스킨 모델의 클립 길이는 시뮬레이션에 들어가지 않는다(시뮬레이션은 `data/assets.json`의 기본 모델만 읽음).
-- 아직 없는 것: 스킨 모델 항목(클립 길이·키 표·부착점)을 `data/assets.json`에 싣는 일, 렌더 게이트, 스킨 그림(아바타·초상화·일러스트).
+- 아직 없는 것: 스킨 모델 항목(클립 길이·키 표·부착점)을 `data/assets.json`에 싣는 일, 렌더 게이트.
 - 재발 방지: 원인 제거 — `tools/local-extract/skin_extract.py` `file_name`이 모든 출력 이름을 만들고 모르는 글자에서 멈춤. 남는 손 규칙(미리 받기 목록에서
-  빼기)은 `test/local-extract-skins.test.js`.
+  빼기)과 일러스트 알파(뽑힌 일러스트 전부가 투명 화소를 가짐)는 `test/local-extract-skins.test.js`.
 
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 
