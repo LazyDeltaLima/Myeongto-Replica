@@ -1379,7 +1379,24 @@ def modes_of(path, projectiles=None, tree=None):
     charge = charge_effects(tree, by_pid) or ex_charge_effects(tree, mode_paths)
     if charge:
         res['charge'] = charge
+    range_talents = range_talent_keys(tree)
+    if range_talents:
+        res['rangeTalents'] = range_talents
     return res
+
+
+def range_talent_keys(tree):
+    """2026-11-16: the talents whose own range replaces the operator's default attack range — the prefabKeys `<n>` of the
+    charpack's `Talents/<n>` objects with `_overrideDefaultRangeId` 1 (霜叶's 掩护打击: elite 3-12 → its 3-1). The battle
+    builds every mode's range from it (Character.GetModeRangeId: the skill's range, else this talent's, else the default);
+    tools/build-data.mjs marks the talent record `attackRange` when its candidate has a rangeId (shared/loadoutRecord.js
+    attackRangeGrid, the prep card and board range)."""
+    keys = set()
+    for path, d, _ in tree:
+        parts = path.split('/')
+        if len(parts) >= 2 and parts[-2] == 'Talents' and d.get('_overrideDefaultRangeId') == 1:
+            keys.add(parts[-1])
+    return sorted(keys)
 
 
 def charge_effects(tree, by_pid):

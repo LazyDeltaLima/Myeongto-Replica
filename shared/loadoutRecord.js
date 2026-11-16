@@ -125,7 +125,9 @@ export function loadoutRecord(rec0, lo) {
  * The attack range a (loadout-resolved) chess record fights with from its deployment — the detail card without a live
  * entry, the board's range overlay and the deploy wheel (DESIGN §16), the same tiles the battle unit starts with (prep
  * m.unitStats `range`): the selected skill's grid when it reads "被动效果：攻击范围扩大" (引星棘刺 S3 3-9: her own range
- * while she carries it, her kit); else an elite whose equipped module reads "攻击范围扩大" uses that module's own grid
+ * while she carries it, her kit); else a talent's own grid when it replaces the default range (`attackRange`, the
+ * charpack's `_overrideDefaultRangeId`, tools/build-data.mjs baseTalentList: 霜叶's elite 掩护打击 3-1, her kit's
+ * unit.rangeGrid); else an elite whose equipped module reads "攻击范围扩大" uses that module's own grid
  * — its range-only talent change (talentIndex −1), e.g. SPC-X = the 3×3 caster range + the centre tile [0,3] — as the
  * kits do (kits/shared/tier4.js moduleRangeGrid, shared/tier5.js moduleRangeUp); anything else its `rangeGrid`. Then grown by the 特性's
  * permanent 攻击距离 (traitRangeExtend: 信仰搅拌机 SPT-Y "攻击距离+1"). A running skill's range is the live entry's.
@@ -141,8 +143,11 @@ export function attackRangeGrid(rec) {
   // translated `desc` / `moduleDesc` (data/i18n overlays) — the Chinese words are the fallback for records without them
   const passive = typeof sk?.passiveRange === 'boolean' ? sk.passiveRange : /被动效果：攻击范围扩大/.test(String(sk?.desc ?? ''));
   const rangeUp = typeof rec.trait?.rangeUp === 'boolean' ? rec.trait.rangeUp : /攻击范围扩大/.test(String(rec.trait?.moduleDesc ?? ''));
+  const talentRange = (Array.isArray(rec.talents) ? rec.talents : []).find((t) => t && t.attackRange && Array.isArray(t.rangeGrid) && t.rangeGrid.length);
   if (sk && Array.isArray(sk.rangeGrid) && sk.rangeGrid.length && passive) {
     g = sk.rangeGrid;
+  } else if (talentRange) {
+    g = talentRange.rangeGrid;
   } else if (rec.isGolden && m && m.active && m.id && rangeUp) {
     const mod = (Array.isArray(rec.modules) ? rec.modules : []).find((x) => x && x.uniEquipId === m.id);
     const mg = (mod?.talentChanges || []).find((t) => t && t.talentIndex === -1 && Array.isArray(t.rangeGrid) && t.rangeGrid.length)?.rangeGrid;

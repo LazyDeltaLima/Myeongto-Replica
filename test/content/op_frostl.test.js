@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
 import { COLS } from '../../server/sim/constants.js';
+import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
 
 const A = 'chess_char_1_13_a', B = 'chess_char_1_13_b';
 const FORMS = [A, B];
@@ -34,6 +35,18 @@ test('T1: only the elite: BAT +0.15, its range replaces hers', () => {
   assert.ok(!(a.u.rangeKeySet ?? new Set(a.u.rangeKeys)).has(key(1, 2)), 'normal: not in 3-12');
   assert.ok((b.u.rangeKeySet ?? new Set(b.u.rangeKeys)).has(key(1, 2)) || (b.u.rangeKeySet ?? new Set(b.u.rangeKeys)).has(key(-1, 2)), 'elite: 3-1');
   assert.equal(b.u.rangeKeys.length, t.rangeGrid.length, 'elite: the whole grid of the talent');
+  done(a.h); done(b.h);
+});
+
+test('T1: the prep card and the board draw the range she fights with (talent attackRange, attackRangeGrid)', () => {
+  const why = 'the charpack Talents/1 _overrideDefaultRangeId (tools/assets/local-char-modes.json rangeTalents → build-data attackRange) '
+    + '— docs/rules/diy.md 「새 시즌 팽 더 파이어 샤픈드·폰사이러스·프로스트리프·바르카리스」';
+  const elite = ACT3.chess[B], normal = ACT3.chess[A];
+  assert.equal(elite.talents[0].attackRange, true, `elite 掩护打击 marked attackRange: ${why}`);
+  const b = field(B, { skill: 0 }), a = field(A, { skill: 0 });
+  assert.deepEqual(attackRangeGrid(loadoutRecord(elite, resolveRecordLoadout(elite, {}))), b.u.rangeGrid, `elite: card = battle range 3-1: ${why}`);
+  assert.deepEqual(attackRangeGrid(normal), normal.rangeGrid, 'normal: the record range 3-12');
+  assert.deepEqual(a.u.rangeGrid, normal.rangeGrid, 'normal: battle range 3-12');
   done(a.h); done(b.h);
 });
 

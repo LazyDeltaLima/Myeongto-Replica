@@ -795,9 +795,16 @@ function buildTalents(ctx, char, phase, level, moduleParts, label, modPhase = ph
     moduleTalentChanges(ctx, moduleParts, modPhase, modLevel, label, potRank));
 }
 
-/** The character's own talents at (phase, level, potential rank), unfiltered (no module). */
-function baseTalentList(ctx, char, phase, level, label, potRank = 0) {
+/**
+ * The character's own talents at (phase, level, potential rank), unfiltered (no module). `charId` (the body whose charpack
+ * the client reads) marks `attackRange` on a talent whose own range replaces the default attack range: the charpack's
+ * `Talents/<prefabKey>` with `_overrideDefaultRangeId` (tools/assets/local-char-modes.json `rangeTalents`,
+ * tools/local-extract/char_modes.py) and a candidate with a rangeId — 霜叶's 掩护打击 (elite: 3-1 over 3-12). The battle
+ * builds every mode's range from it; shared/loadoutRecord.js attackRangeGrid draws it on the prep card and the board.
+ */
+function baseTalentList(ctx, char, phase, level, label, potRank = 0, charId = null) {
   const talents = [];
+  const rangeKeys = new Set(charId ? ctx.charModes?.[charId]?.rangeTalents || [] : []);
   (char.talents || []).forEach((t, index) => {
     const c = bestCandidate(t.candidates, phase, level, potRank);
     if (!c) return;
@@ -807,6 +814,7 @@ function baseTalentList(ctx, char, phase, level, label, potRank = 0) {
       index, name: c.name || null, desc, descRaw, bb, bbStr,
       rangeGrid: rangeGrid(ctx, c.rangeId), tokenKey: c.tokenKey || null,
       hidden: !!c.isHideTalent, fromModule: false,
+      ...(c.rangeId && rangeKeys.has(String(c.prefabKey ?? '')) ? { attackRange: true } : {}),
     });
   });
   return talents;
@@ -1066,7 +1074,7 @@ function buildChess(ctx) {
     rec.skills = skillRecs.map((s) => ({ ...s, isDefault: s.index === sIdx }));
 
     // Talents at the pass's potential rank (module token parts excluded: they belong to the summons).
-    const talentList = baseTalentList(ctx, char, phase, level, `chess ${chessId}`, ctx.potRank);
+    const talentList = baseTalentList(ctx, char, phase, level, `chess ${chessId}`, ctx.potRank, body);
     rec.talents = mergeTalentChanges(talentList, moduleTalentChanges(ctx, moduleParts.op, phase, level, `chess ${chessId}`, ctx.potRank));
 
     // Selectable modules of the golden chess (DESIGN §16): every ADVANCED uniequip of the character
@@ -1287,7 +1295,7 @@ function buildUnitForm(ctx, charId, status, { chessId = null, skillIndex = null 
     s.overrideTokenKey = se.overrideTokenKey || null;
     skills.push(s);
   });
-  const talents = mergeTalentChanges(baseTalentList(ctx, char, phase, level, label, ctx.potRank), []);
+  const talents = mergeTalentChanges(baseTalentList(ctx, char, phase, level, label, ctx.potRank, charId), []);
   const modules = [];
   if (equipLevel > 0) {
     for (const id of uniequip.charEquip?.[charId] || []) {
