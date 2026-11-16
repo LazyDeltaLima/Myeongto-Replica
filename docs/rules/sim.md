@@ -3492,3 +3492,17 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 - **표**: `tools/build-data.mjs ACT3_DRAFTS`(시즌별 `DRAFT_TABLES`, 표가 없는 시즌은 생성기가 멈춤), 읽은 값 `test/fixtures/official-regulation-drafts.json`. R3 목록 7개 본 것(17·18 계열과 섞인 두 목록은 7장이고 화면엔 6장, 19 계열은 6장 전부), 안 본 3개 사건은 규칙(등급 I I I II II III III, 한 계열 2장까지, III은 아무 화면에도 없던 `11_6`·`12_6`·`15_6`·`20_6`에서); R9 6묶음(나온 판 수로 고름 — 같은 리더 「假想敌：胄」 두 판이 다른 묶음); R11 현상금 5목록(한 목록에 III 둘, 13 계열 둘이 화면 그대로); 기밀 상점 6칸 = VI 고정·V 고정·나머지 넷(VI 3·V 3·IV 4·III 4·맹약의 동전 2); 전술 결정은 아군 카드만, 본 횟수 가중. 맹약 시즌 `choices.json`은 바이트 그대로.
 - [추정·자료 없음: 판 15개가 정하지 못하는 것 — 안 본 R3 사건 3개의 규칙, 한 번 본 목록은 화면의 6장, 1·9판을 한 R9 묶음으로, R11 목록 수 = 본 5개, 카드 가중치 1 + 나온 횟수, 기밀 상점 칸 나누기, 전술 결정의 칸 구조 없음; 줄마다 `choices.json`의 `assumed`에 적힘]
 - 시험: `test/match/regulation-drafts.test.js`(공식 화면 45장이 모두 표에서 뽑힐 수 있음, 6장이 실제로 나옴, 실제 판 경로 R3). 재발 방지: `test/match/regulation-drafts.test.js` — 시즌이 다른 시즌의 표로 지어지면 「never came」으로 실패.
+
+## 진행 보고가 끊긴 담당 브라우저 — 서버가 일찍 넘겨받음 (2026-11-16, 플레이 제보)
+
+- 제보: 「전투가 끝났는데 라운드가 안 끝나서 서버가 이상하다」(관전 방과 실제 판 모두). 전장마다 그 전장의 가장 낮은 자리의 접속한 사람
+  브라우저가 전투를 계산하고(`clientCombat.js _authorityFor`) 일반·연합 방어 전장은 결과가 올 때까지 서버가 기다린다. 전에는 접속이 살아
+  있는 담당이 보고를 멈추면 시간 제한 + 15초(`_armDeadline`, `RESULT_GRACE_MS`)까지 기다려, 자기 전투가 끝난 다른 사람들이 최대 1분쯤
+  「현재 단계 종료를 기다리는 중」에 멈췄다. 보고가 멈추는 경우: 휴대폰 화면 잠금·다른 앱으로 전환(페이지는 멈추지만 WebSocket ping은
+  브라우저가 받아 서버는 끊김을 못 봄), 시뮬레이션 모듈을 못 받았거나 전투를 만들다 실패한 페이지(보고도 결과도 안 보냄).
+- 고침: 일반·연합 방어 전장도 보스 전장처럼 침묵 감시를 둔다 — 담당이 `b.progress`를 12초(`fields.js FIELD_SILENCE_MS`, 첫 보고 전에는 맡긴
+  때부터) 안 보내면 서버가 그 전장을 넘겨받는다(`_armSilence` → `_runOnServer(f, 'silent')`). 브라우저는 전투가 도는 동안 숨은 탭에서도
+  약 1초마다 보고하므로(`battle/runner.js`) 정상 담당은 걸리지 않는다. 느렸을 뿐인 페이지를 넘겨받아도 서버 결과는 같은 전투(결정적)이고,
+  전투가 원래 끝날 때 풀린다. 일시정지(솔로)는 감시를 멈추고 푼 뒤 정지 시간만큼 미룬다(`pause.js`).
+- 재발 방지: `test/match/clientCombat.test.js` 「a connected client that stops reporting」(감시를 끄면 60초 뒤에야 넘겨받아 실패), 기한 쪽은
+  같은 파일 「keeps reporting progress but never sends its result」·`test/match/leftovers.test.js` 「solo pause」.

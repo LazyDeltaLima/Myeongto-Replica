@@ -5,7 +5,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 import { PHASE } from '../../../shared/constants.js';
-import { DeadBattle, syntheticResult, RESULT_GRACE_MS, HARD_CAP_SECONDS, HeadlessJob } from '../fields.js';
+import { DeadBattle, syntheticResult, RESULT_GRACE_MS, FIELD_SILENCE_MS, HARD_CAP_SECONDS, HeadlessJob } from '../fields.js';
 import { buildBattleSpec, createBattleFromSpec } from '../../sim/spec.js';
 
 export class MatchClientCombat {
@@ -24,7 +24,7 @@ export class MatchClientCombat {
 
   _clearFieldTimers(f) {
     if (!f || !f.cc) return;
-    for (const k of ['deadlineTimer', 'doneTimer', 'waitTimer', 'sliceTimer', 'verifyTimer']) if (f[k]) { this.cancel(f[k]); f[k] = null; }
+    for (const k of ['deadlineTimer', 'silenceTimer', 'doneTimer', 'waitTimer', 'sliceTimer', 'verifyTimer']) if (f[k]) { this.cancel(f[k]); f[k] = null; }
     f.job = null;
     f.verifyJob = null;
   }
@@ -45,7 +45,7 @@ export class MatchClientCombat {
       // real report, so `resolved ?? killed` fallbacks (an unreported field, a synthetic result) keep working — a 0 here
       // would read as "nothing resolved yet" and could never be told apart from a reported 0.
       progress: { gt: 0, killed: 0, total, leaks: 0, resolved: null, done: false }, lastProgressAt: this.sched.now(),
-      bossAcked: 0, bossBy: {}, lpAcked: 0, lpCum: 0, deadlineTimer: null, doneTimer: null, waitTimer: null,
+      bossAcked: 0, bossBy: {}, lpAcked: 0, lpCum: 0, deadlineTimer: null, silenceTimer: null, doneTimer: null, waitTimer: null,
       // boss fields: the latest client reports (re-credited as the plausibility budget grows), the server run's
       // CreditPool, humans demoted for an implausible result (never the authority of this field again), a 'cleared'
       // b.result waiting for the budget to credit the pool it emptied (`heldResult`, _onResult); `leaksBy`: the authority's
@@ -128,7 +128,10 @@ export class MatchClientCombat {
     this._armDeadline(f);
   }
 
-  /** A client field's result deadline: its time limit on the field clock + RESULT_GRACE_MS (then the server takes over). */
+  /**
+   * A client field's result deadline: its time limit on the field clock + RESULT_GRACE_MS (then the server takes over),
+   * and its silence watchdog (_armSilence).
+   */
   _armDeadline(f) {
     if (f.deadlineTimer) { this.cancel(f.deadlineTimer); f.deadlineTimer = null; }
     if (f.verifyJob) return;
@@ -138,6 +141,26 @@ export class MatchClientCombat {
       f.deadlineTimer = null;
       if (f.done || f.mode !== 'client') return;
       this._runOnServer(f, 'timeout');
+    });
+    this._armSilence(f);
+  }
+
+  /**
+   * A normal / 联防 client field whose authority sent no b.progress for FIELD_SILENCE_MS (counted from its assignment
+   * when none came yet) is taken over (fields.js FIELD_SILENCE_MS: a frozen page keeps its socket). The timer fires at
+   * the last report + the limit and re-arms itself while reports keep coming; a pause cancels it (pause.js) and the
+   * resume re-arms it through _armDeadline with `lastProgressAt` moved by the pause.
+   */
+  _armSilence(f) {
+    if (f.silenceTimer) { this.cancel(f.silenceTimer); f.silenceTimer = null; }
+    if (f.done || f.verifyJob || f.mode !== 'client' || this.paused) return;
+    const wait = Math.max(0, f.lastProgressAt + FIELD_SILENCE_MS - this.sched.now());
+    f.silenceTimer = this.later(wait, () => {
+      f.silenceTimer = null;
+      if (f.done || f.verifyJob || f.mode !== 'client' || this.paused) return;
+      if (this.sched.now() - f.lastProgressAt < FIELD_SILENCE_MS) { this._armSilence(f); return; }
+      this.log.info?.(`[match ${this.roomCode}] ${f.fieldId}: no progress from ${f.authority} — taking the field over`);
+      this._runOnServer(f, 'silent');
     });
   }
 
@@ -165,6 +188,7 @@ export class MatchClientCombat {
     f.mode = 'server';
     f.authority = null;
     if (f.deadlineTimer) { this.cancel(f.deadlineTimer); f.deadlineTimer = null; }
+    if (f.silenceTimer) { this.cancel(f.silenceTimer); f.silenceTimer = null; }
     // the former authority (still online after a timeout / an invalid result) stops reporting and keeps its view
     if (prev) this.sendTo(prev, { t: 'b.end', battleId: f.battleId, fieldId: f.fieldId, reason: 'takeover' });
     if (f.kind === 'boss' || f.kind === 'hidden') { this._bossServerRun(f); return; }

@@ -26,6 +26,8 @@ export class MatchPause {
     for (const f of this.fields) {
       if (!f.cc) continue;
       if (f.deadlineTimer) { this.cancel(f.deadlineTimer); f.deadlineTimer = null; f.rearmDeadline = true; }
+      // the silence watchdog (clientCombat.js _armSilence) is re-armed with the deadline on resume
+      if (f.silenceTimer) { this.cancel(f.silenceTimer); f.silenceTimer = null; }
       if (f.doneTimer) { this.cancel(f.doneTimer); f.doneTimer = null; f.rearmRelease = true; }
     }
     if (this._bossClock) { this.cancel(this._bossClock); this._bossClock = null; }

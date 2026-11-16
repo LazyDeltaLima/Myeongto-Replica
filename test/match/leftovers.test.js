@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { PHASE, ERR } from '../../shared/constants.js';
 import { validateC2S } from '../../shared/protocol.js';
 import { createBattleFromSpec, compactResult } from '../../server/sim/spec.js';
-import { RESULT_GRACE_MS, BOSS_SILENCE_MS } from '../../server/match/fields.js';
+import { RESULT_GRACE_MS, BOSS_SILENCE_MS, FIELD_SILENCE_MS } from '../../server/match/fields.js';
 import { FakeBattle } from './fakeBattle.js';
 import { makeMatch, checkInvariants } from './harness.js';
 
@@ -189,10 +189,17 @@ test('solo pause: the field clock, the result deadline and the HUD countdown sta
   assert.equal(p.paused, false);
   assert.equal(p.deadline, deadline0 + PAUSE, 'the countdown resumes where it stopped');
   assert.ok(Math.abs(m._fieldElapsed(f) - el) < 1e-9);
+  // no report yet: the silence watchdog counts from the assignment, moved by the pause (clientCombat.js _armSilence)
+  h.sched.advance(f.lastProgressAt + FIELD_SILENCE_MS - h.sched.now() - 50);
+  assert.equal(f.mode, 'client', 'the silence watchdog moved by the pause');
+  // reports from here on, so only the result deadline is left to take the field over
+  const report = () => assert.deepEqual(m.handle('p_0', { t: 'b.progress', battleId: f.battleId, gt: 1, killed: 0, total: f.progress.total, done: false }), { ok: true });
+  while (h.sched.now() < due0 + PAUSE - 50 - FIELD_SILENCE_MS / 3) { report(); h.sched.advance(FIELD_SILENCE_MS / 3); }
+  report();
   h.sched.advance(due0 + PAUSE - h.sched.now() - 50);
   assert.equal(f.mode, 'client', 'the result deadline moved by the pause');
   h.sched.advance(100);
-  assert.equal(f.mode, 'server', 'then the silent client is taken over');
+  assert.equal(f.mode, 'server', 'then the client that never sent its result is taken over');
   assert.equal(m.pausedMs, PAUSE);
   assert.equal(m.errorCount, 0);
   m.dispose();

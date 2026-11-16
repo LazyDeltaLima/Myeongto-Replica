@@ -12,7 +12,7 @@
 //   * when authoritative: reports b.progress (~1 Hz; boss fields 4 Hz with the shared-pool damage and the LP meter)
 //     and b.result (compactResult) at the end; applies b.pool (LocalBossPool.sync) and b.end (forceEnd / takeover),
 //   * keeps an authoritative battle running while the tab is hidden (a 250 ms interval pump; browsers throttle it to
-//     ~1 Hz, the bounded fast-forward absorbs that); the server deadline + takeover cover anything worse.
+//     ~1 Hz, the bounded fast-forward absorbs that); the server's silence watchdog (12 s without b.progress) and deadline + takeover cover anything worse.
 // A frame that fast-forwards (catch-up) passes on only the state-bearing events (keepsState: spawns, deaths, deploys,
 // statuses, skills, leaks and the fx that change an enemy's model form — shared/protocol.js fxForm); while the tab is
 // hidden the battle on screen keeps the same events (compacted past HELD_MAX; a backlog still past it makes the view

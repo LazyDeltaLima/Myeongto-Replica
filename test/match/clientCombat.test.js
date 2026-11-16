@@ -9,7 +9,7 @@ import { PHASE } from '../../shared/constants.js';
 import { validateC2S, isBattleResult } from '../../shared/protocol.js';
 import { buildBattleSpec, createBattleFromSpec, resultDigest, compactResult, LocalBossPool, jsonClone } from '../../server/sim/spec.js';
 import { DataSource } from '../../server/sim/simdata.js';
-import { validateClientResult, specBounds, syntheticResult } from '../../server/match/fields.js';
+import { validateClientResult, specBounds, syntheticResult, FIELD_SILENCE_MS } from '../../server/match/fields.js';
 import { CreditPool, SharedBossPool } from '../../server/match/finalAssault.js';
 import { FakeBattle } from './fakeBattle.js';
 import { DATA, makeMatch, checkInvariants, give, chessOfTier } from './harness.js';
@@ -195,7 +195,7 @@ test('takeover: an authority that disconnects mid-combat loses its field; the se
   m.dispose();
 });
 
-test('takeover: a connected client that never reports is taken over at time limit + 15 s grace; departed players are settled at once', () => {
+test('takeover: a connected client that stops reporting (its battle over, no b.result) is taken over FIELD_SILENCE_MS after its last b.progress, long before the deadline; departed players are settled at once', () => {
   const h = makeMatch({ mode: 'coop', humans: 3, seed: 9106, captureFrames: false, clientCombat: true, instant: false, perPlayer: { p_2: { stall: true } } });
   h.autoHumans();
   const m = h.m;
@@ -206,8 +206,11 @@ test('takeover: a connected client that never reports is taken over at time limi
   const limitMs = (f.spec.timeLimit / m.gameSpeed) * 1000;
   h.run(() => f.mode === 'server' || m.phase !== PHASE.COMBAT, { maxTime: limitMs + 20000 });
   assert.equal(f.mode, 'server');
-  const at = m.sched.now() - t0;
-  assert.ok(at >= limitMs + 15000 - 50 && at <= limitMs + 15000 + 400, `taken over at ${at} ms (limit ${limitMs} + 15000)`);
+  const quiet = m.sched.now() - f.lastProgressAt;
+  assert.ok(f.lastProgressAt >= t0, 'the stalled client did report before it went quiet');
+  assert.ok(quiet >= FIELD_SILENCE_MS && quiet <= FIELD_SILENCE_MS + 400,
+    `silence watchdog (fields.js FIELD_SILENCE_MS, docs/design/network.md "Takeover"): taken over ${quiet} ms after the last report`);
+  assert.ok(m.sched.now() - t0 < limitMs, 'the other players did not wait for the time limit + grace');
   h.sched.advance(1);
   assert.ok(h.clients.get('p_2').ends.some((x) => x.reason === 'takeover'), 'the stalled client is told');
   h.run(() => m.phase !== PHASE.COMBAT);
@@ -219,6 +222,28 @@ test('takeover: a connected client that never reports is taken over at time limi
     assert.equal(g.done, true);
     assert.equal(g.live, false);
   }
+  m.dispose();
+});
+
+test('takeover: a client that keeps reporting progress but never sends its result is taken over at time limit + 15 s grace', () => {
+  const h = makeMatch({ mode: 'coop', humans: 2, seed: 9106, captureFrames: false, clientCombat: true, instant: false, perPlayer: { p_1: { mute: true } } });
+  h.autoHumans();
+  const m = h.m;
+  m.start();
+  h.run(() => m.phase === PHASE.COMBAT);
+  const f = fields(h).find((x) => x.fieldId === 'n:p_1');
+  assert.deepEqual([f.mode, f.authority], ['client', 'p_1']);
+  const t0 = m.sched.now();
+  const limitMs = (f.spec.timeLimit / m.gameSpeed) * 1000;
+  let gt = 0;
+  // the muted client's reports by hand, well inside the silence limit, until the takeover
+  while (f.mode === 'client' && m.sched.now() - t0 < limitMs + 20000) {
+    assert.deepEqual(m.handle('p_1', { t: 'b.progress', battleId: f.battleId, gt: (gt += 4), killed: 0, total: f.progress.total, done: false }), { ok: true });
+    h.sched.advance(FIELD_SILENCE_MS / 3);
+  }
+  assert.equal(f.mode, 'server');
+  const at = m.sched.now() - t0;
+  assert.ok(at >= limitMs + 15000 - 50 && at <= limitMs + 15000 + FIELD_SILENCE_MS / 3 + 50, `taken over at ${at} ms (limit ${limitMs} + 15000)`);
   m.dispose();
 });
 

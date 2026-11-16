@@ -133,6 +133,7 @@ export class MatchReports {
         f.verifyJob = job;
         this.cancel(f.deadlineTimer);
         f.deadlineTimer = null;
+        if (f.silenceTimer) { this.cancel(f.silenceTimer); f.silenceTimer = null; }
         f.rearmDeadline = false;
       }
       const schedule = () => {

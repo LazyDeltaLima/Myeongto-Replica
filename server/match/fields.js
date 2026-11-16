@@ -251,6 +251,16 @@ export class FieldRunner {
 export const RESULT_GRACE_MS = 15_000;
 /** A boss field whose authoritative client sent no b.progress for this long is handed over (ms). */
 export const BOSS_SILENCE_MS = 12_000;
+/**
+ * A normal / 联防 field whose authoritative client sent no b.progress for this long is taken over by the server (ms),
+ * long before its result deadline. The authority reports ~1 Hz while its battle runs, hidden tab included (runner.js);
+ * silence with the socket still open is a frozen page — a phone locked or switched to another app answers the
+ * WebSocket pings from the browser, not the page, so the server never sees a disconnect — or a page whose sim failed
+ * to load or to build the battle. Either way every other player's finished battle waited for the time limit + 15 s
+ * (player reports 2026-11-16: "the battle ended but the round never does"). A takeover of a page that was only slow
+ * costs one headless run: the server's result is the same battle (deterministic) and is released at its natural end.
+ */
+export const FIELD_SILENCE_MS = 12_000;
 /** Game-time spacing of the progress timeline samples of a server-run field (s). */
 export const TIMELINE_EVERY = 1;
 
