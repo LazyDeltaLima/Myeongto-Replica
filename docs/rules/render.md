@@ -1527,6 +1527,28 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   - 추출·생성: `anim_keys.py`가 채널에 `wait`, 그 옆 `RangedAttack`의 투사체를 `fin { proj, life }`(수명은 투사체 프리팹의 `_lifeTime`, `enemy_projectiles.projectiles`)로 적고, `anim-keys.mjs keyRoles`가 이름이 끝 능력(`FinalAttack`·`…End…`)인 채널을 스킬 역할 `end` 세 클립 + `endProj`(초)로 만든다. `spine.js _skillEnd`는 루프를 시작 클립의 `OnAttack`(`hits`) + `endProj`까지 돌린다. 손 표 `SKILL_CLIP_OVERRIDES` 글래디아 줄의 `end`는 지움(`end`를 안 적은 줄은 키의 `end`·`endProj`를 그대로 둠). 기다리는데 투사체 수명을 모르면 추출도 생성도 멈춘다. 채널은 끝 능력만 이렇게 읽는다 — 같은 `wait`인 다른 채널(글래디아 S1·S2, 울피아누스 S1, 클리프하트 S1·S2, Miss.Christine S2, 르무엔 조준)은 스킬·신호 사건이 루프를 끝내므로 그대로.
   - 공식과 다른 점: 능력은 투사체가 끝난 뒤 애니 끝 사건을 max(남은 시간, `_minPostDelayWhenProjectileInvalid` 1초)만 기다려 2.667초에 끝나고(시뮬 `endHolds`, `sim.md` 「즉발 스킬의 시전」), 끝 클립은 2.833초까지다. 그 0.167초에 공식이 끝 클립을 끊는지는 안 읽었다 — 렌더는 다음 공격이 끊을 때까지 튼다. 공격 속도가 올라 공격 시간이 1.8초(시작 + 끝 클립)보다 짧으면 채널의 `UpdatePlaybackSpeed`가 시작·끝 클립을 그만큼 빨리 트는데(`_timeMode` 0), 시뮬도 화면도 1배로 둔다(공식과 다름, 남은 일은 관리자 노트). 재발 방지: `test/render/anim-keys.test.js` 「a closing channel …」(생성기 멈춤 포함), `test/sim/attack-clip-view.test.js` 「歌蕾蒂娅 S3 …」. [화면 미확인]
 
+## 스킨 모델 소재 (2026-11-16, 관리자 결정 「스킨 소재는 전부」)
+
+- 무엇: 우리 오퍼레이터(`data/assets.json chars`, 전투 모델이 있는 221명)와 소환물(`tokens`, 그리고 오퍼레이터 스킨의 `tokenSkinMap`이 입히는
+  소환물)의 공식 스킨 전부의 전투 Spine 모델. 목록은 공식 스킨 표(`excel/skin_table.json` `charSkins`)에서 `battleSkin.skinOrPrefabId`가 자기 프리팹인
+  것이다(`DefaultSkin`·null은 기본 모델). 2026-11-16 기준 오퍼레이터 스킨 266벌(178명), 소환물 스킨 49벌. 오퍼레이터 스킨은 `tokenSkinMap`(소환물 →
+  소환물 스킨 키)을 같이 적는다.
+- 어디서: `skinpack/<주인 ID>.ab`의 `dyn/battle/prefabs/skins/character/<주인 ID>/<프리팹 ID 소문자>.prefab`. EN 클라(핫 업데이트 묶음 먼저) → 없으면 CN
+  클라. 오퍼레이터는 Front·Back 렌더러(방향 없는 모델은 `Spine` 하나 = 앞), 소환물은 기본 소환물 모델처럼 Front(또는 하나뿐인) 렌더러. 페이지는 적·소환물 모델처럼
+  premultiplied로 합친다.
+- 파일 이름: 공식 ID에 `#`이 있다(`char_202_demkni_boc#1`). URL에서 `#`은 조각(fragment)의 시작이라 그 경로로는 파일을 받을 수 없고, 리소스 목록도 그런
+  경로를 거부한다(`public/js/resources.js` `PATH_RE`, 그대로 둠). 그래서 추출기의 이름 함수 하나(`file_name`)가 모든 폴더·파일 이름을 만든다: `#` → `-`.
+  공식 스킨·골격·페이지 이름에는 `-`가 없어 두 이름이 하나로 겹치지 않는다. 그 밖에 `[A-Za-z0-9_.]` 아닌 글자는 추출을 멈춘다. 아틀라스의 페이지 줄도 바꾼
+  이름으로 고쳐 쓴다(영역 이름은 파일이 아니라 그대로).
+- 어디에: `public/assets/local/spine/skin/<주인>/<프리팹>/<front|back>/<프리팹>.skel|.atlas|<페이지>.png`, 목록은 같은 폴더의 `skins.json`
+  (`{ skins: { <스킨 키>: { owner, prefab, client, front, back?, tokens? } }, missing }`). `data/local-assets.json`에 넣지 않는다 — 그 목록은 모든
+  페이지가 받고, 스킨은 스킨 데이터를 고른 사람만 받는다. 같은 이유로 `tools/build-browser-resources.mjs`가 `local/spine/skin/` 전체를 미리 받기 목록에서
+  뺀다. 스킨 데이터가 따로 받는 묶음이 되면 그때 다시 넣는다.
+- 표시 전용: 전투 판정은 기본 모델 기준이다. 스킨 모델의 클립 길이는 시뮬레이션에 들어가지 않는다(시뮬레이션은 `data/assets.json`의 기본 모델만 읽음).
+- 아직 없는 것: 스킨 모델 항목(클립 길이·키 표·부착점)을 `data/assets.json`에 싣는 일, 렌더 게이트, 스킨 그림(아바타·초상화·일러스트).
+- 재발 방지: 원인 제거 — `tools/local-extract/skin_extract.py` `file_name`이 모든 출력 이름을 만들고 모르는 글자에서 멈춤. 남는 손 규칙(미리 받기 목록에서
+  빼기)은 `test/local-extract-skins.test.js`.
+
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 
 유닛·HUD·보드를 그리는 코드(`public/js/render/`)를 고치기 전에 읽는 목록. 쓰는 법은 `fx.md` 「함정」과 같다.

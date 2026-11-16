@@ -27,6 +27,9 @@ const VERIFY = Number(opt('--verify', 0)) || 0;
 const OUT = 'browser-resources.json';
 // local/fx/bindings.json: the client-only binding rows, read by the tests only (tools/local-extract/fx_bindings.py)
 const SKIP = new Set([OUT, 'local/fx/bindings.json']);
+// local/spine/skin/: the operator and summon skin models (tools/local-extract/skin_extract.py, ~300 MB), taken only by
+// those who choose the skin data — never pre-downloaded by everyone; listed again once the skin data is a pack of its own
+const SKIP_DIRS = ['local/spine/skin/'];
 
 async function* walk(dir) {
   for (const e of await readdir(dir, { withFileTypes: true })) {
@@ -61,7 +64,7 @@ for await (const abs of walk(join(ROOT, 'public/img/emotes'))) {
 }
 for await (const abs of walk(ASSETS)) {
   const rel = relative(ASSETS, abs).split(sep).join('/');
-  if (SKIP.has(rel)) continue;
+  if (SKIP.has(rel) || SKIP_DIRS.some((d) => rel.startsWith(d))) continue;
   if (isWebpSource(rel)) { sourcesLeft++; continue; }
   const buf = await readFile(abs);
   const entry = { p: '/assets/' + rel, s: buf.length, h: createHash('sha256').update(buf).digest('hex') };
