@@ -83,8 +83,8 @@
       ],
       "enemies": {"enemy_1006_shield_3":[3,3,0,1909,298598],"enemy_1043_zomsbr":[23,23,0,2633,146078],"enemy_1402_tgshd_2":[4,4,0,14573,129393]},
       "hooks": [1,47,2587,184,184,535,602,1712,34,37,13,11,0,9662,24,12,30,0,1,37,2,4,12],
-      "events": {"atk":210,"castHit":3,"deploy":14,"die":37,"dmg":602,"engage":6,"face":6,"fx":217,"heal":108,"layer":2,"skill":24,"spawn":42,"status":53,"swing":190,"tplfx":2},
-      "fx": {"blink":3,"burst":4,"displace":6,"dodge":12,"drone":5,"expose":151,"firewall":1,"frostNova":4,"garrison":2,"kitHit":26,"mysticStore":1,"volley":1,"zone":1},
+      "events": {"atk":210,"castHit":3,"deploy":14,"die":37,"dmg":602,"engage":6,"face":6,"fx":218,"heal":108,"layer":2,"skill":24,"spawn":42,"status":53,"swing":190,"tplfx":2},
+      "fx": {"blink":3,"burst":4,"displace":6,"dodge":12,"drone":5,"ebnhlzVolley":1,"expose":151,"firewall":1,"frostNova":4,"garrison":2,"kitHit":26,"mysticHeld":1,"mysticStore":1,"zone":1},
       "snaps": "822e8cbf a26d8bed 56fb3f47 cc95eaf9 dd025bdc ac1a6572 9c76dcb0 9a287e71 a0eff494"
     },
     "bond-deputShip-low": {
@@ -367,8 +367,8 @@
       ],
       "enemies": {"enemy_1000_gopro_2":[19,19,0,62,37210],"enemy_1325_cbgpro":[5,5,0,23,21888],"enemy_1325_cbgpro_2":[3,3,0,35,15898]},
       "hooks": [1,40,1433,110,110,139,227,59,27,30,14,12,0,8588,7,17,27,0,1,27,0,0,3],
-      "events": {"atk":129,"deploy":13,"die":30,"dmg":136,"engage":6,"face":35,"fx":25,"heal":34,"skill":26,"spawn":40,"status":18,"swing":141},
-      "fx": {"aoe":3,"displace":3,"dodge":3,"dp":1,"kitHit":3,"mysticStore":4,"pull":3,"summon":3,"volley":2},
+      "events": {"atk":129,"deploy":13,"die":30,"dmg":136,"engage":6,"face":35,"fx":27,"heal":34,"skill":26,"spawn":40,"status":18,"swing":141},
+      "fx": {"aoe":3,"displace":3,"dodge":3,"dp":1,"ebnhlzVolley":2,"kitHit":3,"mysticHeld":2,"mysticStore":4,"pull":3,"summon":3},
       "snaps": "e003a690 ab7fa4fa da1acefc da68f999 0b02faa0"
     },
     "bond-emptyShip-high": {
@@ -984,8 +984,8 @@
         "enemy_5601_entlec": [2,2,0,0,43]
       },
       "hooks": [1,166,2541,296,296,673,1389,13,138,149,20,18,0,8760,14,20,70,0,1,138,0,0,0],
-      "events": {"atk":323,"castHit":7,"deploy":93,"die":149,"dmg":726,"engage":63,"face":66,"fx":166,"skill":38,"spawn":166,"status":48,"swing":420},
-      "fx": {"aoe":28,"candle":2,"charges":6,"devour":2,"displace":12,"kitHit":23,"mysticStore":18,"pull":12,"stacks":21,"summon":36,"talent":2,"volley":4},
+      "events": {"atk":323,"castHit":7,"deploy":93,"die":149,"dmg":726,"engage":63,"face":66,"fx":174,"skill":38,"spawn":166,"status":48,"swing":420},
+      "fx": {"aoe":28,"candle":2,"charges":6,"devour":2,"displace":12,"ebnhlzVolley":4,"kitHit":23,"mysticHeld":8,"mysticStore":18,"pull":12,"stacks":21,"summon":36,"talent":2},
       "snaps": "16a3e2b8 eb843c85 f6a4d42c 49d17981 47a15066 e853f9bd d1e76c5b 60b735fb db6dc71f"
     },
     "bond-maniShip-low": {
@@ -1237,8 +1237,8 @@
         "enemy_1200_msfjin": [2,2,0,0,150]
       },
       "hooks": [1,138,2437,211,211,807,1318,43,128,128,13,10,11,6294,92,23,66,0,1,140,87,0,0],
-      "events": {"atk":280,"castHit":4,"deploy":70,"die":128,"dmg":813,"engage":20,"face":48,"fx":113,"layer":87,"skill":23,"spawn":138,"status":246,"swing":250,"tplfx":24},
-      "fx": {"aoe":7,"garrison":22,"kitHit":6,"mysticStore":25,"sp":2,"summon":21,"takeoff":2,"tockaFx":5,"tockaMove":4,"veenBounce":11,"veenVolley":7,"volley":1},
+      "events": {"atk":280,"castHit":4,"deploy":70,"die":128,"dmg":813,"engage":20,"face":48,"fx":114,"layer":87,"skill":23,"spawn":138,"status":246,"swing":250,"tplfx":24},
+      "fx": {"aoe":7,"ebnhlzVolley":1,"garrison":22,"kitHit":6,"mysticHeld":1,"mysticStore":25,"sp":2,"summon":21,"takeoff":2,"tockaFx":5,"tockaMove":4,"veenBounce":11,"veenVolley":7},
       "snaps": "a13b6bde e3c64b9d 1bcb5ff6 414c2a76 352e9272 9dcf40e0 5838bf75 37293f3e e3f1a20b"
     },
     "bond-preciShip-low": {
@@ -1931,8 +1931,8 @@
       ],
       "enemies": {"enemy_1010_demon":[3,3,0,0,25920],"enemy_1010_demon_2":[2,2,0,2140,34560],"enemy_1071_dftman":[18,18,0,1805,58061]},
       "hooks": [1,43,1987,141,141,387,385,275,23,30,14,13,5,11893,61,6,23,0,1,28,2,0,2],
-      "events": {"atk":165,"castHit":3,"deploy":18,"die":30,"dmg":385,"engage":8,"face":40,"fx":94,"heal":19,"layer":2,"skill":27,"spawn":42,"status":71,"swing":149,"tplfx":3},
-      "fx": {"aoe":6,"displace":14,"dodge":2,"frostNova":2,"garrison":2,"kitHit":9,"mysticStore":33,"pull":4,"sp":1,"summon":8,"veenBounce":5,"veenVolley":4,"volley":2,"zone":2},
+      "events": {"atk":165,"castHit":3,"deploy":18,"die":30,"dmg":385,"engage":8,"face":40,"fx":100,"heal":19,"layer":2,"skill":27,"spawn":42,"status":71,"swing":149,"tplfx":3},
+      "fx": {"aoe":6,"displace":14,"dodge":2,"ebnhlzVolley":2,"frostNova":2,"garrison":2,"kitHit":9,"mysticHeld":6,"mysticStore":33,"pull":4,"sp":1,"summon":8,"veenBounce":5,"veenVolley":4,"zone":2},
       "snaps": "cd0e9e84 e450ef1d ad27f75b 59f61f1d 2c024c98 b0445a59 b5e175cb"
     },
     "bond-swiftShip-high": {
@@ -2258,8 +2258,8 @@
       ],
       "enemies": {"enemy_1229_darmy":[10,10,0,0,104509],"enemy_1229_darmy_2":[7,7,0,0,95800],"enemy_1275_dwlock_2":[3,3,0,5574,104509]},
       "hooks": [1,38,2387,142,142,322,345,377,23,33,12,9,0,3743,50,0,20,0,1,23,21,0,0],
-      "events": {"atk":187,"deploy":18,"die":33,"dmg":345,"engage":6,"face":15,"fx":116,"heal":7,"layer":21,"skill":21,"spawn":38,"status":113,"swing":149,"tplfx":22},
-      "fx": {"aoe":6,"beam":6,"cannon":6,"displace":10,"dp":11,"enemySkill":3,"enemySkillEnd":3,"explode":6,"garrison":21,"kitHit":8,"mitmReborn":1,"mitmSkill":1,"mysticStore":7,"pull":10,"shield":1,"sp":1,"summon":10,"tockaFx":3,"tockaMove":1,"volley":1},
+      "events": {"atk":187,"deploy":18,"die":33,"dmg":345,"engage":6,"face":15,"fx":120,"heal":7,"layer":21,"skill":21,"spawn":38,"status":113,"swing":149,"tplfx":22},
+      "fx": {"aoe":6,"beam":6,"cannon":6,"displace":10,"dp":11,"ebnhlzVolley":1,"enemySkill":3,"enemySkillEnd":3,"explode":6,"garrison":21,"kitHit":8,"mitmReborn":1,"mitmSkill":1,"mysticHeld":4,"mysticStore":7,"pull":10,"shield":1,"sp":1,"summon":10,"tockaFx":3,"tockaMove":1},
       "snaps": "a7fddafa 7253cb02 3b3d8e02 bd4f88ed b4878df2 620c9c61 373fe971 80a394e9"
     },
     "bond-yanShip-low": {

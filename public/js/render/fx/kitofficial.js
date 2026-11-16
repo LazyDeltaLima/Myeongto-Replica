@@ -61,6 +61,8 @@ const YU_HIT = Object.freeze(['yu_s_1[inverse_damage]', 'yu_t_1[enemy]', 'yu_s_3
 const ALL = Object.freeze({ all: true });
 // 维伊's ChargeAttack abilities' `_mountPointForProjectiles`: SPECIAL_0 / 1 / 2 / 3 / 4
 const VEEN_MOUNTS = Object.freeze([5, 6, 8, 9, 10]);
+// 黑键's Default / S1 ExChargeAttack `_mountPointForProjectiles`: SPECIAL_0 / 1 / 2 / 3 (2026-11-16)
+const EBNHLZ_MOUNTS = Object.freeze([5, 6, 8, 9]);
 
 /**
  * `<bundle>|<event>`: a kit event whose kind fxgame.js STAND_IN keeps (a mark every operator shows: a lift ring, a crit flash,
@@ -796,6 +798,24 @@ export const KIT_OFFICIAL = {
           ? { n: 'veen_trail_02', fly: 10, to: 'target', mount, hit: ['veen_attack_rank_02_hit_02'] }
           : { n: 'veen_trail_01', fly: 10, to: 'target', mount, hit: ['veen_attack_rank_01_hit_02'] })),
       };
+    }),
+  },
+  // (2026-11-16) 黑键: the energies leaving with an attack — the mode's ExChargeAttack ability (CreateProjectile): the trait's
+  // n first, the i-th from `_mountPointForProjectiles`[i] (SPECIAL_0–3) with its `_projectileKey`, then, only at an elite or
+  // leader target (`ValidateTarget`), the elite e, the i-th from `_exMounts`[i] with its `_exProjectileKey`: Default
+  // projectile_chr_ebnhlz_charge / _elite (SPECIAL_4), S1 _s1_charge / _s1_elite, S3 _s3_elite_charge (SPECIAL_0–4); TRACE,
+  // `_speed` 10 all, their `_mainEffect` and `_effectsWhenHit`. The sim sends `e` only when they leave.
+  ebnhlzVolley: {
+    ebnhlz: cite(['projectile_chr_ebnhlz_charge', 'projectile_chr_ebnhlz_elite', 'projectile_chr_ebnhlz_s1_charge', 'projectile_chr_ebnhlz_s1_elite',
+      'projectile_chr_ebnhlz_s3_elite_charge'], (o) => {
+      const shot = (trail, hit) => (mount) => ({ n: trail, fly: 10, to: 'target', mount, hit: [hit] });
+      const n = Math.max(0, Number(o.n) || 0), e = Math.max(0, Number(o.e) || 0);
+      const [norm, ex, exMounts] = Number(o.s3) ? [null, shot('ebnhlz_skill_03_trail_red', 'ebnhlz_skill_03_hit_red'), [5, 6, 8, 9, 10]]
+        : Number(o.s1) ? [shot('ebnhlz_skill_01_trail_orange', 'ebnhlz_skill_01_hit_orange'), shot('ebnhlz_skill_01_trail_red', 'ebnhlz_skill_01_hit_red'), [10]]
+          : [shot('ebnhlz_attack_trail_orange', 'ebnhlz_attack_hit_orange'), shot('ebnhlz_attack_trail_red', 'ebnhlz_attack_hit_red'), [10]];
+      // (CreateProjectile fires no ex shot when the count passes its mounts)
+      const play = [...(norm ? EBNHLZ_MOUNTS.slice(0, n).map(norm) : []), ...(e <= exMounts.length ? exMounts.slice(0, e).map(ex) : [])];
+      return play.length ? { play } : null;
     }),
   },
   // (2026-11-03) 维伊 S3 用赤铁铭记: each bounce of projectile_chr_veen_s3 — after its first hit its

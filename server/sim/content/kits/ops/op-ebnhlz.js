@@ -92,6 +92,16 @@ export const eliteOrLeader = (e) => !!e && (!!e.isBoss || e.def?.rank === 'ELITE
 /** His stored energies (per deployment): `n` normal, `e` elite, `q` the volleys in flight per target id. */
 const stateOf = (unit) => unit.trait.ebn ?? (unit.trait.ebn = { n: 0, e: 0, q: new Map() });
 
+/**
+ * His held energies changed other than by a store — released, spent by S2, turned elite at S3's start or back at its end:
+ * fx 'mysticHeld' { n: the trait's energies, e: the elite ones } (render/fxgame.js chargeSync: the charge effects of the
+ * ExChargeAttack emitters, the normal one by n and the ex one by e).
+ */
+function held(battle, unit) {
+  const v = stateOf(unit);
+  battle.fx('mysticHeld', { x: unit.x, y: unit.y, id: unit.id, n: v.n, e: v.e });
+}
+
 /** A tile 荒芜回响 may place a 旧日残影 on: inside the field, deployable (全部位) and free (Battle.isReservedTile). */
 const remnantTileOk = (battle, r, c) => battle.grid.inRect(r, c) && battle.grid.canStand(r, c, { ranged: true }) && !battle.isReservedTile(r, c);
 
@@ -213,7 +223,7 @@ export default {
         // an attack action, the interval restarts): the trait's energies first, then the elite one; during S3 elite ones
         // only (false = a full store: he idles). Each store is his ExChargeAttack ability's charge, as the shared profile's
         // (fx 'mysticStore': its clip, its charge effects, its ON_ABILITY_ON.Charge.… sound); `n` the energies stored now,
-        // `elite` this one an elite energy (the ex emitter)
+        // `e` the elite ones among them, `elite` this one an elite energy (the ex emitter)
         storeEnergy(battle, unit) {
           const v = stateOf(unit);
           let elite = true;
@@ -221,7 +231,7 @@ export default {
           else if (v.n < N) { v.n++; elite = false; }
           else if (v.e < E) v.e++;
           else return false;
-          battle.fx('mysticStore', { x: unit.x, y: unit.y, id: unit.id, signal: 'store', n: v.n + v.e, ...(elite ? { elite: 1 } : null) });
+          battle.fx('mysticStore', { x: unit.x, y: unit.y, id: unit.id, signal: 'store', n: v.n + v.e, e: v.e, ...(elite ? { elite: 1 } : null) });
           return true;
         },
         install(battle, unit) {
@@ -248,6 +258,7 @@ export default {
             const fromE = Math.min(v.e, spend);
             v.e -= fromE; spend -= fromE;
             v.n -= Math.min(v.n, spend);
+            if (count > 1) held(battle, unit);   // the spent energies' charge effects end (ConsumeChargeTimes)
             for (const [r, c] of tiles.slice(0, count)) {
               const t = battle.spawnToken(unit, REMNANT, r, c, { kit: remnantKit(unit), untargetable: true });
               if (t) battle.fx('summon', { x: t.x, y: t.y, id: t.id, token: REMNANT });
@@ -258,12 +269,18 @@ export default {
           kind: 'duration',
           mods: { aspd: num(b3.attack_speed), atkPct: num(b3.atk) },
           attack: { skipEnemy: (e) => !eliteOrLeader(e) },
-          onStart({ unit }) { const v = stateOf(unit); v.e += v.n; v.n = 0; },
-          onEnd({ unit }) {
+          onStart({ battle, unit }) {
             const v = stateOf(unit);
-            const keep = Math.min(v.e, E);
-            v.n = Math.min(N, v.n + v.e - keep);
-            v.e = keep;
+            if (!v.n) return;
+            v.e += v.n; v.n = 0;
+            held(battle, unit);
+          },
+          onEnd({ battle, unit }) {
+            const v = stateOf(unit);
+            const keep = Math.min(v.e, E), n = Math.min(N, v.n + v.e - keep);
+            if (n === v.n && keep === v.e) return;
+            v.n = n; v.e = keep;
+            held(battle, unit);
           },
         },
       },
@@ -298,7 +315,12 @@ export default {
             if (i === 0) {
               rec.n = v.n; v.n = 0;
               if (eliteOrLeader(tg)) { rec.e = v.e; v.e = 0; }
-              if (rec.n + rec.e > 0) battle.fx('volley', { x: unit.x, y: unit.y, id: unit.id, target: tg.id, n: rec.n + rec.e });
+              if (rec.n + rec.e > 0) {
+                // the energies' projectiles (render/fx/kitofficial.js ebnhlzVolley) and what stays held (the elite ones at
+                // another target)
+                battle.fx('ebnhlzVolley', { x: unit.x, y: unit.y, id: unit.id, target: tg.id, n: rec.n, e: rec.e, ...(rec.s3 ? { s3: 1 } : rec.s1 ? { s1: 1 } : null) });
+                held(battle, unit);
+              }
             }
             const list = v.q.get(tg.id) ?? [];
             list.push(rec);

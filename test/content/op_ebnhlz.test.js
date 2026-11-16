@@ -500,6 +500,44 @@ test('S3 寂静之声 (MANUAL, data DEFAULT): 30 s, ASPD +50 / +60, ATK +43 % / 
   }
 });
 
+test('his kit moments for the charge effects (render/fxgame.js chargeSync): each store says the elite count, every release / S2 spending / S3 turn says what stays held (mysticHeld), and the volley the energies and the skill mode (ebnhlzVolley)', () => {
+  const fx = (h, n) => h.eventsOf('fx').filter((x) => x[1] === n).map((x) => x[4]);
+  const heldNow = (h) => fx(h, 'mysticHeld').map((o) => [o.n, o.e]);
+  {
+    const { h, u } = field({ tier: 6, elite: true, skill: 0 });
+    storeUp(h, u, 3, 1);
+    holdSkill(u);
+    assert.deepEqual(fx(h, 'mysticStore').map((o) => [o.n, o.e, o.elite ?? 0]), [[1, 0, 0], [2, 0, 0], [3, 0, 0], [4, 1, 1]]);
+    const e = h.spawn('enemy_dummy', { pos: [10, 6] });
+    assert.ok(h.runUntil(() => fx(h, 'ebnhlzVolley').length, 5), 'his attack releases them');
+    const v = fx(h, 'ebnhlzVolley')[0];
+    assert.deepEqual([v.id, v.target, v.n, v.e, v.s1 ?? 0, v.s3 ?? 0], [u.id, e.id, 3, 0, 0, 0]);
+    assert.deepEqual(heldNow(h), [[0, 1]], 'the elite energy stays held at a normal enemy');
+    assert.equal(fx(h, 'volley').length, 0, 'no stand-in volley');
+    done(h);
+  }
+  {
+    const { h, u } = field({ tier: 6, elite: true, skill: 2 });
+    storeUp(h, u, 2, 0);
+    u.skill.gainSp(999);
+    h.spawn('enemy_dummy', { pos: [10, 6] });
+    assert.ok(h.runUntil(() => u.skill.active, 5));
+    assert.deepEqual(heldNow(h), [[0, 2]], 'S3 turns them elite');
+    u.skill.end('test');
+    assert.deepEqual(heldNow(h), [[0, 2], [1, 1]], 'its end keeps one elite');
+    done(h);
+  }
+  {
+    const { h, u } = field({ tier: 6, elite: true, skill: 1 });
+    storeUp(h, u, 2, 0);
+    u.skill.gainSp(999);
+    assert.ok(h.runUntil(() => fx(h, 'summon').length > 0, 8), 'S2 casts');
+    assert.deepEqual(heldNow(h).at(-1), [stored(u).n, stored(u).e], 'S2 says what it left');
+    assert.ok(stored(u).n < 2, 'it spent some');
+    done(h);
+  }
+});
+
 test('黑键 through the real match path (seats[].diy → Match board → battleInput → BattleSpec → createBattleFromSpec): his kit, an energy stored before the enemies reach him, arts shots', async () => {
   const { makeMatch } = await import('../match/harness.js');
   const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');

@@ -1376,7 +1376,7 @@ def modes_of(path, projectiles=None, tree=None):
     funnels = [funnel_entries(fun_ab[i], fun_em[i], fun_idle[i], projectiles) for i in range(n)]
     if any(funnels):
         res['funnels'] = funnels
-    charge = charge_effects(tree, by_pid)
+    charge = charge_effects(tree, by_pid) or ex_charge_effects(tree, mode_paths)
     if charge:
         res['charge'] = charge
     return res
@@ -1423,6 +1423,50 @@ def charge_effects(tree, by_pid):
             for x in (sub or {}).get('_chargeEffectGroups') or []:
                 add(cast, names(x))
     return {'hold': hold, 'cast': cast, **extra} if any(hold) or cast else None
+
+
+def charge_group_names(g):
+    """The effect names of one ChargeEffectGroup / ChargeCastGroup (`effects` = options with `_effects`)."""
+    out = []
+    for opt in (g or {}).get('effects') or []:
+        if isinstance(opt, dict):
+            add(out, [x for x in opt.get('_effects') or [] if isinstance(x, str) and x])
+    return out
+
+
+def ex_charge_effects(tree, mode_paths):
+    """2026-11-16, official client — a 秘术师 whose every mode stores through its own ExChargeRangedAttack (黑键): the mode's
+    attack (`Modes/<mode>/Body/Attack`) names it as `_chargeAbility` (attached and detached with the mode,
+    `_attachAndDetach`), and that ability's GameObject carries MultiExChargeUberEffectEmitters. One with `_isExEffectEmitter`
+    0 counts the ability's charges (`GetChargeIndex`: the trait's energies) and draws while it stores one of them
+    (`IsInChargeAction` and not `IsExChargeAction`); one with 1 counts its ex charges (`GetExChargeTimes`: the elite
+    energies) and draws while it stores one of those. Either creates `_chargeEffectGroups[count before the store]`, keeps it
+    until its cast on a target that is no store (`OnCastOnTarget` — the ex one only when `ValidateTarget` passes: an elite
+    or leader enemy), `ConsumeChargeTimes` (one top group per spent energy) or ON_DETACHED, and recreates the groups below
+    its count at ON_ATTACHED (`_chargeEffectStartEvent`): the mode switch; each held group casts its `_chargeCastGroups`
+    entry as a real attack starts. → { cast: [], byMode: [{ hold, release, exHold, exRelease } | None per mode] }
+    (fxgame.js chargeStore / chargeSync), or None."""
+    by_pid = {pid: d for _, d, pid in tree}
+    go_of = lambda d: (d.get('m_GameObject') or {}).get('m_PathID')   # noqa: E731
+    emitters = {}
+    for _, d, _ in tree:
+        if isinstance(d.get('_chargeEffectGroups'), list) and '_isExEffectEmitter' in d:
+            emitters.setdefault(go_of(d), []).append(d)
+    if not emitters:
+        return None
+    out = []
+    for mp in mode_paths:
+        att = next((d for gp, d, _ in tree if mp and gp == f'{mp}/Body/Attack' and isinstance(d.get('_chargeAbility'), dict)), None)
+        ab = by_pid.get(att['_chargeAbility'].get('m_PathID')) if att else None
+        row = {}
+        for em in emitters.get(go_of(ab), []) if ab else []:
+            ex = em['_isExEffectEmitter']
+            if ex not in (0, 1):
+                raise ValueError(f'{mp}: _isExEffectEmitter {ex!r}')
+            row['exHold' if ex else 'hold'] = [charge_group_names(x) for x in em['_chargeEffectGroups']]
+            row['exRelease' if ex else 'release'] = [charge_group_names(x) for x in em.get('_chargeCastGroups') or []]
+        out.append(row or None)
+    return {'cast': [], 'byMode': out} if any(out) else None
 
 
 def funnel_entries(abilities, emitters, idle, projectiles):

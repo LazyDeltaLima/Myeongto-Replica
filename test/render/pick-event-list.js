@@ -37,7 +37,6 @@ export const PICK_EVENTS = Object.freeze({
   'demetr|undying': "official: nothing: demetr_s3[undeadable_core] has an empty template (test VERDICT undying)",
   'ebnhlz|pull': "stand-in: the dust and streak of any enemy dragged; no prefab of hers is named for the pull",
   'ebnhlz|summon': "official: flushDeploys draws the 残影's token_ebnhlz_birth_01_start; `id` is the token, the stand-in off for her",
-  'ebnhlz|volley': "official: S3's own shots ebnhlz_skill_03_trail_red and ebnhlz_skill_03_hit_red, through skillShotFx",
   'haruka|shield': "official: nothing of its own: the bubble is haruka's status path; `only` and the kit's 'haruka:*' moments draw the rest",
   'haruka|levitate': "official: the levitate status draws common_levitate_01 and 'haruka:float' her own, so no lift ring either (KIT_NO_STAND_IN)",
   'haruka|heal': "official: 'haruka:break' with `heal` plays haruka_talent_02_hit on the same unit, so no heal mark either (KIT_NO_STAND_IN)",

@@ -3941,6 +3941,17 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 파죰카 모듈 RA-A의 `zumama_equipment_range_01`은 그 버프가 생존 연산 음식 버프를 요구해(`SandboxCheckHasFoodBuff`) 이 모드에서 나오지 않는다 — `UNPLAYED`에 남김.
 - 확인: `test/render/pick-moment-fx.test.js`, 아레나 2배속 사건·프리팹 순서(슈 표식은 샌드백이 안 움직여 칸을 손으로 넣고 옮김). [화면 미확인]
 
+## 에벤홀츠의 저장 이펙트와 저장 탄 (2026-11-16, 공식 클라에서 확인)
+
+전에는 에벤홀츠(`char_4046_ebnhlz`)의 저장 이펙트가 하나도 나지 않았다: `char_modes.py`가 특성 묶음의 `_maxChargeTimes`·`_abilities`(딥컬러 같은 미스틱 캐스터)만 읽었는데, 그의 묶음 `Trait/ChargeAttackGroup`은 동기화만 하는 `AbilityExChargeGroup`이고 이펙트는 모드마다의 `ExChargeAttack*` 능력에 있다.
+
+- **어느 능력인가**: 모드의 공격(`Modes/<모드>/Body/Attack`)이 `_chargeAbility`로 그 모드의 `ExChargeAttackDefault`·`S1`·`S3`을 가리키고 `_attachAndDetach`로 모드와 함께 붙였다 뗀다. 그 GameObject의 `MultiExChargeUberEffectEmitter`가 둘이다 — `_isExEffectEmitter` 0은 특성 에너지 수(`GetChargeIndex`)로, 1은 정예 에너지 수(`GetExChargeTimes`)로 센다. 기본·S1: 0번이 주황 `ebnhlz_attack_charge_orange*`·`_buff_orange*` 넷, 1번이 `_red_5` 하나. S3: 1번만, 빨강 다섯(`_red`~`_red_5`).
+- **언제 나고 끝나나**: 각 방출기는 자기 쪽 저장 행동에서만(`IsInChargeAction` — 0번은 정예 저장이 아닐 때, 1번은 정예 저장일 때) `_chargeEffectGroups[저장 전 수]`를 만들고, 저장이 아닌 공격이 대상에 시전할 때 지운다(`OnCastOnTarget` — 1번은 `ValidateTarget`, 곧 정예·보스 대상일 때만: 일반 적을 쳐도 정예 에너지 구슬은 남는다). S2가 에너지를 쓰면 하나마다 맨 위 묶음을 지우고(`ExChargeRangedAttack.ConsumeChargeTimes` → 방출기 `ConsumeChargeTimes(1)`, 정예 먼저), 모드가 바뀌면 옛 능력이 ON_DETACHED로 다 지우고 새 능력이 ON_ATTACHED에 `_chargeEffectStartEvent`로 수 아래 묶음을 다시 만든다 — S3 시작에 구슬이 빨강으로, 끝에 주황 + `_red_5`로 바뀐다. 저장이 아닌 공격의 ON_CAST_START에는 든 묶음마다 `_chargeCastGroups`의 `start_02`가 한 번 난다(두 방출기 모두, 대상과 무관).
+- **저장 탄**: 방출 때 `ExChargeRangedAttack.CreateProjectile` — 특성 에너지 i번째가 `_mountPointForProjectiles`[i](SPECIAL_0~3)에서 `_projectileKey`(기본 `projectile_chr_ebnhlz_charge`, S1 `_s1_charge`), 그 뒤 대상이 정예·보스이면 정예 에너지 i번째가 `_exMounts`[i]에서 `_exProjectileKey`(기본 `_elite`·S1 `_s1_elite`는 SPECIAL_4, S3 `_s3_elite_charge`는 SPECIAL_0~4). 넷 다 TRACE `_speed` 10.
+- **구현**: `char_modes.py ex_charge_effects` → `modes.json charge.byMode`(모드마다 `hold`·`release`·`exHold`·`exRelease`). 시뮬 키트가 저장(`mysticStore`에 `e` = 정예 수)과 그 밖의 변화 — 방출·S2·S3 시작과 끝 — 를 새 사건 `mysticHeld` { n, e }로 알리고, `fxgame.js chargeSync`가 지금 모드의 두 방출기 묶음을 수에 맞춘다(모드가 바뀌면 다 지우고 다시). 일반 사건 `volley` 대신 `ebnhlzVolley` { n, e, s1·s3 } → `kitofficial.js` 계획이 위 탄을 날린다. 전투 결과는 같고 사건만 늘었다.
+- 확인: `test/render/charge-slots.test.js`(모드 전환·정예 구슬이 남는 것 — 모드 전환과 'atk' 무시를 되돌리면 실패), `test/content/op_ebnhlz.test.js`(사건), `fx-unplayed-local-list.js`에서 28줄 지움. [화면 미확인: 구슬 자리·색 바뀜·저장 탄]
+- 재발 방지: 원인 제거 — `char_modes.py ex_charge_effects`가 모드 공격의 `_chargeAbility`에서 읽는다(모르는 `_isExEffectEmitter` 값이면 멈춤); 렌더 규칙은 `test/render/charge-slots.test.js`.
+
 ## 미틈 체리 3호·로베르타 전자동 스타일러의 이펙트와 모드 (2026-11-07)
 
 공개 전 시즌 `next`의 기물. 공식 클라에서 확인: 소환물 프리팹의 모드·능력과 버프 템플릿. 클립은 `render.md` 「스킬 끝·대기 클립 추가 판정」.

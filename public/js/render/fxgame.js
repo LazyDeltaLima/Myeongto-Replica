@@ -3507,8 +3507,47 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * (`DealWithChargeCastEffectsOnEvent`, through the group's `CastToTarget`).
    */
   const charges = new Map();   // unit id → { n: the stores counted, held: [{ slot, p: spawn promise }] }
+  /**
+   * 2026-11-16, official client (MultiExChargeUberEffectEmitter, 黑键): modes.json `charge.byMode` (char_modes.py
+   * ex_charge_effects) — each mode's ExChargeAttack ability has a normal emitter (`hold` / `release`, by the trait's
+   * energies n) and an ex one (`exHold` / `exRelease`, by the elite energies e). Held: `hold[i]` for i < n and `exHold[i]` for
+   * i < e of the mode now; a mode switch detaches the old mode's ability (ON_DETACHED: all end) and attaches the new one's
+   * (ON_ATTACHED recreates its groups below the counts — S3's red stages replace the orange ones). The counts come from the
+   * sim: 'mysticStore' (`n` all, `e` the elite ones) and 'mysticHeld' { n, e } — a release (the ex emitter ends its own only
+   * at an elite or leader target, `ValidateTarget`), S2's spending (`ConsumeChargeTimes`), S3's turning them elite and back.
+   */
+  function chargeSync(v, rec) {
+    const ch = bindOf(v)?.charge, b = bundleOf(v), id = ownerOf(v), m = unitModeOf(v), mode = ch?.byMode?.[m] || null;
+    const stop = (h) => h.p.then((l) => { if (l) l.inst.stop(); });
+    if (rec.mode !== m) { rec.held.forEach(stop); rec.held = []; rec.mode = m; }
+    const want = new Set();
+    for (const [part, cnt] of [['hold', rec.n], ['exHold', rec.e]]) {
+      for (let i = 0; i < Math.min(cnt, mode?.[part]?.length || 0); i++) want.add(`${part}:${i}`);
+    }
+    rec.held = rec.held.filter((h) => { if (want.has(h.k)) return true; stop(h); return false; });
+    const have = new Set(rec.held.map((h) => h.k));
+    for (const k of want) {
+      if (have.has(k) || !b) continue;
+      const [part, i] = k.split(':');
+      for (const nm of extracted(v, mode[part][Number(i)])) {
+        rec.held.push({ k, slot: Number(i), p: spawn(b.bundle, nm, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'charge' }, { over: false, facing: efacing(v) }) });
+      }
+    }
+  }
+  /** 'mysticStore' / 'mysticHeld' of an operator whose charge is by mode (chargeSync). */
+  function chargeCounts(e, views, store) {
+    const o = e[4], v = views.get(o.id), ch = bindOf(v)?.charge;
+    if (!v || !bundleOf(v) || !ch?.byMode || failed || q() === 'low') return false;
+    const id = ownerOf(v), rec = charges.get(id) || { n: 0, e: 0, mode: null, held: [] };
+    rec.e = Math.max(0, Number(o.e) || 0);
+    rec.n = Math.max(0, (Number(o.n) || 0) - (store ? rec.e : 0));
+    charges.set(id, rec);
+    chargeSync(v, rec);
+    return true;
+  }
   function chargeStore(e, views) {
     const o = e[4], v = views.get(o.id), b = bundleOf(v), ch = bindOf(v)?.charge;
+    if (ch?.byMode) return chargeCounts(e, views, true);
     if (!v || !b || !ch || failed || q() === 'low') return false;
     const n = Math.max(1, Number(o.n) || 1), id = ownerOf(v), size = Number(ch.mergeSize) || 0;
     const { slot, merge } = size > 1 ? mergeableSlot(n, size) : { slot: n - 1, merge: false };
@@ -3527,7 +3566,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return true;
   }
   function chargeSwing(v) {
-    const ch = bindOf(v)?.charge, rec = ch?.release ? charges.get(ownerOf(v)) : null;
+    const ch = bindOf(v)?.charge;
+    if (ch?.byMode) {
+      // each held group of either emitter casts its `_chargeCastGroups` entry (DealWithChargeCastEffectsOnEvent)
+      const rec = charges.get(ownerOf(v)), mode = rec ? ch.byMode[rec.mode] : null;
+      if (!mode || failed || q() === 'low') return;
+      for (const [part, cnt] of [['release', rec.n], ['exRelease', rec.e]]) {
+        for (let i = 0; i < cnt; i++) {
+          const names = extracted(v, mode[part]?.[i]);
+          if (names.length) play(v, 'attackStart', 0, { names });
+        }
+      }
+      return;
+    }
+    const rec = ch?.release ? charges.get(ownerOf(v)) : null;
     if (!rec || failed || q() === 'low') return;
     const mergedTop = Math.floor(rec.n / ch.mergeSize) - 1;
     for (const slot of new Set(rec.held.map((h) => h.slot))) {
@@ -3537,7 +3589,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   function chargeRelease(v) {
     const id = v ? ownerOf(v) : null, rec = id != null ? charges.get(id) : null;
-    if (!rec) return;
+    if (!rec || bindOf(v)?.charge?.byMode) return;   // by mode: the sim's 'mysticHeld' says what stays (chargeSync)
     charges.delete(id);
     for (const h of rec.held) h.p.then((l) => { if (l) l.inst.stop(); });
   }
@@ -7315,6 +7367,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           }
           droneIdle(v);   // 2026-10-16: the drones of the mode now
           defaultModeFx(v);   // 2026-10-21: the Default mode's own effects, off while a skill switched her mode
+          { const rec = bindOf(v)?.charge?.byMode ? charges.get(ownerOf(v)) : null; if (rec) chargeSync(v, rec); }   // 2026-11-16: the new mode's charge ability attaches
           return;
         }
         // a skill ability's hit after its cast (server/sim/skills.js castHit): the damage of this moment is its targets'
@@ -7544,6 +7597,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-10-16: 荒芜拉普兰德's 头狼 stage (stage 3: one more drone — droneIdle)
           if (e[1] === 'talent' && e[4]?.name === 'alpha') { const v = views.get(e[4].id); if (v) { v._fxAlpha = Number(e[4].stage) || 0; droneIdle(v); } }
           if (e[1] === 'mysticStore' && e[4] && chargeStore(e, views)) { ownFx.add(e); return; } // 2026-10-21: a 秘术师's stored energy
+          if (e[1] === 'mysticHeld' && e[4]) { chargeCounts(e, views, false); ownFx.add(e); return; } // 2026-11-16: 黑键's held ones
           if (skillShotFx(e, views)) return; // 2026-10-21: 流星 S2's arrows, 崖心 S2's harpoon (a skill's own projectile)
           if (kitFx(e, views)) return; // local patch: 余 S3 wall, 蕾缪安 S3 lock / shells, 戴菲恩 S3 slashes / finisher
           if ((e[1] === 'substitute' || e[1] === 'swap' || e[1] === 'dollEnd' || e[1] === 'persona') && e[4]) dollFx(e, views); // local patch: the 替身's own effects (2026-11-12: 结城理's persona change)

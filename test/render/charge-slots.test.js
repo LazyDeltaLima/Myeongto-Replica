@@ -66,3 +66,72 @@ test('an emitter that does not merge keeps its one stage per store and casts not
   swing(2);
   assert.deepEqual(got(), []);
 });
+
+// 黑键 (MultiExChargeUberEffectEmitter): each mode's ExChargeAttack ability holds the trait's energies (orange, by n) and the
+// elite ones (red, by e) on two emitters; the mode switch detaches one ability and attaches the next (S3: all red); the sim's
+// 'mysticHeld' says what stays after a release (the elite ones at a normal target), S2's spending and S3's turning.
+const ebn = (kind, i) => `ebnhlz_attack_${kind}${i ? `_${i + 1}` : ''}`;
+const EBN_DEFAULT = {
+  hold: [0, 1, 2, 3].map((i) => [ebn('charge_orange', i)]), release: [0, 1, 2, 3].map((i) => [ebn('start_02_orange', i)]),
+  exHold: [[ebn('charge_red', 4)]], exRelease: [[ebn('start_02_red', 4)]],
+};
+const EBN_S3 = { exHold: [0, 1, 2, 3, 4].map((i) => [ebn('charge_red', i)]), exRelease: [0, 1, 2, 3, 4].map((i) => [ebn('start_02_red', i)]) };
+const EBN = { modes: ['Default', 'S1', 'S3'], skillMode: [1, null, 2], cast: [['ebnhlz_attack_start_01'], ['ebnhlz_attack_start_01'], ['ebnhlz_attack_start_01']], charge: { cast: [], byMode: [EBN_DEFAULT, EBN_DEFAULT, EBN_S3] } };
+
+// (the layer reads index.json / modes.json once for the module: the same FILES as the tests above)
+FILES['/assets/local/fx/index.json'].bundles.ebnhlz = [...new Set(['ebnhlz_attack_start_01', ...EBN.charge.byMode.flatMap((m) => Object.values(m).flat(2))])];
+FILES['/assets/local/fx/modes.json'].char_4046_ebnhlz = EBN;
+
+async function ebnLayer() {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (FILES[url] ? { ok: true, json: async () => FILES[url] } : { ok: false, json: async () => null });
+  const plays = [];
+  const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (q) => plays.push(q), dry: true });
+  await new Promise((r) => setTimeout(r, 20));
+  globalThis.fetch = fetch0;
+  const v = { id: 1, x: 0, y: 0, alive: true, info: { id: 1, side: 'ally', kind: 'op', defId: 'char_4046_ebnhlz', spine: 'char_4046_ebnhlz', skillIndex: 2 } };
+  const views = new Map([[1, v]]);
+  const ev = (kind, o) => layer.onEvent(['fx', kind, 0, 0, { id: 1, ...o }], views);
+  // (the mode's own cast, ebnhlz_attack_start_01, is the swing's: not the charge's)
+  const got = () => plays.splice(0).filter((q) => q.kind === 'spawn' || q.kind === 'attackStart').flatMap((q) => q.names).filter((n) => n !== 'ebnhlz_attack_start_01');
+  return { layer, views, ev, got };
+}
+
+test('chargeStore by mode: 黑键 stores orange by the trait\'s count and red by the elite count', async () => {
+  const { ev, got } = await ebnLayer();
+  ev('mysticStore', { n: 1, e: 0, signal: 'store' });
+  assert.deepEqual(got(), [ebn('charge_orange', 0)]);
+  ev('mysticStore', { n: 2, e: 0, signal: 'store' });
+  ev('mysticStore', { n: 3, e: 0, signal: 'store' });
+  assert.deepEqual(got(), [ebn('charge_orange', 1), ebn('charge_orange', 2)]);
+  ev('mysticStore', { n: 4, e: 1, elite: 1, signal: 'store' });
+  assert.deepEqual(got(), [ebn('charge_red', 4)], 'the elite energy is the ex emitter\'s first group');
+});
+
+test('chargeSwing by mode: every held group of both emitters casts its start_02', async () => {
+  const { layer, views, ev, got } = await ebnLayer();
+  ev('mysticStore', { n: 1, e: 0, signal: 'store' });
+  ev('mysticStore', { n: 2, e: 0, signal: 'store' });
+  ev('mysticStore', { n: 3, e: 1, elite: 1, signal: 'store' });
+  got();
+  layer.onEvent(['swing', 1, 0.5, 'ranged'], views);
+  assert.deepEqual(got().sort(), [ebn('start_02_orange', 0), ebn('start_02_orange', 1), ebn('start_02_red', 4)].sort());
+});
+
+test('S3 attaches its own ability: the held energies come back red; mysticHeld keeps the elite one at a normal target', async () => {
+  const { layer, views, ev, got } = await ebnLayer();
+  ev('mysticStore', { n: 1, e: 0, signal: 'store' });
+  ev('mysticStore', { n: 2, e: 0, signal: 'store' });
+  got();
+  layer.onEvent(['skill', 1, true], views);   // S3 (skillIndex 2) → mode S3
+  ev('mysticHeld', { n: 0, e: 2 });           // the sim turned both elite
+  assert.deepEqual(got().filter((n) => n.includes('charge')), [ebn('charge_red', 0), ebn('charge_red', 1)]);
+  layer.onEvent(['skill', 1, false], views);  // back to Default: one elite kept, one normal
+  ev('mysticHeld', { n: 1, e: 1 });
+  assert.deepEqual(got().filter((n) => n.includes('charge')).sort(), [ebn('charge_orange', 0), ebn('charge_red', 4)].sort());
+  ev('mysticHeld', { n: 0, e: 1 });           // a release at a normal enemy: the orange one leaves, the red stays
+  layer.onEvent(['atk', 1, null, 'ranged'], views);   // (the attack itself ends nothing: the sim's count does)
+  got();
+  layer.onEvent(['swing', 1, 0.5, 'ranged'], views);
+  assert.deepEqual(got(), [ebn('start_02_red', 4)]);
+});

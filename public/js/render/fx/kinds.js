@@ -18,7 +18,7 @@ export const FX_KINDS = Object.freeze({
   frostNova: { a: 'blast', c: 0x9fe6ff, smoke: 0x1c2630 }, sunBurst: { a: 'blast', c: 0xffe28a }, meltdown: { a: 'blast', c: 0xff5a2a, r: 1.5, heavy: true },
   iceSpike: { a: 'blast', c: 0xbfeeff, smoke: 0x1c2630 }, rockfall: { a: 'blast', c: 0xc8a878, smoke: 0x4a3f33 }, rockslide: { a: 'blast', c: 0xc8a878, smoke: 0x4a3f33 },
   finale: { a: 'blast', c: 0xffd45a, r: 1.5 }, swordStorm: { a: 'blast', c: 0xdfe8ff }, swordRain: { a: 'blast', c: 0xdfe8ff }, liberate: { a: 'blast', c: 0xffffff },
-  quadShot: { a: 'volley', c: 0xfff2d0 }, wisdelOverload: { a: 'none', c: 0xff6a4a }, chen3Vanish: { a: 'none', c: 0xff4a4a }, chen3Respawn: { a: 'none', c: 0xff4a4a }, mysticStore: { a: 'none', c: 0x9d7bff }, kalts2Takeoff: { a: 'none', c: 0x9fe6ff }, lemuenAim: { a: 'none', c: 0xffc600 }, swire2Throw: { a: 'none', c: 0xffc600 }, swire2Heal: { a: 'none', c: 0xffc600 }, hunterReload: { a: 'none', c: 0xd8e8ff }, hunterRound: { a: 'none', c: 0xd8e8ff }, rangeMax: { a: 'none', c: 0xffd27a }, featherArrow: { a: 'counter', c: 0xfff2d0 },
+  quadShot: { a: 'volley', c: 0xfff2d0 }, wisdelOverload: { a: 'none', c: 0xff6a4a }, chen3Vanish: { a: 'none', c: 0xff4a4a }, chen3Respawn: { a: 'none', c: 0xff4a4a }, mysticStore: { a: 'none', c: 0x9d7bff }, mysticHeld: { a: 'none', c: 0x9d7bff }, kalts2Takeoff: { a: 'none', c: 0x9fe6ff }, lemuenAim: { a: 'none', c: 0xffc600 }, swire2Throw: { a: 'none', c: 0xffc600 }, swire2Heal: { a: 'none', c: 0xffc600 }, hunterReload: { a: 'none', c: 0xd8e8ff }, hunterRound: { a: 'none', c: 0xd8e8ff }, rangeMax: { a: 'none', c: 0xffd27a }, featherArrow: { a: 'counter', c: 0xfff2d0 },
   burst: { a: 'element', c: 0xd0a0ff },
   // areas
   zone: { a: 'zone', c: 0xffb35c, dur: 3 }, healField: { a: 'zone', c: 0x62f08a, dur: 4 }, firewall: { a: 'wall', c: 0xff6a2a, dur: 4 },
@@ -130,7 +130,7 @@ export const FX_KINDS = Object.freeze({
   mantraArc: { a: 'none', c: 0xc77dff }, mantraGrant: { a: 'none', c: 0xc77dff }, mantraGate: { a: 'none', c: 0xc77dff },
   // (2026-11-10) 테리토리야's 国度 tiles and edge lines: only its official prefabs (render/fx/kitofficial.js 'field')
   field: { a: 'none', c: 0x6b5bd6 },
-  veenBounce: { a: 'counter', c: 0xffd27a }, veenVolley: { a: 'volley', c: 0xffd27a },
+  veenBounce: { a: 'counter', c: 0xffd27a }, veenVolley: { a: 'volley', c: 0xffd27a }, ebnhlzVolley: { a: 'volley', c: 0xffd27a },
   vvanaS3Later: { a: 'none', c: 0xffd27a }, // 薇薇安娜 S3 from her second cast: its sound mode only (shared/skill-modes.js SKILL_SUB_MODES)
   vvanaCharge: { a: 'none', c: 0xffd27a }, // 薇薇安娜 S1 蓄力: its model form only (render/units.js FORMS)
   // 미틈's 체리 3호 and 로베르타's 전자동 스타일러: their model forms only (their effects: kitofficial.js, the machine's buffs)

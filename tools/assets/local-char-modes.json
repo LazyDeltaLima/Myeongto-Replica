@@ -15127,6 +15127,142 @@
    }
   ],
   "start": "ebnhlz_birth_01",
+  "charge": {
+   "cast": [],
+   "byMode": [
+    {
+     "hold": [
+      [
+       "ebnhlz_attack_charge_orange",
+       "ebnhlz_attack_buff_orange"
+      ],
+      [
+       "ebnhlz_attack_charge_orange_2",
+       "ebnhlz_attack_buff_orange_2"
+      ],
+      [
+       "ebnhlz_attack_charge_orange_3",
+       "ebnhlz_attack_buff_orange_3"
+      ],
+      [
+       "ebnhlz_attack_charge_orange_4",
+       "ebnhlz_attack_buff_orange_4"
+      ]
+     ],
+     "release": [
+      [
+       "ebnhlz_attack_start_02_orange"
+      ],
+      [
+       "ebnhlz_attack_start_02_orange_2"
+      ],
+      [
+       "ebnhlz_attack_start_02_orange_3"
+      ],
+      [
+       "ebnhlz_attack_start_02_orange_4"
+      ]
+     ],
+     "exHold": [
+      [
+       "ebnhlz_attack_charge_red_5",
+       "ebnhlz_attack_buff_red_5"
+      ]
+     ],
+     "exRelease": [
+      [
+       "ebnhlz_attack_start_02_red_5"
+      ]
+     ]
+    },
+    {
+     "exHold": [
+      [
+       "ebnhlz_attack_charge_red_5",
+       "ebnhlz_attack_buff_red_5"
+      ]
+     ],
+     "exRelease": [
+      [
+       "ebnhlz_attack_start_02_red_5"
+      ]
+     ],
+     "hold": [
+      [
+       "ebnhlz_attack_charge_orange",
+       "ebnhlz_attack_buff_orange"
+      ],
+      [
+       "ebnhlz_attack_charge_orange_2",
+       "ebnhlz_attack_buff_orange_2"
+      ],
+      [
+       "ebnhlz_attack_charge_orange_3",
+       "ebnhlz_attack_buff_orange_3"
+      ],
+      [
+       "ebnhlz_attack_charge_orange_4",
+       "ebnhlz_attack_buff_orange_4"
+      ]
+     ],
+     "release": [
+      [
+       "ebnhlz_attack_start_02_orange"
+      ],
+      [
+       "ebnhlz_attack_start_02_orange_2"
+      ],
+      [
+       "ebnhlz_attack_start_02_orange_3"
+      ],
+      [
+       "ebnhlz_attack_start_02_orange_4"
+      ]
+     ]
+    },
+    {
+     "exHold": [
+      [
+       "ebnhlz_attack_charge_red",
+       "ebnhlz_attack_buff_red"
+      ],
+      [
+       "ebnhlz_attack_charge_red_2",
+       "ebnhlz_attack_buff_red_2"
+      ],
+      [
+       "ebnhlz_attack_charge_red_3",
+       "ebnhlz_attack_buff_red_3"
+      ],
+      [
+       "ebnhlz_attack_charge_red_4",
+       "ebnhlz_attack_buff_red_4"
+      ],
+      [
+       "ebnhlz_attack_charge_red_5",
+       "ebnhlz_attack_buff_red_5"
+      ]
+     ],
+     "exRelease": [
+      [
+       "ebnhlz_attack_start_02_red"
+      ],
+      [
+       "ebnhlz_attack_start_02_red_2"
+      ],
+      [
+       "ebnhlz_attack_start_02_red_3"
+      ],
+      [
+       "ebnhlz_attack_start_02_red_4"
+      ],
+      [
+       "ebnhlz_attack_start_02_red_5"
+      ]
+     ]
+    }
+   ]
+  },
   "skillMode": [
    1,
    null,
