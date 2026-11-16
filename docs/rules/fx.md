@@ -4429,7 +4429,7 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
 - **그리는 것 없음 셋**:
   - 슈(`char_2025_shu`) 재능 `shu_talent_buff_01`·`_02`의 `FxUVTweenerAdvance.extraMapSettings[].mapST`(0.741·0.494 등): 공식 클라에서 확인 — `FxUVTweenerAdvance.Awake`가 켜진 맵마다
     `mapST`를 재질의 `<mapName>_ST`로 덮어쓴 뒤에 `OnEnable`·`Update`가 쓴다. 직렬화된 값은 편집기에 남은 사본이고, 재질 값에서 시작하는 재생기가 이미 같다. 같은 이유로
-    `mapST`가 0인 맵(적·맵 이펙트 수십 개)도 타일링 0이 되지 않는다. `fx_coverage.py KNOWN`의 `[ASSUMED]`를 `none`으로.
+    `mapST`가 0인 맵(적·맵 이펙트 수십 개)도 타일링 0이 되지 않는다. `fx_coverage.py KNOWN`의 추정 판정을 `none`으로.
   - 아스트젠(`char_135_halo`) S2 선 `halo_skill_02_line`의 `trai4l_ab_dm`(LineRenderer `alignment` 1): 노드와 렌더러가 둘 다 꺼져 있어 추출되지 않는다. 원인 제거: 꺼진 선·꼬리
     렌더러의 값 검사를 보고가 건너뜀(`fx_coverage.py _line_on`).
   - 아스트젠 S2 버프 `halo_skill_02_buff_02`의 `shandian` 클립 값(상수 0): 이름이 `ShapeModule.boxZ` — 옛 Unity의 상자 크기 이름으로, 이 엔진의 ParticleSystem 애니메이션
