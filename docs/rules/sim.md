@@ -2545,6 +2545,9 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두
 **[ASSUMED]** — 원칙은 「1인당 체감을 4인 협동과 같게」(관리자 결정 2026-10-16).
+- **규정**(관리자 요청 2026-11-16): 규정 시즌의 방도 8석을 연다. 수치는 아래와 같은 `eightPlayer`(시즌 설정에 같은 값), 맹약 밴은 그 시즌의 4인 표,
+  규정만의 규칙(전투 중 정비 구역·보스전 층수 획득·연합 방어의 남은 재배치 시간 등)은 4인 판과 같이 자리마다 돈다. 실제 매치 경로 규정 8인 한 판:
+  `test/eight-player.test.js`.
 - **방·매칭** (`server/lobby.js`, `server/matchmaking.js`): 별도 방 크기 — `room.create { mode: 'coop', size: 8 }`, `room.state.size`. 대기실에서 방장이
   `room.setSize { size }`로 4인 ↔ 8인을 바꿀 수 있다(관리자 결정 2026-11-02; 판 시작 전만, 매칭 중이면 `ERR.MATCHING`): 8인으로 바꾸면 AI 좌석은 비우고
   사람은 자리 그대로, 4인으로는 앉은 사람(로컬 디버그의 AI 좌석 포함, 관전석 제외)이 5명 이상이면 거부(`ERR.ROOM_FULL`)하고 4명 이하면 자리 순서대로

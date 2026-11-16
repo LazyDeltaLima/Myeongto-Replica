@@ -1,6 +1,6 @@
 // 规程's 独立模拟 picks a 规程等级 on 选择模拟协议 (screens/lobby.js GRADES / GradeRow, docs/rules/ui.md 「규정 모드」): one row
 // per mode, 极速模拟 first, each read from the season's mode record; the match screens name the grade (DifficultyTag
-// modeId → shared/seasons.js modeGrade); 规程 has no 8-seat alliance yet (limitedSeason).
+// modeId → shared/seasons.js modeGrade).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,17 +21,16 @@ globalThis.fetch = async (url) => {
 };
 
 const { data } = await import('../../public/js/data.js');
-const { GRADES, gradeInfo, gradedRoom, limitedSeason, lobbyGrade } = await import('../../public/js/screens/lobby.js');
+const { GRADES, gradeInfo, gradedRoom, lobbyGrade } = await import('../../public/js/screens/lobby.js');
 const { gradeName, DifficultyTag } = await import('../../public/js/ui/components.js');
 const { modeGrade, DEFAULT_SEASON } = await import('../../shared/seasons.js');
 const { FAST_GRADE, MAX_GRADE } = await import('../../shared/constants.js');
 
 const ACT3 = 'act3autochess';
 
-test('the grades: 极速模拟 first, then 1–20; only a 规程 solo room has them; 规程 has no 自定义 / 8 seats', () => {
+test('the grades: 极速模拟 first, then 1–20; only a 规程 solo room has them', () => {
   assert.deepEqual(GRADES, [FAST_GRADE, ...Array.from({ length: MAX_GRADE }, (_, i) => i + 1)]);
   assert.deepEqual([gradedRoom('solo', ACT3), gradedRoom('coop', ACT3), gradedRoom('match', ACT3), gradedRoom('solo', DEFAULT_SEASON)], [true, false, false, false]);
-  assert.deepEqual([limitedSeason(ACT3), limitedSeason(DEFAULT_SEASON)], [true, false]);
   assert.equal(lobbyGrade(), 1); // nothing remembered
 });
 

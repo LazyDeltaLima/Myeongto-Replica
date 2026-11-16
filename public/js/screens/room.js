@@ -60,7 +60,7 @@ import { ConsoleToggle } from '../ui/consoleToggle.js'; // local patch: 콘솔 �
 import { net } from '../net.js';
 import { useDocClass, useMediaQuery, SHORT_SCREEN_QUERY } from '../ui/device.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating, reservedRank, savePref } from '../store.js';
-import { difficultyInfo, gradeInfo, gradeName, limitedSeason, ProtocolSelect, ProtoRules, CustomBrief } from './lobby.js';
+import { difficultyInfo, gradeInfo, gradeName, ProtocolSelect, ProtoRules, CustomBrief } from './lobby.js';
 import { RoomChat } from '../ui/chat.js';
 import { ExitTile } from '../ui/matchChrome.js';
 import { MatchQueueDialog, mmss, canProposeStart, proposeStart } from '../ui/matchQueue.js';
@@ -681,8 +681,6 @@ export function RoomScreen() {
   // a 规程 solo room plays a 规程等级 (room.state `grade`, docs/rules/ui.md 「규정 모드」): its name and mode record
   const graded = isGrade(room.grade);
   const info = graded ? gradeInfo(room.grade) : difficultyInfo(room.mode, room.difficulty);
-  // a season with no 8-seat alliance yet: the dialog has no 人数 row
-  const limited = limitedSeason(room.season);
 
   /** Runs one request at a time; resolves true once the server took it (false: not sent, or refused — toasted). */
   const run = async (kind, fn) => {
@@ -943,14 +941,14 @@ export function RoomScreen() {
           onClose=${closeProto} onStart=${confirmProto} busy=${busy === 'diff' || busy === 'rules' || busy === 'size' ? 'create' : null} online=${online} action=${t('确认')} hint=${protoHint}
           brief=${html`<${CustomBrief} roomMode=${protoMode} ruleset=${proto.ruleset} customRules=${protoCustom} difficulty=${proto.difficulty} grade=${proto.grade} />`}
           rules=${html`<${ProtoRules} roomMode=${protoMode} ruleset=${proto.ruleset} onRuleset=${(r) => setProto({ ...proto, ruleset: r })}
-            onGear=${editCustom} size=${proto.size} limited=${limited}
+            onGear=${editCustom} size=${proto.size}
             onSize=${sizeOpt ? (n) => setProto({ ...proto, size: n }) : null} sizeLocked=${!!sizeOpt && proto.size > MAX_SEATS && !sizeOpt.shrinkable} />`} />`
       : html`<${ProtocolSelect} roomMode=${protoMode} difficulty=${room.difficulty} onDifficulty=${() => {}} onClose=${closeProto} grade=${graded ? room.grade : null}
           online=${online} readOnly=${true} hint=${matching ? t('匹配中无法更改') : null}
           brief=${html`<${CustomBrief} roomMode=${protoMode} ruleset=${roomRules.preset} difficulty=${room.difficulty} grade=${graded ? room.grade : null}
             customRules=${isCustom ? { ...customRules, draft: roomRules.custom } : customRules} />`}
           rules=${html`<${ProtoRules} roomMode=${protoMode} ruleset=${roomRules.preset} onRuleset=${() => {}} onGear=${customGear} readOnly=${true}
-            size=${seatsOf(room.size)} limited=${limited}
+            size=${seatsOf(room.size)}
             onSize=${sizeOpt ? () => {} : null} />`} />` : null}
     <${MatchQueueDialog} />
     <${CustomRulesDialog} />

@@ -31,7 +31,7 @@
 // (room.create / room.queue `size`, remembered in `lobby.size`).
 //
 // 规程 (docs/rules/ui.md 「규정 모드」): 独立模拟 picks 极速模拟 or a 规程等级 1–20 from one row each instead of the cards
-// (GRADES, GradeRow; room.create `grade`), and 人数 has no 8 seats there yet (limitedSeason).
+// (GRADES, GradeRow; room.create `grade`); 人数 picks 4 or 8 seats as in every season.
 //
 // Difficulty descriptions come from data/config.json `modes[modeId]` when present, else from the
 // official act2autochess `modeDataDict` texts embedded below (desc + effectDescList), so the
@@ -185,14 +185,12 @@ export function difficultyInfo(roomMode, difficulty) {
 /**
  * 规程等级 (docs/rules/ui.md 「규정 모드」; maintainer decisions 2026-11-08, 2026-11-12): a season with `soloGrades` offers
  * 独立模拟 at 极速模拟 (FAST_GRADE) or 规程等级 1–20 instead of the four difficulties, every one open, picked from one row
- * each (GradeRow) on 选择模拟协议. A season with `noLargeRoom` has no 8-seat alliance yet: its 人数 row is left out (the
- * server refuses 8 seats, server/lobby.js); its 规则 row has 自定义 (maintainer request 2026-11-15).
+ * each (GradeRow) on 选择模拟协议. Its 人数 row picks 4 or 8 seats (maintainer request 2026-11-16) and its 规则 row has
+ * 自定义 (maintainer request 2026-11-15), as in every season.
  */
 export const GRADES = Object.freeze([FAST_GRADE, ...Array.from({ length: MAX_GRADE }, (_, i) => i + 1)]);
 /** Whether a room of this mode and season picks a 规程等级. @param {string} roomMode @param {unknown} season */
 export const gradedRoom = (roomMode, season) => roomMode === 'solo' && seasonFeature(season, 'soloGrades');
-/** Whether the season has no 8-seat alliance yet. @param {unknown} season */
-export const limitedSeason = (season) => seasonFeature(season, 'noLargeRoom');
 /** The lobby's remembered 规程等级 (1 the first time). */
 export const lobbyGrade = () => { const g = loadPref('lobby.grade', 1); return isGrade(g) ? g : 1; };
 export { gradeName };
@@ -719,14 +717,12 @@ function RowKey({ text }) {
  * than four seats are taken. No 赛季 row (maintainer decision 2026-11-13): a new room plays the season picked on the
  * lobby's chip, the one place a season is picked. A picked 自定义's summary is CustomBrief, in the brief at the left.
  */
-export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize, quick = false, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false, limited = false }) {
-  // `limited`: a season with no 8-seat alliance yet (limitedSeason) — no 人数 row
+export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize, quick = false, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false }) {
   const matching = roomMode === 'match';
-  const matchSize = matching && !limited;
-  const roomSize = roomMode === 'coop' && !!onSize && !limited;
-  const big = matchSize && size === LARGE_SEATS;
+  const roomSize = roomMode === 'coop' && !!onSize;
+  const big = matching && size === LARGE_SEATS;
   const counts = big ? counts8 : counts4;
-  return html`<div class=${`proto-rules${matchSize || roomSize ? ' is-grid' : ''}`} data-testid="proto-rules">
+  return html`<div class=${`proto-rules${matching || roomSize ? ' is-grid' : ''}`} data-testid="proto-rules">
     <span class="proto-rules__row">
       <${RowKey} text=${t('规则')} />
       <span class="proto-rules__cell">
@@ -735,7 +731,7 @@ export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize,
           counts=${roomMode === 'match' ? Object.fromEntries(QUEUE_PRESETS.map((p) => [p, queueCountOf(counts, p)])) : null} />
       </span>
     </span>
-    ${matchSize ? html`<span class="proto-rules__row">
+    ${matching ? html`<span class="proto-rules__row">
       <${RowKey} text=${t('人数')} />
       <span class="proto-rules__cell">
         <${SizeSwitch} value=${size} onPick=${onSize} disabled=${quick} class="proto-rules__seg rtrack"
@@ -970,10 +966,9 @@ export function LobbyScreen() {
   // the dialog's mode: 'solo' (选择模拟协议 of 独立模拟), 'match' (of 同盟匹配), 'coop' (同盟模拟's screen)
   const roomMode = open === 'solo' ? 'solo' : open === 'match' ? 'match' : 'coop';
   const matching = roomMode === 'match';
-  // 规程 (header of GRADES): a solo room picks a 规程等级; no 8-seat alliance — the remembered size stands aside
+  // 规程 (header of GRADES): a solo room picks a 规程等级
   const graded = gradedRoom(roomMode, season);
-  const limited = limitedSeason(season);
-  const big = roomMode !== 'solo' && !limited && size === LARGE_SEATS;
+  const big = roomMode !== 'solo' && size === LARGE_SEATS;
   const roomRuleset = ruleset;
 
   const pickGrade = (g) => { setGrade(g); savePref('lobby.grade', g); };
@@ -1086,8 +1081,7 @@ export function LobbyScreen() {
       range=${matching ? html`<${QuickRange} quick=${quick} onQuick=${pickQuick} />` : null}
       brief=${html`<${CustomBrief} roomMode=${roomMode} ruleset=${shownRuleset} customRules=${customRules} difficulty=${difficulty} grade=${graded ? grade : null} />`}
       rules=${html`<${ProtoRules} roomMode=${roomMode} ruleset=${shownRuleset} onRuleset=${pickRuleset} onGear=${editCustom}
-        size=${big ? LARGE_SEATS : MAX_SEATS} onSize=${roomMode === 'solo' ? null : pickSize} quick=${matching && quick} counts4=${queueCounts4} counts8=${queueCounts8}
-        limited=${limited} />`} />` : null}
+        size=${big ? LARGE_SEATS : MAX_SEATS} onSize=${roomMode === 'solo' ? null : pickSize} quick=${matching && quick} counts4=${queueCounts4} counts8=${queueCounts8} />`} />` : null}
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${achOpen ? html`<${AchievementDialog} onClose=${closeAch} />` : null}
     <${PatchNotesModal} open=${notesFresh !== null} onClose=${() => setNotesFresh(null)} entries=${notes} fresh=${!!notesFresh} />

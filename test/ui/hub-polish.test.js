@@ -59,7 +59,7 @@ test('同盟模拟 opens 选择模拟协议 (规则, 人数, cards, 创建同盟
   assert.match(ally, /ally-card--join/);
   assert.doesNotMatch(ally, /ally-create__go|SizeSwitch|SeasonPick|onCreate/);
   assert.match(src, /\$\{open === 'solo' \|\| open === 'match' \|\| open === 'coop' \? html`<\$\{ProtocolSelect\} roomMode=\$\{roomMode\}/);
-  assert.match(src, /onSize=\$\{roomMode === 'solo' \? null : pickSize\}[^>]*\n\s*limited=\$\{limited\} \/>/);
+  assert.match(src, /onSize=\$\{roomMode === 'solo' \? null : pickSize\}[^>]* \/>/);
   // room.create carries what the dialog picked
   assert.match(src, /\{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\) \}/);
   // no 赛季 row (maintainer decision 2026-11-13): the lobby's chip is the one place a season is picked

@@ -28,15 +28,14 @@ test('lobby: room.create / room.queue carry size 8 only for an 8-seat alliance (
   assert.deepEqual(sizeFields('coop', 4), {});
   const src = read('public/js/screens/lobby.js');
   assert.match(src, /\.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\)/);
-  assert.match(src, /const big = roomMode !== 'solo' && !limited && size === LARGE_SEATS;/); // 规程: no 8 seats yet
+  assert.match(src, /const big = roomMode !== 'solo' && size === LARGE_SEATS;/); // every season, 规程 too (2026-11-16)
   assert.match(src, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS, season\)/);
   assert.match(src, /savePref\('lobby\.size', n\)/);
   // 人数 (maintainer decisions 2026-11-07): a row of 选择模拟协议's rules in 同盟匹配 only, and in 创建同盟's bar on 选择同盟方式;
   // 独立模拟 has none
   const rules = src.slice(src.indexOf('export function ProtoRules('), src.indexOf('export function ProtocolSelect('));
-  // (matchSize = 同盟匹配 of a season with 8 seats: 规程's has no 人数 row, its 自定义 stays locked by `matching`)
-  assert.match(rules, /const matchSize = matching && !limited;/);
-  assert.match(rules, /\$\{matchSize \? html`<span class="proto-rules__row">\s*<\$\{RowKey\} text=\$\{t\('人数'\)\} \/>/);
+  // (同盟匹配 of every season, 规程's too; its 自定义 stays locked by `matching`)
+  assert.match(rules, /\$\{matching \? html`<span class="proto-rules__row">\s*<\$\{RowKey\} text=\$\{t\('人数'\)\} \/>/);
   assert.match(rules, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{quick\}/);
   // 创建同盟 is 选择模拟协议 (roomMode 'coop'): its 人数 is the rules' room row, fed by the lobby's pick
   assert.match(rules, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{readOnly \|\| sizeLocked\}/);

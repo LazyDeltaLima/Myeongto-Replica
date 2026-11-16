@@ -1,5 +1,5 @@
 // test/match/custom-enemy-types.test.js — the custom 规则's 特训敌人 types (shared/ruleset.js `types`, customEnemyTypes;
-// maintainer request 2026-11-15) and the custom ruleset in 规程 (shared/seasons.js noLargeRoom: custom open, 8 seats not),
+// maintainer request 2026-11-15) and the custom ruleset in 规程,
 // on the real match path (harness → Match → setupMatchWaves → buildBattleSpec → createBattleFromSpec): without the
 // settings the draws are a classic match's; a forced type is always drawn, a banned one never, the count sets how many
 // (the rest of the 15 round slots go to 特训敌人·特异); the bond ban counts keep the season's range (customBanLimits).

@@ -13,6 +13,7 @@ import { TestClient } from './helpers/wsClient.js';
 import { ERR, LARGE_MIN_PLAYERS, LARGE_SEATS, MAX_SEATS, DIFFICULTIES } from '../shared/constants.js';
 import { validateC2S, RESULT_LIMITS } from '../shared/protocol.js';
 import { DATA, makeMatch } from './match/harness.js';
+import { getData } from '../server/data.js';
 import { GEO } from '../shared/constants.js';
 import { widenRow, widenStage, widenRoute, wideCols, wideOffsets, wideRect } from '../server/sim/wideStage.js';
 import { normalizeStage, DataSource } from '../server/sim/simdata.js';
@@ -109,6 +110,19 @@ describe('8-player match (real match path)', () => {
     assert.ok(m.gd.large);
     const id = m.gd.visibleChess[0];
     assert.equal(m.pool.cap(id), m.gd.poolCopies(id));
+    h.runToEnd();
+    assert.equal(h.lastBc('m.public').size, LARGE_SEATS);
+    assert.deepEqual(h.logs.error, []);
+  });
+
+  test('规程 too: eight AI seats play a whole match on the season\'s data, its 8-player numbers in place', () => {
+    // 规程's 8-seat rooms (maintainer request 2026-11-16): the same config.eightPlayer, built into the season's config
+    const DATA3 = getData({ log: { warn() {}, error() {}, info() {} }, season: 'act3autochess' });
+    const seats = Array.from({ length: 8 }, (_, i) => ({ seat: i, playerId: `ai_${i}`, name: `AI${i}`, isBot: true, connected: true }));
+    const h = makeMatch({ seats, size: LARGE_SEATS, difficulty: 'NORMAL', modeId: 'mode_multi_normal', seed: 7, data: DATA3, season: 'act3autochess' }).start();
+    const m = h.m;
+    assert.ok(m.gd.large);
+    assert.deepEqual([m.gd.hiddenCore.multi, m.gd.unite.maxHelpers, m.gd.spDraftCards(6)], [2400, 4, 12]);
     h.runToEnd();
     assert.equal(h.lastBc('m.public').size, LARGE_SEATS);
     assert.deepEqual(h.logs.error, []);
