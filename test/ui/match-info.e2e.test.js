@@ -216,9 +216,18 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     assert.equal(status, '내 차례입니다', 'solo: untimed — no seconds');
     const box = await page.$eval('.minfo-dlg', (el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; });
     assert.ok(box.top >= 0 && box.bottom <= 1080 && box.left >= 0 && box.right <= 1920, `inside the screen ${JSON.stringify(box)}`);
-    // the banned operators are grouped by bond as the client's stage-info view (a scroll view there too): the body scrolls
-    const scrolls = await page.$eval('.minfo-dlg .modal__body', (el) => getComputedStyle(el).overflowY === 'auto' && el.scrollHeight > el.clientHeight);
-    assert.ok(scrolls, 'desktop: the body scrolls to the banned groups');
+    // the banned operators are grouped by bond as the client's stage-info view (a scroll view there too): the body is a
+    // scroll view and its end — the last banned group — can be brought into view. Whether it overflows depends on the draw:
+    // 标准模拟 leaves the mode's 10 switched-off bonds out, so a solo draw of one bond (one group) fits 1080 px unscrolled.
+    const reach = await page.$eval('.minfo-dlg .modal__body', (el) => {
+      el.scrollTop = el.scrollHeight;
+      const body = el.getBoundingClientRect();
+      const g = el.querySelector('.brief-bgroup:last-child').getBoundingClientRect();
+      const out = { overflow: getComputedStyle(el).overflowY, sh: el.scrollHeight, ch: el.clientHeight, seen: g.top >= body.top - 1 && g.bottom <= body.bottom + 1 };
+      el.scrollTop = 0;
+      return out;
+    });
+    assert.ok(reach.overflow === 'auto' && reach.seen, `desktop: the body scrolls to the banned groups ${JSON.stringify(reach)}`);
     await shot(page, 'solo-dialog');
 
     // Esc
