@@ -63,6 +63,7 @@ SCRIPTS = {
     -7734721471322670107: 'FlyToPredefinedLocation',  # fly_location (`fly`)
     -5498265793651067281: 'OnPlayEmitter',            # on_emitters (node `onPlay`)
     2565987927806955259: 'OnFinishEmitter',           # on_emitters (node `onFinish`)
+    -7374104420286372940: 'OnPlayEmitterIf',         # on_emitters (node `onPlayIf`, 2026-11-16)
     # not read (KNOWN)
     -337322108846137150: 'FollowDirection', 1149374055237060560: 'FxLODSetting', -488665936260092151: 'EmptyEffect',
     -5974768320951421776: 'PauseEffectIf',
@@ -100,7 +101,7 @@ SCRIPTS = {
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
                 'FxUVRotation', 'SwitchableBackEffect', 'SwitchableRightEffect', 'LineEffectEmitterDynamic', 'RandomEmitter',
                 'LineEffectEmitter',   # (2026-10-23) line_emitter (`lineEm`: its start / mid / end effects; its maker sets the ends)
-                'FlyToPredefinedLocation', 'OnPlayEmitter', 'OnFinishEmitter', 'EmptyEffect', 'PauseEffectIf', 'PauseAnotherEffect',
+                'FlyToPredefinedLocation', 'OnPlayEmitter', 'OnPlayEmitterIf', 'OnFinishEmitter', 'EmptyEffect', 'PauseEffectIf', 'PauseAnotherEffect',
                 'PauseEffectIfNotIdle', 'PauseEffectWithAnimation', 'PauseEffectIfSpineEvent', 'FinishEffectIf', 'FunnelHitEffect',
                 'FollowDirection', 'SwitchableEffectByFaceDirection', 'SwitchableThreeFaceEffect', 'RandomDirection',
                 'FollowTileHeight',
@@ -604,6 +605,13 @@ COMP_FIELDS = {
         'm_Enabled': _A(1, _OFF), '_effects': _K('nodes[].onPlay.effects'), '_preDelay': _K('nodes[].onPlay.pre'),
         '_instant': _K('nodes[].onPlay.pre'), '_useFaceVector': _K('nodes[].onPlay.face'), '_clearWhenFinish': _K('nodes[].onPlay.clear'),
         '_useSourceEffectPos': _K('nodes[].onPlay.srcPos'), '_keepPauseSync': _K('nodes[].onPlay.keepPause')},
+    'script:OnPlayEmitterIf': {
+        'm_Enabled': _A(1, _OFF), '_effects': _K('nodes[].onPlayIf[].effects'), '_preDelay': _K('nodes[].onPlayIf[].pre'),
+        '_instant': _K('nodes[].onPlayIf[].pre'), '_useFaceVector': _K('nodes[].onPlayIf[].face'), '_clearWhenFinish': _K('nodes[].onPlayIf[].clear'),
+        '_useSourceEffectPos': _K('nodes[].onPlayIf[].srcPos'), '_keepPauseSync': _K('nodes[].onPlayIf[].keepPause'),
+        '_checkType': _K('nodes[].onPlayIf[].if'), '_motionMode': _K('nodes[].onPlayIf[].if.motion'),
+        '_buffKey': _N('only with check OWNER_CONTAINS_BUFF, which stops the extract (on_emitters)'),
+        '_playWhenFaceToBack': _N('only with check OWNER_SPINE_FACE_TO_MATCH, which stops the extract (on_emitters)')},
     'script:OnFinishEmitter': {
         'm_Enabled': _A(1, _OFF), '_effects': _K('nodes[].onFinish.effects'), '_useFaceVector': _K('nodes[].onFinish.face'),
         '_useEffectPosition': _K('nodes[].onFinish.effPos')},
@@ -723,7 +731,7 @@ COMP_READERS = {
     'script:SwitchableBackEffect': ('switch_back',), 'script:SwitchableRightEffect': ('right_tree', 'right_flags'),
     'script:LineEffectEmitterDynamic': ('line_dynamic',), 'script:LineEffectEmitter': ('line_emitter',),
     'script:RandomEmitter': ('random_emitter',), 'script:FlyToPredefinedLocation': ('fly_location',),
-    'script:OnPlayEmitter': ('on_emitters',), 'script:OnFinishEmitter': ('on_emitters',),
+    'script:OnPlayEmitter': ('on_emitters',), 'script:OnPlayEmitterIf': ('on_emitters',), 'script:OnFinishEmitter': ('on_emitters',),
     **{f'script:{c}': ('pause_scripts', 'pause_if') for c in (
         'PauseEffectIf', 'PauseAnotherEffect', 'PauseEffectWithAnimation', 'PauseEffectIfNotIdle', 'PauseEffectIfSpineEvent',
         'FinishEffectIf', 'PauseEffectIfNotMove', 'PauseEffectIfCharMenuNotOpen')},

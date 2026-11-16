@@ -80,12 +80,12 @@ const ALIAS = Object.freeze({ artsFragile: 'fragile', physFragile: 'fragile', el
 /**
  * 2026-10-31: 冻结 is a BuffDB buff (gamedata buff_table, loadFromDB) whose row names its effect. On an operator (an enemy's
  * cold pair, e2c_freeze) buff_frozen at the feet — STATUS_FX.freeze. On an enemy (the operators' cold pair, c2e_freeze)
- * buff_frozen_to_enemy, an empty root whose two OnPlayEmitters check the holder's motion mode as it plays: WALK
- * buff_frozen_to_walk (feet), FLY buff_frozen_to_fly (body). Until then every 冻结 drew buff_autochess_frozen by its name,
- * which no buff of the client tables names.
+ * buff_frozen_to_enemy, an empty root whose two OnPlayEmitterIfs check the holder's motion mode as it plays: WALK
+ * buff_frozen_to_walk (feet), FLY buff_frozen_to_fly (body) — since 2026-11-16 the extract reads them (node `onPlayIf`) and
+ * fxgame.js stepOnEmit picks, each child at its own `_spawnLocation`. Until 2026-10-31 every 冻结 drew buff_autochess_frozen by
+ * its name, which no buff of the client tables names.
  */
-const FROZEN_FX = Object.freeze({ walk: Object.freeze(['buff', 'buff_frozen_to_walk', 0]), fly: Object.freeze(['buff', 'buff_frozen_to_fly', 0.5]) });
-const frozenFx = (v) => (v.isEnemy ? FROZEN_FX[v.flying ? 'fly' : 'walk'] : STATUS_FX.freeze);
+const frozenFx = (v) => (v.isEnemy ? FROZEN_ENEMY : STATUS_FX.freeze);
 
 // ---- buff effects (docs/rules/ui.md ⑤ 「버프 이펙트」; EN buff templates, charpacks, [uc]skills.ab, 2026-10-14) ----------
 // A spec is [bundle, prefab, height share] as STATUS_FX (spawn 1 feet / 5 ground → 0, 2 body → 0.5, 4 head → HEAD), or
@@ -95,6 +95,8 @@ const frozenFx = (v) => (v.isEnemy ? FROZEN_FX[v.flying ? 'fly' : 'walk'] : STAT
 
 /** A spec height: where the prefab's own `_spawnLocation` puts it (fxgame.js playStatus → lifted). */
 export const OWN = 'own';
+// (冻结 on an enemy: frozenFx above)
+const FROZEN_ENEMY = Object.freeze(['buff', 'buff_frozen_to_enemy', OWN]);
 
 /**
  * A catalogue status whose official buff depends on who applies it: status key → the applier's fx code (render/fxmap.js
@@ -179,6 +181,10 @@ export const KEY_FX = Object.freeze({
   // (2026-11-03) 薇薇安娜 T2 散华: her melee-only 护盾 layer vvana_t_2[block_melee] (vvana_buff_01 while she holds one) — the
   // sim's layer buff (its elite-enemy filter and dice held)
   'talent:vvana:shield': keyedAll('vvana_t_2[block_melee]', 'vvana', OWN),
+  // (2026-11-16) 遥 T1 浮光泡影: the bubble haruka_t_1 (the talent ability's `_activeBuffs`, INFINITY: haruka_talent_01_buff) on the
+  // ally while it holds one — the sim's 'haruka:bubble', ended by haruka_t_1_delay's FinishBuffsById as it breaks (its prefab's
+  // OnFinishEmitter then plays haruka_talent_01_buff_hit)
+  'haruka:bubble': keyed('haruka_t_1', 'haruka', OWN),
   // (2026-11-15) 能天使 T2 天使的祝福 on the ally it picks (her own copy: fxmap.js TALENT_ALWAYS) — angel_t_2's angle_buff_00_start
   'talent:angel_bless_ally': keyed('angel_t_2', 'angel', OWN),
   // (2026-11-15) 缇缇 T2 勇气的报偿: 精力充沛 on a 萨尔贡 / 米诺斯 ally above the HP ratio — titi_t_2[peak_performance] (template

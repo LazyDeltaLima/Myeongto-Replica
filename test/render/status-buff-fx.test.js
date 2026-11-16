@@ -243,13 +243,15 @@ describe('client: status → the official buff effect', () => {
     for (const s of F.wantedStatusFx(sand('bind', SAND_BIND_FX), undefined, null, PLAYS).values()) assert.equal(s[2], F.OWN, 'its own spawn point (1: feet)');
   });
 
-  test('冻结 (2026-10-31) by its client buff: an operator buff_frozen, an enemy buff_frozen_to_enemy\'s walk / fly effect', () => {
+  test('冻结 (2026-10-31) by its client buff: an operator buff_frozen, an enemy buff_frozen_to_enemy (its OnPlayEmitterIfs pick walk / fly)', () => {
     const frozen = (isEnemy, flying = false) => ({ info: {}, isEnemy, flying, alive: true, flags: UF.FROZEN, statuses: new Set(['freeze']) });
     assert.deepEqual(names(frozen(false)), ['buff_frozen'], 'e2c_freeze');
-    assert.deepEqual(names(frozen(true)), ['buff_frozen_to_walk'], 'c2e_freeze, motion WALK');
-    assert.deepEqual(names(frozen(true, true)), ['buff_frozen_to_fly'], 'c2e_freeze, motion FLY');
+    // (2026-11-16) the root itself: its `onPlayIf` children by the motion mode are fxgame.js stepOnEmit's (on-emitter-fx.test.js)
+    assert.deepEqual(names(frozen(true)), ['buff_frozen_to_enemy'], 'c2e_freeze, motion WALK');
+    assert.deepEqual(names(frozen(true, true)), ['buff_frozen_to_enemy'], 'c2e_freeze, motion FLY');
+    for (const s of F.wantedStatusFx(frozen(true), undefined, null, PLAYS).values()) assert.equal(s[2], F.OWN, 'its children\'s own spawn points');
     const early = { ...frozen(true), flags: 0 };   // the status event before the snapshot's flag
-    assert.deepEqual(names(early), ['buff_frozen_to_walk']);
+    assert.deepEqual(names(early), ['buff_frozen_to_enemy']);
   });
 
   test('麻痹 (2026-10-31): palsy[stack]\'s common_061_numb_01, _02 at 2 stacks, _03 from 3 — one at a time', async () => {

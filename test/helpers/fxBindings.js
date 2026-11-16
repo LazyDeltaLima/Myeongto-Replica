@@ -50,6 +50,8 @@ export const HIT_KEYS = Object.freeze(['bubble_t_1[atk_down]', 'skadi2_s_1[prote
   'makoto_s2_fear_damage', 'makoto_s2_fear_aura_inst_kill', 'makoto_s3_1_standin[phys]', 'makoto_s3_1_standin[arts]',
   // 冻河 (2026-11-01)
   'tocka_t1[heal_core]',
+  // 棘刺 (2026-11-16)
+  'thorns_t_1',
   // 真言 (2026-11-03)
   'mantra_t_1',
   // 矩, 风絮 (2026-11-06)

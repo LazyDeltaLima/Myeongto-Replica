@@ -294,6 +294,11 @@ export const KIT_OFFICIAL = {
     malist: cite('malist_t_1', (o) => (o.k === 'malist_t_1' ? { play: [once('malist_hit_extra', 'id')] } : null)),
     // 真言 T1 噤声限域: mantra_t_1 ON_TRIGGER_PALSY — the talent's 元素伤害 and mantra_bounce_hit_01 on the enemy whose attack 麻痹 cut
     mantra: cite('mantra_t_1', (o) => (o.k === 'mantra_t_1' ? { play: [once('mantra_bounce_hit_01', 'id')] } : null)),
+    // (2026-11-16) 棘刺 T1 神经腐蚀: each poisoning hit (thorns_t_1, his Talents/1 `_additiveActiveBuffs`: overrideEffectKey
+    // thorns_buff_01_start; LIMITED without a durationKey — Buff.FetchDuration reads the blackboard `duration`) holds the poison's look
+    // on the enemy for that long from the latest hit (the sim's `life`), one slot per enemy of his (independentCharacterSource)
+    thorns: cite('thorns_t_1', (o) => (o.k === 'thorns_t_1'
+      ? { play: [{ n: 'thorns_buff_01_start', on: 'id', life: Number(o.life) > 0 ? Number(o.life) : 3, slot: `poison:${o.id}` }] } : null)),
     // 深靛 S2: indigo_s_2[aura] holds indigo_s_2[damage] (indigo_skill_02_buff_03) on each bound enemy of her range — renewed by
     // each damage tick for `life` s, one slot per enemy
     indigo: cite('indigo_s_2[damage]', (o) => (o.k === 'indigo_s_2[damage]'

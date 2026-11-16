@@ -1420,6 +1420,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // (an effect on a point) both play at the effect's place. They come from the bundle of the prefab that emits them, played
   // with the owner's facing (the overload without a direction asks the target for one too [추정: its faceVector]).
   const onEmitNow = (l, em) => (em.play.pre > 0 ? l.inst.time - (em.o.userData.t0 || 0) >= Number(em.play.pre) * (l.speed > 0 ? l.speed : 1) : true);
+  /**
+   * Whether OnPlayEmitterIf's checks `cond` (`onPlayIf[].if`) hold for the unit live effect `l` sits on: `motion` its
+   * changeableMotionMode (WALK 0, FLY 1 — the view's `flying`). No unit: the client's owner pointer is not valid — nothing plays.
+   */
+  function onEmitIf(l, cond) {
+    if (!cond) return true;
+    const unit = l.view?.info && l.view.id != null ? lastViews?.get(l.view.id) || null : null;
+    if (!unit) return false;
+    return cond.motion == null || (unit.flying ? 1 : 0) === cond.motion;
+  }
   function onEmitPlay(l, rec, here) {
     const bundle = l.inst.def?.bundle;
     const unit = l.view?.info && l.view.id != null ? lastViews?.get(l.view.id) || null : null;
@@ -1438,7 +1448,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const inst = l.inst, ending = inst.stopping || inst.done;
     for (const em of inst.onEmit) {
       if (em.play && !em.kids && !ending && inst.wait <= 0 && onEmitNow(l, em)) {
-        em.kids = onEmitPlay(l, em.play, em.play.srcPos);
+        // (2026-11-16, official client OnPlayEmitterIf.OnPlay) a conditional one checks its owner once, as it plays: none on a fail
+        em.kids = onEmitIf(l, em.play.if) ? onEmitPlay(l, em.play, em.play.srcPos) : [];
       }
       // 2026-10-27 (official client `OnPlayEmitter.OnPaused`, effect bundle W2d): `_keepPauseSync` (`keepPause`) pauses and
       // unpauses the effects it made with this one (their shared flag)
@@ -1471,7 +1482,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     p.then((def) => {
       const has = (n) => typeof n === 'string' && !!index?.bundles?.[bundle]?.includes(n);
       for (const node of def?.nodes || []) {
-        for (const n of [...(node.onPlay?.effects || []), ...(node.onFinish?.effects || [])]) {
+        // (2026-11-16) an OnPlayEmitterIf's by the unit it sits on, when that view is known (both without one)
+        const v = on != null ? lastViews?.get(on) : null;
+        const ifs = (node.onPlayIf || []).filter((r) => r?.if?.motion == null || !v || (v.flying ? 1 : 0) === r.if.motion);
+        for (const n of [...(node.onPlay?.effects || []), ...ifs.flatMap((r) => r.effects || []), ...(node.onFinish?.effects || [])]) {
           if (!has(n)) continue;
           trace({ kind: 'spawn', names: [n], by, on, tag: 'emit', facing: 1 });
           dryFollow(bundle, n, by, on, seen);

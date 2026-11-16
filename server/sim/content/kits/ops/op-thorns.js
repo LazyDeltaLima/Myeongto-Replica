@@ -137,6 +137,9 @@ export default {
         },
       });
       if (old && b === old && maxCnt > 1) old.data.cnt = Math.min(maxCnt, num(old.data.cnt, 1) + 1);
+      // the poison's look: thorns_t_1's overrideEffectKey thorns_buff_01_start on the enemy for the buff's life (its
+      // blackboard `duration`: no durationKey) — render: the 'dmg' 9th field
+      battle.hitFx(e, 'thorns_t_1', unit, dur);
     };
 
     return {

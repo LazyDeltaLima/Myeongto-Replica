@@ -2605,7 +2605,7 @@
   뺌, 머드락 S3 `buff_02`(KIT_OWNED)는 이제 `mudrok_skill_03_buff`가 튼다. [추정: 방향 없는 오버로드도 주인 방향; 주인이 없는 이펙트는 이펙트
   자리 — 클라의 「부모 transform」]
 - 안 한 것: (글래디아 S3 대상 버프 `glady_skill_03_buff`는 같은 날 「키트 이벤트의 공식 이펙트」에서 넣음.)
-  `OnPlayEmitterIf`(`_checkType` MOTION_MODE·버프·Spine 방향 조건)·`RandomFinishEmitter`는 지금 추출물에 없다.
+  `RandomFinishEmitter`는 지금 추출물에 없다. `OnPlayEmitterIf`는 2026-11-16 아래 「안 트던 공식 이펙트 — 하루카 거품·쏜즈 중독·지마 더 레이징 타이드 재능 2·동결 OnPlayEmitterIf」.
 - 확인: `test/render/on-emitter-fx.test.js`(추출물·`emitted`·`stepOnEmit` 시점·지우기·이름 규칙 제외), 이벤트 골든(child·뒷면 사본이 이름 규칙
   줄에서 빠짐 — 불러온 뒤 트는 child 자체는 그날 뒤 `dryFollow`부터 `spawn:emit` 줄로 보임: 아래 「이벤트 기록 골든」), 추출 JSON 골든 갱신. Windows Chrome 디버그 아레나: 수르트 S3 buff → `_02`·`_03`·`_04`,
   파투스 S3 `buff_02` → `_XZ`(`_B`·`_B_XZ` 없음), 글래디아 S2 `buff` → `_02_front`·`_02_back`·`_03`, 스펙터 S2 `buff_02`, 비르투오사 S3·엔텔레키아 S3의
@@ -4486,6 +4486,17 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
 - **남은 것(테리토리야, CN 셰이더)**: `Torappu/Particles/AlphaBlend(ZWrite)`의 새 림 `_UseRim` 1·`_RimCol`·`_RimPower` 2.5(`dminon_Fresnel_02`, 평타 범위와
   S2 범위 10개에 실림), `Ram/Disturb(CustomData)`의 `_MainTexChannel` 4(`dminon_bg_ci_01_2`·`dminon_trail_01`)·`_RamTexChannel` 1(`dminon_trail_01`, `_RamTex` 없음)
   — 값의 뜻은 CN 셰이더 패스를 읽어야 한다 [추정·미조사: 관리자 메모의 이펙트 묶음 남은 줄].
+
+## 안 트던 공식 이펙트 — 하루카 거품·쏜즈 중독·지마 더 레이징 타이드 재능 2·동결 OnPlayEmitterIf (2026-11-16, 공식 클라에서 확인)
+
+공식 표에 있는데 아무도 안 틀던 줄(`test/render/fx-unplayed-local-list.js`)의 남은 몫 중 다섯 오퍼레이터 몫.
+
+- **하루카 재능 1 거품**: 재능 능력의 `_activeBuffs` `haruka_t_1`(수명 무한, 이펙트 `haruka_talent_01_buff`)이 거품을 받은 아군에 든다. 깨질 때 `haruka_t_1_delay`의 `ON_BUFF_TRIGGER` `FinishBuffsById`가 그것을 끝내고, 그 프리팹의 OnFinishEmitter가 `haruka_talent_01_buff_hit`을 튼다. 시뮬 버프 `haruka:bubble`(보임)을 `fxstatus.js KEY_FX`가 그린다. 키트 사건 `shield`(`kind: 'bubble'`)에 `src` 하루카를 실어, 대체 방패 그림은 아군이 소환물이어도 안 그린다.
+- **쏜즈 재능 1 중독**: 재능 능력의 `_additiveActiveBuffs` `thorns_t_1`(`overrideEffectKey` `thorns_buff_01_start`, LIMITED·`durationKey` 없음 — `Buff.FetchDuration`이 블랙보드 `duration`을 읽음)이 맞은 적에 든다. 키트가 중독을 걸 때마다 효과 순간 `thorns_t_1`(수명 = 중독 길이)을 그 타격에 싣고(`battle.hitFx`), `kitofficial.js hit.thorns`가 적마다 슬롯 하나로 마지막 타격부터 그만큼 든다(쏜즈마다 따로 — `independentCharacterSource`). 그가 떠나면 슬롯도 끝난다(시뮬 중독은 계속) [추정·엔진: 다른 슬롯 이펙트와 같은 처리].
+- **지마 더 레이징 타이드 재능 2**: `Talents/2`의 토글(`CheckContainsBuff` `headb2_t_2[student]` — `headb2_skill_judge`가 `ON_SKILL_START`에 주고 `ON_SKILL_FINISH`에 끝냄)이 오라를 붙이고, 오라의 `_passiveBuffs` `headb2_t_2[fx]`가 그녀에게 `headb2_buff`를 든다 → 스킬 동안(`fxmap.js SKILL_HELD` `'*'`). 연구 표의 「고지대 타격·칸」은 2026-11-07에 이미 이어져 있었다(`kitofficial.js` `headb2:highland`).
+- **동결(적)의 `OnPlayEmitterIf`**: `c2e_freeze`(클라 버프 표의 행)의 `overrideEffectKey` `buff_frozen_to_enemy`는 빈 루트에 `OnPlayEmitterIf` 둘. 클라 `OnPlay`: 주인이 유효할 때만, `_checkType`의 검사(1 MOTION_MODE — 주인의 `changeableMotionMode` = `_motionMode`, 2 버프 보유, 4 Spine 뒷면 일치)를 모두 통과하면 `OnPlayEmitter`처럼 튼다 — 지상이면 `buff_frozen_to_walk`(발), 비행이면 `buff_frozen_to_fly`(몸). 추출기 `fx_extract.py on_emitters`가 노드 `onPlayIf`(목록, `if` { motion })로 쓰고 렌더가 모르는 검사(2·4)면 멈춘다. `fxgame.js stepOnEmit`이 틀 때 한 번 주인의 비행 여부로 고른다(실패하면 다시 안 봄). 손 표 `FROZEN_FX`는 지움: 적 동결은 `buff_frozen_to_enemy`를 틀고 자식은 제 `_spawnLocation`에. 노시스 재능 1 `_hitEffects`의 셋(`buff_cold`·`buff_frozen`·`buff_frozen_to_enemy`)은 그 버프들의 이펙트다. 재발 방지: 원인 제거 — 추출기가 `OnPlayEmitterIf`를 읽음.
+- **실버애쉬 더 레인프로스트 S3 아군 위 새**: `projectile_chr_svash2_s3_bird`(방향별 꼬리 `_trail_left_01`·`_right_01`)는 `BirdAttack_Ally` — 플레이어가 「눈보라의 눈」(风雪之眼)을 건넨 아군(`svash2_s_3[target_bird_onuse]` → `[summon_bird]`, `CreateBuffToCardUidCharacter`)에서만 난다. 자동 전투는 건네지 않으므로(키트 `chess_char_5_14-svash2.js`) 목록에 'ok'로 둔다.
+- 확인: `test/render/on-emitter-fx.test.js` 「OnPlayEmitterIf」(조건 호출을 빼면 실패함을 봄; 추출기 멈춤은 검사 표를 비워 한 번 봄), `test/render/status-buff-fx.test.js` 동결, `test/render/fx-bindings.test.js` 양방향 목록, 이펙트 골든. [화면 미확인: 거품·중독·재능 2 오라의 모양, 아레나 2배속]
 
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 

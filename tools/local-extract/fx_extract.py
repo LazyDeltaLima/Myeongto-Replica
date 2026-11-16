@@ -106,6 +106,11 @@ RANDOM_EMITTER_SCRIPT = -1593825680945881793
 # (on_emitters, node `onPlay` / `onFinish`)
 ON_PLAY_EMITTER_SCRIPT = -5498265793651067281
 ON_FINISH_EMITTER_SCRIPT = 2565987927806955259
+# (2026-11-16, official client) Torappu.Battle.Effects.OnPlayEmitterIf, an OnPlayEmitter whose OnPlay plays only when its owner passes
+# the checks of `_checkType` (on_emitters, node `onPlayIf`)
+ON_PLAY_EMITTER_IF_SCRIPT = -7374104420286372940
+# OnPlayEmitterIf.CheckType: MOTION_MODE 1, OWNER_CONTAINS_BUFF 2, OWNER_SPINE_FACE_TO_MATCH 4 — the ones the render checks
+ON_PLAY_IF_CHECKS = {1: 'motion'}
 # (2026-10-21, official client) the MonoScript PathIDs of the client's effect behaviours that pause or finish their effect
 # (pause_scripts, node `pauseIf` / `pauseOther` / `pauseAnim` / `pauseIdle` / `pauseSpine` / `finishIf`) and of EmptyEffect
 # (an Effect root without particles: delay_to_finish); the same ids in the CN client
@@ -773,7 +778,7 @@ def source_of(index, bundle, name):
 def prefab_links(d):
     """The prefab names an extracted effect `d` creates by name (set_emitted's list): its root's SwitchableBackEffect
     `back`, its face switches' copies `swFace` / `three`, its random group's picks `rgroup`, its module variants `equipFx`
-    and its nodes' OnPlayEmitter `onPlay` / OnFinishEmitter `onFinish`."""
+    and its nodes' OnPlayEmitter `onPlay` / OnPlayEmitterIf `onPlayIf` / OnFinishEmitter `onFinish`."""
     names = set()
     back = (d.get('back') or {}).get('effect')
     if isinstance(back, str) and back:
@@ -783,8 +788,8 @@ def prefab_links(d):
     names.update(v for v in (d.get('rgroup') or {}).get('pick') or [] if isinstance(v, str) and v)
     names.update(h[2] for h in (d.get('equipFx') or {}).get('hooks') or [] if isinstance(h[2], str) and h[2])
     for nd in d.get('nodes') or []:
-        for k in ('onPlay', 'onFinish'):
-            names.update(e for e in (nd.get(k) or {}).get('effects') or [] if isinstance(e, str) and e)
+        for rec in [nd.get('onPlay'), nd.get('onFinish'), *(nd.get('onPlayIf') or [])]:
+            names.update(e for e in (rec or {}).get('effects') or [] if isinstance(e, str) and e)
     return names
 
 
@@ -1859,24 +1864,43 @@ class Extractor:
         owner on this transform's parent, else on the owner (with its faceVector when `_useFaceVector`); `_clearWhenFinish`
         keeps them and OnFinish finishes them. OnFinishEmitter `OnFinish` creates `_effects` on the
         owner (faceVector when `_useFaceVector`), or at the effect's map position when `_useEffectPosition`, or with no
-        owner on this transform's parent."""
+        owner on this transform's parent.
+        (2026-11-16) OnPlayEmitterIf `OnPlay`: with a valid owner it plays (`_OnPlayInternal`) only when every check of
+        `_checkType` holds — MOTION_MODE the owner's `changeableMotionMode` is `_motionMode` (WALK 0, FLY 1); an owner pointer
+        that is not valid plays nothing. A GameObject may hold several: `onPlayIf` is a list of `onPlay` records, each with
+        `if` { motion }. A check the render does not make (OWNER_CONTAINS_BUFF, OWNER_SPINE_FACE_TO_MATCH) stops the extract."""
         out = {}
         for sid, _raw, t in self.monos(go):
-            if sid not in (ON_PLAY_EMITTER_SCRIPT, ON_FINISH_EMITTER_SCRIPT):
+            if sid not in (ON_PLAY_EMITTER_SCRIPT, ON_FINISH_EMITTER_SCRIPT, ON_PLAY_EMITTER_IF_SCRIPT):
                 continue
-            what = 'OnPlayEmitter' if sid == ON_PLAY_EMITTER_SCRIPT else 'OnFinishEmitter'
+            what = {ON_PLAY_EMITTER_SCRIPT: 'OnPlayEmitter', ON_FINISH_EMITTER_SCRIPT: 'OnFinishEmitter'}.get(sid, 'OnPlayEmitterIf')
             if t is None or not isinstance(t.get('_effects'), list):
                 self.cov.reader(what, False, 'no type tree: nothing read')
                 continue
             effects = [e for e in t['_effects'] if isinstance(e, str) and e]
             if not effects:
                 continue
-            if sid == ON_PLAY_EMITTER_SCRIPT:
-                out['onPlay'] = {'effects': effects, 'pre': 0 if t.get('_instant') else r4(t.get('_preDelay') or 0),
-                                 'face': bool(t.get('_useFaceVector')), 'clear': bool(t.get('_clearWhenFinish')),
-                                 'srcPos': bool(t.get('_useSourceEffectPos'))}
+            if sid in (ON_PLAY_EMITTER_SCRIPT, ON_PLAY_EMITTER_IF_SCRIPT):
+                rec = {'effects': effects, 'pre': 0 if t.get('_instant') else r4(t.get('_preDelay') or 0),
+                       'face': bool(t.get('_useFaceVector')), 'clear': bool(t.get('_clearWhenFinish')),
+                       'srcPos': bool(t.get('_useSourceEffectPos'))}
                 if t.get('_keepPauseSync'):   # (2026-10-27, effect bundle W2d) `OnPaused`: its effects paused / unpaused with it
-                    out['onPlay']['keepPause'] = True
+                    rec['keepPause'] = True
+                if sid == ON_PLAY_EMITTER_SCRIPT:
+                    out['onPlay'] = rec
+                    continue
+                checks = int(t.get('_checkType') or 0)
+                unknown = checks & ~sum(ON_PLAY_IF_CHECKS)
+                if unknown:
+                    raise SystemExit(f'OnPlayEmitterIf on {go}: _checkType {checks} holds checks the render does not make ({unknown})')
+                cond = {}
+                if checks & 1:
+                    mm = int(t.get('_motionMode') or 0)
+                    if mm not in (0, 1):
+                        raise SystemExit(f'OnPlayEmitterIf on {go}: unknown _motionMode {mm}')
+                    cond['motion'] = mm
+                rec['if'] = cond
+                out.setdefault('onPlayIf', []).append(rec)
             else:
                 out['onFinish'] = {'effects': effects, 'face': bool(t.get('_useFaceVector')),
                                    'effPos': bool(t.get('_useEffectPosition'))}

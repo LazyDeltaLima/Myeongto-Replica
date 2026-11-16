@@ -503,6 +503,9 @@ export const SKILL_HELD = Object.freeze({
   // 逻各斯 S2 (2026-11-03): the S2 mode's Ability0 `_buffs` logos_s_2[effect] creates [effect_1] logos_skill2_buff_02 (the `_buff`
   // name rule plays it) and [effect_2] logos_skill2_buff_03_F (the name rule leaves a `_F` out) on him while it is enabled
   char_4133_logos: Object.freeze({ 1: heldKeys(['logos_s_2[effect_2]']) }),
+  // (2026-11-16) 怒潮凛冬 T2 万众巨潮: Talents/2's toggle (CheckContainsBuff headb2_t_2[student], which headb2_skill_judge gives at
+  // ON_SKILL_START and finishes at ON_SKILL_FINISH) attaches the aura, whose `_passiveBuffs` headb2_t_2[fx] holds headb2_buff on her
+  char_1051_headb2: Object.freeze({ '*': talentKey('headb2_t_2[fx]') }),
 });
 
 /**

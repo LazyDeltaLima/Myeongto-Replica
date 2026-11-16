@@ -109,7 +109,8 @@ export default {
         key: BUBBLE, source: u, visible: true, mods: protectMods(v), tags: ['talent'],
         data: { v, atk: u.s.atk, heal: t2Heal, prob: t2Prob, sp: t2Sp, boom: false },
       });
-      battle.fx('shield', { x: a.x, y: a.y, id: a.id, kind: 'bubble', ...(only ? { only: u.id } : null) });
+      // `src` her: the event is her kit's (render: its bundle draws the bubble — fxstatus.js KEY_FX — and no stand-in shield)
+      battle.fx('shield', { x: a.x, y: a.y, id: a.id, src: u.id, kind: 'bubble', ...(only ? { only: u.id } : null) });
     }
     /** One bubble grant of `u` on her current range: up to grantCount allies. Returns how many got one. */
     function grant(battle, u, only = false) {

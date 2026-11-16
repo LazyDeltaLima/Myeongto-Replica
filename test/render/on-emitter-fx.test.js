@@ -50,10 +50,10 @@ test('the extracted emitters: 苏尔特 S3 buff → its three parts, cleared wit
 });
 
 test('stepOnEmit: the play list once its time comes (not while waiting / ended), the finish list once when it ends, clear stops the kids', async () => {
-  const make = new Function('onEmitPlay', 'onEmitNow', `${body(SRC, 'function stepOnEmit(l)')}\nreturn stepOnEmit;`);
+  const make = new Function('onEmitPlay', 'onEmitNow', 'onEmitIf', `${body(SRC, 'function stepOnEmit(l)')}\nreturn stepOnEmit;`);
   const calls = [];
   const kid = { inst: { stopping: false, stop() { this.stopping = true; } } };
-  const step = make((l, rec, here) => { calls.push([rec.effects[0], here]); return [kid]; }, (l, em) => l.inst.time >= em.play.pre);
+  const step = make((l, rec, here) => { calls.push([rec.effects[0], here]); return [kid]; }, (l, em) => l.inst.time >= em.play.pre, () => true);
   const em = { o: { userData: {} }, play: { effects: ['a'], pre: 0.2, clear: true, srcPos: false }, finish: { effects: ['z'], effPos: true } };
   const l = { inst: { stopping: false, done: false, wait: 0.1, time: 0, onEmit: [em] } };
   step(l);
@@ -69,6 +69,39 @@ test('stepOnEmit: the play list once its time comes (not while waiting / ended),
   const late = { o: { userData: {} }, play: { effects: ['b'], pre: 0 }, finish: null };
   step({ inst: { stopping: true, done: false, wait: 0, time: 1, onEmit: [late] } });
   assert.equal(calls.length, 2, 'an effect that ended before its time plays nothing');
+});
+
+// (2026-11-16) OnPlayEmitterIf (official client OnPlay: with a valid owner it plays only when each check of `_checkType` holds — MOTION_MODE
+// the owner's changeableMotionMode): `onPlayIf` records with `if` { motion }, checked once as the effect plays. The one user is
+// buff_frozen_to_enemy (c2e_freeze's effect): buff_frozen_to_walk on a ground enemy, buff_frozen_to_fly on a flying one.
+test('OnPlayEmitterIf: the extract writes `onPlayIf` with its motion check (and stops on a check the render does not make); stepOnEmit plays one only when its owner passes, checked once', () => {
+  assert.match(EXTRACT, /ON_PLAY_EMITTER_IF_SCRIPT = -7374104420286372940/);
+  assert.match(EXTRACT, /out\.setdefault\('onPlayIf', \[\]\)\.append\(rec\)/);
+  assert.match(EXTRACT, /raise SystemExit\(f'OnPlayEmitterIf on \{go\}: _checkType/);
+  const BFTE = path.join(FX, 'buff/buff_frozen_to_enemy.json');
+  if (existsSync(BFTE)) {
+    const root = JSON.parse(readFileSync(BFTE, 'utf8')).nodes[0];
+    assert.deepEqual(root.onPlayIf.map((r) => [r.effects, r.if, r.clear]), [[['buff_frozen_to_walk'], { motion: 0 }, true], [['buff_frozen_to_fly'], { motion: 1 }, true]]);
+  }
+  const cond = new Function('lastViews', `${body(SRC, 'function onEmitIf(l, cond)')}\nreturn onEmitIf;`);
+  const views = new Map([[1, { flying: false }], [2, { flying: true }]]);
+  const iff = cond(views);
+  const on = (id) => ({ view: { info: {}, id } });
+  assert.equal(iff(on(1), { motion: 0 }), true, 'WALK on a ground unit');
+  assert.equal(iff(on(1), { motion: 1 }), false, 'FLY on a ground unit');
+  assert.equal(iff(on(2), { motion: 1 }), true, 'FLY on a flying unit');
+  assert.equal(iff(on(9), { motion: 0 }), false, 'no owner: nothing');
+  assert.equal(iff(on(9), undefined), true, 'a plain OnPlayEmitter');
+  const make = new Function('onEmitPlay', 'onEmitNow', 'onEmitIf', `${body(SRC, 'function stepOnEmit(l)')}\nreturn stepOnEmit;`);
+  const calls = [];
+  let flying = false;
+  const step = make((l, rec) => { calls.push(rec.effects[0]); return []; }, () => true, (l, c) => (c ? (flying ? 1 : 0) === c.motion : true));
+  const walk = { o: { userData: {} }, play: { effects: ['walk'], pre: 0, if: { motion: 0 } }, finish: null };
+  const fly = { o: { userData: {} }, play: { effects: ['fly'], pre: 0, if: { motion: 1 } }, finish: null };
+  const l = { inst: { stopping: false, done: false, wait: 0, time: 0, onEmit: [walk, fly] } };
+  step(l);
+  flying = true; step(l);
+  assert.deepEqual(calls, ['walk'], 'the ground one only — and a failed check is not tried again when the unit takes off');
 });
 
 test('the kids come from the emitting effect\'s bundle on its owner; the name rules and 予愿安洁莉娜\'s landing leave them to their emitter', () => {

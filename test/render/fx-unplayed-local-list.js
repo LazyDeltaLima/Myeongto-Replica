@@ -12,16 +12,12 @@ export const UNPLAYED_LOCAL = Object.freeze({
   "mlyss_wtrman_t_1[listener]|token_10030_mlyss_wtrman_c1_to_c0": "todo: 流形 back to c0 as it falls (its form by mode)",
   "mlyss_wtrman_t_1[listener]|token_10030_mlyss_wtrman_c2_to_c0": "todo: 流形 back to c0 as it falls (its form by mode)",
   "mlyss_wtrman_t_1[listener]|token_10030_mlyss_wtrman_c3_to_c0": "todo: 流形 back to c0 as it falls (its form by mode)",
-  "char_206_gnosis/Others/Direction/Talents/1|buff_frozen_to_enemy": "todo: 灵知 T1's hit on a frozen enemy",
-  "haruka_t_1|haruka_talent_01_buff": "todo: 遥's bubble (haruka_t_1 _activeBuffs): the kit's 'shield' event draws another",
-  "headb2_t_2[fx]|headb2_buff": "todo: 怒潮凛冬's high-ground hit and tile effects (_hitEffectKey / _tileEffectKey)",
   // 号角 S2's Full Burst shots: BurstRangedAttack.GetProjectileKey picks `_burstProjectiles`[bullets left − 1] (공식 클라에서 확인) —
   // fired only by the manual early close while overloaded (BurstCastSkill `_burstOnOverload`), which the auto battle never does
   ...Object.fromEntries(['02', '03', '04', '05'].flatMap((i) => [[`full_${i}`, `hit_02_02_${i}`], [`melee_${i}`, `hit_02_02_${i}`], [`full_${i}`, `trail_02_${i}`]]
     .map(([p, n]) => [`projectile_chr_horn_s2_${p}|horn_skill_02_${n}`, "ok: 号角 S2's Full Burst shot (rules/fx.md 「투사체 정지 이펙트·스킬 투사체 명중」): never in the auto battle"]))),
-  "projectile_chr_svash2_s3_bird|svash2_skill_03_trail_left_01": "todo: 凛御银灰 S3's bird trail by direction (_effectsAlignToProjectileDirection)",
-  "projectile_chr_svash2_s3_bird|svash2_skill_03_trail_right_01": "todo: 凛御银灰 S3's bird trail by direction (_effectsAlignToProjectileDirection)",
-  "thorns_t_1|thorns_buff_01_start": "todo: 棘刺 T1's hit, a LIMITED buff of length 0",
+  "projectile_chr_svash2_s3_bird|svash2_skill_03_trail_left_01": "ok: 凛御银灰 S3's bird on an ally (BirdAttack_Ally): only the ally the player hands 风雪之眼 to (svash2_s_3[target_bird_onuse] → [summon_bird], CreateBuffToCardUidCharacter) fires it — the auto battle never hands it out (kits chess_char_5_14-svash2.js)",
+  "projectile_chr_svash2_s3_bird|svash2_skill_03_trail_right_01": "ok: 凛御银灰 S3's bird on an ally (BirdAttack_Ally): only the ally the player hands 风雪之眼 to (svash2_s_3[target_bird_onuse] → [summon_bird], CreateBuffToCardUidCharacter) fires it — the auto battle never hands it out (kits chess_char_5_14-svash2.js)",
 });
 
 // The client-only rows whose prefab is extracted nowhere (tools/fx-wiring-report.mjs `foreign`: it sits in another bundle or a
