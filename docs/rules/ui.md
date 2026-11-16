@@ -486,9 +486,9 @@
       `Entity.Init(…, mainSkill.spData)`를 부르고, 거기서 SP = min(`SpData.maxSp` = spCost × maxChargeTime, initSp)·최대 SP = `maxSp`
       (`Entity.UpdateSpData`·`SpController.Reset`은 소모·증가량만 바꾸고 SP 값은 안 넣음; 켜진 Lua 핫픽스(en_US·zh_CN)에 이 메서드들 없음).
       풀의 충전 스킬 기록 중 initSp ≥ spCost는 비르투오사 정예 S1(`chess_char_6_09_b`, initSp 12·spCost 6·충전 2 → SP 12)뿐 — 지은 그때 SP가
-      넉넉한 것은 그 하나다. 그래서 공식은 그 기물의 스킬 버튼에 「0」 배지를 띄우고 다른 충전 스킬은 띄우지 않을 것으로 본다
-      [추정·미조사: 지은 뒤 정비 동안 SP가 바뀌는지(정비 중에 SP 회복 틱이 도는지)와 그 스킬 능력의 `isReady`는 안 봄]. 우리는 어느 기물에도 그리지
-      않는다(배지를 그리는 것은 보이는 UI 변경이라 시안 먼저).
+      넉넉한 것은 그 하나다. 그런데 관리자 기억으로 공식은 정비 중에 이 칸을 띄우지 않았다(충전 스킬 오퍼레이터도 정비 중에는 충전 수가
+      안 보임) → 어느 기물에도 그리지 않는다(관리자 결정 2026-11-16) [추정·화면: 위 조건대로면 그 기물만 켜질 텐데 기억과 갈리는 까닭은
+      모름 — 지은 뒤 정비 동안 SP가 바뀌는지(SP 회복 틱)와 그 스킬 능력의 `isReady`는 안 읽음].
   - 대기석·임시 정비 구역 기물 → 마름모 없이 메뉴 버튼(`btn_panel_root`, `AutoChessCharacterMenuButton`): 검은 깃발 `img_btn_bg_all`
     (325×225 × 0.66) + 같은 판을 0.66배로. 아이템은 빨간 파기 판, 소환물은 아무것도 없다. 두 표시 설정 모두 `needRotate`라 `_RotateIfNeed`가
     `bg_offset`을 90° 돌려(왼쪽을 가리키던 깃발 끝이 아래 = 기물 쪽) `rotatedOffsetPos` (0, 60)에 두고, 판은 돌리지 않고
