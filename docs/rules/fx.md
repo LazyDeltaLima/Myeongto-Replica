@@ -896,6 +896,17 @@
   죽었고 그 대상에 아직 타격이 안 났으면 모드의 원거리 타격 목록을 대상이 있던 지면 자리에 튼다. 살아 있는 대상은 전처럼 'dmg' 때 그 대상에. 테스트
   `test/render/fortress-reach-fx.test.js`(고치기 전 렌더면 도중 사망 두 건 실패 확인). fx 골든은 그대로.
   [화면 미확인: 실제 판에서 대상이 도중에 죽은 포탄이 그 자리에서 터지는지]
+- **터지는 자리**(2026-11-16, 공식 클라에서 확인 — `EffectBehaviour.Init`·`OnProjectileReached`, `Projectile.UpdateTargetGroundPosZ`,
+  `Effect.Play`·`_InitLocation`): 포탄 자체는 지면이 아니라 대상의 명중 마운트 점으로 난다(`BasicMovement.OnInit`의 대상 위치, 위 「오퍼레이터 포물선
+  투사체」 가까운 적; 우리 `shotTo` = 꼬리 끝). `_forceReachTargetGround` 1은 닿음 이펙트만 바꾼다 — 포탄이 닿은 판 위 x·y에, 높이는 대상 엔티티의 땅
+  높이(쏠 때 `m_targetGroundPosZ`)인 고정 위치로 만들고, 다섯 폭발의 `_spawnLocation` 5 GROUND_CENTER는 그 x·y 밑 칸 높이를 쓴다. 명중점은 모델 면 위라
+  뿌리보다 (그려진 높이)·cos 30° 뒤 줄에 있어(`fxpoints.js onModelPlane`), 폭발도 발밑이 아니라 그만큼 뒤 땅에 선다(점 표 없는 적: 그려진 키의 절반
+  → 약 0.5칸 뒤). 우리는 살아 있는 대상이면 대상 발밑(GROUND_CENTER를 대상에), 죽은 대상이면 그 뿌리 자리에 틀었다 → `fxgame.js shellLand`(꼬리 끝의 x·y,
+  대상이 선 높이)로 둘 다. 대상을 따라가지도 않는다(고정 위치). 다른 투사체의 `_forceReachTargetGround`는 아직 안 봄 → bundles fx-Y.
+  재발 방지: `test/render/fortress-reach-fx.test.js` 「the blast stands behind the feet」. [화면 미확인: 혼·애쉬락 폭발이 적 발밑보다 조금 뒤(위)에]
+- 같은 날 확인: 혼 S1의 'zone'(조명탄)과 S2 과부하의 확산 마법 피해는 주 대상이 날아가는 도중에 죽어도 난다 — S1은 키트 `attack.onHit`이 대상 없이도
+  떨어진 자리로 불려 'zone'을 보내고(`ai.js resolveHit`), S2 과부하는 맞은 적마다(`onEachHit`) 확산 피해자에게 난다(공식 `_conditionalActions`도 맞은
+  적마다). 렌더는 'zone'·그 순간대로 튼다.
 
 ### 입력 대상·루프 타격·클립별 이펙트·배치 이펙트 — 공식 클라 확인 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 근거: 공식 클라(아래 메서드는 켜진 Lua 핫픽스 목록에 없음)와 charpack·`[uc]skills.ab`·이펙트 번들 프리팹 값. 조사 기록은 관리자 노트.

@@ -993,7 +993,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // (2026-11-07) a skill's hit a kit's moment plays is not the name rule's as well (KIT_OWNED: attackHit falls back here on a mode with no bound hit)
     const { names: picked, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex).filter((n) => !emittedIn(b.bundle).has(n) && !packedIn(b.bundle).has(n) && !(kind === 'skillHit' && KIT_OWNED.has(n))));
     const names = [...picked];
-    if (names.length && trace) trace({ kind, names, by: ownerOf(view), at: at ? ownerOf(at) ?? null : null }); // tests: what it plays
+    // tests: what it plays (`pt`: where, when it is a spot and not a unit)
+    if (names.length && trace) trace({ kind, names, by: ownerOf(view), at: at ? ownerOf(at) ?? null : null, ...(at && !at.info ? { pt: [at.x, at.y, at.z || 0] } : null) });
     if (dry) for (const n of names) dryFollow(b.bundle, n, ownerOf(view) ?? null, (at || view).info ? ownerOf(at || view) ?? null : null);
     if (!names.length || !(await ensure())) return;
     // local patch (maintainer report 2026-10-08: 赤刃明霄陈's S3 dragon twice, over her): a left / right pair (fx_extract.py
@@ -4602,15 +4603,30 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // splash there (ai.js `hitDead`). The blast played at the target's 'dmg' (attackHit), so a target that died in flight left
   // the shell to vanish without it. Other splash shots keep that path: their hits are `_effectsWhenHit` (格雷伊 projectile_greyy),
   // which the client plays on a live target only.
+  /** Whether an attack of kind `kind` by `src` on `tgt` is a 要塞's flying shell (not its melee blow at a blocked enemy). */
+  function fortressShell(src, tgt, kind) {
+    if (!src || !tgt || tgt.info?.side !== 'enemy' || !PROJ[kind] || kind === 'boomerang') return false;
+    let def;
+    try { def = unitDef(src.info) ?? null; } catch { def = null; }
+    return def?.subProfessionId === 'fortress';
+  }
+  // 2026-11-16 (official client — EffectBehaviour.OnProjectileReached with `_forceReachTargetGround`, Effect._InitLocation):
+  // the shell flies to its target's hit mount point (BasicMovement.OnInit: the target ILocatable's mapPositionV3 — shotTo
+  // here, its trail's end) and its reach effects are created at a FixedPosition of the shell's own board x, y there, at the
+  // ground (the target's `m_targetGroundPosZ`; GROUND_CENTER, these blasts' `_spawnLocation`, takes the tile's height under
+  // it). The hit point stands h cos 30° rows behind the root on the model's plane (fxpoints.js onModelPlane), so the blast
+  // sits that far behind the target's feet — not at the feet, where both of these paths put it before.
+  /** Where a 要塞 shell aimed at unit `tgt` lands: under its trail's end, on the ground the target stands on. */
+  function shellLand(tgt) {
+    const p = shotTo(tgt);
+    return { x: p.x, y: p.y, z: tgt.z || 0 };
+  }
   /**
    * The shot ('atk' of kind `kind` on `tgt`, its record `a` on lastAtk) of a 要塞 `src`: at its flight's end, its hits on the
    * ground where `tgt` was when `tgt` died in flight and nothing played them on it meanwhile.
    */
   function reachFx(src, tgt, kind, a) {
-    if (!a || !tgt || tgt.info?.side !== 'enemy' || !PROJ[kind] || kind === 'boomerang') return;
-    let def;
-    try { def = unitDef(src.info) ?? null; } catch { def = null; }
-    if (def?.subProfessionId !== 'fortress') return;
+    if (!a || !fortressShell(src, tgt, kind)) return;
     const dist = Math.hypot(tgt.x - src.x, tgt.y - src.y);
     const v = shotSpeedOf({ lookupDef: unitDef }, src, tgt, dist);
     if (v === 0) return;
@@ -4618,7 +4634,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     castsDelayed.push({ t: clockS + Math.max(0.04, dist / (v || projSpeed(kind))), run: () => {
       if (tgt.alive !== false && !tgt.remove && !gone.has(tid)) return;   // a live target: its 'dmg' plays them
       if ((lastHit.get(key) ?? -9) >= a.t) return;   // already played on it (the shell that killed it)
-      attackHit(a, { x: tgt.x, y: tgt.y, z: tgt.z || 0 }, tid, lastAtk);
+      attackHit(a, shellLand(tgt), tid, lastAtk);
     } });
   }
   /** The swing-start cast-target effects of cast `c` (mode `mode`, attack kind `kind`) on `tgt`, or at the strike without one. */
@@ -5002,7 +5018,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const c = a.src._fxCast?.mode === a.mode ? a.src._fxCast : null; // 2026-10-11: its cast (clip group, loop end, speed)
     const all = withGroup(hitList, c?.group?.hit);
     const hits = all.filter((n) => !swingTarget(a.src, a.mode, n) && !shotHit(a.src, a.mode, n)).slice(0, MAX_HIT_FX);
-    if (hits.length) { hitFx(a.src, tgt, hits, c); return; }
+    // a 要塞 shell's blast where it lands (shellLand), not on the target; reachFx already hands a dead target's spot
+    if (hits.length) { hitFx(a.src, tgt?.info && fortressShell(a.src, tgt, a.kind) ? shellLand(tgt) : tgt, hits, c); return; }
     if (all.some((n) => shotHit(a.src, a.mode, n))) return;   // its hits started at the shot (shotHitFx)
     if (split || bound(a.src, a.mode, 'input').length) return; // its hits are its input-target effects (inputFx), not a name-mapped one
     // (2026-11-12) a mode the form holds is the client's own reading (FORM_HELD_MODES): its hits are its bindings' and its kit's
