@@ -2513,6 +2513,10 @@ upstream v0.4.0 대조에서 받은 화면 수정(`docs/rules/upstream.md` 「�
 - 보내기(`ui/loadoutSync.js installSkinsSync`, `main.js`): `room.skins { skins }`를 welcome·고칠 때마다(같은 동기화 엔진), 시즌을 붙이지 않는다(`seasonless`).
   스킨 데이터를 고르지 않았으면 빈 맵을 보낸다 — 잠긴 칸이 「지금은 기본 스킨만」이라 말하는 것이 다른 플레이어 화면에서도 맞도록. 선택은 저장해 두었다가 다시
   고르면 보낸다(`resStore.chosen.skin`을 따라 다시 보냄). 저장 값은 선에 맞는 모양만(`parseStoredSkins`: charId → 스킨 ID, 256쌍).
+- 저장 자리: 이 브라우저의 `sp.pref.skins`(`ui/skins.js SKINS_PREF`, 시즌을 나누지 않는 맵 하나 — 오퍼레이터 설정의 시즌별 `loadout` 맞춤과 따로)와 서버
+  세션(`session.skins`, 방마다 좌석 `seatSkins`, 경기 `players[].skins`). 고르는 즉시 저장되고 새로 고침·방 다시 만들기·「시뮬레이션 포기」 뒤에도 남는다
+  (2026-11-17 관리자 제보 「싱글에서 포기하고 다시 들어가면 기본 스킨」을 서버 실제 경로로 재현해 봄: 두 번째 싱글 방의 좌석·`m.public`에도 그대로 있었다).
+  게임에서 기본 모습이던 원인은 렌더 쪽 — 새 경기 필드의 첫 장면이 스킨 목록보다 먼저 시작함(`docs/rules/render.md` 「스킨 렌더 게이트」 「첫 장면 전에 목록」).
 - 대기실 좌석 카드(`ui/seatArt.js seatCardSkin`, `screens/room.js`): 카드의 오퍼레이터가 그 좌석이 고른 스킨의 초상화를 입는다 — 내 카드는 이 브라우저 선택을 곧바로,
   남의 카드는 `room.state seats[].skins`를 「다른 플레이어 스킨」이 켜져 있을 때만, 스킨 데이터를 안 골랐으면 아무도 입지 않는다. 그림은 한 장씩 워커가 받으므로
   다 받기를 기다리지 않는다(모델은 다 받아야 그림 — `docs/rules/render.md` 「스킨 렌더 게이트」). 스킨 초상화가 안 열리면 기본 초상화(`seatArtSrc`).

@@ -1,4 +1,4 @@
-// createFieldView's optional waits (manifests, fonts, board art, 3D board) are cut to the caller's deadline
+// createFieldView's optional waits (manifests, fonts, board art, the skin lists, 3D board) are cut to the caller's deadline
 // (render/app/host.js capWait): their own caps add up to more than ui/fieldHost.js's 12 s race, and losing it cost the
 // whole engine on a cold cache (an iPhone Safari tab: 「simplified view (createFieldView timed out)」).
 
@@ -23,16 +23,16 @@ test('the waits of a slow mount all fit in a 12 s race', () => {
   // each wait runs to its cap (nothing arrives): the clock moves by what capWait allowed
   const deadline = 12000;
   let now = 700; // Pixi
-  for (const cap of [4000, 1500, 2500, 6000]) now += capWait(cap, deadline, now);
+  for (const cap of [4000, 1500, 2500, 1500, 6000]) now += capWait(cap, deadline, now);
   assert.ok(now <= deadline - DEADLINE_MARGIN_MS, `ends at ${now} ms`);
 });
 
 test('createFieldView passes every optional wait through the deadline', () => {
   const src = readFileSync(new URL('../../public/js/render/app.js', import.meta.url), 'utf8');
   const body = src.slice(src.indexOf('export async function createFieldView'));
-  // the timed optional waits (waitStep: manifests, fonts, art, 3d) and any direct withTimeout but the uncapped Pixi load
+  // the timed optional waits (waitStep: manifests, fonts, art, skins, 3d) and any direct withTimeout but the uncapped Pixi load
   const steps = [...body.matchAll(/waitStep\('(\w+)',[^;]*?,\s*([^,;]+)\);/g)].map((m) => [m[1], m[2].trim()]);
-  assert.deepEqual(steps.map(([n]) => n), ['manifests', 'fonts', 'art', '3d']);
+  assert.deepEqual(steps.map(([n]) => n), ['manifests', 'fonts', 'art', 'skins', '3d']);
   for (const [n, w] of steps) assert.match(w, /^waitCap\(\d+\)\)?$/, `uncapped wait: ${n}`);
   const direct = [...body.matchAll(/withTimeout\([^;]*?,\s*([^,;]+),\s*signal\)/g)].map((m) => m[1].trim());
   assert.deepEqual(direct, ['null'], 'besides waitStep, only the Pixi load (uncapped: the engine needs it) calls withTimeout');

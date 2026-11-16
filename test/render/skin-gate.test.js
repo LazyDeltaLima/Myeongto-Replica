@@ -8,7 +8,7 @@ import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { installFakePixi, fakeViewCtx } from './fakepixi.js';
-import { createSkinGate, skinKeyFor, skinSideEntry, skinFiles, SKIN_MODELS, SKIN_LIST } from '../../public/js/render/skin-gate.js';
+import { createSkinGate, skinKeyFor, skinSideEntry, skinFiles, pageSkinLists, SKIN_MODELS, SKIN_LIST } from '../../public/js/render/skin-gate.js';
 import { renderInfo } from '../../public/js/render/app/info.js';
 
 const RULE = 'docs/rules/render.md 「스킨 렌더 게이트」';
@@ -122,6 +122,33 @@ describe('skin gate: all files cached, and no change mid-scene (함정 4)', () =
     assert.equal(r.gate.model(own, base), null, 'loaded after this scene began');
     r.gate.scene();
     assert.ok(r.gate.model(own, base));
+  });
+
+  test('a field\'s first scene waits for ready(): it draws the skin (a new match opened in the default skins)', async () => {
+    const r = rig();
+    await r.gate.ready();
+    r.gate.scene();
+    assert.ok(r.gate.model(own, base), `ready() settles once the lists are loaded, so the first scene has them (${RULE} — createFieldView waits for it)`);
+    const off = rig({ chosen: false });
+    await off.gate.ready();
+    assert.equal(off.st.loads, 0, 'not chosen: ready() settles without loading the lists');
+    const g = createSkinGate({ chosen: () => true, others: () => true, self: () => 'p1', cached: () => true, load: async () => { throw new Error('offline'); } });
+    await g.ready();
+    g.scene();
+    assert.equal(g.model(own, base), null, 'a failed fetch: ready() settles, the default model');
+  });
+
+  test('the page keeps the lists for the next field: one fetch for two loads, a failure is fetched again', async () => {
+    const real = globalThis.fetch;
+    let calls = 0, ok = false;
+    globalThis.fetch = async (u) => { calls++; return ok ? { ok: true, json: async () => ({ skins: {}, u }) } : { ok: false, status: 503 }; };
+    try {
+      await assert.rejects(pageSkinLists());
+      ok = true;
+      const a = await pageSkinLists(), b = await pageSkinLists();
+      assert.ok(a === b, `the second field reuses the page's lists (${RULE})`);
+      assert.equal(calls, 4, 'two files after the failed pair, then none');
+    } finally { globalThis.fetch = real; }
   });
 });
 

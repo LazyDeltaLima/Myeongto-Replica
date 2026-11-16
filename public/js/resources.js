@@ -40,6 +40,7 @@
 //
 //   installResources()   main.js, once
 //   resourceCached(paths) whether a skin model is all in the cache (render/skin-gate.js)
+//   resourcesKnown       settles once the list and the cache record are read (render/skin-gate.js ready)
 //   <ResourceHost />     consent card + progress pill (title / lobby / room screens only, never over the match HUD)
 //   <ResourceSetting />  the settings row: start (or retry) the download any time, e.g. after 以后再说; then 立绘画质
 //   <SkinPackSetting />  the settings rows of the skin data: download / pause / turn off, and 其他玩家的皮肤
@@ -432,8 +433,17 @@ async function switchOff() {
   try { for (const r of await navigator.serviceWorker.getRegistrations()) if (r.active?.scriptURL?.endsWith('/resource-worker.js')) await r.unregister(); } catch { /* ignore */ }
 }
 
+let markKnown = () => {};
+/** Settles once installResources has read the list and the cache record, or found there is none (resourceCached is
+ *  then as good as it gets on this visit): render/skin-gate.js waits for it before a field's first scene. */
+export const resourcesKnown = new Promise((resolve) => { markKnown = resolve; });
+
 /** Register the worker, sync the cache with the list and start (or ask). Never throws. */
 export async function installResources() {
+  try { await install(); } finally { markKnown(); }
+}
+
+async function install() {
   if (!supported()) return;
   try {
     const res = await fetch(INDEX, { cache: 'no-cache' });

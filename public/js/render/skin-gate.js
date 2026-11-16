@@ -13,8 +13,12 @@
 // downloaded: no file of a skin that fails these is ever asked for. Otherwise the default model. The answer holds for a
 // scene (the prep, a battle, a scouted board: scene()): a download that ends, a list that arrives or a setting turned
 // mid-battle shows from the next one. A skin model that fails to load falls back to the default one (its `fallback`).
+// So the lists must be there BEFORE a field's first scene, or that whole scene is drawn in the default models (a
+// player's report: every new match opened in the default skins): createFieldView waits for ready() before it returns
+// the view, and the page keeps the lists once loaded, so the next match's field has them at once (pageSkinGate).
 //
 //   const gate = createSkinGate({ chosen, cached, self, others, load });
+//   await gate.ready();                    the lists are loaded (or cannot be: not chosen, not cached, failed)
 //   gate.scene();                          a new scene: the lists, the setting and the cache are read again
 //   gate.model(info, base) → { front, back|null } | null   base(back) = the default entry of that side (the fallback)
 
@@ -99,6 +103,9 @@ export function createSkinGate(deps) {
     scene() { scene = null; ensure(); current(); },
     /** Start loading the lists now when they may be (the next scene then has them). */
     prefetch() { ensure(); },
+    /** Settles once the lists are loaded or cannot be now (the skin data not chosen, the lists not cached, a failed
+     *  fetch): what the field's first scene must wait for (header). Never rejects. */
+    ready() { ensure(); return loading ? loading.then(() => undefined) : Promise.resolve(); },
     /**
      * The skin model `info` draws, `{ front, back }` (back null: the skin has no Back model), or null: the default model.
      * @param {any} info the view's UnitInfo (`skin`, `side`, `ownerId`, `mine`: an own prep piece)
@@ -130,29 +137,45 @@ export function createSkinGate(deps) {
   };
 }
 
+/** The two lists, fetched once per page and kept for every field after it (a failed fetch is tried again). */
+let pageLists = null;
+export function pageSkinLists() {
+  const json = (u) => fetch(u).then((r) => { if (!r.ok) throw new Error(`${u}: ${r.status}`); return r.json(); });
+  if (!pageLists) {
+    pageLists = Promise.all([json(SKIN_MODELS), json(SKIN_LIST)]).then(([models, list]) => ({ models, list }));
+    pageLists.catch(() => { pageLists = null; });
+  }
+  return pageLists;
+}
+
 /**
  * The page's gate: the resource download's pack choice and cache record (resources.js), the own player id (store.js),
  * the setting from `others`. Loaded on first use and only where Cache Storage exists (no download, no skins elsewhere —
- * Node tests included).
+ * Node tests included). ready() also waits for resources.js to have read its list and cache record (resourcesKnown): a
+ * field opened right after a reload would otherwise find no skin cached and judge its first scene without the lists.
  * @param {() => boolean} others
  */
 export function pageSkinGate(others) {
   let res = null, st = null, asked = false, gate = null;
+  let modsReady = Promise.resolve();
   const mods = () => {
     if (!asked && typeof globalThis.caches !== 'undefined') {
       asked = true;
-      Promise.all([import('../resources.js'), import('../store.js')]).then(([r, s]) => { res = r; st = s; gate?.prefetch(); }, () => {});
+      modsReady = Promise.all([import('../resources.js'), import('../store.js')])
+        .then(([r, s]) => { res = r; st = s; gate?.prefetch(); return r.resourcesKnown; })
+        .then(() => { gate?.prefetch(); }, () => {});
     }
     return res && st;
   };
-  const json = (u) => fetch(u).then((r) => { if (!r.ok) throw new Error(`${u}: ${r.status}`); return r.json(); });
   gate = createSkinGate({
     chosen: () => !!mods() && res.resourcePacks().skin === true,
     cached: (paths) => !!mods() && res.resourceCached(paths),
     self: () => (mods() ? st.store.get()?.me?.playerId ?? null : null),
     others,
-    load: () => Promise.all([json(SKIN_MODELS), json(SKIN_LIST)]).then(([models, list]) => ({ models, list })),
+    load: pageSkinLists,
   });
   mods();
+  const ready = gate.ready;
+  gate.ready = () => modsReady.then(() => ready());
   return gate;
 }

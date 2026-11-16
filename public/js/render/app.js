@@ -227,6 +227,8 @@ export async function createFieldView(host, options = {}) {
   // operator skins (render/skin-gate.js, docs/rules/render.md 「스킨 렌더 게이트」): which model an ally's skin draws, judged
   // per scene (scene() at each prep / battle entry); `otherSkins` false = the other players' units in their default model
   const skinGate = opts.skinGate || pageSkinGate(() => settings.otherSkins !== false);
+  // its lists before the first scene (waited for with the art below), or that whole scene draws the default models
+  const skinsReady = typeof skinGate.ready === 'function' ? skinGate.ready() : null;
   // 「自动」: settings.quality is the preset in effect (what every quality check below reads), stepped by auto-quality.js
   let autoPick = settings.quality === 'auto';
   if (autoPick) settings.quality = autoQuality();
@@ -2924,6 +2926,7 @@ export async function createFieldView(host, options = {}) {
   signal?.throwIfAborted();
   timing?.step('setup');
   await waitStep('art', artPromise, waitCap(2500));
+  await waitStep('skins', skinsReady, waitCap(1500));
   if (want3d) await waitStep('3d', boardReady, waitCap(6000));
   signal?.throwIfAborted();
   openGate();
