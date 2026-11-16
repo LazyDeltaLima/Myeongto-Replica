@@ -267,6 +267,22 @@ test('collision kills by the speed the particle came in with (minKill), not the 
   inst.dispose();
 });
 
+test('collision sub emitters (type 1, 2026-11-16, 아이린 S3 range_02): nothing of their own, their bursts where a particle hits', async () => {
+  // the shots (4, +z at 2 / s) die at the plane z = 1 (lifeLoss 1); each hit makes the target's burst of 2 there. Before the fix
+  // the target was no sub emitter: its own burst at t = 0 came out at the node, and nothing at the plane
+  const shots = ps({ collide: PLANE_Z1({ lifeLoss: K(1) }), sub: [{ node: 3, type: 1, props: 0, p: 1 }] });
+  const star = ps({}, { n: 2, speed: 0 });
+  const { inst } = await make([node('t', -1), planeAtZ1(), node('p', 0, { ps: shots }), node('s', 0, { ps: star })]);
+  const [a, b] = inst.systems;
+  inst.update(0.05);
+  assert.equal(b.n, 0, 'the collision target does not burst on its own at t = 0');
+  for (let k = 0; k < 20; k++) inst.update(0.05);   // they reach the plane at ≈ 0.45 s
+  assert.equal(a.n, 0, 'the shots end at the plane');
+  assert.equal(b.n, 8, 'two at each of the four hits');
+  for (let i = 0; i < b.n; i++) assert.ok(Math.abs(b.pos[i * 3 + 2] - 0.9) < 0.11, `at the hit (the plane less the radius): ${b.pos[i * 3 + 2]}`);
+  inst.dispose();
+});
+
 test('inherit velocity: a world-space system\'s particles take the moving emitter\'s velocity × k at birth; a local one does not', async () => {
   const inh = { mode: 0, k: K(0.5) };
   const { inst } = await make([node('t', -1), node('w', 0, { ps: ps({ inherit: inh }, { space: 1, speed: 0, at: 0.1 }) }),

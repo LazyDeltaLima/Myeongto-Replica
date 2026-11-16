@@ -62,6 +62,10 @@ ANIMATED_VALUES = {
         'InitialModule.startSize.scalar', 'InitialModule.startSizeY.scalar',   # (2026-11-07) 云迹's take-off and landing ray
         'simulationSpeed',   # (2026-10-22, effect bundle J) 纯烬艾雅法拉 S2 range's level clips
         'VelocityModule.enabled',   # (2026-10-23) a clip switching the module on (vel_ol `on`)
+        # (2026-11-16, fx-C) the rate over distance and the bursts' counts (the engine's names: a list element as
+        # `.Array.data[i]`, the first 8 bursts) — 机械师's 机械狗 S3 trails stop them as the clip ends
+        'EmissionModule.rateOverDistance.scalar', 'EmissionModule.rateOverDistance.minScalar',
+        *(f'EmissionModule.m_Bursts.Array.data[{i}].countCurve.{k}' for i in range(8) for k in ('scalar', 'minScalar')),
         *(f'InitialModule.startColor.maxColor.{c}' for c in 'rgba'), *(f'TrailModule.colorOverLifetime.maxColor.{c}' for c in 'rgba'))},
     96: {'m_Time': 'trail:time'},   # TrailRenderer
     23: {'m_Enabled': 'mr:enabled'},   # MeshRenderer
@@ -823,13 +827,27 @@ def set_sources(index, bundle, names, written, src):
         index.pop('sources', None)
 
 
-def type_paths(d, prefix=''):
-    """The dotted paths of a type tree's nested fields (lists not entered) — the names a Mecanim binding's crc32 is of."""
+def type_paths(d, prefix='', lists=False):
+    """The dotted paths of a type tree's nested fields — the names a Mecanim binding's crc32 is of. Lists are entered only
+    with `lists`, their elements as `<list>.Array.data[i]` (the engine's own animatable names, e.g.
+    `EmissionModule.m_Bursts.Array.data[0].countCurve.scalar`; 2026-11-16)."""
     for k, v in d.items():
         p = f'{prefix}{k}'
         yield p
         if isinstance(v, dict):
-            yield from type_paths(v, p + '.')
+            yield from type_paths(v, p + '.', lists)
+        elif lists and isinstance(v, list):
+            for i, e in enumerate(v):
+                yield f'{p}.Array.data[{i}]'
+                if isinstance(e, dict):
+                    yield from type_paths(e, f'{p}.Array.data[{i}].', lists)
+
+
+# (2026-11-16, fx-C) clip bindings to ParticleSystem names of an older Unity that this engine no longer has (its animatable
+# names, which the engine lists, have `ShapeModule.m_Scale.*` and `boxThickness.*` instead): they bind nothing — 阿斯特根's
+# halo_skill_02_buff_02 `shandian` keeps `ShapeModule.boxZ` at 0
+OLD_PS_NAMES = {zlib.crc32(f'ShapeModule.{n}'.encode()) & 0xffffffff: f'ShapeModule.{n} (an older Unity name: binds nothing)'
+                for n in ('boxX', 'boxY', 'boxZ')}
 
 
 def sub_emitters(nodes, pss):
@@ -3296,9 +3314,11 @@ class Extractor:
                 comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
                 if comp is None or int(comp.type.value) != tid:
                     continue
-                for p in type_paths(comp.read_typetree()):
+                for p in type_paths(comp.read_typetree(), lists=True):
                     if crc32(p) == attr:
                         return f'{comp.type.name}.{p}'
+                if tid == 198 and attr in OLD_PS_NAMES:
+                    return f'{comp.type.name}.{OLD_PS_NAMES[attr]}'
                 return f'{comp.type.name} attr:{attr}'
         except Exception:
             pass

@@ -4403,6 +4403,38 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
 - 같은 날 `KNOWN`에 판정만 더한 것: `SwitchableMultiEffectByBuffStackCnt`(마비 층수 표식 `common_061_numb_01` — `fxstatus.js STACK_FX palsy`가 그림, `hand`), 클레멘티아 S2 탄의
   CN 스크립트(`FlipViaProjectileDirection`)가 11-08 판에서 필드 `_flipBySourceFace`(값 0)를 더해 보고 키가 바뀐 것(판정은 그대로).
 
+### 이펙트 전수 보고 판정 — 이미 있는 오퍼레이터의 필드 일곱 (2026-11-16)
+
+전수 보고 `NOT HANDLED` 중 이미 있는 오퍼레이터의 것 7줄. 넷은 재생기에 들이고 셋은 그리는 것이 없다고 판정했다. 화면 확인은 아직(관리자 메모의 아레나 확인 목록).
+
+- **선 끝이 시작에서 자라남** — 로고스(`char_4133_logos`) S2 「제유」의 잠금 선 `logos_skill2_line_01`: `LineEffectEmitterDynamic`의 `_tweenEndPosition`·`_tweenDuration` 0.2.
+  공식 클라에서 확인(`LineEffectEmitterDynamic.OnPlay`가 `m_lerpTime`을 0으로, `_UpdateMountPoint`가 매 프레임 `m_lerpTime`에 시간 배율이 걸린 델타를 더함): 끝점 =
+  lerp(시작 마운트 점, 끝 마운트 점, clamp(t / `_tweenDuration`)) + `_endPosOffset`(시작 오프셋은 보간에 안 들어감), t가 길이를 넘으면 끝 마운트 점 + 끝 오프셋. 추출기는
+  원래 `lineDyn.tween`으로 싣고 있었고 재생기가 안 읽어 선이 처음부터 대상까지 붙어 있었다 → `fxgame.js stepLine`이 첫 프레임부터 전투 시계로 키움(`lineTween`·`lineTweenEnd`).
+  재발 방지: `test/render/line-tween.test.js`.
+- **충돌 부 방출기** — 아이린(`char_4009_irene`) S3 「판결」의 `irene_skill_03_range_02`: 탄(`zidan`)의 부 방출기 셋(`star_01`·`star_hei`·`suduxian`)이 type 1(충돌), 탄에는 평면 하나와
+  충돌 모듈(`lifeLoss` 1 = 맞으면 사라짐). 재생기는 type 0(생성)만 묶어서, 셋이 부 방출기가 아닌 보통 시스템으로 제 노드에서 스스로 터졌다(시작 때 별 둘, 0.5초마다 불꽃) —
+  이제 충돌 모듈이 있는 시스템의 type 1 대상은 스스로 방출하지 않고, 입자가 평면에 맞은 자리에서 대상 버스트 개수의 합만큼 한 번 방출한다(`fxplayer.js emitHitSubs`).
+  [추정·엔진: 충돌로 터지는 부 방출기가 버스트 합을 내고 시간당 방출은 안 씀 — 추출본의 그런 대상은 모두 0초 버스트 하나, 시간당 0이라 차이가 안 난다.] 실제 추출본을
+  node에서 돌려 0.2~0.4초(탄이 바닥에 닿는 때)부터 맞을 때마다 나오는 것을 봄. 재발 방지: `test/render/fx-particle-modules.test.js` 「collision sub emitters」.
+- **클립이 버스트 개수·거리당 방출을 움직임** — 메커니스트(`char_4230_mcnist`) S3 소환물 `token_mcnist_mcgraf_skill_03_trail_*` 6개: 클립 끝(0.33→0.37초)이 시간당 방출과 함께
+  `EmissionModule.rateOverDistance.scalar`와 첫 버스트 개수(`EmissionModule.m_Bursts.Array.data[0].countCurve.scalar`)를 0으로 내린다. 우리는 시간당만 내려서 0.5초마다 도는
+  번개 버스트와 거리당 방출이 클립 뒤에도 남았다 → 추출기 `ANIMATED_VALUES`와 재생기 `PS_ANIM`에 거리당 방출·버스트 0~7의 개수. 원인 제거: 클립 바인딩 이름 찾기
+  (`fx_extract.py binding_name` → `type_paths(lists=True)`)가 리스트 안을 엔진의 이름 꼴(`<리스트>.Array.data[i]`)로 훑어, 이름 없는 `attr:<crc>`로 보고되던 버스트 개수가 이름으로
+  나온다. 재발 방지: `test/render/fx-clip-values.test.js` 「bursts' counts」·「names list elements」.
+- **세로 빌보드(렌더 모드 3)** — 에벤홀츠(`char_4046_ebnhlz`) 소환물(`token_10024_ebnhlz_rcube`) 오라 `token_ebnhlz_buff`의 `quan`: 재생기가 모드 3을 0(빌보드)으로 바꿔 넣어,
+  이 시스템은 정렬 2(Local) 때문에 x축으로 약 60° 기운 노드 평면의 사각형으로 그려졌다. 이제 셰이더 갈래가 따로 있음 — Unity 설명대로 위는 월드 위쪽(장면 +z),
+  옆은 카메라 오른쪽 축을 수평으로 눕힌 것 [추정·엔진: 카메라 위치가 아닌 축 기준], 크기는 카메라를 보는 사각형처럼 장면 단위. 렌더 정렬은 빌보드 모드에만 쓰인다
+  [추정·엔진]. 재발 방지: 없음(셰이더 갈래, 화면 확인 대기).
+- **그리는 것 없음 셋**:
+  - 슈(`char_2025_shu`) 재능 `shu_talent_buff_01`·`_02`의 `FxUVTweenerAdvance.extraMapSettings[].mapST`(0.741·0.494 등): 공식 클라에서 확인 — `FxUVTweenerAdvance.Awake`가 켜진 맵마다
+    `mapST`를 재질의 `<mapName>_ST`로 덮어쓴 뒤에 `OnEnable`·`Update`가 쓴다. 직렬화된 값은 편집기에 남은 사본이고, 재질 값에서 시작하는 재생기가 이미 같다. 같은 이유로
+    `mapST`가 0인 맵(적·맵 이펙트 수십 개)도 타일링 0이 되지 않는다. `fx_coverage.py KNOWN`의 `[ASSUMED]`를 `none`으로.
+  - 아스트젠(`char_135_halo`) S2 선 `halo_skill_02_line`의 `trai4l_ab_dm`(LineRenderer `alignment` 1): 노드와 렌더러가 둘 다 꺼져 있어 추출되지 않는다. 원인 제거: 꺼진 선·꼬리
+    렌더러의 값 검사를 보고가 건너뜀(`fx_coverage.py _line_on`).
+  - 아스트젠 S2 버프 `halo_skill_02_buff_02`의 `shandian` 클립 값(상수 0): 이름이 `ShapeModule.boxZ` — 옛 Unity의 상자 크기 이름으로, 이 엔진의 ParticleSystem 애니메이션
+    이름에는 없다(상자 크기는 `m_Scale`, 두께는 `boxThickness`). 묶이는 것이 없다 → 추출기가 `OLD_PS_NAMES`로 이름 붙이고 `KNOWN`은 `none`.
+
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 
 이펙트 코드(`public/js/render/fxgame.js`·`fxplayer.js`·`fx/`)를 고치기 전에 읽는 목록. 한 번 값을 치른 원인만 적고, 시험이 지키는 것은 그 시험을 적는다(시험이 실패하면 메시지가 원인을 말한다). 새 줄은 시험·린트로 못 잡는 것만 더한다(`CONTRIBUTING.md` 2절 「Regression guards」).

@@ -171,3 +171,34 @@ print(json.dumps(fe.legacy_clip(clip, {fe.crc32(''): 0, '': 0})['tracks'][0]['pr
     'ps:VelocityModule.enabled']);
   assert.equal(legacy, 'ps:ShapeModule.radius.value');
 });
+
+test('a clip moves the bursts\' counts and the rate over distance (2026-11-16, 机械师\'s 机械狗 S3 trails: all stop as the clip ends)', async () => {
+  // a looping 0.5 s system bursting 2 at each lap's start; the clip sets the count to 0 from t = 1: no lap after that adds
+  const { def, inst } = await make([node('p', 0, { ps: sys({ dur: 0.5, loop: true, life: mm(0.2), bursts: [{ t: 0, n: mm(2), cycles: 1, interval: 0.01, p: 1 }], dist: mm(2) }) })], [
+    { node: 1, prop: 'ps:EmissionModule.m_Bursts.Array.data[0].countCurve.scalar', type: 198, curves: [[[0, 0, 0, 0, 2], [1, 0, 0, 0, 0]]] },
+    { node: 1, prop: 'ps:EmissionModule.rateOverDistance.scalar', type: 198, curves: [step(0)] }]);
+  const s = inst.systems[0];
+  let before = 0, after = 0;
+  for (let i = 0; i < 30; i++) { const n0 = s.n; inst.update(1 / 30); before = Math.max(before, s.n - n0); }
+  for (let i = 0; i < 6; i++) inst.update(1 / 30);   // the last lap's particles die (life 0.2)
+  for (let i = 0; i < 45; i++) { inst.update(1 / 30); after += s.n; }
+  assert.ok(before >= 2, `the bursts before the clip sets 0 (${before})`);
+  assert.equal(after, 0, 'no burst once the count is 0');
+  assert.equal(s.ps.dist.s, 0, 'the rate over distance is the clip\'s');
+  assert.equal(def.nodes[1].ps.bursts[0].n.s, 2, 'the shared definition is untouched');
+  assert.equal(def.nodes[1].ps.dist.s, 2);
+});
+
+test('fx_extract.py names list elements and old names: the burst counts by the engine\'s `.Array.data[i]`, boxZ binds nothing', () => {
+  const out = execFileSync('python3', ['-c', `
+import json, sys
+sys.path.insert(0, 'tools/local-extract')
+import fx_extract as fe
+print(json.dumps([fe.ANIMATED_CRC.get((198, fe.crc32('EmissionModule.m_Bursts.Array.data[0].countCurve.scalar'))),
+                  fe.ANIMATED_CRC.get((198, fe.crc32('EmissionModule.rateOverDistance.scalar'))),
+                  'EmissionModule.m_Bursts.Array.data[1].countCurve.scalar' in fe.type_paths({'EmissionModule': {'m_Bursts': [{}, {'countCurve': {'scalar': 1}}]}}, lists=True),
+                  'EmissionModule.m_Bursts.Array.data[0]' in fe.type_paths({'EmissionModule': {'m_Bursts': [{}]}}),
+                  fe.OLD_PS_NAMES.get(fe.crc32('ShapeModule.boxZ'))]))`], { cwd: ROOT, encoding: 'utf8' });
+  assert.deepEqual(JSON.parse(out), ['ps:EmissionModule.m_Bursts.Array.data[0].countCurve.scalar', 'ps:EmissionModule.rateOverDistance.scalar',
+    true, false, 'ShapeModule.boxZ (an older Unity name: binds nothing)']);
+});

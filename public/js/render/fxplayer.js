@@ -525,7 +525,19 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       gl_Position = projectionMatrix * modelViewMatrix * vec4(iPos + p, 1.0);
       return;
     }
-    vec4 cv = modelViewMatrix * vec4(iPos, 1.0);   // camera-facing (vertical billboards approximated)
+    if (uMode == 3) {
+      // (2026-11-16, fx-C) vertical billboard (Unity: upright on the world's up axis, turned to face the camera — here the
+      // scene's +z and the camera's right axis laid flat [추정·엔진: the camera's axis, not its position]); its corner in
+      // scene units, as a camera-facing quad's. 黑键 (char_4046_ebnhlz)'s cube aura token_ebnhlz_buff, node quan
+      vec3 wq = (modelMatrix * vec4(iPos, 1.0)).xyz;
+      vec3 rt = vec3(viewMatrix[0][0], viewMatrix[1][0], 0.0);
+      rt = dot(rt, rt) > 1e-12 ? normalize(rt) : vec3(1.0, 0.0, 0.0);
+      wq += rt * rc.x + vec3(0.0, 0.0, rc.y);
+      vH = wq.z;
+      gl_Position = projectionMatrix * viewMatrix * vec4(wq, 1.0);
+      return;
+    }
+    vec4 cv = modelViewMatrix * vec4(iPos, 1.0);   // camera-facing
     // (2026-10-27, effect bundle V) Facing alignment (3): the quad faces the camera's position, not its plane (Unity manual)
     // (2026-11-04) a View quad's camera axes scaled by the system's transform scale (sysView; Facing's dispatcher is not read)
     vec3 off = uMode == 0 && uAlign == 0 ? sysView(vec3(rc, 0.0)) : vec3(rc, 0.0);
@@ -1651,7 +1663,7 @@ class ParticleSystem {
     // a trail-only system (renderer mode None / no particle material) draws only its trails
     const drawParticles = ps.render.mat && ps.render.mode !== 5;
     const mat = makeMaterial(def.materials[ps.render.mat] || null, def.lib);
-    mat.uniforms.uMode.value = ps.render.mode === 3 ? 0 : ps.render.mode;
+    mat.uniforms.uMode.value = ps.render.mode;   // (2026-11-16) 3 vertical billboards have their own branch (was drawn as 0)
     mat.uniforms.uLengthScale.value = ps.render.lengthScale ?? 2;
     mat.uniforms.uVelScale.value = ps.render.velScale ?? 0;
     // (official client) a mesh particle's alignment picks its mesh job, Local when `rotOL` turns its separate axes
@@ -1762,9 +1774,10 @@ class ParticleSystem {
    * lifetime by the remaining fraction]. [ASSUMED: the target's start values are evaluated at that age over its duration]
    */
   setSubs(list) {
-    this.subs = list;
     for (const x of list) { x.sys.subOf = this; x.sys.emitAcc = 0; }
-    this.subAcc = new Float32Array(this.room * list.length);
+    const birth = list.filter((x) => (x.e.type || 0) === 0), hit = list.filter((x) => x.e.type === 1);
+    if (birth.length) { this.subs = birth; this.subAcc = new Float32Array(this.room * birth.length); }
+    if (hit.length) this.subsHit = hit;
   }
 
   /**
@@ -2086,6 +2099,7 @@ class ParticleSystem {
       // w = the velocity reflected × keep, its normal part then × bounce; what lies past the hit (−v t) comes out as −w t
       const keep = 1 - evalMM(co.dampen, 0, Math.random()), bn = vn * ((1 - evalMM(co.bounce, 0, Math.random())) - 2);
       const wx = keep * (vx + nx * bn), wy = keep * (vy + ny * bn), wz = keep * (vz + nz * bn);
+      if (this.subsHit) this.emitHitSubs(i, a, hx, hy, hz);
       pos[o] = hx - wx * t; pos[o + 1] = hy - wy * t; pos[o + 2] = hz - wz * t;
       vel[o] = wx / sm - avel[o]; vel[o + 1] = wy / sm - avel[o + 1]; vel[o + 2] = wz / sm - avel[o + 2];
       this.age[i] += evalMM(co.lifeLoss, 0, Math.random()) * this.life[i];
@@ -2257,7 +2271,7 @@ class ParticleSystem {
     const orbit = velOn && this.orbit ? this.orbitFrame() : null, vo = m.velOL;
     const nzOn = !!m.noise && this.noiseFrame(dt);
     const P = m.collide ? this.planeFrames() : null;
-    if (this.subs && !this.world) {   // the node → root transform for the sub emitters' points
+    if ((this.subs || this.subsHit) && !this.world) {   // the node → root transform for the sub emitters' points
       this.frame.updateWorldMatrix(true, false); this.root.updateWorldMatrix(true, false);
       subM.copy(this.root.matrixWorld).invert().multiply(this.frame.matrixWorld);
     }
@@ -2476,6 +2490,33 @@ class ParticleSystem {
     for (let c = 0; c < 3; c++) {
       const l = Math.hypot(e[c * 4], e[c * 4 + 1], e[c * 4 + 2]) || 1;
       M[c * 4] = e[c * 4] / l; M[c * 4 + 1] = e[c * 4 + 1] / l; M[c * 4 + 2] = e[c * 4 + 2] / l;
+    }
+  }
+
+  /**
+   * (2026-11-16, fx-C) setSubs's Collision sub emitters (type 1): particle i (age fraction a) hit a plane at (x, y, z) (collide;
+   * this system's frame): each one emits there once — its bursts' counts [추정·엔진: a triggered sub emitter emits the sum of its
+   * bursts and not its rate over time; every such target of the extracted prefabs has one burst at 0 and no rate], kept with
+   * probability `p`, inheriting as emitSubs. 아이린 S3's range_02: the stars and sparks where the shots meet the ground.
+   */
+  emitHitSubs(i, a, x, y, z) {
+    const at = subAt.set(x, y, z);
+    if (!this.world) at.applyMatrix4(subM);
+    for (const { e, sys } of this.subsHit) {
+      let n = 0;
+      for (const b of sys.ps.bursts || []) if (Math.random() <= (b.p ?? 1)) n += Math.max(0, Math.round(evalMM(b.n, 0, Math.random()) * sys.burstK(b.t)));
+      if (n <= 0 || Math.random() > (e.p ?? 1)) continue;
+      const props = e.props || 0;
+      let col = null, size = null;
+      if (props & 1) {
+        col = subCol; for (let k = 0; k < 4; k++) col[k] = this.col0[i * 4 + k];
+        if (this.ps.mods.colorOL) { evalMG(this.ps.mods.colorOL, a, this.rnd[i * 4 + 3], tmpC2); for (let k = 0; k < 4; k++) col[k] *= tmpC2[k]; }
+      }
+      if (props & 2) {
+        const sk = this.sizeOf(i, a, this.rnd[i * 4 + 2], sizeK);
+        size = subSize; size[0] = this.size0[i * 3] * sk[0]; size[1] = this.size0[i * 3 + 1] * sk[1]; size[2] = this.size0[i * 3 + 2] * sk[2];
+      }
+      sys.emit(n, { at, t01: 0, col, size, rot: props & 4 ? this.rot[i * 3 + 2] : null, lifeK: props & 8 ? Math.max(0, 1 - a) : 1, parent: this.uid[i] });
     }
   }
 
@@ -3025,6 +3066,10 @@ const PS_ANIM = {
   'ShapeModule.radius.value': ['shape', 'radius'], 'SizeModule.curve.scalar': ['mods', 'sizeOL', 'x', 's'],
   'InitialModule.gravityModifier.scalar': ['gravity', 's'], 'InitialModule.startSize.scalar': ['size', 's'], 'InitialModule.startSizeY.scalar': ['sizeY', 's'], looping: ['loop'], simulationSpeed: ['speedMul'],
   'VelocityModule.enabled': ['mods', 'velOL', 'on'],   // (2026-10-23) a switched-off module a clip turns on (fx_extract.py clip_modules)
+  // (2026-11-16, fx-C) the rate over distance and the bursts' counts (机械师's 机械狗 S3 trails stop them as the clip ends)
+  'EmissionModule.rateOverDistance.scalar': ['dist', 's'], 'EmissionModule.rateOverDistance.minScalar': ['dist', 'n'],
+  ...Object.fromEntries(Array.from({ length: 8 }, (_, i) => [[`EmissionModule.m_Bursts.Array.data[${i}].countCurve.scalar`, ['bursts', i, 'n', 's']],
+    [`EmissionModule.m_Bursts.Array.data[${i}].countCurve.minScalar`, ['bursts', i, 'n', 'n']]]).flat()),
   ...Object.fromEntries([...'rgba'].flatMap((c, k) => [[`InitialModule.startColor.maxColor.${c}`, ['color', 'a', k]],
     [`TrailModule.colorOverLifetime.maxColor.${c}`, ['mods', 'trail', 'colorOL', 'a', k]]])),
 };
@@ -3245,12 +3290,12 @@ export class FxInstance {
         for (const m of mats) uvRotation(m, n.uvr);
       }
     });
-    // 2026-10-14: sub emitters (fx_extract.py `mods.sub`, all Birth): the target system emits from each of this system's particles
-    // instead of playing on its own
+    // 2026-10-14: sub emitters (fx_extract.py `mods.sub`, Birth): the target system emits from each of this system's particles
+    // instead of playing on its own; (2026-11-16) Collision ones (type 1, on a system with a CollisionModule) where they hit
     for (const s of this.systems) {
       const list = (Array.isArray(s.ps.mods?.sub) ? s.ps.mods.sub : [])
         .map((e) => ({ e, sys: this.systems.find((x) => x.node === this.nodes[e.node]) }))
-        .filter((x) => x.sys && x.sys !== s && !x.sys.subOf && (x.e.type || 0) === 0);
+        .filter((x) => x.sys && x.sys !== s && !x.sys.subOf && ((x.e.type || 0) === 0 || (x.e.type === 1 && s.ps.mods?.collide)));
       if (list.length) s.setSubs(list);
       // 2026-10-22: the CollisionModule's planes (fx_extract.py collide_planes: node indices)
       for (const k of s.ps.mods?.collide?.planes || []) if (this.nodes[k]) s.planes.push(this.nodes[k]);

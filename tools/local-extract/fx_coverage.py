@@ -332,10 +332,11 @@ PS_FIELDS = {
         'multiplyColliderForceByParticleSpeed')},
     'CollisionModule.collisionMessages': _N('script messages'),
     'SubModule.enabled': _N('the module switch'), 'SubModule.subEmitters[].emitter': _K('mods.sub[].node'),
-    'SubModule.subEmitters[].type': _V('mods.sub[].type', (0,)), 'SubModule.subEmitters[].properties': _K('mods.sub[].props'),
+    # (2026-11-16) 1 Collision: fired where a particle of a system with a CollisionModule hits (fxplayer.js emitHitSubs)
+    'SubModule.subEmitters[].type': _V('mods.sub[].type', (0, 1)), 'SubModule.subEmitters[].properties': _K('mods.sub[].props'),
     'SubModule.subEmitters[].emitProbability': _A(1, 'a sub-emitter fires only sometimes (`sub[].p` is carried, not played)'),
     # the ParticleSystemRenderer
-    'renderer.m_RenderMode': _V('render.mode', (0, 1, 2, 4, 5)),
+    'renderer.m_RenderMode': _V('render.mode', (0, 1, 2, 3, 4, 5)),   # (2026-11-16) 3 vertical billboard: its own shader branch
     'renderer.m_RenderAlignment': _V('render.align', (0, 1, 2, 3, 4)),
     'renderer.m_LengthScale': _K('render.lengthScale'), 'renderer.m_VelocityScale': _K('render.velScale'),
     'renderer.m_CameraVelocityScale': _A(0, 'a stretch by the camera\'s motion'),
@@ -399,14 +400,21 @@ _RENDERER_COMMON = {
 }
 
 
+def _line_on(t, _):
+    """(2026-11-16) a switched-off TrailRenderer / LineRenderer is not extracted (`m_Enabled` _R): its values draw nothing —
+    阿斯特根 S2's halo_skill_02_line `trai4l_ab_dm` (alignment 1 on a switched-off node and renderer)."""
+    return bool(t.get('m_Enabled', 1))
+
+
 def _line_params(key):
     """A TrailRenderer's / LineRenderer's m_Parameters (Unity LineParameters) carried under `key`."""
     return {'m_Parameters.widthMultiplier': _K(f'{key}.width'), 'm_Parameters.widthCurve': _K(f'{key}.widthCurve'),
-            'm_Parameters.colorGradient': _K(f'{key}.grad'), 'm_Parameters.alignment': _V(f'{key}.align', (0, 1) if key == 'trailR' else (0,)),
-            'm_Parameters.textureMode': _V(f'{key}.texMode', (0, 1, 2, 3)),
-            'm_Parameters.numCapVertices': _A(0, 'rounded ends'), 'm_Parameters.numCornerVertices': _A(0, 'rounded corners'),
-            'm_Parameters.textureScale.x': _A(1, 'the texture scaled along the line'),
-            'm_Parameters.textureScale.y': _A(1, 'the texture scaled across the line'),
+            'm_Parameters.colorGradient': _K(f'{key}.grad'),
+            'm_Parameters.alignment': _V(f'{key}.align', (0, 1) if key == 'trailR' else (0,), _line_on),
+            'm_Parameters.textureMode': _V(f'{key}.texMode', (0, 1, 2, 3), _line_on),
+            'm_Parameters.numCapVertices': _A(0, 'rounded ends', _line_on), 'm_Parameters.numCornerVertices': _A(0, 'rounded corners', _line_on),
+            'm_Parameters.textureScale.x': _A(1, 'the texture scaled along the line', _line_on),
+            'm_Parameters.textureScale.y': _A(1, 'the texture scaled across the line', _line_on),
             'm_Parameters.shadowBias': _N(_LIGHTING), 'm_Parameters.generateLightingData': _N(_LIGHTING)}
 
 
@@ -533,7 +541,9 @@ COMP_FIELDS = {
         **({'protectMainUV': _K('nodes[].uvt.maps'), 'protectSecondUV': _K('nodes[].uvt.maps')} if c == 'FxUVTweener' else {
             'tweenRepeat': _K('nodes[].uvt.until'), 'tweenAnmTime': _K('nodes[].uvt.until'), 'extraMapSettings': _N('an empty list'),
             **{f'extraMapSettings[].{f}': _K('nodes[].uvt.maps') for f in ('XSpeed', 'YSpeed', 'enabled', 'mapName')},
-            **{f'extraMapSettings[].mapST.{a}': _A(0, 'the map\'s own tiling / offset [ASSUMED]') for a in 'xyzw'}})}
+            # (2026-11-16, official client FxUVTweenerAdvance.Awake) each enabled map's mapST is overwritten by the material's
+            # `<mapName>_ST` (GetVector) before OnEnable / Update use it: the serialized value is a stale editor copy
+            **{f'extraMapSettings[].mapST.{a}': _N('Awake overwrites it with the material\'s <mapName>_ST: the player starts from the material\'s') for a in 'xyzw'}})}
         for c in ('FxUVTweener', 'FxUVTweenerAdvance')},
     'script:FxUVRotation': {'m_Enabled': _R('a switched-off rotation turns nothing (it turns in Update)'),
                             **{f: _K('nodes[].uvr') for f in ('angle1', '_angle2', '_angle3', '_angle4',
@@ -554,8 +564,8 @@ COMP_FIELDS = {
         'm_Enabled': _A(1, _OFF), '_startMountPointType': _K('lineDyn.sMount'), '_endMountPointType': _K('lineDyn.eMount'),
         '_startEffect': _K('lineDyn.start'), '_endEffect': _K('lineDyn.end'), '_midEffect': _K('lineDyn.mid'),
         **{f'_startPosOffset.{a}': _K('lineDyn.sOff') for a in 'xyz'}, **{f'_endPosOffset.{a}': _K('lineDyn.eOff') for a in 'xyz'},
-        '_tweenEndPosition': _A(0, 'the end eased out from the start over _tweenDuration (`lineDyn.tween` is carried, not played)'),
-        '_tweenDuration': _N('only with _tweenEndPosition'),
+        '_tweenEndPosition': _K('lineDyn.tween'),   # (2026-11-16) render/fxgame.js stepLine: the end lerped out of the start
+        '_tweenDuration': _K('lineDyn.tween'),
         '_finishIfBuffNotExists': _N('the line ends with its buff: render/fxgame.js startLine is given the buff\'s lifeTime (`lineDyn.finishBuff` is carried)'),
         '_buffKeyForFinish': _N('only with _finishIfBuffNotExists'),
         '_fetchStartEndViaBuff': _A(0, 'the two ends taken from a buff\'s source and target'),
@@ -917,6 +927,10 @@ KNOWN = {
     'script:SyncEffectScaleWithAuraRangeRadius': (_TODO, 'scales the effect with its owner\'s aura ability range (÷ `_effectOriginRadius`): '
                                                   'only enemy_lrmm_range_01, of an enemy no stage of this mode fields (2026-10-25)'),
     'clip:material property the shader does not declare': (_NONE, 'Unity sets a value no pass reads'),
+    # (2026-11-16, fx-C) fx_extract.py OLD_PS_NAMES: a clip of an older Unity's ParticleSystem name (阿斯特根's halo_skill_02_buff_02)
+    **{f'clip:ParticleSystem.ShapeModule.{n} (an older Unity name: binds nothing)': (
+        _NONE, 'not among this engine\'s ParticleSystem animatable names (the box size is m_Scale now): the curve sets nothing')
+       for n in ('boxX', 'boxY', 'boxZ')},
     'shader:Unlit/Texture': (_HAND, 'only S_desert_wall_02_start_Mesh (s.ab), which the player never plays: scene_extract.py '
                                     '--devices bakes its mesh into the 土石结构 model, drawn opaque and unlit by board3d/official.js'),
     'clip:material property on a node with nothing drawn': (

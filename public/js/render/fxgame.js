@@ -596,6 +596,23 @@ export function stageCannons(stage, rect) {
   return out;
 }
 
+/**
+ * 2026-11-16 (official client `LineEffectEmitterDynamic._UpdateMountPoint`): how far a `_tweenEndPosition` line's end has
+ * grown out of its start `t` s after its OnPlay — clamp(t / `_tweenDuration`); 1 without a tween.
+ */
+export function lineTween(duration, t) {
+  return duration > 0 ? Math.min(1, Math.max(0, t / duration)) : 1;
+}
+/**
+ * The grown end: lerp(start point `s`, end point `e`, `k`) + the end offset `off` ([x, up]: Unity +x, +y → the scene's x, z,
+ * as elinePoint), written into `e`.
+ */
+export function lineTweenEnd(s, e, k, off) {
+  e.x = s.x + (e.x - s.x) * k; e.y = s.y + (e.y - s.y) * k; e.z = s.z + (e.z - s.z) * k;
+  if (Array.isArray(off)) { e.x += Number(off[0]) || 0; e.z += Number(off[1]) || 0; }
+  return e;
+}
+
 export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {}, trace = null, dry = false }) {
   let index = null, modes = null, emodes = null, plays = null;
   // 2026-11-15: whether the index fetch has ended (`index` stays null without extracted effects): until then the stand-ins
@@ -6062,7 +6079,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // gone; the effect then fades (`_delayToFinish` 0.5: stop()).
   // [추정: the buff goes on with the attack's hit — its 'dmg' — and a hit while it stands refreshes it (maxStackCnt 1)]
   const elines = new Map();   // `${source id}:${target id}:${prefab}` → { src, tgt, until, l, sp, dyn }
-  const lineA = { x: 0, y: 0, z: 0 }, lineB = { x: 0, y: 0, z: 0 };
+  const lineA = { x: 0, y: 0, z: 0 }, lineB = { x: 0, y: 0, z: 0 }, lineT = { x: 0, y: 0, z: 0 };
   /** A unit's point of Entity.MountPointType `type` (GROUND: its feet; a point its model lacks: half its height). */
   function elinePoint(v, type, out, off) {
     const key = type === 7 ? null : pointKey(mountSpawn({ type }));
@@ -6112,9 +6129,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
     });
   }
+  /**
+   * 2026-11-16 (official client `LineEffectEmitterDynamic._UpdateMountPoint`, fx-C): with `_tweenEndPosition` (`lineDyn.tween`
+   * = `_tweenDuration`) the end grows out of the start — point 1 = lerp(start point, end point, clamp(t / duration)) + the end
+   * offset, t counted from the line's `OnPlay` (`m_lerpTime` 0) by the scaled delta time, here the battle clock from its
+   * first frame; the start offset is not in the lerp. 逻各斯 S2's lock line `logos_skill2_line_01` (0.2 s).
+   */
   function stepLine(rec) {
     if (!rec.l?.inst) return;
-    const a = elinePoint(rec.src, rec.dyn.sMount, lineA, rec.dyn.sOff), b = elinePoint(rec.tgt, rec.dyn.eMount, lineB, rec.dyn.eOff);
+    const a = elinePoint(rec.src, rec.dyn.sMount, lineA, rec.dyn.sOff);
+    const tw = Number(rec.dyn.tween) || 0;
+    if (tw > 0 && rec.t0 == null) rec.t0 = clockS;
+    const k = lineTween(tw, tw > 0 ? clockS - rec.t0 : 0);
+    const b = k < 1
+      ? lineTweenEnd(elinePoint(rec.src, rec.dyn.sMount, lineT, null), elinePoint(rec.tgt, rec.dyn.eMount, lineB, null), k, rec.dyn.eOff)
+      : elinePoint(rec.tgt, rec.dyn.eMount, lineB, rec.dyn.eOff);
     rec.l.inst.setLine?.(a, b);
     if (rec.sp) { rec.sp.x = a.x; rec.sp.y = a.y; rec.sp.z = a.z; }
   }
