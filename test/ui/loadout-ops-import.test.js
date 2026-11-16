@@ -35,7 +35,7 @@ test('a loadout ops payload is refused with the DIY data check; entries-only is 
 
 test('ioApply asks loadoutOpsImportRefusal after parseImport and before cultivationCharIds or applyLoadoutEntries', () => {
   const src = readFileSync(path.join(ROOT, 'public/js/screens/loadout.js'), 'utf8');
-  const at = src.indexOf('const ioApply = () => {');
+  const at = src.indexOf('const ioApply = async () => {');
   assert.ok(at > 0, 'ioApply');
   const body = src.slice(at, src.indexOf('\n  };\n', at));
   const parsed = body.indexOf('if (!res.ok)');
@@ -47,8 +47,10 @@ test('ioApply asks loadoutOpsImportRefusal after parseImport and before cultivat
   assert.match(body.slice(guard), /^loadoutOpsImportRefusal\(res\.ops, ready\);\s*if \(opsRefused\) \{ toast\(opsRefused\.text, opsRefused\.tone\); return; \}/);
 });
 
-test('导出 stays enabled when only 潜能 / 练度 (a 自选 operator\'s too) changed (upstream 7a65577c)', () => {
-  // changedCount counts the roster only; a 自选 operator's 练度 is stored in `ops` by the 自选编队 tab
+test('导出 stays enabled when only 潜能 / 练度 (a 自选 operator\'s too) or only the skins changed (upstream 7a65577c)', () => {
+  // changedCount counts the roster only; a 自选 operator's 练度 is stored in `ops` by the 自选编队 tab, and the skin
+  // choice lives in its own store (ui/skins.js) — both are exported (docs/rules/ui.md 「스킨 고르기」 내보내기)
   const src = readFileSync(path.join(ROOT, 'public/js/screens/loadout.js'), 'utf8');
-  assert.match(src, /data-testid="loadout-export" disabled=\$\{!nChanged && !Object\.keys\(st\.ops \|\| \{\}\)\.length\}/);
+  const enabled = /data-testid="loadout-export" disabled=\$\{!nChanged && !Object\.keys\(st\.ops \|\| \{\}\)\.length && !Object\.keys\(mySkins\)\.length\}/g;
+  assert.equal(src.match(enabled)?.length, 2, 'both 导出 entries (the list header and the card view\'s 更多 menu)');
 });

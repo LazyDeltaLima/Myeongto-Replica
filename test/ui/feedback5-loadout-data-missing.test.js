@@ -67,7 +67,7 @@ test('every import is refused while the files load or when the game data did not
 
 test('the screen: the import asks importRefusal before parsing or applying anything; a tab without its data shows DataMissing', () => {
   const src = readFileSync(path.join(ROOT, 'public/js/screens/loadout.js'), 'utf8');
-  const at = src.indexOf('const ioApply = () => {');
+  const at = src.indexOf('const ioApply = async () => {');
   assert.ok(at > 0, 'ioApply');
   const body = src.slice(at, src.indexOf('\n  };\n', at));
   const guard = body.indexOf('const refused = importRefusal(io.kind, ready);');

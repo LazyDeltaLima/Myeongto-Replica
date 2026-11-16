@@ -13,7 +13,7 @@
 // 精英2 Lv.60) are kept; stored beside the entries (`sp.pref.loadout` = { v: 1, entries, ops }; an older stored loadout
 // has none = the defaults) and sent with `room.loadout { entries, ops }` (shared/protocol.js checkLoadoutOps).
 
-import { loadoutOptions, checkLoadout, checkLoadoutOps, resolveLoadout, MODULE_NONE, LOADOUT_LIMITS } from '../../../shared/protocol.js';
+import { loadoutOptions, checkLoadout, checkLoadoutOps, resolveLoadout, MODULE_NONE, LOADOUT_LIMITS, SKIN_LIMITS, isCharId, isSkinId } from '../../../shared/protocol.js';
 import { isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from '../../../shared/potential.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
@@ -163,12 +163,28 @@ export const LOADOUT_EXPORT_KIND = 'stronghold.loadout';
 export const LOADOUT_IMPORT_MAX_BYTES = 256 * 1024;
 
 /**
- * Portable payload of a loadout, as downloaded / copied by 导出 — with the per-operator 潜能 / 练度 (`ops`, 0.2.2; an
- * older build reading it ignores the field).
- * @param {Record<string, any>} entries `room.loadout.entries`
- * @param {{ now?: number, ops?: Record<string, any> }} [o]
+ * A skin choice as an export carries it: `{ [charId]: skinId }`, the shape `room.skins` accepts (ui/skins.js
+ * parseStoredSkins keeps the same pairs) — junk pairs dropped, at most SKIN_LIMITS.entries.
+ * @param {any} raw @returns {Record<string, string>}
  */
-export function exportPayload(entries, { now = Date.now(), ops = {} } = {}) {
+function cleanSkins(raw) {
+  const out = {};
+  if (!isObj(raw)) return out;
+  for (const [charId, skinId] of Object.entries(raw)) {
+    if (Object.keys(out).length >= SKIN_LIMITS.entries) break;
+    if (isCharId(charId) && isSkinId(skinId)) out[charId] = skinId; // a charId is never `__proto__`
+  }
+  return out;
+}
+
+/**
+ * Portable payload of a loadout, as downloaded / copied by 导出 — with the per-operator 潜能 / 练度 (`ops`, 0.2.2) and
+ * this browser's skin choice (`skins`, ui/skins.js: per operator, not per season); an older build reading it ignores
+ * the fields it does not know.
+ * @param {Record<string, any>} entries `room.loadout.entries`
+ * @param {{ now?: number, ops?: Record<string, any>, skins?: Record<string, string> }} [o]
+ */
+export function exportPayload(entries, { now = Date.now(), ops = {}, skins = {} } = {}) {
   const clean = {};
   for (const [id, e] of Object.entries(entries || {})) if (isObj(e)) clean[id] = { ...e };
   const cleanOps = {};
@@ -180,6 +196,7 @@ export function exportPayload(entries, { now = Date.now(), ops = {} } = {}) {
     count: Object.keys(clean).length,
     entries: clean,
     ops: cleanOps,
+    skins: cleanSkins(skins),
   };
 }
 
@@ -188,15 +205,98 @@ export function serializeExport(entries, opts) {
   return JSON.stringify(exportPayload(entries, opts), null, 2);
 }
 
+// The one-line code (maintainer request 2026-11-17): what 复制 copies and the export box shows — `SPL<v>.` + base64url
+// of the deflated compact JSON `{ v, entries, ops, skins }` (`SPL<v>j.` = not compressed, where the browser has no
+// CompressionStream), the same scheme as the custom-rules share code (ui/customRulesStore.js). It is the payload itself,
+// not a hash of it, so 导入 turns it back: expandLoadoutCode gives parseImport the JSON inside. The file 下载文件 saves
+// stays the JSON envelope, and a pasted JSON (an older export) still imports.
+
+const CODE_RE = /^SPL(\d+)(j?)\.([A-Za-z0-9_-]+)$/;
+/** Whether pasted text is a one-line code (not JSON): it starts with `SPL<digit>`. */
+const looksLikeCode = (text) => typeof text === 'string' && /^\s*SPL\d/.test(text);
+
+const toB64url = (bytes) => {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+const fromB64url = (s) => {
+  const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+};
+/** The bytes out of `stream` fed with `bytes`; null as soon as they pass `cap` (a code that inflates without end). */
+async function pipeCapped(bytes, stream, cap) {
+  const reader = new Blob([bytes]).stream().pipeThrough(stream).getReader();
+  const parts = [];
+  let n = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    n += value.length;
+    if (n > cap) { try { await reader.cancel(); } catch { /* already closed */ } return null; }
+    parts.push(value);
+  }
+  const out = new Uint8Array(n);
+  let at = 0;
+  for (const p of parts) { out.set(p, at); at += p.length; }
+  return out;
+}
+
+/**
+ * The one-line code of a loadout (what 导出's box shows and 复制 copies): the payload of exportPayload without its
+ * `kind` / `exportedAt` / `count` (the prefix says what it is), deflated.
+ * @param {Record<string, any>} entries @param {{ ops?: Record<string, any>, skins?: Record<string, string> }} [o]
+ * @returns {Promise<string>}
+ */
+export async function encodeLoadoutCode(entries, { ops = {}, skins = {} } = {}) {
+  const p = exportPayload(entries, { ops, skins });
+  const json = new TextEncoder().encode(JSON.stringify({ v: p.v, entries: p.entries, ops: p.ops, skins: p.skins }));
+  if (typeof CompressionStream === 'function') {
+    try {
+      const z = await pipeCapped(json, new CompressionStream('deflate-raw'), Infinity);
+      if (z) return `SPL${LOADOUT_VERSION}.${toB64url(z)}`;
+    } catch { /* plain below */ }
+  }
+  return `SPL${LOADOUT_VERSION}j.${toB64url(json)}`;
+}
+
+/**
+ * What parseImport reads of pasted / picked text: a one-line code becomes the JSON inside it (spaces and line breaks
+ * ignored — a chat app may wrap it); anything else, and a code that does not decode (cut short, mistyped, inflating
+ * past LOADOUT_IMPORT_MAX_BYTES, or compressed where this browser has no DecompressionStream), comes back as given, so
+ * parseImport refuses it with its usual message.
+ * @param {any} text @returns {Promise<any>}
+ */
+export async function expandLoadoutCode(text) {
+  if (!looksLikeCode(text) || text.length > LOADOUT_IMPORT_MAX_BYTES) return text;
+  const m = CODE_RE.exec(text.replace(/\s+/g, ''));
+  if (!m) return text;
+  try {
+    let bytes = fromB64url(m[3]);
+    if (!m[2]) {
+      if (typeof DecompressionStream !== 'function') return text;
+      bytes = await pipeCapped(bytes, new DecompressionStream('deflate-raw'), LOADOUT_IMPORT_MAX_BYTES);
+      if (!bytes) return text;
+    } else if (bytes.length > LOADOUT_IMPORT_MAX_BYTES) return text;
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return text;
+  }
+}
+
 /**
  * Parse an imported loadout. Tolerant by design: the envelope, the stored `{ v, entries }` form and a bare
  * `{ [chessId]: { skill, module } }` map all work, as does the serialised text of any of them. Parsing is STRUCTURAL
  * only — the caller still runs `sanitizeEntries` against the loaded data, because a preset from another season may name
  * chess / skills / modules this build does not have. `__proto__` / `constructor` keys are skipped (see parseStored).
  * A payload with `ops` (0.2.2) brings the per-operator 潜能 / 练度 too (`ops` in the result — absent when the payload has
- * none: an older export leaves the current settings alone); a payload of settings only imports.
+ * none: an older export leaves the current settings alone); a payload of settings only imports. A payload with `skins`
+ * brings the skin choice the same way (`skins` in the result, absent for an export made before skins were carried).
+ * A one-line code goes through expandLoadoutCode first.
  * @param {any} input payload object or serialised text
- * @returns {{ ok: true, entries: Record<string, any>, ops?: Record<string, any> } | { ok: false, error: string }}
+ * @returns {{ ok: true, entries: Record<string, any>, ops?: Record<string, any>, skins?: Record<string, string> } | { ok: false, error: string }}
  */
 export function parseImport(input) {
   let raw = input;
@@ -214,8 +314,11 @@ export function parseImport(input) {
   if (kind && kind !== LOADOUT_EXPORT_KIND) return { ok: false, error: t('这不是干员调配的数据') };
   const entries = parseStored(raw);
   const ops = isObj(raw.ops) ? parseStoredOps(raw) : null;
-  if (!Object.keys(entries).length && !(ops && Object.keys(ops).length)) return { ok: false, error: t('里面没有有效的调配条目') };
-  return ops ? { ok: true, entries, ops } : { ok: true, entries };
+  const skins = isObj(raw.skins) ? cleanSkins(raw.skins) : null;
+  if (!Object.keys(entries).length && !(ops && Object.keys(ops).length) && !(skins && Object.keys(skins).length)) {
+    return { ok: false, error: t('里面没有有效的调配条目') };
+  }
+  return { ok: true, entries, ...(ops ? { ops } : {}), ...(skins ? { skins } : {}) };
 }
 
 // ---- options & choices ---------------------------------------------------------------------------------------------

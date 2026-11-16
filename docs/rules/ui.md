@@ -2538,6 +2538,15 @@ upstream v0.4.0 대조에서 받은 화면 수정(`docs/rules/upstream.md` 「�
   세션(`session.skins`, 방마다 좌석 `seatSkins`, 경기 `players[].skins`). 고르는 즉시 저장되고 새로 고침·방 다시 만들기·「시뮬레이션 포기」 뒤에도 남는다
   (2026-11-17 관리자 제보 「싱글에서 포기하고 다시 들어가면 기본 스킨」을 서버 실제 경로로 재현해 봄: 두 번째 싱글 방의 좌석·`m.public`에도 그대로 있었다).
   게임에서 기본 모습이던 원인은 렌더 쪽 — 새 경기 필드의 첫 장면이 스킨 목록보다 먼저 시작함(`docs/rules/render.md` 「스킨 렌더 게이트」 「첫 장면 전에 목록」).
+- 내보내기·가져오기(관리자 요청 2026-11-17): 오퍼레이터 설정의 「내보내기」(`screens/loadout.js openExport`)가 스킨 선택도 담는다 — 봉투의 `skins`
+  (`ui/loadoutModel.js exportPayload`, charId → 스킨 ID, 선에 맞는 쌍만). 창의 글 상자와 「복사」는 한 줄 문자열(`encodeLoadoutCode`:
+  `SPL<판>.` + 압축한(`deflate-raw`) JSON `{ v, entries, ops, skins }`의 base64url — CompressionStream이 없는 브라우저는 압축 없이 `SPL<판>j.`; 커스텀 규칙 공유
+  코드와 같은 방식)이고, 「파일 다운로드」는 예전처럼 JSON 봉투다. 해시가 아니라 내용 자체라 되돌릴 수 있다. 「가져오기」는 문자열·JSON·파일 모두 받는다
+  (`expandLoadoutCode` → `parseImport`; 문자열 안의 빈칸·줄바꿈은 무시 — 채팅 앱이 줄을 접음, 풀어 256 KB를 넘거나 깨진 문자열은 「알 수 없는 내용」으로 거절).
+  `skins`가 있으면 스킨 선택을 통째로 바꾸고(빈 맵이면 모두 기본 스킨, 잠재능력·육성도 `ops`와 같은 규칙), 스킨이 담기기 전의 내보내기는 지금 선택을 그대로 둔다.
+  스킨만 담긴 것도 가져올 수 있고 그때 스킬·모듈과 잠재능력·육성도는 그대로다. 스킨 ID는 목록과 대조하지 않는다 — 목록에 없는 스킨은 기본 모습으로 그려진다(`chosenSkin`).
+  스킨만 골랐어도 「내보내기」가 켜진다. 확인: `test/ui/loadout.test.js` 「the one-line code」, `test/ui/loadout-ops-import.test.js`(켜짐 조건),
+  `test/ui/loadout.e2e.test.js`(브라우저, 문자열로 왕복).
 - 대기실 좌석 카드(`ui/seatArt.js seatCardSkin`, `screens/room.js`): 카드의 오퍼레이터가 그 좌석이 고른 스킨의 초상화를 입는다 — 내 카드는 이 브라우저 선택을 곧바로,
   남의 카드는 `room.state seats[].skins`를 「다른 플레이어 스킨」이 켜져 있을 때만, 스킨 데이터를 안 골랐으면 아무도 입지 않는다. 그림은 한 장씩 워커가 받으므로
   다 받기를 기다리지 않는다(모델은 다 받아야 그림 — `docs/rules/render.md` 「스킨 렌더 게이트」). 스킨 초상화가 안 열리면 기본 초상화(`seatArtSrc`).

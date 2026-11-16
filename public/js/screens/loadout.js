@@ -40,14 +40,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../ven
 import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment } from '../ui/components.js';
 import { Img, UnitThumb, PromotionIcon } from '../ui/gameComponents.js';
 import { chessAvatarUrl, chessPortraitUrl, profGlyphUrl, subProfIconUrl, bondIconUrl, uiUrl } from '../ui/assetUrls.js';
-import { skinArt, skinPic } from '../ui/skins.js';
+import { skinArt, skinPic, skinsStore, SKINS_KEY, setSkins } from '../ui/skins.js';
 import { GarrisonBlock } from '../ui/detailPanel.js';
 import { data, useData, DATA_FILES } from '../data.js';
 import { useStore, loadPref, savePref } from '../store.js';
 import { PHASE } from '../../../shared/constants.js';
 import {
   MODULE_NONE, PROF_NAME, rosterOf, filterRoster, recordsOf, chessOptions, effectiveChoice, setChoice, resetChoice,
-  changedCount, skillLabel, moduleBadge, quickSkillTags, serializeExport, parseImport, LOADOUT_IMPORT_MAX_BYTES,
+  changedCount, skillLabel, moduleBadge, quickSkillTags, serializeExport, encodeLoadoutCode, expandLoadoutCode, parseImport, LOADOUT_IMPORT_MAX_BYTES,
   opsOf, setOps, resetOps,
 } from '../ui/loadoutModel.js';
 import { loadoutStore, openLoadout, closeLoadout, setEntries, setOpsMap, applyLoadoutEntries, setNotOwned, applyOwnershipImport, setDiyPicks, applyDiyImport } from '../ui/loadoutSync.js';
@@ -77,7 +77,9 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
 //
 // The payload is the versioned envelope of ui/loadoutModel.js (exportPayload / parseImport): a downloaded file and a
 // pasted string are the SAME object, so 导出 and 导入 both funnel through applyLoadoutEntries
-// (sanitise → persist → room.loadout). The dialog is a shared Modal rendered next to the overlay, not inside it.
+// (sanitise → persist → room.loadout). The 干员调配 export box shows (and 复制 copies) its one-line code
+// (encodeLoadoutCode), 下载文件 saves the JSON; 导入 reads either (expandLoadoutCode → parseImport). The skin choice
+// (ui/skins.js, not per season) travels with it. The dialog is a shared Modal rendered next to the overlay, not inside it.
 
 /** Save `text` as a download. Silent no-op when the browser refuses downloads — 复制 stays available. */
 function downloadText(filename, text) {
@@ -593,6 +595,7 @@ function LoadoutScreen({ st }) {
   const selId = st.sel && roster.some((c) => c.chessId === st.sel) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null;
   const { base, golden } = selId ? recordsOf(selId, getChess) : { base: null, golden: null };
   const nChanged = changedCount(st.entries, getChess, st.ops, roster);
+  const mySkins = useStore((x) => x[SKINS_KEY], Object.is, skinsStore) || {}; // this browser's skin choice: 导出 carries it
   // the match takes the loadout until its strategy draft ends (server match.setLoadout, the window of setDiy —
   // maintainer decision 2026-10-14); afterwards an edit is stored for the next match
   const locked = (inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.BAND_DRAFT && phase !== PHASE.LOBBY) || st.sync === 'locked';
@@ -677,16 +680,23 @@ function LoadoutScreen({ st }) {
   const ioText = io?.text ?? '';
   const ioOwn = io?.kind === 'ownership';
   const ioDiy = io?.kind === 'diy';
-  const openExport = () => setIo(tab === 'ownership'
-    ? { mode: 'export', kind: 'ownership', text: serializeOwnership(loadoutStore.get().notOwned) }
-    : tab === 'diy' ? { mode: 'export', kind: 'diy', text: serializeDiy(loadoutStore.get().diy) }
-      : { mode: 'export', kind: 'loadout', text: serializeExport(loadoutStore.get().entries, { ops: loadoutStore.get().ops }) });
+  const openExport = async () => {
+    if (tab === 'ownership') { setIo({ mode: 'export', kind: 'ownership', text: serializeOwnership(loadoutStore.get().notOwned) }); return; }
+    if (tab === 'diy') { setIo({ mode: 'export', kind: 'diy', text: serializeDiy(loadoutStore.get().diy) }); return; }
+    // the box shows the one-line code, 下载文件 saves the JSON envelope (`file`)
+    const { entries, ops } = loadoutStore.get();
+    const skins = skinsStore.get()[SKINS_KEY] || {};
+    const file = serializeExport(entries, { ops, skins });
+    let code = file;
+    try { code = await encodeLoadoutCode(entries, { ops, skins }); } catch { /* the JSON is importable too */ }
+    setIo({ mode: 'export', kind: 'loadout', text: code, file });
+  };
   const openImport = () => setIo({ mode: 'import', kind: tab, text: '' });
   const ioCopy = async () => {
     const ok = await copyText(ioText);
     toast(ok ? t('已复制到剪贴板') : t('复制失败，请在文本框中手动全选复制'), ok ? 'success' : 'warn');
   };
-  const ioDownload = () => downloadText(exportFilename(new Date(), ioOwn ? 'ownership' : ioDiy ? 'diy' : 'loadout'), ioText);
+  const ioDownload = () => downloadText(exportFilename(new Date(), ioOwn ? 'ownership' : ioDiy ? 'diy' : 'loadout'), io?.file ?? ioText);
   const ioPick = () => fileRef.current?.click();
   const ioFile = async (e) => {
     const f = e.currentTarget.files && e.currentTarget.files[0];
@@ -697,7 +707,7 @@ function LoadoutScreen({ st }) {
     if (f.size > (ioOwn ? OWNERSHIP_IMPORT_MAX_BYTES : LOADOUT_IMPORT_MAX_BYTES)) { toast(ioOwn ? t('文件过大，请选择「导出」下载的干员持有文件') : t('文件过大，请选择「导出」下载的调配文件'), 'error'); return; }
     try { setIo({ ...io, mode: 'import', text: await readFileText(f) }); } catch { toast(t('读取文件失败'), 'error'); }
   };
-  const ioApply = () => {
+  const ioApply = async () => {
     // an import before chess.json is loaded, or when it never arrived, would sanitise every entry away — refuse instead
     // of wiping the loadout
     const refused = importRefusal(io.kind, ready);
@@ -719,7 +729,7 @@ function LoadoutScreen({ st }) {
         : t('已导入：全部持有'), dropped ? 'warn' : 'success');
       return;
     }
-    const res = parseImport(ioText);
+    const res = parseImport(await expandLoadoutCode(ioText));
     if (!res.ok) { toast(t('导入失败：{error}', { error: res.error }), 'error'); return; }
     // ops replaces 潜能 / 练度, including 自选 operators that only backups.json names: missing data used to drop them and
     // still save, clearing a 练度 the file did not mean to erase (upstream PR #538)
@@ -730,10 +740,14 @@ function LoadoutScreen({ st }) {
     const r = applyLoadoutEntries(res.entries, getChess, res.ops ? { ops: res.ops, isOperator: (id) => opIds.has(id) } : {});
     const { applied, dropped } = r;
     const nOps = r.ops ?? 0;
+    const nSkins = res.skins ? Object.keys(res.skins).length : 0;
     // nothing survived sanitising (unknown chess, or every choice already the default): keep the current loadout
-    if (!applied && !nOps) { toast(t('导入失败：这份数据在当前版本没有可用的调配，未做任何改动'), 'error'); return; }
+    if (!applied && !nOps && !nSkins) { toast(t('导入失败：这份数据在当前版本没有可用的调配，未做任何改动'), 'error'); return; }
+    // a payload with `skins` replaces the skin choice (an older export leaves it alone), like `ops`
+    if (res.skins) setSkins(res.skins);
     setIo(null);
-    toast(!applied ? t('已导入 {n} 名干员的潜能与练度', { n: nOps })
+    toast(!applied && !nOps ? t('已导入 {n} 名干员的皮肤', { n: nSkins })
+      : !applied ? t('已导入 {n} 名干员的潜能与练度', { n: nOps })
       : dropped ? t('已导入 {applied} 名干员（另有 {dropped} 项未导入）', { applied, dropped })
         : t('已导入 {applied} 名干员的调配', { applied }), dropped ? 'warn' : 'success');
   };
@@ -906,7 +920,7 @@ function LoadoutScreen({ st }) {
             <button type="button" class=${cx('lo-tbtn', 'lo-popbtn', menu === 'more' && 'is-on')} aria-expanded=${menu === 'more' ? 'true' : 'false'} aria-label=${t('更多')}
               data-testid="loadout-more" title=${t('导出 / 导入 / 全部恢复默认')} onClick=${() => setMenu(menu === 'more' ? null : 'more')}><${Icon} name="dots" /></button>
             ${menu === 'more' ? html`<div class="lo-pop lo-pop--menu" role="menu">
-              <button type="button" role="menuitem" data-testid="loadout-export" disabled=${!nChanged && !Object.keys(st.ops || {}).length}
+              <button type="button" role="menuitem" data-testid="loadout-export" disabled=${!nChanged && !Object.keys(st.ops || {}).length && !Object.keys(mySkins).length}
                 onClick=${() => { setMenu(null); openExport(); }}><${Icon} name="copy" />${t('导出调配')}</button>
               <button type="button" role="menuitem" data-testid="loadout-import" disabled=${!ready} onClick=${() => { setMenu(null); openImport(); }}><${Icon} name="link" />${t('导入调配')}</button>
               <button type="button" role="menuitem" class="is-danger" disabled=${!nChanged} onClick=${() => { setMenu(null); resetAll(); }}><${Icon} name="refresh" />${t('全部恢复默认')}</button>
@@ -927,7 +941,7 @@ function LoadoutScreen({ st }) {
         ${inMatch && hasDeadline(infoDeadline) ? html`<${Countdown} deadline=${infoDeadline} size="sm" gauge=${false} label=${t('确认本局信息')} class="lo-deadline" />` : null}
         ${syncText ? html`<span class=${cx('lo-sync', syncCls)} role="status">${t(syncText)}</span>` : null}
         <span class="lo-count">${t('已调整')} <b class="num">${nChanged}</b><span class="num t-dim">/${roster.length}</span></span>
-        <${Button} variant="ghost" size="sm" data-testid="loadout-export" disabled=${!nChanged && !Object.keys(st.ops || {}).length} onClick=${openExport} title=${t('导出当前调配（可复制或下载）')}>${t('导出')}<//>
+        <${Button} variant="ghost" size="sm" data-testid="loadout-export" disabled=${!nChanged && !Object.keys(st.ops || {}).length && !Object.keys(mySkins).length} onClick=${openExport} title=${t('导出当前调配（可复制或下载）')}>${t('导出')}<//>
         <${Button} variant="ghost" size="sm" data-testid="loadout-import" disabled=${!ready} onClick=${openImport} title=${t('导入调配（粘贴或选择文件）')}>${t('导入')}<//>
         <${Button} variant="secondary" size="sm" icon="refresh" disabled=${!nChanged} onClick=${resetAll}>${t('全部恢复默认')}<//>
       </div>`}

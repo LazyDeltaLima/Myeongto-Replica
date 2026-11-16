@@ -12,6 +12,7 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { inflateRawSync } from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchBrowser } from '../e2e/browser.mjs';
@@ -219,10 +220,13 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     assert.equal(box.position, 'fixed', 'the modal keeps components.css `position: fixed`');
     assert.equal(box.inside, false, 'a sibling of .lo, so `.lo > *` needs no exception for it');
     assert.ok(Math.abs(box.y + box.h / 2 - box.vh / 2) < 2, `centred vertically (${JSON.stringify(box)})`);
-    const payload = JSON.parse(await page.$eval('[data-testid="loadout-io-text"]', (t) => t.value));
-    assert.equal(payload.kind, 'stronghold.loadout');
+    // the box holds the one-line code (ui/loadoutModel.js encodeLoadoutCode): `SPL1.` + base64url of the deflated JSON
+    const code = await page.$eval('[data-testid="loadout-io-text"]', (t) => t.value);
+    assert.match(code, /^SPL1\.[A-Za-z0-9_-]+$/, 'one line');
+    const payload = JSON.parse(inflateRawSync(Buffer.from(code.slice('SPL1.'.length), 'base64url')).toString('utf8'));
     assert.equal(payload.v, 1);
     assert.deepEqual(payload.entries, stored.entries, 'what is exported is what is stored');
+    assert.deepEqual(payload.skins, {}, 'the skin choice travels too (none chosen here)');
     await page.screenshot({ path: path.join(OUT, 'loadout-export.png') });
     await page.evaluate(() => [...document.querySelectorAll('.modal__actions .btn')].find((b) => b.textContent.trim() === '关闭').click());
     await page.waitForFunction(() => !document.querySelector('.modal'), { timeout: 3000 });
@@ -235,7 +239,7 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await page.waitForSelector('.lo .lo-card', { visible: true, timeout: 15000 });
     await clickSel(page, '[data-testid="loadout-import"]');
     await page.waitForSelector('.modal [data-testid="loadout-io-text"]', { visible: true, timeout: 5000 });
-    await page.$eval('[data-testid="loadout-io-text"]', (t, v) => { t.value = v; t.dispatchEvent(new Event('input', { bubbles: true })); }, JSON.stringify(payload));
+    await page.$eval('[data-testid="loadout-io-text"]', (t, v) => { t.value = v; t.dispatchEvent(new Event('input', { bubbles: true })); }, code);
     await page.click('[data-testid="loadout-io-apply"]');
     await page.waitForFunction(() => !document.querySelector('.modal'), { timeout: 5000 });
     await sleep(300);

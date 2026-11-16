@@ -1435,6 +1435,7 @@
   "含潜能与练度；": "Potential and development included; ",
   "将 {nChanged} 名干员的技能、模组、潜能与练度恢复为默认配置？": "Reset the skills, modules, potential and development of {nChanged} Operators to their defaults?",
   "已导入 {n} 名干员的潜能与练度": "Imported the potential and development of {n} Operators",
+  "已导入 {n} 名干员的皮肤": "Imported the skins of {n} {n|Operator|Operators}",
   "精英1": "E1",
   "精英2": "E2",
   "精英2 Lv.60": "E2 Lv.60",

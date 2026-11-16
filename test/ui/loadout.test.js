@@ -5,6 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { deflateRawSync } from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -14,6 +15,7 @@ import {
   parseStored, toStored, chessOptions, effectiveChoice, setChoice, resetChoice, sanitizeEntries, rosterOf, filterRoster,
   changedCount, moduleBadge, attrRows, skillTags, skillLabel, selectedSkill, selectedModule, recordsOf,
   exportPayload, serializeExport, parseImport, LOADOUT_EXPORT_KIND, LOADOUT_VERSION, LOADOUT_IMPORT_MAX_BYTES,
+  encodeLoadoutCode, expandLoadoutCode,
 } from '../../public/js/ui/loadoutModel.js';
 import { installLoadoutSync, flushLoadoutSync, SYNC_DEBOUNCE_MS, RETRY_MS, applyLoadoutEntries, setEntries, loadoutStore, openLoadout, closeLoadout } from '../../public/js/ui/loadoutSync.js';
 import { createStore } from '../../public/js/store.js';
@@ -43,8 +45,10 @@ test('parseStored: tolerant of junk, keeps structurally valid entries; toStored 
 test('exportPayload / serializeExport: versioned envelope, entries copied; parseImport round trip', () => {
   const entries = { [INSIDE]: { skill: 0 }, [SWIRE]: { module: SWIRE_ALT } };
   const p = exportPayload(entries, { now: Date.UTC(2026, 9, 3, 4, 5, 6) });
-  assert.deepEqual(Object.keys(p).sort(), ['count', 'entries', 'exportedAt', 'kind', 'ops', 'v'], 'exactly the envelope (0.2.2: + the 潜能 / 练度 ops), no unused field');
+  assert.deepEqual(Object.keys(p).sort(), ['count', 'entries', 'exportedAt', 'kind', 'ops', 'skins', 'v'],
+    'exactly the envelope (0.2.2: + the 潜能 / 练度 ops; + the skin choice), no unused field');
   assert.deepEqual(p.ops, {}, 'no settings: an empty map (an import then resets the settings to the defaults)');
+  assert.deepEqual(p.skins, {}, 'no skin chosen: an empty map (an import then puts every operator back in its default skin)');
   assert.equal(p.kind, LOADOUT_EXPORT_KIND);
   assert.equal(p.v, LOADOUT_VERSION);
   assert.equal(p.count, 2);
@@ -85,6 +89,54 @@ test('parseImport: accepts the envelope, the stored form, a bare map and text; r
   assert.deepEqual(safe.entries, { [INSIDE]: { skill: 0 } }, 'only the real chess survives');
   assert.equal(Object.getPrototypeOf(safe.entries), Object.prototype, 'the entry map keeps a clean prototype');
   assert.equal({}.skill, undefined, 'Object.prototype was not polluted');
+});
+
+test('the one-line code: entries, settings and skins round trip; wrapped, uncompressed and JSON payloads import; broken codes are refused', async () => {
+  const SKADI = 'char_1012_skadi2';
+  const entries = { [INSIDE]: { skill: 0 }, [SWIRE]: { module: SWIRE_ALT } };
+  const ops = { [SKADI]: { potential: 2, cultivate: 1 } };
+  const skins = { [SKADI]: `${SKADI}@boc#4`, 'chess_char_1_01_a': 'x', char_2_x: 'bad id!' };
+  const code = await encodeLoadoutCode(entries, { ops, skins });
+  assert.match(code, new RegExp(`^SPL${LOADOUT_VERSION}\\.[A-Za-z0-9_-]+$`), 'one line of URL-safe characters, compressed');
+  assert.ok(code.length < JSON.stringify(exportPayload(entries, { ops, skins })).length, `shorter than the compact JSON (${code.length})`);
+  const back = parseImport(await expandLoadoutCode(code));
+  assert.equal(back.ok, true);
+  assert.deepEqual(back.entries, entries);
+  assert.deepEqual(back.ops, ops);
+  assert.deepEqual(back.skins, { [SKADI]: `${SKADI}@boc#4` }, 'the skin choice travels, keyed by charId; junk pairs dropped');
+  // a chat app wraps a long line: spaces and line breaks inside a code are ignored
+  const wrapped = `  ${code.slice(0, 17)}\n ${code.slice(17, 40)}\r\n${code.slice(40)}  `;
+  assert.deepEqual(parseImport(await expandLoadoutCode(wrapped)).skins, back.skins, 'a wrapped code');
+  // a browser without CompressionStream writes the uncompressed form, which every browser reads
+  const CS = globalThis.CompressionStream;
+  globalThis.CompressionStream = undefined;
+  let plain;
+  try { plain = await encodeLoadoutCode(entries, { ops, skins }); } finally { globalThis.CompressionStream = CS; }
+  assert.match(plain, new RegExp(`^SPL${LOADOUT_VERSION}j\\.`));
+  assert.deepEqual(parseImport(await expandLoadoutCode(plain)).entries, entries, 'the uncompressed code');
+  // the file (下载文件) and an older export stay JSON and still import; one without skins leaves the choice alone
+  const file = serializeExport(entries, { ops, skins });
+  assert.equal(await expandLoadoutCode(file), file, 'JSON passes through untouched');
+  assert.deepEqual(parseImport(await expandLoadoutCode(file)).skins, back.skins, 'the JSON file carries the skins too');
+  const older = parseImport(await expandLoadoutCode(JSON.stringify({ kind: LOADOUT_EXPORT_KIND, v: 1, entries, ops })));
+  assert.equal(older.ok, true);
+  assert.equal('skins' in older, false, 'an export made before skins: no `skins` (the current choice stays)');
+  // skins alone are something to import
+  const only = parseImport({ v: LOADOUT_VERSION, entries: {}, ops: {}, skins: { [SKADI]: `${SKADI}@boc#4` } });
+  assert.equal(only.ok, true, 'a payload of skins only imports');
+  assert.equal(parseImport({ v: LOADOUT_VERSION, entries: {}, skins: { 'not a charId': 'x' } }).ok, false, 'no valid pair: nothing to import');
+  // broken codes are refused with parseImport's usual message, never mis-read
+  const b64 = (buf) => Buffer.from(buf).toString('base64url');
+  const bomb = `SPL${LOADOUT_VERSION}.${b64(deflateRawSync(Buffer.alloc(LOADOUT_IMPORT_MAX_BYTES * 4, 32)))}`;
+  assert.ok(bomb.length < 4096, 'fixture: a short code that inflates past the import limit');
+  for (const [bad, why] of [[code.slice(0, -8), 'cut short'], [`SPL${LOADOUT_VERSION}.`, 'empty'], [`SPL${LOADOUT_VERSION}.ab*cd`, 'not base64url'],
+    [`SPL${LOADOUT_VERSION}j.AAAA`, 'not JSON inside'], [bomb, 'inflates past LOADOUT_IMPORT_MAX_BYTES']]) {
+    const r = parseImport(await expandLoadoutCode(bad));
+    assert.equal(r.ok, false, `${why}: refused`);
+  }
+  const newer = parseImport(await expandLoadoutCode(`SPL${LOADOUT_VERSION + 1}.${b64(deflateRawSync(JSON.stringify({ v: LOADOUT_VERSION + 1, entries })))}`));
+  assert.equal(newer.ok, false, 'a code of a newer version is refused like a newer file');
+  assert.match(newer.error, /请先更新游戏/);
 });
 
 test('applyLoadoutEntries: sanitises against the loaded data and reports what was dropped', () => {
