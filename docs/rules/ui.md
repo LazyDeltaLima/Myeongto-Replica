@@ -347,7 +347,13 @@
   모양에서는 숨김(카드 막대와 같은 동작). 6장은 3×2(16:9 한 화면에 맞게 `--pu` ≤ .125vh), 3장(혼자)은 한 줄.
   「轮到你了」(KR 「내 차례」, `panel_player_select`): 멀티에서 내 차례가 되면 1.333초(공식 클라에서 확인 2026-11-16: `_PlayPlayerTurnAnim`이 클립
   `panel_your_turn_show`(30 fps, 마지막 키 40프레임 = 1.333초 — 뿌리 알파가 1.167초에서 0으로)를 클립 길이 그대로 선형으로 한 번 틀고 끝나면 패널을 끔;
-  전에는 어림한 1.6초) — `bg_circle`, 고리 3개([추정·미조사: 고리 스프라이트는 다른 번들 참조라 아직 안 찾음] → CSS 원),
+  전에는 어림한 1.6초) — `bg_circle`, 고리 3개(지금은 CSS 테두리 원 — 공식과 다르고, 보이는 그림이 바뀌어 관리자가 시안을 고를 때까지 그대로.
+  공식 클라에서 확인 2026-11-16: 고리는 그림이 아니라 셰이더다 — 스프라이트 `img_uifx_circle`(`arts/ui/[uc]fxcommon.ab`)은 흰 원판이고, 머티리얼
+  `m_wipe_circle`(`Torappu/UI/Dissolve/UI-DoubleDissolve-Tex`, `_ImageControl` 1)이 Image 색의 G로 문턱(2G − 1)을 정해 방사 마스크
+  `img_uifx_basicmask_07`(`_Revert2` 1, 부드러움 0.015)의 바깥 띠만 남긴다; R = 0이라 첫 마스크는 늘 통과. 색은 머티리얼 `_Color` #18e6b8(Image 색의
+  RGB는 문턱으로만 쓰임), 알파는 Image α(클립에서 0 → 0.15 → 0.102). 끝 키의 안쪽 반지름은 바깥의 0.825·0.948·0.685(circle1·2·3, 상자 301·207·175.5)
+  — 우리 테두리 14·10·6, 청록 #00e9ff 계열과 다름. 클립에서 고리마다 크기 0.3 → 1(차례로 늦게), circle1·2는 G가 올라 두께가 줄고, 끝에 `root_circle`
+  1 → 1.05 → 1.2. 같은 패널의 `glow_behind`·`glow_front`(`img_uifx_basicglow_01`, 더하기 섞기, 0.17초에 가장 밝고 0.83·0.5초에 사라짐)는 그리지 않음),
   `plus` 4개 #18e6b8, 큐브 `square_1` + `square_2`, 글자 49 #00ffc4, `bottom` 막대. 공식 모양일 때는 机变 진입의 PhaseBanner 띠를 띄우지 않는다(겹침).
   1인 판에서는 띄우지 않는다(`screens/game.js` `!solo`) — 공식 1인 녹화(3라운드 임기응변에 「轮到你选」 없음, upstream PR #950이 #946에 붙인 것)와 같음.
   웹 소재(`effectChoose/*`, `shopCard/repeat_line`)라 모든 플레이어에게 같다.
