@@ -6,12 +6,12 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bodyStill, bodyTurn } from '../../public/js/render/fx/face.js';
-import { lobZ } from '../../public/js/render/fx/projectiles.js';
+import { lobZ, lobOf } from '../../public/js/render/fx/projectiles.js';
 import { presetCamera } from '../../public/js/render/projection.js';
 import { liftedPoint, onModelPlane, planePoint } from '../../public/js/render/fxpoints.js';
 
@@ -187,6 +187,37 @@ test('lobZ (2026-10-30, ParacurveMovement.OnInit): H above the start, an uneven 
   assert.ok(near(zi[2000], 0.6) && near(Math.min(...zi), 0.3, 1e-6), 'the inverse arc dips H under its start and comes back');
   const high = { x0: 0, y0: 0, z0: 0.2, tx: 3, ty: 0, tz: 2, arc: 0.5 };   // a target above the top: closed along the line
   assert.ok(near(lobZ(high, 1)[0], 2));
+});
+
+test('lobZ noRaise (2026-11-16): each lob keeps its projectile\'s own `_noRaiseHeightThreshold`, read by the extract', () => {
+  // the cause was one hand-written 1.3 for every lob: “帝国的甲胄”'s projectile_enemy_vtsk is 0.8, 假想敌：械's
+  // projectile_enemy_acfnc 0.2 — tools/local-extract/enemy_projectiles.py (and enemy_bindings.py) now read the field and stop on a
+  // ParacurveMovement without it; docs/rules/fx.md 「오퍼레이터 포물선 투사체」
+  const close = { x0: 0, y0: 0, z0: 0.6, tx: 1, ty: 0.5, tz: 0.3, arc: 1.5 };   // 1.12 tiles
+  assert.ok(lobZ({ ...close }, 0)[1] === 0, 'no noRaise (a hand-written lob): the 1.3 tiles passed in, level');
+  assert.ok(lobZ({ ...close, noRaise: 0.8 }, 0)[1] > 0, 'noRaise 0.8: it rises beyond 0.8 tiles');
+  assert.ok(lobZ({ ...close, noRaise: 0.8 }, 0.3)[0] > 0.6, 'and climbs above its start');
+  assert.deepEqual(lobOf({ move: 'PARACURVE', speed: 4, height: 1.5, noRaise: 0.8 }), { arc: 1.5, noRaise: 0.8 });
+  assert.deepEqual(lobOf({ key: 'projectile_enemy_vtsk', move: 'OTHER', speed: 4, raise: 1.5, noRaise: 0.8 }), { arc: 1.5, noRaise: 0.8 }, 'an enemy binding');
+  assert.equal(lobOf({ move: 'TRACE_TARGET_WITH_SPEED', speed: 8 }), null);
+  // every PARACURVE shot the data carries has its threshold (data/*.json and each season's, tools/build-data.mjs spreads the
+  // extract's record): a stale extract without it would fall back to the hand-written 1.3 unseen
+  const files = ['data/chess.json', 'data/backups.json', 'data/enemies.json'];
+  const sd = path.join(ROOT, 'data/seasons');
+  if (existsSync(sd)) for (const id of readdirSync(sd)) for (const f of ['chess.json', 'backups.json', 'enemies.json']) if (existsSync(path.join(sd, id, f))) files.push(`data/seasons/${id}/${f}`);
+  const seen = new Map(), bad = [];
+  const walk = (o, at) => {
+    if (Array.isArray(o)) { o.forEach((v, i) => walk(v, `${at}[${i}]`)); return; }
+    if (!o || typeof o !== 'object') return;
+    if (o.move === 'PARACURVE' && 'height' in o) {
+      if (!Number.isFinite(o.noRaise)) bad.push(at);
+      else if (typeof o.key === 'string') seen.set(o.key, o.noRaise);
+    }
+    for (const [k, v] of Object.entries(o)) walk(v, `${at}.${k}`);
+  };
+  for (const f of files) walk(JSON.parse(readFileSync(path.join(ROOT, f), 'utf8')), f);
+  assert.deepEqual(bad, [], 'PARACURVE shots without `noRaise`: rerun tools/local-extract/enemy_projectiles.py / op_projectiles.py, then tools/build-data.mjs (docs/rules/fx.md 「오퍼레이터 포물선 투사체」)');
+  assert.ok(seen.get('projectile_enemy_vtsk') === 0.8 && seen.get('projectile_chr_horn') === 1.3, 'the known thresholds were read (the sweep ran)');
 });
 
 test('onModelPlane (2026-10-31, the Graphic\'s X −30° under the 30° camera): a drawn model point at its official height, the same spot on screen', () => {

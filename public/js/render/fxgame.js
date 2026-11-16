@@ -81,7 +81,7 @@ import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: a
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
 import { shotOf, MAX_SLOWED } from './fx/shotslow.js';
-import { shotSpeedOf, shotArcOf, shotKeyOf, lobZ, flightSink } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`); 2026-10-27 its key (bodyTurn)
+import { shotSpeedOf, shotLobOf, lobOf, shotKeyOf, lobZ, flightSink } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`); 2026-10-27 its key (bodyTurn)
 import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot record (skillShotOut)
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
@@ -2248,10 +2248,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     trailAtks.add(e);
     const from = shotFrom(src, mode);
     // (2026-10-23) a PARACURVE shot rises its official height (灰毫's shell), as an enemy's does
-    const lob = e[3] === 'boomerang' ? null : shotArcOf({ lookupDef: unitDef }, src);
+    // (2026-11-16) and its own `_noRaiseHeightThreshold` (lobOf `noRaise`, lobZ)
+    const lob = e[3] === 'boomerang' ? null : shotLobOf({ lookupDef: unitDef }, src);
     // 2026-10-27 (bundle W2b-2): `key` = the projectile it flies on, for a trail whose body turns on some of its projectiles only
     const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, ...aimOf(tgt), k: 0, key: shotKeyOf({ lookupDef: unitDef }, src),
-      dur: Math.max(0.04, dist / (v || projSpeed(e[3]))), arc: lob ?? (spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0) };
+      dur: Math.max(0.04, dist / (v || projSpeed(e[3]))), ...(lob ?? { arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 }) };
     // local patch (maintainer report 2026-10-08: one boomerang that comes back): a 回环射手's trail is the projectile itself
     // both ways — projectile_chr_caper `_comeBack` 1 at `_comeBackSpeedScale` .25 (the sim's BOOMERANG_RETURN_SPEED), its
     // `_mainEffect` kept (`_clearMainEffectWhenReached` 0): it turns at the hit and flies back to her (stepTrails), and the
@@ -2435,7 +2436,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   // client projectile_chr_caper_s2 / _s2_1 (EN [uc]projectiles.ab): ParacurveMovement `_raiseHeight` 0.3, `_noRaiseHeightThreshold`
   // 1.3 — the second boomerang `_inverseParacurve` 1 (its arc turned, lobZ)
-  const LOB_NO_RAISE = 1.3;   // ParacurveMovement `_noRaiseHeightThreshold` of the lobs drawn here (one enemy's 0.8: projectile_enemy_vtsk)
+  // ParacurveMovement `_noRaiseHeightThreshold` of the hand-written lobs drawn here (跃跃's boomerangs, a kit's play `arc`, a
+  // kind's stand-in arc): their client projectiles' is 1.3. A trail from a projectile record carries its own (lobOf `noRaise`).
+  const LOB_NO_RAISE = 1.3;
   const caperArc = (dist, inverse) => (dist < LOB_NO_RAISE ? 0 : inverse ? -0.3 : 0.3);
   /**
    * 2026-10-10: 跃跃 S2's later boomerang (sim fx 'caperBoomerang2' { id, tgt, n } — no 'atk' of its own, 0.1 s
@@ -5220,7 +5223,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const from = eshotFrom(src, pr.mount);
     launchTrail({ inst: null, esrc: src.id, etgt: tgt.id, tgt, x0: from.x, y0: from.y, z0: from.z, ...aimOf(tgt), k: 0,
       // (an enemy-record ally flies the sim's shot of its kind: the sim gives it an ally's speed)
-      dur: Math.max(0.04, dist / (erec(src) ? projSpeed(e[3]) : eshotSpeed(src))), arc: Number(shot?.height ?? pr.raise) > 0 && (shot?.move ?? 'PARACURVE') === 'PARACURVE' ? Number(shot?.height ?? pr.raise) : 0 }, r[0], r[1]);
+      dur: Math.max(0.04, dist / (erec(src) ? projSpeed(e[3]) : eshotSpeed(src))), ...((shot ? lobOf(shot) : lobOf(pr)) ?? { arc: 0 }) }, r[0], r[1]);
     return true;
   }
   /** The enemy's bound projectile `key` (enemy-modes.json: a mode's attack or a skill), or null. */
@@ -5356,7 +5359,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (r && speed > 0 && camRef && !trailFull()) {
       for (const k of kids) {
         const dur = Math.max(0.04, Math.hypot(k.x - at.x, k.y - at.y) / speed);
-        launchTrail({ inst: null, esrc: parent.id, etgt: k.id, tgt: k, x0: at.x, y0: at.y, z0: 0, ...aimOf(k), k: 0, dur, arc: Number(pr.raise) > 0 ? Number(pr.raise) : 0 }, r[0], r[1]);
+        launchTrail({ inst: null, esrc: parent.id, etgt: k.id, tgt: k, x0: at.x, y0: at.y, z0: 0, ...aimOf(k), k: 0, dur, ...(lobOf(pr) ?? { arc: 0 }) }, r[0], r[1]);
       }
     } else if (r && dry && trace) for (const k of kids) trace({ kind: 'spawn', names: [r[1]], by: ownerOf(parent), on: ownerOf(k), tag: 'splitTrail', facing: 1 });   // tests
     return true;
@@ -5601,7 +5604,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const p0 = cannonAt(k, CANNON_MUZZLE.up, CANNON_MUZZLE.fwd);
       if (dry) { if (trace) trace({ kind: 'spawn', names: [r[1]], by: null, on: null, tag: 'cannonShell', at: p0, to: { x: tx, y: ty } }); return true; } // tests
       if (!camRef || trailFull()) return true;
-      const rec = { inst: null, esrc: null, etgt: null, tgt: null, x0: p0.x, y0: p0.y, z0: p0.z, tx, ty, tz: tileTop(tx, ty), k: 0, dur: Math.max(0.04, t), arc: Math.max(0, Number(pr.raise) || 0) };
+      const rec = { inst: null, esrc: null, etgt: null, tgt: null, x0: p0.x, y0: p0.y, z0: p0.z, tx, ty, tz: tileTop(tx, ty), k: 0, dur: Math.max(0.04, t), ...(lobOf(pr) ?? { arc: 0 }) };
       ensure().then((ok) => { if (ok && lib) launchTrail(rec, r[0], r[1]); }, () => {});
     }
     return true;
@@ -5656,7 +5659,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         rec = { inst: null, esrc: o.id ?? o.from, etgt: null, tgt: null, x0: p0.x, y0: p0.y, z0: p0.z, tx: p0.x + dir[0] * range, ty: p0.y + dir[1] * range, tz: p0.z, k: 0, dur: Math.max(0.04, t), arc: 0 };
       } else {
         const arc = (o.move ?? pr.move) === 'PARACURVE' || (o.move == null && Number(pr.raise) > 0) ? Math.max(0, Number(pr.raise) || 0) : 0;
-        rec = { inst: null, esrc: o.id ?? o.from, etgt: o.tgt, tgt, x0: p0.x, y0: p0.y, z0: p0.z, ...aimOf(tgt), k: 0, dur: Math.max(0.04, t), arc };
+        rec = { inst: null, esrc: o.id ?? o.from, etgt: o.tgt, tgt, x0: p0.x, y0: p0.y, z0: p0.z, ...aimOf(tgt), k: 0, dur: Math.max(0.04, t), arc, noRaise: Number(pr.noRaise) };
       }
       ensure().then((ok) => { if (ok && lib) launchTrail(rec, r[0], r[1]); }, () => {});
     }
@@ -6465,7 +6468,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (dist / speed <= 6) {
           const from = eshotFrom(v, pr.mount);
           launchTrail({ inst: null, esrc: v.id, etgt: target.id, tgt: target, x0: from.x, y0: from.y, z0: from.z, ...aimOf(target), k: 0,
-            dur: Math.max(0.04, dist / speed), arc: Number(pr.raise) > 0 ? Number(pr.raise) : 0 }, r[0], r[1]);
+            dur: Math.max(0.04, dist / speed), ...(lobOf(pr) ?? { arc: 0 }) }, r[0], r[1]);
         }
       }
     }

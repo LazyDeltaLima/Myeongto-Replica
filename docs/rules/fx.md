@@ -3185,7 +3185,11 @@
   `projectile_enemy_vtsk` 0.8) 이하면 H = 0 — 수평으로 나가 대상 높이로 떨어짐. `_inverseParacurve`는 g·처음 속도를 뒤집음(시작보다 H 아래로 처졌다 돌아옴,
   케이퍼 두 번째 부메랑). 예전: 시작·끝 직선의 가운데보다 H 위인 대칭 호(`4k(1−k)`), 문턱은 케이퍼 부메랑만 — 붙은 칸 적에게도 혼 0.7·애쉬락 1.0 높이로
   솟았다. 지금: `fx/projectiles.js lobZ`(비행 시간은 시뮬레이션 값, 그 안을 T = 1로; 대상이 꼭대기보다 높으면 직선으로 메움), `fxgame.js placeTrail`·
-  `flightDir`(본체 숙임)·`ropeLine`이 같이 씀. 문턱은 1.3칸 하나(`LOB_NO_RAISE`) [추정·자료 없음: 적 `projectile_enemy_vtsk`의 0.8은 추출 자료에 문턱이 없어 1.3으로].
+  `flightDir`(본체 숙임)·`ropeLine`이 같이 씀. 문턱은 투사체마다 추출 자료에서(2026-11-16): `enemy_projectiles.py`(오퍼레이터 쪽 `op_projectiles.py`도 같은 함수)·
+  `enemy_bindings.py`가 `_noRaiseHeightThreshold`를 `noRaise`로 읽고(없는 ParacurveMovement면 멈춤), data/chess.json·backups.json·enemies.json `shot`·`proj`와
+  적 바인딩 투사체에 실려 `fx/projectiles.js lobOf` → 꼬리 기록 `noRaise` → `lobZ`. 1.3이 아닌 것: 적 '제국의 갑옷'(`enemy_10027_vtsk`) 0.8, 규정의 '가상적: 경파'(`enemy_9031_acrefd`)·
+  '가상적: 기계'(`enemy_9029_acfnc`)·'충격의 기계'(`enemy_9027_acfnca`)의 `projectile_enemy_acfnc`·`acrefd` 0.2, 오퍼레이터 투사체 몇(`projectile_chr_christ_s2` 0.3, `projectile_chr_hbound` 0·`_s1`·`_s2` 1). 손으로 쓴 곡사(케이퍼
+  부메랑 `caperArc`, 키트 재생의 `arc`, 공격 종류의 대체 호)만 `LOB_NO_RAISE` 1.3 — 그 클라 투사체가 모두 1.3. 재발 방지: `test/render/projectile-body-turn.test.js` lobZ noRaise.
 - 시작·명중점의 높이(2026-10-31 관리자 제보 「혼·애쉬락 곡사가 적에게 닿을 때 너무 급하게 내리꽂힘」, 공식 클라에서 확인 — 「캐릭터 그림의 기울기」의
   `Graphic` X −30°와 전투 카메라 30°): 마운트 점은 `Graphic` 밑의 Transform이고 `MountPoint.get_height`는 그 실제 3D 높이다. 이 기울기에서 모델 면은
   카메라를 정면으로 보므로(모델의 위 = 카메라의 위), 화면에서 뿌리보다 h칸 위에 그려진 점은 h·sin 30° 위·h·cos 30° 뒤 줄에 있다. 우리는 그 점을 유닛의 줄

@@ -25,7 +25,7 @@ const standStill = (pos) => ({ motion: 'WALK', start: pos, end: [9, 2], checkpoi
 const ROW = {
   modes: [{ name: 'Default', anim: [] }], dead: '', aura: ['trap_cnnon_idle'], buffFx: { 'trap_cnnon[born]': ['trap_cnnon_start'] }, passenger: ['trap_cnnon_buff'],
   skills: { enemycannon00d: { cast: ['trap_cnnon_attack_start'], opt: {}, hit: [],
-    proj: { key: 'projectile_trap_cnnon_small_death', mount: 2, trail: ['trap_cnnon_trail_1'], hit: ['trap_cnnon_explode_hit'], reached: ['trap_cnnon_explode_1'], move: 'OTHER', speed: 5, raise: 0.7 } } },
+    proj: { key: 'projectile_trap_cnnon_small_death', mount: 2, trail: ['trap_cnnon_trail_1'], hit: ['trap_cnnon_explode_hit'], reached: ['trap_cnnon_explode_1'], move: 'OTHER', speed: 5, raise: 0.7, noRaise: 1.3 } } },
 };
 const NAMES = ['trap_cnnon_idle', 'trap_cnnon_start', 'trap_cnnon_buff', 'trap_cnnon_attack_start', 'trap_cnnon_trail_1', 'trap_cnnon_explode_1', 'trap_cnnon_explode_hit'];
 

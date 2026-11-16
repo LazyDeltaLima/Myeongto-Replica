@@ -55,11 +55,30 @@ export function shotSpeedOf(ctx, src, tgt, dist) {
  * ParacurveMovement `_raiseHeight` — 灰毫's shell 1), or null (a straight / unread one: the kind's stand-in arc).
  */
 export function shotArcOf(ctx, src) {
+  return shotLobOf(ctx, src)?.arc ?? null;
+}
+
+/**
+ * The lob of an operator's shot: { arc: `_raiseHeight`, noRaise: `_noRaiseHeightThreshold` } of its PARACURVE shot record
+ * (tools/local-extract/enemy_projectiles.py reads both), or null (a straight / unread one).
+ */
+export function shotLobOf(ctx, src) {
   let def;
   try { def = ctx?.lookupDef?.(src.info) ?? null; } catch { def = null; }
   const p = opShot(def, !!src._fxSkillOn, Number.isInteger(src.info?.skillIndex) ? src.info.skillIndex : 0);
-  const h = p && p.move === 'PARACURVE' ? Number(p.height) : NaN;
-  return h > 0 ? h : null;
+  return lobOf(p);
+}
+
+/**
+ * { arc, noRaise } of a projectile record that flies a parabola (data/chess.json / enemies.json shot `move` PARACURVE with
+ * `height` and `noRaise`; an enemy binding's projectile with `raise` and `noRaise`), or null when it rises nothing. For a
+ * trail record (render/fxgame.js placeTrail, lobZ).
+ */
+export function lobOf(p) {
+  if (!p) return null;
+  const h = p.move === 'PARACURVE' ? Number(p.height) : p.move == null || p.move === 'OTHER' ? Number(p.raise) : NaN;
+  if (!(h > 0)) return null;
+  return { arc: h, noRaise: Number(p.noRaise) };
 }
 
 /**
@@ -69,14 +88,16 @@ export function shotArcOf(ctx, src) {
  * rises `_raiseHeight` H above its start (not above the line's middle) and falls under constant gravity to the target's
  * height — D = max(0, z0 + H − tz), g = 2(√H + √D)² / T², upward speed √(2Hg): an uneven arc, steeper as it comes down;
  * `_inverseParacurve` (a negative `arc`, 跃跃's second boomerang) runs it with g and its speed turned (v − gT). Within
- * `_noRaiseHeightThreshold` (1.3 tiles for all but one of the lobs the pool and the enemies use) of its target at launch
- * it does not rise (H 0: it leaves level and drops to the target's height). In fractions of the flight (T = 1) here; what
- * the arc cannot reach (a target above its top) is closed along the line.
+ * `_noRaiseHeightThreshold` of its target at launch it does not rise (H 0: it leaves level and drops to the target's
+ * height): `rec.noRaise`, the projectile's own (lobOf: 1.3 tiles for most, 0.8 for “帝国的甲胄”'s projectile_enemy_vtsk, 0.2 for
+ * projectile_enemy_acfnc / acrefd); `noRaise` only for a record without one — a hand-written lob (a kit's play, 跃跃's
+ * boomerangs, a kind's stand-in arc). In fractions of the flight (T = 1) here; what the arc cannot reach (a target above
+ * its top) is closed along the line.
  */
 export function lobZ(rec, k, noRaise = 1.3) {
   const z0 = rec.z0 ?? 0, tz = rec.tz ?? 0;
   if (!rec.arc) return [z0 + (tz - z0) * k, tz - z0];
-  if (rec.flat == null) rec.flat = Math.hypot(rec.tx - rec.x0, rec.ty - rec.y0) <= noRaise;
+  if (rec.flat == null) rec.flat = Math.hypot(rec.tx - rec.x0, rec.ty - rec.y0) <= (Number.isFinite(rec.noRaise) ? rec.noRaise : noRaise);
   const H = rec.flat ? 0 : Math.abs(rec.arc), D = Math.max(0, z0 + H - tz), s = Math.sqrt(H) + Math.sqrt(D);
   let G = 2 * s * s, v = 2 * Math.sqrt(H) * s;
   if (rec.arc < 0) { v -= G; G = -G; }

@@ -684,6 +684,10 @@ def proj_record(key, roots):
             r['speed'] = round(d['_speed'], 3)
             if d.get('_raiseHeight'):
                 r['raise'] = round(d['_raiseHeight'], 3)
+                # its `_noRaiseHeightThreshold`: within it of its target at launch the lob does not rise (render/fx/projectiles.js lobZ)
+                if not isinstance(d.get('_noRaiseHeightThreshold'), (int, float)):
+                    raise SystemExit(f'{key}: a ParacurveMovement without `_noRaiseHeightThreshold`')
+                r['noRaise'] = round(d['_noRaiseHeightThreshold'], 3)
         if d.get('_linkDuration'):
             r['link'] = round(d['_linkDuration'], 3)
         # (2026-11-14) a HarpoonRenderer's `_spawnOnSource`: its `_mainEffect` is made on the shooter (BattleController
@@ -815,7 +819,7 @@ def emit_part(abilities, projs):
                 for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart', 'stop'):
                     if pr.get(f):
                         proj[f] = pr[f]
-                for f in ('move', 'speed', 'raise', 'link', 'fallingTime', 'onSrc', 'rope', 'hook'):
+                for f in ('move', 'speed', 'raise', 'noRaise', 'link', 'fallingTime', 'onSrc', 'rope', 'hook'):
                     if f in pr:
                         proj[f] = pr[f]
                 # 2026-10-10: the sub-projectiles it places (`_subProjectileKey` …: 萨米的意志's 冰凌 projectile_enemy_smdeer leaves a

@@ -10,7 +10,8 @@ classes, namespace Torappu.Battle.Projectiles):
 
   AdvancedMovement   `_moveType` (AdvancedMovement.MoveType: TRACE_TARGET_WITH_SPEED, FIXED_DIRECTION …), `_speed`,
                      `_delayToStart` (delay), `_delayAfterReached` (stay), `_constDirection` with `_useConstDirection`
-  ParacurveMovement  `_raiseHeight` → move PARACURVE: the horizontal speed is `_speed` towards the target's current
+  ParacurveMovement  `_raiseHeight` → move PARACURVE `height`, `_noRaiseHeightThreshold` → `noRaise` (within it of its
+                     target at launch it does not rise; render/fx/projectiles.js lobZ): the horizontal speed is `_speed` towards the target's current
                      position (the client's ParacurveMovement.OnInit / _CalculateNextPosition: flight time = horizontal
                      distance / speed; the height only shapes the arc); `_delayTime` with `_delayAfterReached` (stay: it
                      lies where it landed that long — the blackboard `projectile_delay_time` overrides it)
@@ -96,7 +97,10 @@ def movement(d):
             out['sourceDir'] = 1
         return out
     if '_raiseHeight' in d and '_speed' in d:
-        out = {'move': 'PARACURVE', 'speed': num(d['_speed']), 'height': num(d['_raiseHeight'])}
+        if not isinstance(d.get('_noRaiseHeightThreshold'), (int, float)):
+            raise SystemExit(f'a ParacurveMovement without `_noRaiseHeightThreshold`: {sorted(d)}')
+        out = {'move': 'PARACURVE', 'speed': num(d['_speed']), 'height': num(d['_raiseHeight']),
+               'noRaise': num(d['_noRaiseHeightThreshold'])}
         if d.get('_delayAfterReached') and d.get('_delayTime'):
             out['stay'] = num(d['_delayTime'])   # it stays this long where it landed (a blackboard `projectile_delay_time` overrides)
         return out

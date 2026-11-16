@@ -50,7 +50,7 @@ const emodes = () => ({
     buffFx: { enemy_mnctur_collide_char: ['enemy_mnctur_rush_hit'] }, buffOnce: ['enemy_mnctur_collide_char'] },
   [ACREFD]: { modes: [{ name: 'Default', anim: ['Attack'] }],
     skills: { refracting: { cast: [], opt: {}, hit: [], proj: { key: 'projectile_enemy_acrefd', mount: 2, trail: ['enemy_acrefd_die_trail'],
-      hit: ['enemy_acrefd_die_trail_hit', 'enemy_acrefd_die_trail_buff'], start: ['enemy_acrefd_die_trail_start'], move: 'OTHER', speed: 4.0, raise: 1.0 } } } },
+      hit: ['enemy_acrefd_die_trail_hit', 'enemy_acrefd_die_trail_buff'], start: ['enemy_acrefd_die_trail_start'], move: 'OTHER', speed: 4.0, raise: 1.0, noRaise: 0.2 } } } },
 });
 const NAMES = [...new Set(JSON.stringify(emodes()).match(/"enemy_[a-z][A-Za-z0-9_]+"/g).map((s) => JSON.parse(s)).filter((n) => !n.includes('[') && !/collide_char$/.test(n)))];
 
