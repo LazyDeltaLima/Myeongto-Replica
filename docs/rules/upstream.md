@@ -54,6 +54,7 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 
 **언어**: 우리 번역을 upstream 언어 팩으로 옮겼다(관리자 결정) — `tools/i18n/build-ko-pack.mjs` → `public/i18n/ko.json`·`data/i18n/ko.json`.
 처음 접속 언어 한국어, 「自选」 = 「선발」, 进阶 = 승급, 上/下(방향) = 위/아래, 全部 = 전체, 攻击/防御 = 공격/방어, 解冻 = 해동(공식 KR 문자열 표 대조).
+upstream 팩에만 있고 `public/i18n/en.json`에 없는 키(우리 코드가 안 쓰는 upstream 문구, 2026-11-16 기준 11개)는 `buildUiPack`이 버린다.
 
 **기타**
 - 우리 설계 문서의 15.1절(공식 스테이지 씬)은 upstream이 설계 문서를 다시 써서 `docs/local/official-scenes.md`로 옮겼다.

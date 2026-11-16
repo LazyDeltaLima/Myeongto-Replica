@@ -285,7 +285,8 @@ function buildUiPack(ours, base, en) {
   const src = new Map();
   for (const f of OUR_FILES) for (const [k, v] of Object.entries(ours[f])) if (typeof v === 'string' && v) { dict.set(k, v); src.set(k, f); }
   const patterns = buildPatterns(dict);
-  const msgids = [...Object.keys(base), ...Object.keys(en).filter((k) => !(k in base))].filter((k) => !k.startsWith('_'));
+  // a msgid of upstream's pack that en.json (every msgid the code uses) lacks is upstream's own string: left out
+  const msgids = [...Object.keys(base).filter((k) => k in en), ...Object.keys(en).filter((k) => !(k in base))].filter((k) => !k.startsWith('_'));
   const ctxPlain = new Set(msgids.filter((k) => k.includes('::')).map((k) => k.slice(k.indexOf('::') + 2)));
   const pack = {};
   const rows = [];
