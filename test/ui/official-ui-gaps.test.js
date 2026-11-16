@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
-const { pingTier, soloResumeDue, ReadyTipDialog, foldToggled } = await import('../../public/js/ui/battleArt.js');
+const { pingTier, soloResumeDue, ReadyTipDialog, foldToggled, PHONE_TIP_CHIP } = await import('../../public/js/ui/battleArt.js');
 
 describe('bond stack number', () => {
   test('the prefab\'s 16 px on matte_num again, in the HUD number face (12.4 stood in while it drew in Bender)', () => {
@@ -169,7 +169,8 @@ describe('an enemy\'s card takes the official card form too (GitHub #3)', () => 
 });
 
 // maintainer decision 2026-11-13 (docs/rules/ui.md 「공식 위수협약 UI」 아래 안내 띠): on phones the bottom tip chip folds to its
-// round icon on a tap; a folded type stays folded when it comes back, another type shows unfolded; the desktop band takes no taps
+// round icon on a tap; a folded type stays folded when it comes back, another type shows unfolded; the desktop band takes no taps.
+// Since 2026-11-16 the chip is off (PHONE_TIP_CHIP, provisional): phones try the official band; the chip code stays.
 describe('phones fold the bottom tip chip', () => {
   test('a tap folds that type only, a second tap unfolds it', () => {
     let f = new Set();
@@ -184,12 +185,20 @@ describe('phones fold the bottom tip chip', () => {
     const css = read('public/css/battle-art.css');
     const phone = css.slice(css.indexOf('@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse),\n  (max-width: 767px)'));
     const block = phone.slice(0, phone.indexOf('\n}\n'));
-    assert.match(block, /\.btip__pill \{[^}]*pointer-events: auto/);
-    assert.match(block, /\.btip\.is-folded \.btip__pill \{[^}]*width: 32px; height: 32px/);
+    assert.match(block, /\.is-chip \.btip__pill \{[^}]*pointer-events: auto/);
+    assert.match(block, /\.btip\.is-chip\.is-folded \.btip__pill \{[^}]*width: 32px; height: 32px/);
+    for (const rule of block.split('\n').filter((l) => /^  \.[^{]*\{/.test(l))) {
+      assert.match(rule, /^  [^{]*\.is-chip/, `a phone chip rule applies only to .btip.is-chip, so PHONE_TIP_CHIP turns all of it off (docs/rules/ui.md 「공식 위수협약 UI」): ${rule}`);
+    }
     assert.match(css, /^\.btip \{[^}]*pointer-events: none/m);
     assert.match(css, /^\.btip__fold \{ display: none; \}/m, 'no fold handle on the desktop');
     const src = read('public/js/ui/battleArt.js');
     assert.match(src, /onClick=\$\{toggle\}/);
+    assert.match(src, /PHONE_TIP_CHIP && 'is-chip'/);
+  });
+  test('the chip is off for now: phones show the official band (maintainer decision 2026-11-16, provisional)', () => {
+    assert.equal(PHONE_TIP_CHIP, false,
+      'phones try the official bottom tip band until the maintainer decides (docs/rules/ui.md 「공식 위수협약 UI」 아래 안내 띠)');
   });
 });
 
@@ -208,7 +217,7 @@ describe('the desktop bottom tip band draws img_bg\'s visible part, not its whol
     assert.match(after, /color-mix\(in srgb, var\(--tip\) 70%, transparent\)/, 'img_bg\'s stadium is white at 70 % alpha, tinted');
     const phone = css.slice(css.indexOf('@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse),\n  (max-width: 767px)'));
     const block = phone.slice(0, phone.indexOf('\n}\n'));
-    assert.match(block, /\.btip__pill \{[^}]*background: var\(--tip\)/, 'the phone chip stays a solid chip (maintainer decision 2026-11-13)');
-    assert.match(block, /\.btip__pill::after \{ display: none; \}/);
+    assert.match(block, /\.is-chip \.btip__pill \{[^}]*background: var\(--tip\)/, 'the phone chip stays a solid chip (maintainer decision 2026-11-13)');
+    assert.match(block, /\.is-chip \.btip__pill::after \{ display: none; \}/);
   });
 });

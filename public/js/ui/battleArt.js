@@ -308,12 +308,19 @@ export function bottomTipType({ prep, watching, ready, overflow, full, ownDone, 
 }
 
 /**
+ * Phones draw the band as the bottom-left folding chip (css/battle-art.css `.btip.is-chip`, maintainer decisions
+ * 2026-11-13). Off: the band shrank to the official size, so phones try the official place too (maintainer decision
+ * 2026-11-16, provisional — the maintainer is looking at it; reverting that commit, or true here, brings the chip back).
+ */
+export const PHONE_TIP_CHIP = false;
+
+/**
  * The band (panel_bottom_tips): a 54-tall pill (img_bg tinted per type, padding 30, the icon 32 and the text 18 white
  * 9.27 apart, 410…690 wide) centred 47.7 above the screen's bottom; with the shop open it rides 172 higher
  * (battle_bottom_tips_shop_show). Fades between types.
- * On phones (css/battle-art.css) it is a chip in the bottom-left corner that folds to its round icon when tapped
- * (maintainer decision 2026-11-13): a folded type stays folded whenever it shows again while this screen lives (the
- * match); another type shows unfolded. The desktop band takes no taps (the official one has no fold).
+ * With `PHONE_TIP_CHIP` on, phones (css/battle-art.css, `.btip.is-chip`) show a chip in the bottom-left corner that folds
+ * to its round icon when tapped (maintainer decision 2026-11-13): a folded type stays folded whenever it shows again while
+ * this screen lives (the match); another type shows unfolded. The desktop band takes no taps (the official one has no fold).
  * @param {{ type: keyof typeof TIPS | null, shopOpen?: boolean }} props
  */
 export function BottomTips({ type, shopOpen = false }) {
@@ -327,7 +334,7 @@ export function BottomTips({ type, shopOpen = false }) {
   const icon = localAsset('ui/battle', cfg.icon);
   const isFolded = folded.has(cur);
   const toggle = () => setFolded((f) => foldToggled(f, cur));
-  return html`<div class=${['btip', shopOpen && 'is-up', leaving && 'is-leaving', isFolded && 'is-folded'].filter(Boolean).join(' ')} role="status" aria-live="polite"
+  return html`<div class=${['btip', PHONE_TIP_CHIP && 'is-chip', shopOpen && 'is-up', leaving && 'is-leaving', isFolded && 'is-folded'].filter(Boolean).join(' ')} role="status" aria-live="polite"
       data-tip=${cur}>
     <span class="btip__pill" style=${`--tip:${cfg.color}`} onClick=${toggle}>
       ${icon ? html`<i class="btip__icon" style=${`background-image:url("${icon}")`} aria-hidden="true"></i>` : null}
