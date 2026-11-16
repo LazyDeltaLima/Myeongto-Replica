@@ -185,16 +185,52 @@
 .spov.has-phase-art .spov__now { margin-top: calc(var(--pu) * 8); gap: calc(var(--pu) * 10); padding: calc(var(--pu) * 4) calc(var(--pu) * 16) calc(var(--pu) * 4) calc(var(--pu) * 4); font-size: calc(var(--pu) * 15); }
 .spov.has-phase-art .spov__nowicon { width: calc(var(--pu) * 32); height: calc(var(--pu) * 32); }
 
-/* "轮到你了" (panel_player_select): bg_circle, three rings ([추정] their ext sprite: thin teal circles), the four plus marks
-   (#18e6b8), the cube square_1 and its spark square_2, 轮到你了 (49, #00ffc4) over the bottom bar */
+/* "轮到你了" (panel_player_select): bg_circle, three rings, the four plus marks (#18e6b8), the glow glow_behind, the cube
+   square_1 and its spark square_2, 轮到你了 (49, #00ffc4) over the bottom bar, the glow glow_front on top */
 .pcturn { position: absolute; inset: 0; z-index: 30; pointer-events: none; animation: pcturn 1.333s ease-out both; }
 .pcturn i, .pcturn b, .pcturn div { position: absolute; display: block; }
 /* the clip's root alpha holds 1 to 1.167 s and fades to 0 at its end (1.333 s) */
 @keyframes pcturn { 0% { opacity: 0; transform: scale(1.12); } 14% { opacity: 1; transform: none; } 87.5% { opacity: 1; } 100% { opacity: 0; } }
 .pcturn__bg { background: var(--pc-circle) center / 100% 100% no-repeat; }
-.pcturn__ring { border-radius: 50%; border: calc(var(--pu) * 14) solid rgba(0, 233, 255, .1); box-sizing: border-box; }
-.pcturn__ring.is-2 { border-color: rgba(0, 252, 255, .14); border-width: calc(var(--pu) * 10); }
-.pcturn__ring.is-3 { border-color: rgba(0, 208, 255, .12); border-width: calc(var(--pu) * 6); }
+/* the rings (root_circle/circle1..3) are a white disc under the dissolve material m_wipe_circle: the Image colour's G is a
+   threshold on the radial mask img_uifx_basicmask_07, so only an outer band is left, in the material's #18e6b8 (the Image
+   RGB is no colour). The clip panel_your_turn_show (its keys, the Hermite tangents as the cubic-béziers; t / 1.333 s):
+   alpha 0 → .15 → .102, each ring grows 0.3 → 1 a little later than the one before, rings 1·2 thin as their G rises (the
+   inner radius below is the mask's cut for G, sampled at 30 fps), root_circle 1 → 1.05 → 1.2 (docs/rules/ui.md) */
+@property --pcr-in { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+.pcturn__circ { animation: pcturn-circ 1.333s linear both; }
+@keyframes pcturn-circ { 0% { transform: none; } 87.5% { transform: scale(1.05); } 100% { transform: scale(1.2); } }
+.pcturn__ring { border-radius: 50%; --pcr-in: 82.3%; opacity: .102;
+  background: radial-gradient(circle closest-side, transparent calc(var(--pcr-in) - .4%), #18e6b8 calc(var(--pcr-in) + .4%), #18e6b8 99.4%, transparent 100%);
+  animation: pcturn-ring-a 1.333s linear both, pcturn-ring-s1 1.333s linear both, pcturn-ring-in1 1.333s linear both; }
+.pcturn__ring.is-2 { --pcr-in: 94.8%; animation: pcturn-ring-a 1.333s linear both, pcturn-ring-s2 1.333s linear both, pcturn-ring-in2 1.333s linear both; }
+.pcturn__ring.is-3 { --pcr-in: 68.3%; animation: pcturn-ring-a 1.333s linear both, pcturn-ring-s3 1.333s linear both; }
+@keyframes pcturn-ring-a { 0%, 5% { opacity: 0; animation-timing-function: cubic-bezier(.333, 0, .667, 1); }
+  12.5% { opacity: .15; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 37.5%, 100% { opacity: .102; } }
+@keyframes pcturn-ring-s1 { 0%, 5% { transform: scale(.3); animation-timing-function: cubic-bezier(.333, 0, .667, .952); }
+  15% { transform: scale(.9222); animation-timing-function: cubic-bezier(.333, .952, .667, 1); } 40%, 100% { transform: none; } }
+@keyframes pcturn-ring-s2 { 0%, 5% { transform: scale(.3); animation-timing-function: cubic-bezier(.333, 0, .667, .951); }
+  17.5% { transform: scale(.9222); animation-timing-function: cubic-bezier(.333, .941, .667, 1); } 47.5%, 100% { transform: none; } }
+@keyframes pcturn-ring-s3 { 0%, 5% { transform: scale(.3); animation-timing-function: cubic-bezier(.333, 0, .667, .95); }
+  20% { transform: scale(.9222); animation-timing-function: cubic-bezier(.333, .933, .667, 1); } 55%, 100% { transform: none; } }
+@keyframes pcturn-ring-in1 { 0%, 5% { --pcr-in: 50%; } 7.5% { --pcr-in: 50.7%; } 10% { --pcr-in: 53.6%; } 12.5% { --pcr-in: 60%; }
+  15% { --pcr-in: 70.4%; } 17.5% { --pcr-in: 77.8%; } 20% { --pcr-in: 79.3%; } 22.5% { --pcr-in: 80.5%; } 25% { --pcr-in: 81.3%; }
+  27.5% { --pcr-in: 81.9%; } 30% { --pcr-in: 82.1%; } 32.5%, 100% { --pcr-in: 82.3%; } }
+@keyframes pcturn-ring-in2 { 0%, 5% { --pcr-in: 71.3%; } 7.5% { --pcr-in: 72.8%; } 10% { --pcr-in: 76.1%; } 12.5% { --pcr-in: 84.5%; }
+  15% { --pcr-in: 92.4%; } 17.5% { --pcr-in: 93.3%; } 20% { --pcr-in: 94%; } 22.5% { --pcr-in: 94.3%; } 25% { --pcr-in: 94.5%; }
+  27.5% { --pcr-in: 94.7%; } 30%, 100% { --pcr-in: 94.8%; } }
+/* glow_behind·glow_front: img_uifx_basicglow_01 (white, alpha a Gaussian of the radius: the stops below) under m_add
+   (Torappu/UI/AlphaBlend, SrcAlpha + One = added light), coloured by the Image (#004435, #adffed); the clip's alpha
+   0 → 1 → 0 (0.1 · 0.167 · 0.833 s) and 0 → .3 → 0 (0.1 · 0.167 · 0.5 s) */
+.pcturn__glow { opacity: 0; mix-blend-mode: plus-lighter;
+  background: radial-gradient(closest-side, rgb(var(--pcg) / 1), rgb(var(--pcg) / .922) 12.5%, rgb(var(--pcg) / .729) 25%, rgb(var(--pcg) / .494) 37.5%,
+    rgb(var(--pcg) / .286) 50%, rgb(var(--pcg) / .141) 62.5%, rgb(var(--pcg) / .059) 75%, rgb(var(--pcg) / .02) 87.5%, rgb(var(--pcg) / 0)); }
+.pcturn__glow.is-behind { --pcg: 0 68 53; animation: pcturn-glow-b 1.333s linear both; }
+.pcturn__glow.is-front { --pcg: 173 255 237; animation: pcturn-glow-f 1.333s linear both; }
+@keyframes pcturn-glow-b { 0%, 7.5% { opacity: 0; animation-timing-function: cubic-bezier(.333, 0, .667, 1); }
+  12.5% { opacity: 1; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 62.5%, 100% { opacity: 0; } }
+@keyframes pcturn-glow-f { 0%, 7.5% { opacity: 0; animation-timing-function: cubic-bezier(.333, 0, .667, 1); }
+  12.5% { opacity: .3; animation-timing-function: cubic-bezier(.333, 0, .667, 1); } 37.5%, 100% { opacity: 0; } }
 .pcturn__plus i { width: calc(var(--pu) * 21); height: calc(var(--pu) * 22); margin: calc(var(--pu) * -11) 0 0 calc(var(--pu) * -10.5); background: #18e6b8;
   -webkit-mask: var(--pc-plus) center / 100% 100% no-repeat; mask: var(--pc-plus) center / 100% 100% no-repeat; }
 .pcturn__plus .is-tl { left: 0; top: 0; } .pcturn__plus .is-tr { left: 100%; top: 0; }

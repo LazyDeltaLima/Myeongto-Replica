@@ -301,15 +301,19 @@ export function YourTurn() {
   return html`<div class="pcturn" aria-hidden="true">
     <div class="pcturn__c" style=${box(0, 0, 1280, 720)}>
       ${i('pcturn__bg', box(2, 13, 539, 500))}
-      <i class="pcturn__ring is-1" style=${box(4, 15, 301, 301)}></i><i class="pcturn__ring is-2" style=${box(4, 15, 207, 207)}></i>
-      <i class="pcturn__ring is-3" style=${box(4, 15, 175.5, 175.5)}></i>
+      <div class="pcturn__circ" style=${box(4, 15, 500, 500)}>
+        <i class="pcturn__ring is-1" style=${box(0, 0, 300.97, 300.97)}></i><i class="pcturn__ring is-2" style=${box(0, 0, 206.97, 206.97)}></i>
+        <i class="pcturn__ring is-3" style=${box(0, 0, 175.47, 175.47)}></i>
+      </div>
       <div class="pcturn__plus" style=${box(2.9, 9.5, 248, 152)}><i class="is-tl"></i><i class="is-tr"></i><i class="is-bl"></i><i class="is-br"></i></div>
+      ${i('pcturn__glow is-behind', box(2, 13, 655.13, 607.73))}
       ${i('pcturn__cube', box(2, 6 + (0.5 - 0.1628) * 134, 131, 134))}
       ${i('pcturn__fx', box(-36.1 + (0.5 - 0.7064) * 80, 77.1 + (0.5 - 0.2889) * 80, 80, 80))}
       <div class="pcturn__bottom" style=${box(4, -50, 214.2, 100)}>
         <b class="pcturn__text" style=${box(0, 20, 239.4, 67.1)}>${t('轮到你了')}</b>
         ${i('pcturn__bar', box(0, -22, 185, 11))}
       </div>
+      ${i('pcturn__glow is-front', box(2, 13, 333.13, 309.03))}
     </div>
   </div>`;
 }
