@@ -18,7 +18,9 @@
 // half-body portrait (180×360); else no art. A chess with a character template is drawn as its body, its `tmplId`
 // (阿米娅's 医疗 form is char_1037_amiya3's art, not 阿米娅's own). An own piece in a skin draws that skin's 立绘 by its
 // own card frame once the skin data is downloaded and that 立绘 cached (ui/skins.js cardSkinArt; docs/rules/ui.md
-// 「스킨 고르기」), else the default art.
+// 「스킨 고르기」), else the default art; so does a card opened without a piece in this browser's chosen skin (a shop slot,
+// the own bond popup's row — resolveDetail `skin.own`) and another player's unit in the skin it wears when 其他玩家的皮肤
+// is on (`skin.id`, not `mine`).
 //
 // 0.2.0 补位 (docs/LOCAL-PATCH.md 「0.2.0 병합」): a chess the player fields as its stand-in shows the
 // stand-in like ChessDetail does — art, class, name, stats, range, skill, talents (its backup selection) — with ChessDetail's
@@ -33,7 +35,7 @@
 //                           player's m.private: a 自选 slot's operator, a 补位 stand-in — maintainer report 2026-10-08: the
 //                           drag showed the bare slot record 「自选干员」); null for an item / token or an unknown piece
 
-import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
+import { useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, Button, useScrollEdges } from './components.js';
 import { Img, RichText, GIcon } from './gameComponents.js';
 import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail, hpOf, enemyImmunities, RANK, DMG, MorphPairings, MorphGrantLine, PROF_NAME, chessTalents, skillTags, skillTextNote, summonDeployHint, itemText } from './detailPanel.js';
@@ -44,8 +46,8 @@ import { tokenVariantFor } from './gameLogic/loadout.js';
 import { data, localAsset } from '../data.js';
 import { illustEntry, illustStore } from '../illust-res.js';
 import { useStore } from '../store.js';
-import { resStore, resourceCached, skinPackState } from '../resources.js';
-import { skinsStore, loadSkinCatalog, cardSkinArt } from './skins.js';
+import { skinArt, wornSkin, cardWorn, cardSkinArt } from './skins.js';
+import { settingsStore } from './settings.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -118,7 +120,7 @@ function Line({ k, v, tone, sub, title, cls }) {
 export function ChessDetailArt(props) {
   const [tab, setTab] = useState(null);
   const hi = useStore((x) => x.hi, Object.is, illustStore); // the 立绘 copy: a change in the settings redraws the card
-  const { chess: c, piece, live = null, snapHp = null, loadout = null, standIn = null, diy = null, cultOpts = null } = props;
+  const { chess: c, piece, live = null, snapHp = null, loadout = null, standIn = null, diy = null, cultOpts = null, skin = null } = props;
   const blocks = ChessDetail(props);
   const { by, tabs } = artParts(blocks);
   const m = data.get('assets');
@@ -132,13 +134,14 @@ export function ChessDetailArt(props) {
   const fr = lo?.record || body;
   const s = fr?.stats || {};
   const golden = !!(c.isGolden || piece?.golden);
-  // the skin the own piece wears (pieceView `skin`): its 立绘 once the skin data is downloaded and that 立绘 cached
-  const skinId = typeof piece?.skin === 'string' && piece.skin ? piece.skin : null;
-  const catalog = useStore((x) => x.catalog, Object.is, skinsStore);
-  const skinReady = useStore((r) => skinPackState(r) === 'done', Object.is, resStore);
-  useEffect(() => { if (skinId && skinReady && !catalog) loadSkinCatalog(); }, [skinId, skinReady, catalog]);
-  const skinArt = skinId ? cardSkinArt(skinId, [body.tmplId, body.charId], { catalog, ready: skinReady, cached: resourceCached }) : null;
-  const art = cardArt(m, body, hi, skinArt);
+  // the skin the card's operator wears: the own piece's (pieceView `skin`), else for a card opened without a piece this
+  // browser's choice (resolveDetail `skin.own`), else a unit's (`skin.id`) — another player's only with 其他玩家的皮肤 on;
+  // its 立绘 once the skin data is downloaded and that 立绘 cached (ui/skins.js cardSkinArt)
+  const sk = skinArt();
+  const otherSkins = useStore((x) => x.otherSkins !== false, Object.is, settingsStore);
+  const skinId = wornSkin(body, { ...cardWorn(piece, skin, otherSkins), map: sk.map });
+  const wornArt = skinId ? cardSkinArt(skinId, [body.tmplId, body.charId], sk) : null;
+  const art = cardArt(m, body, hi, wornArt);
   const fs = art.frame ? `--fx:${art.frame.x};--fy:${art.frame.y};--fw:${art.frame.w};--fh:${art.frame.h}` : '';
   const token = piece?.kind === 'token' || c.profession === 'TOKEN';
   const st = {

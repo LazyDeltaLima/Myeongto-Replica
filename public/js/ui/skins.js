@@ -19,9 +19,11 @@
 // The key is the OPERATOR id, not the chess id: an operator's normal, elite and 自选 pieces are one operator, and the
 // server reads a unit's skin by its charId (server/match/player PlayerState.skinFor).
 
-import { createStore, loadPref, savePref } from '../store.js';
+import { useEffect } from '../../vendor/hooks.module.js';
+import { createStore, loadPref, savePref, useStore } from '../store.js';
 import { SKIN_LIMITS, isCharId, isSkinId } from '../../../shared/protocol.js';
 import { illustEntry, illustFull, illustStore } from '../illust-res.js';
+import { resStore, resourceCached, skinPackState } from '../resources.js';
 
 /** The pref (`sp.pref.<key>`) of this browser's choice. */
 export const SKINS_PREF = 'skins';
@@ -194,4 +196,88 @@ export function cardSkinArt(skinId, ids, { catalog = skinsStore.get().catalog, r
   let ok = false;
   try { ok = !!cached([row.illust]); } catch { /* no cache record: the default art */ }
   return ok ? { src: row.illust, frame: row.frame } : null;
+}
+
+/**
+ * A skin's avatar (1:1, `kind` 'avatar') or portrait (1:2, 'portrait' — the size of the default half-body portrait a shop
+ * card draws), art.json's pictures from the picture repository, for the body `ids` (tmplId / charId) the catalogue lists
+ * it for — under the same gate as cardSkinArt: the skin data downloaded (`ready`) and that picture cached (`cached`).
+ * Else null: the default picture (docs/rules/ui.md 「스킨 고르기」 operator pictures).
+ * @param {any} skinId @param {Array<any>} ids @param {'avatar'|'portrait'} kind
+ * @param {{ catalog?: any, ready?: boolean, cached?: (paths: string[]) => boolean }} [ctx]
+ * @returns {string|null}
+ */
+export function skinPicture(skinId, ids, kind, { catalog = skinsStore.get().catalog, ready = false, cached = () => false } = {}) {
+  const id = str(skinId);
+  if (!id || !ready || !isObj(catalog) || !(catalog.bySkin instanceof Map)) return null;
+  const row = catalog.bySkin.get(id);
+  const src = row && (kind === 'avatar' ? row.avatar : kind === 'portrait' ? row.portrait : null);
+  if (!src || !(Array.isArray(ids) ? ids : []).includes(row.owner)) return null;
+  let ok = false;
+  try { ok = !!cached([src]); } catch { /* no cache record: the default picture */ }
+  return ok ? src : null;
+}
+
+/**
+ * The skin a picture of operator record `rec` (a chess record, a 自选 record, a 补位 stand-in: the body drawn) wears:
+ * `skin` when the caller hands one it shows (a piece's or a unit's worn skin), else with `own` this browser's choice for
+ * that operator (`map`, keyed by charId — a card opened without a piece: a shop slot, a bond popup's own row); null for
+ * the default.
+ * @param {any} rec @param {{ skin?: any, own?: boolean, map?: Record<string, string> }} [worn]
+ * @returns {string|null}
+ */
+export function wornSkin(rec, { skin = null, own = false, map = skinsStore.get()[SKINS_KEY] } = {}) {
+  const id = str(skin);
+  if (id) return id;
+  return own && rec && isObj(map) ? str(map[rec.charId]) : null;
+}
+
+/**
+ * The skin a detail card's operator wears, as wornSkin's `worn`: the own piece's (pieceView `skin`), else for a card opened
+ * without a piece this browser's choice (resolveDetail `skin.own`: a shop slot, the own bond popup's row), else a unit's
+ * (`skin.id`) — another player's (not `skin.mine`) only with 其他玩家的皮肤 on (`others`), as render/skin-gate.js draws its model.
+ * @param {any} piece @param {any} skin resolveDetail's `skin` @param {boolean} [others]
+ * @returns {{ skin?: string, own?: boolean }}
+ */
+export function cardWorn(piece, skin, others = true) {
+  const ps = str(piece?.skin);
+  if (ps) return { skin: ps };
+  if (!isObj(skin)) return {};
+  if (skin.own === true) return { own: true };
+  return str(skin.id) && (skin.mine === true || others) ? { skin: skin.id } : {};
+}
+
+/**
+ * What a component needs to draw operator pictures in skins, read now: this browser's choice (`map`), the catalogue,
+ * whether the skin data is downloaded (`ready`, resources.js skinPackState 'done': not taken or still downloading draws
+ * the default pictures, maintainer decision 2026-11-17) and the cache check — the context skinPicture, skinPic and
+ * cardSkinArt take. Not a hook (the leaf components stay plain functions): the page's root subscribes with useSkinArt,
+ * whose change re-renders the whole tree in place, and fetches the catalogue.
+ */
+export function skinArt() {
+  const s = skinsStore.get();
+  return { map: s[SKINS_KEY], catalog: s.catalog, ready: skinPackState(resStore.get()) === 'done', cached: resourceCached };
+}
+
+/**
+ * The page root's subscription (main.js App, like useLang): a change of the choice, of the catalogue or of the skin data's
+ * download state re-renders the tree, so every skinArt() reader draws the new pictures; once the skin data is downloaded
+ * it fetches the catalogue — never before (a player without it fetches nothing for these pictures).
+ */
+export function useSkinArt() {
+  useStore((x) => x[SKINS_KEY], Object.is, skinsStore);
+  const catalog = useStore((x) => x.catalog, Object.is, skinsStore);
+  const ready = useStore((r) => skinPackState(r) === 'done', Object.is, resStore);
+  useEffect(() => { if (ready && !catalog) void loadSkinCatalog(); }, [ready, catalog]);
+  return skinArt();
+}
+
+/**
+ * The `kind` picture of operator record `rec` in the skin it wears (wornSkin), or null: the caller draws the default one.
+ * @param {any} rec @param {'avatar'|'portrait'} kind @param {ReturnType<typeof skinArt>} ctx
+ * @param {{ skin?: any, own?: boolean }} [worn]
+ */
+export function skinPic(rec, kind, ctx, worn = {}) {
+  const id = rec ? wornSkin(rec, { ...worn, map: ctx?.map }) : null;
+  return id ? skinPicture(id, [rec.tmplId, rec.charId], kind, ctx) : null;
 }

@@ -25,6 +25,7 @@ import { html, TierChip } from './components.js';
 import { GEO } from '../../../shared/constants.js';
 import { wideHalves, widenStageData } from '../../../shared/wideField.js';
 import { chessAvatarUrl, itemIconUrl, tokenAvatarUrl, enemyIconUrl } from './assetUrls.js';
+import { skinArt, skinPic } from './skins.js';
 import { tileKey, hasFlag, UF, penPlacement, PEN, fieldTile, ownStandIn, ownDiyRecord } from './gameLogic.js';
 import { t } from '../../../shared/i18n.js';
 
@@ -132,7 +133,9 @@ export function createFallbackView(host, opts = {}) {
     if (p.kind === 'item') return itemIconUrl(mm, lookup('items', p.id));
     if (p.kind === 'token') return tokenAvatarUrl(mm, p.id);
     const chess = lookup('chess', p.id);
-    return chessAvatarUrl(mm, ownSi(chess) || ownDiy(chess) || chess);
+    const rec = ownSi(chess) || ownDiy(chess) || chess;
+    // the skin the own piece wears (pieceView `skin`; ui/skins.js skinPic — the default avatar without the skin data)
+    return (rec && skinPic(rec, 'avatar', skinArt(), { skin: p.skin })) || chessAvatarUrl(mm, rec);
   }
   /** 0.2.0 补位: the player's own piece of a chess it does not own is its stand-in, bench and board alike (render/app.js pieceInfo) */
   function ownSi(chess) {

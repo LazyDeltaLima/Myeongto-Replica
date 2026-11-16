@@ -26,6 +26,7 @@ import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Button, TierChip, MicroLabel } from '../ui/components.js';
 import { useGameData } from '../ui/gameComponents.js';
 import { chessPortraitUrl, profIconUrl, bondIconUrl, skillRecordIconUrl, moduleTypeIconUrl, uiUrl } from '../ui/assetUrls.js';
+import { skinArt, skinPic } from '../ui/skins.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfoDialog, matchInfoModel } from '../ui/matchInfo.js';
 import { actions } from '../ui/gameActions.js';
@@ -61,6 +62,7 @@ function artVars(m) {
 
 /** One 自选编队 card (auto_chess_diy_choose_char_view holding the 干员调配 card). */
 function DiyCard({ m, slotId, pick, tier, chosen, off, locked, onTap }) {
+  const skinCtx = skinArt(); // the operator's portrait in this browser's chosen skin (ui/skins.js skinPic)
   const D = { chess: data.get('chess'), backups: data.get('backups') };
   const rec = slotRecord(slotId, pick, D);
   const elite = slotRecord(slotId, pick, D, { elite: true });
@@ -78,7 +80,7 @@ function DiyCard({ m, slotId, pick, tier, chosen, off, locked, onTap }) {
       title=${state ? `${name} · ${state}` : name} onClick=${() => onTap(slotId)}>
     <i class="dccard__slab" aria-hidden="true"></i>
     <span class="dccard__char" aria-hidden="true">
-      <span class="dccard__por">${rec ? html`<img src=${chessPortraitUrl(m, elite || rec)} alt="" draggable=${false} />` : null}</span>
+      <span class="dccard__por">${rec ? html`<img src=${skinPic(rec, 'portrait', skinCtx, { own: true }) || chessPortraitUrl(m, elite || rec)} alt="" draggable=${false} />` : null}</span>
       <i class="dccard__shade"></i><i class="dccard__frame"></i>
       <span class="dccard__prof">${prof ? html`<img src=${prof} alt="" draggable=${false} />` : null}</span>
       <span class="dccard__box is-skill">${sk || none ? html`<img src=${sk || none} alt="" draggable=${false} />` : null}</span>

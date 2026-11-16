@@ -51,7 +51,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../ven
 import { html, Button, Icon, MicroLabel, TierChip, useTicker, secondsLeft } from '../ui/components.js';
 import { useGameData, BandIcon, RichText, PlayerAvatar, Sprite } from '../ui/gameComponents.js';
 import { chessAvatarUrl, chessPortraitUrl, uiUrl } from '../ui/assetUrls.js';
-import { CARD_KEY, cardStore, cardOperators, cardContext, seatOperator, seatArtSrc } from '../ui/seatArt.js';
+import { CARD_KEY, cardStore, cardOperators, cardContext, seatOperator, seatArtSrc, seatCardSkin } from '../ui/seatArt.js';
+import { skinArt, skinPic, skinPicture } from '../ui/skins.js';
+import { settingsStore } from '../ui/settings.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfoDialog, matchInfoModel, ChessIcon } from '../ui/matchInfo.js';
 import { actions, act } from '../ui/gameActions.js';
@@ -465,6 +467,7 @@ export function PresetPicker({ choice, presets, off, locked, onChoice, keep = tr
  *   onClear?: ((slotId: string) => void)|null }} props
  */
 export function DraftPresetRow({ band, choice, link, presets, base, live, off, locked, remember, m = null, onChoice, onRemember, onEdit = null, onClear = null }) {
+  const sk = skinArt(); // the 自选 picks' avatars in this browser's chosen skins (ui/skins.js skinPic)
   const tags = presetChoiceTags(choice, { link, rec: bandRecommendation(band), off });
   const picks = presetPreviewPicks(choice, { presets, base }, live);
   const slots = diySlotList({ chess: data.get('chess'), backups: data.get('backups') });
@@ -507,7 +510,7 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
           const rm = `${tip} · ${t('清空')}`;
           return html`<span key=${id} class=${cx('draft-preset__slot', 'is-edit', gone && 'is-off')} data-slot=${id}>
             <button type="button" class="draft-preset__hit" title=${swap} aria-label=${swap} data-testid="draft-preset-swap" onClick=${() => onEdit(id)}>
-              <${ChessIcon} src=${pickAvatar(m, u)} name=${name} banned=${gone} title=${swap} class="draft-preset__ava" />
+              <${ChessIcon} src=${skinPic(u, 'avatar', sk, { own: true }) || pickAvatar(m, u)} name=${name} banned=${gone} title=${swap} class="draft-preset__ava" />
               <i class="draft-preset__swap" aria-hidden="true"><${Icon} name="refresh" /></i>
             </button>
             ${onClear ? html`<button type="button" class="draft-preset__rm" title=${rm} aria-label=${rm} data-testid="draft-preset-remove"
@@ -515,7 +518,7 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
           </span>`;
         }
         return html`<span key=${id} class=${cx('draft-preset__slot', !u && 'is-empty', gone && 'is-off')} data-slot=${id}>
-          <${ChessIcon} src=${pickAvatar(m, u)} name=${name} banned=${gone} title=${tip} class="draft-preset__ava" />
+          <${ChessIcon} src=${skinPic(u, 'avatar', sk, { own: true }) || pickAvatar(m, u)} name=${name} banned=${gone} title=${tip} class="draft-preset__ava" />
         </span>`;
       })}
     </div>`)}</div>
@@ -578,11 +581,16 @@ export function useOrderArt(gd, myId) {
   const roomSeats = useStore((s) => s.room?.seats);
   const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
   const cards = useMemo(() => cardContext(cardOperators(gd.list('chess'), data.get('backups')), { pending: !data.get('backups') }), [gd.ready]);
+  // the seat's skin as on its seat card (ui/seatArt.js seatCardSkin), its portrait once the skin data is downloaded and cached
+  const sk = skinArt();
+  const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);
   return (p) => {
     if (p.isBot) return null;
     const seat = (Array.isArray(roomSeats) && roomSeats.find((x) => x && x.playerId === p.playerId)) || { playerId: p.playerId };
     const op = seatOperator(seat, cards, { myId, myCard });
-    return op ? chessPortraitUrl(data.get('assets'), op.chess) : null;
+    if (!op) return null;
+    const skin = seatCardSkin(seat, op.chess.charId, { myId, localSkins: sk.map, otherSkins, pack: sk.ready });
+    return skinPicture(skin, [op.chess.charId], 'portrait', sk) || chessPortraitUrl(data.get('assets'), op.chess);
   };
 }
 

@@ -14,6 +14,7 @@ import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html } from './components.js';
 import { useGameData, Img } from './gameComponents.js';
 import { chessAvatarUrl } from './assetUrls.js';
+import { skinArt, skinPic } from './skins.js';
 import { fmtNum, isCombatPhase, ownDiyRecord, ownStandIn, roundDamageSource, roundDamageRows, ROUND_DAMAGE_ROWS } from './gameLogic.js';
 import { settingsStore } from './settings.js';
 import { useStore, loadPref, savePref } from '../store.js';
@@ -92,6 +93,7 @@ export function RoundDamage({ pub, priv, myId, place, spectator = false }) {
   const combat = isCombatPhase(pub?.phase);
   const mine = place === (phone ? 'phone' : 'desktop') && enabled !== false && !spectator && !!priv;
   const live = useLiveDamage(mine && combat, myId);
+  const sk = skinArt(); // an operator in the skin its piece wears (pieceView.skin; ui/skins.js skinPic)
   if (!mine) return null;
   const src = roundDamageSource({ round: pub?.round ?? null, live, msg, board: priv.board, combat });
   if (!src) return null;
@@ -129,7 +131,7 @@ export function RoundDamage({ pub, priv, myId, place, spectator = false }) {
           const bar = html`<span class="rdmg__track"><i class=${r.parts ? 'is-stack' : heal ? 'is-heal' : ''} style=${`width:${(r.bar * 100).toFixed(1)}%`}>${r.parts
             ? TYPE_MARKS.map(([id], k) => (r.parts[k] > 0 ? html`<span key=${id} class=${`is-${id}`} style=${`flex-grow:${r.parts[k].toFixed(3)}`}></span>` : null)) : null}</i></span>`;
           return html`<li key=${r.uid} class=${cx('rdmg__row', !heal && i === 0 && r.value > 0 && 'is-top')} title=${`${name} · ${fmtNum(r.value)}`}>
-            <${Img} class="rdmg__av" src=${rec ? chessAvatarUrl(m, rec) : null} alt="" fallback=${html`<b>${[...name][0] || '?'}</b>`} />
+            <${Img} class="rdmg__av" src=${rec ? skinPic(rec, 'avatar', sk, { skin: r.piece.skin }) || chessAvatarUrl(m, rec) : null} alt="" fallback=${html`<b>${[...name][0] || '?'}</b>`} />
             ${full ? html`<span class="rdmg__nm">${name}</span>${val}${bar}` : html`${bar}${val}`}
           </li>`;
         })}

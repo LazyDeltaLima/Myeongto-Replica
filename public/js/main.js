@@ -73,6 +73,7 @@ import { installMatchQueue } from './ui/matchQueue.js'; // 랜덤 매칭 (server
 import { installFeedback } from './ui/feedback.js'; // local patch: whether the server keeps feedback (welcome)
 import { installGpuNotice } from './ui/gpuNotice.js'; // hardware acceleration off: say where to turn it on
 import { installResources, ResourceHost, resStore } from './resources.js';
+import { useSkinArt } from './ui/skins.js';
 import { emoteSet } from '../../shared/emote-art.js';
 import { initLang, useLang, tickerText } from './ui/lang.js';
 import { t, N_, translateWire } from '../../shared/i18n.js';
@@ -424,6 +425,7 @@ function App() {
   const combat = useStore((s) => selectRoute(s) === 'game' && !s.match.result && isCombatPhase(s.match.public?.phase));
   useScreenWakeLock(wakeMode === 'always' || (wakeMode === 'combat' && combat));
   useLang(); // a language switch re-renders the whole tree in place
+  useSkinArt(); // so does a change of the operator skins' pictures (the choice, the catalogue, the skin data downloaded: ui/skins.js skinArt)
   const [error, resetError] = useErrorBoundary((err) => { console.error('[ui] screen crashed', err); recordError('ui', err, 'screen crashed'); });
   const Screen = SCREENS[route] || LobbyScreen;
   return html`<div class="app-root">

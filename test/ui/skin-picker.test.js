@@ -6,13 +6,14 @@
 // when this checkout has them: every picture the picker draws must be a file of the resource list.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createStore } from '../../public/js/store.js';
-import { parseStoredSkins, buildSkinCatalog, chosenSkin, skinRows, ownerSkin, cardSkinArt, SKINS_KEY, SKINS_SYNC_KEY } from '../../public/js/ui/skins.js';
+import { parseStoredSkins, buildSkinCatalog, chosenSkin, skinRows, ownerSkin, cardSkinArt, skinPicture, wornSkin, skinPic, cardWorn, SKINS_KEY, SKINS_SYNC_KEY } from '../../public/js/ui/skins.js';
 import { cardArt } from '../../public/js/ui/detailArt.js';
+import { resolveDetail } from '../../public/js/ui/detailPanel.js';
 import { skinSectionState, skinTiles, SkinTile, SkinPreview, SkinPackBox } from '../../public/js/ui/skinPicker.js';
 import { installSkinsSync, setLoadoutSeason, SYNC_DEBOUNCE_MS } from '../../public/js/ui/loadoutSync.js';
 import { seatCardSkin } from '../../public/js/ui/seatArt.js';
@@ -277,12 +278,106 @@ describe('detail card skin 立绘', () => {
     assert.notEqual(cardArt({}, { charId: OP }, false, null).src, ILL);
   });
 
-  test('ChessDetailArt asks for the skin of the piece it shows, for the body drawn (a stand-in, a 自选 pick, a template)', () => {
+  test('ChessDetailArt asks for the skin the card\'s operator wears, for the body drawn (a stand-in, a 自选 pick, a template)', () => {
     const src = read('public/js/ui/detailArt.js');
-    assert.match(src, /const skinId = typeof piece\?\.skin === 'string' && piece\.skin \? piece\.skin : null;/);
-    assert.match(src, /cardSkinArt\(skinId, \[body\.tmplId, body\.charId\], \{ catalog, ready: skinReady, cached: resourceCached \}\)/);
-    assert.match(src, /const art = cardArt\(m, body, hi, skinArt\);/);
-    assert.match(src, /useStore\(\(r\) => skinPackState\(r\) === 'done', Object\.is, resStore\)/);
+    assert.match(src, /const skinId = wornSkin\(body, \{ \.\.\.cardWorn\(piece, skin, otherSkins\), map: sk\.map \}\);/);
+    assert.match(src, /cardSkinArt\(skinId, \[body\.tmplId, body\.charId\], sk\)/);
+    assert.match(src, /const art = cardArt\(m, body, hi, wornArt\);/);
+    assert.match(read('public/js/ui/detailPanel.js'), /skin=\$\{detail\.skin \|\| null\}/, 'the panel hands resolveDetail\'s skin to the card');
+  });
+
+  test('cardWorn: the own piece\'s skin, a card without a piece this browser\'s choice, another player\'s unit only with 其他玩家的皮肤', () => {
+    assert.deepEqual(cardWorn({ skin: SKIN }, { own: true }), { skin: SKIN }, 'the piece first');
+    assert.deepEqual(cardWorn(null, { own: true }), { own: true });
+    assert.deepEqual(cardWorn(null, { id: SKIN, mine: false }, true), { skin: SKIN });
+    assert.deepEqual(cardWorn(null, { id: SKIN, mine: false }, false), {}, '其他玩家的皮肤 off');
+    assert.deepEqual(cardWorn(null, { id: SKIN, mine: true }, false), { skin: SKIN }, 'one\'s own unit whatever the setting says');
+    assert.deepEqual(cardWorn(null, null), {});
+    assert.equal(wornSkin({ charId: OP }, { ...cardWorn(null, { own: true }), map: { [OP]: SKIN2 } }), SKIN2);
+  });
+});
+
+describe('operator pictures in the chosen skin (shop card, icons)', () => {
+  const cat = buildSkinCatalog(LIST, ART, false);
+  const all = () => true;
+  test('skinPicture: the skin\'s avatar / portrait for its own operator, once the skin data is downloaded and that picture cached', () => {
+    assert.equal(skinPicture(SKIN, [OP], 'avatar', { catalog: cat, ready: true, cached: all }), P('a/boc.png'));
+    assert.equal(skinPicture(SKIN, [undefined, OP], 'portrait', { catalog: cat, ready: true, cached: all }), P('p/boc.png'));
+    assert.equal(skinPicture(SKIN, [OP], 'portrait', { catalog: cat, ready: false, cached: all }), null, 'not taken or still downloading: the default picture');
+    assert.equal(skinPicture(SKIN, [OP], 'portrait', { catalog: cat, ready: true, cached: (ps) => !ps.includes(P('p/boc.png')) }), null, 'that picture not cached');
+    assert.equal(skinPicture(SKIN, ['char_2_other'], 'avatar', { catalog: cat, ready: true, cached: all }), null, 'another operator\'s skin');
+    assert.equal(skinPicture(NOART, [OP], 'avatar', { catalog: cat, ready: true, cached: all }), null, 'no picture in art.json');
+    assert.equal(skinPicture(SKIN, [OP], 'illust', { catalog: cat, ready: true, cached: all }), null);
+    assert.equal(skinPicture(SKIN, [OP], 'avatar', { catalog: 'missing', ready: true, cached: all }), null);
+    assert.equal(skinPicture(null, [OP], 'avatar', { catalog: cat, ready: true, cached: all }), null);
+  });
+
+  test('wornSkin / skinPic: a worn skin first, else with `own` this browser\'s choice for the operator drawn', () => {
+    const ctx = { map: { [OP]: SKIN }, catalog: cat, ready: true, cached: all };
+    assert.equal(wornSkin({ charId: OP }, { own: true, map: ctx.map }), SKIN);
+    assert.equal(wornSkin({ charId: OP }, { map: ctx.map }), null, 'not one\'s own: no choice read');
+    assert.equal(wornSkin({ charId: OP }, { skin: SKIN2, own: true, map: ctx.map }), SKIN2, 'the worn one first');
+    assert.equal(skinPic({ charId: OP }, 'portrait', ctx, { own: true }), P('p/boc.png'));
+    assert.equal(skinPic({ charId: OP }, 'avatar', ctx, { skin: SKIN2 }), P('a/it.png'));
+    assert.equal(skinPic({ charId: OP }, 'avatar', ctx), null);
+    assert.equal(skinPic({ charId: 'char_2_other' }, 'avatar', { ...ctx, map: { char_2_other: SKIN } }, { own: true }), null, 'a choice stored under another operator');
+    assert.equal(skinPic(null, 'avatar', ctx, { own: true }), null);
+  });
+
+  test('resolveDetail hands the card its skin: an own card without a piece the choice, a unit the one it wears', () => {
+    const chess = { chessId: 'chess_x', charId: OP, name: 'x', tier: 6, bonds: [] };
+    const was = { lookup: data.lookup, get: data.get };
+    data.lookup = (kind, id) => (kind === 'chess' && id === chess.chessId ? chess : null);
+    data.get = () => null;
+    try {
+      const priv = { playerId: 'p_me' };
+      assert.deepEqual(resolveDetail({ kind: 'chess', id: chess.chessId }, new Map(), { priv }).skin, { own: true }, 'a shop slot');
+      assert.equal(resolveDetail({ kind: 'chess', id: chess.chessId, owner: 'p_2' }, new Map(), { priv }).skin, undefined, 'a teammate\'s bond row');
+      assert.equal(resolveDetail({ kind: 'chess', id: chess.chessId, foreign: true }, new Map(), { priv }).skin, undefined, 'the banned list');
+      const unit = (o) => resolveDetail({ kind: 'unit', unit: { id: 3, side: 'ally', kind: 'op', defId: chess.chessId, ...o } }, new Map(), { priv }).skin;
+      assert.deepEqual(unit({ ownerId: 'p_2', skin: SKIN }), { id: SKIN, mine: false });
+      assert.deepEqual(unit({ ownerId: 'p_me', skin: SKIN }), { id: SKIN, mine: true });
+      assert.equal(unit({ ownerId: 'p_2' }), undefined);
+    } finally { data.lookup = was.lookup; data.get = was.get; }
+  });
+
+  // Every operator picture of the page goes through the skin (ui/skins.js skinPic / skinPicture on the same line), or is
+  // listed here with why it keeps the default (docs/rules/ui.md 「스킨 고르기」 operator pictures).
+  const DEFAULT_ONLY = {
+    'public/js/screens/achievements.js': 'past matches\' records and bond members: the data, no worn skin recorded',
+    'public/js/ui/consolePanel.js': 'the console: a data reference',
+    'public/js/screens/sweep.js': 'the S.W.E.E.P. report\'s bond members: a data reference',
+    'public/js/ui/matchInfo.js': 'ChessIcon: the mode\'s operator list (banned, stage info), not anyone\'s operator',
+    'public/js/screens/ownership.js': '干员持有: each chess beside its official stand-in, a reference of who stands in',
+    'public/js/screens/room.js': 'the 名片干员 picker list; the seat card wears its skin through seatCardSkin (skinArt first in seatArtSrc)',
+    'public/js/ui/detailArt.js': 'cardArt\'s default art: the skin 立绘 comes first through cardSkinArt',
+    'public/js/screens/bandDraft.js': 'pickAvatar, the default its callers fall back to after skinPic',
+    'public/js/screens/diy.js': 'avatarOf (the default its callers fall back to) and SkinSection\'s 默认 tile',
+    'public/js/screens/loadout.js': 'SkinSection\'s 默认 tile: the default appearance by definition',
+  };
+  test('every operator picture goes through the skin, or says why it keeps the default', () => {
+    const files = [];
+    const walk = (dir) => {
+      for (const e of readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (rel.endsWith('.js') && rel !== 'public/js/ui/assetUrls.js') files.push(rel);
+      }
+    };
+    walk('public/js');
+    const bare = [];
+    let routed = 0;
+    for (const f of files) {
+      read(f).split('\n').forEach((line, i) => {
+        if (!/\bchess(Avatar|Portrait)Url\(/.test(line) || /^\s*(\/\/|\*)/.test(line)) return;
+        if (/\bskinPic(ture)?\(/.test(line)) { routed++; return; }
+        if (!Object.hasOwn(DEFAULT_ONLY, f)) bare.push(`${f}:${i + 1}`);
+      });
+    }
+    assert.ok(routed >= 10, `pictures through the skin: ${routed}`);
+    assert.deepEqual(bare, [], 'an operator picture without the chosen skin: draw it with ui/skins.js skinPic(rec, kind, skinArt(), { own | skin }) before the default, '
+      + 'or list the file with its reason (docs/rules/ui.md 「스킨 고르기」)');
+    for (const f of Object.keys(DEFAULT_ONLY)) assert.ok(files.includes(f), `${f} is gone: drop it from the list`);
   });
 });
 

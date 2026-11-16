@@ -121,7 +121,7 @@ export function EquipReplaceDialog({ request, getItem = () => null, busy = false
       <p class="eqr__lead">${tParts('「{name}」的装备栏已满（{n}/{n}）。选择一件装备进行替换，{warn}。', { n: request.options.length, name: html`<b>${request.targetName}</b>`, warn: html`<b class="t-red">${t('被替换的装备将被销毁')}</b>` })}</p>
       <div class="eqr__top">
         <div class="eqr__op" title=${request.targetName}>
-          <span class="eqr__ava"><${UnitThumb} kind="chess" id=${request.targetId} golden=${request.golden} size="md" rec=${request.targetRec || null} /></span>
+          <span class="eqr__ava"><${UnitThumb} kind="chess" id=${request.targetId} golden=${request.golden} size="md" rec=${request.targetRec || null} ownSkin=${true} /></span>
           <span class="eqr__opname">${request.targetName}</span>
         </div>
         <span class="eqr__swap" aria-hidden="true">${swapIcon ? html`<img src=${swapIcon} alt="" draggable=${false} />` : html`<${GIcon} name="refresh" />`}</span>

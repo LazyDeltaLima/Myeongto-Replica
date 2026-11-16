@@ -22,6 +22,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks
 import { html, Icon, Button, TierChip, TextField } from '../ui/components.js';
 import { Img, BondGlyph, BandIcon } from '../ui/gameComponents.js';
 import { chessAvatarUrl, chessPortraitUrl, profIconUrl, profGlyphUrl, subProfIconUrl, bondIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from '../ui/assetUrls.js';
+import { skinArt, skinPic } from '../ui/skins.js';
 import { data } from '../data.js';
 import { MODULE_NONE, PROF_NAME, skillLabel, moduleBadge, quickSkillTags, opsOf, chessOptions } from '../ui/loadoutModel.js';
 import { diySlotList, pickChoices, pickOptions, slotRecord, defaultPick } from '../ui/diyModel.js';
@@ -60,6 +61,7 @@ function Bonds({ bonds }) {
 
 /** One slot: the pick (operator, class, bonds, skill, module, an owned pick's 潜能 / 练度) or an empty slot to fill. */
 function SlotCard({ m, slot, pick, illegal, onOpen, onClear, ops = {}, onOps = null }) {
+  const skinCtx = skinArt(); // the operator's pictures in this browser's chosen skin (ui/skins.js skinPic)
   const D = diyData();
   const rec = pick ? slotRecord(slot.slotId, pick, D) : null;
   const elite = pick ? slotRecord(slot.slotId, pick, D, { elite: true }) : null;
@@ -79,7 +81,7 @@ function SlotCard({ m, slot, pick, illegal, onOpen, onClear, ops = {}, onOps = n
   const sk = rec.skill;
   const mod = elite?.module?.active ? elite.module : null;
   return html`<div class=${cx('diy-slot', `diy-slot--t${slot.tier}`, illegal && 'is-bad')} data-slot=${slot.slotId} data-char=${rec.charId}>
-    <div class="diy-slot__art"><${Img} src=${chessPortraitUrl(m, elite || rec)} fallback=${html`<b>${[...(rec.name || '?')][0]}</b>`} /></div>
+    <div class="diy-slot__art"><${Img} src=${skinPic(rec, 'portrait', skinCtx, { own: true }) || chessPortraitUrl(m, elite || rec)} fallback=${html`<b>${[...(rec.name || '?')][0]}</b>`} /></div>
     <div class="diy-slot__body">
       <div class="diy-slot__head"><${TierChip} tier=${slot.tier} size="sm" /><span class="diy-slot__label">${label}</span><${KindTag} proto=${proto} /></div>
       <b class="diy-slot__name">${rec.name}</b>
@@ -174,6 +176,7 @@ function rowChoice(ch, charId, draft) {
  * greyed out with where it is, and every control of its row is disabled.
  */
 function DiyRow({ m, slot, opt, ch, takenTier, draft, selected, ops, onOps, onSel, onQuick, level }) {
+  const skinCtx = skinArt();
   const u = opt.unit;
   const name = u?.name || opt.charId;
   const taken = takenTier != null;
@@ -189,7 +192,7 @@ function DiyRow({ m, slot, opt, ch, takenTier, draft, selected, ops, onOps, onSe
       class=${cx('diy-opt', 'lo-card', `lo-card--t${slot.tier}`, selected && 'is-sel', taken && 'is-taken')} onClick=${onRowClick}>
     <button type="button" class="diy-opt__pick lo-card__pick" aria-pressed=${selected ? 'true' : 'false'} disabled=${taken}
         title=${note || name} onClick=${() => onSel(opt.charId)}>
-      <span class="lo-card__art"><${Img} src=${avatarOf(m, u)} fallback=${html`<span class="lo-card__glyph">${[...name][0]}</span>`} /></span>
+      <span class="lo-card__art"><${Img} src=${skinPic(u, 'avatar', skinCtx, { own: true }) || avatarOf(m, u)} fallback=${html`<span class="lo-card__glyph">${[...name][0]}</span>`} /></span>
       <span class="lo-card__id">
         <span class="lo-card__name">${name}</span>
         <span class="lo-card__bonds">${(opt.bonds || []).map((b) => html`<${Img} key=${b} src=${bondIconUrl(m, b)} class="lo-card__bond" alt=${bondName(b)}
@@ -261,6 +264,7 @@ export function DiyPicker(props) {
 export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, onClear = null, prof = null, query, draft,
   onProf = () => {}, onQuery: setQuery, onDraft: setDraft,
   ops = {}, onOps = null, previewLevel = 'elite', onPreviewLevel = () => {}, narrowDetail = false, onNarrowDetail = () => {} }) {
+  const skinCtx = skinArt();
   const D = diyData();
   const cur = picks[slot.slotId] || null;
   const options = pickOptions(slot.slotId, picks, D, kitted);
@@ -336,7 +340,7 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, onClear
           ${ch && unit && base ? html`
             <div class="lo-dhead">
               <div class=${cx('lo-dhead__art', `lo-dhead__art--t${slot.tier}`)}>
-                <${Img} src=${chessPortraitUrl(m, golden || base) || avatarOf(m, unit, true)} fallback=${html`<b class="diy-pick__glyph">${[...(unit.name || '?')][0]}</b>`} />
+                <${Img} src=${skinPic(unit, 'portrait', skinCtx, { own: true }) || chessPortraitUrl(m, golden || base) || avatarOf(m, unit, true)} fallback=${html`<b class="diy-pick__glyph">${[...(unit.name || '?')][0]}</b>`} />
               </div>
               <div class="lo-dhead__info">
                 <div class="lo-dhead__chips"><${TierChip} tier=${slot.tier} size="md" /></div>

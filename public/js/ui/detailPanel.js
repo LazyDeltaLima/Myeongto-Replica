@@ -48,6 +48,8 @@ import { t, tc, N_ } from '../../../shared/i18n.js';
 import { audio } from '../audio.js';
 import { ChessDetailArt, DeviceDetailArt, EnemyDetailArt, ItemDetailArt, TokenDetailArt } from './detailArt.js'; // local patch: the official card look (css/hud-art.css)
 import { hudArt } from './hudArt.js'; // local patch
+import { skinArt, skinPic, cardWorn } from './skins.js';
+import { settingsStore } from './settings.js';
 import { tokenVariantFor } from './gameLogic/loadout.js';
 import { hasShowTag, fillShowTag, garrisonShowValue, itemShowValue } from '../../../shared/showTag.js';
 
@@ -418,7 +420,7 @@ export function skillTextNote(sk) {
   return note ? html`<p class="dhint dhint--rule" data-skill-note=${sk.skillId}><${Icon} name="info" />${t(note)}</p>` : null;
 }
 
-export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bonds, offBonds = null, loadout, onBond, live = null, hint = null, unitItems = null, standIn = null, diy = null, cultOpts = null, showTags = null }) {
+export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bonds, offBonds = null, loadout, onBond, live = null, hint = null, unitItems = null, standIn = null, diy = null, cultOpts = null, showTags = null, skin = null }) {
   const m = data.get('assets');
   const hp = hpOf(live, snapHp);
   // 0.2.0 自选编队: `chess` is then the composed 自选 record (the operator, the slot's tier / price); its skill and module are
@@ -456,7 +458,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
   blocks.head = html`
     <div key="head" class="dhead">
       <div class=${cx('dhead__art', golden && 'is-golden', `dhead__art--t${c.tier}`)}>
-        <${Img} src=${chessPortraitUrl(m, body)} fallback=${html`<${UnitThumb} kind="chess" id=${c.chessId} size="lg" rec=${si} />`} />
+        <${Img} src=${skinPic(body, 'portrait', skinArt(), cardWorn(piece, skin, settingsStore.get().otherSkins !== false)) || chessPortraitUrl(m, body)} fallback=${html`<${UnitThumb} kind="chess" id=${c.chessId} size="lg" rec=${si} />`} />
       </div>
       <div class="dhead__info">
         <div class="dhead__chips">
@@ -767,7 +769,9 @@ function DeviceDetail({ device, snapHp = null, live = null }) {
  *   — resolve with `standIn` (the composed stand-in record the card shows: portrait, name, body, with the chess's
  *   bonds and 特质); 0.2.0 自选编队: the player's own pieces and cards of a DIY slot it filled (m.private.diy) — and a
  *   unit carrying `diy`, and a teammate's bond popup 自选 row that hands its unit's pick on (`target.diy`, 0.2.1) —
- *   resolve to the composed 自选 record (`chess`, the operator) with `diy` = the pick
+ *   resolve to the composed 自选 record (`chess`, the operator) with `diy` = the pick. Operator skins: an own chess card
+ *   without a piece carries `skin: { own: true }` (this browser's choice), a unit `skin: { id, mine }` (what it wears);
+ *   a piece's card reads `piece.skin` (ui/detailArt.js ChessDetailArt)
  */
 export function resolveDetail(target, pieces, opts = {}) {
   const d = resolveDetailOf(target, pieces, opts);
@@ -821,9 +825,12 @@ function resolveDetailOf(target, pieces, { priv = null, backups = data.get('back
     // 0.2.2: a teammate's member card reads its unit's 潜能 / 练度 when the row hands it on (`target.cultivation`), else
     // the defaults (never the viewer's own settings)
     const cv = foreign ? (target.cultivation !== undefined ? { cultivation: target.cultivation } : { ops: null }) : null;
-    if (d) return { type: 'chess', chess: d.chess, hint: target.hint || null, standIn: null, diy: d.diy, ...(items.length ? { unitItems: items } : {}), ...(cv ? { cultOpts: cv } : {}) };
+    // the art of an own card opened without a piece (a shop slot, the own bond popup's row): this browser's chosen skin
+    // (`skin.own`, ui/detailArt.js; docs/rules/ui.md 「스킨 고르기」)
+    const sk = foreign ? null : { skin: { own: true } };
+    if (d) return { type: 'chess', chess: d.chess, hint: target.hint || null, standIn: null, diy: d.diy, ...(items.length ? { unitItems: items } : {}), ...(cv ? { cultOpts: cv } : {}), ...sk };
     const si = !c ? null : foreign ? (typeof target.standInFor === 'string' && target.standInFor ? standInOf(c, backups) : null) : ownSi(c);
-    return c ? { type: 'chess', chess: c, hint: target.hint || null, standIn: si, ...(items.length ? { unitItems: items } : {}), ...(cv ? { cultOpts: cv } : {}) } : null;
+    return c ? { type: 'chess', chess: c, hint: target.hint || null, standIn: si, ...(items.length ? { unitItems: items } : {}), ...(cv ? { cultOpts: cv } : {}), ...sk } : null;
   }
   if (target.kind === 'item') { const it = data.lookup('items', target.id); return it ? { type: 'item', item: it } : null; }
   if (target.kind === 'enemy') { const en = data.lookup('enemies', target.id); return en ? { type: 'enemy', enemy: en, count: target.count } : null; }
@@ -847,8 +854,11 @@ function resolveDetailOf(target, pieces, { priv = null, backups = data.get('back
     // 0.2.2: another player's unit says its 潜能 / 练度 itself (UnitInfo potential / cultivate); an own piece's unit follows
     // m.private.ops (the panel's `cultOpts`)
     const cv = own?.piece ? null : { cultOpts: { cultivation: unitCultivation(u) } };
-    if (dr) return { type: 'chess', chess: dr, piece: own?.piece || null, unitId: u.id, unitItems: Array.isArray(u.items) ? u.items : null, standIn: null, diy: pick, ...cv };
-    if (c) return { type: 'chess', chess: c, piece: own?.piece || null, unitId: u.id, unitItems: Array.isArray(u.items) ? u.items : null, standIn: si, ...cv };
+    // the skin the unit wears (UnitInfo skin — an own piece's card reads its piece's): another player's is drawn only with
+    // 其他玩家的皮肤 on (`mine` false; ui/detailArt.js, as render/skin-gate.js draws its model)
+    const sk = typeof u.skin === 'string' && u.skin ? { skin: { id: u.skin, mine: !!own?.piece || (priv != null && u.ownerId != null && u.ownerId === priv.playerId) } } : null;
+    if (dr) return { type: 'chess', chess: dr, piece: own?.piece || null, unitId: u.id, unitItems: Array.isArray(u.items) ? u.items : null, standIn: null, diy: pick, ...cv, ...sk };
+    if (c) return { type: 'chess', chess: c, piece: own?.piece || null, unitId: u.id, unitItems: Array.isArray(u.items) ? u.items : null, standIn: si, ...cv, ...sk };
     const t = data.lookup('tokens', u.defId) || diyToken(u.defId);
     if (t) return { type: 'token', token: t, unitId: u.id, ownerId: tokenOwnerId(own?.piece, pieces) };
     const en = data.lookup('enemies', u.defId);
@@ -919,7 +929,7 @@ export function DetailPanel({ detail, editable, snapHp, onSell, onDestroy, bonds
     <div class="dpanel__scroll">
       ${detail.type === 'chess' ? html`<${hudArt().cls ? ChessDetailArt : ChessDetail /* local patch */} chess=${detail.chess} piece=${detail.piece} snapHp=${snapHp} editable=${editable} onSell=${sellIt}
         bonds=${bonds} offBonds=${offBonds} loadout=${loadout} onBond=${onBond} live=${liveNow} hint=${detail.hint || null} unitItems=${detail.unitItems || null}
-        standIn=${detail.standIn || null} diy=${detail.diy || null} cultOpts=${detail.cultOpts || { ops }} showTags=${detail.showTags || null} />` : null}
+        standIn=${detail.standIn || null} diy=${detail.diy || null} cultOpts=${detail.cultOpts || { ops }} showTags=${detail.showTags || null} skin=${detail.skin || null} />` : null}
       ${detail.type === 'item' ? html`<${artItem ? ItemDetailArt : ItemDetail} item=${detail.item} piece=${detail.piece} editable=${editable} onDestroy=${destroyIt} offBonds=${offBonds} />` : null}
       ${detail.type === 'enemy' ? html`<${artEnemy ? EnemyDetailArt : EnemyDetail} enemy=${detail.enemy} snapHp=${snapHp} count=${detail.count} live=${liveNow} />` : null}
       ${detail.type === 'token' ? html`<${artToken ? TokenDetailArt : TokenDetail} token=${detail.token} piece=${detail.piece} ownerId=${detail.ownerId ?? null} snapHp=${snapHp} live=${liveNow} />` : null}
