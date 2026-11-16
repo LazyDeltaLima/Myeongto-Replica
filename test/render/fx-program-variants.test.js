@@ -21,7 +21,7 @@ function variantsOf(def) {
   const mat = (k, skin) => {
     const m = def.materials?.[k];
     if (!m) return;
-    out.add(key({ cull: fxp.renderState(m.shader || '', m.floats || {}).cull, skin, normals: /\/Rim\//.test(m.shader || '') }));
+    out.add(key({ cull: fxp.renderState(m.shader || '', m.floats || {}).cull, skin, normals: fxp.meshNormals(m.shader || '', m.floats || {}) }));
   };
   for (const n of def.nodes || []) {
     const mr = n.mesh || n.skin;

@@ -4453,7 +4453,7 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
 
 전수 보고 `NOT HANDLED` 중 새 시즌 선발 오퍼레이터(유키 마코토 `char_4217_makoto`, 메커니스트 `char_4230_mcnist`, 테리토리야 `char_4246_dminon`)와
 팽 더 파이어 샤픈드(`char_1036_fang2`)의 16줄. 프리팹은 CN 클라에만 있지만 클래스 넷(`SwitchableBackEffect`·`BuffsKeyAnimatorTrigger`·
-`SetAnimatorTriggerByCondition`, Unity 기본 셰이더)은 EN 클라에도 있어 공식 클라에서 확인했다. 12줄을 끝내고 테리토리야의 셰이더 속성 4줄이 남았다(관리자 메모).
+`SetAnimatorTriggerByCondition`, Unity 기본 셰이더)은 EN 클라에도 있어 공식 클라에서 확인했다. 12줄에 이어 테리토리야의 셰이더 속성 4줄도 같은 날 끝냈다(아래 끝 줄).
 화면 확인은 아직.
 
 - **뒷면 전환의 방향 예측** — 유키 마코토 S1 시작 `makoto_skill_01_start_01`·`_02`, S3 시작 `makoto_skill_03_p1_start_A_01`·`_B_01`의 `SwitchableBackEffect`
@@ -4483,9 +4483,18 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
 - **`TrailEmittingControl`** — 메커니스트 평타 `mcnist_attack_01_hit_02`·`_start_02`의 루트: CN 클라에만 있는 클래스(직렬화 필드 없음, CN 번들의 MonoScript 이름).
   이름대로 자식 꼬리(TrailRenderer 셋)의 방출을 다루는 것 — 풀에서 다시 쓰는 이펙트가 옛 자리에서 꼬리를 끌지 않게 하는 것으로 보고, 매번 새 인스턴스인
   재생기에선 그리는 것 없음 [추정·CN: 클래스 이름으로만 읽음].
-- **남은 것(테리토리야, CN 셰이더)**: `Torappu/Particles/AlphaBlend(ZWrite)`의 새 림 `_UseRim` 1·`_RimCol`·`_RimPower` 2.5(`dminon_Fresnel_02`, 평타 범위와
-  S2 범위 10개에 실림), `Ram/Disturb(CustomData)`의 `_MainTexChannel` 4(`dminon_bg_ci_01_2`·`dminon_trail_01`)·`_RamTexChannel` 1(`dminon_trail_01`, `_RamTex` 없음)
-  — 값의 뜻은 CN 셰이더 패스를 읽어야 한다 [추정·미조사: 관리자 메모의 이펙트 묶음 남은 줄].
+- **`AlphaBlend(ZWrite)`의 림** — 테리토리야 평타 범위·S2·S3 범위·재능 범위 명중의 구(메시 입자 `sphere_01 (8)`, 재질 `dminon_Fresnel_01`·`_02`, 10 프리팹):
+  `_UseRim` 1·`_RimPower` 2.5, `_RimCol`은 `_02`(평타) 흰빛 (0.976, 0.918, 0.916)·`_01`(나머지 9) 붉은빛 (0.976, 0.145, 0.116). 공식 클라에서 확인(두 클라의 `[uc]shaders.ab` 이 셰이더 픽셀 단계, 상수 이름은 패스의 매개변수 표):
+  색 = 2 · 텍스처 · 정점색 · `_TintColor`, `_UseRim` > 0이면 여기에 `_RimCol.rgb` × (1 − saturate(N·V))^`_RimPower`를 더한다 — 알파(= saturate(2 · 텍스처 α · 정점 α ·
+  틴트 α))에는 안 들어가고, N·V를 접지 않아(Rim 묶음의 |N·V|와 다름) 카메라 반대쪽을 보는 면은 림 색을 다 받는다. N·V는 물체 공간(카메라 위치를 `unity_WorldToObject`로)
+  이라 계 크기가 고르지 않으면 보기 공간과 다르다 — 10 프리팹 모두 크기 1. `_RimCol.a`는 안 쓴다. 재생기: `fxplayer.js` `uRimAdd`·`uRimCol`(FRAG), 메시 노멀은
+  `meshNormals`(Rim 묶음 + 이 경우) — 양면 노멀 프로그램이 새로 생김(render.md 「이펙트 셰이더 유지」). EN 재질은 `_UseRim`이 없어 그대로.
+- **텍스처 채널 선택** — `Ram/Disturb(CustomData)`의 `_MainTexChannel` 4(`dminon_bg_ci_01_2`·`dminon_trail_01`)·`_RamTexChannel` 1(`dminon_trail_01`): 공식 클라에서
+  확인 — 속성 열거가 0 RGBA·1 R·2 G·3 B·4 A이고 픽셀 단계가 0이면 rgba 그대로, 1·2·3이면 그 채널, 그 밖이면 a를 네 채널 모두에 넣는다(텍스처 α만 있는 그림을 흰 회색조로).
+  `_MainTexChannel`을 선언한 셰이더 10개(`Particles`·`Particles-L2D`의 Additive·AlphaBlend·`Dissolve(CustomData)`·`Disturb(CustomData)`·`Ram/Disturb(CustomData)`)가 모두
+  같은 식이라 그 이름들로 읽고(`fxplayer.js MAIN_CHAN_READ`), `_RamTexChannel`은 `Ram/Disturb(CustomData)` 둘만(`RAM_CHAN_READ`); 선택자가 없는 ZDistort 판에 남은 값은
+  안 읽는다. `dminon_trail_01`은 `_RamTex`가 비어 기본 흰색이라 R = 1, 그리는 것이 같다. 재발 방지: `test/render/fx-cn-pick-fields.test.js` 「테리토리야」.
+  [화면 미확인: 범위 구의 테두리 빛과 `dminon_bg_ci_01_2` 바닥 가시, 아레나 2배속]
 
 ## 안 트던 공식 이펙트 — 하루카 거품·쏜즈 중독·지마 더 레이징 타이드 재능 2·동결 OnPlayEmitterIf (2026-11-16, 공식 클라에서 확인)
 

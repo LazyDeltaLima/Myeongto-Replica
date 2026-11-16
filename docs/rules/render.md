@@ -536,12 +536,13 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 처리: `fxgame.js ensure` — 변형 목록(`fxplayer.js programVariants`)의 첫 장면(양면 사각형: 빌보드·꼬리·선)을 렌더러 2개가 `compile()`(링크만
   걸어 둠, 기다리지 않음)하고 그 재질들은 버리지 않음(소스 항목 id 유지); `keepPrograms` — 층이 쓴 프로그램마다 사용 횟수를 하나 더해 렌더러가 끝날 때까지 남김.
 - 변형: three.js는 재질의 면(`meshSide`: 양면·앞면·뒷면)·스킨 메시(`SkinnedMesh`)·노멀 있는 지오메트리(Rim 셰이더 — `useMeshAttrs`, 정의 `HAS_NORMAL`)마다
-  프로그램을 따로 만든다 — 조합은 12개지만 추출된 이펙트가 쓰는 것은 5개(`fxplayer.js PROGRAM_VARIANTS`): 양면 사각형(197묶음 3,052 프리팹),
+  프로그램을 따로 만든다 — 조합은 12개지만 추출된 이펙트가 쓰는 것은 6개(`fxplayer.js PROGRAM_VARIANTS`; 2026-11-16 여섯째 — 테리토리야 범위 구의
+  `AlphaBlend(ZWrite)` 림, 양면 + 노멀, 판정 `fxplayer.js meshNormals`): 양면 사각형(197묶음 3,052 프리팹),
   앞면만(21묶음 56 — 적 `pfx_enemy_4·7·11·13·16`, 맵 효과 `pfx_mapeff_7`, 공용 `common_darkdamage_hit` 포함), 뒷면만(9묶음 36), 양면 스킨 메시(6묶음 9:
   글래디아·호시구마·스즈란·미즈키·스카디·스카디 더 커럽팅 하트), Rim 앞면(11묶음 20, 다섯 묶음에 실린 공용 `common_ignite_defense` 포함). 메시 입자도 센 수
   (렌더러 `mode` 4). 처음 쓸 때마다 링크(Chrome 아레나 138–181 ms, 빈 캐시). `test/render/fx-program-variants.test.js`가 추출물 전부를 이 목록과 대조 —
   새 추출에서 다른 조합이 나오면 실패(목록에 더하면 링크 둘 더).
-- 준비 단계 미리 링크(`fxgame.js prewarm`, `app.js enterPrepMode`): 층을 준비 단계에서 만들고 나머지 8개(변형 4 × 렌더러 2)를 0.4 s마다 하나씩 링크
+- 준비 단계 미리 링크(`fxgame.js prewarm`, `app.js enterPrepMode`): 층을 준비 단계에서 만들고 나머지 10개(변형 5 × 렌더러 2, 2026-11-16부터)를 0.4 s마다 하나씩 링크
   (`gl.flush()`로 바로 보냄). 전투 중 새 링크 0(Chrome·Firefox; 스킨·Rim·앞면·뒷면 이펙트 각각 확인). **Firefox는 링크 하나가 곧 화면 한 번 멈춤**: WebGL을
   한 스레드에서 처리해 판(Pixi·3D 보드)이 링크를 기다림 — 간격을 둬도 링크당 110–140 ms 프레임, `flush` 없이는 링크가 몰려 540 ms로 뭉침. 그래서 첫 준비
   단계에서 약 3 s 동안 8번 끊김(12개 전부일 때는 9 s 동안 22번) → 배치한 기물·다음 적이 쓰는 변형만 링크하도록 더 좁힐지는 §11 ③. 모두 미리 하면 첫 이펙트가

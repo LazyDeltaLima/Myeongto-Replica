@@ -814,7 +814,7 @@ PLAYER_VALUES = {'_Color', '_MainColor', '_TintColor', '_UVTween', '_AddFactor',
                  '_MainVSpeed', '_Opacity', '_RimPower', '_ToggleUseDissolve', '_ToggleUseDisturb2', '_UseDissolveTex', '_ZTest',
                  '_CullMode', '_ZWrite', '_SrcBlend', '_BaselineZ',
                  '_Dissolve', '_TexSpeed', '_TexSpeed2', '_TintColorB', '_TintColorC',
-                 '_PremultiplyAlpha', '_DissolvTexChannel'}
+                 '_PremultiplyAlpha', '_DissolvTexChannel', '_MainTexChannel', '_RamTexChannel', '_UseRim', '_RimCol'}
 # shaders whose behaviour render/fxplayer.js was checked against (by name: blend, tint, distortion, dissolve families)
 # (2026-10-16: every shader of the extracted effects then — a shader outside the list is new to the player)
 SHADERS_CHECKED = {

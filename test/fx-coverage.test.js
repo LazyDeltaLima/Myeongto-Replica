@@ -40,8 +40,8 @@ cov.particle({'CollisionModule': {'enabled': 1, 'type': 1}, 'InheritVelocityModu
 cov.particle({'ShapeModule': {'enabled': 1, 'type': 20}})
 cov.particle({'ShapeModule': {'enabled': 1, 'type': 6, 'm_MeshSpawn': {'mode': 1}}})
 cov.material('Torappu/Particles/AlphaBlend', [('_MainTex', 4, [0, 0, 0, 0]), ('_GlowTex', 4, [0, 0, 0, 0]),
-             ('_MainTexChannel', 2, [0, 0, 0, 0]), ('_Opacity', 2, [1, 0, 0, 0]), ('_Glow', 0, [0, 0, 0, 0])],
-             {'_MainTex', '_GlowTex'}, {'_MainTexChannel': 1.0, '_Opacity': 0.3, '_Glow': [0, 0, 0, 0]})
+             ('_DisturbTexChannel', 2, [0, 0, 0, 0]), ('_Opacity', 2, [1, 0, 0, 0]), ('_Glow', 0, [0, 0, 0, 0])],
+             {'_MainTex', '_GlowTex'}, {'_DisturbTexChannel': 1.0, '_Opacity': 0.3, '_Glow': [0, 0, 0, 0]})
 cov.material('Torappu/Particles/NewShader', [], set(), {})
 print(json.dumps({r['kind'] + ':' + r['what']: r['status'] for r in cov.report()}))`);
     assert.deepEqual(rep, {
@@ -51,7 +51,7 @@ print(json.dumps({r['kind'] + ':' + r['what']: r['status'] for r in cov.report()
       'module:LightsModule': 'new', "module:CollisionModule type 1 World (collides with the scene's colliders)": 'new',
       'shape:20 SpriteRenderer': 'new', 'shape:6 Mesh m_MeshSpawn mode 1 (vertices / edges in order, not at random)': 'new',
       'texture:Torappu/Particles/AlphaBlend _GlowTex': 'new',
-      'property:Torappu/Particles/AlphaBlend _MainTexChannel': 'new',
+      'property:Torappu/Particles/AlphaBlend _DisturbTexChannel': 'new',
       'shader:Torappu/Particles/NewShader': 'new',
     });
   });

@@ -62,6 +62,33 @@ test('Particles/Standard Unlit: `_Color` × vertex × texture, no ×2', async ()
   inst.dispose();
 });
 
+test('테리토리야: AlphaBlend(ZWrite)\'s `_UseRim` adds `_RimCol`, `_MainTexChannel` / `_RamTexChannel` pick one channel', async () => {
+  const fxp = await import('../../public/js/render/fxplayer.js');
+  const zw = (floats, colors = {}) => ({ shader: 'Torappu/Particles/AlphaBlend(ZWrite)', tex: {}, floats, colors: { _TintColor: [0.05, 0.05, 0.05, 0.53], ...colors } });
+  const ram = (shader, floats) => ({ shader, tex: {}, floats, colors: {} });
+  const mats = {
+    rim: zw({ _UseRim: 1, _RimPower: 2.5, _ZWrite: 4 }, { _RimCol: [0.98, 0.92, 0.92, 1] }), plain: zw({ _RimPower: 2.5 }),
+    ch: ram('Torappu/Particles/Ram/Disturb(CustomData)', { _MainTexChannel: 4, _RamTexChannel: 1 }),
+    zd: ram('Torappu/Particles/ZDistort/Disturb(CustomData)', { _MainTexChannel: 4, _RamTexChannel: 1 }),   // values left from another shader
+  };
+  const nodes = [node('t', -1), ...Object.keys(mats).map((k) => node(k, 0, { ps: { ...ps({}), render: { ...ps({}).render, mat: k } } }))];
+  const inst = await make(nodes, {}, mats);
+  const by = Object.fromEntries(inst.systems.map((s) => [s.node.name, s.material]));
+  const m = (k) => by[k];
+  const r = m('rim');
+  assert.ok(r.uniforms.uRimAdd.value && r.userData.rim, `_UseRim 1: the rim is added and the mesh's normals are taken — ${RULE}`);
+  assert.deepEqual([r.uniforms.uRimCol.value.x, r.uniforms.uRimPower.value], [0.98, 2.5], `_RimCol / _RimPower — ${RULE}`);
+  assert.ok(!m('plain').uniforms.uRimAdd.value && !m('plain').userData.rim, `no _UseRim (the EN materials): no rim — ${RULE}`);
+  assert.ok(fxp.meshNormals(mats.rim.shader, mats.rim.floats) && !fxp.meshNormals(mats.plain.shader, mats.plain.floats), `meshNormals — ${RULE}`);
+  assert.deepEqual([m('ch').uniforms.uMainChan.value, m('ch').uniforms.uRamChan.value], [4, 1], `Ram/Disturb reads both selectors — ${RULE}`);
+  assert.deepEqual([m('zd').uniforms.uMainChan.value, m('zd').uniforms.uRamChan.value], [0, 0], `ZDistort declares no selector — ${RULE}`);
+  // the pixel stage applies them where it samples (FRAG): the main texture, _RamTex and the rim's sum
+  const fs = r.fragmentShader;
+  assert.ok(/chan\(texture2D\(uMain, uv\), uMainChan\)/.test(fs) && /chan\(texture2D\(uRam, ruv\), uRamChan\)/.test(fs), `FRAG samples through chan() — ${RULE}`);
+  assert.ok(/uRimAdd\) col\.rgb \+= uRimCol/.test(fs), `FRAG adds the rim colour to rgb only — ${RULE}`);
+  inst.dispose();
+});
+
 test('BuffsKeyAnimatorTrigger: the `end` trigger once the owner loses the buff (SetAnimatorTriggerByCondition)', async () => {
   const sms = [{ def: 0, node: 0, states: [{ name: 'a', clip: -1 }, { name: 'a_end', clip: -1 }], params: { end: ['trigger', false] },
     trans: [{ from: 0, to: 1, dur: 0, cond: [['end', 'if', 0]] }] }];

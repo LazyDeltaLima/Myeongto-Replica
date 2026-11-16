@@ -306,10 +306,10 @@ const BLEND = { 0: THREE.ZeroFactor, 1: THREE.OneFactor, 2: THREE.DstColorFactor
 // defines), so its code is unchanged and it gets the same values. On the material the old names stay as accessors
 // (PackedFlag / PackedNum): code, clips and tests read and write `uniforms.uOpacity.value` as before.
 const PACKED_FLAGS = ['uFracUV', 'uHasAdd', 'uHasDisturb', 'uHasDisturb2', 'uHasWeight', 'uHasDissolve', 'uVCMajor', 'uHasDissolve2', 'uVCol',
-  'uRim', 'uPremul', 'uZFlat', 'uHasRam', 'uCustom', 'uAdditive', 'uUVRot', 'uFree', 'uRotW', 'uPremulX2', 'uSysOn'];
+  'uRim', 'uPremul', 'uZFlat', 'uHasRam', 'uCustom', 'uAdditive', 'uUVRot', 'uFree', 'uRotW', 'uPremulX2', 'uSysOn', 'uRimAdd'];
 const PACKED_INTS = ['uMode', 'uAlign', 'uDisMode', 'uMulti'];
 const PACKED_FLOATS = ['uAddFactor', 'uOpacity', 'uACtrl', 'uDisturbMain', 'uDisturbDissolve', 'uAmount', 'uBorder', 'uAmount2', 'uBorder2',
-  'uRimPower', 'uFloor', 'uBaseH', 'uTime', 'uLengthScale', 'uVelScale', 'uHand', 'uWSign', 'uDisChan'];
+  'uRimPower', 'uFloor', 'uBaseH', 'uTime', 'uLengthScale', 'uVelScale', 'uHand', 'uWSign', 'uDisChan', 'uMainChan', 'uRamChan'];
 const AXES = ['x', 'y', 'z', 'w'];
 const PACKED_GLSL = [
   `uniform int uPFlags; uniform ivec4 uPInt; ${[0, 1, 2, 3, 4].map((k) => `uniform vec4 uPF${k};`).join(' ')}`,
@@ -574,7 +574,7 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   uniform sampler2D uDissolve; uniform vec4 uDissolveST; uniform vec2 uDissolveSpeed;
   uniform sampler2D uDissolve2; uniform vec4 uDissolve2ST;
   varying float vH; varying vec3 vN; varying vec3 vVP;
-  uniform sampler2D uRam; uniform vec4 uRamST;
+  uniform sampler2D uRam; uniform vec4 uRamST; uniform vec3 uRimCol;
   uniform vec2 uDisAnchor;
   uniform sampler2D uDisturb2; uniform vec4 uDisturb2ST; uniform vec2 uDisturb2Str; uniform vec2 uDisturb2Anchor;
   uniform sampler2D uWeight; uniform vec4 uWeightST;
@@ -587,6 +587,9 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   float cut(float d, float amt, float bw) { bw = max(bw, 1e-3); return clamp((d - amt + bw * (1.0 - roundEven(amt + 0.5))) / bw, 0.0, 1.0); }
   // 2026-10-14 (client shader, the _HG_UV_ROTATION branch): FxUVRotation turns a texture's tiled uv about its centre, before the scroll
   vec2 rotUV(vec2 t, vec4 r) { vec2 c = t - 0.5; return vec2(r.x * c.x + r.z * c.y, r.y * c.x + r.w * c.y) + 0.5; }
+  // 2026-11-16 (client shader): a texture channel selector (_MainTexChannel / _RamTexChannel: 0 rgba, 1 r, 2 g, 3 b, else a —
+  // the one channel in all four)
+  vec4 chan(vec4 t, float c) { return c < 0.5 ? t : vec4(c < 1.5 ? t.r : c < 2.5 ? t.g : c < 3.5 ? t.b : t.a); }
   void main() {
     if (vH < uFloor) discard;   // local patch: under the floor (FxInstance opts.floor)
     vec2 dis = vec2(0.0);
@@ -623,7 +626,7 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       }
       uv = (vUv + dis) * uMainST.xy + uMainST.zw + fract(uMainSpeed * uTime);
     }
-    vec4 tex = texture2D(uMain, uv);
+    vec4 tex = chan(texture2D(uMain, uv), uMainChan);
     // 2026-10-14 (client shader): Mask (AlphaBlend) — main + 2 · _AddFactor · _AddTex(own uv) · _MaskTex.a(main uv)
     if (uHasAdd) tex += 2.0 * uAddFactor * texture2D(uAdd, vUv * uAddST.xy + uAddST.zw) * texture2D(uMask, uv).a;
     vec4 col = tex * uTint * vColor;
@@ -634,7 +637,7 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     // local patch (maintainer report 2026-10-07, 赤刃明霄陈 S3's range too bright): the Ram family multiplies by _RamTex sampled at
     // the renderer's own uv through its tiling / offset — all of rgba (the client's shader: Ram/Disturb(CustomData),
     // Ram/Add, Ram/AlphaBlend) — not a ramp looked up by the dissolve edge as assumed before
-    if (uHasRam) { vec2 ruv = vUv * uRamST.xy + uRamST.zw; if (uUVRot) ruv = rotUV(ruv, uRot2); col *= texture2D(uRam, ruv); }
+    if (uHasRam) { vec2 ruv = vUv * uRamST.xy + uRamST.zw; if (uUVRot) ruv = rotUV(ruv, uRot2); col *= chan(texture2D(uRam, ruv), uRamChan); }
     // dissolve: the shaders declare no edge colour, so _BorderWidth is the softness of the cut [ASSUMED]
     float e = 1.0;
     if (uHasDissolve) {
@@ -680,7 +683,10 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     }
     // local patch: Torappu/Particles/Rim — opaque at the silhouette, clear facing the camera [ASSUMED: alpha × (1 − |N·V|)^power]
     // (client shader, 2026-10-07: the rim term scales the colour as well as the alpha)
-    if (uRim) { float rim = pow(clamp(1.0 - abs(dot(normalize(vN), normalize(-vVP))), 0.0, 1.0), uRimPower); col *= rim; }
+    // 2026-11-16 (client shader): AlphaBlend(ZWrite) with _UseRim > 0 adds _RimCol.rgb × (1 − saturate(N·V))^_RimPower to the
+    // colour (not the alpha) — N·V not folded, so a face turned away from the camera takes the whole rim colour (uRimAdd)
+    if (uRim && uRimAdd) col.rgb += uRimCol * pow(1.0 - clamp(dot(normalize(vN), normalize(-vVP)), 0.0, 1.0), uRimPower);
+    else if (uRim) { float rim = pow(clamp(1.0 - abs(dot(normalize(vN), normalize(-vVP))), 0.0, 1.0), uRimPower); col *= rim; }
     col.a *= uOpacity;
     if (col.a < 0.002) discard;
     // 2026-11-01 (client shader, the CN client since its 10-23 update): with _PremultiplyAlpha One the pass blends
@@ -706,6 +712,14 @@ const CULL_BACK = /\/Rim\/|Flipbook|MatCap|Poker-Reflect|\/3D\/Toon|Unlit-Outlin
 const ZWRITE_READ = /AlphaBlend\(ZWrite\)|\/Particles\/(Common|Cutout)$/;
 const SRC_READ = /\/Disturb\/Disturb (Origin|Anchor)$|\/Particles\/Cutout$/;
 const PREMUL_READ = /^Torappu\/Particles(-L2D)?\/(AlphaBlend|Ram\/(Vertex)?Disturb\(CustomData\))$/;
+// 2026-11-16 (client shaders, both clients): the shaders declaring `_MainTexChannel` — all select it the same way (FRAG chan);
+// `_RamTexChannel` only the Ram/Disturb(CustomData) pair. ZDistort's copies have no selector (makeMaterial)
+const MAIN_CHAN_READ = /^Torappu\/Particles(-L2D)?\/(Additive|AlphaBlend|Dissolve\/Dissolve\(CustomData\)|(Ram|Disturb)\/Disturb\(CustomData\))$/;
+const RAM_CHAN_READ = /^Torappu\/Particles(-L2D)?\/Ram\/Disturb\(CustomData\)$/;
+/** 2026-11-16 (client shader): AlphaBlend(ZWrite)'s rim — `_UseRim` > 0 (the pixel stage's own test). */
+const rimAdd = (shader, f) => /^Torappu\/Particles\/AlphaBlend\(ZWrite\)$/.test(shader) && (f._UseRim ?? 0) > 0;
+/** Whether a material on mesh geometry needs the mesh's normals (a Rim shader, AlphaBlend(ZWrite)'s rim): useMeshAttrs, PROGRAM_VARIANTS. */
+export const meshNormals = (shader, f = {}) => /\/Rim\//.test(shader) || rimAdd(shader, f);
 /** The pass premultiplies: `_PremultiplyAlpha` One (below 1.5, the pixel stage's own test) where the pass reads it. */
 const premulX2 = (shader, f) => PREMUL_READ.test(shader) && (f._PremultiplyAlpha ?? 5) < 1.5;
 /** three.js side for a Unity CullMode on mesh geometry (the Unity frame's z flip turns three's winding with it). */
@@ -831,8 +845,10 @@ function makeMaterial(m, lib) {
       uHasDissolve2: { value: !!dissolve2 }, uDissolve2: { value: dissolve2 || WHITE }, uDissolve2ST: { value: st('_DissolveTex_02') },
       uAmount2: { value: f._Amount_02 || 0 }, uBorder2: { value: f._BorderWidth_02 || 0 },
       // local patch: vertex colours / Rim — turned on by the geometry's owner (useMeshAttrs); the floor (FxInstance opts.floor)
-      uVCol: { value: false }, uRim: { value: false }, uRimPower: { value: f._RimPower ?? 1 }, uFloor: { value: -1e9 }, uPremul: { value: premul },
+      uVCol: { value: false }, uRim: { value: false }, uRimPower: { value: f._RimPower ?? (rimAdd(shader, f) ? 3 : 1) }, uFloor: { value: -1e9 }, uPremul: { value: premul },
+      uRimAdd: { value: rimAdd(shader, f) }, uRimCol: { value: new THREE.Vector3(...(c._RimCol || [1, 1, 1]).slice(0, 3)) },
       uPremulX2: { value: premulX2(shader, f) }, uDisChan: { value: /\/Ram\/Disturb\(CustomData\)$/.test(shader) ? f._DissolvTexChannel ?? 0 : 0 },
+      uMainChan: { value: MAIN_CHAN_READ.test(shader) ? f._MainTexChannel ?? 0 : 0 }, uRamChan: { value: RAM_CHAN_READ.test(shader) ? f._RamTexChannel ?? 0 : 0 },
       // 2026-10-26: ZDistort's floor depth (VERT main), + the effect's floor (FxInstance)
       uZFlat: { value: zflat }, uBaseH: { value: -(f._BaselineZ || 0) },
       uHasRam: { value: !!t._RamTex }, uRam: { value: tex('_RamTex') || WHITE }, uRamST: { value: st('_RamTex') },
@@ -848,7 +864,7 @@ function makeMaterial(m, lib) {
   mat.fxTime = mat.uniforms[TIME_VEC].value;   // setTime
   mat.userData.order = m?.queue ?? 3000;
   mat.userData.uvRot = /Disturb\(CustomData/.test(shader);   // the shaders with the _HG_UV_ROTATION branch (uvRotation)
-  mat.userData.rim = /\/Rim\//.test(shader);
+  mat.userData.rim = meshNormals(shader, f);
   // 2026-10-22: the pass's culling — set on mesh geometry only (meshSide): a billboard, trail or line is built facing the
   // camera, as Unity builds them, so Back culls nothing there and the player keeps both sides
   mat.userData.cull = rs.cull;
@@ -877,9 +893,10 @@ function meshSide(mat) {
  * (meshSide: its pass's `cull`), a skinned mesh and a geometry with normals (useMeshAttrs: a Rim material on a mesh). Of
  * the 12 combinations only these occur (test/render/fx-program-variants.test.js walks every extracted prefab): the
  * double-sided quad (billboards, trails, lines; first, ensure links it), a one-sided mesh either way, a double-sided
- * skinned mesh and a Rim mesh culling its back.
+ * skinned mesh, a Rim mesh culling its back and (2026-11-16, 国度's range spheres) a double-sided mesh with
+ * AlphaBlend(ZWrite)'s rim.
  */
-export const PROGRAM_VARIANTS = [{ cull: 0 }, { cull: 2 }, { cull: 1 }, { cull: 0, skin: true }, { cull: 2, normals: true }];
+export const PROGRAM_VARIANTS = [{ cull: 0 }, { cull: 2 }, { cull: 1 }, { cull: 0, skin: true }, { cull: 2, normals: true }, { cull: 0, normals: true }];
 
 /** One scene per PROGRAM_VARIANTS entry, for a renderer to compile before the effects; their materials are never disposed (fxgame.js ensure / prewarm, keepPrograms). */
 export function programVariants() {
