@@ -12,7 +12,8 @@
 // again instead of served until the page's cleanup deletes it (2026-10-28). A page load revalidates the list first.
 //
 // Only same-origin GET /assets/…, /img/emotes/… and /media/… (extension-less audio, shared/media.js) are looked at;
-// unlisted files, Range requests and query strings go to the server untouched.
+// unlisted files, Range requests and query strings go to the server untouched — so the page's own download of this
+// server's files (resources.js PAST_WORKER) passes by, and each file is hashed and stored once, by the page.
 // A page's `sp-res-stats` message (with a port) is answered with the counts of this worker's answers (resources.js
 // askWorker, for the report: what a field's first load shared the cache and the network with).
 // Defence in depth (security review 2026-10-04): page loads (navigations) are never answered from the cache, only the

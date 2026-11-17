@@ -6,7 +6,9 @@
 // The list is /assets/browser-resources.json (tools/build-browser-resources.mjs, built on the server from the files on
 // disk): { version, bytes, files: [{ p: path, s: bytes, h: sha256, u?: upstream URL }] }.
 //   * a file with `u` (unmodified upstream art) is fetched from jsDelivr, then GitHub raw — never from this server;
-//   * a file without `u` (assets/local: 3D board, emotes, UI sprites; normalized spine atlases) comes from this server;
+//   * a file without `u` (assets/local: 3D board, emotes, UI sprites; normalized spine atlases) comes from this server,
+//     requested with PAST_WORKER so the worker leaves it alone (it answers no query string): otherwise the worker took
+//     the request, fetched, hashed and stored the file, and this page hashed and stored it a second time;
 //   * every file is kept only when its size and SHA-256 match the list, so an upstream repo that changed under us can
 //     never put a different file in the cache. A file that fails stays out (the game loads it from the server as now)
 //     and is tried again on the next visit — except an upstream file whose every source served other bytes (the repo
@@ -68,6 +70,9 @@ const CLEAN_REST_MS = 100;
 const HOLD_POLL_MS = 1000;
 const RAW_RE = /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
 const JSDELIVR_RE = /^https:\/\/cdn\.jsdelivr\.net\/gh\//;
+// the query the download puts on this server's files: the worker answers no request with a query string, so the file is
+// fetched, hashed and stored once, by the download (fetchOne), not by the worker as well
+export const PAST_WORKER = '?sp-res';
 
 /**
  * phase: off | idle | ask | running | done | error. sizes: bytes per group of this browser's list — '' the files in no
@@ -341,7 +346,8 @@ async function fetchOne(f) {
   for (const url of urls) {
     try {
       const external = !url.startsWith('/');
-      const res = await fetch(url, { cache: 'no-store', ...(external ? { mode: 'cors', credentials: 'omit' } : {}), signal: AbortSignal.timeout(TIMEOUT_MS) });
+      const res = await fetch(external ? url : url + PAST_WORKER,
+        { cache: 'no-store', ...(external ? { mode: 'cors', credentials: 'omit' } : {}), signal: AbortSignal.timeout(TIMEOUT_MS) });
       if (!res.ok) { last = `HTTP ${res.status}`; differs = false; continue; }
       const buf = await res.arrayBuffer();
       if (buf.byteLength !== f.s || (await sha256(buf)) !== f.h) { last = 'hash mismatch'; continue; }

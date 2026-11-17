@@ -342,6 +342,9 @@ describe('client helpers', () => {
       handlers.fetch({ request: { method: 'GET', mode, destination: '', url: `https://x.test${p}`, headers: new Headers() }, respondWith: (r) => { out = r; } });
       return out && (await out).text();
     };
+    const { PAST_WORKER } = await mod('resources.js');
+    assert.equal(await get('/assets/local/fx/a.json' + PAST_WORKER), null,
+      'the page\'s download (a query string) is left to the network — docs/rules/render.md 「서버 출처 파일은 미리 받기만 받아 씀」');
     assert.equal(await get('/assets/local/fx/a.json'), 'new', 'the old deploy\'s copy is fetched again, not served');
     assert.equal(store.get('/assets/local/fx/a.json').body, 'new', 'and the cache holds the listed version');
     assert.equal(await get('/assets/local/fx/a.json'), 'new');
@@ -490,7 +493,7 @@ describe('client helpers', () => {
   });
 
   test('resources: an upstream file every source serves with other bytes is not downloaded again until the list changes', async () => {
-    const { installResources, acceptResources, resStore, resourceStatus } = await mod('resources.js');
+    const { installResources, acceptResources, resStore, resourceStatus, PAST_WORKER } = await mod('resources.js');
     const { store } = await mod('store.js');
     const { createHash } = await import('node:crypto');
     const sha = (s) => createHash('sha256').update(s).digest('hex');
@@ -536,6 +539,9 @@ describe('client helpers', () => {
       store.set({ session: { entered: true }, room: null });
       await run();
       assert.equal(asked.filter((u) => u.includes('drift.png')).length, 2, 'jsDelivr and GitHub raw were asked');
+      assert.deepEqual(asked.filter((u) => u.startsWith('/')), ['/assets/local.json' + PAST_WORKER],
+        'this server\'s file is requested past the resource worker (a query string), else the worker hashes and stores it and the page does it again'
+        + ' — docs/rules/render.md 「서버 출처 파일은 미리 받기만 받아 씀」');
       const differ = JSON.parse(new TextDecoder().decode(store_.get(origin + '/__sp_res_differ__').body));
       assert.deepEqual(Object.keys(differ), ['/assets/drift.png'],
         'only the upstream file every source answered with other bytes is recorded (a network failure or this server\'s file is tried again)');
@@ -543,7 +549,7 @@ describe('client helpers', () => {
       asked.length = 0;
       await run();
       assert.equal(asked.some((u) => u.includes('drift.png')), false, 'the next visit does not download it again');
-      assert.ok(asked.some((u) => u.includes('down.png')) && asked.includes('/assets/local.json'), 'the other failures are tried again');
+      assert.ok(asked.some((u) => u.includes('down.png')) && asked.includes('/assets/local.json' + PAST_WORKER), 'the other failures are tried again');
       assert.equal(resourceStatus().reconcile.differ, 1);
       // the list names another hash for it (the file was rebuilt): tried again
       list = { version: 'v2', files: list.files.map((f) => (f.p === '/assets/drift.png' ? { ...f, h: sha('new') } : f)) };
