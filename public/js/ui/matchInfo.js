@@ -31,6 +31,7 @@ import { html, Button, Icon, MicroLabel, Tooltip, Modal, TierChip, natSizeVars }
 import { Img } from './gameComponents.js';
 import { bannedPerBond, disabledBondSets, briefingBondTip, diyBannedPieces } from './gameLogic.js';
 import { bondIconUrl, chessAvatarUrl } from './assetUrls.js';
+import { skinArt, skinPic } from './skins.js';
 import { data, localAsset } from '../data.js';
 import { t, dn } from '../../../shared/i18n.js';
 import { customSummary, CustomRulesInfo } from './customSummary.js';
@@ -189,14 +190,15 @@ export function MatchLegend(_props) {
  * with its soft shadow, the card 96 × 95 from 2.5 above-left of the avatar), the tier sprite (35) on the avatar's
  * bottom-left corner (9.1 out to the left and below) and, when `banned`, img_chess_banned_mask (30 % grey, 94 × 95) over
  * avatar and card with img_chess_banned (73, at (33, 32) from the avatar's centre) whose red triangle lands on the card's
- * top-right corner. The chess record of `id`, or `src` / `name` / `tier` for a 自选 pick (the operator's own avatar).
+ * top-right corner. The chess record of `id` — in this browser's chosen skin (ui/skins.js skinPic: docs/rules/ui.md
+ * 「스킨 고르기」) — or `src` / `name` / `tier` for a 自选 pick (the operator's own avatar).
  * Sized by `--ci`, the avatar (css/screens/briefing.css); without the local art, CSS stand-ins.
  * @param {{ id?: string|null, src?: string|null, name?: string, tier?: number|null, banned?: boolean, title?: string|null,
  *   class?: string }} props
  */
 export function ChessIcon({ id = null, src = null, name = '', tier = null, banned = false, title = null, class: cls = null }) {
   const c = id ? data.lookup('chess', id) : null;
-  const url = src || (c ? chessAvatarUrl(data.get('assets'), c) : null);
+  const url = src || (c ? skinPic(c, 'avatar', skinArt(), { own: true }) || chessAvatarUrl(data.get('assets'), c) : null);
   const label = name || c?.name || '';
   const n = tier ?? c?.tier ?? null;
   const corner = banned ? outerArt('img_chess_banned') : null;

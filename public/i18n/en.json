@@ -1433,7 +1433,7 @@
   "模组仅在精锐形态生效": "Modules apply only to the Elite form",
   "未持有（干员持有）：由替补干员上场，替补干员没有潜能与练度": "Not owned (Operator Roster): its stand-in fights, with no potential or development",
   "含潜能与练度；": "Potential and development included; ",
-  "将 {nChanged} 名干员的技能、模组、潜能与练度恢复为默认配置？": "Reset the skills, modules, potential and development of {nChanged} Operators to their defaults?",
+  "将 {nChanged} 名干员的技能、模组、潜能、练度与皮肤恢复为默认配置？": "Reset the skills, modules, potential, development and skins of {nChanged} Operators to their defaults?",
   "已导入 {n} 名干员的潜能与练度": "Imported the potential and development of {n} Operators",
   "已导入 {n} 名干员的皮肤": "Imported the skins of {n} {n|Operator|Operators}",
   "精英1": "E1",

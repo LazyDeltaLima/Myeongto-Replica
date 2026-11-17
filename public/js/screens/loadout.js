@@ -40,7 +40,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../ven
 import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment } from '../ui/components.js';
 import { Img, UnitThumb, PromotionIcon } from '../ui/gameComponents.js';
 import { chessAvatarUrl, chessPortraitUrl, profGlyphUrl, subProfIconUrl, bondIconUrl, uiUrl } from '../ui/assetUrls.js';
-import { skinArt, skinPic, skinsStore, SKINS_KEY, setSkins } from '../ui/skins.js';
+import { skinArt, skinPic, skinsStore, SKINS_KEY, setSkins, clearSkin } from '../ui/skins.js';
 import { GarrisonBlock } from '../ui/detailPanel.js';
 import { data, useData, DATA_FILES } from '../data.js';
 import { useStore, loadPref, savePref } from '../store.js';
@@ -48,7 +48,7 @@ import { PHASE } from '../../../shared/constants.js';
 import {
   MODULE_NONE, PROF_NAME, rosterOf, filterRoster, recordsOf, chessOptions, effectiveChoice, setChoice, resetChoice,
   changedCount, skillLabel, moduleBadge, quickSkillTags, serializeExport, encodeLoadoutCode, expandLoadoutCode, parseImport, LOADOUT_IMPORT_MAX_BYTES,
-  opsOf, setOps, resetOps,
+  opsOf, setOps, resetOps, skinSetOf,
 } from '../ui/loadoutModel.js';
 import { loadoutStore, openLoadout, closeLoadout, setEntries, setOpsMap, applyLoadoutEntries, setNotOwned, applyOwnershipImport, setDiyPicks, applyDiyImport } from '../ui/loadoutSync.js';
 import { CultivationSelects, CultivationSection, cultivationView } from './cultivation.js';
@@ -161,7 +161,7 @@ export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPic
   const choice = effectiveChoice(entries, chess, golden);
   const opt = chessOptions(chess, golden);
   const cv = opsOf(ops, chess.charId);
-  const changed = choice.changed || cv.changed;
+  const changed = choice.changed || cv.changed || skinSetOf(skinCtx.map, chess.charId);
   const modules = [...opt.moduleOptions].sort((a, b) => Number(b.id === MODULE_NONE) - Number(a.id === MODULE_NONE));
   const elite = level === 'elite' && !!golden;
   const slots = [0, 1, 2].map((i) => opt.skillOptions[i] || null);
@@ -216,7 +216,7 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
   if (!chess) return html`<aside class="lo-detail lo-detail--empty"><p class="t-dim">${t('没有符合条件的干员')}</p></aside>`;
   const opt = chessOptions(chess, golden);
   const choice = effectiveChoice(entries, chess, golden);
-  const changed = choice.changed || opsOf(ops, chess.charId).changed;
+  const changed = choice.changed || opsOf(ops, chess.charId).changed || skinSetOf(skinCtx.map, chess.charId);
   return html`<aside class="lo-detail" aria-label=${t('{name} 调配', { name: chess.name })}>
     <div class="lo-dhead">
       <div class=${cx('lo-dhead__art', `lo-dhead__art--t${chess.tier}`)}>
@@ -309,7 +309,7 @@ export function DeckCard({ m, chess, golden, entries, ops = {}, selected = false
   const choice = effectiveChoice(entries, chess, golden);
   const opt = chessOptions(chess, golden);
   const cv = cultivationView(chess.charId, ops);
-  const changed = choice.changed || cv.changed;
+  const changed = choice.changed || cv.changed || skinSetOf(skinCtx.map, chess.charId);
   const sk = opt.skillOptions.find((s) => s.index === choice.skill) || opt.skillOptions[0] || null;
   const skRec = sk ? (golden ? sk.elite || sk.normal : sk.normal || sk.elite) : null;
   const mod = golden ? opt.moduleOptions.find((x) => x.id === choice.module) || null : null;
@@ -591,11 +591,11 @@ function LoadoutScreen({ st }) {
     return (data.list('bonds') || []).filter((b) => b && used.has(b.bondId))
       .sort((a, b) => (b.isCore ? 1 : 0) - (a.isCore ? 1 : 0) || (a.bondOrder ?? 0) - (b.bondOrder ?? 0) || String(a.name).localeCompare(String(b.name), 'zh'));
   }, [ready, roster]);
-  const list = filterRoster(roster, st.filters, st.entries, getChess, getBond, st.ops);
+  const mySkins = useStore((x) => x[SKINS_KEY], Object.is, skinsStore) || {}; // this browser's skin choice: 已调整, 恢复默认 and 导出 carry it
+  const list = filterRoster(roster, st.filters, st.entries, getChess, getBond, st.ops, mySkins);
   const selId = st.sel && roster.some((c) => c.chessId === st.sel) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null;
   const { base, golden } = selId ? recordsOf(selId, getChess) : { base: null, golden: null };
-  const nChanged = changedCount(st.entries, getChess, st.ops, roster);
-  const mySkins = useStore((x) => x[SKINS_KEY], Object.is, skinsStore) || {}; // this browser's skin choice: 导出 carries it
+  const nChanged = changedCount(st.entries, getChess, st.ops, roster, mySkins);
   // the match takes the loadout until its strategy draft ends (server match.setLoadout, the window of setDiy —
   // maintainer decision 2026-10-14); afterwards an edit is stored for the next match
   const locked = (inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.BAND_DRAFT && phase !== PHASE.LOBBY) || st.sync === 'locked';
@@ -662,10 +662,11 @@ function LoadoutScreen({ st }) {
     if (!base) return;
     setOpsMap(resetOps(loadoutStore.get().ops, base.charId));
     setEntries(resetChoice(loadoutStore.get().entries, base.chessId));
+    clearSkin(base.charId); // the skin is one of the operator's settings (maintainer request 2026-11-17)
   };
   const resetAll = async () => {
     if (!nChanged) return;
-    const ok = await confirmDialog({ title: t('全部恢复默认'), text: t('将 {nChanged} 名干员的技能、模组、潜能与练度恢复为默认配置？', { nChanged }), okText: t('恢复默认'), danger: true });
+    const ok = await confirmDialog({ title: t('全部恢复默认'), text: t('将 {nChanged} 名干员的技能、模组、潜能、练度与皮肤恢复为默认配置？', { nChanged }), okText: t('恢复默认'), danger: true });
     if (!ok) return;
     // the roster's operators only: a 自选 pick's settings belong to the 自选编队 tab
     const rosterChars = new Set(roster.map((c) => c.charId));
@@ -673,6 +674,9 @@ function LoadoutScreen({ st }) {
     for (const [id, e] of Object.entries(loadoutStore.get().ops || {})) if (!rosterChars.has(id)) keep[id] = e;
     setOpsMap(keep);
     setEntries({});
+    const keepSkins = {};
+    for (const [id, skin] of Object.entries(skinsStore.get()[SKINS_KEY] || {})) if (!rosterChars.has(id)) keepSkins[id] = skin;
+    setSkins(keepSkins);
   };
 
   // 导出 / 导入 the loadout (or, on the 干员持有 tab, the not-owned list) as the versioned payload (a downloaded file,
@@ -775,7 +779,7 @@ function LoadoutScreen({ st }) {
       // (a row's quick choices: ←/→ stay with the focused group, PR #301)
       if (e.target?.closest?.('.lo-quick') && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) return;
       if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && loadoutStore.get().tab !== 'ownership' && loadoutStore.get().tab !== 'diy') {
-        const ids = filterRoster(rosterOf(data.list('chess')), loadoutStore.get().filters, loadoutStore.get().entries, getChess, getBond, loadoutStore.get().ops).map((c) => c.chessId);
+        const ids = filterRoster(rosterOf(data.list('chess')), loadoutStore.get().filters, loadoutStore.get().entries, getChess, getBond, loadoutStore.get().ops, skinsStore.get()[SKINS_KEY]).map((c) => c.chessId);
         if (!ids.length) return;
         const cur = Math.max(0, ids.indexOf(loadoutStore.get().sel));
         const next = ids[(cur + (e.key === 'ArrowRight' ? 1 : -1) + ids.length) % ids.length];
@@ -1053,10 +1057,13 @@ export function LoadoutHost() {
  * download). Review fix: it counted stale entries the screen does not. With `ops` (0.2.2) the operators whose 潜能 / 练度
  * differ count too (before chess.json: the stored entries plus the stored settings, an operator possibly twice).
  * @param {Record<string, any>} entries @param {((id: string) => any) | null} getChess null while chess.json is not loaded
+ * With `skins` the operators wearing a chosen skin count too (skinSetOf; before chess.json: plus the stored choices).
  * @param {Record<string, any>|null} [ops] @param {any[]|null} [roster] rosterOf(…) of the loaded data
+ * @param {Record<string, any>|null} [skins] this browser's skin choice
  */
-export function badgeCount(entries, getChess, ops = null, roster = null) {
-  return getChess ? changedCount(entries, getChess, ops, roster) : Object.keys(entries || {}).length + Object.keys(ops || {}).length;
+export function badgeCount(entries, getChess, ops = null, roster = null, skins = null) {
+  return getChess ? changedCount(entries, getChess, ops, roster, skins)
+    : Object.keys(entries || {}).length + Object.keys(ops || {}).length + Object.keys(skins || {}).length;
 }
 
 /**
@@ -1068,10 +1075,11 @@ export function LoadoutButton({ from, size = 'md', variant = 'secondary', class:
   // operator_preset sprite
   const entries = useStore((s) => s.entries, Object.is, loadoutStore);
   const ops = useStore((s) => s.ops, Object.is, loadoutStore);
+  const skins = useStore((s) => s[SKINS_KEY], Object.is, skinsStore);
   const notOwned = useStore((s) => s.notOwned, Object.is, loadoutStore);
   const diy = useStore((s) => s.diy, Object.is, loadoutStore);
   const chessReady = data.status('chess') === 'ready';
-  const n = badgeCount(entries, chessReady ? (id) => data.lookup('chess', id) : null, ops, chessReady ? rosterOf(data.list('chess')) : null);
+  const n = badgeCount(entries, chessReady ? (id) => data.lookup('chess', id) : null, ops, chessReady ? rosterOf(data.list('chess')) : null, skins);
   // 0.2.0 补位: how many operators the player marked as not owned (the 干员持有 tab) — easy to forget between sessions
   const off = Array.isArray(notOwned) ? notOwned.length : 0;
   // 0.2.0 自选编队: how many DIY slots the player filled

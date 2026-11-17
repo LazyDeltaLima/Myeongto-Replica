@@ -22,6 +22,7 @@ import { toast, toastError } from './toasts.js';
 import { FeedbackModal, feedbackStore } from './feedback.js';
 import { bondBoardOf } from './hudArt.js';
 import { bondIconUrl, chessAvatarUrl, enemyIconUrl, itemIconUrl, uiUrl } from './assetUrls.js';
+import { skinArt, skinPic } from './skins.js';
 import { DIY, consoleItemEntries, debugEnemyEntries, debugEntries, diySlotsFullOf, filterDebugEntries, filterItemEntries, ourSideEnemyKeys, ownedBondSets } from './consoleLists.js';
 import { ownDiyRecord, pieceBondIds } from './gameLogic.js';
 import { useDocClass } from './device.js';
@@ -237,7 +238,9 @@ function OpsTab({ con, priv, prep }) {
     await send('con.addChess', { chessId: e.key, golden: elite });
     setBusy(false);
   };
-  const avatar = (e) => (e.kind === 'diy' ? chessAvatarUrl(m, { charId: e.charId }) : chessAvatarUrl(m, data.lookup('chess', e.key)));
+  // in this browser's chosen skin (docs/rules/ui.md 「스킨 고르기」)
+  const sk = skinArt();
+  const avatar = (e) => { const rec = e.kind === 'diy' ? { charId: e.charId } : data.lookup('chess', e.key); return skinPic(rec, 'avatar', sk, { own: true }) || chessAvatarUrl(m, rec); };
   const chip = (b) => html`<button key=${b.bondId} type="button" class=${cx('cxp__bchip', 'ico', bond === b.bondId && 'on')} title=${tName(b.name)}
       style=${chipArt(m, bond === b.bondId)} onClick=${() => setBond(bond === b.bondId ? '' : b.bondId)}>
     ${bondIconUrl(m, b.bondId) ? html`<img src=${bondIconUrl(m, b.bondId)} alt=${tName(b.name)} />` : tName(b.name).slice(0, 1)}</button>`;
@@ -323,7 +326,7 @@ function DiyPop({ entry, at, priv, tierF, prep, onClose }) {
     if (ok) onClose();
   };
   return html`<div class="cxp__pop" ref=${ref} role="dialog" aria-label=${entry.name}>
-    <div class="ttl"><img src=${chessAvatarUrl(m, { charId: cand.charId }) || ''} alt="" /><span><b>${entry.name}</b><small>${t('自选干员')}</small></span>
+    <div class="ttl"><img src=${skinPic({ charId: cand.charId }, 'avatar', skinArt(), { own: true }) || chessAvatarUrl(m, { charId: cand.charId }) || ''} alt="" /><span><b>${entry.name}</b><small>${t('自选干员')}</small></span>
       <span class="cxp__sp"></span><button type="button" class="cxp__x" aria-label=${t('关闭')} onClick=${onClose}>×</button></div>
     <div class="cxp__row"><span class="cxp__k">${t('阶级')}</span>
       <${Seg} value=${tier} options=${Object.keys(cand.tiers).map(Number).map((n) => [n, roman(n)])} onChange=${setTier} /><span class="cxp__sp"></span>

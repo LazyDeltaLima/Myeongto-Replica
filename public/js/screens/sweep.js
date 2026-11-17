@@ -27,6 +27,7 @@ import { html, Icon, Modal, TierChip, roman } from '../ui/components.js';
 import { Img, RichText, GIcon } from '../ui/gameComponents.js';
 import { natSizeVars } from '../ui/components.js';
 import { bondIconUrl, bandIconUrl, enemyIconUrl, factionIconUrl, chessAvatarUrl, itemIconUrl } from '../ui/assetUrls.js';
+import { skinArt, skinPic } from '../ui/skins.js';
 import { fmtNum } from '../ui/gameLogic.js';
 import { abilityRows } from '../ui/abilityLines.js';
 import { data, useData, localAsset } from '../data.js';
@@ -191,6 +192,7 @@ function BondPanel({ bond, m, notOwned }) {
   const members = ids.map((id) => data.lookup('chess', id)).filter(Boolean)
     .sort((a, b) => (b.tier - a.tier) || ((a.shopSortId ?? 0) - (b.shopSortId ?? 0)));
   const anyOff = members.some((c) => off.has(c.chessId));
+  const sk = skinArt(); // the members in this browser's chosen skin (docs/rules/ui.md 「스킨 고르기」)
   const steps = Array.isArray(bond.thresholds) ? bond.thresholds.filter((n) => Number.isFinite(n)) : [];
   return html`<div class="sw-detail">
     <${Hero} glyph=${true} name=${bond.name} mark=${html`<${BondMark} bond=${bond} m=${m} hero=${true} />`} />
@@ -207,7 +209,7 @@ function BondPanel({ bond, m, notOwned }) {
       </div>
       <div class="sw-ops">${members.map((c) => html`<span key=${c.chessId} class=${cx('sw-op', `sw-op--t${c.tier}`, off.has(c.chessId) && 'is-standin')}
           title=${c.name}>
-        <${Img} src=${chessAvatarUrl(m, c)} fallback=${html`<span class="sw-op__txt">${[...(c.name || '?')][0]}</span>`} />
+        <${Img} src=${skinPic(c, 'avatar', sk, { own: true }) || chessAvatarUrl(m, c)} fallback=${html`<span class="sw-op__txt">${[...(c.name || '?')][0]}</span>`} />
         <span class="sw-op__tier">${roman(c.tier)}</span>
         ${off.has(c.chessId) ? html`<span class="sw-op__sub">${t('替补')}</span>` : null}
       </span>`)}</div>

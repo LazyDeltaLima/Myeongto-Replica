@@ -371,13 +371,10 @@ describe('operator pictures in the chosen skin (shop card, icons)', () => {
 
   // Every operator picture of the page goes through the skin (ui/skins.js skinPic / skinPicture on the same line), or is
   // listed here with why it keeps the default (docs/rules/ui.md 「스킨 고르기」 operator pictures).
+  // (since 2026-11-17 every operator picture wears the chosen skin — the briefing, 成就统计, S.W.E.E.P., the console, 干员持有
+  // and the 名片干员 list too, maintainer request; only the defaults the callers fall back to and the 默认 tile stay)
   const DEFAULT_ONLY = {
-    'public/js/screens/achievements.js': 'past matches\' records and bond members: the data, no worn skin recorded',
-    'public/js/ui/consolePanel.js': 'the console: a data reference',
-    'public/js/screens/sweep.js': 'the S.W.E.E.P. report\'s bond members: a data reference',
-    'public/js/ui/matchInfo.js': 'ChessIcon: the mode\'s operator list (banned, stage info), not anyone\'s operator',
-    'public/js/screens/ownership.js': '干员持有: each chess beside its official stand-in, a reference of who stands in',
-    'public/js/screens/room.js': 'the 名片干员 picker list; the seat card wears its skin through seatCardSkin (skinArt first in seatArtSrc)',
+    'public/js/screens/room.js': 'the seat card\'s default portrait: it wears its skin through seatCardSkin (skinArt first in seatArtSrc)',
     'public/js/ui/detailArt.js': 'cardArt\'s default art: the skin 立绘 comes first through cardSkinArt',
     'public/js/screens/bandDraft.js': 'pickAvatar, the default its callers fall back to after skinPic',
     'public/js/screens/diy.js': 'avatarOf (the default its callers fall back to) and SkinSection\'s 默认 tile',

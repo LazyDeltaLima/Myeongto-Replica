@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { cultivationCharIds } from '../../shared/protocol.js';
 import {
   parseStored, parseStoredOps, toStored, opsOf, setOps, resetOps, sanitizeOps, exportPayload, parseImport, changedCount,
-  rosterOf, filterRoster,
+  rosterOf, filterRoster, skinSetOf,
 } from '../../public/js/ui/loadoutModel.js';
 import { installLoadoutSync, SYNC_DEBOUNCE_MS, applyLoadoutEntries, loadoutStore, setEntries, setOpsMap } from '../../public/js/ui/loadoutSync.js';
 import { createStore } from '../../public/js/store.js';
@@ -86,6 +86,29 @@ test('the 已调整 count and 仅看已调整 include an operator whose 潜能 /
   assert.equal(changedCount({}, get, {}, roster), 0);
   const only = filterRoster(roster, { changedOnly: true }, {}, get, () => null, { [V]: { cultivate: 0 } });
   assert.deepEqual(only.map((c) => c.chessId), [VENDLA]);
+});
+
+test('a chosen skin is one of the operator\'s settings: 已调整, 仅看已调整, the entry badge (恢复默认 clears it)', async () => {
+  // maintainer request 2026-11-17 (docs/rules/ui.md 「스킨 고르기」): the skin choice resets with the operator's settings
+  const roster = rosterOf(Object.values(CHESS));
+  const skins = { [V]: `${V}@test#1` };
+  assert.equal(skinSetOf(skins, V), true);
+  assert.equal(skinSetOf({ [V]: '' }, V), false);
+  assert.equal(skinSetOf(skins, KALTS), false);
+  assert.equal(skinSetOf(null, V), false);
+  assert.equal(changedCount({}, get, {}, roster, skins), 1, 'a skin alone marks the operator 已调整');
+  assert.equal(changedCount({ [VENDLA]: { skill: 0 } }, get, { [V]: { potential: 2 } }, roster, skins), 1, 'one operator');
+  assert.equal(changedCount({}, get, {}, roster, { [KALTS]: `${KALTS}@test#1` }), 0, 'a 自选-only operator is not in the roster');
+  assert.deepEqual(filterRoster(roster, { changedOnly: true }, {}, get, () => null, {}, skins).map((c) => c.chessId), [VENDLA]);
+  const { badgeCount } = await import('../../public/js/screens/loadout.js');
+  assert.equal(badgeCount({}, get, {}, roster, skins), 1);
+  assert.equal(badgeCount({}, null, {}, null, skins), 1, 'before the data: the stored choices count');
+  // the screen's 恢复默认 / 全部恢复默认 clear it (one operator: clearSkin; all: the roster's operators, 自选-only ones kept)
+  const src = readFileSync(path.join(ROOT, 'public/js/screens/loadout.js'), 'utf8');
+  const one = src.slice(src.indexOf('const resetOne = () =>'), src.indexOf('const resetAll = async'));
+  const all = src.slice(src.indexOf('const resetAll = async'), src.indexOf('// 导出 / 导入 the loadout'));
+  assert.match(one, /clearSkin\(base\.charId\)/, '恢复默认 must clear the operator\'s skin (docs/rules/ui.md 「스킨 고르기」)');
+  assert.match(all, /setSkins\(keepSkins\)/, '全部恢复默认 must clear the roster\'s skins (docs/rules/ui.md 「스킨 고르기」)');
 });
 
 function fakeNet() {

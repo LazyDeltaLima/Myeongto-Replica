@@ -19,6 +19,7 @@ import { makeLookups, BandIcon, BondGlyph, Img } from '../ui/gameComponents.js';
 import { data, useData } from '../data.js';
 import { fmtNum, diyRecordFor, cardStandIn } from '../ui/gameLogic.js';
 import { uiUrl, chessAvatarUrl, chessPortraitUrl, itemIconUrl } from '../ui/assetUrls.js';
+import { skinArt, skinPic } from '../ui/skins.js';
 import { TITLE_HEX_SECTORS, titleSectorClip } from '../ui/titleHexagon.js';
 import { useStore, loadPref, savePref } from '../store.js';
 import {
@@ -92,7 +93,8 @@ function AchievementOperator({ unit, gd }) {
   const backups = data.get('backups');
   const chess = unit.diy && base ? diyRecordFor(base, unit.diy, { chess: data.get('chess'), backups })
     : base ? cardStandIn(base, { unit, backups }) || base : null;
-  const portrait = chess ? chessPortraitUrl(gd.m, { ...chess, assets: { ...chess.assets,
+  // in this browser's chosen skin (the record keeps no worn skin; docs/rules/ui.md 「스킨 고르기」)
+  const portrait = chess ? skinPic(chess, 'portrait', skinArt(), { own: true }) || chessPortraitUrl(gd.m, { ...chess, assets: { ...chess.assets,
     portrait: `${chess.charId}_${chess.status?.phase === 2 ? 2 : 1}` } }) : null;
   return html`<li class="st-achievement-unit" title=${chess?.name || unit.id}>
     <${Img} src=${portrait} class="st-achievement-unit__portrait" fallback=${html`<span>${chess?.name || unit.id}</span>`} />
@@ -201,6 +203,7 @@ function BondRecords({ agg, gd }) {
   useData('chess');
   const bonds = Object.entries(agg.bonds).sort((a, b) => (b[1].games - a[1].games) || a[0].localeCompare(b[0]));
   const members = bondMemberChess(gd.list('chess'), bonds[0]?.[0]);
+  const sk = skinArt(); // the members in this browser's chosen skin (docs/rules/ui.md 「스킨 고르기」)
   return html`<${RecordHeading} title=${t('盟约记录')} manifest=${gd.m} />
     <h4 class="st-sub st-favorites__heading">${t('最常使用的盟约')}</h4>
     ${bonds.length ? html`<div class="st-top-bonds">
@@ -222,7 +225,7 @@ function BondRecords({ agg, gd }) {
       <ul class="st-bond-members">
         ${members.map((chess) => html`<li key=${`${chess.charId}#${chess.tier}`} class="st-bond-member" title=${chess.name}
           style=${`background-image:url(${uiUrl(gd.m, 'statistics/memberFrame')})`}>
-          <${Img} src=${chessAvatarUrl(gd.m, chess)} class="st-bond-member__avatar" fallback=${html`<span>${chess.name}</span>`} />
+          <${Img} src=${skinPic(chess, 'avatar', sk, { own: true }) || chessAvatarUrl(gd.m, chess)} class="st-bond-member__avatar" fallback=${html`<span>${chess.name}</span>`} />
           <${Img} src=${uiUrl(gd.m, `statistics/memberTier${chess.tier}`)} class="st-bond-member__tier" />
         </li>`)}
       </ul>` : null}`;

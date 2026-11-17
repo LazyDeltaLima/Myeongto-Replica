@@ -117,6 +117,16 @@ export function setOps(ops, charId, patch) {
   return out;
 }
 
+/**
+ * Whether this browser chose a skin for operator `charId` (ui/skins.js `skins` map, keyed by charId, not per season): a
+ * setting of the operator like its 潜能 / 练度 — 已调整, and 恢复默认 / 全部恢复默认 clear it (maintainer request 2026-11-17;
+ * docs/rules/ui.md 「스킨 고르기」). The stored choice counts even while the skin data is off (it is kept and sent again).
+ * @param {Record<string, any>|null|undefined} skins @param {string|null|undefined} charId
+ */
+export function skinSetOf(skins, charId) {
+  return !!charId && isObj(skins) && Object.hasOwn(skins, charId) && typeof skins[charId] === 'string' && skins[charId] !== '';
+}
+
 /** Remove one operator's 潜能 / 练度 (恢复默认). */
 export function resetOps(ops, charId) {
   if (!ops || !Object.hasOwn(ops, charId)) return ops;
@@ -484,8 +494,9 @@ export function rosterOf(list) {
  * @param {(id: string) => any} getChess
  * @param {(id: string) => any} [getBond] bond lookup (the search also matches bond names)
  * @param {Record<string, any>|null} [ops] the per-operator 潜能 / 练度 (changedOnly counts them too)
+ * @param {Record<string, any>|null} [skins] this browser's skin choice (changedOnly counts it too, skinSetOf)
  */
-export function filterRoster(roster, f = {}, entries = {}, getChess = () => null, getBond = () => null, ops = null) {
+export function filterRoster(roster, f = {}, entries = {}, getChess = () => null, getBond = () => null, ops = null, skins = null) {
   const q = String(f.query || '').trim().toLowerCase();
   return roster.filter((c) => {
     if (f.tier && c.tier !== f.tier) return false;
@@ -493,7 +504,7 @@ export function filterRoster(roster, f = {}, entries = {}, getChess = () => null
     if (f.bond && !(Array.isArray(c.bonds) && c.bonds.includes(f.bond))) return false;
     if (f.changedOnly) {
       const golden = c.goldenId ? getChess(c.goldenId) : null;
-      if (!effectiveChoice(entries, c, golden).changed && !opsOf(ops, c.charId).changed) return false;
+      if (!effectiveChoice(entries, c, golden).changed && !opsOf(ops, c.charId).changed && !skinSetOf(skins, c.charId)) return false;
     }
     if (q) {
       const hay = [c.name, c.appellation, c.subProfessionName, t(PROF_NAME[c.profession]), ...(c.bonds || []).map((b) => getBond(b)?.name)]
@@ -505,14 +516,17 @@ export function filterRoster(roster, f = {}, entries = {}, getChess = () => null
 }
 
 /** Number of chess whose choice differs from the defaults (only loadout slots of the loaded data count: an entry of a
- *  retired / hidden chess is never sent nor applied) — with `ops` (0.2.2), also those whose operator's 潜能 / 练度 differ. */
-export function changedCount(entries, getChess, ops = null, roster = null) {
+ *  retired / hidden chess is never sent nor applied) — with `ops` (0.2.2), also those whose operator's 潜能 / 练度 differ,
+ *  with `skins` those whose operator wears a chosen skin (skinSetOf). */
+export function changedCount(entries, getChess, ops = null, roster = null, skins = null) {
   const ids = new Set(Object.keys(entries || {}));
-  if (ops && Object.keys(ops).length && Array.isArray(roster)) for (const c of roster) if (opsOf(ops, c.charId).changed) ids.add(c.chessId);
+  const extra = (ops && Object.keys(ops).length) || (isObj(skins) && Object.keys(skins).length);
+  if (extra && Array.isArray(roster)) for (const c of roster) if (opsOf(ops, c.charId).changed || skinSetOf(skins, c.charId)) ids.add(c.chessId);
   let n = 0;
   for (const id of ids) {
     const { base, golden } = recordsOf(id, getChess);
-    if (isLoadoutSlot(base) && base.chessId === id && (effectiveChoice(entries, base, golden).changed || opsOf(ops, base.charId).changed)) n++;
+    if (isLoadoutSlot(base) && base.chessId === id
+      && (effectiveChoice(entries, base, golden).changed || opsOf(ops, base.charId).changed || skinSetOf(skins, base.charId))) n++;
   }
   return n;
 }

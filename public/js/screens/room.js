@@ -76,7 +76,7 @@ import { data, useData, getBond, getBoss, getConfig, getMode } from '../data.js'
 import { chessAvatarUrl, chessPortraitUrl, uiUrl } from '../ui/assetUrls.js';
 import { Sprite } from '../ui/gameComponents.js';
 import { CARD_KEY, cardStore, setCard, cardOperators, cardContext, seatOperator, seatArtSrc, seatCardSkin } from '../ui/seatArt.js';
-import { skinsStore, SKINS_KEY, loadSkinCatalog } from '../ui/skins.js';
+import { skinsStore, SKINS_KEY, loadSkinCatalog, skinArt, skinPic } from '../ui/skins.js';
 import { resStore } from '../resources.js';
 import { DEFAULT_SEASON, seasonOf } from '../../../shared/seasons.js';
 import { RoomSeasonSeg, seasonName, seasonQueueCounts, seasonQuickCounts } from '../ui/season.js';
@@ -294,6 +294,7 @@ function CardPicker({ current, list, m, onPick, onClose }) {
   const [star, setStar] = useState(0);
   const stars = useMemo(() => [...new Set(list.map((c) => c.rarity).filter((r) => r > 0))].sort((a, b) => b - a), [list]);
   const known = !!current && list.some((c) => c.charId === current);
+  const sk = skinArt(); // the list in this browser's chosen skin (docs/rules/ui.md 「스킨 고르기」)
   const needle = q.trim().toLowerCase();
   const shown = list.filter((c) => (!star || c.rarity === star)
     && (!needle || [c.name, c.appellation].some((v) => String(v || '').toLowerCase().includes(needle))));
@@ -315,7 +316,7 @@ function CardPicker({ current, list, m, onPick, onClose }) {
         const on = known && c.charId === current;
         return html`<button key=${c.charId} type="button" class=${`cardpick__op r${c.rarity}${on ? ' is-on' : ''}`} aria-pressed=${on ? 'true' : 'false'}
             data-char=${c.charId} data-autofocus=${on ? '' : undefined} title=${c.name} onClick=${() => onPick(c.charId)}>
-          <${CardThumb} src=${chessAvatarUrl(m, c)} name=${c.name} />
+          <${CardThumb} src=${skinPic(c, 'avatar', sk, { own: true }) || chessAvatarUrl(m, c)} name=${c.name} />
           <span class="cardpick__name">${c.name}</span>${c.rarity ? html`<span class="cardpick__star num">${c.rarity}★</span>` : null}
         </button>`;
       })}
