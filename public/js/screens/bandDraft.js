@@ -55,6 +55,7 @@ import { CARD_KEY, cardStore, cardOperators, cardContext, seatOperator, seatArtS
 import { skinArt, skinPic, skinPicture } from '../ui/skins.js';
 import { settingsStore } from '../ui/settings.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
+import { MatchIntelDialog } from '../ui/matchIntel.js';
 import { MatchInfoDialog, matchInfoModel, ChessIcon } from '../ui/matchInfo.js';
 import { actions, act } from '../ui/gameActions.js';
 import { normalizeDraft, sortedPlayers, diyPickOff, startStepCount, hasDiyChooseStep } from '../ui/gameLogic.js';
@@ -605,6 +606,8 @@ export function BandDraftScreen() {
   const [exit, setExit] = useState(false);
   const [skipped, setSkipped] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [intelOpen, setIntelOpen] = useState(false);
+  const season = useStore((s) => s.room?.season ?? null);
   // 전략별 선발 프리셋: this match's roster choice per strategy (bandId → choice) and 记住此策略的预设 (bandId → bool, on)
   const [presetSel, setPresetSel] = useState({});
   const [remember, setRemember] = useState({});
@@ -646,7 +649,7 @@ export function BandDraftScreen() {
   // the 本局信息 dialog never outlives the turn it was opened in: a turn change (a pick, a skip, a turn that ran out, an
   // AI pick) or my pick closes it, so whoever's turn begins sees the draft
   const turnKey = `${draft.turnPid || ''}|${myPick || ''}`;
-  useEffect(() => { setInfoOpen(false); }, [turnKey]);
+  useEffect(() => { setInfoOpen(false); setIntelOpen(false); }, [turnKey]);
 
   // one countdown (user playtest #4 item 4): the current turn's — m.public.deadline
   const clock = solo ? null : draftClock(pub);
@@ -738,7 +741,7 @@ export function BandDraftScreen() {
   const turnLen = Number(pub?.draft?.turnSeconds) > 0 ? Math.round(pub.draft.turnSeconds) : null;
   // 本局信息: the briefing's blocks (built only while the dialog is open) and the draft's state under it
   const info = infoOpen ? matchInfoModel(pub, { bonds: gd.list('bonds'), chess: gd.chess, mode, priv, diyData: { chess: data.get('chess'), backups: data.get('backups') } }) : null;
-  const infoStatus = infoOpen ? draftInfoStatus({ myPick, pickName: myPick ? gd.band(myPick)?.name : null, myTurn, turnName, secs: turnSecs,
+  const infoStatus = (infoOpen || intelOpen) ? draftInfoStatus({ myPick, pickName: myPick ? gd.band(myPick)?.name : null, myTurn, turnName, secs: turnSecs,
     waiting: !solo && !draft.done }) : null;
 
   const rows = solo ? players.filter((p) => p.playerId === myId) : draft.order.map((pid) => players.find((p) => p.playerId === pid)).filter(Boolean);
@@ -763,8 +766,10 @@ export function BandDraftScreen() {
           })}
         </div>
         <div class="draft-order__side">
+          <${Button} variant="secondary" icon="target" block=${true} class="draft-order__info" data-testid="match-intel-open"
+            aria-haspopup="dialog" onClick=${() => { setInfoOpen(false); setIntelOpen(true); }}>${t('敌方情报与战场')}<//>
           <${Button} variant="secondary" icon="search" block=${true} class="draft-order__info" data-testid="match-info-open"
-            aria-haspopup="dialog" onClick=${() => setInfoOpen(true)}>${t('本局信息')}<//>
+            aria-haspopup="dialog" onClick=${() => { setIntelOpen(false); setInfoOpen(true); }}>${t('本局信息')}<//>
           ${inDraft ? html`<${LoadoutButton} from="draft" class="draft-order__loadout" />` : null}
           ${!solo ? html`<p class="draft-order__tip" data-testid="draft-tip">${draftTip({ timed, turnSeconds: turnLen, autoName: myPick ? null : autoName, selected: autoId === sel })}</p>` : null}
         </div>
@@ -835,6 +840,10 @@ export function BandDraftScreen() {
     </main>
     <${ExitModal} open=${exit} onClose=${() => setExit(false)} solo=${solo} />
     <${MatchInfoDialog} open=${infoOpen} onClose=${() => setInfoOpen(false)} model=${info}
+      status=${infoStatus ? html`<span class=${cx('minfo-dlg__turn', `is-${infoStatus.tone}`)}>
+        <${Icon} name=${infoStatus.tone === 'mint' ? 'check' : 'hourglass'} />${infoStatus.text}${infoStatus.secs != null ? html`<b class="num">${infoStatus.secs}s</b>` : null}
+      </span>` : null} />
+    <${MatchIntelDialog} open=${intelOpen} onClose=${() => setIntelOpen(false)} pub=${pub} season=${season}
       status=${infoStatus ? html`<span class=${cx('minfo-dlg__turn', `is-${infoStatus.tone}`)}>
         <${Icon} name=${infoStatus.tone === 'mint' ? 'check' : 'hourglass'} />${infoStatus.text}${infoStatus.secs != null ? html`<b class="num">${infoStatus.secs}s</b>` : null}
       </span>` : null} />

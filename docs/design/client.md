@@ -55,6 +55,12 @@ Audio: autochess BGM per phase, UI SFX (buy/sell/refresh/level/merge/ready; the 
 
 ---
 
+The strategy draft has an 敌方情报与战场 button immediately above 本局信息 (maintainer decision 2026-11-17).
+Its read-only dialog uses the existing match-info modal frame and vertically stacks the briefing's boss, special
+enemies and battlefield through shared `ui/matchIntel.js MatchIntel`. Battlefield visibility follows the same season
+and ruleset as the briefing. Missing preview art has an explicit empty state. The footer repeats the draft status,
+and a turn change or the player's strategy pick closes the dialog.
+
 ### Local match recovery (upstream 0.2.3, GitHub #431)
 
 A remake convenience the official game lacks. The title footer and the lobby header offer 「恢复本机对局」 (`ui/resumeMatch.js`,

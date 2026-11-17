@@ -29,7 +29,8 @@ test('map-previews: every battlefield of the modes, not the 联防 positions; th
 });
 
 test('the briefing shows the wide preview under the stage line when the local art has it, else the plain card', () => {
-  const brief = read('public/js/screens/briefing.js');
+  const brief = read('public/js/ui/matchIntel.js');
+  assert.match(read('public/js/screens/briefing.js'), /<\$\{MatchIntel\} pub=\$\{pub\} season=\$\{season\} \/>/);
   assert.match(brief, /const mapUrl = pub\.stageId \? localAsset\('stage\/preview', pub\.stageId\) : null;/);
   assert.match(brief, /<div class=\$\{cx\('brief-stage', mapUrl && 'has-map'\)\}>/);
   assert.match(brief, /<span class="brief-stage__name">[\s\S]*?<\/span>\s*<\/div>\s*\$\{mapUrl \? html`<\$\{Img\} src=\$\{mapUrl\} class="brief-stage__map"/);

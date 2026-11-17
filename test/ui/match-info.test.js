@@ -251,9 +251,8 @@ test('draftInfoStatus: the dialog repeats the turn and its seconds (warning at �
 
 test('the briefing, the strategy draft and the in-game 本局信息 tab all read ui/matchInfo.js (no second copy to drift)', () => {
   const brief = read('public/js/screens/briefing.js');
-  // (+ InfoTitle: the enemy block's title bar is the same stage-info bar)
   // (+ the 规程 solo two-column view's blocks: BondGroups, IncompleteTip, BannedOperators, InfoBond, stageArt)
-  assert.match(brief, /import \{ MatchInfo, matchInfoModel, InfoTitle, BondGroups, IncompleteTip, BannedOperators, InfoBond, stageArt \} from '\.\.\/ui\/matchInfo\.js';/);
+  assert.match(brief, /import \{ MatchInfo, matchInfoModel, BondGroups, IncompleteTip, BannedOperators, InfoBond, stageArt \} from '\.\.\/ui\/matchInfo\.js';/);
   assert.match(brief, /<section class="brief__right">\s*<\$\{MatchInfo\} model=\$\{info\} \/>\s*<\/section>/);
   // (+ the viewer's 自选 pieces out of the shop: priv / diyData, 0.2.0 WE2)
   assert.match(brief, /const info = matchInfoModel\(pub, \{ bonds: gd\.list\('bonds'\), chess: gd\.chess, mode, priv, diyData: \{ chess: data\.get\('chess'\), backups: data\.get\('backups'\) \} \}\);/);
@@ -262,10 +261,10 @@ test('the briefing, the strategy draft and the in-game 本局信息 tab all read
   // (+ ChessIcon: the 自选预设 row draws its picks as the stage info draws operators)
   assert.match(draft, /import \{ MatchInfoDialog, matchInfoModel, ChessIcon \} from '\.\.\/ui\/matchInfo\.js';/);
   assert.match(draft, /const info = infoOpen \? matchInfoModel\(pub, \{ bonds: gd\.list\('bonds'\), chess: gd\.chess, mode, priv, diyData: \{ chess: data\.get\('chess'\), backups: data\.get\('backups'\) \} \}\) : null;/);
-  assert.match(draft, /data-testid="match-info-open"[\s\S]*?onClick=\$\{\(\) => setInfoOpen\(true\)\}>\$\{t\('本局信息'\)\}</);
+  assert.match(draft, /data-testid="match-info-open"[\s\S]*?setInfoOpen\(true\); \}\}>\$\{t\('本局信息'\)\}</);
   assert.match(draft, /<\$\{MatchInfoDialog\} open=\$\{infoOpen\} onClose=\$\{\(\) => setInfoOpen\(false\)\} model=\$\{info\}/);
   // a turn change or my pick closes it; the draft's end unmounts the screen
-  assert.match(draft, /const turnKey = `\$\{draft\.turnPid \|\| ''\}\|\$\{myPick \|\| ''\}`;\n\s*useEffect\(\(\) => \{ setInfoOpen\(false\); \}, \[turnKey\]\);/);
+  assert.match(draft, /const turnKey = `\$\{draft\.turnPid \|\| ''\}\|\$\{myPick \|\| ''\}`;\n\s*useEffect\(\(\) => \{ setInfoOpen\(false\); setIntelOpen\(false\); \}, \[turnKey\]\);/);
   const drawer = read('public/js/ui/enemyDrawer.js');
   // (+ BannedGroups: its banned operators grouped and drawn as the briefing draws them)
   // (+ BondGroupsView: 规程 solo's two core bond groups, read-only)

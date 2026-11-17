@@ -141,6 +141,6 @@ test('the screens show it: MatchInfo (briefing, draft dialog), the in-game 本�
   assert.match(read('public/js/ui/enemyDrawer.js'), /model\.custom \? html`<\$\{CustomRulesInfo\} lines=\$\{model\.custom\} class="crs--sm"/);
   // the briefing's battlefield count is the pool the custom settings add (上半 stages) and the stage bans leave (as the
   // server draws it)
-  assert.match(read('public/js/screens/briefing.js'), /keepUnbanned\(customStagePool\(mode\.stages, custom\), \(id\) => id, custom\?\.stages\?\.ban\)\.length/);
+  assert.match(read('public/js/ui/matchIntel.js'), /keepUnbanned\(customStagePool\(mode\.stages, custom\), \(id\) => id, custom\?\.stages\?\.ban\)\.length/);
   assert.match(read('public/js/ui/matchChrome.js'), /rules\.preset !== 'classic' \? html`<span class=\$\{`rtag rtag--\$\{rules\.preset\}`\} data-testid="match-ruleset">/);
 });
