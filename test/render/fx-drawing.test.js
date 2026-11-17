@@ -39,6 +39,20 @@ test('a single-row sheet: rowMode 1 takes a row at random per particle, rowMode 
   inst.dispose();
 });
 
+test('a single-row sheet\'s set row is clamped to the sheet and its cell is row × tx + ⌊frac × tx⌋', async () => {
+  // the official client clamps rowMode 0's row to 0 … ty − 1 and hands the geometry the ratio (row + frac) / ty, whose cell
+  // is ⌊ratio × tx × ty⌋. Cause and rule: docs/rules/fx.md 「그리기 순서·시트」 시트 프레임
+  const uv = (row, frame) => ({ tx: 4, ty: 4, frame: K(frame), start: K(0), cycles: 1, anim: 1, row, rowMode: 0 });
+  const { inst } = await make([node('t', -1), node('o', 0, { ps: ps({ uv: uv(7, 0) }, { n: 1 }) }),
+    node('n', 0, { ps: ps({ uv: uv(-2, 0) }, { n: 1 }) }), node('m', 0, { ps: ps({ uv: uv(1, 0.75) }, { n: 1 }) })]);
+  inst.update(0.02);
+  const [o, n, m] = inst.systems;
+  assert.equal(frameOf(o, 0, 4, 4), 12, 'row 7 of a 4-row sheet draws the last row, cell 12 (fx.md 「그리기 순서·시트」)');
+  assert.equal(frameOf(n, 0, 4, 4), 0, 'a negative row draws the first row');
+  assert.equal(frameOf(m, 0, 4, 4), 7, 'row 1, frame 0.75 of 4 columns: cell 1 × 4 + 3');
+  inst.dispose();
+});
+
 // docs/rules/fx.md 「그리기 순서·시트」 시작 프레임: the official client's frac(frame + start), start being a share of the sheet
 const frameOf = (s, k, tx, ty) => { const a = s.ib.array, o = k * IV + IV_UV; return Math.round(a[o] * tx) + tx * Math.round((1 - a[o + 1]) * ty - 1); };
 

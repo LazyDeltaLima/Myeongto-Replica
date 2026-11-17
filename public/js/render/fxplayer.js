@@ -2597,10 +2597,14 @@ class ParticleSystem {
         // mode; at a whole age × cycles the curve is read at 0). Each draws its own random: not the size's, nor each other's
         const uvr = this.rnd[i * 4 + 1], fm = m.uv.frame, cyc = m.uv.cycles || 1;
         const fv = fm?.m === 0 && m.uv.start?.m === 0 ? fm.s * cyc : evalMM(fm, (Math.max(a, 0) * cyc) % 1, (uvr * 37.3) % 1);
-        const ut = fv + evalMM(m.uv.start, 0, (uvr * 61.7) % 1), f = Math.min(frames - 1, Math.floor((ut - Math.floor(ut)) * frames));
-        // (2026-10-27, effect bundle V) a single-row sheet's row: `row` (rowMode 0 Custom) or one at random per particle (1 Random)
-        const row1 = m.uv.rowMode === 1 ? Math.min(ty - 1, Math.floor(this.rnd[i * 4 + 1] * ty)) : (m.uv.row || 0);
-        const col = f % tx, row = m.uv.anim === 1 ? row1 : Math.floor(f / tx);
+        // (official client, the billboard geometry) the cell is ⌊ratio × tx × ty⌋ with no clamp, its row ⌊cell / tx⌋, its column
+        // the rest; a single-row sheet's ratio is (row + frac) / ty, so its cell is row × tx + ⌊frac × tx⌋ — taken in whole
+        // numbers here (that product in doubles can land a hair under a row's first cell). The row (2026-10-27, effect bundle V):
+        // `row` clamped to the sheet (rowMode 0 Custom) or one at random per particle (1 Random)
+        const ut = fv + evalMM(m.uv.start, 0, (uvr * 61.7) % 1), k = Math.floor((ut - Math.floor(ut)) * frames);
+        const f = m.uv.anim !== 1 ? k : k + tx * (m.uv.rowMode === 1 ? Math.min(ty - 1, Math.floor(this.rnd[i * 4 + 1] * ty))
+          : Math.max(0, Math.min(ty - 1, m.uv.row || 0)));
+        const col = f % tx, row = Math.floor(f / tx);
         D[o + IV_UV] = col / tx; D[o + IV_UV + 1] = 1 - (row + 1) / ty; D[o + IV_UV + 2] = 1 / tx; D[o + IV_UV + 3] = 1 / ty;
       } else { D[o + IV_UV] = 0; D[o + IV_UV + 1] = 0; D[o + IV_UV + 2] = 1; D[o + IV_UV + 3] = 1; }
     }
