@@ -152,7 +152,7 @@ import { unionAreas } from './board3d/layout.js';
 import { layoutPen, penSignature } from './pen.js';
 import { IDENTITY, bossPrepField, tilesToDisp, leaderStand } from './prepfield.js';
 import { pickOnTile, pickBattle, hitTiles } from './pick.js';
-import { promotionsOf } from './promote.js';
+import { promotionsOf, newElitesOf } from './promote.js';
 import { createFxLayer, stageTileFx, stageCannons } from './fxgame.js'; // local patch: official battle effects
 import { syncStatusFx, statusSource } from './fxstatus.js'; // local patch: official status effects
 import { ensurePixi } from './app/pixi.js';
@@ -1037,6 +1037,11 @@ export async function createFieldView(host, options = {}) {
         return w ? { x: w.x, y: w.y, z: w.z || 0 } : null;
       }).filter(Boolean));
     }
+    // every elite operator piece new to the own prep (a merge's, one bought or granted elite; render/promote.js
+    // newElitesOf) → screens/game.js plays ON_ACT1AUTOCHESS_CHAR_BONUS, once each, before its placement sound — the
+    // client's ChessMapInfo._OnSelfGainedNewChess (docs/rules/audio.md 「배치 효과음」 「정예 합성음」). Not the first state
+    // of a page (the same gate as the bench arrivals below)
+    if (before.length || prepSynced) for (const uid of newElitesOf(before, list, (id) => data.chess(id))) emit('eliteGained', { uid });
     const byUid = new Map(list.map((e) => [e.uid, e.piece])); // local patch: summon → owner (pieceInfo chip)
     for (const e of list) {
       if (seen.has(e.uid)) continue; // duplicate uid in bad state: keep the first

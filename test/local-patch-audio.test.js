@@ -424,6 +424,65 @@ describe('deploy sounds on every placement (maintainer report 2026-10-07, audio.
     assert.ok(seen.other > 100, `the normal equipment and MAGIC ran (${seen.other})`);
   });
 
+  test('ON_ACT1AUTOCHESS_CHAR_BONUS once for every elite operator new to the own prep (a merge — a second one while the first reward waits —, a granted elite), none for a move or the reward offer (real match path)', async () => {
+    const why = 'docs/rules/audio.md 「배치 효과음」 「정예 합성음」: the client\'s ChessMapInfo._OnSelfGainedNewChess plays …_CHAR_BONUS '
+      + 'for every new elite operator instance of the own map in the prep — render/promote.js newElitesOf picks them, render/app.js '
+      + 'setPrep emits \'eliteGained\' for each, screens/game.js plays sfx.ui.merge on it (not on the promotion reward\'s offer)';
+    const { UI_SFX } = await import('../tools/assets/audio.mjs');
+    assert.equal(UI_SFX.merge?.bank, 'battle.ON_ACT1AUTOCHESS_CHAR_BONUS', why);
+    const { newElitesOf } = await import('../public/js/render/promote.js');
+    const { makeMatch, DATA, chessOfTier, legalTileFor } = await import('./match/harness.js');
+    const chessOf = (id) => DATA.chess[id] || null;
+    // the entries render/app.js setPrep builds from m.private
+    const entries = (pv) => ['hand', 'temp', 'board'].flatMap((area) => (pv[area] || []).filter(Boolean).map((piece) => ({ uid: piece.uid, area, piece })));
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed: 23 }).start();
+    try {
+      h.toPrep(1);
+      const ps = h.ps('p_0');
+      for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+      ps.board.clear();
+      ps.hand.fill(null);
+      ps.recompute();
+      const [a, b, c, d, e] = chessOfTier(1, (r) => !r.isDiy && !!r.goldenId).filter((id) => h.m.pool.left(id) >= 3);
+      assert.ok(e, 'five tier-1 operators with three copies left');
+      let last = entries(ps.privateView());
+      const step = () => { const next = entries(ps.privateView()); const got = newElitesOf(last, next, chessOf); last = next; return got; };
+      const eliteOf = (id) => [...ps.hand, ...ps.temp, ...ps.board.values()].find((p) => p && p.id === DATA.chess[id].goldenId);
+      for (let i = 0; i < 2; i++) ps.acquireChess(a, { source: 'grant' });
+      assert.deepEqual(step(), [], 'two normal copies: no elite');
+      ps.acquireChess(a, { source: 'grant' });
+      const ea = eliteOf(a);
+      assert.ok(ea, 'the third copy merged');
+      assert.deepEqual(step(), [ea.uid], `a merge's elite: once — ${why}`);
+      assert.equal(ps.privateView().shop.rewardOffer?.source, 'merge', 'its promotion reward is offered');
+      for (let i = 0; i < 3; i++) ps.acquireChess(b, { source: 'grant' });
+      assert.equal(ps.privateView().shop.rewardOffer.queued, 1, 'the second reward waits behind the first: the offer shown did not change');
+      assert.deepEqual(step(), [eliteOf(b).uid], `a second merge while the first reward waits: once more — ${why}`);
+      for (let i = 0; i < 3; i++) { ps.acquireChess(c, { source: 'grant' }); ps.acquireChess(d, { source: 'grant' }); }
+      assert.deepEqual(step().sort(), [eliteOf(c).uid, eliteOf(d).uid].sort(), `two merges in one update: twice — ${why}`);
+      const offers = ps.offers.length;
+      const ge = ps.acquireChess(DATA.chess[e].goldenId, { source: 'grant' });
+      assert.ok(ge && DATA.chess[ge.id]?.isGolden, 'an elite granted as such (a strategy, a reward, a 特质)');
+      assert.equal(ps.offers.length, offers, 'it brings no promotion reward');
+      assert.deepEqual(step(), [ge.uid], `a granted elite: once — ${why}`);
+      const tile = legalTileFor(h.m, ps, ea.id);
+      assert.deepEqual(h.m.handle('p_0', { t: 'g.move', uid: ea.uid, to: { area: 'board', row: tile[0], col: tile[1] }, dir: 'RIGHT' }), { ok: true });
+      assert.deepEqual(step(), [], `an elite moved to the board is no new instance — ${why}`);
+      ps.acquireChess(a, { source: 'grant' });
+      assert.deepEqual(step(), [], 'a normal copy: none');
+      const n = ps.hand.find((p) => p && p.id === a);
+      assert.ok(n && ps.promote(n), 'an in-place promotion (博士投影, PlayerState.promote)');
+      assert.deepEqual(step(), [], 'an in-place promotion keeps its uid [추정·서버]: none');
+      assert.deepEqual(newElitesOf([], last, chessOf).length, 6, 'an empty previous state counts every elite (setPrep gates it: not a page\'s first state)');
+    } finally { h.m.dispose(); }
+    const app = readFileSync(path.join(ROOT, 'public', 'js', 'render', 'app.js'), 'utf8');
+    assert.match(app, /if \(before\.length \|\| prepSynced\) for \(const uid of newElitesOf\(before, list, \(id\) => data\.chess\(id\)\)\) emit\('eliteGained', \{ uid \}\);\n\s+const byUid = /,
+      `setPrep emits one 'eliteGained' per new elite, after the previous state is known and before the pieces' placement sounds — ${why}`);
+    const game = readFileSync(path.join(ROOT, 'public', 'js', 'screens', 'game.js'), 'utf8');
+    assert.match(game, /view\.on\('eliteGained', \(\) => audio\.sfx\('merge'\)\)/, `the game screen sounds it — ${why}`);
+    assert.doesNotMatch(game, /rewardOffer[^\n]*'merge'/, `the promotion reward's offer has no sound of its own — ${why}`);
+  });
+
   test('an Art (MAGIC: 神秘顾客 / 画卷 / 教鞭) the server accepts on the field sounds ON_ACT1AUTOCHESS_MAGIC_PLACE_BATTLE once; a refused one only the error', async () => {
     const why = 'docs/rules/audio.md 「배치 효과음」: the client plays …_MAGIC_PLACE_BATTLE when a MAGIC piece is placed to the battle '
       + '(_PlayAudioWhenCharacterPlaced); here g.art\'s success sound (ui/gameActions.js SUCCESS_SFX → sfx.ui.artPlace)';

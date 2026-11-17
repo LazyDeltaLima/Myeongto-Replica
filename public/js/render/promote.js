@@ -32,3 +32,27 @@ export function promotionsOf(prev, next, chessOf) {
   }
   return out;
 }
+
+/**
+ * The elite chess pieces new in `next` (a uid `prev` lacks), each once, in `next`'s order — the official client's
+ * ChessMapInfo._CheckSelfNewGainedChess → _OnSelfGainedNewChess plays ON_ACT1AUTOCHESS_CHAR_BONUS for every new elite
+ * operator instance of the own map in the prep, whatever made it: a merge's elite (promotionsOf), one bought, granted
+ * (a strategy, a reward, a 特质) or the 升华 buy. An elite that only moved keeps its uid (none); an in-place promotion
+ * (博士投影, PlayerState.promote) keeps it too. The caller decides when the previous state counts (render/app.js setPrep:
+ * not the first state of a page). docs/rules/audio.md 「배치 효과음」 「정예 합성음」.
+ * @param {Array<{ uid: number, piece: any }>} prev entries of the previous setPrep
+ * @param {Array<{ uid: number, piece: any }>} next entries of this setPrep
+ * @param {(id: string) => any} chessOf chess record lookup (`isGolden`)
+ * @returns {number[]} the new elites' uids
+ */
+export function newElitesOf(prev, next, chessOf) {
+  if (!Array.isArray(next)) return [];
+  const seen = new Set(Array.isArray(prev) ? prev.map((e) => e.uid) : []);
+  const out = [];
+  for (const e of next) {
+    if (e?.piece?.kind !== 'chess' || seen.has(e.uid)) continue;
+    seen.add(e.uid);
+    if (e.piece.golden || chessOf(e.piece.id)?.isGolden) out.push(e.uid);
+  }
+  return out;
+}

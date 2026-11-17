@@ -959,10 +959,13 @@ function MatchScreen() {
   const spMine = !!sp && !solo && sp.turnPid === myId && !sp.pickOf.has(myId);
   useEffect(() => { if (spMine) audio.sfx('yourTurn'); }, [spMine]);
 
-  // promotion (merge reward offered) and bond activation cues; a special refresh's offer (凯瑟琳 定向投放 …) plays the
-  // shop's refresh sound instead of the promotion cue
-  const offerCue = priv?.shop?.rewardOffer ? (priv.shop.rewardOffer.source === 'special' ? 'refresh' : 'merge') : null;
+  // a special refresh's offer (凯瑟琳 定向投放 …) plays the shop's refresh sound; the promotion reward's offer none of its
+  // own — the promotion cue ON_ACT1AUTOCHESS_CHAR_BONUS (sfx.ui.merge) sounds once for every elite operator new to the
+  // own prep, a merge's or one gained elite (render/app.js 'eliteGained'; the client's ChessMapInfo._OnSelfGainedNewChess,
+  // docs/rules/audio.md 「배치 효과음」 「정예 합성음」)
+  const offerCue = priv?.shop?.rewardOffer?.source === 'special' ? 'refresh' : null;
   useEffect(() => { if (offerCue) audio.sfx(offerCue); }, [offerCue]);
+  useEffect(() => (view ? view.on('eliteGained', () => audio.sfx('merge')) : undefined), [view]);
   // local patch (maintainer report 2026-10-07): an own operator dropped in on the prep board / bench — bought, a reward the
   // server gave, moved to the board or back to the bench — plays its deploy sound (render/app.js prepDeployed)
   // LOCAL-PATCH.md 「오퍼레이터 음성」 (2-5, owner 2026-10-08): one the player placed from the bench (commitFacing → placedRef) says its 部署 line
