@@ -45,8 +45,10 @@ print(json.dumps(out))`;
   assert.ok(near(down.mainRot, [0, 0, 1, 0]), 'DOWN: z 180');
   assert.ok(near(left.mainRot, [0, 0, s, -s]), 'LEFT: z 270');
   assert.ok(near(flip.mainRot, [s, s, 0, 0]), 'RIGHT + _rotate180Y: Euler(0, 180, 90)');
-  assert.ok(near(up.mainRot, [0, 0, -0.0426, 0.9991]), 'UP: nothing set (its own rotation, 180Y ignored)');
-  assert.ok(near(kept.mainRot, [0, 0, -0.0426, 0.9991]) && kept.roll === 360, 'no reset: its own rotation; the roll still');
+  // 2026-11-17 (official client): without a reset the root is not its own either — Misc.Reset parents it at identity and
+  // the base Effect.FaceTo(Defaults.EFFECT_DIRECTION, up) sets its `_bodyTransofrm` (the root) to Euler(0, 0, 0)
+  assert.ok(near(up.mainRot, [0, 0, 0, 1]), 'UP: OnBeforePlay sets nothing (180Y ignored) — FaceTo\'s identity stays');
+  assert.ok(near(kept.mainRot, [0, 0, 0, 1]) && kept.roll === 360, 'no reset: identity, its own rotation dropped; the roll still');
   assert.deepEqual(none, {}, 'another root: no record');
 });
 

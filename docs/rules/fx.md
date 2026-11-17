@@ -1031,10 +1031,19 @@
   부모 회전을 곱해 보면 744개 중 741개가 전투 좌표 y(판의 행 축)라 y축 180° = 좌우 거울 + 높이 부호 반전(판 위 평면 내용은 거울과 같음).
 - 범위(추출된 이펙트 2,356개 중 `face`가 있는 2,122개): rotate 0 = 1,244, 1 = 788(`rotation_y`·`rotation_z`가 없는 43개는 공식도 아무것도 안 함), 2 = 87, 4 = 3.
   풀 바인딩(`modes.json`) 1,095개 중 rotate 0이 549개 — 이것들이 **왼쪽을 볼 때 더는 거울이 아니다**(대칭이면 차이 없음). rotate 2인데 `turn`이 아닌 것은 왼쪽을 볼 때
-  거울 대신 z축 180° 회전. `face`가 없는 프리팹(루트에 ParticleEffect가 없음: 투사체 꼬리·선 234개)은 예전처럼 거울 — 알려진 차이: 2026-11-17 공식 클라에서 확인, `FaceTo`를
-  덮어쓰는 하위 클래스는 ParticleEffect뿐이고 나머지(ProjectileEffect·SimpleEffect·MapEffect·EmptyEffect)는 기반 `Effect.FaceTo` = `_bodyTransofrm`을
-  `MapUtil.FaceTo2d`로 그 방향에 돌림(ANY_DIR과 같은 길, 거울은 없음). 추출이 그 루트의 `_bodyTransofrm`을 읽어야 고칠 수 있다 → `bundles/` fx-G 줄
-  「face 없는 프리팹의 FaceTo」. `rotation_y`(FLIP_TWO_SIDE)는 플레이어도 거울이 아니라 그 노드를 y축 180° 돌려서(`FxInstance.applyTurn`) 입체 메시·
+  거울 대신 z축 180° 회전. **루트가 ParticleEffect가 아닌 이펙트**(2026-11-17 공식 클라에서 확인): `FaceTo`를 덮어쓰는 하위 클래스는 ParticleEffect뿐이고 나머지(ProjectileEffect·
+  EmptyEffect·SimpleEffect·MapEffect)는 기반 `Effect.FaceTo` = `_bodyTransofrm`(비면 `Effect.Awake`가 자기 Transform)의 localRotation을
+  `MapUtil.FaceTo2d`로 Euler(0, 0, atan2(방향) − 90°)로 **덮어씀** — 거울은 없고, 오른쪽을 볼 때도 −90°, 그 노드의 프리팹 회전은 남지 않는다.
+  `Effect._PlayInternal`은 어느 재생 길이든 FaceTo를 부른다. 방향 없이 재생하는 길(`Effect.Play(speed)`: 투사체 본체 이펙트, `CreateEffect(키, Transform,
+  …, setAsParent)`)은 `Defaults.EFFECT_DIRECTION` = 위 → 회전 0. 그래서 투사체 꼬리 루트도 자기 회전을 버린다: `Projectile._CreateMainEffect`가
+  `Misc.Reset`(단위)으로 붙이고 FaceTo(위)가 단위로, 그 뒤 `ProjectileEffect.OnBeforePlay`가 `_resetMainDir`일 때만 다시 돌림(「투사체 꼬리 방향」의 `mainRot` —
+  그 전엔 리셋 없는 꼬리가 루트 자기 회전을 들고 있었다: 42개, 대개 z 몇 도, `rockman_skill_01_trail`·티피 `tippi_*_trail` 셋 X ±30°). 추출: `fx_extract.py body_face`가
+  그 노드를 `bodyFace`(노드 번호 — 추출된 464개 모두 루트 0: ProjectileEffect 402·EmptyEffect 59·MapEffect 2·SimpleEffect 1)로, 이미 뽑은 것은
+  `--body-only`(출처 팩·클라대로, `--other-game`으로 CN도). → `fx/face.js effectTurn`(`face`가 있으면 faceTurn, 없고 `bodyFace`면 `{ any, node }`),
+  `FxInstance`는 그 프리팹을 거울 없이 그 노드만 돌리고(방향도 `facing`도 안 받으면 위), `fxgame.js play()`/`spawn()`은 `face`와 같이 공식 길(옛
+  `aimAlong`·`aimMover`·`aimFacing` 없음), FollowDirection(`stepFollow`)도 같은 함수. `face`도 `bodyFace`도 없는 5개(이펙트 컴포넌트가 없는 화면 이펙트
+  `screen_*` 셋·경로 미리보기 커서 둘)와 옛 추출물만 예전처럼 거울. 재발 방지: `test/render/fx-face-delay.test.js`(`effectTurn`·`FxInstance` 거울 없음·
+  루트 회전 덮어씀, 추출물 훑기 — 기록 없는 루트는 위 5개 목록만). `rotation_y`(FLIP_TWO_SIDE)는 플레이어도 거울이 아니라 그 노드를 y축 180° 돌려서(`FxInstance.applyTurn`) 입체 메시·
   입자도 클라와 같은 회전이다(2026-11-17 대조 — 위 「거울과 같음」은 판 위 평면 내용에 대한 설명일 뿐).
 - **재생 속도**: `_usePlaybackSpeed`(`face.speed` 0 = 끔)일 때만 받은 속도를 쓰고, 끄면 1.0(풀 바인딩 시전 이펙트 383개 중 75개 — 르무엔 `lemuen_attack_start_01`,
   첸 더 던스트릭 용 등). `_limitedPlaybackSpeed`(`face.limit`, 없으면 2.0; 음수 = 상한 없음)가 0 이상이면 속도 ≤ 상한 ÷ 전투 배속 → `fx/face.js playSpeed`, `play`/`spawn`의
@@ -1068,8 +1077,8 @@
   너비 × `_screenWidthRatio`·높이 × `_screenheightRatio`를 `Map.GetMapPosByScreenPos`로 맵 위치로 바꿔 높이 0·출처 없이 만든다; 위수 협의 템플릿에서 이
   노드는 쉐라그 맹약 하나, 0.5·0.5 — `fxgame.js fieldMiddle`이 카메라의 화면 중심을 땅으로 되돌리고, 프레임이 카메라를 주기 전엔 필드 가운데). 방향은 대상의 그려진 좌우(`efacing`) — 공식(2026-11-17
   공식 클라에서 확인)은 대상의 `faceTo`: 템플릿의 `CreateEffect` 노드는 방향 옵션(`_useSourceFaceVactor`·`_useSourceToTargetDirection`·`_useConstDirection`)이
-  모두 꺼져 `BattleController.CreateEffect(키, 대상, 출처)`가 대상 `faceTo`로 틀고, 화면 위치 노드는 방향 없이. 위·아래를 보는 대상에서만 다를 수 있는 알려진 차이
-  → `bundles/` fx-G 줄 「face 없는 프리팹의 FaceTo」(같은 길).
+  모두 꺼져 `BattleController.CreateEffect(키, 대상, 출처)`가 대상 `faceTo`로 틀고, 화면 위치 노드는 방향 없이 — 2026-11-17부터 `tplFx`가 오퍼레이터 대상의
+  `face.to`(공격이 대상 쪽으로 돌리는 얼굴 벡터)를 방향으로 넘김(적은 `face`가 없어 그려진 좌우 그대로).
   프리팹이 안 뽑혔거나 대상이 없으면 아무것도 안 함. `render/app.js`는 그대로(모든 상태 이벤트가 이미 `fxGame.onEvent`로 온다).
 - 추출: `fx_extract.py --bundle bond --bundle map --match '^(bond_|map_act1autochess_|map_act1vautochess_|map_snow_)'`(bond 8개·map 18개) +
   `--bundle common --prefab common_071_bond_siracusa_hit_01` — 그 전에는 안 보인다.
@@ -1756,7 +1765,9 @@
   둔다; `SmoothLerpDirection`은 90°를 넘게 꺾일 때만 섞는다. 그래서 곧은 탄은 총구 → 명중점 선을 따라 숙고, 곡사는 오를 때 위·내릴 때 아래를 본다 —
   우리는 그려지는 경로의 접선(`fxgame.js flightDir`: 3D 선 + `arc` 호의 미분, 부메랑 돌아오는 길은 반대)으로 `fx/face.js bodyTurn`(예전엔 판 위 각도만,
   숙임 없음; 오퍼레이터 ~110·적 ~50 투사체). 높이가 같은 키트 비행(켈시 에스페란타 S3 순간이동 꼬리, `p.fly`, 드론 꼬리)은 판 위 각도 그대로 = 같은 회전. 그다음 `ProjectileEffect.OnBeforePlay`가 재생마다 루트를 그 본체 위에서 다시 돌린다: ① `_resetMainDir`이고 `_mainDir`이 UP이 아니면
-  `localRotation` = Euler(0, `_rotate180Y` ? 180 : 0, `_mainDir`·90) — 루트의 원래 회전은 버림(UP이면 아무것도 안 함, 180Y도) ② `_flipIfLeft`(추출 프리팹 모두 0)
+  `localRotation` = Euler(0, `_rotate180Y` ? 180 : 0, `_mainDir`·90) — 루트의 원래 회전은 버림(UP이면 아무것도 안 함, 180Y도 — 2026-11-17: 그때도, 리셋이 없을
+  때도 루트는 원래 회전이 아니라 단위다. `Misc.Reset`으로 붙고 그 전에 기반 `Effect.FaceTo`(위)가 루트를 Euler(0, 0, 0)으로 둠 → 위 「좌우 거울·재생 속도·루트
+  지연」의 「루트가 ParticleEffect가 아닌 이펙트」; 그 전엔 이 둘에서 원래 회전을 썼다) ② `_flipIfLeft`(추출 프리팹 모두 0)
   ③ `_randomAngle`이 0이 아니면 자기 x축 둘레로 Range(0, `_randomAngle`)만큼 굴림.
 - 예전: 꼬리 그룹을 비행 방향으로 돌려 프리팹 +x를 비행에 맞추고 루트의 원래 회전을 그대로 썼다 — 「초기화 + RIGHT」와 같아서 대부분은 맞았지만, 굴림이
   없었고(아르케토 S3, 해럴드 평타·S2, 크루스 더 킨 글린트 S1·S2, 스와이어 디 엘리건트 위트 S3 — 360°), DOWN(글래디아 평타·S1·S2)·y 180°(토가와 사키코 S2 감속,

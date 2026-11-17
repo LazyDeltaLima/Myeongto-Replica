@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { faceTurn, playSpeed, startLead, parseDir } from '../../public/js/render/fx/face.js';
+import { faceTurn, effectTurn, EFFECT_DIRECTION, playSpeed, startLead, parseDir } from '../../public/js/render/fx/face.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
@@ -84,7 +84,7 @@ test('FxInstance: FLIP_TWO_SIDE turns rotation_y 180° instead of mirroring; NON
   assert.equal(none.unity.scale.x, 1);
   assert.equal(none.nodes[2].rotation.y, 0);
   const old = new fxp.FxInstance(stub(tiny(null)), { quality: 'high', facing: -1 });
-  assert.equal(old.unity.scale.x, -1, 'a prefab without a ParticleEffect root (trail, line): mirrored as before');
+  assert.equal(old.unity.scale.x, -1, 'a prefab without either record (an old extract, no effect component): mirrored as before');
   // FollowMountPoint `_followScaleSign`: the Spine flip's scale sign
   const sign = new fxp.FxInstance(stub(tiny({ rot: 0 }, 'rotation_y', { mount: { type: 0, followScaleSign: 1 } })), { quality: 'high', facing: -1 });
   assert.equal(sign.unity.scale.x, -1);
@@ -159,8 +159,9 @@ test('fxgame play() / spawn(): played with a direction and the prefab\'s speed; 
   assert.match(SRC, /speed: sp, cast: own \? null : cast, backSw/);
   assert.match(SRC, /const sp = playSpeed\(def\.face, entry\.speed \?\? 1, gameRate\(\)\);/);
   // the old mirror and turns stay only for a prefab without the record
-  assert.match(SRC, /const turnOld = !def\.face && fourWay/);
-  assert.match(SRC, /if \(aimed && !def\.face\) aimAlong\(inst, aim, at\);/);
+  assert.match(SRC, /const official = !!def\.face \|\| Number\.isInteger\(def\.bodyFace\);\n\s+const turnOld = !official && fourWay/);
+  assert.match(SRC, /if \(aimed && !official\) aimAlong\(inst, aim, at\);/);
+  assert.match(SRC, /const official = !!def\.face \|\| Number\.isInteger\(def\.bodyFace\);   \/\/ 2026-11-17/);
   assert.match(PLAYER, /const mirror = turn \? \(def\?\.mount\?\.followScaleSign \|\| def\?\.mount\?\.followScale \? facing : 1\) : facing;/);
 });
 
@@ -217,4 +218,68 @@ test("ANY_DIR turns the prefab's body transform (`face.bodyNode`): 凛御银灰 
     const f = path.join(dir, `${n}.json`);
     if (existsSync(f)) assert.equal(JSON.parse(readFileSync(f, 'utf8')).face?.bodyNode, 0, n);
   }
+});
+
+// 2026-11-17 (official client, docs/rules/fx.md 「좌우 거울·재생 속도·루트 지연」): only ParticleEffect overrides FaceTo — every
+// other root effect class (ProjectileEffect, EmptyEffect, SimpleEffect, MapEffect: `bodyFace`) keeps the base Effect.FaceTo,
+// MapUtil.FaceTo2d on its `_bodyTransofrm`, with no mirror
+test('effectTurn: a base effect root turns its body node to atan2(dir) − 90°, up when no direction is given', () => {
+  const base = { bodyFace: 0 };
+  assert.deepEqual(EFFECT_DIRECTION, U);
+  assert.deepEqual([R, U, L, D].map((d) => Math.round(effectTurn(base, d).any)), [-90, 0, 90, -180]);
+  assert.equal(Math.round(effectTurn(base, null).any), 0, 'Defaults.EFFECT_DIRECTION (a projectile main effect, Effect.Play(speed))');
+  assert.equal(effectTurn(base, R).node, 0);
+  assert.deepEqual(effectTurn({ face: { rot: 1 }, bodyFace: 0 }, L), { flip: true }, 'a ParticleEffect root: its own FaceTo');
+  assert.equal(effectTurn({}, L), null, 'neither record: the caller keeps the old mirror');
+});
+
+test('FxInstance: a base effect root (`bodyFace`) is never mirrored; its body takes the turn, replacing its own rotation', async () => {
+  const { fxp, stub } = await three();
+  const own = [-0.2588, 0, 0, 0.9659];   // rockman_skill_01_trail's root: X −30° of its own
+  const def = () => { const d = tiny(null, 'p', { bodyFace: 0 }); d.nodes[0] = { ...d.nodes[0], rot: own }; return stub(d); };
+  const left = new fxp.FxInstance(def(), { quality: 'high', facing: -1 });
+  assert.equal(left.unity.scale.x, 1, 'not mirrored');
+  assert.equal(Math.round((left.nodes[0].rotation.z * 180) / Math.PI), 90, 'facing left: its +y to the left');
+  assert.equal(left.nodes[0].rotation.x, 0, 'FaceTo2d sets the whole localRotation');
+  const right = new fxp.FxInstance(def(), { quality: 'high', facing: 1 });
+  assert.equal(Math.round((right.nodes[0].rotation.z * 180) / Math.PI), -90);
+  const none = new fxp.FxInstance(def(), { quality: 'high' });
+  assert.ok(Math.abs(none.nodes[0].quaternion.w - 1) < 1e-9, 'no direction given: EFFECT_DIRECTION, identity');
+  const aimed = new fxp.FxInstance(def(), { quality: 'high', facing: -1, dir: D });
+  assert.equal(Math.abs(Math.round((aimed.nodes[0].rotation.z * 180) / Math.PI)), 180);
+  for (const i of [left, right, none, aimed]) i.dispose();
+});
+
+test('fx_extract.py reads the base Effect.FaceTo node (`bodyFace`) and drops a projectile root\'s own rotation', () => {
+  assert.match(EXTRACT, /def body_face\(self, root, gos\):/);
+  assert.match(EXTRACT, /body = self\.body_face\(root, gos\)\n\s+if body is not None:\n\s+out_def\['bodyFace'\] = body/);
+  assert.match(EXTRACT, /'--body-only'/);
+  // `Misc.Reset` + FaceTo(Defaults.EFFECT_DIRECTION) leave a ProjectileEffect root at identity unless `_resetMainDir` turns it
+  assert.match(EXTRACT, /q = \[sy \* sz, sy \* cz, cy \* sz, cy \* cz\]   # Unity Euler order: qY · qX · qZ\n\s+else:\n\s+q = \[0, 0, 0, 1\]/);
+  assert.match(SRC, /const t = effectTurn\(l\.inst\.def, dir\);/, 'FollowDirection turns the same way');
+});
+
+test('every extracted root effect has its turn record: `face` (ParticleEffect) or `bodyFace` (skipped without public/assets)', () => {
+  // the roots without an effect component: CameraEffect screen tints and the route preview cursors (no FaceTo)
+  const NO_EFFECT = new Set(['screen/screen_act3autochess_aceel_weather', 'screen/screen_com_poison_04', 'screen/screen_ICEWILD_frost_01',
+    'route_cursor/WalkPreviewCursor', 'route_cursor/FlyPreviewCursor']);
+  const dir = path.join(ROOT, 'public/assets/local/fx');
+  if (!existsSync(path.join(dir, 'index.json'))) return;
+  const bad = [];
+  let base = 0;
+  const lists = ['index.json', 'enemy-index.json'].filter((f) => existsSync(path.join(dir, f)))
+    .flatMap((f) => Object.entries(JSON.parse(readFileSync(path.join(dir, f), 'utf8')).bundles));
+  for (const [b, names] of lists) {
+    for (const n of names) {
+      const f = path.join(dir, b, `${n}.json`);
+      if (!existsSync(f)) continue;
+      const d = JSON.parse(readFileSync(f, 'utf8'));
+      if (d.face) continue;
+      if (Number.isInteger(d.bodyFace)) { base++; continue; }
+      if (!NO_EFFECT.has(`${b}/${n}`)) bad.push(`${b}/${n}`);
+    }
+  }
+  assert.ok(base > 100, `the sweep met the base effect roots (${base})`);
+  assert.deepEqual(bad, [], 'no turn record: the player falls back to the old mirror — run fx_extract.py --body-only '
+    + '(docs/rules/fx.md 「좌우 거울·재생 속도·루트 지연」)');
 });

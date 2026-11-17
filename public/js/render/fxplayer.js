@@ -29,7 +29,7 @@
 //   each frame: fx.update(dtSeconds, camera);  if (fx.done) { scene.remove(fx.object); fx.dispose(); }
 
 import * as THREE from '../../vendor/three.module.js';
-import { faceTurn } from './fx/face.js';
+import { effectTurn } from './fx/face.js';
 
 export const QUALITY = Object.freeze({
   high: { budget: 6000, emission: 1 },
@@ -3281,7 +3281,10 @@ export class FxInstance {
    * does by its root `face` record (render/fx/face.js faceTurn) — `dir` = the direction it is played with
    *   (default ±x by `facing`, the owner's drawn side), `body` = the four-way facing of the unit it is created on (for
    *   `_useBodyRotation`); it is mirrored only by a FollowMountPoint with `_followScaleSign` (the Spine flip, `facing`). A
-   *   prefab without the record (no ParticleEffect root: trails, lines) keeps the old mirror by `facing`.
+   *   root of another effect class (`bodyFace`: trails, lines, EmptyEffect wrappers — 2026-11-17, official client) turns its
+   *   `_bodyTransofrm` to `dir` as the base Effect.FaceTo does (fx/face.js effectTurn), unmirrored — with neither `dir` nor
+   *   `facing` given, to `Defaults.EFFECT_DIRECTION` (up). A prefab without either record (an old extract, a root without
+   *   an effect component) keeps the old mirror by `facing`.
    *   speed / delays (maintainer decision 2026-10-11): nothing is drawn until the root FxDelay `_delayTime` (effect time)
    *   plus `_delayToPlay` (game time × `speed`, the playback speed it runs at) have passed, and a branch with its own FxDelay
    *   (node `delay`, game time) or a `_subFXDelayConfigs` entry (node `sdelay`, effect time) starts that much later
@@ -3315,11 +3318,12 @@ export class FxInstance {
     const rr = Array.isArray(def?.rdir) && def.rdir.length === 6 ? def.rdir.map((v) => Number(v) || 0) : null;
     const span = (a, b) => a + Math.random() * (b - a);
     const rdir = jit ? { x: Math.random() * 2 - 1, y: Math.random() * 2 - 1 } : rr ? { x: span(rr[0], rr[3]), y: span(rr[1], rr[4]) } : null;
-    const turn = faceTurn(def?.face, rdir || opts.dir || { x: facing, y: 0 }, rdir ? null : opts.body ?? null);
+    const side = def?.face || opts.facing != null ? { x: facing, y: 0 } : null;   // none given: EFFECT_DIRECTION (base turn)
+    const turn = effectTurn(def, rdir || opts.dir || side, rdir ? null : opts.body ?? null);
     this.turn = turn;
     // the mirror: by FollowMountPoint `_followScaleSign` (its point's scale sign = the Spine flip) — or `_followScale`, which
-    // copies the whole scale, its sign too (2026-10-27, official client) — when the prefab has its face record, else (no
-    // ParticleEffect root) the old rule — mirrored when its owner faces left
+    // copies the whole scale, its sign too (2026-10-27, official client) — when the prefab has its face or bodyFace record,
+    // else (an old extract, no effect component on the root) the old rule — mirrored when its owner faces left
     const mirror = turn ? (def?.mount?.followScaleSign || def?.mount?.followScale ? facing : 1) : facing;
     unity.scale.set(mirror * (opts.scale || 1), opts.scale || 1, -(opts.scale || 1));
     if (jit) {   // Unity world (x, y, z = −height)
@@ -3609,8 +3613,9 @@ export class FxInstance {
   /**
    * ParticleEffect.FaceTo on the prefab's named children (faceTurn): 'rotation_y' / 'rotation_z' 180° (FLIP_TWO_SIDE; unflipped:
    * identity, as the client sets it), 'rotation_z' by `z` degrees (FOUR_DIRECTION / FIXED_DIRECTION), the prefab's body
-   * transform (`face.bodyNode`, else a node named 'body') by `any` degrees about z (ANY_DIR). The first node of the name
-   * anywhere in the tree (the prefabs keep them under static_offset).
+   * transform (`face.bodyNode`, else a node named 'body') by `any` degrees about z (ANY_DIR) — or the base Effect.FaceTo's
+   * node `turn.node` (`bodyFace`, effectTurn). The first node of the name anywhere in the tree (the prefabs keep them under
+   * static_offset).
    */
   applyTurn(turn) {
     const named = (name) => this.nodes.find((o) => o && o.name === name);
@@ -3621,7 +3626,7 @@ export class FxInstance {
     }
     if (turn.z != null && rz) rz.rotation.set(0, 0, (turn.z * Math.PI) / 180);
     if (turn.any != null) {
-      const bn = this.def?.face?.bodyNode, b = Number.isInteger(bn) ? this.nodes[bn] : named('body');
+      const bn = Number.isInteger(turn.node) ? turn.node : this.def?.face?.bodyNode, b = Number.isInteger(bn) ? this.nodes[bn] : named('body');
       if (b) b.rotation.set(0, 0, (turn.any * Math.PI) / 180);
     }
   }

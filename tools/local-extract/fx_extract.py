@@ -179,6 +179,9 @@ PAUSE_IDLE_SCRIPT = 2267209715737721819
 PAUSE_SPINE_SCRIPT = -654372255496816943
 FINISH_IF_SCRIPT = -6490124024613466648
 EMPTY_EFFECT_SCRIPT = -488665936260092151
+# (2026-11-17, official client) the MonoScript PathIDs of the root effect classes that keep the base Effect.FaceTo (body_face's
+# raw fallback: ProjectileEffect, EmptyEffect, SimpleEffect, MapEffect — fx_coverage.py SCRIPTS names them)
+BASE_EFFECT_SCRIPTS = frozenset({PROJECTILE_EFFECT_SCRIPT, EMPTY_EFFECT_SCRIPT, -2553461985578519915, 2822543860449088940})
 # (2026-10-21, official client) the MonoScript PathID of Torappu.Battle.Effects.FunnelHitEffect (funnel_hit, `jitter`)
 FUNNEL_HIT_SCRIPT = 8922258000712749090
 # (2026-10-22, official client) the MonoScript PathID of Torappu.Battle.Effects.FollowDirection (follow_direction, `follow`)
@@ -1444,6 +1447,9 @@ class Extractor:
         if face:
             out_def['face'] = face
             self.cov.turned_nodes(face['rot'], self.turned_refs(root, gos), [n['name'] for n in nodes])
+        body = self.body_face(root, gos)
+        if body is not None:
+            out_def['bodyFace'] = body
         finish = self.delay_to_finish(root)
         if finish:
             out_def['finish'] = finish
@@ -2737,6 +2743,95 @@ class Extractor:
             o['fxDelay'] = r4(pe['fxDelay'])
         return o
 
+    def body_face(self, root, gos):
+        """(2026-11-17, official client) the node the base `Effect.FaceTo` turns, for a root effect that is not a ParticleEffect
+        (ProjectileEffect, EmptyEffect, SimpleEffect, MapEffect — only ParticleEffect overrides FaceTo): `Effect._PlayInternal`
+        calls FaceTo with the direction the effect is played with, which sets its `_bodyTransofrm`'s localRotation to
+        Euler(0, 0, atan2(direction) − 90°) (`MapUtil.FaceTo2d`: +y along it) — no mirror; `Effect.Awake` takes the effect's
+        own transform when the field is empty. Its node index (`gos`: GameObject / Transform PathID → node index; 0 = the root,
+        which it is in every extracted prefab), or None for a ParticleEffect root (root_face) or a root without an effect
+        component (the screen effects, the route cursors). By the field name, the base fields' first three words (a PPtr)
+        without a type tree."""
+        if self.root_effect(root) is not None:
+            return None
+        for sid, raw, t in self.monos(root):
+            if t is not None and '_bodyTransofrm' in t:
+                bt = t['_bodyTransofrm'] or {}
+                fid, pid = int(bt.get('m_FileID') or 0), int(bt.get('m_PathID') or 0)
+            elif t is None and sid in BASE_EFFECT_SCRIPTS and len(raw) >= 32:
+                n = struct.unpack_from('<i', raw, 28)[0]
+                b = raw[(32 + n + 3) & ~3:] if 0 <= n <= 256 else b''
+                if len(b) < 12:
+                    continue
+                fid, pid = struct.unpack_from('<i', b, 0)[0], struct.unpack_from('<q', b, 4)[0]
+            else:
+                continue
+            if fid or not pid:
+                return 0
+            return gos.get(pid, 0) if gos else 0
+        return None
+
+    def body_only(self, index_names, other=None):
+        """2026-11-17: rewrite only the base `Effect.FaceTo` node `bodyFace` (body_face) and a ProjectileEffect root's `mainRot`
+        / `roll` (projectile_turn) of the already extracted prefabs that have no ParticleEffect `face`, each read from the
+        pack and client it came from (the index's `sources`; `other`: the Extractor of the other client). `index_names`:
+        [(index dict, bundle, prefab name)]. Returns (prefabs with an effect root, files changed)."""
+        exs = {self.client: self}
+        if other is not None:
+            exs[other.client] = other
+        packs = {}
+        for index, b, n in index_names:
+            f = prefab_file(OUT, b, n)
+            if not f.exists():
+                continue
+            d = json.loads(f.read_text())
+            if 'face' in d:
+                continue
+            s = source_of(index, b, n)
+            packs.setdefault((s['client'], s['pack']), []).append((f, n, d))
+        found = changed = 0
+        for (client, pack), items in sorted(packs.items()):
+            ex = exs.get(client)
+            if ex is None:
+                print(f'[fx] body: {len(items)} prefab(s) of {pack} are from the {client} client: give --other-game')
+                continue
+            try:
+                env = ex.load(pack)
+            except SystemExit as err:
+                print(f'[fx] body: {client} {pack}: {err}')
+                continue
+            roots = {}
+            for o in env.objects:
+                if o.type.name != 'Transform':
+                    continue
+                t = o.read_typetree()
+                if t['m_Father']['m_PathID'] != 0:
+                    continue
+                go = ex.resolve(t['m_GameObject'], o)
+                if go is not None:
+                    roots.setdefault(go.read_typetree()['m_Name'].lower(), (go, t))
+            for f, n, d in items:
+                r = roots.get(str(d.get('name') or n).lower())
+                if r is None:
+                    print(f'[fx] body: {n} not found in {client} {pack}')
+                    continue
+                go, tt = r
+                body = ex.body_face(go, ex.tree_ids(go)[1])
+                found += body is not None
+                rot = tt.get('m_LocalRotation') or {}
+                want = {'bodyFace': body, 'mainRot': None, 'roll': None}
+                want.update(ex.projectile_turn(go, [rot.get(k, 0) for k in 'xyzw']))
+                if all(d.get(k) == v for k, v in want.items()):
+                    continue
+                for k, v in want.items():
+                    if v is None:
+                        d.pop(k, None)
+                    else:
+                        d[k] = v
+                f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
+                changed += 1
+        return found, changed
+
     def root_only(self, bundle, pack=None):
         """2026-10-11: rewrite only the root effect fields — `spawn`, `height` and `face` (root_effect / root_face), and
         (2026-10-22) the FollowDirection `follow`, the face switches `swFace` / `three`, the RandomDirection `rdir` and the
@@ -2888,6 +2983,11 @@ class Extractor:
         than UP its localRotation becomes Euler(0, `_rotate180Y` ? 180 : 0, `_mainDir` · 90) (its own rotation `rot` is
         dropped; UP leaves it, 180Y included), then a `_randomAngle` ≠ 0 rolls it about its own x axis by
         Random.Range(0, `_randomAngle`). The body's +y is the flight direction (`MapUtil.FaceTo2d` / `FaceTo3dUpwardMajor`).
+        (2026-11-17, official client) Without that reset the root does not keep its own rotation `rot` either:
+        `Projectile._CreateMainEffect` → `BattleController.CreateEffect(key, body, source, setAsParent)` parents it with
+        `Misc.Reset` (identity) and plays it with `Defaults.EFFECT_DIRECTION` (up), and the base `Effect.FaceTo` that
+        `_PlayInternal` calls before OnBeforePlay sets its `_bodyTransofrm` (the root: body_face) to Euler(0, 0, 0) —
+        identity (42 extracted trails have a root rotation of their own, rockman_skill_01_trail X −30°). `rot` is unused.
         {'mainRot': the Unity quaternion [x, y, z, w] on the body, 'roll': degrees (only ≠ 0)}, or {} for another root."""
         pj = self.projectile_effect(root)
         if pj is None:
@@ -2897,7 +2997,7 @@ class Extractor:
             sy, cy, sz, cz = math.sin(hy), math.cos(hy), math.sin(hz), math.cos(hz)
             q = [sy * sz, sy * cz, cy * sz, cy * cz]   # Unity Euler order: qY · qX · qZ
         else:
-            q = list(rot or [0, 0, 0, 1])
+            q = [0, 0, 0, 1]
         out = {'mainRot': [r4(v) + 0.0 for v in q]}
         a = pj['randomAngle']
         if math.isfinite(a) and abs(a) > 1e-6:
@@ -4011,6 +4111,10 @@ def main():
                     'pkgrps/btl_pfb_fx_token_3.ab) and write them as --bundle (local patch: 望\'s 棋子 effects → wang_token)')
     ap.add_argument('--root-only', action='store_true', help='only rewrite the root effect fields `spawn` / `height` / `face` '
                     '(and the FollowDirection `follow`, the face switches `swFace` / `three`, `rdir`, `tileH`, 2026-10-22) of the already extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-11)')
+    ap.add_argument('--body-only', action='store_true', help='only write the base Effect.FaceTo node `bodyFace` and a projectile '
+                    'root\'s `mainRot` / `roll` into the already extracted prefabs without a ParticleEffect `face` (every bundle of '
+                    'index.json and enemy-index.json without --bundle), each from the pack and client it came from (--other-game for '
+                    'the other client; 2026-11-17)')
     ap.add_argument('--delay-only', action='store_true', help='only write the branch delays (node `delay` / `sdelay`: a child\'s '
                     'FxDelay, the root\'s _subFXDelayConfigs) into the already extracted prefabs of the bundles (every bundle of '
                     'index.json without --bundle; 2026-10-11)')
@@ -4095,6 +4199,16 @@ def main():
         bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
         tot = [ex.root_only(b, pack=a.pack) for b in bundles]
         print(f'[fx] root: {sum(x[0] for x in tot)} prefab(s) with a root effect component, {sum(x[1] for x in tot)} file(s) changed')
+        return
+    if a.body_only:
+        other = Extractor(a.other_game, a.other_cab_index, png=a.png) if a.other_game else None
+        names = []
+        for idx in ('index.json', 'enemy-index.json'):
+            if (OUT / idx).exists():
+                index = json.loads((OUT / idx).read_text())
+                names.extend((index, b, n) for b, ns in index['bundles'].items() if not a.bundle or b in a.bundle for n in ns)
+        found, changed = ex.body_only(names, other)
+        print(f'[fx] body: {found} prefab(s) with a base effect root, {changed} file(s) changed')
         return
     if a.delay_only:
         bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])

@@ -49,6 +49,26 @@ export function faceTurn(face, dir, body = null) {
   }
 }
 
+/** `Defaults.EFFECT_DIRECTION` — the direction an effect played without one gets (`Effect.Play(speed)`: a projectile's
+ * main effect on its body, a map position without a direction): up. */
+export const EFFECT_DIRECTION = Object.freeze({ x: 0, y: 1 });
+
+/**
+ * (2026-11-17, official client) How an effect turns to direction `dir` as it plays: its root ParticleEffect's FaceTo
+ * (`def.face`, faceTurn), else the base `Effect.FaceTo` every other root effect class keeps (ProjectileEffect, EmptyEffect,
+ * SimpleEffect, MapEffect: `def.bodyFace`, fx_extract.py body_face) — MapUtil.FaceTo2d on its `_bodyTransofrm`: that node's
+ * localRotation becomes Euler(0, 0, atan2(dir) − 90°), never a mirror (`{ any, node }`, degrees). null without either record
+ * (an old extract, a root without an effect component: the caller keeps the old mirror). `dir` null = EFFECT_DIRECTION
+ * for the base turn.
+ * @returns {{ flip?: boolean, z?: number, any?: number, node?: number }|null}
+ */
+export function effectTurn(def, dir, body = null) {
+  if (def?.face) return faceTurn(def.face, dir, body);
+  if (!Number.isInteger(def?.bodyFace)) return null;
+  const d = dir || EFFECT_DIRECTION;
+  return { any: (Math.atan2(Number(d.y) || 0, Number(d.x) || 0) * 180) / Math.PI - 90, node: def.bodyFace };
+}
+
 /**
  * (2026-10-22, official client) The direction the client's FollowDirection (`_FollowDirection`) gives its
  * effect through `FaceTo` as it plays and every frame after (once with `_onlyFollowOnPlay`), from the prefab's `follow`

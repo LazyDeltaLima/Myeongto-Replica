@@ -87,7 +87,7 @@ import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot recor
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her model is back home
-import { bodyTurn, faceSwitchCopy, faceTurn, followDir, playSpeed, upwardMajor } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection, SwitchableEffectByFaceDirection; 2026-10-27 a projectile body's turn
+import { bodyTurn, effectTurn, faceSwitchCopy, followDir, playSpeed, upwardMajor } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection, SwitchableEffectByFaceDirection; 2026-10-27 a projectile body's turn
 import { kitOfficialPlan, kitOperator, KIT_NO_STAND_IN } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
 import { rangeEdges } from './fx/edges.js'; // 2026-11-10: a range's edge lines (RangeLineEffectHandler)
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
@@ -1048,17 +1048,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const split = (buff || !at) && splitOn();
       const side = (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1;
       const dir = aimed ? { x: Number(at.x) - Number(aim.x), y: Number(at.y) - Number(aim.y) } : fourWay ? WAY4[facingDir(view)] : { x: side, y: 0 };
-      // no face record (an old extract / no ParticleEffect root): the old rule — mirrored when facing left, except the turned
-      // entries, the `right` twins and the left / right copies of a directional entry
-      const turnOld = !def.face && fourWay && def.nodes?.some((d) => d.name === 'rotation_z');
-      const facing = def.face ? side : aimed ? aimFacing(null, def, aim, at) : turnOld || sided || unflip.has(names[i]) ? 1 : side;
+      // no face record (an old extract / no effect component on the root): the old rule — mirrored when facing left, except
+      // the turned entries, the `right` twins and the left / right copies of a directional entry. 2026-11-17 (official
+      // client): another root effect class (`bodyFace`: EmptyEffect, SimpleEffect …) turns its body to `dir` instead
+      const official = !!def.face || Number.isInteger(def.bodyFace);
+      const turnOld = !official && fourWay && def.nodes?.some((d) => d.name === 'rotation_z');
+      const facing = official ? side : aimed ? aimFacing(null, def, aim, at) : turnOld || sided || unflip.has(names[i]) ? 1 : side;
       const sp = playSpeed(def.face, speed, gameRate()); // `_usePlaybackSpeed` 0 → 1.0; ≤ `_limitedPlaybackSpeed` ÷ the battle speed
       // local patch: cut at the ground the unit stands on (fxplayer.js floor — a tile's height, not a flyer's hover)
       const opts = { quality: q(), facing, dir, body: facingDir(at && at.info ? at : view), speed: sp, split, floor: ground.z || 0, tilt: tiltOn(ground, def) };
       const inst = new mod.fxp.FxInstance(def, opts);
       if (variant && !variant.pause) inst.adopt(new mod.fxp.FxInstance(variant.def, opts));
       if (turnOld) aimMover(inst, facingDir(view));
-      if (aimed && !def.face) aimAlong(inst, aim, at);
+      if (aimed && !official) aimAlong(inst, aim, at);
       // its FxDelay / branch delays (inst.lead, effect seconds) come before its prefab's duration
       const until = own ? clockS + (def.duration || 3) + 0.5 + inst.lead / sp
         : buff ? null : endAt ?? clockS + (n === copy ? dur0 : def.duration || 3) + 0.5 + inst.lead / sp;
@@ -1217,7 +1219,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     l.followed = true;
     const dir = followDir(l.inst.def.follow, { side: u.visFacing ?? u.facing ?? 1, to: u.face?.to || null, deploy: u.dir || null });
     if (!dir) return;
-    const t = faceTurn(l.inst.def.face, dir);
+    const t = effectTurn(l.inst.def, dir);   // 2026-11-17: a root of another effect class turns its body (bodyFace)
     const was = l.inst.turn;
     if (!t || (t.flip === was.flip && t.z === was.z && t.any === was.any)) return;
     l.inst.turn = t;
@@ -2842,7 +2844,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const split = !over ? splitOn() : unit && splitOn() && mod.fxp.hasBackOrder(def) ? 'backOnly' : false;
     // 2026-10-10: turned along its attacker → target line; 2026-10-11 (maintainer decision 「공식대로」): played with that
     // direction (else `dir`, else ±x by `facing`) and turned as its prefab's `_rotateType` says (play())
-    const official = !!def.face;
+    const official = !!def.face || Number.isInteger(def.bodyFace);   // 2026-11-17: or the base Effect.FaceTo (effectTurn)
     if (aim && !official) facing = aimFacing(null, def, aim, at);
     const d = aim ? { x: Number(at.x) - Number(aim.x), y: Number(at.y) - Number(aim.y) } : dir;
     const sp = playSpeed(def.face, entry.speed ?? 1, gameRate());
@@ -2910,15 +2912,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     const tgt = views?.get?.(e[1]);
     if (!tgt) return;
+    // played with the target's `faceTo` (2026-11-17, official client: the templates' CreateEffect nodes leave every
+    // direction option off, so BattleController.CreateEffect(key, target, source) plays it with the target's faceTo — an
+    // operator's face vector, which an attack turns to its target; an enemy's drawn side here)
+    const to = tgt.face?.to, dir = to && (Number(to.x) || Number(to.y)) ? { x: Number(to.x) || 0, y: Number(to.y) || 0 } : null;
     // a unit leaving in the same moment (에기르 맹약's devoured operator): where it stood, not followed
     if (tgt.alive === false || tgt.remove) {
-      spawn(r[0], r[1], { x: Number(tgt.x), y: Number(tgt.y), z: Number(tgt.z) || 0 }, { owner: null, buff: false, tag: 'tplfx' }, { over: true, facing: efacing(tgt) });
+      spawn(r[0], r[1], { x: Number(tgt.x), y: Number(tgt.y), z: Number(tgt.z) || 0 }, { owner: null, buff: false, tag: 'tplfx' }, { over: true, facing: efacing(tgt), dir });
       return;
     }
-    // on its target (followed, at its prefab's _spawnLocation), ended with it; played with the target's facing [추정: the
-    // node's direction options are not in the event]
+    // on its target (followed, at its prefab's _spawnLocation), ended with it
     const t0 = clockS, life = TPL_BUFF_S[String(e[2]).toLowerCase()];
-    const p = spawn(r[0], r[1], tgt, { owner: null, buff: false, on: tgt.id ?? e[1], tag: 'tplfx' }, { over: true, facing: efacing(tgt) });
+    const p = spawn(r[0], r[1], tgt, { owner: null, buff: false, on: tgt.id ?? e[1], tag: 'tplfx' }, { over: true, facing: efacing(tgt), dir });
     if (life > 0) p.then((l) => { if (l) zoneEnd(l, Math.max(clockS, t0 + life), true); });
   }
   // A template effect that is a buff's own (`overrideEffectKey`), not a CreateEffect node: it lasts the buff, then

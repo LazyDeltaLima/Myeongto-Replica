@@ -439,7 +439,7 @@ _SUBS = {'_subFXDelayConfigs': _N('an empty list'),
          '_subFXDelayConfigs[].delayTime': _A(0, 'branch delays: the extract reads them on a ParticleEffect root only'),
          '_subFXDelayConfigs[].transform': _N('with its delayTime')}
 _EFFECT_BASE = {'m_Enabled': _A(1, _OFF), '_allowAutoReuse': _N(_POOL), '_preloadCnt': _N(_POOL),
-                '_bodyTransofrm': _N('turned only by a ParticleEffect\'s ANY_DIR (`_rotateType` 4), read there'), **_SUBS}
+                '_bodyTransofrm': _K('bodyFace'), **_SUBS}   # (2026-11-17) the base Effect.FaceTo's node (body_face)
 _PAUSE = 'paused per behaviour instead of the whole effect'
 _BUFF_PROGRESS = ('hand-written: the kit fx \'buffProgress\' hands the progress (render/fxgame.js), not these blackboard keys '
                   '(`animSrc[].max` / `prog` are carried for it)')
@@ -725,7 +725,7 @@ COMP_READERS = {
     'SkinnedMeshRenderer': ('skin',), 'Animator': ('animator_clips', 'enabled'), 'Animation': ('legacy_clips', 'legacy_clip', 'enabled'),
     'Material': ('material',),
     'script:ParticleEffect': ('ROOT_EFFECT_FIELDS', 'root_effect_tree', 'off_on_finish', 'delay_to_finish', 'pos_cap'),
-    'script:ProjectileEffect': ('projectile_tree',), 'script:EmptyEffect': ('delay_to_finish',),
+    'script:ProjectileEffect': ('projectile_tree', 'body_face'), 'script:EmptyEffect': ('delay_to_finish', 'body_face'),
     'script:FxDelay': ('fx_delay_tree', 'enabled'), 'script:FollowMountPoint': ('MOUNT_FIELDS',),
     'script:FxUVTweener': ('uv_tween',), 'script:FxUVTweenerAdvance': ('uv_tween',), 'script:FxUVRotation': ('uv_rotation',),
     'script:SwitchableBackEffect': ('switch_back',), 'script:SwitchableRightEffect': ('right_tree', 'right_flags'),
