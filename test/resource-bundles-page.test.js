@@ -167,4 +167,31 @@ describe('resource bundles in the page', () => {
       assert.deepEqual(res.resourceStatus().download.bundles, { listed: 1, fetched: 0, stopped: 1, failed: 0, members: 1 });
     });
   });
+
+  test('the files go FILE_SLOTS at once outside a match and one at a time during one', async () => {
+    const files = Array.from({ length: 40 }, (_, i) => file(`/assets/x/${i}.png`, `p${i}`, { u: `https://cdn.jsdelivr.net/gh/o/r@b/x/${i}.png` }));
+    const list = listOf(files);
+    const base = server(list, files);
+    let now = 0, peak = 0;
+    const slow = async (u, opts) => {
+      if (u === '/assets/browser-resources.json') return base(u, opts);
+      now++; peak = Math.max(peak, now);
+      await new Promise((r) => setTimeout(r, 60));
+      now--;
+      return base(u, opts);
+    };
+    await withPage(slow, async ({ res, store, fetched, entries, idle }) => {
+      assert.ok(res.FILE_SLOTS > 1, 'more than one file at once outside a match');
+      await res.installResources();
+      for (let t = 0; t < 3000 && fetched.length < 2 * res.FILE_SLOTS; t += 10) await new Promise((r) => setTimeout(r, 10));
+      assert.equal(peak, res.FILE_SLOTS, `outside a match the download keeps FILE_SLOTS files in flight: the workers and limit() both come from it (${RULE})`);
+      store.set({ session: { entered: true }, room: { inMatch: true } }); // a match starts
+      for (let t = 0; t < 3000 && now > 1; t += 5) await new Promise((r) => setTimeout(r, 5)); // the files already asked for end
+      peak = now;
+      await idle();
+      assert.ok(peak <= 1, `one file at a time during a match, ${peak} seen (${RULE})`);
+      assert.equal(fetched.length, files.length, 'every file was fetched once');
+      for (const f of files) assert.equal(entries.get(ORIGIN + f.p)?.h, f.h);
+    });
+  });
 });

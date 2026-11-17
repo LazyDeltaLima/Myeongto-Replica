@@ -404,9 +404,13 @@ async function fetchOne(f) {
   return false;
 }
 
+/** Files downloaded at once outside a match (the file queue is mostly jsDelivr and GitHub raw once the bundles hold this
+ *  server's files): the workers of download() and limit() both come from it, so raising it raises both. 8 was measured
+ *  against 4, 6 and 12 (2026-11-17): the most files per second; 12 was slower in the browser. */
+export const FILE_SLOTS = 8;
 /** Parallel downloads: none while a field loads, one while a match is on screen, so the game keeps the bandwidth and
  *  the Cache Storage. */
-const limit = () => (fieldLoading() ? 0 : inMatch() ? 1 : 4);
+const limit = () => (fieldLoading() ? 0 : inMatch() ? 1 : FILE_SLOTS);
 /** Bundles read at once: two outside a match, none while a field loads or a match is on screen (a bundle being read
  *  then is cut short: the game keeps this server's bandwidth, and a match takes files one at a time as before). */
 const bundleLimit = () => (fieldLoading() || inMatch() ? 0 : 2);
@@ -559,7 +563,7 @@ async function download(files = pending) {
     }
   };
   try {
-    await Promise.all([...[0, 1, 2, 3].map(worker), ...[0, 1].map(bundleSlot)]);
+    await Promise.all([...Array.from({ length: FILE_SLOTS }, (_, slot) => worker(slot)), ...[0, 1].map(bundleSlot)]);
     await saveState();
     pending = pending.filter(missing);
     setPending();
