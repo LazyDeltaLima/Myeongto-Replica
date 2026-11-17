@@ -375,17 +375,53 @@ describe('deploy sounds on every placement (maintainer report 2026-10-07, audio.
     for (const r of items.values()) {
       const a = manager();
       // the piece info render/app.js pieceInfo builds for an item
-      a.prepDeploy({ kind: 'item', defId: r.id, trapId: r.trapId, itemType: r.itemType }, 1);
+      a.prepDeploy({ kind: 'item', defId: r.id, trapId: r.trapId, itemType: r.itemType, golden: !!r.isGolden }, 1);
       const magic = r.itemType === 'MAGIC';
       seen[magic ? 'MAGIC' : 'EQUIP'] += 1;
-      assert.equal(a.played.length, 1, `${r.id} (${r.itemType}): one placement sound — ${why}`);
-      const [p] = a.played;
+      // a golden EQUIP's ON_ACT1AUTOCHESS_EQUIP_BONUS comes first (the next test); the placement sound is the last one
+      const bonus = !!r.isGolden && r.itemType === 'EQUIP' ? 1 : 0;
+      assert.equal(a.played.length, 1 + bonus, `${r.id} (${r.itemType}): one placement sound — ${why}`);
+      const p = a.played[bonus];
       assert.equal(p.bank, magic ? 'b:magicHand' : 'b:born:token', `${r.id}: its bank — ${why}`);
       assert.equal(file(p.url), 'b_char_tokenset.mp3', `${r.id}: no item trap has an ON_UNIT_BORN bank of its own — ${why}`);
       assert.ok(close(p.volume, GROUP_GAIN.Battle_UI_Important), `${r.id}: Battle_UI_Important (both banks, volume 1)`);
     }
     assert.equal(seen.MAGIC, 3, '神秘顾客 / 画卷 / 教鞭 (chess_item_6_0*_m) ran');
     assert.ok(seen.EQUIP > 100, `the equipment of both seasons ran (${seen.EQUIP})`);
+  });
+
+  test('a golden EQUIP arriving in the hand / 装备区 (an item merge, a 规程 组合) sounds ON_ACT1AUTOCHESS_EQUIP_BONUS once, before its placement sound; no other item does', async () => {
+    const why = 'docs/rules/audio.md 「배치 효과음」 「장비 합성음」: the client\'s ChessMapInfo._OnSelfGainedNewChess plays …_EQUIP_BONUS '
+      + 'for every new golden equip of the own map in the prep — audio.js prepDeploy must sound sfx.ui.itemMerge for a golden EQUIP, '
+      + 'render/app.js pieceInfo must say an item is golden';
+    const { UI_SFX } = await import('../tools/assets/audio.mjs');
+    assert.equal(UI_SFX.itemMerge?.bank, 'battle.ON_ACT1AUTOCHESS_EQUIP_BONUS', why);
+    const bonus = manifest.audio.sfx.ui.itemMerge;
+    assert.equal(file(bonus), 'act1autochess_b_ui_equipupgrade.mp3', `the manifest's file of that bank — ${why}`);
+    const app = readFileSync(path.join(ROOT, 'public', 'js', 'render', 'app.js'), 'utf8');
+    assert.match(app, /return \{ kind: 'item', [^\n]*golden: !!\(piece\.golden \|\| rec\?\.isGolden\)/, `an item's piece info carries golden — ${why}`);
+    const seen = { golden: 0, fused: 0, other: 0 };
+    for (const f of ['items.json', path.join('seasons', 'act3autochess', 'items.json')]) {
+      const recs = Object.values(JSON.parse(readFileSync(path.join(ROOT, 'data', f), 'utf8')));
+      const fused = new Set(recs.map((r) => r.fuseResult).filter(Boolean));
+      for (const r of recs) {
+        const a = manager();
+        a.prepDeploy({ kind: 'item', defId: r.id, trapId: r.trapId, itemType: r.itemType, golden: !!r.isGolden }, 1);
+        const n = a.played.filter((p) => p.url === bonus).length;
+        if (r.isGolden && r.itemType === 'EQUIP') {
+          seen.golden += 1;
+          if (fused.has(r.id)) seen.fused += 1;
+          assert.equal(n, 1, `${f} ${r.id}: one EQUIP_BONUS — ${why}`);
+          assert.equal(a.played[0].url, bonus, `${f} ${r.id}: EQUIP_BONUS first (UpdateData, before the dummy's ON_UNIT_BORN)`);
+        } else {
+          seen.other += 1;
+          assert.equal(n, 0, `${f} ${r.id} (${r.itemType}, not golden): no EQUIP_BONUS — ${why}`);
+        }
+      }
+    }
+    assert.ok(seen.golden > 100, `the golden equipment of both seasons ran (${seen.golden})`);
+    assert.equal(seen.fused, 5, '规程\'s five 组合 results (golden in the table) ran');
+    assert.ok(seen.other > 100, `the normal equipment and MAGIC ran (${seen.other})`);
   });
 
   test('an Art (MAGIC: 神秘顾客 / 画卷 / 教鞭) the server accepts on the field sounds ON_ACT1AUTOCHESS_MAGIC_PLACE_BATTLE once; a refused one only the error', async () => {

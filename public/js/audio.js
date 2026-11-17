@@ -2274,14 +2274,17 @@ export class AudioManager {
    * An item arriving in the hand / 装备区 sounds as the client's AutoChessDummyManager._PlayAudioWhenCharacterPlaced has it
    * (docs/rules/audio.md 「배치 효과음」): MAGIC (神秘顾客 / 画卷 / 教鞭) ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND (sfx.ui.buy, the
    * bank tools/assets/audio.mjs UI_SFX.buy names), any other type ON_UNIT_BORN of its dummy — a token dummy, so its own
-   * bank when it has one, else `.token` (b_char_tokenset).
-   * @param {{ kind?: string, defId?: string, spine?: string|null, trapId?: string|null, itemType?: string|null }} unit
+   * bank when it has one, else `.token` (b_char_tokenset). A golden (进阶) EQUIP — an item merge's or a 规程 组合's result, or
+   * one gained golden — first sounds ON_ACT1AUTOCHESS_EQUIP_BONUS (sfx.ui.itemMerge): the client's
+   * ChessMapInfo._OnSelfGainedNewChess plays it for every new golden equip instance of the own map in the prep.
+   * @param {{ kind?: string, defId?: string, spine?: string|null, trapId?: string|null, itemType?: string|null, golden?: boolean }} unit
    * @param {number|string} uid
    */
   prepDeploy(unit, uid) {
     try {
       if (!this.ctx || !unit) return;
       if (unit.kind === 'item') {
+        if (unit.golden && unit.itemType === 'EQUIP') this.sfx('itemMerge');
         if (unit.itemType === 'MAGIC') this._play(this.getManifest()?.audio?.sfx?.ui?.buy, { volume: groupGain('Battle_UI_Important'), limited: true, bank: 'b:magicHand' });
         else if (typeof (unit.trapId || unit.defId) === 'string') this.playDeploySfx({ def: unit.trapId || unit.defId, defId: unit.trapId || unit.defId, kind: 'token', side: 'ally' }, `prep:${uid}`);
         return;
