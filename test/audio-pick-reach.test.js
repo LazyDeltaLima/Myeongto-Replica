@@ -7,8 +7,9 @@
 // none of her three runs sounds and none of her own manifest entries (sfx.units of her or her summons, sfx.kit keys of her
 // codes, the common sfx.battle sounds) names fails until it is wired or listed. The runs stand on a board the other sweeps
 // lack (onBoard: her hand summons placed as the prep places them, flying dummies; reach: allies wounded now and then, a
-// 傀儡师's <替身> time waited out). What still needs another unit, a stage device or a phase change stays out of reach: such
-// banks are wired, OUT_OF_REACH of the list gives the reason, and the run counts the ones without one (the diagnostic).
+// 傀儡师's <替身> time waited out, DP kept up). What still needs another unit, a stage device or a phase change stays out of
+// reach: such a bank, wired by her own entries, fails until OUT_OF_REACH of the list gives the reason ('gap:' when the runs do
+// reach the moment and our sounds play another file there).
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -74,11 +75,14 @@ function onBoard(c) {
 
 /** Every `WOUND_EVERY` s an ally above half HP drops to `WOUNDED` of it: a heal (and its swing) needs an injured ally. */
 const WOUND_EVERY = 4, WOUNDED = 0.4;
+/** Her player's DP stays at least `DP_FLOOR`: the sweep gains none, and a 商人 that cannot pay leaves (老鲤 at 9 s). */
+const DP_FLOOR = 99;
 
 /**
  * Every sound URL case `c`'s battle plays (a loop's too), through its phases. Her allies are wounded now and then (no dummy
  * deals damage, and a 医疗 never swings at a full-HP ally), not always (结城理's 俄耳甫斯 attacks only with no ally under half
- * HP); the skill's end waits for a 傀儡师's <替身> time too (结城理's skills end as they switch, and the switch back is his 总攻击).
+ * HP); the skill's end waits for a 傀儡师's <替身> time too (结城理's skills end as they switch, and the switch back is his 总攻击);
+ * her DP is kept up (老鲤's S2 mark bursts 5 s after the cast, and with no DP for his 商人 fee he had left before it).
  */
 function reach(c, manifest) {
   const { h, u, a, castOnce } = sweepBattle(c, manifest);
@@ -86,11 +90,13 @@ function reach(c, manifest) {
   a._play = (url) => { if (typeof url === 'string') got.add(url.toLowerCase()); };
   a._buffer = (url) => { if (typeof url === 'string') got.add(url.toLowerCase()); return Promise.resolve(null); };
   const every = Math.round(WOUND_EVERY / h.b.dt);
+  const player = h.b.getPlayer(u.ownerId);
   onBattleClock((tick) => {
     let t = 0, steps = 0;
     const run = (secs, f) => {
       for (let i = 0, n = Math.round(secs / h.b.dt); i < n; i++) {
         f?.();
+        if (player && player.dp < DP_FLOOR) player.dp = DP_FLOOR;
         if (steps++ % every === 0) for (const x of h.b.allyUnits) if (x.alive && x.hp > x.s.maxHp / 2) x.hp = x.s.maxHp * WOUNDED;
         h.step();
         tick(t += h.b.dt);
@@ -152,7 +158,7 @@ describe('every bank of a 선발 operator is reached by her own sounds', { skip:
     return out;
   })();
 
-  test('a bank only another unit\'s entry plays is sounded by her, or listed', (t) => {
+  test('a bank only another unit\'s entry plays is sounded by her, or listed', () => {
     const missing = [], stale = [];
     let stops = 0;
     for (const [id, r] of Object.entries(result)) {
@@ -165,9 +171,12 @@ describe('every bank of a 선발 operator is reached by her own sounds', { skip:
     assert.deepEqual(missing, [], 'her own runs never sound these banks and no entry of hers names their file (the manifest has it only for another unit): wire it, or say why in test/audio-pick-reach-list.js (docs/rules/audio.md 「선발 소리 뱅크 커버리지」 「도달 시험」)');
     assert.deepEqual(stale, [], 'entries of test/audio-pick-reach-list.js that her runs or her entries cover now: delete them');
     assert.ok(stops > 0, 'the manual-stop rule matched no bank: check MANUAL_STOP');
-    const open = (id, r) => r.wired.filter((n) => !MANUAL_STOP.test(n) && !OUT_OF_REACH[id]?.[n]);
-    const wired = Object.entries(result).map(([id, r]) => [id, open(id, r).length]).filter(([, n]) => n).map(([id, n]) => `${id} ${n}`);
-    t.diagnostic(`wired but out of the runs' reach, no reason in OUT_OF_REACH yet: ${wired.join(', ')}`);
+  });
+
+  test('a bank her entries play and her runs never sound has a reason in OUT_OF_REACH', () => {
+    const open = [];
+    for (const [id, r] of Object.entries(result)) for (const n of r.wired) if (!MANUAL_STOP.test(n) && !OUT_OF_REACH[id]?.[n]) open.push(`${id} ${n}`);
+    assert.deepEqual(open, [], 'her own entries name these banks\' files and her runs never sound them: reach the moment on the runs\' board (onBoard / reach), or say why not in OUT_OF_REACH of test/audio-pick-reach-list.js — \'gap:\' when the runs reach it and our sounds play another file there (docs/rules/audio.md 「선발 소리 뱅크 커버리지」 「도달 시험」)');
   });
 
   test('a reason of OUT_OF_REACH names a bank her entries play and her runs still miss', () => {
@@ -192,6 +201,8 @@ describe('every bank of a 선발 operator is reached by her own sounds', { skip:
     // reach: a wounded ally to heal, and the <替身> time's end
     has('char_1052_kalts2', 'ON_ABILITY_ON.char_1052_kalts2.attack.0');
     has('char_4217_makoto', 'ON_CUSTOM_TRIGGER.makoto_allout_start');
+    // reach: her DP kept up (a 商人 stays to see his S2 mark burst)
+    has('char_322_lmlee', 'ON_PROJECTILE_REACH.projectile_chr_lmlee_s2');
   });
 
   test('the list names picks and banks that exist, in its grammar', () => {
