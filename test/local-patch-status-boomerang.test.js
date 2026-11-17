@@ -43,10 +43,11 @@ describe('status effects: one per unit and status, gone with the status', () => 
     assert.match(off, /l\.again = null;/, 'an ended status effect must never restart (the stacked stun marks)');
     assert.match(off, /else l\.inst\.stop\(now\);/, 'without a finish delay it stops with `now` (test/render/status-finish.test.js)');
     const play = s.slice(s.indexOf('async function playStatus('), s.indexOf('function stoneFx('));
-    assert.match(play, /live\.some\(\(l\) => l\.status === key && l\.unit === view && !l\.inst\.stopping && !l\.inst\.done\)\) return;/,
+    assert.match(play, /live\.some\(\(l\) => l\.status === key && l\.unit === view && !l\.inst\.stopping && !ended\(l\)\)\) return;/,
       'one live effect per unit and status (off → on while the file loaded started two)');
-    // the loop restart still requires the status on and the effect not ended by statusOff
-    assert.match(s, /l\.inst\.done && l\.status && l\.again && l\.unit\?\._fxStatusOn\?\.has\(l\.status\)/);
+    // the loop restart still requires the status on and the effect not ended by statusOff (ended(l): a held wrapper,
+    // docs/rules/fx.md 「감싸개 상태 이펙트」, counts as live until it is stopped)
+    assert.match(s, /ended\(l\) && l\.status && l\.again && l\.unit\?\._fxStatusOn\?\.has\(l\.status\)/);
   });
 });
 
