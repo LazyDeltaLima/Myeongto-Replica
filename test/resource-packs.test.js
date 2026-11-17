@@ -82,7 +82,8 @@ describe('resource packs', () => {
       globalThis.fetch = async (u) => {
         if (u === '/assets/browser-resources.json') return new Response(JSON.stringify(list));
         fetched.push(u);
-        return u in bodies ? new Response(bodies[u]) : new Response('', { status: 404 });
+        const file = u.split('?')[0]; // the server answers a file whatever its query (resources.js PAST_WORKER)
+        return file in bodies ? new Response(bodies[file]) : new Response('', { status: 404 });
       };
       store.set({ session: { entered: true }, room: null });
       await res.installResources();
@@ -91,8 +92,8 @@ describe('resource packs', () => {
       assert.equal(res.resStore.get().phase, 'ask', 'nothing starts before the consent');
       await res.setResourcePack('skin', true);
       await idle();
-      assert.deepEqual(fetched.sort(), ['/assets/local/spine/skin/o/o_s_1/illust/o_s_1.webp', `https://cdn.jsdelivr.net/gh/fexli/ArknightsResource@${'a'.repeat(40)}/spine/o/o_s_1/Front/o_s_1.png`].sort(),
-        'choosing the pack downloads its files (the model from jsDelivr), without the general consent and without the file in no pack');
+      assert.deepEqual(fetched.sort(), ['/assets/local/spine/skin/o/o_s_1/illust/o_s_1.webp' + res.PAST_WORKER, `https://cdn.jsdelivr.net/gh/fexli/ArknightsResource@${'a'.repeat(40)}/spine/o/o_s_1/Front/o_s_1.png`].sort(),
+        'choosing the pack downloads its files (this server\'s past the worker, the model from jsDelivr as it is), without the general consent and without the file in no pack');
       assert.equal(entries.size, 3);
       assert.deepEqual(JSON.parse(prefs.get('sp.pref.resourcePacks')), { skin: true });
       await res.setResourcePack('skin', false);
@@ -150,7 +151,8 @@ describe('resource packs', () => {
       globalThis.fetch = async (u) => {
         if (u === '/assets/browser-resources.json') return new Response(JSON.stringify(list));
         fetched.push(u);
-        return u in bodies ? new Response(bodies[u]) : new Response('', { status: 404 });
+        const file = u.split('?')[0]; // the server answers a file whatever its query (resources.js PAST_WORKER)
+        return file in bodies ? new Response(bodies[file]) : new Response('', { status: 404 });
       };
       store.set({ session: { entered: true }, room: null });
       // a module instance of its own: the pack choice is read when the module loads
@@ -168,13 +170,13 @@ describe('resource packs', () => {
       assert.equal(res.skinPackState(r), 'paused');
       res.pauseResourcePack('skin', false);
       await idle();
-      assert.deepEqual(fetched.sort(), [SK + 'one.webp', SK + 'two.webp'], 'resumed: the pack\'s files, still not the general ones');
+      assert.deepEqual(fetched.sort(), [SK + 'one.webp' + res.PAST_WORKER, SK + 'two.webp' + res.PAST_WORKER], 'resumed: the pack\'s files, still not the general ones');
       assert.deepEqual(res.resStore.get().sizes, { '': { total: 3, left: 2 }, skin: { total: 8, left: 0 } });
       assert.equal(res.skinPackState(res.resStore.get()), 'done');
       await res.acceptResources();
       await idle();
       assert.deepEqual(res.resStore.get().sizes[''], { total: 3, left: 0 }, 'the general consent downloads the rest');
-      assert.ok(fetched.includes('/assets/ui/b.png'));
+      assert.ok(fetched.includes('/assets/ui/b.png' + res.PAST_WORKER));
     } finally {
       store.set(before);
       for (const k of ['window', 'location', 'caches', 'fetch', 'localStorage']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
