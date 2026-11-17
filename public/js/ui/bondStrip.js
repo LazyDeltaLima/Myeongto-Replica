@@ -198,7 +198,8 @@ export function swappedBond(b, effectId, eff) {
  * Bond detail popup.
  * @param {{ bondId: string, entry?: any, priv?: any, banned?: string[], onClose: Function,
  *   onMember?: (chessId:string, items?:string[]|null, standInFor?:string|null, diy?:any)=>void,
- *   place?: 'left'|'beside'|'besideR'|'right'|null, over?: boolean, beside?: 'left'|'right'|null, owner?: string|null, off?: boolean }} props —
+ *   place?: 'left'|'beside'|'besideR'|'right'|null, over?: boolean, beside?: 'left'|'right'|null, owner?: string|null, off?: boolean,
+ *   skins?: Record<string, string>|null }} props —
  *   `place`: where it opens (gameLogic bondPopupPlace; `beside: 'left'` = the older spelling of 'beside'); `over`: above the
  *   detail card; `owner`: the watched teammate's name (`entry` / `priv` are then theirs: ui/watchBonds.js); `onMember`
  *   gets a 变形同构体 row's item ids too (its card shows the pair and the granted chip), null for a plain member, and a
@@ -206,9 +207,11 @@ export function swappedBond(b, effectId, eff) {
  *   pick (`diy`, its unit's: the card composes their operator; the own rows' card reads m.private.diy); `off`: the
  *   mode never activates this bond (gameLogic modeOffBonds — 标准's 10 inactive bonds): 本局禁用 instead of 未激活, with a
  *   note, no 在场 count and no 当前效果 block (its numbers would promise an effect the mode never gives; the bond text stays).
- *   `entry.harmony` (the server's bond views: the +1 调和 added to `count`): 在场 n（含调和 +1） and the 调和 row
+ *   `skins`: the watched teammate's published skin choice (ui/skins.js playerSkins — null with 其他玩家的皮肤 off), which their
+ *   rows' icons wear (the own rows wear this browser's); `entry.harmony` (the server's bond views: the +1 调和 added to
+ *   `count`): 在场 n（含调和 +1） and the 调和 row
  */
-export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember, place = null, over = false, beside = null, owner = null, off = false }) {
+export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember, place = null, over = false, beside = null, owner = null, off = false, skins = null }) {
   const base = data.lookup('bonds', bondId);
   if (!base) return null;
   const swapTo = priv?.bandSkill?.bondSwaps?.[bondId] || null;
@@ -298,7 +301,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
               onClick=${() => (si ? onMember?.(mb.id, items, si.standInFor) : mb.pick ? onMember?.(mb.id, items, null, mb.pick) : onMember?.(mb.id, items))}
               data-granted=${mb.granted ? '1' : null} data-standin=${si ? si.charId : null} data-diy=${mb.diy ? mb.rec?.charId || '1' : null}
               title=${`${name}${si ? t('（{note}）', { note: standInForText(mb.name) }) : ''}${mb.granted ? t('（变形同构体：视为本盟约成员）') : ''}${mb.onBoard ? t('（在场）') : mb.owned ? t('（整备区）') : ''}`}>
-            <${UnitThumb} kind="chess" id=${mb.id} size="sm" dim=${!mb.owned} rec=${si || (mb.diy ? mb.rec : null)} title=${name} ownSkin=${!owner} />
+            <${UnitThumb} kind="chess" id=${mb.id} size="sm" dim=${!mb.owned} rec=${si || (mb.diy ? mb.rec : null)} title=${name} ownSkin=${!owner} skinsOf=${owner ? skins : null} />
             <span class="bpop__mname">${name}</span>
             ${mb.granted ? html`<span class="bpop__iso" aria-hidden="true">${t('同构')}</span>` : null}
           </button>`;

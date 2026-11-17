@@ -82,6 +82,7 @@ import { useFieldView } from '../ui/fieldHost.js';
 import { BossDamagePanel } from '../ui/avatarBadges.js';
 import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, matchLpCap, battleHud } from '../ui/hud.js';
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
+import { playerSkins } from '../ui/skins.js';
 import { TeamPanel } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
 import { DetailPanel, resolveDetail } from '../ui/detailPanel.js';
@@ -1944,6 +1945,7 @@ function MatchScreen() {
         onEnemy=${(k, n) => setDetail({ kind: 'enemy', id: k, count: n, from: 'drawer' })} onChess=${(id) => setDetail({ kind: 'chess', id, foreign: true, from: 'drawer' })} />` : null}
 
       ${bondPop ? html`<${BondPopup} bondId=${bondPop.bondId} entry=${bondPop.entry} priv=${bondPop.priv} banned=${pub?.bannedChess || []} owner=${bondPop.name}
+        skins=${bondPop.self ? null : playerSkins(pub?.players, bondPop.ownerId, settingsStore.get().otherSkins !== false)}
         off=${offBonds.has(bondPop.bondId)}
         place=${bpPlace} over=${!!resolved && bpPlace === dSide}
         onClose=${() => setBondOpen(null)} onMember=${(id, items, standInFor, diy) => setDetail({ kind: 'chess', id, owner: bondPop.ownerId, items: items || null, standInFor: standInFor || null, diy: diy || null, from: 'bond' })} />` : null}

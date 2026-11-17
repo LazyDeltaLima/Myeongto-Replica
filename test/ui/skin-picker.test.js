@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createStore } from '../../public/js/store.js';
-import { parseStoredSkins, buildSkinCatalog, chosenSkin, skinRows, ownerSkin, cardSkinArt, skinPicture, wornSkin, skinPic, cardWorn, SKINS_KEY, SKINS_SYNC_KEY } from '../../public/js/ui/skins.js';
+import { parseStoredSkins, buildSkinCatalog, chosenSkin, skinRows, ownerSkin, playerSkins, cardSkinArt, skinPicture, wornSkin, skinPic, cardWorn, SKINS_KEY, SKINS_SYNC_KEY } from '../../public/js/ui/skins.js';
 import { cardArt } from '../../public/js/ui/detailArt.js';
 import { resolveDetail } from '../../public/js/ui/detailPanel.js';
 import { skinSectionState, skinTiles, SkinTile, SkinPreview, SkinPackBox } from '../../public/js/ui/skinPicker.js';
@@ -322,6 +322,34 @@ describe('operator pictures in the chosen skin (shop card, icons)', () => {
     assert.equal(skinPic({ charId: OP }, 'avatar', ctx), null);
     assert.equal(skinPic({ charId: 'char_2_other' }, 'avatar', { ...ctx, map: { char_2_other: SKIN } }, { own: true }), null, 'a choice stored under another operator');
     assert.equal(skinPic(null, 'avatar', ctx, { own: true }), null);
+  });
+
+  test('another player\'s operator icon: the skins they published, only with 其他玩家的皮肤 on', () => {
+    const players = [{ playerId: 'p_me', skins: { [OP]: SKIN2 } }, { playerId: 'p_2', skins: { [OP]: SKIN } }, { playerId: 'p_bot' }];
+    assert.deepEqual(playerSkins(players, 'p_2'), { [OP]: SKIN });
+    assert.equal(playerSkins(players, 'p_2', false), null, '其他玩家的皮肤 off');
+    assert.equal(playerSkins(players, 'p_bot'), null, 'chose none (an AI seat)');
+    assert.equal(playerSkins(players, 'p_gone'), null);
+    assert.equal(playerSkins(null, 'p_2'), null);
+    const ctx = { map: { [OP]: SKIN2 }, catalog: cat, ready: true, cached: all };
+    assert.equal(skinPic({ charId: OP }, 'avatar', ctx, { of: playerSkins(players, 'p_2') }), P('a/boc.png'), 'theirs, not this browser\'s');
+    assert.equal(skinPic({ charId: OP }, 'avatar', ctx, { of: playerSkins(players, 'p_2', false) }), null);
+    assert.equal(skinPic({ charId: OP }, 'avatar', { ...ctx, ready: false }, { of: playerSkins(players, 'p_2') }), null, 'no skin data: the default');
+    assert.equal(wornSkin({ charId: OP }, { own: true, map: ctx.map, of: { [OP]: SKIN } }), SKIN2, 'own wins over `of`');
+    assert.equal(wornSkin({ charId: OP }, { skin: SKIN2, of: { [OP]: SKIN } }), SKIN2, 'a worn skin first');
+  });
+
+  test('the leader ranking, the result\'s lineups and a teammate\'s bond popup draw others\' operators in their published skins', () => {
+    assert.match(read('public/js/ui/gameComponents.js'), /skinPic\(c, 'avatar', sk, \{ skin, own: ownSkin, of: skinsOf \}\)/);
+    const badges = read('public/js/ui/avatarBadges.js');
+    assert.match(badges, /ownSkin=\$\{r\.pid === myId\} skinsOf=\$\{r\.pid === myId \? null : playerSkins\(pub\.players, r\.pid, others\)\}/);
+    assert.match(read('public/js/screens/game.js'), /<\$\{BossDamagePanel\} pub=\$\{pub\} myId=\$\{myId\} \/>/);
+    const result = read('public/js/screens/result.js');
+    assert.match(result, /const skinsOf = own \? null : playerSkins\(store\.get\(\)\.match\?\.public\?\.players, pid, settingsStore\.get\(\)\.otherSkins !== false\);/);
+    assert.match(result, /<\$\{LineupThumb\} key=\$\{i\} u=\$\{u\} gd=\$\{gd\} own=\$\{p\.playerId === myId\} pid=\$\{p\.playerId\} \/>/);
+    assert.equal(read('public/js/screens/resultCharts.js').match(/own=\$\{x\.playerId === myId\} pid=\$\{x\.playerId\}/g)?.length, 2, 'the damage and 联防 tabs');
+    assert.match(read('public/js/ui/bondStrip.js'), /ownSkin=\$\{!owner\} skinsOf=\$\{owner \? skins : null\}/);
+    assert.match(read('public/js/screens/game.js'), /skins=\$\{bondPop\.self \? null : playerSkins\(pub\?\.players, bondPop\.ownerId, settingsStore\.get\(\)\.otherSkins !== false\)\}/);
   });
 
   test('resolveDetail hands the card its skin: an own card without a piece the choice, a unit the one it wears', () => {

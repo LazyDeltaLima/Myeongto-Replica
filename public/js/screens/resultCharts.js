@@ -109,7 +109,7 @@ export function DamageTab({ r, myId, colors, Thumb }) {
         return html`<div key=${`${x.playerId}:${x.unit.id}:${i}`} role="listitem" title=${tip(x, name, p)}
             class=${cx('rch-row', i < 3 && 'is-top', focus && focus !== x.playerId && 'is-dim', coop && x.playerId === myId && 'is-mine')}>
           <span class="rch-no num">${i + 1}</span>
-          <span class=${cx('rch-thumb', x.unit.sold && 'is-sold')}><${Thumb} u=${x.unit} gd=${gd} own=${x.playerId === myId} /></span>
+          <span class=${cx('rch-thumb', x.unit.sold && 'is-sold')}><${Thumb} u=${x.unit} gd=${gd} own=${x.playerId === myId} pid=${x.playerId} /></span>
           <span class="rch-nm"><b>${name}</b><small>${coop ? html`<i class="rch-dot" style=${`background:${color}`}></i>${p.name}` : null}${x.unit.sold ? html`<em>${t('已出售')}</em>` : null}${x.unit.summon ? html`<em>${t('含召唤物')}</em>` : null}</small></span>
           ${cell(!byLeader, x.total, maxT, color)}${cell(byLeader, x.leader, maxL, color)}
         </div>`;
@@ -191,7 +191,7 @@ export function UniteTab({ r, myId, colors, Thumb }) {
         return html`<div key=${`${x.playerId}:${x.unit.id}:${i}`} role="listitem" class=${cx('rch-row is-one', i < 3 && 'is-top', focus && focus !== x.playerId && 'is-dim', x.playerId === myId && 'is-mine')}
             title=${[`${nm} · ${p.name}`, ...by.map(([l, n]) => `${t('{name}的敌人', { name: name(l) })}: ${n}`)].join('\n')}>
           <span class="rch-no num">${i + 1}</span>
-          <span class=${cx('rch-thumb', x.unit.sold && 'is-sold')}><${Thumb} u=${x.unit} gd=${gd} own=${x.playerId === myId} /></span>
+          <span class=${cx('rch-thumb', x.unit.sold && 'is-sold')}><${Thumb} u=${x.unit} gd=${gd} own=${x.playerId === myId} pid=${x.playerId} /></span>
           <span class="rch-nm"><b>${nm}</b><small><i class="rch-dot" style=${`background:${color(x.playerId)}`}></i>${p.name}${x.unit.sold ? html`<em>${t('已出售')}</em>` : null}${x.unit.summon ? html`<em>${t('含召唤物')}</em>` : null}</small></span>
           <span class="rch-track"><span class="rch-bar" style=${`width:${(x.n / maxN) * 100}%;background:${color(x.playerId)}`}></span></span>
           <span class="rch-val num">${x.n}</span>

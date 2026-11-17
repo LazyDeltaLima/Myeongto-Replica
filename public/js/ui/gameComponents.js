@@ -115,9 +115,10 @@ export const isGoldenPiece = (piece, chess) => !!(piece?.golden || chess?.isGold
  *   `rec`: the chess record to draw instead of the data's (a 自选 piece's composed record — 0.2.0, gameLogic/diy.js; a
  *   补位 stand-in's — gameLogic/standIn.js: drawn with a small 「替补」 mark in the corner)
  *   `skin` / `ownSkin`: an operator drawn in a skin's avatar (ui/skins.js skinPic) — `skin` the one it wears, `ownSkin`
- *   this browser's choice for it (one's own operator); the default avatar without the skin data or that picture
+ *   this browser's choice for it (one's own operator); `skinsOf` another Doctor's published choice for it (ui/skins.js
+ *   playerSkins — null with 其他玩家的皮肤 off); the default avatar without the skin data or that picture
  */
-export function UnitThumb({ kind = 'chess', id, golden, size = 'md', tier, showTier = true, class: cls, dim = false, badge = null, title, rec = null, skin = null, ownSkin = false }) {
+export function UnitThumb({ kind = 'chess', id, golden, size = 'md', tier, showTier = true, class: cls, dim = false, badge = null, title, rec = null, skin = null, ownSkin = false, skinsOf = null }) {
   const m = data.get('assets');
   const sk = skinArt();
   let src = null;
@@ -127,7 +128,7 @@ export function UnitThumb({ kind = 'chess', id, golden, size = 'md', tier, showT
   if (kind === 'chess') {
     const c = rec || data.lookup('chess', id);
     si = rec && typeof rec.standInFor === 'string' && rec.standInFor ? rec : null;
-    src = skinPic(c, 'avatar', sk, { skin, own: ownSkin }) || chessAvatarUrl(m, c);
+    src = skinPic(c, 'avatar', sk, { skin, own: ownSkin, of: skinsOf }) || chessAvatarUrl(m, c);
     name = c?.name || '';
     t = t ?? c?.tier;
     golden = golden ?? !!c?.isGolden;

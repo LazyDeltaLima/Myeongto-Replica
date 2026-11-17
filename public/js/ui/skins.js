@@ -172,9 +172,22 @@ export function chosenSkin(charId, map = skinsStore.get()[SKINS_KEY], catalog = 
 export function ownerSkin(charId, { ownerId, myId = null, players = [], localSkins = {}, otherSkins = true, pack = true } = {}) {
   if (!pack || !str(charId) || ownerId == null) return null;
   if (ownerId === myId) return str(localSkins?.[charId]);
-  if (!otherSkins) return null;
-  const owner = (Array.isArray(players) ? players : []).find((p) => p && p.playerId === ownerId);
-  return owner && isObj(owner.skins) ? str(owner.skins[charId]) : null;
+  const skins = playerSkins(players, ownerId, otherSkins);
+  return skins ? str(skins[charId]) : null;
+}
+
+/**
+ * Another Doctor's published choice `{ [charId]: skinId }` (m.public players[].skins, room.state seats[].skins), or null
+ * when 其他玩家的皮肤 (`otherSkins`) is off or they chose none — what an icon of their operator wears where no piece of
+ * theirs is at hand (the leader ranking's rows, the result's lineups, a watched teammate's bond popup: UnitThumb
+ * `skinsOf`), read by the operator of the body drawn, as the server's skinFor (docs/rules/ui.md 「스킨 고르기」).
+ * @param {any[]} players @param {any} playerId @param {boolean} [otherSkins]
+ * @returns {Record<string, string>|null}
+ */
+export function playerSkins(players, playerId, otherSkins = true) {
+  if (!otherSkins || playerId == null) return null;
+  const p = (Array.isArray(players) ? players : []).find((x) => x && x.playerId === playerId);
+  return p && isObj(p.skins) ? p.skins : null;
 }
 
 /**
@@ -221,15 +234,17 @@ export function skinPicture(skinId, ids, kind, { catalog = skinsStore.get().cata
 /**
  * The skin a picture of operator record `rec` (a chess record, a 自选 record, a 补位 stand-in: the body drawn) wears:
  * `skin` when the caller hands one it shows (a piece's or a unit's worn skin), else with `own` this browser's choice for
- * that operator (`map`, keyed by charId — a card opened without a piece: a shop slot, a bond popup's own row); null for
- * the default.
- * @param {any} rec @param {{ skin?: any, own?: boolean, map?: Record<string, string> }} [worn]
+ * that operator (`map`, keyed by charId — a card opened without a piece: a shop slot, a bond popup's own row), else
+ * another Doctor's published choice `of` (playerSkins: already null when 其他玩家的皮肤 is off); null for the default.
+ * @param {any} rec @param {{ skin?: any, own?: boolean, map?: Record<string, string>, of?: Record<string, string>|null }} [worn]
  * @returns {string|null}
  */
-export function wornSkin(rec, { skin = null, own = false, map = skinsStore.get()[SKINS_KEY] } = {}) {
+export function wornSkin(rec, { skin = null, own = false, map = skinsStore.get()[SKINS_KEY], of = null } = {}) {
   const id = str(skin);
   if (id) return id;
-  return own && rec && isObj(map) ? str(map[rec.charId]) : null;
+  if (!rec) return null;
+  if (own) return isObj(map) ? str(map[rec.charId]) : null;
+  return isObj(of) ? str(of[rec.charId]) : null;
 }
 
 /**
@@ -275,7 +290,7 @@ export function useSkinArt() {
 /**
  * The `kind` picture of operator record `rec` in the skin it wears (wornSkin), or null: the caller draws the default one.
  * @param {any} rec @param {'avatar'|'portrait'} kind @param {ReturnType<typeof skinArt>} ctx
- * @param {{ skin?: any, own?: boolean }} [worn]
+ * @param {{ skin?: any, own?: boolean, of?: Record<string, string>|null }} [worn]
  */
 export function skinPic(rec, kind, ctx, worn = {}) {
   const id = rec ? wornSkin(rec, { ...worn, map: ctx?.map }) : null;

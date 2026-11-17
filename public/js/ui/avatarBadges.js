@@ -22,6 +22,8 @@ import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { PHASE } from '../../../shared/constants.js';
 import { html } from './components.js';
 import { UnitThumb } from './gameComponents.js';
+import { playerSkins } from './skins.js';
+import { settingsStore } from './settings.js';
 import { uiUrl } from './assetUrls.js';
 import { data } from '../data.js';
 import { t, tc } from '../../../shared/i18n.js';
@@ -96,10 +98,11 @@ export function AvatarBadges({ player, self = false, phase = null }) {
  * The leader ranking at the right edge during a boss round: the match's top 3 operators against the leader
  * (m.public.leaderTop, views.js _leaderTopView) — any player, the viewer too, one player may hold two rows (the official
  * 规程 recording; maintainer decision 2026-11-15) — each with its player's name, the operator's share of the leader and
- * its portrait.
- * @param {{ pub: any }} props
+ * its portrait — the viewer's own operator in this browser's chosen skin, another player's in the one they published
+ * (m.public players[].skins) while 其他玩家的皮肤 is on (docs/rules/ui.md 「스킨 고르기」).
+ * @param {{ pub: any, myId?: string|null }} props
  */
-export function BossDamagePanel({ pub }) {
+export function BossDamagePanel({ pub, myId = null }) {
   const c = badgeConstants();
   const phase = pub?.phase;
   const live = !!c && Array.isArray(c.bossDamageThresholds) && isBoss(phase);
@@ -114,6 +117,7 @@ export function BossDamagePanel({ pub }) {
   }, [live, key]);
   if (!live || shown !== key) return null;
   const names = new Map((pub.players || []).map((p) => [p?.playerId, p?.name]));
+  const others = settingsStore.get().otherSkins !== false;
   const rows = (Array.isArray(pub.leaderTop) ? pub.leaderTop : []).filter((r) => r && typeof r.chess === 'string' && Number.isFinite(r.pct)).slice(0, 3);
   if (!rows.length) return null;
   return html`<aside class=${hidden ? 'bdmg is-hidden' : 'bdmg'} aria-label=${t('领袖伤害')}>
@@ -127,7 +131,8 @@ export function BossDamagePanel({ pub }) {
       return html`<li key=${`${i}:${r.pid}:${r.chess}`} class=${`bdmg__row is-r${rank}`}>
         <span class="bdmg__name">${playerName(names.get(r.pid)) || t('博士')}</span>
         <${Pct} pct=${r.pct} />
-        <span class="bdmg__op"><${UnitThumb} kind=${kind} id=${r.chess} size="sm" /></span>
+        <span class="bdmg__op"><${UnitThumb} kind=${kind} id=${r.chess} size="sm"
+          ownSkin=${r.pid === myId} skinsOf=${r.pid === myId ? null : playerSkins(pub.players, r.pid, others)} /></span>
       </li>`;
     })}</ol>`}
   </aside>`;

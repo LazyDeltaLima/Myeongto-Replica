@@ -2556,7 +2556,7 @@ upstream v0.4.0 대조에서 받은 화면 수정(`docs/rules/upstream.md` 「�
   일러스트(고른 화질 판)가 캐시에 있으면 그 스킨 일러스트를 그 그림의 카드 틀로 그린다(위 「정비 화면 HUD」 배치 근거 — 공식 스크린샷 둘로 잼). 스킨
   일러스트는 카드 창으로 자르지 않는다(고르기 화면의 크게 보기도 같은 파일). 기물 없이 연 내 카드(상점 칸·내 맹약 팝업의 줄 — `resolveDetail`이
   `skin: { own: true }`)는 이 브라우저의 선택을, 유닛 카드는 그 유닛이 입은 스킨(`UnitInfo.skin` → `skin: { id, mine }`)을 쓰되 남의 유닛은 「다른 플레이어
-  스킨」이 켜져 있을 때만(필드의 모델과 같은 규칙, `docs/rules/render.md` 「스킨 렌더 게이트」) — `ui/skins.js cardWorn`. 팀원 맹약 팝업의 줄·금지 목록은 기본 그림.
+  스킨」이 켜져 있을 때만(필드의 모델과 같은 규칙, `docs/rules/render.md` 「스킨 렌더 게이트」) — `ui/skins.js cardWorn`. 팀원 맹약 팝업의 줄에서 연 카드·금지 목록은 기본 그림.
   재발 방지: `test/ui/skin-picker.test.js` 「detail card skin 立绘」(받기 전·캐시 없음·다른 오퍼레이터면 기본, 카드가 입은 스킨을 몸 ID로 묻는지,
   `cardWorn`)·「resolveDetail hands the card its skin」·「the real skin lists」(카드 틀 없는 스킨 일러스트면 실패).
 - 오퍼레이터 그림(2026-11-17 관리자 요청 「스킨을 고르면 상점 카드·아이콘도」): 내 오퍼레이터의 초상(1:2)·아바타(1:1)가 나오는 곳은 고른 스킨의 그림을 쓴다 —
@@ -2565,12 +2565,16 @@ upstream v0.4.0 대조에서 받은 화면 수정(`docs/rules/upstream.md` 「�
   선택(`ui/skins.js skinPic`·`skinPicture`). 그림은 스킨 데이터의 `art.json`(공개 그림 저장소에서 받은 것, 위 「목록」 — 오퍼레이터 스킨 모두 있음, 추출 불필요)이고,
   스킨 데이터를 다 받았고('done') 그 그림이 캐시에 있을 때만 — 안 받았거나 받는 중이면 기본 그림(관리자 결정 2026-11-17). 전략 고르기 순서 줄의 좌석 초상은 대기실
   좌석 카드와 같은 스킨(`seatCardSkin`)을 같은 'done' 조건으로. 그대로 기본 그림인 곳: 고르기 칸의 「기본」 타일, 명함 오퍼레이터 고르기 목록, 오퍼레이터 보유 목록
-  (오퍼레이터와 그 대체 오퍼레이터를 나란히 보여 주는 참고), 맹약·금지 목록 같은 자료 참고(S.W.E.E.P. 보고서, 업적 통계, 콘솔, 판 정보의 금지 목록). 남의 오퍼레이터
-  아이콘(보스 대미지 순위의 남의 줄, 결산의 남의 진형)은 기본 그림 — 남의 선택은 유닛 카드와 대기실 좌석 카드에서만.
+  (오퍼레이터와 그 대체 오퍼레이터를 나란히 보여 주는 참고), 맹약·금지 목록 같은 자료 참고(S.W.E.E.P. 보고서, 업적 통계, 콘솔, 판 정보의 금지 목록).
+  남의 오퍼레이터 아이콘(보스 대미지 순위의 남의 줄, 결산의 남의 진형·대미지 표·연합 방어 표의 남의 줄, 지켜보는 팀원의 맹약 팝업 줄)은 「다른 플레이어 스킨」이 켜져
+  있으면 그 플레이어가 공개한 선택(`m.public players[].skins` — 서버 `skinFor`와 같이 그려지는 몸의 charId로: 대체 오퍼레이터면 그 몸, 선발이면 고른
+  오퍼레이터)을, 꺼져 있으면 기본 그림(관리자 요청 2026-11-17) — `ui/skins.js playerSkins` → `UnitThumb skinsOf`. 기물이 따로 없는 목록이라 지금 선택을 따르고
+  (전투 중에 바꾼 스킨은 필드의 유닛은 그대로, 아이콘은 새 선택), 보스 대미지 순위의 내 줄은 이 브라우저 선택. 스킨 데이터를 안 받았으면 모두 기본 그림.
   잎 컴포넌트는 훅 없이 `skinArt()`로 지금 값을 읽고, 앱 뿌리(`main.js App`의 `useSkinArt`)가 선택·목록·받기 상태가 바뀔 때 트리 전체를 다시 그리고 목록을
   받는다(스킨 데이터를 다 받기 전에는 목록도 받지 않음). WebGL 없는 대체 필드는 다음 그리기에서 바뀐다.
   재발 방지: `test/ui/skin-picker.test.js` 「every operator picture goes through the skin」(`chessAvatarUrl`·`chessPortraitUrl`을 부르는 줄은 같은 줄에
-  `skinPic`이 있거나 파일이 이유와 함께 예외 목록에 있어야 함 — 상점 카드를 되돌려 실패를 봄)·「skinPicture」·「wornSkin / skinPic」.
+  `skinPic`이 있거나 파일이 이유와 함께 예외 목록에 있어야 함 — 상점 카드를 되돌려 실패를 봄)·「skinPicture」·「wornSkin / skinPic」·「another player's operator
+  icon」·「the leader ranking, the result's lineups and a teammate's bond popup」(`UnitThumb`의 `of: skinsOf`를 빼서 실패를 봄).
 - 문구 아홉(`en.json`·`ko/ui.json`), 한국어는 시안 문구 그대로.
 - 확인: `test/ui/skin-picker.test.js`(목록·선택·상태·타일·상자·크게 보기·두 화면 자리·폰 전환·보내기·좌석 카드, 그리고 이 체크아웃에 목록이 있으면 실제 목록에서
   고르기 화면이 그리는 그림이 모두 리소스 목록 파일인지). 화면은 관리자가 확인(구현 뒤 전후 캡처 반복 없이).
