@@ -166,6 +166,12 @@ export function updateAlly(b, u, dt) {
   // (a stage of the cast still to come: on the clip's last tick the skill ticks after this — it may move the unit, skills.js _tickCast)
   // (a begin clip's last tick: the skill starts after this, in its tick — skills.js _tickBegin)
   if (u.skillStateUntil > b.time + 1e-9 || (sk?._castStage && !sk._castStage.cut) || sk?._begin) { u.atkSpell = 0; return; }
+  // entering the COMBAT state (from ATTACK, IDLE, or back from a state that left it: a stun, a skill, the born state)
+  // casts a first attack only when the combat ability is ready right then (`Character.States.CombatState.OnEnter`: its
+  // `get_combat.isReady` → `_NextCombatOrExit(true)`, else nothing — the swing waits for `OnTick`'s
+  // `_NextCombatOrExit(false)`): a block found while the combat cooldown runs gives no first attack. (The ATTACK state
+  // always does: `AttackState.OnEnter` falls back to IDLE when its cast fails, and IDLE enters it again.)
+  if (u.atkCombat && u.atkSpell !== 2 && (u.atkCd > 0 || u.castLeft > 0)) u.atkSpell = 2;
   if (u.faceTgt) holdFaceTarget(b, u, prof);
   if (u.atkCd > 0 || u.castLeft > 0) return;
   // a 'replace' cast (skills.js): this attack goes out as the skill, with or without a target of the attack's own
@@ -194,8 +200,10 @@ export function updateAlly(b, u, dt) {
     if (ct && targets[0] !== ct) targets = [ct, ...targets.filter((t) => t !== ct)].slice(0, Math.max(1, targets.length));
   }
   const combat = attackRecordOf(u)?.combat ? (u.atkCombat ? 1 : 0) : targets[0] && u.blocking?.includes(targets[0]) ? 1 : 0;
-  // the first swing since the unit entered its attack (1) or combat (2) state (attackTiming `first`)
-  const state = combat ? 2 : 1;
+  // the first swing since the unit entered its attack (1) or combat (2) state (attackTiming `first`). Only a mode with a
+  // `_combat` ability has a COMBAT state (`Character._FetchCombatTarget` finds no target without `hasCombat`): any other
+  // unit attacks the enemies it blocks in its ATTACK state, so a blocked target starts no new spell
+  const state = u.atkCombat ? 2 : 1;
   const first = u.atkSpell !== state;
   const t = attackTiming(u, TIMING, first, prof._fortressMelee === false);
   u.atkSpell = state;
@@ -249,7 +257,7 @@ function startReplacement(b, u, sk) {
   u.atkMode = attackModeOf(u);
   u.atkCd = Math.max(u.atkCd, u.s.interval);
   // (the cast takes the attack state's turn: the next normal attack is no first attack)
-  u.atkSpell = u.atkSpell || 1;
+  u.atkSpell = u.atkSpell || (u.atkCombat ? 2 : 1);
   u.atkSpellExit = b.time + t.action;
   u.castLeft = t.action;
   u.swing = { left: t.strike, targets: null, sel: 0, isSkill: true, replace: sk, prof: null };

@@ -374,6 +374,50 @@ test('a separate combat ability: the unblocked attack waits out its own cooldown
   done(h);
 });
 
+// docs/rules/sim.md 「일반 공격 타이밍」 「첫 공격 begin」: `CombatState.OnEnter` casts a first attack only when the combat
+// ability is ready as the unit enters the state; the ATTACK state's entry always does
+const SEC = 'docs/rules/sim.md 「첫 공격 begin」 (CombatState.OnEnter isReady)';
+const swingsOf = (h, u) => h.eventsOf('swing').filter((e) => e[1] === u.id);
+
+test('a combat state entered with the combat ability ready opens on a first attack; entered on its cooldown, it does not', () => {
+  const { h, u } = bothField();
+  h.run(0.5);   // the attack swing from the first tick struck (its cooldown runs to ~2 s)
+  const e = blockIt(h, u);
+  h.runUntil(() => swingsOf(h, u).length === 2, 1);
+  let sw = swingsOf(h, u).at(-1);
+  assert.equal(sw[6], 1, `a combat swing: ${JSON.stringify(sw)}`);
+  assert.equal(sw[7], 2, `the combat ability ready at the entry: a first attack — ${SEC}: ${JSON.stringify(sw)}`);
+  // the block ends; the combat swing plays out, the unit attacks again in its ATTACK state (a new spell: first)
+  h.run(HIT);
+  u.blocking.length = 0; e.blockedBy = null;
+  h.runUntil(() => swingsOf(h, u).length === 3, 3);
+  sw = swingsOf(h, u).at(-1);
+  assert.equal(sw[6] ?? 0, 0, `an attack swing: ${JSON.stringify(sw)}`);
+  assert.equal(sw[7], 2, `the attack state's entry: a first attack: ${JSON.stringify(sw)}`);
+  // blocked again while the combat cooldown (from ~0.53 s) still runs: the combat swing that follows is no first attack
+  h.step();
+  assert.ok(u.atkCombat === false && u.atkCdAlt > 0, 'the combat cooldown is running');
+  u.blocking.push(e); e.blockedBy = u;
+  h.runUntil(() => swingsOf(h, u).length === 4, 2);
+  sw = swingsOf(h, u).at(-1);
+  assert.equal(sw[6], 1, `a combat swing: ${JSON.stringify(sw)}`);
+  assert.equal(sw[7], undefined, `entered on the combat cooldown: no first attack — ${SEC}: ${JSON.stringify(sw)}`);
+  done(h);
+});
+
+test('a unit without a combat ability attacks a newly blocked enemy in its ATTACK state: no new first attack', () => {
+  const { h, u } = field({ begin: 0.2 });
+  h.run(0.5);
+  assert.equal(swingsOf(h, u)[0][7], 1, 'the first swing opens on its begin');
+  const e = h.b.enemies[0];
+  u.blocking.push(e); e.blockedBy = u;
+  h.runUntil(() => swingsOf(h, u).length === 2, 3);
+  const sw = swingsOf(h, u)[1];
+  assert.equal(sw[6], 1, `the blocked target (the renderer's combat clip): ${JSON.stringify(sw)}`);
+  assert.equal(sw[7], undefined, `no COMBAT state without \`hasCombat\`, so no begin — ${SEC}: ${JSON.stringify(sw)}`);
+  done(h);
+});
+
 test('a mode the running skill switches to on the way (atkSub): its attack is ready at once, on its own clip; the old swing cut by `det`', () => {
   const { h, u } = bothField({ swingSub: true });
   h.run(1.2);
