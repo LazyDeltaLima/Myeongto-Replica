@@ -443,7 +443,7 @@ test('蕾缪安 S2 (2026-10-24, 묶음 S2): the aim\'s crosshair on its target a
   assert.deepEqual(em.play, [{ n: 'lumen_buff_01_hit', on: 'id', life: 'once' }], 'on the ally it heals (묶음 S3)');
   // a plan's `stop` also ends its tagged lines (fxgame.js officialKitFx → startLine meta)
   assert.match(GAME, /for \(const l of elines\.values\(\)\) if \(l\.tag === tag && l\.owner === opId\) l\.until = Math\.min\(l\.until, clockS\);/);
-  assert.match(GAME, /const meta = p\.tag \|\| p\.life === 'skill' \? \{ tag: p\.tag \?\? null, owner: opId, skill: p\.life === 'skill' \} : null;/);
+  assert.match(GAME, /const meta = \{ \.\.\.\(p\.tag \|\| p\.life === 'skill' \? \{ tag: p\.tag \?\? null, owner: opId, skill: p\.life === 'skill' \} : null\), hook: op \};/);
 });
 
 test('溯光星源 S3 and 伊内丝 S3 (2026-10-24, 묶음 S4): one line through the locks for the skill; the recalled sentry stops where it stood', () => {

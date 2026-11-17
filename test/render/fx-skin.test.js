@@ -23,9 +23,12 @@ const DOC = {
     // 流星 (shotst): a skin whose pairs turn her S2 arrow and its hit, one whose fake projectile draws nothing in its place
     'char_126_shotst@x#1': { owner: 'char_126_shotst', effects: { shotst_skill_02_trail: 'shotst_skill_02_trail_x#1', shotst_skill_01_hit: 'shotst_skill_01_hit_x#1' } },
     'char_126_shotst@y#2': { owner: 'char_126_shotst', projectiles: [{ from: 'projectile_shotst_s2', graphic: 'projectile_shotst_s2_graphic', logic: 'projectile_shotst_s2_logic', muzzle: 2 }] },
+    'char_1020_reed2@x#1': { owner: 'char_1020_reed2', effects: { reed2_debuff_boom_01: 'reed2_debuff_boom_01_x#1' } },
+    'char_311_mudrok@x#1': { owner: 'char_311_mudrok', effects: { mudrok_buff_01_hit: 'mudrok_buff_01_hit_x#1' } },
   },
   files: { 'a_birth_boc#1': 'skin/a/a_birth_boc-1.json', 'a_attack_hit_boc#1': 'skin/a/a_attack_hit_boc-1.json', 'a_kid': 'skin/a/a_kid.json',
-    'shotst_skill_02_trail_x#1': 'skin/shotst/shotst_skill_02_trail_x-1.json', 'shotst_skill_01_hit_x#1': 'skin/shotst/shotst_skill_01_hit_x-1.json' },
+    'shotst_skill_02_trail_x#1': 'skin/shotst/shotst_skill_02_trail_x-1.json', 'shotst_skill_01_hit_x#1': 'skin/shotst/shotst_skill_01_hit_x-1.json',
+    'reed2_debuff_boom_01_x#1': 'skin/reed2/reed2_debuff_boom_01_x-1.json', 'mudrok_buff_01_hit_x#1': 'skin/mudrok/mudrok_buff_01_hit_x-1.json' },
   projectileEffects: { projectile_a: ['A_Trail'], projectile_a_graphic: ['a_trail'], projectile_a_s2: ['a_s2_trail'], projectile_shotst_s2: ['shotst_skill_02_trail'] },
   missing: { effects: [], projectiles: ['projectile_a_s2_graphic'] },
 };
@@ -56,7 +59,8 @@ const CHESS = read('data/chess.json');
 const chessOf = (charId) => Object.values(CHESS.chess || CHESS).find((c) => c?.charId === charId);
 const BIND = (id) => Object.fromEntries(['modes', 'skillMode', 'cast', 'hit', 'hitGroups', 'tgtStart', 'trail', 'skills'].filter((k) => k in MODES[id]).map((k) => [k, MODES[id][k]]));
 const files = {
-  '/assets/local/fx/index.json': { bundles: { a: ['a_attack_hit', 'a_trail'], common: ['common_char_birth_01'], shotst: ['shotst_skill_02_trail', 'shotst_skill_01_hit'] } },
+  '/assets/local/fx/index.json': { bundles: { a: ['a_attack_hit', 'a_trail'], common: ['common_char_birth_01'], shotst: ['shotst_skill_02_trail', 'shotst_skill_01_hit'],
+    reed2: ['reed2_debuff_boom_01'], mudrok: ['mudrok_buff_01_hit'] } },
   '/assets/local/fx/modes.json': { char_126_shotst: BIND('char_126_shotst') },
   '/assets/local/fx/enemy-index.json': { bundles: {} },
   '/assets/local/fx/enemy-modes.json': { $fx: {} },
@@ -147,6 +151,63 @@ test('syncStatusFx hands the effect layer each status effect\'s applier (null on
   const own = { ...foe(7, 1), flags: 0, statuses: new Set(['stun']) };
   syncStatusFx(new Map([[2, op(2, 'char_1_a', SK)], [9, holder], [8, other], [7, own]]), fx, true);
   assert.deepEqual(calls, [[9, 'stun', 2], [8, 'stun', null], [7, 'stun', 7]], `${RULE}: the applier's view (id 5 is gone: null), the holder without one`);
+});
+
+test('a kit event\'s effect made by an operator but owned by none or by its target is the maker\'s: a skin\'s pairs (spawn `hook`)', () => withSkinLayer(async ({ layer, take }) => {
+  // 焰影苇草 S3's burst where a 灼痕 enemy died (no owner, on a point); 泥岩's layer blocking a hit (her own buff, on her: the
+  // BlockDamage `_useSource` BUFF_OWNER)
+  for (const [sk, want] of [[null, 'reed2_debuff_boom_01'], ['char_1020_reed2@x#1', 'reed2_debuff_boom_01_x#1']]) {
+    layer.onEvent(['fx', 'scorchBurst', 1, 0, { id: 4 }], new Map([[4, op(4, 'char_1020_reed2', sk)]]));
+    await settle();
+    assert.deepEqual(take('spawn'), [want], `${RULE} 「만든 쪽」: the burst is hers (skin ${sk})`);
+  }
+  for (const [sk, want] of [[null, 'mudrok_buff_01_hit'], ['char_311_mudrok@x#1', 'mudrok_buff_01_hit_x#1']]) {
+    layer.onEvent(['fx', 'parry', 0, 0, { id: 5, buff: 'mudrok:layers', whole: 1 }], new Map([[5, op(5, 'char_311_mudrok', sk)]]));
+    await settle();
+    assert.deepEqual(take('spawn'), [want], `${RULE} 「만든 쪽」: her layer's block effect is hers (skin ${sk})`);
+  }
+}));
+
+// Every spawn() call of the effect layer either hands the unit that makes the effect (`hook`) or is listed here with why it
+// needs none — a new kit branch that plays an operator's effect without an owner (or on its target) would show the default
+// effect under a skin. Counted per enclosing function: a function whose calls change updates its count.
+const OWNER = 'its owner is the unit that makes it', ENEMY = 'an enemy\'s or a map\'s: no skin';
+const NO_HOOK = {
+  onEmitPlay: [1, 'a playing effect\'s OnPlay/OnFinish emitters: named by its prefab (a skin prefab names its own), the parent\'s owner'],
+  tplFx: [3, 'a mode template\'s CreateEffect: no skin pairs a template effect (skin-effects.json)'],
+  palsyFx: [1, 'the sim\'s palsy names no applier'], burstFx: [1, 'the sim\'s element burst names no applier'],
+  judgeShield: [1, OWNER], pendingHit: [1, OWNER], cabinMark: [1, OWNER], pickFx: [8, OWNER], officialKitFx: [1, OWNER],
+  chargeSync: [1, OWNER], chargeStore: [1, OWNER], svashBird: [1, OWNER], edgeLines: [1, OWNER], droneIdle: [1, OWNER],
+  kitFx: [1, OWNER], skillEnd: [1, OWNER], foeFx: [1, OWNER], tokenAura: [1, OWNER], flushDeploys: [1, OWNER],
+  moduleFx: [1, OWNER], alwaysOn: [1, OWNER], defaultModeFx: [1, OWNER],
+  exposeFx: [1, ENEMY], eplay: [1, ENEMY], emortarFx: [2, ENEMY], emortarLand: [1, ENEMY], dshellFx: [1, ENEMY],
+  dshellBlast: [1, ENEMY], eprojTelegraph: [1, ENEMY], eshotBlast: [1, ENEMY], cannonBlast: [1, ENEMY], eprojAreaFx: [2, ENEMY],
+  stepSand: [1, ENEMY], acRainFx: [1, ENEMY], soulFx: [2, ENEMY], ecolumnFx: [1, ENEMY], eholdBuff: [1, ENEMY], efaithFx: [1, ENEMY],
+  stepBountyMarks: [1, ENEMY], stepStageTiles: [1, ENEMY], erebornAbility: [1, ENEMY], eblinkFx: [1, `${ENEMY} (the band tiles below it)`],
+};
+test('every spawn() of the effect layer names the unit that makes its effect, or is listed with why not', () => {
+  const src = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
+  const lines = src.split('\n'), starts = [0];
+  for (const l of lines) starts.push(starts[starts.length - 1] + l.length + 1);
+  const unhooked = {};
+  let calls = 0, hooked = 0;
+  lines.forEach((ln, i) => {
+    if (/^\s*(\/\/|\*|\/\*\*)/.test(ln)) return;
+    for (const m of ln.matchAll(/(?<![.\w])spawn\(/g)) {
+      if (/function\s+spawn\($/.test(ln.slice(0, m.index + 6))) continue;
+      let depth = 0, j = starts[i] + m.index + 5, call = '';
+      for (; j < src.length; j++) { const c = src[j]; call += c; if (c === '(') depth++; else if (c === ')' && !--depth) break; }
+      calls++;
+      if (/\bhook\b/.test(call)) { hooked++; continue; }
+      let fn = '?';
+      for (let k = i; k >= 0; k--) { const f = /^\s*(?:async\s+)?function\s+(\w+)/.exec(lines[k]); if (f) { fn = f[1]; break; } }
+      unhooked[fn] = (unhooked[fn] || 0) + 1;
+    }
+  });
+  assert.ok(calls > 80 && hooked >= 40, `the sweep found ${calls} spawn() calls, ${hooked} with a hook`);
+  const want = Object.fromEntries(Object.entries(NO_HOOK).map(([k, [n]]) => [k, n]));
+  assert.deepEqual(unhooked, want, `${RULE} 「만든 쪽」: a spawn() without \`hook\` outside this list — hand it the unit that makes the effect `
+    + '(the client hooks every effect by its source), or list the function here with why it needs none');
 });
 
 test('FxLibrary: a skin prefab loads from fx/skin/<bundle>/, its own textures and meshes from fx/skin/tex|mesh/', async () => {

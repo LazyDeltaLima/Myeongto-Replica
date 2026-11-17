@@ -2074,7 +2074,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (mine && stonesOn()) ownFx.add(e);
     if (e[1] === 'wangThrow') { // on the cast tile, at its top (as the landed 跟子's view stands)
       const x = Number(o.c ?? e[2]), y = Number(o.r ?? e[3]);
-      throwStart({ x, y, z: tileTop(x, y) });
+      throwStart({ x, y, z: tileTop(x, y) }, views.get(o.id));
       return true;
     }
     if (e[1] === 'zone' && o.token === STONE) {
@@ -2082,7 +2082,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const axes = Array.isArray(o.axes) && o.axes.length ? o.axes : ['h'];
       if (o.skill === 2) for (const a of axes) playAt(fx.at, at, { deg: a === 'v' ? 90 : 0 });
       else playAt(fx.at, at);
-      if (fx.target) stoneHits.push({ t: clockS, x: at.x, y: at.y, skill: o.skill, axes, by: o.target, name: fx.target, done: new Set() });
+      if (fx.target) stoneHits.push({ t: clockS, x: at.x, y: at.y, skill: o.skill, axes, by: o.target, name: fx.target, done: new Set(), hook: views.get(o.id) ?? null });
       return true;
     }
     if (e[1] === 'wangLink') {
@@ -2123,9 +2123,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // of the 跟子 THROW_S later the landing (2026-10-31; before, the throw started at the 'summon' and landed 0.25 s after it)
   // (2026-10-16 maintainer report: it was played on her)
   const THROW_S = 0.25;
-  function throwStart(at) {
+  function throwStart(at, by) {
     const t0 = clockS;
-    spawn(FOLLOWER_FX, 'wang_passive_01_start', at, { owner: null, buff: false }, { over: false }).then((l) => {
+    spawn(FOLLOWER_FX, 'wang_passive_01_start', at, { owner: null, buff: false }, { over: false, hook: by }).then((l) => {
       if (!l) return;
       l.until = Math.max(clockS, t0 + THROW_S);
       const fin = Number(l.inst.def?.finish);
@@ -2145,7 +2145,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (h.done.has(tid) || (tid !== h.by && !inStoneBlast(h.skill, h.axes, tgt.x - h.x, tgt.y - h.y))) continue;
       h.done.add(tid);
       claimed = true;
-      spawn(STONE_FX, h.name, tgt, { owner: null, buff: false });
+      spawn(STONE_FX, h.name, tgt, { owner: null, buff: false }, { hook: h.hook });   // the stone's (the 'zone' `id`)
     }
     return claimed;
   }
@@ -2811,7 +2811,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * One prefab of `bundle` at `at` (a view or point, followed): entry = addLive's { owner, buff, until, on (the unit it sits
    * on: stopped at its 'die') }; `over` puts it over the units; `floor` the height under which it is cut (default: its own
    * for one under the units, else 0). `hook`: the unit that creates it when that is not `entry.owner` (a skill projectile's
-   * flight and reach effects, a kit's marks on its targets) — its skin's effect plays. Resolves the live entry (null if not played).
+   * flight and reach effects, a kit's marks on its targets) — its skin's effect plays. Every call hands it or is listed with
+   * why it needs none (test/render/fx-skin.test.js NO_HOOK). Resolves the live entry (null if not played).
    */
   async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null, dir = null, floor = null, hook = null } = {}) {
     if (!fxIn(bundle, name) && !(hook && skinOf(hook) && skinAt(bundle, name))) return null;
@@ -2939,15 +2940,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const AFTER_FX = { 'mudrok:layers': 'common_heal_hit_01' };
   const BREAK_FX = { 'ab:xiShield[c]': ['pfx_enemy_14', 'enemy_xi_skill_02_buff_03'], 'ab:rockPower[3]': ['pfx_enemy_8', 'enemy_mdrock_skill_buff_05'] };
   const SHATTERS = new Set(['ab:rockPower[3]']);
+  // 2026-11-17 (official tables + client): BlockDamage creates its block effect with a source only when the node's `_useSource`
+  // (GetActionTarget `_sourceType`; the default common_buff_parry_01 never has one) — 泥岩's mudrok_t_1[shield_a/b/c] BUFF_OWNER
+  // and 斥罪's judge_t_1 SOURCE, both the holder: a skin of hers turns it (spawn `hook`); 凛御银灰's `shield` template has none
+  const BLOCK_SRC = new Set(['mudrok:layers', 'talent:judge:barrier']);
   const brokeOwn = new Set();   // ids whose barrier break played its official effect this moment
   const anyBundle = (n) => Object.keys(index?.bundles || {}).find((b) => index.bundles[b].includes(n)) || null;
   function parryFx(e, views) {
     const tgt = views?.get?.(e[4]?.id);
     if (!tgt || failed || q() === 'low') return;
-    const at = (b, n) => { if (b && index?.bundles?.[b]?.includes(n)) spawn(b, n, tgt, { owner: null, buff: false, on: tgt.id ?? e[4].id, tag: 'parry' }, { over: true, facing: efacing(tgt) }); };
+    const at = (b, n, hook = null) => { if (b && index?.bundles?.[b]?.includes(n)) spawn(b, n, tgt, { owner: null, buff: false, on: tgt.id ?? e[4].id, tag: 'parry' }, { over: true, facing: efacing(tgt), hook }); };
     if (e[4].whole !== 0) {
       const own = BLOCK_FX[e[4].buff];
-      at(...(own && index?.bundles?.[own[0]]?.includes(own[1]) ? own : ['common', PARRY]));
+      if (own && index?.bundles?.[own[0]]?.includes(own[1])) at(own[0], own[1], BLOCK_SRC.has(e[4].buff) ? tgt : null);
+      else at('common', PARRY);
       const after = AFTER_FX[e[4].buff];
       if (after) at(anyBundle(after), after);
     }
@@ -3059,7 +3065,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (p.src._fxMarked.has(tid)) continue;
         p.src._fxMarked.add(tid);
         for (const n of p.names) spawn(b.bundle, n, tgt, { owner: srcId, buff: true, on: tid, until: null });
-      } else for (const n of p.names) spawn(b.bundle, n, tgt, { owner: null, buff: false });
+      } else for (const n of p.names) spawn(b.bundle, n, tgt, { owner: null, buff: false }, { hook: p.src });
     }
     if (claimed) lastAtk.delete(tid);
     return claimed;
@@ -3154,7 +3160,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           ownFx.add(e);
           if (!(v._clemntMark > clockS)) {
             v._clemntMark = Math.max(clockS + 0.2, cabinEnd.get(o.src) || 0);
-            spawn(b.bundle, n, v, { owner: o.id, buff: true, until: v._clemntMark });
+            spawn(b.bundle, n, v, { owner: o.id, buff: true, until: v._clemntMark }, { hook: views.get(o.src) });   // her buff on it: hers
           }
           return true;
         }
@@ -3163,7 +3169,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const b = pickOf(views.get(o.id), 'kalts2'), n = pickName(b, 'kalts2_skill_03_teleport_end_01');
         if (!n) return false;
         ownFx.add(e);
-        spawn(b.bundle, n, views.get(o.id) || { x, y, z: 0 }, { owner: null, buff: false });
+        spawn(b.bundle, n, views.get(o.id) || { x, y, z: 0 }, { owner: null, buff: false }, { hook: views.get(o.id) });
         return true;
       }
       // 克莱门莎 S3: projectile_chr_clemnt_s3 flies with no effect (its fall is a sound) and `_effectsWhenReached` Mark_all_01, which
@@ -3173,7 +3179,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const b = pickOf(views.get(o.src), 'clemnt'), n = pickName(b, 'clemnt_skill_03_Mark_all_01');
         if (!n) return false;
         ownFx.add(e);
-        spawn(b.bundle, n, { x, y, z: 0 }, { owner: null, buff: false, on: o.src }, { over: false });
+        spawn(b.bundle, n, { x, y, z: 0 }, { owner: null, buff: false, on: o.src }, { over: false, hook: views.get(o.src) });
         return true;
       }
       // (2026-11-01) 塔露拉 S3 日冕重烈: each wave's 簇火 (EmitDirectionalMapEdgeProjectileVolley, one projectile a lane:
@@ -3198,7 +3204,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             const g = glider(x0, y0, x1, y1, dur, 0);
             let stop = null;   // where it exploded: the trail's remains stay there
             const at = { get x() { return stop ? stop.x : g.x; }, get y() { return stop ? stop.y : g.y; }, z: 0, alive: true };
-            fire.l = spawn(b.bundle, n, at, { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
+            fire.l = spawn(b.bundle, n, at, { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur }, { hook: views.get(o.id) })
               .then((r) => { if (r) bodyTurn(r.inst, mod.THREE, Math.atan2(y1 - y0, x1 - x0)); return r; });
             fire.end = () => { stop = { x: g.x, y: g.y }; };
             castsDelayed.push({ t: clockS + dur, run: () => { if (oxiFires.get(k) === fire) oxiFires.delete(k); } });
@@ -3218,7 +3224,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             fire.gone = true;
             if (fire.l) { fire.end(); fire.l.then((l) => { if (l) { l.shotEnd = null; finishShot(l.inst, l); } }); }
           }
-          if (hit) spawn(b.bundle, hit, { x, y, z: 0 }, { owner: null, buff: false }, { over: false });
+          if (hit) spawn(b.bundle, hit, { x, y, z: 0 }, { owner: null, buff: false }, { over: false, hook: views.get(o.id) });
           ownFx.add(e);
           return true;
         }
@@ -3238,7 +3244,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (e[1] === 'aoe' && o.skill === 'phatm2:call') {
           if (failed || !index?.bundles?.phatm2_token?.includes('token_encdool_skill_02_range_02')) return false;
           ownFx.add(e);
-          spawn('phatm2_token', 'token_encdool_skill_02_range_02', { x, y, z: 0 }, { owner: null, buff: false }, { over: false });
+          spawn('phatm2_token', 'token_encdool_skill_02_range_02', { x, y, z: 0 }, { owner: null, buff: false }, { over: false, hook: views.get(o.id) });
           return true;
         }
         const b = pickOf(views.get(o.id), 'kalts2');
@@ -3250,7 +3256,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (e[1] !== 'aoe') return true;
         for (const m of [n, ...(heal ? ['kalts2_skill_02_indicator_heal_01', 'kalts2_skill_02_range_damage_01_delay'] : ['kalts2_skill_02_indicator_damage_01', 'kalts2_skill_02_range_heal_01_delay'])]) {
           const k = pickName(b, m);
-          if (k) spawn(b.bundle, k, { x, y, z: 0 }, { owner: null, buff: false }, { over: false });
+          if (k) spawn(b.bundle, k, { x, y, z: 0 }, { owner: null, buff: false }, { over: false, hook: views.get(o.id) });
         }
         return true;
       }
@@ -3263,12 +3269,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (!b || !Number.isFinite(tx) || !Number.isFinite(ty)) return false;
         ownFx.add(e);
         const start = pickName(b, 'kalts2_skill_03_teleport_01'), trail = pickName(b, 'kalts2_skill_03_teleport_trail_01');
-        if (start) spawn(b.bundle, start, { x, y, z: 0 }, { owner: null, buff: false });
+        if (start) spawn(b.bundle, start, { x, y, z: 0 }, { owner: null, buff: false }, { hook: src });
         const z = src && camRef ? bodyZ(camRef, src, SPAWN_FRAC[2]) - (src.z || 0) : 0.5;
         // turned along its flight, as every projectile's `_mainEffect` (placeTrail)
         if (trail) {
           const z0 = src?.z || 0;   // both ends drawn over their points (fx/camera.js liftX)
-          spawn(b.bundle, trail, glider(liftX(camRef, x, y, z0, z0 + z), y, liftX(camRef, tx, ty, z0, z0 + z), ty, dur, z0 + z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
+          spawn(b.bundle, trail, glider(liftX(camRef, x, y, z0, z0 + z), y, liftX(camRef, tx, ty, z0, z0 + z), ty, dur, z0 + z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur }, { hook: src })
             .then((l) => { if (l) bodyTurn(l.inst, mod.THREE, Math.atan2(ty - y, tx - x)); });
         }
         return true;
@@ -3406,7 +3412,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         });
         // `ready`: played where an empty slot starts again (a projectile's _coolDownReadyEffectOnProjectilePos)
         const rn = !s && p.ready ? pickName(pb, p.ready) : null;
-        if (rn) spawn(pb.bundle, rn, pt, { owner: null, buff: false, on }, { over: !!sv });
+        if (rn) spawn(pb.bundle, rn, pt, { owner: null, buff: false, on }, { over: !!sv, hook: op });
         n++;
         continue;
       }
@@ -3414,7 +3420,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         // (2026-10-24, 묶음 S4) one field naming a list: a line through its units in order (溯光星源 S3's locks)
         const ends = p.line.length === 1 ? [o[p.line[0]]].flat().map((id, i, a) => [id, a[i + 1]]).slice(0, -1)
           : [o[p.line[1]]].flat().map((id) => [o[p.line[0]], id]);
-        const meta = p.tag || p.life === 'skill' ? { tag: p.tag ?? null, owner: opId, skill: p.life === 'skill' } : null;
+        const meta = { ...(p.tag || p.life === 'skill' ? { tag: p.tag ?? null, owner: opId, skill: p.life === 'skill' } : null), hook: op };
         for (const [a, z] of ends) {
           const from = views.get(a), to = views.get(z);
           if (from && to) { startLine(pb.bundle, name, from, to, p.life === 'once' ? -1 : 1e6, { sMount: 1, eMount: 1 }, meta); n++; }
@@ -3433,7 +3439,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const dur = Math.hypot(x1 - fx0, y1 - fy0) / p.fly, z = camRef ? bodyZ(camRef, op, SPAWN_FRAC[2]) - (op.z || 0) : 0.5;
         flight = Math.max(flight, wait + dur);
         const z0 = op.z || 0;   // both ends drawn over their points (fx/camera.js liftX)
-        const shoot = () => spawn(pb.bundle, name, glider(liftX(camRef, fx0, fy0, z0, z0 + z), fy0, liftX(camRef, x1, y1, z0, z0 + z), y1, dur, z0 + z), { owner: p.tag ? opId : null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur, ...(p.tag ? { tag: p.tag } : {}) })
+        const shoot = () => spawn(pb.bundle, name, glider(liftX(camRef, fx0, fy0, z0, z0 + z), fy0, liftX(camRef, x1, y1, z0, z0 + z), y1, dur, z0 + z), { owner: p.tag ? opId : null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur, ...(p.tag ? { tag: p.tag } : {}) }, { hook: op })
           .then((l) => { if (l) bodyTurn(l.inst, mod.THREE, Math.atan2(y1 - fy0, x1 - fx0)); });
         if (wait > 0) castsDelayed.push({ t: clockS + wait, run: shoot }); else shoot();
         n++;
@@ -3453,13 +3459,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
               : p.life === 'unit' ? { owner: null, buff: false, until: null, on }
                 : typeof p.life === 'number' ? { owner: null, buff: false, until: clockS + p.life, on }
                   : { owner: null, buff: false, on };
-        const go = () => spawn(pb.bundle, name, at, entry, { over: p.on !== 'point', facing: v ? efacing(v) : 1 });
+        // (2026-11-17) the plan's operator makes it, on whichever unit it sits: her skin's pairs (spawn `hook`)
+        const go = () => spawn(pb.bundle, name, at, entry, { over: p.on !== 'point', facing: v ? efacing(v) : 1, hook: op });
         // (a number: that many battle seconds later, a token's `_preDelay` — 黑键's 闪回)
         if (p.after === 'fly' && flight > 0) castsDelayed.push({ t: clockS + flight, run: go });
         else if (typeof p.after === 'number' && p.after > 0) castsDelayed.push({ t: clockS + p.after, run: go });
         else go();
         // (2026-10-21) its end effect where the unit stands as it goes ('die': unitEndFx)
-        if (endName && on != null) { const l = unitEnds.get(on) || []; l.push({ bundle: pb.bundle, name: endName }); unitEnds.set(on, l); }
+        if (endName && on != null) { const l = unitEnds.get(on) || []; l.push({ bundle: pb.bundle, name: endName, by: opId }); unitEnds.set(on, l); }
         n++;
       }
     }
@@ -3521,7 +3528,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const tx = mx(u), ty = u.y, dur = Math.max(0.04, Math.hypot(tx - ox, ty - oy) / speed);
         const rec = { inst: null, tgt: u, x0: from.x, y0: from.y, z0: from.z, ...aimOf(u), k: 0, dur, arc };
         trails.push(rec);
-        spawn(pb.bundle, name, { x: from.x, y: from.y, z: from.z }, { owner: null, buff: false, until: clockS + dur + 5 }, { drop: rec })
+        spawn(pb.bundle, name, { x: from.x, y: from.y, z: from.z }, { owner: null, buff: false, until: clockS + dur + 5 }, { drop: rec, hook: op })
           .then((l) => { if (!l) { const i = trails.indexOf(rec); if (i >= 0) trails.splice(i, 1); } });
         if (rope) ropeLine(pb.bundle, rope, op, rec, 0);
         if (hits.length && !back) castsDelayed.push({ t: clockS + dur, run: () => { if (u.alive !== false && !u.remove) play(op, 'attackHit', 0, { at: u, names: hits, aim: op }); } });
@@ -3564,7 +3571,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // 2026-10-23 (maintainer arena check 「歌蕾蒂娅 S3 끝에 작살로 끌어온 회오리가 조금 오래 남음」): ended as the projectile stops, the
     // client's FinishMe (zoneEnd: gone `_delayToFinish` later) — a plain `until` only stopped emitting, and range_04's 10 s
     // particles stayed about 2 s after the head was back
-    if (mv) castsDelayed.push({ t: clockS + out, run: () => spawn(pb.bundle, mv, head, { owner: null, buff: false, until: clockS + backT }, { over: false }).then((l) => { if (l) zoneEnd(l, l.until, true); }) });
+    if (mv) castsDelayed.push({ t: clockS + out, run: () => spawn(pb.bundle, mv, head, { owner: null, buff: false, until: clockS + backT }, { over: false, hook: op }).then((l) => { if (l) zoneEnd(l, l.until, true); }) });
     return out;
   }
   /**
@@ -3702,7 +3709,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!l) return;
     unitEnds.delete(id);
     if (!v || failed || q() === 'low') return;
-    for (const x of l) spawn(x.bundle, x.name, { x: v.x, y: v.y, z: v.z || 0 }, { owner: null, buff: false, tag: 'unitEnd' }, { over: false, facing: efacing(v) });
+    for (const x of l) spawn(x.bundle, x.name, { x: v.x, y: v.y, z: v.z || 0 }, { owner: null, buff: false, tag: 'unitEnd' }, { over: false, facing: efacing(v), hook: lastViews?.get(x.by) ?? null });
   }
   /** End the effect held in `key` (and one still loading there). */
   function endSlot(key, now = false) {
@@ -3880,14 +3887,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const held = x.lock && rec?.locks.get(j)?.tid === tid;
       if (x.lock && rec && !held) droneLock(src, rec, x, j, tgt, tid, idleNow);
       else if (!x.lock && idleNow) {
-        for (const nm of (x.hide || []).filter(has)) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src) });
+        for (const nm of (x.hide || []).filter(has)) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src), hook: src });
         holdDrone(rec, j, true);
         const back = x.attach ? Number(x.delay) || 0 : x.wait ? dur : 0.2;
         castsDelayed.push({ t: clockS + back, run: () => { if (src._fxDrone === rec) droneBack(src, rec, x, j); } });
       }
       const trail = !x.attach && (x.trail || []).find(has);
       if (trail) {
-        spawn(b.bundle, trail, glider(from.x, from.y, to.x, to.y, dur, from.z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
+        spawn(b.bundle, trail, glider(from.x, from.y, to.x, to.y, dur, from.z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur }, { hook: src })
           .then((l) => { if (l) bodyTurn(l.inst, mod.THREE, Math.atan2(to.y - from.y, to.x - from.x)); });
       }
       const groups = (src._fxSkillFlags?.has('overDrones') && x.overSeq) || x.seq;
@@ -3896,7 +3903,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const hits = [...(x.hit || []), ...(groups ? groups[g] : [])].filter(has);
       // a lock's hits are its projectile's: ended with it (its target's 'die', the skill's end: stopBuffs, a re-lock)
       const entry = x.lock ? { owner: id, buff: true, on: tid, tag: `droneHit:${j}`, until: null } : { owner: null, buff: false };
-      const hit = () => { if (tgt.alive !== false && !tgt.remove) for (const nm of hits) spawn(b.bundle, nm, tgt, entry); };
+      const hit = () => { if (tgt.alive !== false && !tgt.remove) for (const nm of hits) spawn(b.bundle, nm, tgt, entry, { hook: src }); };
       if (hits.length) { if (dur > 0) castsDelayed.push({ t: clockS + dur, run: hit }); else hit(); }
     }
   }
@@ -3923,7 +3930,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const lk = { tid };
     rec.locks.set(j, lk);
     if (idleNow) {
-      for (const nm of (x.hide || []).filter((s) => b.prefabs.includes(s))) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src) });
+      for (const nm of (x.hide || []).filter((s) => b.prefabs.includes(s))) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src), hook: src });
       holdDrone(rec, j, true);
     }
     const watch = () => {
@@ -3939,7 +3946,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (rec.locks.delete(j)) for (const l of live) if (l.tag === `droneHit:${j}` && l.owner === id) l.inst.stop();
     if (!(j < rec.k && x.idle?.length) || !b) return;
     holdDrone(rec, j, false);
-    for (const nm of (x.show || []).filter((s) => b.prefabs.includes(s))) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src) });
+    for (const nm of (x.show || []).filter((s) => b.prefabs.includes(s))) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src), hook: src });
   }
   /** Where a drone's projectile leaves (its ability's `_mountPointType`: the drone's special point), else her muzzle. */
   function droneFrom(src, mp) {
@@ -3965,9 +3972,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const packOn = () => !!(index?.bundles?.[PACK_FX]?.includes('vigil_token_sub_start_1') && q() !== 'low' && !failed);
   const packs = new Map();   // wolf id → { n, subs: [live|null, live|null], ghost, ready, tac }
   const packOf = (id) => { let p = packs.get(id); if (!p) packs.set(id, (p = { n: 2, subs: [null, null], ghost: null, ready: null, tac: false })); return p; };
-  /** `facing`: for a point `at` (no view), the wolf's facing (2026-10-21: vigil_token_die is FLIP_TWO_SIDE). */
-  function packFx(name, at, entry, facing = at?.info ? efacing(at) : 1) {
-    return index?.bundles?.[PACK_FX]?.includes(name) ? spawn(PACK_FX, name, at, entry, { over: false, facing }) : Promise.resolve(null);
+  /**
+   * `facing`: for a point `at` (no view), the wolf's facing (2026-10-21: vigil_token_die is FLIP_TWO_SIDE). `hook` (2026-11-17):
+   * the wolf that makes it — `at` when that is the wolf; a skin of the wolf token (伺夜 `epoque#27`'s) turns its vigil_token_*.
+   */
+  function packFx(name, at, entry, facing = at?.info ? efacing(at) : 1, hook = isPack(at) ? at : null) {
+    return index?.bundles?.[PACK_FX]?.includes(name) ? spawn(PACK_FX, name, at, entry, { over: false, facing, hook }) : Promise.resolve(null);
   }
   /** Its extra wolves for `n` wolves now (the standing view `v`); `lost`: the one gone plays its sub_die. */
   function packSubs(id, v, n, lost) {
@@ -4024,8 +4034,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       p.tac = true;
       for (let k = 0; k < 2; k++) if (p.subs[k]) { p.subs[k].then((l) => l?.inst.stop()); p.subs[k] = null; }
       const at = { x: Number(e[2]), y: Number(e[3]), z: v?.z || 0 }, f = v?.info ? efacing(v) : 1;   // (the place it fell on, as the wolf faced)
-      packFx('vigil_token_die', at, { owner: null, buff: false }, f);
-      if (!p.ghost) p.ghost = packFx('vigil_token_ghost', at, { owner: null, buff: false, until: clockS + 40, tag: 'pack' }, f);
+      const wolf = isPack(v) ? v : null;
+      packFx('vigil_token_die', at, { owner: null, buff: false }, f, wolf);
+      if (!p.ghost) p.ghost = packFx('vigil_token_ghost', at, { owner: null, buff: false, until: clockS + 40, tag: 'pack' }, f, wolf);
       return true;
     }
     if (v && v.alive !== false) {
@@ -4040,10 +4051,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const id = ownerOf(v), p = packOf(id), extra = Math.max(0, Math.min(2, p.n - 1));
     for (let k = 1; k <= extra; k++) packFx(`vigil_token_sub_attack_${k}`, v, { owner: null, buff: false });
     if (!tgt) return;
-    packFx(`vigil_token_attack_hit_${extra + 1}`, tgt, { owner: null, buff: false });
+    packFx(`vigil_token_attack_hit_${extra + 1}`, tgt, { owner: null, buff: false }, undefined, v);
     if (p.readyOn) {
       p.readyOn = false;
-      packFx('vigil_token_attack_hit_extra', tgt, { owner: null, buff: false });
+      packFx('vigil_token_attack_hit_extra', tgt, { owner: null, buff: false }, undefined, v);
       packFx('vigil_token_heal', v, { owner: null, buff: false });   // 2026-10-21: the gift heals on this bite
       if (p.ready) { p.ready.then((l) => l?.inst.stop()); p.ready = null; }
     }
@@ -4080,7 +4091,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const b = bundleOf(views.get(o.id));
       if (!b || !b.prefabs.includes('yu_skill3_annex_01')) return false;
       ownFx.add(e);
-      spawn(b.bundle, 'yu_skill3_annex_01', { x, y, z: 0.3 }, { owner: null, buff: false });
+      spawn(b.bundle, 'yu_skill3_annex_01', { x, y, z: 0.3 }, { owner: null, buff: false }, { hook: views.get(o.id) });
       return true;
     }
     // local patch (maintainer report 2026-10-07, video: an ink sword falls on each target every second): 缄默德克萨斯 S3 剑雨滂沱's
@@ -4092,7 +4103,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const names = b ? extracted(src, skillBind(src)?.target) : [];
       if (!names.length) return false;
       ownFx.add(e);
-      for (const n of names) spawn(b.bundle, n, views.get(o.id) || { x, y, z: 0 }, { owner: null, buff: false });
+      for (const n of names) spawn(b.bundle, n, views.get(o.id) || { x, y, z: 0 }, { owner: null, buff: false }, { hook: src });
       return true;
     }
     // 赤刃明霄陈 S2: the slashes are the hits of one cast — the client's spellCnt is 0 at its start (`_DoCast`), so the
@@ -4112,7 +4123,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         : b.bundle === 'chen3' ? `chen3_skill_02_hit_0${((src._fxStormN = ((src._fxStormN ?? -1) + 1) % 6)) + 1}` : null;
       if (!n || !b.prefabs.includes(n)) return false;
       ownFx.add(e);
-      spawn(b.bundle, n, { x, y, z: 0 }, { owner: null, buff: false });
+      spawn(b.bundle, n, { x, y, z: 0 }, { owner: null, buff: false }, { hook: src });
       return true;
     }
     // local patch: 焰影苇草 S3 — a 灼痕 enemy's death bursts (sim 'scorchBurst', id = her): reed2_debuff_boom_01 there
@@ -4120,7 +4131,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const b = bundleOf(views.get(o.id));
       if (!b || !b.prefabs.includes('reed2_debuff_boom_01')) return false;
       ownFx.add(e);
-      spawn(b.bundle, 'reed2_debuff_boom_01', { x, y, z: 0 }, { owner: null, buff: false });
+      spawn(b.bundle, 'reed2_debuff_boom_01', { x, y, z: 0 }, { owner: null, buff: false }, { hook: views.get(o.id) });
       return true;
     }
     // 蕾缪安 S3 ([uc]projectiles.ab projectile_chr_lemuen_s3_aim / _s3_attack): the lock leaves crosshair_02 on the target
@@ -5066,7 +5077,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (Number(o.i) === 0) strikes.set(o.src, (strikes.get(o.src) || 0) + 1);
     const from = o.from != null ? views.get(o.from) : null;
     const line = from ? extracted(src, c.line)[0] : null;
-    if (line && camRef) chainLine(`storm:${o.src}:${strikes.get(o.src) || 0}`, bundleOf(src).bundle, line, from, tgt, c.hit === 1);
+    if (line && camRef) chainLine(`storm:${o.src}:${strikes.get(o.src) || 0}`, bundleOf(src).bundle, line, from, tgt, c.hit === 1, src);
     return true;
   }
   // ---- a chain shot's line (2026-10-16, official client, docs/rules/fx.md 「연쇄 공격」) ------------------------------
@@ -5094,7 +5105,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return { x: ex(v), y: ey(v), z: Number(v.z) || 0 };
   }
   /** Chain `key`'s line through `from` (its first unit, for a new chain) and `to`, now. */
-  function chainLine(key, bundle, name, from, to, hit) {
+  function chainLine(key, bundle, name, from, to, hit, hook = null) {
     let c = chainLines.get(key);
     if (c && c.t !== clockS) c = null;
     if (c) {
@@ -5105,7 +5116,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (chainLines.size > 32) for (const [k, x] of chainLines) if (x.t !== clockS) chainLines.delete(k);
     c = { t: clockS, pts: [chainPoint(from, hit), chainPoint(to, hit)], l: null };
     chainLines.set(key, c);
-    spawn(bundle, name, { ...c.pts[0] }, { owner: null, buff: false, until: clockS + CHAIN_LINE_S }).then((l) => {
+    spawn(bundle, name, { ...c.pts[0] }, { owner: null, buff: false, until: clockS + CHAIN_LINE_S }, { hook }).then((l) => {
       if (!l) return;
       c.l = l;
       l.inst.setPath?.(c.pts);
@@ -5127,7 +5138,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const line = bound(src, m, 'chain')[0];
     if (!line) return;
     chainAtks.add(e);
-    if (camRef) chainLine(`${e[5]}:${head}`, bundleOf(src).bundle, line, from, tgt, bindOf(src)?.chainHit?.[m] === 1);
+    if (camRef) chainLine(`${e[5]}:${head}`, bundleOf(src).bundle, line, from, tgt, bindOf(src)?.chainHit?.[m] === 1, src);
   }
   /**
    * An operator attack `a` (lastAtk / healAtk record) hitting `tgt`: its mode's hit effects (a 要塞's of the attack it made:
@@ -6356,7 +6367,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     elines.set(key, nrec);
     // (2026-11-14) `meta.onSrc`: made on the shooter, not on the line's end (HarpoonRenderer `_spawnOnSource`, elassoStart)
     const host = meta?.onSrc ? src : tgt;
-    spawn(bundle, name, host, { owner: null, buff: true, until: null, on: ownerOf(host) }).then((l) => {
+    // (2026-11-17) its shooter's (or `meta.hook`, the unit that makes it): a skin's pairs
+    const hook = meta?.hook ?? (src?.info ? src : null);
+    spawn(bundle, name, host, { owner: null, buff: true, until: null, on: ownerOf(host) }, { hook }).then((l) => {
       if (!l) { elines.delete(key); return; }
       if (nrec.ended) { l.inst.stop(); return; }
       nrec.l = l;
@@ -6369,7 +6382,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const sr = st && (efx(st) || (index?.bundles?.[bundle]?.includes(st) ? [bundle, st] : null));
       if (sr) {
         nrec.sp = { x: lineA.x, y: lineA.y, z: lineA.z };
-        spawn(sr[0], sr[1], nrec.sp, { owner: null, buff: false }).then((s2) => { if (s2) nrec.spLive = s2; });
+        spawn(sr[0], sr[1], nrec.sp, { owner: null, buff: false }, { hook }).then((s2) => { if (s2) nrec.spLive = s2; });
       }
     });
   }
@@ -6421,7 +6434,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       ebreath.set(id, r);
       for (const n of part.hitBuff || []) {
         const fx = efx(n);
-        if (fx) spawn(fx[0], fx[1], tgt, { owner: null, buff: true, on: ownerOf(tgt), until: clockS + EBREATH_HOLD }).then((l) => { if (!l) return; if (r.done) l.inst.stop(); else r.l = l; });
+        if (fx) spawn(fx[0], fx[1], tgt, { owner: null, buff: true, on: ownerOf(tgt), until: clockS + EBREATH_HOLD }, { hook: src }).then((l) => { if (!l) return; if (r.done) l.inst.stop(); else r.l = l; });
       }
     }
     rec.until = clockS + EBREATH_HOLD;
@@ -6878,7 +6891,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!r) return;
     opDead.add(ownerOf(v));
     // 2026-11-16: the mode it died in (a dead effect's SpecifyUnitModeEffect: 유넥티스's zumama_skill_03_end only in S3)
-    spawn(r[0], r[1], { x: v.x, y: v.y, z: v.z || 0 }, { owner: null, buff: false, tag: 'dead', mode: unitModeOf(v, true) }, { over: false, facing: efacing(v) });
+    spawn(r[0], r[1], { x: v.x, y: v.y, z: v.z || 0 }, { owner: null, buff: false, tag: 'dead', mode: unitModeOf(v, true) }, { over: false, facing: efacing(v), hook: v });
   }
 
   const eborn = new Map();   // enemy id → battle clock of its 'spawn' (its view is built right after the event)

@@ -105,7 +105,7 @@ test('a 跟子\'s throw start effect plays on its tile, not on 望, and ends as 
   // 2026-10-31: the sim's 'wangThrow' { r, c } is the cast start, the 跟子's 'summon' THROW_S later its landing
   // (maintainer decision 2026-10-17) the 跟子 is its effects' stone: the tile effect comes with that 'summon'
   assert.match(SRC, /if \(o\.follower\) \{\n\s+v\.drawnByFx\?\.\(stonesOn\);\n\s+playAt\(\[STONE_BORN\.follower\][^\n]*\n\s+\} else playAt\(\[STONE_BORN\.stone\]/);
-  assert.match(SRC, /if \(e\[1\] === 'wangThrow'\) \{[^\n]*\n\s+const x = Number\(o\.c \?\? e\[2\]\), y = Number\(o\.r \?\? e\[3\]\);\n\s+throwStart\(\{ x, y, z: tileTop\(x, y\) \}\);/);
+  assert.match(SRC, /if \(e\[1\] === 'wangThrow'\) \{[^\n]*\n\s+const x = Number\(o\.c \?\? e\[2\]\), y = Number\(o\.r \?\? e\[3\]\);\n\s+throwStart\(\{ x, y, z: tileTop\(x, y\) \}, views\.get\(o\.id\)\);/);
   assert.match(SRC, /spawn\(FOLLOWER_FX, 'wang_passive_01_start', at, /);
   assert.match(SRC, /l\.until = Math\.max\(clockS, t0 \+ THROW_S\);/);
   assert.doesNotMatch(SRC, /views\.get\(o\.src\) : null;\n[^\n]*wang_passive_01_start/);
