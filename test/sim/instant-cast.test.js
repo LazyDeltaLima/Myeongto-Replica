@@ -3,6 +3,7 @@
 // data `cast` (tools/build-data.mjs skillCast ← tools/assets/local-skill-cast.json).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 
 const close = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg}: ${a} ≈ ${b}`);
@@ -191,12 +192,13 @@ test('a skill ability turns its unit as it is cast: [face, unit, turn] at a repl
   assert.deepEqual(faces(r.h, r.u).map((e) => e[2]), [foe.id], 'turned to its target as the swing starts');
   assert.ok(!r.u.mem.casts?.length, 'before its strike');
   assert.ok(r.h.runUntil(() => r.u.mem.casts?.length, 2) && r.h.b.time > t0, 'the skill strikes later');
-  for (const [face, want] of [[1, [foe.id]], [2, ['D']], [3, ['F']], [0, []]]) {
-    const s = field({ mode: 'state', time: 1, clip: 'Skill', dur: 1, max: 1, ...(face === 1 ? {} : { face }) });
+  for (const [face, want, aimSelf] of [[1, [foe.id]], [2, ['D']], [3, ['F']], [0, []], [1, [], 1], [2, ['D'], 1]]) {
+    const s = field({ mode: 'state', time: 1, clip: 'Skill', dur: 1, max: 1, ...(face === 1 ? {} : { face }), ...(aimSelf ? { aimSelf } : {}) });
     s.u.skill.gainSp(5, 'test');
     s.h.step();
     assert.equal(s.u.mem.casts?.length, 1);
-    assert.deepEqual(faces(s.h, s.u).map((e) => e[2]), want, `state cast, face ${face}`);
+    // `aimSelf` (no `_trigger`: `CastSkill.DoCast` → `CastDirectly` at the unit's own place): `_faceToTarget` turns nothing
+    assert.deepEqual(faces(s.h, s.u).map((e) => e[2]), want, `state cast, face ${face}${aimSelf ? ', cast at its own place' : ''}`);
   }
   const buff = field({ mode: 'free' });
   buff.u.skill.gainSp(5, 'test');
@@ -204,6 +206,23 @@ test('a skill ability turns its unit as it is cast: [face, unit, turn] at a repl
   assert.equal(buff.u.mem.casts?.length, 1);
   assert.deepEqual(faces(buff.h, buff.u), [], 'a buff-only cast turns nowhere');
   checkInvariants(r.h.b);
+});
+
+// docs/rules/render.md 「공격 방향」: the data carries where a CastSkill casts its ability (tools/local-extract/skill_cast.py
+// `aim`, tools/build-data.mjs skillCast `aimSelf`): no `_trigger` → its own place; a `_trigger` → that trigger's target
+test('pool CastSkills say whether their skill ability is cast at the unit itself (data `cast.aimSelf`: no `_trigger`)', () => {
+  const casts = new Map();
+  const walk = (o) => {
+    if (!o || typeof o !== 'object') return;
+    if (typeof o.prefabId === 'string' && o.cast) casts.set(o.prefabId, o.cast);
+    for (const v of Object.values(o)) walk(v);
+  };
+  for (const f of ['chess.json', 'backups.json']) walk(JSON.parse(readFileSync(new URL(`../../data/${f}`, import.meta.url), 'utf8')));
+  // 블레이즈 디 이그나이팅 스파크 S1 / 토스카 S1 have a `SkillTrigger`; 벤델라 S2, 위셔델 S3 (an extra its start buff casts at
+  // her) and 필라에 S1 none: their face-to-target flag turns nothing
+  for (const id of ['skchr_blaze2_1', 'skchr_tocka_1']) assert.ok(casts.has(id) && !casts.get(id).aimSelf, `${id}: cast at its trigger's target`);
+  for (const id of ['skchr_vendla_2', 'skchr_wisdel_3', 'skchr_philae_1']) assert.equal(casts.get(id)?.aimSelf, 1, `${id}: cast at its own place`);
+  for (const [id, c] of casts) if (c.aimSelf) assert.equal(c.mode === 'replace', false, `${id}: only a CastSkill casts directly`);
 });
 
 test("a timed skill's 'state' cast holds its unit's attacks as well, through the skill ability's action (森蚺 S3 on the real kit: first swing after Hensin, 1.5 s)", () => {

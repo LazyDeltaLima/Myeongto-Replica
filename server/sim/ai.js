@@ -254,7 +254,7 @@ function startReplacement(b, u, sk) {
   u.castLeft = t.action;
   u.swing = { left: t.strike, targets: null, sel: 0, isSkill: true, replace: sk, prof: null };
   sk.beginReplacement(t.action);
-  castFace(b, u, sk.cast?.face);
+  castFace(b, u, sk.cast);
   if (!(t.strike > 1e-9)) allyStrike(b, u, effectiveProfile(u));
 }
 
@@ -279,12 +279,16 @@ const faceOf = (f, t) => (f === 1 || f === 4 ? t?.id ?? null : f === 2 ? 'D' : f
  * A skill ability is cast (a 'replace' cast's attack starts — startReplacement —, a CastSkill casts its ability —
  * skills.js activate): the unit turns by the ability's flags (`cast.face`, tools/local-extract/skill_cast.py; absent = 1)
  * as it starts (the client's `AbstractAnimatedAbility.OnCastStart` → `DealWithFaceDirection`), event ['face', unit, turn]
- * with turn as a swing's (swingFace). Its main target is the one its attack would take now [추정: the kit picks the
- * skill's own targets at its effect; the client's skill ability searches them as it is cast]; none → no turn.
+ * with turn as a swing's (swingFace). `_faceToTarget` (1) turns to the ability's input target: a CastSkill with no
+ * `_trigger` casts it `CastDirectly` at the unit's own place (`cast.aimSelf`), so nothing turns; with one, the client casts
+ * it `CastToTarget(_trigger.target)` — here the target its attack would take now [추정·미조사: the skill prefab's `_trigger`
+ * selector is not read, nor how an ability found below the skill's root by path is cast]; a 'replace' cast's attack goes
+ * out at its attack target. none → no turn.
  */
-export function castFace(b, u, face) {
+export function castFace(b, u, cast) {
   if (!u.alive || !u.deployed || !u.canAct) return;
-  const f = face ?? 1;
+  const f = cast?.face ?? 1;
+  if (f === 1 && cast?.aimSelf) return;
   const prof = effectiveProfile(u);
   const t = f === 1 || f === 4 ? (prof.noAttack ? null : acquireTargets(b, u, prof)[0]) : null;
   const turn = faceOf(f, t);

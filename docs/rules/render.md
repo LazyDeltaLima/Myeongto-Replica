@@ -936,18 +936,31 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     플래그(0/1). 대상이 사라지면(죽음·이탈·범위 밖이고 저지 안 함) 다른 대상이 있으면 그것으로, 없고 저지 중이 아니면 `['face', id]`(`faceIdle`).
     다음 공격이 준비됐는데 대상이 없을 때도 같다. 전투 결과에는 영향 없음(골든은 이벤트 수만 바뀜).
     스킬 능력(`ai.js castFace`): 'replace' 시전의 공격이 시작될 때(`startReplacement`, 공격 덮어쓰기 키트는 `swingFace`가 스킬 능력 플래그를 씀)와
-    `CastSkill`이 능력을 시전할 때(`skills.js activate`, 능력 없는 버프 시전은 안 돎) `['face', id, 돌 곳]`(값은 'swing'의 여섯째와 같음). 대상은 그 순간
-    공격이 잡을 대상 [추정·미조사: 키트가 스킬 효과에서 대상을 따로 고르고, 공식은 스킬 능력이 시전 때 찾음].
+    `CastSkill`이 능력을 시전할 때(`skills.js activate`, 능력 없는 버프 시전은 안 돎) `['face', id, 돌 곳]`(값은 'swing'의 여섯째와 같음).
+    `_faceToTarget`(1)이 보는 곳은 능력의 입력 대상 `m_inputTarget`이다(2026-11-17, 공식 클라에서 확인): `CastSkill.DoCast`는 스킬 프리팹의 `_trigger`가
+    있고 그것이 대상을 잡았을 때만 `CastToTarget(_trigger.target)`, 아니면 `CastDirectly` — 입력 대상이 `GetCastDirectlyMapPosition` = 자기 위치라
+    `Entity.FaceToTarget`의 0.2칸 문턱에 걸려 **돌지 않는다**(순차·병렬 묶음도 자식을 `CastDirectly`로 시전, 이 풀의 능력 중 위치를 덮어쓰는 클래스는 없음).
+    스킬 시작 버프가 트는 덧 능력(`Nodes.TriggerAbility`: `_castDirectly`거나 `_targetType` BUFF_OWNER — 자기)도 같다. 데이터: `skill_cast.py`가
+    `aim` 0(`_trigger` 없는 CastSkill의 뿌리·묶음 능력, 자기에게 트는 덧 능력)을 읽고 `build-data.mjs skillCast`가 `cast.aimSelf`로 싣는다(chess 90·backups 33,
+    규정 chess 96·backups 6; 벤델라 S2·위셔델 S3·필라에 S1 등). `castFace`는 `aimSelf`이고 `face` 1이면 돌리지 않는다. `_trigger`가 있으면 그 대상인데
+    여기서는 그 순간 공격이 잡을 대상이다 [추정·미조사: 스킬 `_trigger`의 선택기·범위를 안 읽음 — sim-Z 「`_trigger` 전수」 줄과 같은 읽기]. 뿌리 아래 경로로
+    찾은 능력(텍사스 디 오메르토사 S2 `1Frame`·홈바운드 S2 `HitEnemy` 등 17개)은 어느 노드가 시전하는지 안 읽어 같은 근사다. `_faceToFirstCastTarget`(4, 스펙터 디 언체인드 S1)은
+    시전 대상 `m_castTargets`의 첫째라 그대로 둔다. `CastOnTileAbility._faceToTile`(첫 시전 칸)은 이 풀의 스킬 능력에 켜진 것이 없다.
   - 렌더 `render/face-turn.js`(위 규칙 그대로), `units.js turnToward/turnTo/faceDeploy`, 상태 `view.face {lr, ud, dir4}`: 반전 = `lr`,
     Back 모델 = `ud === 'UP'`(`_wantsBack`), 재배치 때 배치 방향으로 초기화. `app.js faceEvent`가 이벤트의 **이펙트보다 먼저** 돌린다(시전 이펙트가 돈
     방향을 씀 — `fxgame.js facingDir`이 `face.dir4`). 'swing'·시전 'face' 없이 온 'atk'(키트가 따로 내는 공격)는 타격 때 그 대상으로 돈다. 키트의 공격은 시전과 타격이 같은 틱이라, `_faceToTarget`인 능력(모든 키트 공격의 대부분)은 공식과 같다(2026-11-07, 공식 클라에서 확인: `forceAttack`의 능력과 풀 전체 재능·`GeneralAbilities`·`Trigger` 능력 플래그를 훑음). 다른 것은 `forceAttack`의 `face`로 알린다: 이그제큐터 디 엑스 포에데레 재능 1 `Body/Talents/1`과 산크타 믹사파라토 S3 반격 `S3Attack`은 배치 방향, 호시구마 S3 `ChannelingMeleeAttack`은 돌지 않음. 재능 능력 중 나머지 하나 카넬리안 `Talents/1`은 플래그가 모두 0이지만 키트가 'atk'을 내지 않는다. 앞/뒤 모델 교체는 비동기라 휘두르던 클립을 새 모델이 이어 받는다(`spine.js swingElapsed`).
     도는 모습: `units.js turnTo` → `turnS`, `update`가 전투 시간(`animRate`)으로 진행하며 반전 배율에 `face-turn.js turnWidth`(각도의 cos)를 곱하고 절반에서
     `_showFace`(반전·`faceUd` → `_wantsBack`). 논리 방향 `face`(이펙트의 `dir4`)는 공식 `Entity.faceDirection`처럼 돌기 시작할 때 바뀐다. 모델이 아직 안 그려졌으면 즉시.
-- 남은 차이: `Entity.FaceTo`는 `isStunned`·`UNMOVABLE`(13)·`UNMOVABLE_PRIVATE`(22)·`isFrozen`·`isLevitate`면 돌지 않는다(2026-11-07, 공식 클라에서 확인). 기절·빙결은 공격이 끊겨 돌 일이 없고 부유는 적만 받는다. `UNMOVABLE`이 오퍼레이터에 걸리는 경우는 [추정·미조사: 버프 템플릿 83개 중 오퍼레이터에 걸리는 것을 안 가림]. 반전 방향 이펙트(`U_OR_D`·`UD_OR_LR`·`FOUR_DIR_FIXED`)는 2026-11-07부터 공식처럼 보이는 모델(`faceToBack`)로 고른다 → fx.md 「이펙트 방향」. 스킬 시전의 대상은 위 스킬 능력 줄의 표시대로다.
+- 남은 차이: `Entity.FaceTo`는 `isStunned`·`UNMOVABLE`(13)·`UNMOVABLE_PRIVATE`(22)·`isFrozen`·`isLevitate`면 돌지 않는다(2026-11-07, 공식 클라에서 확인). 기절·빙결은 공격이 끊겨 돌 일이 없고 부유는 적만 받는다. `UNMOVABLE`·`UNMOVABLE_PRIVATE`가 오퍼레이터에 걸리는 경우는 이 모드에 없다(2026-11-17 훑기,
+  공식 클라에서 확인): 두 시즌 버프 템플릿에서 이 깃발을 세우는 `CreateBuff` 노드(약 70개) 중 이 풀의 것은 모두 적에게 건다(시빌라이트 에테르나 S2·이네스 재능·
+  치우바이 재능·뮤엘시스 S3 소환물은 `MODIFIER_TARGET`·`TARGET`·`MAIN_TARGET`, 규정 사르곤 유대의 모래 칸은 칸 위의 적; `aglina_a`는 적 쪽 템플릿); 프리팹(EN·CN 스킬 프리팹, 풀 오퍼레이터 charpack,
+  토큰 묶음, 풀 적 프리팹)에서는 자기에게 거는 `_buffs`가 적의 것뿐이고, 오퍼레이터 쪽은 시전 대상(`_activeBuffs`·`BuffToCastTargets`: 미즈키 S1, 지마 더 레이징 타이드 S3
+  `Headb2S3HighlandAOE`는 고지 칸의 적)에만 건다. 그래서 시뮬은 이 깃발로 돌기를 막지 않는다. 반전 방향 이펙트(`U_OR_D`·`UD_OR_LR`·`FOUR_DIR_FIXED`)는 2026-11-07부터 공식처럼 보이는 모델(`faceToBack`)로 고른다 → fx.md 「이펙트 방향」. 스킬 시전의 대상은 위 스킬 능력 줄의 표시대로다.
   알고 둔 근사: 도는 모습은 세로축 회전을 2D에서 너비(cos)로만 그린다(원근 차이 없음).
 - 연결된 일: 아래 방향 클립 — `_faceToTarget`인 능력은 돈 방향(`view.face.dir4`), 아니면 배치 방향으로 고른다(「Spine 클립 커버리지」 아래 방향, 2026-10-23).
 - 테스트: `test/render/face-turn.test.js`(도는 너비·절반에서 바뀜·도는 중 새로 돌기), `test/sim/attack-timing.test.js`(대상 id·뒤에 저지된 적·`face` 이벤트·'D'/없음·
-  스킬 능력 시전의 `face`). **[화면 미확인]**
+  스킬 능력 시전의 `face`), `test/sim/instant-cast.test.js`(시전 `face`의 `aimSelf`, 풀 데이터의 `cast.aimSelf`). **[화면 미확인]**
+  재발 방지: 원인 제거 — `_trigger` 유무는 `skill_cast.py`(`aim`)가 읽는다.
 
 ## 모델 점 위치·임포스터 상자 (2026-10-12, 관리자 제보 「안젤리나 더 멜로우 위시 S2 무기 이펙트가 오퍼 본인에 겹쳐 나오고, 오른쪽 위 언덕 타일에 무기가 잘린다 — 디버그 아레나에선 재현 안 됨」)
 - 실제 판(솔로 판 정비에 디버그로 넣고 전투, Windows Chrome)에서 재현. 둘 다 공식 동작이 아니라 우리 렌더 코드의 계산 오류다.

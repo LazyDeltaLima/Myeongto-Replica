@@ -184,6 +184,8 @@ export function normSkillCast(c) {
     hold: c.hold === 1,
     // where the skill ability turns its unit as it is cast (ai.js castFace): as attackAnim `face`, absent = 1 its target
     face: Number.isInteger(c.face) && c.face >= 0 && c.face <= 4 ? c.face : 1,
+    // the skill ability is cast at the unit's own place (a CastSkill with no `_trigger`): `face` 1 turns nothing (ai.js castFace)
+    aimSelf: c.aimSelf === 1,
   };
 }
 

@@ -92,6 +92,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -184,6 +185,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -464,6 +466,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -552,6 +555,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 0
@@ -587,6 +591,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -1019,6 +1024,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1047,6 +1053,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1101,6 +1108,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
@@ -1380,6 +1388,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1421,6 +1430,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "par",
    "reset": 0,
@@ -1472,6 +1482,7 @@
     "time": 1,
     "wait": 0
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -1590,6 +1601,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "born": 0,
    "cls": "cast",
    "reset": 0,
@@ -1820,6 +1832,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 1,
    "state": 1
@@ -1967,6 +1980,7 @@
     "time": 1,
     "wait": 0
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 1,
    "state": 1
@@ -2034,6 +2048,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "par",
    "reset": 0,
@@ -2409,6 +2424,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2461,6 +2477,7 @@
     "time": 2,
     "wait": 1
    },
+   "aim": 0,
    "begin": "Skill_2_Start",
    "cls": "cast",
    "reset": 0,
@@ -2517,6 +2534,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2638,6 +2656,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2666,6 +2685,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "range": 0,
    "reset": 0,
@@ -2774,6 +2794,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "range": 0,
@@ -2806,6 +2827,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 1,
    "state": 1
@@ -2842,6 +2864,7 @@
     "time": 2,
     "wait": 0
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -2880,6 +2903,7 @@
     "time": 2,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 0
@@ -3135,6 +3159,7 @@
     "time": 2,
     "wait": 0
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 0
@@ -3150,6 +3175,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3183,6 +3209,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3256,6 +3283,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -3322,6 +3350,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -3465,6 +3494,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3506,6 +3536,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3574,6 +3605,7 @@
     "time": 2,
     "wait": 1
    },
+   "aim": 0,
    "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
@@ -3670,6 +3702,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3726,6 +3759,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3803,6 +3837,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "par",
    "reset": 0,
@@ -3825,6 +3860,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "par",
    "reset": 1,
@@ -4053,6 +4089,7 @@
     "time": 1,
     "wait": 0
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4245,6 +4282,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4301,6 +4339,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -4380,6 +4419,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -4476,6 +4516,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4593,6 +4634,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -4686,6 +4728,7 @@
     "time": 2,
     "wait": 1
    },
+   "aim": 0,
    "begin": "Skill_3_Begin",
    "born": 0,
    "cls": "cast",
@@ -4721,6 +4764,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -4747,6 +4791,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -4779,6 +4824,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -4829,6 +4875,7 @@
     "time": 0,
     "wait": 0
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 0

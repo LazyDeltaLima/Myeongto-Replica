@@ -24,7 +24,9 @@ unit is in its born state after a deployment: `CastSkill.UseSkill` checks `_canS
 skill shows no range of its own, so the selection menu has no skill range toggle (`CastSkill.get_rangeToShow`,
 docs/rules/ui.md 「선택 메뉴」): CastSkill `_hideRangeToShow`, or `_forceUseBaseShowRange` when the base path ends at the
 unit's own mode — no ability `_selector` and no `_rangeIdModeIndex` above 0 (the Default mode); 圣约送葬人 S1 / S3 point
-at their skill modes 1 / 3, another range, and keep the toggle. Output
+at their skill modes 1 / 3, another range, and keep the toggle. `aim` 0 (CastSkill) = the skill ability is cast at the
+unit's own place — no `_trigger` (`CastSkill.DoCast` → `CastDirectly`) or an extra its start buff triggers at the unit —, so its
+`_faceToTarget` turns nothing (skill_entry; docs/rules/render.md 「공격 방향」). Output
 tools/assets/local-skill-cast.json:
 
   { "skills": { "skchr_thorn2_1": { "cls": "replace", "ability": { "anim": "Skill", "time": 0, "max": 1, "wait": 1, … } },
@@ -110,20 +112,25 @@ def group_subs(sid, comps):
 START_EVENTS = (0, 33)
 
 
-def triggered(nodes, out):
-    """The `_abilityName` of every TriggerAbility node in `nodes` (nested condition nodes too) → `out`."""
+def triggered(nodes, out, at_self=None):
+    """The `_abilityName` of every TriggerAbility node in `nodes` (nested condition nodes too) → `out`; with `at_self`, the
+    names whose node casts the ability at its owner's own place → `at_self` too: `_castDirectly` (`Ability.CastDirectly`,
+    the input target is the owner's map position) or `_targetType` BUFF_OWNER (`CastToTarget` the buff's owner — a buff of
+    the skill's own ability is on the unit itself; the client's `Nodes.TriggerAbility.Execute`)."""
     if isinstance(nodes, dict):
         if str(nodes.get('$type', '')).endswith('+TriggerAbility') and isinstance(nodes.get('_abilityName'), str):
             out.add(nodes['_abilityName'])
+            if at_self is not None and (nodes.get('_castDirectly') or nodes.get('_targetType') == 'BUFF_OWNER'):
+                at_self.add(nodes['_abilityName'])
         for v in nodes.values():
-            triggered(v, out)
+            triggered(v, out, at_self)
     elif isinstance(nodes, list):
         for v in nodes:
-            triggered(v, out)
+            triggered(v, out, at_self)
     return out
 
 
-def cast_extras(sid, sk, comps3, templates):
+def cast_extras(sid, sk, comps3, templates, at_self=None):
     """{GameObject path: True|False} of the skill's `_extraAbilities`: True when the skill's own buffs (the `_buffs` of its root
     ability and of its root group's children) trigger that ability as the skill starts (a TriggerAbility naming it by GameObject
     or `namedAsAlias` in their template's ON_BUFF_START / ON_SKILL_START). `BasicSkill.OnBorn` attaches the extra abilities as the
@@ -131,7 +138,8 @@ def cast_extras(sid, sk, comps3, templates):
     (灵知 S3, 薄绿 S2 FinalAttack, ON_SKILL_FINISH), every `interval` (车尔尼 S2 FinalAttack, ON_BUFF_TRIGGER), on a hit
     (棘刺 S2 Thorn, ON_TAKE_DAMAGE) —, so they say nothing of how the skill is cast. Those the start triggers (菲莱 S1
     SkillAnimation, 归溟幽灵鲨 S1 ExchangeHp, 贝洛内 S3 FlyToTarget: the cast waits for their clip as for the root's own — docs/rules/sim.md
-    「즉발 스킬의 시전」) stand for the skill ability."""
+    「즉발 스킬의 시전」) stand for the skill ability. `at_self` (a set): the paths of those the start casts at the unit's own place
+    (triggered)."""
     by_pid = {pid: (gp, d) for gp, d, pid in comps3}
     extras = {}
     for ref in sk.get('_extraAbilities') or []:
@@ -142,12 +150,14 @@ def cast_extras(sid, sk, comps3, templates):
     if not extras:
         return {}
     own = [d for gp, d, _pid in comps3 if gp == sid] + group_children(sid, comps3)[1]
-    names = set()
+    names, selfs = set(), set()
     for d in own:
         for b in d.get('_buffs') or []:
             tpl = templates.get(b.get('templateKey')) if isinstance(b, dict) else None
             for ev in START_EVENTS:
-                triggered((tpl or {}).get(ev), names)
+                triggered((tpl or {}).get(ev), names, selfs)
+    if at_self is not None:
+        at_self.update(gp for gp, ns in extras.items() if ns & selfs)
     return {gp: bool(ns & names) for gp, ns in extras.items()}
 
 
@@ -187,16 +197,32 @@ def skill_entry(sid, comps3, templates):
             e['range'] = 0
     else:
         return word or None
+    # `aim` 0 (a CastSkill): its skill ability is cast at the unit's own place, so a `_faceToTarget` ability does not turn
+    # the unit (docs/rules/render.md 「공격 방향」): `CastSkill.DoCast` casts it `CastToTarget(_trigger.target)` only with a
+    # `_trigger` that holds a target, else `CastDirectly` — the input target is `GetCastDirectlyMapPosition`, the owner's
+    # own position (a sequence / parallel group casts its children directly too), and `DealWithFaceDirection` →
+    # `Entity.FaceToTarget` ignores a point under 0.2 tiles away. A root or root-group ability with no `_trigger`, and an
+    # extra the skill's start buffs trigger at the unit (cast_extras at_self), say 0; an ability found below the root by
+    # path is reached in a way not read here, and says nothing
+    trig = isinstance(sk.get('_trigger'), dict) and bool(sk['_trigger'].get('m_PathID'))
+    aim = None
     ab = next((a for a in map(ability, root) if a is not None), None)
     if ab is None:
         # a group root: its first child with a clip of its own, in the group's order (执律者 S2: knock_back `Skill`, not the
         # clip-less aura that sorts first by name)
         ab = next((a for a in map(ability, group_children(sid, comps3)[1]) if a is not None and a.get('anim')), None)
+    if ab is not None and e['cls'] == 'cast' and not trig:
+        aim = 0
     if ab is None:
-        later = [gp for gp, now in cast_extras(sid, sk, comps3, templates).items() if not now]
+        at_self = set()
+        later = [gp for gp, now in cast_extras(sid, sk, comps3, templates, at_self).items() if not now]
         subs = sorted((gp, a) for gp, a in ((gp, ability(d)) for gp, d in comps if gp != sid and not any(gp == x or gp.startswith(x + '/') for x in later))
                       if a is not None)
         ab = subs[0][1] if subs else None
+        if ab is not None and e['cls'] == 'cast' and any(subs[0][0] == x or subs[0][0].startswith(x + '/') for x in at_self):
+            aim = 0
+    if aim == 0:
+        e['aim'] = 0
     # the ThreePart component that plays the clip of an ability with no `_animKey` (ThreePartChannelingAnimation `_default`,
     # ThreePartOneshotAnimation `_beginAnim` / `_oneshotAnim`): the clip's OnAttack frame is what the ability waits for
     if ab is not None and not ab.get('anim'):

@@ -2980,7 +2980,8 @@ function opShot(ctx, charId, charSkills) {
  * the next attack), 'state' (CastSkill `_switchToState` 1: the unit stays in its Skill state until the skill ability
  * ends) or 'free' (`_switchToState` 0); `resetCd` 1 = `_resetAbilityCooldownWhenCastEnd`; `bornWait` 1 = the cast is
  * refused while the unit is in its born state (`born` 0: the prefab's `_canSwitchDuringBorn` / `_canCastDuringBorn` off —
- * server/sim/skills.js _born); `begin` = the length of a 'state' cast's begin clip (`_playSkillBeginAnim`). With a skill ability: `time`
+ * server/sim/skills.js _born); `aimSelf` 1 = the skill ability is cast at the unit's own place (`aim` 0: no turn to a
+ * target as it is cast — server/sim/ai.js castFace); `begin` = the length of a 'state' cast's begin clip (`_playSkillBeginAnim`). With a skill ability: `time`
  * = its `_timeMode` (0 the attack interval, 1 its clip, 2 / 3 `cd`), `cd` (time 2: `_cooldown`, 3: the blackboard
  * value of `_cooldownKey`), its clip (`clip`, `dur`, the first OnAttack frame `hit` — Front skeleton, data/assets.json,
  * a key the skeleton lacks also tried as `<key>_Loop`), abilityTiming's `max` / `pre` / `wait` and abilityFace's `face`
@@ -2993,6 +2994,9 @@ function skillCast(ctx, charId, s) {
   const out = { mode: c.cls === 'replace' ? 'replace' : c.state ? 'state' : 'free' };
   if (c.cls === 'cast' && c.reset) out.resetCd = 1;
   if (c.cls === 'cast' && c.born === 0) out.bornWait = 1;
+  // `aim` 0: the skill ability is cast at the unit's own place (no `_trigger`: `CastSkill.DoCast` → `CastDirectly`), so its
+  // `_faceToTarget` turns nothing (server/sim/ai.js castFace)
+  if (c.cls === 'cast' && c.aim === 0) out.aimSelf = 1;
   const sp = ctx.manifest?.chars?.[charId]?.spine?.front;
   // the begin clip of a 'state' cast (`begin` s): the Skill state plays it and starts the skill once it has played
   // (`BasicSkill.PlayBeginAnimation` waits the clip's length — none when the skeleton lacks it; server/sim/skills.js
