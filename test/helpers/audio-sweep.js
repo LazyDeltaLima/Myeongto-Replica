@@ -7,8 +7,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AudioManager } from '../../public/js/audio.js';
-import { seasonPickList } from './seasonPicks.js';
+import { seasonPickList, allSeasonData } from './seasonPicks.js';
 import { makeBattle, enemyRec } from './battleHarness.js';
+import { DEFAULT_SEASON } from '../../shared/seasons.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const readData = (f) => JSON.parse(readFileSync(path.join(ROOT, 'data', f), 'utf8'));
@@ -32,14 +33,31 @@ export function onBattleClock(fn) {
   try { return fn((s) => { t = s; }); } finally { performance.now = real; }
 }
 
+/** A backup chess's operator and skill (`<charId> S<n>`): a later season adds the pairs no earlier season runs. */
+export const backupOf = (c) => `${c.backup.charId} S${(c.backup.skillIndex ?? 0) + 1}`;
+
 /**
- * Every 自选 backup chess and every 선발 pick of any season × skill, each pick on its season's data (`season`: a 规程-only pick
- * is one of 盟约's chess and has no 自选 form there; test/helpers/seasonPicks.js seasonPickList).
+ * Every backup chess of every season and every 自选 pick of any season × skill, each on its season's data (`season`). The
+ * default season's backup chess keep their chess key as the label; a later season adds one case for each operator × skill
+ * no earlier season runs, labelled `<season>/<chess key>` (规程 reuses 盟约's chess keys for other operators, and fields three of
+ * 盟约's backup operators with another skill). A 规程-only pick is one of 盟约's chess and has no 自选 form there
+ * (test/helpers/seasonPicks.js seasonPickList).
  */
 export function sweepCases() {
-  const chess = readData('chess.json');
-  const out = Object.keys(chess).filter((k) => k.endsWith('_b') && chess[k].backup?.charId?.startsWith('char_'))
-    .map((k) => ({ label: k, unit: { uid: 1, chessId: k, row: 10, col: 5 } }));
+  const out = [];
+  const seen = new Set();
+  for (const [season, { chess }] of Object.entries(allSeasonData())) {
+    const first = season === DEFAULT_SEASON;
+    const here = new Set();
+    for (const k of Object.keys(chess)) {
+      if (!k.endsWith('_b') || !chess[k]?.backup?.charId?.startsWith('char_')) continue;
+      const pair = backupOf(chess[k]);
+      if (seen.has(pair) || (!first && here.has(pair))) continue;
+      here.add(pair);
+      out.push({ label: first ? k : `${season}/${k}`, charId: chess[k].backup.charId, pair, ...(first ? null : { season }), unit: { uid: 1, chessId: k, row: 10, col: 5 } });
+    }
+    for (const pair of here) seen.add(pair);
+  }
   for (const { charId: c, season } of seasonPickList()) for (const skill of [0, 1, 2]) {
     out.push({ label: `${c} S${skill + 1}`, season, skill, extra: NEEDS[c] ? [{ uid: 2, ...NEEDS[c] }] : [], unit: { uid: 1, diy: { slot: 'chess_char_5_diy1_a', charId: c, skillIndex: skill, uniEquipId: null }, row: 10, col: 5 } });
   }

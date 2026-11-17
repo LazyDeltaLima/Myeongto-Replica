@@ -21,4 +21,7 @@ export const SILENT_SKILLS = {
   'char_4182_oblvns S2': 'other none: 丰川祥子 S2 — its one hit in the window is the _r shot; the _p bank is the slow shot, not reached here',
   'char_4065_judge S2': 'other none: 斥罪 S2 — it makes no attack, so its mode\'s p_imp_gavel_n is not cast; each pulse sounds judge_s_2[audio] (p_imp_gavel_h)',
   'char_4037_demetr S3': 'other none: 贝洛内 S3 — the attacks run its teleport sub-mode\'s s1 / s2 banks; the base mode\'s _n is not reached here',
+  // 规程's backup operators, on 规程's data (test/helpers/audio-sweep.js sweepCases)
+  'act3autochess/chess_char_1_13_b': 'silent none: 霜叶 S2 — its mode\'s p_imp_spear_n is the melee combat ability\'s HIT and the ranged attack has no impact bank; the sim\'s 领主 shoots ranged even while blocking (docs/rules/audio.md 「공식 소리 신호 잇기」)',
+  'act3autochess/chess_char_5_22_b': 'silent none: “暴躁铁皮” S1 — each hit sounds its mode\'s a_bat_lrgmhcn, a Battle_UI_Important file, so no impact group counts it',
 };

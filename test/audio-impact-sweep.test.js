@@ -10,7 +10,8 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { readData, sweepCases, sweepBattle, onBattleClock, PASSIVE } from './helpers/audio-sweep.js';
+import { readData, sweepCases, sweepBattle, onBattleClock, PASSIVE, backupOf } from './helpers/audio-sweep.js';
+import { allSeasonData } from './helpers/seasonPicks.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const NO_DATA = !existsSync(path.join(ROOT, 'data', 'assets.json')) && 'no data/assets.json';
@@ -33,6 +34,10 @@ const REPEATED = Object.freeze({
   // (a 规程 pick, on 规程's data: test/helpers/seasonPicks.js seasonPickList. ON_ABILITY_START.char_1041_angel2.attack.5.Burst
   // is no S3 bank: mode 5 is S1, its burst a hand stop this mode never makes — test/audio-bank-coverage-list.js)
   'char_1041_angel2 S3': [8, 'strikes: one each 5-hit attack of 新约能天使 S3 (its first the 投递坐标 splash)'],
+  // (规程's backup operators, on 规程's data. Both kits sound their skill damage through sfx.kit, yet audio.js KIT_SOUND_DEF does not
+  // name them, so this fallback sounds on top of the kit's cue: likely a double, not compared with the official game yet)
+  'act3autochess/chess_char_2_09_b': [12, 'double: each 1 s tick of 克里斯汀 S2\'s orb, its kit cue christ:s2tick (_playAudioWhenSelect) and kd[1] p_imp_blkcrstn_h'],
+  'act3autochess/chess_char_3_15_b': [13, 'double: 水灯心 S2\'s cuts after the boomerang\'s first hit, its kit cue brigid:cut and her mode\'s p_imp_wtlphrbgd_h (every other cut: SKILL_HIT_GAP_MS)'],
 });
 
 function hear(c, manifest) {
@@ -62,6 +67,19 @@ function hear(c, manifest) {
 
 describe('impact sounds across every operator and skill', () => {
   const manifest = NO_DATA ? null : readData('assets.json');
+  // docs/rules/diy.md 「선발 훑기 시험」: 规程 reuses 盟约's backup chess keys for other operators, so a 规程 backup run on 盟约's
+  // data fields 盟约's operator under the same key without an error
+  test('the sweep fields every season\'s backup operators and skills, each on its season\'s data', { skip: NO_DATA }, () => {
+    const want = new Set(Object.values(allSeasonData()).flatMap(({ chess }) => Object.entries(chess)
+      .filter(([k, v]) => k.endsWith('_b') && v?.backup?.charId?.startsWith('char_')).map(([, v]) => backupOf(v))));
+    const backups = sweepCases().filter((c) => c.unit.chessId);
+    assert.deepEqual([...want].filter((x) => !backups.some((c) => c.pair === x)), [], 'a backup operator × skill the sweep leaves out (test/helpers/audio-sweep.js sweepCases)');
+    const later = backups.filter((c) => c.season);
+    assert.ok(later.length >= 40, `${later.length} backup operators × skills only a later season fields`);
+    const fielded = (c) => { try { const { u } = sweepBattle(c, manifest); return `${u.def.charId} S${u.def.skill.index + 1}`; } catch { return null; /* nothing fielded */ } };
+    const wrong = later.filter((c) => fielded(c) !== c.pair).map((c) => c.label);
+    assert.deepEqual(wrong, [], 'cases that did not field their season\'s operator and skill: run them with `season` (battleHarness makeBattle)');
+  });
   for (const c of NO_DATA ? [] : sweepCases()) {
     test(c.label, () => {
       const r = hear(c, manifest);
