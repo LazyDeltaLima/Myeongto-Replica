@@ -103,7 +103,9 @@ export class MatchClientCombat {
   _sendStart(pid, f, opts = {}) {
     const ps = this.players.get(pid) || this.spectators.get(pid);
     if (!ps || ps.isBot || ps.left || !ps.connected) return false;
-    return this.sendTo(pid, this._startMsg(f, pid, opts));
+    const sent = this.sendTo(pid, this._startMsg(f, pid, opts));
+    if (sent && f.surrendered) this.sendTo(pid, { t: 'b.end', battleId: f.battleId, fieldId: f.fieldId, reason: 'surrender' });
+    return sent;
   }
 
   /** Give every field its authority (a connected human) or run it on the server. */

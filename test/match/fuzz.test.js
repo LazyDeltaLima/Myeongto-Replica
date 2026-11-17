@@ -38,6 +38,12 @@ function randomIntent(rng, m, ps) {
     case 'g.pause': return { t, on: rng() < 0.5 };
     // a proposal can end the match at once (a single human): rare, so the matches still run long
     case 'g.restart': return { t, op: rng() < 0.02 ? 'propose' : rng.pick(['yes', 'no', 'cancel']) };
+    // a battle's surrender: a live field's token mostly, else a stale one (WRONG_PHASE); a proposal can end the battle: rare
+    case 'g.surrender': {
+      const f = m.fields?.length && rng() < 0.7 ? rng.pick(m.fields) : null;
+      return { t, fieldId: f?.fieldId || rng.pick(['n:p_0', 'u', 'b1']), battleId: f ? m.surrenderToken(f) : 'stale.1.COMBAT.n:p_0',
+        op: rng() < 0.05 ? 'propose' : rng.pick(['yes', 'no', 'cancel']) };
+    }
     // 确定自选编队 (规程 only): slot ids, some outside any lineup (the default season has no such step: WRONG_PHASE)
     case 'g.diyChoose': return { t, slots: Array.from({ length: rng.int(4) }, () => rng.pick(['chess_char_5_diy1_a', 'chess_char_6_diy2_a', 'chess_char_5_diy6_a', 'x'])) };
     case 'g.diyReady': return { t, cancel: rng() < 0.3 };

@@ -41,6 +41,7 @@ import { overtimeState, overtimeDrainPerSec, remainAt } from './matchStatus.js';
 import { hotkeyLabelOf } from './settings.js';
 import { BuffButton } from './effectsList.js';
 import { t, tParts } from '../../../shared/i18n.js';
+import { SurrenderButton } from './surrender.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -384,14 +385,14 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  *   onReady:(r:boolean)=>void, readyBusy?:boolean, readyCount?:number, playerCount?:number,
  *   pen?:boolean, penAvail?:boolean, onPen?:(on:boolean)=>void, config?: any, frozenAt?: number|null, onTimerWarn?: Function,
  *   pause?: { show: boolean, paused: boolean, busy?: boolean, onToggle: () => void } | null,
- *   live?: { pending: number, unite: boolean, left?: number|null } | null }} props
+ *   live?: { pending: number, unite: boolean, left?: number|null } | null, myId?: string|null }} props
  *   frozenAt: the server time every clock shows while the solo match is paused (null = live)
  *   onTimerWarn: the countdown turned orange at the phase's warning time (countdownWarnAt) — the countdown cue
  *   live: the own battle's pending LP loss (liveLp): the tower shows lp with a −N tick, 联防中 during 联防;
  *     `left` (a leaker in 联防): its enemies still standing — the capsule's ×N tag
  */
 export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
-  config = null, frozenAt = null, pause = null, live = null, spectator = false, onTimerWarn, effects = null }) {
+  config = null, frozenAt = null, pause = null, live = null, spectator = false, onTimerWarn, effects = null, myId = null }) {
   const phase = pub?.phase;
   const boss = isBossPhase(phase);
   const warnAt = countdownWarnAt(pub, config);
@@ -465,6 +466,7 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
       </div>
       <${OvertimeWarning} ot=${ot} />
       ${showReady ? html`<${ReadyToggle} priv=${priv} onToggle=${onReady} busy=${readyBusy} readyCount=${readyCount} total=${playerCount} />` : null}
+      ${!spectator ? html`<${SurrenderButton} pub=${pub} myId=${myId} />` : null}
     </div>
   </header>`;
 }

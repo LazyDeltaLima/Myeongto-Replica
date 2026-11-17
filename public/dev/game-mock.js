@@ -559,6 +559,7 @@ function startCombat(phase) {
     fields = pub.players.map((p) => ({ fieldId: `n:${p.playerId}`, kind: 'normal', players: [p.playerId], live: true }));
     rect = { ...GEO.NORMAL_RECT };
   }
+  for (const f of fields) f.battleId = `mock.${nextUid()}.${f.fieldId}`;
   pub.fields = fields;
   // like the server's m.public players[].fieldId (Match.fieldOf): the field each player fights on, null without one
   for (const p of pub.players) p.fieldId = fields.find((f) => f.players.includes(p.playerId))?.fieldId ?? null;
@@ -844,6 +845,34 @@ async function mockRequest(t, f = {}) {
         if (pub.deadline) pub.deadline += d;
         if (pub.overtimeAt) pub.overtimeAt += d;
         pub.paused = false; delete pub.pausedAt;
+      }
+      pushPublic(); return {};
+    }
+    case 'g.surrender': {
+      const field = pub.fields.find(x => x.fieldId === f.fieldId && x.battleId === f.battleId && x.live);
+      if (!field || !field.players.includes(ME)) fail('WRONG_PHASE');
+      const finish = () => {
+        field.live = false; delete field.surrenderVote;
+        field.progress = { ...field.progress, done: true };
+        for (const player of pub.players) if (field.players.includes(player.playerId)) player.status = 'done';
+        if (S.battle?.fieldRef.id === field.fieldId) stopBattle();
+      };
+      if (f.op === 'propose') {
+        if (field.surrenderVote) fail('WRONG_PHASE');
+        const voters = pub.players.filter(p => field.players.includes(p.playerId) && !p.isBot && !p.autoplay).map(p => p.playerId);
+        if (voters.length <= 1) finish();
+        else {
+          const v = field.surrenderVote = { by: ME, yes: [ME], voters, deadline: Date.now() + 30000, ms: 30000 };
+          setTimeout(() => { if (S.pub === pub && field.surrenderVote === v) { delete field.surrenderVote; pushPublic(); } }, 30000);
+        }
+      } else {
+        const v = field.surrenderVote;
+        if (!v || !v.voters.includes(ME)) fail('WRONG_PHASE');
+        if (f.op === 'yes') {
+          v.yes = [...new Set([...v.yes, ME])];
+          if (v.voters.every(id => v.yes.includes(id))) finish();
+        } else if (f.op === 'no' || f.op === 'cancel' && v.by === ME) delete field.surrenderVote;
+        else fail('BAD_TARGET');
       }
       pushPublic(); return {};
     }

@@ -122,6 +122,19 @@ async function runOut(r, e) {
 }
 
 for (const stage of ['load', 'catch-up']) {
+  test(`b.end surrender during ${stage}: finish with queued leaks and never send a client result`, async () => {
+    const r = rig();
+    await startAt(r, stage);
+    const before = r.sent.length;
+    r.end('surrender');
+    await prepared(r, stage);
+    const e = r.runner._entries.get(START.battleId);
+    assert.ok(e?.done && e.battle.finished);
+    assert.equal(e.authoritative, false);
+    assert.equal(e.battle.result().perPlayer[START.spec.players[0].playerId].perfect, false);
+    assert.equal(r.sent.length, before, 'the server owns surrender settlement');
+    r.runner.dispose();
+  });
   test(`b.end takeover during the ${stage}: the battle is still shown but never reports from then on`, async () => {
     const r = rig();
     await startAt(r, stage);

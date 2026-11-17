@@ -2,6 +2,19 @@
 
 Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
+**Field surrender (2026-11-17).** `g.surrender { fieldId, battleId, op: 'propose'|'yes'|'no'|'cancel' }` targets the current
+battle token, never the whole match. Only human participants of that field may act; AI/autoplay seats and observers have
+no vote. One human confirms locally before proposing; two or more require unanimous consent within 30 seconds while
+combat continues. The proposer agrees automatically. Rejection, expiry, withdrawal, a disconnect or a voter membership
+change cancels the vote; no departure supplies consent. A field waits 60 seconds between proposals. The field's public
+row carries `battleId`, optional `surrenderVote { by, voters, yes, deadline, ms }`, and `surrendering` while finalizing.
+Client-run battles receive `b.end { reason: 'surrender' }` and stop reporting; resync/watch repeats that end notification.
+The server replays in bounded slices to the consent cutoff, retains earned rewards, and records living and queued
+non-boss enemies as leaks. Existing joint defense and settlement charge them normally. A boss field alone stops;
+other fields keep fighting, and the existing shared-pool ending rules decide the outcome. Implementation:
+`match/surrender.js`, `Battle.surrender`, `ui/surrender.js`; regression tests: `test/match/surrender.test.js`,
+`test/ui/surrender.e2e.test.js`, the simulation and pending-runner suites.
+
 ## 8. Network protocol (shared/protocol.js is normative)
 
 Transport: one WebSocket per tab at `/ws`, JSON text frames `{ t: '<type>', ...payload }`. Client requests may carry `rid` (request id); the server's direct reply echoes `rid` (`ok` or `error`). Server pushes have no `rid`. Max frame 64 KB inbound; rate limit 40 msgs/s per connection (excess dropped with `error RATE`).

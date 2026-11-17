@@ -329,8 +329,35 @@ export class BattleLifecycle {
     this._endReq = null;
     if (!this.started) this.start();
     if (this.finished) return;
-    if (reason === 'timeout') this._timeout();
+    if (reason === 'surrender') this.surrender();
+    else if (reason === 'timeout') this._timeout();
     else this._finish('forced');
+  }
+
+  /** Voluntary defeat: charge every unresolved enemy, including the queued wave, without granting kills. */
+  surrender() {
+    if (this.finished) return;
+    if (this._stepping) { this._endReq = 'surrender'; return; }
+    if (!this.started) this.start();
+    if (this.finished) return;
+    this.surrendered = true;
+    for (const e of this.enemies) {
+      if (e.alive && !e.isBoss && !e.mem.noLeak) this._recordLeak(e, true);
+    }
+    for (const p of this._pending) {
+      if (p.tag === 'boss') continue;
+      const def = this.data.getEnemy(p.enemyKey);
+      const overrides = this.enemyOverrides[def?.key ?? p.enemyKey] ?? this.enemyOverrides[p.enemyKey];
+      const owner = p.ownerPlayerId ?? this._ownerForTile(p.pos ?? this._routeFor(p.routeIndex, p.route)?.start);
+      const pp = this._pp(owner);
+      if (!p.precounted && p.inTotal) { this.total++; if (pp) pp.total++; }
+      this._recordLeak({ ownerId: owner, defId: p.enemyKey, mods: p.mods, lpr: overrides?.stats?.lpr ?? def?.lpr ?? 1,
+        sourcePlayerId: p.sourcePlayerId, tag: p.tag, counted: p.counted, inTotal: p.inTotal, isBoss: false }, true);
+      // Kept distinct for 联防: a queued enemy never entered the first field.
+      if (pp?.leaked.length) pp.leaked.at(-1).spawned = false;
+    }
+    this._pending = [];
+    this._finish('forced');
   }
 
   _finish(reason) {
@@ -344,7 +371,7 @@ export class BattleLifecycle {
     // re-sync fields that battleEnd handlers may have changed (layer gains / coins live in perPlayer objects)
     for (const pid of Object.keys(res.perPlayer)) {
       const pp = res.perPlayer[pid];
-      pp.perfect = !pp.leaked.some((l) => l.counted !== false);
+      pp.perfect = !this.surrendered && !pp.leaked.some((l) => l.counted !== false);
     }
     this.projectiles.clear();
   }
@@ -354,7 +381,7 @@ export class BattleLifecycle {
     const keepRedeploy = seasonFeature(this.data?.all?.config?.season, 'uniteKeepsRedeploy');
     for (const ps of this.players) {
       const pp = this._perPlayer[ps.playerId];
-      pp.perfect = !pp.leaked.some((l) => l.counted !== false);
+      pp.perfect = !this.surrendered && !pp.leaked.some((l) => l.counted !== false);
       // the HUD capsule's numerator of this field (DESIGN §14): this player's own scheduled enemies resolved — knocked
       // down or leaked (`counted` keeps the LP / 完美作战 reading, runtime splits and summons included — a 联防 field
       // tags its runtime spawns `uniteRuntime`, spawns.js, which only its billing reads)

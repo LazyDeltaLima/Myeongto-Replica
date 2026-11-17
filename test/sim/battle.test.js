@@ -180,6 +180,29 @@ test('kills: killed/total counters, bounty coins to the killer\'s owner, perfect
   assert.equal(h.unit('t_guard').stats.kills, 3);
 });
 
+test('surrender keeps earned kills, bounty funds and layers; living and queued enemies leak once', () => {
+  const h = makeBattle({
+    defs: { chess: { t_guard: guard({ stats: { atk: 5000 } }) }, enemies: {
+      enemy_walker: walker({ hp: 1000 }), enemy_tank: walker({ key: 'enemy_tank', hp: 1e8, speed: .01 }),
+    } },
+    units: [{ chessId: 't_guard', row: 9, col: 6 }],
+    enemies: [{ key: 'enemy_walker', bounty: { coins: 2 } }, { key: 'enemy_tank' }, { key: 'enemy_walker', count: 2, time: 100, bounty: { coins: 7 } }],
+    content: 'none', timeLimit: 200, bonds: { yanShip: { count: 3, active: true, tier: 1, layers: 10 } },
+  });
+  h.runUntil(() => h.b.killed === 1, 30);
+  assert.equal(h.b.killed, 1);
+  h.b.addLayers('p1', 'yanShip', 3, 'test');
+  h.b.addCoins('p1', 3);
+  h.b.surrender();
+  const p = h.result().perPlayer.p1;
+  assert.equal(p.killed, 1); assert.equal(p.coins, 5);
+  assert.deepEqual(p.layerGains, { yanShip: 3 });
+  assert.equal(p.leaked.length, 3); assert.equal(p.leaked.filter(l => l.spawned === false).length, 2);
+  assert.equal(p.total, 4); assert.equal(p.resolved, 4); assert.equal(p.perfect, false);
+  h.b.surrender(); h.b.step();
+  assert.equal(h.result().perPlayer.p1.leaked.length, 3);
+});
+
 test('time limit: battle ends at timeLimit, remaining enemies count as leaked, unspawned ones are dropped', () => {
   const h = makeBattle({
     defs: { enemies: { enemy_walker: walker({ speed: 0.01 }) } },

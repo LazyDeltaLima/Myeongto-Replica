@@ -698,6 +698,14 @@
 .rvote__secs { font-size: max(.18rem, 12px); font-weight: 800; min-width: .44rem; text-align: right; }
 .rvote__acts { display: flex; gap: .08rem; margin-left: .06rem; }
 .rvote__bar { position: absolute; left: 0; bottom: 0; height: 2px; width: var(--rv-p, 100%); background: var(--gold); transition: width 1s linear; }
+.gm__hud > .rvote--second { top: calc(1.98rem + max(.46rem, 30px) + .08rem); }
+/* The battle-only action occupies the prep ready slot; no ready hotkey triggers surrender. */
+.gm .surrenderbtn { color: #f2b9a6; border-color: #ba8978; box-shadow: none; }
+.gm .surrenderbtn .readybtn__box { border-color: #ba8978; }
+.gm.has-hud-art .surrenderbtn::before { filter: saturate(0) sepia(.5) hue-rotate(320deg); }
+.gm.has-hud-art .surrenderbtn .readybtn__box { background: none; display: grid; place-items: center; }
+.gm.has-hud-art .surrenderbtn .readybtn__box .icon { display: block; }
+@media (max-width: 900px) { .rvote__note { display: none; } }
 @media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) { .rvote__note { display: none; } }
 .awayov { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: rgba(4, 7, 6, .78); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: screen-in var(--t-slow) var(--ease-out); }
 .awayov__box { display: flex; flex-direction: column; align-items: center; gap: .12rem; padding: .44rem .7rem; background: rgba(12, 16, 14, .96); border: 1px solid var(--line-2); }

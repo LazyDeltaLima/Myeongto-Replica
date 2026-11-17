@@ -112,6 +112,8 @@ export const actions = {
   destroy: (uid) => act('g.destroy', { uid }),
   reward: (idx) => act('g.reward', { idx }),
   choice: (idx, choiceId) => act('g.choice', choiceId === undefined ? { idx } : { idx, choiceId }),
+  surrender: (field, op = 'propose') => act('g.surrender', { fieldId: field.fieldId, battleId: field.battleId, op },
+    { sfx: op === 'no' || op === 'cancel' ? 'back' : 'confirm', errorText: { RATE: t('稍后才能再次发起放弃战斗') } }),
   ready: (ready) => act('g.ready', { ready }, { sfx: ready ? 'ready' : 'back' }),
   emote: (id, set) => act('g.emote', set === 'user' ? { id, set } : { id }, { quiet: true }), // local patch: emote set
   // `playerId`: the player tapped in the team panel (a shared field shows two) — what an eliminated viewer follows

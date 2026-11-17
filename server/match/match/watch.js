@@ -142,7 +142,7 @@ export class MatchWatch {
     if (ps.alive && (f.kind === 'boss' || f.kind === 'hidden') && own && own !== f) return fail(ERR.BAD_TARGET, 'other group hidden');
     this.watchers.set(ps.playerId, f.fieldId);
     this._watchPrefSet(ps, f, playerId);
-    this.sendTo(ps.playerId, this._startMsg(f, ps.playerId, { watch: !f.players.includes(ps.playerId) }));
+    this._sendStart(ps.playerId, f, { watch: !f.players.includes(ps.playerId) });
     return OK;
   }
 
@@ -159,7 +159,7 @@ export class MatchWatch {
     if (!f && !ps.alive) f = this._watchTargetField(ps, this.fields) || this.fields[0] || null;
     if (!f) return;
     this.watchers.set(ps.playerId, f.fieldId);
-    this.sendTo(ps.playerId, this._startMsg(f, ps.playerId, { watch: !f.players.includes(ps.playerId) }));
+    this._sendStart(ps.playerId, f, { watch: !f.players.includes(ps.playerId) });
   }
 
   _defaultWatch() {
