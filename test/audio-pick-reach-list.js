@@ -31,3 +31,16 @@ export const UNREACHED = {
     'ON_PROJECTILE_REACH.projectile_cqbw': 'none: no client node carries the key — her attack\'s projectile is projectile_chr_cqbw (charpack Modes/Default/Body/Attack _projectileKey)',
   },
 };
+
+/**
+ * Banks one of her own entries plays (so the test above passes them) that her runs still never sound, per charId, with the
+ * reason the runs cannot reach that moment — what the runs' board (test/audio-pick-reach.test.js onBoard: her hand summons
+ * placed, three ground dummies that never move nor hit, two flying ones) lacks. Listed by the pick (2026-11-17: 望 and 机械师,
+ * whose 22 and 15 came from her hand summons missing on the board); the test prints the picks still without reasons, and an
+ * entry whose bank her runs reach now fails.
+ */
+export const OUT_OF_REACH = {
+  char_4230_mcnist: {
+    'ON_CUSTOM_TRIGGER.mcnist_s_2_shield': 'the break of an S2 屏障 (audio.js shieldBreak → mcnist:s2shield), and no dummy deals damage',
+  },
+};
