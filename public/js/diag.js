@@ -157,6 +157,14 @@ function mountRes(m) {
   for (const k of ['hit', 'stale', 'fetched', 'bytes', 'server']) d[k] = Math.max(0, (b.sw[k] ?? 0) - (a.sw[k] ?? 0));
   return `${at}; worker ${workerCounts(d)}`;
 }
+/**
+ * The download's bundles (resources.js `download.bundles`): read whole of those the list names, cut short by a match or
+ * a field load, failed, and the files stored from them; nothing when the list names none.
+ */
+function bundlesPart(b) {
+  if (!b?.listed) return null;
+  return `bundles ${b.fetched ?? 0}/${b.listed} read${b.stopped ? `, ${b.stopped} cut short` : ''}${b.failed ? `, ${b.failed} failed` : ''}, ${b.members ?? 0} files`;
+}
 /** The `resources:` line (resources.js resourceStatus), or null. */
 function resourcesLine(s) {
   if (!s) return null;
@@ -164,6 +172,7 @@ function resourcesLine(s) {
   return `resources: ${join(
     r ? `reconcile ${clockOf(r.at)} ${r.ms == null ? 'running' : r.skipped ? `${sec(r.ms)} s (list unchanged)` : `${sec(r.ms)} s (${r.keys} keys, ${r.stale} stale, ${r.adopted} adopted)`}` : 'no reconcile',
     d ? `download ${d.phase}${d.phase === 'running' ? ` ${d.done}/${d.total}` : d.queued ? ` (${d.queued} queued)` : ''}${d.failed ? `, ${d.failed} failed` : ''}${d.slowed === 'field' ? ', held (field loading)' : d.slowed === 'match' ? ', 1 at a time (match)' : ''}` : null,
+    bundlesPart(d?.bundles),
     r?.differ ? `${r.differ} changed in asset repo (skipped)` : null,
     c && (c.left || c.deleted) ? `cleanup ${c.deleted} deleted, ${c.left} left${c.held ? ', held (match)' : ''}` : null,
     w ? `worker ${workerCounts(w)} by ${clockOf(w.at)}` : null)}`;

@@ -303,17 +303,24 @@ describe('the resource cache (resources: line, a mount\'s res part, fieldLoading
     const at = Date.UTC(2026, 9, 28, 4, 14, 33);
     const status = {
       reconcile: { at, ms: 3240, keys: 17012, stale: 2961, adopted: 12 },
-      download: { phase: 'running', done: 120, total: 2961, failed: 2, queued: 2841, slowed: 'field' },
+      download: { phase: 'running', done: 120, total: 2961, failed: 2, queued: 2841, slowed: 'field',
+        bundles: { listed: 104, fetched: 3, stopped: 1, failed: 2, members: 412 } },
       cleanup: { left: 1500, deleted: 1461, held: true },
       worker: { at: at + 60000, hit: 1200, stale: 35, fetched: 80, bytes: 1.25 * 1048576, server: 3 },
     };
     const line = (s) => buildDiagnostics({ state: {}, resourceStatus: s }).split('\n').find((l) => l.startsWith('resources:'));
     assert.equal(line(status), 'resources: reconcile 04:14:33 3.2 s (17012 keys, 2961 stale, 12 adopted) | download running 120/2961, 2 failed, held (field loading)'
-      + ' | cleanup 1461 deleted, 1500 left, held (match) | worker 1200 cached, 35 stale, 80 fetched (1.3 MB), 3 to server by 04:15:33');
+      + ' | bundles 3/104 read, 1 cut short, 2 failed, 412 files | cleanup 1461 deleted, 1500 left, held (match) | worker 1200 cached, 35 stale, 80 fetched (1.3 MB), 3 to server by 04:15:33');
     assert.equal(line({ reconcile: { at, ms: null }, download: { phase: 'ask', queued: 40, failed: 0 }, cleanup: { left: 0, deleted: 0 }, worker: null }),
       'resources: reconcile 04:14:33 running | download ask (40 queued)');
     assert.equal(line({ reconcile: { at, ms: 4, skipped: true }, download: { phase: 'done', queued: 0, failed: 0 }, cleanup: { left: 0, deleted: 0 }, worker: null }),
       'resources: reconcile 04:14:33 0.0 s (list unchanged) | download done', 'a load with an unchanged list skips the key scan');
+    assert.equal(line({ reconcile: { at, ms: 4, skipped: true }, download: { phase: 'done', queued: 0, failed: 0, bundles: { listed: 104, fetched: 104, stopped: 0, failed: 0, members: 13980 } },
+      cleanup: { left: 0, deleted: 0 }, worker: null }),
+      'resources: reconcile 04:14:33 0.0 s (list unchanged) | download done | bundles 104/104 read, 13980 files', 'the bundles: no cut or failed count when none');
+    assert.equal(line({ reconcile: { at, ms: 4, skipped: true }, download: { phase: 'done', queued: 0, failed: 0, bundles: { listed: 0, fetched: 0, stopped: 0, failed: 0, members: 0 } },
+      cleanup: { left: 0, deleted: 0 }, worker: null }),
+      'resources: reconcile 04:14:33 0.0 s (list unchanged) | download done', 'a list naming no bundles: no bundles part');
     assert.equal(line({ reconcile: { at, ms: 4, skipped: true, differ: 9 }, download: { phase: 'done', queued: 0, failed: 0 }, cleanup: { left: 0, deleted: 0 }, worker: null }),
       'resources: reconcile 04:14:33 0.0 s (list unchanged) | download done | 9 changed in asset repo (skipped)', 'files their asset repo changed');
     setResourceSource({ status: () => status });

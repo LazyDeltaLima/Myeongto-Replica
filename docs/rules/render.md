@@ -1334,7 +1334,8 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
 - **실패하면 파일별**: 묶음이 실패하면(HTTP 오류, 목록보다 길거나 짧음, 시간 초과) 아직 못 넣은 구성원은, 바이트가 목록 해시와 다른 구성원은 그 하나만, 우선순위 순서로
   파일 줄에 돌아가 `fetchOne`이 받는다. 같은 방문에서 그 묶음을 다시 읽지 않는다. 할당량 초과(`QuotaExceededError`)는 파일과 같이 내려받기를 멈춘다.
 - **진단**: `resourceStatus().download.bundles` = `{ listed, fetched, stopped, failed, members }`(목록의 묶음 수, 끝까지 읽음 / 판·필드로 끊김 / 실패, 묶음에서 넣은 파일 수).
-  보고서의 `resources:` 줄에는 아직 안 나온다.
+  보고서의 `resources:` 줄이 내려받기 다음에 `bundles <끝까지 읽음>/<목록의 묶음> read, <n> cut short, <n> failed, <n> files`로 싣는다(`diag.js bundlesPart`,
+  끊김·실패는 0이면 뺌, 목록에 묶음이 없으면 이 부분 없음; 시험 `test/diag.test.js`).
 - 재발 방지: `test/resource-bundles-page.test.js`(묶음을 한 번 읽어 구성원별 저장·다른 바이트의 구성원만 파일로, 절반 미만·실패한 묶음은 파일별, 판이 끊은 묶음은
   넣은 것을 남기고 나머지를 파일로), 생성·서버 쪽은 `test/resource-bundles.test.js`.
 - **[화면 미확인]**: 실제 브라우저(gzip 텍스트 묶음의 스트림, 휴대폰)에서 빨라졌는지 — 고치기 전 기준선과 같은 조건(운영·none·lte·weak)으로 다시 잰다.
