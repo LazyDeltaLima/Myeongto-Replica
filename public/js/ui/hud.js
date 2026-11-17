@@ -28,6 +28,7 @@
 // (user playtest #3 item 3; the row's own label is ui/underframe.js TempRowNotice).
 
 import { useRef } from '../../vendor/hooks.module.js';
+import { Spectators } from './spectators.js';
 import { CapsuleTransHost, PingPanel, ModePanel, battleArt, modePanelArt } from './battleArt.js';
 import { PHASE } from '../../../shared/constants.js';
 import { html, Button, Icon, PingPill, Countdown, Tooltip, MicroLabel, DifficultyTag, useTicker } from './components.js';
@@ -452,6 +453,7 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
           chev=${btn.right.grey ? null : '▶▶'} disabled=${btn.right.grey && !pen} onClick=${onRight} testid="check-enemy"
           hotkey=${hotkeyLabelOf('viewEnemy')} />
       <//>
+      <${Spectators} />
     </div>
 
     <div class="gtop__right">

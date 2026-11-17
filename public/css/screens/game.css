@@ -417,6 +417,27 @@
   .buffs__dlg { --bu: max(var(--u, .015rem), .78px); max-height: calc(100vh - 3.4rem); max-height: calc(100dvh - 3.4rem); }
 }
 
+/* In-match spectator roster: the effects-list button/window, four compact rows and vertical scrolling only. */
+.spectators { --bu: var(--u, .015rem); --spectator-row: max(.4rem, 32px); position: relative; z-index: 6; flex: none; width: calc(var(--bu) * 59); height: calc(var(--bu) * 37); display: grid; place-items: center; }
+.gm .gtop .gtop__center > .buffs.spectators:not(.tip-wrap):not(.tooltip-anchor) { left: calc(100% + 8px); right: auto; top: 50%; width: calc(var(--bu) * 59); height: calc(var(--bu) * 37); transform: translateY(-50%); z-index: 6; }
+.spectators .buffs__btn { position: static; width: 100%; height: 100%; transform: none; justify-content: center; padding: 0; gap: calc(var(--bu) * 4); }
+.spectators .spectators__dialog { left: auto; right: 0; top: calc(100% + 8px); width: max(2.65rem, 220px); max-width: calc(100vw - 24px); max-height: none; padding-bottom: 0; overflow: hidden; border: 1px solid var(--mint-800); }
+.spectators .spectators__head { align-items: center; padding: max(.08rem, 6px) max(.12rem, 9px); }
+.spectators__head h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: .08rem; margin: 0; font-size: max(.18rem, 14px); letter-spacing: .06em; }
+.spectators__head h3 b { color: var(--mint-400); font-size: max(.16rem, 12px); }
+.spectators__head .micro { font-size: max(.08rem, 8px); }
+.spectators .edrawer__close { flex: none; margin: 0; min-width: 25px; min-height: 25px; }
+.spectators__list { max-height: calc(4 * var(--spectator-row)); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+.spectators .spectators__row { grid-template-columns: max(.26rem, 22px) minmax(0, 1fr); align-items: center; gap: .1rem; height: var(--spectator-row); min-height: var(--spectator-row); padding: 2px max(.12rem, 9px); }
+.spectators__person { display: grid; place-items: center; width: max(.25rem, 20px); height: max(.25rem, 20px); border: 1px solid var(--line-2); background: rgba(255, 255, 255, .035); color: var(--text-lo); }
+.spectators__person .icon { width: 65%; height: 65%; }
+.spectators .spectators__name { min-width: 0; font-size: max(.15rem, 12px); line-height: 1.25; overflow-wrap: anywhere; }
+.spectators__row.is-offline { opacity: .55; }
+.spectators .spectators__empty { padding: .22rem .12rem; margin: 0; font-size: max(.15rem, 12px); }
+@media (max-width: 720px) and (orientation: landscape) {
+  .gm.has-hud-art .gtop .gtop__center { width: min(calc(var(--u) * 692), calc(100vw - 324px)); }
+}
+
 /* ---- corner: emote + settings --------------------------------------------------------------------------------- */
 .gm__corner { position: absolute; left: .24rem; bottom: .24rem; display: flex; align-items: flex-end; gap: .1rem; }
 .gm__gear {
