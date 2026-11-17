@@ -485,6 +485,24 @@ describe('deploy sounds on every placement (maintainer report 2026-10-07, audio.
     assert.doesNotMatch(game, /rewardOffer[^\n]*'merge'/, `the promotion reward's offer has no sound of its own — ${why}`);
   });
 
+  test('a merge\'s elite sounds its placement (ON_UNIT_BORN) after the promotion cue, on the board and on the bench', () => {
+    const why = 'docs/rules/audio.md 「배치 효과음」 「정예 합성음」: the client makes a new dummy for the merge\'s new elite instance '
+      + '(MainGameInPrepare._UpdateDummyOnTile → the create queue → SetCharacter → _PlayAudioWhenCharacterPlaced → ON_UNIT_BORN), '
+      + 'so render/app.js setPrep\'s promotion branch must call prepDeployed, after the \'eliteGained\' cue';
+    const app = readFileSync(path.join(ROOT, 'public', 'js', 'render', 'app.js'), 'utf8');
+    const branch = app.match(/if \(promoFrom\.has\(e\.uid\)\) \{[\s\S]*?\n {8}\} else if/);
+    assert.ok(branch, `setPrep's promotion branch is where it was — ${why}`);
+    assert.match(branch[0], /fx\.promote\(v, [^\n]*\n\s+prepDeployed\(e, info\);/, `the promotion branch sounds the elite's placement after its cue — ${why}`);
+    assert.doesNotMatch(branch[0], /e\.area === 'board'\) prepDeployed/, `on the bench too, not only on the board — ${why}`);
+    const cue = app.indexOf("emit('eliteGained'");
+    assert.ok(cue > 0 && cue < app.indexOf(branch[0]), `the promotion cue is emitted before the pieces' placement sounds — ${why}`);
+    // an elite operator piece's prep drop-in: its character's ON_UNIT_BORN (the elite shares the model of its normal form)
+    const a = manager();
+    a.prepDeploy({ kind: 'op', defId: 'chess_diy_wang_6_b', spine: 'char_2027_wang', golden: true }, 1);
+    a.prepDeploy({ kind: 'op', defId: 'x_elite', spine: 'char_263_skadi', golden: true }, 2);
+    assert.deepEqual(a.played.map((p) => file(p.url)), ['b_char_stwctpbn.mp3', 'b_char_set.mp3'], `an elite's placement: its own bank, else b_char_set — ${why}`);
+  });
+
   test('an Art (MAGIC: 神秘顾客 / 画卷 / 教鞭) the server accepts on the field sounds ON_ACT1AUTOCHESS_MAGIC_PLACE_BATTLE once; a refused one only the error', async () => {
     const why = 'docs/rules/audio.md 「배치 효과음」: the client plays …_MAGIC_PLACE_BATTLE when a MAGIC piece is placed to the battle '
       + '(_PlayAudioWhenCharacterPlaced); here g.art\'s success sound (ui/gameActions.js SUCCESS_SFX → sfx.ui.artPlace)';

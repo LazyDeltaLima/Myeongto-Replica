@@ -915,7 +915,7 @@ export async function createFieldView(host, options = {}) {
   /**
    * local patch (maintainer report 2026-10-07): an own operator / summon piece dropped in by the prep sync (bought, a
    * server-given reward, bench → board; the board again when the prep returns after a battle — not board → bench) —
-   * screens/game.js plays its deploy sound. Not a merge's elite (its promotion cue). An item arriving in the hand / the
+   * screens/game.js plays its deploy sound. A merge's elite too, after its promotion cue. An item arriving in the hand / the
    * temp row (规程's 装备区) sounds too — bought, a reward, a strategy's grant, a "神秘顾客" handed over: the client's
    * placement sound by item type (audio.js prepDeploy; docs/rules/audio.md 「배치 효과음」).
    */
@@ -1064,9 +1064,11 @@ export async function createFieldView(host, options = {}) {
         v.setWorld(w.x, w.y, w.z);
         views.set(key, v);
         if (promoFrom.has(e.uid)) {
-          // a merge's elite: on the tile of the deployed copy it replaced, or on its bench slot
+          // a merge's elite: on the tile of the deployed copy it replaced, or on its bench slot; its placement sound
+          // after the cue (a new instance's new dummy: ON_UNIT_BORN, docs/rules/audio.md 「합성 정예의 배치음」)
           if (e.area === 'board') v.onDeploy?.();
           fx.promote(v, promoFrom.get(e.uid).filter((f) => Math.abs(f.x - w.x) + Math.abs(f.y - w.y) > 1e-3));
+          prepDeployed(e, info);
           promotions.push({ uid: e.uid, id: e.piece.id, area: e.area, row: e.row ?? null, col: e.col ?? null, idx: e.idx ?? null, copies: promoFrom.get(e.uid).length });
           if (promotions.length > 20) promotions.shift();
         } else if (e.area === 'board' && ((prevBoard.size && !prevBoard.has(e.uid)) || (prepSynced && !before.length))) { v.onDeploy?.(); fx.deploy(v); prepDeployed(e, info); }
