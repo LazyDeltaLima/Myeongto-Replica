@@ -12,11 +12,8 @@
 // after they joined; the 涤火杰西卡 / 鸿雪 and 棘刺 ones (2026-11-04) the same day; the 结城理 ones (2026-11-12) the day after.
 
 export const UNSOUNDED = {
-  // 焰影苇草 / 新约能天使 (2026-11-14, 规程 picks of 盟约's chess kits; their 盟约 chess the same)
-  char_1020_reed2: {
-    // its file is in no manifest yet: wiring it adds a kit-sfx key, which needs the asset run (tools/fetch-assets.mjs)
-    'ON_PROJECTILE_REACH.projectile_chr_reed2_aoe_effect': 'todo: S3\'s spread — reed2_t_1[skill_3_diffuse] ON_OWNER_KILLED EmitProjectile at the killed enemy\'s FOOT (key from its blackboard `projectile`); the projectile reaches at once and plays reed2_debuff_boom_01 there, the kit\'s fx scorchBurst',
-  },
+  // 新约能天使 (2026-11-14, a 规程 pick of 盟约's chess kits; its 盟约 chess the same). 焰影苇草's S3 spread
+  // (projectile_chr_reed2_aoe_effect REACH) was wired 2026-11-17: kit key reed2:s3boom on the kit's fx scorchBurst
   char_1041_angel2: {
     // mode 5 = S1 (her _modes: Default, S2, S2_Down, S3, S3_Down, S1, S1_Burst_Mode); its ON bank shares attack.5's START file
     'ON_ABILITY_START.char_1041_angel2.attack.5.Burst': 'none: S1\'s burst — the S1 mode attack group\'s _burstAttack (S1_Burst: the remaining bullets); skchr_angel2_1 is a BurstCastSkill (_canDiscardRemainingCount 1, _burstOnOverload 0) that casts it only on a hand stop (UseDiscardAbility; OnCastFinish does not), and the automatic battle never stops a skill by hand',

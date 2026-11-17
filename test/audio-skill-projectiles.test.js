@@ -226,3 +226,72 @@ describe('skill and talent projectile sounds wired 2026-10-29', () => {
     assert.ok(d.length && d.every((e) => Number.isInteger(e[4].i)), 'released drones carry `i`');
   });
 });
+
+// 2026-11-17 (docs/rules/audio.md 「선발 소리 뱅크 커버리지」 규정 선발 둘): 焰影苇草 S3's spread — a 灼痕 enemy killed while S3 runs
+// gets reed2_t_1[skill_3_diffuse]'s projectile_chr_reed2_aoe_effect at its foot, which reaches at once: its REACH bank
+// (p_aoe_fireexplo_h) is the kit's fx scorchBurst. Her 盟约 chess and her 规程 pick (the same kit, op-reed2.js), each on its season.
+describe('焰影苇草 S3 spread sound', () => {
+  const REED2 = [
+    { label: '盟约 chess', unit: { uid: 1, chessId: 'chess_char_6_08_a', row: 10, col: 5 } },
+    { label: '规程 pick', season: 'act3autochess', unit: { uid: 1, diy: { slot: 'chess_char_5_diy1_a', charId: 'char_1020_reed2', skillIndex: 2, uniEquipId: null }, row: 10, col: 5 } },
+  ];
+
+  test('the key: her scorchBurst only', () => {
+    const units = new Map([[1, { def: 'char_1020_reed2' }], [2, { def: 'char_4247_oxi' }]]);
+    const of = (id) => units.get(id);
+    assert.equal(KIT_HIT_BANKS['reed2:s3boom'], 'battle.ON_PROJECTILE_REACH.projectile_chr_reed2_aoe_effect');
+    assert.equal(file(manifest.audio.sfx.kit['reed2:s3boom']), 'p_aoe_fireexplo_h.mp3', 'the manifest carries its file');
+    assert.equal(kitHitKey('scorchBurst', { id: 1, x: 0, y: 0, r: 1 }, of), 'reed2:s3boom');
+    assert.equal(kitHitKey('scorchBurst', { id: 2, x: 0, y: 0, r: 1 }, of), null, 'not another unit\'s');
+  });
+
+  for (const c of REED2) test(`${c.label}: once per 灼痕 enemy killed during S3, none after it`, async () => {
+    const { makeBattle, enemyRec } = await import('./helpers/battleHarness.js');
+    const { onBattleClock } = await import('./helpers/audio-sweep.js');
+    const dummy = enemyRec({ key: 'e_d', hp: 1e9, speed: 0, mass: 0, def: 0, res: 0 });
+    const h = makeBattle({ season: c.season, defs: { enemies: { e_d: dummy } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true, units: [c.unit] });
+    h.step();
+    const u = h.unit(1);
+    assert.equal(u.def.charId, 'char_1020_reed2');
+    for (const pos of [[10, 6], [10, 7], [9, 6], [11, 6], [9, 7]]) h.spawn('e_d', { pos });
+    const a = manager();
+    a.setFieldUnits([...h.b.allyUnits, ...h.b.enemies].filter((x) => x.alive).map((x) => (x.side === 'enemy'
+      ? { id: x.id, kind: 'enemy', side: 'enemy', spine: 'enemy_1007_slime' }
+      : { id: x.id, kind: 'op', side: 'ally', spine: x.def.charId, skillIndex: 2 })));
+    let bursts = 0;
+    onBattleClock((tick) => {
+      let t = 0;
+      const run = (secs, f) => {
+        for (let i = 0, n = Math.round(secs / h.b.dt); i < n; i++) {
+          f?.();
+          h.step();
+          tick(t += h.b.dt);
+          a.ctx.currentTime = t;
+          const ev = h.events.splice(0);
+          bursts += ev.filter((e) => e[0] === 'fx' && e[1] === 'scorchBurst').length;
+          a.handleBattleEvents(ev);
+        }
+      };
+      u.skill.gainSp?.(999);
+      run(1, () => { if (!u.skill.active) u.skill.activate?.('test'); });
+      assert.ok(u.skill.active, 'S3 runs');
+      run(4);
+      const scorched = h.enemies().filter((e) => e.findBuff('reed2:scorch'));
+      assert.ok(scorched.length >= 2, `scorched: ${scorched.length}`);
+      a.played.length = 0;
+      bursts = 0;
+      for (const e of scorched.slice(0, 2)) { h.b.kill(e, u); run(0.5); }
+      assert.equal(bursts, 2, 'two spreads');
+      assert.equal(files(a).filter((f) => f === 'p_aoe_fireexplo_h.mp3').length, 2, files(a).join());
+      for (let i = 0; i < 60 && u.skill.active; i++) run(1);
+      assert.ok(!u.skill.active, 'S3 ended');
+      a.played.length = 0;
+      bursts = 0;
+      const left = h.enemies().find((e) => e.alive);
+      h.b.kill(left, u);
+      run(0.5);
+      assert.equal(bursts, 0, 'no spread outside S3');
+      assert.ok(!files(a).includes('p_aoe_fireexplo_h.mp3'), files(a).join());
+    });
+  });
+});

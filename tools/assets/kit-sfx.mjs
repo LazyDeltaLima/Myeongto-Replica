@@ -198,6 +198,9 @@ export const KIT_HIT_BANKS = Object.freeze({
   'oxi:s3hit': 'battle.ON_PROJECTILE_HIT.projectile_chr_oxi_s_3_heatwave',
   'oxi:s3ovs': 'battle.ON_CUSTOM_TRIGGER.oxi_s_3_overload',
   'oxi:field': 'battle.ON_CUSTOM_TRIGGER.oxi_fire_field_create',
+  // 2026-11-17: 焰影苇草 S3's spread — a 灼痕 enemy killed during S3 (reed2_t_1[skill_3_diffuse] ON_OWNER_KILLED) gets the
+  // projectile of its blackboard `projectile` at its FOOT, which reaches at once (reed2_debuff_boom_01: the kit's fx scorchBurst)
+  'reed2:s3boom': 'battle.ON_PROJECTILE_REACH.projectile_chr_reed2_aoe_effect',
   // 2026-11-01 冻河 (CN buff templates: the audioSignal of the buffs they create; public/js/audio.js statusSoundKey / kitHitKey):
   // S1 屏障, S2 attack speed, S3 ATK bonus (SHOW_EFFECT), S3 triggered effect (START); S2's projectile reaching its ally
   'tocka:s1shield': 'battle.ON_BUFF_SHOW_EFFECT.tocka_s1_shield_start_audio',

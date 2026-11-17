@@ -517,9 +517,11 @@
   - 엑시아 더 뉴 커버넌트 `ON_ABILITY_START.char_1041_angel2.attack.5.Burst` → `none`. 모드 5는 S1이다(`_modes`: Default·S2·S2_Down·S3·S3_Down·S1·S1_Burst_Mode — S3이 아님). 그 모드 공격
     묶음의 `_burstAttack`(`S1_Burst`, 남은 탄 일제 사격)이고, 스킬 `skchr_angel2_1`은 `BurstCastSkill`(`_canDiscardRemainingCount` 1, `_burstOnOverload` 0)이라 손으로 끌 때만
     그것을 쏜다(`UseDiscardAbility`; `OnCastFinish`는 안 부름 — 위 「공격 소리 신호」의 혼 S2 `Full Burst`와 같음). 卫戍协议 자동 전투에는 손으로 끄는 일이 없다. 같은 이름의 ON 뱅크는 `attack.5` START와 파일이 같아 「남」.
-  - 리드 더 플레임 섀도우 `ON_PROJECTILE_REACH.projectile_chr_reed2_aoe_effect` → 아직 `todo`. S3 중 번짐 표식(`reed2_t_1[skill_3_diffuse]`)을 가진 적이 쓰러지면 그 버프의
+  - 리드 더 플레임 섀도우 `ON_PROJECTILE_REACH.projectile_chr_reed2_aoe_effect` → 이음(2026-11-17). S3 중 번짐 표식(`reed2_t_1[skill_3_diffuse]`)을 가진 적이 쓰러지면 그 버프의
     ON_OWNER_KILLED가 쓰러진 적의 발밑(FOOT)에 이 투사체를 쏘고(키는 블랙보드 `projectile`), 투사체는 곧바로 닿아 `reed2_debuff_boom_01`을 튼다 — 키트의 fx `scorchBurst`와
-    같은 순간이다. 소리 파일이 매니페스트에 없어 잇는 일(`kit-sfx.mjs` 키 + `audio.js kitHitKey`의 `scorchBurst`)은 자산 실행(`tools/fetch-assets.mjs`)과 함께 한다.
+    같은 순간이다. `kit-sfx.mjs` `reed2:s3boom` + `audio.js kitHitKey`의 `scorchBurst`(그녀의 것만): 번짐 한 번에 `p_aoe_fireexplo_h` 한 번(뱅크 한도 2, `popOldest`), S3 밖의
+    처치는 번짐도 소리도 없음. 번짐의 피해는 버프 피해라 모드 착탄음은 여전히 안 난다(「공식 소리 신호 잇기」 주기 피해 줄). 맹약 기물과 규정 선발이 같은 키트. 재발 방지:
+    `test/audio-skill-projectiles.test.js` 「焰影苇草 S3 spread sound」. [화면 미확인]
 - **도달 시험**(2026-11-17, 위 둘째 줄의 하한을 메움): 위 시험은 파일이 매니페스트 어딘가에 있으면 「남」이라, 다른 유닛이 같은 파일을 내면(흔한 스킬
   시작음 `b_char_defboost` 등) 그 오퍼레이터의 순간이 무음이어도 통과했다. 소리 훑기(더미 셋·12초·곧바로 시전)는 시전 전 일반 공격·스킬 끝까지·적 처치·소환물과
   자신의 쓰러짐을 못 봤다. `test/audio-pick-reach.test.js`는 선발 × 스킬을 그 시즌 데이터로(`test/helpers/audio-sweep.js`) 시전 전 5초 → 시전 12초 → 스킬 끝까지(최대

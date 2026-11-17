@@ -380,6 +380,9 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'tide': return def(ex.id) === 'char_4231_clemnt' ? 'clemnt:s2tide' : null;
     // 2026-11-01: 塔露拉 S3 — a 簇火 exploding (its projectile's HIT; the blast names its wave `w`, S2's retaliation does not)
     case 'blast': return def(ex.id) === 'char_4231_clemnt' ? 'clemnt:s3hit' : ex.w != null && def(ex.id) === 'char_4247_oxi' ? 'oxi:s3hit' : null;
+    // 2026-11-17: 焰影苇草 S3 — a 灼痕 enemy's death spreads (reed2_t_1[skill_3_diffuse]: its projectile_chr_reed2_aoe_effect
+    // reaching the killed enemy's foot at once; the sim's burst there names her `id`)
+    case 'scorchBurst': return def(ex.id) === 'char_1020_reed2' ? 'reed2:s3boom' : null;
     // 2026-11-01: 冻河 — S3's triggered effect put on an ally (tocka_s3[trigger], audioSignal tocka_s3_trigger_start_audio), S2's
     // projectile reaching its ally (projectile_chr_tocka_s2 HIT)
     case 'tockaFx': return def(ex.src) !== 'char_4244_tocka' ? null : ex.s === 3 ? 'tocka:s3trigger' : ex.s === 2 && ex.shot ? 'tocka:s2hit' : null;

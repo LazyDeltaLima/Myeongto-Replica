@@ -1477,8 +1477,8 @@ describe('kit skill hit sounds (tools/assets/kit-sfx.mjs → sfx.kit, public/js/
     const m = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
     // (+ p_skill: 归溟幽灵鲨's 替身 switch, maintainer report — test/local-patch-skill-music.test.js; e_atk / e_imp: 帝国炮火先兆者's shell;
     // a_bat: 叙拉古 [ex]'s proc, test/audio-bond-block-sounds.test.js; b_char: 予愿安洁莉娜's Born clip, test/audio-link-sheet.test.js;
-    // e_skill: the enemy buff sounds, test/audio-enemy-buff-sounds.test.js)
-    for (const key of Object.keys(KIT_HIT_BANKS)) assert.match(m.audio.sfx.kit?.[key] || '', /\/(p_(imp|atk|skill)|e_(imp|atk|skill)|a_bat|b_char)\/.+\.mp3$/, key);
+    // e_skill: the enemy buff sounds, test/audio-enemy-buff-sounds.test.js; p_aoe: 焰影苇草 S3's spread, test/audio-skill-projectiles.test.js)
+    for (const key of Object.keys(KIT_HIT_BANKS)) assert.match(m.audio.sfx.kit?.[key] || '', /\/(p_(imp|atk|skill|aoe)|e_(imp|atk|skill)|a_bat|b_char)\/.+\.mp3$/, key);
     assert.match(m.audio.sfx.units.char_1035_wisdel.hit, /p_imp_dkmrcaygn_n\.mp3$/);
   });
 
