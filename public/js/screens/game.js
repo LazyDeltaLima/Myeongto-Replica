@@ -1013,13 +1013,11 @@ function MatchScreen() {
   }, [emotes]);
 
   // ---- actions ----------------------------------------------------------------------------------------------
-  const buy = useCallback(async (i) => {
-    const slot = live.current.priv?.shop?.slots?.[i];
-    // local patch (maintainer report 2026-10-07): an operator / summon lands on the bench with its deploy sound (pieceDeploy) —
-    // the shop's own sound (ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND, b_char_tokenset) stays for equipment. No 部署 line (owner's
-    // 卫戍协议 videos, 2026-10-08: a purchase / reward only sounds the deploy SFX).
-    return actions.buy(i, slot && slot.kind !== 'item' ? { sfx: false } : undefined);
-  }, []);
+  // maintainer report 2026-10-07: a purchase lands on the bench with its deploy sound (pieceDeploy) — an operator / summon
+  // its ON_UNIT_BORN, an item its placement sound by type (audio.js prepDeploy; audio_data has no purchase bank for this
+  // mode but the Closure theme's: docs/rules/audio.md 「배치 효과음」), so the request's success sound stays off. No 部署 line (owner's 卫戍协议 videos,
+  // 2026-10-08: a purchase / reward only sounds the deploy SFX).
+  const buy = useCallback(async (i) => actions.buy(i, { sfx: false }), []);
   const pickReward = useCallback((i) => actions.reward(i), []);
   // 准备 asks first, as the client's _EventOnPrepReadyBtnClick: units left in the temp row (PREP_READY_TIP_1 —
   // gameLogic.readyOverflowPrompt; they go at the prep's end), then funds left (PREP_READY_TIP_2, community report #4: the

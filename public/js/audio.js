@@ -2271,12 +2271,21 @@ export class AudioManager {
   /**
    * local patch (maintainer report 2026-10-07): an own prep piece dropped in (bought, a reward, moved onto the board or
    * back to the bench — render/app.js prepDeployed): its deploy sound. `unit` is the view's piece info.
-   * @param {{ kind?: string, defId?: string, spine?: string|null }} unit
+   * An item arriving in the hand / 装备区 sounds as the client's AutoChessDummyManager._PlayAudioWhenCharacterPlaced has it
+   * (docs/rules/audio.md 「배치 효과음」): MAGIC (神秘顾客 / 画卷 / 教鞭) ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND (sfx.ui.buy, the
+   * bank tools/assets/audio.mjs UI_SFX.buy names), any other type ON_UNIT_BORN of its dummy — a token dummy, so its own
+   * bank when it has one, else `.token` (b_char_tokenset).
+   * @param {{ kind?: string, defId?: string, spine?: string|null, trapId?: string|null, itemType?: string|null }} unit
    * @param {number|string} uid
    */
   prepDeploy(unit, uid) {
     try {
-      if (!this.ctx || !unit || unit.kind === 'item') return;
+      if (!this.ctx || !unit) return;
+      if (unit.kind === 'item') {
+        if (unit.itemType === 'MAGIC') this._play(this.getManifest()?.audio?.sfx?.ui?.buy, { volume: groupGain('Battle_UI_Important'), limited: true, bank: 'b:magicHand' });
+        else if (typeof (unit.trapId || unit.defId) === 'string') this.playDeploySfx({ def: unit.trapId || unit.defId, defId: unit.trapId || unit.defId, kind: 'token', side: 'ally' }, `prep:${uid}`);
+        return;
+      }
       const def = unit.spine || unit.defId;
       if (typeof def !== 'string') return;
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();

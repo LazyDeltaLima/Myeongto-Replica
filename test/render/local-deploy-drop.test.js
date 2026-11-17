@@ -180,7 +180,12 @@ describe('official deploy drop-in (units.js onDeploy)', () => {
     // maintainer report 2026-10-07: round 1's first piece (nothing before it, a sync already ran) drops in — with its sound
     assert.match(app, /\(before\.length \|\| prepSynced\) && \(e\.area === 'hand'/);
     assert.match(app, /if \(prepPieces\.length === seen\.size\) prepSynced = true;/);
-    assert.match(app, /function prepDeployed\(e, info\) \{\n\s+if \(info\.kind !== 'item'\) emit\('pieceDeploy'/);
+    // an item arriving in the hand / 装备区 sounds too (docs/rules/audio.md 「배치 효과음」: the client's placement sound by
+    // item type — audio.js prepDeploy needs its type, pieceInfo carries it)
+    assert.match(app, /function prepDeployed\(e, info\) \{\n\s+emit\('pieceDeploy', \{ uid: e\.uid, area: e\.area, unit: info \}\);\n\s+\}/,
+      'docs/rules/audio.md 「배치 효과음」: every prep drop-in, items included, reaches audio.prepDeploy');
+    assert.match(app, /return \{ kind: 'item', defId: piece\.id, trapId: rec\?\.trapId \|\| null, itemType: rec\?\.itemType \|\| null,/,
+      'docs/rules/audio.md 「배치 효과음」: an item\'s piece info carries its itemType (MAGIC → MAGIC_PLACE_HAND)');
     assert.match(app, /if \(dropped === true\) \{ v\._tween = null;/);
   });
 });

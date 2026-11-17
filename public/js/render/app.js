@@ -915,10 +915,12 @@ export async function createFieldView(host, options = {}) {
   /**
    * local patch (maintainer report 2026-10-07): an own operator / summon piece dropped in by the prep sync (bought, a
    * server-given reward, bench → board; the board again when the prep returns after a battle — not board → bench) —
-   * screens/game.js plays its deploy sound. Not a merge's elite (its promotion cue) and not an item.
+   * screens/game.js plays its deploy sound. Not a merge's elite (its promotion cue). An item arriving in the hand / the
+   * temp row (规程's 装备区) sounds too — bought, a reward, a strategy's grant, a "神秘顾客" handed over: the client's
+   * placement sound by item type (audio.js prepDeploy; docs/rules/audio.md 「배치 효과음」).
    */
   function prepDeployed(e, info) {
-    if (info.kind !== 'item') emit('pieceDeploy', { uid: e.uid, area: e.area, unit: info });
+    emit('pieceDeploy', { uid: e.uid, area: e.area, unit: info });
   }
 
   function pieceInfo(piece, area, byUid = null) {
@@ -930,7 +932,7 @@ export async function createFieldView(host, options = {}) {
       const rec = data.item(piece.id);
       const tier = rec?.tier || piece.tier || 1;
       const url = assets.itemIcon ? assets.itemIcon(rec ? { trapId: rec.trapId, iconId: rec.iconId } : piece.id) : null;
-      return { kind: 'item', defId: piece.id, trapId: rec?.trapId || null, tier, icon: url, golden: !!(piece.golden || rec?.isGolden), color: (piece.golden || rec?.isGolden) ? 0xffc600 : TIER_COLORS[tier] || TIER_COLORS[1] };
+      return { kind: 'item', defId: piece.id, trapId: rec?.trapId || null, itemType: rec?.itemType || null, tier, icon: url, golden: !!(piece.golden || rec?.isGolden), color: (piece.golden || rec?.isGolden) ? 0xffc600 : TIER_COLORS[tier] || TIER_COLORS[1] };
     }
     if (kind === 'token') {
       const rec = data.token(piece.id);

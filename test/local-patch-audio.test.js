@@ -348,17 +348,44 @@ describe('every bank plays like the official SoundFXBank.Play: popOldest / maxSo
 });
 
 describe('deploy sounds on every placement (maintainer report 2026-10-07, audio.js playDeploySfx / prepDeploy)', () => {
-  test('a prep drop-in sounds the operator\'s own ON_UNIT_BORN (望, 余), else b_char_set; summons theirs / b_char_tokenset; items nothing', () => {
+  test('a prep drop-in sounds the operator\'s own ON_UNIT_BORN (望, 余), else b_char_set; summons theirs / b_char_tokenset', () => {
     const a = manager();
     a.prepDeploy({ kind: 'op', defId: 'chess_diy_wang_6_a', spine: 'char_2027_wang' }, 1);
     a.prepDeploy({ kind: 'op', defId: 'x', spine: 'char_2026_yu' }, 2);
     a.prepDeploy({ kind: 'op', defId: 'x', spine: 'char_263_skadi' }, 3);
     a.prepDeploy({ kind: 'token', defId: 'token_10064_wang_stone1', spine: 'token_10064_wang_stone1' }, 4);
     a.prepDeploy({ kind: 'token', defId: 'token_10017_skadi2_dedant', spine: 'token_10017_skadi2_dedant' }, 5);
-    a.prepDeploy({ kind: 'item', defId: 'item_x' }, 6);
     assert.deepEqual(a.played.map((p) => file(p.url)),
       ['b_char_stwctpbn.mp3', 'p_skill_frbytrtn_bn.mp3', 'b_char_set.mp3', 'p_imp_stwctptkin.mp3', 'b_char_tokenset.mp3']);
     assert.ok(a.played.every((p, i) => close(p.volume, GROUP_GAIN.Battle_UI_Important * (i === 1 ? 0.75 : 1))), 'Battle_UI_Important (× 余\'s bank volume 0.75)');
+  });
+
+  test('an item arriving in the hand / 装备区 (every item of both seasons): MAGIC → ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND, any other type → its token dummy\'s ON_UNIT_BORN (.token)', async () => {
+    const why = 'docs/rules/audio.md 「배치 효과음」: the client\'s _PlayAudioWhenCharacterPlaced plays MAGIC_PLACE_HAND for a MAGIC piece '
+      + 'placed in the hand and ON_UNIT_BORN (a token dummy: `.token`) for any other — render/app.js prepDeployed must pass items '
+      + 'with their itemType, audio.js prepDeploy must sound them';
+    const { UI_SFX } = await import('../tools/assets/audio.mjs');
+    assert.equal(UI_SFX.buy?.bank, 'battle.ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND', `sfx.ui.buy is that bank — ${why}`);
+    assert.equal(file(manifest.audio.sfx.ui.buy), 'b_char_tokenset.mp3', why);
+    const items = new Map();
+    for (const f of ['items.json', path.join('seasons', 'act3autochess', 'items.json')]) {
+      for (const r of Object.values(JSON.parse(readFileSync(path.join(ROOT, 'data', f), 'utf8')))) items.set(r.id, r);
+    }
+    const seen = { MAGIC: 0, EQUIP: 0 };
+    for (const r of items.values()) {
+      const a = manager();
+      // the piece info render/app.js pieceInfo builds for an item
+      a.prepDeploy({ kind: 'item', defId: r.id, trapId: r.trapId, itemType: r.itemType }, 1);
+      const magic = r.itemType === 'MAGIC';
+      seen[magic ? 'MAGIC' : 'EQUIP'] += 1;
+      assert.equal(a.played.length, 1, `${r.id} (${r.itemType}): one placement sound — ${why}`);
+      const [p] = a.played;
+      assert.equal(p.bank, magic ? 'b:magicHand' : 'b:born:token', `${r.id}: its bank — ${why}`);
+      assert.equal(file(p.url), 'b_char_tokenset.mp3', `${r.id}: no item trap has an ON_UNIT_BORN bank of its own — ${why}`);
+      assert.ok(close(p.volume, GROUP_GAIN.Battle_UI_Important), `${r.id}: Battle_UI_Important (both banks, volume 1)`);
+    }
+    assert.equal(seen.MAGIC, 3, '神秘顾客 / 画卷 / 教鞭 (chess_item_6_0*_m) ran');
+    assert.ok(seen.EQUIP > 100, `the equipment of both seasons ran (${seen.EQUIP})`);
   });
 
   test('an Art (MAGIC: 神秘顾客 / 画卷 / 教鞭) the server accepts on the field sounds ON_ACT1AUTOCHESS_MAGIC_PLACE_BATTLE once; a refused one only the error', async () => {

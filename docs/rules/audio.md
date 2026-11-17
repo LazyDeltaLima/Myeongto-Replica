@@ -961,14 +961,15 @@
   소환물 11종(望 棋子 p_imp_stwctptkin, 维什戴尔 wward, 诅咒娃娃 등). 卫戍协议에는 「말 놓기」 전용 뱅크가 없다(`act1vautochess` SHOP_DROP=b_char_set은 다른 모드)
   → 정비 단계도 유닛 탄생 소리를 쓴다 — 공식 클라로 확인(2026-10-10): `AutoChessDummyManager._PlayAudioWhenCharacterPlaced`가 말 종류
   (`AutoChessBattleUtil.GetChessType`)가 MAGIC이 아니면 `PlayAudioSignal("ON_UNIT_BORN", unit)`, MAGIC이면 손으로 `ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND` /
-  전장으로 `…_MAGIC_PLACE_BATTLE`. 공식 표(`activity_table` `itemType`) 대조(2026-11-07): 우리 장비 112개는 EQUIP(→ ON_UNIT_BORN), MAGIC은 '신비한 고객' 등 3개(`chess_item_6_0*_m`)뿐이다. EQUIP 구매는 상점 소리 그대로인데 파일이 `b_char_tokenset`으로 같다. MAGIC('신비한 고객'·두루마리·교편)을 전장으로 놓는 `…_MAGIC_PLACE_BATTLE`은 처음 가져올 때부터 이어져 있었다(2026-11-17 다시 봄, 11-07 대조가 이 길을 못 봄): 서버가 `g.art`를 받으면 `ui/gameActions.js` `SUCCESS_SFX`의 `artPlace` → `tools/assets/audio.mjs` `UI_SFX.artPlace`(그 뱅크, `act1autochess_a_bat_usmgbf`). 끌어 놓기와 방향 휠 확정 모두 `actions.art`를 거치고, 거절된 사용은 오류음만. 재발 방지: `test/local-patch-audio.test.js` 「an Art (MAGIC …) … MAGIC_PLACE_BATTLE once」. MAGIC이 손(벤치·장비 칸)에 생길 때의 `…_MAGIC_PLACE_HAND`는 아직 안 이었다(정비 낙하 `prepDeployed`가 아이템을 빼므로 무음, 남은 일).
+  전장으로 `…_MAGIC_PLACE_BATTLE`. 공식 표(`activity_table` `itemType`) 대조(2026-11-07): 우리 장비 112개는 EQUIP(→ ON_UNIT_BORN), MAGIC은 '신비한 고객' 등 3개(`chess_item_6_0*_m`)뿐이다(규정 장비 116개는 모두 EQUIP). MAGIC('신비한 고객'·두루마리·교편)을 전장으로 놓는 `…_MAGIC_PLACE_BATTLE`은 처음 가져올 때부터 이어져 있었다(2026-11-17 다시 봄, 11-07 대조가 이 길을 못 봄): 서버가 `g.art`를 받으면 `ui/gameActions.js` `SUCCESS_SFX`의 `artPlace` → `tools/assets/audio.mjs` `UI_SFX.artPlace`(그 뱅크, `act1autochess_a_bat_usmgbf`). 끌어 놓기와 방향 휠 확정 모두 `actions.art`를 거치고, 거절된 사용은 오류음만. 재발 방지: `test/local-patch-audio.test.js` 「an Art (MAGIC …) … MAGIC_PLACE_BATTLE once」.
+- 장비·MAGIC이 손에 생길 때 (2026-11-17, 공식 클라 + 공식 표·프리팹): 클라는 장비(EQUIP)·MAGIC 더미를 토큰 더미로 만든다(`AutoChessBattleUtil.CreateDummy`: 아이템 종류 EQUIP·MAGIC이면 `isToken` 참으로 만든 데이터 → `CreateTokenDummy`). 그래서 EQUIP의 `ON_UNIT_BORN`은 `Character.PlayAudioSignal`의 토큰 갈래 `battle.ON_UNIT_BORN.token`(b_char_tokenset)이다 — 자기 id 뱅크를 쓰라는 프리팹 표시 `_useIdForAudioSignalMask`는 장비 장치 프리팹 모두 0(EN `btl_pfb_tokens_4` 64개·CN `btl_pfb_tokens_6` 규정 32개), 장비 장치 id의 `ON_UNIT_BORN.<id>` 뱅크도 표에 없다. MAGIC이 손에 놓이면 `battle.ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND`(같은 파일, 상한 1). 둘 다 Battle_UI_Important·음량 1. 우리는 이것을 낙하 연출과 같은 상태 비교에서 낸다(`render/app.js prepDeployed`가 아이템도 보냄, `pieceInfo`가 `itemType`을 실음 → `audio.prepDeploy`: MAGIC은 `sfx.ui.buy`(= `UI_SFX.buy`, 그 뱅크)를 뱅크 `b:magicHand`로, 그 밖은 `playDeploySfx` 토큰 갈래). 손(벤치)·규정 장비 칸(`temp` 앞 다섯 칸)에 새로 생긴 아이템 모두 — 상점 구매, 보상 고르기(`pick` UI 소리와 함께), 전략·특질로 받기, '신비한 고객' 넘겨받기, 장비 합성·조합 결과. 이 모드의 표에는 구매 소리 뱅크가 없어(클로저 테마의 `ON_AUTOCHESS_SHOP_BUY_AC_S_CLOSUR`뿐) 구매 요청 성공음은 껐다(`screens/game.js` buy — 예전엔 장비 구매만 `buy`를 요청 성공음으로 냈다). 장비 칸 안에서 옮기기·오퍼레이터 장착은 그대로(옮기기 무음, 장착 `equip`). 재발 방지: `test/local-patch-audio.test.js` 「an item arriving in the hand / 装备区 (every item of both seasons)」, `test/render/local-deploy-drop.test.js`(아이템도 `pieceDeploy`·`itemType`).
 - 고친 것: 소리는 정비 화면의 **낙하 연출과 같은 곳**에서 난다 — `render/app.js` setPrep이 내 보드·벤치 상태를 이전과 비교해 낙하(onDeploy)를 틀 때
   `pieceDeploy` 이벤트(`prepDeployed`) → `screens/game.js` → `audio.prepDeploy` → `playDeploySfx`(전투 'deploy'와 같은 함수: 전용 소리 → 공용, 공식 믹스).
   서버가 넣어 주는 보상(정예화 보상·결산 보상)도 상태 비교라 잡힌다. 경우별:
   - 소리 남: 구매·보상으로 벤치 도착, 벤치→보드, 소환물(전용 또는 b_char_tokenset), **전투 뒤 정비로 돌아올 때 보드의 말**(`backFromBattle` — 관리자 결정
     2026-10-08 「라운드 종료 후, 배치 단계 진입할때도 배치음이 나오는게 맞아」). 벤치 말은 낙하만.
   - 소리 없음: 보드→벤치 복귀(낙하는 함 — 관리자 제보 2026-10-08), 판매, 페이지 로드·재접속
-    첫 동기화, 전투 뒤 벤치 복원, 3장 합성 엘리트(합성 연출·`merge` 소리), 장비, **협동 정비에서 남의 보드를 보러 갈 때 그 보드의 말과 내 보드로 돌아올 때**
+    첫 동기화, 전투 뒤 벤치 복원, 3장 합성 엘리트(합성 연출·`merge` 소리), 장비 장착(`equip` 소리), **협동 정비에서 남의 보드를 보러 갈 때 그 보드의 말과 내 보드로 돌아올 때**
     (낙하는 함) — **관리자 결정 2026-10-11 「코드대로」(확인 항목)**: 클라는 배치음을 `SetCharacter`(말이 만들어지거나 옮겨질 때)에서만 낸다
     (공식 클라 `AutoChessDummyManager._PlayAudioWhenCharacterPlaced`, 호출자는 만들기 대기열·`_DoCreateOnTile`·`CreateDeadLikeDummy`뿐) —
     카메라가 보드를 바꾸는 쪽은 `SetCharacter`를 부르지 않는다. 관리자가 공식 협동 영상(보드 전환 순간에 배치음이 나는지)으로 나중에 확정한다.
@@ -988,7 +989,7 @@
   - 한 틱에 여럿(서버 자동 배치가 8~12개를 한 번에): 공용 배치음 뱅크(`ON_UNIT_BORN.char`, 상한 2·popOldest — 2026-10-10)가 앞 소리를 끊어 마지막 두 개가 남는다.
   - 라운드 시작: 정비에서 막 놓은(1.5초 안, `PREP_DEPLOY_OVERLAP_MS`) 같은 모델의 전투 'deploy'는 다시 울리지 않는다.
 - 함께 고친 것: 1라운드처럼 보드·벤치가 비어 있을 때 **첫 말이 낙하하지 않던 것**(`before.length` 조건) — 동기화를 한 번 마친 뒤(`prepSynced`, 모든 말이 자리를 찾음)면
-  빈 상태 다음 말도 새로 온 것. 오퍼레이터 구매는 상점 소리(b_char_tokenset)를 빼고 배치음만(장비 구매는 그대로).
+  빈 상태 다음 말도 새로 온 것. 오퍼레이터 구매는 상점 소리(b_char_tokenset)를 빼고 배치음만(장비 구매도 2026-11-17부터 배치음만 — 위 「장비·MAGIC이 손에 생길 때」).
 - 확인: 단위 `test/local-patch-audio.test.js` 「deploy sounds on every placement」, 소스 `test/render/local-deploy-drop.test.js`. 실제 솔로 판(Chrome:
   1라운드 정비에서 구매 → 보드 → 벤치, 자동 배치, 전투 시작) — 세 경로 모두 b_char_set,
   전용 소리(b_char_tpartclce·snwlprdg·p_skill_frbytrtn_bn) 확인, 전투 뒤 정비 시작에 전체가 울리지 않음.
