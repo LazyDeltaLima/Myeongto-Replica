@@ -2183,8 +2183,14 @@
   `attackHit`, 휘두름의 `attackStart`)에서 이름 규칙의 `_skill_0N_*`을 쓰지 않는다. 오퍼레이터 자기 스킬(모드 −1)은 그대로 둔다 — 그 스킬 능력의
   타격을 이름 규칙이 대신하는 것(백파이프 S2 `bpipe_skill_02_hit` 등, 전부 모드 0으로 읽으면 20여 명의 타격이 빠졌다). 캐릭터 프리팹에 그 스킬의
   모드가 있는 공용 스킬(파투스 S1·클릭 S1의 `S1` 모드)은 그 모드로 바뀌므로 이 경우가 아니다.
-- 이펙트 골든은 움직이지 않는다: `tools/fx-golden.mjs`는 레이어에 `unitDef`를 주지 않아 `sharedSkill`이 늘 거짓이다(포탄 착지 자리도 같은 까닭으로
-  골든에 안 보임).
+- 이펙트 골든(2026-11-17): 처음엔 움직이지 않았다 — `tools/fx-golden.mjs`가 레이어에 `unitDef`를 주지 않아 `sharedSkill`이 늘 거짓이었고, 기물 기록을
+  읽는 다른 갈래(포탄 착지 `shellGround`·`shellLand`, 투사체 속도·곡사)도 골든에 안 보였다. 지금은 실행기가 앱과 같은 조회를 준다 — `app/host.js`
+  `unitRecordOf`(예비·선발·걷는 아군·소환물, 앱의 `lookupDef`와 한 함수)를 시나리오 시즌의 `makeData` 위에서. 움직인 줄은 앱이 이미 그리던 것:
+  애쉬락·혼의 포탄 폭발이 대상 없이 땅에(`→ foe`가 빠짐, 애쉬락 근접 `ashlok_attack_01_hit_02`가 생김), 공용 S1의 발동·스킬 버프에서 이름 규칙 대역이
+  빠짐(애쉬락 `ashlok_skill_01_start`·`_hit`, 텍사스 `texas_skill_01_start`·`_range`, 벤델라 `vendla_skill_01_buff_01`, 머드락 `mudrok_skill_01_buff`,
+  산탈라 `sntlla_skill_01_buff`), 공용 S1 중의 공격이 기본 모드로 그려져 생긴 타격·시전(해럴드·퍼퓨머·사일런스의 자기 치유, 락락·쿠오라·쉐라·
+  레온하르트·모스티마; 쏜즈 `thorns_attack_01_hit` 빠짐 — 스킬 없을 때처럼 `_02`). 전투 골든은 그대로.
+  재발 방지: 원인 제거 — 실행기가 `app/host.js` `makeData`·`unitRecordOf`로 앱과 같은 조회를 읽음.
 - 재발 방지: `test/render/shared-skill-fx.test.js`(모든 시즌 기물 × 공용 스킬, 스킬 중 공격 이펙트 = 스킬 없을 때, 묶음의 `_skill_` 대역 없음;
   애쉬락 S1이 든 것을 확인). [화면 미확인: 아레나 2배속에서 애쉬락 S1 착탄]
 

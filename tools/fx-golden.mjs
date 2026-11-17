@@ -5,7 +5,8 @@
 //
 // Every battle scenario runs through the production BattleSpec path (golden.mjs battleOf); its client events are drained every
 // 3 ticks (the match's watcher cadence) and handed, as the browser hands them (render/app.js), to render/fxgame.js
-// createFxLayer({ dry: true, trace }) with views built from the field's UnitInfo and the snapshots. The layer draws nothing
+// createFxLayer({ dry: true, trace }) with views built from the field's UnitInfo and the snapshots, and the app's record
+// lookups (enemyDef / unitDef: render/app/host.js makeData + unitRecordOf over the season's data). The layer draws nothing
 // (`dry`) and reports every prefab it starts (`trace`: play() by event kind, spawn() by its caller), and from each started
 // prefab's JSON what that prefab creates once it plays (`spawn:emit` OnPlayEmitter / OnFinishEmitter, `spawn:random`
 // RandomEmitter copies — fxgame.js dryFollow). Each frame render/fxstatus.js syncStatusFx asks the layer for the status
@@ -31,6 +32,7 @@ import { createFxLayer } from '../public/js/render/fxgame.js';
 import { syncStatusFx, statusSource } from '../public/js/render/fxstatus.js';
 import { fxBundleOf } from '../public/js/render/fxmap.js';
 import { getData } from '../server/data.js';
+import { makeData, unitRecordOf } from '../public/js/render/app/host.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const FX_DIR = join(ROOT, 'public/assets/local/fx');
@@ -46,7 +48,15 @@ export function fxAvailable() {
 
 const quiet = { warn() {}, error() {}, info() {}, debug() {} };
 let gameData = null;
-const enemyDef = (id) => (gameData ||= getData({ log: quiet })).enemies?.[id] ?? null;
+/**
+ * The layer's record lookups as render/app.js hands them (makeData over the scenario season's data files): `enemyDef` by
+ * def id, `unitDef` by UnitInfo (app/host.js unitRecordOf — stand-ins, 自选 picks, walkers, tokens). Without `unitDef` the
+ * branches that read a unit's record never ran here (fxgame.js sharedSkill, a shell's ground point, a shot's speed / lob).
+ */
+const lookupsOf = (season) => {
+  const data = makeData(getData({ season, log: quiet }));
+  return { enemyDef: (id) => data.enemy(id), unitDef: (info) => unitRecordOf(data, info) };
+};
 /**
  * The stage's active 土石结构 { r, c, z } as render/app.js enterBattle hands them to setStorm (z: the tile height, unused here);
  * `strong`: only those strengthened as the battle starts (风沙掩体 level 2 — strengthenMounds).
@@ -161,7 +171,7 @@ async function traceBattle(sc) {
     lines.add(`${name(p.by)} ${p.kind}${p.tag ? `:${p.tag}` : ''} ${p.names.join('+')}${tgt != null ? ` → ${rel(p.by, tgt)}` : ''}`);
   };
   let rect = null;
-  const layer = createFxLayer({ host: null, above: null, quality: () => 'high', fieldRect: () => rect, enemyDef, trace, dry: true });
+  const layer = createFxLayer({ host: null, above: null, quality: () => 'high', fieldRect: () => rect, ...lookupsOf(sc.season), trace, dry: true });
   await macrotask(); // the index and bindings load
   const add = (info) => {
     if (!info || info.id == null) return;

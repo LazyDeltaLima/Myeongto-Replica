@@ -161,7 +161,7 @@ import { dirVector } from './face-turn.js'; // an operator's front (render.md �
 import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS } from './app/tune.js';
 import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, penShown, leaderShown } from './app/view.js';
 import { renderInfo, FORCED_EXIT, showsDeathFx, deviceAsEnemy } from './app/info.js';
-import { resolveAssets, makeData, withTimeout, capWait, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
+import { resolveAssets, makeData, unitRecordOf, withTimeout, capWait, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
 import { prewarmEpRings } from './hud-bars.js'; // 2026-11-15: the element ring's sprites asked for ahead
 import { autoQuality, autoQualityStepper, onAutoQuality } from './auto-quality.js'; // settings 「自动」 (render.md 「자동 화면 품질」)
 import { frameScale, loadLevelStepper } from './load-level.js'; // 2026-10-30: the adaptive load level's judgement (render.md 「적응 부하 단계」)
@@ -408,10 +408,7 @@ export async function createFieldView(host, options = {}) {
     cam: () => cam, heightAt,
     animRate: () => (mode === 'battle' ? interp.rate : 1),
     timeScale: () => (mode === 'battle' ? interp.rate : 1),
-    // (a chess fighting as its 补位 stand-in — `standInFor` — reads the stand-in's record: its attack interval)
-    // (a walking ally built from an enemy record — UnitInfo `walks`, server content/bonds/walker.js — reads that record)
-    lookupDef: (info) => (info.side === 'enemy' || info.walks ? data.enemy(info.defId)
-      : (info.standInFor && data.standIn(info.defId)) || (info.diy && data.diy(info.defId, info.diy)) || data.chess(info.defId) || data.token(info.defId)),
+    lookupDef: (info) => unitRecordOf(data, info), // app/host.js: stand-ins, 自选 picks, walkers
     crowded: () => views.size > 90,
     renderer: app.renderer,
     frameNo: () => frameNo,

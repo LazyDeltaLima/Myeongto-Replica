@@ -90,6 +90,17 @@ function makeData(src) {
   };
 }
 
+/**
+ * A unit's data record by its UnitInfo, from makeData's lookups: the field view's `lookupDef` and the effect layer's
+ * `unitDef` (render/app.js), and the effect event golden's layer (tools/fx-golden.mjs) — one rule for all three.
+ * (a chess fighting as its 补位 stand-in — `standInFor` — reads the stand-in's record: its attack interval)
+ * (a walking ally built from an enemy record — UnitInfo `walks`, server content/bonds/walker.js — reads that record)
+ */
+function unitRecordOf(data, info) {
+  return info.side === 'enemy' || info.walks ? data.enemy(info.defId)
+    : (info.standInFor && data.standIn(info.defId)) || (info.diy && data.diy(info.defId, info.diy)) || data.chess(info.defId) || data.token(info.defId);
+}
+
 const QUALITY_RES = { high: 2, medium: 1.5, low: 1 };
 
 /** Pixel-ratio cap of the 3D board canvas per quality (its fill cost is the PBR board, not the sprites). */
@@ -123,4 +134,4 @@ export function releaseGl(renderer) {
   }
 }
 
-export { withTimeout, capWait, DEADLINE_MARGIN_MS, resolveAssets, makeData, QUALITY_RES, BOARD_RES };
+export { withTimeout, capWait, DEADLINE_MARGIN_MS, resolveAssets, makeData, unitRecordOf, QUALITY_RES, BOARD_RES };
