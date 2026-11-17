@@ -512,6 +512,10 @@ def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None,
                 mods['noise'][k] = minmax(n[f])
     if ps['UVModule']['enabled']:
         u = ps['UVModule']
+        # (official client UVModule) the player plays timeMode 0 Lifetime only: 1 Speed takes the cycles × 0.999999 on a
+        # constant frame and 2 FPS reads `fps` over the frame count (docs/rules/fx.md 「그리기 순서·시트」 시트 프레임)
+        if u.get('timeMode', 0) != 0:
+            raise SystemExit(f'fx_extract: UVModule timeMode {u["timeMode"]} (frames by speed or fps): the player plays timeMode 0 only')
         mods['uv'] = {'tx': u['tilesX'], 'ty': u['tilesY'], 'frame': minmax(u['frameOverTime']), 'start': minmax(u['startFrame']),
                       'cycles': r4(u['cycles']), 'anim': u['animationType'], 'row': u.get('rowIndex', 0), 'rowMode': u.get('rowMode', 0)}
     cd = ps.get('CustomDataModule', {})

@@ -300,7 +300,7 @@ PS_FIELDS = {
     'UVModule.frameOverTime': _K('mods.uv.frame'), 'UVModule.startFrame': _K('mods.uv.start'), 'UVModule.cycles': _K('mods.uv.cycles'),
     'UVModule.mode': _A(0, 'frames from a sprite list instead of a grid'), 'UVModule.sprites[].sprite': _N('only with mode 1 (Sprites)'),
     'UVModule.flipU': _A(0, 'a share of the particles mirrored'), 'UVModule.flipV': _A(0, 'a share of the particles mirrored'),
-    'UVModule.timeMode': _A(0, 'frames by speed or fps instead of lifetime'), 'UVModule.fps': _N('only with timeMode FPS'),
+    'UVModule.timeMode': _N('fx_extract stops on another (frames by speed or fps instead of lifetime)'), 'UVModule.fps': _N('only with timeMode FPS'),
     'UVModule.speedRange.x': _N('only with timeMode Speed'), 'UVModule.speedRange.y': _N('only with timeMode Speed'),
     'UVModule.uvChannelMask': _N('which mesh UV channels the frames apply to (the quads have one)'),
     'CustomDataModule.enabled': _N('the module switch'),

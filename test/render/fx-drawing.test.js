@@ -49,15 +49,21 @@ test('a sheet\'s start frame is a share of the sheet: 0.5 of 16 is frame 8, 0.99
     node('l', 0, { ps: ps({ uv: uv(K(0.9999)) }, { n: 1 }) }),
     node('r', 0, { ps: ps({ uv: uv({ m: 3, s: 0.9999, n: 0 }) }, { n: 190 }) }),
     node('w', 0, { ps: ps({ uv: uv(K(0.5), K(0.75)) }, { n: 1 }) }),
-    node('c', 0, { ps: ps({ uv: uv(K(0), K(0.25), 2) }, { n: 1 }) })]);
+    node('c', 0, { ps: ps({ uv: uv(K(0), K(0.25), 2) }, { n: 1 }) }),
+    node('b', 0, { ps: ps({ uv: { tx: 4, ty: 2, frame: K(0.5), start: K(0), cycles: 1, anim: 0 } }, { n: 1 }) })]);
   inst.update(0.02);
-  const [h, l, r, w, c] = inst.systems;
+  const [h, l, r, w, c, b] = inst.systems;
   assert.equal(frameOf(h, 0, 4, 4), 8);
   assert.equal(frameOf(l, 0, 4, 4), 15);
   const seen = new Set(Array.from({ length: r.geometry.instanceCount }, (_, k) => frameOf(r, k, 4, 4)));
   assert.equal(seen.size, 16, `every frame: ${[...seen]}`);
-  assert.equal(frameOf(w, 0, 4, 4), 3, 'frame + start wraps past the end: frac(0.75 × 0.999999 + 0.5) × 16');
-  assert.equal(frameOf(c, 0, 4, 4), 7, 'a constant frame with a constant start takes the cycles: frac(0.25 × 2 × 0.999999) × 16');
+  // a constant frame and start are frac(cycles × frame + start) with no 0.999999 (the client's timeMode 1 Speed only; the
+  // data is all timeMode 0, the extractor stops on another): with it a frame on a cell edge drew the cell before, and
+  // 하루카's skin bubble `ribbon R` (4 × 2, frame 0.5) drew cell 3 — a green leaf over the material's offset — for cell 4.
+  // Cause and rule: docs/rules/fx.md 「그리기 순서·시트」 시트 프레임
+  assert.equal(frameOf(w, 0, 4, 4), 4, 'frame + start wraps past the end: frac(0.75 + 0.5) × 16, no 0.999999 (fx.md 「그리기 순서·시트」)');
+  assert.equal(frameOf(c, 0, 4, 4), 8, 'a constant frame with a constant start takes the cycles: frac(0.25 × 2) × 16, no 0.999999');
+  assert.equal(frameOf(b, 0, 4, 2), 4, 'frame 0.5 of a 4 × 2 sheet is cell 4, not 3 (하루카 skin `ribbon R`; fx.md 「그리기 순서·시트」)');
   inst.dispose();
 });
 
