@@ -429,9 +429,15 @@
   - 글래디아 S3 `.2`(회오리 `Chant`의 ON p_skill_seasummon)는 순차 묶음의 첫 자식 `FinalAttack`(클립 없는 끌어당김 — `OnAttack` 이벤트를 기다림) 다음이라
     빌더가 시점을 모른다 → `castCues`는 클립 없는 공격 자식 뒤의 자식을 빼고, 회오리가 생기는 sim fx `tornado`에 `sfx.kit glady:s3`로 낸다(시작 0.3초 뒤 —
     `sim.md` 「글래디아 S3 시작 순서」). `.1` START p_atk_seasword_h(첫 `FinalAttack`)는 시작에.
+  - 공용 시작음(`battle/b_char/…`)인 능력 START도 낸다(2026-11-17): 공식은 S3 시작에 능력을 한 번 시전하고 그 START를 한 번 낸다(나이팅게일 S3 `AuraAbility`,
+    공식 클라에서 확인 — `CastSkill.DoCast` → `AbilityStandard.OnCastStart`). 빌더는 이 꼴을 「모든 스킬의 공용 소리」로 보고 버렸다(`GENERIC_CUE`) — 이제 스킬
+    시작음과 **같은 파일**인 것만 뺀다(한 순간에 같은 파일 두 번 없음; 첸 더 던스트릭 S2의 b_char_atkboost). 새로 나는 10개(모두 시작 's'): 나이팅게일 S3 b_char_defboost
+    (필드 루프와 함께) · 에이야퍄들라 S3 b_char_atkboost · 이스티나 S2·어스스피릿 S2·프라마닉스 S1·S2 b_char_tactboost · 클리프하트 S2·산탈라 S2 b_char_atkboost ·
+    마터호른 S1 b_char_healboost·S2 b_char_defboost. 시전형이 아닌 스킬의 `skillExtras`는 그대로 공용 시작음을 뺀다(그쪽 능력 시점은 안 읽음). 매니페스트에서
+    바뀐 것은 이 10개의 `castCues`뿐이었다. 재발 방지: `test/audio-skill-cast-cues.test.js`(빌더·매니페스트 10건).
   - 인포서 S2: 시전 능력은 묶음의 첫 클립 자식 `knock_back`(클립 `Skill`, 타격 0.4초, 배치 방향을 봄). 2026-10-29까지 `skill_cast.py`가 경로 이름순 첫 자식
     (클립 없는 `aura`)을 골라 시전 기록에 클립이 없었고 타격이 공격 간격 끝이었다 — 이제 묶음 순서의 첫 클립 자식을 고른다(바뀐 것은 이 스킬 하나).
-- 확인: `test/audio-skill-cast-cues.test.js`(빌더·매니페스트 11건, 다른 길이 내는 뱅크 제외, `castCuesOf` 대기, 벤델라 `e`·노시스 HIT 지연, 실제 매치 경로: 레온하르트 S2
+- 확인: `test/audio-skill-cast-cues.test.js`(빌더·매니페스트 11건 + 공용 시작음 START 10건, 다른 길이 내는 뱅크 제외, `castCuesOf` 대기, 벤델라 `e`·노시스 HIT 지연, 실제 매치 경로: 레온하르트 S2
   이벤트의 `[타격, 끝]` = `castTiming()`과 그 대기, 민트 키). [화면 미확인]
 
 ## 스킬 타격음 전수 (2026-11-04, 관리자 요청 — 페페 S3·지마 더 레이징 타이드 S3 무음의 재발 방지)
@@ -522,7 +528,8 @@
   생긴 항목은 실패한다. `ON_SKILL_SPECIAL_POINT`는 목록의 `MANUAL_STOP` 한 줄(수동 종료 — 위 「공격 소리 신호」 「안 한 것」, 16개). 자기 항목에 파일이 있는데 안 난
   뱅크(다른 유닛·스테이지 장치·단계 전환·시전 조건이 필요한 것, 2026-11-17 첫 실행 160개)는 세기만 한다(시험의 diagnostic). 뱅크 모음은 위 시험과 같은 `pickBanks`.
   - 첫 목록(2026-11-17, 작업표 `link_sheet.py`): 나이팅게일 S3 능력 `skchr_cgbird_3`의 START(`b_char_defboost`) → `todo`(S3 시작은 `ON_SKILL_START`의 필드 루프만 남;
-    그 능력을 언제 시전하는지는 안 읽음). 나이팅게일 `projectile_chr_svash2_s3_bird`·`_self` → `none`(실버애쉬 더 레인프로스트 S3의 새 — 「bird」가 나이팅게일 환영의 코드라
+    그 능력을 언제 시전하는지는 안 읽음) — 같은 날 이음(위 「스킬 시전 능력 소리」 공용 시작음, 같은 꼴 10개)·목록에서 지움. 이 시험이 나이팅게일만 잡은 것은 다른
+    아홉의 파일이 자기 항목(다른 스킬 시작음)에 있어서다 — 「자기 항목에 파일」은 그 순간에 난다는 뜻이 아니다. 나이팅게일 `projectile_chr_svash2_s3_bird`·`_self` → `none`(실버애쉬 더 레인프로스트 S3의 새 — 「bird」가 나이팅게일 환영의 코드라
     모임). 에이야퍄들라 `ON_PROJECTILE_REACH.projectile_amgoat_s2_b`, W `ON_PROJECTILE_REACH.projectile_cqbw` → `none`(그 키를 가진 클라 노드 없음 — 실제 투사체는
     `projectile_amgoat_s2`·`projectile_chr_cqbw`).
   - 재발 방지: `test/audio-pick-reach.test.js`.

@@ -7,7 +7,8 @@
 // Status (one string, the reason after the colon), as in test/audio-bank-coverage-list.js:
 //   'none: <evidence>' — the official client does not sound it in this mode, or it is not hers;
 //   'todo: <where>' — the client sounds it at a moment of hers and nothing of hers plays it yet.
-// The first listing (2026-11-17) had 21: the 16 manual-stop banks below and these five.
+// The first listing (2026-11-17) had 21: the 16 manual-stop banks below and five (나이팅게일 S3's ability START was sounded
+// the same day: skill-mode-sfx.mjs castCues).
 
 /**
  * Every ON_SKILL_SPECIAL_POINT bank: the client sounds it when a skill is stopped by hand
@@ -19,7 +20,6 @@ export const MANUAL_STOP = /^ON_SKILL_SPECIAL_POINT\./;
 
 export const UNREACHED = {
   char_179_cgbird: {
-    'ON_ABILITY_START.skchr_cgbird_3': 'todo: S3\'s ability (ability skchr_cgbird_3 of the skill prefab) START sounds b_char_defboost; her S3 start plays only ON_SKILL_START\'s field loop (sfx.units.char_179_cgbird loops.2) — when the client casts that ability is not read yet',
     // "bird" is also her 幻影's code (token_<n>_cgbird_bird); the file is 凛御银灰's kit key svash2:s3hit
     'ON_PROJECTILE_HIT.projectile_chr_svash2_s3_bird': 'none: not hers — 凛御银灰 S3\'s bird (buff svash2_s_3[bird_on_target])',
     'ON_PROJECTILE_HIT.projectile_chr_svash2_s3_bird_self': 'none: not hers — 凛御银灰 S3\'s bird (buff svash2_s_3[bird_on_self])',

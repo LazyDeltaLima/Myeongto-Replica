@@ -262,8 +262,11 @@ export function skillLoops(audio, charId, skills, soundLeaf, startPaths = {}) {
 
 /** Mixer groups of a skill's own one-shot (not an attack / impact): its start-like sounds. */
 const EXTRA_GROUPS = new Set(['Battle_Skill_Important', 'Battle_UI_Boost', 'Battle_P_Field']);
-/** The shared start cues (b_char_atkboost / tactboost …): every skill's generic sound, never a skill's own extra. */
+/** The shared start cues (b_char_atkboost / tactboost …): every skill's generic sound, never a skill's own extra (a CastSkill's
+ * ability START with one still sounds — castCues). */
 const GENERIC_CUE = /^battle\/b_char\//;
+/** Two banks that play the same files (a skill start sound and its ability START on b_char_defboost). */
+const sameSound = (a, b) => a === b || (Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((x, i) => x === b[i]));
 
 /**
  * local patch (maintainer report 2026-10-08: 耀骑士临光 S3, 塑心 S3 「스킬 음악이 안 나온다」) sfx.units[charId].extras: per skill
@@ -403,11 +406,13 @@ export function castCues(audio, skills, cast, hasMode, soundLeaf, startPaths = {
         const sub = name.slice(`battle.${ev}.${s.skillId}`.length);
         if (sub && !/^\.\d+$/.test(sub)) continue; // `.extra.0` …: another ability's
         const p = audio.bank(name);
-        if (!p?.length || p === start || GENERIC_CUE.test(p[0]) || isLoop(name)) continue;
+        // a shared start cue (b_char_…) is the ability's own signal too (나이팅게일 S3: START b_char_defboost after the field
+        // loop) — only the start sound's own file is left out, so one moment never plays the same file twice
+        if (!p?.length || sameSound(p, start) || isLoop(name)) continue;
         const g = groupOf(p);
         if (role === 'd' && IMPACT_GROUPS.has(g)) continue; // skillHitCues
         if (!mode && (role === 's' ? ATTACK_GROUPS.has(g) : role === 'a' && (ATTACK_GROUPS.has(g) || IMPACT_GROUPS.has(g)))) continue; // abilityCues
-        if (!sub && role === 's' && EXTRA_GROUPS.has(g)) continue; // skillExtras
+        if (!sub && role === 's' && EXTRA_GROUPS.has(g) && !GENERIC_CUE.test(p[0])) continue; // skillExtras
         let at;
         if (!sub) at = role === 's' || !c.ability ? 's' : 'a';
         else {

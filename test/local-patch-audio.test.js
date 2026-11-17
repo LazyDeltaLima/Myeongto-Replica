@@ -164,7 +164,9 @@ describe('the official mix and mode sounds in audio.js (audioOfficial.js)', () =
     b.setFieldUnits([{ id: 3, kind: 'op', side: 'ally', spine: 'char_174_slbell', defId: 'chess_y', skillIndex: 0 }]);
     b.handleBattleEvents([['skill', 3, 1]]);
     assert.ok(b._skillLoops.has(3));
-    assert.equal(b.played.length, 0, 'the looping start bank is not also played once');
+    assert.deepEqual(b.played.filter((p) => p.url === UNITS.char_174_slbell.loops['0'].url), [], 'the looping start bank is not also played once');
+    // 2026-11-17: what it plays once is its skill ability's own START (castCues, docs/rules/audio.md 「스킬 시전 능력 소리」)
+    assert.deepEqual(b.played.map((p) => file(p.url)), ['b_char_tactboost.mp3'], 'its cast START, once');
   });
 
   test('skill end (2026-10-10, BasicSkill.OnSkillEnd → ON_SKILL_FINISH.<skillId>): 银灰 S2 ends with b_char_tactboost, 玛恩纳 S2 / 荒芜拉普兰德 S1 b_char_boostclose', () => {

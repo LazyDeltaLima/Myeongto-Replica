@@ -23,7 +23,7 @@ const NO_DATA = !existsSync(OFFICIAL) && 'no .cache/gamedata';
 const manifest = JSON.parse(readFileSync(path.join(ROOT, 'data', 'assets.json'), 'utf8'));
 const file = (u) => String(u).split('/').pop();
 
-// the 11 signals of the 2026-10-22 diagnosis: charId, skill index, skillId, [file, at] in bank order (START, ON, HIT)
+// the 11 signals of the 2026-10-22 diagnosis and the 10 shared-cue STARTs of 2026-11-17: charId, skill index, skillId, [file, at] in bank order (START, ON, HIT)
 const CASES = [
   ['char_1050_chen3', 1, 'skchr_chen3_2', [['p_atk_hljdswd_h', 's']]],
   ['char_420_flamtl', 1, 'skchr_flamtl_2', [['p_skill_lightsword', 'a']]],
@@ -35,6 +35,18 @@ const CASES = [
   ['char_4194_rmixer', 2, 'skchr_rmixer_3', [['p_atk_ftmxbrtlm_skiiop', 's']]],
   ['char_4145_ulpia', 2, 'skchr_ulpia_3', [['p_atk_wtrbatnchr_s', 's'], ['p_atk_wtrbatnchrfr_s', 'a']]],
   ['char_494_vendla', 1, 'skchr_vendla_2', [['p_imp_brmblhl_h', 'e']]],
+  // 2026-11-17: an ability START on a shared start cue (b_char_…) that differs from the skill's start sound sounds too —
+  // 나이팅게일 S3's b_char_defboost after her field loop; a start sound's own file stays out (첸 더 던스트릭 S2, below)
+  ['char_179_cgbird', 2, 'skchr_cgbird_3', [['b_char_defboost', 's']]],
+  ['char_180_amgoat', 2, 'skchr_amgoat_3', [['b_char_atkboost', 's']]],
+  ['char_195_glassb', 1, 'skchr_glassb_2', [['b_char_tactboost', 's']]],
+  ['char_183_skgoat', 1, 'skchr_skgoat_2', [['b_char_tactboost', 's']]],
+  ['char_174_slbell', 0, 'skchr_slbell_1', [['b_char_tactboost', 's']]],
+  ['char_174_slbell', 1, 'skchr_slbell_2', [['b_char_tactboost', 's']]],
+  ['char_173_slchan', 1, 'skchr_slchan_2', [['b_char_atkboost', 's']]],
+  ['char_341_sntlla', 1, 'skchr_sntlla_2', [['b_char_atkboost', 's']]],
+  ['char_199_yak', 0, 'skchr_yak_1', [['b_char_healboost', 's']]],
+  ['char_199_yak', 1, 'skchr_yak_2', [['b_char_defboost', 's']]],
 ];
 
 function manager() {
