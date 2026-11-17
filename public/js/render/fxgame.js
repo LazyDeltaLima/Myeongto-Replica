@@ -1453,9 +1453,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     return kids;
   }
+  /**
+   * 2026-11-17 (maintainer report: no ice on a frozen enemy since 2026-11-16): a status effect whose root only emits others
+   * as it plays — no particle, clip, trail, line or mesh of its own (buff_frozen_to_enemy: an empty root and two
+   * OnPlayEmitterIf) — is `done` the moment it is made, so stepOnEmit saw it ending and never played its children, and
+   * the status loop made it again every frame. The client's buff effect lives until the buff ends it (FinishMe):
+   * such a wrapper is `held` (playStatus) and counts as live until it is stopped; its `clear` children end with it.
+   */
+  const emitsOnly = (inst) => !!inst.onEmit?.some((em) => em.play) && !inst.systems.length && !inst.clips.length
+    && !inst.sms.length && !inst.trails.length && !inst.lines.length && !inst.holdMeshes;
+  /** Whether live effect `l` has ended: its instance done, unless it is a held wrapper not yet stopped. */
+  const ended = (l) => l.inst.done && !(l.held && !l.inst.stopping);
   /** Play a live effect's OnPlayEmitter prefabs when their time comes and its OnFinishEmitter prefabs when it finishes. */
   function stepOnEmit(l) {
-    const inst = l.inst, ending = inst.stopping || inst.done;
+    const inst = l.inst, ending = inst.stopping || ended(l);
     for (const em of inst.onEmit) {
       if (em.play && !em.kids && !ending && inst.wait <= 0 && onEmitNow(l, em)) {
         // (2026-11-16, official client OnPlayEmitterIf.OnPlay) a conditional one checks its owner once, as it plays: none on a fail
@@ -1976,7 +1987,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!mod || !view._fxStatusOn?.has(key)) return;   // destroyed, or turned off while it loaded
     // local patch (maintainer report 2026-10-08: the stun marks stacked over a re-stunned enemy): one effect per unit and
     // status — a status turned off and on again while its file loaded started a second load; the first one lands here too
-    if (live.some((l) => l.status === key && l.unit === view && !l.inst.stopping && !l.inst.done)) return;
+    if (live.some((l) => l.status === key && l.unit === view && !l.inst.stopping && !ended(l))) return;
     // 2026-10-16: `frac` 'own' (fxstatus.js OWN) — at the prefab's own `_spawnLocation`, special points included, as a kit's play.
     // 2026-10-24: a feet spec (0) of a FOOT prefab (_spawnLocation 1) too — the client's footTransform, the model its prefab
     // lowers (followed): 泥岩's T1 layers, mudrok_buff_0N_start, hung above her feet as 余 S3's buff had (maintainer report)
@@ -1999,7 +2010,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
     // (`once`: finished the frame it lands — FxInstance.finish, then gone def.finish s later — and never started again)
     const fin = once ? Math.max(0, Number(def.finish) || 0) : 0;
-    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: once || kept ? null : () => playStatus(view, bundle, name, key, frac, hold, under, false, false, src), unit: view,
+    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: once || kept ? null : () => playStatus(view, bundle, name, key, frac, hold, under, false, false, src), unit: view, held: emitsOnly(inst),
       ...(once ? { until: clockS, finishAt: clockS + fin } : null) }, split ? layers.split : under ? layers.under : layers.over);
     trimLive();
   }
@@ -8024,12 +8035,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         notePerf(l.inst.def?.name ?? '?', performance.now() - tu);
         if (l.inst.emitters?.length) stepEmitters(l); // 2026-10-21: RandomEmitter copies
         if (l.inst.onEmit?.length) stepOnEmit(l); // 2026-10-21: OnPlayEmitter / OnFinishEmitter
-        if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
+        if (ended(l) && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
         // a kept effect (playAt `keep`: 望's stone activation) stays until its owner's 'die' stops it
         // 2026-10-24: a projectile's main effect stays while it flies (`flight`: its trail record) — the client finishes it when
         // the projectile stops (finishShot). One without a clip or particle system (流星 S2's arrow: a mesh and two 0.15 s
         // trails, `duration` 0) was done 0.15 s after it left and vanished mid-flight
-        if (l.inst.done && !(l.keep && !l.inst.stopping) && !(l.flight && trails.includes(l.flight))) { dropLive(l); live.splice(i, 1); }
+        if (ended(l) && !(l.keep && !l.inst.stopping) && !(l.flight && trails.includes(l.flight))) { dropLive(l); live.splice(i, 1); }
       }
       showLayers();
       const t1 = performance.now();

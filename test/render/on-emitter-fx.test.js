@@ -25,6 +25,13 @@ const body = (src, head) => {
   assert.ok(at >= 0, head);
   return src.slice(at, src.indexOf('\n  }\n', at) + 4);
 };
+/** A one-statement `const name = …;` of fxgame.js. */
+const constOf = (name) => {
+  const at = SRC.indexOf(`  const ${name} = `);
+  assert.ok(at >= 0, name);
+  return SRC.slice(at, SRC.indexOf(';\n', at) + 1);
+};
+const HELD = `${constOf('emitsOnly')}\n${constOf('ended')}`;
 
 test('fx_extract.py reads OnPlayEmitter / OnFinishEmitter by their field names into `onPlay` / `onFinish`, and lists their prefabs in `emitted`', () => {
   assert.match(EXTRACT, /ON_PLAY_EMITTER_SCRIPT = -5498265793651067281/);
@@ -50,7 +57,7 @@ test('the extracted emitters: 苏尔特 S3 buff → its three parts, cleared wit
 });
 
 test('stepOnEmit: the play list once its time comes (not while waiting / ended), the finish list once when it ends, clear stops the kids', async () => {
-  const make = new Function('onEmitPlay', 'onEmitNow', 'onEmitIf', `${body(SRC, 'function stepOnEmit(l)')}\nreturn stepOnEmit;`);
+  const make = new Function('onEmitPlay', 'onEmitNow', 'onEmitIf', `${HELD}\n${body(SRC, 'function stepOnEmit(l)')}\nreturn stepOnEmit;`);
   const calls = [];
   const kid = { inst: { stopping: false, stop() { this.stopping = true; } } };
   const step = make((l, rec, here) => { calls.push([rec.effects[0], here]); return [kid]; }, (l, em) => l.inst.time >= em.play.pre, () => true);
@@ -92,7 +99,7 @@ test('OnPlayEmitterIf: the extract writes `onPlayIf` with its motion check (and 
   assert.equal(iff(on(2), { motion: 1 }), true, 'FLY on a flying unit');
   assert.equal(iff(on(9), { motion: 0 }), false, 'no owner: nothing');
   assert.equal(iff(on(9), undefined), true, 'a plain OnPlayEmitter');
-  const make = new Function('onEmitPlay', 'onEmitNow', 'onEmitIf', `${body(SRC, 'function stepOnEmit(l)')}\nreturn stepOnEmit;`);
+  const make = new Function('onEmitPlay', 'onEmitNow', 'onEmitIf', `${HELD}\n${body(SRC, 'function stepOnEmit(l)')}\nreturn stepOnEmit;`);
   const calls = [];
   let flying = false;
   const step = make((l, rec) => { calls.push(rec.effects[0]); return []; }, () => true, (l, c) => (c ? (flying ? 1 : 0) === c.motion : true));
@@ -102,6 +109,36 @@ test('OnPlayEmitterIf: the extract writes `onPlayIf` with its motion check (and 
   step(l);
   flying = true; step(l);
   assert.deepEqual(calls, ['walk'], 'the ground one only — and a failed check is not tried again when the unit takes off');
+});
+
+// (2026-11-17, maintainer report: no ice on a frozen enemy since 2026-11-16) buff_frozen_to_enemy draws nothing itself, so its
+// FxInstance is `done` as it is made: stepOnEmit took it for ending and never played its child, and the status loop made it again
+// every frame. A status wrapper like it is `held` (fxgame.js playStatus) until the status stops it.
+const BFTE_FILE = path.join(FX, 'buff/buff_frozen_to_enemy.json');
+test('a status effect that only emits (buff_frozen_to_enemy) plays its child on its first step and stays until it is stopped, then clears it', { skip: !existsSync(BFTE_FILE) && 'no extracted effects' }, async () => {
+  const fxp = await import('../../public/js/render/fxplayer.js');
+  const inst = new fxp.FxInstance(JSON.parse(readFileSync(BFTE_FILE, 'utf8')), { quality: 'high' });
+  assert.equal(inst.done, true, 'an empty root is done as it is made — the cause; if this changes, the hold may go');
+  const fns = new Function(`${HELD}\nreturn { emitsOnly, ended };`)();
+  assert.equal(fns.emitsOnly(inst), true, 'buff_frozen_to_enemy is an emitting wrapper');
+  assert.match(body(SRC, 'async function playStatus('), /held: emitsOnly\(inst\)/, 'playStatus holds a wrapper (docs/rules/fx.md 「감싸개 상태 이펙트」)');
+  for (const re of [/if \(ended\(l\) && l\.status && l\.again/, /if \(ended\(l\) && !\(l\.keep && !l\.inst\.stopping\)/]) assert.match(SRC, re, 'the live loop asks ended(l), not inst.done');
+  const make = new Function('onEmitPlay', 'onEmitNow', 'onEmitIf', `${HELD}\n${body(SRC, 'function stepOnEmit(l)')}\nreturn { stepOnEmit, ended };`);
+  const calls = [];
+  const kid = { inst: { stopping: false, stop() { this.stopping = true; } } };
+  const { stepOnEmit, ended } = make((l, rec) => { calls.push(rec.effects[0]); return [kid]; }, () => true, (l, c) => (c ? c.motion === 0 : true));
+  const l = { inst, held: fns.emitsOnly(inst) };
+  inst.update(1 / 60);
+  stepOnEmit(l);
+  assert.deepEqual(calls, ['buff_frozen_to_walk'], 'the ground child plays on the first step');
+  assert.equal(ended(l), false, 'held while the status is on: not restarted, not dropped');
+  stepOnEmit(l);
+  assert.equal(calls.length, 1, 'once');
+  inst.stop(true);
+  stepOnEmit(l);
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(ended(l), true, 'stopped: it ends');
+  assert.equal(kid.inst.stopping, true, 'and its `_clearWhenFinish` child with it');
 });
 
 test('the kids come from the emitting effect\'s bundle on its owner; the name rules and 予愿安洁莉娜\'s landing leave them to their emitter', () => {
