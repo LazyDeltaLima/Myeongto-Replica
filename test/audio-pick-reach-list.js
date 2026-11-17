@@ -35,12 +35,49 @@ export const UNREACHED = {
 /**
  * Banks one of her own entries plays (so the test above passes them) that her runs still never sound, per charId, with the
  * reason the runs cannot reach that moment — what the runs' board (test/audio-pick-reach.test.js onBoard: her hand summons
- * placed, three ground dummies that never move nor hit, two flying ones) lacks. Listed by the pick (2026-11-17: 望 and 机械师,
- * whose 22 and 15 came from her hand summons missing on the board); the test prints the picks still without reasons, and an
- * entry whose bank her runs reach now fails.
+ * placed, three ground dummies that never move nor hit, two flying ones, allies wounded now and then) lacks. A reason that
+ * starts with 'gap:' is a moment the runs do reach where our sounds play another file (docs/rules/audio.md 「선발 소리 뱅크
+ * 커버리지」 「도달 시험」 says what is open). Listed by the pick (2026-11-17: 望 and 机械师, whose 22 and 15 came from her hand
+ * summons missing on the board; then 凯尔希·思衡托, 遥, 结城理, Mon3tr and 涤火杰西卡); the test prints the picks still without
+ * reasons, and an entry whose bank her runs reach now fails.
  */
+/** A heal's landing (the 'heal' event) sounds the common sfx.battle.heal (ON_MODIFIER_HEAL) only, never her shot's own bank. */
+const HEAL_LANDING = 'gap: it lands on an ally as a heal, and a heal sounds only the common ON_MODIFIER_HEAL (audio.js \'heal\'), not the heal projectile\'s own bank';
+const NO_HIT = 'no dummy deals damage';
+
 export const OUT_OF_REACH = {
   char_4230_mcnist: {
     'ON_CUSTOM_TRIGGER.mcnist_s_2_shield': 'the break of an S2 屏障 (audio.js shieldBreak → mcnist:s2shield), and no dummy deals damage',
+  },
+  char_1052_kalts2: {
+    // S2's HealAlly child (op-kalts2.js s2CanAttack): with no enemy to select in her y-11
+    'ON_ABILITY_ON.char_1052_kalts2.attack.4.2': 'S2 shoots an ally only with no enemy in her range, and the dummies stand until her 10 S2 shots are spent',
+    'ON_PROJECTILE_REACH.projectile_chr_kalts2_s2_heal': `S2's shot at an ally (no enemy in her range while S2 runs) — and ${HEAL_LANDING}`,
+    'ON_PROJECTILE_STOP.projectile_chr_kalts2_s2_sub_heal': `S2's shot at an ally (no enemy in her range while S2 runs) — and ${HEAL_LANDING}`,
+  },
+  char_4202_haruka: {
+    // T1: a bubble breaks 0.5 s after an enemy's damage lowered its holder's HP; S3 levitates that enemy
+    'ON_CUSTOM_TRIGGER.haruka_shield_break_ally': `a bubble breaks on an enemy's damage to its holder (op-haruka.js T1), and ${NO_HIT}`,
+    'ON_BUFF_START.haruka_shield_start_enemy': `S3 levitates the enemy whose damage set a bubble off, and ${NO_HIT}`,
+    'ON_BUFF_TRIGGER.haruka_shield_start_enemy': `the damage ticks on that levitated enemy (S3), and ${NO_HIT}`,
+    // the trait: while a skill runs every attack heals
+    'ON_PROJECTILE_HIT.projectile_chr_haruka_s1': `S1's attacks heal (the trait) — ${HEAL_LANDING}`,
+    'ON_PROJECTILE_HIT.projectile_chr_haruka_s3': `S3's attacks heal (the trait) — ${HEAL_LANDING}`,
+  },
+  char_4217_makoto: {
+    'ON_CUSTOM_TRIGGER.makoto_skill_02_execute': 'S2 塔纳托斯 knocks out a feared enemy under kill_atk_scale × ATK HP, and the dummies keep 1e9 HP',
+    // the switch to 俄耳甫斯: a lethal hit on his S3 <替身>
+    'ON_CUSTOM_TRIGGER.makoto_skill_03_2_range_appear': `S3 switches to 俄耳甫斯 on a lethal hit, and ${NO_HIT}`,
+    'ON_CUSTOM_TRIGGER.makoto_skill_03_heal_hit': `S3 俄耳甫斯's heals, after the switch on a lethal hit, and ${NO_HIT}`,
+  },
+  char_4179_monstr: {
+    'ON_PROJECTILE_HIT.projectile_chr_monstr': `her attack heals (链愈师) — ${HEAL_LANDING}`,
+    'ON_PROJECTILE_HIT.projectile_chr_monstr_s1': `S1's heal — ${HEAL_LANDING}`,
+    'ON_PROJECTILE_HIT.projectile_chr_monstr_s2': `S2's heal — ${HEAL_LANDING}`,
+  },
+  char_1034_jesca2: {
+    // a Spine event value of her model's clips (render/spine.js → AudioManager.spineEvent)
+    'ON_SPINE_EVENT_TRIGGER.char_1034_jesca2.skill_1': 'a Spine event of her model, and the runs draw none; the stand-in for a model without events (audio.js _spineStrike) takes only Attack_<n> / Skill_<k>_<n> values',
+    'ON_SPINE_EVENT_TRIGGER.char_1034_jesca2.skill_3': 'a Spine event of her model, and the runs draw none; the stand-in for a model without events (audio.js _spineStrike) takes only Attack_<n> / Skill_<k>_<n> values',
   },
 };

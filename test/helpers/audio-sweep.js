@@ -67,7 +67,7 @@ export function pickBanks(picks = LOCAL_DIY_PICKS) {
 export const manifestUrls = (manifest) => new Set((JSON.stringify(manifest.audio).match(/\/assets\/audio\/[^"]+?\.mp3/g) || []).map((u) => u.toLowerCase()));
 /** The real ms per game second at the game's usual 2×. */
 const MS_PER_S = 500;
-const dummy = (key, motion) => enemyRec({ key, hp: 1e9, speed: 0, mass: 0, def: 0, res: 0, motion });
+const dummy = (key, motion, res = 0) => enemyRec({ key, hp: 1e9, speed: 0, mass: 0, def: 0, res, motion });
 /** No cast to make here: passive skills (狼眼, 荆棘, 琳琅诗怀雅's coin skill), and 森蚺 gains no SP while she blocks nobody. */
 export const PASSIVE = new Set(['chess_char_1_07_b', 'chess_char_3_04_b', 'chess_char_4_17_b', 'char_416_zumama S1', 'char_416_zumama S2', 'char_416_zumama S3']);
 /** Summons a skill needs on the field to be cast at all (the cast is refused otherwise). */
@@ -121,10 +121,11 @@ export const DUMMY_TILES = Object.freeze([[10, 6], [10, 7], [9, 6]]);
 
 /**
  * The battle of case `c` (on its `season`'s data): its unit (and `c.extra`) beside three dummies that never die, and the
- * audio manager it feeds. `c.flyers`: tiles of flying dummies added after the ground ones (test/audio-pick-reach.test.js).
+ * audio manager it feeds. `c.flyers`: tiles of flying dummies added after the ground ones (test/audio-pick-reach.test.js), with
+ * RES 50 so that 弱点伤害 picks physical on them (the ground ones: arts).
  */
 export function sweepBattle(c, manifest, random = () => 0) {
-  const h = makeBattle({ season: c.season, defs: { enemies: { e_d: dummy('e_d'), e_f: dummy('e_f', 'FLY') } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true, units: [c.unit, ...(c.extra ?? [])] });
+  const h = makeBattle({ season: c.season, defs: { enemies: { e_d: dummy('e_d'), e_f: dummy('e_f', 'FLY', 50) } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true, units: [c.unit, ...(c.extra ?? [])] });
   h.step();
   const u = h.unit(1);
   const a = new AudioManager({ win: null, getManifest: () => manifest, random });

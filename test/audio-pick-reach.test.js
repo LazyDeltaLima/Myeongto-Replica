@@ -6,9 +6,9 @@
 // out: normal attacks before the cast, the whole skill, the enemies killed by her, her summons and herself knocked out. A bank
 // none of her three runs sounds and none of her own manifest entries (sfx.units of her or her summons, sfx.kit keys of her
 // codes, the common sfx.battle sounds) names fails until it is wired or listed. The runs stand on a board the other sweeps
-// lack (onBoard: her hand summons placed as the prep places them, flying dummies). What still needs another unit, a stage
-// device or a phase change stays out of reach: such banks are wired, OUT_OF_REACH of the list gives the reason, and the run
-// counts the ones without one (the diagnostic).
+// lack (onBoard: her hand summons placed as the prep places them, flying dummies; reach: allies wounded now and then, a
+// 傀儡师's <替身> time waited out). What still needs another unit, a stage device or a phase change stays out of reach: such
+// banks are wired, OUT_OF_REACH of the list gives the reason, and the run counts the ones without one (the diagnostic).
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,8 +32,12 @@ const BEFORE_CAST = 5, CAST = 12;
  * The board the sweep cases lack (2026-11-17): her hand summons, placed as the prep places them, and two flying dummies.
  * A summon whose range is its own tile acts only on an enemy standing there — 望's 棋子 (a trap) goes off on it, 机械师's
  * 结构性原理 blocks and strikes it — so it goes on a dummy's tile (the sweep's dummies at 10,6 / 10,7 / 9,6, the one with
- * open tiles beyond it first: 结构性原理's S3 charge runs along its facing); any other summon on a free tile facing a dummy
- * beside it. The flyers: 望's S2 stones and 跟子 go off only on an air unit (her 跟子 land on 11,6 / 9,7 / 11,7).
+ * open tiles beyond it first: 结构性原理's S3 charge runs along its facing); a summon the prep places only beside her
+ * (`ownerBeside`: 涤火杰西卡's 机动盾牌) on the tile she faces, the first dummy's (she turns to it, and her S3 shells need it
+ * beside her); any other summon on a free tile facing a dummy beside it — also one the sweep puts on the field for a skill
+ * (its NEEDS: Mon3tr's 重构体 at 10,3, where her S3 would take her away from every dummy). The flyers: 望's S2 stones and 跟子
+ * go off only on an air unit (her 跟子 land on 11,6 / 9,7 / 11,7); they resist arts (test/helpers/audio-sweep.js), so 弱点伤害
+ * (结城理's S3 塔纳托斯) picks physical on them.
  */
 const ON_DUMMY = [[10, 7], [10, 6], [9, 6]];
 const NEAR = [[11, 6], [11, 7], [9, 5], [10, 8], [11, 5], [12, 6]];
@@ -49,35 +53,45 @@ const SEASONS = NO_DATA ? null : allSeasonData();
  */
 function onBoard(c) {
   const id = c.unit.diy.charId;
-  const extra = [...(c.extra ?? [])];
-  const dummyTiles = [...ON_DUMMY], near = [...NEAR];
-  let uid = 2 + extra.length;
+  const placed = [];
+  const beside = [[c.unit.row, c.unit.col + 1]], dummyTiles = [...ON_DUMMY], near = [...NEAR];
   for (const [tid, t] of Object.entries(SEASONS[c.season ?? DEFAULT_SEASON].backups.tokens ?? {})) {
-    if (t.kind !== 'summon' || t.placeable !== true || extra.some((x) => x.tokenId === tid)) continue;
+    if (t.kind !== 'summon' || t.placeable !== true) continue;
     const v = Object.entries(t.variants ?? {}).find(([k]) => k.startsWith(`${id}@`))?.[1];
     const src = v?.bySkill?.[c.skill]?.sources ?? v?.sources ?? [];
     if (!src.includes('talent') && !src.includes('skill')) continue;
     const own = t.rangeGrid?.length === 1 && t.rangeGrid[0][0] === 0 && t.rangeGrid[0][1] === 0;
     for (let n = v.stats?.deployLimit ?? t.deployLimit ?? 1; n > 0; n--) {
-      const at = (own ? dummyTiles : near).shift();
+      const at = (t.ownerBeside === true ? beside : own ? dummyTiles : near).shift();
       if (!at) break;
-      extra.push({ uid: uid++, kind: 'token', tokenId: tid, ownerUid: 1, row: at[0], col: at[1], ...(own ? null : { dir: facingDummy(...at) }) });
+      for (const xs of [dummyTiles, near]) { const i = xs.findIndex(([r, k]) => r === at[0] && k === at[1]); if (i >= 0) xs.splice(i, 1); }
+      placed.push({ kind: 'token', tokenId: tid, ownerUid: 1, row: at[0], col: at[1], ...(own ? null : { dir: facingDummy(...at) }) });
     }
   }
+  const extra = [...(c.extra ?? []).filter((x) => !placed.some((p) => p.tokenId === x.tokenId)), ...placed].map((x, i) => ({ ...x, uid: 2 + i }));
   return { ...c, extra, flyers: FLYERS };
 }
 
-/** Every sound URL case `c`'s battle plays (a loop's too), through its phases. */
+/** Every `WOUND_EVERY` s an ally above half HP drops to `WOUNDED` of it: a heal (and its swing) needs an injured ally. */
+const WOUND_EVERY = 4, WOUNDED = 0.4;
+
+/**
+ * Every sound URL case `c`'s battle plays (a loop's too), through its phases. Her allies are wounded now and then (no dummy
+ * deals damage, and a 医疗 never swings at a full-HP ally), not always (结城理's 俄耳甫斯 attacks only with no ally under half
+ * HP); the skill's end waits for a 傀儡师's <替身> time too (结城理's skills end as they switch, and the switch back is his 总攻击).
+ */
 function reach(c, manifest) {
   const { h, u, a, castOnce } = sweepBattle(c, manifest);
   const got = new Set();
   a._play = (url) => { if (typeof url === 'string') got.add(url.toLowerCase()); };
   a._buffer = (url) => { if (typeof url === 'string') got.add(url.toLowerCase()); return Promise.resolve(null); };
+  const every = Math.round(WOUND_EVERY / h.b.dt);
   onBattleClock((tick) => {
-    let t = 0;
+    let t = 0, steps = 0;
     const run = (secs, f) => {
       for (let i = 0, n = Math.round(secs / h.b.dt); i < n; i++) {
         f?.();
+        if (steps++ % every === 0) for (const x of h.b.allyUnits) if (x.alive && x.hp > x.s.maxHp / 2) x.hp = x.s.maxHp * WOUNDED;
         h.step();
         tick(t += h.b.dt);
         a.ctx.currentTime = t;
@@ -86,7 +100,7 @@ function reach(c, manifest) {
     };
     run(BEFORE_CAST);
     run(CAST, castOnce);
-    for (let i = 0; i < 40 && u.skill?.active; i++) run(1); // to its end, at most 40 s more
+    for (let i = 0; i < 40 && (u.skill?.active || u.form === 'doll'); i++) run(1); // to its end, at most 40 s more
     run(2);
     for (const e of h.enemies()) { h.b.kill(e, u); run(0.5); }
     run(2);
@@ -171,6 +185,13 @@ describe('every bank of a 선발 operator is reached by her own sounds', { skip:
     has('char_2027_wang', 'ON_ABILITY_START.sktok_wang_1');                       // a placed 棋子 going off
     has('char_2027_wang', 'ON_ABILITY_START.sktok_wang_2.extra.1');               // an S2 跟子 going off on a flyer
     has('char_4230_mcnist', 'ON_ABILITY_HIT.token_10069_mcnist_mcgraf.attack.0'); // 结构性原理 striking what it blocks
+    has('char_1034_jesca2', 'ON_BUFF_START.jesca2_jckshd_turnaround');            // 机动盾牌 beside her: she turns to it
+    has('char_1034_jesca2', 'ON_PROJECTILE_STOP.projectile_chr_jesca2_s3_bomb');  // and S3 fires its shells
+    has('char_4179_monstr', 'ON_ABILITY_START.char_4179_monstr.attack.4');        // S3 takes her to her 重构体, beside the dummies
+    has('char_4217_makoto', 'ON_CUSTOM_TRIGGER.makoto_skill_03_1_physical');      // 弱点伤害 on a flyer resisting arts
+    // reach: a wounded ally to heal, and the <替身> time's end
+    has('char_1052_kalts2', 'ON_ABILITY_ON.char_1052_kalts2.attack.0');
+    has('char_4217_makoto', 'ON_CUSTOM_TRIGGER.makoto_allout_start');
   });
 
   test('the list names picks and banks that exist, in its grammar', () => {
