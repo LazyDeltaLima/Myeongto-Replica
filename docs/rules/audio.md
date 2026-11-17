@@ -350,7 +350,7 @@
 - 묶음 E(2026-10-29, 「모드 공격 뱅크 미사용」 7명) 중 할 것 없음: 이그제큐터 디 엑스 포에데레 `attack.4`(S3_End — 이 모드 기물은 S2), 그의
   `ON_BUFF_START.excu2_multi_attack[audio]`/`[s3][audio]`(그 버프 키를 만드는 곳이 EN 클라 캐릭터·스킬 프리팹·버프 템플릿 어디에도 없음 — 재능 추가 사격은
   `T.1` `p_atk_shotgunxdouble`로 이미 남, 아래 「재능·소환물 능력 소리」), 미니멀리스트 `attack.1`(`_d`: 그녀의 `_modes`는 Default 하나이고 그 신호는
-  `.attack` — `attack.1`을 내는 모드·자식이 없음; S2는 자기 능력 `skchr_malist_2` `_h`), 엑시아 더 뉴 커버넌트 `attack.5.Burst`(S1 모드 — 기물은 S2),
+  `.attack` — `attack.1`을 내는 모드·자식이 없음; S2는 자기 능력 `skchr_malist_2` `_h`), 엑시아 더 뉴 커버넌트 `attack.5.Burst`(S1을 손으로 끌 때의 일제 사격 — 아래 「선발 소리 뱅크 커버리지」),
   혼 `attack.1.Burst.*`(아래).
 - 혼 S2 `Full Burst`(`attack.1.Burst.1–3`)는 **수동으로 끌 때** 남은 탄을 모두 쏘는 능력이다(skill_table skchr_horn_2: 「主动关闭时发射剩余全部弹药」) —
   卫戍协议 자동 전투에는 수동 종료가 없어(`ON_SKILL_SPECIAL_POINT`와 같은 이유) 안 낸다.
@@ -507,6 +507,13 @@
     diy.md 「사키코 S2」의 보류) 둘째 시전도 `.2`가 난다.
 - 지금 목록(2026-11-04): `none`만 — 하루카 1·나이팅게일 2·토가와 사키코 2·파죰카 2·에이야퍄들라 7·위디 3(`todo` 0; 벨로네·비이·지마 더 레이징 타이드·Mon3tr의 20개와 슈·리·
   에벤홀츠의 11개, 제시카 더 리버레이티드·파죰카의 5개, 쏜즈 1개는 아래 「버프·커스텀 트리거 소리」. 유넥티스는 처음부터 다 남; 파죰카 둘·에이야퍄들라 일곱은 `none`).
+- 규정 선발 둘(2026-11-17, 맹약 기물도 같음; 공식 클라 프리팹·버프 템플릿):
+  - 엑시아 더 뉴 커버넌트 `ON_ABILITY_START.char_1041_angel2.attack.5.Burst` → `none`. 모드 5는 S1이다(`_modes`: Default·S2·S2_Down·S3·S3_Down·S1·S1_Burst_Mode — S3이 아님). 그 모드 공격
+    묶음의 `_burstAttack`(`S1_Burst`, 남은 탄 일제 사격)이고, 스킬 `skchr_angel2_1`은 `BurstCastSkill`(`_canDiscardRemainingCount` 1, `_burstOnOverload` 0)이라 손으로 끌 때만
+    그것을 쏜다(`UseDiscardAbility`; `OnCastFinish`는 안 부름 — 위 「공격 소리 신호」의 혼 S2 `Full Burst`와 같음). 卫戍协议 자동 전투에는 손으로 끄는 일이 없다. 같은 이름의 ON 뱅크는 `attack.5` START와 파일이 같아 「남」.
+  - 리드 더 플레임 섀도우 `ON_PROJECTILE_REACH.projectile_chr_reed2_aoe_effect` → 아직 `todo`. S3 중 번짐 표식(`reed2_t_1[skill_3_diffuse]`)을 가진 적이 쓰러지면 그 버프의
+    ON_OWNER_KILLED가 쓰러진 적의 발밑(FOOT)에 이 투사체를 쏘고(키는 블랙보드 `projectile`), 투사체는 곧바로 닿아 `reed2_debuff_boom_01`을 튼다 — 키트의 fx `scorchBurst`와
+    같은 순간이다. 소리 파일이 매니페스트에 없어 잇는 일(`kit-sfx.mjs` 키 + `audio.js kitHitKey`의 `scorchBurst`)은 자산 실행(`tools/fetch-assets.mjs`)과 함께 한다.
 
 ## 공식 소리 신호 잇기 (2026-11-07, 연결 작업표 `link_sheet.py` + 공식 클라)
 - **스킬 시작음의 `deferStart`**: 전에는 ON_SKILL_START가 없는 스킬의 시작음을 모두 대체음으로 보고, 공격이 있으면 끝까지 안 냈다. 그런데 그 뱅크가 `b_char_atkboost` 같은 강화음이면 모드의 공격이 그 파일을 내지 않으므로, 공격하는 스킬에서는 시작음이 아예 없었다(엑시아 S2·S3, 프로스트리프 S2, 폰사이러스 S2 등 45곳). 이제 모드가 그 파일을 낼 때만 기다린다(`skill-mode-sfx.mjs modeNamesFile`, `plan.mjs`). 아스카론 S1처럼 공격이 같은 파일을 내는 스킬은 그대로. 근거는 시전형 스킬이 켜질 때 자기 능력을 시전하고 그 START가 나는 것(위 「스킬 시전 능력 소리」). [화면 미확인]

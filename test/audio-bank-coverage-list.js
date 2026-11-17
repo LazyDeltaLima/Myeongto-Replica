@@ -12,12 +12,14 @@
 // after they joined; the 涤火杰西卡 / 鸿雪 and 棘刺 ones (2026-11-04) the same day; the 结城理 ones (2026-11-12) the day after.
 
 export const UNSOUNDED = {
-  // 焰影苇草 / 新约能天使 (2026-11-14, 规程 picks of 盟约's chess kits): banks their 盟约 chess does not sound either
+  // 焰影苇草 / 新约能天使 (2026-11-14, 规程 picks of 盟约's chess kits; their 盟约 chess the same)
   char_1020_reed2: {
-    'ON_PROJECTILE_REACH.projectile_chr_reed2_aoe_effect': 'todo: not wired for her 盟约 chess either; where the client fires it not looked up yet',
+    // its file is in no manifest yet: wiring it adds a kit-sfx key, which needs the asset run (tools/fetch-assets.mjs)
+    'ON_PROJECTILE_REACH.projectile_chr_reed2_aoe_effect': 'todo: S3\'s spread — reed2_t_1[skill_3_diffuse] ON_OWNER_KILLED EmitProjectile at the killed enemy\'s FOOT (key from its blackboard `projectile`); the projectile reaches at once and plays reed2_debuff_boom_01 there, the kit\'s fx scorchBurst',
   },
   char_1041_angel2: {
-    'ON_ABILITY_START.char_1041_angel2.attack.5.Burst': 'todo: not wired for her 盟约 chess either; where the client fires it not looked up yet',
+    // mode 5 = S1 (her _modes: Default, S2, S2_Down, S3, S3_Down, S1, S1_Burst_Mode); its ON bank shares attack.5's START file
+    'ON_ABILITY_START.char_1041_angel2.attack.5.Burst': 'none: S1\'s burst — the S1 mode attack group\'s _burstAttack (S1_Burst: the remaining bullets); skchr_angel2_1 is a BurstCastSkill (_canDiscardRemainingCount 1, _burstOnOverload 0) that casts it only on a hand stop (UseDiscardAbility; OnCastFinish does not), and the automatic battle never stops a skill by hand',
   },
   // 클로저: closur_ourbase_signal picks the 指挥中心's range by CheckSkillIndex and plays nothing — no buff template or prefab node of the EN or CN
   // client carries closur_ourbase_s1 … _s3 (_s2's and _s3's files are the range loops' own, so only _s1 shows here)
