@@ -34,10 +34,12 @@ const REPEATED = Object.freeze({
   // (a 规程 pick, on 规程's data: test/helpers/seasonPicks.js seasonPickList. ON_ABILITY_START.char_1041_angel2.attack.5.Burst
   // is no S3 bank: mode 5 is S1, its burst a hand stop this mode never makes — test/audio-bank-coverage-list.js)
   'char_1041_angel2 S3': [8, 'strikes: one each 5-hit attack of 新约能天使 S3 (its first the 投递坐标 splash)'],
-  // (规程's backup operators, on 规程's data. Both kits sound their skill damage through sfx.kit, yet audio.js KIT_SOUND_DEF does not
-  // name them, so this fallback sounds on top of the kit's cue: likely a double, not compared with the official game yet)
-  'act3autochess/chess_char_2_09_b': [12, 'double: each 1 s tick of 克里斯汀 S2\'s orb, its kit cue christ:s2tick (_playAudioWhenSelect) and kd[1] p_imp_blkcrstn_h'],
-  'act3autochess/chess_char_3_15_b': [13, 'double: 水灯心 S2\'s cuts after the boomerang\'s first hit, its kit cue brigid:cut and her mode\'s p_imp_wtlphrbgd_h (every other cut: SKILL_HIT_GAP_MS)'],
+  // (a 规程 backup operator, on 规程's data. Each tick the orb's SelectorHitBehaviour sounds its `_playAudioWhenSelect` — the kit's
+  // christ:s2tick, ON_PROJECTILE_BEHAVIOUR_TRIGGER — then hits every enemy it finds, and Projectile.OnHitTarget sounds each hit's
+  // ON_PROJECTILE_HIT: two banks a tick in the official client too, the hits of one tick one sound here (SKILL_HIT_GAP_MS))
+  'act3autochess/chess_char_2_09_b': [12, 'strikes: each 1 s tick of 克里斯汀 S2\'s orb hitting, kd[1] p_imp_blkcrstn_h (ON_PROJECTILE_HIT.projectile_chr_christ_s2)'],
+  // (水灯心 S2, act3autochess/chess_char_3_15_b, was listed at 13: her mode's impact sounded on top of each cut's brigid:cut. The cuts
+  // are buff damage with no HIT — audio.js SKILL_DAMAGE_KEYS: none now)
 });
 
 function hear(c, manifest) {

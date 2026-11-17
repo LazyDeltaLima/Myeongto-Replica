@@ -818,7 +818,10 @@ const SKILL_DAMAGE_KEYS = Object.freeze({ char_4010_etlchi: Object.freeze({ 1: '
   char_4065_judge: Object.freeze({ 1: '' }), char_1020_reed2: Object.freeze({ 2: '' }), char_4056_titi: Object.freeze({ 2: '' }),
   // 2026-11-08: 国度's kit damage is buff damage in every skill — 实质坍缩's tick (dminon_t_1[dmg]), S3's spread (dminon_s_3[spread]);
   // their own banks (ON_CUSTOM_TRIGGER dminon_talent_hit / dminon_s3_expand) are not wired yet (test/audio-bank-coverage-list.js)
-  char_4246_dminon: Object.freeze({ 0: '', 1: '', 2: '' }) });
+  char_4246_dminon: Object.freeze({ 0: '', 1: '', 2: '' }),
+  // 2026-11-17: 水灯心 S2's cuts are brigid_s2[cut]'s buff damage (ON_BUFF_TRIGGER: AdvancedApplyDamage, then PlayAudio
+  // brigid_s2_cut_audio — the kit's 'brigid:cut'); no projectile or ability HIT, so no mode impact on top of it
+  char_4177_brigid: Object.freeze({ 1: '' }) });
 /** The sfx.kit key of unit model `def`'s skill damage during skill `skillIndex` (SKILL_DAMAGE_KEYS: '' silent), or null. */
 export function skillDamageKey(def, skillIndex) {
   return SKILL_DAMAGE_KEYS[def]?.[skillIndex] ?? null;
