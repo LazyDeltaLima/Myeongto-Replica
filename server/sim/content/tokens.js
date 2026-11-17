@@ -914,6 +914,16 @@ export function manifoldCopyTarget(battle, unit) {
 
 const MANIFOLD_STATS = Object.freeze(['maxHp', 'atk', 'def', 'res', 'blockCnt', 'bat', 'aspd']);
 const MANIFOLD_PROFILE = Object.freeze(['attack', 'projectile', 'canHitFly', 'dmgType', 'heal', 'noAttack', 'noAttackUnlessSkill']);
+/**
+ * The copy's switch (token prefab, official client): the copy node (`mlyss_wtrman_s_begin` ON_ENTITY_WILL_OVERLAP) puts
+ * `mlyss_wtrman_during_anim` on the 流形 (FORCE_DISARMED, SKILL_NOT_ACTIVATABLE, DISABLE_COMBAT; immune to STUNNED and
+ * FROZEN) and casts SwitchMeleeBegin / SwitchRangeBegin (buff abilities: a tick), whose buff casts SwitchToMelee /
+ * SwitchToRange (clip Change_A / Change_B, `_preDelay` 0.667 s); their `_activeBuffs` cast SwitchStateEnd, whose buff
+ * finishes during_anim. So no attack, no skill and no stun / freeze for 0.667 s from the copy.
+ */
+const MANIFOLD_SWITCH = 0.667;
+const MANIFOLD_SWITCH_KEY = 'mlyss:switching';
+const MANIFOLD_SWITCH_IMMUNE = new Set(['stun', 'freeze']);
 
 /** Apply a 流形 copy of `target` (scale × base stats, block, attack timing, range, damage type). */
 function applyManifoldCopy(battle, unit, target, scale) {
@@ -1022,6 +1032,7 @@ function manifold(bb, raw, def) {
         const kitCopy = managed(unit) ? unit.ownerUnit.mem.manifoldCopy : null;
         if (typeof kitCopy === 'function') kitCopy(battle, unit, t);
         else applyManifoldCopy(battle, unit, t, scale);
+        battle.addBuff(unit, { key: MANIFOLD_SWITCH_KEY, duration: MANIFOLD_SWITCH, flags: { disarm: true, skillLock: true } });
         return true;
       },
     },
@@ -1074,6 +1085,9 @@ function manifold(bb, raw, def) {
         // a hand-authored 缪尔赛思 kit grants the first-deployment SP itself (it tracks her first 流形 across respawns)
         if (firstSp > 0 && !unit.mem.firstSpDone && !managed(unit) && unit.skill) { unit.mem.firstSpDone = true; unit.skill.gainSp(firstSp, 'talent'); }
       }, 20);
+      battle.on('beforeStatus', (ctx) => {
+        if (ctx.target === unit && MANIFOLD_SWITCH_IMMUNE.has(ctx.status) && unit.findBuff(MANIFOLD_SWITCH_KEY)) ctx.cancel = true;
+      }, { owner: unit });
       // module 梳妆流形 (isToken part on the token talents): 援军受到来自自身阻挡单位的伤害降低15% — intrinsic to the token,
       // applied here for managed tokens too (the 缪尔赛思 kit leaves it to this kit when the token runs it)
       if (guardMul !== 1) {

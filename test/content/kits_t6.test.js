@@ -656,6 +656,31 @@ test('缪尔赛思: 流形 copies the operator above it (90 %), S3 gives 13 DP a
   checkInvariants(h.b);
 });
 
+test('缪尔赛思: the copy switches the 流形 for 0.667 s — no attack, no skill, no stun meanwhile (mlyss_wtrman_during_anim)', () => {
+  const h = battle({
+    units: [
+      { chessId: 'chess_char_6_11_a', row: 12, col: 3 },
+      { chessId: 'test_guard_a', row: 11, col: 5 },
+      { kind: 'token', tokenId: 'token_10030_mlyss_wtrman', row: 10, col: 5, ownerUid: 1 },
+    ],
+    enemies: [{ key: 'enemy_dummy', pos: [10, 6] }],
+  });
+  const tok = () => h.b.allyUnits.find((x) => x.defId === 'token_10030_mlyss_wtrman' && x.alive);
+  const swings = [];
+  h.b.on('attack', (c) => { if (c.attacker === tok()) swings.push(h.b.time); });
+  assert.ok(h.runUntil(() => tok()?.mem.mlyss, 8));
+  const t0 = h.b.time, t = tok();
+  const why = 'docs/rules/sim.md 「즉발 스킬의 시전」 유동체의 복사: the copy node\'s mlyss_wtrman_during_anim holds the 流形 until SwitchToMelee\'s _preDelay';
+  assert.ok(t.s.flags.disarm && t.s.flags.skillLock, `disarmed and skill-locked right after the copy — ${why}`);
+  assert.equal(h.b.applyStatus(t, 'stun', { duration: 5 }), false, `immune to stun meanwhile — ${why}`);
+  h.run(0.6);
+  assert.deepEqual(swings, [], `no attack before 0.667 s — ${why}`);
+  assert.ok(h.runUntil(() => swings.length > 0, 2), 'it attacks once the switch is over');
+  assert.ok(swings[0] >= t0 + 0.667 - 1e-6, `first attack ${swings[0] - t0} s after the copy — ${why}`);
+  assert.ok(!t.s.flags.disarm, 'the hold ends');
+  assert.ok(h.b.applyStatus(t, 'stun', { duration: 0.1 }), 'stunnable again');
+});
+
 test('缪尔赛思: a destroyed 流形 waits on its tile and stands again 25 + 1 s later with its copy and its steal; melee copy steals ATK/DEF', () => {
   const h = battle({
     units: [
@@ -666,7 +691,7 @@ test('缪尔赛思: a destroyed 流形 waits on its tile and stands again 25 + 1
     enemies: [{ key: 'enemy_dummy', pos: [10, 5] }],
   });
   const tok = () => h.b.allyUnits.find((x) => x.defId === 'token_10030_mlyss_wtrman' && x.alive);
-  h.run(8);
+  h.run(9); // the copy at 7 s, its first hit after the 0.667 s switch
   const e = enemyAt(h, 'enemy_dummy');
   assert.ok(e.findBuff('mlyss:robbed'), 'enemy robbed');
   assert.ok(tok().mem.mlyss.stolenAtk > 0 && tok().mem.mlyss.stolenDef > 0);
