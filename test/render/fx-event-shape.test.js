@@ -11,6 +11,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as acorn from 'acorn';
@@ -42,7 +43,7 @@ test('browser code never reads x / y from a sim fx event\'s extra (Battle.fx put
 });
 
 test('the scan finds the kinds of read the 流沙 bug was (fixtures)', () => {
-  const dir = fs.mkdtempSync(path.join(fs.realpathSync(process.env.TMPDIR || '/tmp'), 'fx-extra-'));
+  const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'fx-extra-'));
   try {
     fs.writeFileSync(path.join(dir, 'a.js'), [
       'export function run(fx, ev) { for (const e of ev) if (e[0] === "fx") fx.simFx(e[1], e[2], e[3], e[4]); }',

@@ -471,10 +471,11 @@ describe('client_path.py: EN first, CN for what it lacks, earlier rows kept (no 
     return JSON.parse(r.stdout);
   };
   test('clients: --client as given, else the EN client then the CN one (once, when it is set up and another folder)', () => {
-    const both = cp('print(json.dumps([c.clients(), c.clients(["/x"]), c.client_data_cn("a")]))', { SP_CLIENT: '/en', SP_CLIENT_CN: '/cn' });
+    // as_posix: on Windows the folders come back with backslashes
+    const both = cp('print(json.dumps([[Path(p).as_posix() for p in c.clients()], c.clients(["/x"]), Path(c.client_data_cn("a")).as_posix()]))', { SP_CLIENT: '/en', SP_CLIENT_CN: '/cn' });
     assert.deepEqual(both, [['/en', '/cn'], ['/x'], '/cn/a']);
-    assert.deepEqual(cp('print(json.dumps([c.clients(), c.client_data_cn()]))', { SP_CLIENT: '/en' }), [['/en'], null]);
-    assert.deepEqual(cp('print(json.dumps(c.clients()))', { SP_CLIENT: '/en', SP_CLIENT_CN: '/en/' }), ['/en']);
+    assert.deepEqual(cp('print(json.dumps([[Path(p).as_posix() for p in c.clients()], c.client_data_cn()]))', { SP_CLIENT: '/en' }), [['/en'], null]);
+    assert.deepEqual(cp('print(json.dumps([Path(p).as_posix() for p in c.clients()]))', { SP_CLIENT: '/en', SP_CLIENT_CN: '/en/' }), ['/en']);
   });
   test('kept: the earlier rows of wanted ids no client read; earlier: {} without a table', () => {
     const out = cp(`old = {'char_a': 1, 'char_b': 2, 'char_gone': 3}

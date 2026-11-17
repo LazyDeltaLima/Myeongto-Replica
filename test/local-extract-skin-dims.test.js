@@ -130,7 +130,7 @@ print(json.dumps({'jobs': {'|'.join(k): v for k, v in p['jobs'].items()}, 'proj'
     const got = py(`import fx_extract as f, types
 from pathlib import Path
 f.OUT = Path('/x/fx')
-r = [str(f.prefab_file(f.OUT / f.SKIN_DIR, 'skadi2', 'skadi2_skill_01_hit_boc#4')), str(f.prefab_file(f.OUT, 'skadi2', 'skadi2_skill_01_hit'))]
+r = [f.prefab_file(f.OUT / f.SKIN_DIR, 'skadi2', 'skadi2_skill_01_hit_boc#4').as_posix(), f.prefab_file(f.OUT, 'skadi2', 'skadi2_skill_01_hit').as_posix()]
 try:
     f.Extractor.run(types.SimpleNamespace(), 'skin'); r.append(None)
 except SystemExit as e:

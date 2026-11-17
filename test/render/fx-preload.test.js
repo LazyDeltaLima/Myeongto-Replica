@@ -2,7 +2,7 @@
 // binding holds, and the layer's preload() in node (dry: it never loads, the queue stays as it was).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { bindingNames, createFxLayer, trailNames } from '../../public/js/render/fxgame.js';
 
 test('bindingNames: every effect name of a binding once, model points left out', () => {
@@ -37,7 +37,8 @@ test('trailNames (2026-10-31): every trail an operator binding names, once — m
   };
   assert.deepEqual(trailNames(b).sort(), ['x_attack_trail', 'x_dmg_trail', 'x_drone_trail', 'x_heal_trail', 'x_skill_03_trail', 'x_talent_trail']);
   assert.deepEqual(trailNames(null), []);
-  const horn = JSON.parse(readFileSync(new URL('../../public/assets/local/fx/modes.json', import.meta.url), 'utf8')).char_4039_horn;
+  const modes = new URL('../../public/assets/local/fx/modes.json', import.meta.url);   // extracted locally (git-ignored)
+  const horn = existsSync(modes) && JSON.parse(readFileSync(modes, 'utf8')).char_4039_horn;
   if (horn) assert.deepEqual(trailNames(horn).sort(), ['horn_attack_01_trail_02', 'horn_skill_02_trail_02', 'horn_skill_03_trail_02']);
 });
 

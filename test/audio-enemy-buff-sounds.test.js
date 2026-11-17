@@ -264,7 +264,7 @@ describe('规程 隐秘核心 sounds (2026-11-11, CN prefabs)', () => {
     assert.deepEqual(live(b, RAIN_END), [4], 'it sounded when due');
   });
 
-  test('谢拉格\'s giant (a walking ally from an enemy record) sounds as its enemy: its mode, form switch, 【神迹之声】 and PowerAttack', () => {
+  test('谢拉格\'s giant (a walking ally from an enemy record) sounds as its enemy: its mode, form switch, 【神迹之声】 and PowerAttack', { skip: NO_DATA }, () => {
     const a = manager();
     const G = 'enemy_9024_acsgnt';
     assert.ok(a.getManifest().audio.sfx.units[G]?.sk?.attract, 'the manifest has its abilities (local-char-audio.json from the CN prefab)');

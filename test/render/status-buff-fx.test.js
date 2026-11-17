@@ -12,6 +12,7 @@ import { UF } from '../../shared/constants.js';
 import { UF_CAMOU } from '../../shared/local.js';
 import { PLAYS } from '../helpers/fxPlays.js';
 import { keyPlays } from '../helpers/fxBindings.js';
+import { bindingRows } from '../../tools/build-fx-plays.mjs';
 import { SAND_SLOW_FX, SAND_BIND_FX } from '../../server/sim/content/bonds/nation/sargon.js';
 
 const DUMMY = enemyRec({ key: 'enemy_dummy', hp: 1e9, speed: 0, atk: 0 });
@@ -151,11 +152,13 @@ describe('client: status → the official buff effect', () => {
     assert.deepEqual(aspd(1, -1), ['monstr_token/token_monstr_prosts_buff_01_2'], '[eff_1] facing left');
     assert.deepEqual(aspd(2, 1), ['monstr_token/token_monstr_prosts_buff_02']);
     assert.deepEqual(aspd(2, -1), ['monstr_token/token_monstr_prosts_buff_02_2']);
+    // The keyed ones need the client binding rows (extracted locally): the template rows alone give 老鲤's lmlee_t_1[self]
+    // only under its conditions and no held effect for the 重构体's aura, so nothing is drawn.
+    if (!bindingRows().local) return;
     // 老鲤 T1 while he blocks, and the 重构体's ATK aura on an ally it covers (2026-11-04)
     assert.deepEqual(tpl(unit('char_322_lmlee', { statuses: new Set(['talent:lmlee:self']) })), ['lmlee/lmlee_buff_01_start']);
     assert.deepEqual(tpl(unit('enemy_1007_slime', { statuses: new Set(['talent:lmlee:foe:7']) })), ['lmlee/lmlee_debuff_01_start']);
     assert.deepEqual(tpl(unit('char_1_02_yak', { statuses: new Set(['talent:monstr:prostsAtk']) })), ['monstr_token/token_monstr_prosts_buff_03']);
-    if (!keyPlays().keys['demetr_t1[def_dec_core]']) return;   // (the keyed ones need the extracted plays.json)
     assert.deepEqual(tpl(unit('enemy_1007_slime', { isEnemy: true, statuses: new Set(['talent:demetr:means']) })), ['demetr/demetr_buff_01']);
     assert.deepEqual(tpl(unit('enemy_1007_slime', { isEnemy: true, statuses: new Set(['veen:war:12']) })), ['veen/veen_talent_02_debuff_01']);
     assert.deepEqual(tpl(unit('char_4226_veen', { statuses: new Set(['veen:s2full']) })), ['veen/veen_skill_02_buff_03']);

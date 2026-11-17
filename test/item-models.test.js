@@ -370,7 +370,7 @@ def bundle(spine_ids, empty_ids):
     return types.SimpleNamespace(objects=objs, container=cont)
 B = {'en': bundle(['trap_1', 'trap_2'], ['trap_9']), 'cn': bundle(['trap_1', 'trap_3'], [])}
 sys.modules['aklz4'] = types.ModuleType('aklz4')
-sys.modules['UnityPy'] = types.SimpleNamespace(load=lambda p: B['cn' if '/cn/' in p else 'en'])
+sys.modules['UnityPy'] = types.SimpleNamespace(load=lambda p: B['cn' if 'cn' in __import__('pathlib').Path(p).parts else 'en'])
 wrote = []
 e.write_spine = lambda objects, sda, sub, name, *a: (wrote.append([sub, name]), 3)[1]
 log = []
