@@ -68,7 +68,7 @@
 //   also carries `noAmmo` (set it to true: this attack spends no ammo). onEnd runs while the skill's mods / range are
 //   still applied (`active` is already false); they are removed right after it (unless onEnd re-activated the skill).
 
-import { absoluteRangeKeys } from './targeting.js';
+import { absoluteRangeKeys, trigFirst } from './targeting.js';
 import { castFace } from './ai.js';
 import { BLOCK_SKILL_TICK, COLS, MIN_ANIM_SCALE, TICK } from './constants.js';
 
@@ -80,6 +80,10 @@ const TRIGGER_PROFILE = Object.freeze({ canHitFly: true });
 // a skill prefab trigger's selector motion (`_targetMotion`): ground only, air only (_trigFound)
 const TRIG_GROUND = Object.freeze({ groundOnly: true });
 const TRIG_AIR = Object.freeze({ canHitFly: true, skipEnemy: (e) => !e.isFlying });
+/** The selector profile of a skill prefab trigger `t`: by its motion (_trigFound). */
+const trigProfile = (t) => ((t.motion & 3) === 1 ? TRIG_GROUND : (t.motion & 3) === 2 ? TRIG_AIR : TRIGGER_PROFILE);
+/** An enemy range selector the engine searches (_trigFound, trigTarget): 'range' / 'blocked', enemy side, no subclass filter. */
+const trigModelled = (t) => (t.sel === 'range' || t.sel === 'blocked') && t.side === 2 && !t.filter;
 
 /**
  * The 'skill' animation window the sim reports to the client: `unit.skillAnimUntil` (snapshot.js `animOf` → ANIM.SKILL,
@@ -149,7 +153,7 @@ export class SkillRuntime {
     this._buffKey = `skill:${unit.id}`;
     this._trigKeys = null;
     this._trigSet = null;
-    this._trigBox = null;         // _trigFound's range box: { tile, dir, ext, grid, keys }
+    this._trigBox = null;         // _trigBoxKeys' range boxes: Map trigger → { tile, dir, ext, grid, keys }
     this.triggerRanges = [];      // content trigger ranges (addTriggerRange)
     /** @type {null | (() => number[] | null)} content: the [row, col] the trigger grid is centred on instead of the unit's tile (null: no tile) */
     this.triggerAt = null;
@@ -507,25 +511,71 @@ export class SkillRuntime {
       if (t.notBuff.some((k) => u.findBuff(k))) return false;
       return !(t.hpAtMost != null && u.hpRatio > t.hpAtMost + 1e-9);
     }
-    if ((t.sel !== 'range' && t.sel !== 'blocked') || t.side !== 2 || t.filter) return true;
-    const b = this.battle;
-    const ext = t.extend ? (u.s.rangeExtend || 0) : 0;
-    const grid = t.grid || this.def.rangeGrid || u.rangeGrid || [[0, 0]];
-    const tile = u.tileR * COLS + u.tileC;
-    const c = this._trigBox;
-    let keys;
-    if (c && c.tile === tile && c.dir === u.dir && c.ext === ext && c.grid === grid) keys = c.keys;
-    else {
-      keys = absoluteRangeKeys(grid, u.tileR, u.tileC, u.dir, ext);
-      this._trigBox = { tile, dir: u.dir, ext, grid, keys };
-    }
-    const prof = (t.motion & 3) === 1 ? TRIG_GROUND : (t.motion & 3) === 2 ? TRIG_AIR : TRIGGER_PROFILE;
-    const found = b.enemiesInKeys(keys, u, prof);
+    if (!trigModelled(t)) return true;
+    const found = this.battle.enemiesInKeys(this._trigBoxKeys(t), u, trigProfile(t));
     if (found.length >= t.min) return true;
     if (t.sel !== 'blocked' || !u.blocking.length) return false;
     let n = found.length;
-    for (const e of b.blockedTargets(u, prof)) if (!found.includes(e) && ++n >= t.min) return true;
+    for (const e of this.battle.blockedTargets(u, trigProfile(t))) if (!found.includes(e) && ++n >= t.min) return true;
     return false;
+  }
+
+  /** The tile keys of trigger `t`'s range box at the unit's tile and direction (_trigFound; cached per trigger). */
+  _trigBoxKeys(t) {
+    const u = this.unit;
+    const ext = t.extend ? (u.s.rangeExtend || 0) : 0;
+    const grid = t.grid || this.def.rangeGrid || u.rangeGrid || [[0, 0]];
+    const tile = u.tileR * COLS + u.tileC;
+    const boxes = (this._trigBox ??= new Map());
+    const c = boxes.get(t);
+    if (c && c.tile === tile && c.dir === u.dir && c.ext === ext && c.grid === grid) return c.keys;
+    const keys = absoluteRangeKeys(grid, u.tileR, u.tileC, u.dir, ext);
+    boxes.set(t, { tile, dir: u.dir, ext, grid, keys });
+    return keys;
+  }
+
+  /**
+   * The target trigger `t` holds now (`SelectorTrigger.target`: the first of its selector's `FindTargets` as `Search` last
+   * ran, no target when fewer than `_minTargetNum` were found — docs/rules/render.md 「공격 방향」): the unit itself for a
+   * self selector, else for a modelled enemy selector (trigModelled) the first enemy it blocks (BlockedOrAdvancedSelector:
+   * `Character.blockedEnemies` first), else the enemy of its range box its `_postFilter` sorts first (targeting.js trigFirst);
+   * null for none ('never' too); undefined when the engine does not model the selector (an ally side, a subclass filter,
+   * a tile or group selector — the same ones _trigFound says true for).
+   */
+  trigTarget(t) {
+    const u = this.unit;
+    if (t.sel === 'self' || t.sel === 'selfIf') return u;
+    if (t.sel === 'never') return null;
+    if (!trigModelled(t)) return undefined;
+    const b = this.battle;
+    const prof = trigProfile(t);
+    const found = b.enemiesInKeys(this._trigBoxKeys(t), u, prof);
+    const blocked = t.sel === 'blocked' && u.blocking.length ? b.blockedTargets(u, prof) : null;
+    let n = found.length;
+    if (blocked) for (const e of blocked) if (!found.includes(e)) n++;
+    if (n < Math.max(1, t.min)) return null;
+    return blocked && blocked.length ? blocked[0] : trigFirst(b, u, found, t.post);
+  }
+
+  /**
+   * The input target this CastSkill casts its skill ability at (ai.js castFace turns to it): `cast.aimBy` (the skill ability
+   * an AbilitySelectableGroup root picks: the first config whose own trigger holds a target —
+   * `AbilitySelectableGroup._DoCastInternal` → `AbilityConfigs.TryCastToTarget`) else `cast.trig` (`CastSkill.DoCast` →
+   * `CastToTarget(_trigger.target)`; a sequence / parallel group root passes it to its children — `CastToTarget`). The unit
+   * itself, null (none) or undefined (no trigger, or a selector the engine does not model: ai.js castFace keeps its attack
+   * target [추정·미조사]).
+   */
+  aimTarget() {
+    const c = this.cast;
+    if (!c) return undefined;
+    if (c.aimBy) {
+      for (const t of c.aimBy) {
+        const x = this.trigTarget(t);
+        if (x !== null) return x;
+      }
+      return null;
+    }
+    return c.trig ? this.trigTarget(c.trig) : undefined;
   }
 
   /**
@@ -829,7 +879,7 @@ export class SkillRuntime {
     u.skillAnimUntil = b.time + SKILL_ANIM_WINDOW;
     // a CastSkill casts its skill ability now: the unit turns by its flags (ai.js castFace; a 'replace' cast turns as
     // its attack starts — ai.js startReplacement / swingFace)
-    if (this.cast && this.cast.mode !== 'replace' && this.cast.time != null) castFace(b, u, this.cast);
+    if (this.cast && this.cast.mode !== 'replace' && this.cast.time != null) castFace(b, u, this.cast, this);
     this._call('onStart', { reason });
     if (b._hooks.skillStart) b.emit('skillStart', { unit: u, skill: this, reason });
     // bullets added in skillStart (拉特兰's round(ammo × (0.05 + 0.015 × layers)), 逃犯引渡手续, talents): the bar's full mark

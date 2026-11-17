@@ -218,6 +218,7 @@
     "time": 2,
     "wait": 1
    },
+   "aim": 0,
    "begin": "Skill_2_Begin",
    "beginDown": "Skill_Down_2_Begin",
    "cls": "cast",
@@ -313,6 +314,7 @@
     "extend": 1,
     "min": 1,
     "motion": 3,
+    "post": 4,
     "sel": "range",
     "side": 2
    }
@@ -439,6 +441,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "begin": "Skill_Begin",
    "cls": "cast",
    "group": "seq",
@@ -528,6 +531,7 @@
     "filter": 1,
     "min": 1,
     "motion": 3,
+    "post": 19,
     "sel": "range",
     "side": 1
    }
@@ -659,6 +663,7 @@
     "extend": 0,
     "min": 1,
     "motion": 1,
+    "post": 4,
     "sel": "blocked",
     "side": 2
    }
@@ -693,6 +698,7 @@
     "extend": 0,
     "min": 1,
     "motion": 3,
+    "post": 4,
     "sel": "blocked",
     "side": 2
    }
@@ -833,6 +839,7 @@
     "filter": 1,
     "min": 1,
     "motion": 3,
+    "post": 4,
     "sel": "range",
     "side": 2
    }
@@ -914,6 +921,7 @@
     "extend": 0,
     "min": 1,
     "motion": 3,
+    "post": 11,
     "sel": "range",
     "side": 2
    }
@@ -954,6 +962,7 @@
     "extend": 0,
     "min": 1,
     "motion": 3,
+    "post": 38,
     "sel": "range",
     "side": 1
    }
@@ -1035,6 +1044,7 @@
     "time": 2,
     "wait": 0
    },
+   "aim": 0,
    "cls": "cast",
    "group": "par",
    "reset": 0,
@@ -1202,6 +1212,7 @@
     "extend": 0,
     "min": 1,
     "motion": 3,
+    "post": 3,
     "sel": "range",
     "side": 1
    }
@@ -1320,6 +1331,7 @@
     "time": 0,
     "wait": 0
    },
+   "aim": 0,
    "cls": "cast",
    "group": "par",
    "reset": 0,
@@ -1652,6 +1664,7 @@
     "extend": 0,
     "min": 1,
     "motion": 3,
+    "post": 10,
     "sel": "range",
     "side": 2
    }
@@ -1726,6 +1739,7 @@
     "extend": 0,
     "min": 1,
     "motion": 3,
+    "post": 4,
     "sel": "range",
     "side": 2
    }
@@ -1760,6 +1774,7 @@
     "extend": 0,
     "min": 1,
     "motion": 1,
+    "post": 4,
     "sel": "range",
     "side": 2
    }
@@ -1892,6 +1907,21 @@
     "time": 0,
     "wait": 1
    },
+   "aimBy": [
+    {
+     "extend": 0,
+     "min": 1,
+     "motion": 1,
+     "post": 4,
+     "sel": "range",
+     "side": 2
+    },
+    {
+     "extend": 0,
+     "min": 1,
+     "sel": "self"
+    }
+   ],
    "cls": "cast",
    "reset": 0,
    "state": 1,
@@ -1912,6 +1942,21 @@
     "time": 0,
     "wait": 1
    },
+   "aimBy": [
+    {
+     "extend": 0,
+     "min": 1,
+     "motion": 1,
+     "post": 4,
+     "sel": "range",
+     "side": 2
+    },
+    {
+     "extend": 0,
+     "min": 1,
+     "sel": "self"
+    }
+   ],
    "cls": "cast",
    "reset": 0,
    "state": 1,
@@ -2223,6 +2268,7 @@
     "extend": 0,
     "min": 1,
     "motion": 1,
+    "post": 4,
     "sel": "blocked",
     "side": 2
    }
@@ -2256,6 +2302,7 @@
     "extend": 0,
     "min": 1,
     "motion": 3,
+    "post": 4,
     "sel": "range",
     "side": 2
    }
@@ -2431,6 +2478,7 @@
     "time": 2,
     "wait": 0
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -2544,6 +2592,7 @@
     "extend": 0,
     "min": 1,
     "motion": 3,
+    "post": 4,
     "sel": "range",
     "side": 2
    }
@@ -2621,6 +2670,7 @@
     "extend": 0,
     "min": 1,
     "motion": 1,
+    "post": 33,
     "sel": "blocked",
     "side": 2
    }
@@ -2998,6 +3048,7 @@
     "extend": 0,
     "min": 1,
     "motion": 1,
+    "post": 0,
     "sel": "range",
     "side": 2
    }
@@ -3100,6 +3151,7 @@
     "extend": 0,
     "min": 1,
     "motion": 3,
+    "post": 4,
     "sel": "range",
     "side": 2
    }
@@ -3122,6 +3174,7 @@
     "time": 0,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3165,6 +3218,7 @@
     "extend": 0,
     "min": 1,
     "motion": 1,
+    "post": 4,
     "rangeId": "1-1",
     "sel": "blocked",
     "side": 2
@@ -3243,6 +3297,7 @@
     "filter": 1,
     "min": 1,
     "motion": 1,
+    "post": 19,
     "sel": "range",
     "side": 1
    }
@@ -3285,6 +3340,7 @@
     "extend": 0,
     "min": 1,
     "motion": 3,
+    "post": 15,
     "sel": "range",
     "side": 2
    }
@@ -3444,6 +3500,7 @@
     "extend": 0,
     "min": 1,
     "motion": 3,
+    "post": 4,
     "sel": "range",
     "side": 2
    }
@@ -3663,6 +3720,7 @@
     "time": 1,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -4224,6 +4282,7 @@
     "time": 2,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -4254,6 +4313,7 @@
     "time": 2,
     "wait": 1
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,
@@ -4313,6 +4373,21 @@
     "time": 0,
     "wait": 1
    },
+   "aimBy": [
+    {
+     "extend": 0,
+     "min": 1,
+     "motion": 1,
+     "post": 4,
+     "sel": "range",
+     "side": 2
+    },
+    {
+     "extend": 0,
+     "min": 1,
+     "sel": "self"
+    }
+   ],
    "cls": "cast",
    "reset": 0,
    "state": 1,
@@ -4342,6 +4417,7 @@
     "filter": 1,
     "min": 1,
     "motion": 3,
+    "post": 61,
     "sel": "range",
     "side": 1
    }
@@ -4382,6 +4458,21 @@
     "time": 0,
     "wait": 1
    },
+   "aimBy": [
+    {
+     "extend": 0,
+     "min": 1,
+     "motion": 1,
+     "post": 4,
+     "sel": "range",
+     "side": 2
+    },
+    {
+     "extend": 0,
+     "min": 1,
+     "sel": "self"
+    }
+   ],
    "cls": "cast",
    "reset": 0,
    "state": 1,
@@ -4423,6 +4514,7 @@
     "time": 2,
     "wait": 0
    },
+   "aim": 0,
    "begin": "Skill_2_Begin",
    "cls": "cast",
    "group": "par",
@@ -4461,6 +4553,7 @@
     "filter": 1,
     "min": 1,
     "motion": 1,
+    "post": 39,
     "sel": "range",
     "side": 1
    }
@@ -4552,6 +4645,7 @@
     "extend": 0,
     "min": 1,
     "motion": 1,
+    "post": 10,
     "sel": "blocked",
     "side": 2
    }
@@ -4819,6 +4913,7 @@
     "time": 2,
     "wait": 0
    },
+   "aim": 0,
    "cls": "cast",
    "group": "seq",
    "reset": 0,

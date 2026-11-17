@@ -333,7 +333,8 @@
 대부분이고, `BlockedOrAdvancedSelector`(데겐블레허 S2·S3, 아이린 S2, 리 S2)는 막은 적을 범위와 상관없이 먼저 넣으므로 등 뒤에서 막은 적도 대상이다.
 홈바운드 S1·S2, 쏜즈 더 로드스타 S2, 틴맨 S2는 첫 선택자가 `SelfSelector`라 늘 참, 이그제큐터 디 엑스 포에데레 S2·S3은 `SelfSelectorInCertainCondition`(자기에게
 `excu2_in_multi_attack` 버프가 없을 때). sim: `tools/local-extract/skill_cast.py` `trig` → `tools/build-data.mjs` `cast.trig` → `skills.js _trigFound`
-(키트 `castCheck`가 있으면 그것). 엔진이 따라 하지 않는 선택자는 참으로 둔다 — 아군 선택자(체스트넛 S1, 파피루스 S2, 쏜즈 더 로드스타 S3)·타일 선택자
+(키트 `castCheck`가 있으면 그것). 트리거가 잡은 첫 대상(선택자 `_postFilter` 순서, `trig.post`)은 스킬 능력을 시전하는 대상이기도 하다 — 몸 돌리기,
+render.md 「공격 방향」(`skills.js trigTarget`). 엔진이 따라 하지 않는 선택자는 참으로 둔다 — 아군 선택자(체스트넛 S1, 파피루스 S2, 쏜즈 더 로드스타 S3)·타일 선택자
 (Miss.Christine S2)·하위 클래스 필터·다른 자기 조건, 목록과 이유는 시험 파일에 [추정·미조사: 선택자 필터를 읽지 않음]. 선택자의 `_abnormalFlag` 조건과
 능력 범위를 바꾸는 모듈(`UnitDataFlowConfig.Delta` `rangeId`)도 안 봄 [추정·미조사]. 이 전수로 바뀐 것은 규정 시즌의 ALWAYS 스킬(데겐블레허 S3·패신저 S3·
 아이린 S3 등)이 SP가 차도 범위 안 대상(데겐블레허는 막은 적 포함)이 생길 때까지 켜지 않는 것이다 — 맹약 시즌 DEFAULT 스킬은 규칙이 이미 같은 대상을 요구했다.

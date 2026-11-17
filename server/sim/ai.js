@@ -279,18 +279,22 @@ const faceOf = (f, t) => (f === 1 || f === 4 ? t?.id ?? null : f === 2 ? 'D' : f
  * A skill ability is cast (a 'replace' cast's attack starts — startReplacement —, a CastSkill casts its ability —
  * skills.js activate): the unit turns by the ability's flags (`cast.face`, tools/local-extract/skill_cast.py; absent = 1)
  * as it starts (the client's `AbstractAnimatedAbility.OnCastStart` → `DealWithFaceDirection`), event ['face', unit, turn]
- * with turn as a swing's (swingFace). `_faceToTarget` (1) turns to the ability's input target: a CastSkill with no
- * `_trigger` casts it `CastDirectly` at the unit's own place (`cast.aimSelf`), so nothing turns; with one, the client casts
- * it `CastToTarget(_trigger.target)` — here the target its attack would take now [추정·미조사: the skill prefab's `_trigger`
- * selector is not read, nor how an ability found below the skill's root by path is cast]; a 'replace' cast's attack goes
- * out at its attack target. none → no turn.
+ * with turn as a swing's (swingFace). `_faceToTarget` (1) turns to the ability's input target: a CastSkill casts it
+ * `CastDirectly` at the unit's own place when it has no `_trigger` (`cast.aimSelf`, groups below it too), so nothing turns;
+ * with one, `CastToTarget(_trigger.target)` — `skill` (its SkillRuntime) .aimTarget(): the trigger's (or an
+ * AbilitySelectableGroup config's) selector target; the unit itself (a self selector) turns nothing (`Entity.FaceToTarget`'s
+ * 0.2-tile threshold). A selector the engine does not model, or a skill ability whose caster is not read (an ability a
+ * behaviour or a mode casts: 予愿安洁莉娜 S3 RestoreAbility, 凯尔希·思衡托 S2 S3_Spawn), takes the target its attack would take now
+ * [추정·미조사: docs/rules/render.md 「공격 방향」]; a 'replace' cast's attack goes out at its attack target. none → no turn.
  */
-export function castFace(b, u, cast) {
+export function castFace(b, u, cast, skill = null) {
   if (!u.alive || !u.deployed || !u.canAct) return;
   const f = cast?.face ?? 1;
   if (f === 1 && cast?.aimSelf) return;
+  const aim = f === 1 && skill ? skill.aimTarget() : undefined;
+  if (aim === u) return;
   const prof = effectiveProfile(u);
-  const t = f === 1 || f === 4 ? (prof.noAttack ? null : acquireTargets(b, u, prof)[0]) : null;
+  const t = aim !== undefined ? aim : f === 1 || f === 4 ? (prof.noAttack ? null : acquireTargets(b, u, prof)[0]) : null;
   const turn = faceOf(f, t);
   if (turn == null) return;
   b._ev(['face', u.id, turn]);

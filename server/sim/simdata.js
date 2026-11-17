@@ -188,12 +188,16 @@ export function normSkillCast(c) {
     aimSelf: c.aimSelf === 1,
     // the skill prefab's target trigger, which the automatic operations search before they cast it (skills.js _trigFound)
     trig: normSkillTrig(c.trig),
+    // an AbilitySelectableGroup root's config triggers, in order: the first that holds a target is the one its skill
+    // ability is cast at (skills.js aimTarget → ai.js castFace)
+    aimBy: Array.isArray(c.aimBy) && c.aimBy.length ? c.aimBy.map(normSkillTrig).filter(Boolean) : null,
   };
 }
 
 /**
  * data skill `cast.trig` (tools/build-data.mjs skillTrig — a CastSkill's `_trigger`, docs/rules/sim.md 「스킬 프리팹의 대상
- * 트리거」) → { sel, min, side, motion, extend, filter, grid, notBuff, hpAtMost, cond }, or null without one.
+ * 트리거」) → { sel, min, side, motion, extend, filter, post, grid, notBuff, hpAtMost, cond }, or null without one. `post`: the
+ * selector's `_postFilter` (targeting.js trigFirst).
  */
 function normSkillTrig(t) {
   if (!t || typeof t !== 'object' || typeof t.sel !== 'string') return null;
@@ -205,6 +209,7 @@ function normSkillTrig(t) {
     motion: int(t.motion, 3),
     extend: t.extend === 1,
     filter: t.filter === 1,
+    post: int(t.post, 0),
     grid: toArrayOfPairs(t.grid),
     notBuff: Array.isArray(t.notBuff) ? t.notBuff.filter((k) => typeof k === 'string') : [],
     hpAtMost: Number.isFinite(t.hpAtMost) && t.hpAtMost > 0 ? t.hpAtMost : null,

@@ -942,9 +942,23 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `Entity.FaceToTarget`의 0.2칸 문턱에 걸려 **돌지 않는다**(순차·병렬 묶음도 자식을 `CastDirectly`로 시전, 이 풀의 능력 중 위치를 덮어쓰는 클래스는 없음).
     스킬 시작 버프가 트는 덧 능력(`Nodes.TriggerAbility`: `_castDirectly`거나 `_targetType` BUFF_OWNER — 자기)도 같다. 데이터: `skill_cast.py`가
     `aim` 0(`_trigger` 없는 CastSkill의 뿌리·묶음 능력, 자기에게 트는 덧 능력)을 읽고 `build-data.mjs skillCast`가 `cast.aimSelf`로 싣는다(chess 90·backups 33,
-    규정 chess 96·backups 6; 벤델라 S2·위셔델 S3·필라에 S1 등). `castFace`는 `aimSelf`이고 `face` 1이면 돌리지 않는다. `_trigger`가 있으면 그 대상인데
-    여기서는 그 순간 공격이 잡을 대상이다 [추정·미조사: 스킬 `_trigger`의 선택기·범위를 안 읽음 — sim-Z 「`_trigger` 전수」 줄과 같은 읽기]. 뿌리 아래 경로로
-    찾은 능력(텍사스 디 오메르토사 S2 `1Frame`·홈바운드 S2 `HitEnemy` 등 17개)은 어느 노드가 시전하는지 안 읽어 같은 근사다. `_faceToFirstCastTarget`(4, 스펙터 디 언체인드 S1)은
+    규정 chess 96·backups 6; 벤델라 S2·위셔델 S3·필라에 S1 등). `castFace`는 `aimSelf`이고 `face` 1이면 돌리지 않는다.
+    `_trigger`가 있으면 입력 대상은 `_trigger.target`이다(2026-11-17, 공식 클라에서 확인): `SelectorTrigger.target`은 마지막 `Search`가 찾은 선택자
+    `FindTargets`의 첫째(`_minTargetNum`보다 적으면 없음), 순차·병렬 묶음은 `CastToTarget`으로 받은 대상을 자식에게 그대로 넘긴다(순차의 다음 자식도). 첫째는
+    선택자의 `_postFilter`(`FilterUtil.Filter`: (앞 무게, 무게)가 작은 순)로 정해진다 — HATRED_DES 4(−위협도 = 도발 단계 × 큰 상수 − 남은 경로),
+    DIST_TO_SOURCE_DES 10·ASC 11(유닛과의 거리 제곱 ∓), HP_DES 15(−HP, 다음 −위협도), HATRED_DES_BLOCKED_FIRST 33(누가 저지한 적 먼저, 다음 −위협도),
+    ALL 0(정렬 없음); `BlockedOrAdvancedSelector`는 자기가 저지한 적이 먼저. 데이터: `skill_cast.py`가 `trig.post`를 읽고, 시뮬 `skills.js trigTarget`이
+    `_trigFound`와 같은 범위 상자에서 `targeting.js trigFirst`로 첫째를 고른다(`build-data.mjs`는 적 범위 선택자의 모르는 `_postFilter`에서 멈춤). 자기
+    선택자(`SelfSelector`)면 입력 대상이 자기라 돌지 않는다. 뿌리 아래 경로로 찾은 스킬 능력 17개도 시전하는 길을 읽었다(`skill_cast.py path_route`):
+    뿌리 순차·병렬 묶음의 자식(텍사스 디 오메르토사 S2·S3 `1Frame`, 엑시아 더 뉴 커버넌트 S2, 비즈왁스 S2, 엔텔레키아 S2, 카제마루 S2, 로즈몬티스 S3, 왕 S3)과
+    `AbilitySelectableGroup` 뿌리의 `_trigger` 없는 시전(토가와 사키코 S1)은 `CastDirectly`로 내려가 돌지 않고, 스킬 시작 버프가 자기에게 트는 능력(클로저 S1
+    `ApplyShield`, 티티 S2 `GlobalUnique` — `_castDirectly`)도 같다(모두 `aimSelf`). `_trigger`가 있는 `AbilitySelectableGroup` 뿌리(홈바운드 S1·S2, 틴맨 S2, 쏜즈 더
+    로드스타 S2)는 `_DoCastInternal` → `AbilityConfigs.TryCastToTarget`이 준비된 첫 설정 중 자기 `_trigger`가 대상을 잡은 것을 그 대상에게 시전한다
+    (`_useInputTarget` 0) — 데이터 `cast.aimBy`(설정의 트리거 순서: `HitEnemy`·`Token`의 적 선택자, 없으면 `HitTile`·`Mark`의 자기 선택자 → 돌지 않음). 남은 근사:
+    선택자를 엔진이 안 다루는 트리거(아군·타일·묶음 선택자, 하위 클래스 필터 — sim.md 「스킬 프리팹의 대상 트리거」와 같은 것)와 시전하는 노드를 안 읽은 둘(안젤리나
+    더 멜로우 위시 S3 `RestoreAbility` — 스킬의 `MoveLikeRespawnByProjectileBehaviour`가 시전, 켈시 에스페란타 S2 `S3_Spawn` — 스킬 프리팹의 능력·버프가 시전하지
+    않음)은 그 순간 공격이 잡을 대상으로 돈다 [추정·미조사: 안 읽음 — bundles 줄]. 점수가 같은 후보의 순서(`FilterUtil`의 작은 차이 묶음은 넣은 순서)는 남은
+    경로·생성 순서로 둔다 [추정·엔진: 범위 질의의 후보 순서]. `_faceToFirstCastTarget`(4, 스펙터 디 언체인드 S1)은
     시전 대상 `m_castTargets`의 첫째라 그대로 둔다. `CastOnTileAbility._faceToTile`(첫 시전 칸)은 이 풀의 스킬 능력에 켜진 것이 없다.
   - 렌더 `render/face-turn.js`(위 규칙 그대로), `units.js turnToward/turnTo/faceDeploy`, 상태 `view.face {lr, ud, dir4}`: 반전 = `lr`,
     Back 모델 = `ud === 'UP'`(`_wantsBack`), 재배치 때 배치 방향으로 초기화. `app.js faceEvent`가 이벤트의 **이펙트보다 먼저** 돌린다(시전 이펙트가 돈
@@ -959,8 +973,10 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   알고 둔 근사: 도는 모습은 세로축 회전을 2D에서 너비(cos)로만 그린다(원근 차이 없음).
 - 연결된 일: 아래 방향 클립 — `_faceToTarget`인 능력은 돈 방향(`view.face.dir4`), 아니면 배치 방향으로 고른다(「Spine 클립 커버리지」 아래 방향, 2026-10-23).
 - 테스트: `test/render/face-turn.test.js`(도는 너비·절반에서 바뀜·도는 중 새로 돌기), `test/sim/attack-timing.test.js`(대상 id·뒤에 저지된 적·`face` 이벤트·'D'/없음·
-  스킬 능력 시전의 `face`), `test/sim/instant-cast.test.js`(시전 `face`의 `aimSelf`, 풀 데이터의 `cast.aimSelf`). **[화면 미확인]**
-  재발 방지: 원인 제거 — `_trigger` 유무는 `skill_cast.py`(`aim`)가 읽는다.
+  스킬 능력 시전의 `face`), `test/sim/instant-cast.test.js`(시전 `face`의 `aimSelf`, 트리거 대상의 `_postFilter` 순서·자기 선택자·`aimBy`, 풀 데이터의 `cast.aimSelf`·`aimBy`·`trig.post`,
+  시전 대상을 모르는 풀 스킬 훑기 + 예외 목록 `AIM_UNREAD`). **[화면 미확인]**
+  재발 방지: 원인 제거 — `_trigger` 유무·선택자 순서·경로 능력의 시전 길은 `skill_cast.py`(`aim`·`trig.post`·`path_route`)가 읽고, `build-data.mjs`가 모르는
+  `_postFilter`에서 멈춘다; 남은 손 목록은 `test/sim/instant-cast.test.js` `AIM_UNREAD`.
 
 ## 모델 점 위치·임포스터 상자 (2026-10-12, 관리자 제보 「안젤리나 더 멜로우 위시 S2 무기 이펙트가 오퍼 본인에 겹쳐 나오고, 오른쪽 위 언덕 타일에 무기가 잘린다 — 디버그 아레나에선 재현 안 됨」)
 - 실제 판(솔로 판 정비에 디버그로 넣고 전투, Windows Chrome)에서 재현. 둘 다 공식 동작이 아니라 우리 렌더 코드의 계산 오류다.

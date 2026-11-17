@@ -208,6 +208,56 @@ test('a skill ability turns its unit as it is cast: [face, unit, turn] at a repl
   checkInvariants(r.h.b);
 });
 
+// docs/rules/render.md 「공격 방향」: a CastSkill with a `_trigger` casts its skill ability at `_trigger.target` — the first
+// of its selector's targets by its `_postFilter` (targeting.js trigFirst), the blocked enemy first for a
+// BlockedOrAdvancedSelector; a self selector turns nothing; an AbilitySelectableGroup root (`cast.aimBy`) at the first config
+// trigger that holds a target (skills.js aimTarget → ai.js castFace)
+test('a CastSkill turns to its trigger\'s target as it casts: the selector\'s _postFilter order, a self selector not at all, a picked config\'s', () => {
+  const near = enemyRec({ key: 'near', hp: 1e9, atk: 0, speed: 0, blockCnt: 0 });
+  const far = enemyRec({ key: 'far', hp: 2e9, atk: 0, speed: 0, blockCnt: 0 });
+  const box = { sel: 'range', side: 2, motion: 3, min: 1 };
+  const turnOf = (cast) => {
+    const rec = chessRec({
+      id: 'c_op', profession: 'SNIPER', rangeGrid: [[0, 0], [0, 1], [0, 2], [0, 3]], stats: { bat: 1 },
+      skill: { skillType: 'AUTO', durationType: 'NONE', duration: 0, spCost: 5, initSp: 0, trigger: { rule: 'SP_FULL' },
+        cast: { mode: 'state', time: 1, clip: 'Skill', dur: 1, max: 1, ...cast } },
+    });
+    rec.attackAnim = { base: { clip: 'Attack', dur: 1, hit: 0.5, max: 1 }, skills: [] };
+    const h = makeBattle({
+      seed: 3, autoFinish: false, timeLimit: 60, captureNoisy: true,
+      defs: { chess: { c_op: rec }, enemies: { near, far } },
+      kits: { c_op: () => ({ skill: { kind: 'instant', trigger: 'SP_FULL', onStart: ({ unit }) => { unit.mem.cast = true; } } }) },
+      units: [{ chessId: 'c_op', row: 10, col: 4 }],
+      enemies: [{ key: 'near', route: { motion: 'WALK', start: [10, 5], end: [10, 5], checkpoints: [] } },
+        { key: 'far', route: { motion: 'WALK', start: [10, 7], end: [10, 7], checkpoints: [] } }],
+    });
+    h.step();
+    const u = h.unit('c_op');
+    const ids = Object.fromEntries(h.b.units.filter((e) => e.side === 'enemy').map((e) => [e.defId.replace(/^enemy_/, ''), e.id]));
+    u.skill.gainSp(5, 'test');
+    h.step();
+    assert.ok(u.mem.cast, 'cast');
+    const f = h.eventsOf('face').filter((e) => e[1] === u.id && e.length > 2).map((e) => e[2]);
+    checkInvariants(h.b);
+    return { f, ids };
+  };
+  // no trigger read: the target its attack takes (the first spawned, the same route left)
+  const base = turnOf({});
+  assert.deepEqual(base.f, [base.ids.near], 'the attack target');
+  for (const [post, want, why] of [[4, 'near', 'HATRED_DES: the same taunt and route → the first spawned'], [10, 'far', 'DIST_TO_SOURCE_DES'],
+    [11, 'near', 'DIST_TO_SOURCE_ASC'], [15, 'far', 'HP_DES: the higher HP']]) {
+    const r = turnOf({ trig: { ...box, post } });
+    assert.deepEqual(r.f, [r.ids[want]], `_postFilter ${post} (${why})`);
+  }
+  assert.deepEqual(turnOf({ trig: { sel: 'self', min: 1 } }).f, [], 'a self selector: cast at the unit itself, no turn');
+  // 홈바운드 S2 / 틴맨 S2 / 쏜즈 더 로드스타 S2: the skill trigger is a self selector, the AbilitySelectableGroup root picks
+  // HitEnemy at its own trigger's enemy, else HitTile at the unit itself
+  const picked = turnOf({ trig: { sel: 'self', min: 1 }, aimBy: [{ ...box, post: 10 }, { sel: 'self', min: 1 }] });
+  assert.deepEqual(picked.f, [picked.ids.far], 'the first config that holds a target');
+  assert.deepEqual(turnOf({ trig: { sel: 'self', min: 1 }, aimBy: [{ ...box, motion: 2, post: 4 }, { sel: 'self', min: 1 }] }).f, [],
+    'no flyer for the first config: the second, at the unit itself');
+});
+
 // docs/rules/render.md 「공격 방향」: the data carries where a CastSkill casts its ability (tools/local-extract/skill_cast.py
 // `aim`, tools/build-data.mjs skillCast `aimSelf`): no `_trigger` → its own place; a `_trigger` → that trigger's target
 test('pool CastSkills say whether their skill ability is cast at the unit itself (data `cast.aimSelf`: no `_trigger`)', () => {
@@ -223,6 +273,38 @@ test('pool CastSkills say whether their skill ability is cast at the unit itself
   for (const id of ['skchr_blaze2_1', 'skchr_tocka_1']) assert.ok(casts.has(id) && !casts.get(id).aimSelf, `${id}: cast at its trigger's target`);
   for (const id of ['skchr_vendla_2', 'skchr_wisdel_3', 'skchr_philae_1']) assert.equal(casts.get(id)?.aimSelf, 1, `${id}: cast at its own place`);
   for (const [id, c] of casts) if (c.aimSelf) assert.equal(c.mode === 'replace', false, `${id}: only a CastSkill casts directly`);
+  // an ability below the root by path: through the root's groups with no trigger (텍사스 디 오메르토사 S2 1Frame, 왕 S3
+  // InstantSpawn), cast at her by the start buff (클로저 S1 ApplyShield) → its own place; an AbilitySelectableGroup root with a
+  // trigger (틴맨 S2) → its configs' triggers
+  for (const id of ['skchr_texas2_2', 'skchr_wang_3', 'skchr_closur_1']) assert.equal(casts.get(id)?.aimSelf, 1, `${id}: cast at its own place`);
+  assert.deepEqual(casts.get('skchr_tinman_2')?.aimBy?.map((t) => t.sel), ['range', 'self'], 'skchr_tinman_2: HitEnemy, else HitTile');
+  assert.equal(casts.get('skchr_chen3_2')?.trig?.post, 11, 'skchr_chen3_2: its trigger takes the nearest enemy');
+});
+
+// docs/rules/render.md 「공격 방향」: every pool CastSkill whose skill ability turns to its target (`face` 1) says where it is
+// cast — at its own place (`aimSelf`), at a trigger's target (`trig`, `aimBy`) — except the abilities whose caster is not read:
+// they turn to the target the unit's attack would take [추정·미조사]
+const AIM_UNREAD = new Map([
+  ['skchr_aglna2_3', '안젤리나 더 멜로우 위시 S3 RestoreAbility: cast by the skill\'s MoveLikeRespawnByProjectileBehaviour (`_restoreAbility`)'],
+  ['skchr_kalts2_2', '켈시 에스페란타 S2 S3_Spawn: no ability or buff of the skill prefab casts it (her mode / charpack)'],
+]);
+test('every pool CastSkill that turns to its target says where its skill ability is cast (data cast.aimSelf / trig / aimBy)', () => {
+  const casts = new Map();
+  const walk = (o) => {
+    if (!o || typeof o !== 'object') return;
+    if (typeof o.prefabId === 'string' && o.cast) casts.set(o.prefabId, o.cast);
+    for (const v of Object.values(o)) walk(v);
+  };
+  for (const f of ['chess.json', 'backups.json', 'seasons/act3autochess/chess.json', 'seasons/act3autochess/backups.json']) {
+    walk(JSON.parse(readFileSync(new URL(`../../data/${f}`, import.meta.url), 'utf8')));
+  }
+  const seen = new Set();
+  for (const [id, c] of casts) {
+    if (c.mode === 'replace' || c.time == null || (c.face ?? 1) !== 1 || c.aimSelf || c.trig || c.aimBy) continue;
+    assert.ok(AIM_UNREAD.has(id), `${id}: its skill ability turns to a target, but the data does not say where it is cast — read how the skill prefab's root reaches it (tools/local-extract/skill_cast.py path_route; docs/rules/render.md 「공격 방향」)`);
+    seen.add(id);
+  }
+  for (const id of AIM_UNREAD.keys()) assert.ok(seen.has(id), `${id}: listed as unread but the data now says where it is cast — drop it from AIM_UNREAD`);
 });
 
 test("a timed skill's 'state' cast holds its unit's attacks as well, through the skill ability's action (森蚺 S3 on the real kit: first swing after Hensin, 1.5 s)", () => {

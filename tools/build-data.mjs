@@ -40,6 +40,7 @@ import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url'; // local patch (script guard)
 import { isDeepStrictEqual } from 'node:util';
 import { Grid, DEPLOY_REFUSED_TILES, HAND_TILES } from '../server/sim/grid.js';
+import { TRIG_SORTS } from '../server/sim/targeting.js';
 import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared/standIn.js';
 import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
@@ -2981,7 +2982,7 @@ function opShot(ctx, charId, charSkills) {
  * ends) or 'free' (`_switchToState` 0); `resetCd` 1 = `_resetAbilityCooldownWhenCastEnd`; `bornWait` 1 = the cast is
  * refused while the unit is in its born state (`born` 0: the prefab's `_canSwitchDuringBorn` / `_canCastDuringBorn` off —
  * server/sim/skills.js _born); `aimSelf` 1 = the skill ability is cast at the unit's own place (`aim` 0: no turn to a
- * target as it is cast — server/sim/ai.js castFace); `begin` = the length of a 'state' cast's begin clip (`_playSkillBeginAnim`). With a skill ability: `time`
+ * target as it is cast — server/sim/ai.js castFace); `aimBy` (skillTrig's below); `begin` = the length of a 'state' cast's begin clip (`_playSkillBeginAnim`). With a skill ability: `time`
  * = its `_timeMode` (0 the attack interval, 1 its clip, 2 / 3 `cd`), `cd` (time 2: `_cooldown`, 3: the blackboard
  * value of `_cooldownKey`), its clip (`clip`, `dur`, the first OnAttack frame `hit` — Front skeleton, data/assets.json,
  * a key the skeleton lacks also tried as `<key>_Loop`), abilityTiming's `max` / `pre` / `wait` and abilityFace's `face`
@@ -2993,8 +2994,10 @@ const TRIG_SELECTORS = new Set(['never', 'range', 'blocked', 'tile', 'group', 's
  * A CastSkill's target trigger (`trig` of tools/assets/local-skill-cast.json, skill_cast.py trigger_entry) → the skill
  * record's `cast.trig`, which the automatic operations search before they cast the skill (`CastSkill.get_canCastCheck`;
  * server/sim/skills.js _trigFound, docs/rules/sim.md 「스킬 프리팹의 대상 트리거」): `sel`, `min`, and as read `side` / `motion` /
- * `extend` / `filter` / `notBuff` / `hpAtMost` / `cond`; a ConstBoxRange's own `rangeId` becomes its `grid`. Stops on a trigger
- * or selector the extractor did not know (`sel` '?') — a new shape is read before it is guessed.
+ * `extend` / `filter` / `post` (the selector's `_postFilter`, which orders its targets: the one the skill ability is cast at —
+ * server/sim/targeting.js trigFirst) / `notBuff` / `hpAtMost` / `cond`; a ConstBoxRange's own `rangeId` becomes its `grid`.
+ * Stops on a trigger or selector the extractor did not know (`sel` '?'), and on an enemy range selector whose `_postFilter`
+ * the engine does not sort by (TRIG_SORTS) — a new shape is read before it is guessed.
  */
 function skillTrig(ctx, s, t) {
   if (!t || typeof t !== 'object') return null;
@@ -3002,7 +3005,10 @@ function skillTrig(ctx, s, t) {
     throw new Error(`skill ${s.skillId}: its prefab's _trigger has a trigger or selector skill_cast.py does not know (sel ${JSON.stringify(t.sel)}) — read it (docs/rules/sim.md 「스킬 프리팹의 대상 트리거」)`);
   }
   const out = { sel: t.sel };
-  for (const k of ['min', 'side', 'motion', 'extend', 'filter', 'hpAtMost', 'cond']) if (Number.isFinite(t[k])) out[k] = t[k];
+  for (const k of ['min', 'side', 'motion', 'extend', 'filter', 'post', 'hpAtMost', 'cond']) if (Number.isFinite(t[k])) out[k] = t[k];
+  if ((t.sel === 'range' || t.sel === 'blocked') && t.side === 2 && !t.filter && !TRIG_SORTS.has(t.post ?? 0)) {
+    throw new Error(`skill ${s.skillId}: its prefab's trigger selector sorts by _postFilter ${t.post}, which server/sim/targeting.js trigFirst does not model — read FilterUtil's filter for it (docs/rules/render.md 「공격 방향」)`);
+  }
   if (Array.isArray(t.notBuff) && t.notBuff.length) out.notBuff = t.notBuff.slice();
   if (typeof t.rangeId === 'string' && t.rangeId) {
     const grid = rangeGrid(ctx, t.rangeId);
@@ -3023,6 +3029,10 @@ function skillCast(ctx, charId, s) {
   if (c.cls === 'cast' && c.aim === 0) out.aimSelf = 1;
   const trig = c.cls === 'cast' ? skillTrig(ctx, s, c.trig) : null;
   if (trig) out.trig = trig;
+  // `aimBy`: the skill ability an AbilitySelectableGroup root picks — each config's trigger in order, the first that holds a
+  // target is the one it is cast at (server/sim/skills.js aimTarget → ai.js castFace)
+  const aimBy = c.cls === 'cast' && Array.isArray(c.aimBy) ? c.aimBy.map((t) => skillTrig(ctx, s, t)).filter(Boolean) : [];
+  if (aimBy.length) out.aimBy = aimBy;
   const sp = ctx.manifest?.chars?.[charId]?.spine?.front;
   // the begin clip of a 'state' cast (`begin` s): the Skill state plays it and starts the skill once it has played
   // (`BasicSkill.PlayBeginAnimation` waits the clip's length — none when the skeleton lacks it; server/sim/skills.js

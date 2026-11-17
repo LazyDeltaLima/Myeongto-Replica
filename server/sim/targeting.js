@@ -229,6 +229,36 @@ export function sortEnemyTargets(battle, attacker, cands, priority) {
 }
 
 /**
+ * The `_postFilter` sorts (FilterUtil.FilterType) trigFirst models: ALL 0 (no sort: the range query's first), HATRED_DES 4,
+ * DIST_TO_SOURCE_DES 10, DIST_TO_SOURCE_ASC 11, HP_DES 15, HATRED_DES_BLOCKED_FIRST 33. tools/build-data.mjs stops on an
+ * enemy skill trigger with another one (docs/rules/sim.md 「스킬 프리팹의 대상 트리거」).
+ */
+export const TRIG_SORTS = new Set([0, 4, 10, 11, 15, 33]);
+
+/**
+ * The first of the enemies `cands` a skill trigger's selector (`_postFilter` `post`) takes — `SelectorTrigger.target` (the
+ * first of `TargetSelector.FindTargets`, docs/rules/render.md 「공격 방향」). The client's `FilterUtil.Filter` keeps the
+ * candidates of the smallest (prior weight, weight): `_Filter_HatredDes` −`Entity.get_hatred` (taunt level × a large
+ * constant − the remaining route), `_Filter_DistToSourceAsc` / `Des` ± the squared distance of the map positions to the unit,
+ * `_Filter_HpDes` −HP then −hatred, `_Filter_HatredDesBlockedFirst` an enemy that something blocks then −hatred (공식 클라에서
+ * 확인). Ties go by the remaining route, then the spawn order. `post` 0 (ALL): the first candidate as found. null: none.
+ */
+export function trigFirst(battle, src, cands, post) {
+  if (!cands.length) return null;
+  if (!post) return cands[0];
+  const hatred = (x, y) => (y.s.taunt || 0) - (x.s.taunt || 0) || battle.remainingDistance(x) - battle.remainingDistance(y) || x.spawnSeq - y.spawnSeq;
+  const d2 = (e) => (e.x - src.x) * (e.x - src.x) + (e.y - src.y) * (e.y - src.y);
+  const cmp = post === 10 ? (x, y) => d2(y) - d2(x) || hatred(x, y)
+    : post === 11 ? (x, y) => d2(x) - d2(y) || hatred(x, y)
+      : post === 15 ? (x, y) => y.hp - x.hp || hatred(x, y)
+        : post === 33 ? (x, y) => (x.blockedBy ? 0 : 1) - (y.blockedBy ? 0 : 1) || hatred(x, y)
+          : hatred;
+  let best = cands[0];
+  for (let i = 1; i < cands.length; i++) if (cmp(cands[i], best) < 0) best = cands[i];
+  return best;
+}
+
+/**
  * Enemy target selection among allies (PRTS 作战机制 索敌, 敌方: "阻挡→特殊优先级→仇恨值（更容易被攻击→…→最后部署的目标→
  * 不容易被攻击）→最早出现"): its blocker first → highest taunt level → latest deployed (`aggroSeq`: the deploy order —
  * Battle.start deploys the operators first and ranks the start-of-battle summons after them). Special priorities

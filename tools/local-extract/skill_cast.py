@@ -26,7 +26,9 @@ docs/rules/ui.md 「선택 메뉴」): CastSkill `_hideRangeToShow`, or `_forceU
 unit's own mode — no ability `_selector` and no `_rangeIdModeIndex` above 0 (the Default mode); 圣约送葬人 S1 / S3 point
 at their skill modes 1 / 3, another range, and keep the toggle. `aim` 0 (CastSkill) = the skill ability is cast at the
 unit's own place — no `_trigger` (`CastSkill.DoCast` → `CastDirectly`) or an extra its start buff triggers at the unit —, so its
-`_faceToTarget` turns nothing (skill_entry; docs/rules/render.md 「공격 방향」). `trig` (CastSkill with a `_trigger`) = the target
+`_faceToTarget` turns nothing (skill_entry; docs/rules/render.md 「공격 방향」). `aimBy` (CastSkill with a `_trigger` whose root
+is an AbilitySelectableGroup) = its configs' triggers in order, as `trig`: the skill ability is cast at the first one's target
+that holds one (path_route). `trig` (CastSkill with a `_trigger`) = the target
 trigger the automatic operations search before a cast and its selector / range box (trigger_entry; docs/rules/sim.md 「스킬
 프리팹의 대상 트리거」). Output
 tools/assets/local-skill-cast.json:
@@ -183,7 +185,9 @@ def trigger_entry(sk, comps3):
     SelectorTrigger takes (`Awake`: GetComponent<TargetSelector> — the first selector component of its GameObject, `$comp`):
     'range' (AdvancedSelector and its subclasses: `_targetSide`) / 'blocked' (BlockedOrAdvancedSelector,
     `_limitedMaxTargetNumToBlockedCnt`: the enemies the owner blocks first, in range or not) with `side` (1 ally, 2 enemy), `motion`
-    (`_targetMotion` bits: 1 ground, 2 air) and `filter` 1 when a subclass narrows the targets further (SELECTOR_FILTERS);
+    (`_targetMotion` bits: 1 ground, 2 air), `post` (`_postFilter`: the FilterUtil.FilterType that orders the targets — the
+    first is `SelectorTrigger.target`, the one the skill ability is cast at) and `filter` 1 when a subclass narrows the
+    targets further (SELECTOR_FILTERS);
     'tile' (TileSelector), 'group' (GroupSelector), 'self' (SelfSelector: no field — the owner), 'selfIf'
     (SelfSelectorInCertainCondition: the owner while `notBuff` keys are all absent / its HP ratio is ≤ `hpAtMost`; `cond` 1 =
     another condition). The range box (`_extendable`: `extend` 1 = the unit's 攻击距离 grows it; a ConstBoxRange's own
@@ -230,11 +234,61 @@ def trigger_entry(sk, comps3):
             return e
         if '_targetSide' in d:
             e = {**out, 'sel': 'blocked' if '_limitedMaxTargetNumToBlockedCnt' in d else 'range',
-                 'side': int(d.get('_targetSide') or 0), 'motion': int(d.get('_targetMotion') or 0)}
+                 'side': int(d.get('_targetSide') or 0), 'motion': int(d.get('_targetMotion') or 0),
+                 'post': int(d.get('_postFilter') or 0)}
             if any(k in d and d[k] not in (v, None) for k, v in SELECTOR_FILTERS.items()):
                 e['filter'] = 1
             return e
     return {**out, 'sel': '?'}
+
+
+def path_route(sid, comps3, path):
+    """How the skill's root ability reaches the ability at GameObject `path` (an ability found below the root by path —
+    skill_entry): 'group' through sequence / parallel groups' `_abilities` (`AbilitySequenceGroup`: `_alwaysNext`,
+    `AbilityParallelGroup`: `_alsoInterruptSubAbilities`; both cast a child the way they were cast — `CastDirectly` directly,
+    `CastToTarget` at that target, the next child of a sequence too), ('pick', configs) an `AbilitySelectableGroup` config
+    (`_abilityConfigs`: `_DoCastInternal` → `AbilityConfigs.TryCastToTarget` casts the first ready config whose own `_trigger`
+    holds a target at that target — `_useInputTarget` 0 —, `TryCastDirectly` directly), or None (another way: a buff node, a
+    behaviour, the unit's mode)."""
+    by_pid = {pid: (gp, d) for gp, d, pid in comps3}
+
+    def walk(gp, seen):
+        for g, d, _pid in comps3:
+            if g != gp:
+                continue
+            if isinstance(d.get('_abilityConfigs'), list) and gp == sid:
+                for c in d['_abilityConfigs']:
+                    hit = by_pid.get((c.get('_ability') or {}).get('m_PathID')) if isinstance(c, dict) else None
+                    if hit and hit[0] == path:
+                        return ('pick', d['_abilityConfigs'])
+            if isinstance(d.get('_abilities'), list) and ('_alwaysNext' in d or '_alsoInterruptSubAbilities' in d):
+                for ref in d['_abilities']:
+                    hit = by_pid.get(ref.get('m_PathID')) if isinstance(ref, dict) else None
+                    if not hit or hit[0] in seen:
+                        continue
+                    if hit[0] == path:
+                        return 'group'
+                    if walk(hit[0], seen | {hit[0]}) == 'group':
+                        return 'group'
+        return None
+    return walk(sid, {sid})
+
+
+def started_at_self(sid, comps3, templates, path):
+    """True when the skill's own buffs (`_buffs` of its root abilities and of its root group's children) cast the ability at
+    GameObject `path` at the unit's own place as the skill starts: a TriggerAbility naming it (GameObject name or
+    `namedAsAlias`) in their template's ON_BUFF_START / ON_SKILL_START with `_castDirectly` or `_targetType` BUFF_OWNER
+    (triggered; 可露希尔 S1 ApplyShield, 缇缇 S2 GlobalUnique)."""
+    d = next((d for gp, d, _pid in comps3 if gp == path and '_animKey' in d), {})
+    names = {path.split('/')[-1], (d.get('_metadata') or {}).get('namedAsAlias') or ''} - {''}
+    own = [d for gp, d, _pid in comps3 if gp == sid] + group_children(sid, comps3)[1]
+    seen, selfs = set(), set()
+    for d in own:
+        for b in d.get('_buffs') or []:
+            tpl = templates.get(b.get('templateKey')) if isinstance(b, dict) else None
+            for ev in START_EVENTS:
+                triggered((tpl or {}).get(ev), seen, selfs)
+    return bool(names & selfs)
 
 
 def skill_entry(sid, comps3, templates):
@@ -281,8 +335,10 @@ def skill_entry(sid, comps3, templates):
     # `_trigger` that holds a target, else `CastDirectly` — the input target is `GetCastDirectlyMapPosition`, the owner's
     # own position (a sequence / parallel group casts its children directly too), and `DealWithFaceDirection` →
     # `Entity.FaceToTarget` ignores a point under 0.2 tiles away. A root or root-group ability with no `_trigger`, and an
-    # extra the skill's start buffs trigger at the unit (cast_extras at_self), say 0; an ability found below the root by
-    # path is reached in a way not read here, and says nothing
+    # extra the skill's start buffs trigger at the unit (cast_extras at_self), say 0; so does an ability found below the root
+    # by path that the root's groups reach with no `_trigger` (path_route) or that the start buffs cast at the unit
+    # (started_at_self); one an AbilitySelectableGroup root picks with a `_trigger` names the configs' triggers (`aimBy`); any
+    # other says nothing
     trig = isinstance(sk.get('_trigger'), dict) and bool(sk['_trigger'].get('m_PathID'))
     aim = None
     ab = next((a for a in map(ability, root) if a is not None), None)
@@ -298,8 +354,19 @@ def skill_entry(sid, comps3, templates):
         subs = sorted((gp, a) for gp, a in ((gp, ability(d)) for gp, d in comps if gp != sid and not any(gp == x or gp.startswith(x + '/') for x in later))
                       if a is not None)
         ab = subs[0][1] if subs else None
-        if ab is not None and e['cls'] == 'cast' and any(subs[0][0] == x or subs[0][0].startswith(x + '/') for x in at_self):
-            aim = 0
+        if ab is not None and e['cls'] == 'cast':
+            # how the root reaches it (path_route): through groups or an AbilitySelectableGroup — cast directly without a
+            # `_trigger`; with one, at that trigger's target (the default: `trig`), or at the first picked config's (`aimBy`) —,
+            # or an extra / child ability the skill's start buffs cast at the unit
+            path = subs[0][0]
+            route = path_route(sid, comps3, path)
+            if any(path == x or path.startswith(x + '/') for x in at_self) or started_at_self(sid, comps3, templates, path):
+                aim = 0
+            elif route is not None and not trig:
+                aim = 0
+            elif isinstance(route, tuple):
+                e['aimBy'] = [trigger_entry({'_trigger': c.get('_trigger')}, comps3) or {'sel': 'never'}
+                              if not c.get('_useInputTarget') else {'sel': '?'} for c in route[1]]
     if aim == 0:
         e['aim'] = 0
     # the ThreePart component that plays the clip of an ability with no `_animKey` (ThreePartChannelingAnimation `_default`,
