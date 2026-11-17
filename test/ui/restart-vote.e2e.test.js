@@ -67,4 +67,42 @@ describe('the restart vote banner', { skip: !ENABLED && 'set SP_E2E=1 and CHROME
       assert.deepEqual(problems, []);
     } finally { await page.close(); }
   });
+  test('return-to-room option opens the correct vote at desktop and phone sizes', async () => {
+    const page = await browser.newPage();
+    const problems = [];
+    page.on('pageerror', (e) => problems.push(e.message));
+    try {
+      for (const viewport of [
+        { width: 1280, height: 720 },
+        { width: 844, height: 390, isMobile: true, hasTouch: true, isLandscape: true },
+        { width: 740, height: 360, isMobile: true, hasTouch: true, isLandscape: true },
+        { width: 667, height: 375, isMobile: true, hasTouch: true, isLandscape: true },
+      ]) {
+        await page.setViewport(viewport);
+        await page.goto(`${srv.url}/dev/game-mock.html?shot=1&render=fallback&phase=PREP&lang=ko`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.ff-piece');
+        await page.click('.gtop__exit');
+        await page.waitForSelector('[data-testid="restart-room"]');
+        await page.evaluate(() => document.fonts.ready);
+        await page.waitForFunction(() => document.querySelector('.exit-modal').getAnimations().every((a) => a.playState !== 'running'));
+        assert.equal(await page.$eval('[data-testid="restart-room"]', (el) => el.textContent.trim()), '대기실 복귀 투표');
+        const fits = await page.$eval('.exit-modal', (el) => {
+          const box = el.getBoundingClientRect();
+          const buttons = [...el.querySelectorAll('.modal__actions button')];
+          const rects = buttons.map((button) => button.getBoundingClientRect());
+          return box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight
+            && rects.every((rect) => rect.left >= box.left && rect.right <= box.right && rect.bottom <= innerHeight)
+            && rects.every((rect) => Math.abs(rect.top - rects[0].top) < 1)
+            && (!matchMedia('(pointer: coarse)').matches || rects.every((rect) => rect.height >= 44));
+        });
+        assert.ok(fits, `${viewport.width}×${viewport.height}: exit actions fit in one row, with touch targets at least 44px tall`);
+        await page.click('[data-testid="restart-room"]');
+        await page.waitForSelector(BANNER);
+        assert.equal(await page.evaluate(() => globalThis.__MOCK__.S().pub.restartVote.target), 'room');
+        assert.match(await page.$eval(BANNER, (el) => el.textContent), /대기실 복귀를 제안했습니다/);
+      }
+      assert.deepEqual(problems, []);
+    } finally { await page.close(); }
+  });
+
 });

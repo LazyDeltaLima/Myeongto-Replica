@@ -1253,7 +1253,8 @@ export class Lobby {
    * (Match restart.js) any time after with reason 'restart' — a new match with a new seed starts at once, without
    * room.start's ready check (the vote was the agreement; back to the room only when the restart countdown refuses new
    * matches, or when an 8-seat room is left with fewer than LARGE_MIN_PLAYERS Doctors because someone left the match —
-   * Room.seatsOpen, maintainer decision 2026-11-02); neither was settled, so no lastSummary ([stats] line) and no replay (a restarted match is the page's
+   * Room.seatsOpen, maintainer decision 2026-11-02). A restart vote with target 'room' returns to the waiting room
+   * by choice (maintainer request 2026-11-17). Neither was settled, so no lastSummary ([stats] line) and no replay (a restarted match is the page's
    * 中途退出 record, public/js/main.js). The chat factions are cleared either way (players pick
    * one after seeing the banned bonds, maintainer 2026-10-09).
    */
@@ -1261,6 +1262,7 @@ export class Lobby {
     if (ctx.ended || !ctx.live || room.matchCtx !== ctx || room.disposed) return;
     ctx.ended = true;
     const vote = summary?.reason === 'reroll' || summary?.reason === 'restart';
+    const returnToRoom = vote && summary?.target === 'room';
     const key = room.matchKey;
     room.lastSummary = vote ? null : summary ?? null;
     room.match = null;
@@ -1271,7 +1273,7 @@ export class Lobby {
     this.log.info(`[lobby] ${room.code} match #${room.matchCount} ended${summary?.reason === 'restart' ? ` (restart vote, round ${summary.round})` : ''}`);
     localPatch.onMatchEnd(this, room); // local patch: chat factions last one match
     // back outside a match: the matchmaking counts they missed while playing (matchmaking.js header)
-    if (!vote) for (const s of room.activeHumans()) this.sendQueueCounts(this.registry.byId(s.playerId));
+    if (!vote || returnToRoom) for (const s of room.activeHumans()) this.sendQueueCounts(this.registry.byId(s.playerId));
     this.generation?.onMatchEnd(room); // a draining server keeps this room for its settlement screen
     for (let i = 0; i < room.seats.length; i++) {
       const s = room.seats[i];
@@ -1299,7 +1301,9 @@ export class Lobby {
     }
     // after the departed seats went, before the new match of a vote counts them (header)
     this.fillReservedSeats(room);
-    if (vote && room.seatsOpen()) {
+    if (returnToRoom) {
+      this.broadcastState(room);
+    } else if (vote && room.seatsOpen()) {
       this.log.info(`[lobby] ${room.code} back to the room: ${room.activeHumans().length}/${LARGE_MIN_PLAYERS}+ Doctors for an 8-seat match`);
       this.broadcastState(room);
     } else if (vote && !this.restartNotice?.startRefusal()) {

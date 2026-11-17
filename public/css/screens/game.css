@@ -665,7 +665,15 @@
 }
 
 /* ---- exit / away ------------------------------------------------------------------------------------------------------ */
+.exit-modal .modal__actions { flex-wrap: wrap; }
 .exitm { display: flex; flex-direction: column; gap: .1rem; font-size: .17rem; line-height: 1.7; }
+@media (pointer: coarse), (any-pointer: coarse) {
+  .exit-modal { --exit-modal-width: max(8rem, 560px); }
+  .exit-modal .modal__title { font-size: max(.26rem, 20px); }
+  .exit-modal .exitm { font-size: max(.17rem, 13px); }
+  .exit-modal .modal__actions { gap: max(.14rem, 8px); }
+  .exit-modal .modal__actions .btn { min-height: 44px; font-size: max(.16rem, 12px); }
+}
 /* 重新开始 (ui/matchChrome.js ExitModal): the vote's gold on the secondary button */
 .btn.exitm__restart:not(:disabled) { border-color: rgba(255, 198, 0, .55); color: var(--gold); }
 

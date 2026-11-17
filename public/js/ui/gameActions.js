@@ -80,7 +80,7 @@ export const actions = {
   bondGroup: (idx) => act('g.bondGroup', { idx }, { sfx: 'pick' }),
   // the in-match 重新开始 vote (server restart.js): propose / yes / no / cancel; a proposal within a minute of the
   // proposer's last failed vote is refused (RATE) with its own line
-  restartVote: (op) => act('g.restart', { op }, { sfx: op === 'no' || op === 'cancel' ? 'back' : 'confirm', errorText: { RATE: t('稍后才能再次发起重新开始') } }),
+  restartVote: (op, target = 'restart') => act('g.restart', { op, target }, { sfx: op === 'no' || op === 'cancel' ? 'back' : 'confirm', errorText: { RATE: t('稍后才能再次发起重新开始') } }),
   // a spectator seat's reservation of the next free player seat (server/lobby.js header)
   reserveSeat: (on) => act('room.reserveSeat', { on }, { sfx: on ? 'confirm' : 'back' }),
   band: (bandId) => act('g.band', { bandId }),

@@ -240,7 +240,8 @@ function onRoomState(msg) {
     // a reroll the server could not start (the deploy's restart countdown, or an 8-seat room left with fewer than five
     // Doctors — server/lobby.js Room.seatsOpen): straight back to the room (there is no result to show)
     store.set({ match: emptyMatch() });
-    toast(roomFacts(room, myId).seatsOpen ? t('八人同盟需至少 5 名博士才能开始，已返回等待室') : t('无法开始新的模拟，已返回等待室'), 'warn', { ttl: 6000 });
+    if (lastPub?.restartTarget === 'room') toast(t('已返回等待室'), 'success');
+    else toast(roomFacts(room, myId).seatsOpen ? t('八人同盟需至少 5 名博士才能开始，已返回等待室') : t('无法开始新的模拟，已返回等待室'), 'warn', { ttl: 6000 });
   }
   if (sameRoom && reservedRank(prevRoom, myId) && seats.some((seat) => seat?.playerId === myId)) toast(t('已按预约入座'), 'success');
   store.set({ room });

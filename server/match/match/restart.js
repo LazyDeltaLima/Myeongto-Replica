@@ -1,6 +1,7 @@
 // server/match/match/restart.js — Match methods: the in-match 重新开始 vote (feat, maintainer decision 2026-10-31; the
 // official mode has none): a seat proposes, every voter must agree within RESTART_VOTE_MS, and the match ends for a new
-// one that starts at the briefing with a new seed — the lobby path of the briefing's 重新抽取 (phases.js _endInfo,
+// one that starts at the briefing with a new seed, or returns to the waiting room (maintainer request 2026-11-17).
+// Restart uses the lobby path of the briefing's 重新抽取 (phases.js _endInfo,
 // server/lobby.js onMatchEnd).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
@@ -28,12 +29,14 @@ export class MatchRestart {
   }
 
   /**
-   * g.restart { op }: 'propose' opens the vote (the proposer agrees), 'yes' / 'no' answer it, 'cancel' takes the
+   * g.restart { op, target? }: target is 'restart' (default) or 'room' (maintainer request 2026-11-17).
+   * The proposal fixes the destination; answers cannot change it. 'propose' opens the vote (the proposer agrees),
+   * 'yes' / 'no' answer it, 'cancel' takes the
    * proposer's back. One 'no' ends the vote at once; so do the proposer leaving and the time running out. Every voter
    * agreeing ends the match (_endRestart) — at once when the proposer is the only voter (solo, or AI teammates only).
    * Any 规则 mode (maintainer decision 2026-10-31: a convenience, unlike the 休闲-only 重新抽取).
    */
-  voteRestart(ps, op) {
+  voteRestart(ps, op, target = 'restart') {
     if (this.ended || this.restartOutcome) return fail(ERR.WRONG_PHASE);
     if (ps.isBot || ps.left || ps.botControlled) return fail(ERR.BAD_TARGET, 'not a voter');
     const v = this.restartVote;
@@ -44,7 +47,7 @@ export class MatchRestart {
       if (this.sched.now() < until) return fail(ERR.RATE, 'restart proposed too recently');
       const ms = this.scaled(RESTART_VOTE_MS);
       this.restartVote = {
-        by: ps.playerId, yes: new Set([ps.playerId]), deadline: this.sched.now() + ms, ms,
+        target, by: ps.playerId, yes: new Set([ps.playerId]), deadline: this.sched.now() + ms, ms,
         timer: this.later(ms, () => this._closeRestart('timeout')),
       };
       this.markPublic();
@@ -76,7 +79,7 @@ export class MatchRestart {
     if (!voters.every((p) => v.yes.has(p.playerId))) return;
     this.cancel(v.timer);
     this.restartVote = null;
-    this.restartOutcome = 'restart';
+    this.restartOutcome = v.target;
     this.markPublic();
     this.later(0, () => this._endRestart());
   }
@@ -89,7 +92,11 @@ export class MatchRestart {
     this.restartVote = null;
     if (!this.restartRetryAt) this.restartRetryAt = new Map();
     this.restartRetryAt.set(v.by, this.sched.now() + this.scaled(RESTART_RETRY_MS));
-    const text = why === 'no' ? msg('{name}反对重新开始', { name: nameParam(ps.name) })
+    const text = v.target === 'room'
+      ? why === 'no' ? msg('{name}反对返回等待室', { name: nameParam(ps.name) })
+        : why === 'cancel' ? msg('{name}撤回了返回等待室的提议', { name: nameParam(ps.name) })
+        : msg('返回等待室投票未通过')
+      : why === 'no' ? msg('{name}反对重新开始', { name: nameParam(ps.name) })
       : why === 'cancel' ? msg('{name}撤回了重新开始的提议', { name: nameParam(ps.name) })
       : msg('重新开始投票未通过');
     for (const p of this._viewers()) this.toast(p, why === 'no' ? 'warn' : 'info', text);
@@ -98,7 +105,8 @@ export class MatchRestart {
 
   /**
    * The vote passed: end the match without a settlement (no m.result) — the last m.public carries `restarted`, then
-   * onEnd({ reason: 'restart' }) hands the room to the lobby, which starts the new match at once (server/lobby.js
+   * onEnd({ reason: 'restart', target }) hands the room to the lobby, which returns to the waiting room for target
+   * 'room', otherwise starts the new match at once (server/lobby.js
    * onMatchEnd). The page records the match as 中途退出 (public/js/main.js, ui/stats.js recordQuit; maintainer decision
    * 2026-10-31). The teardown is finish()'s (settle.js).
    */
@@ -115,7 +123,7 @@ export class MatchRestart {
     for (const f of this.fields) f.live = false;
     this.markPublic();
     try { this.flush(true); } catch (e) { this.reportError('flush', e); }
-    const summary = { reason: 'restart', modeId: this.modeId, difficulty: this.difficulty, stageId: this.stageId, bossId: this.bossId, round: this.round, players: [] };
+    const summary = { reason: 'restart', target: this.restartOutcome, modeId: this.modeId, difficulty: this.difficulty, stageId: this.stageId, bossId: this.bossId, round: this.round, players: [] };
     try { this.onEndFn(summary); } catch (e) { this.reportError('onEnd', e); }
   }
 }

@@ -107,4 +107,42 @@ describe('in-match restart vote', () => {
     assert.equal(room.replay, null);
     assert.equal(stats.length, 0);
   });
+  test('return to room: unanimous vote preserves seats and settings, clears ready, and waits for a manual start', async () => {
+    const a = await player('ReturnHost');
+    const b = await player('ReturnGuest');
+    await ok(a, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL', ruleset: 'classic' });
+    const st = await a.waitFor('room.state', (s) => s.hostId === a.id, W);
+    await ok(b, { t: 'room.join', code: st.code });
+    await ok(b, { t: 'room.ready', ready: true });
+    await ok(a, { t: 'room.start' });
+    await briefing(a);
+    const room = srv.lobby.getRoom(st.code);
+    const first = room.match;
+    first.phase = PHASE.PREP;
+    await ok(a, { t: 'g.restart', op: 'propose', target: 'room' });
+    const vote = await b.waitFor('m.public', (p) => p.restartVote?.target === 'room', W);
+    assert.equal(vote.restartVote.by, a.id);
+    assert.ok(room.match === first, 'no transition before everyone agrees');
+    // An answer cannot change the destination chosen by the proposer.
+    await ok(b, { t: 'g.restart', op: 'yes', target: 'restart' });
+    const end = await a.waitFor('m.public', (p) => p.restarted, W);
+    assert.equal(end.restartTarget, 'room');
+    const back = await a.waitFor('room.state', (s) => !s.inMatch && s.matchNo === 1, W);
+    assert.equal(back.code, st.code);
+    assert.equal(back.hostId, a.id);
+    assert.equal(back.difficulty, 'NORMAL');
+    assert.deepEqual(back.ruleset, st.ruleset);
+    assert.deepEqual(back.seats.filter(Boolean).map((s) => s.playerId), [a.id, b.id]);
+    assert.ok(back.seats.filter(Boolean).every((s) => !s.ready), 'ready is cleared');
+    assert.equal(room.match, null);
+    assert.equal(room.lastSummary, null);
+    assert.equal(room.replay, null);
+    assert.equal(a.log.filter((m) => m.t === 'm.result').length, 0);
+    assert.equal(stats.length, 0);
+    await ok(b, { t: 'room.ready', ready: true });
+    await ok(a, { t: 'room.start' });
+    await a.waitFor('room.state', (s) => s.inMatch && s.matchNo === 2, W);
+    await briefing(a);
+  });
+
 });

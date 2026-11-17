@@ -40,6 +40,8 @@ export function RestartVoteBanner({ pub, myId }) {
   const [busy, setBusy] = useState(null);
   useTicker(v ? 1000 : 0);
   if (!v || pub.restarted) return null;
+  const room = v.target === 'room';
+  const note = room ? t('全员同意时返回等待室') : t('全员同意时从头开始');
   const voters = restartVoters(pub);
   const yes = new Set(v.yes);
   const proposer = (pub.players || []).find((p) => p.playerId === v.by);
@@ -55,11 +57,11 @@ export function RestartVoteBanner({ pub, myId }) {
   };
   const bg = localAsset('ui/outer', 'img_player_bg');
   const on = localAsset('ui/outer', 'img_player_confirmed');
-  return html`<div class="rvote" role="status" data-testid="restart-vote" title=${t('全员同意时从头开始')}
+  return html`<div class="rvote" role="status" data-testid="restart-vote" title=${note}
     style=${bg && on ? `--rv-off:url("${bg}");--rv-on:url("${on}")` : null}>
     <${Icon} name="refresh" />
-    <b class="rvote__title">${mine ? t('你提议重新开始') : t('{name} 提议重新开始', { name: playerName(proposer?.name) || t('博士') })}</b>
-    <span class="rvote__note">${t('全员同意时从头开始')}</span>
+    <b class="rvote__title">${mine ? (room ? t('你提议返回等待室') : t('你提议重新开始')) : t(room ? '{name} 提议返回等待室' : '{name} 提议重新开始', { name: playerName(proposer?.name) || t('博士') })}</b>
+    <span class="rvote__note">${note}</span>
     <span class=${cx('rvote__pips', !(bg && on) && 'no-art')}>${voters.map((p) => html`<i key=${p.playerId}
       class=${cx(yes.has(p.playerId) && 'on')} title=${playerName(p.name)}></i>`)}</span>
     <span class="rvote__n num"><b>${voters.filter((p) => yes.has(p.playerId)).length}</b>/${voters.length}</span>

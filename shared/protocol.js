@@ -586,7 +586,8 @@ export const C2S = {
   // (m.public bondGroups); again while the seat is not ready
   'g.bondGroup': { idx: (v) => isInt(v, 0, 1) },
   // the in-match 重新开始 vote (server/match/match/restart.js): propose it, answer it, or the proposer takes it back
-  'g.restart': { op: (v) => v === 'propose' || v === 'yes' || v === 'no' || v === 'cancel' },
+  'g.restart': { op: (v) => v === 'propose' || v === 'yes' || v === 'no' || v === 'cancel',
+    target: (v) => v === 'restart' || v === 'room', $optional: ['target'] },
   'g.band': { bandId: isId },
   'g.bandSkip': {},
   // the strategy highlighted in the draft screen (user playtest #4 item 4): a turn that runs out takes it while it is

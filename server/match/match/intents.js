@@ -25,7 +25,7 @@ export class MatchIntents {
       // 规程 solo's briefing: the core bond group that plays (MatchPhases.pickBondGroup)
       case 'g.bondGroup': return this.pickBondGroup(ps, msg.idx);
       // the in-match 重新开始 vote (MatchRestart.voteRestart): propose / yes / no / cancel
-      case 'g.restart': return this.voteRestart(ps, msg.op);
+      case 'g.restart': return this.voteRestart(ps, msg.op, msg.target);
       case 'g.band': return this.pickBand(ps, msg.bandId);
       case 'g.bandSkip': return this.skipBand(ps);
       // the strategy highlighted in the draft screen (what a timed-out turn takes, timeoutBand)
