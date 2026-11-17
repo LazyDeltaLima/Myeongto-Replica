@@ -519,10 +519,10 @@
    "state": 1,
    "trig": {
     "extend": 0,
-    "filter": 1,
     "min": 1,
     "motion": 3,
     "post": 19,
+    "prof": 639,
     "sel": "range",
     "side": 1
    }
@@ -992,7 +992,11 @@
    "trig": {
     "extend": 0,
     "min": 1,
-    "sel": "tile"
+    "motion": 3,
+    "post": 4,
+    "sel": "range",
+    "side": 2,
+    "tile": 1
    }
   },
   "skchr_clemnt_1": {
@@ -3275,11 +3279,16 @@
    "reset": 0,
    "state": 0,
    "trig": {
+    "exclSelf": 1,
     "extend": 0,
-    "filter": 1,
     "min": 1,
     "motion": 1,
+    "noHeal": 1,
+    "notBuff": [
+     "trap_skzwyx[undeadable]"
+    ],
     "post": 19,
+    "prof": 639,
     "sel": "range",
     "side": 1
    }
@@ -4396,11 +4405,15 @@
    "reset": 0,
    "state": 1,
    "trig": {
+    "buffSrc": 1,
     "extend": 0,
-    "filter": 1,
     "min": 1,
     "motion": 3,
+    "notBuff": [
+     "thorn2_s_3[buff]"
+    ],
     "post": 61,
+    "prof": 639,
     "sel": "range",
     "side": 1
    }
@@ -4533,10 +4546,13 @@
    "state": 1,
    "trig": {
     "extend": 0,
-    "filter": 1,
     "min": 1,
     "motion": 1,
+    "notBuff": [
+     "tocka_s1[trigger]"
+    ],
     "post": 39,
+    "prof": 639,
     "sel": "range",
     "side": 1
    }

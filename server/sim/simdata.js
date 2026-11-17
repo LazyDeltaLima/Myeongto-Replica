@@ -214,6 +214,12 @@ function normSkillTrig(t) {
     notBuff: Array.isArray(t.notBuff) ? t.notBuff.filter((k) => typeof k === 'string') : [],
     hpAtMost: Number.isFinite(t.hpAtMost) && t.hpAtMost > 0 ? t.hpAtMost : null,
     cond: t.cond === 1,
+    // an ally selector's filters (skills.js _trigAllies): not the unit itself, these professions only (a mask of
+    // shared ProfessionCategory bits, 0 = any), no 禁疗 ally, `notBuff` only as placed by the unit itself
+    exclSelf: t.exclSelf === 1,
+    prof: int(t.prof, 0),
+    noHeal: t.noHeal === 1,
+    buffSrc: t.buffSrc === 1,
   };
 }
 

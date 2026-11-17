@@ -8,16 +8,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec } from '../helpers/battleHarness.js';
+import { ALLY_TRIG_SORTS } from '../../server/sim/targeting.js';
 
 const FILES = ['data/chess.json', 'data/backups.json', 'data/seasons/act3autochess/chess.json', 'data/seasons/act3autochess/backups.json'];
 
-// MANUAL skills whose trigger selector _trigFound does not model: they cast by their rule alone (true)
-const UNMODELLED = {
-  skchr_chnut_1: 'ally selector (side 1): allies in the skill range box, the unit itself included (`_excludeOwner` 0)',
-  skchr_papyrs_2: 'ally selector with a validator filter (AdvancedSelectorWithValidatorFilter + FilterBuffTargetValidator)',
-  skchr_thorn2_3: 'ally selector by profession, without the thorn2_s_3[buff] buff (AdvancedSelectorWithTagAndBuffKey)',
-  skchr_christ_2: 'tile selector (TileSelector): tiles of the range box by its build options, not units',
-};
+// MANUAL skills whose trigger selector _trigFound does not model: they cast by their rule alone (true). Empty since the
+// ally selectors (褐果 S1, 莎草 S2, 引星棘刺 S3) and the tile selector (Miss.Christine S2) were read.
+const UNMODELLED = {};
 
 function manualTrigs() {
   const out = new Map();
@@ -32,7 +29,8 @@ function manualTrigs() {
 }
 
 const modelled = (t) => t.sel === 'never' || t.sel === 'self' || (t.sel === 'selfIf' && !t.cond)
-  || ((t.sel === 'range' || t.sel === 'blocked') && t.side === 2 && !t.filter);
+  || ((t.sel === 'range' || t.sel === 'blocked') && t.side === 2 && !t.filter)
+  || (t.sel === 'range' && t.side === 1 && !t.filter && ALLY_TRIG_SORTS.has(t.post));
 
 test('pool MANUAL skills: every prefab target trigger is searched by the engine or listed with its reason', () => {
   const trigs = manualTrigs();
@@ -73,4 +71,78 @@ test('a ground-only trigger (`_targetMotion` 1) is not met by a flyer in the ran
   assert.ok(!u.skill.active, 'the skill cast with only a flyer in range although its trigger selects ground enemies');
   u.skill.cast = { ...u.skill.cast, trig: { ...u.skill.cast.trig, motion: 3 } };
   assert.ok(h.runUntil(() => u.skill.active, 3), 'with ground and air the flyer in range casts it');
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// ally selectors and the tile selector (docs/rules/sim.md 「스킬 프리팹의 대상 트리거」 — skills.js _trigAllies)
+
+const ACT3 = JSON.parse(readFileSync(new URL('../../data/seasons/act3autochess/chess.json', import.meta.url), 'utf8'));
+const act3Chess = ACT3.chess || ACT3;
+/** An act3autochess chess record fielding another of its skills. */
+const withSkill = (id, skillId) => ({ ...act3Chess[id], skill: act3Chess[id].skills.find((s) => s.skillId === skillId) });
+
+function board(units, chess = {}) {
+  const h = makeBattle({ season: 'act3autochess', seed: 1, timeLimit: 60, autoFinish: false, units, enemies: [], defs: { chess } });
+  h.step(1);
+  return h;
+}
+const CHNUT = 'chess_char_1_15_a', CHRIST = 'chess_char_2_09_a', PAPYRS = 'chess_char_2_04_a', THORN2 = 'chess_char_6_01_a';
+
+test('褐果 S1: its trigger holds an ally in range that is hurt or holds 元素损伤 — the most 元素损伤 first, no 禁疗 ally', () => {
+  const h = board([{ chessId: CHNUT, row: 9, col: 6, dir: 'RIGHT' }, { chessId: CHRIST, row: 9, col: 7, dir: 'RIGHT' }]);
+  const u = h.unit(CHNUT), a = h.unit(CHRIST), sk = u.skill;
+  assert.ok(sk.id === 'skchr_chnut_1' && sk.cast?.trig?.side === 1 && sk.cast.trig.post === 38, 'skchr_chnut_1 carries its ally trigger (post 38)');
+  assert.ok(!sk._trigFound() && sk.trigTarget(sk.cast.trig) === null, 'everyone at full HP and no 元素损伤: no target (FilterUtil drops them)');
+  a.hp = a.s.maxHp * 0.5;
+  assert.ok(sk._trigFound() && sk.trigTarget(sk.cast.trig) === a, 'the hurt ally in her range is the target');
+  u.hp = u.s.maxHp * 0.2;
+  assert.ok(sk.trigTarget(sk.cast.trig) === u, 'she herself counts (`_excludeOwner` 0), the lowest HP ratio first');
+  a.elem.burn = 200;
+  assert.ok(sk.trigTarget(sk.cast.trig) === a, 'an ally with 元素损伤 comes before a lower HP ratio');
+  u.hp = u.s.maxHp;
+  h.b.addBuff(a, { key: 'test:noheal', duration: 99, flags: { noHeal: true } });
+  assert.ok(!sk._trigFound(), 'a 禁疗 ally is no target of her heal');
+});
+
+test('莎草 S2: another ground operator in range, no 禁疗 one, none holding the validator buff', () => {
+  const h = board([{ chessId: PAPYRS, row: 9, col: 6, dir: 'RIGHT' }], { [PAPYRS]: withSkill(PAPYRS, 'skchr_papyrs_2') });
+  const u = h.unit(PAPYRS), sk = u.skill;
+  assert.ok(sk.id === 'skchr_papyrs_2' && sk.cast?.trig?.exclSelf && sk.cast.trig.prof === 639, 'skchr_papyrs_2 carries exclSelf / prof');
+  assert.ok(!sk._trigFound(), 'alone: she is no target of her own S2 (`_excludeOwner`)');
+  const h2 = board([{ chessId: PAPYRS, row: 9, col: 6, dir: 'RIGHT' }, { chessId: CHRIST, row: 9, col: 7, dir: 'RIGHT' }],
+    { [PAPYRS]: withSkill(PAPYRS, 'skchr_papyrs_2') });
+  const u2 = h2.unit(PAPYRS), a = h2.unit(CHRIST);
+  assert.ok(u2.skill._trigFound() && u2.skill.trigTarget(u2.skill.cast.trig) === a, 'an operator in her range is the target');
+  const b = h2.b.addBuff(a, { key: 'trap_skzwyx[undeadable]', duration: 99 });
+  assert.ok(!u2.skill._trigFound(), 'an operator holding the validator buff is left out');
+  h2.b.removeBuff(a, b);
+  h2.b.addBuff(a, { key: 'test:noheal', duration: 99, flags: { noHeal: true } });
+  assert.ok(!u2.skill._trigFound(), 'a 禁疗 operator is left out (the validator excludes HEAL_FREE)');
+});
+
+test('引星棘刺 S3: an operator in range without her thorn2_s_3[buff] — her own cast marks them, another\'s mark does not count', () => {
+  const h = board([{ chessId: THORN2, row: 9, col: 6, dir: 'RIGHT' }], { [THORN2]: withSkill(THORN2, 'skchr_thorn2_3') });
+  const u = h.unit(THORN2), sk = u.skill;
+  assert.ok(sk.id === 'skchr_thorn2_3' && sk.cast?.trig?.buffSrc && sk.cast.trig.notBuff.includes('thorn2_s_3[buff]'), 'skchr_thorn2_3 carries its buff filter');
+  assert.ok(sk._trigFound() && sk.trigTarget(sk.cast.trig) === u, 'she herself, an operator in her range, is a target');
+  h.b.addBuff(u, { key: 'thorn2_s_3[buff]', duration: 99, source: { id: -1 } });
+  assert.ok(sk._trigFound(), 'the buff from another unit does not count (`_filterBuffSource`)');
+  sk.gainSp(999);
+  assert.ok(sk.activate('DEFAULT') !== false, 'S3 casts');
+  assert.ok(h.runUntil(() => u.buffs.some((x) => x.key === 'thorn2_s_3[buff]' && x.source === u), 5), 'her S3 marks the operator it throws its unit at');
+  assert.ok(!sk._trigFound(), 'every operator in her range carries her unit: no target');
+});
+
+test('Miss.Christine S2: a TileSelector trigger finds the enemies of her skill range (HATRED_DES), not tiles', () => {
+  const h = makeBattle({
+    season: 'act3autochess', seed: 1, timeLimit: 60, autoFinish: false, units: [{ chessId: CHRIST, row: 9, col: 6, dir: 'RIGHT' }],
+    enemies: [], defs: { enemies: { tank: enemyRec({ key: 'tank', hp: 1e6, speed: 0 }) } },
+  });
+  h.step(1);
+  const u = h.unit(CHRIST), sk = u.skill;
+  assert.ok(sk.id === 'skchr_christ_2' && sk.cast?.trig?.sel === 'range' && sk.cast.trig.side === 2 && sk.cast.trig.post === 4, 'skchr_christ_2 carries an enemy range trigger');
+  assert.ok(!sk._trigFound(), 'no enemy: no cast');
+  const e = h.spawn('tank', { pos: [9, 7] });
+  h.step(1);
+  assert.ok(sk._trigFound() && sk.trigTarget(sk.cast.trig) === e, 'an enemy in her skill range is the target');
 });

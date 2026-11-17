@@ -962,8 +962,9 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `S3_Spawn`을 트는 것은 위셔델의 `wisdel_s_3[trigger_spawn]`뿐). 두 스킬의 스킬 능력은 뿌리의 클립 없는 버프 능력(애니 능력이 아니라 `DealWithFaceDirection`이
     없음)이라 시전 때 돌지 않는다 — 데이터 `cast`에 `time` 없음, `castFace`를 부르지 않음. 같은 까닭으로 실버애쉬 더 레인프로스트 S3는 시작 버프가 자기에게 트는
     `BirdAura_Self`로 읽혀 돌지 않는다(`aimSelf`; 전에는 시작에 시전되지 않는 `BirdAttack`의 `_faceToDefault`로 배치 방향으로 돌았음). 남은 근사:
-    선택자를 엔진이 안 다루는 트리거(아군·타일·묶음 선택자, 하위 클래스 필터)는 그 순간 공격이 잡을 대상으로 돈다 — sim.md 「스킬 프리팹의 대상 트리거」에서
-    아직 안 읽은 선택자와 같은 것으로, 그 선택자를 `skills.js trigTarget`에 넣으면 몸 돌리기도 따라간다. 점수가 같은 후보의 순서(`FilterUtil`의 작은 차이 묶음은 넣은 순서)는 남은
+    선택자를 엔진이 안 다루는 트리거(묶음 선택자, 읽지 않은 필터, 정렬을 모르는 아군 `_postFilter` 3·39)는 그 순간 공격이 잡을 대상으로 돈다 — sim.md
+    「스킬 프리팹의 대상 트리거」에서 아직 안 읽은 선택자와 같은 것으로, 그 선택자를 `skills.js trigTarget`에 넣으면 몸 돌리기도 따라간다. 아군 선택자(2026-11-18)는
+    그 아군 쪽으로 돈다(블레이즈 디 이그나이팅 스파크 S1 = 최대 HP 오퍼레이터, 체스트넛 S1 = 치료할 아군), Miss.Christine S2의 타일 선택자는 HATRED_DES 적 쪽. 점수가 같은 후보의 순서(`FilterUtil`의 작은 차이 묶음은 넣은 순서)는 남은
     경로·생성 순서로 둔다 [추정·엔진: 범위 질의의 후보 순서]. `_faceToFirstCastTarget`(4, 스펙터 디 언체인드 S1)은
     시전 대상 `m_castTargets`의 첫째라 그대로 둔다. `CastOnTileAbility._faceToTile`(첫 시전 칸)은 이 풀의 스킬 능력에 켜진 것이 없다.
   - 렌더 `render/face-turn.js`(위 규칙 그대로), `units.js turnToward/turnTo/faceDeploy`, 상태 `view.face {lr, ud, dir4}`: 반전 = `lr`,

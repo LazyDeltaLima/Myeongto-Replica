@@ -168,11 +168,54 @@ def cast_extras(sid, sk, comps3, templates, at_self=None):
 
 # the fields of a SelectorTrigger (`TargetTrigger`); any other field is a subclass this tool does not know (HunterBulletTrigger …)
 SELECTOR_TRIGGER = {'_keepTarget', '_minTargetNum', '_overrideSearchTargetTick'}
-# AdvancedSelector subclass fields that narrow the targets beyond side / motion / range (their default leaves them off)
+# AdvancedSelector (and subclass) fields that narrow the targets beyond side / motion / range (their default leaves them off)
+# and that trigger_entry does not read into `trig` — `filter` 1. `_ignoreTargetFree` / `_onlyIgnoreSomeOfTargetFreeCase`
+# are here too: only with both on do `_abnormalFlag` / `_abnormalCombo` count (`TargetOptions._VerifyAdvanced` →
+# `Entity.IsStillTargetFreeWithImmuneFlag`); every trigger read so far has them off, so those two fields change nothing.
 SELECTOR_FILTERS = {
-    '_buffKey': '', '_buffs': [], '_filterTag': '', '_filterTagList': [], '_validatorFilterSettings': [],
-    '_CheckNotInElementBreak': 0, '_needProfessionMask': 0, '_secondaryFilter': 0, '_checkUnitType': 0,
+    '_buffs': [], '_filterTag': '', '_filterTagList': [], '_CheckNotInElementBreak': 0, '_secondaryFilter': 0,
+    '_checkUnitType': 0, '_filterTokenHost': 0, '_ignoreTargetFree': 0, '_onlyIgnoreSomeOfTargetFreeCase': 0,
+    '_excludeSomeAbnormalFlags': 0, '_ignoreAllyTargetFree': 0, '_ignoreHealFree': 0, '_abilityInputTargetAsSortSource': 0,
+    '_sortByTauntAtLast': 0,
 }
+# `AbnormalFlag` HEAL_FREE (禁疗)
+HEAL_FREE = 7
+
+
+def ally_filters(d, comps3):
+    """The ally selector filters trigger_entry reads (docs/rules/sim.md 「스킬 프리팹의 대상 트리거」), or None for one it does
+    not know: `exclSelf` (`_excludeOwner`: `AdvancedSelector.OnPostFilter` drops the owner from an ally selection), `prof`
+    (`_needProfessionMask` → `_professionMask`: `TargetOptions._VerifyAdvanced` keeps a character of those professions),
+    `notBuff` + `buffSrc` (AdvancedSelectorWithTagAndBuffKey `_buffKeyExcluded` `_buffKey`: `_CheckBuff` drops a unit holding
+    it — from the owner only with `_filterBuffSource`), and a FilterBuffTargetValidator of `_validatorFilterSettings`
+    (AdvancedSelectorWithValidatorFilter.ValidateTarget: the validator must say `isMatched`; `Validate` = its `_targetOptions`
+    — `prof`, `noHeal` for an excluded HEAL_FREE — and, with `_excludeKey`, none of its `_buffs`)."""
+    out = {}
+    if d.get('_excludeOwner'):
+        out['exclSelf'] = 1
+    if d.get('_needProfessionMask'):
+        out['prof'] = int(d.get('_professionMask') or 0)
+    if d.get('_buffKey'):
+        if not d.get('_buffKeyExcluded') or d.get('_checkOrInsteadOfAnd'):
+            return None
+        out['notBuff'] = [d['_buffKey']]
+        if d.get('_filterBuffSource'):
+            out['buffSrc'] = 1
+    by_pid = {p: v for _gp, v, p in comps3}
+    for s in d.get('_validatorFilterSettings') or []:
+        v = by_pid.get(((s or {}).get('validator') or {}).get('m_PathID'))
+        o = (v or {}).get('_targetOptions') or {}
+        if (not v or '_excludeKey' not in v or not s.get('isMatched') or s.get('ignoreTargetSide') or v.get('_hostAsTarget')
+                or not v.get('_excludeKey') or v.get('_filterBuffSource') or o.get('targetSide') != d.get('_targetSide')
+                or o.get('containSomeAbnormalFlags') or o.get('checkUnitType') or o.get('purposeMask')
+                or (o.get('excludeSomeAbnormalFlags') and o.get('excludeAbnormalFlag') != HEAL_FREE)):
+            return None
+        if o.get('professionMask'):
+            out['prof'] = int(o['professionMask'])
+        if o.get('excludeSomeAbnormalFlags'):
+            out['noHeal'] = 1
+        out['notBuff'] = out.get('notBuff', []) + [k for k in v.get('_buffs') or [] if isinstance(k, str)]
+    return out
 
 
 def own_fields(d):
@@ -187,9 +230,10 @@ def trigger_entry(sk, comps3):
     'range' (AdvancedSelector and its subclasses: `_targetSide`) / 'blocked' (BlockedOrAdvancedSelector,
     `_limitedMaxTargetNumToBlockedCnt`: the enemies the owner blocks first, in range or not) with `side` (1 ally, 2 enemy), `motion`
     (`_targetMotion` bits: 1 ground, 2 air), `post` (`_postFilter`: the FilterUtil.FilterType that orders the targets — the
-    first is `SelectorTrigger.target`, the one the skill ability is cast at) and `filter` 1 when a subclass narrows the
-    targets further (SELECTOR_FILTERS);
-    'tile' (TileSelector), 'group' (GroupSelector), 'self' (SelfSelector: no field — the owner), 'selfIf'
+    first is `SelectorTrigger.target`, the one the skill ability is cast at), an ally selector's filters (ally_filters) and
+    `filter` 1 when a field narrows the targets in a way this tool does not read (SELECTOR_FILTERS); a TileSelector is a
+    'range' one too (`tile` 1: HATRED_DES, its tile options left out);
+    'group' (GroupSelector), 'self' (SelfSelector: no field — the owner), 'selfIf'
     (SelfSelectorInCertainCondition: the owner while `notBuff` keys are all absent / its HP ratio is ≤ `hpAtMost`; `cond` 1 =
     another condition). The range box (`_extendable`: `extend` 1 = the unit's 攻击距离 grows it; a ConstBoxRange's own
     `rangeId`, else the skill ability's range — the skill's rangeId, or the unit's own without one, `BasicSkill.AssignData`).
@@ -221,7 +265,14 @@ def trigger_entry(sk, comps3):
         if not f:
             return {**out, 'sel': 'self'}
         if '_tileSortType' in d:
-            return {**out, 'sel': 'tile'}
+            # a TileSelector finds units the way every RangeSelector does (`RangeSelector.DoFindTargets_DISPOSE`: the range
+            # box by its own side / motion) and orders them HATRED_DES (`TileSelector.OnPostFilter(List<Entity>)`: FilterType
+            # 4, max 128) — its `_options` / `_filterType` choose tiles only (FindTiles)
+            e = {**out, 'sel': 'range', 'side': int(d.get('_targetSide') or 0), 'motion': int(d.get('_targetMotion') or 0),
+                 'post': 4, 'tile': 1}
+            if d.get('_needProfessionMask') or d.get('_checkUnitType'):
+                e['filter'] = 1
+            return e
         if '_rangeSelectorsList' in d:
             return {**out, 'sel': 'group'}
         if '_checkHpRatioCondition' in d:
@@ -239,6 +290,13 @@ def trigger_entry(sk, comps3):
                  'post': int(d.get('_postFilter') or 0)}
             if any(k in d and d[k] not in (v, None) for k, v in SELECTOR_FILTERS.items()):
                 e['filter'] = 1
+            ally = ally_filters(d, comps3) if e['side'] == 1 else None
+            if ally is None and e['side'] == 1:
+                e['filter'] = 1
+            elif ally:
+                e.update(ally)
+            elif d.get('_needProfessionMask') or d.get('_buffKey') or d.get('_validatorFilterSettings'):
+                e['filter'] = 1   # an enemy selector's profession / buff filter: not read
             return e
     return {**out, 'sel': '?'}
 

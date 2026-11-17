@@ -83,7 +83,7 @@
       ],
       "enemies": {"enemy_1006_shield_3":[3,3,0,1909,298598],"enemy_1043_zomsbr":[23,23,0,2633,146078],"enemy_1402_tgshd_2":[4,4,0,14573,129393]},
       "hooks": [1,47,2587,184,184,535,602,1712,34,37,13,11,0,9662,24,12,30,0,1,37,2,4,12],
-      "events": {"atk":210,"castHit":3,"deploy":14,"die":37,"dmg":602,"engage":6,"face":6,"fx":218,"heal":108,"layer":2,"skill":24,"spawn":42,"status":53,"swing":190,"tplfx":2},
+      "events": {"atk":210,"castHit":3,"deploy":14,"die":37,"dmg":602,"engage":6,"face":7,"fx":218,"heal":108,"layer":2,"skill":24,"spawn":42,"status":53,"swing":190,"tplfx":2},
       "fx": {"blink":3,"burst":4,"displace":6,"dodge":12,"drone":5,"ebnhlzVolley":1,"expose":151,"firewall":1,"frostNova":4,"garrison":2,"kitHit":26,"mysticHeld":1,"mysticStore":1,"zone":1},
       "snaps": "822e8cbf a26d8bed 56fb3f47 cc95eaf9 dd025bdc ac1a6572 9c76dcb0 9a287e71 a0eff494"
     },
@@ -2121,7 +2121,7 @@
         "enemy_1225_dkmage": [1,1,0,4298,13824]
       },
       "hooks": [1,29,3162,282,282,395,415,30,11,21,26,34,0,12830,52,11,11,1,1,12,2,0,0],
-      "events": {"atk":282,"deploy":18,"die":20,"dmg":409,"engage":5,"face":46,"fx":141,"heal":29,"layer":2,"leak":1,"skill":69,"spawn":28,"status":118,"swing":219,"tplfx":7},
+      "events": {"atk":282,"deploy":18,"die":20,"dmg":409,"engage":5,"face":47,"fx":141,"heal":29,"layer":2,"leak":1,"skill":69,"spawn":28,"status":118,"swing":219,"tplfx":7},
       "fx": {"aoe":20,"buff":1,"garrison":1,"kitHit":49,"link":1,"parry":6,"shield":2,"stacks":40,"summon":14,"thorns":6,"zone":1},
       "snaps": "bbcfba77 f240235b ad491225 7a6a6a18 ad99a8d0 723f94dd 8ef5ade8 2a13515e 28976ea0 002bcf4c 1dce297a"
     },
@@ -2161,7 +2161,7 @@
       ],
       "enemies": {"enemy_1116_liprr_2":[10,10,0,0,186624],"enemy_1119_vofsd":[5,5,0,0,136858],"enemy_1121_lifbos_2":[4,4,0,1482,248832]},
       "hooks": [1,33,2175,143,143,190,190,1,19,21,19,14,0,5304,13,1,19,0,1,19,0,0,0],
-      "events": {"atk":155,"deploy":14,"die":21,"dmg":190,"engage":5,"face":42,"fx":47,"heal":1,"skill":35,"spawn":32,"status":24,"swing":151},
+      "events": {"atk":155,"deploy":14,"die":21,"dmg":190,"engage":5,"face":44,"fx":47,"heal":1,"skill":35,"spawn":32,"status":24,"swing":151},
       "fx": {"buff":1,"dp":1,"kitHit":39,"summon":1,"turnDir":3,"zone":2},
       "snaps": "b84a5b3e 1d3b416c 15aee091 962f33f8 47e1c0f2 41bdf5c2 5849188a 489ca362"
     },

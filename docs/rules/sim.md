@@ -334,9 +334,26 @@
 홈바운드 S1·S2, 쏜즈 더 로드스타 S2, 틴맨 S2는 첫 선택자가 `SelfSelector`라 늘 참, 이그제큐터 디 엑스 포에데레 S2·S3은 `SelfSelectorInCertainCondition`(자기에게
 `excu2_in_multi_attack` 버프가 없을 때). sim: `tools/local-extract/skill_cast.py` `trig` → `tools/build-data.mjs` `cast.trig` → `skills.js _trigFound`
 (키트 `castCheck`가 있으면 그것). 트리거가 잡은 첫 대상(선택자 `_postFilter` 순서, `trig.post`)은 스킬 능력을 시전하는 대상이기도 하다 — 몸 돌리기,
-render.md 「공격 방향」(`skills.js trigTarget`). 엔진이 따라 하지 않는 선택자는 참으로 둔다 — 아군 선택자(체스트넛 S1, 파피루스 S2, 쏜즈 더 로드스타 S3)·타일 선택자
-(Miss.Christine S2)·하위 클래스 필터·다른 자기 조건, 목록과 이유는 시험 파일에 [추정·미조사: 선택자 필터를 읽지 않음]. 선택자의 `_abnormalFlag` 조건과
-능력 범위를 바꾸는 모듈(`UnitDataFlowConfig.Delta` `rangeId`)도 안 봄 [추정·미조사]. 이 전수로 바뀐 것은 규정 시즌의 ALWAYS 스킬(데겐블레허 S3·패신저 S3·
+render.md 「공격 방향」(`skills.js trigTarget`).
+아군 선택자(2026-11-18, 공식 클라에서 확인 — `skills.js _trigAllies`): 범위 상자 안에 선 아군(장치 제외, 선택자의 지상·공중, 孤立(ALLY_TARGET_FREE) 아님) 가운데 —
+`_excludeOwner`면 자기 빼고(`AdvancedSelector.OnPostFilter`), `_needProfessionMask`면 그 직군의 캐릭터만(`TargetOptions._VerifyAdvanced`; 마스크 639 =
+소환물·장치를 뺀 오퍼레이터 직군 전부), 버프 키 필터(`AdvancedSelectorWithTagAndBuffKey._CheckBuff`: `_buffKeyExcluded`면 그 버프를 지닌 아군을 뺌,
+`_filterBuffSource`면 이 유닛이 붙인 것만), 검증기(`AdvancedSelectorWithValidatorFilter.ValidateTarget` → `FilterBuffTargetValidator.Validate`: 제 `_targetOptions`
+— 직군·HEAL_FREE(禁疗) 제외 — 와 `_excludeKey`면 `_buffs` 없는 아군). `_postFilter`는 순서이자 거르기다(`FilterUtil.Filter`는 무게 함수가 거짓을 내는 후보를
+버림): MAX_HP_DES 19(최대 HP 높은 순), HP_RATIO_ASC_EP_MIN_ASC_FIRST_NOT_ALL_FULL 38(원소 점수가 가장 낮은 — 元素损伤이 가장 큰 — 아군 먼저, 다음 HP 비율;
+HP도 원소 점수도 가득이면 빠짐), BLOCK_CNT_ASC_CREATED_TIME_DES 61(저지 수 낮은 순, 나중에 만든 쪽). 그래서 체스트넛 S1은 다치거나 元素损伤을 입은 아군(자기 포함)이
+범위에 있어야 켜지고 그 아군을 치료한다(`_useTriggerInManualMode` — 키트 `castPick`이 `trigTarget`); 禁疗 아군은 빠진다 [추정·미조사: 스킬 능력의 목적
+마스크(`Ability` 가상 24)를 안 읽음 — HEAL이면 `_VerifyAdvanced`가 HEAL_FREE를 뺌, 엔진은 치료 대상 고르기와 같이]. 파피루스 S2는 자기 말고 지상 오퍼레이터
+(禁疗·`trap_skzwyx[undeadable]` 없는)가, 쏜즈 더 로드스타 S3는 그녀의 `thorn2_s_3[buff]`가 없는 오퍼레이터(자기 포함)가 범위에 있어야 켜진다 — 키트가 S3로 연금
+유닛을 붙인 오퍼레이터에게 그 키의 버프를 그 유닛 시간만큼 붙인다 [추정·미조사: 버프를 붙이는 공식 노드·지속 시간을 안 읽음]. 블레이즈 디 이그나이팅 스파크
+S1(자동)의 몸 돌리기는 최대 HP 오퍼레이터 쪽이다. 엔진이 정렬을 모르는 아군 `_postFilter`(3·39 — 자동 스킬뿐)는 대상 `undefined`(공격 대상 근사).
+타일 선택자(Miss.Christine S2): `TileSelector`도 유닛은 다른 범위 선택자처럼 찾고(`RangeSelector.DoFindTargets_DISPOSE`: 범위 상자·제 쪽·제 지상/공중) HATRED_DES(4)로
+세운다(`TileSelector.OnPostFilter(List<Entity>)`, 최대 128) — `_options`·`_filterType`은 칸 고르기(FindTiles)에만 쓰인다 → 추출기가 적 'range'(`tile` 1)로 읽는다.
+`_abnormalFlag`·`_abnormalCombo`는 `_ignoreTargetFree`와 `_onlyIgnoreSomeOfTargetFreeCase`가 둘 다 켜졌을 때만 쓰인다(`TargetOptions._VerifyAdvanced` →
+`Entity.IsStillTargetFreeWithImmuneFlag`) — 풀의 트리거 36개는 모두 꺼져 있어 아무 뜻이 없다. 추출기는 그런 필드(·`_excludeSomeAbnormalFlags`·
+`_ignoreAllyTargetFree` 등, `skill_cast.py SELECTOR_FILTERS`)가 켜진 선택자를 `filter` 1로 두어 시험이 잡게 한다. 모듈의 스킬 범위 바꿈(`BasicSkill.AssignData`의
+`UnitDataFlowConfig.Delta.rangeId`)은 캐릭터 프리팹 `UnitDataFlowConfig` 설정의 `_overrideRangeId`가 켜졌을 때만 생긴다(`ModifierConfig.CreateModifier`) —
+풀 204명 charpack의 설정 133개 모두 꺼짐(2026-11-18) → 풀에서는 없음. 이 전수로 바뀐 것은 규정 시즌의 ALWAYS 스킬(데겐블레허 S3·패신저 S3·
 아이린 S3 등)이 SP가 차도 범위 안 대상(데겐블레허는 막은 적 포함)이 생길 때까지 켜지 않는 것이다 — 맹약 시즌 DEFAULT 스킬은 규칙이 이미 같은 대상을 요구했다.
 재발 방지: `test/sim/skill-trigger.test.js`(전수 + 예외 목록), 추출기에 모르는 모양이 오면 `build-data.mjs`가 멈춤(원인 제거 — `skill_cast.py trigger_entry`가 읽음).
 

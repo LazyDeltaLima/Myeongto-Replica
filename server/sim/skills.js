@@ -68,7 +68,7 @@
 //   also carries `noAmmo` (set it to true: this attack spends no ammo). onEnd runs while the skill's mods / range are
 //   still applied (`active` is already false); they are removed right after it (unless onEnd re-activated the skill).
 
-import { absoluteRangeKeys, trigFirst } from './targeting.js';
+import { absoluteRangeKeys, trigFirst, trigAllyFirst, ALLY_TRIG_SORTS, elemTaken } from './targeting.js';
 import { castFace } from './ai.js';
 import { BLOCK_SKILL_TICK, COLS, MIN_ANIM_SCALE, TICK } from './constants.js';
 
@@ -84,6 +84,12 @@ const TRIG_AIR = Object.freeze({ canHitFly: true, skipEnemy: (e) => !e.isFlying 
 const trigProfile = (t) => ((t.motion & 3) === 1 ? TRIG_GROUND : (t.motion & 3) === 2 ? TRIG_AIR : TRIGGER_PROFILE);
 /** An enemy range selector the engine searches (_trigFound, trigTarget): 'range' / 'blocked', enemy side, no subclass filter. */
 const trigModelled = (t) => (t.sel === 'range' || t.sel === 'blocked') && t.side === 2 && !t.filter;
+/** An ally range selector the engine searches (_trigAllies): no filter it does not read, a `_postFilter` it sorts by. */
+const trigAllyModelled = (t) => t.sel === 'range' && t.side === 1 && !t.filter && ALLY_TRIG_SORTS.has(t.post);
+// the client's ProfessionCategory bits (an ally trigger's `prof` mask)
+const PROF_BITS = Object.freeze({
+  WARRIOR: 1, SNIPER: 2, TANK: 4, MEDIC: 8, SUPPORT: 16, CASTER: 32, SPECIAL: 64, TOKEN: 128, TRAP: 256, PIONEER: 512,
+});
 
 /**
  * The 'skill' animation window the sim reports to the client: `unit.skillAnimUntil` (snapshot.js `animOf` → ANIM.SKILL,
@@ -498,9 +504,9 @@ export class SkillRuntime {
    * the unit while it holds none of `notBuff` and its HP ratio is ≤ `hpAtMost`. 'range' / 'blocked' with enemy side: the
    * enemies whose collider overlaps the skill ability's range box — a ConstBoxRange's own grid, else the skill's rangeId, else
    * the unit's own range, grown by its 攻击距离 only when the box is `_extendable` —, by the selector's motion (1 ground,
-   * 2 air), plus the enemies it blocks for 'blocked' (BlockedOrAdvancedSelector), at least `min` of them. The selectors the
-   * engine does not model say true (test/sim/skill-trigger.test.js lists them): an ally side, a subclass filter, a tile or
-   * group selector, another self condition.
+   * 2 air), plus the enemies it blocks for 'blocked' (BlockedOrAdvancedSelector), at least `min` of them; with ally side the
+   * allies of _trigAllies. The selectors the engine does not model say true (test/sim/skill-trigger.test.js lists them): a
+   * filter it does not read, a group selector, another self condition.
    */
   _trigFound() {
     const t = this.cast && this.cast.trig;
@@ -511,6 +517,7 @@ export class SkillRuntime {
       if (t.notBuff.some((k) => u.findBuff(k))) return false;
       return !(t.hpAtMost != null && u.hpRatio > t.hpAtMost + 1e-9);
     }
+    if (trigAllyModelled(t)) return this._trigAllies(t).length >= Math.max(1, t.min);
     if (!trigModelled(t)) return true;
     const found = this.battle.enemiesInKeys(this._trigBoxKeys(t), u, trigProfile(t));
     if (found.length >= t.min) return true;
@@ -530,8 +537,41 @@ export class SkillRuntime {
     const c = boxes.get(t);
     if (c && c.tile === tile && c.dir === u.dir && c.ext === ext && c.grid === grid) return c.keys;
     const keys = absoluteRangeKeys(grid, u.tileR, u.tileC, u.dir, ext);
-    boxes.set(t, { tile, dir: u.dir, ext, grid, keys });
+    boxes.set(t, { tile, dir: u.dir, ext, grid, keys, set: null });
     return keys;
+  }
+
+  /**
+   * The allies an ally selector of trigger `t` finds (docs/rules/sim.md 「스킬 프리팹의 대상 트리거」, 공식 클라에서 확인): the
+   * allies standing in its range box (_trigBoxKeys) — devices aside, by the selector's motion, not a 孤立 one
+   * (ALLY_TARGET_FREE, allySelectable) — the unit itself unless `exclSelf` (`AdvancedSelector.OnPostFilter`), a character of
+   * the `prof` professions (`TargetOptions._VerifyAdvanced`), no 禁疗 one for `noHeal` (FilterBuffTargetValidator's excluded
+   * HEAL_FREE), none holding a `notBuff` key (placed by the unit itself for `buffSrc`: AdvancedSelectorWithTagAndBuffKey
+   * `_CheckBuff`, FilterBuffTargetValidator); `_postFilter` HP_RATIO_ASC_EP_MIN_ASC_FIRST_NOT_ALL_FULL (38) drops an ally at
+   * full HP with no 元素损伤 (`FilterUtil.Filter` drops the candidates its weight function refuses), and — as its heal
+   * ability's purpose does — a 禁疗 one other than the unit [추정·미조사: the skill ability's `purposeMask` not read].
+   */
+  _trigAllies(t) {
+    const u = this.unit;
+    const b = this.battle;
+    const keys = this._trigBoxKeys(t);
+    const c = this._trigBox.get(t);
+    const set = (c.set ??= new Set(keys));
+    const m = t.motion & 3;
+    const out = [];
+    for (const a of b.allyUnits) {
+      if (!a.alive || !a.deployed || a.hidden || a.kind === 'device') continue;
+      if (a === u ? t.exclSelf : !b.allySelectable(a, u)) continue;
+      if (!set.has(a.tileR * COLS + a.tileC)) continue;
+      if ((m === 1 && a.isFlying) || (m === 2 && !a.isFlying)) continue;
+      if (t.prof && !(t.prof & (PROF_BITS[a.def?.profession] ?? 0))) continue;
+      const noHeal = a.s.flags.noHeal || a.profile?.noHeal;
+      if (noHeal && (t.noHeal || (t.post === 38 && a !== u))) continue;
+      if (t.notBuff.length && a.buffs.some((x) => t.notBuff.includes(x.key) && (!t.buffSrc || x.source === u))) continue;
+      if (t.post === 38 && !(a.hp < a.s.maxHp - 1e-6) && !(elemTaken(a) > 0)) continue;
+      out.push(a);
+    }
+    return out;
   }
 
   /**
@@ -539,13 +579,18 @@ export class SkillRuntime {
    * ran, no target when fewer than `_minTargetNum` were found — docs/rules/render.md 「공격 방향」): the unit itself for a
    * self selector, else for a modelled enemy selector (trigModelled) the first enemy it blocks (BlockedOrAdvancedSelector:
    * `Character.blockedEnemies` first), else the enemy of its range box its `_postFilter` sorts first (targeting.js trigFirst);
-   * null for none ('never' too); undefined when the engine does not model the selector (an ally side, a subclass filter,
-   * a tile or group selector — the same ones _trigFound says true for).
+   * null for none ('never' too); for a modelled ally selector the ally of _trigAllies its `_postFilter` sorts first
+   * (targeting.js trigAllyFirst); undefined when the engine does not model the selector (a filter it does not read, a group
+   * selector — the same ones _trigFound says true for).
    */
   trigTarget(t) {
     const u = this.unit;
     if (t.sel === 'self' || t.sel === 'selfIf') return u;
     if (t.sel === 'never') return null;
+    if (trigAllyModelled(t)) {
+      const found = this._trigAllies(t);
+      return found.length >= Math.max(1, t.min) ? trigAllyFirst(found, t.post) : null;
+    }
     if (!trigModelled(t)) return undefined;
     const b = this.battle;
     const prof = trigProfile(t);

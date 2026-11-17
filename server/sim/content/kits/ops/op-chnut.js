@@ -8,7 +8,7 @@
 // - T1 脚踏实地 (chnut_t_1, ON_OUTPUT_MODIFIER IsElementHeal + CheckHeightTypeOfCharacterRootTile LOWLAND): her element recovery on an
 //   ally standing on low ground × ep_heal_scale.
 // - S1 积微成著 (MANUAL, charges, `_switchToState` 1, `_useTriggerInManualMode`): at the Skill clip's strike one heal of ATK on the ally her
-//   skill selector picks (HP ratio first, then 元素损伤 — `_postFilter` HP_RATIO_ASC_EP_MIN_ASC_FIRST_NOT_ALL_FULL), its element recovery
+//   skill trigger picks (元素损伤 first, then the HP ratio — `_postFilter` HP_RATIO_ASC_EP_MIN_ASC_FIRST_NOT_ALL_FULL), its element recovery
 //   × trait_scale (chnut_s_1); the talent applies to it too.
 // - S2 厚土迸发 (MANUAL, 30 / 35 s): mode S2 (S2(Down) facing down — the same attack), the skill's range 3-2, ASPD +attack_speed. Its
 //   attack is a ContinuouslyRangedHeal: a heal on the same ally as the attack before it heals × attack@heal_continuously_scale, its
@@ -37,7 +37,12 @@ export default {
       skills: {
         [S1]: {
           kind: instantKind(def),
-          onStart({ battle, unit, skill }) { skill.castPick = battle.injuredAlliesInKeys(unit.rangeKeys, unit, true)[0] ?? null; },
+          // the ally her skill trigger holds (`_useTriggerInManualMode`: CastSkill.DoCast searches it and casts at its target —
+          // skills.js trigTarget: the most 元素损伤 first, then the lowest HP ratio)
+          onStart({ battle, unit, skill }) {
+            const t = skill.cast?.trig ? skill.trigTarget(skill.cast.trig) : undefined;
+            skill.castPick = t !== undefined ? t : battle.injuredAlliesInKeys(unit.rangeKeys, unit, true)[0] ?? null;
+          },
           onStrike({ battle, unit, skill }) {
             const t = skill.castPick;
             if (!up(unit) || !t?.alive || !t.deployed) return;

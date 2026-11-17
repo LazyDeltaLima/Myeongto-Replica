@@ -119,6 +119,9 @@ export default {
             const dur = num(bb.projectile_delay_time, 19) + extend(battle, unit);
             for (const a of ops) {
               (unit.mem.zones ??= []).push({ type: 'sea', anchor: a, x: a.x, y: a.y, t: 0, acc: Math.max(0.1, num(bb.interval, 1)) - AURA_IV, dur });
+              // the operator carrying her unit holds thorn2_s_3[buff] from her, which her skill trigger leaves out (skills.js
+              // _trigAllies `notBuff` + `buffSrc`): S3 waits while every operator in its range carries one
+              battle.addBuff(a, { key: 'thorn2_s_3[buff]', duration: dur, source: unit, refresh: 'independent', maxStacks: 99 });
               // `thrown`: the unit thrown at that operator (skill prefab Token → projectile_chr_thorn2_s3, whose STOP sounds)
               battle.fx('zone', { x: a.x, y: a.y, id: unit.id, r: RING1, duration: dur, thrown: 1 });
             }

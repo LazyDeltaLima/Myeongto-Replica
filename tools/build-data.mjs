@@ -2989,13 +2989,14 @@ function opShot(ctx, charId, charSkills) {
  * (where the unit turns as the ability is cast — server/sim/ai.js castFace). No ability (a buff cast): `mode` only. null
  * when the skill was not read.
  */
-const TRIG_SELECTORS = new Set(['never', 'range', 'blocked', 'tile', 'group', 'self', 'selfIf']);
+const TRIG_SELECTORS = new Set(['never', 'range', 'blocked', 'group', 'self', 'selfIf']);
 /**
  * A CastSkill's target trigger (`trig` of tools/assets/local-skill-cast.json, skill_cast.py trigger_entry) → the skill
  * record's `cast.trig`, which the automatic operations search before they cast the skill (`CastSkill.get_canCastCheck`;
  * server/sim/skills.js _trigFound, docs/rules/sim.md 「스킬 프리팹의 대상 트리거」): `sel`, `min`, and as read `side` / `motion` /
  * `extend` / `filter` / `post` (the selector's `_postFilter`, which orders its targets: the one the skill ability is cast at —
- * server/sim/targeting.js trigFirst) / `notBuff` / `hpAtMost` / `cond`; a ConstBoxRange's own `rangeId` becomes its `grid`.
+ * server/sim/targeting.js trigFirst) / `notBuff` / `hpAtMost` / `cond`, an ally selector's `exclSelf` / `prof` / `noHeal` /
+ * `buffSrc` (skill_cast.py ally_filters); a ConstBoxRange's own `rangeId` becomes its `grid`.
  * Stops on a trigger or selector the extractor did not know (`sel` '?'), and on an enemy range selector whose `_postFilter`
  * the engine does not sort by (TRIG_SORTS) — a new shape is read before it is guessed.
  */
@@ -3005,7 +3006,7 @@ function skillTrig(ctx, s, t) {
     throw new Error(`skill ${s.skillId}: its prefab's _trigger has a trigger or selector skill_cast.py does not know (sel ${JSON.stringify(t.sel)}) — read it (docs/rules/sim.md 「스킬 프리팹의 대상 트리거」)`);
   }
   const out = { sel: t.sel };
-  for (const k of ['min', 'side', 'motion', 'extend', 'filter', 'post', 'hpAtMost', 'cond']) if (Number.isFinite(t[k])) out[k] = t[k];
+  for (const k of ['min', 'side', 'motion', 'extend', 'filter', 'post', 'hpAtMost', 'cond', 'exclSelf', 'prof', 'noHeal', 'buffSrc']) if (Number.isFinite(t[k])) out[k] = t[k];
   if ((t.sel === 'range' || t.sel === 'blocked') && t.side === 2 && !t.filter && !TRIG_SORTS.has(t.post ?? 0)) {
     throw new Error(`skill ${s.skillId}: its prefab's trigger selector sorts by _postFilter ${t.post}, which server/sim/targeting.js trigFirst does not model — read FilterUtil's filter for it (docs/rules/render.md 「공격 방향」)`);
   }

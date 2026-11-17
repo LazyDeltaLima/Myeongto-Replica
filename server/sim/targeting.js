@@ -259,6 +259,35 @@ export function trigFirst(battle, src, cands, post) {
 }
 
 /**
+ * The `_postFilter` sorts of an ally skill trigger (skills.js _trigAllies, trigAllyFirst): MAX_HP_DES 19,
+ * HP_RATIO_ASC_EP_MIN_ASC_FIRST_NOT_ALL_FULL 38, BLOCK_CNT_ASC_CREATED_TIME_DES 61. Another one is not modelled (the
+ * trigger then says true, test/sim/skill-trigger.test.js lists it).
+ */
+export const ALLY_TRIG_SORTS = new Set([19, 38, 61]);
+
+/** The largest 元素损伤 an ally holds (its lowest element points: `Entity.minEpType`). */
+export const elemTaken = (a) => Math.max(a.elem.burn, a.elem.neural, a.elem.apoptosis, a.elem.erosion);
+
+/**
+ * The first of the allies `cands` an ally skill trigger's selector (`_postFilter` `post`, ALLY_TRIG_SORTS) takes, as
+ * trigFirst does for enemies — the client's weights (공식 클라에서 확인): `_Filter_MaxHpDes` −max HP; `_Filter_HpRatioAsc
+ * EpMinAscFirstNotAllFull` the lowest element points first (the most 元素损伤), then the HP ratio (an ally at full HP and
+ * full element points is dropped — skills.js _trigAllies); `_Filter_BlockCntAscCreatedTimeDes` the block count, then the
+ * latest created. Ties go by the deployment order. null: none.
+ */
+export function trigAllyFirst(cands, post) {
+  if (!cands.length) return null;
+  const cmp = post === 19 ? (x, y) => y.s.maxHp - x.s.maxHp || x.deploySeq - y.deploySeq
+    : post === 38 ? (x, y) => elemTaken(y) - elemTaken(x) || x.hpRatio - y.hpRatio || x.deploySeq - y.deploySeq
+      : post === 61 ? (x, y) => (x.s.blockCnt || 0) - (y.s.blockCnt || 0) || y.deploySeq - x.deploySeq
+        : null;
+  if (!cmp) return cands[0];
+  let best = cands[0];
+  for (let i = 1; i < cands.length; i++) if (cmp(cands[i], best) < 0) best = cands[i];
+  return best;
+}
+
+/**
  * Enemy target selection among allies (PRTS 作战机制 索敌, 敌方: "阻挡→特殊优先级→仇恨值（更容易被攻击→…→最后部署的目标→
  * 不容易被攻击）→最早出现"): its blocker first → highest taunt level → latest deployed (`aggroSeq`: the deploy order —
  * Battle.start deploys the operators first and ranks the start-of-battle summons after them). Special priorities
