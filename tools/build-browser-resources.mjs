@@ -10,7 +10,7 @@
 // GitHub raw URL. The browser fetches those from jsDelivr / GitHub raw and keeps them only when size + hash match this
 // file; a file the pipeline rewrote (spine atlases, size changed), made locally (assets/local: 3D board, emotes, UI
 // sprites) or downloaded from elsewhere has no `u` and comes from this server. Nothing is downloaded here. A list entry
-// the page would refuse (public/js/resources.js validEntry) stops the run.
+// the page would refuse (public/js/resource-entries.js validEntry) stops the run.
 // `r` marks the two copies of a 立绘 (tools/local-extract/chararts_extract.py save_illust, the operator art and the skin
 // art): a WebP `<dir>/full/<name>` (the original resolution) is 'hi' and the listed `<dir>/<name>` (the long side 1024)
 // 'lo'; a browser pre-downloads only its device's copy (public/js/illust-res.js, maintainer decision 2026-11-16).
@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { mirrorUrl } from './assets/sources.mjs';
 import { planBundles, writeBundles } from './assets/resource-bundles.mjs';
 import { BUNDLE_DIR } from '../server/http/files.js';
-import { sourcesOf, validEntry } from '../public/js/resources.js';
+import { sourcesOf, validEntry } from '../public/js/resource-entries.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -131,7 +131,7 @@ for (const f of files) {
 files.sort((a, b) => (a.p < b.p ? -1 : a.p > b.p ? 1 : 0));
 // the page fetches only the entries it takes: one it would drop is never pre-downloaded, so the list must not name it
 const refused = files.filter((f) => !validEntry(f));
-if (refused.length) throw new Error(`${refused.length} list entries the page would drop (public/js/resources.js validEntry; docs/rules/render.md 「\`u\`는 페이지가 받을 수 있는 주소일 때만」), e.g. ${JSON.stringify(refused[0]).slice(0, 200)}`);
+if (refused.length) throw new Error(`${refused.length} list entries the page would drop (public/js/resource-entries.js validEntry; docs/rules/render.md 「\`u\`는 페이지가 받을 수 있는 주소일 때만」), e.g. ${JSON.stringify(refused[0]).slice(0, 200)}`);
 const bytes = files.reduce((n, f) => n + f.s, 0);
 const version = createHash('sha256').update(JSON.stringify(PACKS) + '\n' + files.map((f) => f.p + ':' + f.h).join('\n')).digest('hex').slice(0, 16);
 // the bundles are written before the list that names them; `version` leaves them out (the cache holds the same files)

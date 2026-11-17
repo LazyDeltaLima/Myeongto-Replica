@@ -1304,8 +1304,11 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   재발 방지: `test/local-patch.test.js` 「resources: an upstream file every source serves …」(이 서버 파일의 요청 주소)·「resource worker: …」(쿼리 붙은 요청은 안 맡음).
 - **`u`는 페이지가 받을 수 있는 주소일 때만**(2026-11-17, 미리 받기 측정): 목록 생성기가 `fetch-assets`의 원장 주소를 그대로 `u`로 적어, 성과 통계 창 그림
   `ui/statistics/*` 36개(`data:` URL 28개·`web.hycdn.cn` 8개)는 페이지 `validEntry`가 받을 곳이 없다고 버렸다(미리 받기 안 됨, 목록만 큼). 이제 생성기가
-  `resources.js sourcesOf`로 jsDelivr·GitHub raw 주소일 때만 `u`를 적고, 나머지는 이 서버에서(디스크에 있는 파일) — 묶음에도 들어감. 생성기는 페이지가
+  `sourcesOf`로 jsDelivr·GitHub raw 주소일 때만 `u`를 적고, 나머지는 이 서버에서(디스크에 있는 파일) — 묶음에도 들어감. 생성기는 페이지가
   버릴 항목이 하나라도 있으면 목록을 쓰기 전에 멈춘다. 재발 방지: 원인 제거 — `tools/build-browser-resources.mjs`가 페이지의 `sourcesOf`·`validEntry`를 읽음.
+  두 함수는 아무것도 import하지 않는 `public/js/resource-entries.js`에 있다(`resources.js`가 다시 내보냄): 배포 서버는 저장소 체크아웃 위의 맨 Node
+  컨테이너에서 이 생성기를 돌려 `node_modules`·`public/vendor`가 없고, 처음에 `resources.js`(→ UI → `public/vendor/preact`)를 읽었을 때 배포가
+  그 단계에서 멈췄다. 재발 방지: `test/browser-resources-imports.test.js`(생성기가 따라가는 import가 Node 내장 모듈과 저장소 파일뿐인지).
 - **진단**(설정 → 문제 보고의 보고서):
   - `resources:` 줄 — 마지막 대조의 시각·걸린 시간·키 수·지울 항목·받아들인 항목, 다시 받기 상태(`held (field loading)` / `1 at a time (match)`), 정리(지운 수·남은 수·판 동안 멈춤),
     워커가 답한 수(캐시로 / 캐시에 다른 해시가 있어 다시 받음 / 받음과 MB / 서버로 넘김, 마지막으로 물은 시각). 워커 수는 페이지가 `sp-res-stats` 메시지로

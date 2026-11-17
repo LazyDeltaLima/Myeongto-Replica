@@ -59,6 +59,9 @@ import { wantedFiles, onVoiceLangChange, voiceStore, setVoiceLang, VOICE_LANGS, 
 import { setResourceSource, fieldLoading } from './diag.js';
 import { illustFull, illustListed, illustStore, setIllustFull } from './illust-res.js';
 import { t, tc } from '../../shared/i18n.js';
+import { sourcesOf, validPath, validEntry } from './resource-entries.js';
+
+export { sourcesOf, validPath, validEntry };
 
 const CACHE = 'sp-res';
 const STATE = '/__sp_res_state__';
@@ -74,8 +77,6 @@ const TIMEOUT_MS = 60000;
 const CLEAN_CHUNK = 50;       // stale entries deleted between two rests
 const CLEAN_REST_MS = 100;
 const HOLD_POLL_MS = 1000;
-const RAW_RE = /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
-const JSDELIVR_RE = /^https:\/\/cdn\.jsdelivr\.net\/gh\//;
 // the query the download puts on this server's files: the worker answers no request with a query string, so the file is
 // fetched, hashed and stored once, by the download (fetchOne), not by the worker as well
 export const PAST_WORKER = '?sp-res';
@@ -91,28 +92,6 @@ export const resStore = createStore({ phase: 'off', done: 0, total: 0, bytesDone
   sizes: {}, chosen: {}, paused: {}, runGroups: [], illust: null });
 const setPending = () => resStore.set({ pendingBytes: pending.reduce((n, f) => n + f.s, 0), sizes: sizesOf() });
 
-/**
- * Download URLs of one list entry: jsDelivr then GitHub raw for upstream art (jsDelivr has no ArknightsAssets2 voice
- * branch, shared with tools/assets/sources.mjs), this server for everything else.
- * @param {{ p: string, u?: string }} f
- */
-export function sourcesOf(f) {
-  if (typeof f.u !== 'string') return [f.p];
-  if (JSDELIVR_RE.test(f.u)) return [f.u];
-  const m = RAW_RE.exec(f.u);
-  if (!m) return [];
-  const [, owner, repo, branch, path] = m;
-  const mirror = owner === 'ArknightsAssets' && branch === 'voice' ? null : `https://cdn.jsdelivr.net/gh/${owner}/${repo}@${branch}/${path}`;
-  return [mirror, f.u].filter(Boolean);
-}
-
-/** Paths the list may name: under /assets/ or /img/emotes/, no query / fragment / escapes / backslashes / dot segments. */
-const PATH_RE = /^\/(assets|img\/emotes)\/[^?#%\\]+$/;
-export const validPath = (p) => typeof p === 'string' && PATH_RE.test(p) && !p.split('/').some((seg) => seg === '.' || seg === '..');
-
-/** List entries the page will act on: a valid path, a size and a sha256 (anything else is ignored). */
-export const validEntry = (f) => !!f && validPath(f.p) && Number.isInteger(f.s) && f.s >= 0 && typeof f.h === 'string' && /^[0-9a-f]{64}$/.test(f.h)
-  && (f.u === undefined || (typeof f.u === 'string' && sourcesOf(f).length > 0));
 
 const BUNDLE_RE = /^\/assets\/bundles\/[A-Za-z0-9_.-]+\.pack$/;
 
