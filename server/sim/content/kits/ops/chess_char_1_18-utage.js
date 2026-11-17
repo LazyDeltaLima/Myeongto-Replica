@@ -27,8 +27,8 @@ export default {
         mods: { atkPct: num(bb.atk) },
         onStart({ battle, unit }) {
           const loss = unit.hp * num(bb.hp_ratio);
-          // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): the skill start's HP cost
-          if (loss > 0 && unit.hp - loss >= 1) battle.loseHp(unit, loss, { silent: false, source: unit });
+          // (silent: utage_s_2's DamageViaCurHpRatio creates no effect — docs/rules/fx.md 「효과 없는 주기적 유실」)
+          if (loss > 0 && unit.hp - loss >= 1) battle.loseHp(unit, loss, { silent: true, source: unit });
           battle.fx('aoe', { x: unit.x, y: unit.y, radius: 1, id: unit.id, skill: 'breach' });
         },
       },

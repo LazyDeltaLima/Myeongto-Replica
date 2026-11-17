@@ -569,8 +569,8 @@ function kitHelm(ab, e, b, tpl) {
             if (c.reason !== 'killed' || !(ratio > 0)) return;                 // a leak is no death
             const boss = e2.alive ? e2 : b3.aliveEnemies().find((o) => o.isBoss && o.defId === e2.defId);
             const by = c.killer && c.killer.side === 'ally' ? c.killer : null;  // credited to the killing operator
-            // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): damage a drone link passes to its boss
-            if (boss) { b3.loseHp(boss, droneLinkBase(boss) * ratio, { silent: false, source: by, noHitLimit: true }); b3.fx('beam', { x: d.x, y: d.y, from: d.id, to: boss.id, kind: 'droneLink' }); }
+            // (silent: acstmk_s_2[to_enemy]'s DamageViaMaxHpRatio on 胄 creates no effect — docs/rules/fx.md 「효과 없는 주기적 유실」)
+            if (boss) { b3.loseHp(boss, droneLinkBase(boss) * ratio, { silent: true, source: by, noHitLimit: true }); b3.fx('beam', { x: d.x, y: d.y, from: d.id, to: boss.id, kind: 'droneLink' }); }
           },
         }]);
       },
@@ -728,8 +728,8 @@ function kitBlade(ab, e, b, tpl) {
         if (c.amount > 0) { // 受到伤害时令假想敌：胄受到等量的无来源生命流失 (【瘫痪】; 出击模式 [ASSUMED], see PART_TRANSFER)
           const L = leader(b2);
           const src = c.source || c.credit;                                    // a 无来源 burst still passes on (credited)
-          // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): damage a blade passes to its leader
-          if (L) b2.loseHp(L, c.amount * BLADE_TRANSFER, { silent: false, source: src && src.side === 'ally' ? src : null, from: c.dmg, sourceless: true });
+          // (silent: acstma_hp_trans's FixedValueDamage creates no effect — docs/rules/fx.md 「효과 없는 주기적 유실」)
+          if (L) b2.loseHp(L, c.amount * BLADE_TRANSFER, { silent: true, source: src && src.side === 'ally' ? src : null, from: c.dmg, sourceless: true });
         }
         if (P.state === 'dive' && e2.alive && ++P.hits >= (bb.max_hit_cnt ?? Infinity)) shotDown(b2, e2); // 仅1次
       },
@@ -985,8 +985,8 @@ function kitSpring(ab, e) {
     const s0 = c.source || c.credit;                                       // a 无来源 burst still passes on (credited)
     const src = s0 && s0.side === 'ally' ? s0 : null;
     const g = gun(b);
-    // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): damage a boss part passes to its leader
-    if (g) b.loseHp(g, c.amount * PART_TRANSFER, { silent: false, source: src, from: c.dmg, sourceless: true });
+    // (silent: actrpa_hp_trans's FixedValueDamage creates no effect — docs/rules/fx.md 「효과 없는 주기적 유실」)
+    if (g) b.loseHp(g, c.amount * PART_TRANSFER, { silent: true, source: src, from: c.dmg, sourceless: true });
   };
   // the shield's skill (enemy_database spData INCREASE_WHEN_ATTACK: +1 per normal attack, max = spCost): with full SP the
   // next attack IS the skill — no normal hit (until 2026-10-15 it was added on top of every (spCost+1)-th attack). It needs
@@ -2460,8 +2460,8 @@ function kitWeb(ab) {
         }
         if (bleed > 0 && (P.bleedAcc += dt) >= 1 - 1e-9) {
           P.bleedAcc -= 1;
-          // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): the web's bleed
-          b2.loseHp(e2, e2.s.maxHp * bleed, { silent: false, sourceless: true, tags: ['acwebBleed'] });
+          // (silent: acweb[bleeding]'s DamageViaMaxHpRatio creates no effect — docs/rules/fx.md 「효과 없는 주기적 유실」)
+          b2.loseHp(e2, e2.s.maxHp * bleed, { silent: true, sourceless: true, tags: ['acwebBleed'] });
           if (!e2.alive) return;
         }
         if ((P.left -= dt) <= 1e-9) b2.kill(e2, null);   // acweb[existing]

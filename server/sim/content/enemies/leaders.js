@@ -726,7 +726,10 @@ function kitWolfLord(ab) {
     const ramp = Math.max(1, fc.bb.duration_bleed ?? 40), peak = fc.bb.hp_ratio ?? 0;
     for (const u of l) {
       b.fx('beam', { x: e.x, y: e.y, from: e.id, to: u.id, kind: 'fearCage' });
+      // (the cage on the operator is the skill's enemy_wlfmster_fearcage, which carries its effect while it lasts and its
+      // ON_BUFF_FINISH effect at the end: `source` + `fxTag` — the tick's silent loss draws none)
       b.addBuff(u, { key: 'ab:fearCage', refresh: 'replace', visible: true, interval: 1, data: { src: e, hp0: e.hpRatio, t0: b.time },
+        source: e, fxTag: 'buff:enemy_wlfmster_fearcage',
         mods: { aspd: fc.bb.attack_speed ?? 0 },
         onTick: ({ battle, unit, buff }) => {
           // its 扎罗 gone from the field without a 重生 (leaked, removed): the effect ends, no loss this tick [ASSUMED — no
@@ -734,8 +737,9 @@ function kitWolfLord(ab) {
           const src = buff.data.src;
           if (!src || !src.alive || src.removed) { battle.removeBuff(unit, buff); return; }
           const k = Math.min(1, (battle.time - buff.data.t0) / ramp);
-          // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): a leader's HP cost by an enemy source
-          battle.loseHp(unit, unit.s.maxHp * peak * k, { silent: false, source: e });
+          // (silent: enemy_wlfmster_fearcage's BleedingDamagePerSec creates no effect — its CreateEffect is at ON_BUFF_FINISH;
+          // docs/rules/fx.md 「효과 없는 주기적 유실」)
+          battle.loseHp(unit, unit.s.maxHp * peak * k, { silent: true, source: e });
         } });
     }
   }, { cd: fc ? fc.sp || fc.cd : null, icd: fc ? fc.sp || fc.icd : null, cond: (b, e) => !P.form2 && !caught(b) && b.time >= P.waitUntil && allTargets(b, e).some((u) => u.kind === 'op') }),

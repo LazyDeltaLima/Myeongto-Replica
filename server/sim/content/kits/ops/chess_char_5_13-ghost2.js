@@ -46,8 +46,9 @@ export default {
               if (kind !== 'main' || !target || target.side !== 'enemy') return;
               if (unit.mem.ghostHeavy?.get(target)) {
                 if (target.alive) battle.dealDamage(unit, target, { amount: unit.s.atk * num(bb['attack@atk_scale_ex']), type: 'phys', isSkill: true, tags: ['skill', 'ghost2Weight'], moment: 'ghost2_s_3[attack]' });
-              // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): the loss per attack by max HP ratio
-              } else if (unit.alive) battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio']), { silent: false, source: unit });
+              // (silent: ghost2_s_3[attack]'s other branch, DamageViaMaxHpRatio on her, creates no effect — docs/rules/fx.md
+              // 「효과 없는 주기적 유실」)
+              } else if (unit.alive) battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio']), { silent: true, source: unit });
             },
           },
         }),

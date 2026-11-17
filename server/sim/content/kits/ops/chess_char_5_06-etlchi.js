@@ -163,8 +163,8 @@ export default {
           const o = c.target.mem.candleOf;
           // local patch: PRTS 备注 — the original takes one 无来源 true damage instance, so a 特殊生命值机制 one loses 1 (damage.js)
           if (o && o.alive && (o.s.flags.hitCount || o.s.flags.hitCountArts)) battle.dealDamage(unit, o, { amount: c.amount, type: 'true', sourceless: true, canDodge: false, tags: ['etlchiCandle'] });
-          // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): the damage passed on to the other unit
-          else if (o && o.alive) battle.loseHp(o, c.amount, { silent: false, source: unit });
+          // (silent: entlec_a[damage]'s NoSourceDamage on the original creates no effect — docs/rules/fx.md 「효과 없는 주기적 유실」)
+          else if (o && o.alive) battle.loseHp(o, c.amount, { silent: true, source: unit });
         }, { owner: unit });
         battle.on('death', (c) => { // the original fell or leaked: its candle goes out
           if (c.unit.side !== 'enemy' || c.unit.mem?.candleOwner) return;

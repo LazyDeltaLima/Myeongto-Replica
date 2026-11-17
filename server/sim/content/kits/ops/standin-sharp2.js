@@ -22,8 +22,9 @@ export default {
   // ignores 无敌, 屏障, 护盾, 减伤. So every damage instance she outputs makes its target lose magic_atk_scale × her ATK
   // (Battle.loseHp: no DEF / RES, shield, invulnerability or damage multiplier; its own `damaged` is an hpLoss and sets
   // off nothing). Unlike the LOR-X of 银灰 / 拉普兰德 / 断崖 / 仇白 (trait atk_scale_m, PRTS "于计算伤害时触发，造成预计算
-  // 的法术附加伤害": arts damage). [ASSUMED] the client shows the loss in the 流失 (true-damage) colour, it follows a
-  // fully shielded hit too (damage was output), and it stops when she leaves the field (a shot landing after that).
+  // 的法术附加伤害": arts damage). [ASSUMED] it follows a fully shielded hit too (damage was output), and it stops when she
+  // leaves the field (a shot landing after that). The view draws no hit for it (silent: the client's AdvancedApplyDamage
+  // of sharp2_e_t_1 creates no effect).
   char_617_sharp2: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
     const magic = num(moduleBb(chess).magic_atk_scale, 0);
@@ -49,8 +50,8 @@ export default {
         battle.on('damaged', (c) => {
           const e = c.target;
           if (c.source !== unit || !unit.alive || !unit.deployed || !e || e.side !== 'enemy' || isHpLoss(c.dmg) || !hasHp(e)) return;
-          // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): the module's loss on an enemy
-          battle.loseHp(e, unit.s.atk * magic, { silent: false, source: unit, tags: ['module', 'sharp2:lorx'] });
+          // (silent: sharp2_e_t_1's AdvancedApplyDamage creates no effect — docs/rules/fx.md 「효과 없는 주기적 유실」)
+          battle.loseHp(e, unit.s.atk * magic, { silent: true, source: unit, tags: ['module', 'sharp2:lorx'] });
         }, { owner: unit });
       },
     };

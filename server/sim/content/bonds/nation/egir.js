@@ -141,8 +141,9 @@ function devour(battle, pid, bb, members) {
     // start, resolves nothing (`knocked`: it is off the field)
     if (knocked(t)) continue;
     S.fxOn(battle, 'devour', t, 'bond:egirShip', 'devour', { from: m.id });
-    // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): the 阿戈尔 devour takes HP from a member
-    if (amount > 0) battle.loseHp(t, mitigate(amount, 'phys', t.s), { silent: false, source: m, tags: ['bond:egir:devour'] });
+    // (silent: the template's FixedValueDamage creates no effect; its CreateEffect is drawn below — docs/rules/fx.md
+    // 「효과 없는 주기적 유실」)
+    if (amount > 0) battle.loseHp(t, mitigate(amount, 'phys', t.s), { silent: true, source: m, tags: ['bond:egir:devour'] });
     // client buff template act1autochess_bond_eff_egir[eat_mark] ON_BUFF_LATE_ENABLE: CreateEffect on the marked unit
     // after its FixedValueDamage (owner and source: the marked unit; display only)
     S.tplFx(battle, t, 'bond_aegir_eat_01', t);

@@ -90,8 +90,8 @@ export default {
             },
           },
           onStart({ unit }) { unit.mem.blazeTiles = new Set(); unit.mem.blazeAcc2 = 0; },
-          // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): the loss per attack
-          onAttack({ battle, unit }) { battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio']), { silent: false, source: unit }); },
+          // (silent: blaze2_s_2[self_damage]'s DamageViaMaxHpRatio creates no effect — docs/rules/fx.md 「효과 없는 주기적 유실」)
+          onAttack({ battle, unit }) { battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio']), { silent: true, source: unit }); },
           onEnd({ battle, unit }) {
             const tiles = unit.mem.blazeTiles;
             unit.mem.blazeTiles = null;
@@ -117,8 +117,8 @@ export default {
           unit.mem.blazeAcc = (unit.mem.blazeAcc ?? 0) + dt;
           while (unit.mem.blazeAcc >= 1 && unit.alive) {
             unit.mem.blazeAcc -= 1;
-            // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): the skill's closing loss
-            battle.loseHp(unit, unit.s.maxHp * lose, { silent: false, source: unit });
+            // (silent: blaze2_s_3[lose_hp]'s DamageViaMaxHpRatio creates no effect; the buff's own blaze2_skill_03_buff_02 lasts)
+            battle.loseHp(unit, unit.s.maxHp * lose, { silent: true, source: unit });
           }
         },
       },

@@ -24,7 +24,9 @@ export default withDefaults({
           onStart({ battle, unit }) { battle.fx('ripple', { x: unit.x, y: unit.y, id: unit.id }); },
           onAttack({ battle, unit, targets }) {
             if ((targets || []).filter((e) => e.side === 'enemy').length >= 3) return;
-            // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): S3's loss per attack (mizuki_s_3[damage])
+            // (not silent: mizuki_s_3[damage]'s DamageViaMaxHpRatio creates no effect, but the buff plays mizuki_skill_03_hit_02 on
+            // her, which this 'dmg' carries as its moment; the view's 真实 hit flash comes with it — docs/rules/fx.md
+            // 「효과 없는 주기적 유실」)
             battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio'], 0.15), { silent: false, tags: ['skill', 'selfLoss'], moment: 'mizuki_s_3[damage]' }); // (no source: not damage dealt)
           },
         }),

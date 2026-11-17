@@ -3101,7 +3101,7 @@
       ],
       "enemies": {"enemy_1381_winman":[27,27,0,12514,150336],"enemy_1381_winman_2":[39,39,0,20694,292032],"enemy_1387_winshd":[30,30,0,30773,345600]},
       "hooks": [1,111,5951,445,445,1712,1852,80,99,99,30,29,0,5127,112,102,96,0,1,99,0,0,0],
-      "events": {"atk":626,"deploy":15,"die":99,"dmg":1852,"engage":7,"face":24,"heal":74,"skill":59,"spawn":108,"status":157,"swing":479},
+      "events": {"atk":626,"deploy":15,"die":99,"dmg":1712,"engage":7,"face":24,"heal":74,"skill":59,"spawn":108,"status":157,"swing":479},
       "fx": {},
       "snaps": "7dbdf023 72e18b65 dcd2d48c 25f7abb6 2575ff6f b099dda9 1e0be314 65fb322e a6ba7c66 e00e80cb 848ccc00 74ab78be f887f1e4 a1c4f1d5 6e968af7 e75f6793 d3fe4024 e6a7a60d 66a56853 34810b11"
     },
@@ -3140,7 +3140,7 @@
       ],
       "enemies": {"enemy_1045_hammer_2":[18,2,16,41989,111623],"enemy_1061_zomshd":[60,14,46,76803,378500]},
       "hooks": [1,100,6770,353,353,864,1023,16399,32,94,16,16,0,6420,114,58,78,62,1,32,0,0,0],
-      "events": {"atk":483,"deploy":22,"die":32,"dmg":1023,"engage":10,"face":8,"heal":55,"leak":62,"skill":32,"spawn":90,"status":381,"swing":389},
+      "events": {"atk":483,"deploy":22,"die":32,"dmg":864,"engage":10,"face":8,"heal":55,"leak":62,"skill":32,"spawn":90,"status":381,"swing":389},
       "fx": {},
       "snaps": "a7cfb8de 1d9a4595 f141ed11 f31082c4 46c64cf5 e60cdcf4 a2eac2c0 db205309 2038c3d6 20bdd0a9 cd84d24e bfb992b9 7b2ffe52 30e62452 719221e9 b20ee08e 26a67e88 8d887e99 6efb2db0 d09e064e ababdf6c 66856d31 e74ca16a"
     },

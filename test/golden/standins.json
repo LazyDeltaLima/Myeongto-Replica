@@ -450,7 +450,7 @@
         "enemy_1254_lypa_2": [48,2,46,70602,423701]
       },
       "hooks": [1,207,6900,1730,1730,3115,3144,130,49,190,40,45,0,28270,17185,69,179,141,1,60,0,0,14],
-      "events": {"atk":1954,"bounty":1,"deploy":25,"die":49,"dmg":3112,"engage":11,"face":17,"fx":324,"heal":110,"leak":141,"skill":92,"spawn":194,"status":1264,"swing":1773,"tplfx":3},
+      "events": {"atk":1954,"bounty":1,"deploy":25,"die":49,"dmg":3012,"engage":11,"face":17,"fx":324,"heal":110,"leak":141,"skill":92,"spawn":194,"status":1264,"swing":1773,"tplfx":3},
       "fx": {"aoe":90,"displace":17,"dodge":53,"dp":22,"liberate":1,"phase":1,"shieldBreak":57,"slash":69,"sp":3,"spGain":11},
       "snaps": "a7ccc025 c979eff4 f297ffc8 2fcdd2fe dc250dcb d1167007 5651986f 4845a4af 8e0b97e7 244d4f4e 489196c5 76c33ddf 20e0a328 bf7e1cd4 7c01b427 1d37e60b 7ae49460 2506b5aa c0b8dcf8 657e7dec 6eac5f76 0512e566 ac2d63b7"
     },
@@ -506,7 +506,7 @@
         "enemy_1329_cbshld": [39,39,0,12336,374400]
       },
       "hooks": [1,175,6001,860,860,1737,1892,177,160,160,38,35,0,30298,1263,83,158,0,1,160,3,1,16],
-      "events": {"atk":1014,"bounty":4,"deploy":14,"die":160,"dmg":1870,"engage":8,"face":110,"fx":302,"heal":139,"layer":3,"skill":73,"spawn":173,"status":214,"swing":1007,"tplfx":15},
+      "events": {"atk":1014,"bounty":4,"deploy":14,"die":160,"dmg":1652,"engage":8,"face":110,"fx":302,"heal":139,"layer":3,"skill":73,"spawn":173,"status":214,"swing":1007,"tplfx":15},
       "fx": {"aoe":2,"burst":1,"dodge":20,"dp":68,"garrison":3,"shieldBreak":60,"slash":136,"sp":10,"strike":2},
       "snaps": "2878e915 0f297667 c4c06182 c9ec94e7 a52c9614 0534e97c 3818041e df20e552 45046372 0ce83032 b48eaffc a9722c6f e44b6084 b22c82b7 1a4b84e6 2ce51f74 3478eb1a c3135589 8b7cd991 e4d5e720"
     },

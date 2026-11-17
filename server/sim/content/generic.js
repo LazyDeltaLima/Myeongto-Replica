@@ -318,8 +318,9 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   }
   const hr = g('hp_ratio');
   if (hr !== undefined && hr > 0 && hr <= 1 && /立即流失\d+(\.\d+)?%(的)?当前生命/.test(desc)) {
-    // draws a 真实 hit; unchecked whether the official node does (docs/rules/fx.md 「효과 없는 주기적 유실」): a skill start's HP cost read from the blackboard (hp_ratio)
-    starts.push(({ battle, unit }) => { const loss = unit.hp * hr; if (loss > 0 && unit.hp - loss >= 1) battle.loseHp(unit, loss, { silent: false, source: unit }); });
+    // a skill start's HP cost read from the blackboard (hp_ratio); silent: the client's DamageViaCurHpRatio (utage_s_2,
+    // kazema_s_2 — the two skills of the data whose text says so) creates no effect (docs/rules/fx.md 「효과 없는 주기적 유실」)
+    starts.push(({ battle, unit }) => { const loss = unit.hp * hr; if (loss > 0 && unit.hp - loss >= 1) battle.loseHp(unit, loss, { silent: true, source: unit }); });
   } else if (hr !== undefined && hr > 0 && hr <= 1 && /(恢复|回复)[^。，]*生命/.test(desc) && !/流失/.test(desc)) {
     starts.push(({ battle, unit }) => battle.heal(unit, unit, unit.s.maxHp * hr, { self: true }));
   }
