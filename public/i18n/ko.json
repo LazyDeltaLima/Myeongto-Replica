@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1872 of 2081 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치), with remaining strings from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1062,6 +1062,9 @@
   "更换名片干员": "명함 오퍼레이터 변경",
   "更换立绘": "일러스트 변경",
   "前往观战席": "관전석으로 이동",
+  "观战者": "관전자",
+  "暂无观战者": "관전 중인 박사가 없습니다",
+  "观战者 {n} 人，查看名单": "관전자 {n}명, 이름 보기",
   "观战席已满": "관전석이 모두 찼습니다",
   "你是同盟的创建者，前往观战席后创建者身份将移交给其他博士。确定前往吗？": "방의 생성자입니다. 관전석으로 옮기면 생성자 권한이 다른 박사에게 넘어갑니다. 옮길까요?",
   "前往": "이동",
