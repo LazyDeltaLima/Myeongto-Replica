@@ -2,7 +2,8 @@
 //     MIME types incl. .mjs/.js text/javascript, .skel application/octet-stream, .atlas text/plain;
 //     gzip for text-like types, .skel and uncompressed fonts when the client accepts it (small files are
 //     compressed once and cached in memory); strong ETag + Last-Modified with 304s; Cache-Control
-//     (html & code/data: no-cache + revalidate; public/assets|fonts|vendor: 1 day; any `?v=` URL: immutable);
+//     (html & code/data: no-cache + revalidate; public/assets|fonts|vendor: 1 day; any `?v=` URL and the resource
+//     bundles: immutable; a text bundle is gzipped like the text it holds);
 //     single byte-range requests (206/416, used by <audio>).
 
 import fs from 'node:fs';
@@ -29,6 +30,7 @@ export const MIME = Object.freeze({
   '.atlas': 'text/plain; charset=utf-8',
   '.skel': 'application/octet-stream',
   '.bin': 'application/octet-stream',
+  '.pack': 'application/octet-stream',
   '.wasm': 'application/wasm',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -58,6 +60,17 @@ export const COMPRESSIBLE = new Set([
   '.html', '.htm', '.js', '.mjs', '.css', '.json', '.map', '.webmanifest', '.txt', '.md', '.csv', '.xml',
   '.atlas', '.skel', '.bin', '.wasm', '.svg', '.ico', '.otf', '.ttf', '.wav',
 ]);
+
+/**
+ * The resource bundles (tools/assets/resource-bundles.mjs): public/assets/bundles/<kind>-<group>-<hash12>.pack, named by
+ * their members' paths and hashes, so a URL never changes its bytes (immutable). A `text-` bundle holds only files of
+ * COMPRESSIBLE types and is gzipped like them; the others (pictures, sounds) go out as they are.
+ */
+export const BUNDLE_DIR = 'bundles';
+export const BUNDLE_EXT = '.pack';
+export const TEXT_BUNDLE = 'text-';
+const isBundle = (ext, mountName, segments) => ext === BUNDLE_EXT && mountName === 'public' && segments.length === 3
+  && segments[0] === 'assets' && segments[1] === BUNDLE_DIR;
 
 const GZIP_MIN_BYTES = 512;
 const GZIP_CACHE_MAX_FILE = 8 << 20;      // larger files are gzip-streamed on the fly
@@ -191,6 +204,7 @@ function cacheControlFor(ext, mountName, segments, query, versioned) {
   if (ext === '.html' || ext === '.htm') return 'no-cache';
   if (/(^|&)v=/.test(query)) return IMMUTABLE_CACHE;
   if (versioned && isBuildFile(mountName, segments)) return IMMUTABLE_CACHE;
+  if (isBundle(ext, mountName, segments)) return IMMUTABLE_CACHE;
   if (mountName === 'public' && segments.length > 1 && LONG_CACHE_DIRS.includes(segments[0])) return LONG_CACHE;
   return 'no-cache';
 }
@@ -199,7 +213,7 @@ function cacheControlFor(ext, mountName, segments, query, versioned) {
 export async function serveFile(req, res, absPath, stat, mountName, segments, query, gzipCache, log, versioned = false) {
   const ext = path.extname(absPath).toLowerCase();
   const type = MIME[ext] || 'application/octet-stream';
-  const compressible = COMPRESSIBLE.has(ext);
+  const compressible = COMPRESSIBLE.has(ext) || (isBundle(ext, mountName, segments) && segments[2].startsWith(TEXT_BUNDLE));
   // RFC 9110 §14.2: Range is defined only for GET; other methods (HEAD) ignore it, also when choosing gzip (upstream d1d72185)
   const rangeHeader = req.method === 'GET' ? req.headers.range : undefined;
   const useGzip = compressible && stat.size >= GZIP_MIN_BYTES && !rangeHeader && acceptsGzip(req.headers['accept-encoding']);

@@ -22,7 +22,7 @@ npm run assets       # = node tools/vendor.mjs && node tools/fetch-assets.mjs
 | `--refresh-index` | Re-download the upstream indexes: `audio_data.json`, `charword_table.json` (the 干员战斗语音 slots) and `models_data.json`. |
 | `--voice-lang=cn` | 干员战斗语音 language: `cn` (default) | `jp` | `en` | `kr` — the same file names under `voice_cn/`, `voice/`, `voice_en/`, `voice_kr/`. |
 | `--voice-all` | Plan every official voice slot, including the prep-only lines no battle plays (干员报到 / 编入队伍 / 任命队长 — 360 files, one per operator and slot). Off by default: nothing requests them, so planning them only makes every run download more. |
-| `--prune` | Delete files under `public/assets/` that the manifest no longer references, for example after a mapping change. Without this flag they are only listed in the report. `public/assets/local/` (written by `tools/local-extract`) and `browser-resources.json` (the resource worker's list, written by `tools/build-browser-resources.mjs`) are never pruned. Implies `--allow-shrink`. |
+| `--prune` | Delete files under `public/assets/` that the manifest no longer references, for example after a mapping change. Without this flag they are only listed in the report. `public/assets/local/` (written by `tools/local-extract`) and `browser-resources.json` (the resource worker's list, written by `tools/build-browser-resources.mjs`) with its bundles (`bundles/`) are never pruned. Implies `--allow-shrink`. |
 | `--allow-shrink` | Write `data/assets.json` even when it loses entries the current one has (see "The manifest never shrinks by accident" below). |
 | `--strict` | Exit 1 when a leaf was dropped for having no file on disk, instead of only reporting it (see "A dropped leaf is reported" below). The same as the environment variable `SP_ASSETS_STRICT=1` — for CI and packaging builds. |
 | `--add-only` | For a checkout whose `public/assets/` and `public/fonts/` are shared with another one (a git worktree with symlinked asset folders): download only the files missing on disk and never re-download, rewrite or delete an existing file — atlases already on disk are left as they are, the fonts are not rebuilt (the manifest keeps its current `fonts`). Not with `--prune` / `--force`. |
@@ -67,6 +67,11 @@ fetches such a file once from its sources: when one serves the same bytes, that 
 the run had downloaded it; when every source answers with other bytes or a 404, it is recorded without a URL and not
 checked again (a network failure records nothing). Atlases are never adopted (the pipeline rewrites them), and
 `--add-only` adopts nothing.
+
+The same tool joins this server's files of the list into bundles of about 8 MB, `public/assets/bundles/*.pack`
+(`tools/assets/resource-bundles.mjs`: the members' bytes one after another, text apart from pictures and sounds, named
+by their content), so the pre-download needs a few hundred requests instead of thousands. The server sends them as
+immutable and gzips the text ones; a bundle no longer listed is deleted when the list is rebuilt.
 
 Every download is written to a temp file, then renamed into place. A partial download therefore never reaches its final path.
 

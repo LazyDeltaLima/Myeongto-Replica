@@ -4,7 +4,8 @@
 //
 // Built from the files actually on disk (run it after tools/fetch-assets.mjs / tools/local-extract), one entry per file,
 // and the skin models' and pictures' entries of local/spine/skin/models.json and art.json (below):
-//   { version, bytes, packs: { <pack>: [path prefix…] }, files: [{ p: '/assets/…' | '/img/emotes/…', s: bytes, h: sha256 hex, u?: upstream URL, r?: 'lo' | 'hi' }] }
+//   { version, bytes, packs: { <pack>: [path prefix…] }, files: [{ p: '/assets/…' | '/img/emotes/…', s: bytes, h: sha256 hex, u?: upstream URL, r?: 'lo' | 'hi' }],
+//     bundles: [{ p: '/assets/bundles/<kind>-<group>-<hash12>.pack', s: bytes, m: [index into files…] }] }
 // `u` is the URL tools/fetch-assets.mjs downloaded the file from (.cache/assets-ledger.json). The browser fetches those
 // from jsDelivr / GitHub raw and keeps them only when size + hash match this file; a file the pipeline rewrote (spine
 // atlases, size changed) or made locally (assets/local: 3D board, emotes, UI sprites) has no `u` and comes from this
@@ -12,6 +13,9 @@
 // `r` marks the two copies of a 立绘 (tools/local-extract/chararts_extract.py save_illust, the operator art and the skin
 // art): a WebP `<dir>/full/<name>` (the original resolution) is 'hi' and the listed `<dir>/<name>` (the long side 1024)
 // 'lo'; a browser pre-downloads only its device's copy (public/js/illust-res.js, maintainer decision 2026-11-16).
+// `bundles`: this server's files (no `u`) joined into files of about 8 MB under public/assets/bundles/, written here
+// (the members' bytes one after another, no format: tools/assets/resource-bundles.mjs); a bundle whose members did not
+// change keeps its file, and the ones no longer listed are deleted after the list is written.
 //
 //   node tools/build-browser-resources.mjs [--assets public/assets] [--verify N]
 //   --verify N  fetch N random upstream entries and compare their hashes (diagnostics; needs network)
@@ -22,6 +26,8 @@ import { createHash } from 'node:crypto';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mirrorUrl } from './assets/sources.mjs';
+import { planBundles, writeBundles } from './assets/resource-bundles.mjs';
+import { BUNDLE_DIR } from '../server/http/files.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -79,7 +85,7 @@ for await (const abs of walk(join(ROOT, 'public/img/emotes'))) {
 }
 for await (const abs of walk(ASSETS)) {
   const rel = relative(ASSETS, abs).split(sep).join('/');
-  if (SKIP.has(rel) || isLocalSkinCopy(rel)) continue;
+  if (SKIP.has(rel) || rel.startsWith(BUNDLE_DIR + '/') || isLocalSkinCopy(rel)) continue;
   if (isWebpSource(rel)) { sourcesLeft++; continue; }
   const buf = await readFile(abs);
   const entry = { p: '/assets/' + rel, s: buf.length, h: createHash('sha256').update(buf).digest('hex') };
@@ -120,7 +126,12 @@ for (const f of files) {
 files.sort((a, b) => (a.p < b.p ? -1 : a.p > b.p ? 1 : 0));
 const bytes = files.reduce((n, f) => n + f.s, 0);
 const version = createHash('sha256').update(JSON.stringify(PACKS) + '\n' + files.map((f) => f.p + ':' + f.h).join('\n')).digest('hex').slice(0, 16);
-const body = JSON.stringify({ version, bytes, packs: PACKS, files });
+// the bundles are written before the list that names them; `version` leaves them out (the cache holds the same files)
+const bundles = planBundles(files, { packs: PACKS });
+const emotes = join(ROOT, 'public/img/emotes');
+const fileOf = (p) => (p.startsWith('/img/emotes/') ? join(emotes, p.slice('/img/emotes/'.length)) : join(ASSETS, p.slice('/assets/'.length)));
+const bundled = await writeBundles(bundles, files, ASSETS, fileOf);
+const body = JSON.stringify({ version, bytes, packs: PACKS, files, bundles });
 // an unchanged list keeps its file: the server's ETag is size + mtime (server/http/files.js), so a rewrite made every
 // client download the whole list (≈ 750 KB gzip) again after a deploy that changed none of it
 let same = false;
@@ -130,7 +141,10 @@ if (!same) {
   await writeFile(tmp, body);
   await rename(tmp, join(ASSETS, OUT));
 }
+const pruned = await bundled.prune();
 const mb = (n) => (n / 1048576).toFixed(1) + ' MB';
+const inBundles = bundles.reduce((n, b) => n + b.m.length, 0);
+console.log(`[resources] bundles: ${bundles.length} (${inBundles} files / ${mb(bundles.reduce((n, b) => n + b.s, 0))}; ${bundled.written} written / ${mb(bundled.writtenBytes)}, ${pruned} old deleted)`);
 console.log(`[resources] ${files.length} files, ${mb(bytes)} (upstream ${files.filter((f) => f.u).length} files / ${mb(upstreamBytes)}), version ${version}${same ? ' (unchanged, file kept)' : ''}, ${sourcesLeft} WebP source PNGs left out, skin files from their repositories: ${Object.entries(skinRemote).map(([k, n]) => `${n} (${k})`).join(', ') || 'none'}`);
 
 if (VERIFY > 0) {
