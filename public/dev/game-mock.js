@@ -360,6 +360,7 @@ function setPhase(phase, variant) {
   if (VARIANTS.has('temp') && !S.priv.temp.some(Boolean)) { S.priv.temp[0] = chessPiece(pick(S.pool)); S.priv.temp[1] = itemPiece(shopItems()[2]); }
   applyGapVariants();
   const pub = S.pub;
+  if (params.has('ruleset')) pub.ruleset = params.get('ruleset');
   pub.phase = phase;
   store.set({ match: emptyMatch(), ticker: [], emotes: [] });
   awayStore.set({ away: false });
@@ -902,6 +903,7 @@ async function mockRequest(t, f = {}) {
 // ---- UI variants (open panels for screenshots) ------------------------------------------------------------------------------
 function applyUiVariants() {
   const clickSel = (sel, delay = 250) => setTimeout(() => document.querySelector(sel)?.click(), delay);
+  if (VARIANTS.has('intel')) clickSel('[data-testid="match-intel-open"]', 400);
   // the enemy list is the 敌方情报 tab of the 本局信息 dialog (left 🔍); the right 🔍▶▶ pans to the pen
   if (VARIANTS.has('drawer')) { clickSel('.gtop__iconbtn', 400); clickSel('.edrawer .tabs__tab:nth-child(2)', 700); }
   if (VARIANTS.has('info')) clickSel('.gtop__iconbtn', 400);

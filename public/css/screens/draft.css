@@ -331,6 +331,68 @@
 .minfo-dlg .brief-banned__diy { font-size: max(.14rem, 12px); }
 .minfo-dlg .t-dim { font-size: max(.16rem, 10px); }
 
+/* Enemy intel above 本局信息: the same modal chrome, with the briefing's shared blocks stacked vertically. */
+.modal__box.intel-dlg { width: min(max(8.5rem, 640px), calc(100vw - .6rem - var(--sa-l, 0px) - var(--sa-r, 0px))); }
+.intel-dlg .brief-enemy { --ou: max(.0085rem, .58px); }
+.intel-dlg .brief-h--art { background: var(--bar, none) left center / auto 100% repeat-x, rgba(255,255,255,.16); }
+.intel-dlg .brief-stage { flex: none; padding: 0 max(.14rem, 10px) max(.14rem, 10px); gap: max(.1rem, 8px); }
+.intel-dlg .intel-stage-title { margin: 0 calc(-1 * max(.14rem, 10px)); padding: max(.1rem, 8px) max(.14rem, 10px); background: var(--bar, none) center / 100% 100% no-repeat, rgba(255,255,255,.16); }
+.intel-dlg .intel-stage-title > .icon { width: max(.2rem, 16px); height: max(.2rem, 16px); align-self: center; color: var(--text-hi); }
+.intel-dlg .intel-stage-title::before { display: none; }
+.intel-dlg .brief-stage__head { flex-wrap: wrap; gap: 6px; padding-top: 4px; }
+.intel-dlg .brief-stage__k { flex-wrap: wrap; }
+.intel-dlg .brief-stage__pool { font-size: max(.14rem, 11px); }
+.intel-dlg .brief-stage__name { font-size: max(.19rem, 13px); }
+.intel-dlg .brief-stage__map { flex: none; width: 100%; height: auto; min-height: 0; object-fit: contain; }
+.intel-dlg .brief-stage__unknown, .intel-stage-missing { min-height: max(1.6rem, 110px); }
+.intel-stage-missing { display: grid; place-items: center; color: var(--text-lo); font-size: max(.16rem, 12px); }
+.intel-dlg .brief-stage__unknown em { font-size: max(.15rem, 12px); }
+.intel-dlg .minfo-dlg__turn { white-space: normal; flex-wrap: wrap; }
+/* Keep the entire intel stack visible on a phone, including the uncropped battlefield. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .modal__box.intel-dlg { width: min(960px, calc(100vw - 24px - var(--sa-l, 0px) - var(--sa-r, 0px))); height: calc(100svh - 16px); max-height: calc(100svh - 16px); }
+  .intel-dlg .modal__head { padding: 5px 12px 2px; }
+  .intel-dlg .modal__head > .micro { display: none; }
+  .intel-dlg .modal__title { font-size: 15px; }
+  .intel-dlg .modal__body { flex: 1 1 auto; min-height: 0; padding: 3px 12px 5px; gap: 5px; }
+  .intel-dlg .brief-enemy { --ou: .35px; }
+  .intel-dlg .brief-h { font-size: 11px; line-height: 1; min-height: 0; padding: 3px 7px; gap: 5px; }
+  .intel-dlg .brief-h .micro { font-size: 7px; }
+  .intel-dlg .brief-eboss__name { font-size: 14px; }
+  .intel-dlg .brief-eboss__desc { font-size: 10px; line-height: 1.2; }
+  .intel-dlg .brief-eboss__tag { font-size: 8px; left: 7px; width: 72px; }
+  .intel-dlg .brief-etypes { gap: 3px; padding: 3px 5px 4px; }
+  .intel-dlg .brief-etypes__k { display: none; }
+  .intel-dlg .brief-etypes__row { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  .intel-dlg .brief-etype { grid-template-columns: 20px minmax(0, 1fr); padding: 3px; gap: 2px 5px; }
+  .intel-dlg .brief-etype__name { font-size: 11px; }
+  .intel-dlg .brief-etype__desc { grid-column: 1 / -1; font-size: 9px; }
+  .intel-dlg .brief-stage { flex: 1 1 0; min-height: 70px; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); padding: 3px 6px 4px; gap: 3px; }
+  .intel-dlg .intel-stage-title { margin: 0; padding: 2px 3px; background: none; }
+  .intel-dlg .intel-stage-title > .icon { width: 12px; height: 12px; }
+  .intel-dlg .brief-stage__head { padding: 0; gap: 3px 8px; justify-content: flex-end; }
+  .intel-dlg .brief-stage__pool { font-size: 9px; }
+  .intel-dlg .brief-stage__name { font-size: 10px; }
+  .intel-dlg .brief-stage__map { grid-column: 1 / -1; height: 100%; min-height: 0; object-fit: contain; }
+  .intel-dlg .brief-stage__unknown, .intel-dlg .intel-stage-missing { grid-column: 1 / -1; min-height: 0; }
+  .intel-dlg .brief-stage__unknown span { font-size: 28px; }
+  .intel-dlg .brief-stage__unknown em { font-size: 10px; }
+  .intel-dlg .modal__actions { padding: 3px 12px; }
+  .intel-dlg .modal__actions .btn { height: 26px; font-size: 11px; }
+}
+@media (max-width: 700px) and (orientation: portrait) {
+  .intel-dlg .brief-enemy { --ou: .36px; }
+  .intel-dlg .brief-eboss__name { font-size: 15px; }
+  .intel-dlg .brief-eboss__desc { font-size: 11px; }
+  .intel-dlg .brief-eboss__tag { font-size: 8px; left: 7px; width: 72px; }
+  .intel-dlg .brief-stage__map { max-height: 26svh; }
+  .intel-dlg .brief-etypes__row { grid-auto-flow: row; grid-auto-columns: auto; }
+  .intel-dlg .brief-etype { grid-template-columns: 34px 64px minmax(0, 1fr); }
+  .intel-dlg .brief-etype__desc { grid-column: auto; font-size: 11px; }
+  .intel-dlg .brief-etype__name { font-size: 12px; }
+  .intel-dlg .brief-etypes__k { font-size: 12px; }
+}
+
 /* ---- 전략별 선발 프리셋 (screens/bandDraft.js DraftPresetRow, maintainer 2026-10-12) ------------------------------------
    The detail pane's 自选预设 row: the roster the strategy applies when the pick lands, its tags, the four slots it would
    field and 记住此策略的预设; a linked strategy's card carries the faction's badge; 编队确认 after the last pick. Px floors

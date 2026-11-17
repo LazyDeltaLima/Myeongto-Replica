@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1872 of 2081 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치), with remaining strings from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -515,6 +515,8 @@
   "本局没有禁用盟约": "금지된 맹약이 없습니다",
   "本局信息": "시뮬레이션 정보",
   "敌方情报": "적 정보",
+  "敌方情报与战场": "적 정보 · 전장",
+  "暂无战场预览": "전장 미리보기가 없습니다",
   "该干员": "이 오퍼레이터",
   "将被销毁": "폐기 예정",
   "替换装备": "장비 교체",
