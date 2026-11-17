@@ -1787,22 +1787,22 @@
       "bossHpLeft": null,
       "rngDraws": 0,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":29,"total":29,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":216235,"bossDmg":0,"heal":37650,"deaths":0,"layerGains":{}}},
+      "players": {"p1":{"killed":29,"total":29,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":216235,"bossDmg":0,"heal":37582,"deaths":0,"layerGains":{}}},
       "units": [
-        ["p1",1,"op","chess_char_1_06_b",1,"uniequip_002_yak",51022.56,1,3,0,0,6386,6345,0,2],
+        ["p1",1,"op","chess_char_1_06_b",1,"uniequip_002_yak",50954.48,1,3,0,0,6386,6277,0,2],
         ["p1",2,"op","chess_char_1_10_b",1,"uniequip_002_varkis",33552.34,1,4,0,0,6386,1991,0,0],
         ["p1",3,"op","chess_char_2_03_b",1,"uniequip_002_bubble",43373.29,1,5,0,9425,7735,1991,0,2],
         ["p1",4,"op","chess_char_5_08_b",2,"uniequip_002_svash2",34424.1,1,7,10,126320,0,0,43,2],
-        ["p1",5,"op","chess_char_5_10_b",2,"uniequip_002_ulpia",106591.71,1,48,16,74220,27268,26771,27,1],
+        ["p1",5,"op","chess_char_5_10_b",2,"uniequip_002_ulpia",106591.71,1,68,16,74220,27268,26771,27,1],
         ["p1",6,"op","chess_char_5_11_b",2,"uniequip_002_vvana",41658.97,1,6,0,0,1472,552,0,0],
         ["p1",7,"op","chess_char_5_09_b",2,"uniequip_002_glady",41239.02,1,1,3,6270,0,0,1,1],
         ["p1",8,"op","chess_char_5_12_b",2,"uniequip_002_lisa",21551.46,1,2,0,0,0,0,0,1]
       ],
       "enemies": {"enemy_1009_lurker":[20,20,0,4246,109486],"enemy_1019_jshoot_2":[7,7,0,8462,47029],"enemy_9034_acblk":[2,2,0,15907,59720]},
-      "hooks": [1,38,3087,131,131,386,386,2125,29,29,9,6,0,8252,552,19,29,0,1,29,0,0,0],
-      "events": {"atk":166,"castHit":1,"deploy":9,"die":29,"dmg":386,"engage":3,"face":22,"fx":31,"heal":59,"skill":15,"spawn":37,"status":81,"swing":140,"tplfx":205},
+      "hooks": [1,39,3087,131,131,386,386,2124,29,29,9,6,0,8252,552,19,29,0,1,29,0,0,0],
+      "events": {"atk":166,"castHit":1,"deploy":10,"die":29,"dmg":386,"engage":3,"face":22,"fx":31,"heal":59,"skill":15,"spawn":37,"status":81,"swing":140,"tplfx":206},
       "fx": {"anchor":1,"camouflage":1,"cannon":8,"counter":1,"displace":4,"explode":8,"kitHit":1,"pull":1,"tornado":1,"tornadoPulse":5},
-      "snaps": "7a157325 885d5bba c9561dda aeffa7fd 2f57032e bb34f7ba c4695f1b 590850d5 14b688c3 f0457557 3304b1d9"
+      "snaps": "7a157325 885d5bba c9561dda aeffa7fd 2f57032e bb34f7ba 3528c215 d9233c18 6eb2e523 66ce270e fc91b20a"
     },
     "bond-suntShip-low": {
       "about": "绝技 low: tier 1 layers 1; chess_char_1_01_b chess_char_1_02_b chess_char_3_19_a chess_char_3_22_a chess_char_3_20_a chess_char_3_21_a chess_char_3_18_a chess_char_3_17_a token_10018_robrta_mach token_10018_robrta_mach token_10041_cathy_catsld token_10041_cathy_catsld",

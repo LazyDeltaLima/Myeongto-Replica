@@ -162,10 +162,12 @@ test('乌尔比安 S3: the 阿戈尔 devour gains stay through the 【移动】 
   clean(h);
 });
 
-test('乌尔比安 S3 while he blocks: the 【移动】 still happens, where he stands — a new deployment, no marker, no 【返回】 (upstream #903)', REAL, () => {
+test('乌尔比安 S3 while he blocks: the 【移动】 still happens, where he stands — a new deployment, no marker, and a 【返回】 there (upstream #903)', REAL, () => {
   // PRTS 备注 ③ "【移动】的目标位置合法性判断必定成功，该【移动】也将必定执行": an anchor on his own tile (he blocks) is a
   // redeploy in place as his clip ends (it used to be skipped, GitHub #33): he stays on his tile, his element gauges empty,
-  // deploy effects see a new deployment; only a change of tile leaves the 从不混淆的方向, so nothing comes back at the end
+  // deploy effects see a new deployment; only a change of tile leaves the 从不混淆的方向. The reborn unit is a mover all the
+  // same, so the skill's end is a 【返回】 where he stands, SP emptied (official client: UlpiaS3CastSkill._RespawnToLocatedPos
+  // finds his deployment tile under him; docs/rules/sim.md 「울피아누스 S3의 【이동】은 반드시 일어난다」)
   const h = makeBattle({
     defs: { enemies: { e_dummy: dummy } },
     units: [{ chessId: ULP, row: 9, col: 3 }], enemies: [{ key: 'e_dummy', pos: [9, 3] }], hooks: ['deploy'], autoFinish: false, timeLimit: 120,
@@ -193,18 +195,24 @@ test('乌尔比安 S3 while he blocks: the 【移动】 still happens, where he 
   assert.ok(!b.allyUnits.some((x) => x.kind === 'token'), 'no 从不混淆的方向');
   h.run(0.2);
   assert.equal(e.blockedBy, u, 'blocked again after the redeploy');
+  u.skill.sp = 7;
   assert.ok(h.runUntil(() => !u.skill.active, 30));
   h.run(1);
   assert.deepEqual([u.tileR, u.tileC], [9, 3]);
-  assert.equal(deploysOf(h, u).length, 2, 'no 【返回】');
+  const back = deploysOf(h, u);
+  assert.equal(back.length, 3, 'the 【返回】 where he stands (in-place move, then in-place return)');
+  assert.equal(back[2].move, true);
+  assert.deepEqual(h.eventsOf('deploy').filter((x) => x[1] === u.id && x[3]).map((x) => x[3]), ['here', 'back'], 'clips Skill_3_ReStart_B, then the return');
+  assert.ok(u.skill.sp < 7, `the 【返回】 empties his SP (${u.skill.sp})`);
   clean(h);
 });
 
-test('乌尔比安 S3: no legal tile where the anchor fell nor one beyond it — the 【移动】 happens where he stands (upstream #903)', REAL, () => {
-  // the legality order "船锚落点可部署地块>船锚落点后一格处可部署地块>自身所在地块": both taken by allies here
+test('乌尔比安 S3: no legal tile where the anchor fell nor one back from it — the 【移动】 happens where he stands (upstream #903)', REAL, () => {
+  // the legality order "船锚落点可部署地块>船锚落点后一格处可部署地块>自身所在地块": both taken by allies here (the second
+  // tile is the landing minus his facing, toward him — official client UlpiaS3Ability._TryGetTileSecond)
   const h = makeBattle({
     defs: { enemies: { e_dummy: dummy } },
-    units: [{ chessId: ULP, row: 10, col: 3 }, { chessId: 'chess_char_1_04_a', row: 10, col: 6 }, { chessId: 'chess_char_1_04_a', row: 10, col: 7 }],
+    units: [{ chessId: ULP, row: 10, col: 3 }, { chessId: 'chess_char_1_04_a', row: 10, col: 6 }, { chessId: 'chess_char_1_04_a', row: 10, col: 5 }],
     enemies: [{ key: 'e_dummy', pos: [10, 6] }], hooks: ['deploy'], autoFinish: false, timeLimit: 120,
   });
   const b = h.b, u = h.unit(ULP);
@@ -219,7 +227,8 @@ test('乌尔比安 S3: no legal tile where the anchor fell nor one beyond it —
   assert.equal(deploysOf(h, u).at(-1).move, true);
   assert.ok(!b.allyUnits.some((x) => x.kind === 'token'), 'no 从不混淆的方向');
   assert.ok(h.runUntil(() => !u.skill.active, 30));
-  assert.deepEqual([u.tileR, u.tileC], [10, 3], 'and no 【返回】');
+  assert.deepEqual([u.tileR, u.tileC], [10, 3], 'and the 【返回】 where he stands');
+  assert.equal(deploysOf(h, u).filter((c) => c.move).length, 2, 'the in-place 【移动】 and the in-place 【返回】');
   clean(h);
 });
 

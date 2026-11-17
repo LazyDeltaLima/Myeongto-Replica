@@ -19,7 +19,8 @@ export default {
   // (projectile_range); moves onto the anchor tile when deployable (a tile of his own board) and not his own (a 从不混淆的方向
   // marker keeps his tile)
   // and returns at skill end — both 【移动】, i.e. free redeploys (Battle.moveRedeploy; the return empties his SP). With no
-  // such tile — or the anchor on his own tile — the 【移动】 still happens, where he stands, with no marker and no return.
+  // such tile — the anchor's tile, then the one back from it toward him — or the anchor on his own tile, the 【移动】 still
+  // happens, where he stands, with no marker, and so does the return.
   // Knocked out while moved, he lies and redeploys on his deployment tile (Unit.downAtHome — the owner's decision of
   // 2026-10-07, a deliberate deviation from PRTS's "where it fell", DESIGN §25.17.3).
   // T1 本性的坚守: heal 100 (160 below 50 %) on every hit taken. T2 血脉的哺养: per kill +120 max HP / +30 ATK (×9),
@@ -81,7 +82,8 @@ export default {
         castHolds: true,   // skchr_ulpia_3 is BuffAbility (`duration` from the cast) → AOEAttack (Skill_3_Begin): no attack before the clip ends
         mods: mods({ hpPct: num(bb.max_hp), atkPct: num(bb.atk) }),
         // AOEAttack picks the anchor's tile as the cast starts (`_selectTargetTiming` 0), throws it on the clip's OnAttack and hits where it lands
-        // (projectile_chr_ulpia_s3, ANCHOR_SPEED tiles/s [ASSUMED·엔진: from his tile, not its mount point]); he moves as the clip ends (`_extraActionEvent` ON_CAST_END)
+        // (projectile_chr_ulpia_s3, ANCHOR_SPEED tiles/s [ASSUMED·엔진: from his tile, not its mount point]); he moves as the clip ends — officially when the
+        // anchor stops (`_extraActionEvent` 3 = Projectile.Event.ON_PROJECTILE_STOP; not moved yet, docs/rules/sim.md)
         onStart({ battle, unit }) {
           // PRTS 备注 ② — the anchor's target: his own tile while he blocks an enemy (e.g. just after a 突袭 landing),
           // else the nearest tile ahead in the skill range (straight along his direction) with an enemy on it, else the
@@ -124,11 +126,22 @@ export default {
           // his own tile; upstream #903). Only a change of tile leaves the 从不混淆的方向 ("若目标地块不为当前地块，会在原地部署").
           // An anchor on his own tile, or no legal tile where it fell, is a 【移动】 where he stands: a redeploy there
           // (Battle.moveRedeploy — element gauges emptied, deploy effects again, the enemies he blocks let go and blocked
-          // anew), no marker and so no 【返回】. Its clip is Skill_3_ReStart_B (render anims skill `deploys` 'here')
-          // [ASSUMED·미조사: which node plays it; the "tile one beyond the landing" is not tried when the landing is his own tile]
-          const inPlace = () => { battle.moveRedeploy(unit, unit.tileR, unit.tileC, { clip: 'here' }); };
+          // anew), no marker. Checked against the official client: the anchor's arrival (UlpiaS3Ability.OnProjectileReached)
+          // writes the target tile — the landing tile if he can be deployed there, else the tile one step back toward him
+          // (_TryGetTileSecond: landing − his facing; never tried when the landing is his own tile), else his own tile —
+          // and the skill's RespawnCharacter (_forceRespawnInPlace) redeploys him there or, that tile refused, where he
+          // stands, recording ulpia_respawn_in_place; ulpia_s3_switch_mode[born] then plays Born as Skill_3_ReStart_B
+          // (else _A; render anims skill `deploys` 'here'). That reborn unit is a mover all the same (ulpia_respawn), so the
+          // skill's end brings him "back" where he stands: UlpiaS3CastSkill._RespawnToLocatedPos finds his deployment tile
+          // under him and runs the same 【返回】 (Skill_3_End, ulpia_s3_restore empties the SP; onEnd below)
+          const inPlace = () => {
+            if (battle.moveRedeploy(unit, unit.tileR, unit.tileC, { clip: 'here' }) && unit.alive && unit.skill?.active) {
+              unit.mem.anchorHome = { r: unit.tileR, c: unit.tileC, marker: null };
+            }
+          };
           if (stop === 0) { inPlace(); return; }
-          // PRTS 备注: landing tile > the tile one beyond it > his own tile (a deployable, free, unreserved melee tile).
+          // landing tile > the tile one step back from it, toward him (PRTS 备注 "船锚落点后一格处") > his own tile (a
+          // deployable, free, unreserved melee tile).
           // "可部署" is a tile his player may deploy on: his own board (Battle.onOwnBoard) — never the other half of a 联防 or
           // boss field nor a boss field's hand / 临时整备区 rows; a teammate's half stays closed to him even where the 突袭
           // landing may take it (Battle.onFieldBoard, docs/rules/sim.md sim-4). Community report of 2026-10-06 (item 27)
@@ -136,7 +149,7 @@ export default {
           // col 10) an anchor that met no enemy flew on to the right half, where no enemy ever walks, and he moved there for
           // the whole skill
           const ok = ([r, c]) => (r !== unit.tileR || c !== unit.tileC) && battle.grid.inRect(r, c) && battle.onOwnBoard(unit.player, r, c) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile(r, c);
-          const dest = [[sr, sc], frontOf(unit.tileR, unit.tileC, unit.dir, stop + 1)].find(ok);
+          const dest = [[sr, sc], frontOf(unit.tileR, unit.tileC, unit.dir, stop - 1)].find(ok);
           if (dest == null) { inPlace(); return; }
           const home = [unit.tileR, unit.tileC];
           // the 【移动】 is a redeploy on the new tile (Battle.moveRedeploy: a new deployment, deploy effects fire again,
@@ -164,8 +177,9 @@ export default {
             // emptied before the deploy effects of the return run (迅捷作战粮, 黄沙罗盘 … still give theirs, so do skillEnd
             // effects after it: 迅捷). Here in onEnd the skill's mods are still on (skills.js end) [ASSUMED: officially the
             // return comes "技能结束后"; none of the deploy effects that can reach him reads his stats]
-            const fromX = unit.x, fromY = unit.y;
-            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true, clip: 'back' })) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
+            // (after a 【移动】 where he stood: a 【返回】 where he stands, with no marker to take back)
+            const fromX = unit.x, fromY = unit.y, moved = unit.tileR !== h.r || unit.tileC !== h.c;
+            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true, clip: 'back' }) && moved) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
           }
         },
       },

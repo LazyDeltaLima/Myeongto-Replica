@@ -280,7 +280,9 @@ test('乌尔比安 S3 while he blocks (e.g. after a 突袭 landing): the anchor 
     assert.ok(!h.b.allyUnits.some((x) => x.kind === 'token'), 'no 从不混淆的方向');
     assert.ok(h.runUntil(() => !u.skill.active, 30));
     assert.deepEqual([u.tileR, u.tileC], [9, 3]);
-    assert.deepEqual(h.eventsOf('deploy').filter((x) => x[1] === u.id && x[3]).map((x) => x[3]), ['here'], 'and no 【返回】');
+    // the reborn unit is a mover all the same: the skill's end is a 【返回】 where he stands (official client
+    // UlpiaS3CastSkill._RespawnToLocatedPos finds his deployment tile under him)
+    assert.deepEqual(h.eventsOf('deploy').filter((x) => x[1] === u.id && x[3]).map((x) => x[3]), ['here', 'back'], 'and the 【返回】 there');
     clean(h);
   }
   { // not blocking, a flyer over his tile: his own tile is no candidate (only while blocking) — the anchor flies to the
@@ -1252,7 +1254,9 @@ test('缇缇 S3: the wake-up chain sleeps the highest-aggro enemy within 1.5 (PR
   clean(h);
 });
 
-test('乌尔比安 S3: lands one tile beyond an occupied anchor tile; the anchor stops in front of a crate', () => {
+test('乌尔比安 S3: lands one tile back from an occupied anchor tile, toward him; the anchor stops in front of a crate', () => {
+  // "船锚落点后一格处" is the landing minus his facing (official client UlpiaS3Ability._TryGetTileSecond), not the tile
+  // beyond it (docs/rules/sim.md 「울피아누스 S3의 【이동】은 반드시 일어난다」)
   const h = makeBattle({
     defs: { enemies: { enemy_dummy: dummy() }, chess: { t_blk: ally('t_blk', { stats: { blockCnt: 1 } }) } },
     units: [{ chessId: 'chess_char_5_05_a', row: 9, col: 3 }, { chessId: 't_blk', row: 9, col: 6 }],
@@ -1263,7 +1267,7 @@ test('乌尔比安 S3: lands one tile beyond an occupied anchor tile; the anchor
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 2));
   h.castDone(u);
-  assert.deepEqual([u.tileR, u.tileC], [9, 7], 'anchor tile taken by an ally → the tile beyond');
+  assert.deepEqual([u.tileR, u.tileC], [9, 5], 'anchor tile taken by an ally → the tile back from it (the free tile beyond, 9,7, is not tried)');
   assert.ok(h.runUntil(() => !u.skill.active, 30));
   assert.deepEqual([u.tileR, u.tileC], [9, 3], 'back home');
   const g = makeBattle({

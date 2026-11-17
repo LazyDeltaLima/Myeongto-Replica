@@ -16,7 +16,7 @@
 //   radius 1.7, S3 splash 1.7 and its refilled ammo capped at the skill's ammo; 寒檀 icicles splash 1.5 and cycle left
 //   row → right row → own row; 失重 = weight −1 level; 魔王 motes orbit at 1.15 (30°/s, hit radius 0.4); 铃兰 T2 is an
 //   aura (sluggish enemies in range are 脆弱 while sluggish); 缇缇's chain sleep picks the highest-aggro enemy within
-//   1.5; 乌尔比安 lands on the anchor tile > the tile beyond > his own tile; 引星棘刺 throws at the farthest forward tile
+//   1.5; 乌尔比安 lands on the anchor tile > the tile back from it toward him > his own tile; 引星棘刺 throws at the farthest forward tile
 //   when no enemy is in range; 夕 T2 summons only on a deployable target tile.
 // - Non-stacking auras refresh a short buff with a fixed key every 0.25 s while the source is on the field.
 //   SP auras ("同类效果取最高") share the buff key `aura:spRecovery` (mods.spRecoveryFlat): the highest value wins.
