@@ -387,7 +387,9 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       vec4 cv = modelViewMatrix * vec4(position, 1.0);
       vec3 tv = (modelViewMatrix * vec4(iVel, 0.0)).xyz;
       vec2 d = length(tv.xy) > 1e-6 ? normalize(tv.xy) : vec2(1.0, 0.0);
-      vec2 so = vec2(-d.y, d.x) * iRot.x * iSize.x * 0.5;
+      // (2026-11-17, official engine: the line builder) iSize.y = 1: iRot.yz is the point's side in view space as the
+      // engine makes it, a corner's mitre included (StripBatch.strip, stripSides); else the tangent's perpendicular
+      vec2 so = (iSize.y > 0.5 ? iRot.yz : vec2(-d.y, d.x)) * iRot.x * iSize.x * 0.5;
       cv.xy += so;
       vH = (modelMatrix * vec4(position, 1.0)).z + hOfView(vec3(so, 0.0));
       gl_Position = projectionMatrix * cv;
@@ -1225,6 +1227,98 @@ function capSphere(g, cap) {
   s.radius = Math.sqrt(r2);
 }
 
+// (2026-11-17, official engine: StoreLineData and the line / trail vertex writers) the sides of a strip's points as the
+// engine makes them, in the camera's view space: needs the camera, so a batch keeps the one it was last drawn with
+// (StripBatch.view) and one not drawn yet takes the last any strip was drawn with
+const stripView = new THREE.Matrix4();
+let stripViewOn = false;
+let sideQ = new Float64Array(64 * 3), sideN = new Float64Array(64 * 2), sideR = new Float64Array(64), sideO = new Float32Array(64 * 2);
+/** sign(v) · max(|v|, 0.01): the engine's divisor for a point's depth (its sign bit, so +0 counts as +). */
+const sideSafe = (v) => (v < 0 || Object.is(v, -0) ? -1 : 1) * Math.max(Math.abs(v), 0.01);
+/** The engine's tangent-line slope −x / y of a side, clamped to ±10⁵ (a NaN, 0 / 0, takes −10⁵ as its max / min does). */
+const sideSlope = (x, y) => { const s = -x / y; return s !== s ? -1e5 : Math.min(1e5, Math.max(-1e5, s)); };
+/** Normal N[o..o+1] pulled towards the mean (mx, my) by 1 − f and normalised (kept when that is ~0). */
+function sidePull(N, o, mx, my, f) {
+  const vx = mx + (N[o] - mx) * f, vy = my + (N[o + 1] - my) * f, v2 = vx * vx + vy * vy;
+  if (v2 > 1e-30) { const v = Math.sqrt(v2); N[o] = vx / v; N[o + 1] = vy / v; }
+}
+
+/**
+ * The m points of `pts` (the batch's frame) through the view matrix elements `e`: each point's side into sideO (x, y per
+ * point; × side × width / 2 in view space). `W` is the width the engine hands the line builder — the largest width-curve key ×
+ * widthMultiplier for a TrailRenderer / LineRenderer, the particle's width without the curve for a particle trail.
+ * The engine (StoreLineData): a point's normal is the perpendicular of its segment to the point before (the first point's,
+ * of the segment to the next), on screen — d.xy · z − p.xy · d.z with z = sign · max(|z|, 0.01); a segment shorter than
+ * 10⁻⁵ (squared, 10⁻³⁰ for two points) takes the next one, else the last good one, else x. A segment shorter than 2W pulls
+ * both its normals to their mean: n = normalize(mean + (n − mean) · f), f = max(L / 2W − ½, 0) · 2 (L ≤ W: the mean).
+ * The vertex writers: an end point takes the normal of its segment; a point between takes the mitre of its two segments'
+ * normals A, B — where the sides' edge lines meet, A + (I − A) · min(1, 50|A − B|², 50|A + B|²), no longer than
+ * max(1, 3 · clamp(L′ / 2W, 0, 1)) with L′ the length stored for the point before it.
+ */
+function stripSides(e, pts, m, W) {
+  if (sideR.length < m) {
+    const n = Math.max(m, sideR.length * 2);
+    sideQ = new Float64Array(n * 3); sideN = new Float64Array(n * 2); sideR = new Float64Array(n); sideO = new Float32Array(n * 2);
+  }
+  const Q = sideQ, N = sideN, R = sideR, O = sideO;
+  for (let k = 0; k < m; k++) {
+    const x = pts[k * 3], y = pts[k * 3 + 1], z = pts[k * 3 + 2];
+    Q[k * 3] = e[0] * x + e[4] * y + e[8] * z + e[12];
+    Q[k * 3 + 1] = e[1] * x + e[5] * y + e[9] * z + e[13];
+    Q[k * 3 + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
+  }
+  const thr = m > 2 ? 1e-5 : 1e-30, w2 = 2 * W;
+  let have = false, lx = 1, ly = 0, lz = 0;
+  for (let i = 0; i < m; i++) {
+    const j = i > 1 ? i : 1, a = (j - 1) * 3, b = j * 3;
+    let dx = Q[a] - Q[b], dy = Q[a + 1] - Q[b + 1], dz = Q[a + 2] - Q[b + 2];
+    const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    R[i] = L > 0 ? L / w2 : 0;
+    let good = L * L >= thr;
+    if (!good && j < m - 1) {
+      const c = b + 3;
+      dx = Q[b] - Q[c]; dy = Q[b + 1] - Q[c + 1]; dz = Q[b + 2] - Q[c + 2];
+      good = dx * dx + dy * dy + dz * dz >= thr;
+    }
+    if (good) { lx = dx; ly = dy; lz = dz; have = true; } else if (have) { dx = lx; dy = ly; dz = lz; } else { dx = 1; dy = 0; dz = 0; }
+    const qx = sideSafe(Q[i * 3]), qy = sideSafe(Q[i * 3 + 1]), qz = sideSafe(Q[i * 3 + 2]);
+    const rx = dx * qz - dz * qx, ry = dy * qz - dz * qy, rl = Math.hypot(rx, ry);
+    N[i * 2] = rl > 0 ? -ry / rl : 0; N[i * 2 + 1] = rl > 0 ? rx / rl : 0;
+    if (i > 0 && L < w2) {
+      const f = Math.max(R[i] - 0.5, 0) * 2, o0 = i * 2 - 2, o1 = i * 2;
+      const mx = (N[o0] + N[o1]) * 0.5, my = (N[o0 + 1] + N[o1 + 1]) * 0.5;
+      sidePull(N, o0, mx, my, f);
+      sidePull(N, o1, mx, my, f);
+    }
+  }
+  for (let k = 0; k < m; k++) {
+    if (k === 0 || k === m - 1) {
+      const i = Math.min(k + 1, m - 1);
+      O[k * 2] = N[i * 2]; O[k * 2 + 1] = N[i * 2 + 1];
+      continue;
+    }
+    const ax = N[k * 2], ay = N[k * 2 + 1], bx = N[k * 2 + 2], by = N[k * 2 + 3];
+    let x = ax, y = ay;
+    const s1 = sideSlope(ax, ay), s2 = sideSlope(bx, by);
+    if (!(Math.abs(s1 - s2) < 1e-5)) {
+      const c1 = ay - s1 * ax, c2 = by - s2 * bx, ix = (c2 - c1) / (s1 - s2), iy = s1 * ix + c1;
+      const t = Math.min(1, 50 * ((ax - bx) ** 2 + (ay - by) ** 2), 50 * ((ax + bx) ** 2 + (ay + by) ** 2));
+      x = ax + (ix - ax) * t; y = ay + (iy - ay) * t;
+    }
+    const lim = Math.max(1, 3 * Math.min(1, Math.max(0, R[k - 1]))), l2 = x * x + y * y;
+    if (l2 > lim * lim) { const s = lim / Math.sqrt(l2); x *= s; y *= s; }
+    O[k * 2] = x; O[k * 2 + 1] = y;
+  }
+}
+
+/** The largest value of a curve's keys [[t, v, …]…] and 0 (the engine's width for the line builder); no keys: 1, as drawn. */
+function keysMax(keys) {
+  if (!keys?.length) return 1;
+  let a = 0;
+  for (const k of keys) if (k[1] > a) a = k[1];
+  return a;
+}
+
 /** A batch of camera-facing strips drawn with one material in one draw call (rebuilt every frame; small counts). Only
  *  what a frame writes goes to the GPU: a ribbon batch holds max + 1 points but draws only the live particles, and the whole
  *  buffers were sent every frame before (2.8–3.5 MB per frame in a crowded scene).
@@ -1240,6 +1334,12 @@ class StripBatch {
     this.mesh = new THREE.Mesh(this.build(Math.min(cap, STRIP_ROOM0)), material);
     this.mesh.frustumCulled = false;
     this.n = 0; this.ni = 0;
+    // the camera it was last drawn with (stripSides); mv = that view × the batch's frame, for this frame's strips
+    this.view = null; this.mv = new THREE.Matrix4(); this.mvOn = false;
+    this.mesh.onBeforeRender = (r, sc, camera) => {
+      (this.view ||= new THREE.Matrix4()).copy(camera.matrixWorldInverse);
+      stripView.copy(camera.matrixWorldInverse); stripViewOn = true;
+    };
   }
 
   /** New buffers with room for `room` points, holding what the old ones hold (a frame's strips so far). */
@@ -1273,13 +1373,23 @@ class StripBatch {
     g.dispose();
   }
 
-  begin() { this.n = 0; this.ni = 0; }
+  begin() {
+    this.n = 0; this.ni = 0;
+    // a TransformZ strip (uStripZ) keeps its sides in the shader: across its node's z, not the camera's view
+    const v = this.view || (stripViewOn ? stripView : null);
+    this.mvOn = !!v && this.material.uniforms.uStripZ.value.lengthSq() <= 0.25;
+    if (this.mvOn) { this.mesh.updateWorldMatrix(true, false); this.mv.multiplyMatrices(v, this.mesh.matrixWorld); }
+  }
 
-  /** One strip: pts = flat [x, y, z, …], per point width w[], colour c[] (4 each), u[] along the trail. */
-  strip(pts, count, w, c, u) {
+  /**
+   * One strip: pts = flat [x, y, z, …], per point width w[], colour c[] (4 each), u[] along the trail; W = the width the
+   * engine's line builder takes (stripSides) — with a camera seen, the sides come from it, else from the tangent.
+   */
+  strip(pts, count, w, c, u, W = 0) {
     if (count < 2 || this.n + count > this.cap) return;
     if (this.n + count > this.room) besideRandom(() => this.build(Math.min(this.cap, Math.max(this.n + count, this.room * 2))));
-    const D = this.vb.array, I = this.index.array;
+    const D = this.vb.array, I = this.index.array, on = this.mvOn ? 1 : 0;
+    if (on) stripSides(this.mv.elements, pts, count, W);
     for (let k = 0; k < count; k++) {
       const a = Math.max(0, k - 1), b = Math.min(count - 1, k + 1);
       const tx = pts[b * 3] - pts[a * 3], ty = pts[b * 3 + 1] - pts[a * 3 + 1], tz = pts[b * 3 + 2] - pts[a * 3 + 2];
@@ -1287,7 +1397,8 @@ class StripBatch {
         const o = ((this.n + k) * 2 + side) * SV;
         D[o] = pts[k * 3]; D[o + 1] = pts[k * 3 + 1]; D[o + 2] = pts[k * 3 + 2];
         D[o + SV_TAN] = tx; D[o + SV_TAN + 1] = ty; D[o + SV_TAN + 2] = tz;
-        D[o + SV_ROT] = side ? 1 : -1; D[o + SV_SIZE] = w[k];
+        D[o + SV_ROT] = side ? 1 : -1; D[o + SV_SIZE] = w[k]; D[o + SV_SIZE + 1] = on;
+        D[o + SV_ROT + 1] = on ? sideO[k * 2] : 0; D[o + SV_ROT + 2] = on ? sideO[k * 2 + 1] : 0;
         D[o + SV_UV] = u[k]; D[o + SV_UV + 1] = side;
         D[o + SV_COL] = c[k * 4]; D[o + SV_COL + 1] = c[k * 4 + 1]; D[o + SV_COL + 2] = c[k * 4 + 2]; D[o + SV_COL + 3] = c[k * 4 + 3];
       }
@@ -1398,7 +1509,7 @@ class TrailRenderer {
         // once per segment. Before, Stretch went by the point index and Tile by the point index × minVertexDistance
         trailU[k] = tr.texMode === 1 ? trailU[k] : tr.texMode === 2 ? u : tr.texMode === 3 ? k : f;
       }
-      this.batch.strip(trailPts, n, trailW, trailC, trailU);
+      this.batch.strip(trailPts, n, trailW, trailC, trailU, tr.width * keysMax(tr.widthCurve));
     }
     this.batch.end();
   }
@@ -1474,7 +1585,7 @@ class LineRenderer {
         trailC.set(tmpC, k * 4);
         trailU[k] = ln.texMode === 1 ? trailU[k] : ln.texMode === 2 ? k / (n - 1) : ln.texMode === 3 ? k : f;
       }
-      this.batch.strip(trailPts, n, trailW, trailC, trailU);
+      this.batch.strip(trailPts, n, trailW, trailC, trailU, this.w * keysMax(ln.widthCurve));
     }
     this.batch.end();
   }
@@ -2732,7 +2843,7 @@ class ParticleSystem {
         evalMG(tm.colorOT, t, g.r1, tmpC);
         for (let q = 0; q < 4; q++) trailC[k * 4 + q] = tmpC[q] * tmpC2[q];
       }
-      this.trailBatch.strip(trailPts, m, trailW, trailC, trailU);
+      this.trailBatch.strip(trailPts, m, trailW, trailC, trailU, (tm.sizeWidth ? g.size : 1) * ts);
     }
   }
 
@@ -2803,7 +2914,9 @@ class ParticleSystem {
             if (tm.inherit) for (let q = 0; q < 4; q++) tmpC[q] *= D[o + IV_COL + q];
             for (let q = 0; q < 4; q++) trailC[k * 4 + q] = tmpC[q];
           }
-          b.strip(trailPts, m, trailW, trailC, trailU);
+          // the ribbon's width for the line builder: the width curve's multiplier × the system's scale [추정·엔진: the render
+          // job multiplies one more factor in, not read]
+          b.strip(trailPts, m, trailW, trailC, trailU, (tm.width ? tm.width.s : 1) * ts);
         }
         s0 = s1;
       }
@@ -2860,7 +2973,7 @@ class ParticleSystem {
           evalMG(tm.colorOT, t, r1, tmpC);
           for (let q = 0; q < 4; q++) trailC[k * 4 + q] = tmpC[q] * tmpC3[q];
         }
-        b.strip(trailPts, m, trailW, trailC, trailU);
+        b.strip(trailPts, m, trailW, trailC, trailU, wk);
       }
       if (this.ghosts?.length) this.ghostTrails(ts, tile);
     }
