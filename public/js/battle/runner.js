@@ -833,7 +833,8 @@ export function createBattleRunner(deps) {
       return;
     }
     // the first end counts; a battle still loading ends as soon as it is built (prepare)
-    if (!e.endReason) e.endReason = msg.reason === 'timeout' ? 'timeout' : 'forced';
+    if (!e.endReason) e.endReason = msg.reason === 'surrender' ? 'surrender' : msg.reason === 'timeout' ? 'timeout' : 'forced';
+    if (msg.reason === 'surrender') e.authoritative = false; // the server reconstructs and settles this result
     if (e.battle) endBattle(e);
   }
 

@@ -100,6 +100,7 @@ import { CombatHud } from '../ui/combatHud.js';
 import { SettingsModal, settingsStore } from '../ui/settings.js';
 import { ExitModal, AwayOverlay, awayStore, SeatReserveButton } from '../ui/matchChrome.js';
 import { RestartVoteBanner } from '../ui/restartVote.js';
+import { SurrenderVoteBanner } from '../ui/surrender.js';
 import { openGuide } from '../ui/guide.js';
 import { actions } from '../ui/gameActions.js';
 import { FacingWheel, holdPiece, setPieceDir, syncPieceDirs, showRange, useTileScreen } from '../ui/facingWheel.js';
@@ -1876,7 +1877,7 @@ function MatchScreen() {
     </div>
 
     <div class="gm__hud" ref=${hudElRef}>
-      <${TopBar} pub=${pub} priv=${priv} total=${total} drawer=${drawer}
+      <${TopBar} pub=${pub} priv=${priv} total=${total} drawer=${drawer} myId=${myId}
         onExit=${() => setExitOpen(true)} onDrawer=${(t) => setDrawer((d) => (d ? null : t))} onReady=${toggleReady}
         readyBusy=${readyBusy} readyCount=${readyCount} playerCount=${solo ? 1 : aliveCount}
         pen=${pen} penAvail=${penAvail} onPen=${togglePen} config=${gd.config} frozenAt=${frozenAt} onTimerWarn=${timerCue}
@@ -1884,6 +1885,7 @@ function MatchScreen() {
         live=${liveLpNow} spectator=${spectator} effects=${watchingOther && field ? (field.effects ?? null) : priv?.effects} />
       ${/* the in-match 重新开始 vote, under the bond strip (ui/restartVote.js) */ ''}
       <${RestartVoteBanner} pub=${pub} myId=${myId} />
+      <${SurrenderVoteBanner} pub=${pub} myId=${myId} />
 
       <div class="gm__bonds">
         <button type="button" class="bonds-toggle" aria-expanded=${!bondsCollapsed} aria-controls="match-bond-strip"

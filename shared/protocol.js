@@ -616,6 +616,8 @@ export const C2S = {
   'g.reward': { idx: (v) => isInt(v, 0, 5) },
   // idx up to 11: an 8-player 机变 draft holds 12 cards (GameData.spDraftCards); the server checks it against the draft
   'g.choice': { idx: (v) => isInt(v, 0, 11), choiceId: isId, $optional: ['choiceId'] },
+  'g.surrender': { fieldId: isId, battleId: (v) => isStr(v, 256) && v.length > 0,
+    op: (v) => ['propose', 'yes', 'no', 'cancel'].includes(v) },
   'g.ready': { ready: isBool },
   'g.emote': { id: (v) => EMOTES.includes(v) },
   // playerId: the player tapped in the team panel (a 联防 / boss pair field shows two) — what an eliminated viewer or a

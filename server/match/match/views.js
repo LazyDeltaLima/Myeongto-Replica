@@ -180,6 +180,12 @@ export class MatchViews {
       })),
       fields: this.fields.map((f) => {
         const v = { fieldId: f.fieldId, kind: f.kind, players: f.players.slice(), live: !!f.live };
+        v.battleId = this.surrenderToken(f);
+        if (f.surrendering) v.surrendering = true;
+        if (f.surrenderVote) {
+          const s = f.surrenderVote;
+          v.surrenderVote = { by: s.by, yes: [...s.yes], voters: s.voters.slice(), deadline: s.deadline, ms: s.ms };
+        }
         const pr = this._fieldProgress(f);
         if (pr) v.progress = pr;
         return v;
