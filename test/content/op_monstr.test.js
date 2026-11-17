@@ -469,6 +469,20 @@ test('S3 automatic cast: an enemy in the x-4 box around her 重构体 (CN player
   }
 });
 
+test('S3 automatic cast counts ground enemies only: a flyer in the 重构体\'s 3×3 casts nothing (her S3 attack cannot hit it; maintainer decision 2026-11-17, docs/rules/diy.md Mon3tr 자동 발동)', () => {
+  for (const f of [[5, false, null], [6, true, XAHX]]) {
+    const { h, u } = field({ tier: f[0], elite: f[1], mod: f[2], skill: 2, prosts: { row: 10, col: 6 } });
+    u.skill.gainSp(999);
+    const fly = h.spawn('enemy_fly', { pos: [10, 7] });
+    h.run(3);
+    assert.ok(fly.alive && fly.isFlying, `${label(f)}: the flyer stays in the box`);
+    assert.equal(u.skill.activations, 0, `${label(f)}: only a flyer in the 重构体's 3×3: no cast (Mon3tr S3 triggerProfile)`);
+    h.spawn('enemy_dummy', { pos: [10, 7] });
+    assert.ok(h.runUntil(() => u.skill.active, 0.5), `${label(f)}: a ground enemy joins it: cast`);
+    done(h);
+  }
+});
+
 test('her kit moments for the official effects: T2 shown on an ally but not on her or her 重构体 (its tag: given under S2 or not), the S3 move and return as fx teleport (`back` on the return)', () => {
   const shown = (h, id) => h.eventsOf('status').filter((x) => x[1] === id && x[2] === 'talent:monstr:aspd').map((x) => [x[3], x[5]?.fx ?? null]);
   {

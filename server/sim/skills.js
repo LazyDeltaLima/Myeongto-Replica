@@ -36,7 +36,8 @@
 //   deployment the unit is in its born state (`bornUntil`), when only the few skills whose prefab refuses it wait
 //   (`cast.bornWait`, `CastSkill.UseSkill`) and a 'state' cast ends it. DEFAULT for a MANUAL skill (`_DefaultTriggerSkill`): with a trigger
 //   grid (its rangeId) a selectable enemy, ground or air, there; without one, the unit attacking (an attack target in its
-//   initial range or one it blocks — its ATTACK / COMBAT state). TAKE_DAMAGE: the hit itself (onDamaged), or one the cast
+//   initial range or one it blocks — its ATTACK / COMBAT state); a kit may narrow the grid's enemies (`triggerProfile`,
+//   also CUSTOM_RANGE's) or move its centre (`triggerAt`). TAKE_DAMAGE: the hit itself (onDamaged), or one the cast
 //   could not use, seen by the next pass — and every pass SEARCH's condition too (the client sends type 12 down SEARCH's
 //   branch, `_TrySearchTarget`: the unit's attack trigger finds a target).
 //   AUTO skills fire by their own rule (tick, onAboutToAttack, onDamaged — not operations). A kit with its own automatic
@@ -147,6 +148,8 @@ export class SkillRuntime {
     this.triggerRanges = [];      // content trigger ranges (addTriggerRange)
     /** @type {null | (() => number[] | null)} content: the [row, col] the trigger grid is centred on instead of the unit's tile (null: no tile) */
     this.triggerAt = null;
+    /** @type {null | object} content: the profile a trigger grid's enemy check uses instead of TRIGGER_PROFILE (ground and air) */
+    this.triggerProfile = null;
     this.noSkill = !spec;         // unit without any skill spec
   }
 
@@ -491,7 +494,8 @@ export class SkillRuntime {
     const u = this.unit;
     let ok;
     // the rangeId tiles take an enemy by its position's tile (`LitePhysicsUtil._CheckContainsPosition`), not its collider
-    if (this.triggerGrid) ok = b.enemiesOnTiles(this._triggerKeys(), u, TRIGGER_PROFILE).length > 0 || this._allyTargetIn(this._trigSet) || (this.triggerRanges.length > 0 && this._extraTriggerSatisfied());
+    // (`triggerProfile`, content: Mon3tr S3 counts ground enemies only — maintainer decision 2026-11-17)
+    if (this.triggerGrid) ok = b.enemiesOnTiles(this._triggerKeys(), u, this.triggerProfile || TRIGGER_PROFILE).length > 0 || this._allyTargetIn(this._trigSet) || (this.triggerRanges.length > 0 && this._extraTriggerSatisfied());
     else ok = this._defaultCondition();
     return ok && (!this.triggerAllies || this._allyTriggerSatisfied());
   }
@@ -560,7 +564,7 @@ export class SkillRuntime {
     // enemy there, ground or air (the trigger's ALL-motion options); a skill missing from the dict casts once not running
     if (this.rule === 'CUSTOM_RANGE') {
       if (!this.triggerGrid) return !this.active;
-      return b.enemiesOnTiles(this._triggerKeys(), u, { canHitFly: true }).length > 0 || this._allyTargetIn(this._trigSet);
+      return b.enemiesOnTiles(this._triggerKeys(), u, this.triggerProfile || TRIGGER_PROFILE).length > 0 || this._allyTargetIn(this._trigSet);
     }
     if (this.rule === 'SKILL_RANGE') {
       if (this.triggerAllies) return this._allyTriggerSatisfied();

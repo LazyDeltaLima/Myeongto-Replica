@@ -59,7 +59,9 @@
 //   automatic cast waits for an enemy in the x-4 box around her 重构体 — the tile she moves to — not around her: what CN players
 //   saw in the official 规程 (reported to the maintainer 2026-11-15; the 规程 MEDIC row ATTACK_RANGE_ALLY + SKILL_RANGE_ALLY is
 //   read only by the CN client), taken for both seasons and in place of her own box (maintainer decision 2026-11-15; the
-//   basic strategy alone would centre it on her: docs/rules/sim.md 「스킬 범위 발동」). The 重构体 is withdrawn
+//   basic strategy alone would centre it on her: docs/rules/sim.md 「스킬 범위 발동」). It counts ground enemies only: her S3
+//   attack takes ground enemies alone, so a flyer in the box would start a skill that cannot hit it (maintainer decision
+//   2026-11-17; the basic strategy's box counts ground and air). The 重构体 is withdrawn
 //   (its piece waits: back once its tile is free again) and she 【移动】s onto its tile; meanwhile range x-4, ATK +atk, base attack
 //   time base_attack_time (a flat −1.5 s on 2.85 s), block +block_cnt, max HP +max_hp (the HP ratio kept), 流失 of
 //   damage_per_second HP/s (8 every 0.1 s); "同时攻击阻挡的所有敌人" (her selector's _limitedMaxTargetNumToBlockedCnt): each attack
@@ -94,6 +96,8 @@ const PROSTS_BLEED_FIRST = 1;
 const PROSTS_AURA_IV = TICK;
 /** S3's 流失 period (monstr_s_3[bleeding] interval). */
 const S3_BLEED_IV = 0.1;
+/** S3's automatic cast: the enemies its box counts — ground ones only (maintainer decision 2026-11-17; see the header). */
+const S3_TRIGGER_PROFILE = Object.freeze({ canHitFly: false });
 /** S3: 不死 after the return (monstr_s_3[end_undeadable_restore] lifeTime). */
 const RETURN_UNDEAD = 1;
 /** How often a waiting 重构体 tries to come back once ready (the client's AutoChessBattleTrigger loop). */
@@ -345,6 +349,8 @@ export default {
         const sk = unit.skill;
         // the automatic cast looks at the x-4 box around her 重构体, not around her (see the header)
         if (sk && sk.id === S3) sk.triggerAt = () => { const r = prostsOf(battle, unit).find(up); return r ? [r.tileR, r.tileC] : null; };
+        // …and counts ground enemies only: her S3 attack cannot hit air (see the header)
+        if (sk && sk.id === S3) sk.triggerProfile = S3_TRIGGER_PROFILE;
         if (sk && sk.id === S3 && !Object.prototype.hasOwnProperty.call(sk, 'activate')) {
           const activate = sk.activate;
           Object.defineProperty(sk, 'activate', {

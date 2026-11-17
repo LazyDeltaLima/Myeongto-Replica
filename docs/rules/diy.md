@@ -897,7 +897,9 @@
     두 시즌 모두, 그녀 주변 상자 대신(관리자 결정 2026-11-15). 기본 전략만이면 공식 클라는 그녀 칸이 중심(`get_gridPosition`)이고, 규정 메딕 줄
     (`ATTACK_RANGE_ALLY + SKILL_RANGE_ALLY`)은 CN 클라만 읽는다. 엔진 `skills.js` `triggerAt`(키트가 상자 중심을 줌). 재발 방지: `test/content/op_monstr.test.js`
     「S3 automatic cast」. 다친 아군만 있고 상자에 적이 없으면 켜지 않는다 — 관리자 잠정 판단(2026-11-15, 추정), 메딕 줄의 아군 조건은 넣지 않음
-    (같은 시험 파일 S3 줄의 「an injured ally, no enemy」). [화면 미확인: 공식 녹화]
+    (같은 시험 파일 S3 줄의 「an injured ally, no enemy」). 상자는 2026-11-17부터 **지상 적만** 센다: S3 공격은 지상 적만 치므로 공중 적만 든 상자에서
+    켜면 칠 대상 없이 스킬이 돈다(관리자 결정 2026-11-17 — 기본 전략의 상자는 지상·공중을 다 센다). 엔진 `skills.js` `triggerProfile`(키트가 상자의 적 조건을 줌).
+    재발 방지: 같은 시험 파일 「S3 automatic cast counts ground enemies only」. [화면 미확인: 공식 녹화]
     비이 S2·S3는 rangeId 없는 `DEFAULT` → 공격 상태가 되는 순간(적이 사거리에 들어올 때), 그녀의 공격과 저장 에너지 발사 **앞**이다(테스트의 시점을 그에 맞춤).
     비이 S1·지마 S2는 자기에게 거는 AUTO 스킬이라 SP가 차면 바로(키트 README 체크리스트 5) — 두 스킬 프리팹 모두 `_trigger` 탐색이 없다(공식 클라에서 확인).
   - **벨로네 패밀리의 수법은 벨로네마다 따로 쌓인다**: 버프 템플릿 `demetr_t1[def_dec]`가 층·남은 시간을 출처별로 읽고(`CheckContainsBuff`·
