@@ -100,8 +100,10 @@ JOBS = [
     ('ui/autochess/[uc]autochessouter.ab', 'ui/outer', {'Sprite'}),
     # the event's handbook (act_auto_chess_handbook_state, the S.W.E.E.P. report — screens/sweep.js): the white disc
     # under a bond glyph of the bond tiles (prefab_act_auto_chess_handbook_bond_item img_bond_bkg) and of the left panel
-    # (panel_bond_detail img_icon_bkg)
-    ('activity/[uc]act2autochess.ab', 'ui/handbook', {'Sprite'}, r'^(img_bond_item_bkg|img_left_bond_icon_bkg)$'),
+    # (panel_bond_detail img_icon_bkg), and the tile plate, its selected frame and the left panel's plate
+    # (img_list_item_bkg, img_item_bkg_selected, img_left_bkg)
+    ('activity/[uc]act2autochess.ab', 'ui/handbook', {'Sprite'},
+     r'^(img_bond_item_bkg|img_left_bond_icon_bkg|img_list_item_bkg|img_item_bkg_selected|img_left_bkg)$'),
     # the shop's special-refresh stars (autochessbattle root_layout/root_fx/particle_ctrl, material m_particle_star —
     # ui/shopBar.js RollFx, docs/rules/ui.md 「상점 화면」)
     ('arts/ui/[uc]fxcommon.ab', 'ui/fxcommon', {'Texture2D'}, r'^img_uifx_star_4$'),

@@ -99,7 +99,7 @@ test('the report is read-only and a full-screen Modal; the lobby opens it (sourc
   assert.match(src, /localAsset\('ui\/handbook', hero \? 'img_left_bond_icon_bkg' : 'img_bond_item_bkg'\)/, 'the bond glyphs on the handbook\'s own discs');
   assert.doesNotMatch(src, /'img_bond_bkg'/, 'not the briefing\'s mint disc');
   const jobs = read('tools/local-extract/extract.py');
-  assert.match(jobs, /\('activity\/\[uc\]act2autochess\.ab', 'ui\/handbook', \{'Sprite'\}, r'\^\(img_bond_item_bkg\|img_left_bond_icon_bkg\)\$'\)/, 'extracted from the event bundle');
+  assert.match(jobs, /\('activity\/\[uc\]act2autochess\.ab', 'ui\/handbook', \{'Sprite'\},\s*r'\^\(img_bond_item_bkg\|img_left_bond_icon_bkg\|img_list_item_bkg\|img_item_bkg_selected\|img_left_bkg\)\$'\)/, 'extracted from the event bundle');
 });
 
 test('the attack interval is graded by baseAttackTime as it is (the official handbook), also for an enemy whose attack speed is 0', () => {
