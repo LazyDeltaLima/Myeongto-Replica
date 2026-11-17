@@ -5,56 +5,22 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync } from 'node:fs';
 
 import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
 import { UNSOUNDED } from './audio-bank-coverage-list.js';
+import { OFFICIAL_AUDIO, readData, pickBanks, enemyBank, manifestUrls } from './helpers/audio-sweep.js';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OFFICIAL = path.join(ROOT, '.cache', 'gamedata', 'excel', 'audio_data.json');
-const skip = existsSync(OFFICIAL) ? false : 'no official audio table (.cache/gamedata, tools/build-data.mjs)';
-
-/** The manifest URL of a bank sound's asset (Audio/Sound_Beta_2/Player/p_imp/x → /assets/audio/sfx/player/p_imp/x.mp3). */
-const urlOf = (asset) => `/assets/audio/sfx/${String(asset).split('/').slice(-3).join('/')}.mp3`.toLowerCase();
-
-/** A regexp of `w` as a word of a bank name. */
-const asWord = (w) => new RegExp(`(?<![a-z0-9])${w}(?![a-z0-9])`);
-
-/**
- * The words that name a pick's banks: its codename and (2026-11-01) its summons' own codes (data/backups.json `tokens`:
- * token_<n>_<codename>_<code>) — 酒神's 本能的召唤 sounds token_encdool_boom_start, without her codename.
- */
-function wordsOf(id, tokens) {
-  const code = id.split('_').slice(2).join('_');
-  const own = Object.keys(tokens).filter((t) => asWord(code).test(t)).map((t) => t.split('_').slice(2).join('_').replace(new RegExp(`^${code}_`), ''));
-  return [code, ...own.filter((c) => c && c !== code)].map(asWord);
-}
-
-/**
- * Whether a bank (name without `battle.`) belongs to an enemy, whatever words its name shares with a pick: the part after
- * the event names an enemy id (enemy_8010_mcnist, the 机械之心 of another event, shares the pick 机械师's code) or its
- * projectile (projectile_enemy_mcnist). Only that part's start counts: an operator's own bank may end in _enemy
- * (haruka_shield_break_enemy).
- */
-const enemyBank = (name) => /^(enemy_\d+_|projectile_enemy_)/.test(name.split('.')[1] ?? '');
+const skip = existsSync(OFFICIAL_AUDIO) ? false : 'no official audio table (.cache/gamedata, tools/build-data.mjs)';
 
 /** {charId: {bank name without `battle.`: true}} of the picks' banks whose files the manifest never plays. */
 function unsounded() {
-  const banks = JSON.parse(readFileSync(OFFICIAL, 'utf8')).soundFXBanks;
-  const manifest = JSON.parse(readFileSync(path.join(ROOT, 'data', 'assets.json'), 'utf8'));
-  const tokens = JSON.parse(readFileSync(path.join(ROOT, 'data', 'backups.json'), 'utf8')).tokens ?? {};
-  const played = new Set((JSON.stringify(manifest.audio).match(/\/assets\/audio\/[^"]+?\.mp3/g) || []).map((u) => u.toLowerCase()));
+  const played = manifestUrls(readData('assets.json'));
   const out = {}, all = new Set();
-  for (const id of LOCAL_DIY_PICKS) {
-    const words = wordsOf(id, tokens);
-    for (const b of banks) {
-      if (!b.name.startsWith('battle.') || !words.some((w) => w.test(b.name))) continue;
-      const name = b.name.slice('battle.'.length);
-      if (enemyBank(name)) continue;
+  for (const [id, banks] of Object.entries(pickBanks(LOCAL_DIY_PICKS))) {
+    for (const { name, files } of banks) {
       all.add(`${id} ${name}`);
-      if (!(b.sounds || []).some((s) => played.has(urlOf(s.asset)))) (out[id] ??= {})[name] = true;
+      if (!files.some((f) => played.has(f))) (out[id] ??= {})[name] = true;
     }
   }
   return { out, all };

@@ -1,6 +1,7 @@
 // test/helpers/audio-sweep.js — the cases of the sound sweeps: every operator × skill on the battle path, fed to the audio
 // manager (test/audio-impact-sweep.test.js: damage that is no hit stays silent; test/audio-skill-silence.test.js: a skill's
-// hits are not silent).
+// hits are not silent; test/audio-pick-reach.test.js: a pick's banks are reached), and the 선발 operators' official banks
+// (pickBanks: test/audio-bank-coverage.test.js too).
 
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -10,9 +11,60 @@ import { AudioManager } from '../../public/js/audio.js';
 import { seasonPickList, allSeasonData } from './seasonPicks.js';
 import { makeBattle, enemyRec } from './battleHarness.js';
 import { DEFAULT_SEASON } from '../../shared/seasons.js';
+import { LOCAL_DIY_PICKS } from '../../shared/local-diy.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const readData = (f) => JSON.parse(readFileSync(path.join(ROOT, 'data', f), 'utf8'));
+/** The official sound banks (zh_CN audio_data.json, downloaded by tools/build-data.mjs). */
+export const OFFICIAL_AUDIO = path.join(ROOT, '.cache', 'gamedata', 'excel', 'audio_data.json');
+
+/** The manifest URL of a bank sound's asset (Audio/Sound_Beta_2/Player/p_imp/x → /assets/audio/sfx/player/p_imp/x.mp3). */
+export const bankUrl = (asset) => `/assets/audio/sfx/${String(asset).split('/').slice(-3).join('/')}.mp3`.toLowerCase();
+
+/** A regexp of `w` as a word of a bank name. */
+export const asWord = (w) => new RegExp(`(?<![a-z0-9])${w}(?![a-z0-9])`);
+
+/**
+ * The words that name a pick's banks: its codename and (2026-11-01) its summons' own codes (data/backups.json `tokens`:
+ * token_<n>_<codename>_<code>) — 酒神's 本能的召唤 sounds token_encdool_boom_start, without her codename.
+ */
+export function pickWords(id, tokens) {
+  const code = id.split('_').slice(2).join('_');
+  const own = Object.keys(tokens).filter((t) => asWord(code).test(t)).map((t) => t.split('_').slice(2).join('_').replace(new RegExp(`^${code}_`), ''));
+  return [code, ...own.filter((c) => c && c !== code)].map(asWord);
+}
+
+/**
+ * Whether a bank (name without `battle.`) belongs to an enemy, whatever words its name shares with a pick: the part after
+ * the event names an enemy id (enemy_8010_mcnist, the 机械之心 of another event, shares the pick 机械师's code) or its
+ * projectile (projectile_enemy_mcnist). Only that part's start counts: an operator's own bank may end in _enemy
+ * (haruka_shield_break_enemy).
+ */
+export const enemyBank = (name) => /^(enemy_\d+_|projectile_enemy_)/.test(name.split('.')[1] ?? '');
+
+/**
+ * {charId: [{ name (without `battle.`), files (manifest URLs) }]}: every official `battle.` bank whose name carries a 自选
+ * pick's codename or one of her summons' own codes as a word, an enemy's left out — the set of
+ * test/audio-bank-coverage.test.js and test/audio-pick-reach.test.js (tools/local-extract/link_sheet.py prints the same).
+ */
+export function pickBanks(picks = LOCAL_DIY_PICKS) {
+  const banks = JSON.parse(readFileSync(OFFICIAL_AUDIO, 'utf8')).soundFXBanks;
+  const tokens = readData('backups.json').tokens ?? {};
+  const out = {};
+  for (const id of picks) {
+    const words = pickWords(id, tokens);
+    out[id] = [];
+    for (const b of banks) {
+      if (!b.name.startsWith('battle.') || !words.some((w) => w.test(b.name))) continue;
+      const name = b.name.slice('battle.'.length);
+      if (!enemyBank(name)) out[id].push({ name, files: (b.sounds || []).map((s) => bankUrl(s.asset)) });
+    }
+  }
+  return out;
+}
+
+/** Every sound URL the asset manifest names (lower case). */
+export const manifestUrls = (manifest) => new Set((JSON.stringify(manifest.audio).match(/\/assets\/audio\/[^"]+?\.mp3/g) || []).map((u) => u.toLowerCase()));
 /** The real ms per game second at the game's usual 2×. */
 const MS_PER_S = 500;
 const dummy = (key) => enemyRec({ key, hp: 1e9, speed: 0, mass: 0, def: 0, res: 0 });

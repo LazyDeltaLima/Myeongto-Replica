@@ -514,6 +514,18 @@
   - 리드 더 플레임 섀도우 `ON_PROJECTILE_REACH.projectile_chr_reed2_aoe_effect` → 아직 `todo`. S3 중 번짐 표식(`reed2_t_1[skill_3_diffuse]`)을 가진 적이 쓰러지면 그 버프의
     ON_OWNER_KILLED가 쓰러진 적의 발밑(FOOT)에 이 투사체를 쏘고(키는 블랙보드 `projectile`), 투사체는 곧바로 닿아 `reed2_debuff_boom_01`을 튼다 — 키트의 fx `scorchBurst`와
     같은 순간이다. 소리 파일이 매니페스트에 없어 잇는 일(`kit-sfx.mjs` 키 + `audio.js kitHitKey`의 `scorchBurst`)은 자산 실행(`tools/fetch-assets.mjs`)과 함께 한다.
+- **도달 시험**(2026-11-17, 위 둘째 줄의 하한을 메움): 위 시험은 파일이 매니페스트 어딘가에 있으면 「남」이라, 다른 유닛이 같은 파일을 내면(흔한 스킬
+  시작음 `b_char_defboost` 등) 그 오퍼레이터의 순간이 무음이어도 통과했다. 소리 훑기(더미 셋·12초·곧바로 시전)는 시전 전 일반 공격·스킬 끝까지·적 처치·소환물과
+  자신의 쓰러짐을 못 봤다. `test/audio-pick-reach.test.js`는 선발 × 스킬을 그 시즌 데이터로(`test/helpers/audio-sweep.js`) 시전 전 5초 → 시전 12초 → 스킬 끝까지(최대
+  40초 더) → 적을 그 오퍼레이터가 처치 → 소환물·자신이 쓰러짐까지 돌린다. 세 판 어디서도 안 난 뱅크 중 그 오퍼레이터 자기 항목(`sfx.units`의 자신·소환물, 코드가
+  든 `sfx.kit` 키, 공통 `sfx.battle`)에도 파일이 없는 것은 `test/audio-pick-reach-list.js` `UNREACHED`에 `none`·`todo`가 있어야 통과하고, 이제 나거나 자기 항목이
+  생긴 항목은 실패한다. `ON_SKILL_SPECIAL_POINT`는 목록의 `MANUAL_STOP` 한 줄(수동 종료 — 위 「공격 소리 신호」 「안 한 것」, 16개). 자기 항목에 파일이 있는데 안 난
+  뱅크(다른 유닛·스테이지 장치·단계 전환·시전 조건이 필요한 것, 2026-11-17 첫 실행 160개)는 세기만 한다(시험의 diagnostic). 뱅크 모음은 위 시험과 같은 `pickBanks`.
+  - 첫 목록(2026-11-17, 작업표 `link_sheet.py`): 나이팅게일 S3 능력 `skchr_cgbird_3`의 START(`b_char_defboost`) → `todo`(S3 시작은 `ON_SKILL_START`의 필드 루프만 남;
+    그 능력을 언제 시전하는지는 안 읽음). 나이팅게일 `projectile_chr_svash2_s3_bird`·`_self` → `none`(실버애쉬 더 레인프로스트 S3의 새 — 「bird」가 나이팅게일 환영의 코드라
+    모임). 에이야퍄들라 `ON_PROJECTILE_REACH.projectile_amgoat_s2_b`, W `ON_PROJECTILE_REACH.projectile_cqbw` → `none`(그 키를 가진 클라 노드 없음 — 실제 투사체는
+    `projectile_amgoat_s2`·`projectile_chr_cqbw`).
+  - 재발 방지: `test/audio-pick-reach.test.js`.
 
 ## 공식 소리 신호 잇기 (2026-11-07, 연결 작업표 `link_sheet.py` + 공식 클라)
 - **스킬 시작음의 `deferStart`**: 전에는 ON_SKILL_START가 없는 스킬의 시작음을 모두 대체음으로 보고, 공격이 있으면 끝까지 안 냈다. 그런데 그 뱅크가 `b_char_atkboost` 같은 강화음이면 모드의 공격이 그 파일을 내지 않으므로, 공격하는 스킬에서는 시작음이 아예 없었다(엑시아 S2·S3, 프로스트리프 S2, 폰사이러스 S2 등 45곳). 이제 모드가 그 파일을 낼 때만 기다린다(`skill-mode-sfx.mjs modeNamesFile`, `plan.mjs`). 아스카론 S1처럼 공격이 같은 파일을 내는 스킬은 그대로. 근거는 시전형 스킬이 켜질 때 자기 능력을 시전하고 그 START가 나는 것(위 「스킬 시전 능력 소리」). [화면 미확인]
@@ -1185,5 +1197,5 @@
 - 소리 시험은 「났는가」로 끝내지 않는다: 몇 번 났는지와 나면 안 되는 소리를 함께 본다. `assert.ok(played.includes(…))`는 타격음이 초당 열 번 나거나 공격이 엉뚱한 자식 능력의 소리를 낼 때도 통과했다. 수동 스킬은 `activate`까지 해서 실제로 켜졌는지 본다.
 - 공식 클라는 타격음을 피해가 아니라 능력·투사체의 HIT에서 낸다. 타격이 아닌 피해는 `'dmg'`의 7번째 칸으로 알린다. 재발 방지: `test/audio-impact-sweep.test.js`(전 오퍼레이터 × 스킬, 너무 많이 나는 쪽).
 - 타격은 들어가는데 타격음이 없는 스킬 → 「스킬 타격음 전수」. 재발 방지: `test/audio-skill-silence.test.js`(연결하거나 `test/audio-skill-silence-list.js`에 근거를 적을 때까지 실패).
-- `test/audio-bank-coverage.test.js`의 `played`는 그 뱅크의 파일이 매니페스트에 있다는 뜻일 뿐이다. 일반 공격이 없는 스킬은 그 모드의 소리를 한 번도 내지 않는다 → 「선발 소리 뱅크 커버리지」.
+- `test/audio-bank-coverage.test.js`의 `played`는 그 뱅크의 파일이 매니페스트에 있다는 뜻일 뿐이다. 일반 공격이 없는 스킬은 그 모드의 소리를 한 번도 내지 않는다 → 「선발 소리 뱅크 커버리지」. 다른 유닛의 항목에만 파일이 있는 뱅크는 `test/audio-pick-reach.test.js`가 잡는다(같은 절 「도달 시험」).
 - 자식에 조건이 있는 공격 묶음(`_abilityConfigs`)은 공식 클라의 조건을 읽어 정한다. 이름이나 기본값으로 고르지 않는다. 재발 방지: `test/audio-cond-group.test.js`(새 묶음은 `test/audio-cond-group-list.js`에 적을 때까지 실패; 작업표 `link_sheet.py`).
