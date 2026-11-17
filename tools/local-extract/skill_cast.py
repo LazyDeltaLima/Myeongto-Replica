@@ -10,8 +10,9 @@ A skill prefab's root MonoBehaviour is its skill class (docs/rules/sim.md 「즉
 The skill ability is the animated ability on the root (`AbstractAnimatedAbility`: `_animKey`, `_timeMode`, `_cooldown`,
 `_maxAnimScale`, `_preDelay`, `_waitForAttackEvent`), else the first child of the root group (`_abilities` order) with a
 clip of its own (见行者 S2 knock_back `Skill`, not the clip-less aura), else the first one below it by path (引星棘刺 S2
-Mark / Token, 锡人 S2 HitEnemy / HitTile play one clip) — an ability of the skill's `_extraAbilities` only when the skill's own
-buffs trigger it as the skill starts (`cast_extras`). Its time (the client's `AbstractAnimatedAbility.get_cooldown` / `DoAttach` /
+Mark / Token, 锡人 S2 HitEnemy / HitTile play one clip) that the skill casts as it starts — through the root's groups, or
+triggered by the skill's own buffs as it starts (`cast_extras`, `start_triggered`; an ability a behaviour casts later or no
+node names is not: skill_entry) —, else none (a clip-less root ability: the record has no `ability`). Its time (the client's `AbstractAnimatedAbility.get_cooldown` / `DoAttach` /
 `UpdatePlaybackSpeed`): `_timeMode` 0 FROM_ATTACK_SPEED = the unit's attack interval, 1 FROM_ANIMATION = its clip length,
 2 SPECIFIED = `_cooldown`, 3 LOAD_FROM_BLACKBOARD = the blackboard value `_cooldownKey`; the clip is scaled to that time
 within [0.1, `_maxAnimScale`] as an attack's; its facing flags (`face`, as tools/local-extract/attack_timing.py: 1 its
@@ -274,21 +275,30 @@ def path_route(sid, comps3, path):
     return walk(sid, {sid})
 
 
-def started_at_self(sid, comps3, templates, path):
-    """True when the skill's own buffs (`_buffs` of its root abilities and of its root group's children) cast the ability at
-    GameObject `path` at the unit's own place as the skill starts: a TriggerAbility naming it (GameObject name or
-    `namedAsAlias`) in their template's ON_BUFF_START / ON_SKILL_START with `_castDirectly` or `_targetType` BUFF_OWNER
-    (triggered; 可露希尔 S1 ApplyShield, 缇缇 S2 GlobalUnique)."""
+def path_names(comps3, path):
+    """The names a TriggerAbility node finds the ability at GameObject `path` by: its GameObject name and `namedAsAlias`."""
     d = next((d for gp, d, _pid in comps3 if gp == path and '_animKey' in d), {})
-    names = {path.split('/')[-1], (d.get('_metadata') or {}).get('namedAsAlias') or ''} - {''}
+    return {path.split('/')[-1], (d.get('_metadata') or {}).get('namedAsAlias') or ''} - {''}
+
+
+def start_triggered(sid, comps3, templates):
+    """(names, selfs): the abilities the skill's own buffs (`_buffs` of its root abilities and of its root group's children)
+    trigger as the skill starts — a TriggerAbility in their template's ON_BUFF_START / ON_SKILL_START —, and those of them it
+    casts at the unit's own place (`_castDirectly` or `_targetType` BUFF_OWNER; triggered)."""
     own = [d for gp, d, _pid in comps3 if gp == sid] + group_children(sid, comps3)[1]
-    seen, selfs = set(), set()
+    names, selfs = set(), set()
     for d in own:
         for b in d.get('_buffs') or []:
             tpl = templates.get(b.get('templateKey')) if isinstance(b, dict) else None
             for ev in START_EVENTS:
-                triggered((tpl or {}).get(ev), seen, selfs)
-    return bool(names & selfs)
+                triggered((tpl or {}).get(ev), names, selfs)
+    return names, selfs
+
+
+def started_at_self(sid, comps3, templates, path):
+    """True when the skill's own buffs cast the ability at GameObject `path` at the unit's own place as the skill starts
+    (start_triggered; 可露希尔 S1 ApplyShield, 缇缇 S2 GlobalUnique)."""
+    return bool(path_names(comps3, path) & start_triggered(sid, comps3, templates)[1])
 
 
 def skill_entry(sid, comps3, templates):
@@ -350,9 +360,22 @@ def skill_entry(sid, comps3, templates):
         aim = 0
     if ab is None:
         at_self = set()
-        later = [gp for gp, now in cast_extras(sid, sk, comps3, templates, at_self).items() if not now]
+        extras = cast_extras(sid, sk, comps3, templates, at_self)
+        later = [gp for gp, now in extras.items() if not now]
+        # only an ability the skill itself casts as it starts stands for its skill ability: one its root's groups reach
+        # (path_route), an extra or another ability its start buffs trigger (cast_extras, start_triggered). Another one is
+        # cast later by something else — a behaviour's field (予愿安洁莉娜 S3 RestoreAbility: `_restoreAbility` of the
+        # skill's MoveLikeRespawnByProjectileBehaviour, cast as she flies home) — or by nothing (凯尔希·思衡托 S2 S3_Spawn:
+        # a copy of 维什戴尔 S3's, which only her `wisdel_s_3[trigger_spawn]` names); with none left the skill ability is
+        # the root's own clip-less one (a buff ability: no clip, no turn — the record has no `ability`)
+        names = start_triggered(sid, comps3, templates)[0]
+        started = [gp for gp, now in extras.items() if now]
+
+        def cast_at_start(gp):
+            return (any(gp == x or gp.startswith(x + '/') for x in started) or bool(path_names(comps3, gp) & names)
+                    or path_route(sid, comps3, gp) is not None)
         subs = sorted((gp, a) for gp, a in ((gp, ability(d)) for gp, d in comps if gp != sid and not any(gp == x or gp.startswith(x + '/') for x in later))
-                      if a is not None)
+                      if a is not None and cast_at_start(gp))
         ab = subs[0][1] if subs else None
         if ab is not None and e['cls'] == 'cast':
             # how the root reaches it (path_route): through groups or an AbilitySelectableGroup — cast directly without a

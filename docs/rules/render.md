@@ -954,10 +954,16 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `AbilitySelectableGroup` 뿌리의 `_trigger` 없는 시전(토가와 사키코 S1)은 `CastDirectly`로 내려가 돌지 않고, 스킬 시작 버프가 자기에게 트는 능력(클로저 S1
     `ApplyShield`, 티티 S2 `GlobalUnique` — `_castDirectly`)도 같다(모두 `aimSelf`). `_trigger`가 있는 `AbilitySelectableGroup` 뿌리(홈바운드 S1·S2, 틴맨 S2, 쏜즈 더
     로드스타 S2)는 `_DoCastInternal` → `AbilityConfigs.TryCastToTarget`이 준비된 첫 설정 중 자기 `_trigger`가 대상을 잡은 것을 그 대상에게 시전한다
-    (`_useInputTarget` 0) — 데이터 `cast.aimBy`(설정의 트리거 순서: `HitEnemy`·`Token`의 적 선택자, 없으면 `HitTile`·`Mark`의 자기 선택자 → 돌지 않음). 남은 근사:
-    선택자를 엔진이 안 다루는 트리거(아군·타일·묶음 선택자, 하위 클래스 필터 — sim.md 「스킬 프리팹의 대상 트리거」와 같은 것)와 시전하는 노드를 안 읽은 둘(안젤리나
-    더 멜로우 위시 S3 `RestoreAbility` — 스킬의 `MoveLikeRespawnByProjectileBehaviour`가 시전, 켈시 에스페란타 S2 `S3_Spawn` — 스킬 프리팹의 능력·버프가 시전하지
-    않음)은 그 순간 공격이 잡을 대상으로 돈다 [추정·미조사: 안 읽음 — bundles 줄]. 점수가 같은 후보의 순서(`FilterUtil`의 작은 차이 묶음은 넣은 순서)는 남은
+    (`_useInputTarget` 0) — 데이터 `cast.aimBy`(설정의 트리거 순서: `HitEnemy`·`Token`의 적 선택자, 없으면 `HitTile`·`Mark`의 자기 선택자 → 돌지 않음).
+    뿌리 아래 능력 중 뿌리의 묶음이 닿지 않고 시작 버프도 트지 않는 것은 스킬이 시전하지 않으니 스킬 능력이 아니다(2026-11-18, 프리팹·버프 템플릿·공식 클라에서 확인):
+    안젤리나 더 멜로우 위시 S3 `RestoreAbility`는 스킬의 `MoveLikeRespawnByProjectileBehaviour._restoreAbility`라 귀환 때 시전되고(EN의 같은 꼴
+    `DemetrS3CastSkill`·`UlpiaS3CastSkill._RespawnToLocatedPos`는 `_restoreAbility`를 `CastDirectly` — 안젤리나의 클래스는 CN에만 있어 같다고 둠 [추정·CN]),
+    켈시 에스페란타 S2 `S3_Spawn`은 위셔델 S3의 것과 같은 컴포넌트(같은 클래스·별칭)인데 어느 노드도 부르지 않는다(두 클라의 버프 템플릿·charpack·스킬 프리팹에서
+    `S3_Spawn`을 트는 것은 위셔델의 `wisdel_s_3[trigger_spawn]`뿐). 두 스킬의 스킬 능력은 뿌리의 클립 없는 버프 능력(애니 능력이 아니라 `DealWithFaceDirection`이
+    없음)이라 시전 때 돌지 않는다 — 데이터 `cast`에 `time` 없음, `castFace`를 부르지 않음. 같은 까닭으로 실버애쉬 더 레인프로스트 S3는 시작 버프가 자기에게 트는
+    `BirdAura_Self`로 읽혀 돌지 않는다(`aimSelf`; 전에는 시작에 시전되지 않는 `BirdAttack`의 `_faceToDefault`로 배치 방향으로 돌았음). 남은 근사:
+    선택자를 엔진이 안 다루는 트리거(아군·타일·묶음 선택자, 하위 클래스 필터)는 그 순간 공격이 잡을 대상으로 돈다 — sim.md 「스킬 프리팹의 대상 트리거」에서
+    아직 안 읽은 선택자와 같은 것으로, 그 선택자를 `skills.js trigTarget`에 넣으면 몸 돌리기도 따라간다. 점수가 같은 후보의 순서(`FilterUtil`의 작은 차이 묶음은 넣은 순서)는 남은
     경로·생성 순서로 둔다 [추정·엔진: 범위 질의의 후보 순서]. `_faceToFirstCastTarget`(4, 스펙터 디 언체인드 S1)은
     시전 대상 `m_castTargets`의 첫째라 그대로 둔다. `CastOnTileAbility._faceToTile`(첫 시전 칸)은 이 풀의 스킬 능력에 켜진 것이 없다.
   - 렌더 `render/face-turn.js`(위 규칙 그대로), `units.js turnToward/turnTo/faceDeploy`, 상태 `view.face {lr, ud, dir4}`: 반전 = `lr`,
@@ -974,9 +980,9 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 연결된 일: 아래 방향 클립 — `_faceToTarget`인 능력은 돈 방향(`view.face.dir4`), 아니면 배치 방향으로 고른다(「Spine 클립 커버리지」 아래 방향, 2026-10-23).
 - 테스트: `test/render/face-turn.test.js`(도는 너비·절반에서 바뀜·도는 중 새로 돌기), `test/sim/attack-timing.test.js`(대상 id·뒤에 저지된 적·`face` 이벤트·'D'/없음·
   스킬 능력 시전의 `face`), `test/sim/instant-cast.test.js`(시전 `face`의 `aimSelf`, 트리거 대상의 `_postFilter` 순서·자기 선택자·`aimBy`, 풀 데이터의 `cast.aimSelf`·`aimBy`·`trig.post`,
-  시전 대상을 모르는 풀 스킬 훑기 + 예외 목록 `AIM_UNREAD`). **[화면 미확인]**
+  시전 대상을 모르는 풀 스킬 훑기 — 예외 없음, 시전하지 않는 경로 능력을 고르지 않음). **[화면 미확인]**
   재발 방지: 원인 제거 — `_trigger` 유무·선택자 순서·경로 능력의 시전 길은 `skill_cast.py`(`aim`·`trig.post`·`path_route`)가 읽고, `build-data.mjs`가 모르는
-  `_postFilter`에서 멈춘다; 남은 손 목록은 `test/sim/instant-cast.test.js` `AIM_UNREAD`.
+  `_postFilter`에서 멈춘다; 스킬이 시작에 시전하지 않는 경로 능력은 `skill_cast.py skill_entry`가 거른다(`start_triggered`).
 
 ## 모델 점 위치·임포스터 상자 (2026-10-12, 관리자 제보 「안젤리나 더 멜로우 위시 S2 무기 이펙트가 오퍼 본인에 겹쳐 나오고, 오른쪽 위 언덕 타일에 무기가 잘린다 — 디버그 아레나에선 재현 안 됨」)
 - 실제 판(솔로 판 정비에 디버그로 넣고 전투, Windows Chrome)에서 재현. 둘 다 공식 동작이 아니라 우리 렌더 코드의 계산 오류다.

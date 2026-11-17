@@ -603,7 +603,7 @@
       ],
       "enemies": {"enemy_1010_demon":[3,3,0,0,25920],"enemy_1010_demon_2":[2,2,0,0,34560],"enemy_1071_dftman":[18,18,0,0,58061]},
       "hooks": [1,36,1636,229,229,320,406,89,24,24,8,5,0,6376,43,0,23,0,1,24,0,0,0],
-      "events": {"atk":280,"castHit":2,"deploy":10,"die":24,"dmg":320,"engage":6,"face":26,"fx":45,"heal":20,"skill":13,"spawn":36,"status":61,"swing":152,"tplfx":1},
+      "events": {"atk":280,"castHit":2,"deploy":10,"die":24,"dmg":320,"engage":6,"face":25,"fx":45,"heal":20,"skill":13,"spawn":36,"status":61,"swing":152,"tplfx":1},
       "fx": {"crit":13,"displace":23,"kitHit":7,"zone":2},
       "snaps": "6c865f59 a2095c90 745ff12b 9aee9cff 2496ca71 cae8509a"
     },
@@ -1800,7 +1800,7 @@
       ],
       "enemies": {"enemy_1009_lurker":[20,20,0,4246,109486],"enemy_1019_jshoot_2":[7,7,0,8462,47029],"enemy_9034_acblk":[2,2,0,15907,59720]},
       "hooks": [1,39,3087,131,131,386,386,2124,29,29,9,6,0,8252,552,19,29,0,1,29,0,0,0],
-      "events": {"atk":166,"castHit":1,"deploy":10,"die":29,"dmg":386,"engage":3,"face":23,"fx":31,"heal":59,"skill":15,"spawn":37,"status":81,"swing":140,"tplfx":206},
+      "events": {"atk":166,"castHit":1,"deploy":10,"die":29,"dmg":386,"engage":3,"face":21,"fx":31,"heal":59,"skill":15,"spawn":37,"status":81,"swing":140,"tplfx":206},
       "fx": {"anchor":1,"camouflage":1,"cannon":8,"counter":1,"displace":4,"explode":8,"kitHit":1,"pull":1,"tornado":1,"tornadoPulse":5},
       "snaps": "7a157325 885d5bba c9561dda aeffa7fd 2f57032e bb34f7ba 3528c215 d9233c18 6eb2e523 66ce270e fc91b20a"
     },

@@ -291,9 +291,9 @@ const faceOf = (f, t) => (f === 1 || f === 4 ? t?.id ?? null : f === 2 ? 'D' : f
  * `CastDirectly` at the unit's own place when it has no `_trigger` (`cast.aimSelf`, groups below it too), so nothing turns;
  * with one, `CastToTarget(_trigger.target)` — `skill` (its SkillRuntime) .aimTarget(): the trigger's (or an
  * AbilitySelectableGroup config's) selector target; the unit itself (a self selector) turns nothing (`Entity.FaceToTarget`'s
- * 0.2-tile threshold). A selector the engine does not model, or a skill ability whose caster is not read (an ability a
- * behaviour or a mode casts: 予愿安洁莉娜 S3 RestoreAbility, 凯尔希·思衡托 S2 S3_Spawn), takes the target its attack would take now
- * [추정·미조사: docs/rules/render.md 「공격 방향」]; a 'replace' cast's attack goes out at its attack target. none → no turn.
+ * 0.2-tile threshold). A selector the engine does not model takes the target its attack would take now
+ * [추정·미조사: docs/rules/sim.md 「스킬 프리팹의 대상 트리거」]; a 'replace' cast's attack goes out at its attack target. none → no turn.
+ * A clip-less skill ability (a buff ability: no `cast.time`) is not called here.
  */
 export function castFace(b, u, cast, skill = null) {
   if (!u.alive || !u.deployed || !u.canAct) return;

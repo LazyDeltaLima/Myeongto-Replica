@@ -385,7 +385,7 @@
       ],
       "enemies": {"enemy_1267_nhpbr_2":[27,25,2,19325,256608],"enemy_1270_nhstlk_2":[36,19,17,0,780932],"enemy_9006_actoxi":[39,31,8,0,980022]},
       "hooks": [1,116,6257,620,620,1271,1271,1649,75,102,33,30,108,39844,537,0,102,27,1,75,0,0,0],
-      "events": {"atk":679,"deploy":12,"die":75,"dmg":1257,"engage":4,"face":170,"fx":424,"heal":382,"leak":27,"skill":63,"spawn":116,"status":217,"swing":624},
+      "events": {"atk":679,"deploy":12,"die":75,"dmg":1257,"engage":4,"face":157,"fx":424,"heal":382,"leak":27,"skill":63,"spawn":116,"status":217,"swing":624},
       "fx": {"aoe":108,"enemyShot":31,"healAoe":108,"kalts2Mark":13,"parry":14,"shield":82,"takeoff":12,"zone":56},
       "snaps": "d0705c3d f7d60b62 64e97854 361f32d1 703af795 07707652 6f44d12b e61d75d9 46aa2a61 9e708c22 103aed13 12f23ba3 fc51b61b 321ec9f7 e03da345 b8744a59 44e552b2 355d5bf9 46571855 4f6e65f6 9749f5df"
     },
@@ -468,7 +468,7 @@
       ],
       "enemies": {"enemy_2021_syfish":[99,99,0,352,380160],"enemy_2025_syufo":[45,45,0,10536,864000]},
       "hooks": [1,161,5866,490,490,1256,1331,0,148,148,24,21,121,16892,47,27,144,0,1,148,0,10,0],
-      "events": {"atk":727,"deploy":15,"die":148,"dmg":1331,"engage":10,"face":96,"fx":57,"skill":45,"spawn":158,"status":254,"swing":523},
+      "events": {"atk":727,"deploy":15,"die":148,"dmg":1331,"engage":10,"face":88,"fx":57,"skill":45,"spawn":158,"status":254,"swing":523},
       "fx": {"burst":10,"dash":12,"phase":11,"takeoff":24},
       "snaps": "0b1e3474 6bd678ab bdb05b2c 1cef7624 e58c2b37 0892b89c 4a5c685a 39b2159a 87e8d372 648f2d9b 8a24861d 74c73a9b 7872ad4e 9e910920 5268505f 5a4922fd b1428089 5739077e 87b5dc5e d3d0dc33"
     },

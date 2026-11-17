@@ -1238,7 +1238,7 @@
         "enemy_9016_acstmr": [1,1,0,0,14]
       },
       "hooks": [1,93,5700,508,508,1772,1778,7233,74,74,20,17,0,26170,3144,34,73,0,1,102,2,0,0],
-      "events": {"atk":799,"bounty":7,"castHit":2,"deploy":18,"die":74,"dmg":1778,"engage":9,"face":54,"fx":339,"heal":453,"layer":2,"skill":37,"spawn":87,"status":492,"swing":532,"tplfx":9},
+      "events": {"atk":799,"bounty":7,"castHit":2,"deploy":18,"die":74,"dmg":1778,"engage":9,"face":52,"fx":339,"heal":453,"layer":2,"skill":37,"spawn":87,"status":492,"swing":532,"tplfx":9},
       "fx": {"anchor":2,"aoe":4,"displace":22,"enemyShot":20,"enemySkill":2,"garrison":2,"healField":1,"kitHit":116,"lure":2,"pull":2,"snow":105,"tornado":3,"tornadoPulse":11,"zone":47},
       "snaps": "5854bdec 048c544f d77a8648 7313c523 53102191 13797303 1c0115f9 a45e4a01 5611a501 2b67d4ea a98833ff 980a1f99 3f6f143e 0eb3a578 2e9b0546 782f7b1f 87c3854a 65ed6b91 0363ecbd"
     },
@@ -1391,7 +1391,7 @@
         "enemy_9025_aclts": [1,1,0,0,20041]
       },
       "hooks": [1,147,5861,1224,1224,7495,7648,2806,128,130,47,46,0,23515,3563,180,125,0,1,150,20,20,0],
-      "events": {"atk":1777,"bounty":7,"castHit":23,"deploy":22,"die":130,"dmg":7644,"engage":11,"face":103,"fx":746,"heal":442,"layer":20,"skill":93,"spawn":139,"status":1846,"swing":1305,"tplfx":1846},
+      "events": {"atk":1777,"bounty":7,"castHit":23,"deploy":22,"die":130,"dmg":7644,"engage":11,"face":101,"fx":746,"heal":442,"layer":20,"skill":93,"spawn":139,"status":1846,"swing":1305,"tplfx":1846},
       "fx": {"anchor":3,"aoe":350,"burst":20,"camouflage":2,"displace":23,"enemyShot":1,"enemySkill":8,"enemySkillEnd":1,"explode":1,"garrison":61,"garrisonGrant":1,"healField":2,"kitHit":85,"lure":3,"phase":3,"pull":2,"rangeMax":2,"shield":19,"shieldBreak":18,"snow":78,"stacks":37,"summon":4,"telegraph":1,"teleport":4,"tornado":2,"tornadoPulse":10,"vvanaS3Later":3,"zone":2},
       "snaps": "169c79a7 10a5f616 d553b042 279a5044 df980981 7bd2c888 6953cf76 c09b2d67 f3ec261b 7445f5d7 ac521dae d6c69fdf 6d5d3621 df3e2946 c13d1944 7d036180 a52a3a9e 3b0b9edb 2343df84 2f058bf9"
     },

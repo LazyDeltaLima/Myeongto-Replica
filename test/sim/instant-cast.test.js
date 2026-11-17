@@ -282,12 +282,11 @@ test('pool CastSkills say whether their skill ability is cast at the unit itself
 });
 
 // docs/rules/render.md 「공격 방향」: every pool CastSkill whose skill ability turns to its target (`face` 1) says where it is
-// cast — at its own place (`aimSelf`), at a trigger's target (`trig`, `aimBy`) — except the abilities whose caster is not read:
-// they turn to the target the unit's attack would take [추정·미조사]
-const AIM_UNREAD = new Map([
-  ['skchr_aglna2_3', '안젤리나 더 멜로우 위시 S3 RestoreAbility: cast by the skill\'s MoveLikeRespawnByProjectileBehaviour (`_restoreAbility`)'],
-  ['skchr_kalts2_2', '켈시 에스페란타 S2 S3_Spawn: no ability or buff of the skill prefab casts it (her mode / charpack)'],
-]);
+// cast — at its own place (`aimSelf`), at a trigger's target (`trig`, `aimBy`). Its skill ability is only one the skill casts
+// as it starts (tools/local-extract/skill_cast.py skill_entry): not an ability a behaviour casts later (안젤리나 더 멜로우 위시 S3
+// RestoreAbility, her flight home) or that no node names (켈시 에스페란타 S2 S3_Spawn, a copy of 위셔델 S3's) — those two skills
+// cast a clip-less root ability (no `time`: nothing turns); 실버애쉬 더 레인프로스트 S3 casts BirdAura_Self at himself (its start
+// buff), not BirdAttack (`_faceToDefault`)
 test('every pool CastSkill that turns to its target says where its skill ability is cast (data cast.aimSelf / trig / aimBy)', () => {
   const casts = new Map();
   const walk = (o) => {
@@ -298,13 +297,18 @@ test('every pool CastSkill that turns to its target says where its skill ability
   for (const f of ['chess.json', 'backups.json', 'seasons/act3autochess/chess.json', 'seasons/act3autochess/backups.json']) {
     walk(JSON.parse(readFileSync(new URL(`../../data/${f}`, import.meta.url), 'utf8')));
   }
-  const seen = new Set();
+  let told = 0;
   for (const [id, c] of casts) {
-    if (c.mode === 'replace' || c.time == null || (c.face ?? 1) !== 1 || c.aimSelf || c.trig || c.aimBy) continue;
-    assert.ok(AIM_UNREAD.has(id), `${id}: its skill ability turns to a target, but the data does not say where it is cast — read how the skill prefab's root reaches it (tools/local-extract/skill_cast.py path_route; docs/rules/render.md 「공격 방향」)`);
-    seen.add(id);
+    if (c.mode === 'replace' || c.time == null || (c.face ?? 1) !== 1) continue;
+    assert.ok(c.aimSelf || c.trig || c.aimBy, `${id}: its skill ability turns to a target, but the data does not say where it is cast — read how the skill prefab's root reaches it (tools/local-extract/skill_cast.py path_route / skill_entry; docs/rules/render.md 「공격 방향」)`);
+    told++;
   }
-  for (const id of AIM_UNREAD.keys()) assert.ok(seen.has(id), `${id}: listed as unread but the data now says where it is cast — drop it from AIM_UNREAD`);
+  assert.ok(told > 20, `the sweep saw ${told} CastSkills that turn to a target`);
+  for (const id of ['skchr_aglna2_3', 'skchr_kalts2_2']) {
+    assert.ok(casts.has(id) && casts.get(id).time == null, `${id}: its skill ability is the root's clip-less one, not an ability below it the skill does not cast (skill_cast.py skill_entry)`);
+  }
+  assert.equal(casts.get('skchr_svash2_3')?.aimSelf, 1, 'skchr_svash2_3: BirdAura_Self, cast at his own place by his start buff');
+  assert.equal(casts.get('skchr_svash2_3')?.face, undefined, 'skchr_svash2_3: not BirdAttack (`_faceToDefault`), which the skill does not cast as it starts');
 });
 
 test("a timed skill's 'state' cast holds its unit's attacks as well, through the skill ability's action (森蚺 S3 on the real kit: first swing after Hensin, 1.5 s)", () => {
