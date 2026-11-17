@@ -242,6 +242,8 @@ upstream 팩에만 있고 `public/i18n/en.json`에 없는 키(우리 코드가 �
   결론, 서버 보기·보고는 우리 길: `spec.js bossTopUnits` + `views.js _leaderTopView`; 규정만), `042f47d3`·`7a52854a`(전략 선택 머리), `7a9d225f`·`d4dd2318`(임기응변
   접기·펼치기, 모양은 우리 시안), `377fb09c`·`2f07ea84`(S.W.E.E.P. 장비 보고서). 받지 않음: `fe5b2228`(리더 순위 글자의 「文字大小」 — 우리에 그 설정이 없음). 자세한 것은
   `ui.md` 「upstream v0.4.0 규정 화면 작은 것들」·「규정 HUD 새 요소」.
+- **upstream #871 — 香槟炸弹이 琳琅诗怀雅와 함께 떠남** (`23b1279d`, PR #872의 좁은 이식, 손 이식 2026-11-17, 묶음 sim-Z): upstream이 추정으로 둔 것이 우리에겐
+  공식 클라에서 확인한 것(`die_to_kill_token`). 자세한 것은 `sim.md` 「香槟炸弹은 琳琅诗怀雅와 함께 떠난다」.
 
 - **오퍼레이터 스킨 — 선택·공개·전달** (upstream 0.3.1·0.3.2의 스킨 체계 `11aa3faef`·`9cc6c97ef`·`f8c1da7da`·`60f6fd9e0`·`fcaddc922`의
   서버·sim 부분, 손 이식 2026-11-16; 둘 다 GPL-3.0-or-later): 플레이어가 오퍼레이터마다 고른 공식 스킨(`skin_table` `charSkins` 키,

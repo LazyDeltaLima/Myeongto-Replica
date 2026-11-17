@@ -502,6 +502,15 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
   폭탄 전투 프리팹의 category 값은 못 봄(관리자 노트 — **[추정]** TRAP_OR_ITEM).
   sim-3 이식 「은신·수면 적 위에서 안 터짐」(`CHAMPAGNE_TRIGGER`)은 그대로다(`test/content/feedback7-champagne-stealth.test.js` 통과).
   golden: bonds bond-yanShip-high(活性源石 위 폭탄에 치료사가 치료를 쓰던 판). 테스트 `test/content/feedback7-champagne-hold.test.js`(upstream v0.2.4 판 + 실제 대전 경로 1건).
+- **香槟炸弹은 琳琅诗怀雅와 함께 떠난다** (upstream `23b1279d` — PR #872 by @zasx77771의 좁은 이식, upstream #871; 관리자 결정 2026-11-15 「받음」, 손 이식):
+  스와이어 디 엘리건트 위트(琳琅诗怀雅, `char_1033_swire2`)가 쓰러지거나 철수하거나 영구 철수하거나 연합 방어 시작 때 강제 퇴장(`FORCED_EXIT`)하면, 필드에
+  남은 그녀의 샴페인 폭탄(`token_10031_swire2_gdtrap`)이 모두 `expired`로 떠난다(`tokens.js champagneLeavesWithOwner` — 폭탄마다 걸어 그녀의 키트 폭탄과
+  소환물 키트 폭탄 둘 다). 그녀가 떠난 같은 틱 뒤에 놓인 폭탄은 `death`를 못 받으므로 제 배치 때 바로 떠난다. 다른 플레이어의 폭탄은 그대로.
+  근거(공식 클라에서 확인 — upstream은 근거 없는 추정으로 둠): S2 스킬 프리팹 `skchr_swire2_2`의 추가 능력(`ExtraAbility0`)이 그녀에게 버프 `swire2_skill_2[kill]`(템플릿
+  `die_to_kill_token` — ON_OWNER_FINISH → KillTokens, 조건 없음)을 건다. 망·미틈·에벤홀츠·W와 같은 길이다. 스킬의 추가 능력은 배치 때 붙고 스킬이 끝나도
+  떼지 않으며(`BasicSkill.OnBorn`·`OnSkillEnd`), ON_OWNER_FINISH는 퇴장 이유와 상관없이 돈다(`Entity.OnFinish` → `Buff.OnOwnerFinish`). 내구 규칙(위 줄)은 그대로다.
+  upstream의 엔진 전체 소환물 회수(`_recallSummons` + `KEPT_ON_OWNER_EXIT`)는 키트들의 주인 퇴장 훅과 겹쳐 받지 않음(upstream과 같은 판단).
+  golden: roster-008(폭탄이 끝까지 남지 않음 — upstream도 같은 판이 움직임), 규정 golden 그대로. 재발 방지: `test/content/r81-champagne-owner-exit.test.js`(upstream 판, 규정 선발 건 뺌 + 실제 대전 경로 1건).
 - **외근 의료(外勤医疗, 전략)의 맵 캐릭터는 어그로 순서가 오퍼레이터보다 앞** (upstream PR #451 by @YinqiMargatroid, `3b57f727`): 예비 오퍼레이터-메딕(预备干员-医疗)
   또는 Touch(정예 2명 이상)는 우리 sim에서 `battleStart` 때(정예 수를 센 뒤) 만들어지지만 `aggroSeq`를 맨 앞(−1)으로 둔다(`Battle.spawnToken preBattleAggro`,
   `tokens.js spawnMapChar`, `bands/battle.js installMapChars`) → 같은 도발 단계면 적이 오퍼레이터를 먼저 고른다. 배치 이벤트·`deploySeq`는 그대로.

@@ -34,7 +34,8 @@
 //   香槟炸弹      untargetable trap: the first ground enemy touching its tile takes owner ATK × atk_scale phys (+1 hit
 //                 after duration_switch s on the field) and sluggish; the bomb is used up ('expired', never a knock-out;
 //                 its blast fx carries `consumed: true` so clients play the explosion, not a death sound); 禁疗, no HP
-//                 loss, never gone because of its HP, and no ally selector picks it (champagneHold)
+//                 loss, never gone because of its HP, and no ally selector picks it (champagneHold); it leaves with
+//                 琳琅诗怀雅 when she leaves the field for any reason (champagneLeavesWithOwner, die_to_kill_token)
 //   从不混淆的方向 untargetable marker; when the owner's skill ends it vanishes and the owner returns to its tile
 //   黄金盟誓      attacks deal true damage (trait); lasts while the owner's skill runs; 维娜 S3 places one on every
 //                 free deployable tile around her (kits/ops/chess_char_6_07-siege2.js) — no per-owner deploy limit (SKILL_SUMMON_UNCAPPED)
@@ -81,7 +82,8 @@
 //
 // Exports for other content: spawnYanyou, spawnMapChar, findSummonTile, summonToken, tacticalPoint, wolfShadows,
 // COUNTDOWN_SUMMONS / startCountdown (the countdown summons' 无敌 + 禁疗 and timer bar, shared with the kits that time them),
-// champagneHold (香槟炸弹's durability and 装置 selection barrier, shared with 琳琅诗怀雅's kit, kits/ops/chess_char_3_04-swire2.js),
+// champagneHold / champagneLeavesWithOwner (香槟炸弹's durability and 装置 selection barrier, and its leaving with her, shared
+// with 琳琅诗怀雅's kit, kits/ops/chess_char_3_04-swire2.js),
 // wolfShadowInterval, installWolfTacticalPoint, wolfTacticalPoint, wolfReturnNow (the 狼群's 战术点形态, shared with the
 // 伺夜 kit's own pack, kits/ops/chess_char_3_19-vigil.js), releaseSkillSummon, SKILL_SUMMON_START_DEPLOY, CAT_SHIELD_KEY,
 // TOKEN_IDS; mapCharTalents and touchGospel (Touch's 攫升 / 超脱 and 恳切福音, shared with the Touch 补位 stand-in kit,
@@ -1108,7 +1110,29 @@ export function champagneHold(battle, bomb) {
   battle.on('damaged', (ctx) => { if (ctx.target === bomb && bomb.alive) bomb.hp = bomb.s.maxHp; }, { owner: bomb, priority: 1000 });
 }
 
-/** 香槟炸弹 (琳琅诗怀雅 S2): untargetable trap consumed by the first ground enemy touching its tile (champagneHold). */
+/**
+ * 香槟炸弹 leaves with 琳琅诗怀雅 (upstream `23b1279d`, a narrow port of upstream PR #872 by @zasx77771, upstream #871).
+ * Official: her S2 skill prefab `skchr_swire2_2` has an extra ability whose passive buff `swire2_skill_2[kill]` uses the
+ * template `die_to_kill_token` — ON_OWNER_FINISH → KillTokens, no condition — the same as 望, 渡桥, 黑键 and W; a skill's
+ * extra abilities attach when she is deployed and stay after the skill ends, and ON_OWNER_FINISH runs whatever the reason
+ * (공식 클라에서 확인). Here: a knock-out, a retreat (a 联防 `forcedExit` too) and a permanent retreat all emit `death`
+ * (battle/deploy.js `_remove`), and her live bombs then retreat with `expired`, the owner-exit the other kits use.
+ * champagneHold is untouched. A bomb placed in the same tick after she has already left misses that `death` (emit
+ * snapshots its listeners), so it withdraws on its own deploy. Installed per bomb, so both creation paths (her kit's
+ * bomb and the token kit below) carry it; another player's bomb has another owner and stays.
+ */
+export function champagneLeavesWithOwner(battle, bomb) {
+  const owner = bomb.ownerUnit;
+  if (!owner) return;
+  const leave = () => { if (bomb.alive) battle.retreat(bomb, { reason: 'expired', permanent: true }); };
+  battle.on('death', (ctx) => { if (ctx.unit === owner) leave(); }, { owner: bomb });
+  if (!owner.alive) onDeploy(battle, bomb, leave);
+}
+
+/**
+ * 香槟炸弹 (琳琅诗怀雅 S2): untargetable trap consumed by the first ground enemy touching its tile (champagneHold); it leaves
+ * with her (champagneLeavesWithOwner).
+ */
 function champagne(bb) {
   const scale = num(bb['attack@atk_scale'] ?? bb.atk_scale, 0);
   const slug = num(bb['attack@sluggish'] ?? bb.sluggish, 0);
@@ -1134,7 +1158,7 @@ function champagne(bb) {
       },
     },
     trait: { noAttack: true },
-    install(battle, unit) { untargetable(battle, unit); champagneHold(battle, unit); },
+    install(battle, unit) { untargetable(battle, unit); champagneHold(battle, unit); champagneLeavesWithOwner(battle, unit); },
   };
 }
 

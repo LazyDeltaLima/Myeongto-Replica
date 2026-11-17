@@ -58,8 +58,10 @@ for (const [label, dx, fires] of [['0.05 past the edge sets it off', 0.55, true]
   });
 
   test(`琳琅诗怀雅 champagne bomb (token kit): an enemy ${label}`, () => {
-    const h = makeBattle({ defs: { enemies: { enemy_n: dummy('enemy_n') } }, timeLimit: 60, units: [{ chessId: SWIRE, row: 2, col: 2 }] });
+    // she stands on the field (a bomb whose owner is not on it leaves at once: tokens.js champagneLeavesWithOwner)
+    const h = makeBattle({ defs: { enemies: { enemy_n: dummy('enemy_n') } }, timeLimit: 60, units: [{ chessId: SWIRE, row: 10, col: 2 }] });
     h.step();
+    assert.ok(h.unit(SWIRE).alive, 'her owner stands');
     for (const t of traps(h)) h.b.retreat(t, { reason: 'expired', permanent: true });
     const bomb = h.b.spawnToken(h.unit(SWIRE), TRAP, 11, 7);
     assert.ok(bomb && bomb.alive, 'a plain token on 11,7');

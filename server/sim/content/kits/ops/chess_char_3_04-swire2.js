@@ -8,7 +8,7 @@ import {
   groundTile, enemiesOn,
 } from '../shared/tier3.js';
 import { powi } from '../../../detmath.js';
-import { CHAMPAGNE_TRIGGER, champagneHold } from '../../tokens.js';
+import { CHAMPAGNE_TRIGGER, champagneHold, champagneLeavesWithOwner } from '../../tokens.js';
 import { canTargetEnemy } from '../../../targeting.js';
 import { attackTiming } from '../../../ai.js';
 
@@ -70,6 +70,7 @@ export default {
       trait: { noAttack: true },
       install(battle, bomb) {
         champagneHold(battle, bomb);   // 禁疗, no HP loss, never gone because of its HP, no ally selector picks it (tokens.js)
+        champagneLeavesWithOwner(battle, bomb);   // she takes it with her when she leaves (die_to_kill_token, tokens.js)
         battle.on('tick', () => {
           if (!bomb.alive || !bomb.deployed) return;
           for (const e of battle.enemies) {
