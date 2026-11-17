@@ -27,3 +27,18 @@ export function allSeasonData() {
   }
   return out;
 }
+
+/**
+ * Every season's picks, each once, with the season whose data runs it: the default season's in the picker's order, then the
+ * picks only a later season offers (规程's 焰影苇草, 新约能天使 and 缇缇) with that season. A sweep over the picks runs each on
+ * its season's data (test/helpers/battleHarness.js makeBattle `season`): on the default season's a 规程-only pick is one of
+ * its chess and has no 自选 form. @returns {{ charId: string, season: string }[]}
+ */
+export function seasonPickList() {
+  const out = [];
+  const seen = new Set();
+  for (const [season, d] of Object.entries(allSeasonData())) {
+    for (const charId of seasonPicks(d.chess)) if (!seen.has(charId)) { seen.add(charId); out.push({ charId, season }); }
+  }
+  return out;
+}

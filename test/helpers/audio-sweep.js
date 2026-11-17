@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AudioManager } from '../../public/js/audio.js';
-import { seasonPicks } from './seasonPicks.js';
+import { seasonPickList } from './seasonPicks.js';
 import { makeBattle, enemyRec } from './battleHarness.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -33,22 +33,22 @@ export function onBattleClock(fn) {
 }
 
 /**
- * Every 自选 backup chess and every 선발 pick × skill — the picks 盟约 offers: the harness runs 盟约's data, where a 规程-only
- * pick (盟约's own chess, test/helpers/seasonPicks.js) has no 自选 form.
+ * Every 自选 backup chess and every 선발 pick of any season × skill, each pick on its season's data (`season`: a 规程-only pick
+ * is one of 盟约's chess and has no 自选 form there; test/helpers/seasonPicks.js seasonPickList).
  */
 export function sweepCases() {
   const chess = readData('chess.json');
   const out = Object.keys(chess).filter((k) => k.endsWith('_b') && chess[k].backup?.charId?.startsWith('char_'))
     .map((k) => ({ label: k, unit: { uid: 1, chessId: k, row: 10, col: 5 } }));
-  for (const c of seasonPicks(chess)) for (const skill of [0, 1, 2]) {
-    out.push({ label: `${c} S${skill + 1}`, skill, extra: NEEDS[c] ? [{ uid: 2, ...NEEDS[c] }] : [], unit: { uid: 1, diy: { slot: 'chess_char_5_diy1_a', charId: c, skillIndex: skill, uniEquipId: null }, row: 10, col: 5 } });
+  for (const { charId: c, season } of seasonPickList()) for (const skill of [0, 1, 2]) {
+    out.push({ label: `${c} S${skill + 1}`, season, skill, extra: NEEDS[c] ? [{ uid: 2, ...NEEDS[c] }] : [], unit: { uid: 1, diy: { slot: 'chess_char_5_diy1_a', charId: c, skillIndex: skill, uniEquipId: null }, row: 10, col: 5 } });
   }
   return out;
 }
 
-/** The battle of case `c`: its unit beside three dummies that never die, and the audio manager it feeds. */
+/** The battle of case `c` (on its `season`'s data): its unit beside three dummies that never die, and the audio manager it feeds. */
 export function sweepBattle(c, manifest, random = () => 0) {
-  const h = makeBattle({ defs: { enemies: { e_d: dummy('e_d') } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true, units: [c.unit, ...(c.extra ?? [])] });
+  const h = makeBattle({ season: c.season, defs: { enemies: { e_d: dummy('e_d') } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true, units: [c.unit, ...(c.extra ?? [])] });
   h.step();
   const u = h.unit(1);
   const a = new AudioManager({ win: null, getManifest: () => manifest, random });

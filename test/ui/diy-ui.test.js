@@ -35,7 +35,7 @@ const { DiyPanelView, DiyPickerView } = await import('../../public/js/screens/di
 const { data } = await import('../../public/js/data.js');
 const { DATA } = await import('../match/harness.js');
 const { KITTED_CHARS } = await import('../../server/sim/content/kits/index.js');
-const { seasonPicks } = await import('../helpers/seasonPicks.js');
+const { seasonPicks, allSeasonData } = await import('../helpers/seasonPicks.js');
 /** The picks 盟约 offers (the picker runs on 盟约's data; 规程 offers 盟约's own chess too: test/helpers/seasonPicks.js). */
 const LOCAL_DIY_PICKS = seasonPicks(DATA.chess);
 
@@ -105,6 +105,22 @@ describe('自选编队 model (ui/diyModel.js)', () => {
     assert.equal(at5.find((o) => o.charId === WANG).taken, T5B);
     assert.equal(at5.find((o) => o.charId === CHEN3).taken, null);
     assert.deepEqual(M.pickOptions(T5A, {}, D, []), [], 'no kit list (not connected): nothing to pick');
+  });
+
+  test('each season\'s picker lists that season\'s picks: 规程\'s offers 焰影苇草, 新约能天使 and 缇缇 (盟约\'s chess), each with three skills', () => {
+    const seasons = allSeasonData();
+    assert.ok(seasons.act3autochess, 'the 规程 data (data/seasons/act3autochess/)');
+    for (const [season, d] of Object.entries(seasons)) {
+      for (const slot of M.diySlotList(d).map((x) => x.slotId)) {
+        const ids = M.pickOptions(slot, {}, d, KIT).map((o) => o.charId);
+        assert.deepEqual([...ids].sort(), [...seasonPicks(d.chess)].sort(), `${season} ${slot}: the season's picks`);
+        for (const id of ids) assert.deepEqual(M.pickChoices(id, slot, d)?.skills.map((x) => x.index), [0, 1, 2], `${season} ${slot} ${id}: three skills`);
+      }
+    }
+    const act3 = M.pickOptions(T5A, {}, seasons.act3autochess, KIT).map((o) => o.charId);
+    for (const id of ['char_1020_reed2', 'char_1041_angel2', 'char_4056_titi']) {
+      assert.ok(act3.includes(id) && !LOCAL_DIY_PICKS.includes(id), `${id}: a 规程 pick, 盟约's chess`);
+    }
   });
 
   test('choices: three skills, the elite form\'s modules without the 集成战略 (ISW-A) ones; the default pick', () => {

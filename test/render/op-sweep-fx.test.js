@@ -11,7 +11,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { seasonPicks } from '../helpers/seasonPicks.js';
+import { seasonPickList } from '../helpers/seasonPicks.js';
 import { skillModeIndex, SKILL_SUB_MODES } from '../../shared/skill-modes.js';
 import { attackTiming } from '../../server/sim/ai.js';
 import { startLead, playSpeed } from '../../public/js/render/fx/face.js';
@@ -43,17 +43,16 @@ const NEEDS = Object.freeze({ char_4179_monstr: { kind: 'token', tokenId: 'token
 
 function cases() {
   const out = [];
-  // the picks 盟约 offers: the harness runs 盟约's data, where a 规程-only pick (盟约's own chess) has no 自选 form
-  const chess = JSON.parse(readFileSync(path.join(ROOT, 'data/chess.json'), 'utf8'));
-  for (const c of seasonPicks(chess)) for (const skill of [0, 1, 2]) {
-    out.push({ label: `${c} S${skill + 1}`, charId: c, skill, extra: NEEDS[c] ? [{ uid: 2, ...NEEDS[c] }] : [], unit: { uid: 1, diy: { slot: 'chess_char_5_diy1_a', charId: c, skillIndex: skill, uniEquipId: null }, row: 10, col: 5 } });
+  // every season's picks, each on its season's data (a 规程-only pick is one of 盟约's chess, with no 自选 form there)
+  for (const { charId: c, season } of seasonPickList()) for (const skill of [0, 1, 2]) {
+    out.push({ label: `${c} S${skill + 1}`, charId: c, season, skill, extra: NEEDS[c] ? [{ uid: 2, ...NEEDS[c] }] : [], unit: { uid: 1, diy: { slot: 'chess_char_5_diy1_a', charId: c, skillIndex: skill, uniEquipId: null }, row: 10, col: 5 } });
   }
   return out;
 }
 
 /** The battle's casts by attack mode (their shortest length) and its HP-loss ticks: `modes` the operator's modes.json entry (null: no extract). */
 function watch(c, modes) {
-  const h = makeBattle({ defs: { enemies: { e_d: dummy('e_d') } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true, units: [c.unit, ...c.extra] });
+  const h = makeBattle({ season: c.season, defs: { enemies: { e_d: dummy('e_d') } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true, units: [c.unit, ...c.extra] });
   h.step();
   const u = h.unit(1);
   for (const pos of [[10, 6], [10, 7], [9, 6]]) h.spawn('e_d', { pos });
@@ -83,7 +82,7 @@ function watch(c, modes) {
       if (m >= 0) swings.set(m, Math.min(swings.get(m) ?? Infinity, castLen(c, !!u.skill?.active, t)));
     }
   }
-  return { swings, lossMax };
+  return { swings, lossMax, fielded: u?.def?.charId ?? null };
 }
 
 const modesJson = NO_FX ? null : JSON.parse(readFileSync(path.join(FX, 'modes.json'), 'utf8'));
@@ -112,6 +111,12 @@ function hidden(c, modes, swings) {
 
 describe('every 自选 operator × skill', () => {
   const all = cases().map((c) => ({ c, ...watch(c, modesJson?.[c.charId] ?? null) }));
+
+  test('the sweep fields every season\'s picks, a 规程-only one on 规程\'s data', () => {
+    assert.deepEqual(all.filter((r) => r.fielded !== r.c.charId).map((r) => r.c.label), [], 'a pick the sweep did not field');
+    const act3 = all.filter((r) => r.c.season === 'act3autochess').map((r) => r.c.charId);
+    for (const id of ['char_1020_reed2', 'char_1041_angel2', 'char_4056_titi']) assert.equal(act3.filter((x) => x === id).length, 3, `${id}: three skills on 规程's data (test/helpers/seasonPicks.js seasonPickList)`);
+  });
 
   test('no HP loss draws a hit: a tick of 流失 is silent', () => {
     const bad = all.filter((r) => r.lossMax > LOSS_PER_S_MAX).map((r) => `${r.c.label}: ${r.lossMax} a second`);

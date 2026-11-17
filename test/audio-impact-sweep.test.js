@@ -30,6 +30,9 @@ const REPEATED = Object.freeze({
   // begin clip — skills.js _beginCast — puts her swings on the 流形's tick, so her shot stays the last attacker: 1 now.)
   chess_char_4_03_b: [10, 'strikes: one each swing of 耶拉 S2'],
   chess_char_5_21_b: [23, 'strikes: 寒檀 S2\'s icicles, each an attack of hers landing (projectile_chr_sntlla_s2 REACH)'],
+  // (a 规程 pick, on 规程's data: test/helpers/seasonPicks.js seasonPickList; her S3 mode's own bank
+  // ON_ABILITY_START.char_1041_angel2.attack.5.Burst is not wired yet, test/audio-bank-coverage-list.js)
+  'char_1041_angel2 S3': [8, 'strikes: one each 5-hit attack of 新约能天使 S3 (its first the 投递坐标 splash)'],
 });
 
 function hear(c, manifest) {

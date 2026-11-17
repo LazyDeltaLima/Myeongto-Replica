@@ -142,7 +142,7 @@ describe('a field entered late keeps the sounds of the skills that run', { skip 
     try {
       const seen = [];
       for (const c of sweepCases()) {
-        const h = makeBattle({ defs: { enemies: { e_d: dummy } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true, units: [c.unit, ...(c.extra ?? [])] });
+        const h = makeBattle({ season: c.season, defs: { enemies: { e_d: dummy } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true, units: [c.unit, ...(c.extra ?? [])] });
         h.step();
         const u = h.unit(1);
         if (u.skill?.kind !== 'passive') continue;

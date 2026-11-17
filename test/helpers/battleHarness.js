@@ -34,6 +34,10 @@
 //   extraContent  [{ install(battle) }] extra content modules installed after the domain modules (content tests)
 //   defs          { chess: {id: record}, enemies: {key: record}, tokens: {id: record} } extra/override data records;
 //                 `effects` (a season's data/effects.json) replaces the default season's effect records
+//   season        a season id of shared/seasons.js: the battle runs that season's data (server/data.js getData — its chess,
+//                 自选 slots and picks, config), `defs` over it, a `diy` / `standIn` unit composed from it (default: the
+//                 default season's data, as before)
+//   data          a DataSource to run instead (overrides `season` and `defs`)
 //   flags, sharedBoss, modeId, round, setup(battle), recordEvents (default true). The harness sets
 //                 flags.bornTime = 0 unless given: the born state after every deployment (Battle default
 //                 BORN_TIME), when no MANUAL skill is cast, would hold back every test that fills a skill's SP at
@@ -52,6 +56,8 @@ import { DataSource, getDefaultSource, spawnsFromTemplate } from '../../server/s
 import { TICK } from '../../server/sim/constants.js';
 import { standInRecord, composeUnitRecord, unitForm } from '../../shared/standIn.js';
 import { COLS } from '../../server/sim/constants.js';
+import { DEFAULT_SEASON } from '../../shared/seasons.js';
+import { getData } from '../../server/data.js';
 
 export const ALL_HOOKS = Object.freeze([
   'battleStart', 'deploy', 'tick', 'beforeAttack', 'attack', 'hit', 'damaged', 'heal', 'kill', 'death',
@@ -183,10 +189,24 @@ export function standInRec(chessId, sel = {}, data = getDefaultSource()) {
   return rec;
 }
 
-function buildData(defs) {
-  if (!defs) return getDefaultSource();
-  // `effects`: a season's data/effects.json (the content modules read it through dataFile; absent = the default season's)
-  return new DataSource({ chess: defs.chess ?? {}, enemies: defs.enemies ?? {}, tokens: defs.tokens ?? {}, stages: defs.stages ?? {}, waves: defs.waves ?? {}, ...(defs.effects ? { effects: defs.effects } : {}) }, getDefaultSource());
+const SEASON_SOURCES = new Map();
+const QUIET_LOG = { warn() {}, error() {}, info() {}, debug() {}, log() {} };
+/**
+ * The DataSource of `season` (a shared/seasons.js id): the default source for the default season (or none), else that
+ * season's data as the server loads it (server/data.js getData: the default season's files with the season's own over them).
+ * @param {string|null|undefined} season
+ */
+export function seasonSource(season) {
+  if (!season || season === DEFAULT_SEASON) return getDefaultSource();
+  let ds = SEASON_SOURCES.get(season);
+  if (!ds) SEASON_SOURCES.set(season, ds = new DataSource(getData({ log: QUIET_LOG, season }), null));
+  return ds;
+}
+
+function buildData(defs, base = getDefaultSource()) {
+  if (!defs) return base;
+  // `effects`: a season's data/effects.json (the content modules read it through dataFile; absent = the base's)
+  return new DataSource({ chess: defs.chess ?? {}, enemies: defs.enemies ?? {}, tokens: defs.tokens ?? {}, stages: defs.stages ?? {}, waves: defs.waves ?? {}, ...(defs.effects ? { effects: defs.effects } : {}) }, base);
 }
 
 /**
@@ -204,11 +224,11 @@ function diyEntry(u, data = getDefaultSource()) {
 }
 
 /** `units[].standIn` objects → the composed records for `defs.chess` (null when there are none). */
-function standInDefs(units) {
+function standInDefs(units, data = getDefaultSource()) {
   let out = null;
   for (const u of units ?? []) {
     if (!u || !u.standIn || typeof u.standIn !== 'object') continue;
-    (out ??= {})[u.chessId] = standInRec(u.chessId, u.standIn);
+    (out ??= {})[u.chessId] = standInRec(u.chessId, u.standIn, data);
   }
   return out;
 }
@@ -216,8 +236,9 @@ function standInDefs(units) {
 /** Create a battle + harness. See header for options. */
 export function makeBattle(opts = {}) {
   const kind = opts.kind ?? 'normal';
-  const custom = opts.data ? null : standInDefs(opts.units);
-  const data = opts.data ?? buildData(custom ? { ...opts.defs, chess: { ...(opts.defs?.chess ?? {}), ...custom } } : opts.defs);
+  const base = opts.data ? null : seasonSource(opts.season);
+  const custom = opts.data ? null : standInDefs(opts.units, base);
+  const data = opts.data ?? buildData(custom ? { ...opts.defs, chess: { ...(opts.defs?.chess ?? {}), ...custom } } : opts.defs, base);
   let stage = opts.stage ?? null;
   if (!stage) stage = !opts.stageId || opts.stageId === 'flat' ? flatStage(opts.flat || {}) : data.getStage(opts.stageId);
   if (!stage) throw new Error(`unknown stage ${opts.stageId}`);
@@ -249,7 +270,7 @@ export function makeBattle(opts = {}) {
   if (extraRoutes.length) routes = routes.concat(extraRoutes);
   const players = opts.players ?? [{
     playerId: 'p1', seat: 0, side: 'L', colOffset: 0,
-    units: (opts.units ?? []).map((u, i) => ({ uid: u.uid ?? i + 1, kind: u.kind ?? 'chess', ...diyEntry(u), ...(u.standIn ? { standIn: true } : null) })),
+    units: (opts.units ?? []).map((u, i) => ({ uid: u.uid ?? i + 1, kind: u.kind ?? 'chess', ...diyEntry(u, opts.data ? getDefaultSource() : base), ...(u.standIn ? { standIn: true } : null) })),
     bonds: opts.bonds ?? {}, bandId: opts.bandId ?? null, playerEffects: opts.playerEffects ?? [],
     // the 整备区 operators a bond may field (PlayerBattleInput `reserve`: [{ chessId, slot, … }])
     ...(opts.reserve ? { reserve: opts.reserve.map((u, i) => ({ uid: u.uid ?? 100 + i, kind: 'chess', ...u })) } : null),
