@@ -12,6 +12,7 @@ import { phoneScreen, illustEntry, illustListed, illustFull, setIllustFull, save
   from '../../public/js/illust-res.js';
 import { buildSkinCatalog, loadSkinCatalog, skinsStore } from '../../public/js/ui/skins.js';
 import { illustDiff, illustNote } from '../../public/js/resources.js';
+import { cacheStorageOver } from '../helpers/fake-cache-storage.js';
 
 const RULE = 'docs/rules/ui.md 「정비 화면 HUD」 (the 立绘 copies)';
 const win = (w, h, coarse) => ({ screen: { width: w, height: h }, matchMedia: (q) => ({ matches: q === '(pointer: coarse)' && coarse }) });
@@ -157,7 +158,7 @@ describe('the player chooses the copy (立绘画质, maintainer decision 2026-11
         else if (u.startsWith(origin + '/assets/')) entries.set(u, resp.headers.get('X-SP-Hash'));
       },
     };
-    const fakeCaches = { open: async () => cache, delete: async () => true };
+    const fakeCaches = cacheStorageOver(cache);
     const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch,
       navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
     const { store } = await import('../../public/js/store.js');

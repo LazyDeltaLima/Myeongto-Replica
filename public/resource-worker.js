@@ -1,4 +1,4 @@
-// Resource service worker (local patch): answers game art requests from the Cache Storage 'sp-res', and fetches
+// Resource service worker (local patch): answers game art requests from the Cache Storage (the shards sp-res-0…f), and fetches
 // what is not there yet on demand — upstream art from jsDelivr / GitHub raw rather than from this server — so the
 // server's upload carries little of the art, and a picture seen once never pops in late again (no round trip, no revalidation).
 //
@@ -20,10 +20,21 @@
 // Defence in depth (security review 2026-10-04): page loads (navigations) are never answered from the cache, only the
 // asset file types below are, and every cached answer carries nosniff and a sandboxing CSP — so even a planted cache
 // entry could never run as a page of this origin.
-// Classic script (no import): module service workers are not available everywhere yet. Path / source rules are kept in
-// sync with public/js/resources.js (validEntry, sourcesOf).
+// The files are spread over CACHE_SHARDS caches by a hash of their path (Chrome refuses Cache.keys() on a cache with too
+// many entries, and the page's reconcile walks every key — public/js/resource-entries.js shardOf): a file is stored in
+// its shard and looked up there, then in the single cache of the versions before (LEGACY), which the page empties into
+// the shards and then deletes.
+// Classic script (no import): module service workers are not available everywhere yet. Path / source / shard rules are
+// kept in sync with public/js/resource-entries.js (validEntry, sourcesOf, shardOf; test/local-patch.test.js compares them).
 
-const CACHE = 'sp-res';
+const CACHE_SHARDS = 16;
+const LEGACY = 'sp-res';
+function shardOf(p) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < p.length; i++) h = Math.imul(h ^ p.charCodeAt(i), 0x01000193);
+  return (h >>> 0) % CACHE_SHARDS;
+}
+const cacheOf = (p) => `sp-res-${shardOf(p).toString(16)}`;
 const INDEX = '/assets/browser-resources.json';
 const INDEX_TTL_MS = 5 * 60e3;    // revalidate the list this often (a cheap 304 when unchanged)
 const TIMEOUT_MS = 30000;
@@ -49,8 +60,10 @@ function safe(hit) {
 self.addEventListener('install', (event) => event.waitUntil(self.skipWaiting()));
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
-// caches.match with cacheName never creates the cache (caches.open would recreate it after the page dropped it)
-const lookup = (path) => caches.match(path, { cacheName: CACHE });
+// caches.match with cacheName never creates the cache (caches.open would recreate it after the page dropped it); a path
+// the shard lacks may still be in the old single cache while the page moves it
+const lookup = async (path) => (await caches.match(path, { cacheName: cacheOf(decode(path)) }))
+  || caches.match(path, { cacheName: LEGACY });
 
 // answers since the worker started: from the cache / a cached copy of another hash / fetched from the sources (and bytes)
 // / left to the server
@@ -121,7 +134,7 @@ async function fetchListed(f) {
       const buf = await res.arrayBuffer();
       if (buf.byteLength !== f.s || (await sha256(buf)) !== f.h) continue;
       const headers = { 'Content-Type': typeOf(f.p), 'Content-Length': String(buf.byteLength), 'X-SP-Hash': f.h };
-      try { await (await caches.open(CACHE)).put(f.p, new Response(buf, { headers })); } catch { /* quota: answer anyway */ }
+      try { await (await caches.open(cacheOf(f.p))).put(f.p, new Response(buf, { headers })); } catch { /* quota: answer anyway */ }
       stats.fetched++;
       stats.bytes += buf.byteLength;
       return new Response(buf, { status: 200, headers });

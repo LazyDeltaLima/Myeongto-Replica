@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { cacheStorageOver } from './helpers/fake-cache-storage.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mod = (rel) => import(pathToFileURL(path.join(ROOT, rel)).href);
@@ -67,7 +68,7 @@ describe('resource packs', () => {
     };
     const fetched = [];
     const bodies = { [`https://cdn.jsdelivr.net/gh/fexli/ArknightsResource@${'a'.repeat(40)}/spine/o/o_s_1/Front/o_s_1.png`]: 'png', '/assets/local/spine/skin/o/o_s_1/illust/o_s_1.webp': 'webp', '/assets/ui/a.png': 'a' };
-    const fakeCaches = { open: async () => cache, delete: async () => true };
+    const fakeCaches = cacheStorageOver(cache);
     const prefs = new Map();
     const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch, localStorage: globalThis.localStorage,
       navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
@@ -137,7 +138,7 @@ describe('resource packs', () => {
       },
     };
     const fetched = [];
-    const fakeCaches = { open: async () => cache, delete: async () => true };
+    const fakeCaches = cacheStorageOver(cache);
     const prefs = new Map([['sp.pref.resourcePacks', JSON.stringify({ skin: true })]]); // chosen on an earlier visit
     const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch, localStorage: globalThis.localStorage,
       navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };

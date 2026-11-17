@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { cacheStorageOver } from './helpers/fake-cache-storage.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const RULE = 'docs/rules/render.md 「리소스 묶음 받기」';
@@ -58,7 +59,7 @@ async function withPage(serve, run, { cached = new Map(), prefs = new Map([['sp.
       else if (u.startsWith(ORIGIN + '/assets/')) entries.set(u, { h: resp.headers.get('X-SP-Hash'), body: await resp.text() });
     },
   };
-  const fakeCaches = { open: async () => cache, delete: async () => true };
+  const fakeCaches = cacheStorageOver(cache);
   const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch, localStorage: globalThis.localStorage,
     navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
   const before = store.get();

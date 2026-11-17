@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { mirrorUrl } from './assets/sources.mjs';
 import { planBundles, writeBundles } from './assets/resource-bundles.mjs';
 import { BUNDLE_DIR } from '../server/http/files.js';
-import { sourcesOf, validEntry } from '../public/js/resource-entries.js';
+import { sourcesOf, validEntry, shardOf, CACHE_SHARDS, SHARD_MAX_FILES } from '../public/js/resource-entries.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -132,6 +132,13 @@ files.sort((a, b) => (a.p < b.p ? -1 : a.p > b.p ? 1 : 0));
 // the page fetches only the entries it takes: one it would drop is never pre-downloaded, so the list must not name it
 const refused = files.filter((f) => !validEntry(f));
 if (refused.length) throw new Error(`${refused.length} list entries the page would drop (public/js/resource-entries.js validEntry; docs/rules/render.md 「\`u\`는 페이지가 받을 수 있는 주소일 때만」), e.g. ${JSON.stringify(refused[0]).slice(0, 200)}`);
+// Chrome refuses Cache.keys() on a cache with too many entries, and the page then never reconciles: no cache may get
+// more than SHARD_MAX_FILES (the page and the worker spread the files by shardOf)
+const perShard = new Array(CACHE_SHARDS).fill(0);
+for (const f of files) perShard[shardOf(f.p)]++;
+if (Math.max(...perShard) > SHARD_MAX_FILES) {
+  throw new Error(`a resource cache would hold ${Math.max(...perShard)} files, over SHARD_MAX_FILES ${SHARD_MAX_FILES} (${files.length} files in ${CACHE_SHARDS} caches): raise CACHE_SHARDS in public/js/resource-entries.js and public/resource-worker.js — docs/rules/render.md 「리소스 캐시는 여러 개로 나눔」`);
+}
 const bytes = files.reduce((n, f) => n + f.s, 0);
 const version = createHash('sha256').update(JSON.stringify(PACKS) + '\n' + files.map((f) => f.p + ':' + f.h).join('\n')).digest('hex').slice(0, 16);
 // the bundles are written before the list that names them; `version` leaves them out (the cache holds the same files)

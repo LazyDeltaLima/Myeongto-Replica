@@ -21,7 +21,11 @@
 //     changed the file at that path since the list was built): it is recorded in DIFFER and not tried again until the
 //     list names another hash for it or DIFFER_RETRY_MS has passed, so a drifted file costs one download and one warning,
 //     not one on every visit. The worker still fetches it on demand (its last source is this server).
-// What is cached is recorded in one JSON entry of the same cache (STATE): on load, entries whose hash changed or that
+// The files are spread over the caches SHARD_NAMES by a hash of their path (resource-entries.js shardOf; Chrome refuses
+// Cache.keys() on one cache with too many entries, which stopped all of this before 2026-11-17); the records below are in
+// META_CACHE. The single cache of the versions before (LEGACY_CACHE) is emptied into the shards in the background (migrate:
+// its keys, or where Chrome refuses them the listed paths one by one), then deleted; the worker serves from it meanwhile.
+// What is cached is recorded in one JSON entry (STATE): on load, entries whose hash changed or that
 // left the list are listed as stale, then the rest is downloaded. That scan walks every cache key (a phone took 27.5 s
 // over 15 thousand keys with nothing to delete, 2026-10-28), so a load whose list and voice language are those of a
 // scan whose stale entries were all deleted (CLEAN, written by the cleanup) skips it: nothing can have gone stale since. Nothing starts before the player agrees once (the choice
@@ -59,11 +63,10 @@ import { wantedFiles, onVoiceLangChange, voiceStore, setVoiceLang, VOICE_LANGS, 
 import { setResourceSource, fieldLoading } from './diag.js';
 import { illustFull, illustListed, illustStore, setIllustFull } from './illust-res.js';
 import { t, tc } from '../../shared/i18n.js';
-import { sourcesOf, validPath, validEntry } from './resource-entries.js';
+import { sourcesOf, validPath, validEntry, shardOf, SHARD_NAMES, META_CACHE, LEGACY_CACHE } from './resource-entries.js';
 
 export { sourcesOf, validPath, validEntry };
 
-const CACHE = 'sp-res';
 const STATE = '/__sp_res_state__';
 const CLEAN = '/__sp_res_clean__'; // the list version and voice language of the last scan whose stale entries are all gone
 const DIFFER = '/__sp_res_differ__'; // upstream files every source served with other bytes: path → { h: listed hash, at }
@@ -201,7 +204,11 @@ resStore.set({ chosen: { ...chosen } });
 let paused = {};        // packs paused on this page: { <pack>: true }
 let voiced = [];        // the listed entries of this browser's voice language (choose)
 let again = false;      // a choice changed during a download: resync once it ends
-let cache = null;
+let meta = null;       // META_CACHE: STATE, CLEAN, DIFFER
+let shards = [];       // the caches of SHARD_NAMES, by shard
+let legacy = null;     // LEGACY_CACHE while it still exists
+/** The cache a path is kept in. */
+const cacheOf = (p) => shards[shardOf(p)];
 let state = {};        // path → hash of what is in the cache
 let differ = {};       // DIFFER's content
 let differChanged = false;
@@ -214,10 +221,10 @@ let deleted = 0;
 let worker = null;     // the worker's answer counts the report last read: { at, hit, stale, fetched, bytes, server }
 
 async function saveState() {
-  await cache.put(STATE, new Response(JSON.stringify(state), { headers: { 'Content-Type': 'application/json' } }));
+  await meta.put(STATE, new Response(JSON.stringify(state), { headers: { 'Content-Type': 'application/json' } }));
   if (differChanged) {
     differChanged = false;
-    await cache.put(DIFFER, new Response(JSON.stringify(differ), { headers: { 'Content-Type': 'application/json' } }));
+    await meta.put(DIFFER, new Response(JSON.stringify(differ), { headers: { 'Content-Type': 'application/json' } }));
   }
 }
 
@@ -276,12 +283,17 @@ const cleanSig = () => {
 async function reconcile() {
   const t0 = now();
   reconciled = { at: Date.now(), ms: null, keys: 0, stale: 0, adopted: 0 };
-  cache = await caches.open(CACHE);
-  try { state = (await (await cache.match(STATE))?.json()) || {}; } catch { state = {}; }
+  meta = await caches.open(META_CACHE);
+  shards = await Promise.all(SHARD_NAMES.map((n) => caches.open(n)));
+  legacy = (await caches.has(LEGACY_CACHE)) ? await caches.open(LEGACY_CACHE) : null;
+  // the records are in META_CACHE; on the first load after the shards came, in the old single cache
+  const fromLegacy = !!legacy && !(await meta.match(STATE));
+  const record = async (key) => (fromLegacy ? legacy : meta).match(key);
+  try { state = (await (await record(STATE))?.json()) || {}; } catch { state = {}; }
   want = new Map(choose().map((f) => [f.p, f.h]));
-  try { differ = (await (await cache.match(DIFFER))?.json()) || {}; } catch { differ = {}; }
+  try { differ = (await (await record(DIFFER))?.json()) || {}; } catch { differ = {}; }
   if (!differ || typeof differ !== 'object') differ = {};
-  differChanged = false;
+  differChanged = fromLegacy;
   for (const [p, d] of Object.entries(differ)) {
     if (want.get(p) !== d?.h || !(Date.now() - d.at < DIFFER_RETRY_MS)) { delete differ[p]; differChanged = true; }
   }
@@ -289,38 +301,100 @@ async function reconcile() {
   reconciled.differ = Object.keys(differ).length;
   const sig = cleanSig();
   let clean = null;
-  try { clean = sig && (await (await cache.match(CLEAN))?.text()); } catch { /* scan */ }
+  try { clean = sig && (await (await meta.match(CLEAN))?.text()); } catch { /* scan */ }
   if (sig && clean === sig) {
     stale = [];
     reconciled = { ...reconciled, ms: now() - t0, skipped: true };
+    housekeep();
     return todo();
   }
   scanned = sig;
-  try { await cache.delete(CLEAN); } catch { /* ignore */ } // until this scan's stale entries are gone
-  const stateKey = new URL(STATE, location.origin).href, cleanKey = new URL(CLEAN, location.origin).href;
-  const differKey = new URL(DIFFER, location.origin).href;
+  try { await meta.delete(CLEAN); } catch { /* ignore */ } // until this scan's stale entries are gone
   const found = [];
-  let changed = false, keys = 0, adopted = 0;
-  for (const req of await cache.keys()) {
-    if (req.url === stateKey || req.url === cleanKey || req.url === differKey) continue;
-    keys++;
-    const key = keyOf(req);
-    let h = state[key];
-    if (!h) { // stored by the worker on demand (resource-worker.js): adopt it when its hash is the listed one
-      const stored = (await cache.match(req))?.headers.get('X-SP-Hash');
-      if (stored && want.get(key) === stored) { state[key] = h = stored; changed = true; adopted++; }
+  let changed = false, keys = 0, adopted = 0, refused = 0;
+  for (const c of shards) {
+    let reqs;
+    try { reqs = await c.keys(); } catch (err) { refused++; console.warn('[resources] keys', err); continue; } // its stale entries wait
+    for (const req of reqs) {
+      keys++;
+      const key = keyOf(req);
+      let h = state[key];
+      if (!h) { // stored by the worker on demand (resource-worker.js): adopt it when its hash is the listed one
+        const stored = (await c.match(req))?.headers.get('X-SP-Hash');
+        if (stored && want.get(key) === stored) { state[key] = h = stored; changed = true; adopted++; }
+      }
+      if (!h || want.get(key) !== h) found.push([c, req]);
     }
-    if (!h || want.get(key) !== h) found.push(req);
   }
+  if (refused) scanned = null; // a shard not walked: no CLEAN, the next load scans again
   for (const p of Object.keys(state)) if (want.get(p) !== state[p]) { delete state[p]; changed = true; }
   if (changed) await saveState();
   stale = found;
-  reconciled = { ...reconciled, ms: now() - t0, keys, stale: found.length, adopted };
-  cleanup();
+  reconciled = { ...reconciled, ms: now() - t0, keys, stale: found.length, adopted, ...(refused ? { refused } : {}) };
+  housekeep();
   return todo();
 }
 
 const inMatch = () => selectRoute(store.get()) === 'game';
+
+/** The background work after a reconcile, one at a time: the old single cache first (migrate), then the stale entries. */
+let housekeeping = false;
+async function housekeep() {
+  if (housekeeping) return;
+  housekeeping = true;
+  try { await migrate(); await cleanup(); } finally { housekeeping = false; }
+}
+
+/** The old single cache's files that are listed with their listed hash, moved into the shards; the rest dropped with it.
+ *  CLEAN_CHUNK at a time, never while a match is on screen (the worker serves from it meanwhile), then it is deleted. Its
+ *  keys where Chrome gives them; where it refuses them (the cache that is too large), the paths it can hold that the
+ *  page still wants — the list's and the record's —, one by one: whatever else it held goes with the cache. */
+let moved = 0, migrateLeft = 0;
+async function migrate() {
+  if (!legacy) return;
+  try {
+    let paths;
+    try { paths = (await legacy.keys()).map(keyOf); } catch { paths = [...new Set([...want.keys(), ...Object.keys(state)])]; }
+    const records = new Set([STATE, CLEAN, DIFFER]);
+    paths = paths.filter((p) => !records.has(p));
+    migrateLeft = paths.length;
+    let changed = false;
+    while (paths.length) {
+      if (inMatch()) { await sleep(HOLD_POLL_MS); continue; }
+      for (const p of paths.splice(0, CLEAN_CHUNK)) {
+        const w = want.get(p);
+        if (await moveLegacy(p, w)) { if (state[p] !== w) { state[p] = w; changed = true; } } // a listed file kept by the worker
+        else if (w && state[p] === w && !(await cacheOf(p).match(p))) { delete state[p]; changed = true; } // gone: download again
+        migrateLeft--;
+      }
+      await sleep(CLEAN_REST_MS);
+    }
+    if (changed) await saveState();
+    await caches.delete(LEGACY_CACHE);
+    legacy = null;
+  } catch (err) {
+    console.warn('[resources] migrate', err); // the rest is moved on the next visit
+  }
+}
+
+/** Move one path of the old single cache into its shard when it holds the listed hash `w` (true), and drop it there in
+ *  any case; false when the old cache has no copy with that hash. */
+async function moveLegacy(p, w) {
+  if (!legacy) return false;
+  const hit = await legacy.match(p);
+  if (!hit) return false;
+  const ok = !!w && hit.headers.get('X-SP-Hash') === w;
+  if (ok) {
+    const c = cacheOf(p);
+    if ((await c.match(p))?.headers.get('X-SP-Hash') !== w) await c.put(p, hit);
+    moved++;
+  }
+  await legacy.delete(p);
+  return ok;
+}
+
+/** Whether the cache holds the listed file `f` (stored by the worker on demand, or still in the old single cache). */
+const holds = async (f) => (await cacheOf(f.p).match(f.p))?.headers.get('X-SP-Hash') === f.h || moveLegacy(f.p, f.h);
 
 /** Delete the stale entries reconcile() listed, CLEAN_CHUNK at a time, never while a match is on screen. An entry the
  *  download or the worker replaced with the listed file since is kept (and adopted). */
@@ -332,18 +406,18 @@ async function cleanup() {
   try {
     while (stale.length) {
       if (inMatch()) { await sleep(HOLD_POLL_MS); continue; }
-      for (const req of stale.splice(0, CLEAN_CHUNK)) {
+      for (const [c, req] of stale.splice(0, CLEAN_CHUNK)) {
         const key = keyOf(req);
         const w = want.get(key);
         if (w && state[key] === w) continue;
-        if (w && (await cache.match(req))?.headers.get('X-SP-Hash') === w) { state[key] = w; adopted = true; continue; }
-        await cache.delete(req);
+        if (w && (await c.match(req))?.headers.get('X-SP-Hash') === w) { state[key] = w; adopted = true; continue; }
+        await c.delete(req);
         deleted++;
       }
       await sleep(CLEAN_REST_MS);
     }
     if (adopted) await saveState();
-    if (scanned) await cache.put(CLEAN, new Response(scanned));
+    if (scanned) await meta.put(CLEAN, new Response(scanned));
   } catch (err) {
     console.warn('[resources] cleanup', err); // what is left is listed again on the next visit
   } finally {
@@ -353,7 +427,7 @@ async function cleanup() {
 
 async function fetchOne(f) {
   // the worker may have stored it on demand since the list was made (the game needed it first): adopt, no download
-  if ((await cache.match(f.p))?.headers.get('X-SP-Hash') === f.h) { state[f.p] = f.h; return true; }
+  if (await holds(f)) { state[f.p] = f.h; return true; }
   let last = 'no source';
   const urls = sourcesOf(f);
   let differs = typeof f.u === 'string' && urls.length > 0; // every source answered, with other bytes
@@ -366,7 +440,7 @@ async function fetchOne(f) {
       const buf = await res.arrayBuffer();
       if (buf.byteLength !== f.s || (await sha256(buf)) !== f.h) { last = 'hash mismatch'; continue; }
       differs = false;
-      await cache.put(f.p, new Response(buf, { headers: { 'Content-Type': typeOf(f.p), 'Content-Length': String(buf.byteLength), 'X-SP-Hash': f.h } }));
+      await cacheOf(f.p).put(f.p, new Response(buf, { headers: { 'Content-Type': typeOf(f.p), 'Content-Length': String(buf.byteLength), 'X-SP-Hash': f.h } }));
       state[f.p] = f.h;
       return true;
     } catch (err) {
@@ -499,7 +573,7 @@ async function download(files = pending) {
   const storeMember = async (job, f, bytes) => {
     if (!resourceWanted(f, packs, chosen)) { job.left.delete(f.p); skip(f); return; }
     if ((await sha256(bytes)) !== f.h) { console.warn('[resources]', f.p, 'hash mismatch in', job.b.p); return; } // fetched as a file
-    await cache.put(f.p, new Response(bytes, { headers: { 'Content-Type': typeOf(f.p), 'Content-Length': String(bytes.byteLength), 'X-SP-Hash': f.h } }));
+    await cacheOf(f.p).put(f.p, new Response(bytes, { headers: { 'Content-Type': typeOf(f.p), 'Content-Length': String(bytes.byteLength), 'X-SP-Hash': f.h } }));
     state[f.p] = f.h;
     job.left.delete(f.p);
     bundleCounts.members++;
@@ -516,7 +590,7 @@ async function download(files = pending) {
         for (const f of [...job.left.values()]) {
           if (!resourceWanted(f, packs, chosen)) { job.left.delete(f.p); skip(f); }
           // the worker may have stored it on demand since the list was made: adopt, as fetchOne does
-          else if ((await cache.match(f.p))?.headers.get('X-SP-Hash') === f.h) { state[f.p] = f.h; job.left.delete(f.p); await settle(f, true); }
+          else if (await holds(f)) { state[f.p] = f.h; job.left.delete(f.p); await settle(f, true); }
         }
         if (!worth(job)) { release([job]); continue; }
         const end = await readBundle(job, (f, bytes) => storeMember(job, f, bytes));
@@ -579,9 +653,9 @@ export function postponeResources() {
   resStore.set({ phase: 'idle' });
 }
 
-/** The server has no list (feature turned off): drop the cache and the worker, so nothing old is ever served. */
+/** The server has no list (feature turned off): drop the caches and the worker, so nothing old is ever served. */
 async function switchOff() {
-  try { await caches.delete(CACHE); } catch { /* ignore */ }
+  for (const name of [...SHARD_NAMES, META_CACHE, LEGACY_CACHE]) { try { await caches.delete(name); } catch { /* ignore */ } }
   try { for (const r of await navigator.serviceWorker.getRegistrations()) if (r.active?.scriptURL?.endsWith('/resource-worker.js')) await r.unregister(); } catch { /* ignore */ }
 }
 
@@ -692,7 +766,7 @@ export function resourceStatus() {
     reconcile: reconciled && { ...reconciled },
     download: { phase: r.phase, done: r.done, total: r.total, failed: r.failed, queued: running ? r.total - r.done : pending.length,
       slowed: running ? (fieldLoading() ? 'field' : inMatch() ? 'match' : null) : null, bundles: { listed: bundles.length, ...bundleCounts } },
-    cleanup: { left: stale.length, deleted, held: stale.length > 0 && inMatch() },
+    cleanup: { left: stale.length, deleted, held: stale.length > 0 && inMatch(), ...(legacy ? { legacyLeft: migrateLeft } : {}), ...(moved ? { moved } : {}) },
     worker: worker && { ...worker },
   };
 }

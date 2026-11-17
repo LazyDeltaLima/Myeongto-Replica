@@ -25,6 +25,7 @@ import * as simPatch from '../server/sim/content/local-patch.js';
 import * as bossesMod from '../server/sim/content/bosses.js';
 import { BOSS_HIT_LIMIT } from '../shared/constants.js';
 import { COLS } from '../server/sim/constants.js';
+import { cacheStorageOver } from './helpers/fake-cache-storage.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mod = (rel) => import(pathToFileURL(path.join(ROOT, 'public', 'js', rel)).href);
@@ -390,7 +391,7 @@ describe('client helpers', () => {
       put: async (r, res) => { if (urlOf(r) === origin + '/__sp_res_state__') stateJson = await res.json(); },
     };
     const list = { files: [{ p: '/assets/a.json', s: 1, h: h('5') }, { p: '/assets/b.json', s: 1, h: h('3') }, { p: '/assets/keep.png', s: 1, h: h('4') }] };
-    const fakeCaches = { open: async () => cache, delete: async () => true };
+    const fakeCaches = cacheStorageOver(cache);
     const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch,
       navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
     const before = store.get();
@@ -433,7 +434,7 @@ describe('client helpers', () => {
     let clean = null, keyScans = 0;
     const urlOf = (r) => (typeof r === 'string' ? origin + r : r.url);
     const cache = {
-      keys: async () => { keyScans++; return [...entries.keys(), ...(clean ? [origin + '/__sp_res_clean__'] : [])].map((url) => ({ url })); },
+      keys: async () => [...entries.keys(), ...(clean ? [origin + '/__sp_res_clean__'] : [])].map((url) => ({ url })),
       match: async (r) => {
         const u = urlOf(r);
         if (u === origin + '/__sp_res_state__') return new Response(JSON.stringify(stateJson));
@@ -448,7 +449,7 @@ describe('client helpers', () => {
       },
     };
     let list = { version: 'v1', files: [{ p: '/assets/a.json', s: 1, h: h('1') }] };
-    const fakeCaches = { open: async () => cache, delete: async () => true };
+    const fakeCaches = cacheStorageOver(cache, { onKeys: (name) => { if (name === 'sp-res-0') keyScans++; } }); // one scan = every shard once
     const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch,
       navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
     const before = store.get();
@@ -516,7 +517,7 @@ describe('client helpers', () => {
       { p: '/assets/local.json', s: 3, h: sha('old') },
     ] };
     const asked = [];
-    const fakeCaches = { open: async () => cache, delete: async () => true };
+    const fakeCaches = cacheStorageOver(cache);
     const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch,
       navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator'), warn: console.warn };
     const before = store.get();
