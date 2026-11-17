@@ -954,7 +954,7 @@
   소환물 11종(望 棋子 p_imp_stwctptkin, 维什戴尔 wward, 诅咒娃娃 등). 卫戍协议에는 「말 놓기」 전용 뱅크가 없다(`act1vautochess` SHOP_DROP=b_char_set은 다른 모드)
   → 정비 단계도 유닛 탄생 소리를 쓴다 — 공식 클라로 확인(2026-10-10): `AutoChessDummyManager._PlayAudioWhenCharacterPlaced`가 말 종류
   (`AutoChessBattleUtil.GetChessType`)가 MAGIC이 아니면 `PlayAudioSignal("ON_UNIT_BORN", unit)`, MAGIC이면 손으로 `ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND` /
-  전장으로 `…_MAGIC_PLACE_BATTLE`. 공식 표(`activity_table` `itemType`) 대조(2026-11-07): 우리 장비 112개는 EQUIP(→ ON_UNIT_BORN), MAGIC은 '신비한 고객' 등 3개(`chess_item_6_0*_m`)뿐이다. EQUIP 구매는 상점 소리 그대로인데 파일이 `b_char_tokenset`으로 같다. MAGIC을 전장으로 놓는 `…_MAGIC_PLACE_BATTLE`은 아직 안 이었다.
+  전장으로 `…_MAGIC_PLACE_BATTLE`. 공식 표(`activity_table` `itemType`) 대조(2026-11-07): 우리 장비 112개는 EQUIP(→ ON_UNIT_BORN), MAGIC은 '신비한 고객' 등 3개(`chess_item_6_0*_m`)뿐이다. EQUIP 구매는 상점 소리 그대로인데 파일이 `b_char_tokenset`으로 같다. MAGIC('신비한 고객'·두루마리·교편)을 전장으로 놓는 `…_MAGIC_PLACE_BATTLE`은 처음 가져올 때부터 이어져 있었다(2026-11-17 다시 봄, 11-07 대조가 이 길을 못 봄): 서버가 `g.art`를 받으면 `ui/gameActions.js` `SUCCESS_SFX`의 `artPlace` → `tools/assets/audio.mjs` `UI_SFX.artPlace`(그 뱅크, `act1autochess_a_bat_usmgbf`). 끌어 놓기와 방향 휠 확정 모두 `actions.art`를 거치고, 거절된 사용은 오류음만. 재발 방지: `test/local-patch-audio.test.js` 「an Art (MAGIC …) … MAGIC_PLACE_BATTLE once」. MAGIC이 손(벤치·장비 칸)에 생길 때의 `…_MAGIC_PLACE_HAND`는 아직 안 이었다(정비 낙하 `prepDeployed`가 아이템을 빼므로 무음, 남은 일).
 - 고친 것: 소리는 정비 화면의 **낙하 연출과 같은 곳**에서 난다 — `render/app.js` setPrep이 내 보드·벤치 상태를 이전과 비교해 낙하(onDeploy)를 틀 때
   `pieceDeploy` 이벤트(`prepDeployed`) → `screens/game.js` → `audio.prepDeploy` → `playDeploySfx`(전투 'deploy'와 같은 함수: 전용 소리 → 공용, 공식 믹스).
   서버가 넣어 주는 보상(정예화 보상·결산 보상)도 상태 비교라 잡힌다. 경우별:

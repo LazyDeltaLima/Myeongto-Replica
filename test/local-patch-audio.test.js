@@ -361,6 +361,30 @@ describe('deploy sounds on every placement (maintainer report 2026-10-07, audio.
     assert.ok(a.played.every((p, i) => close(p.volume, GROUP_GAIN.Battle_UI_Important * (i === 1 ? 0.75 : 1))), 'Battle_UI_Important (× 余\'s bank volume 0.75)');
   });
 
+  test('an Art (MAGIC: 神秘顾客 / 画卷 / 教鞭) the server accepts on the field sounds ON_ACT1AUTOCHESS_MAGIC_PLACE_BATTLE once; a refused one only the error', async () => {
+    const why = 'docs/rules/audio.md 「배치 효과음」: the client plays …_MAGIC_PLACE_BATTLE when a MAGIC piece is placed to the battle '
+      + '(_PlayAudioWhenCharacterPlaced); here g.art\'s success sound (ui/gameActions.js SUCCESS_SFX → sfx.ui.artPlace)';
+    const { UI_SFX } = await import('../tools/assets/audio.mjs');
+    assert.equal(UI_SFX.artPlace?.bank, 'battle.ON_ACT1AUTOCHESS_MAGIC_PLACE_BATTLE', why);
+    assert.equal(file(manifest.audio.sfx.ui.artPlace), 'act1autochess_a_bat_usmgbf.mp3', `the manifest's file of that bank — ${why}`);
+    const { net } = await import('../public/js/net.js');
+    const { actions } = await import('../public/js/ui/gameActions.js');
+    const { audio } = await import('../public/js/audio.js');
+    const played = [];
+    const orig = { request: net.request, sfx: audio.sfx };
+    audio.sfx = (name) => { played.push(name); };
+    try {
+      net.request = async () => ({});
+      assert.equal(await actions.art(9, 11, 6, 'LEFT'), true);
+      assert.equal(await actions.art(9, 11, 6), true, 'the drag path without the direction wheel');
+      assert.deepEqual(played, ['artPlace', 'artPlace'], `one per use, nothing else — ${why}`);
+      played.length = 0;
+      net.request = async () => { throw Object.assign(new Error('art limit'), { code: 'BAD_TARGET' }); };
+      assert.equal(await actions.art(9, 11, 6), false);
+      assert.deepEqual(played, ['error'], 'a refused Art is not placed: no placement sound');
+    } finally { net.request = orig.request; audio.sfx = orig.sfx; }
+  });
+
   test('battle: a deploy sounds once — not again right after the same model\'s prep drop-in; a 跟子 lands with its projectile birth, not a stone\'s', () => {
     const a = manager();
     a.handleBattleEvents([['spawn', { id: 7, spine: 'char_2027_wang', defId: 'chess_diy_wang_6_a', kind: 'op', side: 'ally' }], ['deploy', 7]]);
