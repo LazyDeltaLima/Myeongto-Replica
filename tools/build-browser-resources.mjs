@@ -6,10 +6,11 @@
 // and the skin models' and pictures' entries of local/spine/skin/models.json and art.json (below):
 //   { version, bytes, packs: { <pack>: [path prefix…] }, files: [{ p: '/assets/…' | '/img/emotes/…', s: bytes, h: sha256 hex, u?: upstream URL, r?: 'lo' | 'hi' }],
 //     bundles: [{ p: '/assets/bundles/<kind>-<group>-<hash12>.pack', s: bytes, m: [index into files…] }] }
-// `u` is the URL tools/fetch-assets.mjs downloaded the file from (.cache/assets-ledger.json). The browser fetches those
-// from jsDelivr / GitHub raw and keeps them only when size + hash match this file; a file the pipeline rewrote (spine
-// atlases, size changed) or made locally (assets/local: 3D board, emotes, UI sprites) has no `u` and comes from this
-// server. Nothing is downloaded here.
+// `u` is the URL tools/fetch-assets.mjs downloaded the file from (.cache/assets-ledger.json) when it is a jsDelivr /
+// GitHub raw URL. The browser fetches those from jsDelivr / GitHub raw and keeps them only when size + hash match this
+// file; a file the pipeline rewrote (spine atlases, size changed), made locally (assets/local: 3D board, emotes, UI
+// sprites) or downloaded from elsewhere has no `u` and comes from this server. Nothing is downloaded here. A list entry
+// the page would refuse (public/js/resources.js validEntry) stops the run.
 // `r` marks the two copies of a 立绘 (tools/local-extract/chararts_extract.py save_illust, the operator art and the skin
 // art): a WebP `<dir>/full/<name>` (the original resolution) is 'hi' and the listed `<dir>/<name>` (the long side 1024)
 // 'lo'; a browser pre-downloads only its device's copy (public/js/illust-res.js, maintainer decision 2026-11-16).
@@ -28,6 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { mirrorUrl } from './assets/sources.mjs';
 import { planBundles, writeBundles } from './assets/resource-bundles.mjs';
 import { BUNDLE_DIR } from '../server/http/files.js';
+import { sourcesOf, validEntry } from '../public/js/resources.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -90,7 +92,10 @@ for await (const abs of walk(ASSETS)) {
   const buf = await readFile(abs);
   const entry = { p: '/assets/' + rel, s: buf.length, h: createHash('sha256').update(buf).digest('hex') };
   const led = ledger[rel];
-  if (led && typeof led.url === 'string' && led.bytes === buf.length && !rel.endsWith('.atlas')) {
+  // only a URL the page can fetch (sourcesOf: jsDelivr / GitHub raw): the page drops an entry whose `u` it has no source
+  // for, so a file fetch-assets took from elsewhere (a `data:` URL, web.hycdn.cn: the statistics page's pictures) was
+  // never pre-downloaded; it is on disk, so this server sends it
+  if (led && typeof led.url === 'string' && led.bytes === buf.length && !rel.endsWith('.atlas') && sourcesOf({ p: entry.p, u: led.url }).length > 0) {
     entry.u = led.url;
     upstreamBytes += buf.length;
   }
@@ -124,6 +129,9 @@ for (const f of files) {
   if (lo) { f.r = 'hi'; lo.r = 'lo'; }
 }
 files.sort((a, b) => (a.p < b.p ? -1 : a.p > b.p ? 1 : 0));
+// the page fetches only the entries it takes: one it would drop is never pre-downloaded, so the list must not name it
+const refused = files.filter((f) => !validEntry(f));
+if (refused.length) throw new Error(`${refused.length} list entries the page would drop (public/js/resources.js validEntry; docs/rules/render.md 「\`u\`는 페이지가 받을 수 있는 주소일 때만」), e.g. ${JSON.stringify(refused[0]).slice(0, 200)}`);
 const bytes = files.reduce((n, f) => n + f.s, 0);
 const version = createHash('sha256').update(JSON.stringify(PACKS) + '\n' + files.map((f) => f.p + ':' + f.h).join('\n')).digest('hex').slice(0, 16);
 // the bundles are written before the list that names them; `version` leaves them out (the cache holds the same files)
