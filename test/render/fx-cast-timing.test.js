@@ -63,7 +63,7 @@ test('fxgame: swing → ON_CAST_START effects, atk → ON_SPELL_ON ones; loops e
   assert.match(SRC, /const scale = windup \/ hit;\n\s+return \{ len: dur \* scale, speed: 1 \/ scale \};/);
   // only the loop ones are cleared (OnCastFinish / ON_DETACHED: `!_oneshot`)
   assert.match(SRC, /if \(l\.tag === 'castLoop' && l\.owner === id && !l\.inst\.stopping\) l\.inst\.stop\(\);/);
-  assert.match(SRC, /endCast\(v\); v\._fxFirstDone = null; v\._fxFoe = null;/);
+  assert.match(SRC, /endCast\(v\); v\._fxFoe = null;/);   // (its first attack is the sim's swing's since 2026-11-17: test/render/first-attack-fx.test.js)
   // the first attack's delay ÷ the playback speed
   assert.match(SRC, /const delay = c\.first && opt\?\.d > 0 \? opt\.d \/ c\.speed : 0;/);
 });

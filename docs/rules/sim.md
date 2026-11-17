@@ -1240,7 +1240,11 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   `CombatState.OnEnter`가 firstAttack 참으로, `_NextAttackOrExit`·`_NextCombatOrExit(false)`는 거짓으로 시전(`AbilityStandard.set_firstAttack`).
   시뮬(`ai.js` `attackTiming`·`endSpell`, 유닛 `atkSpell`): 공격(1)·저지(2) 상태가 바뀐 첫 휘두름, 또는 대상 없는 공격 판정이 지난 휘두름 끝 + `_escapeTime` 뒤에 온 뒤의
   첫 휘두름, 기절·缴械·공격 불가·Skill 상태·퇴각 뒤의 첫 휘두름. 'swing' 이벤트 8번째 칸 1 = begin을 붙인 휘두름(렌더가 begin 클립을 앞에 붙임, `render.md`
-  「Spine 클립 커버리지」 C). 데이터 `attackAnim.begin`(begin 클립 초 — 키가 골격에 없으면 렌더 역할의 begin: 텍사스 `Attack_Start`)·`esc`.
+  「Spine 클립 커버리지」 C), 2 = begin 없는 첫 공격(2026-11-17, 렌더가 시전 이펙트의 `_delayIfFirstAttack`에 씀 — `fx.md` 「시전 이펙트 시점·붙는 대상」 ①).
+  알려진 차이(2026-11-17 공식 클라에서 확인): `CombatState.OnEnter`는 전투 능력이 `isReady`일 때만 그 자리에서 firstAttack 참으로 치고, 아니면 아무것도 안 해
+  다음 공격이 `OnTick`의 `_NextCombatOrExit(false)` — 쿨다운 중에 저지 상태로 들어간 첫 휘두름은 첫 공격이 아니다(IDLE에서 COMBAT으로는 준비와 상관없이 넘어감;
+  `AttackState` 쪽은 시전이 실패하면 IDLE로 돌아가 다시 들어오므로 늘 참). 시뮬은 상태가 바뀐 첫 휘두름을 모두 첫 공격으로 센다 → `bundles/` sim-Z 줄
+  「저지 상태 첫 공격의 준비 조건」. 데이터 `attackAnim.begin`(begin 클립 초 — 키가 골격에 없으면 렌더 역할의 begin: 텍사스 `Attack_Start`)·`esc`.
   해당 모드(EN 클라 전수 + CN 켈시 에스페란타): 텍사스·엑시아 더 뉴 커버넌트·실버애쉬 더 레인프로스트·리스캄·백파이프·인포서·르무엔·산크타 믹사파라토·
   스노우헌터·비질·인사이더·켈시 에스페란타 Default, 스카디 Default·S2·S3, 르무엔 S2, 送葬人 S2 — begin 0.033~0.667 s. 같은 컴포넌트의 상한으로 바뀐 것:
   실버애쉬 더 레인프로스트 Default 1, 리스캄 Default 2, 르무엔 S2 1(공격 능력의 −1이던 것), 백파이프·비질 Default·비질 S3 −1(1이던 것).

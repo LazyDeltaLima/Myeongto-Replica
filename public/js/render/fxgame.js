@@ -2881,8 +2881,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     return tplIdx.get(key.toLowerCase()) || null;
   }
-  /** The middle of the battle field (a screen-position effect) [추정: the client's screen position is the screen centre]. */
+  /**
+   * Where a screen-position effect plays (2026-11-17, official client: `Nodes.CreateEffectAtScreenPos` takes the screen point
+   * Screen.width × `_screenWidthRatio`, Screen.height × `_screenheightRatio` — 0.5 / 0.5 in the one autochess template that
+   * has the node, 谢拉格's `map_snow_left_2_right` — to the map with `Map.GetMapPosByScreenPos` and makes the effect there at
+   * height 0, with no source): the ground under the camera's screen centre; before a frame gave the camera, the field's middle.
+   */
   function fieldMiddle() {
+    const cam = camRef;
+    if (cam && typeof cam.unproject === 'function' && cam.cx > 0 && cam.cy > 0) {
+      const g = cam.unproject(cam.cx, cam.cy, 0);
+      if (g && Number.isFinite(g.x) && Number.isFinite(g.y)) return { x: g.x, y: g.y, z: 0 };
+    }
     let rect = null;
     try { rect = fieldRect(); } catch { /* none */ }
     if (rect && [rect.r0, rect.r1, rect.c0, rect.c1].every(Number.isFinite)) return { x: (rect.c0 + rect.c1) / 2, y: (rect.r0 + rect.r1) / 2, z: 0 };
@@ -2893,7 +2903,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function tplFx(e, views) {
     const r = tplPrefab(e[2]);
     if (!r) return;
-    if (e[1] == null) { // on the screen: over the field
+    if (e[1] == null) { // on the screen: where its centre meets the ground (fieldMiddle)
       const at = fieldMiddle();
       if (at) spawn(r[0], r[1], at, { owner: null, buff: false, tag: 'tplfx' }, { over: true });
       return;
@@ -4303,7 +4313,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   function copyMode(v, o, views) {
     if (!v || (o.mode !== 'Melee' && o.mode !== 'Range')) return;
-    if (v._fxTmode !== o.mode) { endCast(v); v._fxFirstDone = null; }
+    if (v._fxTmode !== o.mode) endCast(v);
     v._fxTmode = o.mode;
     v._fxTowner = views.get(o.by) ?? null;
   }
@@ -4517,13 +4527,6 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return { len: dur * scale, speed: 1 / scale };
     } catch { return null; }
   }
-  /** Whether this is the first attack of mode `mode` since it was attached (deploy / skill switch) [추정: the client's isFirstAttack]. */
-  function firstAttack(v, mode) {
-    const done = (v._fxFirstDone ||= new Set());
-    if (done.has(mode)) return false;
-    done.add(mode);
-    return true;
-  }
   /**
    * 2026-11-07, official client: a skill ability's ChannelingEffectEmitter (modes.json `skills[i].channel`, 星熊 S3
    * hsguma_skill_03_start). `OnEvent` creates `_effect` on the caster at ON_SPELL_ON of the first attack, also with no target
@@ -4565,7 +4568,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!name || v._fxSub === name) return;
     if (!isOwnSubMode(bind.modes, skillModeIndex(bind.modes, skillIdx(v), bind.skillMode), name)) return;
     const before = activation(v).loops;
-    endCast(v); v._fxFirstDone = null;
+    endCast(v);
     v._fxSub = name;
     const added = activation(v).loops.filter((n) => !before.includes(n));
     if (added.length) play(v, 'skillBuff', skillIdx(v), { buff: true, names: added });
@@ -4585,15 +4588,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /** The phase ('swing' / 'strike') of mode `mode`'s cast effect `n`; an older modes.json without timings: the strike. */
   const phaseOf = (v, mode, n) => (bindOf(v)?.castOpt ? castPhase(castTiming(bindOf(v), mode, n)) : 'strike');
-  /** A new cast (swing) of `v`: its record { t, hitAt, end, speed, mode, fired, skip }. */
-  function beginCast(v, windup, mode) {
+  /**
+   * A new cast (swing) of `v`: its record { t, hitAt, end, speed, mode, fired, skip, first }. `first`: a first attack — the
+   * client's `firstAttack` of the cast (`EffectOptions.isFirstAttack` reads the ability's), true only for the attack that
+   * `AttackState.OnEnter` / `CombatState.OnEnter` start: the sim's swing says it (8th field 1 / 2, ai.js updateAlly). A cast
+   * with no swing (an older server, an attack the sim did not announce) and an enemy's (no enemy cast effect has
+   * `_delayIfFirstAttack`) are none.
+   */
+  function beginCast(v, windup, mode, first = false) {
     endCast(v);
     const w = Math.max(0, Number(windup) || 0);
     const span = castSpan(v, w);
     const sid = ownerOf(v);
     const skip = clockS - (lastAttackFx.get(sid) ?? -9) < ATTACK_GAP_S;
     if (!skip) lastAttackFx.set(sid, clockS);
-    const c = { t: clockS, hitAt: clockS + w, end: span ? clockS + span.len : null, speed: span?.speed || 1, mode, fired: new Set(), struckAt: null, skip, first: firstAttack(v, mode) };
+    const c = { t: clockS, hitAt: clockS + w, end: span ? clockS + span.len : null, speed: span?.speed || 1, mode, fired: new Set(), struckAt: null, skip, first: !!first };
     v._fxCast = c;
     // 2026-10-24 (묶음 S7): its EndAnimEffectEmitter's effects (fxmap.js CAST_END) a fixed frame after the cast's end, unless
     // a new cast began (the client's `isCasting`) or the cast was cut
@@ -4865,11 +4874,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return { names: kit ? names.filter((n) => !kit.has(n)) : names, split: false };
   }
   /** A swing starts: the cast effects of ON_CAST_START (the mode's, or the name mapping's attack start without bindings). */
-  function swingFx(src, windup, views, kind = null, sig = null, faceId = null) {
+  function swingFx(src, windup, views, kind = null, sig = null, faceId = null, first = false) {
     if (!isOp(src) || !bundleOf(src)) return;
     skillByFlag(src, views);
     const mode = attackModeOf(src);   // 2026-11-16: a mode-less skill's attack swings in the Default mode
-    const c = beginCast(src, windup, mode);
+    const c = beginCast(src, windup, mode, first);
     const face = faceId != null ? views.get(faceId) || null : null;   // the main target ('D' / 'F': none)
     c.sig = sig;
     c.group = castGroup(src, mode, sig, face);
@@ -6956,7 +6965,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (mi !== v._fxEMode) {
         const prev = v._fxEMode;
         v._fxEMode = mi;
-        endCast(v); v._fxFirstDone = null;
+        endCast(v);
         try { audio()?.enemyMode?.(ownerOf(v), v.info.defId, mi, prev); } catch { /* the sound never breaks the view */ }
         // 2026-10-31: a rebirth the sim holds no 重生 form for (守墓石像: straight into the statue) — its ability starts and
         // ends as the mode switches to the one the rebirth leads to
@@ -7516,7 +7525,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (e[0] === 'die') { gone.add(e[1]); onField.delete(e[1]); }
         else if (e[0] === 'deploy') { gone.delete(e[1]); opDead.delete(e[1]); if (e[2] !== 1) deployed.set(e[1], clockS);   // (e[2] 1: a flight's landing, no deploy effect)
           if (onField.has(e[1])) moved.add(e[1]); else { onField.add(e[1]); moved.delete(e[1]); }
-          const v = views?.get?.(e[1]); if (v) { v._fxFirstDone = null; v._fxCast = null; if (e[3] === 'back') v._fxReturn = true; } } // 2026-10-10: its first attack again; 2026-10-11: its deploy effect (flushDeploys); 2026-11-04: a 【返回】 (the sim's deploy key 'back': returnMode)
+          const v = views?.get?.(e[1]); if (v) { v._fxCast = null; if (e[3] === 'back') v._fxReturn = true; } } // 2026-10-11: its deploy effect (flushDeploys); 2026-11-04: a 【返回】 (the sim's deploy key 'back': returnMode)
         else if (e[0] === 'spawn') { gone.delete(e[1]?.id ?? e[1]); if (e[1]?.side === 'enemy' && e[1].id != null) eborn.set(e[1].id, clockS); } // 2026-10-10: its start effect (flushEnemyBirths)
         else if (e[0] === 'fx' && e[1] === 'summon' && e[4]) gone.delete(e[4].id);
         // local patch: a stone spawned (its 'summon' fx of the same moment, if any, takes it off — stoneFx)
@@ -7539,8 +7548,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (!e[2] && e[3] !== 'flag') v._fxSkillOffT = clockS;
           if (e[2] && v._fxSkillFlag && e[3] !== 'flag') { v._fxSkillFlag = false; return; } // already started from its flag (skillByFlag)
           // 2026-10-10: the mode switch detaches the old mode's abilities (ON_DETACHED ends their loop cast
-          // effects) and attaches the new one's (its first attack again: `_delayIfFirstAttack`)
-          endCast(v); v._fxFirstDone = null; v._fxFoe = null;
+          // effects) and attaches the new one's
+          endCast(v); v._fxFoe = null;
           v._fxShot = e[2] ? { t: null } : null; // 2026-10-16: its shot, not taken yet (takeShot)
           if (e[2]) {
             v._fxSkillOn = true;
@@ -7646,8 +7655,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const src = views.get(e[1]);
           if (efoe(src)) { if (eOn(src) && !src._fxESkill?.inPlace) eswingFx(src, Number(e[2]) || 0, e[3]); return; }
           if (src) src._fxCombat = Number(e[6]) === 1;   // 2026-10-21: at an enemy it blocks (combatEffects, altGroup)
-          // (2026-10-21) the 9th field: a talent ability cast in place of the attack; the 6th: its target, when it turns to it
-          if (src) swingFx(src, Number(e[2]) || 0, views, e[3], typeof e[8] === 'string' && e[8] ? e[8] : null, typeof e[5] === 'number' ? e[5] : null);
+          // (2026-10-21) the 9th field: a talent ability cast in place of the attack; the 6th: its target, when it turns to it; the 8th: a first attack (1 / 2, 2026-11-17: beginCast)
+          if (src) swingFx(src, Number(e[2]) || 0, views, e[3], typeof e[8] === 'string' && e[8] ? e[8] : null, typeof e[5] === 'number' ? e[5] : null, e[7] === 1 || e[7] === 2);
           if (src) chargeSwing(src);   // 2026-11-06: 维伊's held energies as a real attack starts
           return;
         }

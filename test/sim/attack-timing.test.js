@@ -153,7 +153,7 @@ test('the swing names its main target — an enemy it blocks behind it too; no t
   done(h);
 });
 
-test('an ability that faces its deploy direction (_faceToDefault) swings with \'D\', one that turns nowhere with no 6th field', () => {
+test('an ability that faces its deploy direction (_faceToDefault) swings with \'D\', one that turns nowhere with no face (6th field absent or null)', () => {
   for (const [face, want] of [[2, 'D'], [0, undefined]]) {
     const op = { ...chessRec({ id: 't_op', stats: { atk: 100, bat: BAT }, skill: null, rangeGrid: [[0, 0], [0, 1], [0, 2]] }),
       attackAnim: { base: { clip: 'Attack', dur: 1, hit: HIT, max: 1, face }, skills: [] } };
@@ -165,7 +165,7 @@ test('an ability that faces its deploy direction (_faceToDefault) swings with \'
     const u = h.unit('t_op');
     h.run(0.5);
     const sw = h.eventsOf('swing').filter((e) => e[1] === u.id);
-    assert.equal(sw[0][5], want, `face ${face}`);
+    assert.equal(sw[0][5] ?? undefined, want, `face ${face}`);   // (a first attack fills the fields before its 8th: null)
     done(h);
   }
 });

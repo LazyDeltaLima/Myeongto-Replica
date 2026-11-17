@@ -196,7 +196,8 @@ export function updateAlly(b, u, dt) {
   const combat = attackRecordOf(u)?.combat ? (u.atkCombat ? 1 : 0) : targets[0] && u.blocking?.includes(targets[0]) ? 1 : 0;
   // the first swing since the unit entered its attack (1) or combat (2) state (attackTiming `first`)
   const state = combat ? 2 : 1;
-  const t = attackTiming(u, TIMING, u.atkSpell !== state, prof._fortressMelee === false);
+  const first = u.atkSpell !== state;
+  const t = attackTiming(u, TIMING, first, prof._fortressMelee === false);
   u.atkSpell = state;
   u.atkMode = attackModeOf(u);   // (a skill cast at this check switched it: the cooldown is this mode's)
   u.atkSpellExit = b.time + t.action + (attackClipOf(u)?.esc ?? 0);
@@ -204,10 +205,12 @@ export function updateAlly(b, u, dt) {
   const swingEv = ['swing', u.id, roundMs(t.strike), prof._fortressMelee ? 'none' : (prof.projectile || 'none')];
   const base = sk && sk.active && sk.spec?.baseClip ? 1 : 0;   // the Default clip while the skill is on (attackClipOf)
   const face = swingFace(u, targets);
-  if (face != null) { swingEv.push(base, face); u.faced = true; u.faceTgt = targets[0] ?? null; } else if (base || combat || t.begun) swingEv.push(base);
-  if (combat || t.begun) { if (swingEv.length < 6) swingEv.push(null); swingEv.push(combat); }
-  // the swing opens on its first-attack begin clip, inside the wind-up (render/spine.js swing) — the 8th field, 1
-  if (t.begun) swingEv.push(1);
+  // the 8th field: a first attack (the client's `firstAttack` of this cast, which its cast effects' `_delayIfFirstAttack`
+  // reads — render/fxgame.js beginCast) — 1 when it opens on its begin clip, inside the wind-up (render/spine.js swing), 2 without one
+  const fa = first ? (t.begun ? 1 : 2) : 0;
+  if (face != null) { swingEv.push(base, face); u.faced = true; u.faceTgt = targets[0] ?? null; } else if (base || combat || fa) swingEv.push(base);
+  if (combat || fa) { if (swingEv.length < 6) swingEv.push(null); swingEv.push(combat); }
+  if (fa) swingEv.push(fa);
   // a talent ability the client casts instead of this attack (a mode talent with `_isModeTalent` and `_probKey`: 寒芒克洛丝's
   // 中的 arrow) is chosen as the swing starts: the hook 'swing' sets `signal` — the 9th field, carried by its 'atk' events
   // and its hits' damage (`dmg.signal`)
@@ -217,7 +220,7 @@ export function updateAlly(b, u, dt) {
     b.emit('swing', c);
     if (typeof c.signal === 'string' && c.signal) {
       signal = c.signal;
-      const pad = [base, null, combat, t.begun ? 1 : 0];
+      const pad = [base, null, combat, fa];
       while (swingEv.length < 8) swingEv.push(pad[swingEv.length - 4]);
       swingEv.push(signal);
     }

@@ -806,7 +806,8 @@
   아레나·실제 솔로 판 S3 재확인(오류 없음, 범위 시작 착지 검 9 → 5).
 - **처음부터 꺼진 노드** (65bf7da3, 관리자 제보 2026-10-08 — 시험 적용): 트랙 없이 처음부터 꺼진 노드 아래 파티클·꼬리(166 프리팹 51 번들, 파티클 455·꼬리 61)를
   이제 재생하지 않는다(메시는 원래 숨김). 근거: EN 클라이언트 번들 검사(비공개 조사 기록) — 164 프리팹은 그 노드를 켜는 트랙도
-  가리키는 컴포넌트도 없음, 1개는 `_inactiveOnFinish`(끝날 때 끄는 목록)만, 1개는 트랙(위). (2026-10-11 공식 클라 확인: Effect/ParticleEffect가 이름으로 찾는 자식은 상수 `body`·`rotation_y`·`rotation_z`·`static_offset`·`flip_x`뿐 — 이름으로 켜는 코드는 없다. 늦게 켜는 것은 `FxDelay`(2026-10-11 적용 — 그 가지만 늦게 켬), `FxLODSetting._disableObjects`는 저사양에서 끈다. 처음부터 꺼진 노드 가운데 FxDelay가 붙은 것은 대조 안 함 [확인 필요].)
+  가리키는 컴포넌트도 없음, 1개는 `_inactiveOnFinish`(끝날 때 끄는 목록)만, 1개는 트랙(위). (2026-10-11 공식 클라 확인: Effect/ParticleEffect가 이름으로 찾는 자식은 상수 `body`·`rotation_y`·`rotation_z`·`static_offset`·`flip_x`뿐 — 이름으로 켜는 코드는 없다. 늦게 켜는 것은 `FxDelay`(2026-10-11 적용 — 그 가지만 늦게 켬), `FxLODSetting._disableObjects`는 저사양에서 끈다. 처음부터 꺼진 노드 가운데 FxDelay가 붙은 것: 2026-11-17 추출된 프리팹 5,015개를 훑어 꺼진 노드(제 자신이나 조상)에 가지 지연이 붙은 것은 하나 —
+  `dminon_attack_range_01`의 `Knife_scale (1)`(루트 `_subFXDelayConfigs` 0.1초, 조상이 꺼짐, 켜는 트랙 없음) — 라 공식도 우리도 안 보인다. 제 노드가 꺼진 FxDelay는 0개.)
   표본 아르케토 S3: `archet_skill_03_start`의 꺼진 `smoke`가 대상 위에 큰 연기를 그렸다 — 같은 시스템이 `archet_skill_03_start_01`에 켜진 채 뒤쪽(0.65, 0.63)에
   있고 관리자가 본 연기가 그것(그대로 남음). 픽셀 비교 117/1983 변화(일부는 난수 순서만), 아레나 아르케토 S3 전후.
   - **최상위 노드는 예외 — 늘 켜진 것으로 본다** (2026-11-16, 관리자 제보: 에이야퍄들라 `char_180_amgoat` 기본 공격 착탄 `amgoat_attack_01_hit`이 안 보임):
@@ -835,7 +836,13 @@
   이미 `fxGame.onEvent`로 온다, 다른 호출자용 `onSwing(view, windup, kind)`도 있음). ON_SPELL_ON·ON_SPELL_END 시작은 'atk'에서(`strikeFx`). 루프형의 끝:
   ON_CAST_END·ON_ATTACK_FINISH = 시전 끝 = 휘두름 + windup × 클립 길이 ÷ OnAttack 프레임(시전 길이 = 배율 × 클립 길이, `AbstractAnimatedAbility.UpdatePlaybackSpeed`
   — Spine 액터의 공격 클립에서 계산, 못 구하면 프리팹 길이), ON_SPELL_END ≈ 타격; 다음 휘두름·스킬 켜짐/꺼짐(모드 분리)·죽음에도 끔(루프형만, tag `castLoop`).
-  첫 공격 지연: 재생 속도 = OnAttack 프레임 ÷ windup. 「첫 공격」 = 배치·모드 전환 뒤 그 모드의 첫 휘두름 [추정: 클라 `isFirstAttack`을 다시 세는 때는 안 읽음].
+  첫 공격 지연: 재생 속도 = OnAttack 프레임 ÷ windup. 「첫 공격」(2026-11-17 공식 클라에서 확인): `EffectOptions.isFirstAttack`은 능력의 `firstAttack`을
+  읽고, 그 값은 `CastToTarget`에 넘어온 것 — 참은 `AttackState.OnEnter`·`CombatState.OnEnter`가 시작하는 공격뿐이고(`_NextAttackOrExit`·`OnTick`·
+  공격 끝 콜백이 시작하는 다음 공격은 거짓) 유닛이 대기(IDLE)로 돌아갔다(대상 없이 `_escapeTime`이 지남·기절 같은 이상 상태) 다시 들어오면 또 참.
+  모드 전환·배치는 스스로 세지 않는다. 시뮬이 같은 상태 기계로 센 값(`ai.js` `atkSpell`, 「첫 공격 begin」)을 휘두름 이벤트 여덟째 칸(1 = begin
+  클립과 함께, 2 = 없이)으로 보내고 `fxgame.js beginCast`가 그것만 본다 — 전에는 렌더러가 「배치·모드 전환 뒤 그 모드의 첫 휘두름」을 따로 세어,
+  대기로 돌아갔다 다시 친 공격은 지연 없이, 공격 상태 그대로 스킬로 모드만 바뀐 첫 공격은 지연을 두고 틀었다. 휘두름 없이 온 'atk'·적의 시전(`_delayIfFirstAttack`이 있는 적
+  시전 이펙트는 없음)은 첫 공격이 아님. 영향: 풀 바인딩 21개(텍사스 0.5초·스카디 0.167초·엑스큐셔너 S2 0.667초 등). 재발 방지: `test/render/first-attack-fx.test.js`.
   'swing' 없이 온 'atk'(예전 서버, 알리지 않은 공격)는 예전처럼 그때 휘두름 것까지 켠다. 0.2초 간격 제한(`ATTACK_GAP_S`)·부하 3단계 생략은 그대로(휘두름 기준).
   `castOpt`가 없는 옛 `modes.json`이면 전부 타격 때(예전 동작). 바인딩 없는 이름 매핑(`_attack_start_*`)도 휘두름 때 [추정: 공식 다수가 ON_CAST_START].
 - **② 적에게 붙는 모드 버프** — 버프 이펙트의 주인 = 버프를 가진 유닛, 받는 쪽은 능력의 `_selector`(`Ability._selector`)가 정한다. 아스트젠 더 라이트체이서 S3
@@ -1024,7 +1031,11 @@
   부모 회전을 곱해 보면 744개 중 741개가 전투 좌표 y(판의 행 축)라 y축 180° = 좌우 거울 + 높이 부호 반전(판 위 평면 내용은 거울과 같음).
 - 범위(추출된 이펙트 2,356개 중 `face`가 있는 2,122개): rotate 0 = 1,244, 1 = 788(`rotation_y`·`rotation_z`가 없는 43개는 공식도 아무것도 안 함), 2 = 87, 4 = 3.
   풀 바인딩(`modes.json`) 1,095개 중 rotate 0이 549개 — 이것들이 **왼쪽을 볼 때 더는 거울이 아니다**(대칭이면 차이 없음). rotate 2인데 `turn`이 아닌 것은 왼쪽을 볼 때
-  거울 대신 z축 180° 회전. `face`가 없는 프리팹(루트에 ParticleEffect가 없음: 투사체 꼬리·선 234개)은 예전처럼 거울 [추정: 다른 Effect 하위 클래스의 FaceTo는 안 읽음].
+  거울 대신 z축 180° 회전. `face`가 없는 프리팹(루트에 ParticleEffect가 없음: 투사체 꼬리·선 234개)은 예전처럼 거울 — 알려진 차이: 2026-11-17 공식 클라에서 확인, `FaceTo`를
+  덮어쓰는 하위 클래스는 ParticleEffect뿐이고 나머지(ProjectileEffect·SimpleEffect·MapEffect·EmptyEffect)는 기반 `Effect.FaceTo` = `_bodyTransofrm`을
+  `MapUtil.FaceTo2d`로 그 방향에 돌림(ANY_DIR과 같은 길, 거울은 없음). 추출이 그 루트의 `_bodyTransofrm`을 읽어야 고칠 수 있다 → `bundles/` fx-G 줄
+  「face 없는 프리팹의 FaceTo」. `rotation_y`(FLIP_TWO_SIDE)는 플레이어도 거울이 아니라 그 노드를 y축 180° 돌려서(`FxInstance.applyTurn`) 입체 메시·
+  입자도 클라와 같은 회전이다(2026-11-17 대조 — 위 「거울과 같음」은 판 위 평면 내용에 대한 설명일 뿐).
 - **재생 속도**: `_usePlaybackSpeed`(`face.speed` 0 = 끔)일 때만 받은 속도를 쓰고, 끄면 1.0(풀 바인딩 시전 이펙트 383개 중 75개 — 르무엔 `lemuen_attack_start_01`,
   첸 더 던스트릭 용 등). `_limitedPlaybackSpeed`(`face.limit`, 없으면 2.0; 음수 = 상한 없음)가 0 이상이면 속도 ≤ 상한 ÷ 전투 배속 → `fx/face.js playSpeed`, `play`/`spawn`의
   살아 있는 항목 `speed`. 타격 이펙트(1.0)는 2배속에서도 1.0이라 변화 없고, 공속이 빨라진 시전 이펙트가 2배속에서 ×1로 묶인다.
@@ -1053,7 +1064,12 @@
   `common_071_bond_siracusa_hit_01`(ON_OUTPUT_DAMAGE, 적에게).
 - sim이 그 순간 상태 이벤트 `['tplfx', 대상 id | null, 프리팹 키, 출처 id | null]`을 낸다(`docs/SIM.md` 이벤트 표). → `fxgame.js tplFx`: 추출 목록에서 이름으로 찾고(대소문자 무시,
   `bond`·`map`·`common`·`buff` 번들 먼저), 대상이 있으면 그 유닛에 붙여 따라가고(프리팹 `_spawnLocation`, 대상 사망 때 끔; 같은 순간 사라지는 유닛 — 에기르 맹약에 먹힌
-  오퍼레이터 — 은 그 자리에), 대상이 null이면 전투 필드 가운데에 [추정: 클라의 화면 위치 = 화면 가운데]. 방향은 대상의 좌우 [추정: 노드의 방향 옵션은 이벤트에 없음].
+  오퍼레이터 — 은 그 자리에), 대상이 null이면 화면 가운데가 땅에 닿는 점에(2026-11-17 공식 클라에서 확인: `CreateEffectAtScreenPos`는 화면
+  너비 × `_screenWidthRatio`·높이 × `_screenheightRatio`를 `Map.GetMapPosByScreenPos`로 맵 위치로 바꿔 높이 0·출처 없이 만든다; 위수 협의 템플릿에서 이
+  노드는 쉐라그 맹약 하나, 0.5·0.5 — `fxgame.js fieldMiddle`이 카메라의 화면 중심을 땅으로 되돌리고, 프레임이 카메라를 주기 전엔 필드 가운데). 방향은 대상의 그려진 좌우(`efacing`) — 공식(2026-11-17
+  공식 클라에서 확인)은 대상의 `faceTo`: 템플릿의 `CreateEffect` 노드는 방향 옵션(`_useSourceFaceVactor`·`_useSourceToTargetDirection`·`_useConstDirection`)이
+  모두 꺼져 `BattleController.CreateEffect(키, 대상, 출처)`가 대상 `faceTo`로 틀고, 화면 위치 노드는 방향 없이. 위·아래를 보는 대상에서만 다를 수 있는 알려진 차이
+  → `bundles/` fx-G 줄 「face 없는 프리팹의 FaceTo」(같은 길).
   프리팹이 안 뽑혔거나 대상이 없으면 아무것도 안 함. `render/app.js`는 그대로(모든 상태 이벤트가 이미 `fxGame.onEvent`로 온다).
 - 추출: `fx_extract.py --bundle bond --bundle map --match '^(bond_|map_act1autochess_|map_act1vautochess_|map_snow_)'`(bond 8개·map 18개) +
   `--bundle common --prefab common_071_bond_siracusa_hit_01` — 그 전에는 안 보인다.
@@ -1191,7 +1207,10 @@
   `wang-stone-fx.test.js`. [화면 미확인: 실제 판]
   같은 날 관리자 확인(아레나) 「재능 추가 바둑돌과 같이 그려지는 이펙트가 불일치」: 활성 휘감김(`wang_passive_01_buff_02`)·연결선(`token_wang_passive_01_line`)이
   공 높이(`STONE_BALL` 0.18)로 올라가 이펙트 돌 위에 떠 있었다. 그 올림은 놓은 棋子 모델의 공(뿌리 위 0.18)에 맞춘 것 — 跟子의 공은 칸 점의 `qizi (1)`이고,
-  클라는 활성 이펙트를 그 투사체 위에 만든다(`WangStoneHitBehaviour.PlayStoneTriggeredEffect` → `CreateEffect`, 투사체 `_triggeredEffect`),
+  클라는 활성 이펙트를 그 투사체 위에 만든다(`WangStoneHitBehaviour.PlayStoneTriggeredEffect` → `CreateEffect`, 투사체 `_triggeredEffect`;
+  시점은 이어지는 그 순간 — 2026-11-17 공식 클라에서 확인: 부르는 곳은 `WangStoneTriggerManager._TryTriggerStones`(새 돌)와 그 안의
+  `_UpdateStoneTriggeredData`(같은 줄의 다른 돌)뿐이고 30프레임 뒤의 무장(`_DoStoneExplode`)이 아니며, 이펙트가 살아 있으면 다시 만들지 않는다 —
+  우리 'wangLink' `first`와 같음, 놓은 棋子(isToken)는 이 길이 아님),
   프리팹이 휘감김을 제 높이(`line` 0.13–0.2)에 둔다. 공식도 跟子는 모델이 없다: `projectile_chr_wang_stone1/2/3`의 `Body`는 빈 노드, 렌더러 없음, 그림은
   `EffectBehaviour`(`_effectsToTileWhenStart` 칸 이펙트·`_effectOnTrigger`·`_effectsWhenHit`)와 던짐 `WangVisualStoneMarkAbility`(ProjectileToTile)의
   `_startEffect`뿐. 고친 것: 跟子(`follower`, 공식 돌 이펙트가 돌 때)의 연결선·활성 이펙트는 칸 점에(올림 없음), 놓은 棋子는 그대로 공에(연결선 끝은 2026-10-26부터 돌마다 땅 — 아래 「望 연결선」). 확인: 아레나
