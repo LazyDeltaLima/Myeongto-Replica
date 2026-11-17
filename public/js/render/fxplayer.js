@@ -345,7 +345,7 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   attribute vec3 iPos; attribute vec3 iSize; attribute vec3 iRot; attribute vec4 iColor; attribute vec4 iC1; attribute vec4 iC2;
   attribute vec4 iUV; attribute vec3 iVel;
   attribute vec4 vcol;
-  uniform vec3 uPivot; uniform vec3 uStripZ; uniform vec3 uUX;   // the scalars: PACKED_GLSL
+  uniform vec3 uPivot; uniform vec3 uUX;   // the scalars: PACKED_GLSL
   // (2026-11-04) the system's transform scale (uSysOn, ParticleSystem.sysScale), one uniform: its 3×3 the effect root's turn
   // (Unity frame → scene), its last column S per Unity world axis
   uniform mat4 uSys;
@@ -375,10 +375,10 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   void fxMain() {
     vUv = iUV.xy + uv * iUV.zw; vColor = iColor * (uVCol ? vcol : vec4(1.0)); vC1 = iC1; vC2 = iC2;  // local patch: mesh vertex colours
     vN = vec3(0.0, 0.0, 1.0); vVP = vec3(0.0, 0.0, -1.0);
-    if (uMode == 6 && dot(uStripZ, uStripZ) > 0.25) {   // 2026-10-27: a TransformZ trail — its ribbon faces uStripZ, not the camera
-      vec3 wd = cross(iVel, uStripZ);
-      wd = dot(wd, wd) > 1e-12 ? normalize(wd) : vec3(1.0, 0.0, 0.0);
-      vec3 sp = position + wd * iRot.x * iSize.x * 0.5;
+    // (2026-11-17, official engine: the trail job's TransformZ frame) iSize.y = 2: a TransformZ trail — iVel is the point's
+    // side in the batch's frame, in its node's x-y plane, not the camera's (StripBatch.tz, stripSides)
+    if (uMode == 6 && iSize.y > 1.5) {
+      vec3 sp = position + iVel * iRot.x * iSize.x * 0.5;
       vH = (modelMatrix * vec4(sp, 1.0)).z;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(sp, 1.0);
       return;
@@ -858,7 +858,7 @@ function makeMaterial(m, lib) {
       uTime: { value: 0 }, uAdditive: { value: additive },
       uUVRot: { value: false }, uRot: { value: rot },   // uvRotation
       uRot0: { value: rot[0] }, uRot1: { value: rot[1] }, uRot2: { value: rot[2] }, uRot3: { value: rot[3] },
-      uMode: { value: 0 }, uLengthScale: { value: 2 }, uVelScale: { value: 0 }, uAlign: { value: 0 }, uPivot: { value: new THREE.Vector3() }, uStripZ: { value: new THREE.Vector3() },
+      uMode: { value: 0 }, uLengthScale: { value: 2 }, uVelScale: { value: 0 }, uAlign: { value: 0 }, uPivot: { value: new THREE.Vector3() },
       uFree: { value: false }, uRotW: { value: false }, uUX: { value: new THREE.Vector3(1, 0, 0) }, uHand: { value: -1 }, uWSign: { value: 1 },
       uSysOn: { value: false }, uSys: { value: new THREE.Matrix4().setPosition(1, 1, 1) },   // S = 1 until sysScale
     }),
@@ -1254,8 +1254,10 @@ function sidePull(N, o, mx, my, f) {
  * The vertex writers: an end point takes the normal of its segment; a point between takes the mitre of its two segments'
  * normals A, B — where the sides' edge lines meet, A + (I − A) · min(1, 50|A − B|², 50|A + B|²), no longer than
  * max(1, 3 · clamp(L′ / 2W, 0, 1)) with L′ the length stored for the point before it.
+ * `flat` (a TransformZ trail, StripBatch.tz): `e` takes the points into its node's plane frame, where the engine finds the
+ * normals with no perspective — every point at z = −1 and the segment's z dropped (d.xy · −1).
  */
-function stripSides(e, pts, m, W) {
+function stripSides(e, pts, m, W, flat = false) {
   if (sideR.length < m) {
     const n = Math.max(m, sideR.length * 2);
     sideQ = new Float64Array(n * 3); sideN = new Float64Array(n * 2); sideR = new Float64Array(n); sideO = new Float32Array(n * 2);
@@ -1281,7 +1283,8 @@ function stripSides(e, pts, m, W) {
       good = dx * dx + dy * dy + dz * dz >= thr;
     }
     if (good) { lx = dx; ly = dy; lz = dz; have = true; } else if (have) { dx = lx; dy = ly; dz = lz; } else { dx = 1; dy = 0; dz = 0; }
-    const qx = sideSafe(Q[i * 3]), qy = sideSafe(Q[i * 3 + 1]), qz = sideSafe(Q[i * 3 + 2]);
+    const qx = sideSafe(Q[i * 3]), qy = sideSafe(Q[i * 3 + 1]), qz = flat ? -1 : sideSafe(Q[i * 3 + 2]);
+    if (flat) dz = 0;
     const rx = dx * qz - dz * qx, ry = dy * qz - dz * qy, rl = Math.hypot(rx, ry);
     N[i * 2] = rl > 0 ? -ry / rl : 0; N[i * 2 + 1] = rl > 0 ? rx / rl : 0;
     if (i > 0 && L < w2) {
@@ -1311,6 +1314,22 @@ function stripSides(e, pts, m, W) {
   }
 }
 
+/**
+ * (2026-11-17, official engine: TrailRendererGeometryJob.Initialize) A TransformZ trail's plane frame: the engine builds the
+ * frame B = [the node's x, its y, −its z] from the renderer's world matrix `t` (scale kept) and hands its inverse to the line
+ * builder, which finds the sides there (stripSides `flat`) and writes the vertices back through B — so a side is
+ * x · the node's x + y · its y, scaled with the node. Into `out` the inverse (its translation left out: the sides do not
+ * depend on it). False for a degenerate frame (|det| ≤ 10⁻⁶ at unit mean scale, where the engine takes an SVD inverse):
+ * then the strip has no width [추정·엔진: the SVD branch not ported — its zero axis drops the width in the cases seen].
+ */
+function stripPlane(t, out) {
+  out.set(t[0], t[4], -t[8], 0, t[1], t[5], -t[9], 0, t[2], t[6], -t[10], 0, 0, 0, 0, 1);
+  const s2 = (t[0] ** 2 + t[1] ** 2 + t[2] ** 2 + t[4] ** 2 + t[5] ** 2 + t[6] ** 2 + t[8] ** 2 + t[9] ** 2 + t[10] ** 2) / 3;
+  if (!(s2 > 1e-30) || !(Math.abs(out.determinant()) > 1e-6 * s2 ** 1.5)) return false;
+  out.invert();
+  return true;
+}
+
 /** The largest value of a curve's keys [[t, v, …]…] and 0 (the engine's width for the line builder); no keys: 1, as drawn. */
 function keysMax(keys) {
   if (!keys?.length) return 1;
@@ -1334,8 +1353,12 @@ class StripBatch {
     this.mesh = new THREE.Mesh(this.build(Math.min(cap, STRIP_ROOM0)), material);
     this.mesh.frustumCulled = false;
     this.n = 0; this.ni = 0;
-    // the camera it was last drawn with (stripSides); mv = that view × the batch's frame, for this frame's strips
-    this.view = null; this.mv = new THREE.Matrix4(); this.mvOn = false;
+    // the camera it was last drawn with (stripSides); mv = that view × the batch's frame, for this frame's strips;
+    // sides: 0 none (the tangent's perpendicular in the shader), 1 from the view, 2 in a TransformZ node's plane (tz)
+    this.view = null; this.mv = new THREE.Matrix4(); this.sides = 0;
+    // (2026-11-17, official engine: TrailRendererGeometryJob.Initialize) a TransformZ trail (`alignment` 1): its node in the
+    // batch's frame, set by its owner each frame (TrailRenderer.update); null: the camera's view
+    this.tz = null; this.tzM = new THREE.Matrix4(); this.tzFlat = false;
     this.mesh.onBeforeRender = (r, sc, camera) => {
       (this.view ||= new THREE.Matrix4()).copy(camera.matrixWorldInverse);
       stripView.copy(camera.matrixWorldInverse); stripViewOn = true;
@@ -1375,30 +1398,39 @@ class StripBatch {
 
   begin() {
     this.n = 0; this.ni = 0;
-    // a TransformZ strip (uStripZ) keeps its sides in the shader: across its node's z, not the camera's view
+    if (this.tz) { this.sides = 2; this.tzFlat = stripPlane(this.tz.elements, this.mv); return; }
     const v = this.view || (stripViewOn ? stripView : null);
-    this.mvOn = !!v && this.material.uniforms.uStripZ.value.lengthSq() <= 0.25;
-    if (this.mvOn) { this.mesh.updateWorldMatrix(true, false); this.mv.multiplyMatrices(v, this.mesh.matrixWorld); }
+    this.sides = v ? 1 : 0;
+    if (v) { this.mesh.updateWorldMatrix(true, false); this.mv.multiplyMatrices(v, this.mesh.matrixWorld); }
   }
 
   /**
    * One strip: pts = flat [x, y, z, …], per point width w[], colour c[] (4 each), u[] along the trail; W = the width the
-   * engine's line builder takes (stripSides) — with a camera seen, the sides come from it, else from the tangent.
+   * engine's line builder takes (stripSides) — with a camera seen, the sides come from it, else from the tangent; a
+   * TransformZ strip (tz) takes them in its node's plane, written into the tangent's slot (the shader's iSize.y = 2).
    */
   strip(pts, count, w, c, u, W = 0) {
     if (count < 2 || this.n + count > this.cap) return;
     if (this.n + count > this.room) besideRandom(() => this.build(Math.min(this.cap, Math.max(this.n + count, this.room * 2))));
-    const D = this.vb.array, I = this.index.array, on = this.mvOn ? 1 : 0;
-    if (on) stripSides(this.mv.elements, pts, count, W);
+    const D = this.vb.array, I = this.index.array, on = this.sides, plane = on === 2, t = this.tz?.elements;
+    if (on === 1 || (plane && this.tzFlat)) stripSides(this.mv.elements, pts, count, W, plane);
     for (let k = 0; k < count; k++) {
-      const a = Math.max(0, k - 1), b = Math.min(count - 1, k + 1);
-      const tx = pts[b * 3] - pts[a * 3], ty = pts[b * 3 + 1] - pts[a * 3 + 1], tz = pts[b * 3 + 2] - pts[a * 3 + 2];
+      let tx, ty, tz;
+      if (plane) {
+        // the side out of the plane frame: x · the node's x + y · its y (its scale kept); a degenerate frame: none. Negated:
+        // the engine's line writer puts v = 0 on the +normal side and the +1 vertex here takes v = 1 (as the old TransformZ did)
+        const sx = this.tzFlat ? -sideO[k * 2] : 0, sy = this.tzFlat ? -sideO[k * 2 + 1] : 0;
+        tx = sx * t[0] + sy * t[4]; ty = sx * t[1] + sy * t[5]; tz = sx * t[2] + sy * t[6];
+      } else {
+        const a = Math.max(0, k - 1), b = Math.min(count - 1, k + 1);
+        tx = pts[b * 3] - pts[a * 3]; ty = pts[b * 3 + 1] - pts[a * 3 + 1]; tz = pts[b * 3 + 2] - pts[a * 3 + 2];
+      }
       for (let side = 0; side < 2; side++) {
         const o = ((this.n + k) * 2 + side) * SV;
         D[o] = pts[k * 3]; D[o + 1] = pts[k * 3 + 1]; D[o + 2] = pts[k * 3 + 2];
         D[o + SV_TAN] = tx; D[o + SV_TAN + 1] = ty; D[o + SV_TAN + 2] = tz;
         D[o + SV_ROT] = side ? 1 : -1; D[o + SV_SIZE] = w[k]; D[o + SV_SIZE + 1] = on;
-        D[o + SV_ROT + 1] = on ? sideO[k * 2] : 0; D[o + SV_ROT + 2] = on ? sideO[k * 2 + 1] : 0;
+        D[o + SV_ROT + 1] = on === 1 ? sideO[k * 2] : 0; D[o + SV_ROT + 2] = on === 1 ? sideO[k * 2 + 1] : 0;
         D[o + SV_UV] = u[k]; D[o + SV_UV + 1] = side;
         D[o + SV_COL] = c[k * 4]; D[o + SV_COL + 1] = c[k * 4 + 1]; D[o + SV_COL + 2] = c[k * 4 + 2]; D[o + SV_COL + 3] = c[k * 4 + 3];
       }
@@ -1482,10 +1514,9 @@ class TrailRenderer {
       this.count++;
     }
     while (this.count && this.time - R[this.head * 4 + 3] > tr.time) { this.head = (this.head + 1) % TRAIL_KEEP; this.count--; }
-    // 2026-10-27 (effect bundle W2d): `alignment` 1 TransformZ — the ribbon faces the node's z axis (Unity manual), else the camera
-    // [추정·엔진: the node's axis now for every point, not the one each point was recorded with]
-    const z = this.batch.material.uniforms.uStripZ.value;
-    if (tr.align === 1) z.setFromMatrixColumn(tmpM, 2).normalize(); else z.set(0, 0, 0);
+    // 2026-10-27 (effect bundle W2d): `alignment` 1 TransformZ — the ribbon lies in the node's x-y plane (Unity manual: it faces
+    // the node's z), else it faces the camera; (2026-11-17, official engine) the node's frame now for every point, each frame
+    this.batch.tz = tr.align === 1 ? this.batch.tzM.copy(tmpM) : null;
     // newest first: the live head, then the recorded points
     const n = this.count + 1;
     this.batch.begin();

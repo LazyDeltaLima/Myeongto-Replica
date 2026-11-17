@@ -140,5 +140,5 @@ test('wiring: both switches stepped, the emitter\'s pause sync, a line ended by 
   assert.match(SRC, /if \(posCapped\(inst\)\) \{ inst\.dispose\(\); return null; \}/);
   assert.match(PLAYER, /if \(uvt\.shared && key\) uvShared\(u, key, TEX_ST\[name\]\);/);
   assert.match(PLAYER, /trailU\[k\] = tr\.texMode === 1 \? trailU\[k\] : tr\.texMode === 2 \? u : tr\.texMode === 3 \? k : f;/);
-  assert.match(PLAYER, /if \(tr\.align === 1\) z\.setFromMatrixColumn\(tmpM, 2\)\.normalize\(\); else z\.set\(0, 0, 0\);/);
+  assert.match(PLAYER, /this\.batch\.tz = tr\.align === 1 \? this\.batch\.tzM\.copy\(tmpM\) : null;/);
 });

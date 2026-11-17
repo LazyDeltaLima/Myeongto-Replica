@@ -2885,7 +2885,7 @@
 - **꼬리**(TrailRenderer): `textureMode`(Unity 매뉴얼, LineTextureMode) 0 Stretch = 길이 전체에 한 번(**거리로**), 1 Tile = 길이 1마다, 2 DistributePerSegment = 점을 고르게
   본 한 번, 3 RepeatPerSegment = 칸마다. 예전엔 Stretch를 점 순번으로, Tile을 순번 × `minVertexDistance`로 폈다(2는 우연히 맞음 — 뮤엘시스 평타·S2·S3, 리드 더 플레임 섀도우
   S3, 울피아누스 S1·S3, 왕 평타). 폭·색은 예전처럼 점 순번 [추정·엔진]. `alignment` 1 TransformZ(블레이즈 디 이그나이팅 스파크 평타 꼬리 `blaze2_attack_01_trail`, 공용 감속 `buff_slowdown`) =
-  띠가 카메라 대신 노드의 z축을 향함(셰이더 `uStripZ`) [추정·엔진: 모든 점에 지금의 축 — 점을 찍을 때의 축이 아니라].
+  띠가 카메라 대신 노드의 x-y 평면에 놓임 — 아래 「띠 법선」의 TransformZ(모든 점에 그 프레임의 노드 틀, 공식 클라에서 확인 2026-11-17).
 - **다른 층**(`m_Layer` 0)의 노드 4(엑시아 더 뉴 커버넌트 S3 시작 `angel2_skill_3_begin_start_001`, 이그제큐터 디 엑스 포에데레 `excu2_common_fx01` — 나머지 둘은 안 틂): 그린다
   (2026-11-02, 공식 클라에서 확인). 전투 카메라(`CameraController._camera`, `battle/[pack]common`의 `Camera`)의 `m_CullingMask`는 UI(5)·UI_AVG(16) 두 층만
   빼고 전부 — 이펙트 층 EFFECT(15)와 Default(0)를 똑같이 그리고, 전투 코드는 그 마스크를 바꾸지 않는다(`cullingMask`를 쓰는 곳은 반사·UI 렌더 텍스처·
@@ -3874,7 +3874,8 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
     - **점의 옆**: 끝 점은 제 마디의 법선을 쓴다. 가운데 점은 두 마디 법선 A·B의 이음(마이터)을 쓴다: 두 옆선이 만나는 점 I로 A + (I − A)·min(1, 50|A − B|², 50|A + B|²). 길이는 max(1, 3·clamp(L′/2W, 0, 1))까지이고, L′는 그 점 앞 점에 적힌 마디 길이다. 정점 = 점 ± 옆 × 폭/2(카메라 공간).
     - **예전 재생기**: 양옆 점의 중심 차분에 수직인 단위 벡터였다. 길게 꺾인 곳(범위 윤곽선의 직각, 연쇄 선)이 이음 없이 좁아졌고, 짧은 마디는 엔진처럼 고르게 펴지지 않았다.
     - **지금 재생기**: `fxplayer.js` `stripSides`가 이 계산을 하고, 셰이더는 그 옆(`iRot.yz`, 표시 `iSize.y`)을 쓴다. 카메라는 그 띠 묶음을 마지막으로 그린 카메라이고, 아직 안 그린 묶음은 띠를 마지막으로 그린 카메라를 쓴다. 한 번도 안 그렸으면 예전 중심 차분으로 그린다.
-    - **안 옮긴 것**: `alignment` 1(TransformZ, 꼬리 23개)은 노드 z 둘레의 예전 계산을 그대로 쓴다. 공식은 노드 평면에서 원근 없이 같은 계산을 한다. 모서리·끝 둥글리기(`numCornerVertices`·`numCapVertices`)는 쓰는 이펙트가 없다(`fx_coverage`가 알림).
+    - **TransformZ**(`alignment` 1, TrailRenderer 꼬리 23개 — 블레이즈 디 이그나이팅 스파크 평타 꼬리, 공용 감속 `buff_slowdown`, 메커니스트의 소환물 「구조적 원리」(`token_10069_mcnist_mcgraf`) S3 꼬리 `token_mcnist_mcgraf_skill_03_trail_*`, 스킨 몇; 2026-11-17 공식 클라에서 확인 — `TrailRendererGeometryJob::Initialize`·`StoreLineData`의 정렬 갈래): 엔진은 그 프레임 렌더러의 월드 행렬에서 틀 B = [노드 x, 노드 y, −노드 z](크기 포함)를 만들고, 점을 B⁻¹로 옮겨 법선을 구한 뒤 정점을 B로 되돌린다. 그 틀에서는 원근이 없다: 모든 점의 z를 −1로, 마디의 z를 0으로 두고 위 계산을 그대로 한다(짧은 마디 섞기·이음·W 같음, 마디 길이는 B⁻¹ 틀의 3D 길이). 그래서 옆은 노드 x·y 축의 조합이고 노드의 크기만큼 넓어진다(예전엔 노드 z와 접선의 외적 단위 벡터라 크기를 안 받았고 이음이 없었다). 카메라는 쓰지 않는다. B가 거의 특이하면(|det| ≤ 10⁻⁶, 평균 크기 1로 맞춘 뒤) 엔진은 SVD 역행렬을 쓰는데, 재생기는 폭 0으로 그린다 [추정·엔진: SVD 갈래를 안 옮김 — 축 하나가 0인 경우엔 폭이 그 축으로만 남아 사실상 0, 추론]. 재생기: `fxplayer.js` `stripPlane`(B⁻¹)·`stripSides`(`flat`)·StripBatch `tz`, 셰이더는 `iSize.y` = 2이면 `iVel`을 묶음 틀의 옆으로 쓴다(`uStripZ`는 없어짐). 옆의 부호는 +1 정점(v = 1)이 엔진의 −법선 쪽이다: 엔진 선 쓰기의 +법선 쪽 v = 0과 같고, 곧은 꼬리에서는 예전 외적과 같은 쪽이다.
+    - **안 옮긴 것**: 모서리·끝 둥글리기(`numCornerVertices`·`numCapVertices`)는 쓰는 이펙트가 없다(`fx_coverage`가 알림).
     - [화면 미확인] 재발 방지: `test/render/fx-strip-sides.test.js`
 - **크기 방식 Shape**(`scaling` 2, 3계 — 引星棘刺 S2 범위, 노드 × 0.53): 노드와 부모의 크기가 시작 위치에만 닿고 입자의 크기·움직임에는 안 닿는다(Unity
   매뉴얼) → 크기 없는 대리 틀에서 시작 위치에 크기의 곱을 곱한다(`useLocalScale(…, true)`). 지금 셋은 월드 공간 계라 예전에도 입자는 크기를
