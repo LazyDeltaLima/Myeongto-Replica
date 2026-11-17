@@ -345,6 +345,8 @@ describe('client helpers', () => {
     const { PAST_WORKER } = await mod('resources.js');
     assert.equal(await get('/assets/local/fx/a.json' + PAST_WORKER), null,
       'the page\'s download (a query string) is left to the network — docs/rules/render.md 「서버 출처 파일은 미리 받기만 받아 씀」');
+    assert.equal(await get('/assets/bundles/text-local-0123456789ab.pack'), null,
+      'a bundle (a type the cache never answers) is left to the network, not passed through respondWith — docs/rules/render.md 「리소스 묶음 받기」');
     assert.equal(await get('/assets/local/fx/a.json'), 'new', 'the old deploy\'s copy is fetched again, not served');
     assert.equal(store.get('/assets/local/fx/a.json').body, 'new', 'and the cache holds the listed version');
     assert.equal(await get('/assets/local/fx/a.json'), 'new');

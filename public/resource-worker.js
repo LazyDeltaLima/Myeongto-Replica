@@ -12,8 +12,9 @@
 // again instead of served until the page's cleanup deletes it (2026-10-28). A page load revalidates the list first.
 //
 // Only same-origin GET /assets/…, /img/emotes/… and /media/… (extension-less audio, shared/media.js) are looked at;
-// unlisted files, Range requests and query strings go to the server untouched — so the page's own download of this
-// server's files (resources.js PAST_WORKER) passes by, and each file is hashed and stored once, by the page.
+// Range requests, query strings and file types outside SERVED go to the server untouched (no respondWith) — so the
+// page's own download of this server's files (resources.js PAST_WORKER) and of their bundles (`.pack`) passes by, and
+// each file is hashed and stored once, by the page. An unlisted file of a served type is fetched from the server here.
 // A page's `sp-res-stats` message (with a port) is answered with the counts of this worker's answers (resources.js
 // askWorker, for the report: what a field's first load shared the cache and the network with).
 // Defence in depth (security review 2026-10-04): page loads (navigations) are never answered from the cache, only the
@@ -140,11 +141,13 @@ async function fromListed(f) {
 
 const decode = (p) => { try { return decodeURIComponent(p); } catch { return p; } };
 
-async function answer(request, path) {
-  const candidates = path.startsWith('/media/')
-    ? AUDIO_EXTS.map((ext) => '/assets/audio/' + path.slice('/media/'.length) + ext)
-    : SERVED.test(path) ? [path] : [];
-  const list = candidates.length ? await getIndex() : null;
+/** The cache keys a request path may be answered from: none for a file type the worker never serves (a `.pack`). */
+const candidatesOf = (path) => (path.startsWith('/media/')
+  ? AUDIO_EXTS.map((ext) => '/assets/audio/' + path.slice('/media/'.length) + ext)
+  : SERVED.test(path) ? [path] : []);
+
+async function answer(request, candidates) {
+  const list = await getIndex();
   let staleHit = false;
   for (const c of candidates) {
     const hit = await lookup(c);
@@ -155,11 +158,9 @@ async function answer(request, path) {
     staleHit = true;
   }
   if (staleHit) stats.stale++;
-  if (candidates.length) {
-    const f = list && candidates.map((c) => list.get(decode(c))).find(Boolean);
-    if (f) { const res = await fromListed(f); if (res) return res; }
-    stats.server++;
-  }
+  const f = list && candidates.map((c) => list.get(decode(c))).find(Boolean);
+  if (f) { const res = await fromListed(f); if (res) return res; }
+  stats.server++;
   return fetch(request);
 }
 
@@ -176,5 +177,9 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin || url.search) return;
   const path = url.pathname;
   if (path === INDEX || !(path.startsWith('/assets/') || path.startsWith('/media/') || path.startsWith('/img/emotes/'))) return;
-  event.respondWith(answer(req, path).catch(() => fetch(req)));
+  // a file type the cache never answers goes to the network untouched, not through respondWith(fetch(req)): the page's
+  // resource bundles (/assets/bundles/*.pack, read by resources.js readBundle) took that detour before (2026-11-17)
+  const candidates = candidatesOf(path);
+  if (!candidates.length) return;
+  event.respondWith(answer(req, candidates).catch(() => fetch(req)));
 });
