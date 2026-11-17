@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ACT3, field, done, cast, realMatch } from '../helpers/seasonPieces.js';
-import { FINAL_DELAY } from '../../server/sim/content/kits/ops/op-pianst.js';
+import { FINAL_DELAY, FINAL_EVENT } from '../../server/sim/content/kits/ops/op-pianst.js';
 
 const A = 'chess_char_3_01_a', B = 'chess_char_3_01_b';
 const FORMS = [A, B];
@@ -139,6 +139,29 @@ test('S2: FinalAttack at interval + its delay on all in x-1, the flying too, non
     assert.equal(f.type, 'arts');
     assert.ok(f.dmg.isSkill);
     near(f.dmg.amount, u.base.atk * b2.atk_scale, `${id}: atk_scale at her ATK`);
+    done(h);
+  }
+});
+
+test('S2: FinalAttack\'s clip Skill_2_End takes her animator — the swing under way at the interval strikes on that clip\'s OnAttack (or at its own attack time\'s end), not on its own frame', () => {
+  for (const id of FORMS) {
+    const b2 = bbOf(id, S2);
+    const { h, u } = field(id, { skill: 1 });
+    const e = h.spawn('enemy_dummy', { pos: [10, 4] }); // her range is her own tile
+    cast(u);
+    const at = h.b.time + b2.interval;
+    h.run(b2.interval - 2);
+    assert.ok(h.runUntil(() => !u.swing, 2) && h.b.time < at - 0.2, `${id}: between swings`);
+    u.atkCd = u.castLeft = at - 0.1 - h.b.time;   // the next swing starts just before the interval
+    assert.ok(h.runUntil(() => !!u.swing, 2), `${id}: a swing`);
+    const start = h.b.time, own = start + u.swing.left, whole = start + u.castLeft;
+    assert.ok(start < at && own > at + 0.05, `${id}: its own strike is due after the interval (${own - at})`);
+    const n = attacks(h, e).length;
+    assert.ok(h.runUntil(() => attacks(h, e).length > n, 2), `${id}: the swing strikes`);
+    const want = at + Math.min(whole - at, FINAL_EVENT);
+    assert.ok(Math.abs(h.b.time - want) < 0.07, `${id}: at ${h.b.time - at} after the interval, not ${own - at}`);
+    h.runUntil(() => !u.skill.active, 5);
+    assert.equal(attacks(h, e).length, n + 1, `${id}: no other attack`);
     done(h);
   }
 });

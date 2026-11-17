@@ -9,7 +9,8 @@
 // - S1 纷飞十指: ATK +atk, RES ×(1 + magic_resistance).
 // - S2 曲惊四座: max HP +max_hp, taunt +taunt_level (pianst_s_2_buff_1). Each damage of attack type NORMAL or SPLASH, of any damage type, adds ATK +atk up to
 //   max_stack_cnt, after T1 (PRTS). At `interval` s (pianst_s_2_buff_2 ON_BUFF_TRIGGER, PRTS 18.6 s) mode Empty, which never attacks, and FinalAttack if she can
-//   act then (`_checkCanUseAblityFlag`): after `_preDelay` 0.5 s atk_scale × ATK arts on all, flying too, in x-1.
+//   act then (`_checkCanUseAblityFlag`): after `_preDelay` 0.5 s atk_scale × ATK arts on all, flying too, in x-1. Its clip Skill_2_End
+//   takes her animator: the swing under way strikes on its OnAttack (FINAL_EVENT) or at its own attack time's end, whichever is first.
 // - AST-X (common_damage_on_*): while a skill runs her attacks and each enemy damage she takes give the other side atk_scale × her ATK arts more.
 
 import { num, talentBb, traitBb, skillRec, byEnemyAttack, statBuff } from '../shared/tier1.js';
@@ -23,6 +24,8 @@ const STACK_FX = Object.freeze(['pianst_s_2_stkFx_1', 'pianst_s_2_stkFx_2', 'pia
 export const FINAL_DELAY = 0.5;
 /** Its clip Skill_2_End, seconds. */
 const FINAL_CLIP = 1.567;
+/** That clip's OnAttack event, seconds from its start. */
+export const FINAL_EVENT = 0.533;
 /** range_table x-1, FinalAttack's ConstBoxRange. */
 const X1 = Object.freeze([[2, 0], [1, -1], [1, 0], [1, 1], [0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [-1, -1], [-1, 0], [-1, 1], [-2, 0]]);
 const ALL = Object.freeze({ canHitFly: true });
@@ -48,6 +51,12 @@ export default {
               if (!still()) return;
               unit.skillStateUntil = at + skill.duration;
               if (!unit.canAct) return;
+              // The S2 swing under way strikes on: the switch to Empty detaches its ability without interrupting it
+              // (`_interruptAbilityOnDetach` 0) and the restarted state machine cuts only the new mode's attack. But FinalAttack's
+              // cast (TriggerAbility → CastDirectly → OnCastStart) takes her animator for its clip, so that swing gets no OnAttack
+              // of its own clip: it strikes on the next OnAttack event of hers — Skill_2_End's, FINAL_EVENT on — or at the end of
+              // its attack time when that is sooner (EasyToStartAbility.WaitForNextEvent; docs/rules/sim.md 「즉발 스킬의 시전」)
+              if (unit.swing && !unit.swing.replace) unit.swing.left = Math.min(Math.max(unit.swing.left, unit.castLeft), FINAL_EVENT);
               // FinalAttack's cast: its clip Skill_2_End and `_castEffects` (ON_CAST_START) from here, not from the skill's end
               battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, src: unit.id, k: 'pianst:final', signal: 'final', t: FINAL_CLIP });
               battle.after(FINAL_DELAY, () => {

@@ -565,7 +565,11 @@
   제자리에 놓였다. 안젤리나 더 멜로우 위시 S3 원(`aglna2_skill_03_range_01`)이 한 칸 아래에 보이던 것은 이륙(起飞) 오퍼레이터를 공중 높이로 그리지 않아서였다
   → 이륙한 오퍼레이터를 비행 높이로 그린다(관리자 결정 2026-10-11, `render.md` 「이륙 높이」). 결과 화면 이름(upstream #469 — 클라이언트 전투 결과에서 선발이 「甄选干员」으로 나옴, `server/match/fields.js`)은 기존 선발에도 있는 별개 버그라 따로 — 2026-10-11 upstream 0.2.4 이식에서 고침(`sim.md` 「upstream 0.2.4 이식」).
 - 켈시 에스페란타 S3 운반 이륙(2026-10-14, `7e508db6`): 운반 시작 뒤 `op-kalts2.js TAKEOFF_PRE` 0.667 s(CN 클라 이륙 클립 `Skill_3_Restart_Begin` 1 s의
-  OnAttack — 비행 투사체가 나가는 순간) 동안 제자리에서 이륙 클립, 그 뒤 숨고 비행(그 전엔 즉시 숨음). 그동안 공격 없음은 [추정] → `render.md` 「Spine 클립 커버리지」 G.
+  OnAttack — 비행 투사체가 나가는 순간) 동안 제자리에서 이륙 클립, 그 뒤 숨고 비행(그 전엔 즉시 숨음) → `render.md` 「Spine 클립 커버리지」 G.
+  그동안 공격 없음은 공식과 같다(2026-11-17, 공식 클라 프리팹에서 확인): `StartTransporting` 능력(charpack `Others/Direction/Talents/-1`) 옆의 `BuffDuringCastingFixed`가
+  시전 동안(`_timeMode` 1 = 클립 1초, `TAKEOFF_CLIP`) `kalts2_s_3[disarm]`(FORCE_DISARMED·INVINCIBLE)을 건다 — 휘두름이 끊기고, 떠나기 전 0.667초에도 피해를 받지 않는다(전에는 무적이 없었다).
+  착지 뒤에는 스킬을 되살리는 `kalts2_s_3[restore]`가 `RespawnBorn`(클립 `Skill_3_Restart_End` 1초, `OnAttack` 없음 → 대기 상한까지)을 틀고, 그 `BuffDuringCastingFixed`
+  `kalts2_s_3[respawn_anim]`(FORCE_DISARMED)이 1초 동안 공격을 막는다(`LAND_CLIP`; 전에는 착지하자마자 쳤다). 같은 꼴 훑기는 `sim.md` 「즉발 스킬의 시전」 벨로네 줄 아래.
 - 테스트: `test/content/op_{kalts2,clemnt,aglna2}.test.js`(체크리스트의 은신 적 범위 피해 3개 포함), `test/content/heal-triggers-023.test.js`(S2 발동),
   `test/match/feedback5-we2-placement.test.js`(#26 战术锚点), `test/content/feedback5-we2-summon-hand.test.js`(#24 표식), golden `diy-009`…`diy-011`(새 시나리오, 다른 가족 변화 없음).
 

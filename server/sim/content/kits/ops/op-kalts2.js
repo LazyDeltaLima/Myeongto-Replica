@@ -70,8 +70,11 @@
 //     (Battle.moveRedeploy) onto its tile, facing the anchor's direction; the skill goes on with its remaining time. Should
 //     the move be refused, she comes back on her own tile [ASSUMED; officially she is knocked out].
 //   The flight starts with her Skill_3_Restart_Begin clip (1 s, CN client): its OnAttack frame (0.667 s) emits the flight
-//   projectile, so she leaves the field TAKEOFF_PRE after the transport starts — meanwhile she makes no attack [ASSUMED:
-//   the cast holds her]; she lands on Skill_3_Restart_End (the 【移动】's clip key 'land').
+//   projectile, so she leaves the field TAKEOFF_PRE after the transport starts. Through that cast (TAKEOFF_CLIP) she is
+//   disarmed and invulnerable: kalts2_s_3[disarm] (FORCE_DISARMED, INVINCIBLE), the BuffDuringCastingFixed of StartTransporting
+//   (charpack Others/Direction/Talents/-1). She lands on Skill_3_Restart_End (the 【移动】's clip key 'land'), the clip of the
+//   RespawnBorn ability kalts2_s_3[restore] casts as she is respawned; its BuffDuringCastingFixed kalts2_s_3[respawn_anim]
+//   (FORCE_DISARMED) holds her attacks for that clip (LAND_CLIP).
 //   At the skill's end any anchor of hers on the field is withdrawn and the stock emptied (token_ctrl). The flight's
 //   生命回复速度 ×0 is not modelled [ASSUMED].
 // - 战术锚点 (token_10068_kalts2_mtship, placed in prep on a ranged tile outside her attack range — "仅可以部署在凯尔希·思衡托
@@ -105,6 +108,10 @@ const TRANSPORT_RADIUS = 2.2;
 const WITHDRAW_DELAY = 0.6;
 /** S3: the take-off — Skill_3_Restart_Begin's OnAttack frame, where the flight projectile leaves (CN client clip). */
 export const TAKEOFF_PRE = 0.667;
+/** S3: StartTransporting's cast — `_timeMode` 1, its clip Skill_3_Restart_Begin, seconds. */
+export const TAKEOFF_CLIP = 1;
+/** S3: RespawnBorn's cast after the landing — `_timeMode` 1, its clip Skill_3_Restart_End (no OnAttack: the wait runs out), seconds. */
+export const LAND_CLIP = 1;
 /** S3: at most this many operators (S3OperatorSelector `_maxNum`). */
 const WITHDRAW_MAX = 2;
 
@@ -224,7 +231,12 @@ function land(battle, unit) {
   if (!battle.moveRedeploy(unit, f.r, f.c, { clip: 'land' })) {
     unit.dir = dir0;
     battle.refreshRange(unit);
-  } else if (unit.dir !== dir0) tellDir(battle, unit);
+  } else {
+    if (unit.dir !== dir0) tellDir(battle, unit);
+    // kalts2_s_3[restore] casts RespawnBorn on the respawned operator: its BuffDuringCastingFixed kalts2_s_3[respawn_anim]
+    // (FORCE_DISARMED) holds her attacks for its clip
+    battle.addBuff(unit, { key: 'kalts2:land', duration: LAND_CLIP, flags: { disarm: true } });
+  }
   battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX: f.from.x, fromY: f.from.y });
 }
 
@@ -251,7 +263,9 @@ function startTransport(battle, unit, anchor) {
   }
   // the take-off clip (Skill_3_Restart_Begin), then the flight from its OnAttack frame
   unit.mem.k2takeoff = true;
-  battle.addBuff(unit, { key: 'kalts2:takeoff', duration: TAKEOFF_PRE, flags: { disarm: true } });
+  // kalts2_s_3[disarm] (FORCE_DISARMED, INVINCIBLE): the BuffDuringCastingFixed of StartTransporting, held for its cast — the
+  // swing under way is cut, no attack, no damage taken until her clip has played
+  battle.addBuff(unit, { key: 'kalts2:takeoff', duration: TAKEOFF_CLIP, flags: { disarm: true, invulnerable: true } });
   // t: the clip's own 1 s; `picks`: the 待投放 operators (kalts2_s_3[withdraw] ON_BUFF_START: CreateEffect
   // kalts2_skill_03_teleport_02 on each — render/fx/kitofficial.js)
   battle.fx('kalts2Takeoff', { x: unit.x, y: unit.y, id: unit.id, signal: 'takeoff', t: 1, picks: picks.map((a) => a.id) });

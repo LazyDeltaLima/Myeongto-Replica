@@ -12,6 +12,7 @@ import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
 import { COLS } from '../../server/sim/constants.js';
+import { LAND_CLIP } from '../../server/sim/content/kits/ops/op-kalts2.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -313,6 +314,8 @@ test('S3 with her anchor: 0.1 s after the cast she takes off (Skill_3_Restart_Be
     const PRE = 0.667;   // op-kalts2.js TAKEOFF_PRE
     assert.ok(h.runUntil(() => u.mem.k2takeoff, 0.3), `${label(f)}: taking off`);
     assert.ok(!u.hidden && u.s.flags.disarm, `${label(f)}: still on her tile, no attack`);
+    // kalts2_s_3[disarm] (FORCE_DISARMED, INVINCIBLE): StartTransporting's BuffDuringCastingFixed
+    assert.equal(h.b.dealDamage(null, u, { amount: 5000, type: 'true', sourceless: true }), 0, `${label(f)}: 无敌 while taking off`);
     assert.ok(h.eventsOf('fx').some((x) => x[1] === 'kalts2Takeoff' && x[4]?.id === u.id && x[4].signal === 'takeoff'), `${label(f)}: the take-off clip`);
     h.runUntil(() => u.hidden, 0.2 + PRE);
     assert.ok(u.hidden && u.mem.k2flight, `${label(f)}: flying`);
@@ -333,6 +336,8 @@ test('S3 with her anchor: 0.1 s after the cast she takes off (Skill_3_Restart_Be
     assert.ok(!u.hidden, `${label(f)}: landed`);
     approx(h.b.time - t0, 0.1 + PRE + T, `${label(f)}: after ${T.toFixed(2)} s of flight`, 0.1);
     assert.ok(h.eventsOf('deploy').some((x) => x[1] === u.id && x[3] === 'land'), `${label(f)}: lands on Skill_3_Restart_End`);
+    const landAt = h.b.time;
+    assert.ok(u.s.flags.disarm, `${label(f)}: RespawnBorn's kalts2_s_3[respawn_anim] (FORCE_DISARMED) holds her attacks`);
     assert.deepEqual([u.tileR, u.tileC, u.dir], [10, 9, 'UP'], `${label(f)}: on the anchor's tile, facing its way`);
     assert.deepEqual(h.eventsOf('fx').filter((e) => e[1] === 'turnDir' && e[4].id === u.id).map((e) => e[4].dir), ['UP'], `${label(f)}: the view is told (her model and facing ring)`);
     assert.ok(!a.alive && !a.removed && a.mem.docked, `${label(f)}: the anchor withdrawn (its piece kept)`);
@@ -340,6 +345,8 @@ test('S3 with her anchor: 0.1 s after the cast she takes off (Skill_3_Restart_Be
     assert.ok(u.skill.active, label(f));
     approx(u.skill.timeLeft, tl, `${label(f)}: the remaining time kept`, 0.1);
     assert.equal(sil.findBuff('talent:kalts2:regen')?.mods.hpRegen, 60, `${label(f)}: 赫默, 2.0 from her flight, entered T2`);
+    h.runUntil(() => !u.s.flags.disarm, 2);
+    approx(h.b.time - landAt, LAND_CLIP, `${label(f)}: for Skill_3_Restart_End`, 0.1);
     h.runUntil(() => !u.skill.active, 40);
     h.run(5);
     assert.ok(!a.alive, `${label(f)}: no anchor back after the skill (stock 0)`);

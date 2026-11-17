@@ -802,7 +802,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     같은 `signalSwing`, 스킬 begin이 끝난 뒤. `Skill_1_Close`(S1 수동 정지 뒤의 몰아 쏘기)는 `none` — 이 모드엔 수동 정지가 없음(스킬을 멈추는 클라 메시지 없음,
     `skills.js stop()` 호출처 없음). [화면 미확인]
   - **G** 凯尔希·思衡托 S3 운반(CN 클라): 이륙 `Skill_3_Restart_Begin`(1 s)의 OnAttack(0.667 s)에서 비행 투사체가 나간다 → 시뮬도 운반 시작 뒤 `TAKEOFF_PRE` 0.667 s
-    동안 제자리(공격 없음 [추정])에서 이륙 클립(fx 'kalts2Takeoff' `{ signal: 'takeoff', t: 1 }` — fx의 `t`는 그 행동 시간, 여기선 클립 제 속도), 그 뒤 숨고 비행
+    동안 제자리(공격 없음 — 공식 클라에서 확인 2026-11-17, rules/diy.md 「켈시 에스페란타 S3 운반 이륙」)에서 이륙 클립(fx 'kalts2Takeoff' `{ signal: 'takeoff', t: 1 }` — fx의 `t`는 그 행동 시간, 여기선 클립 제 속도), 그 뒤 숨고 비행
     (그동안은 즉시 숨었음, 키트 [ASSUMED]였던 부분). 착지는 【移动】 클립 키 `land` → `Skill_3_Restart_End`. 골든 변화 없음(코퍼스에 닻과 함께 S3 쓰는 시나리오 없음). [화면 미확인]
   - **G** 予愿安洁莉娜 S3가 처음 칸 밖에서 끝나면 복귀 비행(Comback)이 `Skill_3_Restart_Begin`으로 시작 [추정: 어느 노드가 트는지] — 키트 'aglnaFlight' 켜짐 fx의
     `signal: 'comeback'`, 스킬이 끝나는 그 프레임의 신호 클립이 `Skill_3_End`를 대신한다(`spine.js setSkill`). [화면 미확인]
