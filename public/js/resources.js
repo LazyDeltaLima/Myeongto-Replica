@@ -9,6 +9,12 @@
 //   * a file without `u` (assets/local: 3D board, emotes, UI sprites; normalized spine atlases) comes from this server,
 //     requested with PAST_WORKER so the worker leaves it alone (it answers no query string): otherwise the worker took
 //     the request, fetched, hashed and stored the file, and this page hashed and stored it a second time;
+//   * most of this server's files are also in `bundles: [{ p, s, m }]` (tools/assets/resource-bundles.mjs: about 8 MB of
+//     members' bytes one after another, `m` = indices into `files` as listed). A bundle whose members still to download
+//     are at least two and half its bytes is read first, two at a time and only outside a match and a field load (a read
+//     then is cut short and taken up again after): each member is cut by its listed size as its bytes arrive and stored
+//     under its own path with the same check as a file (readBundle). A failed bundle's members, and a member whose bytes
+//     did not match, are then downloaded as files; so are the bundles still waiting when a match leaves nothing else;
 //   * every file is kept only when its size and SHA-256 match the list, so an upstream repo that changed under us can
 //     never put a different file in the cache. A file that fails stays out (the game loads it from the server as now)
 //     and is tried again on the next visit — except an upstream file whose every source served other bytes (the repo
@@ -108,6 +114,33 @@ export const validPath = (p) => typeof p === 'string' && PATH_RE.test(p) && !p.s
 export const validEntry = (f) => !!f && validPath(f.p) && Number.isInteger(f.s) && f.s >= 0 && typeof f.h === 'string' && /^[0-9a-f]{64}$/.test(f.h)
   && (f.u === undefined || (typeof f.u === 'string' && sourcesOf(f).length > 0));
 
+const BUNDLE_RE = /^\/assets\/bundles\/[A-Za-z0-9_.-]+\.pack$/;
+
+/**
+ * The bundles the list names (tools/assets/resource-bundles.mjs): `{ p, s, m }` with `m` indices into the list's own
+ * `files` (before validEntry filters it), ascending = the order the members' bytes follow one another. A bundle is kept
+ * only when its path is a bundle path, every member is a valid entry of this server (no `u`) and the sizes add up to `s`
+ * (the cut needs them all). Members become the entries themselves.
+ * @param {unknown} raw @param {unknown[]} files the list's `files` as it came
+ * @returns {{ p: string, s: number, m: { p: string, s: number, h: string }[] }[]}
+ */
+export function sanitizeBundles(raw, files) {
+  if (!Array.isArray(raw) || !Array.isArray(files)) return [];
+  const out = [];
+  for (const b of raw) {
+    if (!b || typeof b.p !== 'string' || !BUNDLE_RE.test(b.p) || !validPath(b.p) || !Number.isInteger(b.s) || !Array.isArray(b.m) || b.m.length < 2) continue;
+    let prev = -1, sum = 0, ok = true;
+    const m = [];
+    for (const i of b.m) {
+      const f = Number.isInteger(i) && i > prev ? files[i] : null;
+      if (!validEntry(f) || f.u !== undefined) { ok = false; break; }
+      prev = i; sum += f.s; m.push(f);
+    }
+    if (ok && sum === b.s) out.push({ p: b.p, s: b.s, m });
+  }
+  return out;
+}
+
 /** The packs the list names, `{ <pack>: [path prefix…] }`: a prefix is '/assets/…/' (anything else is ignored). */
 export function sanitizePacks(raw) {
   const out = {};
@@ -182,6 +215,8 @@ const supported = () => typeof window !== 'undefined' && window.isSecureContext 
 let index = null;
 let listed = [];        // every valid entry of the list; index.files = the ones this browser downloads (voice language, packs)
 let packs = {};         // the list's packs (sanitizePacks)
+let bundles = [];       // the list's bundles (sanitizeBundles)
+let bundleCounts = { fetched: 0, stopped: 0, failed: 0, members: 0 }; // for the report: bundles read whole / cut short / failed, files stored from them
 let chosen = sanitizeChoice(loadPref(PACKS_PREF, null)); // the player's pack choice
 resStore.set({ chosen: { ...chosen } });
 let paused = {};        // packs paused on this page: { <pack>: true }
@@ -372,7 +407,82 @@ async function fetchOne(f) {
 /** Parallel downloads: none while a field loads, one while a match is on screen, so the game keeps the bandwidth and
  *  the Cache Storage. */
 const limit = () => (fieldLoading() ? 0 : inMatch() ? 1 : 4);
+/** Bundles read at once: two outside a match, none while a field loads or a match is on screen (a bundle being read
+ *  then is cut short: the game keeps this server's bandwidth, and a match takes files one at a time as before). */
+const bundleLimit = () => (fieldLoading() || inMatch() ? 0 : 2);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** The bytes of a bundle job's members still to store. */
+const leftBytes = (job) => { let n = 0; for (const f of job.left.values()) n += f.s; return n; };
+/** A bundle is read only for at least two of its files and half its bytes: else the files one by one cost less. */
+const worth = (job) => job.left.size >= 2 && leftBytes(job) * 2 >= job.b.s;
+
+/** The bundle jobs of a download queue, highest priority first: `left` = the members still in the queue, path → entry. */
+function bundleJobs(queue) {
+  if (!bundles.length) return [];
+  const inQueue = new Map(queue.map((f) => [f.p, f]));
+  const jobs = [];
+  for (const b of bundles) {
+    const left = new Map();
+    for (const f of b.m) { const q = inQueue.get(f.p); if (q && q.h === f.h) left.set(f.p, q); }
+    const job = { b, left, prio: 0 };
+    if (!worth(job)) continue;
+    job.prio = Math.min(...[...left.keys()].map(priorityOf));
+    jobs.push(job);
+  }
+  return jobs.sort((x, y) => x.prio - y.prio);
+}
+
+/**
+ * Read one bundle (its members' bytes one after another, tools/assets/resource-bundles.mjs) and hand each member to
+ * `store` as soon as its bytes are in, cut by the list's sizes: a cut-short read keeps what it stored. Stops when
+ * bundleLimit() drops to 0 (a field loads, a match) or nothing arrives for TIMEOUT_MS.
+ * @returns {Promise<'fetched' | 'stopped' | 'failed'>}
+ */
+async function readBundle(job, store) {
+  const { b } = job;
+  const ctrl = new AbortController();
+  let idle = null, why = null;
+  const quiet = () => { clearTimeout(idle); idle = setTimeout(() => { why = 'timeout'; ctrl.abort(); }, TIMEOUT_MS); };
+  const watch = setInterval(() => { if (!bundleLimit()) { why = 'stopped'; ctrl.abort(); } }, HOLD_POLL_MS);
+  const buf = new Uint8Array(b.s);
+  let got = 0, i = 0, at = 0, end = b.m[0].s; // bytes in; the member being cut, its start and end
+  const cut = async () => {
+    while (i < b.m.length && got >= end) {
+      const f = b.m[i];
+      if (job.left.has(f.p)) await store(job.left.get(f.p), buf.subarray(at, end));
+      i++;
+      at = end;
+      if (i < b.m.length) end += b.m[i].s;
+    }
+  };
+  try {
+    quiet();
+    const res = await fetch(b.p, { cache: 'no-store', signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const reader = res.body?.getReader?.();
+    const take = async (value) => {
+      quiet();
+      if (got + value.byteLength > b.s) throw new Error('longer than listed');
+      buf.set(value, got);
+      got += value.byteLength;
+      await cut();
+    };
+    if (!reader) await take(new Uint8Array(await res.arrayBuffer()));
+    else for (let r = await reader.read(); !r.done; r = await reader.read()) await take(r.value);
+    if (got !== b.s) throw new Error('shorter than listed');
+    return 'fetched';
+  } catch (err) {
+    if (err?.name === 'QuotaExceededError') throw err;
+    if (why === 'stopped') return 'stopped';
+    console.warn('[resources]', b.p, why || err?.message || err?.name || String(err));
+    return 'failed';
+  } finally {
+    clearTimeout(idle);
+    clearInterval(watch);
+    ctrl.abort(); // a read that threw leaves no request running
+  }
+}
 
 let running = false;
 async function download(files = pending) {
@@ -383,20 +493,73 @@ async function download(files = pending) {
   resStore.set({ phase: 'running', done: 0, total: queue.length, bytesDone: 0, bytesTotal, failed: 0, error: null,
     runGroups: [...new Set(queue.map(groupOf))] });
   let sinceSave = 0;
+  const settle = async (f, ok) => {
+    resStore.set((s) => ({ done: s.done + 1, bytesDone: s.bytesDone + f.s, failed: s.failed + (ok ? 0 : 1), sizes: ok ? spend(s.sizes, f) : s.sizes }));
+    if (ok && ++sinceSave >= SAVE_EVERY) { sinceSave = 0; await saveState(); }
+  };
+  const skip = (f) => resStore.set((s) => ({ done: s.done + 1, bytesDone: s.bytesDone + f.s })); // turned off meanwhile
+  // the bundles first (bundleJobs): their members leave the file queue while a bundle job holds them, and come back to it
+  // (in priority order) when the job is given up — a failed or not-worth bundle, a member whose bytes did not match
+  const jobs = bundleJobs(queue);
+  const release = (given) => {
+    let back = 0;
+    for (const job of given) for (const f of job.left.values()) { queue.push(f); back++; }
+    if (back) queue.sort((a, b) => priorityOf(a.p) - priorityOf(b.p));
+  };
+  if (jobs.length) {
+    const owned = new Set(jobs.flatMap((j) => [...j.left.keys()]));
+    let k = 0;
+    for (const f of queue) if (!owned.has(f.p)) queue[k++] = f;
+    queue.length = k;
+  }
+  let reading = 0;
+  const storeMember = async (job, f, bytes) => {
+    if (!resourceWanted(f, packs, chosen)) { job.left.delete(f.p); skip(f); return; }
+    if ((await sha256(bytes)) !== f.h) { console.warn('[resources]', f.p, 'hash mismatch in', job.b.p); return; } // fetched as a file
+    await cache.put(f.p, new Response(bytes, { headers: { 'Content-Type': typeOf(f.p), 'Content-Length': String(bytes.byteLength), 'X-SP-Hash': f.h } }));
+    state[f.p] = f.h;
+    job.left.delete(f.p);
+    bundleCounts.members++;
+    await settle(f, true);
+  };
+  const bundleSlot = async (slot) => {
+    while (jobs.length) {
+      if (slot >= bundleLimit()) { await sleep(HOLD_POLL_MS); continue; }
+      const k = jobs.findIndex((j) => ![...j.left.values()].some(held));
+      if (k < 0) { release(jobs.splice(0)); break; } // only a paused pack's bundles: their files wait in the queue
+      const [job] = jobs.splice(k, 1);
+      reading++;
+      try {
+        for (const f of [...job.left.values()]) {
+          if (!resourceWanted(f, packs, chosen)) { job.left.delete(f.p); skip(f); }
+          // the worker may have stored it on demand since the list was made: adopt, as fetchOne does
+          else if ((await cache.match(f.p))?.headers.get('X-SP-Hash') === f.h) { state[f.p] = f.h; job.left.delete(f.p); await settle(f, true); }
+        }
+        if (!worth(job)) { release([job]); continue; }
+        const end = await readBundle(job, (f, bytes) => storeMember(job, f, bytes));
+        bundleCounts[end]++;
+        if (end === 'stopped' && worth(job)) jobs.unshift(job); // read again once the field or the match is over
+        else release([job]);
+      } finally { reading--; }
+    }
+  };
   const worker = async (slot) => {
-    while (queue.length) {
+    for (;;) {
       const next = queue.findIndex((f) => !held(f));
-      if (next < 0) break; // only the files of a paused pack are left: the download ends, resuming starts them again
+      if (next < 0) {
+        // nothing free: during a match the bundles wait, so their files go one at a time as before
+        if (jobs.length && !bundleLimit() && slot < limit()) { release(jobs.splice(0, 1)); continue; }
+        if (jobs.length || reading) { await sleep(HOLD_POLL_MS); continue; }
+        break; // only the files of a paused pack are left: the download ends, resuming starts them again
+      }
       if (slot >= limit()) { await sleep(HOLD_POLL_MS); continue; }
       const [f] = queue.splice(next, 1);
-      if (!resourceWanted(f, packs, chosen)) { resStore.set((s) => ({ done: s.done + 1, bytesDone: s.bytesDone + f.s })); continue; } // turned off meanwhile
-      const ok = await fetchOne(f);
-      resStore.set((s) => ({ done: s.done + 1, bytesDone: s.bytesDone + f.s, failed: s.failed + (ok ? 0 : 1), sizes: ok ? spend(s.sizes, f) : s.sizes }));
-      if (ok && ++sinceSave >= SAVE_EVERY) { sinceSave = 0; await saveState(); }
+      if (!resourceWanted(f, packs, chosen)) { skip(f); continue; }
+      await settle(f, await fetchOne(f));
     }
   };
   try {
-    await Promise.all([0, 1, 2, 3].map(worker));
+    await Promise.all([...[0, 1, 2, 3].map(worker), ...[0, 1].map(bundleSlot)]);
     await saveState();
     pending = pending.filter(missing);
     setPending();
@@ -459,6 +622,7 @@ async function install() {
     index = await res.json();
     if (!index || !Array.isArray(index.files)) return;
     listed = index.files.filter(validEntry);
+    bundles = sanitizeBundles(index.bundles, index.files); // before choose() replaces index.files: `m` indexes the list as it came
     packs = sanitizePacks(index.packs);
     resStore.set({ illust: illustDiff(listed, packs) });
     pending = await reconcile();
@@ -544,7 +708,7 @@ export function resourceStatus() {
   return {
     reconcile: reconciled && { ...reconciled },
     download: { phase: r.phase, done: r.done, total: r.total, failed: r.failed, queued: running ? r.total - r.done : pending.length,
-      slowed: running ? (fieldLoading() ? 'field' : inMatch() ? 'match' : null) : null },
+      slowed: running ? (fieldLoading() ? 'field' : inMatch() ? 'match' : null) : null, bundles: { listed: bundles.length, ...bundleCounts } },
     cleanup: { left: stale.length, deleted, held: stale.length > 0 && inMatch() },
     worker: worker && { ...worker },
   };
