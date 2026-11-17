@@ -308,7 +308,14 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 1,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 2
+   }
   },
   "skchr_archet_3": {
    "ability": null,
@@ -515,7 +522,15 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "filter": 1,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 1
+   }
   },
   "skchr_blaze2_2": {
    "ability": null,
@@ -639,7 +654,14 @@
    },
    "cls": "cast",
    "reset": 1,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 1,
+    "sel": "blocked",
+    "side": 2
+   }
   },
   "skchr_blkkgt_3": {
    "ability": {
@@ -666,7 +688,14 @@
      "anim": 1,
      "wait": 1
     }
-   ]
+   ],
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 3,
+    "sel": "blocked",
+    "side": 2
+   }
   },
   "skchr_bluep_1": {
    "ability": {
@@ -798,7 +827,15 @@
    "born": 0,
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "filter": 1,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 2
+   }
   },
   "skchr_cello_2": {
    "ability": null,
@@ -872,7 +909,14 @@
    },
    "cls": "cast",
    "reset": 1,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 2
+   }
   },
   "skchr_chen3_3": {
    "ability": null,
@@ -905,7 +949,14 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 1
+   }
   },
   "skchr_chnut_2": {
    "ability": null,
@@ -937,7 +988,12 @@
    },
    "cls": "cast",
    "reset": 1,
-   "state": 0
+   "state": 0,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "sel": "tile"
+   }
   },
   "skchr_clemnt_1": {
    "ability": {
@@ -1141,7 +1197,14 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 1
+   }
   },
   "skchr_demkni_3": {
    "ability": null,
@@ -1283,7 +1346,14 @@
    "ability": null,
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "min": 1,
+    "notBuff": [
+     "excu2_in_multi_attack"
+    ],
+    "sel": "selfIf"
+   }
   },
   "skchr_excu2_2": {
    "ability": null,
@@ -1291,14 +1361,28 @@
    "cls": "cast",
    "range": 0,
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "min": 1,
+    "notBuff": [
+     "excu2_in_multi_attack"
+    ],
+    "sel": "selfIf"
+   }
   },
   "skchr_excu2_3": {
    "ability": null,
    "begin": "Skill_3_Begin",
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "min": 1,
+    "notBuff": [
+     "excu2_in_multi_attack"
+    ],
+    "sel": "selfIf"
+   }
   },
   "skchr_excu_1": {
    "ability": null,
@@ -1563,7 +1647,14 @@
      "anim": 0,
      "wait": 1
     }
-   ]
+   ],
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 2
+   }
   },
   "skchr_glassb_1": {
    "ability": null,
@@ -1630,7 +1721,14 @@
    "ability": null,
    "cls": "cast",
    "reset": 0,
-   "state": 0
+   "state": 0,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 2
+   }
   },
   "skchr_gravel_1": {
    "ability": null,
@@ -1657,7 +1755,14 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 1,
+    "sel": "range",
+    "side": 2
+   }
   },
   "skchr_greyy_2": {
    "ability": null,
@@ -1789,7 +1894,12 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "sel": "self"
+   }
   },
   "skchr_hbound_2": {
    "ability": {
@@ -1804,7 +1914,11 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "min": 1,
+    "sel": "self"
+   }
   },
   "skchr_headb2_1": {
    "ability": null,
@@ -2104,7 +2218,14 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 1,
+    "sel": "blocked",
+    "side": 2
+   }
   },
   "skchr_irene_3": {
    "ability": {
@@ -2130,7 +2251,14 @@
      "anim": 1,
      "wait": 0
     }
-   ]
+   ],
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 2
+   }
   },
   "skchr_ironmn_1": {
    "ability": null,
@@ -2411,7 +2539,14 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 2
+   }
   },
   "skchr_lionhd_2": {
    "ability": {
@@ -2481,7 +2616,14 @@
    "begin": "Skill_2_Start",
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 1,
+    "sel": "blocked",
+    "side": 2
+   }
   },
   "skchr_lmlee_3": {
    "ability": null,
@@ -2851,7 +2993,14 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 1,
+    "sel": "range",
+    "side": 2
+   }
   },
   "skchr_mudrok_3": {
    "ability": {
@@ -2912,7 +3061,13 @@
    "ability": null,
    "cls": "cast",
    "reset": 0,
-   "state": 0
+   "state": 0,
+   "trig": {
+    "extend": 0,
+    "hpAtMost": 0.2,
+    "min": 1,
+    "sel": "selfIf"
+   }
   },
   "skchr_nothin_2": {
    "ability": null,
@@ -2940,7 +3095,14 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 2
+   }
   },
   "skchr_nymph_3": {
    "ability": null,
@@ -2998,7 +3160,15 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 1,
+    "rangeId": "1-1",
+    "sel": "blocked",
+    "side": 2
+   }
   },
   "skchr_oxi_2": {
    "ability": {
@@ -3013,7 +3183,10 @@
    },
    "cls": "cast",
    "reset": 1,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "sel": "never"
+   }
   },
   "skchr_oxi_3": {
    "ability": null,
@@ -3064,7 +3237,15 @@
    "ability": null,
    "cls": "cast",
    "reset": 0,
-   "state": 0
+   "state": 0,
+   "trig": {
+    "extend": 0,
+    "filter": 1,
+    "min": 1,
+    "motion": 1,
+    "sel": "range",
+    "side": 1
+   }
   },
   "skchr_pasngr_1": {
    "ability": {
@@ -3099,7 +3280,14 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 2
+   }
   },
   "skchr_pepe_1": {
    "ability": {
@@ -3251,7 +3439,14 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 2
+   }
   },
   "skchr_prove_2": {
    "ability": null,
@@ -4120,7 +4315,12 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "sel": "self"
+   }
   },
   "skchr_thorn2_3": {
    "ability": {
@@ -4136,7 +4336,15 @@
    "cls": "cast",
    "range": 0,
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "filter": 1,
+    "min": 1,
+    "motion": 3,
+    "sel": "range",
+    "side": 1
+   }
   },
   "skchr_thorns_2": {
    "ability": null,
@@ -4176,7 +4384,11 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "min": 1,
+    "sel": "self"
+   }
   },
   "skchr_tippi_1": {
    "ability": null,
@@ -4188,7 +4400,10 @@
    "ability": null,
    "cls": "cast",
    "reset": 0,
-   "state": 0
+   "state": 0,
+   "trig": {
+    "sel": "never"
+   }
   },
   "skchr_titi_1": {
    "ability": null,
@@ -4240,7 +4455,15 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "filter": 1,
+    "min": 1,
+    "motion": 1,
+    "sel": "range",
+    "side": 1
+   }
   },
   "skchr_tocka_2": {
    "ability": {
@@ -4255,7 +4478,12 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "sel": "group"
+   }
   },
   "skchr_tocka_3": {
    "ability": null,
@@ -4319,7 +4547,14 @@
    },
    "cls": "cast",
    "reset": 0,
-   "state": 1
+   "state": 1,
+   "trig": {
+    "extend": 0,
+    "min": 1,
+    "motion": 1,
+    "sel": "blocked",
+    "side": 2
+   }
   },
   "skchr_ulpia_2": {
    "ability": null,

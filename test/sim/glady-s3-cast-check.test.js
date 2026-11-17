@@ -26,7 +26,7 @@ test('歌蕾蒂娅 S3: an enemy she blocks from behind (outside her range) does 
   const ok = h.runUntil(() => e.blockedBy === u, 20);
   assert.ok(ok, 'the enemy reaches her and is blocked from behind');
   h.run(5);
-  assert.ok(!u.skill.active, 'S3 cast on a blocked enemy outside her range (skill castCheck: the prefab target trigger)');
+  assert.ok(!u.skill.active, 'S3 cast on a blocked enemy outside her range (data `cast.trig`, skills.js _trigFound: the prefab target trigger — docs/rules/sim.md 「스킬 프리팹의 대상 트리거」)');
   assert.ok(e.hp < e.s.maxHp, 'she attacks the blocked enemy normally instead');
 });
 

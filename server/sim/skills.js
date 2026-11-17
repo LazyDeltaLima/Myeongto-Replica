@@ -48,8 +48,9 @@
 //   instant (onStart + optional one-shot attack override for the next attack), charges (= instant with charges),
 //   passive (always on from deployment, no SP), toggle (stays on until death once activated).
 // SkillSpec fields (all optional): kind, duration, ammo, spCost, initSp, charges, spType, trigger,
-//   castCheck(ctx) (→ bool: the skill prefab's own target trigger, which the automatic operations search before a cast —
-//   the client's CastSkill.get_canCastCheck, `_trigger.Search`; false: no cast whatever the rule says),
+//   castCheck(ctx) (→ bool: replaces the skill prefab's own target trigger, which the automatic operations search before a
+//   cast — the client's CastSkill.get_canCastCheck, `_trigger.Search`, read from data `cast.trig` (_trigFound); false: no cast
+//   whatever the rule says),
 //   mods, flags, targeting {maxTargets, rangeGrid, priority, allInRange, rangeExtend, noRangeExtend (the range ignores
 //   the unit's 攻击距离), showOwnRange (rangeGrid only selects targets: the detail card keeps the unit's own range)},
 //   attack {dmgType, atkScale, splashRadius, splashScale, hits, projectile, maxTargets, dmgMul, onHit, heal…},
@@ -76,6 +77,9 @@ const TICK_RULES = new Set(['SP_FULL', 'SEARCH', 'CUSTOM_RANGE', 'SKILL_RANGE', 
 const changesRange = (tg) => !!(tg && (tg.rangeGrid || tg.rangeExtend || tg.noRangeExtend));
 /** Enemies that satisfy a content trigger range (any targetable enemy, flyers included). */
 const TRIGGER_PROFILE = Object.freeze({ canHitFly: true });
+// a skill prefab trigger's selector motion (`_targetMotion`): ground only, air only (_trigFound)
+const TRIG_GROUND = Object.freeze({ groundOnly: true });
+const TRIG_AIR = Object.freeze({ canHitFly: true, skipEnemy: (e) => !e.isFlying });
 
 /**
  * The 'skill' animation window the sim reports to the client: `unit.skillAnimUntil` (snapshot.js `animOf` → ANIM.SKILL,
@@ -145,6 +149,7 @@ export class SkillRuntime {
     this._buffKey = `skill:${unit.id}`;
     this._trigKeys = null;
     this._trigSet = null;
+    this._trigBox = null;         // _trigFound's range box: { tile, dir, ext, grid, keys }
     this.triggerRanges = [];      // content trigger ranges (addTriggerRange)
     /** @type {null | (() => number[] | null)} content: the [row, col] the trigger grid is centred on instead of the unit's tile (null: no tile) */
     this.triggerAt = null;
@@ -475,10 +480,52 @@ export class SkillRuntime {
     else if (TICK_RULES.has(this.rule)) ok = this._tickRuleSatisfied();
     else ok = this._autoDefault();
     if (!ok) return false;
-    // the skill's own target trigger (`castCheck`): the client's `_DoDefaultCheck` also asks CastSkill.get_canCastCheck,
-    // which fails when the skill prefab's `_trigger` finds no target — a rule met by a blocked enemy alone does not cast then
-    if (this.spec.castCheck && this._call('castCheck', {}) !== true) return false;
+    // the skill's own target trigger: the client's `_DoDefaultCheck` also asks CastSkill.get_canCastCheck, which fails when
+    // the skill prefab's `_trigger` finds no target — whatever the rule (SP_FULL too), and a blocked enemy alone does not
+    // cast a skill whose trigger looks only in its range box
+    if (!(this.spec.castCheck ? this._call('castCheck', {}) === true : this._trigFound())) return false;
     return this.activate(TICK_RULES.has(this.rule) || this.rule === 'TAKE_DAMAGE' ? this.rule : 'DEFAULT');
+  }
+
+  /**
+   * The skill prefab's target trigger finds a target (data `cast.trig`, tools/local-extract/skill_cast.py trigger_entry; the
+   * client's `CastSkill.get_canCastCheck` → `SelectorTrigger.Search`: fewer than `_minTargetNum` found → no cast; docs/rules/
+   * sim.md 「스킬 프리팹의 대상 트리거」). No `_trigger`: true. 'never' (NeverTrigger): false. 'self': the unit itself. 'selfIf':
+   * the unit while it holds none of `notBuff` and its HP ratio is ≤ `hpAtMost`. 'range' / 'blocked' with enemy side: the
+   * enemies whose collider overlaps the skill ability's range box — a ConstBoxRange's own grid, else the skill's rangeId, else
+   * the unit's own range, grown by its 攻击距离 only when the box is `_extendable` —, by the selector's motion (1 ground,
+   * 2 air), plus the enemies it blocks for 'blocked' (BlockedOrAdvancedSelector), at least `min` of them. The selectors the
+   * engine does not model say true (test/sim/skill-trigger.test.js lists them): an ally side, a subclass filter, a tile or
+   * group selector, another self condition.
+   */
+  _trigFound() {
+    const t = this.cast && this.cast.trig;
+    if (!t) return true;
+    const u = this.unit;
+    if (t.sel === 'never') return false;
+    if (t.sel === 'selfIf') {
+      if (t.notBuff.some((k) => u.findBuff(k))) return false;
+      return !(t.hpAtMost != null && u.hpRatio > t.hpAtMost + 1e-9);
+    }
+    if ((t.sel !== 'range' && t.sel !== 'blocked') || t.side !== 2 || t.filter) return true;
+    const b = this.battle;
+    const ext = t.extend ? (u.s.rangeExtend || 0) : 0;
+    const grid = t.grid || this.def.rangeGrid || u.rangeGrid || [[0, 0]];
+    const tile = u.tileR * COLS + u.tileC;
+    const c = this._trigBox;
+    let keys;
+    if (c && c.tile === tile && c.dir === u.dir && c.ext === ext && c.grid === grid) keys = c.keys;
+    else {
+      keys = absoluteRangeKeys(grid, u.tileR, u.tileC, u.dir, ext);
+      this._trigBox = { tile, dir: u.dir, ext, grid, keys };
+    }
+    const prof = (t.motion & 3) === 1 ? TRIG_GROUND : (t.motion & 3) === 2 ? TRIG_AIR : TRIGGER_PROFILE;
+    const found = b.enemiesInKeys(keys, u, prof);
+    if (found.length >= t.min) return true;
+    if (t.sel !== 'blocked' || !u.blocking.length) return false;
+    let n = found.length;
+    for (const e of b.blockedTargets(u, prof)) if (!found.includes(e) && ++n >= t.min) return true;
+    return false;
   }
 
   /**

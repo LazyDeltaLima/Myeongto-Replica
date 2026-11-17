@@ -26,7 +26,9 @@ docs/rules/ui.md 「선택 메뉴」): CastSkill `_hideRangeToShow`, or `_forceU
 unit's own mode — no ability `_selector` and no `_rangeIdModeIndex` above 0 (the Default mode); 圣约送葬人 S1 / S3 point
 at their skill modes 1 / 3, another range, and keep the toggle. `aim` 0 (CastSkill) = the skill ability is cast at the
 unit's own place — no `_trigger` (`CastSkill.DoCast` → `CastDirectly`) or an extra its start buff triggers at the unit —, so its
-`_faceToTarget` turns nothing (skill_entry; docs/rules/render.md 「공격 방향」). Output
+`_faceToTarget` turns nothing (skill_entry; docs/rules/render.md 「공격 방향」). `trig` (CastSkill with a `_trigger`) = the target
+trigger the automatic operations search before a cast and its selector / range box (trigger_entry; docs/rules/sim.md 「스킬
+프리팹의 대상 트리거」). Output
 tools/assets/local-skill-cast.json:
 
   { "skills": { "skchr_thorn2_1": { "cls": "replace", "ability": { "anim": "Skill", "time": 0, "max": 1, "wait": 1, … } },
@@ -47,7 +49,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from char_modes import buff_templates, char_skill_prefabs, skills_tree  # noqa: E402
+from char_modes import buff_templates, char_skill_prefabs, load_tree, skill_bundle  # noqa: E402
 from client_path import clients, earlier, kept, kept_all, skills_of, skin_keys  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -161,6 +163,80 @@ def cast_extras(sid, sk, comps3, templates, at_self=None):
     return {gp: bool(ns & names) for gp, ns in extras.items()}
 
 
+# the fields of a SelectorTrigger (`TargetTrigger`); any other field is a subclass this tool does not know (HunterBulletTrigger …)
+SELECTOR_TRIGGER = {'_keepTarget', '_minTargetNum', '_overrideSearchTargetTick'}
+# AdvancedSelector subclass fields that narrow the targets beyond side / motion / range (their default leaves them off)
+SELECTOR_FILTERS = {
+    '_buffKey': '', '_buffs': [], '_filterTag': '', '_filterTagList': [], '_validatorFilterSettings': [],
+    '_CheckNotInElementBreak': 0, '_needProfessionMask': 0, '_secondaryFilter': 0, '_checkUnitType': 0,
+}
+
+
+def own_fields(d):
+    return {k for k in d if k.startswith('_') and k != '_metadata'}
+
+
+def trigger_entry(sk, comps3):
+    """`trig` of a CastSkill with a `_trigger` (the target trigger the automatic operations search before a cast:
+    `CastSkill.get_canCastCheck` is false when its `Search(false)` is — docs/rules/sim.md 「스킬 프리팹의 대상 트리거」), or None
+    without one. `sel`: 'never' (NeverTrigger: no field of its own — never finds a target), else the selector the
+    SelectorTrigger takes (`Awake`: GetComponent<TargetSelector> — the first selector component of its GameObject, `$comp`):
+    'range' (AdvancedSelector and its subclasses: `_targetSide`) / 'blocked' (BlockedOrAdvancedSelector,
+    `_limitedMaxTargetNumToBlockedCnt`: the enemies the owner blocks first, in range or not) with `side` (1 ally, 2 enemy), `motion`
+    (`_targetMotion` bits: 1 ground, 2 air) and `filter` 1 when a subclass narrows the targets further (SELECTOR_FILTERS);
+    'tile' (TileSelector), 'group' (GroupSelector), 'self' (SelfSelector: no field — the owner), 'selfIf'
+    (SelfSelectorInCertainCondition: the owner while `notBuff` keys are all absent / its HP ratio is ≤ `hpAtMost`; `cond` 1 =
+    another condition). The range box (`_extendable`: `extend` 1 = the unit's 攻击距离 grows it; a ConstBoxRange's own
+    `rangeId`, else the skill ability's range — the skill's rangeId, or the unit's own without one, `BasicSkill.AssignData`).
+    `min` = `_minTargetNum`. '?' = a trigger or selector of a shape this tool does not know (tools/build-data.mjs stops on it)."""
+    ref = sk.get('_trigger')
+    pid = ref.get('m_PathID') if isinstance(ref, dict) else None
+    if not pid:
+        return None
+    by_pid = {p: (gp, d) for gp, d, p in comps3}
+    if pid not in by_pid:
+        return {'sel': '?'}
+    gp, trig = by_pid[pid]
+    f = own_fields(trig)
+    if not f:
+        return {'sel': 'never'}
+    if f != SELECTOR_TRIGGER:
+        return {'sel': '?'}
+    out = {'min': int(trig.get('_minTargetNum') or 0)}
+    sibs = sorted((d for g, d, p in comps3 if g == gp and p != pid), key=lambda d: d.get('$comp', 1 << 30))
+    rng = next((d for d in sibs if '_extendable' in d), None)
+    if rng is not None:
+        out['extend'] = int(bool(rng.get('_extendable')))
+        if isinstance(rng.get('_rangeId'), str) and rng['_rangeId']:
+            out['rangeId'] = rng['_rangeId']
+    for d in sibs:
+        f = own_fields(d)
+        if d is rng or '_targetOptions' in d:   # the range, a validator (FilterBuffTargetValidator)
+            continue
+        if not f:
+            return {**out, 'sel': 'self'}
+        if '_tileSortType' in d:
+            return {**out, 'sel': 'tile'}
+        if '_rangeSelectorsList' in d:
+            return {**out, 'sel': 'group'}
+        if '_checkHpRatioCondition' in d:
+            e = {**out, 'sel': 'selfIf'}
+            if d.get('_checkNotContainBuffs'):
+                e['notBuff'] = [k for k in d.get('_buffKeys') or [] if isinstance(k, str)]
+            if d.get('_checkHpRatioCondition'):
+                e['hpAtMost'] = num(d.get('_maxRatio') or 0)
+            if d.get('_checkContainBuffs') or d.get('_checkBuffStackCount'):
+                e['cond'] = 1
+            return e
+        if '_targetSide' in d:
+            e = {**out, 'sel': 'blocked' if '_limitedMaxTargetNumToBlockedCnt' in d else 'range',
+                 'side': int(d.get('_targetSide') or 0), 'motion': int(d.get('_targetMotion') or 0)}
+            if any(k in d and d[k] not in (v, None) for k, v in SELECTOR_FILTERS.items()):
+                e['filter'] = 1
+            return e
+    return {**out, 'sel': '?'}
+
+
 def skill_entry(sid, comps3, templates):
     """{cls, state?, reset?, ability, group?, subs?} of one skill prefab's components [(GameObject path, MonoBehaviour,
     path id)], or None. `templates`: the buff templates (char_modes.buff_templates), for cast_extras."""
@@ -195,6 +271,9 @@ def skill_entry(sid, comps3, templates):
         selector = any(isinstance(d.get('_selector'), dict) and d['_selector'].get('m_PathID') for d in root)
         if sk.get('_hideRangeToShow') or (sk.get('_forceUseBaseShowRange') and not selector and int(sk.get('_rangeIdModeIndex', -1)) <= 0):
             e['range'] = 0
+        tr = trigger_entry(sk, comps3)
+        if tr:
+            e['trig'] = tr
     else:
         return word or None
     # `aim` 0 (a CastSkill): its skill ability is cast at the unit's own place, so a `_faceToTarget` ability does not turn
@@ -268,7 +347,9 @@ def main():
     for client in clients(args.client):
         for k, v in buff_templates(client).items():
             templates.setdefault(k, v)
-        tree = skills_tree(client)
+        # (`$comp`: the component order, which `SelectorTrigger.Awake`'s GetComponent<TargetSelector> follows — trigger_entry)
+        bundle = skill_bundle(client)
+        tree = load_tree(str(bundle), comp_index=True)[0] if bundle else []
         if not tree:
             print(f'no skill bundle under {client}', file=sys.stderr)
             continue

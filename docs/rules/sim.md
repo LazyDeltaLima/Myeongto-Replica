@@ -322,6 +322,23 @@
   `strictlyContains`), `server/sim/skills.js`(`autoOp`이면 tick/onAboutToAttack 시전 안 함 → 되살림, `blockTicks` → `opReadyAt`), `battle/lifecycle.js _autoTriggerPass`
   삭제, `constants.js AUTO_OP_COOLDOWN` 3. 엔진 규칙 `ACTIVE_RANGE`·`SKILL_RANGE`는 키트용으로 남아 있다(비비아나 S3 등; 외근 의료 Touch는 2026-10-29부터 데이터 DEFAULT — 「오퍼레이터 스킬 발동 시점 묶음 C」).
 
+### 스킬 프리팹의 대상 트리거 (2026-11-17, 공식 클라에서 확인)
+
+「오퍼레이터 키트」 절 「글래디아 S3는 범위 안에 고를 적이 있어야 켜진다」의 전수. 자동 조작(`_DoDefaultCheck`)은
+발동 규칙이 무엇이든(DEFAULT·SEARCH·ALWAYS(SP_FULL)·스킬 범위 모두) `CastSkill.get_canCastCheck`를 묻고, 스킬 프리팹 `CastSkill`의 `_trigger`가
+있으면 그 `Search(false)`가 거짓일 때 켜지 않는다. `SelectorTrigger`는 같은 게임오브젝트의 첫 선택자 컴포넌트(`Awake`의 `GetComponent<TargetSelector>`)로
+찾고 `_minTargetNum`보다 적으면 거짓, `NeverTrigger`는 늘 거짓이다. 범위 상자 `AutoLoadBoxRange`는 스킬 능력의 범위(`Ability.rangeId` =
+`BasicSkill.AssignData`의 스킬 `rangeId`, 없으면 유닛 기본 범위)를 충돌체로 보고, `_extendable`일 때만 공격 범위 확장을 더한다(`ConstBoxRange`는 제 `_rangeId`).
+풀 `CastSkill` 가운데 `_trigger`가 있는 것 36개(수동 24개; 자동 스킬은 자동 조작을 타지 않음): 적 선택자(`AdvancedSelector` 계열, 적·`_targetMotion` 지상 1/공중 2)가
+대부분이고, `BlockedOrAdvancedSelector`(데겐블레허 S2·S3, 아이린 S2, 리 S2)는 막은 적을 범위와 상관없이 먼저 넣으므로 등 뒤에서 막은 적도 대상이다.
+홈바운드 S1·S2, 쏜즈 더 로드스타 S2, 틴맨 S2는 첫 선택자가 `SelfSelector`라 늘 참, 이그제큐터 디 엑스 포에데레 S2·S3은 `SelfSelectorInCertainCondition`(자기에게
+`excu2_in_multi_attack` 버프가 없을 때). sim: `tools/local-extract/skill_cast.py` `trig` → `tools/build-data.mjs` `cast.trig` → `skills.js _trigFound`
+(키트 `castCheck`가 있으면 그것). 엔진이 따라 하지 않는 선택자는 참으로 둔다 — 아군 선택자(체스트넛 S1, 파피루스 S2, 쏜즈 더 로드스타 S3)·타일 선택자
+(Miss.Christine S2)·하위 클래스 필터·다른 자기 조건, 목록과 이유는 시험 파일에 [추정·미조사: 선택자 필터를 읽지 않음]. 선택자의 `_abnormalFlag` 조건과
+능력 범위를 바꾸는 모듈(`UnitDataFlowConfig.Delta` `rangeId`)도 안 봄 [추정·미조사]. 이 전수로 바뀐 것은 규정 시즌의 ALWAYS 스킬(데겐블레허 S3·패신저 S3·
+아이린 S3 등)이 SP가 차도 범위 안 대상(데겐블레허는 막은 적 포함)이 생길 때까지 켜지 않는 것이다 — 맹약 시즌 DEFAULT 스킬은 규칙이 이미 같은 대상을 요구했다.
+재발 방지: `test/sim/skill-trigger.test.js`(전수 + 예외 목록), 추출기에 모르는 모양이 오면 `build-data.mjs`가 멈춤(원인 제거 — `skill_cast.py trigger_entry`가 읽음).
+
 ## 중장 스킬 공식 TAKE_DAMAGE — 관리자 결정 2026-10-28 「공식대로」
 - 규칙: 수동(MANUAL) 중장 스킬은 모두 공식 `act2autochess skillTriggerDataList`의 TANK 행 `TAKE_DAMAGE`를 따른다 — 선발(자선) 중장과
   补位 预备干员-重装·Mechanist도. 시전 조건은 위 「스킬 범위 발동」의 TAKE_DAMAGE: 피격 순간(방향 무관) **또는** 0.2 s 패스에서 공격할
@@ -1316,8 +1333,8 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - **글래디아 S3는 범위 안에 고를 적이 있어야 켜진다** (2026-11-16, 공식 클라에서 확인 — 관리자 제보: 등 뒤에서 막은 적에게 S3가 켜져 이펙트가 없고, 은신 장판 맵에서 피해가 없음):
   자동 조작은 발동 규칙(DEFAULT)과 별도로 `CastSkill.get_canCastCheck`를 묻는데, 스킬 프리팹 `skchr_glady_3`의 `_trigger`(`ChantAttack1`의 선택자: `SelectorTrigger`
   `_minTargetNum` 1, 지금 범위 상자, 적·지상과 공중)가 대상을 못 찾으면 거짓이다. 그래서 범위 밖에서 막은 적만 있으면 켜지지 않고 그 적을 일반 공격한다. 전에는
-  막은 적 조건만으로 켜져 대상 없이 8초 동안 회오리·피해·일반 공격이 모두 없었다. sim: 스킬 사양 `castCheck`(`skills.js autoTrigger`, 키트가 범위 안 대상 유무를 줌).
-  다른 스킬 프리팹의 `_trigger`는 아직 읽지 않음 — 전수는 관리자 노트의 할 일. 재발 방지: `test/sim/glady-s3-cast-check.test.js`.
+  막은 적 조건만으로 켜져 대상 없이 8초 동안 회오리·피해·일반 공격이 모두 없었다. sim: 처음엔 키트 `castCheck`로 넣었고, 2026-11-17부터 모든 스킬 프리팹의
+  `_trigger`를 추출해 엔진이 찾는다(「스킬 범위 발동」 끝의 「스킬 프리팹의 대상 트리거」). 재발 방지: `test/sim/glady-s3-cast-check.test.js`.
 - **산크타 믹사파라토 S3 반격 대상** (2026-11-16, 공식 클라에서 확인 — 관리자 제보: 뒤에서 막은 적이 때리면 탄만 줄고 반격 피해가 없음): 반격 `S3Attack`·`S3Attack_Zero`의
   선택자는 `BlockedOrAdvancedSelector`다. 자신이 막은 적(`Character.blockedEnemies`)을 범위와 상관없이 먼저 `max_target`(3)까지 넣고, 남는 자리만 범위 안 적으로 채운다.
   그래서 등 뒤에서 막은 공격자도 반격을 맞는다. 전에는 범위(3-13) 안 적만 골라 그런 공격자에게는 「대상 없는 반격」으로 탄만 썼다. sim: 키트 반격이 `blockedTargets`

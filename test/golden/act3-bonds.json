@@ -1692,33 +1692,33 @@
       "round": 10,
       "seed": 3252010875,
       "waveId": "act3autochess_h03",
-      "time": 105.6,
-      "ticks": 3168,
+      "time": 97.7,
+      "ticks": 2931,
       "reason": "cleared",
       "killed": 30,
       "total": 30,
       "unspawned": 0,
       "bossHpLeft": null,
-      "rngDraws": 12,
+      "rngDraws": 18,
       "errors": {"count":0,"kinds":[]},
       "players": {
-        "p1": {"killed":30,"total":30,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":414561,"bossDmg":0,"heal":499,"deaths":0,"layerGains":{"arcaneShip":18}}
+        "p1": {"killed":30,"total":30,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":414585,"bossDmg":0,"heal":499,"deaths":0,"layerGains":{"arcaneShip":18}}
       },
       "units": [
-        ["p1",1,"op","chess_char_1_02_b",0,"uniequip_002_estell",4898.39,1,2,1,14901,499,499,13,1],
+        ["p1",1,"op","chess_char_1_02_b",0,"uniequip_002_estell",4898.39,1,2,1,14033,499,499,10,1],
         ["p1",2,"op","chess_char_5_05_b",2,"uniequip_002_shu",4028.64,1,1,0,0,0,0,0,0],
         ["p1",3,"op","chess_char_5_02_b",1,"uniequip_002_headb2",3934.92,1,3,3,33876,0,0,4,2],
-        ["p1",4,"op","chess_char_5_03_b",2,"uniequip_002_irene",3548.16,1,5,1,11570,0,0,0,1],
-        ["p1",5,"op","chess_char_5_04_b",2,"uniequip_002_thorns",3414.84,1,7,1,65367,0,0,66,2],
+        ["p1",4,"op","chess_char_5_03_b",2,"uniequip_002_irene",3548.16,1,5,1,24034,0,0,0,1],
+        ["p1",5,"op","chess_char_5_04_b",2,"uniequip_002_thorns",3414.84,1,7,1,66888,0,0,68,2],
         ["p1",6,"op","chess_char_5_06_b",2,"uniequip_002_pepe",3747.48,1,8,13,157657,0,0,16,1],
         ["p1",7,"op","chess_char_5_01_b",2,"uniequip_002_agoat2",1954.92,1,4,0,0,0,0,0,1],
-        ["p1",8,"op","chess_char_5_07_b",2,"uniequip_002_sbell2",2551.56,1,6,11,131191,0,0,26,2]
+        ["p1",8,"op","chess_char_5_07_b",2,"uniequip_002_sbell2",2551.56,1,6,11,118098,0,0,21,2]
       ],
-      "enemies": {"enemy_10124_uashld_2":[2,2,0,0,124416],"enemy_1043_zomsbr":[23,23,0,0,147729],"enemy_1061_zomshd":[5,5,0,499,142416]},
-      "hooks": [1,38,3168,126,126,543,543,4447,30,30,10,7,0,5611,56,4,30,0,1,40,9,0,0],
-      "events": {"atk":136,"castHit":1,"deploy":8,"die":30,"dmg":543,"engage":5,"face":12,"fx":105,"heal":1,"layer":9,"skill":17,"spawn":38,"status":100,"swing":136,"tplfx":10},
-      "fx": {"aoe":11,"garrison":10,"kitHit":31,"lure":2,"rangeMax":1,"snow":34,"stacks":16},
-      "snaps": "22d1313e be056d67 e8627199 0f001e1d 008a6170 674d2563 28412a77 ba46a2a2 273ee7e0 7a9da202 c4dc84ba"
+      "enemies": {"enemy_10124_uashld_2":[2,2,0,0,124416],"enemy_1043_zomsbr":[23,23,0,0,147753],"enemy_1061_zomshd":[5,5,0,499,142416]},
+      "hooks": [1,38,2931,120,120,547,547,4455,30,30,10,6,0,5356,57,4,30,0,1,41,9,0,0],
+      "events": {"atk":129,"castHit":1,"deploy":8,"die":30,"dmg":547,"engage":5,"face":13,"fx":110,"heal":1,"layer":9,"skill":16,"spawn":38,"status":101,"swing":131,"tplfx":10},
+      "fx": {"aoe":16,"garrison":10,"kitHit":32,"lure":2,"rangeMax":1,"snow":33,"stacks":16},
+      "snaps": "22d1313e be056d67 e8627199 0f001e1d 008a6170 674d2563 28412a77 74779a1b 31a272c2 1474ad4b"
     },
     "bond-steadShip-low": {
       "about": "坚守 low: tier 1 layers 1; chess_char_1_06_a chess_char_3_12_a chess_char_1_10_a chess_char_3_13_a chess_char_3_11_a chess_char_3_14_a chess_char_3_15_a chess_char_3_16_a",

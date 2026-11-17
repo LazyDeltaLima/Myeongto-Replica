@@ -186,6 +186,29 @@ export function normSkillCast(c) {
     face: Number.isInteger(c.face) && c.face >= 0 && c.face <= 4 ? c.face : 1,
     // the skill ability is cast at the unit's own place (a CastSkill with no `_trigger`): `face` 1 turns nothing (ai.js castFace)
     aimSelf: c.aimSelf === 1,
+    // the skill prefab's target trigger, which the automatic operations search before they cast it (skills.js _trigFound)
+    trig: normSkillTrig(c.trig),
+  };
+}
+
+/**
+ * data skill `cast.trig` (tools/build-data.mjs skillTrig — a CastSkill's `_trigger`, docs/rules/sim.md 「스킬 프리팹의 대상
+ * 트리거」) → { sel, min, side, motion, extend, filter, grid, notBuff, hpAtMost, cond }, or null without one.
+ */
+function normSkillTrig(t) {
+  if (!t || typeof t !== 'object' || typeof t.sel !== 'string') return null;
+  const int = (v, d) => (Number.isInteger(v) ? v : d);
+  return {
+    sel: t.sel,
+    min: Math.max(0, int(t.min, 1)),
+    side: int(t.side, 0),
+    motion: int(t.motion, 3),
+    extend: t.extend === 1,
+    filter: t.filter === 1,
+    grid: toArrayOfPairs(t.grid),
+    notBuff: Array.isArray(t.notBuff) ? t.notBuff.filter((k) => typeof k === 'string') : [],
+    hpAtMost: Number.isFinite(t.hpAtMost) && t.hpAtMost > 0 ? t.hpAtMost : null,
+    cond: t.cond === 1,
   };
 }
 
