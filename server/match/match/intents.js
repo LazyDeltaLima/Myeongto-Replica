@@ -23,7 +23,7 @@ export class MatchIntents {
       // the briefing's reroll vote (MatchPhases.maybeEndInfo), separate from ready (`cancel` takes it back)
       case 'g.infoReroll': return this.voteReroll(ps, msg.cancel === true);
       // the in-match 重新开始 vote (MatchRestart.voteRestart): propose / yes / no / cancel
-      case 'g.restart': return this.voteRestart(ps, msg.op);
+      case 'g.restart': return this.voteRestart(ps, msg.op, msg.target);
       case 'g.band': return this.pickBand(ps, msg.bandId);
       case 'g.bandSkip': return this.skipBand(ps);
       // the strategy highlighted in the draft screen (what a timed-out turn takes, timeoutBand)

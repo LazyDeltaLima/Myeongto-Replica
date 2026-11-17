@@ -817,7 +817,7 @@ async function mockRequest(t, f = {}) {
       const v = pub.restartVote;
       if (f.op === 'propose') {
         if (v) fail('WRONG_PHASE');
-        pub.restartVote = { by: ME, yes: [ME], deadline: Date.now() + 30_000, ms: 30_000 };
+        pub.restartVote = { target: f.target ?? 'restart', by: ME, yes: [ME], deadline: Date.now() + 30_000, ms: 30_000 };
       } else if (!v) fail('WRONG_PHASE');
       else if (f.op === 'yes') v.yes = [...new Set([...v.yes, ME])];
       else delete pub.restartVote;

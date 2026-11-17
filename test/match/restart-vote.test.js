@@ -126,3 +126,23 @@ test('the proposer leaving ends the vote', () => {
   assert.deepEqual(restart(m, 'p_1', 'yes').error, ERR.WRONG_PHASE);
   m.dispose();
 });
+
+test('solo room destination ends immediately without settlement; a rejected room vote shares the restart cooldown', () => {
+  const solo = makeMatch({ mode: 'solo', seed: 6 }).start();
+  solo.toPrep(1);
+  assert.deepEqual(solo.m.handle('p_0', { t: 'g.restart', op: 'propose', target: 'room' }), { ok: true });
+  solo.sched.advance(1);
+  assert.equal(solo.ended.target, 'room');
+  assert.equal(lastPublic(solo).restartTarget, 'room');
+  assert.equal(results(solo).length, 0);
+  solo.m.dispose();
+
+  const coop = makeMatch({ mode: 'coop', humans: 2, seed: 8 }).start();
+  coop.toPrep(1);
+  assert.deepEqual(coop.m.handle('p_0', { t: 'g.restart', op: 'propose', target: 'room' }), { ok: true });
+  assert.deepEqual(restart(coop.m, 'p_1', 'no'), { ok: true });
+  assert.equal(coop.endedCount, 0);
+  assert.equal(toasts(coop, 'p_0').at(-1).msgid, '{name}反对返回等待室');
+  assert.equal(restart(coop.m, 'p_0', 'propose').error, ERR.RATE);
+  coop.m.dispose();
+});

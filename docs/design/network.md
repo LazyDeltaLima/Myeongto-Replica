@@ -133,3 +133,12 @@ Piece = { uid, kind: 'chess'|'item'|'token', id, golden: bool, tier, items: [ { 
 - Emotes: 6 themes × 6 battle emotes (research 09 §4.2), image-only bubbles beside the sender avatar, 1 s cooldown, 3 s bubble; `g.emote {id}` with the official emoji id.
 
 ---
+
+### In-match restart destination (maintainer request 2026-11-17)
+
+`g.restart { op: propose | yes | no | cancel, target?: restart | room }` shares one unanimous vote and retry cooldown.
+The proposal fixes the destination; omitted `target` means `restart`. `m.public.restartVote.target` names the open vote's
+choice; the final public frame carries `restarted: true` and `restartTarget`. A `room` outcome ends without settlement,
+replay or a server stats line, retains the room and its seats/settings/spectators, clears human ready flags, fills reserved
+seats, and broadcasts the waiting room instead of starting another match. The client records the interrupted run as a quit.
+The exit dialog and vote banner name the destination. The existing phase and voter restrictions apply to both choices.
