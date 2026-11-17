@@ -845,6 +845,17 @@
   시전 이펙트는 없음)은 첫 공격이 아님. 영향: 풀 바인딩 21개(텍사스 0.5초·스카디 0.167초·엑스큐셔너 S2 0.667초 등). 재발 방지: `test/render/first-attack-fx.test.js`.
   'swing' 없이 온 'atk'(예전 서버, 알리지 않은 공격)는 예전처럼 그때 휘두름 것까지 켠다. 0.2초 간격 제한(`ATTACK_GAP_S`)·부하 3단계 생략은 그대로(휘두름 기준).
   `castOpt`가 없는 옛 `modes.json`이면 전부 타격 때(예전 동작). 바인딩 없는 이름 매핑(`_attack_start_*`)도 휘두름 때 [추정: 공식 다수가 ON_CAST_START].
+  **여러 번 치는 공격**(2026-11-17, 공식 클라에서 확인 — `_DoCast`는 spell마다 `spellCnt`를 올리고 `CheckAnotherSpell`(`_additionalTimes`)이 참이면
+  `_triggerDelta`를 기다려 `OnSpellStart`를 다시 부르며, 그때마다 ON_SPELL_ON이 난다; `CastEffectOptions.OnEvent`는 시작 사건마다 이펙트를 새로 만들고
+  `_onlyOnce`만 두 번째부터 막는다): ON_SPELL_ON 시전·입력 대상 이펙트는 spell마다 다시 켠다(`fxgame.js spellFx`, `once`는 한 번); 쏠 때 대상에 트는 타격 이펙트(castOpt t 3 —
+  `DoCastOnTargets`가 spell마다 대상마다 `OnCastOnTarget`, 아래 「쏠 때 트는 타격 이펙트」)도 ⓐ에서 대상마다 spell마다(`shotHitFx`, ⓑ는 'atk'마다 원래 켬). 시뮬이 뒤 spell을 보내는
+  길은 둘 — ⓐ 같은 'atk'의 번호 붙은 타격('dmg' 여덟째 칸 1, 2 …: 프로필 `hits`·`hitsFn`, 엑시아 S2·S3 다섯 발·그라벨 두 번 등 — 모든 타격이 첫 타격과
+  같은 틱, 투사체면 착탄 때), ⓑ 따로 보낸 공격('atk' 여덟째 칸 = spell 번호, `performAttack` `opts.spell`: 오올헤약 S2 아홉 발, 0.05초 간격이 틱으로 0.067초).
+  spell 번호마다 시전당 한 번(대상이 여럿이어도), 그 시전이 아직 주인의 시전일 때만(다음 휘두름이 시작됐으면 안 켬). 전에는 ⓐ가 한 번만 켜졌고, ⓑ는
+  0.03초 창을 넘어 새 시전으로 시작돼 루프가 끊기고 0.2초 간격 제한을 넘은 것은 휘두름(ON_CAST_START) 이펙트까지 다시 켰다. 뒤 spell이 시전 끝(`c.end`)
+  뒤에 오면 끝을 그 spell까지 미룬다 [추정·엔진: 뒤 spell 다음 후딜이 클립 나머지인지 따로 기다리는지 안 읽음]. 우리 풀에서 바뀌는 바인딩: 엑시아 `S2-3`
+  `angle_skill_01_start`(루프, ATTACK_FINISH까지)·`angle_attack_02_hit`(t 3)·오올헤약 S2 `heyak_skill_02_start_02`(루프, 시전 끝까지); 그라벨 `gravel_attack_01_start`는 `once`라 그대로.
+  남은 차이: ⓐ는 spell 간격 없이 한 틱에(위 「타격별 명중」과 같은 시뮬 시간), ON_SPELL_END(5)·끝이 4·5인 루프는 첫 spell 기준 그대로. 재발 방지: `test/render/spell-on-fx.test.js`.
 - **② 적에게 붙는 모드 버프** — 버프 이펙트의 주인 = 버프를 가진 유닛, 받는 쪽은 능력의 `_selector`(`Ability._selector`)가 정한다. 아스트젠 더 라이트체이서 S3
   `LinkEnemy`: 선택기 → 범위 선택기 `HasBuff`·`NewBuff` 모두 `_targetSide 2`, `_limitTargetNum 1`·`_maxNum 1` → `halo2_skill_03_buff_02`는 **적 1명**에. 나머지 6명
   (크루스 더 킨 글린트·라플란드 더 데카덴차·락락·미니멀리스트·울피아누스·티피)은 선택기 없음 = 본인(그대로). → `char_modes.py`의 `attachFoe` 판정에 「`_selector`의

@@ -245,7 +245,7 @@ export default {
               const e = pick(prof);
               if (e) {
                 burst = true;
-                performAttack(battle, unit, prof, [e], { noAmmo: true });
+                performAttack(battle, unit, prof, [e], { noAmmo: true, spell: shots - left });   // the cast's spell 1 … 8
                 burst = false;
               }
               if (left > 1) battle.after(SHOT_GAP, () => shot(left - 1), { owner: unit });

@@ -684,7 +684,7 @@ export function opShot(u, target = null) {
 }
 const NO_FLIGHT = Object.freeze({ key: null, move: 'NONE', speed: 0, delay: 0 });
 
-/** Perform an attack/heal with profile `prof` against `targets`. opts: { noAmmo, signal } (Battle.forceAttack). */
+/** Perform an attack/heal with profile `prof` against `targets`. opts: { noAmmo, signal } (Battle.forceAttack), spell (a kit's later spell). */
 export function performAttack(b, u, prof, targets, opts = null) {
   const isSkill = !!prof.isSkill;
   if (b._hooks.beforeAttack) {
@@ -712,8 +712,14 @@ export function performAttack(b, u, prof, targets, opts = null) {
   const energy = !isHeal && prof.releaseEnergy ? prof.releaseEnergy(b, u) : 0;
   for (let i = 0; i < targets.length; i++) {
     const t = targets[i];
-    // opts.signal (Battle.forceAttack): the client's ability this attack is — a talent's own attack ('T.1'), for its sound
-    b._ev(opts?.signal ? ['atk', u.id, t.id, vis, opts.signal] : ['atk', u.id, t.id, vis]);
+    // opts.signal (Battle.forceAttack): the client's ability this attack is — a talent's own attack ('T.1'), for its sound;
+    // opts.spell (1, 2 …): a later spell of the attack that struck last — an ability that strikes again after `_triggerDelta`
+    // (MultiRangedAttack `_additionalTimes`) sent as an attack of its own — in the 8th field, so the view plays that cast's
+    // ON_SPELL_ON effects again instead of starting another cast (docs/rules/fx.md 「시전 이펙트 시점·붙는 대상」 ①)
+    const ev = ['atk', u.id, t.id, vis];
+    if (opts?.signal || opts?.spell > 0) ev.push(opts?.signal || null);
+    if (opts?.spell > 0) ev.push(null, null, opts.spell);
+    b._ev(ev);
     // the official shot of this attack (opShot): its flight time, or none (the hit at the strike)
     const shot = ranged ? opShot(u, t) : undefined;
     if (isHeal) {

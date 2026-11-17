@@ -24,7 +24,8 @@
 //   'skill' on   → <op>_skill_0N_start_* on the caster, <op>_skill_0N_buff_* looping on it until 'skill' off / death
 //   'swing'      → (2026-10-10) the attack's cast effects of ON_CAST_START on the attacker, as its swing starts
 //                  (swingFx; modes.json castOpt) — or <op>_attack_start_* by name without bindings
-//   'atk'        → its ON_SPELL_ON cast effects (strikeFx); the swing's own when no 'swing' came before it
+//   'atk'        → its ON_SPELL_ON cast effects (strikeFx); the swing's own when no 'swing' came before it; a later spell
+//                  (its 8th field, or a numbered strike of the 'dmg') the cast's ON_SPELL_ON ones again (spellFx)
 //   'dmg'        → <op>_attack_hit_01 / <op>_skill_0N_hit_01 on the target of that attacker's last attack (≤ HIT_GAP_S; local
 //                  patch: once per attack — the first damage after it)
 //   'deploy'     → (2026-10-11) the operator's / token's deploy effect (flushDeploys); 'die' 'killed' → its dead effect
@@ -4646,15 +4647,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const t = v._fxTgt != null ? lastViews?.get(v._fxTgt) : null;
     return t && t.alive !== false && !t.remove ? t : null;
   }
-  /** The input-target effects of phase `phase` ('swing' / 'strike') of cast `c` (mode `mode`), on its main target. */
+  /**
+   * The input-target effects of phase `phase` ('swing' / 'strike'; 'spell': the ON_SPELL_ON ones again, spellFx) of cast `c`
+   * (mode `mode`), on its main target.
+   */
   function inputFx(v, c, mode, phase, tgt = null) {
     let names = bound(v, mode, 'input');
     if (!names.length || c.skip) return;
-    names = names.filter((n) => phaseOf(v, mode, n) === phase);
+    names = phase === 'spell' ? names.filter((n) => castTiming(bindOf(v), mode, n)?.s === CAST_EVENT.SPELL_ON)
+      : names.filter((n) => phaseOf(v, mode, n) === phase);
     if (phase === 'swing') {
       c.inTgt = tgt || lastTarget(v);
       if (!c.inTgt) { c.inputLate = names; return; }
-    } else {
+    } else if (phase === 'strike') {
       c.inTgt ||= tgt;
       if (c.inputLate) { names = [...c.inputLate, ...names]; c.inputLate = null; }
     }
@@ -4899,9 +4904,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * The strike ('atk' on `tgt`): the cast effects of ON_SPELL_ON / ON_SPELL_END; the swing's own when no swing was
-   * announced. Its first target is the cast's main target (input-target effects, lastTarget).
+   * announced. Its first target is the cast's main target (input-target effects, lastTarget). `spell` (the 'atk' 8th
+   * field, 1, 2 …): a later spell of the cast that struck last, sent as an attack of its own (spellFx) — no cast of its own.
    */
-  function strikeFx(src, mode, kind = null, tgt = null, sig = null) {
+  function strikeFx(src, mode, kind = null, tgt = null, sig = null, spell = 0) {
+    if (spell > 0) { spellFx(src, src._fxCast, mode, kind, sig, spell); return; }
     let c = src._fxCast;
     const same = c && c.mode === mode && clockS <= c.hitAt + SWING_SLACK && (c.struckAt == null || clockS - c.struckAt < 0.03) && (c.sig ?? null) === sig;
     const { names: own, split } = boundFor(src, mode, 'cast', kind);
@@ -4925,6 +4932,30 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const cast = castOf(own, c.group);
     if (!c.skip && cast.length) playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'strike'));
     inputFx(src, c, mode, 'strike', tgt);
+  }
+  /**
+   * 2026-11-17, official client (`AbilityStandard._DoCast`: after each spell `spellCnt` + 1, and while `CheckAnotherSpell`
+   * holds — MultiRangedAttack / MultiMeleeAttack `_additionalTimes` — it waits `_triggerDelta` and calls `OnSpellStart`
+   * again, which sends ON_SPELL_ON each time; `CastEffectOptions.OnEvent` plays its effect at every start event but an
+   * `_onlyOnce` one's second): spell `n` (1, 2 …) of cast `c` plays the cast's ON_SPELL_ON cast and input-target effects
+   * again — the once-per-cast ones not (playCast). The sim sends a later spell either as a numbered strike of the same
+   * attack (the 'dmg' 8th field, 能天使 S2 / S3's shots: all with the first) or as an attack of its own (the 'atk' 8th field,
+   * 霍尔海雅 S2's nine shots 0.05 s apart); each spell number plays once per cast, whatever the targets. Before, the
+   * strikes of one 'atk' played them once, and an 'atk' of its own began another cast (its swing effects again, the loops cut).
+   */
+  function spellFx(src, c, mode, kind, sig, n) {
+    if (!c || c.skip || src._fxCast !== c || c.mode !== mode || (c.sig ?? null) !== (sig ?? null) || c.struckAt == null) return;
+    if (!(n > (c.spell ?? 0))) return;
+    c.spell = n;
+    c.struckAt = clockS;
+    // the cast does not end before its last spell (_DoCast: ON_SPELL_END and the post-delay come after it) [추정·엔진: how long
+    // the post-delay runs after a later spell — the clip's remainder or a wait of its own — not read]
+    if (c.end != null && c.end < clockS) c.end = clockS;
+    const bind = bindOf(src);
+    const on = (x) => castTiming(bind, mode, x)?.s === CAST_EVENT.SPELL_ON;
+    const cast = castOf(boundFor(src, mode, 'cast', kind).names, c.group).filter(on);
+    if (cast.length) playCast(src, c, cast);
+    inputFx(src, c, mode, 'spell');
   }
 
   /**
@@ -7645,7 +7676,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // local patch: the mode's own cast effects (a skill's on each of its attacks) — since 2026-10-10 on the attack's own
           // clock: those of ON_CAST_START already started at its 'swing', the strike's (ON_SPELL_ON) now (strikeFx); the
           // throttle (ATTACK_GAP_S) skips them (beginCast)
-          strikeFx(src, mode, e[3], tgt, sig);
+          strikeFx(src, mode, e[3], tgt, sig, Number.isInteger(e[7]) ? e[7] : 0);
+          const rec = tgt ? lastAtk.get(tgt.id ?? tgt.info?.id) : null;
+          if (rec) rec.cast = src._fxCast;   // the cast whose later strikes are its later spells (spellFx)
           shotHitFx(src, mode, e[3], tgt);   // 2026-10-31: the hits that start at the shot
           reachFx(src, tgt, e[3], tgt && lastAtk.get(tgt.id ?? tgt.info?.id));   // 2026-11-01: a shell's ground reach effects where it lands
           svashBird(src, tgt);   // 2026-10-21: 凛御银灰 S3's eagle
@@ -7693,6 +7726,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             ehitFx(a.src, a.epart, tgt);
             elineFx(a.src, a.epart, tgt); // 2026-10-10: the line of the buff it puts on the target (CreateLineEffect)
             return;
+          }
+          if (strike > 0 && a.cast) {   // 2026-11-17: a later spell of its cast (spellFx), and its shot's hits on this target again
+            spellFx(a.src, a.cast, a.mode, a.kind, a.sig ?? null, strike);
+            if (a.cast === a.src._fxCast && !a.cast.skip && strike > (a.spellHit ?? 0)) { a.spellHit = strike; shotHitFx(a.src, a.mode, a.kind, tgt); }
           }
           if (a.reach) { a.reach = false; shellReachFx(a, tgt, views); }   // 2026-11-16: once per shot, on the unit it was fired at
           if (fxBundleOf(a.src.info?.spine || a.src.info?.defId) === 'oblvns' && notesOn(a.src)) return;   // her notes hit on their own
