@@ -2593,10 +2593,10 @@ class ParticleSystem {
         // (official client UVModule, timeMode 0 Lifetime: the extractor stops on another) frac(frame + start) of the sheet:
         // `start` is a share of the sheet (0.25 of 4 is frame 1), not a frame number; a constant frame with a constant start
         // is frac(cycles × frame + start) — the client's 0.999999 is only in timeMode 1 Speed — and a curve frame reads the
-        // curve at frac(age × cycles) [추정·미조사: how the client's Lifetime curve cuts the age just under 1 is not checked; kept
-        // as × 0.999999]. Each draws its own random: not the size's, nor each other's
+        // curve at frac(max(age, 0) × cycles), no 0.999999 either (official client: the Lifetime sheet templates, every frame
+        // mode; at a whole age × cycles the curve is read at 0). Each draws its own random: not the size's, nor each other's
         const uvr = this.rnd[i * 4 + 1], fm = m.uv.frame, cyc = m.uv.cycles || 1;
-        const fv = fm?.m === 0 && m.uv.start?.m === 0 ? fm.s * cyc : evalMM(fm, (Math.max(a, 0) * cyc * 0.999999) % 1, (uvr * 37.3) % 1);
+        const fv = fm?.m === 0 && m.uv.start?.m === 0 ? fm.s * cyc : evalMM(fm, (Math.max(a, 0) * cyc) % 1, (uvr * 37.3) % 1);
         const ut = fv + evalMM(m.uv.start, 0, (uvr * 61.7) % 1), f = Math.min(frames - 1, Math.floor((ut - Math.floor(ut)) * frames));
         // (2026-10-27, effect bundle V) a single-row sheet's row: `row` (rowMode 0 Custom) or one at random per particle (1 Random)
         const row1 = m.uv.rowMode === 1 ? Math.min(ty - 1, Math.floor(this.rnd[i * 4 + 1] * ty)) : (m.uv.row || 0);

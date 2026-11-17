@@ -67,6 +67,22 @@ test('a sheet\'s start frame is a share of the sheet: 0.5 of 16 is frame 8, 0.99
   inst.dispose();
 });
 
+test('a curve sheet frame reads the curve at frac(age × cycles): a whole age × cycles reads it at 0', async () => {
+  // the official client's Lifetime sheet templates read a frame curve at frac(max(age, 0) × cycles) with no 0.999999 (that
+  // is in timeMode 1 Speed only): with it, age 0.5 × cycles 2 read the curve at 0.999999 and drew the last cell for the first.
+  // Cause and rule: docs/rules/fx.md 「그리기 순서·시트」 시트 프레임
+  const lin = { m: 1, s: 1, c: [[0, 0, 1, 1], [1, 1, 1, 1]] };
+  const uv = { tx: 4, ty: 4, frame: lin, start: K(0), cycles: 2, anim: 0 };
+  const { inst } = await make([node('t', -1),
+    node('e', 0, { ps: ps({ uv }, { n: 1, life: 0.04 }) }),
+    node('q', 0, { ps: ps({ uv }, { n: 1, life: 0.08 }) })]);
+  inst.update(0.02);
+  const [e, q] = inst.systems;
+  assert.equal(frameOf(e, 0, 4, 4), 0, 'age 0.5 × cycles 2 reads the curve at 0, not at 0.999999 (fx.md 「그리기 순서·시트」)');
+  assert.equal(frameOf(q, 0, 4, 4), 8, 'age 0.25 × cycles 2 reads the curve at 0.5: frame 8 of 16');
+  inst.dispose();
+});
+
 test('a sheet\'s random start and random frame draw apart from the particle\'s size', async () => {
   const { inst } = await make([node('t', -1),
     node('s', 0, { ps: ps({ uv: { tx: 2, ty: 2, frame: K(0), start: { m: 3, s: 0.9999, n: 0 }, cycles: 1, anim: 0 } }, { n: 190 }) }),
