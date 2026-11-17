@@ -389,7 +389,9 @@ function enterTerrain(battle, st, u, code) {
   m.mireStacks = 0;
   m.mireTriggers = 0;
   if (!code) return;
-  if (code === TERRAIN.smog) battle.addBuff(u, { key: BUFF[code], flags: { stealth: true } });
+  // smog / grassland 隐匿 are `visible` (sent as 'status'): the client draws each tile's 隐匿 by its own buff's effect, not the
+  // operator's own (render/fxstatus.js KEY_FX 'terrain:smog' / 'terrain:grassland') — display only
+  if (code === TERRAIN.smog) battle.addBuff(u, { key: BUFF[code], flags: { stealth: true }, visible: true });
   else if (code === TERRAIN.speedup) {
     // tile_speedup (ON_BUFF_LATE_ENABLE): an ally CHARACTER of any profession (summons included) ATTACK_SPEED ADDITION
     // attack_speed, an enemy MOVE_SPEED FINAL_SCALER move_speed
@@ -398,7 +400,7 @@ function enterTerrain(battle, st, u, code) {
     // tile_duel_grassland: INVISIBLE (the smog tile's flag) on a WALK owner; an enemy's derived
     // dule_grassland[invisible-enemy] adds an INVISIBLE immunity while it is blocked and drops it when the block ends
     // (ON_OWNER_BLOCKEE_CHANGED) — no restore delay (stealthRestore 0; targeting.js enemyStealthed reads the block)
-    battle.addBuff(u, { key: BUFF[code], flags: { stealth: true }, ...(u.side === 'enemy' ? { data: { stealthRestore: 0 } } : {}) });
+    battle.addBuff(u, { key: BUFF[code], flags: { stealth: true }, visible: true, ...(u.side === 'enemy' ? { data: { stealthRestore: 0 } } : {}) });
   }
   else if (code === TERRAIN.deepsea) {
     const D = st.deepsea;

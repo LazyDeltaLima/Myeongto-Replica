@@ -315,7 +315,15 @@
   - **배기 구역의 나뭇잎**: `排气格栅`(`tile_smog`)는 아군에게 隐匿을 줘서 그 위 望 바둑알이 `stealthAlly` 상태 이펙트를 받았고, 그 프리팹
     `common_stealth`(텍스처 `common_leaf`)가 나뭇잎이었다. 클라이언트에서 `common_stealth`를 쓰는 곳은 生息演算 건물 토큰(trap_405/406/459 재능
     overrideEffectKey)뿐, 오퍼레이터 자신의 隐匿(守林人 S1 `skchr_milu_1`, dynamicabilities `Invisible`)은 `common_invisible` → 아군 隐匿도
-    `common_invisible`(`fxstatus.js`)이고 그 ColorModifier(회색 α .894)도 아군에 적용(`units.js lpInvis`). [추정] 타일 隐匿도 같은 프리팹(타일 프리팹 못 찾음).
+    `common_invisible`(`fxstatus.js`)이고 그 ColorModifier(회색 α .894)도 아군에 적용(`units.js lpInvis`).
+    **칸 隐匿은 그 칸 버프의 이펙트**(2026-11-17, 공식 클라에서 확인): 배기 격자 `tile_smog`의 버프 `tile_smog`(EN·CN `battle/prefabs/[uc]tiles.ab`
+    `BuffTile._buffs`, 아군만)는 `overrideEffectKey` `common_invisible_02`(EN·CN `common.ab`; 바닥 가운데 `_spawnLocation` 5, 바닥 메시 + 연기 —
+    주인이 隐匿 면역이면 멈춤), 규정 초원 `tile_duel_grassland`은 템플릿이 만드는 `dule_grassland[invisible]`(아군·적 둘 다)의 `common_079_stealth_01`
+    (CN `common.ab`; 발, 디졸브 띠 둘·멈춤 조건 없음 — 저지된 적도 버프가 남으니 이펙트도 남음). 두 프리팹 다 ColorModifier가 없어 모델 색·투명도는
+    그대로다(`common_invisible`만 회색 .5·α .894). 시뮬은 두 칸 버프를 `visible`로 보내고(`devices.js enterTerrain` → 'status' `terrain:smog`·
+    `terrain:grassland`), `fxstatus.js` KEY_FX가 그 이펙트를, 같은 유닛의 `common_invisible`은 隐匿 상태(`stealth`, 시라쿠사 맹약·아이템)가 따로 있을
+    때만 그린다; `units.js`는 칸 이펙트만 있을 때 회색·45 % 반투명을 안 준다(`TILE_STEALTH_FX`). 알려진 차이: 상태 없이 플래그만 주는 다른 隐匿
+    (이네스 스킬 등)이 칸 위에서 겹치면 공식은 둘 다 그리지만 우리는 칸 것만(뷰가 플래그의 출처를 모름). 재발 방지: `test/render/tile-stealth-fx.test.js`.
   - **손으로 놓은 돌 / 재능(跟子) 돌**: 跟子는 望의 투사체(PRTS 备注, 클라이언트 `projectile_chr_wang_stone1/2/3`)라 이펙트가 그녀 번들(`wang`)의 것 —
     `_effectsToTileWhenStart` `wang_passive_01_buff`(검·흰·금 고리, andi_lne + 루프 별빛), `_triggeredEffect` `wang_passive_01_buff_02`. 놓은 돌(토큰
     `token_10064_wang_stone1`)은 프리팹 `_startEffect` `token_wang_birth_01_buff`(금빛 루프 별빛), `sktok_wang_N/TriggeredEffect` `token_wang_01_buff`

@@ -21,8 +21,9 @@
 //   stealth 隐匿 → common_invisible on both sides (feet; its ColorModifier greys the model to α .894 — units.js) —
 //     local patch (maintainer report 2026-10-07: a big green leaf on 望's stone on an 排气格栅 tile): the leaf was
 //     common_stealth (texture common_leaf), which only the 生息演算 buildings use (trap_405/406/459 talents' overrideEffectKey);
-//     an operator's own 隐匿 is common_invisible (skchr_milu_1 overrideEffectKey, dynamicabilities Invisible) [추정: the
-//     tile's 隐匿 the same]       camou 迷彩 → common_buff_micai_01 (body) [추정: _01 of the three]
+//     an operator's own 隐匿 is common_invisible (skchr_milu_1 overrideEffectKey, dynamicabilities Invisible); a tile's 隐匿
+//     is its tile buff's own effect (KEY_FX 'terrain:smog' / 'terrain:grassland', 2026-11-17), common_invisible only
+//     beside it when another 隐匿 is known       camou 迷彩 → common_buff_micai_01 (body) [추정: _01 of the three]
 //   lemuen:wanted 通缉 (蕾缪安's talent) → lemuen/lemuen_talent_buff_01 (head: its _spawnLocation 4)
 //   reed2:scorch 灼痕 (焰影苇草's talent) → reed2/reed2_debuff_01 (body: its _spawnLocation 2)
 //   talent:archet_shield 铁弦 (空弦's 护盾 layer) → archet/archet_buff_01_start (feet: its _spawnLocation 1)
@@ -161,11 +162,22 @@ const MONSTR_T2 = Object.freeze([['token_monstr_prosts_buff_01', 'token_monstr_p
   .map((p) => Object.freeze(p.map((n) => Object.freeze(['monstr_token', n, OWN])))));
 /** blower_s[atk]'s two effects: [ATK up, ATK down] (spawn at the prefab's own point). */
 const WIND_BUFF = Object.freeze([Object.freeze(['wind', 'wind_buff_02', OWN]), Object.freeze(['wind', 'wind_buff_01', OWN])]);
+/** Whether `st` (a view's statuses) holds a tile 隐匿 (KEY_FX below): a 隐匿 it explains is drawn by it alone. */
+const tileStealth = (st) => !!st?.has?.('terrain:smog') || !!st?.has?.('terrain:grassland');
+/** The tile 隐匿 effects (`bundle/prefab`, a view's `_fxStatusOn`): no ColorModifier — units.js leaves the model's colour. */
+export const TILE_STEALTH_FX = Object.freeze(['common/common_invisible_02', 'common/common_079_stealth_01']);
 /**
  * A kit buff → the official buff's effect: by its key; a list of specs when the buff stands for several; a function picks by
  * the holder (`view`) and its statusSource() (`from`) or returns null for none.
  */
 export const KEY_FX = Object.freeze({
+  // (2026-11-17) a tile's 隐匿 (content/devices.js enterTerrain, a `visible` buff): 排气格栅 tile_smog's buff tile_smog (EN·CN
+  // battle/prefabs/[uc]tiles.ab, the tile's BuffTile `_buffs`: overrideEffectKey common_invisible_02 — on the ground, paused
+  // while the holder is immune to 隐匿) and 规程 草地's dule_grassland[invisible] (CN buff template tile_duel_grassland, on an
+  // ally or an enemy: overrideEffectKey common_079_stealth_01). Neither prefab has common_invisible's ColorModifier: the
+  // model keeps its colour (TILE_STEALTH_FX, units.js); the common one is drawn beside them only for a 隐匿 status (wantedStatusFx)
+  'terrain:smog': cite('tile_smog', ['common', 'common_invisible_02', OWN]),
+  'terrain:grassland': cite('dule_grassland[invisible]', ['common', 'common_079_stealth_01', OWN]),
   // 重装侦察兵 / 远眺's 暴露 on the operators (content/enemies/helpers.js expose): their weak[limit]
   'ab:exposed': WEAK_LIMIT,
   'papyrs:shield': keyedAll('papyrs_t_1[shield_core]', 'papyrs', 0.5),
@@ -697,7 +709,10 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
     // an enemy's 隐匿 is its own invisible buff's effect: common_invisible for most, 假想敌：骨刺's enemy_acbunn_buff, 家族灭迹人's
     // enemy_sgkill_buff, 锏's second form enemy_blkswb_buff_03 (enemy-modes.json `stealth`: its buffs with the INVISIBLE flag)
     const r = k === 'stealth' && own ? own('stealth') : null;
-    if (r) byOwn(r); else if (camouBy == null || !(camouBy in SOURCE_FX.camou)) put(out, k, STATUS_FX[k]);
+    // 2026-11-17: a 隐匿 a tile gives is that tile buff's effect (the statuses below) — the common one only for a 隐匿 status
+    // beside it (another 隐匿 the sim sends without a status cannot be told from the tile's)
+    const tileOnly = k !== 'camou' && !r && !v.statuses?.has?.('stealth') && tileStealth(v.statuses);
+    if (r) byOwn(r); else if (!tileOnly && (camouBy == null || !(camouBy in SOURCE_FX.camou))) put(out, k, STATUS_FX[k]);
   }
   if (v.statuses) {
     for (const k of v.statuses) {

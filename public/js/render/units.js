@@ -83,6 +83,7 @@ import { faceOf, turnFace, turnWidth, dirVector, NEAR_SQ, SWITCH_TIME } from './
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './heldWheel.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
 import { loadPlaces, modelPlace, placesVersion } from './fxpoints.js'; // a model's place and shadow in its battle prefab
+import { TILE_STEALTH_FX } from './fxstatus.js'; // a tile's 隐匿 effect leaves the model's colour
 import { HomeMark, HOME_MARK } from './home-mark.js'; // a dragged piece's greyed, outlined picture left on its tile
 import { ElementRing, epRingState, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, HUD_ANCHOR, prepChip, PREP_CHIP, PREP_TOKEN, tokenCountPlate, EquipBar, equipTextures, RespawnHud, respawnTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
 
@@ -2221,8 +2222,10 @@ export class UnitView {
     // local patch (⑤): a 隐匿 drawn by its official effect takes the prefab's ColorModifier — grey (.5) at α .894
     // (common_invisible; allies too since maintainer report 2026-10-07 — fxstatus.js) — instead of the 45 % ghost (迷彩, and
     // without the effect keep it)
+    // 2026-11-17: a tile's 隐匿 effect alone (common_invisible_02 / common_079_stealth_01 — no ColorModifier) leaves the model as it is
     const lpInvis = !!(this._fxStatusOn?.has('stealth') || this._fxStatusOn?.has('stealthAlly'));
-    if (this.flags & UF.STEALTH) alpha *= lpInvis ? 0.894 : 0.45;
+    const tileInvis = !lpInvis && !!this._fxStatusOn?.size && (this._fxStatusOn.has(TILE_STEALTH_FX[0]) || this._fxStatusOn.has(TILE_STEALTH_FX[1]));
+    if (this.flags & UF.STEALTH && !tileInvis) alpha *= lpInvis ? 0.894 : 0.45;
     if (this.dimmed) alpha *= 0.35;
     this.alpha = alpha;
 
