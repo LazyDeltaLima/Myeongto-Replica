@@ -669,6 +669,7 @@ export class Lobby {
     session.notice = null;
     session.pendingResult = null;
     this.log.info(`[lobby] ${code} created (${mode}${room.size > MAX_SEATS ? room.size : ''}/${difficulty}${roomGrade !== null ? `#${roomGrade}` : ''}/${room.ruleset.preset}) by ${session.name}`);
+    localPatch.roomEntry(this, room, session, 'created');
     this.broadcastState(room);
     return OK;
   }
@@ -694,6 +695,7 @@ export class Lobby {
     session.notice = null;
     session.pendingResult = null;
     if (!room.hostId) room.hostId = session.playerId;
+    localPatch.roomEntry(this, room, session, 'joined');
     this.broadcastState(room);
     localPatch.onJoin(this, room, session); // local patch
     return OK;
@@ -729,6 +731,7 @@ export class Lobby {
     session.roomCode = room.code;
     session.notice = null;
     session.pendingResult = null;
+    localPatch.roomEntry(this, room, session, 'spectating');
     this.broadcastState(room);
     localPatch.onJoin(this, room, session); // local patch
     if (room.match) this.callMatch(room, 'addSpectator', session.playerId);
@@ -822,6 +825,7 @@ export class Lobby {
       room.spectators.splice(room.spectators.indexOf(s), 1);
       room.seats[idx] = this.humanSeat(idx, session, room.season);
       this.seatLog(room, session, 'took a reserved seat');
+      localPatch.roomEntry(this, room, session, 'reserved');
     }
   }
 

@@ -92,6 +92,7 @@ import { ERR, LARGE_MIN_PLAYERS, LARGE_SEATS, MAX_SEATS, DIFFICULTIES, seatsOf }
 import { QUEUE_PRESETS, resolveRuleset, rulesetKey, rulesetWire } from '../shared/ruleset.js';
 import { sendSession } from './net.js';
 import { DEFAULT_SEASON } from '../shared/seasons.js';
+import { roomEntry } from './local-patch.js';
 
 export const QUEUE_DEFAULTS = Object.freeze({
   queueConfirmMs: 15_000,  // a formed group's room.queueAccept window
@@ -566,6 +567,7 @@ export class Matchmaker {
       session.notice = null;
       session.pendingResult = null;
       seated.push(session);
+      roomEntry(lobby, room, session, 'matched');
     }
     if (!host) {
       if (!seated.length) return OK;

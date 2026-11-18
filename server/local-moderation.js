@@ -7,8 +7,12 @@
 // profile, not a person: a private window, cleared site data or another browser is a new id (the maintainer accepted that,
 // 2026-11-18). The MAC lets the server trust the issue time without keeping every id it ever issued.
 //
-// Log lines (the operator's search material; the deployed server keeps them for 30 days, the maintainer's notes):
+// Log lines (the operator's search material; the deployed server keeps them for 15 days, maintainer decision 2026-11-18,
+// the maintainer's notes):
 //   [id] <playerId> b=<id> net=<network key|local> <name>                   a socket's first hello (and a name change)
+//   [room] <room> <playerId> b=<id> net=<network key|local> <event> <name>  a human entered a room: created, joined,
+//                                                                           spectating, reserved (took a reserved seat),
+//                                                                           matched (seated by matchmaking)
 //   [chat] <room> <playerId> b=<id> <name>[ (spectator)][ (muted:ban|net)]: <text>   every chat line (names and text JSON-quoted)
 //   [mod] …                                                                 bans loaded, a muted browser seen on a network
 //
@@ -329,6 +333,11 @@ export class Moderation {
   }
 
   // ---- chat log -------------------------------------------------------------------------------------
+
+  /** One [room] line (header): who entered which room, from which network (maintainer decision 2026-11-18). */
+  logRoom(room, session, event) {
+    this.log.info(`[room] ${room.code} ${session.playerId} b=${session.browserId || '-'} net=${session.limitKey || 'local'} ${event} ${JSON.stringify(session.name)}`);
+  }
 
   /** One [chat] line (header). */
   logChat(room, session, { text, spectator = false, mute = null }) {

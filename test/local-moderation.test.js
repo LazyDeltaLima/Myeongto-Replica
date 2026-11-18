@@ -207,8 +207,8 @@ describe('shadowed chat on the real server (server/local-patch.js)', () => {
   let srv, mod, dir;
   const log = logSink();
   const open = new Set();
-  const player = async (name, extra) => {
-    const c = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
+  const player = async (name, extra, ip) => {
+    const c = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`, ip ? { wsOptions: { headers: { 'x-real-ip': ip } } } : {});
     open.add(c);
     const w = await c.hello(name, null, extra);
     c.id = w.playerId; c.bid = w.bid;
@@ -260,6 +260,23 @@ describe('shadowed chat on the real server (server/local-patch.js)', () => {
       `[chat] ${st.code} ${troll.id} b=${troll.bid.slice(0, 16)} "Troll" (muted:ban): "you are bad"`,
       `[chat] ${st.code} ${guest.id} b=${guest.bid.slice(0, 16)} "Guest": "hello"`,
     ]);
+  });
+
+  test('every human entering a room logs a [room] line with the browser id and the network key', async () => {
+    const host = await player('Host', undefined, '203.0.113.7');
+    await expectOk(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL' });
+    const st = await host.waitFor('room.state', (s) => s.hostId === host.id);
+    const guest = await player('Guest', undefined, '2001:db8:1:2:3:4:5:6');
+    await expectOk(guest, { t: 'room.join', code: st.code });
+    const watcher = await player('Watcher');
+    await expectOk(watcher, { t: 'room.spectate', code: st.code });
+    const lines = log.lines.filter((l) => l.startsWith(`[room] ${st.code} `));
+    const b = (c) => c.bid.slice(0, 16);
+    assert.deepEqual(lines, [
+      `[room] ${st.code} ${host.id} b=${b(host)} net=203.0.113.7 created "Host"`,
+      `[room] ${st.code} ${guest.id} b=${b(guest)} net=2001:db8:1:2::/64 joined "Guest"`,
+      `[room] ${st.code} ${watcher.id} b=${b(watcher)} net=local spectating "Watcher"`,
+    ], 'docs/rules/ui.md 「채팅 차단」 로그: the [room] line names who entered the room, from which network');
   });
 });
 

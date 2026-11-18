@@ -12,7 +12,9 @@
 //   welcomeInfo(lobby)               Lobby.welcomeInfo: `feedback: true` while the feedback inbox is on (local-feedback.js)
 //   identify(lobby, session, info)   Lobby.identify (net.js, every hello): the browser id, its [id] log line, `welcome.bid`
 //                                    (local-moderation.js)
-//   fb.send                          (via onMessage) the settlement screen's feedback, kept in SP_FEEDBACK_DIR (local-feedback.js)
+//   roomEntry(lobby, room, session, event)  a human entered a room (created, joined, spectating, reserved, matched): its
+//                                    [room] log line with the browser id and the network key (local-moderation.js)
+//   fb.send                         (via onMessage) the settlement screen's feedback, kept in SP_FEEDBACK_DIR (local-feedback.js)
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
 //   room.setConsole                  (via onMessage) 콘솔 모드 of a solo room, before its match: room.state `console`
 //   onMatchCreate(room, match)       Lobby.startMatch, before match.start(): a console room's match is a console match
@@ -207,6 +209,11 @@ export function moderationOf(lobby) {
 /** Lobby.identify (net.js, every hello): the browser id to send back in `welcome.bid` (local-moderation.js). */
 export function identify(lobby, session, info) {
   return moderationOf(lobby).identify(session, info);
+}
+
+/** A human entered a room: one [room] line (local-moderation.js logRoom). @param {string} event */
+export function roomEntry(lobby, room, session, event) {
+  moderationOf(lobby).logRoom(room, session, event);
 }
 
 /** Extra welcome fields of this patch (Lobby.welcomeInfo). */

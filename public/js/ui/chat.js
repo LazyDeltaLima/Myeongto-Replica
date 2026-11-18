@@ -26,7 +26,7 @@
 //                where the first of them was. This screen only (the other player is not told), for the room: store.chat
 //                `blocked` (playerIds), kept per tab in sessionStorage with the room code (survives a reload).
 //   Notice       one line only this player sees, right after the history a join / resync brought (store.chat
-//                `noticeAfter` = its last seq; at the top of an empty log): the server keeps chat for 30 days
+//                `noticeAfter` = its last seq; at the top of an empty log): the server keeps chat for 15 days
 //                (server/local-moderation.js [chat] lines, maintainer decision 2026-11-18). Never sent anywhere.
 // Player text is never translated (data-i18n-skip) and only ever rendered as text.
 // Styles: public/css/chat.css.
@@ -281,7 +281,7 @@ function ChatLog({ lines, myId, blocked = [], noticeAfter = 0 }) {
   };
   const entries = logEntries(lines, blocked, noticeAfter);
   return html`<ol class="chat__log" ref=${ref} onScroll=${onScroll} aria-live="polite">
-    ${entries.map((e) => (e.kind === 'notice' ? html`<li key="notice" class="chat__notice">${t('聊天内容会在服务器保存 30 天。')}</li>`
+    ${entries.map((e) => (e.kind === 'notice' ? html`<li key="notice" class="chat__notice">${t('聊天内容会在服务器保存 15 天。')}</li>`
       : e.kind === 'blocked' ? html`<${BlockedLine} key=${`b${e.seq}`} e=${e} />`
       : html`<${Line} key=${e.seq} l=${e} myId=${myId} menu=${menu === e.seq} onMenu=${setMenu} />`))}
     ${lines.length ? null : html`<li class="chat__empty">${t('暂无消息')}</li>`}

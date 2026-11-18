@@ -1262,7 +1262,7 @@
   "屏蔽 {name}": "Block {name}",
   "已屏蔽 {name}（{n} 条）": "Blocked {name} ({n} lines)",
   "解除屏蔽": "Unblock",
-  "聊天内容会在服务器保存 30 天。": "Chat is kept on the server for 30 days.",
+  "聊天内容会在服务器保存 15 天。": "Chat is kept on the server for 15 days.",
   "选择阵营": "Pick a faction",
   "阵营": "Faction",
   "输入消息": "Type a message",
