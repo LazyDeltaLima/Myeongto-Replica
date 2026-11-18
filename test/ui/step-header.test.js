@@ -146,3 +146,27 @@ test('the chain is level with the exit button: the header reads the ping height 
   assert.match(css, /\.stephead__chain \{ --c: calc\(\(var\(--sh-h\) - var\(--exit-below\)\) \/ 2\);/, 'the button centre: the tile is centred in the header');
   assert.match(css, /\.sh-mode \{[^}]*margin-top: calc\(var\(--c\) - 34 \* var\(--eu\)\);/, `the plate's centre is the button's (maintainer decision 2026-11-18, ${RULE})`);
 });
+
+test('the 规程 bubble stays whole inside the header at every root size, with a gap after 「n/N」 (css)', () => {
+  const comp = read('public/css/components.css');
+  const css = read('public/css/screens/briefing.css');
+  const num = (re, text, what) => { const m = text.match(re); assert.ok(m, `${what} not found (${RULE})`); return m.slice(1).map(Number); };
+  const [eu] = num(/\.exit-tile, \.stephead \{ --eu: ([\d.]+)rem;/, comp, '--eu');
+  const [gapEu, pingEu, pingMin] = num(/--exit-ping-gap: calc\(([\d.]+) \* var\(--eu\)\); --exit-ping-h: max\(calc\(([\d.]+) \* var\(--eu\)\), (\d+)px\);/, comp, 'the desktop ping');
+  const [gapPhone, pingPhone] = num(/\.exit-tile, \.stephead \{ --exit-ping-gap: (\d+)px; --exit-ping-h: (\d+)px; \}/, comp, 'the phone ping');
+  const [shH] = num(/\.stephead \{\s*--sh-h: ([\d.]+)rem;/, css, '--sh-h');
+  const bub = css.match(/\.sh-bub \{[^}]*\}/)?.[0] || '';
+  const [height] = num(/height: calc\((\d+) \* var\(--eu\)\)/, bub, 'the bubble height');
+  const [lift] = num(/margin: max\(0px, calc\(var\(--c\) - (\d+) \* var\(--eu\)\)\)/, bub, 'the bubble top, clamped to the header');
+  assert.match(bub, /gap: calc\(8 \* var\(--eu\)\)/, `「/N」 and the title 8 apart, as the picked mockup (${RULE})`);
+  assert.doesNotMatch(css, /\.sh-bub[^{]*\.sh-num \{[^}]*min-width/, 'no fixed 「n/N」 width: the prefab 70 is narrower than our number font and left no gap');
+  // the root size is clamp(40px, …, 240px); the phone (height ≤ 520) uses the fixed ping, its root is 40 px there
+  const cases = [40, 60, 83.3, 120, 240].map((rem) => ({ rem, below: gapEu * eu * rem + Math.max(pingEu * eu * rem, pingMin) }));
+  cases.push({ rem: 40, below: gapPhone + pingPhone, phone: true });
+  for (const { rem, below, phone } of cases) {
+    const u = eu * rem; const head = shH * rem; const c = (head - below) / 2;
+    const top = c - lift * u;
+    assert.ok(top >= 0 && top + height * u <= head + 0.5,
+      `root ${rem}px${phone ? ' (phone)' : ''}: the bubble ${top.toFixed(1)}–${(top + height * u).toFixed(1)} px leaves the ${head.toFixed(1)} px header (${RULE})`);
+  }
+});

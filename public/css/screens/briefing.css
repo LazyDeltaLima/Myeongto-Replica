@@ -29,8 +29,10 @@
    3/3 bars' group_game_info, 1280×720 prefab units times --eu, the exit tile's unit). It spans the header's height and
    every part is placed against --c, the exit button's centre: the tile (button + the ping under it) is centred in the
    header, so its button's centre is (header − ping) / 2 from the top. The mode plate's centre is the button's (maintainer
-   decision 2026-11-18); the bubble's 8 units above it and the character from the header's top edge, as the official CN
-   1/3 screen of 2026-11-18 measures; the divider 2 below (prefab 47 against the plate's 45). nowrap: the Korean pack's
+   decision 2026-11-18); the bubble's body (its top 50 of 66, the tail under it) on it too, never above the header's top edge
+   (the official CN 1/3 screen has the bubble 8 units above the button, but our header is lower and its button higher, so
+   that would cut the bubble's top — the picked mockup keeps it whole); the character from the header's top edge, as that
+   screen measures; the divider 2 below (prefab 47 against the plate's 45). nowrap: the Korean pack's
    `overflow-wrap: anywhere` breaks short words of a flex row a pixel short (docs/rules/ui.md 「한국어 줄바꿈」). */
 .stephead__chain { --c: calc((var(--sh-h) - var(--exit-below)) / 2); align-self: stretch; display: flex; align-items: flex-start; flex: none; white-space: nowrap; }
 .stephead__chain > * { flex: none; position: relative; }
@@ -53,11 +55,12 @@
   background: var(--split) center / 100% 100% no-repeat; }
 .sh-split.is-flat { height: calc(38 * var(--eu)); margin-top: calc(var(--c) + 2 * var(--eu) - 19 * var(--eu)); background: rgba(228, 228, 228, .2); }
 /* 规程: the theme's character (img_char_spine 113 × 96) and the bubble (66 high; img_chat_babble 9-slice 46 | 25 | 12 | 11, step 3's
-   pop 50 | 23): 「n」 40 #4ed8af, 「/N」 28 #9c9c9c and the title 24 white after 85 (HLG padding 15 | 15 | bottom 15, panel_icon 70) */
+   pop 50 | 23): 「n」 40 #4ed8af, 「/N」 28 #9c9c9c and the title 24 white 8 after them (HLG padding 15 | 15 | bottom 15; the prefab's
+   panel_icon 70 is narrower than 「n/N」 in our number font, so a fixed 70 left no gap — the mockup's 8) */
 .sh-char { width: calc(113 * var(--eu)); height: calc(96 * var(--eu)); margin-left: calc(26.8 * var(--eu)); background: var(--char) center top / 100% 100% no-repeat; }
 .is-step1 > .sh-char { margin-left: calc(15.4 * var(--eu)); }
-.sh-bub { height: calc(66 * var(--eu)); min-width: calc(190 * var(--eu)); margin: calc(var(--c) - 41 * var(--eu)) 0 0 calc(22.9 * var(--eu));
-  padding: 0 calc(15 * var(--eu)) calc(15 * var(--eu)) calc(18 * var(--eu)); isolation: isolate; display: flex; align-items: center; }
+.sh-bub { height: calc(66 * var(--eu)); min-width: calc(190 * var(--eu)); margin: max(0px, calc(var(--c) - 25 * var(--eu))) 0 0 calc(22.9 * var(--eu));
+  padding: 0 calc(15 * var(--eu)) calc(15 * var(--eu)) calc(18 * var(--eu)); isolation: isolate; display: flex; align-items: center; gap: calc(8 * var(--eu)); }
 .is-step1 > .sh-bub { margin-left: calc(12.3 * var(--eu)); }
 .sh-bub::before { content: ''; position: absolute; z-index: -1; inset: 0; border-style: solid;
   border-width: calc(11 * var(--eu)) calc(12 * var(--eu)) calc(25 * var(--eu)) calc(46 * var(--eu)); border-image: var(--bub) 11 12 25 46 fill stretch; }
@@ -65,8 +68,6 @@
 .sh-bub.is-pop { padding-left: calc(10 * var(--eu)); }
 .sh-bub.no-art::before { border: 0; bottom: calc(16 * var(--eu)); background: #232323; border-radius: calc(12 * var(--eu)); }
 .sh-num { display: inline-flex; align-items: baseline; font-family: var(--font-num); line-height: 1; }
-.sh-bub .sh-num { min-width: calc(67 * var(--eu)); }
-.sh-bub.is-pop .sh-num { min-width: calc(70 * var(--eu)); }
 .sh-num b { font-size: calc(40 * var(--eu)); font-weight: 500; color: #4ed8af; }
 .sh-num i { font-style: normal; font-size: calc(28 * var(--eu)); color: #9c9c9c; margin-left: calc(4 * var(--eu)); }
 .sh-title { font-size: calc(24 * var(--eu)); font-weight: 900; color: #fff; letter-spacing: .02em; }
