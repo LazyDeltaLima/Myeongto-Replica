@@ -76,6 +76,8 @@ export const actions = {
   infoReroll: () => act('g.infoReroll'),
   // ... and its withdrawal while the vote is open
   infoRerollCancel: () => act('g.infoReroll', { cancel: true }, { sfx: 'back' }),
+  // 规程 solo: the core bond group this match plays (server phases.js pickBondGroup; again until the seat is ready)
+  bondGroup: (idx) => act('g.bondGroup', { idx }, { sfx: 'pick' }),
   // the in-match 重新开始 vote (server restart.js): propose / yes / no / cancel; a proposal within a minute of the
   // proposer's last failed vote is refused (RATE) with its own line
   restartVote: (op) => act('g.restart', { op }, { sfx: op === 'no' || op === 'cancel' ? 'back' : 'confirm', errorText: { RATE: t('稍后才能再次发起重新开始') } }),

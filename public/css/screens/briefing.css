@@ -109,6 +109,11 @@
 .brief-h--art { align-items: center; min-height: calc(var(--ou) * 45); margin: 0; padding: 0 calc(var(--ou) * 16) 0 calc(var(--ou) * 12);
   background: var(--bar, none) left center / auto 100% repeat-x, rgba(255, 255, 255, .04); }
 .brief-h--art.has-icon::before { display: none; }
+/* img_group_title as the client slices it (borders L41 / R492: the RHODES ISLAND logo once, at the right end — tiled, it
+   landed mid-bar under the title's tip too): drawn behind the title (ui/matchInfo.js InfoTitle .is-sliced) */
+.brief-h--art.is-sliced { position: relative; isolation: isolate; background: rgba(255, 255, 255, .04); }
+.brief-h--art.is-sliced::after { content: ''; position: absolute; inset: 0; z-index: -1; box-sizing: border-box; border-style: solid;
+  border-width: 0 calc(var(--ou) * 492) 0 calc(var(--ou) * 41); border-image: var(--bar) 0 492 0 41 fill stretch; pointer-events: none; }
 .brief-h__icon { flex: none; width: calc(var(--ou) * 40); height: calc(var(--ou) * 40); object-fit: contain; align-self: center; }
 .brief-h--chess .brief-h__icon { width: calc(var(--ou) * 26); height: calc(var(--ou) * 37); margin: 0 calc(var(--ou) * 7); }
 .brief-bonds__row { display: flex; flex-wrap: wrap; gap: 0 calc(var(--ou) * 3); padding: calc(var(--ou) * 8) calc(var(--ou) * 12) 0; }
@@ -211,3 +216,129 @@
 .brief-rr__text { display: grid; gap: .02rem; min-width: 0; }
 .brief-rr__text b { font-size: .2rem; color: var(--gold); }
 .brief-rr__text span { font-size: .15rem; color: var(--text-md); }
+
+/* ---- 规程 solo: the two core bond groups (ui/matchInfo.js BondGroups — auto_chess_single_mode_bond_group 880 × 310) and the
+   official two-column briefing (screens/briefing.js GroupsMain — prefab_auto_chess_stage_info_view). Sizes in prefab units
+   --u: the view is drawn at 0.9 of the 1280 × 720 canvas, so one unit = the screen height / 800 = 10.8 / 800 rem (html is
+   height / 10.8); read-only, the unit comes from the box's width (measured: width / 880). Sprites: season/act3autochess/stageinfo
+   (CN client) as --a-* variables; without them plain fills. ---- */
+/* the tip after the 附加盟约 title (panel_tip: img_bond_title_tip_bkg, its left 35 the people mark; text 19 #d8d8d8, padding 40 / 18) */
+.bgrp-tip { --tu: var(--u, var(--ou, .0095rem)); display: inline-flex; align-items: center; align-self: center; height: calc(var(--tu) * 30); box-sizing: border-box;
+  padding: 0 calc(var(--tu) * 18) 0 calc(var(--tu) * 5); border-style: solid; border-width: 0 0 0 calc(var(--tu) * 35);
+  border-image: var(--tip) 0 0 0 35 fill stretch; font-size: max(calc(var(--tu) * 19), 10px); font-weight: 500; letter-spacing: 0; color: #d8d8d8; white-space: nowrap; }
+.bgrp-tip.no-art { border-color: rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .08); }
+.brief-h--art .bgrp-tip { margin-left: calc(var(--tu) * 17); }
+/* text_tips 858.3 × 30.4, 18, bestFit: one line that shrinks to fit (briefing.js useFitLine), 9 px at least, then wraps */
+.bgrp__hint { box-sizing: border-box; min-height: calc(var(--u) * 33.7); margin: 0; padding: 0 calc(var(--u) * 10.85); display: grid; align-items: center; }
+.brief2__hint { display: block; width: 100%; text-align: center; white-space: nowrap; font-size: calc(var(--u) * 18); font-weight: 500; line-height: 1.15; color: #4a8a78; }
+.brief2__hint.is-wrap { white-space: normal; }
+/* panel_bond_group_1/2: 428.7 × 264.64 at ±215 (1.3 apart), on img_single_choose_bg */
+.bgrp__pair { position: relative; height: calc(var(--u) * 276); }
+.bgrp.has-hint .bgrp__pair { height: calc(var(--u) * 276.3); }
+.bgrp__panel { position: absolute; top: calc(var(--u) * 6); width: calc(var(--u) * 428.7); height: calc(var(--u) * 264.64); outline: none;
+  background: var(--a-bg, linear-gradient(rgba(255, 255, 255, .05), rgba(255, 255, 255, .05))) 0 0 / 100% 100%; }
+.bgrp.has-hint .bgrp__panel { top: 0; }
+.bgrp.is-pickable .bgrp__panel { cursor: pointer; }
+.bgrp.is-pickable .bgrp__panel.is-picked { cursor: default; }
+.bgrp__panel--0 { left: calc(var(--u) * 10.65); }
+.bgrp__panel--1 { left: calc(var(--u) * 440.65); }
+.bgrp__panel:focus-visible { box-shadow: 0 0 0 2px var(--mint-400); }
+.bgrp__panel > i { position: absolute; display: block; pointer-events: none; }
+/* Image_select_text (411 × 103, its bottom on the panel's) and its children — the blur, Image_select (the bar and its notch),
+   img_select_decorate (#01f5bc at 20 %): drawn BEFORE the two rows, so the bond items sit over the faint ALLIANCE ACTIVATED */
+.bgrp__wm { left: calc(var(--u) * 8.85); top: calc(var(--u) * 161.6); width: calc(var(--u) * 411); height: calc(var(--u) * 103); background: var(--a-text, none) 0 0 / 100% 100%; }
+.bgrp__blur { left: calc(var(--u) * 2.85); top: calc(var(--u) * 69.1); width: calc(var(--u) * 423); height: calc(var(--u) * 188);
+  background: var(--a-blur, linear-gradient(transparent, rgba(0, 245, 188, .16))) 0 0 / 100% 100%; }
+.bgrp__bar { left: calc(var(--u) * 2.85); top: calc(var(--u) * 245.6); width: calc(var(--u) * 423); height: calc(var(--u) * 19);
+  background: var(--a-bar, linear-gradient(transparent 70%, #00f5bc 70%)) 0 0 / 100% 100%; }
+.bgrp__deco { left: calc(var(--u) * 8.8); top: calc(var(--u) * 13.4); width: calc(var(--u) * 123.92); height: calc(var(--u) * 20.97); background: rgba(1, 245, 188, .2);
+  -webkit-mask: var(--a-deco, none) 0 0 / 100% 100%; mask: var(--a-deco, none) 0 0 / 100% 100%; }
+.bgrp.no-art .bgrp__deco { display: none; }
+.bgrp__panel:not(.is-picked) > :is(.bgrp__wm, .bgrp__blur, .bgrp__bar, .bgrp__deco) { display: none; }
+/* group_bond_item_top / _bottom: 132.64 high, 132 apart, items of 100 side by side (bond_item 110 × 160 at scale 0.9) */
+.bgrp__row { position: absolute; left: 0; right: 0; height: calc(var(--u) * 132.64); display: flex; justify-content: center; align-items: center; }
+.bgrp__row--top { top: 0; }
+.bgrp__row--bot { top: calc(var(--u) * 132); }
+.bgrp__cell { flex: none; width: calc(var(--u) * 100); display: flex; justify-content: center; }
+.bgrp .ibd, .brief2__addon .ibd { --ou: calc(var(--u) * .9); }
+/* text_name 19, #828282 lit or not (as the official screens) */
+.bgrp .ibd .ibd__name, .brief2 .ibd .ibd__name { color: #828282; font-weight: 500; font-size: max(calc(var(--ou) * 19), 9px); }
+.bgrp__bond { all: unset; display: block; border-radius: 50%; }
+button.bgrp__bond { cursor: pointer; }
+button.bgrp__bond:focus-visible { outline: 2px solid var(--mint-400); }
+.bgrp__bond.is-open .ibd__disc { filter: drop-shadow(0 0 calc(var(--u) * 10) rgba(0, 255, 196, .6)); }
+/* read-only (the 本局信息 dialog, the in-game tab): the unit from the box's width (ui/matchInfo.js BondGroupsView sets --u) */
+.bgrp-ro { --u: .0095rem; }
+.brief-bonds--groups { padding-bottom: 0; }
+.modal__box.minfo-dlg { position: relative; }
+.minfo-dlg .bpop { left: auto; right: .3rem; top: .7rem; width: min(5.2rem, calc(100% - .6rem)); max-height: calc(100% - .9rem); z-index: 12; }
+.igroups-core { margin-bottom: .04rem; }
+
+/* the two columns: left 880 (+ the scroll bar's room) scrolling, right panel_enemy_info 350 */
+.brief__main.brief2 { --u: .0135rem; display: grid; grid-template-columns: calc(var(--u) * 894) calc(var(--u) * 350);
+  justify-content: center; gap: 0 calc(var(--u) * 12); padding: calc(var(--u) * 10) 0 calc(var(--u) * 4); }
+.brief2__left { --ou: var(--u); min-height: 0; overflow: auto; padding-right: calc(var(--u) * 14); scrollbar-width: thin; scrollbar-color: #8a8a8a rgba(255, 255, 255, .08); }
+.brief2__left > * { width: calc(var(--u) * 880); }
+.brief2__left > .brief-banned { --ou: .0095rem; }
+/* perm_bond_title / temp_bond_title 880 × 80: the bar 45 high 2 under the middle, img_content_bkg under it, the 40 icon,
+   the 24 title from 65, the tip 17 after it */
+.brief2-title { position: relative; height: calc(var(--u) * 80); }
+.brief2-title__bar { position: absolute; left: 0; right: 0; top: calc(var(--u) * 19.5); height: calc(var(--u) * 45); box-sizing: border-box;
+  border: 0 solid transparent; border-width: 0 calc(var(--u) * 492) 0 calc(var(--u) * 41); border-image: var(--a-title) 0 492 0 41 fill stretch;
+  background: rgba(255, 255, 255, .04); }
+.brief2-title__under { position: absolute; left: 0; right: 0; top: calc(var(--u) * 64.5); height: calc(var(--u) * 15.5); background: var(--a-row, rgba(255, 255, 255, .04)) 0 0 / 100% 100%; }
+.brief2-title__icon { position: absolute; left: calc(var(--u) * 10); top: calc(var(--u) * 22); width: calc(var(--u) * 40); height: calc(var(--u) * 40); }
+.brief2-title__row { position: absolute; left: calc(var(--u) * 65); top: calc(var(--u) * 27.5); height: calc(var(--u) * 30); margin: 0; display: flex; align-items: center;
+  gap: calc(var(--u) * 17); white-space: nowrap; }
+.brief2-title__text { font-size: max(calc(var(--u) * 24), 12px); font-weight: 500; color: #fff; }
+/* prefab_auto_chess_stage_info_bond_group: 10 a row at 86 (100 − 14), rows 141 apart, on img_content_bkg */
+.brief2__addon { display: grid; grid-template-columns: repeat(10, calc(var(--u) * 86)); grid-auto-rows: calc(var(--u) * 141); padding-left: calc(var(--u) * 7);
+  margin-top: calc(var(--u) * -5.5); background: var(--a-row, rgba(255, 255, 255, .04)) 0 0 / 100% 100%; }
+.brief2__cell { display: flex; justify-content: center; align-items: center; }
+/* the right column on img_right_bg, its decoration over the bottom */
+.brief2__right { --ou: var(--u); position: relative; min-height: 0; overflow: auto; scrollbar-width: none; background: var(--a-right, rgba(12, 15, 14, .8)) 0 0 / 100% 100%; }
+.brief2__deco { position: sticky; top: 100%; display: block; margin: 0 auto calc(var(--u) * 22); width: calc(var(--u) * 284); height: calc(var(--u) * 35);
+  background: var(--a-rdeco, none) 0 0 / 100% 100%; pointer-events: none; }
+/* map_preview 350 × 200: the picture 330 × 187 in bg_map (9-sliced 10), the zoom img_check 41 at its bottom-right */
+.brief2-map { position: relative; height: calc(var(--u) * 200); }
+.brief2-map__img { position: absolute; left: calc(var(--u) * 10); top: calc(var(--u) * .8); width: calc(var(--u) * 330); height: calc(var(--u) * 187); object-fit: cover; }
+.brief2-map__img.is-empty { background: #0c1114; }
+.brief2-map__frame { position: absolute; left: calc(var(--u) * 10); top: calc(var(--u) * .8); width: calc(var(--u) * 330); height: calc(var(--u) * 185.3); box-sizing: border-box;
+  border: calc(var(--u) * 10) solid rgba(255, 255, 255, .12); border-image: var(--a-map) 10 stretch; pointer-events: none; }
+.brief2-map__zoom { all: unset; position: absolute; left: calc(var(--u) * 299); top: calc(var(--u) * 146.9); width: calc(var(--u) * 41); height: calc(var(--u) * 41);
+  background: var(--a-zoom, rgba(0, 0, 0, .6)) 0 0 / 100% 100%; cursor: pointer; }
+.brief2-map__zoom:focus-visible, .brief2-leader:focus-visible, .brief2-type:focus-visible { outline: 2px solid var(--mint-400); }
+.modal__box.brief2-zoom { width: min(12rem, 94vw); }
+.brief2-zoom__img { display: block; width: 100%; height: auto; }
+/* enemy_leader 350 × 110: img_enemy_frame (9-sliced 25) 109 with the 96 portrait, the 敌方领袖 tag bg_enemy_title 136 × 27
+   (#f4a710), the 24 name */
+.brief2-leader { all: unset; position: relative; display: block; width: calc(var(--u) * 350); height: calc(var(--u) * 110); cursor: pointer; }
+.brief2-leader__frame { position: absolute; left: calc(var(--u) * 11); top: 0; width: calc(var(--u) * 109); height: calc(var(--u) * 109); box-sizing: border-box;
+  border: calc(var(--u) * 25) solid rgba(255, 255, 255, .2); border-image: var(--a-frame) 25 fill stretch; }
+.brief2-leader__icon { position: absolute; left: calc(var(--u) * 16.9); top: calc(var(--u) * 7); width: calc(var(--u) * 96); height: calc(var(--u) * 96); object-fit: contain; }
+.brief2-leader__q { position: absolute; left: calc(var(--u) * 16.9); top: calc(var(--u) * 7); width: calc(var(--u) * 96); height: calc(var(--u) * 96); display: grid; place-items: center;
+  font-size: calc(var(--u) * 60); font-weight: 900; color: rgba(255, 174, 19, .55); }
+.brief2-leader__tag { position: absolute; left: calc(var(--u) * 124.3); top: 0; width: calc(var(--u) * 136); height: calc(var(--u) * 27); display: grid; place-items: center;
+  background: var(--a-tag, rgba(110, 72, 12, .75)) 0 0 / 100% 100%; font-size: max(calc(var(--u) * 19), 9px); font-weight: 500; color: #f4a710; white-space: nowrap; }
+.brief2-leader__name { position: absolute; left: calc(var(--u) * 122); top: calc(var(--u) * 35); width: calc(var(--u) * 218); font-size: max(calc(var(--u) * 24), 12px);
+  font-weight: 500; line-height: 1.25; color: #fff; }
+/* enemy_type 350 × 45 (50 apart): bg_enemy_type (9-sliced L61 B18 R7 T12, the icon cell on its left), the 40 icon, the 20 name */
+.brief2-types { display: flex; flex-direction: column; gap: calc(var(--u) * 5); margin-top: calc(var(--u) * 10); }
+.brief2-type { all: unset; position: relative; display: block; width: calc(var(--u) * 350); height: calc(var(--u) * 45); cursor: pointer; }
+.brief2-type__bg { position: absolute; left: calc(var(--u) * 5.5); top: calc(var(--u) * -1.4); width: calc(var(--u) * 335.85); height: calc(var(--u) * 52.1); box-sizing: border-box;
+  border-style: solid; border-color: rgba(255, 255, 255, .08); border-width: calc(var(--u) * 12) calc(var(--u) * 7) calc(var(--u) * 18) calc(var(--u) * 61);
+  border-image: var(--a-type) 12 7 18 61 fill stretch; }
+.brief2-type__icon { position: absolute; left: calc(var(--u) * 8.7); top: calc(var(--u) * 2.5); width: calc(var(--u) * 40); height: calc(var(--u) * 40); object-fit: contain; }
+.brief2-type__name { position: absolute; left: calc(var(--u) * 84); top: 0; width: calc(var(--u) * 220); height: calc(var(--u) * 45); display: grid; place-items: center;
+  font-size: max(calc(var(--u) * 20), 10px); font-weight: 500; color: #fff; white-space: nowrap; }
+.brief2-leader.is-open, .brief2-type.is-open { filter: brightness(1.18); }
+/* ours (maintainer decision 2026-11-18): the leader's round and abilities / the type's description under the row pressed */
+.brief2-desc { margin: calc(var(--u) * 4) calc(var(--u) * 10) calc(var(--u) * 6); padding: calc(var(--u) * 10) calc(var(--u) * 14); background: rgba(0, 0, 0, .55);
+  border-left: calc(var(--u) * 3) solid #f4a710; font-size: max(calc(var(--u) * 17), 10px); line-height: 1.45; color: rgba(244, 244, 244, .82); }
+.brief2-desc--type { border-left-color: #9c9c9c; }
+.brief2-desc ul { margin: 0; padding-left: 1.1em; }
+.brief2-desc li + li { margin-top: calc(var(--u) * 4); }
+.brief2-desc__round { display: block; margin-bottom: calc(var(--u) * 6); color: #f4a710; font-weight: 600; }
+/* the bond detail over the right column */
+.brief2 .bpop { left: auto; right: .5rem; top: .24rem; width: 5.2rem; max-height: calc(100% - .34rem); z-index: 12; }
+@media (max-width: 1000px) { .brief2 .bpop { right: .2rem; top: .1rem; width: 6rem; max-height: calc(100% - .2rem); } }

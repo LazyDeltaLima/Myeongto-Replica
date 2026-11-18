@@ -92,6 +92,15 @@ SEASONS = {
             ('ui/autochess/[uc]autochessouter.ab', 'diychoose', ['auto_chess_diy_choose_state', 'auto_chess_diy_choose_level_view',
                                                                  'auto_chess_diy_choose_char_view', 'auto_chess_deploy_char_item_view',
                                                                  'auto_chess_deploy_char_card_bond_item']),
+            # the 1/3 确认本局信息 briefing (public/js/screens/briefing.js, solo 规程): the stage-info view with its two
+            # core bond groups, the bond rows and titles, the banned operators, the map preview, the leader and 特训敌人
+            ('ui/autochess/[uc]autochessouter.ab', 'stageinfo', ['auto_chess_stage_info_state', 'prefab_auto_chess_stage_info_view',
+                                                                  'auto_chess_single_mode_bond_group', 'prefab_auto_chess_stage_info_bond_group',
+                                                                  'prefab_auto_chess_stage_info_bond_item', 'prefab_auto_chess_stage_info_perm_bond_title',
+                                                                  'prefab_auto_chess_stage_info_temp_bond_title', 'prefab_auto_chess_stage_info_chess_banned_title',
+                                                                  'prefab_auto_chess_stage_info_chess_banned_group', 'prefab_auto_chess_stage_info_chess_banned_item',
+                                                                  'prefab_auto_chess_stage_info_enemy_leader', 'prefab_auto_chess_stage_info_enemy_type',
+                                                                  'prefab_auto_chess_stage_info_map_preview']),
         ],
         # activity_table autoChessData.skinConsts.defaultAutoChessSkinId
         'skin': 'ui/autochess/autochessvariantskin/[uc]ac_n_initial.ab',

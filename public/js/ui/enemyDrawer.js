@@ -5,7 +5,9 @@
 //              dialog: ui/matchInfo.js matchInfoModel, the banned operators grouped by greyed bond as the briefing's
 //              本局禁用干员 draws them (matchInfo.js BannedGroups, the client's chess_banned_group: the greyed bond disc,
 //              the divider, its banned members, an operator whose bonds are both off under each), each opening its card;
-//              a 自定义 match adds its differences from the official rules (ui/customSummary.js);
+//              a 自定义 match adds its differences from the official rules (ui/customSummary.js); 规程 solo adds its two
+//              core bond groups with the picked one lit (matchInfo.js BondGroupsView, read-only, no detail — the board's
+//              bond strip has it; maintainer decision 2026-11-18);
 //   敌方情报 — the secondary enemy list: m.private.nextEnemies (icons, names, counts, tags, 特训 faction tags) + this
 //              match's factions and the enemy leader on boss rounds. The primary enemy preview is the pen on the board
 //              (the right 🔍▶▶ pans the camera there; tapping an enemy in the pen opens its detail card) — research 09 §6.2.
@@ -14,7 +16,7 @@
 import { html, Icon, Tabs, MicroLabel } from './components.js';
 import { Img, UnitThumb, BandIcon, RichText, GIcon } from './gameComponents.js';
 import { groupEnemies, factionTypes } from './gameLogic.js';
-import { matchInfoModel, DiyBannedLine, BannedGroups } from './matchInfo.js';
+import { matchInfoModel, DiyBannedLine, BannedGroups, BondGroupsView } from './matchInfo.js';
 import { CustomRulesInfo } from './customSummary.js';
 import { factionIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
@@ -83,6 +85,7 @@ function InfoTab({ pub, priv, onChess, bandId = null, bandOwner = null }) {
     </div>` : null}
     ${stage ? html`<p class="istage"><${Icon} name="rook" />${t('战场：')}<b>${stage.name || stage.id}</b></p>` : null}
     ${model.custom ? html`<${CustomRulesInfo} lines=${model.custom} class="crs--sm" />` : null}
+    ${model.groups ? html`<h4 class="ihead">${t('核心盟约')}</h4><div class="igroups-core"><${BondGroupsView} model=${model} detail=${false} /></div>` : null}
     <h4 class="ihead">${t('本局禁用干员情况')} <small class="num">${banned.length}</small></h4>
     ${bannedGroups.length ? html`<div class="igroups"><${BannedGroups} model=${model} onChess=${onChess} /></div>`
       : html`<span class="t-dim">${t('本局没有禁用盟约')}</span>`}

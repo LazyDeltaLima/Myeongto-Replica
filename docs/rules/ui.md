@@ -1434,8 +1434,12 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   (60 칸, 색 #031712), 꺼진 맹약(뽑힌 집합 D)은 회색 `img_bond_banned_bkg` + 회색 문양(#c9c9c9) + 금지 표시 `img_bond_banned`(38, 원판 가운데에서
   (29, 32)), 이름은 가운데 50 아래 19 크기 #f4f4f4 60 %. 예전 upstream 원판(SVG 단계 고리·✕·빨간 결장 인원 배지)은 뺐다 — 인원은 툴팁(`briefingBondTip`)과
   아래 맹약별 목록에 있다. 그림은 로컬 클라 추출물 `ui/outer`, 없으면 CSS 원.
-- 제목 줄(`perm_bond_title` / `temp_bond_title` / `chess_banned_title`): 바 그림 `img_group_title_perm_bond` / `img_group_title`(가로 반복)과 아이콘
-  `img_title_icon_perm_bond` / `_temp_bond` / `_chess`. 결장 수는 제목 바로 뒤(바 그림 오른쪽 로고와 겹치지 않게).
+- 제목 줄(`perm_bond_title` = 핵심 맹약 / `temp_bond_title` = 부가 맹약 / `chess_banned_title`): 바 그림 `img_group_title_perm_bond`(핵심, 가로 반복) /
+  `img_group_title`(9칸 늘이기 — 경계 L41 R492라 「RHODES ISLAND STRONGHOLD PROTOCOL」 로고가 오른쪽 끝에 한 번; 예전 가로 반복은 로고가 막대 가운데에도 찍혀
+  제목 뒤 칩과 겹쳤다)과 아이콘 — **핵심 맹약 = 빛살 `img_title_icon_temp_bond`, 부가 맹약 = 날개 `img_title_icon_perm_bond`**(그림 이름과 반대; 모든 모드,
+  브리핑·전략 선택·선발 편성 확정 3/3의 「시뮬레이션 정보」 창 모두). 공식 CN 규정 화면 셋(2026-11-18)이 그렇고, 관리자가 맹약 하반기 공식 화면도 같음을 확인했다
+  (관리자 결정 2026-11-18, 공식 화면 확인; 클라가 어느 제목 프리팹을 어느 목록에 붙이는지는 읽지 않음). 예전엔 프리팹 이름대로 핵심 = 날개였다. 결장 수는 제목 바로 뒤(바 그림
+  오른쪽 로고와 겹치지 않게). 재발 방지: `test/ui/match-info.test.js`(「the title icons as the official screens」).
 - 결장 오퍼레이터는 **맹약별**(`prefab_auto_chess_stage_info_chess_banned_group`): 왼쪽 꺼진 맹약(110 × 130, 문양 45), 구분선 `img_bond_banned_split`, 그 맹약의
   결장 오퍼레이터(130 칸, 7 간격). 오퍼레이터 그림(`matchInfo.js ChessIcon`, 전략 선택의 선발 프리셋 칸과 판 안 「시뮬레이션 정보」 탭도 같은 것)은 공식 `auto_chess_outer_common_chess`(이 항목이 불러오는
   `AutoChessCommonChessView`)와 `chess_banned_item` 값대로: 그림 90, 그 뒤 흰 카드 `img_chess_bkg`(색 변경 없음, 109 × 107 = 카드 96 × 95 + 오른쪽·아래 옅은 그림자, 그림 왼쪽 위에서 2.5 밖),
@@ -1458,7 +1462,8 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   꺼진 맹약 원판 → 구분선 → 결장 오퍼레이터, 서랍 폭에 맞춘 작은 단위; 오퍼레이터를 누르면 카드가 열림. 관리자 요청 2026-10-31 — 그날 먼저 넣은 맹약 칩 + 결장 수 배지 모양을 대신함). 서랍은 ✕·왼쪽 돋보기·Esc 말고
   서랍 밖을 눌러도 닫힌다(서랍이 연 카드·맹약 팝업·대화상자 안은 그대로, `gameLogic/shortcuts.js drawerClosesOnPress`; 관리자 요청 2026-10-31).
 - 공식 제목·안내 문구는 프리팹에 없고(실행 중 문구표 키로 채움) 클라 문구표도 없어 예전 우리 문구(核心盟约 / 附加盟约 / 本局禁用干员)를 그대로 쓴다.
-  `perm/temp_bond_title`의 `text_tip`(`hasBondBanned`일 때 뜨는 안내) 내용은 모른다 — 대신 범례 한 줄.
+  `perm/temp_bond_title`의 `text_tip`(`hasBondBanned`일 때 뜨는 안내) 내용은 모른다 — 대신 범례 한 줄. 1인 규정은 공식 화면에 보인 대로 부가 맹약 제목 뒤 칩
+  「部分盟约所含干员阵容不完整」이고 범례 줄이 없다(아래 「1인 규정 브리핑 두 단」).
 - 창은 이제 데스크톱에서도 본문이 스크롤된다(공식도 스크롤 뷰). 테스트: `test/ui/match-info.test.js`, 브라우저 `test/ui/match-info.e2e.test.js`.
 - 맵 미리보기(관리자 요청 「맵 이름 아래에 어떤 맵인지」; 2026-10-15부터 전장 카드 전체가 캐주얼 규칙 모드만 — 클래식은 「미확인 전장」, 이 파일 「규칙 모드 — 클래식·캐주얼」): 공식 일반 스테이지는 `arts/ui/stage_mappreview_*.ab`
   (`dyn/arts/ui/stage/mappreviews/<stage>.png`, 512 × 512, 실제 3D 장면을 위에서 약간 기울여 찍은 그림 + 빨강 침입·파랑 보호 지점 상자)를 쓰는데, EN·CN 클라 모두
@@ -2442,6 +2447,38 @@ CN 11-01부터 들어온 전투 HUD 요소 넷(EN 10-14 클라에는 없음). �
 - 「시뮬레이션 선택」의 인원 줄은 두 시즌 모두 있다(연합 시뮬레이션·연합 매칭; 기억된 인원 `lobby.size`도 두 시즌이 같이 쓴다). 8인 방·본판 화면은 「8인 협동 모드 화면」 그대로.
 - [추정·화면] 줄의 모양·간격·색 띠 — 공식 규정 등급 목록(`auto_chess_mode_choice_view` + `autochess_difficulty_item`)은 아직 그리지 않았다. 그 프리팹 그림·규정 모드 아이콘은 후순위(관리자 결정 2026-11-11).
 - 시험: `test/season-grades.test.js`(모드 ID, 프로토콜, 실제 경기 경로의 등급 모드, 로비의 등급·8인 받기·커스텀 받기·인계, 전략 목록, 설명 문구), `test/ui/season-grades-ui.test.js`(등급 목록·모드 기록 읽기·경기 화면 꼬리표), `test/match/custom-enemy-types.test.js`(규정 등급 12 커스텀 판의 실제 경로: 고정 적 유형·금지 수 5, 맹약은 3·4로 자름).
+
+## 1인 규정 브리핑 두 단 (2026-11-18, 관리자 결정 — 시안 2판)
+
+1인 규정(`m.public.bondGroups`가 있는 판 — 서버 규칙은 `sim.md` 「1인 규정 핵심 맹약 두 묶음」)의 판 시작 1/3 「시뮬레이션 정보 확인」은 공식 정보 화면
+(`ui/autochess/[uc]autochessouter.ab` `auto_chess_stage_info_state` → `prefab_auto_chess_stage_info_view`)의 두 단으로 그린다(`screens/briefing.js GroupsMain`,
+`css/screens/briefing.css` `.brief2`·`.bgrp`). 기준은 공식 CN 화면 셋(규정 등급 5·20·4, 2026-11-18)과 프리팹 값. 맹약 하반기·협동 규정 등 두 묶음이 없는 판은 예전 배치
+그대로(위 「본판 정보의 맹약·결장 오퍼레이터를 공식 정보 화면 모양으로」).
+
+- **크기**: 프리팹 단위 `--u` = 화면 높이 / 800(공식 캡처에서 이 화면이 1280 × 720 캔버스의 0.9배로 그려짐 — 묶음 판 428.7 → 386 px 등). 왼쪽 880(+ 스크롤 자리 14) ·
+  사이 12 · 오른쪽 350(`panel_enemy_info`). 휴대폰도 두 단 그대로, 오른쪽 열을 좁히지 않는다(관리자 결정 2026-11-18) — 우리 `html` 글자 크기 하한 때문에 공식 비율보다 11–20 % 큼.
+- **왼쪽(스크롤)**: 핵심 맹약 제목(`img_group_title` 9칸 + 빛살 아이콘) → 안내 문구(`text_tips`, 한 줄 bestFit — 줄어들다 9 px에서 줄바꿈) → 두 묶음
+  (`auto_chess_single_mode_bond_group`: 판 428.7 × 264.64 둘, 바탕 `img_single_choose_bg`; 묶음 목록의 1·3·5번째가 위 줄, 2·4번째가 아래 줄 — `item_container_1…5`;
+  고른 판은 `Image_select_text`(「ALLIANCE ACTIVATED」 + 체크, 맹약 칸보다 **뒤** 층) · 아래에서 올라오는 `img_blur_bond` · 아래 막대 `img_bond_group_select` · 왼쪽 위 빗금
+  `img_select_decorate`(#01f5bc 20 %), 안 고른 판은 바탕만에 회색 맹약 + 금지 표시) → 부가 맹약 제목(날개 아이콘 + D에 든 부가 맹약이 있으면 칩
+  「部分盟约所含干员阵容不完整」, `img_bond_title_tip_bkg`) → 부가 맹약 한 줄 10칸(피치 86, 줄 간격 141) → 금지 오퍼레이터(예전 맹약별 묶음 그대로). 맹약 이름은 켜짐·꺼짐 모두
+  #828282(공식 실측). 그림은 CN 클라 추출물 `season/act3autochess/stageinfo`(`tools/local-extract/season_ui.py`의 `prefabs` 한 줄), 없으면 단색.
+- **누르기**(관리자 결정 2026-11-18): 묶음 판을 누르면 그 묶음을 고른다(`g.bondGroup`, 준비 완료 전까지 몇 번이든, 서버 답을 기다려 바뀜); 판 안 맹약 아이콘(과 부가 맹약)을
+  누르면 맹약 상세(`bondStrip.js BondPopup`, 오른쪽 열 위)만 열린다. 처음은 왼쪽 묶음 [추정·화면: 관리자 기억 — 누르는 장면·첫 화면 녹화 없음]. 공식 화면에 「激活第N组」
+  단추는 없다.
+- **오른쪽**: 전장 미리보기(`map_preview` 330 × 187 + `bg_map` 틀 + 돋보기 `img_check` — 누르면 큰 그림 창), 리더(`enemy_leader`: `img_enemy_frame` 안 초상,
+  「敌方领袖」 꼬리표 `bg_enemy_title` #f4a710, 이름), 특훈 적 줄(`enemy_type`: `bg_enemy_type`, 아이콘, 이름). 전장 이름·「전장 무작위 (총 N개)」 꼬리표는 없다(공식처럼, 관리자 결정
+  2026-11-18). 리더 줄·특훈 적 줄을 누르면 그 아래에 우리 설명(리더: 「N라운드 · 최종 공세」와 능력, 특훈 적: 설명 글)이 열린다(관리자 결정 2026-11-18 — 공식은 누르면 무엇이
+  나오는지 모름 [추정·화면]).
+- **다른 곳**: 전략 선택·선발 편성 확정 3/3의 「시뮬레이션 정보」 창(`matchInfo.js MatchInfo`)은 핵심 줄 대신 같은 두 묶음 칸을 읽기 전용으로(고른 판 표시, 아이콘 누르면 상세만,
+  고르기 없음), 부가 맹약 제목에 칩, 회색 범례 줄 없음. 판 안 서랍 「시뮬레이션 정보」 탭(`enemyDrawer.js InfoTab`)에도 두 묶음 칸을 읽기 전용으로 넣는다(누르기 없음 — 판 중
+  맹약 상세는 맹약 줄에 있음). 모두 관리자 결정 2026-11-18, 1인 규정에서만.
+- **한국어**: 안내 문구 「이번 시뮬레이션에서 활성화할 맹약 묶음을 하나 선택하세요. 선택하지 않은 맹약은 이번 시뮬레이션에 등장하지 않습니다」, 칩 「일부 맹약의 오퍼레이터 편성이
+  불완전함」 — KR 서버에 없는 CN 전용 문구의 손 번역(관리자 결정 2026-11-18) [추정·자료 없음: KR 클라 문구가 나오면 바꿈]. 영어도 우리 번역.
+- 공식과 아직 다른 점(이 절 밖): 위 띠(ui-T)·아래 준비 줄·두 열 사이 스크롤 막대·안내 문구 색(프리팹 #1f7663, 캡처가 더 밝아 #4a8a78)·부가 맹약 줄마다 바탕·금지
+  오퍼레이터 칸 모양(공식은 「本局禁用干员」 한 칸 — 끝까지 본 공식 화면 없음).
+- 시험: `test/ui/match-info.test.js`(실제 경기 경로의 규정 등급 5·4 판 — 모델의 두 묶음과 고르기 뒤, `MatchInfo`의 읽기 전용 칸·칩·범례 없음, 묶음 칸 배치·누르기, 제목 아이콘).
+  화면 [화면 미확인].
 
 ## 규정 특질 문구의 숫자 `{showtag_value_1}` (2026-11-13)
 

@@ -25,7 +25,8 @@ globalThis.fetch = async (url) => {
   }
 };
 
-const { matchInfoModel, MatchBondRow, MatchLegend, BannedOperators, BannedGroups, MatchInfo, MatchInfoDialog, InfoBond, InfoTitle, ChessIcon } = await import('../../public/js/ui/matchInfo.js');
+const { matchInfoModel, MatchBondRow, MatchLegend, BannedOperators, BannedGroups, MatchInfo, MatchInfoDialog, InfoBond, InfoTitle, ChessIcon,
+  BondGroups, BondGroupsView, IncompleteTip, groupRows } = await import('../../public/js/ui/matchInfo.js');
 const { briefingBondTip } = await import('../../public/js/ui/gameLogic.js');
 const { Tooltip, Modal, Button } = await import('../../public/js/ui/components.js');
 const { draftInfoStatus } = await import('../../public/js/screens/bandDraft.js');
@@ -251,7 +252,8 @@ test('draftInfoStatus: the dialog repeats the turn and its seconds (warning at �
 test('the briefing, the strategy draft and the in-game 本局信息 tab all read ui/matchInfo.js (no second copy to drift)', () => {
   const brief = read('public/js/screens/briefing.js');
   // (+ InfoTitle: the enemy block's title bar is the same stage-info bar)
-  assert.match(brief, /import \{ MatchInfo, matchInfoModel, InfoTitle \} from '\.\.\/ui\/matchInfo\.js';/);
+  // (+ the 规程 solo two-column view's blocks: BondGroups, IncompleteTip, BannedOperators, InfoBond, stageArt)
+  assert.match(brief, /import \{ MatchInfo, matchInfoModel, InfoTitle, BondGroups, IncompleteTip, BannedOperators, InfoBond, stageArt \} from '\.\.\/ui\/matchInfo\.js';/);
   assert.match(brief, /<section class="brief__right">\s*<\$\{MatchInfo\} model=\$\{info\} \/>\s*<\/section>/);
   // (+ the viewer's 自选 pieces out of the shop: priv / diyData, 0.2.0 WE2)
   assert.match(brief, /const info = matchInfoModel\(pub, \{ bonds: gd\.list\('bonds'\), chess: gd\.chess, mode, priv, diyData: \{ chess: data\.get\('chess'\), backups: data\.get\('backups'\) \} \}\);/);
@@ -266,8 +268,110 @@ test('the briefing, the strategy draft and the in-game 本局信息 tab all read
   assert.match(draft, /const turnKey = `\$\{draft\.turnPid \|\| ''\}\|\$\{myPick \|\| ''\}`;\n\s*useEffect\(\(\) => \{ setInfoOpen\(false\); \}, \[turnKey\]\);/);
   const drawer = read('public/js/ui/enemyDrawer.js');
   // (+ BannedGroups: its banned operators grouped and drawn as the briefing draws them)
-  assert.match(drawer, /import \{ matchInfoModel, DiyBannedLine, BannedGroups \} from '\.\/matchInfo\.js';/);
+  // (+ BondGroupsView: 规程 solo's two core bond groups, read-only)
+  assert.match(drawer, /import \{ matchInfoModel, DiyBannedLine, BannedGroups, BondGroupsView \} from '\.\/matchInfo\.js';/);
+  assert.match(drawer, /\$\{model\.groups \? html`<h4 class="ihead">\$\{t\('核心盟约'\)\}<\/h4><div class="igroups-core"><\$\{BondGroupsView\} model=\$\{model\} detail=\$\{false\} \/><\/div>` : null\}/);
   assert.match(drawer, /<\$\{BannedGroups\} model=\$\{model\} onChess=\$\{onChess\} \/>/);
   assert.match(drawer, /matchInfoModel\(pub, \{\s*bonds: data\.list\('bonds'\), chess: \(id\) => data\.lookup\('chess', id\), mode: data\.get\('config'\)\?\.modes\?\.\[pub\?\.modeId\],/);
   assert.doesNotMatch(drawer, /bannedPerBond|disabledBondSets/, 'the drawer derives nothing on its own');
+});
+
+// 规程 solo (m.public bondGroups, server phases.js pickBondGroup): the briefing shows the core bonds as the client's two groups
+// (auto_chess_single_mode_bond_group) and the draft's dialog / the in-game tab the same read-only. docs/rules/ui.md
+// 「1인 규정 브리핑 두 단」.
+const GROUPS_RULE = 'docs/rules/ui.md 「1인 규정 브리핑 두 단」';
+const { ACT3 } = await import('../helpers/seasonPieces.js');
+const { createRegistry } = await import('../../server/match/effectsMeta.js');
+const quietLog = { error() {}, warn() {}, info() {}, log() {} };
+const act3Src = (modeId) => ({ bonds: Object.values(ACT3.bonds), chess: (id) => ACT3.chess[id] || null, mode: ACT3.config.modes[modeId] });
+const act3Solo = (modeId, seed) => makeMatch({ mode: 'solo', modeId, seed, registry: createRegistry({ data: ACT3, log: quietLog }), data: ACT3, season: 'act3autochess' });
+
+test('규정 solo on the real match path: the model carries the two groups and follows a pick; MatchInfo shows them read-only, the tip after 附加盟约, no legend', () => {
+  for (const [modeId, half] of [['mode_single_5', 5], ['mode_single_4', 4]]) {
+    const h = act3Solo(modeId, 7).start();
+    const { m } = h;
+    let pub = m.publicView();
+    let mi = matchInfoModel(pub, act3Src(modeId));
+    assert.deepEqual(mi.groups, pub.bondGroups, `${modeId}: m.public bondGroups as they come — ${GROUPS_RULE}`);
+    assert.deepEqual(mi.groups.groups.map((g) => g.length), [half, half]);
+    assert.equal(mi.groups.picked, 0, 'the left group until a pick');
+    assert.ok(mi.groups.groups[1].every((id) => mi.stateOf(id) === 'drawn') && mi.groups.groups[0].every((id) => !mi.stateOf(id)), 'the right group is the absent one');
+    assert.equal(mi.addonIncomplete, mi.addon.some((b) => mi.stateOf(b.bondId)));
+    // the briefing's pick (g.bondGroup) swaps them
+    assert.deepEqual(m.handle('p_0', { t: 'g.bondGroup', idx: 1 }), { ok: true });
+    pub = m.publicView();
+    mi = matchInfoModel(pub, act3Src(modeId));
+    assert.equal(mi.groups.picked, 1);
+    assert.ok(mi.groups.groups[0].every((id) => mi.stateOf(id) === 'drawn') && mi.groups.groups[1].every((id) => !mi.stateOf(id)), 'after the pick the left group is absent');
+    const parts = MatchInfo({ model: mi }).filter((v) => v && typeof v === 'object');
+    assert.deepEqual(parts.map((v) => v.type === MatchBondRow || v.type === BannedOperators ? v.type : v.type === 'div' ? 'div' : v.type),
+      ['div', MatchBondRow, BannedOperators], `${modeId}: the groups block, 附加盟约, 本局禁用干员 — no MatchLegend (${GROUPS_RULE})`);
+    const head = [...walk(parts[0])].find((v) => v.type === InfoTitle);
+    assert.deepEqual([head.props.kind, head.props.title, head.props.bar], ['perm', '核心盟约', 'img_group_title'], 'the 核心盟约 bar as the official screen');
+    const view = [...walk(parts[0])].find((v) => v.type === BondGroupsView);
+    assert.equal(view?.props.model, mi, 'read-only groups with their detail');
+    assert.equal(parts[1].props.bonds, mi.addon);
+    assert.equal(parts[1].props.extra?.type === IncompleteTip, mi.addonIncomplete, 'the tip only when an add-on bond is in D');
+    m.dispose();
+  }
+  // no groups elsewhere: 盟约 solo keeps the core row and the legend
+  const h = makeMatch({ mode: 'solo', difficulty: 'HARD', humans: 1, seed: 3 }).start();
+  const plain = matchInfoModel(h.m.publicView(), SRC(h.m.publicView().modeId));
+  assert.equal(plain.groups, null);
+  assert.deepEqual(MatchInfo({ model: plain }).filter((v) => v && typeof v === 'object').map((v) => v.type), [MatchBondRow, MatchBondRow, MatchLegend, BannedOperators]);
+  h.m.dispose();
+});
+
+test('BondGroups: item i of a group in item_container_(i+1) (1·3·5 on top, 2·4 under), the picked panel lit, a panel press picks, an icon press opens the detail only', () => {
+  assert.deepEqual(groupRows(['a', 'b', 'c', 'd', 'e']), [['a', 'c', 'e'], ['b', 'd']]);
+  assert.deepEqual(groupRows(['a', 'b', 'c', 'd']), [['a', 'c'], ['b', 'd']]);
+  const h = act3Solo('mode_single_5', 11).start();
+  const mi = matchInfoModel(h.m.publicView(), act3Src('mode_single_5'));
+  const picks = [];
+  const opened = [];
+  const v = BondGroups({ model: mi, onPick: (i) => picks.push(i), onBond: (id) => opened.push(id), hint: 'hint' });
+  assert.equal(v.props.role, 'radiogroup');
+  const panels = [...walk(v)].filter((x) => hasClass(x, 'bgrp__panel'));
+  assert.deepEqual(panels.map((x) => [x.props['data-group'], hasClass(x, 'is-picked'), x.props['aria-checked']]), [[0, true, 'true'], [1, false, 'false']]);
+  for (const [i, p] of panels.entries()) {
+    const rows = [...walk(p)].filter((x) => hasClass(x, 'bgrp__row'));
+    const ids = rows.map((r) => [...walk(r)].filter((x) => hasClass(x, 'bgrp__cell')).map((x) => x.props['data-bond']));
+    assert.deepEqual(ids, groupRows(mi.groups.groups[i]), `group ${i}: the client's item containers — ${GROUPS_RULE}`);
+    const items = [...walk(p)].filter((x) => x.type === InfoBond);
+    assert.ok(items.every((x) => x.props.off === (i !== 0)), `group ${i}: ${i ? 'greyed' : 'lit'}`);
+  }
+  panels[1].props.onClick();
+  assert.deepEqual(picks, [1], 'a press on the panel picks it');
+  const btn = [...walk(panels[1])].find((x) => x.type === 'button');
+  let stopped = false;
+  btn.props.onClick({ stopPropagation: () => { stopped = true; } });
+  assert.deepEqual([opened, stopped, picks.length], [[mi.groups.groups[1][0]], true, 1], 'an icon opens the detail and does not pick');
+  // read-only: no radio, no buttons, no hint
+  const ro = BondGroups({ model: mi });
+  assert.equal(ro.props.role, null);
+  assert.equal([...walk(ro)].some((x) => x.type === 'button' || hasClass(x, 'bgrp__hint')), false);
+  assert.equal(BondGroups({ model: matchInfoModel({}, SRC('mode_single_normal')) }), null, 'no groups, nothing');
+  h.m.dispose();
+});
+
+test('the title icons as the official screens: 核心盟约 the starburst, 附加盟约 the wing (all modes); img_group_title sliced', async () => {
+  const orig = globalThis.fetch;
+  const entry = (n) => ({ path: `/assets/local/ui/outer/${n}.png`, w: 40, h: 40, kind: 'Sprite' });
+  const names = ['img_title_icon_perm_bond', 'img_title_icon_temp_bond', 'img_group_title', 'img_group_title_perm_bond'];
+  globalThis.fetch = async (url) => (String(url).endsWith('/local-assets.json')
+    ? { ok: true, status: 200, json: async () => ({ version: 1, groups: { 'ui/outer': Object.fromEntries(names.map((n) => [n, entry(n)])) } }) }
+    : orig(url));
+  try {
+    await data.invalidate('local');
+    await data.load('local');
+    const iconOf = (kind) => [...walk(InfoTitle({ kind, title: 'x', micro: 'X' }))].find((v) => hasClass(v, 'brief-h__icon'))?.props.src;
+    assert.match(iconOf('perm'), /img_title_icon_temp_bond\.png$/, '核心盟约 (perm_bond_title) shows the starburst — docs/rules/ui.md 「본판 정보의 맹약·결장 오퍼레이터를 공식 정보 화면 모양으로」');
+    assert.match(iconOf('temp'), /img_title_icon_perm_bond\.png$/, '附加盟约 (temp_bond_title) shows the wing');
+    assert.ok(hasClass(InfoTitle({ kind: 'temp', title: 'x', micro: 'X' }), 'is-sliced'), 'img_group_title is sliced (its logo once)');
+    assert.ok(!hasClass(InfoTitle({ kind: 'perm', title: 'x', micro: 'X' }), 'is-sliced'));
+    assert.ok(hasClass(InfoTitle({ kind: 'perm', title: 'x', micro: 'X', bar: 'img_group_title' }), 'is-sliced'));
+  } finally {
+    globalThis.fetch = orig;
+    await data.invalidate('local');
+  }
 });

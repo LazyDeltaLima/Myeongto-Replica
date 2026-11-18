@@ -17,12 +17,20 @@
 // card in its place as 「未知战场」 (a dark box with the boss block's 「?」, revealed when the battle starts) and the column
 // keeps its shape; 规程's official view shows the map preview, so that season shows the card in every mode
 // (seasonOfficialOptions, maintainer decision 2026-11-13); 重新抽取 (infoReroll) is 休闲 only.
+// 规程 solo (m.public bondGroups: the core bonds split in two, one picked here — server phases.js pickBondGroup) is the
+// official two-column view instead (GroupsMain; prefab_auto_chess_stage_info_view, maintainer decision 2026-11-18 on the
+// mockup): left, scrolling, 核心盟约 with the hint and the two groups (a press on a panel picks it, g.bondGroup, until
+// ready; a press on a bond icon opens its detail), 附加盟约 with the 「部分盟约所含干员阵容不完整」 tip, 本局禁用干员; right, the
+// map preview (its zoom), 敌方领袖 and the 特训敌人 rows — a press on those opens our description under them (the leader's
+// round and abilities, the type's text). No battlefield name or pool line there (the official view has none). Sized in
+// prefab units: the view is drawn at 0.9 of the 720 canvas, one unit = the screen height / 800 (css .brief2).
 
-import { useEffect, useState } from '../../vendor/hooks.module.js';
-import { html, Button, Icon, MicroLabel } from '../ui/components.js';
+import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
+import { html, Button, Icon, MicroLabel, Modal } from '../ui/components.js';
 import { useGameData, Img, RichText } from '../ui/gameComponents.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
-import { MatchInfo, matchInfoModel, InfoTitle } from '../ui/matchInfo.js';
+import { MatchInfo, matchInfoModel, InfoTitle, BondGroups, IncompleteTip, BannedOperators, InfoBond, stageArt } from '../ui/matchInfo.js';
+import { BondPopup } from '../ui/bondStrip.js';
 import { LoadoutButton } from './loadout.js';
 import { actions } from '../ui/gameActions.js';
 import { factionTypes, sortedPlayers, phaseTotalSeconds, startStepCount } from '../ui/gameLogic.js';
@@ -118,7 +126,7 @@ export function BriefingScreen() {
     <div class="brief__bg" aria-hidden="true"></div>
     <${StepHeader} step=${1} of=${startStepCount(gd.config)} title=${t('确认本局信息')} micro="BRIEFING // INFO CHECK" pub=${pub}
       total=${phaseTotalSeconds(pub, gd.config)} config=${gd.config} onExit=${() => setExit(true)} />
-    <main class="brief__main">
+    ${info.groups ? html`<${GroupsMain} pub=${pub} priv=${priv} info=${info} me=${me} closing=${closing} mode=${mode} gd=${gd} />` : html`<main class="brief__main">
       <section class="brief__left">
         <div class="brief-enemy">
           <${InfoTitle} kind="enemy" title=${t('敌方情报')} micro="ENEMY INTEL" />
@@ -161,7 +169,7 @@ export function BriefingScreen() {
       <section class="brief__right">
         <${MatchInfo} model=${info} />
       </section>
-    </main>
+    </main>`}
     <footer class="brief__foot">
       ${proposer ? html`<div class="brief-rr" role="status" data-testid="reroll-proposer">
         <${Icon} name="refresh" />
@@ -184,4 +192,122 @@ export function BriefingScreen() {
     </footer>
     <${ExitModal} open=${exit} onClose=${() => setExit(false)} solo=${solo} />
   </div>`;
+}
+
+/**
+ * Unity's bestFit on one line (text_tips, 1–18): the font shrinks until the line fits its box, not under 9 px — then it
+ * wraps. Measured after each render and on resize.
+ * @param {{ current: HTMLElement|null }} ref
+ * @param {any} dep
+ */
+function useFitLine(ref, dep) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || typeof getComputedStyle !== 'function') return undefined;
+    const fit = () => {
+      el.classList.remove('is-wrap');
+      el.style.fontSize = '';
+      let fs = parseFloat(getComputedStyle(el).fontSize) || 12;
+      const room = () => el.clientWidth - parseFloat(getComputedStyle(el).paddingLeft) - parseFloat(getComputedStyle(el).paddingRight);
+      const need = () => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect().width; };
+      for (let n = 0; n < 60 && need() > room() + 0.5 && fs > 9; n++) { fs = Math.max(9, fs - 0.25); el.style.fontSize = `${fs}px`; }
+      if (need() > room() + 0.5) el.classList.add('is-wrap');
+    };
+    fit();
+    addEventListener('resize', fit);
+    return () => removeEventListener('resize', fit);
+  }, [dep]);
+}
+
+/**
+ * perm_bond_title / temp_bond_title of the two-column view: the sliced bar (css --a-title), img_content_bkg under it, the
+ * 40 icon (核心盟约 the starburst, 附加盟约 the wing — as the official screens), the 24 title and the tip after it.
+ * @param {{ kind: 'core'|'addon', title: string, tip?: any }} props
+ */
+function GroupsTitle({ kind, title, tip = null }) {
+  const icon = stageArt(kind === 'core' ? 'img_title_icon_temp_bond' : 'img_title_icon_perm_bond');
+  return html`<div class=${`brief2-title brief2-title--${kind}`}>
+    <i class="brief2-title__bar" aria-hidden="true"></i><i class="brief2-title__under" aria-hidden="true"></i>
+    ${icon ? html`<img class="brief2-title__icon" src=${icon} alt="" draggable=${false} />` : null}
+    <h3 class="brief2-title__row"><span class="brief2-title__text">${title}</span>${tip}</h3>
+  </div>`;
+}
+
+/**
+ * 规程 solo's briefing in the official two columns (see the header): the left column's bonds and banned operators, the
+ * right column's map, leader and 特训敌人, the bond detail over the right column.
+ * @param {{ pub: any, priv: any, info: any, me: any, closing: boolean, mode: any, gd: any }} props
+ */
+function GroupsMain({ pub, priv, info, me, closing, mode, gd }) {
+  const [open, setOpen] = useState(null); // the bond whose detail is open
+  const [side, setSide] = useState(null); // 'boss' | the 特训敌人 type whose description is open
+  const [zoom, setZoom] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const hint = useRef(null);
+  const hintText = t('请选择一组在本次模拟中激活的盟约，未被选择的盟约将不会出现在本次模拟中');
+  useFitLine(hint, hintText);
+  const canPick = !!me && !me.ready && !closing;
+  const pick = async (i) => {
+    if (!canPick || busy || info.groups.picked === i) return;
+    setBusy(true);
+    await actions.bondGroup(i);
+    setBusy(false);
+  };
+  const bond = (id) => setOpen((o) => (o === id ? null : id));
+  const boss = pub.bossId ? gd.boss(pub.bossId) : null;
+  const bossEnemy = boss ? gd.enemy(boss.enemyKey) : null;
+  const types = factionTypes(pub.factions);
+  const factions = gd.factions?.types || {};
+  const mapUrl = pub.stageId ? localAsset('stage/preview', pub.stageId) : null;
+  const vars = [['--a-right', 'img_right_bg'], ['--a-rdeco', 'img_stage_info_right_ecoration'], ['--a-map', 'bg_map'], ['--a-zoom', 'img_check'],
+    ['--a-frame', 'img_enemy_frame'], ['--a-tag', 'bg_enemy_title'], ['--a-type', 'bg_enemy_type'], ['--a-title', 'img_group_title'], ['--a-row', 'img_content_bkg']]
+    .map(([k, n]) => [k, stageArt(n)]).filter(([, u]) => u).map(([k, u]) => `${k}:url("${u}")`).join(';');
+  const toggle = (k) => setSide((v) => (v === k ? null : k));
+  return html`<main class="brief__main brief2" style=${vars || null} data-testid="brief-groups">
+    <section class="brief2__left">
+      <${GroupsTitle} kind="core" title=${t('核心盟约')} />
+      <${BondGroups} model=${info} onPick=${canPick ? pick : null} onBond=${bond} openId=${open}
+        hint=${html`<span ref=${hint} class="brief2__hint">${hintText}</span>`} />
+      <${GroupsTitle} kind="addon" title=${t('附加盟约')} tip=${info.addonIncomplete ? html`<${IncompleteTip} />` : null} />
+      <div class="brief2__addon">${info.addon.map((b) => html`<div key=${b.bondId} class="brief2__cell" data-bond=${b.bondId}>
+        <button type="button" class=${'bgrp__bond' + (open === b.bondId ? ' is-open' : '')} aria-label=${b.name} onClick=${() => bond(b.bondId)}>
+          <${InfoBond} bond=${b} off=${!!info.stateOf(b.bondId)} />
+        </button>
+      </div>`)}</div>
+      <${BannedOperators} model=${info} />
+    </section>
+    <section class="brief2__right">
+      <div class="brief2-map">
+        ${mapUrl ? html`<${Img} src=${mapUrl} class="brief2-map__img" alt="" />` : html`<span class="brief2-map__img is-empty" aria-hidden="true"></span>`}
+        <i class="brief2-map__frame" aria-hidden="true"></i>
+        ${mapUrl ? html`<button type="button" class="brief2-map__zoom" aria-label=${t('战场')} data-testid="brief-map-zoom" onClick=${() => setZoom(true)}></button>` : null}
+      </div>
+      <button type="button" class=${'brief2-leader' + (side === 'boss' ? ' is-open' : '')} aria-expanded=${side === 'boss' ? 'true' : 'false'}
+          data-testid="brief-leader" onClick=${() => toggle('boss')}>
+        <i class="brief2-leader__frame" aria-hidden="true"></i>
+        ${bossEnemy ? html`<${Img} src=${enemyIconUrl(gd.m, boss.enemyKey)} class="brief2-leader__icon" fallback=${html`<span class="brief2-leader__q">?</span>`} />`
+          : html`<span class="brief2-leader__q">?</span>`}
+        <span class="brief2-leader__tag">${t('敌方领袖')}</span>
+        <span class="brief2-leader__name">${boss?.name || bossEnemy?.name || t('未知领袖')}</span>
+      </button>
+      ${side === 'boss' ? html`<div class="brief2-desc" data-testid="brief-leader-desc">
+        <span class="brief2-desc__round">${tParts('第 {r} 回合 · 最终攻势', { r: html`<b class="num">${pub.bossRound ?? mode?.bossRound ?? pub.lastRound ?? 14}</b>` })}</span>
+        ${Array.isArray(boss?.abilities) && boss.abilities.length ? html`<ul>${boss.abilities.slice(0, 3).map((a, i) => html`<li key=${i}><${RichText} text=${a} /></li>`)}</ul>` : null}
+      </div>` : null}
+      <div class="brief2-types">${types.map((ty) => html`<div key=${ty}>
+        <button type="button" class=${'brief2-type' + (side === ty ? ' is-open' : '')} data-type=${ty} aria-expanded=${side === ty ? 'true' : 'false'} onClick=${() => toggle(ty)}>
+          <i class="brief2-type__bg" aria-hidden="true"></i>
+          <${Img} src=${factionIconUrl(gd.m, factions[ty]?.icon)} class="brief2-type__icon" />
+          <b class="brief2-type__name">${factions[ty]?.name || ty}</b>
+        </button>
+        ${side === ty ? html`<div class="brief2-desc brief2-desc--type">${factions[ty]?.desc || ''}</div>` : null}
+      </div>`)}</div>
+      <i class="brief2__deco" aria-hidden="true"></i>
+    </section>
+    ${open ? html`<${BondPopup} bondId=${open} entry=${null} priv=${priv} banned=${pub.bannedChess || []} place="right"
+      onClose=${() => setOpen(null)} onMember=${() => {}} />` : null}
+    <${Modal} open=${zoom && !!mapUrl} onClose=${() => setZoom(false)} title=${t('战场')} class="brief2-zoom">
+      ${zoom && mapUrl ? html`<${Img} src=${mapUrl} class="brief2-zoom__img" alt="" />` : null}
+    <//>
+  </main>`;
 }

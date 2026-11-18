@@ -20,6 +20,7 @@ import { awayStore } from '/js/ui/matchChrome.js';
 import { GAME_FILES } from '/js/ui/gameComponents.js';
 import { initLang } from '/js/ui/lang.js';
 import { PHASE, GEO } from '/shared/constants.js';
+import { bondsOff } from '/shared/seasons.js';
 import { battleRunner } from '/js/battle/runner.js';
 
 const params = new URLSearchParams(location.search);
@@ -371,6 +372,7 @@ function setPhase(phase, variant) {
   } else {
     store.set({ room: { ...store.get().room, mode: 'coop' } });
   }
+  if (solo && VARIANTS.has('groups')) mockBondGroups(pub);
   switch (phase) {
     case PHASE.INFO_CHECK:
       pub.round = 0; pub.deadline = Date.now() + 21000;
@@ -678,6 +680,33 @@ function removeAt(loc) {
   else if (loc.area === 'hand') p.hand[loc.i] = null;
   else p.temp[loc.i] = null;
 }
+/**
+ * ?variant=solo,groups (with ?season=act3autochess): 规程 solo's two core bond groups (server match/pool.js drawDisabledBonds
+ * + phases.js pickBondGroup) — 规程等级5, the mode's core bonds split in two (the left one picked), five add-on bonds drawn;
+ * the absent bonds and the banned operators follow the pick (g.bondGroup below, mockPickGroup).
+ */
+function mockBondGroups(pub) {
+  pub.modeId = 'mode_single_5';
+  pub.difficulty = 'NORMAL';
+  const mode = data.get('config')?.modes?.[pub.modeId] || {};
+  const inactive = new Set(mode.inactiveBondIds || []);
+  const bonds = data.list('bonds').filter((b) => !inactive.has(b.bondId));
+  const core = shuffle(bonds.filter((b) => b.isCore).map((b) => b.bondId));
+  const half = Math.floor(core.length / 2);
+  S.groups = { groups: [core.slice(half), core.slice(0, half)], addon: shuffle(bonds.filter((b) => !b.isCore).map((b) => b.bondId)).slice(0, 5) };
+  mockPickGroup(pub, 0);
+}
+function mockPickGroup(pub, idx) {
+  const g = S.groups;
+  const inactive = data.get('config')?.modes?.[pub.modeId]?.inactiveBondIds || [];
+  const drawn = [...g.groups[1 - idx], ...g.addon].sort();
+  const off = new Set([...drawn, ...inactive]);
+  const isCore = (id) => !!data.lookup('bonds', id)?.isCore;
+  pub.drawnDisabledBonds = drawn;
+  pub.disabledBonds = [...off].sort();
+  pub.bannedChess = visibleChess().filter((c) => bondsOff(c.bonds, off, { coreBan: true, isCore })).map((c) => c.chessId);
+  pub.bondGroups = { groups: g.groups.map((x) => x.slice()), picked: idx };
+}
 function freeHandIdx() { for (let i = GEO.HAND_SIZE - 1; i >= 0; i--) if (!S.priv.hand[i]) return i; return -1; }
 
 async function mockRequest(t, f = {}) {
@@ -688,6 +717,11 @@ async function mockRequest(t, f = {}) {
   const pub = S.pub;
   const prepOnly = () => { if (pub.phase !== PHASE.PREP) fail('WRONG_PHASE'); if (p.ready && t !== 'g.ready') fail('ALREADY'); };
   switch (t) {
+    case 'g.bondGroup': {
+      if (!S.groups || pub.phase !== PHASE.INFO_CHECK) fail('BAD_TARGET');
+      if (pub.players.find((x) => x.playerId === ME)?.ready) fail('ALREADY');
+      mockPickGroup(pub, f.idx); pushPublic(); return {};
+    }
     case 'g.infoReady': { const me = pub.players.find((x) => x.playerId === ME); me.ready = true; me.status = 'ready'; pushPublic(); return {}; }
     case 'g.band': {
       p.bandId = f.bandId; const me = pub.players.find((x) => x.playerId === ME); me.bandId = f.bandId;

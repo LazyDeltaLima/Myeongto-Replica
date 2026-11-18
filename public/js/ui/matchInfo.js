@@ -25,8 +25,13 @@
 // (the client view skips those bonds; its count here counts the listed operators).
 // MatchInfoDialog shows the same blocks read-only in a components.js Modal (关闭, a tap outside or Esc close it) with a
 // status line from its caller (the draft's turn and countdown, so the running clock stays in view).
-// Styles: css/screens/briefing.css (.brief-*), css/screens/draft.css (.minfo-dlg).
+// 规程 solo (m.public bondGroups — the core bonds the mode opens, split in two, one picked in the briefing): the core row is
+// the two groups of the client's auto_chess_single_mode_bond_group (BondGroups: the picked one on its panel with
+// ALLIANCE ACTIVATED, the other greyed), the 附加盟约 title carries the 「部分盟约所含干员阵容不完整」 tip in place of the legend
+// line; the briefing picks there (screens/briefing.js), the dialog and the in-game tab show them read-only.
+// Styles: css/screens/briefing.css (.brief-*, .bgrp), css/screens/draft.css (.minfo-dlg).
 
+import { useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, MicroLabel, Tooltip, Modal, TierChip, natSizeVars } from './components.js';
 import { Img } from './gameComponents.js';
 import { bannedPerBond, disabledBondSets, briefingBondTip, diyBannedPieces } from './gameLogic.js';
@@ -35,6 +40,7 @@ import { skinArt, skinPic } from './skins.js';
 import { data, localAsset } from '../data.js';
 import { t, dn } from '../../../shared/i18n.js';
 import { customSummary, CustomRulesInfo } from './customSummary.js';
+import { BondPopup } from './bondStrip.js';
 import { officialBans } from '../../../shared/ruleset.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -44,7 +50,8 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
  *   bonds: any[], core: any[], addon: any[], banned: string[], perBond: Map<string, number>,
  *   bannedGroups: Array<{ bond: any, chess: string[] }>,
  *   diyBanned: Array<{ slotId: string, charId: string, name: string }>,
- *   custom: Array<{ key: string, tab: string, text: string }> | null }} MatchInfoModel
+ *   custom: Array<{ key: string, tab: string, text: string }> | null,
+ *   groups: { groups: string[][], picked: number } | null, addonIncomplete: boolean, bannedAll: string[] }} MatchInfoModel
  */
 
 /**
@@ -62,7 +69,9 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
  *   banned: the banned chess ids the data knows that sit under a group, by tier (ties keep the server's order);
  *   perBond: bondId → banned members (over every known banned id); bannedGroups: per bond of D (identifier, then bondId)
  *   its banned members by tier, also when it has none; custom: a 自定义 match's differences from the official rules
- *   (ui/customSummary.js), null for the other presets
+ *   (ui/customSummary.js), null for the other presets; groups: 规程 solo's two core bond groups (m.public bondGroups,
+ *   the bonds the data knows, in the server's order) and the picked one, else null; addonIncomplete: an add-on bond is
+ *   in D (the 附加盟约 tip); bannedAll: m.public bannedChess as it is (the bond detail's banned members)
  */
 export function matchInfoModel(pub, { bonds = [], chess = () => null, mode = null, priv = null, diyData = null, bans = undefined } = {}) {
   const sets = disabledBondSets(pub, mode?.inactiveBondIds);
@@ -81,7 +90,13 @@ export function matchInfoModel(pub, { bonds = [], chess = () => null, mode = nul
     return { bond, chess: known.filter((id) => members.has(id)) };
   });
   const listed = new Set(bannedGroups.flatMap((g) => g.chess));
+  const bondIds = new Set(list.map((b) => b.bondId));
+  const bg = pub?.bondGroups;
+  const groups = bg && Array.isArray(bg.groups) && bg.groups.length === 2 && bg.groups.every(Array.isArray) && (bg.picked === 0 || bg.picked === 1)
+    ? { groups: bg.groups.map((g) => g.filter((id) => bondIds.has(id))), picked: bg.picked } : null;
   return {
+    groups, addonIncomplete: addon.some((b) => sets.drawn.has(b.bondId)),
+    bannedAll: (Array.isArray(pub?.bannedChess) ? pub.bannedChess : []).filter((id) => typeof id === 'string'),
     sets, stateOf, bonds: list, core, addon,
     banned: known.filter((id) => listed.has(id)), perBond: bannedPerBond(list, known), bannedGroups,
     diyBanned: priv && diyData ? diyBannedPieces(priv, chess, diyData) : [],
@@ -120,15 +135,20 @@ export function DiyBannedLine({ model, class: cls = 'brief-banned__diy' }) {
 const outerArt = (name) => localAsset('ui/outer', name);
 
 /**
- * The section title bar of the stage-info view (perm_bond_title / temp_bond_title / chess_banned_title / enemy_title): the bar sprite,
- * its icon, the title (+ `extra` right after it, e.g. the banned count — the bar sprite's logos sit on the right) and the
- * micro label.
- * @param {{ kind: 'perm'|'temp'|'chess'|'enemy', title: string, micro: string, extra?: any }} props
+ * The section title bar of the stage-info view (perm_bond_title = 核心盟约 / temp_bond_title = 附加盟约 / chess_banned_title /
+ * enemy_title): the bar sprite, its icon, the title (+ `extra` right after it, e.g. the banned count or the 附加盟约 tip —
+ * the bar sprite's logos sit on the right) and the micro label. The icons as the official screens show them, in every
+ * mode: 核心盟约 the starburst img_title_icon_temp_bond, 附加盟约 the wing img_title_icon_perm_bond — the reverse of the
+ * sprite names (official CN screens 2026-11-18, the maintainer checked a 盟约 screen too: maintainer decision 2026-11-18).
+ * img_group_title is drawn sliced as the client's (borders L41 / R492: its RHODES ISLAND logo once, at the right end);
+ * `bar` names another bar sprite (规程 solo's 核心盟约 takes img_group_title, as its official screen).
+ * @param {{ kind: 'perm'|'temp'|'chess'|'enemy', title: string, micro: string, extra?: any, bar?: string|null }} props
  */
-export function InfoTitle({ kind, title, micro, extra = null }) {
-  const bar = outerArt(kind === 'perm' ? 'img_group_title_perm_bond' : 'img_group_title');
-  const icon = outerArt({ perm: 'img_title_icon_perm_bond', temp: 'img_title_icon_temp_bond', enemy: 'img_title_icon_enemy' }[kind] || 'img_title_icon_chess');
-  return html`<h3 class=${cx('brief-h', 'brief-h--art', `brief-h--${kind}`, icon && 'has-icon')} style=${bar ? `--bar:url("${bar}")` : null}>
+export function InfoTitle({ kind, title, micro, extra = null, bar: barName = null }) {
+  const name = barName || (kind === 'perm' ? 'img_group_title_perm_bond' : 'img_group_title');
+  const bar = outerArt(name);
+  const icon = outerArt({ perm: 'img_title_icon_temp_bond', temp: 'img_title_icon_perm_bond', enemy: 'img_title_icon_enemy' }[kind] || 'img_title_icon_chess');
+  return html`<h3 class=${cx('brief-h', 'brief-h--art', `brief-h--${kind}`, icon && 'has-icon', bar && name === 'img_group_title' && 'is-sliced')} style=${bar ? `--bar:url("${bar}")` : null}>
     ${icon ? html`<img class="brief-h__icon" src=${icon} alt="" draggable=${false} />` : null}<span>${title}</span>${extra}<${MicroLabel}>${micro}</${MicroLabel}>
   </h3>`;
 }
@@ -156,12 +176,12 @@ export function InfoBond({ bond, off, small = false }) {
 /**
  * One row of bonds (核心盟约 / 附加盟约, MatchInfoModel core / addon — the mode's switched-off bonds are not in them): a
  * greyed item (the banned mark) for a bond in the drawn set D; the tooltip says how many of its operators cannot appear
- * (briefingBondTip).
- * @param {{ title: string, micro: string, bonds: any[], model: MatchInfoModel, kind?: 'perm'|'temp' }} props
+ * (briefingBondTip). `extra`: after the title (the 附加盟约 tip, IncompleteTip).
+ * @param {{ title: string, micro: string, bonds: any[], model: MatchInfoModel, kind?: 'perm'|'temp', extra?: any }} props
  */
-export function MatchBondRow({ title, micro, bonds, model, kind = 'temp' }) {
+export function MatchBondRow({ title, micro, bonds, model, kind = 'temp', extra = null }) {
   return html`<div class="brief-bonds">
-    <${InfoTitle} kind=${kind} title=${title} micro=${micro} />
+    <${InfoTitle} kind=${kind} title=${title} micro=${micro} extra=${extra} />
     <div class="brief-bonds__row">
       ${bonds.map((b) => {
         const state = model.stateOf(b.bondId);
@@ -173,6 +193,99 @@ export function MatchBondRow({ title, micro, bonds, model, kind = 'temp' }) {
         <//>`;
       })}
     </div>
+  </div>`;
+}
+
+/**
+ * The tip after the 附加盟约 title when one of its bonds is in D (temp_bond_title panel_tip: img_bond_title_tip_bkg, its
+ * left 35 the people mark): 「部分盟约所含干员阵容不完整」, as the official 规程 screens show it.
+ * @param {{ class?: string }} [props]
+ */
+export function IncompleteTip({ class: cls = null } = {}) {
+  const bg = outerArt('img_bond_title_tip_bkg');
+  return html`<span class=${cx('bgrp-tip', !bg && 'no-art', cls)} style=${bg ? `--tip:url("${bg}")` : null}>${t('部分盟约所含干员阵容不完整')}</span>`;
+}
+
+/** A sprite of the 规程 briefing's stage-info view (season/act3autochess/stageinfo; the shared ones from ui/outer), or null. */
+export const stageArt = (name) => localAsset('season/act3autochess/stageinfo', name) || outerArt(name);
+
+/**
+ * Item i of a group's list in the panel's item_container_(i+1): the 1st, 3rd and 5th on the top row, the 2nd and 4th
+ * under them (3 + 2, or 2 + 2 for four).
+ * @param {string[]} list
+ * @returns {[string[], string[]]}
+ */
+export function groupRows(list) {
+  return [list.filter((_, i) => i % 2 === 0), list.filter((_, i) => i % 2 === 1)];
+}
+
+/**
+ * 规程 solo's two core bond groups (auto_chess_single_mode_bond_group, MatchInfoModel groups): two panels side by side,
+ * the picked one on its art (Image_select_text — ALLIANCE ACTIVATED and the check —, the blur, the bar with its notch,
+ * the hatched corner; drawn under the bond items) with its bonds lit, the other one's greyed with the banned mark.
+ * `onPick` (the briefing, before ready): the panel is a radio and a press on it picks the group (g.bondGroup); `onBond`:
+ * a bond icon is a button (its detail — not a pick); `hint`: the text_tips line over the panels (the briefing's).
+ * Hookless; sized in --u (one prefab unit), set by the caller's CSS.
+ * @param {{ model: MatchInfoModel, onPick?: ((i: number) => void)|null, onBond?: ((id: string) => void)|null,
+ *   openId?: string|null, hint?: any }} props
+ */
+export function BondGroups({ model, onPick = null, onBond = null, openId = null, hint = null }) {
+  const g = model?.groups;
+  if (!g) return null;
+  const art = ['img_select_text', 'img_blur_bond', 'img_bond_group_select', 'img_select_decorate', 'img_single_choose_bg']
+    .map((n, i) => [['--a-text', '--a-blur', '--a-bar', '--a-deco', '--a-bg'][i], stageArt(n)]).filter(([, u]) => u)
+    .map(([k, u]) => `${k}:url("${u}")`).join(';');
+  const bondOf = (id) => model.bonds.find((b) => b.bondId === id) || { bondId: id, name: id };
+  const item = (id, off) => {
+    const bond = bondOf(id);
+    const tip = briefingBondTip(bond.name, off ? 'drawn' : null, off ? model.perBond.get(id) || 0 : 0);
+    const inner = html`<${InfoBond} bond=${bond} off=${off} />`;
+    return html`<div key=${id} class="bgrp__cell" data-bond=${id}>${onBond
+      ? html`<button type="button" class=${cx('bgrp__bond', openId === id && 'is-open')} title=${tip} aria-label=${bond.name}
+          onClick=${(e) => { e.stopPropagation(); onBond(id); }}>${inner}</button>`
+      : html`<span class="bgrp__bond" title=${tip}>${inner}</span>`}</div>`;
+  };
+  const key = (i) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(i); } };
+  return html`<div class=${cx('bgrp', hint && 'has-hint', onPick && 'is-pickable', !art && 'no-art')} style=${art || null} role=${onPick ? 'radiogroup' : null} data-testid="bond-groups">
+    ${hint ? html`<p class="bgrp__hint">${hint}</p>` : null}
+    <div class="bgrp__pair">${g.groups.map((list, i) => {
+      const off = g.picked !== i;
+      const [top, bottom] = groupRows(list);
+      return html`<div key=${i} class=${cx('bgrp__panel', `bgrp__panel--${i}`, !off && 'is-picked')} data-group=${i}
+          role=${onPick ? 'radio' : null} tabindex=${onPick ? '0' : null} aria-checked=${onPick ? String(!off) : null}
+          aria-label=${t('第{n}组', { n: i + 1 })} onClick=${onPick ? () => onPick(i) : null} onKeyDown=${onPick ? key(i) : null}>
+        <i class="bgrp__wm" aria-hidden="true"></i><i class="bgrp__blur" aria-hidden="true"></i><i class="bgrp__bar" aria-hidden="true"></i><i class="bgrp__deco" aria-hidden="true"></i>
+        <div class="bgrp__row bgrp__row--top">${top.map((id) => item(id, off))}</div>
+        <div class="bgrp__row bgrp__row--bot">${bottom.map((id) => item(id, off))}</div>
+      </div>`;
+    })}</div>
+  </div>`;
+}
+
+/**
+ * BondGroups read-only with the bond detail (BondPopup) a press on an icon opens — the strategy draft's / 3/3 screen's
+ * 本局信息 dialog (no pick there). `detail` false: icons only (the in-game tab, whose detail would read the board).
+ * The prefab unit --u comes from the box's width (880 units; measured — no CSS container queries on our browsers).
+ * @param {{ model: MatchInfoModel, detail?: boolean }} props
+ */
+export function BondGroupsView({ model, detail = true }) {
+  const [open, setOpen] = useState(null);
+  const box = useRef(null);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return undefined;
+    const fit = () => { const w = el.clientWidth; if (w > 0) el.style.setProperty('--u', `${w / 880}px`); };
+    fit();
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
+    ro?.observe(el);
+    if (!ro) addEventListener('resize', fit);
+    return () => { ro?.disconnect(); if (!ro) removeEventListener('resize', fit); };
+  }, []);
+  const toggle = (id) => setOpen((o) => (o === id ? null : id));
+  return html`<div class="bgrp-ro" ref=${box}>
+    <div class="bgrp-ro__in"><${BondGroups} model=${model} onBond=${detail ? toggle : null} openId=${open} /></div>
+    ${detail && open ? html`<${BondPopup} bondId=${open} entry=${null} priv=${null} banned=${model.bannedAll} place="right"
+      onClose=${() => setOpen(null)} onMember=${() => {}} />` : null}
   </div>`;
 }
 
@@ -254,6 +367,17 @@ export function BannedOperators({ model }) {
  * @param {{ model: MatchInfoModel }} props
  */
 export function MatchInfo({ model }) {
+  if (model.groups) {
+    // 规程 solo: the two groups read-only, the tip after 附加盟约 in place of the legend line
+    return html`${model.custom ? html`<${CustomRulesInfo} lines=${model.custom} class="brief-custom" />` : null}
+      <div class="brief-bonds brief-bonds--groups">
+        <${InfoTitle} kind="perm" title=${t('核心盟约')} micro="CORE BONDS" bar="img_group_title" />
+        <${BondGroupsView} model=${model} />
+      </div>
+      <${MatchBondRow} title=${t('附加盟约')} micro="ADD-ON BONDS" bonds=${model.addon} model=${model} kind="temp"
+        extra=${model.addonIncomplete ? html`<${IncompleteTip} />` : null} />
+      <${BannedOperators} model=${model} />`;
+  }
   return html`${model.custom ? html`<${CustomRulesInfo} lines=${model.custom} class="brief-custom" />` : null}
     <${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${model.core} model=${model} kind="perm" />
     <${MatchBondRow} title=${t('附加盟约')} micro="ADD-ON BONDS" bonds=${model.addon} model=${model} kind="temp" />
