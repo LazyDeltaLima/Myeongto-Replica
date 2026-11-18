@@ -879,3 +879,15 @@ test('coverage: every band is exercised by a test above', () => {
 });
 
 void giveItem;
+
+test('哈洛德 盟约: the text names no tier — ≤ shop level first, else any tier [ASSUMED·server]', () => {
+  const { m, ps, roundStart } = setup({ band: 'band_harold', seed: 18 });
+  ps.shop.level = 1;
+  for (const c of Object.values(DATA.chess)) {
+    if (c.visible && !c.isGolden && c.tier <= 1 && c.bonds.includes('victoriaShip') && m.pool.has(c.chessId)) m.pool.take(c.chessId, m.pool.left(c.chessId));
+  }
+  const grants = spyGrants(ps);
+  roundStart(4);
+  assert.equal(grants.length, 1, 'still one operator');
+  assert.ok(DATA.chess[grants[0]].bonds.includes('victoriaShip') && DATA.chess[grants[0]].tier > 1, grants[0]);
+});

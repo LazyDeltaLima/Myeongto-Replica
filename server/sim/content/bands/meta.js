@@ -14,7 +14,7 @@
 //   band_coin_cost_gain_random_char_by_shop_level      绮良     every coin_cnt funds spent → count random chess ≤ shop level
 //   up_shop_next_refresh_must_present_bond_char        佩佩     level-up to a level of lvlist → the next manual refresh (its usual
 //                                                               price) prefers <bond>; at most one pending
-//   gain_bond_char_per_round {round,preround,bond}     哈洛德   rounds round, round+preround, …: a <bond> chess (≤ shop level, else any tier)
+//   gain_bond_char_per_round {round,preround,bond}     哈洛德   rounds round, round+preround, …: a <bond> chess (≤ shop level; 盟约: else any tier)
 //   first_buy_in_round_char_price_change {price,bond}  休露丝   first <bond> chess of the round costs `price` (bought in the
 //                                                               shop: onBuy — a free pick / grant never uses it up)
 //   band_cost_coin_reach_cnt_gain_chess_from_pool      潘格尼尼 once coin_cnt funds spent in total: 1 chess of pool (elite 拉特兰 ≥ T4)
@@ -238,13 +238,19 @@ K.up_shop_next_refresh_must_present_bond_char = (ps) => ({
 // 规程's name of the same rule (its text unchanged but for 「被动效果」)
 K.shop_up_bond_refresh_once = K.up_shop_next_refresh_must_present_bond_char;
 
-K.gain_bond_char_per_round = (ps) => ({
+// 哈洛德 人才盲盒. The stage's text decides the tier: 规程's 「（等阶不高于当前调度中心）」 caps it at the shop level, so a round
+// whose pool has no <bond> chess that low grants nothing [ASSUMED·server: what the official server does then] (the cap
+// matters when the bond itself is absent: 维多利亚 off leaves only the operators with another core bond on, e.g. 烛煌 T6
+// alone when 谢拉格 is off too). 盟约's text names no tier: tier ≤ shop level first, else any tier [ASSUMED·server: the
+// text gives no tier rule].
+K.gain_bond_char_per_round = (ps, _bandId, stage) => ({
   onRoundStart(ctx) {
     const p = ps[0];
     const r0 = int(p.round, 1), every = Math.max(1, int(p.preround, 1));
     if (ctx.round < r0 || (ctx.round - r0) % every !== 0) return;
+    const anyTier = !/等阶不高于当前调度中心/.test(String(stage?.desc ?? ''));
     for (let k = 0; k < Math.max(1, int(p.count, 1)); k++) {
-      const id = rollBond(ctx, p.bond, { anyTier: true });
+      const id = rollBond(ctx, p.bond, { anyTier });
       if (id) ctx.grantChess(id, { source: 'band' });
     }
   },

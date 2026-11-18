@@ -298,3 +298,35 @@ test('娜仁图亚\'s 萨尔贡 6 in battle: the default season\'s ATK stacks, n
   own.b.emit('skillStart', { unit: own.unit('sg0_a') });
   assert.ok(!own.unit('sg1_a').buffs.some((b) => b.key === 'bond:sargon:atk'));
 });
+
+// 哈洛德 人才盲盒 「（等阶不高于当前调度中心）」: only <维多利亚> chess up to the shop level. With 维多利亚 off this match the pool
+// keeps the 维多利亚 operators with another core bond on; when that leaves only 烛煌 (T6, 炎) it used to come at R4 through
+// an any-tier fallback (盟约's rule). docs/rules/sim.md 「해럴드 인재 랜덤박스의 단계」.
+test('哈洛德 规程: the grant never passes the shop level — nothing when no <维多利亚> chess that low is in the pool', () => {
+  const vic = chessOf('victoriaShip');
+  const poolVic = (m) => vic.filter((id) => m.pool.has(id) && m.pool.left(id) > 0);
+  const seedWhere = (pred) => {
+    for (let s = 1; s < 80; s++) {
+      const m = makeMatch({ mode: 'solo', humans: 1, seed: s, registry: REG, fake: true, data: ACT3_ON_BASE_FIELD, season: 'act3autochess' }).m;
+      if (pred(poolVic(m))) return s;
+    }
+    throw new Error('no seed');
+  };
+  const run = (seed) => {
+    const { ps, roundStart } = setup({ band: 'band_harold', seed });
+    ps.shop.level = 3;
+    const got = [];
+    const orig = ps.acquireChess.bind(ps);
+    ps.acquireChess = (id, o = {}) => { const p = orig(id, o); if (p && o.source === 'band') got.push(id); return p; };
+    for (let r = 4; r <= 8; r++) roundStart(r);
+    return got;
+  };
+  // 维多利亚 and 谢拉格 off, 炎 on: only 烛煌 T6 is left
+  const onlyBlaze = seedWhere((ids) => ids.length === 1 && ids[0] === 'chess_char_6_02_a');
+  assert.deepEqual(run(onlyBlaze), [], 'no <维多利亚> chess ≤ shop level 3: nothing (no T6 烛煌)');
+  // 维多利亚 off but 谢拉格 on: 哈洛德 (T2) is the one under the cap
+  const withHarold = seedWhere((ids) => ids.includes('chess_char_2_10_a') && ids.every((id) => id === 'chess_char_2_10_a' || ACT3.chess[id].tier > 3));
+  const got = run(withHarold);
+  assert.equal(got.length, 3, 'R4, R6, R8');
+  for (const id of got) assert.equal(ACT3.chess[id].tier, 2, `${id}: ≤ shop level`);
+});
