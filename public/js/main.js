@@ -64,6 +64,7 @@ import { installLoadoutSync, installOwnershipSync, installDiySync, installSkinsS
 import { installCardSync } from './ui/cardSync.js';
 import { installSeasons, activeSeason, followActiveSeason, loadPickedSeason, inviteSeasonOf } from './ui/season.js';
 import { installDiyPresets, setPresetSeason } from './ui/diyPresets.js'; // 맹약별 선발 프리셋 (per season)
+import { setCustomRulesSeason } from './ui/customRulesStore.js';
 import { startBuildGuard } from './ui/buildGuard.js';
 import { installChat } from './ui/chat.js';
 import { installRestartNotice } from './ui/restartNotice.js'; // the deploy's restart countdown
@@ -314,6 +315,7 @@ function wireNet() {
     data.setSeason(season);
     setPresetSeason(season); // first: the picks follower must not save one season's picks into the other's roster
     setLoadoutSeason(season);
+    setCustomRulesSeason(season); // the 自定义 settings and presets name the season's own ids (ui/customRulesStore.js)
   });
   // what the room's custom ruleset borrows from other seasons' battlefields / 特训敌人 types (shared/seasonBorrow.js):
   // the data store — and the battle runner's sim — read those records too, as the server's match does

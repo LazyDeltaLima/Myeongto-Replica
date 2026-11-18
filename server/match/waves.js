@@ -197,7 +197,7 @@ export function setupMatchWaves(gd, rng) {
   // another season's stages it borrows (stages.extra, shared/seasonBorrow.js: in the data as `borrowed`) at the weight
   // of the heaviest of the mode's own [ASSUMED·자료 없음: the official game never drew two seasons' fields together; both
   // weigh theirs 50]
-  const stageIds = customStagePool(gd.mode.stages, gd.custom);
+  const stageIds = customStagePool(gd.mode.stages, gd.custom, (id) => { const s = gd.stage(id); return !!s && !s.borrowed; });
   const added = new Set(CUSTOM_FIRST_HALF_STAGES);
   const ownWeight = () => Math.max(0, ...(Array.isArray(gd.mode.stages) ? gd.mode.stages : []).map((id) => Number(gd.stage(id)?.weight) || 0));
   const weightOf = (id, s) => (s.borrowed ? (gd.custom?.stages?.extra?.includes(id) ? ownWeight() : 0)

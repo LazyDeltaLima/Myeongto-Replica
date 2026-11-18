@@ -10,10 +10,17 @@
 //                     settings that differ from the official ones (`SPC<version>j.` = not compressed, where the browser
 //                     has no CompressionStream); decoding fills the rest with the official values
 // Storage: localStorage `sp.pref.customRules` = { v, presets, active, draft } (every rules object through
-// shared/ruleset.js sanitizeCustom, so a stored or pasted one never holds a value out of range).
+// shared/ruleset.js sanitizeCustom, so a stored or pasted one never holds a value out of range), kept per 卫戍协议
+// season as the loadout and the 自选 presets are (loadoutSync.js seasonPref: the default season's under the key itself,
+// so the settings stored before belong to it; another's under `customRules@<season>`). The settings name the season's
+// own bonds, leaders, stages and 特训敌人 types and borrow the other seasons' (shared/seasonBorrow.js): one envelope
+// for both turned a stage borrowed in one season into an own stage of the other, its bans counted out of the other's
+// range and its lists into ids the other lacks. setCustomRulesSeason swaps the envelope with the season on screen.
 
 import { createStore, loadPref, savePref } from '../store.js';
 import { sanitizeCustom, CUSTOM_OFFICIAL, CUSTOM_VERSION } from '../../../shared/ruleset.js';
+import { DEFAULT_SEASON, seasonOf } from '../../../shared/seasons.js';
+import { seasonPref } from './loadoutSync.js';
 
 export const CUSTOM_RULES_PREF = 'customRules';
 /** Presets one browser keeps. */
@@ -40,11 +47,32 @@ export function parseStoredCustom(raw) {
   return { presets, active, draft };
 }
 
-export const customRulesStore = createStore(parseStoredCustom(loadPref(CUSTOM_RULES_PREF, null)));
+/** The season whose settings customRulesStore holds (setCustomRulesSeason). */
+let rulesSeason = DEFAULT_SEASON;
+/** The season customRulesStore holds. */
+export const customRulesSeasonOf = () => rulesSeason;
+/** The stored envelope of a season. @param {unknown} season */
+const readStored = (season) => {
+  try { return parseStoredCustom(loadPref(seasonPref(CUSTOM_RULES_PREF, season), null)); } catch { return parseStoredCustom(null); }
+};
+
+export const customRulesStore = createStore(readStored(rulesSeason));
+
+/**
+ * Hold another season's settings (main.js, on every change of the season on screen: a room's season, else the picked
+ * one — so the lobby creates and the room changes its ruleset with the settings of its own season). The same season:
+ * nothing happens. @param {unknown} season @param {ReturnType<typeof createStore>} [target]
+ */
+export function setCustomRulesSeason(season, target = customRulesStore) {
+  const next = seasonOf(season);
+  if (next === rulesSeason) return;
+  rulesSeason = next;
+  target.set(readStored(next));
+}
 
 const persist = () => {
   const { presets, active, draft } = customRulesStore.get();
-  savePref(CUSTOM_RULES_PREF, { v: CUSTOM_VERSION, presets, active, draft });
+  savePref(seasonPref(CUSTOM_RULES_PREF, rulesSeason), { v: CUSTOM_VERSION, presets, active, draft });
 };
 const update = (patch) => { customRulesStore.set(patch); persist(); };
 

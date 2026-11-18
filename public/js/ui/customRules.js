@@ -540,7 +540,11 @@ const stageShown = (s, firstHalf) => !s.kind && !s.borrowed && (s.active !== fal
 
 function StagesPane({ work, set, setWork, readonly, mode }) {
   const all = (data.list('stages') || []).filter((s) => stageShown(s, work.stages.firstHalf));
-  const pool = new Set(customStagePool(mode?.stages, work));
+  // the season's own stages (a borrowed record is another season's): the pool takes them only through the mode and the
+  // 上半 switch (customStagePool), as the server's draw does
+  const ownRaw = Object.values(data.getRaw('stages') || {}).filter((s) => s && !s.kind && !s.borrowed);
+  const ownStage = (id) => { const s = data.getRaw('stages')?.[id]; return !!s && !s.borrowed; };
+  const pool = new Set(customStagePool(mode?.stages, work, ownStage));
   // switching the 上半 stages off drops their bans with them (a ban of a stage the pool lacks means nothing)
   const setFirstHalf = (v) => setWork((w) => sanitizeCustom({ ...w, stages: { ...w.stages, firstHalf: v, ban: v ? w.stages.ban : w.stages.ban.filter((id) => !CUSTOM_FIRST_HALF_STAGES.includes(id)) } }));
   const firstNames = CUSTOM_FIRST_HALF_STAGES.map((id) => data.get('stages')?.[id]?.name ?? id).join(t('、'));
@@ -560,7 +564,6 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
   // other seasons' stages (maintainer decision 2026-11-15, shared/seasonBorrow.js): a click adds one to the pool; one that
   // plays as an own field (sameField: 规程 m01–m04 / m06 = 盟约 战场#01–#04 / #06(下半)) is left out (the raw records:
   // the localized ones differ in their names)
-  const ownRaw = Object.values(data.getRaw('stages') || {}).filter((s) => s && !s.kind && !s.borrowed);
   const ownIds = new Set(ownRaw.map((s) => s.id));
   const lenders = borrowSeasons(data.season()).map((sid) => {
     const st = data.seasonStore(sid);

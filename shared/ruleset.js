@@ -287,15 +287,20 @@ export const CUSTOM_FIRST_HALF_STAGES = Object.freeze(['act1autochess_m06']);
 export const CUSTOM_FIRST_HALF_WEIGHT_OF = 'act1autochess_m01';
 
 /**
- * The stage ids a match draws from: the mode's pool, then the 上半 stages when custom settings add them, then the other
- * seasons' stages they add (stages.extra: shared/seasonBorrow.js; the match keeps those its data has) — before the
- * bans: keepUnbanned. @param {readonly string[] | null | undefined} stageIds @param {any} custom
+ * The stage ids a match draws from: the mode's pool, then the 上半 stages when custom settings add them and the season
+ * has them, then the other seasons' stages they add (stages.extra: shared/seasonBorrow.js) — before the bans:
+ * keepUnbanned. `ownStage(id)` says whether the season's own data has a stage (a borrowed record is not its own): an
+ * own stage joins only through the mode's pool or the 上半 switch, so settings made in another season (stages.extra
+ * naming this season's stage, a share code) never add a stage the difficulty's pool lacks. Required: without it the
+ * function throws, so no caller can draw from a pool the server does not.
+ * @param {readonly string[] | null | undefined} stageIds @param {any} custom @param {(id: string) => boolean} ownStage
  * @returns {string[]}
  */
-export function customStagePool(stageIds, custom) {
+export function customStagePool(stageIds, custom, ownStage) {
+  if (typeof ownStage !== 'function') throw new TypeError('customStagePool: ownStage(id) is required');
   const ids = Array.isArray(stageIds) ? [...stageIds] : [];
-  if (custom?.stages?.firstHalf) for (const id of CUSTOM_FIRST_HALF_STAGES) if (!ids.includes(id)) ids.push(id);
-  for (const id of Array.isArray(custom?.stages?.extra) ? custom.stages.extra : []) if (!ids.includes(id)) ids.push(id);
+  if (custom?.stages?.firstHalf) for (const id of CUSTOM_FIRST_HALF_STAGES) if (!ids.includes(id) && ownStage(id)) ids.push(id);
+  for (const id of Array.isArray(custom?.stages?.extra) ? custom.stages.extra : []) if (!ids.includes(id) && !ownStage(id)) ids.push(id);
   return ids;
 }
 

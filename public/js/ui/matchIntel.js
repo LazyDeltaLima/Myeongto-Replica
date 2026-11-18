@@ -22,7 +22,8 @@ export function MatchIntel({ pub, season, dialog = false }) {
   // match draws from the stages its settings add and leave (customStagePool + keepUnbanned, as server/match/waves.js
   // setupMatchWaves)
   const custom = pub.ruleset?.custom;
-  const poolN = Array.isArray(mode?.stages) ? keepUnbanned(customStagePool(mode.stages, custom), (id) => id, custom?.stages?.ban).length : 0;
+  const ownStage = (id) => { const s = gd.stage(id); return !!s && !s.borrowed; };
+  const poolN = Array.isArray(mode?.stages) ? keepUnbanned(customStagePool(mode.stages, custom, ownStage), (id) => id, custom?.stages?.ban).length : 0;
   const pool = poolN > 1 ? t('战场随机（共{poolN}张）', { poolN }) : poolN === 1 ? t('战场固定') : '';
   const stageName = stage?.name || pub.stageId || '—';
   // the battlefield's preview picture under its name (tools/map-previews.mjs: our 3D board drawn like the client's

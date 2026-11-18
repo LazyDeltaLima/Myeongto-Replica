@@ -22,8 +22,10 @@ test('the setting: off by default, a diff when on, the pool gains 战场#06 only
   assert.equal(sanitizeCustom({ stages: { firstHalf: 1 } }).stages.firstHalf, false, 'booleans only');
   assert.deepEqual(customDiffs({ stages: { firstHalf: true } }), ['stages.firstHalf']);
   const pool = DATA.config.modes.mode_multi_hard.stages;
-  assert.deepEqual(customStagePool(pool, sanitizeCustom({})), pool);
-  assert.deepEqual(customStagePool(pool, sanitizeCustom({ stages: { firstHalf: true } })), [...pool, M06]);
+  const own = (id) => !!DATA.stages[id];
+  assert.deepEqual(customStagePool(pool, sanitizeCustom({}), own), pool);
+  assert.deepEqual(customStagePool(pool, sanitizeCustom({ stages: { firstHalf: true } }), own), [...pool, M06]);
+  assert.deepEqual(customStagePool(pool, sanitizeCustom({ stages: { firstHalf: true } }), () => false), pool, 'a season without 战场#06 adds nothing');
   assert.ok(!pool.includes(M06), 'not in this season\'s pool');
 });
 

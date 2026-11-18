@@ -80,6 +80,28 @@ test('the preset list is bounded', () => {
   assert.equal(S.addPreset('one more', {}), null);
 });
 
+test('per season: each season keeps its own settings and presets; the default season reads the key stored before', () => {
+  // docs/rules/ui.md 「규칙 모드」: one envelope for both seasons turned a stage borrowed in one into an own stage of the other
+  assert.equal(S.customRulesSeasonOf(), 'act2autochess');
+  S.setDraft({ stages: { extra: ['act3autochess_m09'] } });
+  assert.deepEqual(stored().draft.stages.extra, ['act3autochess_m09'], 'the default season under customRules itself');
+  S.setCustomRulesSeason('act3autochess');
+  assert.equal(S.customRulesSeasonOf(), 'act3autochess');
+  assert.deepEqual(S.customDraft(), CUSTOM_OFFICIAL, 'the other season starts at the official settings');
+  assert.deepEqual(S.customRulesStore.get().presets, [], 'and with no presets');
+  S.setDraft({ stages: { extra: ['act2autochess_m03'] } });
+  S.addPreset('Ursus', { bonds: { banCore: 5 } });
+  const other = JSON.parse(mem.get('sp.pref.customRules@act3autochess'));
+  assert.deepEqual(other.draft.stages.extra, ['act2autochess_m03']);
+  assert.equal(other.presets[0].name, 'Ursus');
+  assert.deepEqual(stored().draft.stages.extra, ['act3autochess_m09'], 'the default season untouched');
+  S.setCustomRulesSeason('act2autochess');
+  assert.deepEqual(S.customDraft().stages.extra, ['act3autochess_m09'], 'back: the default season again');
+  assert.ok(!S.customRulesStore.get().presets.some((p) => p.name === 'Ursus'));
+  S.setCustomRulesSeason('act2autochess');
+  assert.equal(S.customRulesSeasonOf(), 'act2autochess', 'the same season: nothing happens');
+});
+
 test('share code: only the settings that differ from the official ones, compressed; decoding fills the rest and sanitizes', async () => {
   const rules = sanitizeCustom({ enemies: { hp: 150 }, bonds: { pick: { yanShip: 'ban' } }, stages: { ban: ['act2autochess_m02'] } });
   assert.deepEqual(S.customDelta(rules), { bonds: { pick: { yanShip: 'ban' } }, enemies: { hp: 150 }, stages: { ban: ['act2autochess_m02'] } });

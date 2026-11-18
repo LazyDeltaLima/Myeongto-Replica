@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { sanitizeCustom, customDiffs, officialStep, stepScale } from '../../shared/ruleset.js';
+import { sanitizeCustom, customDiffs, officialStep, stepScale, customStagePool } from '../../shared/ruleset.js';
 import { customBorrowIds, borrowPlan, withBorrowed, borrowSeasons, sameField } from '../../shared/seasonBorrow.js';
 import { GameData } from '../../server/match/gamedata.js';
 import { setupMatchWaves } from '../../server/match/waves.js';
@@ -115,6 +115,25 @@ test('real match path (规程): a 盟约 battlefield (战场#07(下半) 排气�
   const { b } = fight(h, 1, 'band_amiya');
   assert.ok(b.enemies.length > 0);
   h.m.dispose();
+});
+
+test('settings made in another season: an own stage in stages.extra never joins a difficulty pool that lacks it', { skip }, () => {
+  // docs/rules/ui.md 「규칙 모드」: stages.extra borrows other seasons' stages only — settings made in the other season (or
+  // its share code) name this season's stages there, and the easy pools (战场#01 only) drew them (customStagePool)
+  assert.throws(() => customStagePool(['a'], sanitizeCustom({})), TypeError, 'customStagePool without ownStage');
+  for (const [data, modeId, extra, only] of [[DATA, 'mode_multi_funny', 'act2autochess_m03', 'act1autochess_m01'],
+    [ACT3, 'mode_multi_funny', 'act3autochess_m09', 'act3autochess_m01']]) {
+    assert.deepEqual(data.config.modes[modeId].stages, [only], `${modeId}: the easy pool is one stage`);
+    const gd = new GameData(data, modeId, sanitizeCustom({ stages: { extra: [extra] } }));
+    for (let s = 1; s <= 40; s++) assert.equal(setupMatchWaves(gd, createRng(s)).stageId, only, `${extra} drawn in ${modeId} (seed ${s})`);
+  }
+  const registry = createRegistry({ data: ACT3, log: QUIET });
+  for (const seed of [1, 2, 3]) {
+    const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', seed, data: ACT3, season: ACT3_ID, registry, fake: true,
+      ruleset: custom({ stages: { extra: ['act3autochess_m09', 'act3autochess_m10'] } }) }).start();
+    assert.equal(h.m.stageId, 'act3autochess_m01', `seed ${seed}`);
+    h.m.dispose();
+  }
 });
 
 test('sameField: 规程 m01–m04 / m06 play as 盟约 战场#01–#04 / #06(下半) and are never borrowed; m05 differs', { skip }, () => {
