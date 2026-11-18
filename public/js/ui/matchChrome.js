@@ -7,8 +7,9 @@
 // (发起重新开始投票; ui/restartVote.js, server/match/match/restart.js).
 
 import { useState } from '../../vendor/hooks.module.js';
-import { html, Button, Modal, PingPill, DifficultyTag, Countdown, MicroLabel, Icon } from './components.js';
-import { localAsset } from '../data.js';
+import { html, Button, Modal, PingPill, DifficultyTag, Countdown, MicroLabel, Icon, gradeName } from './components.js';
+import { data, localAsset } from '../data.js';
+import { seasonArt } from './seasonArt.js';
 import { actions } from './gameActions.js';
 import { toastError } from './toasts.js';
 import { net } from '../net.js';
@@ -21,6 +22,8 @@ import { recordQuit } from './stats.js';
 import { canProposeRestart, restartVoters } from './restartVote.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 import { resolveRuleset, PRESET_LABELS } from '../../../shared/ruleset.js';
+import { DEFAULT_SEASON, seasonOf, modeGrade } from '../../../shared/seasons.js';
+import { DIFFICULTY_NAMES, DIFFICULTY_COLORS, gradeDifficulty } from '../../../shared/constants.js';
 
 /**
  * Exit dialog lines. 放弃模拟 (g.leave → room.leave) ends the run on the server as 'abandoned' and returns to the
@@ -183,13 +186,6 @@ export function AwayOverlay({ onBack = () => {} }) {
 const timerCue = () => audio.sfx('timer');
 
 /**
- * Pre-game step header. Beside the difficulty, the 规则 mode when it is not 经典 (休闲 / 自定义, m.public.ruleset).
- * The countdown turns orange at the step's official warning time and plays the countdown cue then (gameLogic
- * countdownWarnAt: 确认本局信息 5 s, 选择策略 15 s; maintainer decision 2026-10-14).
- * @param {{ step: number, of: number, title: string, micro: string, pub: any, total?: number|null, config?: any,
- *   onExit: Function }} props config: data/config.json (the steps' warning times)
- */
-/**
  * The official exit of the waiting room and the start steps (auto_chess_prepare_page outer_top_menu_view left_top:
  * leave_btn 54×56 of img_return — the grey tile with the white door and arrow —, and ping_part 63×22 of img_delay_bg,
  * white 16, 40.4 under the tile's centre; the start steps' official screens draw the same, CN screen 2026-11-13 —
@@ -209,20 +205,92 @@ export function ExitTile({ onClick, label, ping, online, disabled = false, class
   </div>`;
 }
 
-export function StepHeader({ step, of, title, micro, pub, total, config = null, onExit }) {
-  const conn = useStore((s) => s.connection, shallowEqual);
+/** The plate pictures' names per modeDifficulty where they differ from it lowercased: step 1 img_title_mode_guide, steps 2–3 mode_train. */
+const PLATE_NAME = Object.freeze({ 1: { TRAINING: 'guide' }, 2: { TRAINING: 'train' } });
+
+/**
+ * The official pictures of the start-step header (docs/rules/ui.md 「판 시작 단계 머리」), null where there is none (the
+ * header then draws its CSS stand-in). A later season (规程) reads its own extract: step 1 the stage-info view's
+ * (season/<id>/stageinfo img_title_mode_<difficulty>, img_split_line, img_chat_babble), steps 2–3 the 3/3 screen's
+ * (season/<id>/diychoose mode_<difficulty>; pop for step 3's bubble — the 选择策略 bar has the stage-info divider and
+ * bubble), and the theme's character (season/<id>/skin img_char_spine_outer: the default theme ac_n_initial's still
+ * picture, which the prefab's img_char_spine takes from the theme's skin_config `char_spine_outer`). 盟约 reads the EN
+ * client's (ui/outer), then the public mirror (stageInfo/*, bandChoose/*); it has no character and no bubble. Steps 2–3
+ * of 盟约 and step 3 of 规程 draw a flat divider (split_line without a sprite, #e4e4e4 at 0.2).
+ * @param {number} step 1–3 @param {string|null|undefined} difficulty the mode's modeDifficulty (config.modes[].difficulty)
+ * @param {unknown} season
+ * @returns {{ cn: boolean, plate: string|null, split: string|null, bubble: string|null, char: string|null }}
+ */
+export function stepHeadArt(step, difficulty, season) {
+  const id = seasonOf(season);
+  const cn = id !== DEFAULT_SEASON;
+  const first = step === 1;
+  const diff = typeof difficulty === 'string' && difficulty ? difficulty : null;
+  const name = diff ? (PLATE_NAME[first ? 1 : 2][diff] || diff.toLowerCase()) : null;
+  const ui = data.get('assets')?.ui;
+  const mirror = (key) => (ui && typeof ui === 'object' && typeof ui[key] === 'string' && ui[key] ? ui[key] : null);
+  const outer = (n) => localAsset('ui/outer', n);
+  if (cn) {
+    return {
+      cn,
+      plate: name ? seasonArt(id, first ? 'stageinfo' : 'diychoose', first ? `img_title_mode_${name}` : `mode_${name}`) : null,
+      split: step === 3 ? null : seasonArt(id, 'stageinfo', 'img_split_line'),
+      bubble: step === 3 ? seasonArt(id, 'diychoose', 'pop') : seasonArt(id, 'stageinfo', 'img_chat_babble'),
+      char: seasonArt(id, 'skin', 'img_char_spine_outer'),
+    };
+  }
+  const plate = !name ? null : first ? outer(`img_title_mode_${name}`) || mirror(`stageInfo/img_title_mode_${name}`)
+    : outer(`mode_${name}`) || mirror(`bandChoose/mode_${name}`);
+  return { cn, plate, split: first ? outer('img_split_line') : null, bubble: null, char: null };
+}
+
+/**
+ * The left chain of the start-step header after the exit tile (official auto_chess_stage_info_state panel_top, the
+ * 选择策略 / 3/3 bars' group_game_info; maintainer decision 2026-11-18, the mockup as chosen): the mode plate (its picture
+ * with the mode's name in the mode's colour, as the official KR and CN screens draw it) | the 规则 mode when not 经典 |
+ * the divider | (规程) the theme's character and the speech bubble 「n/N title」 / (盟约) 「n/N title」. The 本局信息
+ * button the official bars put between the plate and the divider is left out (maintainer decision 2026-11-18). Without
+ * the plate's picture, the difficulty tag. Positions and sizes in prefab units (css/screens/briefing.css .stephead__chain).
+ * @param {{ step: number, of: number, title: string, pub: any, season?: unknown }} props
+ */
+export function StepChain({ step, of, title, pub, season = data.season() }) {
   const rules = resolveRuleset(pub?.ruleset);
+  const config = data.get('config');
+  const mode = pub?.modeId ? config?.modes?.[pub.modeId] : null;
+  const grade = pub?.modeId ? modeGrade(pub.modeId, season) : null;
+  const difficulty = grade !== null ? gradeDifficulty(grade) : pub?.difficulty || null;
+  const art = stepHeadArt(step, mode?.difficulty || difficulty, season);
+  const first = step === 1;
+  const name = grade !== null ? gradeName(grade) : DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : mode?.name ? t(mode.name) : '';
+  const color = /^#[0-9a-f]{6}$/i.test(mode?.color || '') ? mode.color : DIFFICULTY_COLORS[difficulty] || null;
+  const plate = !difficulty ? null : art.plate
+    ? html`<span class=${`sh-mode is-step${first ? 1 : 2}`} style=${`--mt:url("${art.plate}")${color ? `;--mc:${color}` : ''}`} data-testid="step-mode"><b>${name}</b></span>`
+    : html`<span class="sh-mode is-tag" data-testid="step-mode"><${DifficultyTag} difficulty=${difficulty} modeId=${pub?.modeId} season=${season} /></span>`;
+  const num = html`<span class="sh-num"><b>${step}</b><i>/${of}</i></span>`;
+  return html`<div class=${`stephead__chain ${art.cn ? 'is-cn' : 'is-en'} is-step${step}`}>
+    ${plate}
+    ${rules.preset !== 'classic' ? html`<span class="stephead__tags"><span class=${`rtag rtag--${rules.preset}`} data-testid="match-ruleset">${t(PRESET_LABELS[rules.preset])}</span></span>` : null}
+    <i class=${`sh-split${art.split ? '' : ' is-flat'}`} style=${art.split ? `--split:url("${art.split}")` : null} aria-hidden="true"></i>
+    ${art.cn && art.char ? html`<i class="sh-char" style=${`--char:url("${art.char}")`} aria-hidden="true"></i>` : null}
+    ${art.cn
+      ? html`<span class=${`sh-bub${step === 3 ? ' is-pop' : ''}${art.bubble ? '' : ' no-art'}`} style=${art.bubble ? `--bub:url("${art.bubble}")` : null}>${num}<span class="sh-title">${title}</span></span>`
+      : html`<h1 class="sh-plain">${num}<span class="sh-title">${title}</span></h1>`}
+  </div>`;
+}
+
+/**
+ * Pre-game step header: the exit tile, the left chain (StepChain), the 玩法说明 button and the countdown. The countdown
+ * turns orange at the step's official warning time and plays the countdown cue then (gameLogic countdownWarnAt:
+ * 确认本局信息 5 s, 选择策略 15 s; maintainer decision 2026-10-14).
+ * @param {{ step: number, of: number, title: string, pub: any, total?: number|null, config?: any,
+ *   onExit: Function }} props config: data/config.json (the steps' warning times)
+ */
+export function StepHeader({ step, of, title, pub, total, config = null, onExit }) {
+  const conn = useStore((s) => s.connection, shallowEqual);
   return html`<header class="stephead">
     <div class="stephead__left">
       <${ExitTile} onClick=${onExit} label=${t('离开')} ping=${conn.ping} online=${conn.status === 'online'} />
-      ${pub?.difficulty || rules.preset !== 'classic' ? html`<span class="stephead__tags">
-        ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} modeId=${pub.modeId} />` : null}
-        ${rules.preset !== 'classic' ? html`<span class=${`rtag rtag--${rules.preset}`} data-testid="match-ruleset">${t(PRESET_LABELS[rules.preset])}</span>` : null}
-      </span>` : null}
-    </div>
-    <div class="stephead__center">
-      <${MicroLabel} tone="mint">${micro}</${MicroLabel}>
-      <h1 class="stephead__title"><b class="num">${step}</b><span class="num stephead__of">/${of}</span>${title}</h1>
+      <${StepChain} step=${step} of=${of} title=${title} pub=${pub} />
     </div>
     <div class="stephead__right">
       <${GuideButton} class="stephead__guide" variant="secondary" />
@@ -230,4 +298,3 @@ export function StepHeader({ step, of, title, micro, pub, total, config = null, 
     </div>
   </header>`;
 }
-

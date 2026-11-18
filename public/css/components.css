@@ -1081,7 +1081,10 @@
 /* ---- the official exit of the waiting room and the start steps (js/ui/matchChrome.js ExitTile): leave_btn 54×56 of
    img_return, ping_part 63×22 of img_delay_bg 40.4 under the tile's centre (auto_chess_prepare_page left_top) — 1280×720
    canvas units times --eu; a grey tile when the local art is absent ---- */
-.exit-tile { --eu: .0128rem; display: flex; flex-direction: column; align-items: center; flex: none; }
+/* --exit-below (the ping's gap and height under the tile) is also read by the start-step header, whose chain is level with
+   the tile's centre (css/screens/briefing.css .stephead__chain) */
+.exit-tile, .stephead { --eu: .0128rem; --exit-ping-gap: calc(1.4 * var(--eu)); --exit-ping-h: max(calc(22 * var(--eu)), 15px); --exit-below: calc(var(--exit-ping-gap) + var(--exit-ping-h)); }
+.exit-tile { display: flex; flex-direction: column; align-items: center; flex: none; }
 .exit-tile__btn {
   all: unset; box-sizing: border-box; cursor: pointer; display: grid; place-items: center;
   width: max(calc(54 * var(--eu)), 36px); height: max(calc(56 * var(--eu)), 37px);
@@ -1093,8 +1096,8 @@
 .exit-tile__btn:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; }
 .exit-tile__btn:disabled { cursor: default; filter: brightness(.75); }
 .exit-tile .exit-tile__ping {
-  justify-content: center; gap: 0; margin-top: calc(1.4 * var(--eu)); min-height: 0; padding: 0;
-  width: max(calc(63 * var(--eu)), 42px); height: max(calc(22 * var(--eu)), 15px);
+  justify-content: center; gap: 0; margin-top: var(--exit-ping-gap); min-height: 0; padding: 0;
+  width: max(calc(63 * var(--eu)), 42px); height: var(--exit-ping-h);
   background: var(--ping-art, rgba(255, 255, 255, .07)) center / 100% 100% no-repeat; border: 0; border-radius: 999px; box-shadow: none;
 }
 .exit-tile .exit-tile__ping .ping__icon { display: none; }
@@ -1105,7 +1108,8 @@
 @media (max-height: 520px) {
   .exit-tile__btn { position: relative; width: 30px; height: 31px; }
   .exit-tile__btn::before { content: ''; position: absolute; inset: -4px -4px -2px; }
-  .exit-tile .exit-tile__ping { width: 38px; height: 13px; margin-top: 1px; }
+  .exit-tile, .stephead { --exit-ping-gap: 1px; --exit-ping-h: 13px; }
+  .exit-tile .exit-tile__ping { width: 38px; }
   .exit-tile .exit-tile__ping .ping__value, .exit-tile .exit-tile__ping .ping__unit { font-size: 10px; }
 }
 

@@ -14,23 +14,70 @@
     radial-gradient(80% 70% at 85% 60%, rgba(78, 216, 175, .07), transparent 60%);
 }
 .stephead {
+  --sh-h: 1.16rem;
   position: relative; z-index: 2; flex: none;
-  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: .24rem;
-  height: 1.16rem; padding: 0 .36rem 0 .26rem;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .24rem;
+  height: var(--sh-h); padding: 0 .36rem 0 .26rem;
   background: linear-gradient(180deg, rgba(8, 10, 9, .94), rgba(10, 13, 12, .6)); border-bottom: 1px solid var(--line);
 }
 .stephead::after { content: ''; position: absolute; left: .3rem; right: .3rem; bottom: -1px; height: 1px; background: linear-gradient(90deg, var(--mint-700), transparent 26%, transparent 74%, var(--mint-700)); }
-.stephead__left { display: flex; align-items: center; gap: .16rem; }
-/* the difficulty beside the exit tile, level with its centre (the ping hangs under the tile, ExitTile) */
-.stephead__left > .stephead__tags { align-self: flex-start; margin-top: calc(28 * var(--eu, .0128rem)); transform: translateY(-50%); }
-.stephead__center { display: flex; flex-direction: column; align-items: center; gap: .04rem; }
-/* nowrap: the title's three parts are flex items, and under the Korean pack's `overflow-wrap: anywhere` (i18n/ko/ko.css)
-   a centre column a fraction short broke every one of them — 「2 / 2」 and 「전략 / 선택」 on two lines */
-.stephead__title { display: flex; align-items: baseline; gap: .02rem; font-size: .34rem; font-weight: 900; letter-spacing: .12em; white-space: nowrap; }
-.stephead__title b { font-size: .56rem; line-height: 1; color: var(--mint-400); text-shadow: 0 0 .2rem rgba(23, 249, 183, .4); }
-.stephead__of { font-size: .26rem; color: var(--text-dim); margin-right: .18rem; }
+.stephead__left { align-self: stretch; display: flex; align-items: center; min-width: 0; }
 .stephead__right { justify-self: end; display: flex; align-items: center; gap: .24rem; }
 .stephead__right .countdown { --cd-h: .64rem; }
+
+/* The left chain after the exit tile (js/ui/matchChrome.js StepChain; the official stage-info panel_top and the 选择策略 /
+   3/3 bars' group_game_info, 1280×720 prefab units times --eu, the exit tile's unit). It spans the header's height and
+   every part is placed against --c, the exit button's centre: the tile (button + the ping under it) is centred in the
+   header, so its button's centre is (header − ping) / 2 from the top. The mode plate's centre is the button's (maintainer
+   decision 2026-11-18); the bubble's 8 units above it and the character from the header's top edge, as the official CN
+   1/3 screen of 2026-11-18 measures; the divider 2 below (prefab 47 against the plate's 45). nowrap: the Korean pack's
+   `overflow-wrap: anywhere` breaks short words of a flex row a pixel short (docs/rules/ui.md 「한국어 줄바꿈」). */
+.stephead__chain { --c: calc((var(--sh-h) - var(--exit-below)) / 2); align-self: stretch; display: flex; align-items: flex-start; flex: none; white-space: nowrap; }
+.stephead__chain > * { flex: none; position: relative; }
+/* the mode plate: img_title_mode_* (step 1: W = max(175, 59 + text + 30), text 21) / mode_* (steps 2–3: max(175, 61 + text + 43),
+   text 22), its picture 5 further left than the box, 9-sliced (84 | 80, 78 | 76) in a layer under the text */
+.sh-mode { height: calc(68 * var(--eu)); margin-top: calc(var(--c) - 34 * var(--eu)); isolation: isolate; display: flex; align-items: center; }
+.sh-mode.is-step1, .sh-mode.is-step2 { min-width: calc(175 * var(--eu)); }
+.sh-mode.is-step1 { padding: 0 calc(30 * var(--eu)) 0 calc(59 * var(--eu)); }
+.sh-mode.is-step2 { padding: 0 calc(43 * var(--eu)) 0 calc(61 * var(--eu)); }
+.sh-mode::before { content: ''; position: absolute; z-index: -1; inset: 0 0 0 calc(-5 * var(--eu)); border-style: solid; }
+.sh-mode.is-step1::before { border-width: 0 calc(80 * var(--eu)) 0 calc(84 * var(--eu)); border-image: var(--mt) 0 80 0 84 fill stretch; }
+.sh-mode.is-step2::before { border-width: 0 calc(76 * var(--eu)) 0 calc(78 * var(--eu)); border-image: var(--mt) 0 76 0 78 fill stretch; }
+.sh-mode.is-tag::before { content: none; }
+.sh-mode.is-tag { margin-left: .16rem; }
+.sh-mode b { font-size: calc(21 * var(--eu)); font-weight: 500; color: var(--mc, #fff); }
+.sh-mode.is-step2 b { font-size: calc(22 * var(--eu)); }
+.stephead__chain > .stephead__tags { margin: var(--c) 0 0 calc(8 * var(--eu)); transform: translateY(-50%); }
+/* img_split_line 2 × 41, 3 after the plate; the flat one (no sprite: #e4e4e4 at 0.2) 2 × 38 */
+.sh-split { width: calc(2 * var(--eu)); height: calc(41 * var(--eu)); margin: calc(var(--c) + 2 * var(--eu) - 20.5 * var(--eu)) 0 0 calc(3 * var(--eu));
+  background: var(--split) center / 100% 100% no-repeat; }
+.sh-split.is-flat { height: calc(38 * var(--eu)); margin-top: calc(var(--c) + 2 * var(--eu) - 19 * var(--eu)); background: rgba(228, 228, 228, .2); }
+/* 规程: the theme's character (img_char_spine 113 × 96) and the bubble (66 high; img_chat_babble 9-slice 46 | 25 | 12 | 11, step 3's
+   pop 50 | 23): 「n」 40 #4ed8af, 「/N」 28 #9c9c9c and the title 24 white after 85 (HLG padding 15 | 15 | bottom 15, panel_icon 70) */
+.sh-char { width: calc(113 * var(--eu)); height: calc(96 * var(--eu)); margin-left: calc(26.8 * var(--eu)); background: var(--char) center top / 100% 100% no-repeat; }
+.is-step1 > .sh-char { margin-left: calc(15.4 * var(--eu)); }
+.sh-bub { height: calc(66 * var(--eu)); min-width: calc(190 * var(--eu)); margin: calc(var(--c) - 41 * var(--eu)) 0 0 calc(22.9 * var(--eu));
+  padding: 0 calc(15 * var(--eu)) calc(15 * var(--eu)) calc(18 * var(--eu)); isolation: isolate; display: flex; align-items: center; }
+.is-step1 > .sh-bub { margin-left: calc(12.3 * var(--eu)); }
+.sh-bub::before { content: ''; position: absolute; z-index: -1; inset: 0; border-style: solid;
+  border-width: calc(11 * var(--eu)) calc(12 * var(--eu)) calc(25 * var(--eu)) calc(46 * var(--eu)); border-image: var(--bub) 11 12 25 46 fill stretch; }
+.sh-bub.is-pop::before { border-width: 0 calc(23 * var(--eu)) 0 calc(50 * var(--eu)); border-image: var(--bub) 0 23 0 50 fill stretch; }
+.sh-bub.is-pop { padding-left: calc(10 * var(--eu)); }
+.sh-bub.no-art::before { border: 0; bottom: calc(16 * var(--eu)); background: #232323; border-radius: calc(12 * var(--eu)); }
+.sh-num { display: inline-flex; align-items: baseline; font-family: var(--font-num); line-height: 1; }
+.sh-bub .sh-num { min-width: calc(67 * var(--eu)); }
+.sh-bub.is-pop .sh-num { min-width: calc(70 * var(--eu)); }
+.sh-num b { font-size: calc(40 * var(--eu)); font-weight: 500; color: #4ed8af; }
+.sh-num i { font-style: normal; font-size: calc(28 * var(--eu)); color: #9c9c9c; margin-left: calc(4 * var(--eu)); }
+.sh-title { font-size: calc(24 * var(--eu)); font-weight: 900; color: #fff; letter-spacing: .02em; }
+/* 盟约: 「n/N」 and the title, 24 (step 1: 13 after the numbers 39 #23daaf / 29, the title 23 #e4e4e4 — the EN panel_title) or 18 after
+   the divider, the title's centre 1.5 below the plate's */
+.sh-plain { display: flex; align-items: baseline; gap: calc(13 * var(--eu)); margin: calc(var(--c) + 1.5 * var(--eu)) 0 0 calc(18 * var(--eu)); transform: translateY(-50%);
+  font-size: inherit; font-weight: inherit; line-height: 1; }
+.is-step1 > .sh-plain { margin-left: calc(24 * var(--eu)); }
+.is-step1 > .sh-plain .sh-num b { font-size: calc(39 * var(--eu)); color: #23daaf; }
+.is-step1 > .sh-plain .sh-num i { font-size: calc(29 * var(--eu)); }
+.is-step1 > .sh-plain .sh-title { font-size: calc(23 * var(--eu)); color: #e4e4e4; }
 
 .brief-h { display: flex; align-items: baseline; gap: .12rem; font-size: .21rem; font-weight: 700; letter-spacing: .1em; margin-bottom: .12rem; }
 .brief-h::before { content: ''; width: .06rem; height: .2rem; background: var(--mint-500); align-self: center; }

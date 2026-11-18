@@ -226,7 +226,7 @@ export function DiyChooseScreen() {
 
   return html`<div class="screen draft dchoose" style=${artVars(m)} data-testid="diy-choose">
     <div class="brief__bg" aria-hidden="true"></div>
-    <${StepHeader} step=${startStepCount(gd.config)} of=${startStepCount(gd.config)} title=${t('确定自选编队')} micro="DIY // LINEUP CHECK"
+    <${StepHeader} step=${startStepCount(gd.config)} of=${startStepCount(gd.config)} title=${t('确定自选编队')}
       pub=${total ? pub : { ...pub, deadline: 0 }} total=${total} config=${gd.config} onExit=${() => setExit(true)} />
     <main class="draft__main dchoose__main">
       <aside class=${cx('draft-order', !solo && listed.length > 4 && 'is-8', orderArt && 'has-art')} style=${orderArt || null}>
