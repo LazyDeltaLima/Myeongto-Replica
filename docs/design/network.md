@@ -2,19 +2,6 @@
 
 Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
-**Field surrender (maintainer decision 2026-11-18, PR #21).** `g.surrender { fieldId, battleId, op: 'propose'|'yes'|'no'|'cancel' }` targets the current
-battle token, never the whole match. Only human participants of that field may act; AI/autoplay seats and observers have
-no vote. One human confirms locally before proposing; two or more require unanimous consent within 30 seconds while
-combat continues. The proposer agrees automatically. Rejection, expiry, withdrawal, a disconnect or a voter membership
-change cancels the vote; no departure supplies consent. A field waits 60 seconds between proposals. The field's public
-row carries `battleId`, optional `surrenderVote { by, voters, yes, deadline, ms }`, and `surrendering` while finalizing.
-Client-run battles receive `b.end { reason: 'surrender' }` and stop reporting; resync/watch repeats that end notification.
-The server replays in bounded slices to the consent cutoff, retains earned rewards, and records living and queued
-non-boss enemies as leaks. Existing joint defense and settlement charge them normally. A boss field alone stops;
-other fields keep fighting, and the existing shared-pool ending rules decide the outcome. Implementation:
-`match/surrender.js`, `Battle.surrender`, `ui/surrender.js`; regression tests: `test/match/surrender.test.js`,
-`test/ui/surrender.e2e.test.js`, the simulation and pending-runner suites.
-
 ## 8. Network protocol (shared/protocol.js is normative)
 
 Transport: one WebSocket per tab at `/ws`, JSON text frames `{ t: '<type>', ...payload }`. Client requests may carry `rid` (request id); the server's direct reply echoes `rid` (`ok` or `error`). Server pushes have no `rid`. Max frame 64 KB inbound; rate limit 40 msgs/s per connection (excess dropped with `error RATE`).
@@ -65,6 +52,26 @@ S→C:
 - `m.roundDmg {round, units: [[uid, dmg, heal, phys, arts, true, elemental], …]}` — the round damage panel (maintainer decision 2026-10-25, the healing and the types 2026-11-06; docs/rules/ui.md 「라운드 대미지 패널」): at each round's settle (a boss round's too) what every own board operator dealt in the player's own battle, a summon's damage in its summoner's (shared/roundDamage.js, the settlement's fold), most first; never the 联防 battle. Players only (never a bot or a spectator); the last one is sent again on a reconnect / resync.
 
 `UnitInfo = { id, kind, side, ownerId, defId, name, tier, golden, spine, avatar, x, y, facing, dir, maxHp, skillIndex?, moduleId?, items?, form? }` (`dir` = the ally's deploy direction; the renderer picks the model (Back for UP, mirrored for LEFT) and the ground wedge from it; `skillIndex` = the ally's equipped skill (§16): the renderer plays that skill's Spine clip (`anims.skills[i]`) and the audio its own ON_SKILL_START sound; `moduleId` = an elite ally's equipped module (uniEquipId | 'none'); `items` = an ally operator's equipped item ids (absent without any; never on enemies or summons): the bond popup lists a 变形同构体 wearer from them and the detail card shows its 同构 chip and 装备 (§21.11); all three also on the prep-scouting `m.field` units (`Match.prepFieldMeta`, the held pieces included), so a teammate's unit shows its owner's loadout in the detail card and its equipped items as item pips on the unit (prep surfaces; user playtest #2 item 3); `form` = the unit's current model form (an enemy's mode §21.4, a 傀儡师's 替身 §22.11; a view built mid-battle starts in it)).
+
+**Field surrender (maintainer decision 2026-11-18, PR #21).** `g.surrender { fieldId, battleId, op: 'propose'|'yes'|'no'|'cancel' }` targets the current
+battle token, never the whole match. Only human participants of that field may act; AI/autoplay seats and observers have
+no vote. One human confirms locally before proposing; two or more require unanimous consent within 30 seconds while
+combat continues. The proposer agrees automatically. Rejection, expiry, withdrawal, a disconnect or a voter membership
+change cancels the vote; no departure supplies consent. A field waits 60 seconds between proposals. The field's public
+row carries `battleId`, optional `surrenderVote { by, voters, yes, deadline, ms }`, and `surrendering` while finalizing.
+Client-run battles receive `b.end { reason: 'surrender' }` and stop reporting; resync/watch repeats that end notification.
+The server replays in bounded slices to the consent cutoff, retains earned rewards, and records living and queued
+non-boss enemies as leaks. Existing joint defense and settlement charge them normally. A boss field alone stops;
+other fields keep fighting, and the existing shared-pool ending rules decide the outcome. Implementation:
+`match/surrender.js`, `Battle.surrender`, `ui/surrender.js`; regression tests: `test/match/surrender.test.js`,
+`test/ui/surrender.e2e.test.js`, the simulation and pending-runner suites.
+
+**In-match restart destination (maintainer decision 2026-11-18, PR #20).** `g.restart { op: propose | yes | no | cancel, target?: restart | room }` shares one unanimous vote and retry cooldown.
+The proposal fixes the destination; omitted `target` means `restart`. `m.public.restartVote.target` names the open vote's
+choice; the final public frame carries `restarted: true` and `restartTarget`. A `room` outcome ends without settlement,
+replay or a server stats line, retains the room and its seats/settings/spectators, clears human ready flags, fills reserved
+seats, and broadcasts the waiting room instead of starting another match. The client records the interrupted run as a quit.
+The exit dialog and vote banner name the destination. The existing phase and voter restrictions apply to both choices.
 
 ### 8.3 Exact view shapes (normative for match ⇄ UI)
 
@@ -144,14 +151,3 @@ Piece = { uid, kind: 'chess'|'item'|'token', id, golden: bool, tier, items: [ { 
 - Observing: in prep and in combat (your own normal battle running or over) tap a teammate → 前往查看 (local replica, fast-forwarded; your own battle goes on off screen). ‹ › only inside 联防/FA fields; FA: own pair only; eliminated: free.
 - Prep interactions: tap a unit → underframe with 出售 +1 (and 撤退 on board); items/Arts → 销毁; shop and upgrade are two-tap (select → confirm; the remake's 机变 cards too, §18.2); strategy draft forbids a strategy already taken by a teammate (队友已选).
 - Emotes: 6 themes × 6 battle emotes (research 09 §4.2), image-only bubbles beside the sender avatar, 1 s cooldown, 3 s bubble; `g.emote {id}` with the official emoji id.
-
----
-
-### In-match restart destination (maintainer decision 2026-11-18, PR #20)
-
-`g.restart { op: propose | yes | no | cancel, target?: restart | room }` shares one unanimous vote and retry cooldown.
-The proposal fixes the destination; omitted `target` means `restart`. `m.public.restartVote.target` names the open vote's
-choice; the final public frame carries `restarted: true` and `restartTarget`. A `room` outcome ends without settlement,
-replay or a server stats line, retains the room and its seats/settings/spectators, clears human ready flags, fills reserved
-seats, and broadcasts the waiting room instead of starting another match. The client records the interrupted run as a quit.
-The exit dialog and vote banner name the destination. The existing phase and voter restrictions apply to both choices.
