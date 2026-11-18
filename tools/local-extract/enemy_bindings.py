@@ -274,9 +274,13 @@ def read_buff_templates(game):
 
 
 def points_of_bundle(f):
-    """{prefab root: {muzzle|hit|head|sp<N>: {F?/B?: {bone?, rot?, at: [x, y] skeleton units}}}} of one enemy bundle — the
+    """{prefab root: {muzzle|hit|head|sp<N>: {F?/B?: {bone?, rot?, sc?, at: [x, y] skeleton units}}}} of one enemy bundle — the
     reading of char_points.py (the enemies' SkeletonDataAsset sits in another bundle, refs/arts/enm_art_*: its scale is 0.01
-    for every enemy skeleton the battle prefabs point at — read 2026-10-31)."""
+    for every enemy skeleton the battle prefabs point at — read 2026-10-31). `sc` [sx, sy] (2026-11-18): the scale of the
+    transforms above the point up to the prefab root (Graphic's), only where it is not the standard 0.27 — the point sits
+    `at` × 0.01 × sc from the root on the model's plane (tools/build-data.mjs enemyHitAt). Also the animators without a face
+    switcher (EmptyAnimator: 刺胄之弹, 淤困之茧; MeshAnimator), whose fields are `_hitTransform`, `_headTransform` and
+    `_muzzle` / `_muzzleTransform`."""
     import aklz4  # noqa: F401
     import UnityPy
     env = UnityPy.load(str(f))
@@ -298,7 +302,7 @@ def points_of_bundle(f):
             except Exception:
                 continue
             go_mbs.setdefault(d['m_GameObject']['m_PathID'], []).append(d)
-            if '_faceSwitcher' in d and ('_front' in d or '_hitTransform' in d):
+            if ('_faceSwitcher' in d and ('_front' in d or '_hitTransform' in d)) or is_plain_animator(d):
                 anims.append(d)
 
     def root_of(go):
@@ -309,14 +313,15 @@ def points_of_bundle(f):
             tr = d['m_Father']['m_PathID']
         return name
     out = {}
-    for an in anims:
+    # (a prefab's face-switcher animator before a plain one it may also hold: the first one read wins)
+    for an in sorted(anims, key=is_plain_animator):
         root = root_of(an['m_GameObject']['m_PathID'])
         if '_front' in an:
             sides = [('F', an.get('_front') or {}, ''), ('B', an.get('_back') or {}, '')]
             names = {'muzzle': 'muzzlaTransform', 'hit': 'hitTransform', 'head': 'headTransform'}
         else:
             sides = [('FB', an, '_')]
-            names = {'muzzle': '_muzzleTransform', 'hit': '_hitTransform', 'head': '_headTransform'}
+            names = {'muzzle': '_muzzle' if '_muzzle' in an else '_muzzleTransform', 'hit': '_hitTransform', 'head': '_headTransform'}
         pts = {}
         for side, rec, pre in sides:
             fields = dict(names)
@@ -338,12 +343,38 @@ def points_of_bundle(f):
                             pt['ls'] = 2 if d.get('useAppliedLocalScale') else 1
                         if not d.get('followSkeletonFlip'):
                             pt['noFlip'] = 1
+                sc = frame_scale(objs, tt, tt(tr)['m_Father']['m_PathID'])
+                if abs(sc[0] - MODEL_FRAME) > 1e-4 or abs(sc[1] - MODEL_FRAME) > 1e-4:
+                    pt['sc'] = [round(sc[0], 4), round(sc[1], 4)]
                 pt['at'] = [round(pos['x'] / 0.01, 2), round(pos['y'] / 0.01, 2)]
                 for s1 in side:
                     pts.setdefault(key, {})[s1] = pt
         if root and pts:
             out.setdefault(root, pts)
     return out
+
+
+# the standard scale of a battle model's frame (the Graphic node: tools/build-data.mjs MODEL_SCALE_STANDARD)
+MODEL_FRAME = 0.27
+
+
+def is_plain_animator(d):
+    """An animator without a face switcher that names a hit point: EmptyAnimator (`_effectWhiteList`) or MeshAnimator
+    (`_animation`) — the client's `Entity.hitMountPoint` is its `_hitTransform` as for the others."""
+    return '_faceSwitcher' not in d and '_hitTransform' in d and ('_effectWhiteList' in d or '_animation' in d)
+
+
+def frame_scale(objs, tt, tr):
+    """(sx, sy): the product of the local scales of Transform `tr` and its parents, the prefab root's excluded."""
+    sx = sy = 1.0
+    while tr in objs:
+        t = tt(tr)
+        if t['m_Father']['m_PathID'] not in objs:
+            break
+        sx *= t['m_LocalScale']['x']
+        sy *= t['m_LocalScale']['y']
+        tr = t['m_Father']['m_PathID']
+    return sx, sy
 
 
 def read_points(game, pattern='battle/enm_pfb*.ab', keys=None):

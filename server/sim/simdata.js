@@ -424,6 +424,21 @@ function normMount(m) {
   return F ? { F, B: pair(m.B) ?? F } : null;
 }
 
+/**
+ * An enemy's `hitAt` (tools/build-data.mjs enemyHitAt) → normMount's { F, B } plus `modes` { <attack mode>: { F, B } } where
+ * a mode puts the point elsewhere (a hit point that follows a bone: 守墓石像 `Fly`), or null.
+ */
+function normHitAt(m) {
+  const base = normMount(m);
+  if (!base) return null;
+  const modes = {};
+  for (const [k, v] of Object.entries(m.modes && typeof m.modes === 'object' ? m.modes : {})) {
+    const n = normMount(v);
+    if (n) modes[k] = n;
+  }
+  return Object.keys(modes).length ? { ...base, modes } : base;
+}
+
 /** { name: shot } of normShot (the `projModes` / `talentProj` maps), or null when empty. */
 function normShots(m) {
   if (!m || typeof m !== 'object') return null;
@@ -475,6 +490,8 @@ export function normalizeEnemy(key, e) {
     // { key, move, speed, delay } — null = the attack has no projectile (it hits at the strike), undefined = unknown
     proj: e.proj === null ? null : normShot(e.proj) ?? undefined,
     projModes: normShots(e.projModes),
+    // the model's hit point { F, B, modes? } in tiles, where the shots aimed at it end (tools/build-data.mjs enemyHitAt), or null
+    hitAt: normHitAt(e.hitAt),
     tags: e.tags ?? [],
     abilities: e.abilities ?? [],
     skills: e.skills ?? [],
@@ -524,6 +541,8 @@ export function normalizeToken(id, t0, ownerChessId = null, variantOverride = nu
     // its attack clip { dur, hit } and ability timing (ai.js attackTiming; a prefab's: tools/build-data.mjs tokenAttackAnim,
     // the enemy-shaped 炎佑 its enemy record's); null = no attack ability known (the strike lands as the swing starts)
     attackAnim: normAttackAnim(t.attackAnim),
+    // the model's hit point { F, B } in tiles, where the enemies' shots at it end (tools/build-data.mjs summonRecord), or null
+    hitAt: normMount(t0.hitAt),
     // chess/token records carry a talent array; enemy-shaped records (炎佑 enemy_9012_acloon) one `{ bb, bbStr }` object
     talents: (Array.isArray(t.talents) ? t.talents : t.talents && typeof t.talents === 'object' ? [t.talents] : [])
       .filter((x) => x && typeof x === 'object')

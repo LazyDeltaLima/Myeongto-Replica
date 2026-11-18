@@ -17,7 +17,13 @@
 // tools/assets/op-mount-poses.json:
 //   { <spine id>: { "<clip>@<clip seconds>": { muzzle | sp<N>: { F: [x, y], B?: [x, y] } } } }
 // B is absent when the model has no Back skeleton or the Back skeleton lacks the clip. tools/build-data.mjs reads it into
-// the shots' `from` (opMounts). It reads data/ (the shots and attack clips build-data wrote), so the order after a change is
+// the shots' `from` (opMounts).
+//
+// The target's end of the flight is its hit point (`Entity.hitMountPoint`). For an enemy whose hit point follows a bone
+// (tools/assets/local-enemy-bindings.json `points.hit.*.bone`: 守墓石像, “斩胄之剑”, “破胄之锤”) the client reads the bone
+// live; the data takes where it stands in the first frame of each attack mode's attack clip (the stance between swings),
+// written under the enemy's prefab key as `"<clip>@0": { hit: { F: [x, y] } }` (an enemy model has one skeleton) and read
+// by build-data's enemyHitAt. It reads data/ (the shots and attack clips build-data wrote), so the order after a change is
 // build-data → this → build-data. Any shooter it cannot pose (no point record, no such bone or clip, no skeleton on disk)
 // stops it with the list.
 //
@@ -31,6 +37,7 @@ import { dirname, join } from 'node:path';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const MOUNT_POSES_FILE = 'tools/assets/op-mount-poses.json';
 const POINTS_FILE = 'tools/assets/local-char-points.json';
+const ENEMY_POINTS_FILE = 'tools/assets/local-enemy-bindings.json';
 
 /** The model point a shot's `mount` names (char_points.py keys), or null for one not on the model. */
 export function mountKey(mount) {
@@ -92,6 +99,31 @@ function units() {
   return out;
 }
 
+/** The enemies of data/ (each season's too) as { spine: its attackAnim } — one row per prefab key. */
+function enemies() {
+  const files = ['data/enemies.json'];
+  const seasons = join(ROOT, 'data/seasons');
+  if (existsSync(seasons)) for (const d of readdirSync(seasons).sort()) files.push(`data/seasons/${d}/enemies.json`);
+  const out = new Map();
+  for (const rel of files) {
+    const abs = join(ROOT, rel);
+    if (!existsSync(abs)) continue;
+    for (const [key, e] of Object.entries(JSON.parse(readFileSync(abs, 'utf8')))) {
+      const spine = e?.spine ?? key;
+      if (!out.has(spine)) out.set(spine, { anim: e?.attackAnim ?? null, where: `${rel} ${key}` });
+    }
+  }
+  return out;
+}
+
+/** The clips an enemy's hit point is posed in: its attack clip and each attack mode's (build-data enemyHitAt). */
+export function enemyHitClips(attackAnim) {
+  const clips = new Set();
+  if (typeof attackAnim?.clip === 'string') clips.add(attackAnim.clip);
+  for (const m of Object.values(attackAnim?.modes || {})) if (typeof m?.clip === 'string') clips.add(m.clip);
+  return [...clips].sort();
+}
+
 function loadRuntime() {
   const require = createRequire(join(ROOT, 'package.json'));
   const r = require('@pixi-spine/runtime-3.8');
@@ -131,6 +163,30 @@ function main() {
   };
   const round2 = (x) => Math.round(x * 100) / 100 || 0;
   const out = {};
+  // enemies whose hit point follows a bone: that bone in the first frame of each attack clip
+  const enemyPoints = JSON.parse(readFileSync(join(ROOT, ENEMY_POINTS_FILE), 'utf8'));
+  for (const [spine, { anim, where }] of [...enemies()].sort(([a], [b]) => a.localeCompare(b))) {
+    const h = enemyPoints[spine]?.points?.hit;
+    const p = h?.F ?? h?.B;
+    if (!p?.bone) continue;
+    const clips = enemyHitClips(anim);
+    if (!clips.length) { problems.push(`${where}: its hit point follows bone ${p.bone} and it has no attack clip to pose`); continue; }
+    const e = assets.enemies?.[spine];
+    const m = skeletonOf((e?.spineLocal ?? e?.spine)?.skel);
+    if (!m) { problems.push(`${spine}: no skeleton ${m === undefined ? 'on disk (npm run assets)' : 'in data/assets.json'}`); continue; }
+    const rows = {};
+    for (const clip of clips) {
+      const a = m.data.findAnimation(clip);
+      if (!a) { problems.push(`${spine}: its skeleton has no clip ${clip}`); continue; }
+      m.sk.setToSetupPose();
+      a.apply(m.sk, 0, 0, false, null, 1, MixBlend.setup, MixDirection.mixIn);
+      m.sk.updateWorldTransform();
+      const b = m.sk.findBone(p.bone);
+      if (!b) { problems.push(`${spine}: no bone ${p.bone} for its hit point`); continue; }
+      rows[poseKey(clip, 0)] = { hit: { F: [round2(b.worldX), round2(yDown ? -b.worldY : b.worldY)] } };
+    }
+    out[spine] = rows;
+  }
   for (const spine of [...need.keys()].sort()) {
     const sp = assets.chars?.[spine]?.spine;
     const F = skeletonOf(sp?.front?.skel), B = skeletonOf(sp?.back?.skel);
@@ -176,10 +232,12 @@ function main() {
   }
   const head = {
     $comment: 'Where each operator\'s flying shot leaves its default model: the mount point\'s bone posed in the attack clip at '
-      + 'the strike, skeleton units (y up, the Front model facing right; B = the Back model). Written by tools/assets/'
-      + 'mount-poses.mjs from the public battle Spine models and tools/assets/local-char-points.json; read by tools/build-data.mjs.',
+      + 'the strike, skeleton units (y up, the Front model facing right; B = the Back model); and where an enemy\'s hit point '
+      + 'that follows a bone stands in the first frame of each attack clip (enemy prefab keys, `hit`). Written by tools/assets/'
+      + 'mount-poses.mjs from the public battle Spine models, tools/assets/local-char-points.json and local-enemy-bindings.json; '
+      + 'read by tools/build-data.mjs.',
   };
-  const lines = [` "$comment": ${JSON.stringify(head.$comment)}`, ...Object.keys(out).map((k) => ` ${JSON.stringify(k)}: ${JSON.stringify(out[k])}`)];
+  const lines = [` "$comment": ${JSON.stringify(head.$comment)}`, ...Object.keys(out).sort().map((k) => ` ${JSON.stringify(k)}: ${JSON.stringify(out[k])}`)];
   writeFileSync(join(ROOT, MOUNT_POSES_FILE), `{\n${lines.join(',\n')}\n}\n`);
   console.log(`${Object.keys(out).length} shooter model(s) → ${MOUNT_POSES_FILE}`);
 }

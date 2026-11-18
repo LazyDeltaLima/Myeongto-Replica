@@ -1,13 +1,14 @@
 // test/sim/mount-points.test.js — where an operator's shot leaves its model and where a shot at an operator ends
 // (docs/rules/sim.md 「투사체의 출발·도착 점」): data/ `shot.*.from` (tools/assets/mount-poses.mjs → op-mount-poses.json →
-// tools/build-data.mjs opMounts) and `hitAt` (tools/assets/local-char-points.json → opHitAt), read by the sim's data.
+// tools/build-data.mjs opMounts) and `hitAt` (tools/assets/local-char-points.json → opHitAt), read by the sim's data;
+// the enemies' and summons' `hitAt` (local-enemy-bindings.json → enemyHitAt, local-char-points.json → summonRecord).
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 
 import * as simdata from '../../server/sim/simdata.js';
-import { shotClipAt, mountKey, fliesFromPoint, shotPoses } from '../../tools/assets/mount-poses.mjs';
+import { shotClipAt, mountKey, fliesFromPoint, shotPoses, enemyHitClips } from '../../tools/assets/mount-poses.mjs';
 
 const ROOT = new URL('../../', import.meta.url);
 const read = (rel) => JSON.parse(readFileSync(new URL(rel, ROOT), 'utf8'));
@@ -28,6 +29,14 @@ function operatorRecords() {
 }
 
 const pair = (p) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite);
+
+/** The data files of every season: [dir] ('data', 'data/seasons/<id>'). */
+function dataDirs() {
+  const out = ['data'];
+  const seasons = new URL('data/seasons/', ROOT);
+  if (existsSync(seasons)) for (const d of readdirSync(seasons).sort()) out.push(`data/seasons/${d}`);
+  return out;
+}
 
 describe('shot mount points in data/', () => {
   test('every flying shot of every operator says where it leaves the model; every operator has its hit point', () => {
@@ -70,7 +79,56 @@ describe('shot mount points in data/', () => {
   });
 });
 
+describe('enemy and summon hit points in data/', () => {
+  test('every enemy and every summon of every season says where the shots at it end', () => {
+    let enemies = 0, tokens = 0;
+    const bad = [];
+    for (const d of dataDirs()) {
+      for (const [k, e] of Object.entries(read(`${d}/enemies.json`))) {
+        enemies++;
+        if (!pair(e.hitAt?.F) || (e.hitAt.B && !pair(e.hitAt.B))) bad.push(`${d} enemy ${k}: no hitAt`);
+        for (const [m, v] of Object.entries(e.hitAt?.modes || {})) if (!pair(v?.F)) bad.push(`${d} enemy ${k} mode ${m}: no hitAt`);
+      }
+      const recs = [...Object.entries(read(`${d}/tokens.json`))];
+      if (existsSync(new URL(`${d}/backups.json`, ROOT))) recs.push(...Object.entries(read(`${d}/backups.json`).tokens || {}));
+      for (const [k, t] of recs) {
+        tokens++;
+        if (!pair(t.hitAt?.F)) bad.push(`${d} token ${k}: no hitAt`);
+      }
+    }
+    assert.ok(enemies > 500 && tokens > 50, `swept ${enemies} enemies and ${tokens} summons`);
+    assert.deepEqual(bad, [], `data/ built without the point tables (${RULE}): tools/local-extract/enemy_bindings.py / char_points.py, `
+      + 'node tools/assets/mount-poses.mjs, then tools/build-data.mjs for every season');
+  });
+
+  test('the frame scale and the bone: 守墓石像 by its mode, 刺胄之弹 without a face switcher, a summon on a larger frame', () => {
+    const enemies = read('data/enemies.json');
+    // 守墓石像's `hitpoint` bone (Graphic 0.28): (0, 164) in its Walk clips, (−30, 355) in the Fly mode's `_2` clips
+    assert.deepEqual(enemies.enemy_1172_dugago.hitAt, { F: [0, 0.459], modes: { Fly: { F: [-0.084, 0.994] } } });
+    // 刺胄之弹's EmptyAnimator HitPoint (0, 1.8) on its 0.27 frame
+    assert.deepEqual(enemies.enemy_9016_acstmr.hitAt, { F: [0, 0.486] });
+    // “斩胄之剑”: R_Arm_Main2 in the first frame of its Attack clip — where the prefab saved it (its idle)
+    assert.deepEqual(enemies.enemy_9014_acstma.hitAt, { F: [-0.016, 1.294] });
+    // a summon on a 0.4 frame (token_10000_silent_healrb)
+    assert.deepEqual(read('data/tokens.json').token_10000_silent_healrb.hitAt, { F: [0, 0.72] });
+  });
+
+  test('the sim reads them: normalizeEnemy keeps the modes, normalizeToken the point', () => {
+    const enemies = read('data/enemies.json');
+    const e = simdata.normalizeEnemy('enemy_1172_dugago', enemies.enemy_1172_dugago);
+    assert.deepEqual(e.hitAt, { F: [0, 0.459], B: [0, 0.459], modes: { Fly: { F: [-0.084, 0.994], B: [-0.084, 0.994] } } });
+    assert.equal(simdata.normalizeEnemy('x', { ...enemies.enemy_1172_dugago, hitAt: undefined }).hitAt, null);
+    const t = read('data/tokens.json').token_10000_silent_healrb;
+    assert.deepEqual(simdata.normalizeToken('token_10000_silent_healrb', t).hitAt, { F: [0, 0.72], B: [0, 0.72] });
+  });
+});
+
 describe('tools/assets/mount-poses.mjs', () => {
+  test('an enemy hit point that follows a bone is posed in each attack clip', () => {
+    assert.deepEqual(enemyHitClips({ clip: 'Attack', modes: { Fly: { clip: 'Attack_2' }, NoReborn: null, Stone: { clip: 'Attack' } } }), ['Attack', 'Attack_2']);
+    assert.deepEqual(enemyHitClips(null), []);
+  });
+
   test('the clip time a shot leaves at: the ranged swing, the OnAttack frame, the clip end, or _preDelay', () => {
     assert.deepEqual(shotClipAt({ clip: 'Attack_A', dur: 1.067, hit: 0.3, ranged: { clip: 'Attack_B', dur: 1.2, hit: 0.25 } }), { clip: 'Attack_B', t: 0.25 });
     assert.deepEqual(shotClipAt({ clip: 'Attack', dur: 1 }), { clip: 'Attack', t: 1 });

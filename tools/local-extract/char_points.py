@@ -10,9 +10,11 @@ The points are Transforms of the battle model (chararts/<charId>.ab `DefaultSkin
 sit at a fixed spot of the skeleton. Their local position is in skeleton units × the SkeletonDataAsset `scale` (0.01):
 char_245_cello Front/SpecialPoint0 (0.602, 1.785) = bone F_Weapon_Chord (60.2, 178.5) in the Idle pose.
 
-Writes { charId: { muzzle | hit | head | sp<N>: { F?: point, B?: point } } } with point = { bone?: name, rot?: 1, ls?: 1 | 2, noFlip?: 1, at: [x, y] }
+Writes { charId: { muzzle | hit | head | sp<N>: { F?: point, B?: point } } } with point = { bone?: name, rot?: 1, ls?: 1 | 2, noFlip?: 1, sc?: [sx, sy], at: [x, y] }
 (`at` in skeleton units, y up; `bone` the bone it follows, `rot` when it also turns with the bone, `ls` when it takes the
-bone's local scale (2: its world scale), `noFlip` when it does not follow the skeleton's flip) to
+bone's local scale (2: its world scale), `noFlip` when it does not follow the skeleton's flip; `sc` the scale of the
+transforms above the point up to the prefab root where it is not the standard 0.27 — the point sits `at` × the skeleton's
+0.01 × sc from the root on the model's plane) to
 tools/assets/local-char-points.json (reviewed in git) and public/assets/local/fx/points.json (read by render/fxgame.js,
 git-ignored beside the effects).
 
@@ -28,8 +30,9 @@ go to public/assets/local/fx/skin/skin-points.json { <skin key>: the same record
 --no-skins leaves it, --id the owners' rows only) — in the skin data pack's folder: only a unit drawn in a skin reads it.
 
 Tokens (2026-10-16): a token's battle model is a prefab of pkgrps/btl_pfb_tokens_*.ab — one bundle holds many, each with its
-own animator, picked by the prefab's root name. Only TOKENS are read: their effects name special points (伺夜's wolf pack
-vigil_token_buff_1–4 on MP_SPECIAL_0–3, its head / body / hands); the other tokens keep the render's fallbacks until checked.
+own animator, picked by the prefab's root name. Every summon of data/ is read (2026-11-18, token_ids: tools/build-data.mjs
+gives each its hit point, where the enemies' shots at it end), the EN client first and the CN one (--cn) for the season
+summons it lacks; an animator without a face switcher (EmptyAnimator, MeshAnimator) names its points itself.
 """
 import argparse
 import json
@@ -46,8 +49,21 @@ from client_path import client_data  # noqa: E402
 DEFAULT_CLIENT = client_data()  # SP_CLIENT / .env / .client (client_path.py); --client overrides
 
 
-# tokens whose effects need their model's points (see the docstring)
-TOKENS = ('token_10028_vigil_wolf',)
+# the standard scale of a battle model's frame (FaceSwitcher / Graphic: tools/build-data.mjs MODEL_SCALE_STANDARD)
+MODEL_FRAME = 0.27
+
+
+def token_ids():
+    """Every summon of data/ (tokens.json and backups.json `tokens`, the seasons' too) that is a token prefab (`token_…`)."""
+    ids = set()
+    for d in [ROOT / 'data', *sorted((ROOT / 'data/seasons').glob('*'))]:
+        t = d / 'tokens.json'
+        if t.exists():
+            ids |= set(json.loads(t.read_text(encoding='utf-8')))
+        b = d / 'backups.json'
+        if b.exists():
+            ids |= set(json.loads(b.read_text(encoding='utf-8')).get('tokens') or {})
+    return sorted(i for i in ids if i.startswith('token_'))
 # the skin models this server lists (skin_extract.py) and where their points go (git-ignored beside points.json)
 SKINS = ROOT / 'public/assets/local/spine/skin/skins.json'
 SKIN_FX_OUT = ROOT / 'public/assets/local/fx/skin/skin-points.json'
@@ -168,7 +184,8 @@ def points_of(path, root=None, env=None):
             except Exception:
                 continue
             go_mbs.setdefault(d['m_GameObject']['m_PathID'], []).append(d)
-            if '_faceSwitcher' in d and ('_front' in d or '_hitTransform' in d) \
+            plain = '_faceSwitcher' not in d and '_hitTransform' in d and ('_effectWhiteList' in d or '_animation' in d)
+            if (('_faceSwitcher' in d and ('_front' in d or '_hitTransform' in d)) or (plain and animator is None)) \
                     and (not root or root_name(d['m_GameObject']['m_PathID']) == root):
                 animator = d
     if animator is None:
@@ -184,8 +201,9 @@ def points_of(path, root=None, env=None):
         sides = [('F', animator.get('_front') or {}, ''), ('B', animator.get('_back') or {}, '')]
         names = {'muzzle': 'muzzlaTransform', 'hit': 'hitTransform', 'head': 'headTransform'}
     else:
+        # (EmptyAnimator / MeshAnimator: no face switcher, the same `_hitTransform`; EmptyAnimator's muzzle is `_muzzle`)
         sides = [('FB', animator, '_')]
-        names = {'muzzle': '_muzzleTransform', 'hit': '_hitTransform', 'head': '_headTransform'}
+        names = {'muzzle': '_muzzle' if '_muzzle' in animator else '_muzzleTransform', 'hit': '_hitTransform', 'head': '_headTransform'}
     out = {}
     for side, rec, pre in sides:
         fields = dict(names)
@@ -212,11 +230,27 @@ def points_of(path, root=None, env=None):
                         pt['noFlip'] = 1
             # every point sits in the Front / Back renderer's frame or the switcher's (HeadPoint, HitPoint) — the same
             # skeleton frame (both at the switcher's origin, scale 1)
+            fs = frame_scale(objs, tt, tt(tr)['m_Father']['m_PathID'])
+            if abs(fs[0] - MODEL_FRAME) > 1e-4 or abs(fs[1] - MODEL_FRAME) > 1e-4:
+                pt['sc'] = [round(fs[0], 4), round(fs[1], 4)]
             sc = skeleton_scale(objs, tt, go_mbs, tt(tr)['m_Father']['m_PathID']) or 0.01
             pt['at'] = [round(pos['x'] / sc, 2), round(pos['y'] / sc, 2)]
             for s1 in side:
                 out.setdefault(key, {})[s1] = pt
     return {k: {s1: v[s1] for s1 in ('F', 'B') if s1 in v} for k, v in out.items()} or None
+
+
+def frame_scale(objs, tt, tr):
+    """(sx, sy): the product of the local scales of Transform `tr` and its parents, the prefab root's excluded."""
+    sx = sy = 1.0
+    while tr in objs:
+        t = tt(tr)
+        if t['m_Father']['m_PathID'] not in objs:
+            break
+        sx *= t['m_LocalScale']['x']
+        sy *= t['m_LocalScale']['y']
+        tr = t['m_Father']['m_PathID']
+    return sx, sy
 
 
 def skeleton_scale(objs, tt, go_mbs, side_tr):
@@ -267,8 +301,14 @@ def main():
     ap.add_argument('--no-skins', action='store_true', help='leave public/assets/local/fx/skin/skin-points.json as it is')
     a = ap.parse_args()
     ids, files = char_ids(a.client)
-    ids = a.id or ids + list(TOKENS)
+    ids = a.id or ids + token_ids()
     toks = token_files(a.client, [i for i in ids if i.startswith('token_')])
+    lack = [i for i in ids if i.startswith('token_') and i not in toks]
+    if lack:   # the season summons the EN client does not have yet
+        from client_path import client_data_cn
+        cn = a.cn or client_data_cn()
+        if cn and Path(cn).is_dir():
+            toks.update(token_files(cn, lack))
     out = json.loads(OUT.read_text(encoding='utf-8')) if OUT.exists() else {}
     out.pop('$comment', None)
     missing = []

@@ -462,6 +462,7 @@ async function loadContext() {
     skillCast: await loadLocalJson('tools/assets/local-skill-cast.json', 'skill classes (tools/local-extract/skill_cast.py): no skill `cast` …'),
     skillHud: await loadLocalJson('tools/assets/local-skill-hud.json', 'skill HUD rows (tools/local-extract/skill_hud.py): no skill `bulletMode` / `overload` …'),
     charPoints: await loadLocalJson('tools/assets/local-char-points.json', 'operator model points (tools/local-extract/char_points.py): no `hitAt` …'),
+    enemyBindings: await loadLocalJson('tools/assets/local-enemy-bindings.json', 'enemy model points (tools/local-extract/enemy_bindings.py): no enemy `hitAt` …'),
     mountPoses: await loadLocalJson(MOUNT_POSES_FILE, 'shot mount poses (tools/assets/mount-poses.mjs): no shot `from` …'),
   };
 }
@@ -1684,10 +1685,15 @@ function summonRecord(ctx, tokenId, char, variants, produced, ownerTexts = []) {
     abnormal: TOKEN_ABNORMAL[tokenId] ? [...TOKEN_ABNORMAL[tokenId]] : [],
     // its prefab's attack clip and ability timing (tokenAttackAnim; server/sim/ai.js attackTiming)
     ...withAttackAnim(tokenAttackAnim(ctx, tokenId)),
+    // where the enemies' shots at it end (its prefab's hit point, as an operator's)
+    ...withHitAt(opHitAt(ctx, tokenId)),
     variants,
     assets: { avatar: tokenId, spine: tokenId },
   };
 }
+
+/** `{ hitAt }` of a hit point (opHitAt / enemyHitAt), or nothing without one. */
+const withHitAt = (hitAt) => (hitAt ? { hitAt } : null);
 
 /**
  * The summons of the 自选 owned picks (data/backups.json `tokens`, DATA.md §18): one summonRecord per token whose
@@ -1818,6 +1824,7 @@ function buildTokens(ctx, chess, tokenOwners, enemies) {
       skills: loon.skills, talents: loon.talents, deployLimit: 2, count: 1,
       // its enemy prefab's attack clip and ability timing (enemies.json `attackAnim`): the strike waits for its OnAttack frame
       attackAnim: loon.attackAnim ?? null,
+      ...withHitAt(loon.hitAt),
       abnormal: [...TOKEN_ABNORMAL.enemy_9012_acloon], variants: {},
       assets: { avatar: loon.iconId, spine: loon.spine, isEnemyModel: true },
     };
@@ -1850,6 +1857,7 @@ function buildTokens(ctx, chess, tokenOwners, enemies) {
       stats: v.stats, rangeGrid: v.rangeGrid, dmgType: v.dmgType, attackKind: v.attackKind, projectile: v.projectile,
       canHitFly: v.canHitFly, skill: v.skill, talents: v.talents, trait: v.trait, phase: v.phase, level: v.level,
       deployLimit: 1, count: 1, abnormal: [], positions: positions.sort((a, b) => naturalCmp(a.alias, b.alias)), variants: {},
+      ...withHitAt(opHitAt(ctx, charId)),
       assets: { avatar: charId, spine: charId },
       source: 'band_amedic (aceffect_band_61 auto_chess_change_map)',
     };
@@ -2984,9 +2992,14 @@ function opShot(ctx, charId, charSkills) {
   return base || skills.some(Boolean) ? { base, skills } : null;
 }
 
-/** Skeleton units → tiles on the model: SkeletonDataAsset `scale` 0.01 × the battle model's standard transform product. */
-const MOUNT_TILES = 0.01 * MODEL_SCALE_STANDARD;
-const mountTiles = (p) => [Math.round(p[0] * MOUNT_TILES * 1000) / 1000 || 0, Math.round(p[1] * MOUNT_TILES * 1000) / 1000 || 0];
+/**
+ * Skeleton units → tiles on the model: SkeletonDataAsset `scale` 0.01 × the scale of the transforms above the point (the
+ * point record's `sc` [sx, sy] — char_points.py / enemy_bindings.py, absent = the battle model's standard 0.27).
+ */
+const mountTiles = (p, sc = null) => {
+  const [sx, sy] = Array.isArray(sc) ? sc : [MODEL_SCALE_STANDARD, MODEL_SCALE_STANDARD];
+  return [Math.round(p[0] * 0.01 * sx * 1000) / 1000 || 0, Math.round(p[1] * 0.01 * sy * 1000) / 1000 || 0];
+};
 
 /**
  * Where each flying shot of opShot's `shot` leaves the shooter's default model (skins do not change the battle) → the shot's
@@ -3014,7 +3027,8 @@ function opMounts(ctx, spine, shot, attackAnim) {
       throw new Error(`${spine}: no mount pose for ${p ? `${p.where} at ${p.key ?? '(no clip)'} ${p.point ?? ''}` : `a ${s.mount} shot`} in ${MOUNT_POSES_FILE} `
         + '— run node tools/assets/mount-poses.mjs, then build-data again (docs/rules/sim.md 「투사체의 출발·도착 점」)');
     }
-    s.from = { F: mountTiles(row.F), ...(row.B ? { B: mountTiles(row.B) } : {}) };
+    const pt = ctx.charPoints?.[spine]?.[p.point];
+    s.from = { F: mountTiles(row.F, (pt?.F ?? pt?.B)?.sc), ...(row.B ? { B: mountTiles(row.B, (pt?.B ?? pt?.F)?.sc) } : {}) };
   }
   return shot;
 }
@@ -3029,13 +3043,54 @@ function opHitAt(ctx, spine) {
   const pts = ctx.charPoints;
   if (!pts) return null;
   const h = pts[spine]?.hit;
-  const face = (p) => (p && !p.bone && Array.isArray(p.at) ? mountTiles(p.at) : null);
+  const face = (p) => (p && !p.bone && Array.isArray(p.at) ? mountTiles(p.at, p.sc) : null);
   const F = face(h?.F ?? h?.B), B = h?.B ? face(h.B) : null;
   if (!F || (h?.B && !B)) {
     throw new Error(`${spine}: ${h ? 'a hit point that follows a bone' : 'no hit point'} in tools/assets/local-char-points.json — `
       + 'tools/local-extract/char_points.py --id ' + spine + ' (docs/rules/sim.md 「투사체의 출발·도착 점」)');
   }
   return { F, ...(B && (B[0] !== F[0] || B[1] !== F[1]) ? { B } : {}) };
+}
+
+/**
+ * An enemy's hit point (tools/assets/local-enemy-bindings.json `points.hit`: its animator's `_hitTransform`, the client's
+ * `Entity.hitMountPoint` that `RangedAttack.GetTargetLocatable` aims the shots at) → enemies.json `hitAt` { F, B?, modes? }
+ * in tiles on the model as opHitAt (`at` × 0.01 × the point's frame scale `sc`, which carries the prefab's Graphic scale —
+ * not the hand table MODEL_SCALES). A point that follows a bone (无 fixed spot: 守墓石像, “斩胄之剑”, “破胄之锤”) is where
+ * that bone stands in the first frame of the mode's attack clip (tools/assets/op-mount-poses.json, mount-poses.mjs) — the
+ * client reads the bone live as the shot leaves; `modes` { <mode>: { F, B? } } for an attack mode whose clip puts it
+ * elsewhere (守墓石像 `Fly`). Throws on an enemy the table lacks or whose bone it does not pose; null without the table.
+ * docs/rules/sim.md 「투사체의 출발·도착 점」.
+ */
+function enemyHitAt(ctx, spine, attackAnim) {
+  const binds = ctx.enemyBindings;
+  if (!binds) return null;
+  const h = binds[spine]?.points?.hit;
+  if (!h?.F && !h?.B) {
+    throw new Error(`${spine}: no hit point in tools/assets/local-enemy-bindings.json — tools/local-extract/enemy_bindings.py `
+      + '(docs/rules/sim.md 「투사체의 출발·도착 점」)');
+  }
+  const pair = (F, B) => ({ F, ...(B && (B[0] !== F[0] || B[1] !== F[1]) ? { B } : {}) });
+  if (![h.F, h.B].some((p) => p?.bone)) {
+    const face = (p) => (p && Array.isArray(p.at) ? mountTiles(p.at, p.sc) : null);
+    return pair(face(h.F ?? h.B), h.B ? face(h.B) : null);
+  }
+  const posed = (clip) => {
+    const row = typeof clip === 'string' ? ctx.mountPoses?.[spine]?.[`${clip}@0`]?.hit : null;
+    if (!row?.F) {
+      throw new Error(`${spine}: its hit point follows a bone and ${MOUNT_POSES_FILE} has no pose for ${clip ?? '(no attack clip)'}@0 — `
+        + 'run node tools/assets/mount-poses.mjs, then build-data again (docs/rules/sim.md 「투사체의 출발·도착 점」)');
+    }
+    return pair(mountTiles(row.F, (h.F ?? h.B).sc), row.B ? mountTiles(row.B, (h.B ?? h.F).sc) : null);
+  };
+  const out = posed(attackAnim?.clip);
+  const modes = {};
+  for (const [name, m] of Object.entries(attackAnim?.modes || {})) {
+    if (!m?.clip || m.clip === attackAnim.clip) continue;
+    const r = posed(m.clip);
+    if (JSON.stringify(r) !== JSON.stringify(out)) modes[name] = r;
+  }
+  return Object.keys(modes).length ? { ...out, modes } : out;
 }
 
 /**
@@ -3317,6 +3372,8 @@ function buildEnemies(ctx) {
       ...(modelScaleY != null && modelScaleY !== 1 ? { modelScaleY } : {}),
       ...(MIRRORED_PREFABS.has(mv(data.prefabKey) || key) ? { mirrorX: true } : {}),
       ...(attackAnim ? { attackAnim } : {}),
+      // where the shots aimed at it end (enemyHitAt)
+      ...withHitAt(enemyHitAt(ctx, mv(data.prefabKey) || key, attackAnim)),
       // `proj: null` only for an enemy with a range (rawRangeRadius > 0) whose attack has no projectile: its ranged hit lands at the strike
       ...(shots?.proj ? { proj: shots.proj } : shots && rawRangeRadius > 0 ? { proj: null } : {}),
       ...(shots && Object.keys(shots.projModes).length ? { projModes: shots.projModes } : {}),

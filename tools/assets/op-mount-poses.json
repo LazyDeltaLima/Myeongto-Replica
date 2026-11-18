@@ -1,5 +1,5 @@
 {
- "$comment": "Where each operator's flying shot leaves its default model: the mount point's bone posed in the attack clip at the strike, skeleton units (y up, the Front model facing right; B = the Back model). Written by tools/assets/mount-poses.mjs from the public battle Spine models and tools/assets/local-char-points.json; read by tools/build-data.mjs.",
+ "$comment": "Where each operator's flying shot leaves its default model: the mount point's bone posed in the attack clip at the strike, skeleton units (y up, the Front model facing right; B = the Back model); and where an enemy's hit point that follows a bone stands in the first frame of each attack clip (enemy prefab keys, `hit`). Written by tools/assets/mount-poses.mjs from the public battle Spine models, tools/assets/local-char-points.json and local-enemy-bindings.json; read by tools/build-data.mjs.",
  "char_1015_aglna2": {"Attack@0.4":{"muzzle":{"F":[-141.19,322.45],"B":[-141.19,322.45]}},"Skill_1_Loop@0.5":{"muzzle":{"F":[115.5,264.22],"B":[96.07,337.79]}},"Skill_2_Loop@0.333":{"muzzle":{"F":[207.45,266.58],"B":[137.33,431.3]}},"Skill_3_Loop@0.5":{"muzzle":{"F":[119.05,393.64],"B":[119.05,393.64]}}},
  "char_1016_agoat2": {"Attack@0.4":{"muzzle":{"F":[107.96,388.22],"B":[107.96,388.22]}},"Skill_1_Loop@0.433":{"muzzle":{"F":[80.54,416.29],"B":[80.54,416.29]}}},
  "char_1020_reed2": {"Attack@0.433":{"muzzle":{"F":[277,153],"B":[237,311]}},"Skill_3_Attack@0.467":{"muzzle":{"F":[340,120],"B":[312,133]}}},
@@ -110,5 +110,9 @@
  "char_613_acmedc": {"Attack@0.367":{"muzzle":{"F":[255.69,202.04],"B":[271.19,196.29]}}},
  "char_614_acsupo": {"Attack@0.333":{"muzzle":{"F":[-125.55,179.8],"B":[-123.22,186.78]}}},
  "char_616_pithst": {"Attack@0.367":{"muzzle":{"F":[144.37,229.35],"B":[144.37,229.35]}}},
- "char_617_sharp2": {"Attack@0.5":{"muzzle":{"F":[-93.57,279.27],"B":[-91.98,281.01]}}}
+ "char_617_sharp2": {"Attack@0.5":{"muzzle":{"F":[-93.57,279.27],"B":[-91.98,281.01]}}},
+ "enemy_1172_dugago": {"Attack@0":{"hit":{"F":[0,164]}},"Attack_2@0":{"hit":{"F":[-30,355]}}},
+ "enemy_1172_dugago_2": {"Attack@0":{"hit":{"F":[0,164]}},"Attack_2@0":{"hit":{"F":[-30,355]}}},
+ "enemy_9014_acstma": {"Attack@0":{"hit":{"F":[-6.05,479.16]}}},
+ "enemy_9015_acstmb": {"Attack@0":{"hit":{"F":[119.99,575.58]}}}
 }
