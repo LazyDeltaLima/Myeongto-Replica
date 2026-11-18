@@ -390,12 +390,14 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .igroups, .ibonds { --ou: max(.006rem, .4px); }
 .igroups .brief-bgroup { padding-left: 0; padding-right: 0; }
 /* each item as wide as its name (at least the 110-unit bond_item): the name in flow under the disc, not the absolute
-   145-unit box, so 카시미어 / 라이타니엔 never run together; 24 apart, so the 131-unit discs do not touch; a phone wraps */
-.ibonds { display: flex; flex-wrap: wrap; gap: calc(var(--ou) * 22) calc(var(--ou) * 24); padding: calc(var(--ou) * 14) 0 0; }
+   145-unit box, so 카시미어 / 라이타니엔 never run together; the briefing's 3 units apart (.brief-bonds__row: the 131-unit
+   disc box is mostly transparent, its ring ~92 across, so 113-unit steps leave the rings apart — 24 left them twice as far
+   apart as the briefing, maintainer report 2026-11-18), a name 4 units in from its item's edges; a phone wraps */
+.ibonds { display: flex; flex-wrap: wrap; gap: calc(var(--ou) * 8) calc(var(--ou) * 3); padding: calc(var(--ou) * 14) 0 0; }
 .ibond { display: block; }
 .ibonds .ibd { box-sizing: border-box; width: auto; min-width: calc(var(--ou) * 110); height: auto; min-height: calc(var(--ou) * 130);
   padding-top: calc(var(--ou) * 105); }
-.ibonds .ibd .ibd__name { position: static; display: block; width: auto; transform: none; }
+.ibonds .ibd .ibd__name { position: static; display: block; width: auto; padding: 0 calc(var(--ou) * 4); transform: none; }
 .ibanned__one { padding: 0; background: none; border: 0; line-height: 0; color: inherit; cursor: pointer; }
 /* 0.2.0: the player's own 自选 pieces out of the shop this match (ui/matchInfo.js DiyBannedLine) */
 .idiybanned { margin: .08rem 0 0; font-size: .13rem; line-height: 1.5; }

@@ -263,8 +263,16 @@ test('the briefing, the strategy draft and the in-game 本局信息 tab all read
   assert.match(draft, /import \{ MatchInfoDialog, matchInfoModel, ChessIcon \} from '\.\.\/ui\/matchInfo\.js';/);
   assert.match(draft, /const info = infoOpen \? matchInfoModel\(pub, \{ bonds: gd\.list\('bonds'\), chess: gd\.chess, mode, priv, diyData: \{ chess: data\.get\('chess'\), backups: data\.get\('backups'\) \} \}\) : null;/);
   // 敌方情报 | 盟约信息 in one row, each dialog titled as its button (docs/rules/ui.md 「전략 선택 중 적 정보·전장 다시 보기」)
-  assert.match(draft, /<div class="draft-order__infos">\s*<\$\{Button\}[^>]*data-testid="match-intel-open"[\s\S]*?\}\}>\$\{t\('敌方情报'\)\}<\/\/>\s*<\$\{Button\}[^>]*data-testid="match-info-open"[\s\S]*?setInfoOpen\(true\); \}\}>\$\{t\('盟约信息'\)\}<\/\/>\s*<\/div>/);
-  assert.match(draft, /<\$\{MatchInfoDialog\} open=\$\{infoOpen\} onClose=\$\{\(\) => setInfoOpen\(false\)\} model=\$\{info\} title=\$\{t\('盟约信息'\)\}/);
+  assert.match(draft, /export function DraftInfoButtons\(\{ onIntel, onInfo \}\) \{[\s\S]*?<div class="draft-order__infos">\s*<\$\{Button\}[^>]*data-testid="match-intel-open"[^>]*onClick=\$\{onIntel\}>\$\{t\('敌方情报'\)\}<\/\/>\s*<\$\{Button\}[^>]*data-testid="match-info-open"[^>]*onClick=\$\{onInfo\}>\$\{t\('盟约信息'\)\}<\/\/>\s*<\/div>/);
+  // every start step with the order list (盟约 2/2, 规程 2/3 and 3/3) draws that one row and opens both dialogs titled as
+  // their buttons — the 3/3 screen kept the old single 本局信息 button once (maintainer report 2026-11-18)
+  for (const [file, src] of [['bandDraft.js', draft], ['diyChoose.js', read('public/js/screens/diyChoose.js')]]) {
+    assert.match(src, /<\$\{DraftInfoButtons\} onIntel=\$\{\(\) => \{ setInfoOpen\(false\); setIntelOpen\(true\); \}\} onInfo=\$\{\(\) => \{ setIntelOpen\(false\); setInfoOpen\(true\); \}\} \/>/,
+      `${file}: the 敌方情报 | 盟约信息 row (docs/rules/ui.md 「전략 선택 중 적 정보·전장 다시 보기」)`);
+    assert.match(src, /<\$\{MatchInfoDialog\} open=\$\{infoOpen\} onClose=\$\{\(\) => setInfoOpen\(false\)\} model=\$\{info\} title=\$\{t\('盟约信息'\)\} hideTitle=\$\{true\}/, `${file}: 盟约信息 dialog`);
+    assert.match(src, /<\$\{MatchIntelDialog\} open=\$\{intelOpen\} onClose=\$\{\(\) => setIntelOpen\(false\)\} pub=\$\{pub\} season=/, `${file}: 敌方情报 dialog`);
+    assert.doesNotMatch(src, /t\('本局信息'\)/, `${file}: no button left with the old 本局信息 name`);
+  }
   // a turn change or my pick closes it; the draft's end unmounts the screen
   assert.match(draft, /const turnKey = `\$\{draft\.turnPid \|\| ''\}\|\$\{myPick \|\| ''\}`;\n\s*useEffect\(\(\) => \{ setInfoOpen\(false\); setIntelOpen\(false\); \}, \[turnKey\]\);/);
   const drawer = read('public/js/ui/enemyDrawer.js');

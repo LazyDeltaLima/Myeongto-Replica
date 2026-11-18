@@ -214,8 +214,11 @@ const PLATE_NAME = Object.freeze({ 1: { TRAINING: 'guide' }, 2: { TRAINING: 'tra
  * (season/<id>/stageinfo img_title_mode_<difficulty>, img_split_line, img_chat_babble), steps 2–3 the 3/3 screen's
  * (season/<id>/diychoose mode_<difficulty>; pop for step 3's bubble — the 选择策略 bar has the stage-info divider and
  * bubble), and the theme's character (season/<id>/skin img_char_spine_outer: the default theme ac_n_initial's still
- * picture, which the prefab's img_char_spine takes from the theme's skin_config `char_spine_outer`). 盟约 reads the EN
- * client's (ui/outer), then the public mirror (stageInfo/*, bandChoose/*); it has no character and no bubble. Steps 2–3
+ * picture, which the prefab's img_char_spine takes from the theme's skin_config `char_spine_outer`). 盟约 step 1 reads the
+ * EN client's (ui/outer), then the public mirror (stageInfo/*); steps 2–3 only the mirror's bandChoose/mode_*, the
+ * 选择策略 screen's own sprites: ui/outer is one flat name space where the mode list's 147×40 buttons mode_normal /
+ * mode_abyss took those names, and the 68-high plate's slices stretched them (maintainer report 2026-11-18). It has no
+ * character and no bubble. Steps 2–3
  * of 盟约 and step 3 of 规程 draw a flat divider (split_line without a sprite, #e4e4e4 at 0.2).
  * @param {number} step 1–3 @param {string|null|undefined} difficulty the mode's modeDifficulty (config.modes[].difficulty)
  * @param {unknown} season
@@ -240,7 +243,7 @@ export function stepHeadArt(step, difficulty, season) {
     };
   }
   const plate = !name ? null : first ? outer(`img_title_mode_${name}`) || mirror(`stageInfo/img_title_mode_${name}`)
-    : outer(`mode_${name}`) || mirror(`bandChoose/mode_${name}`);
+    : mirror(`bandChoose/mode_${name}`);
   return { cn, plate, split: first ? outer('img_split_line') : null, bubble: null, char: null };
 }
 

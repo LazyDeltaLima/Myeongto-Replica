@@ -1,7 +1,8 @@
 // 确定自选编队 — 规程's third start step "3/3" (PHASE.DIY_CHOOSE; server/match/match/diyChoose.js), laid out as the official
 // auto_chess_diy_choose_state (CN client; two official screens of a 4-player co-op start, maintainer decision 2026-11-11
 // to draw it after them). Left: the order rows of the strategy draft (bandDraft.js OrderRow: name card, the picked
-// strategy, ✓ = ready for this step) with 本局信息 under them. Centre: one row per tier (auto_chess_diy_choose_level_view:
+// strategy, ✓ = ready for this step) with the draft's 敌方情报 | 盟约信息 row under them (bandDraft.js DraftInfoButtons,
+// maintainer report 2026-11-18: the 3/3 screen kept the single 本局信息 button). Centre: one row per tier (auto_chess_diy_choose_level_view:
 // Ⅴ above Ⅵ, 255 units high on the doc_color band) holding the seat's 自选编队 cards from the right, the tier's big mark
 // (diy_choose_level_icon_<tier>_c, _g when the lineup has none of that tier) and 「n/2」 (num_bg); a tier without cards
 // shows the empty figure and 「尚不存在n阶自选编队」. A card is the 干员调配 card (auto_chess_deploy_char_item_view: the
@@ -23,19 +24,20 @@
 // draws plain fills. Styles: css/screens/diychoose.css on the strategy draft's frame (css/screens/draft.css).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Button, TierChip, MicroLabel } from '../ui/components.js';
+import { html, TierChip, MicroLabel } from '../ui/components.js';
 import { useGameData } from '../ui/gameComponents.js';
 import { chessPortraitUrl, profIconUrl, bondIconUrl, skillRecordIconUrl, moduleTypeIconUrl, uiUrl } from '../ui/assetUrls.js';
 import { skinArt, skinPic } from '../ui/skins.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfoDialog, matchInfoModel } from '../ui/matchInfo.js';
+import { MatchIntelDialog } from '../ui/matchIntel.js';
 import { actions } from '../ui/gameActions.js';
 import { sortedPlayers, diyPickOff, diyChooseRows, toggleDiyChoice, startStepCount } from '../ui/gameLogic.js';
 import { slotRecord } from '../ui/diyModel.js';
 import { useStore } from '../store.js';
 import { data, localAsset } from '../data.js';
 import { audio } from '../audio.js';
-import { OrderRow, useOrderArt, draftArt, PresetPicker, presetChoiceTags } from './bandDraft.js';
+import { OrderRow, useOrderArt, draftArt, PresetPicker, presetChoiceTags, DraftInfoButtons } from './bandDraft.js';
 import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand } from '../ui/diyPresets.js';
 import { applyPresetChoice } from '../ui/factionPick.js';
 import { flushDiySync } from '../ui/loadoutSync.js';
@@ -179,6 +181,7 @@ export function DiyChooseScreen() {
   const ready = !!view?.ready;
   const [exit, setExit] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [intelOpen, setIntelOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   // the choice in the order it was made (the server keeps it in lineup order): a tap on a full tier drops the earliest
   const srv = Array.isArray(view?.chosen) ? view.chosen : [];
@@ -237,8 +240,7 @@ export function DiyChooseScreen() {
             cur=${false} self=${p.playerId === myId} ready=${!!p.ready} checked=${!!p.ready} gd=${gd} art=${artOf(p)} />`)}
         </div>
         <div class="draft-order__side">
-          <${Button} variant="secondary" icon="search" block=${true} class="draft-order__info" data-testid="match-info-open"
-            aria-haspopup="dialog" onClick=${() => setInfoOpen(true)}>${t('本局信息')}<//>
+          <${DraftInfoButtons} onIntel=${() => { setInfoOpen(false); setIntelOpen(true); }} onInfo=${() => { setIntelOpen(false); setInfoOpen(true); }} />
         </div>
       </aside>
       <div class=${cx('dchoose__body', ready && 'is-ready', presetBand && 'has-preset')}>
@@ -260,6 +262,7 @@ export function DiyChooseScreen() {
       </div>
     </main>
     <${ExitModal} open=${exit} onClose=${() => setExit(false)} solo=${solo} />
-    <${MatchInfoDialog} open=${infoOpen} onClose=${() => setInfoOpen(false)} model=${info} />
+    <${MatchInfoDialog} open=${infoOpen} onClose=${() => setInfoOpen(false)} model=${info} title=${t('盟约信息')} hideTitle=${true} />
+    <${MatchIntelDialog} open=${intelOpen} onClose=${() => setIntelOpen(false)} pub=${pub} season=${roomSeason ?? null} />
   </div>`;
 }

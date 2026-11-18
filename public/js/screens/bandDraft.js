@@ -543,6 +543,23 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
  * portrait, null for a bot or none) — a picture that fails to load is left out. The ✓ follows the pick; the 3/3
  * 确定自选编队 screen (screens/diyChoose.js) shows the same rows with the ✓ of its own ready (`checked`).
  */
+/**
+ * 敌方情报 | 盟约信息 in one row under the order list, the two read-only entries of the strategy draft and the 3/3
+ * 确定自选编队 screen (screens/diyChoose.js; maintainer decision 2026-11-18). 敌方情报 wears the client's enemy title icon
+ * (img_title_icon_enemy, the 敌方情报 dialog's section icon), tinted like the other button icons; without the local art it
+ * keeps the drawn target icon. Each button closes the other dialog before opening its own.
+ * @param {{ onIntel: () => void, onInfo: () => void }} props
+ */
+export function DraftInfoButtons({ onIntel, onInfo }) {
+  const enemyArt = localAsset('ui/outer', 'img_title_icon_enemy');
+  return html`<div class="draft-order__infos">
+    <${Button} variant="secondary" icon=${enemyArt ? null : 'target'} class=${cx('draft-order__info', enemyArt && 'has-art')}
+      style=${enemyArt ? `--art:url("${enemyArt}")` : null} data-testid="match-intel-open" aria-haspopup="dialog" onClick=${onIntel}>${t('敌方情报')}<//>
+    <${Button} variant="secondary" icon="search" class="draft-order__info" data-testid="match-info-open"
+      aria-haspopup="dialog" onClick=${onInfo}>${t('盟约信息')}<//>
+  </div>`;
+}
+
 export function OrderRow({ p, i, picked, cur, self, ready, gd, art = null, checked = !!picked }) {
   const [badArt, setBadArt] = useState(/** @type {string[]} */ ([]));
   const shownArt = seatArtSrc([art], badArt);
@@ -608,9 +625,6 @@ export function BandDraftScreen() {
   const [skipped, setSkipped] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [intelOpen, setIntelOpen] = useState(false);
-  // the 敌方情报 button wears the client's enemy title icon (img_title_icon_enemy, the 敌方情报 dialog's section icon),
-  // tinted like the other button icons; without the local art it keeps the drawn target icon
-  const enemyArt = localAsset('ui/outer', 'img_title_icon_enemy');
   const season = useStore((s) => s.room?.season ?? null);
   // 전략별 선발 프리셋: this match's roster choice per strategy (bandId → choice) and 记住此策略的预设 (bandId → bool, on)
   const [presetSel, setPresetSel] = useState({});
@@ -770,12 +784,7 @@ export function BandDraftScreen() {
           })}
         </div>
         <div class="draft-order__side">
-          <div class="draft-order__infos">
-            <${Button} variant="secondary" icon=${enemyArt ? null : 'target'} class=${cx('draft-order__info', enemyArt && 'has-art')}
-              style=${enemyArt ? `--art:url("${enemyArt}")` : null} data-testid="match-intel-open" aria-haspopup="dialog" onClick=${() => { setInfoOpen(false); setIntelOpen(true); }}>${t('敌方情报')}<//>
-            <${Button} variant="secondary" icon="search" class="draft-order__info" data-testid="match-info-open"
-              aria-haspopup="dialog" onClick=${() => { setIntelOpen(false); setInfoOpen(true); }}>${t('盟约信息')}<//>
-          </div>
+          <${DraftInfoButtons} onIntel=${() => { setInfoOpen(false); setIntelOpen(true); }} onInfo=${() => { setIntelOpen(false); setInfoOpen(true); }} />
           ${inDraft ? html`<${LoadoutButton} from="draft" class="draft-order__loadout" />` : null}
           ${!solo ? html`<p class="draft-order__tip" data-testid="draft-tip">${draftTip({ timed, turnSeconds: turnLen, autoName: myPick ? null : autoName, selected: autoId === sel })}</p>` : null}
         </div>

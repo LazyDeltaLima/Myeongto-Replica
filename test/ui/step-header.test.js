@@ -33,6 +33,18 @@ const { DEFAULT_SEASON } = await import('../../shared/seasons.js');
 const ACT3 = 'act3autochess';
 const RULE = 'docs/rules/ui.md 「판 시작 단계 머리」';
 const localJson = (() => { try { return JSON.parse(read('data/local-assets.json')); } catch { return null; } })();
+/** A served picture's pixel size from its PNG header (public/<url>), null when the file is not on this machine. */
+function pngSize(url) {
+  let b;
+  try { b = readFileSync(path.join(ROOT, 'public', url)); } catch { return null; }
+  return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
+}
+/** The plate's border-image slices (css/screens/briefing.css .sh-mode::before) are cut for the 68-high plate. */
+function assertPlateSize(url, what) {
+  const size = pngSize(url);
+  if (size) assert.equal(size.h, 68, `${what}: ${url} is ${size.w}×${size.h}, not a 68-high mode plate — a same-named sprite of another prefab (ui/outer mode_normal / mode_abyss are the mode list's 147×40 buttons); see ${RULE}`);
+  return !!size;
+}
 
 function* walk(v) {
   if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
@@ -68,6 +80,7 @@ test('every mode of both seasons finds its plate picture, 规程 its character, 
         const art = stepHeadArt(step, m.difficulty, ACT3);
         assert.ok(art.cn && art.plate, `${m.modeId} (${m.difficulty}) step ${step}: no plate picture — StepChain falls back to the tag; see ${RULE}`);
         assert.match(art.plate, step === 1 ? /\/stageinfo\/img_title_mode_\w+\.png$/ : /\/diychoose\/mode_\w+\.png$/);
+        assertPlateSize(art.plate, `${m.modeId} step ${step}`);
         assert.ok(art.char && art.bubble, `step ${step}: the theme character and the bubble (${RULE})`);
         assert.match(art.bubble, step === 3 ? /\/diychoose\/pop\.png$/ : /\/stageinfo\/img_chat_babble\.png$/);
         assert.equal(!!art.split, step !== 3, 'step 3 draws the flat divider, steps 1–2 img_split_line');
@@ -77,16 +90,20 @@ test('every mode of both seasons finds its plate picture, 规程 its character, 
   });
   await withSeason(DEFAULT_SEASON, async () => {
     const modes = modesOf('data/config.json');
+    let sized = 0;
     assert.ok(modes.some((m) => m.difficulty === 'TRAINING') && modes.some((m) => m.difficulty === 'ABYSS'), 'the sweep sees the 盟约 modes');
     for (const m of modes) {
       for (const step of [1, 2]) {
         const art = stepHeadArt(step, m.difficulty, DEFAULT_SEASON);
-        assert.ok(!art.cn && art.plate, `${m.modeId} (${m.difficulty}) step ${step}: no plate picture in ui/outer (${RULE})`);
+        assert.ok(!art.cn && art.plate, `${m.modeId} (${m.difficulty}) step ${step}: no plate picture (${RULE})`);
+        if (step === 2) assert.match(art.plate, /\/bandChoose\/mode_\w+\.png$/, `${m.modeId} step 2: the 选择策略 screen's own sprite, never ui/outer's same-named button (${RULE})`);
+        if (assertPlateSize(art.plate, `${m.modeId} step ${step}`)) sized++;
         assert.ok(!art.char && !art.bubble, '盟约 has no character and no bubble');
       }
     }
     assert.match(stepHeadArt(1, 'TRAINING', DEFAULT_SEASON).plate, /img_title_mode_guide\.png$/);
     assert.match(stepHeadArt(2, 'TRAINING', DEFAULT_SEASON).plate, /mode_train\.png$/);
+    assert.ok(sized > 0 || !pngSize('/assets/ui/bandChoose/mode_hard.png'), 'the size check saw the 盟约 plates');
   });
 });
 
