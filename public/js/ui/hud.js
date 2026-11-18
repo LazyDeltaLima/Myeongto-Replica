@@ -28,7 +28,7 @@
 // (user playtest #3 item 3; the row's own label is ui/underframe.js TempRowNotice).
 
 import { useRef } from '../../vendor/hooks.module.js';
-import { Spectators } from './spectators.js';
+import { Spectators, spectatorCount } from './spectators.js';
 import { CapsuleTransHost, PingPanel, ModePanel, battleArt, modePanelArt } from './battleArt.js';
 import { PHASE } from '../../../shared/constants.js';
 import { html, Button, Icon, PingPill, Countdown, Tooltip, MicroLabel, DifficultyTag, useTicker } from './components.js';
@@ -426,6 +426,8 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
   // the mode badge over the ping, the two as high as the exit button (official CN screen 2026-11-18; 盟约 too, maintainer
   // decision 2026-11-18, with its own mode icons); the tag only without a picture
   const modeArt = modePanelArt(pub?.modeId);
+  // the spectator button (PR #19) only while someone watches; `has-spectators` narrows the bar for it on small phones
+  const watchers = useStore((s) => spectatorCount(s.room));
   return html`<header class=${cx('gtop', pen && 'is-pen')}>
     <div class="gtop__left">
       <${Button} variant="danger" size="lg" square=${true} icon="exit" onClick=${onExit} aria-label=${t('离开')} title=${t('离开 / 暂离')} class="gtop__exit tapx" />
@@ -436,7 +438,7 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
       </div>
     </div>
 
-    <div class="gtop__center brackets">
+    <div class=${cx('gtop__center brackets', watchers > 0 && 'has-spectators')}>
       <${BuffButton} effects=${effects} />
       <${Tooltip} text=${btn.left.tip} placement="bottom">
         <${CheckBtn} sprite=${btn.left.sprite} cls=${cx('gtop__iconbtn', btn.left.back && 'is-back')} label=${btn.left.label}
@@ -454,7 +456,7 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
           chev=${btn.right.grey ? null : '▶▶'} disabled=${btn.right.grey && !pen} onClick=${onRight} testid="check-enemy"
           hotkey=${hotkeyLabelOf('viewEnemy')} />
       <//>
-      <${Spectators} />
+      ${watchers > 0 ? html`<${Spectators} theme=${checkSprite(btn.right.sprite).theme} />` : null}
     </div>
 
     <div class="gtop__right">

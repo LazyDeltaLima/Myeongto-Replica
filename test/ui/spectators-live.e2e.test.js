@@ -37,6 +37,9 @@ describe('in-game spectators: docs/rules/ui.md 「플레이 중 관전자 수·�
     const request = (t, fields = {}) => page.evaluate(({ t, fields }) => globalThis.__SP__.net.request(t, fields), { t, fields });
     const waitPhase = (phase) => page.waitForFunction((p) => globalThis.__SP__?.store.get().match.public?.phase === p, { timeout: 20000 }, phase);
     const waitCount = (n) => page.waitForFunction((value) => document.querySelector('[data-testid="spectators-count"]')?.textContent === String(value), { timeout: 10000 }, n);
+    // no spectator: no button, and the bar keeps its width (docs/rules/ui.md 「플레이 중 관전자 수·명단」)
+    const waitNone = () => page.waitForFunction(() => !document.querySelector('[data-testid="spectators-open"], .spectators')
+      && !!document.querySelector('.gtop__center:not(.has-spectators)'), { timeout: 10000 });
     try {
       await page.goto(`${srv.url}/?lang=zh&board=2d`, { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => globalThis.__SP__?.store.get().connection.status === 'online' && !!document.querySelector('.lobby-screen'));
@@ -55,9 +58,7 @@ describe('in-game spectators: docs/rules/ui.md 「플레이 중 관전자 수·�
       if (season === 'act3autochess') { await waitPhase('DIY_CHOOSE'); await request('g.diyReady'); }
       await waitPhase('PREP');
       await loadingScreenGone(page);
-      await waitCount(0);
-      await page.click('[data-testid="spectators-open"]');
-      await page.waitForSelector('.spectators__empty');
+      await waitNone();
 
       const people = ['로도스박사', '민트박사', '작전분석가', '가나다라마바사아자차카타', '박사다섯'];
       for (let i = 0; i < people.length; i++) {
@@ -66,6 +67,11 @@ describe('in-game spectators: docs/rules/ui.md 「플레이 중 관전자 수·�
         clients.push({ client, welcome, name: people[i] });
         assert.equal((await client.request({ t: 'room.spectate', code })).t, 'ok');
         await waitCount(i + 1);
+        if (i === 0) {
+          assert.ok(await page.$('.gtop__center.has-spectators'), 'the bar knows the button shows');
+          await page.click('[data-testid="spectators-open"]');
+          await page.waitForSelector('.spectators__list');
+        }
         if (i === 3) {
           const four = await page.$eval('.spectators__list', (el) => ({ height: el.clientHeight, scroll: el.scrollHeight, rows: el.children.length }));
           assert.equal(four.rows, 4);
@@ -84,14 +90,20 @@ describe('in-game spectators: docs/rules/ui.md 「플레이 중 관전자 수·�
         const icon = document.querySelector('[data-testid="spectators-open"]').getBoundingClientRect();
         const separate = (a, b) => a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom;
         const ready = document.querySelector('.readybtn')?.getBoundingClientRect();
-        const enemy = document.querySelector('[data-testid="check-enemy"]').getBoundingClientRect();
-        const aligned = icon.left >= enemy.right + 6 && icon.left <= enemy.right + 16 && Math.abs(icon.top + icon.height / 2 - enemy.top - enemy.height / 2) < 2;
+        const enemyEl = document.querySelector('[data-testid="check-enemy"]');
+        const enemy = enemyEl.getBoundingClientRect();
+        // the 🔍 as drawn: its box, or a season theme's 73×41 art 6 units under the 81×44 box's centre (css/hud-art.css)
+        const u = enemy.height / 44;
+        const art = enemyEl.classList.contains('is-theme')
+          ? { top: enemy.top + enemy.height / 2 + 6 * u - 20.5 * u, height: 41 * u } : { top: enemy.top, height: enemy.height };
+        const aligned = icon.left >= enemy.right + 6 && icon.left <= enemy.right + 16
+          && Math.abs(icon.top - art.top) < 2 && Math.abs(icon.height - art.height) < 2;
         return aligned && (!ready || icon.right + 8 <= ready.left) && [...document.querySelectorAll('.gtop__meta, .readybtn, .toolbtn, [data-testid="check-enemy"]')].every((button) => {
           const control = button.getBoundingClientRect();
           return separate(popup, control) && separate(icon, control);
         });
       });
-      assert.ok(await clearsControls(), 'spectator icon must align right of enemy preview and clear ping / 准备就绪 (docs/rules/ui.md 「플레이 중 관전자 수·명단」)');
+      assert.ok(await clearsControls(), 'spectator icon must sit right of the enemy preview, as tall as it and level with it, and clear ping / 准备就绪 (docs/rules/ui.md 「플레이 중 관전자 수·명단」)');
       await page.evaluate(async () => { const { switchLang } = await globalThis.__SP__.import('./ui/lang.js'); await switchLang('ko'); });
       await page.waitForFunction(() => document.querySelector('.spectators__head h3')?.textContent.includes('관전자'));
       await page.waitForFunction(() => !document.querySelector('.parb'));
@@ -117,7 +129,7 @@ describe('in-game spectators: docs/rules/ui.md 「플레이 중 관전자 수·�
             overflow: list.scrollWidth > list.clientWidth, overflowX: getComputedStyle(el).overflowX };
         });
         assert.ok(bounds.left >= 0 && bounds.right <= width && bounds.top >= 0 && bounds.bottom <= height && !bounds.overflow && bounds.overflowX === 'hidden', `spectator popup fits ${width}x${height}: ${JSON.stringify(bounds)}`);
-        assert.ok(await clearsControls(), `spectator icon aligns right of the enemy preview and clears ping / 准备就绪 at ${width}x${height} (docs/rules/ui.md 「플레이 중 관전자 수·명단」)`);
+        assert.ok(await clearsControls(), `spectator icon sits right of the enemy preview, as tall as it and level with it, and clears ping / 准备就绪 at ${width}x${height} (docs/rules/ui.md 「플레이 중 관전자 수·명단」)`);
         await page.evaluate(() => globalThis.__SP__.store.patch('connection', { ping: 128 }));
         await page.waitForFunction(() => document.querySelector('.gtop__meta')?.textContent.includes('128'));
         await page.screenshot({ path: path.join(OUT, `spectators-live-${season}-${width}.png`) });
@@ -143,9 +155,9 @@ describe('in-game spectators: docs/rules/ui.md 「플레이 중 관전자 수·�
       assert.ok(await clearsControls(), 'combat roster also clears ping and controls');
       for (let i = clients.length - 1; i >= 0; i--) {
         assert.equal((await clients[i].client.request({ t: 'room.leave' })).t, 'ok');
-        await waitCount(i);
+        if (i > 0) await waitCount(i);
       }
-      await page.waitForSelector('.spectators__empty');
+      await waitNone();
       assert.deepEqual(errors, []);
     } finally {
       for (const c of clients) await c.client.close();

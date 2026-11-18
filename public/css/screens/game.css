@@ -417,9 +417,18 @@
   .buffs__dlg { --bu: max(var(--u, .015rem), .78px); max-height: calc(100vh - 3.4rem); max-height: calc(100dvh - 3.4rem); }
 }
 
-/* In-match spectator roster: the effects-list button/window, four compact rows and vertical scrolling only. */
-.spectators { --bu: var(--u, .015rem); --spectator-row: max(.4rem, 32px); position: relative; z-index: 6; flex: none; width: calc(var(--bu) * 59); height: calc(var(--bu) * 37); display: grid; place-items: center; }
-.gm .gtop .gtop__center > .buffs.spectators:not(.tip-wrap):not(.tooltip-anchor) { left: calc(100% + 8px); right: auto; top: 50%; width: calc(var(--bu) * 59); height: calc(var(--bu) * 37); transform: translateY(-50%); z-index: 6; }
+/* In-match spectator roster (ui/spectators.js, PR #19; mounted only while someone watches, maintainer decision
+   2026-11-18): the effects-list button/window, four compact rows and vertical scrolling only. The button is as tall as
+   the 🔍 on its left (check-enemy) and level with it: .46rem (phones max(.46rem, 26px), devices.css) centred on the bar;
+   on the art HUD the 81×44 bg_check_btn plate lifted 13 units (hud-art.css), centre 6.5 units over the bar's; with a
+   season theme's 73×41 🔍 art (is-theme) 6 units below that. */
+.spectators { --bu: var(--u, .015rem); --spectator-row: max(.4rem, 32px); position: relative; z-index: 6; flex: none; width: calc(var(--bu) * 59); height: .46rem; display: grid; place-items: center; }
+.gm .gtop .gtop__center > .buffs.spectators:not(.tip-wrap):not(.tooltip-anchor) { left: calc(100% + 8px); right: auto; top: 50%; width: calc(var(--bu) * 59); height: .46rem; transform: translateY(-50%); z-index: 6; }
+@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
+  .gm .gtop .gtop__center > .buffs.spectators:not(.tip-wrap):not(.tooltip-anchor) { height: max(.46rem, 26px); }
+}
+.gm.has-hud-art .gtop .gtop__center > .buffs.spectators:not(.tip-wrap):not(.tooltip-anchor) { height: calc(var(--u) * 44); transform: translateY(calc(-50% - var(--u) * 6.5)); }
+.gm.has-hud-art .gtop .gtop__center > .buffs.spectators.is-theme:not(.tip-wrap):not(.tooltip-anchor) { height: calc(var(--u) * 41); transform: translateY(calc(-50% - var(--u) * .5)); }
 .spectators .buffs__btn { position: static; width: 100%; height: 100%; transform: none; justify-content: center; padding: 0; gap: calc(var(--bu) * 4); }
 .spectators .spectators__dialog { left: auto; right: 0; top: calc(100% + 8px); width: max(2.65rem, 220px); max-width: calc(100vw - 24px); max-height: none; padding-bottom: 0; overflow: hidden; border: 1px solid var(--mint-800); }
 .spectators .spectators__head { align-items: center; padding: max(.08rem, 6px) max(.12rem, 9px); }
@@ -433,9 +442,9 @@
 .spectators__person .icon { width: 65%; height: 65%; }
 .spectators .spectators__name { min-width: 0; font-size: max(.15rem, 12px); line-height: 1.25; overflow-wrap: anywhere; }
 .spectators__row.is-offline { opacity: .55; }
-.spectators .spectators__empty { padding: .22rem .12rem; margin: 0; font-size: max(.15rem, 12px); }
+/* phones in landscape: the bar narrows to leave the button its room before the clock — only while it shows */
 @media (max-width: 720px) and (orientation: landscape) {
-  .gm.has-hud-art .gtop .gtop__center { width: min(calc(var(--u) * 692), calc(100vw - 324px)); }
+  .gm.has-hud-art .gtop .gtop__center.has-spectators { width: min(calc(var(--u) * 692), calc(100vw - 324px)); }
 }
 
 /* ---- corner: emote + settings --------------------------------------------------------------------------------- */

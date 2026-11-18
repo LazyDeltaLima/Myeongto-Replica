@@ -1,5 +1,6 @@
 // Read-only in-match spectator roster (maintainer decision 2026-11-18).
-// room.state owns the roster in both seasons, including disconnected seats retained by the server.
+// room.state owns the roster in both seasons, including disconnected seats retained by the server. The HUD shows the
+// button only while the roster has someone in it (spectatorCount; ui/hud.js TopBar).
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, MicroLabel } from './components.js';
 import { GIcon } from './gameComponents.js';
@@ -8,10 +9,21 @@ import { useStore } from '../store.js';
 import { useLang } from './lang.js';
 import { t } from '../../../shared/i18n.js';
 
-export function Spectators() {
+const seatsOf = (roster) => (Array.isArray(roster) ? roster : []).filter((s) => s && typeof s.playerId === 'string');
+
+/** How many spectator seats the room has (room.state.spectators, well-formed rows only): a number, so the top bar that
+ * reads it redraws only when it changes. @param {any} room @returns {number} */
+export function spectatorCount(room) { return seatsOf(room?.spectators).length; }
+
+/**
+ * The eye button and its roster window; the caller mounts it only while spectatorCount is above 0. `theme`: the 🔍 on
+ * its left draws a season theme's art (ui/hud.js checkSprite), whose height and level the button follows
+ * (css/screens/game.css).
+ */
+export function Spectators({ theme = false }) {
   useLang();
   const roster = useStore((s) => s.room?.spectators);
-  const list = useMemo(() => (Array.isArray(roster) ? roster : []).filter((s) => s && typeof s.playerId === 'string'), [roster]);
+  const list = useMemo(() => seatsOf(roster), [roster]);
   const [open, setOpen] = useState(false);
   const root = useRef(null);
   const button = useRef(null);
@@ -31,7 +43,7 @@ export function Spectators() {
   }, [open]);
   const close = () => { setOpen(false); button.current?.focus(); };
   const bg = localAsset('ui/battle', 'bg_player_info');
-  return html`<div class=${`buffs spectators${open ? ' is-open' : ''}`} ref=${root}>
+  return html`<div class=${`buffs spectators${theme ? ' is-theme' : ''}${open ? ' is-open' : ''}`} ref=${root}>
     <button type="button" class="buffs__btn tapx" ref=${button} data-testid="spectators-open"
       aria-haspopup="dialog" aria-expanded=${open} aria-controls=${open ? 'match-spectators' : undefined}
       aria-label=${t('观战者 {n} 人，查看名单', { n: list.length })}
@@ -43,11 +55,11 @@ export function Spectators() {
       <header class="edrawer__top spectators__head"><h3>${t('观战者')} <b class="num">${list.length}</b><${MicroLabel}>SPECTATORS</${MicroLabel}></h3>
         <button type="button" class="edrawer__close" aria-label=${t('关闭')} data-testid="spectators-close" onClick=${close}><${Icon} name="close" /></button>
       </header>
-      ${list.length ? html`<ul class="buffs__list spectators__list">${list.map((s) => html`<li key=${s.playerId}
+      <ul class="buffs__list spectators__list">${list.map((s) => html`<li key=${s.playerId}
         class=${`buffs__row spectators__row${s.connected === false ? ' is-offline' : ''}`} data-player-id=${s.playerId}>
         <span class="spectators__person"><${Icon} name=${s.connected === false ? 'wifiOff' : 'user'} /></span>
         <span class="buffs__name spectators__name">${s.name || t('博士')}</span>
-      </li>`)}</ul>` : html`<p class="edrawer__empty spectators__empty">${t('暂无观战者')}</p>`}
+      </li>`)}</ul>
     </section>` : null}
   </div>`;
 }

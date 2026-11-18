@@ -42,10 +42,10 @@ Visuals: oblique perspective board (tilted ~30°, trapezoid tiles), raised highl
 ## 10. Client UI (screens & components)
 
 The in-match HUD, immediately right of the enemy-preview button, shows an eye icon and the number of spectator seats in `room.state.spectators`
-(maintainer decision 2026-11-18, PR #19). `ui/spectators.js` subscribes to that roster directly in both seasons; opening the
+(maintainer decision 2026-11-18, PR #19), only while that number is above zero, as tall as the enemy-preview button and level with it. `ui/spectators.js` subscribes to that roster directly in both seasons; opening the
 button shows the names in the HUD effects-list window style. Four compact rows fit at once, a fifth scrolls vertically,
 and horizontal scrolling is disabled. A retained disconnected seat stays counted and is dimmed, as in the room roster.
-An empty roster shows zero and an empty-state message. Closing the window or pressing Escape leaves gameplay alone.
+With no spectator left the button goes away, and on phones in landscape the round bar keeps its full width. Closing the window or pressing Escape leaves gameplay alone.
 The window opens below the spectator icon, clear of the ping, ready button and shop tools.
 
 Look & feel: research 06 §11–§12 (near-black green-grey panels, mint `#4ed8af` accents, gold prices, bracket frames, hexagon badges, bond discs, 7-segment countdown). Fonts: Noto Sans SC (Google Fonts with local fallback), self-hosted Lexend Exa for numerals (`--font-num`, pinned at 500; the official Bold spots 700, the Normal spots Novecento Wide — docs/rules/ui.md 「HUD 숫자 글꼴」), Bender/Novecento for Latin micro-labels.
