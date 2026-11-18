@@ -85,6 +85,8 @@ describe('strategy-draft enemy intel', { skip: !ENABLED && 'set SP_E2E=1 and CHR
       await page.click(`[data-testid="${btn}"]`);
       await page.waitForSelector(`${dlg} .modal__title`);
       assert.equal(await page.$eval(`${dlg} .modal__title`, (el) => el.textContent.trim()), title);
+      // the section below names it already: the title is for screen readers only (maintainer decision 2026-11-18)
+      assert.ok(await page.$eval(`${dlg} .modal__title`, (el) => el.classList.contains('sr-only') && el.getBoundingClientRect().width <= 1), `${title}: title hidden`);
       await page.keyboard.press('Escape');
       await page.waitForFunction((sel) => !document.querySelector(sel), {}, dlg);
     }

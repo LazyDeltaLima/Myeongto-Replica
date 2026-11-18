@@ -465,10 +465,10 @@ const modalStack = []; // open modals, topmost last: only the topmost handles ke
 
 /**
  * Modal dialog (declarative). Esc / backdrop click call onClose.
- * @param {{ open: boolean, title?: any, micro?: string, tone?: string, onClose?: Function, actions?: any,
+ * @param {{ open: boolean, title?: any, hideTitle?: boolean, micro?: string, tone?: string, onClose?: Function, actions?: any,
  *   width?: string, closeOnBackdrop?: boolean, class?: string, children?: any }} props
  */
-export function Modal({ open, title, micro, tone = 'mint', onClose, actions, width, closeOnBackdrop = true, class: cls, veilClass, children }) {
+export function Modal({ open, title, hideTitle = false, micro, tone = 'mint', onClose, actions, width, closeOnBackdrop = true, class: cls, veilClass, children }) {
   const boxRef = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -525,7 +525,7 @@ export function Modal({ open, title, micro, tone = 'mint', onClose, actions, wid
       <div class="modal__stripe" aria-hidden="true"></div>
       ${title || micro ? html`<header class="modal__head">
         ${micro ? html`<${MicroLabel}>${micro}<//>` : null}
-        ${title ? html`<h2 class="modal__title">${title}</h2>` : null}
+        ${title ? html`<h2 class=${cx('modal__title', hideTitle && 'sr-only')}>${title}</h2>` : null}
       </header>` : null}
       <div class="modal__body">${children}</div>
       ${actions ? html`<footer class="modal__actions">${actions}</footer>` : null}

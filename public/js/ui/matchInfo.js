@@ -382,8 +382,8 @@ export function MatchInfo({ model }) {
  * draft's turn and countdown) sits left of 关闭.
  * @param {{ open: boolean, onClose: Function, model: MatchInfoModel|null, title?: string, status?: any }} props
  */
-export function MatchInfoDialog({ open, onClose, model, title = null, status = null }) {
-  return html`<${Modal} open=${open && !!model} onClose=${onClose} title=${title ?? t('本局信息')} micro="MATCH INFO // BONDS & BANNED OPERATORS" class="minfo-dlg"
+export function MatchInfoDialog({ open, onClose, model, title = null, hideTitle = false, status = null }) {
+  return html`<${Modal} open=${open && !!model} onClose=${onClose} title=${title ?? t('本局信息')} hideTitle=${hideTitle} micro="MATCH INFO // BONDS & BANNED OPERATORS" class="minfo-dlg"
     actions=${html`${status ? html`<div class="minfo-dlg__status" data-testid="match-info-status">${status}</div>` : null}
       <${Button} variant="secondary" icon="close" data-autofocus data-testid="match-info-close" onClick=${onClose}>${t('关闭')}<//>`}>
     ${open && model ? html`<${MatchInfo} model=${model} />` : null}
