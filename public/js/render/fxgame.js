@@ -2869,7 +2869,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // On a unit, a base root faces as the unit does: `BattleController.CreateEffect(key, target, source)` plays it with
     // the target's `faceTo`, `Entity.AddBuffEffect` with its `faceVector` (±x). The old default `facing` 1 turned every
     // such root to +x: −90° (帝国炮火先兆者's shell fell slanted, maintainer report). A spot on the ground stays up
-    // [추정·미조사: a spot's direction is the caller's FixedPosition.faceTo, not read per caller]
+    // (2026-11-18, official client: every spot the base roots are made on here — range outlines, 谢拉格's snow, a tile's
+    // `_effect`, 萨尔贡's 流沙 on its tile — is created without a direction or with an unturned tile's up; docs/rules/fx.md)
     const own = !aim && !dir && facing == null && unit && !def.face && Number.isInteger(def.bodyFace) && !Array.isArray(def.mainRot);
     const d = aim ? { x: Number(at.x) - Number(aim.x), y: Number(at.y) - Number(aim.y) } : own ? unitFaceTo(unit, !!entry.buff) : dir;
     const sp = playSpeed(def.face, entry.speed ?? 1, gameRate());
