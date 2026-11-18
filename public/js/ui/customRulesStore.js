@@ -7,8 +7,9 @@
 //   setDraft(rules)   the dialog's 应用: the lobby's settings from now on
 //   savePreset / addPreset / renamePreset / deletePreset / selectPreset   the dialog's preset row
 //   encodeCustomCode / decodeCustomCode   the share code: `SPC<version>.` + base64url of the deflated JSON of the
-//                     settings that differ from the official ones (`SPC<version>j.` = not compressed, where the browser
-//                     has no CompressionStream); decoding fills the rest with the official values
+//                     settings that differ from the official ones and the season they were made in (`s`; `SPC<version>j.`
+//                     = not compressed, where the browser has no CompressionStream); decoding fills the rest with the
+//                     official values, and the dialog fits them to its season (shared/seasonBorrow.js fitCustomToSeason)
 // Storage: localStorage `sp.pref.customRules` = { v, presets, active, draft } (every rules object through
 // shared/ruleset.js sanitizeCustom, so a stored or pasted one never holds a value out of range), kept per 卫戍协议
 // season as the loadout and the 自选 presets are (loadoutSync.js seasonPref: the default season's under the key itself,
@@ -19,7 +20,7 @@
 
 import { createStore, loadPref, savePref } from '../store.js';
 import { sanitizeCustom, CUSTOM_OFFICIAL, CUSTOM_VERSION } from '../../../shared/ruleset.js';
-import { DEFAULT_SEASON, seasonOf } from '../../../shared/seasons.js';
+import { DEFAULT_SEASON, SEASONS, seasonOf } from '../../../shared/seasons.js';
 import { seasonPref } from './loadoutSync.js';
 
 export const CUSTOM_RULES_PREF = 'customRules';
@@ -165,9 +166,13 @@ export function customDelta(rules) {
   return out;
 }
 
-/** The share code of settings. @param {unknown} rules @returns {Promise<string>} */
-export async function encodeCustomCode(rules) {
-  const json = new TextEncoder().encode(JSON.stringify(customDelta(rules)));
+/**
+ * The share code of settings, naming the season they were made in (`s`: the season whose settings the store holds —
+ * a code read in another season drops what was that season's own; a version that does not know `s` ignores it).
+ * @param {unknown} rules @param {string} [season] @returns {Promise<string>}
+ */
+export async function encodeCustomCode(rules, season = rulesSeason) {
+  const json = new TextEncoder().encode(JSON.stringify({ ...customDelta(rules), s: seasonOf(season) }));
   if (typeof CompressionStream === 'function') {
     try { return `SPC${CUSTOM_VERSION}.${toB64url(await pipe(json, new CompressionStream('deflate-raw')))}`; } catch { /* plain below */ }
   }
@@ -176,9 +181,10 @@ export async function encodeCustomCode(rules) {
 
 /**
  * The settings of a share code (spaces and line breaks ignored). `newer` = made by a later version: what this one
- * does not know is left at its official value.
+ * does not know is left at its official value. `season` = the season the code was made in (null: a code made before
+ * codes named it).
  * @param {unknown} text
- * @returns {Promise<{ ok: true, rules: any, newer: boolean } | { ok: false }>}
+ * @returns {Promise<{ ok: true, rules: any, newer: boolean, season: string | null } | { ok: false }>}
  */
 export async function decodeCustomCode(text) {
   const s = typeof text === 'string' ? text.replace(/\s+/g, '') : '';
@@ -192,7 +198,8 @@ export async function decodeCustomCode(text) {
     }
     const raw = JSON.parse(new TextDecoder().decode(bytes));
     if (!isObj(raw)) return { ok: false };
-    return { ok: true, rules: sanitizeCustom(raw), newer: Number(m[1]) > CUSTOM_VERSION };
+    const season = typeof raw.s === 'string' && Object.hasOwn(SEASONS, raw.s) ? raw.s : null;
+    return { ok: true, rules: sanitizeCustom(raw), newer: Number(m[1]) > CUSTOM_VERSION, season };
   } catch {
     return { ok: false };
   }

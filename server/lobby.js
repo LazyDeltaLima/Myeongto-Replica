@@ -194,6 +194,7 @@ import { isLocalDiyPick } from '../shared/local-diy.js'; // local patch: the 自
 import { KITTED_CHARS } from './sim/content/kits/index.js';
 import { Matchmaker } from './matchmaking.js';
 import { resolveRuleset, sameRuleset, rulesetWire } from '../shared/ruleset.js';
+import { borrowSeasons, fitCustomToSeason } from '../shared/seasonBorrow.js';
 import { DEFAULT_SEASON, offeredSeasons, seasonFeature, seasonOf } from '../shared/seasons.js';
 import { BOT_NAMES } from '../shared/botNames.js';
 
@@ -658,7 +659,7 @@ export class Lobby {
     if (!code) return fail(ERR.INTERNAL, 'no room code available');
     if (cur) this.removeMember(cur, session.playerId);
     const room = new Room(code, mode, difficulty, this.now(), size);
-    room.ruleset = resolveRuleset({ preset: ruleset, custom });
+    room.ruleset = this.seasonRuleset(resolveRuleset({ preset: ruleset, custom }), season);
     room.season = season;
     room.grade = roomGrade;
     room.ownerKey = key;
@@ -886,7 +887,7 @@ export class Lobby {
     if (!room) return fail(ERR.NOT_IN_ROOM);
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
-    const next = resolveRuleset({ preset, custom });
+    const next = this.seasonRuleset(resolveRuleset({ preset, custom }), room.season);
     const changed = !sameRuleset(room.ruleset, next);
     if (room.matching && changed) return fail(ERR.MATCHING, 'cancel the matchmaking first');
     this.dropReplay(room, session.playerId);
@@ -1489,6 +1490,19 @@ export class Lobby {
     ctx.disposed = true;
     ctx.live = false;
     try { ctx.match?.dispose?.(); } catch (e) { this.log.error('[lobby] match.dispose threw', e); }
+  }
+
+  /**
+   * A room's custom ruleset with only what its season's data can use (shared/seasonBorrow.js fitCustomToSeason:
+   * settings made in another season name that season's bonds, leaders, stages and types); other presets as they are.
+   * The match ignores what this drops, so it plays the same — the room's state, its summary and its diff count show
+   * what the match plays. @param {ReturnType<typeof resolveRuleset>} rs @param {string} season
+   */
+  seasonRuleset(rs, season) {
+    if (rs.preset !== 'custom') return rs;
+    const foreign = borrowSeasons(season).map((s) => /** @type {[string, any]} */ ([s, this.safeData(s)]));
+    const { rules, dropped } = fitCustomToSeason(rs.custom, this.safeData(season), foreign, { season });
+    return dropped ? resolveRuleset({ preset: 'custom', custom: rules }) : rs;
   }
 
   /** The game data (of a season other than the default: that season's, shared/seasons.js), never throwing. */

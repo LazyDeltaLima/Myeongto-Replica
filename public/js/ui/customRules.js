@@ -29,7 +29,7 @@ import {
   sanitizeCustom, customDiffs, customRoundPlan, customPrepSeconds, customStagePool, customPoolCount, CUSTOM_OFFICIAL, CUSTOM_CASUAL,
   CUSTOM_LIMITS, CUSTOM_FIRST_HALF_STAGES, OFFICIAL_TYPE_COUNT, officialBans, customBanLimits, seasonOfficialOptions, officialStep, stepScale, stepPreset, CUSTOM_STEP_PRESETS,
 } from '../../../shared/ruleset.js';
-import { borrowSeasons, lendableStage, lendableType, sameField } from '../../../shared/seasonBorrow.js';
+import { borrowSeasons, fitCustomToSeason, lendableStage, lendableType, sameField } from '../../../shared/seasonBorrow.js';
 import { seasonInfo } from '../../../shared/seasons.js';
 import { modeIdFor, DIFFICULTIES, LARGE_SEATS, isGrade, gradeDifficulty } from '../../../shared/constants.js';
 import { t, N_ } from '../../../shared/i18n.js';
@@ -132,6 +132,20 @@ const Sec = ({ title, sub, children }) => html`<section class="crx-sec">
 
 // ---- the dialog --------------------------------------------------------------------------------------------------
 
+/**
+ * Custom settings fitted to the season on screen (shared/seasonBorrow.js fitCustomToSeason): its own files (the dialog
+ * has them loaded) and the files of the seasons that lend to it, loaded first. `from` = the season a share code names.
+ * @param {any} rules @param {string | null} from
+ */
+async function fitToSeason(rules, from) {
+  const season = data.season();
+  const lenders = borrowSeasons(season).map((sid) => [sid, data.seasonStore(sid)]).filter(([, st]) => st);
+  await Promise.all(lenders.flatMap(([, st]) => ['stages', 'factions'].map((n) => st.load(n))));
+  const own = Object.fromEntries(['bonds', 'bosses', 'stages', 'factions', 'config'].map((n) => [n, data.getRaw(n)]));
+  const foreign = lenders.map(([sid, st]) => [sid, { stages: st.getRaw('stages'), factions: st.getRaw('factions') }]);
+  return fitCustomToSeason(rules, own, foreign, { season, from });
+}
+
 function CustomRulesBody({ init, readonly, live, roomMode, difficulty, grade, size, onApply }) {
   useData('config', 'bonds', 'bosses', 'stages', 'factions', 'assets', 'local');
   const [own, setWork] = useState(init);
@@ -182,16 +196,20 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, grade, si
     if (rules) setWork(rules);
   };
   const copyCode = async () => {
-    const code = await encodeCustomCode(work);
+    const code = await encodeCustomCode(work, data.season());
     if (await copyText(code)) toast(t('已复制规则代码'), 'ok');
     else setPaste({ text: code, copy: true });
   };
   const readCode = async () => {
     const r = await decodeCustomCode(paste?.text);
     if (!r.ok) { toast(t('无法读取这个规则代码'), 'error'); return; }
-    setWork(r.rules);
+    // a code made in another season names its bonds, leaders, stages and types: keep what this season can use
+    const { rules, dropped } = await fitToSeason(r.rules, r.season);
+    setWork(rules);
     setPaste(null);
-    toast(r.newer ? t('已读取规则代码（来自更新的版本，本版本没有的设置保持官方值）') : t('已读取规则代码'), r.newer ? 'warn' : 'ok');
+    if (r.newer) toast(t('已读取规则代码（来自更新的版本，本版本没有的设置保持官方值）'), 'warn');
+    else if (dropped) toast(t('已读取规则代码（本赛季用不到的 {n} 项设置已去除）', { n: dropped }), 'warn');
+    else toast(t('已读取规则代码'), 'ok');
   };
   const saveMine = () => newPreset(nextPresetName(t('房间规则')));
 

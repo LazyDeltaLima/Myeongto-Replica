@@ -113,6 +113,16 @@ test('share code: only the settings that differ from the official ones, compress
   assert.equal(back.ok, true);
   assert.deepEqual(back.rules, rules);
   assert.equal(back.newer, false);
+  // the code names the season it was made in (docs/rules/ui.md 「규칙 모드」: the dialog fits a code of another season
+  // to its own with shared/seasonBorrow.js fitCustomToSeason, test/match/custom-borrow.test.js); none or an unknown one = null
+  assert.equal(back.season, 'act2autochess');
+  assert.equal((await S.decodeCustomCode(await S.encodeCustomCode(rules, 'act3autochess'))).season, 'act3autochess');
+  const plain = (o) => `SPC1j.${Buffer.from(JSON.stringify(o)).toString('base64url')}`;
+  assert.equal((await S.decodeCustomCode(plain({ enemies: { hp: 120 } }))).season, null);
+  assert.equal((await S.decodeCustomCode(plain({ s: 'nowhere' }))).season, null);
+  const dlg = read('public/js/ui/customRules.js');
+  assert.match(dlg, /encodeCustomCode\(work, data\.season\(\)\)/, 'the dialog\'s code names the season on screen');
+  assert.match(dlg, /await fitToSeason\(r\.rules, r\.season\)/, 'a pasted code is fitted to the season on screen');
   for (const bad of ['', 'junk', 'SPC1.@@@', 'SPC1.AAAA', null, 42]) assert.equal((await S.decodeCustomCode(bad)).ok, false, String(bad));
   // a hand-made code: out-of-range values come back clamped; a newer version is read with a warning
   const raw = Buffer.from(JSON.stringify({ enemies: { hp: 99999 } })).toString('base64url');

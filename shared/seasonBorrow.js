@@ -11,6 +11,8 @@
 //   borrowPlan(own, foreign, ids)                which season each asked id comes from (only the ids `own` lacks)
 //   borrowFile(name, ownFile, foreignFiles, plan)  one file (stages / enemies / factions) with the borrowed records
 //   withBorrowed(own, foreign, ids)              a season's whole data with them (the server's match, the sim)
+//   fitCustomToSeason(custom, own, foreign, opts)  custom settings with only what the season's data can use (a pasted
+//                                                share code, a room's ruleset: lobby room.create / room.setRuleset)
 //
 // A borrowed record is the other season's own — a battlefield record carries its devices, terrain and runes, a type
 // its factions entries — and every enemy record the own season lacks comes along (the borrowed types' enemies, their
@@ -19,6 +21,7 @@
 // official draw (server/match/waves.js keeps those to the own types).
 
 import { SEASONS, seasonOf } from './seasons.js';
+import { sanitizeCustom, customBanLimits, CUSTOM_FIRST_HALF_STAGES } from './ruleset.js';
 
 /** The files a borrow changes. */
 export const BORROW_FILES = Object.freeze(['stages', 'enemies', 'factions']);
@@ -197,4 +200,72 @@ export function withBorrowed(own, foreign, ids, extraStages = []) {
     out[name] = merged === own[name] ? merged : Object.freeze(merged);
   }
   return Object.freeze(out);
+}
+
+/**
+ * Custom settings with only what `season`'s data can use (maintainer request 2026-11-19): settings made in another
+ * season — a share code, a preset kept before the settings were stored per season — name that season's bonds, leaders,
+ * stages and 特训敌人 types, its bond ban range and what it borrowed. Kept: the bonds (`bonds.pick`) and leaders
+ * (`bosses.ban`) the season has; the ban counts within its range (customBanLimits); `stages.firstHalf` only where its
+ * data has those stages; `stages.extra` only what another season lends it (borrowPlan: not its own, not one that plays
+ * as its own); `stages.ban` only its own stages and those extra ones; `types.pick` 'ban' / 'force' of its own draw and
+ * 'allow' / 'force' of a type another season lends. `from` = the season the settings were made in (a share code says
+ * it): a type that season picked was its own type, so another season does not turn it into a borrowed one — the
+ * pick is dropped, as the season's own types it borrowed become its own picks ('force' kept, 'allow' = random). A
+ * file `own` lacks leaves its part as it is. The match ignores whatever this drops (GameData keeps the ids its data
+ * knows and caps the ban counts), so a fitted ruleset plays the same; the room's summary and the dialog then show
+ * what the match plays.
+ * @param {unknown} raw custom settings
+ * @param {{ bonds?: any, bosses?: any, stages?: any, factions?: any, config?: any }} own the season's own files (a
+ *   borrowed record in them is skipped)
+ * @param {[string, { stages?: any, factions?: any }][]} foreign [season, files] in borrowSeasons(season) order
+ * @param {{ season?: string, from?: string | null }} [opts]
+ * @returns {{ rules: ReturnType<typeof sanitizeCustom>, dropped: number }} `dropped` = the settings removed or changed
+ */
+export function fitCustomToSeason(raw, own, foreign, { season, from = null } = {}) {
+  const c = sanitizeCustom(raw);
+  let dropped = 0;
+  const keep = (list, ok) => { const out = list.filter(ok); dropped += list.length - out.length; return out; };
+  const ownOf = (file) => (isObj(file) ? Object.fromEntries(Object.entries(file).filter(([, r]) => isObj(r) && !r.borrowed)) : null);
+  const stages = ownOf(own?.stages);
+  const types = isObj(own?.factions) ? ownOf(own.factions.types) || {} : null;
+  const bonds = c.bonds;
+  let { banCore, banAddon } = bonds;
+  if (own?.config) {
+    const lim = customBanLimits(own.config);
+    const clamp = (v, [lo, hi]) => { if (v == null) return v; const x = Math.min(hi, Math.max(lo, v)); if (x !== v) dropped++; return x; };
+    banCore = clamp(banCore, lim.core);
+    banAddon = clamp(banAddon, lim.addon);
+  }
+  const bondPick = isObj(own?.bonds) ? Object.fromEntries(keep(Object.entries(bonds.pick), ([k]) => Object.hasOwn(own.bonds, k))) : bonds.pick;
+  const bossBan = isObj(own?.bosses) ? keep(c.bosses.ban, (id) => Object.hasOwn(own.bosses, id)) : c.bosses.ban;
+  // what another season lends: borrowPlan on the own records only (a room's borrowed ones are in a browser's view)
+  const lent = borrowPlan({ stages: stages || {}, factions: { types: types || {} } }, foreign,
+    { stages: c.stages.extra, types: Object.keys(c.types.pick).sort() }, CUSTOM_FIRST_HALF_STAGES);
+  const lentStages = new Set((lent?.stages || []).map(([id]) => id));
+  const lentTypes = new Set((lent?.types || []).map(([id]) => id));
+  const sameSeason = !from || !season || seasonOf(from) === seasonOf(season);
+  let { firstHalf, extra, ban } = c.stages;
+  if (stages) {
+    if (firstHalf && !CUSTOM_FIRST_HALF_STAGES.some((id) => Object.hasOwn(stages, id))) { firstHalf = false; dropped++; }
+    extra = keep(extra, (id) => lentStages.has(id));
+    ban = keep(ban, (id) => (Object.hasOwn(stages, id) && !stages[id].kind) || extra.includes(id));
+  }
+  const typePick = types
+    ? Object.fromEntries(keep(Object.entries(c.types.pick), ([k, v]) => {
+      const t = types[k];
+      if (t && t.involveRandom) return v === 'ban' || v === 'force';
+      return sameSeason && lentTypes.has(k) && (v === 'allow' || v === 'force');
+    }))
+    : c.types.pick;
+  return {
+    rules: sanitizeCustom({
+      ...c,
+      bonds: { ...bonds, banCore, banAddon, pick: bondPick },
+      types: { ...c.types, pick: typePick },
+      bosses: { ...c.bosses, ban: bossBan },
+      stages: { ...c.stages, firstHalf, extra, ban },
+    }),
+    dropped,
+  };
 }

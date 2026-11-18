@@ -8,7 +8,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { sanitizeCustom, customDiffs, officialStep, stepScale, customStagePool } from '../../shared/ruleset.js';
-import { customBorrowIds, borrowPlan, withBorrowed, borrowSeasons, sameField } from '../../shared/seasonBorrow.js';
+import { customBorrowIds, borrowPlan, withBorrowed, borrowSeasons, sameField, fitCustomToSeason } from '../../shared/seasonBorrow.js';
+import { startServer } from '../../server/index.js';
+import { StubMatch } from '../../server/match/StubMatch.js';
+import { TestClient } from '../helpers/wsClient.js';
 import { GameData } from '../../server/match/gamedata.js';
 import { setupMatchWaves } from '../../server/match/waves.js';
 import { borrowedData } from '../../server/match/borrow.js';
@@ -133,6 +136,81 @@ test('settings made in another season: an own stage in stages.extra never joins 
       ruleset: custom({ stages: { extra: ['act3autochess_m09', 'act3autochess_m10'] } }) }).start();
     assert.equal(h.m.stageId, 'act3autochess_m01', `seed ${seed}`);
     h.m.dispose();
+  }
+});
+
+// docs/rules/ui.md 「규칙 모드 — 커스텀」 프리셋: settings made in another season (a share code, a preset kept before the
+// settings were per season) name that season's bonds, leaders, stages and types — fitCustomToSeason keeps what the
+// season's data can use
+const ACT2_ID = 'act2autochess';
+const seasonFiles = (sid) => (sid === ACT3_ID ? ACT3 : DATA);
+const fit = (raw, season, from) => fitCustomToSeason(raw, seasonFiles(season), borrowSeasons(season).map((s) => [s, seasonFiles(s)]), { season, from });
+
+test('fitCustomToSeason: settings made in another season keep only what this season can use', { skip }, () => {
+  // a 规程 code in 盟约: its ban counts over 盟约's range, its own bonds / leaders / stages / types
+  const act3Code = { bonds: { banCore: 5, banAddon: 5, pick: { ursusShip: 'ban', yanShip: 'ban' } },
+    types: { pick: { CRITIC: 'force', REBORN: 'allow', FLY: 'force', DOT: 'allow', TIMES: 'ban' } },
+    bosses: { ban: ['boss_11', 'boss_2'] },
+    stages: { ban: ['act3autochess_m09', 'act2autochess_m03'], extra: ['act2autochess_m04'] } };
+  const a = fit(act3Code, ACT2_ID, ACT3_ID);
+  assert.deepEqual([a.rules.bonds.banCore, a.rules.bonds.banAddon], [3, 4], 'the ban counts within 盟约\'s range');
+  assert.deepEqual(a.rules.bonds.pick, { yanShip: 'ban' }, 'a bond 盟约 lacks is dropped');
+  assert.deepEqual(a.rules.bosses.ban, ['boss_2'], 'a leader 盟约 lacks is dropped');
+  // 规程's own CRITIC / REBORN do not become borrowed in 盟约; its picks of the types 盟约 has stay ('allow' = random)
+  assert.deepEqual(a.rules.types.pick, { FLY: 'force', TIMES: 'ban' });
+  assert.deepEqual([a.rules.stages.ban, a.rules.stages.extra], [['act2autochess_m03'], []], 'an own stage is no extra; a 规程 stage ban goes');
+  assert.equal(a.dropped, 9);
+  // a code that names no season (made before codes did): 规程's types stay borrowed, as the settings say
+  assert.deepEqual(fit(act3Code, ACT2_ID, null).rules.types.pick, { CRITIC: 'force', FLY: 'force', REBORN: 'allow', TIMES: 'ban' });
+  // a 盟约 code in 规程: the 上半 switch (规程 has no 上半 stage), an extra that is 规程's own, a 盟约 type 规程 borrowed
+  const b = fit({ stages: { firstHalf: true, extra: ['act3autochess_m09', 'act2autochess_m03'], ban: ['act2autochess_m03', 'act1autochess_m01'] },
+    types: { pick: { CRITIC: 'force', REBORN: 'allow' } } }, ACT3_ID, ACT2_ID);
+  assert.equal(b.rules.stages.firstHalf, false);
+  assert.deepEqual([b.rules.stages.extra, b.rules.stages.ban], [['act2autochess_m03'], ['act2autochess_m03']]);
+  assert.deepEqual(b.rules.types.pick, { CRITIC: 'force' }, '盟约 borrowed CRITIC: forced, 规程\'s own now; REBORN allowed = random');
+  // settings of the season itself come back as they are
+  for (const [season, raw] of [[ACT2_ID, { bonds: { banCore: 2, pick: { lateranoShip: 'allow' } }, types: { pick: { CRITIC: 'allow', FLY: 'ban' } },
+    stages: { extra: ['act3autochess_m10'], ban: ['act3autochess_m10', 'act2autochess_m01'] }, bosses: { ban: ['boss_5'] } }],
+  [ACT3_ID, { bonds: { banCore: 5, banAddon: 5, pick: { ursusShip: 'ban' } }, types: { pick: { CRITIC: 'force' } }, stages: { extra: ['act1autochess_m06'] } }]]) {
+    const r = fit(raw, season, season);
+    assert.equal(r.dropped, 0, season);
+    assert.deepEqual(r.rules, sanitizeCustom(raw), season);
+  }
+});
+
+test('fitCustomToSeason: the fitted settings draw the same match (stage, leader, types) as the ones given', { skip }, () => {
+  const raw = { bonds: { banCore: 5, pick: { ursusShip: 'ban' } }, types: { pick: { DOT: 'allow', FLY: 'force', TIMES: 'ban' } },
+    bosses: { ban: ['boss_11', 'boss_2'] }, stages: { ban: ['act3autochess_m09'], extra: ['act2autochess_m04'] } };
+  const fitted = fit(raw, ACT2_ID, ACT3_ID).rules;
+  const draw = (c, seed) => {
+    const gd = new GameData(borrowedData(DATA, ACT2_ID, c, seasonFiles), 'mode_multi_hard', c);
+    const w = setupMatchWaves(gd, createRng(seed));
+    return JSON.stringify([w.stageId, w.bossId, w.hiddenBossId, w.factions, gd.bans?.core ?? null]);
+  };
+  for (let seed = 1; seed <= 30; seed++) assert.equal(draw(fitted, seed), draw(sanitizeCustom(raw), seed), `seed ${seed}`);
+});
+
+test('lobby: room.create / room.setRuleset keep a custom ruleset to what the room\'s season can use', { skip }, async () => {
+  const quiet = { info() {}, warn() {}, error() {}, debug() {} };
+  const srv = await startServer({ port: 0, host: '127.0.0.1', log: quiet, MatchClass: StubMatch, seasons: [ACT2_ID, ACT3_ID] });
+  const c = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
+  try {
+    const w = await c.hello('Fit');
+    const act3Rules = { bonds: { banCore: 5, pick: { ursusShip: 'ban', yanShip: 'ban' } }, stages: { extra: ['act2autochess_m03'] } };
+    assert.equal((await c.request({ t: 'room.create', mode: 'coop', difficulty: 'HARD', ruleset: 'custom', custom: act3Rules })).t, 'ok');
+    let st = await c.waitFor('room.state', (s) => s.hostId === w.playerId && s.ruleset?.preset === 'custom');
+    assert.deepEqual([st.ruleset.custom.bonds.banCore, st.ruleset.custom.bonds.pick, st.ruleset.custom.stages.extra], [3, { yanShip: 'ban' }, []]);
+    // the 规程 room takes them as they are; a 盟约 extra stays, its own stage does not join as an extra
+    assert.equal((await c.request({ t: 'room.create', mode: 'coop', difficulty: 'HARD', season: ACT3_ID, ruleset: 'custom', custom: act3Rules })).t, 'ok');
+    st = await c.waitFor('room.state', (s) => s.season === ACT3_ID && s.ruleset?.preset === 'custom');
+    assert.deepEqual([st.ruleset.custom.bonds.banCore, st.ruleset.custom.bonds.pick, st.ruleset.custom.stages.extra],
+      [5, { ursusShip: 'ban', yanShip: 'ban' }, ['act2autochess_m03']]);
+    assert.equal((await c.request({ t: 'room.setRuleset', preset: 'custom', custom: { stages: { extra: ['act3autochess_m10'] }, bosses: { ban: ['boss_5'] } } })).t, 'ok');
+    st = await c.waitFor('room.state', (s) => s.season === ACT3_ID && s.ruleset?.custom?.stages?.extra?.length === 0);
+    assert.deepEqual(st.ruleset.custom.bosses.ban, [], '盟约\'s boss_5 is no 规程 leader');
+  } finally {
+    await c.terminate().catch(() => {});
+    await srv.close();
   }
 });
 

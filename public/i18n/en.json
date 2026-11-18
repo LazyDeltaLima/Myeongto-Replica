@@ -1725,6 +1725,7 @@
   "无法读取这个规则代码": "This rules code cannot be read",
   "已读取规则代码（来自更新的版本，本版本没有的设置保持官方值）": "Rules code read (made by a newer version: settings this version lacks stay official)",
   "已读取规则代码": "Rules code read",
+  "已读取规则代码（本赛季用不到的 {n} 项设置已去除）": "Rules code read ({n} settings this season cannot use were removed)",
   "房间规则": "Room rules",
   "由创建者设置 · 仅可查看": "Set by the host · view only",
   "与官方不同的设置 {n} 项": "{n} settings differ from official",
