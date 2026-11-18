@@ -122,6 +122,7 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
   /* ⚙ / 📖 / ⛶ keep their desktop proportion (half the button) instead of an 11 px glyph in the grown button */
   .gm__corner .gm__gear .icon { width: max(.28rem, 17px); height: max(.28rem, 17px); }
   .gtop__exit { min-width: max(.56rem, 34px); min-height: max(.56rem, 34px); }
+  .gtop__meta.has-mode { --exit-h: max(.64rem, .56rem, 34px); }
   .gtop__iconbtn.has-sprite, .enemybtn.has-sprite { height: max(.46rem, 26px); width: calc(max(.46rem, 26px) * 35 / 29); }
   .gtop__iconbtn.has-sprite.is-wide, .enemybtn.has-sprite.is-wide { width: calc(max(.46rem, 26px) * 61 / 29); }
   .gtop__iconbtn:not(.has-sprite), .enemybtn:not(.has-sprite) { height: max(.46rem, 26px); min-width: max(.46rem, 26px); }

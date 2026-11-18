@@ -1414,9 +1414,10 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   BATTLE_CHECK·RESULT 제외, `battleArt.js soloResumeDue`) 같은 창에 「存在进行中的模拟，是否继续？」 KR 「진행 중인 시뮬레이션이 있습니다. 이어서
   진행하시겠습니까?」(우리 번역). 전투 중이면 창이 떠 있는 동안 일시정지(`g.pause`, 일시정지 화면은 창 뒤에 안 띄움)하고 확인하면 이어 감. 서버 규칙은 그대로
   (끊긴 동안 혼자 판은 예전처럼 서버가 이어 감 — 공식은 멈춰 둠 [추정 차이]); 휴식은 시간 제한이 없어 창만.
-- 핑 판(`panel_ping`, `AutoChessBattleUIPingPanel`): 위 왼쪽 나가기 버튼 옆 `img_delay_bkg` 76×24, 글 흰색(best fit 1–16 → 12.5 [추정]) — constData
-  `pingConds` 원문 「当前延迟<@ping.low>{0}</>ms」, KR 클라 「PING {0}ms」, EN 「Current ping: {0}ms」, 숫자 색 `gamedata_const` richTextStyles
-  `ping.low/medium/high` #7fa826 / #ec7a00 / #ff3d3d(1 / 60 / 200 ms 기준). 그림이 없으면 upstream 알약.
+- 핑 판(`panel_ping`, `AutoChessBattleUIPingPanel`): 위 왼쪽 나가기 버튼 옆 `img_delay_bkg` 76×24, 글 흰색 16(best fit 1–16 — 「9999ms」까지 16에 들어감) — 글은
+  숫자와 「ms」만(`autoChessData.constData.pingConds` 「<@ping.low>{0}</>ms」, CN 표 2026-11-01부터, 공식 CN 화면 2026-11-18; 예전 표·KR·EN 클라는
+  「当前延迟{0}ms」·「PING {0}ms」·「Current ping: {0}ms」), 숫자 색 `gamedata_const` richTextStyles `ping.low/medium/high` #7fa826 / #ec7a00 / #ff3d3d
+  (1 / 60 / 200 ms 기준). 그림이 없으면 upstream 알약. 규정에서는 모드 표시 아래(아래 「규정 전투 HUD 모드 표시」).
 - 위수협약 토스트(`auto_chess_notify_taost`, 공식 클라 `AutoChessUtil.ShowTextToast` — 전투·상점·방·결산의 토스트가 모두 이것): 판 화면이 열려 있고 그림이 있으면
   모든 토스트를 346×114 판(`img_toast_bg`, 「i」 표시 포함, 텍스처는 rect 379×181 안 18/19) + 글 230×80(+40, 20 흰색)으로, 화면 가운데에(위치 [추정] — 클라
   일반 토스트 층). `html.sp-ac-toast`(`screens/game.js`).
@@ -2492,6 +2493,23 @@ CN 11-01부터 들어온 전투 HUD 요소 넷(EN 10-14 클라에는 없음). �
   오퍼레이터 칸 모양(공식은 「本局禁用干员」 한 칸 — 끝까지 본 공식 화면 없음).
 - 시험: `test/ui/match-info.test.js`(실제 경기 경로의 규정 등급 5·4 판 — 모델의 두 묶음과 고르기 뒤, `MatchInfo`의 읽기 전용 칸·칩·범례 없음, 묶음 칸 배치·누르기, 제목 아이콘).
   화면 [화면 미확인].
+
+## 규정 전투 HUD 모드 표시 (2026-11-18, 관리자 결정)
+
+- 공식: CN 클라 전투 화면 `auto_chess_battle_ui_page`의 `panel_info/panel_mode`(왼쪽 위에서 116.2 / −20, 76×24 — 맹약 하반기 EN 클라에서 핑이 있던 자리)에
+  `mode_info_panel`, 핑 `panel_ping`은 그 아래(109.7 / −56). EN 클라에는 이 프리팹이 없다. 공식 CN 화면(2026-11-18, 험지 시뮬레이션): 나가기 버튼 오른쪽에
+  모드 문양 + 「险境模拟」, 그 아래 「100ms」 — **모드 표시와 핑을 합친 높이가 나가기 버튼 높이와 같고**, 모드 이름은 문양과 같은 색이며, 핑에 「PING」 같은
+  말이 없다.
+- 프리팹: `img_mode_title` 175×68(scale 0.8, 상자 가운데) + `text_mode_name`(16, best fit 1–16, 폭 86, 가운데에서 오른쪽 25). 그림 `modeinfotitle`
+  `img_title_mode_<training|funny|normal|hard|abyss|fast>` 여섯 장 = 표 `modeDataDict[].modeDifficulty` 여섯 값(우리 `config.modes[].difficulty`).
+- 우리(`ui/battleArt.js ModePanel`·`modePanelArt`, `ui/hud.js`): 시즌 추출에 그 모드의 그림이 있으면(규정) 작은 난이도 글자(`DifficultyTag`) 대신 이 표시를
+  맨 위에, 핑을 아래에 두고 둘을 나가기 버튼 높이에 맞춘다(프리팹 24 + 12 + 24 = 60 단위를 버튼 높이로 — 문양 위가 버튼 위, 핑 아래가 버튼 아래; 터치 화면은
+  커진 버튼 높이). 이름은 우리 화면의 모드 이름(규정 등급 n·고속 시뮬레이션·협동 난이도 이름), 색은 표 `modeColor`(`config.modes[].color`). 문양이 상자 왼쪽
+  8.8 단위 밖으로 나와 우리 빨간 나가기 버튼에 닿지 않게 상자를 9 단위 안으로. 좁은 휴대폰(740)에서는 글자가 위 가운데 막대 4 px 앞에서 멈추고 줄어든다
+  (best fit). 맹약 하반기는 그대로(난이도 글자).
+- [추정·미조사] 그림을 `modeDifficulty`로, 이름 색을 `modeColor`로 고르는 것: 패널을 채우는 클래스는 읽지 않았다(이름이 맞고, 공식 화면 한 장의 험지 색이 맞음).
+- 재발 방지: `test/ui/official-ui-gaps.test.js` 「规程 mode badge over the ping」(모든 규정 모드의 `modeDifficulty`에 그림이 있는지 — 추출물이 없으면 건너뜀,
+  HUD 배치·핑 글자·높이 규칙). 시안·공식 화면·구현 캡처는 관리자 기록. 화면 [화면 미확인: 실제 판].
 
 ## 규정 특질 문구의 숫자 `{showtag_value_1}` (2026-11-13)
 

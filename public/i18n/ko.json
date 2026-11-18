@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1879 of 2088 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1878 of 2087 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1147,7 +1147,6 @@
   "无法装备给自编干员": "선발 오퍼레이터에게는 장착할 수 없습니다",
   "更多": "더 보기",
   "等待重连中......": "재연결 대기 중......",
-  "当前延迟{ms}ms": "PING {ms}ms",
   "与服务器的连接已断开": "서버와 연결이 끊겼습니다",
   "存在进行中的模拟，是否继续？": "진행 중인 시뮬레이션이 있습니다. 이어서 진행하시겠습니까?",
   "正在刷新…": "갱신 중…",

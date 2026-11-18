@@ -28,7 +28,7 @@
 // (user playtest #3 item 3; the row's own label is ui/underframe.js TempRowNotice).
 
 import { useRef } from '../../vendor/hooks.module.js';
-import { CapsuleTransHost, PingPanel, battleArt } from './battleArt.js';
+import { CapsuleTransHost, PingPanel, ModePanel, battleArt, modePanelArt } from './battleArt.js';
 import { PHASE } from '../../../shared/constants.js';
 import { html, Button, Icon, PingPill, Countdown, Tooltip, MicroLabel, DifficultyTag, useTicker } from './components.js';
 import { Sprite, LpTower, GIcon, LocalSprite } from './gameComponents.js';
@@ -421,12 +421,15 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
   const btn = checkButtons({ pen, penAvail, infoOpen: !!drawer });
   const onLeft = () => (pen ? onPen(false) : onDrawer('info'));
   const onRight = () => (pen ? onPen(false) : penAvail ? onPen(true) : null);
+  // 规程: the mode badge over the ping, the two as high as the exit button (official CN screen 2026-11-18); 盟约: the tag
+  const modeArt = modePanelArt(pub?.modeId);
   return html`<header class=${cx('gtop', pen && 'is-pen')}>
     <div class="gtop__left">
       <${Button} variant="danger" size="lg" square=${true} icon="exit" onClick=${onExit} aria-label=${t('离开')} title=${t('离开 / 暂离')} class="gtop__exit tapx" />
-      <div class="gtop__meta">
+      <div class=${cx('gtop__meta', modeArt && 'has-mode')}>
+        ${modeArt ? html`<${ModePanel} modeId=${pub.modeId} art=${modeArt} difficulty=${pub.difficulty} />` : null}
         <${LivePing} />
-        ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} modeId=${pub.modeId} size="sm" />` : null}
+        ${!modeArt && pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} modeId=${pub.modeId} size="sm" />` : null}
       </div>
     </div>
 

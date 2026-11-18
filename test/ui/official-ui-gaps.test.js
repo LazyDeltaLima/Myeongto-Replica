@@ -212,3 +212,27 @@ describe('the bottom tip band draws img_bg\'s visible part, not its whole rect',
     assert.match(after, /color-mix\(in srgb, var\(--tip\) 70%, transparent\)/, 'img_bg\'s stadium is white at 70 % alpha, tinted');
   });
 });
+
+describe('规程 mode badge over the ping (mode_info_panel)', () => {
+  test('every 规程 mode has the modeinfotitle picture of its modeDifficulty (docs/rules/ui.md 「규정 전투 HUD 모드 표시」)', (t) => {
+    const local = (() => { try { return JSON.parse(read('data/local-assets.json')); } catch { return null; } })();
+    const group = local?.groups?.['season/act3autochess/modeinfotitle'];
+    if (!group) { t.skip('no local client extract (data/local-assets.json season/act3autochess/modeinfotitle)'); return; }
+    const modes = JSON.parse(read('data/seasons/act3autochess/config.json')).modes;
+    const diffs = new Set(Object.values(modes).map((m) => m.difficulty));
+    assert.ok(diffs.has('FAST') && diffs.has('ABYSS'), 'the sweep sees the 规程 modes');
+    for (const d of diffs) {
+      assert.ok(group[`img_title_mode_${String(d).toLowerCase()}`], `modeDifficulty ${d} has no img_title_mode picture: ModePanel (ui/battleArt.js modePanelArt) would fall back to the tag — see docs/rules/ui.md 「규정 전투 HUD 모드 표시」`);
+    }
+  });
+  test('the HUD draws the badge first and the tag only without it; the ping reads 「{0}ms」 as the CN pingConds', () => {
+    const hud = read('public/js/ui/hud.js');
+    assert.match(hud, /const modeArt = modePanelArt\(pub\?\.modeId\);/);
+    assert.match(hud, /\$\{modeArt \? html`<\$\{ModePanel\}[^`]*`[^}]*\}\s*<\$\{LivePing\} \/>\s*\$\{!modeArt && pub\?\.difficulty \? html`<\$\{DifficultyTag\}/);
+    assert.match(read('public/js/ui/battleArt.js'), /data-testid="ping-panel">\$\{num\}ms<\/span>/);
+    const pc = JSON.parse(read('data/config.json')).constants.pingConds;
+    assert.ok(pc.every((p) => /^<@ping\.\w+>\{0\}<\/>ms$/.test(p.textRaw)), 'the tables\' pingConds still read 「{0}ms」 alone — if they gain words again, PingPanel must draw them');
+    assert.match(read('public/css/battle-art.css'), /\.gtop__meta\.has-mode \{ --exit-h: \.64rem; --ui-u: calc\(var\(--exit-h\) \/ 60\); align-self: stretch; justify-content: space-between;/,
+      'the badge and the ping stand as high as the exit button');
+  });
+});

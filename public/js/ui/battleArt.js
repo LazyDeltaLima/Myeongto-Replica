@@ -11,11 +11,13 @@
 //   loadingArt(mode)       { pic, code, name } of the loading screen, or null without the picture
 //   battleArt(kind)        { cls, style } — the sprite variables of a dialog when the local art has all of them
 
-import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { html } from './components.js';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
+import { html, gradeName } from './components.js';
+import { DIFFICULTY_NAMES } from '../../../shared/constants.js';
+import { modeGrade } from '../../../shared/seasons.js';
 import { uiUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
-import { t, tParts, N_ } from '../../../shared/i18n.js';
+import { t, N_ } from '../../../shared/i18n.js';
 
 /** CSS variable → ui/battle sprite, per dialog. */
 const ART = Object.freeze({
@@ -913,8 +915,10 @@ export function pingTier(ms) {
 
 /**
  * panel_ping (AutoChessBattleUIPingPanel): img_delay_bkg 76 × 24 at 115.5 from the screen's left, 20.3 from its top, the
- * text 16 (best fit) white, centred — constData pingConds 「当前延迟<@ping.low>{0}</>ms」 (KR 「PING {0}ms」, EN
- * 「Current ping: {0}ms」), the number in the gamedata_const richTextStyles colour (#7fa826 / #ec7a00 / #ff3d3d).
+ * text 16 (best fit) white, centred — autoChessData constData pingConds 「<@ping.low>{0}</>ms」 (the CN tables since
+ * 2026-11-01: the number and 「ms」 alone, as the official CN screen of 2026-11-18 shows; the older KR / EN tables read
+ * 「PING {0}ms」 / 「Current ping: {0}ms」), the number in the gamedata_const richTextStyles colour (#7fa826 / #ec7a00 /
+ * #ff3d3d). In 规程 the CN client moves it under the mode badge (ModePanel; panel_ping at 109.7 / −56).
  * @param {{ ms?: number|null, online?: boolean }} props
  */
 export function PingPanel({ ms, online = true }) {
@@ -923,5 +927,56 @@ export function PingPanel({ ms, online = true }) {
   const tier = ok ? pingTier(ms) : null;
   const num = html`<b class=${`bping__num is-${tier || 'off'}`}>${ok ? Math.min(9999, Math.round(ms)) : '--'}</b>`;
   return html`<span class=${['bping', art.cls].join(' ')} style=${art.style} title=${ok ? t('当前延迟 {ms}ms', { ms: Math.round(ms) }) : t('未连接')}
-    data-testid="ping-panel">${tParts('当前延迟{ms}ms', { ms: num })}</span>`;
+    data-testid="ping-panel">${num}ms</span>`;
+}
+
+/**
+ * The mode picture of mode_info_panel for a mode: modeinfotitle img_title_mode_<its modeDifficulty> (training, funny,
+ * normal, hard, abyss, fast — the six pictures are named after the six modeDifficulty values), from the season's own
+ * extract; null when the season has none (盟约: the EN client has no such panel) or the extract lacks it.
+ * @param {string|null|undefined} modeId
+ */
+export function modePanelArt(modeId) {
+  const diff = modeId ? data.get('config')?.modes?.[modeId]?.difficulty : null;
+  return typeof diff === 'string' ? uiUrl(data.get('assets'), `modeInfoTitle/img_title_mode_${diff.toLowerCase()}`) : null;
+}
+
+/**
+ * 规程's mode badge (CN auto_chess_battle_ui_page panel_info/panel_mode = mode_info_panel, 76 × 24 at 116.2 / −20 — the
+ * place 盟约's ping had): img_mode_title 175 × 68 at scale 0.8 centred on the box (its emblem reaches 8.8 left of it), and
+ * text_mode_name 16 (best fit 1–16), its box 86 wide 25 right of centre, in the mode's modeColor — the official CN screen
+ * of 2026-11-18 draws the name in the emblem's colour. The name is the one the rest of our UI gives the mode (规程等级 n /
+ * 极速模拟 / the co-op difficulty). [ASSUMED·미조사] picture by modeDifficulty and the name colour by modeColor: the class
+ * that fills the panel was not read, the names match. The text never runs under the top bar's centre (a narrow phone):
+ * its box ends 4 px before it and the font shrinks to fit, measured on render and resize.
+ * @param {{ modeId: string, art: string, difficulty?: string|null }} props
+ */
+export function ModePanel({ modeId, art, difficulty = null }) {
+  const ref = useRef(/** @type {HTMLElement|null} */ (null));
+  const season = data.season();
+  const grade = modeGrade(modeId, season);
+  const mode = data.get('config')?.modes?.[modeId];
+  const name = grade !== null ? gradeName(grade) : DIFFICULTY_NAMES[difficulty || ''] ? t(DIFFICULTY_NAMES[difficulty || '']) : mode?.name ? t(mode.name) : '';
+  const color = /^#[0-9a-f]{6}$/i.test(mode?.color || '') ? mode.color : null; // config modes[].color = the table's modeColor
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || typeof getComputedStyle !== 'function') return undefined;
+    const fit = () => {
+      el.style.fontSize = '';
+      el.style.width = '';
+      const centre = el.closest('.gtop')?.querySelectorAll('.gtop__center, .gtop__center > *');
+      const left = el.getBoundingClientRect().left;
+      const stop = centre?.length ? Math.min(...[...centre].map((c) => c.getBoundingClientRect().left)) : Infinity;
+      if (stop - left - 4 < el.clientWidth) el.style.width = `${Math.max(0, stop - left - 4)}px`;
+      let fs = parseFloat(getComputedStyle(el).fontSize) || 12;
+      const need = () => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect().width; };
+      for (let n = 0; n < 60 && need() > el.clientWidth + 0.5 && fs > 6; n++) { fs = Math.max(6, fs - 0.25); el.style.fontSize = `${fs}px`; }
+    };
+    fit();
+    addEventListener('resize', fit);
+    return () => removeEventListener('resize', fit);
+  }, [name]);
+  return html`<span class="bmode" style=${`--mt:url("${art}")${color ? `;--mc:${color}` : ''}`} data-testid="mode-panel">
+    <i class="bmode__bg" aria-hidden="true"></i><b class="bmode__name" ref=${ref}>${name}</b>
+  </span>`;
 }

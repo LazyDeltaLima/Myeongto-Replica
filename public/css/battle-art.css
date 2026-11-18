@@ -463,10 +463,22 @@
 /* ---- latency panel (panel_ping, ui/battleArt.js PingPanel) --------------------------------------------------------- */
 .bping { --pu: var(--ui-u, .015rem); display: inline-flex; align-items: center; justify-content: center; flex: none; box-sizing: border-box;
   width: calc(var(--pu) * 76); height: calc(var(--pu) * 24); padding: 0 calc(var(--pu) * 3); background: var(--pp-bg) center / 100% 100% no-repeat;
-  color: #fff; font-size: calc(var(--pu) * 12.5); line-height: 1; white-space: pre; letter-spacing: -.01em; }
+  color: #fff; font-size: calc(var(--pu) * 16); line-height: 1; white-space: pre; letter-spacing: -.01em; }
 /* (pre: the space of 「PING {0}ms」 sits at a flex item's edge, where normal white-space drops it) */
-/* best fit 1–16 in a 76 × 24 box: the longest texts (「当前延迟999ms」, 「Current ping: 999ms」) only fit smaller [추정 size] */
+/* best fit 1–16 in a 76 × 24 box: 「{0}ms」 (the CN pingConds) fits at 16 up to 「9999ms」 */
 .bping__num { font-weight: 400; }
+
+/* ---- 规程 mode badge (mode_info_panel, ui/battleArt.js ModePanel) over the ping ------------------------------------- */
+/* The badge and the ping under it stand as high as the exit button (official CN screen 2026-11-18: the emblem's top on
+   the button's top, the ping's bottom on its bottom): the prefab's 24 + 12 + 24 = 60 units over the button's height
+   (--exit-h, css/devices.css grows it on touch screens). */
+.gtop__meta.has-mode { --exit-h: .64rem; --ui-u: calc(var(--exit-h) / 60); align-self: stretch; justify-content: space-between; gap: 0; }
+.bmode { --pu: var(--ui-u, .015rem); position: relative; flex: none; width: calc(var(--pu) * 76); height: calc(var(--pu) * 24);
+  margin-left: calc(var(--pu) * 9); /* img_title_mode's emblem reaches 8.8 left of the box: clear of the exit button */ }
+.bmode__bg { position: absolute; left: 50%; top: 50%; width: calc(var(--pu) * 140); height: calc(var(--pu) * 54.4); transform: translate(-50%, -50%);
+  background: var(--mt) center / 100% 100% no-repeat; pointer-events: none; }
+.bmode__name { position: absolute; top: 0; bottom: 0; left: calc(var(--pu) * 20); width: calc(var(--pu) * 86); display: flex; align-items: center;
+  justify-content: center; white-space: nowrap; color: var(--mc, #fff); font-weight: 500; font-size: calc(var(--pu) * 16); line-height: 1; }
 .bping__num.is-low { color: #7fa826; }
 .bping__num.is-medium { color: #ec7a00; }
 .bping__num.is-high { color: #ff3d3d; }
