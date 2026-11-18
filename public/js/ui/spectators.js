@@ -1,4 +1,4 @@
-// Read-only in-match spectator roster (maintainer decision 2026-11-17).
+// Read-only in-match spectator roster (maintainer decision 2026-11-18).
 // room.state owns the roster in both seasons, including disconnected seats retained by the server.
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, MicroLabel } from './components.js';

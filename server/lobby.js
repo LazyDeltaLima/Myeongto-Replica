@@ -1254,7 +1254,7 @@ export class Lobby {
    * room.start's ready check (the vote was the agreement; back to the room only when the restart countdown refuses new
    * matches, or when an 8-seat room is left with fewer than LARGE_MIN_PLAYERS Doctors because someone left the match —
    * Room.seatsOpen, maintainer decision 2026-11-02). A restart vote with target 'room' returns to the waiting room
-   * by choice (maintainer request 2026-11-17). Neither was settled, so no lastSummary ([stats] line) and no replay (a restarted match is the page's
+   * by choice (maintainer decision 2026-11-18). Neither was settled, so no lastSummary ([stats] line) and no replay (a restarted match is the page's
    * 中途退出 record, public/js/main.js). The chat factions are cleared either way (players pick
    * one after seeing the banned bonds, maintainer 2026-10-09).
    */

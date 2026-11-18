@@ -1,6 +1,6 @@
 // server/match/match/restart.js — Match methods: the in-match 重新开始 vote (feat, maintainer decision 2026-10-31; the
 // official mode has none): a seat proposes, every voter must agree within RESTART_VOTE_MS, and the match ends for a new
-// one that starts at the briefing with a new seed, or returns to the waiting room (maintainer request 2026-11-17).
+// one that starts at the briefing with a new seed, or returns to the waiting room (maintainer decision 2026-11-18).
 // Restart uses the lobby path of the briefing's 重新抽取 (phases.js _endInfo,
 // server/lobby.js onMatchEnd).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
@@ -29,7 +29,7 @@ export class MatchRestart {
   }
 
   /**
-   * g.restart { op, target? }: target is 'restart' (default) or 'room' (maintainer request 2026-11-17).
+   * g.restart { op, target? }: target is 'restart' (default) or 'room' (maintainer decision 2026-11-18).
    * The proposal fixes the destination; answers cannot change it. 'propose' opens the vote (the proposer agrees),
    * 'yes' / 'no' answer it, 'cancel' takes the
    * proposer's back. One 'no' ends the vote at once; so do the proposer leaving and the time running out. Every voter

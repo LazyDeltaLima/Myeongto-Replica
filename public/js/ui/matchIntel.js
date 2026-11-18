@@ -1,4 +1,4 @@
-// Shared briefing intel and its read-only strategy-draft dialog (maintainer decision 2026-11-17).
+// Shared briefing intel and its read-only strategy-draft dialog (maintainer decision 2026-11-18).
 // Keep disclosure identical to the briefing: classic Alliance hides its battlefield; Regulation shows it.
 import { html, Button, Icon, MicroLabel, Modal } from './components.js';
 import { useGameData, Img, RichText } from './gameComponents.js';

@@ -2,7 +2,7 @@
 
 Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
-**Field surrender (2026-11-17).** `g.surrender { fieldId, battleId, op: 'propose'|'yes'|'no'|'cancel' }` targets the current
+**Field surrender (maintainer decision 2026-11-18, PR #21).** `g.surrender { fieldId, battleId, op: 'propose'|'yes'|'no'|'cancel' }` targets the current
 battle token, never the whole match. Only human participants of that field may act; AI/autoplay seats and observers have
 no vote. One human confirms locally before proposing; two or more require unanimous consent within 30 seconds while
 combat continues. The proposer agrees automatically. Rejection, expiry, withdrawal, a disconnect or a voter membership
@@ -147,7 +147,7 @@ Piece = { uid, kind: 'chess'|'item'|'token', id, golden: bool, tier, items: [ { 
 
 ---
 
-### In-match restart destination (maintainer request 2026-11-17)
+### In-match restart destination (maintainer decision 2026-11-18, PR #20)
 
 `g.restart { op: propose | yes | no | cancel, target?: restart | room }` shares one unanimous vote and retry cooldown.
 The proposal fixes the destination; omitted `target` means `restart`. `m.public.restartVote.target` names the open vote's
