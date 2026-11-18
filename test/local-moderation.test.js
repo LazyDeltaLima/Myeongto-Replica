@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { Moderation, NET_TTL_MS } from '../server/local-moderation.js';
+import { Moderation, NET_TTL_MS, SHARED_IDS, MOBILE_V4 } from '../server/local-moderation.js';
 import { startServer } from '../server/index.js';
 import { StubMatch } from '../server/match/StubMatch.js';
 import { TestClient } from './helpers/wsClient.js';
@@ -108,6 +108,79 @@ describe('chat bans (server/local-moderation.js)', () => {
       writeBans(dir, { bans: [{ id: troll.browserId, at: 1, until: t.now - 1 }] });
       mod.mtime = -1; mod.reload();
       assert.equal(mod.chatMute(troll), null);
+    } finally { mod.stop(); }
+  });
+
+  test('shared addresses: no follow-up where more than SHARED_IDS browsers were seen in a day; counts expire', () => {
+    const dir = tmpDir(); dirs.push(dir);
+    const t = { now: 1_800_000_000_000 };
+    const log = logSink();
+    const mod = new Moderation({ dir, log, now: () => t.now });
+    const K = '10.1.1.1';
+    const at = (name, key = K, bid) => { const s = { playerId: `p_${name}`, name, limitKey: key }; mod.identify(s, { key, bid }); return s; };
+    try {
+      assert.ok(log.lines.includes(`[mod] shared address: more than ${SHARED_IDS} browser ids on an IPv4 key in 24 h, or ${MOBILE_V4.length} carrier mobile ranges`));
+      const troll = at('Troll');
+      t.now += 1000;
+      writeBans(dir, { bans: [{ id: troll.browserId, at: t.now }] });
+      mod.reload();
+      assert.equal(mod.chatMute(troll), 'ban');
+      const regulars = Array.from({ length: SHARED_IDS - 1 }, (_, i) => at(`R${i}`)); // before the ban
+      assert.equal(mod.sharedOf(K), null, `${SHARED_IDS - 1} browsers and the banned one: not shared yet`);
+      t.now += 1000;
+      const fresh = at('Fresh', K, 'cleared');
+      assert.equal(mod.sharedOf(K), null, `exactly ${SHARED_IDS} browsers (banned left out): still a single household`);
+      assert.equal(mod.chatMute(fresh), 'net');
+      const more = at('Cafe');
+      assert.equal(mod.sharedOf(K), 'count');
+      assert.ok(log.lines.includes(`[mod] shared net=${K}: ${SHARED_IDS + 1} browser ids in 24 h (more than ${SHARED_IDS})`));
+      assert.equal(mod.chatMute(more), null, 'a newcomer at a shared address is not followed up');
+      assert.ok(log.lines.some((l) => l.startsWith(`[mod] shared net=${K} (count): no follow-up for p_Cafe b=${more.browserId}`)));
+      assert.equal(regulars.length + 2, SHARED_IDS + 1);
+      // a single-household key keeps the follow-up
+      assert.equal(mod.chatMute({ ...troll, playerId: 'p_home', limitKey: '10.2.2.2' }), 'ban'); // the banned browser on another key
+      const fresh2 = at('Fresh2', '10.2.2.2', 'cleared');
+      assert.equal(mod.chatMute(fresh2), 'net');
+      // a day later the counts are gone: the banned browser comes back, a newcomer there is followed up again
+      t.now += NET_TTL_MS + 1;
+      at('Troll', K, `${troll.browserId}.x`); // (a fresh id: only to trigger the sweep)
+      assert.ok(!mod.netIds.get(K) || mod.netIds.get(K).size === 1, 'the sweep dropped the old ids');
+      troll.limitKey = K;
+      assert.equal(mod.chatMute(troll), 'ban');
+      const next = at('Next', K, 'cleared');
+      assert.equal(mod.sharedOf(K), null);
+      assert.equal(mod.chatMute(next), 'net');
+    } finally { mod.stop(); }
+  });
+
+  test('shared addresses: carrier mobile ranges and the ban file list; IPv6 /64 never shared', () => {
+    const dir = tmpDir(); dirs.push(dir);
+    const t = { now: 1_800_000_000_000 };
+    const log = logSink();
+    const mod = new Moderation({ dir, log, now: () => t.now });
+    try {
+      for (const ip of ['223.38.10.1', '27.183.255.255', '211.234.250.1', '42.36.0.1', '39.7.48.10', '118.235.10.1', '106.102.1.1', '211.36.230.1'])
+        assert.equal(mod.sharedOf(ip), 'mobile', ip);
+      for (const ip of ['27.184.0.1', '211.234.10.1', '211.234.241.1', '125.188.1.1', '1.2.3.4'])
+        assert.equal(mod.sharedOf(ip), null, ip);
+      const troll = { playerId: 'p_t', name: 'T', limitKey: '223.38.10.1' };
+      mod.identify(troll, { key: troll.limitKey });
+      t.now += 1000;
+      writeBans(dir, { bans: [{ id: troll.browserId, at: t.now }], shared: ['198.51.100.0/24', 'nope', '1.2.3.4/33'] });
+      mod.reload();
+      assert.ok(log.lines.some((l) => l.includes('2 `shared` value(s) not an IPv4 CIDR')));
+      assert.equal(mod.chatMute(troll), 'ban');
+      t.now += 1000;
+      const fresh = { playerId: 'p_f', name: 'F', limitKey: '223.38.10.1' };
+      mod.identify(fresh, { key: fresh.limitKey });
+      assert.equal(mod.chatMute(fresh), null, 'a carrier mobile address is shared');
+      assert.ok(log.lines.some((l) => l.startsWith('[mod] shared net=223.38.10.1 (mobile): no follow-up for p_f')));
+      assert.equal(mod.sharedOf('198.51.100.7'), 'list');
+      // IPv6: one subscriber per /64, never counted
+      const v6 = 'abcd:1:2:3::/64';
+      for (let i = 0; i <= SHARED_IDS; i++) mod.identify({ playerId: `p_6${i}`, name: 'S' }, { key: v6 });
+      assert.equal(mod.netIds.has(v6), false);
+      assert.equal(mod.sharedOf(v6), null);
     } finally { mod.stop(); }
   });
 
