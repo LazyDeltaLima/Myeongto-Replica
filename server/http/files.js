@@ -198,7 +198,7 @@ function ifRangeMatches(req, etag, lastModified) {
 
 /** The browser runtime's files (buildTag.js BUILD_INPUTS) — immutable when requested under the current /b/<tag>/. */
 const isBuildFile = (mountName, segments) => mountName === 'sim' || mountName === 'shared'
-  || (mountName === 'public' && segments.length > 1 && (segments[0] === 'js' || segments[0] === 'css'));
+  || (mountName === 'public' && segments.length > 1 && (segments[0] === 'js' || segments[0] === 'css' || segments[0] === 'vendor'));
 
 function cacheControlFor(ext, mountName, segments, query, versioned) {
   if (ext === '.html' || ext === '.htm') return 'no-cache';

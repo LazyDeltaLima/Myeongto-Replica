@@ -14,7 +14,7 @@ function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-build-'));
   for (const rel of [
     'public/index.html', 'public/js/file.js', 'public/css/file.css',
-    'server/sim/content/kits/skill.js', 'shared/protocol.js', 'data/chess.json',
+    'server/sim/content/kits/skill.js', 'shared/protocol.js', 'data/chess.json', 'public/vendor/pixi.min.js',
   ]) {
     const abs = path.join(root, rel);
     fs.mkdirSync(path.dirname(abs), { recursive: true });
@@ -23,7 +23,7 @@ function fixture() {
   return root;
 }
 
-for (const rel of ['server/sim/content/kits/skill.js', 'shared/protocol.js', 'data/chess.json']) {
+for (const rel of ['server/sim/content/kits/skill.js', 'shared/protocol.js', 'data/chess.json', 'public/vendor/pixi.min.js']) {
   test(`buildTag: an update to ${rel} is visible to an old page after restart only`, async () => {
     const root = fixture();
     try {

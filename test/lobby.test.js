@@ -493,6 +493,7 @@ describe('static http server: versioned code URLs (/b/<tag>/)', () => {
       + '<link rel="prefetch" href="/vendor/v.js" /><link rel="stylesheet" href="/fonts/fonts.css" /><script type="module" src="/js/app.js"></script>');
     w('public/js/app.js', 'export const x = 1;');
     w('public/css/a.css', 'body{color:red}');
+    w('public/vendor/v.js', 'export const v = 3;');
     w('public/assets/img/a.png', randomBytes(32));
     w('shared/x.js', 'export const y = 2;');
     w('data/config.json', '{}');
@@ -514,6 +515,9 @@ describe('static http server: versioned code URLs (/b/<tag>/)', () => {
     assert.ok(html.includes(`href="/b/${tag}/r/css/a.css"`) && html.includes(`href="/b/${tag}/r/js/app.js"`) && html.includes(`src="/b/${tag}/r/js/app.js"`), html);
     // vendor: where the modules' relative imports of public/vendor land under the prefix
     assert.ok(html.includes(`href="/b/${tag}/r/vendor/v.js"`), html);
+    // vendor is in the build tag (BUILD_INPUTS): immutable under the current tag, a day's cache without it
+    assert.match((await httpReq(srv.port, `/b/${tag}/r/vendor/v.js`)).headers['cache-control'], /immutable/);
+    assert.equal((await httpReq(srv.port, '/vendor/v.js')).headers['cache-control'], 'public, max-age=86400');
     assert.ok(html.includes('href="/fonts/fonts.css"'), 'other URLs stay as they are');
     assert.ok(index.headers.etag.includes(tag), 'the ETag changes with the build');
     assert.equal((await httpReq(srv.port, '/', { headers: { 'if-none-match': index.headers.etag } })).status, 304);

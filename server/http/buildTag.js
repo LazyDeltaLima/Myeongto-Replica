@@ -16,11 +16,12 @@ import { ROOT } from './config.js';
  * shipped exactly that way and stayed invisible on a page that had been opened before the deploy.
  *
  * The browser also imports `/sim/` from `server/sim/` and `/shared/`, and caches JSON from `/data/`. Include those
- * trees so a simulation-only or data-only deploy reaches old pages after the server restarts. `buildTag()` caches
+ * trees so a simulation-only or data-only deploy reaches old pages after the server restarts, and `public/vendor` (the
+ * libraries tools/vendor.mjs copies from node_modules, git-ignored) so a library update alone is a new build too. `buildTag()` caches
  * this fingerprint for the process lifetime: files changing on disk do not advertise a new build before restart.
  * The rest of `server/` and downloaded media are not included.
  */
-export const BUILD_INPUTS = Object.freeze(['public/index.html', 'public/js', 'public/css', 'server/sim', 'shared', 'data']);
+export const BUILD_INPUTS = Object.freeze(['public/index.html', 'public/js', 'public/css', 'public/vendor', 'server/sim', 'shared', 'data']);
 
 /** Names the static server never serves: dot files (`.DS_Store`, `.main.js.swp`) and editor backups (`main.js~`). */
 const isIgnoredBuildName = (name) => name.startsWith('.') || name.endsWith('~');
