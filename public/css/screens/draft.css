@@ -301,6 +301,10 @@
   --btn-bd: var(--mint-800); --btn-bg: rgba(78, 216, 175, .06); --btn-bg-hover: rgba(78, 216, 175, .14);
 }
 .draft-order__info .btn__icon { color: var(--mint-400); }
+/* 敌方情报 | 盟约信息 in one row (maintainer decision 2026-11-18): half each, side padding cut so 「맹약 정보」 fits on a phone */
+.draft-order__infos { display: flex; gap: .08rem; }
+.draft-order__infos > .draft-order__info { flex: 1 1 0; min-width: 0; justify-content: center; padding: 0 max(.08rem, 6px); gap: max(.05rem, 4px); }
+.draft-order__infos > .draft-order__info .btn__label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* 干员调配 from the draft (screens/loadout.js LoadoutButton, maintainer request 2026-10-13): under 本局信息, the same size */
 .draft-order__loadout.btn { justify-content: flex-start; width: 100%; padding: 0 .16rem; height: max(.5rem, 28px); font-size: max(.18rem, 10px); }
 .modal__box.minfo-dlg {

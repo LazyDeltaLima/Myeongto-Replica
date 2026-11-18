@@ -21,11 +21,11 @@ describe('strategy-draft enemy intel', { skip: !ENABLED && 'set SP_E2E=1 and CHR
   });
   after(async () => { await browser?.close(); await srv?.close(); assert.deepEqual(problems, []); });
 
-  async function open(phase = 'BAND_DRAFT', ruleset = 'casual', season = null) {
+  async function open(phase = 'BAND_DRAFT', ruleset = 'casual', season = null, lang = 'zh') {
     const page = await browser.newPage();
     page.on('pageerror', (e) => problems.push(e.message));
     await page.setViewport({ width: 1600, height: 900 });
-    const query = new URLSearchParams({ phase, ruleset, lang: 'zh', shot: '1', render: 'fallback' });
+    const query = new URLSearchParams({ phase, ruleset, lang, shot: '1', render: 'fallback' });
     if (season) query.set('season', season);
     await page.goto(`http://127.0.0.1:${srv.port}/dev/game-mock.html?${query}`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector(phase === 'INFO_CHECK' ? '.brief-eboss__name' : '[data-testid="match-intel-open"]');
@@ -62,6 +62,32 @@ describe('strategy-draft enemy intel', { skip: !ENABLED && 'set SP_E2E=1 and CHR
     assert.equal(await page.evaluate(() => JSON.stringify(globalThis.__MOCK__.S().pub.draft.picks)), picks);
     await page.click('[data-testid="match-info-open"]');
     await page.waitForSelector('.minfo-dlg:not(.intel-dlg)');
+    await page.close();
+  });
+
+  test('敌方情报 | 盟约信息 share one row, untruncated on phones; each dialog is titled as its button', async () => {
+    const page = await open('BAND_DRAFT', 'casual', null, 'ko');
+    const row = () => page.$$eval('.draft-order__infos > .btn', (els) => els.map((el) => {
+      const r = el.getBoundingClientRect();
+      const label = el.querySelector('.btn__label');
+      return { id: el.dataset.testid, text: label.textContent.trim(), top: Math.round(r.top), clipped: label.scrollWidth > label.clientWidth + 1 };
+    }));
+    for (const [width, height] of [[1600, 900], [844, 390], [740, 360]]) {
+      await page.setViewport({ width, height });
+      const btns = await row();
+      assert.deepEqual(btns.map((b) => [b.id, b.text]), [['match-intel-open', '적 정보'], ['match-info-open', '맹약 정보']],
+        'docs/rules/ui.md 「전략 선택 중 적 정보·전장 다시 보기」: 적 정보 | 맹약 정보');
+      assert.equal(btns[0].top, btns[1].top, `one row at ${width}x${height}`);
+      assert.ok(btns.every((b) => !b.clipped), `labels not cut at ${width}x${height}: ${JSON.stringify(btns)}`);
+    }
+    await page.setViewport({ width: 1600, height: 900 });
+    for (const [btn, dlg, title] of [['match-intel-open', '.intel-dlg', '적 정보'], ['match-info-open', '.minfo-dlg:not(.intel-dlg)', '맹약 정보']]) {
+      await page.click(`[data-testid="${btn}"]`);
+      await page.waitForSelector(`${dlg} .modal__title`);
+      assert.equal(await page.$eval(`${dlg} .modal__title`, (el) => el.textContent.trim()), title);
+      await page.keyboard.press('Escape');
+      await page.waitForFunction((sel) => !document.querySelector(sel), {}, dlg);
+    }
     await page.close();
   });
 

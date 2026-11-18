@@ -1,6 +1,6 @@
 // Band draft — BAND_DRAFT "2/2 选择策略" (research 06 §4.2, D1), laid out as the upstream event screen (upstream PR #643,
 // ported by hand; maintainer decision 2026-11-07): left = the draft order as name cards (OrderRow: avatar, name, state
-// 等待中 / 决策中 / the picked strategy, the strategy box and ✓ outside it), the current picker framed, with 本局信息, 干员调配
+// 等待中 / 决策中 / the picked strategy, the strategy box and ✓ outside it), the current picker framed, with 敌方情报 | 盟约信息, 干员调配
 // and the co-op tip under it; centre = a 4-wide wall of every strategy allowed for the mode type (portrait and name, SELECTED
 // brackets on the highlighted one); a band a teammate already picked carries the picker's avatar and is marked 队友已选 —
 // it cannot be chosen again (research 09 §5, guidebook 策略与轮选; the server refuses it too); right = the detail pane,
@@ -41,9 +41,10 @@
 // list carries the overlay's entry (LoadoutButton, from 'draft' — it closes when the draft ends; maintainer request 2026-10-13).
 // 规程 (hasDiyChooseStep): no row in the detail pane — the strategy's roster still applies when my pick lands, and the
 // 确定自选编队 screen after the draft carries the dropdown (screens/diyChoose.js DiyPresetBox; maintainer decision 2026-11-13).
-// 本局信息 (GitHub issue #8 item 1, "选策略时没法返回查看禁用的干员和盟约"): 本局信息 under the order list (named so: maintainer decision 2026-11-07) opens the
-// briefing's bond rows, legend and 本局禁用干员 again, read-only (ui/matchInfo.js MatchInfoDialog — the very blocks of the
-// briefing). The draft runs on underneath: its status line repeats the current turn and the countdown (draftInfoStatus),
+// 盟约信息 (GitHub issue #8 item 1, "选策略时没法返回查看禁用的干员和盟约"): under the order list (named 本局信息 by maintainer
+// decision 2026-11-07, 盟约信息 since the row beside 敌方情报 — maintainer decision 2026-11-18) it opens the briefing's bond
+// rows, legend and 本局禁用干员 again, read-only (ui/matchInfo.js MatchInfoDialog — the very blocks of the briefing, titled
+// as the button); 敌方情报 on its left opens the briefing's boss, special enemies and battlefield (ui/matchIntel.js). The draft runs on underneath: its status line repeats the current turn and the countdown (draftInfoStatus),
 // a turn change (a pick, a skip, a turn that runs out, an AI pick) closes it, the end of the draft unmounts it, and it
 // never touches the highlighted band or the buttons.
 
@@ -646,7 +647,7 @@ export function BandDraftScreen() {
   }, [bands.length, myPick, myTurn, takenKey]);
   // "your turn" cue
   useEffect(() => { if (myTurn && !solo) audio.sfx('yourTurn'); }, [myTurn]);
-  // the 本局信息 dialog never outlives the turn it was opened in: a turn change (a pick, a skip, a turn that ran out, an
+  // the 盟约信息 / 敌方情报 dialogs never outlive the turn it was opened in: a turn change (a pick, a skip, a turn that ran out, an
   // AI pick) or my pick closes it, so whoever's turn begins sees the draft
   const turnKey = `${draft.turnPid || ''}|${myPick || ''}`;
   useEffect(() => { setInfoOpen(false); setIntelOpen(false); }, [turnKey]);
@@ -736,10 +737,10 @@ export function BandDraftScreen() {
   };
   const turnName = playerName(players.find((p) => p.playerId === draft.turnPid)?.name);
   useTicker(clock ? 250 : 0);
-  // the turn's seconds (the 本局信息 dialog's status line repeats the step header's number)
+  // the turn's seconds (the two dialogs' status line repeats the step header's number)
   const turnSecs = clock ? secondsLeft(clock.deadline) : null;
   const turnLen = Number(pub?.draft?.turnSeconds) > 0 ? Math.round(pub.draft.turnSeconds) : null;
-  // 本局信息: the briefing's blocks (built only while the dialog is open) and the draft's state under it
+  // 盟约信息: the briefing's blocks (built only while the dialog is open) and the draft's state under it
   const info = infoOpen ? matchInfoModel(pub, { bonds: gd.list('bonds'), chess: gd.chess, mode, priv, diyData: { chess: data.get('chess'), backups: data.get('backups') } }) : null;
   const infoStatus = (infoOpen || intelOpen) ? draftInfoStatus({ myPick, pickName: myPick ? gd.band(myPick)?.name : null, myTurn, turnName, secs: turnSecs,
     waiting: !solo && !draft.done }) : null;
@@ -766,10 +767,12 @@ export function BandDraftScreen() {
           })}
         </div>
         <div class="draft-order__side">
-          <${Button} variant="secondary" icon="target" block=${true} class="draft-order__info" data-testid="match-intel-open"
-            aria-haspopup="dialog" onClick=${() => { setInfoOpen(false); setIntelOpen(true); }}>${t('敌方情报与战场')}<//>
-          <${Button} variant="secondary" icon="search" block=${true} class="draft-order__info" data-testid="match-info-open"
-            aria-haspopup="dialog" onClick=${() => { setIntelOpen(false); setInfoOpen(true); }}>${t('本局信息')}<//>
+          <div class="draft-order__infos">
+            <${Button} variant="secondary" icon="target" class="draft-order__info" data-testid="match-intel-open"
+              aria-haspopup="dialog" onClick=${() => { setInfoOpen(false); setIntelOpen(true); }}>${t('敌方情报')}<//>
+            <${Button} variant="secondary" icon="search" class="draft-order__info" data-testid="match-info-open"
+              aria-haspopup="dialog" onClick=${() => { setIntelOpen(false); setInfoOpen(true); }}>${t('盟约信息')}<//>
+          </div>
           ${inDraft ? html`<${LoadoutButton} from="draft" class="draft-order__loadout" />` : null}
           ${!solo ? html`<p class="draft-order__tip" data-testid="draft-tip">${draftTip({ timed, turnSeconds: turnLen, autoName: myPick ? null : autoName, selected: autoId === sel })}</p>` : null}
         </div>
@@ -839,7 +842,7 @@ export function BandDraftScreen() {
       </aside>
     </main>
     <${ExitModal} open=${exit} onClose=${() => setExit(false)} solo=${solo} />
-    <${MatchInfoDialog} open=${infoOpen} onClose=${() => setInfoOpen(false)} model=${info}
+    <${MatchInfoDialog} open=${infoOpen} onClose=${() => setInfoOpen(false)} model=${info} title=${t('盟约信息')}
       status=${infoStatus ? html`<span class=${cx('minfo-dlg__turn', `is-${infoStatus.tone}`)}>
         <${Icon} name=${infoStatus.tone === 'mint' ? 'check' : 'hourglass'} />${infoStatus.text}${infoStatus.secs != null ? html`<b class="num">${infoStatus.secs}s</b>` : null}
       </span>` : null} />

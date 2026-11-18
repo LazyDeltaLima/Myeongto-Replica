@@ -185,7 +185,8 @@ test('MatchInfo = 核心盟约, 附加盟约, the legend, 本局禁用干员 (on
   assert.equal(dlg.type, Modal);
   assert.equal(dlg.props.open, true);
   assert.equal(dlg.props.onClose, onClose, 'Esc and a tap outside close it (components.js Modal)');
-  assert.equal(dlg.props.title, '本局信息');
+  assert.equal(dlg.props.title, '本局信息', 'the default title (确定自选编队\'s 本局信息)');
+  assert.equal(MatchInfoDialog({ open: true, onClose, model: m, title: '盟约信息' }).props.title, '盟约信息', 'the draft titles it as its button');
   assert.equal(dlg.props.class, 'minfo-dlg');
   const inner = [...walk(dlg.props.children)].find((v) => v.type === MatchInfo);
   assert.equal(inner?.props.model, m, 'the very blocks of the briefing');
@@ -261,8 +262,9 @@ test('the briefing, the strategy draft and the in-game 本局信息 tab all read
   // (+ ChessIcon: the 自选预设 row draws its picks as the stage info draws operators)
   assert.match(draft, /import \{ MatchInfoDialog, matchInfoModel, ChessIcon \} from '\.\.\/ui\/matchInfo\.js';/);
   assert.match(draft, /const info = infoOpen \? matchInfoModel\(pub, \{ bonds: gd\.list\('bonds'\), chess: gd\.chess, mode, priv, diyData: \{ chess: data\.get\('chess'\), backups: data\.get\('backups'\) \} \}\) : null;/);
-  assert.match(draft, /data-testid="match-info-open"[\s\S]*?setInfoOpen\(true\); \}\}>\$\{t\('本局信息'\)\}</);
-  assert.match(draft, /<\$\{MatchInfoDialog\} open=\$\{infoOpen\} onClose=\$\{\(\) => setInfoOpen\(false\)\} model=\$\{info\}/);
+  // 敌方情报 | 盟约信息 in one row, each dialog titled as its button (docs/rules/ui.md 「전략 선택 중 적 정보·전장 다시 보기」)
+  assert.match(draft, /<div class="draft-order__infos">\s*<\$\{Button\}[^>]*data-testid="match-intel-open"[\s\S]*?\}\}>\$\{t\('敌方情报'\)\}<\/\/>\s*<\$\{Button\}[^>]*data-testid="match-info-open"[\s\S]*?setInfoOpen\(true\); \}\}>\$\{t\('盟约信息'\)\}<\/\/>\s*<\/div>/);
+  assert.match(draft, /<\$\{MatchInfoDialog\} open=\$\{infoOpen\} onClose=\$\{\(\) => setInfoOpen\(false\)\} model=\$\{info\} title=\$\{t\('盟约信息'\)\}/);
   // a turn change or my pick closes it; the draft's end unmounts the screen
   assert.match(draft, /const turnKey = `\$\{draft\.turnPid \|\| ''\}\|\$\{myPick \|\| ''\}`;\n\s*useEffect\(\(\) => \{ setInfoOpen\(false\); setIntelOpen\(false\); \}, \[turnKey\]\);/);
   const drawer = read('public/js/ui/enemyDrawer.js');

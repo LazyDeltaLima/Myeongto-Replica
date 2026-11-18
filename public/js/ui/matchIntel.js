@@ -87,9 +87,9 @@ export function MatchIntel({ pub, season, dialog = false }) {
         </div>`}`;
 }
 
-/** The existing match-info modal frame, with vertically stacked briefing intel. */
+/** The existing match-info modal frame, with vertically stacked briefing intel; titled as the draft's 敌方情报 button. */
 export function MatchIntelDialog({ open, onClose, pub, season, status = null }) {
-  return html`<${Modal} open=${open && !!pub} onClose=${onClose} title=${t('敌方情报与战场')}
+  return html`<${Modal} open=${open && !!pub} onClose=${onClose} title=${t('敌方情报')}
     micro="MATCH INFO // ENEMY & BATTLEFIELD" class="minfo-dlg intel-dlg"
     actions=${html`${status ? html`<div class="minfo-dlg__status">${status}</div>` : null}
       <${Button} variant="secondary" icon="close" data-autofocus data-testid="match-intel-close" onClick=${onClose}>${t('关闭')}<//>`}>
