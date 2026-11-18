@@ -386,8 +386,16 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .ihead small { color: var(--text-lo); font-size: .14rem; }
 /* the banned operators by greyed bond: the briefing's chess_banned_group (css/screens/briefing.css .brief-bgroup*, one
    prefab unit = --ou), scaled to the drawer (~1180 units across its body, as the client's 1186-unit groups) */
-.igroups { --ou: max(.006rem, .4px); }
+/* the 核心盟约 / 附加盟约 rows above them (ui/enemyDrawer.js DrawerBondRow) share that unit, so their bonds are the groups' size */
+.igroups, .ibonds { --ou: max(.006rem, .4px); }
 .igroups .brief-bgroup { padding-left: 0; padding-right: 0; }
+/* each item as wide as its name (at least the 110-unit bond_item): the name in flow under the disc, not the absolute
+   145-unit box, so 카시미어 / 라이타니엔 never run together; 24 apart, so the 131-unit discs do not touch; a phone wraps */
+.ibonds { display: flex; flex-wrap: wrap; gap: calc(var(--ou) * 22) calc(var(--ou) * 24); padding: calc(var(--ou) * 14) 0 0; }
+.ibond { display: block; }
+.ibonds .ibd { box-sizing: border-box; width: auto; min-width: calc(var(--ou) * 110); height: auto; min-height: calc(var(--ou) * 130);
+  padding-top: calc(var(--ou) * 105); }
+.ibonds .ibd .ibd__name { position: static; display: block; width: auto; transform: none; }
 .ibanned__one { padding: 0; background: none; border: 0; line-height: 0; color: inherit; cursor: pointer; }
 /* 0.2.0: the player's own 自选 pieces out of the shop this match (ui/matchInfo.js DiyBannedLine) */
 .idiybanned { margin: .08rem 0 0; font-size: .13rem; line-height: 1.5; }
