@@ -608,6 +608,9 @@ export function BandDraftScreen() {
   const [skipped, setSkipped] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [intelOpen, setIntelOpen] = useState(false);
+  // the 敌方情报 button wears the client's enemy title icon (img_title_icon_enemy, the 敌方情报 dialog's section icon),
+  // tinted like the other button icons; without the local art it keeps the drawn target icon
+  const enemyArt = localAsset('ui/outer', 'img_title_icon_enemy');
   const season = useStore((s) => s.room?.season ?? null);
   // 전략별 선발 프리셋: this match's roster choice per strategy (bandId → choice) and 记住此策略的预设 (bandId → bool, on)
   const [presetSel, setPresetSel] = useState({});
@@ -768,8 +771,8 @@ export function BandDraftScreen() {
         </div>
         <div class="draft-order__side">
           <div class="draft-order__infos">
-            <${Button} variant="secondary" icon="target" class="draft-order__info" data-testid="match-intel-open"
-              aria-haspopup="dialog" onClick=${() => { setInfoOpen(false); setIntelOpen(true); }}>${t('敌方情报')}<//>
+            <${Button} variant="secondary" icon=${enemyArt ? null : 'target'} class=${cx('draft-order__info', enemyArt && 'has-art')}
+              style=${enemyArt ? `--art:url("${enemyArt}")` : null} data-testid="match-intel-open" aria-haspopup="dialog" onClick=${() => { setInfoOpen(false); setIntelOpen(true); }}>${t('敌方情报')}<//>
             <${Button} variant="secondary" icon="search" class="draft-order__info" data-testid="match-info-open"
               aria-haspopup="dialog" onClick=${() => { setIntelOpen(false); setInfoOpen(true); }}>${t('盟约信息')}<//>
           </div>
