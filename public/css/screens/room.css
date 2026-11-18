@@ -40,7 +40,7 @@
 .rs-clock { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
 .rs-clock > b { font-size: calc(.2 * var(--t)); font-weight: 700; white-space: nowrap; }
 .rs-tools { display: flex; gap: .08rem; margin-left: .1rem; }
-.rs-tools .settings-btn .icon { width: max(.22rem, 18px); height: max(.22rem, 18px); }
+.rs-tools :is(.settings-btn, .fs-btn) .icon { width: max(.22rem, 18px); height: max(.22rem, 18px); }
 /* a finger's size on a touch screen (an iPad's .36rem is under 20 px) */
 @media (pointer: coarse), (any-pointer: coarse) {
   .rs-tools .btn--square { --sq: max(.36rem, 32px); height: max(.36rem, 32px); }

@@ -597,7 +597,7 @@
 /* the 设置 trigger of the lobby and the room (ui/settings.js SettingsButton, GitHub #238): the 玩法说明 button's twin; its gear sits
    inside the label, so the label lays glyph and text out like the button itself */
 .settings-btn .btn__label { display: inline-flex; align-items: center; gap: .1rem; }
-.settings-btn .btn__icon { color: var(--mint-500); }
+.settings-btn .btn__icon, .fs-btn .btn__icon { color: var(--mint-500); }
 .set-list { display: flex; flex-direction: column; gap: .16rem; padding-top: .06rem; }
 /* the tabs of the modal (ui/settings.js SETTINGS_TABS: 通用 / 声音 / 聊天提示 / 画面 / 快捷键 / 问题反馈), one panel shown under
    them; the dialog takes the height of the panel shown (maintainer request 2026-10-24); a long language wraps the row of

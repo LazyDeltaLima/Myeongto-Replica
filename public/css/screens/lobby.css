@@ -79,7 +79,7 @@
 .topbar__sep { width: 1px; height: .28rem; background: var(--line-2); }
 .topbar__tools { display: flex; align-items: center; gap: .14rem; }
 .topbar__tools .btn--square.btn--sm { --sq: .46rem; height: var(--sq); min-width: var(--sq); }
-.topbar__tools .settings-btn .icon { width: max(.22rem, 18px); height: max(.22rem, 18px); }
+.topbar__tools :is(.settings-btn, .fs-btn) .icon { width: max(.22rem, 18px); height: max(.22rem, 18px); }
 .sp-coarse .topbar__tools { gap: max(.16rem, 10px); }
 .sp-coarse .topbar__tools .btn--square.btn--sm { --sq: max(.56rem, 40px); }
 
