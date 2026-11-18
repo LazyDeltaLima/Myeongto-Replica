@@ -39,6 +39,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url'; // local patch (script guard)
 import { isDeepStrictEqual } from 'node:util';
+import { MOUNT_POSES_FILE, shotPoses } from './assets/mount-poses.mjs';
 import { Grid, DEPLOY_REFUSED_TILES, HAND_TILES } from '../server/sim/grid.js';
 import { TRIG_SORTS } from '../server/sim/targeting.js';
 import { bandBondIds } from '../shared/bandBonds.js';
@@ -460,6 +461,8 @@ async function loadContext() {
     enemyProjectiles: await loadLocalJson('tools/assets/local-enemy-projectiles.json', 'enemy projectiles (tools/local-extract/enemy_projectiles.py): no `proj` …'),
     skillCast: await loadLocalJson('tools/assets/local-skill-cast.json', 'skill classes (tools/local-extract/skill_cast.py): no skill `cast` …'),
     skillHud: await loadLocalJson('tools/assets/local-skill-hud.json', 'skill HUD rows (tools/local-extract/skill_hud.py): no skill `bulletMode` / `overload` …'),
+    charPoints: await loadLocalJson('tools/assets/local-char-points.json', 'operator model points (tools/local-extract/char_points.py): no `hitAt` …'),
+    mountPoses: await loadLocalJson(MOUNT_POSES_FILE, 'shot mount poses (tools/assets/mount-poses.mjs): no shot `from` …'),
   };
 }
 
@@ -1186,7 +1189,10 @@ function buildChess(ctx) {
     // the attack clip of each attack mode and its timing (opAttackAnim; server/sim/ai.js attackTiming)
     rec.attackAnim = opAttackAnim(ctx, body, (char.skills || []).length);
     // the official projectile of each attack mode's normal attack (opShot; server/sim/ai.js opShot)
-    rec.shot = opShot(ctx, body, char.skills || []);
+    rec.shot = opMounts(ctx, body, opShot(ctx, body, char.skills || []), rec.attackAnim);
+    // the model's hit point, where the shots aimed at it end (opHitAt)
+    const hitAt = opHitAt(ctx, body);
+    if (hitAt) rec.hitAt = hitAt;
     out[chessId] = rec;
   }
 
@@ -1242,6 +1248,7 @@ const statusCmp = (a, b) => a.phase - b.phase || a.level - b.level || a.skillLev
 function buildUnitHead(ctx, charId) {
   const { charTable, uniequip } = ctx;
   const char = charTable[charId];
+  const attackAnim = opAttackAnim(ctx, charId, (char.skills || []).length), hitAt = opHitAt(ctx, charId);
   const moduleNames = {};
   for (const id of uniequip.charEquip?.[charId] || []) {
     const meta = uniequip.equipDict?.[id];
@@ -1257,8 +1264,9 @@ function buildUnitHead(ctx, charId) {
       spine: charId, subProfIcon: `sub_${char.subProfessionId}_icon`,
     },
     moduleNames,
-    attackAnim: opAttackAnim(ctx, charId, (char.skills || []).length),
-    shot: opShot(ctx, charId, char.skills || []),
+    attackAnim,
+    shot: opMounts(ctx, charId, opShot(ctx, charId, char.skills || []), attackAnim),
+    ...(hitAt ? { hitAt } : null),
   };
 }
 
@@ -2877,7 +2885,8 @@ function opAttackAnim(ctx, charId, skillCount) {
   const withRanged = (ab, clip) => {
     const r = clip && ab?.ranged ? clipOf(ab.ranged, null) : null;
     const c = clip && ab?.combat ? clipOf(ab.combat, null) : null;
-    return { ...clip, ...(r && (r.dur !== clip.dur || r.hit !== clip.hit) ? { ranged: r } : null), ...(c ? { combat: c } : null) };
+    // (also when only its clip differs: the shot leaves where that clip holds the mount point — opMounts)
+    return { ...clip, ...(r && (r.dur !== clip.dur || r.hit !== clip.hit || r.clip !== clip.clip) ? { ranged: r } : null), ...(c ? { combat: c } : null) };
   };
   const base = t.attack?.[0] ? withRanged(t.attack[0], clipOf(t.attack[0], sp.anims?.attack?.loop)) : null;
   const skillMode = ctx.charModes?.[charId]?.skillMode ?? null;
@@ -2973,6 +2982,60 @@ function opShot(ctx, charId, charSkills) {
     skills.push(m > 0 ? rec(m) : ownShot(charSkills[i]));
   }
   return base || skills.some(Boolean) ? { base, skills } : null;
+}
+
+/** Skeleton units → tiles on the model: SkeletonDataAsset `scale` 0.01 × the battle model's standard transform product. */
+const MOUNT_TILES = 0.01 * MODEL_SCALE_STANDARD;
+const mountTiles = (p) => [Math.round(p[0] * MOUNT_TILES * 1000) / 1000 || 0, Math.round(p[1] * MOUNT_TILES * 1000) / 1000 || 0];
+
+/**
+ * Where each flying shot of opShot's `shot` leaves the shooter's default model (skins do not change the battle) → the shot's
+ * `from` { F: [du, dv], B?: [du, dv] }: the mount point (`mount`) at the strike of the mode's attack clip, in tiles on the
+ * model from its root — du along the Front model's facing (mirrored when it faces left), dv up the model; B the Back model
+ * (absent: the Front one's). `GROUND` leaves the feet ([0, 0]). Poses: tools/assets/op-mount-poses.json
+ * (tools/assets/mount-poses.mjs — the bone the point follows, posed in that clip; the prefab's saved spot is the pose it was
+ * saved in, not the shot's). The official flight time is the board distance from it to the target's hit point (opHitAt) over
+ * `_speed` (`BasicMovement.OnInit` / `ParacurveMovement.OnInit`, docs/rules/sim.md 「투사체의 출발·도착 점」). Throws on a
+ * flying shot the table does not pose (run mount-poses.mjs again after a change of the shots or clips); without the table
+ * (no assets) the shots get no `from`, with loadLocalJson's warning.
+ */
+function opMounts(ctx, spine, shot, attackAnim) {
+  const poses = ctx.mountPoses;
+  if (!shot || !poses) return shot;
+  const recs = [shot.base, ...(shot.skills || [])];
+  const need = shotPoses(spine, shot, attackAnim);
+  let k = 0;
+  for (const s of recs) {
+    if (!s || typeof s.key !== 'string' || !(Number(s.speed) > 0)) continue;
+    if (s.mount === 'GROUND') { s.from = { F: [0, 0] }; continue; }
+    const p = need[k++];
+    const row = p?.key ? poses[spine]?.[p.key]?.[p.point] : null;
+    if (!row?.F) {
+      throw new Error(`${spine}: no mount pose for ${p ? `${p.where} at ${p.key ?? '(no clip)'} ${p.point ?? ''}` : `a ${s.mount} shot`} in ${MOUNT_POSES_FILE} `
+        + '— run node tools/assets/mount-poses.mjs, then build-data again (docs/rules/sim.md 「투사체의 출발·도착 점」)');
+    }
+    s.from = { F: mountTiles(row.F), ...(row.B ? { B: mountTiles(row.B) } : {}) };
+  }
+  return shot;
+}
+
+/**
+ * An operator's hit point on its default model (tools/assets/local-char-points.json `hit`: the `_hitTransform` HitPoint,
+ * a fixed spot of the model for every operator) → `hitAt` { F: [du, dv], B?: [du, dv] } in tiles as opMounts: where the
+ * shots aimed at it end (`GetTargetLocatable` — the target's hit mount point). Throws on an operator the table lacks, or
+ * whose hit point follows a bone (its saved spot would not be where it is); null without the table.
+ */
+function opHitAt(ctx, spine) {
+  const pts = ctx.charPoints;
+  if (!pts) return null;
+  const h = pts[spine]?.hit;
+  const face = (p) => (p && !p.bone && Array.isArray(p.at) ? mountTiles(p.at) : null);
+  const F = face(h?.F ?? h?.B), B = h?.B ? face(h.B) : null;
+  if (!F || (h?.B && !B)) {
+    throw new Error(`${spine}: ${h ? 'a hit point that follows a bone' : 'no hit point'} in tools/assets/local-char-points.json — `
+      + 'tools/local-extract/char_points.py --id ' + spine + ' (docs/rules/sim.md 「투사체의 출발·도착 점」)');
+  }
+  return { F, ...(B && (B[0] !== F[0] || B[1] !== F[1]) ? { B } : {}) };
 }
 
 /**

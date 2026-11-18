@@ -120,6 +120,11 @@ def char_ids(client):
             for f in p.glob('char_*.ab'):
                 files.setdefault(f.stem, f)
     ids = set(pool_char_ids())
+    # every unit of data/backups.json too: the 预备干员 are fought with but are no chess of the pool (tools/build-data.mjs
+    # opHitAt stops without their points)
+    bk = ROOT / 'data/backups.json'
+    if bk.exists():
+        ids |= {c for c in (json.loads(bk.read_text(encoding='utf-8')).get('units') or {}) if c.startswith('char_')}
     idx = ROOT / 'public/assets/local/fx/index.json'
     if idx.exists():
         bundles = json.loads(idx.read_text(encoding='utf-8')).get('bundles') or {}

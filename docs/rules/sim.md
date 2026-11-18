@@ -1680,6 +1680,28 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 - 키트가 직접 쏘는 투사체(스킬 'strike' 등)는 키트 값 그대로. 티피(스카이레인저)는 2026-11-03부터 원거리 — 「오퍼레이터 공격 형태」.
 - 테스트 `test/sim/op-shot.test.js`(데이터·비행 시간·저지·렌더 짝·실제 판 경로의 치료 지연). 원거리 오퍼레이터 피해 시각이 바뀌어 golden이 움직인다.
 
+### 투사체의 출발·도착 점 (2026-11-18, 자료만 — 시뮬레이션은 아직 안 씀)
+- **공식**: 투사체는 쏘는 쪽 모드 공격의 `_mountPointType` 점(`RangedAttack._GetMountPoint`, MUZZLE·특수점 — `shot.*.mount`)에서 나와 대상의 hit 마운트 점
+  (`GetTargetLocatable`)으로 가고, 비행 시간은 두 점 `mapPositionV3`의 판 위 거리 / `_speed`(`BasicMovement.OnInit`·`ParacurveMovement.OnInit`, 공식 클라에서 확인).
+  우리 시뮬레이션은 아직 유닛 중심 거리라 늘 약 0.09 s 늦다(혼 평타, 관리자 메모 「fx-Y 1행 계산」). 이 절은 그 두 점을 `data/`로 내는 데까지다.
+- **자료**: 날아가는 shot(`speed` > 0)마다 `from` { F: [du, dv], B?: [du, dv] } — 기본 모델(스킨은 전투를 안 바꿈) 위 총구·특수점의 자리, 모델 뿌리에서 칸 단위
+  (du는 앞 모델이 보는 쪽, 왼쪽을 볼 때는 뒤집음; dv는 모델 위로; B는 뒷모델, 없으면 F). `GROUND`는 [0, 0]. 오퍼레이터마다 `hitAt`(hit 점, 같은 꼴).
+  스켈레톤 단위 × 0.01(SkeletonDataAsset) × 0.27(기본 모델 FaceSwitcher, rules/render.md 「유닛 모델 크기」의 근거와 같은 값) = 칸. 시뮬레이션 자료(`simdata.js normalizeChess`)는
+  `shot.*.from`·`hitAt`으로 읽고, 보충·선발 기록(`shared/standIn.js composeUnitRecord`)도 `hitAt`을 싣는다. 판 위 거리로 바꾸는 식(모델 면 기울기)과 시뮬레이션·렌더
+  `trailShot`에 쓰는 일은 다음 묶음 줄.
+- **총구는 쏘는 순간의 본 자리**: 점은 Spine 본을 따르는 Transform(BoneFollower)이라 쏠 때의 자리는 그 모드 공격 클립의 타격 시각(OnAttack 프레임, 없으면 클립 끝,
+  `_waitForAttackEvent` 0이면 `_preDelay` — `ai.js attackTiming`과 같은 시각; 요새는 `RangedAttack` 클립)에 본이 있는 곳이다. 프리팹에 저장된 자리
+  (`local-char-points.json` `at`)는 저장할 때의 자세라 쓸 수 없다 — 총구 138개 중 37개가 모델 뒤나 발밑(엑시아 F_Muzzle은 저장 (−144, 76), 평타 타격 때 (118, 163)).
+  그래서 `tools/assets/mount-poses.mjs`가 기본 모델의 전투 Spine(Front·Back)을 그 클립·시각으로 세워 본 자리를 `tools/assets/op-mount-poses.json`에 쓰고,
+  `tools/build-data.mjs opMounts`가 `from`으로 옮긴다. 순서는 build-data → mount-poses → build-data(각 시즌). 렌더도 쏘는 순간 같은 본을 따르므로 꼬리 출발점과 같다.
+- **공개 기준과 맞춘 법**(클라 전용 추출 표를 새로 공개하지 않는다는 관리자 결정과): 자세는 클라가 아니라 공개 소재 저장소(fexli/ArknightsResource, `docs/ASSETS.md`)에서 받는 전투 Spine에서 계산하고,
+  어느 본이 총구인지·모드의 mount는 이미 공개된 `local-char-points.json`·`local-op-projectiles.json`에서 읽는다 — 새 클라 전용 표는 없다. 예비 오퍼레이터 17명의 점이
+  표에 없어(풀의 기물이 아님) `char_points.py`가 `data/backups.json` 유닛도 읽게 했다.
+- **생성기는 멈춤**: 날아가는 shot의 자세가 표에 없거나(새 오퍼레이터·클립·타격 시각이 바뀜) 오퍼레이터의 hit 점이 없거나 본을 따르면 build-data가 그 오퍼레이터·모드를 대며
+  멈춘다. mount-poses도 점 기록·본·클립·스켈레톤이 없으면 아무것도 안 쓰고 목록을 낸다. 표 파일이 아예 없으면(소재 없는 환경) 다른 로컬 표처럼 경고만 하고 필드를 안 낸다.
+- **아직 없음**: 적의 hit 점(341명은 고정 자리, 4명은 본을 따름, 2명은 점 없음)·토큰의 점 — 다음 묶음 줄. 아래를 보는 공격(`Skill_Down_*`)은 데이터의 클립 그대로만.
+- 재발 방지: 원인 제거 — 생성기가 자세 표·점 표를 읽고 모르는 것에서 멈춤; 표 없이 만든 자료는 `test/sim/mount-points.test.js`(전수).
+
 ## 작전 시작 차례 배치 (2026-10-10, 관리자 결정 「공식처럼 한 개씩, 部署 대사는 한 번」)
 - 근거(공식 클라, 오디오 담당이 찾음 — `audio.md` 「전투 시작」): `MainGameInBattle._StartBattle`이 먼저 `_Prebuilt`를 끝까지 돌린다 — 말 하나마다
   `Deck.SpawnCharacterOrToken` 뒤 `WaitForFixedSeconds(0.2)`. 그 **뒤에** ON_BATTLE_STARTED(1211)를 쏘고 웨이브 스케줄러

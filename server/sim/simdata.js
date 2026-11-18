@@ -290,6 +290,8 @@ export function normalizeChess(rec) {
     attackAnim: normOpAttackAnim(rec.attackAnim),
     // the official projectile of each attack mode's normal attack (ai.js opShot): undefined = not read
     shot: normOpShot(rec.shot),
+    // the model's hit point { F: [du, dv], B? } in tiles, where the shots aimed at it end (tools/build-data.mjs opHitAt), or null
+    hitAt: normMount(rec.hitAt),
     // a 补位 stand-in (shared/standIn.js): the replaced operator's charId — `charId` is the stand-in's (absent otherwise)
     ...(rec.standInFor ? { standInFor: rec.standInFor } : null),
     // a 自选 piece (shared/diy.js): the slot's base id — `charId` is the operator's (absent otherwise)
@@ -405,9 +407,21 @@ function normOpShot(s) {
     const n = normShot(typeof p.key === 'string' ? p : { ...p, key: '' });
     if (!n) return null;
     const land = Number(p.land);
-    return { ...n, key: n.key || null, ...(Number.isFinite(land) && land > 0 ? { land } : {}), ...(p.trace ? { trace: true } : {}), ...(p.combat ? { combat: true } : {}) };
+    const from = normMount(p.from);
+    return { ...n, key: n.key || null, ...(Number.isFinite(land) && land > 0 ? { land } : {}), ...(p.trace ? { trace: true } : {}), ...(p.combat ? { combat: true } : {}), ...(from ? { from } : {}) };
   };
   return { base: one(s.base), skills: Array.isArray(s.skills) ? s.skills.map(one) : [] };
+}
+
+/**
+ * A model point of data/chess.json (a shot's `from`, a unit's `hitAt` — tools/build-data.mjs opMounts / opHitAt) →
+ * { F: [du, dv], B: [du, dv] } in tiles on the model from its root (du along the Front model's facing, dv up; B the Back
+ * model's, the Front one's when the data has none), or null when absent or malformed.
+ */
+function normMount(m) {
+  const pair = (p) => (Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]) ? [p[0], p[1]] : null);
+  const F = pair(m?.F);
+  return F ? { F, B: pair(m.B) ?? F } : null;
 }
 
 /** { name: shot } of normShot (the `projModes` / `talentProj` maps), or null when empty. */
