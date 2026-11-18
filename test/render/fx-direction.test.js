@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirCopies } from '../../public/js/render/fxgame.js';
 import { NO_DATA, withLayer } from '../helpers/fxDryLayer.js';
-import { pointScale, pointTurn, pointTurnOn, pointUp, rootTurn } from '../../public/js/render/fxpoints.js';
+import { pointFlips, pointScale, pointTurn, pointUp } from '../../public/js/render/fxpoints.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
@@ -123,33 +123,30 @@ test('pointTurn: the bone\'s world rotation (radians, y up) when the point turns
   assert.equal(pointTurn(entry, null, false), null);
 });
 
-test('pointUp (2026-11-02, MountPoint.get_faceTo): the point Transform\'s up on the board — the bone\'s turn, π − t when flipped, y × cos 30°', () => {
+test('pointUp (2026-11-02, MountPoint.get_faceTo): the point Transform\'s up on the board — the bone\'s turn, its x mirrored facing left (2026-11-18), y × cos 30°', () => {
   const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-6);
   const c30 = Math.cos(Math.PI / 6);
   const at = (deg) => ({ findBone: (n) => (n === 'F_Muzzle' ? { getWorldRotationX: () => deg } : null) });
   const entry = { F: { bone: 'F_Muzzle', rot: 1 } };
   assert.ok(near(pointUp(entry, at(0), false, 1), [0, c30]), 'an unturned gun: the board\'s y axis');
   assert.ok(near(pointUp(entry, at(-90), false, 1), [-1, 0]), 'turned +90° (Unity): its up points left');
-  // facing left the client's bone reads π − t and the flip is a negative y scale, which Transform.up ignores
-  assert.ok(near(pointUp(entry, at(-90), false, -1), [-1, 0]));
-  assert.ok(near(pointUp(entry, at(0), false, -1), [0, -c30]));
+  // facing left the client turns the skeleton's Transform y 180° (SpineAnimator.FlipSkeletonAnimation): the up's x mirrored
+  assert.ok(near(pointUp(entry, at(-90), false, -1), [1, 0]));
+  assert.ok(near(pointUp(entry, at(0), false, -1), [0, c30]));
   assert.ok(near(pointUp({ F: { at: [0, 400] } }, at(-90), false, -1), [0, c30]), 'a point that does not turn: the Graphic\'s up');
   assert.ok(near(pointUp(entry, null, false, 1), [0, c30]));
 });
 
-test('pointTurnOn / rootTurn (2026-11-18, maintainer report: 바르카리스 S2 weapon effect, 고프닉 aura): a point\'s turn on a model drawn facing left is π − t, and a mirrored root is set so that it shows that', () => {
-  const sk = { findBone: (n) => (n === 'C_Weapon_D_I' ? { getWorldRotationX: () => -30 } : null) };
-  const entry = { F: { bone: 'C_Weapon_D_I', rot: 1 } };
-  const t = Math.PI / 6;
-  assert.ok(Math.abs(pointTurnOn(entry, sk, false, 1) - t) < 1e-9, 'facing right: the bone\'s turn');
-  assert.ok(Math.abs(pointTurnOn(entry, sk, false, -1) - (Math.PI - t)) < 1e-9,
-    'facing left the client\'s flipped skeleton gives π − t (docs/rules/fx.md 「마운트 회전」): an unmirrored effect must turn to the other side');
-  assert.equal(pointTurnOn({ F: { bone: 'C_Weapon_D_I', rot: 0 } }, sk, false, -1), null, 'a point that does not turn');
-  assert.equal(rootTurn(0.4, 1), 0.4);
-  assert.ok(Math.abs(rootTurn(Math.PI - t, -1) - t) < 1e-9, 'inside a mirror (followScaleSign): the mirrored root shows π − t');
-  // one entry: fxgame.js never reads the unmirrored bone angle itself (the cause — the mount path took pointTurn as is)
-  assert.doesNotMatch(SRC, /\bpointTurn\(/, 'fxgame.js reads a point\'s turn only through fxpoints.js pointTurnOn (docs/rules/fx.md 「마운트 회전」)');
-  assert.match(SRC, /const drawnSide = \(v\) => \(Number\.isFinite\(v\?\.modelSX\)/);
+test('pointFlips (2026-11-18, official client SpineAnimator.FlipSkeletonAnimation; maintainer report: 고프닉 aura on his bag, 바르카리스 S2 weapon effect): an effect copying a turning point\'s rotation is mirrored facing left, the bone\'s turn inside', () => {
+  const sk = { findBone: (n) => (n === 'F_FX' ? { getWorldRotationX: () => -106.6 } : null) };
+  assert.equal(pointFlips({ F: { bone: 'F_FX', rot: 1 } }, sk, false), true, 'a BoneFollower following its bone\'s rotation turns with the skeleton\'s y 180°');
+  assert.equal(pointFlips({ F: { bone: 'F_FX', rot: 0 } }, sk, false), false);
+  assert.equal(pointFlips({ F: { at: [0, 400] } }, sk, false), false);
+  // the cause (docs/rules/fx.md 「마운트 회전」): π − t unmirrored put 고프닉's glint left of his head, not on his bag
+  assert.doesNotMatch(SRC, /Math\.PI - t\b/, 'a point\'s turn facing left is a mirror (pointFlips), not π − t — docs/rules/fx.md 「마운트 회전」');
+  assert.match(SRC, /get flip\(\) \{ return turns && pointFlips\(ptsOf\(v\)\?\.\[key\], v\.actor\?\.spine\?\.skeleton, !!v\.entryBack\) \? drawnSide\(v\) : null; \}/);
+  assert.match(SRC, /if \(f && l\.inst\.unity\) l\.inst\.unity\.scale\.x = Math\.abs\(l\.inst\.unity\.scale\.x\) \* f;/);
+  assert.match(SRC, /get flip\(\) \{ return at\.flip; \}/, 'onRootTile passes the flip on');
 });
 
 test('pointScale (2026-10-27, BoneFollower.DoLateUpdate): the bone\'s local scale with `ls` 1, its world scale with 2, else 1; null without the bone', () => {
@@ -168,9 +165,9 @@ test('pointScale (2026-10-27, BoneFollower.DoLateUpdate): the bone\'s local scal
 test('a mounted effect with _keepOriginRotation 0 turns its root about the board normal every frame', () => {
   assert.match(SRC, /const turns = def\?\.mount && def\.mount\.keepOriginRotation === 0;/);
   // every frame (2026-10-10, official client: FollowMountPoint._FollowMountPoint each LateUpdate) — no first-frame copy
-  assert.match(SRC, /get rot\(\) \{ return turns \? pointTurnOn\(ptsOf\(v\)\?\.\[key\], v\.actor\?\.spine\?\.skeleton, !!v\.entryBack, drawnSide\(v\)\) : null; \}/);
+  assert.match(SRC, /get rot\(\) \{ return turns \? pointTurn\(ptsOf\(v\)\?\.\[key\], v\.actor\?\.spine\?\.skeleton, !!v\.entryBack\) : null; \}/);
   assert.doesNotMatch(SRC, /turn0 \?\?=/);
-  assert.match(SRC, /if \(r != null && l\.inst\.nodes\?\.\[0\]\) l\.inst\.nodes\[0\]\.rotation\.set\(0, 0, rootTurn\(r, l\.inst\.unity\?\.scale\?\.x \?\? 1\)\);/);
+  assert.match(SRC, /if \(r != null && l\.inst\.nodes\?\.\[0\]\) l\.inst\.nodes\[0\]\.rotation\.set\(0, 0, r\);/);
   // the directional pick runs on every play()
   assert.match(SRC, /const \{ names: picked, unflip \} = dirPick\(view, given \|\| effectsFor\(b\.prefabs, kind, skillIndex\)[^;]*\);/);
 });

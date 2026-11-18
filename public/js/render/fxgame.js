@@ -77,7 +77,7 @@ import { wornPrefabs } from './fxstatus.js';
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
-import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, onModelPlane, planePoint, pointKey, pointOn, pointScale, pointTurnOn, pointUp, rootTurn, screenOffset } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
+import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, onModelPlane, planePoint, pointFlips, pointKey, pointOn, pointScale, pointTurn, pointUp, screenOffset } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: an effect on a unit takes its Graphic's X −30°
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { SKIN_EFFECTS_URL, SKIN_POINTS_URL, skinEffect, skinFile, skinShot } from './fxskin.js'; // 2026-11-17: a unit drawn in a skin
@@ -1771,8 +1771,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   loadPoints().then((p) => { points = p; });
   /**
    * 2026-11-18: the side unit `v`'s model is drawn on, < 0 mirrored — the sign of its display scale (render/units.js
-   * `modelSX`: the facing, an enemy model's `mirrorX` and the turn's width), else its facing. What fxpoints.js
-   * pointTurnOn reads to give a point's turn as the client's flipped skeleton does.
+   * `modelSX`: the facing, an enemy model's `mirrorX` and the turn's width), else its facing. An effect that copies a
+   * flipping point's rotation (fxpoints.js pointFlips) is mirrored by it, as the client's skeleton Transform turned y 180°.
    */
   const drawnSide = (v) => (Number.isFinite(v?.modelSX) && v.modelSX !== 0 ? Math.sign(v.modelSX) : (v?.visFacing ?? v?.facing ?? 1) < 0 ? -1 : 1);
   const boneAt = { x: 0, y: 0 };
@@ -1835,7 +1835,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /** `at` at the height unit `v` stands on (its tile's top: the client's map-position height), however it is raised. */
   function onRootTile(v, at) {
     return {
-      get x() { return at.x; }, get y() { return at.y; }, get z() { return v.z || 0; }, get rot() { return at.rot; },
+      get x() { return at.x; }, get y() { return at.y; }, get z() { return v.z || 0; }, get rot() { return at.rot; }, get flip() { return at.flip; },
       get invalid() { return at.invalid; }, get scale() { return at.scale; }, get alive() { return v.alive; }, get remove() { return v.remove; },
       id: v.id, info: v.info, placed: at.placed,
     };
@@ -1857,9 +1857,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const p = { x: 0, y: 0, z: 0 };
       const at = () => specialPoint(v, p, key) || (camRef ? onModel(v, bodyPoint(camRef, v, 0.5, mx(v))) : v);
       // local patch (maintainer report — 아르케토 S3's cast fan stood upright; maintainer's decision 2026-10-08 「전체 적용」): a
-      // FollowMountPoint with `_keepOriginRotation` 0 gives the effect its point's turn too (fxpoints.js pointTurnOn: π − t
-      // on a model drawn facing left, 2026-11-18) — the frame loop turns the prefab root about the Unity frame's z (the
-      // board's normal: +x = column, +y = row, as aimMover) by it (fxpoints.js rootTurn inside a mirror): 아르케토's fan (authored pointing +y up the board, its ring round its axis) lies along
+      // FollowMountPoint with `_keepOriginRotation` 0 gives the effect its point's turn too (fxpoints.js pointTurn) — the frame
+      // loop turns the prefab root about the Unity frame's z (the board's normal: +x = column, +y = row, as aimMover) by it,
+      // inside the mirror its point's flip gives facing left (`flip`: fxpoints.js pointFlips, 2026-11-18): 아르케토's fan (authored pointing +y up the board, its ring round its axis) lies along
       // her shot, opening behind her with its spike toward the enemy (the maintainer's account of the client, 2026-10-08). Every
       // frame (2026-10-10, official client, maintainer decision (2026-10-10)): the client's `FollowMountPoint._FollowMountPoint`
       // (each LateUpdate) takes the point's rotation every frame when `_keepOriginRotation` is 0. From 2026-10-08
@@ -1877,8 +1877,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         get x() { return at().x; }, get y() { return at().y; }, get z() { return at().z; },
         get alive() { return v.alive; }, get remove() { return v.remove; },
         get invalid() { return boneMissing(ptsOf(v)?.[key], v.actor?.spine?.skeleton); },
-        // 2026-11-18 (maintainer report): on the side the model is drawn — π − t facing left (fxpoints.js pointTurnOn)
-        get rot() { return turns ? pointTurnOn(ptsOf(v)?.[key], v.actor?.spine?.skeleton, !!v.entryBack, drawnSide(v)) : null; },
+        get rot() { return turns ? pointTurn(ptsOf(v)?.[key], v.actor?.spine?.skeleton, !!v.entryBack) : null; },
+        // 2026-11-18 (official client, maintainer report): the point's y-180° flip facing left mirrors the effect every frame
+        get flip() { return turns && pointFlips(ptsOf(v)?.[key], v.actor?.spine?.skeleton, !!v.entryBack) ? drawnSide(v) : null; },
         get scale() { return grows ? pointScale(ptsOf(v)?.[key], v.actor?.spine?.skeleton, !!v.entryBack) : null; },
         id: v.id, info: v.info,
       };
@@ -1930,8 +1931,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * (2026-10-22, official client; docs/rules/fx.md 「이펙트 붙는 자리」) An effect created at a model point without a
    * FollowMountPoint: the client's `Effect._InitLocationFromEntity` puts it once at the point
    * (`at`, read on the first access — its creation), with the point Transform's rotation for 3 MUZZLE_POINT (the muzzle's
-   * BoneFollower turns with its bone: fxpoints.js pointTurnOn; the client's skeleton is flipped inside, so a model drawn
-   * mirrored here gives the mirrored angle π − θ, the effect itself not mirrored); then `Entity.HoldEffect` for
+   * BoneFollower turns with its bone: fxpoints.js pointTurn; facing left the client turns the skeleton's Transform y 180°, so
+   * the effect is mirrored with that turn inside — fxpoints.js pointFlips, 2026-11-18; it had π − θ unmirrored); then `Entity.HoldEffect` for
    * `_holdByOwner` (face `hold`) parents it to the unit's `Effects` Transform, a child of its root — it moves with the unit
    * from where it was made, not with the bone —, and without it the effect stays there. It used to follow the point every
    * frame (2026-10-08) and took no turn: 엑시아's muzzle flash (spawn 3, `_rotateType` 0) kept its authored rightward
@@ -1940,7 +1941,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function placedAt(v, def, key, spawn, at, buff = false) {
     const hold = !!def?.face?.hold || buff;   // 2026-10-22: a buff's effect is always held (lifted)
     const follow = !!def?.followOwner;   // 2026-10-25: FollowOwner — its point (and a muzzle's turn) again every frame
-    let p0 = null, b0 = null, r0 = null, off = null;
+    let p0 = null, b0 = null, r0 = null, f0 = null, off = null;
     const h = { x: 0, y: 0, z: 0 };
     const first = () => {
       if (p0 && !follow) return;
@@ -1950,7 +1951,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // 2026-10-25: held, it keeps its screen offset from the unit (fxpoints.js heldAt), not its world offset
       off = hold && !follow && camRef ? screenOffset(camRef, b0, p0) : null;
       if (spawn === 3) {
-        r0 = pointTurnOn(ptsOf(v)?.[key], v.actor?.spine?.skeleton, !!v.entryBack, drawnSide(v));
+        r0 = pointTurn(ptsOf(v)?.[key], v.actor?.spine?.skeleton, !!v.entryBack);
+        f0 = r0 != null && pointFlips(ptsOf(v)?.[key], v.actor?.spine?.skeleton, !!v.entryBack) ? drawnSide(v) : null;
       }
     };
     const held = () => heldAt(camRef, { x: ex(v), y: ey(v), z: (v.z || 0) + (v.hover || 0) }, off, h);
@@ -1959,6 +1961,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       get y() { first(); return off ? held().y : hold ? ey(v) + p0.y - b0.y : p0.y; },
       get z() { first(); return off ? held().z : hold ? (v.z || 0) + (v.hover || 0) + p0.z - b0.z : p0.z; },
       get rot() { first(); return r0; },
+      get flip() { first(); return f0; },
       get alive() { return v.alive; }, get remove() { return v.remove; },
       id: v.id, info: v.info, placed: true,
     };
@@ -8025,7 +8028,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const body = l.view.info ? l.view : l.owner != null ? lastViews?.get(l.on ?? l.owner) : null;
           l.inst.setSink(Math.min(vz, body?.z || 0, l.sinkFrom?.z || 0));
           const r = l.view.rot;   // local patch: its mount point's turn (lifted)
-          if (r != null && l.inst.nodes?.[0]) l.inst.nodes[0].rotation.set(0, 0, rootTurn(r, l.inst.unity?.scale?.x ?? 1));
+          if (r != null && l.inst.nodes?.[0]) l.inst.nodes[0].rotation.set(0, 0, r);
+          // 2026-11-18 (official client): mirrored as its point is flipped (the skeleton's Transform y 180° facing left)
+          const f = r != null ? l.view.flip : null;
+          if (f && l.inst.unity) l.inst.unity.scale.x = Math.abs(l.inst.unity.scale.x) * f;
         }
         if (l.inst.turn && l.inst.def?.follow && !(l.followed && l.inst.def.follow.once)) stepFollow(l); // 2026-10-22: FollowDirection
         if (l.inst.def?.tileH > 0) stepTileHeight(l, dt * rate2); // 2026-10-22: FollowTileHeight

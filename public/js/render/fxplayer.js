@@ -3315,7 +3315,8 @@ export class FxInstance {
    *   facing / dir / body (maintainer decision 2026-10-11 「공식대로」): the effect turns as the client's `ParticleEffect.FaceTo`
    * does by its root `face` record (render/fx/face.js faceTurn) — `dir` = the direction it is played with
    *   (default ±x by `facing`, the owner's drawn side), `body` = the four-way facing of the unit it is created on (for
-   *   `_useBodyRotation`); it is mirrored only by a FollowMountPoint with `_followScaleSign` (the Spine flip, `facing`). A
+   *   `_useBodyRotation`); it is mirrored only by a FollowMountPoint with `_followScaleSign` (the Spine flip, `facing`) — and,
+   *   2026-11-18, by render/fxgame.js's frame loop when it copies a flipping point's rotation (fxpoints.js pointFlips). A
    *   root of another effect class (`bodyFace`: trails, lines, EmptyEffect wrappers — 2026-11-17, official client) turns its
    *   `_bodyTransofrm` to `dir` as the base Effect.FaceTo does (fx/face.js effectTurn), unmirrored — with neither `dir` nor
    *   `facing` given, to `Defaults.EFFECT_DIRECTION` (up). A prefab without either record (an old extract, a root without

@@ -298,8 +298,8 @@
     그 방향으로 돌린다 — 높이 성분이 없다. 우리는 총구 → 대상 GROUND 점의 3D 선을 넘겨 총구 높이만큼 원이 기울었다 → 그 선의 판 위 성분만.
     그 시작점(2026-11-02, 공식 클라에서 확인)은 그녀의 총구 점이다(S3 모드 `RangedAttack`의 `_mountPointType` 기본값 MUZZLE, `_GetMountPoint`).
     `MountPoint.get_faceTo`는 대상 쪽이 아니라 그 점 Transform의 `up`을 맵 좌표로 바꾼 x·y다. 총구 점은 `F_Muzzle`/`B_Muzzle` 본을 회전까지
-    따르는 BoneFollower(스켈레톤 자식: localRotation = 본의 월드 각, 왼쪽을 보면 스켈레톤이 뒤집혀 π − 각, 뒤집힘 자체는 y 크기 −1이라 `up`에
-    안 잡힘)이고 그 위가 `Graphic`의 X −30°다. 그래서 원의 +y = 잠글 때 총의 기울기를 판에 눕힌 방향(x = −sin a, y = cos a × cos 30°) —
+    따르는 BoneFollower(스켈레톤 자식: localRotation = 본의 월드 각, 왼쪽을 보면 스켈레톤 Transform이 y축
+    180°라 `up`의 x가 거울 — 2026-11-18 공식 클라에서 확인, 「마운트 회전」 「왼쪽을 볼 때」)이고 그 위가 `Graphic`의 X −30°다. 그래서 원의 +y = 잠글 때 총의 기울기를 판에 눕힌 방향(x = −sin a, y = cos a × cos 30°) —
     총이 수평이면 판의 y축이라 가시 넷(+자)이 판 축에 선다(`fxpoints.js pointUp`; 예전엔 그녀 → 대상). 그녀 자신의 `Entity.faceTo`도
     4방향이 아니다(`FaceToTarget`이 대상 − 자기 위치를 그대로 넣음) — 쓰이지 않을 뿐. [화면 미확인]
     ⑤ 데겐블레허: 늘인 빌보드(stretched)의 길이를 size.y(3D 시작 크기), 폭을 size.x로 — 베기 줄이 길고 가늘게; 天生的武者 165% 발동분은 기대 피해에서
@@ -423,7 +423,7 @@
   (`angle_attack_01_start`: 3, `_rotateType` 0) 총구 화염이 왼쪽을 볼 때도 원래 그려진 오른쪽으로 뻗어 총기 몸통 위에 겹쳤다.
   → `fx_extract.py`가 `_holdByOwner`를 `face.hold`로 옮기고(1,409개), `fxgame.js placedAt`이 처리한다. 마운트 없는 모델 점 이펙트는 첫 읽기(만들 때)의 점에 고정한다.
   `hold`이면 그 뒤 유닛 자리의 움직임만큼 따라간다. 3이면 그때 점의 회전(`fxpoints.js pointTurn`)을 루트에 준다.
-  우리 모델은 화면 배율로 좌우를 뒤집으니, 왼쪽으로 그려진 모델은 거울 각도 π − θ로 준다. 클라는 스켈레톤 안에서 뒤집어 본 각도 자체가 거울이고, 이펙트는 뒤집지 않는다.
+  왼쪽을 보는 모델이면 이펙트를 거울로 그리고 그 안에서 θ로 돈다(2026-11-18 공식 클라에서 확인, 아래 「마운트 회전」 「왼쪽을 볼 때」 — 그 전엔 거울 없이 π − θ).
   6 MUZZLE_POINT_WITHOUT_ROTATION은 회전이 없다.
 - 범위(추출물): 마운트 없는 모델 점 이펙트 — 2 HIT 616(붙들림 82), 3 MUZZLE 40(5), 4 HEAD 25(22), 특수점 30(23). 표가 있는 오퍼레이터·토큰에만 해당한다.
 - **모든 자리·버프** (2026-10-22, 이펙트 묶음 G 나머지, 공식 클라에서 확인): `_InitLocationFromEntity`는 `_spawnLocation` 0~25 갈래(발·몸·머리·바닥 포함)가 모두
@@ -566,14 +566,17 @@
   찌르기가 뒤를 향했다. 공식도 매 프레임이므로 그 차이는 점의 각도·돌리는 축에 있다 — 클라는 스켈레톤의 기울어진 평면(`Graphic` X축 −30°) 안에서 돌리고 우리는 판의
   법선으로 돌렸다; 2026-10-22부터 클라처럼 돌린다(「캐릭터 그림의 기울기」) — **화면 확인 필요**(니어 S3, 아르케토 S3). 아레나(2026-10-08, 첫 프레임 방식): 아르케토 오른쪽·아래(모델 오른쪽) 모두 부채꼴이 왼쪽으로, 니어의 노란 창이 적 쪽으로.
   범위: 마운트 359개 중 `keepOriginRotation` 0이 358개, 그중 점이 본 회전을 따르는 **337개(88명)**가 돈다(각도는 애니메이션마다 — 0°에 가까운 것은 안 바뀜).
-  **왼쪽을 볼 때**(2026-11-18, 관리자 제보: 바르카리스 S2 무기 이펙트 `varkis_skill_02_buff_01`(점 `sp0` = `C_Weapon_D_I`)와 적 고프닉
-  `enemy_2002_bearmi`의 오라 `bearmi_buff_01_start`(`sp0` = `F_FX`)가 왼쪽을 볼 때도 오른쪽을 향함): 공식은 스켈레톤을 안에서 뒤집으므로 점(BoneFollower)의
-  월드 회전이 거울 각도 π − θ이고, 루트 `rot 0`·`_followScaleSign` 0인 이펙트는 스스로 뒤집지 않은 채 그 각도로 돈다. 우리는 스켈레톤을 뒤집지 않고 화면
-  배율로 거울을 하므로 뼈는 늘 θ를 준다 — 2026-10-11 「좌우 거울」 규칙 뒤로 이런 이펙트는 `FxInstance` 거울도 없어, 마운트 길이 θ를 그대로 넘기면 오른쪽
-  그대로였다(한 번 놓는 총구 길·`pointUp`은 이미 π − θ). 이제 점의 회전은 모두 `fxpoints.js pointTurnOn`(그려진 쪽 = `units.js modelSX`의 부호 — 적
-  `mirrorX`·돌아서는 폭 포함, `fxgame.js drawnSide`)으로 받고, 거울인 인스턴스(`_followScaleSign`·`_followScale`·옛 추출물)는 프레임 루프가 `rootTurn`(π − r)으로
-  같은 그림을 맞춘다(전과 같은 모습; 만든 뒤 돌아선 경우만 이제 맞음). [화면 미확인]
-  재발 방지: `test/render/fx-direction.test.js`(「pointTurnOn / rootTurn」 — `fxgame.js`가 `pointTurn`을 직접 읽지 않음).
+  **왼쪽을 볼 때**(2026-11-18, 관리자 제보: 바르카리스 S2 무기 이펙트 `varkis_skill_02_buff_01`(점 `sp0` = `C_Weapon_D_I`)가 왼쪽을 볼 때도 오른쪽을 향하고,
+  적 고프닉 `enemy_2002_bearmi`의 오라 `bearmi_buff_01_start`(`sp0` = `F_FX`)는 왼쪽을 볼 때 그가 멘 가방(화면 오른쪽 위)에 붙어야 하는데 머리 왼쪽에 붙음):
+  공식 클라는 왼쪽을 볼 때 스켈레톤의 크기를 뒤집지 않고 그 Transform을 y축으로 180° 돌린다(`UnitAnimator.SetLeftOrRight` → `DoUpdateFaceSign` →
+  `SpineAnimator.FlipSkeletonAnimation`: `localEulerAngles.y` = 180, 오퍼레이터는 앞·뒤 스켈레톤 둘 다). 뼈 회전을 따르는 점(BoneFollower `followBoneRotation`,
+  점 표 `rot 1`)은 회전을 스켈레톤 Transform의 회전 × 뼈 각도로 정하므로, 그 회전을 받는 이펙트(`_keepOriginRotation` 0 마운트, 3 MUZZLE_POINT로 한 번 놓는
+  이펙트)는 **통째로 거울이 되고 그 안에서 뼈 각도 θ로 돈다** — π − θ로 돌리기만 하면 내용이 위아래로 뒤집힌 자리(고프닉의 반짝임이 머리 왼쪽)에 간다.
+  2026-10-11 「좌우 거울」 뒤로 루트 `rot 0` 이펙트는 거울이 없어 마운트 길은 오른쪽 그대로였고, 같은 날 처음 고친 π − θ(src aa0ef35de)도 위 까닭으로 틀렸다.
+  → `fxpoints.js pointFlips`(점이 뒤집히는지), `fxgame.js` 마운트 뷰·`placedAt`의 `flip`(= `drawnSide`: `units.js modelSX`의 부호 — 적 `mirrorX`·돌아서는 폭
+  포함), 프레임 루프가 매 프레임 `FxInstance`의 거울(`unity.scale.x` 부호)을 그것으로 둔다. `pointUp`(`MountPoint.get_faceTo` = 점 Transform의 up)도 왼쪽이면
+  x만 거울(르무엔 S3 조준). `rot`이 없는 점은 그대로 [추정·미조사: 스켈레톤 아래 자식이면 같이 돌지만 점 표에 부모가 없음]. [화면 미확인]
+  재발 방지: `test/render/fx-direction.test.js`(「pointFlips」 — `fxgame.js`에 π − t가 다시 들어오면 실패).
 - 확인: 단위 `test/render/fx-direction.test.js`(dirs 기록, U_OR_D·FOUR_DIR·L_OR_R·NONE 고르기, 뒤 모델로 고르기와 건식 층의 矩·클로저, pointTurn, 소스 고정, 추출물 mount). **아레나**(아르케토 S3 네 방향, 수정 전 세로 기둥 → 후 활에서 적 쪽으로 가로 부채꼴, 고리가 서 있음; 스펙터 디 언체인드 S2·엑시아 더 뉴 커버넌트 S1·니어 더
   래디언트 나이트 S3 이상한 모습 없음, 니어는 수정 전 세로 기둥 → 눕힌 호/빔). 실제 판·공식 녹화 대조는 안 함(아르케토 공식 녹화 없음). 나머지 85명 [화면 미확인].
 - **FollowDirection** (2026-10-22, 공식 클라에서 확인): 루트에 클라 `FollowDirection`이 있는 프리팹(운영자 183·적 89, 대부분 스킬 버프 —
