@@ -270,6 +270,23 @@ describe('solo exit text and htm vnodes', () => {
     assert.match(EXIT_TEXT.soloQuit, /返回大厅/);
   });
 
+  test('the exit buttons follow the order the text explains them: 返回等待室 → 重新开始 → 放弃模拟, alone too', async () => {
+    // maintainer decision 2026-11-18 (PR #20): the text keeps its order, the buttons follow it; docs/rules/ui.md 「게임 중 재시작 투표」
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('../../public/js/ui/matchChrome.js', import.meta.url), 'utf8');
+    const body = src.slice(src.indexOf('export function ExitModal'), src.indexOf('export function AwayOverlay'));
+    const main = body.slice(body.indexOf("title=${t('离开模拟')}"));
+    const actions = main.slice(0, main.indexOf('<div class="exitm">'));
+    const text = main.slice(main.indexOf('<div class="exitm">'));
+    const at = (s, needle) => { const i = s.indexOf(needle); assert.ok(i >= 0, `ExitModal lost ${needle}`); return i; };
+    assert.ok(at(actions, 'data-testid="restart-room"') < at(actions, 'data-testid="restart-propose"')
+      && at(actions, 'data-testid="restart-propose"') < at(actions, "t('放弃模拟')}<//>"),
+      'ExitModal buttons: 返回等待室 → 重新开始 → 放弃模拟, the order of the text (docs/rules/ui.md 「게임 중 재시작 투표」)');
+    assert.ok(at(text, "t('返回等待室：") < at(text, 'EXIT_TEXT.restartAlone') && at(text, 'EXIT_TEXT.restartAlone') < at(text, 'EXIT_TEXT.soloQuit'),
+      'the solo text explains 返回等待室 → 重新开始 → 放弃模拟');
+    assert.ok(at(text, 'EXIT_TEXT.restartVote') < at(text, "{quit}："), 'the co-op text explains 重新开始 before 放弃模拟');
+  });
+
   test('static templates give fresh vnodes (no shared, DOM-holding cached vnode)', async () => {
     const { html } = await import('../../public/js/ui/components.js');
     const f = () => html`<div class="a"><span>static</span></div>`;

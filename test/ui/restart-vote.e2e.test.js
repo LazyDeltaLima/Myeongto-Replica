@@ -86,6 +86,9 @@ describe('the restart vote banner', { skip: !ENABLED && 'set SP_E2E=1 and CHROME
         await page.evaluate(() => document.fonts.ready);
         await page.waitForFunction(() => document.querySelector('.exit-modal').getAnimations().every((a) => a.playState !== 'running'));
         assert.equal(await page.$eval('[data-testid="restart-room"]', (el) => el.textContent.trim()), '대기실 복귀 투표');
+        // the buttons in the order the text explains them (maintainer decision 2026-11-18): 대기실 복귀 → 재시작 → 포기
+        assert.deepEqual(await page.$$eval('.exit-modal .modal__actions button', (els) => els.map((el) => el.dataset.testid || el.textContent.trim())),
+          ['취소', 'restart-room', 'restart-propose', '시뮬레이션 포기']);
         const fits = await page.$eval('.exit-modal', (el) => {
           const box = el.getBoundingClientRect();
           const buttons = [...el.querySelectorAll('.modal__actions button')];

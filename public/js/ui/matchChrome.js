@@ -143,14 +143,15 @@ export function ExitModal({ open, onClose, solo, onAway }) {
     onClose();
     if (ok) { awayStore.set({ away: true }); onAway?.(); }
   };
+  // the buttons follow the order the text explains them, alone too: 返回等待室 → 重新开始 → 放弃模拟 (maintainer decision 2026-11-18)
   return html`<${Modal} open=${open} onClose=${onClose} tone="red" title=${t('离开模拟')} class="exit-modal" micro="LEAVE SIMULATION" width="min(var(--exit-modal-width, 8rem), 94vw)"
     actions=${html`
       <${Button} variant="secondary" onClick=${onClose}>${t('取消')}<//>
       ${!solo && AWAY_OPTION ? html`<${Button} variant="ice" icon="robot" loading=${busy === 'away'} onClick=${away}>${t('暂离（AI 托管）')}<//>` : null}
-      ${restartOn ? html`<${Button} variant="secondary" icon="refresh" class="exitm__restart" data-testid="restart-propose" loading=${busy === 'restart'}
-        disabled=${voteOpen} title=${voteOpen ? t('重新开始投票进行中') : null} onClick=${restart('restart')}>${alone ? t('重新开始') : t('发起重新开始投票')}<//>` : null}
       ${restartOn ? html`<${Button} variant="secondary" data-testid="restart-room" loading=${busy === 'room'}
         disabled=${voteOpen} onClick=${restart('room')}>${alone ? t('返回等待室') : t('发起返回等待室投票')}<//>` : null}
+      ${restartOn ? html`<${Button} variant="secondary" icon="refresh" class="exitm__restart" data-testid="restart-propose" loading=${busy === 'restart'}
+        disabled=${voteOpen} title=${voteOpen ? t('重新开始投票进行中') : null} onClick=${restart('restart')}>${alone ? t('重新开始') : t('发起重新开始投票')}<//>` : null}
       <${Button} variant="danger" icon="exit" loading=${busy === 'quit'} onClick=${quit}>${t('放弃模拟')}<//>`}>
     <div class="exitm">
       ${restartOn ? html`<p>${alone ? t('返回等待室：结束本局，保留房间与席位，不进行结算。') : t('返回等待室：全员同意后结束本局，保留房间与席位，不进行结算。')}</p>` : null}
