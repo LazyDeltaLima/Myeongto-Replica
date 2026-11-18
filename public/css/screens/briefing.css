@@ -286,9 +286,13 @@
 /* in a bond row's title (ui/matchInfo.js MatchBondRow: the 盟约信息 dialog, the in-game 本局信息 tab) the unit is the row's
    --ou: in the game screen an inherited HUD --u drew the chip at the HUD's size and squeezed 「부가 맹약」 to one glyph a line */
 .brief-bonds .bgrp-tip { --tu: var(--ou); }
-/* where the title, the chip (10 px at least) and the micro label do not fit one line (the drawer on a phone), they wrap
-   rather than squeeze the title */
-.brief-bonds > .brief-h--art { flex-wrap: wrap; row-gap: calc(var(--ou) * 4); }
+/* the title row stays one line (maintainer decision 2026-11-18): the title never shrinks, the micro label gives way
+   first, then the chip's text shrinks (ui/matchInfo.js fitTip) and at last ends in an ellipsis (.is-tight) */
+.brief-bonds > .brief-h--art > span:not(.bgrp-tip):not(.micro) { flex: none; white-space: nowrap; }
+.brief-bonds > .brief-h--art > .micro { flex: 0 1000 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
+.bgrp-tip { flex: none; }
+.bgrp-tip.is-tight { flex: 0 1 auto; min-width: 0; }
+.bgrp-tip.is-tight .bgrp-tip__t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* text_tips 858.3 × 30.4, 18, bestFit: one line that shrinks to fit (briefing.js useFitLine), 9 px at least, then wraps */
 .bgrp__hint { box-sizing: border-box; min-height: calc(var(--u) * 33.7); margin: 0; padding: 0 calc(var(--u) * 10.85); display: grid; align-items: center; }
 .brief2__hint { display: block; width: 100%; min-width: 0; overflow: hidden; text-align: center; white-space: nowrap; font-size: calc(var(--u) * 18); font-weight: 500; line-height: 1.15; color: #4a8a78; }
@@ -327,6 +331,21 @@
 .bgrp__bond { all: unset; display: block; border-radius: 50%; }
 /* read-only (the 本局信息 dialog, the in-game tab): the unit from the box's width (ui/matchInfo.js BondGroupsView sets --u) */
 .bgrp-ro { --u: .0095rem; }
+/* .is-narrow (a name wider than the 100-unit pitch — the in-game drawer on a phone; maintainer decision 2026-11-18): each
+   group one row of its bonds in list order (item_container_1…5 read 1 2 3 4 5), the groups stacked, --u = width / 500;
+   the picked one keeps its bottom bar under a mint edge, without ALLIANCE ACTIVATED, the blur and the hatched corner */
+.bgrp-ro.is-narrow .bgrp__pair { height: auto; display: flex; flex-direction: column; gap: calc(var(--u) * 8); }
+.bgrp-ro.is-narrow .bgrp__panel { position: relative; left: 0; top: 0; width: 100%; height: auto; box-sizing: border-box;
+  display: flex; justify-content: center; padding: calc(var(--u) * 4) 0 calc(var(--u) * 14); }
+.bgrp-ro.is-narrow .bgrp__row { display: contents; }
+.bgrp-ro.is-narrow .bgrp__cell { width: calc(var(--u) * 100); }
+.bgrp-ro.is-narrow .bgrp__row--top .bgrp__cell:nth-child(2) { order: 2; }
+.bgrp-ro.is-narrow .bgrp__row--top .bgrp__cell:nth-child(3) { order: 4; }
+.bgrp-ro.is-narrow .bgrp__row--bot .bgrp__cell:nth-child(1) { order: 1; }
+.bgrp-ro.is-narrow .bgrp__row--bot .bgrp__cell:nth-child(2) { order: 3; }
+.bgrp-ro.is-narrow .bgrp__panel > :is(.bgrp__wm, .bgrp__blur, .bgrp__deco) { display: none; }
+.bgrp-ro.is-narrow .bgrp__panel.is-picked { box-shadow: inset 0 0 0 1px rgba(0, 245, 188, .35); background-color: rgba(0, 245, 188, .06); }
+.bgrp-ro.is-narrow .bgrp__bar { left: 0; top: auto; bottom: 0; width: 100%; height: calc(var(--u) * 12); }
 .brief-bonds--groups { padding-bottom: 0; }
 .modal__box.minfo-dlg { position: relative; }
 .minfo-dlg .bpop { left: auto; right: .3rem; top: .7rem; width: min(5.2rem, calc(100% - .6rem)); max-height: calc(100% - .9rem); z-index: 12; }

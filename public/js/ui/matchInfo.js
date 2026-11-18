@@ -199,11 +199,52 @@ export function MatchBondRow({ title, micro, bonds, model, kind = 'temp', extra 
 /**
  * The tip after the 附加盟约 title when one of its bonds is in D (temp_bond_title panel_tip: img_bond_title_tip_bkg, its
  * left 35 the people mark): 「部分盟约所含干员阵容不完整」, as the official 规程 screens show it.
+ * The title row keeps one line (maintainer decision 2026-11-18 — on a phone the drawer's chip had dropped under the
+ * title): where the row overflows its box the chip's text shrinks (bestFit, not under TIP_MIN_PX), then ends in an
+ * ellipsis (.is-tight; the whole text stays the title). Measured after mounting and when the row's width changes.
  * @param {{ class?: string }} [props]
  */
 export function IncompleteTip({ class: cls = null } = {}) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const tip = ref.current;
+    const row = tip?.parentElement;
+    if (!row || typeof getComputedStyle !== 'function') return undefined;
+    let last = -1;
+    const fit = () => {
+      const w = row.clientWidth;
+      if (w === last) return;
+      last = w;
+      fitTip(tip, row);
+    };
+    fit();
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
+    ro?.observe(row);
+    if (!ro) addEventListener('resize', fit);
+    return () => { ro?.disconnect(); if (!ro) removeEventListener('resize', fit); };
+  }, []);
   const bg = outerArt('img_bond_title_tip_bkg');
-  return html`<span class=${cx('bgrp-tip', !bg && 'no-art', cls)} style=${bg ? `--tip:url("${bg}")` : null}>${t('部分盟约所含干员阵容不完整')}</span>`;
+  const text = t('部分盟约所含干员阵容不完整');
+  return html`<span ref=${ref} class=${cx('bgrp-tip', !bg && 'no-art', cls)} style=${bg ? `--tip:url("${bg}")` : null} title=${text}><span class="bgrp-tip__t">${text}</span></span>`;
+}
+
+/** The chip's smallest text before it is cut (the drawer's names stop at 9 px; the chip is one size under them). */
+export const TIP_MIN_PX = 8;
+
+/**
+ * IncompleteTip's fit: shrink the chip's text by quarter pixels while its row overflows, not under TIP_MIN_PX; still
+ * over, the chip gives way and its text ends in an ellipsis. The title and the other items keep their size (CSS: the
+ * micro label gives way first).
+ * @param {HTMLElement} tip
+ * @param {HTMLElement} row
+ */
+export function fitTip(tip, row) {
+  tip.classList.remove('is-tight');
+  tip.style.fontSize = '';
+  const over = () => row.scrollWidth > row.clientWidth + 0.5;
+  let fs = parseFloat(getComputedStyle(tip).fontSize) || 10;
+  for (let n = 0; n < 40 && over() && fs > TIP_MIN_PX; n++) { fs = Math.max(TIP_MIN_PX, fs - 0.25); tip.style.fontSize = `${fs}px`; }
+  if (over()) tip.classList.add('is-tight');
 }
 
 /** A sprite of the 规程 briefing's stage-info view (season/act3autochess/stageinfo; the shared ones from ui/outer), or null. */
@@ -262,6 +303,9 @@ export function BondGroups({ model, onPick = null, hint = null }) {
 /**
  * BondGroups read-only — the strategy draft's / 3/3 screen's 本局信息 dialog and the in-game tab (no pick, no detail).
  * The prefab unit --u comes from the box's width (880 units; measured — no CSS container queries on our browsers).
+ * Where a bond name is wider than the item pitch (100 units) — the in-game drawer on a phone: 31 px for a 9 px name of
+ * up to 5 glyphs — the box turns .is-narrow (maintainer decision 2026-11-18): each group one row of its bonds in list
+ * order, the two groups stacked, the unit from width / 500 (css/screens/briefing.css).
  * @param {{ model: MatchInfoModel }} props
  */
 export function BondGroupsView({ model }) {
@@ -269,7 +313,18 @@ export function BondGroupsView({ model }) {
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return undefined;
-    const fit = () => { const w = el.clientWidth; if (w > 0) el.style.setProperty('--u', `${w / 880}px`); };
+    let last = -1;
+    const fit = () => {
+      const w = el.clientWidth;
+      if (!(w > 0) || w === last) return;
+      last = w;
+      el.classList.remove('is-narrow');
+      el.style.setProperty('--u', `${w / 880}px`);
+      if (namesOverflow(el, w / 880 * 100)) {
+        el.classList.add('is-narrow');
+        el.style.setProperty('--u', `${w / NARROW_UNITS}px`);
+      }
+    };
     fit();
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
     ro?.observe(el);
@@ -279,6 +334,19 @@ export function BondGroupsView({ model }) {
   return html`<div class="bgrp-ro" ref=${box}>
     <div class="bgrp-ro__in"><${BondGroups} model=${model} /></div>
   </div>`;
+}
+
+/** BondGroupsView .is-narrow: the box is this many units wide (five items of 100). */
+export const NARROW_UNITS = 500;
+
+/**
+ * Whether a bond name in `el` is wider than `pitch` px less a 4 px gap (the text's own width, not its box).
+ * @param {HTMLElement} el
+ * @param {number} pitch
+ */
+export function namesOverflow(el, pitch) {
+  const r = document.createRange();
+  return [...el.querySelectorAll('.ibd__name')].some((n) => { r.selectNodeContents(n); return r.getBoundingClientRect().width > pitch - 4; });
 }
 
 /**

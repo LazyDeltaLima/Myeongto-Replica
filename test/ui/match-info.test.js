@@ -26,7 +26,7 @@ globalThis.fetch = async (url) => {
 };
 
 const { matchInfoModel, MatchBondRow, MatchLegend, BannedOperators, BannedGroups, MatchInfo, MatchInfoDialog, InfoBond, InfoTitle, ChessIcon,
-  BondGroups, BondGroupsView, IncompleteTip, groupRows } = await import('../../public/js/ui/matchInfo.js');
+  BondGroups, BondGroupsView, IncompleteTip, groupRows, namesOverflow, fitTip, NARROW_UNITS, TIP_MIN_PX } = await import('../../public/js/ui/matchInfo.js');
 const { briefingBondTip } = await import('../../public/js/ui/gameLogic.js');
 const { Tooltip, Modal, Button } = await import('../../public/js/ui/components.js');
 const { draftInfoStatus } = await import('../../public/js/screens/bandDraft.js');
@@ -385,6 +385,50 @@ test('BondGroups: item i of a group in item_container_(i+1) (1·3·5 on top, 2·
   assert.equal([...walk(ro)].some((x) => x.type === 'button' || hasClass(x, 'bgrp__hint')), false);
   assert.equal(BondGroups({ model: matchInfoModel({}, SRC('mode_single_normal')) }), null, 'no groups, nothing');
   h.m.dispose();
+});
+
+// The in-game drawer on a phone (740 × 360 touch: the box 272 px, the 100-unit pitch 31 px) drew 9 px names of up to five
+// glyphs (36–41 px) into each other (「우르수스빅토리아」), and the 附加盟约 chip dropped under its title.
+test('the drawer on a phone: names wider than the pitch → one row per group (list order); the 附加盟约 title row stays one line', () => {
+  // namesOverflow: a name's text against the pitch less a 4 px gap
+  const origDoc = globalThis.document;
+  const origGcs = globalThis.getComputedStyle;
+  try {
+    const names = (ws) => ({ querySelectorAll: () => ws.map((w) => ({ w })) });
+    globalThis.document = { createRange: () => { let n = null; return { selectNodeContents: (x) => { n = x; }, getBoundingClientRect: () => ({ width: n.w }) }; } };
+    assert.equal(namesOverflow(names([27, 41, 36]), 272 / 880 * 100), true, `41 px 라이타니엔 in the 31 px pitch — ${GROUPS_RULE}`);
+    assert.equal(namesOverflow(names([27, 41, 36]), 566 / 880 * 100), false, 'the strategy draft\'s dialog (64 px pitch) keeps the two rows');
+    assert.ok(41 <= 272 / NARROW_UNITS * 100 - 4, 'the narrow layout gives the longest name room');
+    // fitTip: the chip's text shrinks while the row overflows, not under TIP_MIN_PX, then .is-tight
+    const tipEl = (base, per) => {
+      const cls = new Set();
+      const tip = { style: { fontSize: '' }, classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c) }, cls };
+      const row = { clientWidth: 0, get scrollWidth() { return base + per * (parseFloat(tip.style.fontSize) || 10); } };
+      return { tip, row };
+    };
+    globalThis.getComputedStyle = (el) => ({ fontSize: el.style.fontSize || '10px' });
+    const a = tipEl(100, 17);
+    a.row.clientWidth = 255;
+    fitTip(a.tip, a.row);
+    assert.ok(parseFloat(a.tip.style.fontSize) <= 9.12 && parseFloat(a.tip.style.fontSize) >= TIP_MIN_PX && !a.tip.cls.has('is-tight'), `the chip shrinks to fit — ${GROUPS_RULE}`);
+    const b = tipEl(100, 17);
+    b.row.clientWidth = 200;
+    fitTip(b.tip, b.row);
+    assert.equal(b.tip.style.fontSize, `${TIP_MIN_PX}px`);
+    assert.ok(b.tip.cls.has('is-tight'), 'still over at the floor: the ellipsis');
+  } finally {
+    globalThis.document = origDoc;
+    globalThis.getComputedStyle = origGcs;
+  }
+  const css = read('public/css/screens/briefing.css');
+  assert.doesNotMatch(css, /\.brief-bonds > \.brief-h--art \{ flex-wrap: wrap/, `the title row no longer wraps — ${GROUPS_RULE}`);
+  assert.match(css, /\.brief-bonds > \.brief-h--art > \.micro \{ flex: 0 1000 auto;/, 'the micro label gives way first');
+  assert.match(css, /\.bgrp-ro\.is-narrow \.bgrp__row \{ display: contents; \}/, 'narrow: the two item rows flow as one');
+  // the cells' order: top 1 3 5, bottom 2 4 → 1 2 3 4 5
+  const order = (row, nth) => Number(css.match(new RegExp(`\\.bgrp-ro\\.is-narrow \\.bgrp__row--${row} \\.bgrp__cell:nth-child\\(${nth}\\) \\{ order: (\\d+); \\}`))?.[1] ?? 0);
+  const [top, bot] = groupRows([0, 1, 2, 3, 4]);
+  const flow = [...top.map((i, k) => [order('top', k + 1), i]), ...bot.map((i, k) => [order('bot', k + 1), i])].sort((x, y) => x[0] - y[0]).map(([, i]) => i);
+  assert.deepEqual(flow, [0, 1, 2, 3, 4], `narrow: one row in list order — ${GROUPS_RULE}`);
 });
 
 test('the title icons as the official screens: 核心盟约 the starburst, 附加盟约 the wing (all modes); img_group_title sliced', async () => {
