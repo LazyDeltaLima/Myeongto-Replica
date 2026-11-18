@@ -3596,3 +3596,31 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
   전투가 원래 끝날 때 풀린다. 일시정지(솔로)는 감시를 멈추고 푼 뒤 정지 시간만큼 미룬다(`pause.js`).
 - 재발 방지: `test/match/clientCombat.test.js` 「a connected client that stops reporting」(감시를 끄면 60초 뒤에야 넘겨받아 실패), 기한 쪽은
   같은 파일 「keeps reporting progress but never sends its result」·`test/match/leftovers.test.js` 「solo pause」.
+
+## 전투 포기 (관리자 결정 2026-11-18, PR #21, 공식에 없는 기능)
+
+공식 卫戍协议에는 전투 중 포기가 없다. 기여 PR #21을 규칙까지 그대로 받았다(관리자 결정 2026-11-18 「PR 그대로」). 화면(단추·확인창·투표 배너)은
+`ui.md` 「전투 포기」, 메시지 모양은 `docs/design/network.md` 「Field surrender」. 구현 `server/match/match/surrender.js`, `Battle.surrender`
+(`server/sim/battle/lifecycle.js`).
+- **대상은 전장 하나의 이번 전투**: `g.surrender { fieldId, battleId, op: propose|yes|no|cancel }`의 `battleId`는 그 전장의 전투 토큰(`surrenderToken`)
+  이라 낡은 토큰은 다른 전투를 건드리지 못한다. 받는 때는 일반 전투·연합 방어·최종 공세·히든 코어의 전투 중뿐이고, 이미 끝났거나 결과 검증 중
+  (`verifyJob`)·결과를 쥐고 있는(`heldResult`) 전장, 재시작이 정해졌거나 최종 결말 중인 판에서는 `WRONG_PHASE`.
+- **투표자는 그 전장의 사람만**(`surrenderVoters(f)` = 그 전장의 `f.players`에서 AI·나간 자리·AI에게 맡긴 자리를 뺀 사람). 관전자와 다른 전장의
+  플레이어는 투표하지 못한다(`BAD_TARGET`).
+  - 투표자가 1명이면 화면의 확인창을 거친 제안 한 번으로 바로 포기한다. 협동 일반 전투는 전장이 사람마다 따로라(AI 팀원도 자기 전장) 늘 이 경우다 —
+    혼자 포기하고, 남은 적은 아래처럼 그 사람의 누수가 되어 기존 규칙대로 팀원의 연합 방어로 간다.
+  - 2명 이상(연합 방어의 도우미들, 보스 전장의 짝)이면 30초 안에 전원 동의해야 하고 제안자는 동의로 센다. 투표 중에도 전투는 계속된다. 반대·시간
+    끝·제안자 취소·접속 끊김·투표자 구성 변경(AI에게 맡김 포함)은 투표를 닫을 뿐 포기하지 않는다 — 빠진 사람을 동의로 치지 않는다
+    (`reconcileSurrenderVotes`). 한 번 제안한 전장은 60초 동안 새 제안을 받지 않는다(`ERR.RATE`).
+  - 연합 방어 전장에서는 도우미만 투표한다. 누수를 보낸 사람은 그 전장을 지켜볼 뿐 싸우지 않는다.
+- **포기하면**(`Battle.surrender`): 살아 있는 적과 아직 안 나온 적(대기열)을 모두 누수로 적는다 — 보스와 `noLeak` 적은 빼고, 대기열의 적은 연합
+  방어가 가려 보도록 `spawned: false`. 처치는 주지 않고 이미 얻은 처치·자금·층수는 그대로이며 「완벽한 작전」은 아니다(`perfect` false). 브라우저가
+  계산하던 전장은 서버가 같은 전투를 동의한 순간(`_fieldElapsed`)까지 조각조각 다시 돌려(`_specBattle`) 그 상태에서 포기하고, 화면의 사람들에게
+  `b.end { reason: 'surrender' }`를 보내 늦게 온 보고·결과는 버린다(재동기화·관전 입장 때도 다시 보냄). 다시 돌리다 엔진 오류가 나면 지어낸 누수 없이
+  빈 결과(`syntheticResult`)로 끝낸다. 솔로 일시정지 중이면 풀고 포기한다.
+- **정산은 기존 규칙 그대로**: 일반 전투의 누수는 보통 누수처럼 연합 방어와 LP로, 연합 방어 전장의 누수는 누수를 보낸 사람의 정산으로(도우미의 LP는
+  그대로). 보스 전장(최종 공세·히든 코어)은 늘어난 누수의 LP만큼 팀 LP가 줄고(`_teamLpLoss`) 그 전장만 멈춘다 — 다른 전장은 계속 싸우고, 공유 보스
+  HP·팀 LP와 최종 승패 규칙이 결과를 정한다(모든 전장이 포기하면 리더 적을 못 쓰러뜨려 패배).
+- 재발 방지: `test/match/surrender.test.js`(개인 포기의 재구성·대기열 누수·얻은 것 보존·다른 전장 계속, 공동 전장 전원 동의·전장 밖 사람 거부, AI 무투표,
+  반대·취소·낡은 토큰, 만료·끊김·AI에게 맡김, 재동기화, 스트리밍·솔로 일시정지, 실제 연합 방어 두 계산 방식, 보스 짝·모두 포기 시 패배),
+  `test/match/fuzz.test.js`의 `g.surrender` 생성기.
