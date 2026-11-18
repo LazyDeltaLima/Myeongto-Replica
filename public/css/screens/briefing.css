@@ -61,9 +61,6 @@
 .is-step1 > .sh-char { margin-left: calc(15.4 * var(--eu)); }
 .sh-bub { height: calc(66 * var(--eu)); min-width: calc(190 * var(--eu)); margin: max(0px, calc(var(--c) - 25 * var(--eu))) 0 0 calc(22.9 * var(--eu));
   padding: 0 calc(15 * var(--eu)) calc(17 * var(--eu)) calc(18 * var(--eu)); isolation: isolate; display: flex; align-items: center; gap: calc(8 * var(--eu)); }
-/* in the bubble 「n」, 「/N」 and the title each sit on the body's middle (maintainer decision 2026-11-18: on one baseline the
-   smaller 「/N」 hung 7 px low); the bottom padding 17, not the prefab's 15, puts the glyphs' ink — not their line boxes — there */
-.sh-bub .sh-num { align-items: center; }
 .is-step1 > .sh-bub { margin-left: calc(12.3 * var(--eu)); }
 .sh-bub::before { content: ''; position: absolute; z-index: -1; inset: 0; border-style: solid;
   border-width: calc(11 * var(--eu)) calc(12 * var(--eu)) calc(25 * var(--eu)) calc(46 * var(--eu)); border-image: var(--bub) 11 12 25 46 fill stretch; }
@@ -73,6 +70,13 @@
 .sh-num { display: inline-flex; align-items: baseline; font-family: var(--font-num); line-height: 1; }
 .sh-num b { font-size: calc(40 * var(--eu)); font-weight: 500; color: #4ed8af; }
 .sh-num i { font-style: normal; font-size: calc(28 * var(--eu)); color: #9c9c9c; margin-left: calc(4 * var(--eu)); }
+/* 规程's bubble (the official CN 1/3 screen, maintainer decision 2026-11-18): 「n」 and the title on the body's middle, 「/N」 on
+   「n」's baseline with 「/」 exactly as tall as the digit — our number font's slash reaches 0.14 em under the baseline, so it is
+   squeezed to the digit's 0.71 em from its top —, and 「/N」 a little smaller than the prefab's 28 (26): our digits are wider
+   than the client's, and at 28 「/3」 read as large as the title. The bottom padding is 17, not the prefab's 15, so that the
+   glyphs' ink, not their line boxes, sits on the body's middle. */
+.sh-num__sl { display: inline-block; text-decoration: none; transform-origin: 50% .17em; transform: scaleY(.845); }
+.sh-bub .sh-num i { font-size: calc(26 * var(--eu)); }
 .sh-title { font-size: calc(24 * var(--eu)); font-weight: 900; color: #fff; letter-spacing: .02em; }
 /* 盟约: 「n/N」 and the title, 24 (step 1: 13 after the numbers 39 #23daaf / 29, the title 23 #e4e4e4 — the EN panel_title) or 18 after
    the divider, the title's centre 1.5 below the plate's */

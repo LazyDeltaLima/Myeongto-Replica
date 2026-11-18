@@ -269,7 +269,7 @@ export function StepChain({ step, of, title, pub, season = data.season() }) {
   const plate = !difficulty ? null : art.plate
     ? html`<span class=${`sh-mode is-step${first ? 1 : 2}`} style=${`--mt:url("${art.plate}")${color ? `;--mc:${color}` : ''}`} data-testid="step-mode"><b>${name}</b></span>`
     : html`<span class="sh-mode is-tag" data-testid="step-mode"><${DifficultyTag} difficulty=${difficulty} modeId=${pub?.modeId} season=${season} /></span>`;
-  const num = html`<span class="sh-num"><b>${step}</b><i>/${of}</i></span>`;
+  const num = html`<span class="sh-num"><b>${step}</b><i><s class="sh-num__sl">/</s>${of}</i></span>`;
   return html`<div class=${`stephead__chain ${art.cn ? 'is-cn' : 'is-en'} is-step${step}`}>
     ${plate}
     ${rules.preset !== 'classic' ? html`<span class="stephead__tags"><span class=${`rtag rtag--${rules.preset}`} data-testid="match-ruleset">${t(PRESET_LABELS[rules.preset])}</span></span>` : null}
