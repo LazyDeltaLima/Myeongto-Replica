@@ -281,7 +281,7 @@ function ChatLog({ lines, myId, blocked = [], noticeAfter = 0 }) {
   };
   const entries = logEntries(lines, blocked, noticeAfter);
   return html`<ol class="chat__log" ref=${ref} onScroll=${onScroll} aria-live="polite">
-    ${entries.map((e) => (e.kind === 'notice' ? html`<li key="notice" class="chat__notice">${t('聊天内容会在服务器保存 30 天，用于处理举报。')}</li>`
+    ${entries.map((e) => (e.kind === 'notice' ? html`<li key="notice" class="chat__notice">${t('聊天内容会在服务器保存 30 天。')}</li>`
       : e.kind === 'blocked' ? html`<${BlockedLine} key=${`b${e.seq}`} e=${e} />`
       : html`<${Line} key=${e.seq} l=${e} myId=${myId} menu=${menu === e.seq} onMenu=${setMenu} />`))}
     ${lines.length ? null : html`<li class="chat__empty">${t('暂无消息')}</li>`}
