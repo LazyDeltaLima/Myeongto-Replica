@@ -20,6 +20,14 @@
 //   GameChat       the match: a 聊天 button beside 交流 (unread badge) + panel above it; while it is closed, new lines
 //                  of the others float above the corner for a few seconds, or, with settings 常驻最近 3 条消息
 //                  (chatPinRecent), the latest 3 chat lines stay there (pinnedLines). Enter opens it, Esc closes it.
+//   Blocking     (maintainer decision 2026-11-18) a press on another player's line (not a text selection) opens its
+//                「屏蔽 {name}」 button under the line; a blocked player's lines leave the log, the floating feed, the
+//                pinned lines, the unread count and the notification, and one 「已屏蔽 {name}（{n} 条）· 解除屏蔽」 line stands
+//                where the first of them was. This screen only (the other player is not told), for the room: store.chat
+//                `blocked` (playerIds), kept per tab in sessionStorage with the room code (survives a reload).
+//   Notice       one line only this player sees, right after the history a join / resync brought (store.chat
+//                `noticeAfter` = its last seq; at the top of an empty log): the server keeps chat for 30 days
+//                (server/local-moderation.js [chat] lines, maintainer decision 2026-11-18). Never sent anywhere.
 // Player text is never translated (data-i18n-skip) and only ever rendered as text.
 // Styles: public/css/chat.css.
 
@@ -41,6 +49,54 @@ const KEEP = 60;            // lines kept on the client
 export const FEED_MS = 6000; // a new line floats this long over the match while the panel is closed
 const FEED_MAX = 3;
 const PREF_ROOM_OPEN = 'chatRoomOpen';
+const K_BLOCKED = 'sp.chatBlocked'; // sessionStorage: { code, ids } — the players this tab blocked in that room
+
+/** The players this tab blocked in room `code` (sessionStorage). */
+export function loadBlocked(code, storage = globalThis.sessionStorage) {
+  try {
+    const v = JSON.parse(storage?.getItem(K_BLOCKED) || 'null');
+    return v && v.code === code && Array.isArray(v.ids) ? v.ids.filter((x) => typeof x === 'string') : [];
+  } catch { return []; }
+}
+function saveBlocked(code, ids, storage = globalThis.sessionStorage) {
+  try { storage?.setItem(K_BLOCKED, JSON.stringify({ code, ids })); } catch { /* privacy mode */ }
+}
+
+/** Block / unblock a player's chat on this screen (header 「Blocking」). @param {string} playerId @param {boolean} on */
+export function setBlocked(playerId, on) {
+  const cur = store.get().chat;
+  if (!cur?.code || typeof playerId !== 'string') return;
+  const was = cur.blocked || [];
+  const ids = on ? (was.includes(playerId) ? was : [...was, playerId]) : was.filter((x) => x !== playerId);
+  if (ids === was) return;
+  saveBlocked(cur.code, ids);
+  store.set({ chat: { ...cur, blocked: ids } });
+}
+
+/** Lines without the blocked players'. @param {any[]} lines @param {string[]} [blocked] */
+export const unblockedLines = (lines, blocked) => (blocked?.length ? lines.filter((l) => !blocked.includes(l.playerId)) : lines);
+
+/**
+ * What the log shows: the lines, each blocked player's lines replaced by one `{ kind: 'blocked', playerId, name, count,
+ * seq }` entry where the first of them was, and the notice entry `{ kind: 'notice' }` after the line `noticeAfter` (before
+ * the first later line; at the top when nothing came before it).
+ * @param {any[]} lines @param {string[]} blocked @param {number} noticeAfter
+ */
+export function logEntries(lines, blocked = [], noticeAfter = 0) {
+  const out = [];
+  const marks = new Map();
+  for (const l of lines) {
+    if (!blocked.includes(l.playerId)) { out.push(l); continue; }
+    const m = marks.get(l.playerId);
+    if (m) { m.count++; if (l.kind !== 'faction') m.name = l.name; continue; }
+    const mark = { kind: 'blocked', playerId: l.playerId, name: l.name, count: 1, seq: l.seq };
+    marks.set(l.playerId, mark);
+    out.push(mark);
+  }
+  const at = out.findIndex((e) => e.seq > noticeAfter);
+  out.splice(at < 0 ? out.length : at, 0, { kind: 'notice', seq: -1 });
+  return out;
+}
 
 // chat bubble / paper plane (24×24, original)
 const CHAT_D = 'M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm3 5v2h10V8zm0 4v2h7v-2z';
@@ -117,12 +173,17 @@ export function installChat() {
     const same = cur && cur.code === code;
     const base = same ? cur.lines : [];
     const seen = rx ? (same ? cur.seen || 0 : 0) : historySeen(base, incoming, same ? cur.seen || 0 : 0);
-    store.set({ chat: { code, lines: mergeLines(base, incoming.map((l) => ({ ...l, rx: rx ? Date.now() : 0 }))), seen } });
+    const blocked = same ? cur.blocked || [] : loadBlocked(code);
+    // a join / resync's history: the notice goes after its last line (header 「Notice」)
+    const last = incoming.reduce((n, l) => (l && Number.isInteger(l.seq) ? Math.max(n, l.seq) : n), 0);
+    const noticeAfter = rx ? (same ? cur.noticeAfter || 0 : 0) : last;
+    store.set({ chat: { code, lines: mergeLines(base, incoming.map((l) => ({ ...l, rx: rx ? Date.now() : 0 }))), seen, blocked, noticeAfter } });
   };
   net.on('room.chat', (m) => {
     const cur = store.get().chat;
     const known = cur && cur.code === roomCode() ? cur.lines : [];
-    const ring = roomCode() && notifiesChat(m, { myId: store.get().me?.playerId, known, factionAlerts: settingsStore.get().chatFactionAlerts });
+    const blocked = cur && cur.code === roomCode() ? cur.blocked || [] : [];
+    const ring = roomCode() && !blocked.includes(m?.playerId) && notifiesChat(m, { myId: store.get().me?.playerId, known, factionAlerts: settingsStore.get().chatFactionAlerts });
     put([m], true);
     if (ring) audio.chatNotification();
   });
@@ -131,7 +192,7 @@ export function installChat() {
   net.on('room.factions', (m) => { if (roomCode()) store.set({ chatFactions: m.factions && typeof m.factions === 'object' ? { ...m.factions } : {} }); });
   store.subscribe((s) => {
     const code = s.room?.code ?? null;
-    if ((s.chat?.code ?? null) !== code) store.set({ chat: { code, lines: [], seen: 0 }, chatFactions: {} });
+    if ((s.chat?.code ?? null) !== code) store.set({ chat: { code, lines: [], seen: 0, blocked: code ? loadBlocked(code) : [], noticeAfter: 0 }, chatFactions: {} });
   });
 }
 
@@ -147,16 +208,37 @@ function FactionTag({ id }) {
   return f ? html`<span class="chat__faction" style=${`color:${f.color}`}>(${t(f.name)})</span>` : null;
 }
 
-/** One chat line: `name(faction): text`, or the announcement of a faction pick. */
-function Line({ l, myId, cls = '', style = '' }) {
+/** A press that only ends a text selection inside `el` (no menu then). */
+const selecting = (el) => {
+  const sel = globalThis.getSelection?.();
+  return !!sel && !sel.isCollapsed && !!el && el.contains(sel.anchorNode);
+};
+
+/**
+ * One chat line: `name(faction): text`, or the announcement of a faction pick. With `onMenu` (the log, not the floating
+ * feed) another player's line opens its block button on a press (header 「Blocking」); `menu` = it is open.
+ */
+function Line({ l, myId, cls = '', style = '', menu = false, onMenu = null }) {
+  const other = !!onMenu && l.playerId !== myId;
+  const press = other ? (e) => { if (!selecting(e.currentTarget)) onMenu(menu ? null : l.seq); } : undefined;
+  const block = menu ? html`<div class="chat__menu"><button type="button" class="chat__block"
+    onClick=${(e) => { e.stopPropagation(); setBlocked(l.playerId, true); onMenu(null); }}>${t('屏蔽 {name}', { name: playerName(l.name) })}</button></div>` : null;
   if (l.kind === 'faction') {
     const f = chatFaction(l.faction);
-    return html`<li class=${cx('chat__line chat__line--sys', cls)} style=${style} data-i18n-skip="">
-      <b class="chat__name">${playerName(l.name)}</b><span class="chat__text">${t('选择了阵营')} <b style=${f ? `color:${f.color}` : ''}>${f ? t(f.name) : '?'}</b></span>
+    return html`<li class=${cx('chat__line chat__line--sys', other && 'is-pressable', menu && 'is-menu', cls)} style=${style} data-i18n-skip="" onClick=${press}>
+      <b class="chat__name">${playerName(l.name)}</b><span class="chat__text">${t('选择了阵营')} <b style=${f ? `color:${f.color}` : ''}>${f ? t(f.name) : '?'}</b></span>${block}
     </li>`;
   }
-  return html`<li class=${cx('chat__line', l.playerId === myId && 'is-me', cls)} style=${style} data-i18n-skip="">
-    <b class="chat__name">${playerName(l.name)}${l.spectator ? html`<span class="chat__spec">(${t('观战')})</span>` : null}<${FactionTag} id=${l.faction} /></b><span class="chat__text">${l.text}</span>
+  return html`<li class=${cx('chat__line', l.playerId === myId && 'is-me', other && 'is-pressable', menu && 'is-menu', cls)} style=${style} data-i18n-skip="" onClick=${press}>
+    <b class="chat__name">${playerName(l.name)}${l.spectator ? html`<span class="chat__spec">(${t('观战')})</span>` : null}<${FactionTag} id=${l.faction} /></b><span class="chat__text">${l.text}</span>${block}
+  </li>`;
+}
+
+/** Where a blocked player's lines were: the count and 解除屏蔽. */
+function BlockedLine({ e }) {
+  return html`<li class="chat__line chat__line--sys chat__blocked" data-i18n-skip="">
+    <span class="chat__text">${t('已屏蔽 {name}（{n} 条）', { name: playerName(e.name), n: e.count })}</span>
+    <button type="button" class="chat__unblock" onClick=${() => setBlocked(e.playerId, false)}>${t('解除屏蔽')}</button>
   </li>`;
 }
 
@@ -171,9 +253,17 @@ async function sendLine(text) {
 }
 
 /** The scrolling log; keeps the newest line in view unless the reader scrolled up. */
-function ChatLog({ lines, myId }) {
+function ChatLog({ lines, myId, blocked = [], noticeAfter = 0 }) {
   const ref = useRef(null);
   const stick = useRef(true);
+  const [menu, setMenu] = useState(null); // the seq whose block button is open
+  // a press outside that line closes it
+  useEffect(() => {
+    if (menu == null) return undefined;
+    const onDown = (e) => { if (!(e.target instanceof Element) || !e.target.closest('.chat__line.is-menu')) setMenu(null); };
+    window.addEventListener('pointerdown', onDown, true);
+    return () => window.removeEventListener('pointerdown', onDown, true);
+  }, [menu]);
   const newest = lines.length ? lines[lines.length - 1] : null;
   useEffect(() => {
     const el = ref.current;
@@ -189,8 +279,12 @@ function ChatLog({ lines, myId }) {
     const el = ref.current;
     if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
   };
+  const entries = logEntries(lines, blocked, noticeAfter);
   return html`<ol class="chat__log" ref=${ref} onScroll=${onScroll} aria-live="polite">
-    ${lines.length ? lines.map((l) => html`<${Line} key=${l.seq} l=${l} myId=${myId} />`) : html`<li class="chat__empty">${t('暂无消息')}</li>`}
+    ${entries.map((e) => (e.kind === 'notice' ? html`<li key="notice" class="chat__notice">${t('聊天内容会在服务器保存 30 天，用于处理举报。')}</li>`
+      : e.kind === 'blocked' ? html`<${BlockedLine} key=${`b${e.seq}`} e=${e} />`
+      : html`<${Line} key=${e.seq} l=${e} myId=${myId} menu=${menu === e.seq} onMenu=${setMenu} />`))}
+    ${lines.length ? null : html`<li class="chat__empty">${t('暂无消息')}</li>`}
   </ol>`;
 }
 
@@ -283,7 +377,10 @@ const useChat = () => {
   const chat = useStore((s) => s.chat);
   const myId = useStore((s) => s.me.playerId);
   const online = useStore((s) => s.connection.status === 'online');
-  return { lines: chat?.lines || [], seen: chat?.seen || 0, myId, online };
+  const blocked = chat?.blocked || [];
+  const all = chat?.lines || [];
+  // `shown`: without the blocked players' lines — the feed, the pinned lines and the unread count use it
+  return { lines: all, shown: unblockedLines(all, blocked), blocked, noticeAfter: chat?.noticeAfter || 0, seen: chat?.seen || 0, myId, online };
 };
 
 /**
@@ -291,7 +388,7 @@ const useChat = () => {
  * 2026-11-08), folded to a 聊天 button with the unread count; the open state is remembered.
  */
 export function RoomChat() {
-  const { lines, seen, myId, online } = useChat();
+  const { lines, shown, blocked, noticeAfter, seen, myId, online } = useChat();
   const [open, setOpen] = useState(() => loadPref(PREF_ROOM_OPEN, true) !== false);
   const inputRef = useRef(null);
   const last = lines.length ? lines[lines.length - 1].seq : 0;
@@ -307,7 +404,7 @@ export function RoomChat() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
-  const unread = open ? 0 : unreadCount(lines, myId, seen);
+  const unread = open ? 0 : unreadCount(shown, myId, seen);
   if (!open) {
     return html`<button type="button" class="chat-fold" onClick=${() => toggle(true)} aria-label=${t('打开聊天')}>
       <${Glyph} d=${CHAT_D} /><span>${t('聊天')}</span>${unread ? html`<b class="chat__badge num">${unread > 99 ? '99+' : unread}</b>` : null}
@@ -317,14 +414,14 @@ export function RoomChat() {
     <header class="chat__head"><${Glyph} d=${CHAT_D} /><span>${t('同盟通讯')}</span>
       <button type="button" class="chat__x" onClick=${() => toggle(false)} aria-label=${t('收起聊天')} title=${t('收起')}>–</button>
     </header>
-    <${ChatLog} lines=${lines} myId=${myId} />
+    <${ChatLog} lines=${lines} myId=${myId} blocked=${blocked} noticeAfter=${noticeAfter} />
     <${ChatInput} disabled=${!online} inputRef=${inputRef} />
   </section>`;
 }
 
 /** Match chat: button (beside 交流) + panel + floating feed. */
 export function GameChat({ open, onToggle, disabled = false }) {
-  const { lines, seen, myId, online } = useChat();
+  const { lines, shown, blocked, noticeAfter, seen, myId, online } = useChat();
   const pin = useStore((s) => s.chatPinRecent, Object.is, settingsStore);
   const [now, setNow] = useState(Date.now);
   const live = useRef({});
@@ -350,8 +447,8 @@ export function GameChat({ open, onToggle, disabled = false }) {
     return () => window.removeEventListener('pointerdown', onDown, true);
   }, [open]);
 
-  const feed = open || pin ? [] : feedLines(lines, { myId, seenSeq: seen, now });
-  const pinned = !open && pin ? pinnedLines(lines) : [];
+  const feed = open || pin ? [] : feedLines(shown, { myId, seenSeq: seen, now });
+  const pinned = !open && pin ? pinnedLines(shown) : [];
   // re-render when the oldest floating line expires
   useEffect(() => {
     if (!feed.length) return undefined;
@@ -361,14 +458,14 @@ export function GameChat({ open, onToggle, disabled = false }) {
   });
   useEffect(() => { setNow(Date.now()); }, [last]);
 
-  const unread = open ? 0 : unreadCount(lines, myId, seen);
+  const unread = open ? 0 : unreadCount(shown, myId, seen);
   return html`<div class="gchat">
     <button type="button" class=${cx('gchat__btn', open && 'is-on')} onClick=${() => onToggle(!open)}
       aria-expanded=${open ? 'true' : 'false'} aria-label=${t('聊天')} title=${t('聊天 (Enter)')}>
       <${Glyph} d=${CHAT_D} />${unread ? html`<b class="chat__badge num">${unread > 99 ? '99+' : unread}</b>` : null}
     </button>
     ${open ? html`<section class="chat chat--game" role="dialog" aria-label=${t('聊天')}>
-      <${ChatLog} lines=${lines} myId=${myId} />
+      <${ChatLog} lines=${lines} myId=${myId} blocked=${blocked} noticeAfter=${noticeAfter} />
       <${ChatInput} disabled=${disabled || !online} autoFocus=${true} onEscape=${() => onToggle(false)} />
     </section>` : null}
     ${feed.length ? html`<ol class="gchat__feed" aria-hidden="true">

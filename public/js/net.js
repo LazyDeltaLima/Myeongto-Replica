@@ -23,6 +23,7 @@
 // - Server clock offset (serverNow ≈ Date.now() + offset) from pong samples (lowest RTT wins),
 //   bootstrapped from `welcome.serverNow` / `m.public.serverNow`.
 //
+// Browser id: `welcome.bid` is kept in localStorage (sp.bid) and sent back in every hello (server/local-moderation.js).
 // Identity persistence (`identity`, see the section at the end): the name lives in localStorage;
 // the reconnect token lives in sessionStorage (survives reloads of this tab) plus a short list of
 // recent tokens in localStorage (resume after closing/reopening the tab). `identity.init()` asks
@@ -398,6 +399,8 @@ export class Net {
       if (Number.isFinite(claim?.claimAt)) msg.claimAt = claim.claimAt;
       if (claim?.takeover) msg.takeover = true;
     }
+    const bid = loadBrowserId();
+    if (bid) msg.bid = bid;
     this._helloToken = token;
     this._helloRid = rid;
     this._helloSentName = this.name;
@@ -580,6 +583,7 @@ export class Net {
       // A local ownership election can revoke a token after its hello went onto the wire.
       // Do not publish or persist that stale welcome, even if the server had already accepted it.
       if (this._helloToken !== this.getToken()) { this.reconnectNow(); return; }
+      saveBrowserId(msg.bid);
       this._onWelcome(msg);
     } else if (t === 'pong') {
       this._onPong(msg);
@@ -717,6 +721,7 @@ const K_WELCOME = 'sp.tokenWelcome'; // sessionStorage: { hash, at } from the fi
 const K_RECENT = 'sp.tokens';    // localStorage: this browser's recent tokens, most recent first
 const K_MATCHES = 'sp.matches'; // local metadata for explicit recovery of another closed tab's seat
 const K_ENTERED = 'sp.entered';  // sessionStorage: this tab passed the title screen
+const K_BID = 'sp.bid';          // localStorage: the browser id the server issued (welcome.bid, server/local-moderation.js)
 const RECENT_MAX = 4;
 const TOKEN_MAX_LEN = 64;        // protocol limit for hello.token
 const CHANNEL_NAME = 'sp.identity';
@@ -741,6 +746,16 @@ function sset(s, k, v) { try { if (s) s.setItem(k, v); } catch { /* quota / priv
 function sdel(s, k) { try { if (s) s.removeItem(k); } catch { /* ignore */ } }
 
 const isToken = (t) => typeof t === 'string' && t.length > 0 && t.length <= TOKEN_MAX_LEN;
+
+/** The browser id for `hello.bid`: one per browser profile, every tab the same (server/local-moderation.js). */
+function loadBrowserId() {
+  const v = sget(safeStorage('localStorage'), K_BID);
+  return isToken(v) ? v : null;
+}
+/** @param {unknown} bid from `welcome` */
+function saveBrowserId(bid) {
+  if (isToken(bid) && bid !== loadBrowserId()) sset(safeStorage('localStorage'), K_BID, bid);
+}
 
 /**
  * Short, stable hash of a token (FNV-1a, hex) so tabs never broadcast tokens in clear.

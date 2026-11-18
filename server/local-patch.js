@@ -10,6 +10,8 @@
 //   maxBotsSetting()                 room.state `maxBots` (null when unset)
 //   largeBots()                      Lobby.addBot / start, room.state `largeBots`: AI teammates in an 8-player room, local debug mode only
 //   welcomeInfo(lobby)               Lobby.welcomeInfo: `feedback: true` while the feedback inbox is on (local-feedback.js)
+//   identify(lobby, session, info)   Lobby.identify (net.js, every hello): the browser id, its [id] log line, `welcome.bid`
+//                                    (local-moderation.js)
 //   fb.send                          (via onMessage) the settlement screen's feedback, kept in SP_FEEDBACK_DIR (local-feedback.js)
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
 //   room.setConsole                  (via onMessage) 콘솔 모드 of a solo room, before its match: room.state `console`
@@ -22,7 +24,10 @@
 //
 // Room chat (co-op rooms only): one line from a human of the room — a player, or a spectator (`spectator: true`) — in the
 // lobby or during the match, broadcast to every connected member (Lobby.broadcastRoom) and kept in the room's short
-// history (CHAT_HISTORY lines, sent to whoever joins or resyncs). Nothing outlives the room.
+// history (CHAT_HISTORY lines, sent to whoever joins or resyncs). Nothing outlives the room. Every line is logged ([chat],
+// local-moderation.js). A line of a chat-banned browser (local-moderation.js chatMute) is shadowed: its sender gets it as
+// usual — now and in the history it resyncs, from any session of the same browser — and nobody else ever does (maintainer decision 2026-11-18: the ban covers
+// chat only and does not tell the banned player).
 // Chat faction: a seated player's nation tag (shared/local.js CHAT_FACTIONS) on their lines and avatar, announced as a
 // `kind: 'faction'` line and sent as room.factions; shares the chat cooldown; spectators have none.
 //
@@ -31,6 +36,7 @@
 
 import { logMatchStats } from './local-stats.js';
 import { FeedbackInbox } from './local-feedback.js';
+import { Moderation } from './local-moderation.js';
 import { ERR, MAX_SEATS } from '../shared/constants.js';
 import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY, seasonChatFaction } from '../shared/local.js';
 import { sendSession } from './net.js';
@@ -126,11 +132,14 @@ export function botCap(room, lobby = null, session = null) {
   return null;
 }
 
-/** @type {WeakMap<object, { log: any[], seq: number, factions: Map<string, string> }>} per room */
+/**
+ * @type {WeakMap<object, { log: any[], seq: number, factions: Map<string, string>, shadow: Map<number, string|null> }>} per
+ * room; `shadow`: seq → sender's browser id of the shadowed lines (header 「Room chat」), seen by their sender only
+ */
 const rooms = new WeakMap();
 function chatOf(room) {
   let c = rooms.get(room);
-  if (!c) rooms.set(room, (c = { log: [], seq: 0, factions: new Map() }));
+  if (!c) rooms.set(room, (c = { log: [], seq: 0, factions: new Map(), shadow: new Map() }));
   return c;
 }
 const factionsMsg = (c) => ({ t: 'room.factions', factions: Object.fromEntries(c.factions) });
@@ -189,6 +198,17 @@ export function feedbackOf(lobby) {
   return lobby.feedback;
 }
 
+/** The lobby's chat moderation (SP_MODERATION_DIR) — made on first use, or the one a test put there. */
+export function moderationOf(lobby) {
+  if (!lobby.moderation) lobby.moderation = Moderation.fromEnv(process.env, lobby.log);
+  return lobby.moderation;
+}
+
+/** Lobby.identify (net.js, every hello): the browser id to send back in `welcome.bid` (local-moderation.js). */
+export function identify(lobby, session, info) {
+  return moderationOf(lobby).identify(session, info);
+}
+
 /** Extra welcome fields of this patch (Lobby.welcomeInfo). */
 export function welcomeInfo(lobby) {
   return feedbackOf(lobby).welcomeInfo();
@@ -206,7 +226,10 @@ function chat(lobby, session, { text }) {
   const now = lobby.now();
   if (now - (session.lastChatAt ?? -Infinity) < CHAT_COOLDOWN_MS) return fail(ERR.RATE);
   session.lastChatAt = now;
-  push(lobby, room, seat, spectator ? { text: line, at: now, spectator: true } : { text: line, at: now });
+  const mod = moderationOf(lobby);
+  const mute = mod.chatMute(session);
+  mod.logChat(room, session, { text: line, spectator: !!spectator, mute });
+  push(lobby, room, seat, spectator ? { text: line, at: now, spectator: true } : { text: line, at: now }, mute ? session : null);
   return OK;
 }
 
@@ -229,20 +252,27 @@ function pickFaction(lobby, session, { faction }) {
   return OK;
 }
 
-/** Append one line (stamped with the sender's current faction) to the room's history and broadcast it. */
-function push(lobby, room, seat, line) {
+/**
+ * Append one line (stamped with the sender's current faction) to the room's history and broadcast it — or, a shadowed
+ * line (`only` = its sender's session, header 「Room chat」), send it to its sender alone.
+ */
+function push(lobby, room, seat, line, only = null) {
   const c = chatOf(room);
   const msg = { seq: ++c.seq, playerId: seat.playerId, name: seat.name, faction: c.factions.get(seat.playerId) ?? null, ...line };
   c.log.push(msg);
-  if (c.log.length > CHAT_HISTORY) c.log.splice(0, c.log.length - CHAT_HISTORY);
-  lobby.broadcastRoom(room, { t: 'room.chat', ...msg });
+  if (only) c.shadow.set(msg.seq, only.browserId || null);
+  if (c.log.length > CHAT_HISTORY) for (const old of c.log.splice(0, c.log.length - CHAT_HISTORY)) c.shadow.delete(old.seq);
+  if (only) sendSession(only, { t: 'room.chat', ...msg });
+  else lobby.broadcastRoom(room, { t: 'room.chat', ...msg });
 }
 
 /** A member joined, resumed or took a spectator seat: the room's recent lines and the factions (nothing when empty). */
 export function onJoin(lobby, room, session) {
   const c = rooms.get(room);
   if (!c) return;
-  if (c.log.length) sendSession(session, { t: 'room.chatlog', lines: c.log });
+  const mine = (l) => l.playerId === session.playerId || (!!session.browserId && c.shadow.get(l.seq) === session.browserId);
+  const lines = c.shadow.size ? c.log.filter((l) => !c.shadow.has(l.seq) || mine(l)) : c.log;
+  if (lines.length) sendSession(session, { t: 'room.chatlog', lines });
   if (c.factions.size) sendSession(session, factionsMsg(c));
 }
 

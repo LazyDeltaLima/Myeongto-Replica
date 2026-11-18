@@ -216,3 +216,22 @@
   -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat;
 }
 .chat__spec { margin-left: .04rem; font-weight: 400; color: var(--text-lo); }
+
+/* blocking (ui/chat.js 「Blocking」): another player's line opens its block button on a press — the whole line is the
+   target, for touch; the notice line only this player sees (「Notice」) */
+.chat__line.is-pressable { cursor: pointer; border-radius: .03rem; }
+.chat__line.is-pressable:hover { background: rgba(255, 255, 255, .04); }
+.chat__line.is-menu { background: rgba(255, 255, 255, .08); outline: 1px solid var(--line-2); }
+.chat__menu { display: flex; padding: .04rem 0 .02rem; }
+.chat__block {
+  min-height: max(.36rem, 32px); padding: 0 .14rem; border: 1px solid var(--orange); border-radius: .03rem;
+  background: rgba(40, 14, 6, .92); color: var(--orange-hi); font-size: max(.15rem, 12px); font-weight: 700; white-space: nowrap;
+}
+.chat__blocked { display: flex; flex-wrap: wrap; align-items: baseline; gap: .08rem; }
+.chat__blocked .chat__text { color: var(--text-lo); font-size: max(.13rem, 11px); }
+.chat__unblock {
+  padding: .02rem .04rem; min-height: max(.28rem, 24px); color: var(--mint-400); font-weight: 700; font-size: max(.13rem, 11px);
+  background: none; border: 0;
+}
+.chat__notice { display: flex; gap: .06rem; color: var(--text-lo); font-size: max(.13rem, 11px); line-height: 1.35; }
+.chat__notice::before { content: 'ⓘ'; flex: none; color: var(--mint-500); }

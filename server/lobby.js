@@ -1170,6 +1170,9 @@ export class Lobby {
     return { diyKitted: KITTED_CHARS.filter(isLocalDiyPick), ...this.restartNotice?.welcomeInfo(), ...this.generation?.welcomeInfo(), ...localPatch.welcomeInfo(this) }; // local patch: the picker offers our picks only; feedback
   }
 
+  /** net.js, every hello: the browser id for `welcome.bid` (local patch: server/local-moderation.js). */
+  identify(session, info) { return localPatch.identify(this, session, info); }
+
   // ---------------------------------------------------------------------------------------------------
   // Match wiring
   // ---------------------------------------------------------------------------------------------------

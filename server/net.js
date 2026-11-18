@@ -41,6 +41,8 @@
 //                                          `diyKitted` (0.2.0 自选编队 — which operators a DIY slot may field)
 //   connectInfo() → object | null (optional) extra fields of a socket's first `pong` (never one of its own keys) —
 //                                          before any hello, so the title screen has them: the lobby's `seasons`
+//   identify(session, { bid, key, repeat }) → string | null (optional) every hello: the browser id to send back in
+//                                          `welcome.bid` (the lobby's chat moderation, server/local-moderation.js)
 //   onMessage(session, msg) → { ok: true } | { error: ERR code, detail?: string } | undefined
 //   routeGame(session, msg) → same (optional): client-side combat reports `b.progress` / `b.result` (DESIGN §14) go
 //                                          straight to the running match through it; without it they reach onMessage
@@ -743,9 +745,12 @@ export class Network {
     session.addr = conn.ip;
     session.limitKey = conn.key;
 
+    let bid = null;
+    try { bid = this.handler.identify?.(session, { bid: msg.bid, key: conn.key, repeat }) ?? null; } catch (e) { this.log.error('[net] identify crashed', e); }
     let extra = null;
     try { extra = this.handler.welcomeInfo?.() ?? null; } catch (e) { this.log.error('[net] welcomeInfo crashed', e); }
     const welcome = { ...(extra && typeof extra === 'object' ? extra : null), t: 'welcome', playerId: session.playerId, token: session.token, name: session.name, serverNow: now, version: PROTOCOL_VERSION, resumed };
+    if (typeof bid === 'string') welcome.bid = bid;
     if (validRid(rid)) welcome.rid = rid;
     this.reply(conn, welcome);
     try {

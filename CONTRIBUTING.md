@@ -32,7 +32,8 @@ one network, counting rooms with a connected human), `SP_BOT_EMOTES=0` (silences
 `SP_DEBUG_PAGE=1` (`/debug.html`, the effect and sound arena), `SP_DEBUG_FUNDS`
 (pins the human players' funds), `SP_VERIFY`, `SP_COMBAT=server`, `SP_SEASONS` (comma-separated season ids of `shared/seasons.js`
 that are not public yet, offered to rooms: a season being built), `SP_SHUTDOWN_TIMEOUT_MS` (how long a SIGINT / SIGTERM
-shutdown may take before the process exits 1, 1000–300000, default 5000). A deployed server leaves the debug ones unset.
+shutdown may take before the process exits 1, 1000–300000, default 5000), `SP_MODERATION_DIR` (the browser-id key and the
+chat ban list, `server/local-moderation.js`; unset = no bans). A deployed server leaves the debug ones unset.
 
 ## 2. Tests
 
