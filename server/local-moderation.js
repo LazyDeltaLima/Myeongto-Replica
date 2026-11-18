@@ -10,7 +10,7 @@
 // Log lines (the operator's search material; the deployed server keeps them for 15 days, maintainer decision 2026-11-18,
 // the maintainer's notes):
 //   [id] <playerId> b=<id> net=<network key|local> <name>                   a socket's first hello (and a name change)
-//   [room] <room> <playerId> b=<id> net=<network key|local> <event> <name>  a human entered a room: created, joined,
+//   [room] <room> <playerId> b=<id> net=<network key|local> <event> <name>  a human entered a co-op room: created, joined,
 //                                                                           spectating, reserved (took a reserved seat),
 //                                                                           matched (seated by matchmaking)
 //   [chat] <room> <playerId> b=<id> <name>[ (spectator)][ (muted:ban|net)]: <text>   every chat line (names and text JSON-quoted)

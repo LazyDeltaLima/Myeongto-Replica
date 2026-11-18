@@ -12,8 +12,9 @@
 //   welcomeInfo(lobby)               Lobby.welcomeInfo: `feedback: true` while the feedback inbox is on (local-feedback.js)
 //   identify(lobby, session, info)   Lobby.identify (net.js, every hello): the browser id, its [id] log line, `welcome.bid`
 //                                    (local-moderation.js)
-//   roomEntry(lobby, room, session, event)  a human entered a room (created, joined, spectating, reserved, matched): its
-//                                    [room] log line with the browser id and the network key (local-moderation.js)
+//   roomEntry(lobby, room, session, event)  a human entered a co-op room (created, joined, spectating, reserved, matched):
+//                                    its [room] log line with the browser id and the network key (local-moderation.js);
+//                                    a solo room has no chat and nobody else, so it logs none (maintainer decision 2026-11-18)
 //   fb.send                         (via onMessage) the settlement screen's feedback, kept in SP_FEEDBACK_DIR (local-feedback.js)
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
 //   room.setConsole                  (via onMessage) 콘솔 모드 of a solo room, before its match: room.state `console`
@@ -211,8 +212,9 @@ export function identify(lobby, session, info) {
   return moderationOf(lobby).identify(session, info);
 }
 
-/** A human entered a room: one [room] line (local-moderation.js logRoom). @param {string} event */
+/** A human entered a co-op room: one [room] line (local-moderation.js logRoom); none for a solo room. @param {string} event */
 export function roomEntry(lobby, room, session, event) {
+  if (room.mode === 'solo') return;
   moderationOf(lobby).logRoom(room, session, event);
 }
 

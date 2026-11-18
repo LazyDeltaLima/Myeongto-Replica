@@ -262,7 +262,7 @@ describe('shadowed chat on the real server (server/local-patch.js)', () => {
     ]);
   });
 
-  test('every human entering a room logs a [room] line with the browser id and the network key', async () => {
+  test('every human entering a co-op room logs a [room] line with the browser id and the network key; a solo room none', async () => {
     const host = await player('Host', undefined, '203.0.113.7');
     await expectOk(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL' });
     const st = await host.waitFor('room.state', (s) => s.hostId === host.id);
@@ -277,6 +277,11 @@ describe('shadowed chat on the real server (server/local-patch.js)', () => {
       `[room] ${st.code} ${guest.id} b=${b(guest)} net=2001:db8:1:2::/64 joined "Guest"`,
       `[room] ${st.code} ${watcher.id} b=${b(watcher)} net=local spectating "Watcher"`,
     ], 'docs/rules/ui.md 「채팅 차단」 로그: the [room] line names who entered the room, from which network');
+    const solo = await player('Solo', undefined, '203.0.113.8');
+    await expectOk(solo, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL' });
+    const ss = await solo.waitFor('room.state', (s) => s.hostId === solo.id);
+    assert.ok(log.lines.some((l) => l.includes(` ${ss.code} created (solo/`)), 'the solo room was created');
+    assert.deepEqual(log.lines.filter((l) => l.startsWith(`[room] ${ss.code} `)), [], 'docs/rules/ui.md 「채팅 차단」 로그: a solo room logs no [room] line');
   });
 });
 
