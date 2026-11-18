@@ -264,9 +264,6 @@
 /* text_name 19, #828282 lit or not (as the official screens) */
 .bgrp .ibd .ibd__name, .brief2 .ibd .ibd__name { color: #828282; font-weight: 500; font-size: max(calc(var(--ou) * 19), 9px); }
 .bgrp__bond { all: unset; display: block; border-radius: 50%; }
-button.bgrp__bond { cursor: pointer; }
-button.bgrp__bond:focus-visible { outline: 2px solid var(--mint-400); }
-.bgrp__bond.is-open .ibd__disc { filter: drop-shadow(0 0 calc(var(--u) * 10) rgba(0, 255, 196, .6)); }
 /* read-only (the 本局信息 dialog, the in-game tab): the unit from the box's width (ui/matchInfo.js BondGroupsView sets --u) */
 .bgrp-ro { --u: .0095rem; }
 .brief-bonds--groups { padding-bottom: 0; }

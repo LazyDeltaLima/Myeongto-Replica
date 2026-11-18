@@ -85,7 +85,7 @@ function InfoTab({ pub, priv, onChess, bandId = null, bandOwner = null }) {
     </div>` : null}
     ${stage ? html`<p class="istage"><${Icon} name="rook" />${t('战场：')}<b>${stage.name || stage.id}</b></p>` : null}
     ${model.custom ? html`<${CustomRulesInfo} lines=${model.custom} class="crs--sm" />` : null}
-    ${model.groups ? html`<h4 class="ihead">${t('核心盟约')}</h4><div class="igroups-core"><${BondGroupsView} model=${model} detail=${false} /></div>` : null}
+    ${model.groups ? html`<h4 class="ihead">${t('核心盟约')}</h4><div class="igroups-core"><${BondGroupsView} model=${model} /></div>` : null}
     <h4 class="ihead">${t('本局禁用干员情况')} <small class="num">${banned.length}</small></h4>
     ${bannedGroups.length ? html`<div class="igroups"><${BannedGroups} model=${model} onChess=${onChess} /></div>`
       : html`<span class="t-dim">${t('本局没有禁用盟约')}</span>`}

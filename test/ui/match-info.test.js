@@ -270,7 +270,7 @@ test('the briefing, the strategy draft and the in-game 本局信息 tab all read
   // (+ BannedGroups: its banned operators grouped and drawn as the briefing draws them)
   // (+ BondGroupsView: 规程 solo's two core bond groups, read-only)
   assert.match(drawer, /import \{ matchInfoModel, DiyBannedLine, BannedGroups, BondGroupsView \} from '\.\/matchInfo\.js';/);
-  assert.match(drawer, /\$\{model\.groups \? html`<h4 class="ihead">\$\{t\('核心盟约'\)\}<\/h4><div class="igroups-core"><\$\{BondGroupsView\} model=\$\{model\} detail=\$\{false\} \/><\/div>` : null\}/);
+  assert.match(drawer, /\$\{model\.groups \? html`<h4 class="ihead">\$\{t\('核心盟约'\)\}<\/h4><div class="igroups-core"><\$\{BondGroupsView\} model=\$\{model\} \/><\/div>` : null\}/);
   assert.match(drawer, /<\$\{BannedGroups\} model=\$\{model\} onChess=\$\{onChess\} \/>/);
   assert.match(drawer, /matchInfoModel\(pub, \{\s*bonds: data\.list\('bonds'\), chess: \(id\) => data\.lookup\('chess', id\), mode: data\.get\('config'\)\?\.modes\?\.\[pub\?\.modeId\],/);
   assert.doesNotMatch(drawer, /bannedPerBond|disabledBondSets/, 'the drawer derives nothing on its own');
@@ -309,7 +309,7 @@ test('규정 solo on the real match path: the model carries the two groups and f
     const head = [...walk(parts[0])].find((v) => v.type === InfoTitle);
     assert.deepEqual([head.props.kind, head.props.title, head.props.bar], ['perm', '核心盟约', 'img_group_title'], 'the 核心盟约 bar as the official screen');
     const view = [...walk(parts[0])].find((v) => v.type === BondGroupsView);
-    assert.equal(view?.props.model, mi, 'read-only groups with their detail');
+    assert.equal(view?.props.model, mi, 'read-only groups (no detail)');
     assert.equal(parts[1].props.bonds, mi.addon);
     assert.equal(parts[1].props.extra?.type === IncompleteTip, mi.addonIncomplete, 'the tip only when an add-on bond is in D');
     m.dispose();
@@ -322,14 +322,13 @@ test('규정 solo on the real match path: the model carries the two groups and f
   h.m.dispose();
 });
 
-test('BondGroups: item i of a group in item_container_(i+1) (1·3·5 on top, 2·4 under), the picked panel lit, a panel press picks, an icon press opens the detail only', () => {
+test('BondGroups: item i of a group in item_container_(i+1) (1·3·5 on top, 2·4 under), the picked panel lit, a panel press picks, an icon is no button (no detail)', () => {
   assert.deepEqual(groupRows(['a', 'b', 'c', 'd', 'e']), [['a', 'c', 'e'], ['b', 'd']]);
   assert.deepEqual(groupRows(['a', 'b', 'c', 'd']), [['a', 'c'], ['b', 'd']]);
   const h = act3Solo('mode_single_5', 11).start();
   const mi = matchInfoModel(h.m.publicView(), act3Src('mode_single_5'));
   const picks = [];
-  const opened = [];
-  const v = BondGroups({ model: mi, onPick: (i) => picks.push(i), onBond: (id) => opened.push(id), hint: 'hint' });
+  const v = BondGroups({ model: mi, onPick: (i) => picks.push(i), hint: 'hint' });
   assert.equal(v.props.role, 'radiogroup');
   const panels = [...walk(v)].filter((x) => hasClass(x, 'bgrp__panel'));
   assert.deepEqual(panels.map((x) => [x.props['data-group'], hasClass(x, 'is-picked'), x.props['aria-checked']]), [[0, true, 'true'], [1, false, 'false']]);
@@ -342,10 +341,7 @@ test('BondGroups: item i of a group in item_container_(i+1) (1·3·5 on top, 2·
   }
   panels[1].props.onClick();
   assert.deepEqual(picks, [1], 'a press on the panel picks it');
-  const btn = [...walk(panels[1])].find((x) => x.type === 'button');
-  let stopped = false;
-  btn.props.onClick({ stopPropagation: () => { stopped = true; } });
-  assert.deepEqual([opened, stopped, picks.length], [[mi.groups.groups[1][0]], true, 1], 'an icon opens the detail and does not pick');
+  assert.equal([...walk(v)].some((x) => x.type === 'button'), false, 'an icon is no button: it opens no detail, a press on it picks its panel (maintainer decision 2026-11-18)');
   // read-only: no radio, no buttons, no hint
   const ro = BondGroups({ model: mi });
   assert.equal(ro.props.role, null);

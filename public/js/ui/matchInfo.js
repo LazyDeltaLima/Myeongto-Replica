@@ -31,7 +31,7 @@
 // line; the briefing picks there (screens/briefing.js), the dialog and the in-game tab show them read-only.
 // Styles: css/screens/briefing.css (.brief-*, .bgrp), css/screens/draft.css (.minfo-dlg).
 
-import { useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
+import { useLayoutEffect, useRef } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, MicroLabel, Tooltip, Modal, TierChip, natSizeVars } from './components.js';
 import { Img } from './gameComponents.js';
 import { bannedPerBond, disabledBondSets, briefingBondTip, diyBannedPieces } from './gameLogic.js';
@@ -40,7 +40,6 @@ import { skinArt, skinPic } from './skins.js';
 import { data, localAsset } from '../data.js';
 import { t, dn } from '../../../shared/i18n.js';
 import { customSummary, CustomRulesInfo } from './customSummary.js';
-import { BondPopup } from './bondStrip.js';
 import { officialBans } from '../../../shared/ruleset.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -223,13 +222,13 @@ export function groupRows(list) {
  * 规程 solo's two core bond groups (auto_chess_single_mode_bond_group, MatchInfoModel groups): two panels side by side,
  * the picked one on its art (Image_select_text — ALLIANCE ACTIVATED and the check —, the blur, the bar with its notch,
  * the hatched corner; drawn under the bond items) with its bonds lit, the other one's greyed with the banned mark.
- * `onPick` (the briefing, before ready): the panel is a radio and a press on it picks the group (g.bondGroup); `onBond`:
- * a bond icon is a button (its detail — not a pick); `hint`: the text_tips line over the panels (the briefing's).
+ * `onPick` (the briefing, before ready): the panel is a radio and a press on it, its icons included, picks the group
+ * (g.bondGroup); a bond icon opens no detail anywhere (maintainer decision 2026-11-18); `hint`: the text_tips line over
+ * the panels (the briefing's).
  * Hookless; sized in --u (one prefab unit), set by the caller's CSS.
- * @param {{ model: MatchInfoModel, onPick?: ((i: number) => void)|null, onBond?: ((id: string) => void)|null,
- *   openId?: string|null, hint?: any }} props
+ * @param {{ model: MatchInfoModel, onPick?: ((i: number) => void)|null, hint?: any }} props
  */
-export function BondGroups({ model, onPick = null, onBond = null, openId = null, hint = null }) {
+export function BondGroups({ model, onPick = null, hint = null }) {
   const g = model?.groups;
   if (!g) return null;
   const art = ['img_select_text', 'img_blur_bond', 'img_bond_group_select', 'img_select_decorate', 'img_single_choose_bg']
@@ -240,10 +239,7 @@ export function BondGroups({ model, onPick = null, onBond = null, openId = null,
     const bond = bondOf(id);
     const tip = briefingBondTip(bond.name, off ? 'drawn' : null, off ? model.perBond.get(id) || 0 : 0);
     const inner = html`<${InfoBond} bond=${bond} off=${off} />`;
-    return html`<div key=${id} class="bgrp__cell" data-bond=${id}>${onBond
-      ? html`<button type="button" class=${cx('bgrp__bond', openId === id && 'is-open')} title=${tip} aria-label=${bond.name}
-          onClick=${(e) => { e.stopPropagation(); onBond(id); }}>${inner}</button>`
-      : html`<span class="bgrp__bond" title=${tip}>${inner}</span>`}</div>`;
+    return html`<div key=${id} class="bgrp__cell" data-bond=${id}><span class="bgrp__bond" title=${tip}>${inner}</span></div>`;
   };
   const key = (i) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(i); } };
   return html`<div class=${cx('bgrp', hint && 'has-hint', onPick && 'is-pickable', !art && 'no-art')} style=${art || null} role=${onPick ? 'radiogroup' : null} data-testid="bond-groups">
@@ -263,13 +259,11 @@ export function BondGroups({ model, onPick = null, onBond = null, openId = null,
 }
 
 /**
- * BondGroups read-only with the bond detail (BondPopup) a press on an icon opens — the strategy draft's / 3/3 screen's
- * 本局信息 dialog (no pick there). `detail` false: icons only (the in-game tab, whose detail would read the board).
+ * BondGroups read-only — the strategy draft's / 3/3 screen's 本局信息 dialog and the in-game tab (no pick, no detail).
  * The prefab unit --u comes from the box's width (880 units; measured — no CSS container queries on our browsers).
- * @param {{ model: MatchInfoModel, detail?: boolean }} props
+ * @param {{ model: MatchInfoModel }} props
  */
-export function BondGroupsView({ model, detail = true }) {
-  const [open, setOpen] = useState(null);
+export function BondGroupsView({ model }) {
   const box = useRef(null);
   useLayoutEffect(() => {
     const el = box.current;
@@ -281,11 +275,8 @@ export function BondGroupsView({ model, detail = true }) {
     if (!ro) addEventListener('resize', fit);
     return () => { ro?.disconnect(); if (!ro) removeEventListener('resize', fit); };
   }, []);
-  const toggle = (id) => setOpen((o) => (o === id ? null : id));
   return html`<div class="bgrp-ro" ref=${box}>
-    <div class="bgrp-ro__in"><${BondGroups} model=${model} onBond=${detail ? toggle : null} openId=${open} /></div>
-    ${detail && open ? html`<${BondPopup} bondId=${open} entry=${null} priv=${null} banned=${model.bannedAll} place="right"
-      onClose=${() => setOpen(null)} onMember=${() => {}} />` : null}
+    <div class="bgrp-ro__in"><${BondGroups} model=${model} /></div>
   </div>`;
 }
 
