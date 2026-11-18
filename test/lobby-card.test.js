@@ -17,10 +17,8 @@ const visible = records.find((c) => c && !c.isDiy && c.visible !== false && type
 const hidden = records.find((c) => c && c.visible === false && typeof c.charId === 'string'
   && !records.some((o) => o !== c && o.charId === c.charId && o.visible !== false));
 
-// a visible operator of 规程 (act3autochess) that 盟约 (act2autochess) has no card for
-const cardIds = (d) => new Set(Object.values(d.chess || {}).filter((c) => c && !c.isDiy && c.visible !== false).map((c) => c.charId));
-const A2 = cardIds(getData());
-const ONLY3 = [...cardIds(getData({ season: 'act3autochess' }))].find((id) => !A2.has(id));
+// an operator data/cards.json lists for 规程 (act3autochess) alone, not for 盟约 (act2autochess)
+const ONLY3 = getData().cards?.operators?.find((o) => o.seasons.length === 1 && o.seasons[0] === 'act3autochess')?.charId;
 
 describe('room.card (名片干员)', () => {
   let srv;

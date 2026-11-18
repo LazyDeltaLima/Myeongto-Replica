@@ -780,3 +780,16 @@ the DIY stock (per player in the match, `PlayerState.diyStock`: `config.economy.
 field), 助战 borrows (`borrowCount` 20), and a player's potential / 练度 per operator (the 干员调配 settings sent with
 `room.loadout`; the forms are built at full potential and carry the lower ranks, §2.3; 练度 = effects.json
 `aceffect_char_1…4`).
+
+## 19. `cards.json` — the seat card operators of every season — `{ operators: [Card] }`
+
+Written by `tools/build-data.mjs` (`writeCards`, after the season's own files) through `shared/cardOperators.js`
+`buildCards`: that run's chess / backups and the other seasons' as they are in `data/` (a season's own file, else the
+default's; a season with no folder yet is left out), so building either season writes the same file. It sits in `data/`
+only (one file for every season). `Card` = `{ charId, name, appellation, rarity, assets: { avatar, portrait }, seasons,
+pool }`, sorted by charId: an operator is listed for a season with a visible, non-自选 chess record of it (the golden
+form's art) or a 自选 pick this server offers (`backups.diy.ownedPool` ∩ `shared/local-diy.js`, art `<charId>_2`);
+`pool` = the seasons where it is a 5★ / 6★ chess record (the default seat card's pool). `name` is the Chinese (the
+browser localizes it with the overlays' `names` map, `data.localeName`). Read by the server's `room.card` check
+(`server/lobby.js cardAllowed`: a season the server offers) and the browser's picker (`public/js/ui/seatArt.js`
+`cardOperators`); `test/ui/room-cards.test.js` checks it against the current chess / backups.

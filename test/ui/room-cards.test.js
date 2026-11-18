@@ -11,71 +11,76 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const load = (p) => import(pathToFileURL(path.join(ROOT, p)).href);
 const json = (p) => JSON.parse(readFileSync(path.join(ROOT, p), 'utf8'));
 
-test('cardOperators: the visible non-自选 chess (golden form first) and this server\'s 自选 picks, 6★ first; never a hidden preset', async () => {
-  const { cardOperators } = await load('public/js/ui/seatArt.js');
+const seasonData = (dir) => ({ chess: json(`${dir}chess.json`).chess || json(`${dir}chess.json`), backups: json(`${dir}backups.json`) });
+const A2 = 'act2autochess', A3 = 'act3autochess';
+
+test('buildCards: every season\'s visible non-自选 chess (golden form first) and this server\'s 自选 picks; never a hidden preset', async () => {
+  const { buildCards } = await load('shared/cardOperators.js');
   const { LOCAL_DIY_PICKS } = await load('shared/local-diy.js');
-  const chess = Object.values(json('data/chess.json').chess || json('data/chess.json'));
-  const backups = json('data/backups.json');
-  const list = cardOperators(chess, backups);
-  const ids = list.map((c) => c.charId);
-  assert.equal(new Set(ids).size, ids.length, 'one record per operator');
-  for (const c of chess) {
-    if (c.isDiy || typeof c.charId !== 'string') continue;
-    const visibleTwin = chess.some((o) => o.charId === c.charId && o.visible !== false && !o.isDiy);
-    assert.equal(ids.includes(c.charId), visibleTwin, `${c.charId} ${c.name}`);
-  }
-  // a golden record wins (its E2 art)
-  const golden = chess.find((c) => c.isGolden && c.visible !== false && !c.isDiy);
-  if (golden) assert.equal(list.find((c) => c.charId === golden.charId).isGolden, true);
-  // the 自选 pool joins with the picks this server offers only, with their E2 art
+  const d2 = seasonData('data/'), d3 = seasonData('data/seasons/act3autochess/');
+  const { operators } = buildCards([[A2, d2], [A3, d3]]);
+  const by = new Map(operators.map((o) => [o.charId, o]));
+  assert.equal(by.size, operators.length, 'one record per operator');
   const picks = new Set(LOCAL_DIY_PICKS);
-  for (const id of backups.diy.ownedPool) {
-    if (chess.some((c) => c.charId === id && !c.isDiy)) continue;
-    assert.equal(ids.includes(id), picks.has(id), id);
-    if (picks.has(id)) assert.equal(list.find((c) => c.charId === id).assets.portrait, `${id}_2`);
+  for (const [season, d] of [[A2, d2], [A3, d3]]) {
+    const chess = Object.values(d.chess);
+    for (const c of chess) {
+      if (c.isDiy || typeof c.charId !== 'string') continue;
+      const visible = chess.some((o) => o.charId === c.charId && o.visible !== false && !o.isDiy);
+      assert.equal(!!by.get(c.charId)?.seasons.includes(season), visible, `${season} ${c.charId} ${c.name}`);
+      if (visible) assert.equal(by.get(c.charId).pool.includes(season), (c.rarity ?? 0) >= 5, `${season} ${c.charId}: the default pool is its 5★ / 6★`);
+    }
+    for (const id of d.backups.diy.ownedPool) {
+      if (chess.some((c) => c.charId === id && !c.isDiy)) continue;
+      assert.equal(!!by.get(id)?.seasons.includes(season), picks.has(id), `${season} pick ${id}`);
+      if (picks.has(id)) assert.equal(by.get(id).assets.portrait, `${id}_2`, 'a 自选 pick draws its E2 art');
+    }
   }
-  for (let i = 1; i < list.length; i++) assert.ok((list[i - 1].rarity ?? 0) >= (list[i].rarity ?? 0), 'rarity order');
+  const golden = Object.values(d2.chess).find((c) => c.isGolden && c.visible !== false && !c.isDiy);
+  assert.equal(by.get(golden.charId).assets.portrait, golden.assets.portrait, 'the golden form\'s art');
+  assert.ok(operators.some((o) => o.seasons.length === 1 && o.seasons[0] === A3), '规程 has operators 盟约 lacks');
+});
+
+test('data/cards.json is what build-data writes from the current data (rebuild: node tools/build-data.mjs --offline)', async () => {
+  const { buildCards } = await load('shared/cardOperators.js');
+  assert.deepEqual(json('data/cards.json'), buildCards([[A2, seasonData('data/')], [A3, seasonData('data/seasons/act3autochess/')]]),
+    'data/cards.json is stale: tools/build-data.mjs writeCards (docs/DATA.md §19) rebuilds it');
+});
+
+test('cardOperators + cardContext: the offered seasons\' operators to pick, localized; the default drawn from the room\'s season alone', async () => {
+  const { cardOperators, cardContext, seatOperator, hash32 } = await load('public/js/ui/seatArt.js');
+  const file = json('data/cards.json');
+  const only3 = file.operators.find((o) => o.seasons.length === 1 && o.seasons[0] === A3);
+  const one = cardOperators(file, { seasons: [A2] });
+  const both = cardOperators(file, { seasons: [A2, A3], localeName: (zh) => `ko:${zh}` });
+  assert.ok(!one.some((c) => c.charId === only3.charId), 'a season the server does not offer adds none');
+  assert.equal(both.length, file.operators.length);
+  assert.equal(both.find((c) => c.charId === only3.charId).name, `ko:${only3.name}`, 'named in the locale');
+  for (let i = 1; i < both.length; i++) assert.ok((both[i - 1].rarity ?? 0) >= (both[i].rarity ?? 0), 'rarity order');
+  const ctx = cardContext(both, { season: A2 });
+  assert.deepEqual(ctx.pool.map((c) => c.charId), cardContext(one, { season: A2 }).pool.map((c) => c.charId),
+    'the default pool is the room\'s season\'s, whatever other seasons are offered');
+  assert.ok(ctx.pool.length > 10 && ctx.pool.every((c) => c.pool.includes(A2) && c.rarity >= 5));
+  assert.equal(seatOperator({ playerId: 'p', card: only3.charId }, ctx).chess.charId, only3.charId, 'another season\'s pick is drawn');
+  assert.equal(seatOperator({ playerId: 'p2' }, ctx).chess, ctx.pool[hash32('p2') % ctx.pool.length]);
+  assert.equal(seatOperator({ playerId: 'p', card: only3.charId }, cardContext([], { pending: true })), null, 'a pick waits for the file');
 });
 
 test('seatOperator: one\'s own card shows the local pick at once, another the server\'s; no pick → the same pool operator on every client', async () => {
   const { cardContext, seatOperator, hash32 } = await load('public/js/ui/seatArt.js');
-  const list = [{ charId: 'a', chessId: 'c_a', rarity: 6 }, { charId: 'b', chessId: 'c_b', rarity: 5 }, { charId: 'c', chessId: 'c_c', rarity: 4 }, { charId: 'd', rarity: 6 }];
-  const ctx = cardContext(list);
-  assert.deepEqual(ctx.pool.map((c) => c.charId), ['a', 'b'], '5★/6★ chess records only, by charId');
+  const list = [{ charId: 'b', rarity: 5, pool: ['s'] }, { charId: 'a', rarity: 6, pool: ['s'] }, { charId: 'c', rarity: 4, pool: [] }, { charId: 'd', rarity: 6, pool: ['t'] }];
+  const ctx = cardContext(list, { season: 's' });
+  assert.deepEqual(ctx.pool.map((c) => c.charId), ['a', 'b'], 'the room\'s season\'s pool only, by charId');
   const seat = { playerId: 'p1', isBot: false, card: 'c' };
   assert.equal(seatOperator(seat, ctx, { myId: 'me' }).chess.charId, 'c');
   assert.equal(seatOperator(seat, ctx, { myId: 'p1', myCard: 'd' }).chess.charId, 'd', 'my own pick before the server has it');
   const none = { playerId: 'p2', isBot: false };
   const want = ctx.pool[hash32('p2') % ctx.pool.length].charId;
   assert.equal(seatOperator(none, ctx).chess.charId, want);
-  assert.equal(seatOperator(none, cardContext([...list].reverse())).chess.charId, want, 'the list order does not change it');
-  assert.equal(seatOperator({ playerId: 'x', card: 'zzz' }, cardContext(list, { pending: true })), null, 'an unknown pick waits for the 自选 data');
+  assert.equal(seatOperator(none, cardContext([...list].reverse(), { season: 's' })).chess.charId, want, 'the list order does not change it');
+  assert.equal(seatOperator({ playerId: 'x', card: 'zzz' }, cardContext(list, { pending: true, season: 's' })), null, 'an unknown pick waits for the data');
   assert.equal(seatOperator({ playerId: 'bot', isBot: true }, ctx), null);
   assert.equal(seatOperator(null, ctx), null);
-});
-
-test('mergeCardOperators + cardContext pool: every offered season\'s operators to pick, the default drawn from the room\'s season alone', async () => {
-  const { cardOperators, mergeCardOperators, cardContext, seatOperator, hash32 } = await load('public/js/ui/seatArt.js');
-  const recs = (dir) => Object.values(json(`${dir}chess.json`).chess || json(`${dir}chess.json`));
-  const a2 = cardOperators(recs('data/'), json('data/backups.json'));
-  const a3 = cardOperators(recs('data/seasons/act3autochess/'), json('data/seasons/act3autochess/backups.json'));
-  const ids2 = new Set(a2.map((c) => c.charId));
-  const only3 = a3.find((c) => !ids2.has(c.charId) && (c.rarity ?? 0) >= 5 && c.chessId);
-  const both = a3.find((c) => ids2.has(c.charId));
-  assert.ok(only3 && both, '规程 has operators 盟约 lacks, and some of both');
-  const list = mergeCardOperators([a2, a3]);
-  const ids = list.map((c) => c.charId);
-  assert.equal(new Set(ids).size, ids.length, 'one record per operator');
-  assert.deepEqual(new Set(ids), new Set([...ids2, ...a3.map((c) => c.charId)]), 'the union of the seasons');
-  assert.equal(list.find((c) => c.charId === both.charId), a2.find((c) => c.charId === both.charId), 'the room\'s season\'s record wins');
-  for (let i = 1; i < list.length; i++) assert.ok((list[i - 1].rarity ?? 0) >= (list[i].rarity ?? 0), 'rarity order');
-  const ctx = cardContext(list, { pool: a2 });
-  assert.deepEqual(ctx.pool, cardContext(a2).pool, 'the default pool is the room\'s season\'s, with or without the others');
-  assert.equal(seatOperator({ playerId: 'p', card: only3.charId }, ctx).chess.charId, only3.charId, 'another season\'s pick is drawn');
-  const none = { playerId: 'p2' };
-  assert.equal(seatOperator(none, ctx).chess, ctx.pool[hash32('p2') % ctx.pool.length]);
-  assert.equal(seatOperator({ playerId: 'p', card: only3.charId }, cardContext(a2, { pending: true })), null,
-    'a pick of a season still loading waits instead of a default for a moment');
 });
 
 test('seatArtSrc: the first picture not failed in this card, else none (the avatar frame)', async () => {

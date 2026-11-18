@@ -1,7 +1,7 @@
 // 名片干员 (after upstream 0.3.3): the portrait on a Doctor's seat card in the waiting room (screens/room.js) — the
 // operator the player picked (room.card; everybody sees it as room.state seats[].card), else one of the 5★/6★ operators
-// chosen by the player id, the same on every client. The rules are pure: the screen passes the chess records
-// (ui/assetUrls.js chessPortraitUrl turns the operator into its portrait; without the art the card keeps its avatar
+// of the room's season chosen by the player id, the same on every client. The rules are pure: the screen passes
+// data/cards.json (shared/cardOperators.js; ui/seatCards.js) (ui/assetUrls.js chessPortraitUrl turns the operator into its portrait; without the art the card keeps its avatar
 // frame). The pick itself lives in `cardStore` (a pref; ui/cardSync.js sends it).
 // [ASSUMED·자료 없음] The event's card shows the account's assistant (名片形象): this remake has no accounts, so the pick
 // is made on one's own seat card and kept in this browser (CARD_PREF 'room.card').
@@ -9,7 +9,6 @@
 // art as in the event's room and every client draws the same one.
 
 import { createStore, loadPref, savePref } from '../store.js';
-import { isLocalDiyPick } from '../../../shared/local-diy.js';
 import { ownerSkin } from './skins.js';
 import { illustEntry } from '../illust-res.js';
 
@@ -46,62 +45,37 @@ export function hash32(s) {
 }
 
 /**
- * The operators a seat card can show — the server's room.card whitelist (server/lobby.js cardCharIds): one record per
- * charId of the visible, non-自选 chess records (the golden form first, for its E2 art), then the 自选 picks this server
- * offers (`backups.diy.ownedPool` ∩ shared/local-diy.js, named and rated by `backups.diy.operators` — those operators have
- * no chess record of their own), 6★ first, then by name.
- * @param {any[]} chessList chess.json records
- * @param {any} [backups] backups.json
+ * The operators a seat card can show (data/cards.json, shared/cardOperators.js — the server's room.card whitelist, any
+ * room's season: maintainer request 2026-11-18): those of a season in `seasons` (the ones the server offers), named in
+ * the current locale (`localeName`, the overlays' Chinese → name map: the same names the chess records show), 6★ first,
+ * then by name.
+ * @param {any} file data/cards.json
+ * @param {{ seasons?: readonly string[], localeName?: (zh: string) => string }} [opts]
  * @returns {any[]}
  */
-export function cardOperators(chessList, backups = null) {
-  const by = new Map();
-  for (const c of Array.isArray(chessList) ? chessList : []) {
-    if (!c || c.isDiy || c.visible === false || typeof c.charId !== 'string') continue;
-    const prev = by.get(c.charId);
-    if (!prev || (c.isGolden && !prev.isGolden)) by.set(c.charId, c);
+export function cardOperators(file, { seasons = [], localeName = (zh) => zh } = {}) {
+  const ops = file && Array.isArray(file.operators) ? file.operators : [];
+  const out = [];
+  for (const o of ops) {
+    if (!o || typeof o.charId !== 'string' || !Array.isArray(o.seasons) || !o.seasons.some((s) => seasons.includes(s))) continue;
+    out.push({ ...o, name: localeName(o.name) });
   }
-  const diy = backups && typeof backups === 'object' ? backups.diy : null;
-  const pool = diy && Array.isArray(diy.ownedPool) ? diy.ownedPool : [];
-  const ops = diy && diy.operators && typeof diy.operators === 'object' ? diy.operators : {};
-  for (const id of pool) {
-    if (typeof id !== 'string' || !id || by.has(id) || !isLocalDiyPick(id)) continue;
-    const rec = ops[id];
-    by.set(id, { charId: id, name: rec && typeof rec.name === 'string' ? rec.name : id, rarity: rec && Number.isFinite(rec.rarity) ? rec.rarity : 0,
-      assets: { portrait: `${id}_2`, avatar: `${id}_2` } }); // the E2 art (ui/assetUrls.js reads '_2' as portraitE2)
-  }
-  return sortCards([...by.values()]);
-}
-
-const sortCards = (list) => list.sort((a, b) => ((b.rarity ?? 0) - (a.rarity ?? 0)) || String(a.name).localeCompare(String(b.name), 'ko'));
-
-/**
- * The operators of every offered season in one list (the server takes a card of any of them: server/lobby.js
- * cardAllowed, maintainer request 2026-11-18): `lists[0]` is the room's season's cardOperators(), its record wins for an
- * operator several seasons have; the others add the operators it lacks. Sorted as cardOperators.
- * @param {any[][]} lists cardOperators() of each season, the room's first
- * @returns {any[]}
- */
-export function mergeCardOperators(lists) {
-  const by = new Map();
-  for (const list of lists) for (const c of Array.isArray(list) ? list : []) if (c && !by.has(c.charId)) by.set(c.charId, c);
-  return sortCards([...by.values()]);
+  return out.sort((a, b) => ((b.rarity ?? 0) - (a.rarity ?? 0)) || String(a.name).localeCompare(String(b.name), 'ko'));
 }
 
 /**
- * What the seat cards draw from: the pickable operators by charId and the default pool (5★/6★ chess records, by charId
- * so every client orders it the same).
- * @param {any[]} list cardOperators() / mergeCardOperators()
- * @param {{ pending?: boolean, pool?: any[] }} [opts] pending: an operator list (the 自选 pool, another season's
- *   operators) is still loading — a pick not in the list yet waits for it instead of drawing a default operator for a
- *   moment. pool: the operators the default is drawn from (default `list`) — the room's season's alone, so another
- *   season's data arriving never changes anybody's default card and every client draws the same one meanwhile
+ * What the seat cards draw from: the pickable operators by charId and the default pool — the operators whose `pool`
+ * names the room's season (5★ / 6★ chess records of it), by charId so every client orders it the same. Another season's
+ * operators never join the pool: a card nobody picked shows the same operator whatever seasons the server offers.
+ * @param {any[]} list cardOperators()
+ * @param {{ pending?: boolean, season?: string }} [opts] pending: data/cards.json is still loading — a pick waits for it
+ *   instead of drawing a default operator for a moment. season: the room's season (the page's data season)
  */
-export function cardContext(list, { pending = false, pool = list } = {}) {
+export function cardContext(list, { pending = false, season = '' } = {}) {
   return {
     pending,
     byChar: new Map(list.map((c) => [c.charId, c])),
-    pool: pool.filter((c) => (c.rarity ?? 0) >= 5 && c.chessId).sort((a, b) => (a.charId < b.charId ? -1 : a.charId > b.charId ? 1 : 0)),
+    pool: list.filter((c) => Array.isArray(c.pool) && c.pool.includes(season)).sort((a, b) => (a.charId < b.charId ? -1 : a.charId > b.charId ? 1 : 0)),
   };
 }
 

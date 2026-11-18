@@ -48,6 +48,7 @@ import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 import { isOwnSubMode, skillModeIndex, SKILL_SUB_MODES } from '../shared/skill-modes.js';
 import { DEFAULT_SEASON, SEASONS, isSeasonId, seasonDataDir } from '../shared/seasons.js';
+import { buildCards } from '../shared/cardOperators.js';
 import { gamedataBase, SEASON_GAMEDATA } from './gamedata-url.mjs';
 import { normalizeFlat } from './gamedata-flat.mjs';
 import { composeStageLevel, isFrameLevel, levelDrift, placeWaveLevel, subLevelPath, waveOrigin } from './level-fields.mjs';
@@ -5392,6 +5393,30 @@ function attachHandlerKeys(items, garrisons) {
   for (const g of Object.values(garrisons)) g.handlerKey = keyBySig.get(sig(g)) ?? `${SEASON}:${g.garrisonId}`;
 }
 
+/**
+ * data/cards.json (docs/DATA.md §19, shared/cardOperators.js): the seat card operators of every season — this run's own
+ * chess / backups, the other seasons' as written in data/ (a season's file, else the default's; a season with no folder
+ * yet is left out). Written beside data/ (or into --out when it is not the season's own folder).
+ * @param {any} chess @param {any} backups
+ */
+async function writeCards(chess, backups) {
+  const readSeason = (id, name) => {
+    const own = join(ROOT, 'data', seasonDataDir(id), `${name}.json`);
+    return JSON.parse(readFileSync(existsSync(own) ? own : join(ROOT, 'data', `${name}.json`), 'utf8'));
+  };
+  const ids = [DEFAULT_SEASON, ...Object.keys(SEASONS).filter((id) => id !== DEFAULT_SEASON)];
+  const seasons = [];
+  for (const id of ids) {
+    if (id === SEASON) seasons.push([id, { chess, backups }]);
+    else if (id === DEFAULT_SEASON || existsSync(join(ROOT, 'data', seasonDataDir(id)))) seasons.push([id, { chess: readSeason(id, 'chess'), backups: readSeason(id, 'backups') }]);
+  }
+  const own = resolve(OPTS.out) === resolve(join(ROOT, 'data', seasonDataDir(SEASON)));
+  const dest = join(own ? join(ROOT, 'data') : OPTS.out, 'cards.json');
+  const tmp = `${dest}.tmp-${process.pid}`;
+  await writeFile(tmp, JSON.stringify(buildCards(seasons)));
+  await rename(tmp, dest);
+}
+
 async function main() {
   const t0 = Date.now();
   const ctx = await loadContext();
@@ -5451,6 +5476,7 @@ async function main() {
       await writeFile(tmp, text);
       await rename(tmp, dest);
     }
+    await writeCards(chess, backups);
   }
   const report = {
     counts: {

@@ -123,9 +123,10 @@
 //     season (humanSeat); a message of another season than the room's is only stored on the session (OK), never on the
 //     seat or the match.
 //   * 名片干员 (after upstream 0.3.3, the seat cards of the waiting room): room.card { charId } — the operator whose
-//     portrait fills the player's seat card, '' for none — is kept only when it is a visible, non-自选 chess charId or a
-//     自选 pick this server offers of any season the server offers (cardCharIds of each; whatever the room's season —
-//     maintainer request 2026-11-18, as room.skins; another id: BAD_MSG, the stored one stays). Stored on the session (it
+//     portrait fills the player's seat card, '' for none — is kept only when data/cards.json (shared/cardOperators.js:
+//     the visible, non-自选 chess and this server's 自选 picks of every season) lists it for a season the server offers,
+//     whatever the room's season (cardAllowed; maintainer request 2026-11-18, as room.skins; another id: BAD_MSG, the
+//     stored one stays). Stored on the session (it
 //     follows the player into the next room) and the seat; the room's members see it as room.state seats[].card (human
 //     seats with a card only). Checked again when the player takes a seat (humanSeat): a card no offered season has is
 //     left off the seat, never cleared from the session. Cosmetic: any phase, spectators too (stored on the session),
@@ -253,21 +254,19 @@ function opsCharIds(data) {
   return ids;
 }
 
-/** The operator charIds a seat card may show (room.card's whitelist; the client's picker list is ui/seatArt.js
- * cardOperators): the visible, non-自选 chess records plus the 自选 picks this server offers (`backups.diy.ownedPool`
- * filtered by shared/local-diy.js — operators with no chess record of their own). */
-const CARD_IDS = new WeakMap();
-function cardCharIds(data) {
-  if (!data || typeof data !== 'object') return new Set();
-  let ids = CARD_IDS.get(data);
-  if (ids) return ids;
-  ids = new Set();
-  const chess = data.chess && typeof data.chess === 'object' ? data.chess : null;
-  if (chess) for (const c of Object.values(chess)) if (c && !c.isDiy && c.visible !== false && typeof c.charId === 'string') ids.add(c.charId);
-  const pool = data.backups?.diy?.ownedPool;
-  if (Array.isArray(pool)) for (const id of pool) if (typeof id === 'string' && id && isLocalDiyPick(id)) ids.add(id);
-  CARD_IDS.set(data, ids);
-  return ids;
+/** data/cards.json (shared/cardOperators.js) as charId → the seasons whose seat cards may show it (room.card's whitelist). */
+const CARD_SEASONS = new WeakMap();
+function cardSeasons(data) {
+  const file = data && typeof data === 'object' ? data.cards : null;
+  if (!file || typeof file !== 'object') return new Map();
+  let m = CARD_SEASONS.get(file);
+  if (m) return m;
+  m = new Map();
+  for (const o of Array.isArray(file.operators) ? file.operators : []) {
+    if (o && typeof o.charId === 'string' && Array.isArray(o.seasons)) m.set(o.charId, o.seasons);
+  }
+  CARD_SEASONS.set(file, m);
+  return m;
 }
 
 /** Deep-frozen copy of checked 自选 picks (shared by the session, the seat and the match's PlayerState). */
@@ -1105,7 +1104,7 @@ export class Lobby {
   }
 
   /**
-   * 名片干员 (room.card, header): the operator on the player's seat card, '' for none — a charId of cardCharIds for any
+   * 名片干员 (room.card, header): the operator on the player's seat card, '' for none — a data/cards.json operator of an
    * offered season (cardAllowed). Kept on the session and the seat; a change is broadcast to the room. Cosmetic:
    * accepted in any phase, never touches a match.
    */
@@ -1121,9 +1120,10 @@ export class Lobby {
     return OK;
   }
 
-  /** May a seat card show `charId` (header 「名片干员」): a cardCharIds operator of any season the server offers. */
+  /** May a seat card show `charId` (header 「名片干员」): a data/cards.json operator of a season the server offers. */
   cardAllowed(charId) {
-    return typeof charId === 'string' && !!charId && [...this.seasons].some((s) => cardCharIds(this.safeData(s)).has(charId));
+    const seasons = typeof charId === 'string' && charId ? cardSeasons(this.safeData(DEFAULT_SEASON)).get(charId) : null;
+    return !!seasons && seasons.some((s) => this.seasons.has(s));
   }
 
   /**
