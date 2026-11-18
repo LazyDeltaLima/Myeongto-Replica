@@ -1651,7 +1651,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   `backups.json` `shot` { base, skills }(`attackAnim`과 같은 모드 색인, 형식은 `docs/DATA.md` §2). 공격 능력에 투사체가 없으면 키 없는 `{ move: 'NONE', speed: 0 }`,
   모드의 저지 공격(`Body/Combat`, 요새 `BlockedMeleeAttack`)에 투사체가 없으면 `combat: 1`. 144명 읽음(EN 클라에 없는 予愿安洁莉娜·克莱门莎 빼고).
 - **시뮬** (`server/sim/ai.js opShot`): 지금 공격하는 모드의 shot — 스킬이 켜져 있고 그 스킬에 모드가 있으면 그것, 아니면 Default(`attackClipOf`와 같은 선택).
-  `speed` > 0이면 그 속도로 추적(PARACURVE는 수평 거리 ÷ 속도 — 위 「비행 시간」), 0이면 타격 순간(AttachToTarget은 `_delayToStart` 뒤). 저지 중인 적은
+  `speed` > 0이면 그 속도로 추적(PARACURVE는 수평 거리 ÷ 속도 — 위 「비행 시간」; 거리는 2026-11-18부터 총구 → 명중점, 아래 「투사체의 출발·도착 점」), 0이면 타격 순간(AttachToTarget은 `_delayToStart` 뒤). 저지 중인 적은
   `combat`이면 타격 순간. 데이터에 없는 유닛(토큰·장치·테스트 데이터)과 이동 behaviour를 못 읽은 투사체(`move` OTHER — 丰川祥子 음표 `projectile_chr_oblvns_*`,
   安洁莉娜 S2 `projectile_aglina_s2`: 루트에 이동 기본 클래스 필드 `_rotateToTarget`만 있음)는 예전 종류별 값. 'atk' kind(arrow·bolt …)는 그대로 — 렌더·소리 경로는 안 바뀐다.
 - **모드 없는 스킬**: 자기 모드가 없고 표 지속 시간도 없는 스킬(다음 공격·탄약 — 能天使 S1 `projectile_angel` 30, 号角 S1, 锡人 S1·S2 PARACURVE 3 …)은
@@ -1680,16 +1680,26 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 - 키트가 직접 쏘는 투사체(스킬 'strike' 등)는 키트 값 그대로. 티피(스카이레인저)는 2026-11-03부터 원거리 — 「오퍼레이터 공격 형태」.
 - 테스트 `test/sim/op-shot.test.js`(데이터·비행 시간·저지·렌더 짝·실제 판 경로의 치료 지연). 원거리 오퍼레이터 피해 시각이 바뀌어 golden이 움직인다.
 
-### 투사체의 출발·도착 점 (2026-11-18, 자료만 — 시뮬레이션은 아직 안 씀)
+### 투사체의 출발·도착 점 (2026-11-18)
 - **공식**: 투사체는 쏘는 쪽 모드 공격의 `_mountPointType` 점(`RangedAttack._GetMountPoint`, MUZZLE·특수점 — `shot.*.mount`)에서 나와 대상의 hit 마운트 점
   (`GetTargetLocatable`)으로 가고, 비행 시간은 두 점 `mapPositionV3`의 판 위 거리 / `_speed`(`BasicMovement.OnInit`·`ParacurveMovement.OnInit`, 공식 클라에서 확인).
-  우리 시뮬레이션은 아직 유닛 중심 거리라 늘 약 0.09 s 늦다(혼 평타, 관리자 메모 「fx-Y 1행 계산」). 이 절은 그 두 점을 `data/`로 내는 데까지다.
+  2026-11-18 전에는 시뮬레이션·렌더 모두 유닛 중심 거리라 늘 약 0.09 s 늦었다(혼 평타, 관리자 메모 「fx-Y 1행 계산」; 관리자 결정 2026-11-16 「공식과 같게」).
+- **비행**(2026-11-18): 오퍼레이터 일반 공격·치료의 날아가는 shot(`ai.js performAttack`, `opShot`의 `from`이 있을 때)은 `shared/shotFlight.js shotEnds`로 두 끝을 잡는다 —
+  총구는 쏘는 쪽 뿌리에서, 명중점은 대상 뿌리에서 판 위로 [du × 좌우, dv × cos 30°](모델 `Graphic`이 x축 −30°라 모델 위로 dv인 점은 판에서 dv·cos 30° 뒤(+행);
+  `render/fxpoints.js modelOffset`과 같은 회전). 명중점은 대상 기록의 `hitAt`, 적은 그 적의 지금 공격 모드(`e.mode`)의 `hitAt.modes`(무덤지기 석상 Fly). 투사체
+  (`server/sim/projectiles.js` `ends`)는 총구에서 나와 대상의 명중점(대상이 움직이면 따라감)까지 날고, 닿으면 예전처럼 대상 자리에서 맞힌다(확산 중심 그대로).
+  렌더의 비행 시간(`fxgame.js trailShot`·`reachFx`, 절차 투사체 `fx/projectiles.js attack`)도 같은 함수(`fx/projectiles.js shotFlightOf`)라 명중 이펙트가 꼬리가 닿을 때 난다.
+  자료에 총구가 없으면(추출 없는 빌드) 유닛에서 유닛으로. 키트가 직접 쏘는 투사체·루프슈터의 부메랑·적이 쏘는 탄은 아직 유닛 자리에서 나간다.
+- **모델의 앞·뒤와 좌우**: 총구는 쏠 때 그 유닛이 보는 쪽의 모델 점이다 — 배치 방향에서 대상 쪽으로 돈 자세(`shotFacing`: 좌우는 `ParseDirection(v, 0)` 또는 x가
+  ±0.2 넘으면 그 부호, 뒷모델은 `ParseDirection(v, 0.25)`가 UP일 때, DOWN이면 앞모델, 0.2칸 안이면 안 돎 — `render/face-turn.js turnFace`와 같은 규칙).
+  [추정·엔진: 시뮬레이션은 모델이 앞·뒤 중 어느 쪽을 들고 있는지의 이력과 능력의 방향 플래그(`_faceToDefault` 등)를 이 거리에 쓰지 않는다 — 공격의 대상마다 배치
+  방향에서 그 대상 쪽으로 한 번 돈 자세로 잡고, 렌더도 같은 규칙으로 시간을 잡는다(그려지는 꼬리는 실제 모델의 점에서)]. 대상은 자기 배치 방향의 모델, 적은
+  가운데 쪽(오른쪽) — 적 모델은 걷는 쪽을 보는데 시뮬레이션이 그것을 안 들고, 명중점이 가운데에서 벗어난 적은 넷뿐이다.
 - **자료**: 날아가는 shot(`speed` > 0)마다 `from` { F: [du, dv], B?: [du, dv] } — 기본 모델(스킨은 전투를 안 바꿈) 위 총구·특수점의 자리, 모델 뿌리에서 칸 단위
   (du는 앞 모델이 보는 쪽, 왼쪽을 볼 때는 뒤집음; dv는 모델 위로; B는 뒷모델, 없으면 F). `GROUND`는 [0, 0]. 오퍼레이터마다 `hitAt`(hit 점, 같은 꼴).
   스켈레톤 단위 × 0.01(SkeletonDataAsset) × 점 위 변환들의 크기(점 기록의 `sc` [sx, sy], 없으면 표준 0.27 — 기본 모델 FaceSwitcher, rules/render.md 「유닛 모델 크기」의
   근거와 같은 값; 오퍼레이터는 헬라그·그라벨·마운틴·우타게 넷이 0.26) = 칸. 시뮬레이션 자료(`simdata.js normalizeChess`)는
-  `shot.*.from`·`hitAt`으로 읽고, 보충·선발 기록(`shared/standIn.js composeUnitRecord`)도 `hitAt`을 싣는다. 판 위 거리로 바꾸는 식(모델 면 기울기)과 시뮬레이션·렌더
-  `trailShot`에 쓰는 일은 다음 묶음 줄.
+  `shot.*.from`·`hitAt`으로 읽고, 보충·선발 기록(`shared/standIn.js composeUnitRecord`)도 `hitAt`을 싣는다. 판 위 거리로 바꾸는 식과 쓰는 곳은 위 「비행」.
 - **총구는 쏘는 순간의 본 자리**: 점은 Spine 본을 따르는 Transform(BoneFollower)이라 쏠 때의 자리는 그 모드 공격 클립의 타격 시각(OnAttack 프레임, 없으면 클립 끝,
   `_waitForAttackEvent` 0이면 `_preDelay` — `ai.js attackTiming`과 같은 시각; 요새는 `RangedAttack` 클립)에 본이 있는 곳이다. 프리팹에 저장된 자리
   (`local-char-points.json` `at`)는 저장할 때의 자세라 쓸 수 없다 — 총구 138개 중 37개가 모델 뒤나 발밑(엑시아 F_Muzzle은 저장 (−144, 76), 평타 타격 때 (118, 163)).
@@ -1707,7 +1717,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   (EmptyAnimator: '갑주를 꿰뚫는 탄환'·정체의 고치, MeshAnimator)도 같은 `_hitTransform`을 가진다 — 예전 추출기는 이들을 건너뛰어 「점 없음」이었다(둘 다 (0, 1.8) × 0.27).
   소환물(`tokens.json`·`backups.json` `tokens`, 모든 시즌 41개)은 프리팹(`pkgrps/btl_pfb_tokens_*`)의 HitPoint를 `char_points.py`가 EN 클라, 없으면 CN 클라에서
   읽고 `summonRecord`가 `hitAt`으로 싣는다(메딕프로브·저주인형·적 방향은 0.4, 밤의 등불·샴페인 폭탄·눈보라의 눈 셋은 0.25 틀). 염우(`enemy_9012_acloon`)는 그 적 기록의 것, 지도 캐릭터(`char_605_cmedic` 등)는 오퍼레이터의 것.
-  시뮬레이션은 `normalizeEnemy`·`normalizeToken`의 `hitAt`으로 읽는다(쓰는 일은 다음 묶음 줄).
+  시뮬레이션은 `normalizeEnemy`·`normalizeToken`의 `hitAt`으로 읽는다(위 「비행」).
 - **본을 따르는 적의 명중 점**: 무덤지기 석상·성난 무덤지기 석상(`hitpoint` 본)과 '갑주를 베는 검'·'갑주를 부수는 해머'(팔 본)의 HitPoint는 BoneFollower라, 공식은
   투사체가 나갈 때의 본 자리를 읽는다. 시뮬레이션에는 본이 없으니 각 공격 모드의 공격 클립 첫 프레임(휘두르기 사이 자세) 자리로 둔다
   [추정·엔진: 맞는 순간 대상의 클립·시각은 시뮬레이션이 모름 — 석상은 공식과 같고 두 손만 근사]. 석상은 한 모드의 클립들 안에서 본이 움직이지 않아(Walk의 클립 (0, 164),
@@ -1717,6 +1727,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 - **생성기는 멈춤**(적·소환물): 적 기록에 hit 점이 없거나, 본을 따르는데 그 클립의 자세가 표에 없거나, 소환물·지도 캐릭터의 점이 없거나 본을 따르면 build-data가 멈춘다.
 - 아래를 보는 공격(`Skill_Down_*`)은 데이터의 클립 그대로만.
 - 재발 방지: 원인 제거 — 생성기가 자세 표·점 표를 읽고 모르는 것에서 멈춤; 표 없이 만든 자료는 `test/sim/mount-points.test.js`(전수, 적·소환물 포함).
+  비행: 원인 제거 — 시뮬레이션과 렌더가 한 함수(`shared/shotFlight.js shotEnds`)로 잡음; 시뮬레이션의 비행 시간은 `test/sim/op-shot.test.js`(샌드백·실제 판 경로·적 모드).
 
 ## 작전 시작 차례 배치 (2026-10-10, 관리자 결정 「공식처럼 한 개씩, 部署 대사는 한 번」)
 - 근거(공식 클라, 오디오 담당이 찾음 — `audio.md` 「전투 시작」): `MainGameInBattle._StartBattle`이 먼저 `_Prebuilt`를 끝까지 돌린다 — 말 하나마다

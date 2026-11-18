@@ -34,6 +34,16 @@ const helpers = Object.fromEntries(HELP.map((_, i) => [`t_help${i}`, chessRec({ 
 // turning the field reorders them
 const BOARD_POSITION_RULES = new Set(['chess_char_4_11_a', 'chess_char_4_11_b', 'chess_char_6_11_a', 'chess_char_6_11_b', 'chess_char_6_20_a']);
 const walkRoute = (pos) => ({ motion: 'WALK', start: pos, checkpoints: [{ type: 'WAIT', time: 1e4 }], end: pos });
+// a shot's ends — its muzzle and the target's hit point (data `shot.*.from`, `hitAt`) — are points on the units' models, which
+// face the camera, not the unit's direction: a model point dv up stands dv·cos 30° rows back whatever way the unit faces, and
+// one facing UP shoots from its Back model (shared/shotFlight.js, docs/rules/sim.md 「투사체의 출발·도착 점」). The board, not
+// a facing rule: the operator here flies its shots unit to unit, so the flight times turn with it
+const BY_ID = new Map(LIST.map((r) => [r.chessId, r]));
+function withoutShotEnds(rec) {
+  if (!rec?.shot) return rec;
+  const strip = (p) => (p && typeof p === 'object' ? (({ from, ...rest }) => rest)(p) : p);
+  return { ...rec, shot: { ...rec.shot, base: strip(rec.shot.base), skills: (rec.shot.skills || []).map(strip) } };
+}
 
 function scenario(chessId, dir, secs) {
   const enemies = OFFS.map(([dr, dc], i) => {
@@ -47,7 +57,7 @@ function scenario(chessId, dir, secs) {
   const h = makeBattle({
     stage: OPEN, rect: RECT, seed: 5, routes: FAR_ROUTE, units, enemies, autoFinish: false, timeLimit: secs + 5, hooks: [],
     defs: {
-      chess: helpers,
+      chess: { ...helpers, [chessId]: withoutShotEnds(BY_ID.get(chessId)) },
       enemies: {
         e_dummy: enemyRec({ key: 'e_dummy', hp: 1e6, speed: 0, def: 100, res: 10 }),
         e_fly: enemyRec({ key: 'e_fly', hp: 1e6, speed: 0, motion: 'FLY', def: 50, res: 30 }),

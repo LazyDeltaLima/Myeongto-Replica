@@ -249,7 +249,9 @@ test('S3 “用赤铁铭记” (MANUAL, data DEFAULT): 18 / 21 bullets, ASPD +11
     assert.ok(h.runUntil(() => h.hooksOf('attack').some((c) => c.attacker === u), 4), `T${tier}: her first attack`);
     h.step();
     approx(u.s.aspd, 100 + b.attack_speed + 15, `T${tier}: ASPD (+ T1's 15: the volley spent the 转置能量)`, 1e-9);
-    h.run(2.2);
+    // (2.3 s: her S3 shot leaves her SPECIAL_4 point, a third of a tile behind her — data/chess.json `shot.skills[2].from`,
+    // docs/rules/sim.md 「투사체의 출발·도착 점」 — and lands about 0.24 s after the attack; the 4 bounces take 2 s more)
+    h.run(2.3);
     // the first attack: 1 + 3 = 4 bullets, the main hit then 4 bounces (e ↔ near: a new enemy first, then back)
     assert.equal(u.skill.ammoLeft, b['attack@trigger_time'] - 4, `T${tier}: 4 bullets`);
     assert.equal(h.hooksOf('ammoUsed').filter((c) => c.unit === u).length, 4);

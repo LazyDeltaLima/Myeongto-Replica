@@ -992,7 +992,7 @@
   돌리므로 **포탄 하나에 한 번, 쏜 대상에**(`_spawnLocation` 5: 그 대상 엔티티 자리) 난다. `_02_0N` 단계 이펙트(`hit_02_02_02~05`·`trail_02_02~05`)는
   `Full Burst` 탄의 것이라 자동 전투에는 없다. 우리는 시뮬레이션의 확산 마법 피해 순간(`'horn:s2:overload'`)마다 — 맞은 적마다 — 틀었고, 포탄이 홀로 있던
   대상을 죽이면 확산 피해가 없어 안 틀었다 → `kitofficial.js`의 'overload' 계획(S2)이 `skillFlag` 'shellReach'를 세우고, `fxgame.js`가 그동안의 공격을
-  'atk' 때 표시해(`reach`) 그 대상에 맞을 때 한 번 'shellReach' 계획(`shellReachFx`)을 튼다. 시뮬레이션의 순간은 이제 렌더가 읽지 않는다(피해는 그대로).
+  'atk' 때 표시해(`reach`) 그 대상에 맞을 때 한 번 'shellReach' 계획(`shellReachFx`)을 튼다. 시뮬레이션은 그 순간을 더 보내지 않는다(2026-11-18, 피해는 그대로).
   날아가는 도중 죽은 대상에는 안 튼다 [추정·엔진: 닿을 때 투사체의 `ObjectPtr`이 죽은 적을 아직 잡는지 — 잡으면 그 자리에 난다].
   재발 방지: `test/render/horn-overload-fx.test.js`. [화면 미확인: 과부하 포탄마다 쏜 적에 하나]
 
@@ -2491,9 +2491,9 @@
     (`'trait'`) → 치유받는 동료에 `reed2_tr_heal[effect]` `reed2_treat_01`, 映耀의 자기 몫(`reed2_t_2`·모듈 `reed2_e_002_t`, IsHeal·!IfTargetEqual) → 그녀에.
     水月 S3 镜花水月 적 3 미만 공격의 생명 유실(`mizuki_s_3[damage]`의 DamageViaMaxHpRatio — 그녀 자신) → `mizuki_skill_03_hit_02`. 折桠 T1 简易包扎
     `branch_t_1` ON_SKILL_FINISH → 치유와 `branch_talent_01`. 圣约送葬人 S3 `[mark][effect]` ON_OUTPUT_DAMAGE → 맞은 적마다 `[mark]`(INFINITY)
-    `excu2_skill_03_aim_01` — 시뮬은 적마다 첫 타격에 보내고, 표식은 스킬 끝(끝 피해가 그 적들을 침)까지. 号角 S2 过载 법술 스플래시(`'horn:s2:overload'`)
-    → S2 공격 능력 셋의 `_conditionalActions` `horn_skill_02_hit_02_02`(맞은 적마다; 2026-11-16부터 이 순간은 안 읽고 포탄마다 쏜 대상에 한 번 —
-    「포트리스 포탄의 폭발은 떨어진 자리에」 혼 S2 과부하의 닿음 이펙트).
+    `excu2_skill_03_aim_01` — 시뮬은 적마다 첫 타격에 보내고, 표식은 스킬 끝(끝 피해가 그 적들을 침)까지. 号角 S2 过载 법술 스플래시(예전 순간 `'horn:s2:overload'`)
+    → S2 공격 능력 셋의 `_conditionalActions` `horn_skill_02_hit_02_02`(맞은 적마다; 2026-11-16부터 포탄마다 쏜 대상에 한 번, 2026-11-18부터 시뮬레이션도
+    그 순간을 안 보냄 — 「포트리스 포탄의 폭발은 떨어진 자리에」 혼 S2 과부하의 닿음 이펙트).
   - 고친 것: 流明 T2 `lumen_t_2[listener]`의 `lumen_buff_01_hit`는 BUFF_OWNER — 치료받는 동료 — 위다(listener가 동료에게 붙고 AdvancedApplyHeal의 대상도
     BUFF_OWNER). 둘째 묶음은 그녀 몸에 틀었다.
   - 판정: 佩佩 셋째 모듈 `pepe_e_003_t[aoe]`(CN 클라)는 生息演算 카드·보물 타일 위에서만(BuffAoeTargetForPepeEquipSandbox, TresureTileSelector) — 이
@@ -3406,8 +3406,9 @@
   유닛 중심 거리 / 속도라, 총구가 대상 쪽으로 나온 만큼 공식보다 늦게 닿는다. 혼(총구가 뿌리 앞 약 0.5칸, 속도 5)을 공식 전투 카메라로 계산하면
   중심 1칸 공식 0.11 s · 우리 0.20 s(1.8배), 1.5칸 1.5배, 4칸 1.14배 — 늘 약 0.09 s 늦고, 가까울수록 비율이 커서 가까운 적에게 쏜 탄이 느리게
   떠 보인다. 문턱에 걸리는 거리도 중심 거리로는 약 1.8칸(총구 → 명중 1.3칸). 그녀가 저지한 1.2칸 안의 적은 저지 공격 모드(data/chess.json
-  `shot` `combat`)에 투사체가 없어 날지 않는다(`shotSpeedOf` blockedNear). 렌더만 빨리 날리면 명중 이펙트(시뮬레이션의 피해 때)와 어긋나므로, 고치려면
-  시뮬레이션의 비행 거리를 총구 → 명중점으로 — 전투 시점과 golden이 움직이고 총구 자리 자료가 시뮬레이션에 필요해 관리자 결정 대기.
+  `shot` `combat`)에 투사체가 없어 날지 않는다(`shotSpeedOf` blockedNear). 고친 것(2026-11-18, 관리자 결정 2026-11-16 「공식과 같게」): 시뮬레이션의 비행
+  거리와 렌더의 `dur`를 같이 총구 → 명중점 판 위 거리로(rules/sim.md 「투사체의 출발·도착 점」 비행, `fx/projectiles.js shotFlightOf`) — 혼 중심 4칸이면
+  0.80 → 0.68 s. 렌더만 줄이면 명중 이펙트(시뮬레이션의 피해 때)가 꼬리가 닿은 뒤 나와 둘을 한 커밋에서 바꿨다. [화면 미확인: 아레나 2배속 혼·애쉬락 평타]
 
 ### 그림으로 나는 공용 화살 — 流星 일반 공격 (2026-10-24, 관리자 제보 「메테오 평타가 화살이 아니라 알 수 없는 광원」, 공식 클라에서 확인)
 

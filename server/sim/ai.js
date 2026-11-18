@@ -43,6 +43,7 @@ import { moveFeared, endFear } from './fear.js';
 import { legField, legX, legY, tileKey, steerStep, walkCursor, inWallTile, REACH_SQ } from './walk.js';
 import { hypot, powi } from './detmath.js';
 import { bodyInRange } from './body.js';
+import { shotEnds } from '../../shared/shotFlight.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // profiles
@@ -700,6 +701,17 @@ export function opShot(u, target = null) {
 }
 const NO_FLIGHT = Object.freeze({ key: null, move: 'NONE', speed: 0, delay: 0 });
 
+/**
+ * The ends of `u`'s flying shot `shot` (opShot) at `t` — its muzzle and `t`'s hit point in the attack mode it is in now
+ * (shared/shotFlight.js shotEnds; docs/rules/sim.md 「투사체의 출발·도착 점」) — or null when the data has no muzzle (unit
+ * to unit, as before).
+ */
+function shotEndsOf(u, t, shot) {
+  if (!shot || !shot.from) return null;
+  // (an enemy's model faces where it walks, which the sim does not hold: its middle side, as the view takes it)
+  return shotEnds(shot, u, { x: t.x, y: t.y, dir: t.side === 'enemy' ? null : t.dir, hitAt: t.def?.hitAt, mode: t.mode ?? null });
+}
+
 /** Perform an attack/heal with profile `prof` against `targets`. opts: { noAmmo, signal } (Battle.forceAttack), spell (a kit's later spell). */
 export function performAttack(b, u, prof, targets, opts = null) {
   const isSkill = !!prof.isSkill;
@@ -741,7 +753,7 @@ export function performAttack(b, u, prof, targets, opts = null) {
     if (isHeal) {
       // a heal shot heals as it reaches its ally (赫默's projectile_silent); one that died meanwhile is not healed
       const on = !!(u.skill && u.skill.active);
-      if (shot && shot.speed > 0) b.addProjectile({ from: u, target: t, speed: shot.speed, visual: prof.projectile, source: u, onHit: (c) => { if (c.target) doHeal(b, u, prof, c.target, on); } });
+      if (shot && shot.speed > 0) b.addProjectile({ from: u, target: t, speed: shot.speed, visual: prof.projectile, source: u, ends: shotEndsOf(u, t, shot), onHit: (c) => { if (c.target) doHeal(b, u, prof, c.target, on); } });
       else if (shot && shot.delay > 0) b.after(shot.delay, () => { if (t.alive && t.deployed) doHeal(b, u, prof, t, on); });
       else doHeal(b, u, prof, t);
       continue;
@@ -775,7 +787,7 @@ export function performAttack(b, u, prof, targets, opts = null) {
     } else if (ranged && foe) {
       const speed = shot ? shot.speed : (PROJECTILE_SPEEDS[prof.projectile] ?? PROJECTILE_SPEED);
       // projectiles land even if the shooter died meanwhile (damage is credited to it)
-      b.addProjectile({ from: u, target: t, speed, visual: prof.projectile, source: u, hitDead: prof.splashRadius > 0,
+      b.addProjectile({ from: u, target: t, speed, visual: prof.projectile, source: u, hitDead: prof.splashRadius > 0, ends: shotEndsOf(u, t, shot),
         onHit: (c) => resolveHit(b, u, prof, c.target, c.projectile?.cachedAtk ? { ...info, cachedAtk: c.projectile.cachedAtk } : info, c.x, c.y) });
     } else if (prof._fortressMelee && prof.splashRadius > 0 && opShot(u, t) === NO_FLIGHT) {
       // a 要塞's blow at the enemy it blocks, where its mode's blocked attack fires no projectile (the official

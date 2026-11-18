@@ -16,6 +16,7 @@ import { createFxLayer } from '../../public/js/render/fxgame.js';
 import { presetCamera } from '../../public/js/render/projection.js';
 import { bodyPoint } from '../../public/js/render/fx/camera.js';
 import { onModelPlane } from '../../public/js/render/fxpoints.js';
+import { shotFlightOf } from '../../public/js/render/fx/projectiles.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const MODES = JSON.parse(readFileSync(path.join(ROOT, 'tools/assets/local-char-modes.json'), 'utf8'));
@@ -72,7 +73,7 @@ async function withLayer(o, run, cam = null) {
 }
 
 for (const [name, o] of Object.entries(OPS)) {
-  // 3 tiles at 5 tiles / s: the shell lands 0.6 s after the shot
+  // 3 tiles apart at 5 tiles / s: the shell lands about 0.5 s after the shot (it flies muzzle → hit point, shotFlightOf)
   test(`${name}: a live target gets the blast at its 'dmg', and nothing more at the flight's end`, () => withLayer(o, async ({ layer, views, hits, step, pts }) => {
     layer.onEvent(['atk', 1, 9, 'bomb'], views);
     step(0.55);
@@ -85,11 +86,14 @@ for (const [name, o] of Object.entries(OPS)) {
   }));
 
   test(`${name}: a target that dies in flight still gets the blast on the ground where it was, as the shell lands`, () => withLayer(o, async ({ layer, views, hits, step }) => {
+    // the sim's flight: muzzle → hit point on the board (shotFlightOf, 2026-11-18), a little under the 3 tiles between them
+    const T = shotFlightOf({ lookupDef: (info) => (info?.side === 'enemy' ? null : record(info?.defId)) }, views.get(1), views.get(9)) / record(o.chessId).shot.base.speed;
+    assert.ok(T > 0.3 && T < 0.6, `${T}`);
     layer.onEvent(['atk', 1, 9, 'bomb'], views);
     step(0.2);
     layer.onEvent(['die', 9, 'killed'], views);
     views.get(9).alive = false;
-    step(0.3);
+    step(T - 0.2 - 0.03);
     assert.deepEqual(hits(), [], 'not before the shell lands');
     layer.onEvent(['dmg', 8, 100, 'phys', 0, 1], views);   // the splash where it lands
     step(0.2);

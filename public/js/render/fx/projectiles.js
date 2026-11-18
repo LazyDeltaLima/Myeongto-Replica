@@ -7,6 +7,7 @@ import { clamp } from './limits.js';
 import { projSpeed, enemyProjSpeed, opProjSpeed, opShot } from './speeds.js';
 import { shotOf } from './shotslow.js';
 import { UF } from '../../../../shared/constants.js';
+import { shotEnds } from '../../../../shared/shotFlight.js';
 import { boomerangThrown, boomerangCaught } from '../heldWheel.js'; // local patch: the 回环射手's held boomerang
 
 const MAX_PROJ = 260;
@@ -48,6 +49,24 @@ export function shotSpeedOf(ctx, src, tgt, dist) {
   // this target blocked within reach: another target of that swing the sim flies at is held by someone else or stands apart
   const blockedNear = !!(src._fxCombat && tgt && tgt.isEnemy && (tgt.flags & UF.BLOCKED) && dist <= 1.2);
   return opProjSpeed(def, { skillOn: !!src._fxSkillOn, skillIndex: src.info?.skillIndex, blockedNear });
+}
+
+/**
+ * 2026-11-18 (official client — BasicMovement.OnInit / ParacurveMovement.OnInit; docs/rules/sim.md 「투사체의 출발·도착 점」): how
+ * far the sim flies operator view `src`'s shot at `tgt` — from its muzzle (opShot `from`) to `tgt`'s hit point (its record's
+ * `hitAt`, in attack mode `mode`) on the board, shared/shotFlight.js shotEnds as the sim's server/sim/ai.js takes it — or
+ * null when the data has no muzzle (unit to unit, as the sim then flies it).
+ */
+export function shotFlightOf(ctx, src, tgt, mode = null) {
+  let def, tdef;
+  try { def = ctx?.lookupDef?.(src.info) ?? null; } catch { def = null; }
+  const p = opShot(def, !!src._fxSkillOn, Number.isInteger(src.info?.skillIndex) ? src.info.skillIndex : 0);
+  if (!p || !p.from || !tgt) return null;
+  try { tdef = tgt.info ? ctx?.lookupDef?.(tgt.info) ?? null : null; } catch { tdef = null; }
+  const enemy = tgt.isEnemy || tgt.info?.side === 'enemy';
+  const { from, to } = shotEnds(p, { x: src.x, y: src.y, dir: src.dir ?? src.info?.dir },
+    { x: tgt.x, y: tgt.y, dir: enemy ? null : tgt.dir ?? tgt.info?.dir, hitAt: tdef?.hitAt, mode });
+  return Math.hypot(tgt.x + to[0] - src.x - from[0], tgt.y + to[1] - src.y - from[1]);
 }
 
 /**
@@ -192,12 +211,13 @@ export class FxProjectiles {
     const dist = Math.hypot(dx, dy);
     // 2026-10-10: an enemy's shot at its official speed (data/enemies.json `proj`, the sim's flight time); 2026-10-16: an
     // operator's at its mode's (data/chess.json `shot`) — none drawn when the sim lands it at the strike (no projectile)
-    let speed = projSpeed(kind);
+    let speed = projSpeed(kind), flight = dist;   // flight: the sim's (operator shots: muzzle → hit point, shotFlightOf)
     if (kind === 'enemy' && src.isEnemy) { try { speed = enemyProjSpeed(this.ctx.lookupDef?.(src.info), src.info?.form) || speed; } catch { /* keep */ } }
     else if (!src.isEnemy && kind !== 'boomerang') {
       const v = shotSpeedOf(this.ctx, src, tgt, dist);
       if (v === 0) return;
       if (v) speed = v;
+      flight = shotFlightOf(this.ctx, src, tgt) ?? dist;
       if (shotKeyOf(this.ctx, src) === ARROW_KEY && this._arrowTex()) spec = ARROW_SPEC;
     }
     const pr = this._takeProj();
@@ -211,7 +231,7 @@ export class FxProjectiles {
     pr.tx = tgt.x; pr.ty = tgt.y; pr.tz = look === 'shell' ? feetZ(tgt) : bodyZ(cam, tgt, SHOT_HEIGHT.aim);
     pr.ox0 = liftDX(cam, src, pr.x0, pr.y0, pr.z0); pr.otx = look === 'shell' ? 0 : liftDX(cam, tgt, pr.tx, pr.ty, pr.tz);
     pr.t = 0; pr.fade = 0; pr.hit = false; pr.emit = Math.random(); pr.ang = Math.atan2(-uy, ux);   // ≈ on screen (rows run up)
-    pr.dur = clamp(dist / speed / this._ts(), 0.04, 1.5);
+    pr.dur = clamp(flight / speed / this._ts(), 0.04, 1.5);
     pr.arc = look === 'sprite' ? shotArcOf(this.ctx, src) ?? 0 : spec.arc ? spec.arc * clamp(0.45 + dist * 0.18, 0.6, 1.8) : 0;
     pr.glow = spec.glow;
     pr.trailTint = spec.trail ?? spec.glow;

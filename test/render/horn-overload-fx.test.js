@@ -4,7 +4,8 @@
 // OverloadValidator (she holds horn_s_2[overload_mark] when the shell is made): ON_HIT_OBJECT (0) the arts splash on each
 // object hit, ON_REACHED_TARGET (1) CreateEffect horn_skill_02_hit_02_02 on TARGET — Projectile.ActionController
 // OnProjectileReached runs event 1 with the projectile's trace target. kitofficial.js played the effect on every enemy the
-// sim's arts splash hit (its 'horn:s2:overload' moments), and none when the shell killed a lone target.
+// sim's arts splash hit (its 'horn:s2:overload' moments, which the sim no longer sends), and none when the shell killed a
+// lone target.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,15 +22,12 @@ const records = Array.isArray(CHESS.chess) ? CHESS.chess : Object.values(CHESS.c
 const record = (id) => records.find((r) => r && r.chessId === id) || null;
 
 const CHAR = 'char_4039_horn', CHESS_ID = 'chess_char_5_08_a', HIT = 'horn_skill_02_hit_02_02';
-const MOMENT = [['horn:s2:overload', 1]];
 
 test('plans: 号角 S2\'s overload marks her shots (skillFlag shellReach) and the reach plays its hit on the shot\'s target', () => {
   assert.equal(kitOfficialPlan('overload', { id: 1 }, 'horn', { skill: 1 })?.skillFlag, 'shellReach');
   assert.equal(kitOfficialPlan('overload', { id: 1 }, 'horn', { skill: 2 })?.skillFlag, undefined, 'S3 has no such action');
   assert.deepEqual(kitOfficialPlan('shellReach', { src: 1, id: 9 }, 'horn', { skill: 1 }).play.map((p) => [p.n, p.on]), [[HIT, 'id']]);
   assert.equal(kitOfficialPlan('shellReach', { src: 1, id: 9 }, 'horn', { skill: 2 }), null);
-  assert.equal(kitOfficialPlan('hit', { k: 'horn:s2:overload', src: 1, id: 9 }, 'horn', { skill: 1 }), null,
-    'the arts splash moment plays nothing: the hit is the reach action, not the ON_HIT_OBJECT one');
 });
 
 const settle = () => new Promise((r) => setTimeout(r, 10));
@@ -60,22 +58,22 @@ async function withLayer(run) {
     await run({ layer, views, step, hits });
   } finally { globalThis.fetch = fetch0; }
 }
-// one shell at 9 whose splash also hits 8: the physical hits, then the sim's arts splash (its moments) on each live one
+// one shell at 9 whose splash also hits 8: the physical hits, then the sim's arts splash on each live one
 function shell(layer, views, step, { kills = false } = {}) {
   layer.onEvent(['atk', 1, 9, 'bomb'], views);
   step(0.6);
   layer.onEvent(['dmg', 9, 100, 'phys', 0, 1], views);
   if (kills) { layer.onEvent(['die', 9, 'killed'], views); views.get(9).alive = false; }
   layer.onEvent(['dmg', 8, 100, 'phys', 0, 1], views);
-  if (!kills) layer.onEvent(['dmg', 9, 50, 'arts', 0, 1, null, null, MOMENT], views);
-  layer.onEvent(['dmg', 8, 50, 'arts', 0, 1, null, null, MOMENT], views);
+  if (!kills) layer.onEvent(['dmg', 9, 50, 'arts', 0, 1], views);
+  layer.onEvent(['dmg', 8, 50, 'arts', 0, 1], views);
 }
 
 for (const kills of [false, true]) {
   test(`号角 S2 过载: one ${HIT} per shell, on the enemy it was fired at${kills ? ' (the shell killed it)' : ''} (docs/rules/fx.md 「포트리스 포탄의 폭발은 떨어진 자리에」)`, () => withLayer(async ({ layer, views, step, hits }) => {
     layer.onEvent(['fx', 'overload', 2, 0, { id: 1 }], views);
     shell(layer, views, step, { kills });
-    assert.deepEqual(hits(), [9], `the cause: the hit played on every enemy of the sim's arts splash moments (kitofficial.js 'hit'), not once at the shell's reach on its trace target (fxgame.js shellReachFx)`);
+    assert.deepEqual(hits(), [9], `the cause: the hit played on every enemy of the sim's arts splash (kitofficial.js 'hit'), not once at the shell's reach on its trace target (fxgame.js shellReachFx)`);
     if (kills) return;
     shell(layer, views, step);
     assert.deepEqual(hits(), [9], 'the next shell: its own one');

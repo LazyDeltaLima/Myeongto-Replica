@@ -839,7 +839,8 @@ const MATCH_CUSTOM_BATTLE = Object.freeze({
   flow: { rounds: 16 },
 });
 const MATCH_DIY_SEED = 70;
-const MATCH_COVER_STANDINS_SEED = 1;
+// (4 since the shots fly muzzle → hit point, 2026-11-18: seed 1's AI no longer fields a stand-in)
+const MATCH_COVER_STANDINS_SEED = 4;
 const MATCH_COVER_DIY_SEED = 19;
 
 /**

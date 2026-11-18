@@ -14,6 +14,9 @@
 // `moveScale` (default 1) is the share of each step it lives: its flight and its age both run at it (the client's
 // Projectile.OnTick multiplies its clock and its behaviours' step by the movement's GetTimeScale, which is the move scale;
 // 逻各斯 S3's aura sets it, docs/rules/sim.md 「moveScale」).
+// `ends` { from: [dx, dy], to: [dx, dy] } (shared/shotFlight.js shotEnds): the shot leaves `from` that far off (its
+// muzzle on the board) and flies to that far off its target (the target's hit point) — the official flight between the
+// two mount points (docs/rules/sim.md 「투사체의 출발·도착 점」); it still lands on the target's own spot (onHit x, y).
 
 import { PROJECTILE_SPEED } from './constants.js';
 import { hypot } from './detmath.js';
@@ -34,6 +37,8 @@ export class ProjectileSystem {
     const from = p.from || { x: 0, y: 0 };
     // non-finite coordinates would never "arrive" (NaN distance) and leak the projectile for maxAge
     const fx = fin(from.x, 0), fy = fin(from.y, 0);
+    const lead = p.ends && !p.dir ? p.ends : null;
+    const ox = fin(lead?.from?.[0], 0), oy = fin(lead?.from?.[1], 0);
     const target = p.target && typeof p.target === 'object' ? p.target : null;
     const proj = {
       id: ++seq,
@@ -42,13 +47,16 @@ export class ProjectileSystem {
       // the step it was fired in: it first flies in the next one (one fired between steps, in the next step)
       firedAt: this.battle._stepping ? this.battle.tickCount : this.battle.tickCount - 1,
       done: false,                     // hit, ended or fizzled: dropped from `list` after the pass
-      x: fx,
-      y: fy,
+      x: fx + ox,
+      y: fy + oy,
       target,
       // the target "life" it was fired at: an op that dies and is redeployed mid-flight is a new target (fizzle)
       tseq: target ? target.deploySeq : 0,
       tx: fin(p.to ? p.to.x : (target ? target.x : fx), fx),
       ty: fin(p.to ? p.to.y : (target ? target.y : fy), fy),
+      // where it flies to off the target's spot (`ends.to`: the hit point; none at a fixed point)
+      ax: p.to ? 0 : fin(lead?.to?.[0], 0),
+      ay: p.to ? 0 : fin(lead?.to?.[1], 0),
       speed: p.speed > 0 ? p.speed : PROJECTILE_SPEED,
       onHit: p.onHit ?? null,
       visual: p.visual ?? 'arrow',
@@ -108,7 +116,7 @@ export class ProjectileSystem {
       else if (!p.hitDead) { p.done = true; return; } // fizzle
       else p.target = null;
     }
-    const dx = p.tx - p.x, dy = p.ty - p.y;
+    const dx = p.tx + p.ax - p.x, dy = p.ty + p.ay - p.y;
     const d = hypot(dx, dy);
     const step = p.speed * t;
     if (d <= step || p.age >= p.maxAge) {

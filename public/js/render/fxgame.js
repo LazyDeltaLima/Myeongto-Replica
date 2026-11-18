@@ -83,7 +83,7 @@ import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望'
 import { SKIN_EFFECTS_URL, SKIN_POINTS_URL, skinEffect, skinFile, skinShot } from './fxskin.js'; // 2026-11-17: a unit drawn in a skin
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
 import { shotOf, MAX_SLOWED } from './fx/shotslow.js';
-import { shotSpeedOf, shotLobOf, lobOf, shotKeyOf, shotGroundOf, lobZ, flightSink } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`); 2026-10-27 its key (bodyTurn)
+import { shotSpeedOf, shotFlightOf, shotLobOf, lobOf, shotKeyOf, shotGroundOf, lobZ, flightSink } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`); 2026-10-27 its key (bodyTurn)
 import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot record (skillShotOut)
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
@@ -2324,8 +2324,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // (2026-11-16) and its own `_noRaiseHeightThreshold` (lobOf `noRaise`, lobZ)
     const lob = e[3] === 'boomerang' ? null : shotLobOf({ lookupDef: unitDef }, src);
     // 2026-10-27 (bundle W2b-2): `key` = the projectile it flies on, for a trail whose body turns on some of its projectiles only
+    // 2026-11-18: its flight time the sim's — muzzle → hit point on the board (shotFlightOf), not unit to unit (about 0.09 s
+    // longer for 号角: her hit came after the drawn shell had landed)
+    const fly = e[3] === 'boomerang' ? dist : shotFlightOf({ lookupDef: unitDef }, src, tgt, emodeName(tgt)) ?? dist;
     const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, ...aimOf(tgt), k: 0, key: shotKeyOf({ lookupDef: unitDef }, src),
-      dur: Math.max(0.04, dist / (v || projSpeed(e[3]))), ...(lob ?? { arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 }) };
+      dur: Math.max(0.04, fly / (v || projSpeed(e[3]))), ...(lob ?? { arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 }) };
     // local patch (maintainer report 2026-10-08: one boomerang that comes back): a 回环射手's trail is the projectile itself
     // both ways — projectile_chr_caper `_comeBack` 1 at `_comeBackSpeedScale` .25 (the sim's BOOMERANG_RETURN_SPEED), its
     // `_mainEffect` kept (`_clearMainEffectWhenReached` 0): it turns at the hit and flies back to her (stepTrails), and the
@@ -2383,7 +2386,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const from = via ? shotTo(via.from) : shotFrom(src, null, fake?.muzzle ?? null);
     const end = unit ? shotTo(unit) : null;
     const tx = end ? end.x : Number(to.x), ty = Number(to.y), tz = end ? end.z : Number(to.z) || 0;
-    // the sim's flight: unit to unit (or point), as trailShot
+    // the sim's flight: unit to unit (or point) — a kit's own projectile leaves the unit itself (an attack's shot flies muzzle →
+    // hit point: trailShot, shotFlightOf)
     const ox = via ? from.x : src.x, oy = via ? from.y : src.y;
     const dur = Math.max(0.04, Math.hypot(tx - ox, ty - oy) / (via ? via.speed : Number(s?.speed) > 0 ? Number(s.speed) : 10));
     const arc = s?.move === 'PARACURVE' && Number(s.height) > 0 ? Number(s.height) : 0;
@@ -4778,7 +4782,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const v = shotSpeedOf({ lookupDef: unitDef }, src, tgt, dist);
     if (v === 0) return;
     const tid = ownerOf(tgt), key = `${ownerOf(a.src)}:${tid}`;
-    castsDelayed.push({ t: clockS + Math.max(0.04, dist / (v || projSpeed(kind))), run: () => {
+    const fly = shotFlightOf({ lookupDef: unitDef }, src, tgt, emodeName(tgt)) ?? dist;   // the sim's flight (trailShot)
+    castsDelayed.push({ t: clockS + Math.max(0.04, fly / (v || projSpeed(kind))), run: () => {
       if (tgt.alive !== false && !tgt.remove && !gone.has(tid)) return;   // a live target: its 'dmg' plays them
       if ((lastHit.get(key) ?? -9) >= a.t) return;   // already played on it (the shell that killed it)
       attackHit(a, tgt, tid, lastAtk, null, true);
@@ -5352,6 +5357,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return Array.isArray(r) && index?.bundles?.[r[0]]?.includes(r[1]) ? r : null;
   }
   const eOn = (v) => !!(index && emodes && !failed && q() !== 'low' && ebindOf(v));
+  /**
+   * The attack mode name an enemy view stands in by its sim form (FORM_MODES: 守墓石像's 'fly' → 'Fly'), for its hit point
+   * (data/enemies.json `hitAt.modes`, the sim's `e.mode`), or null.
+   */
+  function emodeName(v) {
+    const id = v?.info?.defId;
+    return typeof v?.form === 'string' && id ? (FORM_MODES[id] || FORM_MODES[v.info.spine])?.[v.form] ?? null : null;
+  }
   /**
    * The enemy's mode now: the one its sim form stands for (FORM_MODES, 2026-10-23), else the one whose attack clip is its
    * clip set's attack (a form switch changes it), else 0.
