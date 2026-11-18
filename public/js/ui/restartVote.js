@@ -37,14 +37,27 @@ export const canProposeRestart = (pub, myId) => !!pub && RESTART_PHASES.has(pub.
 /** The banner of an open vote (null without one). */
 export function RestartVoteBanner({ pub, myId }) {
   const v = pub?.restartVote;
-  const [busy, setBusy] = useState(null);
-  useTicker(v ? 1000 : 0);
   if (!v || pub.restarted) return null;
   const room = v.target === 'room';
   const note = room ? t('全员同意时返回等待室') : t('全员同意时从头开始');
-  const voters = restartVoters(pub);
-  const yes = new Set(v.yes);
   const proposer = (pub.players || []).find((p) => p.playerId === v.by);
+  const title = v.by === myId ? (room ? t('你提议返回等待室') : t('你提议重新开始'))
+    : t(room ? '{name} 提议返回等待室' : '{name} 提议重新开始', { name: playerName(proposer?.name) || t('博士') });
+  return html`<${MatchVoteBanner} v=${v} voters=${restartVoters(pub)} myId=${myId} title=${title} note=${note}
+    onVote=${(op) => actions.restartVote(op)} />`;
+}
+
+/**
+ * The one-line vote banner shared by the restart vote and the field surrender vote (ui/surrender.js): the icon, the
+ * title, the note, a pip per voter, the count, the seconds left, 反对 / 同意 for a voter who has not answered or 取消投票
+ * for the proposer, and the time bar. `onVote(op)` sends 'yes' | 'no' | 'cancel'.
+ * @param {{ v: any, voters: any[], myId: string|null, title: string, note: string, onVote: (op: string) => any,
+ *   icon?: string, testId?: string, class?: string }} props
+ */
+export function MatchVoteBanner({ v, voters, myId, title, note, onVote, icon = 'refresh', testId = 'restart-vote', class: cls = '' }) {
+  const [busy, setBusy] = useState(null);
+  useTicker(1000);
+  const yes = new Set(v.yes);
   const mine = v.by === myId;
   const voter = voters.some((p) => p.playerId === myId);
   const answered = yes.has(myId);
@@ -52,15 +65,14 @@ export function RestartVoteBanner({ pub, myId }) {
   const send = (op) => async () => {
     if (busy) return;
     setBusy(op);
-    await actions.restartVote(op);
-    setBusy(null);
+    try { await onVote(op); } finally { setBusy(null); }
   };
   const bg = localAsset('ui/outer', 'img_player_bg');
   const on = localAsset('ui/outer', 'img_player_confirmed');
-  return html`<div class="rvote" role="status" data-testid="restart-vote" title=${note}
+  return html`<div class=${cx('rvote', cls)} role="status" data-testid=${testId} title=${note}
     style=${bg && on ? `--rv-off:url("${bg}");--rv-on:url("${on}")` : null}>
-    <${Icon} name="refresh" />
-    <b class="rvote__title">${mine ? (room ? t('你提议返回等待室') : t('你提议重新开始')) : t(room ? '{name} 提议返回等待室' : '{name} 提议重新开始', { name: playerName(proposer?.name) || t('博士') })}</b>
+    <${Icon} name=${icon} />
+    <b class="rvote__title">${title}</b>
     <span class="rvote__note">${note}</span>
     <span class=${cx('rvote__pips', !(bg && on) && 'no-art')}>${voters.map((p) => html`<i key=${p.playerId}
       class=${cx(yes.has(p.playerId) && 'on')} title=${playerName(p.name)}></i>`)}</span>
