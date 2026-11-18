@@ -52,7 +52,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../ven
 import { html, Button, Icon, MicroLabel, TierChip, useTicker, secondsLeft } from '../ui/components.js';
 import { useGameData, BandIcon, RichText, PlayerAvatar, Sprite } from '../ui/gameComponents.js';
 import { chessAvatarUrl, chessPortraitUrl, uiUrl } from '../ui/assetUrls.js';
-import { CARD_KEY, cardStore, cardOperators, cardContext, seatOperator, seatArtSrc, seatCardSkin } from '../ui/seatArt.js';
+import { CARD_KEY, cardStore, seatOperator, seatArtSrc, seatCardSkin } from '../ui/seatArt.js';
+import { useCardOperators } from '../ui/seatCards.js';
 import { skinArt, skinPic, skinPicture } from '../ui/skins.js';
 import { settingsStore } from '../ui/settings.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
@@ -599,7 +600,7 @@ function BandText({ band, class: cls }) {
 export function useOrderArt(gd, myId) {
   const roomSeats = useStore((s) => s.room?.seats);
   const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
-  const cards = useMemo(() => cardContext(cardOperators(gd.list('chess'), data.get('backups')), { pending: !data.get('backups') }), [gd.ready]);
+  const { cards } = useCardOperators(); // every offered season's operators, as the room's seat cards (ui/seatCards.js)
   // the seat's skin as on its seat card (ui/seatArt.js seatCardSkin), its portrait once the skin data is downloaded and cached
   const sk = skinArt();
   const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);

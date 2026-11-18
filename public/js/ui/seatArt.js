@@ -70,21 +70,38 @@ export function cardOperators(chessList, backups = null) {
     by.set(id, { charId: id, name: rec && typeof rec.name === 'string' ? rec.name : id, rarity: rec && Number.isFinite(rec.rarity) ? rec.rarity : 0,
       assets: { portrait: `${id}_2`, avatar: `${id}_2` } }); // the E2 art (ui/assetUrls.js reads '_2' as portraitE2)
   }
-  return [...by.values()].sort((a, b) => ((b.rarity ?? 0) - (a.rarity ?? 0)) || String(a.name).localeCompare(String(b.name), 'ko'));
+  return sortCards([...by.values()]);
+}
+
+const sortCards = (list) => list.sort((a, b) => ((b.rarity ?? 0) - (a.rarity ?? 0)) || String(a.name).localeCompare(String(b.name), 'ko'));
+
+/**
+ * The operators of every offered season in one list (the server takes a card of any of them: server/lobby.js
+ * cardAllowed, maintainer request 2026-11-18): `lists[0]` is the room's season's cardOperators(), its record wins for an
+ * operator several seasons have; the others add the operators it lacks. Sorted as cardOperators.
+ * @param {any[][]} lists cardOperators() of each season, the room's first
+ * @returns {any[]}
+ */
+export function mergeCardOperators(lists) {
+  const by = new Map();
+  for (const list of lists) for (const c of Array.isArray(list) ? list : []) if (c && !by.has(c.charId)) by.set(c.charId, c);
+  return sortCards([...by.values()]);
 }
 
 /**
  * What the seat cards draw from: the pickable operators by charId and the default pool (5★/6★ chess records, by charId
  * so every client orders it the same).
- * @param {any[]} list cardOperators()
- * @param {{ pending?: boolean }} [opts] pending: the 自选 pool (backups) is still loading — a pick not in the list yet
- *   waits for it instead of drawing a default operator for a moment
+ * @param {any[]} list cardOperators() / mergeCardOperators()
+ * @param {{ pending?: boolean, pool?: any[] }} [opts] pending: an operator list (the 自选 pool, another season's
+ *   operators) is still loading — a pick not in the list yet waits for it instead of drawing a default operator for a
+ *   moment. pool: the operators the default is drawn from (default `list`) — the room's season's alone, so another
+ *   season's data arriving never changes anybody's default card and every client draws the same one meanwhile
  */
-export function cardContext(list, { pending = false } = {}) {
+export function cardContext(list, { pending = false, pool = list } = {}) {
   return {
     pending,
     byChar: new Map(list.map((c) => [c.charId, c])),
-    pool: list.filter((c) => (c.rarity ?? 0) >= 5 && c.chessId).sort((a, b) => (a.charId < b.charId ? -1 : a.charId > b.charId ? 1 : 0)),
+    pool: pool.filter((c) => (c.rarity ?? 0) >= 5 && c.chessId).sort((a, b) => (a.charId < b.charId ? -1 : a.charId > b.charId ? 1 : 0)),
   };
 }
 

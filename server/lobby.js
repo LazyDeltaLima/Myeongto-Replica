@@ -123,12 +123,13 @@
 //     season (humanSeat); a message of another season than the room's is only stored on the session (OK), never on the
 //     seat or the match.
 //   * 名片干员 (after upstream 0.3.3, the seat cards of the waiting room): room.card { charId } — the operator whose
-//     portrait fills the player's seat card, '' for none — is kept only when it is a visible, non-自选 chess charId of the
-//     data or a 自选 pick this server offers (cardCharIds; the room's season's data, outside a room the default season's;
-//     another id: BAD_MSG, the stored one stays). Stored on the session (it follows the player into the next room) and
-//     the seat; the room's members see it as room.state seats[].card (human seats with a card only). Checked again when
-//     the player takes a seat (humanSeat): a card the room's season lacks is left off the seat, never cleared from the
-//     session. Cosmetic: any phase, spectators too (stored on the session), never handed to a match. [ASSUMED·자료 없음:
+//     portrait fills the player's seat card, '' for none — is kept only when it is a visible, non-自选 chess charId or a
+//     自选 pick this server offers of any season the server offers (cardCharIds of each; whatever the room's season —
+//     maintainer request 2026-11-18, as room.skins; another id: BAD_MSG, the stored one stays). Stored on the session (it
+//     follows the player into the next room) and the seat; the room's members see it as room.state seats[].card (human
+//     seats with a card only). Checked again when the player takes a seat (humanSeat): a card no offered season has is
+//     left off the seat, never cleared from the session. Cosmetic: any phase, spectators too (stored on the session),
+//     never handed to a match. [ASSUMED·자료 없음:
 //     the event's card shows the account's assistant (名片形象); this remake has no accounts, so the pick is made on
 //     one's own seat card and kept in the browser — ui/seatArt.js]
 //   * Operator skins (upstream 0.3.1 / 0.3.2 by hand; docs/rules/upstream.md 「오퍼레이터 스킨」): room.skins { skins } —
@@ -1104,13 +1105,13 @@ export class Lobby {
   }
 
   /**
-   * 名片干员 (room.card, header): the operator on the player's seat card, '' for none — a charId of cardCharIds for the
-   * room's season (outside a room the default season's). Kept on the session and the seat; a change is broadcast to the
-   * room. Cosmetic: accepted in any phase, never touches a match.
+   * 名片干员 (room.card, header): the operator on the player's seat card, '' for none — a charId of cardCharIds for any
+   * offered season (cardAllowed). Kept on the session and the seat; a change is broadcast to the room. Cosmetic:
+   * accepted in any phase, never touches a match.
    */
   card(session, { charId }) {
     const room = this.roomOf(session);
-    if (charId && !cardCharIds(this.safeData(room ? room.season : DEFAULT_SEASON)).has(charId)) return fail(ERR.BAD_MSG, 'unknown operator');
+    if (charId && !this.cardAllowed(charId)) return fail(ERR.BAD_MSG, 'unknown operator');
     session.card = charId || null;
     const seat = room ? room.seatOf(session.playerId) : null;
     if (seat && !seat.isBot && seat.card !== session.card) {
@@ -1118,6 +1119,11 @@ export class Lobby {
       this.broadcastState(room);
     }
     return OK;
+  }
+
+  /** May a seat card show `charId` (header 「名片干员」): a cardCharIds operator of any season the server offers. */
+  cardAllowed(charId) {
+    return typeof charId === 'string' && !!charId && [...this.seasons].some((s) => cardCharIds(this.safeData(s)).has(charId));
   }
 
   /**
@@ -1528,8 +1534,8 @@ export class Lobby {
       ops: kept.ops || null,
       notOwned: kept.notOwned || null,
       diy: kept.diy || null,
-      // 名片干员 (room.card, header): the session's card when the room's season has that operator
-      card: session.card && cardCharIds(this.safeData(season)).has(session.card) ? session.card : null,
+      // 名片干员 (room.card, header): the session's card when an offered season has that operator (any room's season)
+      card: session.card && this.cardAllowed(session.card) ? session.card : null,
       // operator skins (header): the session's outfits of the room's season's operators (PUBLIC: room.state, the match)
       skins: this.seatSkins(session, season),
     };

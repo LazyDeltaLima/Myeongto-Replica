@@ -1,12 +1,14 @@
 // 名片干员 through the real server (server/lobby.js header 「名片干员」, after upstream 0.3.3): room.card { charId } keeps a
 // seat card's operator on the session and the seat, room.state seats[].card shows it to the room, an unknown operator is
-// BAD_MSG and leaves the stored one, '' clears it, and the card follows the player into the next room.
+// BAD_MSG and leaves the stored one, '' clears it, the card follows the player into the next room, and an operator of
+// any offered season is a card in a room of any season.
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { startServer } from '../server/index.js';
 import { TestClient } from './helpers/wsClient.js';
 import { ERR } from '../shared/constants.js';
+import { getData } from '../server/data.js';
 
 const W = 6000;
 const chess = JSON.parse(readFileSync(new URL('../data/chess.json', import.meta.url), 'utf8'));
@@ -14,6 +16,11 @@ const records = Object.values(chess.chess || chess);
 const visible = records.find((c) => c && !c.isDiy && c.visible !== false && typeof c.charId === 'string');
 const hidden = records.find((c) => c && c.visible === false && typeof c.charId === 'string'
   && !records.some((o) => o !== c && o.charId === c.charId && o.visible !== false));
+
+// a visible operator of 规程 (act3autochess) that 盟约 (act2autochess) has no card for
+const cardIds = (d) => new Set(Object.values(d.chess || {}).filter((c) => c && !c.isDiy && c.visible !== false).map((c) => c.charId));
+const A2 = cardIds(getData());
+const ONLY3 = [...cardIds(getData({ season: 'act3autochess' }))].find((id) => !A2.has(id));
 
 describe('room.card (名片干员)', () => {
   let srv;
@@ -23,7 +30,7 @@ describe('room.card (名片干员)', () => {
   const log = { info() {}, warn() {}, debug() {}, error: (...a) => errors.push(a.map(String).join(' ')) };
 
   before(async () => {
-    srv = await startServer({ port: 0, host: '127.0.0.1', log });
+    srv = await startServer({ port: 0, host: '127.0.0.1', log, seasons: ['act2autochess', 'act3autochess'] });
     url = `ws://127.0.0.1:${srv.port}/ws`;
   });
   afterEach(async () => {
@@ -65,6 +72,19 @@ describe('room.card (名片干员)', () => {
     assert.equal(seatOf(srv.lobby.getRoom(st0.code).toState(), a.id).card, visible.charId, 'the refused id left the pick');
     await ok(a, { t: 'room.card', charId: '' });
     await b.waitFor('room.state', (s) => seatOf(s, a.id) && !('card' in seatOf(s, a.id)), W);
+  });
+
+  test('another season\'s operator is accepted in a room of either season and stays on the seat (maintainer request 2026-11-18)', async () => {
+    assert.ok(ONLY3, 'a 规程 operator 盟约 lacks');
+    const a = await player('A');
+    await ok(a, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL', ruleset: 'classic' });
+    const st = await a.waitFor('room.state', (s) => s.hostId === a.id, W);
+    assert.equal(srv.lobby.getRoom(st.code).season, 'act2autochess');
+    await ok(a, { t: 'room.card', charId: ONLY3 });
+    await a.waitFor('room.state', (s) => seatOf(s, a.id)?.card === ONLY3, W);
+    await ok(a, { t: 'room.leave' });
+    await ok(a, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL', ruleset: 'classic' });
+    await a.waitFor('room.state', (s) => s.mode === 'solo' && seatOf(s, a.id)?.card === ONLY3, W);
   });
 
   test('the card follows the player into the next room, and a pick outside a room is kept', async () => {

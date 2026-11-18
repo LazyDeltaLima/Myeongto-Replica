@@ -54,6 +54,30 @@ test('seatOperator: one\'s own card shows the local pick at once, another the se
   assert.equal(seatOperator(null, ctx), null);
 });
 
+test('mergeCardOperators + cardContext pool: every offered season\'s operators to pick, the default drawn from the room\'s season alone', async () => {
+  const { cardOperators, mergeCardOperators, cardContext, seatOperator, hash32 } = await load('public/js/ui/seatArt.js');
+  const recs = (dir) => Object.values(json(`${dir}chess.json`).chess || json(`${dir}chess.json`));
+  const a2 = cardOperators(recs('data/'), json('data/backups.json'));
+  const a3 = cardOperators(recs('data/seasons/act3autochess/'), json('data/seasons/act3autochess/backups.json'));
+  const ids2 = new Set(a2.map((c) => c.charId));
+  const only3 = a3.find((c) => !ids2.has(c.charId) && (c.rarity ?? 0) >= 5 && c.chessId);
+  const both = a3.find((c) => ids2.has(c.charId));
+  assert.ok(only3 && both, '规程 has operators 盟约 lacks, and some of both');
+  const list = mergeCardOperators([a2, a3]);
+  const ids = list.map((c) => c.charId);
+  assert.equal(new Set(ids).size, ids.length, 'one record per operator');
+  assert.deepEqual(new Set(ids), new Set([...ids2, ...a3.map((c) => c.charId)]), 'the union of the seasons');
+  assert.equal(list.find((c) => c.charId === both.charId), a2.find((c) => c.charId === both.charId), 'the room\'s season\'s record wins');
+  for (let i = 1; i < list.length; i++) assert.ok((list[i - 1].rarity ?? 0) >= (list[i].rarity ?? 0), 'rarity order');
+  const ctx = cardContext(list, { pool: a2 });
+  assert.deepEqual(ctx.pool, cardContext(a2).pool, 'the default pool is the room\'s season\'s, with or without the others');
+  assert.equal(seatOperator({ playerId: 'p', card: only3.charId }, ctx).chess.charId, only3.charId, 'another season\'s pick is drawn');
+  const none = { playerId: 'p2' };
+  assert.equal(seatOperator(none, ctx).chess, ctx.pool[hash32('p2') % ctx.pool.length]);
+  assert.equal(seatOperator({ playerId: 'p', card: only3.charId }, cardContext(a2, { pending: true })), null,
+    'a pick of a season still loading waits instead of a default for a moment');
+});
+
 test('seatArtSrc: the first picture not failed in this card, else none (the avatar frame)', async () => {
   const { seatArtSrc } = await load('public/js/ui/seatArt.js');
   assert.equal(seatArtSrc(['a.png', 'b.png']), 'a.png');

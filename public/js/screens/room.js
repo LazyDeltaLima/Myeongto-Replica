@@ -75,7 +75,8 @@ import { customSummary } from '../ui/customSummary.js';
 import { data, useData, getBond, getBoss, getConfig, getMode } from '../data.js';
 import { chessAvatarUrl, chessPortraitUrl, uiUrl } from '../ui/assetUrls.js';
 import { Sprite } from '../ui/gameComponents.js';
-import { CARD_KEY, cardStore, setCard, cardOperators, cardContext, seatOperator, seatPicture, seatIllust, seatCardSkin } from '../ui/seatArt.js';
+import { CARD_KEY, cardStore, setCard, seatOperator, seatPicture, seatIllust, seatCardSkin } from '../ui/seatArt.js';
+import { useCardOperators } from '../ui/seatCards.js';
 import { skinsStore, SKINS_KEY, loadSkinCatalog, skinArt, skinPic, cardSkinArt } from '../ui/skins.js';
 import { resStore, resourceCached, skinPackState } from '../resources.js';
 import { illustStore } from '../illust-res.js';
@@ -286,7 +287,7 @@ function CardThumb({ src, name }) {
 }
 
 /**
- * 名片干员 picker (更换立绘 on one's own seat card): the operators a seat card can show (ui/seatArt.js cardOperators —
+ * 名片干员 picker (更换立绘 on one's own seat card): the operators a seat card can show (ui/seatCards.js, every offered season —
  * search by name, rarity tabs) and 默认, no pick: the card shows the operator chosen by the player id. Picking closes it;
  * the current choice takes the focus.
  */
@@ -665,11 +666,9 @@ export function RoomScreen() {
   // sends: ui/cardSync.js)
   // factions: the 特训敌人 names of a custom room's summary (the invitation text)
   // local: the 立绘 (chararts) the seat cards draw by their RectTransform frame (ui/seatArt.js seatIllust)
+  // — of every offered season (ui/seatCards.js; the default card's pool is the room's season's)
   useData('chess', 'assets', 'backups', 'factions', 'local');
-  const chess = data.get('chess');
-  const backups = data.get('backups');
-  const cardList = useMemo(() => cardOperators(data.list('chess'), backups), [chess, backups]);
-  const cards = useMemo(() => cardContext(cardList, { pending: !backups }), [cardList, backups]);
+  const { list: cardList, cards } = useCardOperators();
   const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
   // the seat cards' skins (ui/seatArt.js seatCardSkin): one's own choice, the seats' published ones, with the skin data
   const skins = useStore((s) => s, Object.is, skinsStore);
