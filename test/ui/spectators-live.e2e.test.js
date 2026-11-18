@@ -53,6 +53,7 @@ describe('in-game spectators: docs/rules/ui.md 「플레이 중 관전자 수·�
       await request('g.infoReady');
       await waitPhase('BAND_DRAFT');
       const room = srv.lobby.getRoom(code);
+      await page.waitForSelector('.dband:not(.is-taken)', { timeout: 20000 });
       const bandId = await page.$eval('.dband:not(.is-taken)', (el) => el.dataset.band);
       await request('g.band', { bandId });
       if (season === 'act3autochess') { await waitPhase('DIY_CHOOSE'); await request('g.diyReady'); }
@@ -69,6 +70,13 @@ describe('in-game spectators: docs/rules/ui.md 「플레이 중 관전자 수·�
         await waitCount(i + 1);
         if (i === 0) {
           assert.ok(await page.$('.gtop__center.has-spectators'), 'the bar knows the button shows');
+          // both seasons draw the 强化效果 sprite's plate (盟约 borrows 规程's) wherever the local extract has it
+          const art = await page.evaluate(async () => {
+            const { buffBtnSprite } = await globalThis.__SP__.import('./ui/effectsList.js');
+            const { data } = await globalThis.__SP__.import('./data.js');
+            return !!buffBtnSprite(data.get('assets'), false);
+          });
+          if (art) await page.waitForSelector('[data-testid="spectators-open"].has-sprite', { timeout: 5000 });
           await page.click('[data-testid="spectators-open"]');
           await page.waitForSelector('.spectators__list');
         }
@@ -92,18 +100,26 @@ describe('in-game spectators: docs/rules/ui.md 「플레이 중 관전자 수·�
         const ready = document.querySelector('.readybtn')?.getBoundingClientRect();
         const enemyEl = document.querySelector('[data-testid="check-enemy"]');
         const enemy = enemyEl.getBoundingClientRect();
-        // the 🔍 as drawn: its box, or a season theme's 73×41 art 6 units under the 81×44 box's centre (css/hud-art.css)
-        const u = enemy.height / 44;
-        const art = enemyEl.classList.contains('is-theme')
-          ? { top: enemy.top + enemy.height / 2 + 6 * u - 20.5 * u, height: 41 * u } : { top: enemy.top, height: enemy.height };
-        const aligned = icon.left >= enemy.right + 6 && icon.left <= enemy.right + 16
-          && Math.abs(icon.top - art.top) < 2 && Math.abs(icon.height - art.height) < 2;
+        // the 强化效果 button mirrored: its 90 × 55 box right against the bar, the 59 × 37 plate 6 units over the box's middle
+        const box = el.closest('.spectators').getBoundingClientRect();
+        const bar = document.querySelector('.gtop__center').getBoundingClientRect();
+        const u = box.width / 90;
+        const buff = document.querySelector('[data-testid="check-buff"]')?.getBoundingClientRect();
+        const aligned = Math.abs(box.left - bar.right) < 1.5 && Math.abs(box.height - 55 * u) < 1.5
+          && Math.abs(icon.width - 59 * u) < 1.5 && Math.abs(icon.height - 37 * u) < 1.5
+          && Math.abs(icon.top + icon.height / 2 - (box.top + box.height / 2 - 6 * u)) < 1.5
+          && (!buff || (Math.abs(icon.top - buff.top) < 1.5 && Math.abs(icon.height - buff.height) < 1.5)) && icon.left >= enemy.right + 4;
+        // the box reaches over the 🔍 (on a touch phone its sprite grows past the bar): the box's bare part takes no press,
+        // and a press on the 🔍's right edge stays the 🔍's
+        if (document.elementFromPoint(box.left + 1, icon.top + icon.height / 2)?.closest('.spectators')) return false;
+        const edge = document.elementFromPoint(enemy.right - 1, enemy.top + enemy.height / 2)?.closest('[data-testid]');
+        if (edge !== enemyEl) return false;
         return aligned && (!ready || icon.right + 8 <= ready.left) && [...document.querySelectorAll('.gtop__meta, .readybtn, .toolbtn, [data-testid="check-enemy"]')].every((button) => {
           const control = button.getBoundingClientRect();
           return separate(popup, control) && separate(icon, control);
         });
       });
-      assert.ok(await clearsControls(), 'spectator icon must sit right of the enemy preview, as tall as it and level with it, and clear ping / 准备就绪 (docs/rules/ui.md 「플레이 중 관전자 수·명단」)');
+      assert.ok(await clearsControls(), 'spectator button must be the 强化效果 button mirrored right of the bar, leave the enemy preview its presses, and clear ping / 准备就绪 (docs/rules/ui.md 「플레이 중 관전자 수·명단」)');
       await page.evaluate(async () => { const { switchLang } = await globalThis.__SP__.import('./ui/lang.js'); await switchLang('ko'); });
       await page.waitForFunction(() => document.querySelector('.spectators__head h3')?.textContent.includes('관전자'));
       await page.waitForFunction(() => !document.querySelector('.parb'));
@@ -129,7 +145,7 @@ describe('in-game spectators: docs/rules/ui.md 「플레이 중 관전자 수·�
             overflow: list.scrollWidth > list.clientWidth, overflowX: getComputedStyle(el).overflowX };
         });
         assert.ok(bounds.left >= 0 && bounds.right <= width && bounds.top >= 0 && bounds.bottom <= height && !bounds.overflow && bounds.overflowX === 'hidden', `spectator popup fits ${width}x${height}: ${JSON.stringify(bounds)}`);
-        assert.ok(await clearsControls(), `spectator icon sits right of the enemy preview, as tall as it and level with it, and clears ping / 准备就绪 at ${width}x${height} (docs/rules/ui.md 「플레이 중 관전자 수·명단」)`);
+        assert.ok(await clearsControls(), `spectator button is the 强化效果 button mirrored right of the bar, leaves the enemy preview its presses, and clears ping / 准备就绪 at ${width}x${height} (docs/rules/ui.md 「플레이 중 관전자 수·명단」)`);
         await page.evaluate(() => globalThis.__SP__.store.patch('connection', { ping: 128 }));
         await page.waitForFunction(() => document.querySelector('.gtop__meta')?.textContent.includes('128'));
         await page.screenshot({ path: path.join(OUT, `spectators-live-${season}-${width}.png`) });

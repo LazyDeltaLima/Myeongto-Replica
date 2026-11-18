@@ -456,7 +456,7 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
           chev=${btn.right.grey ? null : '▶▶'} disabled=${btn.right.grey && !pen} onClick=${onRight} testid="check-enemy"
           hotkey=${hotkeyLabelOf('viewEnemy')} />
       <//>
-      ${watchers > 0 ? html`<${Spectators} theme=${checkSprite(btn.right.sprite).theme} />` : null}
+      ${watchers > 0 ? html`<${Spectators} />` : null}
     </div>
 
     <div class="gtop__right">

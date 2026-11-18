@@ -418,18 +418,15 @@
 }
 
 /* In-match spectator roster (ui/spectators.js, PR #19; mounted only while someone watches, maintainer decision
-   2026-11-18): the effects-list button/window, four compact rows and vertical scrolling only. The button is as tall as
-   the 🔍 on its left (check-enemy) and level with it: .46rem (phones max(.46rem, 26px), devices.css) centred on the bar;
-   on the art HUD the 81×44 bg_check_btn plate lifted 13 units (hud-art.css), centre 6.5 units over the bar's; with a
-   season theme's 73×41 🔍 art (is-theme) 6 units below that. */
-.spectators { --bu: var(--u, .015rem); --spectator-row: max(.4rem, 32px); position: relative; z-index: 6; flex: none; width: calc(var(--bu) * 59); height: .46rem; display: grid; place-items: center; }
-.gm .gtop .gtop__center > .buffs.spectators:not(.tip-wrap):not(.tooltip-anchor) { left: calc(100% + 8px); right: auto; top: 50%; width: calc(var(--bu) * 59); height: .46rem; transform: translateY(-50%); z-index: 6; }
-@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
-  .gm .gtop .gtop__center > .buffs.spectators:not(.tip-wrap):not(.tooltip-anchor) { height: max(.46rem, 26px); }
-}
-.gm.has-hud-art .gtop .gtop__center > .buffs.spectators:not(.tip-wrap):not(.tooltip-anchor) { height: calc(var(--u) * 44); transform: translateY(calc(-50% - var(--u) * 6.5)); }
-.gm.has-hud-art .gtop .gtop__center > .buffs.spectators.is-theme:not(.tip-wrap):not(.tooltip-anchor) { height: calc(var(--u) * 41); transform: translateY(calc(-50% - var(--u) * .5)); }
-.spectators .buffs__btn { position: static; width: 100%; height: 100%; transform: none; justify-content: center; padding: 0; gap: calc(var(--bu) * 4); }
+   2026-11-18): the effects-list button/window, four compact rows and vertical scrolling only. The button is the 强化效果
+   button mirrored (maintainer decision 2026-11-19): its 90 × 55 box right against the bar, the 59 × 37 plate 6 units up,
+   the eye where its cube is and the count where its count is. The box reaches over the 🔍's right edge, so only the
+   button and the window take presses (on a phone the box swallowed the 🔍's last 2 px). */
+.gm .gtop .gtop__center > .buffs.spectators:not(.tip-wrap):not(.tooltip-anchor) { left: 100%; right: auto; z-index: 6; pointer-events: none; }
+.spectators { --spectator-row: max(.4rem, 32px); }
+.spectators > * { pointer-events: auto; }
+.spectators .buffs__btn { justify-content: flex-end; gap: 0; padding-right: calc(var(--bu) * 6); }
+.spectators .buffs__btn .buffs__ic { position: absolute; left: calc(var(--bu) * 12.5); top: 50%; width: calc(var(--bu) * 18); height: calc(var(--bu) * 18); transform: translateY(-50%); }
 .spectators .spectators__dialog { left: auto; right: 0; top: calc(100% + 8px); width: max(2.65rem, 220px); max-width: calc(100vw - 24px); max-height: none; padding-bottom: 0; overflow: hidden; border: 1px solid var(--mint-800); }
 .spectators .spectators__head { align-items: center; padding: max(.08rem, 6px) max(.12rem, 9px); }
 .spectators__head h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: .08rem; margin: 0; font-size: max(.18rem, 14px); letter-spacing: .06em; }

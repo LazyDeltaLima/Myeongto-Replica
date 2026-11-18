@@ -73,9 +73,19 @@ export function effectDesc(e) {
 }
 
 /**
+ * The 强化效果 button's sprite (`buff_btn_clickable`, opened `buff_btn_opened`): the season theme's (`seasonSkin/*`),
+ * else 规程's default theme's — 盟约's HUD has no such button, and it takes 规程's (maintainer decision 2026-11-19); null
+ * on a server without the local extract (a look-alike box then). The spectator button (ui/spectators.js) draws the same.
+ * @param {any} m data/assets.json as the screen reads it @param {boolean} open @returns {string|null}
+ */
+export function buffBtnSprite(m, open) {
+  const name = open ? 'buff_btn_opened' : 'buff_btn_clickable';
+  return uiUrl(m, `seasonSkin/${name}`) || localAsset('season/act3autochess/skin', name);
+}
+
+/**
  * The 强化效果 button and its list (`effects`: the own m.private.effects, or the watched teammate's: m.field / the
- * spectated battle's). The theme's button sprites when the season has them (`seasonSkin/buff_btn_clickable`, opened
- * `buff_btn_opened`), a look-alike otherwise; nothing when there is no effect [ASSUMED·화면: an official CN prep screen of
+ * spectated battle's). The button sprites of buffBtnSprite, a look-alike without them; nothing when there is no effect [ASSUMED·화면: an official CN prep screen of
  * a round 13 shows no such button left of the 🔍; whether it hides only when empty is not seen].
  * @param {{ effects: any[]|null|undefined }} props
  */
@@ -94,7 +104,7 @@ export function BuffButton({ effects }) {
   useEffect(() => { if (!list.length && open) setOpen(false); }, [list.length, open]);
   if (!list.length) return null;
   const m = data.get('assets');
-  const sprite = uiUrl(m, `seasonSkin/${open ? 'buff_btn_opened' : 'buff_btn_clickable'}`);
+  const sprite = buffBtnSprite(m, open);
   const bg = localAsset('ui/battle', 'bg_player_info');
   return html`<div class=${open ? 'buffs is-open' : 'buffs'} ref=${root}>
     <button type="button" class=${sprite ? 'buffs__btn tapx has-sprite' : 'buffs__btn tapx'} style=${sprite ? `--buff-sprite:url("${sprite}")` : undefined}
