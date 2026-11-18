@@ -101,6 +101,12 @@ export default [
           selector: "CallExpression[callee.property.name='loseHp']:not(:has(Property[key.name='silent']))",
           message: "Battle.loseHp: pass `silent` in the options literal — `silent: true` when the official node creates no effect (no 'dmg', no 真实 hit drawn), `silent: false` with a comment saying why the hit is drawn (docs/rules/fx.md 「효과 없는 주기적 유실」)",
         },
+        // The browser's sim data has no config file (public/js/battle/runner.js SIM_DATA_FILES): a season switch read
+        // from it is on on the server and off in client combat. The season is the battle's.
+        ...["MemberExpression[property.name='config']", "CallExpression > Literal[value='config']"].map((selector) => ({
+          selector,
+          message: "the sim's data has no config in the browser: read a season's rule switch as seasonFeature(battle.season, …) (Battle `season`, from the match / spec; docs/rules/sim.md 「규정 리더 적의 침식」)",
+        })),
       ],
     },
   },

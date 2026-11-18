@@ -36,8 +36,8 @@
 //                 `effects` (a season's data/effects.json) replaces the default season's effect records
 //   season        a season id of shared/seasons.js: the battle runs that season's data (server/data.js getData — its chess,
 //                 自选 slots and picks, config), `defs` over it, a `diy` / `standIn` unit composed from it (default: the
-//                 default season's data, as before)
-//   data          a DataSource to run instead (overrides `season` and `defs`)
+//                 default season's data, as before) and plays its rule switches (Battle `season`)
+//   data          a DataSource to run instead (overrides `season`'s data and `defs`; `season` still names the rules)
 //   flags, sharedBoss, modeId, round, setup(battle), recordEvents (default true). The harness sets
 //                 flags.bornTime = 0 unless given: the born state after every deployment (Battle default
 //                 BORN_TIME), when no MANUAL skill is cast, would hold back every test that fills a skill's SP at
@@ -282,6 +282,7 @@ export function makeBattle(opts = {}) {
     seed: opts.seed ?? 1, kind, modeId: opts.modeId ?? 'mode_multi_normal', round: opts.round ?? 1, stage, rect: opts.rect,
     timeLimit: timeLimit ?? (kind === 'boss' || kind === 'hidden' ? Infinity : 60), players, spawns, routes,
     sharedBoss: opts.sharedBoss ?? null, flags: { bornTime: 0, prebuiltInterval: 0, ...opts.flags }, fieldId: opts.fieldId ?? 'test', data,
+    season: opts.season, // the season's rule switches (Battle `season`), with or without `data`
     content: opts.content ?? 'full', recordEvents: opts.recordEvents !== false, logger: opts.logger ?? quietLogger(opts.verbose),
     quiet: opts.verbose ? false : true, devices: opts.devices,
     // the template the battle was built from, as the match passes it (spec `waveId`): content reads its branches

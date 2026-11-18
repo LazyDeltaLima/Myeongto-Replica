@@ -90,7 +90,7 @@ import {
   remainingRoute, stayRoute, stepToward, setHits, hitCount, setForm, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, shoot,
 } from './enemies.js';
 import { hypot, powi } from '../detmath.js';
-import { effectRecord, dataFile } from './support/index.js';
+import { effectRecord } from './support/index.js';
 import { isNormalDamage } from '../damage.js';
 import { seasonFeature } from '../../../shared/seasons.js';
 
@@ -378,8 +378,9 @@ export function install(battle) {
   ensureInstalled(battle);
   battle.on('enemySpawn', ({ enemy }) => onSpawn(battle, enemy), { priority: 90 });
   // "最终攻势中，敌方领袖不会受到侵蚀损伤" (PRTS 卫戍协议：盟约/PRTS盟约记录 规则; research 06 §10.1): leaders ignore erosion gauge damage
-  // — the 盟约 rule only: 规程's official leaders take it (shared/seasons.js leaderTakesErosion, a CN player's report)
-  if (!seasonFeature(dataFile(battle, 'config')?.season, 'leaderTakesErosion')) {
+  // — the 盟约 rule only: 规程's official leaders take it (shared/seasons.js leaderTakesErosion, a CN player's report).
+  // The season is the battle's (Battle `season`, from the match / spec): the browser's sim data has no config file.
+  if (!seasonFeature(battle.season, 'leaderTakesErosion')) {
     battle.on('elementHit', (c) => { if (c.target && c.target.isBoss && c.dmg.element === 'erosion') c.dmg.cancel = true; }, { priority: 100 });
   }
 }

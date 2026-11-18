@@ -1,7 +1,9 @@
 // server/sim/Battle.js — one field simulation (normal / unite / boss / hidden). Public API: DESIGN §5.1.
 //
 //   const b = new Battle({ seed, kind, modeId, round, stage|stageId, rect, timeLimit, players, spawns, routes,
-//                          sharedBoss, flags, fieldId?, wide?, data?, content?, recordEvents?, logger? })
+//                          sharedBoss, flags, fieldId?, wide?, season?, data?, content?, recordEvents?, logger? })
+// `season`: the shared/seasons.js id the battle plays (`b.season`, unknown → the default season): content reads the
+// season's rule switches from it (seasonFeature(b.season, …)), never from the data — the browser's data has no config.
 // `wide`: the halves (3 | 4) of an 8-player mode's wide 联防 field (wideStage.js): the stage widened, the default rect
 // wideRect(halves), the column spans of its players by their offsets (wideSpan).
 //   b.step(); b.finished; b.forceEnd(reason); b.time; b.result(); b.snapshot(); b.drainEvents(); b.on/off(...)
@@ -49,6 +51,7 @@
 
 import { TICK, ROWS, COLS, DP_DEFAULTS, MAX_HOOK_DEPTH, BORN_TIME, AUTO_TRIGGER_INTERVAL, PREBUILT_INTERVAL } from './constants.js';
 import { GEO } from '../../shared/constants.js';
+import { seasonOf } from '../../shared/seasons.js';
 import { createRng } from './rng.js';
 import { Grid } from './grid.js';
 import { ProjectileSystem } from './projectiles.js';
@@ -84,6 +87,8 @@ export class Battle {
     this.modeId = opts.modeId ?? null;
     this.round = opts.round ?? 0;
     this.fieldId = opts.fieldId ?? null;
+    /** the season this battle plays (header): its rule switches, seasonFeature(this.season, name) */
+    this.season = seasonOf(opts.season);
     this.logger = opts.logger ?? console;
     this.recordEvents = opts.recordEvents !== false;
     /** When false the battle only ends by time limit / boss pool / forceEnd (tests, sandboxes). */

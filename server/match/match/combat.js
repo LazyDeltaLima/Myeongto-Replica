@@ -15,7 +15,8 @@ import { simRuleFlags } from '../../../shared/ruleset.js';
 export class MatchCombat {
   /** Construct a battle; a constructor failure yields a finished stand-in (clean result) and is logged. */
   newBattle(opts, { preview = false } = {}) {
-    const full = { data: this.ds, content: this.battleContent, logger: this.log, ...opts,
+    // `season`: the battle plays the match's season's rule switches (Battle `season`, shared/seasons.js)
+    const full = { data: this.ds, content: this.battleContent, logger: this.log, season: this.season, ...opts,
       ...(preview ? { logger: {}, quiet: true } : {}) };
     try {
       return new this.BattleClass(full);

@@ -3334,7 +3334,12 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 - **근거**: 중국 서버(규정) 플레이 제보(2026-11-15) — 클레멘티아 S3로 보스에게 침식이 걸림. 우리 판(맹약 규칙을 두 시즌에 똑같이 씀)에서는 안 걸렸다.
   맹약 문구는 지금 PRTS 「卫戍协议：盟约」·「卫戍协议/帮助」에서 다시 찾지 못했고(2026-11-15), 표·프리팹에도 이 면역은 없다 — 맹약 쪽은 옛 인용대로 둔다.
 - **코드**: 시즌 스위치 `shared/seasons.js leaderTakesErosion`(규정 켬) → `server/sim/content/bosses.js install`이 꺼진 시즌에서만 리더의 `elementHit` 침식을 취소.
-- 재발 방지: `test/match/act3-unite-redeploy-erosion.test.js`
+  시즌은 전투의 것(`Battle` `season`)을 읽는다: 매치가 `newBattle`·전투 spec(`server/sim/spec.js` `season`, 기본 시즌이 아닐 때만)으로 넘긴다.
+- **함정(2026-11-18 고침)**: 처음에는 시즌을 전투 자료의 `config`에서 읽었는데, 브라우저 sim 자료에는 `config`가 없다(`public/js/battle/runner.js
+  SIM_DATA_FILES`, `/data.js` 대역도 같은 자료). 그래서 사람이 접속한 전투(클라 전투 — 최종 공세 포함)에서는 규정에서도 맹약 규칙이 켜져, 클레멘티아의
+  침식이 리더에게 전혀 쌓이지 않았고(게이지도 안 보임) 서버가 돌린 전투에서만 쌓였다. 아래 「남은 재배치 시간」도 같은 이유로 클라 전투 결과에서 빠졌다.
+  `eslint.config.js`가 `server/sim/` 안에서 `config` 읽기를 막는다.
+- 재발 방지: `test/match/act3-unite-redeploy-erosion.test.js`(클라 전투 spec + 브라우저 자료 모양) · `eslint.config.js`(sim의 `config` 읽기 금지)
 
 ### 규정 연합 방어 — 남은 재배치 시간 (2026-11-15)
 - **규칙**: 규정에서 자기 전투가 끝날 때 쓰러져 있던 오퍼레이터는 연합 방어(联防)에 들어가 곧바로 강제 퇴장한 뒤, 자기 전투에서 남은 재배치 시간만
@@ -3342,7 +3347,7 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
   docs/META.md §4).
 - **근거**: PRTS 卫戍协议/帮助 §联防阶段 「自卫戍协议：规程·序列Ⅰ起，作战结束时为退场状态的干员在联防阶段将继承剩余再部署时间」(2026-11-15 확인) +
   중국 서버 플레이 제보(2026-11-15: 지난 시즌처럼 5초 남기고 넘어가면 다시 처음부터 기다리지 않음).
-- **코드**: 시즌 스위치 `shared/seasons.js uniteKeepsRedeploy`(규정 켬). 전투 결과 `unitsEnd`가 쓰러진 오퍼레이터의 `respawnLeft`(남은 초, 켜진 시즌만 —
+- **코드**: 시즌 스위치 `shared/seasons.js uniteKeepsRedeploy`(규정 켬, 전투의 `season`으로 읽음 — 위 「규정 리더 적의 침식」 함정). 전투 결과 `unitsEnd`가 쓰러진 오퍼레이터의 `respawnLeft`(남은 초, 켜진 시즌만 —
   맹약 결과·digest는 그대로)를 내고(`server/sim/battle/lifecycle.js _buildResult`; 클라 보고는 `shared/protocol.js isUnitEnd`·`server/match/fields.js`가
   0–10000초로 검사), `server/match/unite.js`가 `carryState { down: true, respawnLeft }`로 넘기며, `Battle._beginWave`가 그 값을 타이머로 쓴다.
   [추정·자료 없음: 연합 방어 전장의 재배치 시간 효과(机变 征召 −50 % 등)가 이어받은 나머지를 다시 줄이는지 — 지금은 줄이지 않음] 재배치 고리는 이어받은

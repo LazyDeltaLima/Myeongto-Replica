@@ -4,6 +4,8 @@
 //   docs/rules/sim.md 「규정 연합 방어 — 남은 재배치 시간」). The 盟约 one starts its full timer again (test/match/unitedown.test.js).
 // - leaderTakesErosion: an enemy leader takes 侵蚀 (erosion) damage (a CN player's report: 克莱门莎's erosion lands on the
 //   规程 leader); the 盟约 leader does not ("最终攻势中，敌方领袖不会受到侵蚀损伤"; docs/rules/sim.md 「규정 리더 적의 침식」).
+//   The switch is read from the battle's season (Battle `season`, carried by the field spec), never from the data: the
+//   browser's sim data has no config file, and reading it there let the 盟约 rule cancel the erosion in client combat.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,18 +19,20 @@ import * as bossesMod from '../../server/sim/content/bosses.js';
 import { FakeBattle } from './fakeBattle.js';
 import { makeMatch, give, legalTileFor, checkInvariants } from './harness.js';
 import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
+import { setGameData } from '../../server/sim/content/support/index.js';
+import { SIM_DATA_FILES } from '../../public/js/battle/runner.js';
 
 const REAL = { skip: !hasGeneratedData() };
 const quiet = { warn() {}, error() {}, info() {}, debug() {} };
 const ACT3 = hasGeneratedData() ? getData({ log: quiet, season: 'act3autochess' }) : null;
 const WALL = chessRec({ id: 't_wall', profession: 'TANK', stats: { atk: 0, maxHp: 1e6, def: 0, res: 0, blockCnt: 3, respawnTime: 40 }, rangeGrid: [[0, 0]], skill: null });
 const DUMMY = enemyRec({ key: 'enemy_dummy', hp: 1e9, atk: 0, speed: 0 });
-/** A battle over the default season's data, or with `season`'s config (what dataFile(battle, 'config') reads). */
+/** A battle over the default season's data, playing `season`'s rule switches (Battle `season`) when one is given. */
 const arena = (season) => makeBattle({
   content: 'generic', extraContent: [bossesMod], seed: 7, autoFinish: false, timeLimit: 600,
   units: [{ chessId: 't_wall', row: 9, col: 4 }], kits: { t_wall: () => ({ trait: { noAttack: true } }) },
   ...(season
-    ? { data: new DataSource({ chess: { t_wall: WALL }, enemies: { enemy_dummy: DUMMY }, config: { season } }, getDefaultSource()) }
+    ? { season, data: new DataSource({ chess: { t_wall: WALL }, enemies: { enemy_dummy: DUMMY } }, getDefaultSource()) }
     : { defs: { chess: { t_wall: WALL }, enemies: { enemy_dummy: DUMMY } } }),
 });
 
@@ -120,5 +124,45 @@ test('规程: an enemy leader takes 侵蚀 (erosion); the 盟约 leader does not
     h.b.dealDamage(u, e, { type: 'element', element: 'erosion', amount: 300 });
     if (season) assert.ok(e.elem.erosion > 0, `规程: the leader's erosion gauge fills (${e.elem.erosion}) — shared/seasons.js leaderTakesErosion, docs/rules/sim.md 「규정 리더 적의 침식」`);
     else assert.equal(e.elem.erosion, 0, '盟约: "最终攻势中，敌方领袖不会受到侵蚀损伤"');
+  }
+});
+
+test('规程 client combat: the field spec carries the season, and on the browser sim data (no config) a leader takes 侵蚀', REAL, () => {
+  const h = makeMatch({ mode: 'coop', modeId: 'mode_multi_normal', humans: 3, seed: 3702, fake: true, clientCombat: true, data: ACT3, season: 'act3autochess' }).start();
+  const m = h.m;
+  // the server-run battles (Match.newBattle: takeover, the Final Assault without a connected human) play it too
+  assert.equal(m.newBattle({ kind: 'normal', fieldId: 'probe' }, { preview: true }).opts.season, 'act3autochess');
+  h.toPrep(1);
+  const ps = h.ps('p_0');
+  const piece = Object.values(ACT3.chess).filter((c) => c.visible && !c.isGolden && c.tier <= 2 && m.pool.has(c.chessId)).map((c) => c.chessId).sort()[0];
+  give(m, ps, piece, 'board', legalTileFor(m, ps, piece));
+  h.drive(() => m.phase === PHASE.COMBAT && m.fields.some((f) => f.spec));
+  const spec = m.fields.find((f) => f.spec && f.spec.players.some((p) => p.playerId === 'p_0')).spec;
+  assert.equal(spec.season, 'act3autochess', 'the spec names the season (server/sim/spec.js buildBattleSpec `season`)');
+  // what public/js/battle/runner.js gives the sim: the SIM_DATA_FILES only, and the /data.js stand-in answers the same data
+  const raw = Object.fromEntries(SIM_DATA_FILES.map((n) => [n, ACT3[n]]));
+  assert.ok(!('config' in raw), 'the browser sim has no config file: a season switch read from the data is off there');
+  setGameData(raw);
+  try {
+    const b = createBattleFromSpec(spec, new DataSource(raw, null), { BattleClass: NoFinish, recordEvents: false });
+    assert.equal(b.season, 'act3autochess');
+    do b.step(); while (b.waveT0 == null);
+    const e = b.spawnEnemy('enemy_9013_acstmk', { routeIndex: 0, mods: { speedMul: 0 }, tag: 'boss' });
+    assert.ok(e && e.isBoss);
+    b.dealDamage(null, e, { type: 'element', element: 'erosion', amount: 300 });
+    assert.ok(e.elem.erosion > 0, `the leader's erosion gauge fills in client combat (${e.elem.erosion}) — Battle \`season\` from the spec, `
+      + 'not the data (server/sim/content/bosses.js install; docs/rules/sim.md 「규정 리더 적의 침식」)');
+    // the same battle reports a knocked-out operator's rest of its redeploy timer (battle/lifecycle.js _buildResult)
+    const u = b.allyUnits.find((x) => x.alive && x.ownerId === 'p_0' && x.defId === piece);
+    assert.ok(u, 'the field fields an operator');
+    b.dealDamage(null, u, { amount: 1e9, type: 'true', canDodge: false });
+    b.step();
+    b.forceEnd();
+    const end = b.result().perPlayer[u.ownerId].unitsEnd.find((x) => x.uid === u.uid);
+    assert.ok(end && end.respawnLeft > 0, `respawnLeft in client combat (${end && end.respawnLeft}) — Battle \`season\`, not the data `
+      + '(shared/seasons.js uniteKeepsRedeploy; docs/rules/sim.md 「규정 연합 방어 — 남은 재배치 시간」)');
+  } finally {
+    setGameData(null);
+    m.dispose();
   }
 });

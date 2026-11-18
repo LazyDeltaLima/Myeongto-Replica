@@ -112,7 +112,7 @@ export function bossFieldPaths(m, g) {
   let out;
   try {
     // the sim's own Battle, not the match's factory (Match.newBattle: tests inject a fake one and count its fields)
-    out = runLeaderPaths((o) => new Battle({ data: m.ds, content: m.battleContent || 'full', ...o }), {
+    out = runLeaderPaths((o) => new Battle({ data: m.ds, content: m.battleContent || 'full', season: m.season, ...o }), {
       kind: 'boss', modeId: m.modeId, round: m.round, stageId: m.stageId, rect: { ...GEO.BOSS_RECT },
       players: pss.map((ps, i) => ({ playerId: ps ? ps.playerId : `p${i + 1}`, seat: i, side: i ? 'R' : 'L', colOffset: i ? 8 : 0, deviceOverrides: devices[i] })),
       spawns: wave.spawns, routes: wave.routes, enemyOverrides: wave.overrides, waveId: wave.templateId,

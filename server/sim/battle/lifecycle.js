@@ -378,7 +378,8 @@ export class BattleLifecycle {
 
   _buildResult() {
     const perPlayer = {};
-    const keepRedeploy = seasonFeature(this.data?.all?.config?.season, 'uniteKeepsRedeploy');
+    // the battle's season (Battle `season`, from the match / spec): the browser's sim data has no config file
+    const keepRedeploy = seasonFeature(this.season, 'uniteKeepsRedeploy');
     for (const ps of this.players) {
       const pp = this._perPlayer[ps.playerId];
       pp.perfect = !this.surrendered && !pp.leaked.some((l) => l.counted !== false);
