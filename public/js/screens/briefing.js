@@ -30,7 +30,6 @@ import { html, Button, Icon, MicroLabel, Modal } from '../ui/components.js';
 import { useGameData, Img, RichText } from '../ui/gameComponents.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfo, matchInfoModel, InfoTitle, BondGroups, IncompleteTip, BannedOperators, InfoBond, stageArt } from '../ui/matchInfo.js';
-import { BondPopup } from '../ui/bondStrip.js';
 import { LoadoutButton } from './loadout.js';
 import { actions } from '../ui/gameActions.js';
 import { factionTypes, sortedPlayers, phaseTotalSeconds, startStepCount } from '../ui/gameLogic.js';
@@ -126,7 +125,7 @@ export function BriefingScreen() {
     <div class="brief__bg" aria-hidden="true"></div>
     <${StepHeader} step=${1} of=${startStepCount(gd.config)} title=${t('确认本局信息')} micro="BRIEFING // INFO CHECK" pub=${pub}
       total=${phaseTotalSeconds(pub, gd.config)} config=${gd.config} onExit=${() => setExit(true)} />
-    ${info.groups ? html`<${GroupsMain} pub=${pub} priv=${priv} info=${info} me=${me} closing=${closing} mode=${mode} gd=${gd} />` : html`<main class="brief__main">
+    ${info.groups ? html`<${GroupsMain} pub=${pub} info=${info} me=${me} closing=${closing} mode=${mode} gd=${gd} />` : html`<main class="brief__main">
       <section class="brief__left">
         <div class="brief-enemy">
           <${InfoTitle} kind="enemy" title=${t('敌方情报')} micro="ENEMY INTEL" />
@@ -235,11 +234,11 @@ function GroupsTitle({ kind, title, tip = null }) {
 
 /**
  * 规程 solo's briefing in the official two columns (see the header): the left column's bonds and banned operators, the
- * right column's map, leader and 特训敌人, the bond detail over the right column.
- * @param {{ pub: any, priv: any, info: any, me: any, closing: boolean, mode: any, gd: any }} props
+ * right column's map, leader and 特训敌人. A bond icon opens no detail (maintainer decision 2026-11-18): a press on a
+ * group's panel, icons included, picks it.
+ * @param {{ pub: any, info: any, me: any, closing: boolean, mode: any, gd: any }} props
  */
-function GroupsMain({ pub, priv, info, me, closing, mode, gd }) {
-  const [open, setOpen] = useState(null); // the bond whose detail is open
+function GroupsMain({ pub, info, me, closing, mode, gd }) {
   const [side, setSide] = useState(null); // 'boss' | the 特训敌人 type whose description is open
   const [zoom, setZoom] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -253,7 +252,6 @@ function GroupsMain({ pub, priv, info, me, closing, mode, gd }) {
     await actions.bondGroup(i);
     setBusy(false);
   };
-  const bond = (id) => setOpen((o) => (o === id ? null : id));
   const boss = pub.bossId ? gd.boss(pub.bossId) : null;
   const bossEnemy = boss ? gd.enemy(boss.enemyKey) : null;
   const types = factionTypes(pub.factions);
@@ -266,13 +264,11 @@ function GroupsMain({ pub, priv, info, me, closing, mode, gd }) {
   return html`<main class="brief__main brief2" style=${vars || null} data-testid="brief-groups">
     <section class="brief2__left">
       <${GroupsTitle} kind="core" title=${t('核心盟约')} />
-      <${BondGroups} model=${info} onPick=${canPick ? pick : null} onBond=${bond} openId=${open}
+      <${BondGroups} model=${info} onPick=${canPick ? pick : null}
         hint=${html`<span ref=${hint} class="brief2__hint">${hintText}</span>`} />
       <${GroupsTitle} kind="addon" title=${t('附加盟约')} tip=${info.addonIncomplete ? html`<${IncompleteTip} />` : null} />
       <div class="brief2__addon">${info.addon.map((b) => html`<div key=${b.bondId} class="brief2__cell" data-bond=${b.bondId}>
-        <button type="button" class=${'bgrp__bond' + (open === b.bondId ? ' is-open' : '')} aria-label=${b.name} onClick=${() => bond(b.bondId)}>
-          <${InfoBond} bond=${b} off=${!!info.stateOf(b.bondId)} />
-        </button>
+        <span class="bgrp__bond" title=${b.name}><${InfoBond} bond=${b} off=${!!info.stateOf(b.bondId)} /></span>
       </div>`)}</div>
       <${BannedOperators} model=${info} />
     </section>
@@ -304,8 +300,6 @@ function GroupsMain({ pub, priv, info, me, closing, mode, gd }) {
       </div>`)}</div>
       <i class="brief2__deco" aria-hidden="true"></i>
     </section>
-    ${open ? html`<${BondPopup} bondId=${open} entry=${null} priv=${priv} banned=${pub.bannedChess || []} place="right"
-      onClose=${() => setOpen(null)} onMember=${() => {}} />` : null}
     <${Modal} open=${zoom && !!mapUrl} onClose=${() => setZoom(false)} title=${t('战场')} class="brief2-zoom">
       ${zoom && mapUrl ? html`<${Img} src=${mapUrl} class="brief2-zoom__img" alt="" />` : null}
     <//>

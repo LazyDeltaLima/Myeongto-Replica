@@ -230,7 +230,7 @@
 .brief-h--art .bgrp-tip { margin-left: calc(var(--tu) * 17); }
 /* text_tips 858.3 × 30.4, 18, bestFit: one line that shrinks to fit (briefing.js useFitLine), 9 px at least, then wraps */
 .bgrp__hint { box-sizing: border-box; min-height: calc(var(--u) * 33.7); margin: 0; padding: 0 calc(var(--u) * 10.85); display: grid; align-items: center; }
-.brief2__hint { display: block; width: 100%; text-align: center; white-space: nowrap; font-size: calc(var(--u) * 18); font-weight: 500; line-height: 1.15; color: #4a8a78; }
+.brief2__hint { display: block; width: 100%; min-width: 0; overflow: hidden; text-align: center; white-space: nowrap; font-size: calc(var(--u) * 18); font-weight: 500; line-height: 1.15; color: #4a8a78; }
 .brief2__hint.is-wrap { white-space: normal; }
 /* panel_bond_group_1/2: 428.7 × 264.64 at ±215 (1.3 apart), on img_single_choose_bg */
 .bgrp__pair { position: relative; height: calc(var(--u) * 276); }
@@ -274,8 +274,10 @@ button.bgrp__bond:focus-visible { outline: 2px solid var(--mint-400); }
 .minfo-dlg .bpop { left: auto; right: .3rem; top: .7rem; width: min(5.2rem, calc(100% - .6rem)); max-height: calc(100% - .9rem); z-index: 12; }
 .igroups-core { margin-bottom: .04rem; }
 
-/* the two columns: left 880 (+ the scroll bar's room) scrolling, right panel_enemy_info 350 */
-.brief__main.brief2 { --u: .0135rem; display: grid; grid-template-columns: calc(var(--u) * 894) calc(var(--u) * 350);
+/* the two columns: left 880 (+ the scroll bar's room) scrolling, right panel_enemy_info 350. The official 0.9 scale
+   (.0135rem) leaves wide side margins on a 16:9 screen; the view grows to the width less .2rem a side, capped at
+   height / 730 (maintainer decision 2026-11-18) */
+.brief__main.brief2 { --u: min(.0148rem, calc((100vw - .4rem) / 1256)); display: grid; grid-template-columns: calc(var(--u) * 894) calc(var(--u) * 350);
   justify-content: center; gap: 0 calc(var(--u) * 12); padding: calc(var(--u) * 10) 0 calc(var(--u) * 4); }
 .brief2__left { --ou: var(--u); min-height: 0; overflow: auto; padding-right: calc(var(--u) * 14); scrollbar-width: thin; scrollbar-color: #8a8a8a rgba(255, 255, 255, .08); }
 .brief2__left > * { width: calc(var(--u) * 880); }
