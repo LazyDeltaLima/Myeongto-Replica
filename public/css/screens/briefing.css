@@ -60,7 +60,10 @@
 .sh-char { width: calc(113 * var(--eu)); height: calc(96 * var(--eu)); margin-left: calc(26.8 * var(--eu)); background: var(--char) center top / 100% 100% no-repeat; }
 .is-step1 > .sh-char { margin-left: calc(15.4 * var(--eu)); }
 .sh-bub { height: calc(66 * var(--eu)); min-width: calc(190 * var(--eu)); margin: max(0px, calc(var(--c) - 25 * var(--eu))) 0 0 calc(22.9 * var(--eu));
-  padding: 0 calc(15 * var(--eu)) calc(15 * var(--eu)) calc(18 * var(--eu)); isolation: isolate; display: flex; align-items: center; gap: calc(8 * var(--eu)); }
+  padding: 0 calc(15 * var(--eu)) calc(17 * var(--eu)) calc(18 * var(--eu)); isolation: isolate; display: flex; align-items: center; gap: calc(8 * var(--eu)); }
+/* in the bubble 「n」, 「/N」 and the title each sit on the body's middle (maintainer decision 2026-11-18: on one baseline the
+   smaller 「/N」 hung 7 px low); the bottom padding 17, not the prefab's 15, puts the glyphs' ink — not their line boxes — there */
+.sh-bub .sh-num { align-items: center; }
 .is-step1 > .sh-bub { margin-left: calc(12.3 * var(--eu)); }
 .sh-bub::before { content: ''; position: absolute; z-index: -1; inset: 0; border-style: solid;
   border-width: calc(11 * var(--eu)) calc(12 * var(--eu)) calc(25 * var(--eu)) calc(46 * var(--eu)); border-image: var(--bub) 11 12 25 46 fill stretch; }
