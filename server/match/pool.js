@@ -37,12 +37,18 @@ import { bondsOff } from '../../shared/seasons.js';
  * one and takes the first eligible ones, so the rng stream (and every later setup draw) is the official one.
  * 规程 (shared/seasons.js coreBondBan, `opts.coreBan`): an operator with a core bond is banned once every core bond of it is
  * in D ∪ inactive, its add-on bonds or not (shared/seasons.js bondsOff).
+ * 规程's solo match (shared/seasons.js soloBondGroups, `opts.soloGroups`; not a custom ruleset, which keeps its own counts):
+ * the core bonds are not drawn by count but split in two (`groups`, each in table order): the same shuffle of the core
+ * list as the official draw, its first ⌊n/2⌋ the right group, the rest the left one. The briefing picks the group that
+ * plays (match/phases.js pickBondGroup); until then the left one does, so D holds the right one — the core bonds the
+ * count draw takes at 5 of 10, and no other draw moves.
  * @param {import('./gamedata.js').GameData} gd
  * @param {Function} rng seeded rng (createRng)
- * @param {{ coreBan?: boolean }} [opts]
- * @returns {{ drawn: string[], staticOff: string[], banned: string[] }}
+ * @param {{ coreBan?: boolean, soloGroups?: boolean }} [opts]
+ * @returns {{ drawn: string[], staticOff: string[], banned: string[], groups: string[][] | null, addonDrawn: string[] }} `addonDrawn`:
+ *   the add-on bonds of the draw (a group pick keeps them)
  */
-export function drawDisabledBonds(gd, rng, { coreBan = false } = {}) {
+export function drawDisabledBonds(gd, rng, { coreBan = false, soloGroups = false } = {}) {
   const { core: nCore, addon: nAddon } = gd.bans(gd.difficulty);
   const staticOff = [...gd.modeInactiveBonds].filter((b) => gd.bond(b)).sort();
   const eligible = gd.bondIds.filter((b) => {
@@ -53,14 +59,31 @@ export function drawDisabledBonds(gd, rng, { coreBan = false } = {}) {
   const addon = eligible.filter((b) => !gd.bond(b).isCore);
   const random = (b) => gd.bondPick(b) == null;
   const forced = eligible.filter((b) => gd.bondPick(b) === 'ban');
-  const drawn = [...new Set([...forced, ...sample(core, nCore, rng, random), ...sample(addon, nAddon, rng, random)])].sort();
-  const off = new Set([...drawn, ...staticOff]);
-  const banned = [];
-  const isCore = (b) => !!gd.bond(b)?.isCore;
-  for (const id of gd.visibleChess) {
-    if (bondsOff(gd.chess(id)?.bonds, off, { coreBan, isCore })) banned.push(id);
+  let groups = null;
+  let coreDrawn;
+  if (soloGroups && gd.isSolo && !gd.custom && core.length >= 2) {
+    const order = sample(core, core.length, rng);
+    const half = Math.floor(order.length / 2);
+    const inOrder = (set) => core.filter((b) => set.has(b));
+    groups = [inOrder(new Set(order.slice(half))), inOrder(new Set(order.slice(0, half)))];
+    coreDrawn = groups[1];
+  } else {
+    coreDrawn = sample(core, nCore, rng, random);
   }
-  return { drawn, staticOff, banned };
+  const addonDrawn = sample(addon, nAddon, rng, random).sort();
+  const drawn = [...new Set([...forced, ...coreDrawn, ...addonDrawn])].sort();
+  return { drawn, staticOff, banned: bannedChessFor(gd, new Set([...drawn, ...staticOff]), coreBan), groups, addonDrawn };
+}
+
+/**
+ * The visible chess banned when `off` are the bonds off this match (drawn + the mode's static list): every bond of it
+ * off, or with `coreBan` every core bond of it (shared/seasons.js bondsOff). No randomness.
+ * @param {import('./gamedata.js').GameData} gd @param {Set<string>} off @param {boolean} [coreBan]
+ * @returns {string[]}
+ */
+export function bannedChessFor(gd, off, coreBan = false) {
+  const isCore = (b) => !!gd.bond(b)?.isCore;
+  return gd.visibleChess.filter((id) => bondsOff(gd.chess(id)?.bonds, off, { coreBan, isCore }));
 }
 
 /** `n` of `arr` in a shuffled order — the first ones `ok` takes (all: the official sample). */

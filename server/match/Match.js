@@ -376,7 +376,14 @@ export class Match {
     this.factions = setup.factions;
     this.bossId = setup.bossId;
     this.hiddenBossId = setup.hiddenBossId;
-    const bans = drawDisabledBonds(this.gd, this.rngSetup, { coreBan: seasonFeature(this.season, 'coreBondBan') });
+    const bans = drawDisabledBonds(this.gd, this.rngSetup, { coreBan: seasonFeature(this.season, 'coreBondBan'), soloGroups: seasonFeature(this.season, 'soloBondGroups') });
+    /**
+     * 规程 solo (shared/seasons.js soloBondGroups): the two core bond groups the briefing picks from (`picked` plays, the
+     * other is in disabledBonds; `addon`: the add-on bonds drawn off, which a pick keeps — match/phases.js pickBondGroup),
+     * null elsewhere
+     * @type {{ groups: string[][], picked: number, addon: string[] } | null}
+     */
+    this.bondGroups = bans.groups ? { groups: bans.groups, picked: 0, addon: bans.addonDrawn } : null;
     this.disabledBonds = bans.drawn;
     this.staticInactiveBonds = bans.staticOff;
     this.bannedChess = bans.banned;

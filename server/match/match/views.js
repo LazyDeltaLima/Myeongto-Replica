@@ -135,6 +135,8 @@ export class MatchViews {
       disabledBonds: [...new Set([...this.disabledBonds, ...this.staticInactiveBonds])].sort(),
       drawnDisabledBonds: this.disabledBonds.slice(),
       bannedChess: this.bannedChess.slice(),
+      // 规程 solo (match/phases.js pickBondGroup): the briefing's two core bond groups and the one that plays
+      ...(this.bondGroups ? { bondGroups: { groups: this.bondGroups.groups.map((g) => g.slice()), picked: this.bondGroups.picked } } : {}),
       bossId: this.bossId,
       hiddenBossId: this.hiddenBossId,
       bossRound: this.gd.bossRound,

@@ -11,6 +11,8 @@ import { buildNormalWave, buildBossWave } from '../waves.js';
 import { pairPlayers } from '../finalAssault.js';
 import { botPickBand } from '../bot.js';
 import { OK, fail, DELAYS, BAND_TURN_SECONDS, INFO_CHECK_SECONDS, DRAFT_CONFIRM_SECONDS } from './common.js';
+import { SharedPool, bannedChessFor } from '../pool.js';
+import { seasonFeature } from '../../../shared/seasons.js';
 
 /** The briefing's 重新抽取 is refused this long after INFO_CHECK starts (ms; MatchPhases.voteReroll). */
 export const INFO_REROLL_MIN_MS = 1000;
@@ -81,6 +83,36 @@ export class MatchPhases {
     if (!this.infoRerollers.includes(ps.playerId)) this.infoRerollers.push(ps.playerId);
     this.markPublic();
     this.maybeEndInfo();
+    return OK;
+  }
+
+  /**
+   * g.bondGroup { idx }: 规程 solo's briefing picks the core bond group that plays this match (this.bondGroups, drawn by
+   * pool.js drawDisabledBonds; the left one, 0, until a pick [ASSUMED: the maintainer's memory of the official briefing —
+   * no recording shows the press or the first screen]);
+   * the other group is off — its bonds join the drawn absent set, and the shared pool and the bans are made again from
+   * it (nothing has drawn from the pool before the strategy draft; the 自选 stock likewise: in 规程 it is empty until
+   * 确定自选编队). Picked again as often as the player likes while the seat is not ready (准备就绪 is final); an AI seat
+   * and a seat under AI 托管 are ready at once and keep the group shown. docs/rules/sim.md 「1인 규정 핵심 맹약 두 묶음」.
+   */
+  pickBondGroup(ps, idx) {
+    const g = this.bondGroups;
+    if (!g) return fail(ERR.BAD_TARGET, 'no bond groups this match');
+    if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome) return fail(ERR.WRONG_PHASE);
+    if (ps.infoReady) return fail(ERR.WRONG_PHASE, 'already ready');
+    if (!Number.isInteger(idx) || idx < 0 || idx >= g.groups.length) return fail(ERR.BAD_TARGET);
+    if (idx === g.picked) return OK;
+    g.picked = idx;
+    const drawn = [...new Set([...g.addon, ...g.groups.filter((_, i) => i !== idx).flat()])].sort();
+    const off = new Set([...drawn, ...this.staticInactiveBonds]);
+    this.disabledBonds = drawn;
+    this.bannedChess = bannedChessFor(this.gd, off, seasonFeature(this.season, 'coreBondBan'));
+    this.pool = new SharedPool(this.gd, { banned: this.bannedChess });
+    for (const p of this.order) {
+      p.initDiyStock(off);
+      this.markPrivate(p);
+    }
+    this.markPublic();
     return OK;
   }
 

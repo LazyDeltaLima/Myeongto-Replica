@@ -22,6 +22,8 @@ export class MatchIntents {
         return OK;
       // the briefing's reroll vote (MatchPhases.maybeEndInfo), separate from ready (`cancel` takes it back)
       case 'g.infoReroll': return this.voteReroll(ps, msg.cancel === true);
+      // 规程 solo's briefing: the core bond group that plays (MatchPhases.pickBondGroup)
+      case 'g.bondGroup': return this.pickBondGroup(ps, msg.idx);
       // the in-match 重新开始 vote (MatchRestart.voteRestart): propose / yes / no / cancel
       case 'g.restart': return this.voteRestart(ps, msg.op);
       case 'g.band': return this.pickBand(ps, msg.bandId);

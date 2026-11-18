@@ -580,6 +580,9 @@ export const C2S = {
   // the briefing's 重新抽取 vote (server/match/match/phases.js maybeEndInfo): ready OR reroll; `cancel: true` takes a
   // reroll vote back while the vote is open
   'g.infoReroll': { cancel: isBool, $optional: ['cancel'] },
+  // 规程 solo's briefing (server/match/match/phases.js pickBondGroup): the core bond group that plays, 0 = left, 1 = right
+  // (m.public bondGroups); again while the seat is not ready
+  'g.bondGroup': { idx: (v) => isInt(v, 0, 1) },
   // the in-match 重新开始 vote (server/match/match/restart.js): propose it, answer it, or the proposer takes it back
   'g.restart': { op: (v) => v === 'propose' || v === 'yes' || v === 'no' || v === 'cancel' },
   'g.band': { bandId: isId },

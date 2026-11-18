@@ -41,6 +41,8 @@ function randomIntent(rng, m, ps) {
     // 确定自选编队 (规程 only): slot ids, some outside any lineup (the default season has no such step: WRONG_PHASE)
     case 'g.diyChoose': return { t, slots: Array.from({ length: rng.int(4) }, () => rng.pick(['chess_char_5_diy1_a', 'chess_char_6_diy2_a', 'chess_char_5_diy6_a', 'x'])) };
     case 'g.diyReady': return { t, cancel: rng() < 0.3 };
+    // 规程 solo's briefing group (the default season has none: BAD_TARGET)
+    case 'g.bondGroup': return { t, idx: rng.int(2) };
     // 规程's active 指令: no target, a piece, a shop slot or a tile (the default season has none: BAD_TARGET)
     case 'g.bandSkill': return rng.pick([{ t }, { t, uid: uid() }, { t, slot: rng.int(16) }, { t, row: rng.int(19), col: rng.int(21) }]);
     default: return { t };

@@ -851,7 +851,8 @@ leaker's own capsule / row (`ui/hud.js uniteRemaining`) and the leakers' team ro
 ## 5. Views (DESIGN §8.2 / §8.3) and deviations
 
 `m.public` (throttled ≤ 10/s, only sent when it changed) carries the DESIGN fields plus: `drawnDisabledBonds` (the 3+4
-drawn set; `disabledBonds` = drawn ∪ the mode's static list), `hiddenBossId`, `bossRound`, `hiddenRound`, `spRound`,
+drawn set; `disabledBonds` = drawn ∪ the mode's static list), `bondGroups {groups, picked}` (规程 solo only: the
+briefing's two core bond groups, the one not picked is in the drawn set — `g.bondGroup`), `hiddenBossId`, `bossRound`, `hiddenRound`, `spRound`,
 `combatMode` (`'client'` | `'server'`), `fields[].progress { killed, total, done }` (teammates' progress UI), `paused`
 (solo pause, §1.3a),
 `players[].autoplay`, `players[].uniteLeft` (UNITE, leakers only: their enemies still standing, uncapped — §4),

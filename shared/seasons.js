@@ -62,6 +62,11 @@ export const SEASON_FEATURES = Object.freeze({
    * 卫戍协议/帮助 §联防阶段 "自卫戍协议：规程·序列Ⅰ起，作战结束时为退场状态的干员在联防阶段将继承剩余再部署时间"; server/match/unite.js);
    * the 盟约 one starts its full redeploy time again (docs/rules/sim.md 「규정 연합 방어 — 남은 재배치 시간」). */
   uniteKeepsRedeploy: false,
+  /** A solo match splits the core bonds its mode keeps on into two random halves, and the briefing picks the half that
+   * plays (g.bondGroup; the left one until the player picks): the other half is this match's absent core bonds, drawn
+   * instead of the core count (server/match/pool.js drawDisabledBonds, match/phases.js pickBondGroup; the season's
+   * official briefing, docs/rules/sim.md 「1인 규정 핵심 맹약 두 묶음」). The 盟约 solo draws its absent core bonds. */
+  soloBondGroups: false,
 });
 
 /**
@@ -90,7 +95,7 @@ export const SEASONS = {
   // from 2.0.0
   act3autochess: Object.freeze({ id: 'act3autochess', public: true, name: N_('规程'), mark: 'REGULATION',
     features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, benchInBattle: true, stagePreview: true, bossLayerGains: true, coreBondBan: true, bountyMark: true, equipReport: true,
-      leaderTakesErosion: true, uniteKeepsRedeploy: true }) }),
+      leaderTakesErosion: true, uniteKeepsRedeploy: true, soloBondGroups: true }) }),
 };
 
 /**
