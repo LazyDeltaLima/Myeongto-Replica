@@ -301,7 +301,7 @@ test('娜仁图亚\'s 萨尔贡 6 in battle: the default season\'s ATK stacks, n
 
 // 哈洛德 人才盲盒 「（等阶不高于当前调度中心）」: only <维多利亚> chess up to the shop level. With 维多利亚 off this match the pool
 // keeps the 维多利亚 operators with another core bond on; when that leaves only 烛煌 (T6, 炎) it used to come at R4 through
-// an any-tier fallback (盟约's rule). docs/rules/sim.md 「해럴드 인재 랜덤박스의 단계」.
+// an any-tier fallback. docs/rules/sim.md 「해럴드 인재 랜덤박스의 단계」.
 test('哈洛德 规程: the grant never passes the shop level — nothing when no <维多利亚> chess that low is in the pool', () => {
   const vic = chessOf('victoriaShip');
   const poolVic = (m) => vic.filter((id) => m.pool.has(id) && m.pool.left(id) > 0);

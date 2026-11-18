@@ -880,14 +880,20 @@ test('coverage: every band is exercised by a test above', () => {
 
 void giveItem;
 
-test('哈洛德 盟约: the text names no tier — ≤ shop level first, else any tier [ASSUMED·server]', () => {
+// 盟约's text names no tier; it takes 规程's cap: nothing when no <维多利亚> chess ≤ shop level is left (maintainer decision
+// 2026-11-18, provisional [ASSUMED·server]). docs/rules/sim.md 「해럴드 인재 랜덤박스의 단계」.
+test('哈洛德 盟约: never above the shop level — nothing when the pool has no <维多利亚> chess that low [ASSUMED·server]', () => {
   const { m, ps, roundStart } = setup({ band: 'band_harold', seed: 18 });
   ps.shop.level = 1;
   for (const c of Object.values(DATA.chess)) {
     if (c.visible && !c.isGolden && c.tier <= 1 && c.bonds.includes('victoriaShip') && m.pool.has(c.chessId)) m.pool.take(c.chessId, m.pool.left(c.chessId));
   }
+  assert.ok(Object.values(DATA.chess).some((c) => c.visible && !c.isGolden && c.tier > 1 && c.bonds.includes('victoriaShip') && m.pool.left(c.chessId) > 0), 'higher-tier <维多利亚> left in the pool');
   const grants = spyGrants(ps);
   roundStart(4);
-  assert.equal(grants.length, 1, 'still one operator');
-  assert.ok(DATA.chess[grants[0]].bonds.includes('victoriaShip') && DATA.chess[grants[0]].tier > 1, grants[0]);
+  assert.deepEqual(grants, [], 'no T1 <维多利亚> left: nothing, no higher tier');
+  ps.shop.level = 2;
+  roundStart(6);
+  assert.equal(grants.length, 1, 'shop level 2: one operator');
+  assert.ok(DATA.chess[grants[0]].bonds.includes('victoriaShip') && DATA.chess[grants[0]].tier === 2, grants[0]);
 });
