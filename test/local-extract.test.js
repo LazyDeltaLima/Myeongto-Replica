@@ -222,6 +222,21 @@ print(json.dumps([
     assert.deepEqual(out[4], { x: -118.4, y: 56, w: 2048, h: 2048 }, 'half a pair: the RectTransform');
   });
 
+  // the waiting room's seat card draws the 立绘 by the prefab's RectTransform, not by the stored pair (measured on the
+  // official settlement cards: two skin arts land at one scale and one centre by their RectTransforms only), and the
+  // art written is card_crop's crop: its rect must place the same pixels the crop's frame does
+  test('illust_rect + part_in: the RectTransform frame, carried through the card crop', () => {
+    const rt = { m_AnchoredPosition: { x: -118.4, y: 56 }, m_SizeDelta: { x: 2048, y: 2048 } };
+    const store = { _objects: [], _values: [{ key: 'ILLUST_OFFSET', value: '-112.3333,59.3333,0', type: 1 }, { key: 'ILLUST_SIZE', value: '1770.906,1770.906,0', type: 1 }] };
+    const [withStore, none, part] = cardPy(`print(json.dumps([c.illust_rect(${JSON.stringify([store, rt])}), c.illust_rect(${JSON.stringify([store])}),
+  c.part_in({'x': 10, 'y': -20, 'w': 50, 'h': 100}, {'x': 0, 'y': 0, 'w': 100, 'h': 200}, {'x': 5, 'y': 6, 'w': 200, 'h': 300})]))`);
+    const why = 'chararts_extract.py illust_rect must read the RectTransform even when a stored pair exists (docs/rules/ui.md 「명함 오퍼레이터」)';
+    assert.deepEqual(withStore, { x: -118.4, y: 56, w: 2048, h: 2048 }, why);
+    assert.equal(none, null);
+    // the piece's centre is 10 / −20 frame units off the whole art's: ×2 and ×1.5 in the other frame, its size likewise
+    assert.deepEqual(part, { x: 25, y: -24, w: 100, h: 150 });
+  });
+
   test('prefab_spine_nodes: the SkeletonAnimation renderers of a prefab tree, depth first, inactive branches marked', () => {
     // a directional token prefab: Graphic / DefaultSkin / FaceSwitcher / {Front, Back} (each with its own skeleton), an
     // inactive Spare renderer, a component in another bundle (m_FileID ≠ 0) and a MonoBehaviour without a type tree

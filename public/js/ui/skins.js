@@ -40,8 +40,8 @@ const str = (v) => (typeof v === 'string' && v ? v : null);
 /** A picture record of the lists (`{ path, w, h }`) as its URL, or null. */
 const pathOf = (v) => (isObj(v) && typeof v.path === 'string' && v.path.startsWith('/assets/') ? v.path : null);
 /** A 立绘 record's card frame (`{ x, y, w, h }`, frame units), or null. */
-const frameOf = (v) => {
-  const f = isObj(v) ? v.frame : null;
+const frameOf = (v, key = 'frame') => {
+  const f = isObj(v) ? v[key] : null;
   return isObj(f) && [f.x, f.y, f.w, f.h].every(Number.isFinite) && f.w > 0 && f.h > 0 ? { x: f.x, y: f.y, w: f.w, h: f.h } : null;
 };
 
@@ -94,8 +94,8 @@ export function clearSkin(charId) {
 
 /**
  * The catalogue from the two lists: the operators' skins grouped by owner in the list's order (the summons' own skins
- * are not chosen — they follow their owner's), each `{ id, name, illust, frame, avatar, portrait }` (null where a list has
- * no picture: the default one is drawn; `frame` the 立绘's card frame).
+ * are not chosen — they follow their owner's), each `{ id, name, illust, frame, rect, avatar, portrait }` (null where a list
+ * has no picture: the default one is drawn; `frame` the 立绘's unit-card frame, `rect` its seat-card frame).
  * @param {any} list skins.json @param {any} art art.json (may be null: no avatars / portraits)
  * @param {boolean} [hi] the 立绘's original-resolution copy (default: the page's choice, illust-res.js)
  */
@@ -108,7 +108,7 @@ export function buildSkinCatalog(list, art, hi = illustFull()) {
     if (!isObj(rec) || !isSkinId(id) || !isCharId(rec.owner)) continue;
     const a = isObj(pics[id]) ? pics[id] : {};
     const row = { id, owner: rec.owner, name: str(rec.name), illust: pathOf(illustEntry(rec.illust, hi)), frame: frameOf(rec.illust),
-      avatar: pathOf(a.avatar), portrait: pathOf(a.portrait) };
+      rect: frameOf(rec.illust, 'rect'), avatar: pathOf(a.avatar), portrait: pathOf(a.portrait) };
     if (!byOwner.has(rec.owner)) byOwner.set(rec.owner, []);
     byOwner.get(rec.owner).push(row);
     bySkin.set(id, row);
@@ -197,18 +197,21 @@ export function playerSkins(players, playerId, otherSkins = true) {
  * the skin data is downloaded (`ready`: chosen, nothing of it left — before that and while it downloads, the default
  * art: maintainer decision 2026-11-17) and that copy is in the cache (`cached`, resources.js resourceCached). Else null:
  * the card draws the default art.
+ * The waiting room's seat card asks the same with `by: 'rect'`: its frame is the 立绘's RectTransform (docs/rules/ui.md
+ * 「명함 오퍼레이터」), returned as `frame`.
  * @param {any} skinId @param {Array<any>} ids
- * @param {{ catalog?: any, ready?: boolean, cached?: (paths: string[]) => boolean }} [ctx]
+ * @param {{ catalog?: any, ready?: boolean, cached?: (paths: string[]) => boolean, by?: 'frame'|'rect' }} [ctx]
  * @returns {{ src: string, frame: { x: number, y: number, w: number, h: number } } | null}
  */
-export function cardSkinArt(skinId, ids, { catalog = skinsStore.get().catalog, ready = false, cached = () => false } = {}) {
+export function cardSkinArt(skinId, ids, { catalog = skinsStore.get().catalog, ready = false, cached = () => false, by = 'frame' } = {}) {
   const id = str(skinId);
   if (!id || !ready || !isObj(catalog) || !(catalog.bySkin instanceof Map)) return null;
   const row = catalog.bySkin.get(id);
-  if (!row || !row.illust || !row.frame || !(Array.isArray(ids) ? ids : []).includes(row.owner)) return null;
+  const frame = row ? row[by === 'rect' ? 'rect' : 'frame'] : null;
+  if (!row || !row.illust || !frame || !(Array.isArray(ids) ? ids : []).includes(row.owner)) return null;
   let ok = false;
   try { ok = !!cached([row.illust]); } catch { /* no cache record: the default art */ }
-  return ok ? { src: row.illust, frame: row.frame } : null;
+  return ok ? { src: row.illust, frame } : null;
 }
 
 /**

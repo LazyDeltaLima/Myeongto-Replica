@@ -246,9 +246,10 @@ describe('seat card skin', () => {
     assert.equal(ownerSkin(OP, { ownerId: 2, myId: 1, players: [seat(2, { [OP]: SKIN })] }), SKIN);
   });
 
-  test('the room draws the skin portrait first and falls back to the default one', () => {
+  test('the room draws the skin 立绘, then its portrait, and falls back to the default art', () => {
     const src = read('public/js/screens/room.js');
-    assert.match(src, /seatArtSrc\(\[skinArt, portrait\], badArt\)/);
+    assert.match(src, /seatPicture\(pics, badArt\)/);
+    assert.match(src, /cardSkinArt\(skin, \[op\.chess\.charId\], \{ catalog: skins\.catalog, ready: skinReady, cached: resourceCached, by: 'rect' \}\) : null,\s*skinRow \? \{ src: skinRow\.portrait \} : null,\s*seatIllust\(data\.get\('local'\), op\.chess, illustHi\),\s*\{ src: chessPortraitUrl\(m, op\.chess\) \},/);
     assert.match(src, /seatCardSkin\(s, op\.chess\.charId, \{ myId: me\.playerId, localSkins: skins\[SKINS_KEY\], otherSkins, pack: skinPack \}\)/);
   });
 });
@@ -270,6 +271,12 @@ describe('detail card skin 立绘', () => {
     assert.equal(cardSkinArt(NOART, [OP], { catalog: lo, ready: true, cached: () => true }), null);
     assert.equal(cardSkinArt(null, [OP], { catalog: lo, ready: true, cached }), null);
     assert.equal(cardSkinArt(SKIN, [OP], { catalog: 'missing', ready: true, cached }), null);
+    // the seat card's frame is the 立绘's RectTransform (docs/rules/ui.md 「명함 오퍼레이터」): none in the list → none
+    const RECT = { x: -29.5, y: 188.1, w: 1656.2, h: 1656.2 };
+    const withRect = { skins: { ...LIST.skins, [SKIN]: { ...LIST.skins[SKIN], illust: { ...LIST.skins[SKIN].illust, rect: RECT } } } };
+    assert.deepEqual(cardSkinArt(SKIN, [OP], { catalog: buildSkinCatalog(withRect, ART, false), ready: true, cached, by: 'rect' }), { src: ILL, frame: RECT });
+    assert.deepEqual(cardSkinArt(SKIN, [OP], { catalog: buildSkinCatalog(withRect, ART, false), ready: true, cached }), { src: ILL, frame: FRAME }, 'the unit card keeps its own frame');
+    assert.equal(cardSkinArt(SKIN, [OP], { catalog: lo, ready: true, cached, by: 'rect' }), null, 'no RectTransform frame: the seat card takes the portrait');
   });
 
   test('cardArt: the skin 立绘 replaces the default art and its frame', () => {

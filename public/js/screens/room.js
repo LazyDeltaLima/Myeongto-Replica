@@ -13,11 +13,12 @@
 // sends room.setRuleset, room.setSize and room.setDifficulty, the dialog closes once the server took them; everybody
 // else (and the host while the room matchmakes) opens it read-only and sees no switch. 自定义 rules are edited (host) or
 // viewed there, by the ⚙ of the 规则 row (ui/customRules.js).
-// 名片干员 (ui/seatArt.js): a Doctor's card shows an operator's portrait — the one the player picked (更换立绘 on one's own
+// 名片干员 (ui/seatArt.js): a Doctor's card shows an operator's 立绘 — the one the player picked (更换立绘 on one's own
 // seat opens the picker; kept as a pref and sent as room.card by ui/cardSync.js, so the room sees it as seats[].card),
-// else one of the 5★/6★ operators chosen by the player id, the same on every client. Without the art the card keeps its
-// avatar frame; a bot keeps its robot frame. The operator wears its player's skin (seatCardSkin: the skin's portrait,
-// with the skin data; the default portrait when that one fails).
+// else one of the 5★/6★ operators chosen by the player id, the same on every client. The 立绘 is placed by its prefab's
+// RectTransform as the official player card places it (seatIllust; the 180×360 portrait without it). Without any art the
+// card keeps its avatar frame; a bot keeps its robot frame. The operator wears its player's skin (seatCardSkin: the
+// skin's 立绘 with the skin data, else its portrait; the default art when those fail).
 //
 // Start rule (server/lobby.js): room.start needs every *other* human connected and ready; the
 // host's start counts as the host's ready. So 开始模拟 is enabled exactly then and sends room.start
@@ -74,9 +75,10 @@ import { customSummary } from '../ui/customSummary.js';
 import { data, useData, getBond, getBoss, getConfig, getMode } from '../data.js';
 import { chessAvatarUrl, chessPortraitUrl, uiUrl } from '../ui/assetUrls.js';
 import { Sprite } from '../ui/gameComponents.js';
-import { CARD_KEY, cardStore, setCard, cardOperators, cardContext, seatOperator, seatArtSrc, seatCardSkin } from '../ui/seatArt.js';
-import { skinsStore, SKINS_KEY, loadSkinCatalog, skinArt, skinPic } from '../ui/skins.js';
-import { resStore } from '../resources.js';
+import { CARD_KEY, cardStore, setCard, cardOperators, cardContext, seatOperator, seatPicture, seatIllust, seatCardSkin } from '../ui/seatArt.js';
+import { skinsStore, SKINS_KEY, loadSkinCatalog, skinArt, skinPic, cardSkinArt } from '../ui/skins.js';
+import { resStore, resourceCached, skinPackState } from '../resources.js';
+import { illustStore } from '../illust-res.js';
 import { DEFAULT_SEASON, seasonOf } from '../../../shared/seasons.js';
 import { RoomSeasonSeg, seasonName, seasonQueueCounts, seasonQuickCounts } from '../ui/season.js';
 
@@ -402,7 +404,7 @@ function useSeatBox() {
  * empty name card's place — nothing else (maintainer decision 2026-11-08); a spectator or a matching room sees the
  * event's waiting figure. A portrait that fails to load gives way to the avatar frame.
  */
-function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, portrait = null, skinArt = null, operator = null, onPickCard = null, toSpectate = null, firstEmpty = false }) {
+function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, pics = [], operator = null, onPickCard = null, toSpectate = null, firstEmpty = false }) {
   const [badArt, setBadArt] = useState(/** @type {string[]} */ ([]));
   const menu = useUpMenu();
   const coop = room.mode !== 'solo';
@@ -433,7 +435,11 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
   // The host never needs to toggle ready: starting the match readies them (server rule).
   const state = offline ? 'offline' : seat.ready || seat.isBot ? 'ready' : isHostSeat ? 'host' : 'waiting';
   const lit = state === 'ready' || state === 'host';
-  const art = seat.isBot ? null : seatArtSrc([skinArt, portrait], badArt);
+  const pic = seat.isBot ? null : seatPicture(pics, badArt);
+  const art = pic ? pic.src : null;
+  // a 立绘 by its RectTransform frame (room.css .rseat__art img.is-rect); a 180×360 portrait fills the box's width
+  const fr = pic && pic.frame;
+  const artStyle = fr ? `--rx:${fr.x};--ry:${fr.y};--rw:${fr.w};--rh:${fr.h}` : null;
   const canPick = isMe && !seat.isBot && !!onPickCard;
   const name = playerName(seat.name) || t('博士');
   const mark = seat.isBot ? null : html`<${SeatMark} playerId=${seat.playerId} name=${seat.name} />`;
@@ -443,7 +449,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
     <span class="rseat__bg" aria-hidden="true"></span>
     <div class="seat__art rseat__art">
       ${art
-        ? html`<img key=${art} class="seat__portrait" src=${art} alt=${operator?.name || ''} title=${operator?.name || ''} draggable=${false} onError=${() => setBadArt((b) => (b.includes(art) ? b : [...b, art]))} />`
+        ? html`<img key=${art} class=${`seat__portrait${fr ? ' is-rect' : ''}`} style=${artStyle} src=${art} alt=${operator?.name || ''} title=${operator?.name || ''} draggable=${false} onError=${() => setBadArt((b) => (b.includes(art) ? b : [...b, art]))} />`
         : html`<${AvatarFrame} size="xl" name=${seat.name} seat=${index} bot=${seat.isBot} self=${isMe} ready=${state === 'ready'} offline=${offline} mark=${mark} />`}
     </div>
     <span class="rseat__matte" aria-hidden="true"></span>
@@ -658,7 +664,8 @@ export function RoomScreen() {
   // 名片干员: the operators a seat card can show and the default pool (ui/seatArt.js), one's own pick (a pref the sync
   // sends: ui/cardSync.js)
   // factions: the 特训敌人 names of a custom room's summary (the invitation text)
-  useData('chess', 'assets', 'backups', 'factions');
+  // local: the 立绘 (chararts) the seat cards draw by their RectTransform frame (ui/seatArt.js seatIllust)
+  useData('chess', 'assets', 'backups', 'factions', 'local');
   const chess = data.get('chess');
   const backups = data.get('backups');
   const cardList = useMemo(() => cardOperators(data.list('chess'), backups), [chess, backups]);
@@ -668,6 +675,8 @@ export function RoomScreen() {
   const skins = useStore((s) => s, Object.is, skinsStore);
   const skinPack = useStore((s) => s.chosen?.skin === true, Object.is, resStore);
   const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);
+  const illustHi = useStore((s) => s.hi, Object.is, illustStore); // the 立绘 copy: a change redraws the cards
+  const skinReady = useStore((r) => skinPackState(r) === 'done', Object.is, resStore);
   useEffect(() => { if (skinPack) void loadSkinCatalog(); }, [skinPack]);
   const [picking, setPicking] = useState(false);
   // 选择模拟协议 over the room (open, and the host's picks before 确认)
@@ -894,10 +903,18 @@ export function RoomScreen() {
       ${facts.seats.map((s, i) => {
         const op = seatOperator(s, cards, { myId: me.playerId, myCard });
         const skin = op ? seatCardSkin(s, op.chess.charId, { myId: me.playerId, localSkins: skins[SKINS_KEY], otherSkins, pack: skinPack }) : null;
-        const skinArt = skin && skins.catalog?.bySkin?.get(skin)?.owner === op.chess.charId ? skins.catalog.bySkin.get(skin).portrait : null;
+        const skinRow = skin && skins.catalog?.bySkin?.get(skin)?.owner === op.chess.charId ? skins.catalog.bySkin.get(skin) : null;
+        // the skin's 立绘 (once the skin data is downloaded and that copy cached), its portrait, then the default 立绘 and
+        // portrait — each giving way to the next when it fails to load (docs/rules/ui.md 「명함 오퍼레이터」)
+        const pics = op ? [
+          skinRow ? cardSkinArt(skin, [op.chess.charId], { catalog: skins.catalog, ready: skinReady, cached: resourceCached, by: 'rect' }) : null,
+          skinRow ? { src: skinRow.portrait } : null,
+          seatIllust(data.get('local'), op.chess, illustHi),
+          { src: chessPortraitUrl(m, op.chess) },
+        ] : [];
         return html`<${SeatCard} key=${s ? `p${s.playerId}` : `e${i}`} seat=${s} index=${i} room=${room} facts=${facts}
           myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick} onInvite=${() => copy('code')}
-          portrait=${op ? chessPortraitUrl(m, op.chess) : null} skinArt=${skinArt} operator=${op?.chess} onPickCard=${() => setPicking(true)} toSpectate=${toSpectate}
+          pics=${pics} operator=${op?.chess} onPickCard=${() => setPicking(true)} toSpectate=${toSpectate}
           firstEmpty=${!s && i === firstEmpty} />`;
       })}
       ${coop ? null : html`<aside class="solo-brief rs-brief brackets">

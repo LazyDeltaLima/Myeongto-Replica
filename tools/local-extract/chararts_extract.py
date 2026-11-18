@@ -13,8 +13,9 @@ illust_frame. This writes, for every charId the mode uses
   chararts/<charId>.webp        the default art, the full canvas, long side ≤ 1024, lossy q85 with alpha
   chararts/full/<charId>.webp   the same at the client texture's own size, when that is larger (save_illust)
 and merges a `chararts` group into data/local-assets.json (re-read right before writing; other groups kept):
-  chararts → { <charId>: { path, w, h, kind: 'Illust', frame: { x, y, w, h }, full?: { path, w, h } } }
-  frame = the card's illust frame (illust_frame, in frame units: the same for both copies)
+  chararts → { <charId>: { path, w, h, kind: 'Illust', frame: { x, y, w, h }, rect?: { x, y, w, h }, full?: { path, w, h } } }
+  frame = the unit card's illust frame (illust_frame), rect = the same picture by the player card's frame (illust_rect,
+  the waiting room's seat card), both in frame units: the same for both copies
 
 Two copies (maintainer decision 2026-11-16): a phone takes the 1024 one, every other device the original resolution
 (public/js/illust-res.js); the card drew the 1024 copy 1.3–2.4 times enlarged on a desktop. tools/build-browser-resources.mjs
@@ -143,6 +144,27 @@ def illust_frame(components):
     return stored or rect
 
 
+def illust_rect(components):
+    """The `illust_*` prefab's own RectTransform (`m_AnchoredPosition`, `m_SizeDelta`: the centre's offset, y up, and
+    the size), the frame a player card draws the art by — not the battle's unit card, which prefers the stored pair
+    (illust_frame). Measured on the maintainer's 1920×1080 screenshot of the official settlement cards (two skin arts
+    whose stored pairs and RectTransforms differ): the RectTransform puts both at one scale and one centre, the stored
+    pair does not (docs/rules/ui.md 「명함 오퍼레이터」). None without one."""
+    for t in components:
+        if 'm_AnchoredPosition' in t and 'm_SizeDelta' in t:
+            p, s = t['m_AnchoredPosition'], t['m_SizeDelta']
+            return {'x': p['x'], 'y': p['y'], 'w': s['x'], 'h': s['y']}
+    return None
+
+
+def part_in(part, frame, other):
+    """`part` — a frame in `frame`'s units placing a piece of the art that `frame` draws whole (card_crop's crop) — in
+    the units of `other`, another frame the whole art is drawn by (illust_rect)."""
+    kx, ky = other['w'] / frame['w'], other['h'] / frame['h']
+    return {'x': other['x'] + (part['x'] - frame['x']) * kx, 'y': other['y'] + (part['y'] - frame['y']) * ky,
+            'w': part['w'] * kx, 'h': part['h'] * ky}
+
+
 def component_trees(go, objects):
     """The read typetrees of a GameObject typetree's own components (RectTransform, MonoBehaviours) in `objects`."""
     out = []
@@ -155,8 +177,9 @@ def component_trees(go, objects):
 
 
 def _read(env, stem):
-    """(texture, alpha texture, frame) of `stem` in a chararts bundle (frame: illust_frame of `illust_<stem>`)."""
-    tex = alpha = frame = None
+    """(texture, alpha texture, frame, rect) of `stem` in a chararts bundle (frame: illust_frame of `illust_<stem>`,
+    rect: its illust_rect)."""
+    tex = alpha = frame = rect = None
     objs = {o.path_id: o for o in env.objects}
     for o in env.objects:
         n = o.type.name
@@ -170,8 +193,9 @@ def _read(env, stem):
             g = o.read_typetree()
             if g.get('m_Name') != f'illust_{stem}':
                 continue
-            frame = illust_frame(component_trees(g, objs))
-    return tex, alpha, frame
+            trees = component_trees(g, objs)
+            frame, rect = illust_frame(trees), illust_rect(trees)
+    return tex, alpha, frame, rect
 
 
 def _image(tex, alpha):
@@ -207,12 +231,12 @@ def export_art(ab, cid, out_dir, max_side, quality, log, elite=2):
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
     import UnityPy
     env = UnityPy.load(str(ab))
-    tex, alpha, frame = _read(env, f'{cid}_1')
+    tex, alpha, frame, rect = _read(env, f'{cid}_1')
     used = 1
     if elite >= 2 or tex is None:  # the E2 art by its own frame; a form that only exists from E2 on has nothing else
-        tex2, alpha2, fr2 = _read(env, f'{cid}_2')
+        tex2, alpha2, fr2, rect2 = _read(env, f'{cid}_2')
         if tex2 is not None and (fr2 or tex is None):
-            tex, alpha, frame, used = tex2, alpha2, fr2, 2
+            tex, alpha, frame, rect, used = tex2, alpha2, fr2, rect2, 2
     if tex is None:
         return None
     img = _image(tex, alpha)
@@ -221,6 +245,8 @@ def export_art(ab, cid, out_dir, max_side, quality, log, elite=2):
         if got is None:
             log(f'{cid}: E{used} art outside the card window — written whole')
         else:
+            if rect:  # the crop by the player card's frame too
+                rect = part_in(fr, frame, rect)
             img, frame = got, fr
     w, h = img.size
     saved = save_illust(img, out_dir.parent, f'{out_dir.name}/{cid}.webp', max_side, quality)
@@ -229,6 +255,8 @@ def export_art(ab, cid, out_dir, max_side, quality, log, elite=2):
     entry = {'path': saved['path'], 'w': saved['w'], 'h': saved['h'], 'kind': 'Illust', 'elite': used}
     if frame:
         entry['frame'] = {k: round(v, 2) for k, v in frame.items()}
+    if rect:
+        entry['rect'] = {k: round(v, 2) for k, v in rect.items()}
     if 'full' in saved:
         entry['full'] = saved['full']
     return entry

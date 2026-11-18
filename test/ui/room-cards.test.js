@@ -61,6 +61,49 @@ test('seatArtSrc: the first picture not failed in this card, else none (the avat
   assert.equal(seatArtSrc([null, 'a.png'], ['a.png']), null);
 });
 
+test('seatPicture / seatIllust: the first picture not failed, a 立绘 with its RectTransform frame; no frame → no 立绘', async () => {
+  const { seatPicture, seatIllust } = await load('public/js/ui/seatArt.js');
+  const F = { x: -20.9, y: 96.5, w: 2143.4, h: 2143.4 };
+  assert.deepEqual(seatPicture([null, { src: 'i.webp', frame: F }, { src: 'p.png' }]), { src: 'i.webp', frame: F });
+  assert.deepEqual(seatPicture([{ src: 'i.webp', frame: F }, { src: 'p.png' }], ['i.webp']), { src: 'p.png', frame: null });
+  assert.equal(seatPicture([{ src: 'p.png' }], ['p.png']), null);
+  const local = { groups: { chararts: {
+    char_1: { path: '/a/char_1.webp', w: 600, h: 1024, frame: { x: 1, y: 2, w: 3, h: 4 }, rect: F, full: { path: '/a/full/char_1.webp', w: 900, h: 1536 } },
+    char_2: { path: '/a/char_2.webp', w: 600, h: 1024, frame: { x: 1, y: 2, w: 3, h: 4 } },
+  } } };
+  assert.deepEqual(seatIllust(local, { charId: 'char_1' }, false), { src: '/a/char_1.webp', frame: F });
+  assert.deepEqual(seatIllust(local, { charId: 'char_1' }, true), { src: '/a/full/char_1.webp', frame: F }, '高清: the full copy');
+  assert.equal(seatIllust(local, { charId: 'char_2' }, false), null, 'only the unit card\'s frame: the portrait instead (run chararts_extract.py)');
+  assert.equal(seatIllust(null, { charId: 'char_1' }, false), null);
+});
+
+// the seat card's 立绘 placement (room.css .rseat__art img.is-rect) reproduces what the official settlement cards were
+// measured to draw on the maintainer's 1920×1080 screenshot (docs/rules/ui.md 「명함 오퍼레이터」): in card units from
+// the art box's centre (y down), the drawn texture's size and centre for two skin arts of this checkout's skin list
+test('seat card 立绘 placement: room.css reproduces the measured official settlement cards', (t) => {
+  const css = readFileSync(path.join(ROOT, 'public/css/screens/room.css'), 'utf8');
+  const m = css.match(/\.rseat__art img\.is-rect \{ --k: calc\(([\d.]+) \* var\(--u\)\);[^}]*top: calc\(50% \+ ([\d.]+) \* var\(--u\)/);
+  assert.ok(m, 'room.css .rseat__art img.is-rect changed shape: update this test with it');
+  const [K, DY] = [+m[1], +m[2]];
+  let skins;
+  try { skins = json('public/assets/local/spine/skin/skins.json').skins; } catch { t.skip('no skin list in this checkout'); return; }
+  const seen = [
+    // skin key, drawn texture size (card units), its centre from the box's centre (x, y down)
+    ['char_1041_angel2@iteration#6', 1570.8, -16.3, -29.6],
+    ['char_213_mostma@ambienceSynesthesia#6', 1399.2, -2.4, -1.9],
+  ];
+  let ran = 0;
+  for (const [key, size, cx, cy] of seen) {
+    const r = skins[key]?.illust?.rect;
+    if (!r) continue;
+    ran++;
+    const why = `${key}: the seat card draws the 立绘 by its RectTransform at the measured scale and centre (docs/rules/ui.md 「명함 오퍼레이터」)`;
+    assert.ok(Math.abs(r.w * K / size - 1) < 0.012, `${why}: size ${r.w * K} vs ${size}`);
+    assert.ok(Math.abs(r.x * K - cx) < 2.5 && Math.abs(DY - r.y * K - cy) < 2.5, `${why}: centre (${r.x * K}, ${DY - r.y * K}) vs (${cx}, ${cy})`);
+  }
+  if (!ran) t.skip('the skin list has no RectTransform frames: run tools/local-extract/skin_extract.py --only art');
+});
+
 test('installCardSync: room.card after a welcome and after a pick, again on RATE, not again for the same pick', async () => {
   const { createStore } = await load('public/js/store.js');
   const { installCardSync } = await load('public/js/ui/cardSync.js');

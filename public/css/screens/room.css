@@ -172,7 +172,14 @@
   clip-path: inset(calc(20.6 * var(--u)) calc(34 * var(--u)) calc(71.4 * var(--u))); background: linear-gradient(rgba(40, 42, 42, .75), rgba(24, 25, 25, .55)); }
 /* the portrait box (group_char) under the matte (front_matte_normal) and the frame (bg_frame) */
 .rseat__art { left: 0; top: calc(25.9 * var(--u)); width: calc(234 * var(--u)); height: calc(460 * var(--u)); display: grid; place-items: center; overflow: hidden; }
-.rseat__art img { position: absolute; left: 50%; top: 0; height: 118%; width: auto; max-width: none; transform: translateX(-50%); }
+/* a 180×360 portrait (no 立绘 to draw): the box's width, its head at the top — the portrait is already a close crop */
+.rseat__art img { position: absolute; left: 0; top: 0; width: 100%; height: auto; max-width: none; }
+/* a 立绘 by its prefab's RectTransform (--rw × --rh frame units, centre offset --rx / --ry, y up; ui/seatArt.js
+   seatIllust): one frame unit = .7295 card units and the frame's centre 39.5 units below the box's centre — measured on
+   the maintainer's 1920×1080 screenshot of the official settlement cards (two skin arts at one scale within 1 % and one
+   centre within 2 units; docs/rules/ui.md 「명함 오퍼레이터」) */
+.rseat__art img.is-rect { --k: calc(.7295 * var(--u)); width: calc(var(--rw) * var(--k)); height: calc(var(--rh) * var(--k));
+  left: calc(50% + (var(--rx) - var(--rw) / 2) * var(--k)); top: calc(50% + 39.5 * var(--u) - (var(--ry) + var(--rh) / 2) * var(--k)); }
 .rseat__art > .avatar { --av: calc(150 * var(--u)); margin-top: calc(-80 * var(--u)); }
 .rseat.is-offline .rseat__art img { filter: grayscale(.8) brightness(.6); }
 .rseat__matte { left: 0; top: calc(25.8 * var(--u)); width: calc(234 * var(--u)); height: calc(460 * var(--u)); pointer-events: none;

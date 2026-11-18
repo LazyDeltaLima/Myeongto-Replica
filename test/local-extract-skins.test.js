@@ -56,7 +56,8 @@ s.sprite_picture = lambda sp, alpha=None: 'PIC'
 s.material_alpha = lambda ptr, objects: None
 tree = {'m_Component': [{'component': {'m_FileID': 0, 'm_PathID': i}} for i in (1, 2, 3)]}
 print(json.dumps(s.illust_picture(tree, objs)))`);
-    assert.deepEqual(out, ['PIC', { x: -35.01463, y: 195.0144, w: 1577.161, h: 1577.161 }], 'skin_extract.py illust_picture must take its frame from chararts_extract.illust_frame (docs/rules/ui.md 「스킨 고르기」)');
+    assert.deepEqual(out.slice(0, 2), ['PIC', { x: -35.01463, y: 195.0144, w: 1577.161, h: 1577.161 }], 'skin_extract.py illust_picture must take its frame from chararts_extract.illust_frame (docs/rules/ui.md 「스킨 고르기」)');
+    assert.deepEqual(out[2], { x: -29.5, y: 188.09, w: 1656.2, h: 1656.2 }, 'skin_extract.py illust_picture must give the seat card its RectTransform frame (chararts_extract.illust_rect; docs/rules/ui.md 「명함 오퍼레이터」)');
   });
 
   test('file_name stops on a character it has no rule for (a `-` too: it could make two names one)', () => {

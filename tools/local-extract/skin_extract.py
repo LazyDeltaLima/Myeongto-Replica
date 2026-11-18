@@ -44,8 +44,9 @@ Output (under --out, public/assets/local by default):
                           picker shows it through tName, whose Korean / English … come from the official skin tables of
                           those servers (tools/build-i18n.mjs skinNameRows; docs/rules/ui.md 「스킨 고르기」);
                           front / back = { skel, atlas, textures[], pma }; avatar / portrait = { path, w, h };
-                          illust = { path, w, h, frame: { x, y, w, h }, full?: { path, w, h } } (frame = the card's
-                          illust frame, chararts_extract.illust_frame, in frame units: the same for both copies)
+                          illust = { path, w, h, frame: { x, y, w, h }, rect?: { x, y, w, h }, full?: { path, w, h } }
+                          (frame = the unit card's illust frame, chararts_extract.illust_frame; rect = the player
+                          card's, chararts_extract.illust_rect; in frame units: the same for both copies)
 A skin whose model is missing gets no pictures either (the picker does not offer it).
 The index is a file of its own, not a data/local-assets.json group: that manifest goes to every page, the skins only to
 those who take the skin data. tools/build-browser-resources.mjs leaves the whole spine/skin/ folder out of the pre-download
@@ -349,8 +350,9 @@ def material_alpha(ptr, objects):
 
 
 def illust_picture(tree, objects):
-    """(picture, frame) of an `illust_<skin>` prefab's root: its Image sprite and the frame the battle's unit card draws
-    it by (chararts_extract.illust_frame: the stored ILLUST_OFFSET / ILLUST_SIZE, else the RectTransform; y up). The
+    """(picture, frame, rect) of an `illust_<skin>` prefab's root: its Image sprite, the frame the battle's unit card draws
+    it by (chararts_extract.illust_frame: the stored ILLUST_OFFSET / ILLUST_SIZE, else the RectTransform; y up) and the
+    frame a player card draws it by (chararts_extract.illust_rect: the RectTransform). The
     alpha of most skin 立绘 is not in the sprite: the Image's material (`illust_<skin>_material`) draws its `_AlphaTex`
     over the opaque texture; without a material the texture's own alpha counts. None when it has no sprite."""
     import chararts_extract
@@ -362,7 +364,7 @@ def illust_picture(tree, objects):
         if sp is not None and sp.type.name == 'Sprite':
             pic = sprite_picture(sp.read(), material_alpha(t.get('m_Material'), objects))
             break
-    return (pic, chararts_extract.illust_frame(trees)) if pic is not None else None
+    return (pic, chararts_extract.illust_frame(trees), chararts_extract.illust_rect(trees)) if pic is not None else None
 
 
 def save_picture(img, out_root, rel, kind):
@@ -429,6 +431,8 @@ def extract_pictures(owner, rows, games, index, out_root, log):
                 e = save_picture(pf[0], out_root, picture_rel(owner, row['prefab'], 'illust', row['pics']['illust']), 'illust')
                 if pf[1]:
                     e['frame'] = {k: round(v, 2) for k, v in pf[1].items()}
+                if pf[2]:
+                    e['rect'] = {k: round(v, 2) for k, v in pf[2].items()}
                 got[row['key']]['illust'] = e
                 del want[m.group(1)]
     missing = {}

@@ -11,6 +11,7 @@
 import { createStore, loadPref, savePref } from '../store.js';
 import { isLocalDiyPick } from '../../../shared/local-diy.js';
 import { ownerSkin } from './skins.js';
+import { illustEntry } from '../illust-res.js';
 
 /** 名片干员: the player's own pick (a localStorage pref, sent as room.card). */
 export const CARD_PREF = 'room.card';
@@ -116,6 +117,39 @@ export function seatOperator(seat, { byChar, pool, pending = false }, { myId, my
 export function seatArtSrc(srcs, failed = []) {
   for (const src of Array.isArray(srcs) ? srcs : []) if (src && !failed.includes(src)) return src;
   return null;
+}
+
+/**
+ * The seat card's pictures as `{ src, frame }` (frame: the 立绘's RectTransform, room.css draws it by that; null for a
+ * 180×360 portrait): the first of `pics` whose src has not failed in this card, else null (the avatar frame).
+ * @param {({ src?: string|null, frame?: any } | null | undefined)[]} pics in order of preference
+ * @param {readonly string[]} [failed]
+ * @returns {{ src: string, frame: { x: number, y: number, w: number, h: number } | null } | null}
+ */
+export function seatPicture(pics, failed = []) {
+  for (const p of Array.isArray(pics) ? pics : []) {
+    if (p && typeof p.src === 'string' && p.src && !failed.includes(p.src)) return { src: p.src, frame: rectOf(p.frame) };
+  }
+  return null;
+}
+
+const rectOf = (f) => (f && typeof f === 'object' && [f.x, f.y, f.w, f.h].every(Number.isFinite) && f.w > 0 && f.h > 0
+  ? { x: f.x, y: f.y, w: f.w, h: f.h } : null);
+
+/**
+ * The seat card's 立绘 of operator record `chess`: the local art (data/local-assets.json `chararts`, keyed by tmplId /
+ * charId; the chosen copy, illustEntry) by its RectTransform frame (`rect`, tools/local-extract/chararts_extract.py
+ * illust_rect: the frame the official player card draws it by, docs/rules/ui.md 「명함 오퍼레이터」). null without the
+ * art or the frame: the card falls back to the 180×360 portrait.
+ * @param {any} local data/local-assets.json @param {any} chess @param {boolean} [hi] the original-resolution copy
+ * @returns {{ src: string, frame: { x: number, y: number, w: number, h: number } } | null}
+ */
+export function seatIllust(local, chess, hi) {
+  const id = (typeof chess?.tmplId === 'string' && chess.tmplId) || chess?.charId;
+  const e = typeof id === 'string' && id ? local?.groups?.chararts?.[id] : null;
+  const frame = rectOf(e?.rect);
+  const src = frame ? illustEntry(e, hi)?.path : null;
+  return typeof src === 'string' && src ? { src, frame } : null;
 }
 
 /**
