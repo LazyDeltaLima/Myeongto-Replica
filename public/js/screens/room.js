@@ -2,7 +2,7 @@
 // 2026-11-08): tall seat cards (the 名片干员 portrait or the avatar frame, 创建者 / AI 队友, the state at the bottom — the
 // host's card shows 创建者 there, the host never readies —, the name plate under the card; an empty seat offers 邀请 —
 // copies the key — and, to the host, 添加 AI 队友, nothing else; the host's 移出 / 移除 AI 队友 at a card's top right),
-// the top bar (leave — the briefing's red square —, mode and ping, 统计 / 设置 / 玩法说明, the 同盟密钥 with 复制 / the
+// the top bar (leave — the briefing's red square —, mode and ping, 统计 / 设置 / 全屏, the 同盟密钥 with 复制 / the
 // link), the room chat at the left with 干员调配 under it (on a short screen the chat is the same column and 干员调配 stays
 // in the top bar), and the bottom: the ready count, the status line, the 观战席 and 「AI 队友最后选择」, then the mode bar,
 // 匹配补位 and the big 开始模拟 / 准备就绪 button.
@@ -52,13 +52,12 @@ import {
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { copyText } from '../ui/clipboard.js';
-import { GuideButton } from '../ui/guide.js';
 import { openStats } from './stats.js';
 import { SettingsButton, settingsStore } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { ConsoleToggle } from '../ui/consoleToggle.js'; // local patch: 콘솔 모드
 import { net } from '../net.js';
-import { useDocClass, useMediaQuery, SHORT_SCREEN_QUERY } from '../ui/device.js';
+import { useDocClass, useMediaQuery, SHORT_SCREEN_QUERY, FullscreenButton } from '../ui/device.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating, reservedRank, savePref } from '../store.js';
 import { difficultyInfo, gradeInfo, gradeName, ProtocolSelect, ProtoRules, CustomBrief } from './lobby.js';
 import { RoomChat } from '../ui/chat.js';
@@ -876,7 +875,7 @@ export function RoomScreen() {
         <div class="rs-tools">
           <${Button} variant="secondary" size="sm" square=${true} icon="chart" class="stats-entry" onClick=${openStats} title=${t('统计数据')} aria-label=${t('统计数据')} />
           <${SettingsButton} class="room-settings" variant="secondary" square=${true} />
-          <${GuideButton} class="room-guide" variant="secondary" square=${true} />
+          <${FullscreenButton} class="room-fs" variant="secondary" />
         </div>
       </div>
       <div class="rs-top__right">

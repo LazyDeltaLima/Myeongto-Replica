@@ -2,7 +2,8 @@
 // screen and a running match; opt-in, ~15 s):
 //   SP_E2E=1 CHROME_PATH=… node --test test/ui/settings-entry.e2e.test.js
 //
-// After 开始 the lobby's top bar carries a 设置 square left of 玩法说明 (ui/settings.js SettingsButton), and so does the
+// After 开始 the lobby's top bar carries a 设置 square left of 全屏 (ui/settings.js SettingsButton, ui/device.js
+// FullscreenButton; 玩法说明 sat there until maintainer request 2026-11-18), and so does the
 // room's after 创建同盟; each opens the very settings modal of the title screen (language, sound, 快捷键 …) and closes
 // with Esc or 完成, leaving the screen as it was. No console / page errors. The modal itself and its contents are covered
 // by the title screen's tests; this file is about the entry. Not in the modal, deliberately: background music in a
@@ -33,26 +34,34 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
     await srv?.close();
   });
 
-  /** Is the 设置 button the sibling right before the 玩法说明 button of `screen`'s top bar? */
-  const settingsBeforeGuide = (page, screen, guideClass) => page.evaluate((s, g) => {
+  /** Is the 设置 button the sibling right before the 全屏 square of `screen`'s top bar, and is 玩法说明 gone from it? */
+  const settingsBeforeFs = (page, screen) => page.evaluate((s) => {
     const btn = document.querySelector(`${s} [data-testid="settings-btn"]`);
-    const guide = document.querySelector(`${s} .${g}`);
+    const fs = document.querySelector(`${s} [data-testid="fs-btn"]`);
+    const bar = document.querySelector(s);
+    if (!bar || [...bar.querySelectorAll('button')].some((b) => /玩法说明/.test(b.getAttribute('aria-label') || b.textContent))) return false;
     // the lobby's are squares (the gear alone, named by aria-label), the room's carry the word
-    return !!btn && !!guide && btn.nextElementSibling === guide && /设置/.test(btn.textContent || btn.getAttribute('aria-label')) && btn.querySelector('svg.btn__icon') != null;
-  }, screen, guideClass);
+    return !!btn && !!fs && btn.nextElementSibling === fs && /全屏/.test(fs.getAttribute('aria-label')) && fs.querySelector('svg.btn__icon') != null && /设置/.test(btn.textContent || btn.getAttribute('aria-label')) && btn.querySelector('svg.btn__icon') != null;
+  }, screen);
   const modalText = (page) => page.evaluate(() => document.querySelector('.modal')?.textContent.replace(/\s+/g, ' ').trim() ?? null);
-  /** The modal's text over all its tabs (ui/settings.js SETTINGS_TABS: each tab shows its own rows); ends on the first tab. */
-  const allTabsText = (page) => page.evaluate(async () => {
+  /**
+   * The modal's text over all its tabs (ui/settings.js SETTINGS_TABS: each tab shows its own rows); ends on the first tab.
+   * `noHints`: without the rows' explanations (.set-hint) — the declined options are looked for among the options, and the
+   * side camera's hint names the board (棋盘) without being a board-style option.
+   */
+  const allTabsText = (page, noHints = false) => page.evaluate(async (bare) => {
     const tabs = [...document.querySelectorAll('.modal .set-tabs button')];
     let text = '';
     for (const b of tabs) {
       b.click();
       await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 30)));
-      text += ` ${document.querySelector('.modal')?.textContent ?? ''}`;
+      const m = document.querySelector('.modal')?.cloneNode(true);
+      if (bare) m?.querySelectorAll('.set-hint').forEach((h) => h.remove());
+      text += ` ${m?.textContent ?? ''}`;
     }
     tabs[0]?.click();
     return text.replace(/\s+/g, ' ').trim();
-  });
+  }, noHints);
 
   test('the lobby: 设置 left of 玩法说明 opens the settings modal; Esc closes it; the room has the same entry', async () => {
     const page = await browser.newPage();
@@ -67,7 +76,7 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
     await page.waitForSelector('.lobby-screen', { timeout: 15000 });
     await sleep(500);
 
-    assert.ok(await settingsBeforeGuide(page, '.lobby-screen .topbar__tools', 'lobby-guide'), '设置 sits right before 玩法说明 in the lobby\'s top bar');
+    assert.ok(await settingsBeforeFs(page, '.lobby-screen .topbar__tools'), '设置 sits right before 全屏 in the lobby\'s top bar, 玩法说明 is gone');
     assert.equal(await modalText(page), null, 'closed until asked');
     await page.click('.lobby-screen [data-testid="settings-btn"]');
     await page.waitForSelector('.modal', { timeout: 5000 });
@@ -75,8 +84,9 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
     assert.match(text, /设置/);
     assert.match(text, /背景音乐/);
     assert.match(text, /快捷键/);
-    assert.doesNotMatch(text, /棋盘/, 'no board-style option (declined)');
-    assert.doesNotMatch(text, /后台/, 'no background-music option (declined)');
+    const options = await allTabsText(page, true);
+    assert.doesNotMatch(options, /棋盘/, 'no board-style option (declined)');
+    assert.doesNotMatch(options, /后台/, 'no background-music option (declined)');
     await page.keyboard.press('Escape');
     await sleep(300);
     assert.equal(await modalText(page), null, 'Esc closes it');
@@ -88,7 +98,7 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
     await page.click('.ally-create__go');
     await page.waitForSelector('.room-screen', { timeout: 15000 });
     await sleep(500);
-    assert.ok(await settingsBeforeGuide(page, '.room-screen .topbar__left', 'room-guide'), '设置 sits right before 玩法说明 in the room\'s top bar');
+    assert.ok(await settingsBeforeFs(page, '.room-screen .topbar__left'), '设置 sits right before 全屏 in the room\'s top bar, 玩法说明 is gone');
     await page.click('.room-screen [data-testid="settings-btn"]');
     await page.waitForSelector('.modal', { timeout: 5000 });
     assert.match(await allTabsText(page), /背景音乐/);

@@ -21,7 +21,7 @@
 // On a short screen (≤ 520 px tall, a landscape phone) the left column narrows to three cards — the 成就统计 strip, 加入同盟,
 // and 作战提示 | 更新 as tabs (maintainer decision 2026-11-08) —; on a phone too narrow for it, it gives way, as upstream's:
 // 成就统计 and 加入同盟 · 观战 become plates under 干员调配 (the latter opens AllianceSelect: the key alone).
-// The top bar: 返回, ping, the 在线 count, 设置, 玩法说明, and at the right the season chip (ui/season.js) and the resume
+// The top bar: 返回, ping, the 在线 count, 设置, 全屏 (玩法说明 there until maintainer request 2026-11-18: it stays on the title and in the step header), and at the right the season chip (ui/season.js) and the resume
 // button. Not taken from upstream: its own lobby picture / music (ui/lobbyMedia.js, hubScene.js) and its versions.
 // 规则 모드 (shared/ruleset.js, maintainer decisions 2026-10-15, 2026-10-18): the 规则 switch picks 经典 / 休闲 / 自定义 for
 // 开始独立模拟 / 创建同盟 (room.create ruleset; custom: the settings of ui/customRulesStore.js, edited behind the ⚙ —
@@ -47,7 +47,7 @@ import { html, Button, Icon, MicroLabel, Modal, TextField, PingPill, OnlinePill,
 import { Sprite, Img } from '../ui/gameComponents.js';
 import { uiUrl } from '../ui/assetUrls.js';
 import { toast, toastError } from '../ui/toasts.js';
-import { GuideButton, openGuide } from '../ui/guide.js';
+import { openGuide } from '../ui/guide.js';
 import { useStatsOpen } from './stats.js';
 import { SweepReport } from './sweep.js';
 import { AchievementDialog, ACHV_RULESET_PREF } from './achievements.js';
@@ -72,7 +72,7 @@ import { seasonBackdrop, seasonLogoSet, logoSizes } from '../ui/seasonArt.js';
 import { pickSeasonThroughDark } from '../ui/seasonFade.js';
 import { useLang } from '../ui/lang.js';
 import { net, identity } from '../net.js';
-import { useDocClass, detectFeatures, useMediaQuery, SHORT_SCREEN_QUERY } from '../ui/device.js';
+import { useDocClass, detectFeatures, useMediaQuery, SHORT_SCREEN_QUERY, FullscreenButton } from '../ui/device.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { data, getConfig, getMode, getStage, useData } from '../data.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
@@ -1043,7 +1043,7 @@ export function LobbyScreen() {
         <span class="topbar__sep" aria-hidden="true"></span>
         <div class="topbar__tools">
           <${SettingsButton} class="lobby-settings" variant="secondary" square=${true} />
-          <${GuideButton} class="lobby-guide" variant="secondary" square=${true} />
+          <${FullscreenButton} class="lobby-fs" variant="secondary" />
         </div>
       </div>
       <div class="topbar__right">

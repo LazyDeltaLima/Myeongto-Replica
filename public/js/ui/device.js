@@ -12,7 +12,7 @@
 //   fullscreen              { supported(), active(), toggle(), exit() }: Fullscreen API with the webkit-prefixed
 //                           variant (iPadOS / older Safari); iPhone Safari has no element fullscreen → unsupported and the
 //                           button hides. Android: after entering, the orientation is locked to landscape when allowed.
-//   FullscreenButton        HUD / title button (hidden where unsupported), follows fullscreenchange.
+//   FullscreenButton        HUD / title / lobby / room button (hidden where unsupported), follows fullscreenchange.
 //   useScreenWakeLock(on)   a screen wake lock while `on` and the page is visible (main.js App, settings 「保持屏幕常亮」).
 //   long-press              a still touch of LONG_PRESS_MS on a DOM control → a synthetic `contextmenu` (= detail) when
 //                           the browser sends none (iOS Safari); when a handler took it (preventDefault: detail card,
@@ -21,7 +21,7 @@
 // CSS counterpart: public/css/devices.css (safe-area insets, touch-action, overscroll, tap-target expansion).
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
-import { html, Icon } from './components.js';
+import { html, Icon, Button } from './components.js';
 import { t } from '../../../shared/i18n.js';
 
 /** A touch held this long without moving opens the detail (contextmenu) on DOM controls. */
@@ -255,8 +255,13 @@ export const fullscreen = {
   toggle(win = globalThis) { return this.active(win) ? this.exit(win) : this.enter(win); },
 };
 
-/** Fullscreen toggle (hidden where the browser has no element fullscreen, e.g. iPhone Safari). */
-export function FullscreenButton({ class: cls = '' }) {
+/**
+ * Fullscreen toggle (hidden where the browser has no element fullscreen, e.g. iPhone Safari). With `variant` it is a small
+ * square Button of that variant, the twin of the 设置 gear beside it (the lobby's and the room's top bars, maintainer
+ * request 2026-11-18: it took the 玩法说明 button's place there).
+ * @param {{ class?: string, variant?: string }} props
+ */
+export function FullscreenButton({ class: cls = '', variant = '' }) {
   const [on, setOn] = useState(() => fullscreen.active());
   const [ok] = useState(() => fullscreen.supported());
   useEffect(() => {
@@ -269,6 +274,10 @@ export function FullscreenButton({ class: cls = '' }) {
   }, []);
   if (!ok) return null;
   const label = on ? t('退出全屏') : t('全屏');
+  if (variant) {
+    return html`<${Button} variant=${variant} size="sm" square=${true} icon=${on ? 'collapse' : 'expand'} class=${`fs-btn ${cls}`}
+      title=${label} aria-label=${label} active=${on} data-testid="fs-btn" onClick=${() => fullscreen.toggle()} />`;
+  }
   return html`<button type="button" class=${`fsbtn tapx ${cls}`} aria-label=${label} title=${label} aria-pressed=${on ? 'true' : 'false'}
       onClick=${() => fullscreen.toggle()}>
     <${Icon} name=${on ? 'collapse' : 'expand'} />

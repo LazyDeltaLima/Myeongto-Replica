@@ -10,7 +10,7 @@
 // tabs, the page dots and the keys still reach the other pages.
 //
 // Global & imperative so every screen can open it: `openGuide(page?)`; <GuideHost/> is mounted once by main.js
-// (and by the dev mock harness); <GuideButton/> is the standard trigger (title, lobby, room, in-match menu).
+// (and by the dev mock harness); <GuideButton/> is the standard trigger (title, pre-game step header, in-match menu).
 
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, MicroLabel, Button, Spinner } from './components.js';
