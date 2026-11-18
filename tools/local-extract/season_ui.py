@@ -7,7 +7,9 @@ the client that has the season (the CN one: SP_CLIENT_CN, tools/local-extract/cl
 id of shared/seasons.js:
 
   season/<id>/backdrop/title      the season hub's background as the event lays it out (SEASONS[id]['backdrop']: the
-                                  layers of its on-season entry panel, back to front, at their offsets), one JPEG
+                                  layers of its on-season entry panel, back to front, at their offsets, and the UI
+                                  meshes of its effect holder drawn between them — their dissolve textures may sit in
+                                  another bundle, found through --cab-index), one JPEG
   season/<id>/logo/<sprite>       the season's logos as they are (SEASONS[id]['logos'])
   season/<id>/banner/tab          the title's season tab picture (SEASONS[id]['banner']): the event's home activity card
                                   art cut to its picture (the part left of `crop` carries the Chinese logo), one JPEG
@@ -49,6 +51,7 @@ A newer copy of a bundle in PersistentData/Bundles (a hot update) wins over Stre
 Usage:
   .venv-extract/bin/python tools/local-extract/season_ui.py [--season act3autochess] [--game <CN Arknights_Data>]
       [--font-client <EN Arknights_Data>] [--out public/assets/local] [--manifest data/local-assets.json]
+      [--cab-index .cache/fx-cab-index-cn.json]
 Everything extracted is (c) Hypergryph; for private, non-commercial fan use only. Nothing extracted is committed.
 """
 import argparse
@@ -62,12 +65,15 @@ from client_path import ROOT, ensure_extract_env, client_data, client_data_cn  #
 
 # The hub of 规程 is `panel_act3autochess_on_entry` (the season running; the off-season panel is not used, maintainer
 # decision 2026-11-08): bkg_1 bkg_season_on, bkg_2 bg_season_on and bg_front bg_front_season_on, each centred in a
-# 1559×960 frame, bg_front 149 units below the centre (its RectTransform pos y −149). The smoke / dust particles and
-# the effect meshes between the layers are not drawn.
+# 1559×960 frame, bg_front 149 units below the centre (its RectTransform pos y −149). Between bkg_1 and bkg_2 the
+# effect holder's three UI meshes (effect_season_on/mask/mesh_1–3: the trapezoid mesh_trapezoid in material
+# mat_bg_mesh, the red jagged rays behind the statue) are drawn as the client draws them (backdrop_meshes; still — the
+# material has no time keyword). The smoke / dust particles are not drawn.
 SEASONS = {
     'act3autochess': {
         'bundle': 'activity/[uc]act3autochess.ab',
-        'backdrop': {'size': (1559, 960), 'layers': [('bkg_season_on', 0), ('bg_season_on', 0), ('bg_front_season_on', -149)]},
+        'backdrop': {'size': (1559, 960), 'layers': [('bkg_season_on', 0), ('bg_season_on', 0), ('bg_front_season_on', -149)],
+                     'meshes': {'panel': 'panel_act3autochess_on_entry', 'holder': 'effect_holder', 'after': 'bkg_season_on'}},
         # title_season: the hub's logo (root_title of the entry panel); season_logo: the bare emblem; season_logo_settle_game: the result screen's
         'logos': ['title_season', 'season_logo', 'season_logo_settle_game'],
         # group_season_background (1189×494, the home screen's activity card while the season runs): its logo with the
@@ -444,14 +450,223 @@ def entry_film(env, spec):
     return pictures, film
 
 
-def compose_backdrop(images, spec):
+def compose_backdrop(images, spec, meshes=None):
+    """The backdrop's layers back to front; `meshes` = {layer name: [RGBA frame, …]} drawn right after that layer."""
     from PIL import Image
     w, h = spec['size']
     canvas = Image.new('RGBA', (w, h), (0, 0, 0, 255))
     for name, dy in spec['layers']:
         im = images[name]
         canvas.alpha_composite(im, ((w - im.width) // 2, round(h / 2 - dy - im.height / 2)))
+        for layer in (meshes or {}).get(name, []):
+            canvas.alpha_composite(layer)
     return canvas.convert('RGB')
+
+
+# Torappu/UI/UI-Fx-Common, as its pixel stage draws with no keyword on (no time: the material's _Dissolve_Speed only
+# moves the _HG_UI_ANM_ON / TORAPPU_UI_UNSCALED_TIME variants): rgb = _Color · vertex colour (the Graphic's m_Color),
+# a = Π smoothstep(saturate((tex.r · tex.a, or 1 − that when _DissolveN_Invert) − _DissolveN_Threshold) ÷
+# _DissolveN_Smoothness) over the two dissolve textures (when _Dissolve), × vertex alpha, × _Mask_Tex.a (when _Mask),
+# all × _Intensity, blended SrcAlpha / OneMinusSrcAlpha (_Dst 10). An unset texture is the shader's default white.
+FX_COMMON_ZERO = ('_Distortion', '_RgbCtrl', '_BaseTex_Channel', '_Dissolve1_Distortion', '_Dissolve2_Distortion')
+FX_COMMON_UNSET = ('_MainTex', '_BaseTex', '_Mask_Tex')
+
+
+def backdrop_meshes(env, game, spec, cab_index):
+    """The UI meshes of the hub panel's effect holder (SEASONS[id]['backdrop']['meshes']), each drawn into a frame of
+    the backdrop's size as the client draws it: the mesh scaled to its RectTransform's width (_matchRect /
+    _matchByWidth), turned by _targetRotation (y 180 mirrors it), then the node's scale, z rotation and position from
+    the frame's centre. Stops on any setting this does not draw (another shader form, a keyword, distortion, an
+    offset or turned parent, an anchor off the centre)."""
+    import math
+    import UnityPy
+    import numpy as np
+    from PIL import Image
+    ms = spec['meshes']
+    w, h = spec['size']
+    objs = {o.path_id: o for o in env.objects}
+    cache = {}
+
+    def tt(pid):
+        if pid not in cache:
+            cache[pid] = objs[pid].read_typetree() if pid in objs else None
+        return cache[pid]
+
+    def rect(go):
+        for c in go['m_Component']:
+            o = objs.get(c['component']['m_PathID'])
+            if o is not None and o.type.name == 'RectTransform':
+                return tt(o.path_id)
+        raise SystemExit(f"backdrop meshes: {go['m_Name']} has no RectTransform")
+
+    def children(go):
+        return [tt(tt(ch['m_PathID'])['m_GameObject']['m_PathID']) for ch in rect(go)['m_Children']]
+
+    def find(go, name):
+        for ch in children(go):
+            if ch['m_Name'] == name:
+                return ch
+            got = find(ch, name)
+            if got:
+                return got
+        return None
+
+    def centred(rt, where):
+        if any(abs(rt[k][a] - 0.5) > 1e-6 for k in ('m_AnchorMin', 'm_AnchorMax', 'm_Pivot') for a in 'xy'):
+            raise SystemExit(f'backdrop meshes: {where} is not anchored at its centre')
+
+    root = next((tt(o.path_id) for o in env.objects if o.type.name == 'GameObject' and tt(o.path_id)['m_Name'] == ms['panel']), None)
+    holder = root and find(root, ms['holder'])
+    if holder is None:
+        raise SystemExit(f"backdrop meshes: no {ms['holder']} under {ms['panel']}")
+
+    ext_envs = {}
+
+    def texture(mat_obj, ref):
+        """A material's texture as float RGBA rows from v = 0 up, with its wrap mode; None when unset."""
+        fid, pid = ref.get('m_FileID', 0), ref.get('m_PathID', 0)
+        if not pid:
+            return None
+        if fid == 0:
+            o = objs[pid]
+        else:
+            cab = mat_obj.assets_file.externals[fid - 1].path.split('/')[-1]
+            rel = cab_index.get(cab)
+            if not rel:
+                raise SystemExit(f'backdrop meshes: {cab} is not in the CAB index (give --cab-index)')
+            if rel not in ext_envs:
+                ext_envs[rel] = {x.path_id: x for x in UnityPy.load(str(Path(game) / rel)).objects}
+            o = ext_envs[rel].get(pid)
+            if o is None:
+                raise SystemExit(f'backdrop meshes: texture {pid} not in {rel}')
+        tex = o.read()
+        a = np.asarray(tex.image.convert('RGBA'), np.float32)[::-1] / 255
+        st = tex.m_TextureSettings
+        return a, (st.m_WrapU, st.m_WrapV)
+
+    def sample(t, uv):
+        a, (wu, wv) = t
+        th, tw = a.shape[:2]
+        x = (uv[..., 0] % 1 if wu == 0 else np.clip(uv[..., 0], 0, 1)) * tw - 0.5
+        y = (uv[..., 1] % 1 if wv == 0 else np.clip(uv[..., 1], 0, 1)) * th - 0.5
+        x0, y0 = np.floor(x).astype(int), np.floor(y).astype(int)
+        fx, fy = (x - x0)[..., None], (y - y0)[..., None]
+        ix = (lambda i: i % tw) if wu == 0 else (lambda i: np.clip(i, 0, tw - 1))
+        iy = (lambda i: i % th) if wv == 0 else (lambda i: np.clip(i, 0, th - 1))
+        g = lambda yy, xx: a[iy(yy), ix(xx)]  # noqa: E731
+        return (g(y0, x0) * (1 - fx) + g(y0, x0 + 1) * fx) * (1 - fy) + (g(y0 + 1, x0) * (1 - fx) + g(y0 + 1, x0 + 1) * fx) * fy
+
+    def smooth(x):
+        return x * x * (3 - 2 * x)
+
+    out = []
+
+    def walk(go, ox, oy, chain):
+        """`chain`: the nodes between the holder and this one, which must neither turn nor scale a mesh under them."""
+        if not go.get('m_IsActive', 1):
+            return
+        rt = rect(go)
+        x, y = ox + rt['m_AnchoredPosition']['x'], oy + rt['m_AnchoredPosition']['y']
+        mb = None
+        for c in go['m_Component']:
+            o = objs.get(c['component']['m_PathID'])
+            if o is not None and o.type.name == 'MonoBehaviour' and '_targetMesh' in (tt(o.path_id) or {}):
+                mb = tt(o.path_id)
+        if mb and mb.get('m_Enabled', 1):
+            for name, prt in chain:
+                centred(prt, name)
+                q, s = prt['m_LocalRotation'], prt['m_LocalScale']
+                if abs(q['w']) < 1 - 1e-6 or any(abs(s[a] - 1) > 1e-6 for a in 'xy'):
+                    raise SystemExit(f'backdrop meshes: {name} turns or scales the mesh {go["m_Name"]}')
+            centred(rt, go['m_Name'])
+            out.append(draw(go, rt, mb, x, y))
+        for ch in children(go):
+            walk(ch, x, y, chain + [(go['m_Name'], rt)])
+
+    def draw(go, rt, m, cx, cy):
+        where = go['m_Name']
+        if not (m.get('_matchRect') and m.get('_matchByWidth')) or (m.get('_targetTexture') or {}).get('m_PathID'):
+            raise SystemExit(f'backdrop meshes: {where} is not matched by width or has its own texture')
+        rot = m.get('_targetRotation') or {'x': 0, 'y': 0, 'z': 0}
+        if rot['x'] % 360 or rot['z'] % 360 or rot['y'] % 180:
+            raise SystemExit(f'backdrop meshes: {where} turns its mesh by {rot}')
+        mat_obj = objs[m['m_Material']['m_PathID']]
+        md = tt(mat_obj.path_id)
+        p = md['m_SavedProperties']
+        f, tex, col = dict(p['m_Floats']), dict(p['m_TexEnvs']), dict(p['m_Colors'])
+        if '_Dissolve1_Tex' not in tex or '_Dissolve_Speed' not in col or md.get('m_ValidKeywords') or f.get('_HG_UI_ANM_ON'):
+            raise SystemExit(f"backdrop meshes: {where}'s material {md['m_Name']} is not a still UI-Fx-Common one")
+        if any(f.get(k, 0) for k in FX_COMMON_ZERO) or any(tex.get(k, {}).get('m_Texture', {}).get('m_PathID') for k in FX_COMMON_UNSET):
+            raise SystemExit(f"backdrop meshes: {md['m_Name']} uses distortion, a base / mask texture or vertex-colour control")
+        if f.get('_Dst') != 10:
+            raise SystemExit(f"backdrop meshes: {md['m_Name']} blends with _Dst {f.get('_Dst')}")
+        # the mesh: positions, uv0 (stream 0, float channels), triangles
+        mt = tt(m['_targetMesh']['m_PathID'])
+        vd = mt['m_VertexData']
+        n, raw, ch = vd['m_VertexCount'], bytes(vd['m_DataSize']), vd['m_Channels']
+        if mt['m_IndexFormat'] != 0 or any(c['stream'] for c in ch) or ch[0]['format'] or ch[4]['format'] or ch[4]['dimension'] != 2:
+            raise SystemExit(f"backdrop meshes: mesh {mt['m_Name']} is not float positions + uv0 in one stream of 16-bit triangles")
+        stride = len(raw) // n
+        buf = np.frombuffer(raw, np.uint8).reshape(n, stride)
+        pos = buf[:, ch[0]['offset']:ch[0]['offset'] + 8].copy().view(np.float32).astype(np.float64)
+        uv = buf[:, ch[4]['offset']:ch[4]['offset'] + 8].copy().view(np.float32).astype(np.float64)
+        tri = np.frombuffer(bytes(mt['m_IndexBuffer']), np.uint16).reshape(-1, 3)
+        k = rt['m_SizeDelta']['x'] / (pos[:, 0].max() - pos[:, 0].min())
+        if rot['y'] % 360:
+            pos[:, 0] *= -1
+        pos *= k
+        pos[:, 0] *= rt['m_LocalScale']['x']
+        pos[:, 1] *= rt['m_LocalScale']['y']
+        q = rt['m_LocalRotation']
+        if abs(q['x']) > 1e-6 or abs(q['y']) > 1e-6:
+            raise SystemExit(f'backdrop meshes: {where} turns out of the screen plane')
+        th = 2 * math.atan2(q['z'], q['w'])
+        c, s = math.cos(th), math.sin(th)
+        px = w / 2 + cx + pos[:, 0] * c - pos[:, 1] * s
+        py = h / 2 - (cy + pos[:, 0] * s + pos[:, 1] * c)
+        # each pixel centre takes the uv of the one triangle it falls in (no seam is drawn twice)
+        uvb = np.full((h, w, 2), np.nan, np.float32)
+        for a, b, d in tri:
+            xs, ys = px[[a, b, d]], py[[a, b, d]]
+            x0, x1 = max(math.floor(xs.min()), 0), min(math.ceil(xs.max()), w - 1)
+            y0, y1 = max(math.floor(ys.min()), 0), min(math.ceil(ys.max()), h - 1)
+            den = (ys[1] - ys[2]) * (xs[0] - xs[2]) + (xs[2] - xs[1]) * (ys[0] - ys[2])
+            if x0 > x1 or y0 > y1 or abs(den) < 1e-12:
+                continue
+            gx, gy = np.meshgrid(np.arange(x0, x1 + 1) + 0.5, np.arange(y0, y1 + 1) + 0.5)
+            l0 = ((ys[1] - ys[2]) * (gx - xs[2]) + (xs[2] - xs[1]) * (gy - ys[2])) / den
+            l1 = ((ys[2] - ys[0]) * (gx - xs[2]) + (xs[0] - xs[2]) * (gy - ys[2])) / den
+            l2 = 1 - l0 - l1
+            inside = (l0 >= -1e-6) & (l1 >= -1e-6) & (l2 >= -1e-6)
+            sub = uvb[y0:y1 + 1, x0:x1 + 1]
+            sub[inside] = (l0[..., None] * uv[a] + l1[..., None] * uv[b] + l2[..., None] * uv[d])[inside]
+        cover = ~np.isnan(uvb[..., 0])
+        uv0 = np.nan_to_num(uvb)
+        vc = m['m_Color']
+        alpha = np.where(cover, vc['a'], 0).astype(np.float32)
+        if f.get('_Dissolve', 0) > 0:
+            for i in (1, 2):
+                t = texture(mat_obj, tex[f'_Dissolve{i}_Tex']['m_Texture'])
+                if t is None:
+                    continue  # white: tex.r · tex.a = 1 everywhere
+                sc, off = tex[f'_Dissolve{i}_Tex']['m_Scale'], tex[f'_Dissolve{i}_Tex']['m_Offset']
+                v = sample(t, uv0 * [sc['x'], sc['y']] + [off['x'], off['y']])
+                dv = v[..., 0] * v[..., 3]
+                if f.get(f'_Dissolve{i}_Invert', 0):
+                    dv = 1 - dv
+                alpha *= smooth(np.clip((dv - f[f'_Dissolve{i}_Threshold']) / f[f'_Dissolve{i}_Smoothness'], 0, 1))
+        k_int = f.get('_Intensity', 1)
+        mc = col.get('_Color', {'r': 1, 'g': 1, 'b': 1, 'a': 1})
+        rgb = np.array([mc[a] * vc[a] * k_int for a in 'rgb'], np.float32)
+        img = np.zeros((h, w, 4), np.float32)
+        img[..., :3] = np.clip(rgb, 0, 1)
+        img[..., 3] = np.clip(alpha * mc['a'] * k_int, 0, 1)
+        return Image.fromarray((img * 255 + 0.5).astype(np.uint8), 'RGBA')
+
+    walk(holder, 0.0, 0.0, [])
+    if not out:
+        raise SystemExit(f"backdrop meshes: no UI mesh under {ms['holder']}")
+    return {ms['after']: out}
 
 
 def official_font(font_client):
@@ -551,6 +766,8 @@ def main(argv=None):
     ap.add_argument('--logo-upscaled', help="a larger copy of the season's logo (SEASONS[id]['logo_scales'] sprite, as "
                     'written to logo/<sprite>.png), e.g. from an AI upscaler: its sharper copies are cut from it '
                     'instead of resampled')
+    ap.add_argument('--cab-index', default=str(ROOT / '.cache/fx-cab-index-cn.json'),
+                    help="the CAB index of --game (the bundles the backdrop meshes' textures live in)")
     args = ap.parse_args(argv)
     game = args.game or client_data_cn()
     if not game:
@@ -577,7 +794,13 @@ def main(argv=None):
     if spec.get('banner'):
         names.add(spec['banner']['sprite'])
     art = sprites_by_name(env, names)
-    save('backdrop', 'title', compose_backdrop(art, spec['backdrop']), 'jpg')
+    meshes = None
+    if spec['backdrop'].get('meshes'):
+        cab_path = Path(args.cab_index)
+        if not cab_path.exists():
+            raise SystemExit(f'{cab_path}: missing (the CAB index of this client: fx_extract.py --build-cab-index)')
+        meshes = backdrop_meshes(env, game, spec['backdrop'], json.loads(cab_path.read_text(encoding='utf-8')))
+    save('backdrop', 'title', compose_backdrop(art, spec['backdrop'], meshes), 'jpg')
     for n in spec['logos']:
         save('logo', n, art[n])
     bn = spec.get('banner')

@@ -117,7 +117,9 @@ test('选择模拟协议: 快速匹配 is the official range switch over the sta
   assert.match(read('public/js/screens/achievements.js'), /<\$\{RulesetSwitch\} value=\$\{ruleset\}[^>]*class="rtrack" \/>/);
   const room = read('public/css/screens/room.css');
   assert.match(room, /\.dpick\.rtrack \{[^}]*border-radius: 999px/);
-  assert.match(room, /\.rtrack \.dpick__opt\.is-active \{[^}]*background: var\(--rtrack-pill\)/);
+  assert.match(room, /\.rtrack \.dpick__opt\.is-active \{[^}]*background: var\(--mode-pill\)/, 'the rule rows take the hub switch\'s plain pill (btn_mode_select), not the hatched range pill');
+  assert.match(room, /--mode-pill: rgba\(255, 255, 255, \.8\)/);
+  assert.match(read('public/css/screens/lobby.css'), /\.qrange__pill \{[^}]*background: var\(--rtrack-pill\)/, '快速匹配 keeps the range switch\'s hatched pill');
   const css = read('public/css/screens/lobby.css');
   assert.match(css, /\.proto-rules \{[^}]*margin: 0 \.06rem \.02rem \.5rem; padding: \.02rem 0 \.04rem;/, 'the rows\' box is the cards\' column (.proto-list pads .5rem / .06rem)');
   assert.match(css, /\.proto-list \{[^}]*padding: \.07rem \.06rem \.07rem \.5rem;/);

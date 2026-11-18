@@ -585,14 +585,18 @@
    whose picked option is the white hatched pill (range_selectbg, its shadow under it) and takes the most room — two
    options: three quarters, as the official pill; three: about half —, the others grey. lobby.css draws 快速匹配's switch
    (.qrange) from the same pill */
-:root { --rtrack-pill: repeating-linear-gradient(135deg, rgba(255, 255, 255, .93) 0 2px, rgba(229, 229, 229, .93) 2px 5px); }
+/* --rtrack-pill: the matching range switch's own striped pill (range_selectbg), kept for 快速匹配 (.qrange); the rule rows
+   take the hub's 个人模拟 / 联合模拟 switch pill (panel_act3autochess_on_entry btn_select: btn_mode_select, plain white at
+   80 % — maintainer request 2026-11-18, the official hub screenshot) */
+:root { --rtrack-pill: repeating-linear-gradient(135deg, rgba(255, 255, 255, .93) 0 2px, rgba(229, 229, 229, .93) 2px 5px);
+  --mode-pill: rgba(255, 255, 255, .8); }
 .dpick.rtrack { gap: 0; padding: .045rem; border: 1px solid rgba(228, 236, 234, .24); border-radius: 999px; background: rgba(13, 13, 13, .86); }
 .rtrack .dpick__opt {
   flex: 1 1 0; justify-content: center; min-width: max-content; padding: 0 .12rem; border: 0; border-radius: 999px;
   color: #8f9293; font-weight: 600; letter-spacing: .02em; white-space: nowrap; box-shadow: none;
   transition: flex-grow var(--t-med), color var(--t-fast), background-color var(--t-med);
 }
-.rtrack .dpick__opt.is-active { flex-grow: 2.1; color: #242424; font-weight: 800; background: var(--rtrack-pill); box-shadow: 0 .03rem .06rem rgba(0, 0, 0, .6); }
+.rtrack .dpick__opt.is-active { flex-grow: 2.1; color: #242424; font-weight: 800; background: var(--mode-pill); box-shadow: 0 .03rem .06rem rgba(0, 0, 0, .6); }
 .rtrack.lobby-size .dpick__opt.is-active { flex-grow: 3; }
 .rtrack .dpick__opt:hover:not(:disabled):not(.is-active) { color: #e9eceb; background: transparent; }
 .rtrack .rpick__opt[data-ruleset='custom'].is-active { color: #5a2fa8; }
