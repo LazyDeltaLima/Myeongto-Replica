@@ -140,10 +140,38 @@ export const GRAPHIC_TILT = Object.freeze([-0.25881905, 0, 0, 0.96592583]);
  * @returns {number[]}
  */
 export function pointUp(entry, sk, back, facing) {
-  const t = pointTurn(entry, sk, back);
-  const a = t == null ? 0 : facing < 0 ? Math.PI - t : t;
+  const a = pointTurnOn(entry, sk, back, facing) ?? 0;
   return [-Math.sin(a), Math.cos(a) * (1 - 2 * GRAPHIC_TILT[0] ** 2)];
 }
+
+/**
+ * 2026-11-18 (official client: a BoneFollower under the skeleton, which the client flips inside to face left): the turn
+ * (radians, Unity frame z) point `entry` gives an effect when its model is drawn on side `side` (< 0: drawn mirrored, the
+ * sign of render/units.js `modelSX`) — pointTurn t, or π − t mirrored, or null when the point does not turn. Here the
+ * skeleton is never flipped (the mirror is the display scale), so its bone reads the unmirrored t; the client's point
+ * reads the mirrored angle and the effect, not mirrored itself, turns to the other side. The one entry for every effect that takes a point's turn —
+ * FollowMountPoint `_keepOriginRotation` 0, a muzzle effect placed once, `MountPoint.get_faceTo` (pointUp): a mounted
+ * effect that read pointTurn directly kept its right-facing angle on a model facing left (maintainer report 2026-11-18:
+ * 바르카리스 S2's weapon effect, 고프닉's aura). docs/rules/fx.md 「마운트 회전」.
+ * @param {{F?: {bone?: string, rot?: number}, B?: {bone?: string, rot?: number}}|null|undefined} entry
+ * @param {{findBone: (name: string) => ({getWorldRotationX: () => number}|null)}|null|undefined} sk
+ * @param {boolean} back
+ * @param {number} side
+ * @returns {number|null}
+ */
+export function pointTurnOn(entry, sk, back, side) {
+  const t = pointTurn(entry, sk, back);
+  return t == null ? null : side < 0 ? Math.PI - t : t;
+}
+
+/**
+ * 2026-11-18: the angle to set on an effect's root node (inside its FxInstance mirror, `unity.scale.x`) so that it shows
+ * turn `r` (pointTurnOn) — r itself, or π − r inside a mirror (an effect mirrored by `_followScaleSign` / `_followScale`, or
+ * an old extract): mirroring π − r shows r.
+ * @param {number} r
+ * @param {number} mirror the sign of the instance's x scale
+ */
+export const rootTurn = (r, mirror) => (mirror < 0 ? Math.PI - r : r);
 
 /**
  * Where an operator's or token's model and shadow sit in its battle prefab (maintainer decision 2026-10-17: 望's placed
