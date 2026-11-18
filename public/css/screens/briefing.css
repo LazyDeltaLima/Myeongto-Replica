@@ -283,6 +283,12 @@
   border-image: var(--tip) 0 0 0 35 fill stretch; font-size: max(calc(var(--tu) * 19), 10px); font-weight: 500; letter-spacing: 0; color: #d8d8d8; white-space: nowrap; }
 .bgrp-tip.no-art { border-color: rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .08); }
 .brief-h--art .bgrp-tip { margin-left: calc(var(--tu) * 17); }
+/* in a bond row's title (ui/matchInfo.js MatchBondRow: the 盟约信息 dialog, the in-game 本局信息 tab) the unit is the row's
+   --ou: in the game screen an inherited HUD --u drew the chip at the HUD's size and squeezed 「부가 맹약」 to one glyph a line */
+.brief-bonds .bgrp-tip { --tu: var(--ou); }
+/* where the title, the chip (10 px at least) and the micro label do not fit one line (the drawer on a phone), they wrap
+   rather than squeeze the title */
+.brief-bonds > .brief-h--art { flex-wrap: wrap; row-gap: calc(var(--ou) * 4); }
 /* text_tips 858.3 × 30.4, 18, bestFit: one line that shrinks to fit (briefing.js useFitLine), 9 px at least, then wraps */
 .bgrp__hint { box-sizing: border-box; min-height: calc(var(--u) * 33.7); margin: 0; padding: 0 calc(var(--u) * 10.85); display: grid; align-items: center; }
 .brief2__hint { display: block; width: 100%; min-width: 0; overflow: hidden; text-align: center; white-space: nowrap; font-size: calc(var(--u) * 18); font-weight: 500; line-height: 1.15; color: #4a8a78; }
