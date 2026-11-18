@@ -143,6 +143,12 @@ describe('client: status → the official buff effect', () => {
     const tpl = (fx) => [...F.wantedStatusFx(unit('char_1_02_yak', { statuses: new Set(['terrain:airflow']), statusFrom: new Map([['terrain:airflow', { src: null, fx, n: 0 }]]) }), undefined, null, keyPlays()).values()].map((s) => `${s[0]}/${s[1]}`);
     assert.deepEqual(tpl(2), ['wind/wind_buff_02'], '[equal]: with the flow');
     assert.deepEqual(tpl(1), ['wind/wind_buff_01'], '[opposite]: against it');
+    // 2026-11-18: over the drawn head (HEAD 1.1), not the prefab's own HEAD_POINT — the fixed HeadPoint (400 skeleton units)
+    // floated a tile over a short model (docs/rules/fx.md 「전장 #05 오리지늄 기류 발생 장치의 바람·기류 표식」)
+    for (const fx of [2, 1]) {
+      const [s] = F.wantedStatusFx(unit('char_4207_branch', { statuses: new Set(['terrain:airflow']), statusFrom: new Map([['terrain:airflow', { src: null, fx, n: 0 }]]) }), undefined, null, keyPlays()).values();
+      assert.equal(s[2], 1.1, `tag ${fx}: the drawn head's height share (HEAD), not OWN — the fixed HeadPoint sits a tile over a short model (docs/rules/fx.md 「전장 #05 오리지늄 기류 발생 장치의 바람·기류 표식」)`);
+    }
   });
 
   test('2026-11-03: Mon3tr T2 on an ally by its tag (2: given under her S2) and the side it faces; 贝洛内\'s 【手段】, 维伊\'s mark and S2 cap', () => {

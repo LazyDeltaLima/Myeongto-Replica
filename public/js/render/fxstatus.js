@@ -160,8 +160,13 @@ const PALLAS_PEAK = Object.freeze([Object.freeze(['pallas', 'pallas_buff_01_star
  */
 const MONSTR_T2 = Object.freeze([['token_monstr_prosts_buff_01', 'token_monstr_prosts_buff_01_2'], ['token_monstr_prosts_buff_02', 'token_monstr_prosts_buff_02_2']]
   .map((p) => Object.freeze(p.map((n) => Object.freeze(['monstr_token', n, OWN])))));
-/** blower_s[atk]'s two effects: [ATK up, ATK down] (spawn at the prefab's own point). */
-const WIND_BUFF = Object.freeze([Object.freeze(['wind', 'wind_buff_02', OWN]), Object.freeze(['wind', 'wind_buff_01', OWN])]);
+/**
+ * blower_s[atk]'s two effects: [ATK up, ATK down]. Their `_spawnLocation` is 4 HEAD_POINT, which the client reads from the
+ * model's `FaceSwitcher/HeadPoint` — 400 skeleton units up on 219 of 222 operators whatever the model's height, so OWN drew
+ * them about a tile over a short model's head (베토치키, on the next row's operator). Drawn over the drawn head as the other
+ * head marks (HEAD) — maintainer decision 2026-11-18 (docs/rules/fx.md 「전장 #05 오리지늄 기류 발생 장치의 바람·기류 표식」).
+ */
+const WIND_BUFF = Object.freeze([Object.freeze(['wind', 'wind_buff_02', HEAD]), Object.freeze(['wind', 'wind_buff_01', HEAD])]);
 /** Whether `st` (a view's statuses) holds a tile 隐匿 (KEY_FX below): a 隐匿 it explains is drawn by it alone. */
 const tileStealth = (st) => !!st?.has?.('terrain:smog') || !!st?.has?.('terrain:grassland');
 /** The tile 隐匿 effects (`bundle/prefab`, a view's `_fxStatusOn`): no ColorModifier — units.js leaves the model's colour. */
