@@ -7,7 +7,9 @@
 // Preact's hooks build imports the bare specifier "preact"; it is rewritten to the sibling './preact.module.js' (the
 // same URL the import map resolves "preact" to, so one Preact instance) — module graphs then load without import-map
 // support (Safari < 16.4).
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+// Every file loses its `//# sourceMappingURL=` comment: the .map files are not vendored, and the browser's developer tools
+// would ask the server for them on every load (a 404 in the console).
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -31,6 +33,14 @@ export function rewriteBare(src, map) {
   return res;
 }
 
+/**
+ * Drop the source-map comments (`//# sourceMappingURL=…` / `/*# sourceMappingURL=… *\/` on a line of their own).
+ * @param {string} src
+ */
+export function stripSourceMap(src) {
+  return src.replace(/^[ \t]*(?:\/\/[#@][ \t]*sourceMappingURL=[^\r\n]*|\/\*[#@][ \t]*sourceMappingURL=[^\r\n]*?\*\/[ \t]*)(?:\r?\n|$)/gm, '');
+}
+
 /** [source under the repo root, file name in public/vendor, optional] */
 export const VENDOR_FILES = Object.freeze([
   ['node_modules/pixi.js/dist/pixi.min.js', 'pixi.min.js'],
@@ -48,8 +58,8 @@ export function vendor({ log = console.log, warn = console.warn } = {}) {
   for (const [src, dst, optional] of VENDOR_FILES) {
     const from = join(root, src);
     if (optional && !existsSync(from)) { warn(`vendor: ${dst} skipped (${src} not installed; the 3D board falls back to 2D)`); continue; }
-    if (VENDOR_REWRITES[dst]) writeFileSync(join(out, dst), rewriteBare(readFileSync(from, 'utf8'), VENDOR_REWRITES[dst]));
-    else copyFileSync(from, join(out, dst));
+    const src0 = readFileSync(from, 'utf8');
+    writeFileSync(join(out, dst), stripSourceMap(VENDOR_REWRITES[dst] ? rewriteBare(src0, VENDOR_REWRITES[dst]) : src0));
     done.push(dst);
     log('vendor:', dst);
   }

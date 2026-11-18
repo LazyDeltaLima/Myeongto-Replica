@@ -1272,6 +1272,23 @@ describe('multi-device & browser compatibility (static)', () => {
     }
   });
 
+  test('vendored files carry no sourceMappingURL comment (the .map files are not vendored: a 404 in the console)', async () => {
+    const { stripSourceMap, VENDOR_FILES } = await import('../tools/vendor.mjs');
+    assert.equal(stripSourceMap('a();\n//# sourceMappingURL=pixi.min.js.map\n'), 'a();\n');
+    assert.equal(stripSourceMap('a();\n//# sourceMappingURL=x.map'), 'a();\n');
+    assert.equal(stripSourceMap('a();\r\n/*# sourceMappingURL=x.map */\r\nb();'), 'a();\r\nb();');
+    assert.equal(stripSourceMap('s = "//# sourceMappingURL=" + u;'), 's = "//# sourceMappingURL=" + u;', 'only a comment on its own line');
+    let seen = 0;
+    for (const [, f] of VENDOR_FILES) {
+      const file = path.join(PUBLIC, 'vendor', f);
+      if (!existsSync(file)) continue;
+      seen++;
+      assert.doesNotMatch(readFileSync(file, 'utf8'), /^[ \t]*(?:\/\/|\/\*)[#@][ \t]*sourceMappingURL=/m,
+        `vendor/${f} still names its source map (tools/vendor.mjs stripSourceMap; run npm run vendor)`);
+    }
+    if (existsSync(path.join(PUBLIC, 'vendor'))) assert.ok(seen > 0, 'no vendored file was checked');
+  });
+
   test('no regex lookbehind in code that runs in the browser (SyntaxError in Safari < 16.4)', () => {
     for (const file of BROWSER_JS) {
       const src = readFileSync(file, 'utf8').replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, '');
