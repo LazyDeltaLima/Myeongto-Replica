@@ -18,7 +18,7 @@ import {
 } from '../../public/js/ui/stats.js';
 import { createStore, emptyMatch } from '../../public/js/store.js';
 import { normalizeResult } from '../../public/js/ui/gameLogic.js';
-import { PHASE } from '../../shared/constants.js';
+import { LARGE_SEATS, PHASE } from '../../shared/constants.js';
 
 /** A realistic m.result in the shape server/match/results.js buildResult emits (replayed byte-identically). */
 function baseResult(over = {}) {
@@ -434,8 +434,9 @@ describe('local stats: bounded storage', () => {
       })),
       bigUnknown: 'y'.repeat(1e6),
     });
-    assert.ok(JSON.stringify(rec).length < 40_000, `${JSON.stringify(rec).length} chars`);
-    assert.equal(rec.players.length, 6);
+    // ~6.7k characters per maxed-out row, one row per seat of the largest room
+    assert.ok(JSON.stringify(rec).length < 7_000 * LARGE_SEATS, `${JSON.stringify(rec).length} chars`);
+    assert.equal(rec.players.length, LARGE_SEATS);
     assert.equal(rec.players[0].lineup.length, 12);
     assert.equal(rec.players[0].lineup[0].items.length, 4);
     assert.equal(rec.players[0].name.length, 24);
@@ -676,6 +677,22 @@ describe('local stats: aggregation (what the page renders)', () => {
     assert.equal(agg.sums.kills, 41 + 10);
     assert.equal(agg.sums.gold, 880 + 200);
     assert.equal(agg.sums.leaks, 2); // game 2's self row has no leaks → skipped, not NaN
+  });
+
+  test('an 8-player co-op settlement keeps every seat, and the 8th seat\'s own row is the self row (docs/rules/ui.md 「통계 기록의 자리 수」)', () => {
+    const row = (i) => ({ playerId: `p${i + 1}`, seat: i, name: `P${i + 1}`, isBot: i > 1, alive: true, victory: true, roundsPassed: 15,
+      bandId: i === LARGE_SEATS - 1 ? 'band_ducklord' : i === 0 ? 'band_duyaoy' : 'band_amiya', lineup: [], bonds: [], stats: { kills: i } });
+    const res = baseResult({ players: Array.from({ length: LARGE_SEATS }, (_, i) => row(i)) });
+    const me = `p${LARGE_SEATS}`;
+    const rec = buildRecord(res, { myId: me, now: 1, roomMode: 'coop' });
+    assert.equal(rec.players.length, LARGE_SEATS, 'the stats record cut the 8-player room: the record cap must be LARGE_SEATS');
+    assert.equal(selfRowOf(rec).bandId, 'band_ducklord', 'the self row must be the seated player\'s own, not another human\'s');
+    assert.deepEqual(Object.keys(aggregateStats([rec]).bands), ['band_ducklord']);
+    assert.equal(recordToResult(rec).players.length, LARGE_SEATS);
+    // a record stored under the old 6-seat cap lost the 7th / 8th row: it has no self row rather than someone else's
+    const cut = normalizeRecord({ ...rec, players: rec.players.slice(0, 6) });
+    assert.equal(selfRowOf(cut), null);
+    assert.deepEqual(aggregateStats([cut]).bands, {});
   });
 
   test('selfRowOf fallbacks: selfId, else first human, else first row; anonymous record → null', () => {

@@ -1096,6 +1096,13 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   준비 완료, 그리고 `m.private.ops`로 만든 카드 = 같은 판의 전투 수치(팀원 정찰 유닛도). 브라우저 e2e(`SP_E2E=1`: `stats` `inspect-range`
   `mock` `playtest2.real` `loadout*` `teammate-loadout`) [실제 판 이상 없음 2026-10-28].
 
+## 통계 기록의 자리 수 (2026-11-18, 관리자 제보)
+- 통계 기록 한 판이 담는 플레이어 줄의 상한(`public/js/ui/stats.js MAX_PLAYERS`)은 게임의 가장 큰 방(`shared/constants.js LARGE_SEATS`, 8인 협동)을 그대로 쓴다.
+  예전 상한 6(4인 게임 때 값)은 8인 판의 7·8번 자리를 잘랐고, 그 자리가 본인이면 `selfRowOf`가 다른 사람 줄로 넘어가
+  판 기록·전략 통계·결산 다시 보기가 남의 전략(제보: 덕로드를 골랐는데 두요야)과 수치를 보였다. 실시간 결산 화면은 결과를 그대로 그려 잘리지 않았다.
+- `selfId`가 있는 기록은 그 줄만 본인으로 본다. 예전 상한으로 저장돼 본인 줄이 없는 기록은 본인 줄 없음(전략·수치 집계에서 빠짐, 잘린 줄은 되살릴 수 없음).
+- 재발 방지: 원인 제거 — 상한은 `LARGE_SEATS`를 읽음; `test/ui/stats.test.js` 「an 8-player co-op settlement keeps every seat」.
+
 ## upstream 0.2.3 이식 — UI (2026-10-11)
 - 대화 상자 안 복사(`8a8db0eb`, GitHub #433): 클립보드 API가 없을 때(LAN) 쓰는 textarea 대체 경로가 모달 포커스 가두기 안에서 선택을 잃어
   「복사됨」인데 실제로는 안 되던 것 → textarea를 열린 모달·안내 안에 두고, 포커스와 전체 선택을 확인한 뒤에만 복사, 성공·실패 모두 정리하고 포커스를

@@ -40,7 +40,7 @@
 // Pure logic, no Preact / DOM: Node-testable (test/ui/stats.test.js); localStorage is touched only by loadStats /
 // saveStats / their helpers.
 
-import { PHASE } from '../../../shared/constants.js';
+import { LARGE_SEATS, PHASE } from '../../../shared/constants.js';
 import { isRulePreset, rulesetKey } from '../../../shared/ruleset.js';
 import { DEFAULT_SEASON } from '../../../shared/seasons.js';
 
@@ -76,7 +76,9 @@ const bool = (v, d = false) => (typeof v === 'boolean' ? v : d);
 const str = (v, max = 64) => (typeof v === 'string' && v.length ? v.slice(0, max) : null);
 
 // per-record bounds (an imported file is foreign data: nothing a row holds may grow without limit)
-const MAX_PLAYERS = 6; // the game seats 4
+// the largest room the game seats (the 8-player co-op): a lower cap dropped the 7th / 8th seat's row, and with it the
+// player's own row when they sat there (docs/rules/ui.md 「통계」)
+const MAX_PLAYERS = LARGE_SEATS;
 const MAX_LINEUP = 12;
 const MAX_ITEMS = 4;
 const MAX_BONDS = 24;
@@ -759,14 +761,16 @@ const SELF_STATS = ['dmgDealt', 'kills', 'bossDamage', 'activatedLayers', 'merge
 
 /**
  * The row that "is me" in a record: selfId, else the only human, else seat 0 — records written by
- * recordResult always have selfId; the fallbacks only serve imported / hand-made data.
+ * recordResult always have selfId; the fallbacks only serve imported / hand-made data. A record that names its selfId
+ * but lost that row (an 8-player match stored while the cap was 6 seats) has no self row: falling back gave the
+ * player another human's strategy and numbers.
  * @param {any} rec
  * @returns {any|null}
  */
 export function selfRowOf(rec) {
   const ps = Array.isArray(rec?.players) ? rec.players : [];
-  return ps.find((p) => p.playerId && p.playerId === rec.selfId)
-    || ps.find((p) => !p.isBot)
+  if (rec?.selfId) return ps.find((p) => p.playerId === rec.selfId) || null;
+  return ps.find((p) => !p.isBot)
     || ps[0]
     || null;
 }
