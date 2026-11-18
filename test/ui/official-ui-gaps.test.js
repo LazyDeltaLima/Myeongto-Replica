@@ -225,6 +225,13 @@ describe('规程 mode badge over the ping (mode_info_panel)', () => {
       assert.ok(group[`img_title_mode_${String(d).toLowerCase()}`], `modeDifficulty ${d} has no img_title_mode picture: ModePanel (ui/battleArt.js modePanelArt) would fall back to the tag — see docs/rules/ui.md 「규정 전투 HUD 모드 표시」`);
     }
   });
+  test('every 盟约 mode has its modeIcon, which the badge draws in the emblem\'s place (docs/rules/ui.md 「규정 전투 HUD 모드 표시」)', () => {
+    const ui = JSON.parse(read('data/assets.json')).ui;
+    const modes = Object.values(JSON.parse(read('data/config.json')).modes);
+    assert.ok(modes.some((m) => m.difficulty === 'TRAINING') && modes.some((m) => m.difficulty === 'ABYSS'), 'the sweep sees the 盟约 modes');
+    for (const m of modes) assert.ok(ui[`modeIcon/mode_${m.difficulty.toLowerCase()}_icon`], `${m.modeId}: no modeIcon for ${m.difficulty} — ModePanel would fall back to the tag`);
+    assert.match(read('public/js/ui/battleArt.js'), /const icon = uiUrl\(m, `modeIcon\/mode_\$\{diff\.toLowerCase\(\)\}_icon`\);/);
+  });
   test('the HUD draws the badge first and the tag only without it; the ping reads 「{0}ms」 as the CN pingConds', () => {
     const hud = read('public/js/ui/hud.js');
     assert.match(hud, /const modeArt = modePanelArt\(pub\?\.modeId\);/);

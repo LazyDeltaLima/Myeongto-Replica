@@ -421,7 +421,8 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
   const btn = checkButtons({ pen, penAvail, infoOpen: !!drawer });
   const onLeft = () => (pen ? onPen(false) : onDrawer('info'));
   const onRight = () => (pen ? onPen(false) : penAvail ? onPen(true) : null);
-  // 规程: the mode badge over the ping, the two as high as the exit button (official CN screen 2026-11-18); 盟约: the tag
+  // the mode badge over the ping, the two as high as the exit button (official CN screen 2026-11-18; 盟约 too, maintainer
+  // decision 2026-11-18, with its own mode icons); the tag only without a picture
   const modeArt = modePanelArt(pub?.modeId);
   return html`<header class=${cx('gtop', pen && 'is-pen')}>
     <div class="gtop__left">

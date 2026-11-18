@@ -1417,7 +1417,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 핑 판(`panel_ping`, `AutoChessBattleUIPingPanel`): 위 왼쪽 나가기 버튼 옆 `img_delay_bkg` 76×24, 글 흰색 16(best fit 1–16 — 「9999ms」까지 16에 들어감) — 글은
   숫자와 「ms」만(`autoChessData.constData.pingConds` 「<@ping.low>{0}</>ms」, CN 표 2026-11-01부터, 공식 CN 화면 2026-11-18; 예전 표·KR·EN 클라는
   「当前延迟{0}ms」·「PING {0}ms」·「Current ping: {0}ms」), 숫자 색 `gamedata_const` richTextStyles `ping.low/medium/high` #7fa826 / #ec7a00 / #ff3d3d
-  (1 / 60 / 200 ms 기준). 그림이 없으면 upstream 알약. 규정에서는 모드 표시 아래(아래 「규정 전투 HUD 모드 표시」).
+  (1 / 60 / 200 ms 기준). 그림이 없으면 upstream 알약. 모드 표시 아래(아래 「규정 전투 HUD 모드 표시」, 두 시즌).
 - 위수협약 토스트(`auto_chess_notify_taost`, 공식 클라 `AutoChessUtil.ShowTextToast` — 전투·상점·방·결산의 토스트가 모두 이것): 판 화면이 열려 있고 그림이 있으면
   모든 토스트를 346×114 판(`img_toast_bg`, 「i」 표시 포함, 텍스처는 rect 379×181 안 18/19) + 글 230×80(+40, 20 흰색)으로, 화면 가운데에(위치 [추정] — 클라
   일반 토스트 층). `html.sp-ac-toast`(`screens/game.js`).
@@ -2506,9 +2506,11 @@ CN 11-01부터 들어온 전투 HUD 요소 넷(EN 10-14 클라에는 없음). �
   맨 위에, 핑을 아래에 두고 둘을 나가기 버튼 높이에 맞춘다(프리팹 24 + 12 + 24 = 60 단위를 버튼 높이로 — 문양 위가 버튼 위, 핑 아래가 버튼 아래; 터치 화면은
   커진 버튼 높이). 이름은 우리 화면의 모드 이름(규정 등급 n·고속 시뮬레이션·협동 난이도 이름), 색은 표 `modeColor`(`config.modes[].color`). 문양이 상자 왼쪽
   8.8 단위 밖으로 나와 우리 빨간 나가기 버튼에 닿지 않게 상자를 9 단위 안으로. 좁은 휴대폰(740)에서는 글자가 위 가운데 막대 4 px 앞에서 멈추고 줄어든다
-  (best fit). 맹약 하반기는 그대로(난이도 글자).
+  (best fit). 맹약 하반기도 같은 배치(관리자 결정 2026-11-18): EN 클라에는 이 패널이 없어 맹약 자기 난이도 아이콘(`modeIcon/mode_<난이도>_icon`, 최대
+  35×35 — 난이도 글자가 쓰던 것)을 규정 그림의 문양 자리(높이 24, 상자 왼쪽에서 3.6 단위가 가운데)에 그리고, 그림의 빛 대신 모드 색 빛을 두른다. 이름은 그
+  난이도 이름, 색은 맹약 표 `modeColor`. 아이콘이 없으면 예전 난이도 글자.
 - [추정·미조사] 그림을 `modeDifficulty`로, 이름 색을 `modeColor`로 고르는 것: 패널을 채우는 클래스는 읽지 않았다(이름이 맞고, 공식 화면 한 장의 험지 색이 맞음).
-- 재발 방지: `test/ui/official-ui-gaps.test.js` 「规程 mode badge over the ping」(모든 규정 모드의 `modeDifficulty`에 그림이 있는지 — 추출물이 없으면 건너뜀,
+- 재발 방지: `test/ui/official-ui-gaps.test.js` 「规程 mode badge over the ping」(모든 규정 모드의 `modeDifficulty`에 그림이, 모든 맹약 모드에 `modeIcon`이 있는지 — 추출물이 없으면 건너뜀,
   HUD 배치·핑 글자·높이 규칙). 시안·공식 화면·구현 캡처는 관리자 기록. 화면 [화면 미확인: 실제 판].
 
 ## 규정 특질 문구의 숫자 `{showtag_value_1}` (2026-11-13)

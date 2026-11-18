@@ -931,25 +931,35 @@ export function PingPanel({ ms, online = true }) {
 }
 
 /**
- * The mode picture of mode_info_panel for a mode: modeinfotitle img_title_mode_<its modeDifficulty> (training, funny,
- * normal, hard, abyss, fast — the six pictures are named after the six modeDifficulty values), from the season's own
- * extract; null when the season has none (盟约: the EN client has no such panel) or the extract lacks it.
+ * The picture of mode_info_panel for a mode, by its modeDifficulty: the season's own modeinfotitle
+ * img_title_mode_<difficulty> (规程: training, funny, normal, hard, abyss, fast — the six pictures are named after the six
+ * modeDifficulty values), else the season's modeIcon mode_<difficulty>_icon in the emblem's place (盟约: the EN client has
+ * no such panel and its modes their own colour icons; maintainer decision 2026-11-18 — 盟约 takes 规程's layout with its
+ * icons); null when there is neither.
  * @param {string|null|undefined} modeId
+ * @returns {{ url: string, icon: boolean } | null}
  */
 export function modePanelArt(modeId) {
   const diff = modeId ? data.get('config')?.modes?.[modeId]?.difficulty : null;
-  return typeof diff === 'string' ? uiUrl(data.get('assets'), `modeInfoTitle/img_title_mode_${diff.toLowerCase()}`) : null;
+  if (typeof diff !== 'string') return null;
+  const m = data.get('assets');
+  const title = uiUrl(m, `modeInfoTitle/img_title_mode_${diff.toLowerCase()}`);
+  if (title) return { url: title, icon: false };
+  const icon = uiUrl(m, `modeIcon/mode_${diff.toLowerCase()}_icon`);
+  return icon ? { url: icon, icon: true } : null;
 }
 
 /**
- * 规程's mode badge (CN auto_chess_battle_ui_page panel_info/panel_mode = mode_info_panel, 76 × 24 at 116.2 / −20 — the
+ * The mode badge, both seasons (CN auto_chess_battle_ui_page panel_info/panel_mode = mode_info_panel, 76 × 24 at 116.2 / −20 — the
  * place 盟约's ping had): img_mode_title 175 × 68 at scale 0.8 centred on the box (its emblem reaches 8.8 left of it), and
  * text_mode_name 16 (best fit 1–16), its box 86 wide 25 right of centre, in the mode's modeColor — the official CN screen
  * of 2026-11-18 draws the name in the emblem's colour. The name is the one the rest of our UI gives the mode (规程等级 n /
  * 极速模拟 / the co-op difficulty). [ASSUMED·미조사] picture by modeDifficulty and the name colour by modeColor: the class
  * that fills the panel was not read, the names match. The text never runs under the top bar's centre (a narrow phone):
  * its box ends 4 px before it and the font shrinks to fit, measured on render and resize.
- * @param {{ modeId: string, art: string, difficulty?: string|null }} props
+ * 盟约 draws its modeIcon (at most 35 × 35) where 规程's emblem is — 24 high, centred 3.6 right of the box's left edge —
+ * with a glow of the mode's colour in place of the picture's own.
+ * @param {{ modeId: string, art: { url: string, icon: boolean }, difficulty?: string|null }} props
  */
 export function ModePanel({ modeId, art, difficulty = null }) {
   const ref = useRef(/** @type {HTMLElement|null} */ (null));
@@ -976,7 +986,7 @@ export function ModePanel({ modeId, art, difficulty = null }) {
     addEventListener('resize', fit);
     return () => removeEventListener('resize', fit);
   }, [name]);
-  return html`<span class="bmode" style=${`--mt:url("${art}")${color ? `;--mc:${color}` : ''}`} data-testid="mode-panel">
-    <i class="bmode__bg" aria-hidden="true"></i><b class="bmode__name" ref=${ref}>${name}</b>
+  return html`<span class=${art.icon ? 'bmode is-icon' : 'bmode'} style=${`--mt:url("${art.url}")${color ? `;--mc:${color}` : ''}`} data-testid="mode-panel">
+    ${art.icon ? html`<img class="bmode__icon" src=${art.url} alt="" draggable=${false} />` : html`<i class="bmode__bg" aria-hidden="true"></i>`}<b class="bmode__name" ref=${ref}>${name}</b>
   </span>`;
 }
