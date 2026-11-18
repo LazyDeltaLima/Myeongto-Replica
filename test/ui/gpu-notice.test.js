@@ -9,14 +9,16 @@ import { buildDiagnostics } from '../../public/js/diag.js';
  * A document whose canvases answer like a browser: `hw` = contexts with failIfMajorPerformanceCaveat succeed,
  * `gl2` / `gl1` = WebGL2 / WebGL exist at all, `name` = the unmasked renderer.
  */
-function fakeDoc({ hw = true, gl2 = true, gl1 = true, name = 'ANGLE (NVIDIA GeForce RTX 3060)' } = {}) {
+function fakeDoc({ hw = true, gl2 = true, gl1 = true, name = 'ANGLE (NVIDIA GeForce RTX 3060)', plainName = false } = {}) {
   const made = [];
   const gl = (two) => {
     const g = {
       lost: false,
-      getExtension: (n) => (n === 'WEBGL_debug_renderer_info' ? { UNMASKED_RENDERER_WEBGL: 1 }
+      debugAsked: false,
+      getExtension: (n) => (n === 'WEBGL_debug_renderer_info' ? (g.debugAsked = true, { UNMASKED_RENDERER_WEBGL: 1 })
         : n === 'WEBGL_lose_context' ? { loseContext: () => { g.lost = true; } } : null),
-      getParameter: (p) => (p === 1 ? name : 'WebKit WebGL'),
+      // plainName: `RENDERER` is the GPU's own name (Firefox), else masked (Chrome / Safari)
+      getParameter: (p) => (p === 1 || plainName ? name : 'WebKit WebGL'),
       RENDERER: 2,
     };
     if (two) g.texStorage2D = () => {};
@@ -40,6 +42,16 @@ test('probeGpu: a GPU draws → hardware, and every probe context is released', 
   const doc = fakeDoc();
   assert.deepEqual(probeGpu(doc), { accel: 'hardware', webgl2: true, renderer: 'ANGLE (NVIDIA GeForce RTX 3060)' });
   assert.ok(doc.made.length > 0 && doc.made.every((g) => g.lost));
+});
+
+test('probeGpu: a plain RENDERER (Firefox) is read without WEBGL_debug_renderer_info, which Firefox warns about', () => {
+  const plain = fakeDoc({ plainName: true });
+  assert.equal(probeGpu(plain).renderer, 'ANGLE (NVIDIA GeForce RTX 3060)');
+  assert.ok(plain.made.every((g) => !g.debugAsked), 'the deprecated extension is asked although RENDERER names the GPU');
+  const masked = fakeDoc();
+  assert.equal(probeGpu(masked).renderer, 'ANGLE (NVIDIA GeForce RTX 3060)');
+  assert.ok(masked.made.some((g) => g.debugAsked), 'a masked RENDERER (Chrome) still takes the extension');
+  assert.equal(probeGpu(fakeDoc({ plainName: true, name: 'llvmpipe (LLVM 15.0.7, 256 bits)' })).accel, 'software');
 });
 
 test('probeGpu: refused under the performance caveat → software (acceleration off / blocklisted GPU)', () => {

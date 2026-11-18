@@ -3,7 +3,7 @@
 // A page cannot read the browser's "use graphics acceleration" setting; two signals stand in for it:
 //   - `failIfMajorPerformanceCaveat`: a context asked with it is refused when the browser would draw on a software
 //     renderer (acceleration off, a blocklisted GPU or driver, a remote desktop without a GPU);
-//   - the renderer name (WEBGL_debug_renderer_info): SwiftShader (Chrome / Edge), llvmpipe / softpipe (Mesa),
+//   - the renderer name (`RENDERER`, or WEBGL_debug_renderer_info where `RENDERER` is masked): SwiftShader (Chrome / Edge), llvmpipe / softpipe (Mesa),
 //     Microsoft Basic Render Driver (WARP: Windows without a GPU driver) are software renderers.
 // `probeGpu()` checks again on every call (the 3D board's retries); `gpuStatus()` is the page's first answer, kept for
 // the bug report (diag.js) and the player's notice (ui/gpuNotice.js).
@@ -22,10 +22,17 @@ function release(gl) {
   try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* ignore */ }
 }
 
+/** A masked `RENDERER` (Chrome / Edge / Safari: "WebKit WebGL"; Firefox under resist-fingerprinting: "Mozilla"). */
+const MASKED_RENDERER_RE = /^(?:WebKit WebGL|Mozilla)$/i;
+
+// The GPU's name: `RENDERER` itself where it is the GPU's (Firefox, which deprecates WEBGL_debug_renderer_info and warns
+// on every request for it), the extension's unmasked one only behind a masked `RENDERER`.
 function rendererName(gl) {
   try {
+    const plain = gl.getParameter(gl.RENDERER);
+    if (plain && !MASKED_RENDERER_RE.test(String(plain))) return String(plain);
     const ext = gl.getExtension('WEBGL_debug_renderer_info');
-    return String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    return String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : plain);
   } catch { return null; }
 }
 
