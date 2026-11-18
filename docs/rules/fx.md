@@ -1054,7 +1054,16 @@
   `FxInstance`는 그 프리팹을 거울 없이 그 노드만 돌리고(방향도 `facing`도 안 받으면 위), `fxgame.js play()`/`spawn()`은 `face`와 같이 공식 길(옛
   `aimAlong`·`aimMover`·`aimFacing` 없음), FollowDirection(`stepFollow`)도 같은 함수. `face`도 `bodyFace`도 없는 5개(이펙트 컴포넌트가 없는 화면 이펙트
   `screen_*` 셋·경로 미리보기 커서 둘)와 옛 추출물만 예전처럼 거울. 재발 방지: `test/render/fx-face-delay.test.js`(`effectTurn`·`FxInstance` 거울 없음·
-  루트 회전 덮어씀, 추출물 훑기 — 기록 없는 루트는 위 5개 목록만). `rotation_y`(FLIP_TWO_SIDE)는 플레이어도 거울이 아니라 그 노드를 y축 180° 돌려서(`FxInstance.applyTurn`) 입체 메시·
+  루트 회전 덮어씀, 추출물 훑기 — 기록 없는 루트는 위 5개 목록만).
+  **방향을 받지 않은 재생**(2026-11-18, 관리자 제보: 제국 아틸러리 타게티어 `enemy_1112_emppnt`의 포탄이 비스듬히 떨어짐): `spawn()`이 `facing`을 기본 1로 넘겨
+  방향 없는 호출도 모두 +x를 받았고, 기반 FaceTo 루트는 −90°(z축) 돌았다 — 포탄 `enemy_emppnt_attack_01_trail`은 낙하 축이 y–z 평면에 카메라 쪽으로
+  기울어 있어 그 회전이 화면 가로로 눕혔다. 이제 ① **ProjectileEffect 루트**(`mainRot` 기록이 있는 402개 — 바인딩에서는 모두 투사체 꼬리로만 쓰임)는
+  부르는 쪽 방향과 상관없이 위(`Projectile._CreateMainEffect` → `Effect.Play(speed)`)로 돌고 그다음 `mainRot`(`ProjectileEffect.OnBeforePlay`,
+  `roll` 포함)을 받는다 — 날아가는 꼬리는 `bodyTurn`이 같은 값을 다시 놓고, 제자리 포탄은 `FxInstance.applyTurn`만으로; ② `spawn()`은 `aim`·`dir`·`facing`
+  어느 것도 받지 않으면 방향을 만들지 않는다. 유닛 위에 만드는 기반 FaceTo 루트는 그 유닛의 방향(`BattleController.CreateEffect(키, 대상, 소스)` → 대상
+  `faceTo`, 버프 이펙트는 `Entity.AddBuffEffect`의 `faceVector` ±x — 2026-11-18 공식 클라에서 확인), 땅 위 한 점은 위
+  [추정·미조사: 한 점에 만드는 클라 길은 부르는 쪽이 채운 `FixedPosition.faceTo`를 쓰는데, 길마다 읽지 않았다]. ParticleEffect 루트(`face`)는 예전처럼 ±x.
+  재발 방지: `test/render/fx-face-delay.test.js`(「a ProjectileEffect root (`mainRot`) faces up」). `rotation_y`(FLIP_TWO_SIDE)는 플레이어도 거울이 아니라 그 노드를 y축 180° 돌려서(`FxInstance.applyTurn`) 입체 메시·
   입자도 클라와 같은 회전이다(2026-11-17 대조 — 위 「거울과 같음」은 판 위 평면 내용에 대한 설명일 뿐).
 - **재생 속도**: `_usePlaybackSpeed`(`face.speed` 0 = 끔)일 때만 받은 속도를 쓰고, 끄면 1.0(풀 바인딩 시전 이펙트 383개 중 75개 — 르무엔 `lemuen_attack_start_01`,
   첸 더 던스트릭 용 등). `_limitedPlaybackSpeed`(`face.limit`, 없으면 2.0; 음수 = 상한 없음)가 0 이상이면 속도 ≤ 상한 ÷ 전투 배속 → `fx/face.js playSpeed`, `play`/`spawn`의

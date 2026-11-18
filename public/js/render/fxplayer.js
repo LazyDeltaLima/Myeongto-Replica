@@ -3663,6 +3663,12 @@ export class FxInstance {
     if (turn.any != null) {
       const bn = Number.isInteger(turn.node) ? turn.node : this.def?.face?.bodyNode, b = Number.isInteger(bn) ? this.nodes[bn] : named('body');
       if (b) b.rotation.set(0, 0, (turn.any * Math.PI) / 180);
+      // 2026-11-18: a ProjectileEffect root then takes its OnBeforePlay rotation (fx/face.js effectTurn `main` / `roll`) —
+      // what render/fx/face.js bodyTurn sets again on a flying shot; a still one (a shell on its spot) has only this
+      if (b && turn.main) {
+        b.quaternion.set(turn.main[0], turn.main[1], turn.main[2], turn.main[3]);
+        if (turn.roll) b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), (Math.random() * turn.roll * Math.PI) / 180));
+      }
     }
   }
 

@@ -60,13 +60,22 @@ export const EFFECT_DIRECTION = Object.freeze({ x: 0, y: 1 });
  * localRotation becomes Euler(0, 0, atan2(dir) − 90°), never a mirror (`{ any, node }`, degrees). null without either record
  * (an old extract, a root without an effect component: the caller keeps the old mirror). `dir` null = EFFECT_DIRECTION
  * for the base turn.
- * @returns {{ flip?: boolean, z?: number, any?: number, node?: number }|null}
+ * 2026-11-18 (official client): a ProjectileEffect root (its `mainRot` record, fx_extract.py projectile_turn) is a
+ * projectile's main effect — `Projectile._CreateMainEffect` parents it to the body with `Misc.Reset` and plays it with
+ * `Effect.Play(speed)`, so it always faces EFFECT_DIRECTION whatever `dir` the caller has, and then
+ * `ProjectileEffect.OnBeforePlay` sets its root to `mainRot` (`main`, a Unity quaternion; `roll`, degrees about x) — every
+ * extracted ProjectileEffect root is bound as a shot's trail. Without this a still shell (帝国炮火先兆者's, spawned on its
+ * landing spot) was turned to the caller's ±x: −90°, its fall slanted across the screen (maintainer report).
+ * @returns {{ flip?: boolean, z?: number, any?: number, node?: number, main?: number[], roll?: number }|null}
  */
 export function effectTurn(def, dir, body = null) {
   if (def?.face) return faceTurn(def.face, dir, body);
   if (!Number.isInteger(def?.bodyFace)) return null;
-  const d = dir || EFFECT_DIRECTION;
-  return { any: (Math.atan2(Number(d.y) || 0, Number(d.x) || 0) * 180) / Math.PI - 90, node: def.bodyFace };
+  const main = Array.isArray(def.mainRot) && def.mainRot.length === 4 ? def.mainRot.map((v) => Number(v) || 0) : null;
+  const d = main ? EFFECT_DIRECTION : dir || EFFECT_DIRECTION;
+  const turn = { any: (Math.atan2(Number(d.y) || 0, Number(d.x) || 0) * 180) / Math.PI - 90, node: def.bodyFace };
+  if (main) Object.assign(turn, { main }, Number(def.roll) ? { roll: Number(def.roll) } : null);
+  return turn;
 }
 
 /**

@@ -250,6 +250,31 @@ test('FxInstance: a base effect root (`bodyFace`) is never mirrored; its body ta
   for (const i of [left, right, none, aimed]) i.dispose();
 });
 
+// 2026-11-18 (maintainer report: 帝国炮火先兆者's shell fell slanted; docs/rules/fx.md 「좌우 거울·재생 속도·루트 지연」 루트가
+// ParticleEffect가 아닌 이펙트): a ProjectileEffect root is a projectile's main effect — Effect.Play(speed), EFFECT_DIRECTION —
+// whatever the caller passes, then its OnBeforePlay `mainRot`; spawn() gives no direction it was not handed
+test('effectTurn / FxInstance: a ProjectileEffect root (`mainRot`) faces up whatever the direction, then takes its mainRot', async () => {
+  const s = Math.SQRT1_2;
+  for (const d of [R, L, D, null]) {
+    const t = effectTurn({ bodyFace: 0, mainRot: [0, 0, 0, 1] }, d);
+    assert.equal(Math.round(t.any), 0, `played with ${JSON.stringify(d)}: still EFFECT_DIRECTION (Projectile._CreateMainEffect → Effect.Play(speed))`);
+  }
+  assert.deepEqual(effectTurn({ bodyFace: 0, mainRot: [0, 0, s, s], roll: 360 }, R).main, [0, 0, s, s]);
+  assert.equal(effectTurn({ bodyFace: 0, mainRot: [0, 0, s, s], roll: 360 }, R).roll, 360);
+  const { fxp, stub } = await three();
+  const shell = (rot) => stub(tiny(null, 'p', { bodyFace: 0, mainRot: rot }));
+  const still = new fxp.FxInstance(shell([0, 0, 0, 1]), { quality: 'high', facing: 1 });
+  assert.ok(Math.abs(still.nodes[0].quaternion.w - 1) < 1e-9, 'a still shell played facing right keeps its prefab\'s fall (no −90° about z)');
+  const reset = new fxp.FxInstance(shell([0, 0, s, s]), { quality: 'high', facing: -1, dir: D });
+  const q = reset.nodes[0].quaternion;
+  assert.ok(Math.abs(q.z - s) < 1e-6 && Math.abs(q.w - s) < 1e-6, '_resetMainDir RIGHT: its root is the mainRot, not a FaceTo2d turn');
+  for (const i of [still, reset]) i.dispose();
+  assert.match(SRC, /async function spawn\(bundle, name, at, entry, \{ over = true, facing = null,/,
+    'spawn() must not default `facing` to 1: a base FaceTo root played with ±x turns −90° (docs/rules/fx.md 「좌우 거울·재생 속도·루트 지연」)');
+  assert.match(SRC, /const own = !aim && !dir && facing == null && unit && !def\.face && Number\.isInteger\(def\.bodyFace\) && !Array\.isArray\(def\.mainRot\);/,
+    'an effect created on a unit without a direction faces as the unit does (CreateEffect(key, target, source) → target.faceTo)');
+});
+
 test('fx_extract.py reads the base Effect.FaceTo node (`bodyFace`) and drops a projectile root\'s own rotation', () => {
   assert.match(EXTRACT, /def body_face\(self, root, gos\):/);
   assert.match(EXTRACT, /body = self\.body_face\(root, gos\)\n\s+if body is not None:\n\s+out_def\['bodyFace'\] = body/);

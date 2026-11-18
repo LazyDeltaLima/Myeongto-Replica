@@ -2828,13 +2828,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * flight and reach effects, a kit's marks on its targets) — its skin's effect plays. Every call hands it or is listed with
    * why it needs none (test/render/fx-skin.test.js NO_HOOK). Resolves the live entry (null if not played).
    */
-  async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null, dir = null, floor = null, hook = null } = {}) {
+  /** The direction an effect created on unit `v` without one plays with (spawn): a buff's its ±x `faceVector`, else its
+   * `faceTo` — an operator's face vector (`face.to`), an enemy's drawn side. */
+  function unitFaceTo(v, buff) {
+    const to = buff ? null : v.face?.to, side = (v.visFacing ?? v.facing ?? 1) < 0 ? -1 : 1;
+    return to && (Number(to.x) || Number(to.y)) ? { x: Number(to.x) || 0, y: Number(to.y) || 0 } : { x: side, y: 0 };
+  }
+  async function spawn(bundle, name, at, entry, { over = true, facing = null, drop = null, aim = null, dir = null, floor = null, hook = null } = {}) {
     if (!fxIn(bundle, name) && !(hook && skinOf(hook) && skinAt(bundle, name))) return null;
     // 2026-11-17: an effect its owner creates — the owner drawn in a skin — is the skin's (the deploy effect on the unit too);
     // one `hook` creates is `hook`'s (the client hooks every effect by its source: BattleController.CreateEffect → TryHookEffect)
     const ov = hook ?? (entry.owner == null ? null : at?.info && ownerOf(at) === entry.owner ? at : lastViews?.get(entry.owner) ?? null);
     if (skinOf(ov)) name = await skinNameNow(ov, name);
-    if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null, facing, ...(entry.pinned ? { pinned: true } : null), ...(entry.mode != null ? { mode: entry.mode } : null), ...(plainPt(at) ? { pt: [at.x, at.y, at.z || 0] } : null) }); // tests (`pinned`: never ended by the caps; `pt`: a plain point's place)
+    if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null, facing: facing ?? 1, ...(entry.pinned ? { pinned: true } : null), ...(entry.mode != null ? { mode: entry.mode } : null), ...(plainPt(at) ? { pt: [at.x, at.y, at.z || 0] } : null) }); // tests (`pinned`: never ended by the caps; `pt`: a plain point's place)
     if (dry) dryFollow(bundle, name, entry.owner ?? null, at && at.info ? ownerOf(at) ?? null : null);
     if (!(await ensure())) return null;
     let def = await lib.load(bundle, name);
@@ -2858,7 +2864,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // direction (else `dir`, else ±x by `facing`) and turned as its prefab's `_rotateType` says (play())
     const official = !!def.face || Number.isInteger(def.bodyFace);   // 2026-11-17: or the base Effect.FaceTo (effectTurn)
     if (aim && !official) facing = aimFacing(null, def, aim, at);
-    const d = aim ? { x: Number(at.x) - Number(aim.x), y: Number(at.y) - Number(aim.y) } : dir;
+    // 2026-11-18 (official client): with no `aim`, `dir` or `facing` the effect has no direction — FxInstance gives a base
+    // FaceTo root EFFECT_DIRECTION (a projectile body always: fx/face.js effectTurn), a ParticleEffect root ±x as before.
+    // On a unit, a base root faces as the unit does: `BattleController.CreateEffect(key, target, source)` plays it with
+    // the target's `faceTo`, `Entity.AddBuffEffect` with its `faceVector` (±x). The old default `facing` 1 turned every
+    // such root to +x: −90° (帝国炮火先兆者's shell fell slanted, maintainer report). A spot on the ground stays up
+    // [추정·미조사: a spot's direction is the caller's FixedPosition.faceTo, not read per caller]
+    const own = !aim && !dir && facing == null && unit && !def.face && Number.isInteger(def.bodyFace) && !Array.isArray(def.mainRot);
+    const d = aim ? { x: Number(at.x) - Number(aim.x), y: Number(at.y) - Number(aim.y) } : own ? unitFaceTo(unit, !!entry.buff) : dir;
     const sp = playSpeed(def.face, entry.speed ?? 1, gameRate());
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir: d, body: unit ? facingDir(unit) : null, speed: sp, split, floor: drop ? null : floor ?? (at.z < 0 || !over ? at.z || 0 : 0), tilt: drop ? null : tiltOn(unit, def), pinned: !!entry.pinned });
     if (aim && !official) aimAlong(inst, aim, at);
