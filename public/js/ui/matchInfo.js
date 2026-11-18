@@ -3,7 +3,8 @@
 //   * the INFO_CHECK briefing's right column (screens/briefing.js);
 //   * the strategy draft's 本局信息 dialog (screens/bandDraft.js; GitHub issue #8 item 1 "选策略时没法返回查看禁用的干员和盟约":
 //     players choose a strategy partly by the bonds and operators the match leaves them);
-//   * the data of the in-game 本局信息 tab (ui/enemyDrawer.js InfoTab, its own compact chips and avatars).
+//   * the in-game 本局信息 tab (ui/enemyDrawer.js InfoTab: the same blocks at the drawer's size, each banned operator
+//     opening its card — maintainer decision 2026-11-18).
 // matchInfoModel (pure) derives everything from m.public and the static data: the drawn set D (gameLogic disabledBondSets —
 // "部分盟约所含干员阵容不完整", still activatable through other bonds' operators or items), the bonds the mode keeps
 // (config.modes[modeId].inactiveBondIds, e.g. 标准模拟's 10, are left out of the view altogether, as the client's stage-info
@@ -341,23 +342,24 @@ export function BannedGroups({ model, onChess = null }) {
 }
 
 /**
- * 本局禁用干员: the count, then the groups (BannedGroups).
- * @param {{ model: MatchInfoModel }} props
+ * 本局禁用干员: the count, then the groups (BannedGroups; `onChess` makes each operator open its card).
+ * @param {{ model: MatchInfoModel, onChess?: ((id: string) => void)|null }} props
  */
-export function BannedOperators({ model }) {
+export function BannedOperators({ model, onChess = null }) {
   const { banned } = model;
   return html`<div class="brief-banned">
     <${InfoTitle} kind="chess" title=${t('本局禁用干员')} micro="BANNED OPERATORS" extra=${html`<b class="num brief-banned__n">${banned.length}</b>`} />
-    ${banned.length ? html`<${BannedGroups} model=${model} />` : html`<p class="t-dim">${t('本局没有禁用干员')}</p>`}
+    ${banned.length ? html`<${BannedGroups} model=${model} onChess=${onChess} />` : html`<p class="t-dim">${t('本局没有禁用干员')}</p>`}
     <${DiyBannedLine} model=${model} />
   </div>`;
 }
 
 /**
- * The briefing's bonds and banned operators: 核心盟约, 附加盟约, the legend, 本局禁用干员.
- * @param {{ model: MatchInfoModel }} props
+ * The briefing's bonds and banned operators: 核心盟约, 附加盟约, the legend, 本局禁用干员 (`onChess`: the in-game tab's
+ * banned operators open their cards).
+ * @param {{ model: MatchInfoModel, onChess?: ((id: string) => void)|null }} props
  */
-export function MatchInfo({ model }) {
+export function MatchInfo({ model, onChess = null }) {
   if (model.groups) {
     // 规程 solo: the two groups read-only, the tip after 附加盟约 in place of the legend line
     return html`${model.custom ? html`<${CustomRulesInfo} lines=${model.custom} class="brief-custom" />` : null}
@@ -367,13 +369,13 @@ export function MatchInfo({ model }) {
       </div>
       <${MatchBondRow} title=${t('附加盟约')} micro="ADD-ON BONDS" bonds=${model.addon} model=${model} kind="temp"
         extra=${model.addonIncomplete ? html`<${IncompleteTip} />` : null} />
-      <${BannedOperators} model=${model} />`;
+      <${BannedOperators} model=${model} onChess=${onChess} />`;
   }
   return html`${model.custom ? html`<${CustomRulesInfo} lines=${model.custom} class="brief-custom" />` : null}
     <${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${model.core} model=${model} kind="perm" />
     <${MatchBondRow} title=${t('附加盟约')} micro="ADD-ON BONDS" bonds=${model.addon} model=${model} kind="temp" />
     <${MatchLegend} model=${model} />
-    <${BannedOperators} model=${model} />`;
+    <${BannedOperators} model=${model} onChess=${onChess} />`;
 }
 
 /**

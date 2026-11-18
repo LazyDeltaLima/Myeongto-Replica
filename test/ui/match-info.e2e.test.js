@@ -265,7 +265,7 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     const tab = await page.evaluate(() => ({
       groups: [...document.querySelectorAll('.edrawer .brief-bgroup')].map((el) => ({ bond: el.dataset.bond,
         names: [...el.querySelectorAll('.chessico')].map((u) => u.getAttribute('title')) })),
-      count: document.querySelector('.edrawer .ihead small')?.textContent.trim() || '',
+      count: document.querySelector('.edrawer .brief-banned__n')?.textContent.trim() || '',
     }));
     assert.deepEqual(tab.groups, brief.groups, 'the briefing\'s groups, in its order');
     assert.deepEqual([...new Set(tab.groups.flatMap((g) => g.names))].sort(), brief.banned, 'the same banned operators');

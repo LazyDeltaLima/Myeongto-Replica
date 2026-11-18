@@ -324,7 +324,6 @@
 .brief-bonds--groups { padding-bottom: 0; }
 .modal__box.minfo-dlg { position: relative; }
 .minfo-dlg .bpop { left: auto; right: .3rem; top: .7rem; width: min(5.2rem, calc(100% - .6rem)); max-height: calc(100% - .9rem); z-index: 12; }
-.igroups-core { margin-bottom: .04rem; }
 
 /* the two columns: left 880 (+ the scroll bar's room) scrolling, right panel_enemy_info 350. The official 0.9 scale
    (.0135rem) leaves wide side margins on a 16:9 screen; the view grows to the width less .2rem a side, capped at

@@ -379,30 +379,17 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .iband b { font-size: .19rem; }
 .iband b small { font-size: .14rem; font-weight: 400; margin-left: .06rem; }
 .iband__desc { font-size: .14rem; line-height: 1.6; color: var(--text-md); }
-.istage { display: flex; align-items: center; gap: .06rem; font-size: .15rem; color: var(--text-lo); }
-.istage .icon { width: .18rem; height: .18rem; color: var(--mint-500); }
-.istage b { color: var(--text-hi); }
-.ihead { font-size: .16rem; color: var(--mint-400); display: flex; gap: .08rem; align-items: baseline; }
-.ihead small { color: var(--text-lo); font-size: .14rem; }
-/* the banned operators by greyed bond: the briefing's chess_banned_group (css/screens/briefing.css .brief-bgroup*, one
-   prefab unit = --ou), scaled to the drawer (~1180 units across its body, as the client's 1186-unit groups) */
-/* the 核心盟约 / 附加盟约 rows above them (ui/enemyDrawer.js DrawerBondRow) share that unit, so their bonds are the groups' size */
-.igroups, .ibonds { --ou: max(.006rem, .4px); }
-.igroups .brief-bgroup { padding-left: 0; padding-right: 0; }
-/* each item as wide as its name (at least the 110-unit bond_item): the name in flow under the disc, not the absolute
-   145-unit box, so 카시미어 / 라이타니엔 never run together; the briefing's 3 units apart (.brief-bonds__row: the 131-unit
-   disc box is mostly transparent, its ring ~92 across, so 113-unit steps leave the rings apart — 24 left them twice as far
-   apart as the briefing, maintainer report 2026-11-18), a name 4 units in from its item's edges; a phone wraps */
-.ibonds { display: flex; flex-wrap: wrap; gap: calc(var(--ou) * 8) calc(var(--ou) * 3); padding: calc(var(--ou) * 14) 0 0; }
-.ibond { display: block; }
-.ibonds .ibd { box-sizing: border-box; width: auto; min-width: calc(var(--ou) * 110); height: auto; min-height: calc(var(--ou) * 130);
-  padding-top: calc(var(--ou) * 105); }
-.ibonds .ibd .ibd__name { position: static; display: block; width: auto; padding: 0 calc(var(--ou) * 4); transform: none; }
+/* the bonds and banned operators: the strategy draft's 盟约信息 blocks (ui/matchInfo.js MatchInfo, css/screens/briefing.css,
+   one prefab unit = --ou) at the drawer's size (maintainer decision 2026-11-18) — ~9 bond items a row on a desktop, and on a
+   phone the dialog's floor (.minfo-dlg, css/screens/draft.css), so a long name never reaches its neighbour's */
+.edrawer .brief-bonds, .edrawer .brief-banned { --ou: max(.0064rem, .46px); }
+.edrawer .brief-h { font-size: max(.19rem, 12px); }
+.edrawer .brief-legend { margin-top: 0; font-size: max(.13rem, 10px); }
+.edrawer .brief-legend__off { width: max(.14rem, 9px); height: max(.14rem, 9px); }
+.edrawer .brief-banned__n { font-size: max(.2rem, 13px); }
+.edrawer .brief-banned__diy { font-size: max(.13rem, 11px); }
+.edrawer .t-dim { font-size: max(.15rem, 10px); }
 .ibanned__one { padding: 0; background: none; border: 0; line-height: 0; color: inherit; cursor: pointer; }
-/* 0.2.0: the player's own 自选 pieces out of the shop this match (ui/matchInfo.js DiyBannedLine) */
-.idiybanned { margin: .08rem 0 0; font-size: .13rem; line-height: 1.5; }
-.idiybanned .diybanned__tag { display: inline-block; margin-right: .05rem; padding: 0 .05rem; font-size: .11rem; font-weight: 700;
-  background: var(--mint-500); color: var(--text-on-mint); }
 
 /* ---- 机变 overlay ---- */
 .spov { position: absolute; inset: 0 0 0 2.8rem; z-index: 20; }

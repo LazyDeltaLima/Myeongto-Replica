@@ -276,58 +276,41 @@ test('the briefing, the strategy draft and the in-game 本局信息 tab all read
   // a turn change or my pick closes it; the draft's end unmounts the screen
   assert.match(draft, /const turnKey = `\$\{draft\.turnPid \|\| ''\}\|\$\{myPick \|\| ''\}`;\n\s*useEffect\(\(\) => \{ setInfoOpen\(false\); setIntelOpen\(false\); \}, \[turnKey\]\);/);
   const drawer = read('public/js/ui/enemyDrawer.js');
-  // (+ BannedGroups: its banned operators grouped and drawn as the briefing draws them)
-  // (+ BondGroupsView: 规程 solo's two core bond groups, read-only)
-  // (+ InfoBond: the 核心盟约 / 附加盟约 rows, DrawerBondRow — the test below)
-  assert.match(drawer, /import \{ matchInfoModel, DiyBannedLine, BannedGroups, BondGroupsView, InfoBond \} from '\.\/matchInfo\.js';/);
-  assert.match(drawer, /\$\{model\.groups \? html`<h4 class="ihead">\$\{t\('核心盟约'\)\}<\/h4><div class="igroups-core"><\$\{BondGroupsView\} model=\$\{model\} \/><\/div>`/);
-  assert.match(drawer, /<\$\{BannedGroups\} model=\$\{model\} onChess=\$\{onChess\} \/>/);
+  // the in-game tab draws the 盟约信息 dialog's own blocks (maintainer decision 2026-11-18), its operators opening their cards
+  assert.match(drawer, /import \{ matchInfoModel, MatchInfo \} from '\.\/matchInfo\.js';/);
+  assert.match(drawer, /<\$\{MatchInfo\} model=\$\{model\} onChess=\$\{onChess\} \/>/);
   assert.match(drawer, /matchInfoModel\(pub, \{\s*bonds: data\.list\('bonds'\), chess: \(id\) => data\.lookup\('chess', id\), mode: data\.get\('config'\)\?\.modes\?\.\[pub\?\.modeId\],/);
   assert.doesNotMatch(drawer, /bannedPerBond|disabledBondSets/, 'the drawer derives nothing on its own');
 });
 
-// The in-game 本局信息 tab: 核心盟约 / 附加盟约 rows above the banned operators (maintainer decision 2026-11-18; the official
-// in-game player-info dialog has none), the bonds at the banned groups' bond size, greyed as the briefing greys them.
+// The in-game 本局信息 tab: under the own strategy, the strategy draft's 盟约信息 dialog content itself (MatchInfo: the
+// 核心盟约 / 附加盟约 / 本局禁用干员 cards with the client's title bars — maintainer decision 2026-11-18; the official in-game
+// player-info dialog has none of them), each banned operator opening its card; no battlefield line.
 const DRAWER_RULE = 'docs/rules/ui.md 「본판 정보의 맹약·결장 오퍼레이터를 공식 정보 화면 모양으로」 (판 안 서랍)';
-test('the in-game 本局信息 tab on a real match: 核心盟约, 附加盟约, then 本局禁用干员; each bond as the banned groups draw theirs', async () => {
-  const { InfoTab, DrawerBondRow } = await import('../../public/js/ui/enemyDrawer.js');
-  const heads = (tab) => [...walk(tab)].filter((v) => hasClass(v, 'ihead')).map((v) => textOf(v).replace(/\d+$/, '').trim());
+test('the in-game 本局信息 tab on a real match: the 盟约信息 dialog\'s MatchInfo on the same model, operators opening their cards', async () => {
+  const { InfoTab } = await import('../../public/js/ui/enemyDrawer.js');
+  const onChess = () => {};
   const h = makeMatch({ mode: 'solo', difficulty: 'HARD', humans: 1, seed: 3 }).start();
   const pub = h.m.publicView();
-  const tab = InfoTab({ pub, priv: null, onChess: () => {} });
-  assert.deepEqual(heads(tab), ['核心盟约', '附加盟约', '本局禁用干员情况'], `the two bond rows above the banned operators — ${DRAWER_RULE}`);
-  const rows = [...walk(tab)].filter((v) => v.type === DrawerBondRow);
+  const tab = InfoTab({ pub, priv: null, onChess });
+  const infos = [...walk(tab)].filter((v) => v.type === MatchInfo);
+  assert.equal(infos.length, 1, `one MatchInfo, as the dialog — ${DRAWER_RULE}`);
+  const { model: got, onChess: passed } = infos[0].props;
+  assert.ok(passed === onChess, `the banned operators open their cards — ${DRAWER_RULE}`);
   const mi = matchInfoModel(pub, SRC(pub.modeId));
-  assert.deepEqual(rows.map((r) => r.props.bonds.map((b) => b.bondId)), [mi.core, mi.addon].map((l) => l.map((b) => b.bondId)), 'the model\'s rows, in the client\'s order');
-  let greyed = 0;
-  for (const r of rows) {
-    const out = DrawerBondRow(r.props);
-    assert.ok(hasClass(out, 'ibonds'));
-    for (const b of r.props.bonds) {
-      const state = mi.stateOf(b.bondId);
-      const tip = [...walk(out)].find((v) => v.type === Tooltip && v.key === b.bondId);
-      assert.equal(tip?.props.text, briefingBondTip(b.name, state, mi.perBond.get(b.bondId) || 0), `${b.bondId}: the briefing's tip`);
-      const item = [...walk(tip)].find((v) => v.type === InfoBond);
-      assert.deepEqual([item.props.off, item.props.small], [!!state, true], `${b.bondId}: greyed for D, the banned groups' small item — ${DRAWER_RULE}`);
-      if (state) greyed++;
-    }
-  }
-  assert.ok(greyed > 0, 'a HARD match greys some bond (the case really ran)');
+  assert.deepEqual([got.core, got.addon].map((l) => l.map((b) => b.bondId)), [mi.core, mi.addon].map((l) => l.map((b) => b.bondId)), 'the model\'s rows, in the client\'s order');
+  assert.deepEqual(got.banned, mi.banned);
+  assert.ok(mi.core.some((b) => mi.stateOf(b.bondId)) || mi.addon.some((b) => mi.stateOf(b.bondId)), 'a HARD match greys some bond (the case really ran)');
+  // MatchInfo hands onChess down to the banned groups' buttons
+  const banned = MatchInfo({ model: got, onChess }).filter((v) => v && typeof v === 'object').find((v) => v.type === BannedOperators);
+  assert.ok(banned.props.onChess === onChess);
+  const groups = [...walk(BannedOperators(banned.props))].find((v) => v.type === BannedGroups);
+  assert.ok(groups.props.onChess === onChess, `BannedOperators → BannedGroups — ${DRAWER_RULE}`);
+  assert.ok(!/战场：/.test(textOf(tab)), `no battlefield line — ${DRAWER_RULE}`);
   h.m.dispose();
-  // 规程 solo: the two groups stand for the 核心盟约 row (no second core row), 附加盟约 stays
-  const core = data.list('bonds').filter((b) => b.isCore).map((b) => b.bondId);
-  const half = Math.floor(core.length / 2);
-  const solo = { ...pub, bondGroups: { groups: [core.slice(0, half), core.slice(half)], picked: 0 } };
-  const tab2 = InfoTab({ pub: solo, priv: null, onChess: () => {} });
-  assert.deepEqual(heads(tab2), ['核心盟约', '附加盟约', '本局禁用干员情况']);
-  assert.ok([...walk(tab2)].some((v) => v.type === BondGroupsView), 'the groups block');
-  assert.deepEqual([...walk(tab2)].filter((v) => v.type === DrawerBondRow).map((r) => r.props.bonds.every((b) => !b.isCore)), [true], `only the 附加盟约 row — ${DRAWER_RULE}`);
-  // CSS: one unit for the rows and the banned groups (same bond size); the name in flow, so long names push the items apart
+  // CSS: the shared blocks at the drawer's size, the dialog's phone floor
   const css = read('public/css/screens/game-panels.css');
-  assert.match(css, /^\.igroups, \.ibonds \{ --ou: [^}]+\}/m, `the rows share the banned groups' --ou — ${DRAWER_RULE}`);
-  assert.match(css, /^\.ibonds \{ display: flex; flex-wrap: wrap;/m, 'the rows wrap (phones)');
-  assert.match(css, /^\.ibonds \.ibd \{[^}]*width: auto; min-width: calc\(var\(--ou\) \* 110\)/m);
-  assert.match(css, /^\.ibonds \.ibd \.ibd__name \{ position: static;[^}]*width: auto;/m, `a name widens its item (카시미어 / 라이타니엔 ran together) — ${DRAWER_RULE}`);
+  assert.match(css, /^\.edrawer \.brief-bonds, \.edrawer \.brief-banned \{ --ou: max\([^)]*, \.46px\); \}/m, `the drawer's unit — ${DRAWER_RULE}`);
 });
 
 // 规程 solo (m.public bondGroups, server phases.js pickBondGroup): the briefing shows the core bonds as the client's two groups

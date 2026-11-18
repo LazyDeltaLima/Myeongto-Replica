@@ -138,7 +138,8 @@ test('a custom match on the real match path: matchInfoModel names the bonds, lea
 test('the screens show it: MatchInfo (briefing, draft dialog), the in-game 本局信息 tab, the step header tag, the briefing\'s battlefield count', () => {
   const info = read('public/js/ui/matchInfo.js');
   assert.match(info, /model\.custom \? html`<\$\{CustomRulesInfo\} lines=\$\{model\.custom\}/);
-  assert.match(read('public/js/ui/enemyDrawer.js'), /model\.custom \? html`<\$\{CustomRulesInfo\} lines=\$\{model\.custom\} class="crs--sm"/);
+  // the in-game tab draws MatchInfo itself (docs/rules/ui.md 「본판 정보의 맹약·결장 오퍼레이터를 공식 정보 화면 모양으로」), custom lines included
+  assert.match(read('public/js/ui/enemyDrawer.js'), /<\$\{MatchInfo\} model=\$\{model\} onChess=\$\{onChess\} \/>/);
   // the briefing's battlefield count is the pool the custom settings add (上半 stages) and the stage bans leave (as the
   // server draws it)
   assert.match(read('public/js/ui/matchIntel.js'), /keepUnbanned\(customStagePool\(mode\.stages, custom\), \(id\) => id, custom\?\.stages\?\.ban\)\.length/);
