@@ -142,5 +142,5 @@ test('the screens show it: MatchInfo (briefing, draft dialog), the in-game 本�
   // the briefing's battlefield count is the pool the custom settings add (上半 stages) and the stage bans leave (as the
   // server draws it)
   assert.match(read('public/js/ui/matchIntel.js'), /keepUnbanned\(customStagePool\(mode\.stages, custom\), \(id\) => id, custom\?\.stages\?\.ban\)\.length/);
-  assert.match(read('public/js/ui/matchChrome.js'), /rules\.preset !== 'classic' \? html`<span class="stephead__tags">\s*<span class=\$\{`rtag rtag--\$\{rules\.preset\}`\} data-testid="match-ruleset">/);
+  assert.match(read('public/js/ui/matchChrome.js'), /rules\.preset !== 'classic' \? html`<span class=\$\{`rtag rtag--\$\{rules\.preset\}`\} data-testid="match-ruleset">/);
 });

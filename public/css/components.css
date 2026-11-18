@@ -1100,16 +1100,10 @@
 .exit-tile .exit-tile__ping .ping__icon { display: none; }
 .exit-tile .exit-tile__ping .ping__value, .exit-tile .exit-tile__ping .ping__unit { font-size: max(calc(16 * var(--eu)), 11px); line-height: 1; }
 .exit-tile .exit-tile__ping .ping__unit { color: #fff; }
-/* `mode`: the battle HUD's left top (ui/hud.js .gtop__meta.has-mode) — the mode badge over the ping beside the tile, the
-   two as high as the tile: the prefab's 24 + 12 + 24 = 60 units over its height (maintainer decision 2026-11-18) */
-.exit-tile.has-meta { --exit-h: max(calc(56 * var(--eu)), 37px); flex-direction: row; align-items: stretch; gap: calc(6 * var(--eu)); }
-.exit-tile__meta { --ui-u: calc(var(--exit-h) / 60); display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; height: var(--exit-h); }
-.exit-tile__meta > .ping:not(.bping) { min-height: 0; height: calc(var(--ui-u) * 24); }
 /* a short (phone) screen: the tile and its ping fit the 45 px step header and the waiting room's bar; the hit area stays
    a finger's size (32 px) around the smaller tile */
 @media (max-height: 520px) {
   .exit-tile__btn { position: relative; width: 30px; height: 31px; }
-  .exit-tile.has-meta { --exit-h: 31px; }
   .exit-tile__btn::before { content: ''; position: absolute; inset: -4px -4px -2px; }
   .exit-tile .exit-tile__ping { width: 38px; height: 13px; margin-top: 1px; }
   .exit-tile .exit-tile__ping .ping__value, .exit-tile .exit-tile__ping .ping__unit { font-size: 10px; }

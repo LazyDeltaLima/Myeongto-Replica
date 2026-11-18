@@ -869,7 +869,7 @@ export function RoomScreen() {
     <header class="topbar rs-top">
       <div class="topbar__left rs-top__left">
         <${ExitTile} class="rs-exit" onClick=${leave} disabled=${busy === 'leave'} label=${t('离开同盟')} ping=${conn.ping} online=${online}
-          testid="room-leave" mode=${{ modeId: modeIdFor(room.mode, room.difficulty, room.grade), difficulty: room.difficulty }} />
+          testid="room-leave" />
         <div class="rs-clock">
           <b>${coop ? t('同盟模拟') : t('独立模拟')}</b>
         </div>

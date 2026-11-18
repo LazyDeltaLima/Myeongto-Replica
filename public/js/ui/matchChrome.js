@@ -15,7 +15,6 @@ import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch, createStore, isSpectating, reservedRank } from '../store.js';
 import { GIcon } from './gameComponents.js';
 import { GuideButton } from './guide.js';
-import { PingPanel, ModePanel, battleArt, modePanelArt } from './battleArt.js';
 import { countdownWarnAt } from './gameLogic.js';
 import { audio } from '../audio.js';
 import { recordQuit } from './stats.js';
@@ -196,25 +195,17 @@ const timerCue = () => audio.sfx('timer');
  * white 16, 40.4 under the tile's centre; the start steps' official screens draw the same, CN screen 2026-11-13 —
  * maintainer decision 2026-11-13, the red square of 2026-11-08 undone; the battle HUD keeps its red one): the tile and
  * the ping under it. Without the local art, a grey CSS tile with the exit icon. Styles: css/components.css .exit-tile.
- * With `mode` ({ modeId, difficulty }), the battle HUD's left top instead (ui/hud.js): beside the tile the mode badge
- * (ModePanel, else the difficulty tag) over the ping panel, the two as high as the tile — the waiting room and the start
- * steps read like the battle (maintainer decision 2026-11-18).
  * @param {{ onClick: () => void, label: string, ping: number|null|undefined, online: boolean, disabled?: boolean,
- *   class?: string, testid?: string|null, mode?: { modeId?: string|null, difficulty?: string|null }|null }} props
+ *   class?: string, testid?: string|null }} props
  */
-export function ExitTile({ onClick, label, ping, online, disabled = false, class: cls = '', testid = null, mode = null }) {
+export function ExitTile({ onClick, label, ping, online, disabled = false, class: cls = '', testid = null }) {
   const art = localAsset('ui/outer', 'img_return');
   const pbg = localAsset('ui/outer', 'img_delay_bg');
   const vars = [art && `--exit-art:url("${art}")`, pbg && `--ping-art:url("${pbg}")`].filter(Boolean).join(';');
-  const modeArt = mode ? modePanelArt(mode.modeId) : null;
-  return html`<div class=${`exit-tile${mode ? ' has-meta' : ''} ${cls}`.trim()} style=${vars || null}>
+  return html`<div class=${`exit-tile ${cls}`.trim()} style=${vars || null}>
     <button type="button" class=${`exit-tile__btn${art ? ' has-art' : ''}`} disabled=${disabled} onClick=${onClick}
       aria-label=${label} title=${label} data-testid=${testid}>${art ? null : html`<${Icon} name="exit" />`}</button>
-    ${mode ? html`<div class="exit-tile__meta">
-      ${modeArt ? html`<${ModePanel} modeId=${mode.modeId} art=${modeArt} difficulty=${mode.difficulty} />`
-        : mode.difficulty ? html`<${DifficultyTag} difficulty=${mode.difficulty} modeId=${mode.modeId} size="sm" />` : html`<span></span>`}
-      ${battleArt('ping').cls ? html`<${PingPanel} ms=${ping} online=${online} />` : html`<${PingPill} ms=${ping} online=${online} />`}
-    </div>` : html`<${PingPill} ms=${ping} online=${online} class="exit-tile__ping" />`}
+    <${PingPill} ms=${ping} online=${online} class="exit-tile__ping" />
   </div>`;
 }
 
@@ -223,10 +214,10 @@ export function StepHeader({ step, of, title, micro, pub, total, config = null, 
   const rules = resolveRuleset(pub?.ruleset);
   return html`<header class="stephead">
     <div class="stephead__left">
-      <${ExitTile} onClick=${onExit} label=${t('离开')} ping=${conn.ping} online=${conn.status === 'online'}
-        mode=${{ modeId: pub?.modeId ?? null, difficulty: pub?.difficulty ?? null }} />
-      ${rules.preset !== 'classic' ? html`<span class="stephead__tags">
-        <span class=${`rtag rtag--${rules.preset}`} data-testid="match-ruleset">${t(PRESET_LABELS[rules.preset])}</span>
+      <${ExitTile} onClick=${onExit} label=${t('离开')} ping=${conn.ping} online=${conn.status === 'online'} />
+      ${pub?.difficulty || rules.preset !== 'classic' ? html`<span class="stephead__tags">
+        ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} modeId=${pub.modeId} />` : null}
+        ${rules.preset !== 'classic' ? html`<span class=${`rtag rtag--${rules.preset}`} data-testid="match-ruleset">${t(PRESET_LABELS[rules.preset])}</span>` : null}
       </span>` : null}
     </div>
     <div class="stephead__center">
