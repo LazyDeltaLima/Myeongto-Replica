@@ -100,6 +100,20 @@ print(json.dumps(r))`);
     ]);
   });
 
+  test('skin_rows: a record that names a character template (tmplId) belongs to that form, not to its charId', () => {
+    // 阿米娅's other forms keep charId char_002_amiya; the form, its skinpack and its prefab id are the tmplId's
+    const table = {
+      charSkins: {
+        'char_1037_amiya3#2': { charId: 'char_002_amiya', tmplId: 'char_1037_amiya3', battleSkin: { skinOrPrefabId: 'DefaultSkin' } },
+        'char_1037_amiya3@sale#13': { charId: 'char_002_amiya', tmplId: 'char_1037_amiya3', battleSkin: { skinOrPrefabId: 'char_1037_amiya3_sale#13' } },
+        'char_002_amiya@winter#1': { charId: 'char_002_amiya', tmplId: 'char_002_amiya', battleSkin: { skinOrPrefabId: 'char_002_amiya_winter#1' } },
+      },
+    };
+    const rows = py(`print(json.dumps(s.skin_rows(json.loads(${JSON.stringify(JSON.stringify(table))}), {'char_1037_amiya3'}, set())))`);
+    assert.deepEqual(rows, [{ key: 'char_1037_amiya3@sale#13', owner: 'char_1037_amiya3', prefab: 'char_1037_amiya3_sale#13' }],
+      `the form's skin is listed under the form; the base form's skin is not ours (${RULE})`);
+  });
+
   test('skin_rows carries the record\'s Chinese name (the picker shows it through tName); a summon skin has none', () => {
     const table = { charSkins: {
       'char_1_a@boc#1': { charId: 'char_1_a', battleSkin: { skinOrPrefabId: 'char_1_a_boc#1' }, displaySkin: { skinName: ' 升华 ' } },
@@ -247,6 +261,18 @@ describe('the skin data is a pack of the pre-download list', () => {
 
 const INDEX = path.join(ROOT, 'public/assets/local/spine/skin/skins.json');
 describe('extracted skin models (when a local client was extracted)', { skip: !existsSync(INDEX) && 'no extracted skins' }, () => {
+  test('every skin the official table gives our operators and summons is extracted or listed as missing (none dropped silently)', { skip: !existsSync(path.join(ROOT, '.cache/gamedata/excel/skin_table.json')) && 'no cached skin table' }, () => {
+    const r = spawnSync(PY, [path.join(TOOL, 'skin_extract.py'), '--list'], { encoding: 'utf8', env: ENV, cwd: ROOT, maxBuffer: 64 << 20 });
+    assert.equal(r.status, 0, r.stderr);
+    const rows = JSON.parse(r.stdout);
+    const doc = JSON.parse(readFileSync(INDEX, 'utf8'));
+    const lost = rows.filter((row) => !(row.key in doc.skins) && !(row.key in (doc.missing || {}))).map((row) => `${row.key} (${row.owner})`);
+    assert.deepEqual(lost, [], `skins.json lacks these skins of the table: rerun tools/local-extract/skin_extract.py --id <owner> (${RULE})`);
+    const amiya = rows.find((row) => row.key === 'char_1037_amiya3@sale#13');
+    assert.ok(amiya && amiya.owner === 'char_1037_amiya3',
+      `阿米娅 (医疗)'s skin belongs to its tmplId form char_1037_amiya3, not to charId char_002_amiya (skin_extract.py skin_owner, ${RULE})`);
+  });
+
   test('every listed file exists and is a path the browser resource list keeps; every skin has a front model', () => {
     const doc = JSON.parse(readFileSync(INDEX, 'utf8'));
     const skins = Object.entries(doc.skins);

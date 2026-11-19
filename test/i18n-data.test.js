@@ -123,6 +123,10 @@ test('build-i18n skin names: paired by skin id from the two skin tables, the fal
   assert.deepEqual(bare.report.skins.missing, ['char_1_a@y#2: 新皮'], 'without a dictionary entry it stays Chinese, reported');
   assert.ok(!('char_1_a@y#2' in bare.overlay.skins));
   assert.ok(!('skins' in buildOverlay({ zh: [], en: [], data: {}, lang: 'ko' }).overlay), 'no skins: no map');
+  // 阿米娅's other forms keep charId char_002_amiya and name the form in tmplId: the skin is the form's
+  const amiya = { charSkins: { 'char_1037_amiya3@sale#13': { charId: 'char_002_amiya', tmplId: 'char_1037_amiya3', displaySkin: { skinName: '寰宇独奏' } } } };
+  assert.deepEqual(skinNameRows(amiya, null, new Set(['char_1037_amiya3'])).map((r) => [r.id, r.owner]), [['char_1037_amiya3@sale#13', 'char_1037_amiya3']],
+    'a skin record\'s operator is its tmplId when it has one (build-i18n skinOwner = skin_extract.py skin_owner)');
 });
 
 test('data/i18n/ko.json names every operator skin the official skin table has (the skin picker: docs/rules/ui.md 「스킨 고르기」)', { skip: !existsSync(path.join(ROOT, '.cache/gamedata/excel/skin_table.json')) && 'no cached skin table' }, () => {

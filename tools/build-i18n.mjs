@@ -151,8 +151,16 @@ const TABLES = [
 const SKIN_TABLE = 'excel/skin_table.json';
 
 /**
+ * The operator a skin record dresses: its character template (`tmplId`) when it names one, else its `charId` — 阿米娅's
+ * other forms keep charId char_002_amiya and name the form in tmplId (char_1037_amiya3@sale#13). The same rule as
+ * tools/local-extract/skin_extract.py skin_owner, which lists the skins the picker offers.
+ * @param {any} rec @returns {string | undefined}
+ */
+export const skinOwner = (rec) => (typeof rec?.tmplId === 'string' && rec.tmplId ? rec.tmplId : rec?.charId);
+
+/**
  * The skins to name: every record of the Chinese skin table with a Chinese name (`displaySkin.skinName`; the default
- * outfits and the summons' skins have none) whose operator is in `chars` (data/assets.json: more than the skin list
+ * outfits and the summons' skins have none) whose operator (skinOwner) is in `chars` (data/assets.json: more than the skin list
  * offers, so the names never wait for an extraction), with the target table's name of the same skin id (null: none).
  * @param {any} zhTable @param {any} targetTable may be null (a language without a client) @param {Set<string>} chars
  * @returns {{ id: string, owner: string, zh: string, target: string | null }[]} sorted by id
@@ -164,9 +172,10 @@ export function skinNameRows(zhTable, targetTable, chars) {
   for (const id of Object.keys(zs).sort()) {
     const rec = zs[id];
     const zh = rec?.displaySkin?.skinName;
-    if (!chars.has(rec?.charId) || !hasCjk(zh)) continue;
+    const owner = skinOwner(rec);
+    if (!chars.has(owner) || !hasCjk(zh)) continue;
     const t = ts[id]?.displaySkin?.skinName;
-    rows.push({ id, owner: rec.charId, zh: zh.trim(), target: typeof t === 'string' && t.trim() ? t.trim() : null });
+    rows.push({ id, owner, zh: zh.trim(), target: typeof t === 'string' && t.trim() ? t.trim() : null });
   }
   return rows;
 }

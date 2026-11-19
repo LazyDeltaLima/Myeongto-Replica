@@ -1635,6 +1635,11 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   소환물)의 공식 스킨 전부의 전투 Spine 모델. 목록은 공식 스킨 표(`excel/skin_table.json` `charSkins`)에서 `battleSkin.skinOrPrefabId`가 자기 프리팹인
   것이다(`DefaultSkin`·null은 기본 모델). 2026-11-16 기준 오퍼레이터 스킨 266벌(178명), 소환물 스킨 49벌. 오퍼레이터 스킨은 `tokenSkinMap`(소환물 →
   소환물 스킨 키)을 같이 적는다.
+- 스킨의 주인(2026-11-20): 기록의 `tmplId`가 있으면 그것, 없으면 `charId`(`skin_extract.py skin_owner`, 이름 번역의 `build-i18n.mjs skinOwner`도 같음).
+  아미야의 다른 형태는 `charId`가 기본 아미야 `char_002_amiya`이고 형태는 `tmplId`에만 있다 — 주술 메딕 아미야 스킨 「우주에 울리는 독주」
+  `char_1037_amiya3@sale#13`, 근위 아미야 `char_1001_amiya2`의 `sale#16`·`casc#1`. 그 스킨의 `skinpack`·프리팹 폴더·프리팹 ID는 형태의 것이다
+  (`skinpack/char_1037_amiya3.ab`, 두 클라 같음). 전에는 `charId`로만 골라 주술 메딕 아미야(규정 시즌)의 스킨이 목록에도 `missing`에도 없이 빠졌다.
+  공식 표에서 `tmplId`가 `charId`와 다른 기록은 이 아미야 둘의 5개뿐이다.
 - 어디서: `skinpack/<주인 ID>.ab`의 `dyn/battle/prefabs/skins/character/<주인 ID>/<프리팹 ID 소문자>.prefab`. EN 클라(핫 업데이트 묶음 먼저) → 없으면 CN
   클라. 오퍼레이터는 Front·Back 렌더러(방향 없는 모델은 `Spine` 하나 = 앞), 소환물은 기본 소환물 모델처럼 Front(또는 하나뿐인) 렌더러. 페이지는 적·소환물 모델처럼
   premultiplied로 합친다.
@@ -1751,7 +1756,9 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   - 투사체: 궤적 이름이 어떤 행의 `from` 투사체의 `_mainEffect`이면 그 행의 그리는 투사체(`graphic`)의 `_mainEffect`를 그 스킨 짝으로, `_fakeMuzzlePoint`
     (MountPointType, `shotFrom`의 `mount`)에서 쏜다; 그리는 투사체에 `_mainEffect`가 없으면 그 궤적은 그리지 않는다(절차 투사체도 없음). 362행 중 344행이 바꿀
     궤적을 안다(나머지 18행은 바꾸는 투사체에 그림이 없음). [화면 미확인: 스킨 이펙트·부착점·총구]
-- 재발 방지: 원인 제거 — `tools/local-extract/skin_extract.py` `file_name`이 모든 출력 이름을 만들고 모르는 글자에서 멈춤; 저장소 폴더는
+- 재발 방지: 스킨의 주인은 `test/local-extract-skins.test.js` 「skin_rows: a record that names a character template」·「every skin the official
+  table gives … none dropped silently」(공식 표가 주는 스킨이 전부 `skins.json`의 `skins`나 `missing`에 있음)와 `test/i18n-data.test.js` 스킨 이름 시험;
+  원인 제거 — `tools/local-extract/skin_extract.py` `file_name`이 모든 출력 이름을 만들고 모르는 글자에서 멈춤; 저장소 폴더는
   `tools/fetch-skin-models.mjs`가 트리에서 찾고 모르는 경우(후보 둘)에 멈춤(손 별칭 표 없음); 그림 파일은 `tools/fetch-skin-art.mjs`가 스킨 표의 id로 트리에서
   찾고 모르는 스킨·이름 규칙 없는 글자·대소문자만 다른 두 파일에서 멈춤. 목록 생성(추출 모델·아바타·초상화 빼기·`models.json`·`art.json` 싣기·두 번 적힌
   경로에 멈춤·`packs`)과 일러스트 알파(뽑힌 일러스트 전부가 투명 화소를 가짐)는 `test/local-extract-skins.test.js`, 받을 목록·지울 목록 나누기와 폴더·그림 찾기는

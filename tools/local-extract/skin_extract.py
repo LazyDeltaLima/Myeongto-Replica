@@ -7,6 +7,9 @@ Which skins: the official skin table (Kengxxiao zh_CN `excel/skin_table.json`, c
 downloaded when missing) — every `charSkins` record of an operator of data/assets.json `chars` or a summon of
 data/assets.json `tokens` (or a summon an operator skin's `tokenSkinMap` dresses) whose `battleSkin.skinOrPrefabId` is a
 prefab of its own (not `DefaultSkin` / null). An operator skin keeps its `tokenSkinMap` (summon → summon skin key).
+A record's owner is its `tmplId` when it has one, else its `charId` (skin_owner): 阿米娅's other forms keep `charId`
+char_002_amiya and name the form in `tmplId` (char_1037_amiya3@sale#13), and their skinpack, prefab folder and prefab id
+are the form's.
 
 Where: `skinpack/<ownerId>.ab`, prefab `dyn/battle/prefabs/skins/character/<ownerId>/<prefab id in lower case>.prefab`,
 read from the EN client first (its hot-update bundles, then the install), then the CN client for what the EN one lacks
@@ -105,6 +108,15 @@ def rename_atlas_pages(text, names):
                      for i, line in enumerate(lines))
 
 
+def skin_owner(rec):
+    """The operator / summon a skin record dresses: its character template (`tmplId`) when it names one, else its
+    `charId`. 阿米娅's other forms keep charId char_002_amiya and name the form in tmplId (char_1037_amiya3@sale#13 →
+    char_1037_amiya3); their skinpack, prefab folder and prefab id are the form's (docs/rules/render.md 「스킨 모델 소재」).
+    tools/build-i18n.mjs skinOwner reads it the same way."""
+    t = rec.get('tmplId')
+    return t if isinstance(t, str) and t else rec.get('charId')
+
+
 def skin_rows(table, chars, tokens):
     """[{key, owner, prefab, name?, tokens?, pics?}] of the official skins with a battle prefab of their own, for the
     operators in `chars`, the summons in `tokens` and the summons an operator skin's tokenSkinMap dresses; sorted by key.
@@ -114,7 +126,7 @@ def skin_rows(table, chars, tokens):
     skins = (table or {}).get('charSkins') or {}
     rows, dressed = [], set()
     for key, rec in skins.items():
-        owner = rec.get('charId')
+        owner = skin_owner(rec)
         if owner not in chars:
             continue
         for m in rec.get('tokenSkinMap') or []:
@@ -122,7 +134,7 @@ def skin_rows(table, chars, tokens):
                 dressed.add(m['tokenId'])
     owners = set(chars) | set(tokens) | dressed
     for key, rec in sorted(skins.items()):
-        owner = rec.get('charId')
+        owner = skin_owner(rec)
         prefab = (rec.get('battleSkin') or {}).get('skinOrPrefabId')
         if owner not in owners or not prefab or prefab == 'DefaultSkin':
             continue
