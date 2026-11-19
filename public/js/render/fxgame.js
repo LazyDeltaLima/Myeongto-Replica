@@ -3445,6 +3445,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!name) continue;
       if (p.cast) { casts.push(name); n++; continue; } // (2026-10-21) the operator's own cast effects, below
       if (p.edge) { if (edgeLines(slot ?? `${opId}|edge`, pb.bundle, name, o[p.edge], opId, p.life === 'skill')) n++; continue; } // (2026-11-10)
+      if (p.path) { if (pathLine(pb.bundle, name, o[p.path], !!p.loop, Number(op.z) || 0, Number(p.after) || 0, Number(p.life) || 0, op)) n++; continue; } // (2026-11-19)
       if (slot) {
         const s = slots.get(slot);
         // (2026-10-24, 묶음 S3) a slot play with seconds as `life` lasts that long from its latest play
@@ -3806,6 +3807,27 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const it of rec.ls.slice(loops.length)) { if (it.l) it.l.inst.stop(); else it.done = true; }
     rec.ls = keep;
     return loops.length > 0;
+  }
+  /**
+   * (2026-11-19, official client Thorn2S3Renderer._SetLineRenderer) effect `name`'s LineRenderers through the ground points
+   * `pts` [[x, y]…] at height `z` (FxInstance.setPath; `loop`: back to the first — LineRenderer.loop), made `after` s from now
+   * and finished `life` s after that (zoneEnd: the prefab's `_delayToFinish` later). Set once: they follow nothing. false when
+   * there is no segment to draw.
+   */
+  function pathLine(bundle, name, pts, loop, z, after, life, hook) {
+    const ps = (Array.isArray(pts) ? pts : []).filter((p) => Array.isArray(p)).map(([x, y]) => ({ x: Number(x) || 0, y: Number(y) || 0, z }));
+    if (ps.length < 2) return false;
+    if (loop && ps.length > 2) ps.push({ ...ps[0] });
+    const go = () => {
+      const until = clockS + life;
+      spawn(bundle, name, { ...ps[0] }, { owner: null, buff: false, until }, { over: false, hook }).then((l) => {
+        if (!l) return;
+        l.inst.setPath?.(ps);
+        zoneEnd(l, until, true);
+      });
+    };
+    if (after > 0) castsDelayed.push({ t: clockS + after, run: go }); else go();
+    return true;
   }
   const orbitAt = { x: 0, y: 0, z: 0 };   // an orbiter's centre (bodyPoint), read at once
   /**
@@ -5088,7 +5110,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!fx.length && !aura.length) return false;
     ownFx.add(e);
     const x = Number(e[2]), y = Number(e[3]), dur = Math.max(0, Number(o.duration ?? o.dur) || 0), r = Number(o.r ?? o.radius) || 0;
-    const until = clockS + (dur > 0 ? dur : 3);
+    // (2026-11-19) `life`: the thrown projectile's own time, shorter than the area's `duration` (引星棘刺 S3's unit,
+    // projectile_chr_thorn2_s3 `_lifeTime` 0.5 with `_clearReachedEffectWhenStop`: its reach effects end as it stops)
+    const life = Number(o.life) > 0 ? Number(o.life) : dur;
+    const until = clockS + (life > 0 ? life : 3);
     const k = o.key != null ? `${o.id}:${o.key}` : null;
     const rec = k ? zones.get(k) : null;
     if (rec) {

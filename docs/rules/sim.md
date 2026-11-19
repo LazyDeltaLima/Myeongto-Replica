@@ -368,7 +368,7 @@ SP가 차면 범위에 오퍼레이터가 있는 한 다시 켜진다 — 그 �
 `PolygonSelectorHitBehaviour.OnProjectileReached`에서 만들어져 그 전엔 아무도 안 맞음), 닿은 때부터 `projectile_delay_time`(+ 재능 「심상」의 연장)초 간다(`_delayAfterReached` →
 `EnsureLifeTime`; 프리팹의 `_lifeTime` 10은 `_lifeTimeType` INFINITY라 안 쓰임). 피해·약화의 증가도 닿은 때부터 센다(`_onlyIncreaseReached`). 그래서 한 시전에서 적은
 `interval`마다 한 번 맞는다 — 그 전엔 오퍼레이터마다 RING1(1.5) 원이 그 오퍼레이터를 따라다니며 따로 태워, 원 둘에 든 적은 두 번 맞았고, 막힌 적 규칙·0.5초 지연이 없었다.
-다른 시전의 영역끼리는 피해가 더해지고 약화는 가장 센 것 하나다(PRTS 备注). 영역의 그림(`Thorn2S3Renderer` `thorn2_skill_03_line`)은 아직 안 그림(fx 줄).
+다른 시전의 영역끼리는 피해가 더해지고 약화는 가장 센 것 하나다(PRTS 备注). 영역의 그림(`Thorn2S3Renderer` `thorn2_skill_03_line`, 키트 'seaArea')은 fx.md 「시전 이펙트 시점·붙는 대상」 ③.
 시험: `test/content/kits_alt_t5.test.js`의 「引星棘刺 S3」 두 개. 블레이즈 디 이그나이팅 스파크
 S1(자동)의 몸 돌리기는 최대 HP 오퍼레이터 쪽이다. 엔진이 정렬을 모르는 아군 `_postFilter`(3·39 — 자동 스킬뿐)는 대상 `undefined`(공격 대상 근사).
 타일 선택자(Miss.Christine S2): `TileSelector`도 유닛은 다른 범위 선택자처럼 찾고(`RangeSelector.DoFindTargets_DISPOSE`: 범위 상자·제 쪽·제 지상/공중) HATRED_DES(4)로

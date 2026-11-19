@@ -1236,6 +1236,16 @@ test('引星棘刺 S3 “我的海疆”: passive skill range; one area over the
     assert.equal(seas.length, 1, 'one area per cast');
     assert.deepEqual(seas[0].anchors.map((a) => a.defId).sort(), ['t_a', 't_b', 't_c'], 'the 3 lowest block counts');
     assert.equal(seas[0].area.poly.length, 6, 'a triangle, each edge pushed out (corners cut)');
+    // the screen: Thorn2S3Renderer's line through the hull (resultForEffect) as it reaches, for its time; each thrown unit's
+    // reach effects only for the unit's own 0.5 s (projectile_chr_thorn2_s3 `_lifeTime`, `_clearReachedEffectWhenStop`)
+    const line = h.eventsOf('fx').filter((x) => x[1] === 'seaArea');
+    assert.equal(line.length, 1, 'one area line per cast');
+    assert.deepEqual(line[0][4].pts, [[4, 9], [7, 10], [4, 12]], 'through the operators\' tiles, not the pushed-out edges');
+    assert.equal(line[0][4].delay, 0.5, 'laid as the area reaches');
+    assert.equal(line[0][4].duration, seas[0].dur, 'for the area\'s time');
+    const thrown = h.eventsOf('fx').filter((x) => x[1] === 'zone' && x[4].thrown);
+    assert.equal(thrown.length, 3, 'a unit thrown at each operator');
+    for (const t of thrown) assert.equal(t[4].life, 0.5, 'its reach effects end as the thrown unit stops');
     h.run(0.4);
     assert.equal(tagged(h, u, 'mySea').length, 0, 'nothing before the area reaches (AttachToTarget _delayToStart 0.5)');
     assert.equal(eIn.findBuff('thorn2:sea'), null, 'no debuff before it reaches');
@@ -1284,6 +1294,8 @@ test('引星棘刺 S3: three tiles in a row are a 0.325-wide line (the middle on
     const z = u.mem.zones.find((x) => x.type === 'sea');
     assert.equal(z.anchors.length, 3, 'her and both operators');
     assert.equal(z.area.poly.length, 4, 'a rectangle along the line');
+    const line = h.eventsOf('fx').filter((x) => x[1] === 'seaArea');
+    assert.deepEqual(line.map((x) => x[4].pts), [[[3, 10], [7, 10]]], 'the line from end to end (the middle tile dropped)');
     h.run(1);
     assert.equal(tagged(h, u, 'mySea', eNear).length, 1, '0.25 off the line: the collider (0.1) reaches its half width 0.1625');
     assert.equal(tagged(h, u, 'mySea', eOff).length, 0, '0.3 off the line: outside');

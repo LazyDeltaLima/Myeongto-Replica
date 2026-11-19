@@ -83,6 +83,7 @@ export const FX_KINDS = Object.freeze({
   // effects (render/fxgame.js cannonFx); nothing in the fallback (its landing is the 'explode' cnnonShell blast)
   cannon: { a: 'none', c: 0xffb070 },
   roadTiles: { a: 'none', c: 0x9fd8ff }, // 引星棘刺 T2's straight-road tiles (render/fx/kitofficial.js; nothing in the fallback)
+  seaArea: { a: 'none', c: 0x9fd8ff }, // 引星棘刺 S3's area line (render/fx/kitofficial.js; the fallback has the 'zone' rings)
   // 予愿安洁莉娜 S3's flight on / off (sim kit op-aglna2.js): her body flies there itself — render/fxgame.js plays the official
   // trail, nothing in the fallback
   aglnaFlight: { a: 'none', c: 0xffe6f0 },

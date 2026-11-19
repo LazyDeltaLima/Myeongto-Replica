@@ -15066,6 +15066,7 @@
    "- spawn horn_skill_02_hit_02_02 → enemy",
    "- spawn lazerd_attack_01_hit → ally",
    "- spawn thorn2_attack_trail",
+   "- spawn thorn2_skill_03_line",
    "- spawn thorn2_skill_03_token",
    "- spawn thorn2_skill_hit → enemy",
    "- spawn thorn2_token_start",

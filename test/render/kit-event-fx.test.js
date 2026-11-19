@@ -161,6 +161,7 @@ test('the rules name prefabs the client binds for that operator', () => {
       const o = { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2], token: 'token_10058_sbell2_icetgt', ids: [2], off: [3], picks: [2], src: 2, cd: 1.5 };
       if (n === 'whitw2Drones') o.t = [[2, 0], [3, 1]];
       if (n === 'tockaFx') Object.assign(o, { s: 2, shot: 1 });
+      if (n === 'seaArea') Object.assign(o, { pts: [[4, 9], [7, 10], [4, 12]], delay: 0.5, duration: 19 });
       if (n === 'shield' && b === 'lmlee') o.kind = 'lmlee';
       if (n === 'buff' && b === 'jesca2') Object.assign(o, { kind: 'turn', shield: 2 });
       if (n === 'counter') Object.assign(o, { tgt: 2, t: 2 });
@@ -738,6 +739,22 @@ test('kitOfficialPlan (묶음 S11, 2026-10-24): 余\'s teleport and burns, 百�
   assert.deepEqual(kitOfficialPlan('roadTiles', { id: 1, cells: [[3, 10], [4, 10]] }, 'thorn2').play, [
     { n: 'thorn2_buff', on: 'point', at: [3, 10], slot: 'road3,10' }, { n: 'thorn2_buff', on: 'point', at: [4, 10], slot: 'road4,10' },
   ]);
+});
+
+test('引星棘刺 S3 (2026-11-19): the area\'s line (Thorn2S3Renderer thorn2_skill_03_line) through the hull as it reaches — looped from three points, none for one; the thrown unit\'s reach effects for its own 0.5 s', () => {
+  assert.deepEqual(kitOfficialPlan('seaArea', { id: 1, pts: [[4, 9], [7, 10], [4, 12]], delay: 0.5, duration: 19 }, 'thorn2').play, [
+    { n: 'thorn2_skill_03_line', path: 'pts', loop: true, after: 0.5, life: 19 },
+  ]);
+  assert.deepEqual(kitOfficialPlan('seaArea', { id: 1, pts: [[3, 10], [7, 10]], delay: 0.5, duration: 19 }, 'thorn2').play[0].loop, false, 'two points: a segment (m_isLoop: more than two)');
+  assert.equal(kitOfficialPlan('seaArea', { id: 1, pts: [[3, 10]], delay: 0.5, duration: 19 }, 'thorn2'), null, 'one tile: resultForEffect is empty, every point the same');
+  assert.equal(fxSpec('seaArea').a, 'none', 'no stand-in: the \'zone\' rings are the fallback');
+  // fxgame.js: a `path` play lays the line once, closes a loop back to its first point, and finishes it at its life's end
+  assert.match(GAME, /if \(p\.path\) \{ if \(pathLine\(pb\.bundle, name, o\[p\.path\], !!p\.loop, Number\(op\.z\) \|\| 0, Number\(p\.after\) \|\| 0, Number\(p\.life\) \|\| 0, op\)\) n\+\+; continue; \}/);
+  assert.match(GAME, /if \(loop && ps\.length > 2\) ps\.push\(\{ \.\.\.ps\[0\] \}\);/);
+  assert.match(GAME, /l\.inst\.setPath\?\.\(ps\);\s*zoneEnd\(l, until, true\);/);
+  // zoneFx: a zone's `life` (the thrown projectile's own time) ends its reach effects before the area's `duration`
+  assert.match(GAME, /const life = Number\(o\.life\) > 0 \? Number\(o\.life\) : dur;\s*const until = clockS \+ \(life > 0 \? life : 3\);/);
+  assert.match(readFileSync(path.join(KITS, 'ops/chess_char_5_15-thorn2.js'), 'utf8'), /battle\.fx\('zone', \{ x: a\.x, y: a\.y, id: unit\.id, r: RING1, duration: SEA_DELAY \+ dur, life: SEA_TOKEN_LIFE, thrown: 1 \}\);/);
 });
 
 test('歌蕾蒂娅 S3: glady_s3[effect]\'s glady_skill_03_buff on the target the kit binds (`tgt`), for the skill', { skip: !LOCAL_ROWS && 'the key\'s row is a client-only row' }, () => {

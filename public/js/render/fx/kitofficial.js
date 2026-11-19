@@ -44,6 +44,8 @@ import { whenPlays } from './conds.js';
  * [[x, y]…]) is its prefab's LineRenderers along each loop of those tiles' outline, one effect per loop, kept in its `slot`
  * and moved to the new outline by a later play (the official RangeLineEffectHandler), until the operator leaves — with
  * `life: 'skill'` (2026-11-16) also as the operator's skill ends.
+ * 2026-11-19: a `path` play (the event's field naming ground points [[x, y]…]) is its prefab's LineRenderers through those
+ * points in order — closed back to the first with `loop` —, laid `after` s after the event for `life` s, then finished (FinishMe).
  * 2026-10-23: `tpl` (a key the plan cites) in place of `n`: each prefab the key holds (tools/build-fx-plays.mjs `held`) plays
  * as this play for `life` (none given: the key's LIMITED seconds) — with life 'unit' its `end` prefab as `end` —, and each
  * prefab it creates once (`once`) for its own duration. A projectile's key (its `trail` / `reach` / `hit`): with `fly`, the
@@ -939,6 +941,17 @@ export const KIT_OFFICIAL = {
   roadTiles: {
     thorn2: cite('char_1039_thorn2/Others/Talent/2/tiles_ally', (o) => ({ play: (Array.isArray(o.cells) ? o.cells : [])
       .map(([x, y]) => ({ n: 'thorn2_buff', on: 'point', at: [x, y], slot: `road${x},${y}` })) })),
+  },
+  // 引星棘刺 S3's area (2026-11-19, official client: projectile_chr_thorn2_s3_polygon's Thorn2S3Renderer): its `_mainEffect`
+  // thorn2_skill_03_line made under the projectile, every LineRenderer set once the area reaches (OnProjectileReached /
+  // OnTick → _SetLineRenderer) through Thorn2PolygonRange.resultForEffect — the hull of the operators' tiles, before the push
+  // (`pts`) — looped from three points (`m_isLoop`), finished at the projectile's stop (OnProjectileStop → FinishMe). The
+  // sim's 'seaArea' (kit chess_char_5_15-thorn2.js): `delay` its reach after the strike, `duration` its time from then; the
+  // projectile sits on her GROUND mount point and the points are offset from its tile in the effect's space: on the ground
+  seaArea: {
+    thorn2: cite('projectile_chr_thorn2_s3_polygon', (o) => (Array.isArray(o.pts) && o.pts.length >= 2
+      ? { play: [{ n: 'thorn2_skill_03_line', path: 'pts', loop: o.pts.length > 2, after: Math.max(0, Number(o.delay) || 0), life: Math.max(0, Number(o.duration) || 0) }] }
+      : null)),
   },
   // (2026-11-01) 冻河: a 触发型效果 put on an ally (`s` the skill 1–3) — the ON_BUFF_START CreateEffect of tocka_s1[trigger]
   // (tocka_skill_01_buff_02_start_01), tocka_s2[trigger] (_02_buff_02_start_01), tocka_s3[trigger] (_03_buff_start_02,

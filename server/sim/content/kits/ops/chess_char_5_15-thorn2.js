@@ -24,8 +24,18 @@ import { hypot } from '../../../detmath.js';
 const SEA_LINE_HALF = 0.325 / 2, SEA_OFFSET = 0.325;
 /** `_delayToStart` of its `AttachToTarget`: the area reaches (and starts hitting) this long after the strike. */
 const SEA_DELAY = 0.5;
+/**
+ * The unit thrown at each operator (projectile_chr_thorn2_s3: `_lifeTime` 0.5 LIMITED, its EffectBehaviour
+ * `_clearReachedEffectWhenStop`): its reach effects (thorn2_token_start, thorn2_skill_03_token) end as it stops, this long
+ * after the throw — the 'zone' fx's `life` (render/fxgame.js zoneFx).
+ */
+const SEA_TOKEN_LIFE = 0.5;
 
-/** The area over tile centres `pts` ([x, y]): `{ point: [x, y] }` for one, else `{ poly }` (convex, counter-clockwise). */
+/**
+ * The area over tile centres `pts` ([x, y]): `{ point: [x, y] }` for one, else `{ poly, hull }` (convex, counter-clockwise;
+ * `hull` the tiles left after `_DoCalculateHull` / `_OptimizeLineCollider`'s drop, before the push — `resultForEffect`, the
+ * points `Thorn2S3Renderer` draws its line through: the 'seaArea' fx).
+ */
 function seaArea(pts) {
   const u = [];
   for (const p of pts) if (!u.some((q) => q[0] === p[0] && q[1] === p[1])) u.push(p);
@@ -39,7 +49,7 @@ function seaArea(pts) {
   if (h.length === 2) {
     const [a, b] = h, len = hypot(b[0] - a[0], b[1] - a[1]);
     const nx = -(b[1] - a[1]) / len * SEA_LINE_HALF, ny = (b[0] - a[0]) / len * SEA_LINE_HALF;
-    return { poly: [[a[0] - nx, a[1] - ny], [b[0] - nx, b[1] - ny], [b[0] + nx, b[1] + ny], [a[0] + nx, a[1] + ny]] };
+    return { poly: [[a[0] - nx, a[1] - ny], [b[0] - nx, b[1] - ny], [b[0] + nx, b[1] + ny], [a[0] + nx, a[1] + ny]], hull: h };
   }
   const poly = [];
   for (let i = 0; i < h.length; i++) {
@@ -47,7 +57,7 @@ function seaArea(pts) {
     const ox = (b[1] - a[1]) / len * SEA_OFFSET, oy = -(b[0] - a[0]) / len * SEA_OFFSET;   // outer normal of a CCW edge
     poly.push([a[0] + ox, a[1] + oy], [b[0] + ox, b[1] + oy]);
   }
-  return { poly };
+  return { poly, hull: h };
 }
 
 /** Does the circle (x, y, r) touch the area (`PolygonCircle`: an edge within r, or the centre inside)? */
@@ -232,9 +242,14 @@ export default {
             const area = seaArea(ops.slice(0, 4).map((a) => [a.tileC, a.tileR]));
             (unit.mem.zones ??= []).push({ type: 'sea', anchors: ops, area, t: -SEA_DELAY, acc: Math.max(0.1, num(bb.interval, 1)) - AURA_IV - SEA_DELAY, dur });
             for (const a of ops) {
-              // `thrown`: the unit thrown at that operator (skill prefab Token → projectile_chr_thorn2_s3, whose STOP sounds)
-              battle.fx('zone', { x: a.x, y: a.y, id: unit.id, r: RING1, duration: SEA_DELAY + dur, thrown: 1 });
+              // `thrown`: the unit thrown at that operator (skill prefab Token → projectile_chr_thorn2_s3, whose STOP sounds);
+              // `duration` the area's time (the stand-in ring), `life` its own (SEA_TOKEN_LIFE)
+              battle.fx('zone', { x: a.x, y: a.y, id: unit.id, r: RING1, duration: SEA_DELAY + dur, life: SEA_TOKEN_LIFE, thrown: 1 });
             }
+            // the area's line (projectile_chr_thorn2_s3_polygon's Thorn2S3Renderer `_mainEffect` thorn2_skill_03_line, laid as
+            // it reaches): through `pts` (the hull; closed from three, `m_isLoop`), for the area's time; one tile draws none
+            // (`resultForEffect` empty: every point of the line is the same) — render/fx/kitofficial.js 'seaArea'
+            if (area.hull) battle.fx('seaArea', { x: unit.x, y: unit.y, id: unit.id, pts: area.hull.map(([x, y]) => [x, y]), delay: SEA_DELAY, duration: dur });
           },
         }),
       }),

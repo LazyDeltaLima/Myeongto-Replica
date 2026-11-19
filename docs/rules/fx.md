@@ -882,6 +882,16 @@
   'zone' fx 이벤트 자리에서 틀고 지속 시간이 끝나면 끈다(`key`로 1초마다 다시 오는 S2는 그 속도로 따라 움직이고 범위는 반지름 비율로 키움 [추정: 프리팹은 처음
   반지름 크기]); 2D 원(`areaAway`)은 그 경우 안 그린다. 같은 구조: 锡人 S1·S2(`tinman_skill_0N_token_01`/`_range_01`), 号角 S1(`horn_skill_01_hit_02(_buff)`),
   波登可 S2(`podego_skill_02_range`) — 전에는 발동 틱 피해 대상에 한 번 틀었다. `thorn2_skill_01_range`의 `_overwriteHeight`(유닛 높이 + offset)는 안 함.
+  (2026-11-19, 공식 클라에서 확인) S3의 던진 유닛 `projectile_chr_thorn2_s3`는 수명 0.5초(LIMITED, `Projectile.ExtraCheckToFinish`는 참)라 그 닿음 효과
+  (`thorn2_token_start`·`thorn2_skill_03_token`)는 던진 뒤 0.5초에 끝난다(`_delayToFinish` 0.5 뒤 회수) — 키트 'zone'의 `life`, `zoneFx`가 `duration`(영역 시간,
+  절차 원의 시간) 대신 씀; 전에는 영역 시간(0.5 + 19초 남짓) 내내 남았다. 영역 자체의 그림은 `projectile_chr_thorn2_s3_polygon`의 `Thorn2S3Renderer`:
+  `Init`에서 `_mainEffect` `thorn2_skill_03_line`을 투사체 몸 아래 만들고(몸은 `AttachToTarget` GROUND 마운트 점 — 그녀 칸의 바닥) 모든 LineRenderer를
+  `useWorldSpace` 끔·점 8개 모두 같은 자리로 켠 뒤, 영역이 닿을 때(`OnProjectileReached`, 다음 `OnTick`에 한 번 더) `_SetLineRenderer`가 점을
+  `Thorn2PolygonRange.resultForEffect`(= `m_resultOrigin`: 껍질의 칸 중심, 0.325 밀기·직사각형 펴기 전 — `_OptimizeLineCollider`가 2점 미만이면 비움) − 투사체 칸으로
+  두고 남는 자리는 마지막 점으로 채우며 `loop` = 점 셋 이상(`m_isLoop`; `_useEndPointAsStartPos`는 `Init`의 `loop`일 뿐 덮임), 멈출 때(`OnProjectileStop`) `FinishMe`.
+  → 키트가 타격 때 'seaArea' { pts: 껍질, delay 0.5, duration: 영역 시간 }을 내고(껍질이 두 점 이상일 때만 — 한 점이면 모든 점이 같아 아무것도 안 보임),
+  `fx/kitofficial.js`의 `path` 항목 → `fxgame.js pathLine`이 0.5초 뒤 그 점들(닫으면 첫 점을 끝에 더함, 높이 = 그녀의 바닥)로 `setPath`를 한 번 놓고 영역 시간 뒤 끝낸다.
+  선 재질 셋은 `_ZTest` 0이라 바닥 자르기가 없다. 재발 방지: `test/render/kit-event-fx.test.js` 「引星棘刺 S3 (2026-11-19)」·`test/content/kits_alt_t5.test.js` 「引星棘刺 S3」.
 - **④ SwitchableBackEffect** — `SwitchableBackEffect._UpdateFace`: 주인의 `faceToBack`이 바뀌면 이 이펙트를 멈추고 `_backEffect`를 주인에게 만들며, 앞으로
   돌아오면 반대(`common_empty` = 뒤를 볼 때 안 보임). → `fx_extract.py switch_back`이 프리팹 JSON에 `back: { effect, predict, oneShot }`(MonoScript PathID
   7599136815520768295, typetree), `--back-only`가 이미 뽑은 프리팹에 그것만 쓴다(`mount-only`와 같은 방식). `fxgame.js`(`play`·`spawn`)가 주인이 Back 모델일 때
