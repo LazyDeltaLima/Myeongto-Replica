@@ -356,11 +356,12 @@ function chanEnd(b, e, k) {
  * (`ab.sk[name].cast`, data/enemies.json `skillCast` — every one of the mode has the ATTACK and / or COMBAT family), on
  * an enemy that makes normal attacks — through the engine (ai.js enemyHasAttack) or through its kit's own attack loop
  * (`ab.ownAttack`: 假想敌：管 / 弦, “萨米的意志”, bosses.js ownAttackTurn — the loop offers its turn through the same hook).
- * An unarmed enemy (applyWay NONE / ATK 0) whose prefab's mode has an Attack ability (enemies.json `attackAbility`) has
- * the slot too, without swinging: the client's `AttackWrapper.SearchTarget` asks `Unit.hasAttack` (= the mode's `_attack`
- * ability), not the table. One without (only a Combat ability, or none) casts no skill at the attack slot, and like the
- * kits' own timers keeps its own cooldown [ASSUMED·미조사: what triggers those skills in the client — talents, triggers or
- * the Combat wrapper while blocked — was not read].
+ * An unarmed enemy (applyWay NONE / ATK 0) whose prefab's mode has an Attack ability that can be ready (enemies.json
+ * `attackAbility`: one with a clip, or the clip-less EmptyActiveAbility of 枯朽萃聚使徒, cooldown 0) has the slot too,
+ * without swinging: the client's `AttackWrapper.SearchTarget` asks `Unit.hasAttack` (= the mode's `_attack` ability), not
+ * the table, then whether it `isReady` (a passive EmptyAbility, 圆仔's, never is). One without casts no skill at the
+ * attack slot: the mode's other enemies of that kind (圆仔 `Show`, 转译基底·α `ChangeTo*`, 刺胄之弹 `Boom`) have their
+ * skills cast by their talents' `TriggerEnemySkill`, which their kits model as their own triggers (공식 클라에서 확인).
  */
 function slotSkill(e, ab, a) {
   const s = a.name != null ? ab.sk[a.name] : null;

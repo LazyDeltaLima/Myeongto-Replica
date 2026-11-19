@@ -2882,6 +2882,23 @@ function enemyTiming(ctx, spineId, key) {
   return ctx.attackTiming?.enemies?.[spineId] ?? ctx.attackTiming?.enemies?.[key];
 }
 
+/**
+ * Whether an enemy's first mode brings its attack slot round (local-attack-timing.json `enemies`): an attack ability with a
+ * clip (`attack`), or a clip-less `_attack` of an active class (`emptyAttack` 'active': EmptyActiveAbility, cooldown 0 —
+ * always ready). A passive one (EmptyAbility) is never ready (`Ability.isReady` wants the category ACTIVE). A clip-less
+ * `_attack` of a class attack_timing.py does not know ('?') stops the build: whether it is ever ready is not read.
+ */
+function enemyHasAttackSlot(ctx, spineId, key) {
+  const t = enemyTiming(ctx, spineId, key);
+  if (!t) return false;
+  if (t.attack) return true;
+  if (t.emptyAttack === '?') {
+    throw new Error(`enemy ${key}: its mode's _attack is a clip-less ability of a class attack_timing.py does not know `
+      + '(emptyAttack \'?\'): name its MonoScript in attack_timing.py EMPTY_ATTACK (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」)');
+  }
+  return t.emptyAttack === 'active';
+}
+
 /** An enemy's attack ability (local-attack-timing.json `enemies`): the blocked one (Combat) for a melee enemy, else Attack. */
 function enemyAbility(ctx, spineId, key, applyWay) {
   const e = enemyTiming(ctx, spineId, key);
@@ -3400,8 +3417,8 @@ function buildEnemies(ctx) {
       ...(skillCast ? { skillCast } : {}),
       // an enemy without a normal attack of its own (applyWay NONE / ATK 0) whose prefab's mode still has an Attack ability:
       // its attack slot comes round for its skills (the client's `Enemy.AttackWrapper.SearchTarget` asks `Unit.hasAttack`
-      // = the mode's `_attack`, not the table) — content/enemies.js skillSlot
-      ...(skillCast && (applyWay === 'NONE' || !(stats.atk > 0)) && enemyTiming(ctx, mv(data.prefabKey) || key, key)?.attack ? { attackAbility: true } : {}),
+      // = the mode's `_attack`, not the table, then whether that ability `isReady`) — content/enemies.js skillSlot
+      ...(skillCast && (applyWay === 'NONE' || !(stats.atk > 0)) && enemyHasAttackSlot(ctx, mv(data.prefabKey) || key, key) ? { attackAbility: true } : {}),
       // SP pool of SP-cost skills (e.g. 假想敌：黑云 技力上限 3 = 全弹发射 hits); only when the database has one
       ...(data.spData ? { sp: { type: data.spData.spType ?? null, maxSp: data.spData.maxSp ?? 0, initSp: data.spData.initSp ?? 0, increment: data.spData.increment ?? 0 } } : {}),
       notCountInTotal: !!mv(data.notCountInTotal, false),

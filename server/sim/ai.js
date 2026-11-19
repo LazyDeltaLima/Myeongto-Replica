@@ -1544,7 +1544,7 @@ export function enemyMode(b, e, mode = null, restartFsm = true) {
 /**
  * Whether enemy `e` makes normal attacks (enemyAttack): an armed profile, a damage type and ATK. Such an enemy has an
  * attack slot for its skills (content/enemies.js skillSlot); so does an unarmed one whose prefab has an Attack ability
- * (enemies.json `attackAbility`); any other casts them on their own cooldown.
+ * that can be ready (enemies.json `attackAbility`); any other has its skills cast by its kit's own triggers.
  */
 export function enemyHasAttack(e) {
   if (e.profile && e.profile.noAttack) return false;

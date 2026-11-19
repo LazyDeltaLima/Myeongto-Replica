@@ -1549,9 +1549,19 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   대조 이식 — 적·보스」).
 - **일반 공격이 없는 적** (2026-11-03, 공식 클라에서 확인): `AttackWrapper.SearchTarget`은 표가 아니라 `Unit.hasAttack`(= 지금 모드의 `_attack` 능력이 있는지)을
   묻는다. 그래서 ATK 0·`applyWay` NONE이어도 프리팹 모드에 공격 능력이 있는 적('산크타의 긍지' 祈祷邀约, 길조의 비린 — `data/enemies.json` `attackAbility`)은
-  휘두르지 않고 공격 차례에만 스킬을 쓴다(`battle/spawns.js`가 그 적의 `profile.noAttack`을 켜지 않고, `ai.js enemyAttack`은 훅만 낸다). 공격 능력이 없는 적
-  (문드러진 응집 사도·동글이·변형의 베이스 α, 전투 능력만 있는 '갑주를 꿰뚫는 탄환')은 공격 차례로 스킬을 쓰지 않으므로 키트 자체 타이머와 함께 예전처럼 제 쿨로 쏜다
-  [ASSUMED·미조사: 클라에서 그 스킬을 무엇이 켜는지(재능·트리거·막혔을 때의 전투 래퍼)는 안 읽음]. 이전: 일반 공격이 없는 적은 모두 제 쿨(가정이었음).
+  휘두르지 않고 공격 차례에만 스킬을 쓴다(`battle/spawns.js`가 그 적의 `profile.noAttack`을 켜지 않고, `ai.js enemyAttack`은 훅만 낸다).
+  `SearchTarget`은 그다음 그 공격 능력이 `isReady`인지 본다(`Ability.get_isReady`: 붙어 있고 범주 ACTIVE이고 쿨이 끝남) — 그래서 클립 없는 빈 능력은 클래스가
+  가른다(2026-11-20, 공식 클라에서 확인): 문드러진 응집 사도(`enemy_1321_wdarft`)의 `_attack`은 `EmptyActiveAbility`(ACTIVE, 쿨 `EmptyAbility.get_cooldown` 0)라
+  늘 준비돼 있고, 공격 트리거 `NeverTrigger`가 대상을 못 찾아도 스킬은 제 트리거(`EnemySkill.CheckTrigger` → `CheckAvailable` 뒤 `AlwaysTrigger`)로 골라진다 —
+  `BornBugs`가 공격 차례로, 쿨이 끝나는 대로 시전된다. 그 `_timeMode` 0이라 `Skill` 0.833초 클립을 공격 시간 5초로 늘여 **5초 서서** 시전하고, 쿨 10초는 시전이 끝날 때
+  다시 돈다(15초마다 한 번). 이전: 제 쿨 10초마다, 서지 않고 [가정이었음]. 동글이(`enemy_2085_skzjxd`)의 `_attack`은 `EmptyAbility`(PASSIVE)라 준비되는 일이 없어
+  공격 차례가 없다. 변형의 베이스 α(`enemy_10081_mpplai`, 첫 모드에 `_attack` 없음)·'갑주를 꿰뚫는 탄환'(`enemy_9016_acstmr`, 전투 능력만)도 차례가 없다. 이 셋의
+  스킬은 재능 버프의 `TriggerEnemySkill`이 켠다(공식 클라에서 확인 — 버프 템플릿): 동글이 `Show`는 둘째 모드 `Shield_Back`의 `skzjxd_t[show_trigger]`(시뮬은 그 모드를
+  돌리지 않으므로 안 씀), 변형의 베이스 α `ChangeToB/C/D`는 `enemy_mpplai_passive_p0`(키트의 피해 횟수 계기), '갑주를 꿰뚫는 탄환' `Boom`은
+  `enemy_acstmr[check]`(멈춰 섰고 막히지 않았을 때 — 키트의 도착)로, 키트가 그 계기를 그대로 둔다. 데이터: `attack_timing.py empty_attack`이 첫 모드 `UnitMode._attack`이
+  클립 없는 능력이면 그 MonoScript로 `emptyAttack`(`active`·`passive`, 모르는 클래스는 `?`)을 쓰고, `build-data.mjs enemyHasAttackSlot`이 `active`면
+  `attackAbility`를 켠다 — 일반 공격 없는 적에게 `?`가 오면 빌드가 멈춘다. 재발 방지: 원인 제거 — `attack_timing.py empty_attack`이 읽음,
+  시험 `test/content/enemy-skill-attack-slot.test.js` 「clip-less active ability」.
   형태(프리팹 모드)가 바뀌면 일반 공격 쿨은 비워진다(2026-11-07, 공식 클라에서 확인, 「일반 공격 타이밍」 「적의 모드 전환」; 이전에는 가정으로 이어지게 했다). 클립이 매니페스트에 없다고 시전 길이 0이던 스킬 셋(`enemy_9014_acstma` `2`·`enemy_10065_ftzlc` `onfire`·
   `enemy_10141_xdpeng_2` `switch`)은 키가 프리팹 애니메이터의 키 표로 클립 이름이 되는 것이었다(2026-11-14, 「일반 공격 타이밍」 「적 클립의 키 표」).
 - **막힘이 가족을 고른다** (2026-10-22, 제보 「강화 석궁 기습자가 저지됐을 때도 아군을 기절시킨다」, EN 공식 클라에서 직접 확인):

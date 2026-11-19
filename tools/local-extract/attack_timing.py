@@ -26,7 +26,8 @@ tools/assets/local-attack-timing.json, which tools/build-data.mjs folds into dat
 `attack[i]` = the attack ability of mode i (null when the mode has none), its clip renamed by the mode's
 `_replaceAnimPairs`; a summon's the same, from its prefab in pkgrps/btl_pfb_tokens_*.ab (data/tokens.json and the summons of
 data/backups.json); an enemy's `combat` / `attack` = the abilities of
-its first mode used while blocked / unblocked (either may be missing); `modes` = the same of each later mode of a prefab
+its first mode used while blocked / unblocked (either may be missing), `emptyAttack` = the class of that mode's `_attack`
+when it plays no clip ('active' / 'passive', '?' unknown: empty_attack); `modes` =the same of each later mode of a prefab
 with several (`mode0` = the first one's name). An enemy ability's `anim` is a key: `clip` beside it is the clip the prefab
 animator's key table plays for it when that is another name ('' = the table lacks the key: no clip — anim_table).
 
@@ -247,6 +248,29 @@ def enemy_mode_abilities(cands, renamed=lambda ab: ab):
     return e
 
 
+# the clip-less abilities a mode's `_attack` may be, by MonoScript PathID (the same ids in the EN and CN clients; the class
+# names from the CN client's MonoScripts) → whether it is an active ability. `Unit.hasAttack` is `UnitMode._attack != null`
+# and `Enemy.AttackWrapper.SearchTarget` looks at the enemy's skills only once that main attack `isReady` — attached, of
+# category ACTIVE and cooled down: an EmptyActiveAbility (ACTIVE, cooldown 0) is always ready, so its enemy's skills are cast
+# at every attack slot without a swing (its `_attackTrigger` NeverTrigger finds nothing); an EmptyAbility (PASSIVE) never
+# is, so its enemy has no attack slot (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 일반 공격이 없는 적)
+EMPTY_ATTACK = {-8178746901033412656: 'active', 4865767822664548221: 'passive'}
+
+
+def empty_attack(sub, base):
+    """'active' / 'passive' when mode GameObject `base`'s UnitMode has a `_attack` ability without a clip of its own (no
+    `_animKey`: EMPTY_ATTACK), '?' for such an ability of another class, None when the attack has a clip or there is none."""
+    by_pid = {pid: d for _, d, pid in sub}
+    um = next((d for gp, d, _ in sub if gp == base and isinstance(d.get('_attack'), dict)), None)
+    ref = (um or {}).get('_attack') or {}
+    if not ref.get('m_PathID') or ref.get('m_FileID'):
+        return None
+    a = by_pid.get(ref['m_PathID'])
+    if a is None or '_animKey' in a:
+        return None
+    return EMPTY_ATTACK.get(((a.get('m_Script') or {}).get('m_PathID')), '?')
+
+
 def anim_table(sub, root):
     """{animKey: animName} of an enemy prefab's animator (the root unit's `_animator`, a SpineAnimator: `_animations`), or
     None when it has none. The client plays a clip by key only: the table turns the key into the model's clip name, and a
@@ -312,6 +336,9 @@ def enemy_entries(path, wanted):
             bodies = sorted({gp.rsplit('/Body/', 1)[0] for gp, _, _ in sub if '/Body/' in gp})
             base = bodies[0] if bodies else root
         e = enemy_mode_abilities(under(sub, base), mode_renamer(sub, base))
+        empty = empty_attack(sub, base)
+        if empty:
+            e['emptyAttack'] = empty
         # the prefab's later modes (`_modes` after the first): each attaches its own attack / combat abilities, ready, when
         # the enemy switches to it (`Unit.SwitchMode`; docs/rules/sim.md 「일반 공격 타이밍」) — `modes` {mode name: its
         # abilities as the first mode's, {} = none}

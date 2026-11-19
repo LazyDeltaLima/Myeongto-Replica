@@ -113,6 +113,36 @@ test('an unarmed enemy whose prefab has an Attack ability casts at its attack sl
   assert.ok(!slots.some((x) => x.skill === null), 'never a normal attack');
 });
 
+test('an unarmed enemy whose mode\'s attack is a clip-less active ability casts at its attack slot: 枯朽萃聚使徒 BornBugs stands for its attack time; 圆仔\'s passive one gives no slot', () => {
+  // the client's AttackWrapper.SearchTarget: Unit.hasAttack (the mode's `_attack`, an EmptyActiveAbility for the apostle) and
+  // that ability isReady (category ACTIVE, cooldown 0: always) — then BornBugs (AlwaysTrigger) is cast in place of an attack
+  // that never comes (NeverTrigger). Its `_timeMode` 0 plays the 0.833 s Skill clip to the 5 s attack time: the apostle stands
+  // 5 s, and its 10 s cooldown restarts as the cast ends. Until 2026-11-20 it cast on its own 10 s cooldown, without standing.
+  const raw = E.enemy_1321_wdarft;
+  assert.ok(raw.attackAbility && raw.applyWay === 'NONE', 'unarmed, with an attack slot');
+  assert.ok(!E.enemy_2085_skzjxd.attackAbility, '圆仔: a passive EmptyAbility is never ready — no slot');
+  assert.deepEqual([raw.skillCast.bornbugs.time, raw.skillCast.bornbugs.dur], [0, 0.833]);
+  const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
+  h.step();
+  const e = h.spawn('enemy_1321_wdarft', { pos: [9, 8], routeIndex: 0, mods: { speedMul: 1 }, tag: null });
+  const slots = watchSlots(h, e);
+  const s = raw.skills.find((x) => x.prefabKey === 'BornBugs');
+  h.run(s.initCooldown + 0.2);
+  const first = slots.find((x) => x.skill === 'BornBugs');
+  assert.ok(first && first.t <= s.initCooldown + 2 * h.TICK, `cast as its initial cooldown ends (${first && first.t})`);
+  h.step();
+  const at = e.s.interval;
+  assert.equal(at, raw.stats.bat);
+  assert.ok(Math.abs(e.castLeft - (at - (h.b.time - first.t))) < h.TICK * 1.5, `cast for its attack time (${e.castLeft})`);
+  const x0 = e.x, y0 = e.y;
+  h.run(at - 0.5);
+  assert.ok(Math.hypot(e.x - x0, e.y - y0) < 1e-9, 'it stands while it casts');
+  h.run(s.cooldown + 1);
+  const second = slots.filter((x) => x.skill === 'BornBugs')[1];
+  assert.ok(second && Math.abs(second.t - first.t - at - s.cooldown) < 0.1, `again cast + cooldown later (${second && second.t - first.t})`);
+  assert.ok(!slots.some((x) => x.skill === null), 'never a normal attack');
+});
+
 test('ready skills at one slot: the highest priority is cast (假想敌：胄 灭顶之灾 priority 1 over 死亡集群 0), the other waits for a later slot', () => {
   const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 6 }], kind: 'boss', sharedBoss: { hp: 1e9, maxHp: 1e9, damage() {} } });
   h.step();
