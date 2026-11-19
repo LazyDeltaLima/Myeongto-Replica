@@ -6,7 +6,7 @@ import { canTargetAlly, areaSelectable } from '../../targeting.js';
 import { periodicDamage } from '../../damage.js';
 import {
   nthOf, stOf, T, elem, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, byPriority,
-  stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, mode, setForm, atCastEvent,
+  stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, mode, setForm, atCastEvent, castLength,
 } from './helpers.js';
 import {
   unblockable, runWhenHit, blockWeight, taunt, maxTargets, ep, nthAttackPower, lowHpBuff, deathBoom, setFloat, float,
@@ -23,9 +23,11 @@ import { enemyShot, shotSpeed } from '../../ai.js';
 const CHIMERA_AURA_RADIUS = 1.2, CHIMERA_AURA_EVERY = 0.5;
 
 /** 自行炮 Cannon (PRTS 高准度伦蒂尼姆城防自行炮 技能 "以攻击范围内生命上限最高的我方单位为中心，生成9格的炮击区域，6s内每0.5s对炮击
- *  区域中生命比例最高的我方单位进行攻击…(最多进行10次攻击)"): shot interval (s), shot cap; 3 shots 1 s apart [ASSUMED] until
- *  0.1.1. 备注: during the skill animation 失衡免疫 + 晕眩 / 冻结 / 浮空 / 沉睡免疫 — held over the bombardment [ASSUMED length]. */
-const CANNON_EVERY = 0.5, CANNON_SHOTS = 10;
+ *  区域中生命比例最高的我方单位进行攻击…(最多进行10次攻击)"; 공식 클라에서 확인 — projectile_enemy_stmgun_s: SelectorHitBehaviour
+ *  `_interval` 0.5 / `_waitFirstPeriod`, `_maxHitNum` 10, life 6 s): shot interval (s), shot cap; and the delay of each shot's
+ *  damage — the hit puts the ability's active buff enemy_stmgun_s[damage] on the ally it picked, whose one trigger
+ *  (`triggerInterval` 0.2, `waitFirstTriggerInterval`) deals it. */
+const CANNON_EVERY = 0.5, CANNON_SHOTS = 10, CANNON_DAMAGE_DELAY = 0.2;
 
 const CANNON_IMMUNE = Object.freeze(['stun', 'freeze', 'cold', 'levitate', 'sleep']);
 
@@ -486,26 +488,54 @@ export const SPECIAL_KITS = Object.freeze({
   enemy_1273_stmgun_2: (ab) => {                                     // 高准度伦蒂尼姆城防自行炮 · locks the highest max-HP unit in range, bombards the highest HP% on its 9 tiles
     // the allies in its range (the engine's ranged reach: radius + the ally collider)
     const inRange = (b, e) => allTargets(b, e).filter((a) => hypot(a.x - e.x, a.y - e.y) <= (e.base.rangeRadius || 0) + ALLY_COLLIDER_RADIUS + 1e-9);
-    return [skill(ab.sk.Cannon, (b, e) => {
+    const sk = ab.sk.Cannon;
+    // the cast (공식 클라에서 확인 — prefab Skills/Cannon, a RangedAttack playing `Skill` as it is, 10 s): its target, the
+    // highest max-HP ally in range (its trigger), is taken as it starts; BuffDuringCastingFixed stmgun_s[immunes] (失衡, 晕眩,
+    // 冻结, 浮空, 沉睡 immune — PRTS 备注 "技能动画期间") holds for the whole cast, cleared as it finishes for any reason; at
+    // the clip's OnAttack (4.033 s, castStrikeAt) it fires projectile_enemy_stmgun_s onto that target (AttachToTarget,
+    // reached at once; the target's tile when it is gone, `_emitToInputPosWhenTargetIsInvalid`) — the bombardment. Until
+    // 2026-11-20 the shots began as the cast did and the immunity lasted the 5 s of shots.
+    let cast = null;
+    const release = (b, e) => {
+      if (!cast) return;
+      e.mem.ab.immune = cast.had;
+      b.removeBuff(e, 'ab:cannon');
+      cast = null;
+    };
+    const a = skill(sk, (b, e) => {
+      cast = null;
       const lock = inRange(b, e).sort((p, q) => q.s.maxHp - p.s.maxHp)[0];
       if (!lock) return;
-      const r0 = Math.round(lock.y), c0 = Math.round(lock.x);
-      const dur = CANNON_SHOTS * CANNON_EVERY;
-      b.fx('telegraph', { x: c0, y: r0, r: 1.5, dur, kind: 'cannon' });
-      b.addBuff(e, { key: 'ab:cannon', duration: dur, flags: { noDisplace: true } });
       const ab2 = e.mem.ab;
-      const had = new Set(ab2.immune || []);
-      ab2.immune = new Set([...had, ...CANNON_IMMUNE]);
-      for (let i = 1; i <= CANNON_SHOTS; i++) b.after(i * CANNON_EVERY, () => {
-        if (!e.alive) return;
-        if (i === CANNON_SHOTS) ab2.immune = had;
-        // each shot picks inside the 9-tile zone (格子判定): an area selection — a 迷彩 ally may be shot, an unblocking 隐匿
-        // one not (areaSelectable; it used to skip 迷彩 like a normal attack)
-        const t = b.allies().filter((a) => areaSelectable(e, a) && Math.abs(Math.round(a.y) - r0) <= 1 && Math.abs(Math.round(a.x) - c0) <= 1)
-          .sort((p, q) => q.hpRatio - p.hpRatio)[0];
-        if (t) { b.fx('explode', { x: t.x, y: t.y, r: 0.5, kind: 'cannon' }); hurt(b, e, t, e.s.atk * (ab.sk.Cannon.bb.atk_scale ?? 0), 'arts'); }
-      }, { owner: e });
-    }, { cond: (b, e) => inRange(b, e).length > 0 })];
+      const c = { r: Math.round(lock.y), c: Math.round(lock.x), had: new Set(ab2.immune || []) };
+      cast = c;
+      ab2.immune = new Set([...c.had, ...CANNON_IMMUNE]);
+      const len = castLength(e, sk.cast, sk.bb);
+      b.addBuff(e, { key: 'ab:cannon', duration: len, flags: { noDisplace: true } });
+      b.after(len - 1e-9, () => { if (cast === c) release(b, e); }, { owner: e });
+    }, {
+      cond: (b, e) => inRange(b, e).length > 0,
+      atStrike: (b, e) => {
+        const c = cast;
+        if (!c) return;
+        const { r: r0, c: c0 } = c;
+        // the zone shows as the projectile reaches (`_effectsWhenReached`) until it stops after its last hit
+        b.fx('telegraph', { x: c0, y: r0, r: 1.5, dur: CANNON_SHOTS * CANNON_EVERY, kind: 'cannon' });
+        for (let i = 1; i <= CANNON_SHOTS; i++) b.after(i * CANNON_EVERY, () => {
+          if (!e.alive) return;   // `_stopWhenSourceInvalid`
+          // each shot picks inside the 9-tile zone (ConstBoxRange x-4, 格子判定): an area selection — a 迷彩 ally may be shot,
+          // an unblocking 隐匿 one not (areaSelectable; it used to skip 迷彩 like a normal attack)
+          const t = b.allies().filter((u) => areaSelectable(e, u) && Math.abs(Math.round(u.y) - r0) <= 1 && Math.abs(Math.round(u.x) - c0) <= 1)
+            .sort((p, q) => q.hpRatio - p.hpRatio)[0];
+          if (!t) return;
+          b.fx('explode', { x: t.x, y: t.y, r: 0.5, kind: 'cannon' });
+          // the hit itself deals nothing (the attack's `_atkScale` 0 merged with atk_scale); its buff deals the arts damage
+          b.after(CANNON_DAMAGE_DELAY, () => hurt(b, e, t, e.s.atk * (sk.bb.atk_scale ?? 0), 'arts'), { owner: e });
+        }, { owner: e });
+      },
+    });
+    if (a) a.onCut = release;
+    return [a];
   },
   // 萨卡兹骸骨拷打者 · heals + ATK stack when a unit within Attack.range_radius is knocked out; leaves 2 血珀 on death — they
   // stay where it fell, not counted, and bleed out (enemy_1367_dseed)

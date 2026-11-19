@@ -18,7 +18,6 @@ const SEASONS = [[null, 'data/enemies.json'], ['act3autochess', 'data/seasons/ac
 const read = (f) => JSON.parse(fs.readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8'));
 
 const ACE = 'times its effect itself (enemies/helpers.js atCastEvent): it has a part at the cast start';
-const OWN = '[미조사] a kit timer of its own, not moved yet — bundles line 「포격·죽음의 눈 효과 프레임」 (same section)';
 /** enemy key → skill name → why its kit does not say `atStrike` (a cast whose frame is 0 needs no entry). */
 const EXCEPT = {
   enemy_10001_trslim: { StartRun: ACE },
@@ -31,9 +30,6 @@ const EXCEPT = {
   enemy_1403_gunsho: { CrossAttack: ACE }, enemy_1403_gunsho_2: { CrossAttack: ACE },
   enemy_1405_boomer_2: { Bomb: ACE }, enemy_1406_chghmr: { PowerHit: ACE }, enemy_1409_bdguad_2: { CrossBomb: ACE },
   enemy_1431_lrmzrd: { summonFireball: ACE }, enemy_1431_lrmzrd_2: { summonFireball: ACE },
-  // 高准度伦蒂尼姆城防自行炮 `Cannon` (its bombardment is a projectile's buff), 萨卡兹王庭军精锐术师 `DeathEye` (a sequence whose
-  // link waits for its projectile)
-  enemy_1273_stmgun_2: { Cannon: OWN }, enemy_1275_dwlock_2: { DeathEye: OWN },
   // boss skills that spend their SP as the cast begins (bosses.js atSpell)
   enemy_9021_acduml: { 1: ACE }, enemy_9021_acduml_2: { 1: ACE }, enemy_9022_acdumm: { 1: ACE },
   enemy_9032_aclionk: { equip: ACE, equipA: ACE }, enemy_9029_acfnc: { SommonSquad: ACE }, enemy_9029_acfnc_2: { SommonSquad: ACE, SkSummonArmor: ACE },
@@ -167,4 +163,42 @@ test('a kit whose spell is a part of its own (`atStrike` a function): 重弩突�
   const c = go(1);
   assert.equal(c.shot, null, 'stunned 1 s in: no bolt');
   assert.ok(!c.stun);
+});
+
+// 萨卡兹王庭军精锐术师 死亡之眼 (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 효과가 나는 때): a sequence whose first child,
+// LineAttack, waits for its line projectile — castStrikeAt has no frame for it (the second child starts when the line is
+// gone) and the kit times its parts: the line leaves after LineAttack's `_preDelay`, links once it has flown to the target
+// (its `_speed`), hits as it links and each second after, and ChargeAttack bursts as the link's life ends. Until
+// 2026-11-20 the channel began as the cast did.
+test('萨卡兹王庭军精锐术师 死亡之眼: the line leaves after LineAttack\'s `_preDelay`, links after its flight, bursts as the link ends — nothing when stunned first', () => {
+  const E = read('data/enemies.json'), key = 'enemy_1275_dwlock_2';
+  const sc = E[key].skillCast.deatheye, sk = E[key].skills.find((x) => x.prefabKey === 'DeathEye');
+  assert.equal(enemiesMod.castStrikeAt({ s: { interval: 4 } }, sc, sk.bb), null, 'no fixed frame for the sequence');
+  const link = sc.subs[0].pre + 2 / sk.proj.speed;   // 2 tiles to its target
+  const go = (stunAt) => {
+    const h = arena([{ chessId: 't_a', row: 9, col: 5 }, { chessId: 't_b', row: 10, col: 5 }]);
+    h.step();
+    const e = h.spawn(key, { pos: [9, 7], routeIndex: 0, mods: { speedMul: 0 } });
+    const w = h.unit('t_a'), w2 = h.unit('t_b');
+    const t0 = untilCast(h, e, 'DeathEye');
+    const n0 = w.stats.taken;
+    if (stunAt != null) {
+      h.run(t0 + stunAt - h.b.time);
+      assert.ok(h.b.applyStatus(e, 'stun', { duration: 1 }), 'stunned');
+    }
+    h.run(t0 + link - 0.05 - h.b.time);
+    const before = w.stats.taken - n0;
+    h.run(0.1);
+    const first = w.stats.taken - n0;
+    h.run(t0 + link + sk.bb.hit_duration - 0.1 - h.b.time);
+    const burstEarly = w2.elem.apoptosis;
+    h.run(0.2);
+    return { before, first, burstEarly, burst: w2.elem.apoptosis };
+  };
+  const r = go(null);
+  assert.equal(r.before, 0, 'nothing before the line links');
+  assert.ok(r.first > 0, 'its first hit as it links');
+  assert.ok(r.burstEarly === 0 && r.burst > 0, 'the group burst as the link\'s life ends');
+  const c = go(0.3);
+  assert.ok(c.first === 0 && c.burst === 0, 'stunned in its pre-delay: no line, no burst');
 });

@@ -1582,9 +1582,18 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     데이터: `build-data.mjs enemySkillCast`가 `wait` 0·`pre`(`_preDelay`, 채널도)와 채널 클립의 `chanBegin`·`chanLoop`·`chanEnd`(`dur`·`hit`)를 싣는다(`attack_timing.py cast_fields`가
     채널 능력의 `_waitForAttackEvent`·`_preDelay`를 읽음). 재발 방지:
     `test/content/enemy-skill-strike.test.js`(두 시즌 공격 차례 스킬 전부 — 프레임이 0보다 늦은데 `atStrike`가 아니면 예외 목록의 이유가 있어야 함).
-    아직 시작에 효과를 내는 것 [추정·미조사: 키트 자체 타이머 — 묶음 sim-D 줄 「포격·죽음의 눈 효과 프레임」]: 고정밀 런디니움 방위군 자주포 `Cannon`(클립 `Skill`의 4.033초에 투사체
-    `projectile_enemy_stmgun_s`가 나가고 포격은 그 투사체의 버프 — 키트는 시작부터 0.5초마다 10발), 살카즈 왕정군 정예 캐스터 `DeathEye`(순차 묶음: 투사체를 기다리는 연결 `LineAttack`
-    `_preDelay` 0.6초, 그 뒤 `ChargeAttack`). `atCastEvent`의 기본 때도 `castStrikeAt`이다(2026-11-20 — 이전: 클립 그대로의 `hit`, 없으면 클립 길이라
+    키트 자체 타이머였던 둘(2026-11-20 옮김, 공식 클라에서 확인 — 프리팹·`[uc]projectiles` 투사체·버프 템플릿; 이전: 시작부터 효과를 냄 [가정이었음]):
+    고정밀 런디니움 방위군 자주포 `Cannon`은 함수형 `atStrike` — 대상(사거리 안 최대 HP가 가장 높은 아군)은 시작에 잡고, `BuffDuringCastingFixed` `stmgun_s[immunes]`(失衡·기절·빙결·
+    공중 띄우기·수면 면역)는 시전 내내(클립 `Skill` 10초, 끊기면 그때까지 — 이전: 포격 5초 동안), 클립의 4.033초에 투사체 `projectile_enemy_stmgun_s`가 그 대상에 붙어(`AttachToTarget`,
+    바로 닿음; 대상이 사라졌으면 그 자리 `_emitToInputPosWhenTargetIsInvalid`) 구역을 띄우고, 그 뒤 0.5초마다(`SelectorHitBehaviour` `_interval` 0.5·`_waitFirstPeriod`) 3×3(`x-4`)
+    안 HP 비율이 가장 높은 아군을 최대 10번 고른다(`_maxHitNum`, 수명 6초, 자주포가 쓰러지면 멈춤 `_stopWhenSourceInvalid`). 고른 타격 자체는 피해가 없고(공격의 `_atkScale` 0 ×
+    `atk_scale` — `AbstractBasicAttack.DoSetData`가 둘을 곱함) 능력의 활성 버프 `enemy_stmgun_s[damage]`를 그 아군에 붙이며, 버프가 0.2초 뒤 한 번(`triggerInterval` 0.2,
+    `waitFirstTriggerInterval`) 마법 피해 공격력 × `atk_scale`를 낸다 — 첫 피해는 시전 시작 4.733초째. 살카즈 왕정군 정예 캐스터 `DeathEye`는 순차 묶음의 앞 자식(`LineAttack`)이
+    투사체를 기다려 다음 자식의 때가 정해지지 않으므로 `castStrikeAt`이 null을 준다(앞 자식이 `proj`인 순차 묶음 — 두 시즌에 이것뿐). 키트가 스스로 센다: 대상은 시작에,
+    `LineAttack`은 이벤트를 기다리지 않아 `_preDelay` 0.6초 뒤 줄(`projectile_enemy_dwlock_line`, `HarpoonMovement` 속도 8 — 중심 사이 거리 ÷ 8)을 쏘고, 닿으면 연결(`LassoProjectile.DoLink`:
+    고정 틱마다 치되 같은 대상은 `_keepAlreadyHitTime` 1초 뒤에 다시 — 닿을 때 첫 타격, 그 뒤 1초마다, 타격 수는 전처럼 `hit_duration` 8)이 연결 수명 8초 동안 이어지고, 그 끝에
+    `ChargeAttack`(`_timeMode` 2·`_cooldown` 0)이 바로 군체 凋亡을 낸다(이전: 시작부터 1초째 첫 타격, 마지막 타격과 같은 때 폭발). 그 전에 시전이 끊기면 줄도 폭발도 없다.
+    화면의 줄은 아직 시전 시작에 뜬다(키트가 시작에 대상을 돌려줌 → `fxgame.js` `elassoStart`; 공식은 줄이 나가는 0.6초 뒤 — 묶음 fx-F 줄 「정예 캐스터 줄이 뜨는 때」). `atCastEvent`의 기본 때도 `castStrikeAt`이다(2026-11-20 — 이전: 클립 그대로의 `hit`, 없으면 클립 길이라
     `_timeMode` 0 시전이 공격 간격에 맞춰 줄어든 배율·`wait` 0·순차 묶음의 앞 자식을 안 봄): 공격 속도가 올라 클립보다 짧게 도는 속사 경량 석궁병·잔당 악단 드러머·전선 개척자 등은
     줄어든 프레임에, 포트브레이커(`enemy_10123_uareap`) `SkyProjectile` 첫 발은 버프 능력 2틱 + `F_Skill` 0.833초 = 0.9초(키트가 따로 들고 있던 2틱을 지움), 마테오의 근위병 둘째 폭탄은
     첫 폭탄 + (2.033 − 1.867) × 배율. 용맹한 팔라둘리스 `rush`는 `wait` 0이라 주문이 바로지만 `Run` 전환은 `ActionToOwner`의 `_runActionOnEvent` 3(ON_CAST_END)이라

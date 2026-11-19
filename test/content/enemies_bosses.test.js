@@ -1811,17 +1811,34 @@ test(`${nm('enemy_1273_stmgun_2')}: Cannon locks the highest-max-HP unit in rang
   e0.profile.noAttack = true;
   const s = skb('enemy_1273_stmgun_2', 'Cannon');
   far.run(s.initCooldown + 1);
-  assert.ok(!far.eventsOf('fx').some((f) => f[1] === 'telegraph' && f[4].kind === 'cannon'), 'nobody in its range: no cast');
+  assert.ok(!far.eventsOf('fx').some((f) => f[1] === 'enemySkill' && f[4].ability === 'Cannon'), 'nobody in its range: no cast');
   const e = put(h, 'enemy_1273_stmgun_2', [11, 5]);
   e.profile.noAttack = true;
-  h.run(s.initCooldown + 0.1);
-  const tel = h.eventsOf('fx').find((f) => f[1] === 'telegraph' && f[4].kind === 'cannon');
-  assert.ok(tel && tel[2] === 3 && tel[3] === 11, 'centred on the highest max-HP unit\'s tile');
-  assert.ok(e.findBuff('ab:cannon')?.flags.noDisplace, '失衡免疫 during the bombardment');
+  const cast = () => h.eventsOf('fx').some((f) => f[1] === 'enemySkill' && f[4].ability === 'Cannon');
+  const tel = () => h.eventsOf('fx').find((f) => f[1] === 'telegraph' && f[4].kind === 'cannon');
+  const shots = () => h.eventsOf('fx').filter((f) => f[1] === 'explode' && f[4].kind === 'cannon').length;
+  const taken = () => h.unit('t_wall').stats.taken + h.unit('t_gun').stats.taken;
+  h.runUntil(cast, s.initCooldown + 1);
+  const t0 = h.b.time;
+  // the cast plays `Skill` (10 s) and holds BuffDuringCastingFixed stmgun_s[immunes] throughout; its projectile leaves at
+  // the clip's OnAttack (castStrikeAt 4.033 s), picks every 0.5 s after, and each pick's buff deals the damage 0.2 s later
+  const sc = e.mem.ab.sk.Cannon, at = enemiesMod.castStrikeAt(e, sc.cast, sc.bb), len = enemiesMod.castLength(e, sc.cast, sc.bb);
+  assert.ok(Math.abs(at - 4.033) < 1e-6 && len === 10, `the clip's frame ${at}, the cast ${len} s`);
+  assert.ok(e.findBuff('ab:cannon')?.flags.noDisplace, '失衡免疫 as the cast starts');
   assert.equal(h.b.applyStatus(e, 'stun', { duration: 1 }), false, '晕眩免疫 during it');
-  h.run(5.5);
-  assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'explode' && f[4].kind === 'cannon').length, 10, '10 shots');
-  assert.ok(h.unit('t_wall').stats.taken + h.unit('t_gun').stats.taken > 0);
+  h.run(at - 0.1);
+  assert.ok(!tel(), 'no zone before the clip\'s frame');
+  h.run(0.2);
+  const z = tel();
+  assert.ok(z && z[2] === 3 && z[3] === 11, 'centred on the highest max-HP unit\'s tile');
+  h.run(0.5);
+  assert.ok(shots() === 1 && taken() === 0, 'the first pick 0.5 s after the zone; its damage not yet');
+  h.run(0.2);
+  assert.ok(taken() > 0, 'its damage 0.2 s after the pick');
+  h.runUntil(() => h.b.time >= t0 + len - 0.3, len);
+  assert.equal(shots(), 10, '10 shots');
+  assert.ok(e.findBuff('ab:cannon') && h.b.applyStatus(e, 'stun', { duration: 1 }) === false, 'immune to the end of the cast');
+  h.run(0.5);
   assert.ok(!e.findBuff('ab:cannon') && h.b.applyStatus(e, 'stun', { duration: 1 }) !== false, 'over afterwards');
 });
 

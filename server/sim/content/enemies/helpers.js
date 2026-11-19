@@ -567,8 +567,10 @@ export function castLength(e, cast, bb) {
  * - a three-part channel (ThreePartChannelingAnimation, `chan`): chanStrikeAt — the first OnAttack frame of its clips in
  *   the order they play, or `_preDelay` when the ability does not wait for the event;
  * - an ActiveBuffAbility (`buff`): its spell after one fixed update (`<OnWaitForPreDelay>` yields `sharedWaitForFixedUpdate`);
- * - a selectable group (`sel`): its child's; a sequence (`seq`): the last child's, after the others; a parallel group: null
- *   (its children's own frames — no kit casts one at the attack slot through this path).
+ * - a selectable group (`sel`): its child's; a sequence (`seq`): the last child's, after the others — null when an earlier
+ *   child waits for its projectile (`proj`: the next child starts when that projectile is gone, no fixed time — 萨卡兹王庭军
+ *   精锐术师 `DeathEye`, whose kit times its parts); a parallel group: null (its children's own frames — no kit casts one at
+ *   the attack slot through this path).
  * A kit whose skill fires at that frame says `atStrike` (archetypes.js skill); one with a part at the cast's start keeps
  * `fire` and times its effect itself (atCastEvent, whose default is this frame). Exported by content/enemies.js too.
  */
@@ -580,7 +582,7 @@ export function castStrikeAt(e, cast, bb) {
   if (cast.kind === 'seq') {
     if (!subs.length) return 0;
     let t = 0;
-    for (let i = 0; i < subs.length - 1; i++) t += castLength(e, subs[i], bb);
+    for (let i = 0; i < subs.length - 1; i++) { if (subs[i].proj) return null; t += castLength(e, subs[i], bb); }
     const last = castStrikeAt(e, subs[subs.length - 1], bb);
     return last == null ? null : t + last;
   }

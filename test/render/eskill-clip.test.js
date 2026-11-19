@@ -295,7 +295,8 @@ test('萨卡兹王庭军精锐术师 (real kit): 死亡之眼 is held over its 8
     assert.equal(cast[4].tgt, h.allies()[0].id, 'its fire\'s target');
     h.runUntil(() => endOf(rec, e.id, 'DeathEye'), 10);
     const [t1] = endOf(rec, e.id, 'DeathEye');
-    assert.ok(Math.abs(t1 - t0 - 8) < 0.1, `the cast ends with its 8 ticks × 1 s (${(t1 - t0).toFixed(3)} s)`);
+    // LineAttack's `_preDelay` 0.6 s (its target on its own tile: no flight), then the 8 s link
+    assert.ok(Math.abs(t1 - t0 - 8.6) < 0.1, `the cast ends with its 0.6 s pre-delay + 8 ticks × 1 s (${(t1 - t0).toFixed(3)} s)`);
     const v = await view(DW, e.id, e.x, e.y, D.enemies[DW]);
     assert.equal(v.onEnemySkill('DeathEye', 0, { hold: true, aim: null }), true);
     assert.equal(v.actor.current, 'Skill_Begin');

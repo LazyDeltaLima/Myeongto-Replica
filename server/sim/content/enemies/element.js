@@ -6,7 +6,9 @@ import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import { hypot } from '../../detmath.js';
 import {
   stOf, T, elem, hurt, targetsNear, areaAllies, areaAlliesInTiles, targetAndArea, byPriority, setForm, onTerrain, canCast, mode,
+  castStrikeAt,
 } from './helpers.js';
+import { shotSpeed } from '../../ai.js';
 import { taunt, ep, deathSpawn, deathBoom, setFloat, float, skill, kitEp, kitStun3 } from './archetypes.js';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -95,33 +97,57 @@ function kitSyufo(ab) {
 function kitDeathEye(ab, e) {
   const s = ab.sk.DeathEye;
   const r = e.base.rangeRadius || 2.5;
+  // the sequence's first child, LineAttack: it does not wait for an attack event, its spell (the line) comes after its
+  // `_preDelay` (castStrikeAt of that child, 0.6 s); the line (projectile_enemy_dwlock_line, a HarpoonMovement at its
+  // `_speed`, ai.js shotSpeed) links once it reaches the target
+  const line = s && s.cast && s.cast.subs ? s.cast.subs[0] : null;
   const eye = skill(s, (b, e2) => {
+    // the target is taken as the cast starts (the skill's trigger)
     const t = byPriority(e2, targetsNear(b, e2, r))[0];
     if (!t) return;
     const dur = s.bb.hit_duration ?? 0;
-    b.addBuff(e2, { key: 'ab:channel', duration: dur, flags: { disarm: true } });
-    b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'deathEye', dur });
-    let n = 0;
+    const pre = line ? castStrikeAt(e2, line, s.bb) ?? 0 : 0;
+    const v = shotSpeed(s.proj);
+    const fly = v > 0 ? hypot(t.x - e2.x, t.y - e2.y) / v : 0;
+    b.addBuff(e2, { key: 'ab:channel', duration: pre + fly + dur, flags: { disarm: true } });
+    let n = 0, h = null, linked = false;
     const stop = (cut) => {
       if (e2.mem.deathEye !== ch) return;
-      h.cancel();
+      if (h) h.cancel();
       e2.mem.deathEye = null;
-      if (cut) { b.removeBuff(e2, 'ab:channel'); b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'deathEyeEnd' }); }
+      if (cut) { b.removeBuff(e2, 'ab:channel'); if (linked) b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'deathEyeEnd' }); }
     };
     const ch = { stop };
-    const h = b.every(1, () => {
+    // a stun or the locked target's fall interrupts the channel: no burst. Not a silence: the skill holds 沉默反制
+    // while it casts (PRTS 「※技能期间，持有沉默反制」; prefab LineAttack / ChargeAttack `dwlock_skill_anti_flag[silence]`,
+    // abnormalAntis SILENCED, during the cast) — until 2026-11-07 a silence cut it
+    const broken = () => e2.s.flags.stun || !t.alive;
+    const hit = () => hurt(b, e2, t, e2.s.atk * (s.bb.atk_scale ?? 0), 'arts');
+    b.after(pre + fly - 1e-9, () => {
+      if (e2.mem.deathEye !== ch) return;
       if (!e2.alive) { stop(false); return; }
-      // a stun or the locked target's fall interrupts the channel: no burst. Not a silence: the skill holds 沉默反制
-      // while it casts (PRTS 「※技能期间，持有沉默反制」; prefab LineAttack / ChargeAttack `dwlock_skill_anti_flag[silence]`,
-      // abnormalAntis SILENCED, during the cast) — until 2026-11-07 a silence cut it
-      if (e2.s.flags.stun || !t.alive) { stop(true); return; }
-      hurt(b, e2, t, e2.s.atk * (s.bb.atk_scale ?? 0), 'arts');
-      if (++n >= dur) {
-        stop(false);
-        b.fx('explode', { x: t.x, y: t.y, r: 1, kind: 'apoptosis' });
-        // "对目标及其周围4格的我方单位": the locked target (a 隐匿 it gained mid-channel does not save it) + an area around it
-        for (const u of targetAndArea(t, areaAllies(b, e2, t.x, t.y, 1))) elem(b, e2, u, 'apoptosis', e2.s.atk * (s.bb.ep_damage_ratio ?? 0));
-      }
+      if (broken()) { stop(true); return; }
+      // the link (LassoProjectile.DoLink): it hits on every fixed tick, its target again once `_keepAlreadyHitTime` 1 s
+      // has passed — the first as it links, then each second, `hit_duration` hits; the link's life over, LineAttack ends
+      // and ChargeAttack (`_timeMode` 2, `_cooldown` 0) bursts at once (its projectile_enemy_dwlock_charge reached on the
+      // target as it is put on)
+      linked = true;
+      b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'deathEye', dur });
+      hit();
+      n = 1;
+      h = b.every(1, () => {
+        if (!e2.alive) { stop(false); return; }
+        if (broken()) { stop(true); return; }
+        if (n >= dur) {
+          stop(false);
+          b.fx('explode', { x: t.x, y: t.y, r: 1, kind: 'apoptosis' });
+          // "对目标及其周围4格的我方单位": the locked target (a 隐匿 it gained mid-channel does not save it) + an area around it
+          for (const u of targetAndArea(t, areaAllies(b, e2, t.x, t.y, 1))) elem(b, e2, u, 'apoptosis', e2.s.atk * (s.bb.ep_damage_ratio ?? 0));
+          return;
+        }
+        hit();
+        n++;
+      }, { owner: e2 });
     }, { owner: e2 });
     e2.mem.deathEye = ch;
     return t;   // the cast's target (content/enemies.js castSkill: the view's link line)
@@ -130,7 +156,10 @@ function kitDeathEye(ab, e) {
     // the skill is a sequence (공식 클라에서 확인): LineAttack — a RangedAttack with `_waitForProjectileInvalid`, the channel's
     // line projectile, no wait for an end clip — then ChargeAttack (`_timeMode` 2, `_cooldown` 0: no time). The cast lasts
     // while the channel lives (content/enemies.js projCastOver): the enemy stands without normal attacks, and the 24 s
-    // cooldown restarts as it ends (upstream #904). A cut cast (freeze, levitation, leaving the field …) ends the channel.
+    // cooldown restarts as it ends (upstream #904). A cut cast (freeze, levitation, leaving the field …) ends the channel,
+    // before the line too. Its effects come at their own frames (above; castStrikeAt has none for the sequence: its second
+    // child starts when the line is gone — until 2026-11-20 the channel began as the cast did, its first hit 1 s in and the
+    // burst with the last hit)
     eye.projAlive = (b, e2) => !!e2.mem.deathEye;
     // the view: LineAttack's ThreePartChannelingAnimation (data skillCast.deatheye's LineAttack `chan`,
     // `_waitForAttachFinishEvent`; ChargeAttack after it plays no clip) loops until the cast ends — content/enemies.js

@@ -96,7 +96,10 @@ test('萨卡兹王庭军精锐术师 死亡之眼: casts the 8 s channel standin
   assert.ok(e.castLeft > 0 && e.atkStandUntil > h.b.time, 'still casting and standing 7 s in, silenced meanwhile');
   assert.equal(e.stats.attacks, a0, 'no normal attack while it channels');
   const tEnd = stepUntil(h, () => !(e.castLeft > 0), 3);
-  assert.ok(Math.abs(tEnd - t0 - s.bb.hit_duration) <= 3 * TICK, `the cast ends with the channel (${(tEnd - t0).toFixed(3)} s)`);
+  // the channel links after LineAttack's `_preDelay` and the line's flight (2 tiles at its speed), then lasts hit_duration
+  const line = E.enemy_1275_dwlock_2.skillCast.deatheye.subs[0], v = E.enemy_1275_dwlock_2.skills[0].proj.speed;
+  const want = line.pre + 2 / v + s.bb.hit_duration;
+  assert.ok(Math.abs(tEnd - t0 - want) <= 3 * TICK, `the cast ends with the channel (${(tEnd - t0).toFixed(3)} s, want ${want})`);
   assert.ok(h.unit('t_wall2').elem.apoptosis > 0 || h.unit('t_wall2').findBuff('apoptosisBurst'), 'the burst lands despite the silence');
   stepUntil(h, () => casts.length >= 2, s.cooldown + 10);
   assert.ok(casts[1] >= tEnd + s.cooldown - 1e-6, `next cast ${(casts[1] - tEnd).toFixed(2)} s after the channel's end (cooldown ${s.cooldown})`);

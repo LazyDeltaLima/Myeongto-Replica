@@ -484,8 +484,8 @@
       ],
       "enemies": {"enemy_1229_darmy":[10,10,0,0,48384],"enemy_1229_darmy_2":[7,7,0,0,44352],"enemy_1275_dwlock_2":[3,3,0,2484,48384],"enemy_5601_entlec":[2,2,0,0,4775]},
       "hooks": [1,36,2168,101,101,133,332,232,22,23,7,5,42,4265,0,2,22,0,1,68,0,0,0],
-      "events": {"atk":107,"castHit":2,"deploy":11,"die":23,"dmg":140,"engage":4,"face":15,"fx":66,"skill":14,"spawn":33,"status":5,"swing":108},
-      "fx": {"anchor":2,"aoe":1,"beam":1,"candle":2,"coin":4,"downed":1,"ember":1,"enemySkill":1,"kitHit":2,"splash":42,"stacks":9},
+      "events": {"atk":107,"castHit":2,"deploy":11,"die":23,"dmg":140,"engage":4,"face":15,"fx":65,"skill":14,"spawn":33,"status":5,"swing":108},
+      "fx": {"anchor":2,"aoe":1,"candle":2,"coin":4,"downed":1,"ember":1,"enemySkill":1,"kitHit":2,"splash":42,"stacks":9},
       "snaps": "3e79d4a9 dc55a8c7 ca9b44c6 886db30f 64d3234d 590c4fd4 89137b8e 3fec6711"
     },
     "bond-kazimierzShip-low": {
