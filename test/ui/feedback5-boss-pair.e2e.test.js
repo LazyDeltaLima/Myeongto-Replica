@@ -72,6 +72,7 @@ async function coopAtBoss(P, base, prefix) {
     }
     await sleep(250);
   }
+  for (const c of [host, guest]) await c.passDiyChoose(); // 3/3 确定自选编队
   return { host, guest };
 }
 

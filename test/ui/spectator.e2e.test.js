@@ -97,6 +97,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
         const s = await host.st();
         if (s.phase === 'PREP') break;
         assert.ok(Date.now() - t0 < 120000, `host stuck in ${s.phase}`);
+        if (s.phase === 'DIY_CHOOSE' && !s.diyReady) await host.passDiyChoose(); // 3/3 确定自选编队
         if (s.phase === 'BAND_DRAFT' && s.draft?.turn === s.me) {
           await host.click('.dband:not(.is-taken)', null, { nth: 2, optional: true, timeout: 2000 });
           await sleep(200);
@@ -209,6 +210,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       if (all.every((s) => s.phase === 'PREP')) return;
       assert.ok(Date.now() - t0 < 120000, `stuck in ${all.map((s) => s.phase).join(', ')}`);
       for (let i = 0; i < players.length; i++) {
+        if (all[i].phase === 'DIY_CHOOSE' && !all[i].diyReady) await players[i].passDiyChoose(); // 3/3 确定自选编队
         if (all[i].phase !== 'BAND_DRAFT' || all[i].draft?.turn !== all[i].me) continue;
         await players[i].click('.dband:not(.is-taken)', null, { nth: i + 1, optional: true, timeout: 2000 });
         await sleep(200);

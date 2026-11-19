@@ -260,6 +260,7 @@ describe('client leftovers — real server', { skip: !ENABLED && 'set SP_E2E=1 (
       await c.waitFor((s) => s.phase === 'BAND_DRAFT', 'band draft', 30000);
       await c.click('.dband', null, { nth: 1 });
       await c.click('.draft-detail__btns .btn--primary', '确认选择');
+      await c.passDiyChoose();
       await c.waitFor((s) => s.phase === 'PREP' && !s.ready && s.hand >= 4, 'prep with the starter kit', 60000);
       await sleep(1800);
       await c.hookRequests();

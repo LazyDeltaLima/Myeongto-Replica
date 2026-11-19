@@ -77,6 +77,7 @@ describe('user playtest #2 item 1 — loadout chosen in the UI fights in the loc
       assert.deepEqual(await untimed(c), { deadline: false, shown: 0 }, 'item 11: the solo strategy draft is untimed');
       await c.click('.dband', null, { nth: 1 });
       await c.click('.draft-detail__btns .btn--primary', '确认选择');
+      await c.passDiyChoose();
       await c.waitFor((s) => s.phase === 'PREP' && !s.ready && s.hand > 0, 'prep with the starter kit', 60000);
       await sleep(1800); // camera flight + pieces
       assert.deepEqual(await untimed(c), { deadline: false, shown: 0 }, 'item 11: solo prep is untimed');

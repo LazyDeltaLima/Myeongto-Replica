@@ -1,4 +1,4 @@
-// Band draft — BAND_DRAFT "2/2 选择策略" (research 06 §4.2, D1), laid out as the upstream event screen (upstream PR #643,
+// Band draft — BAND_DRAFT "2/3 选择策略" (research 06 §4.2, D1), laid out as the upstream event screen (upstream PR #643,
 // ported by hand; maintainer decision 2026-11-07): left = the draft order as name cards (OrderRow: avatar, name, state
 // 等待中 / 决策中 / the picked strategy, the strategy box and ✓ outside it), the current picker framed, with 敌方情报 | 盟约信息, 干员调配
 // and the co-op tip under it; centre = a 4-wide wall of every strategy allowed for the mode type (portrait and name, SELECTED

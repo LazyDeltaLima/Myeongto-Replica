@@ -22,7 +22,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchBrowser } from '../e2e/browser.mjs';
-import { aimedDrag, cameraSettled, wheelGeometry } from '../e2e/client.mjs';
+import { aimedDrag, cameraSettled, wheelGeometry, passDiyChoose, pinSeason } from '../e2e/client.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -54,6 +54,7 @@ class Client {
     page.on('requestfailed', (r) => { if (!/fonts\.(googleapis|gstatic)/.test(r.url()) && r.failure()?.errorText !== 'net::ERR_ABORTED') this.problems.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`); });
     page.on('response', (r) => { if (r.status() >= 400) this.problems.push(`http ${r.status()}: ${r.url()}`); });
     page.on('dialog', (d) => d.dismiss().catch(() => {}));
+    await pinSeason(page, 'act2autochess'); // the 盟约 lobby these flows click (难度 cards), not the newest season's
     await page.goto(`${this.base}/${query}`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__SP__ && !!document.querySelector('.screen'), { timeout: 30000 });
   }
@@ -519,6 +520,7 @@ describe('real server + real browsers', { skip: !ENABLED && 'set SP_REAL_E2E=1 (
         await sleep(300);
       }
       assert.ok(picked.size === 2, `both humans picked a band (${[...picked]})`);
+      for (const c of both) await passDiyChoose(c.page); // 3/3 确定自选编队
 
       // ---- rounds -----------------------------------------------------------------------------------------------------
       const seen = new Set();
@@ -668,6 +670,7 @@ describe('real server + real browsers', { skip: !ENABLED && 'set SP_REAL_E2E=1 (
       await solo.shot('solo-draft');
       await solo.click('.dband', null, { nth: 1 });
       await solo.click('.draft-detail__btns .btn--primary', '确认选择');
+      await passDiyChoose(solo.page); // 3/3 确定自选编队: untimed in solo
       for (let round = 1; round <= 2; round++) {
         await solo.waitFor((s) => s.phase === 'PREP' && s.round === round && !s.ready, `prep ${round}`, 60000);
         await sleep(700);

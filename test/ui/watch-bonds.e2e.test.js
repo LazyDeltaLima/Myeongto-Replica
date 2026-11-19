@@ -196,6 +196,7 @@ async function coopSetup(host, guest, { bots }) {
     }
     await sleep(250);
   }
+  for (const c of [host, guest]) await c.passDiyChoose(); // 3/3 确定自选编队
   // error toasts from here on (返回战场 of a leaker must not raise one)
   for (const c of [host, guest]) {
     await c.page.evaluate(() => {
@@ -283,6 +284,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
         }
         await sleep(250);
       }
+      for (const c of [host, guest]) await c.passDiyChoose(); // 3/3 确定自选编队
       for (const c of [host, guest]) await c.waitFor((s) => s.phase === 'PREP' && !s.ready && s.hand >= 4, 'boss-round prep with the kit', 60000);
       await sleep(1800);
       for (const id of HOST_KIT) await place(host, id);

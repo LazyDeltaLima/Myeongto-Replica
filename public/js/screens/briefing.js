@@ -1,4 +1,4 @@
-// Briefing — INFO_CHECK "1/2 确认本局信息" (research 06 §4.1, D1): enemy leader (silhouette, name,
+// Briefing — INFO_CHECK "1/3 确认本局信息" (research 06 §4.1, D1): enemy leader (silhouette, name,
 // abilities — the client's stage-info enemy block, maintainer request 2026-10-11), stage (+ its pool: 战场固定 /
 // 战场随机（共N张）, and under its name the battlefield's preview picture — maintainer request 2026-10-11,
 // tools/map-previews.mjs; the card then sits beside the factions, both as tall as the taller one), 特训敌人 factions (icon, name, description), the difficulty

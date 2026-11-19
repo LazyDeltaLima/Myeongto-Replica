@@ -1435,7 +1435,7 @@
 - 구현: `PHASE.DIY_CHOOSE`(`server/match/match/diyChoose.js`). 시즌에 이 단계가 있는지는 데이터가 정한다(`GameData.diyChoose`: `CUSTOM_CHECK` 단계와 `diyCharLimitForLevels`가 둘 다 있을 때). 그런 시즌에서 `room.diy`는 편성이고, 판은 이 단계가 끝날 때까지 선발을 하나도 쓰지 않는다(재고도 없음). 고른 칸만 그 판의 선발이 되고 재고를 받는다(`PlayerState.setDiy` + `initDiyStock`, 난수 없음). 브리핑·전략 선택 동안, 그리고 이 단계에서 준비 완료 전까지 바꾼 편성은 그 판의 편성이 되고(고른 칸은 같은 오퍼레이터가 그 칸에 남을 때만 남음 — 이 단계의 프리셋 상자, 관리자 결정 2026-11-13), 준비 완료 뒤·이 단계가 끝난 뒤에는 다음 판에 적용된다. 메시지 `g.diyChoose { slots }`(고른 칸 전체)·`g.diyReady { cancel? }`, `m.private.diyChoose { lineup, chosen, ready, perTier }`, `m.public.diyChoose { seconds }`.
 - [추정·서버·화면: 공식 화면은 연합 4인 판의 시작만 봄] 처음엔 아무도 안 고른 채(공식 화면 「0/2」), 시간이 다 되거나 AI 托管·AI 팀원인 자리는 고른 그대로(안 골랐으면 선발 없음), 혼자 하는 판(1인·AI 팀원만 있는 연합)에도 이 단계가 있다. 확인 → mix-Q.
 - 화면: 「3/3 선발 편성 확정」 화면(`public/js/screens/diyChoose.js`) — `ui.md` 「규정 선발 편성 확정 화면」. 고르지 않고 준비하면 그 판은 선발 없이 시작한다(공식 화면 「0/2」에서 시작).
-- 시험 `test/match/diy-choose.test.js`(실제 대전 경로: 규정 연합·1인, 맹약 연합·1인 — 4칸 편성이 앞 칸, 3/3에서 바꾼 편성, AI 자리 선발 없음), `test/ui/gameLogic.test.js` 「规程's 确定自选编队」.
+- 시험 `test/match/diy-choose.test.js`(실제 대전 경로: 규정 연합·1인, 맹약 연합·1인 — 4칸 편성이 앞 칸, 3/3에서 바꾼 편성, AI 자리 선발 없음), `test/ui/gameLogic.test.js` 「规程's 确定自选编队」. 실제 서버로 판을 도는 브라우저 시험은 전략 선택 뒤 3/3을 화면으로 지나간다(`test/e2e/client.mjs passDiyChoose`: 등급마다 앞 카드를 한도까지 누르고 「准备就绪」 — 1인 판은 시간 제한 없이 그 누름을 기다림). 그 시험들의 브라우저는 맹약을 고른 상태로 연다(`pinSeason`; 고른 적 없는 브라우저는 가장 새 시즌으로 열려 로비의 난이도 카드가 규정 등급 줄로 바뀜).
 
 ## 새 시즌 바이슨·쥐·타락사쿰·우요우 (2026-11-06, 관리자 결정 2026-11-05)
 규정의 기물(`chess_char_1_14`, `chess_char_2_18`, `chess_char_3_06`, `chess_char_3_20` — 2026-11-08 표 전에는 `next`의 임시 ID). 네 키트는 `SEASON_KIT_FILES`에 있고 선발 후보가 아니다. 수치는 기물 기록의 블랙보드를 읽는다. 시험 `test/content/op_bison.test.js`·`op_ju`·`op_taraxa`·`op_nothin`(두 형태·두 스킬·모듈, 실제 대전 경로).

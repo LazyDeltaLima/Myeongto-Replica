@@ -63,6 +63,7 @@ describe('0.2.0 补位 — a not-owned operator fights as its stand-in (real ser
       await c.waitFor((s) => s.phase === 'BAND_DRAFT', 'band draft', 30000);
       await c.click('.dband', null, { nth: 1 });
       await c.click('.draft-detail__btns .btn--primary', '确认选择');
+      await c.passDiyChoose();
       await c.waitFor((s) => s.phase === 'PREP' && !s.ready && s.funds >= 3, 'prep with funds', 60000);
       await sleep(1800); // camera flight
 

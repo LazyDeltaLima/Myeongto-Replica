@@ -22,6 +22,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchBrowser } from '../e2e/browser.mjs';
+import { passDiyChoose } from '../e2e/client.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -258,6 +259,7 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     assert.equal(s1.bandId, 'band_amiya');
 
     // the in-game 本局信息 tab (left 🔍) draws the same banned groups (the briefing's chess_banned_group)
+    await passDiyChoose(page); // 3/3 确定自选编队: untimed in solo
     await waitSt(page, (s) => s.phase === 'PREP', 'the first prep', 60000);
     await page.waitForFunction(() => !document.querySelector('.pbanner'), { timeout: 10000 }); // the 休整期 banner has played
     await press(p, '.gtop__iconbtn');

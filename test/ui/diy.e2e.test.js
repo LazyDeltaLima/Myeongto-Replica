@@ -14,10 +14,13 @@
 // the real UI driven by real mouse input. Screenshots: test/e2e/out/diy-*.png.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { Client, ROOT, sleep, hasChrome, startRealServer, problemsOf } from '../e2e/client.mjs';
 import { LOCAL_DIY_PICKS } from '../../shared/local-diy.js';
+
+// 盟约's picks (the season the Client opens in): LOCAL_DIY_PICKS less 盟约's own chess (shared/local-diy.js; tools/build-data.mjs)
+const SEASON_PICKS = JSON.parse(readFileSync(path.join(ROOT, 'data/backups.json'), 'utf8')).diy.ownedPool;
 import { readChessCard } from '../e2e/browser.mjs';
 
 const UI_ENABLED = process.env.SP_E2E === '1' && hasChrome();
@@ -162,7 +165,7 @@ describe('自选编队 picker: Esc closes only the picker (real server, no art n
         await c.page.keyboard.press('Escape');
         await c.page.waitForSelector(picker, { hidden: true, timeout: 3000 });
         assert.ok(await c.page.$('.lo'), `${slot}: Esc keeps the 干员调配 overlay${search ? ' (from the search field)' : ''}`);
-        assert.equal((await c.page.$$('.diy-slot')).length, 4, `${slot}: the four slots stay`);
+        assert.equal((await c.page.$$('.diy-slot')).length, 12, `${slot}: the twelve slots stay`);
       }
       // an Esc pressed the moment the picker appears — before the next animation frame — closes it too: its listener comes
       // with the picker's own commit (a plain effect attached it a frame later and the overlay skipped the key: the
@@ -202,12 +205,14 @@ describe('0.2.0 自选编队 — a slotted operator in the own shop and battle (
       await c.click('.lo .lo-tab[data-tab="diy"]');
       await c.page.waitForSelector(`.diy-slot[data-slot="${SLOT}"] .diy-slot__fill`, { visible: true, timeout: 15000 });
       const slots = await c.page.evaluate(() => [...document.querySelectorAll('.diy-slot')].map((el) => el.dataset.slot));
-      assert.deepEqual(slots, ['chess_char_5_diy1_a', 'chess_char_5_diy2_a', 'chess_char_6_diy1_a', 'chess_char_6_diy2_a']);
+      // six a tier (盟约 too since maintainer decision 2026-11-19; docs/rules/diy.md 「규정 선발 편성 12칸과 선발 편성 확정 단계」)
+      assert.deepEqual(slots, [5, 6].flatMap((tier) => [1, 2, 3, 4, 5, 6].map((k) => `chess_char_${tier}_diy${k}_a`)));
       await c.shot('tab');
       await c.click(`.diy-slot[data-slot="${SLOT}"] .diy-slot__fill`);
       await c.page.waitForSelector(`[data-testid="diy-picker"] .diy-opt[data-char="${CHEN3}"]`, { visible: true, timeout: 8000 });
       const listed = await c.page.evaluate(() => [...document.querySelectorAll('[data-testid="diy-picker"] .diy-opt')].map((el) => el.dataset.char));
-      assert.deepEqual([...listed].sort(), [...LOCAL_DIY_PICKS].sort(), 'our picks, no prototype');
+      assert.ok(SEASON_PICKS.length > 0 && SEASON_PICKS.every((id) => LOCAL_DIY_PICKS.includes(id)), '盟约\'s picks are ours');
+      assert.deepEqual([...listed].sort(), [...SEASON_PICKS].sort(), 'our picks, no prototype');
       await pickRow(c, `[data-testid="diy-picker"] .diy-opt[data-char="${CHEN3}"]`);
       await c.page.waitForSelector('[data-testid="diy-picker"] .lo-skill[data-skill="2"]', { visible: true, timeout: 5000 });
       await c.click('[data-testid="diy-picker"] .lo-skill[data-skill="2"]');
@@ -224,20 +229,23 @@ describe('0.2.0 自选编队 — a slotted operator in the own shop and battle (
       await c.page.keyboard.press('Escape');
       await c.page.waitForFunction(() => !document.querySelector('.lo'), { timeout: 3000 });
 
-      // 2) a solo 标准 match: the briefing's m.private carries the picks
+      // 2) a solo 标准 match: the briefing's m.private carries the picks as the match's lineup, 3/3 确定自选编队 fields them
       await c.click('.mode-card', '独立模拟');
       await c.click('.diff-card', '标准模拟');
       await c.click('.create-box button', '开始独立模拟');
       await c.waitFor((s) => !!s.room, 'solo room');
       if (!(await c.st()).phase) await c.click('.room-bar__right button', '开始模拟', { timeout: 20000 });
       await c.waitFor((s) => s.phase === 'INFO_CHECK', 'briefing', 30000);
-      const diy = await c.page.evaluate(() => globalThis.__SP__.store.get().match.private?.diy ?? null);
-      assert.deepEqual(diy, { [SLOT]: PICK }, 'the match received the picks');
+      const lineup = await c.page.evaluate(() => globalThis.__SP__.store.get().match.private?.diyChoose?.lineup ?? null);
+      assert.deepEqual(lineup, { [SLOT]: PICK }, 'the match received the picks');
       await c.click('.brief__foot .btn--primary', '准备就绪');
       await c.waitFor((s) => s.phase === 'BAND_DRAFT', 'band draft', 30000);
       await c.click('.dband', null, { nth: 1 });
       await c.click('.draft-detail__btns .btn--primary', '确认选择');
+      await c.passDiyChoose();
       await c.waitFor((s) => s.phase === 'PREP' && !s.ready && s.funds >= 4 && s.level >= 5, 'prep at 调度中心 level 5', 60000);
+      const fielded = await c.page.evaluate(() => globalThis.__SP__.store.get().match.private?.diy ?? null);
+      assert.deepEqual(fielded, { [SLOT]: PICK }, 'chosen at 确定自选编队: the match fields the pick');
       await sleep(1800); // camera flight
 
       // 3) the shop card at level 5: 赤刃明霄陈, no 「自选」 badge (only this player's shop sells it); two taps buy it

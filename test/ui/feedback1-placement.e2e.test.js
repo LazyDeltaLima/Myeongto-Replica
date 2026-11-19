@@ -34,6 +34,7 @@ async function soloToPrep(c) {
   await c.waitFor((s) => s.phase === 'BAND_DRAFT', 'band draft', 30000);
   await c.click('.dband', null, { nth: 1 });
   await c.click('.draft-detail__btns .btn--primary', '确认选择');
+  await c.passDiyChoose();
   await c.waitFor((x) => x.phase === 'PREP' && !x.ready, 'prep', 60000);
   await sleep(1800);
 }

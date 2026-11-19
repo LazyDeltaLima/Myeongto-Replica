@@ -48,6 +48,66 @@ export async function waitForFunctionLong(page, fn, { timeout = 30000, polling =
   }
 }
 
+/**
+ * The season a fresh browser has picked before its first page (the lobby chip's remembered pick, ui/season.js
+ * SEASON_PREF; a pick the page already stored stays). A browser that never picked opens in the newest public season.
+ * @param {import('puppeteer-core').Page} page @param {string} season
+ */
+export function pinSeason(page, season) {
+  return page.evaluateOnNewDocument((id) => {
+    try { if (localStorage.getItem('sp.pref.season') == null) localStorage.setItem('sp.pref.season', JSON.stringify(id)); } catch { /* no storage */ }
+  }, season);
+}
+
+/**
+ * 3/3 确定自选编队, the step after the strategy draft in both seasons (规程; 盟约 since maintainer decision 2026-11-19 —
+ * docs/rules/diy.md 「규정 선발 편성 12칸과 선발 편성 확정 단계」), through the screen with real clicks: waits until the
+ * match has left the strategy draft; at the step, taps each tier's front cards up to the tier's limit (the lineup's
+ * first slots, what test/match/harness.js `drive` picks: a 4-slot 盟约 lineup is fielded whole, as before the step) —
+ * `pick: false` chooses none (that match has no 自选) — and presses 准备就绪. A solo match (or one human with AI) waits
+ * for that press without a time limit, a coop one until every seat is ready or the step's 30 s run out. Resolves once
+ * this seat is ready there or the match has gone past the step: the slots it chose, or null when it did not stop there.
+ * @param {import('puppeteer-core').Page} page
+ * @param {{ pick?: boolean, timeout?: number }} [opts]
+ * @returns {Promise<string[]|null>}
+ */
+export async function passDiyChoose(page, { pick = true, timeout = 60000 } = {}) {
+  const phase = () => page.evaluate(() => {
+    const s = globalThis.__SP__.store.get();
+    return { phase: s.match.public?.phase ?? null, ready: !!s.match.private?.diyChoose?.ready };
+  });
+  await waitForFunctionLong(page, () => {
+    const p = globalThis.__SP__?.store.get().match.public?.phase;
+    return !!p && !['LOBBY', 'INFO_CHECK', 'BAND_DRAFT'].includes(p);
+  }, { timeout });
+  const now = await phase();
+  if (now.phase !== 'DIY_CHOOSE' || now.ready) return null;
+  await page.waitForSelector('[data-testid="diy-choose-ready"]:not([disabled])', { timeout: 15000 });
+  let slots = [];
+  if (pick) {
+    // the cards in lineup order per tier row (ui/gameLogic/draft.js diyChooseRows), 本局禁用 ones left out
+    slots = await page.evaluate(() => [...document.querySelectorAll('[data-testid="diy-choose-tier"]')].flatMap((row) => {
+      const limit = Number(row.querySelector('[data-testid="diy-choose-count"]')?.textContent.split('/')[1]) || 0;
+      return [...row.querySelectorAll('[data-testid="diy-choose-card"]')]
+        .filter((el) => el.getAttribute('aria-disabled') !== 'true').slice(0, limit).map((el) => el.dataset.slot);
+    }));
+    for (const slot of slots) {
+      const sel = `[data-testid="diy-choose-card"][data-slot="${slot}"]`;
+      await page.click(sel);
+      await page.waitForSelector(`${sel}[aria-pressed="true"]`, { timeout: 5000 });
+    }
+    // the server holds the choice before the press (the ready locks it)
+    await page.waitForFunction((n) => (globalThis.__SP__.store.get().match.private?.diyChoose?.chosen || []).length >= n,
+      { timeout: 5000 }, slots.length);
+  }
+  await page.click('[data-testid="diy-choose-ready"]');
+  await page.waitForFunction(() => {
+    const s = globalThis.__SP__.store.get();
+    return s.match.public?.phase !== 'DIY_CHOOSE' || !!s.match.private?.diyChoose?.ready;
+  }, { timeout: 15000 });
+  return slots;
+}
+
 /** The ground spot under client point `p` (world x / y on the tile top there and its height), or null (DOM fallback, off the board). */
 export function groundAnchor(page, p) {
   if (!p) return Promise.resolve(null);
@@ -235,10 +295,13 @@ export async function startRealServer(opts = {}) {
 /**
  * One player: its own Chrome process with a single, always visible tab (two tabs of one browser would leave one
  * hidden — no animation frames, so the Pixi view and visibility checks stall).
+ * `season`: the season this browser has picked before its first page (pinSeason) — 盟约 by default, the season these
+ * tests' lobby flows (难度 cards 标准 / 险境 …) were written for: the newest public season's lobby lists 规程等级 rows
+ * instead. `null` leaves the page's own choice.
  */
 export class Client {
-  constructor(puppeteer, base, label, { w = 1920, h = 1080, prefix = 'coop' } = {}) {
-    Object.assign(this, { puppeteer, base, label, w, h, prefix, problems: [], log: [], shots: [] });
+  constructor(puppeteer, base, label, { w = 1920, h = 1080, prefix = 'coop', season = 'act2autochess' } = {}) {
+    Object.assign(this, { puppeteer, base, label, w, h, prefix, season, problems: [], log: [], shots: [] });
   }
 
   async open(query = '') {
@@ -259,6 +322,7 @@ export class Client {
     });
     page.on('response', (r) => { if (r.status() >= 400) this.problems.push(`http ${r.status()}: ${r.url()}`); });
     page.on('dialog', (d) => d.dismiss().catch(() => {}));
+    if (this.season) await pinSeason(page, this.season);
     await page.goto(`${this.base}/${query}`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__SP__ && !!document.querySelector('.screen'), { timeout: 30000 });
   }
@@ -276,7 +340,7 @@ export class Client {
         me: s.me.playerId, room: s.room ? { code: s.room.code, inMatch: !!s.room.inMatch, mode: s.room.mode } : null,
         phase: pub?.phase ?? null, round: pub?.round ?? 0, bossRound: pub?.bossRound ?? null, status: me?.status ?? null, alive: priv ? priv.alive !== false : true,
         camera: document.querySelector('.gm')?.dataset.camera ?? null,
-        ready: !!priv?.ready, canReady: priv?.canReady !== false, funds: priv?.funds ?? null, level: priv?.shop?.level ?? null,
+        ready: !!priv?.ready, diyReady: !!priv?.diyChoose?.ready, canReady: priv?.canReady !== false, funds: priv?.funds ?? null, level: priv?.shop?.level ?? null,
         frozen: !!priv?.shop?.frozen, lp: priv?.lp ?? null, kills: priv?.stats?.kills ?? null, leaks: priv?.stats?.leaks ?? null,
         upgradePrice: priv?.shop?.upgradePrice ?? null, refreshPrice: priv?.shop?.refreshPrice ?? null,
         deployCap: priv?.deployCap ?? 8, deployCount: priv?.deployCount ?? 0, reward: !!priv?.shop?.rewardOffer,
@@ -523,6 +587,13 @@ export class Client {
   async isEditable() {
     const s = await this.st();
     return s.phase === 'PREP' && !s.ready && s.alive;
+  }
+
+  /** 3/3 确定自选编队 for this seat (the module's passDiyChoose), then its state. */
+  async passDiyChoose(opts = {}) {
+    const chosen = await passDiyChoose(this.page, opts);
+    if (chosen) this.note(`确定自选编队: ${chosen.join(', ') || 'none'}`);
+    return this.st();
   }
 
   // ---- direction wheel / intents (research 09 §1.2 / §5) --------------------------------------------------------

@@ -974,6 +974,7 @@ describe('browser E2E against the real server', { skip: !ENABLED && 'needs Chrom
       await c.waitFor((s) => s.phase === 'BAND_DRAFT', 'band draft', 30000);
       await c.click('.dband', null, { nth: 2 });
       await c.click('.draft-detail__btns .btn--primary', '确认选择');
+      await c.passDiyChoose();
       for (let round = 1; round <= 3; round++) {
         const s0 = await c.waitFor((s) => (s.phase === 'PREP' && s.round === round && !s.ready) || (s.phase === 'SP_DRAFT' && s.round === round), `prep ${round}`, 90000);
         if (s0.phase === 'SP_DRAFT') {
@@ -1101,6 +1102,7 @@ describe('browser E2E against the real server', { skip: !ENABLED && 'needs Chrom
       }
       assert.equal(picked.size, 2, `both humans picked a band (${[...picked]})`);
       assert.ok(guestSkipped, 'the guest used the skip');
+      for (const c of both) await c.passDiyChoose(); // 3/3 确定自选编队
 
       // ---- rounds -----------------------------------------------------------------------------------------------------
       const seen = new Set();
@@ -1273,6 +1275,7 @@ describe('browser E2E against the real server', { skip: !ENABLED && 'needs Chrom
       await solo.shot('draft');
       await solo.click('.dband', null, { nth: 1 });
       await solo.click('.draft-detail__btns .btn--primary', '确认选择');
+      await solo.passDiyChoose();
       for (let round = 1; round <= 3; round++) {
         const s0 = await solo.waitFor((s) => (s.phase === 'PREP' && s.round === round && !s.ready) || (s.phase === 'SP_DRAFT' && s.round === round), `prep ${round}`, 90000);
         if (s0.phase === 'SP_DRAFT') {
@@ -1331,6 +1334,7 @@ describe('browser E2E against the real server', { skip: !ENABLED && 'needs Chrom
       await c.waitFor((s) => s.phase === 'BAND_DRAFT', 'band draft', 30000);
       await c.click('.dband', null, { nth: 0 });
       await c.click('.draft-detail__btns .btn--primary', '确认选择');
+      await c.passDiyChoose();
       const t0 = Date.now();
       let bossShot = false;
       let bossPrep = null; // the Final Assault prep: { camera, deployed } (research 09 §1.2, own half of the boss field)

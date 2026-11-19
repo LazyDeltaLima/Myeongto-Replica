@@ -72,6 +72,7 @@ async function soloToPrep(c, diff) {
   await c.waitFor((s) => s.phase === 'BAND_DRAFT', 'band draft', 30000);
   await c.click('.dband', null, { nth: 1 });
   await c.click('.draft-detail__btns .btn--primary', '确认选择');
+  await c.passDiyChoose();
   const s = await c.waitFor((x) => x.phase === 'PREP' && !x.ready, 'boss-round prep', 60000);
   await sleep(1800); // camera flight + pieces
   return s;
@@ -233,6 +234,7 @@ describe('user playtest #2 item 6 — 前往查看 → 返回战场 in combat (r
         await c.click('.dband:not(.is-taken)', null, { nth: 1 });
         await c.click('.draft-detail__btns .btn--primary', '确认选择');
       }
+      await c.passDiyChoose(); // 3/3 确定自选编队: a lone human is untimed there as in solo
       let observed = false;
       for (let tries = 0; tries < 3 && !observed; tries++) {
         const s0 = await untilPrep(c, (s) => !s.ready, 'prep');
@@ -385,6 +387,7 @@ describe('user playtest #2 item 10 — boss-round prep on the boss field (real s
         }
         await sleep(250);
       }
+      for (const c of [host, guest]) await c.passDiyChoose(); // 3/3 确定自选编队
       for (const c of [host, guest]) await c.waitFor((s) => s.phase === 'PREP' && !s.ready, 'boss-round prep', 60000);
       await sleep(1800);
       const hs = await host.st();

@@ -56,7 +56,8 @@ describe('in-game spectators: docs/rules/ui.md 「플레이 중 관전자 수·�
       await page.waitForSelector('.dband:not(.is-taken)', { timeout: 20000 });
       const bandId = await page.$eval('.dband:not(.is-taken)', (el) => el.dataset.band);
       await request('g.band', { bandId });
-      if (season === 'act3autochess') { await waitPhase('DIY_CHOOSE'); await request('g.diyReady'); }
+      await waitPhase('DIY_CHOOSE'); // 3/3 确定自选编队: both seasons (盟约 since maintainer decision 2026-11-19)
+      await request('g.diyReady');
       await waitPhase('PREP');
       await loadingScreenGone(page);
       await waitNone();

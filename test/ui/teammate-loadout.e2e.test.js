@@ -88,6 +88,7 @@ describe('DESIGN §16 — a teammate\'s unit shows its owner\'s loadout (real se
         }
         await sleep(250);
       }
+      for (const c of [host, guest]) await c.passDiyChoose(); // 3/3 确定自选编队
       for (const c of [host, guest]) await c.waitFor((s) => s.phase === 'PREP' && !s.ready && s.hand > 0, 'prep with the starter kit', 60000);
       await sleep(1800);
 
