@@ -1163,7 +1163,7 @@
 - 다른 시즌의 곡은 매니페스트 `audio.seasonBgm[<시즌>]`(`tools/assets/plan.mjs SEASON_BGM`)에 그 시즌이 기본 시즌과 다른 자리만 둔다: 로비 `lobby`, 전투 곡 `combatAlts`(기본과 같은 순서 — [0] 8라운드부터, [1] 1–7라운드), 보스 `bossBgm`. `public/js/audio.js resolveBgm`이 화면의 시즌(방의 시즌, 방 밖에서는 타이틀에서 고른 시즌 — `ui/season.js activeSeason`)의 곡을 먼저, 없는 자리는 기본 시즌 것을 튼다. 시즌만 바뀌어도(타이틀에서 고르기) 곡이 바뀐다(`installAudio`).
 - 규정(`act3autochess`)의 곡은 CN 레벨 파일의 `bgmEvent`와 활동의 로비 뱅크에서(zh_CN `audio_data.json` `bgmBanks`, 2026-11-11 확인): 로비 `sys.ON_ACTIVITY_LOADED.act3autochess`(`m_sys_act3autochess`, intro 없음), 1–7라운드(레벨 `act3autochess_01`–`07`) `chernobog`(`m_bat_chernobog`), 8라운드부터(`h01`–`h06`) `act3mainss_bat2`(`m_bat2_act16main`), 새 보스 가상적: 기계·고치·지느러미와 쥐서우(`h07_08`–`11`, `boss_11`–`13`·`17`) `act3autochess_boss`(`m_boss1_act3autochess`), 그 숨은 핵심(`h08_04`–`06`, `boss_14`–`16`) `act3autochess_hideBoss`(`m_boss2_act3autochess`). 다른 보스·정비(`act1autochess_shop`)·연합 방어(`corrosion`)는 지난 시즌과 같은 레벨 곡이라 기본 시즌 것 그대로.
 - 캐시된 `audio_data.json`이 규정 이전 판이면 새 뱅크 셋이 없다 — `SEASON_BGM_BANKS`(CN 표의 loop 자산 그대로)로 채운다. 파일은 다른 BGM처럼 웹 자료(AA2 `voice` 갈래)에서 받는다(`fetch-assets`, 클라 추출 아님).
-- 확인: `test/ui/audio.test.js`(규정의 로비·전투 두 곡·새 보스 일곱·기본으로 돌아가는 자리·기본 시즌은 그대로·타이틀에서 시즌만 바꿔도 곡이 바뀜). `audio.js`를 되돌리면 둘 실패. [화면 미확인: 타이틀·규정 방·보스전에서 실제로 들어 보지 않음 — `checks/arena.md`]
+- 확인: `test/ui/audio.test.js`(규정의 로비·전투 두 곡·새 보스 일곱·기본으로 돌아가는 자리·기본 시즌은 그대로·타이틀에서 시즌만 바꿔도 곡이 바뀜). `audio.js`를 되돌리면 둘 실패. [화면 미확인: 타이틀·규정 방·보스전에서 실제로 들어 보지 않음]
 
 ## 규정 새 적 소리 (2026-11-11, zh_CN `audio_data.json` + CN 적 프리팹)
 
@@ -1172,7 +1172,7 @@
 - **걷는 아군**(라이타니엔 소환물·쉐라그 설산 거인, 유닛 정보 `walks` — fx.md 「규정 맹약 소환물의 그림·이펙트」)은 그 적처럼 소리를 낸다: 렌더가 알리는 프리팹 모드(`enemyMode` — 거인의 `SnowyMountain` 공격 소리), `skill` 이벤트의 능력 이름(`Skills/Attract` → `ON_ABILITY_START.enemy_9024_acsgnt.Attract`), `enemySkill` 뒤 그 능력의 타격음(`PowerAttack`), 형태를 바꾸는 시전의 시작(fx `phase` `form` → `Switch2Snowy`·`Switch2Giant`, `audio.js WALKER_SWITCH`). 같은 기록이라도 `walks`가 없는 소환물(염의 가호)은 지금 그대로. 등장·사망 소리는 적 단위의 것(2026-11-12, 공식 클라에서 확인 — 소환 노드 `Nodes.SummonEnemyWithRuntimeRoute`는 EN 클라에도 있다): `Enemy.PlayAudioSignal`은 편과 상관없이 등장·사망 뱅크를 분류 `enemy`로 찾고(프리팹에 `_startEffect`·`_deadEffect`가 있을 때만 자기 id), 세 프리팹(CN `enm_pfb_36`)엔 둘 다 없다 → 등장은 `ON_UNIT_BORN.enemy` 뱅크가 없어 무음, 사망은 `ON_UNIT_DEAD.enemy`(`b_enemy_dead_n`). 게임 모드 훅(`HookPlayAudioSignal`)을 덮는 것은 다른 모드(`Act6FunGameMode`)뿐. 우리: `audio.js unitSoundClass`가 `walks`면 `enemy`(배치음 없음·적 사망음). 이전: 소환물 배치음·소환물 쓰러짐.
 - **지느러미(숨은 핵심) 뇌우**: 재능 버프 `aceel[thurder-trigger]`의 `audioSignal` `Aceel_ThurderEnv` → `battle.ON_BUFF_START.Aceel_ThurderEnv`(`a_bat_lthndrstm`, 한 번에 하나·popOldest, `Battle_UI_Important`). 버프는 그 적이 나올 때 붙어 사라질 때까지 남으므로(fx.md 「규정 보스 고치·지느러미의 이펙트」 뇌우 화면), 숨은 핵심 지느러미(`enemy_9037_aceel_2`)의 `spawn`마다 한 번(`audio.js` `aceel:thunder`). 보통 지느러미에는 이 재능이 없다.
 - **고치(숨은 핵심) 비참한 비의 끝**: 칸 리스너 `Left`·`Right`의 `_effectSettings` `endAudioSignal` `acid_rain` → `battle.ON_CUSTOM_TRIGGER.acid_rain`(`e_atk_bvspdrspt_h_u`, 한 번에 하나·popOldest 아님). 칸 장판이 끝날 때 나는 소리라 비 하나에 한 번: 시뮬 `zone` `acspiderRain`의 `dur` 뒤, 고치가 죽거나 같은 필드에 새 비가 오면 그때 바로(렌더가 장판을 끝내는 때와 같음 — `audio.js _acidRain`·`_acidRainCut`). 비를 거는 순간의 소리는 능력 뱅크 `ON_ABILITY_START.enemy_9035_acspider_2.AcidRain`으로 다른 적 능력처럼. [추정·엔진: 늦춤을 게임 초로 잼 — 클레멘티아 S3 낙하음과 같음]
-- 확인: `test/audio-enemy-buff-sounds.test.js` 「규정 隐秘核心 sounds」(뱅크·숨은 핵심만 뇌우·비 끝: 때가 되면·새 비·고치 죽음·이미 끝난 비는 한 번만·걷는 거인의 모드·형태 전환·유인·강타). `audio.js`를 되돌리면 셋 실패. [화면 미확인: 실제 판에서 들어 보지 않음 — `checks/arena.md`]
+- 확인: `test/audio-enemy-buff-sounds.test.js` 「규정 隐秘核心 sounds」(뱅크·숨은 핵심만 뇌우·비 끝: 때가 되면·새 비·고치 죽음·이미 끝난 비는 한 번만·걷는 거인의 모드·형태 전환·유인·강타). `audio.js`를 되돌리면 셋 실패. [화면 미확인: 실제 판에서 들어 보지 않음]
 
 ### 규정 새 적 소리 — 둘째 (2026-11-12, EN·CN 적 프리팹 + 버프 템플릿)
 
@@ -1184,7 +1184,7 @@
 - **팔라둘리스의 돌진**: 출발 = `Skills/rush`의 `ActionToOwner`(모드 Run 전환 + `PlayAudio` `enemy_mnctur_run`, `e_atk_lghtnhrsrn`) — sim fx `phase` `form: 'Run'`. 충돌 = `enemy_mnctur_collide_char`의 `PlayAudio` `enemy_mnctur_rush_hit`(`e_imp_berxplvbrl`) — sim은 충돌 피해 바로 뒤 같은 틱에 `enemySkill` `rushEndNormal`을 내므로, 그 사건과 같은 묶음에 그 적이 준 `dmg`(6번째 칸)가 있으면 충돌(Run 모드엔 공격이 없어 그 피해는 충돌뿐), 없으면 아무도 못 만나고 끝난 것(`audio.js mncturHitSound`). 벽에 박는 `enemy_mnctur_stun`은 이 모드에 장치가 없어 안 남.
 - **와일드 트리케라비스트 충돌**: `enemy_mhboar_crash`가 거는 `mhboar_crash[audio]`는 소리 표에 뱅크가 없다 — 공식도 안 남. 본가드 리더 `bmbcar_unmovable`은 장치가 없어 안 남.
 - **가상적: 경안(假想敌：镜眼, 공식 한국어 이름 없음 — 묶음에서 쓰는 이름; `enemy_9039_acrefm`)의 공속 감소**: `acrefm[refracting]`이 마법 피해를 준 쪽에 거는 `acrefm[atk-spd-down]`의 `audioSignal` `enemy_9039_acrefm.refracting` → `ON_BUFF_SHOW_EFFECT` 뱅크(`e_imp_slwdnbf`) — sim 상태 `ab:acrefmSlow`가 처음 붙을 때(`statusSoundKey`). 붙어 있는 동안 다시 맞으면 EXTEND(시간만 늘어남)라 새 시작이 아니어서 소리 없음 — sim의 `status` 켜짐도 처음 한 번뿐.
-- 확인: `test/audio-season-enemy-sounds.test.js`(뱅크와 매니페스트·순수 함수·관리자: 하나씩 몇 번 나는지와 안 나야 할 것, 실제 전투로 팔라둘리스의 돌진 셋이 한 번씩·후예 전사의 소환음 한 번). `audio.js`를 되돌리면 다섯, 매니페스트를 되돌리면 다섯 실패. [화면 미확인: 실제 판에서 들어 보지 않음 — `checks/arena.md`]
+- 확인: `test/audio-season-enemy-sounds.test.js`(뱅크와 매니페스트·순수 함수·관리자: 하나씩 몇 번 나는지와 안 나야 할 것, 실제 전투로 팔라둘리스의 돌진 셋이 한 번씩·후예 전사의 소환음 한 번). `audio.js`를 되돌리면 다섯, 매니페스트를 되돌리면 다섯 실패. [화면 미확인: 실제 판에서 들어 보지 않음]
 
 ### 규정 새 적 소리 — 셋째 (2026-11-12, EN·CN 적 프리팹 + 버프 템플릿)
 
@@ -1195,7 +1195,7 @@
   - **폭주 식인꽃**(`enemy_10003_trwlpl_2`): 다 소화했을 때(소화 버프 `enemy_trwlpl_s` ON_BUFF_FINISH, 살아 있으면 `PlayAudio enemy_trwlpl_eat_complete` → `e_atk_flwrdgstn`) — sim `phase` `eat` 뒤 형태 없는 `phase`. 소화하다 쓰러질 때(같은 버프 ON_BEFORE_TRY_SET_HP_ZERO, 모드 0이 아니면 `PlayAudio enemy_trwlpl_eat_failed` → `e_atk_flwrthrwp`, 토하는 소리) — 그 동안의 `die` `killed`. 소화 중이 아닐 때 쓰러지면 없음. `audio.js _seasonState`.
 - **증식 갑각**(`trap_156_dsshell`, 소핵의 퇴적자가 쓰러진 칸의 장치): 생길 때(sim `spawn`) 자기 `ON_UNIT_BORN.trap_156_dsshell`(`e_atk_hrdsllnd`), 부서지거나 복핵의 해류사자에게 먹힐 때(`die` `killed`) `ON_UNIT_DEAD.trap_156_dsshell`(`e_imp_hrdsllnd`) — 소환물 쓰러짐 소리 대신. 사망류 이유가 아니면(판 끝 정리 등) 없음(`Entity.IfReasonIsDeath`). 이전: 생길 때 무음, 없어질 때 소환물 쓰러짐(`b_char_tokendead`).
 - **염괴포**(盐坨子炮 `trap_196_cnnon`, 규정 스테이지 장치 — sim.md 대포 줄): 적을 태울 때(sim `cannon` `carry` 1) 운반 능력 `DurbusAbility`의 `_buffsWhenCarryPassenger` `cnnon_carry_enemy`가 대포에 걸리며 그 `audioSignal` → `ON_BUFF_START.cnnon_carry_enemy_audio`(`e_atk_longmecha`). 발사·착탄은 무음: 이 모드의 발사는 재능 `EnemyCannon00D`, 포탄은 `projectile_trap_cnnon_small_death`인데(EN 토큰 프리팹·투사체 — 둘 다 신호 이름을 따로 두지 않음) zh_CN 소리 표의 대포 뱅크는 본편 보스 갈래의 `T.EnemyCannon00`·`T.EnemyCannon10`·`projectile_trap_cnnon_small`·`_large`뿐이다. 내려놓기(`carry` 0)도 소리 없음.
-- 확인: `test/audio-season-sounds-third.test.js`(뱅크와 매니페스트·순수 함수·관리자: 하나씩 몇 번 나는지와 안 나야 할 것, 실제 전투로 토스트기 폭탄 셋의 떨어짐·착탄, 퇴적자가 쓰러져 생긴 갑각의 두 소리; 염괴포는 사건 모양으로). `audio.js`의 연결을 되돌리면 여섯, 매니페스트를 되돌리면 다섯 실패. [화면 미확인: 실제 판에서 들어 보지 않음 — `checks/arena.md`]
+- 확인: `test/audio-season-sounds-third.test.js`(뱅크와 매니페스트·순수 함수·관리자: 하나씩 몇 번 나는지와 안 나야 할 것, 실제 전투로 토스트기 폭탄 셋의 떨어짐·착탄, 퇴적자가 쓰러져 생긴 갑각의 두 소리; 염괴포는 사건 모양으로). `audio.js`의 연결을 되돌리면 여섯, 매니페스트를 되돌리면 다섯 실패. [화면 미확인: 실제 판에서 들어 보지 않음]
 
 ## 원소 폭발 소리 (2026-11-12, 버프 표·템플릿)
 

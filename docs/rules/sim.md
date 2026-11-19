@@ -3022,7 +3022,7 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   되적었으며, 처음엔 그 표에 없어 채널 동안 루프 클립을 틀지 않았다(관리자 제보 2026-11-14: 한 번만 재생). 이 길로 손 표 없이 이어진 것(2026-11-15): 강화 석궁 기습자 `CrossAttack`(아래·위
   세트는 걸어온 쪽, `_timeMode` 2 → 2.5초)·부패한 기사 `ChargeAttack`·'즈자이' `ShieldBurst` 둘(시작 키 `Skill_02`는 모델에 없어 시작 클립 없이 루프부터 [추정·미조사: 공식이 시작을 건너뛰는지 안 읽음
  ])·'늑대 군주' 자로 `FearCage`·가상적: 흑운 `KillOthers`·가상적: 총 `2`·'사미의 의지' `Lasso`·검은 뿔의 루울 `skill`·응집된/분산된 영혼의 잔해 `Laser`.
-  확인: `test/render/eskill-clip.test.js` 「节日爵士乐手 (real kit)…」·「萨卡兹王庭军精锐术师 (real kit)…」·「重弩突袭者 (real kit)…」. [화면 미확인 — `checks/arena.md`]
+  확인: `test/render/eskill-clip.test.js` 「节日爵士乐手 (real kit)…」·「萨卡兹王庭军精锐术师 (real kit)…」·「重弩突袭者 (real kit)…」. [화면 미확인]
   재발 방지: 원인 제거 — 채널 클립은 추출 `tools/local-extract/attack_timing.py`(`chan`, `wait`)가 데이터 `skillCast.*.chan`에 두고 엔진 시전과 렌더가 그것만 읽는다(채널 손 표·키트 `castFx`·
   커버리지 시험과 예외 목록을 지움). 남은 손 표 `ESKILL_CLIPS`는 한 클립 스킬 셋(포트브레이커·살카즈 후예 처벌자/징벌자·복핵의 해류사자 — 데이터의 한 클립 `skillCast.*.clip` 전수는 묶음 fx-F)과
   제트 캐니스터 `Flame`(일반 공격의 채널: 그 능력이 `Body/Flame`에 있어 추출이 안 읽음). 키트가 엔진 시전 밖에서 제 타이머로 내는 채널은 클립이 없다. 「이 모드에서 시전 안 함」은 두 시험(줄 투사체·투사체 기다림)이
