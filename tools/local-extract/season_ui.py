@@ -35,6 +35,8 @@ id of shared/seasons.js:
                                   rect: a plain Image's Sprite, or an atlas image's picture cut from its atlas (the
                                   client's own atlas component: `_initAtlas` + `_initSpriteId`) — the prefab's own
                                   references, so a generic name (none, ban, tips) is the one that screen shows
+  season/<id>/<group>/<sprite>    the sprites the client sets at run time on those screens (SEASONS[id]['named']), by
+                                  name, at their rect
   season/<id>/bondboard/<max>_<n> the bond disc boards as the theme's bond_icon_view_item lays them (SEASONS[id]
                                   ['bondboard']): bg_active (all lit) or bg_inactive, the ring of every segment in grey
                                   (bg_total) and the n lit segments in the theme's colour (bg_actual), from the white
@@ -124,6 +126,17 @@ SEASONS = {
             ('ui/autochess/[uc]autochessbattle.ab', 'playerdetail', ['autochess_player_detail_dialog', 'autochess_player_detail_row',
                                                                  'autochess_player_detail_bond_item', 'autochess_player_detail_chess_item',
                                                                  'player_status_item']),
+            # the 自选编队 tab (public/js/screens/diy.js): the lineup window's tier rows (its tags and the diy_icon) and its
+            # empty slot pop_diy_item_add — the slot holds the 3/3 card (auto_chess_deploy_char_item_view, in diychoose)
+            ('ui/autochess/[uc]autochessouter.ab', 'diylineup', ['auto_chess_deploy_diy_lineup_state', 'auto_chess_deploy_diy_lineup_slot_view']),
+        ],
+        # pictures the client sets at run time, so no prefab names them: (bundle, group, names), each at its rect — the
+        # card's left column (obj_left_info_part) shows the promotion phase (img_char_pharse_normal / _golden:
+        # char_elite_base_<phase> / char_elite_gold_<phase>, packed tight in the bundle) and the potential
+        # (obj_potential: potential_<p - 1>_small)
+        'named': [
+            ('ui/autochess/[uc]autochessouter.ab', 'diylineup', [f'char_elite_{k}_{n}' for k in ('base', 'gold') for n in range(3)]),
+            ('arts/potential_hub.ab', 'diylineup', [f'potential_{n}_small' for n in range(6)]),
         ],
         # activity_table autoChessData.skinConsts.defaultAutoChessSkinId
         'skin': 'ui/autochess/autochessvariantskin/[uc]ac_n_initial.ab',
@@ -167,14 +180,15 @@ def load(game, rel):
     return UnityPy.load(str(p))
 
 
-def sprites_by_name(env, names):
+def sprites_by_name(env, names, full=False):
+    """{name: image} of the Sprites called `names` (`full`: at the rect); stops when one is missing."""
     out = {}
     for o in env.objects:
         if o.type.name != 'Sprite':
             continue
         d = o.read()
         if d.m_Name in names and d.m_Name not in out:
-            out[d.m_Name] = d.image.convert('RGBA')
+            out[d.m_Name] = full_rect(d) if full else d.image.convert('RGBA')
     missing = set(names) - set(out)
     if missing:
         raise SystemExit(f'sprites missing: {", ".join(sorted(missing))}')
@@ -935,6 +949,9 @@ def main(argv=None):
                 save(folder, name, im)
     for rel, group, roots in spec.get('prefabs', []):
         for name, im in sorted(prefab_sprites(load(game, rel), roots).items()):
+            save(group, name, im)
+    for rel, group, names in spec.get('named', []):
+        for name, im in sorted(sprites_by_name(load(game, rel), set(names), full=True).items()):
             save(group, name, im)
     if spec.get('skin'):
         senv = load(game, spec['skin'])
