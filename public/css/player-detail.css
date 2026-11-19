@@ -51,7 +51,9 @@
   position: absolute; right: calc(8px * var(--k)); bottom: calc(4px * var(--k)); width: calc(52px * var(--k)); height: calc(48px * var(--k));
   display: grid; place-items: center; color: #e9e9e9; font-style: normal; font-family: var(--font-num); font-size: calc(22px * var(--k)); font-weight: 700; line-height: 1;
 }
-.pdetail__shop small { display: block; font-size: calc(9px * var(--k)); letter-spacing: .08em; color: #9aa; }
+/* no sprite: the roman level in the shop level's Krona One (20 ≈ the old 22 at its .763 em cap height), LEVEL in the number face */
+.pdetail__shop:not(.has-sprite) { font-family: 'Krona One', var(--font-num); font-weight: 400; font-size: calc(20px * var(--k)); letter-spacing: 0; }
+.pdetail__shop small { display: block; font-family: var(--font-num); font-weight: 700; font-size: calc(9px * var(--k)); letter-spacing: .08em; color: #9aa; }
 .pdetail__shop.has-sprite { background: var(--pd-shop) center / contain no-repeat; }
 
 /* the bond and operator lists (part_bond / part_operator: Scroll View, the arrow_right list_arrow when it runs over).

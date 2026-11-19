@@ -3,7 +3,9 @@
 // (SIL OFL 1.1, google/fonts) for the HUD numbers the official client draws in
 // Novecento Wide Medium — a weight no free release has, and the free Novecento
 // licence forbids web embedding (maintainer decision 2026-11-11; docs/rules/ui.md
-// 「HUD 숫자 글꼴」). Downloaded next
+// 「HUD 숫자 글꼴」), and Krona One (SIL OFL 1.1, google/fonts) for the shop level's
+// roman numerals, whose plain-bar I matches the official roman level sprites where
+// Lexend's serifed I does not (maintainer decision 2026-11-19). Downloaded next
 // to the site as public/fonts/*.{otf,ttf}, converted to .woff2 (tools/assets/
 // woff2.mjs) and exposed through public/fonts/fonts.css. Noto Sans/Serif SC are
 // NOT self-hosted (Google Fonts with system fallback, see DESIGN §10).
@@ -20,6 +22,7 @@ export const FONTS = Object.freeze([
   { family: 'Bender', weight: 300, style: 'normal', src: 'Bender/BenderLight.woff.ttf', name: 'bender-light', ext: 'ttf', bytes: 68256 },
   { family: 'Novecento Wide', weight: 400, style: 'normal', src: 'Novecento-Wide-Normal-2.otf', name: 'novecento-wide-normal', ext: 'otf', bytes: 45356 },
   { family: 'Lexend Exa', weight: '100 900', style: 'normal', base: RAW.googleFonts, src: 'ofl/lexendexa/LexendExa[wght].ttf', name: 'lexend-exa', ext: 'ttf', bytes: 189908 },
+  { family: 'Krona One', weight: 400, style: 'normal', base: RAW.googleFonts, src: 'ofl/kronaone/KronaOne-Regular.ttf', name: 'krona-one', ext: 'ttf', bytes: 35168 },
 ]);
 
 /**
@@ -84,6 +87,7 @@ export async function buildFonts(fontsDir, log = console.log) {
       ` * Bender (c) Jovanny Lemonad / Oleg Zhuravlev, Gladkikh Ivan — free font.\n` +
       ` * Novecento Wide (c) Jan Tonellato / Synthview — free font.\n` +
       ` * Lexend Exa (c) The Lexend Project Authors — SIL Open Font License 1.1.\n` +
+      ` * Krona One (c) 2011 Sorkin Type Co, Reserved Font Name "Krona" — SIL Open Font License 1.1.\n` +
       ` * Usage: font-family: Bender, Rajdhani, 'Noto Sans SC', sans-serif;\n` +
       ` *        font-family: 'Novecento Wide', 'Saira Condensed', 'Noto Sans SC', sans-serif; */\n\n` +
       faces.join('\n\n') + '\n';

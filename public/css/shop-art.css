@@ -195,13 +195,17 @@
 .shopbar.has-shop-art .lvcard__micro { /* the prefab's 39×9 'level' text sprite, centred 51.5 under the box's top (root_inner +12, level +24); the web
    manifest's `shopPanel/level` is another sprite of that name, so it is text here */
   position: absolute; z-index: 1; left: 0; right: 0; top: calc(var(--u) * 18.5); transform: translateY(-50%); text-align: center; font-size: calc(var(--u) * 12); line-height: 1; letter-spacing: .2em; padding-left: .2em; color: #57e8cb; opacity: .85; }
-/* text_num: Novecentowide-Bold 50 (DynFontLoader; Lexend Exa 700 in its place, maintainer decision 2026-11-13), its line
+/* text_num: Novecentowide-Bold 50 (DynFontLoader). The level is a roman numeral (maintainer decision 2026-11-19), drawn in
+   Krona One: its plain-bar I matches the official roman level sprites (shop_level_n / shop_level_icon_n) where Lexend's
+   serifed I did not; its cap height is .763 em against Novecento's .70, so 46 gives the official 50's numeral height
+   (docs/rules/ui.md 「HUD 숫자 글꼴」). Krona One's line puts the caps 1.5 higher than Lexend's did, so the line sits at 47.5
+   in place of 46 below (measured on the level card, desktop and phone). Before: Lexend Exa 700 (maintainer decision 2026-11-13). Its line
    centred 75.5 under the box's top (root_num +4, text +8; group_disable / group_max text 12.3 up: 75.2). The client's
    MiddleCenter line puts the digits ≈ .09 em under its centre and the web line ≈ .02 em, so the line sits 3.5 lower:
    79 under the top, 46 inside .lvcard__frame (whose top is 33 under the box's; the LEVEL caption 18.5 there). The digits
    then start ≈ 6 under the caption as in the client; at 56 in Bender (until 2026-11-13) they ran into it. */
-.shopbar.has-shop-art .lvcard__num { position: absolute; z-index: 1; left: 0; right: 0; top: calc(var(--u) * 46); transform: translateY(-50%); margin: 0; text-align: center; line-height: 1; font-size: calc(var(--u) * 50); color: #57e8cb;
-  font-family: 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 700; letter-spacing: -.06em; }
+.shopbar.has-shop-art .lvcard__num { position: absolute; z-index: 1; left: 0; right: 0; top: calc(var(--u) * 47.5); transform: translateY(-50%); margin: 0; text-align: center; line-height: 1; font-size: calc(var(--u) * 46); color: #57e8cb;
+  font-family: 'Krona One', 'Lexend Exa', 'Novecento Wide', var(--font-num); font-weight: 400; letter-spacing: 0; }
 /* 升级 (text_tip, 100×30, 70.1 under the centre: centred 157.6 under the top) */
 .shopbar.has-shop-art .lvcard__label { position: absolute; left: 0; right: 0; top: calc(var(--u) * 157.6); bottom: auto; transform: translateY(-50%); line-height: 1; text-align: center; font-size: calc(var(--u) * 20); color: #6eecd2; letter-spacing: .2em; padding-left: .2em; }
 .shopbar.has-shop-art .lvcard__key { left: 50%; right: auto; top: 100%; bottom: auto; transform: translate(-50%, calc(var(--u) * 4));

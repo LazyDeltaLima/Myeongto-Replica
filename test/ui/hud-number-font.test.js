@@ -23,12 +23,20 @@ test('fonts.mjs: Lexend Exa, the variable face, from google/fonts pinned to a co
   const job = fontJobs().find((j) => j.rel === 'lexend-exa.ttf');
   assert.deepEqual(job.urls, [`${RAW.googleFonts}ofl/lexendexa/LexendExa%5Bwght%5D.ttf`], "joinUrl escapes the brackets");
   assert.equal(job.bytes, 189908);
-  for (const j of fontJobs().filter((x) => x.rel !== 'lexend-exa.ttf')) assert.ok(j.urls[0].startsWith(RAW.fonts), j.rel);
+  for (const j of fontJobs().filter((x) => !['lexend-exa.ttf', 'krona-one.ttf'].includes(x.rel))) assert.ok(j.urls[0].startsWith(RAW.fonts), j.rel);
 });
 
 test('the manifest lists the face (data/assets.json fonts.faces, written by fetch-assets)', () => {
   const faces = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8')).fonts?.faces || {};
   assert.deepEqual(faces['lexend-exa'], { family: 'Lexend Exa', weight: '100 900', original: '/fonts/lexend-exa.ttf', woff2: '/fonts/lexend-exa.woff2' });
+  assert.deepEqual(faces['krona-one'], { family: 'Krona One', weight: 400, original: '/fonts/krona-one.ttf', woff2: '/fonts/krona-one.woff2' });
+});
+
+test('fonts.mjs: Krona One (the shop level\'s roman numerals) from the same pinned google/fonts commit, with its OFL credit', () => {
+  const job = fontJobs().find((j) => j.rel === 'krona-one.ttf');
+  assert.deepEqual(job?.urls, [`${RAW.googleFonts}ofl/kronaone/KronaOne-Regular.ttf`]);
+  assert.equal(job.bytes, 35168);
+  assert.match(readFileSync(path.join(ROOT, 'tools/assets/fonts.mjs'), 'utf8'), /Krona One \(c\) 2011 Sorkin Type Co, Reserved Font Name "Krona" — SIL Open Font License 1\.1/);
 });
 
 test('fonts.css declares Lexend Exa 100–900 with its OFL credit', { skip: !existsSync(path.join(ROOT, 'public/fonts/fonts.css')) && 'no public/fonts (npm run setup)' }, () => {
@@ -133,16 +141,20 @@ test('the numeral face: --font-num is Lexend Exa pinned at 500, the official Bol
       if (/font-family:\s*var\(--font-num\)\s*[;}]/.test(body + '}')) assert.match(body, /letter-spacing/, `${f} ${sel.trim()}`);
     }
   }
-  // Novecentowide-Bold: the level-up number (text_num 50), the cleared round (text_round 94), the ready count
-  // (text_confirmed_count 37), the win streak (text_streak_count) — Lexend Exa 700
+  // Novecentowide-Bold: the cleared round (text_round 94), the ready count (text_confirmed_count 37), the win streak
+  // (text_streak_count) — Lexend Exa 700
   const bold = new RegExp(`font-family: ${LX.replace(/[()]/g, '\\$&')};[^}]*font-weight: 700;[^}]*letter-spacing: -\\.06em`);
+  // the level-up number (text_num 50) is a roman numeral: Krona One 400, tracking 0 (maintainer decision 2026-11-19 —
+  // Lexend's serifed I against the official sprites' plain bar), 46 for the official 50's numeral height, its line 1.5
+  // lower than Lexend's 46 in the frame so the caps stay where they were (clear of the LEVEL caption)
+  const roman = /font-family: 'Krona One', 'Lexend Exa', 'Novecento Wide', var\(--font-num\);[^}]*font-weight: 400;[^}]*letter-spacing: 0;/;
   const shop = read('public/css/shop-art.css');
   const lv = rule(shop, '.shopbar.has-shop-art .lvcard__num');
-  assert.match(lv, bold);
-  // the prefab's 50, its line 79 under the box's top (46 in the frame): the digits clear the LEVEL caption
-  assert.match(lv, /font-size: calc\(var\(--u\) \* 50\)/);
-  assert.match(lv, /top: calc\(var\(--u\) \* 46\)/);
-  assert.match(rule(read('public/css/screens/game-shop.css'), '.lvcard__num'), bold);
+  assert.match(lv, roman);
+  assert.match(lv, /font-size: calc\(var\(--u\) \* 46\)/);
+  assert.match(lv, /top: calc\(var\(--u\) \* 47\.5\)/);
+  assert.match(rule(read('public/css/screens/game-shop.css'), '.lvcard__num'), roman);
+  assert.match(rule(read('public/css/player-detail.css'), '.pdetail__shop:not(.has-sprite)'), /font-family: 'Krona One', var\(--font-num\);[^}]*font-weight: 400;/);
   assert.match(rule(read('public/css/screens/result.css'), '.result__rnum'), bold);
   assert.match(rule(read('public/css/screens/briefing.css'), '.brief-ready__txt b'), bold);
   assert.match(rule(read('public/css/screens/game-panels.css'), '.abadge b'), bold);
