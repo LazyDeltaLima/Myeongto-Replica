@@ -1751,6 +1751,7 @@ test(`${nm('enemy_1025_reveng')}: ATK +${tb('enemy_1025_reveng', 'atkup.atk') * 
   h.step();
   const e = put(h, 'enemy_1025_reveng', [10, 7]);
   h.b.dealDamage(null, e, { amount: e.s.maxHp * 0.6, type: 'true' });
+  h.step();   // the toggle's checker reads the HP ratio on its tick (archetypes.js hpToggle)
   approx(e.s.atk, E.enemy_1025_reveng.stats.atk * (1 + tb('enemy_1025_reveng', 'atkup.atk')));
 });
 
@@ -2255,6 +2256,7 @@ test(`${nm('enemy_1050_lslime')}: 4 targets, burning DoT on hit, ASPD up below h
   h.run(0.5);
   assert.ok(h.unit('t_wall').findBuff('ab:burnDot'));
   h.b.dealDamage(null, e, { amount: e.s.maxHp * 0.6, type: 'true' });
+  h.step();   // (the HP-ratio checker's tick)
   assert.equal(e.s.aspd, 100 + tb('enemy_1050_lslime', 'selfbuff.attack_speed'));
   h.run(tb('enemy_1050_lslime', 'rangedamage.interval'));
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'explode' && f[4].kind === 'selfBlast'));
@@ -2287,6 +2289,7 @@ test(`${nm('enemy_1500_skulsr')}: an unblocked attack is a grenade — 26 % ATK 
   }
   assert.equal(statuses(h, far.id, 'defDown').length, 0);
   h.b.dealDamage(null, e, { amount: e.s.maxHp * 0.6, type: 'true' });
+  h.step();   // (the HP-ratio checker's tick)
   approx(e.s.atk, E.enemy_1500_skulsr.stats.atk * (1 + tb('enemy_1500_skulsr', 'atkup.atk')));
   // blocked: its plain melee hit, no splash, no DEF down
   const hb = arena({ units: [{ chessId: 't_wall', row: 10, col: 7 }, { chessId: 't_wall2', row: 11, col: 7 }], captureNoisy: true, hooks: ['statusApplied', 'damaged'] });
@@ -2408,8 +2411,8 @@ test(`${nm('enemy_1509_mousek')}: opening arts-only barrier (${tb('enemy_1509_mo
   const need = e.mem.ab.list[0].left / (1 - res / 100);
   approx(h.b.dealDamage(null, e, { amount: need + 1000, type: 'arts' }), 1000 * (1 - res / 100), 1e-6, 'overflow past the barrier');
   assert.equal(e.s.def, E.enemy_1509_mousek.stats.def, 'barrier broken ⇒ DEF bonus gone');
-  h.b.loseHp(e, e.s.maxHp * 0.6);
-  h.b.dealDamage(null, e, { amount: 1, type: 'true' });
+  h.b.loseHp(e, e.s.maxHp * 0.6);   // a 流失 counts: the HP-ratio checker reads it on its tick
+  h.step();
   approx(e.s.dmgDealtMul, tb('enemy_1509_mousek', 'enrage.damage_scale'));
 });
 

@@ -179,31 +179,36 @@ const allyAura = (r, key, mods, sil = true, iv = 0.5, flags = null) => ({
   tick(b, e) { for (const u of b.alliesInRadius(e.x, e.y, r)) auraBuff(b, u, key, iv, mods, flags, true); },
 });
 
-/** Self ATK buff once HP first drops below ratio. `fxTag` 'buff:<client buff key>': the enemy's own buff effect the render draws
- *  for it (render/fxstatus.js; its prefab's toggled half-HP buff, 2026-10-21). */
-const lowHpBuff = (ratio, mods, key = 'ab:lowhp', fxTag = null) => ({
-  taken(c, b, e, a) {
-    if (a.on || !(e.hpRatio < ratio)) return;
-    a.on = true;
-    b.addBuff(e, { key, mods, persist: true, visible: true, fxTag });
+/**
+ * A talent's HpRatioToggleChecker on a ToggleablePassiveBuffAbility (공식 클라에서 확인 2026-11-20): on while the HP ratio
+ * is ≤ `ratio` (`_maxHpRatio`, or the talent blackboard's `hp_ratio`; MathUtil.Between, its ends included), checked
+ * every tick (the checker's OnTick: an HP loss (流失) counts as damage does). Without `_toggleOnce` — every prefab of
+ * lowHpBuff / lowHpMode below, `_restoreDelay` 0 — healing back above the ratio toggles it off (ClearPassiveBuffs, the
+ * buff finishes) and a new drop on again; `_toggleOnce` would flip it once and keep it.
+ */
+const hpToggle = (ratio, on, off) => ({
+  tick(b, e, a) {
+    const want = e.hpRatio <= ratio;
+    if (want === !!a.on) return;
+    a.on = want;
+    (want ? on : off)(b, e);
   },
 });
 
+/** Self buff (`mods`) while HP is at or below ratio (hpToggle). `fxTag` 'buff:<client buff key>': the enemy's own buff
+ *  effect the render draws for it (render/fxstatus.js; its prefab's toggled half-HP buff, 2026-10-21). Until 2026-11-20 it
+ *  came on at the first hit below the ratio (not by a 流失) and stayed. */
+const lowHpBuff = (ratio, mods, key = 'ab:lowhp', fxTag = null) => hpToggle(ratio,
+  (b, e) => b.addBuff(e, { key, mods, persist: true, visible: true, fxTag }),
+  (b, e) => b.removeBuff(e, key));
+
 /**
- * The prefab mode `name` once HP first drops to `ratio` (공식 클라에서 확인 2026-11-20): a talent's HpRatioToggleChecker
- * (`_maxHpRatio`, or the talent blackboard's `hp_ratio`; on while HP ratio ≤ it) toggles a buff of template
- * `switch_mode_restart_fsm` (blackboard mode 1) — SwitchMode with a state-machine restart, so the swing or skill cast
- * running is cut and the new mode's attack is ready (ai.js enemyMode). 碎骨 / “墓碑” `Ignite`, W `T1`. Healing back above
- * the ratio (the checker toggles off, back to the first mode) is not modelled, as for lowHpBuff.
+ * The prefab mode `name` while HP is at or below `ratio` (hpToggle; 공식 클라에서 확인 2026-11-20): the toggled buff is of
+ * template `switch_mode_restart_fsm` (blackboard mode 1) — ON_BUFF_START SwitchMode with a state-machine restart, so the
+ * swing or skill cast running is cut and the new mode's attack is ready (ai.js enemyMode); ON_BUFF_FINISH (healed back
+ * above the ratio) `_restoreDefault`, restarting again. 碎骨 / “墓碑” `Ignite`, W `T1`. Until 2026-11-20 the mode stayed.
  */
-const lowHpMode = (ratio, name) => ({
-  // every tick, as the checker's OnTick: an HP loss (流失) counts as damage does
-  tick(b, e, a) {
-    if (a.on || !(e.hpRatio <= ratio)) return;
-    a.on = true;
-    mode(b, e, name);
-  },
-});
+const lowHpMode = (ratio, name) => hpToggle(ratio, (b, e) => mode(b, e, name), (b, e) => mode(b, e, null));
 
 /** Death spawn ("被击倒后生成N个<X>"). */
 const deathSpawn = (key, cnt, extra = {}) => ({

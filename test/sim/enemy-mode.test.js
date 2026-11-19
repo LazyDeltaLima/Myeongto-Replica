@@ -180,6 +180,36 @@ test('HP-ratio switches restart the state machine: 碎骨 / “墓碑” Ignite,
   }
 });
 
+// docs/rules/sim.md 「일반 공격 타이밍」 「적의 모드 전환」: the checkers are not `_toggleOnce` — the buff finishes when HP is
+// healed back above the ratio (switch_mode_restart_fsm ON_BUFF_FINISH: back to the first mode, restarting) and comes again
+test('HP-ratio toggles turn off when healed above the ratio: the mode and the buff go, and come back on a new drop', () => {
+  for (const [key, ratio, name, buff] of [['enemy_1500_skulsr', E.enemy_1500_skulsr.talents.bb['atkup.hp_ratio'], 'Ignite', true],
+    ['enemy_2008_flking', 0.9, 'Ignite', false], ['enemy_1504_cqbw', 0.5, 'T1', false],
+    ['enemy_1025_reveng', 0.5, null, true], ['enemy_1050_lslime', E.enemy_1050_lslime.talents.bb['selfbuff.hp_ratio'], null, true]]) {
+    const h = arena();
+    h.step();
+    const e = put(h, key, [9, 5]);
+    e.mem.ab.list.forEach((a) => { if (a.fire) a.left = 1e9; });   // (no skill cast in the way)
+    const lowhp = () => e.buffs.some((x) => x.key === 'ab:lowhp');
+    h.b.loseHp(e, e.s.maxHp * (1 - ratio + 0.02));                    // a 流失 counts: the checker reads HP every tick
+    h.step();
+    if (name) assert.equal(e.mode, name, `${key}: ${name} below ${ratio}`);
+    if (buff) assert.ok(lowhp(), `${key}: its buff below ${ratio}`);
+    if (name) assert.ok(h.runUntil(() => !!e.swing, 10), `${key}: a swing in ${name}`);
+    h.b.heal(null, e, e.s.maxHp * 0.05, { ignoreSelect: true });
+    h.step();
+    assert.ok(e.hpRatio > ratio, `${key}: healed above`);
+    assert.equal(e.mode ?? null, null, `${key}: back to its first mode above ${ratio}`);
+    if (name) assert.equal(e.swing, null, `${key}: the swing is cut (ON_BUFF_FINISH restarts too)`);
+    assert.ok(!lowhp(), `${key}: the buff is gone above ${ratio}`);
+    h.b.loseHp(e, e.s.maxHp * 0.05);
+    h.step();
+    if (name) assert.equal(e.mode, name, `${key}: ${name} again`);
+    if (buff) assert.ok(lowhp(), `${key}: its buff again`);
+    done(h);
+  }
+});
+
 test('W: each mode has its own C4 — T1\'s waits its initial cooldown from the switch, Default\'s stands still', () => {
   const h = arena();
   h.step();
