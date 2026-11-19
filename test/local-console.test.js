@@ -167,7 +167,9 @@ describe('the commands (local debug mode in a co-op match, as the old debug pane
     assert.equal(ps.gd.chess('chess_char_6_diy1_b').charId, 'char_2027_wang', 'the slot fields 望 for this player');
     assert.equal(add({ charId: 'char_112_siege', tier: 6 }).error, ERR.BAD_TARGET, 'only the five candidates');
     assert.deepEqual(add({ charId: 'char_4132_ascln', tier: 6 }), { ok: true }, 'the second tier-6 slot');
-    assert.equal(add({ charId: 'char_1050_chen3', tier: 6 }).error, ERR.BAD_TARGET, 'both tier-6 slots taken by others');
+    // six tier-6 slots (diy1–6; 盟约 too since maintainer decision 2026-11-19)
+    for (const id of ['char_4231_clemnt', 'char_1015_aglna2', 'char_485_pallas', 'char_188_helage']) assert.deepEqual(add({ charId: id, tier: 6 }), { ok: true }, id);
+    assert.equal(add({ charId: 'char_1050_chen3', tier: 6 }).error, ERR.BAD_TARGET, 'every tier-6 slot taken by others');
     while (ps.hand.includes(null)) assert.deepEqual(add({ charId: 'char_4132_ascln', tier: 6, golden: true }), { ok: true });
     assert.equal(add({ charId: 'char_1050_chen3', tier: 5 }).error, ERR.HAND_FULL, 'the hand is full');
     assert.equal(ps.temp.filter(Boolean).length, 0, 'nothing spilled into temp');
@@ -193,6 +195,9 @@ describe('the commands (local debug mode in a co-op match, as the old debug pane
     const ps = h.ps('p_0');
     ps.hand.fill(null);
     const add = (f) => consoleIntent(h.m, 'p_0', { t: 'con.addDiy', ...f }, DEBUG_ENV);
+    // the other four tier-6 slots (diy3–6, maintainer decision 2026-11-19) take operators with pieces
+    const others = ['char_4231_clemnt', 'char_1015_aglna2', 'char_485_pallas', 'char_188_helage'];
+    for (const id of others) assert.deepEqual(add({ charId: id, tier: 6 }), { ok: true }, id);
     assert.deepEqual(add({ charId: 'char_4132_ascln', tier: 6 }), { ok: true });
     assert.equal(ps.diy.chess_char_6_diy1_a.charId, 'char_4132_ascln', 'the first slot without a piece');
     assert.equal(ps.diy.chess_char_6_diy2_a.charId, 'char_1050_chen3');
@@ -200,9 +205,9 @@ describe('the commands (local debug mode in a co-op match, as the old debug pane
     const full = add({ charId: 'char_1050_chen3', tier: 6 });
     assert.equal(full.error, ERR.BAD_TARGET, 'both slots now hold pieces');
     const { diySlotsFullOf } = await import('../public/js/ui/consoleLists.js');
-    assert.deepEqual(diySlotsFullOf(full.detail), { tier: 6, names: ['阿斯卡纶', '望'] }, 'the panel toasts this refusal with the names (its detail)');
+    assert.deepEqual(diySlotsFullOf(full.detail)?.names.slice(0, 2), ['阿斯卡纶', '望'], 'the panel toasts this refusal with the names (its detail)');
     assert.equal(diySlotsFullOf('not a DIY candidate'), null);
-    assert.deepEqual(ps.hand.filter(Boolean).map((p) => ps.gd.chess(p.id).charId).sort(), ['char_2027_wang', 'char_4132_ascln']);
+    assert.deepEqual(ps.hand.filter(Boolean).map((p) => ps.gd.chess(p.id).charId).sort(), [...others, 'char_2027_wang', 'char_4132_ascln'].sort());
   });
 
   test('con.addDiy skill / module: checked against the pick\'s forms, fought with in battle, no stock copies taken', async () => {

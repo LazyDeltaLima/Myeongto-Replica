@@ -141,17 +141,18 @@ describe('room.diy (lobby + real match)', () => {
   afterEach(async () => { await pool.closeAll(); });
   after(async () => { await srv?.close(); });
 
-  test('the picks the seat had at the start are the match\'s m.private.diy; a change during the briefing reaches this match (맹약별 선발 프리셋, maintainer 2026-10-09)', async () => {
+  test('the picks the seat had at the start are the match\'s 自选编队 (m.private.diyChoose.lineup; 确定自选编队 fields them, maintainer decision 2026-11-19); a change during the briefing reaches this match (맹약별 선발 프리셋, maintainer 2026-10-09)', async () => {
     const a = await pool.player('Solo');
     await ok(a, { t: 'room.diy', picks: { [T5A]: WANG, [T6A]: ASCLN } });
     await createRoom(a, 'solo');
     await ok(a, { t: 'room.start' });
     await a.waitFor('m.public', (p) => p.phase === PHASE.INFO_CHECK, 5000);
-    const priv = await a.waitFor('m.private', (p) => p.diy && typeof p.diy === 'object', 3000);
-    assert.deepEqual(priv.diy, { [T5A]: WANG, [T6A]: ASCLN_FULL });
+    const priv = await a.waitFor('m.private', (p) => p.diyChoose && typeof p.diyChoose.lineup === 'object', 3000);
+    assert.deepEqual(priv.diyChoose.lineup, { [T5A]: WANG, [T6A]: ASCLN_FULL });
+    assert.deepEqual(priv.diy, {}, 'nothing fielded before 确定自选编队');
     assert.deepEqual(priv.diyBanned, []);
     await ok(a, { t: 'room.diy', picks: {} });
-    await a.waitFor('m.private', (p) => p.diy && Object.keys(p.diy).length === 0, 3000);
+    await a.waitFor('m.private', (p) => p.diyChoose && Object.keys(p.diyChoose.lineup).length === 0, 3000);
     await ok(a, { t: 'g.infoReady' });
     await a.waitFor('m.public', (p) => p.phase === PHASE.BAND_DRAFT, 3000);
     assert.deepEqual(cap.errors, []);

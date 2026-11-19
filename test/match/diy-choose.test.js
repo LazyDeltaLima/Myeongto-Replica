@@ -1,6 +1,7 @@
 // 确定自选编队 (规程's CUSTOM_CHECK step, server/match/match/diyChoose.js): the seat's 自选 picks are its 自选编队 (six
 // slots per tier), the match fields none of them until the step after the strategy draft, where each seat chooses at most
-// two per tier (activity constData diyCharLimitForLevels) and readies; 盟约 has no such step and fields its picks as before.
+// two per tier (activity constData diyCharLimitForLevels) and readies. 盟约 has the step too (a remake rule, maintainer
+// decision 2026-11-19: tools/build-data.mjs extendDefaultSeasonDiy gives it 规程's twelve slots and the step's values).
 // Through the real match path (test/match/harness.js → Match on the season's own data).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -54,9 +55,10 @@ function toChoose(h) {
   return h;
 }
 
-test('the step comes from the tables: 规程 has it (30 s, two per tier), 盟约 does not; 12 slots fit the wire', REAL, () => {
+test('the step comes from the tables: 规程 has it (30 s, two per tier), 盟约 too (the same values and 12 slots); 12 slots fit the wire', REAL, () => {
   assert.deepEqual(new GameData(ACT3, 'mode_multi_normal').diyChoose, { seconds: 30, perTier: { 5: 2, 6: 2 } });
-  assert.equal(new GameData(BASE, 'mode_multi_normal').diyChoose, null);
+  assert.deepEqual(new GameData(BASE, 'mode_multi_normal').diyChoose, { seconds: 30, perTier: { 5: 2, 6: 2 } });
+  assert.deepEqual(Object.keys(BASE.backups.diy.slots), Object.keys(ACT3.backups.diy.slots), '盟约: the same twelve slots');
   assert.equal(DIY_LIMITS.slots, 12);
   const twelve = Object.fromEntries(Object.keys(ACT3.backups.diy.slots).map((id) => [id, null]));
   assert.equal(Object.keys(twelve).length, 12);
@@ -189,20 +191,19 @@ test('规程: a seat that leaves or goes AI 托管 is not waited for; a lone hum
   solo.m.dispose();
 });
 
-test('盟约 keeps its flow: no step, the picks are fielded from the start', REAL, () => {
+test('盟约 has the step too: nothing is fielded before it, the chosen slot after it', REAL, () => {
   const h = makeMatch({
     mode: 'coop', seed: 13,
     seats: [
-      { seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { chess_char_6_diy1_a: pick('char_1035_wisdel') } },
+      { seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { chess_char_6_diy1_a: pick('char_1035_wisdel'), chess_char_6_diy4_a: pick('char_4132_ascln') } },
       { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true },
     ],
   }).start();
-  assert.deepEqual(Object.keys(h.ps('p_0').diy), ['chess_char_6_diy1_a']);
-  const phases = new Set();
-  assert.ok(h.drive(() => { phases.add(h.m.phase); return h.m.phase === PHASE.PREP; }));
-  assert.equal(phases.has(PHASE.DIY_CHOOSE), false);
-  assert.equal(h.m.handle('p_0', { t: 'g.diyReady' }).error, ERR.WRONG_PHASE);
-  h.sched.advance(1);
-  assert.equal('diyChoose' in privOf(h, 'p_0'), false);
+  assert.deepEqual(h.ps('p_0').diy, {}, 'the lineup is not fielded during the briefing');
+  toChoose(h);
+  assert.deepEqual(h.m.handle('p_0', { t: 'g.diyChoose', slots: ['chess_char_6_diy4_a'] }), { ok: true });
+  assert.ok(h.drive(() => h.m.phase === PHASE.PREP));
+  assert.deepEqual(Object.keys(h.ps('p_0').diy), ['chess_char_6_diy4_a']);
+  assert.equal(h.ps('p_0').diy.chess_char_6_diy4_a.charId, 'char_4132_ascln');
   h.m.dispose();
 });

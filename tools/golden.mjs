@@ -888,6 +888,9 @@ export function runMatch(cfg) {
     ...(cfg.custom ? { ruleset: { preset: 'custom', custom: cfg.custom } } : null),
   });
   if (cfg.human) m.players.get('h_0').autoplay = true;
+  // 确定自选编队 (盟约 too since maintainer decision 2026-11-19; match/diyChoose.js): the seat on AI 托管 is ready at once and
+  // fields what it chose, so it has chosen its whole 自选编队 (MATCH_DIY: two per tier, the step's limit) beforehand
+  if (cfg.human?.diy && m.gd.diyChoose) m.players.get('h_0').diyChosen = Object.keys(m.players.get('h_0').diyLineup || {});
   const rounds = [];
   // 补位: per round at SETTLE, the human's board pieces that fought as stand-ins (chess id → stand-in charId)
   const standIns = [];
@@ -1088,7 +1091,9 @@ export function diyScenarios() {
     const gd = gdFor(modeId);
     const turn = {};
     const wanted = chunk.map((c) => {
-      const ids = Object.keys(DIY_SLOTS).filter((id) => DIY_SLOTS[id].tier === c.tier);
+      // the tier's first two slots (diy1·2, the official 盟约 ones; diy3–6 share their records — tools/build-data.mjs
+      // extendDefaultSeasonDiy — so the corpus keeps its ids)
+      const ids = Object.keys(DIY_SLOTS).filter((id) => DIY_SLOTS[id].tier === c.tier).slice(0, 2);
       turn[c.tier] = (turn[c.tier] ?? -1) + 1;
       const base = ids[turn[c.tier] % ids.length];
       const chessId = c.elite ? DIY_SLOTS[base].goldenId : base;

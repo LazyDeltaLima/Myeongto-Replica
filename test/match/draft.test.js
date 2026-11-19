@@ -63,9 +63,10 @@ test('band draft (co-op): random order, one pick per turn, NOT_YOUR_TURN, one sk
   assert.deepEqual(m.handle(first, { t: 'g.bandSkip' }).error, ERR.ALREADY, 'only one skip');
   assert.deepEqual(m.handle(first, { t: 'g.band', bandId: 'band_lisa' }), { ok: true });
   assert.equal(h.ps(first).lp, 20);
-  // the draft ends with the last pick (编队确认 switched off, maintainer 2026-10-13)
+  // the draft ends with the last pick (编队确认 switched off, maintainer 2026-10-13): then 确定自选编队 (盟约 too since
+  // maintainer decision 2026-11-19)
   h.sched.advance(1);
-  assert.equal(m.phase, PHASE.BATTLE_CHECK);
+  assert.equal(m.phase, PHASE.DIY_CHOOSE);
   m.dispose();
 });
 
@@ -99,7 +100,7 @@ test.skip('编队确认 (maintainer 2026-10-12): after the last pick a timed dra
   h.sched.advance(CONFIRM_MS - 10);
   assert.equal(m.phase, PHASE.BAND_DRAFT, 'waits for p_1');
   h.sched.advance(20);
-  assert.equal(m.phase, PHASE.BATTLE_CHECK, 'the window runs out');
+  assert.equal(m.phase, PHASE.DIY_CHOOSE, 'the window runs out');
   m.dispose();
 
   // a seat under AI 托管 or disconnected is not waited for
@@ -115,7 +116,7 @@ test.skip('编队确认 (maintainer 2026-10-12): after the last pick a timed dra
   assert.equal(h2.m.phase, PHASE.BAND_DRAFT);
   h2.m.onDisconnect('p_2');
   h2.sched.advance(1);
-  assert.equal(h2.m.phase, PHASE.BATTLE_CHECK, 'nobody left to wait for');
+  assert.equal(h2.m.phase, PHASE.DIY_CHOOSE, 'nobody left to wait for');
   h2.m.dispose();
 
   // a single human's draft has no window (untimed): the pick goes straight on
@@ -125,7 +126,7 @@ test.skip('编队确认 (maintainer 2026-10-12): after the last pick a timed dra
   h3.run(() => h3.m.draftTurn() === 'p_0', { maxTime: 1000 });
   h3.m.handle('p_0', { t: 'g.band', bandId: 'band_amiya' });
   h3.run(() => h3.m.phase !== PHASE.BAND_DRAFT, { maxTime: 1000 });
-  assert.equal(h3.m.phase, PHASE.BATTLE_CHECK);
+  assert.equal(h3.m.phase, PHASE.DIY_CHOOSE);
   h3.m.dispose();
 });
 
@@ -141,7 +142,7 @@ test('band draft timers (user playtest #4 item 4): one countdown of BAND_TURN_SE
   const seen = [];
   h.onBroadcast.push((msg) => { if (msg.t === 'm.public' && msg.phase === PHASE.BAND_DRAFT && msg.draft) seen.push(msg); });
   h.run(() => m.phase !== PHASE.BAND_DRAFT, { maxTime: 10 * TURN_MS });
-  assert.equal(m.phase, PHASE.BATTLE_CHECK);
+  assert.equal(m.phase, PHASE.DIY_CHOOSE);
   const took = h.sched.now() - t0;
   assert.ok(took >= 2 * TURN_MS - 5 && took <= 2 * TURN_MS + 50, `two human turns of ${BAND_TURN_SECONDS} s each (${took} ms; 编队确认 switched off)`);
   // every published draft view: the step's deadline IS the current turn's (then 编队确认's)

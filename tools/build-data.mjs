@@ -389,6 +389,8 @@ async function loadContext() {
       for (const k of ['modeDataDict', 'battleDataDict', 'shopLevelDataDict']) delete act[k][id];
       for (const st of Object.values(act.stageDatasDict)) if (Array.isArray(st.mode)) st.mode = st.mode.filter((x) => x !== id);
     }
+  } else {
+    extendDefaultSeasonDiy(act, ac);
   }
 
   // Note: summons/traps live in character_table (token_table.json only lists 4 unrelated traps).
@@ -466,6 +468,55 @@ async function loadContext() {
     enemyBindings: await loadLocalJson('tools/assets/local-enemy-bindings.json', 'enemy model points (tools/local-extract/enemy_bindings.py): no enemy `hitAt` …'),
     mountPoses: await loadLocalJson(MOUNT_POSES_FILE, 'shot mount poses (tools/assets/mount-poses.mjs): no shot `from` …'),
   };
+}
+
+/**
+ * 盟约 gets 规程's 自选编队 and 确定自选编队 step (a remake rule, maintainer decision 2026-11-19; the official 盟约 table has
+ * two 自选 slots per tier, `chess_char_<5|6>_diy1·2`, and no such step). Applied to the loaded table so every builder
+ * below reads it as if it were official:
+ * - slots diy3–6 of tiers 5 and 6, each a copy of its tier's diy1 (both forms) with only the ids changed — 规程's slots
+ *   are those copies too (data/seasons/act3autochess/chess.json); the shop sort ids follow diy2's and the copies have no
+ *   official `identifier` (null);
+ * - constData.diyCharLimitForLevels { 5: 2, 6: 2 } and autoChessData.enterStepList's CUSTOM_CHECK (30 s, hint 10 s,
+ *   「选择自编」) between BAND_CHECK and BATTLE_CHECK: 规程's values (its activity constData and enterStepList).
+ * The generator stops when the table has changed under it (a slot already there, or no diy1 / diy2 to copy).
+ */
+function extendDefaultSeasonDiy(act, ac) {
+  const SLOTS = 6;
+  const added = [];
+  for (const tier of [5, 6]) {
+    const id = (n, form) => `chess_char_${tier}_diy${n}_${form}`;
+    const first = id(1, 'a'), second = id(2, 'a');
+    const proto = { a: act.charChessDataDict?.[first], b: act.charChessDataDict?.[id(1, 'b')] };
+    const shop = act.charShopChessDatas?.[first];
+    if (!proto.a || !proto.b || !shop || !act.charShopChessDatas?.[second] || !act.diyChessDict?.[first]) {
+      throw new Error(`extendDefaultSeasonDiy: ${first} / ${second} missing from the 盟约 table — the 自选 slot fork rule needs a look`);
+    }
+    const display = Object.values(act.shopLevelDisplayDataDict || {}).find((d) => d.charChessDiySlotIdList?.includes(first));
+    if (!display) throw new Error(`extendDefaultSeasonDiy: no shopLevelDisplayDataDict lists ${first}`);
+    for (let n = 3; n <= SLOTS; n++) {
+      const a = id(n, 'a'), b = id(n, 'b');
+      if (act.charChessDataDict[a] || act.charChessDataDict[b]) throw new Error(`extendDefaultSeasonDiy: ${a} already in the 盟约 table — drop the fork rule for it`);
+      act.charChessDataDict[a] = { ...structuredClone(proto.a), chessId: a, identifier: null, upgradeChessId: b };
+      act.charChessDataDict[b] = { ...structuredClone(proto.b), chessId: b, identifier: null };
+      act.charShopChessDatas[a] = { ...structuredClone(shop), chessId: a, goldenChessId: b, shopLevelSortId: act.charShopChessDatas[second].shopLevelSortId + n - 2 };
+      act.chessNormalIdLookupDict[a] = a;
+      act.chessNormalIdLookupDict[b] = a;
+      act.diyChessDict[a] = act.diyChessDict[first];
+      display.charChessDiySlotIdList.push(a);
+      added.push(a);
+    }
+  }
+  if (act.constData.diyCharLimitForLevels) throw new Error('extendDefaultSeasonDiy: the 盟约 table has diyCharLimitForLevels now — drop the fork rule for it');
+  act.constData.diyCharLimitForLevels = { 5: 2, 6: 2 };
+  const steps = Array.isArray(ac.enterStepList) ? ac.enterStepList : Object.values(ac.enterStepList || {});
+  if (steps.some((s) => s.stepType === 'CUSTOM_CHECK')) throw new Error('extendDefaultSeasonDiy: the 盟约 enterStepList has CUSTOM_CHECK now — drop the fork rule for it');
+  const at = steps.findIndex((s) => s.stepType === 'BAND_CHECK');
+  if (at < 0 || steps[at + 1]?.stepType !== 'BATTLE_CHECK') throw new Error('extendDefaultSeasonDiy: enterStepList is not INFO_CHECK → BAND_CHECK → BATTLE_CHECK');
+  const custom = { stepType: 'CUSTOM_CHECK', sortId: steps[at].sortId + 1, time: 30, hintTime: 10, title: '选择自编', desc: null };
+  const out = [...steps.slice(0, at + 1), custom, ...steps.slice(at + 1).map((s) => ({ ...s, sortId: s.sortId + 1 }))];
+  ac.enterStepList = out;
+  return added;
 }
 
 /** A committed tools/assets/local-*.json written by a tools/local-extract script, or null (with a warning) when absent. */

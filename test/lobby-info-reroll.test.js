@@ -103,15 +103,16 @@ describe('briefing reroll vote', () => {
     await briefing(a);
     const room = srv.lobby.getRoom(st.code);
     const ps = () => room.match.players.get(a.id);
-    assert.equal(ps().diy.chess_char_6_diy1_a.charId, 'char_1035_wisdel');
+    // the match's 自选编队 (fielded at 确定自选编队, maintainer decision 2026-11-19: server/match/match/diyChoose.js)
+    assert.equal(ps().diyLineup.chess_char_6_diy1_a.charId, 'char_1035_wisdel');
     await ok(a, { t: 'room.diy', picks: { chess_char_6_diy1_a: { charId: 'char_2027_wang', skillIndex: 2 } } });
-    assert.equal(ps().diy.chess_char_6_diy1_a.charId, 'char_2027_wang', 'the briefing takes it for this match');
-    await a.waitFor('m.private', (p) => p.diy?.chess_char_6_diy1_a?.charId === 'char_2027_wang', W);
+    assert.equal(ps().diyLineup.chess_char_6_diy1_a.charId, 'char_2027_wang', 'the briefing takes it for this match');
+    await a.waitFor('m.private', (p) => p.diyChoose?.lineup?.chess_char_6_diy1_a?.charId === 'char_2027_wang', W);
     room.match.phase = PHASE.PREP; // (the phase gate only; the match flow itself is test/match/diy-midmatch.test.js)
     const r = await a.request({ t: 'room.diy', picks: { chess_char_6_diy1_a: { charId: 'char_4132_ascln', skillIndex: 0 } } }, W);
     assert.equal(r.t, 'error');
     assert.equal(r.code, 'ROOM_STARTED');
-    assert.equal(ps().diy.chess_char_6_diy1_a.charId, 'char_2027_wang', 'the prep keeps the match\'s picks');
+    assert.equal(ps().diyLineup.chess_char_6_diy1_a.charId, 'char_2027_wang', 'the prep keeps the match\'s picks');
     assert.equal(room.seatOf(a.id).diy.chess_char_6_diy1_a.charId, 'char_4132_ascln', 'the seat keeps it for the next match');
   });
 });

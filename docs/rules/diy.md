@@ -1426,13 +1426,14 @@
   - 시험 `test/content/kits_alt_t5.test.js`·`kits_alt_t6.test.js` 끝. 한국어는 KR 서버에 아직 없는 모듈이라 KR 표의 말투로 손으로 옮겼다(`public/i18n/ko/data.json`, `docs/I18N.md` 「CN-only texts in Korean」; 术法 = KR 표의 「아츠」).
 
 ## 규정 선발 편성 12칸과 선발 편성 확정 단계 (2026-11-11, 관리자 결정)
-- 새 시즌 「규정」(`act3autochess`)만의 규칙이다. 지금 시즌 「맹약」은 그대로(선발 4칸, 브리핑·전략 선택의 선발 프리셋이 그대로 그 판의 선발) — 관리자 결정 2026-11-11.
+- 새 시즌 「규정」(`act3autochess`)의 공식 규칙이다. 2026-11-11에는 지금 시즌 「맹약」을 그대로 두었다(선발 4칸, 브리핑·전략 선택의 선발 프리셋이 그대로 그 판의 선발) — 관리자 결정 2026-11-11.
+- **맹약에도**(공식에 없는 우리 규칙, 관리자 결정 2026-11-19): 맹약 표(`act2autochess`)에는 선발 칸이 등급마다 `chess_char_<5|6>_diy1·2`뿐이고 이 단계도 없다. 생성기가 표를 읽은 뒤 맹약에만 규정의 편성과 단계를 붙인다(`tools/build-data.mjs extendDefaultSeasonDiy`): 등급 5·6의 diy3~6 칸(각 등급 diy1 기록을 두 형태 모두 본떠 id만 다름 — 규정의 diy3~6도 diy1과 같은 기록이다. 상점 정렬 번호는 diy2 다음, 공식 `identifier`는 없음), `diyCharLimitForLevels` {5: 2, 6: 2}, `enterStepList`의 `CUSTOM_CHECK`(규정 값 30초·안내 10초, 「选择自编」, 전략 선택과 협의 시작 사이). 그래서 `data/backups.json diy.slots`가 12칸, `data/config.json`에 이 단계가 있고 `GameData.diyChoose`가 맹약에서도 켜진다. 표가 바뀌어 이미 그 칸·값이 있거나 본뜰 diy1·2가 없으면 생성기가 멈춘다. AI 자리는 지금처럼 선발이 없다. 맹약 판의 흐름·프리셋 저장(12칸)과 화면(머리 n/3, 프리셋 줄을 3/3 상자로)은 아래 절들과 `ui.md`를 이어서 고친다.
 - 선발 편성은 등급 5·6에 칸 6개씩, 12칸이다(표 `diyChessDict`의 `chess_char_5|6_diy1~6`, 공식 판 밖 「选择自选编队」 창). `room.diy`의 구조 한도는 12칸(`shared/protocol.js` `DIY_LIMITS.slots`).
 - 판 시작이 세 단계다: 「1/3 确认本局信息」 → 「2/3」 전략 선택 → 「3/3 确定自选编队」. 셋째 단계는 공식 표 `enterStepList`의 `CUSTOM_CHECK`(「选择自编」, 30초, 안내 10초)이고, 편성에서 등급마다 최대 2명(`constData.diyCharLimitForLevels` {5: 2, 6: 2}; 편성 창 안내 「每次模拟开始时，可从中选择每等阶各2名，至多4名干员进入模拟」)을 골라 「准备就绪」, 「取消准备」로 다시 고칠 수 있다(공식 화면). 이 단계의 시간은 원작 값 30초 그대로다(협력. 다른 시작 단계처럼 혼자 하는 판은 시간 제한 없음).
 - 구현: `PHASE.DIY_CHOOSE`(`server/match/match/diyChoose.js`). 시즌에 이 단계가 있는지는 데이터가 정한다(`GameData.diyChoose`: `CUSTOM_CHECK` 단계와 `diyCharLimitForLevels`가 둘 다 있을 때). 그런 시즌에서 `room.diy`는 편성이고, 판은 이 단계가 끝날 때까지 선발을 하나도 쓰지 않는다(재고도 없음). 고른 칸만 그 판의 선발이 되고 재고를 받는다(`PlayerState.setDiy` + `initDiyStock`, 난수 없음). 브리핑·전략 선택 동안, 그리고 이 단계에서 준비 완료 전까지 바꾼 편성은 그 판의 편성이 되고(고른 칸은 같은 오퍼레이터가 그 칸에 남을 때만 남음 — 이 단계의 프리셋 상자, 관리자 결정 2026-11-13), 준비 완료 뒤·이 단계가 끝난 뒤에는 다음 판에 적용된다. 메시지 `g.diyChoose { slots }`(고른 칸 전체)·`g.diyReady { cancel? }`, `m.private.diyChoose { lineup, chosen, ready, perTier }`, `m.public.diyChoose { seconds }`.
 - [추정·서버·화면: 공식 화면은 연합 4인 판의 시작만 봄] 처음엔 아무도 안 고른 채(공식 화면 「0/2」), 시간이 다 되거나 AI 托管·AI 팀원인 자리는 고른 그대로(안 골랐으면 선발 없음), 혼자 하는 판(1인·AI 팀원만 있는 연합)에도 이 단계가 있다. 확인 → mix-Q.
 - 화면: 「3/3 선발 편성 확정」 화면(`public/js/screens/diyChoose.js`) — `ui.md` 「규정 선발 편성 확정 화면」. 고르지 않고 준비하면 그 판은 선발 없이 시작한다(공식 화면 「0/2」에서 시작).
-- 시험 `test/match/diy-choose.test.js`(실제 대전 경로: 규정 연합·1인, 맹약 흐름 그대로), `test/ui/gameLogic.test.js` 「规程's 确定自选编队」.
+- 시험 `test/match/diy-choose.test.js`(실제 대전 경로: 규정 연합·1인, 맹약 연합도 단계를 거침), `test/ui/gameLogic.test.js` 「规程's 确定自选编队」.
 
 ## 새 시즌 바이슨·쥐·타락사쿰·우요우 (2026-11-06, 관리자 결정 2026-11-05)
 규정의 기물(`chess_char_1_14`, `chess_char_2_18`, `chess_char_3_06`, `chess_char_3_20` — 2026-11-08 표 전에는 `next`의 임시 ID). 네 키트는 `SEASON_KIT_FILES`에 있고 선발 후보가 아니다. 수치는 기물 기록의 블랙보드를 읽는다. 시험 `test/content/op_bison.test.js`·`op_ju`·`op_taraxa`·`op_nothin`(두 형태·두 스킬·모듈, 실제 대전 경로).

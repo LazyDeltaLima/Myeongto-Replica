@@ -84,8 +84,8 @@ describe('自选编队 model (ui/diyModel.js)', () => {
     assert.deepEqual(M.setPick({}, T6A, { charId: WANG }), { [T6A]: { charId: WANG } });
   });
 
-  test('the four slots by tier, with the 调度中心 level that sells them', () => {
-    assert.deepEqual(M.diySlotList(D).map((s) => [s.slotId, s.tier, s.shopLevel]), [[T5A, 5, 5], [T5B, 5, 5], [T6A, 6, 6], [T6B, 6, 6]]);
+  test('the twelve slots by tier (six per tier, 盟约 too since maintainer decision 2026-11-19), with the 调度中心 level that sells them', () => {
+    assert.deepEqual(M.diySlotList(D).map((s) => [s.slotId, s.tier, s.shopLevel]), [5, 6].flatMap((t) => [1, 2, 3, 4, 5, 6].map((n) => [`chess_char_${t}_diy${n}_a`, t, t])));
   });
 
   test('the picker lists only kitted operators — our picks, no prototype —, marks one another slot holds', () => {
@@ -266,15 +266,15 @@ describe('自选编队 tab (screens/diy.js)', () => {
     }
   }
 
-  test('four slots by tier: an empty slot to fill, a filled one shows the operator, its skill and module — no 原型 / 已持有 tag', () => {
+  test('twelve slots by tier: an empty slot to fill, a filled one shows the operator, its skill and module — no 原型 / 已持有 tag', () => {
     const tree = expand(DiyPanelView({ m: data.get('assets'), picks: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK }, legal: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK }, kitted: KIT, onSet() {}, picking: null, onPicking() {} }));
     const slots = [...walk(tree)].filter((v) => hasClass(v, 'diy-slot'));
-    assert.deepEqual(slots.map((v) => v.props['data-slot']), [T5A, T5B, T6A, T6B]);
+    assert.deepEqual(slots.map((v) => v.props['data-slot']), [5, 6].flatMap((t) => [1, 2, 3, 4, 5, 6].map((n) => `chess_char_${t}_diy${n}_a`)));
     const first = slots[0];
     assert.equal(first.props['data-char'], ASCLN);
     const txt = textOf(first);
     assert.ok(txt.includes(DATA.backups.units[ASCLN].name) && txt.includes('S3') && txt.includes('AMB-X'), txt);
-    assert.equal(slots[2].props['data-char'], WANG);
+    assert.equal(slots[6].props['data-char'], WANG);
     // every pick here is an owned 6★ (no prototypes): no 原型 / 已持有 tag on any slot (maintainer decision 2026-10-07)
     for (const v of slots) assert.ok(!textOf(v).includes('已持有') && !textOf(v).includes('原型') && ![...walk(v)].some((x) => hasClass(x, 'diy-tag')), v.props['data-slot']);
     assert.ok(hasClass(slots[1], 'is-empty') && textOf(slots[1]).includes('选择干员'));

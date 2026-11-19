@@ -120,7 +120,7 @@ export function makeMatch(o = {}) {
     return h;
   };
   /** drive human decisions (info, band, 机变, ready) until `pred` holds */
-  h.drive = (pred, { ready = true, band = 'band_bldsk', maxSteps = 3e6 } = {}) => {
+  h.drive = (pred, { ready = true, band = 'band_bldsk', diyChoose = true, maxSteps = 3e6 } = {}) => {
     for (let i = 0; i < maxSteps; i++) {
       if (pred()) return true;
       if (h.ended) return !!pred();
@@ -128,8 +128,20 @@ export function makeMatch(o = {}) {
         if (ps.isBot || ps.left) continue;
         if (m.phase === 'INFO_CHECK' && !ps.infoReady) m.handle(ps.playerId, { t: 'g.infoReady' });
         if (m.phase === 'BAND_DRAFT' && m.draftTurn() === ps.playerId) m.handle(ps.playerId, { t: 'g.band', bandId: band });
-        // 规程's 确定自选编队: ready with what the seat chose (none unless the test chose)
-        if (m.phase === 'DIY_CHOOSE' && !ps.diyChooseReady) m.handle(ps.playerId, { t: 'g.diyReady' });
+        // 确定自选编队 (规程, and 盟约 since maintainer decision 2026-11-19): a seat that chose nothing brings its lineup's
+        // first slots of each tier (up to the step's per-tier limit, lineup order) unless `diyChoose: false`, then readies
+        if (m.phase === 'DIY_CHOOSE' && !ps.diyChooseReady) {
+          if (diyChoose && !ps.diyChosen?.length) {
+            const per = m.gd.diyChoose?.perTier || {}, n = {};
+            const slots = Object.keys(ps.diyLineup || {}).filter((id) => {
+              const tier = m.gd.chess(id)?.tier;
+              n[tier] = (n[tier] || 0) + 1;
+              return n[tier] <= (per[tier] ?? 0);
+            });
+            if (slots.length) m.handle(ps.playerId, { t: 'g.diyChoose', slots });
+          }
+          m.handle(ps.playerId, { t: 'g.diyReady' });
+        }
         if (m.phase === 'SP_DRAFT' && m.spTurn() === ps.playerId) {
           // a card is free when untaken and, for an item, still covered by the shared equipment stock (spCardAvailable)
           const idx = m.sp.cards.map((c) => c.idx).find((k) => m.spCardAvailable(m.sp.cards[k]));

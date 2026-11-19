@@ -24,40 +24,37 @@ function match() {
 }
 const privOf = (h, id) => [...h.sent].reverse().find(([to, m]) => to === id && m.t === 'm.private')?.[1];
 
-test('briefing and strategy draft: setDiy changes this match (picks, stock, m.private); the prep keeps them', REAL, () => {
+test('briefing and strategy draft: setDiy changes this match\'s 自选编队 (lineup, m.private; nothing fielded nor stocked before 确定自选编队, maintainer decision 2026-11-19); the prep keeps it', REAL, () => {
   const h = match().start();
   const m = h.m;
   const p0 = h.ps('p_0');
   assert.equal(m.phase, PHASE.INFO_CHECK);
-  assert.deepEqual(Object.keys(p0.diy), [T6A]);
+  assert.deepEqual(Object.keys(p0.diyLineup), [T6A]);
+  assert.deepEqual(p0.diy, {}, 'nothing fielded before the step');
   assert.deepEqual(m.setDiy('p_0', { [T6A]: WANG, [T6B]: CHEN }), { ok: true });
-  assert.deepEqual(Object.keys(p0.diy).sort(), [T6A, T6B]);
-  assert.equal(p0.diy[T6A].charId, WANG.charId);
-  assert.ok(p0.diyStock.has(T6B), 'the new slot has its stock');
+  assert.deepEqual(Object.keys(p0.diyLineup).sort(), [T6A, T6B]);
+  assert.equal(p0.diyLineup[T6A].charId, WANG.charId);
+  assert.equal(p0.diyStock.has(T6B), false, 'no stock before the step');
   h.sched.advance(1);
-  assert.equal(privOf(h, 'p_0').diy[T6B].charId, CHEN.charId, 'm.private carries the new picks');
+  assert.equal(privOf(h, 'p_0').diyChoose.lineup[T6B].charId, CHEN.charId, 'm.private carries the new lineup');
 
   for (const id of ['p_0', 'p_1']) m.handle(id, { t: 'g.infoReady' });
   h.sched.advance(1);
   assert.equal(m.phase, PHASE.BAND_DRAFT);
   assert.deepEqual(m.setDiy('p_0', { [T6A]: WISDEL }), { ok: true }, 'still during the strategy draft');
-  assert.deepEqual(Object.keys(p0.diy), [T6A]);
-  assert.equal(p0.diyStock.has(T6B), false, 'the dropped slot lost its stock');
+  assert.deepEqual(Object.keys(p0.diyLineup), [T6A]);
 
-  h.drive(() => m.phase === PHASE.PREP);
+  h.drive(() => m.phase === PHASE.PREP); // the harness brings the lineup at 确定自选编队
   assert.equal(m.setDiy('p_0', { [T6A]: WANG }).error, ERR.WRONG_PHASE);
   assert.equal(p0.diy[T6A].charId, WISDEL.charId, 'the prep keeps the match\'s picks');
+  assert.ok(p0.diyStock.has(T6A), 'the fielded slot has its stock');
   m.dispose();
 });
 
-test('a drawn 自选 stock locks the picks even before the prep; bots and unknown seats are refused', REAL, () => {
+test('an unknown seat is refused (盟约 draws no 自选 stock before 确定自选编队, maintainer decision 2026-11-19: no stock lock in the briefing)', REAL, () => {
   const h = match().start();
   const m = h.m;
-  const p0 = h.ps('p_0');
-  const e = p0.diyStock.entries.get(T6A);
-  e.left -= 1; // a copy went out (an effect / reward draw)
-  assert.equal(m.setDiy('p_0', { [T6A]: WANG }).error, ERR.WRONG_PHASE);
-  assert.equal(p0.diy[T6A].charId, WISDEL.charId);
+  assert.equal(h.ps('p_0').diyStock.entries.size, 0);
   assert.equal(m.setDiy('nobody', { [T6A]: WANG }).error, ERR.NOT_IN_ROOM);
   m.dispose();
 });

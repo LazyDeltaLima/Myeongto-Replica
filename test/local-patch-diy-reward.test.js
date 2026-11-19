@@ -16,7 +16,7 @@ test('promotion reward: tier = 调度中心 + 1 (≤ 6), and that tier\'s 自选
   const h = makeMatch({ mode: 'coop', seats, seed: 2 }).start(); // seed 2: 炎 (望) and 协防 not banned
   const m = h.m;
   const ps = m.order.find((p) => p.playerId === 'p_0');
-  h.run(() => m.phase === PHASE.PREP && m.round === 1);
+  h.drive(() => m.phase === PHASE.PREP && m.round === 1); // 确定自选编队: the harness brings both picks
   assert.deepEqual([...ps.diyStock.entries.keys()].sort(), [T5, T6]);
   const seen = (lv) => {
     ps.shop.level = lv;

@@ -1,7 +1,7 @@
 // test/backups.test.js — the data of 补位 (stand-ins) and 自选 (DIY slots): chess.json `backup` and data/backups.json
 // (docs/DATA.md §18; tools/build-data.mjs buildBackups; shared/standIn.js, shared/diy.js). These tests pin the data the
-// gameplay reads: the 133 base chess and their types, the 17 stand-in characters and their forms, every NORMAL chess
-// resolving to its stand-in, the 4 DIY slots, the legal picks (this server's eight owned 6★ — shared/local-diy.js — with
+// gameplay reads: the 141 base chess and their types, the 17 stand-in characters and their forms, every NORMAL chess
+// resolving to its stand-in, the 12 DIY slots (the official 4 and 规程's diy3–6 copies, maintainer decision 2026-11-19), the legal picks (this server's eight owned 6★ — shared/local-diy.js — with
 // their forms and summons; no prototype pick since the hard fork from 0.2.0) and the faction bonds.
 // With the official-data cache (.cache/gamedata) the backup fields, the stand-in numbers and the bond derivation are
 // re-derived from the raw tables.
@@ -35,9 +35,9 @@ const isFiniteNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const ELITES = ['char_608_acpion', 'char_609_acguad', 'char_610_acfend', 'char_611_acnipe', 'char_612_accast', 'char_613_acmedc', 'char_614_acsupo', 'char_615_acspec', 'char_617_sharp2'];
 const RESERVES = ['char_600_cpione', 'char_601_cguard', 'char_602_cdfend', 'char_603_csnipe', 'char_604_ccast', 'char_605_cmedic', 'char_606_csuppo', 'char_607_cspec'];
 
-test('chess: 133 base chess — 74 PRESET / 55 NORMAL / 4 DIY — and every record keeps the five official backup fields', () => {
-  assert.equal(base.length, 133);
-  assert.deepEqual([ofType('PRESET').length, ofType('NORMAL').length, ofType('DIY').length], [74, 55, 4]);
+test('chess: 141 base chess — 74 PRESET / 55 NORMAL / 12 DIY (the official 4 + diy3–6, maintainer decision 2026-11-19) — and every record keeps the five official backup fields', () => {
+  assert.equal(base.length, 141);
+  assert.deepEqual([ofType('PRESET').length, ofType('NORMAL').length, ofType('DIY').length], [74, 55, 12]);
   for (const c of all) {
     assert.deepEqual(Object.keys(c.backup), ['charId', 'tmplId', 'skillIndex', 'uniEquipId', 'potRank'], `${c.chessId}: backup fields`);
     assert.deepEqual(c.backup, chess[c.baseId].backup, `${c.chessId}: the elite shares its base row's backup`);
@@ -58,7 +58,8 @@ test('chess: 133 base chess — 74 PRESET / 55 NORMAL / 4 DIY — and every reco
 test('chess: the backup fields are the official shop row, verbatim', { skip: !HAS_CACHE && 'no .cache/gamedata' }, () => {
   const act = raw('activity_table').activity.AUTOCHESS_SEASON.act2autochess;
   for (const c of all) {
-    const s = act.charShopChessDatas[c.baseId];
+    // the 盟约 table has diy1·2 only: diy3–6 copy diy1's row (tools/build-data.mjs extendDefaultSeasonDiy)
+    const s = act.charShopChessDatas[c.baseId] ?? act.charShopChessDatas[c.baseId.replace(/_diy[3-6]_a$/, '_diy1_a')];
     assert.deepEqual(c.backup, { charId: s.backupCharId, tmplId: s.backupTmplId, skillIndex: s.backupCharSkillIndex, uniEquipId: s.backupCharUniEquipId, potRank: s.backupCharPotRank }, c.chessId);
     assert.equal(c.chessType, s.chessType, c.chessId);
   }
@@ -194,9 +195,9 @@ test('backups: the stand-in numbers re-derived from the raw official tables', { 
   assert.equal(n, 110);
 });
 
-test('DIY: four slots (tiers 5, 5, 6, 6) — price 4, sell 1, TIER_6, no 特质, no bonds; listed from the matching shop level', () => {
+test('DIY: twelve slots (six per tier 5, 6: the official diy1·2 + diy3–6, maintainer decision 2026-11-19) — price 4, sell 1, TIER_6, no 特质, no bonds; listed from the matching shop level', () => {
   const slots = backups.diy.slots;
-  assert.deepEqual(Object.keys(slots), ['chess_char_5_diy1_a', 'chess_char_5_diy2_a', 'chess_char_6_diy1_a', 'chess_char_6_diy2_a']);
+  assert.deepEqual(Object.keys(slots), [5, 6].flatMap((t) => [1, 2, 3, 4, 5, 6].map((n) => `chess_char_${t}_diy${n}_a`)));
   for (const [id, s] of Object.entries(slots)) {
     assert.equal(s.goldenId, id.replace(/_a$/, '_b'));
     assert.equal(s.shopLevel, s.tier, `${id}: enters the shop at the shop level of its tier`);

@@ -75,6 +75,8 @@ test('solo over websockets: briefing → band → prep → buy/place/ready → c
   await ok(c, { t: 'g.infoReady' });
   await c.waitFor('m.public', (p) => p.phase === 'BAND_DRAFT');
   await ok(c, { t: 'g.band', bandId: 'band_sarkazb' });
+  await c.waitFor('m.public', (p) => p.phase === 'DIY_CHOOSE', 10000);
+  await ok(c, { t: 'g.diyReady' }); // 确定自选编队 (盟约 too, maintainer decision 2026-11-19): untimed for a lone human
   const prep = await c.waitFor('m.public', (p) => p.phase === 'PREP' && p.round === 1, 10000);
   assert.equal(prep.players[0].lp, 45);
   const priv = await c.waitFor('m.private', (p) => p.funds === 4 && p.shop.slots.length > 0);
@@ -173,6 +175,8 @@ test('co-op spectator over websockets: watches the real match like an eliminated
   await ok(a, { t: 'g.infoReady' });
   const draft = await pickCoopBands([a]);
   assert.ok(Object.values(draft.draft.picks).includes('band_bldsk'), 'seed 69: the AI already took the default');
+  await a.waitFor('m.public', (p) => p.phase === 'DIY_CHOOSE', 10000);
+  await ok(a, { t: 'g.diyReady' }); // 确定自选编队 (盟约 too, maintainer decision 2026-11-19): untimed for a lone human
   await a.waitFor('m.public', (p) => p.phase === 'PREP' && p.round === 1, 10000);
   for (const msg of [{ t: 'g.buy', slot: 0 }, { t: 'g.ready', ready: true }, { t: 'g.refresh' }]) {
     const r = await s.request(msg);
@@ -219,6 +223,8 @@ test('server-run fallback (SP_COMBAT=server): the match simulates every field an
     await ok(c, { t: 'g.infoReady' });
     await c.waitFor('m.public', (p) => p.phase === 'BAND_DRAFT');
     await ok(c, { t: 'g.band', bandId: 'band_sarkazb' });
+    await c.waitFor('m.public', (p) => p.phase === 'DIY_CHOOSE', 10000);
+    await ok(c, { t: 'g.diyReady' });
     await c.waitFor('m.public', (p) => p.phase === 'PREP' && p.round === 1, 10000);
     await ok(c, { t: 'g.ready', ready: true });
     await c.waitFor('m.field', () => true, 10000);

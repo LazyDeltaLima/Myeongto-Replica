@@ -15,7 +15,8 @@ test('matches: the 自选 match\'s human seat draws its 自选 pieces in its sho
   const [id, dg] = Object.entries(MATCHES.scenarios).find(([k]) => /-coverage-diy$/.test(k)) || [];
   assert.ok(dg, 'scenario present');
   assert.deepEqual(dg.errors, { engine: 0, logged: 0, sim: 0, dispatcher: 0 }, id);
-  assert.deepEqual(Object.keys(dg.diy.picks).sort(), Object.keys(BACKUPS.diy.slots).sort(), 'all four slots filled');
+  // the first two slots of each tier (diy1·2; diy3–6 are the remake's own since maintainer decision 2026-11-19)
+  assert.deepEqual(Object.keys(dg.diy.picks).sort(), Object.keys(BACKUPS.diy.slots).filter((id) => /_diy[12]_a$/.test(id)).sort(), 'four slots filled');
   assert.equal(dg.diy.picks.chess_char_5_diy1_a.charId, 'char_2027_wang');
   const draws = dg.diy.rounds.flatMap(([, d]) => (d ? d.split(' ') : []));
   assert.ok(draws.length >= 2, `shop draws: ${draws.join(', ')}`);

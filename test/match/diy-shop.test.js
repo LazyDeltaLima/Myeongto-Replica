@@ -83,6 +83,12 @@ function diyMatch(extra = {}) {
   ];
   return makeMatch({ mode: 'coop', seats, seed: 13, ...extra }); // seed 13: 炎 (赤刃明霄陈) not banned
 }
+/** Drive the start steps through 确定自选编队 (盟约 too, maintainer decision 2026-11-19): the harness brings each human's
+ * lineup (two per tier), so the match fields its picks from 协议启动 on. */
+function fielded(h) {
+  assert.ok(h.drive(() => !['INFO_CHECK', 'BAND_DRAFT', 'DIY_CHOOSE'].includes(h.m.phase), { ready: false }), 'past 确定自选编队');
+  return h;
+}
 /** Gain a chess the way the shop does (acquireChess: the player's copy accounting, merges). */
 const gain = (ps, id) => ps.acquireChess(id, { source: 'buy' });
 function clear(ps) {
@@ -97,7 +103,9 @@ test('seats[].diy → PlayerState.diy (re-checked, frozen; bots none); the playe
   const p0 = h.ps('p_0');
   const p1 = h.ps('p_1');
   const bot = h.ps('ai_0');
-  assert.deepEqual(Object.keys(p0.diy), [T5A, T5B, T6A], 'the owned operator\'s second slot dropped');
+  assert.deepEqual(Object.keys(p0.diyLineup), [T5A, T5B, T6A], 'the owned operator\'s second slot dropped');
+  fielded(h);
+  assert.deepEqual(Object.keys(p0.diy), [T5A, T5B, T6A]);
   assert.ok(Object.isFrozen(p0.diy) && Object.isFrozen(p0.diy[T5A]));
   assert.deepEqual(bot.diy, {}, 'bots field no 自选 piece');
   assert.ok(bot.gd === h.m.gd, 'a player without picks keeps the match\'s data');
@@ -211,7 +219,7 @@ test('bans: a 自选 piece whose every bond is off this match has no stock (out 
     if (t.m.disabledBonds.includes('yanShip')) h = t; else t.m.dispose();
   }
   assert.ok(h, 'a seed banning 炎');
-  h.start();
+  fielded(h.start());
   const p0 = h.ps('p_0');
   assert.deepEqual([...p0.diyBanned], [T5A]);
   assert.ok(!p0.diyStock.has(T5A));
@@ -320,7 +328,7 @@ test('prep scouting (m.field) and the result name the operator: a teammate\'s �
 });
 
 test('from the prep on a match keeps its picks (the next match takes a change: test/lobby-diy.test.js; the briefing / draft may still change them: test/match/diy-midmatch.test.js)', REAL, () => {
-  const h = diyMatch().start();
+  const h = fielded(diyMatch().start());
   const p1 = h.ps('p_1');
   const before = p1.diy;
   h.toPrep(1);
@@ -331,7 +339,7 @@ test('from the prep on a match keeps its picks (the next match takes a change: t
   // the next match: new seats, new picks
   const seats = [{ seat: 0, playerId: 'p_1', name: 'P1', isBot: false, connected: true, diy: { [T6A]: { charId: CHEN, skillIndex: 1 } } }];
   const h2 = makeMatch({ mode: 'solo', seats, seed: 12 }).start();
-  assert.deepEqual(h2.ps('p_1').diy, { [T6A]: { charId: CHEN, skillIndex: 1, uniEquipId: null } });
+  assert.deepEqual(h2.ps('p_1').diyLineup, { [T6A]: { charId: CHEN, skillIndex: 1, uniEquipId: null } });
   h2.m.dispose();
 });
 

@@ -29,9 +29,9 @@ const WANG = 'char_2027_wang';
 const ASCLN = 'char_4132_ascln';   // 阿斯卡纶: two advanced modules (AMB-X, AMB-Y)
 const T5 = 'chess_char_5_diy1_a', T5B = 'chess_char_5_diy2_a', T6 = 'chess_char_6_diy1_a', T6B = 'chess_char_6_diy2_a';
 
-test('slots: two per tier (5, 6), each with its elite twin', () => {
+test('slots: six per tier (5, 6; the official two + diy3–6, maintainer decision 2026-11-19), each with its elite twin', () => {
   assert.deepEqual(DIY_TIERS, [5, 6]);
-  assert.deepEqual(diySlotIds(DATA), [T5, T5B, T6, T6B]);
+  assert.deepEqual(diySlotIds(DATA), [5, 6].flatMap((t) => [1, 2, 3, 4, 5, 6].map((n) => `chess_char_${t}_diy${n}_a`)));
   assert.deepEqual(diySlot('chess_char_6_diy2_b', DATA) && { ...diySlot('chess_char_6_diy2_b', DATA), normal: undefined, golden: undefined },
     { baseId: T6B, goldenId: 'chess_char_6_diy2_b', tier: 6, shopLevel: 6, elite: true, normal: undefined, golden: undefined });
   assert.deepEqual([T5, T5B, T6, T6B].map((id) => diySlot(id, DATA).shopLevel), [5, 5, 6, 6], 'shopLevelDisplayDataDict: the 调度中心 level that lists the slot');

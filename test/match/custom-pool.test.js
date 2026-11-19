@@ -67,7 +67,7 @@ test('the 自选 stock scales with the chess pool', () => {
     { seat: 1, playerId: 'ai_0', name: 'AI', isBot: true, connected: true }];
   const caps = (ruleset) => {
     const h = makeMatch({ mode: 'coop', seats, seed: 2, ruleset }).start();
-    h.run(() => h.m.phase === PHASE.PREP && h.m.round === 1);
+    h.drive(() => h.m.phase === PHASE.PREP && h.m.round === 1); // 确定自选编队: the harness brings both picks
     const ps = h.m.order.find((p) => p.playerId === 'p_0');
     const out = Object.fromEntries([...ps.diyStock.entries].map(([id, e]) => [id, e.cap]));
     h.m.dispose();

@@ -145,7 +145,7 @@ describe('§21.26 3 — strategies tied to a bond the mode switches off', () => 
       s.m.dispose();
       const c = makeMatch({ mode: 'coop', difficulty, humans: 0, bots: 4, seed, fake: true }).start();
       c.run(() => c.m.phase !== PHASE.INFO_CHECK && c.m.phase !== PHASE.BAND_DRAFT, { maxSteps: 1e5 });
-      assert.equal(c.m.phase, PHASE.BATTLE_CHECK, `seed ${seed}: the draft ended`);
+      assert.equal(c.m.phase, PHASE.DIY_CHOOSE, `seed ${seed}: the draft ended`);
       for (const ps of c.m.order) coop.push(ps.bandId);
       assert.equal(new Set(c.m.order.map((ps) => ps.bandId)).size, 4, 'no strategy twice');
       c.m.dispose();
