@@ -1303,6 +1303,33 @@ test('引星棘刺 S3: three tiles in a row are a 0.325-wide line (the middle on
   }
 });
 
+test('引星棘刺 S3: her tile alone is a point — the enemies touching it and those she blocks (a reused projectile\'s box; docs/rules/sim.md 「스킬 프리팹의 대상 트리거」)', () => {
+  for (const id of pair('15')) {
+    const h = run({
+      defs: { enemies: { enemy_dummy: dummy('enemy_dummy') } },
+      // no other operator in her range: the area is her tile (x, y) (3, 10). She blocks 1: the first enemy, held 0.5 off her;
+      // the second stands on her tile's centre, unblocked; the third neither
+      units: [entry(id, 'skchr_thorn2_3', { row: 10, col: 3 })],
+      enemies: [{ key: 'enemy_dummy', pos: [10.05, 3] }, { key: 'enemy_dummy', pos: [10, 3.02] }, { key: 'enemy_dummy', pos: [11.6, 3] }],
+    });
+    const u = sel(h, id, 'skchr_thorn2_3');
+    const [eBlk, eOn, eOff] = h.b.enemies;
+    cast(h, u);
+    h.strike(u);
+    const z = u.mem.zones.find((x) => x.type === 'sea');
+    assert.deepEqual(z.area.point, [3, 10], 'one tile: the point');
+    assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'seaArea').length, 0, 'no line for one tile');
+    h.run(1);
+    assert.ok(eBlk.blockedBy === u && eOn.blockedBy !== u && eOff.blockedBy !== u, 'she blocks the first only');
+    assert.ok(Math.hypot(eBlk.x - u.x, eBlk.y - u.y) > 0.35, 'held off the point (its 0.1 collider does not touch it)');
+    assert.ok(Math.hypot(eOn.x - u.x, eOn.y - u.y) <= 0.1, 'the second stands on her tile\'s centre');
+    assert.equal(tagged(h, u, 'mySea', eOn).length, 1, 'its 0.1 collider touches the point');
+    assert.equal(tagged(h, u, 'mySea', eBlk).length, 1, 'blocked by her (her 0.25 collider touches the point)');
+    assert.equal(tagged(h, u, 'mySea', eOff).length, 0, 'neither on the point nor blocked by her');
+    done(h);
+  }
+});
+
 // =================================================================================================================
 // 山
 

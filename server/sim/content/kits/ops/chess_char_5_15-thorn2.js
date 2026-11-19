@@ -18,9 +18,13 @@ import { hypot } from '../../../detmath.js';
 // a point inside the others' triangle and the middle one of three in a row drop out — `_OptimizeLineCollider`); two tiles are
 // a rectangle `_polygonLineColliderWide` 0.325 wide along their segment (half of it each side — PRTS 备注 says 0.65), three
 // a polygon whose edges are pushed out `_polygonColliderOffset` 0.325 (each edge moved along its outer normal; the corners
-// stay cut), one tile that point [추정·엔진: the client builds no bounding box for its physics pre-search then, so what that
-// search returns is not settled; PRTS 备注 「仅存在1点时，判定区域为一点」]. An enemy is in it when its collider touches it
-// (`DoFindTargets_DISPOSE`: `PolygonCircle` / `PolygonRectangle` with the unit's hit colliders).
+// stay cut), one tile that point. An enemy is in it when its collider touches it (`DoFindTargets_DISPOSE`: a physics pre-search
+// in the box collider's bounds, then `PolygonCircle` / `PolygonRectangle` with the unit's hit colliders). The box is only
+// recomputed from three result points (`_GetBoxColliderData`), so one tile keeps the box of the pooled projectile's last
+// area of two tiles or more: hits on the point when that box covers her tile, none on a projectile never used before (a
+// zero box at the map origin). The kit always takes the first case (PRTS 备注 「仅存在1点时，判定区域为一点」) [추정·엔진: which
+// pooled projectile comes out depends on what that client used it for earlier in the match — docs/rules/sim.md 「스킬 프리팹의
+// 대상 트리거」, 쏜즈 더 로드스타 S3의 영역].
 const SEA_LINE_HALF = 0.325 / 2, SEA_OFFSET = 0.325;
 /** `_delayToStart` of its `AttachToTarget`: the area reaches (and starts hitting) this long after the strike. */
 const SEA_DELAY = 0.5;

@@ -360,8 +360,15 @@ SP가 차면 범위에 오퍼레이터가 있는 한 다시 켜진다 — 그 �
 `PolygonProjectileToTile`이 타격 순간(`ON_SPELL_ON`) `projectile_chr_thorn2_s3_polygon` 하나를 만들고 그 `polygonRangeTiles`에 스킬 능력의 시전 대상(유닛을 받은
 오퍼레이터들)의 칸을 그때 담는다 — 영역은 그 칸에 머문다(PRTS 备注 「生成的炼金单元/区域独立于干员存在」). `Thorn2PolygonRange`(점 최대 4개)는 칸 중심의 볼록 껍질을
 만들고(`_DoCalculateHull`, 안쪽 점과 일직선 셋의 가운데는 빠짐 — `_OptimizeLineCollider`), 두 점이면 그 선분을 따라 폭 `_polygonLineColliderWide` 0.325의 직사각형
-(양쪽 0.1625씩; PRTS 备注는 0.65라 함), 셋이면 각 변을 바깥 법선으로 `_polygonColliderOffset` 0.325 민 다각형(모서리는 잘린 채)이다. 한 점이면 그 점이다 [추정·엔진: 이때
-클라는 물리 선검색의 상자(`_GetBoxColliderData`)를 만들지 않아 그 검색이 무엇을 내는지 안 정해짐 — PRTS 备注 「仅存在1点时，判定区域为一点」대로]. 적은 충돌체(일반 0.1 원,
+(양쪽 0.1625씩; PRTS 备注는 0.65라 함), 셋이면 각 변을 바깥 법선으로 `_polygonColliderOffset` 0.325 민 다각형(모서리는 잘린 채)이다. 찾기는 두 단계다
+(2026-11-19, 공식 클라에서 확인): 물리 선검색이 투사체의 상자 충돌체 경계 안의 유닛을 모으고(`Box2dPhysicsUtil.FindTargets_DISPOSE` → `Physics2D.OverlapAreaNonAlloc`),
+그 가운데 결과 점들(`m_result`)과 겹치는 것만 남긴다. 상자는 결과 점이 셋 이상일 때만 새로 셈하고(`_GetBoxColliderData`; 두 점은 직사각형 네 점이라 셈함) 그 값을
+매번 투사체 칸 기준으로 충돌체에 놓는다(`_SetBoxCollider`). 그래서 한 점이면 상자는 이 투사체가 앞서 둘 이상의 칸으로 쓰였을 때의 것 그대로다: 투사체는 객체 풀에서
+다시 쓰이고(`BattleFactory.CreateProjectile` → `PoolManager.Allocate`) 상자 값(`m_boxCenter`·`m_boxLength`·`m_boxWidth`)을 비우는 곳이 없다(`OnInit`은 칸 목록만
+비움). 앞 영역의 상자가 그녀 칸을 덮으면 그 점에 닿는 적(중심이 0.1 안)과 그녀가 막은 적(그녀 충돌체 0.25가 그 점에 닿음; 아군 선택자도 같은 `Thorn2PolygonRange`를
+씀 — `RangeSelector.Awake`의 `GetComponent<Range>`)이 맞고, 처음 쓰이는 투사체면 상자가 크기 0으로 지도 원점(칸 (0,0) — 대기석이나 막힌 칸)에 놓여 아무도 안 맞는다.
+키트는 늘 앞 경우로 본다(PRTS 备注 「仅存在1点时，判定区域为一点」) [추정·엔진: 풀에서 어느 투사체가 나오는지는 한 클라이언트가 그 판에서 쓴 이력(라운드마다
+`UnloadPoolsWithKeptConfig`로 그 전투에 쓰일 풀만 남기고 `PaddingPreload`로 채움)에 달려 sim이 따라 할 수 없음]. 적은 충돌체(일반 0.1 원,
 거대 적은 사각형)가 영역에 닿으면 든다(`DoFindTargets_DISPOSE` → `Polygon2DPhysicsUtil.PolygonCircle`·`PolygonRectangle`; 지상·공중 `_targetMotion` 3), 그리고
 영역에 닿은 아군(충돌체 0.25; `_allySelector` `_professionMask` 767 = 장치 빼고 소환물 포함, `_ignoreAllyTargetFree`)이 막은 적도 든다
 (`SelectorHitBehaviourWithAllyBlockedEnemy.DoSelectTargetToHit`). 영역은 0.5초 뒤 닿고(`AttachToTarget` `_delayToStart` 0.5·`_immediatelyReach` — 충돌체는
@@ -369,7 +376,8 @@ SP가 차면 범위에 오퍼레이터가 있는 한 다시 켜진다 — 그 �
 `EnsureLifeTime`; 프리팹의 `_lifeTime` 10은 `_lifeTimeType` INFINITY라 안 쓰임). 피해·약화의 증가도 닿은 때부터 센다(`_onlyIncreaseReached`). 그래서 한 시전에서 적은
 `interval`마다 한 번 맞는다 — 그 전엔 오퍼레이터마다 RING1(1.5) 원이 그 오퍼레이터를 따라다니며 따로 태워, 원 둘에 든 적은 두 번 맞았고, 막힌 적 규칙·0.5초 지연이 없었다.
 다른 시전의 영역끼리는 피해가 더해지고 약화는 가장 센 것 하나다(PRTS 备注). 영역의 그림(`Thorn2S3Renderer` `thorn2_skill_03_line`, 키트 'seaArea')은 fx.md 「시전 이펙트 시점·붙는 대상」 ③.
-시험: `test/content/kits_alt_t5.test.js`의 「引星棘刺 S3」 두 개. 블레이즈 디 이그나이팅 스파크
+삼각형 변 밖 0.3칸의 적은 0.325 민 변에 충돌체 0.1이 닿아 맞고(꼭짓점 쪽은 잘린 모서리까지),
+두 칸의 선에서 0.3칸 떨어진 적은 안 맞는다. 시험: `test/content/kits_alt_t5.test.js`의 「引星棘刺 S3」 세 개. 블레이즈 디 이그나이팅 스파크
 S1(자동)의 몸 돌리기는 최대 HP 오퍼레이터 쪽이다. 엔진이 정렬을 모르는 아군 `_postFilter`(3·39 — 자동 스킬뿐)는 대상 `undefined`(공격 대상 근사).
 타일 선택자(Miss.Christine S2): `TileSelector`도 유닛은 다른 범위 선택자처럼 찾고(`RangeSelector.DoFindTargets_DISPOSE`: 범위 상자·제 쪽·제 지상/공중) HATRED_DES(4)로
 세운다(`TileSelector.OnPostFilter(List<Entity>)`, 최대 128) — `_options`·`_filterType`은 칸 고르기(FindTiles)에만 쓰인다 → 추출기가 적 'range'(`tile` 1)로 읽는다.
