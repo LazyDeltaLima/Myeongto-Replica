@@ -367,7 +367,7 @@ SP가 차면 범위에 오퍼레이터가 있는 한 다시 켜진다 — 그 �
 다시 쓰이고(`BattleFactory.CreateProjectile` → `PoolManager.Allocate`) 상자 값(`m_boxCenter`·`m_boxLength`·`m_boxWidth`)을 비우는 곳이 없다(`OnInit`은 칸 목록만
 비움). 앞 영역의 상자가 그녀 칸을 덮으면 그 점에 닿는 적(중심이 0.1 안)과 그녀가 막은 적(그녀 충돌체 0.25가 그 점에 닿음; 아군 선택자도 같은 `Thorn2PolygonRange`를
 씀 — `RangeSelector.Awake`의 `GetComponent<Range>`)이 맞고, 처음 쓰이는 투사체면 상자가 크기 0으로 지도 원점(칸 (0,0) — 대기석이나 막힌 칸)에 놓여 아무도 안 맞는다.
-키트는 늘 앞 경우로 본다(PRTS 备注 「仅存在1点时，判定区域为一点」) [추정·엔진: 풀에서 어느 투사체가 나오는지는 한 클라이언트가 그 판에서 쓴 이력(라운드마다
+키트는 늘 앞 경우로 본다(PRTS 备注 「仅存在1点时，判定区域为一点」; 관리자 결정 2026-11-19로 이대로 둠) [추정·엔진: 풀에서 어느 투사체가 나오는지는 한 클라이언트가 그 판에서 쓴 이력(라운드마다
 `UnloadPoolsWithKeptConfig`로 그 전투에 쓰일 풀만 남기고 `PaddingPreload`로 채움)에 달려 sim이 따라 할 수 없음]. 적은 충돌체(일반 0.1 원,
 거대 적은 사각형)가 영역에 닿으면 든다(`DoFindTargets_DISPOSE` → `Polygon2DPhysicsUtil.PolygonCircle`·`PolygonRectangle`; 지상·공중 `_targetMotion` 3), 그리고
 영역에 닿은 아군(충돌체 0.25; `_allySelector` `_professionMask` 767 = 장치 빼고 소환물 포함, `_ignoreAllyTargetFree`)이 막은 적도 든다
