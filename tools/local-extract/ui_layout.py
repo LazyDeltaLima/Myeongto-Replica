@@ -826,11 +826,17 @@ def solve(tree, canvas_units, ref_ppu=100, sprite=None, name=None, parent_rect=N
             node['driven'] = dv
         node.update(describe(n, ctx))
         unk = n.unknown_classes()
+        unsure = []
         if unk:
             node['unknown'] = unk
             hints = [c for c in unk if any(h in c.rsplit('.', 1)[-1] for h in DRIVER_HINTS)]
-            if hints:
-                node['unsure'] = [f'{c}: may move this rect or its children' for c in hints]
+            unsure += [f'{c}: may move this rect or its children' for c in hints]
+        g = n.layout_group()
+        if g and solvable_grid(g) and not rect_children(n):
+            unsure.append(f'GridLayoutGroup with no cells: a list the game fills at run time has none in the prefab — '
+                          f'give --grid-items {n.path}=N (the rects here are those of an empty grid)')
+        if unsure:
+            node['unsure'] = unsure
         if n.unresolved:
             node['unresolved'] = list(dict.fromkeys(n.unresolved))
         t = node.get('text')

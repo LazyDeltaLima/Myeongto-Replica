@@ -148,7 +148,7 @@
   `prefab <번들> <GameObject>` = RectTransform 트리(앵커·위치·크기·피벗) + Image 스프라이트·색, Text 글자 크기·정렬·줄 간격·레이아웃 값,
   `sprites <번들> [이름 일부…]` = 스프라이트 rect·텍스처 rect·오프셋(tight 패킹이면 웹 PNG에 여백이 없다 — 맹약 문양 128 rect / 텍스처 ~100).
   번들은 경로 또는 클라이언트 `PersistentData/Bundles` 아래 경로(예: `ui/autochess/[uc]autochessbattle.ab`).
-  `layout <번들> <GameObject> [--canvas WxH --match M] [--screen WxH] [--css-px-per-unit K]` = 같은 트리를 앵커·피벗·배율·레이아웃 그룹·자기 조절 순서대로 풀어 칸마다 절대 rect(캔버스 단위, `--screen`이면 화면 px)와 Image·Text 값을 JSON으로(형식은 도구 머리 「Output (layout)」, 못 푼 값은 「모름」) — 공식 치수는 머리로 풀지 않고 이것에서 읽는다(관리자 결정 2026-11-19).
+  `layout <번들> <GameObject> [--canvas WxH --match M] [--screen WxH] [--css-px-per-unit K]` = 같은 트리를 앵커·피벗·배율·레이아웃 그룹·자기 조절 순서대로 풀어 칸마다 절대 rect(캔버스 단위, `--screen`이면 화면 px)와 Image·Text 값을 JSON으로(형식은 도구 머리 「Output (layout)」, 못 푼 값은 「모름」) — 공식 치수는 머리로 풀지 않고 이것에서 읽는다(관리자 결정 2026-11-19). 게임이 채우는 목록(GridLayoutGroup — 맹약·기물 칸 같은 `Content`)은 프리팹에 칸이 없으니 `--grid-items <경로>=N`으로 칸 N개를 더해 푼다(빈 그리드는 `unsure`에 그 안내가 나옴).
   `draw <layout.json> <스크린샷> <out.png>` = 그 `screen` rect를 공식 스크린샷 위에 상자로 그려 푼 값이 화면과 맞는지 본다.
 - 공식 화면 대조 도구(관리자 결정 2026-11-19): `tools/ui-check.mjs`(실제 Chrome, 머리에 쓰는 법). `compare <spec.json>` = 우리 화면을 공식 스크린샷 크기·배율로 열어 `layout` 칸과 CSS 선택자 짝의 가장자리 차이를 재고 겹친 그림(`overlay.png`)을 냄 — 시안을 보이기 전과 UI 줄 커밋 전에.
   `measure <spec.json>` = 우리 화면만으로 잘린 글자·같은 줄 칸 높이·가운데 맞춤·패딩 대칭·깨진 그림·실패 요청·데이터 칸 채움을 잼 — UI 줄 커밋 전에. 둘 다 종료 0 = 통과.

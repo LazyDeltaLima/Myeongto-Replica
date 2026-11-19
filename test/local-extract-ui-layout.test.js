@@ -157,6 +157,8 @@ describe('ui_layout.py solver (no UnityPy needed)', { skip: !PY && 'no python3' 
     assert.equal(n.vp.unresolved, undefined);
     const none = solve(node('vp', { amin: [0, 0], amax: [1, 1], pivot: [0, 1] }, [], [t]), { canvas: [400, 82.6] });
     assert.equal(none['vp/Content'].rect.w, 30, 'no cells: the padding less one spacing, as Unity gives');
+    assert.match(none['vp/Content'].unsure?.[0] ?? '', /no cells.*--grid-items vp\/Content=N/, 'an empty grid says how to add the cells');
+    assert.equal(n['vp/Content'].unsure, undefined);
   });
 
   test('GridLayoutGroup: flexible columns from the width, a start corner, the start axis, a fixed column count sizing the height', () => {
