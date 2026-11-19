@@ -919,11 +919,16 @@ const MANIFOLD_PROFILE = Object.freeze(['attack', 'projectile', 'canHitFly', 'dm
  * `mlyss_wtrman_during_anim` on the 流形 (FORCE_DISARMED, SKILL_NOT_ACTIVATABLE, DISABLE_COMBAT; immune to STUNNED and
  * FROZEN) and casts SwitchMeleeBegin / SwitchRangeBegin (buff abilities: a tick), whose buff casts SwitchToMelee /
  * SwitchToRange (clip Change_A / Change_B, `_preDelay` 0.667 s); their `_activeBuffs` cast SwitchStateEnd, whose buff
- * finishes during_anim. So no attack, no skill and no stun / freeze for 0.667 s from the copy.
+ * finishes during_anim. So no attack, no skill and no stun / freeze for 0.667 s from the copy. during_anim also holds
+ * abnormalAntis STUNNED, FROZEN: the buff container finishes, as the buff is added, every buff of the 流形 whose abnormal
+ * flags meet that mask (`BuffContainer.NewBuff` → `_FilterBuffAbnormalAnti` → `Buff.CheckAbnormalFlagAnti`), so a stun or
+ * freeze it carried when it copied ends there (the copy comes whatever it carries).
  */
 const MANIFOLD_SWITCH = 0.667;
 const MANIFOLD_SWITCH_KEY = 'mlyss:switching';
 const MANIFOLD_SWITCH_IMMUNE = new Set(['stun', 'freeze']);
+/** A buff of the official STUNNED / FROZEN flag: the stun / freeze statuses, or a kit's own buff that sets those flags. */
+const manifoldSwitchAnti = (b) => (b.status ? MANIFOLD_SWITCH_IMMUNE.has(b.status) : !!(b.flags && (b.flags.stun || b.flags.freeze)));
 
 /** Apply a 流形 copy of `target` (scale × base stats, block, attack timing, range, damage type). */
 function applyManifoldCopy(battle, unit, target, scale) {
@@ -1033,6 +1038,7 @@ function manifold(bb, raw, def) {
         if (typeof kitCopy === 'function') kitCopy(battle, unit, t);
         else applyManifoldCopy(battle, unit, t, scale);
         battle.addBuff(unit, { key: MANIFOLD_SWITCH_KEY, duration: MANIFOLD_SWITCH, flags: { disarm: true, skillLock: true } });
+        for (const b of unit.buffs.filter(manifoldSwitchAnti)) battle.removeBuff(unit, b);
         return true;
       },
     },

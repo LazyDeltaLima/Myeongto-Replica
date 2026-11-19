@@ -681,6 +681,29 @@ test('缪尔赛思: the copy switches the 流形 for 0.667 s — no attack, no s
   assert.ok(h.b.applyStatus(t, 'stun', { duration: 0.1 }), 'stunnable again');
 });
 
+for (const status of ['stun', 'freeze']) {
+  test(`缪尔赛思: a 流形 that copies while it carries ${status} loses it at the copy (mlyss_wtrman_during_anim abnormalAntis)`, () => {
+    const h = battle({
+      units: [
+        { chessId: 'chess_char_6_11_a', row: 12, col: 3 },
+        { chessId: 'test_guard_a', row: 11, col: 5 },
+        { kind: 'token', tokenId: 'token_10030_mlyss_wtrman', row: 10, col: 5, ownerUid: 1 },
+      ],
+      enemies: [{ key: 'enemy_dummy', pos: [10, 6] }],
+    });
+    const tok = () => h.b.allyUnits.find((x) => x.defId === 'token_10030_mlyss_wtrman' && x.alive);
+    const why = 'docs/rules/sim.md 「즉발 스킬의 시전」 유동체의 복사: during_anim\'s abnormalAntis STUNNED, FROZEN finish the buffs of those flags as it is added';
+    assert.ok(h.runUntil(() => tok()?.skill?.active, 8), 'the 流形 skill is cast before the copy');
+    const t = tok();
+    assert.ok(!t.mem.mlyss, 'not copied yet');
+    assert.ok(h.b.applyStatus(t, status, { duration: 20 }), `${status} lands before the copy`);
+    assert.ok(t.s.flags.stun);
+    assert.ok(h.runUntil(() => t.mem.mlyss, 4), `the copy comes while it carries ${status} — ${why}`);
+    assert.ok(!t.findBuff(status) && !t.s.flags.stun, `the ${status} ends at the copy — ${why}`);
+    assert.ok(t.findBuff('mlyss:switching'), 'the switch hold is on');
+  });
+}
+
 test('缪尔赛思: a destroyed 流形 waits on its tile and stands again 25 + 1 s later with its copy and its steal; melee copy steals ATK/DEF', () => {
   const h = battle({
     units: [
