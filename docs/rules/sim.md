@@ -377,9 +377,13 @@ S1(자동)의 몸 돌리기는 최대 HP 오퍼레이터 쪽이다. 엔진이 �
 `Entity.IsStillTargetFreeWithImmuneFlag`) — 풀의 트리거 36개는 모두 꺼져 있어 아무 뜻이 없다. 추출기는 그런 필드(·`_excludeSomeAbnormalFlags`·
 `_ignoreAllyTargetFree` 등, `skill_cast.py SELECTOR_FILTERS`)가 켜진 선택자를 `filter` 1로 두어 시험이 잡게 한다. 모듈의 스킬 범위 바꿈(`BasicSkill.AssignData`의
 `UnitDataFlowConfig.Delta.rangeId`)은 캐릭터 프리팹 `UnitDataFlowConfig` 설정의 `_overrideRangeId`가 켜졌을 때만 생긴다(`ModifierConfig.CreateModifier`) —
-풀 204명 charpack의 설정 133개 모두 꺼짐(2026-11-18) → 풀에서는 없음. 이 전수로 바뀐 것은 규정 시즌의 ALWAYS 스킬(데겐블레허 S3·패신저 S3·
+풀 204명 charpack의 설정 133개 모두 꺼짐(2026-11-18) → 풀 오퍼레이터에서는 없음. 소환물 가운데 켜진 것은 클로저의 지휘 센터(`token_10066_closur_ourbase`) 하나다
+(2026-11-19, EN·CN 소환물 프리팹 41개): 원천 스킬(`_source` 1) → 대상 재능(`_target` 0)이라 재능 「광역 커버」의 범위가 그 패시브 스킬의 범위(x-5·x-4·x-6)이고, 키트
+`op-closur.js baseKit`가 스킬 `rangeGrid`로 이미 그렇게 한다. 엔진에 일반 길은 없으므로 `tools/local-extract/char_modes.py modes_of`가 그 밖의 켜진 설정(오퍼레이터 charpack이든
+소환물이든)에서 멈추고, 목록(`RANGE_OVERRIDES_MODELLED`)에 든 유닛의 설정이 사라져도 멈춘다. 이 전수로 바뀐 것은 규정 시즌의 ALWAYS 스킬(데겐블레허 S3·패신저 S3·
 아이린 S3 등)이 SP가 차도 범위 안 대상(데겐블레허는 막은 적 포함)이 생길 때까지 켜지 않는 것이다 — 맹약 시즌 DEFAULT 스킬은 규칙이 이미 같은 대상을 요구했다.
-재발 방지: `test/sim/skill-trigger.test.js`(전수 + 예외 목록), 추출기에 모르는 모양이 오면 `build-data.mjs`가 멈춤(원인 제거 — `skill_cast.py trigger_entry`가 읽음).
+재발 방지: `test/sim/skill-trigger.test.js`(전수 + 예외 목록), 추출기에 모르는 모양이 오면 `build-data.mjs`가 멈춤(원인 제거 — `skill_cast.py trigger_entry`가 읽음); 범위 바꿈 설정은
+원인 제거 — `tools/local-extract/char_modes.py modes_of`가 읽고 모르는 것에서 멈춤.
 
 ## 중장 스킬 공식 TAKE_DAMAGE — 관리자 결정 2026-10-28 「공식대로」
 - 규칙: 수동(MANUAL) 중장 스킬은 모두 공식 `act2autochess skillTriggerDataList`의 TANK 행 `TAKE_DAMAGE`를 따른다 — 선발(자선) 중장과

@@ -1014,6 +1014,16 @@ def modes_of(path, projectiles=None, tree=None):
     # 2026-11-07: `tree` — one summon's part of a token bundle (token_modes), `path` its token id
     if tree is None:
         tree, _ = load_tree(path)
+    # 2026-11-19: a range setting the battle does not model stops the run (SystemExit passes main's per-pack `except Exception`),
+    # and so does a modelled one gone from the prefab (its kit would then be wrong)
+    uid, over = Path(str(path)).stem, range_overrides(tree)
+    if over and uid not in RANGE_OVERRIDES_MODELLED:
+        raise SystemExit(f'char_modes: {uid}: `_overrideRangeId` on at {", ".join(over)} — a UnitDataFlowConfig setting hands a '
+                         'skill or talent the range of its source (Delta.rangeId), which the battle does not do; model it (or its '
+                         'kit) and list it in RANGE_OVERRIDES_MODELLED (docs/rules/sim.md 「스킬 프리팹의 대상 트리거」)')
+    if not over and uid in RANGE_OVERRIDES_MODELLED:
+        raise SystemExit(f'char_modes: {uid}: RANGE_OVERRIDES_MODELLED lists it but its prefab has no `_overrideRangeId` setting '
+                         f'any more — recheck {RANGE_OVERRIDES_MODELLED[uid]} (docs/rules/sim.md 「스킬 프리팹의 대상 트리거」)')
     root = next((d for _, d, _ in tree if isinstance(d.get('_modes'), list) and d['_modes']), None)
     if root is None:
         return None
@@ -1414,6 +1424,36 @@ def range_talent_keys(tree):
         if len(parts) >= 2 and parts[-2] == 'Talents' and d.get('_overrideDefaultRangeId') == 1:
             keys.add(parts[-1])
     return sorted(keys)
+
+
+# 2026-11-19: the units whose UnitDataFlowConfig `_overrideRangeId` setting the battle models, with where (range_overrides)
+RANGE_OVERRIDES_MODELLED = {
+    # source SKILL → target TALENT: her 指挥中心's talent 广域覆盖 takes its passive skill's range (x-5 / x-4 / x-6 by her skill)
+    'token_10066_closur_ourbase': 'server/sim/content/kits/ops/op-closur.js baseKit: the 指挥中心 range is its skill rangeGrid',
+}
+
+
+def range_overrides(tree):
+    """2026-11-19, official client: the settings of a unit prefab that change a skill's or talent's range — a
+    UnitDataFlowConfig setting (the root's `_config` list) with `_overrideRangeId` on makes `ModifierConfig.CreateModifier`
+    hand its target the rangeId of its source (`_source` / `_target`: TALENT 0, SKILL 1, TRAIT 2; `Delta.rangeId`, taken by
+    `BasicSkill.AssignData` over the skill table's). No pool operator's charpack has one (all 133 settings off, EN and CN,
+    2026-11-18); of the summons only RANGE_OVERRIDES_MODELLED. The battle has no generic path for it, so modes_of stops on
+    any other. → the paths of every dict with the field set, searched through the whole tree so no other place hides one."""
+    out = []
+
+    def walk(o, at):
+        if isinstance(o, dict):
+            if o.get('_overrideRangeId'):
+                out.append(at)
+            for k, v in o.items():
+                walk(v, f'{at}.{k}')
+        elif isinstance(o, list):
+            for i, v in enumerate(o):
+                walk(v, f'{at}[{i}]')
+    for gp, d, _ in tree:
+        walk(d, gp or '?')
+    return out
 
 
 def charge_effects(tree, by_pid):
