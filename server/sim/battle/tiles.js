@@ -89,8 +89,10 @@ export class BattleTiles {
    * tile that is the board position (`ChessInst.pos`) of a `battleChessInsts` CHAR piece of another card than the one
    * placing (`sourceData`: a summon counts as its host's card) — not of a summon piece (TOKEN). `src`: the unit placing,
    * or the host whose summon is placed; its own card's home is not refused by this rule. Without it every board
-   * operator's home is (a stage device belongs to no card). A piece gone for good (`removed`: switched out by a bond or a 特质)
-   * holds its home no more [추정·미조사: whether the switch takes the piece out of battleChessInsts].
+   * operator's home is (a stage device belongs to no card). A piece gone for good (`removed`: switched out by a bond, a 特质
+   * or a band) holds its home no more; the one switched in holds the tile it came in on (its home from then) [추정·CN: the
+   * 整备区 switch is CN-only; the EN in-battle switch node `AutoChessSwitchCharacter` rewrites each piece's board
+   * position (`ChessInst.pos`) to its new tile].
    * `except(a)` (local patch): a waiting piece it returns true for reserves nothing (望's own used stones, kits/ops/op-wang.js).
    */
   isReservedTile(r, c, except = null, src = null) {

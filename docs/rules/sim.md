@@ -2932,7 +2932,10 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   `Battle.isReservedTile`의 넷째 인자 `src`(배치하는 유닛, 소환이면 주인)로 — 울피아누스 S3 닻 칸, 기습 착지 칸, 【이동】 칸(첸 더 던스트릭·벨로네, 메커니스트의 토큰 돌진), 소환·장치 칸
   (`tokens.js tileFree`, `tier1 summonTileFree`, `tier3` 전술점, `tier6 freeTiles`, 시·뮤엘시스·에벤홀츠·W·프라마닉스 더 프레리타·위셔델), 전술점(`findTacticalPoint`), 쓰러진 오퍼레이터의 처음 칸 돌아가기(`_layBody`, 자기 카드).
   `src`가 없으면(스테이지 장치, 플레이어 몫의 맵 캐릭터) 모든 판 오퍼레이터의 처음 칸을 거절한다. 전에는 그 오퍼레이터가 살아서 다른 칸에 있으면(또는 다른 칸에 쓰러졌으면) 그 칸을 내줬다.
-  아주 떠난 말(`removed`: 카시미어·에기르 맹약, 교대 특질의 교대로 나감)의 처음 칸은 잡지 않는다 [추정·미조사: 교대가 그 말을 `battleChessInsts`에서 빼는지 안 읽음 — 묶음 sim-Z]. 비즈왁스의 소환 칸은 전부터
+  아주 떠난 말(`removed`: 카시미어·에기르 맹약, 교대 특질, 밴드 교대로 나감)의 처음 칸은 잡지 않고, 들어온 말은 들어온 칸(그 뒤 그의 처음 칸)을 잡는다
+  [추정·CN: 정비 구역 교대(`AutoChessMarkSwitchWithHand` → `_RecalculateChessPosition`)는 CN 클라에만 있어 못 읽음. EN의 전투 중 교대 노드 `AutoChessSwitchCharacter`는
+  두 말을 `MoveLikeRespawnSelf`로 맞바꾼 뒤 `chessMapInfo.chessInstMap`과 두 `ChessInst.pos`를 새 칸으로 고쳐 씀(공식 클라에서 확인, 2026-11-19) — 그래서 판 위치 기록은 교대를 따라간다고 봄].
+  테스트 `test/content/bonds_act3.test.js` 「规程 卡西米尔 6: the member switched out holds its board home no more…」(`!a.removed`를 빼면 실패 확인). 비즈왁스의 소환 칸은 전부터
   모든 아군의 처음 칸을 따로 거절한다(자기 카드도 — 그대로 둠). golden: `roster` 047, `bonds` bond-raidShip-high, `matches` coop2-NORMAL-3·coop2-HARD-4·coop3-ABYSS-5·coop4-ABYSS-7·coop8-HARD-3·coop2-NORMAL-19-coverage-diy,
   `standins` 01·05·06, `act3-roster` 009·011·014·023·033·035·038·054, `act3-matches` coop2-HARD-4 — 들여다본 것(roster 047·bond-raidShip-high·standin 01·05·act3 009·033·054·coop2-NORMAL-3·coop8-HARD-3)은
   모두 기습 착지 칸이나 비나 빅토리아·시의 소환 칸이 다른 말의 처음 칸을 비켜 간 것. 테스트 `test/content/kits_t5.test.js` 「乌尔比安 S3: never lands on another card's board home…」(옛 코드에서 실패 확인).

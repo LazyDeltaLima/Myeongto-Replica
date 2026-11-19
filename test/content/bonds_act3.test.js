@@ -332,6 +332,27 @@ test('规程 卡西米尔 6: a ground member knocked out leaves and the rightmos
   assert.deepEqual(b.errors, []);
 });
 
+test('规程 卡西米尔 6: the member switched out holds its board home no more; the one fielded holds the tile it came in on', () => {
+  // [추정·CN] docs/rules/sim.md 「울피아누스 S3의 【이동】은 반드시 일어난다」 다른 말의 처음 칸: the switch's position
+  // bookkeeping is CN-only; the EN in-battle switch node rewrites each piece's board position to its new tile
+  const h = switchFight([['h7_a', 7, ['kazimierzShip']]]);
+  const b = h.b;
+  const k1 = h.unit('k1_a'), k2 = h.unit('k2_a');
+  const [hr, hc] = [k1.homeR, k1.homeC];
+  h.step();
+  assert.ok(b.relocate(k1, hr - 1, hc), 'k1 stands off its home');
+  assert.ok(b.isReservedTile(hr, hc, null, k2), 'its home is refused to another card while k1 is on the field');
+  b.kill(k1);
+  const h7 = b.allyUnits.find((u) => u.reserve);
+  assert.ok(k1.removed && h7.alive, 'switched');
+  assert.deepEqual([h7.homeR, h7.homeC], [hr - 1, hc], 'h7 came in on the tile k1 lay on');
+  assert.ok(!b.isReservedTile(hr, hc, null, k2), 'k1\'s home is free once k1 left for good');
+  assert.ok(b.relocate(h7, hr - 1, hc + 1), 'h7 stands off the tile it came in on');
+  assert.ok(b.isReservedTile(hr - 1, hc, null, k2), 'that tile is h7\'s home now: refused to another card');
+  assert.ok(!b.isReservedTile(hr - 1, hc, null, h7), '... not to its own');
+  assert.deepEqual(b.errors, []);
+});
+
 test('规程 卡西米尔 6: no switch for a ranged member, a retreat, at 5 members, or for the default season\'s 卡西米尔', () => {
   {
     const h = switchFight([['h7_a', 7, ['kazimierzShip']]]);
