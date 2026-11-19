@@ -6,7 +6,7 @@
 import { ROWS, COLS, ENEMY_COLLIDER_RADIUS } from '../constants.js';
 import { toLocal } from '../dir.js';
 import { absoluteRangeKeys, canTargetEnemy, extendedGrid, enemyStealthed } from '../targeting.js';
-import { bodyKeys, bodyInRadius, bodyInRange } from '../body.js';
+import { bodyKeys, bodyInRadius, bodyInRange, colliderRadius } from '../body.js';
 import { roundHalfEven } from '../detmath.js';
 
 function sameKeys(a, b) {
@@ -31,7 +31,8 @@ function unfile(b, e) {
 export class BattleQueries {
   /**
    * The tile buckets of the living enemies. Range buckets (`_eb`, body.js colliderKeys): a regular enemy on every tile its
-   * 0.1 collider overlaps — the tile of its position and, within 0.1 of an edge, the neighbours —, a huge one on every
+   * collider circle overlaps (body.js colliderRadius: 0.1, 魂灵涡流 0.25) — the tile of its position and, within that
+   * radius of an edge, the neighbours —, a huge one on every
    * tile its rectangle occupies; `_ebMulti` marks an enemy listed on more than one (enemiesInKeys lists it once). Tile
    * buckets (`_et`, body.js bodyKeys — the point): a regular enemy on the tile of its position, a huge one on its
    * rectangle's tiles. Each enemy is filed on its own (_indexEnemy: its tiles kept in `_ixT` / `_ixB`, refiled only when
@@ -51,7 +52,7 @@ export class BattleQueries {
     // the common case: a regular enemy well inside one tile, filed on that tile alone already — nothing to move
     if (on && !e.hitArea && e._ixT !== null && e._ixT.length === 1 && e._ixB.length === 1) {
       const tr = roundHalfEven(e.y), tc = roundHalfEven(e.x), k = tr * COLS + tc;
-      const inner = 0.5 - ENEMY_COLLIDER_RADIUS - 1e-6;
+      const inner = 0.5 - colliderRadius(e) - 1e-6;
       if (k === e._ixT[0] && k === e._ixB[0] && Math.abs(e.x - tc) < inner && Math.abs(e.y - tr) < inner) return;
     }
     const tk = this._ixTs, bk = this._ixBs;   // scratch: the tiles it is on now
@@ -61,7 +62,7 @@ export class BattleQueries {
         for (const k of bodyKeys(e)) { tk.push(k); bk.push(k); }
       } else {
         // every tick for every enemy: colliderKeys / bodyKeys inlined without their arrays (the same tiles, same order)
-        const rho = ENEMY_COLLIDER_RADIUS, rho2 = rho * rho;
+        const rho = colliderRadius(e), rho2 = rho * rho;
         const x = e.x, y = e.y;
         const tr = roundHalfEven(y), tc = roundHalfEven(x);
         if (tr >= 0 && tr < ROWS && tc >= 0 && tc < COLS) tk.push(tr * COLS + tc);
@@ -323,14 +324,19 @@ export class BattleQueries {
 
   /**
    * foesInRadius by the enemies' colliders — a radius effect PRTS marks 碰撞判定 / 碰撞箱判定 (蕾缪安's shells, 克莱门莎's
-   * S2 splash; the client's CircleRange is the same 2D physics overlap): a regular enemy whose 0.1 circle (ENEMY_COLLIDER_RADIUS) overlaps
-   * the circle — centre distance ≤ r + 0.1 —, a huge one whose rectangle does (its rectangle is its collider). Other
-   * radius effects keep foesInRadius (the centre of a regular enemy) [ASSUMED where PRTS names neither].
+   * S2 splash; the client's CircleRange is the same 2D physics overlap): a regular enemy whose circle (body.js
+   * colliderRadius: 0.1, 魂灵涡流 0.25) overlaps the circle — centre distance ≤ r + its radius —, a huge one whose rectangle
+   * does (its rectangle is its collider); a registered ally target by the 0.1. Other radius effects keep foesInRadius (the
+   * centre of a regular enemy) [ASSUMED where PRTS names neither].
    */
   foesInColliderRadius(x, y, r) {
-    const out = this.foesInRadius(x, y, r + ENEMY_COLLIDER_RADIUS);
+    let wide = ENEMY_COLLIDER_RADIUS;
+    for (const e of this.enemies) if (e.alive && !e.hitArea && e.colR > wide) wide = e.colR;
+    const out = this.foesInRadius(x, y, r + wide);
     let n = 0;
-    for (const e of out) if (!e.hitArea || bodyInRadius(e, x, y, r)) out[n++] = e;
+    for (const e of out) {
+      if (e.hitArea ? bodyInRadius(e, x, y, r) : wide === ENEMY_COLLIDER_RADIUS || bodyInRadius(e, x, y, r + colliderRadius(e))) out[n++] = e;
+    }
     out.length = n;
     return out;
   }

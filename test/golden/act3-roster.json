@@ -3156,10 +3156,10 @@
         "enemy_2008_flking": [1,0,1,30463,6724],
         "enemy_9006_actoxi": [42,22,20,66290,464659]
       },
-      "hooks": [1,143,5998,1473,1473,5958,6618,18821,87,135,172,174,0,25423,3113,81,114,39,1,89,16,8,24],
-      "events": {"atk":1971,"blk":4,"bounty":4,"castHit":41,"deploy":26,"die":96,"dmg":6113,"engage":11,"face":89,"fx":647,"heal":741,"layer":16,"leak":39,"skill":349,"spawn":135,"status":1217,"swing":1536,"tplfx":191},
+      "hooks": [1,143,5998,1473,1473,5958,6618,18821,87,135,172,174,0,25423,3115,81,114,39,1,89,16,8,24],
+      "events": {"atk":1971,"blk":4,"bounty":4,"castHit":41,"deploy":26,"die":96,"dmg":6113,"engage":11,"face":89,"fx":647,"heal":741,"layer":16,"leak":39,"skill":349,"spawn":135,"status":1215,"swing":1536,"tplfx":191},
       "fx": {"aoe":10,"burst":8,"crit":5,"disappear":1,"dodge":24,"downed":2,"dp":11,"enemyShot":22,"enemySkill":4,"explode":23,"garrison":16,"garrisonGrant":1,"heal":2,"kitHit":63,"liberate":1,"meltdown":7,"parry":220,"phase":1,"revive":2,"riposte":16,"roadTiles":1,"shield":7,"sp":71,"summon":4,"tockaFx":52,"zone":73},
-      "snaps": "718b7791 7670a009 c30362e7 c05e9ca8 44917300 9169b7ea f0982901 ce1b0af8 f2498681 6494e0d5 cd34ff98 c720dee3 97c81911 0b603aff 715f0614 e54c6b85 3e761240 5c2436b1 6280c492 3596c84f"
+      "snaps": "718b7791 7670a009 c30362e7 c05e9ca8 44917300 ecd6b818 b1646b83 2ef513de 86017367 5bc26783 d0d5145a 0be50da1 08eef5f3 80190ca9 1a0d475e 4e64dbbf b77b1c22 735e1a9f 719087e0 8cfa7869"
     },
     "roster-045": {
       "about": "pass 1 band 6: chess_char_6_15_a chess_char_6_14_a chess_char_6_16_a chess_char_6_05_a chess_char_6_13_a chess_char_6_06_a chess_char_6_07_a chess_char_6_08_a chess_char_6_09_a chess_char_6_10_a chess_char_6_11_a chess_char_6_12_a token_10069_mcnist_mcgraf",

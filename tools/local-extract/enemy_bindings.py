@@ -386,41 +386,58 @@ def read_points(game, pattern='battle/enm_pfb*.ab', keys=None):
     return out
 
 
-def read_root_boxes(game, pattern='battle/enm_pfb*.ab'):
-    """{prefab root: {w, h, dx, dy}}: the BoxCollider2D on the root GameObject of each enemy prefab that has one (size and
-    offset in tiles; the later bundle wins, as read_enemies) → the record's `hitBox`. The root's own collider (layer ENEMY;
-    a regular enemy's is a 0.1 CircleCollider2D, `ColliderHolder` below is the ENEMY_COLLIDER body) is what the ranges
-    overlap — the RANGE layer meets only ENEMY / ALLY / NEUTRAL (Physics2DSettings) —, so a root box is the hit area of
-    any enemy: the giant bosses (giant_boss) and 冲击之械 (enemy_9027_acfnca, 1 × 2.95)."""
+def read_root_colliders(game, pattern='battle/enm_pfb*.ab'):
+    """{prefab root: {box: {w, h, dx, dy}, r, roff}} (a box, a circle or both): the enabled Collider2D on the root
+    GameObject of each enemy prefab (tiles, scaled by the root's local scale as Unity does: a box by x / y, a circle by the
+    larger of them; the later bundle wins, as read_enemies) → the record's `hitBox` (a BoxCollider2D) and `hitRadius` (a
+    CircleCollider2D's radius; `hitRadiusOff` [x, y] only for a circle off the root's centre, which build-data refuses).
+    The root's own collider (layer ENEMY) is what the ranges overlap — the RANGE layer meets only ENEMY / ALLY / NEUTRAL
+    (Physics2DSettings), the child `ColliderHolder` is the ENEMY_COLLIDER body for terrain —, so it is the hit body of
+    any enemy: a regular enemy's 0.1 circle, 魂灵涡流's (enemy_1428_lrsoul) 0.25 one, the giant bosses' boxes (giant_boss)
+    and 冲击之械's (enemy_9027_acfnca, 1 × 2.95)."""
     import aklz4  # noqa: F401
     import UnityPy
     out = {}
     for _rel, f in bundle_files(game, pattern).items():
         env = UnityPy.load(str(f))
-        boxes = [o for o in env.objects if o.type.name == 'BoxCollider2D']
-        if not boxes:
+        cols = [o for o in env.objects if o.type.name in ('BoxCollider2D', 'CircleCollider2D')]
+        if not cols:
             continue
-        name, father = {}, {}
+        name, father, scale = {}, {}, {}
         for o in env.objects:
             if o.type.name == 'GameObject':
                 name[o.path_id] = o.read_typetree().get('m_Name')
             elif o.type.name == 'Transform':
                 d = o.read_typetree()
-                father[d['m_GameObject']['m_PathID']] = d['m_Father']['m_PathID']
-        for o in boxes:
+                g = d['m_GameObject']['m_PathID']
+                father[g] = d['m_Father']['m_PathID']
+                s = d.get('m_LocalScale') or {}
+                scale[g] = (abs(s.get('x', 1)), abs(s.get('y', 1)))
+        per = {}
+        for o in cols:
             d = o.read_typetree()
             g = d['m_GameObject']['m_PathID']
             if father.get(g) != 0 or not d.get('m_Enabled', 1):
                 continue
-            size, off = d['m_Size'], d['m_Offset']
-            out[name[g]] = {'w': round(size['x'], 3), 'h': round(size['y'], 3), 'dx': round(off['x'], 3), 'dy': round(off['y'], 3)}
+            sx, sy = scale.get(g, (1, 1))
+            off = d['m_Offset']
+            if o.type.name == 'BoxCollider2D':
+                size = d['m_Size']
+                per.setdefault(name[g], {})['box'] = {'w': round(size['x'] * sx, 3), 'h': round(size['y'] * sy, 3),
+                                                    'dx': round(off['x'] * sx, 3), 'dy': round(off['y'] * sy, 3)}
+            else:
+                c = per.setdefault(name[g], {})
+                c['r'] = round(d['m_Radius'] * max(sx, sy), 3)
+                if abs(off['x']) > 1e-6 or abs(off['y']) > 1e-6:
+                    c['roff'] = [round(off['x'] * sx, 3), round(off['y'] * sy, 3)]
+        out.update(per)
     return out
 
 
 def giant_boss(tree):
     """A prefab whose root is an EnemyGiantBoss (the class with `_bossHudScale`; the client's `isGiantBoss` is true only
     there) → {sx, off}: its HP panel's scale `_bossHudScale.x` and offset `_bossHudOffset` [x, y] (tiles); its hit area is
-    the record's `hitBox` (read_root_boxes — tools/build-data.mjs stops on a giant boss without one). None for any other."""
+    the record's `hitBox` (read_root_colliders — tools/build-data.mjs stops on a giant boss without one). None for any other."""
     rootmb = next((d for gp, d, _ in tree if isinstance(d.get('_modes'), list)), None)
     s = (rootmb or {}).get('_bossHudScale')
     if not isinstance(s, dict):
@@ -1339,7 +1356,7 @@ def main():
         TOK = cached(cache, 'tokens.pkl', lambda: read_tokens(game, set(DEV)))
         SKP = cached(cache, 'skill_prefabs.pkl', lambda: read_skill_prefabs(game, {k for v in DEV.values() for k in v}))
         PTS = dict(PTS, **cached(cache, 'token_points.pkl', lambda: read_points(game, 'pkgrps/btl_pfb_tokens_*.ab', set(DEV))))
-        BOX = cached(cache, 'root_boxes.pkl', lambda: read_root_boxes(game))
+        BOX = cached(cache, 'root_colliders.pkl', lambda: read_root_colliders(game))
         return P, PR, PTS, FX, BT, TOK, SKP, BOX
     P, PR, PTS, FX, BT, TOK, SKP, BOX = reads(game, cache)
     from_other = set()   # prefab roots read from --other-game
@@ -1384,7 +1401,13 @@ def main():
         if gb:
             r['giantBoss'] = gb
         if src is P and root in BOX:
-            r['hitBox'] = BOX[root]
+            c = BOX[root]
+            if 'box' in c:
+                r['hitBox'] = c['box']
+            if 'r' in c:
+                r['hitRadius'] = c['r']
+            if 'roff' in c:
+                r['hitRadiusOff'] = c['roff']
         if PTS.get(root):
             r['points'] = PTS[root]
         pk = []
@@ -1414,7 +1437,7 @@ def main():
                        'abilities (GameObject path; emitters castEffects/hitEffects/attachEffects/inputTargetEffects/castTargetEffects '
                        'with start/end AbilityStandard.Event, oneshot, dir / slots; buffs with overrideEffectKey (fx) and their template '
                        'effects; projectiles with _mountPointType), points (Graphic mount transforms), giantBoss (an EnemyGiantBoss root: '
-                       'HP panel _bossHudScale.x / _bossHudOffset), hitBox (the root BoxCollider2D: the hit area). Written by '
+                       'HP panel _bossHudScale.x / _bossHudOffset), hitBox / hitRadius (the root BoxCollider2D / CircleCollider2D radius: the hit body). Written by '
                        'tools/local-extract/enemy_bindings.py; the render table goes to public/assets/local/fx/enemy-modes.json.',
            '$projectiles': dict(sorted(projs.items()))}
     doc.update(res)

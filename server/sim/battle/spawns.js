@@ -4,7 +4,7 @@
 // and the list compaction.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
-import { MAX_ALIVE_ENEMIES, FIELD_EDGE_INSET } from '../constants.js';
+import { MAX_ALIVE_ENEMIES, FIELD_EDGE_INSET, ENEMY_COLLIDER_RADIUS } from '../constants.js';
 import { Unit } from '../units.js';
 import { compileRoute } from '../ai.js';
 import { unitInfo } from '../snapshot.js';
@@ -129,6 +129,7 @@ export class BattleSpawns {
     e.deployed = true;
     e.blockWeight = def.blockCnt ?? 1;
     e.hitArea = def.hitArea ?? null;   // 巨型单位 hit rectangle (body.js); null = a point
+    e.colR = def.hitRadius ?? ENEMY_COLLIDER_RADIUS;   // its collider circle (body.js colliderRadius)
     e.lpr = def.lpr;
     e.mods = opts.mods ?? null;
     e.tag = opts.tag ?? null;

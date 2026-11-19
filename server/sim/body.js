@@ -2,8 +2,9 @@
 // playtest #5 item 10: "大体型的关底boss实际受击判定范围很小…原版是很大的一片区域").
 //
 // Regular units are a point with a collider: an operator's ATTACK range and a skill's attack range (the tiles a skill
-// hits or selects in) take an enemy whose collider circle (constants.js ENEMY_COLLIDER_RADIUS 0.1, the client's
-// CircleCollider2D; PRTS 作战机制 "索敌抬手等均使用碰撞箱") overlaps one of its tiles — colliderKeys / bodyInRange,
+// hits or selects in) take an enemy whose collider circle (colliderRadius: constants.js ENEMY_COLLIDER_RADIUS 0.1, the
+// client's root CircleCollider2D, or the enemy's own radius from its prefab — data `hitRadius`, 魂灵涡流 0.25; PRTS
+// 作战机制 "索敌抬手等均使用碰撞箱") overlaps one of its tiles — colliderKeys / bodyInRange,
 // maintainer decision 2026-10-17 —; a skill's AUTO-TRIGGER check of its range tiles (client `_CheckContainsPosition`) and
 // a TILE rule the client runs on the enemy's current tile (terrain, tile listeners, tile selectors, "所在格" effects; a
 // trap or mark the client selects through a range takes the collider) take the tile containing the position —
@@ -44,6 +45,16 @@ export function normHitArea(a) {
   const w = Number(a.w), h = Number(a.h), dx = Number(a.dx ?? 0), dy = Number(a.dy ?? 0);
   if (!(w > 0) || !(h > 0) || !Number.isFinite(w) || !Number.isFinite(h) || !Number.isFinite(dx) || !Number.isFinite(dy)) return null;
   return Object.freeze({ w, h, dx, dy });
+}
+
+/**
+ * The radius of a point unit's collider circle: the enemy's own (`colR`, set on spawn from its data `hitRadius` — the
+ * prefab root's CircleCollider2D where it is not the regular 0.1, tools/build-data.mjs enemyGiantBoss), else
+ * ENEMY_COLLIDER_RADIUS. docs/rules/sim.md 「적마다 다른 충돌체 반지름」.
+ * @param {any} u
+ */
+export function colliderRadius(u) {
+  return u.colR ?? ENEMY_COLLIDER_RADIUS;
 }
 
 /** The world rectangle `{ x0, x1, y0, y1 }` of a huge unit, or null for a point unit (no `hitArea`). */
@@ -95,13 +106,14 @@ export function bodyInKeys(u, keys) {
 
 /**
  * Tile keys a RANGE test sees the unit on: a huge unit its rectangle's tiles (bodyKeys); a point enemy every tile its
- * collider circle — radius ENEMY_COLLIDER_RADIUS around its position — overlaps (open: a tile the circle only touches is
- * not overlapped; one to four tiles, off-grid tiles dropped), so an enemy within 0.1 of a range tile's edge is in range.
+ * collider circle — radius colliderRadius around its position — overlaps (open: a tile the circle only touches is not
+ * overlapped; one to four tiles at 0.1 or 0.25, off-grid tiles dropped), so an enemy within its radius (0.1) of a range
+ * tile's edge is in range.
  * An ally (allies stand on their tile, never tested against an enemy-search range) gets the tile of its position.
  */
 export function colliderKeys(u) {
   if (u.hitArea || u.side === 'ally') return bodyKeys(u);
-  const rho = ENEMY_COLLIDER_RADIUS, x = u.x, y = u.y;
+  const rho = colliderRadius(u), x = u.x, y = u.y;
   const r0 = Math.max(0, Math.floor(y - rho + 0.5 + 1e-9)), r1 = Math.min(ROWS - 1, Math.ceil(y + rho - 0.5 - 1e-9));
   const c0 = Math.max(0, Math.floor(x - rho + 0.5 + 1e-9)), c1 = Math.min(COLS - 1, Math.ceil(x + rho - 0.5 - 1e-9));
   const out = [];
@@ -126,7 +138,7 @@ export function bodyInRange(u, keys) {
   const has = typeof keys.has === 'function' ? (k) => keys.has(k) : (k) => keys.includes(k);
   if (u.hitArea || u.side === 'ally') { for (const k of bodyKeys(u)) if (has(k)) return true; return false; }
   // colliderKeys without its array (kits call this per enemy on every aura tick)
-  const rho = ENEMY_COLLIDER_RADIUS, x = u.x, y = u.y;
+  const rho = colliderRadius(u), x = u.x, y = u.y;
   const r0 = Math.max(0, Math.floor(y - rho + 0.5 + 1e-9)), r1 = Math.min(ROWS - 1, Math.ceil(y + rho - 0.5 - 1e-9));
   const c0 = Math.max(0, Math.floor(x - rho + 0.5 + 1e-9)), c1 = Math.min(COLS - 1, Math.ceil(x + rho - 0.5 - 1e-9));
   for (let r = r0; r <= r1; r++) {

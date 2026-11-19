@@ -483,6 +483,8 @@ export function normalizeEnemy(key, e) {
     hpRecoveryPerSec: num(st.hpRecoveryPerSec ?? extra.hpRecoveryPerSec ?? e.hpRecoveryPerSec, 0),
     notCountInTotal: !!(e.notCountInTotal),
     hitArea: normHitArea(e.hitArea),   // huge units only (body.js); null = a point
+    // the radius of its collider circle where the prefab's is not the regular 0.1 (data `hitRadius`, body.js colliderRadius)
+    hitRadius: Number(e.hitRadius) > 0 && Number.isFinite(Number(e.hitRadius)) ? Number(e.hitRadius) : null,
     // a giant boss (data `giantBoss`: the prefab root is the client's EnemyGiantBoss, `isGiantBoss`): a 强制位移 to a tile
     // never moves it (余 S2, 黍 S3's mark, 克莱门莎 S2's cabin — docs/rules/sim.md 「거대 보스」)
     giantBoss: !!e.giantBoss,

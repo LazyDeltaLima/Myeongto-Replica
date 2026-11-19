@@ -11,7 +11,7 @@ import { makeBattle, chessRec } from './helpers/battleHarness.js';
 import * as enemiesMod from '../server/sim/content/enemies.js';
 import * as bossesMod from '../server/sim/content/bosses.js';
 import { TICK, COLS } from '../server/sim/constants.js';
-import { bodyKeys, bodyOnTile } from '../server/sim/body.js';
+import { bodyKeys, bodyOnTile, bodyInRange, colliderKeys } from '../server/sim/body.js';
 
 const quiet = { warn() {}, error() {}, info() {} };
 const ACT3 = getData({ log: quiet, season: 'act3autochess' });
@@ -344,6 +344,32 @@ test('冲击之械: hit on the rows ±1 of its column once down; counts its row 
   L3.x = b3.x - 2 + 0.06;
   runFor(h3, 0.2);
   assert.equal(alive(h3, ARMOR).length, 0, 'its hit box meets the KillArmorAura box: every 冲击之械 goes');
+});
+
+// docs/rules/sim.md 「적마다 다른 충돌체 반지름」: the prefab root's CircleCollider2D radius is the enemy's collider — the
+// extraction reads it (tools/assets/local-enemy-bindings.json `hitRadius`) and the data carries it where it is not 0.1
+test('魂灵涡流: its prefab collider circle 0.25 — in a range 0.2 past a tile edge, in a collider radius 0.25 wider', () => {
+  const SOUL = 'enemy_1428_lrsoul', REG = 'enemy_1000_gopro_2';
+  const radii = (E) => Object.entries(E).filter(([, e]) => e.hitRadius != null).map(([k, e]) => [k, e.hitRadius]);
+  assert.deepEqual(radii(E3), [[SOUL, 0.25]], 'the only root circle of the season that is not 0.1');
+  assert.deepEqual(radii(E0), [], 'none in the default season');
+  const h = bossArena(ACT3, [SOUL, REG]);
+  h.step();
+  const soul = put(h, SOUL, [4, 5]), reg = put(h, REG, [2, 5]);
+  assert.equal(soul.colR, 0.25);
+  assert.equal(reg.colR, 0.1);
+  // both 0.2 left of column 6's edge (x 5.3): the 0.25 circle reaches into column 6, the 0.1 one does not
+  soul.x = 5.3; reg.x = 5.3;
+  h.step();
+  const k = (r, c) => r * COLS + c;
+  assert.deepEqual(colliderKeys(soul), [k(4, 5), k(4, 6)]);
+  assert.deepEqual(colliderKeys(reg), [k(2, 5)]);
+  assert.ok(h.b.enemiesInKeys([k(4, 6)]).includes(soul), 'the range index files it on column 6 too');
+  assert.ok(!h.b.enemiesInKeys([k(2, 6)]).includes(reg));
+  assert.ok(bodyInRange(soul, [k(4, 6)]) && !bodyInRange(reg, [k(2, 6)]));
+  // a collider radius 0.5 around (row, 6): 0.7 to the centre — within 0.5 + 0.25, not 0.5 + 0.1
+  assert.ok(h.b.foesInColliderRadius(6, 4, 0.5).includes(soul));
+  assert.ok(!h.b.foesInColliderRadius(6, 2, 0.5).includes(reg));
 });
 
 test('假想敌：械 【洪流攻势】: 量变之械 on every passable side of the operator with the highest block count', () => {

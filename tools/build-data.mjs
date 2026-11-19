@@ -42,6 +42,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { MOUNT_POSES_FILE, shotPoses } from './assets/mount-poses.mjs';
 import { Grid, DEPLOY_REFUSED_TILES, HAND_TILES } from '../server/sim/grid.js';
 import { TRIG_SORTS } from '../server/sim/targeting.js';
+import { ENEMY_COLLIDER_RADIUS } from '../server/sim/constants.js';
 import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared/standIn.js';
 import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
@@ -2548,22 +2549,31 @@ function enemyAttrPower(ctx, key, level) {
  * root box is the hit area whatever the class: the giant bosses and 冲击之械 (`enemy_9027_acfnca`, 1 × 2.95). `w` tiles along
  * the columns (长) × `h` along the rows (宽), centred on the unit's position moved `dx` columns right and `dy` rows up (row 0
  * = the bottom) — PRTS "巨型单位：受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0" (假想敌：管 隐秘核心 "…向右偏移1.0"; user
- * playtest #5 item 10) is that box. Stops on a giant boss whose root has no box. null without the bindings table.
- * docs/rules/sim.md 「거대 보스」.
+ * playtest #5 item 10) is that box. `hitRadius`: the radius of the root's CircleCollider2D (the bindings' `hitRadius`), only
+ * where it is not the 0.1 of the regular enemies (constants.js ENEMY_COLLIDER_RADIUS, what the sim gives an enemy without
+ * one; body.js colliderRadius) — 魂灵涡流 (`enemy_1428_lrsoul`) 0.25. Stops on a giant boss whose root has no box, on a
+ * root with no collider, both a box and a circle, or a circle off its centre. null without the bindings table.
+ * docs/rules/sim.md 「거대 보스」·「적마다 다른 충돌체 반지름」.
  */
 function enemyGiantBoss(ctx, prefab, key) {
   const binds = ctx.enemyBindings;
   if (!binds) return null;
   const rec = binds[key] ?? binds[prefab];
-  const g = rec?.giantBoss, b = rec?.hitBox;
-  if (!g && !b) return null;
+  if (!rec || rec.missing) return null;
+  const g = rec.giantBoss, b = rec.hitBox, rad = rec.hitRadius;
+  const where = 'tools/assets/local-enemy-bindings.json — tools/local-extract/enemy_bindings.py (docs/rules/sim.md 「적마다 다른 충돌체 반지름」)';
+  if (!b && rad == null) throw new Error(`${key}: no root BoxCollider2D or CircleCollider2D in ${where}`);
+  if (b && rad != null) throw new Error(`${key}: both a root BoxCollider2D and a CircleCollider2D in ${where} — body.js has one body`);
+  if (rec.hitRadiusOff) throw new Error(`${key}: a root CircleCollider2D off the root's centre in ${where} — body.js centres it`);
+  if (rad != null && !(rad > 0)) throw new Error(`${key}: a root CircleCollider2D without a usable radius in ${where}`);
   const box = b && b.w > 0 && b.h > 0 && Number.isFinite(b.dx) && Number.isFinite(b.dy) ? { w: b.w, h: b.h, dx: b.dx, dy: b.dy } : null;
   if (b && !box) throw new Error(`${key}: a root BoxCollider2D without a usable size / offset in tools/assets/local-enemy-bindings.json (docs/rules/sim.md 「거대 보스」)`);
   if (g && (!box || !(g.sx > 0) || !Array.isArray(g.off))) {
     throw new Error(`${key}: a giant boss (EnemyGiantBoss root) without a root BoxCollider2D or HP panel values in `
       + 'tools/assets/local-enemy-bindings.json — tools/local-extract/enemy_bindings.py (docs/rules/sim.md 「거대 보스」)');
   }
-  return { panel: g ? { sx: g.sx, off: [g.off[0], g.off[1]] } : null, hitArea: box };
+  const hitRadius = rad != null && Math.abs(rad - ENEMY_COLLIDER_RADIUS) > 1e-9 ? rad : null;
+  return { panel: g ? { sx: g.sx, off: [g.off[0], g.off[1]] } : null, hitArea: box, hitRadius };
 }
 
 /**
@@ -3459,6 +3469,7 @@ function buildEnemies(ctx) {
       iconId: key, spine: mv(data.prefabKey) || key,
       ...(giant?.panel ? { giantBoss: giant.panel } : {}),
       ...(giant?.hitArea ? { hitArea: giant.hitArea } : {}),
+      ...(giant?.hitRadius != null ? { hitRadius: giant.hitRadius } : {}),
       ...(STATIC_BODIES.has(key) ? { staticBody: true } : {}),
       ...(ENEMY_SKILL_DEVICES[key] ? { devices: ENEMY_SKILL_DEVICES[key].map((d) => skillDevice(ctx, d, `enemy ${key}`)) } : {}),
       ...(modelScale != null && modelScale !== 1 ? { modelScale } : {}),

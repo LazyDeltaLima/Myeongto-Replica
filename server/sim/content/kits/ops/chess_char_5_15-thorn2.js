@@ -1,8 +1,8 @@
 // server/sim/content/kits/ops/chess_char_5_15-thorn2.js — 引星棘刺 (char_1039_thorn2) kit, tier 5.
 // Conventions of the tier-5 kits: ../shared/tier5.js; kit contract and rules: ../README.md.
 
-import { COLS, ALLY_COLLIDER_RADIUS, ENEMY_COLLIDER_RADIUS } from '../../../constants.js';
-import { hitRect } from '../../../body.js';
+import { COLS, ALLY_COLLIDER_RADIUS } from '../../../constants.js';
+import { hitRect, colliderRadius } from '../../../body.js';
 import { sortEnemyTargets } from '../../../targeting.js';
 import { toLocal } from '../../../dir.js';
 import {
@@ -113,7 +113,7 @@ function seaTargets(battle, z) {
   // a wide net (a huge enemy's rectangle reaches past its centre), then the exact test
   for (const e of battle.foesInRadius(cx, cy, reach + 3)) {
     const R = e.side === 'enemy' ? hitRect(e) : null;
-    if (R ? seaTouchesRect(A, R) : seaTouchesCircle(A, e.x, e.y, e.side === 'enemy' ? ENEMY_COLLIDER_RADIUS : 0)) out.add(e);
+    if (R ? seaTouchesRect(A, R) : seaTouchesCircle(A, e.x, e.y, e.side === 'enemy' ? colliderRadius(e) : 0)) out.add(e);
   }
   for (const a of battle.allies()) {
     if (!a.blocking || !a.blocking.length || a.hidden || !seaTouchesCircle(A, a.x, a.y, ALLY_COLLIDER_RADIUS)) continue;

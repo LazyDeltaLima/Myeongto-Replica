@@ -590,7 +590,8 @@ walking the ground path). `deploySeq` counts deployments (and identifies one: `s
 `aggroSeq` is the aggro order (= deploySeq, except the summons of the initial deployment, §1).
 
 **Hit areas (`body.js`, user playtest #5 item 10).** A regular enemy is a point with a 0.1 collider
-(`ENEMY_COLLIDER_RADIUS`, the client's CircleCollider2D): an operator's attack range and a skill's attack range (the tiles
+(`ENEMY_COLLIDER_RADIUS`, the client's CircleCollider2D on the prefab root; an enemy whose root circle is another size
+carries it as data `hitRadius` → `enemy.colR`, `body.js colliderRadius` — 规程's 魂灵涡流 0.25): an operator's attack range and a skill's attack range (the tiles
 a skill hits or selects in: `enemiesInKeys`, `unitsInGrid`, `bodyInRange`) take it when its circle overlaps one of their
 tiles (the client's attack search is a 2D physics overlap, PRTS 作战机制 "索敌抬手等均使用碰撞箱"; maintainer decision
 2026-10-17); a MANUAL skill's automatic cast on its rangeId tiles (client `_CheckContainsPosition`: `enemiesOnTiles`,
@@ -1631,7 +1632,8 @@ bat, blockCnt, cost, respawnTime, spRecovery, tauntLevel, massLevel, hpRecoveryP
 skillType, durationType, duration, spType, spCost, initSp, maxCharges, rangeGrid, trigger {rule, grid}, bb, description}`,
 `talents [{name, description, bb, bbStr, rangeGrid, tokenKey}]`, `raw`. Enemy: `maxHp, atk, def, res, aspd, bat,
 rangeRadius, moveSpeed, massLevel, lpr, motion, applyWay, dmgType, immune, tauntLevel, blockCnt, epResistance,
-epDamageResistance, hpRecoveryPerSec, notCountInTotal, hitArea (huge units only, §2; else null), giantBoss (an
+epDamageResistance, hpRecoveryPerSec, notCountInTotal, hitArea (huge units only, §2; else null), hitRadius (its
+collider circle where the prefab's is not 0.1; else null), giantBoss (an
 EnemyGiantBoss prefab: 余 S2 / 黍 S3 / 克莱门莎 S2 never move it), staticBody (静态刚体: never displaced, §6), tags, abilities, skills, talent, raw`. Tokens use `variants[ownerChessId]` (owner-level stats).
 `skcom_withdraw` token skills are ignored.
 Operator loadouts (DESIGN §16, DATA.md §2.2 / §14): `getChess(id, { skillIndex, moduleId })` = the def with the selected
