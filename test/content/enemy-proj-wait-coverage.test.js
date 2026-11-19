@@ -55,8 +55,9 @@ function arena(key, rec) {
   h.step();
   const e = h.spawn(key, { pos: [10, 6], routeIndex: 0, mods: { speedMul: 0 } });
   for (const pos of [[10, 8], [9, 8], [11, 8]]) h.spawn('enemy_1007_slime', { pos, routeIndex: 0, mods: { speedMul: 0 } });
+  // (one skill a mode: W's C4 of each prefab mode shares its name — the first, its first mode's, is the one cast here)
   const byName = new Map();
-  for (const a of e.mem?.ab?.list || []) if (a && a.name) byName.set(a.name.toLowerCase(), a);
+  for (const a of e.mem?.ab?.list || []) if (a && a.name && !byName.has(a.name.toLowerCase())) byName.set(a.name.toLowerCase(), a);
   return { h, e, byName };
 }
 

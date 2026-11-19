@@ -1,7 +1,7 @@
 // server/sim/content/enemies/times.js — TIMES 频次 kits (hit-count units and the enemies that create them) and their part
 // of KITS (split from content/enemies.js).
 
-import { TEA_SPLASH_RADIUS, abOf, T, hurt, areaAllies, spawnChildren } from './helpers.js';
+import { TEA_SPLASH_RADIUS, abOf, T, hurt, areaAllies, spawnChildren, mode } from './helpers.js';
 import { splashAttack, husk, skill, kitTimes, kitDeathSpawn, kitEmber } from './archetypes.js';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -37,13 +37,15 @@ function kitBlades(ab) {
       a.used = 0;
       if (cnt > 0 && atk) b.addBuff(e, { key: 'ab:blade', mods: { atkPct: atk }, persist: true, visible: true });
     },
+    // the last blade spent (enemy_dead_spawn[sfji]: `cnt` falls at each hit, ON_ABILITY_FINISH with cnt ≤ 0 ends
+    // enemy_sfji_atkup and runs SwitchMode 1, no restart — 공식 클라에서 확인 2026-11-20): the prefab's second mode Default
+    // (无断刃模式, the same attack) attaches its attack ready, so the next swing follows as this one ends (ai.js enemyMode)
     attack(c, b, e, a) {
       if (a.used >= cnt) return;
       if (++a.used < cnt) return;
-      b.removeBuff(e, 'ab:blade'); // 无断刃模式
-      a.clearCd = true;
+      b.removeBuff(e, 'ab:blade');
+      mode(b, e, 'Default', false);
     },
-    tick(b, e, a) { if (a.clearCd) { a.clearCd = false; e.atkCd = 0; } },
     death(c, b, e, a) { if (c.reason === 'killed' && key) spawnChildren(b, e, key, Math.max(1, cnt + add * a.used)); },
   }];
 }

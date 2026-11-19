@@ -1152,8 +1152,11 @@ export function setEchoForm(b, echo, form, hit = false) {
   // Modes/Depression Talents/2: MOVE_SPEED, MULTIPLIER +0.2 — until 2026-10-14 it was −20 %)
   const mods = form === 'gold' ? { aspd: T(ab, '1.attack_speed') ?? 0 } : { atkPct: T(ab, '2.atk') ?? 0, moveMul: 1 + (T(ab, '2.move_speed') ?? 0) };
   b.addBuff(echo, { key: 'boss:echoForm', persist: true, visible: true, mods });
-  // the model's form: the prefab mode Depression draws its own clip set (render/units.js FORMS), Passion the first one
+  // the model's form: the prefab mode Depression draws its own clip set (render/units.js FORMS), Passion the first one.
+  // The mode itself (its attack Attack_B; acdums_t_1: SwitchMode on the last of `hit_times_to_switch` hits, `_restartFSM`
+  // — 공식 클라에서 확인 2026-11-20) cuts the swing running and attaches the new attack ready (ai.js enemyMode)
   echo.form = form === 'dark' ? 'Depression' : null;
+  enemyMode(b, echo, echo.form);
   const at = { x: echo.x, y: echo.y, id: echo.id, kind: `echo_${form}`, form: echo.form };
   b.fx('phase', hit ? { ...at, hit: 1 } : at);
 }
@@ -1430,6 +1433,9 @@ function kitQuintus(ab, e, b, tpl) {
   }];
   const grow = (b2, e2, n) => {
     P.stage = n; P.stageAt = b2.time;
+    // the prefab's mode G1 / G2 (dslily_growup[countdown] / dslily_growup_hp_ratio: SwitchMode from the blackboard's
+    // `mode`, `_restartFSM` — 공식 클라에서 확인 2026-11-20): the swing or skill cast running is cut, the new attack is ready
+    enemyMode(b2, e2, `G${n}`);
     b2.addBuff(e2, { key: 'boss:grow', persist: true, visible: true, mods: { atkPct: T(ab, `atkup${n}.atk`) ?? 0 } });
     for (const a of skills) if (a.stage === n) a.left = a.icd;   // the new form's skills start from their initial cooldown
     b2.fx('grow', { x: e2.x, y: e2.y, id: e2.id, stage: n });
@@ -1747,6 +1753,9 @@ function kitLion(ab, e, b) {
       tick(b2, e2, a, dt) {
         if (!P.adv && e2.hpRatio <= (T(ab, 'advance.hp_ratio') ?? 0)) { // ≤50 %: DEF +100 %, RES +45, animate two
           P.adv = true;
+          // enemy_vtlionk_advance: SwitchMode 1 (S1, `_restartFSM`; 공식 클라에서 확인 2026-11-20) — the cast or swing running
+          // is cut, S1's attack is ready
+          enemyMode(b2, e2, 'S1');
           b2.addBuff(e2, { key: 'boss:advance', persist: true, visible: true, mods: { defPct: T(ab, 'advance.def') ?? 0, resFlat: T(ab, 'advance.magic_resistance') ?? 0 } });
           b2.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: 'lionAdvance' });
         }

@@ -8,7 +8,7 @@ import {
   byPriority, setForm, auraBuff, watchDeaths, unbalancedNow, shoot, mode,
 } from './helpers.js';
 import {
-  unblockable, maxTargets, onHitStatus, splashAttack, pathKeysAhead, noAirTargets, resist, nthAttackStatus, lowHpBuff,
+  unblockable, maxTargets, onHitStatus, splashAttack, pathKeysAhead, noAirTargets, resist, nthAttackStatus, lowHpBuff, lowHpMode,
   freeAllPrisoners, reborn, frontGuard, faceCrowd, unbalanced, unbalancedBleed, artsBarrier, skill, blinkForward,
 } from './archetypes.js';
 import { hypot, powi } from '../../detmath.js';
@@ -64,6 +64,10 @@ const WOLF_RANGE = 1.25, WOLF_AWE_RADIUS = 1.5, WOLF_AWE_ASPD = -50;
 /** 乌顶巨角卢鲁 【角力对决】: the operator cannot be pushed (fixed tiles) ⇒ "更多伤害" multiplier [ASSUMED]. */
 const ELK_FAIL_SCALE = 2;
 
+/** The HP ratio of the half-HP mode switches no blackboard holds (공식 클라에서 확인 2026-11-20: the talents' HpRatioToggleChecker
+ *  `_maxHpRatio`; the talent tables give these two no `hp_ratio`): W `Talents/AtkUp` → T1 at 0.5, “墓碑” `Talents/Ignite` → Ignite at 0.9. */
+const W_T1_HP = 0.5, FLKING_IGNITE_HP = 0.9;
+
 // ---------------------------------------------------------------------------------------------------------------
 // kits
 
@@ -113,8 +117,10 @@ function kitLeaderMisc(key, ab, e) {
       // 26 % / 5 s / 3×3 are PRTS's, the −50 % is the blackboard's defdown.def. A blocked attack is its plain melee hit. The
       // splash is an area selection: a 隐匿 operator is spared, the one blocking this enemy included (GitHub #97; #32
       // item 6, DESIGN §22.12). Community report #14 (0.1.2): the grenade used to be a full attack + 100 % on 4 neighbours.
-      const dd = -(T(ab, 'defdown.def') ?? 0);
-      return [lowHpBuff(T(ab, 'atkup.hp_ratio') ?? 0.5, { atkPct: T(ab, 'atkup.atk') ?? 0 }, 'ab:lowhp', 'buff:skulsr_t_1'), noAirTargets(),
+      // The half-HP buff skulsr_t_1 is a `switch_mode_restart_fsm` too: the prefab's mode Ignite (the same attacks; its
+      // Move clip Move_Ignite) with a state-machine restart (lowHpMode, 공식 클라에서 확인 2026-11-20).
+      const dd = -(T(ab, 'defdown.def') ?? 0), half = T(ab, 'atkup.hp_ratio') ?? 0.5;
+      return [lowHpBuff(half, { atkPct: T(ab, 'atkup.atk') ?? 0 }, 'ab:lowhp', 'buff:skulsr_t_1'), lowHpMode(half, 'Ignite'), noAirTargets(),
         splashAttack({ scale: SKULSR_GRENADE_SCALE, tiles: 1, fxKind: 'grenade',
           onEach: (b, e2, u) => { if (dd) b.applyStatus(u, 'defDown', { duration: SKULSR_DEFDOWN_DUR, source: e2, value: dd }); } })];
     }
@@ -134,16 +140,21 @@ function kitLeaderMisc(key, ab, e) {
       // attack's own target, ground only (the mode's trigger `_targetMotion` WALK_ONLY); below half HP (talent AtkUp →
       // mode T1, 「生命值降至一半以下时炸药包的使用数量增加」) T1's selector takes up to 3 (`_maxNum`, no `max_target` in the
       // blackboard), ground and air (MotionMask ALL). Until 2026-11-14 a 1 s fuse, a 1-tile blast and 2 targets below half
-      // [ASSUMED]; a cut cast left its charges. Its switch to mode T1 itself (`switch_mode_restart_fsm`) is not simulated.
+      // [ASSUMED]; a cut cast left its charges. The switch to T1 restarts the state machine (talent AtkUp's
+      // HpRatioToggleChecker `_maxHpRatio` 0.5 → `switch_mode_restart_fsm`, lowHpMode; 2026-11-20): the cast or swing
+      // running is cut. Each mode has its own C4 (`Modes/<mode>/Skills/C4`): the one of the mode left stands still, and
+      // T1's starts from its initial cooldown (content/enemies.js `pause`, 「모드가 꺼진 스킬의 쿨」; until 2026-11-20 one
+      // cooldown ran on through the switch).
       // The charges go on at the ability's spell, `_preDelay` 0.6 s in (`_waitForAttackEvent` 0 — `atStrike`, content/enemies.js
       // castStrikeAt; until 2026-11-20 as the cast began), none when the cast is cut before it.
       const s = ab.sk.C4;
       const fuse = s?.proj?.life > 0 ? s.proj.life : 0;
       const r = s?.bb.range_radius ?? e.base.rangeRadius;
-      const picks = (b, e2) => e2.hpRatio < 0.5 ? byPriority(e2, targetsNear(b, e2, r)).slice(0, C4_LOW_TARGETS)
+      const T1 = (e2) => e2.mode === 'T1';
+      const picks = (b, e2) => T1(e2) ? byPriority(e2, targetsNear(b, e2, r)).slice(0, C4_LOW_TARGETS)
         : byPriority(e2, targetsNear(b, e2, r).filter((u) => !u.isFlying)).slice(0, 1);
       const live = new Set();
-      const c4 = skill(s, (b, e2) => {
+      const mk = (t1) => skill(s, (b, e2) => {
         for (const t of picks(b, e2)) {
           const ch = {};
           ch.blow = () => {
@@ -157,12 +168,14 @@ function kitLeaderMisc(key, ab, e) {
           ch.h = b.after(fuse, ch.blow);
           live.add(ch);
         }
-      }, { atStrike: true, cond: (b, e2) => picks(b, e2).length > 0 });
-      if (c4) {
+      }, { atStrike: true, cond: (b, e2) => T1(e2) === t1 && picks(b, e2).length > 0 });
+      const c4s = [mk(false), mk(true)].filter(Boolean);
+      for (const [i, c4] of c4s.entries()) {
+        c4.pause = (b, e2) => T1(e2) !== (i === 1);
         c4.projAlive = () => live.size > 0;
         c4.onCut = () => { for (const ch of [...live]) ch.blow(); };
       }
-      return [c4];
+      return [...c4s, lowHpMode(W_T1_HP, 'T1')];
     }
     case 'enemy_1509_mousek': {
       // 出场时拥有能够吸收大量法术伤害的屏障，屏障存在时防御力大幅增加 (arts-only barrier + DEF while it holds)
@@ -353,7 +366,8 @@ function kitLeaderMisc(key, ab, e) {
       // its attack — PRTS “墓碑” 天赋: "自身造成的远程途径伤害的攻击倍率降低至40%" (the blackboard's atkdown.atk_scale), "未被阻挡时会
       // 进行远程攻击，对目标及其周围八格内的所有我方单位造成物理伤害，不会攻击飞行单位" ("可溅射飞行单位"); blocked, a melee hit at
       // 100 %. Until 0.1.3: a single-target hit at 100 % either way.
-      return [noAirTargets(), splashAttack({ scale: T(ab, 'atkdown.atk_scale') ?? 1, tiles: 1 }), {
+      // its talent Ignite: the prefab's mode Ignite (the same attacks) at FLKING_IGNITE_HP, restarting the state machine (lowHpMode)
+      return [lowHpMode(FLKING_IGNITE_HP, 'Ignite'), noAirTargets(), splashAttack({ scale: T(ab, 'atkdown.atk_scale') ?? 1, tiles: 1 }), {
         iv: 0.5,
         tick(b) {
           for (const u of b.allies()) {

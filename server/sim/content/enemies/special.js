@@ -22,6 +22,12 @@ import { enemyShot, shotSpeed } from '../../ai.js';
  *  damage period (s). */
 const CHIMERA_AURA_RADIUS = 1.2, CHIMERA_AURA_EVERY = 0.5;
 
+/** 萨卡兹枯朽前锋 / 辟路前锋 / “灵幛”: the period of their mode checks (공식 클라에서 확인 2026-11-20 — each mode's talent buff
+ *  enemy_lrsldr / enemy_lrnazg[switchMode][toOrig] / [toDefault], `triggerInterval` 0.5, the first one a period after its
+ *  mode attaches). */
+const ORIGINIUM_CHECK = 0.5;
+const CHIMERA_KEYS = new Set(['enemy_1425_lrcmra', 'enemy_1425_lrcmra_2']);
+
 /** 自行炮 Cannon (PRTS 高准度伦蒂尼姆城防自行炮 技能 "以攻击范围内生命上限最高的我方单位为中心，生成9格的炮击区域，6s内每0.5s对炮击
  *  区域中生命比例最高的我方单位进行攻击…(最多进行10次攻击)"; 공식 클라에서 확인 — projectile_enemy_stmgun_s: SelectorHitBehaviour
  *  `_interval` 0.5 / `_waitFirstPeriod`, `_maxHitNum` 10, life 6 s): shot interval (s), shot cap; and the delay of each shot's
@@ -45,18 +51,41 @@ const BUS_RADIUS = 0.5, BUS_DROP_SCATTER = 0.2;
 // ---------------------------------------------------------------------------------------------------------------
 // kits
 
-/** 源石污染区 (act1 m04 infection tiles). */
+/** 萨卡兹枯朽前锋 / 辟路前锋: arts attacks in the prefab's mode Originium (its Combat `_damageType` MAGICAL, Default's PHYSICAL;
+ *  공식 클라에서 확인 2026-11-20 — until then by the tile under it as each hit landed). */
 function infectionArts() {
-  return { hitOut(c, b, e) { if (c.dmg.isAttack && onTerrain(b, e, 'infection')) c.dmg.type = 'arts'; }, ...originiumMode() };
+  return { hitOut(c, b, e) { if (c.dmg.isAttack && e.mode === 'Originium') c.dmg.type = 'arts'; }, ...originiumMode() };
 }
 
 /**
- * 萨卡兹枯朽前锋 / 辟路前锋 / “灵幛”: the prefab's mode Originium while it stands on a 源石污染区 tile, the first one off it
- * (enemy_lrsldr / enemy_lrnazg[switchMode][toOrig] / [toDefault] SwitchMode; their trigger interval [추정·미조사: read here
- * as the kit's 0.25 s]).
+ * Whether unit `u` counts as on 源石 for these modes and selectors (공식 클라에서 확인 2026-11-20: they check for any of the
+ * buffs `buff_originum[tile]` — a 源石污染区 tile — `enemy_lrcmra[originum][mark]` and `enemy_bigstorm[mark]`, the last not in
+ * this mode): an infection tile, or the aura of a 孽罪 / 渎罪奇美拉 in its mode Originium (its `OrigAura`, an AuraAbility of
+ * radius CHIMERA_AURA_RADIUS on ground units of both sides, hands out that mark — an operator there holds `ab:originium`).
+ */
+function onOriginium(b, u) {
+  if (onTerrain(b, u, 'infection')) return true;
+  if (u.side === 'ally') return !!u.findBuff('ab:originium');
+  if (u.isFlying) return false;
+  for (const o of b.enemiesInRadius(u.x, u.y, CHIMERA_AURA_RADIUS, true)) if (o !== u && CHIMERA_KEYS.has(o.defId) && o.mode === 'Originium') return true;
+  return false;
+}
+
+/**
+ * 萨卡兹枯朽前锋 / 辟路前锋 / “灵幛”: the prefab's mode Originium while it is on 源石 (onOriginium), the first one off it: each
+ * mode's talent buff (enemy_lrsldr / enemy_lrnazg[switchMode][toOrig] in Default, [toDefault] in Originium) checks every
+ * ORIGINIUM_CHECK s from the moment its mode attached and switches with a state-machine restart (ai.js enemyMode). Until
+ * 2026-11-20 every 0.25 s [추정].
  */
 function originiumMode() {
-  return { iv: 0.25, tick(b, e) { mode(b, e, onTerrain(b, e, 'infection') ? 'Originium' : null); } };
+  return {
+    spawn(b, e, a) { a.next = b.time + ORIGINIUM_CHECK; },
+    tick(b, e, a) {
+      if (a.next == null || b.time + 1e-9 < a.next) return;
+      a.next += ORIGINIUM_CHECK;
+      mode(b, e, onOriginium(b, e) ? 'Originium' : null);
+    },
+  };
 }
 
 function kitChimera(ab) {
@@ -97,7 +126,8 @@ function kitNazg(ab, e) {
   return [{
     before(c, b, e2) {
       const l = targetsNear(b, e2, r);
-      if (onTerrain(b, e2, 'infection')) for (const u of b.allies()) if (!l.includes(u) && onTerrain(b, u, 'infection') && canTargetAlly(e2, u, true)) l.push(u);
+      // mode Originium: its selector Selector_p2 also takes, anywhere on the field, the ground units on 源石 (onOriginium)
+      if (e2.mode === 'Originium') for (const u of b.allies()) if (!l.includes(u) && onOriginium(b, u) && canTargetAlly(e2, u, true)) l.push(u);
       if (l.length) c.targets = byPriority(e2, l);
     },
   }, originiumMode()];

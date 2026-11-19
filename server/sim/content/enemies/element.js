@@ -17,6 +17,8 @@ import { taunt, ep, deathSpawn, deathBoom, setFloat, float, skill, kitEp, kitStu
 /** 赘生甲壳 (content/enemies/reborn.js SHELL: 微核沉积者 leaves it, 复核洋流使者 eats it). */
 const SHELL_KEY = 'trap_156_dsshell';
 
+/** 潜水员: how often its talent Swim (enemy_divman_swim, `triggerInterval` 0.2) looks for deep water — the prefab's value. */
+const DIVER_SWIM_CHECK = 0.2;
 /** 假想敌：淤困: element damage its host's burst spreads to the allies of the 4 tiles around (PRTS 假想敌：淤困 "附着对象元素爆发时
  *  …对附着对象及周围4格内的所有我方单位…造成1000同类型元素损伤"; the host itself is in its 爆发冷却). */
 const PARASITE_SPREAD = 1000;
@@ -30,16 +32,17 @@ const PARASITIC_CLIP = 1.2;
 
 function kitDeepsea(ab, { swim = false, drown = false }) {
   return [{
-    iv: 0.25,
+    iv: swim ? DIVER_SWIM_CHECK : 0.25,
     spawn(b, e) { if (swim) e.mem.immuneDrown = true; },
     tick(b, e, a, dt) {
       const wet = onTerrain(b, e, 'deepsea');
       if (swim) {
         if (wet && !a.wet) b.addBuff(e, { key: 'ab:swim', mods: { atkPct: T(ab, 'Swim.atk') ?? 0 }, flags: { stealth: true }, visible: true });
         if (!wet && a.wet) b.removeBuff(e, 'ab:swim');
-        // the prefab's mode Swim in deep water (its attack Attack_2, the same timing), the first one out of it [추정·미조사:
-        // what switches it — no buff template does — was not read; deep water is where its Swim talent holds]
-        // the view's clips follow (render/units.js FORMS 'Swim': Attack02 / Idle02 / Move02)
+        // the prefab's mode Swim in deep water (its attack Attack_2, the same timing), the first one out of it (공식 클라에서
+        // 확인 2026-11-20: talent Swim's buff enemy_divman_swim checks every DIVER_SWIM_CHECK s for the deep-water buff
+        // `buff_sea` and creates / finishes its derived buff enemy_divman_switch_mode — ATK up, `switch_mode_restart_fsm`
+        // mode 1: both ways restart the state machine); the view's clips follow (render/units.js FORMS 'Swim': Attack02 / Idle02 / Move02)
         if (wet !== !!a.wet && mode(b, e, wet ? 'Swim' : null)) setForm(b, e, wet ? 'Swim' : null);
         if (wet) b.removeBuff(e, 'terrain:deepsea');   // 免疫水蚀: drop devices.js' deep-water debuff
       }

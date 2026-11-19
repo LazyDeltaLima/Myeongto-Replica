@@ -13,6 +13,7 @@ import { TICK } from '../../server/sim/constants.js';
 import { enemyMode, attackWindup } from '../../server/sim/ai.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
+import { setEchoForm } from '../../server/sim/content/bosses.js';
 
 const E = JSON.parse(fs.readFileSync(new URL('../../data/enemies.json', import.meta.url), 'utf8'));
 const BAT = 3;
@@ -117,12 +118,12 @@ test('data: the later modes of the prefabs (attack_timing.py modes → attackAni
   assert.equal(E.enemy_1001_bigbo.attackAnim.modes, undefined, 'a prefab of one mode lists none');
 });
 
-function arena() {
+function arena(o = {}) {
   return makeBattle({
     content: 'generic', extraContent: [enemiesMod, bossesMod], seed: 7, autoFinish: false, timeLimit: 600,
     defs: { chess: { t_wall: chessRec({ id: 't_wall', profession: 'TANK', stats: { atk: 0, maxHp: 1e9, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null }) } },
     kits: { t_wall: () => ({ trait: { noAttack: true } }) },
-    units: [{ chessId: 't_wall', row: 9, col: 5 }], hooks: ['attack'], captureNoisy: true,
+    units: [{ chessId: 't_wall', row: 9, col: 5 }], hooks: ['attack'], captureNoisy: true, ...o,
   });
 }
 const put = (h, key, pos) => h.spawn(key, { pos, routeIndex: 0, mods: { speedMul: 0 } });
@@ -154,5 +155,118 @@ test('扎罗 stands up in M2: its ranged attack swings B_Attack (2 s), ready as 
   assert.ok(h.runUntil(() => e.mode === 'M2', 60), 'M2 after the 重生 (40 s)');
   assert.equal(attackWindup(e) > 0, true);
   assert.equal(E.enemy_1535_wlfmster.attackAnim.modes.M2.hit, 0.633);
+  done(h);
+});
+
+// --- the triggers of the modes whose attack is the first mode's (2026-11-20, 공식 클라에서 확인: docs/rules/sim.md
+// 「일반 공격 타이밍」 「적의 모드 전환」): what switches them and whether it restarts the state machine
+
+test('HP-ratio switches restart the state machine: 碎骨 / “墓碑” Ignite, W T1 — the swing running is cut', () => {
+  for (const [key, ratio, name] of [['enemy_1500_skulsr', E.enemy_1500_skulsr.talents.bb['atkup.hp_ratio'], 'Ignite'],
+    ['enemy_2008_flking', 0.9, 'Ignite'], ['enemy_1504_cqbw', 0.5, 'T1']]) {
+    const h = arena();
+    h.step();
+    const e = put(h, key, [9, 5]);
+    e.mem.ab.list.forEach((a) => { if (a.fire) a.left = 1e9; });   // (no skill cast in the way)
+    h.b.loseHp(e, e.s.maxHp * (1 - ratio - 0.02));
+    h.step();
+    assert.equal(e.mode ?? null, null, `${key}: still its first mode above ${ratio}`);
+    assert.ok(h.runUntil(() => !!e.swing, 10), `${key}: a swing`);
+    h.b.loseHp(e, e.s.maxHp * 0.03);
+    h.step();
+    assert.equal(e.mode, name, `${key}: ${name} at ${ratio}`);
+    assert.equal(e.swing, null, `${key}: the swing is cut (switch_mode_restart_fsm)`);
+    done(h);
+  }
+});
+
+test('W: each mode has its own C4 — T1\'s waits its initial cooldown from the switch, Default\'s stands still', () => {
+  const h = arena();
+  h.step();
+  const e = put(h, 'enemy_1504_cqbw', [9, 5]);
+  e.profile.noAttack = true;
+  const icd = E.enemy_1504_cqbw.skills.find((x) => x.prefabKey === 'C4').initCooldown;
+  const casts = [];
+  const fx = h.b.fx.bind(h.b);
+  h.b.fx = (kind, o) => { if (kind === 'enemySkill' && o.id === e.id) casts.push(h.b.time); return fx(kind, o); };
+  h.run(icd - 4);
+  const t0 = h.b.time;
+  h.b.loseHp(e, e.s.maxHp * 0.6);
+  assert.ok(h.runUntil(() => casts.length > 0, icd + 5), 'a C4');
+  assert.equal(e.mode, 'T1');
+  near(casts[0], t0 + icd, 'T1\'s C4 starts from its initial cooldown at the switch, not from the spawn', 3);
+  done(h);
+});
+
+test('沉沙: the last blade switches to Default without a restart — the next swing follows that one at once', () => {
+  const h = arena();
+  h.step();
+  const e = put(h, 'enemy_1207_sfji', [9, 5]);
+  const cnt = E.enemy_1207_sfji.talents.bb['DeadSpawn.cnt'];
+  const at = [];
+  h.b.on('attack', (c) => { if (c.attacker === e) at.push([h.b.time, e.mode ?? null]); }, { priority: -100 });
+  assert.ok(h.runUntil(() => at.length >= cnt + 2, 60));
+  assert.deepEqual(at.slice(0, cnt + 2).map((x) => x[1]), [...Array(cnt - 1).fill(null), 'Default', 'Default', 'Default']);
+  const clip = E.enemy_1207_sfji.attackAnim.dur, gap = (i) => at[i][0] - at[i - 1][0];
+  assert.ok(gap(cnt) < clip + 0.2, `the swing after the last blade follows its end: ${gap(cnt).toFixed(3)} s`);
+  assert.ok(gap(1) > clip + 0.5, `the others wait the interval: ${gap(1).toFixed(3)} s`);
+  done(h);
+});
+
+test('昆图斯 G1, 阿利斯泰尔 S1: the growth / the half-HP advance switch the prefab mode', () => {
+  const h = arena();
+  h.step();
+  const q = put(h, 'enemy_1521_dslily', [10, 8]);
+  const l = put(h, 'enemy_9032_aclionk', [11, 8]);
+  h.step();
+  assert.equal(q.mode ?? null, null);
+  assert.equal(l.mode ?? null, null);
+  h.b.loseHp(q, q.s.maxHp * (E.enemy_1521_dslily.talents.bb['growup1.hp_ratio'] + 0.01));
+  h.b.loseHp(l, l.s.maxHp * 0.51);
+  h.run(0.5);
+  assert.equal(q.mode, 'G1');
+  assert.equal(l.mode, 'S1');
+  done(h);
+});
+
+test('“余音”: its form is the prefab mode (Depression ↔ Passion), the switch cuts the swing', () => {
+  const h = arena();
+  h.step();
+  const e = put(h, 'enemy_9023_acdums', [9, 5]);
+  assert.equal(e.mode, 'Depression', 'it comes as the dark (Depression) form');
+  assert.ok(h.runUntil(() => !!e.swing, 10), 'a swing');
+  setEchoForm(h.b, e, 'gold', true);
+  assert.equal(e.mode, null, 'Passion is the first mode');
+  assert.equal(e.swing, null, 'cut (acdums_t_1: _restartFSM)');
+  done(h);
+});
+
+test('潜水员: Swim when talent Swim\'s 0.2 s check finds deep water', () => {
+  const h = arena({ flat: { rows: { 11: '##hrrrddrrfrrrrrrrf##' } } });
+  h.step();
+  const t0 = h.b.time;
+  const e = put(h, 'enemy_1158_divman', [11, 6]);
+  assert.ok(h.runUntil(() => e.mode === 'Swim', 2));
+  near(h.b.time, t0 + 0.2, 'the first check, 0.2 s after it attached', 1);
+  done(h);
+});
+
+test('萨卡兹枯朽前锋: Originium on 源石 at its 0.5 s check — an infection tile, or the aura of a chimera in Originium', () => {
+  const h = arena({ units: [], flat: { rows: { 11: '##hrrriirrfrrrrrrrf##' } } });
+  h.step();
+  const t0 = h.b.time;
+  const wet = put(h, 'enemy_1422_lrsldr', [11, 7]);
+  const dry = put(h, 'enemy_1422_lrsldr', [10, 4]);
+  assert.ok(h.runUntil(() => wet.mode === 'Originium', 2));
+  near(h.b.time, t0 + 0.5, 'the first check, 0.5 s after it attached');
+  h.run(1);
+  assert.equal(dry.mode ?? null, null, 'off 源石: Default');
+  const c = put(h, 'enemy_1425_lrcmra', [11, 5]);
+  c.x = 6; c.y = 11;                                     // on the infection tile: it activates
+  h.run(0.5);
+  assert.equal(c.mode, 'Originium', 'the chimera in Originium');
+  c.x = 4.5; c.y = 10.5;                                 // its aura (1.2) now reaches the dry one
+  h.run(1.1);
+  assert.equal(dry.mode, 'Originium', 'the chimera\'s mark counts as 源石');
   done(h);
 });

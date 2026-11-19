@@ -189,6 +189,22 @@ const lowHpBuff = (ratio, mods, key = 'ab:lowhp', fxTag = null) => ({
   },
 });
 
+/**
+ * The prefab mode `name` once HP first drops to `ratio` (공식 클라에서 확인 2026-11-20): a talent's HpRatioToggleChecker
+ * (`_maxHpRatio`, or the talent blackboard's `hp_ratio`; on while HP ratio ≤ it) toggles a buff of template
+ * `switch_mode_restart_fsm` (blackboard mode 1) — SwitchMode with a state-machine restart, so the swing or skill cast
+ * running is cut and the new mode's attack is ready (ai.js enemyMode). 碎骨 / “墓碑” `Ignite`, W `T1`. Healing back above
+ * the ratio (the checker toggles off, back to the first mode) is not modelled, as for lowHpBuff.
+ */
+const lowHpMode = (ratio, name) => ({
+  // every tick, as the checker's OnTick: an HP loss (流失) counts as damage does
+  tick(b, e, a) {
+    if (a.on || !(e.hpRatio <= ratio)) return;
+    a.on = true;
+    mode(b, e, name);
+  },
+});
+
 /** Death spawn ("被击倒后生成N个<X>"). */
 const deathSpawn = (key, cnt, extra = {}) => ({
   death(c, b, e) { if (c.reason === 'killed' && key && cnt > 0) spawnChildren(b, e, key, cnt, extra); },
@@ -816,7 +832,7 @@ const kitPolluted = (ab) => [{
 // used by the other enemy modules (content/enemies.js and content/enemies/*.js)
 export {
   stealth, unblockable, runWhenHit, blockWeight, taunt, maxTargets, ep, onHitStatus, splashAttack, pathKeysAhead,
-  noAirTargets, resist, immuneTo, nthAttackStatus, nthAttackPower, enemyAura, allyAura, lowHpBuff, deathSpawn,
+  noAirTargets, resist, immuneTo, nthAttackStatus, nthAttackPower, enemyAura, allyAura, lowHpBuff, lowHpMode, deathSpawn,
   deathBoom, refraction, setFloat, float, selfFear, freeAllPrisoners, reborn, frontGuard, faceMove, faceCrowd,
   unbalanced, unbalancedBleed, artsBarrier, husk, statue, bleed, pollution, dmgZone, skill, kitEp, kitStealth, kitTimes, kitRefraction,
   kitPrisoner, kitDeathSpawn, kitStun3, kitSelfFear, kitEmber, kitPolluted,
