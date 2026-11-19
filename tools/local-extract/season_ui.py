@@ -141,7 +141,7 @@ UPSCALED_DIR = ROOT / '.cache' / 'season-ui-upscaled'
 # the official UI face with Hangul: a Font asset of the EN client's resources.assets
 FONT_ASSETS = 'resources.assets'
 FONT_NAME = 'SourceHanSansSC-Bold'
-# the backdrop is opaque: a JPEG (a WebP of the local extracts stands for a board PNG beside it, test/render/board3d-extract)
+# the backdrop is opaque: a JPEG
 BACKDROP_JPEG = {'quality': 90, 'optimize': True}
 # the backdrop's layers over its meshes (the moving hub): transparent around the statue, its alpha kept exact
 BACKDROP_WEBP = {'quality': 90, 'alpha_quality': 100, 'method': 6}

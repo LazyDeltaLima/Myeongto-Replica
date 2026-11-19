@@ -189,18 +189,25 @@ describe('extracted board files (when a local client was extracted)', { skip: !m
     for (let i = 0; i < m.rgba.length; i += 4 * 131) assert.equal(r.rgba[i + 1], 255 - m.rgba[i + 3]);
   });
 
-  test('the WebP copies the manifest lists are on disk with their PNGs beside them', { skip: !hasFiles && 'files not extracted' }, () => {
+  test('the WebP files the manifest lists are on disk; extract.py\'s copies keep their PNGs beside them', { skip: (!hasFiles && 'files not extracted') || (!PY && 'no python3') }, () => {
+    // Only the copies of extract.py's WEBP table (run_webp) promise a PNG beside them; other extractors write WebP
+    // as their only file (chararts_extract.py's 立绘, map-previews.mjs's previews, season_ui.py's backdrop/front),
+    // so the table is read here rather than every .webp path being taken for a copy.
+    const r = spawnSync(PY, [path.join(TOOL, 'extract.py'), '--print-jobs'], { encoding: 'utf8', env: ENV });
+    assert.equal(r.status, 0, r.stderr);
+    const copies = JSON.parse(r.stdout).webp;
+    assert.ok(copies.length > 0, 'extract.py --print-jobs lists its WEBP table');
+    for (const { sub, name, mode } of copies) {
+      const e = manifest.groups[sub]?.[name];
+      if (!/\.webp$/.test(e?.path || '')) continue;  // no WebP support when it ran: the entry kept its PNG (run_webp)
+      assert.ok(existsSync(onDisk(pngOf(e.path))), `${sub}/${name}: the PNG beside the WebP copy (extract.py run_webp)`);
+      assert.equal(e.webp, mode, `${sub}/${name}: mode of the copy (extract.py WEBP)`);
+    }
     for (const [g, entries] of Object.entries(manifest.groups)) {
       for (const [n, e] of Object.entries(entries)) {
         if (!/\.webp$/.test(e?.path || '')) continue;
         assert.ok(existsSync(onDisk(e.path)), `${g}/${n}`);
-        // local patch: the 立绘 of tools/local-extract/chararts_extract.py are WebP only (no PNG, no `webp` mode —
-        // LOCAL-PATCH.md 「立绘 추출」)
-        if (g === 'chararts') continue;
-        // nor are the battlefield previews of tools/map-previews.mjs (drawn in the browser, WebP from the canvas)
-        if (g === 'stage/preview') { assert.equal(e.webp, 'lossy', `${g}/${n}: mode`); continue; }
-        assert.ok(existsSync(onDisk(pngOf(e.path))), `${g}/${n}: PNG`);
-        assert.ok(e.webp === 'lossy' || e.webp === 'lossless', `${g}/${n}: mode ${e.webp}`);
+        if (e.webp !== undefined) assert.ok(e.webp === 'lossy' || e.webp === 'lossless', `${g}/${n}: mode ${e.webp}`);
       }
     }
   });
