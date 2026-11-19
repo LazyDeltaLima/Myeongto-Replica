@@ -23,7 +23,9 @@
 //                    'keep' (KEEP_LINK) is a recommendation the player turned off (maintainer request 2026-10-13): it
 //                    reads as no link, so the strategy takes 不使用预设 too. toggleBandLink() = a tap in the 自选编队 tab's strategy grid.
 // The picks themselves stay ui/loadoutSync.js's (setDiyPicks → localStorage + room.diy); a running match takes them while
-// its briefing or strategy draft runs (server platform.js setDiy) — from the prep on a faction pick applies no preset.
+// its briefing, strategy draft or 确定自选编队 (until the seat readies) runs (server platform.js setDiy; ui/factionPick.js
+// presetPickLive) — from the prep on a faction pick applies no preset. A roster is the 12-slot 自选编队 of both seasons:
+// one saved when 盟约 had four slots keeps its slot ids, the front two of each tier (maintainer decision 2026-11-19).
 // Storage: localStorage `sp.pref.diyPresets` = { v: 3, presets, base, active, links } (each roster cleaned like the picks;
 // a v1 envelope without `base` takes the current picks as base when it showed none; v2 has no links) — one per 卫戍协议
 // season (maintainer decision 2026-11-13): the default season's under that key, another's under `diyPresets@<season>`

@@ -191,19 +191,85 @@ test('规程: a seat that leaves or goes AI 托管 is not waited for; a lone hum
   solo.m.dispose();
 });
 
-test('盟约 has the step too: nothing is fielded before it, the chosen slot after it', REAL, () => {
+// a lineup saved when 盟约 had four slots (diy1·2 of each tier): the same slot ids, the front two of each tier now
+const ACT2_FOUR = {
+  chess_char_5_diy1_a: pick('char_2027_wang', 2),
+  chess_char_5_diy2_a: pick('char_1050_chen3', 1),
+  chess_char_6_diy1_a: pick('char_1035_wisdel'),
+  chess_char_6_diy2_a: pick('char_4132_ascln'),
+};
+
+test('盟约 co-op has the step too (maintainer decision 2026-11-19): a four-slot lineup is the front slots, AI seats field none', REAL, () => {
+  const twelve = Object.keys(BASE.backups.diy.slots);
+  assert.equal(twelve.length, 12);
+  for (const id of Object.keys(ACT2_FOUR)) assert.ok(twelve.includes(id), `${id} is still a slot of 盟约's 自选编队`);
   const h = makeMatch({
     mode: 'coop', seed: 13,
     seats: [
-      { seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { chess_char_6_diy1_a: pick('char_1035_wisdel'), chess_char_6_diy4_a: pick('char_4132_ascln') } },
-      { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true },
+      { seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: ACT2_FOUR },
+      { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true, diy: { chess_char_6_diy4_a: pick('char_4182_oblvns') } },
+      { seat: 2, playerId: 'ai_2', name: 'AI2', isBot: true, connected: true },
     ],
   }).start();
+  const { m } = h;
   assert.deepEqual(h.ps('p_0').diy, {}, 'the lineup is not fielded during the briefing');
   toChoose(h);
-  assert.deepEqual(h.m.handle('p_0', { t: 'g.diyChoose', slots: ['chess_char_6_diy4_a'] }), { ok: true });
-  assert.ok(h.drive(() => h.m.phase === PHASE.PREP));
-  assert.deepEqual(Object.keys(h.ps('p_0').diy), ['chess_char_6_diy4_a']);
-  assert.equal(h.ps('p_0').diy.chess_char_6_diy4_a.charId, 'char_4132_ascln');
-  h.m.dispose();
+  h.sched.advance(150); // m.public is throttled (≤ 10/s)
+  assert.equal(pubOf(h).diyChoose.seconds, 30, 'co-op: the 30 s of the step');
+  assert.ok(pubOf(h).deadline > 0, 'co-op: timed');
+  const view = privOf(h, 'p_0').diyChoose;
+  assert.deepEqual(Object.keys(view.lineup), Object.keys(ACT2_FOUR), 'm.private: the four saved slots are the lineup');
+  assert.deepEqual(view.perTier, { 5: 2, 6: 2 });
+  assert.deepEqual(view.chosen, []);
+  assert.deepEqual(h.ps('ai_2').diyLineup, {}, 'an AI seat has no lineup');
+  assert.equal(h.ps('ai_2').diyChooseReady, true, 'an AI seat is not waited for');
+  // a preset picked on the step (the 3/3 box) replaces the lineup until the seat readies
+  const other = { ...ACT2_FOUR, chess_char_6_diy2_a: pick('char_1015_aglna2'), chess_char_6_diy5_a: pick('char_4182_oblvns') };
+  assert.deepEqual(m.handle('p_0', { t: 'g.diyChoose', slots: ['chess_char_5_diy1_a', 'chess_char_6_diy2_a'] }), { ok: true });
+  assert.deepEqual(m.setDiy('p_0', other), { ok: true }, '确定自选编队 takes a new lineup in 盟约 too');
+  assert.deepEqual(h.ps('p_0').diyChosen, ['chess_char_5_diy1_a'], 'the card whose operator changed is no longer chosen');
+  assert.deepEqual(m.handle('p_0', { t: 'g.diyChoose', slots: ['chess_char_5_diy1_a', 'chess_char_6_diy2_a', 'chess_char_6_diy5_a'] }), { ok: true });
+  m.handle('p_0', { t: 'g.diyReady' });
+  assert.equal(m.setDiy('p_0', ACT2_FOUR).error, ERR.WRONG_PHASE, 'ready: the lineup is locked');
+  assert.deepEqual(m.handle('p_1', { t: 'g.diyChoose', slots: ['chess_char_6_diy4_a'] }), { ok: true });
+  m.handle('p_1', { t: 'g.diyReady' });
+  h.sched.advance(1);
+  assert.equal(m.phase, PHASE.BATTLE_CHECK, 'both humans ready: the step ends (the AI seat is not awaited)');
+  assert.ok(h.drive(() => m.phase === PHASE.PREP));
+  assert.deepEqual(Object.keys(h.ps('p_0').diy), ['chess_char_5_diy1_a', 'chess_char_6_diy2_a', 'chess_char_6_diy5_a']);
+  assert.equal(h.ps('p_0').diy.chess_char_6_diy2_a.charId, 'char_1015_aglna2');
+  assert.deepEqual(Object.keys(h.ps('p_1').diy), ['chess_char_6_diy4_a']);
+  assert.equal(h.ps('p_1').diy.chess_char_6_diy4_a.charId, 'char_4182_oblvns');
+  assert.deepEqual(h.ps('ai_2').diy, {}, 'AI seats field no 自选 operator, as before');
+  m.dispose();
+});
+
+test('盟约 solo has the step too: untimed, it waits for 准备就绪; nothing chosen fields no 自选 operator', REAL, () => {
+  const solo = makeMatch({
+    mode: 'solo', modeId: 'mode_single_1', difficulty: 'NORMAL', seed: 7,
+    seats: [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: ACT2_FOUR }],
+  }).start();
+  assert.deepEqual(solo.ps('p_0').diy, {});
+  toChoose(solo);
+  solo.sched.advance(150);
+  assert.equal(pubOf(solo).deadline, 0);
+  assert.equal(pubOf(solo).diyChoose.seconds, 0);
+  solo.sched.advance(10 * 60_000);
+  assert.equal(solo.m.phase, PHASE.DIY_CHOOSE, 'waits for 准备就绪');
+  solo.m.handle('p_0', { t: 'g.diyChoose', slots: ['chess_char_6_diy1_a'] });
+  solo.m.handle('p_0', { t: 'g.diyReady' });
+  assert.ok(solo.drive(() => solo.m.phase === PHASE.PREP));
+  assert.deepEqual(Object.keys(solo.ps('p_0').diy), ['chess_char_6_diy1_a']);
+  solo.m.dispose();
+
+  const none = makeMatch({
+    mode: 'solo', modeId: 'mode_single_1', difficulty: 'NORMAL', seed: 7,
+    seats: [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: ACT2_FOUR }],
+  }).start();
+  toChoose(none);
+  none.m.handle('p_0', { t: 'g.diyReady' });
+  assert.ok(none.drive(() => none.m.phase === PHASE.PREP));
+  assert.deepEqual(none.ps('p_0').diy, {}, 'readied without a choice: no 自选 this match');
+  assert.equal(none.ps('p_0').diyStock.entries.size, 0, 'and no 自选 stock');
+  none.m.dispose();
 });

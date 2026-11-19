@@ -1,6 +1,8 @@
 // 自选编队 (0.2.0 DIY; research 0.2.0 §2, the owner's decisions of 2026-10-05) — pure logic of the 自选编队 tab of the
 // 干员调配 overlay (screens/diy.js), shared with the sync (ui/loadoutSync.js), the match UI (ui/gameLogic/diy.js) and
-// the tests. Four DIY slots (data/backups.json `diy.slots`: two at tier 5, two at tier 6, sold from 调度中心 level 5 / 6);
+// the tests. Twelve DIY slots (data/backups.json `diy.slots`: six at tier 5, six at tier 6, sold from 调度中心 level 5 / 6
+// — 规程's tables; 盟约's own two per tier get the other four from tools/build-data.mjs extendDefaultSeasonDiy, maintainer
+// decision 2026-11-19, so a roster saved with 盟约's four reads as the front slots of each tier);
 // each takes an operator: a 6★ the player owns outside the chess pool (`diy.ownedPool`) — any of its three skills and
 // any module of its elite form but one of another game mode (集成战略 / 生息演算: shared/diy.js isDiyModule) — or a
 // prototype (原型干员) with its locked
@@ -75,7 +77,7 @@ export function sanitizeDiyPicks(picks, data, kitted) {
 }
 
 /**
- * The four slots in data order: [{ slotId, goldenId, tier, shopLevel }].
+ * The slots in data order (twelve, six per tier): [{ slotId, goldenId, tier, shopLevel }].
  * @param {any} data
  */
 export function diySlotList(data) {

@@ -633,10 +633,11 @@ export class GameData {
   }
 
   /**
-   * 确定自选编队 (规程): the start step after the strategy draft where each player picks, from its 自选编队 (up to 12 slots,
+   * 确定自选编队 (规程, and 盟约 by the remake's own rule — tools/build-data.mjs extendDefaultSeasonDiy, maintainer decision
+   * 2026-11-19): the start step after the strategy draft where each player picks, from its 自选编队 (up to 12 slots,
    * six per tier), the 自选 operators this match fields — at most `perTier[tier]` of each tier (activity constData
    * diyCharLimitForLevels { 5: 2, 6: 2 }) — in `seconds` (autoChessData.enterStepList CUSTOM_CHECK, 30 s). Null when the
-   * season has no such step (盟约: the picks are the match's as they are). server/match/match/diyChoose.js.
+   * season's data has no such step (then the picks are the match's as they are). server/match/match/diyChoose.js.
    * @returns {{ seconds: number, perTier: Record<number, number> } | null}
    */
   get diyChoose() {

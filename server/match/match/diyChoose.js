@@ -1,6 +1,8 @@
 // server/match/match/diyChoose.js — Match methods: 确定自选编队 (PHASE.DIY_CHOOSE), the third start step of 规程 (the
 // official step list's CUSTOM_CHECK 「选择自编」, 30 s, between the strategy draft and 协议启动; the screen's header reads
-// 「3/3 确定自选编队」). GameData.diyChoose says whether the season has it: 盟约 does not, and its matches never enter it.
+// 「3/3 确定自选编队」). GameData.diyChoose says whether the season has it: 规程 by its tables, 盟约 too (a remake rule,
+// maintainer decision 2026-11-19: tools/build-data.mjs extendDefaultSeasonDiy gives 盟约's tables 规程's twelve slots, the
+// per-tier limit and this step), so every match of both enters it. A season without it keeps the picks as the match's.
 //
 // In such a season a seat's `diy` picks (room.diy) are its 自选编队 — up to six slots per tier — and the match fields
 // none of them until this step: each human seat picks at most `perTier[tier]` of each tier (activity constData

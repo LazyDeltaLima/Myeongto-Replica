@@ -30,7 +30,8 @@ export const PRESET_LIVE_PHASES = Object.freeze([PHASE.INFO_CHECK, PHASE.BAND_DR
 
 /**
  * Whether a faction pick applies its 自选 preset now: out of a match, while the briefing / strategy draft runs, or in
- * 规程's 确定自选编队 before the seat readies (m.private.diyChoose; server platform.js setDiy takes the lineup then too).
+ * 确定自选编队 (规程, and 盟约 since maintainer decision 2026-11-19) before the seat readies (m.private.diyChoose; server
+ * platform.js setDiy takes the lineup then too).
  */
 export function presetPickLive(s) {
   if (!s?.room?.inMatch) return true;

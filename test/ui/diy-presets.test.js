@@ -126,7 +126,7 @@ test('a faction pick applies its preset out of a match and in its briefing / str
   assert.equal(presetPickLive({ room: null }), true);
   for (const phase of ['INFO_CHECK', 'BAND_DRAFT']) assert.equal(presetPickLive({ room: { inMatch: true }, match: { public: { phase } } }), true, phase);
   for (const phase of ['PREP', 'COMBAT', 'SP_DRAFT', 'FINAL_ASSAULT']) assert.equal(presetPickLive({ room: { inMatch: true }, match: { public: { phase } } }), false, phase);
-  // 规程's 确定自选编队: until the seat readies (maintainer decision 2026-11-13); a season without the step never has it
+  // 确定自选编队 (规程; 盟约 too since maintainer decision 2026-11-19): until the seat readies (maintainer decision 2026-11-13)
   const choose = (diyChoose) => presetPickLive({ room: { inMatch: true }, match: { public: { phase: 'DIY_CHOOSE' }, private: { diyChoose } } });
   assert.equal(choose({ lineup: {}, chosen: [], ready: false }), true);
   assert.equal(choose({ lineup: {}, chosen: [], ready: true }), false);
@@ -379,4 +379,25 @@ test('one set of presets per season (maintainer decision 2026-11-13): 规程 has
   assert.deepEqual(P.diyPresetStore.get().presets.laterano, { [T6A]: WANG });
   assert.equal(P.diyPresetStore.get().links.band_amiya, 'laterano');
   assert.deepEqual(stored(), act2);
+});
+
+test('盟约\'s presets are twelve-slot rosters (maintainer decision 2026-11-19): one saved with the four slots reads as the front slots', () => {
+  const slots = Object.keys(data.get('backups').diy.slots);
+  assert.equal(slots.length, 12, '盟约\'s 自选编队: six slots per tier');
+  // a roster saved when 盟约 had four slots: the same slot ids, the front two of each tier
+  const four = { chess_char_5_diy1_a: WANG, chess_char_5_diy2_a: CHEN, [T6A]: WIS, [T6B]: { charId: 'char_4132_ascln', skillIndex: 0, uniEquipId: null } };
+  for (const id of Object.keys(four)) assert.ok(slots.indexOf(id) % 6 < 2, `${id} is a front slot of its tier`);
+  const got = P.parseStoredPresets({ v: 3, presets: { yan: four }, base: four, active: 'yan', links: { band_amiya: 'yan' } });
+  assert.deepEqual(got.presets.yan, four);
+  assert.deepEqual(got.base, four);
+  assert.deepEqual(got.links, { band_amiya: 'yan' });
+  // the slots beyond the old four are kept, shown and applied like the others
+  const six = { ...four, chess_char_5_diy4_a: { charId: 'char_1052_kalts2', skillIndex: 0, uniEquipId: null }, chess_char_6_diy6_a: { charId: 'char_1015_aglna2', skillIndex: 0, uniEquipId: null } };
+  P.selectPreset('yan');
+  setDiyPicks(six);
+  assert.deepEqual(stored().presets.yan, six, 'the faction\'s roster keeps diy3–6');
+  P.selectPreset(null);
+  assert.deepEqual(loadoutStore.get().diy, {});
+  assert.deepEqual(P.applyFactionPreset('yan', { inMatch: true })?.factionId, 'yan');
+  assert.deepEqual(loadoutStore.get().diy, six, 'applied with all its slots');
 });
