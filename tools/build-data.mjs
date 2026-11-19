@@ -2538,27 +2538,32 @@ function enemyAttrPower(ctx, key, level) {
 }
 
 /**
- * Giant bosses (巨型单位) → enemies.json `giantBoss` { sx, off } and `hitArea` { w, h, dx, dy }: an enemy whose prefab root
- * is the client's EnemyGiantBoss — its `isGiantBoss` is true, which keeps a 强制位移 to a tile (ForceSetToTilePosition:
- * 余 S2, 黍 S3's mark) from moving it — read by tools/local-extract/enemy_bindings.py (tools/assets/local-enemy-bindings.json
- * `giantBoss`; a season `_2` copy with the same prefab shares it). `sx` / `off` are its HP panel's `_bossHudScale.x` and
- * `_bossHudOffset` [x, y] in tiles (render/hud-bars.js giantBossOf); `hitArea` its root BoxCollider2D (body.js): `w` tiles
- * along the columns (长) × `h` along the rows (宽), centred on the unit's position moved `dx` columns right and `dy` rows up
- * (row 0 = the bottom) — PRTS "巨型单位：受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0" (假想敌：管 隐秘核心 "…向右偏移1.0";
- * user playtest #5 item 10) is that box. Stops on a giant boss whose root has no box. null without the bindings table.
+ * Giant bosses (巨型单位) → enemies.json `giantBoss` { sx, off }, and every enemy's hit box → `hitArea` { w, h, dx, dy }, both
+ * read from the prefab root by tools/local-extract/enemy_bindings.py (tools/assets/local-enemy-bindings.json; a season `_2`
+ * copy with the same prefab shares them). `giantBoss`: the root is the client's EnemyGiantBoss — its `isGiantBoss` is true,
+ * which keeps a 强制位移 to a tile (ForceSetToTilePosition: 余 S2, 黍 S3's mark) from moving it; `sx` / `off` are its HP
+ * panel's `_bossHudScale.x` and `_bossHudOffset` [x, y] in tiles (render/hud-bars.js giantBossOf). `hitArea` (`hitBox`):
+ * the root's BoxCollider2D (body.js), on any enemy that has one — the root's own collider on the ENEMY layer is what every
+ * range overlaps (a regular enemy's is the 0.1 circle; the client's RANGE layer meets only ENEMY / ALLY / NEUTRAL), so a
+ * root box is the hit area whatever the class: the giant bosses and 冲击之械 (`enemy_9027_acfnca`, 1 × 2.95). `w` tiles along
+ * the columns (长) × `h` along the rows (宽), centred on the unit's position moved `dx` columns right and `dy` rows up (row 0
+ * = the bottom) — PRTS "巨型单位：受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0" (假想敌：管 隐秘核心 "…向右偏移1.0"; user
+ * playtest #5 item 10) is that box. Stops on a giant boss whose root has no box. null without the bindings table.
  * docs/rules/sim.md 「거대 보스」.
  */
 function enemyGiantBoss(ctx, prefab, key) {
   const binds = ctx.enemyBindings;
   if (!binds) return null;
-  const g = (binds[key] ?? binds[prefab])?.giantBoss;
-  if (!g) return null;
-  const b = g.box;
-  if (!b || !(b.w > 0) || !(b.h > 0) || !Number.isFinite(b.dx) || !Number.isFinite(b.dy) || !(g.sx > 0) || !Array.isArray(g.off)) {
+  const rec = binds[key] ?? binds[prefab];
+  const g = rec?.giantBoss, b = rec?.hitBox;
+  if (!g && !b) return null;
+  const box = b && b.w > 0 && b.h > 0 && Number.isFinite(b.dx) && Number.isFinite(b.dy) ? { w: b.w, h: b.h, dx: b.dx, dy: b.dy } : null;
+  if (b && !box) throw new Error(`${key}: a root BoxCollider2D without a usable size / offset in tools/assets/local-enemy-bindings.json (docs/rules/sim.md 「거대 보스」)`);
+  if (g && (!box || !(g.sx > 0) || !Array.isArray(g.off))) {
     throw new Error(`${key}: a giant boss (EnemyGiantBoss root) without a root BoxCollider2D or HP panel values in `
       + 'tools/assets/local-enemy-bindings.json — tools/local-extract/enemy_bindings.py (docs/rules/sim.md 「거대 보스」)');
   }
-  return { panel: { sx: g.sx, off: [g.off[0], g.off[1]] }, hitArea: { w: b.w, h: b.h, dx: b.dx, dy: b.dy } };
+  return { panel: g ? { sx: g.sx, off: [g.off[0], g.off[1]] } : null, hitArea: box };
 }
 
 /**
@@ -3452,7 +3457,8 @@ function buildEnemies(ctx) {
       inactiveIn: inactiveIn.get(key) || [],
       seasonOverride: override ? Object.keys(definedFields(override)) : null,
       iconId: key, spine: mv(data.prefabKey) || key,
-      ...(giant ? { giantBoss: giant.panel, hitArea: giant.hitArea } : {}),
+      ...(giant?.panel ? { giantBoss: giant.panel } : {}),
+      ...(giant?.hitArea ? { hitArea: giant.hitArea } : {}),
       ...(STATIC_BODIES.has(key) ? { staticBody: true } : {}),
       ...(ENEMY_SKILL_DEVICES[key] ? { devices: ENEMY_SKILL_DEVICES[key].map((d) => skillDevice(ctx, d, `enemy ${key}`)) } : {}),
       ...(modelScale != null && modelScale !== 1 ? { modelScale } : {}),

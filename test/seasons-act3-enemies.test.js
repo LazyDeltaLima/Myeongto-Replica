@@ -296,6 +296,56 @@ test('假想敌：械 隐秘核心: bouncing shot, 冲击之械 at once, launche
   assert.ok(boss.stats.attacks >= 1 && shots.includes(w) && shots.includes(w2), 'the shot bounced to the other operator');
 });
 
+// 冲击之械's prefab boxes (docs/rules/sim.md 「규정 적·보스」 가상적: 기계): its root BoxCollider2D 1 × 2.95 is its hit area
+// (data `hitArea`, read by tools/local-extract/enemy_bindings.py); AuraCheck 2.95 × 0.9 down 0.5 counts the operators of its
+// row and the one below once their 0.25 collider meets it; FalldownImpl's selector 2.95 × 1 hits on its own row only; the
+// hidden 械's KillArmorAura 2.95 × 2.95 up 1 meets its hit box once it is pushed 0.05 back from where it was born.
+/** The hidden 械 on m01 with operators `walls`; its 冲击之械 come down at the `fallN`-th operator counted (its own: 5). */
+function armorField(walls, fallN = null) {
+  const armor = fallN == null ? E3[ARMOR] : { ...E3[ARMOR], talents: { ...E3[ARMOR].talents, bb: { ...E3[ARMOR].talents.bb, 'Falldown.max_valid_stack_cnt': fallN } } };
+  const h = bossArena(ACT3, [FNC2, ARMOR, PART], {
+    stage: M01, sharedBoss: pool(1e7), units: walls.map(([chessId, row, col]) => ({ chessId, row, col })),
+    defs: { chess: Object.fromEntries(walls.map(([k]) => [k, WALL(k)])), enemies: { [FNC2]: E3[FNC2], [ARMOR]: armor, [PART]: E3[PART] } },
+    kits: Object.fromEntries(walls.map(([k]) => [k, NOATK])),
+    setup(b) { b.opts.waveTemplate = FNC_TPL; },
+  });
+  h.step();
+  const boss = h.spawn(FNC2, { pos: [3, 10], routeIndex: 0, tag: 'boss' });
+  const [L] = alive(h, ARMOR).sort((p, q) => p.x - q.x);
+  return { h, boss, L };
+}
+
+test('冲击之械: hit on the rows ±1 of its column once down; counts its row and the one below; 砸下 on its own row; KillArmorAura 0.05 back', () => {
+  assert.deepEqual(E3[ARMOR].hitArea, { w: 1, h: 2.95, dx: 0, dy: 0 }, 'its prefab root box');
+  // two operators on row 3 (below its row 4) ahead of the left one, a count of 2 to come down: the second (column 4)
+  // meets AuraCheck 1.725 columns before it is reached, so it comes down there — no operator on row 4 for its 砸下
+  // (w1 on row 3 next to it is not on its row)
+  const { h, L } = armorField([['w1', 3, 7], ['w2', 3, 4]], 2);
+  const slams = [];
+  h.b.on('hit', ({ source, target }) => { if (source === L) slams.push(target.defId ?? target.chessId); });
+  h.runUntil(() => L.mem.fnc.state === 'down', 40);
+  assert.ok(L.x > 5 && L.x <= 6 + 1e-9, `down as the second is counted, 1.725 columns ahead (${L.x})`);
+  assert.deepEqual(slams, [], '砸下: nobody on its own row');
+  const r = Math.round(L.y), c = Math.round(L.x);
+  for (const [dr, on] of [[-1, true], [0, true], [1, true], [-2, false], [2, false]]) assert.equal(bodyOnTile(L, r + dr, c), on, `tile (${r + dr}, ${c})`);
+  assert.equal(bodyOnTile(L, r, c + 1), false, 'one column wide');
+  assert.ok(!L.s.flags.untargetable, 'hittable once down');
+
+  // the same two on row 5 (above): not counted — it flies on to past the last one ahead (rows ±1 of its hit box)
+  const { h: h2, L: L2 } = armorField([['w1', 5, 7], ['w2', 5, 4]], 2);
+  h2.runUntil(() => L2.mem.fnc.state === 'down', 40);
+  assert.ok(Math.abs(L2.x - 4) < 1e-6, `row 5: down on the column of the last operator ahead (${L2.x})`);
+
+  // KillArmorAura: born at column 8, two from the boss — 0.025 clear of its box; 0.06 back, it meets it
+  const { h: h3, boss: b3, L: L3 } = armorField([['w1', 5, 4]]);
+  assert.equal(L3.x, b3.x - 2);
+  runFor(h3, 0.5);
+  assert.equal(alive(h3, ARMOR).length, 2, 'two columns away: clear');
+  L3.x = b3.x - 2 + 0.06;
+  runFor(h3, 0.2);
+  assert.equal(alive(h3, ARMOR).length, 0, 'its hit box meets the KillArmorAura box: every 冲击之械 goes');
+});
+
 test('假想敌：械 【洪流攻势】: 量变之械 on every passable side of the operator with the highest block count', () => {
   // t_wall (block 3) on (4, 4): its sides (3, 4) and (5, 4) are ground, (4, 3) / (4, 5) are not; t_wall2 blocks 3 too but is listed later
   const { h, boss } = machineField(FNC, { walls: [['t_wall', 4, 4]] });

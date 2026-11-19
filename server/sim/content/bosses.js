@@ -65,7 +65,7 @@
 //   boss_7 “萨米的意志”      冰凌 (its normal attack) runs down a whole column from the stage's top row, tile by tile
 //                            (each tile's ally hit 1 s after the ice reaches it); 自然涌动 stun + arts DoT; <50 %: damage taken
 //                            ×(1−0.6), 2 targets; Doom at 600 s (LP −30). Targets via fairOrder (two players alternate).
-// The huge leaders (SELF_BOUND: 胄 ×2, 管 ×2, 昆图斯, 阿利斯泰尔, 萨米的意志 — the 巨型单位 with a data `hitArea`) are
+// The huge leaders (SELF_BOUND: 胄 ×2, 管 ×2, 昆图斯, 阿利斯泰尔, 萨米的意志 — the 巨型单位 of the default season's data) are
 // 自缚 + 无法被阻挡 (PRTS 天赋): a persistent noMove + unblockable buff from spawn, so they never walk their route.
 // Every leader (tag boss) ignores 侵蚀 gauge damage ("最终攻势中，敌方领袖不会受到侵蚀损伤").
 // An airborne (起飞) operator is no selection of a ground leader or part (对地规避: canTargetAlly, the damage pipeline,
@@ -92,6 +92,7 @@ import {
   castStrikeAt,
 } from './enemies.js';
 import { hypot, powi } from '../detmath.js';
+import { hitRect, bodyInRadius } from '../body.js';
 import { effectRecord } from './support/index.js';
 import { isNormalDamage } from '../damage.js';
 import { seasonFeature } from '../../../shared/seasons.js';
@@ -200,7 +201,8 @@ const SPRING_COMBO_HITS = 10, SPRING_COMBO_GAP = 0.1;
  * 不可阻挡", 假想敌：管 (+ 隐秘核心) / 盐风主教昆图斯 / 阿利斯泰尔，帝国余晖 / “萨米的意志” "自缚 … 无法被阻挡"). 自缚 (PRTS
  * 异常效果 UNMOVABLE_PRIVATE) = 无法移动, like 束缚 but never recognised as 束缚: flag noMove, not bind. They stand where
  * they spawn whatever their route says (the official routes walk to a goal; only the talent holds them), so their
- * hit area (body.js) stays on the pipe block. These are exactly the enemies with a data `hitArea`.
+ * hit area (body.js) stays on the pipe block. These are exactly the default season's enemies with a data `hitArea`
+ * (规程's 械 / 茧 are held by their own talents, its 冲击之械 by its kit).
  */
 export const SELF_BOUND = Object.freeze([
   'enemy_9013_acstmk', 'enemy_9013_acstmk_2', 'enemy_9021_acduml', 'enemy_9021_acduml_2', 'enemy_1521_dslily',
@@ -2056,17 +2058,45 @@ const FNC_BRANCH = Object.freeze({ L: 'left_acfncb', R: 'right_acfncb' });
 const FNC_FIELD = 99;
 /** projectile_enemy_acfnc_2: bounces fly `_speedAfterFirstReach` 4, × `_atkScaleRatePerBounce` 0.8 each. */
 const FNC_BOUNCE_SPEED = 4, FNC_BOUNCE_FALLOFF = 0.8;
-/** projectile_enemy_acfnca (【威光冲击】's area): a laser from one 冲击之械 to the other, `_laserWidth` 2.9. */
+/**
+ * projectile_enemy_acfnca (【威光冲击】's area): a laser from one 冲击之械 to the other — LaserHitBehaviour's box, `_laserWidth`
+ * 2.9 wide, from the caster's position to the projectile on the other one (AttachToTarget `_immediatelyReach`), met by an
+ * operator's 0.25 collider (ALLY_COLLIDER_RADIUS).
+ */
 const FNC_LASER_HALF = 2.9 / 2;
 /** acfnca[buff_executor] / [fastest_executor] / [falldown-trigger] / [no-char-executor] check every 0.25 / 0.5 s. */
 const FNC_FALL_CHECK = 0.25, FNC_AHEAD_CHECK = 0.5;
 /**
- * [추정·CN] ranges the prefabs leave to the client's code: the rows a flying 冲击之械 counts operators on (AuraCheck,
- * HasCharacterInCertainDirection — taken as the laser's band, its row ± 1), the operator its 砸下 hits (FalldownImpl's
- * selector names no range: the nearest within one tile), how close it must come to the hidden 械 for KillArmorAura
- * (one tile — it spawns two away) and the bounce pick (RANDOM, no radius given: the whole field).
+ * The range boxes of the CN prefabs (PhysicsRange BoxCollider2D, tiles; `dy` rows up, as data `hitArea`): a RANGE-layer box
+ * meets the ENEMY / ALLY layers only (the client's Physics2D layer matrix) — an operator's 0.25 collider
+ * (ALLY_COLLIDER_RADIUS), a 冲击之械's root box (its data `hitArea` 1 × 2.95). AuraCheck (MoveMode Talents/Falldown, the
+ * operators a flying 冲击之械 counts, acfnca[pass-cnt]) 2.95 × 0.9 down 0.5 — its own row and the one below; FalldownImpl's
+ * selector (the operator its 砸下 hits, `_maxNum` 1) 2.95 × 1 — its own row; the hidden 械's KillArmorAura (CommonAbilities,
+ * SingleIdTargetValidator enemy_9027_acfnca → acfnc[kill-too-close-armor]) 2.95 × 2.95 up 1 — a 冲击之械 born two columns
+ * away stays 0.025 clear of it, one pushed back 0.05 meets it.
  */
-const FNC_BAND = 1, FNC_SLAM_TILES = 1, FNC_TOUCH = 1;
+const FNC_PASS_BOX = Object.freeze({ w: 2.95, h: 0.9, dx: 0, dy: -0.5 });
+const FNC_SLAM_BOX = Object.freeze({ w: 2.95, h: 1, dx: 0, dy: 0 });
+const FNC_KILL_BOX = Object.freeze({ w: 2.95, h: 2.95, dx: 0, dy: 1 });
+/** Does a range box `box` on unit `o` meet operator `u`'s 0.25 collider? */
+const fncBoxMeets = (o, box, u) => bodyInRadius({ x: o.x, y: o.y, hitArea: box }, u.x, u.y, ALLY_COLLIDER_RADIUS);
+/** Does the hidden 械 `boss`'s KillArmorAura box overlap 冲击之械 `o`'s hit box (its data `hitArea`; a point without one)? */
+function fncKillTouch(boss, o) {
+  const A = hitRect({ x: boss.x, y: boss.y, hitArea: FNC_KILL_BOX }), B = hitRect(o) ?? { x0: o.x, x1: o.x, y0: o.y, y1: o.y };
+  return A.x0 < B.x1 && B.x0 < A.x1 && A.y0 < B.y1 && B.y0 < A.y1;
+}
+/** Distance from (px, py) to the laser box from (ax, ay) to (bx, by), `half` wide each side (0 inside it). */
+function laserBoxDist(px, py, ax, ay, bx, by, half) {
+  const L = hypot(bx - ax, by - ay);
+  if (!(L > 1e-9)) return Math.max(0, hypot(px - ax, py - ay) - half);
+  const ux = (bx - ax) / L, uy = (by - ay) / L, qx = px - ax, qy = py - ay;
+  const t = qx * ux + qy * uy, n = Math.abs(qy * ux - qx * uy);
+  return hypot(Math.max(0, -t, t - L), Math.max(0, n - half));
+}
+// [추정·CN] what the CN client's code decides: the rows HasCharacterInCertainDirection looks along (`_considerLocateRange`, a
+// CN-only field — read as the tiles of its EntityLocateRange, which is the root's own colliders: its hit box, rows ± 1), the
+// operator its 砸下 hits among those in the selector box (the nearest) and the bounce pick (RANDOM, no radius given: the
+// whole field).
 
 /**
  * 假想敌：械. Self-bound (CommonAbilities/Unmovable: UNMOVABLE 束缚 + BLOCK_FREE + UNBALANCE_IMMUNE), it shoots one ground
@@ -2207,8 +2237,8 @@ function kitMachine(ab, e, b, tpl) {
       fire(b2, e2) { if (gRe) gRe.spend(e2); atSpell(b2, e2, resummon, () => summonArmor(b2, e2, true)); },   // 【衰颓与复兴】 (A_Skill_2 has no event: its end)
     },
     hidden && {
-      tick(b2, e2) { // KillArmorAura: a 冲击之械 that reaches it → every 冲击之械 goes, the boss back to Default
-        if (!mine(b2).some((o) => o.mem.fnc.state !== 'hover' && Math.abs(o.x - e2.x) <= FNC_TOUCH + 1e-9 && Math.abs(o.y - e2.y) <= FNC_BAND + 0.5)) return;
+      tick(b2, e2) { // KillArmorAura: a 冲击之械 whose hit box meets its box → every 冲击之械 goes, the boss back to Default
+        if (!mine(b2).some((o) => fncKillTouch(e2, o))) return;
         killArmors(b2);
         P.armorOn = false;
         enemyMode(b2, e2, null);
@@ -2234,11 +2264,11 @@ function kitArmor(ab, e) {
   const slam = ab.sk.FalldownImpl, bound = ab.sk.Bound;
   const F = () => e.mem.fnc || { side: 1, state: 'hover' };
   const P = { passed: new Set(), triggerX: null, aheadCheck: 0, fallCheck: 0, sawAhead: false, acc: 0, pending: 0, laser: null };
-  const band = (u) => Math.abs(u.tileR - Math.round(e.y)) <= FNC_BAND;
-  const ops = (b2) => b2.allies().filter((u) => u.alive && u.deployed && u.kind === 'op' && band(u));
-  const ahead = (b2, self) => { // HasCharacterInCertainDirection: an operator further along its way (its own column with `_includeSelfPos`)
-    const c = Math.round(e.x), s = F().side;
-    return ops(b2).some((u) => (self ? (u.tileC - c) * s >= 0 : (u.tileC - c) * s > 0));
+  const ops = (b2) => b2.allies().filter((u) => u.alive && u.deployed && u.kind === 'op');
+  const ahead = (b2, self) => { // HasCharacterInCertainDirection: an operator further along its way on the rows of its hit box (its own column with `_includeSelfPos`)
+    const c = Math.round(e.x), s = F().side, R = hitRect(e);
+    const onRows = (u) => (R ? u.tileR + 0.5 > R.y0 && u.tileR - 0.5 < R.y1 : u.tileR === Math.round(e.y));
+    return ops(b2).some((u) => onRows(u) && (self ? (u.tileC - c) * s >= 0 : (u.tileC - c) * s > 0));
   };
   const fall = (b2, e2) => { // FalldownImpl
     const f = F();
@@ -2247,7 +2277,8 @@ function kitArmor(ab, e) {
     b2.removeBuff(e2, 'boss:armorFly');
     enemyMode(b2, e2, 'AfterFalldown');
     let best = null, bd = Infinity;
-    for (const u of areaAlliesInTiles(b2, e2, Math.round(e2.y), Math.round(e2.x), 'box', FNC_SLAM_TILES)) {
+    for (const u of b2.allies()) {
+      if (!u.alive || !u.deployed || !areaSelectable(e2, u) || !fncBoxMeets(e2, FNC_SLAM_BOX, u)) continue;
       const d = hypot(u.x - e2.x, u.y - e2.y);
       if (d < bd) { bd = d; best = u; }
     }
@@ -2279,7 +2310,7 @@ function kitArmor(ab, e) {
       tick(b2, e2, a, dt) {
         const f = F();
         if (f.state === 'fly' && canCast(e2, false, b2)) {
-          for (const u of ops(b2)) if (Math.abs(u.x - e2.x) <= 0.5) P.passed.add(u);      // AuraCheck, once per operator
+          for (const u of ops(b2)) if (fncBoxMeets(e2, FNC_PASS_BOX, u)) P.passed.add(u);   // AuraCheck, once per operator
           for (const u of [...P.passed]) if (!u.alive || !u.deployed) P.passed.delete(u);   // its pass-cnt finishes with it
           const to = f.end || [Math.round(e2.y), e2.x];
           const reached = stepToward(e2, to[1], e2.y, e2.s.moveSpeed * MOVE_SCALE * dt);
@@ -2306,7 +2337,7 @@ function kitArmor(ab, e) {
         if (!o) return;
         if (!o.alive || !isFncArmor(o)) { P.laser = null; return; }   // `_stopIfTargetDead`
         for (const u of b2.allies()) {
-          if (!u.alive || !u.deployed || !areaSelectable(e2, u) || segDist(u.x, u.y, e2.x, e2.y, o.x, o.y) > FNC_LASER_HALF) continue;
+          if (!u.alive || !u.deployed || !areaSelectable(e2, u) || laserBoxDist(u.x, u.y, e2.x, e2.y, o.x, o.y, FNC_LASER_HALF) > ALLY_COLLIDER_RADIUS + 1e-9) continue;
           b2.addBuff(u, { key: 'boss:acfncaArea', duration: 0.15, refresh: 'replace', visible: true, mods: { aspd: bound ? bound.bb.attack_speed ?? 0 : 0 } });
         }
         if ((a.linkAt ?? -Infinity) <= b2.time - 1 + 1e-9) { a.linkAt = b2.time; b2.fx('link', { x: e2.x, y: e2.y, from: e2.id, to: o.id, kind: 'acfncaLaser', dur: 1 }); }

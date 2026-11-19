@@ -599,8 +599,8 @@ burning or snowy ground, tile selectors, "所在格"; a trap or mark the client 
 琳琅诗怀雅's bomb, 克莱门莎 S3, 望's stones — takes the collider) take the tile of its position
 (`roundHalfEven(y)`, `roundHalfEven(x)` — PRTS 作战机制 "四舍六入五成双"; `Math.round` would take 2.5 to 3); a radius takes
 its position, except the radii PRTS marks 碰撞判定 (`foesInColliderRadius`: 蕾缪安's shells, 克莱门莎 S2's splash) (DESIGN §3). A huge enemy (巨型单位:
-`enemy.hitArea` from data/enemies.json `hitArea` — 假想敌：胄 / 管 / 盐风主教昆图斯 / 阿利斯泰尔 / “萨米的意志”; 规程 adds 假想敌：械 / 茧 — PRTS
-"受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0": the root BoxCollider2D of its EnemyGiantBoss prefab) is hit anywhere on a rectangle `w` × `h` tiles centred on its position
+`enemy.hitArea` from data/enemies.json `hitArea` — 假想敌：胄 / 管 / 盐风主教昆图斯 / 阿利斯泰尔 / “萨米的意志”; 规程 adds 假想敌：械 / 茧 and 冲击之械 — PRTS
+"受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0": the root BoxCollider2D of its prefab) is hit anywhere on a rectangle `w` × `h` tiles centred on its position
 moved `dx` columns right / `dy` rows up: it occupies every tile the rectangle overlaps (`bodyKeys` — 5 × 3 tiles; PRTS
 作战机制 "巨型BOSS单位的每一个占据的格子都可以让其本身通过格子判定"), and radius rules measure to the rectangle (`bodyDist`, 0
 inside) [ASSUMED: PRTS 作战机制 calls collider tests the most common one] — except **splash around a struck / marked
@@ -609,7 +609,7 @@ every enemy, a huge one too, by its position (the engine's profession splash and
 centred on an enemy — 焰影苇草 S3's 灼痕 burst, 新约能天使 火力电台, 仇白 S1 留羽). Its position stays its 判定中心 (projectiles fly to it; its own
 attacks, and splash centred on it, measure from it); body size plays no part in blocking or movement: every huge leader is 自缚 + 无法被阻挡 (PRTS 天赋; content/bosses.js
 `SELF_BOUND` gives it a persistent `noMove` + `unblockable` buff at spawn — it stands where it spawns, its route is never
-walked, so the rectangle stays on the pipe block). Content tests enemies only through the engine
+walked, so the rectangle stays on the pipe block; 冲击之械 flies, held or moved by its kit). Content tests enemies only through the engine
 queries above or `body.js` (`bodyInKeys`, `bodyOnTile`, `bodyInRadius`, `bodyDist`, `bodyTileReach`; wave-B modules via
 `support/index.js` `onKeys` / `inRange`), never `rangeKeySet.has(tileKey(enemy))`; distance-scaled numbers (farther
 targets take more damage, pull strength), movement, pathing, terrain under the enemy, tile-entry tracking, placement

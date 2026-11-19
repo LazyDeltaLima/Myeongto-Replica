@@ -10,7 +10,7 @@
 // rounded half to even (detmath roundHalfEven; PRTS 作战机制 "受击方坐标经round函数取整(四舍六入五成双)得到其所属格
 // 坐标"), bodyKeys / bodyInKeys / bodyOnTile —; a radius takes the
 // position (DESIGN §3). Huge units (巨型单位 — enemy data `hitArea`, tools/build-data.mjs
-// enemyGiantBoss: the root BoxCollider2D of an EnemyGiantBoss prefab; PRTS "巨型单位：受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0") are hit anywhere on a rectangle
+// enemyGiantBoss: the root BoxCollider2D of an enemy prefab — the EnemyGiantBoss ones and 冲击之械; PRTS "巨型单位：受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0") are hit anywhere on a rectangle
 // `w` tiles along the columns × `h` along the rows, centred on their position moved `dx` columns right and `dy` rows
 // up:
 //   * grid ranges / tile rules: the unit occupies every tile its rectangle overlaps (the rectangle is its collider —
@@ -25,7 +25,8 @@
 // The unit's own position stays its 判定中心: projectiles fly to it, its own attacks and radii measure from it, and it
 // is the centre of splash on it (PRTS 分支特性信息: 投掷物会抵达目标的判定中心…巨型单位的模型中心具有一定偏移). Body size
 // plays no part in blocking or movement — every huge unit here is 自缚 + 无法被阻挡 (PRTS 天赋; content/bosses.js
-// SELF_BOUND: persistent noMove + unblockable from spawn). Also by position: movement, pathing and terrain on the
+// SELF_BOUND: persistent noMove + unblockable from spawn) or 冲击之械, a flying unit its kit holds or moves itself
+// (content/bosses.js kitArmor; never blocked: it flies). Also by position: movement, pathing and terrain on the
 // enemy's tile, tile-entry tracking (雪境 tiles), placement heuristics and distance-scaled numbers, and the range keys
 // taken from blocked enemies (a huge unit is never blocked).
 // Pure functions of (x, y, hitArea); no battle state — also used for the client's picking (render/pick.js mirrors

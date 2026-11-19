@@ -19,17 +19,22 @@ const done = (h) => { checkInvariants(h.b); assert.equal(h.b.errors.length, 0, J
 /** A giant boss record that stands still and does no harm (its own data otherwise: `giantBoss`, `hitArea`, weight 0). */
 const still = (rec, o = {}) => ({ ...rec, stats: { ...rec.stats, atk: 0, moveSpeed: 0, massLevel: 0, ...o } });
 
-test('the giant bosses of the data: the EnemyGiantBoss prefabs, each with its HP panel and its root box as hit area', REAL, () => {
+test('the giant bosses of the data: the EnemyGiantBoss prefabs, each with its HP panel and its root box as hit area (and 冲击之械, a root box without the class)', REAL, () => {
   const keys = [...new Set(GIANTS.map(([, k]) => k))].sort();
   assert.deepEqual(keys, [
     'enemy_1521_dslily', 'enemy_9013_acstmk', 'enemy_9013_acstmk_2', 'enemy_9021_acduml', 'enemy_9021_acduml_2',
     'enemy_9029_acfnc', 'enemy_9029_acfnc_2', 'enemy_9032_aclionk', 'enemy_9033_acdeer', 'enemy_9035_acspider', 'enemy_9035_acspider_2',
   ]);
+  const boxOnly = [];
   for (const [s, d] of SEASONS) {
     for (const e of Object.values(d.enemies)) {
-      assert.equal(!!e.hitArea, !!e.giantBoss, `${s} ${e.key}: a hit area exactly on the giant bosses (both from the prefab root)`);
+      if (e.giantBoss) assert.ok(e.hitArea, `${s} ${e.key}: a giant boss has its root box as hit area`);
+      else if (e.hitArea) boxOnly.push(`${s} ${e.key}`);
     }
   }
+  // any prefab root BoxCollider2D is a hit area (the ENEMY-layer root collider every range meets), EnemyGiantBoss or not
+  assert.deepEqual(boxOnly, ['act3autochess enemy_9027_acfnca'], 'a hit area without giantBoss: only 冲击之械 (docs/rules/sim.md 「거대 보스」)');
+  assert.deepEqual(SEASONS[1][1].enemies.enemy_9027_acfnca.hitArea, { w: 1, h: 2.95, dx: 0, dy: 0 }, '冲击之械: its prefab root box 1 × 2.95');
   for (const [s, k, e] of GIANTS) {
     assert.ok(e.giantBoss.sx > 0 && e.giantBoss.off.length === 2, `${s} ${k}: HP panel`);
     assert.deepEqual([e.hitArea.w, e.hitArea.h, e.hitArea.dy], [4.95, 2.95, 1], `${s} ${k}: PRTS 巨型单位 4.95 × 2.95, 1.0 up`);
