@@ -15,7 +15,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TOOL = path.join(ROOT, 'tools/local-extract');
 const PY = ['python3', 'python'].find((bin) => spawnSync(bin, ['--version']).status === 0);
-const ENV = { ...process.env, PYTHONDONTWRITEBYTECODE: '1' };
+// UTF-8 pipes: a Windows Python writes stdout in the console code page and 「모름」 comes back as mojibake
+const ENV = { ...process.env, PYTHONDONTWRITEBYTECODE: '1', PYTHONIOENCODING: 'utf-8' };
 const M = '모름';
 
 /** Solve `tree` (ui_layout node dicts) in a canvas; returns {path: node}. */

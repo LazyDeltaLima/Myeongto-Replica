@@ -25,7 +25,7 @@ test('ui-check: the spec takes viewport and unit from the layouts and resolves p
   const s = resolveSpec(baseSpec([{ layout: 'row1', node: 'row/card', sel: '.card' }]), '/tmp/spec', read({ 'row1.json': ROW }));
   assert.deepEqual(s.ours.viewport, [1920, 1080]);
   assert.equal(s.ours.uiPxPerUnit, 1.4484);
-  assert.equal(s.shot, '/tmp/spec/shot.jpg');
+  assert.equal(s.shot, path.resolve('/tmp/spec', 'shot.jpg')); // the platform's own absolute path (a drive on Windows)
   assert.equal(s.tol, 2);
   assert.equal(s.pairs[0].name, 'card');
   assert.equal(s.pairs[0].axes, 'xy');
